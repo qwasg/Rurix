@@ -6,12 +6,14 @@
   3. 预算 JSON:measured_local 条目冻结;estimated 只允许转 measured_local;
   4. evidence/ 只增不删不改;
   5. status: closed 的契约文件只追加;
-  6. registry/error_codes.json 含义字段冻结(M1 CI_GATES §4 第 8 项,M1.1 激活)。
+  6. registry/error_codes.json 含义字段冻结(M1 CI_GATES §4 第 8 项,M1.1 激活);
+  7. spec/ 变更必须携带档位标记(修订记录只追加,M1 CI_GATES §4 第 7 项,M1.2 激活)。
 """
 from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -96,6 +98,57 @@ def check_registry(base: str, path: str, kind: str) -> None:
             err(f"{path} {eid}: 留痕数组被改写(只允许追加)")
 
 
+SPEC_TIER_RE = re.compile(r"\b(Direct|Mini-RFC|Full RFC)\b")
+
+
+def spec_revision_rows(text: str) -> list[str] | None:
+    """提取 spec 文件修订记录表的数据行(版本头与分隔行除外);无修订记录节返回 None。"""
+    lines = text.splitlines()
+    heading_idx = None
+    for i, line in enumerate(lines):
+        if line.startswith("#") and "修订记录" in line:
+            heading_idx = i
+    if heading_idx is None:
+        return None
+    rows = []
+    for line in lines[heading_idx + 1:]:
+        s = line.strip()
+        if s.startswith("#"):
+            break  # 下一节
+        if not s.startswith("|"):
+            continue
+        if "版本" in s or set(s) <= {"|", "-", " "}:
+            continue  # 表头/分隔行
+        rows.append(s)
+    return rows
+
+
+def check_spec_tier_markers(base: str, diffs: list[tuple[str, str]]) -> None:
+    """spec/ 变更必须携带档位标记:修订记录只追加且新行含合法档位(M1 CI_GATES §4 第 7 项)。"""
+    for status, path in diffs:
+        if not (path.startswith("spec/") and path.endswith(".md")):
+            continue
+        if status == "D":
+            err(f"{path}: spec 文件不得删除(条款永不复用,弃用标注 deprecated,10 §9.5)")
+            continue
+        cur_rows = spec_revision_rows((ROOT / path).read_text(encoding="utf-8"))
+        if cur_rows is None:
+            err(f"{path}: 缺修订记录节(spec 体例,spec/README.md §3)")
+            continue
+        base_text = git_show(base, path)
+        base_rows = spec_revision_rows(base_text) or [] if base_text is not None else []
+        if cur_rows[: len(base_rows)] != base_rows:
+            err(f"{path}: 修订记录既有行被修改(只追加,spec/README.md §3)")
+            continue
+        new_rows = cur_rows[len(base_rows):]
+        if not new_rows:
+            err(f"{path}: spec 变更未新增修订行(档位标记缺失即 FAIL,M1 CI_GATES §4.7)")
+            continue
+        for row in new_rows:
+            if not SPEC_TIER_RE.search(row):
+                err(f"{path}: 新增修订行缺合法档位标记(Direct / Mini-RFC / Full RFC): {row!r}")
+
+
 def check_error_codes(base: str, path: str) -> None:
     """错误码语义可加不可改(10 §6 稳定面;M1 CI_GATES §4 第 8 项,M1.1 激活)。"""
     base_text = git_show(base, path)
@@ -171,6 +224,7 @@ def main() -> int:
     check_registry(base, "registry/deferred.json", "deferred")
     check_registry(base, "registry/spike_gating.json", "gating")
     check_error_codes(base, "registry/error_codes.json")
+    check_spec_tier_markers(base, diffs)
     for budget in sorted(ROOT.glob("milestones/*/m*_budget.json")):
         check_budget(base, budget.relative_to(ROOT).as_posix())
     check_evidence(base, diffs)
