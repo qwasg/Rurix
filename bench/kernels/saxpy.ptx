@@ -1,0 +1,55 @@
+//
+// Handwritten SAXPY kernel (M0 deliverable D-M0-3, BENCH_PROTOCOL.md sec 4.1)
+// y[i] = a * x[i] + y[i], f32
+//
+// NOTE: deliberately mul.rn + add.rn (no FMA) so the rounding behaviour is
+// bitwise-identical to the host f32 two-step reference implementation.
+// .version 8.0 is the negotiation start (harness auto-downgrades, 08 sec 2.4).
+// ASCII-only: ptxas rejects non-ASCII bytes.
+//
+.version 8.0
+.target sm_89
+.address_size 64
+
+.visible .entry saxpy(
+    .param .u64 p_x,
+    .param .u64 p_y,
+    .param .f32 p_a,
+    .param .u32 p_n
+)
+{
+    .reg .pred  %p1;
+    .reg .b32   %r<6>;
+    .reg .f32   %f<5>;
+    .reg .b64   %rd<8>;
+
+    ld.param.u64    %rd1, [p_x];
+    ld.param.u64    %rd2, [p_y];
+    ld.param.f32    %f1,  [p_a];
+    ld.param.u32    %r1,  [p_n];
+
+    // global thread index = ctaid.x * ntid.x + tid.x
+    mov.u32         %r2, %ctaid.x;
+    mov.u32         %r3, %ntid.x;
+    mov.u32         %r4, %tid.x;
+    mad.lo.s32      %r5, %r2, %r3, %r4;
+
+    // bounds guard
+    setp.ge.u32     %p1, %r5, %r1;
+    @%p1 bra        DONE;
+
+    cvta.to.global.u64  %rd3, %rd1;
+    cvta.to.global.u64  %rd4, %rd2;
+    mul.wide.u32        %rd5, %r5, 4;
+    add.s64             %rd6, %rd3, %rd5;
+    add.s64             %rd7, %rd4, %rd5;
+
+    ld.global.f32   %f2, [%rd6];
+    ld.global.f32   %f3, [%rd7];
+    mul.rn.f32      %f4, %f1, %f2;
+    add.rn.f32      %f4, %f4, %f3;
+    st.global.f32   [%rd7], %f4;
+
+DONE:
+    ret;
+}

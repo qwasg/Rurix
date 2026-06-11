@@ -49,19 +49,24 @@ def bootstrap_ci(
     confidence: float = 0.95,
     n_resamples: int = 10_000,
     seed: int = 0,
+    statistic: str = "mean",
 ) -> tuple[float, float]:
-    """bootstrap 置信区间(均值统计量,r11 §1.3;seed 固定保证可复现)。"""
+    """bootstrap 置信区间(r11 §1.3;seed 固定保证可复现)。
+
+    statistic="median" 时与协议的中位数中心趋势保持同一统计量。
+    """
     if not values:
         raise ValueError("empty sample")
     rng = random.Random(seed)
     n = len(values)
-    means = sorted(
-        sum(rng.choice(values) for _ in range(n)) / n for _ in range(n_resamples)
+    stat = statistics.median if statistic == "median" else statistics.fmean
+    estimates = sorted(
+        stat([rng.choice(values) for _ in range(n)]) for _ in range(n_resamples)
     )
     alpha = (1 - confidence) / 2
     lo_idx = int(alpha * n_resamples)
     hi_idx = min(n_resamples - 1, int((1 - alpha) * n_resamples))
-    return means[lo_idx], means[hi_idx]
+    return estimates[lo_idx], estimates[hi_idx]
 
 
 def steady_state_reached(history: Sequence[float], window: int = 5, threshold: float = 0.05) -> bool:
