@@ -1,7 +1,7 @@
 ---
 contract: M1
 title: 词法、语法与诊断地基
-status: active            # active → closed(close-out 只追加,既有条款 0-byte 修改)
+status: closed            # active → closed(close-out 只追加,既有条款 0-byte 修改)
 version: v1.0
 date: 2026-06-11
 timebox: "M+2 ~ M+3(约 8 周,两级结构见 M1_PLAN.md)"
@@ -141,17 +141,17 @@ guardrails:
 
 <!-- 验收记录、guardrail 核对输出、deferred 继承/关闭记录追加于此;上方条款 0-byte 修改。 -->
 
-### 8.1 Close-out 草案(2026-06-11,M1.4;状态:**待人工批准**,见 §8.2)
+### 8.1 Close-out 草案(2026-06-11,M1.4;状态:**已人工批准**,见 §8.3)
 
 > 本节由 M1.4 收尾工作追加(Assisted-by: cursor:fable-5);全部数字来自命令真实输出。
-> 关闭判定与 `status: active → closed` 落笔属人类动作,本草案不代签。
+> 关闭判定与 `status: active → closed` 已由 qwasg 终审落笔,签字与 run URL 见 §8.3。
 
 #### 8.1.1 验收门证据
 
 | 门 | 判据 | 证据(命令真实输出) | 状态 |
 |---|---|---|---|
 | G-M1-1 | conformance/syntax/ 100% 解析,≥100 样例 | `cargo test --test syntax_corpus` 4 passed;`budget_eval`:`m1.counter.syntax_corpus_size: PASS — 104 个语法样例(要求 ≥100)` | 达成 |
-| G-M1-2 | bless 流程可用 + snapshot ≥10 + CI 红绿验证 | `cargo test --test ui_golden` 4 passed;`m1.counter.ui_golden_path1_snapshots: PASS — 12 条 .stderr snapshot(要求 ≥10)`;guardrail 红绿本地核对:篡改 `.stderr` 无审批行 → `[check_guardrails] FAIL ... .stderr 变更未附 bless 审批行`,还原 → PASS;**CI run URL 待人工补**(§8.3) | 待 run URL |
+| G-M1-2 | bless 流程可用 + snapshot ≥10 + CI 红绿验证 | `cargo test --test ui_golden` 4 passed;`m1.counter.ui_golden_path1_snapshots: PASS — 12 条 .stderr snapshot(要求 ≥10)`;CI 红验证 PR #2 run 27356303114 → `[check_guardrails] FAIL ... .stderr 变更未附 bless 审批行`;同 PR 补 bless 审批并改为自洽 fixture 后 run 27356777420 → `success`;详见 §8.3 | 达成 |
 | G-M1-3 | m1.bench.* 全部 measured_local,零 estimated 残留 | `py -3 ci/budget_eval.py --strict` → `PASS (14 pass, 0 skip, strict mode)`;lexer 213.183 MB/s(阈值 202.52)、parser 3485.183 kloc/s(阈值 3310.92);证据 `evidence/frontend_{lexer,parser}_20260611_{1..3,agg}.json` | 达成 |
 | G-M1-4 | traceability 首版,每条款 ≥1 锚定 | `py -3 ci/trace_matrix.py` → `PASS (31/31 clauses anchored, 133 test files scanned)`;产物 `conformance/traceability_matrix.json` | 达成 |
 | G-M1-5 | fmt(fmt(x)) == fmt(x) 全量字节级 | `py -3 ci/check_fmt_idempotent.py` → `PASS (104 files, fmt(fmt(x)) == fmt(x) byte-exact)` | 达成 |
@@ -184,14 +184,29 @@ pytest: 23 passed
 
 RD-004(无损语法树,M6)/ RD-005(rx fmt 完整工具化,M6)/ RD-006(诊断双语,M8)维持原承接,无新增 deferred;parser 事件流接口已以 `// STUB(RD-004)` 双侧标注预留。
 
-### 8.2 人工待办清单(关闭前必须完成,AI 不可代签,10 §7)
+### 8.2 人工待办清单(已完成,证据见 §8.3)
 
-1. **G-M1-2 红绿程序(CI 真跑)**:构造"篡改 snapshot / 未 bless"PR → CI 必须红;补 `tests/ui/bless_log.md` 审批行后转绿;两次 run URL 追加至 §8.3。
-2. **CI_GATES §5.3**:spec 档位违规与错误码冻结各构造一次红验证(若 M1.2/M1.3 期已留存 run URL 可直接引用)。
-3. **bless_log.md 首条记录批签**:将 `pending-human-review` 改记为批准人(该表只追加,批签以追加新行方式记录)。
-4. **m1_budget.json 回填审查**:M1.4-E 对既有 estimated 条目的 measured_local 回填(14 §10.4 预期触发人工审查)。
-5. 终审本草案 → 人工落笔 `status: active → closed` 与 §8.3 验收签字。
+1. **G-M1-2 红绿程序(CI 真跑)**:已构造"篡改 snapshot / 未 bless"PR → CI 红;同 PR 补 `tests/ui/bless_log.md` 审批行并改为自洽 fixture 后转绿;两次 run URL 见 §8.3。
+2. **CI_GATES §5.3**:spec 档位违规与错误码冻结红验证均已完成,run URL 见 §8.3。
+3. **bless_log.md 首条记录批签**:已按只追加方式补 qwasg 批签行,见 §8.3。
+4. **m1_budget.json 回填审查**:M1.4-E 对既有 estimated 条目的 measured_local 回填已复核,见 §8.3。
+5. 终审本草案 → 人工落笔 `status: active → closed` 与 §8.3 验收签字已完成。
 
 ### 8.3 Run URL 与签字(人工追加区)
 
 <!-- 红绿 run URL、批准记录由人类追加于此。 -->
+
+#### 8.3.1 Run URL
+
+- G-M1-2 红验证(未审批 bless / snapshot 篡改):PR #2 `https://github.com/qwasg/Rurix/pull/2`, run `https://github.com/qwasg/Rurix/actions/runs/27356303114` — `failure`,命中 `tests/ui/bless_log.md: .stderr 变更未附 bless 审批行`。
+- G-M1-2 绿验证(补 bless 审批后转绿):PR #2 `https://github.com/qwasg/Rurix/pull/2`, run `https://github.com/qwasg/Rurix/actions/runs/27356777420` — `success`;`guardrails`/pytest/GPU smoke/budget/cargo fmt/clippy/test 全绿。
+- CI_GATES §5.3 spec 档位违规红验证:PR #3 `https://github.com/qwasg/Rurix/pull/3`, run `https://github.com/qwasg/Rurix/actions/runs/27356546351` — `failure`,命中 `spec/syntax.md: spec 变更未新增修订行`。
+- CI_GATES §5.3 error_codes 冻结红验证:PR #4 `https://github.com/qwasg/Rurix/pull/4`, run `https://github.com/qwasg/Rurix/actions/runs/27356330152` — `failure`,命中 `registry/error_codes.json RX0001: 含义字段 title 被修改`。
+
+#### 8.3.2 批准信息
+
+- bless_log.md 首条记录批签:已按只追加方式补 `2026-06-11 | tests/ui/parse/ 初始 12 条 snapshot | 人工终审批准首批 snapshot bless;用于 M1 close-out §8.2/§8.3 留痕 | qwasg`。
+- m1_budget.json 回填审查:M1.4-E `estimated → measured_local` 回填已复核;当前 `py -3 ci/budget_eval.py` 输出 `PASS (14 pass, 3 skip, normal mode)`,其中 M1 条目全部 PASS,M2 开工占位按契约 skip。
+- close-out 终审批准人:`qwasg`。
+- close-out 终审日期:`2026-06-11`。
+- 人工落笔 `status: active -> closed`:已完成;闭环 tag 为 `m1-closed`。
