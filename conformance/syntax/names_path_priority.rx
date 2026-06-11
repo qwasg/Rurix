@@ -1,0 +1,15 @@
+//@ spec: RXS-0033, RXS-0034
+// Single-segment expression paths prefer locals; multi-segment paths stay in item space.
+
+mod values {
+    pub fn current() -> i32 {
+        9
+    }
+}
+
+fn resolve<T>(current: i32, value: T) -> i32 {
+    let _keep = value;
+    let local = current;
+    let from_mod = values::current();
+    local + from_mod
+}

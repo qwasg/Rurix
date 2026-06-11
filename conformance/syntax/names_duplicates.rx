@@ -1,0 +1,21 @@
+//@ spec: RXS-0037, RXS-0038
+// Duplicate names parse successfully; conflict handling is a name-resolution responsibility.
+
+fn same() -> i32 {
+    1
+}
+
+fn same() -> i32 {
+    2
+}
+
+struct Pair {
+    left: i32,
+    left: i32,
+}
+
+fn locals() {
+    let value = 1;
+    let value = 2;
+    let _keep = value;
+}

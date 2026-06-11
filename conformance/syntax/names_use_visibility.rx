@@ -1,0 +1,23 @@
+//@ spec: RXS-0035, RXS-0036, RXS-0038
+// use aliases and visibility tiers for name-resolution diagnostics.
+
+mod geometry {
+    pub fn area(w: f32, h: f32) -> f32 {
+        w * h
+    }
+
+    pub(package) fn helper() -> i32 {
+        1
+    }
+}
+
+use geometry::area as area_fn;
+
+pub(package) struct InternalPoint {
+    pub x: f32,
+    pub(package) y: f32,
+}
+
+fn measure() -> f32 {
+    area_fn(2.0, 3.0)
+}
