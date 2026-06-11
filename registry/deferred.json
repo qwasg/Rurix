@@ -13,17 +13,13 @@
   "entries": [
     {
       "id": "RD-001",
-      "title": "TAMPERED: guardrail must catch this",
+      "title": "CI Release 层门禁(bench 严格模式 + 签名/SBOM/许可审计 + artifact 上传)",
       "reason": "M0 无发布产物可挂;签名/SBOM 链路是 M8 交付物(11 §3 M8)",
       "backfill_condition": "M8 分发链路(rurixup/MSI/winget)开工时同步建成,Release 层结构见 14 §8",
       "owner_milestone": "M8",
       "status": "open",
       "history": [
-        {
-          "date": "2026-06-11",
-          "event": "登记于 M0 契约 out-of-scope",
-          "evidence": "milestones/m0/M0_CONTRACT.md §2.2"
-        }
+        { "date": "2026-06-11", "event": "登记于 M0 契约 out-of-scope", "evidence": "milestones/m0/M0_CONTRACT.md §2.2" }
       ]
     },
     {
@@ -34,11 +30,7 @@
       "owner_milestone": "M5",
       "status": "open",
       "history": [
-        {
-          "date": "2026-06-11",
-          "event": "登记于 M0 契约 out-of-scope",
-          "evidence": "milestones/m0/M0_CONTRACT.md §2.2"
-        }
+        { "date": "2026-06-11", "event": "登记于 M0 契约 out-of-scope", "evidence": "milestones/m0/M0_CONTRACT.md §2.2" }
       ]
     },
     {
@@ -49,19 +41,11 @@
       "owner_milestone": "M6",
       "status": "open",
       "history": [
-        {
-          "date": "2026-06-11",
-          "event": "登记于 M0 契约 out-of-scope",
-          "evidence": "milestones/m0/M0_CONTRACT.md §2.2"
-        }
+        { "date": "2026-06-11", "event": "登记于 M0 契约 out-of-scope", "evidence": "milestones/m0/M0_CONTRACT.md §2.2" }
       ]
     }
   ],
   "revision_log": [
-    {
-      "version": "v1.0",
-      "date": "2026-06-11",
-      "change": "初版:RD-001 ~ RD-003(M0 契约配套)"
-    }
+    { "version": "v1.0", "date": "2026-06-11", "change": "初版:RD-001 ~ RD-003(M0 契约配套)" }
   ]
 }

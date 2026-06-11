@@ -37,20 +37,22 @@
 - 注册 deferred:[registry/deferred.json](../registry/deferred.json) 追加 `RD-###`(内容/原因/回填条件/承接里程碑);代码侧 `// STUB(RD-###)` 双侧标注。
 - 想做范围外的事:先查 [registry/spike_gating.json](../registry/spike_gating.json)——已 gating 的方向不要提案,触发条件不满足时唯一合法动作是留痕。
 
-## 4. 验证命令清单(M0 期)
+## 4. 验证命令清单(M0 期,全部在仓库根目录执行;`python` 若解析到 WindowsApps 存根则用 `py -3`)
 
-> 占位框架:具体命令在 M0.1–M0.3 落地后回填实测形式(M0_PLAN.md §4.3),回填时逐条真实执行过。
-
-| 场景 | 命令(占位) | 产出要求 |
+| 场景 | 命令 | 产出要求 |
 |---|---|---|
-| 注册表/预算/证据 schema 校验 | `TODO(M0.1)` schema 校验脚本 | 全过,输出贴 PR |
-| guardrail 核对 | `TODO(M0.1)` guardrail 脚本(CI_GATES.md §4) | 全过 |
-| harness 统计单测 | `TODO(M0.2)` | 全过 |
-| 基准冒烟(GPU) | `TODO(M0.3)` SAXPY 装载 + 正确性比对 | pass + 输出贴 PR |
-| 完整采样(性能声明用) | `TODO(M0.3)` 按 BENCH_PROTOCOL.md §3 | 证据 JSON 路径贴 PR |
+| 目录结构核对 | `py -3 ci/check_structure.py` | PASS |
+| 注册表/预算/证据 schema 校验 | `py -3 ci/check_schemas.py` | PASS,输出贴 PR |
+| guardrail 核对 | `py -3 ci/check_guardrails.py [基准ref,默认 m0-baseline]` | PASS |
+| harness 统计单测 | `py -3 -m pytest tests/ -q` | 全过 |
+| 环境画像探测 | `py -3 bench/env_probe.py --validate` | schema PASS |
+| 基准冒烟(GPU) | `py -3 bench/saxpy_bench.py --smoke` | correctness PASS + 输出贴 PR |
+| 完整采样(性能声明用) | `py -3 bench/triple_run.py`(需先锁频,BENCH_PROTOCOL.md §2) | 证据 JSON 路径贴 PR,level=measured_local |
+| 预算门禁 | `py -3 ci/budget_eval.py`(close-out 时加 `--strict`) | PASS,skip 必须有 skip_reason |
 
 ## 5. 修订记录
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-06-11 | 初版(M0 交付物;§4 命令清单为占位框架) |
+| v1.1 | 2026-06-11 | §4 占位回填为 M0.1–M0.3 实测命令(逐条真实执行过;M0.4 计划项) |
