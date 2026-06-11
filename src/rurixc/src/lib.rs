@@ -9,6 +9,7 @@
 pub mod ast;
 pub mod diag;
 pub mod feature_gate;
+pub mod fmt;
 pub mod lexer;
 pub mod messages;
 pub mod parser;
