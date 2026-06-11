@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# 本地临时
+*.tmp
+*.log
+~$*
+
+# 自托管 runner(若误放仓库内)
+actions-runner/

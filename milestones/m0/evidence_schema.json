@@ -1,0 +1,126 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/v1",
+  "title": "Rurix 性能证据 JSON(环境画像 + 采样结果)",
+  "description": "schema 固定;受限环境字段可取 'unavailable' 降级值但 schema 不变(14 §5)。字段集来源:08 §2.3(环境画像)+ r11 §1(采样协议)。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "evidence_level",
+    "timestamp",
+    "bench",
+    "environment",
+    "sampling",
+    "results"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "evidence_level": {
+      "description": "三级证据(14 §5);unlocked = 真实硬件但未锁频,不得用于预算回填",
+      "enum": ["measured_local", "unlocked", "estimated"]
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "bench": {
+      "type": "object",
+      "required": ["id", "level", "problem_size", "harness_commit"],
+      "properties": {
+        "id": { "type": "string", "examples": ["saxpy_f32", "bandwidth_h2d_pinned"] },
+        "level": { "enum": ["L0", "L1", "L2", "L3", "L4"] },
+        "problem_size": { "type": "string", "examples": ["2^24 elements f32", "256MB"] },
+        "harness_commit": { "type": "string", "description": "harness 代码的 git commit" }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "required": [
+        "gpu_name", "compute_capability", "driver_version", "nvml_version",
+        "cuda_driver_version", "driver_model", "hags_enabled", "tdr", "clocks",
+        "os_build", "thermal", "isolation_check"
+      ],
+      "properties": {
+        "gpu_name": { "type": "string" },
+        "compute_capability": { "type": "string", "examples": ["8.9"] },
+        "driver_version": { "type": "string" },
+        "nvml_version": { "type": "string" },
+        "cuda_driver_version": { "type": "string" },
+        "driver_model": { "enum": ["WDDM", "TCC", "MCDM", "unavailable"] },
+        "hags_enabled": { "enum": [true, false, "unavailable"] },
+        "tdr": {
+          "type": "object",
+          "required": ["tdr_delay", "tdr_level"],
+          "properties": {
+            "tdr_delay": { "type": ["integer", "string"] },
+            "tdr_level": { "type": ["integer", "string"] }
+          }
+        },
+        "clocks": {
+          "type": "object",
+          "required": ["locked", "sm_clock_mhz", "mem_clock_mhz"],
+          "properties": {
+            "locked": { "type": "boolean" },
+            "sm_clock_mhz": { "type": ["number", "string"] },
+            "mem_clock_mhz": { "type": ["number", "string"] },
+            "lock_method": { "type": "string", "examples": ["nvidia-smi -lgc/-lmc"] }
+          }
+        },
+        "os_build": { "type": "string" },
+        "thermal": {
+          "type": "object",
+          "required": ["temp_start_c", "temp_end_c", "steady_state"],
+          "properties": {
+            "temp_start_c": { "type": ["number", "string"] },
+            "temp_end_c": { "type": ["number", "string"] },
+            "steady_state": { "type": "boolean" }
+          }
+        },
+        "isolation_check": {
+          "type": "object",
+          "required": ["other_compute_processes"],
+          "properties": {
+            "other_compute_processes": { "type": "integer" }
+          }
+        }
+      }
+    },
+    "sampling": {
+      "type": "object",
+      "description": "协议参数实记(BENCH_PROTOCOL.md §3,默认值来源 r11 §1.3)",
+      "required": [
+        "warmup_iterations", "steady_state_cv", "timed_iterations",
+        "trials", "trimmed_pct", "l2_clear_mb", "timer"
+      ],
+      "properties": {
+        "warmup_iterations": { "type": "integer", "minimum": 10 },
+        "steady_state_cv": { "type": "number", "description": "稳态判定时实测 CV,要求 < 0.05" },
+        "timed_iterations": { "type": "integer", "minimum": 50 },
+        "trials": { "type": "integer", "minimum": 3 },
+        "trimmed_pct": { "type": "number", "description": "去头尾比例,协议值 0.2" },
+        "l2_clear_mb": { "type": "integer", "description": "协议值 256" },
+        "timer": { "const": "cuda_event" }
+      }
+    },
+    "results": {
+      "type": "object",
+      "required": ["metric", "unit", "trial_medians", "trimmed_mean", "cv", "ci95"],
+      "properties": {
+        "metric": { "type": "string", "examples": ["effective_bandwidth", "copy_bandwidth"] },
+        "unit": { "type": "string", "examples": ["GB/s"] },
+        "trial_medians": { "type": "array", "items": { "type": "number" }, "minItems": 3 },
+        "trimmed_mean": { "type": "number" },
+        "cv": { "type": "number" },
+        "ci95": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "bootstrap 95% CI [low, high]"
+        },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "outliers_rejected_iqr": { "type": "integer" },
+        "correctness_check": { "enum": ["pass", "fail", "n/a"] }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

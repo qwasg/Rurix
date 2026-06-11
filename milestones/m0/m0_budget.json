@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "namespace": "m0",
+  "description": "M0 预算(14 §3:entries + ratio_assertions + counter_assertions,命名空间强制前缀)。占位规则:evidence=estimated 时 evaluator skip 并输出 skip_reason;占位存活 ≤2 个里程碑。M0 特例(契约 G-M0-1):本文件在 M0 关闭时必须零 estimated 残留——这些条目是后续一切性能阈值的 measured_local 锚点。",
+  "source_docs": ["14 §3", "08 §4", "milestones/m0/BENCH_PROTOCOL.md"],
+  "entries": [
+    {
+      "id": "m0.bench.saxpy.effective_bandwidth_gbps",
+      "direction": "min",
+      "threshold": null,
+      "evidence": "estimated",
+      "skip_reason": "M0.3 回填:手写 PTX SAXPY 主档(2^24 f32)三次运行 trimmed mean,阈值 = 实测值 × 容差(容差随回归判定协议定,BENCH_PROTOCOL.md §5)",
+      "unit": "GB/s",
+      "evidence_file": null
+    },
+    {
+      "id": "m0.bench.bandwidth.h2d_pinned_gbps",
+      "direction": "min",
+      "threshold": null,
+      "evidence": "estimated",
+      "skip_reason": "M0.3 回填:pinned H2D 256MB 主档",
+      "unit": "GB/s",
+      "evidence_file": null
+    },
+    {
+      "id": "m0.bench.bandwidth.h2d_pageable_gbps",
+      "direction": "min",
+      "threshold": null,
+      "evidence": "estimated",
+      "skip_reason": "M0.3 回填:pageable H2D 256MB 主档",
+      "unit": "GB/s",
+      "evidence_file": null
+    },
+    {
+      "id": "m0.bench.bandwidth.d2h_pinned_gbps",
+      "direction": "min",
+      "threshold": null,
+      "evidence": "estimated",
+      "skip_reason": "M0.3 回填:pinned D2H 256MB 主档",
+      "unit": "GB/s",
+      "evidence_file": null
+    },
+    {
+      "id": "m0.bench.bandwidth.d2h_pageable_gbps",
+      "direction": "min",
+      "threshold": null,
+      "evidence": "estimated",
+      "skip_reason": "M0.3 回填:pageable D2H 256MB 主档",
+      "unit": "GB/s",
+      "evidence_file": null
+    },
+    {
+      "id": "m0.bench.bandwidth.d2d_gbps",
+      "direction": "min",
+      "threshold": null,
+      "evidence": "estimated",
+      "skip_reason": "M0.3 回填:D2D 256MB 主档",
+      "unit": "GB/s",
+      "evidence_file": null
+    }
+  ],
+  "ratio_assertions": [
+    {
+      "id": "m0.ratio.saxpy_vs_d2d_bandwidth",
+      "numerator": "m0.bench.saxpy.effective_bandwidth_gbps",
+      "denominator": "m0.bench.bandwidth.d2d_gbps",
+      "direction": "min",
+      "threshold": null,
+      "evidence": "estimated",
+      "skip_reason": "M0.3 回填:SAXPY 为内存密集型(r11 §8),其有效带宽与 D2D 拷贝带宽的比值是基线健康度指标;阈值由实测分布定,禁止凭记忆填写"
+    }
+  ],
+  "counter_assertions": [
+    {
+      "id": "m0.counter.env_profile_required_fields",
+      "description": "环境画像必填字段计数 = evidence_schema.json environment.required 全集(契约 G-M0-3)",
+      "expect": "all_present",
+      "evidence": "measured_local_by_schema_validation"
+    },
+    {
+      "id": "m0.counter.evidence_files_saxpy_runs",
+      "description": "SAXPY measured_local 证据文件数 ≥ 3(三次进程级独立运行,BENCH_PROTOCOL.md §3)",
+      "expect": ">=3",
+      "evidence": "ci_checked"
+    }
+  ],
+  "namespace_check": {
+    "rule": "本文件所有 id 必须以 'm0.' 前缀开头;多预算合并加载时冲突即 FAIL(14 §3)",
+    "unit_test_required": true
+  },
+  "revision_log": [
+    { "version": "v1.0", "date": "2026-06-11", "change": "初版模板,全条目 estimated 占位" }
+  ]
+}

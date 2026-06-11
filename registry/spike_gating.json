@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "description": "Spike Gating 注册表(14 §7):对诱惑性扩张方向的正式拒绝机制。每方向一条记录:候选方向 / 触发条件决策树 / 当前判定。条件不满足 → 留痕 not_triggered 关闭;条款 0-byte 修改,只追加 decisions 数组。首批清单 = 14 §7 表格 9 项逐条落位。本文件对 AI 只追加(14 §10.4)。",
+  "entry_schema": {
+    "id": "SG-###",
+    "direction": "候选扩张方向",
+    "trigger_condition": "满足才允许 Full RFC 立项的条件(决策树)",
+    "permanence": "permanent | conditional",
+    "current_verdict": "not_triggered | triggered(附 RFC 编号)",
+    "decisions": "判定留痕数组(date / verdict / rationale),只追加"
+  },
+  "entries": [
+    {
+      "id": "SG-001",
+      "direction": "MLIR kernel island",
+      "trigger_condition": "07 §7.1 三条件之一成立",
+      "permanence": "conditional",
+      "current_verdict": "not_triggered",
+      "decisions": [
+        { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记,条件未评估触发(14 §7 首批清单)" }
+      ]
+    },
+    {
+      "id": "SG-002",
+      "direction": "Tensor Core / WGMMA / TMA intrinsics(含 cluster / 动态并行 / cooperative groups)",
+      "trigger_condition": "L2 基准证明 GEMM 类负载是真实用户瓶颈 且 r3 所述中层抽象成熟度复评通过",
+      "permanence": "conditional",
+      "current_verdict": "not_triggered",
+      "decisions": [
+        { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记;MVP 收缩范围见 11 §2(来源 r2)" }
+      ]
+    },
+    {
+      "id": "SG-003",
+      "direction": "多后端(AMD / Intel / Metal / Vulkan / SPIR-V)",
+      "trigger_condition": "G2 完成 且 所有者正式解除红线 3(D-008);解除一次一条(10 §9.2)",
+      "permanence": "conditional",
+      "current_verdict": "not_triggered",
+      "decisions": [
+        { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记;死亡路线红线,见 03 §4 / 11 §2" }
+      ]
+    },
+    {
+      "id": "SG-004",
+      "direction": "autodiff / 可微渲染",
+      "trigger_condition": "永久 gating;仅允许生态包层面探索,不动语言核心",
+      "permanence": "permanent",
+      "current_verdict": "not_triggered",
+      "decisions": [
+        { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记;上一项目 M14.12 stub 前科(11 §2)" }
+      ]
+    },
+    {
+      "id": "SG-005",
+      "direction": "自动 kernel fusion / 稀疏数据结构",
+      "trigger_condition": "永久 gating;同 SG-004,生态包层面探索不动语言核心",
+      "permanence": "permanent",
+      "current_verdict": "not_triggered",
+      "decisions": [
+        { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记;Taichi 复杂度黑洞前科(11 §2,来源 H06)" }
+      ]
+    },
+    {
+      "id": "SG-006",
+      "direction": "声明宏",
+      "trigger_condition": "G1 后真实样板痛点清单 ≥ 3 类 且 derive 机制不可覆盖",
+      "permanence": "conditional",
+      "current_verdict": "not_triggered",
+      "decisions": [
+        { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记;D-111 / 11 §2" }
+      ]
+    },
+    {
+      "id": "SG-007",
+      "direction": "包 registry",
+      "trigger_condition": "D-312 触发条件(社区规模驱动,G2 期决策点,11 §5)",
+      "permanence": "conditional",
+      "current_verdict": "not_triggered",
+      "decisions": [
+        { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记;MVP = lockfile + vendor + checksum(D-312)" }
+      ]
+    },
+    {
+      "id": "SG-008",
+      "direction": "Python 原生嵌入",
+      "trigger_condition": "永久 not_triggered(死亡路线红线 1);仅保留 C ABI / PYD 通道",
+      "permanence": "permanent",
+      "current_verdict": "not_triggered",
+      "decisions": [
+        { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记;上一项目终止主因的结构性规避(01 / 03 §4)" }
+      ]
+    },
+    {
+      "id": "SG-009",
+      "direction": "自举(rurixc 用 Rurix 重写)",
+      "trigger_condition": "5 年期评估立项(11 §6),作为成熟度试金石,非承诺",
+      "permanence": "conditional",
+      "current_verdict": "not_triggered",
+      "decisions": [
+        { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记" }
+      ]
+    }
+  ],
+  "revision_log": [
+    { "version": "v1.0", "date": "2026-06-11", "change": "初版:SG-001 ~ SG-009(14 §7 首批永久 gating 清单落位)" }
+  ]
+}
