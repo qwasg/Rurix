@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "evidence_level": "measured_local",
+  "timestamp": "2026-06-11T13:22:39.599776+00:00",
+  "bench": {
+    "id": "lexer_throughput",
+    "level": "frontend",
+    "problem_size": "3.99 MiB corpus (104 files x 118)",
+    "harness_commit": "06bf98d"
+  },
+  "environment": {
+    "cpu_name": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "logical_cores": 20,
+    "power_plan": "平衡",
+    "os_build": "10.0.28020",
+    "clock_control": "not_applicable_cpu",
+    "background_note": "desktop dev machine; background load not isolated, IQR rejection per protocol; runs interleaved with no deliberate load"
+  },
+  "sampling": {
+    "warmup_iterations": 10,
+    "steady_state_cv": 0.010021,
+    "timed_iterations": 50,
+    "trials": 3,
+    "trimmed_pct": 0.2,
+    "timer": "std_instant"
+  },
+  "results": {
+    "metric": "lex_throughput",
+    "unit": "MB/s",
+    "trial_medians": [
+      214.61,
+      214.27,
+      215.22
+    ],
+    "trimmed_mean": 214.7,
+    "cv": 0.025577,
+    "ci95": [
+      214.28,
+      215.65
+    ],
+    "min": 92.34,
+    "max": 220.71,
+    "outliers_rejected_iqr": 16,
+    "correctness_check": "pass"
+  },
+  "notes": "in-process Instant timing; corpus = conformance/syntax concatenated; zero-diagnostic sentinel enforced by lex_bench (exit 2 otherwise)"
+}

@@ -11,22 +11,22 @@
     {
       "id": "m1.bench.lexer.throughput_mbps",
       "direction": "min",
-      "threshold": null,
-      "evidence": "estimated",
-      "skip_reason": "M1 开工占位:lexer 未实现,无真实证据;close-out 前按契约 G-M1-3 回填 measured_local(三次进程级独立运行 trimmed mean,阈值 = 实测 × 0.95,统计协议复用 bench/stats.py)",
+      "threshold": 202.52,
+      "evidence": "measured_local",
+      "skip_reason": null,
       "unit": "MB/s",
-      "evidence_file": null,
-      "measured_value": null
+      "evidence_file": "evidence/frontend_lexer_20260611_agg.json",
+      "measured_value": 213.1833
     },
     {
       "id": "m1.bench.parser.throughput_kloc_per_s",
       "direction": "min",
-      "threshold": null,
-      "evidence": "estimated",
-      "skip_reason": "M1 开工占位:parser 未实现,无真实证据;close-out 前按契约 G-M1-3 回填 measured_local(协议同 m1.bench.lexer.throughput_mbps 条目)",
+      "threshold": 3310.92,
+      "evidence": "measured_local",
+      "skip_reason": null,
       "unit": "kloc/s",
-      "evidence_file": null,
-      "measured_value": null
+      "evidence_file": "evidence/frontend_parser_20260611_agg.json",
+      "measured_value": 3485.1833
     }
   ],
   "ratio_assertions": [],
@@ -59,6 +59,11 @@
       "version": "v1.0",
       "date": "2026-06-11",
       "change": "初版模板,m1.bench.* 全条目 estimated 占位(M1 契约配套)"
+    },
+    {
+      "version": "v1.1",
+      "date": "2026-06-11",
+      "change": "M1.4 回填:frontend_triple_run 三次进程级独立运行 trimmed mean,阈值 = 实测 × 0.95(契约 G-M1-3,M0 先例)"
     }
   ]
 }

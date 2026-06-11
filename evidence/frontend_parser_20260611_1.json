@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "evidence_level": "measured_local",
+  "timestamp": "2026-06-11T13:22:59.142350+00:00",
+  "bench": {
+    "id": "parser_throughput",
+    "level": "frontend",
+    "problem_size": "215.0 kloc corpus (103 files x 119)",
+    "harness_commit": "06bf98d"
+  },
+  "environment": {
+    "cpu_name": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "logical_cores": 20,
+    "power_plan": "平衡",
+    "os_build": "10.0.28020",
+    "clock_control": "not_applicable_cpu",
+    "background_note": "desktop dev machine; background load not isolated, IQR rejection per protocol; runs interleaved with no deliberate load"
+  },
+  "sampling": {
+    "warmup_iterations": 10,
+    "steady_state_cv": 0.023804,
+    "timed_iterations": 50,
+    "trials": 3,
+    "trimmed_pct": 0.2,
+    "timer": "std_instant"
+  },
+  "results": {
+    "metric": "parse_throughput",
+    "unit": "kloc/s",
+    "trial_medians": [
+      2951.43,
+      3696.01,
+      4040.45
+    ],
+    "trimmed_mean": 3562.63,
+    "cv": 0.137128,
+    "ci95": [
+      3527.71,
+      3696.01
+    ],
+    "min": 2452.25,
+    "max": 4162.86,
+    "outliers_rejected_iqr": 0,
+    "correctness_check": "pass"
+  },
+  "notes": "in-process Instant timing covering parse only (tokens pre-lexed, cloned outside timed region); corpus = conformance/syntax concatenated (inner-attr samples excluded); zero-diagnostic sentinel enforced by parse_bench (exit 2 otherwise)"
+}
