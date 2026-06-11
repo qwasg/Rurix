@@ -74,6 +74,38 @@
       "status": "active",
       "introduced_in": "M1.2",
       "spec_clauses": ["RXS-0006", "RXS-0007"]
+    },
+    {
+      "id": "RX0008",
+      "title": "语法错误(期待 X 实得 Y)",
+      "message_key": "parse.expected_token",
+      "status": "active",
+      "introduced_in": "M1.3",
+      "spec_clauses": ["RXS-0011", "RXS-0025", "RXS-0030"]
+    },
+    {
+      "id": "RX0009",
+      "title": "未闭合定界符",
+      "message_key": "parse.unclosed_delimiter",
+      "status": "active",
+      "introduced_in": "M1.3",
+      "spec_clauses": ["RXS-0030"]
+    },
+    {
+      "id": "RX0010",
+      "title": "使用未启用的 gated 语法",
+      "message_key": "parse.gated_feature",
+      "status": "active",
+      "introduced_in": "M1.3",
+      "spec_clauses": ["RXS-0031"]
+    },
+    {
+      "id": "RX0011",
+      "title": "未知 feature gate 名",
+      "message_key": "parse.unknown_feature",
+      "status": "active",
+      "introduced_in": "M1.3",
+      "spec_clauses": ["RXS-0031"]
     }
   ],
   "revision_log": [
@@ -86,6 +118,11 @@
       "version": "v1.1",
       "date": "2026-06-11",
       "change": "M1.2 分配 RX0001 ~ RX0007(词法诊断首批,spec/lexical.md RXS-0001~0010 配套)"
+    },
+    {
+      "version": "v1.2",
+      "date": "2026-06-11",
+      "change": "M1.3 分配 RX0008 ~ RX0011(语法/feature gate 诊断首批,spec/syntax.md RXS-0011~0031 配套)"
     }
   ]
 }

@@ -11,3 +11,9 @@ lex.bad_char_literal = invalid character literal: {reason}
 lex.bad_escape = invalid escape sequence: {esc}
 lex.bad_number = invalid numeric literal: {reason}
 lex.bad_suffix = invalid suffix {suffix}
+#
+# 语法诊断(RX0008 ~ RX0011,spec/syntax.md;M1.3 分配)
+parse.expected_token = expected {expected}, found {found}
+parse.unclosed_delimiter = unclosed delimiter {delim}
+parse.gated_feature = use of experimental syntax gated behind feature `{feature}`
+parse.unknown_feature = unknown feature {feature}
