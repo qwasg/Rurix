@@ -21,7 +21,7 @@
   "entries": [
     {
       "id": "RX0001",
-      "title": "非法字符(不能开始任何 token 的码点,含 BOM/NUL/非 ASCII 标识符)",
+      "title": "非法字符(guardrail 红验证:故意篡改既有码语义)",
       "message_key": "lex.unexpected_char",
       "status": "active",
       "introduced_in": "M1.2",
