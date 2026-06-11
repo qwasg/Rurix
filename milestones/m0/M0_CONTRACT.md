@@ -1,7 +1,7 @@
 ---
 contract: M0
 title: 基础设施与证据通道
-status: active            # active → closed(close-out 只追加,既有条款 0-byte 修改)
+status: closed            # active → closed(close-out 只追加,既有条款 0-byte 修改)
 version: v1.0
 date: 2026-06-11
 timebox: "M+1(约 4 周,两级结构见 M0_PLAN.md)"
@@ -123,3 +123,58 @@ guardrails:
 ## 8. Close-out(只追加区 — 开工时为空)
 
 <!-- 验收记录、guardrail 核对输出、deferred 继承/关闭记录追加于此;上方条款 0-byte 修改。 -->
+
+### 8.1 验收记录(2026-06-11,Assisted-by: cursor:fable-5,人工批准合入)
+
+状态变更:`status: active → closed`(本次 close-out 动作本身;其余条款 0-byte)。
+
+**G-M0-1 证据锚点 — PASS**
+
+`py -3 ci/budget_eval.py --strict` 输出:`[budget_eval] PASS (9 pass, 0 skip, strict mode)`——零 estimated 残留。回填值(三次进程级独立运行 trimmed mean,锁频 2610/10501 MHz,RTX 4070 Ti,驱动 591.86):
+
+| 条目 | measured_local | 阈值(×0.95) | 证据 |
+|---|---|---|---|
+| saxpy.effective_bandwidth_gbps | 412.87 GB/s | 392.23 | `evidence/saxpy_20260611_agg.json`(runs 1–3) |
+| bandwidth.h2d_pinned_gbps | 23.96 GB/s | 22.76 | `evidence/bandwidth_h2d_pinned_20260611_agg.json` |
+| bandwidth.h2d_pageable_gbps | 20.34 GB/s | 19.32 | `evidence/bandwidth_h2d_pageable_20260611_agg.json` |
+| bandwidth.d2h_pinned_gbps | 26.27 GB/s | 24.95 | `evidence/bandwidth_d2h_pinned_20260611_agg.json` |
+| bandwidth.d2h_pageable_gbps | 20.45 GB/s | 19.43 | `evidence/bandwidth_d2h_pageable_20260611_agg.json` |
+| bandwidth.d2d_gbps | 426.79 GB/s(双向计量) | 405.45 | `evidence/bandwidth_d2d_20260611_agg.json` |
+| ratio.saxpy_vs_d2d | 0.9674 | 0.919 | 由上两项导出 |
+
+SAXPY 正确性:手写 PTX(mul.rn+add.rn)与 host f32 参考**逐位相等**(n=2^24)。
+
+**G-M0-2 CI 真跑 — PASS**
+
+仓库 `https://github.com/qwasg/Rurix`(私有),自托管 runner `rurix-dev-4070ti`(labels: self-hosted/Windows/X64/gpu)。PR #1 红绿验证(CI_GATES §5 程序):
+
+| run | 结论 | 说明 |
+|---|---|---|
+| 27339492643 | 红 | 环境问题(runner 无 pwsh)——非预期红,已修复 |
+| 27339552464 | 红 | 篡改用 PowerShell 写入引入 BOM,红在 schema 步——拦截有效但非目标步 |
+| 27339667168 | **红(目标)** | guardrails 步拦截:`registry/deferred.json RD-001: 不可变字段被修改` |
+| 27339741073 | **绿** | 撤销篡改后六步全过(含 GPU 冒烟与预算 evaluator) |
+
+**G-M0-3 环境画像 — PASS**
+
+`py -3 bench/env_probe.py --validate` → `[env_probe] schema PASS`。关键字段:WDDM / HAGS=true / TDR=not_set(os_default) / 驱动 591.86 / NVML 13.591.86 / CUDA 13.1 / CC 8.9。
+
+**G-M0-4 guardrail — PASS**
+
+`py -3 ci/check_guardrails.py m0-baseline` → `PASS (base=m0-baseline, 52 changed paths)`;结构/schema/单测全过(pytest 6 passed)。
+
+### 8.2 实测发现留痕(供后续里程碑)
+
+1. **GDDR6X 锁频读数**:`-lmc 10501` 生效后,负载下 NVML 报告 10251 MHz(低一档),空闲读回 10501;探测器已将两值均判定为锁定(`bench/env_probe.py LOCK_MEM_ACCEPTED_MHZ`,本机实测 2026-06-11)。
+2. **持久模式**:Windows 平台 `nvidia-smi -pm 1` 不支持(命令输出确认),已记录于锁频方法字段。
+3. **进程隔离现实**:桌面 WDDM 环境 NVML 计算进程枚举含大量图形进程(实测 37),BENCH_PROTOCOL §2.2 的"无其他计算进程"在桌面开发机不可达成,采取记录而非中止策略——协议条款的可执行化修订留给 M1 前的勘误。
+4. **PTX 工具链**:ptxas(驱动内 JIT)拒绝非 ASCII 字节——PTX 源码注释必须纯 ASCII。
+5. **CI shell**:自托管 runner 无 pwsh,工作流统一 `shell: powershell`。
+
+### 8.3 Deferred 处置
+
+RD-001(M8)/ RD-002(M5)/ RD-003(M6)均维持 open,承接里程碑不变,无新增继承。
+
+### 8.4 关闭声明
+
+四道验收门全过,M0 关闭。tag:`m0-closed`。下一里程碑 M1(词法/语法/诊断地基)契约从 `milestones/TEMPLATE_CONTRACT.md` 起草。
