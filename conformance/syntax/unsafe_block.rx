@@ -1,0 +1,14 @@
+//@ spec: RXS-0005
+// unsafe blocks and unchecked view writes (05 s7 envelope boundary).
+
+kernel fn scatter(
+    grid: Grid<(512,)>,
+    indices: View<global, u32, (N,)>,
+    out: ViewMut<global, f32, (M,)>,
+) {
+    let i = grid.thread_index();
+    let target = indices[i];
+    unsafe {
+        out.write_unchecked(target, 1.0);
+    }
+}

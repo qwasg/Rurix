@@ -1,0 +1,27 @@
+//@ spec: RXS-0005
+// Traits, impls, associated types, operator overload traits (05 s2.2).
+
+trait Integrator {
+    type State;
+    fn step(state: &mut Self::State, dt: f32);
+}
+
+struct Euler;
+
+impl Integrator for Euler {
+    type State = f32;
+    fn step(state: &mut f32, dt: f32) {
+        *state += dt;
+    }
+}
+
+impl Euler {
+    fn name() -> u32 {
+        1
+    }
+}
+
+trait Add<Rhs = Self> {
+    type Output;
+    fn add(self, rhs: Rhs) -> Self::Output;
+}

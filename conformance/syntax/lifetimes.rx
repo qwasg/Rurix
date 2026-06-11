@@ -1,0 +1,12 @@
+//@ spec: RXS-0008
+// Lifetime markers vs char literals (disambiguation).
+
+struct Stream<'ctx> {
+    raw: usize,
+}
+
+fn borrowing<'a, 'ctx>(s: &'a Stream<'ctx>, c: char) -> &'a Stream<'ctx> {
+    let marker = 'x';     // char literal
+    let static_like = 'b'; // char literal
+    s
+}

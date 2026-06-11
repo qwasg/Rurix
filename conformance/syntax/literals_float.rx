@@ -1,0 +1,15 @@
+//@ spec: RXS-0007
+// Float literals: fraction, exponent, suffixes, dot disambiguation.
+
+fn floats() {
+    let a = 1.5;
+    let b = 1.;
+    let c = 1e10;
+    let d = 2.5e-3;
+    let e = 6.02E+23;
+    let f = 1f32;
+    let g = 1.5f64;
+    let h = 3.14_159f32;
+    let range = 1..2;       // int, range op, int
+    let range_eq = 0..=255; // int, ..=, int
+}

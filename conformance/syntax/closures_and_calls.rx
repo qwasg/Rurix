@@ -1,0 +1,17 @@
+//@ spec: RXS-0005, RXS-0009
+// Method chains, indexing, call expressions, move semantics.
+
+fn calls(xs: &[f32]) -> f32 {
+    let first = xs[0];
+    let last = xs[xs.len() - 1];
+    let total = xs.iter().copied().sum();
+    let moved = move_into(first);
+    let casted = total as f64;
+    let back = casted as f32;
+    first + last + back
+}
+
+fn move_into(v: f32) -> f32 {
+    let owned = v;
+    owned
+}

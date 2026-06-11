@@ -1,0 +1,21 @@
+//@ spec: RXS-0005, RXS-0006
+// Const generics and const fn subset (05 s9, D-111).
+
+const TILE: usize = 32;
+
+const fn tile_area(side: usize) -> usize {
+    side * side
+}
+
+fn fixed_array<const N: usize>(xs: [f32; N]) -> usize {
+    N
+}
+
+struct TileBuf<const W: usize, const H: usize> {
+    data: [[f32; W]; H],
+}
+
+fn use_tiles() {
+    let area = tile_area(TILE);
+    let buf: TileBuf<32, 8> = make_tiles();
+}

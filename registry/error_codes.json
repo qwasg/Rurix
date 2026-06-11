@@ -18,12 +18,74 @@
     "status": "active | deprecated(弃用不删除)",
     "introduced_in": "首次分配的里程碑"
   },
-  "entries": [],
+  "entries": [
+    {
+      "id": "RX0001",
+      "title": "非法字符(不能开始任何 token 的码点,含 BOM/NUL/非 ASCII 标识符)",
+      "message_key": "lex.unexpected_char",
+      "status": "active",
+      "introduced_in": "M1.2",
+      "spec_clauses": ["RXS-0001", "RXS-0004"]
+    },
+    {
+      "id": "RX0002",
+      "title": "未终结块注释",
+      "message_key": "lex.unterminated_block_comment",
+      "status": "active",
+      "introduced_in": "M1.2",
+      "spec_clauses": ["RXS-0003"]
+    },
+    {
+      "id": "RX0003",
+      "title": "未终结字符串字面量",
+      "message_key": "lex.unterminated_string",
+      "status": "active",
+      "introduced_in": "M1.2",
+      "spec_clauses": ["RXS-0008"]
+    },
+    {
+      "id": "RX0004",
+      "title": "非法字符字面量(空/多码点/未终结)",
+      "message_key": "lex.bad_char_literal",
+      "status": "active",
+      "introduced_in": "M1.2",
+      "spec_clauses": ["RXS-0008"]
+    },
+    {
+      "id": "RX0005",
+      "title": "非法转义序列",
+      "message_key": "lex.bad_escape",
+      "status": "active",
+      "introduced_in": "M1.2",
+      "spec_clauses": ["RXS-0008"]
+    },
+    {
+      "id": "RX0006",
+      "title": "非法数字字面量(空进制体/进制外数字/缺指数)",
+      "message_key": "lex.bad_number",
+      "status": "active",
+      "introduced_in": "M1.2",
+      "spec_clauses": ["RXS-0006", "RXS-0007"]
+    },
+    {
+      "id": "RX0007",
+      "title": "非法字面量后缀",
+      "message_key": "lex.bad_suffix",
+      "status": "active",
+      "introduced_in": "M1.2",
+      "spec_clauses": ["RXS-0006", "RXS-0007"]
+    }
+  ],
   "revision_log": [
     {
       "version": "v1.0",
       "date": "2026-06-11",
       "change": "初版:schema 固化,entries 空(首批 0xxx 码随 M1.2 词法/语法诊断分配,不预造语义;M1 契约 D-M1-1)"
+    },
+    {
+      "version": "v1.1",
+      "date": "2026-06-11",
+      "change": "M1.2 分配 RX0001 ~ RX0007(词法诊断首批,spec/lexical.md RXS-0001~0010 配套)"
     }
   ]
 }

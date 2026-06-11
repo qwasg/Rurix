@@ -1,0 +1,13 @@
+//@ spec: RXS-0005, RXS-0007, RXS-0009
+// Built-in math vector/matrix types and swizzle access (09 s3, D-301).
+
+fn math() {
+    let v = Vec3 { x: 1.0, y: 2.0, z: 3.0 };
+    let xy = v.xy();
+    let xxx = v.xxx();
+    let m: Mat4<f32> = Mat4::identity();
+    let col = m.col(0);
+    let p = m * Vec4::new(1.0, 0.0, 0.0, 1.0);
+    let dot = v.dot(v);
+    let half: f32 = 0.5f32;
+}

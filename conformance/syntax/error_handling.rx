@@ -1,0 +1,20 @@
+//@ spec: RXS-0005, RXS-0009
+// Host-side Result + ? propagation, enum error types (05 s8, D-110).
+
+enum SimError {
+    OutOfMemory,
+    DeviceLost { code: i32 },
+    BadConfig,
+}
+
+fn try_alloc(ctx: &Context, n: usize) -> Result<DeviceBuffer<f32>, SimError> {
+    let buf = ctx.alloc::<f32>(n)?;
+    Ok(buf)
+}
+
+fn chain() -> Result<f32, SimError> {
+    let ctx = make_context()?;
+    let buf = try_alloc(&ctx, 1024)?;
+    let value = buf.read_one(0)?;
+    Ok(value * 2.0)
+}

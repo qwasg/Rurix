@@ -3,4 +3,11 @@
 # key 与 registry/error_codes.json 的 message_key 字段互查(check_schemas.py 交叉校验)。
 # 单语基线;中英双语全量覆盖 → RD-006(M8)。
 #
-# entries 为空:首批 0xxx 词法/语法 key 随 M1.2 诊断分配,不预造语义。
+# 词法诊断(RX0001 ~ RX0007,spec/lexical.md;M1.2 分配)
+lex.unexpected_char = unexpected character sequence {found}
+lex.unterminated_block_comment = unterminated block comment
+lex.unterminated_string = unterminated string literal
+lex.bad_char_literal = invalid character literal: {reason}
+lex.bad_escape = invalid escape sequence: {esc}
+lex.bad_number = invalid numeric literal: {reason}
+lex.bad_suffix = invalid suffix {suffix}

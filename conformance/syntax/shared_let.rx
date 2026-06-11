@@ -1,0 +1,12 @@
+//@ spec: RXS-0005
+// shared let declarations in kernels (05 s5).
+
+kernel fn tile_gemm<const TILE: usize>(
+    grid: Grid<(64, 64)>,
+    a: View<global, f32, (M, K)>,
+    b: View<global, f32, (K, N)>,
+) {
+    shared let tile_a: [[f32; TILE]; TILE];
+    shared let tile_b: [[f32; TILE]; TILE];
+    shared let dynamic: SharedSlice<f32>;
+}

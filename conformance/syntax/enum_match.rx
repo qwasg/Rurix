@@ -1,0 +1,25 @@
+//@ spec: RXS-0005, RXS-0009
+// Enums (tagged unions) and exhaustive pattern matching.
+
+enum Shape {
+    Circle { radius: f32 },
+    Rect { w: f32, h: f32 },
+    Point,
+}
+
+fn area(s: Shape) -> f32 {
+    match s {
+        Shape::Circle { radius } => 3.14159 * radius * radius,
+        Shape::Rect { w, h } => w * h,
+        Shape::Point => 0.0,
+    }
+}
+
+fn guards_and_bindings(v: i32) -> i32 {
+    match v {
+        0 => 0,
+        n if n < 0 => -n,
+        small @ 1..=9 => small * 10,
+        _ => v,
+    }
+}

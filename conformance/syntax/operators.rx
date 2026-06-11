@@ -1,0 +1,33 @@
+//@ spec: RXS-0009
+// Full first-batch punctuation table, longest match.
+
+fn operators() {
+    let a = 1 + 2 - 3 * 4 / 5 % 6;
+    let b = (a == 1) != (a < 2) || (a > 3) && (a <= 4) | (a >= 5);
+    let c = !true;
+    let d = 1 & 2 | 3 ^ 4;
+    let e = 1 << 2 >> 3;
+    let mut f = 0;
+    f += 1;
+    f -= 1;
+    f *= 2;
+    f /= 2;
+    f %= 3;
+    f &= 0xff;
+    f |= 0x10;
+    f ^= 0b101;
+    f <<= 1;
+    f >>= 1;
+    let g: i32 = f;
+    let h = a..b;
+    let i = a..=b;
+    let path = std::mem::size_of;
+    let arrow: fn() -> i32 = operators_helper;
+    let closure_like = match a {
+        0 => 1,
+        _ => 2,
+    };
+    let q = some_result()?;
+    let attr = #[allow] 0; // pound + brackets lex fine
+    let at_sign = pattern @ 0;
+}

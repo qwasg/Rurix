@@ -1,0 +1,21 @@
+//@ spec: RXS-0005, RXS-0009
+// Generics with trait bounds, nested generics (>> split is parser duty).
+
+fn max_of<T: PartialOrd>(a: T, b: T) -> T {
+    if a > b { a } else { b }
+}
+
+fn constrained<T: DeviceCopy + Clone, U>(t: T, u: U) -> T
+where
+    U: Default,
+{
+    t.clone()
+}
+
+fn nested(v: Vec<Vec<f32>>) -> usize {
+    v.len()
+}
+
+fn turbofish() {
+    let xs = Vec::<i32>::new();
+}

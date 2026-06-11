@@ -1,0 +1,13 @@
+//@ spec: RXS-0005, RXS-0006
+// const and static items, type aliases.
+
+const MAX_PARTICLES: usize = 1 << 16;
+const EPSILON: f32 = 1e-6;
+static VERSION_MAJOR: u32 = 0;
+
+type Scalar = f32;
+type ParticleIndex = u32;
+
+fn budget() -> usize {
+    MAX_PARTICLES * 2
+}

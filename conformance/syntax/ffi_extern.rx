@@ -1,0 +1,18 @@
+//@ spec: RXS-0005, RXS-0008
+// FFI imports: extern "C" blocks, raw pointers, repr attributes (05 s11, D-113).
+
+#[repr(C)]
+struct CublasHandle {
+    opaque: usize,
+}
+
+#[link(name = "cublas64_13")]
+extern "C" {
+    fn cublasCreate_v2(handle: *mut CublasHandle) -> i32;
+    fn cublasDestroy_v2(handle: *mut CublasHandle) -> i32;
+}
+
+fn create() -> i32 {
+    let mut h = CublasHandle { opaque: 0 };
+    unsafe { cublasCreate_v2(&mut h) }
+}

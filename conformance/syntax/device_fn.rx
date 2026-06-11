@@ -1,0 +1,20 @@
+//@ spec: RXS-0005
+// device fn: callable from kernels and host (single-direction coloring, D-102).
+
+device fn lerp(a: f32, b: f32, t: f32) -> f32 {
+    a + (b - a) * t
+}
+
+device fn clamp01(x: f32) -> f32 {
+    if x < 0.0 {
+        0.0
+    } else if x > 1.0 {
+        1.0
+    } else {
+        x
+    }
+}
+
+fn host_can_call_device() -> f32 {
+    lerp(0.0, 10.0, clamp01(0.5))
+}

@@ -1,0 +1,9 @@
+//@ spec: RXS-0002, RXS-0003
+// Line comment at file top.
+
+/* block comment */
+/* nested /* block /* comments */ are */ allowed */
+
+fn after_comments() { // trailing line comment
+    /* inline */ let x = 1; /* between tokens */
+}

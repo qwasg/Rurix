@@ -1,0 +1,20 @@
+//@ spec: RXS-0005, RXS-0008
+// C ABI exports: opaque handle + create/destroy/operate triple (05 s11).
+
+#[export(c)]
+pub fn rurix_simulate_step(sim: *mut SimHandle, dt: f32) -> RxStatus {
+    if sim.is_null() {
+        return RxStatus::NullHandle;
+    }
+    RxStatus::Ok
+}
+
+#[export(c)]
+pub fn rurix_sim_create(out: *mut *mut SimHandle) -> RxStatus {
+    RxStatus::Ok
+}
+
+#[export(c)]
+pub fn rurix_sim_destroy(sim: *mut SimHandle) -> RxStatus {
+    RxStatus::Ok
+}

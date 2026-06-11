@@ -1,0 +1,18 @@
+//@ spec: RXS-0004, RXS-0005, RXS-0009
+// Host function syntax sketches (05 s1).
+
+fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+pub fn norm2(x: f32, y: f32) -> f32 {
+    let xx = x * x;
+    let yy = y * y;
+    xx + yy
+}
+
+fn unit() {}
+
+fn with_refs(value: &f32, out: &mut f32) {
+    *out = *value * 2.0;
+}

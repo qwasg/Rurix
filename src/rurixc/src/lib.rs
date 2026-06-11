@@ -4,6 +4,7 @@
 //! message-key 骨架,先于 lexer 落地(r1 顺序,07 §5)。
 
 pub mod diag;
+pub mod lexer;
 pub mod messages;
 pub mod source_map;
 pub mod span;

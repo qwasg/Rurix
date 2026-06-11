@@ -1,0 +1,14 @@
+//@ spec: RXS-0005, RXS-0009
+// Views operator set sketches (05 s7, D-109).
+
+kernel fn reduce_step(
+    grid: Grid<(256,)>,
+    input: View<global, f32, (N,)>,
+    output: ViewMut<global, f32, (B,)>,
+) {
+    let per_block = input.split::<256>().per_block();
+    let mine = per_block.group::<4>().per_thread();
+    let transposed = input.transpose();
+    let pairs = input.zip(output);
+    let backwards = input.reverse();
+}

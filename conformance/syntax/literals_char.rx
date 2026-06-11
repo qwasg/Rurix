@@ -1,0 +1,16 @@
+//@ spec: RXS-0008
+// Character literals and escapes.
+
+fn chars() {
+    let a = 'a';
+    let z = 'Z';
+    let digit = '7';
+    let space = ' ';
+    let newline = '\n';
+    let tab = '\t';
+    let backslash = '\\';
+    let quote = '\'';
+    let nul = '\0';
+    let hex = '\x41';
+    let unicode = '\u{1F600}';
+}

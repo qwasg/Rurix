@@ -1,0 +1,12 @@
+//@ spec: RXS-0005, RXS-0009
+// let patterns: tuples, struct destructuring, references, wildcard.
+
+fn patterns(p: Particle) {
+    let (a, b) = (1.0, 2.0);
+    let (first, _, third) = (1, 2, 3);
+    let Particle { pos, vel, mass } = p;
+    let Particle { pos: position, .. } = make_particle();
+    let [x, y, z] = [1.0, 2.0, 3.0];
+    let &value = &42;
+    let _ = ignored();
+}

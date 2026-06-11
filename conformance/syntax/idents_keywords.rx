@@ -1,0 +1,15 @@
+//@ spec: RXS-0004, RXS-0005
+// ASCII identifiers, underscore token, contextual keywords as idents.
+
+fn idents() {
+    let snake_case_name = 1;
+    let _leading = 2;
+    let trailing_ = 3;
+    let with_digits_42 = 4;
+    let _ = 5;
+    // Address-space names are contextual keywords (lex as identifiers):
+    let global = 6;
+    let constant = 7;
+    let local = 8;
+    let host = 9;
+}

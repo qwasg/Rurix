@@ -1,0 +1,13 @@
+//@ spec: RXS-0005, RXS-0006, RXS-0008
+// Affine resource types with context brand lifetimes (05 s4, D-107).
+
+fn setup() -> Result<(), Error> {
+    let dev: Device = Device::enumerate()?.first()?;
+    let ctx: Context = dev.create_context()?;
+    let stream: Stream<'_> = ctx.create_stream()?;
+    let buf: DeviceBuffer<f32> = ctx.alloc::<f32>(1 << 20)?;
+    let pinned: PinnedBuffer<f32> = ctx.alloc_pinned::<f32>(1 << 20)?;
+    stream.copy_to_device(&pinned, &buf)?;
+    stream.synchronize_and_destroy()?;
+    Ok(())
+}

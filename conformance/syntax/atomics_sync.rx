@@ -1,0 +1,13 @@
+//@ spec: RXS-0005, RXS-0009
+// Scoped atomics and structured synchronization sketches (06 s4, D-123).
+
+kernel fn histogram(
+    grid: Grid<(1024,)>,
+    data: View<global, u32, (N,)>,
+    bins: AtomicView<global, u32, (256,)>,
+) {
+    let i = grid.thread_index();
+    let bin = data[i] % 256;
+    bins.fetch_add(bin, 1, Scope::Device);
+    grid.block().barrier();
+}

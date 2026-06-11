@@ -1,0 +1,23 @@
+//@ spec: RXS-0005
+// Modules, use imports, visibility levels (05 s10, D-112).
+
+mod geometry {
+    pub fn area(w: f32, h: f32) -> f32 {
+        w * h
+    }
+
+    pub(package) fn internal_helper() -> u32 {
+        0
+    }
+
+    mod nested {
+        fn private_fn() {}
+    }
+}
+
+use geometry::area;
+use std::mem::size_of;
+
+fn consume() -> f32 {
+    area(2.0, 3.0)
+}

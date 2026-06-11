@@ -1,0 +1,16 @@
+//@ spec: RXS-0006
+// Integer literals: bases, separators, suffixes.
+
+fn ints() {
+    let dec = 1234567890;
+    let sep = 1_000_000;
+    let hex = 0xDEAD_beef;
+    let oct = 0o755;
+    let bin = 0b1010_0101;
+    let s1 = 42i32;
+    let s2 = 255u8;
+    let s3 = 9000u64;
+    let s4 = 7usize;
+    let s5 = 0i8;
+    let s6 = 0xffu32;
+}

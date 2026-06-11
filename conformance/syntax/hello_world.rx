@@ -1,0 +1,7 @@
+//@ spec: RXS-0004, RXS-0005, RXS-0008
+// Minimal host program shape (M2 hello-world target, 11 s3).
+
+fn main() {
+    let greeting = "hello, rurix";
+    println(greeting);
+}

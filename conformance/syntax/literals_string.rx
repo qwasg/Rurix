@@ -1,0 +1,13 @@
+//@ spec: RXS-0008
+// String literals: escapes and literal newlines.
+
+fn strings() {
+    let plain = "hello, world";
+    let empty = "";
+    let escaped = "line1\nline2\ttabbed \"quoted\" \\backslash\\ \0";
+    let hex = "\x41\x42\x43";
+    let unicode = "\u{48}\u{49}\u{1F680}";
+    let multiline = "first line
+second line";
+    let punct_inside = "operators like += and >>= are plain text here";
+}

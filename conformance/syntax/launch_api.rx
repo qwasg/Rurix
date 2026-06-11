@@ -1,0 +1,14 @@
+//@ spec: RXS-0005, RXS-0008, RXS-0009
+// Typed launch contract sketches (05 s6, D-120).
+
+fn run(ctx: &Context, module: &Module<'_>, stream: &Stream<'_>) -> Result<(), Error> {
+    let k = module.kernel::<tile_gemm<32>>()?;
+    stream.launch(
+        k,
+        GridDim(64, 64),
+        BlockDim(32, 32),
+        (a.view(), b.view(), c.view_mut()),
+    )?;
+    stream.synchronize()?;
+    Ok(())
+}

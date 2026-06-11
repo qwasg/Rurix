@@ -1,0 +1,28 @@
+//@ spec: RXS-0005
+// Struct definitions, field access, derive attributes.
+
+#[derive(Copy, Clone, DeviceCopy)]
+struct Particle {
+    pos: Vec3<f32>,
+    vel: Vec3<f32>,
+    mass: f32,
+}
+
+#[derive(Record)]
+pub struct SimParams {
+    dt: f32,
+    gravity: f32,
+    count: u32,
+}
+
+struct Tuple2(f32, f32);
+
+fn build() -> Particle {
+    let p = Particle {
+        pos: Vec3::zero(),
+        vel: Vec3::zero(),
+        mass: 1.0,
+    };
+    let x = p.pos;
+    p
+}

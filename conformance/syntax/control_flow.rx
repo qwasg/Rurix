@@ -1,0 +1,27 @@
+//@ spec: RXS-0005, RXS-0009
+// Control flow: if/else, while, for-in, loop, break/continue, return.
+
+fn flow(n: i32) -> i32 {
+    let mut acc = 0;
+    for i in 0..n {
+        if i % 2 == 0 {
+            acc += i;
+        } else {
+            continue;
+        }
+    }
+    let mut k = 0;
+    while k < 10 {
+        k += 1;
+    }
+    loop {
+        acc += 1;
+        if acc > 100 {
+            break;
+        }
+    }
+    if acc > 1000 {
+        return 1000;
+    }
+    acc
+}
