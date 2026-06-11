@@ -154,9 +154,9 @@ def check_budget(path: Path) -> None:
 
 
 def check_evidence_files() -> None:
-    schema_path = ROOT / "milestones/m0/evidence_schema.json"
-    schema = load(schema_path)
-    if schema is None:
+    gpu_schema = load(ROOT / "milestones/m0/evidence_schema.json")
+    frontend_schema = load(ROOT / "milestones/m1/frontend_evidence_schema.json")
+    if gpu_schema is None or frontend_schema is None:
         return
     evidence_files = sorted((ROOT / "evidence").glob("*.json"))
     if not evidence_files:
@@ -167,11 +167,14 @@ def check_evidence_files() -> None:
     except ImportError:
         err("缺 jsonschema 依赖(pip install -r requirements.txt)")
         return
-    validator = jsonschema.Draft7Validator(schema)
+    gpu_validator = jsonschema.Draft7Validator(gpu_schema)
+    frontend_validator = jsonschema.Draft7Validator(frontend_schema)
     for f in evidence_files:
         doc = load(f)
         if doc is None:
             continue
+        # 路由:前端证据按文件名前缀走 m1 schema(M1 CI_GATES 配套),其余走 m0 GPU schema
+        validator = frontend_validator if f.name.startswith("frontend_") else gpu_validator
         for v in validator.iter_errors(doc):
             err(f"evidence/{f.name}: {'/'.join(str(p) for p in v.path)}: {v.message}")
 

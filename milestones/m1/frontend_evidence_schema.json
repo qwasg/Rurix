@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/frontend-evidence/v1",
+  "title": "Rurix 前端性能证据 JSON(CPU 环境画像 + 采样结果)",
+  "description": "M1 契约 D-M1-6 配套:lexer/parser 吞吐证据(evidence/frontend_*.json 按此 schema 校验,其余证据走 milestones/m0/evidence_schema.json)。统计协议复用 BENCH_PROTOCOL §3 的 warmup/稳态/50x3/trimmed-mean 形态;计时为进程内 std::time::Instant。CPU 无锁频维度,clock_control 固定 not_applicable_cpu 并以 measured_local 记级(真实硬件 + 协议化采样,14 §5)。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "evidence_level",
+    "timestamp",
+    "bench",
+    "environment",
+    "sampling",
+    "results"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "evidence_level": { "enum": ["measured_local", "estimated"] },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "bench": {
+      "type": "object",
+      "required": ["id", "level", "problem_size", "harness_commit"],
+      "properties": {
+        "id": { "type": "string", "examples": ["lexer_throughput", "parser_throughput"] },
+        "level": { "const": "frontend" },
+        "problem_size": { "type": "string", "examples": ["4.2 MiB corpus (26 files x N)"] },
+        "harness_commit": { "type": "string" }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "required": [
+        "cpu_name", "logical_cores", "power_plan", "os_build",
+        "clock_control", "background_note"
+      ],
+      "properties": {
+        "cpu_name": { "type": "string" },
+        "logical_cores": { "type": "integer" },
+        "power_plan": { "type": "string" },
+        "os_build": { "type": "string" },
+        "clock_control": { "const": "not_applicable_cpu" },
+        "background_note": { "type": "string" }
+      }
+    },
+    "sampling": {
+      "type": "object",
+      "required": [
+        "warmup_iterations", "steady_state_cv", "timed_iterations",
+        "trials", "trimmed_pct", "timer"
+      ],
+      "properties": {
+        "warmup_iterations": { "type": "integer", "minimum": 10 },
+        "steady_state_cv": { "type": "number" },
+        "timed_iterations": { "type": "integer", "minimum": 50 },
+        "trials": { "type": "integer", "minimum": 3 },
+        "trimmed_pct": { "type": "number" },
+        "timer": { "const": "std_instant" }
+      }
+    },
+    "results": {
+      "type": "object",
+      "required": ["metric", "unit", "trial_medians", "trimmed_mean", "cv", "ci95"],
+      "properties": {
+        "metric": { "type": "string", "examples": ["lex_throughput"] },
+        "unit": { "type": "string", "examples": ["MB/s"] },
+        "trial_medians": { "type": "array", "items": { "type": "number" }, "minItems": 3 },
+        "trimmed_mean": { "type": "number" },
+        "cv": { "type": "number" },
+        "ci95": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "outliers_rejected_iqr": { "type": "integer" },
+        "correctness_check": { "enum": ["pass", "fail", "n/a"] }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}
