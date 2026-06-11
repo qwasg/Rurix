@@ -1,0 +1,49 @@
+# PR Smoke(CI 三层门禁第一层,14 §8 / milestones/m0/CI_GATES.md §3)
+# runner = 开发机 RTX 4070 Ti 自托管;GPU 步骤失败即红,不静默 skip(P-01)
+name: pr-smoke
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+concurrency:
+  group: gpu-runner          # 基准互扰防护:GPU 任务串行(CI_GATES.md §1)
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: [self-hosted, Windows, gpu]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0      # guardrail 需要完整历史与 tag
+
+      - name: deps
+        shell: pwsh
+        run: py -3 -m pip install -r requirements.txt --quiet --disable-pip-version-check
+
+      - name: structure check (CI_GATES §3.1)
+        shell: pwsh
+        run: py -3 ci/check_structure.py
+
+      - name: schema check (CI_GATES §3.2)
+        shell: pwsh
+        run: py -3 ci/check_schemas.py
+
+      - name: guardrails (CI_GATES §3.3)
+        shell: pwsh
+        run: py -3 ci/check_guardrails.py
+
+      - name: harness unit tests (CI_GATES §3.4)
+        shell: pwsh
+        run: py -3 -m pytest tests/ -q
+
+      - name: SAXPY load smoke (CI_GATES §3.5, GPU)
+        shell: pwsh
+        run: py -3 bench/saxpy_bench.py --smoke
+
+      - name: budget evaluator load (CI_GATES §3.6)
+        shell: pwsh
+        run: py -3 ci/budget_eval.py
