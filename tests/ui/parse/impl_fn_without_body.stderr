@@ -1,0 +1,5 @@
+error[RX0008]: expected a function body, found `}`
+ --> $DIR/parse/impl_fn_without_body.rx:2:25
+  |
+2 | impl Euler { fn nope(); } //~ ERROR RX0008
+  |                         ^ expected a function body

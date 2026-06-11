@@ -1,0 +1,5 @@
+error[RX0008]: expected a parameter (`self` is only allowed in first position), found `)`
+ --> $DIR/parse/self_not_first.rx:3:24
+  |
+3 |     fn bad(x: i32, self) {} //~ ERROR RX0008
+  |                        ^ expected a parameter (`self` is only allowed in first position)

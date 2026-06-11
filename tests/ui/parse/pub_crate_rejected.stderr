@@ -1,0 +1,5 @@
+error[RX0008]: expected `package`, found `crate`
+ --> $DIR/parse/pub_crate_rejected.rx:2:5
+  |
+2 | pub(crate) fn f() {} //~ ERROR RX0008
+  |     ^^^^^ expected `package`

@@ -1,0 +1,5 @@
+error[RX0009]: unclosed delimiter `{`
+ --> $DIR/parse/unclosed_brace.rx:2:8
+  |
+2 | fn f() { //~ ERROR RX0009
+  |        ^ unclosed delimiter

@@ -1,0 +1,5 @@
+error[RX0011]: unknown feature `telepathy`
+ --> $DIR/parse/unknown_feature.rx:2:12
+  |
+2 | #![feature(telepathy)] //~ ERROR RX0011
+  |            ^^^^^^^^^ unknown feature

@@ -1,0 +1,4 @@
+//@ spec: RXS-0014
+impl Euler {
+    fn bad(x: i32, self) {} //~ ERROR RX0008
+}

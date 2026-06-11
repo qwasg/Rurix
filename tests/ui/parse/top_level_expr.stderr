@@ -1,0 +1,5 @@
+error[RX0008]: expected an item, found `1`
+ --> $DIR/parse/top_level_expr.rx:2:1
+  |
+2 | 1 + 2; //~ ERROR RX0008
+  | ^ expected an item

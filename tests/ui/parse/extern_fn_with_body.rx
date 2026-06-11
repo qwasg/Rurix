@@ -1,0 +1,4 @@
+//@ spec: RXS-0019
+extern "C" {
+    fn bad() {} //~ ERROR RX0008
+}

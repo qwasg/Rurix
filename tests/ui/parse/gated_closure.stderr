@@ -1,0 +1,6 @@
+error[RX0010]: use of experimental syntax gated behind feature `closures`
+ --> $DIR/parse/gated_closure.rx:3:13
+  |
+3 |     let g = |x: i32| x; //~ ERROR RX0010
+  |             ^^^^^^^^^^ gated syntax
+  = help: add `#![feature(closures)]` at the top of the file to enable

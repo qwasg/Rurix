@@ -53,3 +53,4 @@ M0 步骤 6 的预算 evaluator 自动合并加载 [m1_budget.json](m1_budget.js
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-06-11 | 初版(M1 契约配套) |
+| v1.1 | 2026-06-11 | §4 第 6 项(UI bless 审批)随 M1.4 UI golden 通道激活:`ci/check_guardrails.py::check_ui_bless` 落地,机制 = `.stderr` 变更必须同 diff 在 `tests/ui/bless_log.md` 追加审批行(既有行 0-byte);红绿验证按 §5 程序执行(run URL 随 close-out 归档) |

@@ -7,7 +7,9 @@
   4. evidence/ 只增不删不改;
   5. status: closed 的契约文件只追加;
   6. registry/error_codes.json 含义字段冻结(M1 CI_GATES §4 第 8 项,M1.1 激活);
-  7. spec/ 变更必须携带档位标记(修订记录只追加,M1 CI_GATES §4 第 7 项,M1.2 激活)。
+  7. spec/ 变更必须携带档位标记(修订记录只追加,M1 CI_GATES §4 第 7 项,M1.2 激活);
+  8. tests/ui/ 的 .stderr 变更必须经审批 bless(bless_log.md 同 diff 追加且既有行
+     0-byte,M1 CI_GATES §4 第 6 项,M1.4 激活)。
 """
 from __future__ import annotations
 
@@ -149,6 +151,57 @@ def check_spec_tier_markers(base: str, diffs: list[tuple[str, str]]) -> None:
                 err(f"{path}: 新增修订行缺合法档位标记(Direct / Mini-RFC / Full RFC): {row!r}")
 
 
+BLESS_LOG = "tests/ui/bless_log.md"
+
+
+def bless_log_rows(text: str) -> list[str]:
+    """提取 bless_log.md 审批表数据行(表头/分隔行除外)。"""
+    rows = []
+    for line in text.splitlines():
+        s = line.strip()
+        if not s.startswith("|"):
+            continue
+        if "日期" in s or set(s) <= {"|", "-", " "}:
+            continue
+        rows.append(s)
+    return rows
+
+
+def check_ui_bless(base: str, diffs: list[tuple[str, str]]) -> None:
+    """UI snapshot 变更必须经审批 bless(14 §6;M1 CI_GATES §4 第 6 项,M1.4 激活)。
+
+    diff 含 tests/ui/**/*.stderr 的新增/修改/删除时:bless_log.md 必须同 diff
+    追加新行(既有行 0-byte);bless_log 自身不得删除。
+    """
+    snapshot_changes = [
+        (status, path)
+        for status, path in diffs
+        if path.startswith("tests/ui/") and path.endswith(".stderr")
+    ]
+    log_deleted = any(status == "D" and path == BLESS_LOG for status, path in diffs)
+    if log_deleted:
+        err(f"{BLESS_LOG}: bless 审批记录不得删除(14 §6)")
+        return
+    if not snapshot_changes:
+        return
+    log_file = ROOT / BLESS_LOG
+    if not log_file.is_file():
+        err(f"{BLESS_LOG}: 缺失——.stderr 变更必须携带 bless 审批记录(14 §6)")
+        return
+    cur_rows = bless_log_rows(log_file.read_text(encoding="utf-8"))
+    base_text = git_show(base, BLESS_LOG)
+    base_rows = bless_log_rows(base_text) if base_text is not None else []
+    if cur_rows[: len(base_rows)] != base_rows:
+        err(f"{BLESS_LOG}: 既有审批行被修改(只追加,14 §6)")
+        return
+    if len(cur_rows) <= len(base_rows):
+        changed = ", ".join(p for _, p in snapshot_changes[:5])
+        err(
+            f"{BLESS_LOG}: .stderr 变更未附 bless 审批行(未审批 bless 即 FAIL,"
+            f"M1 CI_GATES §4.6): {changed}"
+        )
+
+
 def check_error_codes(base: str, path: str) -> None:
     """错误码语义可加不可改(10 §6 稳定面;M1 CI_GATES §4 第 8 项,M1.1 激活)。"""
     base_text = git_show(base, path)
@@ -225,6 +278,7 @@ def main() -> int:
     check_registry(base, "registry/spike_gating.json", "gating")
     check_error_codes(base, "registry/error_codes.json")
     check_spec_tier_markers(base, diffs)
+    check_ui_bless(base, diffs)
     for budget in sorted(ROOT.glob("milestones/*/m*_budget.json")):
         check_budget(base, budget.relative_to(ROOT).as_posix())
     check_evidence(base, diffs)

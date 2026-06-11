@@ -1,0 +1,4 @@
+//@ spec: RXS-0031, RXS-0026
+fn f() {
+    let g = |x: i32| x; //~ ERROR RX0010
+}

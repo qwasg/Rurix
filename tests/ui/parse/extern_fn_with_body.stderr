@@ -1,0 +1,5 @@
+error[RX0008]: expected `;` (functions in `extern` blocks have no body), found `{`
+ --> $DIR/parse/extern_fn_with_body.rx:3:14
+  |
+3 |     fn bad() {} //~ ERROR RX0008
+  |              ^ expected `;` (functions in `extern` blocks have no body)

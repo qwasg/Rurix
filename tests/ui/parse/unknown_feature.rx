@@ -1,0 +1,3 @@
+//@ spec: RXS-0031
+#![feature(telepathy)] //~ ERROR RX0011
+fn f() {}

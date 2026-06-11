@@ -1,0 +1,5 @@
+error[RX0008]: expected an operand (comparison operators cannot be chained; use parentheses), found `<`
+ --> $DIR/parse/chained_comparison.rx:3:19
+  |
+3 |     let x = 1 < 2 < 3; //~ ERROR RX0008
+  |                   ^ expected an operand (comparison operators cannot be chained; use parentheses)

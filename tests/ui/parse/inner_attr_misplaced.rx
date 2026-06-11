@@ -1,0 +1,4 @@
+//@ spec: RXS-0011, RXS-0012
+fn first() {}
+#![feature(closures)] //~ ERROR RX0008
+fn second() {}

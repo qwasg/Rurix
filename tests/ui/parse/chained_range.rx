@@ -1,0 +1,4 @@
+//@ spec: RXS-0025
+fn f() {
+    let r = 1..2..3; //~ ERROR RX0008
+}

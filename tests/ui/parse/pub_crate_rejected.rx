@@ -1,0 +1,2 @@
+//@ spec: RXS-0013
+pub(crate) fn f() {} //~ ERROR RX0008

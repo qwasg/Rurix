@@ -1,0 +1,2 @@
+//@ spec: RXS-0016
+impl Euler { fn nope(); } //~ ERROR RX0008

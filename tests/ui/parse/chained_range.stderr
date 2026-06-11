@@ -1,0 +1,5 @@
+error[RX0008]: expected an operand (range operators cannot be chained), found `..`
+ --> $DIR/parse/chained_range.rx:3:17
+  |
+3 |     let r = 1..2..3; //~ ERROR RX0008
+  |                 ^^ expected an operand (range operators cannot be chained)
