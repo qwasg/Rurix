@@ -1,0 +1,15 @@
+//@ spec: RXS-0027
+// Indexing, named fields, tuple-index fields.
+
+struct Mix {
+    arr: [f32; 4],
+    pair: (f32, u32),
+}
+
+fn access(m: Mix, grid: [[f32; 2]; 2]) -> f32 {
+    let a = m.arr[0];
+    let b = m.pair.0;
+    let c = grid[1][0];
+    let d = m.arr[m.pair.1 as usize];
+    a + b + c + d
+}

@@ -1,0 +1,39 @@
+//@ spec: RXS-0011
+// Source file = inner attrs + item sequence; every item kind at top level.
+
+const LIMIT: usize = 64;
+static SEED: u64 = 42;
+type Alias = f32;
+
+struct S {
+    x: f32,
+}
+
+enum E {
+    A,
+    B,
+}
+
+trait T {
+    fn touch(&self);
+}
+
+impl T for S {
+    fn touch(&self) {}
+}
+
+mod inner {
+    pub fn ping() -> u32 {
+        1
+    }
+}
+
+use inner::ping;
+
+extern "C" {
+    fn c_side(x: i32) -> i32;
+}
+
+fn main() {
+    let _ = ping();
+}

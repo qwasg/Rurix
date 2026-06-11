@@ -1,0 +1,16 @@
+//@ spec: RXS-0020, RXS-0016
+// Lifetimes across impl headers and method signatures.
+
+struct Borrowed<'a> {
+    view: &'a [f32],
+}
+
+impl<'a> Borrowed<'a> {
+    fn head(&self) -> &'a f32 {
+        &self.view[0]
+    }
+
+    fn rebind<'b>(&self, other: &'b f32) -> &'b f32 {
+        other
+    }
+}

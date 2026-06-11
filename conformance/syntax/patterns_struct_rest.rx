@@ -1,0 +1,15 @@
+//@ spec: RXS-0023
+// Struct patterns: shorthand, renaming, trailing rest `..`.
+
+struct Particle2 {
+    pos: f32,
+    vel: f32,
+    mass: f32,
+}
+
+fn fields(p: Particle2) -> f32 {
+    let Particle2 { pos, vel, mass } = copy_of(p);
+    let Particle2 { pos: position, .. } = copy_of(p);
+    let Particle2 { .. } = copy_of(p);
+    pos + vel + mass + position
+}

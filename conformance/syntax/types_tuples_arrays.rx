@@ -1,0 +1,16 @@
+//@ spec: RXS-0022
+// Tuple, array, and slice types incl. one-element tuples.
+
+fn shapes(
+    unit: (),
+    single: (f32,),
+    pair: (f32, u32),
+    triple: (f32, u32, bool_like),
+    arr: [f32; 4],
+    nested_arr: [[f32; 8]; 8],
+    slice: &[u32],
+    arr_of_tuple: [(f32, f32); 2],
+) {
+}
+
+type Pair2 = (f32, f32);

@@ -1,0 +1,18 @@
+//@ spec: RXS-0021
+// `>>` splitting at nested generic closings (parser duty, not lexer).
+
+fn two_deep(v: Vec<Vec<f32>>) -> usize {
+    v.len()
+}
+
+fn three_deep(v: Vec<Vec<Vec<u32>>>) -> usize {
+    v.len()
+}
+
+fn mixed(m: Map<u32, Vec<Pair<f32, f32>>>) -> usize {
+    m.len()
+}
+
+fn in_let() {
+    let nested: Holder<Holder<Holder<i32>>> = make();
+}

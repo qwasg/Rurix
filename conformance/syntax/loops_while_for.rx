@@ -1,0 +1,24 @@
+//@ spec: RXS-0028
+// while / for / loop with break and continue.
+
+fn iterate(n: i32) -> i32 {
+    let mut acc = 0;
+    let mut k = 0;
+    while k < n {
+        k += 1;
+        if k % 2 == 0 {
+            continue;
+        }
+        acc += k;
+    }
+    for (idx, _) in enumerate(n) {
+        acc += idx;
+    }
+    loop {
+        acc += 1;
+        if acc > 100 {
+            break;
+        }
+    }
+    acc
+}

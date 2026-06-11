@@ -1,0 +1,13 @@
+//@ spec: RXS-0015
+// Tuple structs, unit structs, and construction.
+
+struct Pair(f32, f32);
+struct Wrapper(pub u32);
+struct Marker;
+
+fn build() -> f32 {
+    let p = Pair(1.0, 2.0);
+    let w = Wrapper(7);
+    let _m = Marker;
+    p.0 + p.1
+}

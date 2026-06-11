@@ -1,0 +1,14 @@
+//@ spec: RXS-0021, RXS-0022
+// Shape tuples in generic argument position (GPU execution shapes, 05 s6).
+
+kernel fn one_d(grid: Grid<(1024,)>, out: ViewMut<global, f32, (N,)>) {
+    out[grid.thread_index()] = 1.0;
+}
+
+kernel fn two_d(grid: Grid<(64, 64)>, m: View<global, f32, (R, C)>) {
+    let i = grid.thread_index();
+}
+
+kernel fn mixed_shape(grid: Grid<(32, 8)>, t: View<global, f32, (16, K)>) {
+    let i = grid.thread_index();
+}

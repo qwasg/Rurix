@@ -1,0 +1,13 @@
+//@ spec: RXS-0025
+// Precedence matrix: arithmetic, shifts, bitwise, comparison, logic.
+
+fn matrix(a: i32, b: i32, c: i32) -> bool {
+    let arith = a + b * c - a / b % c;
+    let shift = a << 2 >> 1;
+    let bits = a & b ^ c | a;
+    let mixed = a + b << 2;
+    let cmp = (a < b) == (b <= c);
+    let logic = a < b && b < c || a == c;
+    let unary = -a * !0 + -(b + c);
+    logic && cmp
+}

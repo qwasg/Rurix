@@ -1,0 +1,16 @@
+//@ spec: RXS-0029
+// Block-bodied arms may omit the separating comma.
+
+fn run(n: i32) -> i32 {
+    match n {
+        0 => {
+            let zero = 0;
+            zero
+        }
+        1 => {
+            on_one();
+            1
+        }
+        _ => n,
+    }
+}

@@ -1,0 +1,22 @@
+//@ spec: RXS-0016
+// Traits with associated consts and default method bodies.
+
+trait Stepper {
+    const STRIDE: usize = 1;
+
+    fn raw_step(&self) -> usize;
+
+    fn step_twice(&self) -> usize {
+        self.raw_step() + self.raw_step()
+    }
+}
+
+struct Unit;
+
+impl Stepper for Unit {
+    const STRIDE: usize = 2;
+
+    fn raw_step(&self) -> usize {
+        1
+    }
+}

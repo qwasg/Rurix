@@ -1,0 +1,23 @@
+//@ spec: RXS-0014, RXS-0020
+// Return types and where clauses on functions.
+
+fn no_ret() {}
+
+fn with_ret() -> (f32, f32) {
+    (0.0, 1.0)
+}
+
+fn bounded<T>(t: T) -> T
+where
+    T: Clone,
+{
+    t.clone()
+}
+
+fn multi_where<T, U>(t: T, u: U) -> T
+where
+    T: Clone + Default,
+    U: Copy,
+{
+    t
+}

@@ -1,0 +1,24 @@
+//@ spec: RXS-0016
+// Inherent impl blocks: self receivers and associated functions.
+
+struct Counter {
+    value: u32,
+}
+
+impl Counter {
+    fn new() -> Counter {
+        Counter { value: 0 }
+    }
+
+    fn get(&self) -> u32 {
+        self.value
+    }
+
+    fn bump(&mut self) {
+        self.value += 1;
+    }
+
+    fn consume(self) -> u32 {
+        self.value
+    }
+}

@@ -1,0 +1,11 @@
+//@ spec: RXS-0022
+// Reference types: shared, mutable, lifetime-annotated, nested.
+
+fn refs(a: &f32, b: &mut f32, c: &'a Stream<'ctx>, d: &'a mut [f32], e: &&u32) {
+    *b = *a;
+}
+
+struct Holder2<'a> {
+    view: &'a [f32],
+    cell: &'a mut f32,
+}

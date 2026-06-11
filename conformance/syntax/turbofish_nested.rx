@@ -1,0 +1,9 @@
+//@ spec: RXS-0021, RXS-0013
+// Turbofish with nested generic arguments (incl. `>>` split inside).
+
+fn drive(module: &Module<'_>) {
+    let k = module.get_kernel::<tile_gemm<32>>();
+    let v = Vec::<Vec<f32>>::new();
+    let m = Map::<u32, Vec<f32>>::default();
+    let one = parse::<i32>("1");
+}

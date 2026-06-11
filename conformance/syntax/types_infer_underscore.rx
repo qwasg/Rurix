@@ -1,0 +1,8 @@
+//@ spec: RXS-0022
+// Inference placeholder `_` in type positions.
+
+fn infer_locals() {
+    let a: _ = 1;
+    let v: Vec<_> = make();
+    let p: (_, _) = (1, 2.0);
+}

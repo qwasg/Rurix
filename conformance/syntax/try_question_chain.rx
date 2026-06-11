@@ -1,0 +1,10 @@
+//@ spec: RXS-0027
+// `?` propagation chained with calls, methods, and indexing.
+
+fn chain(ctx: &Context) -> Result<f32, Error> {
+    let dev = Device::enumerate()?.first()?;
+    let buf = ctx.alloc::<f32>(1024)?;
+    let v = buf.read_one(0)?;
+    let w = parse_value("1.5")?;
+    Ok(v + w)
+}

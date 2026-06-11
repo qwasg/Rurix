@@ -1,0 +1,18 @@
+//@ spec: RXS-0026
+// Struct literals in condition position require parentheses.
+
+struct Probe {
+    on: bool,
+}
+
+fn check(flag: bool) -> bool {
+    if (Probe { on: flag }).on {
+        return true;
+    }
+    while (Probe { on: false }).on {
+        break;
+    }
+    match (Probe { on: flag }) {
+        _ => flag,
+    }
+}

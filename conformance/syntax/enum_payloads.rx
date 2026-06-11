@@ -1,0 +1,16 @@
+//@ spec: RXS-0015
+// Enum variants: unit, tuple, struct payloads with trailing commas.
+
+enum Node {
+    Leaf,
+    Pair(u32, u32),
+    Branch { left: u32, right: u32, weight: f32 },
+}
+
+fn weight(n: Node) -> f32 {
+    match n {
+        Node::Leaf => 0.0,
+        Node::Pair(a, b) => 1.0,
+        Node::Branch { weight, .. } => weight,
+    }
+}

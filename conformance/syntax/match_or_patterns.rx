@@ -1,0 +1,26 @@
+//@ spec: RXS-0029
+// Top-level or-patterns in match arms.
+
+enum Key {
+    Up,
+    Down,
+    Left,
+    Right,
+    Other(u32),
+}
+
+fn axis(k: Key) -> i32 {
+    match k {
+        Key::Up | Key::Down => 1,
+        Key::Left | Key::Right => 0,
+        Key::Other(0) | Key::Other(1) => -1,
+        _ => -2,
+    }
+}
+
+fn digits(n: i32) -> i32 {
+    match n {
+        0 | 1 | 2 | 3 => n,
+        _ => -1,
+    }
+}

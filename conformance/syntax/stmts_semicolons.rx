@@ -1,0 +1,21 @@
+//@ spec: RXS-0024
+// Statement/semicolon rules: empty stmts, block-stmt elision, tail exprs.
+
+fn rules(n: i32) -> i32 {
+    ;
+    let mut acc = 0;
+    if n > 0 {
+        acc += n;
+    }
+    {
+        acc += 1;
+    }
+    match n {
+        0 => acc = 0,
+        _ => acc += 2,
+    }
+    loop {
+        break;
+    }
+    acc
+}

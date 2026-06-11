@@ -1,0 +1,11 @@
+//@ spec: RXS-0018
+// Generic type aliases.
+
+type Scalar = f32;
+type Grid2 = Grid<(64, 64)>;
+type Boxed<T> = Holder<T>;
+type Matrix<T, const R: usize, const C: usize> = [[T; C]; R];
+
+fn use_alias(m: Matrix<f32, 2, 2>) -> Scalar {
+    m[0][0]
+}

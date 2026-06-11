@@ -2,7 +2,8 @@
 // Typed launch contract sketches (05 s6, D-120).
 
 fn run(ctx: &Context, module: &Module<'_>, stream: &Stream<'_>) -> Result<(), Error> {
-    let k = module.kernel::<tile_gemm<32>>()?;
+    // `kernel` is a reserved keyword (RXS-0005) and cannot name a method.
+    let k = module.get_kernel::<tile_gemm<32>>()?;
     stream.launch(
         k,
         GridDim(64, 64),

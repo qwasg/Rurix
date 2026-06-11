@@ -1,0 +1,10 @@
+//@ spec: RXS-0013
+// Expression paths: multi-segment, turbofish in head and middle segments.
+
+fn paths() {
+    let a = std::mem::size_of;
+    let b = Vec::<i32>::new();
+    let c = collections::map::Map::<u32, f32>::default();
+    let d = Color::Red;
+    let e = math::consts::PI;
+}

@@ -1,0 +1,12 @@
+//@ spec: RXS-0024, RXS-0026
+// Blocks as value expressions with tails.
+
+fn block_values() -> i32 {
+    let a = {
+        let t = 1;
+        t + 1
+    };
+    let b = if a > 1 { a } else { 0 };
+    let c = unsafe { raw_read() };
+    a + b + c
+}

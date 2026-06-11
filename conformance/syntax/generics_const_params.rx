@@ -1,0 +1,19 @@
+//@ spec: RXS-0020, RXS-0021
+// const generic parameters and call-site const arguments.
+
+fn fill<const N: usize>(value: f32) -> [f32; N] {
+    [value; N]
+}
+
+struct Block<const W: usize, const H: usize> {
+    cells: [[f32; W]; H],
+}
+
+kernel fn tiled<const TILE: usize>(grid: Grid<(TILE,)>, out: ViewMut<global, f32, (TILE,)>) {
+    out[grid.thread_index()] = 0.0;
+}
+
+fn drive() {
+    let xs = fill::<8>(0.0);
+    let b: Block<4, 2> = make_block();
+}

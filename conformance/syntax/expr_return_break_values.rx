@@ -1,0 +1,22 @@
+//@ spec: RXS-0026, RXS-0028
+// return / break with and without operands; loop break values.
+
+fn early(n: i32) -> i32 {
+    if n < 0 {
+        return 0;
+    }
+    if n == 0 {
+        return n + 1;
+    }
+    let found = loop {
+        if n > 10 {
+            break n * 2;
+        }
+        break 0;
+    };
+    found
+}
+
+fn plain_return() {
+    return;
+}

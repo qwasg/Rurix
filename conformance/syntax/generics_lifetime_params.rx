@@ -1,0 +1,16 @@
+//@ spec: RXS-0020
+// Lifetime parameters on fns, structs, and impls.
+
+struct Window<'buf> {
+    data: &'buf [f32],
+}
+
+impl<'buf> Window<'buf> {
+    fn first(&self) -> f32 {
+        self.data[0]
+    }
+}
+
+fn pick<'a, 'b>(x: &'a f32, y: &'b f32) -> &'a f32 {
+    x
+}

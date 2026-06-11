@@ -1,0 +1,15 @@
+//@ spec: RXS-0031, RXS-0026
+// Closures parse cleanly once the `closures` gate is enabled.
+#![feature(closures)]
+
+fn closures(xs: &[f32]) -> f32 {
+    let id = |x: f32| x;
+    let add = |a: f32, b: f32| a + b;
+    let zero = || 0.0;
+    let captured = move |v: f32| v * id(1.0);
+    let block_body = |x: f32| {
+        let twice = x * 2.0;
+        twice
+    };
+    add(id(1.0), zero()) + captured(2.0) + block_body(3.0)
+}

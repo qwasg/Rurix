@@ -1,0 +1,13 @@
+//@ spec: RXS-0027
+// Call and method-call chains with nested arguments.
+
+fn chains(xs: &[f32]) -> f32 {
+    let total = xs.iter().copied().sum();
+    let twice = apply(apply(total, 1.0), 2.0);
+    let mixed = wrap(xs.len()).scale(2.0).finish();
+    total + twice + mixed
+}
+
+fn apply(v: f32, k: f32) -> f32 {
+    v * k
+}

@@ -1,0 +1,8 @@
+//@ spec: RXS-0022
+// Raw pointer types: const, mut, nested (FFI shapes, 05 s11).
+
+fn pointers(a: *const u8, b: *mut f32, c: *mut *mut SimHandle, d: *const *const u8) {}
+
+extern "C" {
+    fn memcpy_like(dst: *mut u8, src: *const u8, n: usize) -> *mut u8;
+}

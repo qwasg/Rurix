@@ -1,0 +1,14 @@
+//@ spec: RXS-0019
+// extern blocks: multiple signatures, visibility, attributes.
+
+extern "C" {
+    fn plain(x: i32) -> i32;
+    pub fn exported(y: f64) -> f64;
+    #[link_hint]
+    fn with_attr(p: *const u8, n: usize) -> i32;
+    fn no_args();
+}
+
+fn call_side() -> i32 {
+    unsafe { plain(1) }
+}

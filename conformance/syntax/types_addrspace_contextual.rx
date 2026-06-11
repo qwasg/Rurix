@@ -1,0 +1,19 @@
+//@ spec: RXS-0022, RXS-0005
+// Address-space names are contextual keywords: plain path types here.
+
+kernel fn copy(
+    grid: Grid<(512,)>,
+    src: View<global, f32, (N,)>,
+    lut: View<constant, f32, (256,)>,
+    scratch: ViewMut<local, f32, (64,)>,
+    staging: View<host, f32, (N,)>,
+) {
+    let i = grid.thread_index();
+}
+
+fn shadowing_is_fine() {
+    let global = 1;
+    let constant = 2;
+    let local = 3;
+    let host = 4;
+}

@@ -1,0 +1,14 @@
+//@ spec: RXS-0003, RXS-0011
+// Comments interleaved with items and statements parse transparently.
+
+// leading line comment
+/* block before item */
+fn first() {
+    // inside body
+    let a = 1; /* trailing */
+    /* nested /* still fine */ here */
+    let b = a;
+}
+
+/* between items */
+fn second() {}

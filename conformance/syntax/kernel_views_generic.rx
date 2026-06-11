@@ -1,0 +1,20 @@
+//@ spec: RXS-0014, RXS-0021, RXS-0022
+// Generic kernels over views with shape parameters (05 s6/s7).
+
+kernel fn axpy<const N: usize>(
+    grid: Grid<(N,)>,
+    a: f32,
+    x: View<global, f32, (N,)>,
+    y: ViewMut<global, f32, (N,)>,
+) {
+    let i = grid.thread_index();
+    y[i] = a * x[i] + y[i];
+}
+
+kernel fn transpose_copy(
+    grid: Grid<(32, 32)>,
+    src: View<global, f32, (R, C)>,
+    dst: ViewMut<global, f32, (C, R)>,
+) {
+    let t = src.transpose();
+}

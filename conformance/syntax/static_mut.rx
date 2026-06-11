@@ -1,0 +1,10 @@
+//@ spec: RXS-0018
+// static and static mut items.
+
+static VERSION: u32 = 1;
+static mut COUNTER: u64 = 0;
+static LABEL: &str = "rurix";
+
+fn read_version() -> u32 {
+    VERSION
+}

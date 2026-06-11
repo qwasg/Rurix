@@ -1,0 +1,18 @@
+//@ spec: RXS-0014
+// All four function colors side by side (D-102).
+
+fn host_side(a: i32) -> i32 {
+    a
+}
+
+kernel fn entry(grid: Grid<(256,)>, out: ViewMut<global, f32, (N,)>) {
+    out[grid.thread_index()] = 0.0;
+}
+
+device fn helper(x: f32) -> f32 {
+    x * 2.0
+}
+
+const fn compile_time(n: usize) -> usize {
+    n + 1
+}

@@ -1,0 +1,11 @@
+//@ spec: RXS-0026
+// Tuple expressions, unit value, parenthesized grouping.
+
+fn tuples() -> (i32, f32) {
+    let unit = ();
+    let single = (1,);
+    let pair = (1, 2.0);
+    let triple = (1, 2.0, 'c',);
+    let grouped = (1 + 2) * 3;
+    (grouped, pair.1)
+}

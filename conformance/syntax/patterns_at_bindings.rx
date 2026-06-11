@@ -1,0 +1,11 @@
+//@ spec: RXS-0023
+// `@` bindings over ranges and literals.
+
+fn bind(v: i32) -> i32 {
+    match v {
+        small @ 1..=9 => small * 10,
+        exact @ 42 => exact,
+        neg @ -5..=-1 => -neg,
+        other @ _ => other,
+    }
+}

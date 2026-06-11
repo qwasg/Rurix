@@ -1,0 +1,11 @@
+//@ spec: RXS-0027, RXS-0025
+// Vector/matrix method and operator combinations (09 s3).
+
+fn linalg() -> f32 {
+    let v = Vec3 { x: 1.0, y: 2.0, z: 3.0 };
+    let w = v.xy().extend(0.0);
+    let m = Mat4::<f32>::identity();
+    let p = m * Vec4::new(1.0, 0.0, 0.0, 1.0);
+    let d = v.dot(v) + w.dot(w);
+    d * p.length()
+}

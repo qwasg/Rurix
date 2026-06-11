@@ -1,0 +1,11 @@
+//@ spec: RXS-0026
+// Array expressions: lists, repeats, nesting, empties.
+
+fn arrays() {
+    let xs = [1.0, 2.0, 3.0];
+    let zeros = [0u8; 16];
+    let grid = [[0; 4]; 4];
+    let empty: [f32; 0] = [];
+    let trailing = [1, 2, 3,];
+    let first = xs[0];
+}

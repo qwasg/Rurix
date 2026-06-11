@@ -1300,6 +1300,34 @@ impl<'a> Parser<'a> {
     fn parse_type_inner(&mut self) -> Ty {
         let lo = self.lo();
         let kind = match self.kind() {
+            Tk::AndAnd => {
+                // `&&T`:最长匹配产出的 AndAnd 在类型位置等于两层引用(RXS-0022)
+                self.bump();
+                let inner_lo = self.prev_hi().saturating_sub(1);
+                let lifetime = if self.at(Tk::Lifetime) {
+                    let tok = self.bump();
+                    Some(Lifetime {
+                        name: self.token_text(tok).trim_start_matches('\'').to_owned(),
+                        span: tok.span,
+                    })
+                } else {
+                    None
+                };
+                let mutable = self.eat_kw(Kw::Mut);
+                let inner = Ty {
+                    kind: TyKind::Ref {
+                        lifetime,
+                        mutable,
+                        inner: Box::new(self.parse_type_inner()),
+                    },
+                    span: self.span_from(inner_lo),
+                };
+                TyKind::Ref {
+                    lifetime: None,
+                    mutable: false,
+                    inner: Box::new(inner),
+                }
+            }
             Tk::And => {
                 self.bump();
                 let lifetime = if self.at(Tk::Lifetime) {

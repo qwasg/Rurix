@@ -1,0 +1,18 @@
+//@ spec: RXS-0016, RXS-0020
+// Associated types with bounds and defaults.
+
+trait Collect {
+    type Item: Clone;
+    type Output = Self;
+
+    fn push(&mut self, item: Self::Item);
+}
+
+struct Sink;
+
+impl Collect for Sink {
+    type Item = f32;
+    type Output = Sink;
+
+    fn push(&mut self, item: f32) {}
+}

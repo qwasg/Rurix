@@ -28,6 +28,9 @@ fn operators() {
         _ => 2,
     };
     let q = some_result()?;
-    let attr = #[allow] 0; // pound + brackets lex fine
-    let at_sign = pattern @ 0;
+    let attr = #[allow] 0; // pound + brackets parse as an expression attribute
+    let at_sign = match a {
+        bound @ 0 => bound, // `@` binds in pattern position (RXS-0023)
+        _ => 0,
+    };
 }

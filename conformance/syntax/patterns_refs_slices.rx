@@ -1,0 +1,10 @@
+//@ spec: RXS-0023
+// Reference patterns and fixed-shape slice patterns.
+
+fn refs_and_slices() {
+    let &value = &42;
+    let &mut spot = &mut 7;
+    let [x, y, z] = [1.0, 2.0, 3.0];
+    let [a, b] = pair_array();
+    let [] = empty_array();
+}

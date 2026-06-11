@@ -1,0 +1,11 @@
+//@ spec: RXS-0025
+// `as` casts bind tighter than binary arithmetic; chained casts.
+
+fn casts(x: i32, f: f32) -> f64 {
+    let a = x as f32;
+    let b = f as f64 as f32 as f64;
+    let c = x as f64 + f as f64;
+    let d = (x + 1) as u32;
+    let e = 1u32 as usize >> 2;
+    b + c
+}

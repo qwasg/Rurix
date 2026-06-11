@@ -1,0 +1,14 @@
+//@ spec: RXS-0024
+// let declarations without initializers (typed and untyped patterns).
+
+fn declare() {
+    let slot: f32;
+    let later;
+    later = 1;
+    slot = 2.0;
+}
+
+kernel fn smem(grid: Grid<(128,)>) {
+    shared let tile: [f32; 128];
+    shared let staging: SharedSlice<f32>;
+}

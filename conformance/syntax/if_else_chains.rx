@@ -1,0 +1,22 @@
+//@ spec: RXS-0028
+// if / else if / else chains as statements and values.
+
+device fn clamp01(x: f32) -> f32 {
+    if x < 0.0 {
+        0.0
+    } else if x > 1.0 {
+        1.0
+    } else {
+        x
+    }
+}
+
+fn stmt_form(n: i32) {
+    if n > 0 {
+        on_positive();
+    } else if n < 0 {
+        on_negative();
+    } else {
+        on_zero();
+    }
+}

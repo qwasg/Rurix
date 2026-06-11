@@ -1,0 +1,19 @@
+//@ spec: RXS-0019, RXS-0012
+// C ABI surface: export attributes + raw handle round-trips (05 s11).
+
+#[export(c)]
+pub fn rurix_version() -> u32 {
+    1
+}
+
+#[export(c, name = "rurix_step2")]
+pub fn rurix_step(sim: *mut SimHandle, dt: f32) -> RxStatus {
+    if sim.is_null() {
+        return RxStatus::NullHandle;
+    }
+    RxStatus::Ok
+}
+
+extern "C" {
+    fn host_alloc(n: usize) -> *mut u8;
+}

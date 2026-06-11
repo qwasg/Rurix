@@ -1,0 +1,14 @@
+//@ spec: RXS-0014, RXS-0027
+// Scoped atomic methods inside kernels (06 s4, D-123).
+
+kernel fn count(
+    grid: Grid<(1024,)>,
+    data: View<global, u32, (N,)>,
+    counters: AtomicView<global, u32, (16,)>,
+) {
+    let i = grid.thread_index();
+    let bucket = data[i] % 16;
+    counters.fetch_add(bucket, 1, Scope::Block);
+    counters.fetch_max(0, data[i], Scope::Device);
+    grid.block().barrier();
+}

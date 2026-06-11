@@ -1,0 +1,19 @@
+//@ spec: RXS-0027, RXS-0016
+// Host-side Result plumbing across impl methods.
+
+struct Loader {
+    budget: usize,
+}
+
+impl Loader {
+    fn load(&self, n: usize) -> Result<f32, Error> {
+        let buf = reserve(n)?;
+        Ok(read_first(buf)?)
+    }
+}
+
+fn run(l: &Loader) -> Result<f32, Error> {
+    let a = l.load(16)?;
+    let b = l.load(32)?;
+    Ok(a + b)
+}

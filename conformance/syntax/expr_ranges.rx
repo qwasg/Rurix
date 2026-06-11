@@ -1,0 +1,16 @@
+//@ spec: RXS-0025
+// Range expressions: exclusive, inclusive, in for-heads and lets.
+
+fn ranges(n: i32) -> i32 {
+    let r1 = 0..10;
+    let r2 = 0..=255;
+    let r3 = n..n + 1;
+    let mut acc = 0;
+    for i in 0..n {
+        acc += i;
+    }
+    for j in 1..=8 {
+        acc += j;
+    }
+    acc
+}

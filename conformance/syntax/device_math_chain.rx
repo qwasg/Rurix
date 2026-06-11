@@ -1,0 +1,15 @@
+//@ spec: RXS-0014, RXS-0027
+// device fn helpers composed in expression chains.
+
+device fn fma(a: f32, b: f32, c: f32) -> f32 {
+    a * b + c
+}
+
+device fn smoothstep(e0: f32, e1: f32, x: f32) -> f32 {
+    let t = clamp01((x - e0) / (e1 - e0));
+    t * t * fma(t, -2.0, 3.0)
+}
+
+fn host_mix(v: f32) -> f32 {
+    smoothstep(0.0, 1.0, fma(v, 0.5, 0.25))
+}

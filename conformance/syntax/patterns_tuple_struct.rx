@@ -1,0 +1,17 @@
+//@ spec: RXS-0023
+// Tuple-struct patterns in let and match.
+
+struct Pair(f32, f32);
+
+enum Cmd {
+    Move(f32, f32),
+    Stop,
+}
+
+fn destructure(p: Pair, c: Cmd) -> f32 {
+    let Pair(x, y) = p;
+    match c {
+        Cmd::Move(dx, dy) => dx + dy,
+        Cmd::Stop => x + y,
+    }
+}

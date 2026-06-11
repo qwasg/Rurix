@@ -1,0 +1,10 @@
+//@ spec: RXS-0017
+// use declarations: plain paths and `as` aliases.
+
+use std::mem::size_of;
+use std::mem::size_of as sizeof;
+use collections::map::Map as Dict;
+
+fn sizes() -> usize {
+    size_of()
+}

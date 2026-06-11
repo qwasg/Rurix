@@ -1,0 +1,22 @@
+//@ spec: RXS-0017
+// Nested module trees with mixed visibility.
+
+mod outer {
+    pub mod middle {
+        pub fn reach() -> u32 {
+            inner::depth()
+        }
+
+        mod inner {
+            pub fn depth() -> u32 {
+                3
+            }
+        }
+    }
+
+    pub(package) fn package_level() {}
+}
+
+fn use_it() -> u32 {
+    outer::middle::reach()
+}

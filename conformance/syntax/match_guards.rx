@@ -1,0 +1,11 @@
+//@ spec: RXS-0029
+// match guards combining comparisons and calls.
+
+fn grade(score: i32) -> u32 {
+    match score {
+        s if s >= 90 => 4,
+        s if s >= 80 && is_rounded(s) => 3,
+        s if s < 0 => 0,
+        _ => 1,
+    }
+}

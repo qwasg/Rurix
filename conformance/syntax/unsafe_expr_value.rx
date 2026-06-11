@@ -1,0 +1,10 @@
+//@ spec: RXS-0026
+// unsafe blocks as value expressions and statements.
+
+fn dangerous(ptr: *mut f32) -> f32 {
+    unsafe {
+        write_raw(ptr, 1.0);
+    }
+    let v = unsafe { read_raw(ptr) };
+    v
+}

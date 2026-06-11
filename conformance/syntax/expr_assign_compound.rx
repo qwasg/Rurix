@@ -1,0 +1,20 @@
+//@ spec: RXS-0025
+// Assignment and all compound assignment operators (right-assoc level).
+
+fn assigns() {
+    let mut f = 0;
+    f = 1;
+    f += 1;
+    f -= 1;
+    f *= 2;
+    f /= 2;
+    f %= 3;
+    f &= 0xff;
+    f |= 0x10;
+    f ^= 0b101;
+    f <<= 1;
+    f >>= 1;
+    let mut arr = [0, 1, 2];
+    arr[0] = 9;
+    arr[1] += arr[2];
+}

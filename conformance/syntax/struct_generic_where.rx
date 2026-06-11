@@ -1,0 +1,21 @@
+//@ spec: RXS-0015, RXS-0020
+// Generic structs and enums with where clauses.
+
+struct Holder<T>
+where
+    T: Clone,
+{
+    inner: T,
+}
+
+enum Slot<T, const N: usize>
+where
+    T: Default,
+{
+    Empty,
+    Filled([T; N]),
+}
+
+fn make() -> Holder<f32> {
+    Holder { inner: 0.0 }
+}

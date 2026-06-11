@@ -1,0 +1,9 @@
+//@ spec: RXS-0027, RXS-0021
+// Method-call turbofish with type and const arguments.
+
+fn views(input: View<global, f32, (N,)>) {
+    let per_block = input.split::<256>().per_block();
+    let grouped = per_block.group::<4>().per_thread();
+    let typed = ctx.alloc::<f32>(1 << 20);
+    let pairs = input.zip::<ViewMut<global, f32, (N,)>>(make_out());
+}

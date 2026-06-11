@@ -1,0 +1,7 @@
+//@ spec: RXS-0026, RXS-0012
+// Outer attributes prefixed to expressions.
+
+fn attributed() {
+    let a = #[allow] 0;
+    let b = #[precision_hint(high)] compute();
+}

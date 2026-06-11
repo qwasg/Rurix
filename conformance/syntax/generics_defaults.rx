@@ -1,0 +1,15 @@
+//@ spec: RXS-0020
+// Type parameter defaults.
+
+trait Combine<Rhs = Self> {
+    type Out;
+    fn combine(self, rhs: Rhs) -> Self::Out;
+}
+
+struct WithDefault<T = f32> {
+    v: T,
+}
+
+fn make() -> WithDefault<f32> {
+    WithDefault { v: 0.0 }
+}

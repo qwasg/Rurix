@@ -1,0 +1,27 @@
+//@ spec: RXS-0012
+// Outer attributes attach to items, fields, params, variants, and arms.
+
+#[repr(C)]
+struct Packet {
+    #[doc_hint]
+    kind: u32,
+    payload: u64,
+}
+
+enum Msg {
+    #[default_variant]
+    Empty,
+    Data(u32),
+}
+
+fn classify(m: Msg) -> u32 {
+    match m {
+        #[cold_arm]
+        Msg::Empty => 0,
+        Msg::Data(v) => v,
+    }
+}
+
+fn with_param_attr(#[unused_hint] x: i32) -> i32 {
+    x
+}

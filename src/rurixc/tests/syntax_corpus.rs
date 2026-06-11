@@ -1,12 +1,15 @@
 //! conformance/syntax 样例集跑批(契约 G-M1-1 通道,M1 CI_GATES §2 步骤 9)。
 //!
-//! M1.2 形态:全量样例 0 词法错误;M1.3 升级为 100% 解析。
+//! M1.3 形态:全量样例 100% 解析(lex + parse + feature gate 检查,0 诊断),
+//! 样例数 ≥100(m1.counter.syntax_corpus_size)。
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use rurixc::diag::DiagCtxt;
+use rurixc::feature_gate::check_feature_gates;
 use rurixc::lexer::lex;
+use rurixc::parser::parse;
 use rurixc::span::{Edition, SourceId};
 
 fn corpus_dir() -> PathBuf {
@@ -35,8 +38,8 @@ fn corpus() -> Vec<PathBuf> {
 fn corpus_is_not_empty() {
     let n = corpus().len();
     assert!(
-        n >= 20,
-        "语法样例集过小: {n} 个(M1.2 起步 ~26,M1.3 扩到 >=100)"
+        n >= 100,
+        "语法样例集过小: {n} 个(G-M1-1 / m1.counter.syntax_corpus_size: >=100)"
     );
 }
 
@@ -56,6 +59,28 @@ fn corpus_lexes_with_zero_diagnostics() {
                 .collect::<Vec<_>>()
         );
         assert!(tokens.len() > 1, "{} 未产出 token", file.display());
+    }
+}
+
+/// G-M1-1:全量样例 100% 解析(lex + parse + feature gate,0 诊断)。
+#[test]
+fn corpus_parses_with_zero_diagnostics() {
+    for file in corpus() {
+        let src = fs::read_to_string(&file).expect("读取样例失败");
+        let diag = DiagCtxt::new();
+        let tokens = lex(&src, SourceId(0), Edition::Rx0, &diag);
+        let ast = parse(&src, tokens, SourceId(0), Edition::Rx0, &diag);
+        check_feature_gates(&ast, &diag);
+        assert!(
+            diag.emitted().is_empty(),
+            "{} 解析失败: {:?}",
+            file.display(),
+            diag.emitted()
+                .iter()
+                .map(|d| (d.code, d.message(diag.messages())))
+                .collect::<Vec<_>>()
+        );
+        assert!(!ast.items.is_empty(), "{} 未产出 item", file.display());
     }
 }
 

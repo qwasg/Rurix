@@ -1,0 +1,21 @@
+//@ spec: RXS-0026
+// Struct literals: full, shorthand, nested, trailing commas.
+
+struct V2 {
+    x: f32,
+    y: f32,
+}
+
+struct Body {
+    pos: V2,
+    vel: V2,
+    mass: f32,
+}
+
+fn build(mass: f32) -> Body {
+    Body {
+        pos: V2 { x: 0.0, y: 0.0 },
+        vel: V2 { x: 1.0, y: 1.0 },
+        mass,
+    }
+}

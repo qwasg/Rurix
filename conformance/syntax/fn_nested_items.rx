@@ -1,0 +1,17 @@
+//@ spec: RXS-0014, RXS-0024
+// Items as statements inside function bodies.
+
+fn outer() -> usize {
+    const TILE: usize = 32;
+
+    fn inner(n: usize) -> usize {
+        n * 2
+    }
+
+    struct Local {
+        v: usize,
+    }
+
+    let l = Local { v: TILE };
+    inner(l.v)
+}

@@ -1,0 +1,10 @@
+//@ spec: RXS-0021
+// const argument forms: literal, negative literal, block, path.
+
+fn literals(a: Block<4, 2>, b: Grid<(1024,)>) {}
+
+fn negative(n: Offset<-1>) {}
+
+fn blocks<const N: usize>(c: Buffer<{ N + 1 }>, d: Buffer<{ 2 * 8 }>) {}
+
+fn path_form<const N: usize>(e: Buffer<N>) {}

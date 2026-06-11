@@ -1,0 +1,21 @@
+//@ spec: RXS-0014, RXS-0018
+// const fn bodies feeding const items and array lengths.
+
+const fn square(n: usize) -> usize {
+    n * n
+}
+
+const fn pick(n: usize) -> usize {
+    if n > 8 {
+        8
+    } else {
+        n
+    }
+}
+
+const SIDE: usize = 4;
+const AREA: usize = square(SIDE);
+
+fn buffers() -> [f32; 16] {
+    [0.0; 16]
+}

@@ -1,0 +1,21 @@
+//@ spec: RXS-0012
+// Attribute meta grammar: path / list / name-value / nested forms.
+
+#[allow]
+fn bare_path_attr() {}
+
+#[derive(Copy, Clone)]
+struct Flagged {
+    v: f32,
+}
+
+#[link(name = "m", kind = "static")]
+extern "C" {
+    fn sqrtf(x: f32) -> f32;
+}
+
+#[cfg(feature = "gpu")]
+fn name_value_inside_list() {}
+
+#[outer(inner(deep), other = 1)]
+fn nested_meta() {}

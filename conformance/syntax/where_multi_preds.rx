@@ -1,0 +1,18 @@
+//@ spec: RXS-0020
+// where clauses with multiple predicates and compound bounds.
+
+fn merge<A, B, C>(a: A, b: B, c: C) -> A
+where
+    A: Clone + Default,
+    B: Copy,
+    C: Clone,
+{
+    a.clone()
+}
+
+struct Guarded<T>
+where
+    T: Clone + Send,
+{
+    inner: T,
+}

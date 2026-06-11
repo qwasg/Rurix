@@ -1,0 +1,18 @@
+//@ spec: RXS-0013
+// Visibility: inherited / pub / pub(package) across item kinds.
+
+pub struct Open {
+    pub field_a: f32,
+    pub(package) field_b: f32,
+    field_c: f32,
+}
+
+pub(package) fn package_only() {}
+
+pub mod surface {
+    pub(package) struct Half(pub f32, pub(package) u32);
+
+    pub fn exported() {}
+}
+
+fn private_default() {}
