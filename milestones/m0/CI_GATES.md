@@ -55,3 +55,4 @@
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-06-11 | 初版 |
+| v1.1 | 2026-06-11 | §4 注的激活留痕:M1 起激活 UI golden bless 审批 / spec 变更档位标记 / error_codes.json 只追加三项 guardrail,详见 milestones/m1/CI_GATES.md §4(M1 契约配套) |

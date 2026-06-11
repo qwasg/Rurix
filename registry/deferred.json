@@ -43,9 +43,43 @@
       "history": [
         { "date": "2026-06-11", "event": "登记于 M0 契约 out-of-scope", "evidence": "milestones/m0/M0_CONTRACT.md §2.2" }
       ]
+    },
+    {
+      "id": "RD-004",
+      "title": "无损语法树(rowan 式)完整通道(parser 事件流 → 无损语法树)",
+      "reason": "M1 parser 仅预留事件流接口(07 §9);完整无损树服务于 LSP 增量细化,M1 期无消费者",
+      "backfill_condition": "M6 LSP MVP 开工时评估接通;若 LSP MVP 按 07 §9 容忍'保存时全量 body 重查询'则可继续推迟,处置留痕。代码侧 // STUB(RD-004) 双侧标注",
+      "owner_milestone": "M6",
+      "status": "open",
+      "history": [
+        { "date": "2026-06-11", "event": "登记于 M1 契约 out-of-scope", "evidence": "milestones/m1/M1_CONTRACT.md §2.2" }
+      ]
+    },
+    {
+      "id": "RD-005",
+      "title": "rx fmt 完整工具化(配置面 + 稳定性承诺 + rx CLI 收编)",
+      "reason": "M1 仅交付雏形(语法定型即跟进防风格漂移,11 §3 M1;验收只到幂等门 G-M1-5);完整工具化依赖 rx CLI(M6)",
+      "backfill_condition": "M6 rx CLI 全核心子命令交付时收编(11 §3 M6);收编后雏形形态退役并在本条目 close 时留痕",
+      "owner_milestone": "M6",
+      "status": "open",
+      "history": [
+        { "date": "2026-06-11", "event": "登记于 M1 契约 out-of-scope", "evidence": "milestones/m1/M1_CONTRACT.md §2.2" }
+      ]
+    },
+    {
+      "id": "RD-006",
+      "title": "诊断消息中英双语全量覆盖(message-key 本地化文件)",
+      "reason": "M1 仅落 message-key 骨架 + 单语基线(07 §5 第 7 条:骨架第一天定,编译期校验 key 有效性);双语全量是 MVP 首发承诺,挂收口里程碑",
+      "backfill_condition": "M8 MVP 收口前全量回填双语并纳入发布门(10 §6 工具链发布门);覆盖率核对进 CI",
+      "owner_milestone": "M8",
+      "status": "open",
+      "history": [
+        { "date": "2026-06-11", "event": "登记于 M1 契约 out-of-scope", "evidence": "milestones/m1/M1_CONTRACT.md §2.2" }
+      ]
     }
   ],
   "revision_log": [
-    { "version": "v1.0", "date": "2026-06-11", "change": "初版:RD-001 ~ RD-003(M0 契约配套)" }
+    { "version": "v1.0", "date": "2026-06-11", "change": "初版:RD-001 ~ RD-003(M0 契约配套)" },
+    { "version": "v1.1", "date": "2026-06-11", "change": "追加 RD-004 ~ RD-006(M1 契约配套;既有条目 0-byte)" }
   ]
 }

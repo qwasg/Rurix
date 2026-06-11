@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "namespace": "m1",
+  "description": "M1 预算(14 §3:entries + ratio_assertions + counter_assertions,命名空间强制前缀)。占位规则:evidence=estimated 时 evaluator skip 并输出 skip_reason;占位存活 ≤2 个里程碑。契约 G-M1-3:m1.bench.* 在 M1 关闭时必须零 estimated 残留(前端吞吐 measured_local 锚点,为 07 §6 编译性能预算 M2 回填提前布点)。",
+  "source_docs": [
+    "14 §3",
+    "07 §5 §6",
+    "milestones/m1/M1_CONTRACT.md"
+  ],
+  "entries": [
+    {
+      "id": "m1.bench.lexer.throughput_mbps",
+      "direction": "min",
+      "threshold": null,
+      "evidence": "estimated",
+      "skip_reason": "M1 开工占位:lexer 未实现,无真实证据;close-out 前按契约 G-M1-3 回填 measured_local(三次进程级独立运行 trimmed mean,阈值 = 实测 × 0.95,统计协议复用 bench/stats.py)",
+      "unit": "MB/s",
+      "evidence_file": null,
+      "measured_value": null
+    },
+    {
+      "id": "m1.bench.parser.throughput_kloc_per_s",
+      "direction": "min",
+      "threshold": null,
+      "evidence": "estimated",
+      "skip_reason": "M1 开工占位:parser 未实现,无真实证据;close-out 前按契约 G-M1-3 回填 measured_local(协议同 m1.bench.lexer.throughput_mbps 条目)",
+      "unit": "kloc/s",
+      "evidence_file": null,
+      "measured_value": null
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": [
+    {
+      "id": "m1.counter.syntax_corpus_size",
+      "description": "conformance/syntax/ 语法样例数 ≥100(契约 G-M1-1;数量为 estimated 工程选择,调整经 Direct PR 留痕)",
+      "expect": ">=100",
+      "evidence": "ci_checked"
+    },
+    {
+      "id": "m1.counter.ui_golden_path1_snapshots",
+      "description": "黄金路径 1(解析错误)的 tests/ui .stderr snapshot 数 ≥10(契约 G-M1-2)",
+      "expect": ">=10",
+      "evidence": "ci_checked"
+    },
+    {
+      "id": "m1.counter.spec_clause_test_anchoring",
+      "description": "每条 RXS-0xxx 条款 ≥1 测试锚定(契约 G-M1-4,traceability 矩阵工具核对,10 §4)",
+      "expect": "all_anchored",
+      "evidence": "ci_checked"
+    }
+  ],
+  "namespace_check": {
+    "rule": "本文件所有 id 必须以 'm1.' 前缀开头;多预算合并加载时冲突即 FAIL(14 §3)",
+    "unit_test_required": true
+  },
+  "revision_log": [
+    {
+      "version": "v1.0",
+      "date": "2026-06-11",
+      "change": "初版模板,m1.bench.* 全条目 estimated 占位(M1 契约配套)"
+    }
+  ]
+}

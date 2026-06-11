@@ -96,8 +96,18 @@ def eval_ratio(entry: dict, merged: dict[str, dict], strict: bool) -> None:
     )
 
 
+def count_or_gate(eid: str, n: int, required: int, what: str, pending_hint: str, strict: bool) -> None:
+    """M1 计数器通用判定:达标 PASS;未达标 → normal skip(建设期)/ strict FAIL(close-out)。"""
+    if n >= required:
+        PASSES.append(f"{eid}: PASS — {n} {what}(要求 ≥{required})")
+    elif strict:
+        err(f"{eid}: FAIL — 仅 {n} {what}(要求 ≥{required})")
+    else:
+        SKIPS.append(f"{eid}: SKIP — 当前 {n} {what}({pending_hint})")
+
+
 def eval_counter(entry: dict, strict: bool) -> None:
-    """计数器断言:M0 已知两条,未知 id 强制 FAIL(逼迫维护,防僵尸计数器,14 §5)。"""
+    """计数器断言:已知 id 逐条实现,未知 id 强制 FAIL(逼迫维护,防僵尸计数器,14 §5)。"""
     eid = entry["id"]
     if eid == "m0.counter.env_profile_required_fields":
         # 字段完整性由 check_schemas.py 对证据文件做 JSON Schema 校验兜底
@@ -114,6 +124,27 @@ def eval_counter(entry: dict, strict: bool) -> None:
             err(f"{eid}: FAIL — 仅 {n} 份 measured_local 证据(要求 ≥3,契约 G-M0-1)")
         else:
             SKIPS.append(f"{eid}: SKIP — 当前 {n} 份(M0.3 回填前为正常状态)")
+    elif eid == "m1.counter.syntax_corpus_size":
+        n = len(list((ROOT / "conformance" / "syntax").glob("**/*.rx")))
+        count_or_gate(eid, n, 100, "个语法样例", "M1.2/M1.3 建设期为正常状态,契约 G-M1-1", strict)
+    elif eid == "m1.counter.ui_golden_path1_snapshots":
+        n = len(list((ROOT / "tests" / "ui").glob("**/*.stderr")))
+        count_or_gate(eid, n, 10, "条 .stderr snapshot", "M1.4 建设期为正常状态,契约 G-M1-2", strict)
+    elif eid == "m1.counter.spec_clause_test_anchoring":
+        # 条款 ↔ 测试锚定由 traceability 矩阵工具核对(M1.4 交付物,契约 G-M1-4);
+        # 矩阵产物落地前 normal skip / strict FAIL,落地后委托其自身校验结果。
+        matrix = ROOT / "conformance" / "traceability_matrix.json"
+        if matrix.is_file():
+            doc = json.loads(matrix.read_text(encoding="utf-8"))
+            unanchored = [c for c, tests in doc.get("clauses", {}).items() if not tests]
+            if unanchored:
+                err(f"{eid}: FAIL — 未锚定条款: {', '.join(sorted(unanchored))}(10 §4)")
+            else:
+                PASSES.append(f"{eid}: PASS — {len(doc.get('clauses', {}))} 条款全部 ≥1 测试锚定")
+        elif strict:
+            err(f"{eid}: FAIL — traceability 矩阵不存在(契约 G-M1-4)")
+        else:
+            SKIPS.append(f"{eid}: SKIP — traceability 矩阵未生成(M1.4 交付物,建设期为正常状态)")
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 
