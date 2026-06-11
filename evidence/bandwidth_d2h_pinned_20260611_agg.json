@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "evidence_level": "measured_local",
-  "timestamp": "2026-06-11T09:58:13.236054+00:00",
+  "timestamp": "2026-06-11T09:58:29.111679+00:00",
   "bench": {
     "id": "bandwidth_d2h_pinned",
     "level": "L1",
@@ -38,7 +38,7 @@
   },
   "sampling": {
     "warmup_iterations": 10,
-    "steady_state_cv": 0.001176,
+    "steady_state_cv": 0.000644,
     "timed_iterations": 50,
     "trials": 3,
     "trimmed_pct": 0.2,
@@ -49,20 +49,20 @@
     "metric": "copy_bandwidth",
     "unit": "GB/s",
     "trial_medians": [
-      26.3026,
-      26.2478,
-      26.2847
+      26.2274,
+      26.2784,
+      26.2902
     ],
-    "trimmed_mean": 26.2784,
-    "cv": 0.001429,
+    "trimmed_mean": 26.2653,
+    "cv": 0.001271,
     "ci95": [
-      26.2734,
-      26.2921
+      26.2478,
+      26.3052
     ],
-    "min": 26.1492,
-    "max": 26.3251,
-    "outliers_rejected_iqr": 0,
+    "min": 26.1091,
+    "max": 26.3086,
+    "outliers_rejected_iqr": 6,
     "correctness_check": "n/a"
   },
-  "notes": "bandwidthTest-equivalent, direction=d2h_pinned, Driver API memcpy, CUDA Event timing with pre/post stream sync (WDDM batch flush)"
+  "notes": "aggregate of 3 process-level independent runs (bandwidth_d2h_pinned_20260611_1..3.json); trial_medians = per-run trimmed means. bandwidthTest-equivalent, direction=d2h_pinned, Driver API memcpy, CUDA Event timing with pre/post stream sync (WDDM batch flush)"
 }

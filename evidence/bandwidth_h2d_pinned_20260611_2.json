@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
-  "evidence_level": "unlocked",
-  "timestamp": "2026-06-11T09:56:31.786503+00:00",
+  "evidence_level": "measured_local",
+  "timestamp": "2026-06-11T09:58:08.042464+00:00",
   "bench": {
     "id": "bandwidth_h2d_pinned",
     "level": "L1",
     "problem_size": "256MB",
-    "harness_commit": "b7bb873"
+    "harness_commit": "2dd6e77"
   },
   "environment": {
     "driver_version": "591.86",
@@ -15,13 +15,13 @@
     "compute_capability": "8.9",
     "driver_model": "WDDM",
     "clocks": {
-      "locked": false,
+      "locked": true,
       "sm_clock_mhz": 2610,
       "mem_clock_mhz": 10251,
       "lock_method": "nvidia-smi -lgc/-lmc (elevated); persistence mode unsupported on Windows"
     },
     "thermal": {
-      "temp_start_c": 37,
+      "temp_start_c": 38,
       "temp_end_c": 37,
       "steady_state": true
     },
@@ -38,7 +38,7 @@
   },
   "sampling": {
     "warmup_iterations": 10,
-    "steady_state_cv": 0.006331,
+    "steady_state_cv": 0.00135,
     "timed_iterations": 50,
     "trials": 3,
     "trimmed_pct": 0.2,
@@ -49,19 +49,19 @@
     "metric": "copy_bandwidth",
     "unit": "GB/s",
     "trial_medians": [
-      23.2443,
-      23.2493,
-      22.9808
+      23.9322,
+      23.9525,
+      23.9593
     ],
-    "trimmed_mean": 23.1581,
-    "cv": 0.006124,
+    "trimmed_mean": 23.948,
+    "cv": 0.001423,
     "ci95": [
-      23.1989,
-      23.2411
+      23.9481,
+      23.959
     ],
-    "min": 21.8644,
-    "max": 23.4836,
-    "outliers_rejected_iqr": 16,
+    "min": 22.2112,
+    "max": 24.038,
+    "outliers_rejected_iqr": 8,
     "correctness_check": "n/a"
   },
   "notes": "bandwidthTest-equivalent, direction=h2d_pinned, Driver API memcpy, CUDA Event timing with pre/post stream sync (WDDM batch flush)"

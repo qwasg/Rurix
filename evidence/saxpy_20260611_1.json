@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
-  "evidence_level": "unlocked",
-  "timestamp": "2026-06-11T09:56:16.535845+00:00",
+  "evidence_level": "measured_local",
+  "timestamp": "2026-06-11T09:57:53.372063+00:00",
   "bench": {
     "id": "saxpy_f32",
     "level": "L1",
     "problem_size": "2^24 elements f32 (64 MiB/array)",
-    "harness_commit": "b7bb873"
+    "harness_commit": "2dd6e77"
   },
   "environment": {
     "driver_version": "591.86",
@@ -15,9 +15,9 @@
     "compute_capability": "8.9",
     "driver_model": "WDDM",
     "clocks": {
-      "locked": false,
+      "locked": true,
       "sm_clock_mhz": 2610,
-      "mem_clock_mhz": 10251,
+      "mem_clock_mhz": 10501,
       "lock_method": "nvidia-smi -lgc/-lmc (elevated); persistence mode unsupported on Windows"
     },
     "thermal": {
@@ -37,8 +37,8 @@
     "os_build": "Windows 10.0.28020"
   },
   "sampling": {
-    "warmup_iterations": 10,
-    "steady_state_cv": 0.041019,
+    "warmup_iterations": 18,
+    "steady_state_cv": 0.005235,
     "timed_iterations": 50,
     "trials": 3,
     "trimmed_pct": 0.2,
@@ -50,18 +50,18 @@
     "unit": "GB/s",
     "trial_medians": [
       410.4551,
-      416.5424,
-      411.6906
+      411.3138,
+      413.042
     ],
-    "trimmed_mean": 412.896,
-    "cv": 0.028605,
+    "trimmed_mean": 411.6036,
+    "cv": 0.019206,
     "ci95": [
-      411.6906,
-      415.6617
+      411.8122,
+      413.137
     ],
-    "min": 266.3501,
-    "max": 424.1526,
-    "outliers_rejected_iqr": 19,
+    "min": 182.6257,
+    "max": 447.7905,
+    "outliers_rejected_iqr": 40,
     "correctness_check": "pass"
   },
   "notes": "handwritten PTX .version 8.0, mul.rn+add.rn (no FMA, bitwise host comparison); desktop WDDM environment: other GPU-using processes recorded in isolation_check"

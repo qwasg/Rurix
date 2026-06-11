@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "evidence_level": "measured_local",
-  "timestamp": "2026-06-11T09:58:13.236054+00:00",
+  "timestamp": "2026-06-11T09:58:29.154264+00:00",
   "bench": {
-    "id": "bandwidth_d2h_pinned",
+    "id": "bandwidth_d2h_pageable",
     "level": "L1",
     "problem_size": "256MB",
     "harness_commit": "2dd6e77"
@@ -26,7 +26,7 @@
       "steady_state": true
     },
     "isolation_check": {
-      "other_compute_processes": 37
+      "other_compute_processes": 38
     },
     "cuda_driver_version": "13.1",
     "tdr": {
@@ -38,7 +38,7 @@
   },
   "sampling": {
     "warmup_iterations": 10,
-    "steady_state_cv": 0.001176,
+    "steady_state_cv": 0.006938,
     "timed_iterations": 50,
     "trials": 3,
     "trimmed_pct": 0.2,
@@ -49,20 +49,20 @@
     "metric": "copy_bandwidth",
     "unit": "GB/s",
     "trial_medians": [
-      26.3026,
-      26.2478,
-      26.2847
+      19.3344,
+      21.1011,
+      20.926
     ],
-    "trimmed_mean": 26.2784,
-    "cv": 0.001429,
+    "trimmed_mean": 20.4538,
+    "cv": 0.04759,
     "ci95": [
-      26.2734,
-      26.2921
+      19.6254,
+      21.1788
     ],
-    "min": 26.1492,
-    "max": 26.3251,
-    "outliers_rejected_iqr": 0,
+    "min": 17.4636,
+    "max": 21.2785,
+    "outliers_rejected_iqr": 6,
     "correctness_check": "n/a"
   },
-  "notes": "bandwidthTest-equivalent, direction=d2h_pinned, Driver API memcpy, CUDA Event timing with pre/post stream sync (WDDM batch flush)"
+  "notes": "aggregate of 3 process-level independent runs (bandwidth_d2h_pageable_20260611_1..3.json); trial_medians = per-run trimmed means. bandwidthTest-equivalent, direction=d2h_pageable, Driver API memcpy, CUDA Event timing with pre/post stream sync (WDDM batch flush)"
 }
