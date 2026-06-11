@@ -1,0 +1,4 @@
+# 工具链 pin(可复现构建;升级走 Direct PR 并留痕)
+[toolchain]
+channel = "1.93.1"
+components = ["rustfmt", "clippy"]

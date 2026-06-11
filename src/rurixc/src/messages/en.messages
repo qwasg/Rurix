@@ -1,0 +1,6 @@
+# rurixc 诊断消息表 — message-key 骨架(07 §5 第 7 条,D-206)
+# 行格式:key = 模板文本;`{name}` 为参数占位;`#` 行注释。
+# key 与 registry/error_codes.json 的 message_key 字段互查(check_schemas.py 交叉校验)。
+# 单语基线;中英双语全量覆盖 → RD-006(M8)。
+#
+# entries 为空:首批 0xxx 词法/语法 key 随 M1.2 诊断分配,不预造语义。

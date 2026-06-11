@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "description": "Rurix 错误码注册表(07 §5:RX#### 分配制,唯一事实源,人类可读文档由工具生成)。段位:0xxx 词法/语法、1xxx 名称/模块、2xxx 类型、3xxx 着色/地址空间、4xxx 借用/生命周期、5xxx const eval、6xxx codegen/目标、7xxx 链接/工具链。错误码语义可加不可改(10 §6 稳定面):既有码的 title/message_key 冻结,弃用走 status=deprecated 不删除;编号永不复用(10 §9.5)。本文件对 AI 只追加(14 §10.4)。",
+  "segments": {
+    "0": "词法/语法",
+    "1": "名称/模块",
+    "2": "类型",
+    "3": "着色/地址空间",
+    "4": "借用/生命周期",
+    "5": "const eval",
+    "6": "codegen/目标",
+    "7": "链接/工具链"
+  },
+  "entry_schema": {
+    "id": "RX####(四位,首位为段位 0-7;段内分配制递增,不复用)",
+    "title": "一句话含义(冻结字段:可加码不可改义)",
+    "message_key": "src/rurixc/src/messages/en.messages 表主键(check_schemas.py 交叉校验存在性)",
+    "status": "active | deprecated(弃用不删除)",
+    "introduced_in": "首次分配的里程碑"
+  },
+  "entries": [],
+  "revision_log": [
+    {
+      "version": "v1.0",
+      "date": "2026-06-11",
+      "change": "初版:schema 固化,entries 空(首批 0xxx 码随 M1.2 词法/语法诊断分配,不预造语义;M1 契约 D-M1-1)"
+    }
+  ]
+}

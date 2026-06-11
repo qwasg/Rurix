@@ -1,0 +1,12 @@
+[package]
+name = "rurixc"
+description = "Rurix compiler (M1.1: diagnostics foundation - Span/SourceMap/DiagCtxt/messages)"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+# M1.1 零外部依赖:消息表为自有行格式(不引 JSON/serde),渲染库(annotate-snippets)随 M1.2 接入
+
+[lints]
+workspace = true

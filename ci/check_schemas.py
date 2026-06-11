@@ -69,6 +69,56 @@ def check_gating(path: Path) -> None:
             err(f"spike_gating {eid}: decisions 不得为空(留痕要求,14 §7)")
 
 
+def parse_message_keys(path: Path) -> set[str] | None:
+    """解析 rurixc 消息表行格式(key = 模板;# 注释),返回 key 集。"""
+    if not path.is_file():
+        return None
+    keys: set[str] = set()
+    for lineno, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            err(f"messages: 第 {lineno} 行缺 '=': {line!r}")
+            continue
+        key = line.split("=", 1)[0].strip()
+        if not key or any(c.isspace() for c in key):
+            err(f"messages: 第 {lineno} 行 key 非法: {key!r}")
+            continue
+        if key in keys:
+            err(f"messages: key 重复: {key}")
+        keys.add(key)
+    return keys
+
+
+def check_error_codes(path: Path) -> None:
+    """错误码注册表校验(07 §5 分配制;M1 CI_GATES §2 步骤 11)。"""
+    if not path.is_file():
+        return  # M1.1 落地前不存在,放行
+    data = load(path)
+    if data is None:
+        return
+    message_keys = parse_message_keys(ROOT / "src/rurixc/src/messages/en.messages")
+    seen: set[str] = set()
+    for entry in data.get("entries", []):
+        eid = entry.get("id", "")
+        if not re.fullmatch(r"RX\d{4}", eid):
+            err(f"error_codes: 编号格式非法: {eid!r}")
+        elif eid[2] not in "01234567":
+            err(f"error_codes {eid}: 段位非法(0-7,07 §5)")
+        if eid in seen:
+            err(f"error_codes: 编号重复: {eid}(编号永不复用,10 §9.5)")
+        seen.add(eid)
+        for field in ("title", "message_key", "status", "introduced_in"):
+            if not entry.get(field):
+                err(f"error_codes {eid}: 缺字段 {field}")
+        if entry.get("status") not in ("active", "deprecated"):
+            err(f"error_codes {eid}: status 非法: {entry.get('status')!r}")
+        mk = entry.get("message_key")
+        if mk and message_keys is not None and mk not in message_keys:
+            err(f"error_codes {eid}: message_key 未在 en.messages 注册: {mk!r}")
+
+
 def check_budget(path: Path) -> None:
     data = load(path)
     if data is None:
@@ -129,6 +179,7 @@ def check_evidence_files() -> None:
 def main() -> int:
     check_deferred(ROOT / "registry/deferred.json")
     check_gating(ROOT / "registry/spike_gating.json")
+    check_error_codes(ROOT / "registry/error_codes.json")
     for budget in sorted(ROOT.glob("milestones/*/m*_budget.json")):
         check_budget(budget)
     check_evidence_files()

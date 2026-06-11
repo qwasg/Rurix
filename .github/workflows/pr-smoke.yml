@@ -47,3 +47,16 @@ jobs:
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
+
+      # —— M1 增量(milestones/m1/CI_GATES.md §2,步骤 7-8;error_codes schema 已并入步骤 2)——
+      - name: cargo fmt check (M1 CI_GATES §2.7)
+        shell: powershell
+        run: cargo fmt --all --check
+
+      - name: cargo clippy (M1 CI_GATES §2.7)
+        shell: powershell
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: cargo test (M1 CI_GATES §2.8)
+        shell: powershell
+        run: cargo test --workspace

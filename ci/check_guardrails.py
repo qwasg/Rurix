@@ -5,7 +5,8 @@
   2. registry/*.json 既有条目只追加;
   3. 预算 JSON:measured_local 条目冻结;estimated 只允许转 measured_local;
   4. evidence/ 只增不删不改;
-  5. status: closed 的契约文件只追加。
+  5. status: closed 的契约文件只追加;
+  6. registry/error_codes.json 含义字段冻结(M1 CI_GATES §4 第 8 项,M1.1 激活)。
 """
 from __future__ import annotations
 
@@ -95,6 +96,29 @@ def check_registry(base: str, path: str, kind: str) -> None:
             err(f"{path} {eid}: 留痕数组被改写(只允许追加)")
 
 
+def check_error_codes(base: str, path: str) -> None:
+    """错误码语义可加不可改(10 §6 稳定面;M1 CI_GATES §4 第 8 项,M1.1 激活)。"""
+    base_text = git_show(base, path)
+    if base_text is None:
+        return  # 基准中不存在 → 新文件,放行
+    base_doc = json.loads(base_text)
+    cur_doc = json.loads((ROOT / path).read_text(encoding="utf-8"))
+    cur_by_id = {e["id"]: e for e in cur_doc.get("entries", [])}
+    for base_entry in base_doc.get("entries", []):
+        eid = base_entry["id"]
+        cur_entry = cur_by_id.get(eid)
+        if cur_entry is None:
+            err(f"{path}: 错误码消失: {eid}(编号永不复用,弃用走 deprecated,10 §9.5)")
+            continue
+        for field in ("id", "title", "message_key", "introduced_in"):
+            if cur_entry.get(field) != base_entry.get(field):
+                err(f"{path} {eid}: 含义字段 {field} 被修改(可加不可改,10 §6)")
+        if cur_entry.get("status") != base_entry.get("status") and not (
+            base_entry.get("status") == "active" and cur_entry.get("status") == "deprecated"
+        ):
+            err(f"{path} {eid}: status 仅允许 active → deprecated")
+
+
 def check_budget(base: str, path: str) -> None:
     base_text = git_show(base, path)
     if base_text is None:
@@ -146,6 +170,7 @@ def main() -> int:
     check_planning_docs(diffs)
     check_registry(base, "registry/deferred.json", "deferred")
     check_registry(base, "registry/spike_gating.json", "gating")
+    check_error_codes(base, "registry/error_codes.json")
     for budget in sorted(ROOT.glob("milestones/*/m*_budget.json")):
         check_budget(base, budget.relative_to(ROOT).as_posix())
     check_evidence(base, diffs)

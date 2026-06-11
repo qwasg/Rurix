@@ -1,0 +1,16 @@
+# rurixc workspace(D-201:实现语言 Rust;M1.1 起 src/ 实体化)
+# crate 划分最小起步,按需拆分(M1_PLAN §1)
+[workspace]
+resolver = "2"
+members = ["src/rurixc"]
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "deny"        # unsafe 纪律(10 §7.6):出现 unsafe 前须先建 unsafe-audit 注册条目,届时按块豁免
+
+[workspace.lints.clippy]
+undocumented_unsafe_blocks = "deny"
