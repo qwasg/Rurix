@@ -1,0 +1,20 @@
+//@ spec: RXS-0032, RXS-0033
+// Name introduction forms and lexical shadowing across modules and blocks.
+
+mod math {
+    pub fn add(x: i32, y: i32) -> i32 {
+        x + y
+    }
+
+    pub const BASE: i32 = 7;
+}
+
+fn sample<T>(x: T) -> i32 {
+    let outer = math::BASE;
+    {
+        let outer = 1;
+        let _shadow = outer;
+    }
+    let _keep = x;
+    outer
+}

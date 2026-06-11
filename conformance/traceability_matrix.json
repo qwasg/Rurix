@@ -255,6 +255,29 @@
       "src/rurixc/src/parser.rs",
       "tests/ui/parse/gated_closure.rx",
       "tests/ui/parse/unknown_feature.rx"
+    ],
+    "RXS-0032": [
+      "conformance/syntax/names_module_scope.rx"
+    ],
+    "RXS-0033": [
+      "conformance/syntax/names_module_scope.rx",
+      "conformance/syntax/names_path_priority.rx"
+    ],
+    "RXS-0034": [
+      "conformance/syntax/names_path_priority.rx"
+    ],
+    "RXS-0035": [
+      "conformance/syntax/names_use_visibility.rx"
+    ],
+    "RXS-0036": [
+      "conformance/syntax/names_use_visibility.rx"
+    ],
+    "RXS-0037": [
+      "conformance/syntax/names_duplicates.rx"
+    ],
+    "RXS-0038": [
+      "conformance/syntax/names_duplicates.rx",
+      "conformance/syntax/names_use_visibility.rx"
     ]
   }
 }

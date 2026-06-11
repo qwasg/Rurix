@@ -17,3 +17,9 @@ parse.expected_token = expected {expected}, found {found}
 parse.unclosed_delimiter = unclosed delimiter {delim}
 parse.gated_feature = use of experimental syntax gated behind feature `{feature}`
 parse.unknown_feature = unknown feature {feature}
+#
+# 名称解析诊断(RX1001 ~ RX1004,spec/names.md;M2.1 分配)
+resolve.unresolved_name = unresolved name {name}
+resolve.duplicate_definition = duplicate definition of {name}
+resolve.visibility_violation = {name} is not visible from this scope
+resolve.bad_use_target = invalid use target {target}

@@ -35,3 +35,10 @@
 | RXS-0029 | spec/syntax.md | 6 | `conformance/syntax/match_block_arms.rx`, `conformance/syntax/match_empty_and_nested.rx`, `conformance/syntax/match_guards.rx` …(+3) |
 | RXS-0030 | spec/syntax.md | 3 | `src/rurixc/src/parser.rs`, `tests/ui/parse/missing_semi.rx`, `tests/ui/parse/unclosed_brace.rx` |
 | RXS-0031 | spec/syntax.md | 5 | `conformance/syntax/feature_gate_closures.rx`, `src/rurixc/src/feature_gate.rs`, `src/rurixc/src/parser.rs` …(+2) |
+| RXS-0032 | spec/names.md | 1 | `conformance/syntax/names_module_scope.rx` |
+| RXS-0033 | spec/names.md | 2 | `conformance/syntax/names_module_scope.rx`, `conformance/syntax/names_path_priority.rx` |
+| RXS-0034 | spec/names.md | 1 | `conformance/syntax/names_path_priority.rx` |
+| RXS-0035 | spec/names.md | 1 | `conformance/syntax/names_use_visibility.rx` |
+| RXS-0036 | spec/names.md | 1 | `conformance/syntax/names_use_visibility.rx` |
+| RXS-0037 | spec/names.md | 1 | `conformance/syntax/names_duplicates.rx` |
+| RXS-0038 | spec/names.md | 2 | `conformance/syntax/names_duplicates.rx`, `conformance/syntax/names_use_visibility.rx` |
