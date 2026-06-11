@@ -35,10 +35,10 @@
 | RXS-0029 | spec/syntax.md | 6 | `conformance/syntax/match_block_arms.rx`, `conformance/syntax/match_empty_and_nested.rx`, `conformance/syntax/match_guards.rx` …(+3) |
 | RXS-0030 | spec/syntax.md | 3 | `src/rurixc/src/parser.rs`, `tests/ui/parse/missing_semi.rx`, `tests/ui/parse/unclosed_brace.rx` |
 | RXS-0031 | spec/syntax.md | 5 | `conformance/syntax/feature_gate_closures.rx`, `src/rurixc/src/feature_gate.rs`, `src/rurixc/src/parser.rs` …(+2) |
-| RXS-0032 | spec/names.md | 1 | `conformance/syntax/names_module_scope.rx` |
-| RXS-0033 | spec/names.md | 2 | `conformance/syntax/names_module_scope.rx`, `conformance/syntax/names_path_priority.rx` |
-| RXS-0034 | spec/names.md | 1 | `conformance/syntax/names_path_priority.rx` |
-| RXS-0035 | spec/names.md | 1 | `conformance/syntax/names_use_visibility.rx` |
-| RXS-0036 | spec/names.md | 1 | `conformance/syntax/names_use_visibility.rx` |
-| RXS-0037 | spec/names.md | 1 | `conformance/syntax/names_duplicates.rx` |
-| RXS-0038 | spec/names.md | 2 | `conformance/syntax/names_duplicates.rx`, `conformance/syntax/names_use_visibility.rx` |
+| RXS-0032 | spec/names.md | 7 | `conformance/resolve/block_items.rx`, `conformance/resolve/modules_basic.rx`, `conformance/resolve/nested_modules.rx` …(+4) |
+| RXS-0033 | spec/names.md | 5 | `conformance/resolve/shadowing_blocks.rx`, `conformance/resolve/statics_consts_patterns.rx`, `conformance/syntax/names_module_scope.rx` …(+2) |
+| RXS-0034 | spec/names.md | 9 | `conformance/resolve/enum_variants_assoc.rx`, `conformance/resolve/generics_params_refs.rx`, `conformance/resolve/modules_basic.rx` …(+6) |
+| RXS-0035 | spec/names.md | 6 | `conformance/resolve/use_alias_chain.rx`, `conformance/resolve/use_simple.rx`, `conformance/syntax/names_use_visibility.rx` …(+3) |
+| RXS-0036 | spec/names.md | 6 | `conformance/resolve/nested_modules.rx`, `conformance/resolve/private_descendants.rx`, `conformance/resolve/visibility_pub_package.rx` …(+3) |
+| RXS-0037 | spec/names.md | 3 | `conformance/syntax/names_duplicates.rx`, `src/rurixc/src/resolve.rs`, `tests/ui/resolve/duplicate_definition.rx` |
+| RXS-0038 | spec/names.md | 7 | `conformance/syntax/names_duplicates.rx`, `conformance/syntax/names_use_visibility.rx`, `src/rurixc/src/resolve.rs` …(+4) |
