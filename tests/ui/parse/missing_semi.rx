@@ -1,4 +1,4 @@
 //@ spec: RXS-0024, RXS-0030
 fn f() {
-    let a = 1 let b = 2; //~ ERROR RX0008
+    let x = 1 let y = 2; //~ ERROR RX0008
 }
