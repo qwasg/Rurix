@@ -5,7 +5,7 @@ name: pr-smoke
 on:
   pull_request:
   push:
-    branches: [master]
+    branches: [main]
 
 concurrency:
   group: gpu-runner          # 基准互扰防护:GPU 任务串行(CI_GATES.md §1)
