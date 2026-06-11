@@ -1,0 +1,16 @@
+//@ spec: RXS-0036
+// pub and pub(package) are both visible inside the package.
+
+mod api {
+    pub fn open() -> i32 {
+        1
+    }
+
+    pub(package) fn internal() -> i32 {
+        2
+    }
+}
+
+fn main() {
+    let _sum = api::open() + api::internal();
+}

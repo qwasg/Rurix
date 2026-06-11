@@ -1,0 +1,6 @@
+error[RX1001]: unresolved name `vlaue`
+ --> $DIR/resolve/unresolved_name.rx:4:14
+  |
+4 |     let _x = vlaue; //~ ERROR RX1001
+  |              ^^^^^ not found in this scope
+  = help: a name with a similar spelling exists: `value`

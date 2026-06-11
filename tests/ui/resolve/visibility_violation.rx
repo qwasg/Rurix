@@ -1,0 +1,10 @@
+//@ spec: RXS-0036, RXS-0038
+mod m {
+    fn secret() -> i32 {
+        1
+    }
+}
+
+fn f() -> i32 {
+    m::secret() //~ ERROR RX1003
+}

@@ -1,0 +1,9 @@
+error[RX1002]: duplicate definition of `same`
+ --> $DIR/resolve/duplicate_definition.rx:6:4
+  |
+6 | fn same() -> i32 { //~ ERROR RX1002
+  |    ^^^^ redefined here
+ ::: $DIR/resolve/duplicate_definition.rx:2:4
+  |
+2 | fn same() -> i32 {
+  |    ^^^^ first defined here

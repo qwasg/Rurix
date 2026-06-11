@@ -1,0 +1,16 @@
+//@ spec: RXS-0034
+// Generic type and const parameters resolve in type and value positions.
+
+fn fill<T, const N: usize>(seed: T) -> usize {
+    let _typed: T = seed;
+    let _arr = [0; N];
+    N
+}
+
+struct Holder<T> {
+    inner: T,
+}
+
+fn main() {
+    let _n = fill::<i32, 4>(1);
+}

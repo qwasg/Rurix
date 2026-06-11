@@ -1,0 +1,15 @@
+//@ spec: RXS-0032, RXS-0034
+// Self-contained module tree with multi-segment paths.
+
+mod math {
+    pub fn add(x: i32, y: i32) -> i32 {
+        x + y
+    }
+
+    pub const BASE: i32 = 7;
+}
+
+fn main() {
+    let total = math::add(math::BASE, 1);
+    let _keep = total;
+}

@@ -1,0 +1,33 @@
+//@ spec: RXS-0034
+// Enum variant paths and inherent associated functions resolve.
+
+enum Shape {
+    Circle { radius: f32 },
+    Pair(f32, f32),
+    Point,
+}
+
+struct Counter {
+    value: u32,
+}
+
+impl Counter {
+    fn new() -> Counter {
+        Counter { value: 0 }
+    }
+
+    fn get(&self) -> u32 {
+        self.value
+    }
+}
+
+fn main() {
+    let c = Counter::new();
+    let _v = c.get();
+    let s = Shape::Pair(1.0, 2.0);
+    let _area = match s {
+        Shape::Circle { radius } => radius,
+        Shape::Pair(a, b) => a + b,
+        Shape::Point => 0.0,
+    };
+}

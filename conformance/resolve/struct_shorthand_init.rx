@@ -1,0 +1,17 @@
+//@ spec: RXS-0034
+// Struct literal shorthand fields reference same-named locals.
+
+struct Body {
+    mass: f32,
+    vel: f32,
+}
+
+fn make(mass: f32) -> Body {
+    let vel = mass * 2.0;
+    Body { mass, vel }
+}
+
+fn main() {
+    let b = make(1.0);
+    let _m = b.mass;
+}

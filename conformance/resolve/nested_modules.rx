@@ -1,0 +1,22 @@
+//@ spec: RXS-0032, RXS-0036
+// Three-level module nesting with pub hops on every segment.
+
+mod outer {
+    pub mod middle {
+        pub mod inner {
+            pub fn depth() -> u32 {
+                3
+            }
+        }
+
+        pub fn reach() -> u32 {
+            inner::depth()
+        }
+    }
+}
+
+fn main() {
+    let a = outer::middle::reach();
+    let b = outer::middle::inner::depth();
+    let _sum = a + b;
+}

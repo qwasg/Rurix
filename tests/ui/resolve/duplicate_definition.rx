@@ -1,0 +1,8 @@
+//@ spec: RXS-0037, RXS-0038
+fn same() -> i32 {
+    1
+}
+
+fn same() -> i32 { //~ ERROR RX1002
+    2
+}

@@ -1,0 +1,15 @@
+//@ spec: RXS-0035
+// `as` aliases and use-of-use chains resolve to the original target.
+
+mod m {
+    pub fn produce() -> i32 {
+        9
+    }
+}
+
+use m::produce as make;
+use make as make_again;
+
+fn main() {
+    let _v = make() + make_again();
+}

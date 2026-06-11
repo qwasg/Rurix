@@ -1,0 +1,26 @@
+//@ spec: RXS-0036
+// Private names are visible to the defining module and its descendants.
+
+fn root_secret() -> i32 {
+    1
+}
+
+mod child {
+    pub fn call_up() -> i32 {
+        local_secret()
+    }
+
+    fn local_secret() -> i32 {
+        2
+    }
+
+    pub mod grandchild {
+        pub fn deeper() -> i32 {
+            4
+        }
+    }
+}
+
+fn main() {
+    let _v = root_secret() + child::call_up() + child::grandchild::deeper();
+}

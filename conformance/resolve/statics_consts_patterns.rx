@@ -1,0 +1,18 @@
+//@ spec: RXS-0032, RXS-0033
+// Statics, consts, and pattern bindings across match arms.
+
+const LIMIT: i32 = 100;
+static SEED: i32 = 42;
+
+fn classify(n: i32) -> i32 {
+    match n {
+        0 => SEED,
+        small @ 1..=9 => small * LIMIT,
+        other => other,
+    }
+}
+
+fn main() {
+    let (a, b) = (classify(0), classify(5));
+    let _t = a + b;
+}

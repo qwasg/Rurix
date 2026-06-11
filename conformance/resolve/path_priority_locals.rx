@@ -1,0 +1,19 @@
+//@ spec: RXS-0034
+// Single-segment expression paths prefer locals over module items.
+
+fn shade() -> i32 {
+    1
+}
+
+const LEVEL: i32 = 5;
+
+fn main() {
+    let shade = 2;
+    let level = LEVEL;
+    let _a = shade + level;
+    let _b = other(shade);
+}
+
+fn other(n: i32) -> i32 {
+    n + shade()
+}
