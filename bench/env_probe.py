@@ -22,7 +22,10 @@ ROOT = Path(__file__).resolve().parent.parent
 # 来源:NVIDIA 4070 Ti 规格页;10501 = 本机唯一支持显存档,
 # 来源:nvidia-smi -q -d SUPPORTED_CLOCKS 输出,2026-06-11)
 LOCK_TARGET_SM_MHZ = 2610
+# GDDR6X 实测特性:-lmc 10501 锁定生效后,负载下 NVML 报告值为 10251(低一档),
+# 空闲读回 10501;两值均视为锁定(来源:本机 nvmlDeviceGetClockInfo 实测,2026-06-11)
 LOCK_TARGET_MEM_MHZ = 10501
+LOCK_MEM_ACCEPTED_MHZ = (10501, 10251)
 CLOCK_TOLERANCE_MHZ = 15  # 相邻档位步进(SUPPORTED_CLOCKS 输出为 15MHz 步进)
 
 NVML_CLOCK_SM = 1
@@ -82,7 +85,7 @@ def collect_environment(device_index: int = 0) -> dict:
                "nvmlDeviceGetClockInfo(MEM)")
         locked = (
             abs(sm_clk.value - LOCK_TARGET_SM_MHZ) <= CLOCK_TOLERANCE_MHZ
-            and abs(mem_clk.value - LOCK_TARGET_MEM_MHZ) <= CLOCK_TOLERANCE_MHZ
+            and any(abs(mem_clk.value - t) <= CLOCK_TOLERANCE_MHZ for t in LOCK_MEM_ACCEPTED_MHZ)
         )
         env["clocks"] = {
             "locked": locked,

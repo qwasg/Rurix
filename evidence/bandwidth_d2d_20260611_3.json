@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "evidence_level": "unlocked",
+  "timestamp": "2026-06-11T09:56:56.366124+00:00",
+  "bench": {
+    "id": "bandwidth_d2d",
+    "level": "L1",
+    "problem_size": "256MB",
+    "harness_commit": "b7bb873"
+  },
+  "environment": {
+    "driver_version": "591.86",
+    "nvml_version": "13.591.86",
+    "gpu_name": "NVIDIA GeForce RTX 4070 Ti",
+    "compute_capability": "8.9",
+    "driver_model": "WDDM",
+    "clocks": {
+      "locked": false,
+      "sm_clock_mhz": 2610,
+      "mem_clock_mhz": 10251,
+      "lock_method": "nvidia-smi -lgc/-lmc (elevated); persistence mode unsupported on Windows"
+    },
+    "thermal": {
+      "temp_start_c": 37,
+      "temp_end_c": 39,
+      "steady_state": false
+    },
+    "isolation_check": {
+      "other_compute_processes": 37
+    },
+    "cuda_driver_version": "13.1",
+    "tdr": {
+      "tdr_delay": "not_set(os_default)",
+      "tdr_level": "not_set(os_default)"
+    },
+    "hags_enabled": true,
+    "os_build": "Windows 10.0.28020"
+  },
+  "sampling": {
+    "warmup_iterations": 50,
+    "steady_state_cv": 0.239598,
+    "timed_iterations": 50,
+    "trials": 3,
+    "trimmed_pct": 0.2,
+    "l2_clear_mb": 256,
+    "timer": "cuda_event"
+  },
+  "results": {
+    "metric": "copy_bandwidth",
+    "unit": "GB/s",
+    "trial_medians": [
+      420.2604,
+      413.5783,
+      398.1399
+    ],
+    "trimmed_mean": 410.6595,
+    "cv": 0.18826,
+    "ci95": [
+      384.0794,
+      421.4534
+    ],
+    "min": 252.8403,
+    "max": 438.7347,
+    "outliers_rejected_iqr": 0,
+    "correctness_check": "n/a"
+  },
+  "notes": "bandwidthTest-equivalent, direction=d2d, Driver API memcpy, CUDA Event timing with pre/post stream sync (WDDM batch flush)"
+}
