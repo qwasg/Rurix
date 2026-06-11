@@ -257,27 +257,61 @@
       "tests/ui/parse/unknown_feature.rx"
     ],
     "RXS-0032": [
-      "conformance/syntax/names_module_scope.rx"
+      "conformance/resolve/block_items.rx",
+      "conformance/resolve/modules_basic.rx",
+      "conformance/resolve/nested_modules.rx",
+      "conformance/resolve/statics_consts_patterns.rx",
+      "conformance/syntax/names_module_scope.rx",
+      "src/rurixc/src/lower.rs",
+      "src/rurixc/src/resolve.rs"
     ],
     "RXS-0033": [
+      "conformance/resolve/shadowing_blocks.rx",
+      "conformance/resolve/statics_consts_patterns.rx",
       "conformance/syntax/names_module_scope.rx",
-      "conformance/syntax/names_path_priority.rx"
+      "conformance/syntax/names_path_priority.rx",
+      "src/rurixc/src/resolve.rs"
     ],
     "RXS-0034": [
-      "conformance/syntax/names_path_priority.rx"
+      "conformance/resolve/enum_variants_assoc.rx",
+      "conformance/resolve/generics_params_refs.rx",
+      "conformance/resolve/modules_basic.rx",
+      "conformance/resolve/path_priority_locals.rx",
+      "conformance/resolve/struct_shorthand_init.rx",
+      "conformance/syntax/names_path_priority.rx",
+      "src/rurixc/src/lower.rs",
+      "src/rurixc/src/resolve.rs",
+      "tests/ui/resolve/unresolved_name.rx"
     ],
     "RXS-0035": [
-      "conformance/syntax/names_use_visibility.rx"
+      "conformance/resolve/use_alias_chain.rx",
+      "conformance/resolve/use_simple.rx",
+      "conformance/syntax/names_use_visibility.rx",
+      "src/rurixc/src/lower.rs",
+      "src/rurixc/src/resolve.rs",
+      "tests/ui/resolve/bad_use_target.rx"
     ],
     "RXS-0036": [
-      "conformance/syntax/names_use_visibility.rx"
+      "conformance/resolve/nested_modules.rx",
+      "conformance/resolve/private_descendants.rx",
+      "conformance/resolve/visibility_pub_package.rx",
+      "conformance/syntax/names_use_visibility.rx",
+      "src/rurixc/src/resolve.rs",
+      "tests/ui/resolve/visibility_violation.rx"
     ],
     "RXS-0037": [
-      "conformance/syntax/names_duplicates.rx"
+      "conformance/syntax/names_duplicates.rx",
+      "src/rurixc/src/resolve.rs",
+      "tests/ui/resolve/duplicate_definition.rx"
     ],
     "RXS-0038": [
       "conformance/syntax/names_duplicates.rx",
-      "conformance/syntax/names_use_visibility.rx"
+      "conformance/syntax/names_use_visibility.rx",
+      "src/rurixc/src/resolve.rs",
+      "tests/ui/resolve/bad_use_target.rx",
+      "tests/ui/resolve/duplicate_definition.rx",
+      "tests/ui/resolve/unresolved_name.rx",
+      "tests/ui/resolve/visibility_violation.rx"
     ]
   }
 }
