@@ -6,3 +6,4 @@
 | 日期 | 范围 | 理由 | 批准 |
 |---|---|---|---|
 | 2026-06-11 | tests/ui/parse/ 初始 12 条 snapshot | M1.4 黄金路径 1 首批落地(D-M1-4),通道建立时的初始 bless | pending-human-review |
+| 2026-06-11 | tests/ui/parse/missing_semi.stderr | M1 G-M1-2 红绿验证:确认 snapshot 变更经人工 bless 审批后可放行 | qwasg |
