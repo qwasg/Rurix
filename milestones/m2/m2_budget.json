@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "namespace": "m2",
+  "description": "M2 预算(14 §3:entries + ratio_assertions + counter_assertions,命名空间强制前缀)。编译性能阈值(07 §6)按 11 §3 为 M3 首次实测回填:本文件 m2.bench.* 在 M2 期全程 estimated 占位 + skip_reason,M2 契约不设零 estimated 残留门(契约 §4 诚实声明);占位存活 ≤2 个里程碑,M3 close-out 前必须转 measured_local。",
+  "source_docs": [
+    "14 §3",
+    "07 §6",
+    "11 §3 (M2/M3 分工)",
+    "milestones/m2/M2_CONTRACT.md"
+  ],
+  "entries": [
+    {
+      "id": "m2.bench.cold_compile_hello_world_ms",
+      "direction": "max",
+      "threshold": null,
+      "evidence": "estimated",
+      "skip_reason": "M2 开工占位:冷编译 hello-world 端到端耗时(07 §6);M2 仅交付 self-profile 计时基础设施,阈值按 11 §3 M3 首次实测回填 measured_local(三次进程级独立运行 trimmed mean,统计协议复用 bench/stats.py)",
+      "unit": "ms",
+      "evidence_file": null,
+      "measured_value": null
+    },
+    {
+      "id": "m2.bench.check_latency_ms",
+      "direction": "max",
+      "threshold": null,
+      "evidence": "estimated",
+      "skip_reason": "M2 开工占位:增量 check 延迟(07 §6 行业参考线 <5s 为 estimated 性质,r11);增量通道本身是 D-203 Phase 2+ 范围,M2 仅记录全量 check 耗时口径,阈值随 M3 回填",
+      "unit": "ms",
+      "evidence_file": null,
+      "measured_value": null
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": [
+    {
+      "id": "m2.counter.ui_golden_path2_snapshots",
+      "description": "黄金路径 2(类型错误)的 tests/ui/typeck .stderr snapshot 数 ≥10(契约 G-M2-3;数量为 estimated 工程选择,调整经 Direct PR 留痕)",
+      "expect": ">=10",
+      "evidence": "ci_checked"
+    }
+  ],
+  "namespace_check": {
+    "rule": "本文件所有 id 必须以 'm2.' 前缀开头;多预算合并加载时冲突即 FAIL(14 §3)",
+    "unit_test_required": true
+  },
+  "revision_log": [
+    {
+      "version": "v1.0",
+      "date": "2026-06-11",
+      "change": "初版模板:m2.bench.* estimated 占位(阈值 M3 实测回填,契约 §4 诚实声明)+ 黄金路径 2 计数器(M2 契约配套)"
+    }
+  ]
+}

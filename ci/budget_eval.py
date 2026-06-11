@@ -130,6 +130,10 @@ def eval_counter(entry: dict, strict: bool) -> None:
     elif eid == "m1.counter.ui_golden_path1_snapshots":
         n = len(list((ROOT / "tests" / "ui").glob("**/*.stderr")))
         count_or_gate(eid, n, 10, "条 .stderr snapshot", "M1.4 建设期为正常状态,契约 G-M1-2", strict)
+    elif eid == "m2.counter.ui_golden_path2_snapshots":
+        typeck_dir = ROOT / "tests" / "ui" / "typeck"
+        n = len(list(typeck_dir.glob("**/*.stderr"))) if typeck_dir.is_dir() else 0
+        count_or_gate(eid, n, 10, "条 .stderr snapshot", "M2.2 建设期为正常状态,契约 G-M2-3", strict)
     elif eid == "m1.counter.spec_clause_test_anchoring":
         # 条款 ↔ 测试锚定由 traceability 矩阵工具核对(M1.4 交付物,契约 G-M1-4);
         # 矩阵产物落地前 normal skip / strict FAIL,落地后委托其自身校验结果。
