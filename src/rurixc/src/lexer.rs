@@ -1135,6 +1135,7 @@ mod tests {
 
     // ---- RXS-0001 非法字符与合并诊断 ----
 
+    //@ spec: RXS-0001
     #[test]
     fn illegal_chars_merged_into_one_diag() {
         // 非 ASCII 标识符尝试:连续违例合并为单条 RX0001(RXS-0001 实现要求)
@@ -1151,6 +1152,7 @@ mod tests {
 
     // ---- RXS-0010 错误恢复 ----
 
+    //@ spec: RXS-0010
     #[test]
     fn multi_error_recovery_in_one_file() {
         // 三处独立词法错误,lexing 不中断且 token 流完整(RXS-0010)

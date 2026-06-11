@@ -1,0 +1,260 @@
+{
+  "schema_version": 1,
+  "generated_by": "ci/trace_matrix.py",
+  "description": "spec 条款 ↔ 测试锚定矩阵(G-M1-4;budget_eval 消费 clauses 字段,空列表 = 未锚定即 FAIL)",
+  "clauses": {
+    "RXS-0001": [
+      "src/rurixc/src/lexer.rs"
+    ],
+    "RXS-0002": [
+      "conformance/syntax/comments.rx"
+    ],
+    "RXS-0003": [
+      "conformance/syntax/comments.rx",
+      "conformance/syntax/comments_between_items.rx"
+    ],
+    "RXS-0004": [
+      "conformance/syntax/fn_basic.rx",
+      "conformance/syntax/hello_world.rx",
+      "conformance/syntax/idents_keywords.rx"
+    ],
+    "RXS-0005": [
+      "conformance/syntax/atomics_sync.rx",
+      "conformance/syntax/buffers_context.rx",
+      "conformance/syntax/closures_and_calls.rx",
+      "conformance/syntax/const_generics.rx",
+      "conformance/syntax/control_flow.rx",
+      "conformance/syntax/device_fn.rx",
+      "conformance/syntax/enum_match.rx",
+      "conformance/syntax/error_handling.rx",
+      "conformance/syntax/export_c.rx",
+      "conformance/syntax/ffi_extern.rx",
+      "conformance/syntax/fn_basic.rx",
+      "conformance/syntax/fn_generics.rx",
+      "conformance/syntax/hello_world.rx",
+      "conformance/syntax/idents_keywords.rx",
+      "conformance/syntax/kernel_fn.rx",
+      "conformance/syntax/launch_api.rx",
+      "conformance/syntax/modules_use.rx",
+      "conformance/syntax/patterns_let.rx",
+      "conformance/syntax/shared_let.rx",
+      "conformance/syntax/static_const_items.rx",
+      "conformance/syntax/struct_def.rx",
+      "conformance/syntax/trait_impl.rx",
+      "conformance/syntax/types_addrspace_contextual.rx",
+      "conformance/syntax/unsafe_block.rx",
+      "conformance/syntax/vec_mat_swizzle.rx",
+      "conformance/syntax/views_ops.rx"
+    ],
+    "RXS-0006": [
+      "conformance/syntax/buffers_context.rx",
+      "conformance/syntax/const_generics.rx",
+      "conformance/syntax/literals_int.rx",
+      "conformance/syntax/static_const_items.rx"
+    ],
+    "RXS-0007": [
+      "conformance/syntax/literals_float.rx",
+      "conformance/syntax/vec_mat_swizzle.rx"
+    ],
+    "RXS-0008": [
+      "conformance/syntax/buffers_context.rx",
+      "conformance/syntax/export_c.rx",
+      "conformance/syntax/ffi_extern.rx",
+      "conformance/syntax/hello_world.rx",
+      "conformance/syntax/launch_api.rx",
+      "conformance/syntax/lifetimes.rx",
+      "conformance/syntax/literals_char.rx",
+      "conformance/syntax/literals_string.rx"
+    ],
+    "RXS-0009": [
+      "conformance/syntax/atomics_sync.rx",
+      "conformance/syntax/closures_and_calls.rx",
+      "conformance/syntax/control_flow.rx",
+      "conformance/syntax/enum_match.rx",
+      "conformance/syntax/error_handling.rx",
+      "conformance/syntax/fn_basic.rx",
+      "conformance/syntax/fn_generics.rx",
+      "conformance/syntax/launch_api.rx",
+      "conformance/syntax/operators.rx",
+      "conformance/syntax/patterns_let.rx",
+      "conformance/syntax/vec_mat_swizzle.rx",
+      "conformance/syntax/views_ops.rx"
+    ],
+    "RXS-0010": [
+      "src/rurixc/src/lexer.rs"
+    ],
+    "RXS-0011": [
+      "conformance/syntax/comments_between_items.rx",
+      "conformance/syntax/items_mix.rx",
+      "src/rurixc/src/parser.rs",
+      "tests/ui/parse/inner_attr_misplaced.rx",
+      "tests/ui/parse/top_level_expr.rx"
+    ],
+    "RXS-0012": [
+      "conformance/syntax/attrs_meta.rx",
+      "conformance/syntax/attrs_on_items.rx",
+      "conformance/syntax/export_handles.rx",
+      "conformance/syntax/expr_attr_prefixed.rx",
+      "src/rurixc/src/parser.rs",
+      "tests/ui/parse/inner_attr_misplaced.rx"
+    ],
+    "RXS-0013": [
+      "conformance/syntax/paths_expr.rx",
+      "conformance/syntax/turbofish_nested.rx",
+      "conformance/syntax/visibility_levels.rx",
+      "src/rurixc/src/parser.rs",
+      "tests/ui/parse/pub_crate_rejected.rx"
+    ],
+    "RXS-0014": [
+      "conformance/syntax/const_fn_eval.rx",
+      "conformance/syntax/device_math_chain.rx",
+      "conformance/syntax/fn_colors.rx",
+      "conformance/syntax/fn_nested_items.rx",
+      "conformance/syntax/fn_where_ret.rx",
+      "conformance/syntax/kernel_atomics_scoped.rx",
+      "conformance/syntax/kernel_views_generic.rx",
+      "src/rurixc/src/parser.rs",
+      "tests/ui/parse/self_not_first.rx"
+    ],
+    "RXS-0015": [
+      "conformance/syntax/enum_payloads.rx",
+      "conformance/syntax/struct_generic_where.rx",
+      "conformance/syntax/struct_tuple_unit.rx",
+      "src/rurixc/src/parser.rs"
+    ],
+    "RXS-0016": [
+      "conformance/syntax/impl_inherent_methods.rx",
+      "conformance/syntax/lifetimes_in_impls.rx",
+      "conformance/syntax/result_chain_host.rx",
+      "conformance/syntax/trait_assoc_const.rx",
+      "conformance/syntax/trait_bounds_assoc_type.rx",
+      "src/rurixc/src/parser.rs",
+      "tests/ui/parse/impl_fn_without_body.rx"
+    ],
+    "RXS-0017": [
+      "conformance/syntax/mod_nested.rx",
+      "conformance/syntax/use_alias.rx",
+      "src/rurixc/src/parser.rs"
+    ],
+    "RXS-0018": [
+      "conformance/syntax/const_fn_eval.rx",
+      "conformance/syntax/static_mut.rx",
+      "conformance/syntax/type_alias_generic.rx",
+      "src/rurixc/src/parser.rs"
+    ],
+    "RXS-0019": [
+      "conformance/syntax/export_handles.rx",
+      "conformance/syntax/extern_pub_fn.rx",
+      "src/rurixc/src/parser.rs",
+      "tests/ui/parse/extern_fn_with_body.rx"
+    ],
+    "RXS-0020": [
+      "conformance/syntax/fn_where_ret.rx",
+      "conformance/syntax/generics_const_params.rx",
+      "conformance/syntax/generics_defaults.rx",
+      "conformance/syntax/generics_lifetime_params.rx",
+      "conformance/syntax/lifetimes_in_impls.rx",
+      "conformance/syntax/struct_generic_where.rx",
+      "conformance/syntax/trait_bounds_assoc_type.rx",
+      "conformance/syntax/where_multi_preds.rx",
+      "src/rurixc/src/parser.rs"
+    ],
+    "RXS-0021": [
+      "conformance/syntax/const_args_forms.rx",
+      "conformance/syntax/generics_const_params.rx",
+      "conformance/syntax/generics_shr_split.rx",
+      "conformance/syntax/kernel_views_generic.rx",
+      "conformance/syntax/method_turbofish.rx",
+      "conformance/syntax/shape_tuples.rx",
+      "conformance/syntax/turbofish_nested.rx",
+      "src/rurixc/src/parser.rs"
+    ],
+    "RXS-0022": [
+      "conformance/syntax/kernel_views_generic.rx",
+      "conformance/syntax/shape_tuples.rx",
+      "conformance/syntax/types_addrspace_contextual.rx",
+      "conformance/syntax/types_fn_pointers.rx",
+      "conformance/syntax/types_infer_underscore.rx",
+      "conformance/syntax/types_pointers.rx",
+      "conformance/syntax/types_refs.rx",
+      "conformance/syntax/types_tuples_arrays.rx",
+      "src/rurixc/src/parser.rs"
+    ],
+    "RXS-0023": [
+      "conformance/syntax/patterns_at_bindings.rx",
+      "conformance/syntax/patterns_literals_ranges.rx",
+      "conformance/syntax/patterns_refs_slices.rx",
+      "conformance/syntax/patterns_struct_rest.rx",
+      "conformance/syntax/patterns_tuple_struct.rx",
+      "src/rurixc/src/parser.rs"
+    ],
+    "RXS-0024": [
+      "conformance/syntax/blocks_as_values.rx",
+      "conformance/syntax/fn_nested_items.rx",
+      "conformance/syntax/let_without_init.rx",
+      "conformance/syntax/stmts_semicolons.rx",
+      "src/rurixc/src/parser.rs",
+      "tests/ui/parse/missing_semi.rx"
+    ],
+    "RXS-0025": [
+      "conformance/syntax/expr_assign_compound.rx",
+      "conformance/syntax/expr_precedence.rx",
+      "conformance/syntax/expr_ranges.rx",
+      "conformance/syntax/expr_shifts_casts.rx",
+      "conformance/syntax/swizzle_matrix_ops.rx",
+      "src/rurixc/src/parser.rs",
+      "tests/ui/parse/chained_comparison.rx",
+      "tests/ui/parse/chained_range.rx"
+    ],
+    "RXS-0026": [
+      "conformance/syntax/blocks_as_values.rx",
+      "conformance/syntax/expr_arrays_repeat.rx",
+      "conformance/syntax/expr_attr_prefixed.rx",
+      "conformance/syntax/expr_return_break_values.rx",
+      "conformance/syntax/expr_struct_lit.rx",
+      "conformance/syntax/expr_struct_lit_paren_cond.rx",
+      "conformance/syntax/expr_tuples_unit.rx",
+      "conformance/syntax/feature_gate_closures.rx",
+      "conformance/syntax/unsafe_expr_value.rx",
+      "src/rurixc/src/parser.rs",
+      "tests/ui/parse/gated_closure.rx"
+    ],
+    "RXS-0027": [
+      "conformance/syntax/calls_methods_chained.rx",
+      "conformance/syntax/device_math_chain.rx",
+      "conformance/syntax/index_field_tuple.rx",
+      "conformance/syntax/kernel_atomics_scoped.rx",
+      "conformance/syntax/method_turbofish.rx",
+      "conformance/syntax/result_chain_host.rx",
+      "conformance/syntax/swizzle_matrix_ops.rx",
+      "conformance/syntax/try_question_chain.rx",
+      "src/rurixc/src/parser.rs"
+    ],
+    "RXS-0028": [
+      "conformance/syntax/expr_return_break_values.rx",
+      "conformance/syntax/if_else_chains.rx",
+      "conformance/syntax/loops_while_for.rx",
+      "src/rurixc/src/parser.rs"
+    ],
+    "RXS-0029": [
+      "conformance/syntax/match_block_arms.rx",
+      "conformance/syntax/match_empty_and_nested.rx",
+      "conformance/syntax/match_guards.rx",
+      "conformance/syntax/match_or_patterns.rx",
+      "conformance/syntax/patterns_literals_ranges.rx",
+      "src/rurixc/src/parser.rs"
+    ],
+    "RXS-0030": [
+      "src/rurixc/src/parser.rs",
+      "tests/ui/parse/missing_semi.rx",
+      "tests/ui/parse/unclosed_brace.rx"
+    ],
+    "RXS-0031": [
+      "conformance/syntax/feature_gate_closures.rx",
+      "src/rurixc/src/feature_gate.rs",
+      "src/rurixc/src/parser.rs",
+      "tests/ui/parse/gated_closure.rx",
+      "tests/ui/parse/unknown_feature.rx"
+    ]
+  }
+}
