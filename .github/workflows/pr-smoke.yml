@@ -21,29 +21,29 @@ jobs:
           fetch-depth: 0      # guardrail 需要完整历史与 tag
 
       - name: deps
-        shell: pwsh
+        shell: powershell
         run: py -3 -m pip install -r requirements.txt --quiet --disable-pip-version-check
 
       - name: structure check (CI_GATES §3.1)
-        shell: pwsh
+        shell: powershell
         run: py -3 ci/check_structure.py
 
       - name: schema check (CI_GATES §3.2)
-        shell: pwsh
+        shell: powershell
         run: py -3 ci/check_schemas.py
 
       - name: guardrails (CI_GATES §3.3)
-        shell: pwsh
+        shell: powershell
         run: py -3 ci/check_guardrails.py
 
       - name: harness unit tests (CI_GATES §3.4)
-        shell: pwsh
+        shell: powershell
         run: py -3 -m pytest tests/ -q
 
       - name: SAXPY load smoke (CI_GATES §3.5, GPU)
-        shell: pwsh
+        shell: powershell
         run: py -3 bench/saxpy_bench.py --smoke
 
       - name: budget evaluator load (CI_GATES §3.6)
-        shell: pwsh
+        shell: powershell
         run: py -3 ci/budget_eval.py
