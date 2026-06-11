@@ -140,3 +140,58 @@ guardrails:
 ## 8. Close-out(只追加区 — 开工时为空)
 
 <!-- 验收记录、guardrail 核对输出、deferred 继承/关闭记录追加于此;上方条款 0-byte 修改。 -->
+
+### 8.1 Close-out 草案(2026-06-11,M1.4;状态:**待人工批准**,见 §8.2)
+
+> 本节由 M1.4 收尾工作追加(Assisted-by: cursor:fable-5);全部数字来自命令真实输出。
+> 关闭判定与 `status: active → closed` 落笔属人类动作,本草案不代签。
+
+#### 8.1.1 验收门证据
+
+| 门 | 判据 | 证据(命令真实输出) | 状态 |
+|---|---|---|---|
+| G-M1-1 | conformance/syntax/ 100% 解析,≥100 样例 | `cargo test --test syntax_corpus` 4 passed;`budget_eval`:`m1.counter.syntax_corpus_size: PASS — 104 个语法样例(要求 ≥100)` | 达成 |
+| G-M1-2 | bless 流程可用 + snapshot ≥10 + CI 红绿验证 | `cargo test --test ui_golden` 4 passed;`m1.counter.ui_golden_path1_snapshots: PASS — 12 条 .stderr snapshot(要求 ≥10)`;guardrail 红绿本地核对:篡改 `.stderr` 无审批行 → `[check_guardrails] FAIL ... .stderr 变更未附 bless 审批行`,还原 → PASS;**CI run URL 待人工补**(§8.3) | 待 run URL |
+| G-M1-3 | m1.bench.* 全部 measured_local,零 estimated 残留 | `py -3 ci/budget_eval.py --strict` → `PASS (14 pass, 0 skip, strict mode)`;lexer 213.183 MB/s(阈值 202.52)、parser 3485.183 kloc/s(阈值 3310.92);证据 `evidence/frontend_{lexer,parser}_20260611_{1..3,agg}.json` | 达成 |
+| G-M1-4 | traceability 首版,每条款 ≥1 锚定 | `py -3 ci/trace_matrix.py` → `PASS (31/31 clauses anchored, 133 test files scanned)`;产物 `conformance/traceability_matrix.json` | 达成 |
+| G-M1-5 | fmt(fmt(x)) == fmt(x) 全量字节级 | `py -3 ci/check_fmt_idempotent.py` → `PASS (104 files, fmt(fmt(x)) == fmt(x) byte-exact)` | 达成 |
+
+#### 8.1.2 guardrail 核对输出(2026-06-11)
+
+```
+[check_structure] PASS (11 dirs, 6 files)
+[check_schemas] PASS
+[check_guardrails] PASS (base=m0-baseline, 233 changed paths)
+[budget_eval] PASS (14 pass, 0 skip, strict mode)
+[trace_matrix] PASS (31/31 clauses anchored, 133 test files scanned)
+[check_fmt_idempotent] PASS (104 files, fmt(fmt(x)) == fmt(x) byte-exact)
+cargo test: 116 passed 0 failed(106 lib + 2 fmt_corpus + 4 syntax_corpus + 4 ui_golden)
+pytest: 23 passed
+```
+
+#### 8.1.3 交付物落位
+
+| 交付物 | 落位 |
+|---|---|
+| D-M1-1 | `src/rurixc/`(span/source_map/diag/messages)+ `registry/error_codes.json`(RX0001~RX0011) |
+| D-M1-2 | `spec/lexical.md`(RXS-0001~0010)+ `src/rurixc/src/lexer.rs` |
+| D-M1-3 | `spec/syntax.md`(RXS-0011~0031)+ `parser.rs`/`ast.rs`/`feature_gate.rs` + conformance 104 样例 |
+| D-M1-4 | `render.rs` + `tests/ui_golden.rs` + `tests/ui/parse/` 12 对 snapshot + bless guardrail |
+| D-M1-5 | `fmt.rs` + `rx_fmt` 二进制 + `ci/check_fmt_idempotent.py` |
+| D-M1-6 | `bench/{lexer,parser}_bench.py` + `frontend_triple_run.py` + 证据 8 份 + m1_budget 回填 |
+
+#### 8.1.4 deferred 处置
+
+RD-004(无损语法树,M6)/ RD-005(rx fmt 完整工具化,M6)/ RD-006(诊断双语,M8)维持原承接,无新增 deferred;parser 事件流接口已以 `// STUB(RD-004)` 双侧标注预留。
+
+### 8.2 人工待办清单(关闭前必须完成,AI 不可代签,10 §7)
+
+1. **G-M1-2 红绿程序(CI 真跑)**:构造"篡改 snapshot / 未 bless"PR → CI 必须红;补 `tests/ui/bless_log.md` 审批行后转绿;两次 run URL 追加至 §8.3。
+2. **CI_GATES §5.3**:spec 档位违规与错误码冻结各构造一次红验证(若 M1.2/M1.3 期已留存 run URL 可直接引用)。
+3. **bless_log.md 首条记录批签**:将 `pending-human-review` 改记为批准人(该表只追加,批签以追加新行方式记录)。
+4. **m1_budget.json 回填审查**:M1.4-E 对既有 estimated 条目的 measured_local 回填(14 §10.4 预期触发人工审查)。
+5. 终审本草案 → 人工落笔 `status: active → closed` 与 §8.3 验收签字。
+
+### 8.3 Run URL 与签字(人工追加区)
+
+<!-- 红绿 run URL、批准记录由人类追加于此。 -->
