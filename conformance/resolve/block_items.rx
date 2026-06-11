@@ -1,0 +1,17 @@
+//@ spec: RXS-0032
+// Block-scoped items are usable after their declaration point.
+
+fn main() -> usize {
+    const TILE: usize = 32;
+
+    fn double(n: usize) -> usize {
+        n * 2
+    }
+
+    struct Local {
+        v: usize,
+    }
+
+    let l = Local { v: TILE };
+    double(l.v)
+}

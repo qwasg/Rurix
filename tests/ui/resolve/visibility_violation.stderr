@@ -1,0 +1,9 @@
+error[RX1003]: `secret` is not visible from this scope
+ --> $DIR/resolve/visibility_violation.rx:9:5
+  |
+9 |     m::secret() //~ ERROR RX1003
+  |     ^^^^^^^^^ not visible from here
+ ::: $DIR/resolve/visibility_violation.rx:3:8
+  |
+3 |     fn secret() -> i32 {
+  |        ^^^^^^ defined here with private visibility

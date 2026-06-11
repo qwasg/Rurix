@@ -1,0 +1,5 @@
+//@ spec: RXS-0034, RXS-0038
+fn f() {
+    let value = 1;
+    let _x = vlaue; //~ ERROR RX1001
+}

@@ -81,3 +81,4 @@ flowchart LR
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-06-11 | 初版 |
+| v1.1 | 2026-06-11 | M2.1 实施留痕(Direct)两项:(1)§1 出口判据作用面调整——"conformance 语料(正例)全量 0 诊断"改为新建 `conformance/resolve/` 语义正例集(自包含程序)全量 0 诊断,`conformance/syntax/` 维持 parse 门(其样例为含草图引用的语法正例,且 names_duplicates.rx 是故意的 resolve 反例);(2)§1 任务 3 的 desugar(for/`?`)时点推迟至 M2.2 与类型系统同步(依赖 Iterator/Result lang-item),HIR 暂保留 For/Try 一等节点 |

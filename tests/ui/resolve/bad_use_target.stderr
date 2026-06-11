@@ -1,0 +1,5 @@
+error[RX1004]: invalid use target {target}
+ --> $DIR/resolve/bad_use_target.rx:2:5
+  |
+2 | use nowhere::nothing; //~ ERROR RX1004
+  |     ^^^^^^^^^^^^^^^^ cannot import this

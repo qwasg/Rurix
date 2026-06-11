@@ -1,0 +1,18 @@
+//@ spec: RXS-0033
+// Inner blocks shadow outer bindings; let inits see the outer binding.
+
+fn main() {
+    let v = 1;
+    {
+        let v = v + 1;
+        let _inner = v;
+    }
+    let w = v;
+    {
+        {
+            let v = 10;
+            let _deep = v;
+        }
+    }
+    let _outer_again = v + w;
+}

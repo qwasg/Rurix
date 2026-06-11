@@ -1,0 +1,17 @@
+//@ spec: RXS-0035
+// Plain use imports resolve to module items.
+
+mod geometry {
+    pub fn area(w: f32, h: f32) -> f32 {
+        w * h
+    }
+
+    pub const UNIT: f32 = 1.0;
+}
+
+use geometry::area;
+use geometry::UNIT;
+
+fn main() {
+    let _a = area(2.0, UNIT);
+}
