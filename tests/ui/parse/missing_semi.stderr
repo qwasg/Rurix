@@ -1,4 +1,4 @@
-error[RX0008]: expected `;`, found `let`
+error[RX0008]: expected `;`, found `let` [tampered]
  --> $DIR/parse/missing_semi.rx:3:15
   |
 3 |     let a = 1 let b = 2; //~ ERROR RX0008
