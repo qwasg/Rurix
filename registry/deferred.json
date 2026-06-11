@@ -1,51 +1,67 @@
-{
-  "schema_version": 1,
-  "description": "Rurix Deferred 注册表(14 §4):项目级唯一事实源,文档只引用编号。生命周期:open → inherited(换承接里程碑,留痕)→ closed(附证据);条目不能消失,编号永不复用(10 §9.5)。stub 双侧标注:代码 // STUB(RD-###) 与本表互查。本文件对 AI 只追加(14 §10.4)。",
-  "entry_schema": {
-    "id": "RD-###(零填充三位,递增,不复用)",
-    "title": "一句话内容",
-    "reason": "为什么延期",
-    "backfill_condition": "什么条件下必须回填",
-    "owner_milestone": "当前承接里程碑",
-    "status": "open | inherited | closed",
-    "history": "状态变迁留痕数组(date / event / evidence)"
-  },
-  "entries": [
-    {
-      "id": "RD-001",
-      "title": "CI Release 层门禁(bench 严格模式 + 签名/SBOM/许可审计 + artifact 上传)",
-      "reason": "M0 无发布产物可挂;签名/SBOM 链路是 M8 交付物(11 §3 M8)",
-      "backfill_condition": "M8 分发链路(rurixup/MSI/winget)开工时同步建成,Release 层结构见 14 §8",
-      "owner_milestone": "M8",
-      "status": "open",
-      "history": [
-        { "date": "2026-06-11", "event": "登记于 M0 契约 out-of-scope", "evidence": "milestones/m0/M0_CONTRACT.md §2.2" }
-      ]
-    },
-    {
-      "id": "RD-002",
-      "title": "L1 全量微基准套件(Reduction / 2D Stencil / Transpose / GEMM,r11 §8 清单)",
-      "reason": "M0 只需 SAXPY + bandwidthTest 作为 measured_local 锚点(11 §3 M0);全量 L1 的验收挂在 M5(reduce/scan/GEMM-tile ≥ 手写 CUDA C++ 90%)",
-      "backfill_condition": "M5 验收门要求 L1+L2 全量 measured_local(11 §3 M5);harness 协议复用 milestones/m0/BENCH_PROTOCOL.md",
-      "owner_milestone": "M5",
-      "status": "open",
-      "history": [
-        { "date": "2026-06-11", "event": "登记于 M0 契约 out-of-scope", "evidence": "milestones/m0/M0_CONTRACT.md §2.2" }
-      ]
-    },
-    {
-      "id": "RD-003",
-      "title": "rx bench 工具化(协议从独立 harness 脚本收编进工具链组件,08 §4)",
-      "reason": "M0 期无 rx CLI;协议先以脚本形态固化,避免阻塞证据通道建设",
-      "backfill_condition": "M6 工具链里程碑(rx CLI 全核心子命令,11 §3 M6)时收编;收编后 harness 脚本退役并在本条目 close 时留痕",
-      "owner_milestone": "M6",
-      "status": "open",
-      "history": [
-        { "date": "2026-06-11", "event": "登记于 M0 契约 out-of-scope", "evidence": "milestones/m0/M0_CONTRACT.md §2.2" }
-      ]
-    }
-  ],
-  "revision_log": [
-    { "version": "v1.0", "date": "2026-06-11", "change": "初版:RD-001 ~ RD-003(M0 契约配套)" }
-  ]
+﻿{
+    "schema_version":  1,
+    "description":  "Rurix Deferred 注册表(14 §4):项目级唯一事实源,文档只引用编号。生命周期:open → inherited(换承接里程碑,留痕)→ closed(附证据);条目不能消失,编号永不复用(10 §9.5)。stub 双侧标注:代码 // STUB(RD-###) 与本表互查。本文件对 AI 只追加(14 §10.4)。",
+    "entry_schema":  {
+                         "id":  "RD-###(零填充三位,递增,不复用)",
+                         "title":  "一句话内容",
+                         "reason":  "为什么延期",
+                         "backfill_condition":  "什么条件下必须回填",
+                         "owner_milestone":  "当前承接里程碑",
+                         "status":  "open | inherited | closed",
+                         "history":  "状态变迁留痕数组(date / event / evidence)"
+                     },
+    "entries":  [
+                    {
+                        "id":  "RD-001",
+                        "title":  "TAMPERED: guardrail must catch this",
+                        "reason":  "M0 无发布产物可挂;签名/SBOM 链路是 M8 交付物(11 §3 M8)",
+                        "backfill_condition":  "M8 分发链路(rurixup/MSI/winget)开工时同步建成,Release 层结构见 14 §8",
+                        "owner_milestone":  "M8",
+                        "status":  "open",
+                        "history":  [
+                                        {
+                                            "date":  "2026-06-11",
+                                            "event":  "登记于 M0 契约 out-of-scope",
+                                            "evidence":  "milestones/m0/M0_CONTRACT.md §2.2"
+                                        }
+                                    ]
+                    },
+                    {
+                        "id":  "RD-002",
+                        "title":  "L1 全量微基准套件(Reduction / 2D Stencil / Transpose / GEMM,r11 §8 清单)",
+                        "reason":  "M0 只需 SAXPY + bandwidthTest 作为 measured_local 锚点(11 §3 M0);全量 L1 的验收挂在 M5(reduce/scan/GEMM-tile ≥ 手写 CUDA C++ 90%)",
+                        "backfill_condition":  "M5 验收门要求 L1+L2 全量 measured_local(11 §3 M5);harness 协议复用 milestones/m0/BENCH_PROTOCOL.md",
+                        "owner_milestone":  "M5",
+                        "status":  "open",
+                        "history":  [
+                                        {
+                                            "date":  "2026-06-11",
+                                            "event":  "登记于 M0 契约 out-of-scope",
+                                            "evidence":  "milestones/m0/M0_CONTRACT.md §2.2"
+                                        }
+                                    ]
+                    },
+                    {
+                        "id":  "RD-003",
+                        "title":  "rx bench 工具化(协议从独立 harness 脚本收编进工具链组件,08 §4)",
+                        "reason":  "M0 期无 rx CLI;协议先以脚本形态固化,避免阻塞证据通道建设",
+                        "backfill_condition":  "M6 工具链里程碑(rx CLI 全核心子命令,11 §3 M6)时收编;收编后 harness 脚本退役并在本条目 close 时留痕",
+                        "owner_milestone":  "M6",
+                        "status":  "open",
+                        "history":  [
+                                        {
+                                            "date":  "2026-06-11",
+                                            "event":  "登记于 M0 契约 out-of-scope",
+                                            "evidence":  "milestones/m0/M0_CONTRACT.md §2.2"
+                                        }
+                                    ]
+                    }
+                ],
+    "revision_log":  [
+                         {
+                             "version":  "v1.0",
+                             "date":  "2026-06-11",
+                             "change":  "初版:RD-001 ~ RD-003(M0 契约配套)"
+                         }
+                     ]
 }
