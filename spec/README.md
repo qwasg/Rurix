@@ -38,6 +38,7 @@
 | [lexical.md](lexical.md) | 词法结构 | RXS-0001 ~ RXS-0010 | M1.2 |
 | [syntax.md](syntax.md) | 语法结构 | RXS-0011 ~ RXS-0031 | M1.3 |
 | [names.md](names.md) | 名称与模块语义 | RXS-0032 ~ RXS-0038 | M2.1 |
+| [types.md](types.md) | 类型与检查语义 | RXS-0039 ~ RXS-0047 | M2.2 |
 
 ## 5. 修订记录
 
@@ -46,3 +47,4 @@
 | v1.0 | 2026-06-11 | 占位 README 升级为正式体例(编号规则/条款格式/档位标记约定);依据 10 §3 §4 既定治理决策,无新语义 | Direct |
 | v1.1 | 2026-06-11 | §4 文件清单追加 syntax.md(RXS-0011 ~ RXS-0031,M1.3;D-M1-3 条款化登记,无体例变更) | Direct |
 | v1.2 | 2026-06-11 | §4 文件清单追加 names.md(RXS-0032 ~ RXS-0038,M2.1 names 条款化登记,无体例变更) | Direct |
+| v1.3 | 2026-06-12 | §4 文件清单追加 types.md(RXS-0039 ~ RXS-0047,M2.2 types 条款化登记,无体例变更) | Direct |
