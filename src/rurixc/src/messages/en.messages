@@ -23,3 +23,11 @@ resolve.unresolved_name = unresolved name {name}
 resolve.duplicate_definition = duplicate definition of {name}
 resolve.visibility_violation = {name} is not visible from this scope
 resolve.bad_use_target = invalid use target {target}
+#
+# 类型检查诊断(RX2001 ~ RX2006,spec/types.md;M2.2 分配)
+typeck.mismatched_types = mismatched types: expected {expected}, found {found}
+typeck.bad_field = {kind} field {field} on type {ty}
+typeck.arg_count_mismatch = this call takes {expected} argument(s) but {found} were supplied
+typeck.unknown_method = no method named {method} found on type {ty}
+typeck.not_callable = expression of type {ty} is not callable
+typeck.bad_operand = operator {op} cannot be applied to type {ty}

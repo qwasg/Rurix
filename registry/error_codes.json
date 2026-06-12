@@ -138,6 +138,54 @@
       "status": "active",
       "introduced_in": "M2.1",
       "spec_clauses": ["RXS-0035", "RXS-0038"]
+    },
+    {
+      "id": "RX2001",
+      "title": "类型不匹配",
+      "message_key": "typeck.mismatched_types",
+      "status": "active",
+      "introduced_in": "M2.2",
+      "spec_clauses": ["RXS-0040", "RXS-0041", "RXS-0042", "RXS-0044", "RXS-0046", "RXS-0047"]
+    },
+    {
+      "id": "RX2002",
+      "title": "未知或缺失字段",
+      "message_key": "typeck.bad_field",
+      "status": "active",
+      "introduced_in": "M2.2",
+      "spec_clauses": ["RXS-0044", "RXS-0047"]
+    },
+    {
+      "id": "RX2003",
+      "title": "实参数目不符",
+      "message_key": "typeck.arg_count_mismatch",
+      "status": "active",
+      "introduced_in": "M2.2",
+      "spec_clauses": ["RXS-0042", "RXS-0047"]
+    },
+    {
+      "id": "RX2004",
+      "title": "无此方法或关联项",
+      "message_key": "typeck.unknown_method",
+      "status": "active",
+      "introduced_in": "M2.2",
+      "spec_clauses": ["RXS-0046", "RXS-0047"]
+    },
+    {
+      "id": "RX2005",
+      "title": "不可调用类型",
+      "message_key": "typeck.not_callable",
+      "status": "active",
+      "introduced_in": "M2.2",
+      "spec_clauses": ["RXS-0042", "RXS-0047"]
+    },
+    {
+      "id": "RX2006",
+      "title": "非法运算数",
+      "message_key": "typeck.bad_operand",
+      "status": "active",
+      "introduced_in": "M2.2",
+      "spec_clauses": ["RXS-0043", "RXS-0047"]
     }
   ],
   "revision_log": [
@@ -160,6 +208,11 @@
       "version": "v1.3",
       "date": "2026-06-11",
       "change": "M2.1 预分配 RX1001 ~ RX1004(名称解析首批,spec/names.md RXS-0032~0038 配套)"
+    },
+    {
+      "version": "v1.4",
+      "date": "2026-06-12",
+      "change": "M2.2 分配 RX2001 ~ RX2006(类型检查首批,spec/types.md RXS-0039~0047 配套)"
     }
   ]
 }
