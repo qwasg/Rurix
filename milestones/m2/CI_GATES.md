@@ -51,3 +51,4 @@
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-06-11 | 初版(M2 契约配套;步骤 12/13 为 M2.3 计划项,落地时回填实测命令) |
+| v1.1 | 2026-06-12 | M2.3 落地回填:步骤 12 = `py -3 ci/hello_smoke.py compile-run`,步骤 13 = `py -3 ci/hello_smoke.py breakpoint`(均已入 pr-smoke.yml)。实测命令:rurixc 驱动 `conformance/syntax/hello_world.rx` → EXE+PDB(clang 22.1.7 + VS BuildTools link.exe);cdb 断点 = `bp `hello_world!hello_world.rx:6`; g; k; q`(基线不变量:Breakpoint 0 hit / hello_world!main / hello_world.rx @ 6),cdb 输出原文留痕 `evidence/cdb_hello_world_20260612.txt`。runner 预置项:LLVM 22.1.7(winget LLVM.LLVM)+ WinDbg(winget Microsoft.WinDbg,含 cdb)。§5 验证程序:脚本级红绿已本地真跑(篡改 EXE → breakpoint 红 exit 1;恢复 → 绿 exit 0);PR 级红绿(run URL)随本分支 PR 流程执行,URL 届时归档 close-out |

@@ -71,6 +71,9 @@ fn main() -> ExitCode {
         .canonicalize()
         .ok()
         .and_then(|p| p.parent().map(|d| d.to_string_lossy().into_owned()))
+        // Windows canonicalize 产生 \\?\ 长路径前缀;剥除以保 PDB 源路径
+        // 可被 cdb/WinDbg 源行断点匹配(D-237)
+        .map(|d| d.trim_start_matches("\\\\?\\").to_owned())
         .unwrap_or_else(|| ".".to_owned());
 
     let diag = DiagCtxt::new();

@@ -1,0 +1,81 @@
+﻿# G-M2-2 cdb 断点真跑留痕(M2.3,2026-06-12)
+# 命令(cdb 来自 WinDbg 1.2603.20001.0;exe/pdb 由 rurixc 驱动产出,见 M2.3-D):
+#   rurixc.exe conformance\syntax\hello_world.rx -o build\m23\hello_world.exe
+#   cdb.exe -y H:\rurix\build\m23 -lines -c "bp `hello_world!hello_world.rx:6`; g; k; q" H:\rurix\build\m23\hello_world.exe
+# 判读:Breakpoint 0 hit + 栈顶 hello_world!main [hello_world.rx @ 6]
+# ---------------------------------------------------------------- 原文输出:
+************* Path validation summary **************
+Response                         Time (ms)     Location
+OK                                             H:\rurix\build\m23
+
+************* Preparing the environment for Debugger Extensions Gallery repositories **************
+   ExtensionRepository : Implicit
+   UseExperimentalFeatureForNugetShare : true
+   AllowNugetExeUpdate : true
+   NonInteractiveNuget : true
+   AllowNugetMSCredentialProviderInstall : true
+   AllowParallelInitializationOfLocalRepositories : true
+   EnableRedirectToChakraJsProvider : false
+
+   -- Configuring repositories
+      ----> Repository : LocalInstalled, Enabled: true
+      ----> Repository : UserExtensions, Enabled: true
+
+>>>>>>>>>>>>> Preparing the environment for Debugger Extensions Gallery repositories completed, duration 0.000 seconds
+
+************* Waiting for Debugger Extensions Gallery to Initialize **************
+
+>>>>>>>>>>>>> Waiting for Debugger Extensions Gallery to Initialize completed, duration 0.016 seconds
+   ----> Repository : UserExtensions, Enabled: true, Packages count: 0
+   ----> Repository : LocalInstalled, Enabled: true, Packages count: 46
+
+Microsoft (R) Windows Debugger Version 10.0.29547.1002 AMD64
+Copyright (c) Microsoft Corporation. All rights reserved.
+
+CommandLine: H:\rurix\build\m23\hello_world.exe
+
+************* Path validation summary **************
+Response                         Time (ms)     Location
+OK                                             H:\rurix\build\m23
+Symbol search path is: H:\rurix\build\m23
+Executable search path is: 
+
++------------------------------------------------------------------------+
+| This target supports Hardware-enforced Stack Protection. A HW based    |
+| "Shadow Stack" may be available to assist in debugging and analysis.   |
+| See aka.ms/userhsp for more info.                                      |
+|                                                                        |
+| dps @ssp                                                               |
+|                                                                        |
++------------------------------------------------------------------------+
+
+ModLoad: 00007ff6`77090000 00007ff6`7713d000   hello_world.exe
+ModLoad: 00007ffb`4f740000 00007ffb`4f9a0000   ntdll.dll
+ModLoad: 00007ffb`4ebc0000 00007ffb`4ec8a000   C:\WINDOWS\System32\KERNEL32.DLL
+ModLoad: 00007ffb`4caf0000 00007ffb`4cef4000   C:\WINDOWS\System32\KERNELBASE.dll
+(c794.c444): Break instruction exception - code 80000003 (first chance)
+ntdll!RtlFindSetBitsAndClearEx+0x880:
+00007ffb`4f862420 cc              int     3
+0:000> cdb: Reading initial command 'bp `hello_world!hello_world.rx:6`; g; k; q'
+*** WARNING: Unable to verify checksum for hello_world.exe
+Breakpoint 0 hit
+Child-SP          RetAddr               Call Site
+00000092`76affcb0 00007ff6`77099dbc     hello_world!main+0x10 [H:\rurix\conformance\syntax\hello_world.rx @ 6]
+(Inline Function) --------`--------     hello_world!invoke_main+0x22 [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 78]
+00000092`76affce0 00007ffb`4ebf5c27     hello_world!__scrt_common_main_seh+0x10c [D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl @ 288]
+00000092`76affd20 00007ffb`4f7bdce0     KERNEL32!BaseThreadInitThunk+0x17
+00000092`76affd50 00000000`00000000     ntdll!RtlUserThreadStart+0x20
+quit:
+NatVis script unloaded from 'C:\Program Files\WindowsApps\Microsoft.WinDbg_1.2603.20001.0_x64__8wekyb3d8bbwe\amd64\Visualizers\atlmfc.natvis'
+NatVis script unloaded from 'C:\Program Files\WindowsApps\Microsoft.WinDbg_1.2603.20001.0_x64__8wekyb3d8bbwe\amd64\Visualizers\concurrency.natvis'
+NatVis script unloaded from 'C:\Program Files\WindowsApps\Microsoft.WinDbg_1.2603.20001.0_x64__8wekyb3d8bbwe\amd64\Visualizers\cpp_rest.natvis'
+NatVis script unloaded from 'C:\Program Files\WindowsApps\Microsoft.WinDbg_1.2603.20001.0_x64__8wekyb3d8bbwe\amd64\Visualizers\ObjectiveC.natvis'
+NatVis script unloaded from 'C:\Program Files\WindowsApps\Microsoft.WinDbg_1.2603.20001.0_x64__8wekyb3d8bbwe\amd64\Visualizers\stl.natvis'
+NatVis script unloaded from 'C:\Program Files\WindowsApps\Microsoft.WinDbg_1.2603.20001.0_x64__8wekyb3d8bbwe\amd64\Visualizers\Windows.Data.Json.natvis'
+NatVis script unloaded from 'C:\Program Files\WindowsApps\Microsoft.WinDbg_1.2603.20001.0_x64__8wekyb3d8bbwe\amd64\Visualizers\Windows.Devices.Geolocation.natvis'
+NatVis script unloaded from 'C:\Program Files\WindowsApps\Microsoft.WinDbg_1.2603.20001.0_x64__8wekyb3d8bbwe\amd64\Visualizers\Windows.Devices.Sensors.natvis'
+NatVis script unloaded from 'C:\Program Files\WindowsApps\Microsoft.WinDbg_1.2603.20001.0_x64__8wekyb3d8bbwe\amd64\Visualizers\Windows.Media.natvis'
+NatVis script unloaded from 'C:\Program Files\WindowsApps\Microsoft.WinDbg_1.2603.20001.0_x64__8wekyb3d8bbwe\amd64\Visualizers\windows.natvis'
+NatVis script unloaded from 'C:\Program Files\WindowsApps\Microsoft.WinDbg_1.2603.20001.0_x64__8wekyb3d8bbwe\amd64\Visualizers\winrt.natvis'
+
+

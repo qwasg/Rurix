@@ -60,3 +60,12 @@ jobs:
       - name: cargo test (M1 CI_GATES §2.8)
         shell: powershell
         run: cargo test --workspace
+
+      # —— M2 增量(milestones/m2/CI_GATES.md §2,步骤 12-13;自 M2.3 存在起)——
+      - name: hello-world compile loop smoke (M2 CI_GATES §2.12, G-M2-1)
+        shell: powershell
+        run: py -3 ci/hello_smoke.py compile-run
+
+      - name: cdb breakpoint check (M2 CI_GATES §2.13, G-M2-2)
+        shell: powershell
+        run: py -3 ci/hello_smoke.py breakpoint
