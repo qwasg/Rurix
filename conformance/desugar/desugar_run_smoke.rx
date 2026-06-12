@@ -1,0 +1,54 @@
+//@ spec: RXS-0048, RXS-0049, RXS-0050, RXS-0052
+// End-to-end desugar smoke: range-for (inclusive), iterator protocol and
+// `?` through the full pipeline to a running EXE printing "desugar-ok"
+// (M3.1 exit-criterion evidence, driven by ci/hello_smoke.py desugar-smoke).
+
+struct Steps {
+    left: i32,
+}
+
+impl Steps {
+    fn new(n: i32) -> Steps {
+        Steps { left: n }
+    }
+
+    fn next(&mut self) -> Option<i32> {
+        if self.left > 0 {
+            self.left -= 1;
+            Some(self.left)
+        } else {
+            None
+        }
+    }
+}
+
+fn checked_div(a: i32, b: i32) -> Result<i32, i32> {
+    if b == 0 {
+        Err(-1)
+    } else {
+        Ok(a / b)
+    }
+}
+
+fn pipeline(n: i32) -> Result<i32, i32> {
+    let mut acc = 0;
+    for i in 1..=n {
+        acc += i;
+    }
+    for v in Steps::new(3) {
+        acc += v;
+    }
+    let q = checked_div(acc, 2)?;
+    Ok(q)
+}
+
+fn main() {
+    // pipeline(4): 1+2+3+4 = 10, +2+1+0 = 13, 13/2 = 6
+    let ok = match pipeline(4) {
+        Ok(v) => v == 6,
+        Err(_) => false,
+    };
+    if ok {
+        println("desugar-ok");
+    }
+}

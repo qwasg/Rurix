@@ -383,6 +383,7 @@
       "tests/ui/typeck/unknown_method.rx"
     ],
     "RXS-0048": [
+      "conformance/desugar/desugar_run_smoke.rx",
       "conformance/desugar/iterator_protocol.rx",
       "conformance/desugar/option_result_prelude.rx",
       "conformance/desugar/question_mark_result.rx",
@@ -393,6 +394,7 @@
       "src/rurixc/src/typeck.rs"
     ],
     "RXS-0049": [
+      "conformance/desugar/desugar_run_smoke.rx",
       "conformance/desugar/for_range_desugar.rx",
       "conformance/desugar/iterator_protocol.rx",
       "src/rurixc/src/lower.rs",
@@ -400,6 +402,7 @@
       "src/rurixc/src/typeck.rs"
     ],
     "RXS-0050": [
+      "conformance/desugar/desugar_run_smoke.rx",
       "conformance/desugar/question_mark_result.rx",
       "src/rurixc/src/lower.rs",
       "src/rurixc/src/mir_build.rs",
@@ -413,6 +416,7 @@
       "tests/ui/typeck/non_exhaustive_match_fallback.rx"
     ],
     "RXS-0052": [
+      "conformance/desugar/desugar_run_smoke.rx",
       "conformance/desugar/drop_scope_blocks.rx",
       "src/rurixc/src/tbir_build.rs"
     ]

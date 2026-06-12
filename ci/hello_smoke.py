@@ -5,6 +5,8 @@
     py -3 ci/hello_smoke.py compile-run    # 步骤 12:G-M2-1 通道
     py -3 ci/hello_smoke.py breakpoint     # 步骤 13:G-M2-2 通道
     py -3 ci/hello_smoke.py self-profile   # 步骤 14:G-M2-4 通道(自 M2.4)
+    py -3 ci/hello_smoke.py desugar-smoke  # M3.1 出口证据:for/`?` desugar 真跑
+                                           # (步骤 12 同形态;CI 接线随 M3.x 评估)
 
 步骤 12:rurixc 全管线产出 EXE → 运行核对退出码/输出 → 同名 PDB 存在。
 步骤 13:cdb 源行断点(bp `hello_world!hello_world.rx:6`)+ g + k,
@@ -154,6 +156,26 @@ def self_profile_check() -> None:
     print(f"[hello_smoke] self-profile PASS(JSON 行可解析 / 六阶段计数器非零: {counts})")
 
 
+def desugar_smoke() -> None:
+    """M3.1 出口证据:for(区间/迭代器协议)+ `?` 全管线产 EXE → 真跑核对。"""
+    src = ROOT / "conformance" / "desugar" / "desugar_run_smoke.rx"
+    exe = OUT_DIR / "desugar_run_smoke.exe"
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    r = run(["cargo", "build", "-p", "rurixc", "--bin", "rurixc"], cwd=ROOT)
+    if r.returncode != 0:
+        fail(f"cargo build rurixc 失败:\n{r.stderr}")
+    rurixc = ROOT / "target" / "debug" / "rurixc.exe"
+    r = run([str(rurixc), str(src), "-o", str(exe)], cwd=ROOT)
+    if r.returncode != 0:
+        fail(f"rurixc 编译 desugar_run_smoke.rx 失败(exit {r.returncode}):\n{r.stdout}{r.stderr}")
+    r = run([str(exe)])
+    if r.returncode != 0:
+        fail(f"desugar_run_smoke.exe 退出码 {r.returncode}(期待 0)")
+    if r.stdout.strip() != "desugar-ok":
+        fail(f"stdout 不符: {r.stdout.strip()!r}(期待 'desugar-ok')")
+    print("[hello_smoke] desugar-smoke PASS(for/`?` desugar 全管线真跑,exit 0 / stdout 符合)")
+
+
 def main() -> None:
     mode = sys.argv[1] if len(sys.argv) > 1 else ""
     if mode == "compile-run":
@@ -162,8 +184,13 @@ def main() -> None:
         breakpoint_check()
     elif mode == "self-profile":
         self_profile_check()
+    elif mode == "desugar-smoke":
+        desugar_smoke()
     else:
-        print("usage: py -3 ci/hello_smoke.py {compile-run|breakpoint|self-profile}")
+        print(
+            "usage: py -3 ci/hello_smoke.py "
+            "{compile-run|breakpoint|self-profile|desugar-smoke}"
+        )
         sys.exit(2)
 
 
