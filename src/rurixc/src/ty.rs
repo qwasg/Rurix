@@ -109,6 +109,11 @@ impl Ty {
         }
     }
 
+    /// 无引号渲染(MIR 文本等非诊断场景)。
+    pub fn render_plain(&self, res: &Resolutions) -> String {
+        self.render_inner(res)
+    }
+
     fn render_inner(&self, res: &Resolutions) -> String {
         match self {
             Ty::Prim(p) => prim_name(*p).to_owned(),

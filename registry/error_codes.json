@@ -186,6 +186,13 @@
       "status": "active",
       "introduced_in": "M2.2",
       "spec_clauses": ["RXS-0043", "RXS-0047"]
+    },
+    {
+      "id": "RX6001",
+      "title": "codegen 暂不支持的语言构造(M2.3 host 子集作用面外)",
+      "message_key": "codegen.unsupported_construct",
+      "status": "active",
+      "introduced_in": "M2.3"
     }
   ],
   "revision_log": [
@@ -213,6 +220,11 @@
       "version": "v1.4",
       "date": "2026-06-12",
       "change": "M2.2 分配 RX2001 ~ RX2006(类型检查首批,spec/types.md RXS-0039~0047 配套)"
+    },
+    {
+      "version": "v1.5",
+      "date": "2026-06-12",
+      "change": "M2.3 分配 RX6001(MIR lowering/codegen 作用面外构造;M2.3 host 子集 = hello-world 闭环所需,M2_PLAN v1.3 留痕)"
     }
   ]
 }

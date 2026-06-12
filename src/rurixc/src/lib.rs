@@ -14,6 +14,8 @@ pub mod hir;
 pub mod lexer;
 pub mod lower;
 pub mod messages;
+pub mod mir;
+pub mod mir_build;
 pub mod parser;
 pub mod query;
 pub mod render;

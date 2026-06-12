@@ -18,7 +18,7 @@ use std::collections::HashMap;
 
 use crate::ast::{self, Visibility};
 use crate::diag::{DiagCtxt, ErrorCode};
-use crate::hir::{DefId, DefKind, LocalId, PrimTy, Res, Vis};
+use crate::hir::{Builtin, DefId, DefKind, LocalId, PrimTy, Res, Vis};
 use crate::span::Span;
 
 pub const E_UNRESOLVED_NAME: ErrorCode = ErrorCode(1001); // RX1001
@@ -64,6 +64,8 @@ pub struct Resolutions {
     pub assoc_items: HashMap<DefId, Vec<(String, DefId)>>,
     /// enum 变体 → 父 enum(typeck 构造/模式检查)。
     pub variant_parents: HashMap<DefId, DefId>,
+    /// 内建函数 DefId(M2.3 最小 prelude;typeck 签名与 codegen 落点查表)。
+    pub builtins: HashMap<DefId, Builtin>,
 }
 
 /// 名称解析入口:对整个源文件构建模块树并走查全部 body。
@@ -78,6 +80,14 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
         enum_variants: HashMap::new(),
         mod_slots: Vec::new(),
     };
+    // 内建函数预分配(M2.3 最小 prelude,目前仅 println):不入模块命名空间——
+    // 用户同名定义优先,单段值路径未命中时兜底(见 resolve_value_single)
+    {
+        let b = Builtin::Println;
+        let span = Span::new(crate::span::SourceId(0), 0, 0, crate::span::Edition::Rx0);
+        let id = r.new_def(DefKind::Fn, b.name(), Vis::Pub, span, 0);
+        r.out.builtins.insert(id, b);
+    }
     r.collect_items(&file.items, 0);
     r.resolve_uses();
     r.resolve_impl_targets();
@@ -1023,6 +1033,18 @@ impl Resolver<'_> {
             self.out.path_res.insert(span, res);
             return res;
         }
+        // 内建函数兜底(M2.3 最小 prelude;以上各级未命中才轮到)
+        if let Some(d) = self
+            .out
+            .builtins
+            .iter()
+            .find(|(_, b)| b.name() == name)
+            .map(|(d, _)| *d)
+        {
+            let res = Res::Def(d);
+            self.out.path_res.insert(span, res);
+            return res;
+        }
         let suggestion = self.suggest(name, cx, Ns::Value);
         self.err_unresolved(name, span, suggestion.as_deref());
         self.out.path_res.insert(span, Res::Err);
@@ -1759,6 +1781,36 @@ mod tests {
         run_clean(
             "fn outer() -> usize {\n    const TILE: usize = 32;\n    fn inner(n: usize) -> usize { n * 2 }\n    struct Local {\n        v: usize,\n    }\n    let l = Local { v: TILE };\n    inner(l.v)\n}",
         );
+    }
+
+    // M2.3:内建函数兜底(最小 prelude)
+    #[test]
+    fn builtin_println_resolves_as_fallback() {
+        let res = run_clean("fn main() {\n    println(\"hi\");\n}");
+        let d = res
+            .path_res
+            .values()
+            .find_map(|r| match r {
+                Res::Def(d) => Some(*d),
+                _ => None,
+            })
+            .expect("println 解析为 Def");
+        assert_eq!(res.builtins.get(&d), Some(&Builtin::Println));
+    }
+
+    // M2.3:用户同名定义优先于内建
+    #[test]
+    fn user_definition_shadows_builtin() {
+        let res = run_clean("fn println(n: i32) {}\nfn main() {\n    println(1);\n}");
+        let called: Vec<DefId> = res
+            .path_res
+            .values()
+            .filter_map(|r| match r {
+                Res::Def(d) => Some(*d),
+                _ => None,
+            })
+            .collect();
+        assert!(called.iter().all(|d| !res.builtins.contains_key(d)));
     }
 
     //@ spec: RXS-0035

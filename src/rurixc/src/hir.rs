@@ -70,6 +70,22 @@ impl PrimTy {
     }
 }
 
+/// 内建函数(M2.3 最小 prelude:无标准库形态下的 hello-world 闭环;
+/// 库化/lang-item 体系随 M3+)。用户同名定义优先(resolve 兜底查找)。
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum Builtin {
+    /// `println(s: &str)`:行输出(host codegen 落到 CRT `puts`)。
+    Println,
+}
+
+impl Builtin {
+    pub fn name(self) -> &'static str {
+        match self {
+            Builtin::Println => "println",
+        }
+    }
+}
+
 /// 名称解析结果(RXS-0034 裁决产物)。
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Res {

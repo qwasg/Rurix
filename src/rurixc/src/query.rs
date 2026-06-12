@@ -28,6 +28,8 @@ use crate::typeck::TypeckResults;
 /// query 上下文:输入(源文本 → AST)+ 各 query 的 memo 存储。
 pub struct QueryCtx<'a> {
     diag: &'a DiagCtxt,
+    /// 源文本(MIR 字面量取值;span 切片)。
+    src: String,
     ast: ast::SourceFile,
     src_file: SourceId,
     // ---- memo 存储(进程内,D-203 MVP) ----
@@ -36,6 +38,7 @@ pub struct QueryCtx<'a> {
     fn_sigs: RefCell<HashMap<DefId, Rc<FnSig>>>,
     type_of: RefCell<HashMap<DefId, Ty>>,
     checked_bodies: RefCell<HashMap<BodyId, Rc<TypeckResults>>>,
+    mir: OnceCell<Rc<Vec<crate::mir::Body>>>,
     // ---- 计量(self-profile 布点,07 §6) ----
     hits: Cell<u64>,
     misses: Cell<u64>,
@@ -46,12 +49,13 @@ impl<'a> QueryCtx<'a> {
     pub fn new(src: &str, file: SourceId, edition: Edition, diag: &'a DiagCtxt) -> Self {
         let tokens = lex(src, file, edition, diag);
         let ast = parse(src, tokens, file, edition, diag);
-        Self::from_ast(ast, file, diag)
+        Self::from_ast(ast, src, file, diag)
     }
 
-    pub fn from_ast(ast: ast::SourceFile, file: SourceId, diag: &'a DiagCtxt) -> Self {
+    pub fn from_ast(ast: ast::SourceFile, src: &str, file: SourceId, diag: &'a DiagCtxt) -> Self {
         Self {
             diag,
+            src: src.to_owned(),
             ast,
             src_file: file,
             resolutions: OnceCell::new(),
@@ -59,6 +63,7 @@ impl<'a> QueryCtx<'a> {
             fn_sigs: RefCell::new(HashMap::new()),
             type_of: RefCell::new(HashMap::new()),
             checked_bodies: RefCell::new(HashMap::new()),
+            mir: OnceCell::new(),
             hits: Cell::new(0),
             misses: Cell::new(0),
         }
@@ -70,6 +75,10 @@ impl<'a> QueryCtx<'a> {
 
     pub fn ast(&self) -> &ast::SourceFile {
         &self.ast
+    }
+
+    pub fn src(&self) -> &str {
+        &self.src
     }
 
     pub fn src_file(&self) -> SourceId {
@@ -170,6 +179,18 @@ impl<'a> QueryCtx<'a> {
         for i in 0..krate.bodies.len() {
             let _ = self.check_body(BodyId(i as u32));
         }
+    }
+
+    /// MIR(单态化实例集,自 `main` 可达;provider:[`crate::mir_build::build_crate`])。
+    pub fn mir_crate(&self) -> Rc<Vec<crate::mir::Body>> {
+        if let Some(m) = self.mir.get() {
+            self.hit();
+            return Rc::clone(m);
+        }
+        self.miss();
+        let m = Rc::new(crate::mir_build::build_crate(self));
+        let _ = self.mir.set(Rc::clone(&m));
+        m
     }
 }
 

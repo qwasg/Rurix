@@ -31,3 +31,6 @@ typeck.arg_count_mismatch = this call takes {expected} argument(s) but {found} w
 typeck.unknown_method = no method named {method} found on type {ty}
 typeck.not_callable = expression of type {ty} is not callable
 typeck.bad_operand = operator {op} cannot be applied to type {ty}
+#
+# codegen 诊断(RX6001;M2.3 分配)
+codegen.unsupported_construct = {construct} is not supported by codegen yet (M2.3 host subset)
