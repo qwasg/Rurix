@@ -8,7 +8,7 @@
 //! - extern 块在 HIR 中展平为其成员 fn(无独立节点形态,MVP 取舍)。
 
 use crate::ast;
-use crate::hir::{self, BodyId, DefId, LocalId, Res};
+use crate::hir::{self, BodyId, DefId, HirId, LocalId, Res};
 use crate::resolve::Resolutions;
 
 /// lowering 入口:产出 HIR crate(解析诊断已由 resolve 阶段报出,本阶段无诊断)。
@@ -16,6 +16,7 @@ pub fn lower(file: &ast::SourceFile, res: &Resolutions) -> hir::Crate {
     let mut lw = Lowerer {
         res,
         krate: hir::Crate::default(),
+        next_hir: 0,
     };
     // 槽位预填:resolver 分配过的全部 DefId 都有 Item 槽(字段等保持 Err 占位)
     for (i, d) in res.defs.iter().enumerate() {
@@ -35,9 +36,17 @@ pub fn lower(file: &ast::SourceFile, res: &Resolutions) -> hir::Crate {
 struct Lowerer<'a> {
     res: &'a Resolutions,
     krate: hir::Crate,
+    /// HirId 分配计数(crate 内全局递增;clone_pat 共享原 id,见该方法注释)。
+    next_hir: u32,
 }
 
 impl Lowerer<'_> {
+    fn next_hir_id(&mut self) -> HirId {
+        let id = HirId(self.next_hir);
+        self.next_hir += 1;
+        id
+    }
+
     fn path_res(&self, span: crate::span::Span) -> Res {
         self.res.path_res.get(&span).copied().unwrap_or(Res::Err)
     }
@@ -254,6 +263,7 @@ impl Lowerer<'_> {
             .map(|p| match &p.kind {
                 ast::ParamKind::SelfParam { .. } => hir::Param {
                     pat: hir::Pat {
+                        hir_id: self.next_hir_id(),
                         kind: hir::PatKind::Binding {
                             local: self.binding_local(p.span),
                         },
@@ -285,6 +295,7 @@ impl Lowerer<'_> {
                 })
                 .collect();
             let value = hir::Expr {
+                hir_id: self.next_hir_id(),
                 span: block.span,
                 kind: hir::ExprKind::Block(self.lower_block(block)),
             };
@@ -440,6 +451,7 @@ impl Lowerer<'_> {
                             Some(p) => self.lower_pat(p),
                             // 简写字段模式 = 同名绑定(RXS-0032)
                             None => hir::Pat {
+                                hir_id: self.next_hir_id(),
                                 kind: hir::PatKind::Binding {
                                     local: self.binding_local(f.name.span),
                                 },
@@ -454,14 +466,17 @@ impl Lowerer<'_> {
             ast::PatKind::Err => hir::PatKind::Err,
         };
         hir::Pat {
+            hir_id: self.next_hir_id(),
             kind,
             span: pat.span,
         }
     }
 
     fn clone_pat(&self, p: &hir::Pat) -> hir::Pat {
-        // params 在 FnDecl 与 Body 各存一份(MVP 复制;intern 化随 M2.2 评估)
+        // params 在 FnDecl 与 Body 各存一份(MVP 复制;intern 化随 M2.2 评估);
+        // hir_id 共享原节点:typeck 只走 Body 侧,FnDecl 侧仅供签名消费
         hir::Pat {
+            hir_id: p.hir_id,
             kind: match &p.kind {
                 hir::PatKind::Wild => hir::PatKind::Wild,
                 hir::PatKind::Binding { local } => hir::PatKind::Binding { local: *local },
@@ -606,6 +621,7 @@ impl Lowerer<'_> {
                             Some(e) => Some(self.lower_expr(e)),
                             // 简写字段 desugar 为显式 Res 表达式
                             None => Some(hir::Expr {
+                                hir_id: self.next_hir_id(),
                                 kind: hir::ExprKind::Res(self.path_res(f.name.span)),
                                 span: f.name.span,
                             }),
@@ -659,6 +675,7 @@ impl Lowerer<'_> {
             ast::ExprKind::Err => hir::ExprKind::Err,
         };
         hir::Expr {
+            hir_id: self.next_hir_id(),
             kind,
             span: expr.span,
         }

@@ -9,11 +9,12 @@
 //! - **Err 容忍不级联**(RXS-0047):任一参与类型为 [`Ty::Err`] 时静默通过;
 //!   `for`(非区间迭代器)/`?`/闭包/`loop` 值等未定语义容忍为 Err。
 
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::ast::{BinOp, LitKind, LitSuffix, UnOp};
 use crate::diag::{DiagCtxt, ErrorCode};
-use crate::hir::{self, BodyId, DefId, DefKind, LocalId, PrimTy, Res};
+use crate::hir::{self, BodyId, DefId, DefKind, HirId, LocalId, PrimTy, Res};
 use crate::query::QueryCtx;
 use crate::resolve::Resolutions;
 use crate::span::Span;
@@ -25,6 +26,27 @@ pub const E_ARG_COUNT: ErrorCode = ErrorCode(2003); // RX2003
 pub const E_UNKNOWN_METHOD: ErrorCode = ErrorCode(2004); // RX2004
 pub const E_NOT_CALLABLE: ErrorCode = ErrorCode(2005); // RX2005
 pub const E_BAD_OPERAND: ErrorCode = ErrorCode(2006); // RX2006
+
+// ---------------------------------------------------------------------------
+// typeck 结果物化(M2.3:MIR lowering 的输入)
+// ---------------------------------------------------------------------------
+
+/// 单个 body 的类型检查产物(`check_body` query 的 memo 值)。
+///
+/// 全部类型在 body 检查结束时经推断引擎深度 resolve 并默认化;残留的
+/// 未约束推断变量收敛为 [`Ty::Err`](容忍区,MIR lowering 按不支持处理)。
+#[derive(Debug, Default)]
+pub struct TypeckResults {
+    /// 表达式节点 → 定型结果。
+    pub expr_ty: HashMap<HirId, Ty>,
+    /// 模式节点 → 绑定时的被匹配类型。
+    pub pat_ty: HashMap<HirId, Ty>,
+    /// 局部绑定(LocalId 索引)→ 定型结果(未绑定/容忍区为 Err)。
+    pub local_ty: Vec<Ty>,
+    /// 调用点(Call/MethodCall 表达式节点)→ (目标 DefId, 泛型实参)。
+    /// 单态化收集的输入(D-111);非 fn-item 调用(fn 指针)不入表。
+    pub call_targets: HashMap<HirId, (DefId, Vec<Ty>)>,
+}
 
 // ---------------------------------------------------------------------------
 // 推断引擎(RXS-0041)
@@ -260,8 +282,9 @@ pub fn type_of_provider(cx: &QueryCtx<'_>, def: DefId) -> Ty {
     }
 }
 
-/// `check_body` provider:对单个 body 做推断与检查,诊断经 DiagCtxt。
-pub fn check_body_provider(cx: &QueryCtx<'_>, body_id: BodyId) {
+/// `check_body` provider:对单个 body 做推断与检查,诊断经 DiagCtxt;
+/// 产物 [`TypeckResults`] 按节点物化(M2.3,MIR lowering 消费)。
+pub fn check_body_provider(cx: &QueryCtx<'_>, body_id: BodyId) -> TypeckResults {
     let krate = cx.hir_crate();
     let res = cx.resolutions();
     let body = krate.body(body_id);
@@ -274,6 +297,7 @@ pub fn check_body_provider(cx: &QueryCtx<'_>, body_id: BodyId) {
         infcx: InferCtxt::default(),
         locals: vec![None; body.locals.len()],
         ret_ty: Ty::Err,
+        results: TypeckResults::default(),
     };
 
     // 期望返回类型与参数绑定
@@ -309,6 +333,46 @@ pub fn check_body_provider(cx: &QueryCtx<'_>, body_id: BodyId) {
     let found = tck.check_expr(&body.value);
     let ret = tck.ret_ty.clone();
     tck.demand(body.value.span, &ret, &found);
+
+    // 物化:全部记录类型经推断引擎 resolve(含数值类默认化),残留推断变量收敛为 Err
+    let infcx = tck.infcx;
+    let finalize = |t: &Ty| -> Ty { strip_infer(&infcx.resolve(t)) };
+    let mut results = tck.results;
+    for t in results.expr_ty.values_mut() {
+        *t = finalize(t);
+    }
+    for t in results.pat_ty.values_mut() {
+        *t = finalize(t);
+    }
+    results.local_ty = tck
+        .locals
+        .iter()
+        .map(|t| t.as_ref().map(&finalize).unwrap_or(Ty::Err))
+        .collect();
+    for (_, args) in results.call_targets.values_mut() {
+        for t in args.iter_mut() {
+            *t = finalize(t);
+        }
+    }
+    results
+}
+
+/// 残留未约束推断变量 → Err(物化收敛,RXS-0047 容忍区)。
+fn strip_infer(t: &Ty) -> Ty {
+    match t {
+        Ty::Infer(_) => Ty::Err,
+        Ty::Adt(d, args) => Ty::Adt(*d, args.iter().map(strip_infer).collect()),
+        Ty::Tuple(v) => Ty::Tuple(v.iter().map(strip_infer).collect()),
+        Ty::Ref(x, m) => Ty::Ref(Box::new(strip_infer(x)), *m),
+        Ty::RawPtr(x, m) => Ty::RawPtr(Box::new(strip_infer(x)), *m),
+        Ty::Array(x) => Ty::Array(Box::new(strip_infer(x))),
+        Ty::Slice(x) => Ty::Slice(Box::new(strip_infer(x))),
+        Ty::FnPtr(ps, r) => Ty::FnPtr(
+            ps.iter().map(strip_infer).collect(),
+            Box::new(strip_infer(r)),
+        ),
+        other => other.clone(),
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -322,6 +386,7 @@ struct Tck<'a, 'q> {
     infcx: InferCtxt,
     locals: Vec<Option<Ty>>,
     ret_ty: Ty,
+    results: TypeckResults,
 }
 
 impl Tck<'_, '_> {
@@ -463,9 +528,10 @@ impl Tck<'_, '_> {
         n
     }
 
-    fn instantiate_sig(&mut self, sig: &FnSig) -> (Vec<Ty>, Ty) {
+    /// 返回 (实例化后形参, 返回类型, 泛型实参槽位)——槽位供调用点记录(单态化,D-111)。
+    fn instantiate_sig(&mut self, sig: &FnSig) -> (Vec<Ty>, Ty, Vec<Ty>) {
         if sig.generics_count == 0 {
-            return (sig.inputs.clone(), sig.output.clone());
+            return (sig.inputs.clone(), sig.output.clone(), Vec::new());
         }
         let fresh: Vec<Ty> = (0..sig.generics_count)
             .map(|_| self.infcx.fresh(None))
@@ -473,6 +539,7 @@ impl Tck<'_, '_> {
         (
             sig.inputs.iter().map(|t| t.subst(&fresh)).collect(),
             sig.output.subst(&fresh),
+            fresh,
         )
     }
 
@@ -497,6 +564,7 @@ impl Tck<'_, '_> {
     // -- 模式绑定(参数 / let / match 臂) --------------------------------------
 
     fn bind_pat(&mut self, pat: &hir::Pat, ty: &Ty) {
+        self.results.pat_ty.insert(pat.hir_id, ty.clone());
         match &pat.kind {
             hir::PatKind::Binding { local } => self.set_local(*local, ty.clone()),
             hir::PatKind::Wild | hir::PatKind::Lit | hir::PatKind::Range | hir::PatKind::Err => {}
@@ -639,6 +707,13 @@ impl Tck<'_, '_> {
     }
 
     fn check_expr(&mut self, e: &hir::Expr) -> Ty {
+        let t = self.check_expr_kind(e);
+        // 物化:按节点落表(含推断变量,body 收尾统一 resolve)
+        self.results.expr_ty.insert(e.hir_id, t.clone());
+        t
+    }
+
+    fn check_expr_kind(&mut self, e: &hir::Expr) -> Ty {
         match &e.kind {
             hir::ExprKind::Lit(l) => self.lit_ty(l),
             hir::ExprKind::Res(r) => self.res_value_ty(r),
@@ -720,12 +795,12 @@ impl Tck<'_, '_> {
                 // Range 自身类型未定义(库面随 M3+):容忍
                 Ty::Err
             }
-            hir::ExprKind::Call { callee, args } => self.check_call(e.span, callee, args),
+            hir::ExprKind::Call { callee, args } => self.check_call(e.span, e.hir_id, callee, args),
             hir::ExprKind::MethodCall {
                 receiver,
                 method,
                 args,
-            } => self.check_method(e.span, receiver, method, args),
+            } => self.check_method(e.span, e.hir_id, receiver, method, args),
             hir::ExprKind::Field { expr, field } => {
                 let t = self.check_expr(expr);
                 let base = self.autoderef(&t);
@@ -982,14 +1057,23 @@ impl Tck<'_, '_> {
         }
     }
 
-    fn check_call(&mut self, span: Span, callee: &hir::Expr, args: &[hir::Expr]) -> Ty {
+    fn check_call(
+        &mut self,
+        span: Span,
+        call_id: HirId,
+        callee: &hir::Expr,
+        args: &[hir::Expr],
+    ) -> Ty {
         // fn item / 构造器直调(含泛型实例化,RXS-0042/0045)
         if let hir::ExprKind::Res(Res::Def(d)) = &callee.kind {
             let kind = self.res.defs[d.0 as usize].kind;
             match kind {
                 DefKind::Fn | DefKind::AssocFn => {
                     let sig = self.cx.fn_sig(*d);
-                    let (inputs, output) = self.instantiate_sig(&sig);
+                    let (inputs, output, generic_args) = self.instantiate_sig(&sig);
+                    self.results
+                        .call_targets
+                        .insert(call_id, (*d, generic_args));
                     return self.check_args(span, &inputs, args, output);
                 }
                 DefKind::Struct | DefKind::Variant => {
@@ -1050,6 +1134,7 @@ impl Tck<'_, '_> {
     fn check_method(
         &mut self,
         span: Span,
+        call_id: HirId,
         receiver: &hir::Expr,
         method: &str,
         args: &[hir::Expr],
@@ -1067,7 +1152,8 @@ impl Tck<'_, '_> {
                 match found {
                     Some(m) => {
                         let sig = self.cx.fn_sig(m);
-                        let (inputs, output) = self.instantiate_sig(&sig);
+                        let (inputs, output, generic_args) = self.instantiate_sig(&sig);
+                        self.results.call_targets.insert(call_id, (m, generic_args));
                         self.check_args(span, &inputs, args, output)
                     }
                     None => {
@@ -1408,6 +1494,61 @@ mod tests {
         check_clean(
             "fn f(n: i32) -> i32 {\n    let mut acc = 0;\n    for i in 0..n {\n        acc += i;\n    }\n    acc\n}",
         );
+    }
+
+    // M2.3-B:typeck 结果物化(MIR lowering 输入面)
+    #[test]
+    fn typeck_results_materialize_node_types() {
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(
+            "fn f(x: i32) -> i32 {\n    let y = x + 1;\n    y\n}",
+            SourceId(0),
+            Edition::Rx0,
+            &diag,
+        );
+        let results = cx.check_body(crate::hir::BodyId(0));
+        assert!(diag.emitted().is_empty());
+        // 局部 x / y 均定型为 i32(数值类默认化已生效)
+        assert_eq!(results.local_ty.len(), 2);
+        assert!(
+            results.local_ty.iter().all(|t| *t == Ty::Prim(PrimTy::I32)),
+            "{:?}",
+            results.local_ty
+        );
+        // 表达式与模式节点均落表,且无残留推断变量
+        assert!(!results.expr_ty.is_empty());
+        assert!(!results.pat_ty.is_empty());
+        assert!(
+            results
+                .expr_ty
+                .values()
+                .chain(results.pat_ty.values())
+                .all(|t| !matches!(t, Ty::Infer(_)))
+        );
+    }
+
+    // M2.3-B:调用点记录(单态化收集输入,D-111)
+    #[test]
+    fn typeck_results_record_call_targets_with_substs() {
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(
+            "fn pick<T>(a: T, b: T) -> T { a }\nfn f() -> i64 { pick(1i64, 2) }",
+            SourceId(0),
+            Edition::Rx0,
+            &diag,
+        );
+        let res = cx.resolutions();
+        let pick = res.defs.iter().position(|d| d.name == "pick").unwrap();
+        cx.check_crate();
+        assert!(diag.emitted().is_empty());
+        // f 的 body(BodyId 1)内有对 pick 的调用,泛型实参定型为 i64
+        let results = cx.check_body(crate::hir::BodyId(1));
+        let target = results
+            .call_targets
+            .values()
+            .find(|(d, _)| d.0 as usize == pick)
+            .expect("调用点已记录");
+        assert_eq!(target.1, vec![Ty::Prim(PrimTy::I64)]);
     }
 
     //@ spec: RXS-0047
