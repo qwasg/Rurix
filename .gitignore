@@ -1,6 +1,9 @@
 # Rust
 target/
 
+# rurixc 本地编译产物(M2.3 闭环输出)
+build/
+
 # Python
 __pycache__/
 *.pyc
