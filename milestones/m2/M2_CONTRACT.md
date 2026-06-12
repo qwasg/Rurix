@@ -196,3 +196,10 @@ M2 全程零新增 deferred(开工 `deferred_refs: []` 兑现);M0/M1 遗留 RD-0
 ### 8.3 Run URL 与签字(人工追加区)
 
 <!-- 步骤 14 红绿 run URL、nightly 首跑 URL、批准记录由人类追加于此。 -->
+
+#### 8.3.1 Run URL(§8.2 第 1 项已完成,2026-06-12)
+
+- 步骤 14 基线绿(M2.4 落地 commit,步骤 12/13/14 全过):PR #6 `https://github.com/qwasg/Rurix/pull/6`, run `https://github.com/qwasg/Rurix/actions/runs/27416608296` — `success`。
+- 步骤 14 红验证(篡改阶段基线 link → borrowck):同 PR, run `https://github.com/qwasg/Rurix/actions/runs/27418261653` — `failure`,失败步骤 = `self-profile check (M2 CI_GATES §2.14, G-M2-4)`。
+- 步骤 14 绿验证(revert 后转绿):同 PR, run `https://github.com/qwasg/Rurix/actions/runs/27418345621` — `success`。
+- nightly 首跑 URL:待 PR 合入 main 后经 workflow_dispatch 触发,由人类追加于此(workflow_dispatch 要求工作流存在于默认分支)。
