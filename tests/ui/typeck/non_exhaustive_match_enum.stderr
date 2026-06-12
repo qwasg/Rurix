@@ -1,0 +1,5 @@
+error[RX2007]: non-exhaustive match: `Signal::Yellow` not covered
+  --> $DIR/typeck/non_exhaustive_match_enum.rx:11:5
+   |
+11 |     match s { //~ ERROR RX2007
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^ non-exhaustive match

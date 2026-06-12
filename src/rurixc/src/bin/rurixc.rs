@@ -130,21 +130,28 @@ fn main() -> ExitCode {
             if diag.has_errors() {
                 None
             } else {
-                let t = Instant::now();
-                let m = cx.mir_crate();
-                prof.record("mir", t, &[("mir_bodies", m.len() as u64)]);
-                // TBIR 窄门(M3.1):逐实例即建即用,聚合计时/计数经 QueryCtx 上报
-                let (tb_bodies, tb_scopes, tb_ms) = cx.tbir_stats();
-                prof.record_ms(
-                    "tbir",
-                    tb_ms,
-                    &[("tbir_bodies", tb_bodies), ("tbir_scopes", tb_scopes)],
-                );
-                if m.is_empty() {
-                    diag.struct_error(E_MISSING_MAIN, "codegen.missing_main")
-                        .emit();
+                // 模式穷尽性(RXS-0051):TBIR 窄门时点(typeck 后、MIR 前),
+                // 全 body 覆盖(含 MIR 可达性外的 body)
+                cx.check_crate_patterns();
+                if diag.has_errors() {
+                    None
+                } else {
+                    let t = Instant::now();
+                    let m = cx.mir_crate();
+                    prof.record("mir", t, &[("mir_bodies", m.len() as u64)]);
+                    // TBIR 窄门(M3.1):逐实例即建即用,聚合计时/计数经 QueryCtx 上报
+                    let (tb_bodies, tb_scopes, tb_ms) = cx.tbir_stats();
+                    prof.record_ms(
+                        "tbir",
+                        tb_ms,
+                        &[("tbir_bodies", tb_bodies), ("tbir_scopes", tb_scopes)],
+                    );
+                    if m.is_empty() {
+                        diag.struct_error(E_MISSING_MAIN, "codegen.missing_main")
+                            .emit();
+                    }
+                    Some(m)
                 }
-                Some(m)
             }
         }
     };

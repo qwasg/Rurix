@@ -9,12 +9,15 @@
 //! (`Ty::Err` / 未记录调用点)落为 [`tbir::ExprKind::Err`],由 MIR 报
 //! RX6001 作用面诊断。
 
-use crate::ast::UnOp;
-use crate::hir::{self, DefId, LocalId, Res};
+use crate::ast::{LitKind, UnOp};
+use crate::diag::{DiagCtxt, ErrorCode};
+use crate::hir::{self, DefId, LocalId, PrimTy, Res};
 use crate::resolve::Resolutions;
 use crate::tbir::{self, ScopeId};
 use crate::ty::Ty;
 use crate::typeck::TypeckResults;
+
+pub const E_NON_EXHAUSTIVE: ErrorCode = ErrorCode(2007); // RX2007
 
 /// TBIR 构造入口(逐 body;产物即建即用,MIR 构造后释放,D-202)。
 pub fn build(
@@ -494,10 +497,395 @@ impl Builder<'_> {
     }
 }
 
+// ---------------------------------------------------------------------------
+// match 穷尽性检查(RXS-0051;检查时点 = TBIR 窄门:typeck 后、MIR 前)
+// ---------------------------------------------------------------------------
+
+/// 对一个 TBIR body 内全部 `match` 做穷尽性检查(违例 → RX2007)。
+///
+/// 算法 = 简化 usefulness(Maranget 特化矩阵):判定域见 RXS-0051——
+/// enum 变体 / bool / 元组 / struct / 引用递归;数值/char/str 字面量与
+/// 区间、slice 模式不做值域完备性分析(无穷域,必须通配/绑定兜底);
+/// 带 guard 的臂不计入;or-pattern 为并集;`x @ p` 按子模式。
+pub fn check_exhaustiveness(
+    krate: &hir::Crate,
+    res: &Resolutions,
+    diag: &DiagCtxt,
+    body: &tbir::Body,
+) {
+    let cx = ExhaustCx { krate, res, diag };
+    cx.walk_expr(&body.value);
+}
+
+struct ExhaustCx<'a> {
+    krate: &'a hir::Crate,
+    res: &'a Resolutions,
+    diag: &'a DiagCtxt,
+}
+
+/// 归一化模式(usefulness 输入;or-pattern 已按行展开)。
+#[derive(Clone, Debug)]
+enum SP {
+    Wild,
+    Ctor(Key, Vec<SP>),
+}
+
+#[derive(Clone, PartialEq, Debug)]
+enum Key {
+    Bool(bool),
+    /// enum 变体(定义序下标)。
+    Variant(u32),
+    /// 单构造子域(元组 / struct / 引用)。
+    Single,
+    /// 无穷域字面量/区间/slice(覆盖力为点集,不参与完备判定;
+    /// 序号仅保证键互异)。
+    Opaque(u32),
+}
+
+/// 列构造子描述(完备集元素)。
+struct CtorInfo {
+    key: Key,
+    arg_tys: Vec<Ty>,
+    shape: CtorShape,
+}
+
+enum CtorShape {
+    Text(String),
+    Tuple,
+    StructBraces(String),
+    Ref,
+}
+
+impl ExhaustCx<'_> {
+    // -- TBIR 走查 ---------------------------------------------------------------
+
+    fn walk_expr(&self, e: &tbir::Expr) {
+        match &e.kind {
+            tbir::ExprKind::Match { scrutinee, arms } => {
+                self.walk_expr(scrutinee);
+                for a in arms {
+                    if let Some(g) = &a.guard {
+                        self.walk_expr(g);
+                    }
+                    self.walk_expr(&a.body);
+                }
+                self.check_match(e.span, &scrutinee.ty, arms);
+            }
+            tbir::ExprKind::Unary { expr, .. }
+            | tbir::ExprKind::Borrow { expr, .. }
+            | tbir::ExprKind::Cast(expr)
+            | tbir::ExprKind::Return(Some(expr))
+            | tbir::ExprKind::BreakValue(expr) => self.walk_expr(expr),
+            tbir::ExprKind::Binary { lhs, rhs, .. }
+            | tbir::ExprKind::Assign { lhs, rhs, .. }
+            | tbir::ExprKind::Range { lo: lhs, hi: rhs }
+            | tbir::ExprKind::Index {
+                base: lhs,
+                index: rhs,
+            }
+            | tbir::ExprKind::Repeat {
+                elem: lhs,
+                len: rhs,
+            } => {
+                self.walk_expr(lhs);
+                self.walk_expr(rhs);
+            }
+            tbir::ExprKind::Call { args, .. } => {
+                for a in args {
+                    self.walk_expr(a);
+                }
+            }
+            tbir::ExprKind::CallIndirect { callee, args } => {
+                self.walk_expr(callee);
+                for a in args {
+                    self.walk_expr(a);
+                }
+            }
+            tbir::ExprKind::Field { base, .. } => self.walk_expr(base),
+            tbir::ExprKind::Tuple(v)
+            | tbir::ExprKind::Array(v)
+            | tbir::ExprKind::Aggregate { fields: v, .. } => {
+                for x in v {
+                    self.walk_expr(x);
+                }
+            }
+            tbir::ExprKind::Block(b) => self.walk_block(b),
+            tbir::ExprKind::If { cond, then, else_ } => {
+                self.walk_expr(cond);
+                self.walk_block(then);
+                if let Some(x) = else_ {
+                    self.walk_expr(x);
+                }
+            }
+            tbir::ExprKind::While { cond, body } => {
+                self.walk_expr(cond);
+                self.walk_block(body);
+            }
+            tbir::ExprKind::Loop { body } => self.walk_block(body),
+            tbir::ExprKind::Lit(_)
+            | tbir::ExprKind::SynthInt(_)
+            | tbir::ExprKind::Local(_)
+            | tbir::ExprKind::Def(_)
+            | tbir::ExprKind::Return(None)
+            | tbir::ExprKind::Break
+            | tbir::ExprKind::Continue
+            | tbir::ExprKind::Closure
+            | tbir::ExprKind::Err => {}
+        }
+    }
+
+    fn walk_block(&self, b: &tbir::Block) {
+        for s in &b.stmts {
+            match s {
+                tbir::Stmt::Let { init, .. } => {
+                    if let Some(e) = init {
+                        self.walk_expr(e);
+                    }
+                }
+                tbir::Stmt::Expr(e) => self.walk_expr(e),
+            }
+        }
+        if let Some(t) = &b.tail {
+            self.walk_expr(t);
+        }
+    }
+
+    // -- 检查 ---------------------------------------------------------------------
+
+    fn check_match(&self, span: crate::span::Span, scrut_ty: &Ty, arms: &[tbir::Arm]) {
+        if scrut_ty.is_err() {
+            return; // 容忍区不级联(RXS-0047 口径)
+        }
+        let mut opaque = 0u32;
+        let matrix: Vec<Vec<SP>> = arms
+            .iter()
+            .filter(|a| a.guard.is_none()) // 带 guard 的臂不计入(RXS-0051)
+            .flat_map(|a| a.pats.iter())
+            .map(|p| vec![self.normalize(p, &mut opaque)])
+            .collect();
+        if let Some(w) = self.useful(&[scrut_ty.clone()], &matrix) {
+            let witness = w.into_iter().next().unwrap_or_else(|| "_".to_owned());
+            self.diag
+                .struct_error(E_NON_EXHAUSTIVE, "typeck.non_exhaustive_match")
+                .arg("witness", format!("`{witness}`"))
+                .span_label(span, "non-exhaustive match")
+                .emit();
+        }
+    }
+
+    fn normalize(&self, p: &tbir::Pat, opaque: &mut u32) -> SP {
+        match &p.kind {
+            tbir::PatKind::Wild => SP::Wild,
+            // 错误恢复模式按通配处理(防级联)
+            tbir::PatKind::Err => SP::Wild,
+            tbir::PatKind::Binding { sub: None, .. } => SP::Wild,
+            tbir::PatKind::Binding { sub: Some(s), .. } => self.normalize(s, opaque),
+            tbir::PatKind::Lit { lit, .. } => match lit.kind {
+                LitKind::Bool(v) => SP::Ctor(Key::Bool(v), Vec::new()),
+                _ => {
+                    *opaque += 1;
+                    SP::Ctor(Key::Opaque(*opaque), Vec::new())
+                }
+            },
+            tbir::PatKind::Range | tbir::PatKind::Slice(_) => {
+                *opaque += 1;
+                SP::Ctor(Key::Opaque(*opaque), Vec::new())
+            }
+            tbir::PatKind::Deref(sub) => {
+                SP::Ctor(Key::Single, vec![self.normalize(sub, opaque)])
+            }
+            tbir::PatKind::Tuple(elems) => SP::Ctor(
+                Key::Single,
+                elems.iter().map(|x| self.normalize(x, opaque)).collect(),
+            ),
+            tbir::PatKind::Struct { def, fields } => {
+                let arity = self.arity_of(*def);
+                SP::Ctor(Key::Single, self.positional(fields, arity, opaque))
+            }
+            tbir::PatKind::Variant {
+                variant,
+                index,
+                fields,
+                ..
+            } => {
+                let arity = self.arity_of(*variant);
+                SP::Ctor(
+                    Key::Variant(*index),
+                    self.positional(fields, arity, opaque),
+                )
+            }
+        }
+    }
+
+    fn arity_of(&self, def: DefId) -> usize {
+        match &self.krate.item(def).kind {
+            hir::ItemKind::Struct { fields } | hir::ItemKind::Variant { fields } => fields.len(),
+            _ => 0,
+        }
+    }
+
+    /// 字段子模式按定义序展开为全量位置序(缺位补通配)。
+    fn positional(&self, fields: &[(u32, tbir::Pat)], arity: usize, opaque: &mut u32) -> Vec<SP> {
+        let mut out = vec![SP::Wild; arity];
+        for (i, sub) in fields {
+            if let Some(slot) = out.get_mut(*i as usize) {
+                *slot = self.normalize(sub, opaque);
+            }
+        }
+        out
+    }
+
+    /// 列类型的完备构造子集;无穷/未知域(数值/char/str/Param/Err/数组等)
+    /// 返回 None(必须通配兜底,RXS-0051)。
+    fn complete_ctors(&self, ty: &Ty) -> Option<Vec<CtorInfo>> {
+        match ty {
+            Ty::Prim(PrimTy::Bool) => Some(vec![
+                CtorInfo {
+                    key: Key::Bool(false),
+                    arg_tys: Vec::new(),
+                    shape: CtorShape::Text("false".to_owned()),
+                },
+                CtorInfo {
+                    key: Key::Bool(true),
+                    arg_tys: Vec::new(),
+                    shape: CtorShape::Text("true".to_owned()),
+                },
+            ]),
+            Ty::Adt(d, args) => match &self.krate.item(*d).kind {
+                hir::ItemKind::Enum { variants } => {
+                    let enum_name = &self.res.defs[d.0 as usize].name;
+                    Some(
+                        variants
+                            .iter()
+                            .enumerate()
+                            .map(|(i, v)| {
+                                let vname = &self.res.defs[v.0 as usize].name;
+                                CtorInfo {
+                                    key: Key::Variant(i as u32),
+                                    arg_tys: crate::typeck::adt_field_tys(self.krate, *v, args),
+                                    shape: CtorShape::Text(format!("{enum_name}::{vname}")),
+                                }
+                            })
+                            .collect(),
+                    )
+                }
+                hir::ItemKind::Struct { .. } => Some(vec![CtorInfo {
+                    key: Key::Single,
+                    arg_tys: crate::typeck::adt_field_tys(self.krate, *d, args),
+                    shape: CtorShape::StructBraces(self.res.defs[d.0 as usize].name.clone()),
+                }]),
+                _ => None,
+            },
+            Ty::Tuple(v) => Some(vec![CtorInfo {
+                key: Key::Single,
+                arg_tys: v.clone(),
+                shape: CtorShape::Tuple,
+            }]),
+            Ty::Ref(inner, _) => Some(vec![CtorInfo {
+                key: Key::Single,
+                arg_tys: vec![(**inner).clone()],
+                shape: CtorShape::Ref,
+            }]),
+            _ => None,
+        }
+    }
+
+    fn render_ctor(&self, info: &CtorInfo, args: &[String]) -> String {
+        match &info.shape {
+            CtorShape::Text(base) => {
+                if args.is_empty() {
+                    base.clone()
+                } else {
+                    format!("{base}({})", args.join(", "))
+                }
+            }
+            CtorShape::Tuple => format!("({})", args.join(", ")),
+            CtorShape::StructBraces(name) => format!("{name} {{ .. }}"),
+            CtorShape::Ref => format!("&{}", args.first().cloned().unwrap_or_default()),
+        }
+    }
+
+    /// usefulness:全通配向量对矩阵是否有用;有用 → 返回逐列见证(非穷尽)。
+    fn useful(&self, tys: &[Ty], matrix: &[Vec<SP>]) -> Option<Vec<String>> {
+        let Some(col_ty) = tys.first() else {
+            return if matrix.is_empty() {
+                Some(Vec::new())
+            } else {
+                None
+            };
+        };
+        let ctors = self.complete_ctors(col_ty);
+        let heads: Vec<&Key> = matrix
+            .iter()
+            .filter_map(|r| match &r[0] {
+                SP::Ctor(k, _) => Some(k),
+                SP::Wild => None,
+            })
+            .collect();
+        match &ctors {
+            Some(all) if all.iter().all(|c| heads.contains(&&c.key)) => {
+                // 构造子完备且全在场:逐构造子特化递归
+                for c in all {
+                    let m2 = specialize(matrix, &c.key, c.arg_tys.len());
+                    let mut t2 = c.arg_tys.clone();
+                    t2.extend_from_slice(&tys[1..]);
+                    if let Some(w) = self.useful(&t2, &m2) {
+                        let (args, rest) = w.split_at(c.arg_tys.len());
+                        let mut out = vec![self.render_ctor(c, args)];
+                        out.extend_from_slice(rest);
+                        return Some(out);
+                    }
+                }
+                None
+            }
+            _ => {
+                // 构造子缺位 / 无穷域:default 矩阵(仅通配行)递归
+                let m2: Vec<Vec<SP>> = matrix
+                    .iter()
+                    .filter(|r| matches!(r[0], SP::Wild))
+                    .map(|r| r[1..].to_vec())
+                    .collect();
+                let w = self.useful(&tys[1..], &m2)?;
+                let head = match &ctors {
+                    Some(all) => all
+                        .iter()
+                        .find(|c| !heads.contains(&&c.key))
+                        .map(|c| self.render_ctor(c, &vec!["_".to_owned(); c.arg_tys.len()]))
+                        .unwrap_or_else(|| "_".to_owned()),
+                    None => "_".to_owned(),
+                };
+                let mut out = vec![head];
+                out.extend(w);
+                Some(out)
+            }
+        }
+    }
+}
+
+/// 特化矩阵:保留首列匹配 `key` 的行(展开其子模式)与通配行(补 `arity` 通配)。
+fn specialize(matrix: &[Vec<SP>], key: &Key, arity: usize) -> Vec<Vec<SP>> {
+    let mut out = Vec::new();
+    for row in matrix {
+        match &row[0] {
+            SP::Ctor(k, args) if k == key => {
+                let mut r = args.clone();
+                r.extend_from_slice(&row[1..]);
+                out.push(r);
+            }
+            SP::Wild => {
+                let mut r = vec![SP::Wild; arity];
+                r.extend_from_slice(&row[1..]);
+                out.push(r);
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::diag::DiagCtxt;
     use crate::query::QueryCtx;
     use crate::span::{Edition, SourceId};
 
@@ -568,6 +956,83 @@ mod tests {
             "autoderef 应显式化: {:?}",
             base.kind
         );
+    }
+
+    fn pattern_codes(src: &str) -> (Vec<u16>, DiagCtxt) {
+        let diag = DiagCtxt::new();
+        let codes = {
+            let cx = QueryCtx::new(src, SourceId(0), Edition::Rx0, &diag);
+            cx.check_crate();
+            assert!(
+                diag.emitted().is_empty(),
+                "前置阶段诊断: {:?}",
+                diag.emitted()
+            );
+            cx.check_crate_patterns();
+            diag.emitted()
+                .iter()
+                .filter_map(|d| d.code.map(|c| c.0))
+                .collect()
+        };
+        (codes, diag)
+    }
+
+    //@ spec: RXS-0051
+    #[test]
+    fn non_exhaustive_enum_match_is_rx2007_with_witness() {
+        let (codes, diag) = pattern_codes(
+            "enum E {\n    A,\n    B(i32),\n}\nfn f(e: E) -> i32 {\n    match e {\n        E::A => 0,\n    }\n}",
+        );
+        assert_eq!(codes, vec![2007]);
+        let msg = diag.emitted()[0].message(diag.messages());
+        assert!(msg.contains("E::B"), "见证应指向缺失变体: {msg}");
+    }
+
+    //@ spec: RXS-0051
+    #[test]
+    fn exhaustive_matches_are_clean() {
+        let (codes, _) = pattern_codes(
+            "enum E {\n    A,\n    B(i32),\n}\nfn f(e: E, b: bool, p: (bool, i32)) -> i32 {\n    let x = match e {\n        E::A => 0,\n        E::B(v) => v,\n    };\n    let y = match b {\n        true => 1,\n        false => 0,\n    };\n    let z = match p {\n        (true, n) => n,\n        (false, _) => 0,\n    };\n    let w = match x {\n        0 => 0,\n        other => other,\n    };\n    x + y + z + w\n}",
+        );
+        assert_eq!(codes, Vec::<u16>::new());
+    }
+
+    //@ spec: RXS-0051
+    #[test]
+    fn nested_payload_non_exhaustive_is_rx2007() {
+        let (codes, diag) = pattern_codes(
+            "fn f(o: Option<bool>) -> i32 {\n    match o {\n        None => 0,\n        Some(true) => 1,\n    }\n}",
+        );
+        assert_eq!(codes, vec![2007]);
+        let msg = diag.emitted()[0].message(diag.messages());
+        assert!(msg.contains("Some(false)"), "{msg}");
+    }
+
+    //@ spec: RXS-0051
+    #[test]
+    fn guarded_arms_do_not_count() {
+        let (codes, _) = pattern_codes(
+            "fn f(b: bool, x: bool) -> i32 {\n    match b {\n        true => 1,\n        false if x => 0,\n    }\n}",
+        );
+        assert_eq!(codes, vec![2007]);
+    }
+
+    //@ spec: RXS-0051
+    #[test]
+    fn int_scrutinee_needs_wildcard_fallback() {
+        let (codes, _) = pattern_codes(
+            "fn f(n: i32) -> i32 {\n    match n {\n        0 => 0,\n        1 => 1,\n    }\n}",
+        );
+        assert_eq!(codes, vec![2007]);
+    }
+
+    //@ spec: RXS-0051
+    #[test]
+    fn or_patterns_union_coverage() {
+        let (codes, _) = pattern_codes(
+            "enum E {\n    A,\n    B,\n    C,\n}\nfn f(e: E) -> i32 {\n    match e {\n        E::A | E::B => 0,\n        E::C => 1,\n    }\n}",
+        );
+        assert_eq!(codes, Vec::<u16>::new());
     }
 
     //@ spec: RXS-0048, RXS-0051

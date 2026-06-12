@@ -1,0 +1,10 @@
+//@ spec: RXS-0051
+// Integer scrutinee requires a wildcard/binding fallback arm; a guarded
+// arm does not count toward exhaustiveness (RX2007).
+
+fn classify(n: i32, strict: bool) -> i32 {
+    match n { //~ ERROR RX2007
+        0 => 0,
+        v if strict => v,
+    }
+}

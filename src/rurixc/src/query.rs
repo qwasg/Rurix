@@ -38,6 +38,8 @@ pub struct QueryCtx<'a> {
     fn_sigs: RefCell<HashMap<DefId, Rc<FnSig>>>,
     type_of: RefCell<HashMap<DefId, Ty>>,
     checked_bodies: RefCell<HashMap<BodyId, Rc<TypeckResults>>>,
+    /// 模式穷尽性已检 body 集(RXS-0051;memo 防重复诊断)。
+    checked_patterns: RefCell<std::collections::HashSet<BodyId>>,
     mir: OnceCell<Rc<Vec<crate::mir::Body>>>,
     // ---- 计量(self-profile 布点,07 §6) ----
     hits: Cell<u64>,
@@ -67,6 +69,7 @@ impl<'a> QueryCtx<'a> {
             fn_sigs: RefCell::new(HashMap::new()),
             type_of: RefCell::new(HashMap::new()),
             checked_bodies: RefCell::new(HashMap::new()),
+            checked_patterns: RefCell::new(std::collections::HashSet::new()),
             mir: OnceCell::new(),
             hits: Cell::new(0),
             misses: Cell::new(0),
@@ -202,6 +205,30 @@ impl<'a> QueryCtx<'a> {
         let krate = self.hir_crate();
         for i in 0..krate.bodies.len() {
             let _ = self.check_body(BodyId(i as u32));
+        }
+    }
+
+    /// 模式穷尽性检查(RXS-0051;TBIR 窄门时点 = typeck 后、MIR 前)。
+    ///
+    /// TBIR 即建即检即弃(D-202);memo 防同 body 重复诊断(单态化多实例)。
+    pub fn check_patterns(&self, body: BodyId) {
+        if !self.checked_patterns.borrow_mut().insert(body) {
+            self.hit();
+            return;
+        }
+        self.miss();
+        let krate = self.hir_crate();
+        let res = self.resolutions();
+        let tcr = self.check_body(body);
+        let tb = crate::tbir_build::build(&krate, &res, &tcr, krate.body(body));
+        crate::tbir_build::check_exhaustiveness(&krate, &res, self.diag, &tb);
+    }
+
+    /// 全 crate 模式穷尽性检查(覆盖不可达 body,与 MIR 可达性收集解耦)。
+    pub fn check_crate_patterns(&self) {
+        let krate = self.hir_crate();
+        for i in 0..krate.bodies.len() {
+            self.check_patterns(BodyId(i as u32));
         }
     }
 
