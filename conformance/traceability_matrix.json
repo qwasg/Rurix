@@ -408,7 +408,9 @@
     "RXS-0051": [
       "conformance/desugar/match_exhaustive.rx",
       "src/rurixc/src/mir_build.rs",
-      "src/rurixc/src/tbir_build.rs"
+      "src/rurixc/src/tbir_build.rs",
+      "tests/ui/typeck/non_exhaustive_match_enum.rx",
+      "tests/ui/typeck/non_exhaustive_match_fallback.rx"
     ],
     "RXS-0052": [
       "conformance/desugar/drop_scope_blocks.rx",
