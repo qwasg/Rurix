@@ -48,7 +48,8 @@ def resolve_base() -> str:
     gh_base = os.environ.get("GITHUB_BASE_REF")
     if gh_base:
         return f"origin/{gh_base}"
-    return "m0-baseline"
+    # M2 close-out 起回退基准切至 m1-closed(M2 CI_GATES §4 / v1.5 留痕)
+    return "m1-closed"
 
 
 def changed_paths(base: str) -> list[str]:

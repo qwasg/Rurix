@@ -1,7 +1,7 @@
 ---
 contract: M2
 title: HIR、类型检查与 host 编译闭环
-status: active            # active → closed(close-out 只追加,既有条款 0-byte 修改)
+status: closed            # active → closed(close-out 只追加,既有条款 0-byte 修改)
 version: v1.0
 date: 2026-06-11
 timebox: "M+3 ~ M+5(约 8 周,两级结构见 M2_PLAN.md)"
@@ -203,3 +203,11 @@ M2 全程零新增 deferred(开工 `deferred_refs: []` 兑现);M0/M1 遗留 RD-0
 - 步骤 14 红验证(篡改阶段基线 link → borrowck):同 PR, run `https://github.com/qwasg/Rurix/actions/runs/27418261653` — `failure`,失败步骤 = `self-profile check (M2 CI_GATES §2.14, G-M2-4)`。
 - 步骤 14 绿验证(revert 后转绿):同 PR, run `https://github.com/qwasg/Rurix/actions/runs/27418345621` — `success`。
 - nightly 首跑 URL:待 PR 合入 main 后经 workflow_dispatch 触发,由人类追加于此(workflow_dispatch 要求工作流存在于默认分支)。
+- nightly 首跑(§8.2 第 2 项,2026-06-12,PR #6 合入后 workflow_dispatch 触发):run `https://github.com/qwasg/Rurix/actions/runs/27418751059` — `success`,全步骤绿(lexer/parser/SAXPY 冒烟 + budget normal + self-profile 归档),artifact `self-profile-27418751059`(346 bytes)已上传。
+
+#### 8.3.2 批准信息(2026-06-12)
+
+- §8.2 处置记录:第 1 项(步骤 14 PR 级红绿)见 §8.3.1;第 2 项(nightly 首跑)见 §8.3.1;第 3 项(bless 批签)已按只追加方式补两行批签(tests/ui/bless_log.md,resolve 4 条 + typeck 12 条);第 4 项(guardrail 基准切换)已落地——`ci/check_guardrails.py` 本地/push 回退基准 `m0-baseline → m1-closed`(PR 路径仍以 GITHUB_BASE_REF 为准),留痕 CI_GATES v1.5。
+- close-out 终审批准人:`qwasg`(本会话明示授权"其他人工也帮我做完",agent 代笔执行;Assisted-by: cursor:fable-5)。
+- close-out 终审日期:`2026-06-12`。
+- 人工落笔 `status: active → closed`:已完成;闭环 tag 为 `m2-closed`(打于本 close-out 提交)。
