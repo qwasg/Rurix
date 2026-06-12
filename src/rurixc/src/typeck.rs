@@ -231,8 +231,23 @@ fn lower_hir_ty(t: &hir::Ty, infer: &mut dyn FnMut() -> Ty) -> Ty {
 // query providers(D-203:provider 只经 QueryCtx 互访)
 // ---------------------------------------------------------------------------
 
+/// 内建函数签名(M2.3 最小 prelude)。
+fn builtin_sig(b: hir::Builtin) -> FnSig {
+    match b {
+        hir::Builtin::Println => FnSig {
+            generics_count: 0,
+            has_self: false,
+            inputs: vec![Ty::Ref(Box::new(Ty::Prim(PrimTy::Str)), false)],
+            output: Ty::unit(),
+        },
+    }
+}
+
 /// `fn_sig` provider(RXS-0040/0042)。
 pub fn fn_sig_provider(cx: &QueryCtx<'_>, def: DefId) -> FnSig {
+    if let Some(b) = cx.resolutions().builtins.get(&def) {
+        return builtin_sig(*b);
+    }
     let krate = cx.hir_crate();
     let item = krate.item(def);
     let hir::ItemKind::Fn(decl) = &item.kind else {
@@ -1494,6 +1509,16 @@ mod tests {
         check_clean(
             "fn f(n: i32) -> i32 {\n    let mut acc = 0;\n    for i in 0..n {\n        acc += i;\n    }\n    acc\n}",
         );
+    }
+
+    // M2.3:内建 println 签名(最小 prelude)
+    #[test]
+    fn builtin_println_signature() {
+        check_clean("fn main() {\n    println(\"hello\");\n}");
+        let (codes, _) = check("fn main() {\n    println(1);\n}");
+        assert_eq!(codes, vec![2001]);
+        let (codes, _) = check("fn main() {\n    println(\"a\", \"b\");\n}");
+        assert_eq!(codes, vec![2003]);
     }
 
     // M2.3-B:typeck 结果物化(MIR lowering 输入面)
