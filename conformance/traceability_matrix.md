@@ -51,8 +51,8 @@
 | RXS-0045 | spec/types.md | 2 | `conformance/typeck/generics_mono.rx`, `src/rurixc/src/typeck.rs` |
 | RXS-0046 | spec/types.md | 3 | `conformance/typeck/methods_casts.rx`, `src/rurixc/src/typeck.rs`, `tests/ui/typeck/unknown_method.rx` |
 | RXS-0047 | spec/types.md | 13 | `src/rurixc/src/typeck.rs`, `tests/ui/typeck/arg_count.rx`, `tests/ui/typeck/arg_type_mismatch.rx` …(+10) |
-| RXS-0048 | spec/borrow.md | 3 | `conformance/desugar/iterator_protocol.rx`, `conformance/desugar/option_result_prelude.rx`, `conformance/desugar/question_mark_result.rx` |
-| RXS-0049 | spec/borrow.md | 2 | `conformance/desugar/for_range_desugar.rx`, `conformance/desugar/iterator_protocol.rx` |
-| RXS-0050 | spec/borrow.md | 1 | `conformance/desugar/question_mark_result.rx` |
+| RXS-0048 | spec/borrow.md | 6 | `conformance/desugar/iterator_protocol.rx`, `conformance/desugar/option_result_prelude.rx`, `conformance/desugar/question_mark_result.rx` …(+3) |
+| RXS-0049 | spec/borrow.md | 4 | `conformance/desugar/for_range_desugar.rx`, `conformance/desugar/iterator_protocol.rx`, `src/rurixc/src/lower.rs` …(+1) |
+| RXS-0050 | spec/borrow.md | 3 | `conformance/desugar/question_mark_result.rx`, `src/rurixc/src/lower.rs`, `src/rurixc/src/typeck.rs` |
 | RXS-0051 | spec/borrow.md | 1 | `conformance/desugar/match_exhaustive.rx` |
 | RXS-0052 | spec/borrow.md | 1 | `conformance/desugar/drop_scope_blocks.rx` |
