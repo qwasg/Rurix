@@ -1,0 +1,123 @@
+# -*- coding: utf-8 -*-
+"""hello-world 编译闭环冒烟 + cdb 断点核对(M2 CI_GATES §2 步骤 12/13)。
+
+用法:
+    py -3 ci/hello_smoke.py compile-run   # 步骤 12:G-M2-1 通道
+    py -3 ci/hello_smoke.py breakpoint    # 步骤 13:G-M2-2 通道
+
+步骤 12:rurixc 全管线产出 EXE → 运行核对退出码/输出 → 同名 PDB 存在。
+步骤 13:cdb 源行断点(bp `hello_world!hello_world.rx:6`)+ g + k,
+        输出与基线不变量比对(命中行 + 栈顶帧;时间戳/地址等非确定字段不入基线)。
+
+工具定位:cdb 经 RURIXC_CDB 环境变量 > WinDbg appx > Windows Kits Debuggers。
+"""
+
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+SRC = ROOT / "conformance" / "syntax" / "hello_world.rx"
+OUT_DIR = ROOT / "build" / "ci_smoke"
+EXE = OUT_DIR / "hello_world.exe"
+PDB = OUT_DIR / "hello_world.pdb"
+EXPECT_STDOUT = "hello, rurix"
+# 步骤 13 基线不变量(确定性子集;地址/时间戳不入基线)
+BP_BASELINE = [
+    "Breakpoint 0 hit",
+    "hello_world!main",
+    "hello_world.rx @ 6",
+]
+
+
+def fail(msg: str) -> None:
+    print(f"[hello_smoke] FAIL: {msg}")
+    sys.exit(1)
+
+
+def run(cmd, **kw):
+    return subprocess.run(cmd, capture_output=True, text=True, **kw)
+
+
+def build_exe() -> None:
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    r = run(["cargo", "build", "-p", "rurixc", "--bin", "rurixc"], cwd=ROOT)
+    if r.returncode != 0:
+        fail(f"cargo build rurixc 失败:\n{r.stderr}")
+    rurixc = ROOT / "target" / "debug" / "rurixc.exe"
+    r = run([str(rurixc), str(SRC), "-o", str(EXE)], cwd=ROOT)
+    if r.returncode != 0:
+        fail(f"rurixc 编译 hello_world.rx 失败(exit {r.returncode}):\n{r.stdout}{r.stderr}")
+
+
+def compile_run() -> None:
+    build_exe()
+    if not EXE.exists():
+        fail(f"EXE 未产出: {EXE}")
+    r = run([str(EXE)])
+    if r.returncode != 0:
+        fail(f"hello_world.exe 退出码 {r.returncode}(期待 0)")
+    if r.stdout.strip() != EXPECT_STDOUT:
+        fail(f"stdout 不符: {r.stdout.strip()!r}(期待 {EXPECT_STDOUT!r})")
+    if not PDB.exists():
+        fail(f"PDB 未产出: {PDB}(G-M2-1 要求同名 .pdb)")
+    print(f"[hello_smoke] compile-run PASS(exit 0 / stdout 符合 / {PDB.name} 存在)")
+
+
+def locate_cdb() -> str:
+    env = os.environ.get("RURIXC_CDB")
+    if env and Path(env).exists():
+        return env
+    # WinDbg appx(winget Microsoft.WinDbg)
+    r = run(
+        [
+            "powershell",
+            "-NoProfile",
+            "-Command",
+            "(Get-AppxPackage Microsoft.WinDbg).InstallLocation",
+        ]
+    )
+    loc = r.stdout.strip()
+    if loc:
+        cdb = Path(loc) / "amd64" / "cdb.exe"
+        if cdb.exists():
+            return str(cdb)
+    # 经典 Debugging Tools for Windows
+    classic = Path(
+        "C:/Program Files (x86)/Windows Kits/10/Debuggers/x64/cdb.exe"
+    )
+    if classic.exists():
+        return str(classic)
+    fail("cdb.exe 未找到(装 WinDbg 或设 RURIXC_CDB)")
+    raise AssertionError  # unreachable
+
+
+def breakpoint_check() -> None:
+    if not EXE.exists() or not PDB.exists():
+        build_exe()
+    cdb = locate_cdb()
+    script = "bp `hello_world!hello_world.rx:6`; g; k; q"
+    r = run([cdb, "-y", str(OUT_DIR), "-lines", "-c", script, str(EXE)], timeout=120)
+    out = r.stdout + r.stderr
+    missing = [m for m in BP_BASELINE if m not in out]
+    if missing:
+        log = OUT_DIR / "cdb_breakpoint.log"
+        log.write_text(out, encoding="utf-8")
+        fail(f"cdb 输出缺基线不变量 {missing}(全文见 {log})")
+    print("[hello_smoke] breakpoint PASS(源行断点命中 + main 栈帧 @ hello_world.rx:6)")
+
+
+def main() -> None:
+    mode = sys.argv[1] if len(sys.argv) > 1 else ""
+    if mode == "compile-run":
+        compile_run()
+    elif mode == "breakpoint":
+        breakpoint_check()
+    else:
+        print("usage: py -3 ci/hello_smoke.py {compile-run|breakpoint}")
+        sys.exit(2)
+
+
+if __name__ == "__main__":
+    main()
