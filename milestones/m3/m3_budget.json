@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "namespace": "m3",
+  "description": "M3 预算(14 §3:entries + ratio_assertions + counter_assertions,命名空间强制前缀)。M3 不新增 estimated 占位(不欠新债);编译性能阈值的首次实测回填(契约 G-M3-3)动作落在 milestones/m2/m2_budget.json 自身——两条 m2.bench.* 占位在 M3.4 转 measured_local 并经 revision_log 留痕(占位存活 ≤2 里程碑,14 §3,本里程碑到期),M3 close-out 跑 budget_eval --strict 断言全局零 estimated 残留。",
+  "source_docs": [
+    "14 §3",
+    "07 §6",
+    "11 §3 (M3 定义)",
+    "milestones/m3/M3_CONTRACT.md"
+  ],
+  "entries": [],
+  "ratio_assertions": [],
+  "counter_assertions": [
+    {
+      "id": "m3.counter.ui_golden_path3_snapshots",
+      "description": "黄金路径 3(借用错误)的 tests/ui/borrowck .stderr snapshot 数 ≥10(契约 G-M3-2;数量为 estimated 工程选择,调整经 Direct PR 留痕,对齐 G-M1-1/G-M2-3 先例)",
+      "expect": ">=10",
+      "evidence": "ci_checked"
+    },
+    {
+      "id": "m3.counter.borrowck_conformance_categories",
+      "description": "conformance/borrowck/reject/ 下预设错误类别目录数 ≥7(契约 G-M3-1 七类清单:use_after_move / use_before_init / double_mut_borrow / shared_mut_conflict / move_while_borrowed / assign_while_borrowed / dangling_reference;类别全拦截由 CI 步骤 15 批跑断言,本计数器核对类别覆盖面)",
+      "expect": ">=7",
+      "evidence": "ci_checked"
+    }
+  ],
+  "namespace_check": {
+    "rule": "本文件所有 id 必须以 'm3.' 前缀开头;多预算合并加载时冲突即 FAIL(14 §3)",
+    "unit_test_required": true
+  },
+  "revision_log": [
+    {
+      "version": "v1.0",
+      "date": "2026-06-12",
+      "change": "初版模板:黄金路径 3 计数器 + borrowck conformance 类别计数器(M3 契约配套);entries 留空 = M3 不新增 estimated 占位,m2.bench.* 回填动作记于 m2_budget.json"
+    }
+  ]
+}
