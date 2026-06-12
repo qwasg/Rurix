@@ -48,6 +48,11 @@
       "version": "v1.0",
       "date": "2026-06-11",
       "change": "初版模板:m2.bench.* estimated 占位(阈值 M3 实测回填,契约 §4 诚实声明)+ 黄金路径 2 计数器(M2 契约配套)"
+    },
+    {
+      "version": "v1.1",
+      "date": "2026-06-12",
+      "change": "M2.4 占位复核(M2_PLAN §4 任务 2):两条 m2.bench.* estimated 占位的 skip_reason 与 M3 回填承接复核确认不变(占位存活 ≤2 里程碑,14 §3,M3 close-out 前必须转 measured_local);self-profile 计时基础设施已落地(rurixc --self-profile 六阶段 JSON 行 + CI 步骤 14),M3 实测回填的计时数据源就绪。本次对既有条目零修改,仅追加本行"
     }
   ]
 }

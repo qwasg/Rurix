@@ -138,3 +138,61 @@ M2 开工时无预造 deferred(`deferred_refs: []`);M1 遗留 RD-001(M8)/RD-002(
 ## 8. Close-out(只追加区 — 开工时为空)
 
 <!-- 验收记录、guardrail 核对输出、deferred 继承/关闭记录追加于此;上方条款 0-byte 修改。 -->
+
+### 8.1 Close-out 草案(2026-06-12,M2.4;状态:**待人工终审**)
+
+> 本节由 M2.4 收尾工作追加(Assisted-by: cursor:fable-5);全部数字来自命令真实输出。
+> 关闭判定与 `status: active → closed` 由人类终审落笔,签字与待办见 §8.2/§8.3。
+
+#### 8.1.1 验收门证据
+
+| 门 | 判据 | 证据(命令真实输出) | 状态 |
+|---|---|---|---|
+| G-M2-1 | hello-world 编译闭环:EXE 运行验证 + PDB 存在(CI 自动核对) | `py -3 ci/hello_smoke.py compile-run` → `PASS(exit 0 / stdout 符合 / hello_world.pdb 存在)`;CI 步骤 12 已入 pr-smoke.yml,PR 级绿 run [27412857831](https://github.com/qwasg/Rurix/actions/runs/27412857831)(CI_GATES v1.2) | 达成 |
+| G-M2-2 | cdb 脚本化断点命中 + 栈打印,输出原文留痕 | `py -3 ci/hello_smoke.py breakpoint` → `PASS(源行断点命中 + main 栈帧 @ hello_world.rx:6)`;cdb 命令 `bp `hello_world!hello_world.rx:6`; g; k; q`,输出原文 [../../evidence/cdb_hello_world_20260612.txt](../../evidence/cdb_hello_world_20260612.txt);PR 级红绿 = PR #5 runs [27412796112](https://github.com/qwasg/Rurix/actions/runs/27412796112)(红)/ [27412857831](https://github.com/qwasg/Rurix/actions/runs/27412857831)(绿)(CI_GATES v1.2) | 达成 |
+| G-M2-3 | 黄金路径 2 snapshot ≥10,经 bless guardrail | `py -3 ci/budget_eval.py` → `m2.counter.ui_golden_path2_snapshots: PASS — 12 条 .stderr snapshot(要求 ≥10)`;bless 记录两行(resolve 4 条 / typeck 12 条)已入 tests/ui/bless_log.md,批签待人工(§8.2) | 达成(批签待人工) |
+| G-M2-4 | self-profile 输出机器可解析 + 各阶段计数器非零 | `py -3 ci/hello_smoke.py self-profile` → `PASS(JSON 行可解析 / 六阶段计数器非零: {'parse': {'tokens': 17, 'items': 1}, 'resolve': {'defs': 2}, 'typeck': {'bodies_checked': 1}, 'mir': {'mir_bodies': 1}, 'codegen': {'ir_bytes': 1178}, 'link': {'artifacts': 2}})`;实现 = `rurixc --self-profile=<file>`(src/rurixc/src/profile.rs + 驱动布点),total 行携带 memo_hits=13/memo_misses=6(D-235 非零证据布点);CI 步骤 14 已入 pr-smoke.yml(CI_GATES v1.3),PR 级红绿待执行(§8.2) | 达成(PR 级红绿待人工确认) |
+| G-M2-5 | M2 新增 RXS 条款(names/types)每条 ≥1 测试锚定 | `py -3 ci/trace_matrix.py` → `PASS (47/47 clauses anchored, 190 test files scanned)`(M1 期 31 条 → 47 条,新增 names RXS-0032~0038 / types RXS-0039~0047 全锚定);产物 conformance/traceability_matrix.json 与现状一致 | 达成 |
+
+**预算口径(契约 §4 诚实声明的执行情况)**:`py -3 ci/budget_eval.py`(normal)→ `PASS (15 pass, 2 skip)`;两条 `m2.bench.*` estimated 占位按声明 SKIP + skip_reason 留痕,M3 回填承接已于 [m2_budget.json](m2_budget.json) revision v1.1 复核(占位存活 ≤2 里程碑,逾期即 FAIL)。本契约不设零 estimated 残留门,故未跑 `--strict`。
+
+#### 8.1.2 guardrail 核对输出(2026-06-12)
+
+```
+[check_structure] PASS (11 dirs, 6 files)
+[check_schemas] PASS
+[check_guardrails] PASS (base=m0-baseline, 313 changed paths)
+[budget_eval] PASS (15 pass, 2 skip, normal mode)
+[trace_matrix] PASS (47/47 clauses anchored, 190 test files scanned)
+cargo fmt --all --check: exit 0;cargo clippy --workspace --all-targets -- -D warnings: exit 0
+cargo test: 182 passed 0 failed(169 lib + 2 fmt_corpus + 3 resolve_corpus + 4 syntax_corpus + 4 ui_golden)
+pytest: 26 passed
+[hello_smoke] compile-run PASS / breakpoint PASS / self-profile PASS
+```
+
+#### 8.1.3 交付物落位
+
+| 交付物 | 落位 |
+|---|---|
+| D-M2-1 | `src/rurixc/src/{resolve,hir,lower}.rs` + RX1001~RX1004 + `conformance/resolve/` + `tests/ui/resolve/` 4 对 snapshot |
+| D-M2-2 | `spec/names.md`(RXS-0032~0038)+ `spec/types.md`(RXS-0039~0047),条款 PR 先于实现 PR(M2_PLAN v1.1/v1.2 留痕) |
+| D-M2-3 | `src/rurixc/src/query.rs`(QueryCtx + 进程内 memo + hits/misses 计量,D-203 第一天形态) |
+| D-M2-4 | `src/rurixc/src/{typeck,ty}.rs` + RX2001~RX2006 + `conformance/typeck/` + `tests/ui/typeck/` 12 对 snapshot |
+| D-M2-5 | `src/rurixc/src/{mir,mir_build,codegen}.rs` + `bin/rurixc.rs` 驱动(文本 LLVM IR + clang 22.1.x + link.exe,M2_PLAN v1.3 选型)+ hello-world EXE/PDB |
+| D-M2-6 | `src/rurixc/src/profile.rs` + `rurixc --self-profile` + CI 步骤 14(`ci/hello_smoke.py self-profile`)+ `.github/workflows/nightly.yml` 归档 + [m2_budget.json](m2_budget.json) 占位复核 v1.1 |
+
+#### 8.1.4 deferred 处置
+
+M2 全程零新增 deferred(开工 `deferred_refs: []` 兑现);M0/M1 遗留 RD-001(M8)/RD-002(M5)/RD-003(M6)/RD-004(M6)/RD-005(M6)/RD-006(M8)维持原承接。desugar(for/`?`)推迟与 codegen"暂不支持"诊断口径为 M3 路线图项(M2_PLAN v1.1/v1.2/v1.3 留痕),非 deferred,不登记编号。
+
+### 8.2 人工待办清单
+
+1. **G-M2-4 PR 级红绿(CI 真跑)**:本分支 PR 上构造步骤 14 失败路径(篡改阶段基线或 profile 输出)→ 红;恢复 → 绿;两次 run URL 追加 §8.3(脚本级红绿已本地真跑,CI_GATES v1.3 留痕)。
+2. **nightly.yml 首跑确认**:经 workflow_dispatch 手动触发一次,确认全步骤绿 + self-profile artifact 归档;run URL 追加 §8.3(schedule 无法 PR 验证)。
+3. **bless_log.md 批签**:tests/ui/bless_log.md 两行 `pending-human-review`(2026-06-11 resolve 4 条 / 2026-06-12 typeck 12 条)按只追加方式补人工批签行。
+4. **m1-closed 基准切换确认**:`m1-closed` tag 已随 M1 终审打出,guardrail 基准从 `m0-baseline` 切换的留痕(CI_GATES §4)随终审一并裁决。
+5. 终审本草案 → 人工落笔 `status: active → closed`,打 `m2-closed` tag,§8.3 签字。
+
+### 8.3 Run URL 与签字(人工追加区)
+
+<!-- 步骤 14 红绿 run URL、nightly 首跑 URL、批准记录由人类追加于此。 -->

@@ -18,6 +18,7 @@ pub mod messages;
 pub mod mir;
 pub mod mir_build;
 pub mod parser;
+pub mod profile;
 pub mod query;
 pub mod render;
 pub mod resolve;
