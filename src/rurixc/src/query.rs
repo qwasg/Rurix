@@ -23,6 +23,7 @@ use crate::parser::parse;
 use crate::resolve::{Resolutions, resolve};
 use crate::span::{Edition, SourceId};
 use crate::ty::{FnSig, Ty};
+use crate::typeck::TypeckResults;
 
 /// query 上下文:输入(源文本 → AST)+ 各 query 的 memo 存储。
 pub struct QueryCtx<'a> {
@@ -34,7 +35,7 @@ pub struct QueryCtx<'a> {
     hir: OnceCell<Rc<hir::Crate>>,
     fn_sigs: RefCell<HashMap<DefId, Rc<FnSig>>>,
     type_of: RefCell<HashMap<DefId, Ty>>,
-    checked_bodies: RefCell<HashMap<BodyId, ()>>,
+    checked_bodies: RefCell<HashMap<BodyId, Rc<TypeckResults>>>,
     // ---- 计量(self-profile 布点,07 §6) ----
     hits: Cell<u64>,
     misses: Cell<u64>,
@@ -150,21 +151,24 @@ impl<'a> QueryCtx<'a> {
     }
 
     /// body 类型检查(诊断经 DiagCtxt 产出;memo 防重复检查)。
-    pub fn check_body(&self, body: BodyId) {
-        if self.checked_bodies.borrow().contains_key(&body) {
+    ///
+    /// M2.3 起返回按节点物化的 [`TypeckResults`](MIR lowering 的输入)。
+    pub fn check_body(&self, body: BodyId) -> Rc<TypeckResults> {
+        if let Some(r) = self.checked_bodies.borrow().get(&body) {
             self.hit();
-            return;
+            return Rc::clone(r);
         }
         self.miss();
-        crate::typeck::check_body_provider(self, body);
-        self.checked_bodies.borrow_mut().insert(body, ());
+        let r = Rc::new(crate::typeck::check_body_provider(self, body));
+        self.checked_bodies.borrow_mut().insert(body, Rc::clone(&r));
+        r
     }
 
     /// 全 crate 类型检查入口(遍历全部 body)。
     pub fn check_crate(&self) {
         let krate = self.hir_crate();
         for i in 0..krate.bodies.len() {
-            self.check_body(BodyId(i as u32));
+            let _ = self.check_body(BodyId(i as u32));
         }
     }
 }

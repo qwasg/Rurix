@@ -23,6 +23,11 @@ pub struct BodyId(pub u32);
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct LocalId(pub u32);
 
+/// HIR 节点 id(crate 内全局递增,lowering 分配;[`crate::typeck::TypeckResults`]
+/// 的键——M2.3 起类型检查结果按节点物化,供 MIR lowering 消费)。
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct HirId(pub u32);
+
 /// 内置原生类型(类型位置单段路径的保留名,RXS-0034)。
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum PrimTy {
@@ -267,6 +272,7 @@ pub enum TyKind {
 
 #[derive(Debug)]
 pub struct Pat {
+    pub hir_id: HirId,
     pub kind: PatKind,
     pub span: Span,
 }
@@ -304,6 +310,7 @@ pub enum PatKind {
 
 #[derive(Debug)]
 pub struct Expr {
+    pub hir_id: HirId,
     pub kind: ExprKind,
     pub span: Span,
 }
