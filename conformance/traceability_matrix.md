@@ -42,3 +42,12 @@
 | RXS-0036 | spec/names.md | 6 | `conformance/resolve/nested_modules.rx`, `conformance/resolve/private_descendants.rx`, `conformance/resolve/visibility_pub_package.rx` …(+3) |
 | RXS-0037 | spec/names.md | 3 | `conformance/syntax/names_duplicates.rx`, `src/rurixc/src/resolve.rs`, `tests/ui/resolve/duplicate_definition.rx` |
 | RXS-0038 | spec/names.md | 7 | `conformance/syntax/names_duplicates.rx`, `conformance/syntax/names_use_visibility.rx`, `src/rurixc/src/resolve.rs` …(+4) |
+| RXS-0039 | spec/types.md | 3 | `conformance/typeck/literals_defaults.rx`, `conformance/typeck/tuples_arrays_typed.rx`, `src/rurixc/src/typeck.rs` |
+| RXS-0040 | spec/types.md | 2 | `conformance/typeck/signatures.rx`, `src/rurixc/src/typeck.rs` |
+| RXS-0041 | spec/types.md | 4 | `conformance/typeck/inference_locals.rx`, `conformance/typeck/shadow_rebind_typed.rx`, `src/rurixc/src/typeck.rs` …(+1) |
+| RXS-0042 | spec/types.md | 7 | `conformance/typeck/calls.rx`, `conformance/typeck/references_params.rx`, `src/rurixc/src/typeck.rs` …(+4) |
+| RXS-0043 | spec/types.md | 6 | `conformance/typeck/control_flow_typed.rx`, `conformance/typeck/operators_typed.rx`, `conformance/typeck/references_params.rx` …(+3) |
+| RXS-0044 | spec/types.md | 8 | `conformance/typeck/adt_construct.rx`, `conformance/typeck/control_flow_typed.rx`, `conformance/typeck/tuples_arrays_typed.rx` …(+5) |
+| RXS-0045 | spec/types.md | 2 | `conformance/typeck/generics_mono.rx`, `src/rurixc/src/typeck.rs` |
+| RXS-0046 | spec/types.md | 3 | `conformance/typeck/methods_casts.rx`, `src/rurixc/src/typeck.rs`, `tests/ui/typeck/unknown_method.rx` |
+| RXS-0047 | spec/types.md | 13 | `src/rurixc/src/typeck.rs`, `tests/ui/typeck/arg_count.rx`, `tests/ui/typeck/arg_type_mismatch.rx` …(+10) |

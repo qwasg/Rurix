@@ -82,3 +82,4 @@ flowchart LR
 |---|---|---|
 | v1.0 | 2026-06-11 | 初版 |
 | v1.1 | 2026-06-11 | M2.1 实施留痕(Direct)两项:(1)§1 出口判据作用面调整——"conformance 语料(正例)全量 0 诊断"改为新建 `conformance/resolve/` 语义正例集(自包含程序)全量 0 诊断,`conformance/syntax/` 维持 parse 门(其样例为含草图引用的语法正例,且 names_duplicates.rx 是故意的 resolve 反例);(2)§1 任务 3 的 desugar(for/`?`)时点推迟至 M2.2 与类型系统同步(依赖 Iterator/Result lang-item),HIR 暂保留 For/Try 一等节点 |
+| v1.2 | 2026-06-12 | M2.2 实施留痕(Direct)三项:(1)§2 任务 3 "trait 求解单态化导向简化版"最小化口径——内建运算符直接按原生类型规则检查(不经运算符 trait)、泛型 bound 仅记录不求解(RXS-0045 条款化)、方法查找仅 inherent impl,完整求解器随 M2.3+ 评估;(2)desugar(for/`?`)继续推迟(v1.1 项延续,typeck 对应构造容忍);(3)UI 通道阶段化:前一阶段有 error 即停(parse→resolve→typeck),防级联污染 snapshot,与 rustc 阶段中止策略对齐 |

@@ -1,0 +1,4 @@
+//@ spec: RXS-0043, RXS-0047
+fn f(p: bool, q: bool) -> bool {
+    p + q //~ ERROR RX2006
+}

@@ -1,0 +1,5 @@
+error[RX2002]: missing field `y` on type `P`
+ --> $DIR/typeck/missing_field.rx:8:5
+  |
+8 |     P { x: 1.0 } //~ ERROR RX2002
+  |     ^^^^^^^^^^^^ missing field `y`

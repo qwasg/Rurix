@@ -1,0 +1,5 @@
+error[RX2004]: no method named `missing` found on type `C`
+  --> $DIR/typeck/unknown_method.rx:13:5
+   |
+13 |     c.missing() //~ ERROR RX2004
+   |     ^^^^^^^^^^^ method not found

@@ -1,0 +1,23 @@
+//@ spec: RXS-0043, RXS-0044
+// Typed control flow: bool conditions, range-for, match guards.
+
+fn flow(n: i32) -> i32 {
+    let mut acc = 0;
+    for i in 0..n {
+        if i % 2 == 0 {
+            acc += i;
+        } else {
+            acc -= 1;
+        }
+    }
+    let mut k = 0;
+    while k < 10 {
+        k += 1;
+    }
+    let label = match acc {
+        0 => 0,
+        v if v > 100 => 100,
+        v => v,
+    };
+    label + k
+}

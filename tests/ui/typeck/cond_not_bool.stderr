@@ -1,0 +1,5 @@
+error[RX2001]: mismatched types: expected bool, found i32
+ --> $DIR/typeck/cond_not_bool.rx:3:8
+  |
+3 |     if n { } //~ ERROR RX2001
+  |        ^ expected bool

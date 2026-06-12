@@ -1,0 +1,4 @@
+//@ spec: RXS-0042, RXS-0047
+fn f() -> i32 {
+    return true; //~ ERROR RX2001
+}

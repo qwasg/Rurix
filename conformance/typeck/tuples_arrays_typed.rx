@@ -1,0 +1,19 @@
+//@ spec: RXS-0039, RXS-0044
+// Tuples, arrays, repeats, indexing with usize.
+
+fn tuples() -> f64 {
+    let pair = (1, 2.5);
+    let unit = ();
+    let _u = unit;
+    let _first: i32 = pair.0;
+    pair.1
+}
+
+fn arrays() -> f32 {
+    let xs: [f32; 3] = [1.0, 2.0, 3.0];
+    let zeros = [0u8; 4];
+    let grid = [[1, 2], [3, 4]];
+    let _z = zeros[0];
+    let _g = grid[1][0];
+    xs[2]
+}

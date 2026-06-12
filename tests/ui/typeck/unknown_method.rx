@@ -1,0 +1,14 @@
+//@ spec: RXS-0046, RXS-0047
+struct C {
+    v: u32,
+}
+
+impl C {
+    fn get(&self) -> u32 {
+        self.v
+    }
+}
+
+fn f(c: C) -> u32 {
+    c.missing() //~ ERROR RX2004
+}

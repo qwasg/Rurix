@@ -1,0 +1,5 @@
+error[RX2005]: expression of type i32 is not callable
+ --> $DIR/typeck/not_callable.rx:4:14
+  |
+4 |     let _y = x(2); //~ ERROR RX2005
+  |              ^^^^ not callable

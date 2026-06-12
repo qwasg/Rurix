@@ -1,0 +1,4 @@
+//@ spec: RXS-0044, RXS-0047
+fn f(c: bool) -> i32 {
+    if c { 1 } else { false } //~ ERROR RX2001
+}

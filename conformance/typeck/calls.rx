@@ -1,0 +1,23 @@
+//@ spec: RXS-0042
+// Call consistency: arity, argument/return agreement, fn pointers.
+
+fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+fn double(x: i32) -> i32 {
+    add(x, x)
+}
+
+fn apply(f: fn(i32) -> i32, v: i32) -> i32 {
+    f(v)
+}
+
+fn main() -> i32 {
+    let g: fn(i32) -> i32 = double;
+    let early = add(1, 2);
+    if early > 2 {
+        return apply(g, early);
+    }
+    apply(double, 4)
+}

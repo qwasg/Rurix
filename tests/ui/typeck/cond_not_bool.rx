@@ -1,0 +1,4 @@
+//@ spec: RXS-0043, RXS-0047
+fn f(n: i32) {
+    if n { } //~ ERROR RX2001
+}

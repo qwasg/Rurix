@@ -1,0 +1,24 @@
+//@ spec: RXS-0045
+// Monomorphization draft: generic fns and structs instantiated per use.
+
+fn pick<T>(a: T, b: T) -> T {
+    a
+}
+
+fn pair_first<A, B>(a: A, b: B) -> A {
+    a
+}
+
+struct Holder<T> {
+    inner: T,
+}
+
+fn main() -> i64 {
+    let i = pick(1i64, 2);
+    let f = pick(0.5, 1.5);
+    let s = pair_first("hi", 3);
+    let h = Holder { inner: i };
+    let hf = Holder { inner: f };
+    let _keep = (s, hf.inner);
+    h.inner
+}

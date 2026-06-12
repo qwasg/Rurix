@@ -1,0 +1,13 @@
+//@ spec: RXS-0041
+// Shadowing across blocks re-types bindings independently.
+
+fn rebind(flag: bool) -> f64 {
+    let v = 1;
+    let _i: i32 = v;
+    {
+        let v = 2.5;
+        let _f: f64 = v;
+    }
+    let w = if flag { 1.0 } else { 0.0 };
+    w
+}
