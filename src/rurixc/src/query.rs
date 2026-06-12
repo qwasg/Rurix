@@ -1,0 +1,217 @@
+//! query 骨架(07 §2 / D-203:"接口第一天、存储最后一天")。
+//!
+//! 第一天形态:
+//! - 全部语义分析 API 写成 **query 风格纯函数**:同输入同输出,provider 之间
+//!   只经 [`QueryCtx`] 互访,无全局可变状态;
+//! - **进程内 memoization**:每个 query 首算后缓存,命中计数暴露
+//!   ([`QueryCtx::memo_hits`])供单测与未来 self-profile(M2.4)消费;
+//! - 不做:跨会话红绿增量、并行前端(D-203 Phase 2+,显式 out-of-scope)。
+//!
+//! 首批 query:`resolutions` / `hir_crate` / `def_kind` / `fn_sig` / `type_of` /
+//! `check_body`(后三者由 [`crate::typeck`] 提供 provider)。
+
+use std::cell::{Cell, OnceCell, RefCell};
+use std::collections::HashMap;
+use std::rc::Rc;
+
+use crate::ast;
+use crate::diag::DiagCtxt;
+use crate::hir::{self, BodyId, DefId, DefKind};
+use crate::lexer::lex;
+use crate::lower::lower;
+use crate::parser::parse;
+use crate::resolve::{Resolutions, resolve};
+use crate::span::{Edition, SourceId};
+use crate::ty::{FnSig, Ty};
+
+/// query 上下文:输入(源文本 → AST)+ 各 query 的 memo 存储。
+pub struct QueryCtx<'a> {
+    diag: &'a DiagCtxt,
+    ast: ast::SourceFile,
+    src_file: SourceId,
+    // ---- memo 存储(进程内,D-203 MVP) ----
+    resolutions: OnceCell<Rc<Resolutions>>,
+    hir: OnceCell<Rc<hir::Crate>>,
+    fn_sigs: RefCell<HashMap<DefId, Rc<FnSig>>>,
+    type_of: RefCell<HashMap<DefId, Ty>>,
+    checked_bodies: RefCell<HashMap<BodyId, ()>>,
+    // ---- 计量(self-profile 布点,07 §6) ----
+    hits: Cell<u64>,
+    misses: Cell<u64>,
+}
+
+impl<'a> QueryCtx<'a> {
+    /// 从源文本构建(lex + parse 为输入阶段;诊断经 `diag`)。
+    pub fn new(src: &str, file: SourceId, edition: Edition, diag: &'a DiagCtxt) -> Self {
+        let tokens = lex(src, file, edition, diag);
+        let ast = parse(src, tokens, file, edition, diag);
+        Self::from_ast(ast, file, diag)
+    }
+
+    pub fn from_ast(ast: ast::SourceFile, file: SourceId, diag: &'a DiagCtxt) -> Self {
+        Self {
+            diag,
+            ast,
+            src_file: file,
+            resolutions: OnceCell::new(),
+            hir: OnceCell::new(),
+            fn_sigs: RefCell::new(HashMap::new()),
+            type_of: RefCell::new(HashMap::new()),
+            checked_bodies: RefCell::new(HashMap::new()),
+            hits: Cell::new(0),
+            misses: Cell::new(0),
+        }
+    }
+
+    pub fn diag(&self) -> &DiagCtxt {
+        self.diag
+    }
+
+    pub fn ast(&self) -> &ast::SourceFile {
+        &self.ast
+    }
+
+    pub fn src_file(&self) -> SourceId {
+        self.src_file
+    }
+
+    /// memo 命中/未命中计数(单测断言与 self-profile 数据源)。
+    pub fn memo_hits(&self) -> u64 {
+        self.hits.get()
+    }
+
+    pub fn memo_misses(&self) -> u64 {
+        self.misses.get()
+    }
+
+    fn hit(&self) {
+        self.hits.set(self.hits.get() + 1);
+    }
+
+    fn miss(&self) {
+        self.misses.set(self.misses.get() + 1);
+    }
+
+    // ---- 首批 query ---------------------------------------------------------
+
+    /// 名称解析结果(provider:[`crate::resolve::resolve`])。
+    pub fn resolutions(&self) -> Rc<Resolutions> {
+        if let Some(r) = self.resolutions.get() {
+            self.hit();
+            return Rc::clone(r);
+        }
+        self.miss();
+        let r = Rc::new(resolve(&self.ast, self.diag));
+        let _ = self.resolutions.set(Rc::clone(&r));
+        r
+    }
+
+    /// HIR(provider:[`crate::lower::lower`],经 `resolutions` query 互访)。
+    pub fn hir_crate(&self) -> Rc<hir::Crate> {
+        if let Some(k) = self.hir.get() {
+            self.hit();
+            return Rc::clone(k);
+        }
+        self.miss();
+        let res = self.resolutions();
+        let k = Rc::new(lower(&self.ast, &res));
+        let _ = self.hir.set(Rc::clone(&k));
+        k
+    }
+
+    /// 定义类别(轻量查表,经 `resolutions`)。
+    pub fn def_kind(&self, def: DefId) -> Option<DefKind> {
+        let res = self.resolutions();
+        res.defs.get(def.0 as usize).map(|d| d.kind)
+    }
+
+    /// 函数签名(provider:[`crate::typeck::fn_sig_provider`])。
+    pub fn fn_sig(&self, def: DefId) -> Rc<FnSig> {
+        if let Some(sig) = self.fn_sigs.borrow().get(&def) {
+            self.hit();
+            return Rc::clone(sig);
+        }
+        self.miss();
+        let sig = Rc::new(crate::typeck::fn_sig_provider(self, def));
+        self.fn_sigs.borrow_mut().insert(def, Rc::clone(&sig));
+        sig
+    }
+
+    /// 定义的类型(struct/enum 自身、const/static 标注;provider 在 typeck)。
+    pub fn type_of(&self, def: DefId) -> Ty {
+        if let Some(ty) = self.type_of.borrow().get(&def) {
+            self.hit();
+            return ty.clone();
+        }
+        self.miss();
+        let ty = crate::typeck::type_of_provider(self, def);
+        self.type_of.borrow_mut().insert(def, ty.clone());
+        ty
+    }
+
+    /// body 类型检查(诊断经 DiagCtxt 产出;memo 防重复检查)。
+    pub fn check_body(&self, body: BodyId) {
+        if self.checked_bodies.borrow().contains_key(&body) {
+            self.hit();
+            return;
+        }
+        self.miss();
+        crate::typeck::check_body_provider(self, body);
+        self.checked_bodies.borrow_mut().insert(body, ());
+    }
+
+    /// 全 crate 类型检查入口(遍历全部 body)。
+    pub fn check_crate(&self) {
+        let krate = self.hir_crate();
+        for i in 0..krate.bodies.len() {
+            self.check_body(BodyId(i as u32));
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::span::{Edition, SourceId};
+
+    fn ctx_for<'a>(src: &str, diag: &'a DiagCtxt) -> QueryCtx<'a> {
+        QueryCtx::new(src, SourceId(0), Edition::Rx0, diag)
+    }
+
+    #[test]
+    fn memo_hits_on_second_call() {
+        let diag = DiagCtxt::new();
+        let cx = ctx_for("fn f() -> i32 { 1 }", &diag);
+        let _ = cx.resolutions();
+        let misses_after_first = cx.memo_misses();
+        let _ = cx.resolutions();
+        let _ = cx.resolutions();
+        assert_eq!(cx.memo_misses(), misses_after_first, "二次调用零重算");
+        assert!(cx.memo_hits() >= 2);
+    }
+
+    #[test]
+    fn hir_provider_goes_through_resolutions_query() {
+        let diag = DiagCtxt::new();
+        let cx = ctx_for("fn f() {}", &diag);
+        // 直接要 HIR:resolutions 作为依赖被 query 化拉起(miss 2 次)
+        let _ = cx.hir_crate();
+        assert_eq!(cx.memo_misses(), 2);
+        // 再要 resolutions:命中
+        let _ = cx.resolutions();
+        assert_eq!(cx.memo_misses(), 2);
+        assert!(cx.memo_hits() >= 1);
+    }
+
+    #[test]
+    fn def_kind_lookup() {
+        let diag = DiagCtxt::new();
+        let cx = ctx_for("struct S { x: i32 }\nfn f() {}", &diag);
+        let res = cx.resolutions();
+        let s = res.defs.iter().position(|d| d.name == "S").unwrap();
+        assert_eq!(
+            cx.def_kind(crate::hir::DefId(s as u32)),
+            Some(DefKind::Struct)
+        );
+    }
+}

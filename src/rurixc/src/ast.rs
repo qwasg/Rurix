@@ -450,6 +450,8 @@ pub struct FieldPat {
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Lit {
     pub kind: LitKind,
+    /// 字面量后缀(`1f32` / `255u8`;无后缀经推断定型,RXS-0039)。
+    pub suffix: Option<LitSuffix>,
     pub span: Span,
 }
 
@@ -460,6 +462,22 @@ pub enum LitKind {
     Str,
     Char,
     Bool(bool),
+}
+
+/// 数值字面量后缀(RXS-0006/0007 后缀集的 AST 侧表示)。
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum LitSuffix {
+    I8,
+    I16,
+    I32,
+    I64,
+    U8,
+    U16,
+    U32,
+    U64,
+    Usize,
+    F32,
+    F64,
 }
 
 // ---------------------------------------------------------------------------
@@ -594,6 +612,7 @@ pub enum ExprKind {
     /// 元组字段访问 `.0`。
     TupleField {
         expr: Box<Expr>,
+        index: u32,
         index_span: Span,
     },
     Index {

@@ -60,6 +60,10 @@ pub struct Resolutions {
     pub body_locals: HashMap<Span, Vec<LocalDecl>>,
     /// use 路径 span → 已解析目标(RXS-0035 实现要求)。
     pub use_targets: HashMap<Span, Res>,
+    /// inherent impl 关联项:类型 DefId → (名, 关联项 DefId)(typeck 方法查找,RXS-0046)。
+    pub assoc_items: HashMap<DefId, Vec<(String, DefId)>>,
+    /// enum 变体 → 父 enum(typeck 构造/模式检查)。
+    pub variant_parents: HashMap<DefId, DefId>,
 }
 
 /// 名称解析入口:对整个源文件构建模块树并走查全部 body。
@@ -78,6 +82,17 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
     r.resolve_uses();
     r.resolve_impl_targets();
     r.resolve_bodies(&file.items, 0);
+    // 导出 typeck 所需的关联表(RXS-0046 方法查找 / 变体归属)
+    for (ty_def, items) in &r.assoc {
+        let mut v: Vec<(String, DefId)> = items.iter().map(|(n, (d, _))| (n.clone(), *d)).collect();
+        v.sort_by(|a, b| a.0.cmp(&b.0));
+        r.out.assoc_items.insert(*ty_def, v);
+    }
+    for (enum_def, variants) in &r.enum_variants {
+        for vid in variants.values() {
+            r.out.variant_parents.insert(*vid, *enum_def);
+        }
+    }
     r.out
 }
 

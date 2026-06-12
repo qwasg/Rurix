@@ -242,8 +242,8 @@ pub struct Ty {
 
 #[derive(Debug)]
 pub enum TyKind {
-    /// 已解析路径类型(泛型实参在 M2.1 不携带,随 M2.2 类型系统扩展)。
-    Res(Res),
+    /// 已解析路径类型 + 类型实参(末段 `<…>` 的 Type 实参,M2.2 起携带)。
+    Res(Res, Vec<Ty>),
     Ref {
         mutable: bool,
         inner: Box<Ty>,
@@ -310,7 +310,8 @@ pub struct Expr {
 
 #[derive(Debug)]
 pub enum ExprKind {
-    Lit,
+    /// 字面量(种类/后缀供 typeck 定型,RXS-0039;复用 AST 节点)。
+    Lit(crate::ast::Lit),
     /// 已解析路径(变量/常量/单元变体/fn 引用)。
     Res(Res),
     Unary {
@@ -353,6 +354,11 @@ pub enum ExprKind {
     Field {
         expr: Box<Expr>,
         field: String,
+    },
+    /// 元组/元组结构体位置字段。
+    TupleField {
+        expr: Box<Expr>,
+        index: u32,
     },
     Index {
         expr: Box<Expr>,
