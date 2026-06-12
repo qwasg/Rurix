@@ -32,6 +32,9 @@ typeck.unknown_method = no method named {method} found on type {ty}
 typeck.not_callable = expression of type {ty} is not callable
 typeck.bad_operand = operator {op} cannot be applied to type {ty}
 #
+# 模式穷尽性诊断(RX2007,spec/borrow.md RXS-0051;M3.1 分配)
+typeck.non_exhaustive_match = non-exhaustive match: {witness} not covered
+#
 # codegen / 链接诊断(RX6001 ~ RX6002 / RX7001;M2.3 分配)
 codegen.unsupported_construct = {construct} is not supported by codegen yet (M2.3 host subset)
 codegen.missing_main = no `main` function found for executable target

@@ -1,0 +1,30 @@
+//@ spec: RXS-0048, RXS-0049
+// General iterator form: inherent `fn next(&mut self) -> Option<T>` shape
+// convention (RXS-0048), consumed by `for` desugar (RXS-0049).
+
+struct CountDown {
+    remaining: i32,
+}
+
+impl CountDown {
+    fn new(start: i32) -> CountDown {
+        CountDown { remaining: start }
+    }
+
+    fn next(&mut self) -> Option<i32> {
+        if self.remaining > 0 {
+            self.remaining = self.remaining - 1;
+            Some(self.remaining)
+        } else {
+            None
+        }
+    }
+}
+
+fn main() {
+    let mut total = 0;
+    for v in CountDown::new(5) {
+        total = total + v;
+    }
+    let _check = total;
+}

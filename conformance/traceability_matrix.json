@@ -338,6 +338,7 @@
       "tests/ui/typeck/return_type_mismatch.rx"
     ],
     "RXS-0043": [
+      "conformance/desugar/for_range_desugar.rx",
       "conformance/typeck/control_flow_typed.rx",
       "conformance/typeck/operators_typed.rx",
       "conformance/typeck/references_params.rx",
@@ -346,6 +347,7 @@
       "tests/ui/typeck/cond_not_bool.rx"
     ],
     "RXS-0044": [
+      "conformance/desugar/option_result_prelude.rx",
       "conformance/typeck/adt_construct.rx",
       "conformance/typeck/control_flow_typed.rx",
       "conformance/typeck/tuples_arrays_typed.rx",
@@ -378,6 +380,24 @@
       "tests/ui/typeck/return_type_mismatch.rx",
       "tests/ui/typeck/unknown_field_lit.rx",
       "tests/ui/typeck/unknown_method.rx"
+    ],
+    "RXS-0048": [
+      "conformance/desugar/iterator_protocol.rx",
+      "conformance/desugar/option_result_prelude.rx",
+      "conformance/desugar/question_mark_result.rx"
+    ],
+    "RXS-0049": [
+      "conformance/desugar/for_range_desugar.rx",
+      "conformance/desugar/iterator_protocol.rx"
+    ],
+    "RXS-0050": [
+      "conformance/desugar/question_mark_result.rx"
+    ],
+    "RXS-0051": [
+      "conformance/desugar/match_exhaustive.rx"
+    ],
+    "RXS-0052": [
+      "conformance/desugar/drop_scope_blocks.rx"
     ]
   }
 }

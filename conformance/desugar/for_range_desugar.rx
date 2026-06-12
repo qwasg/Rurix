@@ -1,0 +1,31 @@
+//@ spec: RXS-0049, RXS-0043
+// for over half-open / inclusive ranges with break and continue
+// (desugar per RXS-0049: advance happens before body, continue-safe).
+
+fn sum_even(n: i32) -> i32 {
+    let mut acc = 0;
+    for i in 0..n {
+        if i % 2 == 1 {
+            continue;
+        }
+        acc = acc + i;
+    }
+    acc
+}
+
+fn first_multiple(base: i32, limit: i32) -> i32 {
+    let mut found = 0;
+    for i in 1..=limit {
+        if i % base == 0 {
+            found = i;
+            break;
+        }
+    }
+    found
+}
+
+fn main() {
+    let a = sum_even(10);
+    let b = first_multiple(7, 100);
+    let _total = a + b;
+}

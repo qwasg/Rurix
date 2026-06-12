@@ -188,6 +188,14 @@
       "spec_clauses": ["RXS-0043", "RXS-0047"]
     },
     {
+      "id": "RX2007",
+      "title": "非穷尽 match(臂集合未覆盖 scrutinee 类型全部值)",
+      "message_key": "typeck.non_exhaustive_match",
+      "status": "active",
+      "introduced_in": "M3.1",
+      "spec_clauses": ["RXS-0051"]
+    },
+    {
       "id": "RX6001",
       "title": "codegen 暂不支持的语言构造(M2.3 host 子集作用面外)",
       "message_key": "codegen.unsupported_construct",
@@ -239,6 +247,11 @@
       "version": "v1.5",
       "date": "2026-06-12",
       "change": "M2.3 分配 RX6001/RX6002/RX7001(MIR lowering/codegen 作用面外构造、缺 main 入口、外部工具链失败;M2.3 host 子集 = hello-world 闭环所需,M2_PLAN v1.3 留痕)"
+    },
+    {
+      "version": "v1.6",
+      "date": "2026-06-12",
+      "change": "M3.1 分配 RX2007(非穷尽 match,spec/borrow.md RXS-0051 配套)。段位裁决留痕(M3_PLAN §1 任务 5/§5):归 2xxx 类型检查段而非 4xxx——穷尽性是类型驱动的静态检查(输入 = typeck 结果、于 TBIR 窄门报告),与借用/生命周期数据流无关;07 §5 段位语义下 4xxx 保留给 M3.2+ 的 move/init/borrow 诊断"
     }
   ]
 }

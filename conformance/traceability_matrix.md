@@ -46,8 +46,13 @@
 | RXS-0040 | spec/types.md | 2 | `conformance/typeck/signatures.rx`, `src/rurixc/src/typeck.rs` |
 | RXS-0041 | spec/types.md | 4 | `conformance/typeck/inference_locals.rx`, `conformance/typeck/shadow_rebind_typed.rx`, `src/rurixc/src/typeck.rs` …(+1) |
 | RXS-0042 | spec/types.md | 7 | `conformance/typeck/calls.rx`, `conformance/typeck/references_params.rx`, `src/rurixc/src/typeck.rs` …(+4) |
-| RXS-0043 | spec/types.md | 6 | `conformance/typeck/control_flow_typed.rx`, `conformance/typeck/operators_typed.rx`, `conformance/typeck/references_params.rx` …(+3) |
-| RXS-0044 | spec/types.md | 8 | `conformance/typeck/adt_construct.rx`, `conformance/typeck/control_flow_typed.rx`, `conformance/typeck/tuples_arrays_typed.rx` …(+5) |
+| RXS-0043 | spec/types.md | 7 | `conformance/desugar/for_range_desugar.rx`, `conformance/typeck/control_flow_typed.rx`, `conformance/typeck/operators_typed.rx` …(+4) |
+| RXS-0044 | spec/types.md | 9 | `conformance/desugar/option_result_prelude.rx`, `conformance/typeck/adt_construct.rx`, `conformance/typeck/control_flow_typed.rx` …(+6) |
 | RXS-0045 | spec/types.md | 2 | `conformance/typeck/generics_mono.rx`, `src/rurixc/src/typeck.rs` |
 | RXS-0046 | spec/types.md | 3 | `conformance/typeck/methods_casts.rx`, `src/rurixc/src/typeck.rs`, `tests/ui/typeck/unknown_method.rx` |
 | RXS-0047 | spec/types.md | 13 | `src/rurixc/src/typeck.rs`, `tests/ui/typeck/arg_count.rx`, `tests/ui/typeck/arg_type_mismatch.rx` …(+10) |
+| RXS-0048 | spec/borrow.md | 3 | `conformance/desugar/iterator_protocol.rx`, `conformance/desugar/option_result_prelude.rx`, `conformance/desugar/question_mark_result.rx` |
+| RXS-0049 | spec/borrow.md | 2 | `conformance/desugar/for_range_desugar.rx`, `conformance/desugar/iterator_protocol.rx` |
+| RXS-0050 | spec/borrow.md | 1 | `conformance/desugar/question_mark_result.rx` |
+| RXS-0051 | spec/borrow.md | 1 | `conformance/desugar/match_exhaustive.rx` |
+| RXS-0052 | spec/borrow.md | 1 | `conformance/desugar/drop_scope_blocks.rx` |

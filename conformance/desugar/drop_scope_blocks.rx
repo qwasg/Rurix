@@ -1,0 +1,22 @@
+//@ spec: RXS-0052
+// Nested block scopes: locals belong to their declaring block, leave scope in
+// reverse declaration order at block exit; blocks as expressions.
+
+fn main() {
+    let outer = 1;
+    let from_block = {
+        let a = outer + 1;
+        let b = a * 2;
+        b - a
+    };
+    let mut acc = 0;
+    {
+        let shadow = from_block;
+        {
+            let shadow = shadow + 1;
+            acc = acc + shadow;
+        }
+        acc = acc + shadow;
+    }
+    let _final = acc + outer;
+}
