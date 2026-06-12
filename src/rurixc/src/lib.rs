@@ -24,5 +24,7 @@ pub mod render;
 pub mod resolve;
 pub mod source_map;
 pub mod span;
+pub mod tbir;
+pub mod tbir_build;
 pub mod ty;
 pub mod typeck;

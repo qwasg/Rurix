@@ -135,11 +135,24 @@ impl Cg<'_> {
                 let parts: Vec<String> = v.iter().map(|x| self.llty(x)).collect();
                 format!("{{ {} }}", parts.join(", "))
             }
-            Ty::Adt(d, args) => {
-                let fields = crate::typeck::adt_field_tys(self.krate, *d, args);
-                let parts: Vec<String> = fields.iter().map(|x| self.llty(x)).collect();
-                format!("{{ {} }}", parts.join(", "))
-            }
+            Ty::Adt(d, args) => match &self.krate.item(*d).kind {
+                // enum 扁平布局(M3.1 取舍,见 mir::enum_variant_layout):
+                // `{ i32 tag, 变体0载荷…, 变体1载荷…, … }`,载荷不重叠
+                hir::ItemKind::Enum { variants } => {
+                    let mut parts = vec!["i32".to_owned()];
+                    for v in variants {
+                        for ft in crate::typeck::adt_field_tys(self.krate, *v, args) {
+                            parts.push(self.llty(&ft));
+                        }
+                    }
+                    format!("{{ {} }}", parts.join(", "))
+                }
+                _ => {
+                    let fields = crate::typeck::adt_field_tys(self.krate, *d, args);
+                    let parts: Vec<String> = fields.iter().map(|x| self.llty(x)).collect();
+                    format!("{{ {} }}", parts.join(", "))
+                }
+            },
             // 作用面外形态(RX6001 已拦截;防御性兜底)
             Ty::Array(_) | Ty::Slice(_) | Ty::Param(_) | Ty::Infer(_) | Ty::Err => "i8".to_owned(),
         }
@@ -307,6 +320,30 @@ impl Cg<'_> {
                             .get(*i as usize)
                             .cloned()
                             .unwrap_or(Ty::Err),
+                        _ => Ty::Err,
+                    };
+                }
+                ProjElem::VariantField {
+                    variant,
+                    base,
+                    field,
+                } => {
+                    let agg = self.llty(&ty);
+                    let idx = base + field;
+                    let t = self.fresh();
+                    let _ = writeln!(
+                        self.fns,
+                        "  {t} = getelementptr inbounds {agg}, ptr {ptr}, i32 0, i32 {idx}{}",
+                        self.dbg_suffix()
+                    );
+                    ptr = t;
+                    ty = match &ty {
+                        Ty::Adt(_, args) => {
+                            crate::typeck::adt_field_tys(self.krate, *variant, args)
+                                .get(*field as usize)
+                                .cloned()
+                                .unwrap_or(Ty::Err)
+                        }
                         _ => Ty::Err,
                     };
                 }
@@ -532,6 +569,51 @@ impl Cg<'_> {
                     let _ = writeln!(self.fns, "  store {ll} {v}, ptr {g}{}", self.dbg_suffix());
                 }
             }
+            Rvalue::VariantAggregate {
+                ty,
+                tag,
+                base: payload_base,
+                ops,
+            } => {
+                // enum 变体构造(M3.1 扁平布局):tag 落下标 0,载荷自 base 顺排
+                let agg = self.llty(ty);
+                let (base, _) = self.place_ptr(b, place);
+                let g = self.fresh();
+                let _ = writeln!(
+                    self.fns,
+                    "  {g} = getelementptr inbounds {agg}, ptr {base}, i32 0, i32 0{}",
+                    self.dbg_suffix()
+                );
+                let _ = writeln!(self.fns, "  store i32 {tag}, ptr {g}{}", self.dbg_suffix());
+                for (i, o) in ops.iter().enumerate() {
+                    let Some((ll, v, _)) = self.operand(b, o) else {
+                        continue;
+                    };
+                    let idx = payload_base + i as u32;
+                    let g = self.fresh();
+                    let _ = writeln!(
+                        self.fns,
+                        "  {g} = getelementptr inbounds {agg}, ptr {base}, i32 0, i32 {idx}{}",
+                        self.dbg_suffix()
+                    );
+                    let _ = writeln!(self.fns, "  store {ll} {v}, ptr {g}{}", self.dbg_suffix());
+                }
+            }
+            Rvalue::Discriminant(src) => {
+                // 判别读取:tag(下标 0)load i32
+                let (src_ptr, src_ty) = self.place_ptr(b, src);
+                let agg = self.llty(&src_ty);
+                let g = self.fresh();
+                let _ = writeln!(
+                    self.fns,
+                    "  {g} = getelementptr inbounds {agg}, ptr {src_ptr}, i32 0, i32 0{}",
+                    self.dbg_suffix()
+                );
+                let t = self.fresh();
+                let _ = writeln!(self.fns, "  {t} = load i32, ptr {g}{}", self.dbg_suffix());
+                let (ptr, _) = self.place_ptr(b, place);
+                let _ = writeln!(self.fns, "  store i32 {t}, ptr {ptr}{}", self.dbg_suffix());
+            }
         }
     }
 
@@ -670,6 +752,13 @@ impl Cg<'_> {
                     Ty::Tuple(v) => v.get(*i as usize).cloned().unwrap_or(Ty::Err),
                     Ty::Adt(d, args) => crate::typeck::adt_field_tys(self.krate, *d, args)
                         .get(*i as usize)
+                        .cloned()
+                        .unwrap_or(Ty::Err),
+                    _ => Ty::Err,
+                },
+                ProjElem::VariantField { variant, field, .. } => match &ty {
+                    Ty::Adt(_, args) => crate::typeck::adt_field_tys(self.krate, *variant, args)
+                        .get(*field as usize)
                         .cloned()
                         .unwrap_or(Ty::Err),
                     _ => Ty::Err,

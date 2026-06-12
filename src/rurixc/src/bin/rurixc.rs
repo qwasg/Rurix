@@ -1,7 +1,8 @@
 //! rurixc 驱动:`.rx` → EXE + PDB 的端到端 host 编译闭环(M2.3,契约 G-M2-1)。
 //!
-//! 管线:lex → parse → feature gate → resolve → typeck → MIR(单态化收集)
-//! → 文本 LLVM IR → clang(pin 22.1.x,D-205)→ COFF .obj → link.exe(D-209)。
+//! 管线:lex → parse → feature gate → resolve → typeck → TBIR 窄门(逐实例
+//! 即建即用,D-202)→ MIR(单态化收集)→ 文本 LLVM IR → clang(pin 22.1.x,
+//! D-205)→ COFF .obj → link.exe(D-209)。
 //! 阶段化中止:前一阶段有 error 即停(与 UI 通道同口径,M2_PLAN v1.2)。
 //!
 //! 工具链定位:
@@ -132,6 +133,13 @@ fn main() -> ExitCode {
                 let t = Instant::now();
                 let m = cx.mir_crate();
                 prof.record("mir", t, &[("mir_bodies", m.len() as u64)]);
+                // TBIR 窄门(M3.1):逐实例即建即用,聚合计时/计数经 QueryCtx 上报
+                let (tb_bodies, tb_scopes, tb_ms) = cx.tbir_stats();
+                prof.record_ms(
+                    "tbir",
+                    tb_ms,
+                    &[("tbir_bodies", tb_bodies), ("tbir_scopes", tb_scopes)],
+                );
                 if m.is_empty() {
                     diag.struct_error(E_MISSING_MAIN, "codegen.missing_main")
                         .emit();

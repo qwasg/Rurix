@@ -1,27 +1,33 @@
-//! typed HIR body → MIR lowering + 单态化收集(D-111;M2.3 host 子集)。
+//! TBIR → MIR lowering + 单态化收集(D-111/D-202;M3.1 管线重排)。
 //!
-//! 入口 [`build_crate`]:自根模块 `main` 起沿 [`crate::typeck::TypeckResults`]
-//! 的调用点做可达性收集,每个 (DefId, 泛型实参) 实例独立 lowering(全单态化)。
+//! 入口 [`build_crate`]:自根模块 `main` 起沿调用点做可达性收集,每个
+//! (DefId, 泛型实参) 实例独立 lowering(全单态化)。每实例**即建即用**
+//! 一份 TBIR([`crate::tbir_build`]),MIR 构造完成后立即释放(D-202
+//! 峰值内存纪律);TBIR 构造耗时/计数经 [`QueryCtx::note_tbir`] 汇总到
+//! self-profile `tbir` 阶段(M3.1 出口判据:TBIR 可观测)。
 //!
-//! 作用面外构造(closure/`match`/方法调用/索引等)报 RX6001(M2_PLAN v1.3
-//! 留痕;`for`/`?` 自 M3.1 在 lower 层 desugar,本层不再见到;match/方法调用
-//! 经 TBIR 收口,M3_PLAN §1 任务 4)。
+//! M3.1 收口:match 降级(判别测试链 + 绑定提取,先正确性后优化)、enum
+//! 变体构造(扁平布局,[`crate::mir::enum_variant_layout`])、方法调用
+//! (TBIR 已显式化为直调)。剩余作用面外构造(closure/索引/数组/独立
+//! 区间/fn 指针间接调用/带值 break/解构 let 等)报 RX6001,清单留痕
+//! M3_PLAN §1 修订行。
 
 use std::collections::HashSet;
 use std::rc::Rc;
+use std::time::Instant;
 
 use crate::ast::{BinOp, LitKind, LitSuffix, UnOp};
 use crate::diag::ErrorCode;
-use crate::hir::{self, DefId, LocalId, PrimTy, Res};
+use crate::hir::{self, DefId, LocalId, PrimTy};
 use crate::mir::{
     BasicBlock, BlockIdx, Body, CallTarget, Const, Local, LocalIdx, Operand, Place, ProjElem,
-    Rvalue, Statement, StatementKind, Terminator, TerminatorKind, mangle,
+    Rvalue, Statement, StatementKind, Terminator, TerminatorKind, enum_variant_layout, mangle,
 };
 use crate::query::QueryCtx;
 use crate::resolve::Resolutions;
 use crate::span::Span;
+use crate::tbir;
 use crate::ty::Ty;
-use crate::typeck::TypeckResults;
 
 pub const E_UNSUPPORTED: ErrorCode = ErrorCode(6001); // RX6001
 
@@ -80,11 +86,15 @@ fn build_body(
     let tcr = cx.check_body(body_id);
     let sig = cx.fn_sig(def);
 
+    // TBIR 窄门:即建即用(本函数返回前释放,D-202)
+    let t = Instant::now();
+    let tb = crate::tbir_build::build(&krate, &res, &tcr, hir_body);
+    cx.note_tbir(tb.scopes.len() as u64, t.elapsed());
+
     let mut b = Builder {
         cx,
         krate: Rc::clone(&krate),
         res: Rc::clone(&res),
-        tcr,
         substs: generic_args.clone(),
         locals: vec![Local {
             ty: sig.output.subst(&generic_args),
@@ -92,19 +102,19 @@ fn build_body(
             span: item.span,
         }],
         blocks: Vec::new(),
-        local_map: vec![None; hir_body.locals.len()],
+        local_map: vec![None; tb.locals.len()],
         cur: BlockIdx(0),
         loops: Vec::new(),
         callees: Vec::new(),
     };
     b.new_block();
 
-    // 参数:body.params 的绑定模式直接落位 _1..=_n(复杂模式作用面外)
+    // 参数:绑定模式直接落位 _1..=_n(复杂模式作用面外)
     let mut arg_count = 0;
-    for p in &hir_body.params {
+    for p in &tb.params {
         match &p.kind {
-            hir::PatKind::Binding { local } => {
-                let idx = b.declare_local(*local, hir_body);
+            tbir::PatKind::Binding { local, sub: None } => {
+                let idx = b.declare_local(*local, &tb);
                 arg_count += 1;
                 debug_assert_eq!(idx.0 as usize, arg_count);
             }
@@ -115,14 +125,14 @@ fn build_body(
         }
     }
     // 其余局部(let 绑定)按声明序落位
-    for i in 0..hir_body.locals.len() {
+    for i in 0..tb.locals.len() {
         if b.local_map[i].is_none() {
-            b.declare_local(LocalId(i as u32), hir_body);
+            b.declare_local(LocalId(i as u32), &tb);
         }
     }
 
-    let v = b.op_of(&hir_body.value);
-    let span = hir_body.value.span;
+    let v = b.op_of(&tb.value);
+    let span = tb.value.span;
     b.assign(Place::local(LocalIdx(0)), Rvalue::Use(v), span);
     b.terminate(TerminatorKind::Return, span);
 
@@ -161,12 +171,11 @@ struct Builder<'a, 'q> {
     cx: &'a QueryCtx<'q>,
     krate: Rc<hir::Crate>,
     res: Rc<Resolutions>,
-    tcr: Rc<TypeckResults>,
     /// 本实例的单态化实参(类型代入点)。
     substs: Vec<Ty>,
     locals: Vec<Local>,
     blocks: Vec<BlockBuf>,
-    /// HIR LocalId → MIR local。
+    /// TBIR LocalId → MIR local。
     local_map: Vec<Option<LocalIdx>>,
     cur: BlockIdx,
     /// (continue 目标, break 目标) 栈。
@@ -187,15 +196,9 @@ impl Builder<'_, '_> {
         id
     }
 
-    fn declare_local(&mut self, l: LocalId, hir_body: &hir::Body) -> LocalIdx {
-        let decl = &hir_body.locals[l.0 as usize];
-        let ty = self
-            .tcr
-            .local_ty
-            .get(l.0 as usize)
-            .cloned()
-            .unwrap_or(Ty::Err)
-            .subst(&self.substs);
+    fn declare_local(&mut self, l: LocalId, tb: &tbir::Body) -> LocalIdx {
+        let decl = &tb.locals[l.0 as usize];
+        let ty = decl.ty.subst(&self.substs);
         let idx = LocalIdx(self.locals.len() as u32);
         self.locals.push(Local {
             ty,
@@ -235,13 +238,8 @@ impl Builder<'_, '_> {
         self.cur = b;
     }
 
-    fn ty_of(&self, e: &hir::Expr) -> Ty {
-        self.tcr
-            .expr_ty
-            .get(&e.hir_id)
-            .cloned()
-            .unwrap_or(Ty::Err)
-            .subst(&self.substs)
+    fn ty_of(&self, e: &tbir::Expr) -> Ty {
+        e.ty.subst(&self.substs)
     }
 
     fn unsupported(&mut self, span: Span, construct: &str) -> Operand {
@@ -249,7 +247,7 @@ impl Builder<'_, '_> {
             .diag()
             .struct_error(E_UNSUPPORTED, "codegen.unsupported_construct")
             .arg("construct", construct)
-            .span_label(span, "not supported in M2.3 codegen")
+            .span_label(span, "not supported by MIR lowering yet (M3.1 host subset)")
             .emit();
         Operand::Const(Const::Unit)
     }
@@ -260,39 +258,39 @@ impl Builder<'_, '_> {
         &self.cx.src()[span.lo.0 as usize..span.hi.0 as usize]
     }
 
-    fn const_of_lit(&mut self, e: &hir::Expr, l: &crate::ast::Lit) -> Operand {
+    fn const_of_lit(&mut self, ty: &Ty, l: &crate::ast::Lit, span: Span) -> Operand {
         let text = self.lit_text(l.span).to_owned();
         let c = match l.kind {
             LitKind::Bool(v) => Const::Bool(v),
             LitKind::Int => {
-                let prim = match self.ty_of(e) {
-                    Ty::Prim(p) => p,
+                let prim = match ty {
+                    Ty::Prim(p) => *p,
                     _ => PrimTy::I32,
                 };
                 match parse_int(&text, l.suffix) {
                     Some(v) => Const::Int(v, prim),
-                    None => return self.unsupported(e.span, "integer literal form"),
+                    None => return self.unsupported(span, "integer literal form"),
                 }
             }
             LitKind::Float => {
-                let prim = match self.ty_of(e) {
-                    Ty::Prim(p) => p,
+                let prim = match ty {
+                    Ty::Prim(p) => *p,
                     _ => PrimTy::F64,
                 };
                 match parse_float(&text, l.suffix) {
                     Some(v) => Const::Float(v, prim),
-                    None => return self.unsupported(e.span, "float literal form"),
+                    None => return self.unsupported(span, "float literal form"),
                 }
             }
             LitKind::Str => match unescape(text.trim_start_matches('"').trim_end_matches('"')) {
                 Some(s) => Const::Str(s),
-                None => return self.unsupported(e.span, "string escape form"),
+                None => return self.unsupported(span, "string escape form"),
             },
             LitKind::Char => {
                 let inner = text.trim_start_matches('\'').trim_end_matches('\'');
                 match unescape(inner).and_then(|s| s.chars().next()) {
                     Some(c) => Const::Char(c),
-                    None => return self.unsupported(e.span, "char literal form"),
+                    None => return self.unsupported(span, "char literal form"),
                 }
             }
         };
@@ -302,25 +300,18 @@ impl Builder<'_, '_> {
     // -- place 路径 -------------------------------------------------------------
 
     /// 表达式的 place 形态(局部/字段/解引用);非 place 形态返回 None。
-    fn place_of(&mut self, e: &hir::Expr) -> Option<Place> {
+    fn place_of(&mut self, e: &tbir::Expr) -> Option<Place> {
         match &e.kind {
-            hir::ExprKind::Res(Res::Local(l)) => {
+            tbir::ExprKind::Local(l) => {
                 let idx = self.local_map.get(l.0 as usize).copied().flatten()?;
                 Some(Place::local(idx))
             }
-            hir::ExprKind::Field { expr, field } => {
-                let base_ty = self.ty_of(expr);
-                let idx = self.field_index(&base_ty, field)?;
-                let mut p = self.place_of_or_temp(expr);
-                p.proj.push(ProjElem::Field(idx));
-                Some(p)
-            }
-            hir::ExprKind::TupleField { expr, index } => {
-                let mut p = self.place_of_or_temp(expr);
+            tbir::ExprKind::Field { base, index } => {
+                let mut p = self.place_of_or_temp(base);
                 p.proj.push(ProjElem::Field(*index));
                 Some(p)
             }
-            hir::ExprKind::Unary {
+            tbir::ExprKind::Unary {
                 op: UnOp::Deref,
                 expr,
             } => {
@@ -333,7 +324,7 @@ impl Builder<'_, '_> {
     }
 
     /// place 形态;否则物化到 temp(rvalue 提升)。
-    fn place_of_or_temp(&mut self, e: &hir::Expr) -> Place {
+    fn place_of_or_temp(&mut self, e: &tbir::Expr) -> Place {
         if let Some(p) = self.place_of(e) {
             return p;
         }
@@ -342,22 +333,6 @@ impl Builder<'_, '_> {
         let t = self.temp(ty, e.span);
         self.assign(Place::local(t), Rvalue::Use(op), e.span);
         Place::local(t)
-    }
-
-    /// `field` 在 base 类型(Adt,经一层自动解引用)定义序中的下标。
-    fn field_index(&self, base_ty: &Ty, field: &str) -> Option<u32> {
-        let inner = match base_ty {
-            Ty::Ref(t, _) => t.as_ref(),
-            t => t,
-        };
-        let Ty::Adt(d, _) = inner else { return None };
-        let hir::ItemKind::Struct { fields } = &self.krate.item(*d).kind else {
-            return None;
-        };
-        fields
-            .iter()
-            .position(|f| f.name == field)
-            .map(|i| i as u32)
     }
 
     /// rvalue 物化到 temp 并以 Copy 返回。
@@ -369,53 +344,56 @@ impl Builder<'_, '_> {
 
     // -- 表达式 lowering ---------------------------------------------------------
 
-    fn op_of(&mut self, e: &hir::Expr) -> Operand {
+    fn op_of(&mut self, e: &tbir::Expr) -> Operand {
         match &e.kind {
-            hir::ExprKind::Lit(l) => self.const_of_lit(e, l),
+            tbir::ExprKind::Lit(l) => {
+                let ty = self.ty_of(e);
+                self.const_of_lit(&ty, l, e.span)
+            }
             // desugar 合成推进步(RXS-0049):值内置,不经源文本切片
-            hir::ExprKind::SynthInt(v) => {
+            tbir::ExprKind::SynthInt(v) => {
                 let prim = match self.ty_of(e) {
                     Ty::Prim(p) => p,
                     _ => PrimTy::I32,
                 };
                 Operand::Const(Const::Int(*v, prim))
             }
-            hir::ExprKind::Res(Res::Local(_)) => match self.place_of(e) {
+            tbir::ExprKind::Local(_) => match self.place_of(e) {
                 Some(p) => Operand::Copy(p),
                 None => self.unsupported(e.span, "unresolved local"),
             },
-            hir::ExprKind::Res(_) => {
-                // 裸 fn 引用/const 引用/单元变体:fn 指针与 const eval 随 M3
+            tbir::ExprKind::Def(_) => {
+                // 裸 fn 引用/const 引用:fn 指针与 const eval 随 M3.2+/M3.4
                 self.unsupported(e.span, "value path (const/fn reference)")
             }
-            hir::ExprKind::Unary {
+            tbir::ExprKind::Unary {
                 op: UnOp::Deref, ..
             } => match self.place_of(e) {
                 Some(p) => Operand::Copy(p),
                 None => self.unsupported(e.span, "deref of non-place"),
             },
-            hir::ExprKind::Unary { op, expr } => {
+            tbir::ExprKind::Unary { op, expr } => {
                 let ty = self.ty_of(e);
                 let o = self.op_of(expr);
                 self.rvalue_to_op(Rvalue::UnaryOp(*op, o), ty, e.span)
             }
-            hir::ExprKind::Borrow { expr, .. } => {
+            tbir::ExprKind::Borrow { expr, .. } => {
                 let ty = self.ty_of(e);
                 let p = self.place_of_or_temp(expr);
                 self.rvalue_to_op(Rvalue::Ref(p), ty, e.span)
             }
-            hir::ExprKind::Binary {
+            tbir::ExprKind::Binary {
                 op: op @ (BinOp::And | BinOp::Or),
                 lhs,
                 rhs,
             } => self.lower_short_circuit(*op, lhs, rhs, e.span),
-            hir::ExprKind::Binary { op, lhs, rhs } => {
+            tbir::ExprKind::Binary { op, lhs, rhs } => {
                 let ty = self.ty_of(e);
                 let a = self.op_of(lhs);
                 let b = self.op_of(rhs);
                 self.rvalue_to_op(Rvalue::BinaryOp(*op, a, b), ty, e.span)
             }
-            hir::ExprKind::Assign { op, lhs, rhs } => {
+            tbir::ExprKind::Assign { op, lhs, rhs } => {
                 let Some(p) = self.place_of(lhs) else {
                     return self.unsupported(lhs.span, "assignment to non-place");
                 };
@@ -427,19 +405,24 @@ impl Builder<'_, '_> {
                 self.assign(p, rv, e.span);
                 Operand::Const(Const::Unit)
             }
-            hir::ExprKind::Cast { expr, .. } => {
+            tbir::ExprKind::Cast(expr) => {
                 let target = self.ty_of(e);
                 let o = self.op_of(expr);
                 self.rvalue_to_op(Rvalue::Cast(o, target.clone()), target, e.span)
             }
-            hir::ExprKind::Call { callee, args } => self.lower_call(e, callee, args),
-            hir::ExprKind::Field { .. } | hir::ExprKind::TupleField { .. } => {
-                match self.place_of(e) {
-                    Some(p) => Operand::Copy(p),
-                    None => self.unsupported(e.span, "field access on this type"),
-                }
+            tbir::ExprKind::Call {
+                def,
+                generic_args,
+                args,
+            } => self.lower_call(e, *def, generic_args, args),
+            tbir::ExprKind::CallIndirect { .. } => {
+                self.unsupported(e.span, "indirect call (fn pointer)")
             }
-            hir::ExprKind::Tuple(elems) => {
+            tbir::ExprKind::Field { .. } => match self.place_of(e) {
+                Some(p) => Operand::Copy(p),
+                None => self.unsupported(e.span, "field access on this type"),
+            },
+            tbir::ExprKind::Tuple(elems) => {
                 let ty = self.ty_of(e);
                 let ops: Vec<Operand> = elems.iter().map(|x| self.op_of(x)).collect();
                 if elems.is_empty() {
@@ -447,10 +430,10 @@ impl Builder<'_, '_> {
                 }
                 self.rvalue_to_op(Rvalue::Aggregate(ty.clone(), ops), ty, e.span)
             }
-            hir::ExprKind::StructLit { res, fields } => self.lower_struct_lit(e, res, fields),
-            hir::ExprKind::Block(b) | hir::ExprKind::Unsafe(b) => self.lower_block(b),
-            hir::ExprKind::If { cond, then, else_ } => self.lower_if(e, cond, then, else_),
-            hir::ExprKind::While { cond, body } => {
+            tbir::ExprKind::Aggregate { def, fields } => self.lower_aggregate(e, *def, fields),
+            tbir::ExprKind::Block(b) => self.lower_block(b),
+            tbir::ExprKind::If { cond, then, else_ } => self.lower_if(e, cond, then, else_),
+            tbir::ExprKind::While { cond, body } => {
                 let head = self.new_block();
                 let body_bb = self.new_block();
                 let exit = self.new_block();
@@ -473,7 +456,7 @@ impl Builder<'_, '_> {
                 self.switch_to(exit);
                 Operand::Const(Const::Unit)
             }
-            hir::ExprKind::Loop { body } => {
+            tbir::ExprKind::Loop { body } => {
                 let head = self.new_block();
                 let exit = self.new_block();
                 self.terminate(TerminatorKind::Goto(head), e.span);
@@ -483,10 +466,11 @@ impl Builder<'_, '_> {
                 self.loops.pop();
                 self.terminate(TerminatorKind::Goto(head), e.span);
                 self.switch_to(exit);
-                // break 值随 M3(typeck 同口径容忍);loop 作 () 用
+                // break 值随 M3.2+(typeck 同口径容忍);loop 作 () 用
                 Operand::Const(Const::Unit)
             }
-            hir::ExprKind::Return(op) => {
+            tbir::ExprKind::Match { scrutinee, arms } => self.lower_match(e, scrutinee, arms),
+            tbir::ExprKind::Return(op) => {
                 let v = match op {
                     Some(x) => self.op_of(x),
                     None => Operand::Const(Const::Unit),
@@ -497,7 +481,7 @@ impl Builder<'_, '_> {
                 self.switch_to(dead);
                 Operand::Const(Const::Unit)
             }
-            hir::ExprKind::Break(None) => {
+            tbir::ExprKind::Break => {
                 if let Some(&(_, exit)) = self.loops.last() {
                     self.terminate(TerminatorKind::Goto(exit), e.span);
                     let dead = self.new_block();
@@ -507,7 +491,7 @@ impl Builder<'_, '_> {
                     self.unsupported(e.span, "break outside loop")
                 }
             }
-            hir::ExprKind::Continue => {
+            tbir::ExprKind::Continue => {
                 if let Some(&(head, _)) = self.loops.last() {
                     self.terminate(TerminatorKind::Goto(head), e.span);
                     let dead = self.new_block();
@@ -517,25 +501,23 @@ impl Builder<'_, '_> {
                     self.unsupported(e.span, "continue outside loop")
                 }
             }
-            // ---- M2.3 作用面外(RX6001;desugar 推迟项随 M3 收口) ----
-            hir::ExprKind::Break(Some(_)) => self.unsupported(e.span, "break with value"),
-            hir::ExprKind::MethodCall { .. } => self.unsupported(e.span, "method call"),
-            hir::ExprKind::Index { .. } => self.unsupported(e.span, "indexing"),
-            hir::ExprKind::Array(_) | hir::ExprKind::Repeat { .. } => {
+            // ---- M3.1 作用面外(RX6001;清单留痕 M3_PLAN §1 修订行) ----
+            tbir::ExprKind::BreakValue(_) => self.unsupported(e.span, "break with value"),
+            tbir::ExprKind::Index { .. } => self.unsupported(e.span, "indexing"),
+            tbir::ExprKind::Array(_) | tbir::ExprKind::Repeat { .. } => {
                 self.unsupported(e.span, "array expression")
             }
-            hir::ExprKind::Range { .. } => self.unsupported(e.span, "range expression"),
-            hir::ExprKind::Match { .. } => self.unsupported(e.span, "`match` expression"),
-            hir::ExprKind::Closure { .. } => self.unsupported(e.span, "closure"),
-            hir::ExprKind::Err => self.unsupported(e.span, "erroneous expression"),
+            tbir::ExprKind::Range { .. } => self.unsupported(e.span, "range expression"),
+            tbir::ExprKind::Closure => self.unsupported(e.span, "closure"),
+            tbir::ExprKind::Err => self.unsupported(e.span, "erroneous expression"),
         }
     }
 
     fn lower_short_circuit(
         &mut self,
         op: BinOp,
-        lhs: &hir::Expr,
-        rhs: &hir::Expr,
+        lhs: &tbir::Expr,
+        rhs: &tbir::Expr,
         span: Span,
     ) -> Operand {
         let t = self.temp(Ty::Prim(PrimTy::Bool), span);
@@ -563,85 +545,93 @@ impl Builder<'_, '_> {
         Operand::Copy(Place::local(t))
     }
 
-    fn lower_call(&mut self, e: &hir::Expr, callee: &hir::Expr, args: &[hir::Expr]) -> Operand {
-        // fn item / 关联 fn(typeck 已记录调用点)
-        if let Some((d, gargs)) = self.tcr.call_targets.get(&e.hir_id).cloned() {
-            let gargs: Vec<Ty> = gargs.iter().map(|t| t.subst(&self.substs)).collect();
-            let target = if let Some(b) = self.res.builtins.get(&d) {
-                CallTarget::Builtin(*b)
-            } else {
-                let item = self.krate.item(d);
-                let has_body = matches!(&item.kind, hir::ItemKind::Fn(decl) if decl.body.is_some());
-                let symbol = mangle(&item.name, d, &gargs);
-                if has_body {
-                    self.callees.push((d, gargs.clone()));
-                } else if !gargs.is_empty() {
-                    return self.unsupported(e.span, "generic extern function");
-                }
-                CallTarget::Fn { def: d, symbol }
-            };
-            let ops: Vec<Operand> = args.iter().map(|a| self.op_of(a)).collect();
-            let ret_ty = self.ty_of(e);
-            let dest = self.temp(ret_ty.clone(), e.span);
-            let next = self.new_block();
-            self.terminate(
-                TerminatorKind::Call {
-                    target,
-                    args: ops,
-                    dest: Place::local(dest),
-                    next,
-                },
-                e.span,
-            );
-            self.switch_to(next);
-            return if ret_ty.is_unit() {
-                Operand::Const(Const::Unit)
-            } else {
-                Operand::Copy(Place::local(dest))
-            };
+    fn lower_call(
+        &mut self,
+        e: &tbir::Expr,
+        def: DefId,
+        generic_args: &[Ty],
+        args: &[tbir::Expr],
+    ) -> Operand {
+        let gargs: Vec<Ty> = generic_args.iter().map(|t| t.subst(&self.substs)).collect();
+        let target = if let Some(b) = self.res.builtins.get(&def) {
+            CallTarget::Builtin(*b)
+        } else {
+            let item = self.krate.item(def);
+            let has_body = matches!(&item.kind, hir::ItemKind::Fn(decl) if decl.body.is_some());
+            let symbol = mangle(&item.name, def, &gargs);
+            if has_body {
+                self.callees.push((def, gargs.clone()));
+            } else if !gargs.is_empty() {
+                return self.unsupported(e.span, "generic extern function");
+            }
+            CallTarget::Fn { def, symbol }
+        };
+        let ops: Vec<Operand> = args.iter().map(|a| self.op_of(a)).collect();
+        let ret_ty = self.ty_of(e);
+        let dest = self.temp(ret_ty.clone(), e.span);
+        let next = self.new_block();
+        self.terminate(
+            TerminatorKind::Call {
+                target,
+                args: ops,
+                dest: Place::local(dest),
+                next,
+            },
+            e.span,
+        );
+        self.switch_to(next);
+        if ret_ty.is_unit() {
+            Operand::Const(Const::Unit)
+        } else {
+            Operand::Copy(Place::local(dest))
         }
-        // 元组结构体构造器直调 → Aggregate
-        if let hir::ExprKind::Res(Res::Def(d)) = &callee.kind
-            && matches!(self.krate.item(*d).kind, hir::ItemKind::Struct { .. })
-        {
-            let ty = self.ty_of(e);
-            let ops: Vec<Operand> = args.iter().map(|a| self.op_of(a)).collect();
-            return self.rvalue_to_op(Rvalue::Aggregate(ty.clone(), ops), ty, e.span);
-        }
-        self.unsupported(e.span, "indirect call (fn pointer)")
     }
 
-    fn lower_struct_lit(
-        &mut self,
-        e: &hir::Expr,
-        res: &Res,
-        fields: &[(String, Option<hir::Expr>)],
-    ) -> Operand {
+    /// struct / 元组结构体 / enum 变体构造(TBIR 已按定义序重排齐全)。
+    fn lower_aggregate(&mut self, e: &tbir::Expr, def: DefId, fields: &[tbir::Expr]) -> Operand {
         let ty = self.ty_of(e);
-        let Res::Def(d) = res else {
-            return self.unsupported(e.span, "unresolved struct literal");
-        };
-        let hir::ItemKind::Struct { fields: defs } = &self.krate.item(*d).kind else {
-            return self.unsupported(e.span, "enum variant construction");
-        };
-        // 按定义序重排(typeck 已保证齐全;缺失即作用面外兜底)
-        let order: Vec<String> = defs.iter().map(|f| f.name.clone()).collect();
-        let mut ops = Vec::with_capacity(order.len());
-        for name in &order {
-            let Some((_, Some(v))) = fields.iter().find(|(n, v)| n == name && v.is_some()) else {
-                return self.unsupported(e.span, "struct literal with missing fields");
-            };
-            ops.push(self.op_of(v));
+        match &self.krate.item(def).kind {
+            hir::ItemKind::Variant { .. } => {
+                let Some((_, tag, base)) = self.variant_layout(def) else {
+                    return self.unsupported(e.span, "enum variant construction");
+                };
+                let ops: Vec<Operand> = fields.iter().map(|f| self.op_of(f)).collect();
+                self.rvalue_to_op(
+                    Rvalue::VariantAggregate {
+                        ty: ty.clone(),
+                        tag,
+                        base,
+                        ops,
+                    },
+                    ty,
+                    e.span,
+                )
+            }
+            hir::ItemKind::Struct { .. } => {
+                let ops: Vec<Operand> = fields.iter().map(|f| self.op_of(f)).collect();
+                self.rvalue_to_op(Rvalue::Aggregate(ty.clone(), ops), ty, e.span)
+            }
+            _ => self.unsupported(e.span, "unresolved struct literal"),
         }
-        self.rvalue_to_op(Rvalue::Aggregate(ty.clone(), ops), ty, e.span)
+    }
+
+    /// 变体的 (enum_def, 判别下标, 载荷布局基址)。
+    fn variant_layout(&self, variant: DefId) -> Option<(DefId, u32, u32)> {
+        let enum_def = *self.res.variant_parents.get(&variant)?;
+        let layout = enum_variant_layout(&self.krate, enum_def);
+        let (idx, (_, base)) = layout
+            .iter()
+            .enumerate()
+            .find(|(_, (v, _))| *v == variant)?;
+        Some((enum_def, idx as u32, *base))
     }
 
     fn lower_if(
         &mut self,
-        e: &hir::Expr,
-        cond: &hir::Expr,
-        then: &hir::Block,
-        else_: &Option<Box<hir::Expr>>,
+        e: &tbir::Expr,
+        cond: &tbir::Expr,
+        then: &tbir::Block,
+        else_: &Option<Box<tbir::Expr>>,
     ) -> Operand {
         let ty = self.ty_of(e);
         let produces_value = !ty.is_unit() && !ty.is_err();
@@ -683,12 +673,11 @@ impl Builder<'_, '_> {
         }
     }
 
-    fn lower_block(&mut self, b: &hir::Block) -> Operand {
+    fn lower_block(&mut self, b: &tbir::Block) -> Operand {
         for stmt in &b.stmts {
             match stmt {
-                hir::Stmt::Item(_) => {} // 嵌套 item 经调用点收集
-                hir::Stmt::Let { pat, init, .. } => match (&pat.kind, init) {
-                    (hir::PatKind::Binding { local }, Some(init)) => {
+                tbir::Stmt::Let { pat, init } => match (&pat.kind, init) {
+                    (tbir::PatKind::Binding { local, sub: None }, Some(init)) => {
                         let v = self.op_of(init);
                         let Some(idx) = self.local_map.get(local.0 as usize).copied().flatten()
                         else {
@@ -697,16 +686,17 @@ impl Builder<'_, '_> {
                         };
                         self.assign(Place::local(idx), Rvalue::Use(v), init.span);
                     }
-                    (hir::PatKind::Binding { .. }, None) => {} // 延迟绑定:首次赋值落位
-                    (hir::PatKind::Wild, Some(init)) => {
+                    (tbir::PatKind::Binding { sub: None, .. }, None) => {} // 延迟绑定:首次赋值落位
+                    (tbir::PatKind::Wild, Some(init)) => {
                         let _ = self.op_of(init); // 求值后丢弃(副作用保留)
                     }
-                    (hir::PatKind::Wild, None) => {}
+                    (tbir::PatKind::Wild, None) => {}
                     _ => {
+                        // 解构 let:不可反驳性条款随 M3.2(spec/borrow.md RXS-0051 留痕)
                         let _ = self.unsupported(pat.span, "destructuring `let` pattern");
                     }
                 },
-                hir::Stmt::Expr(e) => {
+                tbir::Stmt::Expr(e) => {
                     let _ = self.op_of(e);
                 }
             }
@@ -715,6 +705,187 @@ impl Builder<'_, '_> {
             Some(t) => self.op_of(t),
             None => Operand::Const(Const::Unit),
         }
+    }
+
+    // -- match 降级(M3.1:顺序候选测试链,先正确性后优化) ----------------------
+
+    fn lower_match(
+        &mut self,
+        e: &tbir::Expr,
+        scrutinee: &tbir::Expr,
+        arms: &[tbir::Arm],
+    ) -> Operand {
+        let ty = self.ty_of(e);
+        let produces_value = !ty.is_unit() && !ty.is_err();
+        let dest = if produces_value {
+            Some(self.temp(ty.clone(), e.span))
+        } else {
+            None
+        };
+        let scrut_place = self.place_of_or_temp(scrutinee);
+        let join = self.new_block();
+
+        // 候选 = (模式, 所属臂);or-pattern 展开为多候选(臂体按候选重复
+        // lowering,M3.1 取舍——共享体的块复用随诊断/优化期评估)
+        for arm in arms {
+            for pat in &arm.pats {
+                let fail = self.new_block();
+                self.lower_pat_test(pat, scrut_place.clone(), fail);
+                if let Some(g) = &arm.guard {
+                    let gv = self.op_of(g);
+                    let ok = self.new_block();
+                    self.terminate(
+                        TerminatorKind::SwitchBool {
+                            discr: gv,
+                            then: ok,
+                            else_: fail,
+                        },
+                        g.span,
+                    );
+                    self.switch_to(ok);
+                }
+                let v = self.op_of(&arm.body);
+                if let Some(d) = dest {
+                    self.assign(Place::local(d), Rvalue::Use(v), arm.body.span);
+                }
+                self.terminate(TerminatorKind::Goto(join), e.span);
+                self.switch_to(fail);
+            }
+        }
+        // 末候选失败:穷尽性由 TBIR 窄门静态把关(RXS-0051),此处死路封口
+        self.terminate(TerminatorKind::Unreachable, e.span);
+        self.switch_to(join);
+        match dest {
+            Some(d) => Operand::Copy(Place::local(d)),
+            None => Operand::Const(Const::Unit),
+        }
+    }
+
+    /// 模式测试 + 绑定提取:测试失败跳 `fail`,成功落入当前块尾。
+    fn lower_pat_test(&mut self, pat: &tbir::Pat, place: Place, fail: BlockIdx) {
+        match &pat.kind {
+            tbir::PatKind::Wild => {}
+            tbir::PatKind::Binding { local, sub } => {
+                if let Some(idx) = self.local_map.get(local.0 as usize).copied().flatten() {
+                    self.assign(
+                        Place::local(idx),
+                        Rvalue::Use(Operand::Copy(place.clone())),
+                        pat.span,
+                    );
+                } else {
+                    let _ = self.unsupported(pat.span, "unresolved binding");
+                }
+                if let Some(sub) = sub {
+                    self.lower_pat_test(sub, place, fail);
+                }
+            }
+            tbir::PatKind::Lit { negated, lit } => {
+                let ty = pat.ty.subst(&self.substs);
+                let c = self.const_of_lit(&ty, lit, pat.span);
+                let c = match (negated, c) {
+                    (true, Operand::Const(Const::Int(v, p))) => {
+                        Operand::Const(Const::Int(-v, p))
+                    }
+                    (true, Operand::Const(Const::Float(v, p))) => {
+                        Operand::Const(Const::Float(-v, p))
+                    }
+                    (_, other) => other,
+                };
+                if matches!(c, Operand::Const(Const::Str(_))) {
+                    let _ = self.unsupported(pat.span, "string literal pattern");
+                    return;
+                }
+                let t = self.temp(Ty::Prim(PrimTy::Bool), pat.span);
+                self.assign(
+                    Place::local(t),
+                    Rvalue::BinaryOp(BinOp::Eq, Operand::Copy(place), c),
+                    pat.span,
+                );
+                self.branch_on(t, fail, pat.span);
+            }
+            tbir::PatKind::Deref(sub) => {
+                let mut p = place;
+                p.proj.push(ProjElem::Deref);
+                self.lower_pat_test(sub, p, fail);
+            }
+            tbir::PatKind::Tuple(elems) => {
+                for (i, sub) in elems.iter().enumerate() {
+                    let mut p = place.clone();
+                    p.proj.push(ProjElem::Field(i as u32));
+                    self.lower_pat_test(sub, p, fail);
+                }
+            }
+            tbir::PatKind::Struct { fields, .. } => {
+                for (idx, sub) in fields {
+                    let mut p = place.clone();
+                    p.proj.push(ProjElem::Field(*idx));
+                    self.lower_pat_test(sub, p, fail);
+                }
+            }
+            tbir::PatKind::Variant {
+                variant,
+                index,
+                fields,
+                ..
+            } => {
+                let Some((_, _, base)) = self.variant_layout(*variant) else {
+                    let _ = self.unsupported(pat.span, "enum variant pattern");
+                    return;
+                };
+                // 判别测试
+                let d = self.temp(Ty::Prim(PrimTy::I32), pat.span);
+                self.assign(
+                    Place::local(d),
+                    Rvalue::Discriminant(place.clone()),
+                    pat.span,
+                );
+                let t = self.temp(Ty::Prim(PrimTy::Bool), pat.span);
+                self.assign(
+                    Place::local(t),
+                    Rvalue::BinaryOp(
+                        BinOp::Eq,
+                        Operand::Copy(Place::local(d)),
+                        Operand::Const(Const::Int(*index as i128, PrimTy::I32)),
+                    ),
+                    pat.span,
+                );
+                self.branch_on(t, fail, pat.span);
+                // 载荷字段递归
+                for (fidx, sub) in fields {
+                    let mut p = place.clone();
+                    p.proj.push(ProjElem::VariantField {
+                        variant: *variant,
+                        base,
+                        field: *fidx,
+                    });
+                    self.lower_pat_test(sub, p, fail);
+                }
+            }
+            // 作用面外模式(区间/slice/const 模式):RX6001 留痕
+            tbir::PatKind::Range => {
+                let _ = self.unsupported(pat.span, "range pattern");
+            }
+            tbir::PatKind::Slice(_) => {
+                let _ = self.unsupported(pat.span, "slice pattern");
+            }
+            tbir::PatKind::Err => {
+                let _ = self.unsupported(pat.span, "unsupported pattern");
+            }
+        }
+    }
+
+    /// `t` 为真落入新 cont 块,否则跳 `fail`。
+    fn branch_on(&mut self, t: LocalIdx, fail: BlockIdx, span: Span) {
+        let cont = self.new_block();
+        self.terminate(
+            TerminatorKind::SwitchBool {
+                discr: Operand::Copy(Place::local(t)),
+                then: cont,
+                else_: fail,
+            },
+            span,
+        );
+        self.switch_to(cont);
     }
 }
 
@@ -874,10 +1045,53 @@ bb1:
         assert!(text.contains("goto -> "), "缺回边:\n{text}");
     }
 
-    /// 作用面外构造 → RX6001(M2.3 口径,不级联 ICE)。
+    /// match 降级(M3.1):判别读取 + 测试链 + 变体构造(RXS-0051 通路)。
+    //@ spec: RXS-0051
+    #[test]
+    fn match_lowers_to_discriminant_tests() {
+        let src = "enum E {\n    A,\n    B(i32),\n}\nfn main() {\n    let e = E::B(7);\n    let _v = match e {\n        E::A => 0,\n        E::B(x) => x,\n    };\n}";
+        let (text, codes) = mir_text(src);
+        assert!(codes.is_empty(), "意外诊断: {codes:?}");
+        assert!(text.contains("discriminant("), "缺判别读取:\n{text}");
+        assert!(text.contains("#1 {"), "缺变体构造(tag 1):\n{text}");
+        assert!(text.contains(".v["), "缺载荷投影:\n{text}");
+    }
+
+    /// 方法调用经 TBIR 显式化为直调(RXS-0046/0048;receiver autoref)。
+    //@ spec: RXS-0048
+    #[test]
+    fn method_call_lowers_to_explicit_call() {
+        let src = "struct C {\n    v: i32,\n}\nimpl C {\n    fn get(&self) -> i32 {\n        self.v\n    }\n}\nfn main() {\n    let c = C { v: 3 };\n    let _x = c.get();\n}";
+        let (text, codes) = mir_text(src);
+        assert!(codes.is_empty(), "意外诊断: {codes:?}");
+        assert!(text.contains("rx_get_"), "方法实例缺失:\n{text}");
+        assert!(text.contains("= &_"), "receiver autoref 缺失:\n{text}");
+    }
+
+    /// for-range desugar 全管线:无 RX6001(RXS-0049 出口判据通路)。
+    //@ spec: RXS-0049
+    #[test]
+    fn for_range_lowers_without_diagnostics() {
+        let src = "fn main() {\n    let mut acc = 0;\n    for i in 0..4 {\n        if i == 2 {\n            continue;\n        }\n        acc += i;\n    }\n    let _r = acc;\n}";
+        let (text, codes) = mir_text(src);
+        assert!(codes.is_empty(), "意外诊断: {codes:?}");
+        assert!(text.contains("discriminant("), "desugar match 缺失:\n{text}");
+    }
+
+    /// `?` desugar 全管线:无 RX6001(RXS-0050 出口判据通路)。
+    //@ spec: RXS-0050
+    #[test]
+    fn question_mark_lowers_without_diagnostics() {
+        let src = "fn half(x: i32) -> Result<i32, i32> {\n    if x % 2 == 0 { Ok(x / 2) } else { Err(x) }\n}\nfn main() {\n    let _r = match half(6) {\n        Ok(v) => v,\n        Err(e) => e,\n    };\n}";
+        let (text, codes) = mir_text(src);
+        assert!(codes.is_empty(), "意外诊断: {codes:?}");
+        assert!(text.contains("rx_half_"), "callee 实例缺失:\n{text}");
+    }
+
+    /// 作用面外构造 → RX6001(M3.1 口径,不级联 ICE)。
     #[test]
     fn out_of_scope_construct_is_rx6001() {
-        let src = "fn main() {\n    let _x = match 1 {\n        _ => 2,\n    };\n}";
+        let src = "fn main() {\n    let _x = [1, 2, 3];\n}";
         let (_, codes) = mir_text(src);
         assert_eq!(codes, vec![6001]);
     }

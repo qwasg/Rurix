@@ -93,6 +93,13 @@ pub enum ProjElem {
     Deref,
     /// 字段序(struct 定义序 / 元组位置)。
     Field(u32),
+    /// enum 变体载荷字段(M3.1 扁平布局:`base` = 该变体首载荷的布局下标,
+    /// 见 [`enum_variant_layout`];`field` = 变体内字段序)。
+    VariantField {
+        variant: DefId,
+        base: u32,
+        field: u32,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -123,6 +130,15 @@ pub enum Rvalue {
     Cast(Operand, Ty),
     /// struct / 元组构造(operand 按定义序/位置序)。
     Aggregate(Ty, Vec<Operand>),
+    /// enum 变体构造(M3.1 扁平布局:tag 落下标 0,载荷自 `base` 起顺排)。
+    VariantAggregate {
+        ty: Ty,
+        tag: u32,
+        base: u32,
+        ops: Vec<Operand>,
+    },
+    /// enum 判别读取(i32;match 降级的测试输入)。
+    Discriminant(Place),
 }
 
 #[derive(Debug)]
@@ -159,6 +175,26 @@ pub enum CallTarget {
         symbol: String,
     },
     Builtin(Builtin),
+}
+
+/// enum 扁平布局(M3.1 取舍:`{ i32 tag, 变体0载荷…, 变体1载荷…, … }`,
+/// 各变体载荷顺排**不重叠**——以空间换实现简单,无 union/字节级尺寸计算;
+/// 紧凑布局登记为已知限制随 M4+ 评估)。返回 (变体, 首载荷布局下标) 列表。
+pub fn enum_variant_layout(krate: &crate::hir::Crate, enum_def: DefId) -> Vec<(DefId, u32)> {
+    let crate::hir::ItemKind::Enum { variants } = &krate.item(enum_def).kind else {
+        return Vec::new();
+    };
+    let mut base = 1u32; // 0 = tag
+    variants
+        .iter()
+        .map(|v| {
+            let cur = base;
+            if let crate::hir::ItemKind::Variant { fields } = &krate.item(*v).kind {
+                base += fields.len() as u32;
+            }
+            (*v, cur)
+        })
+        .collect()
 }
 
 /// 单态化实例符号名:`main` 保留;其余 `rx_{名}_{DefId}`,泛型实参追加
@@ -278,6 +314,9 @@ fn print_place(p: &Place) -> String {
         match e {
             ProjElem::Deref => s = format!("(*{s})"),
             ProjElem::Field(i) => s.push_str(&format!(".{i}")),
+            ProjElem::VariantField { base, field, .. } => {
+                s.push_str(&format!(".v[{}+{}]", base, field));
+            }
         }
     }
     s
@@ -317,6 +356,15 @@ fn print_rvalue(rv: &Rvalue, res: &Resolutions) -> String {
             let parts: Vec<String> = ops.iter().map(print_operand).collect();
             format!("{} {{ {} }}", t.render_plain(res), parts.join(", "))
         }
+        Rvalue::VariantAggregate { ty, tag, ops, .. } => {
+            let parts: Vec<String> = ops.iter().map(print_operand).collect();
+            format!(
+                "{}#{tag} {{ {} }}",
+                ty.render_plain(res),
+                parts.join(", ")
+            )
+        }
+        Rvalue::Discriminant(p) => format!("discriminant({})", print_place(p)),
     }
 }
 

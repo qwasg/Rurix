@@ -335,9 +335,16 @@ pub fn check_body_provider(cx: &QueryCtx<'_>, body_id: BodyId) -> TypeckResults 
         hir::ItemKind::Fn(decl) => {
             let sig = cx.fn_sig(body.owner);
             tck.ret_ty = sig.output.clone();
-            // self 接收者:反查所属 inherent impl 的 self 类型(M2.2 宽松)
+            // self 接收者:反查所属 inherent impl 的 self 类型;`&self`/`&mut self`
+            // 绑定为引用类型(M3.1 收紧——TBIR 方法糖显式化的 autoderef 依据)
             let self_ty = if sig.has_self {
-                tck.impl_self_ty(body.owner)
+                let base = tck.impl_self_ty(body.owner);
+                match decl.self_kind {
+                    Some(sk) if sk.by_ref && !base.is_err() => {
+                        Ty::Ref(Box::new(base), sk.mutable)
+                    }
+                    _ => base,
+                }
             } else {
                 Ty::Err
             };
@@ -636,7 +643,10 @@ impl Tck<'_, '_> {
         self.results.pat_ty.insert(pat.hir_id, ty.clone());
         match &pat.kind {
             hir::PatKind::Binding { local } => self.set_local(*local, ty.clone()),
-            hir::PatKind::Wild | hir::PatKind::Lit | hir::PatKind::Range | hir::PatKind::Err => {}
+            hir::PatKind::Wild
+            | hir::PatKind::Lit { .. }
+            | hir::PatKind::Range
+            | hir::PatKind::Err => {}
             hir::PatKind::At { local, pat } => {
                 self.set_local(*local, ty.clone());
                 self.bind_pat(pat, ty);

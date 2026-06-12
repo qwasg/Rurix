@@ -35,8 +35,9 @@ BP_BASELINE = [
     "hello_world!main",
     "hello_world.rx @ 6",
 ]
-# 步骤 14 基线不变量:六阶段集(M2_PLAN §4;计数器值非确定,只断言非零)
-PROFILE_STAGES = ["parse", "resolve", "typeck", "mir", "codegen", "link"]
+# 步骤 14 基线不变量:阶段集(M2_PLAN §4 六阶段 + M3.1 tbir 窄门阶段;
+# 计数器值非确定,只断言非零)
+PROFILE_STAGES = ["parse", "resolve", "typeck", "tbir", "mir", "codegen", "link"]
 
 
 def fail(msg: str) -> None:

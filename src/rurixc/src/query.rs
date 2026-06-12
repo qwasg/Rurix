@@ -42,6 +42,10 @@ pub struct QueryCtx<'a> {
     // ---- 计量(self-profile 布点,07 §6) ----
     hits: Cell<u64>,
     misses: Cell<u64>,
+    // ---- TBIR 窄门计量(M3.1:即建即用层,不入 memo;07 §1 D-202) ----
+    tbir_bodies: Cell<u64>,
+    tbir_scopes: Cell<u64>,
+    tbir_nanos: Cell<u64>,
 }
 
 impl<'a> QueryCtx<'a> {
@@ -66,6 +70,9 @@ impl<'a> QueryCtx<'a> {
             mir: OnceCell::new(),
             hits: Cell::new(0),
             misses: Cell::new(0),
+            tbir_bodies: Cell::new(0),
+            tbir_scopes: Cell::new(0),
+            tbir_nanos: Cell::new(0),
         }
     }
 
@@ -100,6 +107,23 @@ impl<'a> QueryCtx<'a> {
 
     fn miss(&self) {
         self.misses.set(self.misses.get() + 1);
+    }
+
+    /// TBIR 即建即用计量(mir_build 逐实例上报;self-profile `tbir` 阶段数据源)。
+    pub fn note_tbir(&self, scopes: u64, elapsed: std::time::Duration) {
+        self.tbir_bodies.set(self.tbir_bodies.get() + 1);
+        self.tbir_scopes.set(self.tbir_scopes.get() + scopes);
+        self.tbir_nanos
+            .set(self.tbir_nanos.get() + elapsed.as_nanos() as u64);
+    }
+
+    /// (TBIR body 数, scope 总数, 累计构造毫秒)。
+    pub fn tbir_stats(&self) -> (u64, u64, f64) {
+        (
+            self.tbir_bodies.get(),
+            self.tbir_scopes.get(),
+            self.tbir_nanos.get() as f64 / 1e6,
+        )
     }
 
     // ---- 首批 query ---------------------------------------------------------

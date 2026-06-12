@@ -114,6 +114,7 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
         pending_impls: Vec::new(),
         assoc: HashMap::new(),
         enum_variants: HashMap::new(),
+        unit_variants: std::collections::HashSet::new(),
         mod_slots: Vec::new(),
     };
     // 内建函数预分配(M2.3 最小 prelude,目前仅 println):不入模块命名空间——
@@ -131,6 +132,7 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
         let span = Span::new(crate::span::SourceId(0), 0, 0, crate::span::Edition::Rx0);
         let option = r.new_def(DefKind::Enum, "Option", Vis::Pub, span, 0);
         let none = r.new_def(DefKind::Variant, "None", Vis::Pub, span, 0);
+        r.unit_variants.insert(none);
         let some = r.new_def(DefKind::Variant, "Some", Vis::Pub, span, 0);
         r.enum_variants.insert(
             option,
@@ -239,6 +241,8 @@ struct Resolver<'a> {
     assoc: HashMap<DefId, HashMap<String, (DefId, Vis)>>,
     /// enum DefId → 变体名 → 变体 DefId。
     enum_variants: HashMap<DefId, HashMap<String, DefId>>,
+    /// 单元变体集(模式位置裸名裁决:单元变体优先于绑定,RXS-0048/0023)。
+    unit_variants: std::collections::HashSet<DefId>,
     /// mod DefId → 模块树槽位。
     mod_slots: Vec<(DefId, usize)>,
 }
@@ -438,6 +442,9 @@ impl<'a> Resolver<'a> {
                     let vid =
                         self.new_def(DefKind::Variant, &v.name.name, vis, v.name.span, module);
                     self.out.item_defs.insert(v.span, vid);
+                    if matches!(v.body, ast::VariantBody::Unit) {
+                        self.unit_variants.insert(vid);
+                    }
                     if let Some(prev) = variants.get(&v.name.name) {
                         let first = self.def(*prev).span;
                         self.err_duplicate(&v.name.name, first, v.name.span);
@@ -1398,11 +1405,33 @@ impl Resolver<'_> {
         }
     }
 
+    /// 模式位置裸名 → 单元变体 Res(模块值 ns 与 lang-item 变体兜底;
+    /// 非单元变体/非变体不参与,落回绑定语义)。
+    fn unit_variant_pattern_res(&self, name: &str, cx: &BodyCx) -> Option<Res> {
+        let res = self.modules[cx.module]
+            .values
+            .get(name)
+            .map(|b| b.res)
+            .or_else(|| self.out.lang_items.variant_by_name(name).map(Res::Def))?;
+        let Res::Def(d) = res else { return None };
+        if self.def(d).kind == DefKind::Variant && self.unit_variants.contains(&d) {
+            Some(res)
+        } else {
+            None
+        }
+    }
+
     fn resolve_pat(&mut self, pat: &ast::Pat, cx: &mut BodyCx) {
         match &pat.kind {
             ast::PatKind::Wild | ast::PatKind::Lit { .. } | ast::PatKind::Err => {}
             ast::PatKind::Binding { mutable, name } => {
-                self.declare_local(cx, &name.name, *mutable, name.span);
+                // 模式位置裸名裁决(RXS-0048/0023):解析到**单元变体**时为
+                // 路径模式(`None` 等),否则为绑定;`mut` 标注强制绑定。
+                if !*mutable && let Some(res) = self.unit_variant_pattern_res(&name.name, cx) {
+                    self.out.path_res.insert(name.span, res);
+                } else {
+                    self.declare_local(cx, &name.name, *mutable, name.span);
+                }
             }
             ast::PatKind::At { name, pat } => {
                 self.declare_local(cx, &name.name, false, name.span);

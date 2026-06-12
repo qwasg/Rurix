@@ -324,6 +324,15 @@ impl Lowerer<'_> {
                 ast::GenericParamKind::Lifetime(_) => None,
             })
             .collect();
+        let self_kind = f.params.first().and_then(|p| match &p.kind {
+            ast::ParamKind::SelfParam {
+                by_ref, mutable, ..
+            } => Some(hir::SelfKind {
+                by_ref: *by_ref,
+                mutable: *mutable,
+            }),
+            _ => None,
+        });
         let params: Vec<hir::Param> = f
             .params
             .iter()
@@ -368,6 +377,7 @@ impl Lowerer<'_> {
             color: f.color,
             generic_params,
             params,
+            self_kind,
             ret,
             body,
         }
@@ -495,10 +505,21 @@ impl Lowerer<'_> {
     fn lower_pat(&mut self, pat: &ast::Pat) -> hir::Pat {
         let kind = match &pat.kind {
             ast::PatKind::Wild => hir::PatKind::Wild,
-            ast::PatKind::Binding { name, .. } => hir::PatKind::Binding {
-                local: self.binding_local(name.span),
+            ast::PatKind::Binding { name, .. } => {
+                // 裸名裁决为单元变体路径模式时,resolver 记录的是 path_res
+                // 而非 binding(RXS-0048/0023;见 resolve_pat)
+                if let Some(res) = self.res.path_res.get(&name.span) {
+                    hir::PatKind::Res(*res)
+                } else {
+                    hir::PatKind::Binding {
+                        local: self.binding_local(name.span),
+                    }
+                }
+            }
+            ast::PatKind::Lit { negated, lit } => hir::PatKind::Lit {
+                negated: *negated,
+                lit: lit.clone(),
             },
-            ast::PatKind::Lit { .. } => hir::PatKind::Lit,
             ast::PatKind::Range { .. } => hir::PatKind::Range,
             ast::PatKind::At { name, pat } => hir::PatKind::At {
                 local: self.binding_local(name.span),
@@ -556,7 +577,10 @@ impl Lowerer<'_> {
             kind: match &p.kind {
                 hir::PatKind::Wild => hir::PatKind::Wild,
                 hir::PatKind::Binding { local } => hir::PatKind::Binding { local: *local },
-                hir::PatKind::Lit => hir::PatKind::Lit,
+                hir::PatKind::Lit { negated, lit } => hir::PatKind::Lit {
+                    negated: *negated,
+                    lit: lit.clone(),
+                },
                 hir::PatKind::Range => hir::PatKind::Range,
                 hir::PatKind::At { local, pat } => hir::PatKind::At {
                     local: *local,

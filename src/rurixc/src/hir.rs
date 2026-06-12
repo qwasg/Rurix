@@ -204,12 +204,21 @@ pub enum ItemKind {
     Err,
 }
 
+/// `self` 接收者形态(RXS-0046;TBIR 方法糖显式化的 autoref/autoderef 依据)。
+#[derive(Clone, Copy, Debug)]
+pub struct SelfKind {
+    pub by_ref: bool,
+    pub mutable: bool,
+}
+
 #[derive(Debug)]
 pub struct FnDecl {
     pub color: FnColor,
     /// 泛型参数名(序号即 `Res::GenericParam` 索引)。
     pub generic_params: Vec<String>,
     pub params: Vec<Param>,
+    /// `self` 接收者形态(params[0] 为 self 时 Some)。
+    pub self_kind: Option<SelfKind>,
     pub ret: Option<Ty>,
     /// `None` = 签名声明(extern/trait)。
     pub body: Option<BodyId>,
@@ -299,7 +308,11 @@ pub enum PatKind {
     Binding {
         local: LocalId,
     },
-    Lit,
+    /// 字面量模式(载荷保留供 MIR 模式测试取值,M3.1)。
+    Lit {
+        negated: bool,
+        lit: crate::ast::Lit,
+    },
     Range,
     At {
         local: LocalId,

@@ -87,3 +87,4 @@ flowchart LR
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-06-12 | 初版 |
+| v1.1 | 2026-06-12 | §1 任务 4 留痕:TBIR 重排落地后 RX6001"暂不支持"剩余清单 = closure / 索引 / 数组与 repeat / 独立 range 表达式 / fn 指针间接调用 / 裸 fn·const 值引用 / 带值 break / 解构 `let` / 区间·slice·const 模式 / 字符串字面量模式 / 泛型 extern fn。两项实现取舍登记为已知限制(随 M4+ 或诊断打磨期评估):enum 扁平布局(tag + 全变体载荷顺排不重叠,空间换实现简单)、match or-pattern 臂体按候选重复 lowering(不共享块) |
