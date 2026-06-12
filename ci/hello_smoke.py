@@ -27,7 +27,7 @@ EXPECT_STDOUT = "hello, rurix"
 BP_BASELINE = [
     "Breakpoint 0 hit",
     "hello_world!main",
-    "hello_world.rx @ 6",
+    "hello_world.rx @ 99",
 ]
 
 
