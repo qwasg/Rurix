@@ -56,3 +56,4 @@ m2_budget.json 的 G-M3-3 回填走 `check_guardrails.py` 既有机制("estimate
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-06-12 | 初版(M3 契约配套;步骤 15/16 为 M3.3/M3.4 计划项,落地时回填实测命令) |
+| v1.1 | 2026-06-12 | §4 第 1 项落地:`ci/check_guardrails.py` 本地/push 回退基准 `m1-closed → m2-closed`(PR 路径 GITHUB_BASE_REF 优先不变);切换前双基准核对均 PASS(`py -3 ci/check_guardrails.py m1-closed` = PASS 101 changed paths;`m2-closed` = PASS 6 changed paths) |
