@@ -231,6 +231,20 @@ fn lower_hir_ty(t: &hir::Ty, infer: &mut dyn FnMut() -> Ty) -> Ty {
 // query providers(D-203:provider 只经 QueryCtx 互访)
 // ---------------------------------------------------------------------------
 
+/// ADT 字段语义类型(定义序,泛型实参已代入;MIR/codegen 布局消费)。
+pub fn adt_field_tys(krate: &hir::Crate, def: DefId, args: &[Ty]) -> Vec<Ty> {
+    let (hir::ItemKind::Struct { fields } | hir::ItemKind::Variant { fields }) =
+        &krate.item(def).kind
+    else {
+        return Vec::new();
+    };
+    let mut sig_infer = || Ty::Err;
+    fields
+        .iter()
+        .map(|f| lower_hir_ty(&f.ty, &mut sig_infer).subst(args))
+        .collect()
+}
+
 /// 内建函数签名(M2.3 最小 prelude)。
 fn builtin_sig(b: hir::Builtin) -> FnSig {
     match b {

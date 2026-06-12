@@ -193,6 +193,20 @@
       "message_key": "codegen.unsupported_construct",
       "status": "active",
       "introduced_in": "M2.3"
+    },
+    {
+      "id": "RX6002",
+      "title": "可执行目标缺少 main 入口",
+      "message_key": "codegen.missing_main",
+      "status": "active",
+      "introduced_in": "M2.3"
+    },
+    {
+      "id": "RX7001",
+      "title": "外部工具链失败(clang/link.exe 定位失败、版本不符 pin 或退出非零)",
+      "message_key": "link.toolchain_failure",
+      "status": "active",
+      "introduced_in": "M2.3"
     }
   ],
   "revision_log": [
@@ -224,7 +238,7 @@
     {
       "version": "v1.5",
       "date": "2026-06-12",
-      "change": "M2.3 分配 RX6001(MIR lowering/codegen 作用面外构造;M2.3 host 子集 = hello-world 闭环所需,M2_PLAN v1.3 留痕)"
+      "change": "M2.3 分配 RX6001/RX6002/RX7001(MIR lowering/codegen 作用面外构造、缺 main 入口、外部工具链失败;M2.3 host 子集 = hello-world 闭环所需,M2_PLAN v1.3 留痕)"
     }
   ]
 }
