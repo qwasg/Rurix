@@ -17,6 +17,7 @@
 |---|---|---|
 | 12 | hello-world 编译闭环冒烟:rurixc 全管线产出 EXE → 运行核对退出码/输出 → PDB 产物存在(契约 G-M2-1 通道;自 M2.3 存在起) | 是 |
 | 13 | cdb 断点脚本核对:源行断点命中 + 栈打印,输出与基线比对(契约 G-M2-2 通道;自 M2.3 存在起) | 是 |
+| 14 | self-profile 核对:rurixc `--self-profile` 编译 hello-world → JSON 行可解析 + 六阶段(parse/resolve/typeck/mir/codegen/link)计数器全非零(契约 G-M2-4 通道;自 M2.4 存在起) | 是 |
 
 预算 evaluator(M0 步骤 6)自动合并加载 [m2_budget.json](m2_budget.json)(命名空间冲突即红)。**M2 期 PR Smoke 跑 normal 模式**:`m2.bench.*` 为 `estimated` 占位,SKIP + skip_reason 输出属预期(契约 §4 诚实声明);`--strict` 的全局零残留判定推迟到 M3 close-out(占位存活 ≤2 里程碑,14 §3)。M1 终审引用其 close-out 已留痕的 strict 输出(2026-06-11,见 [../m1/M1_CONTRACT.md](../m1/M1_CONTRACT.md) §8.1.2),不受本套件追加占位影响。
 
@@ -53,3 +54,4 @@
 | v1.0 | 2026-06-11 | 初版(M2 契约配套;步骤 12/13 为 M2.3 计划项,落地时回填实测命令) |
 | v1.1 | 2026-06-12 | M2.3 落地回填:步骤 12 = `py -3 ci/hello_smoke.py compile-run`,步骤 13 = `py -3 ci/hello_smoke.py breakpoint`(均已入 pr-smoke.yml)。实测命令:rurixc 驱动 `conformance/syntax/hello_world.rx` → EXE+PDB(clang 22.1.7 + VS BuildTools link.exe);cdb 断点 = `bp `hello_world!hello_world.rx:6`; g; k; q`(基线不变量:Breakpoint 0 hit / hello_world!main / hello_world.rx @ 6),cdb 输出原文留痕 `evidence/cdb_hello_world_20260612.txt`。runner 预置项:LLVM 22.1.7(winget LLVM.LLVM)+ WinDbg(winget Microsoft.WinDbg,含 cdb)。§5 验证程序:脚本级红绿已本地真跑(篡改 EXE → breakpoint 红 exit 1;恢复 → 绿 exit 0);PR 级红绿(run URL)随本分支 PR 流程执行,URL 届时归档 close-out |
 | v1.2 | 2026-06-12 | §5 验证程序 PR 级红绿完成(PR [#5](https://github.com/qwasg/Rurix/pull/5)):红 = 故意篡改 cdb 基线(行 6 → 99)→ 步骤 13 失败、run 红([27412796112](https://github.com/qwasg/Rurix/actions/runs/27412796112));revert 后同 PR 转绿([27412857831](https://github.com/qwasg/Rurix/actions/runs/27412857831),步骤 12/13 含)。两 URL 随 M2 close-out 引用本行 |
+| v1.3 | 2026-06-12 | M2.4 落地两项:(1)§2 追加步骤 14 = `py -3 ci/hello_smoke.py self-profile`(契约 G-M2-4 通道,已入 pr-smoke.yml):rurixc `--self-profile=<file>` 输出 JSON 行(parse/resolve/typeck/mir/codegen/link 六阶段 + total/memo 汇总),断言可解析 + 计数器全非零;脚本级红绿已本地真跑(篡改阶段基线 link → borrowck → 红 exit 1;恢复 → 绿 exit 0),PR 级红绿随本分支 PR 执行、URL 届时归档 close-out。(2)§3 Nightly 实体化:新建 `.github/workflows/nightly.yml` 最小集(schedule 每日 03:00 UTC+8 + workflow_dispatch;lexer/parser/SAXPY 冒烟 + budget normal + self-profile JSON artifact 归档 90 天)——此前 M0/M1 期 Nightly 仅纸面描述,本次为首个实体工作流;schedule 无法 PR 验证,首跑经 workflow_dispatch 人工触发确认,列 close-out 人工待办 |

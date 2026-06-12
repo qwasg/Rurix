@@ -9,15 +9,22 @@
 //!   版本断言 22.1.x(违例 = RX7001,pin 纪律)。
 //! - link.exe:`RURIXC_LINK` > vswhere 定位 VS BuildTools;MSVC/SDK 库目录自动发现。
 //!
-//! 用法:`rurixc <input.rx> [-o <out.exe>] [--emit=mir|llvm-ir]`
+//! 用法:`rurixc <input.rx> [-o <out.exe>] [--emit=mir|llvm-ir] [--self-profile=<file.json>]`
+//!
+//! self-profile(D-M2-6,契约 G-M2-4):`--self-profile=<path>` 输出 JSON 行
+//! 阶段计时(parse/resolve/typeck/mir/codegen/link + total/memo 汇总,07 §6)。
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
+use std::time::Instant;
 
 use rurixc::codegen::{self, CodegenOpts};
 use rurixc::diag::{DiagCtxt, ErrorCode};
 use rurixc::feature_gate::check_feature_gates;
+use rurixc::lexer::lex;
 use rurixc::mir;
+use rurixc::parser::parse;
+use rurixc::profile::Profiler;
 use rurixc::query::QueryCtx;
 use rurixc::render::render_diagnostics;
 use rurixc::source_map::SourceMap;
@@ -31,6 +38,7 @@ fn main() -> ExitCode {
     let mut input: Option<String> = None;
     let mut out: Option<String> = None;
     let mut emit: Option<String> = None;
+    let mut profile_out: Option<PathBuf> = None;
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -39,6 +47,9 @@ fn main() -> ExitCode {
                 out = args.get(i).cloned();
             }
             s if s.starts_with("--emit=") => emit = Some(s["--emit=".len()..].to_owned()),
+            s if s.starts_with("--self-profile=") => {
+                profile_out = Some(PathBuf::from(&s["--self-profile=".len()..]));
+            }
             s if !s.starts_with('-') && input.is_none() => input = Some(s.to_owned()),
             s => {
                 eprintln!("rurixc: unknown argument `{s}`");
@@ -48,7 +59,9 @@ fn main() -> ExitCode {
         i += 1;
     }
     let Some(input) = input else {
-        eprintln!("usage: rurixc <input.rx> [-o <out.exe>] [--emit=mir|llvm-ir]");
+        eprintln!(
+            "usage: rurixc <input.rx> [-o <out.exe>] [--emit=mir|llvm-ir] [--self-profile=<file.json>]"
+        );
         return ExitCode::from(2);
     };
     let input_path = PathBuf::from(&input);
@@ -79,22 +92,46 @@ fn main() -> ExitCode {
     let diag = DiagCtxt::new();
     let mut sm = SourceMap::new();
     let id = sm.add_file(file_name.clone(), src.as_str(), Edition::Rx0);
-    let cx = QueryCtx::new(&src, id, Edition::Rx0, &diag);
+
+    // self-profile 布点(D-M2-6):计时在驱动外层包裹阶段,query 层维持纯函数纪律
+    let prof = Profiler::new();
+    let t_start = Instant::now();
+
+    let t = Instant::now();
+    let tokens = lex(&src, id, Edition::Rx0, &diag);
+    let n_tokens = tokens.len() as u64;
+    let ast = parse(&src, tokens, id, Edition::Rx0, &diag);
+    prof.record(
+        "parse",
+        t,
+        &[("tokens", n_tokens), ("items", ast.items.len() as u64)],
+    );
+    let cx = QueryCtx::from_ast(ast, &src, id, &diag);
 
     // 阶段化:parse/gate → resolve → typeck → mir(前段有错即停)
     check_feature_gates(cx.ast(), &diag);
     let mir_bodies = if diag.has_errors() {
         None
     } else {
-        let _ = cx.resolutions();
+        let t = Instant::now();
+        let res = cx.resolutions();
+        prof.record("resolve", t, &[("defs", res.defs.len() as u64)]);
         if diag.has_errors() {
             None
         } else {
+            let t = Instant::now();
             cx.check_crate();
+            prof.record(
+                "typeck",
+                t,
+                &[("bodies_checked", cx.hir_crate().bodies.len() as u64)],
+            );
             if diag.has_errors() {
                 None
             } else {
+                let t = Instant::now();
                 let m = cx.mir_crate();
+                prof.record("mir", t, &[("mir_bodies", m.len() as u64)]);
                 if m.is_empty() {
                     diag.struct_error(E_MISSING_MAIN, "codegen.missing_main")
                         .emit();
@@ -117,9 +154,14 @@ fn main() -> ExitCode {
         for b in mir_bodies.iter() {
             print!("{}", mir::pretty(b, &res));
         }
+        if let Err(e) = finish_profile(&prof, &cx, t_start, profile_out.as_deref()) {
+            toolchain_err(&diag, &sm, e);
+            return ExitCode::from(1);
+        }
         return ExitCode::SUCCESS;
     }
 
+    let t = Instant::now();
     let krate = cx.hir_crate();
     let ir = codegen::emit_llvm_ir(
         &mir_bodies,
@@ -132,7 +174,12 @@ fn main() -> ExitCode {
         },
     );
     if emit.as_deref() == Some("llvm-ir") {
+        prof.record("codegen", t, &[("ir_bytes", ir.len() as u64)]);
         print!("{ir}");
+        if let Err(e) = finish_profile(&prof, &cx, t_start, profile_out.as_deref()) {
+            toolchain_err(&diag, &sm, e);
+            return ExitCode::from(1);
+        }
         return ExitCode::SUCCESS;
     }
 
@@ -168,8 +215,11 @@ fn main() -> ExitCode {
         toolchain_err(&diag, &sm, e);
         return ExitCode::from(1);
     }
+    // codegen 阶段 = LLVM IR 生成 + .ll 落盘 + clang → .obj(文本 IR 通道,M2_PLAN v1.3)
+    prof.record("codegen", t, &[("ir_bytes", ir.len() as u64)]);
 
     // link.exe(D-209:默认 link.exe;PDB 经 /debug:full)
+    let t = Instant::now();
     let (link, libpaths) = match locate_link() {
         Ok(v) => v,
         Err(e) => {
@@ -194,7 +244,37 @@ fn main() -> ExitCode {
         toolchain_err(&diag, &sm, e);
         return ExitCode::from(1);
     }
+    let pdb = exe.with_extension("pdb");
+    let artifacts = [&exe, &pdb].iter().filter(|p| p.exists()).count() as u64;
+    prof.record("link", t, &[("artifacts", artifacts)]);
+
+    if let Err(e) = finish_profile(&prof, &cx, t_start, profile_out.as_deref()) {
+        toolchain_err(&diag, &sm, e);
+        return ExitCode::from(1);
+    }
     ExitCode::SUCCESS
+}
+
+/// 收尾 self-profile:追加 `total` 行(memo 汇总)并按需落盘 JSON 行文件。
+fn finish_profile(
+    prof: &Profiler,
+    cx: &QueryCtx<'_>,
+    t_start: Instant,
+    path: Option<&Path>,
+) -> Result<(), String> {
+    prof.record(
+        "total",
+        t_start,
+        &[
+            ("memo_hits", cx.memo_hits()),
+            ("memo_misses", cx.memo_misses()),
+        ],
+    );
+    if let Some(p) = path {
+        std::fs::write(p, prof.to_json_lines())
+            .map_err(|e| format!("cannot write self-profile {}: {e}", p.display()))?;
+    }
+    Ok(())
 }
 
 fn toolchain_err(diag: &DiagCtxt, sm: &SourceMap, reason: String) {

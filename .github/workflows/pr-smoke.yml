@@ -69,3 +69,7 @@ jobs:
       - name: cdb breakpoint check (M2 CI_GATES §2.13, G-M2-2)
         shell: powershell
         run: py -3 ci/hello_smoke.py breakpoint
+
+      - name: self-profile check (M2 CI_GATES §2.14, G-M2-4)
+        shell: powershell
+        run: py -3 ci/hello_smoke.py self-profile

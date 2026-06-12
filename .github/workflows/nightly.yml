@@ -1,0 +1,60 @@
+# Nightly(CI 三层门禁第二层,14 §8 / milestones/m2/CI_GATES.md §3)
+# 自 M2.4 起实体化为最小集(此前 M0/M1 CI_GATES 的 Nightly 条目为纸面描述):
+# 前端吞吐冒烟 + GPU 基准冒烟 + 预算 evaluator(normal)+ self-profile 归档。
+# self-profile JSON 为归档产物(非证据,趋势参考;evidence/ 分级纪律不适用)。
+name: nightly
+
+on:
+  schedule:
+    - cron: "0 19 * * *"   # 03:00 UTC+8(开发机闲时)
+  workflow_dispatch:        # 首跑确认与手动触发通道(schedule 无法 PR 验证)
+
+concurrency:
+  group: gpu-runner          # 与 pr-smoke 共享:GPU 任务串行,防基准互扰
+  cancel-in-progress: false
+
+jobs:
+  nightly:
+    runs-on: [self-hosted, Windows, gpu]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: deps
+        shell: powershell
+        run: py -3 -m pip install -r requirements.txt --quiet --disable-pip-version-check
+
+      - name: lexer throughput smoke (M1 CI_GATES §3)
+        shell: powershell
+        run: py -3 bench/lexer_bench.py --smoke
+
+      - name: parser throughput smoke (M1 CI_GATES §3)
+        shell: powershell
+        run: py -3 bench/parser_bench.py --smoke
+
+      - name: SAXPY smoke (M0 GPU 基准回归通道)
+        shell: powershell
+        run: py -3 bench/saxpy_bench.py --smoke
+
+      - name: budget evaluator (normal)
+        shell: powershell
+        run: py -3 ci/budget_eval.py
+
+      - name: build rurixc
+        shell: powershell
+        run: cargo build -p rurixc --bin rurixc
+
+      - name: self-profile archive run (M2 CI_GATES §3, since M2.4)
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force build\nightly | Out-Null
+          .\target\debug\rurixc.exe conformance\syntax\hello_world.rx -o build\nightly\hello_world.exe --self-profile=build\nightly\self_profile.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-Content build\nightly\self_profile.json
+
+      - name: upload self-profile artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: self-profile-${{ github.run_id }}
+          path: build/nightly/self_profile.json
+          retention-days: 90
