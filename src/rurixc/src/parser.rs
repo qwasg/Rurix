@@ -1445,6 +1445,7 @@ impl<'a> Parser<'a> {
                 let tok = self.bump();
                 TyKind::ConstArg(Lit {
                     kind: LitKind::Int,
+                    suffix: None,
                     span: tok.span,
                 })
             }
@@ -1691,18 +1692,39 @@ impl<'a> Parser<'a> {
     }
 
     fn try_parse_lit(&mut self) -> Option<Lit> {
-        let kind = match self.kind() {
-            Tk::IntLit { .. } => LitKind::Int,
-            Tk::FloatLit { .. } => LitKind::Float,
-            Tk::StrLit => LitKind::Str,
-            Tk::CharLit => LitKind::Char,
-            Tk::Kw(Kw::True) => LitKind::Bool(true),
-            Tk::Kw(Kw::False) => LitKind::Bool(false),
+        use crate::lexer::{FloatSuffix, IntSuffix};
+        let (kind, suffix) = match self.kind() {
+            Tk::IntLit { suffix, .. } => (
+                LitKind::Int,
+                suffix.map(|s| match s {
+                    IntSuffix::I8 => LitSuffix::I8,
+                    IntSuffix::I16 => LitSuffix::I16,
+                    IntSuffix::I32 => LitSuffix::I32,
+                    IntSuffix::I64 => LitSuffix::I64,
+                    IntSuffix::U8 => LitSuffix::U8,
+                    IntSuffix::U16 => LitSuffix::U16,
+                    IntSuffix::U32 => LitSuffix::U32,
+                    IntSuffix::U64 => LitSuffix::U64,
+                    IntSuffix::Usize => LitSuffix::Usize,
+                }),
+            ),
+            Tk::FloatLit { suffix } => (
+                LitKind::Float,
+                suffix.map(|s| match s {
+                    FloatSuffix::F32 => LitSuffix::F32,
+                    FloatSuffix::F64 => LitSuffix::F64,
+                }),
+            ),
+            Tk::StrLit => (LitKind::Str, None),
+            Tk::CharLit => (LitKind::Char, None),
+            Tk::Kw(Kw::True) => (LitKind::Bool(true), None),
+            Tk::Kw(Kw::False) => (LitKind::Bool(false), None),
             _ => return None,
         };
         let tok = self.bump();
         Some(Lit {
             kind,
+            suffix,
             span: tok.span,
         })
     }
@@ -2099,10 +2121,12 @@ impl<'a> Parser<'a> {
                     self.bump();
                     if self.at_int() {
                         let tok = self.bump();
+                        let index = self.token_text(tok).parse::<u32>().unwrap_or(u32::MAX);
                         e = Expr {
                             attrs: Vec::new(),
                             kind: ExprKind::TupleField {
                                 expr: Box::new(e),
+                                index,
                                 index_span: tok.span,
                             },
                             span: self.span_from(lo),

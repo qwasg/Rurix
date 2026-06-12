@@ -357,7 +357,24 @@ impl Lowerer<'_> {
 
     fn lower_ty(&mut self, ty: &ast::Ty) -> hir::Ty {
         let kind = match &ty.kind {
-            ast::TyKind::Path(p) => hir::TyKind::Res(self.path_res(p.span)),
+            ast::TyKind::Path(p) => {
+                // 末段 Type 实参降级(泛型 Adt 实例化数据,RXS-0045)
+                let args = p
+                    .segments
+                    .last()
+                    .and_then(|s| s.args.as_ref())
+                    .map(|ga| {
+                        ga.args
+                            .iter()
+                            .filter_map(|a| match a {
+                                ast::GenericArg::Type(t) => Some(self.lower_ty(t)),
+                                _ => None,
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                hir::TyKind::Res(self.path_res(p.span), args)
+            }
             ast::TyKind::Ref { mutable, inner, .. } => hir::TyKind::Ref {
                 mutable: *mutable,
                 inner: Box::new(self.lower_ty(inner)),
@@ -514,7 +531,7 @@ impl Lowerer<'_> {
 
     fn lower_expr(&mut self, expr: &ast::Expr) -> hir::Expr {
         let kind = match &expr.kind {
-            ast::ExprKind::Lit(_) => hir::ExprKind::Lit,
+            ast::ExprKind::Lit(l) => hir::ExprKind::Lit(l.clone()),
             ast::ExprKind::Path(p) => hir::ExprKind::Res(self.path_res(p.span)),
             ast::ExprKind::Unary { op, expr } => hir::ExprKind::Unary {
                 op: *op,
@@ -561,9 +578,9 @@ impl Lowerer<'_> {
                 expr: Box::new(self.lower_expr(expr)),
                 field: field.name.clone(),
             },
-            ast::ExprKind::TupleField { expr, index_span } => hir::ExprKind::Field {
+            ast::ExprKind::TupleField { expr, index, .. } => hir::ExprKind::TupleField {
                 expr: Box::new(self.lower_expr(expr)),
-                field: format!("{}", index_span.lo.0), // 文本随 M2.2 类型层精化
+                index: *index,
             },
             ast::ExprKind::Index { expr, index } => hir::ExprKind::Index {
                 expr: Box::new(self.lower_expr(expr)),
@@ -871,7 +888,8 @@ mod tests {
                 }
             }
             hir::ExprKind::Closure { body, .. } => walk_expr(body, f),
-            hir::ExprKind::Lit
+            hir::ExprKind::TupleField { expr, .. } => walk_expr(expr, f),
+            hir::ExprKind::Lit(_)
             | hir::ExprKind::Res(_)
             | hir::ExprKind::Continue
             | hir::ExprKind::Err => {}
