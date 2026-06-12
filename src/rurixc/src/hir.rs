@@ -3,10 +3,10 @@
 //! 层职责:类型系统的主工作 IR——**item 与 body 分离**,为增量提供依赖边界;
 //! 路径节点携带名称解析结果 [`Res`](不再有文本回溯);不做借用检查(MIR 职责)。
 //!
-//! M2.1 形态取舍(随 M2.2+ 扩展,注释留痕):
-//! - `for` / `?` 暂保留为 HIR 一等节点,desugar 依赖 Iterator/Result lang-item,
-//!   推迟到 M2.2 与类型系统同步(M2_PLAN §1 修订行留痕);
-//! - 关联项路径(`Counter::new`)仅支持 inherent impl;trait 关联项解析随 M2.2。
+//! M3.1 起 `for` / `?` 不再是 HIR 节点:AST→HIR lowering 按 RXS-0049/RXS-0050
+//! 展开为 loop+match / match 等价形式(依赖 RXS-0048 编译器已知项最小面,
+//! M2_PLAN v1.1/v1.2 推迟项收口);合成推进步以 [`ExprKind::SynthInt`] 表示
+//! (无源文本支撑的字面量)。关联项路径仅支持 inherent impl(M2.1 取舍延续)。
 
 use crate::ast::{BinOp, FnColor, UnOp};
 use crate::span::Span;
@@ -335,6 +335,9 @@ pub struct Expr {
 pub enum ExprKind {
     /// 字面量(种类/后缀供 typeck 定型,RXS-0039;复用 AST 节点)。
     Lit(crate::ast::Lit),
+    /// desugar 合成的整数字面量(无源文本支撑;RXS-0049 推进步)。
+    /// 定型同无后缀整数字面量(数值类约束 + RXS-0039 默认化)。
+    SynthInt(i128),
     /// 已解析路径(变量/常量/单元变体/fn 引用)。
     Res(Res),
     Unary {
@@ -387,7 +390,6 @@ pub enum ExprKind {
         expr: Box<Expr>,
         index: Box<Expr>,
     },
-    Try(Box<Expr>),
     Tuple(Vec<Expr>),
     Array(Vec<Expr>),
     Repeat {
@@ -407,12 +409,6 @@ pub enum ExprKind {
     },
     While {
         cond: Box<Expr>,
-        body: Block,
-    },
-    /// desugar 推迟到 M2.2(依赖 Iterator lang-item)。
-    For {
-        pat: Pat,
-        iter: Box<Expr>,
         body: Block,
     },
     Loop {

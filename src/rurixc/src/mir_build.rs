@@ -3,8 +3,9 @@
 //! 入口 [`build_crate`]:自根模块 `main` 起沿 [`crate::typeck::TypeckResults`]
 //! 的调用点做可达性收集,每个 (DefId, 泛型实参) 实例独立 lowering(全单态化)。
 //!
-//! 作用面外构造(`for`/`?`/closure/`match`/方法调用/索引等)报 RX6001
-//! (M2_PLAN v1.3 留痕:desugar 推迟项随 M3 收口,M2.3 codegen 不扩 typeck 容忍区)。
+//! 作用面外构造(closure/`match`/方法调用/索引等)报 RX6001(M2_PLAN v1.3
+//! 留痕;`for`/`?` 自 M3.1 在 lower 层 desugar,本层不再见到;match/方法调用
+//! 经 TBIR 收口,M3_PLAN §1 任务 4)。
 
 use std::collections::HashSet;
 use std::rc::Rc;
@@ -371,6 +372,14 @@ impl Builder<'_, '_> {
     fn op_of(&mut self, e: &hir::Expr) -> Operand {
         match &e.kind {
             hir::ExprKind::Lit(l) => self.const_of_lit(e, l),
+            // desugar 合成推进步(RXS-0049):值内置,不经源文本切片
+            hir::ExprKind::SynthInt(v) => {
+                let prim = match self.ty_of(e) {
+                    Ty::Prim(p) => p,
+                    _ => PrimTy::I32,
+                };
+                Operand::Const(Const::Int(*v, prim))
+            }
             hir::ExprKind::Res(Res::Local(_)) => match self.place_of(e) {
                 Some(p) => Operand::Copy(p),
                 None => self.unsupported(e.span, "unresolved local"),
@@ -516,8 +525,6 @@ impl Builder<'_, '_> {
                 self.unsupported(e.span, "array expression")
             }
             hir::ExprKind::Range { .. } => self.unsupported(e.span, "range expression"),
-            hir::ExprKind::Try(_) => self.unsupported(e.span, "`?` operator"),
-            hir::ExprKind::For { .. } => self.unsupported(e.span, "`for` loop"),
             hir::ExprKind::Match { .. } => self.unsupported(e.span, "`match` expression"),
             hir::ExprKind::Closure { .. } => self.unsupported(e.span, "closure"),
             hir::ExprKind::Err => self.unsupported(e.span, "erroneous expression"),

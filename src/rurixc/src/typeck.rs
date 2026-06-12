@@ -7,7 +7,8 @@
 //!   trait bound 仅记录不求解、方法查找仅 inherent、内建运算符不经 trait
 //!   (RXS-0045/0046 的 M2.2 口径);
 //! - **Err 容忍不级联**(RXS-0047):任一参与类型为 [`Ty::Err`] 时静默通过;
-//!   `for`(非区间迭代器)/`?`/闭包/`loop` 值等未定语义容忍为 Err。
+//!   闭包/`loop` 值等未定语义容忍为 Err。`for`/`?` 自 M3.1 在 lower 层
+//!   desugar(RXS-0049/0050),本层只见展开后的 loop+match/match 形态。
 
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -532,6 +533,30 @@ impl Tck<'_, '_> {
         }
     }
 
+    /// ADT 的泛型实例化槽位数(MVP 推定):struct 取自身字段;enum 取**全部
+    /// 变体字段的最大值**(单变体字段不必提满参数,如 `Result` 的 `Ok(T)`);
+    /// variant 归并到父 enum 口径——保证同一 enum 的各变体构造出一致的实参数。
+    fn adt_slots(&self, def: DefId) -> u32 {
+        match &self.krate.item(def).kind {
+            hir::ItemKind::Struct { fields } => self.generic_slots(fields),
+            hir::ItemKind::Enum { variants } => variants
+                .iter()
+                .map(|v| match &self.krate.item(*v).kind {
+                    hir::ItemKind::Variant { fields } => self.generic_slots(fields),
+                    _ => 0,
+                })
+                .max()
+                .unwrap_or(0),
+            hir::ItemKind::Variant { fields } => self
+                .res
+                .variant_parents
+                .get(&def)
+                .map(|e| self.adt_slots(*e))
+                .unwrap_or_else(|| self.generic_slots(fields)),
+            _ => 0,
+        }
+    }
+
     /// 字段表中 Param 的最大序号 + 1(泛型 ADT 的实例化槽位数,MVP 推定)。
     fn generic_slots(&self, fields: &[hir::FieldDef]) -> u32 {
         fn max_param(t: &Ty, cur: &mut u32) {
@@ -592,6 +617,21 @@ impl Tck<'_, '_> {
 
     // -- 模式绑定(参数 / let / match 臂) --------------------------------------
 
+    /// 构造器模式与被匹配类型的相容性(RXS-0050/0051 前置):模式的 ADT
+    /// (实例化 fresh 槽位)与 scrutinee 合一 → 违例 RX2001;Err 容忍内建。
+    /// 副作用:把未定型 scrutinee 推到正确的 ADT 形态(字段类型分解的前提)。
+    fn pat_ctor_compat(&mut self, pat: &hir::Pat, res: &Res, ty: &Ty) {
+        let Res::Def(d) = res else { return };
+        let kind = self.res.defs[d.0 as usize].kind;
+        if !matches!(kind, DefKind::Variant | DefKind::Struct) {
+            return;
+        }
+        let slots = self.adt_slots(*d);
+        let fresh: Vec<Ty> = (0..slots).map(|_| self.infcx.fresh(None)).collect();
+        let expect = self.ctor_result(*d, fresh);
+        self.demand(pat.span, &expect, ty);
+    }
+
     fn bind_pat(&mut self, pat: &hir::Pat, ty: &Ty) {
         self.results.pat_ty.insert(pat.hir_id, ty.clone());
         match &pat.kind {
@@ -626,14 +666,16 @@ impl Tck<'_, '_> {
                     self.bind_pat(p, &elem);
                 }
             }
-            hir::PatKind::Res(_) => {}
+            hir::PatKind::Res(r) => self.pat_ctor_compat(pat, r, ty),
             hir::PatKind::TupleStruct { res, elems } => {
+                self.pat_ctor_compat(pat, res, ty);
                 let field_tys = self.ctor_field_tys(res, ty);
                 for (i, p) in elems.iter().enumerate() {
                     self.bind_pat(p, field_tys.get(i).unwrap_or(&Ty::Err));
                 }
             }
             hir::PatKind::Struct { res, fields, .. } => {
+                self.pat_ctor_compat(pat, res, ty);
                 let named = self.named_field_tys(res, ty);
                 for (name, sub) in fields {
                     let t = named
@@ -745,6 +787,8 @@ impl Tck<'_, '_> {
     fn check_expr_kind(&mut self, e: &hir::Expr) -> Ty {
         match &e.kind {
             hir::ExprKind::Lit(l) => self.lit_ty(l),
+            // desugar 合成推进步(RXS-0049):同无后缀整数字面量
+            hir::ExprKind::SynthInt(_) => self.infcx.fresh(Some(NumClass::Int)),
             hir::ExprKind::Res(r) => self.res_value_ty(r),
             hir::ExprKind::Unary { op, expr } => {
                 let t = self.check_expr(expr);
@@ -886,10 +930,6 @@ impl Tck<'_, '_> {
                     _ => Ty::Err,
                 }
             }
-            hir::ExprKind::Try(inner) => {
-                let _ = self.check_expr(inner);
-                Ty::Err // `?` desugar 随 M2.3(Result lang-item)
-            }
             hir::ExprKind::Tuple(elems) => {
                 Ty::Tuple(elems.iter().map(|x| self.check_expr(x)).collect())
             }
@@ -933,22 +973,6 @@ impl Tck<'_, '_> {
             hir::ExprKind::While { cond, body } => {
                 let ct = self.check_expr(cond);
                 self.demand(cond.span, &Ty::Prim(PrimTy::Bool), &ct);
-                let _ = self.check_block(body);
-                Ty::unit()
-            }
-            hir::ExprKind::For { pat, iter, body } => {
-                // 区间迭代特判(RXS-0043);其余迭代器协议随 M2.3+
-                let bind = if let hir::ExprKind::Range { lo, hi, .. } = &iter.kind {
-                    let lt = self.check_expr(lo);
-                    let rt = self.check_expr(hi);
-                    self.demand(hi.span, &lt, &rt);
-                    self.numeric_guard(iter.span, "..", &lt, true);
-                    lt
-                } else {
-                    let _ = self.check_expr(iter);
-                    Ty::Err
-                };
-                self.bind_pat(pat, &bind);
                 let _ = self.check_block(body);
                 Ty::unit()
             }
@@ -1035,7 +1059,13 @@ impl Tck<'_, '_> {
                         Ty::FnPtr(sig.inputs.clone(), Box::new(sig.output.clone()))
                     }
                 }
-                DefKind::Variant => self.ctor_result(*d, Vec::new()),
+                DefKind::Variant => {
+                    // 单元变体值:按父 enum 槽位实例化 fresh(`None` 可与
+                    // `Option<i32>` 等标注合一,RXS-0048/0044)
+                    let slots = self.adt_slots(*d);
+                    let fresh: Vec<Ty> = (0..slots).map(|_| self.infcx.fresh(None)).collect();
+                    self.ctor_result(*d, fresh)
+                }
                 DefKind::Struct => Ty::Adt(*d, Vec::new()),
                 _ => Ty::Err,
             },
@@ -1106,14 +1136,15 @@ impl Tck<'_, '_> {
                     return self.check_args(span, &inputs, args, output);
                 }
                 DefKind::Struct | DefKind::Variant => {
-                    // 先收集字段类型(owned),再生成 fresh 槽位(借用解耦)
+                    // 先收集字段类型(owned),再生成 fresh 槽位(借用解耦);
+                    // 槽位按 ADT 口径(variant 归并父 enum,RXS-0048/0045)
                     let collected = self.fields_of(*d).map(|fields| {
                         let mut sig_infer = || Ty::Err;
                         let raw: Vec<Ty> = fields
                             .iter()
                             .map(|f| lower_hir_ty(&f.ty, &mut sig_infer))
                             .collect();
-                        let slots = self.generic_slots(fields);
+                        let slots = self.adt_slots(*d);
                         (raw, slots)
                     });
                     if let Some((raw, slots)) = collected {
@@ -1169,7 +1200,9 @@ impl Tck<'_, '_> {
         args: &[hir::Expr],
     ) -> Ty {
         let rt = self.check_expr(receiver);
-        let base = self.autoderef(&rt);
+        // 数值类未定变量按 RXS-0039 默认化后再查方法(原生类型无 inherent
+        // 方法 → RX2004;无类约束的推断变量维持容忍)
+        let base = self.infcx.resolve(&self.autoderef(&rt));
         match &base {
             Ty::Adt(d, _adt_args) => {
                 let found = self
@@ -1231,7 +1264,7 @@ impl Tck<'_, '_> {
                 .iter()
                 .map(|f| (f.name.clone(), lower_hir_ty(&f.ty, &mut sig_infer)))
                 .collect();
-            let slots = self.generic_slots(fdefs);
+            let slots = self.adt_slots(*d);
             (named_raw, slots)
         });
         let Some((named_raw, slots)) = collected else {
@@ -1523,6 +1556,71 @@ mod tests {
         check_clean(
             "fn f(n: i32) -> i32 {\n    let mut acc = 0;\n    for i in 0..n {\n        acc += i;\n    }\n    acc\n}",
         );
+    }
+
+    //@ spec: RXS-0050
+    #[test]
+    fn question_mark_propagates_and_unwraps() {
+        check_clean(
+            "fn half(x: i32) -> Result<i32, i32> {\n    if x % 2 == 0 { Ok(x / 2) } else { Err(x) }\n}\nfn quarter(x: i32) -> Result<i32, i32> {\n    let h = half(x)?;\n    let q = half(h)?;\n    Ok(q)\n}",
+        );
+    }
+
+    //@ spec: RXS-0050
+    #[test]
+    fn question_mark_requires_result_scrutinee() {
+        let (codes, _) = check(
+            "fn f() -> Result<i32, i32> {\n    let x = 1;\n    let y = x?;\n    Ok(y)\n}",
+        );
+        assert!(codes.contains(&2001), "{codes:?}");
+    }
+
+    //@ spec: RXS-0050
+    #[test]
+    fn question_mark_requires_result_return_type() {
+        let (codes, _) = check(
+            "fn half(x: i32) -> Result<i32, i32> {\n    Ok(x)\n}\nfn f(x: i32) -> i32 {\n    let h = half(x)?;\n    h\n}",
+        );
+        assert_eq!(codes, vec![2001]);
+    }
+
+    //@ spec: RXS-0048
+    #[test]
+    fn builtin_option_result_are_plain_generic_enums() {
+        check_clean(
+            "fn f() {\n    let x: Option<i32> = None;\n    let y: Option<i32> = Some(3);\n    let z: Result<bool, i32> = Ok(true);\n    let _p = (x, y, z);\n}",
+        );
+        let (codes, _) = check("fn f() {\n    let _x: Option<i32> = Some(true);\n}");
+        assert_eq!(codes, vec![2001]);
+    }
+
+    //@ spec: RXS-0049
+    #[test]
+    fn for_over_inherent_iterator_binds_element() {
+        let base = "struct C {\n    n: i32,\n}\nimpl C {\n    fn make(n: i32) -> C {\n        C { n }\n    }\n    fn next(&mut self) -> Option<i32> {\n        if self.n > 0 {\n            self.n -= 1;\n            Some(self.n)\n        } else {\n            None\n        }\n    }\n}\n";
+        check_clean(&format!(
+            "{base}fn f() -> i32 {{\n    let mut acc = 0;\n    for v in C::make(3) {{\n        acc += v;\n    }}\n    acc\n}}"
+        ));
+        let (codes, _) = check(&format!(
+            "{base}fn g() {{\n    for v in C::make(1) {{\n        let _x: bool = v;\n    }}\n}}"
+        ));
+        assert_eq!(codes, vec![2001]);
+    }
+
+    //@ spec: RXS-0049
+    #[test]
+    fn for_over_non_iterator_is_rx2004() {
+        let (codes, _) = check("fn f() {\n    for _x in 5 {\n    }\n}");
+        assert_eq!(codes, vec![2004]);
+    }
+
+    //@ spec: RXS-0050, RXS-0044
+    #[test]
+    fn pattern_ctor_must_match_scrutinee_adt() {
+        let (codes, _) = check(
+            "enum E {\n    A,\n}\nstruct S {\n    v: i32,\n}\nfn f(s: S) -> i32 {\n    match s {\n        E::A => 1,\n    }\n}",
+        );
+        assert_eq!(codes, vec![2001]);
     }
 
     // M2.3:内建 println 签名(最小 prelude)

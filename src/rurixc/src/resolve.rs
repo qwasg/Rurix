@@ -46,6 +46,40 @@ pub struct LocalDecl {
     pub span: Span,
 }
 
+/// 编译器已知项最小面(RXS-0048:内建 Option/Result,仅服务 desugar;
+/// resolve 入口注入,字段在 resolve 后必有值)。
+#[derive(Debug, Default, Clone, Copy)]
+pub struct LangItems {
+    pub option: Option<DefId>,
+    pub option_none: Option<DefId>,
+    pub option_some: Option<DefId>,
+    pub result: Option<DefId>,
+    pub result_ok: Option<DefId>,
+    pub result_err: Option<DefId>,
+}
+
+impl LangItems {
+    /// prelude 类型名 → 内建 enum(RXS-0048;模块 ns 未命中后的兜底)。
+    fn type_by_name(&self, name: &str) -> Option<DefId> {
+        match name {
+            "Option" => self.option,
+            "Result" => self.result,
+            _ => None,
+        }
+    }
+
+    /// prelude 变体名 → 内建变体(值/模式位置兜底)。
+    fn variant_by_name(&self, name: &str) -> Option<DefId> {
+        match name {
+            "None" => self.option_none,
+            "Some" => self.option_some,
+            "Ok" => self.result_ok,
+            "Err" => self.result_err,
+            _ => None,
+        }
+    }
+}
+
 /// 名称解析产物(lowering 与后续 query 的输入)。
 #[derive(Debug, Default)]
 pub struct Resolutions {
@@ -66,6 +100,8 @@ pub struct Resolutions {
     pub variant_parents: HashMap<DefId, DefId>,
     /// 内建函数 DefId(M2.3 最小 prelude;typeck 签名与 codegen 落点查表)。
     pub builtins: HashMap<DefId, Builtin>,
+    /// 编译器已知项(RXS-0048;desugar 直引,不受用户遮蔽影响)。
+    pub lang_items: LangItems,
 }
 
 /// 名称解析入口:对整个源文件构建模块树并走查全部 body。
@@ -87,6 +123,34 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
         let span = Span::new(crate::span::SourceId(0), 0, 0, crate::span::Edition::Rx0);
         let id = r.new_def(DefKind::Fn, b.name(), Vis::Pub, span, 0);
         r.out.builtins.insert(id, b);
+    }
+    // 编译器已知项注入(RXS-0048):内建 Option/Result enum——同样不入模块
+    // 命名空间(用户同名定义按常规作用域遮蔽,不构成 RX1002);HIR item 形态
+    // 由 lower 安装,desugar 经 lang_items 直引变体 DefId(不受遮蔽影响)
+    {
+        let span = Span::new(crate::span::SourceId(0), 0, 0, crate::span::Edition::Rx0);
+        let option = r.new_def(DefKind::Enum, "Option", Vis::Pub, span, 0);
+        let none = r.new_def(DefKind::Variant, "None", Vis::Pub, span, 0);
+        let some = r.new_def(DefKind::Variant, "Some", Vis::Pub, span, 0);
+        r.enum_variants.insert(
+            option,
+            HashMap::from([("None".to_owned(), none), ("Some".to_owned(), some)]),
+        );
+        let result = r.new_def(DefKind::Enum, "Result", Vis::Pub, span, 0);
+        let ok = r.new_def(DefKind::Variant, "Ok", Vis::Pub, span, 0);
+        let err = r.new_def(DefKind::Variant, "Err", Vis::Pub, span, 0);
+        r.enum_variants.insert(
+            result,
+            HashMap::from([("Ok".to_owned(), ok), ("Err".to_owned(), err)]),
+        );
+        r.out.lang_items = LangItems {
+            option: Some(option),
+            option_none: Some(none),
+            option_some: Some(some),
+            result: Some(result),
+            result_ok: Some(ok),
+            result_err: Some(err),
+        };
     }
     r.collect_items(&file.items, 0);
     r.resolve_uses();
@@ -1045,6 +1109,12 @@ impl Resolver<'_> {
             self.out.path_res.insert(span, res);
             return res;
         }
+        // 编译器已知项变体兜底(RXS-0048:Some/None/Ok/Err,值/模式位置)
+        if let Some(d) = self.out.lang_items.variant_by_name(name) {
+            let res = Res::Def(d);
+            self.out.path_res.insert(span, res);
+            return res;
+        }
         let suggestion = self.suggest(name, cx, Ns::Value);
         self.err_unresolved(name, span, suggestion.as_deref());
         self.out.path_res.insert(span, Res::Err);
@@ -1065,6 +1135,9 @@ impl Resolver<'_> {
             e.res
         } else if let Some(b) = self.modules[cx.module].types.get(name) {
             b.res
+        } else if let Some(d) = self.out.lang_items.type_by_name(name) {
+            // 编译器已知项兜底(RXS-0048:Option/Result;模块 ns 优先 = 可遮蔽)
+            Res::Def(d)
         } else {
             Res::Err
         };
@@ -1088,6 +1161,9 @@ impl Resolver<'_> {
                 Res::Local(_) => return Err(PathFail::Missing(first.name.clone())),
                 r => r,
             }
+        } else if let Some(d) = self.out.lang_items.type_by_name(&first.name) {
+            // 编译器已知项作路径前缀(RXS-0048:`Option::Some` 等)
+            Res::Def(d)
         } else {
             return Err(PathFail::Missing(first.name.clone()));
         };
@@ -1811,6 +1887,40 @@ mod tests {
             })
             .collect();
         assert!(called.iter().all(|d| !res.builtins.contains_key(d)));
+    }
+
+    //@ spec: RXS-0048
+    #[test]
+    fn lang_item_names_resolve_as_fallback() {
+        let res = run_clean(
+            "fn f(flag: bool) -> Option<i32> {\n    if flag { Some(1) } else { None }\n}\nfn g() -> Result<i32, i32> {\n    Ok(2)\n}\nfn h() -> Option<i32> {\n    Option::Some(3)\n}",
+        );
+        let li = res.lang_items;
+        for d in [
+            li.option_some.unwrap(),
+            li.option_none.unwrap(),
+            li.result_ok.unwrap(),
+        ] {
+            assert!(
+                res.path_res.values().any(|r| *r == Res::Def(d)),
+                "lang item 变体 {d:?} 未被解析引用"
+            );
+        }
+    }
+
+    //@ spec: RXS-0048
+    #[test]
+    fn user_definition_shadows_lang_item() {
+        let res = run_clean(
+            "enum Option {\n    Mine,\n}\nfn f() -> Option {\n    Option::Mine\n}",
+        );
+        let li = res.lang_items;
+        // 类型位置与路径前缀均解析到用户定义,不落到内建项(RX1002 也不产生)
+        assert!(
+            res.path_res
+                .values()
+                .all(|r| *r != Res::Def(li.option.unwrap()))
+        );
     }
 
     //@ spec: RXS-0035
