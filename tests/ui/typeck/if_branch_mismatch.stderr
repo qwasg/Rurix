@@ -1,0 +1,5 @@
+error[RX2001]: mismatched types: expected i32, found bool
+ --> $DIR/typeck/if_branch_mismatch.rx:3:21
+  |
+3 |     if c { 1 } else { false } //~ ERROR RX2001
+  |                     ^^^^^^^^^ expected i32

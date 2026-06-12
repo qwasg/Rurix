@@ -1,0 +1,5 @@
+error[RX2001]: mismatched types: expected i32, found bool
+ --> $DIR/typeck/match_arm_mismatch.rx:5:14
+  |
+5 |         _ => true, //~ ERROR RX2001
+  |              ^^^^ expected i32

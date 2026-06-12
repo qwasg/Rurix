@@ -1,0 +1,5 @@
+//@ spec: RXS-0042, RXS-0047
+fn f() {
+    let x = 1;
+    let _y = x(2); //~ ERROR RX2005
+}

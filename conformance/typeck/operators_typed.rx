@@ -1,0 +1,23 @@
+//@ spec: RXS-0043
+// Operator typing: same-type arithmetic, comparisons, logic, bits.
+
+fn arith(a: i32, b: i32, x: f64, y: f64) -> f64 {
+    let _i = a + b * 2 - a / 2 % 3;
+    let f = x * y + 0.5;
+    f
+}
+
+fn bits(m: u32, n: u32) -> u32 {
+    (m & n) | (m ^ n) << 2 >> 1
+}
+
+fn logic(a: i32, b: i32) -> bool {
+    let lt = a < b;
+    let eq = a == b;
+    lt && !eq || (a >= b)
+}
+
+fn negation(v: f32, k: i32) -> f32 {
+    let _neg_int = -k;
+    -v
+}

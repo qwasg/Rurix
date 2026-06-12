@@ -15,8 +15,8 @@ use rurixc::diag::{DiagCtxt, Level};
 use rurixc::feature_gate::check_feature_gates;
 use rurixc::lexer::lex;
 use rurixc::parser::parse;
+use rurixc::query::QueryCtx;
 use rurixc::render::render_diagnostics;
-use rurixc::resolve::resolve;
 use rurixc::source_map::SourceMap;
 use rurixc::span::Edition;
 
@@ -94,8 +94,15 @@ fn run_case(path: &Path, src: &str) -> CaseResult {
     let tokens = lex(src, id, Edition::Rx0, &diag);
     let ast = parse(src, tokens, id, Edition::Rx0, &diag);
     check_feature_gates(&ast, &diag);
-    // M2.1 起 UI 通道覆盖名称解析(1xxx;黄金路径 2 的 2xxx 随 M2.2 typeck)
-    let _ = resolve(&ast, &diag);
+    // 阶段化(对齐 rustc:前一阶段有错即停,防级联污染 snapshot):
+    // parse/gate 干净 → 名称解析(M2.1,1xxx);resolve 干净 → typeck(M2.2,2xxx)
+    if !diag.has_errors() {
+        let cx = QueryCtx::from_ast(ast, id, &diag);
+        let _ = cx.resolutions();
+        if !diag.has_errors() {
+            cx.check_crate();
+        }
+    }
     let emitted = diag.emitted();
     let rendered = render_diagnostics(&emitted, &sm, diag.messages());
     let errors = emitted

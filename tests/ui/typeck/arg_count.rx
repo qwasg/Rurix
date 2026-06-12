@@ -1,0 +1,8 @@
+//@ spec: RXS-0042, RXS-0047
+fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+fn f() -> i32 {
+    add(1) //~ ERROR RX2003
+}

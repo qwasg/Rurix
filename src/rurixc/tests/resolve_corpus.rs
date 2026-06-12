@@ -1,22 +1,20 @@
-//! conformance/resolve 语义正例跑批(契约 D-M2-1;M2_PLAN §1 出口判据,
-//! 作用面调整留痕见 M2_PLAN 修订记录 v1.1)。
+//! conformance/resolve + conformance/typeck 语义正例跑批(契约 D-M2-1/D-M2-4;
+//! 作用面留痕见 M2_PLAN 修订记录 v1.1/v1.2)。
 //!
-//! 门作用面:`conformance/resolve/` 全量(自包含程序,无悬空引用)——
-//! lex + parse + resolve 0 诊断且产出 HIR;`conformance/syntax/` 维持 parse 门
-//! (其样例是含草图引用的语法正例,且 names_duplicates.rx 是故意的 resolve 反例)。
+//! 门作用面(M2.2 起升级):`conformance/resolve/` 与 `conformance/typeck/`
+//! 全量(自包含程序)—— lex + parse + resolve + typeck 0 诊断且产出 HIR;
+//! `conformance/syntax/` 维持 parse 门(含草图引用与故意的语义反例)。
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use rurixc::diag::DiagCtxt;
-use rurixc::lexer::lex;
-use rurixc::lower::lower;
-use rurixc::parser::parse;
-use rurixc::resolve::resolve;
+use rurixc::query::QueryCtx;
 use rurixc::span::{Edition, SourceId};
 
-fn corpus_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../conformance/resolve")
+fn corpus_dirs() -> Vec<PathBuf> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../conformance");
+    vec![root.join("resolve"), root.join("typeck")]
 }
 
 fn collect_rx_files(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -32,26 +30,27 @@ fn collect_rx_files(dir: &Path, out: &mut Vec<PathBuf>) {
 
 fn corpus() -> Vec<PathBuf> {
     let mut files = Vec::new();
-    collect_rx_files(&corpus_dir(), &mut files);
+    for dir in corpus_dirs() {
+        collect_rx_files(&dir, &mut files);
+    }
     files.sort();
     files
 }
 
 #[test]
-fn resolve_corpus_is_not_empty() {
+fn semantic_corpus_is_not_empty() {
     let n = corpus().len();
-    assert!(n >= 10, "语义正例集过小: {n} 个(M2_PLAN §1:>=10)");
+    assert!(n >= 20, "语义正例集过小: {n} 个(M2_PLAN §1/§2:合计 >=20)");
 }
 
-/// M2.1 出口判据:语义正例全量 0 诊断(lex + parse + resolve)且可降级 HIR。
+/// M2.1/M2.2 出口判据:语义正例全量 0 诊断(lex + parse + resolve + typeck)。
 #[test]
-fn resolve_corpus_is_diagnostic_free() {
+fn semantic_corpus_is_diagnostic_free() {
     for file in corpus() {
         let src = fs::read_to_string(&file).expect("读取样例失败");
         let diag = DiagCtxt::new();
-        let tokens = lex(&src, SourceId(0), Edition::Rx0, &diag);
-        let ast = parse(&src, tokens, SourceId(0), Edition::Rx0, &diag);
-        let res = resolve(&ast, &diag);
+        let cx = QueryCtx::new(&src, SourceId(0), Edition::Rx0, &diag);
+        cx.check_crate(); // 经 query 通道:resolve + lower + typeck
         assert!(
             diag.emitted().is_empty(),
             "{} 产生诊断: {:?}",
@@ -61,9 +60,8 @@ fn resolve_corpus_is_diagnostic_free() {
                 .map(|d| (d.code, d.message(diag.messages())))
                 .collect::<Vec<_>>()
         );
-        let krate = lower(&ast, &res);
         assert!(
-            !krate.root_items.is_empty(),
+            !cx.hir_crate().root_items.is_empty(),
             "{} 未产出 HIR item",
             file.display()
         );
@@ -71,7 +69,7 @@ fn resolve_corpus_is_diagnostic_free() {
 }
 
 #[test]
-fn resolve_corpus_files_carry_spec_anchor() {
+fn semantic_corpus_files_carry_spec_anchor() {
     for file in corpus() {
         let src = fs::read_to_string(&file).expect("读取样例失败");
         let first = src.lines().next().unwrap_or("");

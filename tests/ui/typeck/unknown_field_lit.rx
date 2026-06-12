@@ -1,0 +1,9 @@
+//@ spec: RXS-0044, RXS-0047
+struct P {
+    x: f32,
+    y: f32,
+}
+
+fn f() -> P {
+    P { x: 1.0, y: 2.0, z: 3.0 } //~ ERROR RX2002
+}

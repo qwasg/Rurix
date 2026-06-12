@@ -1,0 +1,5 @@
+error[RX2001]: mismatched types: expected bool, found i32
+ --> $DIR/typeck/let_annotation_mismatch.rx:3:19
+  |
+3 |     let a: bool = 1; //~ ERROR RX2001
+  |                   ^ expected bool

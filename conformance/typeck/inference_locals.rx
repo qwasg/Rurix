@@ -1,0 +1,22 @@
+//@ spec: RXS-0041
+// Body-local inference: annotation/init unification, deferred binding.
+
+fn chain(seed: i64) -> i64 {
+    let a = seed;
+    let b: i64 = a;
+    let c = b + 1;
+    c
+}
+
+fn deferred() -> usize {
+    let v;
+    v = 10usize;
+    let w = v + 1;
+    w
+}
+
+fn assigns(mut acc: i32) -> i32 {
+    acc = acc + 1;
+    acc += 2;
+    acc
+}

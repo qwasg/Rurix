@@ -1,0 +1,32 @@
+//@ spec: RXS-0046
+// Inherent method chains and numeric casts.
+
+struct Counter {
+    value: u32,
+}
+
+impl Counter {
+    fn new() -> Counter {
+        Counter { value: 0 }
+    }
+
+    fn get(&self) -> u32 {
+        self.value
+    }
+
+    fn with(v: u32) -> Counter {
+        Counter { value: v }
+    }
+}
+
+fn main() -> f64 {
+    let c = Counter::new();
+    let v = c.get();
+    let w = Counter::with(v + 1).get();
+    let big = w as u64;
+    let f = big as f64;
+    let flag = true;
+    let _digit = flag as u8;
+    let _ch = 'a' as u32;
+    f / 2.0
+}

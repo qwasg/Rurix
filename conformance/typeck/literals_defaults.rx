@@ -1,0 +1,21 @@
+//@ spec: RXS-0039
+// Literal typing: suffixes win, unsuffixed defaults are i32 / f64.
+
+fn suffixed() -> u8 {
+    255u8
+}
+
+fn floats() -> f32 {
+    1.5f32
+}
+
+fn defaults() {
+    let i = 1;
+    let f = 2.5;
+    let _di: i32 = i;
+    let _df: f64 = f;
+    let s: &str = "hello";
+    let _c: char = 'x';
+    let _b: bool = true;
+    let _keep = s;
+}

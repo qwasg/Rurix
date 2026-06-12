@@ -1,0 +1,5 @@
+error[RX2002]: unknown field `z` on type `P`
+ --> $DIR/typeck/unknown_field_lit.rx:8:28
+  |
+8 |     P { x: 1.0, y: 2.0, z: 3.0 } //~ ERROR RX2002
+  |                            ^^^ unknown field `z`

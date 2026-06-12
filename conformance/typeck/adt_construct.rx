@@ -1,0 +1,36 @@
+//@ spec: RXS-0044
+// Struct/enum construction, field access, match-arm unification.
+
+struct Vec2 {
+    x: f32,
+    y: f32,
+}
+
+enum Shape {
+    Circle { radius: f32 },
+    Rect(f32, f32),
+    Empty,
+}
+
+fn area(s: Shape) -> f32 {
+    match s {
+        Shape::Circle { radius } => 3.14 * radius * radius,
+        Shape::Rect(w, h) => w * h,
+        Shape::Empty => 0.0,
+    }
+}
+
+fn build(x: f32) -> Vec2 {
+    let y = x * 2.0;
+    let v = Vec2 { x, y };
+    let _len2 = v.x * v.x + v.y * v.y;
+    v
+}
+
+fn pick(c: bool) -> f32 {
+    if c {
+        area(Shape::Empty)
+    } else {
+        build(1.0).x
+    }
+}

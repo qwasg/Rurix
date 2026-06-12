@@ -1,0 +1,5 @@
+error[RX2006]: operator `+` cannot be applied to type bool
+ --> $DIR/typeck/bad_operand_bool_add.rx:3:5
+  |
+3 |     p + q //~ ERROR RX2006
+  |     ^^^^^ invalid operand type

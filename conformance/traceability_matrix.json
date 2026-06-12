@@ -312,6 +312,72 @@
       "tests/ui/resolve/duplicate_definition.rx",
       "tests/ui/resolve/unresolved_name.rx",
       "tests/ui/resolve/visibility_violation.rx"
+    ],
+    "RXS-0039": [
+      "conformance/typeck/literals_defaults.rx",
+      "conformance/typeck/tuples_arrays_typed.rx",
+      "src/rurixc/src/typeck.rs"
+    ],
+    "RXS-0040": [
+      "conformance/typeck/signatures.rx",
+      "src/rurixc/src/typeck.rs"
+    ],
+    "RXS-0041": [
+      "conformance/typeck/inference_locals.rx",
+      "conformance/typeck/shadow_rebind_typed.rx",
+      "src/rurixc/src/typeck.rs",
+      "tests/ui/typeck/let_annotation_mismatch.rx"
+    ],
+    "RXS-0042": [
+      "conformance/typeck/calls.rx",
+      "conformance/typeck/references_params.rx",
+      "src/rurixc/src/typeck.rs",
+      "tests/ui/typeck/arg_count.rx",
+      "tests/ui/typeck/arg_type_mismatch.rx",
+      "tests/ui/typeck/not_callable.rx",
+      "tests/ui/typeck/return_type_mismatch.rx"
+    ],
+    "RXS-0043": [
+      "conformance/typeck/control_flow_typed.rx",
+      "conformance/typeck/operators_typed.rx",
+      "conformance/typeck/references_params.rx",
+      "src/rurixc/src/typeck.rs",
+      "tests/ui/typeck/bad_operand_bool_add.rx",
+      "tests/ui/typeck/cond_not_bool.rx"
+    ],
+    "RXS-0044": [
+      "conformance/typeck/adt_construct.rx",
+      "conformance/typeck/control_flow_typed.rx",
+      "conformance/typeck/tuples_arrays_typed.rx",
+      "src/rurixc/src/typeck.rs",
+      "tests/ui/typeck/if_branch_mismatch.rx",
+      "tests/ui/typeck/match_arm_mismatch.rx",
+      "tests/ui/typeck/missing_field.rx",
+      "tests/ui/typeck/unknown_field_lit.rx"
+    ],
+    "RXS-0045": [
+      "conformance/typeck/generics_mono.rx",
+      "src/rurixc/src/typeck.rs"
+    ],
+    "RXS-0046": [
+      "conformance/typeck/methods_casts.rx",
+      "src/rurixc/src/typeck.rs",
+      "tests/ui/typeck/unknown_method.rx"
+    ],
+    "RXS-0047": [
+      "src/rurixc/src/typeck.rs",
+      "tests/ui/typeck/arg_count.rx",
+      "tests/ui/typeck/arg_type_mismatch.rx",
+      "tests/ui/typeck/bad_operand_bool_add.rx",
+      "tests/ui/typeck/cond_not_bool.rx",
+      "tests/ui/typeck/if_branch_mismatch.rx",
+      "tests/ui/typeck/let_annotation_mismatch.rx",
+      "tests/ui/typeck/match_arm_mismatch.rx",
+      "tests/ui/typeck/missing_field.rx",
+      "tests/ui/typeck/not_callable.rx",
+      "tests/ui/typeck/return_type_mismatch.rx",
+      "tests/ui/typeck/unknown_field_lit.rx",
+      "tests/ui/typeck/unknown_method.rx"
     ]
   }
 }

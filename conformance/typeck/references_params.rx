@@ -1,0 +1,16 @@
+//@ spec: RXS-0042, RXS-0043
+// References as parameters, borrow/deref typing.
+
+fn read(v: &f32) -> f32 {
+    *v * 2.0
+}
+
+fn write(out: &mut f32, v: f32) {
+    *out = v + 1.0;
+}
+
+fn main() -> f32 {
+    let mut cell = 1.0f32;
+    write(&mut cell, 2.0);
+    read(&cell)
+}

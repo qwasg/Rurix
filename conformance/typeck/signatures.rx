@@ -1,0 +1,17 @@
+//@ spec: RXS-0040
+// Fully annotated signatures; const/static initializers match annotations.
+
+const LIMIT: usize = 64;
+static SCALE: f32 = 2.0;
+
+fn scale_by(v: f32, k: f32) -> f32 {
+    v * k
+}
+
+fn unit_return() {}
+
+fn main() {
+    let _s = scale_by(3.0, SCALE);
+    let _l: usize = LIMIT;
+    unit_return();
+}

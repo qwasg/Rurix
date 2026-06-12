@@ -1,0 +1,5 @@
+//@ spec: RXS-0041, RXS-0047
+fn f() {
+    let a: bool = 1; //~ ERROR RX2001
+    let _k = a;
+}

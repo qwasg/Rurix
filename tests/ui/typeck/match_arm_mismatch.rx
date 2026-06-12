@@ -1,0 +1,7 @@
+//@ spec: RXS-0044, RXS-0047
+fn f(n: i32) -> i32 {
+    match n {
+        0 => 1,
+        _ => true, //~ ERROR RX2001
+    }
+}
