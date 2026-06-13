@@ -1,7 +1,7 @@
 ---
 contract: M3
 title: MIR 完整化与借用检查
-status: active            # active → closed(close-out 只追加,既有条款 0-byte 修改)
+status: closed            # active → closed(close-out 只追加,既有条款 0-byte 修改);M3.4 终审关闭 2026-06-13
 version: v1.0
 date: 2026-06-12
 timebox: "M+5 ~ M+7(约 8 周,两级结构见 M3_PLAN.md)"
