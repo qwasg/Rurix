@@ -29,6 +29,7 @@ pub const E_NOT_CALLABLE: ErrorCode = ErrorCode(2005); // RX2005
 pub const E_BAD_OPERAND: ErrorCode = ErrorCode(2006); // RX2006
 pub const E_BAD_DERIVE_COPY: ErrorCode = ErrorCode(2008); // RX2008
 pub const E_BAD_DROP_IMPL: ErrorCode = ErrorCode(2009); // RX2009
+pub const E_ADDRSPACE_MISMATCH: ErrorCode = ErrorCode(3002); // RX3002(RXS-0067)
 
 // ---------------------------------------------------------------------------
 // typeck 结果物化(M2.3:MIR lowering 的输入)
@@ -620,8 +621,46 @@ impl Tck<'_, '_> {
             .emit();
     }
 
-    /// 合一并按 RX2001 报错(Err 容忍内建于 unify)。
+    fn err_addrspace(&self, span: Span, expected: &str, found: &str) {
+        self.diag()
+            .struct_error(E_ADDRSPACE_MISMATCH, "addrspace.mismatch")
+            .arg("expected", format!("`{expected}`"))
+            .arg("found", format!("`{found}`"))
+            .span_label(span, format!("expected address space `{expected}`"))
+            .emit();
+    }
+
+    /// 地址空间不一致检测(RXS-0067):两侧为同一 `View` 族容器(同可变性)
+    /// 而首类型实参(地址空间标记)不同 → `RX3002` 特化诊断(优先于 RX2001)。
+    fn try_addrspace_mismatch(&self, expected: &Ty, found: &Ty) -> Option<(String, String)> {
+        let e = self.infcx.resolve(expected);
+        let f = self.infcx.resolve(found);
+        let (Ty::Adt(de, ae), Ty::Adt(df, af)) = (&e, &f) else {
+            return None;
+        };
+        let li = &self.res.lang_items;
+        if de != df || li.view_mutable(*de).is_none() {
+            return None;
+        }
+        let space_name = |args: &[Ty]| -> Option<&'static str> {
+            match args.first() {
+                Some(Ty::Adt(d, _)) => li.addr_space_name(*d),
+                _ => None,
+            }
+        };
+        match (space_name(ae), space_name(af)) {
+            (Some(a), Some(b)) if a != b => Some((a.to_owned(), b.to_owned())),
+            _ => None,
+        }
+    }
+
+    /// 合一并按 RX2001 报错(Err 容忍内建于 unify);`View` 族地址空间不一致
+    /// 特化为 RX3002(RXS-0067,先于通用类型不匹配诊断)。
     fn demand(&mut self, span: Span, expected: &Ty, found: &Ty) {
+        if let Some((exp, fnd)) = self.try_addrspace_mismatch(expected, found) {
+            self.err_addrspace(span, &exp, &fnd);
+            return;
+        }
         if !self.infcx.unify(expected, found) {
             self.err_mismatch(span, expected, found);
         }
@@ -1699,6 +1738,34 @@ mod tests {
         check_clean(
             "fn f(n: i32) -> i32 {\n    let mut acc = 0;\n    for i in 0..n {\n        acc += i;\n    }\n    acc\n}",
         );
+    }
+
+    //@ spec: RXS-0067, RXS-0069
+    #[test]
+    fn addrspace_mismatch_is_rx3002() {
+        // device fn 形参要求 constant 空间,kernel 传入 global view → RX3002
+        let (codes, _) = check(
+            "device fn consume(v: View<constant, f32>) {}\nkernel fn k(g: View<global, f32>) {\n    consume(g);\n}\nfn main() {}",
+        );
+        assert_eq!(codes, vec![3002]);
+    }
+
+    //@ spec: RXS-0067
+    #[test]
+    fn matching_addrspace_is_clean() {
+        check_clean(
+            "device fn consume(v: View<global, f32>) {}\nkernel fn k(g: View<global, f32>) {\n    consume(g);\n}\nfn main() {}",
+        );
+    }
+
+    //@ spec: RXS-0067
+    #[test]
+    fn addrspace_mismatch_on_let_annotation_is_rx3002() {
+        // 同可变性 View,空间不符的 let 标注 → RX3002
+        let (codes, _) = check(
+            "kernel fn k(g: View<global, f32>) {\n    let _s: View<constant, f32> = g;\n}\nfn main() {}",
+        );
+        assert_eq!(codes, vec![3002]);
     }
 
     //@ spec: RXS-0050

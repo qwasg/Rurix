@@ -69,3 +69,7 @@
 | RXS-0063 | spec/consteval.md | 3 | `conformance/consteval/const_eval_run.rx`, `src/rurixc/src/const_eval.rs`, `tests/ui/consteval/overflow_mul.rx` |
 | RXS-0064 | spec/consteval.md | 1 | `src/rurixc/src/const_eval.rs` |
 | RXS-0065 | spec/consteval.md | 2 | `src/rurixc/src/const_eval.rs`, `tests/ui/consteval/overflow_add.rx` |
+| RXS-0066 | spec/device.md | 7 | `conformance/coloring/accept/host_calls_device.rx`, `conformance/coloring/accept/kernel_calls_device.rx`, `conformance/coloring/reject/direct_kernel_call/basic.rx` …(+4) |
+| RXS-0067 | spec/device.md | 4 | `conformance/addrspace/accept/matching_space.rx`, `conformance/addrspace/reject/space_mismatch/basic.rx`, `src/rurixc/src/typeck.rs` …(+1) |
+| RXS-0068 | spec/device.md | 4 | `conformance/coloring/accept/uniform_barrier.rx`, `conformance/coloring/reject/barrier_non_uniform/basic.rx`, `src/rurixc/src/coloring.rs` …(+1) |
+| RXS-0069 | spec/device.md | 2 | `src/rurixc/src/coloring.rs`, `src/rurixc/src/typeck.rs` |

@@ -96,13 +96,17 @@ fn run_case(path: &Path, src: &str) -> CaseResult {
     check_feature_gates(&ast, &diag);
     // 阶段化(对齐 rustc:前一阶段有错即停,防级联污染 snapshot):
     // parse/gate 干净 → 名称解析(M2.1,1xxx);resolve 干净 → typeck(M2.2,
-    // 2xxx);typeck 干净 → 模式穷尽性(M3.1,RX2007,TBIR 窄门时点)→
-    // move/init 数据流(M3.2,4xxx,MIR 后)→ NLL 借用检查(M3.3,4xxx)
+    // 2xxx,含 M4.1 地址空间 RX3002,RXS-0067);typeck 干净 → 着色/barrier 骨架
+    // (M4.1,RX3001/RX3003,RXS-0066/0068)→ 模式穷尽性(M3.1,RX2007,TBIR
+    // 窄门时点)→ move/init 数据流(M3.2,4xxx,MIR 后)→ NLL 借用检查(M3.3,4xxx)
     if !diag.has_errors() {
         let cx = QueryCtx::from_ast(ast, src, id, &diag);
         let _ = cx.resolutions();
         if !diag.has_errors() {
             cx.check_crate();
+            if !diag.has_errors() {
+                cx.check_coloring();
+            }
             if !diag.has_errors() {
                 cx.check_crate_patterns();
                 // const 求值(M3.4,5xxx,typeck 后、MIR 前)

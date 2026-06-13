@@ -1,0 +1,5 @@
+error[RX3001]: cannot call a host function from a device context
+ --> $DIR/coloring/host_in_device.rx:5:5
+  |
+5 |     host_only(); //~ ERROR RX3001
+  |     ^^^^^^^^^^^ cannot be called from a device context

@@ -1,0 +1,9 @@
+//@ spec: RXS-0066
+//@ expect-error: RX3001
+// coloring negative: a `kernel fn` is called directly (must be launched, not called).
+
+kernel fn k() {}
+
+fn main() {
+    k();
+}

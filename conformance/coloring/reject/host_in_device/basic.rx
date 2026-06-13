@@ -1,0 +1,11 @@
+//@ spec: RXS-0066
+//@ expect-error: RX3001
+// coloring negative: a `device fn` body calls a host-only function (unreachable in device context).
+
+fn host_only() {}
+
+device fn d() {
+    host_only();
+}
+
+fn main() {}

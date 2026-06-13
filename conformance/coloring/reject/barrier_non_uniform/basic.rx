@@ -1,0 +1,11 @@
+//@ spec: RXS-0068
+//@ expect-error: RX3003
+// barrier negative (conservative skeleton): `sync()` inside a thread-id-dependent branch.
+
+kernel fn k(t: ThreadCtx<1>) {
+    if t.global_id() < 10 {
+        t.sync();
+    }
+}
+
+fn main() {}

@@ -500,6 +500,31 @@
     "RXS-0065": [
       "src/rurixc/src/const_eval.rs",
       "tests/ui/consteval/overflow_add.rx"
+    ],
+    "RXS-0066": [
+      "conformance/coloring/accept/host_calls_device.rx",
+      "conformance/coloring/accept/kernel_calls_device.rx",
+      "conformance/coloring/reject/direct_kernel_call/basic.rx",
+      "conformance/coloring/reject/host_in_device/basic.rx",
+      "src/rurixc/src/coloring.rs",
+      "tests/ui/coloring/direct_kernel_call.rx",
+      "tests/ui/coloring/host_in_device.rx"
+    ],
+    "RXS-0067": [
+      "conformance/addrspace/accept/matching_space.rx",
+      "conformance/addrspace/reject/space_mismatch/basic.rx",
+      "src/rurixc/src/typeck.rs",
+      "tests/ui/addrspace/space_mismatch.rx"
+    ],
+    "RXS-0068": [
+      "conformance/coloring/accept/uniform_barrier.rx",
+      "conformance/coloring/reject/barrier_non_uniform/basic.rx",
+      "src/rurixc/src/coloring.rs",
+      "tests/ui/coloring/barrier_non_uniform.rx"
+    ],
+    "RXS-0069": [
+      "src/rurixc/src/coloring.rs",
+      "src/rurixc/src/typeck.rs"
     ]
   }
 }

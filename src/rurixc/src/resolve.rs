@@ -59,7 +59,16 @@ pub struct LangItems {
     pub result_err: Option<DefId>,
     /// 内建 `Drop` trait(RXS-0055;`impl Drop for T` 识别锚点,可被用户遮蔽)。
     pub drop_trait: Option<DefId>,
+    /// 设备 `View` 族容器与地址空间标记(RXS-0067;类型位置兜底,可被用户遮蔽)。
+    pub view: Option<DefId>,
+    pub view_mut: Option<DefId>,
+    pub buffer: Option<DefId>,
+    /// 地址空间标记(`global`/`shared`/`constant`/`local`/`host`;序见 [`ADDR_SPACES`])。
+    pub addr_spaces: [Option<DefId>; 5],
 }
+
+/// 地址空间标记名(RXS-0067;序对应 [`LangItems::addr_spaces`])。
+pub const ADDR_SPACES: [&str; 5] = ["global", "shared", "constant", "local", "host"];
 
 impl LangItems {
     /// prelude 类型名 → 内建 enum(RXS-0048;模块 ns 未命中后的兜底)。
@@ -70,6 +79,39 @@ impl LangItems {
             "Drop" => self.drop_trait,
             _ => None,
         }
+    }
+
+    /// 设备类型名 → 内建容器 / 地址空间标记(RXS-0067;类型位置兜底,
+    /// 在模块 ns 与 prelude 之后,用户同名定义优先遮蔽)。
+    pub fn device_type_by_name(&self, name: &str) -> Option<DefId> {
+        match name {
+            "View" => self.view,
+            "ViewMut" => self.view_mut,
+            "Buffer" | "DeviceBuffer" => self.buffer,
+            _ => ADDR_SPACES
+                .iter()
+                .position(|n| *n == name)
+                .and_then(|i| self.addr_spaces[i]),
+        }
+    }
+
+    /// `View` 族容器判定 → `Some(mutable)`(RXS-0067 地址空间一致性消费)。
+    pub fn view_mutable(&self, d: DefId) -> Option<bool> {
+        if Some(d) == self.view {
+            Some(false)
+        } else if Some(d) == self.view_mut {
+            Some(true)
+        } else {
+            None
+        }
+    }
+
+    /// 地址空间标记 DefId → 展示名(RXS-0067;诊断渲染)。
+    pub fn addr_space_name(&self, d: DefId) -> Option<&'static str> {
+        self.addr_spaces
+            .iter()
+            .position(|s| *s == Some(d))
+            .map(|i| ADDR_SPACES[i])
     }
 
     /// prelude 变体名 → 内建变体(值/模式位置兜底)。
@@ -158,9 +200,25 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
             result_ok: Some(ok),
             result_err: Some(err),
             drop_trait: Some(drop_trait),
+            view: None,
+            view_mut: None,
+            buffer: None,
+            addr_spaces: [None; 5],
         };
     }
     r.collect_items(&file.items, 0);
+    // 设备 View 族容器 + 地址空间标记(RXS-0067):**在用户 item 收集之后**分配
+    // DefId——避免移动既有用户 DefId 编号(MIR golden 符号名 = 名+DefId,稳定性
+    // 纪律);仍先于 resolve_bodies 设入 lang_items 供类型位置兜底识别。不入模块
+    // 命名空间(用户同名定义优先遮蔽);HIR item 形态由 lower 安装。
+    {
+        let span = Span::new(crate::span::SourceId(0), 0, 0, crate::span::Edition::Rx0);
+        r.out.lang_items.view = Some(r.new_def(DefKind::Struct, "View", Vis::Pub, span, 0));
+        r.out.lang_items.view_mut = Some(r.new_def(DefKind::Struct, "ViewMut", Vis::Pub, span, 0));
+        r.out.lang_items.buffer = Some(r.new_def(DefKind::Struct, "Buffer", Vis::Pub, span, 0));
+        r.out.lang_items.addr_spaces =
+            ADDR_SPACES.map(|n| Some(r.new_def(DefKind::Struct, n, Vis::Pub, span, 0)));
+    }
     r.resolve_uses();
     r.resolve_impl_targets();
     r.resolve_bodies(&file.items, 0);
@@ -1150,6 +1208,9 @@ impl Resolver<'_> {
             b.res
         } else if let Some(d) = self.out.lang_items.type_by_name(name) {
             // 编译器已知项兜底(RXS-0048:Option/Result;模块 ns 优先 = 可遮蔽)
+            Res::Def(d)
+        } else if let Some(d) = self.out.lang_items.device_type_by_name(name) {
+            // 设备 View 族容器 / 地址空间标记兜底(RXS-0067;模块 ns 优先 = 可遮蔽)
             Res::Def(d)
         } else {
             Res::Err

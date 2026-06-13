@@ -1,0 +1,6 @@
+//@ spec: RXS-0066
+kernel fn k() {}
+
+fn main() {
+    k(); //~ ERROR RX3001
+}

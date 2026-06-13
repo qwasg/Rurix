@@ -1,0 +1,8 @@
+//@ spec: RXS-0067
+device fn consume(v: View<constant, f32>) {}
+
+kernel fn k(g: View<global, f32>) {
+    consume(g); //~ ERROR RX3002
+}
+
+fn main() {}

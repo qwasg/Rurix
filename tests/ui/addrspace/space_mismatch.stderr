@@ -1,0 +1,5 @@
+error[RX3002]: address space mismatch: expected `constant`, found `global`
+ --> $DIR/addrspace/space_mismatch.rx:5:13
+  |
+5 |     consume(g); //~ ERROR RX3002
+  |             ^ expected address space `constant`
