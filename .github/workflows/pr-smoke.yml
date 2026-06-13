@@ -78,3 +78,8 @@ jobs:
       - name: borrowck conformance batch (M3 CI_GATES §2.15, G-M3-1)
         shell: powershell
         run: cargo test -p rurixc --test borrowck_corpus
+
+      # —— M3 增量(milestones/m3/CI_GATES.md §4 第 2 项;M3.3 WP6 MIR golden 激活)——
+      - name: MIR golden guardrail (M3 CI_GATES §4.2)
+        shell: powershell
+        run: cargo test -p rurixc --test mir_golden

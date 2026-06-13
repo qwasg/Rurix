@@ -10,6 +10,8 @@
   7. spec/ 变更必须携带档位标记(修订记录只追加,M1 CI_GATES §4 第 7 项,M1.2 激活);
   8. tests/ui/ 的 .stderr 变更必须经审批 bless(bless_log.md 同 diff 追加且既有行
      0-byte,M1 CI_GATES §4 第 6 项,M1.4 激活)。
+  9. tests/mir/ 的 .mir golden 变更必须经审批 bless(tests/mir/bless_log.md 同 diff
+     追加且既有行 0-byte,M3 CI_GATES §4 第 2 项,M3.3 WP6 激活)。
 """
 from __future__ import annotations
 
@@ -203,6 +205,45 @@ def check_ui_bless(base: str, diffs: list[tuple[str, str]]) -> None:
         )
 
 
+MIR_BLESS_LOG = "tests/mir/bless_log.md"
+
+
+def check_mir_bless(base: str, diffs: list[tuple[str, str]]) -> None:
+    """MIR 文本 golden 变更必须经审批 bless(14 §2 常驻集;M3 CI_GATES §4 第 2 项,
+    M3.3 WP6 激活)。
+
+    diff 含 tests/mir/**/*.mir 的新增/修改/删除时:bless_log.md 必须同 diff
+    追加新行(既有行 0-byte);bless_log 自身不得删除。
+    """
+    golden_changes = [
+        (status, path)
+        for status, path in diffs
+        if path.startswith("tests/mir/") and path.endswith(".mir")
+    ]
+    log_deleted = any(status == "D" and path == MIR_BLESS_LOG for status, path in diffs)
+    if log_deleted:
+        err(f"{MIR_BLESS_LOG}: MIR golden bless 审批记录不得删除(14 §2)")
+        return
+    if not golden_changes:
+        return
+    log_file = ROOT / MIR_BLESS_LOG
+    if not log_file.is_file():
+        err(f"{MIR_BLESS_LOG}: 缺失——.mir 变更必须携带 bless 审批记录(14 §2)")
+        return
+    cur_rows = bless_log_rows(log_file.read_text(encoding="utf-8"))
+    base_text = git_show(base, MIR_BLESS_LOG)
+    base_rows = bless_log_rows(base_text) if base_text is not None else []
+    if cur_rows[: len(base_rows)] != base_rows:
+        err(f"{MIR_BLESS_LOG}: 既有审批行被修改(只追加,14 §2)")
+        return
+    if len(cur_rows) <= len(base_rows):
+        changed = ", ".join(p for _, p in golden_changes[:5])
+        err(
+            f"{MIR_BLESS_LOG}: .mir 变更未附 bless 审批行(未审批 bless 即 FAIL,"
+            f"M3 CI_GATES §4.2): {changed}"
+        )
+
+
 def check_error_codes(base: str, path: str) -> None:
     """错误码语义可加不可改(10 §6 稳定面;M1 CI_GATES §4 第 8 项,M1.1 激活)。"""
     base_text = git_show(base, path)
@@ -280,6 +321,7 @@ def main() -> int:
     check_error_codes(base, "registry/error_codes.json")
     check_spec_tier_markers(base, diffs)
     check_ui_bless(base, diffs)
+    check_mir_bless(base, diffs)
     for budget in sorted(ROOT.glob("milestones/*/m*_budget.json")):
         check_budget(base, budget.relative_to(ROOT).as_posix())
     check_evidence(base, diffs)

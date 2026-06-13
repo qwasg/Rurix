@@ -1,0 +1,6 @@
+//@ spec: RXS-0052
+// MIR golden 代表 (a):无 drop 程序(回归网底线;对齐 hello-world 形态)。
+fn main() {
+    let greeting = "hello, rurix";
+    println(greeting);
+}

@@ -1,0 +1,15 @@
+//@ spec: RXS-0055
+// MIR golden 代表 (c):条件初始化 → drop flag(SwitchBool 守卫 + flag set/clear)。
+struct R {}
+
+impl Drop for R {
+    fn drop(&mut self) {}
+}
+
+fn main() {
+    let c = true;
+    let r: R;
+    if c {
+        r = R {};
+    }
+}

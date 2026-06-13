@@ -1,0 +1,48 @@
+fn main() -> () {
+    let _0: ();
+    let _1: A; // a
+    let _2: B; // b
+    let _3: A;
+    let _4: B;
+    let _5: ();
+bb0:
+    _3 = A {  };
+    _1 = move _3;
+    goto -> bb1;
+bb1:
+    _4 = B {  };
+    _2 = move _4;
+    goto -> bb2;
+bb2:
+    _5 = rx_consume_12(move _1) -> bb3;
+bb3:
+    drop(_2) -> bb4;
+bb4:
+    goto -> bb5;
+bb5:
+    _0 = const ();
+    return;
+}
+fn rx_consume_12(_1: A) -> () {
+    let _0: ();
+    let _1: A; // x
+bb0:
+    _0 = const ();
+    drop(_1) -> bb1;
+bb1:
+    return;
+}
+fn rx_drop_11(_1: &mut B) -> () {
+    let _0: ();
+    let _1: &mut B; // self
+bb0:
+    _0 = const ();
+    return;
+}
+fn rx_drop_9(_1: &mut A) -> () {
+    let _0: ();
+    let _1: &mut A; // self
+bb0:
+    _0 = const ();
+    return;
+}
