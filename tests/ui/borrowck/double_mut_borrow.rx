@@ -1,0 +1,11 @@
+//@ spec: RXS-0057, RXS-0058
+fn use2(a: &mut i32, b: &mut i32) -> i32 {
+    *a + *b
+}
+
+fn main() {
+    let mut x = 1;
+    let r1 = &mut x;
+    let r2 = &mut x; //~ ERROR RX4004
+    let _z = use2(r1, r2);
+}

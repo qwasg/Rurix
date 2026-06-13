@@ -1,0 +1,9 @@
+//@ spec: RXS-0061
+fn dangle() -> &i32 {
+    let x = 1;
+    &x //~ ERROR RX4006
+}
+
+fn main() {
+    let _r = dangle();
+}

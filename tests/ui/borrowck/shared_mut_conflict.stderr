@@ -1,0 +1,5 @@
+error[RX4004]: conflicting borrows of `x`: `&` and `&mut` borrows overlap
+ --> $DIR/borrowck/shared_mut_conflict.rx:9:14
+  |
+9 |     let r2 = &mut x; //~ ERROR RX4004
+  |              ^^^^^^ `&` and `&mut` borrows overlap

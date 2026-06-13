@@ -1,0 +1,11 @@
+//@ spec: RXS-0060
+fn peek(r: &i32) -> i32 {
+    *r
+}
+
+fn main() {
+    let mut x = 1;
+    let r = &x;
+    x = 5; //~ ERROR RX4005
+    let _b = peek(r);
+}

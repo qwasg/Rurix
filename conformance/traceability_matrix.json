@@ -452,14 +452,18 @@
     ],
     "RXS-0057": [
       "conformance/borrowck/reject/double_mut_borrow/basic.rx",
-      "conformance/borrowck/reject/shared_mut_conflict/basic.rx"
+      "conformance/borrowck/reject/shared_mut_conflict/basic.rx",
+      "tests/ui/borrowck/double_mut_borrow.rx",
+      "tests/ui/borrowck/shared_mut_conflict.rx"
     ],
     "RXS-0058": [
       "conformance/borrowck/accept/shared_borrows.rx",
       "conformance/borrowck/reject/double_mut_borrow/basic.rx",
       "conformance/borrowck/reject/shared_mut_conflict/basic.rx",
       "src/rurixc/src/borrow_check.rs",
-      "src/rurixc/tests/borrowck_corpus.rs"
+      "src/rurixc/tests/borrowck_corpus.rs",
+      "tests/ui/borrowck/double_mut_borrow.rx",
+      "tests/ui/borrowck/shared_mut_conflict.rx"
     ],
     "RXS-0059": [
       "conformance/borrowck/accept/nll_released_reborrow.rx",
@@ -468,12 +472,15 @@
     "RXS-0060": [
       "conformance/borrowck/reject/assign_while_borrowed/basic.rx",
       "conformance/borrowck/reject/move_while_borrowed/basic.rx",
-      "src/rurixc/src/borrow_check.rs"
+      "src/rurixc/src/borrow_check.rs",
+      "tests/ui/borrowck/assign_while_borrowed.rx",
+      "tests/ui/borrowck/move_while_borrowed.rx"
     ],
     "RXS-0061": [
       "conformance/borrowck/accept/reference_to_param.rx",
       "conformance/borrowck/reject/dangling_reference/basic.rx",
-      "src/rurixc/src/borrow_check.rs"
+      "src/rurixc/src/borrow_check.rs",
+      "tests/ui/borrowck/dangling_reference.rx"
     ]
   }
 }
