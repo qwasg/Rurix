@@ -165,7 +165,11 @@ fn main() -> ExitCode {
                     if !diag.has_errors() {
                         cx.check_borrows();
                     }
-                    if m.is_empty() {
+                    // device emit 通道(`--emit=nvptx-ir|ptx`)以 `kernel fn` 为根,
+                    // 不要求 host `main`(RXS-0070);其余目标缺 main → RX6002。
+                    let device_emit =
+                        matches!(emit.as_deref(), Some("nvptx-ir") | Some("ptx"));
+                    if m.is_empty() && !device_emit {
                         diag.struct_error(E_MISSING_MAIN, "codegen.missing_main")
                             .emit();
                     }
@@ -203,6 +207,62 @@ fn main() -> ExitCode {
             return ExitCode::from(1);
         }
         return ExitCode::SUCCESS;
+    }
+
+    // device codegen 通道(M4.2,RXS-0070~0073):`--emit=nvptx-ir`(NVPTX
+    // LLVM IR 文本)/ `--emit=ptx`(经 pin 的 clang `--target=nvptx64` 产 PTX +
+    // ptxas -arch=sm_89 干验证关卡)。device MIR 以 `kernel fn` 为根收集(独立于
+    // host `main`);codegen 失败 → RX6003/RX6005 诊断。
+    if emit.as_deref() == Some("nvptx-ir") || emit.as_deref() == Some("ptx") {
+        let mode = emit.as_deref().unwrap();
+        let ir = rurixc::device_codegen::build_and_emit(&cx, &stem);
+        if diag.has_errors() {
+            eprint!(
+                "{}",
+                render_diagnostics(&diag.emitted(), &sm, diag.messages())
+            );
+            return ExitCode::from(1);
+        }
+        let Some(ir) = ir else {
+            eprintln!("rurixc: no `kernel fn` found; nothing to emit for --emit={mode}");
+            return ExitCode::from(2);
+        };
+        if mode == "nvptx-ir" {
+            print!("{ir}");
+            return ExitCode::SUCCESS;
+        }
+        // --emit=ptx:IR → PTX(clang NVPTX 后端)+ ptxas 干验证关卡
+        let ptx_out = out
+            .map(PathBuf::from)
+            .unwrap_or_else(|| input_path.with_extension("ptx"));
+        match emit_ptx_and_gate(&ir, &stem, &ptx_out) {
+            Ok(PtxGate::Ok(ptx)) => {
+                print!("{ptx}");
+                return ExitCode::SUCCESS;
+            }
+            Ok(PtxGate::SkippedNoPtxas(ptx)) => {
+                print!("{ptx}");
+                eprintln!(
+                    "rurixc: note: ptxas not found (no CUDA toolchain); ptxas -arch=sm_89 dry-gate SKIPPED (RXS-0073)"
+                );
+                return ExitCode::SUCCESS;
+            }
+            Err(PtxError::Rejected { reason }) => {
+                // ptxas 拒绝 = RX6004 编译期诊断(RXS-0073,G-M4-4)
+                diag.struct_error(ErrorCode(6004), "codegen.ptxas_rejected")
+                    .arg("reason", reason)
+                    .emit();
+                eprint!(
+                    "{}",
+                    render_diagnostics(&diag.emitted(), &sm, diag.messages())
+                );
+                return ExitCode::from(1);
+            }
+            Err(PtxError::Toolchain(e)) => {
+                toolchain_err(&diag, &sm, e);
+                return ExitCode::from(1);
+            }
+        }
     }
 
     let t = Instant::now();
@@ -373,6 +433,128 @@ fn locate_clang() -> Result<PathBuf, String> {
         ));
     }
     Err("clang not found (install LLVM 22.1.x or set RURIXC_CLANG)".to_owned())
+}
+
+/// ptxas 干验证关卡结果(RXS-0073,G-M4-4)。
+enum PtxGate {
+    /// PTX 过 `ptxas -arch=sm_89` 干验证(或无 ptxas 时仅产 PTX 不验证)。
+    Ok(String),
+    /// 无 CUDA 工具链(ptxas 缺失):关卡 SKIP(开发环境降级,真实红绿在 CI runner)。
+    SkippedNoPtxas(String),
+}
+
+enum PtxError {
+    /// ptxas 拒绝 PTX(RX6004)。
+    Rejected { reason: String },
+    /// 工具链失败(clang 定位/版本/退出非零;ptxas 定位失败归 RX7001)。
+    Toolchain(String),
+}
+
+/// device IR → PTX(clang NVPTX 后端)+ ptxas -arch=sm_89 干验证关卡(RXS-0073)。
+///
+/// IR→PTX 用 pin 的 clang `--target=nvptx64-nvidia-cuda -mcpu=sm_89 -S`(无需
+/// 独立 llc;NVPTX 后端内置)。ptxas 缺失 → 关卡 SKIP(M4 CI_GATES §1:真实红绿
+/// 延到带 CUDA 的 CI runner)。非 ASCII 路径防御(r6 教训):ptxas 工作路径含
+/// 非 ASCII 时改用 ASCII 临时目录。
+fn emit_ptx_and_gate(ir: &str, stem: &str, ptx_out: &Path) -> Result<PtxGate, PtxError> {
+    let clang = locate_clang().map_err(PtxError::Toolchain)?;
+    let ll = ptx_out.with_extension("dev.ll");
+    std::fs::write(&ll, ir)
+        .map_err(|e| PtxError::Toolchain(format!("cannot write {}: {e}", ll.display())))?;
+    // 目标基线 compute_89/sm_89(RXS-0070):nvptx 后端经 `-Xclang -target-cpu`
+    // 设 GPU 架构(clang 驱动 nvptx target 不接受 `-mcpu=`);`+ptx78` 设 PTX ISA
+    // 版本(sm_89 要求 ≥ 7.8;默认 4.2 不支持)。
+    run_tool(
+        Command::new(&clang)
+            .arg("--target=nvptx64-nvidia-cuda")
+            .arg("-Xclang")
+            .arg("-target-cpu")
+            .arg("-Xclang")
+            .arg("sm_89")
+            .arg("-Xclang")
+            .arg("-target-feature")
+            .arg("-Xclang")
+            .arg("+ptx78")
+            .arg("-S")
+            .arg(&ll)
+            .arg("-o")
+            .arg(ptx_out),
+        "clang (nvptx)",
+    )
+    .map_err(PtxError::Toolchain)?;
+    let ptx = std::fs::read_to_string(ptx_out)
+        .map_err(|e| PtxError::Toolchain(format!("cannot read {}: {e}", ptx_out.display())))?;
+
+    // ptxas 干验证关卡(strict-only,不产 cubin 留存)
+    let Some(ptxas) = locate_ptxas() else {
+        return Ok(PtxGate::SkippedNoPtxas(ptx));
+    };
+    // 非 ASCII 路径防御(RXS-0073):ptxas 对非 ASCII 路径有崩溃先例
+    let ptx_for_ptxas = ascii_safe_ptx_path(ptx_out, &ptx, stem)
+        .map_err(PtxError::Toolchain)?;
+    let cubin = ptx_for_ptxas.with_extension("cubin");
+    let out = Command::new(&ptxas)
+        .arg("-arch=sm_89")
+        .arg(&ptx_for_ptxas)
+        .arg("-o")
+        .arg(&cubin)
+        .output();
+    let _ = std::fs::remove_file(&cubin);
+    if ptx_for_ptxas != *ptx_out {
+        let _ = std::fs::remove_file(&ptx_for_ptxas);
+    }
+    match out {
+        Ok(o) if o.status.success() => Ok(PtxGate::Ok(ptx)),
+        Ok(o) => Err(PtxError::Rejected {
+            reason: String::from_utf8_lossy(&o.stderr).trim().to_owned(),
+        }),
+        Err(e) => Err(PtxError::Toolchain(format!("cannot spawn ptxas: {e}"))),
+    }
+}
+
+/// ptxas 定位(运行时探测;禁硬编码版本文件名,r6/07 §10)。
+/// `RURIXC_PTXAS` > `CUDA_PATH\bin\ptxas.exe` > PATH `ptxas`;缺失 → None(关卡 SKIP)。
+fn locate_ptxas() -> Option<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Ok(p) = std::env::var("RURIXC_PTXAS") {
+        candidates.push(PathBuf::from(p));
+    }
+    if let Ok(cuda) = std::env::var("CUDA_PATH") {
+        candidates.push(PathBuf::from(cuda).join("bin").join("ptxas.exe"));
+    }
+    candidates.push(PathBuf::from("ptxas"));
+    for c in candidates {
+        if Command::new(&c).arg("--version").output().is_ok_and(|o| o.status.success()) {
+            return Some(c);
+        }
+    }
+    None
+}
+
+/// 非 ASCII 路径防御(RXS-0073):若 ptx 路径含非 ASCII,改写到 ASCII 临时目录。
+fn ascii_safe_ptx_path(ptx_out: &Path, ptx: &str, stem: &str) -> Result<PathBuf, String> {
+    let is_ascii = ptx_out.to_string_lossy().is_ascii();
+    if is_ascii {
+        return Ok(ptx_out.to_path_buf());
+    }
+    // ASCII 临时目录(避开非 ASCII 用户目录;`苍` 先例)
+    let dir = PathBuf::from("C:\\Windows\\Temp").join("rurixc_ptx");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("cannot create ascii temp dir: {e}"))?;
+    let safe = dir.join(format!("{}.ptx", sanitize_ascii(stem)));
+    std::fs::write(&safe, ptx).map_err(|e| format!("cannot write ascii ptx: {e}"))?;
+    Ok(safe)
+}
+
+fn sanitize_ascii(s: &str) -> String {
+    let cleaned: String = s
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() || c == '_' { c } else { '_' })
+        .collect();
+    if cleaned.is_empty() {
+        "kernel".to_owned()
+    } else {
+        cleaned
+    }
 }
 
 /// link.exe 与 MSVC/SDK 库目录定位(vswhere;无 vcvars 依赖)。

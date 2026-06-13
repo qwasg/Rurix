@@ -119,6 +119,11 @@ fn run_case(path: &Path, src: &str) -> CaseResult {
                         cx.check_borrows();
                     }
                 }
+                // device codegen(M4.2,黄金路径 4 的 6xxx 子集:RX6001/RX6003/
+                // RX6005,RXS-0070~0073)。`kernel fn` 为根;无 kernel → no-op。
+                if !diag.has_errors() {
+                    let _ = rurixc::device_codegen::build_and_emit(&cx, "ui");
+                }
             }
         }
     }

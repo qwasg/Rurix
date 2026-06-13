@@ -102,6 +102,9 @@ pub enum ExprKind {
         callee: Box<Expr>,
         args: Vec<Expr>,
     },
+    /// device 线程上下文 intrinsic(M4.2,RXS-0072;`ThreadCtx` 方法 →
+    /// sreg/barrier intrinsic,接收者无副作用故不保留)。
+    DeviceCall(crate::hir::DeviceIntrinsic),
     /// 字段访问(字段名已解析为定义序/元组位置下标)。
     Field {
         base: Box<Expr>,

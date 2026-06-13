@@ -1,0 +1,9 @@
+//@ spec: RXS-0070
+// SAXPY 雏形 kernel:out[i] = a*x[i] + y[i],边界守卫 i < n。
+// 全局线程索引(RXS-0072)+ View<global> 索引读写(RXS-0071)+ ptx_kernel 入口(RXS-0070)。
+kernel fn saxpy(out: ViewMut<global, f32>, x: View<global, f32>, y: View<global, f32>, a: f32, n: usize, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = a * x[i] + y[i];
+    }
+}

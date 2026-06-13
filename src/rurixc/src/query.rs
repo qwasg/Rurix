@@ -366,6 +366,13 @@ impl<'a> QueryCtx<'a> {
         let _ = self.mir.set(Rc::clone(&m));
         m
     }
+
+    /// device MIR(M4.2,RXS-0070;`kernel fn` 为根的 device 调用图收集;
+    /// provider:[`crate::mir_build::build_device_crate`])。不缓存(device
+    /// codegen 单次消费;host `main` 可达性收集与之独立)。
+    pub fn device_mir_crate(&self) -> Vec<crate::mir::Body> {
+        crate::mir_build::build_device_crate(self)
+    }
 }
 
 /// 类型是否完全 ground(无 Param/Infer/Err;const 强制求值的前置)。

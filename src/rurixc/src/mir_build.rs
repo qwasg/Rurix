@@ -79,6 +79,41 @@ pub fn build_crate(cx: &QueryCtx<'_>) -> Vec<Body> {
     out
 }
 
+/// device MIR 构建入口(M4.2,RXS-0070):以 `kernel fn` 为收集根(不依赖
+/// host `main` 可达性),沿 device 调用图收集 `device fn`;产物供 device
+/// codegen(MIR→NVPTX IR→PTX)消费。host 收集(`build_crate`)不受影响。
+pub fn build_device_crate(cx: &QueryCtx<'_>) -> Vec<Body> {
+    let krate = cx.hir_crate();
+    let mut out = Vec::new();
+    let mut visited: HashSet<String> = HashSet::new();
+    let mut worklist: Vec<(DefId, Vec<Ty>)> = Vec::new();
+    // 根 = 全部 `kernel fn`(有 body、无泛型参数;泛型 kernel 随单态化扩展 M4+)
+    for item in &krate.items {
+        if let hir::ItemKind::Fn(decl) = &item.kind
+            && decl.color == crate::ast::FnColor::Kernel
+            && decl.body.is_some()
+            && decl.generic_params.is_empty()
+            && visited.insert(mangle(&item.name, item.def_id, &[]))
+        {
+            worklist.push((item.def_id, Vec::new()));
+        }
+    }
+    while let Some((def, args)) = worklist.pop() {
+        let (mut body, callees, _const_err) = build_body(cx, def, args);
+        crate::drop_elab::elaborate(&mut body);
+        let drop_callees = crate::drop_elab::collect_drop_callees(&krate, &body);
+        out.push(body);
+        for (d, a) in callees.into_iter().chain(drop_callees) {
+            let sym = mangle(&krate.item(d).name, d, &a);
+            if visited.insert(sym) {
+                worklist.push((d, a));
+            }
+        }
+    }
+    out.sort_by(|a, b| a.symbol.cmp(&b.symbol));
+    out
+}
+
 /// const 求值专用单实例构建(M3.4,RXS-0062):构建 const item / const fn 的
 /// MIR body 供 [`crate::const_eval`] 解释,不入 `main` 可达性收集、不跑 drop
 /// elaboration(标量 const 无 needs-drop)。body 内对其他 const 的引用在构建期
@@ -184,10 +219,15 @@ fn build_body(cx: &QueryCtx<'_>, def: DefId, generic_args: Vec<Ty>) -> BuildOutp
             }),
         })
         .collect();
+    let color = match &item.kind {
+        hir::ItemKind::Fn(decl) => decl.color,
+        _ => crate::ast::FnColor::Host,
+    };
     (
         Body {
             def,
             symbol: mangle(&item.name, def, &generic_args),
+            color,
             generic_args,
             locals: b.locals,
             arg_count,
@@ -434,8 +474,38 @@ impl Builder<'_, '_> {
                 p.proj.push(ProjElem::Deref);
                 Some(p)
             }
+            // `View`/`ViewMut` 容器索引(M4.2,RXS-0071):base 为地址空间指针,
+            // 偏移 index(usize)得元素 place。非 View 容器索引作用面外(op_of 报
+            // RX6001),故此处仅对 View 族产 place。
+            tbir::ExprKind::Index { base, index } => {
+                if !self.is_view_ty(&self.ty_of(base)) {
+                    return None;
+                }
+                let mut p = self.place_of_or_temp(base);
+                let idx_local = self.index_local(index);
+                p.proj.push(ProjElem::Index(idx_local));
+                Some(p)
+            }
             _ => None,
         }
+    }
+
+    /// 类型是否为 `View`/`ViewMut` 族容器(M4.2,RXS-0071;索引 place 化判定)。
+    fn is_view_ty(&self, ty: &Ty) -> bool {
+        matches!(ty, Ty::Adt(d, _) if self.res.lang_items.view_mutable(*d).is_some())
+    }
+
+    /// 索引下标物化为 usize local(`ProjElem::Index` 载荷)。
+    fn index_local(&mut self, index: &tbir::Expr) -> LocalIdx {
+        let op = self.op_of(index);
+        if let Operand::Copy(p) | Operand::Move(p) = &op
+            && p.proj.is_empty()
+        {
+            return p.local;
+        }
+        let t = self.temp(Ty::Prim(PrimTy::Usize), index.span);
+        self.assign(Place::local(t), Rvalue::Use(op), index.span);
+        t
     }
 
     /// place 形态;否则物化到 temp(rvalue 提升)。
@@ -600,6 +670,7 @@ impl Builder<'_, '_> {
             tbir::ExprKind::CallIndirect { .. } => {
                 self.unsupported(e.span, "indirect call (fn pointer)")
             }
+            tbir::ExprKind::DeviceCall(intr) => self.lower_device_call(e, *intr),
             tbir::ExprKind::Field { .. } => match self.place_of(e) {
                 Some(p) => {
                     let ty = self.ty_of(e);
@@ -700,9 +771,17 @@ impl Builder<'_, '_> {
                     self.unsupported(e.span, "continue outside loop")
                 }
             }
+            // `View`/`ViewMut` 索引(M4.2,RXS-0071):place 化后按值读;非 View
+            // 容器索引 place_of 返回 None → RX6001(host 数组索引作用面外)。
+            tbir::ExprKind::Index { .. } => match self.place_of(e) {
+                Some(p) => {
+                    let ty = self.ty_of(e);
+                    self.consume(p, &ty)
+                }
+                None => self.unsupported(e.span, "indexing"),
+            },
             // ---- M3.1 作用面外(RX6001;清单留痕 M3_PLAN §1 修订行) ----
             tbir::ExprKind::BreakValue(_) => self.unsupported(e.span, "break with value"),
-            tbir::ExprKind::Index { .. } => self.unsupported(e.span, "indexing"),
             tbir::ExprKind::Array(_) | tbir::ExprKind::Repeat { .. } => {
                 self.unsupported(e.span, "array expression")
             }
@@ -773,6 +852,29 @@ impl Builder<'_, '_> {
             TerminatorKind::Call {
                 target,
                 args: ops,
+                dest: Place::local(dest),
+                next,
+            },
+            e.span,
+        );
+        self.switch_to(next);
+        if ret_ty.is_unit() {
+            Operand::Const(Const::Unit)
+        } else {
+            self.consume(Place::local(dest), &ret_ty)
+        }
+    }
+
+    /// device 线程上下文 intrinsic(M4.2,RXS-0072):落 `CallTarget::DeviceIntrinsic`
+    /// 终结子(无实参;返回 usize / unit),device codegen 展开为 sreg/barrier。
+    fn lower_device_call(&mut self, e: &tbir::Expr, intr: crate::hir::DeviceIntrinsic) -> Operand {
+        let ret_ty = self.ty_of(e);
+        let dest = self.temp(ret_ty.clone(), e.span);
+        let next = self.new_block();
+        self.terminate(
+            TerminatorKind::Call {
+                target: CallTarget::DeviceIntrinsic(intr),
+                args: Vec::new(),
                 dest: Place::local(dest),
                 next,
             },

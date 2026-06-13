@@ -1,0 +1,4 @@
+//@ spec: RXS-0073
+kernel fn k() { //~ ERROR RX6003
+    let _s = "device string";
+}

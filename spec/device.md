@@ -78,6 +78,70 @@ AddrMark    ::= "global" | "constant" | "local" | "host"
 
 ---
 
+> **M4.2 范围裁决(NVPTX codegen 与 ptxas 关卡续写)**:RXS-0070~0073 条款化 device codegen 链路(MIR→LLVM IR(NVPTX 约束子集)→PTX 文本)与 ptxas 干验证关卡(07 §7,D-205/D-207)。本批为已选定决策(D-120/D-121/D-123/D-205/D-207)的初版条款化(档位 Direct);LLVM pin 22.1.x、目标基线 `compute_89`/`sm_89` 为 r2 第一阶段范围,升级走季度评估(07 §7),不在 M4 期变动。codegen 作用面为 **SAXPY 雏形子集**(全局线程索引 + `View<global>`/`ViewMut<global>` 索引读写 + f32 算术 + 边界分支);`shared`/barrier、views 不相交、scoped atomics、libdevice 链接随 M4.3/M5(07 §4)。错误码 `RX6003`~`RX6005` 为 6xxx codegen/目标段位 device 首批(现有 RX6001/RX6002 为 M2.3 host 子集),**spec 先行引用,正式分配于 M4.2 实现 WP**(沿用 3xxx/4xxx/5xxx 在实现 PR 落 registry 的节奏,registry revision_log 留痕,编号不复用)。
+
+### RXS-0070 NVPTX codegen 目标与调用约定
+
+**Legality**(device codegen 目标与 `kernel fn` 调用约定,07 §7 / D-205·D-207):
+
+- device codegen 目标三元组 `nvptx64-nvidia-cuda`,数据布局取 NVPTX 后端默认(64 位指针);目标基线 `compute_89`(PTX 虚拟 ISA)/ `sm_89`(ptxas 真实架构),LLVM pin 22.1.x(r2 第一阶段范围)。
+- `kernel fn` 着色函数 codegen 为 **`ptx_kernel` 调用约定**的 LLVM 函数(`@func ... #N` 处 `define ptx_kernel void @...`),作为 GPU 入口经 launch API 发起(M4.3),无返回值(`void`);`device fn` codegen 为普通调用约定的内部函数(MVP 默认强制内联,06 §2.2)。
+- device codegen 产物为 **PTX 文本**(开发期,PTX-only),经 pin 的 LLVM 工具链(`clang --target=nvptx64-nvidia-cuda -mcpu=sm_89 -S`,文本 IR 通道延续 M2.3 host 选型 D-209)由 NVPTX 后端汇编为 PTX;不在 device codegen 期产 cubin(cubin/fatbin 分发随 G1)。
+- device codegen 作用面外的语言构造(host 子集 codegen 同款的 closure / 任意数组索引 / 区间 / fn 指针间接调用等,及 device 不支持构造)→ `RX6003`(device codegen 暂不支持构造)。
+
+**Implementation Requirements**:device codegen 消费着色定型后的 device MIR(`kernel fn` 为收集根,沿 device 调用图收集 `device fn`,不依赖 host `main` 可达性);MIR `Body` 关联函数着色(`FnColor`)供 codegen 分叉 host/device 通道;host codegen 通道(07 §8,target `x86_64-pc-windows-msvc`)不受影响。
+
+> 锚定测试:`tests/ptx/`(小 kernel 全管线产 PTX golden);device codegen 单测(`ptx_kernel` 调用约定 / target triple);`rurixc <kernel>.rx --emit=ptx`。
+
+### RXS-0071 地址空间 codegen 建模
+
+**Legality**(addrspace 在 LLVM IR / PTX 的显式建模,05 §5 / r2 NVPTX 五空间,与 RXS-0067 类型层映射对齐):
+
+- 五地址空间在 LLVM IR 指针类型携带 addrspace 数:`global`→`addrspace(1)`、`shared`→`addrspace(3)`、`constant`→`addrspace(4)`、`local`→`addrspace(5)`、泛型/默认→`addrspace(0)`(05 §5 / r2)。
+- `View<space, T, Shape>`(只读)/ `ViewMut<space, T, Shape>`(可变)作为 `kernel fn` / `device fn` 形参时,ABI 表示为对应 addrspace 的指针(`ptr addrspace(N)`);索引 `v[i]` codegen 为 `getelementptr` 偏移 + `load`(`View`)/ `store`(`ViewMut`),元素类型取 `T`。
+- `ViewMut<space, T>` 的索引位置为可写 place;`View<space, T>`(只读)索引位置仅可读(写入按既有类型/可变性检查段裁决,RXS-0067)。
+- 索引下标按 NVPTX 后端 64 位指针算术展开;越界为 device 侧 UB(MVP 不插桩边界检查,边界守卫由 kernel 作者经 `if i < n` 显式书写,06 §2.2)。
+
+**Implementation Requirements**:addrspace 映射表与 RXS-0067 的 `View` 族类型层裁决同源(同一地址空间标记);M4.2 codegen 作用面为 `global`(addrspace 1)读写 + `constant`(addrspace 4)只读;`shared`(addrspace 3)经 `shared let` 的 view 收窄随 M5(07 §4)。
+
+> 锚定测试:`tests/ptx/`(`View<global>` 索引读 / `ViewMut<global>` 索引写产 PTX `ld.global`/`st.global`);device codegen 单测(addrspace 指针形态)。
+
+### RXS-0072 线程索引与 launch bounds
+
+**Legality**(线程索引 intrinsics 与 launch bounds 属性,06 §2.2 / r2):
+
+- `ThreadCtx<DIM>`(`DIM` ∈ {1,2,3})为 `kernel fn` 的线程上下文形参(零尺寸句柄,不占 ABI 槽位);其索引方法 codegen 为 NVPTX special-register intrinsics:
+  - `thread_index()`(block 内线程索引)→ `llvm.nvvm.read.ptx.sreg.tid.{x,y,z}`;
+  - `global_id()`(全局线程索引)→ `ctaid.{x} * ntid.{x} + tid.{x}`(`llvm.nvvm.read.ptx.sreg.{ctaid,ntid,tid}.{x,y,z}` 组合),返回 `usize`(NVPTX 64 位)。
+- DIM=1 取 `.x` 维;DIM=2/3 维索引随 M4.3(launch 维度契约定型);M4.2 codegen 作用面为 DIM=1。
+- **launch bounds**:`kernel fn` 的 block 维上界经 `nvvm.annotations` 元数据落地(`!{ptr @kernel, !"maxntidx", i32 N}` / `reqntidx`);M4.2 无显式 launch bounds 标注语法时,annotation 为可选(缺省由 ptxas 默认推导),标注语法与 `reqntid` 强约束随 M4.3。
+- `block.sync()`(barrier,RXS-0068 着色层已设保守 uniform 骨架)codegen 为 `llvm.nvvm.barrier0`(`bar.sync 0`);M4.2 codegen 留扩展点(SAXPY 雏形不触发),完整随 M4.3/M5。
+
+**Implementation Requirements**:线程索引方法为编译器已知 device intrinsic(resolve/typeck 兜底识别 `ThreadCtx` 类型与其方法,用户同名定义优先遮蔽,沿用 RXS-0067 `View` 族兜底纪律);intrinsic 声明在 device IR 模块头 `declare`。
+
+> 锚定测试:`tests/ptx/`(`global_id()` 产 sreg intrinsic 序列);device codegen 单测(sreg intrinsic / `ptx_kernel` 入口)。
+
+### RXS-0073 ptxas 干验证关卡与诊断要求(6xxx codegen/目标)
+
+**Legality**(ptxas 干验证关卡,07 §7 strict-only,M4 契约 G-M4-4):
+
+- device codegen 产出的 PTX **必须过 `ptxas -arch=sm_89` 干验证**(语法/语义校验,不产 cubin);ptxas 拒绝(退出非零)→ rurixc 报 `RX6004`(ptxas 拒绝 PTX)编译期诊断,携带 ptxas stderr 摘要,**对齐真跑铁律**(注入非法 PTX / 破坏 codegen 产出必须红)。
+- 防御非 ASCII 路径:ptxas 对非 ASCII 路径有崩溃先例(r6 教训),驱动调用 ptxas 前对工作路径作 ASCII 校验/规避(临时 ASCII 路径或拒绝并诊断)。
+- ptxas 工具定位经运行时探测(`CUDA_PATH` / NVML 枚举),**禁硬编码版本文件名**(r6 的 `CUDA 13.2.props` 教训,07 §10);ptxas 缺失(无 CUDA 工具链)→ 关卡 SKIP(开发环境降级),真实红绿在带 CUDA 的 CI runner(M4 CI_GATES §1 / 步骤 17),工具链定位失败归 `RX7001`(链接/工具链段,既有码)。
+- **NVPTX 雷区回归集**:NVPTX 后端已知雷区(shfl 选择失败 / sqrt 近似约束类,r2/07 §7)遇雷登记雷区回归集并 pin 绕行;SAXPY 雏形不触发,机制就位备 M4.3+ 扩展。
+
+**诊断要求**(6xxx codegen/目标段位 device 首批):
+
+- **device codegen 不支持构造** `RX6003`:device codegen 作用面外的语言构造(RXS-0070)。
+- **ptxas 拒绝 PTX** `RX6004`:产出 PTX 过 `ptxas -arch=sm_89` 干验证被拒(携 ptxas stderr 摘要)。
+- **device codegen 内部约束违例** `RX6005`:device MIR 形态超出 NVPTX codegen 约束子集(如不支持的 addrspace 组合 / 非 DIM=1 线程索引 / 不支持元素类型),保守拒绝(措辞允许粗糙,07 §4)。
+
+**Implementation Requirements**:ptxas 干验证在 device codegen 产 PTX 后、嵌入 host 产物前(M4.3)实施;诊断 span 指向 kernel 定义 / 违例构件,措辞允许保守粗糙(07 §4 先正确性后诊断,M4 契约 §2.2 诊断打磨排除项)。
+
+> 锚定测试:`tests/ui/codegen/`(RX6003/RX6004/RX6005 snapshot,黄金路径 4 的 6xxx 子集);device codegen 单测(ptxas 拒绝路径,缺 ptxas 时 SKIP)。
+
+---
+
 ## 错误码引用汇总
 
 | 错误码 | 含义 | 条款 |
@@ -86,11 +150,16 @@ AddrMark    ::= "global" | "constant" | "local" | "host"
 | RX3002 | 地址空间不匹配(View 族容器空间不一致) | RXS-0067, RXS-0069 |
 | RX3003 | barrier 非 uniform 可达(thread-id 依赖分支内调 barrier,保守骨架) | RXS-0068, RXS-0069 |
 | RX2001 | 类型不匹配(引用:View 可变性不符与元素类型不符走既有类型检查段) | RXS-0067 |
+| RX6003 | device codegen 暂不支持构造(NVPTX codegen 作用面外) | RXS-0070, RXS-0073 |
+| RX6004 | ptxas 拒绝 PTX(`ptxas -arch=sm_89` 干验证被拒) | RXS-0073 |
+| RX6005 | device codegen 内部约束违例(超出 NVPTX 约束子集) | RXS-0071, RXS-0072, RXS-0073 |
+| RX7001 | 外部工具链失败(ptxas 定位失败归此段,既有码) | RXS-0073 |
 
-含义以 [../registry/error_codes.json](../registry/error_codes.json) 为唯一事实源,本表仅引用。RX3001 ~ RX3003 为 3xxx 着色/地址空间段位首批(07 §5 段位语义),**spec 先行引用,正式分配于 M4.1 实现 WP**(沿用 4xxx/5xxx 在实现 PR 落 registry 的节奏,registry revision_log 留痕,编号不复用)。views 不相交证明 / shared+barrier 一致性数据流 / 完整 uniform 分析为 M5 device 借用检查扩展(07 §4 / 11 §3),本批不覆盖。
+含义以 [../registry/error_codes.json](../registry/error_codes.json) 为唯一事实源,本表仅引用。RX3001 ~ RX3003 为 3xxx 着色/地址空间段位首批(07 §5 段位语义),**spec 先行引用,正式分配于 M4.1 实现 WP**(沿用 4xxx/5xxx 在实现 PR 落 registry 的节奏,registry revision_log 留痕,编号不复用)。RX6003 ~ RX6005 为 6xxx codegen/目标段位 device 首批(现有 RX6001/RX6002 为 M2.3 host 子集),**spec 先行引用,正式分配于 M4.2 实现 WP**(同上节奏)。views 不相交证明 / shared+barrier 一致性数据流 / 完整 uniform 分析为 M5 device 借用检查扩展(07 §4 / 11 §3),本批不覆盖。
 
 ## 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
 | v1.0 | 2026-06-13 | 初版:RXS-0066 ~ RXS-0069(M4.1 device 着色/地址空间首批:函数着色与跨着色调用合法性 / 地址空间类型与一致性 / barrier uniform 可达性保守骨架 / 着色与地址空间诊断要求;05 §1/§3.2/§5、06 §2.2、07 §3 已锁定决策 D-102/D-106/D-108/D-120/D-123 的条款化,M4 契约 D-M4-2 spec 先行)。错误码汇总表登记 RX3001~RX3003(spec 先行引用,实现 WP 正式分配);barrier 完整 uniform 分析与 views 不相交证明排除(M5) | Direct |
+| v1.1 | 2026-06-13 | 续写 RXS-0070 ~ RXS-0073(M4.2 NVPTX codegen 与 ptxas 关卡:codegen 目标与 `ptx_kernel` 调用约定 / 地址空间 codegen 建模 / 线程索引与 launch bounds / ptxas 干验证关卡与 6xxx 诊断要求;06 §1/§2.2、07 §7 已锁定决策 D-120/D-121/D-123/D-205/D-207 的条款化,M4 契约 D-M4-2/D-M4-3 spec 先行)。错误码汇总表登记 RX6003~RX6005(spec 先行引用,M4.2 实现 WP 正式分配);codegen 作用面 = SAXPY 雏形子集(DIM=1 线程索引 + `global` 索引读写 + f32 算术);shared/barrier 完整 codegen、launch 维度契约、cubin 分发排除(M4.3/M5/G1) | Direct |

@@ -65,6 +65,8 @@ pub struct LangItems {
     pub buffer: Option<DefId>,
     /// 地址空间标记(`global`/`shared`/`constant`/`local`/`host`;序见 [`ADDR_SPACES`])。
     pub addr_spaces: [Option<DefId>; 5],
+    /// 设备线程上下文 `ThreadCtx<DIM>`(M4.2,RXS-0072;方法 → device intrinsics)。
+    pub thread_ctx: Option<DefId>,
 }
 
 /// 地址空间标记名(RXS-0067;序对应 [`LangItems::addr_spaces`])。
@@ -88,11 +90,17 @@ impl LangItems {
             "View" => self.view,
             "ViewMut" => self.view_mut,
             "Buffer" | "DeviceBuffer" => self.buffer,
+            "ThreadCtx" => self.thread_ctx,
             _ => ADDR_SPACES
                 .iter()
                 .position(|n| *n == name)
                 .and_then(|i| self.addr_spaces[i]),
         }
+    }
+
+    /// `ThreadCtx` 容器判定(RXS-0072;device intrinsic 方法识别)。
+    pub fn is_thread_ctx(&self, d: DefId) -> bool {
+        Some(d) == self.thread_ctx
     }
 
     /// `View` 族容器判定 → `Some(mutable)`(RXS-0067 地址空间一致性消费)。
@@ -204,6 +212,7 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
             view_mut: None,
             buffer: None,
             addr_spaces: [None; 5],
+            thread_ctx: None,
         };
     }
     r.collect_items(&file.items, 0);
@@ -218,6 +227,10 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
         r.out.lang_items.buffer = Some(r.new_def(DefKind::Struct, "Buffer", Vis::Pub, span, 0));
         r.out.lang_items.addr_spaces =
             ADDR_SPACES.map(|n| Some(r.new_def(DefKind::Struct, n, Vis::Pub, span, 0)));
+        // device 线程上下文(M4.2,RXS-0072):`ThreadCtx<DIM>` 内建容器,
+        // 方法识别为 device intrinsics(typeck 层)。同 View 族兜底纪律(可遮蔽)。
+        r.out.lang_items.thread_ctx =
+            Some(r.new_def(DefKind::Struct, "ThreadCtx", Vis::Pub, span, 0));
     }
     r.resolve_uses();
     r.resolve_impl_targets();

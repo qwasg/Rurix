@@ -1,0 +1,7 @@
+//@ spec: RXS-0072
+// 线程索引代表 kernel:out[i] = i(全局线程索引写回 global view)。
+// 覆盖 global_id sreg 组合(RXS-0072)+ ViewMut<global> 索引写 + usize→u32 cast。
+kernel fn fill_index(out: ViewMut<global, u32>, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    out[i] = i as u32;
+}

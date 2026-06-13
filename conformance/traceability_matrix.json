@@ -525,6 +525,21 @@
     "RXS-0069": [
       "src/rurixc/src/coloring.rs",
       "src/rurixc/src/typeck.rs"
+    ],
+    "RXS-0070": [
+      "src/rurixc/src/device_codegen.rs",
+      "tests/ui/codegen/kernel_array_index.rx"
+    ],
+    "RXS-0071": [
+      "src/rurixc/src/device_codegen.rs",
+      "tests/ui/codegen/host_addrspace_view.rx"
+    ],
+    "RXS-0072": [
+      "src/rurixc/src/device_codegen.rs"
+    ],
+    "RXS-0073": [
+      "src/rurixc/src/device_codegen.rs",
+      "tests/ui/codegen/device_string_literal.rx"
     ]
   }
 }

@@ -1,0 +1,39 @@
+; ModuleID = 'thread_index'
+source_filename = "thread_index"
+target triple = "nvptx64-nvidia-cuda"
+
+declare i32 @llvm.nvvm.read.ptx.sreg.ctaid.x()
+declare i32 @llvm.nvvm.read.ptx.sreg.ntid.x()
+declare i32 @llvm.nvvm.read.ptx.sreg.tid.x()
+
+define ptx_kernel void @rx_fill_index_8(ptr addrspace(1) %arg1) {
+entry:
+  %l1 = alloca ptr addrspace(1), addrspace(5)
+  %l3 = alloca i64, addrspace(5)
+  %l4 = alloca i64, addrspace(5)
+  %l5 = alloca i32, addrspace(5)
+  store ptr addrspace(1) %arg1, ptr addrspace(5) %l1
+  br label %bb0
+bb0:
+  %t0 = call i32 @llvm.nvvm.read.ptx.sreg.ctaid.x()
+  %t1 = call i32 @llvm.nvvm.read.ptx.sreg.ntid.x()
+  %t2 = call i32 @llvm.nvvm.read.ptx.sreg.tid.x()
+  %t3 = mul i32 %t0, %t1
+  %t4 = add i32 %t3, %t2
+  %t5 = zext i32 %t4 to i64
+  store i64 %t5, ptr addrspace(5) %l4
+  br label %bb1
+bb1:
+  %t6 = load i64, ptr addrspace(5) %l4
+  store i64 %t6, ptr addrspace(5) %l3
+  %t7 = load i64, ptr addrspace(5) %l3
+  %t8 = trunc i64 %t7 to i32
+  store i32 %t8, ptr addrspace(5) %l5
+  %t9 = load i32, ptr addrspace(5) %l5
+  %t10 = load ptr addrspace(1), ptr addrspace(5) %l1
+  %t11 = load i64, ptr addrspace(5) %l3
+  %t12 = getelementptr i32, ptr addrspace(1) %t10, i64 %t11
+  store i32 %t9, ptr addrspace(1) %t12
+  ret void
+}
+

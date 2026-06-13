@@ -12,6 +12,8 @@
      0-byte,M1 CI_GATES §4 第 6 项,M1.4 激活)。
   9. tests/mir/ 的 .mir golden 变更必须经审批 bless(tests/mir/bless_log.md 同 diff
      追加且既有行 0-byte,M3 CI_GATES §4 第 2 项,M3.3 WP6 激活)。
+ 10. tests/ptx/ 的 .nvptx golden 变更必须经审批 bless(tests/ptx/bless_log.md 同 diff
+     追加且既有行 0-byte,M4 CI_GATES §4 第 3 项,M4.2 激活)。
 """
 from __future__ import annotations
 
@@ -244,6 +246,45 @@ def check_mir_bless(base: str, diffs: list[tuple[str, str]]) -> None:
         )
 
 
+PTX_BLESS_LOG = "tests/ptx/bless_log.md"
+
+
+def check_ptx_bless(base: str, diffs: list[tuple[str, str]]) -> None:
+    """PTX/NVPTX IR 文本 golden 变更必须经审批 bless(14 §2 常驻集 / 07 §11;
+    M4 CI_GATES §4 第 3 项,M4.2 激活)。
+
+    diff 含 tests/ptx/**/*.nvptx 的新增/修改/删除时:bless_log.md 必须同 diff
+    追加新行(既有行 0-byte);bless_log 自身不得删除。
+    """
+    golden_changes = [
+        (status, path)
+        for status, path in diffs
+        if path.startswith("tests/ptx/") and path.endswith(".nvptx")
+    ]
+    log_deleted = any(status == "D" and path == PTX_BLESS_LOG for status, path in diffs)
+    if log_deleted:
+        err(f"{PTX_BLESS_LOG}: PTX golden bless 审批记录不得删除(14 §2)")
+        return
+    if not golden_changes:
+        return
+    log_file = ROOT / PTX_BLESS_LOG
+    if not log_file.is_file():
+        err(f"{PTX_BLESS_LOG}: 缺失——.nvptx 变更必须携带 bless 审批记录(14 §2)")
+        return
+    cur_rows = bless_log_rows(log_file.read_text(encoding="utf-8"))
+    base_text = git_show(base, PTX_BLESS_LOG)
+    base_rows = bless_log_rows(base_text) if base_text is not None else []
+    if cur_rows[: len(base_rows)] != base_rows:
+        err(f"{PTX_BLESS_LOG}: 既有审批行被修改(只追加,14 §2)")
+        return
+    if len(cur_rows) <= len(base_rows):
+        changed = ", ".join(p for _, p in golden_changes[:5])
+        err(
+            f"{PTX_BLESS_LOG}: .nvptx 变更未附 bless 审批行(未审批 bless 即 FAIL,"
+            f"M4 CI_GATES §4.3): {changed}"
+        )
+
+
 def check_error_codes(base: str, path: str) -> None:
     """错误码语义可加不可改(10 §6 稳定面;M1 CI_GATES §4 第 8 项,M1.1 激活)。"""
     base_text = git_show(base, path)
@@ -322,6 +363,7 @@ def main() -> int:
     check_spec_tier_markers(base, diffs)
     check_ui_bless(base, diffs)
     check_mir_bless(base, diffs)
+    check_ptx_bless(base, diffs)
     for budget in sorted(ROOT.glob("milestones/*/m*_budget.json")):
         check_budget(base, budget.relative_to(ROOT).as_posix())
     check_evidence(base, diffs)

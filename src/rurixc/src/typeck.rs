@@ -50,6 +50,9 @@ pub struct TypeckResults {
     /// 调用点(Call/MethodCall 表达式节点)→ (目标 DefId, 泛型实参)。
     /// 单态化收集的输入(D-111);非 fn-item 调用(fn 指针)不入表。
     pub call_targets: HashMap<HirId, (DefId, Vec<Ty>)>,
+    /// device intrinsic 调用点(M4.2,RXS-0072):MethodCall 节点 → intrinsic
+    /// (接收者为 `ThreadCtx` lang item 时识别);tbir/MIR/codegen 消费。
+    pub device_calls: HashMap<HirId, crate::hir::DeviceIntrinsic>,
 }
 
 // ---------------------------------------------------------------------------
@@ -1106,7 +1109,15 @@ impl Tck<'_, '_> {
                 self.demand(index.span, &Ty::Prim(PrimTy::Usize), &it);
                 match self.autoderef(&bt) {
                     Ty::Array(t) | Ty::Slice(t) => *t,
-                    // Adt 索引(views 等)经运算符 trait,M2.2 容忍
+                    // `View<space, T, ..>` / `ViewMut<space, T, ..>` 索引(M4.2,
+                    // RXS-0071):元素类型 = 第二类型实参(args[0] = 地址空间标记)。
+                    Ty::Adt(d, args)
+                        if self.res.lang_items.view_mutable(d).is_some()
+                            && args.len() >= 2 =>
+                    {
+                        args[1].clone()
+                    }
+                    // 其余 Adt 索引(运算符 trait 形态)M2.2 容忍
                     _ => Ty::Err,
                 }
             }
@@ -1384,6 +1395,30 @@ impl Tck<'_, '_> {
         // 方法 → RX2004;无类约束的推断变量维持容忍)
         let base = self.infcx.resolve(&self.autoderef(&rt));
         match &base {
+            // device 线程上下文 intrinsic(M4.2,RXS-0072):`ThreadCtx` 方法 →
+            // sreg/barrier intrinsic(用户同名定义优先 = 先查 assoc_items,
+            // 命中则不走 intrinsic 路径;此处仅在无用户 impl 时兜底)。
+            Ty::Adt(d, _)
+                if self.res.lang_items.is_thread_ctx(*d)
+                    && self
+                        .res
+                        .assoc_items
+                        .get(d)
+                        .is_none_or(|items| !items.iter().any(|(n, _)| n == method))
+                    && crate::hir::DeviceIntrinsic::from_method(method).is_some() =>
+            {
+                for a in args {
+                    let _ = self.check_expr(a);
+                }
+                let intr = crate::hir::DeviceIntrinsic::from_method(method)
+                    .expect("guard 已确保 intrinsic 存在");
+                self.results.device_calls.insert(call_id, intr);
+                if intr.returns_unit() {
+                    Ty::unit()
+                } else {
+                    Ty::Prim(PrimTy::Usize)
+                }
+            }
             Ty::Adt(d, _adt_args) => {
                 let found = self
                     .res

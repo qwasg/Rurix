@@ -1,0 +1,5 @@
+error[RX6003]: this value type is not supported by NVPTX device codegen yet (M4.2 subset)
+ --> $DIR/codegen/device_string_literal.rx:2:11
+  |
+2 | kernel fn k() { //~ ERROR RX6003
+  |           ^ in device (kernel) code
