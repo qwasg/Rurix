@@ -1,0 +1,36 @@
+//@ spec: RXS-0055
+// Drop execution order, observable by true run (M3.2 exit smoke):
+// expected stdout lines, in order:
+//   consume
+//   drop a
+//   tail
+//   drop b
+// i.e. the moved-out `A` is dropped at callee scope exit (not in main), and
+// `B` is dropped at main exit (reverse declaration order among survivors).
+
+struct A {}
+
+impl Drop for A {
+    fn drop(&mut self) {
+        println("drop a");
+    }
+}
+
+struct B {}
+
+impl Drop for B {
+    fn drop(&mut self) {
+        println("drop b");
+    }
+}
+
+fn consume(x: A) {
+    println("consume");
+}
+
+fn main() {
+    let a = A {};
+    let b = B {};
+    consume(a); // `a` moved: dropped inside consume, before "tail"
+    println("tail");
+}

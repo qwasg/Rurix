@@ -35,6 +35,15 @@ typeck.bad_operand = operator {op} cannot be applied to type {ty}
 # 模式穷尽性诊断(RX2007,spec/borrow.md RXS-0051;M3.1 分配)
 typeck.non_exhaustive_match = non-exhaustive match: {witness} not covered
 #
+# Copy/Drop 定义处检查(RX2008 ~ RX2009,spec/borrow.md RXS-0053/RXS-0055;M3.2 分配)
+typeck.bad_derive_copy = `derive(Copy)` cannot be applied to {ty}: {reason}
+typeck.bad_drop_impl = invalid `Drop` impl for {ty}: {reason}
+#
+# move/init 数据流诊断(RX4001 ~ RX4003,spec/borrow.md RXS-0053/RXS-0054;M3.2 分配)
+borrowck.use_after_move = use of moved value {place}
+borrowck.use_before_init = use of possibly-uninitialized value {place}
+borrowck.move_out_of_ref = cannot move {place} out of a reference
+#
 # codegen / 链接诊断(RX6001 ~ RX6002 / RX7001;M2.3 分配)
 codegen.unsupported_construct = {construct} is not supported by codegen yet (M2.3 host subset)
 codegen.missing_main = no `main` function found for executable target

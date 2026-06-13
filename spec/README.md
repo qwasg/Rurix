@@ -39,7 +39,7 @@
 | [syntax.md](syntax.md) | 语法结构 | RXS-0011 ~ RXS-0031 | M1.3 |
 | [names.md](names.md) | 名称与模块语义 | RXS-0032 ~ RXS-0038 | M2.1 |
 | [types.md](types.md) | 类型与检查语义 | RXS-0039 ~ RXS-0047 | M2.2 |
-| [borrow.md](borrow.md) | 所有权与借用语义(desugar/穷尽性/drop scope 首批) | RXS-0048 ~ RXS-0052 | M3.1 |
+| [borrow.md](borrow.md) | 所有权与借用语义(desugar/穷尽性/drop scope 首批;move/init/Drop 执行语义) | RXS-0048 ~ RXS-0056 | M3.1 |
 
 ## 5. 修订记录
 
@@ -50,3 +50,4 @@
 | v1.2 | 2026-06-11 | §4 文件清单追加 names.md(RXS-0032 ~ RXS-0038,M2.1 names 条款化登记,无体例变更) | Direct |
 | v1.3 | 2026-06-12 | §4 文件清单追加 types.md(RXS-0039 ~ RXS-0047,M2.2 types 条款化登记,无体例变更) | Direct |
 | v1.4 | 2026-06-12 | §4 文件清单追加 borrow.md(RXS-0048 ~ RXS-0052,M3.1 desugar/穷尽性/drop scope 首批条款化登记,无体例变更) | Direct |
+| v1.5 | 2026-06-13 | §4 borrow.md 行区间更新至 RXS-0056(M3.2 move/init/Drop 执行语义条款追加登记,无体例变更) | Direct |

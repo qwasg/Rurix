@@ -1,0 +1,31 @@
+//@ spec: RXS-0053
+// Copy semantics positives: scalars / shared refs / derive(Copy) ADTs copy on
+// by-value use (source stays valid); non-Copy ADTs move into a call and are
+// not used afterwards. Full-pipeline 0-diag is the M3.2 exit criterion.
+
+#[derive(Copy)]
+struct Point {
+    x: i32,
+    y: i32,
+}
+
+struct Token {
+    id: i32,
+}
+
+fn consume(t: Token) -> i32 {
+    t.id
+}
+
+fn main() {
+    let p = Point { x: 1, y: 2 };
+    let q = p; // copy: `p` remains valid
+    let s = p.x + q.y;
+
+    let r = &s; // shared reference is Copy
+    let r2 = r;
+    let total = *r + *r2;
+
+    let t = Token { id: total };
+    let _got = consume(t); // move into call; `t` not used afterwards
+}

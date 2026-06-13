@@ -56,3 +56,7 @@
 | RXS-0050 | spec/borrow.md | 5 | `conformance/desugar/desugar_run_smoke.rx`, `conformance/desugar/question_mark_result.rx`, `src/rurixc/src/lower.rs` …(+2) |
 | RXS-0051 | spec/borrow.md | 5 | `conformance/desugar/match_exhaustive.rx`, `src/rurixc/src/mir_build.rs`, `src/rurixc/src/tbir_build.rs` …(+2) |
 | RXS-0052 | spec/borrow.md | 3 | `conformance/desugar/desugar_run_smoke.rx`, `conformance/desugar/drop_scope_blocks.rx`, `src/rurixc/src/tbir_build.rs` |
+| RXS-0053 | spec/borrow.md | 1 | `conformance/borrowck/accept/copy_types.rx` |
+| RXS-0054 | spec/borrow.md | 1 | `conformance/borrowck/accept/move_reinit.rx` |
+| RXS-0055 | spec/borrow.md | 1 | `conformance/borrowck/accept/drop_order_run.rx` |
+| RXS-0056 | spec/borrow.md | 1 | `conformance/borrowck/accept/temp_drop_stmt.rx` |
