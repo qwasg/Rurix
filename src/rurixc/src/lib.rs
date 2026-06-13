@@ -9,6 +9,7 @@
 pub mod ast;
 pub mod borrow_check;
 pub mod codegen;
+pub mod coloring;
 pub mod const_eval;
 pub mod dataflow;
 pub mod diag;

@@ -212,6 +212,30 @@
       "spec_clauses": ["RXS-0055"]
     },
     {
+      "id": "RX3001",
+      "title": "跨着色非法调用(device 上下文调用 host-only 函数 / 直接调用 kernel fn)",
+      "message_key": "coloring.cross_color_call",
+      "status": "active",
+      "introduced_in": "M4.1",
+      "spec_clauses": ["RXS-0066", "RXS-0069"]
+    },
+    {
+      "id": "RX3002",
+      "title": "地址空间不匹配(View 族容器的地址空间类型参数不一致)",
+      "message_key": "addrspace.mismatch",
+      "status": "active",
+      "introduced_in": "M4.1",
+      "spec_clauses": ["RXS-0067", "RXS-0069"]
+    },
+    {
+      "id": "RX3003",
+      "title": "barrier 非 uniform 可达(block.sync() 出现在依赖 thread id 的分支内,保守骨架)",
+      "message_key": "coloring.barrier_non_uniform",
+      "status": "active",
+      "introduced_in": "M4.1",
+      "spec_clauses": ["RXS-0068", "RXS-0069"]
+    },
+    {
       "id": "RX4001",
       "title": "使用已移出的值(use after move,含 maybe-moved 保守判定)",
       "message_key": "borrowck.use_after_move",
@@ -355,6 +379,11 @@
       "version": "v1.9",
       "date": "2026-06-13",
       "change": "M3.4 WP2 分配 RX5001 ~ RX5003(spec/consteval.md RXS-0062/RXS-0063/RXS-0065 配套,M3_PLAN §4 任务 2,WP1 spec 先行引用的正式分配)。5xxx const eval 段位首批:RX5001 求值溢出(整数运算溢出 / 数组长度越界 / 算术失败)、RX5002 求值越界(常量索引越界)、RX5003 非 const 操作(子集外操作 / 不可终止 / 环求值);段位 5xxx 首次启用,编号段内分配制递增不复用"
+    },
+    {
+      "version": "v1.10",
+      "date": "2026-06-13",
+      "change": "M4.1 分配 RX3001 ~ RX3003(spec/device.md RXS-0066/RXS-0067/RXS-0068/RXS-0069 配套,M4_PLAN §1 任务 5,条款 PR 先行引用的正式分配)。3xxx 着色/地址空间段位首批:RX3001 跨着色非法调用(device 上下文调 host-only / 直接调用 kernel fn)、RX3002 地址空间不匹配(View 族空间类型参数不一致)、RX3003 barrier 非 uniform 可达(thread-id 依赖分支内调 barrier,保守骨架);段位 3xxx 首次启用,编号段内分配制递增不复用(列于 RX2009 与 RX4001 之间为段位有序,JSON 数组序非分配序)"
     }
   ]
 }

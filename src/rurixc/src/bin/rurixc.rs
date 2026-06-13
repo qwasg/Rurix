@@ -134,6 +134,9 @@ fn main() -> ExitCode {
             if diag.has_errors() {
                 None
             } else {
+                // 着色 + barrier 骨架(M4.1,RXS-0066/0068):HIR 层,typeck 后、
+                // MIR 前;地址空间一致性(RXS-0067)已在 typeck 合一处裁决
+                cx.check_coloring();
                 // 模式穷尽性(RXS-0051):TBIR 窄门时点(typeck 后、MIR 前),
                 // 全 body 覆盖(含 MIR 可达性外的 body)
                 cx.check_crate_patterns();

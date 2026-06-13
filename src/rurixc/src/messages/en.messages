@@ -32,6 +32,11 @@ typeck.unknown_method = no method named {method} found on type {ty}
 typeck.not_callable = expression of type {ty} is not callable
 typeck.bad_operand = operator {op} cannot be applied to type {ty}
 #
+# 着色 / 地址空间诊断(RX3001 ~ RX3003,spec/device.md RXS-0066~0069;M4.1 分配)
+coloring.cross_color_call = cannot call {callee} from a {context} context
+addrspace.mismatch = address space mismatch: expected {expected}, found {found}
+coloring.barrier_non_uniform = `block.sync()` is not uniformly reachable: called inside a thread-id-dependent branch (requires `unsafe`)
+#
 # 模式穷尽性诊断(RX2007,spec/borrow.md RXS-0051;M3.1 分配)
 typeck.non_exhaustive_match = non-exhaustive match: {witness} not covered
 #

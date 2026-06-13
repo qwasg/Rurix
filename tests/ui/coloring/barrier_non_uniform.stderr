@@ -1,0 +1,5 @@
+error[RX3003]: `block.sync()` is not uniformly reachable: called inside a thread-id-dependent branch (requires `unsafe`)
+ --> $DIR/coloring/barrier_non_uniform.rx:4:9
+  |
+4 |         t.sync(); //~ ERROR RX3003
+  |         ^^^^^^^^ barrier inside a thread-id-dependent branch

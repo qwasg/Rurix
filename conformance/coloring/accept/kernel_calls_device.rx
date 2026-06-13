@@ -1,0 +1,10 @@
+//@ spec: RXS-0066
+// coloring positive: device context (kernel body) may call a `device fn`.
+
+device fn helper() {}
+
+kernel fn k() {
+    helper();
+}
+
+fn main() {}

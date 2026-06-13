@@ -1,0 +1,8 @@
+//@ spec: RXS-0066
+// coloring positive: host context may call a `device fn` (device ⊂ host callable set).
+
+device fn helper() {}
+
+fn main() {
+    helper();
+}

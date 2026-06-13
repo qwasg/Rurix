@@ -41,6 +41,7 @@
 | [types.md](types.md) | 类型与检查语义 | RXS-0039 ~ RXS-0047 | M2.2 |
 | [borrow.md](borrow.md) | 所有权与借用语义(desugar/穷尽性/drop scope 首批;move/init/Drop 执行语义;借用/生命周期主体) | RXS-0048 ~ RXS-0061 | M3.1 |
 | [consteval.md](consteval.md) | const 求值语义(const fn 子集 / const item 求值 / const 泛型 / 求值失败) | RXS-0062 ~ RXS-0065 | M3.4 |
+| [device.md](device.md) | device 语义(函数着色与跨着色调用 / 地址空间类型与一致性 / barrier uniform 可达性保守骨架 / 着色与地址空间诊断要求;codegen/launch 条款随 M4.2/M4.3 续写) | RXS-0066 ~ RXS-0069 | M4.1 |
 
 ## 5. 修订记录
 
@@ -54,3 +55,4 @@
 | v1.5 | 2026-06-13 | §4 borrow.md 行区间更新至 RXS-0056(M3.2 move/init/Drop 执行语义条款追加登记,无体例变更) | Direct |
 | v1.6 | 2026-06-13 | §4 borrow.md 行区间更新至 RXS-0061(M3.3 借用/生命周期主体条款追加登记,无体例变更) | Direct |
 | v1.7 | 2026-06-13 | §4 文件清单追加 consteval.md(RXS-0062 ~ RXS-0065,M3.4 const eval 首批条款化登记,无体例变更) | Direct |
+| v1.8 | 2026-06-13 | §4 文件清单追加 device.md(RXS-0066 ~ RXS-0069,M4.1 device 着色/地址空间首批条款化登记;codegen/launch 条款随 M4.2/M4.3 续写本文件,无体例变更) | Direct |

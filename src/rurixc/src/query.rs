@@ -43,6 +43,8 @@ pub struct QueryCtx<'a> {
     checked_patterns: RefCell<std::collections::HashSet<BodyId>>,
     /// 定义处检查已跑标记(RXS-0053/RXS-0055;memo 防重复诊断)。
     checked_defs: Cell<bool>,
+    /// 着色/barrier 骨架检查已跑标记(RXS-0066/0068;memo 防重复诊断)。
+    checked_coloring: Cell<bool>,
     /// move/init 检查已跑标记(RXS-0054;memo 防重复诊断)。
     checked_moves: Cell<bool>,
     /// 借用检查已跑标记(RXS-0057~0061;memo 防重复诊断)。
@@ -84,6 +86,7 @@ impl<'a> QueryCtx<'a> {
             checked_bodies: RefCell::new(HashMap::new()),
             checked_patterns: RefCell::new(std::collections::HashSet::new()),
             checked_defs: Cell::new(false),
+            checked_coloring: Cell::new(false),
             checked_moves: Cell::new(false),
             checked_borrows: Cell::new(false),
             const_vals: RefCell::new(HashMap::new()),
@@ -237,6 +240,18 @@ impl<'a> QueryCtx<'a> {
         for i in 0..krate.bodies.len() {
             let _ = self.check_body(BodyId(i as u32));
         }
+    }
+
+    /// 着色 + barrier 骨架检查(RXS-0066/0068;HIR 层,typeck 后、MIR 前;
+    /// provider:[`crate::coloring::check_crate`])。地址空间一致性(RXS-0067)
+    /// 在 typeck 合一处裁决,不在此 query。memo 防重复诊断。
+    pub fn check_coloring(&self) {
+        if self.checked_coloring.replace(true) {
+            self.hit();
+            return;
+        }
+        self.miss();
+        crate::coloring::check_crate(self);
     }
 
     /// 模式穷尽性检查(RXS-0051;TBIR 窄门时点 = typeck 后、MIR 前)。

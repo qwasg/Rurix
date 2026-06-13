@@ -1,0 +1,8 @@
+//@ spec: RXS-0066
+fn host_only() {}
+
+device fn d() {
+    host_only(); //~ ERROR RX3001
+}
+
+fn main() {}

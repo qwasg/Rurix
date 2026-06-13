@@ -147,9 +147,15 @@ def eval_counter(entry: dict, strict: bool) -> None:
         n = len([p for p in reject_dir.iterdir() if p.is_dir()]) if reject_dir.is_dir() else 0
         count_or_gate(eid, n, 4, "个预设错误类别目录", "M4.3 建设期为正常状态,契约 G-M4-2", strict)
     elif eid == "m4.counter.ui_golden_path4_snapshots":
-        codegen_dir = ROOT / "tests" / "ui" / "codegen"
-        n = len(list(codegen_dir.glob("**/*.stderr"))) if codegen_dir.is_dir() else 0
-        count_or_gate(eid, n, 10, "条 .stderr snapshot", "M4.3 建设期为正常状态,契约 G-M4-3", strict)
+        # 黄金路径 4 = 目标后端错误:3xxx 着色/地址空间(M4.1)+ 6xxx codegen/ptxas
+        # (M4.3),契约 G-M4-3 覆盖两段;计数聚合三目录。
+        path4_dirs = ["coloring", "addrspace", "codegen"]
+        n = sum(
+            len(list((ROOT / "tests" / "ui" / d).glob("**/*.stderr")))
+            for d in path4_dirs
+            if (ROOT / "tests" / "ui" / d).is_dir()
+        )
+        count_or_gate(eid, n, 10, "条 .stderr snapshot", "M4.1 3xxx 子集已入,6xxx 随 M4.3,契约 G-M4-3", strict)
     elif eid == "m1.counter.spec_clause_test_anchoring":
         # 条款 ↔ 测试锚定由 traceability 矩阵工具核对(M1.4 交付物,契约 G-M1-4);
         # 矩阵产物落地前 normal skip / strict FAIL,落地后委托其自身校验结果。

@@ -1,0 +1,8 @@
+//@ spec: RXS-0068
+// barrier positive: `sync()` at the top level of a kernel is uniformly reachable.
+
+kernel fn k(t: ThreadCtx<1>) {
+    t.sync();
+}
+
+fn main() {}

@@ -188,6 +188,17 @@ impl Lowerer<'_> {
         if let Some(drop_trait) = li.drop_trait {
             self.set_item(drop_trait, hir::ItemKind::Trait { items: Vec::new() });
         }
+        // 设备 View 族容器 + 地址空间标记(RXS-0067):空字段 struct 形态——
+        // 地址空间作为类型实参由 lower_ty 原样携带(typeck 合一处裁决)。
+        for d in li
+            .view
+            .into_iter()
+            .chain(li.view_mut)
+            .chain(li.buffer)
+            .chain(li.addr_spaces.into_iter().flatten())
+        {
+            self.set_item(d, hir::ItemKind::Struct { fields: Vec::new() });
+        }
     }
 
     /// 降级一个 item;返回其在所属容器中的 DefId 列表(extern 块展平为多个)。

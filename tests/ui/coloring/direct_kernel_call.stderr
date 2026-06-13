@@ -1,0 +1,5 @@
+error[RX3001]: cannot call a `kernel` function from a host context
+ --> $DIR/coloring/direct_kernel_call.rx:5:5
+  |
+5 |     k(); //~ ERROR RX3001
+  |     ^^^ cannot be called from a host context

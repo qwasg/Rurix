@@ -1,0 +1,8 @@
+//@ spec: RXS-0068
+kernel fn k(t: ThreadCtx<1>) {
+    if t.global_id() < 10 {
+        t.sync(); //~ ERROR RX3003
+    }
+}
+
+fn main() {}

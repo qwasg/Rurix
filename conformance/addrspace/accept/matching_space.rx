@@ -1,0 +1,10 @@
+//@ spec: RXS-0067
+// addrspace positive: argument and parameter views share the `global` address space.
+
+device fn consume(v: View<global, f32>) {}
+
+kernel fn k(g: View<global, f32>) {
+    consume(g);
+}
+
+fn main() {}
