@@ -97,7 +97,7 @@ fn run_case(path: &Path, src: &str) -> CaseResult {
     // 阶段化(对齐 rustc:前一阶段有错即停,防级联污染 snapshot):
     // parse/gate 干净 → 名称解析(M2.1,1xxx);resolve 干净 → typeck(M2.2,
     // 2xxx);typeck 干净 → 模式穷尽性(M3.1,RX2007,TBIR 窄门时点)→
-    // move/init 数据流(M3.2,4xxx,MIR 后)
+    // move/init 数据流(M3.2,4xxx,MIR 后)→ NLL 借用检查(M3.3,4xxx)
     if !diag.has_errors() {
         let cx = QueryCtx::from_ast(ast, src, id, &diag);
         let _ = cx.resolutions();
@@ -107,6 +107,9 @@ fn run_case(path: &Path, src: &str) -> CaseResult {
                 cx.check_crate_patterns();
                 if !diag.has_errors() {
                     cx.check_moves();
+                    if !diag.has_errors() {
+                        cx.check_borrows();
+                    }
                 }
             }
         }

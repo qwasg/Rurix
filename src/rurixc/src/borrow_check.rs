@@ -12,7 +12,8 @@
 //!   - RXS-0061 悬垂引用(局部引用经返回槽逃逸)→ `RX4006`(dangling_reference)。
 //!
 //! 07 §4 先正确性后诊断:保守允许放大,误报登记为已知限制;措辞粗糙。
-//! WP2 仅提供 `check_body` 分析面与单测;接入 query/管线在 WP3。
+//! 检查时点 = MIR 构造后、codegen 前,move/init 之后(NLL 前置 pass);
+//! 经 [`crate::query::QueryCtx::check_borrows`] query 接入管线(M3.3 WP3)。
 
 use std::collections::{HashMap, HashSet};
 
@@ -556,17 +557,13 @@ mod tests {
     use crate::query::QueryCtx;
     use crate::span::{Edition, SourceId};
 
-    /// 建 MIR(经全 query 通道,前置无诊断)后直接跑借用检查,回收错误码。
-    /// WP2 不接 query/管线(WP3),此处直调 [`check_body`] 验证分析面。
+    /// 经全 query 通道建 MIR(前置无诊断)后跑 `check_borrows` query,回收错误码。
     fn check(src: &str) -> Vec<u16> {
         let diag = DiagCtxt::new();
         let cx = QueryCtx::new(src, SourceId(0), Edition::Rx0, &diag);
         cx.check_crate();
         assert!(diag.emitted().is_empty(), "前置诊断: {:?}", diag.emitted());
-        let mir = cx.mir_crate();
-        for body in mir.iter() {
-            check_body(&diag, body);
-        }
+        cx.check_borrows();
         let mut codes: Vec<u16> = diag
             .emitted()
             .iter()
@@ -663,6 +660,28 @@ mod tests {
             "fn id(r: &i32) -> &i32 { r }\nfn main() {\n    let x = 1;\n    let _r = id(&x);\n}",
         );
         assert!(codes.is_empty(), "{codes:?}");
+    }
+
+    // -- query 接入:memo 命中/纯函数纪律 ------------------------------------
+
+    //@ spec: RXS-0058
+    #[test]
+    fn check_borrows_query_memoized() {
+        // 同 QueryCtx 连调两次 check_borrows:第二次走 memo,不重复诊断、不重算。
+        let diag = DiagCtxt::new();
+        let src = "fn use2(a: &mut i32, b: &mut i32) -> i32 { *a + *b }\nfn main() {\n    let mut x = 1;\n    let r1 = &mut x;\n    let r2 = &mut x;\n    let _z = use2(r1, r2);\n}";
+        let cx = QueryCtx::new(src, SourceId(0), Edition::Rx0, &diag);
+        cx.check_crate();
+        assert!(diag.emitted().is_empty(), "前置诊断: {:?}", diag.emitted());
+        cx.check_borrows();
+        let after_first = diag.emitted().len();
+        assert_eq!(after_first, 1, "首次借用检查应恰报一笔 RX4004");
+        let misses_after_first = cx.memo_misses();
+        let hits_before = cx.memo_hits();
+        cx.check_borrows();
+        assert_eq!(diag.emitted().len(), after_first, "二次调用不得重复诊断");
+        assert_eq!(cx.memo_misses(), misses_after_first, "二次调用零重算");
+        assert!(cx.memo_hits() > hits_before, "二次调用应命中 memo");
     }
 
     // -- 中间产物:reaching in-scope borrows --------------------------------

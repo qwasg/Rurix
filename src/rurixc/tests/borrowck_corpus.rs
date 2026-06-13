@@ -42,6 +42,9 @@ fn run_pipeline(src: &str) -> Vec<u16> {
         cx.check_crate_patterns();
         let _ = cx.mir_crate();
         cx.check_moves();
+        if !diag.has_errors() {
+            cx.check_borrows();
+        }
     }
     diag.emitted()
         .iter()

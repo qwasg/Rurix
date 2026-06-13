@@ -44,6 +44,8 @@ pub struct QueryCtx<'a> {
     checked_defs: Cell<bool>,
     /// move/init 检查已跑标记(RXS-0054;memo 防重复诊断)。
     checked_moves: Cell<bool>,
+    /// 借用检查已跑标记(RXS-0057~0061;memo 防重复诊断)。
+    checked_borrows: Cell<bool>,
     mir: OnceCell<Rc<Vec<crate::mir::Body>>>,
     // ---- 计量(self-profile 布点,07 §6) ----
     hits: Cell<u64>,
@@ -76,6 +78,7 @@ impl<'a> QueryCtx<'a> {
             checked_patterns: RefCell::new(std::collections::HashSet::new()),
             checked_defs: Cell::new(false),
             checked_moves: Cell::new(false),
+            checked_borrows: Cell::new(false),
             mir: OnceCell::new(),
             hits: Cell::new(0),
             misses: Cell::new(0),
@@ -261,6 +264,20 @@ impl<'a> QueryCtx<'a> {
         let mir = self.mir_crate();
         for body in mir.iter() {
             crate::move_check::check_body(self.diag, body);
+        }
+    }
+
+    /// NLL 借用检查(RXS-0057~0061;MIR 后、codegen 前,move/init 之后强制;
+    /// provider:[`crate::borrow_check::check_body`] 对全部单态化实例)。
+    pub fn check_borrows(&self) {
+        if self.checked_borrows.replace(true) {
+            self.hit();
+            return;
+        }
+        self.miss();
+        let mir = self.mir_crate();
+        for body in mir.iter() {
+            crate::borrow_check::check_body(self.diag, body);
         }
     }
 

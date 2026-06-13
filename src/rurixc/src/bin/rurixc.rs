@@ -150,6 +150,10 @@ fn main() -> ExitCode {
                     if !diag.has_errors() {
                         cx.check_moves();
                     }
+                    // NLL 借用检查(M3.3,RXS-0057~0061):move/init 之后强制
+                    if !diag.has_errors() {
+                        cx.check_borrows();
+                    }
                     if m.is_empty() {
                         diag.struct_error(E_MISSING_MAIN, "codegen.missing_main")
                             .emit();
