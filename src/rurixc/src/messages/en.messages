@@ -44,6 +44,11 @@ borrowck.use_after_move = use of moved value {place}
 borrowck.use_before_init = use of possibly-uninitialized value {place}
 borrowck.move_out_of_ref = cannot move {place} out of a reference
 #
+# NLL 借用检查诊断(RX4004 ~ RX4006,spec/borrow.md RXS-0058/RXS-0060/RXS-0061;M3.3 分配)
+borrowck.borrow_conflict = conflicting borrows of {place}: {kind}
+borrowck.borrow_while_borrowed = cannot {action} {place} while it is borrowed
+borrowck.dangling_reference = reference to {place} outlives the value it refers to
+#
 # codegen / 链接诊断(RX6001 ~ RX6002 / RX7001;M2.3 分配)
 codegen.unsupported_construct = {construct} is not supported by codegen yet (M2.3 host subset)
 codegen.missing_main = no `main` function found for executable target

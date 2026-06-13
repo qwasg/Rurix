@@ -20,8 +20,9 @@ use crate::ast::{BinOp, LitKind, LitSuffix, UnOp};
 use crate::diag::ErrorCode;
 use crate::hir::{self, DefId, LocalId, PrimTy};
 use crate::mir::{
-    BasicBlock, BlockIdx, Body, CallTarget, Const, Local, LocalIdx, Operand, Place, ProjElem,
-    Rvalue, Statement, StatementKind, Terminator, TerminatorKind, enum_variant_layout, mangle,
+    BasicBlock, BlockIdx, Body, BorrowKind, CallTarget, Const, Local, LocalIdx, Operand, Place,
+    ProjElem, Rvalue, Statement, StatementKind, Terminator, TerminatorKind, enum_variant_layout,
+    mangle,
 };
 use crate::query::QueryCtx;
 use crate::resolve::Resolutions;
@@ -479,10 +480,15 @@ impl Builder<'_, '_> {
                 let o = self.op_of(expr);
                 self.rvalue_to_op(Rvalue::UnaryOp(*op, o), ty, e.span)
             }
-            tbir::ExprKind::Borrow { expr, .. } => {
+            tbir::ExprKind::Borrow { mutable, expr } => {
                 let ty = self.ty_of(e);
                 let p = self.place_of_or_temp(expr);
-                self.rvalue_to_op(Rvalue::Ref(p), ty, e.span)
+                let kind = if *mutable {
+                    BorrowKind::Mut
+                } else {
+                    BorrowKind::Shared
+                };
+                self.rvalue_to_op(Rvalue::Ref(kind, p), ty, e.span)
             }
             tbir::ExprKind::Binary {
                 op: op @ (BinOp::And | BinOp::Or),

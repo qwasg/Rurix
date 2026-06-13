@@ -53,7 +53,7 @@ pub(crate) fn rvalue_operands(rv: &Rvalue) -> Vec<&Operand> {
         Rvalue::Use(o) | Rvalue::UnaryOp(_, o) | Rvalue::Cast(o, _) => vec![o],
         Rvalue::BinaryOp(_, a, b) => vec![a, b],
         Rvalue::Aggregate(_, ops) | Rvalue::VariantAggregate { ops, .. } => ops.iter().collect(),
-        Rvalue::Ref(_) | Rvalue::Discriminant(_) => Vec::new(),
+        Rvalue::Ref(..) | Rvalue::Discriminant(_) => Vec::new(),
     }
 }
 
@@ -207,7 +207,7 @@ impl Reporter<'_> {
         }
         match rv {
             // 取引用 / 判别读取 = 使用(须已初始化且未 move,RXS-0054)
-            Rvalue::Ref(p) | Rvalue::Discriminant(p) => {
+            Rvalue::Ref(_, p) | Rvalue::Discriminant(p) => {
                 self.check_read(state, p, stmt.span, false);
             }
             _ => {}

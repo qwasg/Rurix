@@ -427,7 +427,7 @@ impl Cg<'_> {
                 let (ptr, _) = self.place_ptr(b, place);
                 let _ = writeln!(self.fns, "  store {ll} {v}, ptr {ptr}{}", self.dbg_suffix());
             }
-            Rvalue::Ref(src) => {
+            Rvalue::Ref(_, src) => {
                 let (src_ptr, _) = self.place_ptr(b, src);
                 let (ptr, _) = self.place_ptr(b, place);
                 let _ = writeln!(

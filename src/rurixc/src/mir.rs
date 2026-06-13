@@ -88,6 +88,13 @@ impl Place {
     }
 }
 
+/// 借用种类(RXS-0057:共享 `&` / 独占 `&mut`;借用检查数据流输入)。
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum BorrowKind {
+    Shared,
+    Mut,
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ProjElem {
     Deref,
@@ -136,8 +143,8 @@ pub enum Rvalue {
     Use(Operand),
     BinaryOp(BinOp, Operand, Operand),
     UnaryOp(UnOp, Operand),
-    /// `&place` / `&mut place`(borrow 检查随 M3,此处仅取址)。
-    Ref(Place),
+    /// `&place` / `&mut place`(RXS-0057:携带借用种类,作为借用检查数据流输入)。
+    Ref(BorrowKind, Place),
     /// 数值/bool/char 转换(RXS-0046 合法面;目标类型显式)。
     Cast(Operand, Ty),
     /// struct / 元组构造(operand 按定义序/位置序)。
@@ -370,7 +377,8 @@ fn print_rvalue(rv: &Rvalue, res: &Resolutions) -> String {
             print_operand(b)
         ),
         Rvalue::UnaryOp(op, a) => format!("{}({})", unop_name(*op), print_operand(a)),
-        Rvalue::Ref(p) => format!("&{}", print_place(p)),
+        Rvalue::Ref(BorrowKind::Shared, p) => format!("&{}", print_place(p)),
+        Rvalue::Ref(BorrowKind::Mut, p) => format!("&mut {}", print_place(p)),
         Rvalue::Cast(o, t) => format!("{} as {}", print_operand(o), t.render_plain(res)),
         Rvalue::Aggregate(t, ops) => {
             let parts: Vec<String> = ops.iter().map(print_operand).collect();
