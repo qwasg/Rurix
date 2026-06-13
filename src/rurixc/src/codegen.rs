@@ -350,6 +350,10 @@ impl Cg<'_> {
                         _ => Ty::Err,
                     };
                 }
+                // View 索引(RXS-0071)是 device codegen 专属投影,host MIR 不产出。
+                ProjElem::Index(_) => {
+                    unreachable!("ProjElem::Index 仅出现在 device MIR(NVPTX codegen)")
+                }
             }
         }
         (ptr, ty)
@@ -716,6 +720,10 @@ impl Cg<'_> {
                             );
                         }
                     }
+                    // device intrinsic(RXS-0072)是 device codegen 专属,host 不产出。
+                    CallTarget::DeviceIntrinsic(_) => {
+                        unreachable!("CallTarget::DeviceIntrinsic 仅出现在 device MIR(NVPTX codegen)")
+                    }
                 }
                 let _ = writeln!(self.fns, "  br label %bb{}{}", next.0, self.dbg_suffix());
             }
@@ -895,6 +903,9 @@ impl Cg<'_> {
                         .unwrap_or(Ty::Err),
                     _ => Ty::Err,
                 },
+                ProjElem::Index(_) => {
+                    unreachable!("ProjElem::Index 仅出现在 device MIR(NVPTX codegen)")
+                }
             };
         }
         (String::new(), ty)
@@ -905,7 +916,7 @@ impl Cg<'_> {
 // 指令选择表
 // ---------------------------------------------------------------------------
 
-fn prim_llty(p: PrimTy) -> &'static str {
+pub(crate) fn prim_llty(p: PrimTy) -> &'static str {
     match p {
         PrimTy::I8 | PrimTy::U8 | PrimTy::Bool => "i8",
         PrimTy::I16 | PrimTy::U16 => "i16",
@@ -917,14 +928,14 @@ fn prim_llty(p: PrimTy) -> &'static str {
     }
 }
 
-fn ty_signed(t: &Ty) -> bool {
+pub(crate) fn ty_signed(t: &Ty) -> bool {
     matches!(
         t,
         Ty::Prim(PrimTy::I8 | PrimTy::I16 | PrimTy::I32 | PrimTy::I64)
     )
 }
 
-fn arith_inst(op: BinOp, is_float: bool, signed: bool) -> &'static str {
+pub(crate) fn arith_inst(op: BinOp, is_float: bool, signed: bool) -> &'static str {
     match (op, is_float) {
         (BinOp::Add, true) => "fadd",
         (BinOp::Add, false) => "add",
@@ -942,7 +953,7 @@ fn arith_inst(op: BinOp, is_float: bool, signed: bool) -> &'static str {
     }
 }
 
-fn bit_inst(op: BinOp, signed: bool) -> &'static str {
+pub(crate) fn bit_inst(op: BinOp, signed: bool) -> &'static str {
     match op {
         BinOp::BitAnd => "and",
         BinOp::BitOr => "or",
@@ -954,7 +965,7 @@ fn bit_inst(op: BinOp, signed: bool) -> &'static str {
     }
 }
 
-fn icmp_cond(op: BinOp, signed: bool) -> &'static str {
+pub(crate) fn icmp_cond(op: BinOp, signed: bool) -> &'static str {
     match (op, signed) {
         (BinOp::Eq, _) => "eq",
         (BinOp::Ne, _) => "ne",
@@ -970,7 +981,7 @@ fn icmp_cond(op: BinOp, signed: bool) -> &'static str {
     }
 }
 
-fn fcmp_cond(op: BinOp) -> &'static str {
+pub(crate) fn fcmp_cond(op: BinOp) -> &'static str {
     match op {
         BinOp::Eq => "oeq",
         BinOp::Ne => "une",
@@ -983,7 +994,7 @@ fn fcmp_cond(op: BinOp) -> &'static str {
 }
 
 /// 数值/bool/char 转换指令(RXS-0046 合法面;同 LLVM 类型在调用方短路)。
-fn cast_inst(from: &Ty, to: &Ty) -> &'static str {
+pub(crate) fn cast_inst(from: &Ty, to: &Ty) -> &'static str {
     let (Ty::Prim(f), Ty::Prim(t)) = (from, to) else {
         return "bitcast";
     };
@@ -1020,7 +1031,7 @@ fn cast_inst(from: &Ty, to: &Ty) -> &'static str {
     }
 }
 
-fn prim_width(p: PrimTy) -> u32 {
+pub(crate) fn prim_width(p: PrimTy) -> u32 {
     match p {
         PrimTy::I8 | PrimTy::U8 | PrimTy::Bool => 8,
         PrimTy::I16 | PrimTy::U16 => 16,
@@ -1031,7 +1042,7 @@ fn prim_width(p: PrimTy) -> u32 {
 }
 
 /// 整数常量按位宽回卷为有符号文本(LLVM IR 整数常量为有符号解读;位宽 ≤64)。
-fn wrap_signed(v: i128, width: u32) -> i128 {
+pub(crate) fn wrap_signed(v: i128, width: u32) -> i128 {
     let m = v & ((1i128 << width) - 1);
     if m >= (1i128 << (width - 1)) {
         m - (1i128 << width)

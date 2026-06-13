@@ -1,0 +1,5 @@
+error[RX6005]: device codegen constraint violated: address space `host` is not codegen-able as a device view
+ --> $DIR/codegen/host_addrspace_view.rx:2:11
+  |
+2 | kernel fn k(v: View<host, f32>, t: ThreadCtx<1>) { //~ ERROR RX6005
+  |           ^ in device (kernel) code

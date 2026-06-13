@@ -9,8 +9,8 @@
 //! - 单态化实例(D-111 全单态化)即独立 [`Body`],泛型实参已代入显式类型;
 //! - 借用检查/drop/TBIR 窄门均为 M3 职责,本层不建模。
 
-use crate::ast::{BinOp, UnOp};
-use crate::hir::{Builtin, DefId, PrimTy};
+use crate::ast::{BinOp, FnColor, UnOp};
+use crate::hir::{Builtin, DefId, DeviceIntrinsic, PrimTy};
 use crate::resolve::Resolutions;
 use crate::span::Span;
 use crate::ty::Ty;
@@ -29,6 +29,9 @@ pub struct Body {
     pub def: DefId,
     /// 链接符号名(`main` 保留原名;其余经 [`mangle`])。
     pub symbol: String,
+    /// 函数着色(M4.2,RXS-0070):codegen 分叉 host(`x86_64`)/ device
+    /// (`ptx_kernel` 调用约定 / 普通 device fn)通道的依据。
+    pub color: FnColor,
     /// 单态化实参(留痕;类型已代入 locals,codegen 不再消费)。
     pub generic_args: Vec<Ty>,
     pub locals: Vec<Local>,
@@ -100,6 +103,10 @@ pub enum ProjElem {
     Deref,
     /// 字段序(struct 定义序 / 元组位置)。
     Field(u32),
+    /// `View`/`ViewMut` 容器索引(M4.2,RXS-0071):base 为地址空间指针,
+    /// 按 `index`(usize local)偏移 `getelementptr` 得元素 place;device
+    /// codegen 作用面(host MIR 不产出 —— host 数组索引仍报 RX6001)。
+    Index(LocalIdx),
     /// enum 变体载荷字段(M3.1 扁平布局:`base` = 该变体首载荷的布局下标,
     /// 见 [`enum_variant_layout`];`field` = 变体内字段序)。
     VariantField {
@@ -201,6 +208,9 @@ pub enum CallTarget {
         symbol: String,
     },
     Builtin(Builtin),
+    /// device 线程上下文 intrinsic(M4.2,RXS-0072;`ThreadCtx` 方法 →
+    /// NVPTX sreg / barrier intrinsics)。host codegen 不产出。
+    DeviceIntrinsic(DeviceIntrinsic),
 }
 
 /// enum 扁平布局(M3.1 取舍:`{ i32 tag, 变体0载荷…, 变体1载荷…, … }`,
@@ -340,6 +350,7 @@ fn print_place(p: &Place) -> String {
         match e {
             ProjElem::Deref => s = format!("(*{s})"),
             ProjElem::Field(i) => s.push_str(&format!(".{i}")),
+            ProjElem::Index(l) => s.push_str(&format!("[_{}]", l.0)),
             ProjElem::VariantField { base, field, .. } => {
                 s.push_str(&format!(".v[{}+{}]", base, field));
             }
@@ -410,6 +421,7 @@ fn print_term(t: &TerminatorKind) -> String {
             let name = match target {
                 CallTarget::Fn { symbol, .. } => symbol.clone(),
                 CallTarget::Builtin(b) => format!("builtin {}", b.name()),
+                CallTarget::DeviceIntrinsic(d) => format!("device {}", d.name()),
             };
             let a: Vec<String> = args.iter().map(print_operand).collect();
             format!(

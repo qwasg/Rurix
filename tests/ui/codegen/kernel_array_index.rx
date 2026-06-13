@@ -1,0 +1,5 @@
+//@ spec: RXS-0070
+kernel fn k(t: ThreadCtx<1>) {
+    let a = [1.0, 2.0, 3.0]; //~ ERROR RX6001
+    let _x = a[t.global_id()]; //~ ERROR RX6001
+}

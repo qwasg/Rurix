@@ -1,0 +1,4 @@
+//@ spec: RXS-0071
+kernel fn k(v: View<host, f32>, t: ThreadCtx<1>) { //~ ERROR RX6005
+    let _x = v[t.global_id()];
+}

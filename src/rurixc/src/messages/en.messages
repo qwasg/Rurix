@@ -63,3 +63,8 @@ consteval.non_const_operation = {what} is not allowed in a constant context
 codegen.unsupported_construct = {construct} is not supported by codegen yet (M2.3 host subset)
 codegen.missing_main = no `main` function found for executable target
 link.toolchain_failure = external toolchain failure: {reason}
+#
+# device codegen / ptxas 诊断(RX6003 ~ RX6005,spec/device.md RXS-0070~0073;M4.2 分配)
+codegen.device_unsupported = {detail} is not supported by NVPTX device codegen yet (M4.2 subset)
+codegen.ptxas_rejected = ptxas rejected the generated PTX: {reason}
+codegen.device_constraint = device codegen constraint violated: {detail}

@@ -310,6 +310,15 @@ impl Builder<'_> {
                 }
             }
             hir::ExprKind::MethodCall { receiver, args, .. } => {
+                // device intrinsic(M4.2,RXS-0072):`ThreadCtx` 方法 → 无副作用
+                // 的 sreg/barrier 取值,接收者(零尺寸句柄)不下放。
+                if let Some(intr) = self.tcr.device_calls.get(&e.hir_id) {
+                    return tbir::Expr {
+                        ty,
+                        span,
+                        kind: tbir::ExprKind::DeviceCall(*intr),
+                    };
+                }
                 match self.tcr.call_targets.get(&e.hir_id) {
                     Some((def, gargs)) => {
                         let (def, gargs) = (*def, gargs.clone());
@@ -615,6 +624,7 @@ impl ExhaustCx<'_> {
             | tbir::ExprKind::SynthInt(_)
             | tbir::ExprKind::Local(_)
             | tbir::ExprKind::Def(_)
+            | tbir::ExprKind::DeviceCall(_)
             | tbir::ExprKind::Return(None)
             | tbir::ExprKind::Break
             | tbir::ExprKind::Continue

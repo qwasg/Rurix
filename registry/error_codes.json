@@ -322,6 +322,30 @@
       "introduced_in": "M2.3"
     },
     {
+      "id": "RX6003",
+      "title": "device codegen 暂不支持的语言构造(NVPTX codegen 作用面外)",
+      "message_key": "codegen.device_unsupported",
+      "status": "active",
+      "introduced_in": "M4.2",
+      "spec_clauses": ["RXS-0070", "RXS-0073"]
+    },
+    {
+      "id": "RX6004",
+      "title": "ptxas 拒绝 PTX(ptxas -arch=sm_89 干验证被拒)",
+      "message_key": "codegen.ptxas_rejected",
+      "status": "active",
+      "introduced_in": "M4.2",
+      "spec_clauses": ["RXS-0073"]
+    },
+    {
+      "id": "RX6005",
+      "title": "device codegen 内部约束违例(超出 NVPTX 约束子集)",
+      "message_key": "codegen.device_constraint",
+      "status": "active",
+      "introduced_in": "M4.2",
+      "spec_clauses": ["RXS-0071", "RXS-0072", "RXS-0073"]
+    },
+    {
       "id": "RX7001",
       "title": "外部工具链失败(clang/link.exe 定位失败、版本不符 pin 或退出非零)",
       "message_key": "link.toolchain_failure",
@@ -384,6 +408,11 @@
       "version": "v1.10",
       "date": "2026-06-13",
       "change": "M4.1 分配 RX3001 ~ RX3003(spec/device.md RXS-0066/RXS-0067/RXS-0068/RXS-0069 配套,M4_PLAN §1 任务 5,条款 PR 先行引用的正式分配)。3xxx 着色/地址空间段位首批:RX3001 跨着色非法调用(device 上下文调 host-only / 直接调用 kernel fn)、RX3002 地址空间不匹配(View 族空间类型参数不一致)、RX3003 barrier 非 uniform 可达(thread-id 依赖分支内调 barrier,保守骨架);段位 3xxx 首次启用,编号段内分配制递增不复用(列于 RX2009 与 RX4001 之间为段位有序,JSON 数组序非分配序)"
+    },
+    {
+      "version": "v1.11",
+      "date": "2026-06-13",
+      "change": "M4.2 分配 RX6003 ~ RX6005(spec/device.md RXS-0070~0073 配套,M4_PLAN §2 任务 2/3,条款 PR 先行引用的正式分配)。6xxx codegen/目标段位 device 首批(现有 RX6001/RX6002 为 M2.3 host 子集):RX6003 device codegen 暂不支持构造(NVPTX 作用面外)、RX6004 ptxas 拒绝 PTX(ptxas -arch=sm_89 干验证被拒)、RX6005 device codegen 内部约束违例(超出 NVPTX 约束子集);段内分配制递增不复用"
     }
   ]
 }

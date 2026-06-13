@@ -86,6 +86,53 @@ impl Builtin {
     }
 }
 
+/// device 线程上下文 intrinsics(M4.2,RXS-0072;`ThreadCtx<DIM>` 的方法 →
+/// NVPTX special-register / barrier intrinsics)。DIM=1 作用面(`.x` 维),
+/// 完整维度随 M4.3。typeck 在接收者为 `ThreadCtx` lang item 时识别;device
+/// codegen 落到 `llvm.nvvm.read.ptx.sreg.*` / `llvm.nvvm.barrier0`。
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum DeviceIntrinsic {
+    /// `thread_index()` → `tid.x`(block 内线程索引,返回 usize)。
+    ThreadIndexX,
+    /// `block_index()` → `ctaid.x`(block 索引,返回 usize)。
+    BlockIndexX,
+    /// `block_dim()` → `ntid.x`(block 维度,返回 usize)。
+    BlockDimX,
+    /// `global_id()` → `ctaid.x * ntid.x + tid.x`(全局线程索引,返回 usize)。
+    GlobalIdX,
+    /// `sync()` → `llvm.nvvm.barrier0`(block barrier,返回 unit;扩展点)。
+    Barrier,
+}
+
+impl DeviceIntrinsic {
+    /// `ThreadCtx` 方法名 → intrinsic(RXS-0072;DIM=1 作用面)。
+    pub fn from_method(name: &str) -> Option<Self> {
+        Some(match name {
+            "thread_index" | "thread_idx" | "thread_id" => DeviceIntrinsic::ThreadIndexX,
+            "block_index" | "block_idx" => DeviceIntrinsic::BlockIndexX,
+            "block_dim" => DeviceIntrinsic::BlockDimX,
+            "global_id" => DeviceIntrinsic::GlobalIdX,
+            "sync" => DeviceIntrinsic::Barrier,
+            _ => return None,
+        })
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            DeviceIntrinsic::ThreadIndexX => "thread_index",
+            DeviceIntrinsic::BlockIndexX => "block_index",
+            DeviceIntrinsic::BlockDimX => "block_dim",
+            DeviceIntrinsic::GlobalIdX => "global_id",
+            DeviceIntrinsic::Barrier => "sync",
+        }
+    }
+
+    /// 返回 unit(barrier)还是 usize(索引类)。
+    pub fn returns_unit(self) -> bool {
+        matches!(self, DeviceIntrinsic::Barrier)
+    }
+}
+
 /// 名称解析结果(RXS-0034 裁决产物)。
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Res {
