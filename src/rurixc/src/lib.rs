@@ -10,6 +10,7 @@ pub mod ast;
 pub mod codegen;
 pub mod dataflow;
 pub mod diag;
+pub mod drop_elab;
 pub mod feature_gate;
 pub mod fmt;
 pub mod hir;

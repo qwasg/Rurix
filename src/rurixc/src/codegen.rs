@@ -55,6 +55,7 @@ pub fn emit_llvm_ir(
         cur_sp: 0,
         need_puts: false,
         externs: HashMap::new(),
+        drop_lbl: 0,
     };
     // 元数据骨架:!0 CU / !1 file / !2 !3 module flags / !4 !5 subroutine type
     cg.md.push(
@@ -122,6 +123,8 @@ struct Cg<'a> {
     need_puts: bool,
     /// 无 body 的外部 fn:符号 → declare 文本。
     externs: HashMap<String, String>,
+    /// drop glue 内部 LLVM 标签计数(enum 变体分支用)。
+    drop_lbl: u32,
 }
 
 impl Cg<'_> {
@@ -716,6 +719,13 @@ impl Cg<'_> {
                 }
                 let _ = writeln!(self.fns, "  br label %bb{}{}", next.0, self.dbg_suffix());
             }
+            TerminatorKind::Drop { place, next } => {
+                // RXS-0055:若持有所有权则析构(drop flag 守卫已在 MIR 上展开为
+                // SwitchBool;此处 place 必为整 local,无条件执行 drop glue)
+                let (ptr, ty) = self.place_ptr(b, place);
+                self.emit_drop_glue(&ptr, &ty);
+                let _ = writeln!(self.fns, "  br label %bb{}{}", next.0, self.dbg_suffix());
+            }
             TerminatorKind::Return => {
                 if is_main {
                     if matches!(ret_ty, Ty::Prim(PrimTy::I32)) {
@@ -739,6 +749,126 @@ impl Cg<'_> {
                 self.fns.push_str("  unreachable\n");
             }
         }
+    }
+
+    /// drop glue(RXS-0055):先调本类型 `Drop::drop`(若有),再按字段/元素序
+    /// 递归 drop needs-drop 组件;enum 经判别 switch 仅 drop 活动变体载荷。
+    /// 直线发射(struct/tuple/array);enum 引入本地 LLVM 标签分支。
+    fn emit_drop_glue(&mut self, ptr: &str, ty: &Ty) {
+        if !crate::ty::needs_drop(self.krate, ty) {
+            return;
+        }
+        match ty {
+            Ty::Adt(d, args) => {
+                // 自身 Drop::drop(&mut self)
+                if let Some(fnd) = self.krate.drop_fn_of(*d) {
+                    let sym = crate::mir::mangle(&self.krate.item(fnd).name, fnd, args);
+                    let _ = writeln!(
+                        self.fns,
+                        "  call void @{sym}(ptr {ptr}){}",
+                        self.dbg_suffix()
+                    );
+                }
+                match &self.krate.item(*d).kind {
+                    hir::ItemKind::Struct { .. } => {
+                        let fields = crate::typeck::adt_field_tys(self.krate, *d, args);
+                        let agg = self.llty(ty);
+                        for (i, ft) in fields.iter().enumerate() {
+                            if crate::ty::needs_drop(self.krate, ft) {
+                                let fp = self.gep_field(&agg, ptr, i);
+                                self.emit_drop_glue(&fp, ft);
+                            }
+                        }
+                    }
+                    hir::ItemKind::Enum { variants } => {
+                        self.emit_enum_drop_glue(ptr, ty, variants, args);
+                    }
+                    _ => {}
+                }
+            }
+            Ty::Tuple(elems) => {
+                let agg = self.llty(ty);
+                for (i, et) in elems.iter().enumerate() {
+                    if crate::ty::needs_drop(self.krate, et) {
+                        let ep = self.gep_field(&agg, ptr, i);
+                        self.emit_drop_glue(&ep, et);
+                    }
+                }
+            }
+            // 数组按值 drop 随数组支持(M3.1 RX6001 作用面外,防御性跳过)
+            _ => {}
+        }
+    }
+
+    /// enum drop:读判别 → 逐变体 icmp 分支 → drop 该变体 needs-drop 载荷 →
+    /// 汇合到 cont。变体载荷布局基址同 [`crate::mir::enum_variant_layout`]。
+    fn emit_enum_drop_glue(&mut self, ptr: &str, ty: &Ty, variants: &[hir::DefId], args: &[Ty]) {
+        let agg = self.llty(ty);
+        // 判别 = 下标 0 的 i32
+        let tag_ptr = self.gep_field(&agg, ptr, 0);
+        let tag = self.fresh();
+        let _ = writeln!(
+            self.fns,
+            "  {tag} = load i32, ptr {tag_ptr}{}",
+            self.dbg_suffix()
+        );
+        let base = self.next_drop_label();
+        let cont = format!("{base}.cont");
+        // 变体载荷布局:tag 占下标 0,各变体载荷自 1 起顺排(不重叠)
+        let mut layout_base = 1u32;
+        let mut arms: Vec<(usize, u32, hir::DefId)> = Vec::new();
+        for (vi, v) in variants.iter().enumerate() {
+            arms.push((vi, layout_base, *v));
+            layout_base += crate::typeck::adt_field_tys(self.krate, *v, args).len() as u32;
+        }
+        for (vi, vbase, v) in &arms {
+            let fields = crate::typeck::adt_field_tys(self.krate, *v, args);
+            let needs = fields.iter().any(|f| crate::ty::needs_drop(self.krate, f));
+            if !needs {
+                continue;
+            }
+            let cmp = self.fresh();
+            let arm_lbl = format!("{base}.v{vi}");
+            let nxt_lbl = format!("{base}.n{vi}");
+            let _ = writeln!(
+                self.fns,
+                "  {cmp} = icmp eq i32 {tag}, {vi}{}",
+                self.dbg_suffix()
+            );
+            let _ = writeln!(
+                self.fns,
+                "  br i1 {cmp}, label %{arm_lbl}, label %{nxt_lbl}{}",
+                self.dbg_suffix()
+            );
+            let _ = writeln!(self.fns, "{arm_lbl}:");
+            for (fi, ft) in fields.iter().enumerate() {
+                if crate::ty::needs_drop(self.krate, ft) {
+                    let idx = *vbase as usize + fi;
+                    let fp = self.gep_field(&agg, ptr, idx);
+                    self.emit_drop_glue(&fp, ft);
+                }
+            }
+            let _ = writeln!(self.fns, "  br label %{cont}{}", self.dbg_suffix());
+            let _ = writeln!(self.fns, "{nxt_lbl}:");
+        }
+        let _ = writeln!(self.fns, "  br label %{cont}{}", self.dbg_suffix());
+        let _ = writeln!(self.fns, "{cont}:");
+    }
+
+    /// 字段 GEP(下标 idx),返回新指针 SSA 值。
+    fn gep_field(&mut self, agg: &str, ptr: &str, idx: usize) -> String {
+        let t = self.fresh();
+        let _ = writeln!(
+            self.fns,
+            "  {t} = getelementptr inbounds {agg}, ptr {ptr}, i32 0, i32 {idx}{}",
+            self.dbg_suffix()
+        );
+        t
+    }
+
+    fn next_drop_label(&mut self) -> String {
+        self.drop_lbl += 1;
+        format!("drop{}", self.drop_lbl)
     }
 
     /// place 的指向类型(不发指令;仅 dest 类型预查)。

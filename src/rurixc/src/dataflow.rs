@@ -152,7 +152,9 @@ pub fn successors(term: &TerminatorKind) -> Vec<usize> {
                 vec![then.0 as usize, else_.0 as usize]
             }
         }
-        TerminatorKind::Call { next, .. } => vec![next.0 as usize],
+        TerminatorKind::Call { next, .. } | TerminatorKind::Drop { next, .. } => {
+            vec![next.0 as usize]
+        }
         TerminatorKind::Return | TerminatorKind::Unreachable => Vec::new(),
     }
 }

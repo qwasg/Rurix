@@ -176,6 +176,39 @@ def desugar_smoke() -> None:
     print("[hello_smoke] desugar-smoke PASS(for/`?` desugar 全管线真跑,exit 0 / stdout 符合)")
 
 
+def drop_smoke() -> None:
+    """M3.2 出口证据:drop elaboration 全管线产 EXE → 真跑核对 drop 顺序
+    (RXS-0055/RXS-0056;move 后不 drop、字段/语句临时确定性释放)。"""
+    cases = [
+        (
+            "drop_order_run.rx",
+            ["consume", "drop a", "tail", "drop b"],
+        ),
+        (
+            "temp_drop_stmt.rx",
+            ["peek", "drop temp", "after let"],
+        ),
+    ]
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    r = run(["cargo", "build", "-p", "rurixc", "--bin", "rurixc"], cwd=ROOT)
+    if r.returncode != 0:
+        fail(f"cargo build rurixc 失败:\n{r.stderr}")
+    rurixc = ROOT / "target" / "debug" / "rurixc.exe"
+    for name, expected in cases:
+        src = ROOT / "conformance" / "borrowck" / "accept" / name
+        exe = OUT_DIR / name.replace(".rx", ".exe")
+        r = run([str(rurixc), str(src), "-o", str(exe)], cwd=ROOT)
+        if r.returncode != 0:
+            fail(f"rurixc 编译 {name} 失败(exit {r.returncode}):\n{r.stdout}{r.stderr}")
+        r = run([str(exe)])
+        if r.returncode != 0:
+            fail(f"{name} 退出码 {r.returncode}(期待 0)")
+        got = [ln.strip() for ln in r.stdout.splitlines() if ln.strip()]
+        if got != expected:
+            fail(f"{name} drop 顺序不符:\n  got={got}\n  expected={expected}")
+    print("[hello_smoke] drop-smoke PASS(drop elaboration 全管线真跑,drop 顺序符合 RXS-0055/0056)")
+
+
 def main() -> None:
     mode = sys.argv[1] if len(sys.argv) > 1 else ""
     if mode == "compile-run":
@@ -186,10 +219,12 @@ def main() -> None:
         self_profile_check()
     elif mode == "desugar-smoke":
         desugar_smoke()
+    elif mode == "drop-smoke":
+        drop_smoke()
     else:
         print(
             "usage: py -3 ci/hello_smoke.py "
-            "{compile-run|breakpoint|self-profile|desugar-smoke}"
+            "{compile-run|breakpoint|self-profile|desugar-smoke|drop-smoke}"
         )
         sys.exit(2)
 

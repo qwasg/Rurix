@@ -418,6 +418,7 @@
     "RXS-0052": [
       "conformance/desugar/desugar_run_smoke.rx",
       "conformance/desugar/drop_scope_blocks.rx",
+      "src/rurixc/src/drop_elab.rs",
       "src/rurixc/src/tbir_build.rs"
     ],
     "RXS-0053": [
@@ -442,6 +443,8 @@
     ],
     "RXS-0055": [
       "conformance/borrowck/accept/drop_order_run.rx",
+      "src/rurixc/src/drop_elab.rs",
+      "src/rurixc/src/mir_build.rs",
       "src/rurixc/src/typeck.rs"
     ],
     "RXS-0056": [

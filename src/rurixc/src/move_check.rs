@@ -27,10 +27,7 @@ pub const E_MOVE_OUT_OF_REF: ErrorCode = ErrorCode(4003); // RX4003
 
 /// 对单个 MIR body 跑 move/init 检查(诊断经 `diag`)。
 pub fn check_body(diag: &DiagCtxt, body: &Body) {
-    let analysis = InitMove {
-        n: body.locals.len(),
-        arg_count: body.arg_count,
-    };
+    let analysis = InitMove::new(body);
     let results: Results = iterate_to_fixpoint(body, &analysis);
     let mut rep = Reporter {
         diag,
@@ -51,7 +48,7 @@ pub fn check_body(diag: &DiagCtxt, body: &Body) {
 }
 
 /// rvalue 的 operand 读集(Ref/Discriminant 的 place 读单列)。
-fn rvalue_operands(rv: &Rvalue) -> Vec<&Operand> {
+pub(crate) fn rvalue_operands(rv: &Rvalue) -> Vec<&Operand> {
     match rv {
         Rvalue::Use(o) | Rvalue::UnaryOp(_, o) | Rvalue::Cast(o, _) => vec![o],
         Rvalue::BinaryOp(_, a, b) => vec![a, b],
@@ -60,7 +57,7 @@ fn rvalue_operands(rv: &Rvalue) -> Vec<&Operand> {
     }
 }
 
-fn place_has_deref(p: &Place) -> bool {
+pub(crate) fn place_has_deref(p: &Place) -> bool {
     p.proj.iter().any(|e| matches!(e, ProjElem::Deref))
 }
 
@@ -68,13 +65,20 @@ fn place_has_deref(p: &Place) -> bool {
 // 数据流转移(纯函数;诊断在重放期)
 // ---------------------------------------------------------------------------
 
-struct InitMove {
+pub(crate) struct InitMove {
     /// locals 数(位宽 = 2n)。
-    n: usize,
+    pub(crate) n: usize,
     arg_count: usize,
 }
 
 impl InitMove {
+    pub(crate) fn new(body: &Body) -> InitMove {
+        InitMove {
+            n: body.locals.len(),
+            arg_count: body.arg_count,
+        }
+    }
+
     fn apply_move_op(&self, state: &mut BitSet, op: &Operand) {
         if let Operand::Move(p) = op {
             // 经解引用的 move 是 RX4003 违例(重放期报),不污染 base 状态;
@@ -227,7 +231,11 @@ impl Reporter<'_> {
                     self.check_read(state, &Place::local(dest.local), term.span, false);
                 }
             }
-            TerminatorKind::Goto(_) | TerminatorKind::Return | TerminatorKind::Unreachable => {}
+            // Drop 为编译器插入(RXS-0055),不构成用户可见 use,不诊断
+            TerminatorKind::Drop { .. }
+            | TerminatorKind::Goto(_)
+            | TerminatorKind::Return
+            | TerminatorKind::Unreachable => {}
         }
     }
 }

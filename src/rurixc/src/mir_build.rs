@@ -51,9 +51,13 @@ pub fn build_crate(cx: &QueryCtx<'_>) -> Vec<Body> {
     let mut worklist: Vec<(DefId, Vec<Ty>)> = vec![(main, Vec::new())];
     visited.insert(mangle(&krate.item(main).name, main, &[]));
     while let Some((def, args)) = worklist.pop() {
-        let (body, callees) = build_body(cx, def, args);
+        let (mut body, callees) = build_body(cx, def, args);
+        // drop elaboration(RXS-0055):move/init 感知精化 + drop flag
+        crate::drop_elab::elaborate(&mut body);
+        // drop glue 需要的 Drop::drop 单态化实例并入收集
+        let drop_callees = crate::drop_elab::collect_drop_callees(&krate, &body);
         out.push(body);
-        for (d, a) in callees {
+        for (d, a) in callees.into_iter().chain(drop_callees) {
             let sym = mangle(&krate.item(d).name, d, &a);
             if visited.insert(sym) {
                 worklist.push((d, a));
@@ -105,9 +109,12 @@ fn build_body(
         local_map: vec![None; tb.locals.len()],
         cur: BlockIdx(0),
         loops: Vec::new(),
+        drop_scopes: Vec::new(),
         callees: Vec::new(),
     };
     b.new_block();
+    // 根 scope:参数归此(RXS-0052;函数退出时 drop)
+    b.push_scope();
 
     // 参数:绑定模式直接落位 _1..=_n(复杂模式作用面外)
     let mut arg_count = 0;
@@ -117,6 +124,7 @@ fn build_body(
                 let idx = b.declare_local(*local, &tb);
                 arg_count += 1;
                 debug_assert_eq!(idx.0 as usize, arg_count);
+                b.register_drop(idx);
             }
             _ => {
                 b.unsupported(p.span, "non-binding parameter pattern");
@@ -124,7 +132,7 @@ fn build_body(
             }
         }
     }
-    // 其余局部(let 绑定)按声明序落位
+    // 其余局部(let 绑定)按声明序落位(归属经 register 在 let 降级时入 scope)
     for i in 0..tb.locals.len() {
         if b.local_map[i].is_none() {
             b.declare_local(LocalId(i as u32), &tb);
@@ -134,6 +142,8 @@ fn build_body(
     let v = b.op_of(&tb.value);
     let span = tb.value.span;
     b.assign(Place::local(LocalIdx(0)), Rvalue::Use(v), span);
+    // 根 scope drop(参数;返回值已 move 入 _0,其 drop 经 elaboration 消去)
+    b.pop_scope_and_drop(span);
     b.terminate(TerminatorKind::Return, span);
 
     let blocks = b
@@ -167,6 +177,22 @@ struct BlockBuf {
     term: Option<Terminator>,
 }
 
+/// drop scope(RXS-0052/RXS-0055:块 scope 与语句临时 scope;退出时按
+/// 声明逆序对登记的 needs-drop local/temp 落 Drop 终结子,Phase A 无条件,
+/// move/init 感知由 [`crate::drop_elab`] 在 MIR 上精化)。
+struct DropScope {
+    /// 本 scope 登记的 needs-drop local(声明序;emit 时逆序)。
+    locals: Vec<LocalIdx>,
+}
+
+/// 循环帧:continue/break 目标 + 进入时的 drop scope 栈深(break/continue
+/// 跨出的 scope 在转移前 drop,RXS-0052)。
+struct LoopFrame {
+    cont: BlockIdx,
+    brk: BlockIdx,
+    scope_depth: usize,
+}
+
 struct Builder<'a, 'q> {
     cx: &'a QueryCtx<'q>,
     krate: Rc<hir::Crate>,
@@ -178,8 +204,10 @@ struct Builder<'a, 'q> {
     /// TBIR LocalId → MIR local。
     local_map: Vec<Option<LocalIdx>>,
     cur: BlockIdx,
-    /// (continue 目标, break 目标) 栈。
-    loops: Vec<(BlockIdx, BlockIdx)>,
+    /// 循环帧栈(continue/break 目标 + scope 深度)。
+    loops: Vec<LoopFrame>,
+    /// drop scope 栈(RXS-0052;栈顶 = 当前最内 scope)。
+    drop_scopes: Vec<DropScope>,
     /// 发现的被调用实例(单态化收集输出)。
     callees: Vec<(DefId, Vec<Ty>)>,
 }
@@ -216,6 +244,9 @@ impl Builder<'_, '_> {
             name: None,
             span,
         });
+        // needs-drop 临时归当前(语句)scope(RXS-0056;move 出者由 elaboration
+        // 消去 drop)
+        self.register_drop(idx);
         idx
     }
 
@@ -236,6 +267,60 @@ impl Builder<'_, '_> {
 
     fn switch_to(&mut self, b: BlockIdx) {
         self.cur = b;
+    }
+
+    // -- drop scope(RXS-0052/RXS-0055)----------------------------------------
+
+    fn push_scope(&mut self) {
+        self.drop_scopes.push(DropScope { locals: Vec::new() });
+    }
+
+    /// 登记一个 MIR local 到当前最内 scope(仅 needs-drop 类型参与;
+    /// move/init 感知由 elaboration 精化,Phase A 无条件)。
+    fn register_drop(&mut self, idx: LocalIdx) {
+        let ty = self.locals[idx.0 as usize].ty.clone();
+        if crate::ty::needs_drop(&self.krate, &ty)
+            && let Some(s) = self.drop_scopes.last_mut()
+        {
+            s.locals.push(idx);
+        }
+    }
+
+    /// 在当前块落一条 Drop 终结子(place 整体)并切到后继块。
+    fn emit_drop(&mut self, idx: LocalIdx, span: Span) {
+        let next = self.new_block();
+        self.terminate(
+            TerminatorKind::Drop {
+                place: Place::local(idx),
+                next,
+            },
+            span,
+        );
+        self.switch_to(next);
+    }
+
+    /// 对一组 local 按逆序落 Drop(scope 退出序)。
+    fn emit_drops(&mut self, locals: &[LocalIdx], span: Span) {
+        for &l in locals.iter().rev() {
+            self.emit_drop(l, span);
+        }
+    }
+
+    /// 弹出当前 scope 并落其 drop(正常块/函数退出)。
+    fn pop_scope_and_drop(&mut self, span: Span) {
+        let scope = self.drop_scopes.pop().expect("drop scope 栈非空");
+        self.emit_drops(&scope.locals, span);
+    }
+
+    /// 跨出转移(return/break/continue):对 `[keep_depth, top]` 区间的 scope
+    /// 按由内向外逆序落 drop(不弹栈——后续切到死块,词法 scope 仍在)。
+    fn emit_unwind_drops(&mut self, keep_depth: usize, span: Span) {
+        let locals: Vec<LocalIdx> = self.drop_scopes[keep_depth..]
+            .iter()
+            .rev()
+            .flat_map(|s| s.locals.iter().rev().copied())
+            .collect();
+        self.emit_drops(&locals, span);
     }
 
     fn ty_of(&self, e: &tbir::Expr) -> Ty {
@@ -469,7 +554,11 @@ impl Builder<'_, '_> {
                     cond.span,
                 );
                 self.switch_to(body_bb);
-                self.loops.push((head, exit));
+                self.loops.push(LoopFrame {
+                    cont: head,
+                    brk: exit,
+                    scope_depth: self.drop_scopes.len(),
+                });
                 let _ = self.lower_block(body);
                 self.loops.pop();
                 self.terminate(TerminatorKind::Goto(head), e.span);
@@ -481,7 +570,11 @@ impl Builder<'_, '_> {
                 let exit = self.new_block();
                 self.terminate(TerminatorKind::Goto(head), e.span);
                 self.switch_to(head);
-                self.loops.push((head, exit));
+                self.loops.push(LoopFrame {
+                    cont: head,
+                    brk: exit,
+                    scope_depth: self.drop_scopes.len(),
+                });
                 let _ = self.lower_block(body);
                 self.loops.pop();
                 self.terminate(TerminatorKind::Goto(head), e.span);
@@ -496,13 +589,17 @@ impl Builder<'_, '_> {
                     None => Operand::Const(Const::Unit),
                 };
                 self.assign(Place::local(LocalIdx(0)), Rvalue::Use(v), e.span);
+                // 跨出全部活动 scope(返回值已 move 入 _0,其 drop 经 elaboration 消去)
+                self.emit_unwind_drops(0, e.span);
                 self.terminate(TerminatorKind::Return, e.span);
                 let dead = self.new_block();
                 self.switch_to(dead);
                 Operand::Const(Const::Unit)
             }
             tbir::ExprKind::Break => {
-                if let Some(&(_, exit)) = self.loops.last() {
+                if let Some(frame) = self.loops.last() {
+                    let (exit, depth) = (frame.brk, frame.scope_depth);
+                    self.emit_unwind_drops(depth, e.span);
                     self.terminate(TerminatorKind::Goto(exit), e.span);
                     let dead = self.new_block();
                     self.switch_to(dead);
@@ -512,7 +609,9 @@ impl Builder<'_, '_> {
                 }
             }
             tbir::ExprKind::Continue => {
-                if let Some(&(head, _)) = self.loops.last() {
+                if let Some(frame) = self.loops.last() {
+                    let (head, depth) = (frame.cont, frame.scope_depth);
+                    self.emit_unwind_drops(depth, e.span);
                     self.terminate(TerminatorKind::Goto(head), e.span);
                     let dead = self.new_block();
                     self.switch_to(dead);
@@ -694,7 +793,11 @@ impl Builder<'_, '_> {
     }
 
     fn lower_block(&mut self, b: &tbir::Block) -> Operand {
+        // 块 scope(RXS-0052):let 绑定归此,块退出时逆序 drop
+        self.push_scope();
         for stmt in &b.stmts {
+            // 语句临时 scope(RXS-0056):语句内物化的 needs-drop 临时,语句末 drop
+            self.push_scope();
             match stmt {
                 tbir::Stmt::Let { pat, init } => match (&pat.kind, init) {
                     (tbir::PatKind::Binding { local, sub: None }, Some(init)) => {
@@ -702,11 +805,20 @@ impl Builder<'_, '_> {
                         let Some(idx) = self.local_map.get(local.0 as usize).copied().flatten()
                         else {
                             let _ = self.unsupported(pat.span, "unresolved binding");
+                            self.pop_scope_and_drop(pat.span);
                             continue;
                         };
                         self.assign(Place::local(idx), Rvalue::Use(v), init.span);
+                        // 绑定归块 scope(语句临时 scope 之下一层)
+                        self.register_drop_in_block(idx);
                     }
-                    (tbir::PatKind::Binding { sub: None, .. }, None) => {} // 延迟绑定:首次赋值落位
+                    (tbir::PatKind::Binding { local, sub: None }, None) => {
+                        // 延迟绑定:首次赋值落位;归块 scope(条件初始化由 elaboration
+                        // 经 drop flag 裁决)
+                        if let Some(idx) = self.local_map.get(local.0 as usize).copied().flatten() {
+                            self.register_drop_in_block(idx);
+                        }
+                    }
                     (tbir::PatKind::Wild, Some(init)) => {
                         let _ = self.op_of(init); // 求值后丢弃(副作用保留)
                     }
@@ -720,10 +832,31 @@ impl Builder<'_, '_> {
                     let _ = self.op_of(e);
                 }
             }
+            // 语句末:drop 本语句临时(RXS-0056)
+            self.pop_scope_and_drop(stmt_span(stmt));
         }
-        match &b.tail {
-            Some(t) => self.op_of(t),
+        // 尾表达式:临时归独立语句 scope(块值 move 出者由 elaboration 消去)
+        let tail = match &b.tail {
+            Some(t) => {
+                self.push_scope();
+                let v = self.op_of(t);
+                self.pop_scope_and_drop(t.span);
+                v
+            }
             None => Operand::Const(Const::Unit),
+        };
+        // 块退出:drop 块 scope 的 let 绑定(声明逆序,RXS-0052)
+        self.pop_scope_and_drop(b.span);
+        tail
+    }
+
+    /// 把 local 登记到块 scope(当前栈顶是语句临时 scope,块 scope 在其下)。
+    fn register_drop_in_block(&mut self, idx: LocalIdx) {
+        let ty = self.locals[idx.0 as usize].ty.clone();
+        if crate::ty::needs_drop(&self.krate, &ty) {
+            let n = self.drop_scopes.len();
+            debug_assert!(n >= 2, "块 scope + 语句 scope 应同时在栈");
+            self.drop_scopes[n - 2].locals.push(idx);
         }
     }
 
@@ -911,6 +1044,14 @@ impl Builder<'_, '_> {
 // ---------------------------------------------------------------------------
 // 字面量取值(词法已验证合法性;此处只做值转换)
 // ---------------------------------------------------------------------------
+
+/// 语句 span(语句临时 scope drop 的诊断锚点)。
+fn stmt_span(stmt: &tbir::Stmt) -> Span {
+    match stmt {
+        tbir::Stmt::Let { pat, init } => init.as_ref().map(|e| e.span).unwrap_or(pat.span),
+        tbir::Stmt::Expr(e) => e.span,
+    }
+}
 
 fn strip_suffix_text(text: &str, suffix: Option<LitSuffix>) -> &str {
     let Some(s) = suffix else { return text };
@@ -1105,6 +1246,28 @@ bb1:
         let (text, codes) = mir_text(src);
         assert!(codes.is_empty(), "意外诊断: {codes:?}");
         assert!(text.contains("rx_half_"), "callee 实例缺失:\n{text}");
+    }
+
+    /// drop elaboration:scope 退出按声明逆序落 Drop;move 出者消去
+    /// (RXS-0052/RXS-0055)。
+    //@ spec: RXS-0055
+    #[test]
+    fn drop_elaboration_orders_and_elides() {
+        let src = "struct A {}\nimpl Drop for A {\n    fn drop(&mut self) {}\n}\nstruct B {}\nimpl Drop for B {\n    fn drop(&mut self) {}\n}\nfn eat(a: A) {}\nfn main() {\n    let a = A {};\n    let b = B {};\n    eat(a);\n}";
+        let (text, codes) = mir_text(src);
+        assert!(codes.is_empty(), "意外诊断: {codes:?}");
+        // main:a move 入 eat → a 的 drop 消去;b 保留无条件 drop
+        let main = text
+            .split("fn ")
+            .find(|s| s.starts_with("main("))
+            .expect("main body");
+        assert_eq!(main.matches("drop(").count(), 1, "main 仅 b 应 drop:\n{main}");
+        // eat:参数 a 在函数退出 drop(definitely-owned)
+        let eat = text
+            .split("fn ")
+            .find(|s| s.starts_with("rx_eat_"))
+            .expect("eat body");
+        assert_eq!(eat.matches("drop(").count(), 1, "eat 参数应 drop:\n{eat}");
     }
 
     /// 作用面外构造 → RX6001(M3.1 口径,不级联 ICE)。

@@ -174,6 +174,13 @@ pub enum TerminatorKind {
         dest: Place,
         next: BlockIdx,
     },
+    /// 析构点(RXS-0055 drop elaboration 产物):若 place 此刻持有所有权,
+    /// 执行其 drop 动作(Drop::drop + 字段递归;条件持有经 drop flag 在
+    /// elaboration 期降为 SwitchBool 守卫)。codegen 展开为调用序列。
+    Drop {
+        place: Place,
+        next: BlockIdx,
+    },
     Return,
     /// 发散语句后的死块封口(`return`/`break` 之后)。
     Unreachable,
@@ -407,6 +414,9 @@ fn print_term(t: &TerminatorKind) -> String {
                 a.join(", "),
                 next.0
             )
+        }
+        TerminatorKind::Drop { place, next } => {
+            format!("drop({}) -> bb{}", print_place(place), next.0)
         }
         TerminatorKind::Return => "return".to_owned(),
         TerminatorKind::Unreachable => "unreachable".to_owned(),
