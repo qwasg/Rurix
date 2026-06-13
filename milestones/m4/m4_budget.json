@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "namespace": "m4",
+  "description": "M4 预算(14 §3:entries + ratio_assertions + counter_assertions,命名空间强制前缀)。M4 中点硬证据 = Rurix SAXPY ≥ M0 手写基线 95%,以比值断言 m4.ratio.saxpy_vs_m0_baseline 表达(denominator = m0.bench.saxpy.effective_bandwidth_gbps 的 measured_local 锚点)。该比值占位在 M4 内生灭(M4.4 回填 measured_local,close-out budget_eval --strict 判定),不跨里程碑欠债;回填时新增 m4.bench.saxpy.effective_bandwidth_gbps entry 作 numerator。entries 开工留空 = M4 不预欠 estimated bench 占位(SAXPY 实测随 M4.4)。",
+  "source_docs": [
+    "14 §3",
+    "07 §6 §7",
+    "11 §3 (M4 定义,MVP 中点硬证据)",
+    "milestones/m0/BENCH_PROTOCOL.md",
+    "milestones/m4/M4_CONTRACT.md"
+  ],
+  "entries": [],
+  "ratio_assertions": [
+    {
+      "id": "m4.ratio.saxpy_vs_m0_baseline",
+      "numerator": "m4.bench.saxpy.effective_bandwidth_gbps",
+      "denominator": "m0.bench.saxpy.effective_bandwidth_gbps",
+      "direction": "min",
+      "threshold": 0.95,
+      "evidence": "estimated",
+      "skip_reason": "Rurix SAXPY 有效带宽(numerator)随 M4.4 device 端到端真跑回填 measured_local;回填前 estimated 占位 SKIP(契约 G-M4-1,本占位 M4 内生灭,close-out --strict 判定 ≥0.95)",
+      "measured_value": null
+    }
+  ],
+  "counter_assertions": [
+    {
+      "id": "m4.counter.launch_conformance_categories",
+      "description": "conformance/launch/reject/ 下预设 launch 类型契约错误类别目录数 ≥4(契约 G-M4-2 四类清单:dim_mismatch / arg_type_mismatch / context_brand_mismatch / launch_non_kernel;类别全拦截由 CI 步骤 18 批跑断言,本计数器核对类别覆盖面。数量为 estimated 工程选择,增删经 Direct PR 留痕,对齐 G-M3-1 先例)",
+      "expect": ">=4",
+      "evidence": "ci_checked"
+    },
+    {
+      "id": "m4.counter.ui_golden_path4_snapshots",
+      "description": "黄金路径 4(目标后端错误:3xxx 着色/地址空间 + 6xxx codegen/ptxas)的 tests/ui/codegen .stderr snapshot 数 ≥10(契约 G-M4-3;数量为 estimated 工程选择,调整经 Direct PR 留痕,对齐 G-M1-1/G-M2-3/G-M3-2 先例。具体子目录在落地 PR 裁决,evaluator 现以 tests/ui/codegen/ 为计数对象)",
+      "expect": ">=10",
+      "evidence": "ci_checked"
+    }
+  ],
+  "namespace_check": {
+    "rule": "本文件所有 id 必须以 'm4.' 前缀开头;多预算合并加载时冲突即 FAIL(14 §3)",
+    "unit_test_required": true
+  },
+  "revision_log": [
+    {
+      "version": "v1.0",
+      "date": "2026-06-13",
+      "change": "初版模板:SAXPY vs M0 基线比值断言(estimated 占位,M4.4 回填)+ launch conformance 类别计数器 + 黄金路径 4 计数器(M4 契约配套);entries 留空 = M4 不预欠 estimated bench 占位"
+    }
+  ]
+}
