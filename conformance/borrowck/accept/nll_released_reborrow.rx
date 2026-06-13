@@ -1,0 +1,15 @@
+//@ spec: RXS-0059
+// borrow positive (NLL): `r1`'s last use precedes `r2`'s creation, so the
+// first mutable borrow is already released — no conflict at the reborrow.
+
+fn use1(a: &mut i32) -> i32 {
+    *a
+}
+
+fn main() {
+    let mut x = 1;
+    let r1 = &mut x;
+    let _a = use1(r1);
+    let r2 = &mut x;
+    let _b = use1(r2);
+}

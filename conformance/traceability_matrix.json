@@ -338,6 +338,7 @@
       "tests/ui/typeck/return_type_mismatch.rx"
     ],
     "RXS-0043": [
+      "conformance/desugar/for_range_desugar.rx",
       "conformance/typeck/control_flow_typed.rx",
       "conformance/typeck/operators_typed.rx",
       "conformance/typeck/references_params.rx",
@@ -346,6 +347,7 @@
       "tests/ui/typeck/cond_not_bool.rx"
     ],
     "RXS-0044": [
+      "conformance/desugar/option_result_prelude.rx",
       "conformance/typeck/adt_construct.rx",
       "conformance/typeck/control_flow_typed.rx",
       "conformance/typeck/tuples_arrays_typed.rx",
@@ -361,6 +363,7 @@
     ],
     "RXS-0046": [
       "conformance/typeck/methods_casts.rx",
+      "src/rurixc/src/tbir_build.rs",
       "src/rurixc/src/typeck.rs",
       "tests/ui/typeck/unknown_method.rx"
     ],
@@ -378,6 +381,125 @@
       "tests/ui/typeck/return_type_mismatch.rx",
       "tests/ui/typeck/unknown_field_lit.rx",
       "tests/ui/typeck/unknown_method.rx"
+    ],
+    "RXS-0048": [
+      "conformance/desugar/desugar_run_smoke.rx",
+      "conformance/desugar/iterator_protocol.rx",
+      "conformance/desugar/option_result_prelude.rx",
+      "conformance/desugar/question_mark_result.rx",
+      "src/rurixc/src/lower.rs",
+      "src/rurixc/src/mir_build.rs",
+      "src/rurixc/src/resolve.rs",
+      "src/rurixc/src/tbir_build.rs",
+      "src/rurixc/src/typeck.rs"
+    ],
+    "RXS-0049": [
+      "conformance/desugar/desugar_run_smoke.rx",
+      "conformance/desugar/for_range_desugar.rx",
+      "conformance/desugar/iterator_protocol.rx",
+      "src/rurixc/src/lower.rs",
+      "src/rurixc/src/mir_build.rs",
+      "src/rurixc/src/typeck.rs"
+    ],
+    "RXS-0050": [
+      "conformance/desugar/desugar_run_smoke.rx",
+      "conformance/desugar/question_mark_result.rx",
+      "src/rurixc/src/lower.rs",
+      "src/rurixc/src/mir_build.rs",
+      "src/rurixc/src/typeck.rs"
+    ],
+    "RXS-0051": [
+      "conformance/desugar/match_exhaustive.rx",
+      "src/rurixc/src/mir_build.rs",
+      "src/rurixc/src/tbir_build.rs",
+      "tests/ui/typeck/non_exhaustive_match_enum.rx",
+      "tests/ui/typeck/non_exhaustive_match_fallback.rx"
+    ],
+    "RXS-0052": [
+      "conformance/desugar/desugar_run_smoke.rx",
+      "conformance/desugar/drop_scope_blocks.rx",
+      "src/rurixc/src/drop_elab.rs",
+      "src/rurixc/src/tbir_build.rs"
+    ],
+    "RXS-0053": [
+      "conformance/borrowck/accept/copy_types.rx",
+      "src/rurixc/src/move_check.rs",
+      "src/rurixc/src/typeck.rs",
+      "tests/ui/borrowck/move_out_of_ref.rx"
+    ],
+    "RXS-0054": [
+      "conformance/borrowck/accept/move_reinit.rx",
+      "conformance/borrowck/reject/use_after_move/basic.rx",
+      "conformance/borrowck/reject/use_after_move/conditional_move.rx",
+      "conformance/borrowck/reject/use_before_init/basic.rx",
+      "conformance/borrowck/reject/use_before_init/loop_maybe_uninit.rx",
+      "src/rurixc/src/dataflow.rs",
+      "src/rurixc/src/move_check.rs",
+      "src/rurixc/tests/borrowck_corpus.rs",
+      "tests/ui/borrowck/conditional_move.rx",
+      "tests/ui/borrowck/loop_maybe_uninit.rx",
+      "tests/ui/borrowck/use_after_move.rx",
+      "tests/ui/borrowck/use_before_init.rx"
+    ],
+    "RXS-0055": [
+      "conformance/borrowck/accept/drop_order_run.rx",
+      "src/rurixc/src/drop_elab.rs",
+      "src/rurixc/src/mir_build.rs",
+      "src/rurixc/src/typeck.rs"
+    ],
+    "RXS-0056": [
+      "conformance/borrowck/accept/temp_drop_stmt.rx"
+    ],
+    "RXS-0057": [
+      "conformance/borrowck/reject/double_mut_borrow/basic.rx",
+      "conformance/borrowck/reject/shared_mut_conflict/basic.rx",
+      "tests/ui/borrowck/double_mut_borrow.rx",
+      "tests/ui/borrowck/shared_mut_conflict.rx"
+    ],
+    "RXS-0058": [
+      "conformance/borrowck/accept/shared_borrows.rx",
+      "conformance/borrowck/reject/double_mut_borrow/basic.rx",
+      "conformance/borrowck/reject/shared_mut_conflict/basic.rx",
+      "src/rurixc/src/borrow_check.rs",
+      "src/rurixc/tests/borrowck_corpus.rs",
+      "tests/ui/borrowck/double_mut_borrow.rx",
+      "tests/ui/borrowck/shared_mut_conflict.rx"
+    ],
+    "RXS-0059": [
+      "conformance/borrowck/accept/nll_released_reborrow.rx",
+      "src/rurixc/src/borrow_check.rs"
+    ],
+    "RXS-0060": [
+      "conformance/borrowck/reject/assign_while_borrowed/basic.rx",
+      "conformance/borrowck/reject/move_while_borrowed/basic.rx",
+      "src/rurixc/src/borrow_check.rs",
+      "tests/ui/borrowck/assign_while_borrowed.rx",
+      "tests/ui/borrowck/move_while_borrowed.rx"
+    ],
+    "RXS-0061": [
+      "conformance/borrowck/accept/reference_to_param.rx",
+      "conformance/borrowck/reject/dangling_reference/basic.rx",
+      "src/rurixc/src/borrow_check.rs",
+      "tests/ui/borrowck/dangling_reference.rx"
+    ],
+    "RXS-0062": [
+      "conformance/consteval/const_eval_run.rx",
+      "src/rurixc/src/const_eval.rs",
+      "src/rurixc/src/mir_build.rs",
+      "tests/ui/consteval/non_const_call.rx",
+      "tests/ui/consteval/non_const_in_fn.rx"
+    ],
+    "RXS-0063": [
+      "conformance/consteval/const_eval_run.rx",
+      "src/rurixc/src/const_eval.rs",
+      "tests/ui/consteval/overflow_mul.rx"
+    ],
+    "RXS-0064": [
+      "src/rurixc/src/const_eval.rs"
+    ],
+    "RXS-0065": [
+      "src/rurixc/src/const_eval.rs",
+      "tests/ui/consteval/overflow_add.rx"
     ]
   }
 }

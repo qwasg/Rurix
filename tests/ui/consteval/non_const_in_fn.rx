@@ -1,0 +1,13 @@
+//@ spec: RXS-0062
+// `const fn` body 内调用非 const 函数:非 const 操作经 const 求值传播(RX5003)。
+fn helper(n: i32) -> i32 {
+    n
+}
+
+const fn wrap(n: i32) -> i32 {
+    helper(n) //~ ERROR RX5003
+}
+
+const VALUE: i32 = wrap(3);
+
+fn main() {}

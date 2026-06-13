@@ -1,0 +1,5 @@
+//@ spec: RXS-0065
+// const 求值整数溢出:200 + 100 = 300 超出 u8 范围(RX5001)。
+const SUM: u8 = 200 + 100; //~ ERROR RX5001
+
+fn main() {}

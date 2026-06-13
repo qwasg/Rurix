@@ -156,7 +156,8 @@ def check_budget(path: Path) -> None:
 def check_evidence_files() -> None:
     gpu_schema = load(ROOT / "milestones/m0/evidence_schema.json")
     frontend_schema = load(ROOT / "milestones/m1/frontend_evidence_schema.json")
-    if gpu_schema is None or frontend_schema is None:
+    compile_schema = load(ROOT / "milestones/m3/compile_evidence_schema.json")
+    if gpu_schema is None or frontend_schema is None or compile_schema is None:
         return
     evidence_files = sorted((ROOT / "evidence").glob("*.json"))
     if not evidence_files:
@@ -169,12 +170,19 @@ def check_evidence_files() -> None:
         return
     gpu_validator = jsonschema.Draft7Validator(gpu_schema)
     frontend_validator = jsonschema.Draft7Validator(frontend_schema)
+    compile_validator = jsonschema.Draft7Validator(compile_schema)
     for f in evidence_files:
         doc = load(f)
         if doc is None:
             continue
-        # 路由:前端证据按文件名前缀走 m1 schema(M1 CI_GATES 配套),其余走 m0 GPU schema
-        validator = frontend_validator if f.name.startswith("frontend_") else gpu_validator
+        # 路由(按文件名前缀):frontend_ → m1 前端 schema;compile_ → m3 编译
+        # schema(G-M3-3 配套);其余 → m0 GPU schema
+        if f.name.startswith("frontend_"):
+            validator = frontend_validator
+        elif f.name.startswith("compile_"):
+            validator = compile_validator
+        else:
+            validator = gpu_validator
         for v in validator.iter_errors(doc):
             err(f"evidence/{f.name}: {'/'.join(str(p) for p in v.path)}: {v.message}")
 

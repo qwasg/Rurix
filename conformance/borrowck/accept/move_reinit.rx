@@ -1,0 +1,27 @@
+//@ spec: RXS-0054
+// init/move dataflow positives: assignment initializes, a moved-out local is
+// reusable after whole reassignment, branch-converged initialization is
+// definitely-init at the join point.
+
+struct Token {
+    id: i32,
+}
+
+fn eat(t: Token) -> i32 {
+    t.id
+}
+
+fn main() {
+    let mut t = Token { id: 1 };
+    let a = eat(t); // move out
+    t = Token { id: a + 1 }; // reinitialize: usable again
+    let b = eat(t);
+
+    let c: i32;
+    if b > 0 {
+        c = 1;
+    } else {
+        c = 2;
+    }
+    let _use = c + 1; // initialized on all paths
+}

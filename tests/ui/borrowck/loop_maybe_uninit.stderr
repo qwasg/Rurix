@@ -1,0 +1,5 @@
+error[RX4002]: use of possibly-uninitialized value `x`
+ --> $DIR/borrowck/loop_maybe_uninit.rx:9:14
+  |
+9 |     let _y = x; //~ ERROR RX4002
+  |              ^ used here but it is possibly-uninitialized

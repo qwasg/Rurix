@@ -1,0 +1,12 @@
+//@ spec: RXS-0061
+// borrow positive: returning a reference threaded from a parameter is not
+// dangling — the referent outlives the call.
+
+fn id(r: &i32) -> &i32 {
+    r
+}
+
+fn main() {
+    let x = 1;
+    let _r = id(&x);
+}

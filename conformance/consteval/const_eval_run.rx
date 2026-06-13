@@ -1,0 +1,29 @@
+//@ spec: RXS-0062, RXS-0063
+// const eval 全管线真跑(G-M3-4,const fn 求值类):const fn(算术/分支)+ const
+// item 引用链经编译期求值,运行期由常量值驱动标量分支输出。const eval 正确则
+// SUM == 24,打印 "consteval-ok";任一环求值错误则输出不符 → CI 步骤 16 红。
+
+const fn square(n: i32) -> i32 {
+    n * n
+}
+
+const fn clamp8(n: i32) -> i32 {
+    if n > 8 {
+        8
+    } else {
+        n
+    }
+}
+
+const SIDE: i32 = 4;
+const AREA: i32 = square(SIDE);
+const CAP: i32 = clamp8(AREA);
+const SUM: i32 = AREA + CAP;
+
+fn main() {
+    if SUM == 24 {
+        println("consteval-ok");
+    } else {
+        println("consteval-bad");
+    }
+}

@@ -1,0 +1,15 @@
+//@ spec: RXS-0057, RXS-0058
+//@ expect-error: RX4004
+// double-mut: two `&mut x` borrow expressions (RXS-0057 borrow kinds) over the
+// same local live simultaneously — alias XOR mutable (RXS-0058) violated.
+
+fn use2(a: &mut i32, b: &mut i32) -> i32 {
+    *a + *b
+}
+
+fn main() {
+    let mut x = 1;
+    let r1 = &mut x;
+    let r2 = &mut x;
+    let _z = use2(r1, r2);
+}

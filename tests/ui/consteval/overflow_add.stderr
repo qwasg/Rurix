@@ -1,0 +1,5 @@
+error[RX5001]: constant evaluation overflow in add
+ --> $DIR/consteval/overflow_add.rx:3:17
+  |
+3 | const SUM: u8 = 200 + 100; //~ ERROR RX5001
+  |                 ^^^^^^^^^ this operation overflows during constant evaluation

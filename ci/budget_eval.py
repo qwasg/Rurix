@@ -134,6 +134,14 @@ def eval_counter(entry: dict, strict: bool) -> None:
         typeck_dir = ROOT / "tests" / "ui" / "typeck"
         n = len(list(typeck_dir.glob("**/*.stderr"))) if typeck_dir.is_dir() else 0
         count_or_gate(eid, n, 10, "条 .stderr snapshot", "M2.2 建设期为正常状态,契约 G-M2-3", strict)
+    elif eid == "m3.counter.ui_golden_path3_snapshots":
+        borrowck_dir = ROOT / "tests" / "ui" / "borrowck"
+        n = len(list(borrowck_dir.glob("**/*.stderr"))) if borrowck_dir.is_dir() else 0
+        count_or_gate(eid, n, 10, "条 .stderr snapshot", "M3.3 建设期为正常状态,契约 G-M3-2", strict)
+    elif eid == "m3.counter.borrowck_conformance_categories":
+        reject_dir = ROOT / "conformance" / "borrowck" / "reject"
+        n = len([p for p in reject_dir.iterdir() if p.is_dir()]) if reject_dir.is_dir() else 0
+        count_or_gate(eid, n, 7, "个预设错误类别目录", "M3.3 建设期为正常状态,契约 G-M3-1", strict)
     elif eid == "m1.counter.spec_clause_test_anchoring":
         # 条款 ↔ 测试锚定由 traceability 矩阵工具核对(M1.4 交付物,契约 G-M1-4);
         # 矩阵产物落地前 normal skip / strict FAIL,落地后委托其自身校验结果。

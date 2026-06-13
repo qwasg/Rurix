@@ -7,7 +7,8 @@
 //!   trait bound 仅记录不求解、方法查找仅 inherent、内建运算符不经 trait
 //!   (RXS-0045/0046 的 M2.2 口径);
 //! - **Err 容忍不级联**(RXS-0047):任一参与类型为 [`Ty::Err`] 时静默通过;
-//!   `for`(非区间迭代器)/`?`/闭包/`loop` 值等未定语义容忍为 Err。
+//!   闭包/`loop` 值等未定语义容忍为 Err。`for`/`?` 自 M3.1 在 lower 层
+//!   desugar(RXS-0049/0050),本层只见展开后的 loop+match/match 形态。
 
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -26,6 +27,8 @@ pub const E_ARG_COUNT: ErrorCode = ErrorCode(2003); // RX2003
 pub const E_UNKNOWN_METHOD: ErrorCode = ErrorCode(2004); // RX2004
 pub const E_NOT_CALLABLE: ErrorCode = ErrorCode(2005); // RX2005
 pub const E_BAD_OPERAND: ErrorCode = ErrorCode(2006); // RX2006
+pub const E_BAD_DERIVE_COPY: ErrorCode = ErrorCode(2008); // RX2008
+pub const E_BAD_DROP_IMPL: ErrorCode = ErrorCode(2009); // RX2009
 
 // ---------------------------------------------------------------------------
 // typeck 结果物化(M2.3:MIR lowering 的输入)
@@ -311,6 +314,135 @@ pub fn type_of_provider(cx: &QueryCtx<'_>, def: DefId) -> Ty {
     }
 }
 
+/// 定义处检查(M3.2):`#[derive(Copy)]` 合法性(RXS-0053,RX2008)+
+/// `impl Drop for T` 形状(RXS-0055,RX2009)。诊断经 DiagCtxt,无产物。
+pub fn check_defs_provider(cx: &QueryCtx<'_>) {
+    let krate = cx.hir_crate();
+    let res = cx.resolutions();
+    check_drop_impls(cx, &krate, &res);
+    check_copy_derives(cx, &krate, &res);
+}
+
+/// `impl Drop for T` 形状校验(RXS-0055):目标为本包 struct/enum、
+/// 不重复、impl 体恰一个 `fn drop(&mut self)`(无其余参数,返回 `()`)。
+fn check_drop_impls(cx: &QueryCtx<'_>, krate: &hir::Crate, res: &Resolutions) {
+    let mut seen: std::collections::HashSet<DefId> = std::collections::HashSet::new();
+    for di in &krate.drop_impls {
+        let hir::ItemKind::Impl { items, .. } = &krate.item(di.impl_def).kind else {
+            continue;
+        };
+        let emit = |ty: String, reason: &str| {
+            cx.diag()
+                .struct_error(E_BAD_DROP_IMPL, "typeck.bad_drop_impl")
+                .arg("ty", ty)
+                .arg("reason", reason)
+                .span_label(di.span, reason.to_owned())
+                .emit();
+        };
+        let adt = di.adt.filter(|d| {
+            matches!(
+                krate.item(*d).kind,
+                hir::ItemKind::Struct { .. } | hir::ItemKind::Enum { .. }
+            )
+        });
+        let Some(adt) = adt else {
+            emit(
+                "this type".to_owned(),
+                "`Drop` can only be implemented for a local struct or enum",
+            );
+            continue;
+        };
+        let ty_name = format!("`{}`", res.defs[adt.0 as usize].name);
+        if !seen.insert(adt) {
+            emit(ty_name, "duplicate `Drop` impl for the same type");
+            continue;
+        }
+        let shape_ok = items.len() == 1 && {
+            let it = krate.item(items[0]);
+            it.name == "drop"
+                && matches!(&it.kind, hir::ItemKind::Fn(decl)
+                    if matches!(decl.self_kind, Some(hir::SelfKind { by_ref: true, mutable: true }))
+                        && decl.params.len() == 1
+                        && ret_is_unit(&decl.ret))
+        };
+        if !shape_ok {
+            emit(
+                ty_name,
+                "a `Drop` impl must contain exactly one `fn drop(&mut self)`",
+            );
+        }
+    }
+}
+
+fn ret_is_unit(ret: &Option<hir::Ty>) -> bool {
+    match ret {
+        None => true,
+        Some(t) => matches!(&t.kind, hir::TyKind::Tuple(v) if v.is_empty()),
+    }
+}
+
+/// `#[derive(Copy)]` 合法性(RXS-0053):全字段 Copy;字段类型引用泛型
+/// 参数保守拒绝;与 Drop impl 冲突。
+fn check_copy_derives(cx: &QueryCtx<'_>, krate: &hir::Crate, res: &Resolutions) {
+    let mut targets: Vec<(DefId, Span)> =
+        krate.copy_derives.iter().map(|(d, s)| (*d, *s)).collect();
+    targets.sort_by_key(|(d, _)| d.0);
+    for (def, span) in targets {
+        let ty_name = format!("`{}`", res.defs[def.0 as usize].name);
+        let emit = |reason: String| {
+            cx.diag()
+                .struct_error(E_BAD_DERIVE_COPY, "typeck.bad_derive_copy")
+                .arg("ty", ty_name.clone())
+                .arg("reason", reason.clone())
+                .span_label(span, reason)
+                .emit();
+        };
+        if krate.drop_impl_of(def).is_some() {
+            emit("the type also implements `Drop`".to_owned());
+            continue;
+        }
+        let component_defs: Vec<DefId> = match &krate.item(def).kind {
+            hir::ItemKind::Struct { .. } => vec![def],
+            hir::ItemKind::Enum { variants } => variants.clone(),
+            _ => Vec::new(),
+        };
+        'adt: for cd in component_defs {
+            let (hir::ItemKind::Struct { fields } | hir::ItemKind::Variant { fields }) =
+                &krate.item(cd).kind
+            else {
+                continue;
+            };
+            let mut sig_infer = || Ty::Err;
+            for f in fields {
+                let ft = lower_hir_ty(&f.ty, &mut sig_infer);
+                if mentions_param(&ft) {
+                    emit(format!(
+                        "field `{}` has a generic type (conservatively rejected)",
+                        f.name
+                    ));
+                    break 'adt;
+                }
+                if !crate::ty::is_copy(krate, &ft) {
+                    emit(format!("field `{}` is not Copy", f.name));
+                    break 'adt;
+                }
+            }
+        }
+    }
+}
+
+/// 类型是否引用泛型参数(RXS-0053 保守拒绝判定)。
+fn mentions_param(t: &Ty) -> bool {
+    match t {
+        Ty::Param(_) => true,
+        Ty::Adt(_, args) => args.iter().any(mentions_param),
+        Ty::Tuple(v) => v.iter().any(mentions_param),
+        Ty::Ref(x, _) | Ty::RawPtr(x, _) | Ty::Array(x) | Ty::Slice(x) => mentions_param(x),
+        Ty::FnPtr(ps, r) => ps.iter().any(mentions_param) || mentions_param(r),
+        _ => false,
+    }
+}
+
 /// `check_body` provider:对单个 body 做推断与检查,诊断经 DiagCtxt;
 /// 产物 [`TypeckResults`] 按节点物化(M2.3,MIR lowering 消费)。
 pub fn check_body_provider(cx: &QueryCtx<'_>, body_id: BodyId) -> TypeckResults {
@@ -334,9 +466,14 @@ pub fn check_body_provider(cx: &QueryCtx<'_>, body_id: BodyId) -> TypeckResults 
         hir::ItemKind::Fn(decl) => {
             let sig = cx.fn_sig(body.owner);
             tck.ret_ty = sig.output.clone();
-            // self 接收者:反查所属 inherent impl 的 self 类型(M2.2 宽松)
+            // self 接收者:反查所属 inherent impl 的 self 类型;`&self`/`&mut self`
+            // 绑定为引用类型(M3.1 收紧——TBIR 方法糖显式化的 autoderef 依据)
             let self_ty = if sig.has_self {
-                tck.impl_self_ty(body.owner)
+                let base = tck.impl_self_ty(body.owner);
+                match decl.self_kind {
+                    Some(sk) if sk.by_ref && !base.is_err() => Ty::Ref(Box::new(base), sk.mutable),
+                    _ => base,
+                }
             } else {
                 Ty::Err
             };
@@ -500,7 +637,9 @@ impl Tck<'_, '_> {
     /// 反查 owner(AssocFn)所属 inherent impl 的 self 类型。
     fn impl_self_ty(&self, owner: DefId) -> Ty {
         for item in &self.krate.items {
-            if let hir::ItemKind::Impl { self_res, items } = &item.kind
+            if let hir::ItemKind::Impl {
+                self_res, items, ..
+            } = &item.kind
                 && items.contains(&owner)
             {
                 if let Res::Def(d) = self_res {
@@ -529,6 +668,30 @@ impl Tck<'_, '_> {
                 .map(|e| Ty::Adt(*e, args))
                 .unwrap_or(Ty::Err),
             _ => Ty::Adt(def, args),
+        }
+    }
+
+    /// ADT 的泛型实例化槽位数(MVP 推定):struct 取自身字段;enum 取**全部
+    /// 变体字段的最大值**(单变体字段不必提满参数,如 `Result` 的 `Ok(T)`);
+    /// variant 归并到父 enum 口径——保证同一 enum 的各变体构造出一致的实参数。
+    fn adt_slots(&self, def: DefId) -> u32 {
+        match &self.krate.item(def).kind {
+            hir::ItemKind::Struct { fields } => self.generic_slots(fields),
+            hir::ItemKind::Enum { variants } => variants
+                .iter()
+                .map(|v| match &self.krate.item(*v).kind {
+                    hir::ItemKind::Variant { fields } => self.generic_slots(fields),
+                    _ => 0,
+                })
+                .max()
+                .unwrap_or(0),
+            hir::ItemKind::Variant { fields } => self
+                .res
+                .variant_parents
+                .get(&def)
+                .map(|e| self.adt_slots(*e))
+                .unwrap_or_else(|| self.generic_slots(fields)),
+            _ => 0,
         }
     }
 
@@ -592,11 +755,29 @@ impl Tck<'_, '_> {
 
     // -- 模式绑定(参数 / let / match 臂) --------------------------------------
 
+    /// 构造器模式与被匹配类型的相容性(RXS-0050/0051 前置):模式的 ADT
+    /// (实例化 fresh 槽位)与 scrutinee 合一 → 违例 RX2001;Err 容忍内建。
+    /// 副作用:把未定型 scrutinee 推到正确的 ADT 形态(字段类型分解的前提)。
+    fn pat_ctor_compat(&mut self, pat: &hir::Pat, res: &Res, ty: &Ty) {
+        let Res::Def(d) = res else { return };
+        let kind = self.res.defs[d.0 as usize].kind;
+        if !matches!(kind, DefKind::Variant | DefKind::Struct) {
+            return;
+        }
+        let slots = self.adt_slots(*d);
+        let fresh: Vec<Ty> = (0..slots).map(|_| self.infcx.fresh(None)).collect();
+        let expect = self.ctor_result(*d, fresh);
+        self.demand(pat.span, &expect, ty);
+    }
+
     fn bind_pat(&mut self, pat: &hir::Pat, ty: &Ty) {
         self.results.pat_ty.insert(pat.hir_id, ty.clone());
         match &pat.kind {
             hir::PatKind::Binding { local } => self.set_local(*local, ty.clone()),
-            hir::PatKind::Wild | hir::PatKind::Lit | hir::PatKind::Range | hir::PatKind::Err => {}
+            hir::PatKind::Wild
+            | hir::PatKind::Lit { .. }
+            | hir::PatKind::Range
+            | hir::PatKind::Err => {}
             hir::PatKind::At { local, pat } => {
                 self.set_local(*local, ty.clone());
                 self.bind_pat(pat, ty);
@@ -626,14 +807,16 @@ impl Tck<'_, '_> {
                     self.bind_pat(p, &elem);
                 }
             }
-            hir::PatKind::Res(_) => {}
+            hir::PatKind::Res(r) => self.pat_ctor_compat(pat, r, ty),
             hir::PatKind::TupleStruct { res, elems } => {
+                self.pat_ctor_compat(pat, res, ty);
                 let field_tys = self.ctor_field_tys(res, ty);
                 for (i, p) in elems.iter().enumerate() {
                     self.bind_pat(p, field_tys.get(i).unwrap_or(&Ty::Err));
                 }
             }
             hir::PatKind::Struct { res, fields, .. } => {
+                self.pat_ctor_compat(pat, res, ty);
                 let named = self.named_field_tys(res, ty);
                 for (name, sub) in fields {
                     let t = named
@@ -745,6 +928,8 @@ impl Tck<'_, '_> {
     fn check_expr_kind(&mut self, e: &hir::Expr) -> Ty {
         match &e.kind {
             hir::ExprKind::Lit(l) => self.lit_ty(l),
+            // desugar 合成推进步(RXS-0049):同无后缀整数字面量
+            hir::ExprKind::SynthInt(_) => self.infcx.fresh(Some(NumClass::Int)),
             hir::ExprKind::Res(r) => self.res_value_ty(r),
             hir::ExprKind::Unary { op, expr } => {
                 let t = self.check_expr(expr);
@@ -886,10 +1071,6 @@ impl Tck<'_, '_> {
                     _ => Ty::Err,
                 }
             }
-            hir::ExprKind::Try(inner) => {
-                let _ = self.check_expr(inner);
-                Ty::Err // `?` desugar 随 M2.3(Result lang-item)
-            }
             hir::ExprKind::Tuple(elems) => {
                 Ty::Tuple(elems.iter().map(|x| self.check_expr(x)).collect())
             }
@@ -933,22 +1114,6 @@ impl Tck<'_, '_> {
             hir::ExprKind::While { cond, body } => {
                 let ct = self.check_expr(cond);
                 self.demand(cond.span, &Ty::Prim(PrimTy::Bool), &ct);
-                let _ = self.check_block(body);
-                Ty::unit()
-            }
-            hir::ExprKind::For { pat, iter, body } => {
-                // 区间迭代特判(RXS-0043);其余迭代器协议随 M2.3+
-                let bind = if let hir::ExprKind::Range { lo, hi, .. } = &iter.kind {
-                    let lt = self.check_expr(lo);
-                    let rt = self.check_expr(hi);
-                    self.demand(hi.span, &lt, &rt);
-                    self.numeric_guard(iter.span, "..", &lt, true);
-                    lt
-                } else {
-                    let _ = self.check_expr(iter);
-                    Ty::Err
-                };
-                self.bind_pat(pat, &bind);
                 let _ = self.check_block(body);
                 Ty::unit()
             }
@@ -1035,7 +1200,13 @@ impl Tck<'_, '_> {
                         Ty::FnPtr(sig.inputs.clone(), Box::new(sig.output.clone()))
                     }
                 }
-                DefKind::Variant => self.ctor_result(*d, Vec::new()),
+                DefKind::Variant => {
+                    // 单元变体值:按父 enum 槽位实例化 fresh(`None` 可与
+                    // `Option<i32>` 等标注合一,RXS-0048/0044)
+                    let slots = self.adt_slots(*d);
+                    let fresh: Vec<Ty> = (0..slots).map(|_| self.infcx.fresh(None)).collect();
+                    self.ctor_result(*d, fresh)
+                }
                 DefKind::Struct => Ty::Adt(*d, Vec::new()),
                 _ => Ty::Err,
             },
@@ -1106,14 +1277,15 @@ impl Tck<'_, '_> {
                     return self.check_args(span, &inputs, args, output);
                 }
                 DefKind::Struct | DefKind::Variant => {
-                    // 先收集字段类型(owned),再生成 fresh 槽位(借用解耦)
+                    // 先收集字段类型(owned),再生成 fresh 槽位(借用解耦);
+                    // 槽位按 ADT 口径(variant 归并父 enum,RXS-0048/0045)
                     let collected = self.fields_of(*d).map(|fields| {
                         let mut sig_infer = || Ty::Err;
                         let raw: Vec<Ty> = fields
                             .iter()
                             .map(|f| lower_hir_ty(&f.ty, &mut sig_infer))
                             .collect();
-                        let slots = self.generic_slots(fields);
+                        let slots = self.adt_slots(*d);
                         (raw, slots)
                     });
                     if let Some((raw, slots)) = collected {
@@ -1169,7 +1341,9 @@ impl Tck<'_, '_> {
         args: &[hir::Expr],
     ) -> Ty {
         let rt = self.check_expr(receiver);
-        let base = self.autoderef(&rt);
+        // 数值类未定变量按 RXS-0039 默认化后再查方法(原生类型无 inherent
+        // 方法 → RX2004;无类约束的推断变量维持容忍)
+        let base = self.infcx.resolve(&self.autoderef(&rt));
         match &base {
             Ty::Adt(d, _adt_args) => {
                 let found = self
@@ -1177,7 +1351,9 @@ impl Tck<'_, '_> {
                     .assoc_items
                     .get(d)
                     .and_then(|items| items.iter().find(|(n, _)| n == method))
-                    .map(|(_, m)| *m);
+                    .map(|(_, m)| *m)
+                    // Drop::drop 不可显式调用(RXS-0055;查找面自然拒绝 → RX2004)
+                    .filter(|m| !self.krate.is_drop_fn(*m));
                 match found {
                     Some(m) => {
                         let sig = self.cx.fn_sig(m);
@@ -1231,7 +1407,7 @@ impl Tck<'_, '_> {
                 .iter()
                 .map(|f| (f.name.clone(), lower_hir_ty(&f.ty, &mut sig_infer)))
                 .collect();
-            let slots = self.generic_slots(fdefs);
+            let slots = self.adt_slots(*d);
             (named_raw, slots)
         });
         let Some((named_raw, slots)) = collected else {
@@ -1525,6 +1701,70 @@ mod tests {
         );
     }
 
+    //@ spec: RXS-0050
+    #[test]
+    fn question_mark_propagates_and_unwraps() {
+        check_clean(
+            "fn half(x: i32) -> Result<i32, i32> {\n    if x % 2 == 0 { Ok(x / 2) } else { Err(x) }\n}\nfn quarter(x: i32) -> Result<i32, i32> {\n    let h = half(x)?;\n    let q = half(h)?;\n    Ok(q)\n}",
+        );
+    }
+
+    //@ spec: RXS-0050
+    #[test]
+    fn question_mark_requires_result_scrutinee() {
+        let (codes, _) =
+            check("fn f() -> Result<i32, i32> {\n    let x = 1;\n    let y = x?;\n    Ok(y)\n}");
+        assert!(codes.contains(&2001), "{codes:?}");
+    }
+
+    //@ spec: RXS-0050
+    #[test]
+    fn question_mark_requires_result_return_type() {
+        let (codes, _) = check(
+            "fn half(x: i32) -> Result<i32, i32> {\n    Ok(x)\n}\nfn f(x: i32) -> i32 {\n    let h = half(x)?;\n    h\n}",
+        );
+        assert_eq!(codes, vec![2001]);
+    }
+
+    //@ spec: RXS-0048
+    #[test]
+    fn builtin_option_result_are_plain_generic_enums() {
+        check_clean(
+            "fn f() {\n    let x: Option<i32> = None;\n    let y: Option<i32> = Some(3);\n    let z: Result<bool, i32> = Ok(true);\n    let _p = (x, y, z);\n}",
+        );
+        let (codes, _) = check("fn f() {\n    let _x: Option<i32> = Some(true);\n}");
+        assert_eq!(codes, vec![2001]);
+    }
+
+    //@ spec: RXS-0049
+    #[test]
+    fn for_over_inherent_iterator_binds_element() {
+        let base = "struct C {\n    n: i32,\n}\nimpl C {\n    fn make(n: i32) -> C {\n        C { n }\n    }\n    fn next(&mut self) -> Option<i32> {\n        if self.n > 0 {\n            self.n -= 1;\n            Some(self.n)\n        } else {\n            None\n        }\n    }\n}\n";
+        check_clean(&format!(
+            "{base}fn f() -> i32 {{\n    let mut acc = 0;\n    for v in C::make(3) {{\n        acc += v;\n    }}\n    acc\n}}"
+        ));
+        let (codes, _) = check(&format!(
+            "{base}fn g() {{\n    for v in C::make(1) {{\n        let _x: bool = v;\n    }}\n}}"
+        ));
+        assert_eq!(codes, vec![2001]);
+    }
+
+    //@ spec: RXS-0049
+    #[test]
+    fn for_over_non_iterator_is_rx2004() {
+        let (codes, _) = check("fn f() {\n    for _x in 5 {\n    }\n}");
+        assert_eq!(codes, vec![2004]);
+    }
+
+    //@ spec: RXS-0050, RXS-0044
+    #[test]
+    fn pattern_ctor_must_match_scrutinee_adt() {
+        let (codes, _) = check(
+            "enum E {\n    A,\n}\nstruct S {\n    v: i32,\n}\nfn f(s: S) -> i32 {\n    match s {\n        E::A => 1,\n    }\n}",
+        );
+        assert_eq!(codes, vec![2001]);
+    }
+
     // M2.3:内建 println 签名(最小 prelude)
     #[test]
     fn builtin_println_signature() {
@@ -1597,5 +1837,174 @@ mod tests {
         let emitted = diag.emitted();
         let msg = emitted[0].message(diag.messages());
         assert!(msg.contains("i32") && msg.contains("bool"), "{msg}");
+    }
+
+    // ---- M3.2:Copy 判定 / derive(Copy) / Drop impl(RXS-0053/RXS-0055) ----
+
+    //@ spec: RXS-0053
+    #[test]
+    fn copy_judgment_matrix() {
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(
+            "#[derive(Copy)]\nstruct P { x: i32 }\nstruct M { x: i32 }\nfn main() {}",
+            SourceId(0),
+            Edition::Rx0,
+            &diag,
+        );
+        let krate = cx.hir_crate();
+        let res = cx.resolutions();
+        let def = |n: &str| DefId(res.defs.iter().position(|d| d.name == n).unwrap() as u32);
+        let p = Ty::Adt(def("P"), Vec::new());
+        let m = Ty::Adt(def("M"), Vec::new());
+        use crate::ty::is_copy;
+        // 标量 / 共享引用 / 裸指针 / fn 指针:内建 Copy
+        assert!(is_copy(&krate, &Ty::Prim(PrimTy::I32)));
+        assert!(is_copy(&krate, &Ty::Prim(PrimTy::Bool)));
+        assert!(is_copy(&krate, &Ty::Ref(Box::new(m.clone()), false)));
+        assert!(is_copy(&krate, &Ty::RawPtr(Box::new(m.clone()), true)));
+        assert!(is_copy(
+            &krate,
+            &Ty::FnPtr(Vec::new(), Box::new(Ty::unit()))
+        ));
+        // &mut T 与未标注 ADT:move
+        assert!(!is_copy(&krate, &Ty::Ref(Box::new(p.clone()), true)));
+        assert!(!is_copy(&krate, &m));
+        // derive(Copy) ADT:Copy
+        assert!(is_copy(&krate, &p));
+        // 元组/数组:逐组件
+        assert!(is_copy(
+            &krate,
+            &Ty::Tuple(vec![Ty::Prim(PrimTy::I32), p.clone()])
+        ));
+        assert!(!is_copy(
+            &krate,
+            &Ty::Tuple(vec![Ty::Prim(PrimTy::I32), m.clone()])
+        ));
+        assert!(is_copy(&krate, &Ty::Array(Box::new(p))));
+        assert!(!is_copy(&krate, &Ty::Array(Box::new(m))));
+        // Err 容忍为 Copy(不级联 move 诊断)
+        assert!(is_copy(&krate, &Ty::Err));
+    }
+
+    //@ spec: RXS-0055
+    #[test]
+    fn needs_drop_is_transitive() {
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(
+            "struct R { x: i32 }\nimpl Drop for R {\n    fn drop(&mut self) {}\n}\nstruct W { r: R }\nenum E { A, B(R) }\nstruct C { x: i32 }\nfn main() {}",
+            SourceId(0),
+            Edition::Rx0,
+            &diag,
+        );
+        cx.check_crate();
+        assert!(diag.emitted().is_empty(), "{:?}", diag.emitted());
+        let krate = cx.hir_crate();
+        let res = cx.resolutions();
+        let adt = |n: &str| {
+            Ty::Adt(
+                DefId(res.defs.iter().position(|d| d.name == n).unwrap() as u32),
+                Vec::new(),
+            )
+        };
+        use crate::ty::needs_drop;
+        assert!(needs_drop(&krate, &adt("R")), "自身携带 Drop impl");
+        assert!(needs_drop(&krate, &adt("W")), "字段传递");
+        assert!(needs_drop(&krate, &adt("E")), "变体载荷传递");
+        assert!(!needs_drop(&krate, &adt("C")));
+        assert!(!needs_drop(&krate, &Ty::Prim(PrimTy::I32)));
+        assert!(
+            !needs_drop(&krate, &Ty::Ref(Box::new(adt("R")), true)),
+            "引用不拥有"
+        );
+        assert!(needs_drop(&krate, &Ty::Tuple(vec![adt("R")])));
+        assert!(needs_drop(&krate, &Ty::Array(Box::new(adt("R")))));
+    }
+
+    //@ spec: RXS-0053
+    #[test]
+    fn derive_copy_requires_all_fields_copy() {
+        let (codes, _) =
+            check("struct M { x: i32 }\n#[derive(Copy)]\nstruct B { m: M }\nfn main() {}");
+        assert_eq!(codes, vec![2008]);
+        check_clean(
+            "#[derive(Copy)]\nstruct P { x: i32, y: bool }\n#[derive(Copy)]\nstruct Q { p: P, t: (i32, char) }\nfn main() {}",
+        );
+    }
+
+    //@ spec: RXS-0053
+    #[test]
+    fn derive_copy_rejects_generic_fields_conservatively() {
+        let (codes, _) = check("#[derive(Copy)]\nstruct G<T> { v: T }\nfn main() {}");
+        assert_eq!(codes, vec![2008]);
+    }
+
+    //@ spec: RXS-0053
+    #[test]
+    fn derive_copy_conflicts_with_drop_impl() {
+        let (codes, _) = check(
+            "#[derive(Copy)]\nstruct R { x: i32 }\nimpl Drop for R {\n    fn drop(&mut self) {}\n}\nfn main() {}",
+        );
+        assert_eq!(codes, vec![2008]);
+    }
+
+    //@ spec: RXS-0055
+    #[test]
+    fn drop_impl_shape_violations() {
+        // 接收者非 &mut self
+        let (codes, _) =
+            check("struct R { x: i32 }\nimpl Drop for R {\n    fn drop(&self) {}\n}\nfn main() {}");
+        assert_eq!(codes, vec![2009]);
+        // 多余参数
+        let (codes, _) = check(
+            "struct R { x: i32 }\nimpl Drop for R {\n    fn drop(&mut self, n: i32) {}\n}\nfn main() {}",
+        );
+        assert_eq!(codes, vec![2009]);
+        // impl 体多余项
+        let (codes, _) = check(
+            "struct R { x: i32 }\nimpl Drop for R {\n    fn drop(&mut self) {}\n    fn extra(&self) {}\n}\nfn main() {}",
+        );
+        assert_eq!(codes, vec![2009]);
+        // 目标非本包 struct/enum
+        let (codes, _) = check("impl Drop for i32 {\n    fn drop(&mut self) {}\n}\nfn main() {}");
+        assert_eq!(codes, vec![2009]);
+        // 合法形状
+        check_clean(
+            "struct R { x: i32 }\nimpl Drop for R {\n    fn drop(&mut self) {}\n}\nfn main() {}",
+        );
+    }
+
+    //@ spec: RXS-0055
+    #[test]
+    fn duplicate_drop_impl_rejected() {
+        let (codes, _) = check(
+            "struct R { x: i32 }\nimpl Drop for R {\n    fn drop(&mut self) {}\n}\nimpl Drop for R {\n    fn drop(&mut self) {}\n}\nfn main() {}",
+        );
+        // resolve 报关联项重名(RX1002)+ 定义处检查报重复 impl(RX2009)
+        assert!(codes.contains(&2009), "{codes:?}");
+    }
+
+    //@ spec: RXS-0055
+    #[test]
+    fn drop_fn_not_explicitly_callable() {
+        let (codes, _) = check(
+            "struct R { x: i32 }\nimpl Drop for R {\n    fn drop(&mut self) {}\n}\nfn main() {\n    let mut r = R { x: 1 };\n    r.drop();\n}",
+        );
+        assert_eq!(codes, vec![2004]);
+    }
+
+    //@ spec: RXS-0055
+    #[test]
+    fn user_shadowed_drop_trait_not_recognized() {
+        // 用户遮蔽 Drop:impl 绑定到用户 trait,不入识别面(形状不校验)
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(
+            "trait Drop {\n    fn drop(&mut self);\n}\nstruct R { x: i32 }\nimpl Drop for R {\n    fn drop(&mut self) {}\n}\nfn main() {}",
+            SourceId(0),
+            Edition::Rx0,
+            &diag,
+        );
+        cx.check_crate();
+        assert!(diag.emitted().is_empty(), "{:?}", diag.emitted());
+        assert!(cx.hir_crate().drop_impls.is_empty());
     }
 }

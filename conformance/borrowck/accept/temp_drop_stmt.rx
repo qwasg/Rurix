@@ -1,0 +1,25 @@
+//@ spec: RXS-0056
+// Statement-temporary drop timing: the unbound `Noisy` temporary lives to the
+// end of its `let` statement and is dropped there — expected stdout order:
+//   peek
+//   drop temp
+//   after let
+
+struct Noisy {}
+
+impl Drop for Noisy {
+    fn drop(&mut self) {
+        println("drop temp");
+    }
+}
+
+fn peek(n: &Noisy) -> i32 {
+    println("peek");
+    5
+}
+
+fn main() {
+    let v = peek(&Noisy {}); // temp dropped at end of this statement
+    println("after let");
+    let _w = v + 1;
+}

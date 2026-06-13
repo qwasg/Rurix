@@ -1,0 +1,15 @@
+//@ spec: RXS-0051
+// Non-exhaustive enum match: missing variant reported with witness (RX2007).
+
+enum Signal {
+    Red,
+    Yellow,
+    Green,
+}
+
+fn advance(s: Signal) -> i32 {
+    match s { //~ ERROR RX2007
+        Signal::Red => 0,
+        Signal::Green => 2,
+    }
+}

@@ -1,0 +1,5 @@
+error[RX4005]: cannot move out of `t` while it is borrowed
+  --> $DIR/borrowck/move_while_borrowed.rx:17:14
+   |
+17 |     let _a = eat(t); //~ ERROR RX4005
+   |              ^^^^^^ moved here while borrowed

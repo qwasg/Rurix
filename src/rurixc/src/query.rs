@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::ast;
+use crate::const_eval::{ConstError, ConstVal};
 use crate::diag::DiagCtxt;
 use crate::hir::{self, BodyId, DefId, DefKind};
 use crate::lexer::lex;
@@ -38,10 +39,28 @@ pub struct QueryCtx<'a> {
     fn_sigs: RefCell<HashMap<DefId, Rc<FnSig>>>,
     type_of: RefCell<HashMap<DefId, Ty>>,
     checked_bodies: RefCell<HashMap<BodyId, Rc<TypeckResults>>>,
+    /// 模式穷尽性已检 body 集(RXS-0051;memo 防重复诊断)。
+    checked_patterns: RefCell<std::collections::HashSet<BodyId>>,
+    /// 定义处检查已跑标记(RXS-0053/RXS-0055;memo 防重复诊断)。
+    checked_defs: Cell<bool>,
+    /// move/init 检查已跑标记(RXS-0054;memo 防重复诊断)。
+    checked_moves: Cell<bool>,
+    /// 借用检查已跑标记(RXS-0057~0061;memo 防重复诊断)。
+    checked_borrows: Cell<bool>,
+    /// const 求值结果 memo(RXS-0062;DefId → 值/错误)。
+    const_vals: RefCell<HashMap<DefId, Result<ConstVal, ConstError>>>,
+    /// const 求值进行中集(环引用检测,RXS-0063)。
+    const_in_progress: RefCell<std::collections::HashSet<DefId>>,
+    /// const 求值强制检查已跑标记(RXS-0065;memo 防重复诊断)。
+    checked_consteval: Cell<bool>,
     mir: OnceCell<Rc<Vec<crate::mir::Body>>>,
     // ---- 计量(self-profile 布点,07 §6) ----
     hits: Cell<u64>,
     misses: Cell<u64>,
+    // ---- TBIR 窄门计量(M3.1:即建即用层,不入 memo;07 §1 D-202) ----
+    tbir_bodies: Cell<u64>,
+    tbir_scopes: Cell<u64>,
+    tbir_nanos: Cell<u64>,
 }
 
 impl<'a> QueryCtx<'a> {
@@ -63,9 +82,19 @@ impl<'a> QueryCtx<'a> {
             fn_sigs: RefCell::new(HashMap::new()),
             type_of: RefCell::new(HashMap::new()),
             checked_bodies: RefCell::new(HashMap::new()),
+            checked_patterns: RefCell::new(std::collections::HashSet::new()),
+            checked_defs: Cell::new(false),
+            checked_moves: Cell::new(false),
+            checked_borrows: Cell::new(false),
+            const_vals: RefCell::new(HashMap::new()),
+            const_in_progress: RefCell::new(std::collections::HashSet::new()),
+            checked_consteval: Cell::new(false),
             mir: OnceCell::new(),
             hits: Cell::new(0),
             misses: Cell::new(0),
+            tbir_bodies: Cell::new(0),
+            tbir_scopes: Cell::new(0),
+            tbir_nanos: Cell::new(0),
         }
     }
 
@@ -100,6 +129,23 @@ impl<'a> QueryCtx<'a> {
 
     fn miss(&self) {
         self.misses.set(self.misses.get() + 1);
+    }
+
+    /// TBIR 即建即用计量(mir_build 逐实例上报;self-profile `tbir` 阶段数据源)。
+    pub fn note_tbir(&self, scopes: u64, elapsed: std::time::Duration) {
+        self.tbir_bodies.set(self.tbir_bodies.get() + 1);
+        self.tbir_scopes.set(self.tbir_scopes.get() + scopes);
+        self.tbir_nanos
+            .set(self.tbir_nanos.get() + elapsed.as_nanos() as u64);
+    }
+
+    /// (TBIR body 数, scope 总数, 累计构造毫秒)。
+    pub fn tbir_stats(&self) -> (u64, u64, f64) {
+        (
+            self.tbir_bodies.get(),
+            self.tbir_scopes.get(),
+            self.tbir_nanos.get() as f64 / 1e6,
+        )
     }
 
     // ---- 首批 query ---------------------------------------------------------
@@ -173,11 +219,124 @@ impl<'a> QueryCtx<'a> {
         r
     }
 
-    /// 全 crate 类型检查入口(遍历全部 body)。
+    /// 定义处检查(M3.2:derive(Copy) 合法性 + Drop impl 形状,
+    /// RXS-0053/RXS-0055;provider:[`crate::typeck::check_defs_provider`])。
+    pub fn check_defs(&self) {
+        if self.checked_defs.replace(true) {
+            self.hit();
+            return;
+        }
+        self.miss();
+        crate::typeck::check_defs_provider(self);
+    }
+
+    /// 全 crate 类型检查入口(定义处检查 + 遍历全部 body)。
     pub fn check_crate(&self) {
+        self.check_defs();
         let krate = self.hir_crate();
         for i in 0..krate.bodies.len() {
             let _ = self.check_body(BodyId(i as u32));
+        }
+    }
+
+    /// 模式穷尽性检查(RXS-0051;TBIR 窄门时点 = typeck 后、MIR 前)。
+    ///
+    /// TBIR 即建即检即弃(D-202);memo 防同 body 重复诊断(单态化多实例)。
+    pub fn check_patterns(&self, body: BodyId) {
+        if !self.checked_patterns.borrow_mut().insert(body) {
+            self.hit();
+            return;
+        }
+        self.miss();
+        let krate = self.hir_crate();
+        let res = self.resolutions();
+        let tcr = self.check_body(body);
+        let tb = crate::tbir_build::build(&krate, &res, &tcr, krate.body(body));
+        crate::tbir_build::check_exhaustiveness(&krate, &res, self.diag, &tb);
+    }
+
+    /// 全 crate 模式穷尽性检查(覆盖不可达 body,与 MIR 可达性收集解耦)。
+    pub fn check_crate_patterns(&self) {
+        let krate = self.hir_crate();
+        for i in 0..krate.bodies.len() {
+            self.check_patterns(BodyId(i as u32));
+        }
+    }
+
+    /// move/init 数据流检查(RXS-0053/RXS-0054;MIR 后、codegen 前强制;
+    /// provider:[`crate::move_check::check_body`] 对全部单态化实例)。
+    pub fn check_moves(&self) {
+        if self.checked_moves.replace(true) {
+            self.hit();
+            return;
+        }
+        self.miss();
+        let mir = self.mir_crate();
+        for body in mir.iter() {
+            crate::move_check::check_body(self.diag, body);
+        }
+    }
+
+    /// NLL 借用检查(RXS-0057~0061;MIR 后、codegen 前,move/init 之后强制;
+    /// provider:[`crate::borrow_check::check_body`] 对全部单态化实例)。
+    pub fn check_borrows(&self) {
+        if self.checked_borrows.replace(true) {
+            self.hit();
+            return;
+        }
+        self.miss();
+        let mir = self.mir_crate();
+        for body in mir.iter() {
+            crate::borrow_check::check_body(self.diag, body);
+        }
+    }
+
+    /// const item 求值(RXS-0062/0063;provider:[`crate::const_eval::eval_const_item`])。
+    ///
+    /// memo 化(同 const 跨引用点共享值);环引用经 in-progress 集检出报
+    /// 非 const 操作错误(RXS-0063)。
+    pub fn eval_const(&self, def: DefId) -> Result<ConstVal, ConstError> {
+        if let Some(r) = self.const_vals.borrow().get(&def) {
+            self.hit();
+            return r.clone();
+        }
+        self.miss();
+        if !self.const_in_progress.borrow_mut().insert(def) {
+            // 求值期间再次进入同一 const = 环(RXS-0063);不入 memo,由各引用点报告
+            return Err(ConstError::NonConst {
+                span: self.hir_crate().item(def).span,
+                what: "cyclic constant reference".to_owned(),
+            });
+        }
+        let r = crate::const_eval::eval_const_item(self, def);
+        self.const_in_progress.borrow_mut().remove(&def);
+        self.const_vals.borrow_mut().insert(def, r.clone());
+        r
+    }
+
+    /// const 求值强制检查(RXS-0065):对全部可 ground 求值的 const item 强制
+    /// 求值,失败即报 5xxx;时点 = typeck 后、MIR 前(对全部 const 求值上下文
+    /// 强制,即便未被运行期引用)。memo 防重复诊断。
+    pub fn check_consteval(&self) {
+        if self.checked_consteval.replace(true) {
+            self.hit();
+            return;
+        }
+        self.miss();
+        let krate = self.hir_crate();
+        for (i, item) in krate.items.iter().enumerate() {
+            if !matches!(item.kind, hir::ItemKind::Const { .. }) {
+                continue;
+            }
+            let def = DefId(i as u32);
+            // 仅强制可 ground 求值者(类型无 Param/Infer/Err);泛型上下文 assoc
+            // const 随 M4+(标量优先,登记已知限制)
+            if !ty_is_ground(&self.type_of(def)) {
+                continue;
+            }
+            if let Err(e) = self.eval_const(def) {
+                e.emit(self.diag);
+            }
         }
     }
 
@@ -191,6 +350,18 @@ impl<'a> QueryCtx<'a> {
         let m = Rc::new(crate::mir_build::build_crate(self));
         let _ = self.mir.set(Rc::clone(&m));
         m
+    }
+}
+
+/// 类型是否完全 ground(无 Param/Infer/Err;const 强制求值的前置)。
+fn ty_is_ground(ty: &Ty) -> bool {
+    match ty {
+        Ty::Param(_) | Ty::Infer(_) | Ty::Err => false,
+        Ty::Prim(_) => true,
+        Ty::Adt(_, a) => a.iter().all(ty_is_ground),
+        Ty::Tuple(v) => v.iter().all(ty_is_ground),
+        Ty::Ref(t, _) | Ty::RawPtr(t, _) | Ty::Array(t) | Ty::Slice(t) => ty_is_ground(t),
+        Ty::FnPtr(ps, r) => ps.iter().all(ty_is_ground) && ty_is_ground(r),
     }
 }
 

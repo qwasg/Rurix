@@ -1,0 +1,37 @@
+fn main() -> () {
+    let _0: ();
+    let _1: bool; // c
+    let _2: R; // r
+    let _3: R;
+    let _4: bool;
+bb0:
+    _4 = const false;
+    _1 = const true;
+    switch(_1) -> [true: bb1, false: bb2];
+bb1:
+    _3 = R {  };
+    _2 = move _3;
+    _4 = const true;
+    goto -> bb4;
+bb2:
+    goto -> bb3;
+bb3:
+    switch(_4) -> [true: bb6, false: bb5];
+bb4:
+    goto -> bb3;
+bb5:
+    _0 = const ();
+    return;
+bb6:
+    drop(_2) -> bb7;
+bb7:
+    _4 = const false;
+    goto -> bb5;
+}
+fn rx_drop_9(_1: &mut R) -> () {
+    let _0: ();
+    let _1: &mut R; // self
+bb0:
+    _0 = const ();
+    return;
+}

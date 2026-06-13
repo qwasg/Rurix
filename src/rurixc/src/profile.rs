@@ -33,9 +33,14 @@ impl Profiler {
 
     /// 记录一个阶段:`started` 为阶段起点墙钟,`counters` 为该阶段计数器。
     pub fn record(&self, stage: &'static str, started: Instant, counters: &[(&'static str, u64)]) {
+        self.record_ms(stage, started.elapsed().as_secs_f64() * 1e3, counters);
+    }
+
+    /// 以累计毫秒记录阶段(非连续区段的聚合计时,如 TBIR 逐 body 即建即用)。
+    pub fn record_ms(&self, stage: &'static str, wall_ms: f64, counters: &[(&'static str, u64)]) {
         self.stages.borrow_mut().push(StageRecord {
             stage,
-            wall_ms: started.elapsed().as_secs_f64() * 1e3,
+            wall_ms,
             counters: counters.to_vec(),
         });
     }

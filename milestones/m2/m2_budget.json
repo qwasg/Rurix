@@ -12,22 +12,22 @@
     {
       "id": "m2.bench.cold_compile_hello_world_ms",
       "direction": "max",
-      "threshold": null,
-      "evidence": "estimated",
-      "skip_reason": "M2 开工占位:冷编译 hello-world 端到端耗时(07 §6);M2 仅交付 self-profile 计时基础设施,阈值按 11 §3 M3 首次实测回填 measured_local(三次进程级独立运行 trimmed mean,统计协议复用 bench/stats.py)",
+      "threshold": 183.98,
+      "evidence": "measured_local",
+      "skip_reason": null,
       "unit": "ms",
-      "evidence_file": null,
-      "measured_value": null
+      "evidence_file": "evidence/compile_cold_20260613_agg.json",
+      "measured_value": 122.652
     },
     {
       "id": "m2.bench.check_latency_ms",
       "direction": "max",
-      "threshold": null,
-      "evidence": "estimated",
-      "skip_reason": "M2 开工占位:增量 check 延迟(07 §6 行业参考线 <5s 为 estimated 性质,r11);增量通道本身是 D-203 Phase 2+ 范围,M2 仅记录全量 check 耗时口径,阈值随 M3 回填",
+      "threshold": 10.37,
+      "evidence": "measured_local",
+      "skip_reason": null,
       "unit": "ms",
-      "evidence_file": null,
-      "measured_value": null
+      "evidence_file": "evidence/compile_check_20260613_agg.json",
+      "measured_value": 6.9123
     }
   ],
   "ratio_assertions": [],
@@ -53,6 +53,16 @@
       "version": "v1.1",
       "date": "2026-06-12",
       "change": "M2.4 占位复核(M2_PLAN §4 任务 2):两条 m2.bench.* estimated 占位的 skip_reason 与 M3 回填承接复核确认不变(占位存活 ≤2 里程碑,14 §3,M3 close-out 前必须转 measured_local);self-profile 计时基础设施已落地(rurixc --self-profile 六阶段 JSON 行 + CI 步骤 14),M3 实测回填的计时数据源就绪。本次对既有条目零修改,仅追加本行"
+    },
+    {
+      "version": "v1.2",
+      "date": "2026-06-13",
+      "change": "M3.4 回填(G-M3-3):compile_triple_run 三次进程级独立运行 trimmed mean,阈值 = 实测 × (1 + 0.5)(max 方向上界);阈值余量为 agent 提案,待人工终审批准(硬规则 1)"
+    },
+    {
+      "version": "v1.3",
+      "date": "2026-06-13",
+      "change": "人工终审批准 M3.4 阈值余量 ×1.5(cold_compile 上界 183.98 ms / check_latency 上界 10.37 ms);实测 trimmed mean 122.652 / 6.912 ms,Windows 文件系统·杀软扫描噪声下 50% 上界冗余合理。既有条目零修改,仅追加本行(qwasg 会话授权,agent 代笔)"
     }
   ]
 }

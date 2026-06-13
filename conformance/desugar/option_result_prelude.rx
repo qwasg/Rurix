@@ -1,0 +1,32 @@
+//@ spec: RXS-0048, RXS-0044
+// Built-in Option / Result are plain prelude enums: constructed and matched
+// without imports, ordinary generics rules apply (RXS-0044 / RXS-0045).
+
+fn lookup(key: i32) -> Option<i32> {
+    if key >= 0 {
+        Some(key * 10)
+    } else {
+        None
+    }
+}
+
+fn to_result(opt: Option<i32>, err: i32) -> Result<i32, i32> {
+    match opt {
+        Some(v) => Ok(v),
+        None => Err(err),
+    }
+}
+
+fn main() {
+    let found = lookup(4);
+    let missing = lookup(-1);
+    let a = match to_result(found, -100) {
+        Ok(v) => v,
+        Err(e) => e,
+    };
+    let b = match to_result(missing, -100) {
+        Ok(v) => v,
+        Err(e) => e,
+    };
+    let _sum = a + b;
+}

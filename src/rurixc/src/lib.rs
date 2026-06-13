@@ -7,8 +7,12 @@
 //! M1.4 范围:诊断渲染/UI golden 通道/rx fmt 雏形(契约 D-M1-4 / D-M1-5)。
 
 pub mod ast;
+pub mod borrow_check;
 pub mod codegen;
+pub mod const_eval;
+pub mod dataflow;
 pub mod diag;
+pub mod drop_elab;
 pub mod feature_gate;
 pub mod fmt;
 pub mod hir;
@@ -17,6 +21,7 @@ pub mod lower;
 pub mod messages;
 pub mod mir;
 pub mod mir_build;
+pub mod move_check;
 pub mod parser;
 pub mod profile;
 pub mod query;
@@ -24,5 +29,7 @@ pub mod render;
 pub mod resolve;
 pub mod source_map;
 pub mod span;
+pub mod tbir;
+pub mod tbir_build;
 pub mod ty;
 pub mod typeck;

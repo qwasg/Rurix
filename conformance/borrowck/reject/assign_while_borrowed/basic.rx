@@ -1,0 +1,15 @@
+//@ spec: RXS-0060
+//@ expect-error: RX4005
+// assign-while-borrowed: `x` is written while the borrow `r = &x` is still
+// live (used afterwards by `peek`).
+
+fn peek(r: &i32) -> i32 {
+    *r
+}
+
+fn main() {
+    let mut x = 1;
+    let r = &x;
+    x = 5;
+    let _b = peek(r);
+}

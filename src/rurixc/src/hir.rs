@@ -3,10 +3,10 @@
 //! 层职责:类型系统的主工作 IR——**item 与 body 分离**,为增量提供依赖边界;
 //! 路径节点携带名称解析结果 [`Res`](不再有文本回溯);不做借用检查(MIR 职责)。
 //!
-//! M2.1 形态取舍(随 M2.2+ 扩展,注释留痕):
-//! - `for` / `?` 暂保留为 HIR 一等节点,desugar 依赖 Iterator/Result lang-item,
-//!   推迟到 M2.2 与类型系统同步(M2_PLAN §1 修订行留痕);
-//! - 关联项路径(`Counter::new`)仅支持 inherent impl;trait 关联项解析随 M2.2。
+//! M3.1 起 `for` / `?` 不再是 HIR 节点:AST→HIR lowering 按 RXS-0049/RXS-0050
+//! 展开为 loop+match / match 等价形式(依赖 RXS-0048 编译器已知项最小面,
+//! M2_PLAN v1.1/v1.2 推迟项收口);合成推进步以 [`ExprKind::SynthInt`] 表示
+//! (无源文本支撑的字面量)。关联项路径仅支持 inherent impl(M2.1 取舍延续)。
 
 use crate::ast::{BinOp, FnColor, UnOp};
 use crate::span::Span;
@@ -140,6 +140,23 @@ pub struct Crate {
     pub bodies: Vec<Body>,
     /// 根模块的直接子 item。
     pub root_items: Vec<DefId>,
+    /// `#[derive(Copy)]` 标注的 ADT → 属性 span(RXS-0053;合法性由
+    /// typeck 定义处检查裁决,RX2008)。
+    pub copy_derives: std::collections::HashMap<DefId, Span>,
+    /// 识别出的 `impl Drop for T`(RXS-0055;trait 路径绑定到内建 Drop 的
+    /// impl;形状合法性由 typeck 定义处检查裁决,RX2009)。
+    pub drop_impls: Vec<DropImpl>,
+}
+
+/// `impl Drop for T` 登记(RXS-0055 最小识别面)。
+#[derive(Debug)]
+pub struct DropImpl {
+    /// impl 目标(self_res 为 struct/enum Def 时 Some;其余形态留 None,
+    /// 由定义处检查报 RX2009)。
+    pub adt: Option<DefId>,
+    /// impl 合成 item 的 DefId。
+    pub impl_def: DefId,
+    pub span: Span,
 }
 
 impl Crate {
@@ -149,6 +166,39 @@ impl Crate {
 
     pub fn body(&self, id: BodyId) -> &Body {
         &self.bodies[id.0 as usize]
+    }
+
+    /// ADT 是否携带 `#[derive(Copy)]`(RXS-0053)。
+    pub fn has_copy_derive(&self, def: DefId) -> bool {
+        self.copy_derives.contains_key(&def)
+    }
+
+    /// ADT 的 Drop impl 登记(首个;重复登记由 RX2009 拒绝)。
+    pub fn drop_impl_of(&self, adt: DefId) -> Option<&DropImpl> {
+        self.drop_impls.iter().find(|di| di.adt == Some(adt))
+    }
+
+    /// ADT 的 `Drop::drop` 关联函数 DefId(RXS-0055;形状违例时可能缺失)。
+    pub fn drop_fn_of(&self, adt: DefId) -> Option<DefId> {
+        let di = self.drop_impl_of(adt)?;
+        let ItemKind::Impl { items, .. } = &self.item(di.impl_def).kind else {
+            return None;
+        };
+        items.iter().copied().find(|d| self.item(*d).name == "drop")
+    }
+
+    /// 是否为 Drop impl 的 `drop` 关联函数(方法查找排除面,RXS-0055
+    /// "不可显式调用")。
+    pub fn is_drop_fn(&self, def: DefId) -> bool {
+        if self.item(def).name != "drop" {
+            return false;
+        }
+        self.drop_impls.iter().any(|di| {
+            matches!(
+                &self.item(di.impl_def).kind,
+                ItemKind::Impl { items, .. } if items.contains(&def)
+            )
+        })
     }
 }
 
@@ -178,6 +228,9 @@ pub enum ItemKind {
     },
     Impl {
         self_res: Res,
+        /// `impl Trait for Type` 的 trait 路径解析结果(inherent impl 为 None;
+        /// RXS-0055 Drop 识别面消费)。
+        trait_res: Option<Res>,
         items: Vec<DefId>,
     },
     Mod {
@@ -204,12 +257,21 @@ pub enum ItemKind {
     Err,
 }
 
+/// `self` 接收者形态(RXS-0046;TBIR 方法糖显式化的 autoref/autoderef 依据)。
+#[derive(Clone, Copy, Debug)]
+pub struct SelfKind {
+    pub by_ref: bool,
+    pub mutable: bool,
+}
+
 #[derive(Debug)]
 pub struct FnDecl {
     pub color: FnColor,
     /// 泛型参数名(序号即 `Res::GenericParam` 索引)。
     pub generic_params: Vec<String>,
     pub params: Vec<Param>,
+    /// `self` 接收者形态(params[0] 为 self 时 Some)。
+    pub self_kind: Option<SelfKind>,
     pub ret: Option<Ty>,
     /// `None` = 签名声明(extern/trait)。
     pub body: Option<BodyId>,
@@ -299,7 +361,11 @@ pub enum PatKind {
     Binding {
         local: LocalId,
     },
-    Lit,
+    /// 字面量模式(载荷保留供 MIR 模式测试取值,M3.1)。
+    Lit {
+        negated: bool,
+        lit: crate::ast::Lit,
+    },
     Range,
     At {
         local: LocalId,
@@ -335,6 +401,9 @@ pub struct Expr {
 pub enum ExprKind {
     /// 字面量(种类/后缀供 typeck 定型,RXS-0039;复用 AST 节点)。
     Lit(crate::ast::Lit),
+    /// desugar 合成的整数字面量(无源文本支撑;RXS-0049 推进步)。
+    /// 定型同无后缀整数字面量(数值类约束 + RXS-0039 默认化)。
+    SynthInt(i128),
     /// 已解析路径(变量/常量/单元变体/fn 引用)。
     Res(Res),
     Unary {
@@ -387,7 +456,6 @@ pub enum ExprKind {
         expr: Box<Expr>,
         index: Box<Expr>,
     },
-    Try(Box<Expr>),
     Tuple(Vec<Expr>),
     Array(Vec<Expr>),
     Repeat {
@@ -407,12 +475,6 @@ pub enum ExprKind {
     },
     While {
         cond: Box<Expr>,
-        body: Block,
-    },
-    /// desugar 推迟到 M2.2(依赖 Iterator lang-item)。
-    For {
-        pat: Pat,
-        iter: Box<Expr>,
         body: Block,
     },
     Loop {

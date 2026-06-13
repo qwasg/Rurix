@@ -46,8 +46,26 @@
 | RXS-0040 | spec/types.md | 2 | `conformance/typeck/signatures.rx`, `src/rurixc/src/typeck.rs` |
 | RXS-0041 | spec/types.md | 4 | `conformance/typeck/inference_locals.rx`, `conformance/typeck/shadow_rebind_typed.rx`, `src/rurixc/src/typeck.rs` …(+1) |
 | RXS-0042 | spec/types.md | 7 | `conformance/typeck/calls.rx`, `conformance/typeck/references_params.rx`, `src/rurixc/src/typeck.rs` …(+4) |
-| RXS-0043 | spec/types.md | 6 | `conformance/typeck/control_flow_typed.rx`, `conformance/typeck/operators_typed.rx`, `conformance/typeck/references_params.rx` …(+3) |
-| RXS-0044 | spec/types.md | 8 | `conformance/typeck/adt_construct.rx`, `conformance/typeck/control_flow_typed.rx`, `conformance/typeck/tuples_arrays_typed.rx` …(+5) |
+| RXS-0043 | spec/types.md | 7 | `conformance/desugar/for_range_desugar.rx`, `conformance/typeck/control_flow_typed.rx`, `conformance/typeck/operators_typed.rx` …(+4) |
+| RXS-0044 | spec/types.md | 9 | `conformance/desugar/option_result_prelude.rx`, `conformance/typeck/adt_construct.rx`, `conformance/typeck/control_flow_typed.rx` …(+6) |
 | RXS-0045 | spec/types.md | 2 | `conformance/typeck/generics_mono.rx`, `src/rurixc/src/typeck.rs` |
-| RXS-0046 | spec/types.md | 3 | `conformance/typeck/methods_casts.rx`, `src/rurixc/src/typeck.rs`, `tests/ui/typeck/unknown_method.rx` |
+| RXS-0046 | spec/types.md | 4 | `conformance/typeck/methods_casts.rx`, `src/rurixc/src/tbir_build.rs`, `src/rurixc/src/typeck.rs` …(+1) |
 | RXS-0047 | spec/types.md | 13 | `src/rurixc/src/typeck.rs`, `tests/ui/typeck/arg_count.rx`, `tests/ui/typeck/arg_type_mismatch.rx` …(+10) |
+| RXS-0048 | spec/borrow.md | 9 | `conformance/desugar/desugar_run_smoke.rx`, `conformance/desugar/iterator_protocol.rx`, `conformance/desugar/option_result_prelude.rx` …(+6) |
+| RXS-0049 | spec/borrow.md | 6 | `conformance/desugar/desugar_run_smoke.rx`, `conformance/desugar/for_range_desugar.rx`, `conformance/desugar/iterator_protocol.rx` …(+3) |
+| RXS-0050 | spec/borrow.md | 5 | `conformance/desugar/desugar_run_smoke.rx`, `conformance/desugar/question_mark_result.rx`, `src/rurixc/src/lower.rs` …(+2) |
+| RXS-0051 | spec/borrow.md | 5 | `conformance/desugar/match_exhaustive.rx`, `src/rurixc/src/mir_build.rs`, `src/rurixc/src/tbir_build.rs` …(+2) |
+| RXS-0052 | spec/borrow.md | 4 | `conformance/desugar/desugar_run_smoke.rx`, `conformance/desugar/drop_scope_blocks.rx`, `src/rurixc/src/drop_elab.rs` …(+1) |
+| RXS-0053 | spec/borrow.md | 4 | `conformance/borrowck/accept/copy_types.rx`, `src/rurixc/src/move_check.rs`, `src/rurixc/src/typeck.rs` …(+1) |
+| RXS-0054 | spec/borrow.md | 12 | `conformance/borrowck/accept/move_reinit.rx`, `conformance/borrowck/reject/use_after_move/basic.rx`, `conformance/borrowck/reject/use_after_move/conditional_move.rx` …(+9) |
+| RXS-0055 | spec/borrow.md | 4 | `conformance/borrowck/accept/drop_order_run.rx`, `src/rurixc/src/drop_elab.rs`, `src/rurixc/src/mir_build.rs` …(+1) |
+| RXS-0056 | spec/borrow.md | 1 | `conformance/borrowck/accept/temp_drop_stmt.rx` |
+| RXS-0057 | spec/borrow.md | 4 | `conformance/borrowck/reject/double_mut_borrow/basic.rx`, `conformance/borrowck/reject/shared_mut_conflict/basic.rx`, `tests/ui/borrowck/double_mut_borrow.rx` …(+1) |
+| RXS-0058 | spec/borrow.md | 7 | `conformance/borrowck/accept/shared_borrows.rx`, `conformance/borrowck/reject/double_mut_borrow/basic.rx`, `conformance/borrowck/reject/shared_mut_conflict/basic.rx` …(+4) |
+| RXS-0059 | spec/borrow.md | 2 | `conformance/borrowck/accept/nll_released_reborrow.rx`, `src/rurixc/src/borrow_check.rs` |
+| RXS-0060 | spec/borrow.md | 5 | `conformance/borrowck/reject/assign_while_borrowed/basic.rx`, `conformance/borrowck/reject/move_while_borrowed/basic.rx`, `src/rurixc/src/borrow_check.rs` …(+2) |
+| RXS-0061 | spec/borrow.md | 4 | `conformance/borrowck/accept/reference_to_param.rx`, `conformance/borrowck/reject/dangling_reference/basic.rx`, `src/rurixc/src/borrow_check.rs` …(+1) |
+| RXS-0062 | spec/consteval.md | 5 | `conformance/consteval/const_eval_run.rx`, `src/rurixc/src/const_eval.rs`, `src/rurixc/src/mir_build.rs` …(+2) |
+| RXS-0063 | spec/consteval.md | 3 | `conformance/consteval/const_eval_run.rx`, `src/rurixc/src/const_eval.rs`, `tests/ui/consteval/overflow_mul.rx` |
+| RXS-0064 | spec/consteval.md | 1 | `src/rurixc/src/const_eval.rs` |
+| RXS-0065 | spec/consteval.md | 2 | `src/rurixc/src/const_eval.rs`, `tests/ui/consteval/overflow_add.rx` |

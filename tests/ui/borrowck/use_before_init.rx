@@ -1,0 +1,5 @@
+//@ spec: RXS-0054
+fn main() {
+    let x: i32;
+    let _y = x + 1; //~ ERROR RX4002
+}

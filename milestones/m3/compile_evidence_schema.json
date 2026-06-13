@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/compile-evidence/v1",
+  "title": "Rurix 编译性能证据 JSON(CPU 环境画像 + 进程级编译计时)",
+  "description": "M3 契约 G-M3-3 配套:冷编译 hello-world 端到端耗时与全量 check 延迟证据(evidence/compile_*.json 按此 schema 校验)。计时为进程级 wall(每次编译 = 独立 rurixc 子进程 spawn,inherent cold);统计复用 BENCH_PROTOCOL §3 trimmed-mean,但迭代规模因单次编译昂贵而下调(timer=process_wall,非 std_instant/cuda_event)。CPU 无锁频维度,clock_control 固定 not_applicable_cpu,measured_local 记级(真实硬件 + 三次进程级独立运行 trimmed mean,14 §5)。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "evidence_level",
+    "timestamp",
+    "bench",
+    "environment",
+    "sampling",
+    "results"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "evidence_level": { "enum": ["measured_local", "estimated"] },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "bench": {
+      "type": "object",
+      "required": ["id", "level", "problem_size", "harness_commit"],
+      "properties": {
+        "id": { "type": "string", "examples": ["cold_compile_hello_world", "check_latency"] },
+        "level": { "const": "compile" },
+        "problem_size": { "type": "string", "examples": ["hello_world.rx (full pipeline -> EXE)"] },
+        "harness_commit": { "type": "string" }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "required": [
+        "cpu_name", "logical_cores", "power_plan", "os_build",
+        "clock_control", "background_note"
+      ],
+      "properties": {
+        "cpu_name": { "type": "string" },
+        "logical_cores": { "type": "integer" },
+        "power_plan": { "type": "string" },
+        "os_build": { "type": "string" },
+        "clock_control": { "const": "not_applicable_cpu" },
+        "background_note": { "type": "string" },
+        "toolchain": { "type": "string", "description": "clang/link 工具链画像(编译耗时含后端,版本影响大)" }
+      }
+    },
+    "sampling": {
+      "type": "object",
+      "required": [
+        "warmup_iterations", "timed_iterations", "trials", "trimmed_pct", "timer"
+      ],
+      "properties": {
+        "warmup_iterations": { "type": "integer", "minimum": 0 },
+        "steady_state_cv": { "type": "number" },
+        "timed_iterations": { "type": "integer", "minimum": 1 },
+        "trials": { "type": "integer", "minimum": 3 },
+        "trimmed_pct": { "type": "number" },
+        "timer": { "const": "process_wall" }
+      }
+    },
+    "results": {
+      "type": "object",
+      "required": ["metric", "unit", "trial_medians", "trimmed_mean", "cv", "ci95"],
+      "properties": {
+        "metric": { "type": "string", "examples": ["cold_compile_ms", "check_latency_ms"] },
+        "unit": { "const": "ms" },
+        "trial_medians": { "type": "array", "items": { "type": "number" }, "minItems": 3 },
+        "trimmed_mean": { "type": "number" },
+        "cv": { "type": "number" },
+        "ci95": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "outliers_rejected_iqr": { "type": "integer" },
+        "correctness_check": { "enum": ["pass", "fail", "n/a"] }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

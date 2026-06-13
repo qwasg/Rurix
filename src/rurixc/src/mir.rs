@@ -88,17 +88,43 @@ impl Place {
     }
 }
 
+/// 借用种类(RXS-0057:共享 `&` / 独占 `&mut`;借用检查数据流输入)。
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum BorrowKind {
+    Shared,
+    Mut,
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ProjElem {
     Deref,
     /// 字段序(struct 定义序 / 元组位置)。
     Field(u32),
+    /// enum 变体载荷字段(M3.1 扁平布局:`base` = 该变体首载荷的布局下标,
+    /// 见 [`enum_variant_layout`];`field` = 变体内字段序)。
+    VariantField {
+        variant: DefId,
+        base: u32,
+        field: u32,
+    },
 }
 
 #[derive(Clone, Debug)]
 pub enum Operand {
     Copy(Place),
+    /// 按值消耗非 Copy place(RXS-0053 move 时点;move/init 数据流的输入)。
+    Move(Place),
     Const(Const),
+}
+
+impl Operand {
+    /// 引用的 place(Const 无)。
+    pub fn place(&self) -> Option<&Place> {
+        match self {
+            Operand::Copy(p) | Operand::Move(p) => Some(p),
+            Operand::Const(_) => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -117,12 +143,21 @@ pub enum Rvalue {
     Use(Operand),
     BinaryOp(BinOp, Operand, Operand),
     UnaryOp(UnOp, Operand),
-    /// `&place` / `&mut place`(borrow 检查随 M3,此处仅取址)。
-    Ref(Place),
+    /// `&place` / `&mut place`(RXS-0057:携带借用种类,作为借用检查数据流输入)。
+    Ref(BorrowKind, Place),
     /// 数值/bool/char 转换(RXS-0046 合法面;目标类型显式)。
     Cast(Operand, Ty),
     /// struct / 元组构造(operand 按定义序/位置序)。
     Aggregate(Ty, Vec<Operand>),
+    /// enum 变体构造(M3.1 扁平布局:tag 落下标 0,载荷自 `base` 起顺排)。
+    VariantAggregate {
+        ty: Ty,
+        tag: u32,
+        base: u32,
+        ops: Vec<Operand>,
+    },
+    /// enum 判别读取(i32;match 降级的测试输入)。
+    Discriminant(Place),
 }
 
 #[derive(Debug)]
@@ -146,6 +181,13 @@ pub enum TerminatorKind {
         dest: Place,
         next: BlockIdx,
     },
+    /// 析构点(RXS-0055 drop elaboration 产物):若 place 此刻持有所有权,
+    /// 执行其 drop 动作(Drop::drop + 字段递归;条件持有经 drop flag 在
+    /// elaboration 期降为 SwitchBool 守卫)。codegen 展开为调用序列。
+    Drop {
+        place: Place,
+        next: BlockIdx,
+    },
     Return,
     /// 发散语句后的死块封口(`return`/`break` 之后)。
     Unreachable,
@@ -159,6 +201,26 @@ pub enum CallTarget {
         symbol: String,
     },
     Builtin(Builtin),
+}
+
+/// enum 扁平布局(M3.1 取舍:`{ i32 tag, 变体0载荷…, 变体1载荷…, … }`,
+/// 各变体载荷顺排**不重叠**——以空间换实现简单,无 union/字节级尺寸计算;
+/// 紧凑布局登记为已知限制随 M4+ 评估)。返回 (变体, 首载荷布局下标) 列表。
+pub fn enum_variant_layout(krate: &crate::hir::Crate, enum_def: DefId) -> Vec<(DefId, u32)> {
+    let crate::hir::ItemKind::Enum { variants } = &krate.item(enum_def).kind else {
+        return Vec::new();
+    };
+    let mut base = 1u32; // 0 = tag
+    variants
+        .iter()
+        .map(|v| {
+            let cur = base;
+            if let crate::hir::ItemKind::Variant { fields } = &krate.item(*v).kind {
+                base += fields.len() as u32;
+            }
+            (*v, cur)
+        })
+        .collect()
 }
 
 /// 单态化实例符号名:`main` 保留;其余 `rx_{名}_{DefId}`,泛型实参追加
@@ -278,6 +340,9 @@ fn print_place(p: &Place) -> String {
         match e {
             ProjElem::Deref => s = format!("(*{s})"),
             ProjElem::Field(i) => s.push_str(&format!(".{i}")),
+            ProjElem::VariantField { base, field, .. } => {
+                s.push_str(&format!(".v[{}+{}]", base, field));
+            }
         }
     }
     s
@@ -286,6 +351,7 @@ fn print_place(p: &Place) -> String {
 fn print_operand(o: &Operand) -> String {
     match o {
         Operand::Copy(p) => print_place(p),
+        Operand::Move(p) => format!("move {}", print_place(p)),
         Operand::Const(c) => print_const(c),
     }
 }
@@ -311,12 +377,18 @@ fn print_rvalue(rv: &Rvalue, res: &Resolutions) -> String {
             print_operand(b)
         ),
         Rvalue::UnaryOp(op, a) => format!("{}({})", unop_name(*op), print_operand(a)),
-        Rvalue::Ref(p) => format!("&{}", print_place(p)),
+        Rvalue::Ref(BorrowKind::Shared, p) => format!("&{}", print_place(p)),
+        Rvalue::Ref(BorrowKind::Mut, p) => format!("&mut {}", print_place(p)),
         Rvalue::Cast(o, t) => format!("{} as {}", print_operand(o), t.render_plain(res)),
         Rvalue::Aggregate(t, ops) => {
             let parts: Vec<String> = ops.iter().map(print_operand).collect();
             format!("{} {{ {} }}", t.render_plain(res), parts.join(", "))
         }
+        Rvalue::VariantAggregate { ty, tag, ops, .. } => {
+            let parts: Vec<String> = ops.iter().map(print_operand).collect();
+            format!("{}#{tag} {{ {} }}", ty.render_plain(res), parts.join(", "))
+        }
+        Rvalue::Discriminant(p) => format!("discriminant({})", print_place(p)),
     }
 }
 
@@ -346,6 +418,9 @@ fn print_term(t: &TerminatorKind) -> String {
                 a.join(", "),
                 next.0
             )
+        }
+        TerminatorKind::Drop { place, next } => {
+            format!("drop({}) -> bb{}", print_place(place), next.0)
         }
         TerminatorKind::Return => "return".to_owned(),
         TerminatorKind::Unreachable => "unreachable".to_owned(),

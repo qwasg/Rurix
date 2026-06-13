@@ -1,0 +1,5 @@
+error[RX2007]: non-exhaustive match: `_` not covered
+ --> $DIR/typeck/non_exhaustive_match_fallback.rx:6:5
+  |
+6 |     match n { //~ ERROR RX2007
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^ non-exhaustive match

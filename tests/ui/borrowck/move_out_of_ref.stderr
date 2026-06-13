@@ -1,0 +1,5 @@
+error[RX4003]: cannot move `r` out of a reference
+ --> $DIR/borrowck/move_out_of_ref.rx:7:13
+  |
+7 |     let u = *r; //~ ERROR RX4003
+  |             ^^ cannot move out of a reference (RXS-0053)

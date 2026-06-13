@@ -1,0 +1,14 @@
+//@ spec: RXS-0058
+// borrow positive: two shared `&x` borrows may coexist (alias XOR mutable is
+// satisfied when no mutable borrow is present).
+
+fn use2(a: &i32, b: &i32) -> i32 {
+    *a + *b
+}
+
+fn main() {
+    let x = 1;
+    let r1 = &x;
+    let r2 = &x;
+    let _z = use2(r1, r2);
+}

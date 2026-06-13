@@ -188,6 +188,102 @@
       "spec_clauses": ["RXS-0043", "RXS-0047"]
     },
     {
+      "id": "RX2007",
+      "title": "非穷尽 match(臂集合未覆盖 scrutinee 类型全部值)",
+      "message_key": "typeck.non_exhaustive_match",
+      "status": "active",
+      "introduced_in": "M3.1",
+      "spec_clauses": ["RXS-0051"]
+    },
+    {
+      "id": "RX2008",
+      "title": "非法 derive(Copy)(字段非 Copy / 泛型字段保守拒绝 / 与 Drop impl 冲突)",
+      "message_key": "typeck.bad_derive_copy",
+      "status": "active",
+      "introduced_in": "M3.2",
+      "spec_clauses": ["RXS-0053"]
+    },
+    {
+      "id": "RX2009",
+      "title": "非法 Drop impl(形状违例:非恰一个 fn drop(&mut self) / 非本包 struct-enum / 重复 impl)",
+      "message_key": "typeck.bad_drop_impl",
+      "status": "active",
+      "introduced_in": "M3.2",
+      "spec_clauses": ["RXS-0055"]
+    },
+    {
+      "id": "RX4001",
+      "title": "使用已移出的值(use after move,含 maybe-moved 保守判定)",
+      "message_key": "borrowck.use_after_move",
+      "status": "active",
+      "introduced_in": "M3.2",
+      "spec_clauses": ["RXS-0054"]
+    },
+    {
+      "id": "RX4002",
+      "title": "使用未初始化的值(use before init,含 maybe-uninit 保守判定)",
+      "message_key": "borrowck.use_before_init",
+      "status": "active",
+      "introduced_in": "M3.2",
+      "spec_clauses": ["RXS-0054"]
+    },
+    {
+      "id": "RX4003",
+      "title": "经引用 move 出非 Copy 值",
+      "message_key": "borrowck.move_out_of_ref",
+      "status": "active",
+      "introduced_in": "M3.2",
+      "spec_clauses": ["RXS-0053"]
+    },
+    {
+      "id": "RX4004",
+      "title": "借用冲突(别名 XOR 可变:double-mut / shared-mut 同时活跃)",
+      "message_key": "borrowck.borrow_conflict",
+      "status": "active",
+      "introduced_in": "M3.3",
+      "spec_clauses": ["RXS-0058"]
+    },
+    {
+      "id": "RX4005",
+      "title": "借用活跃期间对被借所有者 move 或写入",
+      "message_key": "borrowck.borrow_while_borrowed",
+      "status": "active",
+      "introduced_in": "M3.3",
+      "spec_clauses": ["RXS-0060"]
+    },
+    {
+      "id": "RX4006",
+      "title": "悬垂引用(引用活过指代物 / 局部引用经返回槽逃逸)",
+      "message_key": "borrowck.dangling_reference",
+      "status": "active",
+      "introduced_in": "M3.3",
+      "spec_clauses": ["RXS-0061"]
+    },
+    {
+      "id": "RX5001",
+      "title": "const 求值溢出(整数运算结果超出操作数类型范围 / 数组长度求值越界 / 算术失败)",
+      "message_key": "consteval.overflow",
+      "status": "active",
+      "introduced_in": "M3.4",
+      "spec_clauses": ["RXS-0063", "RXS-0065"]
+    },
+    {
+      "id": "RX5002",
+      "title": "const 求值越界(常量索引 ≥ 常量数组长度)",
+      "message_key": "consteval.index_out_of_bounds",
+      "status": "active",
+      "introduced_in": "M3.4",
+      "spec_clauses": ["RXS-0065"]
+    },
+    {
+      "id": "RX5003",
+      "title": "非 const 操作(const 求值上下文出现子集外操作 / 不可终止 / 环求值)",
+      "message_key": "consteval.non_const_operation",
+      "status": "active",
+      "introduced_in": "M3.4",
+      "spec_clauses": ["RXS-0062", "RXS-0063", "RXS-0065"]
+    },
+    {
       "id": "RX6001",
       "title": "codegen 暂不支持的语言构造(M2.3 host 子集作用面外)",
       "message_key": "codegen.unsupported_construct",
@@ -239,6 +335,26 @@
       "version": "v1.5",
       "date": "2026-06-12",
       "change": "M2.3 分配 RX6001/RX6002/RX7001(MIR lowering/codegen 作用面外构造、缺 main 入口、外部工具链失败;M2.3 host 子集 = hello-world 闭环所需,M2_PLAN v1.3 留痕)"
+    },
+    {
+      "version": "v1.6",
+      "date": "2026-06-12",
+      "change": "M3.1 分配 RX2007(非穷尽 match,spec/borrow.md RXS-0051 配套)。段位裁决留痕(M3_PLAN §1 任务 5/§5):归 2xxx 类型检查段而非 4xxx——穷尽性是类型驱动的静态检查(输入 = typeck 结果、于 TBIR 窄门报告),与借用/生命周期数据流无关;07 §5 段位语义下 4xxx 保留给 M3.2+ 的 move/init/borrow 诊断"
+    },
+    {
+      "version": "v1.7",
+      "date": "2026-06-13",
+      "change": "M3.2 分配 RX2008/RX2009 + RX4001 ~ RX4003(spec/borrow.md RXS-0053 ~ 0056 配套,M3_PLAN §2 任务 3)。段位裁决留痕:RX2008(derive(Copy) 合法性)与 RX2009(Drop impl 形状)归 2xxx——定义处类型检查,无数据流输入;RX4001/RX4002(use-after-move / use-before-init)与 RX4003(经引用 move 出)为 4xxx 借用/生命周期段首批——MIR move/init 数据流诊断"
+    },
+    {
+      "version": "v1.8",
+      "date": "2026-06-13",
+      "change": "M3.3 WP2 分配 RX4004 ~ RX4006(spec/borrow.md RXS-0058/RXS-0060/RXS-0061 配套,M3_PLAN §3 任务 2,WP1 spec 先行引用的正式分配)。4xxx 借用/生命周期段 NLL 借用检查主体:RX4004 别名 XOR 可变冲突(double_mut / shared_mut_conflict)、RX4005 借用活跃期间 move/写被借所有者(move/assign_while_borrowed)、RX4006 悬垂引用(dangling_reference);编号沿 RX4003 续接不复用"
+    },
+    {
+      "version": "v1.9",
+      "date": "2026-06-13",
+      "change": "M3.4 WP2 分配 RX5001 ~ RX5003(spec/consteval.md RXS-0062/RXS-0063/RXS-0065 配套,M3_PLAN §4 任务 2,WP1 spec 先行引用的正式分配)。5xxx const eval 段位首批:RX5001 求值溢出(整数运算溢出 / 数组长度越界 / 算术失败)、RX5002 求值越界(常量索引越界)、RX5003 非 const 操作(子集外操作 / 不可终止 / 环求值);段位 5xxx 首次启用,编号段内分配制递增不复用"
     }
   ]
 }

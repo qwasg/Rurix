@@ -1,0 +1,21 @@
+//@ spec: RXS-0055
+// MIR golden 代表 (b):drop 顺序(Move 入参 → 被 move 者 drop 消去;幸存者无条件 Drop)。
+struct A {}
+
+impl Drop for A {
+    fn drop(&mut self) {}
+}
+
+struct B {}
+
+impl Drop for B {
+    fn drop(&mut self) {}
+}
+
+fn consume(x: A) {}
+
+fn main() {
+    let a = A {};
+    let b = B {};
+    consume(a);
+}

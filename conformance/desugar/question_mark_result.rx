@@ -1,0 +1,25 @@
+//@ spec: RXS-0048, RXS-0050
+// `?` propagation over built-in Result (RXS-0050 desugar; error types unify
+// directly, no From conversion).
+
+fn half(x: i32) -> Result<i32, i32> {
+    if x % 2 == 0 {
+        Ok(x / 2)
+    } else {
+        Err(x)
+    }
+}
+
+fn quarter(x: i32) -> Result<i32, i32> {
+    let h = half(x)?;
+    let q = half(h)?;
+    Ok(q)
+}
+
+fn main() {
+    let r = quarter(12);
+    let _v = match r {
+        Ok(v) => v,
+        Err(e) => e,
+    };
+}

@@ -1,7 +1,8 @@
 //! rurixc 驱动:`.rx` → EXE + PDB 的端到端 host 编译闭环(M2.3,契约 G-M2-1)。
 //!
-//! 管线:lex → parse → feature gate → resolve → typeck → MIR(单态化收集)
-//! → 文本 LLVM IR → clang(pin 22.1.x,D-205)→ COFF .obj → link.exe(D-209)。
+//! 管线:lex → parse → feature gate → resolve → typeck → TBIR 窄门(逐实例
+//! 即建即用,D-202)→ MIR(单态化收集)→ 文本 LLVM IR → clang(pin 22.1.x,
+//! D-205)→ COFF .obj → link.exe(D-209)。
 //! 阶段化中止:前一阶段有 error 即停(与 UI 通道同口径,M2_PLAN v1.2)。
 //!
 //! 工具链定位:
@@ -9,7 +10,11 @@
 //!   版本断言 22.1.x(违例 = RX7001,pin 纪律)。
 //! - link.exe:`RURIXC_LINK` > vswhere 定位 VS BuildTools;MSVC/SDK 库目录自动发现。
 //!
-//! 用法:`rurixc <input.rx> [-o <out.exe>] [--emit=mir|llvm-ir] [--self-profile=<file.json>]`
+//! 用法:`rurixc <input.rx> [-o <out.exe>] [--emit=check|mir|llvm-ir] [--self-profile=<file.json>]`
+//!
+//! `--emit=check`(M3.4):跑全量静态检查(resolve→typeck→穷尽性→const eval→
+//! MIR→move/borrow)后即返回,不产 codegen/link 产物——预算 check 延迟计时口径
+//! (契约 G-M3-3)。
 //!
 //! self-profile(D-M2-6,契约 G-M2-4):`--self-profile=<path>` 输出 JSON 行
 //! 阶段计时(parse/resolve/typeck/mir/codegen/link + total/memo 汇总,07 §6)。
@@ -60,7 +65,7 @@ fn main() -> ExitCode {
     }
     let Some(input) = input else {
         eprintln!(
-            "usage: rurixc <input.rx> [-o <out.exe>] [--emit=mir|llvm-ir] [--self-profile=<file.json>]"
+            "usage: rurixc <input.rx> [-o <out.exe>] [--emit=check|mir|llvm-ir] [--self-profile=<file.json>]"
         );
         return ExitCode::from(2);
     };
@@ -129,14 +134,40 @@ fn main() -> ExitCode {
             if diag.has_errors() {
                 None
             } else {
-                let t = Instant::now();
-                let m = cx.mir_crate();
-                prof.record("mir", t, &[("mir_bodies", m.len() as u64)]);
-                if m.is_empty() {
-                    diag.struct_error(E_MISSING_MAIN, "codegen.missing_main")
-                        .emit();
+                // 模式穷尽性(RXS-0051):TBIR 窄门时点(typeck 后、MIR 前),
+                // 全 body 覆盖(含 MIR 可达性外的 body)
+                cx.check_crate_patterns();
+                // const 求值强制检查(M3.4,RXS-0062~0065):typeck 后、MIR 前
+                if !diag.has_errors() {
+                    cx.check_consteval();
                 }
-                Some(m)
+                if diag.has_errors() {
+                    None
+                } else {
+                    let t = Instant::now();
+                    let m = cx.mir_crate();
+                    prof.record("mir", t, &[("mir_bodies", m.len() as u64)]);
+                    // TBIR 窄门(M3.1):逐实例即建即用,聚合计时/计数经 QueryCtx 上报
+                    let (tb_bodies, tb_scopes, tb_ms) = cx.tbir_stats();
+                    prof.record_ms(
+                        "tbir",
+                        tb_ms,
+                        &[("tbir_bodies", tb_bodies), ("tbir_scopes", tb_scopes)],
+                    );
+                    // move/init 数据流(M3.2,RXS-0054):MIR 后、codegen 前强制
+                    if !diag.has_errors() {
+                        cx.check_moves();
+                    }
+                    // NLL 借用检查(M3.3,RXS-0057~0061):move/init 之后强制
+                    if !diag.has_errors() {
+                        cx.check_borrows();
+                    }
+                    if m.is_empty() {
+                        diag.struct_error(E_MISSING_MAIN, "codegen.missing_main")
+                            .emit();
+                    }
+                    Some(m)
+                }
             }
         }
     };
@@ -148,6 +179,16 @@ fn main() -> ExitCode {
         return ExitCode::from(1);
     }
     let mir_bodies = mir_bodies.expect("无错误则 MIR 存在");
+
+    // --emit=check:全量静态检查闭环(resolve/typeck/穷尽性/const eval/MIR/
+    // move/borrow 均已跑),不产 codegen/link 产物——check 延迟计时口径(G-M3-3)
+    if emit.as_deref() == Some("check") {
+        if let Err(e) = finish_profile(&prof, &cx, t_start, profile_out.as_deref()) {
+            toolchain_err(&diag, &sm, e);
+            return ExitCode::from(1);
+        }
+        return ExitCode::SUCCESS;
+    }
 
     if emit.as_deref() == Some("mir") {
         let res = cx.resolutions();

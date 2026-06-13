@@ -51,6 +51,7 @@ fn semantic_corpus_is_diagnostic_free() {
         let diag = DiagCtxt::new();
         let cx = QueryCtx::new(&src, SourceId(0), Edition::Rx0, &diag);
         cx.check_crate(); // 经 query 通道:resolve + lower + typeck
+        cx.check_crate_patterns(); // M3.1:模式穷尽性同入正例门(RXS-0051)
         assert!(
             diag.emitted().is_empty(),
             "{} 产生诊断: {:?}",

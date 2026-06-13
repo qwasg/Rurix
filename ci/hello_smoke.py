@@ -5,6 +5,8 @@
     py -3 ci/hello_smoke.py compile-run    # 步骤 12:G-M2-1 通道
     py -3 ci/hello_smoke.py breakpoint     # 步骤 13:G-M2-2 通道
     py -3 ci/hello_smoke.py self-profile   # 步骤 14:G-M2-4 通道(自 M2.4)
+    py -3 ci/hello_smoke.py desugar-smoke  # M3.1 出口证据:for/`?` desugar 真跑
+                                           # (步骤 12 同形态;CI 接线随 M3.x 评估)
 
 步骤 12:rurixc 全管线产出 EXE → 运行核对退出码/输出 → 同名 PDB 存在。
 步骤 13:cdb 源行断点(bp `hello_world!hello_world.rx:6`)+ g + k,
@@ -35,8 +37,9 @@ BP_BASELINE = [
     "hello_world!main",
     "hello_world.rx @ 6",
 ]
-# 步骤 14 基线不变量:六阶段集(M2_PLAN §4;计数器值非确定,只断言非零)
-PROFILE_STAGES = ["parse", "resolve", "typeck", "mir", "codegen", "link"]
+# 步骤 14 基线不变量:阶段集(M2_PLAN §4 六阶段 + M3.1 tbir 窄门阶段;
+# 计数器值非确定,只断言非零)
+PROFILE_STAGES = ["parse", "resolve", "typeck", "tbir", "mir", "codegen", "link"]
 
 
 def fail(msg: str) -> None:
@@ -153,6 +156,59 @@ def self_profile_check() -> None:
     print(f"[hello_smoke] self-profile PASS(JSON 行可解析 / 六阶段计数器非零: {counts})")
 
 
+def desugar_smoke() -> None:
+    """M3.1 出口证据:for(区间/迭代器协议)+ `?` 全管线产 EXE → 真跑核对。"""
+    src = ROOT / "conformance" / "desugar" / "desugar_run_smoke.rx"
+    exe = OUT_DIR / "desugar_run_smoke.exe"
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    r = run(["cargo", "build", "-p", "rurixc", "--bin", "rurixc"], cwd=ROOT)
+    if r.returncode != 0:
+        fail(f"cargo build rurixc 失败:\n{r.stderr}")
+    rurixc = ROOT / "target" / "debug" / "rurixc.exe"
+    r = run([str(rurixc), str(src), "-o", str(exe)], cwd=ROOT)
+    if r.returncode != 0:
+        fail(f"rurixc 编译 desugar_run_smoke.rx 失败(exit {r.returncode}):\n{r.stdout}{r.stderr}")
+    r = run([str(exe)])
+    if r.returncode != 0:
+        fail(f"desugar_run_smoke.exe 退出码 {r.returncode}(期待 0)")
+    if r.stdout.strip() != "desugar-ok":
+        fail(f"stdout 不符: {r.stdout.strip()!r}(期待 'desugar-ok')")
+    print("[hello_smoke] desugar-smoke PASS(for/`?` desugar 全管线真跑,exit 0 / stdout 符合)")
+
+
+def drop_smoke() -> None:
+    """M3.2 出口证据:drop elaboration 全管线产 EXE → 真跑核对 drop 顺序
+    (RXS-0055/RXS-0056;move 后不 drop、字段/语句临时确定性释放)。"""
+    cases = [
+        (
+            "drop_order_run.rx",
+            ["consume", "drop a", "tail", "drop b"],
+        ),
+        (
+            "temp_drop_stmt.rx",
+            ["peek", "drop temp", "after let"],
+        ),
+    ]
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    r = run(["cargo", "build", "-p", "rurixc", "--bin", "rurixc"], cwd=ROOT)
+    if r.returncode != 0:
+        fail(f"cargo build rurixc 失败:\n{r.stderr}")
+    rurixc = ROOT / "target" / "debug" / "rurixc.exe"
+    for name, expected in cases:
+        src = ROOT / "conformance" / "borrowck" / "accept" / name
+        exe = OUT_DIR / name.replace(".rx", ".exe")
+        r = run([str(rurixc), str(src), "-o", str(exe)], cwd=ROOT)
+        if r.returncode != 0:
+            fail(f"rurixc 编译 {name} 失败(exit {r.returncode}):\n{r.stdout}{r.stderr}")
+        r = run([str(exe)])
+        if r.returncode != 0:
+            fail(f"{name} 退出码 {r.returncode}(期待 0)")
+        got = [ln.strip() for ln in r.stdout.splitlines() if ln.strip()]
+        if got != expected:
+            fail(f"{name} drop 顺序不符:\n  got={got}\n  expected={expected}")
+    print("[hello_smoke] drop-smoke PASS(drop elaboration 全管线真跑,drop 顺序符合 RXS-0055/0056)")
+
+
 def main() -> None:
     mode = sys.argv[1] if len(sys.argv) > 1 else ""
     if mode == "compile-run":
@@ -161,8 +217,15 @@ def main() -> None:
         breakpoint_check()
     elif mode == "self-profile":
         self_profile_check()
+    elif mode == "desugar-smoke":
+        desugar_smoke()
+    elif mode == "drop-smoke":
+        drop_smoke()
     else:
-        print("usage: py -3 ci/hello_smoke.py {compile-run|breakpoint|self-profile}")
+        print(
+            "usage: py -3 ci/hello_smoke.py "
+            "{compile-run|breakpoint|self-profile|desugar-smoke|drop-smoke}"
+        )
         sys.exit(2)
 
 

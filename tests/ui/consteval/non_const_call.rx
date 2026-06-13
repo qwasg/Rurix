@@ -1,0 +1,9 @@
+//@ spec: RXS-0062
+// const 求值上下文调用非 `const fn`(RX5003)。
+fn runtime(n: i32) -> i32 {
+    n + 1
+}
+
+const VALUE: i32 = runtime(3); //~ ERROR RX5003
+
+fn main() {}

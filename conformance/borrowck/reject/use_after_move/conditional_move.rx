@@ -1,0 +1,20 @@
+//@ spec: RXS-0054
+//@ expect-error: RX4001
+// maybe-moved: moved on one branch only; conservative join rejects later use.
+
+struct Token {
+    id: i32,
+}
+
+fn eat(t: Token) -> i32 {
+    t.id
+}
+
+fn main() {
+    let t = Token { id: 1 };
+    let cond = true;
+    if cond {
+        let _a = eat(t);
+    }
+    let _b = eat(t);
+}

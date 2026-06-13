@@ -1,0 +1,11 @@
+fn main() -> () {
+    let _0: ();
+    let _1: &str; // greeting
+    let _2: ();
+bb0:
+    _1 = const "hello, rurix";
+    _2 = builtin println(_1) -> bb1;
+bb1:
+    _0 = const ();
+    return;
+}

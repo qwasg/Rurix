@@ -1,0 +1,5 @@
+error[RX5001]: constant evaluation overflow in multiply
+ --> $DIR/consteval/overflow_mul.rx:3:19
+  |
+3 | const PROD: i32 = 100000 * 100000; //~ ERROR RX5001
+  |                   ^^^^^^^^^^^^^^^ this operation overflows during constant evaluation
