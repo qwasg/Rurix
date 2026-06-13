@@ -42,6 +42,8 @@ pub struct QueryCtx<'a> {
     checked_patterns: RefCell<std::collections::HashSet<BodyId>>,
     /// 定义处检查已跑标记(RXS-0053/RXS-0055;memo 防重复诊断)。
     checked_defs: Cell<bool>,
+    /// move/init 检查已跑标记(RXS-0054;memo 防重复诊断)。
+    checked_moves: Cell<bool>,
     mir: OnceCell<Rc<Vec<crate::mir::Body>>>,
     // ---- 计量(self-profile 布点,07 §6) ----
     hits: Cell<u64>,
@@ -73,6 +75,7 @@ impl<'a> QueryCtx<'a> {
             checked_bodies: RefCell::new(HashMap::new()),
             checked_patterns: RefCell::new(std::collections::HashSet::new()),
             checked_defs: Cell::new(false),
+            checked_moves: Cell::new(false),
             mir: OnceCell::new(),
             hits: Cell::new(0),
             misses: Cell::new(0),
@@ -244,6 +247,20 @@ impl<'a> QueryCtx<'a> {
         let krate = self.hir_crate();
         for i in 0..krate.bodies.len() {
             self.check_patterns(BodyId(i as u32));
+        }
+    }
+
+    /// move/init 数据流检查(RXS-0053/RXS-0054;MIR 后、codegen 前强制;
+    /// provider:[`crate::move_check::check_body`] 对全部单态化实例)。
+    pub fn check_moves(&self) {
+        if self.checked_moves.replace(true) {
+            self.hit();
+            return;
+        }
+        self.miss();
+        let mir = self.mir_crate();
+        for body in mir.iter() {
+            crate::move_check::check_body(self.diag, body);
         }
     }
 

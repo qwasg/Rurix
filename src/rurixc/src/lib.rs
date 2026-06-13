@@ -18,6 +18,7 @@ pub mod lower;
 pub mod messages;
 pub mod mir;
 pub mod mir_build;
+pub mod move_check;
 pub mod parser;
 pub mod profile;
 pub mod query;

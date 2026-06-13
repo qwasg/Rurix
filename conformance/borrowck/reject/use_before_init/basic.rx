@@ -1,0 +1,8 @@
+//@ spec: RXS-0054
+//@ expect-error: RX4002
+// use-before-init: declared without initializer, read before any assignment.
+
+fn main() {
+    let x: i32;
+    let _y = x + 1;
+}

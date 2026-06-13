@@ -13,3 +13,4 @@
 | 2026-06-12 | tests/ui/typeck/ 12 条 snapshot(2026-06-12 行) | 人工终审批准 M2.2 黄金路径 2 首批 snapshot bless;用于 M2 close-out §8.2/§8.3 留痕 | qwasg(会话授权,agent 代笔) |
 | 2026-06-12 | tests/ui/typeck/ 新增 2 条 snapshot(non_exhaustive_match_enum / non_exhaustive_match_fallback,RX2007) | M3.1 模式穷尽性诊断首批(M3_PLAN §1 任务 5,RXS-0051;UI 通道阶段化接入 TBIR 窄门模式检查,既有 28 条 snapshot 零变化) | pending-human-review |
 | 2026-06-13 | tests/ui/typeck/ 2 条 RX2007 snapshot(2026-06-12 行) | 人工终审批准 M3.1 模式穷尽性首批 snapshot bless;用于 M3 close-out §8 留痕 | qwasg(会话授权,agent 代笔) |
+| 2026-06-13 | tests/ui/borrowck/ 新增 5 条 snapshot(RX4001 ×2 / RX4002 ×2 / RX4003 ×1) | M3.2 move/init 数据流诊断首批(M3_PLAN §2 任务 3,RXS-0053/RXS-0054;UI 通道阶段化接入 MIR 后 move/init 检查,既有 30 条 snapshot 零变化;计入黄金路径 3 计数,G-M3-2) | pending-human-review |

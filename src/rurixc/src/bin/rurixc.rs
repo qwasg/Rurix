@@ -146,6 +146,10 @@ fn main() -> ExitCode {
                         tb_ms,
                         &[("tbir_bodies", tb_bodies), ("tbir_scopes", tb_scopes)],
                     );
+                    // move/init 数据流(M3.2,RXS-0054):MIR 后、codegen 前强制
+                    if !diag.has_errors() {
+                        cx.check_moves();
+                    }
                     if m.is_empty() {
                         diag.struct_error(E_MISSING_MAIN, "codegen.missing_main")
                             .emit();

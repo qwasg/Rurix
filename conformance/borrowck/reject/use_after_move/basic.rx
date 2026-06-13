@@ -1,0 +1,17 @@
+//@ spec: RXS-0054
+//@ expect-error: RX4001
+// use-after-move: `t` moved into the first `eat` call, used again after.
+
+struct Token {
+    id: i32,
+}
+
+fn eat(t: Token) -> i32 {
+    t.id
+}
+
+fn main() {
+    let t = Token { id: 1 };
+    let _a = eat(t);
+    let _b = eat(t);
+}

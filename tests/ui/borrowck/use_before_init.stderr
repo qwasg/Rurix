@@ -1,0 +1,5 @@
+error[RX4002]: use of possibly-uninitialized value `x`
+ --> $DIR/borrowck/use_before_init.rx:4:14
+  |
+4 |     let _y = x + 1; //~ ERROR RX4002
+  |              ^^^^^ used here but it is possibly-uninitialized

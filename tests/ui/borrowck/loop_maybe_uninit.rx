@@ -1,0 +1,10 @@
+//@ spec: RXS-0054
+fn main() {
+    let x: i32;
+    let mut i = 0;
+    while i < 3 {
+        x = i;
+        i += 1;
+    }
+    let _y = x; //~ ERROR RX4002
+}

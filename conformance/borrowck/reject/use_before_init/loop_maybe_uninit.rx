@@ -1,0 +1,13 @@
+//@ spec: RXS-0054
+//@ expect-error: RX4002
+// maybe-uninit: only initialized inside a loop that may run zero times.
+
+fn main() {
+    let x: i32;
+    let mut i = 0;
+    while i < 3 {
+        x = i;
+        i += 1;
+    }
+    let _y = x;
+}

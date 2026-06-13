@@ -39,6 +39,7 @@ fn desugar_corpus_full_pipeline_diagnostic_free() {
         cx.check_crate();
         cx.check_crate_patterns(); // TBIR 窄门(RXS-0051)
         let mir = cx.mir_crate(); // 单态化收集 + TBIR→MIR(RX6001 面)
+        cx.check_moves(); // move/init 数据流(M3.2,RXS-0054)
         assert!(
             diag.emitted().is_empty(),
             "{} 产生诊断: {:?}",

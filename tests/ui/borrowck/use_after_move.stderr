@@ -1,0 +1,5 @@
+error[RX4001]: use of moved value `t`
+  --> $DIR/borrowck/use_after_move.rx:13:14
+   |
+13 |     let _b = eat(t); //~ ERROR RX4001
+   |              ^^^^^^ value used here after move

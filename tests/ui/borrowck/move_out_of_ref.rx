@@ -1,0 +1,14 @@
+//@ spec: RXS-0053
+struct Token {
+    id: i32,
+}
+
+fn grab(r: &Token) -> Token {
+    let u = *r; //~ ERROR RX4003
+    u
+}
+
+fn main() {
+    let t = Token { id: 1 };
+    let _u = grab(&t);
+}
