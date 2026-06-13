@@ -34,6 +34,13 @@
 1. **基准 ref 切换**:`m2-closed` tag 已随 M2 终审打出(2026-06-12);M3.1 第 1 项将 `ci/check_guardrails.py` 本地/push 回退基准 `m1-closed → m2-closed`(PR 路径仍以 GITHUB_BASE_REF 为准),切换前双基准核对,落地留痕本表修订行。
 2. **MIR 文本 golden 激活**(14 §2 常驻集,M2 CI_GATES §4 预告的评估时点到期):M3.2 做预评估(MIR 形态随 TBIR 重排/drop elaboration 定型),M3.3 激活——golden 基线入库 + 核对入 CI,激活必须经真实红绿验证;基线变更纪律对齐 UI bless(变更须审批留痕),具体形态(独立脚本 vs cargo test 快照升格)在激活 PR 中裁决留痕。
 
+   **M3.2 预评估结论**(本表 v1.2 修订行):
+   - **形态定型程度**:M3.2 后 MIR 形态新增 `Operand::Move`(Copy/move 区分)与 `TerminatorKind::Drop`(drop elaboration 产物,含 drop flag 守卫的 SwitchBool 展开)。host 子集 MIR 的语句/终结子集合在 M3.2 结束时**基本定型**;M3.3 NLL 借用检查不改 MIR 形态(只读 pass + region 标注,产物在 borrowck 侧),故 golden 基线可在 M3.3 安全入库。
+   - **基线范围建议**:覆盖三类形态代表——(a) hello-world(无 drop,回归网底线);(b) drop 顺序程序(`conformance/borrowck/accept/drop_order_run.rx`,含 Move + 无条件 Drop + drop 消去);(c) 条件初始化 drop flag 程序(含 SwitchBool 守卫 + flag set/clear)。基线 = `rurixc --emit=mir` 文本逐字节。
+   - **核对脚本形态**:倾向**升格既有 cargo test 快照**(`mir_build::tests` 已有 `hello_world_mir_snapshot` / `drop_elaboration_orders_and_elides` 等 inline 快照先例),而非新建独立脚本——复用 cargo test 通道、基线随源码版本化、变更即 diff;bless 纪律对齐 UI(`RURIX_BLESS` 式重写 + 审批留痕表)。最终形态在 M3.3 激活 PR 裁决。
+   - **激活前置**:M3.3 region 推断落地、`mir_borrowck` query 化后,MIR 形态再核一次无漂移,即入库基线 + 接核对入 CI,经真实红绿验证(故意改 MIR 输出不更新基线 → 红;按审批更新 → 绿,run URL 归档,§5 第 3 项)。
+   - **未提前激活理由**:M3.2 仍在动 MIR 形态(Move/Drop 本 PR 刚落),提前锁基线会与 M3.3 借用检查接入期的潜在微调冲突;按 M2 CI_GATES §4 "随 MIR 定型评估"的口径,评估在 M3.2、激活在 M3.3(M3_PLAN §3 任务 6)。
+
 14 §2 常驻集其余项的 M3 期评估结论:
 
 | 项 | 结论 |
@@ -57,3 +64,4 @@ m2_budget.json 的 G-M3-3 回填走 `check_guardrails.py` 既有机制("estimate
 |---|---|---|
 | v1.0 | 2026-06-12 | 初版(M3 契约配套;步骤 15/16 为 M3.3/M3.4 计划项,落地时回填实测命令) |
 | v1.1 | 2026-06-12 | §4 第 1 项落地:`ci/check_guardrails.py` 本地/push 回退基准 `m1-closed → m2-closed`(PR 路径 GITHUB_BASE_REF 优先不变);切换前双基准核对均 PASS(`py -3 ci/check_guardrails.py m1-closed` = PASS 101 changed paths;`m2-closed` = PASS 6 changed paths) |
+| v1.2 | 2026-06-13 | §4 第 2 项 M3.2 预评估结论入档(MIR 文本 golden):MIR 形态经 M3.2 Move/Drop 落地后基本定型,基线范围(hello-world / drop 顺序 / drop flag 三代表)、核对脚本形态(倾向 cargo test 快照升格)、激活前置与时点(M3.3,M3_PLAN §3 任务 6)裁决留痕;M3.2 不激活(理由:借用检查接入期 MIR 可能微调)。新增 drop 真跑冒烟 `ci/hello_smoke.py drop-smoke`(drop_order_run/temp_drop_stmt 顺序核对,RXS-0055/0056;CI 工作流接入随步骤 15 一并裁决) |
