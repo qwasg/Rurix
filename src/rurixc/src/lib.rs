@@ -8,6 +8,7 @@
 
 pub mod ast;
 pub mod codegen;
+pub mod dataflow;
 pub mod diag;
 pub mod feature_gate;
 pub mod fmt;

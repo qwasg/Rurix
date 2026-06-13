@@ -105,7 +105,19 @@ pub enum ProjElem {
 #[derive(Clone, Debug)]
 pub enum Operand {
     Copy(Place),
+    /// 按值消耗非 Copy place(RXS-0053 move 时点;move/init 数据流的输入)。
+    Move(Place),
     Const(Const),
+}
+
+impl Operand {
+    /// 引用的 place(Const 无)。
+    pub fn place(&self) -> Option<&Place> {
+        match self {
+            Operand::Copy(p) | Operand::Move(p) => Some(p),
+            Operand::Const(_) => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -325,6 +337,7 @@ fn print_place(p: &Place) -> String {
 fn print_operand(o: &Operand) -> String {
     match o {
         Operand::Copy(p) => print_place(p),
+        Operand::Move(p) => format!("move {}", print_place(p)),
         Operand::Const(c) => print_const(c),
     }
 }

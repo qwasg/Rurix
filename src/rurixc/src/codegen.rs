@@ -355,7 +355,9 @@ impl Cg<'_> {
     /// operand → (LLVM 类型, 值);unit → None。
     fn operand(&mut self, b: &Body, o: &Operand) -> Option<(String, String, Ty)> {
         match o {
-            Operand::Copy(p) => {
+            // Copy 与 Move 的取值形态一致(按位 load;move 的语义差异由
+            // move/init 数据流静态保证,RXS-0053/0054)
+            Operand::Copy(p) | Operand::Move(p) => {
                 // 零尺寸 place 无 alloca,先以 peek 短路(不发指令)
                 let (_, peeked) = self.place_ptr_peek(b, p);
                 if self.is_zst(&peeked) {

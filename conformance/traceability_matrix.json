@@ -425,7 +425,8 @@
       "src/rurixc/src/typeck.rs"
     ],
     "RXS-0054": [
-      "conformance/borrowck/accept/move_reinit.rx"
+      "conformance/borrowck/accept/move_reinit.rx",
+      "src/rurixc/src/dataflow.rs"
     ],
     "RXS-0055": [
       "conformance/borrowck/accept/drop_order_run.rx",

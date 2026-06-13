@@ -335,11 +335,20 @@ impl Builder<'_, '_> {
         Place::local(t)
     }
 
-    /// rvalue 物化到 temp 并以 Copy 返回。
+    /// 按值使用 place(RXS-0053 move 时点):Copy 类型复制,非 Copy move。
+    fn consume(&self, place: Place, ty: &Ty) -> Operand {
+        if crate::ty::is_copy(&self.krate, ty) {
+            Operand::Copy(place)
+        } else {
+            Operand::Move(place)
+        }
+    }
+
+    /// rvalue 物化到 temp 并按值返回(Copy/Move 按类型裁决,RXS-0053)。
     fn rvalue_to_op(&mut self, rv: Rvalue, ty: Ty, span: Span) -> Operand {
-        let t = self.temp(ty, span);
+        let t = self.temp(ty.clone(), span);
         self.assign(Place::local(t), rv, span);
-        Operand::Copy(Place::local(t))
+        self.consume(Place::local(t), &ty)
     }
 
     // -- 表达式 lowering ---------------------------------------------------------
@@ -359,7 +368,10 @@ impl Builder<'_, '_> {
                 Operand::Const(Const::Int(*v, prim))
             }
             tbir::ExprKind::Local(_) => match self.place_of(e) {
-                Some(p) => Operand::Copy(p),
+                Some(p) => {
+                    let ty = self.ty_of(e);
+                    self.consume(p, &ty)
+                }
                 None => self.unsupported(e.span, "unresolved local"),
             },
             tbir::ExprKind::Def(_) => {
@@ -369,7 +381,12 @@ impl Builder<'_, '_> {
             tbir::ExprKind::Unary {
                 op: UnOp::Deref, ..
             } => match self.place_of(e) {
-                Some(p) => Operand::Copy(p),
+                // 非 Copy 经解引用按值使用 → Move 算子落 MIR,合法性由
+                // move/init 检查裁决(RXS-0053 RX4003)
+                Some(p) => {
+                    let ty = self.ty_of(e);
+                    self.consume(p, &ty)
+                }
                 None => self.unsupported(e.span, "deref of non-place"),
             },
             tbir::ExprKind::Unary { op, expr } => {
@@ -419,7 +436,10 @@ impl Builder<'_, '_> {
                 self.unsupported(e.span, "indirect call (fn pointer)")
             }
             tbir::ExprKind::Field { .. } => match self.place_of(e) {
-                Some(p) => Operand::Copy(p),
+                Some(p) => {
+                    let ty = self.ty_of(e);
+                    self.consume(p, &ty)
+                }
                 None => self.unsupported(e.span, "field access on this type"),
             },
             tbir::ExprKind::Tuple(elems) => {
@@ -583,7 +603,7 @@ impl Builder<'_, '_> {
         if ret_ty.is_unit() {
             Operand::Const(Const::Unit)
         } else {
-            Operand::Copy(Place::local(dest))
+            self.consume(Place::local(dest), &ret_ty)
         }
     }
 
@@ -668,7 +688,7 @@ impl Builder<'_, '_> {
         self.terminate(TerminatorKind::Goto(join), e.span);
         self.switch_to(join);
         match dest {
-            Some(d) => Operand::Copy(Place::local(d)),
+            Some(d) => self.consume(Place::local(d), &ty),
             None => Operand::Const(Const::Unit),
         }
     }
@@ -756,7 +776,7 @@ impl Builder<'_, '_> {
         self.terminate(TerminatorKind::Unreachable, e.span);
         self.switch_to(join);
         match dest {
-            Some(d) => Operand::Copy(Place::local(d)),
+            Some(d) => self.consume(Place::local(d), &ty),
             None => Operand::Const(Const::Unit),
         }
     }
@@ -767,11 +787,10 @@ impl Builder<'_, '_> {
             tbir::PatKind::Wild => {}
             tbir::PatKind::Binding { local, sub } => {
                 if let Some(idx) = self.local_map.get(local.0 as usize).copied().flatten() {
-                    self.assign(
-                        Place::local(idx),
-                        Rvalue::Use(Operand::Copy(place.clone())),
-                        pat.span,
-                    );
+                    // 绑定提取 = 按值使用(RXS-0053:非 Copy 从 scrutinee move 出)
+                    let ty = pat.ty.subst(&self.substs);
+                    let v = self.consume(place.clone(), &ty);
+                    self.assign(Place::local(idx), Rvalue::Use(v), pat.span);
                 } else {
                     let _ = self.unsupported(pat.span, "unresolved binding");
                 }
