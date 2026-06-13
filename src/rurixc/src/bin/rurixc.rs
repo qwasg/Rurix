@@ -10,7 +10,11 @@
 //!   版本断言 22.1.x(违例 = RX7001,pin 纪律)。
 //! - link.exe:`RURIXC_LINK` > vswhere 定位 VS BuildTools;MSVC/SDK 库目录自动发现。
 //!
-//! 用法:`rurixc <input.rx> [-o <out.exe>] [--emit=mir|llvm-ir] [--self-profile=<file.json>]`
+//! 用法:`rurixc <input.rx> [-o <out.exe>] [--emit=check|mir|llvm-ir] [--self-profile=<file.json>]`
+//!
+//! `--emit=check`(M3.4):跑全量静态检查(resolve→typeck→穷尽性→const eval→
+//! MIR→move/borrow)后即返回,不产 codegen/link 产物——预算 check 延迟计时口径
+//! (契约 G-M3-3)。
 //!
 //! self-profile(D-M2-6,契约 G-M2-4):`--self-profile=<path>` 输出 JSON 行
 //! 阶段计时(parse/resolve/typeck/mir/codegen/link + total/memo 汇总,07 §6)。
@@ -61,7 +65,7 @@ fn main() -> ExitCode {
     }
     let Some(input) = input else {
         eprintln!(
-            "usage: rurixc <input.rx> [-o <out.exe>] [--emit=mir|llvm-ir] [--self-profile=<file.json>]"
+            "usage: rurixc <input.rx> [-o <out.exe>] [--emit=check|mir|llvm-ir] [--self-profile=<file.json>]"
         );
         return ExitCode::from(2);
     };
@@ -133,6 +137,10 @@ fn main() -> ExitCode {
                 // 模式穷尽性(RXS-0051):TBIR 窄门时点(typeck 后、MIR 前),
                 // 全 body 覆盖(含 MIR 可达性外的 body)
                 cx.check_crate_patterns();
+                // const 求值强制检查(M3.4,RXS-0062~0065):typeck 后、MIR 前
+                if !diag.has_errors() {
+                    cx.check_consteval();
+                }
                 if diag.has_errors() {
                     None
                 } else {
@@ -171,6 +179,16 @@ fn main() -> ExitCode {
         return ExitCode::from(1);
     }
     let mir_bodies = mir_bodies.expect("无错误则 MIR 存在");
+
+    // --emit=check:全量静态检查闭环(resolve/typeck/穷尽性/const eval/MIR/
+    // move/borrow 均已跑),不产 codegen/link 产物——check 延迟计时口径(G-M3-3)
+    if emit.as_deref() == Some("check") {
+        if let Err(e) = finish_profile(&prof, &cx, t_start, profile_out.as_deref()) {
+            toolchain_err(&diag, &sm, e);
+            return ExitCode::from(1);
+        }
+        return ExitCode::SUCCESS;
+    }
 
     if emit.as_deref() == Some("mir") {
         let res = cx.resolutions();

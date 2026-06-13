@@ -76,10 +76,22 @@
       "history": [
         { "date": "2026-06-11", "event": "登记于 M1 契约 out-of-scope", "evidence": "milestones/m1/M1_CONTRACT.md §2.2" }
       ]
+    },
+    {
+      "id": "RD-007",
+      "title": "const 泛型值的运行期单态化(turbofish const 实参 → 实例值代入 + codegen)",
+      "reason": "M3.4 标量优先:const eval MIR 解释器(D-111 核心,RXS-0062~0065)已交付且 G-M3-4 经 const fn/const item 求值类真跑达成。const 泛型值进运行期单态化(`f::<3>()` 形态)需跨层改造——turbofish 实参在 AST→HIR 降级处被丢弃(lower.rs:709)、HIR FnDecl 不携带 const 参数类型、无 const 值的类型级表示、单态化 substs 为纯 Vec<Ty>;数组长度类 const 泛型进一步依赖运行期数组 aggregate codegen(同随 M4+,见 spec/consteval.md RXS-0064 范围裁决)。该跨层改造与 M3.4 标量优先预算不成比例且对 close-out 绿管线高风险(07 §4 保守先行)",
+      "backfill_condition": "M4 device codegen / 运行期数组 aggregate codegen 开工时一并接通:HIR 保留 turbofish const 实参 + const 参数类型、引入 const 值的类型级表示、单态化按 (类型实参, const 值) 收集;spec/consteval.md RXS-0064 已条款化语义,回填仅补实现侧。代码侧无 STUB 标注(为未接入而非半成品)",
+      "owner_milestone": "M4",
+      "status": "open",
+      "history": [
+        { "date": "2026-06-13", "event": "执行期登记于 M3.4 WP3(M3 契约 deferred_refs:[] 开工无预造,执行期按需登记 RD-###);const eval 解释器核心已交付,const 泛型值单态化随 M4+", "evidence": "milestones/m3/M3_CONTRACT.md §6 / M3_PLAN.md §4 / spec/consteval.md RXS-0064" }
+      ]
     }
   ],
   "revision_log": [
     { "version": "v1.0", "date": "2026-06-11", "change": "初版:RD-001 ~ RD-003(M0 契约配套)" },
-    { "version": "v1.1", "date": "2026-06-11", "change": "追加 RD-004 ~ RD-006(M1 契约配套;既有条目 0-byte)" }
+    { "version": "v1.1", "date": "2026-06-11", "change": "追加 RD-004 ~ RD-006(M1 契约配套;既有条目 0-byte)" },
+    { "version": "v1.2", "date": "2026-06-13", "change": "追加 RD-007(M3.4 WP3 执行期登记:const 泛型值运行期单态化随 M4+;既有条目 0-byte)" }
   ]
 }

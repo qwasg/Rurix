@@ -1,0 +1,5 @@
+error[RX5003]: call to non-`const fn` `runtime` is not allowed in a constant context
+ --> $DIR/consteval/non_const_call.rx:7:20
+  |
+7 | const VALUE: i32 = runtime(3); //~ ERROR RX5003
+  |                    ^^^^^^^^^^ not allowed in a constant context

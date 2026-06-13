@@ -105,6 +105,10 @@ fn run_case(path: &Path, src: &str) -> CaseResult {
             cx.check_crate();
             if !diag.has_errors() {
                 cx.check_crate_patterns();
+                // const 求值(M3.4,5xxx,typeck 后、MIR 前)
+                if !diag.has_errors() {
+                    cx.check_consteval();
+                }
                 if !diag.has_errors() {
                     cx.check_moves();
                     if !diag.has_errors() {

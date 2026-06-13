@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "evidence_level": "measured_local",
+  "timestamp": "2026-06-13T07:07:41.252846+00:00",
+  "bench": {
+    "id": "cold_compile_hello_world",
+    "level": "compile",
+    "problem_size": "hello_world.rx (full pipeline -> EXE, incl clang+link)",
+    "harness_commit": "7337f9d"
+  },
+  "environment": {
+    "cpu_name": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "logical_cores": 20,
+    "power_plan": "平衡",
+    "os_build": "10.0.28120",
+    "clock_control": "not_applicable_cpu",
+    "background_note": "desktop dev machine; background load not isolated, IQR rejection per protocol; process-level cold compiles",
+    "toolchain": "clang version 22.1.7 (https://github.com/llvm/llvm-project a255c1ed36a1d06f79bd2633ba9f8d900153007c)"
+  },
+  "sampling": {
+    "warmup_iterations": 2,
+    "timed_iterations": 1,
+    "trials": 5,
+    "trimmed_pct": 0.2,
+    "timer": "process_wall"
+  },
+  "results": {
+    "metric": "cold_compile_ms",
+    "unit": "ms",
+    "trial_medians": [
+      127.6936,
+      138.4124,
+      120.822,
+      123.9958,
+      125.701
+    ],
+    "trimmed_mean": 125.7968,
+    "cv": 0.05255,
+    "ci95": [
+      120.822,
+      138.4124
+    ],
+    "min": 120.822,
+    "max": 138.4124,
+    "outliers_rejected_iqr": 0,
+    "correctness_check": "pass"
+  },
+  "notes": "process-level wall timing (perf_counter around rurixc subprocess); each compile is a fresh process (inherent cold); single-iteration trials."
+}

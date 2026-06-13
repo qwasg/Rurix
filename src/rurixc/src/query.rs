@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::ast;
+use crate::const_eval::{ConstError, ConstVal};
 use crate::diag::DiagCtxt;
 use crate::hir::{self, BodyId, DefId, DefKind};
 use crate::lexer::lex;
@@ -46,6 +47,12 @@ pub struct QueryCtx<'a> {
     checked_moves: Cell<bool>,
     /// 借用检查已跑标记(RXS-0057~0061;memo 防重复诊断)。
     checked_borrows: Cell<bool>,
+    /// const 求值结果 memo(RXS-0062;DefId → 值/错误)。
+    const_vals: RefCell<HashMap<DefId, Result<ConstVal, ConstError>>>,
+    /// const 求值进行中集(环引用检测,RXS-0063)。
+    const_in_progress: RefCell<std::collections::HashSet<DefId>>,
+    /// const 求值强制检查已跑标记(RXS-0065;memo 防重复诊断)。
+    checked_consteval: Cell<bool>,
     mir: OnceCell<Rc<Vec<crate::mir::Body>>>,
     // ---- 计量(self-profile 布点,07 §6) ----
     hits: Cell<u64>,
@@ -79,6 +86,9 @@ impl<'a> QueryCtx<'a> {
             checked_defs: Cell::new(false),
             checked_moves: Cell::new(false),
             checked_borrows: Cell::new(false),
+            const_vals: RefCell::new(HashMap::new()),
+            const_in_progress: RefCell::new(std::collections::HashSet::new()),
+            checked_consteval: Cell::new(false),
             mir: OnceCell::new(),
             hits: Cell::new(0),
             misses: Cell::new(0),
@@ -281,6 +291,55 @@ impl<'a> QueryCtx<'a> {
         }
     }
 
+    /// const item 求值(RXS-0062/0063;provider:[`crate::const_eval::eval_const_item`])。
+    ///
+    /// memo 化(同 const 跨引用点共享值);环引用经 in-progress 集检出报
+    /// 非 const 操作错误(RXS-0063)。
+    pub fn eval_const(&self, def: DefId) -> Result<ConstVal, ConstError> {
+        if let Some(r) = self.const_vals.borrow().get(&def) {
+            self.hit();
+            return r.clone();
+        }
+        self.miss();
+        if !self.const_in_progress.borrow_mut().insert(def) {
+            // 求值期间再次进入同一 const = 环(RXS-0063);不入 memo,由各引用点报告
+            return Err(ConstError::NonConst {
+                span: self.hir_crate().item(def).span,
+                what: "cyclic constant reference".to_owned(),
+            });
+        }
+        let r = crate::const_eval::eval_const_item(self, def);
+        self.const_in_progress.borrow_mut().remove(&def);
+        self.const_vals.borrow_mut().insert(def, r.clone());
+        r
+    }
+
+    /// const 求值强制检查(RXS-0065):对全部可 ground 求值的 const item 强制
+    /// 求值,失败即报 5xxx;时点 = typeck 后、MIR 前(对全部 const 求值上下文
+    /// 强制,即便未被运行期引用)。memo 防重复诊断。
+    pub fn check_consteval(&self) {
+        if self.checked_consteval.replace(true) {
+            self.hit();
+            return;
+        }
+        self.miss();
+        let krate = self.hir_crate();
+        for (i, item) in krate.items.iter().enumerate() {
+            if !matches!(item.kind, hir::ItemKind::Const { .. }) {
+                continue;
+            }
+            let def = DefId(i as u32);
+            // 仅强制可 ground 求值者(类型无 Param/Infer/Err);泛型上下文 assoc
+            // const 随 M4+(标量优先,登记已知限制)
+            if !ty_is_ground(&self.type_of(def)) {
+                continue;
+            }
+            if let Err(e) = self.eval_const(def) {
+                e.emit(self.diag);
+            }
+        }
+    }
+
     /// MIR(单态化实例集,自 `main` 可达;provider:[`crate::mir_build::build_crate`])。
     pub fn mir_crate(&self) -> Rc<Vec<crate::mir::Body>> {
         if let Some(m) = self.mir.get() {
@@ -291,6 +350,18 @@ impl<'a> QueryCtx<'a> {
         let m = Rc::new(crate::mir_build::build_crate(self));
         let _ = self.mir.set(Rc::clone(&m));
         m
+    }
+}
+
+/// 类型是否完全 ground(无 Param/Infer/Err;const 强制求值的前置)。
+fn ty_is_ground(ty: &Ty) -> bool {
+    match ty {
+        Ty::Param(_) | Ty::Infer(_) | Ty::Err => false,
+        Ty::Prim(_) => true,
+        Ty::Adt(_, a) => a.iter().all(ty_is_ground),
+        Ty::Tuple(v) => v.iter().all(ty_is_ground),
+        Ty::Ref(t, _) | Ty::RawPtr(t, _) | Ty::Array(t) | Ty::Slice(t) => ty_is_ground(t),
+        Ty::FnPtr(ps, r) => ps.iter().all(ty_is_ground) && ty_is_ground(r),
     }
 }
 

@@ -15,3 +15,5 @@
 | 2026-06-13 | tests/ui/typeck/ 2 条 RX2007 snapshot(2026-06-12 行) | 人工终审批准 M3.1 模式穷尽性首批 snapshot bless;用于 M3 close-out §8 留痕 | qwasg(会话授权,agent 代笔) |
 | 2026-06-13 | tests/ui/borrowck/ 新增 5 条 snapshot(RX4001 ×2 / RX4002 ×2 / RX4003 ×1) | M3.2 move/init 数据流诊断首批(M3_PLAN §2 任务 3,RXS-0053/RXS-0054;UI 通道阶段化接入 MIR 后 move/init 检查,既有 30 条 snapshot 零变化;计入黄金路径 3 计数,G-M3-2) | pending-human-review |
 | 2026-06-13 | tests/ui/borrowck/ 新增 5 条 snapshot(RX4004 ×2 / RX4005 ×2 / RX4006 ×1) | M3.3 WP5 黄金路径 3 NLL 借用检查诊断(M3_PLAN §3 任务 5,RXS-0057/0058/0060/0061;用例移植自 WP4 已验证的 conformance/borrowck/reject 反例,既有 35 条 snapshot 零变化;黄金路径 3 计数 5→10 达成 G-M3-2 ≥10) | pending-human-review |
+| 2026-06-13 | tests/ui/consteval/ 新增 4 条 snapshot(RX5001 ×2 / RX5003 ×2) | M3.4 WP2 const eval 诊断首批(M3_PLAN §4 任务 2,RXS-0062/0063/0065;UI 通道阶段化接入 typeck 后 const 求值检查,既有 40 条 snapshot 零变化;5xxx 错误码 snapshot 入 UI 通道,G-M3-4) | pending-human-review |
+| 2026-06-13 | tests/ui/consteval/ 4 条 snapshot(2026-06-13 行) | 人工终审批准 M3.4 const eval 首批 snapshot bless;用于 M3 close-out §8 留痕 | qwasg(会话授权,agent 代笔) |

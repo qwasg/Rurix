@@ -32,6 +32,11 @@ use crate::ty::Ty;
 
 pub const E_UNSUPPORTED: ErrorCode = ErrorCode(6001); // RX6001
 
+/// 单态化收集中发现的被调用实例 (DefId, 泛型实参)。
+type Callees = Vec<(DefId, Vec<Ty>)>;
+/// [`build_body`] 产物:(body, 被调用实例, const 引用求值首错)。
+type BuildOutput = (Body, Callees, Option<crate::const_eval::ConstError>);
+
 /// MIR 构建入口:单态化收集(自 `main` 可达)+ 逐实例 lowering。
 ///
 /// 根模块无 `main` 时返回空集(是否成错由驱动裁决;库形态随 M3+)。
@@ -52,7 +57,7 @@ pub fn build_crate(cx: &QueryCtx<'_>) -> Vec<Body> {
     let mut worklist: Vec<(DefId, Vec<Ty>)> = vec![(main, Vec::new())];
     visited.insert(mangle(&krate.item(main).name, main, &[]));
     while let Some((def, args)) = worklist.pop() {
-        let (mut body, callees) = build_body(cx, def, args);
+        let (mut body, callees, _const_err) = build_body(cx, def, args);
         // drop elaboration(RXS-0055):move/init 感知精化 + drop flag
         crate::drop_elab::elaborate(&mut body);
         // drop glue 需要的 Drop::drop 单态化实例并入收集
@@ -74,22 +79,42 @@ pub fn build_crate(cx: &QueryCtx<'_>) -> Vec<Body> {
     out
 }
 
-/// 单个 (DefId, 泛型实参) 实例的 lowering;返回 (body, 发现的被调用实例)。
-fn build_body(
+/// const 求值专用单实例构建(M3.4,RXS-0062):构建 const item / const fn 的
+/// MIR body 供 [`crate::const_eval`] 解释,不入 `main` 可达性收集、不跑 drop
+/// elaboration(标量 const 无 needs-drop)。body 内对其他 const 的引用在构建期
+/// 即经 [`QueryCtx::eval_const`] 内联;若引用求值失败(含环引用),首个错误经
+/// `Err` 上抛(RXS-0063/RXS-0065)。
+pub fn build_for_const_eval(
     cx: &QueryCtx<'_>,
     def: DefId,
     generic_args: Vec<Ty>,
-) -> (Body, Vec<(DefId, Vec<Ty>)>) {
+) -> Result<Body, crate::const_eval::ConstError> {
+    let (body, _callees, const_err) = build_body(cx, def, generic_args);
+    match const_err {
+        Some(e) => Err(e),
+        None => Ok(body),
+    }
+}
+
+/// 单个 (DefId, 泛型实参) 实例的 lowering;返回 (body, 发现的被调用实例,
+/// const 引用求值首错)。const_err 仅在 const 求值路径([`build_for_const_eval`])
+/// 被消费;运行期收集路径(`main` halt 于 const 错误前)忽略之。
+fn build_body(cx: &QueryCtx<'_>, def: DefId, generic_args: Vec<Ty>) -> BuildOutput {
     let krate = cx.hir_crate();
     let res = cx.resolutions();
     let item = krate.item(def);
-    let hir::ItemKind::Fn(decl) = &item.kind else {
-        unreachable!("MIR lowering 只对 fn 实例调用")
+    let (body_id, output_ty) = match &item.kind {
+        hir::ItemKind::Fn(decl) => {
+            let bid = decl.body.expect("无 body 的 fn 不入收集");
+            (bid, cx.fn_sig(def).output.subst(&generic_args))
+        }
+        hir::ItemKind::Const { body, .. } | hir::ItemKind::Static { body, .. } => {
+            (*body, cx.type_of(def).subst(&generic_args))
+        }
+        _ => unreachable!("MIR lowering 只对 fn/const/static 实例调用"),
     };
-    let body_id = decl.body.expect("无 body 的 fn 不入收集");
     let hir_body = krate.body(body_id);
     let tcr = cx.check_body(body_id);
-    let sig = cx.fn_sig(def);
 
     // TBIR 窄门:即建即用(本函数返回前释放,D-202)
     let t = Instant::now();
@@ -102,7 +127,7 @@ fn build_body(
         res: Rc::clone(&res),
         substs: generic_args.clone(),
         locals: vec![Local {
-            ty: sig.output.subst(&generic_args),
+            ty: output_ty,
             name: None,
             span: item.span,
         }],
@@ -112,6 +137,7 @@ fn build_body(
         loops: Vec::new(),
         drop_scopes: Vec::new(),
         callees: Vec::new(),
+        const_err: None,
     };
     b.new_block();
     // 根 scope:参数归此(RXS-0052;函数退出时 drop)
@@ -169,6 +195,7 @@ fn build_body(
             span: item.span,
         },
         b.callees,
+        b.const_err,
     )
 }
 
@@ -211,6 +238,8 @@ struct Builder<'a, 'q> {
     drop_scopes: Vec<DropScope>,
     /// 发现的被调用实例(单态化收集输出)。
     callees: Vec<(DefId, Vec<Ty>)>,
+    /// const 引用求值首错(M3.4;仅 const 求值路径消费,RXS-0063)。
+    const_err: Option<crate::const_eval::ConstError>,
 }
 
 impl Builder<'_, '_> {
@@ -421,6 +450,31 @@ impl Builder<'_, '_> {
         Place::local(t)
     }
 
+    /// 类型零值常量(const 求值失败时的占位;错误经 const_err 上报)。
+    fn const_zero(&self, ty: &Ty) -> Operand {
+        match ty {
+            Ty::Prim(p)
+                if matches!(
+                    p,
+                    PrimTy::I8
+                        | PrimTy::I16
+                        | PrimTy::I32
+                        | PrimTy::I64
+                        | PrimTy::U8
+                        | PrimTy::U16
+                        | PrimTy::U32
+                        | PrimTy::U64
+                        | PrimTy::Usize
+                ) =>
+            {
+                Operand::Const(Const::Int(0, *p))
+            }
+            Ty::Prim(p @ (PrimTy::F32 | PrimTy::F64)) => Operand::Const(Const::Float(0.0, *p)),
+            Ty::Prim(PrimTy::Bool) => Operand::Const(Const::Bool(false)),
+            _ => Operand::Const(Const::Unit),
+        }
+    }
+
     /// 按值使用 place(RXS-0053 move 时点):Copy 类型复制,非 Copy move。
     fn consume(&self, place: Place, ty: &Ty) -> Operand {
         if crate::ty::is_copy(&self.krate, ty) {
@@ -460,9 +514,29 @@ impl Builder<'_, '_> {
                 }
                 None => self.unsupported(e.span, "unresolved local"),
             },
-            tbir::ExprKind::Def(_) => {
-                // 裸 fn 引用/const 引用:fn 指针与 const eval 随 M3.2+/M3.4
-                self.unsupported(e.span, "value path (const/fn reference)")
+            tbir::ExprKind::Def(d) => {
+                // const item / 关联 const:经 const 求值内联为常量(RXS-0062/0063);
+                // 裸 fn 引用 / static 引用仍作用面外(fn 指针/全局随 M4+)。
+                let kind = self.res.defs.get(d.0 as usize).map(|i| i.kind);
+                if matches!(
+                    kind,
+                    Some(hir::DefKind::Const) | Some(hir::DefKind::AssocConst)
+                ) {
+                    let ty = self.ty_of(e);
+                    match self.cx.eval_const(*d) {
+                        Ok(v) => Operand::Const(v.to_mir_const()),
+                        Err(err) => {
+                            // 错误经 const_err 上报(const 求值路径);运行期路径下
+                            // driver 已在 mir 前 halt,占位不被消费
+                            if self.const_err.is_none() {
+                                self.const_err = Some(err);
+                            }
+                            self.const_zero(&ty)
+                        }
+                    }
+                } else {
+                    self.unsupported(e.span, "value path (fn/static reference)")
+                }
             }
             tbir::ExprKind::Unary {
                 op: UnOp::Deref, ..
@@ -1287,6 +1361,23 @@ bb1:
         let src = "fn main() {\n    let _x = [1, 2, 3];\n}";
         let (_, codes) = mir_text(src);
         assert_eq!(codes, vec![6001]);
+    }
+
+    /// const item 引用经 const 求值内联为常量(M3.4,RXS-0062/0063 集成点)。
+    //@ spec: RXS-0062
+    #[test]
+    fn const_reference_inlines_to_constant() {
+        let src = "const fn sq(n: i32) -> i32 { n * n }\n\
+                   const K: i32 = sq(6);\n\
+                   fn main() {\n    let _x = K;\n}";
+        let (text, codes) = mir_text(src);
+        assert!(codes.is_empty(), "意外诊断: {codes:?}");
+        // K = sq(6) = 36 编译期内联;main 无对 K 的运行期调用,直接用常量 36
+        assert!(text.contains("const 36i32"), "const 未内联:\n{text}");
+        assert!(
+            !text.contains("rx_sq_"),
+            "const fn 不应进运行期收集:\n{text}"
+        );
     }
 
     #[test]

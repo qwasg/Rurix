@@ -481,6 +481,25 @@
       "conformance/borrowck/reject/dangling_reference/basic.rx",
       "src/rurixc/src/borrow_check.rs",
       "tests/ui/borrowck/dangling_reference.rx"
+    ],
+    "RXS-0062": [
+      "conformance/consteval/const_eval_run.rx",
+      "src/rurixc/src/const_eval.rs",
+      "src/rurixc/src/mir_build.rs",
+      "tests/ui/consteval/non_const_call.rx",
+      "tests/ui/consteval/non_const_in_fn.rx"
+    ],
+    "RXS-0063": [
+      "conformance/consteval/const_eval_run.rx",
+      "src/rurixc/src/const_eval.rs",
+      "tests/ui/consteval/overflow_mul.rx"
+    ],
+    "RXS-0064": [
+      "src/rurixc/src/const_eval.rs"
+    ],
+    "RXS-0065": [
+      "src/rurixc/src/const_eval.rs",
+      "tests/ui/consteval/overflow_add.rx"
     ]
   }
 }

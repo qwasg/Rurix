@@ -149,3 +149,35 @@ M3 开工时无预造 deferred(`deferred_refs: []`);M0/M1 遗留 RD-001(M8)/RD-0
 ## 8. Close-out(只追加区 — 开工时为空)
 
 <!-- 验收记录、guardrail 核对输出、deferred 继承/关闭记录追加于此;上方条款 0-byte 修改。 -->
+
+### 8.1 验收门核验(G-M3-1 ~ G-M3-5)
+
+> 记于 M3.4 close-out 草拟(M3_PLAN §4 任务 6);关闭判定人工。本节为 0-byte 上方条款的只追加区。
+
+| 门 | 状态 | 证据 |
+|---|---|---|
+| G-M3-1 借用检查 conformance(7 类反例全拦截 + 正例 0 诊断) | 达成(M3.3) | `m3.counter.borrowck_conformance_categories` = 7(`conformance/borrowck/reject/` 七类目录);CI 步骤 15 `cargo test -p rurixc --test borrowck_corpus` 接入 pr-smoke;红绿真跑见 [CI_GATES.md](CI_GATES.md) v1.3 |
+| G-M3-2 黄金路径 3(借用错误)snapshot ≥10 | 达成(M3.3) | `m3.counter.ui_golden_path3_snapshots` = 10(`tests/ui/borrowck/`);bless 留痕 [../../tests/ui/bless_log.md](../../tests/ui/bless_log.md) |
+| G-M3-3 预算实测回填(零 estimated 残留) | 达成(M3.4 WP4) | `milestones/m2/m2_budget.json` 两条 `m2.bench.*` 转 measured_local(冷编译 122.652 ms / check 延迟 6.912 ms,三次进程级独立运行 trimmed mean,证据 `evidence/compile_cold_20260613_agg.json` / `evidence/compile_check_20260613_agg.json`);`py -3 ci/budget_eval.py --strict` = **PASS (19 pass, 0 skip, strict mode)**。阈值余量 ×1.5(cold 上界 183.98 ms / check 上界 10.37 ms)经**人工终审批准**(硬规则 1,qwasg 会话授权,m2_budget.json revision_log v1.3 留痕) |
+| G-M3-4 const eval 真跑(全管线产 EXE + 运行核对) | 达成(M3.4 WP2/WP3,const fn 求值类) | `conformance/consteval/const_eval_run.rx` 经全管线产 EXE → 运行 stdout `consteval-ok` / exit 0(const fn 算术·分支 + const item 引用链编译期求值驱动);CI 步骤 16 `py -3 ci/consteval_smoke.py compile-run` 接入 pr-smoke;5xxx snapshot(RX5001/RX5003)入 `tests/ui/consteval/`。**const 泛型值的运行期单态化随 M4+,登记 RD-007**(标量优先,见 §8.3) |
+| G-M3-5 traceability 延续(新 RXS 条款 ≥1 锚定) | 达成(M3.4 WP5) | `py -3 ci/trace_matrix.py --check` = PASS(65/65 条款全锚定,含新增 RXS-0062 ~ RXS-0065);`m1.counter.spec_clause_test_anchoring` 全局口径 PASS |
+
+### 8.2 guardrail / 门禁核验输出(M3.4 WP6 留痕)
+
+- `py -3 ci/check_guardrails.py m2-closed` = **PASS (base=m2-closed, 95 changed paths)**(规划文档 0-byte;registry 只追加含 RX5001~RX5003 / RD-007;m2_budget.json estimated→measured_local 经既有机制;spec/ 档位标记齐;UI bless 留痕齐)。
+- `py -3 ci/check_schemas.py` = PASS(error_codes 5xxx message-key 交叉校验过;compile 证据经新增 `milestones/m3/compile_evidence_schema.json` 校验)。
+- `py -3 ci/budget_eval.py --strict` = **PASS (19 pass, 0 skip)** —— G-M3-3 全局零 estimated 残留判定通过(14 §3 占位存活 ≤2 里程碑硬约束,m2.bench.* 本里程碑到期清偿;阈值余量 ×1.5 经人工终审,qwasg 会话授权)。
+- `cargo test --workspace` = 全绿(rurixc 243 lib 单测含 const_eval 9 项 + mir_build const 内联 1 项;集成测试 borrowck/mir_golden/ui_golden 等全过);`cargo fmt --all --check` / `cargo clippy --workspace --all-targets -- -D warnings` 干净。
+
+### 8.3 deferred 登记/继承
+
+- **RD-007**(执行期登记,M3.4 WP3):const 泛型值的运行期单态化(turbofish const 实参 → 实例值代入 + codegen)随 M4+ 接入。理由:turbofish 实参在 HIR 降级处丢弃、无 const 值的类型级表示、单态化 substs 为纯类型向量,跨层改造与 M3.4 标量优先预算不成比例(07 §4 保守先行)。const eval MIR 解释器核心(D-111,RXS-0062~0065)与 const fn/const item 求值真跑(G-M3-4 通道)已交付;语义已于 `spec/consteval.md` RXS-0064 条款化(规范先行),回填仅补实现侧。见 [../../registry/deferred.json](../../registry/deferred.json) RD-007。
+- M0/M1 遗留 RD-001 ~ RD-006 维持原承接里程碑,M3 不变更。
+
+### 8.4 红绿真跑 run URL 归档(对齐 CI_GATES §5)
+
+- 步骤 15(borrowck conformance)红绿:M3.3 已归档([CI_GATES.md](CI_GATES.md) v1.3/v1.5 口径)。
+- MIR golden guardrail 红绿:M3.3 WP6 已归档真实 CI 绿跑([CI_GATES.md](CI_GATES.md) v1.5,run [27458630302](https://github.com/qwasg/Rurix/actions/runs/27458630302))。
+- 步骤 16(const eval smoke)红绿:**本地真实红绿已验证**(篡改 `const SIDE` 4→5 → const eval 算出 SUM=33≠24 → stdout `consteval-bad` → smoke exit 1 红;复原 → exit 0 绿,CI_GATES §5 第 2 项)。专门的真实 CI green-run URL 随本 close-out PR 推送后补入(对齐 v1.3/v1.5 先例:红路径本地真实执行非 YAML-only,CI 绿跑 URL 推送补档)。
+
+> M3 关闭综述:rurixc host 子集静态语义补完——desugar 收口 + TBIR 窄门(M3.1)、move/init + drop elaboration(M3.2)、NLL 借用检查(M3.3)、const eval MIR 解释器 + 5xxx + 预算实测回填(M3.4)。M3 期 5xxx const eval 段位首次启用;编译性能预算占位清偿(零 estimated 残留)。M4 device 路径承接项:RD-007(const 泛型值单态化)+ 运行期数组 aggregate codegen(spec/consteval.md RXS-0064 范围裁决)。关闭判定人工。

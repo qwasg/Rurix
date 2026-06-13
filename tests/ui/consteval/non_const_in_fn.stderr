@@ -1,0 +1,5 @@
+error[RX5003]: call to non-`const fn` `helper` is not allowed in a constant context
+ --> $DIR/consteval/non_const_in_fn.rx:8:5
+  |
+8 |     helper(n) //~ ERROR RX5003
+  |     ^^^^^^^^^ not allowed in a constant context

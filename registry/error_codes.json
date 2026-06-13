@@ -260,6 +260,30 @@
       "spec_clauses": ["RXS-0061"]
     },
     {
+      "id": "RX5001",
+      "title": "const 求值溢出(整数运算结果超出操作数类型范围 / 数组长度求值越界 / 算术失败)",
+      "message_key": "consteval.overflow",
+      "status": "active",
+      "introduced_in": "M3.4",
+      "spec_clauses": ["RXS-0063", "RXS-0065"]
+    },
+    {
+      "id": "RX5002",
+      "title": "const 求值越界(常量索引 ≥ 常量数组长度)",
+      "message_key": "consteval.index_out_of_bounds",
+      "status": "active",
+      "introduced_in": "M3.4",
+      "spec_clauses": ["RXS-0065"]
+    },
+    {
+      "id": "RX5003",
+      "title": "非 const 操作(const 求值上下文出现子集外操作 / 不可终止 / 环求值)",
+      "message_key": "consteval.non_const_operation",
+      "status": "active",
+      "introduced_in": "M3.4",
+      "spec_clauses": ["RXS-0062", "RXS-0063", "RXS-0065"]
+    },
+    {
       "id": "RX6001",
       "title": "codegen 暂不支持的语言构造(M2.3 host 子集作用面外)",
       "message_key": "codegen.unsupported_construct",
@@ -326,6 +350,11 @@
       "version": "v1.8",
       "date": "2026-06-13",
       "change": "M3.3 WP2 分配 RX4004 ~ RX4006(spec/borrow.md RXS-0058/RXS-0060/RXS-0061 配套,M3_PLAN §3 任务 2,WP1 spec 先行引用的正式分配)。4xxx 借用/生命周期段 NLL 借用检查主体:RX4004 别名 XOR 可变冲突(double_mut / shared_mut_conflict)、RX4005 借用活跃期间 move/写被借所有者(move/assign_while_borrowed)、RX4006 悬垂引用(dangling_reference);编号沿 RX4003 续接不复用"
+    },
+    {
+      "version": "v1.9",
+      "date": "2026-06-13",
+      "change": "M3.4 WP2 分配 RX5001 ~ RX5003(spec/consteval.md RXS-0062/RXS-0063/RXS-0065 配套,M3_PLAN §4 任务 2,WP1 spec 先行引用的正式分配)。5xxx const eval 段位首批:RX5001 求值溢出(整数运算溢出 / 数组长度越界 / 算术失败)、RX5002 求值越界(常量索引越界)、RX5003 非 const 操作(子集外操作 / 不可终止 / 环求值);段位 5xxx 首次启用,编号段内分配制递增不复用"
     }
   ]
 }
