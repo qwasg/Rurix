@@ -27,6 +27,8 @@ pub const E_ARG_COUNT: ErrorCode = ErrorCode(2003); // RX2003
 pub const E_UNKNOWN_METHOD: ErrorCode = ErrorCode(2004); // RX2004
 pub const E_NOT_CALLABLE: ErrorCode = ErrorCode(2005); // RX2005
 pub const E_BAD_OPERAND: ErrorCode = ErrorCode(2006); // RX2006
+pub const E_BAD_DERIVE_COPY: ErrorCode = ErrorCode(2008); // RX2008
+pub const E_BAD_DROP_IMPL: ErrorCode = ErrorCode(2009); // RX2009
 
 // ---------------------------------------------------------------------------
 // typeck 结果物化(M2.3:MIR lowering 的输入)
@@ -312,6 +314,134 @@ pub fn type_of_provider(cx: &QueryCtx<'_>, def: DefId) -> Ty {
     }
 }
 
+/// 定义处检查(M3.2):`#[derive(Copy)]` 合法性(RXS-0053,RX2008)+
+/// `impl Drop for T` 形状(RXS-0055,RX2009)。诊断经 DiagCtxt,无产物。
+pub fn check_defs_provider(cx: &QueryCtx<'_>) {
+    let krate = cx.hir_crate();
+    let res = cx.resolutions();
+    check_drop_impls(cx, &krate, &res);
+    check_copy_derives(cx, &krate, &res);
+}
+
+/// `impl Drop for T` 形状校验(RXS-0055):目标为本包 struct/enum、
+/// 不重复、impl 体恰一个 `fn drop(&mut self)`(无其余参数,返回 `()`)。
+fn check_drop_impls(cx: &QueryCtx<'_>, krate: &hir::Crate, res: &Resolutions) {
+    let mut seen: std::collections::HashSet<DefId> = std::collections::HashSet::new();
+    for di in &krate.drop_impls {
+        let hir::ItemKind::Impl { items, .. } = &krate.item(di.impl_def).kind else {
+            continue;
+        };
+        let emit = |ty: String, reason: &str| {
+            cx.diag()
+                .struct_error(E_BAD_DROP_IMPL, "typeck.bad_drop_impl")
+                .arg("ty", ty)
+                .arg("reason", reason)
+                .span_label(di.span, reason.to_owned())
+                .emit();
+        };
+        let adt = di.adt.filter(|d| {
+            matches!(
+                krate.item(*d).kind,
+                hir::ItemKind::Struct { .. } | hir::ItemKind::Enum { .. }
+            )
+        });
+        let Some(adt) = adt else {
+            emit(
+                "this type".to_owned(),
+                "`Drop` can only be implemented for a local struct or enum",
+            );
+            continue;
+        };
+        let ty_name = format!("`{}`", res.defs[adt.0 as usize].name);
+        if !seen.insert(adt) {
+            emit(ty_name, "duplicate `Drop` impl for the same type");
+            continue;
+        }
+        let shape_ok = items.len() == 1 && {
+            let it = krate.item(items[0]);
+            it.name == "drop"
+                && matches!(&it.kind, hir::ItemKind::Fn(decl)
+                    if matches!(decl.self_kind, Some(hir::SelfKind { by_ref: true, mutable: true }))
+                        && decl.params.len() == 1
+                        && ret_is_unit(&decl.ret))
+        };
+        if !shape_ok {
+            emit(
+                ty_name,
+                "a `Drop` impl must contain exactly one `fn drop(&mut self)`",
+            );
+        }
+    }
+}
+
+fn ret_is_unit(ret: &Option<hir::Ty>) -> bool {
+    match ret {
+        None => true,
+        Some(t) => matches!(&t.kind, hir::TyKind::Tuple(v) if v.is_empty()),
+    }
+}
+
+/// `#[derive(Copy)]` 合法性(RXS-0053):全字段 Copy;字段类型引用泛型
+/// 参数保守拒绝;与 Drop impl 冲突。
+fn check_copy_derives(cx: &QueryCtx<'_>, krate: &hir::Crate, res: &Resolutions) {
+    let mut targets: Vec<(DefId, Span)> = krate.copy_derives.iter().map(|(d, s)| (*d, *s)).collect();
+    targets.sort_by_key(|(d, _)| d.0);
+    for (def, span) in targets {
+        let ty_name = format!("`{}`", res.defs[def.0 as usize].name);
+        let emit = |reason: String| {
+            cx.diag()
+                .struct_error(E_BAD_DERIVE_COPY, "typeck.bad_derive_copy")
+                .arg("ty", ty_name.clone())
+                .arg("reason", reason.clone())
+                .span_label(span, reason)
+                .emit();
+        };
+        if krate.drop_impl_of(def).is_some() {
+            emit("the type also implements `Drop`".to_owned());
+            continue;
+        }
+        let component_defs: Vec<DefId> = match &krate.item(def).kind {
+            hir::ItemKind::Struct { .. } => vec![def],
+            hir::ItemKind::Enum { variants } => variants.clone(),
+            _ => Vec::new(),
+        };
+        'adt: for cd in component_defs {
+            let (hir::ItemKind::Struct { fields } | hir::ItemKind::Variant { fields }) =
+                &krate.item(cd).kind
+            else {
+                continue;
+            };
+            let mut sig_infer = || Ty::Err;
+            for f in fields {
+                let ft = lower_hir_ty(&f.ty, &mut sig_infer);
+                if mentions_param(&ft) {
+                    emit(format!(
+                        "field `{}` has a generic type (conservatively rejected)",
+                        f.name
+                    ));
+                    break 'adt;
+                }
+                if !crate::ty::is_copy(krate, &ft) {
+                    emit(format!("field `{}` is not Copy", f.name));
+                    break 'adt;
+                }
+            }
+        }
+    }
+}
+
+/// 类型是否引用泛型参数(RXS-0053 保守拒绝判定)。
+fn mentions_param(t: &Ty) -> bool {
+    match t {
+        Ty::Param(_) => true,
+        Ty::Adt(_, args) => args.iter().any(mentions_param),
+        Ty::Tuple(v) => v.iter().any(mentions_param),
+        Ty::Ref(x, _) | Ty::RawPtr(x, _) | Ty::Array(x) | Ty::Slice(x) => mentions_param(x),
+        Ty::FnPtr(ps, r) => ps.iter().any(mentions_param) || mentions_param(r),
+        _ => false,
+    }
+}
+
 /// `check_body` provider:对单个 body 做推断与检查,诊断经 DiagCtxt;
 /// 产物 [`TypeckResults`] 按节点物化(M2.3,MIR lowering 消费)。
 pub fn check_body_provider(cx: &QueryCtx<'_>, body_id: BodyId) -> TypeckResults {
@@ -508,7 +638,9 @@ impl Tck<'_, '_> {
     /// 反查 owner(AssocFn)所属 inherent impl 的 self 类型。
     fn impl_self_ty(&self, owner: DefId) -> Ty {
         for item in &self.krate.items {
-            if let hir::ItemKind::Impl { self_res, items } = &item.kind
+            if let hir::ItemKind::Impl {
+                self_res, items, ..
+            } = &item.kind
                 && items.contains(&owner)
             {
                 if let Res::Def(d) = self_res {
@@ -1220,7 +1352,9 @@ impl Tck<'_, '_> {
                     .assoc_items
                     .get(d)
                     .and_then(|items| items.iter().find(|(n, _)| n == method))
-                    .map(|(_, m)| *m);
+                    .map(|(_, m)| *m)
+                    // Drop::drop 不可显式调用(RXS-0055;查找面自然拒绝 → RX2004)
+                    .filter(|m| !self.krate.is_drop_fn(*m));
                 match found {
                     Some(m) => {
                         let sig = self.cx.fn_sig(m);
@@ -1705,5 +1839,166 @@ mod tests {
         let emitted = diag.emitted();
         let msg = emitted[0].message(diag.messages());
         assert!(msg.contains("i32") && msg.contains("bool"), "{msg}");
+    }
+
+    // ---- M3.2:Copy 判定 / derive(Copy) / Drop impl(RXS-0053/RXS-0055) ----
+
+    //@ spec: RXS-0053
+    #[test]
+    fn copy_judgment_matrix() {
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(
+            "#[derive(Copy)]\nstruct P { x: i32 }\nstruct M { x: i32 }\nfn main() {}",
+            SourceId(0),
+            Edition::Rx0,
+            &diag,
+        );
+        let krate = cx.hir_crate();
+        let res = cx.resolutions();
+        let def = |n: &str| {
+            DefId(res.defs.iter().position(|d| d.name == n).unwrap() as u32)
+        };
+        let p = Ty::Adt(def("P"), Vec::new());
+        let m = Ty::Adt(def("M"), Vec::new());
+        use crate::ty::is_copy;
+        // 标量 / 共享引用 / 裸指针 / fn 指针:内建 Copy
+        assert!(is_copy(&krate, &Ty::Prim(PrimTy::I32)));
+        assert!(is_copy(&krate, &Ty::Prim(PrimTy::Bool)));
+        assert!(is_copy(&krate, &Ty::Ref(Box::new(m.clone()), false)));
+        assert!(is_copy(&krate, &Ty::RawPtr(Box::new(m.clone()), true)));
+        assert!(is_copy(&krate, &Ty::FnPtr(Vec::new(), Box::new(Ty::unit()))));
+        // &mut T 与未标注 ADT:move
+        assert!(!is_copy(&krate, &Ty::Ref(Box::new(p.clone()), true)));
+        assert!(!is_copy(&krate, &m));
+        // derive(Copy) ADT:Copy
+        assert!(is_copy(&krate, &p));
+        // 元组/数组:逐组件
+        assert!(is_copy(&krate, &Ty::Tuple(vec![Ty::Prim(PrimTy::I32), p.clone()])));
+        assert!(!is_copy(&krate, &Ty::Tuple(vec![Ty::Prim(PrimTy::I32), m.clone()])));
+        assert!(is_copy(&krate, &Ty::Array(Box::new(p))));
+        assert!(!is_copy(&krate, &Ty::Array(Box::new(m))));
+        // Err 容忍为 Copy(不级联 move 诊断)
+        assert!(is_copy(&krate, &Ty::Err));
+    }
+
+    //@ spec: RXS-0055
+    #[test]
+    fn needs_drop_is_transitive() {
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(
+            "struct R { x: i32 }\nimpl Drop for R {\n    fn drop(&mut self) {}\n}\nstruct W { r: R }\nenum E { A, B(R) }\nstruct C { x: i32 }\nfn main() {}",
+            SourceId(0),
+            Edition::Rx0,
+            &diag,
+        );
+        cx.check_crate();
+        assert!(diag.emitted().is_empty(), "{:?}", diag.emitted());
+        let krate = cx.hir_crate();
+        let res = cx.resolutions();
+        let adt = |n: &str| {
+            Ty::Adt(
+                DefId(res.defs.iter().position(|d| d.name == n).unwrap() as u32),
+                Vec::new(),
+            )
+        };
+        use crate::ty::needs_drop;
+        assert!(needs_drop(&krate, &adt("R")), "自身携带 Drop impl");
+        assert!(needs_drop(&krate, &adt("W")), "字段传递");
+        assert!(needs_drop(&krate, &adt("E")), "变体载荷传递");
+        assert!(!needs_drop(&krate, &adt("C")));
+        assert!(!needs_drop(&krate, &Ty::Prim(PrimTy::I32)));
+        assert!(!needs_drop(&krate, &Ty::Ref(Box::new(adt("R")), true)), "引用不拥有");
+        assert!(needs_drop(&krate, &Ty::Tuple(vec![adt("R")])));
+        assert!(needs_drop(&krate, &Ty::Array(Box::new(adt("R")))));
+    }
+
+    //@ spec: RXS-0053
+    #[test]
+    fn derive_copy_requires_all_fields_copy() {
+        let (codes, _) = check(
+            "struct M { x: i32 }\n#[derive(Copy)]\nstruct B { m: M }\nfn main() {}",
+        );
+        assert_eq!(codes, vec![2008]);
+        check_clean(
+            "#[derive(Copy)]\nstruct P { x: i32, y: bool }\n#[derive(Copy)]\nstruct Q { p: P, t: (i32, char) }\nfn main() {}",
+        );
+    }
+
+    //@ spec: RXS-0053
+    #[test]
+    fn derive_copy_rejects_generic_fields_conservatively() {
+        let (codes, _) = check("#[derive(Copy)]\nstruct G<T> { v: T }\nfn main() {}");
+        assert_eq!(codes, vec![2008]);
+    }
+
+    //@ spec: RXS-0053
+    #[test]
+    fn derive_copy_conflicts_with_drop_impl() {
+        let (codes, _) = check(
+            "#[derive(Copy)]\nstruct R { x: i32 }\nimpl Drop for R {\n    fn drop(&mut self) {}\n}\nfn main() {}",
+        );
+        assert_eq!(codes, vec![2008]);
+    }
+
+    //@ spec: RXS-0055
+    #[test]
+    fn drop_impl_shape_violations() {
+        // 接收者非 &mut self
+        let (codes, _) = check(
+            "struct R { x: i32 }\nimpl Drop for R {\n    fn drop(&self) {}\n}\nfn main() {}",
+        );
+        assert_eq!(codes, vec![2009]);
+        // 多余参数
+        let (codes, _) = check(
+            "struct R { x: i32 }\nimpl Drop for R {\n    fn drop(&mut self, n: i32) {}\n}\nfn main() {}",
+        );
+        assert_eq!(codes, vec![2009]);
+        // impl 体多余项
+        let (codes, _) = check(
+            "struct R { x: i32 }\nimpl Drop for R {\n    fn drop(&mut self) {}\n    fn extra(&self) {}\n}\nfn main() {}",
+        );
+        assert_eq!(codes, vec![2009]);
+        // 目标非本包 struct/enum
+        let (codes, _) = check("impl Drop for i32 {\n    fn drop(&mut self) {}\n}\nfn main() {}");
+        assert_eq!(codes, vec![2009]);
+        // 合法形状
+        check_clean(
+            "struct R { x: i32 }\nimpl Drop for R {\n    fn drop(&mut self) {}\n}\nfn main() {}",
+        );
+    }
+
+    //@ spec: RXS-0055
+    #[test]
+    fn duplicate_drop_impl_rejected() {
+        let (codes, _) = check(
+            "struct R { x: i32 }\nimpl Drop for R {\n    fn drop(&mut self) {}\n}\nimpl Drop for R {\n    fn drop(&mut self) {}\n}\nfn main() {}",
+        );
+        // resolve 报关联项重名(RX1002)+ 定义处检查报重复 impl(RX2009)
+        assert!(codes.contains(&2009), "{codes:?}");
+    }
+
+    //@ spec: RXS-0055
+    #[test]
+    fn drop_fn_not_explicitly_callable() {
+        let (codes, _) = check(
+            "struct R { x: i32 }\nimpl Drop for R {\n    fn drop(&mut self) {}\n}\nfn main() {\n    let mut r = R { x: 1 };\n    r.drop();\n}",
+        );
+        assert_eq!(codes, vec![2004]);
+    }
+
+    //@ spec: RXS-0055
+    #[test]
+    fn user_shadowed_drop_trait_not_recognized() {
+        // 用户遮蔽 Drop:impl 绑定到用户 trait,不入识别面(形状不校验)
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(
+            "trait Drop {\n    fn drop(&mut self);\n}\nstruct R { x: i32 }\nimpl Drop for R {\n    fn drop(&mut self) {}\n}\nfn main() {}",
+            SourceId(0),
+            Edition::Rx0,
+            &diag,
+        );
+        cx.check_crate();
+        assert!(diag.emitted().is_empty(), "{:?}", diag.emitted());
+        assert!(cx.hir_crate().drop_impls.is_empty());
     }
 }

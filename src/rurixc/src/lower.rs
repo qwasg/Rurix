@@ -101,6 +101,33 @@ impl Lowerer<'_> {
         id
     }
 
+    /// `#[derive(Copy)]` 标注登记(RXS-0053;仅 struct/enum 调用本方法,
+    /// 合法性由 typeck 定义处检查裁决 RX2008)。
+    fn record_copy_derive(&mut self, id: DefId, attrs: &[ast::Attr]) {
+        for a in attrs {
+            if a.inner {
+                continue;
+            }
+            let m = &a.meta;
+            let is_derive =
+                m.path.segments.len() == 1 && m.path.segments[0].ident.name == "derive";
+            if !is_derive {
+                continue;
+            }
+            let ast::MetaKind::List(inner) = &m.kind else {
+                continue;
+            };
+            for entry in inner {
+                if let ast::MetaInner::Meta(mi) = entry {
+                    if mi.path.segments.len() == 1 && mi.path.segments[0].ident.name == "Copy" {
+                        self.krate.copy_derives.insert(id, a.span);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
     /// 安装编译器已知项的 HIR 形态(RXS-0048):内建 Option/Result enum。
     /// resolver 已分配 DefId(槽位预填为 Err),此处补 Enum/Variant item;
     /// 载荷字段类型 = 泛型参数(Some/Ok → Param 0,Err → Param 1)。
@@ -157,6 +184,10 @@ impl Lowerer<'_> {
                 fields: vec![param_field(1)],
             },
         );
+        // 内建 Drop trait(RXS-0055:识别锚点,无关联项形态)
+        if let Some(drop_trait) = li.drop_trait {
+            self.set_item(drop_trait, hir::ItemKind::Trait { items: Vec::new() });
+        }
     }
 
     /// 降级一个 item;返回其在所属容器中的 DefId 列表(extern 块展平为多个)。
@@ -174,6 +205,7 @@ impl Lowerer<'_> {
                 let Some(id) = self.def_of(item.span) else {
                     return Vec::new();
                 };
+                self.record_copy_derive(id, &item.attrs);
                 let fields = self.lower_variant_fields(&s.body);
                 self.set_item(id, hir::ItemKind::Struct { fields });
                 vec![id]
@@ -182,6 +214,7 @@ impl Lowerer<'_> {
                 let Some(id) = self.def_of(item.span) else {
                     return Vec::new();
                 };
+                self.record_copy_derive(id, &item.attrs);
                 let mut variants = Vec::new();
                 for v in &e.variants {
                     if let Some(vid) = self.def_of(v.span) {
@@ -206,12 +239,35 @@ impl Lowerer<'_> {
                     ast::TyKind::Path(p) => self.path_res(p.span),
                     _ => Res::Err,
                 };
+                // trait impl 的 trait 路径解析(RXS-0055 Drop 识别面的输入)
+                let trait_res = im.trait_ty.as_ref().map(|t| match &t.kind {
+                    ast::TyKind::Path(p) => self.path_res(p.span),
+                    _ => Res::Err,
+                });
                 let items = self.lower_assoc_items(&im.items);
                 let id = self.push_synthetic(
                     "<impl>",
-                    hir::ItemKind::Impl { self_res, items },
+                    hir::ItemKind::Impl {
+                        self_res,
+                        trait_res,
+                        items,
+                    },
                     item.span,
                 );
+                // `impl Drop for T` 登记(RXS-0055:trait 路径绑定到内建
+                // Drop 时识别;用户遮蔽的同名 trait 不参与)
+                if trait_res == Some(Res::Def(self.res.lang_items.drop_trait.unwrap_or(DefId(u32::MAX))))
+                {
+                    let adt = match self_res {
+                        Res::Def(d) => Some(d),
+                        _ => None,
+                    };
+                    self.krate.drop_impls.push(hir::DropImpl {
+                        adt,
+                        impl_def: id,
+                        span: item.span,
+                    });
+                }
                 vec![id]
             }
             ast::ItemKind::Mod(m) => {

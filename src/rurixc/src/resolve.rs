@@ -47,6 +47,7 @@ pub struct LocalDecl {
 }
 
 /// 编译器已知项最小面(RXS-0048:内建 Option/Result,仅服务 desugar;
+/// RXS-0055:内建 `Drop` trait 名,仅服务 drop elaboration 识别面;
 /// resolve 入口注入,字段在 resolve 后必有值)。
 #[derive(Debug, Default, Clone, Copy)]
 pub struct LangItems {
@@ -56,6 +57,8 @@ pub struct LangItems {
     pub result: Option<DefId>,
     pub result_ok: Option<DefId>,
     pub result_err: Option<DefId>,
+    /// 内建 `Drop` trait(RXS-0055;`impl Drop for T` 识别锚点,可被用户遮蔽)。
+    pub drop_trait: Option<DefId>,
 }
 
 impl LangItems {
@@ -64,6 +67,7 @@ impl LangItems {
         match name {
             "Option" => self.option,
             "Result" => self.result,
+            "Drop" => self.drop_trait,
             _ => None,
         }
     }
@@ -145,6 +149,7 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
             result,
             HashMap::from([("Ok".to_owned(), ok), ("Err".to_owned(), err)]),
         );
+        let drop_trait = r.new_def(DefKind::Trait, "Drop", Vis::Pub, span, 0);
         r.out.lang_items = LangItems {
             option: Some(option),
             option_none: Some(none),
@@ -152,6 +157,7 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
             result: Some(result),
             result_ok: Some(ok),
             result_err: Some(err),
+            drop_trait: Some(drop_trait),
         };
     }
     r.collect_items(&file.items, 0);

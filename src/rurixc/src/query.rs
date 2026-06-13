@@ -40,6 +40,8 @@ pub struct QueryCtx<'a> {
     checked_bodies: RefCell<HashMap<BodyId, Rc<TypeckResults>>>,
     /// 模式穷尽性已检 body 集(RXS-0051;memo 防重复诊断)。
     checked_patterns: RefCell<std::collections::HashSet<BodyId>>,
+    /// 定义处检查已跑标记(RXS-0053/RXS-0055;memo 防重复诊断)。
+    checked_defs: Cell<bool>,
     mir: OnceCell<Rc<Vec<crate::mir::Body>>>,
     // ---- 计量(self-profile 布点,07 §6) ----
     hits: Cell<u64>,
@@ -70,6 +72,7 @@ impl<'a> QueryCtx<'a> {
             type_of: RefCell::new(HashMap::new()),
             checked_bodies: RefCell::new(HashMap::new()),
             checked_patterns: RefCell::new(std::collections::HashSet::new()),
+            checked_defs: Cell::new(false),
             mir: OnceCell::new(),
             hits: Cell::new(0),
             misses: Cell::new(0),
@@ -200,8 +203,20 @@ impl<'a> QueryCtx<'a> {
         r
     }
 
-    /// 全 crate 类型检查入口(遍历全部 body)。
+    /// 定义处检查(M3.2:derive(Copy) 合法性 + Drop impl 形状,
+    /// RXS-0053/RXS-0055;provider:[`crate::typeck::check_defs_provider`])。
+    pub fn check_defs(&self) {
+        if self.checked_defs.replace(true) {
+            self.hit();
+            return;
+        }
+        self.miss();
+        crate::typeck::check_defs_provider(self);
+    }
+
+    /// 全 crate 类型检查入口(定义处检查 + 遍历全部 body)。
     pub fn check_crate(&self) {
+        self.check_defs();
         let krate = self.hir_crate();
         for i in 0..krate.bodies.len() {
             let _ = self.check_body(BodyId(i as u32));

@@ -140,6 +140,23 @@ pub struct Crate {
     pub bodies: Vec<Body>,
     /// 根模块的直接子 item。
     pub root_items: Vec<DefId>,
+    /// `#[derive(Copy)]` 标注的 ADT → 属性 span(RXS-0053;合法性由
+    /// typeck 定义处检查裁决,RX2008)。
+    pub copy_derives: std::collections::HashMap<DefId, Span>,
+    /// 识别出的 `impl Drop for T`(RXS-0055;trait 路径绑定到内建 Drop 的
+    /// impl;形状合法性由 typeck 定义处检查裁决,RX2009)。
+    pub drop_impls: Vec<DropImpl>,
+}
+
+/// `impl Drop for T` 登记(RXS-0055 最小识别面)。
+#[derive(Debug)]
+pub struct DropImpl {
+    /// impl 目标(self_res 为 struct/enum Def 时 Some;其余形态留 None,
+    /// 由定义处检查报 RX2009)。
+    pub adt: Option<DefId>,
+    /// impl 合成 item 的 DefId。
+    pub impl_def: DefId,
+    pub span: Span,
 }
 
 impl Crate {
@@ -149,6 +166,42 @@ impl Crate {
 
     pub fn body(&self, id: BodyId) -> &Body {
         &self.bodies[id.0 as usize]
+    }
+
+    /// ADT 是否携带 `#[derive(Copy)]`(RXS-0053)。
+    pub fn has_copy_derive(&self, def: DefId) -> bool {
+        self.copy_derives.contains_key(&def)
+    }
+
+    /// ADT 的 Drop impl 登记(首个;重复登记由 RX2009 拒绝)。
+    pub fn drop_impl_of(&self, adt: DefId) -> Option<&DropImpl> {
+        self.drop_impls.iter().find(|di| di.adt == Some(adt))
+    }
+
+    /// ADT 的 `Drop::drop` 关联函数 DefId(RXS-0055;形状违例时可能缺失)。
+    pub fn drop_fn_of(&self, adt: DefId) -> Option<DefId> {
+        let di = self.drop_impl_of(adt)?;
+        let ItemKind::Impl { items, .. } = &self.item(di.impl_def).kind else {
+            return None;
+        };
+        items
+            .iter()
+            .copied()
+            .find(|d| self.item(*d).name == "drop")
+    }
+
+    /// 是否为 Drop impl 的 `drop` 关联函数(方法查找排除面,RXS-0055
+    /// "不可显式调用")。
+    pub fn is_drop_fn(&self, def: DefId) -> bool {
+        if self.item(def).name != "drop" {
+            return false;
+        }
+        self.drop_impls.iter().any(|di| {
+            matches!(
+                &self.item(di.impl_def).kind,
+                ItemKind::Impl { items, .. } if items.contains(&def)
+            )
+        })
     }
 }
 
@@ -178,6 +231,9 @@ pub enum ItemKind {
     },
     Impl {
         self_res: Res,
+        /// `impl Trait for Type` 的 trait 路径解析结果(inherent impl 为 None;
+        /// RXS-0055 Drop 识别面消费)。
+        trait_res: Option<Res>,
         items: Vec<DefId>,
     },
     Mod {

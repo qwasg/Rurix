@@ -159,6 +159,71 @@ impl Ty {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Copy / needs-drop 判定(RXS-0053 / RXS-0055)
+// ---------------------------------------------------------------------------
+
+/// Copy 判定(RXS-0053):标量/共享引用/裸指针/fn 指针内建 Copy;
+/// 元组/数组逐组件;ADT 看 `#[derive(Copy)]` 标注(合法性已由定义处
+/// 检查裁决,RX2008);`Err` 容忍为 Copy(RXS-0047 不级联——不产生 move 诊断)。
+pub fn is_copy(krate: &crate::hir::Crate, ty: &Ty) -> bool {
+    match ty {
+        Ty::Prim(_) => true,
+        Ty::Ref(_, mutable) => !*mutable,
+        Ty::RawPtr(..) | Ty::FnPtr(..) => true,
+        Ty::Tuple(v) => v.iter().all(|t| is_copy(krate, t)),
+        Ty::Array(t) => is_copy(krate, t),
+        Ty::Slice(_) => false,
+        Ty::Adt(d, _) => krate.has_copy_derive(*d),
+        // 单态化后不应残留;保守按非 Copy(move 语义)
+        Ty::Param(_) | Ty::Infer(_) => false,
+        Ty::Err => true,
+    }
+}
+
+/// needs-drop 判定(RXS-0055,传递):自身携带 Drop impl,或聚合存在
+/// needs-drop 组件;`Err` 容忍为不 needs-drop。
+pub fn needs_drop(krate: &crate::hir::Crate, ty: &Ty) -> bool {
+    needs_drop_inner(krate, ty, &mut Vec::new())
+}
+
+fn needs_drop_inner(krate: &crate::hir::Crate, ty: &Ty, seen: &mut Vec<DefId>) -> bool {
+    match ty {
+        Ty::Adt(d, args) => {
+            if krate.drop_impl_of(*d).is_some() {
+                return true;
+            }
+            // 递归 ADT 防环(按值递归本身非法,容忍为不 drop)
+            if seen.contains(d) {
+                return false;
+            }
+            seen.push(*d);
+            let out = adt_component_tys(krate, *d, args)
+                .iter()
+                .any(|t| needs_drop_inner(krate, t, seen));
+            seen.pop();
+            out
+        }
+        Ty::Tuple(v) => v.iter().any(|t| needs_drop_inner(krate, t, seen)),
+        Ty::Array(t) => needs_drop_inner(krate, t, seen),
+        _ => false,
+    }
+}
+
+/// ADT 组件类型展开(struct/变体 = 字段;enum = 全变体字段并集;实参已代入)。
+pub fn adt_component_tys(krate: &crate::hir::Crate, def: DefId, args: &[Ty]) -> Vec<Ty> {
+    match &krate.item(def).kind {
+        crate::hir::ItemKind::Struct { .. } | crate::hir::ItemKind::Variant { .. } => {
+            crate::typeck::adt_field_tys(krate, def, args)
+        }
+        crate::hir::ItemKind::Enum { variants } => variants
+            .iter()
+            .flat_map(|v| crate::typeck::adt_field_tys(krate, *v, args))
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
 fn prim_name(p: PrimTy) -> &'static str {
     match p {
         PrimTy::I8 => "i8",
