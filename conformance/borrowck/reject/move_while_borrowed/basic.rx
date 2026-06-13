@@ -1,0 +1,23 @@
+//@ spec: RXS-0060
+//@ expect-error: RX4005
+// move-while-borrowed: `t` is moved into `eat` while the borrow `r = &t` is
+// still live (used afterwards by `peek`).
+
+struct T {
+    id: i32,
+}
+
+fn eat(t: T) -> i32 {
+    t.id
+}
+
+fn peek(r: &T) -> i32 {
+    r.id
+}
+
+fn main() {
+    let t = T { id: 1 };
+    let r = &t;
+    let _a = eat(t);
+    let _b = peek(r);
+}

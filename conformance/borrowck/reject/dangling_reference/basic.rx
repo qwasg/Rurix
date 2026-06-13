@@ -1,0 +1,13 @@
+//@ spec: RXS-0061
+//@ expect-error: RX4006
+// dangling reference: a reference to local `x` escapes through the return
+// slot, outliving its referent.
+
+fn dangle() -> &i32 {
+    let x = 1;
+    &x
+}
+
+fn main() {
+    let _r = dangle();
+}

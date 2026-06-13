@@ -60,3 +60,8 @@
 | RXS-0054 | spec/borrow.md | 12 | `conformance/borrowck/accept/move_reinit.rx`, `conformance/borrowck/reject/use_after_move/basic.rx`, `conformance/borrowck/reject/use_after_move/conditional_move.rx` …(+9) |
 | RXS-0055 | spec/borrow.md | 4 | `conformance/borrowck/accept/drop_order_run.rx`, `src/rurixc/src/drop_elab.rs`, `src/rurixc/src/mir_build.rs` …(+1) |
 | RXS-0056 | spec/borrow.md | 1 | `conformance/borrowck/accept/temp_drop_stmt.rx` |
+| RXS-0057 | spec/borrow.md | 2 | `conformance/borrowck/reject/double_mut_borrow/basic.rx`, `conformance/borrowck/reject/shared_mut_conflict/basic.rx` |
+| RXS-0058 | spec/borrow.md | 5 | `conformance/borrowck/accept/shared_borrows.rx`, `conformance/borrowck/reject/double_mut_borrow/basic.rx`, `conformance/borrowck/reject/shared_mut_conflict/basic.rx` …(+2) |
+| RXS-0059 | spec/borrow.md | 2 | `conformance/borrowck/accept/nll_released_reborrow.rx`, `src/rurixc/src/borrow_check.rs` |
+| RXS-0060 | spec/borrow.md | 3 | `conformance/borrowck/reject/assign_while_borrowed/basic.rx`, `conformance/borrowck/reject/move_while_borrowed/basic.rx`, `src/rurixc/src/borrow_check.rs` |
+| RXS-0061 | spec/borrow.md | 3 | `conformance/borrowck/accept/reference_to_param.rx`, `conformance/borrowck/reject/dangling_reference/basic.rx`, `src/rurixc/src/borrow_check.rs` |

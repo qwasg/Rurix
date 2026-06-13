@@ -449,6 +449,31 @@
     ],
     "RXS-0056": [
       "conformance/borrowck/accept/temp_drop_stmt.rx"
+    ],
+    "RXS-0057": [
+      "conformance/borrowck/reject/double_mut_borrow/basic.rx",
+      "conformance/borrowck/reject/shared_mut_conflict/basic.rx"
+    ],
+    "RXS-0058": [
+      "conformance/borrowck/accept/shared_borrows.rx",
+      "conformance/borrowck/reject/double_mut_borrow/basic.rx",
+      "conformance/borrowck/reject/shared_mut_conflict/basic.rx",
+      "src/rurixc/src/borrow_check.rs",
+      "src/rurixc/tests/borrowck_corpus.rs"
+    ],
+    "RXS-0059": [
+      "conformance/borrowck/accept/nll_released_reborrow.rx",
+      "src/rurixc/src/borrow_check.rs"
+    ],
+    "RXS-0060": [
+      "conformance/borrowck/reject/assign_while_borrowed/basic.rx",
+      "conformance/borrowck/reject/move_while_borrowed/basic.rx",
+      "src/rurixc/src/borrow_check.rs"
+    ],
+    "RXS-0061": [
+      "conformance/borrowck/accept/reference_to_param.rx",
+      "conformance/borrowck/reject/dangling_reference/basic.rx",
+      "src/rurixc/src/borrow_check.rs"
     ]
   }
 }

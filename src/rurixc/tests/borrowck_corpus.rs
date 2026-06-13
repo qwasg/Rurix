@@ -1,9 +1,10 @@
-//! conformance/borrowck 语料批跑(M3.2 出口判据:契约 §4 类别 1/2 反例
-//! 全拦截 + accept 正例 0 诊断;CI 步骤 15 的 cargo 侧先行形态,工作流
-//! 接入随 M3.3,M3 CI_GATES §2)。
+//! conformance/borrowck 语料批跑(契约 §4 / G-M3-1:7 类错误类别反例全拦截
+//! + accept 正例 0 诊断;CI 步骤 15 = `cargo test -p rurixc --test borrowck_corpus`,
+//! M3.3 WP4 接入 pr-smoke 工作流,M3 CI_GATES §2)。
 //!
 //! reject 体例:`reject/<category>/*.rx`,文件头 `//@ expect-error: RX####`
 //! 声明预期错误码;批跑断言"产生诊断且全部为预期码"(反例全拦截口径)。
+//! 类别覆盖面(目录数)由 `m3.counter.borrowck_conformance_categories` 核对(≥7)。
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -68,13 +69,46 @@ fn accept_corpus_is_diagnostic_free() {
     }
 }
 
+/// 契约 §4 预设的 7 类错误类别(reject/ 下子目录名)。
+const REJECT_CATEGORIES: [&str; 7] = [
+    "use_after_move",
+    "use_before_init",
+    "double_mut_borrow",
+    "shared_mut_conflict",
+    "move_while_borrowed",
+    "assign_while_borrowed",
+    "dangling_reference",
+];
+
+//@ spec: RXS-0058
+#[test]
+fn reject_has_all_seven_categories() {
+    let reject = dir("reject");
+    for cat in REJECT_CATEGORIES {
+        let d = reject.join(cat);
+        assert!(
+            d.is_dir() && !rx_files(&d).is_empty(),
+            "缺类别目录或为空: reject/{cat}/(契约 §4 七类,G-M3-1)"
+        );
+    }
+    let present: usize = std::fs::read_dir(&reject)
+        .expect("读取 reject/ 失败")
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().is_dir())
+        .count();
+    assert!(
+        present >= 7,
+        "reject 类别目录数 {present} < 7(m3.counter.borrowck_conformance_categories)"
+    );
+}
+
 //@ spec: RXS-0054
 #[test]
 fn reject_corpus_all_intercepted() {
     let files = rx_files(&dir("reject"));
     assert!(
-        files.len() >= 4,
-        "reject 反例集过小: {} 个(类别 1/2 各 ≥2,M3.2 出口判据)",
+        files.len() >= REJECT_CATEGORIES.len(),
+        "reject 反例集过小: {} 个(契约 §4 七类各 ≥1)",
         files.len()
     );
     for f in files {

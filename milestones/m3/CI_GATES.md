@@ -15,7 +15,7 @@
 
 | # | 步骤 | 失败即红 |
 |---|---|---|
-| 15 | borrowck conformance 批跑:`conformance/borrowck/reject/<category>/` 反例全拦截(逐文件断言产生预期 4xxx 诊断)+ `accept/` 正例 0 诊断(契约 G-M3-1 通道;自 M3.3 存在起,实测命令落地时回填本表修订行) | 是 |
+| 15 | borrowck conformance 批跑:`cargo test -p rurixc --test borrowck_corpus`——`conformance/borrowck/reject/<category>/` 反例全拦截(逐文件断言产生预期 4xxx 诊断)+ `accept/` 正例 0 诊断 + 七类目录覆盖核对(契约 G-M3-1 通道;M3.3 WP4 接入 pr-smoke 工作流) | 是 |
 | 16 | const eval 冒烟:`conformance/consteval/` const 泛型程序经全管线产出 EXE → 运行核对退出码/输出(契约 G-M3-4 通道,对齐步骤 12 真跑形态;自 M3.4 存在起) | 是 |
 
 预算 evaluator(M0 步骤 6)自动合并加载 [m3_budget.json](m3_budget.json)(命名空间冲突即红)。**M3 期 PR Smoke 跑 normal 模式**:`m3.counter.*` 建设期未达标 SKIP 属预期;`m2.bench.*` estimated 占位在 M3.4 回填前继续 SKIP。**M3 close-out 必须跑 `--strict` 且全局零 estimated 残留**(契约 G-M3-3;14 §3 占位存活 ≤2 里程碑,m2.bench.* 在本里程碑到期)。
@@ -65,3 +65,4 @@ m2_budget.json 的 G-M3-3 回填走 `check_guardrails.py` 既有机制("estimate
 | v1.0 | 2026-06-12 | 初版(M3 契约配套;步骤 15/16 为 M3.3/M3.4 计划项,落地时回填实测命令) |
 | v1.1 | 2026-06-12 | §4 第 1 项落地:`ci/check_guardrails.py` 本地/push 回退基准 `m1-closed → m2-closed`(PR 路径 GITHUB_BASE_REF 优先不变);切换前双基准核对均 PASS(`py -3 ci/check_guardrails.py m1-closed` = PASS 101 changed paths;`m2-closed` = PASS 6 changed paths) |
 | v1.2 | 2026-06-13 | §4 第 2 项 M3.2 预评估结论入档(MIR 文本 golden):MIR 形态经 M3.2 Move/Drop 落地后基本定型,基线范围(hello-world / drop 顺序 / drop flag 三代表)、核对脚本形态(倾向 cargo test 快照升格)、激活前置与时点(M3.3,M3_PLAN §3 任务 6)裁决留痕;M3.2 不激活(理由:借用检查接入期 MIR 可能微调)。新增 drop 真跑冒烟 `ci/hello_smoke.py drop-smoke`(drop_order_run/temp_drop_stmt 顺序核对,RXS-0055/0056;CI 工作流接入随步骤 15 一并裁决) |
+| v1.3 | 2026-06-13 | §2 步骤 15 落地(M3.3 WP4):实测命令 = `cargo test -p rurixc --test borrowck_corpus`,接入 pr-smoke 工作流(名为 "borrowck conformance batch")。`conformance/borrowck/reject/` 补齐契约 §4 七类(use_after_move/use_before_init/double_mut_borrow/shared_mut_conflict/move_while_borrowed/assign_while_borrowed/dangling_reference)+ 借用 accept 正例;`m3.counter.borrowck_conformance_categories` 由 SKIP 转 PASS(≥7)。红绿真跑核验(§5 第 1 项)随首个 PR 归档 close-out |
