@@ -344,7 +344,8 @@ mod tests {
     fn borrow_of_uninit_rejected_and_init_borrow_clean() {
         let codes = check("fn main() {\n    let x: i32;\n    let _r = &x;\n}");
         assert_eq!(codes, vec![4002]);
-        let codes = check("fn main() {\n    let x: i32 = 1;\n    let _r = &x;\n    let _v = *_r;\n}");
+        let codes =
+            check("fn main() {\n    let x: i32 = 1;\n    let _r = &x;\n    let _v = *_r;\n}");
         assert!(codes.is_empty(), "{codes:?}");
     }
 }

@@ -1,6 +1,6 @@
 //! conformance/desugar 正例全管线批跑(M3.1 出口判据,契约 D-M3-1):
 //! desugar 后正例经 lex + parse + resolve + typeck + 模式穷尽性(TBIR 窄门)
-//! + MIR 构建全程 **0 诊断**且产出非空 MIR(可执行真跑经
+//! 及 MIR 构建全程 **0 诊断**且产出非空 MIR(可执行真跑经
 //! `py -3 ci/hello_smoke.py desugar-smoke`,对齐步骤 12 形态)。
 
 use std::fs;

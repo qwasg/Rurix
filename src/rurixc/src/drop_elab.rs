@@ -148,12 +148,14 @@ fn ownership_states(body: &Body, must: bool) -> Vec<BitSet> {
         must,
     };
     let results = iterate_to_fixpoint(body, &analysis);
-    let mut out: Vec<BitSet> = (0..body.blocks.len()).map(|_| analysis.bottom(body)).collect();
-    for bi in 0..body.blocks.len() {
+    let mut out: Vec<BitSet> = (0..body.blocks.len())
+        .map(|_| analysis.bottom(body))
+        .collect();
+    for (bi, slot) in out.iter_mut().enumerate() {
         let term_stmt = body.blocks[bi].stmts.len();
         results.visit_block(body, &analysis, bi, |state, loc: Location| {
             if loc.stmt == term_stmt {
-                out[bi] = state.clone();
+                *slot = state.clone();
             }
         });
     }
@@ -249,7 +251,10 @@ fn insert_drop_flags(body: &mut Body, flagged: &[(usize, LocalIdx, BlockIdx)]) {
                 appended.push(BasicBlock {
                     stmts: Vec::new(),
                     terminator: Terminator {
-                        kind: TerminatorKind::Drop { place, next: clear_id },
+                        kind: TerminatorKind::Drop {
+                            place,
+                            next: clear_id,
+                        },
                         span: terminator.span,
                     },
                 });

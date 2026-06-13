@@ -1946,9 +1946,7 @@ mod tests {
     //@ spec: RXS-0048
     #[test]
     fn user_definition_shadows_lang_item() {
-        let res = run_clean(
-            "enum Option {\n    Mine,\n}\nfn f() -> Option {\n    Option::Mine\n}",
-        );
+        let res = run_clean("enum Option {\n    Mine,\n}\nfn f() -> Option {\n    Option::Mine\n}");
         let li = res.lang_items;
         // 类型位置与路径前缀均解析到用户定义,不落到内建项(RX1002 也不产生)
         assert!(

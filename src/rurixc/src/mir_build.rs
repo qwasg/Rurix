@@ -941,9 +941,7 @@ impl Builder<'_, '_> {
                 let ty = pat.ty.subst(&self.substs);
                 let c = self.const_of_lit(&ty, lit, pat.span);
                 let c = match (negated, c) {
-                    (true, Operand::Const(Const::Int(v, p))) => {
-                        Operand::Const(Const::Int(-v, p))
-                    }
+                    (true, Operand::Const(Const::Int(v, p))) => Operand::Const(Const::Int(-v, p)),
                     (true, Operand::Const(Const::Float(v, p))) => {
                         Operand::Const(Const::Float(-v, p))
                     }
@@ -1241,7 +1239,10 @@ bb1:
         let src = "fn main() {\n    let mut acc = 0;\n    for i in 0..4 {\n        if i == 2 {\n            continue;\n        }\n        acc += i;\n    }\n    let _r = acc;\n}";
         let (text, codes) = mir_text(src);
         assert!(codes.is_empty(), "意外诊断: {codes:?}");
-        assert!(text.contains("discriminant("), "desugar match 缺失:\n{text}");
+        assert!(
+            text.contains("discriminant("),
+            "desugar match 缺失:\n{text}"
+        );
     }
 
     /// `?` desugar 全管线:无 RX6001(RXS-0050 出口判据通路)。
@@ -1267,7 +1268,11 @@ bb1:
             .split("fn ")
             .find(|s| s.starts_with("main("))
             .expect("main body");
-        assert_eq!(main.matches("drop(").count(), 1, "main 仅 b 应 drop:\n{main}");
+        assert_eq!(
+            main.matches("drop(").count(),
+            1,
+            "main 仅 b 应 drop:\n{main}"
+        );
         // eat:参数 a 在函数退出 drop(definitely-owned)
         let eat = text
             .split("fn ")

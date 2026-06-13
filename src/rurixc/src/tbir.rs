@@ -160,10 +160,7 @@ pub struct Block {
 
 #[derive(Debug)]
 pub enum Stmt {
-    Let {
-        pat: Pat,
-        init: Option<Expr>,
-    },
+    Let { pat: Pat, init: Option<Expr> },
     Expr(Expr),
 }
 

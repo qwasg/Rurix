@@ -386,11 +386,7 @@ fn print_rvalue(rv: &Rvalue, res: &Resolutions) -> String {
         }
         Rvalue::VariantAggregate { ty, tag, ops, .. } => {
             let parts: Vec<String> = ops.iter().map(print_operand).collect();
-            format!(
-                "{}#{tag} {{ {} }}",
-                ty.render_plain(res),
-                parts.join(", ")
-            )
+            format!("{}#{tag} {{ {} }}", ty.render_plain(res), parts.join(", "))
         }
         Rvalue::Discriminant(p) => format!("discriminant({})", print_place(p)),
     }

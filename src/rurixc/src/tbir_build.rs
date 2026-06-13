@@ -94,14 +94,6 @@ impl Builder<'_> {
         Some((enum_def, idx))
     }
 
-    fn err_expr(&self, span: crate::span::Span) -> tbir::Expr {
-        tbir::Expr {
-            ty: Ty::Err,
-            span,
-            kind: tbir::ExprKind::Err,
-        }
-    }
-
     // -- scope(RXS-0052) -------------------------------------------------------
 
     fn enter_scope(&mut self, span: crate::span::Span) -> ScopeId {
@@ -143,14 +135,11 @@ impl Builder<'_> {
             },
             hir::PatKind::Range => tbir::PatKind::Range,
             hir::PatKind::Ref { pat } => tbir::PatKind::Deref(Box::new(self.pat(pat))),
-            hir::PatKind::Tuple(v) => {
-                tbir::PatKind::Tuple(v.iter().map(|x| self.pat(x)).collect())
-            }
-            hir::PatKind::Slice(v) => {
-                tbir::PatKind::Slice(v.iter().map(|x| self.pat(x)).collect())
-            }
+            hir::PatKind::Tuple(v) => tbir::PatKind::Tuple(v.iter().map(|x| self.pat(x)).collect()),
+            hir::PatKind::Slice(v) => tbir::PatKind::Slice(v.iter().map(|x| self.pat(x)).collect()),
             hir::PatKind::Res(r) => match r {
-                Res::Def(d) if matches!(self.krate.item(*d).kind, hir::ItemKind::Variant { .. }) =>
+                Res::Def(d)
+                    if matches!(self.krate.item(*d).kind, hir::ItemKind::Variant { .. }) =>
                 {
                     match self.variant_pos(*d) {
                         Some((enum_def, index)) => tbir::PatKind::Variant {
@@ -663,7 +652,7 @@ impl ExhaustCx<'_> {
             .flat_map(|a| a.pats.iter())
             .map(|p| vec![self.normalize(p, &mut opaque)])
             .collect();
-        if let Some(w) = self.useful(&[scrut_ty.clone()], &matrix) {
+        if let Some(w) = self.useful(std::slice::from_ref(scrut_ty), &matrix) {
             let witness = w.into_iter().next().unwrap_or_else(|| "_".to_owned());
             self.diag
                 .struct_error(E_NON_EXHAUSTIVE, "typeck.non_exhaustive_match")
@@ -691,9 +680,7 @@ impl ExhaustCx<'_> {
                 *opaque += 1;
                 SP::Ctor(Key::Opaque(*opaque), Vec::new())
             }
-            tbir::PatKind::Deref(sub) => {
-                SP::Ctor(Key::Single, vec![self.normalize(sub, opaque)])
-            }
+            tbir::PatKind::Deref(sub) => SP::Ctor(Key::Single, vec![self.normalize(sub, opaque)]),
             tbir::PatKind::Tuple(elems) => SP::Ctor(
                 Key::Single,
                 elems.iter().map(|x| self.normalize(x, opaque)).collect(),
@@ -709,10 +696,7 @@ impl ExhaustCx<'_> {
                 ..
             } => {
                 let arity = self.arity_of(*variant);
-                SP::Ctor(
-                    Key::Variant(*index),
-                    self.positional(fields, arity, opaque),
-                )
+                SP::Ctor(Key::Variant(*index), self.positional(fields, arity, opaque))
             }
         }
     }
@@ -1058,9 +1042,6 @@ mod tests {
         };
         // None = 变体 0,Some = 变体 1(RXS-0048 定义序)
         assert_eq!((*i0, *i1), (0, 1));
-        assert!(matches!(
-            fields[0].1.kind,
-            tbir::PatKind::Binding { .. }
-        ));
+        assert!(matches!(fields[0].1.kind, tbir::PatKind::Binding { .. }));
     }
 }

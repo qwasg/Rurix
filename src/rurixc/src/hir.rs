@@ -184,10 +184,7 @@ impl Crate {
         let ItemKind::Impl { items, .. } = &self.item(di.impl_def).kind else {
             return None;
         };
-        items
-            .iter()
-            .copied()
-            .find(|d| self.item(*d).name == "drop")
+        items.iter().copied().find(|d| self.item(*d).name == "drop")
     }
 
     /// 是否为 Drop impl 的 `drop` 关联函数(方法查找排除面,RXS-0055

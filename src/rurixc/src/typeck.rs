@@ -384,7 +384,8 @@ fn ret_is_unit(ret: &Option<hir::Ty>) -> bool {
 /// `#[derive(Copy)]` 合法性(RXS-0053):全字段 Copy;字段类型引用泛型
 /// 参数保守拒绝;与 Drop impl 冲突。
 fn check_copy_derives(cx: &QueryCtx<'_>, krate: &hir::Crate, res: &Resolutions) {
-    let mut targets: Vec<(DefId, Span)> = krate.copy_derives.iter().map(|(d, s)| (*d, *s)).collect();
+    let mut targets: Vec<(DefId, Span)> =
+        krate.copy_derives.iter().map(|(d, s)| (*d, *s)).collect();
     targets.sort_by_key(|(d, _)| d.0);
     for (def, span) in targets {
         let ty_name = format!("`{}`", res.defs[def.0 as usize].name);
@@ -470,9 +471,7 @@ pub fn check_body_provider(cx: &QueryCtx<'_>, body_id: BodyId) -> TypeckResults 
             let self_ty = if sig.has_self {
                 let base = tck.impl_self_ty(body.owner);
                 match decl.self_kind {
-                    Some(sk) if sk.by_ref && !base.is_err() => {
-                        Ty::Ref(Box::new(base), sk.mutable)
-                    }
+                    Some(sk) if sk.by_ref && !base.is_err() => Ty::Ref(Box::new(base), sk.mutable),
                     _ => base,
                 }
             } else {
@@ -1713,9 +1712,8 @@ mod tests {
     //@ spec: RXS-0050
     #[test]
     fn question_mark_requires_result_scrutinee() {
-        let (codes, _) = check(
-            "fn f() -> Result<i32, i32> {\n    let x = 1;\n    let y = x?;\n    Ok(y)\n}",
-        );
+        let (codes, _) =
+            check("fn f() -> Result<i32, i32> {\n    let x = 1;\n    let y = x?;\n    Ok(y)\n}");
         assert!(codes.contains(&2001), "{codes:?}");
     }
 
@@ -1855,9 +1853,7 @@ mod tests {
         );
         let krate = cx.hir_crate();
         let res = cx.resolutions();
-        let def = |n: &str| {
-            DefId(res.defs.iter().position(|d| d.name == n).unwrap() as u32)
-        };
+        let def = |n: &str| DefId(res.defs.iter().position(|d| d.name == n).unwrap() as u32);
         let p = Ty::Adt(def("P"), Vec::new());
         let m = Ty::Adt(def("M"), Vec::new());
         use crate::ty::is_copy;
@@ -1866,15 +1862,24 @@ mod tests {
         assert!(is_copy(&krate, &Ty::Prim(PrimTy::Bool)));
         assert!(is_copy(&krate, &Ty::Ref(Box::new(m.clone()), false)));
         assert!(is_copy(&krate, &Ty::RawPtr(Box::new(m.clone()), true)));
-        assert!(is_copy(&krate, &Ty::FnPtr(Vec::new(), Box::new(Ty::unit()))));
+        assert!(is_copy(
+            &krate,
+            &Ty::FnPtr(Vec::new(), Box::new(Ty::unit()))
+        ));
         // &mut T 与未标注 ADT:move
         assert!(!is_copy(&krate, &Ty::Ref(Box::new(p.clone()), true)));
         assert!(!is_copy(&krate, &m));
         // derive(Copy) ADT:Copy
         assert!(is_copy(&krate, &p));
         // 元组/数组:逐组件
-        assert!(is_copy(&krate, &Ty::Tuple(vec![Ty::Prim(PrimTy::I32), p.clone()])));
-        assert!(!is_copy(&krate, &Ty::Tuple(vec![Ty::Prim(PrimTy::I32), m.clone()])));
+        assert!(is_copy(
+            &krate,
+            &Ty::Tuple(vec![Ty::Prim(PrimTy::I32), p.clone()])
+        ));
+        assert!(!is_copy(
+            &krate,
+            &Ty::Tuple(vec![Ty::Prim(PrimTy::I32), m.clone()])
+        ));
         assert!(is_copy(&krate, &Ty::Array(Box::new(p))));
         assert!(!is_copy(&krate, &Ty::Array(Box::new(m))));
         // Err 容忍为 Copy(不级联 move 诊断)
@@ -1907,7 +1912,10 @@ mod tests {
         assert!(needs_drop(&krate, &adt("E")), "变体载荷传递");
         assert!(!needs_drop(&krate, &adt("C")));
         assert!(!needs_drop(&krate, &Ty::Prim(PrimTy::I32)));
-        assert!(!needs_drop(&krate, &Ty::Ref(Box::new(adt("R")), true)), "引用不拥有");
+        assert!(
+            !needs_drop(&krate, &Ty::Ref(Box::new(adt("R")), true)),
+            "引用不拥有"
+        );
         assert!(needs_drop(&krate, &Ty::Tuple(vec![adt("R")])));
         assert!(needs_drop(&krate, &Ty::Array(Box::new(adt("R")))));
     }
@@ -1915,9 +1923,8 @@ mod tests {
     //@ spec: RXS-0053
     #[test]
     fn derive_copy_requires_all_fields_copy() {
-        let (codes, _) = check(
-            "struct M { x: i32 }\n#[derive(Copy)]\nstruct B { m: M }\nfn main() {}",
-        );
+        let (codes, _) =
+            check("struct M { x: i32 }\n#[derive(Copy)]\nstruct B { m: M }\nfn main() {}");
         assert_eq!(codes, vec![2008]);
         check_clean(
             "#[derive(Copy)]\nstruct P { x: i32, y: bool }\n#[derive(Copy)]\nstruct Q { p: P, t: (i32, char) }\nfn main() {}",
@@ -1944,9 +1951,8 @@ mod tests {
     #[test]
     fn drop_impl_shape_violations() {
         // 接收者非 &mut self
-        let (codes, _) = check(
-            "struct R { x: i32 }\nimpl Drop for R {\n    fn drop(&self) {}\n}\nfn main() {}",
-        );
+        let (codes, _) =
+            check("struct R { x: i32 }\nimpl Drop for R {\n    fn drop(&self) {}\n}\nfn main() {}");
         assert_eq!(codes, vec![2009]);
         // 多余参数
         let (codes, _) = check(

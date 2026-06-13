@@ -109,8 +109,7 @@ impl Lowerer<'_> {
                 continue;
             }
             let m = &a.meta;
-            let is_derive =
-                m.path.segments.len() == 1 && m.path.segments[0].ident.name == "derive";
+            let is_derive = m.path.segments.len() == 1 && m.path.segments[0].ident.name == "derive";
             if !is_derive {
                 continue;
             }
@@ -118,11 +117,12 @@ impl Lowerer<'_> {
                 continue;
             };
             for entry in inner {
-                if let ast::MetaInner::Meta(mi) = entry {
-                    if mi.path.segments.len() == 1 && mi.path.segments[0].ident.name == "Copy" {
-                        self.krate.copy_derives.insert(id, a.span);
-                        return;
-                    }
+                if let ast::MetaInner::Meta(mi) = entry
+                    && mi.path.segments.len() == 1
+                    && mi.path.segments[0].ident.name == "Copy"
+                {
+                    self.krate.copy_derives.insert(id, a.span);
+                    return;
                 }
             }
         }
@@ -256,7 +256,10 @@ impl Lowerer<'_> {
                 );
                 // `impl Drop for T` 登记(RXS-0055:trait 路径绑定到内建
                 // Drop 时识别;用户遮蔽的同名 trait 不参与)
-                if trait_res == Some(Res::Def(self.res.lang_items.drop_trait.unwrap_or(DefId(u32::MAX))))
+                if trait_res
+                    == Some(Res::Def(
+                        self.res.lang_items.drop_trait.unwrap_or(DefId(u32::MAX)),
+                    ))
                 {
                     let adt = match self_res {
                         Res::Def(d) => Some(d),
@@ -1385,7 +1388,8 @@ mod tests {
     //@ spec: RXS-0049
     #[test]
     fn for_range_desugars_to_loop_match_with_synth_step() {
-        let krate = lower_clean("fn f(n: i32) {\n    for i in 0..n {\n        let _x = i;\n    }\n}");
+        let krate =
+            lower_clean("fn f(n: i32) {\n    for i in 0..n {\n        let _x = i;\n    }\n}");
         let f = krate.items.iter().find(|i| i.name == "f").unwrap();
         let hir::ItemKind::Fn(decl) = &f.kind else {
             panic!()
@@ -1414,7 +1418,8 @@ mod tests {
     //@ spec: RXS-0049
     #[test]
     fn for_inclusive_range_uses_done_flag() {
-        let krate = lower_clean("fn f(n: i32) {\n    for i in 0..=n {\n        let _x = i;\n    }\n}");
+        let krate =
+            lower_clean("fn f(n: i32) {\n    for i in 0..=n {\n        let _x = i;\n    }\n}");
         let f = krate.items.iter().find(|i| i.name == "f").unwrap();
         let hir::ItemKind::Fn(decl) = &f.kind else {
             panic!()
@@ -1434,7 +1439,11 @@ mod tests {
             panic!()
         };
         let body = krate.body(decl.body.unwrap());
-        assert!(body.locals.iter().any(|l| l.name == "__for_it" && l.mutable));
+        assert!(
+            body.locals
+                .iter()
+                .any(|l| l.name == "__for_it" && l.mutable)
+        );
         let mut saw_next = false;
         walk_expr(&body.value, &mut |e| {
             if let hir::ExprKind::MethodCall { method, .. } = &e.kind

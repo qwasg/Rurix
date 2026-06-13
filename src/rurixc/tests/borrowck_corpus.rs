@@ -1,5 +1,5 @@
 //! conformance/borrowck 语料批跑(契约 §4 / G-M3-1:7 类错误类别反例全拦截
-//! + accept 正例 0 诊断;CI 步骤 15 = `cargo test -p rurixc --test borrowck_corpus`,
+//! 与 accept 正例 0 诊断;CI 步骤 15 = `cargo test -p rurixc --test borrowck_corpus`,
 //! M3.3 WP4 接入 pr-smoke 工作流,M3 CI_GATES §2)。
 //!
 //! reject 体例:`reject/<category>/*.rx`,文件头 `//@ expect-error: RX####`
@@ -14,7 +14,9 @@ use rurixc::query::QueryCtx;
 use rurixc::span::{Edition, SourceId};
 
 fn dir(sub: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../conformance/borrowck").join(sub)
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../conformance/borrowck")
+        .join(sub)
 }
 
 fn rx_files(root: &Path) -> Vec<PathBuf> {
