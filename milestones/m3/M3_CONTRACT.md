@@ -178,6 +178,6 @@ M3 开工时无预造 deferred(`deferred_refs: []`);M0/M1 遗留 RD-001(M8)/RD-0
 
 - 步骤 15(borrowck conformance)红绿:M3.3 已归档([CI_GATES.md](CI_GATES.md) v1.3/v1.5 口径)。
 - MIR golden guardrail 红绿:M3.3 WP6 已归档真实 CI 绿跑([CI_GATES.md](CI_GATES.md) v1.5,run [27458630302](https://github.com/qwasg/Rurix/actions/runs/27458630302))。
-- 步骤 16(const eval smoke)红绿:**本地真实红绿已验证**(篡改 `const SIDE` 4→5 → const eval 算出 SUM=33≠24 → stdout `consteval-bad` → smoke exit 1 红;复原 → exit 0 绿,CI_GATES §5 第 2 项)。专门的真实 CI green-run URL 随本 close-out PR 推送后补入(对齐 v1.3/v1.5 先例:红路径本地真实执行非 YAML-only,CI 绿跑 URL 推送补档)。
+- 步骤 16(const eval smoke)红绿:真实 CI 绿跑已归档——pr-smoke run [27460135247](https://github.com/qwasg/Rurix/actions/runs/27460135247)(PR #7,event=pull_request,HEAD `88b6820`)conclusion=**success**,其中 "const eval smoke" 步骤(`py -3 ci/consteval_smoke.py compile-run`)与 guardrails / budget evaluator / borrowck conformance / MIR golden 步骤均真实通过。失败(red)路径本地真实执行验证(篡改 `const SIDE` 4→5 → const eval 算出 SUM=33≠24 → stdout `consteval-bad` → smoke exit 1 红;复原 → exit 0 绿,非 YAML-only,CI_GATES §5 第 2 项,对齐 v1.3/v1.5 先例)。
 
 > M3 关闭综述:rurixc host 子集静态语义补完——desugar 收口 + TBIR 窄门(M3.1)、move/init + drop elaboration(M3.2)、NLL 借用检查(M3.3)、const eval MIR 解释器 + 5xxx + 预算实测回填(M3.4)。M3 期 5xxx const eval 段位首次启用;编译性能预算占位清偿(零 estimated 残留)。M4 device 路径承接项:RD-007(const 泛型值单态化)+ 运行期数组 aggregate codegen(spec/consteval.md RXS-0064 范围裁决)。关闭判定人工。
