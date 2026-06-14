@@ -1,5 +1,7 @@
 //@ spec: RXS-0070
+// 数组字面量构造(`[..]` rvalue)在 device codegen 作用面外(RX6001);数组下标
+// 访问自身随 M5.3 shared/array codegen 支持(RXS-0079),故仅构造处报错。
 kernel fn k(t: ThreadCtx<1>) {
     let a = [1.0, 2.0, 3.0]; //~ ERROR RX6001
-    let _x = a[t.global_id()]; //~ ERROR RX6001
+    let _x = a[t.global_id()];
 }

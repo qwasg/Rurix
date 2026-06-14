@@ -21,11 +21,18 @@ use crate::typeck::TypeckResults;
 
 pub const E_CROSS_COLOR_CALL: ErrorCode = ErrorCode(3001); // RX3001(RXS-0066)
 pub const E_BARRIER_NON_UNIFORM: ErrorCode = ErrorCode(3003); // RX3003(RXS-0068)
+pub const E_DEVICE_MATH_UNSUPPORTED: ErrorCode = ErrorCode(6006); // RX6006(RXS-0081)
 
 /// 线程索引类方法名(barrier 骨架的 thread-id 依赖判定,RXS-0068 保守上界)。
 const THREAD_ID_METHODS: &[&str] = &[
     "global_id",
+    "global_id_x",
+    "global_id_y",
+    "global_id_z",
     "thread_index",
+    "thread_index_x",
+    "thread_index_y",
+    "thread_index_z",
     "thread_id",
     "thread_idx",
     "thread_rank",
@@ -142,6 +149,16 @@ impl Walker<'_> {
                 args,
             } => {
                 self.check_call_target(e.hir_id, e.span);
+                if self.tcr.device_math_calls.contains_key(&e.hir_id) && !is_device_ctx(self.ctx) {
+                    self.diag
+                        .struct_error(E_DEVICE_MATH_UNSUPPORTED, "codegen.device_math_unsupported")
+                        .arg(
+                            "detail",
+                            "device math intrinsics require device or kernel context (RXS-0081)",
+                        )
+                        .span_label(e.span, "unsupported device math intrinsic")
+                        .emit();
+                }
                 if method == BARRIER_METHOD {
                     self.check_barrier(e.span, in_tid_branch, in_unsafe);
                 }

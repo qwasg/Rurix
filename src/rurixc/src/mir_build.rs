@@ -165,6 +165,8 @@ fn build_body(cx: &QueryCtx<'_>, def: DefId, generic_args: Vec<Ty>) -> BuildOutp
             ty: output_ty,
             name: None,
             span: item.span,
+            shared: false,
+            array_len: None,
         }],
         blocks: Vec::new(),
         local_map: vec![None; tb.locals.len()],
@@ -297,11 +299,19 @@ impl Builder<'_, '_> {
     fn declare_local(&mut self, l: LocalId, tb: &tbir::Body) -> LocalIdx {
         let decl = &tb.locals[l.0 as usize];
         let ty = decl.ty.subst(&self.substs);
+        let shared = decl.shared;
+        // 数组长度字面量 span → u64(M5.3;device shared/array codegen 定形)。
+        let array_len = decl.array_len.and_then(|sp| {
+            let text = self.lit_text(sp).to_owned();
+            parse_int(&text, None).and_then(|v| u64::try_from(v).ok())
+        });
         let idx = LocalIdx(self.locals.len() as u32);
         self.locals.push(Local {
             ty,
             name: Some(decl.name.clone()),
             span: decl.span,
+            shared,
+            array_len,
         });
         self.local_map[l.0 as usize] = Some(idx);
         idx
@@ -313,6 +323,8 @@ impl Builder<'_, '_> {
             ty,
             name: None,
             span,
+            shared: false,
+            array_len: None,
         });
         // needs-drop 临时归当前(语句)scope(RXS-0056;move 出者由 elaboration
         // 消去 drop)
@@ -475,10 +487,12 @@ impl Builder<'_, '_> {
                 Some(p)
             }
             // `View`/`ViewMut` 容器索引(M4.2,RXS-0071):base 为地址空间指针,
-            // 偏移 index(usize)得元素 place。非 View 容器索引作用面外(op_of 报
-            // RX6001),故此处仅对 View 族产 place。
+            // 偏移 index(usize)得元素 place。数组(`shared let [T; N]` 等,M5.3)
+            // 索引同样产 place(device codegen 落 addrspace 3/5 数组 gep)。其余非
+            // 容器索引作用面外(op_of 报 RX6001)。
             tbir::ExprKind::Index { base, index } => {
-                if !self.is_view_ty(&self.ty_of(base)) {
+                let bt = self.ty_of(base);
+                if !self.is_view_ty(&bt) && !matches!(bt, Ty::Array(_)) {
                     return None;
                 }
                 let mut p = self.place_of_or_temp(base);
@@ -671,6 +685,9 @@ impl Builder<'_, '_> {
                 self.unsupported(e.span, "indirect call (fn pointer)")
             }
             tbir::ExprKind::DeviceCall(intr) => self.lower_device_call(e, *intr),
+            tbir::ExprKind::DeviceMathCall { op, is_f32, args } => {
+                self.lower_device_math_call(e, *op, *is_f32, args)
+            }
             tbir::ExprKind::Field { .. } => match self.place_of(e) {
                 Some(p) => {
                     let ty = self.ty_of(e);
@@ -886,6 +903,34 @@ impl Builder<'_, '_> {
         } else {
             self.consume(Place::local(dest), &ret_ty)
         }
+    }
+
+    /// device 数学 intrinsic(M5.3,RXS-0081/0082):落 `CallTarget::Libdevice`
+    /// 终结子(args = receiver + 方法实参;返回元素类型),device codegen 展开为
+    /// 对保留的外部符号 `__nv_*` 的 `call`,经 libdevice bc 链接解析。
+    fn lower_device_math_call(
+        &mut self,
+        e: &tbir::Expr,
+        op: crate::hir::DeviceMathFn,
+        is_f32: bool,
+        args: &[tbir::Expr],
+    ) -> Operand {
+        let symbol = op.nv_symbol(is_f32);
+        let ops: Vec<Operand> = args.iter().map(|a| self.op_of(a)).collect();
+        let ret_ty = self.ty_of(e);
+        let dest = self.temp(ret_ty.clone(), e.span);
+        let next = self.new_block();
+        self.terminate(
+            TerminatorKind::Call {
+                target: CallTarget::Libdevice { symbol },
+                args: ops,
+                dest: Place::local(dest),
+                next,
+            },
+            e.span,
+        );
+        self.switch_to(next);
+        self.consume(Place::local(dest), &ret_ty)
     }
 
     /// struct / 元组结构体 / enum 变体构造(TBIR 已按定义序重排齐全)。

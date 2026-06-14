@@ -12,3 +12,4 @@
 | 日期 | 范围 | 理由 | 批准 |
 |---|---|---|---|
 | 2026-06-13 | tests/ptx/ 初始 2 条 golden(saxpy / thread_index) | M4.2 NVPTX codegen 形态定型(RXS-0070~0072),PTX/NVPTX IR golden guardrail 激活(M4_PLAN §2 任务 4;M4 CI_GATES §4 第 3 项)。两类代表:SAXPY 雏形(global_id + View<global> 索引读写 + f32 算术 + 边界分支 + ptx_kernel 入口)/ 线程索引写回(global_id sreg 组合 + ViewMut<global> 索引写 + usize→u32 cast)。基线 = `device_codegen::build_and_emit` 文本逐字节,经 `rurixc --emit=ptx` clang 真跑产合法 PTX(`.entry` / `.target sm_89` / `ld.global`/`st.global`)验证 | pending-human-review |
+| 2026-06-14 | tests/ptx/ 新增 3 条 golden(shared_reduce / thread_index_2d / device_math_sqrt) | M5.3 review fix:shared addrspace(3) + 2D sreg + libdevice `__nv_*` IR golden;既有 2 条 snapshot 随 device_codegen 演进重 bless(reqntid metadata 等) | pending-human-review |

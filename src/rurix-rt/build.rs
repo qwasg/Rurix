@@ -17,42 +17,60 @@ use rurixc::diag::DiagCtxt;
 use rurixc::query::QueryCtx;
 use rurixc::span::{Edition, SourceId};
 
+/// 嵌入的 device kernel 列表(M4.4 SAXPY + M5.3 gpu 并行基元)。每项 (kernel 文件名
+/// 干名 = module 名 = 常量前缀小写)产 `$OUT_DIR/{name}.ptx` + `{name}_meta.rs`
+/// (常量 `{UPPER}_KERNEL` = ptx_kernel 入口符号名;降级时为空)。
+const KERNELS: &[&str] = &["saxpy", "reduce", "scan", "transpose", "gemm_tile"];
+
 fn main() {
     let manifest = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    let kernel_rx = manifest.join("kernels").join("saxpy.rx");
-    println!("cargo:rerun-if-changed={}", kernel_rx.display());
     println!("cargo:rerun-if-env-changed=RURIXC_CLANG");
+    println!("cargo:rerun-if-env-changed=CUDA_PATH");
 
-    let ptx_out = out_dir.join("saxpy.ptx");
-    let meta_out = out_dir.join("saxpy_meta.rs");
-
-    match gen_ptx(&kernel_rx, &ptx_out) {
-        Ok(kernel) => {
-            std::fs::write(
-                &meta_out,
-                format!("pub const SAXPY_KERNEL: &str = \"{kernel}\";\n"),
-            )
-            .expect("write saxpy_meta.rs");
-        }
-        Err(reason) => {
-            // 降级:空哨兵 PTX + 空入口名(bin/test 运行时据空 SKIP)
-            println!(
-                "cargo:warning=rurix-rt: SAXPY device codegen unavailable, embedded PTX skipped ({reason})"
-            );
-            std::fs::write(&ptx_out, "").expect("write sentinel saxpy.ptx");
-            std::fs::write(&meta_out, "pub const SAXPY_KERNEL: &str = \"\";\n")
-                .expect("write sentinel saxpy_meta.rs");
+    for name in KERNELS {
+        let kernel_rx = manifest.join("kernels").join(format!("{name}.rx"));
+        println!("cargo:rerun-if-changed={}", kernel_rx.display());
+        let ptx_out = out_dir.join(format!("{name}.ptx"));
+        let meta_out = out_dir.join(format!("{name}_meta.rs"));
+        let upper = name.to_uppercase();
+        match gen_ptx(&kernel_rx, &ptx_out, name) {
+            Ok(kernel) => {
+                std::fs::write(
+                    &meta_out,
+                    format!("pub const {upper}_KERNEL: &str = \"{kernel}\";\n"),
+                )
+                .unwrap_or_else(|e| panic!("write {name}_meta.rs: {e}"));
+            }
+            Err(reason) => {
+                // 降级:空哨兵 PTX + 空入口名(bin/test 运行时据空 SKIP)
+                println!(
+                    "cargo:warning=rurix-rt: {name} device codegen unavailable, embedded PTX skipped ({reason})"
+                );
+                std::fs::write(&ptx_out, "")
+                    .unwrap_or_else(|e| panic!("write sentinel {name}.ptx: {e}"));
+                std::fs::write(
+                    &meta_out,
+                    format!("pub const {upper}_KERNEL: &str = \"\";\n"),
+                )
+                .unwrap_or_else(|e| panic!("write sentinel {name}_meta.rs: {e}"));
+            }
         }
     }
 }
 
-/// `saxpy.rx` → PTX(写 `ptx_out`),返回 `ptx_kernel` 入口符号名。
-fn gen_ptx(kernel_rx: &std::path::Path, ptx_out: &std::path::Path) -> Result<String, String> {
+/// `<name>.rx` → PTX(写 `ptx_out`;含 libdevice 链接 RXS-0082),返回 `ptx_kernel`
+/// 入口符号名。
+fn gen_ptx(
+    kernel_rx: &std::path::Path,
+    ptx_out: &std::path::Path,
+    module: &str,
+) -> Result<String, String> {
     let src = std::fs::read_to_string(kernel_rx)
         .map_err(|e| format!("cannot read {}: {e}", kernel_rx.display()))?;
 
-    // 全量静态检查(typeck → 着色 → 穷尽性),再 device codegen(kernel 为根)
+    // 全量静态检查(typeck → 着色 → launch → 穷尽性 → views 不相交 → shared+barrier
+    // 一致性),再 device codegen(kernel 为根)。M5.3 kernel 含 shared/2D/数学。
     let diag = DiagCtxt::new();
     let cx = QueryCtx::new(&src, SourceId(0), Edition::Rx0, &diag);
     cx.check_crate();
@@ -62,20 +80,29 @@ fn gen_ptx(kernel_rx: &std::path::Path, ptx_out: &std::path::Path) -> Result<Str
     cx.check_coloring();
     cx.check_launch();
     cx.check_crate_patterns();
+    cx.check_views();
+    cx.check_shared_barrier();
     if diag.has_errors() {
-        return Err("coloring/pattern checks reported errors".to_owned());
+        return Err("coloring/views/shared checks reported errors".to_owned());
     }
-    let ir = rurixc::device_codegen::build_and_emit(&cx, "saxpy")
+    let ir = rurixc::device_codegen::build_and_emit(&cx, module)
         .ok_or_else(|| "no device IR (kernel codegen failed)".to_owned())?;
     if diag.has_errors() {
         return Err("device codegen reported errors".to_owned());
     }
 
-    // IR → PTX(pin 的 clang NVPTX 后端,RXS-0070)
+    // libdevice 链接裁决(RXS-0082):用到 `__nv_*` 但 bc 缺失 → 降级(Err → 哨兵)
+    if matches!(
+        rurixc::toolchain::libdevice_link_for(&ir),
+        rurixc::toolchain::LibdeviceLink::MissingSkip
+    ) {
+        return Err("libdevice.10.bc not found (no CUDA toolchain)".to_owned());
+    }
+    // IR → PTX(pin 的 clang NVPTX 后端 + libdevice 链接,RXS-0070/0082)
     let ptx = rurixc::toolchain::ir_to_ptx(&ir, ptx_out)?;
 
     // ptxas 干验证关卡(strict-only,RXS-0073);ptxas 缺失 → SKIP(关卡不阻断 build)
-    match rurixc::ptxas::dry_gate(&ptx, "saxpy") {
+    match rurixc::ptxas::dry_gate(&ptx, module) {
         rurixc::ptxas::PtxasOutcome::Pass | rurixc::ptxas::PtxasOutcome::Skipped => {}
         rurixc::ptxas::PtxasOutcome::Rejected(reason) => {
             return Err(format!(

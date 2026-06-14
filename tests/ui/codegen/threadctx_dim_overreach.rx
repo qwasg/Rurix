@@ -1,0 +1,6 @@
+//@ spec: RXS-0072
+kernel fn k(t: ThreadCtx<1>) {
+    let _y = t.global_id_y(); //~ ERROR RX6005
+}
+
+fn main() {}

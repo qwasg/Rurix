@@ -219,6 +219,12 @@ impl<'a, 'q> Evaluator<'a, 'q> {
                     what: "call to a device intrinsic".to_owned(),
                 });
             }
+            CallTarget::Libdevice { .. } => {
+                return Err(ConstError::NonConst {
+                    span,
+                    what: "call to a device math intrinsic".to_owned(),
+                });
+            }
         };
         let krate = self.cx.hir_crate();
         let item = krate.item(def);

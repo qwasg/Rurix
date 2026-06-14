@@ -5,7 +5,7 @@
 //! (RXS-0047 "Err 容忍不级联")。
 
 use crate::hir::{DefId, PrimTy};
-use crate::resolve::Resolutions;
+use crate::resolve::{LangItems, Resolutions};
 
 /// 推断变量 id([`crate::typeck`] 的 InferCtxt 槽位)。
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -28,6 +28,8 @@ pub enum Ty {
     Param(u32),
     /// 推断变量(body 内短期存在,RXS-0041)。
     Infer(TyVid),
+    /// 类型位置整数字面量 const 实参(M5.3:如 `ThreadCtx<2>` 的 DIM)。
+    Const(u64),
     /// 容忍区(RXS-0047:参与检查静默通过,不级联)。
     Err,
 }
@@ -153,6 +155,7 @@ impl Ty {
                 format!("fn({}){ret}", a.join(", "))
             }
             Ty::Param(i) => format!("<T{i}>"),
+            Ty::Const(n) => n.to_string(),
             Ty::Infer(_) => "_".to_owned(),
             Ty::Err => "{unknown}".to_owned(),
         }
@@ -176,8 +179,19 @@ pub fn is_copy(krate: &crate::hir::Crate, ty: &Ty) -> bool {
         Ty::Slice(_) => false,
         Ty::Adt(d, _) => krate.has_copy_derive(*d),
         // 单态化后不应残留;保守按非 Copy(move 语义)
-        Ty::Param(_) | Ty::Infer(_) => false,
+        Ty::Param(_) | Ty::Infer(_) | Ty::Const(_) => false,
         Ty::Err => true,
+    }
+}
+
+/// `ThreadCtx<DIM>` 的 const 维度字面量(M5.3;仅字面量 DIM,非字面量 → None)。
+pub fn thread_ctx_dim(ty: &Ty, li: &LangItems) -> Option<u8> {
+    match ty {
+        Ty::Adt(d, args) if li.is_thread_ctx(*d) => match args.first() {
+            Some(Ty::Const(n)) if (1..=3).contains(n) => Some(*n as u8),
+            _ => None,
+        },
+        _ => None,
     }
 }
 

@@ -1,0 +1,25 @@
+// M5.3 gpu 并行基元:16x16 shared-tile 矩阵转置(2D ThreadCtx,RXS-0072/0079)。
+// 输入 src 为 h 行 × w 列(行主序);输出 dst 为 w 行 × h 列。经 shared tile 合并
+// 读/写访存。全 safe 代码,atomics-free。
+kernel fn transpose(t: ThreadCtx<2>, src: View<global, f32>, dst: ViewMut<global, f32>, w: usize, h: usize) {
+    shared let tile: [f32; 256];
+    let tx = t.thread_index_x();
+    let ty = t.thread_index_y();
+    let xin = t.block_index_x() * 16 + tx;
+    let yin = t.block_index_y() * 16 + ty;
+    if xin < w {
+        if yin < h {
+            tile[ty * 16 + tx] = src[yin * w + xin];
+        }
+    }
+    block.sync();
+    let xout = t.block_index_y() * 16 + tx;
+    let yout = t.block_index_x() * 16 + ty;
+    if xout < h {
+        if yout < w {
+            dst[yout * h + xout] = tile[tx * 16 + ty];
+        }
+    }
+}
+
+fn main() {}

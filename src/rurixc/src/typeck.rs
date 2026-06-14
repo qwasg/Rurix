@@ -13,13 +13,13 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::ast::{BinOp, LitKind, LitSuffix, UnOp};
+use crate::ast::{BinOp, FnColor, LitKind, LitSuffix, UnOp};
 use crate::diag::{DiagCtxt, ErrorCode};
 use crate::hir::{self, BodyId, DefId, DefKind, HirId, LocalId, PrimTy, Res};
 use crate::query::QueryCtx;
 use crate::resolve::Resolutions;
 use crate::span::Span;
-use crate::ty::{FnSig, Ty, TyVid};
+use crate::ty::{FnSig, Ty, TyVid, thread_ctx_dim};
 
 pub const E_MISMATCHED_TYPES: ErrorCode = ErrorCode(2001); // RX2001
 pub const E_BAD_FIELD: ErrorCode = ErrorCode(2002); // RX2002
@@ -31,6 +31,8 @@ pub const E_BAD_OPERAND: ErrorCode = ErrorCode(2006); // RX2006
 pub const E_BAD_DERIVE_COPY: ErrorCode = ErrorCode(2008); // RX2008
 pub const E_BAD_DROP_IMPL: ErrorCode = ErrorCode(2009); // RX2009
 pub const E_ADDRSPACE_MISMATCH: ErrorCode = ErrorCode(3002); // RX3002(RXS-0067)
+pub const E_DEVICE_MATH_UNSUPPORTED: ErrorCode = ErrorCode(6006); // RX6006(RXS-0081)
+pub const E_DEVICE_CONSTRAINT: ErrorCode = ErrorCode(6005); // RX6005(RXS-0072)
 
 // ---------------------------------------------------------------------------
 // typeck 结果物化(M2.3:MIR lowering 的输入)
@@ -54,6 +56,10 @@ pub struct TypeckResults {
     /// device intrinsic 调用点(M4.2,RXS-0072):MethodCall 节点 → intrinsic
     /// (接收者为 `ThreadCtx` lang item 时识别);tbir/MIR/codegen 消费。
     pub device_calls: HashMap<HirId, crate::hir::DeviceIntrinsic>,
+    /// device 数学 intrinsic 调用点(M5.3,RXS-0081):MethodCall 节点 →
+    /// (数学函数, 元素类型 f32/f64);接收者为 `f32`/`f64` 时识别,tbir/MIR/
+    /// codegen 消费(下译为 libdevice `__nv_*` 外部符号)。
+    pub device_math_calls: HashMap<HirId, (crate::hir::DeviceMathFn, PrimTy)>,
 }
 
 // ---------------------------------------------------------------------------
@@ -205,34 +211,72 @@ impl InferCtxt {
 
 /// HIR 类型 → `Ty`;`infer` 回调裁决 `_` 占位(签名给 Err 容忍,body 给 fresh)。
 fn lower_hir_ty(t: &hir::Ty, infer: &mut dyn FnMut() -> Ty) -> Ty {
+    lower_hir_ty_with_cx(t, infer, None)
+}
+
+/// 带源文本的 HIR 类型 lowering(M5.3:解析 `ConstLit` → [`Ty::Const`])。
+fn lower_hir_ty_with_cx(
+    t: &hir::Ty,
+    infer: &mut dyn FnMut() -> Ty,
+    cx: Option<&QueryCtx<'_>>,
+) -> Ty {
     match &t.kind {
+        hir::TyKind::ConstLit { span } => cx
+            .and_then(|c| parse_const_lit_span(c, *span))
+            .map(Ty::Const)
+            .unwrap_or(Ty::Err),
         hir::TyKind::Res(res, args) => match res {
             Res::PrimTy(p) => Ty::Prim(*p),
-            Res::Def(d) => Ty::Adt(*d, args.iter().map(|a| lower_hir_ty(a, infer)).collect()),
+            Res::Def(d) => Ty::Adt(
+                *d,
+                args.iter()
+                    .map(|a| lower_hir_ty_with_cx(a, infer, cx))
+                    .collect(),
+            ),
             Res::GenericParam(i) => Ty::Param(*i),
             // SelfTy/Local/Err:M2.2 容忍(SelfTy 展开随 M2.3)
             _ => Ty::Err,
         },
         hir::TyKind::Ref { mutable, inner } => {
-            Ty::Ref(Box::new(lower_hir_ty(inner, infer)), *mutable)
+            Ty::Ref(Box::new(lower_hir_ty_with_cx(inner, infer, cx)), *mutable)
         }
         hir::TyKind::RawPtr { mutable, inner } => {
-            Ty::RawPtr(Box::new(lower_hir_ty(inner, infer)), *mutable)
+            Ty::RawPtr(Box::new(lower_hir_ty_with_cx(inner, infer, cx)), *mutable)
         }
-        hir::TyKind::Tuple(v) => Ty::Tuple(v.iter().map(|x| lower_hir_ty(x, infer)).collect()),
-        hir::TyKind::Array { elem } => Ty::Array(Box::new(lower_hir_ty(elem, infer))),
-        hir::TyKind::Slice(inner) => Ty::Slice(Box::new(lower_hir_ty(inner, infer))),
+        hir::TyKind::Tuple(v) => Ty::Tuple(
+            v.iter()
+                .map(|x| lower_hir_ty_with_cx(x, infer, cx))
+                .collect(),
+        ),
+        hir::TyKind::Array { elem, .. } => {
+            Ty::Array(Box::new(lower_hir_ty_with_cx(elem, infer, cx)))
+        }
+        hir::TyKind::Slice(inner) => Ty::Slice(Box::new(lower_hir_ty_with_cx(inner, infer, cx))),
         hir::TyKind::FnPtr { params, ret } => Ty::FnPtr(
-            params.iter().map(|x| lower_hir_ty(x, infer)).collect(),
+            params
+                .iter()
+                .map(|x| lower_hir_ty_with_cx(x, infer, cx))
+                .collect(),
             Box::new(
                 ret.as_ref()
-                    .map(|r| lower_hir_ty(r, infer))
+                    .map(|r| lower_hir_ty_with_cx(r, infer, cx))
                     .unwrap_or_else(Ty::unit),
             ),
         ),
         hir::TyKind::Infer => infer(),
         hir::TyKind::Err => Ty::Err,
     }
+}
+
+fn parse_const_lit_span(cx: &QueryCtx<'_>, span: Span) -> Option<u64> {
+    let src = cx.src();
+    let lo = span.lo.0 as usize;
+    let hi = span.hi.0 as usize;
+    if lo >= src.len() {
+        return None;
+    }
+    let text = src[lo..hi.min(src.len())].trim().replace('_', "");
+    text.parse().ok()
 }
 
 // ---------------------------------------------------------------------------
@@ -285,7 +329,7 @@ pub fn fn_sig_provider(cx: &QueryCtx<'_>, def: DefId) -> FnSig {
         .params
         .iter()
         .filter_map(|p| p.ty.as_ref())
-        .map(|t| lower_hir_ty(t, &mut sig_infer))
+        .map(|t| lower_hir_ty_with_cx(t, &mut sig_infer, Some(cx)))
         .collect();
     FnSig {
         generics_count: decl.generic_params.len() as u32,
@@ -294,7 +338,7 @@ pub fn fn_sig_provider(cx: &QueryCtx<'_>, def: DefId) -> FnSig {
         output: decl
             .ret
             .as_ref()
-            .map(|t| lower_hir_ty(t, &mut sig_infer))
+            .map(|t| lower_hir_ty_with_cx(t, &mut sig_infer, Some(cx)))
             .unwrap_or_else(Ty::unit),
     }
 }
@@ -444,6 +488,7 @@ fn mentions_param(t: &Ty) -> bool {
         Ty::Tuple(v) => v.iter().any(mentions_param),
         Ty::Ref(x, _) | Ty::RawPtr(x, _) | Ty::Array(x) | Ty::Slice(x) => mentions_param(x),
         Ty::FnPtr(ps, r) => ps.iter().any(mentions_param) || mentions_param(r),
+        Ty::Const(_) => false,
         _ => false,
     }
 }
@@ -456,6 +501,11 @@ pub fn check_body_provider(cx: &QueryCtx<'_>, body_id: BodyId) -> TypeckResults 
     let body = krate.body(body_id);
     let owner = krate.item(body.owner);
 
+    let ctx_color = match &owner.kind {
+        hir::ItemKind::Fn(decl) => decl.color,
+        _ => FnColor::Host,
+    };
+
     let mut tck = Tck {
         cx,
         krate: Rc::clone(&krate),
@@ -464,6 +514,7 @@ pub fn check_body_provider(cx: &QueryCtx<'_>, body_id: BodyId) -> TypeckResults 
         locals: vec![None; body.locals.len()],
         ret_ty: Ty::Err,
         results: TypeckResults::default(),
+        ctx_color,
     };
 
     // 期望返回类型与参数绑定
@@ -558,6 +609,8 @@ struct Tck<'a, 'q> {
     locals: Vec<Option<Ty>>,
     ret_ty: Ty,
     results: TypeckResults,
+    /// 当前 body 的上下文着色(RXS-0066/0081;device 数学 intrinsic 门禁)。
+    ctx_color: FnColor,
 }
 
 impl Tck<'_, '_> {
@@ -632,6 +685,26 @@ impl Tck<'_, '_> {
             .arg("found", format!("`{found}`"))
             .span_label(span, format!("expected address space `{expected}`"))
             .emit();
+    }
+
+    fn err_device_math_unsupported(&self, span: Span, detail: &str) {
+        self.diag()
+            .struct_error(E_DEVICE_MATH_UNSUPPORTED, "codegen.device_math_unsupported")
+            .arg("detail", detail)
+            .span_label(span, "unsupported device math intrinsic")
+            .emit();
+    }
+
+    fn err_device_constraint(&self, span: Span, detail: &str) {
+        self.diag()
+            .struct_error(E_DEVICE_CONSTRAINT, "codegen.device_constraint")
+            .arg("detail", detail)
+            .span_label(span, "device codegen constraint violated")
+            .emit();
+    }
+
+    fn is_device_ctx(&self) -> bool {
+        matches!(self.ctx_color, FnColor::Device | FnColor::Kernel)
     }
 
     /// 地址空间不一致检测(RXS-0067):两侧为同一 `View` 族容器(同可变性)
@@ -1423,6 +1496,18 @@ impl Tck<'_, '_> {
                 }
                 let intr = crate::hir::DeviceIntrinsic::from_method(method)
                     .expect("guard 已确保 intrinsic 存在");
+                if let Some(dim) = thread_ctx_dim(&base, &self.res.lang_items) {
+                    let need = intr.min_dim();
+                    if dim < need {
+                        self.err_device_constraint(
+                            span,
+                            &format!(
+                                "ThreadCtx<{dim}> does not provide axis required by `{method}` \
+                                 (needs DIM >= {need}, RXS-0072)"
+                            ),
+                        );
+                    }
+                }
                 self.results.device_calls.insert(call_id, intr);
                 if intr.returns_unit() {
                     Ty::unit()
@@ -1514,6 +1599,34 @@ impl Tck<'_, '_> {
                     crate::hir::ViewOp::SplitAt => Ty::Tuple(vec![sub_view.clone(), sub_view]),
                     crate::hir::ViewOp::Chunks | crate::hir::ViewOp::Windows => sub_view,
                 }
+            }
+            // device 数学函数 intrinsic(M5.3,RXS-0081):`f32`/`f64` 接收者的
+            // 数学方法(sqrt/exp/fma/...)→ libdevice `__nv_*` 外部符号。原生类型
+            // 无用户 inherent impl(无遮蔽问题);device-only(host 数学走 M7 标准库,
+            // 本识别面记录后由 device codegen 消费,host codegen 不产出)。
+            Ty::Prim(p @ (PrimTy::F32 | PrimTy::F64))
+                if crate::hir::DeviceMathFn::from_method(method).is_some() =>
+            {
+                let op = crate::hir::DeviceMathFn::from_method(method)
+                    .expect("guard 已确保数学 intrinsic 存在");
+                if !self.is_device_ctx() {
+                    self.err_device_math_unsupported(
+                        span,
+                        "device math intrinsics require device or kernel context (RXS-0081)",
+                    );
+                    return Ty::Prim(*p);
+                }
+                let elem = *p;
+                // 实参与 receiver 同浮点元素类型(RXS-0081 签名契约);元数 = arity-1。
+                for a in args {
+                    let at = self.check_expr(a);
+                    self.demand(a.span, &Ty::Prim(elem), &at);
+                }
+                if args.len() + 1 != op.arity() {
+                    self.err_arg_count(span, op.arity() - 1, args.len());
+                }
+                self.results.device_math_calls.insert(call_id, (op, elem));
+                Ty::Prim(elem)
             }
             Ty::Adt(d, _adt_args) => {
                 let found = self

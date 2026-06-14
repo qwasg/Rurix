@@ -1,0 +1,13 @@
+//@ spec: RXS-0081
+device fn root_f32(x: f32) -> f32 {
+    x.sqrt()
+}
+
+kernel fn map_sqrt(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        dst[i] = root_f32(src[i]);
+    }
+}
+
+fn main() {}

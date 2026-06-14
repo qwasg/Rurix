@@ -1,0 +1,5 @@
+error[RX6006]: device math intrinsics require device or kernel context (RXS-0081) is not a supported device math intrinsic (outside libdevice coverage or unsupported element type)
+ --> $DIR/codegen/host_device_math.rx:4:5
+  |
+4 |     x.sqrt(); //~ ERROR RX6006
+  |     ^^^^^^^^ unsupported device math intrinsic

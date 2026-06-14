@@ -157,7 +157,9 @@ impl Cg<'_> {
                 }
             },
             // 作用面外形态(RX6001 已拦截;防御性兜底)
-            Ty::Array(_) | Ty::Slice(_) | Ty::Param(_) | Ty::Infer(_) | Ty::Err => "i8".to_owned(),
+            Ty::Array(_) | Ty::Slice(_) | Ty::Param(_) | Ty::Infer(_) | Ty::Const(_) | Ty::Err => {
+                "i8".to_owned()
+            }
         }
     }
 
@@ -720,11 +722,15 @@ impl Cg<'_> {
                             );
                         }
                     }
-                    // device intrinsic(RXS-0072)是 device codegen 专属,host 不产出。
+                    // device intrinsic(RXS-0072)/ libdevice 数学 intrinsic
+                    // (RXS-0081)是 device codegen 专属,host 不产出。
                     CallTarget::DeviceIntrinsic(_) => {
                         unreachable!(
                             "CallTarget::DeviceIntrinsic 仅出现在 device MIR(NVPTX codegen)"
                         )
+                    }
+                    CallTarget::Libdevice { .. } => {
+                        unreachable!("CallTarget::Libdevice 仅出现在 device MIR(NVPTX codegen)")
                     }
                 }
                 let _ = writeln!(self.fns, "  br label %bb{}{}", next.0, self.dbg_suffix());

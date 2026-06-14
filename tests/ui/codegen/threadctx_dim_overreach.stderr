@@ -1,0 +1,5 @@
+error[RX6005]: device codegen constraint violated: ThreadCtx<1> does not provide axis required by `global_id_y` (needs DIM >= 2, RXS-0072)
+ --> $DIR/codegen/threadctx_dim_overreach.rx:3:14
+  |
+3 |     let _y = t.global_id_y(); //~ ERROR RX6005
+  |              ^^^^^^^^^^^^^^^ device codegen constraint violated

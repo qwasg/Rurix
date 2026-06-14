@@ -1,0 +1,43 @@
+// M5.3 gpu 并行基元:经典 shared-memory tiled GEMM(16x16 tile,2D ThreadCtx,
+// RXS-0072/0079)。C[m,n] = A[m,k] * B[k,n](行主序)。**不触 Tensor Core/WGMMA
+// intrinsics**(SG-002 维持 not_triggered)。全 safe 代码,atomics-free。
+kernel fn gemm_tile(t: ThreadCtx<2>, a: View<global, f32>, b: View<global, f32>, c: ViewMut<global, f32>, m: usize, n: usize, k: usize) {
+    shared let atile: [f32; 256];
+    shared let btile: [f32; 256];
+    let tx = t.thread_index_x();
+    let ty = t.thread_index_y();
+    let row = t.block_index_y() * 16 + ty;
+    let col = t.block_index_x() * 16 + tx;
+    let mut acc = 0.0;
+    let ntiles = (k + 15) / 16;
+    let mut tcur = 0;
+    while tcur < ntiles {
+        let acol = tcur * 16 + tx;
+        atile[ty * 16 + tx] = if row < m {
+            if acol < k { a[row * k + acol] } else { 0.0 }
+        } else {
+            0.0
+        };
+        let brow = tcur * 16 + ty;
+        btile[ty * 16 + tx] = if brow < k {
+            if col < n { b[brow * n + col] } else { 0.0 }
+        } else {
+            0.0
+        };
+        block.sync();
+        let mut kk = 0;
+        while kk < 16 {
+            acc = acc + atile[ty * 16 + kk] * btile[kk * 16 + tx];
+            kk = kk + 1;
+        }
+        block.sync();
+        tcur = tcur + 1;
+    }
+    if row < m {
+        if col < n {
+            c[row * n + col] = acc;
+        }
+    }
+}
+
+fn main() {}

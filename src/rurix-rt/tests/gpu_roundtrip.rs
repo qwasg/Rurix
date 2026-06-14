@@ -15,11 +15,23 @@ use core::ffi::c_void;
 use rurix_rt::{Context, CudaError};
 
 const CHILD_ENV: &str = "RURIX_RT_GPU_CHILD";
+const REL_TOL: f64 = 1e-5;
 
 // M4.4 端到端(契约 D-M4-5):build.rs 经 rurixc 全管线把 kernels/saxpy.rx 产 PTX
 // 嵌入(`include_str!`)。空 = 构建期无 clang/rurixc(降级 SKIP)。
 const RURIX_SAXPY_PTX: &str = include_str!(concat!(env!("OUT_DIR"), "/saxpy.ptx"));
 include!(concat!(env!("OUT_DIR"), "/saxpy_meta.rs")); // pub const SAXPY_KERNEL
+
+// M5.3 gpu 并行基元(契约 D-M5-5):build.rs 经 rurixc 全管线(含 libdevice 链接)
+// 产 PTX 嵌入。空 = 构建期无 clang/CUDA(降级 SKIP)。
+const RURIX_REDUCE_PTX: &str = include_str!(concat!(env!("OUT_DIR"), "/reduce.ptx"));
+include!(concat!(env!("OUT_DIR"), "/reduce_meta.rs")); // REDUCE_KERNEL
+const RURIX_SCAN_PTX: &str = include_str!(concat!(env!("OUT_DIR"), "/scan.ptx"));
+include!(concat!(env!("OUT_DIR"), "/scan_meta.rs")); // SCAN_KERNEL
+const RURIX_TRANSPOSE_PTX: &str = include_str!(concat!(env!("OUT_DIR"), "/transpose.ptx"));
+include!(concat!(env!("OUT_DIR"), "/transpose_meta.rs")); // TRANSPOSE_KERNEL
+const RURIX_GEMM_PTX: &str = include_str!(concat!(env!("OUT_DIR"), "/gemm_tile.ptx"));
+include!(concat!(env!("OUT_DIR"), "/gemm_tile_meta.rs")); // GEMM_TILE_KERNEL
 
 /// 手写 SAXPY PTX(`y[i] = a*x[i] + y[i]`,mul.rn+add.rn 与 host f32 两步舍入逐位
 /// 一致;.version 8.0 为协商起点,驱动不支持时 rurix-rt 自动降版,08 §2.4)。
@@ -252,5 +264,338 @@ fn rurix_saxpy_e2e_isolated() {
         eprintln!(
             "[rurix-rt] Rurix SAXPY 端到端真跑通过:{n} 元素 f32 精确相等(device codegen PTX)"
         );
+    });
+}
+
+/// 守卫:嵌入 PTX 空 / 无 GPU → SKIP(降级,返回 true 表示应跳过)。
+fn skip_kernel(tag: &str, ptx: &str, entry: &str) -> bool {
+    if ptx.trim().is_empty() || entry.is_empty() {
+        eprintln!("[rurix-rt] SKIP {tag}: 构建期未嵌入 device PTX(降级 SKIP)");
+        return true;
+    }
+    if !gpu_available() {
+        eprintln!("[rurix-rt] SKIP {tag}: 无可用 GPU/驱动(降级 SKIP)");
+        return true;
+    }
+    false
+}
+
+/// M5.3 reduce 端到端真跑(契约 D-M5-5):block 级 shared 树形归约 → 每 block partial,
+/// host 合并;相对容差核对(浮点重排)。atomics-free。
+//@ spec: RXS-0079
+#[test]
+fn rurix_reduce_e2e_isolated() {
+    isolated("rurix_reduce_e2e_isolated", || {
+        if skip_kernel("rurix_reduce_e2e", RURIX_REDUCE_PTX, REDUCE_KERNEL) {
+            return;
+        }
+        let n: usize = 1 << 20;
+        let block = 256u32;
+        let src: Vec<f32> = (0..n).map(|i| ((i % 13) as f32) * 0.25).collect();
+        let expect: f64 = src.iter().map(|&v| v as f64).sum();
+        let grid = (n as u32).div_ceil(block);
+        let nblocks = grid as usize;
+
+        let ctx = Context::new().expect("Context");
+        let mut dsrc = ctx.alloc::<f32>(n).expect("alloc src");
+        let dpart = ctx.alloc::<f32>(nblocks).expect("alloc partials");
+        dsrc.copy_from_host(&src).expect("H2D src");
+        let module = ctx.load_module(RURIX_REDUCE_PTX).expect("load_module");
+        let kernel = module.function(REDUCE_KERNEL).expect("function");
+        let stream = ctx.create_stream().expect("stream");
+        let mut p_src = dsrc.device_ptr();
+        let mut p_part = dpart.device_ptr();
+        let mut nn: u64 = n as u64;
+        let mut params: [*mut c_void; 3] = [
+            (&raw mut p_src).cast::<c_void>(),
+            (&raw mut p_part).cast::<c_void>(),
+            (&raw mut nn).cast::<c_void>(),
+        ];
+        stream
+            .launch(&kernel, [grid, 1, 1], [block, 1, 1], &mut params)
+            .expect("launch");
+        stream.synchronize().expect("sync");
+        let mut partials = vec![0f32; nblocks];
+        dpart.copy_to_host(&mut partials).expect("D2H partials");
+        let got: f64 = partials.iter().map(|&v| v as f64).sum();
+        let denom = expect.abs().max(1.0);
+        assert!(
+            (got - expect).abs() / denom <= REL_TOL,
+            "reduce 偏差超容差:got {got} expect {expect}"
+        );
+        eprintln!("[rurix-rt] reduce 真跑通过:sum={got} 参考={expect}");
+    });
+}
+
+/// M5.3 scan 端到端真跑(契约 D-M5-5):block 级 Hillis-Steele inclusive 前缀和,
+/// shared+barrier,atomics-free;与 host 逐 block 参考相对容差核对。
+//@ spec: RXS-0079
+#[test]
+fn rurix_scan_e2e_isolated() {
+    isolated("rurix_scan_e2e_isolated", || {
+        if skip_kernel("rurix_scan_e2e", RURIX_SCAN_PTX, SCAN_KERNEL) {
+            return;
+        }
+        let n: usize = 1 << 20;
+        let block = 256usize;
+        let src: Vec<f32> = (0..n).map(|i| ((i % 11) as f32) * 0.5 + 0.25).collect();
+        let mut expect = vec![0f32; n];
+        for base in (0..n).step_by(block) {
+            let end = (base + block).min(n);
+            let mut acc = 0f64;
+            for i in base..end {
+                acc += src[i] as f64;
+                expect[i] = acc as f32;
+            }
+        }
+        let ctx = Context::new().expect("Context");
+        let mut dsrc = ctx.alloc::<f32>(n).expect("alloc src");
+        let ddst = ctx.alloc::<f32>(n).expect("alloc dst");
+        dsrc.copy_from_host(&src).expect("H2D src");
+        let module = ctx.load_module(RURIX_SCAN_PTX).expect("load_module");
+        let kernel = module.function(SCAN_KERNEL).expect("function");
+        let stream = ctx.create_stream().expect("stream");
+        let mut p_src = dsrc.device_ptr();
+        let mut p_dst = ddst.device_ptr();
+        let mut nn: u64 = n as u64;
+        let mut params: [*mut c_void; 3] = [
+            (&raw mut p_src).cast::<c_void>(),
+            (&raw mut p_dst).cast::<c_void>(),
+            (&raw mut nn).cast::<c_void>(),
+        ];
+        let grid = (n as u32).div_ceil(block as u32);
+        stream
+            .launch(&kernel, [grid, 1, 1], [block as u32, 1, 1], &mut params)
+            .expect("launch");
+        stream.synchronize().expect("sync");
+        let mut got = vec![0f32; n];
+        ddst.copy_to_host(&mut got).expect("D2H dst");
+        for i in 0..n {
+            let denom = (expect[i] as f64).abs().max(1.0);
+            assert!(
+                (got[i] as f64 - expect[i] as f64).abs() / denom <= REL_TOL,
+                "scan @ {i}: got {} expect {}",
+                got[i],
+                expect[i]
+            );
+        }
+        eprintln!("[rurix-rt] scan 真跑通过:{n} 元素逐 block inclusive scan 核对一致");
+    });
+}
+
+/// M5.3 transpose 端到端真跑(契约 D-M5-5):16x16 shared-tile 转置(2D ThreadCtx),
+/// `dst[R*h+C]=src[C*w+R]` 逐元素精确核对。atomics-free。
+//@ spec: RXS-0072, RXS-0079
+#[test]
+fn rurix_transpose_e2e_isolated() {
+    isolated("rurix_transpose_e2e_isolated", || {
+        if skip_kernel("rurix_transpose_e2e", RURIX_TRANSPOSE_PTX, TRANSPOSE_KERNEL) {
+            return;
+        }
+        let (w, h) = (200usize, 150usize);
+        let tile = 16u32;
+        let src: Vec<f32> = (0..h * w).map(|i| i as f32 * 0.5).collect();
+        let mut expect = vec![0f32; w * h];
+        for r in 0..w {
+            for c in 0..h {
+                expect[r * h + c] = src[c * w + r];
+            }
+        }
+        let ctx = Context::new().expect("Context");
+        let mut dsrc = ctx.alloc::<f32>(h * w).expect("alloc src");
+        let ddst = ctx.alloc::<f32>(w * h).expect("alloc dst");
+        dsrc.copy_from_host(&src).expect("H2D src");
+        let module = ctx.load_module(RURIX_TRANSPOSE_PTX).expect("load_module");
+        let kernel = module.function(TRANSPOSE_KERNEL).expect("function");
+        let stream = ctx.create_stream().expect("stream");
+        let mut p_src = dsrc.device_ptr();
+        let mut p_dst = ddst.device_ptr();
+        let mut ww: u64 = w as u64;
+        let mut hh: u64 = h as u64;
+        let mut params: [*mut c_void; 4] = [
+            (&raw mut p_src).cast::<c_void>(),
+            (&raw mut p_dst).cast::<c_void>(),
+            (&raw mut ww).cast::<c_void>(),
+            (&raw mut hh).cast::<c_void>(),
+        ];
+        let gx = (w as u32).div_ceil(tile);
+        let gy = (h as u32).div_ceil(tile);
+        stream
+            .launch(&kernel, [gx, gy, 1], [tile, tile, 1], &mut params)
+            .expect("launch");
+        stream.synchronize().expect("sync");
+        let mut got = vec![0f32; w * h];
+        ddst.copy_to_host(&mut got).expect("D2H dst");
+        for i in 0..w * h {
+            assert_eq!(got[i], expect[i], "transpose @ {i}");
+        }
+        eprintln!("[rurix-rt] transpose 真跑通过:{h}x{w} → {w}x{h} 逐元素相等");
+    });
+}
+
+/// M5.3 tiled GEMM 端到端真跑(契约 D-M5-5 / G-M5-1 通道):经典 16x16 shared tiling,
+/// **不触 Tensor Core**(SG-002 维持);与 host f64 累加参考相对容差核对。atomics-free。
+//@ spec: RXS-0072, RXS-0079
+#[test]
+fn rurix_gemm_tile_e2e_isolated() {
+    isolated("rurix_gemm_tile_e2e_isolated", || {
+        if skip_kernel("rurix_gemm_e2e", RURIX_GEMM_PTX, GEMM_TILE_KERNEL) {
+            return;
+        }
+        let (m, n, k) = (100usize, 80usize, 70usize);
+        let tile = 16u32;
+        let a: Vec<f32> = (0..m * k).map(|i| ((i % 7) as f32) * 0.1 + 0.05).collect();
+        let b: Vec<f32> = (0..k * n).map(|i| ((i % 5) as f32) * 0.2 + 0.1).collect();
+        let mut expect = vec![0f32; m * n];
+        for row in 0..m {
+            for col in 0..n {
+                let mut acc = 0f64;
+                for kk in 0..k {
+                    acc += a[row * k + kk] as f64 * b[kk * n + col] as f64;
+                }
+                expect[row * n + col] = acc as f32;
+            }
+        }
+        let ctx = Context::new().expect("Context");
+        let mut da = ctx.alloc::<f32>(m * k).expect("alloc a");
+        let mut db = ctx.alloc::<f32>(k * n).expect("alloc b");
+        let dc = ctx.alloc::<f32>(m * n).expect("alloc c");
+        da.copy_from_host(&a).expect("H2D a");
+        db.copy_from_host(&b).expect("H2D b");
+        let module = ctx.load_module(RURIX_GEMM_PTX).expect("load_module");
+        let kernel = module.function(GEMM_TILE_KERNEL).expect("function");
+        let stream = ctx.create_stream().expect("stream");
+        let mut p_a = da.device_ptr();
+        let mut p_b = db.device_ptr();
+        let mut p_c = dc.device_ptr();
+        let mut mm: u64 = m as u64;
+        let mut nn: u64 = n as u64;
+        let mut kk: u64 = k as u64;
+        let mut params: [*mut c_void; 6] = [
+            (&raw mut p_a).cast::<c_void>(),
+            (&raw mut p_b).cast::<c_void>(),
+            (&raw mut p_c).cast::<c_void>(),
+            (&raw mut mm).cast::<c_void>(),
+            (&raw mut nn).cast::<c_void>(),
+            (&raw mut kk).cast::<c_void>(),
+        ];
+        let gx = (n as u32).div_ceil(tile);
+        let gy = (m as u32).div_ceil(tile);
+        stream
+            .launch(&kernel, [gx, gy, 1], [tile, tile, 1], &mut params)
+            .expect("launch");
+        stream.synchronize().expect("sync");
+        let mut got = vec![0f32; m * n];
+        dc.copy_to_host(&mut got).expect("D2H c");
+        for i in 0..m * n {
+            let denom = (expect[i] as f64).abs().max(1.0);
+            assert!(
+                (got[i] as f64 - expect[i] as f64).abs() / denom <= 1e-3,
+                "gemm @ {i}: got {} expect {}",
+                got[i],
+                expect[i]
+            );
+        }
+        eprintln!("[rurix-rt] tiled GEMM 真跑通过:{m}x{k} * {k}x{n} 核对一致");
+    });
+}
+
+const PARTIAL_N: usize = 256 * 1024 + 37;
+
+/// M5.3 review fix:末 block 非满(n % 256 != 0)reduce 回归。
+#[test]
+fn rurix_reduce_partial_block_e2e_isolated() {
+    isolated("rurix_reduce_partial_block_e2e_isolated", || {
+        if skip_kernel("rurix_reduce_partial", RURIX_REDUCE_PTX, REDUCE_KERNEL) {
+            return;
+        }
+        let n = PARTIAL_N;
+        let block = 256u32;
+        let src: Vec<f32> = (0..n).map(|i| ((i % 13) as f32) * 0.25).collect();
+        let expect: f64 = src.iter().map(|&v| v as f64).sum();
+        let grid = (n as u32).div_ceil(block);
+        let nblocks = grid as usize;
+        let ctx = Context::new().expect("Context");
+        let mut dsrc = ctx.alloc::<f32>(n).expect("alloc src");
+        let dpart = ctx.alloc::<f32>(nblocks).expect("alloc partials");
+        dsrc.copy_from_host(&src).expect("H2D src");
+        let module = ctx.load_module(RURIX_REDUCE_PTX).expect("load_module");
+        let kernel = module.function(REDUCE_KERNEL).expect("function");
+        let stream = ctx.create_stream().expect("stream");
+        let mut p_src = dsrc.device_ptr();
+        let mut p_part = dpart.device_ptr();
+        let mut nn: u64 = n as u64;
+        let mut params: [*mut c_void; 3] = [
+            (&raw mut p_src).cast::<c_void>(),
+            (&raw mut p_part).cast::<c_void>(),
+            (&raw mut nn).cast::<c_void>(),
+        ];
+        stream
+            .launch(&kernel, [grid, 1, 1], [block, 1, 1], &mut params)
+            .expect("launch");
+        stream.synchronize().expect("sync");
+        let mut partials = vec![0f32; nblocks];
+        dpart.copy_to_host(&mut partials).expect("D2H partials");
+        let got: f64 = partials.iter().map(|&v| v as f64).sum();
+        let denom = expect.abs().max(1.0);
+        assert!(
+            (got - expect).abs() / denom <= REL_TOL,
+            "partial-block reduce: got {got} expect {expect}"
+        );
+        eprintln!("[rurix-rt] reduce 末 block 非满真跑通过:n={n} sum={got}");
+    });
+}
+
+/// M5.3 review fix:末 block 非满 scan 回归(block-local inclusive)。
+#[test]
+fn rurix_scan_partial_block_e2e_isolated() {
+    isolated("rurix_scan_partial_block_e2e_isolated", || {
+        if skip_kernel("rurix_scan_partial", RURIX_SCAN_PTX, SCAN_KERNEL) {
+            return;
+        }
+        let n = PARTIAL_N;
+        let block = 256usize;
+        let src: Vec<f32> = (0..n).map(|i| ((i % 11) as f32) * 0.5 + 0.25).collect();
+        let mut expect = vec![0f32; n];
+        for base in (0..n).step_by(block) {
+            let end = (base + block).min(n);
+            let mut acc = 0f64;
+            for i in base..end {
+                acc += src[i] as f64;
+                expect[i] = acc as f32;
+            }
+        }
+        let ctx = Context::new().expect("Context");
+        let mut dsrc = ctx.alloc::<f32>(n).expect("alloc src");
+        let ddst = ctx.alloc::<f32>(n).expect("alloc dst");
+        dsrc.copy_from_host(&src).expect("H2D src");
+        let module = ctx.load_module(RURIX_SCAN_PTX).expect("load_module");
+        let kernel = module.function(SCAN_KERNEL).expect("function");
+        let stream = ctx.create_stream().expect("stream");
+        let mut p_src = dsrc.device_ptr();
+        let mut p_dst = ddst.device_ptr();
+        let mut nn: u64 = n as u64;
+        let mut params: [*mut c_void; 3] = [
+            (&raw mut p_src).cast::<c_void>(),
+            (&raw mut p_dst).cast::<c_void>(),
+            (&raw mut nn).cast::<c_void>(),
+        ];
+        let grid = (n as u32).div_ceil(block as u32);
+        stream
+            .launch(&kernel, [grid, 1, 1], [block as u32, 1, 1], &mut params)
+            .expect("launch");
+        stream.synchronize().expect("sync");
+        let mut got = vec![0f32; n];
+        ddst.copy_to_host(&mut got).expect("D2H dst");
+        for i in 0..n {
+            let denom = (expect[i] as f64).abs().max(1.0);
+            assert!(
+                (got[i] as f64 - expect[i] as f64).abs() / denom <= REL_TOL,
+                "partial scan @ {i}: got {} expect {}",
+                got[i],
+                expect[i]
+            );
+        }
+        eprintln!("[rurix-rt] scan 末 block 非满真跑通过:n={n}");
     });
 }

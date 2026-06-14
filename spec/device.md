@@ -325,6 +325,63 @@ AtomicOp   ::= Receiver "." ("fetch_add" | "fetch_max" | "fetch_min" | "fetch_an
 
 ---
 
+> **M5.3 范围裁决(libdevice 链接与 device 数学函数)**:RXS-0081 条款化 **device 上下文可调用的数学函数 intrinsic 集与求值语义**(下译为 libdevice ABI 外部符号 `__nv_<name>`,FTZ/precision 由 NVVMReflect flag 裁决);RXS-0082 条款化 **libdevice bitcode 链接流程与 codegen 诊断要求**(保留外部符号 → 链 libdevice bc → internalize → DCE → NVVMReflect,07 §7 / D-205·D-207,06 §7 libdevice 数学函数)。本批为已锁定决策(D-205/D-207 工具链 pin、06 §7 libdevice 按需引入、07 §7 编译流程)的条款化(档位 Direct);任何偏离 06/07/13 已锁定决策的修改须按 10 §3 升档。错误码 `RX6006`(6xxx codegen/目标段位续接 M4.2 的 `RX6005`)、`RX7002`(7xxx 链接/工具链段位续接既有 `RX7001`)为本批新引用,**spec 先行引用,正式分配于 M5.3 实现 WP**(沿用 3xxx/6xxx/7xxx 在实现 PR 落 registry 的节奏,registry revision_log 留痕,编号不复用)。`shared`(addrspace 3)真 shared 内存 lowering、多维 `ThreadCtx`(DIM=2/3)codegen、gpu 并行基元自研 kernel(reduce/scan/transpose/tiled GEMM)与 L1/L2 微基准随 M5.3 实现 WP / M5.4(07 §4),本批不覆盖其 codegen 细节。
+
+### RXS-0081 device 数学函数 intrinsic 集与求值语义
+
+**Syntax**(device 上下文数学函数,06 §7 libdevice 数学函数):device fn / kernel fn 体内可调用一组编译器已知数学函数 intrinsic(浮点元素类型 `f32`/`f64`),涵盖常用初等函数:
+
+```
+DeviceMathFn ::= ("sqrt" | "rsqrt" | "cbrt" | "exp" | "exp2" | "log" | "log2" | "log10"
+               | "sin" | "cos" | "tan" | "pow" | "fma" | "fabs" | "fmin" | "fmax"
+               | "floor" | "ceil" | "trunc" | "round") "(" Args ")"
+```
+
+具体调用形态(自由函数 `sqrt(x)` 抑或方法 `x.sqrt()`/`f32::sqrt(x)`)的语法绑定为实现 WP 细化项;本条款先定 **intrinsic 集与签名契约**(intrinsic 集随 gpu 基元 kernel 真实需求增补,增补经 conformance 类别留痕,沿用 07 §4 保守先行)。
+
+**Legality**(device 数学 intrinsic 类型契约,编译期裁决):
+
+- device 数学函数为**编译器已知 device intrinsic**(resolve/typeck 兜底识别,用户同名定义优先遮蔽,沿用 RXS-0067 `View` 族兜底纪律);其调用须出现在 **device 上下文**(device fn / kernel fn 体,RXS-0066)。
+- **签名契约**:实参与返回为同一浮点元素类型(`f32` 或 `f64`),按元数(一元 `sqrt`/二元 `pow`/三元 `fma`)与类型合一裁决;混入非浮点或元素类型不一致 → 按既有类型不匹配段裁决(`RX2001`,不另立段位)。
+- host 上下文调用 device-only 数学 intrinsic 的可达性按 RXS-0066 着色裁决(host 侧数学走 host 标准库,M7 范围;本条款不在 host 上下文暴露这些 device intrinsic)。
+- **Err 容忍不级联**:实参为容忍区 `Err`(RXS-0047)或元数/类型不可判定时不触发诊断(防一错多报,与 RXS-0069/0075 同口径)。
+
+**Dynamic Semantics**(intrinsic → libdevice 映射,06 §7 / 07 §7;**非 UB 节**):
+
+- 每个 device 数学 intrinsic 下译为**保留的外部符号** `__nv_<name>`(libdevice ABI,如 `sqrt`(f32)→ `__nv_sqrtf`、`fma`(f64)→ `__nv_fma`),由 RXS-0082 的 libdevice 链接流程解析为具体实现;intrinsic 声明在 device IR 模块头 `declare`(不在 rurixc 内联定义)。
+- 浮点精度与 flush-to-zero(FTZ)行为由 **NVVMReflect flag** 裁决:默认精确路径(`__CUDA_PREC_SQRT`/`__CUDA_PREC_DIV`=1、`__CUDA_FTZ`=0);FASTMATH(近似/ftz)经**编译器开关 + 库显式变体双通道**(07 §7,不在默认路径隐式改变数值语义)。
+- 浮点重排/近似引入的数值差异按基准容差口径核对(BENCH_PROTOCOL 容差,gpu 基元 kernel 正确性比对随 M5.3/M5.4 实现 WP)。
+
+**Implementation Requirements**:device 数学 intrinsic 的识别在 resolve/typeck 层(兜底识别 + 签名契约),与 RXS-0072 线程索引 intrinsic 同源纪律;`__nv_<name>` 外部符号声明与正式 codegen lowering 随 RXS-0082 实现 WP 落地(本条款先行,锚定测试先挂)。
+
+> 锚定测试:`conformance/libdevice/accept/*.rx`(合法 device 数学函数调用形态,spec 先行正例锚定,正式 corpus 批跑随实现 WP);`src/rurixc/tests/libdevice_link_mapping.rs`(链接/映射真跑骨架,`#[ignore]` 占位待实现 WP 解禁);device 数学 intrinsic 类型契约单测随实现 WP。
+
+### RXS-0082 libdevice bitcode 链接流程与 codegen 诊断要求
+
+**Legality / Implementation Requirements**(libdevice 链接流程,07 §7 / D-205·D-207,06 §7):
+
+- device codegen 接通 libdevice 的链接流程为(07 §7 推荐编译流程,r2/r12):
+  1. **保留外部数学符号**:RXS-0081 的 device 数学 intrinsic 以 `__nv_<name>` 外部 `declare` 形态留在 device IR(不内联定义);
+  2. **链 libdevice bc**:与 `libdevice.10.bc` 链接(`llvm-link` 或 clang `-mlink-builtin-bitcode`,引入 `__nv_*` 实现);
+  3. **internalize**:libdevice 引入的符号转 internal linkage(避免污染符号表 / 利于 DCE);
+  4. **DCE**:剔除未被 kernel 可达引用的 libdevice 函数(控制产物体积);
+  5. **NVVMReflect**:解析 `__nvvm_reflect` 调用,按 ftz/precision flag 选择具体实现分支 → 常规优化 → NVPTX 后端产 PTX 文本。
+- 工具链 pin **LLVM 22.1.x**(D-205,与 host/device codegen 同 pin);libdevice 链接产物仍走既有 IR→PTX 通道(RXS-0070)并**必须过 `ptxas -arch=sm_89` 干验证**(RXS-0073 真跑铁律对齐;链接产生非法 PTX 必须红)。
+- **libdevice bc 定位纪律**:经 `CUDA_PATH` / 运行时探测定位 `libdevice.10.bc`,**禁硬编码版本路径/文件名**(r6 的 `CUDA 13.2.props` 教训,07 §10,沿用 RXS-0073 ptxas 定位纪律);libdevice bc 缺失(无 CUDA 工具链)→ 链接关卡 SKIP(开发环境降级,真实红绿在带 CUDA 的 CI runner),非降级语境的链接失败 → 诊断。
+- **NVVMReflect flag 裁决留痕**:ftz/prec-sqrt/prec-div 等 reflect flag 的取值(默认精确 vs FASTMATH 双通道,RXS-0081)须在 codegen 选项留痕(对齐 07 §7 FASTMATH 双通道,可审计)。
+- **NVIDIA 再分发白名单审计**:libdevice 链接引入再分发物时触发 NVIDIA 白名单 formal 审计(M5 契约 / CI_GATES §4,结论入 close-out);M5 仍 **PTX-only + libdevice bc 链接**,不打包 cubin/fatbin(→ G1)。
+
+**诊断要求**(6xxx codegen/目标段位续接 + 7xxx 链接/工具链段位续接):
+
+- **device codegen 不支持的数学 intrinsic** `RX6006`:调用超出 libdevice 覆盖的数学函数,或不支持的元素类型组合(保守拒绝,措辞容许粗糙,07 §4);6xxx 段位续接 M4.2 的 `RX6005`。
+- **libdevice bc 定位/链接失败** `RX7002`:非降级语境下 `libdevice.10.bc` 定位失败,或 `llvm-link`/internalize/NVVMReflect 流程失败(携工具链 stderr 摘要);7xxx 链接/工具链段位续接既有 `RX7001`(工具链定位失败);bc 缺失的开发环境降级为 SKIP,不报 `RX7002`。
+
+**Implementation Requirements**:libdevice 链接在 device codegen 产 IR 后、IR→PTX(RXS-0070)前实施;ptxas 干验证(RXS-0073)在链接后 PTX 上施加;诊断 span 指向 kernel 定义 / 违例数学调用,措辞允许保守粗糙(07 §4 先正确性后诊断);`RX6006`/`RX7002` 的 message-key 随 M5.3 实现 WP 落 registry(只追加)。
+
+> 锚定测试:`tests/ptx/`(libdevice 链接后 IR/PTX golden,随实现 WP);`src/rurixc/tests/libdevice_link_mapping.rs`(链接流程真跑骨架,`#[ignore]` 占位待实现 WP 解禁,断言「数学函数 → `__nv_*` → libdevice 链接 → ptxas 过」);libdevice 定位/链接失败路径单测(缺 bc 时 SKIP)随实现 WP。
+
+---
+
 ## 错误码引用汇总
 
 | 错误码 | 含义 | 条款 |
@@ -343,9 +400,11 @@ AtomicOp   ::= Receiver "." ("fetch_add" | "fetch_max" | "fetch_min" | "fetch_an
 | RX3008 | view 划分越界(split 点 / chunk 大小 / 窗口大小 静态可判超界) | RXS-0078 |
 | RX3009 | shared+barrier 一致性违例(shared 写后未过 barrier 即读他 lane 写入,含证不出经 barrier 同步的保守拒绝) | RXS-0079 |
 | RX3010 | scoped atomics scope 误用(越权作用域 / 与地址空间不相容 / 不支持的 scope·order 组合) | RXS-0080 |
+| RX6006 | device codegen 不支持的数学 intrinsic(超出 libdevice 覆盖 / 不支持元素类型组合) | RXS-0081, RXS-0082 |
 | RX7001 | 外部工具链失败(ptxas 定位失败归此段,既有码) | RXS-0073 |
+| RX7002 | libdevice bc 定位/链接失败(非降级语境 bc 缺失 / llvm-link·internalize·NVVMReflect 流程失败) | RXS-0082 |
 
-含义以 [../registry/error_codes.json](../registry/error_codes.json) 为唯一事实源,本表仅引用。RX3001 ~ RX3003 为 3xxx 着色/地址空间段位首批(07 §5 段位语义),**spec 先行引用,正式分配于 M4.1 实现 WP**(沿用 4xxx/5xxx 在实现 PR 落 registry 的节奏,registry revision_log 留痕,编号不复用)。RX6003 ~ RX6005 为 6xxx codegen/目标段位 device 首批(现有 RX6001/RX6002 为 M2.3 host 子集),**spec 先行引用,正式分配于 M4.2 实现 WP**(同上节奏)。RX3004 ~ RX3006 为 3xxx 段位续接(launch 着色/维度/brand,RXS-0074/0075),**spec 先行引用,正式分配于 M4.3 实现 WP**(同上节奏;launch 参数类型不符复用 RX2001/RX3002)。RX3007 ~ RX3008 为 3xxx 段位续接(views 不相交,RXS-0078),**spec 先行引用,正式分配于 M5.1 实现 WP**(同上节奏;证不出不相交的保守拒绝复用 RX3007)。RX3009 ~ RX3010 为 3xxx 段位续接(shared+barrier 一致性数据流 / scoped atomics scope 误用,RXS-0079/0080),**spec 先行引用,正式分配于 M5.2 实现 WP**(同上节奏;shared 证不出经 barrier 同步的保守拒绝复用 RX3009;scoped atomics 的 PTX `atom.{order}.{scope}` 映射为 D-406 禁区,由人工落笔)。libdevice 链接 / gpu 并行基元 / 完整弱序协议(unsafe fence/volatile)条款仍随 M5.3+(07 §4 / 06 §7 / 11 §3),本批不覆盖。
+含义以 [../registry/error_codes.json](../registry/error_codes.json) 为唯一事实源,本表仅引用。RX3001 ~ RX3003 为 3xxx 着色/地址空间段位首批(07 §5 段位语义),**spec 先行引用,正式分配于 M4.1 实现 WP**(沿用 4xxx/5xxx 在实现 PR 落 registry 的节奏,registry revision_log 留痕,编号不复用)。RX6003 ~ RX6005 为 6xxx codegen/目标段位 device 首批(现有 RX6001/RX6002 为 M2.3 host 子集),**spec 先行引用,正式分配于 M4.2 实现 WP**(同上节奏)。RX3004 ~ RX3006 为 3xxx 段位续接(launch 着色/维度/brand,RXS-0074/0075),**spec 先行引用,正式分配于 M4.3 实现 WP**(同上节奏;launch 参数类型不符复用 RX2001/RX3002)。RX3007 ~ RX3008 为 3xxx 段位续接(views 不相交,RXS-0078),**spec 先行引用,正式分配于 M5.1 实现 WP**(同上节奏;证不出不相交的保守拒绝复用 RX3007)。RX3009 ~ RX3010 为 3xxx 段位续接(shared+barrier 一致性数据流 / scoped atomics scope 误用,RXS-0079/0080),**spec 先行引用,正式分配于 M5.2 实现 WP**(同上节奏;shared 证不出经 barrier 同步的保守拒绝复用 RX3009;scoped atomics 的 PTX `atom.{order}.{scope}` 映射为 D-406 禁区,由人工落笔)。RX6006(6xxx codegen/目标段位续接 M4.2 RX6005)与 RX7002(7xxx 链接/工具链段位续接既有 RX7001)为 libdevice 链接 / device 数学 intrinsic(RXS-0081/0082)新引用,**spec 先行引用,正式分配于 M5.3 实现 WP**(同上节奏;libdevice bc 缺失的开发环境降级为 SKIP,不报 RX7002)。gpu 并行基元自研 kernel(reduce/scan/transpose/tiled GEMM)的 codegen 接通(真 shared 内存 / 多维 ThreadCtx)与 L1/L2 微基准、完整弱序协议(unsafe fence/volatile)条款仍随 M5.3 实现 WP / M5.4 / 后续(07 §4 / 06 §7 / 11 §3),本批不覆盖。
 
 ## 修订记录
 
@@ -357,3 +416,4 @@ AtomicOp   ::= Receiver "." ("fetch_add" | "fetch_max" | "fetch_min" | "fetch_an
 | v1.2 | 2026-06-13 | 续写 RXS-0074 ~ RXS-0075(M4.3 launch 类型契约:着色/维度/参数/context-brand 四类编译期可检契约 + launch 诊断要求;05 §6/§4、06 §1、08 §2 已锁定决策 D-107/D-120 的条款化,M4 契约 D-M4-2/D-M4-6 spec 先行)。错误码汇总表登记 RX3004~RX3006(spec 先行引用,M4.3 实现 WP 正式分配;launch 参数类型不符复用 RX2001/RX3002)。作用面 = 编译期 launch 类型契约;运行时对象/装载协商/poisoned 状态机随 rurix-rt 实现 PR(规范先行同 PR);ThreadCtx const 维度跨核对、views 不相交、完整 affine brand 借用证明排除(M5/RD-007) | Direct |
 | v1.4 | 2026-06-14 | 续写 RXS-0078(M5.1 views 算子集语义与子 view 不相交证明:`split_at`/`chunks`/`windows` 划分语义 + 子 view 不相交并存规则 + 越界规则 + 诊断要求;05 §3.2 设备层 views D-106、07 §4 保守先行已锁定决策的条款化,M5 契约 D-M5-1 / G-M5-2 spec 先行,**条款 PR 先于实现 PR**)。作为 MIR 借用检查 device 扩展 pass,消费 M4 着色/地址空间边界信息;判定取保守上界(能证不相交才放行,证不出保守拒绝,可 unsafe 逃生)。错误码汇总表登记 RX3007~RX3008(3xxx 段位续接 M4.3 RX3006,spec 先行引用,M5.1 实现 WP 正式分配,编号不复用);`views.*` message-key 随实现 WP 落 registry。shared+barrier 一致性数据流 / scoped atomics / 完整 uniform 分析排除(M5.2+) | Direct |
 | v1.5 | 2026-06-14 | 续写 RXS-0079 ~ RXS-0080(M5.2 shared+barrier 一致性数据流 + scoped atomics 类型契约与 PTX 映射:把 RXS-0068 barrier uniform 保守骨架完整化为 `shared let` 写读跨 barrier 同步的数据流判定(06 §2.2 D-123)+ scoped atomics `Atomic<T, Scope>` 类型契约 + `atom.{order}.{scope}` morally strong 映射(06 §4 D-123)+ 诊断要求;07 §4 保守先行已锁定决策的条款化,M5 契约 D-M5-2 / D-M5-3 spec 先行,**条款 PR 先于实现 PR**)。作为 MIR 借用检查 device 扩展 pass 的数据流分析,消费 M4 着色/地址空间边界信息;判定取保守上界(能证经 barrier 同步才放行,证不出保守拒绝,可 unsafe 逃生)。错误码汇总表登记 RX3009~RX3010(3xxx 段位续接 M5.1 RX3008,spec 先行引用,M5.2 实现 WP 正式分配,编号不复用);`shared.*`/`atomics.*` message-key 随实现 WP 落 registry。**scoped atomics 的 PTX `atom.{order}.{scope}` 映射为 D-406 禁区,由人工落笔**(AI 仅条款化 + 挂测试);unsafe 弱序协议(fence/volatile)及竞争 UB 边界排除(UB 节仅人类经 Full RFC,M5.3+ / 后续)| Direct |
+| v1.6 | 2026-06-14 | 续写 RXS-0081 ~ RXS-0082(M5.3 libdevice 链接 spec 先行:device 上下文数学函数 intrinsic 集与求值语义——下译 libdevice ABI 外部符号 `__nv_<name>`,FTZ/precision 由 NVVMReflect flag 裁决(06 §7)+ libdevice bitcode 链接流程(保留外部符号 → 链 bc → internalize → DCE → NVVMReflect,07 §7 / D-205·D-207)与 codegen 诊断要求;06 §7 / 07 §7 / 13 已锁定决策(D-205/D-207 工具链 pin、libdevice 按需引入、编译流程)的条款化,M5 契约 D-M5-4 spec 先行,**条款 PR 先于实现 PR**)。libdevice bc 定位经 CUDA_PATH 运行时探测禁硬编码版本文件名(r6 教训,沿用 RXS-0073 ptxas 定位纪律);链接产物仍过 ptxas 干验证(RXS-0073 真跑铁律对齐)。错误码汇总表登记 RX6006(6xxx 段位续接 M4.2 RX6005)与 RX7002(7xxx 段位续接既有 RX7001),spec 先行引用,M5.3 实现 WP 正式分配,编号不复用;message-key 随实现 WP 落 registry。gpu 并行基元自研 kernel(reduce/scan/transpose/tiled GEMM)codegen 接通(真 shared 内存 / 多维 ThreadCtx)、L1/L2 微基准与 NVIDIA 白名单审计排除(M5.3 实现 WP / M5.4)| Direct |

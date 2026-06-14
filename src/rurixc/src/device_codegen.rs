@@ -15,7 +15,7 @@
 //! - bool 存 i8,分支 `icmp ne i8 .. 0`(与 host codegen 同口径);
 //! - 作用面外构造 → `RX6003`(不支持构造)/ `RX6005`(超出 NVPTX 约束子集)。
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::fmt::Write as _;
 
 use crate::ast::{BinOp, FnColor, UnOp};
@@ -32,7 +32,7 @@ use crate::mir::{
 use crate::query::QueryCtx;
 use crate::resolve::{ADDR_SPACES, Resolutions};
 use crate::span::Span;
-use crate::ty::Ty;
+use crate::ty::{Ty, thread_ctx_dim};
 
 /// device codegen 失败(NVPTX 约束子集外构造)。驱动/测试转结构化诊断:
 /// `Unsupported` → `RX6003`、`Constraint` → `RX6005`(RXS-0073)。
@@ -104,9 +104,13 @@ pub fn emit_nvptx_ir(
     let mut cg = Cg {
         res,
         fns: String::new(),
+        globals: String::new(),
         tmp: 0,
         intrinsics: BTreeSet::new(),
+        array_base: HashMap::new(),
+        uses_libdevice: false,
         cur_span: Span::new(crate::span::SourceId(0), 0, 0, crate::span::Edition::Rx0),
+        annotation_nodes: Vec::new(),
     };
     for b in bodies {
         cg.emit_body(b)?;
@@ -124,16 +128,63 @@ pub fn emit_nvptx_ir(
     if !cg.intrinsics.is_empty() {
         out.push('\n');
     }
+    // shared 数组(addrspace 3)/ 局部数组(addrspace 5)模块级 global(M5.3,
+    // RXS-0079);先于函数定义,供 place_ptr 引用。
+    if !cg.globals.is_empty() {
+        out.push_str(&cg.globals);
+        out.push('\n');
+    }
     out.push_str(&cg.fns);
+    if !cg.annotation_nodes.is_empty() {
+        out.push('\n');
+        let refs: Vec<String> = (0..cg.annotation_nodes.len())
+            .map(|i| format!("!{i}"))
+            .collect();
+        let _ = writeln!(out, "!nvvm.annotations = !{{{}}}", refs.join(", "));
+        for (i, node) in cg.annotation_nodes.iter().enumerate() {
+            let _ = writeln!(out, "!{i} = {node}");
+        }
+    }
+    // NVVMReflect 精确路径留痕(RXS-0081/0082):仅在用到 libdevice `__nv_*` 时
+    // 发模块 flag,声明默认精确数值语义(ftz=0;prec-sqrt/div 由 libdevice 默认精确
+    // 变体提供);FASTMATH 双通道为后续编译器开关。无 libdevice 时不发(保 SAXPY
+    // 等既有 IR golden 形态不变)。
+    if cg.uses_libdevice {
+        out.push('\n');
+        out.push_str("!llvm.module.flags = !{!0}\n");
+        out.push_str("!0 = !{i32 4, !\"nvvm-reflect-ftz\", i32 0}\n");
+    }
     Ok(out)
+}
+
+fn isqrt_u64(n: u64) -> Option<u64> {
+    if n == 0 {
+        return Some(0);
+    }
+    let mut x = n;
+    let mut y = x.div_ceil(2);
+    while y < x {
+        x = y;
+        y = (x + n / x) / 2;
+    }
+    if x * x == n { Some(x) } else { None }
 }
 
 struct Cg<'a> {
     res: &'a Resolutions,
     fns: String,
+    /// 模块级 global(shared addrspace 3 / 局部数组 addrspace 5;M5.3,RXS-0079)。
+    globals: String,
     tmp: u32,
     /// 已用 NVPTX intrinsic 的 `declare` 行(去重有序)。
     intrinsics: BTreeSet<String>,
+    /// 当前 body 内数组型 local 的基址(local idx → (base 寄存器/全局名, addrspace));
+    /// shared 数组 = addrspace 3 模块 global,局部数组 = addrspace 5 alloca。每 body 重置。
+    array_base: HashMap<u32, (String, u32)>,
+    /// 是否用到 libdevice `__nv_*` 数学符号(决定是否发 NVVMReflect 模块 flag)。
+    uses_libdevice: bool,
+    /// kernel launch bounds 元数据节点(`nvvm.annotations`,M5.3 review fix)。
+    annotation_nodes: Vec<String>,
     /// 当前 body span(llty 等无 span 入参处的错误锚点)。
     cur_span: Span,
 }
@@ -216,6 +267,7 @@ impl Cg<'_> {
     fn emit_body(&mut self, b: &Body) -> Result<(), DeviceCodegenError> {
         self.tmp = 0;
         self.cur_span = b.span;
+        self.array_base.clear();
         let is_kernel = b.color == FnColor::Kernel;
         let ret_ty = b.ret_ty().clone();
         let ret_void = is_kernel || self.is_zst(&ret_ty);
@@ -248,12 +300,42 @@ impl Cg<'_> {
         );
         self.fns.push_str("entry:\n");
 
-        // alloca 全部非 ZST local(addrspace(5));返回槽 _0 仅 device fn 非 ZST 时
+        // alloca 全部非 ZST local(addrspace(5));返回槽 _0 仅 device fn 非 ZST 时。
+        // 数组型 local(`shared let [T; N]` 等,M5.3,RXS-0079):shared → 模块级
+        // addrspace(3) global;非 shared → `[N x T]` addrspace(5) alloca;基址入
+        // array_base,索引经数组 gep(place_ptr)。
         for (i, l) in b.locals.iter().enumerate() {
             if i == 0 && ret_void {
                 continue;
             }
             if self.is_zst(&l.ty) {
+                continue;
+            }
+            if l.shared && !matches!(&l.ty, Ty::Array(_)) {
+                return Err(DeviceCodegenError::constraint(
+                    l.span,
+                    "shared let requires a fixed-size array type (RXS-0071/0079)",
+                ));
+            }
+            if let Ty::Array(elem) = &l.ty {
+                let n = l.array_len.ok_or_else(|| {
+                    DeviceCodegenError::constraint(
+                        l.span,
+                        "array local without a static length (const-generic length is RD-007)",
+                    )
+                })?;
+                let elem_ll = self.llty(elem)?;
+                if l.shared {
+                    let gsym = format!("__shared_{}_{i}", b.symbol);
+                    let _ = writeln!(
+                        self.globals,
+                        "@{gsym} = internal addrspace(3) global [{n} x {elem_ll}] undef"
+                    );
+                    self.array_base.insert(i as u32, (format!("@{gsym}"), 3));
+                } else {
+                    let _ = writeln!(self.fns, "  %l{i} = alloca [{n} x {elem_ll}], addrspace(5)");
+                    self.array_base.insert(i as u32, (format!("%l{i}"), 5));
+                }
                 continue;
             }
             let _ = writeln!(
@@ -291,52 +373,130 @@ impl Cg<'_> {
             )?;
         }
         self.fns.push_str("}\n\n");
+        if is_kernel {
+            self.emit_launch_bounds(b)?;
+        }
+        Ok(())
+    }
+
+    fn kernel_thread_ctx_dim(&self, b: &Body) -> Option<u8> {
+        for i in 1..=b.arg_count {
+            if let Some(d) = thread_ctx_dim(&b.locals[i].ty, &self.res.lang_items) {
+                return Some(d);
+            }
+        }
+        None
+    }
+
+    fn emit_launch_bounds(&mut self, b: &Body) -> Result<(), DeviceCodegenError> {
+        let shared_lens: Vec<u64> = b
+            .locals
+            .iter()
+            .filter(|l| l.shared)
+            .map(|l| {
+                l.array_len.ok_or_else(|| {
+                    DeviceCodegenError::constraint(
+                        l.span,
+                        "shared array without static length cannot infer launch bounds",
+                    )
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        if shared_lens.is_empty() {
+            return Ok(());
+        }
+        let first = shared_lens[0];
+        if !shared_lens.iter().all(|&n| n == first) {
+            return Err(DeviceCodegenError::constraint(
+                b.span,
+                "inconsistent shared array sizes for launch bounds inference",
+            ));
+        }
+        let dim = self.kernel_thread_ctx_dim(b).unwrap_or(1);
+        let sym = &b.symbol;
+        match dim {
+            1 => {
+                self.annotation_nodes
+                    .push(format!("!{{ptr @{sym}, !\"reqntidx\", i32 {first}}}"));
+            }
+            2 => {
+                let side = isqrt_u64(first).ok_or_else(|| {
+                    DeviceCodegenError::constraint(
+                        b.span,
+                        format!(
+                            "shared array length {first} is not a square tile for 2D launch bounds"
+                        ),
+                    )
+                })?;
+                self.annotation_nodes.push(format!(
+                    "!{{ptr @{sym}, !\"reqntidx\", i32 {side}, !\"reqntidy\", i32 {side}}}"
+                ));
+            }
+            _ => {}
+        }
         Ok(())
     }
 
     // -- place -----------------------------------------------------------------
 
-    /// place → 指针(走 alloca 起点 + 投影链)。
+    /// place → 指针(走 alloca / shared global 起点 + 投影链)。
     fn place_ptr(&mut self, b: &Body, p: &Place) -> Result<PlacePtr, DeviceCodegenError> {
-        let mut reg = format!("%l{}", p.local.0);
-        let mut addrspace = 5u32; // alloca 槽在 addrspace(5)
+        // 数组型 local 起点 = array_base(shared global addrspace 3 / 局部 alloca
+        // addrspace 5);其余 local 起点 = `%l{idx}` addrspace 5。
+        let (mut reg, mut addrspace) = match self.array_base.get(&p.local.0) {
+            Some((r, a)) => (r.clone(), *a),
+            None => (format!("%l{}", p.local.0), 5u32),
+        };
         let mut ty = b.local(p.local).ty.clone();
         for elem in &p.proj {
             match elem {
                 ProjElem::Index(idx_local) => {
-                    // base 须为 View 族:载 base 指针(addrspace N)后按 index gep
-                    let (space_n, elem_ty) = match &ty {
+                    match &ty {
+                        // 数组元素(M5.3):base 即存储(alloca/global),元素 gep 不 load。
+                        Ty::Array(elem_ty) => {
+                            let elem_ty = (**elem_ty).clone();
+                            let iv = self.load_local_usize(*idx_local);
+                            let ell = self.llty(&elem_ty)?;
+                            let e = self.fresh();
+                            let _ = writeln!(
+                                self.fns,
+                                "  {e} = getelementptr {ell}, ptr addrspace({addrspace}) {reg}, i64 {iv}"
+                            );
+                            reg = e;
+                            ty = elem_ty;
+                            // addrspace 不变(数组在原空间内偏移)。
+                        }
+                        // View 族(M4.2,RXS-0071):base 是地址空间指针(存于 alloca),
+                        // 先 load 出指针再按 index gep。
                         Ty::Adt(d, args)
                             if self.res.lang_items.view_mutable(*d).is_some()
                                 && args.len() >= 2 =>
                         {
-                            (
-                                self.view_addrspace(args, b.local(p.local).span)?,
-                                args[1].clone(),
-                            )
+                            let space_n = self.view_addrspace(args, b.local(p.local).span)?;
+                            let elem_ty = args[1].clone();
+                            let base = self.fresh();
+                            let _ = writeln!(
+                                self.fns,
+                                "  {base} = load ptr addrspace({space_n}), ptr addrspace({addrspace}) {reg}"
+                            );
+                            let iv = self.load_local_usize(*idx_local);
+                            let ell = self.llty(&elem_ty)?;
+                            let e = self.fresh();
+                            let _ = writeln!(
+                                self.fns,
+                                "  {e} = getelementptr {ell}, ptr addrspace({space_n}) {base}, i64 {iv}"
+                            );
+                            reg = e;
+                            addrspace = space_n;
+                            ty = elem_ty;
                         }
                         _ => {
                             return Err(DeviceCodegenError::constraint(
                                 b.local(p.local).span,
-                                "indexed place is not a device view",
+                                "indexed place is not a device view or array",
                             ));
                         }
-                    };
-                    let base = self.fresh();
-                    let _ = writeln!(
-                        self.fns,
-                        "  {base} = load ptr addrspace({space_n}), ptr addrspace({addrspace}) {reg}"
-                    );
-                    let iv = self.load_local_usize(*idx_local);
-                    let ell = self.llty(&elem_ty)?;
-                    let e = self.fresh();
-                    let _ = writeln!(
-                        self.fns,
-                        "  {e} = getelementptr {ell}, ptr addrspace({space_n}) {base}, i64 {iv}"
-                    );
-                    reg = e;
-                    addrspace = space_n;
-                    ty = elem_ty;
+                    }
                 }
                 ProjElem::Deref => {
                     return Err(DeviceCodegenError::constraint(
@@ -663,6 +823,42 @@ impl Cg<'_> {
                 }
                 Ok(())
             }
+            CallTarget::Libdevice { symbol } => {
+                // device 数学 intrinsic(RXS-0081):call 保留的外部 `__nv_*` 符号,
+                // declare 入模块头(去重),由 libdevice bc 链接解析(RXS-0082)。
+                let mut arg_lls = Vec::new();
+                let mut arg_vals = Vec::new();
+                for a in args {
+                    let Some((ll, v, _)) = self.operand(b, a)? else {
+                        return Err(DeviceCodegenError::constraint(
+                            span,
+                            "zero-sized argument to libdevice math intrinsic",
+                        ));
+                    };
+                    arg_lls.push(ll.clone());
+                    arg_vals.push(format!("{ll} {v}"));
+                }
+                let dest_ty = b.local(dest.local).ty.clone();
+                let ret_ll = self.llty(&dest_ty)?;
+                self.intrinsics.insert(format!(
+                    "declare {ret_ll} @{symbol}({})",
+                    arg_lls.join(", ")
+                ));
+                self.uses_libdevice = true;
+                let t = self.fresh();
+                let _ = writeln!(
+                    self.fns,
+                    "  {t} = call {ret_ll} @{symbol}({})",
+                    arg_vals.join(", ")
+                );
+                let pp = self.place_ptr(b, dest)?;
+                let _ = writeln!(
+                    self.fns,
+                    "  store {ret_ll} {t}, ptr addrspace({}) {}",
+                    pp.addrspace, pp.reg
+                );
+                Ok(())
+            }
             CallTarget::Builtin(_) => Err(DeviceCodegenError::unsupported(
                 span,
                 "host builtin call in device code",
@@ -686,9 +882,17 @@ impl Cg<'_> {
                 Ok(())
             }
             DeviceIntrinsic::ThreadIndexX
+            | DeviceIntrinsic::ThreadIndexY
+            | DeviceIntrinsic::ThreadIndexZ
             | DeviceIntrinsic::BlockIndexX
+            | DeviceIntrinsic::BlockIndexY
+            | DeviceIntrinsic::BlockIndexZ
             | DeviceIntrinsic::BlockDimX
-            | DeviceIntrinsic::GlobalIdX => {
+            | DeviceIntrinsic::BlockDimY
+            | DeviceIntrinsic::BlockDimZ
+            | DeviceIntrinsic::GlobalIdX
+            | DeviceIntrinsic::GlobalIdY
+            | DeviceIntrinsic::GlobalIdZ => {
                 let val = self.emit_index_intrinsic(intr);
                 // 索引类返回 usize(i64);结果存入 dest
                 let pp = self.place_ptr(b, dest)?;
@@ -702,31 +906,41 @@ impl Cg<'_> {
         }
     }
 
-    /// sreg 取值(i32)→ zext i64;`global_id` = ctaid.x*ntid.x + tid.x。
+    /// sreg 取值(i32)→ zext i64;`global_id.{axis}` = ctaid.a*ntid.a + tid.a
+    /// (M5.3:DIM≥2 取 .y/.z 维,RXS-0072)。
     fn emit_index_intrinsic(&mut self, intr: DeviceIntrinsic) -> String {
-        let tid = "llvm.nvvm.read.ptx.sreg.tid.x";
-        let ctaid = "llvm.nvvm.read.ptx.sreg.ctaid.x";
-        let ntid = "llvm.nvvm.read.ptx.sreg.ntid.x";
         let read = |cg: &mut Self, name: &str| -> String {
             cg.intrinsics.insert(format!("declare i32 @{name}()"));
             let t = cg.fresh();
             let _ = writeln!(cg.fns, "  {t} = call i32 @{name}()");
             t
         };
+        let tid = |a: char| format!("llvm.nvvm.read.ptx.sreg.tid.{a}");
+        let ctaid = |a: char| format!("llvm.nvvm.read.ptx.sreg.ctaid.{a}");
+        let ntid = |a: char| format!("llvm.nvvm.read.ptx.sreg.ntid.{a}");
+        let global = |cg: &mut Self, a: char| -> String {
+            let c = read(cg, &ctaid(a));
+            let n = read(cg, &ntid(a));
+            let t = read(cg, &tid(a));
+            let m = cg.fresh();
+            let _ = writeln!(cg.fns, "  {m} = mul i32 {c}, {n}");
+            let s = cg.fresh();
+            let _ = writeln!(cg.fns, "  {s} = add i32 {m}, {t}");
+            s
+        };
         let i32_val = match intr {
-            DeviceIntrinsic::ThreadIndexX => read(self, tid),
-            DeviceIntrinsic::BlockIndexX => read(self, ctaid),
-            DeviceIntrinsic::BlockDimX => read(self, ntid),
-            DeviceIntrinsic::GlobalIdX => {
-                let c = read(self, ctaid);
-                let n = read(self, ntid);
-                let t = read(self, tid);
-                let m = self.fresh();
-                let _ = writeln!(self.fns, "  {m} = mul i32 {c}, {n}");
-                let s = self.fresh();
-                let _ = writeln!(self.fns, "  {s} = add i32 {m}, {t}");
-                s
-            }
+            DeviceIntrinsic::ThreadIndexX => read(self, &tid('x')),
+            DeviceIntrinsic::ThreadIndexY => read(self, &tid('y')),
+            DeviceIntrinsic::ThreadIndexZ => read(self, &tid('z')),
+            DeviceIntrinsic::BlockIndexX => read(self, &ctaid('x')),
+            DeviceIntrinsic::BlockIndexY => read(self, &ctaid('y')),
+            DeviceIntrinsic::BlockIndexZ => read(self, &ctaid('z')),
+            DeviceIntrinsic::BlockDimX => read(self, &ntid('x')),
+            DeviceIntrinsic::BlockDimY => read(self, &ntid('y')),
+            DeviceIntrinsic::BlockDimZ => read(self, &ntid('z')),
+            DeviceIntrinsic::GlobalIdX => global(self, 'x'),
+            DeviceIntrinsic::GlobalIdY => global(self, 'y'),
+            DeviceIntrinsic::GlobalIdZ => global(self, 'z'),
             DeviceIntrinsic::Barrier => unreachable!("barrier 不取值"),
         };
         let z = self.fresh();
