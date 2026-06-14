@@ -1,0 +1,12 @@
+//@ spec: RXS-0080
+// scoped atomics positive: 合法 Scope/order 的原子读改写(fetch_add 经 Scope::Block,
+// 同一位置访问类型一致,RXS-0080);此合法形态 0 诊断。本批为 spec 先行正例锚定,
+// scope 误用 reject 语料 + PTX atom.{order}.{scope} 映射真跑随 M5.2 实现 WP(映射 D-406 人工落笔)。
+
+kernel fn count(t: ThreadCtx<1>, data: View<global, u32>, counters: AtomicView<global, u32, (16,)>) {
+    let i = t.thread_index();
+    let bucket = data[i] % 16;
+    counters.fetch_add(bucket, 1, Scope::Block);
+}
+
+fn main() {}

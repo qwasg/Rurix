@@ -1,0 +1,16 @@
+//@ spec: RXS-0079
+// shared+barrier positive: 某 lane 写 shared 位置 → block.sync() → 读他 lane 写入,
+// 写读之间隔有 block 级 barrier(一致性规则,RXS-0079);此合法模式 0 诊断。本批为
+// spec 先行正例锚定,reject 语料(写后未同步读)与 shared+barrier 数据流检查随 M5.2 实现 WP。
+
+kernel fn shared_reduce(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>) {
+    shared let tile: [f32; 256];
+    let i = t.thread_index();
+    tile[i] = src[i];
+    block.sync();
+    if i == 0 {
+        dst[0] = tile[1];
+    }
+}
+
+fn main() {}
