@@ -26,7 +26,9 @@ use std::collections::{HashMap, HashSet};
 
 use crate::ast::{FnColor, LitKind};
 use crate::diag::ErrorCode;
-use crate::hir::{self, Body, BodyId, Crate, DefId, Expr, ExprKind, LocalId, Pat, PatKind, Res, Stmt, ViewOp};
+use crate::hir::{
+    self, Body, BodyId, Crate, DefId, Expr, ExprKind, LocalId, Pat, PatKind, Res, Stmt, ViewOp,
+};
 use crate::query::QueryCtx;
 use crate::span::Span;
 use crate::ty::Ty;
@@ -167,7 +169,10 @@ impl Checker<'_, '_> {
         match &e.kind {
             ExprKind::SynthInt(v) => u64::try_from(*v).ok(),
             ExprKind::Lit(l) if l.kind == LitKind::Int => {
-                let text = self.cx.src().get(l.span.lo.0 as usize..l.span.hi.0 as usize)?;
+                let text = self
+                    .cx
+                    .src()
+                    .get(l.span.lo.0 as usize..l.span.hi.0 as usize)?;
                 parse_uint(text)
             }
             _ => None,
@@ -199,7 +204,14 @@ impl Checker<'_, '_> {
     }
 
     /// 在 view 算子调用点裁决越界(RX3008);`unsafe` 块内豁免(RXS-0078)。
-    fn check_view_op_bounds(&self, call: &Expr, receiver: &Expr, method: &str, args: &[Expr], in_unsafe: bool) {
+    fn check_view_op_bounds(
+        &self,
+        call: &Expr,
+        receiver: &Expr,
+        method: &str,
+        args: &[Expr],
+        in_unsafe: bool,
+    ) {
         if in_unsafe {
             return;
         }
@@ -208,7 +220,9 @@ impl Checker<'_, '_> {
         };
         let (recv_len, arg_lit) = (info.recv_len, info.arg_lit);
         let detail = match info.op {
-            ViewOp::Chunks if arg_lit == Some(0) => Some("chunk size must be at least 1".to_owned()),
+            ViewOp::Chunks if arg_lit == Some(0) => {
+                Some("chunk size must be at least 1".to_owned())
+            }
             ViewOp::Windows if arg_lit == Some(0) => {
                 Some("window size must be at least 1".to_owned())
             }

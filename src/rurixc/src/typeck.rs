@@ -1462,9 +1462,7 @@ impl Tck<'_, '_> {
                 match op {
                     // split_at → (lo, hi) 两个子 view;chunks/windows → 单一代表
                     // 子 view 形态(序列容器留后续,RXS-0078 MVP)。
-                    crate::hir::ViewOp::SplitAt => {
-                        Ty::Tuple(vec![sub_view.clone(), sub_view])
-                    }
+                    crate::hir::ViewOp::SplitAt => Ty::Tuple(vec![sub_view.clone(), sub_view]),
                     crate::hir::ViewOp::Chunks | crate::hir::ViewOp::Windows => sub_view,
                 }
             }
