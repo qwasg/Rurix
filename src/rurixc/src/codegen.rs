@@ -722,7 +722,9 @@ impl Cg<'_> {
                     }
                     // device intrinsic(RXS-0072)是 device codegen 专属,host 不产出。
                     CallTarget::DeviceIntrinsic(_) => {
-                        unreachable!("CallTarget::DeviceIntrinsic 仅出现在 device MIR(NVPTX codegen)")
+                        unreachable!(
+                            "CallTarget::DeviceIntrinsic 仅出现在 device MIR(NVPTX codegen)"
+                        )
                     }
                 }
                 let _ = writeln!(self.fns, "  br label %bb{}{}", next.0, self.dbg_suffix());
