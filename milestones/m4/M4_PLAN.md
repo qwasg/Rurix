@@ -34,7 +34,7 @@ flowchart LR
 | 4 | 地址空间检查:View/Buffer 的地址空间作为类型参数,一致性在类型检查层完成(无需数据流);barrier 可达性保守 uniform 检查骨架(依赖 thread id 的分支内调 barrier → 须 unsafe,06 §2.2) | 单测 + conformance 正例 0 诊断 |
 | 5 | 3xxx 错误码段位首批分配 + `coloring.*`/`addrspace.*` message-key(registry 只追加);host 回归网(hello-world 冒烟)持续绿 | `py -3 ci/check_schemas.py` PASS + UI snapshot |
 
-**出口判据**:着色/地址空间反例(契约 G-M4-3 的 3xxx 子集)全拦截;conformance 正例 0 诊断;host hello-world 冒烟不回归。
+**出口判据(✅ 已达成,M4 closed 2026-06-14)**:着色/地址空间反例(契约 G-M4-3 的 3xxx 子集)全拦截;conformance 正例 0 诊断;host hello-world 冒烟不回归。
 
 ## 2. M4.2 — NVPTX codegen 与 ptxas 关卡(~2–3 周)
 
@@ -45,7 +45,7 @@ flowchart LR
 | 3 | ptxas 干验证关卡:生成的 PTX 过 `ptxas -arch=sm_89`(strict-only,不产 cubin);拒绝 = RX6xxx 编译错误;防御非 ASCII 路径(ptxas 崩溃先例);6xxx 错误码段位首批分配 | 单测 + UI snapshot(G-M4-4 通道) |
 | 4 | PTX 文本 golden 评估 + NVPTX 雷区回归集起步:PTX 形态此阶段定型,准备 golden 基线挂 IR golden 机制(激活在 M4.2/M4.3,经红绿验证);遇 shfl 选择失败/sqrt 近似约束类雷区登记 pin 绕行 | 评估记录入 CI_GATES 修订行 |
 
-**出口判据**:示例 kernel(SAXPY 雏形)全管线产 PTX 且过 ptxas 干验证;ptxas 拒绝路径产 RX6xxx;codegen 反例(6xxx 子集)入 UI 通道。
+**出口判据(✅ 已达成,M4 closed 2026-06-14)**:示例 kernel(SAXPY 雏形)全管线产 PTX 且过 ptxas 干验证;ptxas 拒绝路径产 RX6xxx;codegen 反例(6xxx 子集)入 UI 通道。
 
 ## 3. M4.3 — 运行时与 launch 类型契约(~2–3 周)
 
@@ -58,7 +58,7 @@ flowchart LR
 | 5 | 黄金路径 4:`tests/ui/` 目标后端错误 snapshot ≥10(3xxx 着色/地址空间 + 6xxx codegen/ptxas,经 bless 审批) | G-M4-3 计数 + CI 绿 |
 | 6 | PTX golden guardrail 激活(M4.2 预评估落地):基线入库 + 核对入 CI,真实红绿验证 | guardrail 红绿 run URL 留痕 |
 
-**出口判据**:契约 G-M4-2 + G-M4-3 + G-M4-4 达成;运行时全链路(装载→launch→拷回)对示例 kernel 真跑成功。
+**出口判据(✅ 已达成,M4 closed 2026-06-14)**:契约 G-M4-2 + G-M4-3 + G-M4-4 达成;运行时全链路(装载→launch→拷回)对示例 kernel 真跑成功。
 
 ## 4. M4.4 — SAXPY 上 GPU、预算回填与 close-out(~1–2 周)
 
@@ -71,7 +71,7 @@ flowchart LR
 | 5 | traceability 矩阵再生成(`ci/trace_matrix.py`,含 device 新条款)+ 全锚定核对 | G-M4-5 |
 | 6 | M4 close-out 草拟(验收记录 + guardrail 输出 + NVIDIA 白名单评估结论 + 红绿 run URL 追加契约 §8;关闭判定人工) | guardrail 全过 |
 
-**出口判据**:契约 G-M4-1 / G-M4-5 达成,close-out 草案就绪。
+**出口判据(✅ 已达成,M4 closed 2026-06-14)**:契约 G-M4-1 / G-M4-5 达成(measured ratio 1.0001 ≥ 0.95,`budget_eval --strict` PASS),close-out 终审完成(M4_CONTRACT §8.4,`status: closed`)。
 
 ## 5. 风险提示(引用,不另建登记)
 
@@ -87,3 +87,4 @@ flowchart LR
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-06-13 | 初版(M4 契约配套;CI 步骤 17–20 为 M4.2/M4.3/M4.4 计划项,落地时回填实测命令) |
+| v1.1 | 2026-06-14 | M4.1~M4.4 出口判据全部勾掉(✅ 已达成);M4 契约 `status: closed`(G-M4-1 measured ratio 1.0001、`budget_eval --strict` PASS,close-out 见 M4_CONTRACT §8.4) |
