@@ -62,6 +62,12 @@ jobs:
         shell: powershell
         run: cargo build -p rurixc --bin rurixc
 
+      - name: ui golden snapshot drift check (M5.4 G-M5-3 黄金路径 5)
+        shell: powershell
+        # 诊断 snapshot 漂移检测:非 bless 模式比对 tests/ui/**/*.stderr。
+        # pr-smoke 已在 cargo test --workspace 内覆盖;nightly 串行兜底防主干漂移。
+        run: cargo test -p rurixc --test ui_golden
+
       - name: self-profile archive run (M2 CI_GATES §3, since M2.4)
         shell: powershell
         run: |
