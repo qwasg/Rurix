@@ -63,7 +63,7 @@ flowchart LR
 
 | # | 任务 | 验证方式 |
 |---|---|---|
-| 1 | 基准采样(G-M5-1):BENCH_PROTOCOL §3 协议 + **三次进程级独立运行**;锁频 L0 前置(降级证据 `unlocked` 不得回填);reduce/scan/GEMM-tile 证据 JSON 入 evidence/ | `evidence_level=measured_local` 核验 |
+| 1 | 基准采样(G-M5-1):BENCH_PROTOCOL §3 协议 + **三次进程级独立运行**;锁频 L0 前置(降级证据 `unlocked` 不得回填);reduce/scan/GEMM-tile 证据 JSON 入 evidence/。脚手架:`bench/lock_clocks.py`(--lock/--check/--unlock + `require_locked()` 采样前置闸门)→ `bench/cuda_ref_triple.py`(CUDA C++ 对照分母 ×3 回填 `m5.bench.*_cuda.*`)→ `bench/rurix_{reduce,scan,gemm_tile}_triple.py`(自研 kernel 分子 ×3 + ratio);`bench/m5_bench_all.py` 为一键编排入口 | `py -3 bench/lock_clocks.py --lock`(管理员)→ `py -3 bench/m5_bench_all.py` → `evidence_level=measured_local` 核验 |
 | 2 | 预算回填:[m5_budget.json](m5_budget.json) `m5.ratio.{reduce,scan,gemm_tile}_vs_cuda` estimated → measured_local(numerator = 自研 kernel,denominator = 手写 CUDA C++ 对照),阈值 0.90,revision_log 追加 | `py -3 ci/budget_eval.py --strict` ≥0.90 通过 |
 | 3 | **Compute Sanitizer 纳入 nightly(G-M5-4)**:`racecheck` + `memcheck` 对全部自研 kernel + M4 SAXPY 回归;激活经真实红绿验证(构造已知竞争 kernel → racecheck 红 → 修复转绿);报告归档 | CI nightly 全绿 + 红绿 run URL 留痕 |
 | 4 | 黄金路径 5 收口:`tests/ui/` 并行安全错误 snapshot ≥10(views 重叠/别名 + shared+barrier + scoped atomics,经 bless 审批) | G-M5-3 计数 + CI 绿 |
@@ -87,3 +87,4 @@ flowchart LR
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-06-14 | 初版(M5 契约配套;CI 步骤 22+ 为 M5.x 计划项,落地时回填实测命令;guardrail 三项动作:基准切换 m3-closed→m4-closed、NVIDIA 白名单 formal 激活、Compute Sanitizer nightly 均为计划项) |
+| v1.1 | 2026-06-14 | M5.4 任务 1(脚手架):锁频检查 `bench/lock_clocks.py`(--lock/--check/--unlock + `require_locked()` 前置闸门,接入三个 rurix_*_triple.py)+ CUDA 对照分母三次运行器 `bench/cuda_ref_triple.py` + 编排入口 `bench/m5_bench_all.py`;CUDA 对照 PTX(`bench/kernels/cuda_*.ptx`)纳入版本控制。实跑三次采样 + measured_local 回填留作任务 2(需管理员锁频后操作者执行) |

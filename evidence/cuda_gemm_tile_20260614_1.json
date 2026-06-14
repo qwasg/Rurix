@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "evidence_level": "measured_local",
+  "timestamp": "2026-06-14T13:43:20.782802+00:00",
+  "bench": {
+    "id": "cuda_gemm_tile_f32",
+    "level": "L1",
+    "problem_size": "1024x1024 * 1024x1024 f32",
+    "harness_commit": "300373d"
+  },
+  "environment": {
+    "driver_version": "591.86",
+    "nvml_version": "13.591.86",
+    "gpu_name": "NVIDIA GeForce RTX 4070 Ti",
+    "compute_capability": "8.9",
+    "driver_model": "WDDM",
+    "clocks": {
+      "locked": true,
+      "sm_clock_mhz": 2610,
+      "mem_clock_mhz": 10501,
+      "lock_method": "nvidia-smi -lgc/-lmc (elevated); persistence mode unsupported on Windows"
+    },
+    "thermal": {
+      "temp_start_c": 37,
+      "temp_end_c": 38,
+      "steady_state": true
+    },
+    "isolation_check": {
+      "other_compute_processes": 32
+    },
+    "cuda_driver_version": "13.1",
+    "tdr": {
+      "tdr_delay": "not_set(os_default)",
+      "tdr_level": "not_set(os_default)"
+    },
+    "hags_enabled": true,
+    "os_build": "Windows 10.0.28120"
+  },
+  "sampling": {
+    "warmup_iterations": 10,
+    "steady_state_cv": 0.009299,
+    "timed_iterations": 50,
+    "trials": 3,
+    "trimmed_pct": 0.2,
+    "l2_clear_mb": 256,
+    "timer": "cuda_event"
+  },
+  "results": {
+    "metric": "throughput",
+    "unit": "GFLOPS",
+    "trial_medians": [
+      3093.1446,
+      3093.1446,
+      3093.1446
+    ],
+    "trimmed_mean": 3093.1446,
+    "cv": 0.001665,
+    "ci95": [
+      3093.1446,
+      3093.6435
+    ],
+    "min": 2228.6419,
+    "max": 3143.8615,
+    "outliers_rejected_iqr": 36,
+    "correctness_check": "pass"
+  },
+  "notes": "handwritten CUDA C++ reference PTX (.version 8.0, entry cuda_gemm_tile); classic 16x16 shared-memory tiling, NO Tensor Core, atomics-free; metric id m5.bench.gemm_tile_cuda.throughput_gflops"
+}

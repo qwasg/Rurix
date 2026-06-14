@@ -14,26 +14,59 @@
     {
       "id": "m5.bench.reduce_cuda.effective_bandwidth_gbps",
       "direction": "min",
-      "threshold": 0,
-      "evidence": "estimated",
-      "skip_reason": "M5.4 回填:手写 CUDA C++ reduce 对照 measured_local(三次进程级独立运行 trimmed mean,BENCH_PROTOCOL §3);锁频 L0 前置,unlocked 不得回填(契约 G-M5-1)",
-      "unit": "GB/s"
+      "threshold": 261.22,
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "GB/s",
+      "evidence_file": "evidence/cuda_reduce_20260614_agg.json",
+      "measured_value": 274.9731
     },
     {
       "id": "m5.bench.scan_cuda.effective_bandwidth_gbps",
       "direction": "min",
-      "threshold": 0,
-      "evidence": "estimated",
-      "skip_reason": "M5.4 回填:手写 CUDA C++ scan 对照 measured_local(三次进程级独立运行 trimmed mean,BENCH_PROTOCOL §3);锁频 L0 前置,unlocked 不得回填(契约 G-M5-1)",
-      "unit": "GB/s"
+      "threshold": 400.6,
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "GB/s",
+      "evidence_file": "evidence/cuda_scan_20260614_agg.json",
+      "measured_value": 421.6799
     },
     {
       "id": "m5.bench.gemm_tile_cuda.throughput_gflops",
       "direction": "min",
-      "threshold": 0,
-      "evidence": "estimated",
-      "skip_reason": "M5.4 回填:手写 CUDA C++ tiled GEMM 对照 measured_local(三次进程级独立运行 trimmed mean,BENCH_PROTOCOL §3);锁频 L0 前置,unlocked 不得回填(契约 G-M5-1)",
-      "unit": "GFLOPS"
+      "threshold": 2946.21,
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "GFLOPS",
+      "evidence_file": "evidence/cuda_gemm_tile_20260614_agg.json",
+      "measured_value": 3101.2705
+    },
+    {
+      "id": "m5.bench.reduce.effective_bandwidth_gbps",
+      "direction": "min",
+      "threshold": 259.26,
+      "evidence": "measured_local",
+      "unit": "GB/s",
+      "evidence_file": "evidence/rurix_reduce_20260614_agg.json",
+      "measured_value": 272.9062
+    },
+    {
+      "id": "m5.bench.scan.effective_bandwidth_gbps",
+      "direction": "min",
+      "threshold": 402.91,
+      "evidence": "measured_local",
+      "unit": "GB/s",
+      "evidence_file": "evidence/rurix_scan_20260614_agg.json",
+      "measured_value": 424.1192
+    },
+    {
+      "id": "m5.bench.gemm_tile.throughput_gflops",
+      "direction": "min",
+      "threshold": 2951.05,
+      "evidence": "measured_local",
+      "unit": "GFLOPS",
+      "evidence_file": "evidence/rurix_gemm_tile_20260614_agg.json",
+      "measured_value": 3106.3649
     }
   ],
   "ratio_assertions": [
@@ -42,27 +75,30 @@
       "numerator": "m5.bench.reduce.effective_bandwidth_gbps",
       "denominator": "m5.bench.reduce_cuda.effective_bandwidth_gbps",
       "direction": "min",
-      "threshold": 0.90,
-      "evidence": "estimated",
-      "skip_reason": "M5.4 回填:自研 reduce kernel measured_local(三次进程级独立运行 trimmed mean)/ 手写 CUDA C++ 对照同协议锚点;锁频 L0 前置,unlocked 不得回填(契约 G-M5-1,阈值 0.90)"
+      "threshold": 0.9,
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "measured_value": 0.9925
     },
     {
       "id": "m5.ratio.scan_vs_cuda",
       "numerator": "m5.bench.scan.effective_bandwidth_gbps",
       "denominator": "m5.bench.scan_cuda.effective_bandwidth_gbps",
       "direction": "min",
-      "threshold": 0.90,
-      "evidence": "estimated",
-      "skip_reason": "M5.4 回填:自研 scan kernel measured_local / 手写 CUDA C++ 对照同协议锚点;锁频 L0 前置,unlocked 不得回填(契约 G-M5-1,阈值 0.90)"
+      "threshold": 0.9,
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "measured_value": 1.0058
     },
     {
       "id": "m5.ratio.gemm_tile_vs_cuda",
       "numerator": "m5.bench.gemm_tile.throughput_gflops",
       "denominator": "m5.bench.gemm_tile_cuda.throughput_gflops",
       "direction": "min",
-      "threshold": 0.90,
-      "evidence": "estimated",
-      "skip_reason": "M5.4 回填:自研 tiled GEMM kernel(经典 shared-memory tiling,不触 Tensor Core)measured_local / 手写 CUDA C++ 对照同协议锚点;锁频 L0 前置,unlocked 不得回填(契约 G-M5-1,阈值 0.90)"
+      "threshold": 0.9,
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "measured_value": 1.0016
     }
   ],
   "counter_assertions": [
@@ -99,6 +135,26 @@
       "version": "v1.1",
       "date": "2026-06-14",
       "change": "M5.3 WP8:三条 CUDA C++ 对照 denominator entry 占位(estimated,m5.bench.{reduce,scan,gemm_tile}_cuda.*);numerator 随 M5.4 rurix_*_triple 回填"
+    },
+    {
+      "version": "v1.2",
+      "date": "2026-06-14",
+      "change": "M5.4 回填:手写 CUDA C++ 对照分母 measured_local(三次进程级独立运行 trimmed mean;m5.bench.reduce_cuda.effective_bandwidth_gbps=274.9731 GB/s; m5.bench.scan_cuda.effective_bandwidth_gbps=421.6799 GB/s; m5.bench.gemm_tile_cuda.throughput_gflops=3101.2705 GFLOPS)→ 分母 entry estimated→measured_local,阈值 = 实测 × 0.95(契约 G-M5-1)"
+    },
+    {
+      "version": "v1.3",
+      "date": "2026-06-14",
+      "change": "M5.4 回填:Rurix reduce measured_local(三次进程级独立运行 trimmed mean = 272.9062 GB/s)→ numerator entry + ratio vs CUDA C++ 对照 (274.9731 GB/s)= 0.9925(契约 G-M5-1,阈值 0.90)"
+    },
+    {
+      "version": "v1.4",
+      "date": "2026-06-14",
+      "change": "M5.4 回填:Rurix scan measured_local(三次进程级独立运行 trimmed mean = 424.1192 GB/s)→ numerator entry + ratio vs CUDA C++ 对照 (421.6799 GB/s)= 1.0058(契约 G-M5-1,阈值 0.90)"
+    },
+    {
+      "version": "v1.5",
+      "date": "2026-06-14",
+      "change": "M5.4 回填:Rurix tiled GEMM measured_local(三次进程级独立运行 trimmed mean = 3106.3649 GFLOPS)→ numerator entry + ratio vs CUDA C++ 对照 (3101.2705 GFLOPS)= 1.0016(契约 G-M5-1,阈值 0.90)"
     }
   ]
 }
