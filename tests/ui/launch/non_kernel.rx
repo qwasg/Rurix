@@ -1,0 +1,8 @@
+//@ spec: RXS-0074, RXS-0075
+device fn helper(out: ViewMut<global, f32>, x: View<global, f32>, n: usize) {}
+
+fn run<C>(stream: Stream<C>, out: Buffer<C, f32>, x: Buffer<C, f32>, n: usize) {
+    stream.launch(helper, GridDim(n), BlockDim(n), (out, x, n)); //~ ERROR RX3004
+}
+
+fn main() {}

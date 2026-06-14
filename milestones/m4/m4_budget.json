@@ -31,7 +31,7 @@
     },
     {
       "id": "m4.counter.ui_golden_path4_snapshots",
-      "description": "黄金路径 4(目标后端错误:3xxx 着色/地址空间 + 6xxx codegen/ptxas)的 tests/ui/codegen .stderr snapshot 数 ≥10(契约 G-M4-3;数量为 estimated 工程选择,调整经 Direct PR 留痕,对齐 G-M1-1/G-M2-3/G-M3-2 先例。具体子目录在落地 PR 裁决,evaluator 现以 tests/ui/codegen/ 为计数对象)",
+      "description": "黄金路径 4(目标后端错误:3xxx 着色/地址空间 + 6xxx codegen/ptxas + launch 类型契约 3xxx 续接/RX2001 复用)的 tests/ui .stderr snapshot 数 ≥10(契约 G-M4-3;数量为 estimated 工程选择,调整经 Direct PR 留痕,对齐 G-M1-1/G-M2-3/G-M3-2 先例。evaluator 计数目录 = tests/ui/{coloring,addrspace,codegen,launch}/,随 M4.1/M4.2/M4.3 扩列)",
       "expect": ">=10",
       "evidence": "ci_checked"
     }

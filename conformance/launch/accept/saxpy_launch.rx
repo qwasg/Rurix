@@ -1,0 +1,14 @@
+//@ spec: RXS-0074, RXS-0075
+// launch accept: a `kernel` function launched with consistent grid/block dims,
+// matching argument element types, and a single context brand → 0 diagnostics.
+
+kernel fn saxpy(out: ViewMut<global, f32>, x: View<global, f32>, n: usize, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = x[i];
+    }
+}
+
+fn run<C>(stream: Stream<C>, out: Buffer<C, f32>, x: Buffer<C, f32>, n: usize) {
+    stream.launch(saxpy, GridDim(n), BlockDim(n), (out, x, n));
+}

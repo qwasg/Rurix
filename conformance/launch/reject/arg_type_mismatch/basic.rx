@@ -1,0 +1,15 @@
+//@ spec: RXS-0074, RXS-0075
+//@ expect-error: RX2001
+// launch negative: argument `out` has element type i32 but the kernel parameter
+// is `ViewMut<global, f32>` (RXS-0074 参数契约; reuses RX2001).
+
+kernel fn saxpy(out: ViewMut<global, f32>, x: View<global, f32>, n: usize, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = x[i];
+    }
+}
+
+fn run<C>(stream: Stream<C>, out: Buffer<C, i32>, x: Buffer<C, f32>, n: usize) {
+    stream.launch(saxpy, GridDim(n), BlockDim(n), (out, x, n));
+}

@@ -107,6 +107,11 @@ fn run_case(path: &Path, src: &str) -> CaseResult {
             if !diag.has_errors() {
                 cx.check_coloring();
             }
+            // launch 类型契约(M4.3,RX3004/3005/3006 + RX2001 复用,RXS-0074/0075):
+            // 同着色层(typeck 后、MIR 前);黄金路径 4 的 launch 子集
+            if !diag.has_errors() {
+                cx.check_launch();
+            }
             if !diag.has_errors() {
                 cx.check_crate_patterns();
                 // const 求值(M3.4,5xxx,typeck 后、MIR 前)

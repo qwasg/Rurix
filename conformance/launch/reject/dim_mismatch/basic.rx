@@ -1,0 +1,14 @@
+//@ spec: RXS-0074, RXS-0075
+//@ expect-error: RX3005
+// launch negative: GridDim is 2-dimensional but BlockDim is 1-dimensional (RXS-0074 维度契约).
+
+kernel fn saxpy(out: ViewMut<global, f32>, x: View<global, f32>, n: usize, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = x[i];
+    }
+}
+
+fn run<C>(stream: Stream<C>, out: Buffer<C, f32>, x: Buffer<C, f32>, n: usize) {
+    stream.launch(saxpy, GridDim(n, n), BlockDim(n), (out, x, n));
+}

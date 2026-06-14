@@ -527,19 +527,54 @@
       "src/rurixc/src/typeck.rs"
     ],
     "RXS-0070": [
+      "src/rurix-rt/tests/gpu_roundtrip.rs",
       "src/rurixc/src/device_codegen.rs",
       "tests/ui/codegen/kernel_array_index.rx"
     ],
     "RXS-0071": [
+      "src/rurix-rt/tests/gpu_roundtrip.rs",
       "src/rurixc/src/device_codegen.rs",
       "tests/ui/codegen/host_addrspace_view.rx"
     ],
     "RXS-0072": [
+      "src/rurix-rt/tests/gpu_roundtrip.rs",
       "src/rurixc/src/device_codegen.rs"
     ],
     "RXS-0073": [
       "src/rurixc/src/device_codegen.rs",
+      "src/rurixc/tests/ptxas_gate.rs",
       "tests/ui/codegen/device_string_literal.rx"
+    ],
+    "RXS-0074": [
+      "conformance/launch/accept/saxpy_launch.rx",
+      "conformance/launch/reject/arg_type_mismatch/basic.rx",
+      "conformance/launch/reject/context_brand_mismatch/basic.rx",
+      "conformance/launch/reject/dim_mismatch/basic.rx",
+      "conformance/launch/reject/launch_non_kernel/basic.rx",
+      "src/rurixc/src/launch_check.rs",
+      "tests/ui/launch/arg_type_mismatch.rx",
+      "tests/ui/launch/context_brand_mismatch.rx",
+      "tests/ui/launch/dim_mismatch.rx",
+      "tests/ui/launch/non_kernel.rx"
+    ],
+    "RXS-0075": [
+      "conformance/launch/accept/saxpy_launch.rx",
+      "conformance/launch/reject/arg_type_mismatch/basic.rx",
+      "conformance/launch/reject/context_brand_mismatch/basic.rx",
+      "conformance/launch/reject/dim_mismatch/basic.rx",
+      "conformance/launch/reject/launch_non_kernel/basic.rx",
+      "src/rurixc/src/launch_check.rs",
+      "tests/ui/launch/arg_type_mismatch.rx",
+      "tests/ui/launch/context_brand_mismatch.rx",
+      "tests/ui/launch/dim_mismatch.rx",
+      "tests/ui/launch/non_kernel.rx"
+    ],
+    "RXS-0076": [
+      "src/rurix-rt/src/lib.rs",
+      "src/rurix-rt/tests/gpu_roundtrip.rs"
+    ],
+    "RXS-0077": [
+      "src/rurix-rt/src/lib.rs"
     ]
   }
 }

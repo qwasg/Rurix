@@ -45,6 +45,8 @@ pub struct QueryCtx<'a> {
     checked_defs: Cell<bool>,
     /// 着色/barrier 骨架检查已跑标记(RXS-0066/0068;memo 防重复诊断)。
     checked_coloring: Cell<bool>,
+    /// launch 类型契约检查已跑标记(RXS-0074/0075;memo 防重复诊断)。
+    checked_launch: Cell<bool>,
     /// move/init 检查已跑标记(RXS-0054;memo 防重复诊断)。
     checked_moves: Cell<bool>,
     /// 借用检查已跑标记(RXS-0057~0061;memo 防重复诊断)。
@@ -87,6 +89,7 @@ impl<'a> QueryCtx<'a> {
             checked_patterns: RefCell::new(std::collections::HashSet::new()),
             checked_defs: Cell::new(false),
             checked_coloring: Cell::new(false),
+            checked_launch: Cell::new(false),
             checked_moves: Cell::new(false),
             checked_borrows: Cell::new(false),
             const_vals: RefCell::new(HashMap::new()),
@@ -252,6 +255,17 @@ impl<'a> QueryCtx<'a> {
         }
         self.miss();
         crate::coloring::check_crate(self);
+    }
+
+    /// launch 类型契约检查(RXS-0074/0075;HIR 层,typeck 后、MIR 前,同
+    /// 着色检查层;provider:[`crate::launch_check::check_crate`])。memo 防重复诊断。
+    pub fn check_launch(&self) {
+        if self.checked_launch.replace(true) {
+            self.hit();
+            return;
+        }
+        self.miss();
+        crate::launch_check::check_crate(self);
     }
 
     /// 模式穷尽性检查(RXS-0051;TBIR 窄门时点 = typeck 后、MIR 前)。

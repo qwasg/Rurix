@@ -3,5 +3,12 @@
 version = 4
 
 [[package]]
+name = "rurix-rt"
+version = "0.1.0"
+dependencies = [
+ "rurixc",
+]
+
+[[package]]
 name = "rurixc"
 version = "0.1.0"

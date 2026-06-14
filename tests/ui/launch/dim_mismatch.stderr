@@ -1,0 +1,5 @@
+error[RX3005]: launch grid and block dimensions disagree: grid is 2-dimensional, block is 1-dimensional
+  --> $DIR/launch/dim_mismatch.rx:10:41
+   |
+10 |     stream.launch(saxpy, GridDim(n, n), BlockDim(n), (out, x, n)); //~ ERROR RX3005
+   |                                         ^^^^^^^^^^^ block dimensions disagree with grid

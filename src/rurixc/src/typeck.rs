@@ -1314,6 +1314,17 @@ impl Tck<'_, '_> {
         callee: &hir::Expr,
         args: &[hir::Expr],
     ) -> Ty {
+        // launch 维度构造器(M4.3,RXS-0074):`GridDim(..)`/`BlockDim(..)` 变维数
+        // 容忍——维数 = 实参个数(launch_check 结构化读取);typeck 仅核对实参可
+        // 定型,不按 0 字段 struct 构造器报 arity(防 RX2003 误报)。
+        if let hir::ExprKind::Res(Res::Def(d)) = &callee.kind
+            && self.res.lang_items.is_launch_dim(*d)
+        {
+            for a in args {
+                let _ = self.check_expr(a);
+            }
+            return Ty::Adt(*d, Vec::new());
+        }
         // fn item / 构造器直调(含泛型实例化,RXS-0042/0045)
         if let hir::ExprKind::Res(Res::Def(d)) = &callee.kind {
             let kind = self.res.defs[d.0 as usize].kind;
@@ -1418,6 +1429,15 @@ impl Tck<'_, '_> {
                 } else {
                     Ty::Prim(PrimTy::Usize)
                 }
+            }
+            // launch 类型契约(M4.3,RXS-0074):`Stream` 接收者的 `launch` 方法
+            // 由 launch_check 结构化裁决(着色/维度/参数/brand);typeck 容忍
+            // (不报方法未找到),递归核对实参可定型,返回 unit。
+            Ty::Adt(d, _) if self.res.lang_items.is_stream(*d) && method == "launch" => {
+                for a in args {
+                    let _ = self.check_expr(a);
+                }
+                Ty::unit()
             }
             Ty::Adt(d, _adt_args) => {
                 let found = self

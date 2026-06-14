@@ -15,5 +15,8 @@ __pycache__/
 *.log
 ~$*
 
+# device codegen IR→PTX 中间产物(toolchain::ir_to_ptx 旁路 .dev.ll;M4.4)
+*.dev.ll
+
 # 自托管 runner(若误放仓库内)
 actions-runner/

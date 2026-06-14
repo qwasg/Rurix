@@ -9,6 +9,7 @@
   - conformance/**/*.rx(语法样例集)
   - tests/ui/**/*.rx(UI golden 样例)
   - src/rurixc/**/*.rs(单测锚定注释)
+  - src/rurix-rt/**/*.rs(M4.3 运行时单测/真跑测试锚定注释)
 存在未锚定条款时退出码 1(budget_eval 的 m1.counter.spec_clause_test_anchoring
 消费本工具产物 JSON 的 clauses 字段)。
 """
@@ -92,6 +93,7 @@ def gather_repo() -> tuple[dict[str, str], dict[str, str]]:
     test_files += sorted((ROOT / "conformance").glob("**/*.rx"))
     test_files += sorted((ROOT / "tests" / "ui").glob("**/*.rx"))
     test_files += sorted((ROOT / "src" / "rurixc").glob("**/*.rs"))
+    test_files += sorted((ROOT / "src" / "rurix-rt").glob("**/*.rs"))
     test_texts = {
         p.relative_to(ROOT).as_posix(): p.read_text(encoding="utf-8") for p in test_files
     }

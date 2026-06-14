@@ -142,6 +142,81 @@ AddrMark    ::= "global" | "constant" | "local" | "host"
 
 ---
 
+> **M4.3 范围裁决(launch 类型契约续写)**:RXS-0074~0075 条款化 host 侧 launch 类型契约(05 §6 / 06 §1 / 08 §2,已锁定决策 D-107/D-120 的条款化,档位 Direct)。本批作用面 = **编译期可检的 launch 类型契约**(着色/维度/参数/context-brand 四类反例,07 §3 HIR 层无数据流);运行时对象(Context/Stream/Buffer/launch 的 Driver API 实现)、装载协商(PTX `.version` 比对 → RX7xxx)、poisoned context 状态机随 `rurix-rt` 运行时实现 PR 落地(规范先行:与其实现同 PR,06 §5 / 08 §2.4/§2.5)。错误码 `RX3004`~`RX3006` 为 3xxx 着色/地址空间段位续接(launch 着色/维度/brand;arg 类型不符复用 `RX2001`,View 空间不符复用 `RX3002`),**spec 先行引用,正式分配于 M4.3 实现 WP**(沿用既有节奏,registry revision_log 留痕,编号不复用)。
+
+### RXS-0074 launch 类型契约
+
+**Syntax**(launch 调用形态,05 §6 / D-120 草图的可检收窄):
+
+```
+LaunchCall ::= StreamExpr "." "launch" "(" KernelRef "," GridDim "," BlockDim "," ArgTuple ")"
+KernelRef  ::= PathExpr           // 解析到 `kernel fn` 的值引用
+GridDim    ::= "GridDim" "(" Expr ("," Expr)* ")"
+BlockDim   ::= "BlockDim" "(" Expr ("," Expr)* ")"
+ArgTuple   ::= "(" (Expr ("," Expr)*)? ")"
+```
+
+`Stream`、`GridDim`、`BlockDim`、`Context`、`Module` 为编译器已知 host 运行时类型(resolve 兜底识别,用户同名定义优先遮蔽,沿用 RXS-0067 `View` 族兜底纪律);`GridDim`/`BlockDim` 的可变维数构造容忍(维数 = 实参个数)。`Stream<Ctx>`/`Buffer<Ctx, T>` 的首类型实参 `Ctx` 为 **context-brand**(资源归属的类型层编码,05 §4 D-107 affine 资源 brand 的 M4.3 可检形态;完整 affine 生命周期借用证明随 M5)。
+
+**Legality**(launch 类型契约,编译期 HIR 层裁决,无数据流):
+
+- **着色契约**:`launch` 的 `KernelRef` 必须解析到 **`kernel` 着色函数**;对 `host`/`device`/`const` 着色函数或非函数项发起 launch 非法 → `RX3004`(kernel fn 不可直接调用经 RXS-0066/RX3001 拦截,经 launch API 误用非 kernel 经本条 RX3004 拦截)。
+- **维度契约**:`GridDim` 与 `BlockDim` 的维数(实参个数)必须一致(共同定义 launch 网格维度 N ∈ {1,2,3},须与 `kernel fn` 的 `ThreadCtx<DIM>` 一致);不一致 → `RX3005`。M4.3 保守检查 = grid/block 维数相等(`ThreadCtx<DIM>` 的 const 维度跨核对随 const 泛型在 HIR 留存的扩展,RD-007 系)。
+- **参数契约**:`ArgTuple` 各元素按位置与 `kernel fn` 形参(剔除 `ThreadCtx` 句柄形参)对应。host 侧 `Buffer<Ctx, T>` 实参满足 device 侧 `View<space, T>`/`ViewMut<space, T>` 形参当且仅当元素类型 `T` 可合一(Buffer 提供 view,空间由形参声明);标量实参与标量形参类型须合一。类型不符 → `RX2001`(复用类型不匹配段,View 空间不符复用 `RX3002`,RXS-0067)。
+- **context-brand 契约**:`ArgTuple` 中携带 brand 的资源实参(`Buffer<Ctx, T>`)的 brand `Ctx` 必须与发起 launch 的 `Stream<Ctx>` 的 brand 一致;不一致(跨 context 资源误用)→ `RX3006`。
+
+**Implementation Requirements**:launch 类型契约检查在 HIR 层、typeck 之后、MIR 前实施(与着色检查同层,07 §3,无需数据流);输入 = 各 body 的 typeck 结果(实参定型 + 接收者类型)与 `kernel fn` 签名;诊断 span 指向违例构件(kernel 引用 / grid/block 维度 / 不符实参);措辞允许保守粗糙(07 §4 先正确性后诊断)。`Stream`/`Buffer` brand 的完整 affine 生命周期证明(跨 context 资源逃逸)随 M5 device 借用扩展;本批为类型层 brand 一致性(名义合一)。
+
+> 锚定测试:`conformance/launch/accept/*.rx`(正例 0 诊断)、`conformance/launch/reject/<category>/*.rx`(四类反例全拦截);`tests/ui/launch/`(黄金路径 4 launch 子集 snapshot);launch_check 单测。
+
+### RXS-0075 launch 诊断要求(3xxx 续接 + 复用)
+
+**Legality**(launch 类型契约诊断码,3xxx 着色/地址空间段位续接 + 既有段复用):
+
+- **launch 非 kernel 着色** `RX3004`:对非 `kernel` 着色函数发起 launch(RXS-0074 着色契约)。
+- **launch 维度不匹配** `RX3005`:`GridDim`/`BlockDim` 维数不一致(RXS-0074 维度契约)。
+- **launch context-brand 不匹配** `RX3006`:资源实参 brand 与 launch 所在 `Stream` brand 不一致(RXS-0074 context-brand 契约)。
+- **launch 参数类型不符** `RX2001`(复用):`ArgTuple` 实参与 `kernel fn` 形参元素类型不可合一(RXS-0074 参数契约;View 地址空间不符复用 `RX3002`,RXS-0067)。
+
+**Implementation Requirements**:
+
+- 检查时点:launch 类型契约四类均在 HIR / typeck 层之后实施(typeck 后、MIR 前),不依赖数据流(07 §3)。
+- 诊断 span 指向违例构件(kernel 引用表达式 / grid/block 维度构造 / 不符的实参元组元素);措辞允许保守粗糙(07 §4,M4 契约 §2.2 诊断打磨排除项)。
+- **Err 容忍不级联**:launch 形态不完整(kernel 引用不可判定 / 接收者非 `Stream` / 参与类型为容忍区 `Err`)时不触发(防一错多报,与 RXS-0047/0069 同口径);每个 launch 调用按优先序(着色 → 维度 → 参数/brand)报首个违例。
+
+> 锚定测试:`tests/ui/launch/`(黄金路径 4 的 launch 子集 snapshot:RX3004/RX3005/RX3006/RX2001);launch_check 单测(失败路径)。
+
+---
+
+> **M4.3 运行时裁决(rurix-rt 装载协商与 poisoned 状态机)**:RXS-0076~0077 条款化 host 运行时**动态语义**(06 §5 / 08 §2.4/§2.5,已锁定决策 D-230/D-234 的条款化,档位 Direct)。本批为运行时行为(`rurix-rt` 实现:CUDA Driver API 薄层),`nvcuda.dll` 运行时动态加载(无 CUDA Toolkit 依赖,PTX-only,14 §2);装载协商失败与 poisoned 为**运行时结构化错误**(`CudaError`,`Result` 返回),保留原始 `CUresult`,**不占编译期 RX#### 段位**(registry = 编译诊断,07 §5)。GPU 真跑子进程隔离(14 §6),无 GPU 环境降级 SKIP(真红绿在带 GPU runner)。
+
+### RXS-0076 PTX 装载协商(运行时)
+
+**Dynamic Semantics**(模块装载与版本协商,08 §2.4 / D-234):
+
+- 运行时装载嵌入/给定的 PTX 前解析其 `.version`(协商起点)与 `.target`;经 `cuModuleLoadDataEx` **驱动内 JIT** 装载(MVP 链路,r2;JIT info/error 日志缓冲常开)。
+- 驱动 JIT 返回 `CUDA_ERROR_UNSUPPORTED_PTX_VERSION`(PTX ISA 超出驱动能力)时,按降版阶梯(高→低,如 `8.0 → 7.8 → 7.0`)改写 `.version` 重试;阶梯耗尽 → 结构化 `LoadNegotiation` 错误,携尝试过的版本序列 + 末次 JIT error log + **可执行指引**(升级 NVIDIA 驱动 / 以更低 `--ptx-floor` 重编)。
+- **明确边界**:Windows 不支持 CUDA Minor Version Compatibility(r6),协商逻辑不照搬 Linux 假设。
+- 装载协商失败为运行时结构化诊断(`rurix-rt` 的 `CudaError::LoadNegotiation`),非编译期 `RX####`(registry 段位仅编译诊断);原始 `CUresult` 经错误保留。
+
+**Implementation Requirements**:`rurix-rt` 装载入口(`Context::load_module`)实现协商序列;PTX `.version` 解析/改写零外部依赖;`nvcuda.dll` 经 `LoadLibraryA`/`GetProcAddress` 运行时加载(不链接 Toolkit `nvcuda.lib`)。
+
+> 锚定测试:`src/rurix-rt`(`.version` 解析/改写单测 + SAXPY 全链路真跑装载协商,子进程隔离;无 GPU SKIP)。
+
+### RXS-0077 poisoned context 状态机(运行时)
+
+**Dynamic Semantics**(错误模型与 poisoned,08 §2.5 / 06 §5 / D-230):
+
+- 全部 Driver API `CUresult` 映射为结构化 `CudaError`(非穷尽枚举 + 原始码保留;异步错误现实:检测点 ≠ 起因点,r4)。
+- `CUDA_ERROR_ASSERT`(device 侧断言)/ `CONTEXT_IS_DESTROYED` → context 进入 **poisoned** 状态;poisoned 后该 context 上的**全部后续操作返回确定性 `Err(Poisoned)`**(携触发函数 + 原始码),而非 UB 级联——重建路径由 affine 类型引导(06 §5,"整块重建"语义类型化)。
+- poisoned 为运行时确定性错误(`CudaError::Poisoned`),非编译期 `RX####`。
+
+**Implementation Requirements**:`rurix-rt` `Context` 维持 poisoned 状态机;每次 Driver API 调用后对 poisoning 码置位,后续 API 入口先查 poisoned 守卫返回确定性错误;GPU 测试子进程隔离(14 §6,崩溃不连坐 harness)。
+
+> 锚定测试:`src/rurix-rt`(poisoning 码分类单测 + Context poisoned 守卫;SAXPY 全链路真跑覆盖正常路径)。
+
+---
+
 ## 错误码引用汇总
 
 | 错误码 | 含义 | 条款 |
@@ -149,13 +224,16 @@ AddrMark    ::= "global" | "constant" | "local" | "host"
 | RX3001 | 跨着色非法调用(device 上下文调 host-only / 直接调用 kernel fn) | RXS-0066, RXS-0069 |
 | RX3002 | 地址空间不匹配(View 族容器空间不一致) | RXS-0067, RXS-0069 |
 | RX3003 | barrier 非 uniform 可达(thread-id 依赖分支内调 barrier,保守骨架) | RXS-0068, RXS-0069 |
-| RX2001 | 类型不匹配(引用:View 可变性不符与元素类型不符走既有类型检查段) | RXS-0067 |
+| RX3004 | launch 非 kernel 着色函数(对 host/device/const 着色函数发起 launch) | RXS-0074, RXS-0075 |
+| RX3005 | launch 维度不匹配(GridDim/BlockDim 维数不一致) | RXS-0074, RXS-0075 |
+| RX3006 | launch context-brand 不匹配(资源实参与 Stream brand 不一致) | RXS-0074, RXS-0075 |
+| RX2001 | 类型不匹配(引用:View 可变性不符与元素类型不符走既有类型检查段;launch 参数元素类型不符复用) | RXS-0067, RXS-0074 |
 | RX6003 | device codegen 暂不支持构造(NVPTX codegen 作用面外) | RXS-0070, RXS-0073 |
 | RX6004 | ptxas 拒绝 PTX(`ptxas -arch=sm_89` 干验证被拒) | RXS-0073 |
 | RX6005 | device codegen 内部约束违例(超出 NVPTX 约束子集) | RXS-0071, RXS-0072, RXS-0073 |
 | RX7001 | 外部工具链失败(ptxas 定位失败归此段,既有码) | RXS-0073 |
 
-含义以 [../registry/error_codes.json](../registry/error_codes.json) 为唯一事实源,本表仅引用。RX3001 ~ RX3003 为 3xxx 着色/地址空间段位首批(07 §5 段位语义),**spec 先行引用,正式分配于 M4.1 实现 WP**(沿用 4xxx/5xxx 在实现 PR 落 registry 的节奏,registry revision_log 留痕,编号不复用)。RX6003 ~ RX6005 为 6xxx codegen/目标段位 device 首批(现有 RX6001/RX6002 为 M2.3 host 子集),**spec 先行引用,正式分配于 M4.2 实现 WP**(同上节奏)。views 不相交证明 / shared+barrier 一致性数据流 / 完整 uniform 分析为 M5 device 借用检查扩展(07 §4 / 11 §3),本批不覆盖。
+含义以 [../registry/error_codes.json](../registry/error_codes.json) 为唯一事实源,本表仅引用。RX3001 ~ RX3003 为 3xxx 着色/地址空间段位首批(07 §5 段位语义),**spec 先行引用,正式分配于 M4.1 实现 WP**(沿用 4xxx/5xxx 在实现 PR 落 registry 的节奏,registry revision_log 留痕,编号不复用)。RX6003 ~ RX6005 为 6xxx codegen/目标段位 device 首批(现有 RX6001/RX6002 为 M2.3 host 子集),**spec 先行引用,正式分配于 M4.2 实现 WP**(同上节奏)。RX3004 ~ RX3006 为 3xxx 段位续接(launch 着色/维度/brand,RXS-0074/0075),**spec 先行引用,正式分配于 M4.3 实现 WP**(同上节奏;launch 参数类型不符复用 RX2001/RX3002)。views 不相交证明 / shared+barrier 一致性数据流 / 完整 uniform 分析为 M5 device 借用检查扩展(07 §4 / 11 §3),本批不覆盖。
 
 ## 修订记录
 
@@ -163,3 +241,5 @@ AddrMark    ::= "global" | "constant" | "local" | "host"
 |---|---|---|---|
 | v1.0 | 2026-06-13 | 初版:RXS-0066 ~ RXS-0069(M4.1 device 着色/地址空间首批:函数着色与跨着色调用合法性 / 地址空间类型与一致性 / barrier uniform 可达性保守骨架 / 着色与地址空间诊断要求;05 §1/§3.2/§5、06 §2.2、07 §3 已锁定决策 D-102/D-106/D-108/D-120/D-123 的条款化,M4 契约 D-M4-2 spec 先行)。错误码汇总表登记 RX3001~RX3003(spec 先行引用,实现 WP 正式分配);barrier 完整 uniform 分析与 views 不相交证明排除(M5) | Direct |
 | v1.1 | 2026-06-13 | 续写 RXS-0070 ~ RXS-0073(M4.2 NVPTX codegen 与 ptxas 关卡:codegen 目标与 `ptx_kernel` 调用约定 / 地址空间 codegen 建模 / 线程索引与 launch bounds / ptxas 干验证关卡与 6xxx 诊断要求;06 §1/§2.2、07 §7 已锁定决策 D-120/D-121/D-123/D-205/D-207 的条款化,M4 契约 D-M4-2/D-M4-3 spec 先行)。错误码汇总表登记 RX6003~RX6005(spec 先行引用,M4.2 实现 WP 正式分配);codegen 作用面 = SAXPY 雏形子集(DIM=1 线程索引 + `global` 索引读写 + f32 算术);shared/barrier 完整 codegen、launch 维度契约、cubin 分发排除(M4.3/M5/G1) | Direct |
+| v1.3 | 2026-06-13 | 续写 RXS-0076 ~ RXS-0077(M4.3 运行时:PTX 装载协商 / poisoned context 状态机;06 §5、08 §2.4/§2.5 已锁定决策 D-230/D-234 的条款化,M4 契约 D-M4-4 运行时落地)。运行时动态语义(rurix-rt CUDA Driver API 薄层,nvcuda.dll 运行时动态加载,PTX-only 无 Toolkit 依赖);装载协商失败/poisoned 为运行时结构化 `CudaError`(Result),保留原始 CUresult,不占编译期 RX#### 段位;GPU 真跑子进程隔离,无 GPU SKIP。锚定 src/rurix-rt 单测 + SAXPY 全链路真跑 | Direct |
+| v1.2 | 2026-06-13 | 续写 RXS-0074 ~ RXS-0075(M4.3 launch 类型契约:着色/维度/参数/context-brand 四类编译期可检契约 + launch 诊断要求;05 §6/§4、06 §1、08 §2 已锁定决策 D-107/D-120 的条款化,M4 契约 D-M4-2/D-M4-6 spec 先行)。错误码汇总表登记 RX3004~RX3006(spec 先行引用,M4.3 实现 WP 正式分配;launch 参数类型不符复用 RX2001/RX3002)。作用面 = 编译期 launch 类型契约;运行时对象/装载协商/poisoned 状态机随 rurix-rt 实现 PR(规范先行同 PR);ThreadCtx const 维度跨核对、views 不相交、完整 affine brand 借用证明排除(M5/RD-007) | Direct |
