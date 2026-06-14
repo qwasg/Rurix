@@ -591,6 +591,12 @@
       "tests/ui/views/two_splits_alias.rx",
       "tests/ui/views/window_oversize.rx",
       "tests/ui/views/windows_overlap.rx"
+    ],
+    "RXS-0079": [
+      "conformance/shared/accept/shared_barrier_consistent.rx"
+    ],
+    "RXS-0080": [
+      "conformance/atomics/accept/scoped_atomics_ok.rx"
     ]
   }
 }
