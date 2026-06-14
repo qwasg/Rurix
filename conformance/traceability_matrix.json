@@ -577,7 +577,20 @@
       "src/rurix-rt/src/lib.rs"
     ],
     "RXS-0078": [
-      "conformance/views/accept/split_at_disjoint.rx"
+      "conformance/views/accept/chunks_disjoint.rx",
+      "conformance/views/accept/split_at_disjoint.rx",
+      "conformance/views/reject/alias_mut_write/basic.rx",
+      "conformance/views/reject/chunk_zero_or_window_oversize/basic.rx",
+      "conformance/views/reject/chunk_zero_or_window_oversize/window_oversize.rx",
+      "conformance/views/reject/overlap_windows/basic.rx",
+      "conformance/views/reject/split_out_of_bounds/basic.rx",
+      "src/rurixc/src/views_check.rs",
+      "tests/ui/views/alias_parent_write.rx",
+      "tests/ui/views/chunk_zero.rx",
+      "tests/ui/views/split_out_of_bounds.rx",
+      "tests/ui/views/two_splits_alias.rx",
+      "tests/ui/views/window_oversize.rx",
+      "tests/ui/views/windows_overlap.rx"
     ]
   }
 }

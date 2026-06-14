@@ -1,0 +1,7 @@
+//@ spec: RXS-0078
+kernel fn k(v: ViewMut<global, f32>, i: usize) {
+    let w = v.windows(2);
+    w[i] = 1.0; //~ ERROR RX3007
+}
+
+fn main() {}

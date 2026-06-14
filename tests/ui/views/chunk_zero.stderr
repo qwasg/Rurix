@@ -1,0 +1,5 @@
+error[RX3008]: view split is out of bounds: chunk size must be at least 1
+ --> $DIR/views/chunk_zero.rx:3:13
+  |
+3 |     let c = v.chunks(0); //~ ERROR RX3008
+  |             ^^^^^^^^^^^ view split is out of bounds

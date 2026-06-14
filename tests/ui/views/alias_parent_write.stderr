@@ -1,0 +1,5 @@
+error[RX3007]: overlapping or aliased mutable sub-views of `v`: cannot prove the sub-views are disjoint
+ --> $DIR/views/alias_parent_write.rx:5:5
+  |
+5 |     v[i] = 2.0; //~ ERROR RX3007
+  |     ^^^^ aliased mutable sub-view written here

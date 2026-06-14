@@ -1,0 +1,10 @@
+//@ spec: RXS-0078
+// views positive: chunks(n) 产出不重叠的块子 view 序列;对单一块子 view 的可变
+// 写合法(不与其他活跃可变借用别名,RXS-0078)。本批为 spec 先行正例锚定。
+
+kernel fn chunk_write(v: ViewMut<global, f32>, i: usize, t: ThreadCtx<1>) {
+    let c = v.chunks(8);
+    c[i] = 1.0;
+}
+
+fn main() {}

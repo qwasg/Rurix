@@ -1,0 +1,11 @@
+//@ spec: RXS-0078
+//@ expect-error: RX3008
+// split_at 低半 lo = [0, 4) 静态长 4;对 lo 取 windows(8) 窗口大小 8 > 4 静态
+// 可判越界(RX3008,RXS-0078)。
+
+kernel fn window_oversize(v: ViewMut<global, f32>, t: ThreadCtx<1>) {
+    let (lo, hi) = v.split_at(4);
+    let w = lo.windows(8);
+}
+
+fn main() {}

@@ -260,6 +260,22 @@
       "spec_clauses": ["RXS-0074", "RXS-0075"]
     },
     {
+      "id": "RX3007",
+      "title": "重叠/别名子 view 同时可变借用(含证不出不相交的保守拒绝)",
+      "message_key": "views.overlapping_mut",
+      "status": "active",
+      "introduced_in": "M5.1",
+      "spec_clauses": ["RXS-0078"]
+    },
+    {
+      "id": "RX3008",
+      "title": "view 划分越界(split 点 / chunk 大小 / 窗口大小静态可判超界)",
+      "message_key": "views.out_of_bounds",
+      "status": "active",
+      "introduced_in": "M5.1",
+      "spec_clauses": ["RXS-0078"]
+    },
+    {
       "id": "RX4001",
       "title": "使用已移出的值(use after move,含 maybe-moved 保守判定)",
       "message_key": "borrowck.use_after_move",
@@ -442,6 +458,11 @@
       "version": "v1.12",
       "date": "2026-06-13",
       "change": "M4.3 分配 RX3004 ~ RX3006(spec/device.md RXS-0074/0075 配套,M4_PLAN §3 任务 1/4,条款 PR 先行引用的正式分配)。3xxx 着色/地址空间段位续接 launch 类型契约:RX3004 launch 非 kernel 着色函数、RX3005 launch 维度不匹配(GridDim/BlockDim 维数不一致)、RX3006 launch context-brand 不匹配(资源实参与 Stream brand 不一致);launch 参数元素类型不符复用 RX2001、View 空间不符复用 RX3002(无新码)。段内分配制递增不复用(列于 RX3003 与 RX4001 之间为段位有序,JSON 数组序非分配序)"
+    },
+    {
+      "version": "v1.13",
+      "date": "2026-06-14",
+      "change": "M5.1 分配 RX3007 ~ RX3008(spec/device.md RXS-0078 配套,M5_PLAN §1 任务 4,条款 PR 先行引用的正式分配)。3xxx 着色/地址空间段位续接 views 不相交证明(device 借用检查扩展):RX3007 重叠/别名子 view 同时可变借用(windows 相邻窗口重叠 / 别名可变 view 写冲突 / 证不出不相交的保守拒绝)、RX3008 view 划分越界(split 点 / chunk 大小 / 窗口大小静态可判超界)。message_key views.overlapping_mut / views.out_of_bounds 随实现 WP 落 en.messages;段内分配制递增不复用(列于 RX3006 与 RX4001 之间为段位有序,JSON 数组序非分配序)"
     }
   ]
 }

@@ -123,6 +123,11 @@ fn run_case(path: &Path, src: &str) -> CaseResult {
                     if !diag.has_errors() {
                         cx.check_borrows();
                     }
+                    // views 不相交证明(M5.1,RX3007/RX3008,RXS-0078):device 借用
+                    // 扩展,host 借用检查之后、device codegen 之前(黄金路径 5 views 子集)
+                    if !diag.has_errors() {
+                        cx.check_views();
+                    }
                 }
                 // device codegen(M4.2,黄金路径 4 的 6xxx 子集:RX6001/RX6003/
                 // RX6005,RXS-0070~0073)。`kernel fn` 为根;无 kernel → no-op。

@@ -47,6 +47,8 @@ pub struct QueryCtx<'a> {
     checked_coloring: Cell<bool>,
     /// launch 类型契约检查已跑标记(RXS-0074/0075;memo 防重复诊断)。
     checked_launch: Cell<bool>,
+    /// views 不相交检查已跑标记(RXS-0078;memo 防重复诊断)。
+    checked_views: Cell<bool>,
     /// move/init 检查已跑标记(RXS-0054;memo 防重复诊断)。
     checked_moves: Cell<bool>,
     /// 借用检查已跑标记(RXS-0057~0061;memo 防重复诊断)。
@@ -90,6 +92,7 @@ impl<'a> QueryCtx<'a> {
             checked_defs: Cell::new(false),
             checked_coloring: Cell::new(false),
             checked_launch: Cell::new(false),
+            checked_views: Cell::new(false),
             checked_moves: Cell::new(false),
             checked_borrows: Cell::new(false),
             const_vals: RefCell::new(HashMap::new()),
@@ -266,6 +269,18 @@ impl<'a> QueryCtx<'a> {
         }
         self.miss();
         crate::launch_check::check_crate(self);
+    }
+
+    /// views 不相交检查(RXS-0078;device 借用扩展 pass,HIR 层,host 借用检查
+    /// 之后、device codegen 之前;provider:[`crate::views_check::check_crate`])。
+    /// 仅 device 上下文 body 实施;memo 防重复诊断。
+    pub fn check_views(&self) {
+        if self.checked_views.replace(true) {
+            self.hit();
+            return;
+        }
+        self.miss();
+        crate::views_check::check_crate(self);
     }
 
     /// 模式穷尽性检查(RXS-0051;TBIR 窄门时点 = typeck 后、MIR 前)。

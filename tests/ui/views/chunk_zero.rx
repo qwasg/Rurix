@@ -1,0 +1,6 @@
+//@ spec: RXS-0078
+kernel fn k(v: ViewMut<global, f32>) {
+    let c = v.chunks(0); //~ ERROR RX3008
+}
+
+fn main() {}

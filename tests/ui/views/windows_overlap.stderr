@@ -1,0 +1,5 @@
+error[RX3007]: overlapping or aliased mutable sub-views of `w`: cannot prove the sub-views are disjoint
+ --> $DIR/views/windows_overlap.rx:4:5
+  |
+4 |     w[i] = 1.0; //~ ERROR RX3007
+  |     ^^^^ overlapping `windows` sub-view written here

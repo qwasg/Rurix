@@ -1,0 +1,5 @@
+error[RX3008]: view split is out of bounds: split point 8 exceeds view length 4
+ --> $DIR/views/split_out_of_bounds.rx:4:18
+  |
+4 |     let (a, b) = lo.split_at(8); //~ ERROR RX3008
+  |                  ^^^^^^^^^^^^^^ view split is out of bounds

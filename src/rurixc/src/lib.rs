@@ -38,3 +38,4 @@ pub mod tbir_build;
 pub mod toolchain;
 pub mod ty;
 pub mod typeck;
+pub mod views_check;

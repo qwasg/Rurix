@@ -1438,6 +1438,33 @@ impl Tck<'_, '_> {
                 }
                 Ty::unit()
             }
+            // device views 算子(M5.1,RXS-0078):`View`/`ViewMut` 的子 view 划分
+            // 方法(split_at/chunks/windows;用户同名 impl 优先,故先查 assoc_items)。
+            // 返回子 view 类型(与接收者同 space/elem/可变性);不相交性由 views
+            // 不相交 device 借用扩展 pass(见 [`crate::views_check`])裁决。
+            Ty::Adt(d, _)
+                if self.res.lang_items.view_mutable(*d).is_some()
+                    && self
+                        .res
+                        .assoc_items
+                        .get(d)
+                        .is_none_or(|items| !items.iter().any(|(n, _)| n == method))
+                    && crate::hir::ViewOp::from_method(method).is_some() =>
+            {
+                let op = crate::hir::ViewOp::from_method(method).expect("guard 已确保算子存在");
+                // 划分实参(mid / n)须为 usize(RXS-0078;`mid`/`n` 下标域)。
+                for a in args {
+                    let at = self.check_expr(a);
+                    self.demand(a.span, &Ty::Prim(PrimTy::Usize), &at);
+                }
+                let sub_view = base.clone();
+                match op {
+                    // split_at → (lo, hi) 两个子 view;chunks/windows → 单一代表
+                    // 子 view 形态(序列容器留后续,RXS-0078 MVP)。
+                    crate::hir::ViewOp::SplitAt => Ty::Tuple(vec![sub_view.clone(), sub_view]),
+                    crate::hir::ViewOp::Chunks | crate::hir::ViewOp::Windows => sub_view,
+                }
+            }
             Ty::Adt(d, _adt_args) => {
                 let found = self
                     .res
