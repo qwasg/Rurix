@@ -276,6 +276,22 @@
       "spec_clauses": ["RXS-0078"]
     },
     {
+      "id": "RX3009",
+      "title": "shared+barrier 一致性违例(shared 写后未过 barrier 即读他 lane 写入,含证不出经 barrier 同步的保守拒绝)",
+      "message_key": "shared.barrier_consistency",
+      "status": "active",
+      "introduced_in": "M5.2",
+      "spec_clauses": ["RXS-0079"]
+    },
+    {
+      "id": "RX3010",
+      "title": "scoped atomics scope 误用(越权作用域 / 与地址空间不相容 / 不支持的 scope·order 组合)",
+      "message_key": "atomics.scope_misuse",
+      "status": "active",
+      "introduced_in": "M5.2",
+      "spec_clauses": ["RXS-0080"]
+    },
+    {
       "id": "RX4001",
       "title": "使用已移出的值(use after move,含 maybe-moved 保守判定)",
       "message_key": "borrowck.use_after_move",
@@ -463,6 +479,11 @@
       "version": "v1.13",
       "date": "2026-06-14",
       "change": "M5.1 分配 RX3007 ~ RX3008(spec/device.md RXS-0078 配套,M5_PLAN §1 任务 4,条款 PR 先行引用的正式分配)。3xxx 着色/地址空间段位续接 views 不相交证明(device 借用检查扩展):RX3007 重叠/别名子 view 同时可变借用(windows 相邻窗口重叠 / 别名可变 view 写冲突 / 证不出不相交的保守拒绝)、RX3008 view 划分越界(split 点 / chunk 大小 / 窗口大小静态可判超界)。message_key views.overlapping_mut / views.out_of_bounds 随实现 WP 落 en.messages;段内分配制递增不复用(列于 RX3006 与 RX4001 之间为段位有序,JSON 数组序非分配序)"
+    },
+    {
+      "version": "v1.14",
+      "date": "2026-06-14",
+      "change": "M5.2 分配 RX3009 ~ RX3010(spec/device.md RXS-0079/0080 配套,M5_PLAN §2 任务 2/3,条款 PR 先行引用的正式分配)。3xxx 着色/地址空间段位续接 shared+barrier 一致性数据流 / scoped atomics scope 类型契约:RX3009 shared+barrier 一致性违例(shared 写后未过 block.sync() 即读他 lane 写入 / 证不出经 barrier 同步的保守拒绝,device 借用扩展数据流)、RX3010 scoped atomics scope 误用(越权作用域 / 与地址空间不相容 / 不支持的 scope·order 组合,typeck 层裁决)。message_key shared.barrier_consistency / atomics.scope_misuse 随本实现 WP 落 en.messages;scoped atomics 的 PTX atom.{order}.{scope} 映射为 D-406 禁区(人工落笔,不占编译期段位);段内分配制递增不复用(列于 RX3008 与 RX4001 之间为段位有序,JSON 数组序非分配序)"
     }
   ]
 }

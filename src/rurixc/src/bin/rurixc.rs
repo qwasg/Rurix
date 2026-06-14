@@ -172,6 +172,12 @@ fn main() -> ExitCode {
                     if !diag.has_errors() {
                         cx.check_views();
                     }
+                    // shared+barrier 一致性(M5.2,RXS-0079):device 借用扩展的
+                    // 数据流分析,views 不相交之后、device codegen 之前(仅 device
+                    // 上下文 body)
+                    if !diag.has_errors() {
+                        cx.check_shared_barrier();
+                    }
                     // device emit 通道(`--emit=nvptx-ir|ptx`)以 `kernel fn` 为根,
                     // 不要求 host `main`(RXS-0070);其余目标缺 main → RX6002。
                     let device_emit = matches!(emit.as_deref(), Some("nvptx-ir") | Some("ptx"));

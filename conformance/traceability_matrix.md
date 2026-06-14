@@ -82,5 +82,5 @@
 | RXS-0076 | spec/device.md | 2 | `src/rurix-rt/src/lib.rs`, `src/rurix-rt/tests/gpu_roundtrip.rs` |
 | RXS-0077 | spec/device.md | 1 | `src/rurix-rt/src/lib.rs` |
 | RXS-0078 | spec/device.md | 14 | `conformance/views/accept/chunks_disjoint.rx`, `conformance/views/accept/split_at_disjoint.rx`, `conformance/views/reject/alias_mut_write/basic.rx` …(+11) |
-| RXS-0079 | spec/device.md | 1 | `conformance/shared/accept/shared_barrier_consistent.rx` |
-| RXS-0080 | spec/device.md | 1 | `conformance/atomics/accept/scoped_atomics_ok.rx` |
+| RXS-0079 | spec/device.md | 6 | `conformance/shared/accept/shared_barrier_consistent.rx`, `conformance/shared/reject/barrier_too_late/basic.rx`, `conformance/shared/reject/unsynced_cross_lane_read/basic.rx` …(+3) |
+| RXS-0080 | spec/device.md | 9 | `conformance/atomics/accept/narrower_scope_ok.rx`, `conformance/atomics/accept/scoped_atomics_ok.rx`, `conformance/atomics/reject/scope_addrspace_incompat/basic.rx` …(+6) |

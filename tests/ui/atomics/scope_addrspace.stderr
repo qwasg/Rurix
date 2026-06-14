@@ -1,0 +1,5 @@
+error[RX3010]: scoped atomic scope misuse: `shared` atomics are block-local; scope `Scope::System` exceeds `Scope::Block`
+ --> $DIR/atomics/scope_addrspace.rx:4:30
+  |
+4 |     counters.fetch_add(i, 1, Scope::System); //~ ERROR RX3010
+  |                              ^^^^^^^^^^^^^ scope incompatible with `shared` address space

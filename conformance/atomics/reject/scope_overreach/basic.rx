@@ -1,0 +1,10 @@
+//@ spec: RXS-0080
+//@ expect-error: RX3010
+// `Atomic<u32, Scope::Block>` 仅授予 block 作用域;原子操作使用宽于 brand 的
+// `Scope::System` → 越权使用未授予的作用域,保守拒绝(RX3010,RXS-0080)。
+
+kernel fn overreach(a: Atomic<u32, Scope::Block>) {
+    a.fetch_add(1, Scope::System);
+}
+
+fn main() {}

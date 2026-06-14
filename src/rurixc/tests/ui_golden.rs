@@ -128,6 +128,11 @@ fn run_case(path: &Path, src: &str) -> CaseResult {
                     if !diag.has_errors() {
                         cx.check_views();
                     }
+                    // shared+barrier 一致性(M5.2,RX3009,RXS-0079):device 借用扩展
+                    // 数据流分析(黄金路径 5 shared 子集)
+                    if !diag.has_errors() {
+                        cx.check_shared_barrier();
+                    }
                 }
                 // device codegen(M4.2,黄金路径 4 的 6xxx 子集:RX6001/RX6003/
                 // RX6005,RXS-0070~0073)。`kernel fn` 为根;无 kernel → no-op。

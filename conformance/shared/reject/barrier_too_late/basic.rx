@@ -1,0 +1,14 @@
+//@ spec: RXS-0079
+//@ expect-error: RX3009
+// barrier 位置过晚:跨 lane 读 `tile[0]` 发生在 `block.sync()` 之前,写读之间仍
+// 缺同步点(barrier 须在写后、读前)→ 一致性违例,保守拒绝(RX3009,RXS-0079)。
+
+kernel fn late_barrier(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>) {
+    shared let tile: [f32; 256];
+    let i = t.thread_index();
+    tile[i] = src[i];
+    dst[i] = tile[0];
+    block.sync();
+}
+
+fn main() {}

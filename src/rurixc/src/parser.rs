@@ -1450,6 +1450,22 @@ impl<'a> Parser<'a> {
                 })
             }
             Tk::Ident => TyKind::Path(self.parse_path_in_type()),
+            // `shared` 同时是 `shared let` 关键字与 addrspace 标记(RXS-0067:
+            // `global`/`shared`/`constant`/`local`/`host`)。类型位置(如
+            // `View<shared, T>` / `AtomicView<shared, T, Shape>`)按 addrspace 标记
+            // 标识符处理——其余四标记为上下文关键字本就词法产 Ident,本分支补齐
+            // 唯一的硬关键字 `shared`(单段路径,无泛型实参)。
+            Tk::Kw(Kw::Shared) => {
+                let tok = self.bump();
+                let ident = Ident {
+                    name: "shared".to_owned(),
+                    span: tok.span,
+                };
+                TyKind::Path(Path {
+                    segments: vec![PathSegment { ident, args: None }],
+                    span: tok.span,
+                })
+            }
             _ => {
                 self.error_expected("a type");
                 TyKind::Err

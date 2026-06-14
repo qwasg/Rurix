@@ -1,0 +1,12 @@
+//@ spec: RXS-0080
+// 使用窄于授予 brand 的作用域合法:`Atomic<u32, Scope::System>` 授予 system 作用域,
+// 操作以更窄的 `Scope::Block` 访问 → 未越权,0 诊断(RXS-0080)。global 地址空间
+// 的 `AtomicView` 配 `Scope::Gpu` 同理合法(scope 不宽于地址空间可见性)。
+
+kernel fn narrower(t: ThreadCtx<1>, a: Atomic<u32, Scope::System>, g: AtomicView<global, u32, (16,)>) {
+    let i = t.thread_index();
+    a.fetch_add(1, Scope::Block);
+    g.fetch_max(i, 1, Scope::Gpu);
+}
+
+fn main() {}

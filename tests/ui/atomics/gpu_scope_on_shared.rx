@@ -1,0 +1,7 @@
+//@ spec: RXS-0080
+kernel fn k(t: ThreadCtx<1>, c: AtomicView<shared, u32, (16,)>) {
+    let i = t.thread_index();
+    c.fetch_or(i, 1, Scope::Gpu); //~ ERROR RX3010
+}
+
+fn main() {}

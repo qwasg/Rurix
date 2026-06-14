@@ -166,6 +166,37 @@ impl ViewOp {
     }
 }
 
+/// scoped atomics 原子读改写算子(M5.2,RXS-0080;`Atomic`/`AtomicView` 族方法)。
+/// typeck 在接收者为 `Atomic`/`AtomicView` lang item 时识别,裁决 scope 类型契约
+/// (RX3010);PTX `atom.{order}.{scope}` 映射为 D-406 禁区,由人工落笔(本枚举仅
+/// 服务类型契约识别面,不承载映射语义)。
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum AtomicOp {
+    FetchAdd,
+    FetchMax,
+    FetchMin,
+    FetchAnd,
+    FetchOr,
+    Exchange,
+    CompareExchange,
+}
+
+impl AtomicOp {
+    /// `Atomic`/`AtomicView` 方法名 → 原子算子(RXS-0080;非原子算子返回 None)。
+    pub fn from_method(name: &str) -> Option<Self> {
+        Some(match name {
+            "fetch_add" => AtomicOp::FetchAdd,
+            "fetch_max" => AtomicOp::FetchMax,
+            "fetch_min" => AtomicOp::FetchMin,
+            "fetch_and" => AtomicOp::FetchAnd,
+            "fetch_or" => AtomicOp::FetchOr,
+            "exchange" => AtomicOp::Exchange,
+            "compare_exchange" => AtomicOp::CompareExchange,
+            _ => return None,
+        })
+    }
+}
+
 /// 名称解析结果(RXS-0034 裁决产物)。
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Res {
