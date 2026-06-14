@@ -217,6 +217,41 @@ ArgTuple   ::= "(" (Expr ("," Expr)*)? ")"
 
 ---
 
+> **M5.1 范围裁决(views 不相交证明,MIR 借用检查 device 扩展)**:RXS-0078 条款化 views 算子集(`split_at`/`chunks`/`windows`)语义与子 view 不相交证明,作为 M3 host 借用检查(MIR 层)的 **device 扩展 pass**(07 §4),消费 M4 着色(RXS-0066)/ 地址空间(RXS-0067)边界信息(05 §3.2 设备层 views D-106)。本批为已锁定决策(D-106 / 07 §4 保守先行)的条款化(档位 Direct);判定取**保守上界**——能证不相交才放行,证不出保守拒绝(可经 `unsafe` 逃生),避免假阴性(漏报竞争)。错误码 `RX3007`~`RX3008` 为 3xxx 着色/地址空间段位续接(接 M4.3 的 `RX3006`),**spec 先行引用,正式分配于 M5.1 实现 WP**(沿用 3xxx/4xxx/5xxx/6xxx 在实现 PR 落 registry 的节奏,registry revision_log 留痕,编号不复用)。shared+barrier 一致性数据流 / scoped atomics / 完整 uniform 分析随 M5.2+(07 §4),本批不覆盖。
+
+### RXS-0078 views 算子集语义与子 view 不相交证明
+
+**Syntax**(views 算子集,05 §3.2 设备层 views D-106):`View<space, T, Shape>`(只读)/ `ViewMut<space, T, Shape>`(可变)提供子 view 划分算子(device view 形态,语义对齐 Rust slice 的 `split_at`/`split_at_mut`、`chunks`/`chunks_mut`、`windows`):
+
+```
+view.split_at(mid)   // -> (sub[0..mid], sub[mid..len));ViewMut 产两个可变子 view
+view.chunks(n)       // -> 块大小 n 的不重叠子 view 序列(尾块容许 < n)
+view.windows(n)      // -> 大小 n、步长 1 的滑动窗口序列(相邻窗口重叠)
+```
+
+**Legality**(子 view 不相交证明,MIR 借用检查 device 扩展层裁决,07 §4 保守先行):
+
+- **不相交并存规则**:同时持有的多个**可变**子 view 必须两两**不相交**(disjoint),其可变借用方可并存(对齐 host 借用检查的可变借用唯一性,RXS-0048~0061 的 device 扩展:把"同一父 view 的不同区间"纳入别名分析)。
+- **结构性不相交**:`split_at(mid)` 产出的 `[0, mid)` 与 `[mid, len)` 静态可证不相交 → 放行两个可变子 view 并存;`chunks(n)` 产出的不同块静态可证不相交 → 放行。
+- **重叠拒绝**:`windows(n)` 相邻窗口重叠(步长 1),对其同时发起可变借用 → 拒绝(`RX3007`);别名可变 view 之间的写冲突同理(消费 M4 着色/地址空间边界信息判定别名)。
+- **保守上界(07 §4)**:能证不相交才放行;证不出(下标非常量、复杂区间/别名)保守拒绝(误拒边界情形,措辞容许粗糙,可经 `unsafe` 逃生)。MVP 判定取可静态判定的区间关系(常量端点 / split·chunks 的结构性不相交),不引入完整区间/别名求解器(随真实 kernel 需求扩展,扩展经 conformance 类别留痕)。
+- **越界规则**:子 view 划分点静态可判越界(`split_at` 的 `mid > len` / `chunks(0)` / 窗口大小 > 父 view 长度)→ 拒绝(`RX3008`);动态下标越界为 device 侧 UB,边界守卫由 kernel 作者经 `if i < n` 显式书写(MVP 不插桩,对齐 RXS-0071)。
+
+**诊断要求**(3xxx 着色/地址空间段位续接,接 M4.3 的 `RX3006`):
+
+- **重叠/别名子 view 同时可变借用** `RX3007`:重叠子 view(`windows` 相邻窗口 / 可证相交的区间)被同时可变借用,或别名可变 view 写冲突;**证不出不相交的保守拒绝复用本通道**(措辞标注"无法证明子 view 不相交")。
+- **view 划分越界** `RX3008`:静态可判的子 view 划分越界(split 点 / chunk 大小 / 窗口大小 超出父 view 长度)。
+
+**Implementation Requirements**:
+
+- views 不相交证明作为 **MIR 借用检查的 device 扩展 pass**(07 §4),在 host 借用检查之后、着色(RXS-0066)与地址空间(RXS-0067)检查之上运行;pass 结构沿用 M4 已保证的可扩展点(子 view 继承父 view 的 space 与着色)。
+- `split_at`/`chunks`/`windows` 为编译器已知 device 方法(resolve/typeck 兜底识别 `View` 族方法,用户同名定义优先遮蔽,沿用 RXS-0067 `View` 族兜底纪律)。
+- `views.*` message-key 随 `RX3007`/`RX3008` 在 M5.1 实现 WP 落 registry(只追加)。host 回归网(hello-world 冒烟 + MIR golden + SAXPY 回归)持续绿(本扩展不退化 host 借用检查)。
+
+> 锚定测试:`conformance/views/accept/*.rx`(正例 0 诊断:`split_at`/`chunks` 不相交并存可变借用)、`conformance/views/reject/<category>/*.rx`(反例全拦截:重叠 `windows` 可变 / 别名可变 view 写冲突 / view 划分越界);`tests/ui/views/`(`RX3007`/`RX3008` 黄金路径 5 子集 snapshot);views 不相交 device 借用检查单测。
+
+---
+
 ## 错误码引用汇总
 
 | 错误码 | 含义 | 条款 |
@@ -231,9 +266,11 @@ ArgTuple   ::= "(" (Expr ("," Expr)*)? ")"
 | RX6003 | device codegen 暂不支持构造(NVPTX codegen 作用面外) | RXS-0070, RXS-0073 |
 | RX6004 | ptxas 拒绝 PTX(`ptxas -arch=sm_89` 干验证被拒) | RXS-0073 |
 | RX6005 | device codegen 内部约束违例(超出 NVPTX 约束子集) | RXS-0071, RXS-0072, RXS-0073 |
+| RX3007 | 重叠/别名子 view 同时可变借用(含证不出不相交的保守拒绝) | RXS-0078 |
+| RX3008 | view 划分越界(split 点 / chunk 大小 / 窗口大小 静态可判超界) | RXS-0078 |
 | RX7001 | 外部工具链失败(ptxas 定位失败归此段,既有码) | RXS-0073 |
 
-含义以 [../registry/error_codes.json](../registry/error_codes.json) 为唯一事实源,本表仅引用。RX3001 ~ RX3003 为 3xxx 着色/地址空间段位首批(07 §5 段位语义),**spec 先行引用,正式分配于 M4.1 实现 WP**(沿用 4xxx/5xxx 在实现 PR 落 registry 的节奏,registry revision_log 留痕,编号不复用)。RX6003 ~ RX6005 为 6xxx codegen/目标段位 device 首批(现有 RX6001/RX6002 为 M2.3 host 子集),**spec 先行引用,正式分配于 M4.2 实现 WP**(同上节奏)。RX3004 ~ RX3006 为 3xxx 段位续接(launch 着色/维度/brand,RXS-0074/0075),**spec 先行引用,正式分配于 M4.3 实现 WP**(同上节奏;launch 参数类型不符复用 RX2001/RX3002)。views 不相交证明 / shared+barrier 一致性数据流 / 完整 uniform 分析为 M5 device 借用检查扩展(07 §4 / 11 §3),本批不覆盖。
+含义以 [../registry/error_codes.json](../registry/error_codes.json) 为唯一事实源,本表仅引用。RX3001 ~ RX3003 为 3xxx 着色/地址空间段位首批(07 §5 段位语义),**spec 先行引用,正式分配于 M4.1 实现 WP**(沿用 4xxx/5xxx 在实现 PR 落 registry 的节奏,registry revision_log 留痕,编号不复用)。RX6003 ~ RX6005 为 6xxx codegen/目标段位 device 首批(现有 RX6001/RX6002 为 M2.3 host 子集),**spec 先行引用,正式分配于 M4.2 实现 WP**(同上节奏)。RX3004 ~ RX3006 为 3xxx 段位续接(launch 着色/维度/brand,RXS-0074/0075),**spec 先行引用,正式分配于 M4.3 实现 WP**(同上节奏;launch 参数类型不符复用 RX2001/RX3002)。RX3007 ~ RX3008 为 3xxx 段位续接(views 不相交,RXS-0078),**spec 先行引用,正式分配于 M5.1 实现 WP**(同上节奏;证不出不相交的保守拒绝复用 RX3007)。shared+barrier 一致性数据流 / scoped atomics / 完整 uniform 分析仍随 M5.2+ device 借用检查扩展(07 §4 / 11 §3),本批不覆盖。
 
 ## 修订记录
 
@@ -243,3 +280,4 @@ ArgTuple   ::= "(" (Expr ("," Expr)*)? ")"
 | v1.1 | 2026-06-13 | 续写 RXS-0070 ~ RXS-0073(M4.2 NVPTX codegen 与 ptxas 关卡:codegen 目标与 `ptx_kernel` 调用约定 / 地址空间 codegen 建模 / 线程索引与 launch bounds / ptxas 干验证关卡与 6xxx 诊断要求;06 §1/§2.2、07 §7 已锁定决策 D-120/D-121/D-123/D-205/D-207 的条款化,M4 契约 D-M4-2/D-M4-3 spec 先行)。错误码汇总表登记 RX6003~RX6005(spec 先行引用,M4.2 实现 WP 正式分配);codegen 作用面 = SAXPY 雏形子集(DIM=1 线程索引 + `global` 索引读写 + f32 算术);shared/barrier 完整 codegen、launch 维度契约、cubin 分发排除(M4.3/M5/G1) | Direct |
 | v1.3 | 2026-06-13 | 续写 RXS-0076 ~ RXS-0077(M4.3 运行时:PTX 装载协商 / poisoned context 状态机;06 §5、08 §2.4/§2.5 已锁定决策 D-230/D-234 的条款化,M4 契约 D-M4-4 运行时落地)。运行时动态语义(rurix-rt CUDA Driver API 薄层,nvcuda.dll 运行时动态加载,PTX-only 无 Toolkit 依赖);装载协商失败/poisoned 为运行时结构化 `CudaError`(Result),保留原始 CUresult,不占编译期 RX#### 段位;GPU 真跑子进程隔离,无 GPU SKIP。锚定 src/rurix-rt 单测 + SAXPY 全链路真跑 | Direct |
 | v1.2 | 2026-06-13 | 续写 RXS-0074 ~ RXS-0075(M4.3 launch 类型契约:着色/维度/参数/context-brand 四类编译期可检契约 + launch 诊断要求;05 §6/§4、06 §1、08 §2 已锁定决策 D-107/D-120 的条款化,M4 契约 D-M4-2/D-M4-6 spec 先行)。错误码汇总表登记 RX3004~RX3006(spec 先行引用,M4.3 实现 WP 正式分配;launch 参数类型不符复用 RX2001/RX3002)。作用面 = 编译期 launch 类型契约;运行时对象/装载协商/poisoned 状态机随 rurix-rt 实现 PR(规范先行同 PR);ThreadCtx const 维度跨核对、views 不相交、完整 affine brand 借用证明排除(M5/RD-007) | Direct |
+| v1.4 | 2026-06-14 | 续写 RXS-0078(M5.1 views 算子集语义与子 view 不相交证明:`split_at`/`chunks`/`windows` 划分语义 + 子 view 不相交并存规则 + 越界规则 + 诊断要求;05 §3.2 设备层 views D-106、07 §4 保守先行已锁定决策的条款化,M5 契约 D-M5-1 / G-M5-2 spec 先行,**条款 PR 先于实现 PR**)。作为 MIR 借用检查 device 扩展 pass,消费 M4 着色/地址空间边界信息;判定取保守上界(能证不相交才放行,证不出保守拒绝,可 unsafe 逃生)。错误码汇总表登记 RX3007~RX3008(3xxx 段位续接 M4.3 RX3006,spec 先行引用,M5.1 实现 WP 正式分配,编号不复用);`views.*` message-key 随实现 WP 落 registry。shared+barrier 一致性数据流 / scoped atomics / 完整 uniform 分析排除(M5.2+) | Direct |
