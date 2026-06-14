@@ -1,0 +1,5 @@
+//@ spec: RXS-0081
+fn main() {
+    let x = 1.0f32;
+    x.sqrt(); //~ ERROR RX6006
+}

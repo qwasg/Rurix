@@ -1,0 +1,7 @@
+//@ spec: RXS-0072
+// ThreadCtx<1> 调用 Y 轴 intrinsic → RX6005(RXS-0072 维度契约)。
+kernel fn k(t: ThreadCtx<1>) {
+    let _y = t.global_id_y();
+}
+
+fn main() {}

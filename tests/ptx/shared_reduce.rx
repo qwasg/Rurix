@@ -1,0 +1,12 @@
+//@ spec: RXS-0079
+kernel fn shared_reduce(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>) {
+    shared let tile: [f32; 256];
+    let tid = t.thread_index();
+    tile[tid] = src[tid];
+    block.sync();
+    if tid == 0 {
+        dst[0] = tile[0];
+    }
+}
+
+fn main() {}

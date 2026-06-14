@@ -554,8 +554,15 @@ impl Lowerer<'_> {
                 hir::TyKind::Tuple(elems.iter().map(|t| self.lower_ty(t)).collect())
             }
             ast::TyKind::Paren(inner) => return self.lower_ty(inner),
-            ast::TyKind::Array { elem, .. } => hir::TyKind::Array {
+            ast::TyKind::Array { elem, len } => hir::TyKind::Array {
                 elem: Box::new(self.lower_ty(elem)),
+                // 整数字面量长度的 span(M5.3,device shared/array codegen 用;取值
+                // 在 MIR lowering 解析源文本);非字面量(const 泛型/表达式)→ None,
+                // 落 RD-007。
+                len: match &len.kind {
+                    ast::ExprKind::Lit(l) if l.kind == ast::LitKind::Int => Some(l.span),
+                    _ => None,
+                },
             },
             ast::TyKind::Slice(inner) => hir::TyKind::Slice(Box::new(self.lower_ty(inner))),
             ast::TyKind::FnPtr { params, ret } => hir::TyKind::FnPtr {
@@ -563,8 +570,9 @@ impl Lowerer<'_> {
                 ret: ret.as_ref().map(|t| Box::new(self.lower_ty(t))),
             },
             ast::TyKind::Infer => hir::TyKind::Infer,
-            // 类型位置 const 实参与错误占位:M2.2 类型系统接管
-            ast::TyKind::ConstArg(_) | ast::TyKind::Err => hir::TyKind::Err,
+            // 类型位置 const 实参与错误占位:const 字面量保留 span(M5.3)
+            ast::TyKind::ConstArg(lit) => hir::TyKind::ConstLit { span: lit.span },
+            ast::TyKind::Err => hir::TyKind::Err,
         };
         hir::Ty {
             kind,

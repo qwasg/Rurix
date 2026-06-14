@@ -1,0 +1,23 @@
+// M5.3 gpu 并行基元:block 级 shared 树形归约(atomics-free,RXS-0079)。
+// 每个 block 把 BLOCK 个元素(越界补 0)归约为一个 partial;host 合并 partials
+// 求最终和(避免 scoped atomics 跨 block 合并,规避 D-406 禁区)。全 safe 代码。
+kernel fn reduce(t: ThreadCtx<1>, src: View<global, f32>, partials: ViewMut<global, f32>, n: usize) {
+    shared let tile: [f32; 256];
+    let tid = t.thread_index();
+    let i = t.global_id();
+    tile[tid] = if i < n { src[i] } else { 0.0 };
+    block.sync();
+    let mut stride = t.block_dim() / 2;
+    while stride > 0 {
+        if tid < stride {
+            tile[tid] = tile[tid] + tile[tid + stride];
+        }
+        block.sync();
+        stride = stride / 2;
+    }
+    if tid == 0 {
+        partials[t.block_index()] = tile[0];
+    }
+}
+
+fn main() {}

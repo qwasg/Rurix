@@ -49,6 +49,10 @@ pub struct LocalDecl {
     pub span: Span,
     /// 归属 scope(声明所在块;参数归根,RXS-0052)。
     pub scope: ScopeId,
+    /// `shared let` 声明(M5.3,RXS-0079;addrspace 3 block 共享存储)。
+    pub shared: bool,
+    /// 数组长度字面量 span(M5.3;`[T; N]` 标注的 N 字面量,device codegen 定形)。
+    pub array_len: Option<Span>,
 }
 
 #[derive(Debug)]
@@ -105,6 +109,13 @@ pub enum ExprKind {
     /// device 线程上下文 intrinsic(M4.2,RXS-0072;`ThreadCtx` 方法 →
     /// sreg/barrier intrinsic,接收者无副作用故不保留)。
     DeviceCall(crate::hir::DeviceIntrinsic),
+    /// device 数学 intrinsic(M5.3,RXS-0081;`f32`/`f64` 方法 → libdevice
+    /// `__nv_*` 外部符号调用)。`args[0]` 为 receiver,后续为方法实参。
+    DeviceMathCall {
+        op: crate::hir::DeviceMathFn,
+        is_f32: bool,
+        args: Vec<Expr>,
+    },
     /// 字段访问(字段名已解析为定义序/元组位置下标)。
     Field {
         base: Box<Expr>,

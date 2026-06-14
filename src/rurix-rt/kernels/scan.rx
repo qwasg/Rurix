@@ -1,0 +1,26 @@
+// M5.3 gpu 并行基元:**block-local** inclusive 前缀和(Hillis-Steele,非全局 prefix sum;
+// 每 block 独立对其 BLOCK 段做 inclusive scan),shared+barrier,atomics-free,RXS-0079)。
+// 读后写经寄存器 `v` 暂存 + 两次 barrier 隔离,避免 shared read-after-write 竞争。全 safe。
+kernel fn scan(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>, n: usize) {
+    shared let buf: [f32; 256];
+    let tid = t.thread_index();
+    let i = t.global_id();
+    buf[tid] = if i < n { src[i] } else { 0.0 };
+    block.sync();
+    let mut offset = 1;
+    while offset < t.block_dim() {
+        let mut v = buf[tid];
+        if tid >= offset {
+            v = v + buf[tid - offset];
+        }
+        block.sync();
+        buf[tid] = v;
+        block.sync();
+        offset = offset * 2;
+    }
+    if i < n {
+        dst[i] = buf[tid];
+    }
+}
+
+fn main() {}

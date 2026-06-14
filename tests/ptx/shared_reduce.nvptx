@@ -1,0 +1,66 @@
+; ModuleID = 'shared_reduce'
+source_filename = "shared_reduce"
+target triple = "nvptx64-nvidia-cuda"
+
+declare i32 @llvm.nvvm.read.ptx.sreg.tid.x()
+declare void @llvm.nvvm.barrier0()
+
+@__shared_rx_shared_reduce_8_4 = internal addrspace(3) global [256 x float] undef
+
+define ptx_kernel void @rx_shared_reduce_8(ptr addrspace(1) %arg2, ptr addrspace(1) %arg3) {
+entry:
+  %l2 = alloca ptr addrspace(1), addrspace(5)
+  %l3 = alloca ptr addrspace(1), addrspace(5)
+  %l5 = alloca i64, addrspace(5)
+  %l6 = alloca i64, addrspace(5)
+  %l8 = alloca i8, addrspace(5)
+  %l9 = alloca i64, addrspace(5)
+  %l10 = alloca i64, addrspace(5)
+  store ptr addrspace(1) %arg2, ptr addrspace(5) %l2
+  store ptr addrspace(1) %arg3, ptr addrspace(5) %l3
+  br label %bb0
+bb0:
+  %t0 = call i32 @llvm.nvvm.read.ptx.sreg.tid.x()
+  %t1 = zext i32 %t0 to i64
+  store i64 %t1, ptr addrspace(5) %l6
+  br label %bb1
+bb1:
+  %t2 = load i64, ptr addrspace(5) %l6
+  store i64 %t2, ptr addrspace(5) %l5
+  %t3 = load ptr addrspace(1), ptr addrspace(5) %l2
+  %t4 = load i64, ptr addrspace(5) %l5
+  %t5 = getelementptr float, ptr addrspace(1) %t3, i64 %t4
+  %t6 = load float, ptr addrspace(1) %t5
+  %t7 = load i64, ptr addrspace(5) %l5
+  %t8 = getelementptr float, ptr addrspace(3) @__shared_rx_shared_reduce_8_4, i64 %t7
+  store float %t6, ptr addrspace(3) %t8
+  call void @llvm.nvvm.barrier0()
+  br label %bb2
+bb2:
+  %t9 = load i64, ptr addrspace(5) %l5
+  %t10 = icmp eq i64 %t9, 0
+  %t11 = zext i1 %t10 to i8
+  store i8 %t11, ptr addrspace(5) %l8
+  %t12 = load i8, ptr addrspace(5) %l8
+  %t13 = icmp ne i8 %t12, 0
+  br i1 %t13, label %bb3, label %bb4
+bb3:
+  store i64 0, ptr addrspace(5) %l9
+  store i64 0, ptr addrspace(5) %l10
+  %t14 = load i64, ptr addrspace(5) %l10
+  %t15 = getelementptr float, ptr addrspace(3) @__shared_rx_shared_reduce_8_4, i64 %t14
+  %t16 = load float, ptr addrspace(3) %t15
+  %t17 = load ptr addrspace(1), ptr addrspace(5) %l3
+  %t18 = load i64, ptr addrspace(5) %l9
+  %t19 = getelementptr float, ptr addrspace(1) %t17, i64 %t18
+  store float %t16, ptr addrspace(1) %t19
+  br label %bb5
+bb4:
+  br label %bb5
+bb5:
+  ret void
+}
+
+
+!nvvm.annotations = !{!0}
+!0 = !{ptr @rx_shared_reduce_8, !"reqntidx", i32 256}

@@ -30,8 +30,10 @@ use crate::diag::ErrorCode;
 use crate::hir::{self, Body, BodyId, Crate, DefId, Expr, ExprKind, LocalId, PatKind, Res, Stmt};
 use crate::query::QueryCtx;
 use crate::span::Span;
+use crate::ty::Ty;
 
 pub const E_SHARED_BARRIER: ErrorCode = ErrorCode(3009); // RX3009(RXS-0079)
+pub const E_DEVICE_CONSTRAINT: ErrorCode = ErrorCode(6005); // RX6005(RXS-0071/0079)
 
 /// block barrier 方法名(`block.sync()`,RXS-0072/0079;对齐 [`crate::coloring`])。
 const BARRIER_METHOD: &str = "sync";
@@ -48,6 +50,7 @@ pub fn check_crate(cx: &QueryCtx<'_>) {
         }
         let mut shared: HashSet<u32> = HashSet::new();
         collect_shared(&body.value, &mut shared);
+        check_shared_array_shapes(cx, body_id, &body, &shared);
         if shared.is_empty() {
             continue; // 无 `shared let`:本 body 无一致性义务。
         }
@@ -78,6 +81,48 @@ fn collect_shared(e: &Expr, out: &mut HashSet<u32>) {
             && let PatKind::Binding { local } = &pat.kind
         {
             out.insert(local.0);
+        }
+    });
+}
+
+/// `shared let` 必须为固定长度数组(M5.3 review fix;标量 shared silent 错误 lowering)。
+fn check_shared_array_shapes(
+    cx: &QueryCtx<'_>,
+    body_id: BodyId,
+    body: &Body,
+    shared: &HashSet<u32>,
+) {
+    if shared.is_empty() {
+        return;
+    }
+    let tcr = cx.check_body(body_id);
+    walk_blocks(&body.value, &mut |stmt| {
+        let Stmt::Let {
+            pat,
+            shared: true,
+            ..
+        } = stmt
+        else {
+            return;
+        };
+        let PatKind::Binding { local } = &pat.kind else {
+            return;
+        };
+        if !shared.contains(&local.0) {
+            return;
+        }
+        let Some(ty) = tcr.local_ty.get(local.0 as usize) else {
+            return;
+        };
+        if !matches!(ty, Ty::Array(_)) {
+            cx.diag()
+                .struct_error(E_DEVICE_CONSTRAINT, "codegen.device_constraint")
+                .arg(
+                    "detail",
+                    "shared let requires a fixed-size array type (RXS-0071/0079)",
+                )
+                .span_label(pat.span, "device codegen constraint violated")
+                .emit();
         }
     });
 }

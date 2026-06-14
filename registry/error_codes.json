@@ -402,11 +402,27 @@
       "spec_clauses": ["RXS-0071", "RXS-0072", "RXS-0073"]
     },
     {
+      "id": "RX6006",
+      "title": "device codegen 不支持的数学 intrinsic(超出 libdevice 覆盖 / 不支持元素类型组合)",
+      "message_key": "codegen.device_math_unsupported",
+      "status": "active",
+      "introduced_in": "M5.3",
+      "spec_clauses": ["RXS-0081", "RXS-0082"]
+    },
+    {
       "id": "RX7001",
       "title": "外部工具链失败(clang/link.exe 定位失败、版本不符 pin 或退出非零)",
       "message_key": "link.toolchain_failure",
       "status": "active",
       "introduced_in": "M2.3"
+    },
+    {
+      "id": "RX7002",
+      "title": "libdevice bc 定位/链接失败(非降级语境 bc 缺失 / llvm-link·internalize·NVVMReflect 流程失败)",
+      "message_key": "link.libdevice_failure",
+      "status": "active",
+      "introduced_in": "M5.3",
+      "spec_clauses": ["RXS-0082"]
     }
   ],
   "revision_log": [
@@ -484,6 +500,11 @@
       "version": "v1.14",
       "date": "2026-06-14",
       "change": "M5.2 分配 RX3009 ~ RX3010(spec/device.md RXS-0079/0080 配套,M5_PLAN §2 任务 2/3,条款 PR 先行引用的正式分配)。3xxx 着色/地址空间段位续接 shared+barrier 一致性数据流 / scoped atomics scope 类型契约:RX3009 shared+barrier 一致性违例(shared 写后未过 block.sync() 即读他 lane 写入 / 证不出经 barrier 同步的保守拒绝,device 借用扩展数据流)、RX3010 scoped atomics scope 误用(越权作用域 / 与地址空间不相容 / 不支持的 scope·order 组合,typeck 层裁决)。message_key shared.barrier_consistency / atomics.scope_misuse 随本实现 WP 落 en.messages;scoped atomics 的 PTX atom.{order}.{scope} 映射为 D-406 禁区(人工落笔,不占编译期段位);段内分配制递增不复用(列于 RX3008 与 RX4001 之间为段位有序,JSON 数组序非分配序)"
+    },
+    {
+      "version": "v1.15",
+      "date": "2026-06-14",
+      "change": "M5.3 分配 RX6006 + RX7002(spec/device.md RXS-0081/0082 配套,M5_PLAN §3 任务 1/2,条款 PR 先行引用的正式分配)。RX6006 device codegen 不支持的数学 intrinsic(超出 libdevice 覆盖 / 不支持元素类型组合,6xxx codegen/目标段位续接 M4.2 RX6005);RX7002 libdevice bc 定位/链接失败(非降级语境 bc 缺失 / clang -mlink-builtin-bitcode 链接退出非零,7xxx 链接/工具链段位续接 RX7001;libdevice bc 缺失的开发环境降级为 SKIP 不报 RX7002)。message_key codegen.device_math_unsupported / link.libdevice_failure 随本实现 WP 落 en.messages;device 数学 intrinsic 下译 libdevice 外部符号 __nv_* 经 clang -mlink-builtin-bitcode 链接(internalize/DCE/NVVMReflect 内置流程,精确路径 nvvm-reflect-ftz=0);段内分配制递增不复用"
     }
   ]
 }

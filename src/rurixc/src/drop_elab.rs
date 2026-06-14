@@ -176,6 +176,8 @@ fn insert_drop_flags(body: &mut Body, flagged: &[(usize, LocalIdx, BlockIdx)]) {
                 ty: Ty::Prim(crate::hir::PrimTy::Bool),
                 name: None,
                 span: body.span,
+                shared: false,
+                array_len: None,
             });
             idx
         });

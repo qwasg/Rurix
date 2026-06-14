@@ -45,6 +45,8 @@ pub fn build(
                 ty: tcr.local_ty.get(i).cloned().unwrap_or(Ty::Err),
                 span: l.span,
                 scope: ScopeId(0),
+                shared: false,
+                array_len: None,
             })
             .collect(),
     };
@@ -221,7 +223,30 @@ impl Builder<'_> {
         for s in &b.stmts {
             match s {
                 hir::Stmt::Item(_) => {} // 嵌套 item 经调用点收集(MIR 同口径)
-                hir::Stmt::Let { pat, init, .. } => {
+                hir::Stmt::Let {
+                    pat,
+                    init,
+                    ty,
+                    shared,
+                } => {
+                    // `shared let`(M5.3,RXS-0079)与数组长度标注(`[T; N]`)透传到
+                    // 绑定的 LocalDecl,供 device codegen 定 addrspace 3 / `[N x T]`。
+                    let array_len = match ty {
+                        Some(t) => match &t.kind {
+                            hir::TyKind::Array { len, .. } => *len,
+                            _ => None,
+                        },
+                        None => None,
+                    };
+                    if (*shared || array_len.is_some())
+                        && let hir::PatKind::Binding { local, .. } = &pat.kind
+                    {
+                        let li = local.0 as usize;
+                        if li < self.locals.len() {
+                            self.locals[li].shared = *shared;
+                            self.locals[li].array_len = array_len;
+                        }
+                    }
                     let init = init.as_ref().map(|e| self.expr(e));
                     let pat = self.pat(pat);
                     stmts.push(tbir::Stmt::Let { pat, init });
@@ -317,6 +342,21 @@ impl Builder<'_> {
                         ty,
                         span,
                         kind: tbir::ExprKind::DeviceCall(*intr),
+                    };
+                }
+                // device 数学 intrinsic(M5.3,RXS-0081):receiver 作 args[0],
+                // 后续为方法实参 → libdevice `__nv_*` 调用。
+                if let Some((op, elem)) = self.tcr.device_math_calls.get(&e.hir_id) {
+                    let mut all = vec![self.expr(receiver)];
+                    all.extend(args.iter().map(|a| self.expr(a)));
+                    return tbir::Expr {
+                        ty,
+                        span,
+                        kind: tbir::ExprKind::DeviceMathCall {
+                            op: *op,
+                            is_f32: matches!(elem, crate::hir::PrimTy::F32),
+                            args: all,
+                        },
                     };
                 }
                 match self.tcr.call_targets.get(&e.hir_id) {
@@ -588,7 +628,8 @@ impl ExhaustCx<'_> {
                 self.walk_expr(lhs);
                 self.walk_expr(rhs);
             }
-            tbir::ExprKind::Call { args, .. } => {
+            tbir::ExprKind::Call { args, .. }
+            | tbir::ExprKind::DeviceMathCall { args, .. } => {
                 for a in args {
                     self.walk_expr(a);
                 }

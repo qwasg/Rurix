@@ -259,6 +259,23 @@ fn main() -> ExitCode {
                 );
                 return ExitCode::SUCCESS;
             }
+            Ok(PtxGate::SkippedNoLibdevice) => {
+                eprintln!(
+                    "rurixc: note: libdevice.10.bc not found (no CUDA toolchain); no PTX emitted (libdevice unavailable); libdevice link + PTX emit SKIPPED (RXS-0082)"
+                );
+                return ExitCode::SUCCESS;
+            }
+            Err(PtxError::LibdeviceLink(reason)) => {
+                // libdevice bc 链接失败 = RX7002 编译期诊断(RXS-0082)
+                diag.struct_error(ErrorCode(7002), "link.libdevice_failure")
+                    .arg("reason", reason)
+                    .emit();
+                eprint!(
+                    "{}",
+                    render_diagnostics(&diag.emitted(), &sm, diag.messages())
+                );
+                return ExitCode::from(1);
+            }
             Err(PtxError::Rejected { reason }) => {
                 // ptxas 拒绝 = RX6004 编译期诊断(RXS-0073,G-M4-4)
                 diag.struct_error(ErrorCode(6004), "codegen.ptxas_rejected")
@@ -422,11 +439,16 @@ enum PtxGate {
     Ok(String),
     /// 无 CUDA 工具链(ptxas 缺失):关卡 SKIP(开发环境降级,真实红绿在 CI runner)。
     SkippedNoPtxas(String),
+    /// IR 用到 libdevice `__nv_*` 但 bc 缺失(无 CUDA 工具链):链接 + 产 PTX
+    /// SKIP(开发环境降级,真实红绿在带 CUDA 的 CI runner,RXS-0082)。
+    SkippedNoLibdevice,
 }
 
 enum PtxError {
     /// ptxas 拒绝 PTX(RX6004)。
     Rejected { reason: String },
+    /// libdevice bc 链接失败(bc 在却 clang 链接退出非零;RX7002,RXS-0082)。
+    LibdeviceLink(String),
     /// 工具链失败(clang 定位/版本/退出非零;ptxas 定位失败归 RX7001)。
     Toolchain(String),
 }
@@ -438,7 +460,20 @@ enum PtxError {
 /// CI_GATES §1:真实红绿延到带 CUDA 的 CI runner)。非 ASCII 路径防御(r6 教训)
 /// 在 [`rurixc::ptxas::dry_gate`] 内(ASCII 临时目录)。
 fn emit_ptx_and_gate(ir: &str, stem: &str, ptx_out: &Path) -> Result<PtxGate, PtxError> {
-    let ptx = rurixc::toolchain::ir_to_ptx(ir, ptx_out).map_err(PtxError::Toolchain)?;
+    // libdevice 链接裁决(RXS-0082):用到 `__nv_*` 但 bc 缺失 → 开发环境降级 SKIP
+    // (不报 RX7002);bc 在却 clang 链接失败 → RX7002。
+    let needs_libdevice = match rurixc::toolchain::libdevice_link_for(ir) {
+        rurixc::toolchain::LibdeviceLink::MissingSkip => return Ok(PtxGate::SkippedNoLibdevice),
+        rurixc::toolchain::LibdeviceLink::Linked(_) => true,
+        rurixc::toolchain::LibdeviceLink::NotNeeded => false,
+    };
+    let ptx = rurixc::toolchain::ir_to_ptx(ir, ptx_out).map_err(|e| {
+        if needs_libdevice {
+            PtxError::LibdeviceLink(e)
+        } else {
+            PtxError::Toolchain(e)
+        }
+    })?;
 
     // ptxas 干验证关卡(strict-only;RXS-0073,关卡逻辑在 rurixc::ptxas,供红绿单测复用)
     match rurixc::ptxas::dry_gate(&ptx, stem) {

@@ -1,0 +1,7 @@
+//@ spec: RXS-0072
+kernel fn fill_2d(out: ViewMut<global, u32>, t: ThreadCtx<2>) {
+    let ty = t.thread_index_y();
+    out[t.global_id_x()] = ty as u32;
+}
+
+fn main() {}

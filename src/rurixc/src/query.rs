@@ -428,6 +428,7 @@ fn ty_is_ground(ty: &Ty) -> bool {
         Ty::Tuple(v) => v.iter().all(ty_is_ground),
         Ty::Ref(t, _) | Ty::RawPtr(t, _) | Ty::Array(t) | Ty::Slice(t) => ty_is_ground(t),
         Ty::FnPtr(ps, r) => ps.iter().all(ty_is_ground) && ty_is_ground(r),
+        Ty::Const(_) => true,
     }
 }
 

@@ -1,0 +1,7 @@
+//@ spec: RXS-0071
+kernel fn k(t: ThreadCtx<1>) {
+    shared let x: f32; //~ ERROR RX6005
+    let _ = t.thread_index();
+}
+
+fn main() {}

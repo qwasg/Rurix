@@ -56,6 +56,10 @@ pub struct Local {
     /// 源码名(temp 为 None;debug info 用)。
     pub name: Option<String>,
     pub span: Span,
+    /// `shared let`(M5.3,RXS-0079):device codegen 落 addrspace(3) 模块级 global。
+    pub shared: bool,
+    /// 数组长度(M5.3;`[T; N]` 的 N,device codegen 定 `[N x T]` 形状)。
+    pub array_len: Option<u64>,
 }
 
 #[derive(Debug)]
@@ -211,6 +215,12 @@ pub enum CallTarget {
     /// device 线程上下文 intrinsic(M4.2,RXS-0072;`ThreadCtx` 方法 →
     /// NVPTX sreg / barrier intrinsics)。host codegen 不产出。
     DeviceIntrinsic(DeviceIntrinsic),
+    /// device 数学 intrinsic(M5.3,RXS-0081/0082;`f32`/`f64` 数学方法 →
+    /// 保留的 libdevice 外部符号 `__nv_*`,经 libdevice bc 链接解析)。
+    /// host codegen 不产出。
+    Libdevice {
+        symbol: String,
+    },
 }
 
 /// enum 扁平布局(M3.1 取舍:`{ i32 tag, 变体0载荷…, 变体1载荷…, … }`,
@@ -273,6 +283,7 @@ fn mangle_ty(t: &Ty) -> String {
         Ty::Slice(t) => format!("slc_{}", mangle_ty(t)),
         Ty::FnPtr(..) => "fnptr".to_owned(),
         Ty::Param(i) => format!("p{i}"),
+        Ty::Const(n) => format!("c{n}"),
         Ty::Infer(_) | Ty::Err => "err".to_owned(),
     }
 }
@@ -422,6 +433,7 @@ fn print_term(t: &TerminatorKind) -> String {
                 CallTarget::Fn { symbol, .. } => symbol.clone(),
                 CallTarget::Builtin(b) => format!("builtin {}", b.name()),
                 CallTarget::DeviceIntrinsic(d) => format!("device {}", d.name()),
+                CallTarget::Libdevice { symbol } => format!("libdevice {symbol}"),
             };
             let a: Vec<String> = args.iter().map(print_operand).collect();
             format!(

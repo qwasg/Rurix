@@ -27,7 +27,8 @@
       "permanence": "conditional",
       "current_verdict": "not_triggered",
       "decisions": [
-        { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记;MVP 收缩范围见 11 §2(来源 r2)" }
+        { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记;MVP 收缩范围见 11 §2(来源 r2)" },
+        { "date": "2026-06-14", "verdict": "not_triggered", "rationale": "M5.3 tiled GEMM 自研 kernel 落地后复评(M5_PLAN §3 任务 4):src/rurix-rt/kernels/gemm_tile.rx 走经典 16x16 shared-memory tiling(View<global> + shared let [f32;256] x2 + block.sync + 2D ThreadCtx),codegen 仅产 ld/st.shared + bar.sync + fma.rn.f32,不触 Tensor Core/WGMMA/TMA intrinsics;触发条件(L2 基准证明 GEMM 是真实用户瓶颈 且 中层抽象成熟度复评通过)未满足——M5.3 仅交付 kernel 真跑 + harness 就位,measured 性能与瓶颈论证随 M5.4/L2,中层抽象(MLIR,见 SG-001)亦 not_triggered。结论维持 not_triggered。" }
       ]
     },
     {
@@ -102,6 +103,7 @@
     }
   ],
   "revision_log": [
-    { "version": "v1.0", "date": "2026-06-11", "change": "初版:SG-001 ~ SG-009(14 §7 首批永久 gating 清单落位)" }
+    { "version": "v1.0", "date": "2026-06-11", "change": "初版:SG-001 ~ SG-009(14 §7 首批永久 gating 清单落位)" },
+    { "version": "v1.1", "date": "2026-06-14", "change": "M5.3 SG-002 复评追加 decisions(tiled GEMM 自研 kernel 经典 shared tiling 落地,不触 Tensor Core/WGMMA,维持 not_triggered;M5_PLAN §3 任务 4);trigger_condition 0-byte 不改" }
   ]
 }

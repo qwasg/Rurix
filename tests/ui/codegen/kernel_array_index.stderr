@@ -1,11 +1,5 @@
 error[RX6001]: array expression is not supported by codegen yet (M2.3 host subset)
- --> $DIR/codegen/kernel_array_index.rx:3:13
+ --> $DIR/codegen/kernel_array_index.rx:5:13
   |
-3 |     let a = [1.0, 2.0, 3.0]; //~ ERROR RX6001
+5 |     let a = [1.0, 2.0, 3.0]; //~ ERROR RX6001
   |             ^^^^^^^^^^^^^^^ not supported by MIR lowering yet (M3.1 host subset)
-
-error[RX6001]: indexing is not supported by codegen yet (M2.3 host subset)
- --> $DIR/codegen/kernel_array_index.rx:4:14
-  |
-4 |     let _x = a[t.global_id()]; //~ ERROR RX6001
-  |              ^^^^^^^^^^^^^^^^ not supported by MIR lowering yet (M3.1 host subset)

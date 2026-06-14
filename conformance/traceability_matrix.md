@@ -74,13 +74,15 @@
 | RXS-0068 | spec/device.md | 4 | `conformance/coloring/accept/uniform_barrier.rx`, `conformance/coloring/reject/barrier_non_uniform/basic.rx`, `src/rurixc/src/coloring.rs` …(+1) |
 | RXS-0069 | spec/device.md | 2 | `src/rurixc/src/coloring.rs`, `src/rurixc/src/typeck.rs` |
 | RXS-0070 | spec/device.md | 3 | `src/rurix-rt/tests/gpu_roundtrip.rs`, `src/rurixc/src/device_codegen.rs`, `tests/ui/codegen/kernel_array_index.rx` |
-| RXS-0071 | spec/device.md | 3 | `src/rurix-rt/tests/gpu_roundtrip.rs`, `src/rurixc/src/device_codegen.rs`, `tests/ui/codegen/host_addrspace_view.rx` |
-| RXS-0072 | spec/device.md | 2 | `src/rurix-rt/tests/gpu_roundtrip.rs`, `src/rurixc/src/device_codegen.rs` |
+| RXS-0071 | spec/device.md | 4 | `src/rurix-rt/tests/gpu_roundtrip.rs`, `src/rurixc/src/device_codegen.rs`, `tests/ui/codegen/host_addrspace_view.rx` …(+1) |
+| RXS-0072 | spec/device.md | 4 | `conformance/device/reject/threadctx_dim/basic.rx`, `src/rurix-rt/tests/gpu_roundtrip.rs`, `src/rurixc/src/device_codegen.rs` …(+1) |
 | RXS-0073 | spec/device.md | 3 | `src/rurixc/src/device_codegen.rs`, `src/rurixc/tests/ptxas_gate.rs`, `tests/ui/codegen/device_string_literal.rx` |
 | RXS-0074 | spec/device.md | 10 | `conformance/launch/accept/saxpy_launch.rx`, `conformance/launch/reject/arg_type_mismatch/basic.rx`, `conformance/launch/reject/context_brand_mismatch/basic.rx` …(+7) |
 | RXS-0075 | spec/device.md | 10 | `conformance/launch/accept/saxpy_launch.rx`, `conformance/launch/reject/arg_type_mismatch/basic.rx`, `conformance/launch/reject/context_brand_mismatch/basic.rx` …(+7) |
 | RXS-0076 | spec/device.md | 2 | `src/rurix-rt/src/lib.rs`, `src/rurix-rt/tests/gpu_roundtrip.rs` |
 | RXS-0077 | spec/device.md | 1 | `src/rurix-rt/src/lib.rs` |
 | RXS-0078 | spec/device.md | 14 | `conformance/views/accept/chunks_disjoint.rx`, `conformance/views/accept/split_at_disjoint.rx`, `conformance/views/reject/alias_mut_write/basic.rx` …(+11) |
-| RXS-0079 | spec/device.md | 6 | `conformance/shared/accept/shared_barrier_consistent.rx`, `conformance/shared/reject/barrier_too_late/basic.rx`, `conformance/shared/reject/unsynced_cross_lane_read/basic.rx` …(+3) |
+| RXS-0079 | spec/device.md | 7 | `conformance/shared/accept/shared_barrier_consistent.rx`, `conformance/shared/reject/barrier_too_late/basic.rx`, `conformance/shared/reject/unsynced_cross_lane_read/basic.rx` …(+4) |
 | RXS-0080 | spec/device.md | 9 | `conformance/atomics/accept/narrower_scope_ok.rx`, `conformance/atomics/accept/scoped_atomics_ok.rx`, `conformance/atomics/reject/scope_addrspace_incompat/basic.rx` …(+6) |
+| RXS-0081 | spec/device.md | 4 | `conformance/libdevice/accept/device_math_intrinsics.rx`, `conformance/libdevice/reject/host_math/basic.rx`, `src/rurixc/tests/libdevice_link_mapping.rs` …(+1) |
+| RXS-0082 | spec/device.md | 2 | `conformance/libdevice/accept/device_math_intrinsics.rx`, `src/rurixc/tests/libdevice_link_mapping.rs` |

@@ -10,7 +10,32 @@
     "milestones/m0/BENCH_PROTOCOL.md",
     "milestones/m5/M5_CONTRACT.md"
   ],
-  "entries": [],
+  "entries": [
+    {
+      "id": "m5.bench.reduce_cuda.effective_bandwidth_gbps",
+      "direction": "min",
+      "threshold": 0,
+      "evidence": "estimated",
+      "skip_reason": "M5.4 回填:手写 CUDA C++ reduce 对照 measured_local(三次进程级独立运行 trimmed mean,BENCH_PROTOCOL §3);锁频 L0 前置,unlocked 不得回填(契约 G-M5-1)",
+      "unit": "GB/s"
+    },
+    {
+      "id": "m5.bench.scan_cuda.effective_bandwidth_gbps",
+      "direction": "min",
+      "threshold": 0,
+      "evidence": "estimated",
+      "skip_reason": "M5.4 回填:手写 CUDA C++ scan 对照 measured_local(三次进程级独立运行 trimmed mean,BENCH_PROTOCOL §3);锁频 L0 前置,unlocked 不得回填(契约 G-M5-1)",
+      "unit": "GB/s"
+    },
+    {
+      "id": "m5.bench.gemm_tile_cuda.throughput_gflops",
+      "direction": "min",
+      "threshold": 0,
+      "evidence": "estimated",
+      "skip_reason": "M5.4 回填:手写 CUDA C++ tiled GEMM 对照 measured_local(三次进程级独立运行 trimmed mean,BENCH_PROTOCOL §3);锁频 L0 前置,unlocked 不得回填(契约 G-M5-1)",
+      "unit": "GFLOPS"
+    }
+  ],
   "ratio_assertions": [
     {
       "id": "m5.ratio.reduce_vs_cuda",
@@ -69,6 +94,11 @@
       "version": "v1.0",
       "date": "2026-06-14",
       "change": "初版模板:reduce/scan/gemm_tile vs 手写 CUDA C++ 对照三条比值断言(estimated 占位,M5.4 回填)+ views 不相交 conformance 类别计数器 + 黄金路径 5 计数器 + Compute Sanitizer nightly 计数器(M5 契约配套);entries 留空 = M5 不预欠 estimated bench 占位"
+    },
+    {
+      "version": "v1.1",
+      "date": "2026-06-14",
+      "change": "M5.3 WP8:三条 CUDA C++ 对照 denominator entry 占位(estimated,m5.bench.{reduce,scan,gemm_tile}_cuda.*);numerator 随 M5.4 rurix_*_triple 回填"
     }
   ]
 }

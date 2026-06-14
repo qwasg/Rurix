@@ -1,0 +1,30 @@
+//@ spec: RXS-0081, RXS-0082
+// libdevice device 数学函数 intrinsic 正例(RXS-0081/0082)。
+// device 上下文调用编译器已知数学函数 intrinsic(f32 方法形态),下译为 libdevice
+// ABI 外部符号 `__nv_<name>`(RXS-0081 Dynamic Semantics),经 libdevice bitcode
+// 链接流程(保留外部符号 → 链 bc → internalize → DCE → NVVMReflect,RXS-0082;
+// clang `-mlink-builtin-bitcode`)解析为实现。
+//
+// 调用形态裁决为方法形(`x.sqrt()` / `a.fma(b, c)`,RXS-0081 Syntax 实现 WP 细化)。
+// 真跑断言(源 → `__nv_*` declare → 链接 → ptxas 过)挂在
+// `src/rurixc/tests/libdevice_link_mapping.rs`。
+
+device fn gaussian(x: f32, sigma: f32) -> f32 {
+    let z = x / sigma;
+    let e = z.fma(z, 0.0) * -0.5;
+    e.exp()
+}
+
+device fn vlen(x: f32, y: f32) -> f32 {
+    x.fma(x, y * y).sqrt()
+}
+
+kernel fn map_math(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        let v = src[i];
+        dst[i] = gaussian(vlen(v, 1.0), 2.0);
+    }
+}
+
+fn main() {}

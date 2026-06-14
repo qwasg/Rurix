@@ -92,37 +92,87 @@ impl Builtin {
 /// codegen 落到 `llvm.nvvm.read.ptx.sreg.*` / `llvm.nvvm.barrier0`。
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum DeviceIntrinsic {
-    /// `thread_index()` → `tid.x`(block 内线程索引,返回 usize)。
+    /// `thread_index[_x]()` → `tid.x`(block 内线程索引,返回 usize)。
     ThreadIndexX,
-    /// `block_index()` → `ctaid.x`(block 索引,返回 usize)。
+    /// `thread_index_y()` → `tid.y`(M5.3,RXS-0072 DIM≥2)。
+    ThreadIndexY,
+    /// `thread_index_z()` → `tid.z`(M5.3,RXS-0072 DIM=3)。
+    ThreadIndexZ,
+    /// `block_index[_x]()` → `ctaid.x`(block 索引,返回 usize)。
     BlockIndexX,
-    /// `block_dim()` → `ntid.x`(block 维度,返回 usize)。
+    /// `block_index_y()` → `ctaid.y`(M5.3)。
+    BlockIndexY,
+    /// `block_index_z()` → `ctaid.z`(M5.3)。
+    BlockIndexZ,
+    /// `block_dim[_x]()` → `ntid.x`(block 维度,返回 usize)。
     BlockDimX,
-    /// `global_id()` → `ctaid.x * ntid.x + tid.x`(全局线程索引,返回 usize)。
+    /// `block_dim_y()` → `ntid.y`(M5.3)。
+    BlockDimY,
+    /// `block_dim_z()` → `ntid.z`(M5.3)。
+    BlockDimZ,
+    /// `global_id[_x]()` → `ctaid.x * ntid.x + tid.x`(全局线程索引,返回 usize)。
     GlobalIdX,
+    /// `global_id_y()` → `ctaid.y * ntid.y + tid.y`(M5.3)。
+    GlobalIdY,
+    /// `global_id_z()` → `ctaid.z * ntid.z + tid.z`(M5.3)。
+    GlobalIdZ,
     /// `sync()` → `llvm.nvvm.barrier0`(block barrier,返回 unit;扩展点)。
     Barrier,
 }
 
 impl DeviceIntrinsic {
-    /// `ThreadCtx` 方法名 → intrinsic(RXS-0072;DIM=1 作用面)。
+    /// `ThreadCtx` 方法名 → intrinsic(RXS-0072;无后缀 = `.x` 维,`_x`/`_y`/`_z`
+    /// 显式取轴 DIM≥2,M5.3)。
     pub fn from_method(name: &str) -> Option<Self> {
         Some(match name {
-            "thread_index" | "thread_idx" | "thread_id" => DeviceIntrinsic::ThreadIndexX,
-            "block_index" | "block_idx" => DeviceIntrinsic::BlockIndexX,
-            "block_dim" => DeviceIntrinsic::BlockDimX,
-            "global_id" => DeviceIntrinsic::GlobalIdX,
+            "thread_index" | "thread_idx" | "thread_id" | "thread_index_x" => {
+                DeviceIntrinsic::ThreadIndexX
+            }
+            "thread_index_y" => DeviceIntrinsic::ThreadIndexY,
+            "thread_index_z" => DeviceIntrinsic::ThreadIndexZ,
+            "block_index" | "block_idx" | "block_index_x" => DeviceIntrinsic::BlockIndexX,
+            "block_index_y" => DeviceIntrinsic::BlockIndexY,
+            "block_index_z" => DeviceIntrinsic::BlockIndexZ,
+            "block_dim" | "block_dim_x" => DeviceIntrinsic::BlockDimX,
+            "block_dim_y" => DeviceIntrinsic::BlockDimY,
+            "block_dim_z" => DeviceIntrinsic::BlockDimZ,
+            "global_id" | "global_id_x" => DeviceIntrinsic::GlobalIdX,
+            "global_id_y" => DeviceIntrinsic::GlobalIdY,
+            "global_id_z" => DeviceIntrinsic::GlobalIdZ,
             "sync" => DeviceIntrinsic::Barrier,
             _ => return None,
         })
     }
 
+    /// 调用该 intrinsic 所需的 `ThreadCtx<DIM>` 最小维数(M5.3;X 轴=1,Y=2,Z=3)。
+    pub fn min_dim(self) -> u8 {
+        match self {
+            DeviceIntrinsic::ThreadIndexY
+            | DeviceIntrinsic::BlockIndexY
+            | DeviceIntrinsic::BlockDimY
+            | DeviceIntrinsic::GlobalIdY => 2,
+            DeviceIntrinsic::ThreadIndexZ
+            | DeviceIntrinsic::BlockIndexZ
+            | DeviceIntrinsic::BlockDimZ
+            | DeviceIntrinsic::GlobalIdZ => 3,
+            _ => 1,
+        }
+    }
+
     pub fn name(self) -> &'static str {
         match self {
             DeviceIntrinsic::ThreadIndexX => "thread_index",
+            DeviceIntrinsic::ThreadIndexY => "thread_index_y",
+            DeviceIntrinsic::ThreadIndexZ => "thread_index_z",
             DeviceIntrinsic::BlockIndexX => "block_index",
+            DeviceIntrinsic::BlockIndexY => "block_index_y",
+            DeviceIntrinsic::BlockIndexZ => "block_index_z",
             DeviceIntrinsic::BlockDimX => "block_dim",
+            DeviceIntrinsic::BlockDimY => "block_dim_y",
+            DeviceIntrinsic::BlockDimZ => "block_dim_z",
             DeviceIntrinsic::GlobalIdX => "global_id",
+            DeviceIntrinsic::GlobalIdY => "global_id_y",
+            DeviceIntrinsic::GlobalIdZ => "global_id_z",
             DeviceIntrinsic::Barrier => "sync",
         }
     }
@@ -130,6 +180,105 @@ impl DeviceIntrinsic {
     /// 返回 unit(barrier)还是 usize(索引类)。
     pub fn returns_unit(self) -> bool {
         matches!(self, DeviceIntrinsic::Barrier)
+    }
+}
+
+/// device 数学函数 intrinsic(M5.3,RXS-0081;f32/f64 初等函数 → libdevice
+/// ABI 外部符号 `__nv_<name>`)。typeck 在接收者为 `f32`/`f64` 原生类型且
+/// 方法名命中时识别(原生类型无用户 inherent impl,无遮蔽问题);device
+/// codegen 落 `call` 到保留的外部 `__nv_*` 符号,经 libdevice bc 链接解析
+/// (RXS-0082,clang `-mlink-builtin-bitcode`)。映射目标为精确路径
+/// (NVVMReflect ftz=0 / prec-sqrt/div=1,RXS-0081 Dynamic Semantics)。
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum DeviceMathFn {
+    Sqrt,
+    Rsqrt,
+    Cbrt,
+    Exp,
+    Exp2,
+    Ln,
+    Log2,
+    Log10,
+    Sin,
+    Cos,
+    Tan,
+    Floor,
+    Ceil,
+    Trunc,
+    Round,
+    Abs,
+    Powf,
+    Min,
+    Max,
+    Fma,
+}
+
+impl DeviceMathFn {
+    /// `f32`/`f64` 方法名 → 数学 intrinsic(RXS-0081;非数学方法返回 None)。
+    pub fn from_method(name: &str) -> Option<Self> {
+        Some(match name {
+            "sqrt" => DeviceMathFn::Sqrt,
+            "rsqrt" => DeviceMathFn::Rsqrt,
+            "cbrt" => DeviceMathFn::Cbrt,
+            "exp" => DeviceMathFn::Exp,
+            "exp2" => DeviceMathFn::Exp2,
+            "ln" | "log" => DeviceMathFn::Ln,
+            "log2" => DeviceMathFn::Log2,
+            "log10" => DeviceMathFn::Log10,
+            "sin" => DeviceMathFn::Sin,
+            "cos" => DeviceMathFn::Cos,
+            "tan" => DeviceMathFn::Tan,
+            "floor" => DeviceMathFn::Floor,
+            "ceil" => DeviceMathFn::Ceil,
+            "trunc" => DeviceMathFn::Trunc,
+            "round" => DeviceMathFn::Round,
+            "abs" | "fabs" => DeviceMathFn::Abs,
+            "powf" | "pow" => DeviceMathFn::Powf,
+            "min" | "fmin" => DeviceMathFn::Min,
+            "max" | "fmax" => DeviceMathFn::Max,
+            "fma" => DeviceMathFn::Fma,
+            _ => return None,
+        })
+    }
+
+    /// 方法元数(**含 receiver**):一元=1、二元=2、三元(fma)=3。
+    pub fn arity(self) -> usize {
+        match self {
+            DeviceMathFn::Powf | DeviceMathFn::Min | DeviceMathFn::Max => 2,
+            DeviceMathFn::Fma => 3,
+            _ => 1,
+        }
+    }
+
+    /// libdevice 符号基名(不含 `__nv_` 前缀与 f32 后缀);RXS-0081 映射表。
+    pub fn nv_base(self) -> &'static str {
+        match self {
+            DeviceMathFn::Sqrt => "sqrt",
+            DeviceMathFn::Rsqrt => "rsqrt",
+            DeviceMathFn::Cbrt => "cbrt",
+            DeviceMathFn::Exp => "exp",
+            DeviceMathFn::Exp2 => "exp2",
+            DeviceMathFn::Ln => "log",
+            DeviceMathFn::Log2 => "log2",
+            DeviceMathFn::Log10 => "log10",
+            DeviceMathFn::Sin => "sin",
+            DeviceMathFn::Cos => "cos",
+            DeviceMathFn::Tan => "tan",
+            DeviceMathFn::Floor => "floor",
+            DeviceMathFn::Ceil => "ceil",
+            DeviceMathFn::Trunc => "trunc",
+            DeviceMathFn::Round => "round",
+            DeviceMathFn::Abs => "fabs",
+            DeviceMathFn::Powf => "pow",
+            DeviceMathFn::Min => "fmin",
+            DeviceMathFn::Max => "fmax",
+            DeviceMathFn::Fma => "fma",
+        }
+    }
+
+    /// libdevice ABI 符号名(RXS-0081;f32 → `__nv_<base>f`,f64 → `__nv_<base>`)。
+    pub fn nv_symbol(self, is_f32: bool) -> String {
+        format!("__nv_{}{}", self.nv_base(), if is_f32 { "f" } else { "" })
     }
 }
 
@@ -449,6 +598,11 @@ pub enum TyKind {
     Tuple(Vec<Ty>),
     Array {
         elem: Box<Ty>,
+        /// 静态数组长度字面量的 span(M5.3:整数字面量长度;非字面量/const 泛型
+        /// 长度为 `None`,落 RD-007)。`Ty::Array` 不携长度(语义层),长度仅供
+        /// device shared/array codegen 定 `[N x T]` 形状(RXS-0071/0079);取值在
+        /// MIR lowering 经源文本解析(那里有 `QueryCtx::src`)。
+        len: Option<crate::span::Span>,
     },
     Slice(Box<Ty>),
     FnPtr {
@@ -456,6 +610,11 @@ pub enum TyKind {
         ret: Option<Box<Ty>>,
     },
     Infer,
+    /// 类型位置整数字面量 const 实参(M5.3 review fix:保留 `ThreadCtx<DIM>` 等
+    /// 的 DIM 字面量 span;语义层经 typeck 解析为 [`Ty::Const`])。
+    ConstLit {
+        span: crate::span::Span,
+    },
     Err,
 }
 
