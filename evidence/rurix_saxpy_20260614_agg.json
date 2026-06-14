@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "evidence_level": "measured_local",
+  "timestamp": "2026-06-14T04:36:22.437357+00:00",
+  "bench": {
+    "id": "rurix_saxpy_f32",
+    "level": "L1",
+    "problem_size": "2^24 elements f32 (64 MiB/array)",
+    "harness_commit": "5e55807"
+  },
+  "environment": {
+    "driver_version": "591.86",
+    "nvml_version": "13.591.86",
+    "gpu_name": "NVIDIA GeForce RTX 4070 Ti",
+    "compute_capability": "8.9",
+    "driver_model": "WDDM",
+    "clocks": {
+      "locked": true,
+      "sm_clock_mhz": 2610,
+      "mem_clock_mhz": 10251,
+      "lock_method": "nvidia-smi -lgc/-lmc (elevated); persistence mode unsupported on Windows"
+    },
+    "thermal": {
+      "temp_start_c": 36,
+      "temp_end_c": 38,
+      "steady_state": true
+    },
+    "isolation_check": {
+      "other_compute_processes": 24
+    },
+    "cuda_driver_version": "13.1",
+    "tdr": {
+      "tdr_delay": "not_set(os_default)",
+      "tdr_level": "not_set(os_default)"
+    },
+    "hags_enabled": true,
+    "os_build": "Windows 10.0.28120"
+  },
+  "sampling": {
+    "warmup_iterations": 13,
+    "steady_state_cv": 0.030712,
+    "timed_iterations": 50,
+    "trials": 3,
+    "trimmed_pct": 0.2,
+    "l2_clear_mb": 256,
+    "timer": "cuda_event"
+  },
+  "results": {
+    "metric": "effective_bandwidth",
+    "unit": "GB/s",
+    "trial_medians": [
+      413.2139,
+      412.5728,
+      412.9157
+    ],
+    "trimmed_mean": 412.9008,
+    "cv": 0.000777,
+    "ci95": [
+      412.5004,
+      413.1505
+    ],
+    "min": 412.1761,
+    "max": 413.4492,
+    "outliers_rejected_iqr": 33,
+    "correctness_check": "pass"
+  },
+  "notes": "aggregate of 3 process-level independent runs (rurix_saxpy_20260614_1..3.json); trial_medians = per-run trimmed means. rurixc device codegen PTX (.version 8.0, entry rx_saxpy_8, clang -O2 NVPTX), mul.rn+add.rn (no FMA, bitwise host comparison), out buffer separate from y; desktop WDDM environment: other GPU-using processes recorded in isolation_check"
+}

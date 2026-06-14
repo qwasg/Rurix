@@ -9,7 +9,17 @@
     "milestones/m0/BENCH_PROTOCOL.md",
     "milestones/m4/M4_CONTRACT.md"
   ],
-  "entries": [],
+  "entries": [
+    {
+      "id": "m4.bench.saxpy.effective_bandwidth_gbps",
+      "direction": "min",
+      "threshold": 392.26,
+      "evidence": "measured_local",
+      "unit": "GB/s",
+      "evidence_file": "evidence/rurix_saxpy_20260614_agg.json",
+      "measured_value": 412.9008
+    }
+  ],
   "ratio_assertions": [
     {
       "id": "m4.ratio.saxpy_vs_m0_baseline",
@@ -17,9 +27,9 @@
       "denominator": "m0.bench.saxpy.effective_bandwidth_gbps",
       "direction": "min",
       "threshold": 0.95,
-      "evidence": "estimated",
-      "skip_reason": "Rurix SAXPY 有效带宽(numerator)随 M4.4 device 端到端真跑回填 measured_local;回填前 estimated 占位 SKIP(契约 G-M4-1,本占位 M4 内生灭,close-out --strict 判定 ≥0.95)",
-      "measured_value": null
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "measured_value": 1.0001
     }
   ],
   "counter_assertions": [
@@ -45,6 +55,11 @@
       "version": "v1.0",
       "date": "2026-06-13",
       "change": "初版模板:SAXPY vs M0 基线比值断言(estimated 占位,M4.4 回填)+ launch conformance 类别计数器 + 黄金路径 4 计数器(M4 契约配套);entries 留空 = M4 不预欠 estimated bench 占位"
+    },
+    {
+      "version": "v1.1",
+      "date": "2026-06-14",
+      "change": "M4.4 回填:Rurix SAXPY measured_local(三次进程级独立运行 trimmed mean = 412.9008 GB/s)→ numerator entry + ratio vs M0 基线 (412.8698 GB/s)= 1.0001(契约 G-M4-1,阈值 0.95)"
     }
   ]
 }
