@@ -36,6 +36,24 @@ jobs:
         shell: powershell
         run: py -3 bench/saxpy_bench.py --smoke
 
+      - name: compute sanitizer racecheck+memcheck (M5.4 G-M5-4)
+        shell: powershell
+        # 正确性维度:racecheck + memcheck 包裹全自研 kernel + SAXPY 回归。
+        # 不锁频、不做性能采样(严禁污染 measured 基准);非 clean 即 nightly 红。
+        run: py -3 bench/compute_sanitizer_run.py
+
+      - name: upload compute-sanitizer reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compute-sanitizer-${{ github.run_id }}
+          path: evidence/compute_sanitizer_*.json
+          retention-days: 90
+
+      - name: schema check (G-M5-4 证据当场校验)
+        shell: powershell
+        run: py -3 ci/check_schemas.py
+
       - name: budget evaluator (normal)
         shell: powershell
         run: py -3 ci/budget_eval.py

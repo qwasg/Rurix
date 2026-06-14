@@ -1,0 +1,48 @@
+//
+// M5.4 G-M5-4 RED fixture: known shared-memory data race (non-production kernel).
+//
+// Each thread writes sdata[tid] = tid, then WITHOUT bar.sync reads the neighbour
+// slot sdata[tid ^ 1] that another thread just wrote -- a cross-thread RAW/WAR
+// hazard. compute-sanitizer --tool racecheck MUST report it (race detected).
+// clean_shared.ptx is the fixed (GREEN) counterpart with bar.sync inserted.
+//
+// racecheck red/green verification only; .version is renegotiated/downgraded by
+// the harness (cuda_driver). ASCII only: ptxas rejects non-ASCII bytes.
+//
+.version 8.0
+.target sm_52
+.address_size 64
+
+.visible .entry race_shared(
+    .param .u64 race_shared_param_0
+)
+{
+    .reg .b32   %r<4>;
+    .reg .b64   %rd<8>;
+
+    .shared .align 4 .b32 sdata[64];
+
+    ld.param.u64    %rd1, [race_shared_param_0];
+    cvta.to.global.u64  %rd2, %rd1;
+
+    mov.u32     %r1, %tid.x;
+    mul.wide.u32    %rd3, %r1, 4;
+
+    // sdata[tid] = tid
+    mov.u64     %rd4, sdata;
+    add.s64     %rd5, %rd4, %rd3;
+    st.shared.u32   [%rd5], %r1;
+
+    // <<< missing bar.sync -- data race point >>>
+
+    // r3 = sdata[tid ^ 1]  (read neighbour's just-written slot)
+    xor.b32     %r2, %r1, 1;
+    mul.wide.u32    %rd6, %r2, 4;
+    add.s64     %rd7, %rd4, %rd6;
+    ld.shared.u32   %r3, [%rd7];
+
+    // out[tid] = r3  (prevent dead-code elimination)
+    add.s64     %rd2, %rd2, %rd3;
+    st.global.u32   [%rd2], %r3;
+    ret;
+}

@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "tool": "memcheck",
+  "kernel": "scan",
+  "clean": true,
+  "exit_code": 0,
+  "errors_count": 0,
+  "hazards_count": 0,
+  "report_summary": "========= ERROR SUMMARY: 0 errors",
+  "sanitizer_version": "NVIDIA (R) Compute Sanitizer",
+  "command": "bench/scan_bench.py --smoke",
+  "timestamp": "2026-06-14T14:08:21.546211+00:00",
+  "harness_commit": "3f881d1"
+}
