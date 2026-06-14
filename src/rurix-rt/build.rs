@@ -89,9 +89,12 @@ fn gen_ptx(kernel_rx: &std::path::Path, ptx_out: &std::path::Path) -> Result<Str
 /// 从 NVPTX IR(`define ptx_kernel void @<name>(`)解析入口符号名,PTX
 /// (`.entry <name>`)兜底核对。
 fn parse_entry(ir: &str, ptx: &str) -> Option<String> {
-    let from_ir = ir.find("define ptx_kernel").and_then(|_| {
-        let at = ir.find(" @")?;
-        let rest = &ir[at + 2..];
+    let from_ir = ir.find("define ptx_kernel").and_then(|pos| {
+        // 自 `define ptx_kernel` 处向后找 ` @<name>(`(否则会先命中 define 之前的
+        // `declare i32 @llvm.nvvm.read.ptx.sreg.*()` intrinsic 声明而取错名)。
+        let after_def = &ir[pos..];
+        let at = after_def.find(" @")?;
+        let rest = &after_def[at + 2..];
         let end = rest.find('(').unwrap_or(rest.len());
         let name = rest[..end].trim();
         (!name.is_empty()).then(|| name.to_owned())
