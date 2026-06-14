@@ -1,0 +1,70 @@
+# M5 CI 门禁增量
+
+> 所属契约:[M5_CONTRACT.md](M5_CONTRACT.md)
+> 版本:v1.0(2026-06-14)
+> 基线:[../m0/CI_GATES.md](../m0/CI_GATES.md) + [../m1/CI_GATES.md](../m1/CI_GATES.md) + [../m2/CI_GATES.md](../m2/CI_GATES.md) + [../m3/CI_GATES.md](../m3/CI_GATES.md) + [../m4/CI_GATES.md](../m4/CI_GATES.md)(全部沿用:runner 约定、PR Smoke 1–21 步、guardrail 含 M1.1/M1.2/M1.4/M3.3/M4.2/M4.3 激活项、nightly 工作流);本文只规定 M5 期的**增量**。
+> 铁律不变:任何新增门禁必须在真实 PR 上以真实失败/通过路径验证过(反 YAML-only,H06 D11.8-2)。
+
+---
+
+## 1. Runner
+
+沿用 M0 §1(自托管 RTX 4070 Ti 开发机)+ M4 §1(device 路径门禁:CUDA Toolkit 含 `ptxas` + Driver API 装载环境)。M5 新增 runner 预置项:
+
+- **Compute Sanitizer**(`compute-sanitizer`,CUDA Toolkit 自带)纳入 GPU 队列 nightly(racecheck + memcheck);探测复用运行时探测器(`CUDA_PATH` 枚举,**禁硬编码版本文件名**——沿用 M4 r6 教训),预置落地时本表修订行留痕。
+- **libdevice bc**(`$CUDA_PATH/nvvm/libdevice/libdevice.*.bc`)定位用同一探测器,禁硬编码版本文件名。
+- CPU 任务(views 不相交检查、shared+barrier 一致性、scoped atomics 类型契约、views conformance、黄金路径 5)不占 GPU 队列;**GPU 任务**(gpu 并行基元真跑 + measured 基准 + Compute Sanitizer)占 GPU 队列,沿用 BENCH_PROTOCOL §2 锁频/环境画像/进程隔离纪律。
+
+## 2. PR Smoke 追加步骤(编号接 M4 §2 的 17–21)
+
+| # | 步骤 | 失败即红 |
+|---|---|---|
+| 22 | views 不相交证明 conformance 批跑:`conformance/views/reject/<category>/` 反例全拦截(重叠 split / 别名可变 view / view 越界 / shared view 与 barrier 不一致,逐文件断言产生预期 3xxx 诊断)+ `accept/` 正例 0 诊断 + 类别目录覆盖核对(契约 G-M5-2 通道;M5.1 落地接入)。**实测命令**:`cargo test -p rurixc --test views_corpus`(占位,落地时回填);计数核对 `py -3 ci/budget_eval.py`(`m5.counter.views_conformance_categories` ≥4) | 是 |
+| 23 | 黄金路径 5 snapshot 核对:`tests/ui/{views,shared,atomics}/` 并行安全错误 .stderr snapshot(views 重叠/别名 3xxx + shared+barrier 一致性 + scoped atomics scope 误用)全绿 + bless 守卫(契约 G-M5-3 通道,复用 M1.4 UI 通道与 check_ui_bless)。**实测命令**:`cargo test -p rurixc --test ui_golden`;计数核对 `py -3 ci/budget_eval.py`(`m5.counter.ui_golden_path5_snapshots` ≥10,计数目录 = tests/ui/{views,shared,atomics}/) | 是 |
+| 24 | (GPU)gpu 并行基元端到端真跑:自研 `reduce`/`scan`/`transpose`/`tiled GEMM` kernel(Rurix 源,全 safe 代码目标)经 rurixc 全管线(着色/views 不相交/shared+barrier 检查 → NVPTX codegen → libdevice 链接 → ptxas 关卡 → 嵌入)产 PTX → 装载 → launch → D2H → 与 host 参考实现核对 exit 0(契约 G-M5-1 真跑通道,对齐步骤 20 SAXPY 形态;M5.3 落地,GPU 队列)。**实测命令**:落地时回填(`cargo test -p rurix-rt` + `cargo run -p rurix-rt --bin <kernel>`)。**构建期无 clang/rurixc → 空哨兵降级 SKIP**;**无 GPU/驱动 → SKIP**(真红绿在带 clang+GPU 的 self-hosted runner) | 是 |
+
+预算 evaluator(M0 步骤 6)自动合并加载 [m5_budget.json](m5_budget.json)(命名空间冲突即红;evaluator 已配 `m5.counter.views_conformance_categories`/`m5.counter.ui_golden_path5_snapshots`/`m5.counter.compute_sanitizer_clean` 分支,目录/证据缺失 → 0 → normal SKIP,对齐 M4 计数器先例)。**M5 期 PR Smoke 跑 normal 模式**:`m5.counter.*` 建设期未达标 SKIP 属预期;`m5.ratio.*_vs_cuda` estimated 占位在 M5.4 回填前继续 SKIP。**M5 close-out 必须跑 `--strict` 且全局零 estimated 残留**(契约 G-M5-1;本占位在 M5 内生灭,不跨里程碑欠债,14 §3)。
+
+## 3. Nightly 追加
+
+- 既有 nightly 全保留(lexer/parser/SAXPY(手写基线 + Rurix)冒烟 + budget normal + self-profile 归档,M2/M3/M4 实体化)。
+- **Compute Sanitizer 纳入 nightly(契约 G-M5-4,M4 §3 标注"全量 racecheck 随 M5"的到期时点)**:`compute-sanitizer --tool racecheck`(数据竞争)+ `--tool memcheck`(越界/未初始化)对 M5 全部自研 kernel(reduce/scan/transpose/GEMM)+ M4 SAXPY 回归;GPU 队列、子进程隔离(14 §6);报告归档 `evidence/compute_sanitizer_<date>.json`(`clean=true` 计入 `m5.counter.compute_sanitizer_clean`)。**激活经真实红绿验证**(构造已知竞争 kernel → racecheck 红 → 修复转绿,run URL 归档,反 YAML-only)。Sanitizer 运行只作正确性维度,不用于 measured 基准(显著拖慢 kernel)。
+- **gpu 并行基元 measured 基准纳入 nightly(M5.3/M5.4 落地,RD-002 承接)**:L1/L2 全量微基准 harness(复用 BENCH_PROTOCOL §3 协议;reduce/scan/transpose/GEMM-tile + 手写 CUDA C++ 对照实现作 denominator 锚点),三次进程级独立运行 + 回填(锁频 L0 前置,unlocked 整组作废拒绝回填);对手写 CUDA C++ 对照的回归判定(BENCH_PROTOCOL §5)。
+- self-profile 归档自然覆盖 M5 新增阶段计数器(views 不相交/shared+barrier/libdevice 链接布点随实现扩列,非门禁,趋势参考)。
+- Release 层仍不建(RD-001,承接 M8 不变)。
+
+## 4. Guardrail
+
+沿用 M0 五项 + M1 三项(spec 档位 / 错误码冻结 / UI bless)+ M3 一项(MIR golden bless,check_mir_bless)+ M4 一项(PTX/IR golden bless,check_ptx_bless)+ M4 unsafe-audit(rurix-rt `undocumented_unsafe_blocks=deny`)。三项 M5 期动作:
+
+1. **基准 ref 切换**:M5.1 第 1 项先打 `m4-closed` tag(随 M5 开工,对齐 `m3-closed` 随 M3 终审打出的先例),再将 `ci/check_guardrails.py` 本地/push 回退基准 `m3-closed → m4-closed`(PR 路径仍以 GITHUB_BASE_REF 为准),切换前双基准核对(`py -3 ci/check_guardrails.py m3-closed` PASS + `py -3 ci/check_guardrails.py m4-closed` PASS),落地留痕本表修订行。
+2. **NVIDIA 再分发白名单审计 formal 激活**(14 §2 常驻集,M4 §8.2/CI_GATES §4 标注的到期时点):M5 引入 **libdevice 链接**(链 libdevice bc → internalize → DCE)——若产物嵌入 NVIDIA 再分发物(libdevice 派生码),formal 审计门(再分发清单逐项核对 NVIDIA EULA 白名单)激活;若 internalize+DCE 后仅保留派生于用户 kernel 调用的数学函数实现且符合再分发条款,逐项结论入本表修订行 + close-out。**libdevice 链接落地 PR 必须附白名单审计结论**(M5.3/M5.4)。
+3. **Compute Sanitizer racecheck+memcheck 纳入 nightly**(§3):M5 device 并行 kernel 落地时激活,激活经真实红绿验证(本表修订行留痕)。
+
+14 §2 常驻集其余项的 M5 期评估结论:
+
+| 项 | 结论 |
+|---|---|
+| MIR 文本 golden | M3.3 WP6 已激活(check_mir_bless),M5 沿用;views 不相交 pass 的 MIR 形态变更纳入既有 golden 核对 |
+| PTX/IR 文本 golden | M4.2 已激活(check_ptx_bless);M5 gpu 基元 kernel + libdevice 链接后的 IR/PTX 形态纳入既有 golden 核对 |
+| stable API 快照 | M5 无 stable 面,不激活 |
+| unsafe-audit 完整性 | M4.3 已激活(rurix-rt);M5 新增 unsafe 边界(若 scoped atomics 映射/libdevice 链接引入)按 AGENTS 硬规则 9 注册条目,每 unsafe 块 `// SAFETY:`;全仓其余 crate 维持 deny |
+| Compute Sanitizer | **M5 期激活**(§3 第 2 项 + 本节第 3 项动作),racecheck + memcheck nightly 全绿(契约 G-M5-4) |
+| SG-002 复评(Tensor Core/WGMMA/TMA) | **M5 期复评留痕**:tiled GEMM 自研 kernel 走经典 shared-memory tiling,**不触 Tensor Core/WGMMA intrinsics**;触发条件("L2 基准证明 GEMM 类负载是真实用户瓶颈 且 中层抽象成熟度复评通过")未满足 → 维持 `not_triggered`,复评结论追加 [../../registry/spike_gating.json](../../registry/spike_gating.json) SG-002 decisions(M5.3 落地) |
+
+m0~m4 历史预算的回填/冻结走 `check_guardrails.py` 既有机制("estimated 条目只允许回填为 measured_local";measured_local 条目 0-byte),不属新增激活项。
+
+## 5. 验证程序(对应契约 G-M5-1/G-M5-2/G-M5-3/G-M5-4 与步骤 22–24)
+
+1. 步骤 22 落地后,构造**故意放行某 views 不相交反例类别**(或篡改 reject 语料预期)的 PR → 必须红;修复后转绿,run URL 归档。
+2. 步骤 23(黄金路径 5)走 bless 审批:篡改 .stderr 不附 bless 行 → `check_ui_bless` FAIL;补 bless 留痕 → 绿,run URL 归档。
+3. 步骤 24(GPU 并行基元)落地后,构造拷回核对失败(篡改 kernel 语义)→ exit 1 红;复原 → exit 0 绿,run URL 归档。
+4. Compute Sanitizer 激活时(§3/§4 第 3 项):构造已知数据竞争 kernel → `racecheck` 红;修复(加 barrier/收窄 view)→ 绿,两次 run URL 随 close-out 归档。
+5. 基准 ref 切换(§4 第 1 项)落地后,切换前双基准核对输出附本表修订行。
+6. close-out 附 `budget_eval --strict` 输出原文(契约 G-M5-1 三条比值 ≥0.90 与全局零 estimated 残留判定)+ measured_local 证据 JSON 路径 + NVIDIA libdevice 白名单审计结论 + Compute Sanitizer 红绿 run URL + SG-002 复评结论。
+
+## 6. 修订记录
+
+| 版本 | 日期 | 变更 |
+|---|---|---|
+| v1.0 | 2026-06-14 | 初版(M5 契约配套;步骤 22–24 为 M5.1/M5.2/M5.3 计划项,落地时回填实测命令;guardrail 三项动作:基准切换 m3-closed→m4-closed(先打 m4-closed tag)、NVIDIA libdevice 白名单 formal 激活、Compute Sanitizer racecheck+memcheck nightly 均为计划项)。配套 `ci/budget_eval.py` 新增 `m5.counter.views_conformance_categories`(≥4)/ `m5.counter.ui_golden_path5_snapshots`(≥10)/ `m5.counter.compute_sanitizer_clean`(≥1)evaluator 分支(目录/证据缺失 → 0 → normal SKIP,对齐 M4 计数器先例);`py -3 ci/budget_eval.py` = PASS(23 pass, 6 skip, normal mode),M5 期 `m5.*` 占位/计数器 SKIP 属预期。`tests/test_budget_namespace.py` 20 passed |

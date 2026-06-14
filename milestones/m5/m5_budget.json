@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "namespace": "m5",
+  "description": "M5 预算(14 §3:entries + ratio_assertions + counter_assertions,命名空间强制前缀)。M5 安全并行硬证据 = 自研 reduce/scan/tiled GEMM kernel ≥ 手写 CUDA C++ 对照 90%(UC-01 判据),以三条比值断言 m5.ratio.{reduce,scan,gemm_tile}_vs_cuda 表达(denominator = 手写 CUDA C++ 对照实现的同协议 measured_local 锚点)。三条比值占位在 M5 内生灭(M5.4 回填 measured_local,close-out budget_eval --strict 判定),不跨里程碑欠债;回填时新增 m5.bench.{reduce,scan,gemm_tile}.* entry 作 numerator + 新增 cuda 对照 entry 作 denominator。entries 开工留空 = M5 不预欠 estimated bench 占位(实测随 M5.4)。计数器:views 不相交 conformance 类别 + 黄金路径 5 snapshot + Compute Sanitizer nightly 全绿(承接 RD-002 / 契约 G-M5-2/G-M5-3/G-M5-4)。",
+  "source_docs": [
+    "14 §3",
+    "07 §4 §7",
+    "08 §5",
+    "11 §3 (M5 定义,安全并行核心交付,UC-01 判据)",
+    "milestones/m0/BENCH_PROTOCOL.md",
+    "milestones/m5/M5_CONTRACT.md"
+  ],
+  "entries": [],
+  "ratio_assertions": [
+    {
+      "id": "m5.ratio.reduce_vs_cuda",
+      "numerator": "m5.bench.reduce.effective_bandwidth_gbps",
+      "denominator": "m5.bench.reduce_cuda.effective_bandwidth_gbps",
+      "direction": "min",
+      "threshold": 0.90,
+      "evidence": "estimated",
+      "skip_reason": "M5.4 回填:自研 reduce kernel measured_local(三次进程级独立运行 trimmed mean)/ 手写 CUDA C++ 对照同协议锚点;锁频 L0 前置,unlocked 不得回填(契约 G-M5-1,阈值 0.90)"
+    },
+    {
+      "id": "m5.ratio.scan_vs_cuda",
+      "numerator": "m5.bench.scan.effective_bandwidth_gbps",
+      "denominator": "m5.bench.scan_cuda.effective_bandwidth_gbps",
+      "direction": "min",
+      "threshold": 0.90,
+      "evidence": "estimated",
+      "skip_reason": "M5.4 回填:自研 scan kernel measured_local / 手写 CUDA C++ 对照同协议锚点;锁频 L0 前置,unlocked 不得回填(契约 G-M5-1,阈值 0.90)"
+    },
+    {
+      "id": "m5.ratio.gemm_tile_vs_cuda",
+      "numerator": "m5.bench.gemm_tile.throughput_gflops",
+      "denominator": "m5.bench.gemm_tile_cuda.throughput_gflops",
+      "direction": "min",
+      "threshold": 0.90,
+      "evidence": "estimated",
+      "skip_reason": "M5.4 回填:自研 tiled GEMM kernel(经典 shared-memory tiling,不触 Tensor Core)measured_local / 手写 CUDA C++ 对照同协议锚点;锁频 L0 前置,unlocked 不得回填(契约 G-M5-1,阈值 0.90)"
+    }
+  ],
+  "counter_assertions": [
+    {
+      "id": "m5.counter.views_conformance_categories",
+      "description": "conformance/views/reject/ 下预设 views 不相交证明错误类别目录数 ≥4(契约 G-M5-2 预设清单:重叠 split_at 子 view 同时可变借用 / 别名可变 view 跨 view 写冲突 / view 越界 / shared view 与 barrier 不一致访问;类别全拦截由 CI 步骤批跑断言,本计数器核对类别覆盖面。数量为 estimated 工程选择,增删经 Direct PR 留痕,对齐 G-M3-1/G-M4-2 先例)",
+      "expect": ">=4",
+      "evidence": "ci_checked"
+    },
+    {
+      "id": "m5.counter.ui_golden_path5_snapshots",
+      "description": "黄金路径 5(并行安全错误:views 重叠/别名 3xxx 续接 + shared+barrier 一致性违例 + scoped atomics scope 误用)的 tests/ui .stderr snapshot 数 ≥10(契约 G-M5-3;数量为 estimated 工程选择,调整经 Direct PR 留痕,对齐 G-M1-1/G-M2-3/G-M3-2/G-M4-3 先例。evaluator 计数目录 = tests/ui/{views,shared,atomics}/,随 M5.1/M5.2 扩列)",
+      "expect": ">=10",
+      "evidence": "ci_checked"
+    },
+    {
+      "id": "m5.counter.compute_sanitizer_clean",
+      "description": "Compute Sanitizer racecheck(数据竞争)+ memcheck(越界/未初始化)对 M5 全部自研 kernel(reduce/scan/transpose/GEMM)+ M4 SAXPY 回归 nightly 全绿(契约 G-M5-4;08 §5,GPU 队列子进程隔离)。evaluator 计数 = evidence/compute_sanitizer_*.json 中 clean=true 的报告数 ≥1(M5.4 nightly 接入前为 0 → 建设期 normal SKIP / close-out strict FAIL;激活经真实红绿验证)",
+      "expect": ">=1",
+      "evidence": "ci_checked"
+    }
+  ],
+  "namespace_check": {
+    "rule": "本文件所有 id 必须以 'm5.' 前缀开头;多预算合并加载时冲突即 FAIL(14 §3)",
+    "unit_test_required": true
+  },
+  "revision_log": [
+    {
+      "version": "v1.0",
+      "date": "2026-06-14",
+      "change": "初版模板:reduce/scan/gemm_tile vs 手写 CUDA C++ 对照三条比值断言(estimated 占位,M5.4 回填)+ views 不相交 conformance 类别计数器 + 黄金路径 5 计数器 + Compute Sanitizer nightly 计数器(M5 契约配套);entries 留空 = M5 不预欠 estimated bench 占位"
+    }
+  ]
+}
