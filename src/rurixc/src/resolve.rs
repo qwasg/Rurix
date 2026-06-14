@@ -67,6 +67,14 @@ pub struct LangItems {
     pub addr_spaces: [Option<DefId>; 5],
     /// 设备线程上下文 `ThreadCtx<DIM>`(M4.2,RXS-0072;方法 → device intrinsics)。
     pub thread_ctx: Option<DefId>,
+    /// host 运行时 launch 类型契约已知类型(M4.3,RXS-0074;类型/值位置兜底,
+    /// 可被用户遮蔽)。`Stream<Ctx>` 的首类型实参为 context-brand;`GridDim`/
+    /// `BlockDim` 兼为值位置构造器(变维数容忍)。
+    pub context: Option<DefId>,
+    pub module: Option<DefId>,
+    pub stream: Option<DefId>,
+    pub grid_dim: Option<DefId>,
+    pub block_dim: Option<DefId>,
 }
 
 /// 地址空间标记名(RXS-0067;序对应 [`LangItems::addr_spaces`])。
@@ -91,6 +99,11 @@ impl LangItems {
             "ViewMut" => self.view_mut,
             "Buffer" | "DeviceBuffer" => self.buffer,
             "ThreadCtx" => self.thread_ctx,
+            "Context" => self.context,
+            "Module" => self.module,
+            "Stream" => self.stream,
+            "GridDim" => self.grid_dim,
+            "BlockDim" => self.block_dim,
             _ => ADDR_SPACES
                 .iter()
                 .position(|n| *n == name)
@@ -98,9 +111,44 @@ impl LangItems {
         }
     }
 
+    /// launch 维度构造器名 → 内建 `GridDim`/`BlockDim`(RXS-0074;值位置兜底,
+    /// 变维数容忍 — 维数 = 实参个数)。
+    pub fn device_value_by_name(&self, name: &str) -> Option<DefId> {
+        match name {
+            "GridDim" => self.grid_dim,
+            "BlockDim" => self.block_dim,
+            _ => None,
+        }
+    }
+
     /// `ThreadCtx` 容器判定(RXS-0072;device intrinsic 方法识别)。
     pub fn is_thread_ctx(&self, d: DefId) -> bool {
         Some(d) == self.thread_ctx
+    }
+
+    /// `Stream` 容器判定(RXS-0074;launch 方法接收者识别)。
+    pub fn is_stream(&self, d: DefId) -> bool {
+        Some(d) == self.stream
+    }
+
+    /// `Buffer` 容器判定(RXS-0074;launch 参数 brand 与元素消费)。
+    pub fn is_buffer(&self, d: DefId) -> bool {
+        Some(d) == self.buffer
+    }
+
+    /// `GridDim` 构造器判定(RXS-0074;launch 维度契约)。
+    pub fn is_grid_dim(&self, d: DefId) -> bool {
+        Some(d) == self.grid_dim
+    }
+
+    /// `BlockDim` 构造器判定(RXS-0074;launch 维度契约)。
+    pub fn is_block_dim(&self, d: DefId) -> bool {
+        Some(d) == self.block_dim
+    }
+
+    /// launch 维度构造器判定(`GridDim`/`BlockDim`;typeck 构造容忍)。
+    pub fn is_launch_dim(&self, d: DefId) -> bool {
+        self.is_grid_dim(d) || self.is_block_dim(d)
     }
 
     /// `View` 族容器判定 → `Some(mutable)`(RXS-0067 地址空间一致性消费)。
@@ -213,6 +261,11 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
             buffer: None,
             addr_spaces: [None; 5],
             thread_ctx: None,
+            context: None,
+            module: None,
+            stream: None,
+            grid_dim: None,
+            block_dim: None,
         };
     }
     r.collect_items(&file.items, 0);
@@ -231,6 +284,16 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
         // 方法识别为 device intrinsics(typeck 层)。同 View 族兜底纪律(可遮蔽)。
         r.out.lang_items.thread_ctx =
             Some(r.new_def(DefKind::Struct, "ThreadCtx", Vis::Pub, span, 0));
+        // host 运行时 launch 类型契约已知类型(M4.3,RXS-0074):Context/Module/
+        // Stream(brand)/GridDim/BlockDim。追加于既有 device lang items 之后,
+        // 不动摇 view 族/ThreadCtx 既有 DefId 编号(MIR/PTX golden 符号名稳定性)。
+        r.out.lang_items.context = Some(r.new_def(DefKind::Struct, "Context", Vis::Pub, span, 0));
+        r.out.lang_items.module = Some(r.new_def(DefKind::Struct, "Module", Vis::Pub, span, 0));
+        r.out.lang_items.stream = Some(r.new_def(DefKind::Struct, "Stream", Vis::Pub, span, 0));
+        r.out.lang_items.grid_dim =
+            Some(r.new_def(DefKind::Struct, "GridDim", Vis::Pub, span, 0));
+        r.out.lang_items.block_dim =
+            Some(r.new_def(DefKind::Struct, "BlockDim", Vis::Pub, span, 0));
     }
     r.resolve_uses();
     r.resolve_impl_targets();
@@ -1195,6 +1258,13 @@ impl Resolver<'_> {
         }
         // 编译器已知项变体兜底(RXS-0048:Some/None/Ok/Err,值/模式位置)
         if let Some(d) = self.out.lang_items.variant_by_name(name) {
+            let res = Res::Def(d);
+            self.out.path_res.insert(span, res);
+            return res;
+        }
+        // launch 维度构造器兜底(RXS-0074:`GridDim`/`BlockDim`,值位置;
+        // 模块值 ns 优先 = 可遮蔽)
+        if let Some(d) = self.out.lang_items.device_value_by_name(name) {
             let res = Res::Def(d);
             self.out.path_res.insert(span, res);
             return res;

@@ -1,0 +1,9 @@
+//@ spec: RXS-0074, RXS-0075
+//@ expect-error: RX3004
+// launch negative: launching a `device` (non-kernel) function (RXS-0074 着色契约).
+
+device fn helper(out: ViewMut<global, f32>, x: View<global, f32>, n: usize) {}
+
+fn run<C>(stream: Stream<C>, out: Buffer<C, f32>, x: Buffer<C, f32>, n: usize) {
+    stream.launch(helper, GridDim(n), BlockDim(n), (out, x, n));
+}

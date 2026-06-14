@@ -1,0 +1,24 @@
+[package]
+name = "rurix-rt"
+description = "Rurix 运行时(M4.3:CUDA Driver API 薄层 — Context/Stream/Buffer/Module/launch + 装载协商 + poisoned 状态机,08 §1/§2,D-230~D-234)"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+# 零外部依赖:nvcuda.dll 运行时动态加载(LoadLibraryA/GetProcAddress),
+# 不依赖 CUDA Toolkit 的 nvcuda.lib 导入库(08 §9 / 14 §2 PTX-only,无再分发物)。
+
+# build.rs 经 rurixc 库把 kernels/saxpy.rx 全管线产 PTX 嵌入 EXE(M4.4,D-M4-5);
+# 仅构建期依赖,不进运行时产物(运行时仍零依赖)。
+[build-dependencies]
+rurixc = { path = "../rurixc" }
+
+# unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6):rurix-rt 是首个 unsafe 边界(Driver API
+# FFI)。块级豁免 `unsafe_code`(注册见 unsafe-audit/rurix-rt.md),仍强制每个
+# unsafe 块携 `// SAFETY:` 注释(clippy undocumented_unsafe_blocks = deny)。
+[lints.rust]
+unsafe_code = "allow"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "deny"

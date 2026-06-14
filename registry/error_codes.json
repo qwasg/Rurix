@@ -236,6 +236,30 @@
       "spec_clauses": ["RXS-0068", "RXS-0069"]
     },
     {
+      "id": "RX3004",
+      "title": "launch 非 kernel 着色函数(对 host/device/const 着色函数发起 launch)",
+      "message_key": "launch.non_kernel",
+      "status": "active",
+      "introduced_in": "M4.3",
+      "spec_clauses": ["RXS-0074", "RXS-0075"]
+    },
+    {
+      "id": "RX3005",
+      "title": "launch 维度不匹配(GridDim/BlockDim 维数不一致)",
+      "message_key": "launch.dim_mismatch",
+      "status": "active",
+      "introduced_in": "M4.3",
+      "spec_clauses": ["RXS-0074", "RXS-0075"]
+    },
+    {
+      "id": "RX3006",
+      "title": "launch context-brand 不匹配(资源实参与 Stream brand 不一致)",
+      "message_key": "launch.context_brand",
+      "status": "active",
+      "introduced_in": "M4.3",
+      "spec_clauses": ["RXS-0074", "RXS-0075"]
+    },
+    {
       "id": "RX4001",
       "title": "使用已移出的值(use after move,含 maybe-moved 保守判定)",
       "message_key": "borrowck.use_after_move",
@@ -413,6 +437,11 @@
       "version": "v1.11",
       "date": "2026-06-13",
       "change": "M4.2 分配 RX6003 ~ RX6005(spec/device.md RXS-0070~0073 配套,M4_PLAN §2 任务 2/3,条款 PR 先行引用的正式分配)。6xxx codegen/目标段位 device 首批(现有 RX6001/RX6002 为 M2.3 host 子集):RX6003 device codegen 暂不支持构造(NVPTX 作用面外)、RX6004 ptxas 拒绝 PTX(ptxas -arch=sm_89 干验证被拒)、RX6005 device codegen 内部约束违例(超出 NVPTX 约束子集);段内分配制递增不复用"
+    },
+    {
+      "version": "v1.12",
+      "date": "2026-06-13",
+      "change": "M4.3 分配 RX3004 ~ RX3006(spec/device.md RXS-0074/0075 配套,M4_PLAN §3 任务 1/4,条款 PR 先行引用的正式分配)。3xxx 着色/地址空间段位续接 launch 类型契约:RX3004 launch 非 kernel 着色函数、RX3005 launch 维度不匹配(GridDim/BlockDim 维数不一致)、RX3006 launch context-brand 不匹配(资源实参与 Stream brand 不一致);launch 参数元素类型不符复用 RX2001、View 空间不符复用 RX3002(无新码)。段内分配制递增不复用(列于 RX3003 与 RX4001 之间为段位有序,JSON 数组序非分配序)"
     }
   ]
 }

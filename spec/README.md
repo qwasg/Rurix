@@ -41,7 +41,7 @@
 | [types.md](types.md) | 类型与检查语义 | RXS-0039 ~ RXS-0047 | M2.2 |
 | [borrow.md](borrow.md) | 所有权与借用语义(desugar/穷尽性/drop scope 首批;move/init/Drop 执行语义;借用/生命周期主体) | RXS-0048 ~ RXS-0061 | M3.1 |
 | [consteval.md](consteval.md) | const 求值语义(const fn 子集 / const item 求值 / const 泛型 / 求值失败) | RXS-0062 ~ RXS-0065 | M3.4 |
-| [device.md](device.md) | device 语义(函数着色与跨着色调用 / 地址空间类型与一致性 / barrier uniform 可达性保守骨架 / 着色与地址空间诊断要求 / NVPTX codegen 目标与调用约定 / 地址空间 codegen 建模 / 线程索引与 launch bounds / ptxas 干验证关卡;launch 类型契约条款随 M4.3 续写) | RXS-0066 ~ RXS-0073 | M4.1 |
+| [device.md](device.md) | device 语义(函数着色与跨着色调用 / 地址空间类型与一致性 / barrier uniform 可达性保守骨架 / 着色与地址空间诊断要求 / NVPTX codegen 目标与调用约定 / 地址空间 codegen 建模 / 线程索引与 launch bounds / ptxas 干验证关卡 / launch 类型契约与诊断要求 / PTX 装载协商 / poisoned context 状态机) | RXS-0066 ~ RXS-0077 | M4.1 |
 
 ## 5. 修订记录
 
@@ -57,3 +57,5 @@
 | v1.7 | 2026-06-13 | §4 文件清单追加 consteval.md(RXS-0062 ~ RXS-0065,M3.4 const eval 首批条款化登记,无体例变更) | Direct |
 | v1.8 | 2026-06-13 | §4 文件清单追加 device.md(RXS-0066 ~ RXS-0069,M4.1 device 着色/地址空间首批条款化登记;codegen/launch 条款随 M4.2/M4.3 续写本文件,无体例变更) | Direct |
 | v1.9 | 2026-06-13 | §4 device.md 行区间更新至 RXS-0073(M4.2 NVPTX codegen 目标与调用约定 / 地址空间 codegen 建模 / 线程索引与 launch bounds / ptxas 干验证关卡条款追加登记;launch 类型契约条款随 M4.3 续写,无体例变更) | Direct |
+| v1.10 | 2026-06-13 | §4 device.md 行区间更新至 RXS-0075(M4.3 launch 类型契约与诊断要求条款追加登记;运行时对象/装载协商/poisoned 状态机随 rurix-rt 实现 PR,无体例变更) | Direct |
+| v1.11 | 2026-06-13 | §4 device.md 行区间更新至 RXS-0077(M4.3 运行时 PTX 装载协商 / poisoned context 状态机条款追加登记;rurix-rt 运行时落地,无体例变更) | Direct |

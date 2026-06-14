@@ -1,0 +1,5 @@
+error[RX2001]: mismatched types: expected `ViewMut<global, f32>`, found `Buffer<<T0>, i32>`
+  --> $DIR/launch/arg_type_mismatch.rx:10:52
+   |
+10 |     stream.launch(saxpy, GridDim(n), BlockDim(n), (out, x, n)); //~ ERROR RX2001
+   |                                                    ^^^ expected `ViewMut<global, f32>`

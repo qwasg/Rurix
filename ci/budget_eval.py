@@ -148,8 +148,9 @@ def eval_counter(entry: dict, strict: bool) -> None:
         count_or_gate(eid, n, 4, "个预设错误类别目录", "M4.3 建设期为正常状态,契约 G-M4-2", strict)
     elif eid == "m4.counter.ui_golden_path4_snapshots":
         # 黄金路径 4 = 目标后端错误:3xxx 着色/地址空间(M4.1)+ 6xxx codegen/ptxas
-        # (M4.3),契约 G-M4-3 覆盖两段;计数聚合三目录。
-        path4_dirs = ["coloring", "addrspace", "codegen"]
+        # (M4.2)+ launch 类型契约(M4.3,3xxx 续接 RX3004~3006 + RX2001 复用),
+        # 契约 G-M4-3 覆盖各段;计数聚合四目录。
+        path4_dirs = ["coloring", "addrspace", "codegen", "launch"]
         n = sum(
             len(list((ROOT / "tests" / "ui" / d).glob("**/*.stderr")))
             for d in path4_dirs

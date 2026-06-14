@@ -1,0 +1,15 @@
+//@ spec: RXS-0074, RXS-0075
+//@ expect-error: RX3006
+// launch negative: argument `bad` carries context brand D but the launching
+// stream is `Stream<C>` (RXS-0074 context-brand 契约).
+
+kernel fn saxpy(out: ViewMut<global, f32>, x: View<global, f32>, n: usize, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = x[i];
+    }
+}
+
+fn run<C, D>(stream: Stream<C>, bad: Buffer<D, f32>, x: Buffer<C, f32>, n: usize) {
+    stream.launch(saxpy, GridDim(n), BlockDim(n), (bad, x, n));
+}

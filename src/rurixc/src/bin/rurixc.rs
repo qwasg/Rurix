@@ -137,6 +137,8 @@ fn main() -> ExitCode {
                 // 着色 + barrier 骨架(M4.1,RXS-0066/0068):HIR 层,typeck 后、
                 // MIR 前;地址空间一致性(RXS-0067)已在 typeck 合一处裁决
                 cx.check_coloring();
+                // launch 类型契约(M4.3,RXS-0074/0075):同着色层(typeck 后、MIR 前)
+                cx.check_launch();
                 // 模式穷尽性(RXS-0051):TBIR 窄门时点(typeck 后、MIR 前),
                 // 全 body 覆盖(含 MIR 可达性外的 body)
                 cx.check_crate_patterns();
@@ -299,7 +301,7 @@ fn main() -> ExitCode {
     }
 
     // clang(pin 22.1.x 核对,D-205)
-    let clang = match locate_clang() {
+    let clang = match rurixc::toolchain::locate_clang() {
         Ok(c) => c,
         Err(e) => {
             toolchain_err(&diag, &sm, e);
@@ -404,37 +406,6 @@ fn run_tool(cmd: &mut Command, name: &str) -> Result<(), String> {
     }
 }
 
-/// clang 定位 + pin 22.1.x 断言(D-205;M2_PLAN v1.3 选型留痕)。
-fn locate_clang() -> Result<PathBuf, String> {
-    let candidates: Vec<PathBuf> = [
-        std::env::var("RURIXC_CLANG").ok(),
-        Some("C:\\Program Files\\LLVM\\bin\\clang.exe".to_owned()),
-        Some("clang".to_owned()),
-    ]
-    .into_iter()
-    .flatten()
-    .map(PathBuf::from)
-    .collect();
-    for c in candidates {
-        let Ok(out) = Command::new(&c).arg("--version").output() else {
-            continue;
-        };
-        if !out.status.success() {
-            continue;
-        }
-        let ver = String::from_utf8_lossy(&out.stdout);
-        if ver.contains("clang version 22.1.") {
-            return Ok(c);
-        }
-        return Err(format!(
-            "clang at {} is not the pinned 22.1.x (D-205): {}",
-            c.display(),
-            ver.lines().next().unwrap_or("")
-        ));
-    }
-    Err("clang not found (install LLVM 22.1.x or set RURIXC_CLANG)".to_owned())
-}
-
 /// ptxas 干验证关卡结果(RXS-0073,G-M4-4)。
 enum PtxGate {
     /// PTX 过 `ptxas -arch=sm_89` 干验证(或无 ptxas 时仅产 PTX 不验证)。
@@ -452,108 +423,19 @@ enum PtxError {
 
 /// device IR → PTX(clang NVPTX 后端)+ ptxas -arch=sm_89 干验证关卡(RXS-0073)。
 ///
-/// IR→PTX 用 pin 的 clang `--target=nvptx64-nvidia-cuda -mcpu=sm_89 -S`(无需
-/// 独立 llc;NVPTX 后端内置)。ptxas 缺失 → 关卡 SKIP(M4 CI_GATES §1:真实红绿
-/// 延到带 CUDA 的 CI runner)。非 ASCII 路径防御(r6 教训):ptxas 工作路径含
-/// 非 ASCII 时改用 ASCII 临时目录。
+/// IR→PTX 经 [`rurixc::toolchain::ir_to_ptx`](pin 的 clang `--target=nvptx64`,
+/// bin 与 `rurix-rt` build.rs 复用单一事实源)。ptxas 缺失 → 关卡 SKIP(M4
+/// CI_GATES §1:真实红绿延到带 CUDA 的 CI runner)。非 ASCII 路径防御(r6 教训)
+/// 在 [`rurixc::ptxas::dry_gate`] 内(ASCII 临时目录)。
 fn emit_ptx_and_gate(ir: &str, stem: &str, ptx_out: &Path) -> Result<PtxGate, PtxError> {
-    let clang = locate_clang().map_err(PtxError::Toolchain)?;
-    let ll = ptx_out.with_extension("dev.ll");
-    std::fs::write(&ll, ir)
-        .map_err(|e| PtxError::Toolchain(format!("cannot write {}: {e}", ll.display())))?;
-    // 目标基线 compute_89/sm_89(RXS-0070):nvptx 后端经 `-Xclang -target-cpu`
-    // 设 GPU 架构(clang 驱动 nvptx target 不接受 `-mcpu=`);`+ptx78` 设 PTX ISA
-    // 版本(sm_89 要求 ≥ 7.8;默认 4.2 不支持)。
-    run_tool(
-        Command::new(&clang)
-            .arg("--target=nvptx64-nvidia-cuda")
-            .arg("-Xclang")
-            .arg("-target-cpu")
-            .arg("-Xclang")
-            .arg("sm_89")
-            .arg("-Xclang")
-            .arg("-target-feature")
-            .arg("-Xclang")
-            .arg("+ptx78")
-            .arg("-S")
-            .arg(&ll)
-            .arg("-o")
-            .arg(ptx_out),
-        "clang (nvptx)",
-    )
-    .map_err(PtxError::Toolchain)?;
-    let ptx = std::fs::read_to_string(ptx_out)
-        .map_err(|e| PtxError::Toolchain(format!("cannot read {}: {e}", ptx_out.display())))?;
+    let ptx = rurixc::toolchain::ir_to_ptx(ir, ptx_out).map_err(PtxError::Toolchain)?;
 
-    // ptxas 干验证关卡(strict-only,不产 cubin 留存)
-    let Some(ptxas) = locate_ptxas() else {
-        return Ok(PtxGate::SkippedNoPtxas(ptx));
-    };
-    // 非 ASCII 路径防御(RXS-0073):ptxas 对非 ASCII 路径有崩溃先例
-    let ptx_for_ptxas = ascii_safe_ptx_path(ptx_out, &ptx, stem)
-        .map_err(PtxError::Toolchain)?;
-    let cubin = ptx_for_ptxas.with_extension("cubin");
-    let out = Command::new(&ptxas)
-        .arg("-arch=sm_89")
-        .arg(&ptx_for_ptxas)
-        .arg("-o")
-        .arg(&cubin)
-        .output();
-    let _ = std::fs::remove_file(&cubin);
-    if ptx_for_ptxas != *ptx_out {
-        let _ = std::fs::remove_file(&ptx_for_ptxas);
-    }
-    match out {
-        Ok(o) if o.status.success() => Ok(PtxGate::Ok(ptx)),
-        Ok(o) => Err(PtxError::Rejected {
-            reason: String::from_utf8_lossy(&o.stderr).trim().to_owned(),
-        }),
-        Err(e) => Err(PtxError::Toolchain(format!("cannot spawn ptxas: {e}"))),
-    }
-}
-
-/// ptxas 定位(运行时探测;禁硬编码版本文件名,r6/07 §10)。
-/// `RURIXC_PTXAS` > `CUDA_PATH\bin\ptxas.exe` > PATH `ptxas`;缺失 → None(关卡 SKIP)。
-fn locate_ptxas() -> Option<PathBuf> {
-    let mut candidates: Vec<PathBuf> = Vec::new();
-    if let Ok(p) = std::env::var("RURIXC_PTXAS") {
-        candidates.push(PathBuf::from(p));
-    }
-    if let Ok(cuda) = std::env::var("CUDA_PATH") {
-        candidates.push(PathBuf::from(cuda).join("bin").join("ptxas.exe"));
-    }
-    candidates.push(PathBuf::from("ptxas"));
-    for c in candidates {
-        if Command::new(&c).arg("--version").output().is_ok_and(|o| o.status.success()) {
-            return Some(c);
-        }
-    }
-    None
-}
-
-/// 非 ASCII 路径防御(RXS-0073):若 ptx 路径含非 ASCII,改写到 ASCII 临时目录。
-fn ascii_safe_ptx_path(ptx_out: &Path, ptx: &str, stem: &str) -> Result<PathBuf, String> {
-    let is_ascii = ptx_out.to_string_lossy().is_ascii();
-    if is_ascii {
-        return Ok(ptx_out.to_path_buf());
-    }
-    // ASCII 临时目录(避开非 ASCII 用户目录;`苍` 先例)
-    let dir = PathBuf::from("C:\\Windows\\Temp").join("rurixc_ptx");
-    std::fs::create_dir_all(&dir).map_err(|e| format!("cannot create ascii temp dir: {e}"))?;
-    let safe = dir.join(format!("{}.ptx", sanitize_ascii(stem)));
-    std::fs::write(&safe, ptx).map_err(|e| format!("cannot write ascii ptx: {e}"))?;
-    Ok(safe)
-}
-
-fn sanitize_ascii(s: &str) -> String {
-    let cleaned: String = s
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '_' { c } else { '_' })
-        .collect();
-    if cleaned.is_empty() {
-        "kernel".to_owned()
-    } else {
-        cleaned
+    // ptxas 干验证关卡(strict-only;RXS-0073,关卡逻辑在 rurixc::ptxas,供红绿单测复用)
+    match rurixc::ptxas::dry_gate(&ptx, stem) {
+        rurixc::ptxas::PtxasOutcome::Pass => Ok(PtxGate::Ok(ptx)),
+        rurixc::ptxas::PtxasOutcome::Skipped => Ok(PtxGate::SkippedNoPtxas(ptx)),
+        rurixc::ptxas::PtxasOutcome::Rejected(reason) => Err(PtxError::Rejected { reason }),
+        rurixc::ptxas::PtxasOutcome::Toolchain(e) => Err(PtxError::Toolchain(e)),
     }
 }
 

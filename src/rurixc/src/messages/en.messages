@@ -68,3 +68,8 @@ link.toolchain_failure = external toolchain failure: {reason}
 codegen.device_unsupported = {detail} is not supported by NVPTX device codegen yet (M4.2 subset)
 codegen.ptxas_rejected = ptxas rejected the generated PTX: {reason}
 codegen.device_constraint = device codegen constraint violated: {detail}
+#
+# launch 类型契约诊断(RX3004 ~ RX3006,spec/device.md RXS-0074~0075;M4.3 分配)
+launch.non_kernel = cannot launch {callee}: only a `kernel` function can be launched
+launch.dim_mismatch = launch grid and block dimensions disagree: grid is {grid}-dimensional, block is {block}-dimensional
+launch.context_brand = context-brand mismatch: {what} belongs to a different context than the launching stream

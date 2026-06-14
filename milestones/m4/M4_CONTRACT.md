@@ -155,3 +155,49 @@ guardrails:
 ## 8. Close-out(只追加区 — 开工时为空)
 
 <!-- 验收记录、guardrail 核对输出、deferred 继承/关闭记录追加于此;上方条款 0-byte 修改。 -->
+
+### 8.1 M4.4 验收记录(草案 — 待 G-M4-1 measured 回填后人工终审)
+
+> 状态:**DRAFT**(契约 status 维持 `active`;关闭判定人工,见 8.3 待补项)。本草案随 M4.4
+> 代码/harness/CI 落地追加,上方 §1~§7 条款 0-byte 修改。
+
+**已达成(本机 RTX 4070 Ti + clang 22.1.7 + CUDA 13.3 ptxas 真跑核验):**
+
+| 验收门 | 状态 | 证据 |
+|---|---|---|
+| G-M4-2 launch 类型契约 conformance | 达成(M4.3) | `cargo test -p rurixc --test launch_corpus`;`m4.counter.launch_conformance_categories`=4 |
+| G-M4-3 黄金路径 4 snapshot ≥10 | 达成(M4.3) | `m4.counter.ui_golden_path4_snapshots`=11 |
+| G-M4-4 ptxas 干验证关卡真红绿 | 达成(M4.3) | `cargo test -p rurixc --test ptxas_gate`(GREEN/RED) |
+| G-M4-5 traceability 延续 | 达成 | `ci/trace_matrix.py --check` 77/77 条款全锚定 |
+| **G-M4-1 端到端真跑(正确性)** | **达成** | Rurix `kernels/saxpy.rx` 全管线产 PTX 嵌入单 EXE,`cargo run -p rurix-rt --bin saxpy` exit 0(1048576 元素 f32 精确相等);`rurix_saxpy_e2e_isolated` 子进程隔离真跑绿 |
+| **G-M4-1 measured ≥ M0 基线 95%** | **待操作者回填** | 见 8.3 |
+
+**交付物映射:** D-M4-1~D-M4-4 / D-M4-6 随 M4.1~M4.3 交付;D-M4-5 = 本里程碑(端到端单
+EXE + harness + CI 步骤 20;measured 回填待操作者)。
+
+**关键实现留痕:**
+- rurixc 库 `toolchain::ir_to_ptx`(clang NVPTX 后端,bin `--emit=ptx` 与 rurix-rt build.rs 复用);
+  **IR→PTX 采用 `-O2`**(NVPTX `-O0` 对 i64 索引 lowering 产错误地址 → device 越界访存;
+  `-O2` 修正且打满带宽。IR golden 在 IR 层不受 clang 优化级影响,CI_GATES §4.3)。
+- rurix-rt `build.rs`:`kernels/saxpy.rx` → 着色检查 → device codegen → IR→PTX → ptxas 关卡 →
+  嵌入 `$OUT_DIR/saxpy.ptx` + `ptx_kernel` 入口符号名;工具链缺失写空哨兵 → bin/test 运行时 SKIP。
+- host 驱动 bin `src/rurix-rt/src/bin/saxpy.rs`(alloc/H2D/launch/D2H/逐元素核对,exit 0)。
+
+### 8.2 NVIDIA 再分发白名单审计结论(14 §2 常驻集,M4 期到期评估)
+
+M4 产物为 **PTX-only**(开发期):Rurix kernel 经 rurixc 产 PTX 文本,嵌入 host EXE data 段,
+运行时经已安装驱动 `cuModuleLoadDataEx` 内 JIT 装载;**不打包任何 NVIDIA 再分发二进制**
+(libdevice 链接随 M5、cubin/fatbin 分发随 G1)。结论 = **无再分发物需白名单核对**;formal
+审计门(再分发清单逐项核对)随 libdevice/cubin 引入时激活(M5/G1)。对齐 CI_GATES §4 第 2 项。
+
+### 8.3 待操作者补项(G-M4-1 measured 硬证据 + 终审)
+
+以下需在**锁频 L0 在位**的环境执行(BENCH_PROTOCOL §2;锁频降级 `unlocked` 证据不得回填):
+
+1. 锁频 L0(`nvidia-smi -lgc/-lmc`,需管理员)→ `py -3 bench/rurix_saxpy_triple.py`
+   (三次进程级独立运行 → 聚合 `evidence/rurix_saxpy_<date>_agg.json` → 回填 [m4_budget.json](m4_budget.json)
+   numerator `m4.bench.saxpy.effective_bandwidth_gbps` + ratio `m4.ratio.saxpy_vs_m0_baseline`;
+   任一次非 measured_local → 整组作废拒绝回填)。
+2. `py -3 ci/budget_eval.py --strict` 通过(比值 ≥0.95,全局零 estimated 残留)——输出原文附此。
+3. 红绿 run URL 归档(CI 步骤 20 GPU SAXPY 真跑;步骤 17/18/19 既有通道)。
+4. 人工终审后将契约 `status: active → closed`(YAML 头),§1~§7 条款保持 0-byte。

@@ -1,0 +1,14 @@
+//@ spec: RXS-0070
+// Rurix SAXPY kernel(M4.4,契约 D-M4-5):out[i] = a*x[i] + y[i],f32,边界守卫 i < n。
+// 经 rurixc 全管线(着色检查 RXS-0066 → NVPTX codegen RXS-0070~0072 → ptxas 关卡
+// RXS-0073)产 PTX,由 rurix-rt build.rs 嵌入 host EXE data 段(06 §5.2)。
+// 全局线程索引(RXS-0072)+ View<global>/ViewMut<global> 索引读写(RXS-0071)。
+//
+// 注:out 与 y 分离(写到独立缓冲),访存 3N(读 x、读 y、写 out)与 M0 手写 PTX
+// 基线同口径(BENCH_PROTOCOL §4.1:3 * N * sizeof(f32) / t)。
+kernel fn saxpy(out: ViewMut<global, f32>, x: View<global, f32>, y: View<global, f32>, a: f32, n: usize, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = a * x[i] + y[i];
+    }
+}

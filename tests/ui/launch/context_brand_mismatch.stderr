@@ -1,0 +1,5 @@
+error[RX3006]: context-brand mismatch: this launch argument belongs to a different context than the launching stream
+  --> $DIR/launch/context_brand_mismatch.rx:10:52
+   |
+10 |     stream.launch(saxpy, GridDim(n), BlockDim(n), (bad, x, n)); //~ ERROR RX3006
+   |                                                    ^^^ belongs to a different context
