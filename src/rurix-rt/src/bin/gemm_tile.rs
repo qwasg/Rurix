@@ -64,9 +64,15 @@ fn run() -> Result<f64, String> {
     }
 
     let ctx = Context::new().map_err(|e| format!("Context: {e:?}"))?;
-    let mut da = ctx.alloc::<f32>(M * K).map_err(|e| format!("alloc a: {e:?}"))?;
-    let mut db = ctx.alloc::<f32>(K * N).map_err(|e| format!("alloc b: {e:?}"))?;
-    let dc = ctx.alloc::<f32>(M * N).map_err(|e| format!("alloc c: {e:?}"))?;
+    let mut da = ctx
+        .alloc::<f32>(M * K)
+        .map_err(|e| format!("alloc a: {e:?}"))?;
+    let mut db = ctx
+        .alloc::<f32>(K * N)
+        .map_err(|e| format!("alloc b: {e:?}"))?;
+    let dc = ctx
+        .alloc::<f32>(M * N)
+        .map_err(|e| format!("alloc c: {e:?}"))?;
     da.copy_from_host(&a).map_err(|e| format!("H2D a: {e:?}"))?;
     db.copy_from_host(&b).map_err(|e| format!("H2D b: {e:?}"))?;
 

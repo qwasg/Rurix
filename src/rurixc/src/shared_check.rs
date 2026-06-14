@@ -50,7 +50,7 @@ pub fn check_crate(cx: &QueryCtx<'_>) {
         }
         let mut shared: HashSet<u32> = HashSet::new();
         collect_shared(&body.value, &mut shared);
-        check_shared_array_shapes(cx, body_id, &body, &shared);
+        check_shared_array_shapes(cx, body_id, body, &shared);
         if shared.is_empty() {
             continue; // 无 `shared let`:本 body 无一致性义务。
         }
@@ -98,9 +98,7 @@ fn check_shared_array_shapes(
     let tcr = cx.check_body(body_id);
     walk_blocks(&body.value, &mut |stmt| {
         let Stmt::Let {
-            pat,
-            shared: true,
-            ..
+            pat, shared: true, ..
         } = stmt
         else {
             return;

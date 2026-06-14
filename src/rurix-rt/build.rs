@@ -49,8 +49,11 @@ fn main() {
                 );
                 std::fs::write(&ptx_out, "")
                     .unwrap_or_else(|e| panic!("write sentinel {name}.ptx: {e}"));
-                std::fs::write(&meta_out, format!("pub const {upper}_KERNEL: &str = \"\";\n"))
-                    .unwrap_or_else(|e| panic!("write sentinel {name}_meta.rs: {e}"));
+                std::fs::write(
+                    &meta_out,
+                    format!("pub const {upper}_KERNEL: &str = \"\";\n"),
+                )
+                .unwrap_or_else(|e| panic!("write sentinel {name}_meta.rs: {e}"));
             }
         }
     }

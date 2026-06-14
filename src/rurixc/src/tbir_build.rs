@@ -628,8 +628,7 @@ impl ExhaustCx<'_> {
                 self.walk_expr(lhs);
                 self.walk_expr(rhs);
             }
-            tbir::ExprKind::Call { args, .. }
-            | tbir::ExprKind::DeviceMathCall { args, .. } => {
+            tbir::ExprKind::Call { args, .. } | tbir::ExprKind::DeviceMathCall { args, .. } => {
                 for a in args {
                     self.walk_expr(a);
                 }

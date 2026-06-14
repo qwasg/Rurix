@@ -97,7 +97,10 @@ fn run() -> Result<(), String> {
 
     for i in 0..W * H {
         if got[i] != expect[i] {
-            return Err(format!("transpose @ {i}: got {} expect {}", got[i], expect[i]));
+            return Err(format!(
+                "transpose @ {i}: got {} expect {}",
+                got[i], expect[i]
+            ));
         }
     }
     Ok(())

@@ -57,8 +57,12 @@ fn run() -> Result<f64, String> {
     }
 
     let ctx = Context::new().map_err(|e| format!("Context: {e:?}"))?;
-    let mut dsrc = ctx.alloc::<f32>(N).map_err(|e| format!("alloc src: {e:?}"))?;
-    let ddst = ctx.alloc::<f32>(N).map_err(|e| format!("alloc dst: {e:?}"))?;
+    let mut dsrc = ctx
+        .alloc::<f32>(N)
+        .map_err(|e| format!("alloc src: {e:?}"))?;
+    let ddst = ctx
+        .alloc::<f32>(N)
+        .map_err(|e| format!("alloc dst: {e:?}"))?;
     dsrc.copy_from_host(&src)
         .map_err(|e| format!("H2D src: {e:?}"))?;
 

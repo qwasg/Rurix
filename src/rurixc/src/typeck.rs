@@ -237,20 +237,20 @@ fn lower_hir_ty_with_cx(
             // SelfTy/Local/Err:M2.2 容忍(SelfTy 展开随 M2.3)
             _ => Ty::Err,
         },
-        hir::TyKind::Ref { mutable, inner } => Ty::Ref(
-            Box::new(lower_hir_ty_with_cx(inner, infer, cx)),
-            *mutable,
-        ),
-        hir::TyKind::RawPtr { mutable, inner } => Ty::RawPtr(
-            Box::new(lower_hir_ty_with_cx(inner, infer, cx)),
-            *mutable,
-        ),
+        hir::TyKind::Ref { mutable, inner } => {
+            Ty::Ref(Box::new(lower_hir_ty_with_cx(inner, infer, cx)), *mutable)
+        }
+        hir::TyKind::RawPtr { mutable, inner } => {
+            Ty::RawPtr(Box::new(lower_hir_ty_with_cx(inner, infer, cx)), *mutable)
+        }
         hir::TyKind::Tuple(v) => Ty::Tuple(
             v.iter()
                 .map(|x| lower_hir_ty_with_cx(x, infer, cx))
                 .collect(),
         ),
-        hir::TyKind::Array { elem, .. } => Ty::Array(Box::new(lower_hir_ty_with_cx(elem, infer, cx))),
+        hir::TyKind::Array { elem, .. } => {
+            Ty::Array(Box::new(lower_hir_ty_with_cx(elem, infer, cx)))
+        }
         hir::TyKind::Slice(inner) => Ty::Slice(Box::new(lower_hir_ty_with_cx(inner, infer, cx))),
         hir::TyKind::FnPtr { params, ret } => Ty::FnPtr(
             params

@@ -34,9 +34,7 @@ fn main() -> ExitCode {
     }
     match run() {
         Ok((got, expect)) => {
-            eprintln!(
-                "[rurix-reduce] PASS:reduce 真跑通过({N} 元素,sum={got} 参考={expect})"
-            );
+            eprintln!("[rurix-reduce] PASS:reduce 真跑通过({N} 元素,sum={got} 参考={expect})");
             ExitCode::SUCCESS
         }
         Err(e) => {
@@ -54,7 +52,9 @@ fn run() -> Result<(f64, f64), String> {
     let nblocks = grid as usize;
 
     let ctx = Context::new().map_err(|e| format!("Context: {e:?}"))?;
-    let mut dsrc = ctx.alloc::<f32>(N).map_err(|e| format!("alloc src: {e:?}"))?;
+    let mut dsrc = ctx
+        .alloc::<f32>(N)
+        .map_err(|e| format!("alloc src: {e:?}"))?;
     let dpart = ctx
         .alloc::<f32>(nblocks)
         .map_err(|e| format!("alloc partials: {e:?}"))?;

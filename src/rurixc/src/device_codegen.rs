@@ -162,7 +162,7 @@ fn isqrt_u64(n: u64) -> Option<u64> {
         return Some(0);
     }
     let mut x = n;
-    let mut y = (x + 1) / 2;
+    let mut y = x.div_ceil(2);
     while y < x {
         x = y;
         y = (x + n / x) / 2;
@@ -333,10 +333,7 @@ impl Cg<'_> {
                     );
                     self.array_base.insert(i as u32, (format!("@{gsym}"), 3));
                 } else {
-                    let _ = writeln!(
-                        self.fns,
-                        "  %l{i} = alloca [{n} x {elem_ll}], addrspace(5)"
-                    );
+                    let _ = writeln!(self.fns, "  %l{i} = alloca [{n} x {elem_ll}], addrspace(5)");
                     self.array_base.insert(i as u32, (format!("%l{i}"), 5));
                 }
                 continue;

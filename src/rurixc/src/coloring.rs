@@ -149,13 +149,9 @@ impl Walker<'_> {
                 args,
             } => {
                 self.check_call_target(e.hir_id, e.span);
-                if self.tcr.device_math_calls.contains_key(&e.hir_id) && !is_device_ctx(self.ctx)
-                {
+                if self.tcr.device_math_calls.contains_key(&e.hir_id) && !is_device_ctx(self.ctx) {
                     self.diag
-                        .struct_error(
-                            E_DEVICE_MATH_UNSUPPORTED,
-                            "codegen.device_math_unsupported",
-                        )
+                        .struct_error(E_DEVICE_MATH_UNSUPPORTED, "codegen.device_math_unsupported")
                         .arg(
                             "detail",
                             "device math intrinsics require device or kernel context (RXS-0081)",
