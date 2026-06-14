@@ -1,0 +1,14 @@
+//@ spec: RXS-0078
+// views positive: split_at 产出 [0, mid) 与 [mid, len) 两个静态可证不相交的可变子
+// view,二者的可变写入合法并存(子 view 不相交并存规则,RXS-0078;ViewMut 索引写
+// 见 RXS-0071)。本批为 spec 先行正例锚定,reject 语料与 device 借用检查随 M5.1 实现 WP。
+
+kernel fn split_disjoint(buf: ViewMut<global, f32>, mid: usize, i: usize, t: ThreadCtx<1>) {
+    let (lo, hi) = buf.split_at(mid);
+    if i < mid {
+        lo[i] = 1.0;
+    }
+    hi[0] = 2.0;
+}
+
+fn main() {}

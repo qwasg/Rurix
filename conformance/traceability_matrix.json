@@ -575,6 +575,9 @@
     ],
     "RXS-0077": [
       "src/rurix-rt/src/lib.rs"
+    ],
+    "RXS-0078": [
+      "conformance/views/accept/split_at_disjoint.rx"
     ]
   }
 }
