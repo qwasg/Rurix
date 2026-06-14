@@ -1,0 +1,5 @@
+error[RX3009]: cannot prove shared write/read is synchronized by a block barrier: read of shared `tile` may observe another lane's write not synchronized by `block.sync()`
+ --> $DIR/shared/barrier_too_late.rx:6:14
+  |
+6 |     dst[i] = tile[0]; //~ ERROR RX3009
+  |              ^^^^^^^ shared read not synchronized by a block barrier

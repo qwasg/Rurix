@@ -31,6 +31,7 @@ pub mod ptxas;
 pub mod query;
 pub mod render;
 pub mod resolve;
+pub mod shared_check;
 pub mod source_map;
 pub mod span;
 pub mod tbir;

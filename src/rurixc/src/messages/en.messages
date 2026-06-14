@@ -77,3 +77,9 @@ launch.context_brand = context-brand mismatch: {what} belongs to a different con
 # views 不相交证明诊断(RX3007 ~ RX3008,spec/device.md RXS-0078;M5.1 分配)
 views.overlapping_mut = overlapping or aliased mutable sub-views of {place}: cannot prove the sub-views are disjoint
 views.out_of_bounds = view split is out of bounds: {detail}
+#
+# shared+barrier 一致性诊断(RX3009,spec/device.md RXS-0079;M5.2 分配)
+shared.barrier_consistency = cannot prove shared write/read is synchronized by a block barrier: {detail}
+#
+# scoped atomics 诊断(RX3010,spec/device.md RXS-0080;M5.2 分配)
+atomics.scope_misuse = scoped atomic scope misuse: {detail}

@@ -25,6 +25,7 @@ pub const E_MISMATCHED_TYPES: ErrorCode = ErrorCode(2001); // RX2001
 pub const E_BAD_FIELD: ErrorCode = ErrorCode(2002); // RX2002
 pub const E_ARG_COUNT: ErrorCode = ErrorCode(2003); // RX2003
 pub const E_UNKNOWN_METHOD: ErrorCode = ErrorCode(2004); // RX2004
+pub const E_ATOMICS_SCOPE: ErrorCode = ErrorCode(3010); // RX3010(RXS-0080)
 pub const E_NOT_CALLABLE: ErrorCode = ErrorCode(2005); // RX2005
 pub const E_BAD_OPERAND: ErrorCode = ErrorCode(2006); // RX2006
 pub const E_BAD_DERIVE_COPY: ErrorCode = ErrorCode(2008); // RX2008
@@ -1438,6 +1439,55 @@ impl Tck<'_, '_> {
                 }
                 Ty::unit()
             }
+            // device block barrier(M5.2,RXS-0079):`block.sync()` 兜底识别为
+            // block 级 barrier intrinsic(用户同名定义优先 = 先查 assoc_items)。
+            // barrier 的 uniform 可达延续 RXS-0068(coloring),shared+barrier 一致性
+            // 数据流由 [`crate::shared_check`] 裁决;此处仅定型 + 记录 intrinsic。
+            Ty::Adt(d, _)
+                if self.res.lang_items.is_block_ctx(*d)
+                    && self
+                        .res
+                        .assoc_items
+                        .get(d)
+                        .is_none_or(|items| !items.iter().any(|(n, _)| n == method))
+                    && crate::hir::DeviceIntrinsic::from_method(method)
+                        == Some(crate::hir::DeviceIntrinsic::Barrier) =>
+            {
+                for a in args {
+                    let _ = self.check_expr(a);
+                }
+                self.results
+                    .device_calls
+                    .insert(call_id, crate::hir::DeviceIntrinsic::Barrier);
+                Ty::unit()
+            }
+            // scoped atomics 类型契约(M5.2,RXS-0080):`Atomic<T,Scope>` /
+            // `AtomicView<space,T,Shape>` 的原子读改写方法(用户同名定义优先遮蔽,
+            // 先查 assoc_items)。裁决 scope 误用(RX3010);PTX atom 映射为 D-406
+            // 禁区(本分支不实现映射,仅类型契约 + 元素类型回填)。
+            Ty::Adt(d, adt_args)
+                if self.res.lang_items.atomic_kind(*d).is_some()
+                    && self
+                        .res
+                        .assoc_items
+                        .get(d)
+                        .is_none_or(|items| !items.iter().any(|(n, _)| n == method))
+                    && crate::hir::AtomicOp::from_method(method).is_some() =>
+            {
+                let is_view = self
+                    .res
+                    .lang_items
+                    .atomic_kind(*d)
+                    .expect("guard 已确保 atomic 容器");
+                let adt_args = adt_args.clone();
+                self.check_atomic_op(is_view, &adt_args, args);
+                // 元素类型:`AtomicView<space,T,..>` → args[1];`Atomic<T,..>` → args[0]。
+                let elem_idx = if is_view { 1 } else { 0 };
+                adt_args
+                    .get(elem_idx)
+                    .cloned()
+                    .unwrap_or_else(|| self.infcx.fresh(None))
+            }
             // device views 算子(M5.1,RXS-0078):`View`/`ViewMut` 的子 view 划分
             // 方法(split_at/chunks/windows;用户同名 impl 优先,故先查 assoc_items)。
             // 返回子 view 类型(与接收者同 space/elem/可变性);不相交性由 views
@@ -1503,6 +1553,69 @@ impl Tck<'_, '_> {
                 self.err_unknown_method(span, method, &base);
                 Ty::Err
             }
+        }
+    }
+
+    /// scoped atomics scope 类型契约裁决(M5.2,RXS-0080;RX3010)。保守上界:
+    /// 仅在 scope 实参可静态判定(`Scope::*` 字面变体)时裁决,scope 不可判 /
+    /// 参与类型容忍区 `Err` → 不报(防一错多报,口径同 RXS-0069/0075)。
+    /// PTX `atom.{order}.{scope}` 映射为 D-406 禁区,本函数不实现映射语义。
+    fn check_atomic_op(&mut self, is_view: bool, adt_args: &[Ty], args: &[hir::Expr]) {
+        // 实参定型(不级联:scope 实参为 `Scope` 封闭枚举值)。
+        for a in args {
+            let _ = self.check_expr(a);
+        }
+        // scope 实参:首个解析为 `Scope::*` 变体的实参(scope 位通常居末)。
+        let used = args.iter().find_map(|a| {
+            if let hir::ExprKind::Res(Res::Def(d)) = &a.kind {
+                self.res.lang_items.scope_rank(*d).map(|r| (r, a.span))
+            } else {
+                None
+            }
+        });
+        let Some((used_rank, scope_span)) = used else {
+            return; // scope 不可静态判定:保守容忍(不误报)。
+        };
+        // 规则 A(与地址空间不相容):`AtomicView<shared, ..>`(addrspace 3)为
+        // block 本地存储,使用宽于 `Scope::Block` 的作用域 → 越权 / 不相容。
+        if is_view
+            && let Some(space) = adt_args.first()
+            && let Ty::Adt(sd, _) = space
+            && self.res.lang_items.addr_spaces[1] == Some(*sd)
+            && used_rank > 0
+        {
+            self.diag()
+                .struct_error(E_ATOMICS_SCOPE, "atomics.scope_misuse")
+                .arg(
+                    "detail",
+                    format!(
+                        "`shared` atomics are block-local; scope `Scope::{}` exceeds `Scope::Block`",
+                        scope_name(used_rank)
+                    ),
+                )
+                .span_label(scope_span, "scope incompatible with `shared` address space")
+                .emit();
+            return;
+        }
+        // 规则 B(越权作用域):`Atomic<T, Scope::G>` 的 scope brand 由第二类型实参
+        // 携带;原子操作使用宽于 brand 的作用域 → 越权未授予的作用域。
+        if !is_view
+            && let Some(Ty::Adt(brand, _)) = adt_args.get(1)
+            && let Some(brand_rank) = self.res.lang_items.scope_rank(*brand)
+            && used_rank > brand_rank
+        {
+            self.diag()
+                .struct_error(E_ATOMICS_SCOPE, "atomics.scope_misuse")
+                .arg(
+                    "detail",
+                    format!(
+                        "atomic grants scope `Scope::{}`, but operation uses wider `Scope::{}`",
+                        scope_name(brand_rank),
+                        scope_name(used_rank)
+                    ),
+                )
+                .span_label(scope_span, "scope exceeds the granted atomic scope")
+                .emit();
         }
     }
 
@@ -1594,6 +1707,15 @@ fn suffix_prim(s: LitSuffix) -> PrimTy {
         LitSuffix::Usize => PrimTy::Usize,
         LitSuffix::F32 => PrimTy::F32,
         LitSuffix::F64 => PrimTy::F64,
+    }
+}
+
+/// `Scope` 包含序 → 展示名(RXS-0080;RX3010 诊断渲染)。
+fn scope_name(rank: u8) -> &'static str {
+    match rank {
+        0 => "Block",
+        1 => "Gpu",
+        _ => "System",
     }
 }
 
@@ -2154,5 +2276,45 @@ mod tests {
         cx.check_crate();
         assert!(diag.emitted().is_empty(), "{:?}", diag.emitted());
         assert!(cx.hir_crate().drop_impls.is_empty());
+    }
+
+    // -- scoped atomics scope 类型契约(M5.2,RXS-0080;RX3010) -----------------
+
+    //@ spec: RXS-0080
+    #[test]
+    fn scoped_atomics_legal_scope_is_clean() {
+        // global AtomicView + Scope::Block(窄于地址空间可见性)+ Atomic brand 同 scope。
+        check_clean(
+            "kernel fn k(t: ThreadCtx<1>, g: AtomicView<global, u32, (16,)>, a: Atomic<u32, Scope::Gpu>) {\n    let i = t.thread_index();\n    g.fetch_add(i, 1, Scope::Block);\n    a.fetch_max(1, Scope::Block);\n}\nfn main() {}",
+        );
+    }
+
+    //@ spec: RXS-0080
+    #[test]
+    fn shared_atomic_wide_scope_is_rx3010() {
+        // AtomicView<shared, ..>(block 本地)用 Scope::System → 与地址空间不相容。
+        let (codes, _) = check(
+            "kernel fn k(t: ThreadCtx<1>, c: AtomicView<shared, u32, (16,)>) {\n    let i = t.thread_index();\n    c.fetch_add(i, 1, Scope::System);\n}\nfn main() {}",
+        );
+        assert_eq!(codes, vec![3010]);
+    }
+
+    //@ spec: RXS-0080
+    #[test]
+    fn atomic_scope_overreach_is_rx3010() {
+        // Atomic<u32, Scope::Block> brand 仅授予 block;操作用 Scope::Gpu → 越权。
+        let (codes, _) = check(
+            "kernel fn k(a: Atomic<u32, Scope::Block>) {\n    a.fetch_add(1, Scope::Gpu);\n}\nfn main() {}",
+        );
+        assert_eq!(codes, vec![3010]);
+    }
+
+    //@ spec: RXS-0080
+    #[test]
+    fn atomic_narrower_scope_than_brand_is_clean() {
+        // brand = System,操作用更窄的 Scope::Block → 未越权,0 诊断。
+        check_clean(
+            "kernel fn k(a: Atomic<u32, Scope::System>) {\n    a.fetch_add(1, Scope::Block);\n}\nfn main() {}",
+        );
     }
 }

@@ -1,0 +1,7 @@
+//@ spec: RXS-0080
+kernel fn k(t: ThreadCtx<1>, counters: AtomicView<shared, u32, (16,)>) {
+    let i = t.thread_index();
+    counters.fetch_add(i, 1, Scope::System); //~ ERROR RX3010
+}
+
+fn main() {}

@@ -1,0 +1,13 @@
+//@ spec: RXS-0079
+//@ expect-error: RX3009
+// 某 lane 写 shared `tile[i]` 后未过 `block.sync()` 即读他 lane 写入 `tile[1]`
+// (写读之间无 block 级 barrier 同步)→ shared 数据竞争,保守拒绝(RX3009,RXS-0079)。
+
+kernel fn unsynced_read(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>) {
+    shared let tile: [f32; 256];
+    let i = t.thread_index();
+    tile[i] = src[i];
+    dst[0] = tile[1];
+}
+
+fn main() {}

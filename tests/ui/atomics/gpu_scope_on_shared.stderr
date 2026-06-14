@@ -1,0 +1,5 @@
+error[RX3010]: scoped atomic scope misuse: `shared` atomics are block-local; scope `Scope::Gpu` exceeds `Scope::Block`
+ --> $DIR/atomics/gpu_scope_on_shared.rx:4:22
+  |
+4 |     c.fetch_or(i, 1, Scope::Gpu); //~ ERROR RX3010
+  |                      ^^^^^^^^^^ scope incompatible with `shared` address space

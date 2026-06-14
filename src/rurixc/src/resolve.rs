@@ -75,6 +75,21 @@ pub struct LangItems {
     pub stream: Option<DefId>,
     pub grid_dim: Option<DefId>,
     pub block_dim: Option<DefId>,
+    /// device block barrier 上下文(M5.2,RXS-0079):`block.sync()` 的 `block`
+    /// 值位置兜底;`.sync()` → block 级 barrier(可被用户遮蔽)。
+    pub block_ctx: Option<DefId>,
+    /// scoped atomics 已知类型(M5.2,RXS-0080;类型位置兜底,可被用户遮蔽):
+    /// `Atomic<T, Scope>`(原子标量)/ `AtomicView<space, T, Shape>`(原子视图)。
+    pub atomic: Option<DefId>,
+    pub atomic_view: Option<DefId>,
+    /// scoped atomics 封闭枚举(M5.2,RXS-0080):`Scope ∈ {Block,Gpu,System}`、
+    /// `Ordering ∈ {Relaxed,Acquire,Release,AcqRel}`;`Scope` 变体 DefId 单列
+    /// 服务 scope 包含判定(越权 / 与地址空间不相容,RX3010)。
+    pub scope: Option<DefId>,
+    pub scope_block: Option<DefId>,
+    pub scope_gpu: Option<DefId>,
+    pub scope_system: Option<DefId>,
+    pub ordering: Option<DefId>,
 }
 
 /// 地址空间标记名(RXS-0067;序对应 [`LangItems::addr_spaces`])。
@@ -87,6 +102,9 @@ impl LangItems {
             "Option" => self.option,
             "Result" => self.result,
             "Drop" => self.drop_trait,
+            // scoped atomics 封闭枚举(RXS-0080):作类型位置 / 路径前缀(`Scope::Block`)。
+            "Scope" => self.scope,
+            "Ordering" => self.ordering,
             _ => None,
         }
     }
@@ -104,6 +122,9 @@ impl LangItems {
             "Stream" => self.stream,
             "GridDim" => self.grid_dim,
             "BlockDim" => self.block_dim,
+            // scoped atomics 容器(RXS-0080):类型位置兜底(可被用户遮蔽)。
+            "Atomic" => self.atomic,
+            "AtomicView" => self.atomic_view,
             _ => ADDR_SPACES
                 .iter()
                 .position(|n| *n == name)
@@ -117,6 +138,8 @@ impl LangItems {
         match name {
             "GridDim" => self.grid_dim,
             "BlockDim" => self.block_dim,
+            // device block barrier 上下文(RXS-0079):`block.sync()` 的 `block` 值。
+            "block" => self.block_ctx,
             _ => None,
         }
     }
@@ -129,6 +152,37 @@ impl LangItems {
     /// `Stream` 容器判定(RXS-0074;launch 方法接收者识别)。
     pub fn is_stream(&self, d: DefId) -> bool {
         Some(d) == self.stream
+    }
+
+    /// device `block` barrier 上下文判定(RXS-0079;`block.sync()` 识别)。
+    pub fn is_block_ctx(&self, d: DefId) -> bool {
+        Some(d) == self.block_ctx
+    }
+
+    /// scoped atomics 容器判定 → `Some(is_view)`(RXS-0080;原子方法接收者识别)。
+    /// `Atomic` → `Some(false)`(原子标量);`AtomicView` → `Some(true)`(原子视图)。
+    pub fn atomic_kind(&self, d: DefId) -> Option<bool> {
+        if Some(d) == self.atomic {
+            Some(false)
+        } else if Some(d) == self.atomic_view {
+            Some(true)
+        } else {
+            None
+        }
+    }
+
+    /// `Scope` 变体 DefId → 包含序(`Block` < `Gpu` < `System`;RXS-0080 scope 包含
+    /// 判定);非 `Scope` 变体返回 None。
+    pub fn scope_rank(&self, d: DefId) -> Option<u8> {
+        if Some(d) == self.scope_block {
+            Some(0)
+        } else if Some(d) == self.scope_gpu {
+            Some(1)
+        } else if Some(d) == self.scope_system {
+            Some(2)
+        } else {
+            None
+        }
     }
 
     /// `Buffer` 容器判定(RXS-0074;launch 参数 brand 与元素消费)。
@@ -266,6 +320,14 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
             stream: None,
             grid_dim: None,
             block_dim: None,
+            block_ctx: None,
+            atomic: None,
+            atomic_view: None,
+            scope: None,
+            scope_block: None,
+            scope_gpu: None,
+            scope_system: None,
+            ordering: None,
         };
     }
     r.collect_items(&file.items, 0);
@@ -293,6 +355,42 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
         r.out.lang_items.grid_dim = Some(r.new_def(DefKind::Struct, "GridDim", Vis::Pub, span, 0));
         r.out.lang_items.block_dim =
             Some(r.new_def(DefKind::Struct, "BlockDim", Vis::Pub, span, 0));
+        // M5.2 shared+barrier / scoped atomics 已知项(RXS-0079/0080)。追加于既有
+        // device/launch lang items 之后,不动摇既有 DefId 编号(MIR/PTX golden 符号
+        // 名稳定性);同 View 族兜底纪律(用户同名定义优先遮蔽,不入模块命名空间)。
+        r.out.lang_items.block_ctx = Some(r.new_def(DefKind::Struct, "block", Vis::Pub, span, 0));
+        r.out.lang_items.atomic = Some(r.new_def(DefKind::Struct, "Atomic", Vis::Pub, span, 0));
+        r.out.lang_items.atomic_view =
+            Some(r.new_def(DefKind::Struct, "AtomicView", Vis::Pub, span, 0));
+        // Scope/Ordering 封闭枚举(变体作值/类型位置路径前缀:`Scope::Block` 等)。
+        let scope = r.new_def(DefKind::Enum, "Scope", Vis::Pub, span, 0);
+        let scope_block = r.new_def(DefKind::Variant, "Block", Vis::Pub, span, 0);
+        let scope_gpu = r.new_def(DefKind::Variant, "Gpu", Vis::Pub, span, 0);
+        let scope_system = r.new_def(DefKind::Variant, "System", Vis::Pub, span, 0);
+        for v in [scope_block, scope_gpu, scope_system] {
+            r.unit_variants.insert(v);
+        }
+        r.enum_variants.insert(
+            scope,
+            HashMap::from([
+                ("Block".to_owned(), scope_block),
+                ("Gpu".to_owned(), scope_gpu),
+                ("System".to_owned(), scope_system),
+            ]),
+        );
+        let ordering = r.new_def(DefKind::Enum, "Ordering", Vis::Pub, span, 0);
+        let mut ord_variants = HashMap::new();
+        for name in ["Relaxed", "Acquire", "Release", "AcqRel"] {
+            let vid = r.new_def(DefKind::Variant, name, Vis::Pub, span, 0);
+            r.unit_variants.insert(vid);
+            ord_variants.insert(name.to_owned(), vid);
+        }
+        r.enum_variants.insert(ordering, ord_variants);
+        r.out.lang_items.scope = Some(scope);
+        r.out.lang_items.scope_block = Some(scope_block);
+        r.out.lang_items.scope_gpu = Some(scope_gpu);
+        r.out.lang_items.scope_system = Some(scope_system);
+        r.out.lang_items.ordering = Some(ordering);
     }
     r.resolve_uses();
     r.resolve_impl_targets();

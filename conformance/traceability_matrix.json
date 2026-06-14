@@ -593,10 +593,23 @@
       "tests/ui/views/windows_overlap.rx"
     ],
     "RXS-0079": [
-      "conformance/shared/accept/shared_barrier_consistent.rx"
+      "conformance/shared/accept/shared_barrier_consistent.rx",
+      "conformance/shared/reject/barrier_too_late/basic.rx",
+      "conformance/shared/reject/unsynced_cross_lane_read/basic.rx",
+      "src/rurixc/src/shared_check.rs",
+      "tests/ui/shared/barrier_too_late.rx",
+      "tests/ui/shared/unsynced_read.rx"
     ],
     "RXS-0080": [
-      "conformance/atomics/accept/scoped_atomics_ok.rx"
+      "conformance/atomics/accept/narrower_scope_ok.rx",
+      "conformance/atomics/accept/scoped_atomics_ok.rx",
+      "conformance/atomics/reject/scope_addrspace_incompat/basic.rx",
+      "conformance/atomics/reject/scope_overreach/basic.rx",
+      "src/rurixc/src/typeck.rs",
+      "src/rurixc/tests/atomics_ptx_mapping.rs",
+      "tests/ui/atomics/gpu_scope_on_shared.rx",
+      "tests/ui/atomics/scope_addrspace.rx",
+      "tests/ui/atomics/scope_overreach.rx"
     ]
   }
 }

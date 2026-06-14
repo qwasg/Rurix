@@ -1,0 +1,11 @@
+//@ spec: RXS-0080
+//@ expect-error: RX3010
+// `AtomicView<shared, ..>`(addrspace 3)为 block 本地存储,使用宽于 `Scope::Block`
+// 的 `Scope::System` 作用域 → 与地址空间不相容 / 越权,保守拒绝(RX3010,RXS-0080)。
+
+kernel fn wide_scope_on_shared(t: ThreadCtx<1>, counters: AtomicView<shared, u32, (16,)>) {
+    let i = t.thread_index();
+    counters.fetch_add(i, 1, Scope::System);
+}
+
+fn main() {}
