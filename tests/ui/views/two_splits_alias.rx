@@ -1,0 +1,9 @@
+//@ spec: RXS-0078
+kernel fn k(v: ViewMut<global, f32>, i: usize) {
+    let (a, b) = v.split_at(4);
+    let (c, d) = v.split_at(6);
+    a[i] = 1.0;
+    c[i] = 2.0; //~ ERROR RX3007
+}
+
+fn main() {}

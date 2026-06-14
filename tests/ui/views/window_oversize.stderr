@@ -1,0 +1,5 @@
+error[RX3008]: view split is out of bounds: window size 8 exceeds view length 4
+ --> $DIR/views/window_oversize.rx:4:13
+  |
+4 |     let w = lo.windows(8); //~ ERROR RX3008
+  |             ^^^^^^^^^^^^^ view split is out of bounds

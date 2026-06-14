@@ -133,6 +133,39 @@ impl DeviceIntrinsic {
     }
 }
 
+/// device views 算子(M5.1,RXS-0078;`View`/`ViewMut` 族子 view 划分方法)。
+/// typeck 在接收者为 `View`/`ViewMut` lang item 时识别返回类型,views 不相交
+/// device 借用扩展 pass([`crate::views_check`])消费同一识别面判定不相交性。
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ViewOp {
+    /// `split_at(mid)` → 产 [0, mid) 与 [mid, len) 两个结构性不相交子 view。
+    SplitAt,
+    /// `chunks(n)` → 块大小 n 的不重叠子 view 序列(尾块容许 < n)。
+    Chunks,
+    /// `windows(n)` → 大小 n、步长 1 的滑动窗口(相邻窗口重叠)。
+    Windows,
+}
+
+impl ViewOp {
+    /// `View`/`ViewMut` 方法名 → views 算子(RXS-0078;非划分算子返回 None)。
+    pub fn from_method(name: &str) -> Option<Self> {
+        Some(match name {
+            "split_at" => ViewOp::SplitAt,
+            "chunks" => ViewOp::Chunks,
+            "windows" => ViewOp::Windows,
+            _ => return None,
+        })
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            ViewOp::SplitAt => "split_at",
+            ViewOp::Chunks => "chunks",
+            ViewOp::Windows => "windows",
+        }
+    }
+}
+
 /// 名称解析结果(RXS-0034 裁决产物)。
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Res {

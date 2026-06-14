@@ -81,4 +81,4 @@
 | RXS-0075 | spec/device.md | 10 | `conformance/launch/accept/saxpy_launch.rx`, `conformance/launch/reject/arg_type_mismatch/basic.rx`, `conformance/launch/reject/context_brand_mismatch/basic.rx` …(+7) |
 | RXS-0076 | spec/device.md | 2 | `src/rurix-rt/src/lib.rs`, `src/rurix-rt/tests/gpu_roundtrip.rs` |
 | RXS-0077 | spec/device.md | 1 | `src/rurix-rt/src/lib.rs` |
-| RXS-0078 | spec/device.md | 1 | `conformance/views/accept/split_at_disjoint.rx` |
+| RXS-0078 | spec/device.md | 14 | `conformance/views/accept/chunks_disjoint.rx`, `conformance/views/accept/split_at_disjoint.rx`, `conformance/views/reject/alias_mut_write/basic.rx` …(+11) |

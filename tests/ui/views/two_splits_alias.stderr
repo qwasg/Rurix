@@ -1,0 +1,5 @@
+error[RX3007]: overlapping or aliased mutable sub-views of `v`: cannot prove the sub-views are disjoint
+ --> $DIR/views/two_splits_alias.rx:6:5
+  |
+6 |     c[i] = 2.0; //~ ERROR RX3007
+  |     ^^^^ aliased mutable sub-view written here

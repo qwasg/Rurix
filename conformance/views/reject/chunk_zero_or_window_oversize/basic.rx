@@ -1,0 +1,10 @@
+//@ spec: RXS-0078
+//@ expect-error: RX3008
+// chunks(0) 块大小为 0 恒非法(RX3008,RXS-0078);窗口大小超界同段(见
+// window_oversize.rx)。
+
+kernel fn chunk_zero(v: ViewMut<global, f32>, t: ThreadCtx<1>) {
+    let c = v.chunks(0);
+}
+
+fn main() {}

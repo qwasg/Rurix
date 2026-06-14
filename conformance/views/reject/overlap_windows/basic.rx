@@ -1,0 +1,11 @@
+//@ spec: RXS-0078
+//@ expect-error: RX3007
+// windows(n) 相邻窗口步长 1 恒重叠;对其子 view 发起可变写无法证明不相交,
+// 保守拒绝(RX3007,RXS-0078)。
+
+kernel fn windows_overlap(v: ViewMut<global, f32>, i: usize, t: ThreadCtx<1>) {
+    let w = v.windows(2);
+    w[i] = 1.0;
+}
+
+fn main() {}
