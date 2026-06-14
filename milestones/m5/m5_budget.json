@@ -119,6 +119,12 @@
       "description": "Compute Sanitizer racecheck(数据竞争)+ memcheck(越界/未初始化)对 M5 全部自研 kernel(reduce/scan/transpose/GEMM)+ M4 SAXPY 回归 nightly 全绿(契约 G-M5-4;08 §5,GPU 队列子进程隔离)。evaluator 计数 = evidence/compute_sanitizer_*.json 中 clean=true 的报告数 ≥1(M5.4 nightly 接入前为 0 → 建设期 normal SKIP / close-out strict FAIL;激活经真实红绿验证)",
       "expect": ">=1",
       "evidence": "ci_checked"
+    },
+    {
+      "id": "m5.counter.redistribution_audit_clean",
+      "description": "NVIDIA 再分发白名单审计 formal 激活(CI_GATES §4 第 2 项;M5.4 第 5 步)。evaluator 计数 = evidence/redistribution_audit_*.json 中 redistribution_surface_empty=true 的报告数 ≥1(机器事实:嵌入 PTX 无 __nv_*、libdevice.10.bc 不入产物;机器复核闸门 ci/check_redistribution.py,经真实红绿验证)。键于机器事实,不键于 EULA 法律签署(eula_whitelist_verdict 保持 pending-human-review,人工于 close-out 签署,AI 不代签)。证据缺失 → 0 → 建设期 normal SKIP / close-out strict FAIL,对齐 compute_sanitizer_clean 先例",
+      "expect": ">=1",
+      "evidence": "ci_checked"
     }
   ],
   "namespace_check": {
@@ -155,6 +161,11 @@
       "version": "v1.5",
       "date": "2026-06-14",
       "change": "M5.4 回填:Rurix tiled GEMM measured_local(三次进程级独立运行 trimmed mean = 3106.3649 GFLOPS)→ numerator entry + ratio vs CUDA C++ 对照 (3101.2705 GFLOPS)= 1.0016(契约 G-M5-1,阈值 0.90)"
+    },
+    {
+      "version": "v1.6",
+      "date": "2026-06-14",
+      "change": "M5.4 第 5 步:counter_assertions 新增 m5.counter.redistribution_audit_clean(expect >=1;NVIDIA 再分发白名单审计 formal 激活,CI_GATES §4 第 2 项)。evaluator 计数 = evidence/redistribution_audit_*.json 中 redistribution_surface_empty=true 的报告数(机器事实:嵌入 PTX 无 __nv_*、libdevice.10.bc 不入产物;机器复核闸门 ci/check_redistribution.py 经真实红绿验证)。键于机器事实,不键于 EULA 法律签署(eula_whitelist_verdict 保持 pending-human-review)。`py -3 ci/budget_eval.py --strict` = PASS(36 pass, 0 skip)"
     }
   ]
 }

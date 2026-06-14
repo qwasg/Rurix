@@ -36,6 +36,12 @@ jobs:
         shell: powershell
         run: py -3 ci/check_guardrails.py
 
+      # —— M5 增量(milestones/m5/CI_GATES.md §4 第 2 项;M5.4 第 5 步 formal 激活)——
+      # NVIDIA 再分发面守卫(check_* 风格,CPU-only):嵌入 PTX 无 __nv_* + 源无 libdevice .bc 打包
+      - name: NVIDIA redistribution audit (M5 CI_GATES §4.2)
+        shell: powershell
+        run: py -3 ci/check_redistribution.py
+
       - name: harness unit tests (CI_GATES §3.4)
         shell: powershell
         run: py -3 -m pytest tests/ -q

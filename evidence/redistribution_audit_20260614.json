@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "audit_subject": "nvidia_libdevice_redistribution",
+  "kernels": ["reduce", "scan", "transpose", "gemm_tile"],
+  "ir_needs_libdevice": false,
+  "embedded_ptx_has_nv_symbols": false,
+  "libdevice_bc_packaged": false,
+  "libdevice_locate": "$RURIXC_LIBDEVICE | $CUDA_PATH/nvvm/libdevice/libdevice.10.bc (toolchain::locate_libdevice, 运行期定位, 禁打包)",
+  "redistribution_surface_empty": true,
+  "eula_whitelist_verdict": "pending-human-review",
+  "eula_whitelist_note": "M5.3/M5.4 当前交付物 NVIDIA libdevice 再分发面为空(嵌入 PTX 无 __nv_*,libdevice.10.bc 不入产物)。PTX 内联 libdevice 派生实现是否构成 NVIDIA EULA Attachment A 意义下'再分发'及白名单逐项核对,留所有者/法务于 M5 close-out 人工签署;数学 kernel 真分发(G1 cubin/fatbin 含 __nv_*)的逐项法律核对随首个分发产物 formal 签署。AI 仅起草事实清单,不代签。",
+  "guard": "ci/check_redistribution.py",
+  "facts": [
+    {
+      "claim": "四类交付 kernel 不调用 libdevice 数学函数 → ir_needs_libdevice=false(toolchain.rs L59-61: ir.contains(\"@__nv_\"))",
+      "command": "rg -n \"sqrt|exp|fma|sin|cos|log|pow|tanh|rsqrt|recip\" src/rurix-rt/kernels/reduce.rx src/rurix-rt/kernels/scan.rx src/rurix-rt/kernels/transpose.rx src/rurix-rt/kernels/gemm_tile.rx",
+      "result": "无匹配(四类 kernel 源无 device 数学方法调用)"
+    },
+    {
+      "claim": "internalize+DCE 后嵌入 PTX 不含 __nv_* libdevice 派生符号(再分发面为空)",
+      "command": "rg -n \"__nv_\" bench/kernels/rurix_reduce.ptx bench/kernels/rurix_scan.ptx bench/kernels/rurix_transpose.ptx bench/kernels/rurix_gemm_tile.ptx",
+      "result": "无匹配;py -3 ci/check_redistribution.py = PASS"
+    },
+    {
+      "claim": "libdevice.10.bc 不被打包进 rurixc/rurix-rt 任何产物(运行期经 CUDA_PATH/RURIXC_LIBDEVICE 定位)",
+      "command": "rg -n \"include_(bytes|str)!\\s*\\([^)]*\\.bc\" src/rurixc src/rurix-rt",
+      "result": "无匹配;libdevice 仅在 toolchain::locate_libdevice(toolchain.rs L65-82)运行期拼路径定位"
+    },
+    {
+      "claim": "版本化嵌入 PTX 与 rurix-rt build 产物哈希同步(嵌入即分发面真身)",
+      "command": "py -3 ci/check_bench_ptx_sync.py",
+      "result": "bench PTX 与 build 产物一致(有 clang 时);PTX 经 include_str! 嵌入二进制(src/rurix-rt/src/bin/*.rs)"
+    }
+  ],
+  "redgreen": {
+    "red_command": "Add-Content bench/kernels/rurix_reduce.ptx '__nv_sqrtf'; py -3 ci/check_redistribution.py",
+    "red_exit_code": 1,
+    "green_command": "git checkout -- bench/kernels/rurix_reduce.ptx; py -3 ci/check_redistribution.py",
+    "green_exit_code": 0,
+    "run_url": "pending-pr-ci"
+  },
+  "timestamp": "2026-06-14T14:48:00+00:00",
+  "harness_commit": "73f8a4d"
+}
