@@ -290,8 +290,7 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
         r.out.lang_items.context = Some(r.new_def(DefKind::Struct, "Context", Vis::Pub, span, 0));
         r.out.lang_items.module = Some(r.new_def(DefKind::Struct, "Module", Vis::Pub, span, 0));
         r.out.lang_items.stream = Some(r.new_def(DefKind::Struct, "Stream", Vis::Pub, span, 0));
-        r.out.lang_items.grid_dim =
-            Some(r.new_def(DefKind::Struct, "GridDim", Vis::Pub, span, 0));
+        r.out.lang_items.grid_dim = Some(r.new_def(DefKind::Struct, "GridDim", Vis::Pub, span, 0));
         r.out.lang_items.block_dim =
             Some(r.new_def(DefKind::Struct, "BlockDim", Vis::Pub, span, 0));
     }

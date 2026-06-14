@@ -37,7 +37,9 @@ fn main() {
         }
         Err(reason) => {
             // 降级:空哨兵 PTX + 空入口名(bin/test 运行时据空 SKIP)
-            println!("cargo:warning=rurix-rt: SAXPY device codegen unavailable, embedded PTX skipped ({reason})");
+            println!(
+                "cargo:warning=rurix-rt: SAXPY device codegen unavailable, embedded PTX skipped ({reason})"
+            );
             std::fs::write(&ptx_out, "").expect("write sentinel saxpy.ptx");
             std::fs::write(&meta_out, "pub const SAXPY_KERNEL: &str = \"\";\n")
                 .expect("write sentinel saxpy_meta.rs");
@@ -76,7 +78,9 @@ fn gen_ptx(kernel_rx: &std::path::Path, ptx_out: &std::path::Path) -> Result<Str
     match rurixc::ptxas::dry_gate(&ptx, "saxpy") {
         rurixc::ptxas::PtxasOutcome::Pass | rurixc::ptxas::PtxasOutcome::Skipped => {}
         rurixc::ptxas::PtxasOutcome::Rejected(reason) => {
-            return Err(format!("ptxas -arch=sm_89 rejected generated PTX: {reason}"));
+            return Err(format!(
+                "ptxas -arch=sm_89 rejected generated PTX: {reason}"
+            ));
         }
         rurixc::ptxas::PtxasOutcome::Toolchain(e) => {
             return Err(format!("ptxas toolchain error: {e}"));

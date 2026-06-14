@@ -98,7 +98,9 @@ impl Context {
     /// 锁页主机内存分配(`cuMemAllocHost`,D-232;pinned staging)。
     pub fn alloc_pinned<T: Copy>(&self, n: usize) -> Result<PinnedBuffer<'_, T>> {
         let cuda = self.guard()?;
-        let bytes = n.checked_mul(size_of::<T>()).expect("alloc_pinned 字节数溢出");
+        let bytes = n
+            .checked_mul(size_of::<T>())
+            .expect("alloc_pinned 字节数溢出");
         let (r, ptr) = cuda.mem_alloc_host(bytes);
         self.finish("cuMemAllocHost", r)?;
         Ok(PinnedBuffer {
@@ -467,6 +469,8 @@ mod tests {
         assert!(error::is_poisoning(sys::CUDA_ERROR_ASSERT));
         assert!(error::is_poisoning(sys::CUDA_ERROR_CONTEXT_IS_DESTROYED));
         assert!(!error::is_poisoning(sys::CUDA_SUCCESS));
-        assert!(!error::is_poisoning(sys::CUDA_ERROR_UNSUPPORTED_PTX_VERSION));
+        assert!(!error::is_poisoning(
+            sys::CUDA_ERROR_UNSUPPORTED_PTX_VERSION
+        ));
     }
 }

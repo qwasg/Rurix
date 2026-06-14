@@ -96,7 +96,11 @@ fn reject_corpus_all_intercepted() {
             .parse()
             .expect("expect-error 码格式非法");
         let codes = run_pipeline(&src);
-        assert!(!codes.is_empty(), "{} 未被拦截(反例全拦截口径)", f.display());
+        assert!(
+            !codes.is_empty(),
+            "{} 未被拦截(反例全拦截口径)",
+            f.display()
+        );
         assert!(
             codes.iter().all(|c| *c == expected),
             "{} 诊断码偏离预期 RX{expected}: {codes:?}",

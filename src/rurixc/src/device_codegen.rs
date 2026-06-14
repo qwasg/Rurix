@@ -25,11 +25,11 @@ use crate::codegen::{
 };
 use crate::diag::ErrorCode;
 use crate::hir::{self, DeviceIntrinsic, PrimTy};
-use crate::query::QueryCtx;
 use crate::mir::{
     Body, CallTarget, Const, LocalIdx, Operand, Place, ProjElem, Rvalue, StatementKind,
     TerminatorKind,
 };
+use crate::query::QueryCtx;
 use crate::resolve::{ADDR_SPACES, Resolutions};
 use crate::span::Span;
 use crate::ty::Ty;
@@ -187,9 +187,7 @@ impl Cg<'_> {
             .addr_spaces
             .iter()
             .position(|s| *s == Some(*sd))
-            .ok_or_else(|| {
-                DeviceCodegenError::constraint(span, "unknown address-space marker")
-            })?;
+            .ok_or_else(|| DeviceCodegenError::constraint(span, "unknown address-space marker"))?;
         // ADDR_SPACES 序 → NVPTX addrspace 号(RXS-0071):
         // global(0)→1, shared(1)→3, constant(2)→4, local(3)→5, host(4)→不支持
         match ADDR_SPACES[idx] {
@@ -232,7 +230,11 @@ impl Cg<'_> {
             params.push(format!("{} %arg{i}", self.llty(lty)?));
         }
 
-        let cc = if is_kernel { "ptx_kernel " } else { "internal " };
+        let cc = if is_kernel {
+            "ptx_kernel "
+        } else {
+            "internal "
+        };
         let ret_ll = if ret_void {
             "void".to_owned()
         } else {
@@ -254,7 +256,11 @@ impl Cg<'_> {
             if self.is_zst(&l.ty) {
                 continue;
             }
-            let _ = writeln!(self.fns, "  %l{i} = alloca {}, addrspace(5)", self.llty(&l.ty)?);
+            let _ = writeln!(
+                self.fns,
+                "  %l{i} = alloca {}, addrspace(5)",
+                self.llty(&l.ty)?
+            );
         }
         // 形参落 alloca
         for i in 1..=b.arg_count {
@@ -276,7 +282,13 @@ impl Cg<'_> {
                 let StatementKind::Assign(place, rv) = &s.kind;
                 self.emit_assign(b, place, rv)?;
             }
-            self.emit_terminator(b, &bb.terminator.kind, bb.terminator.span, ret_void, &ret_ty)?;
+            self.emit_terminator(
+                b,
+                &bb.terminator.kind,
+                bb.terminator.span,
+                ret_void,
+                &ret_ty,
+            )?;
         }
         self.fns.push_str("}\n\n");
         Ok(())
@@ -298,7 +310,10 @@ impl Cg<'_> {
                             if self.res.lang_items.view_mutable(*d).is_some()
                                 && args.len() >= 2 =>
                         {
-                            (self.view_addrspace(args, b.local(p.local).span)?, args[1].clone())
+                            (
+                                self.view_addrspace(args, b.local(p.local).span)?,
+                                args[1].clone(),
+                            )
                         }
                         _ => {
                             return Err(DeviceCodegenError::constraint(
@@ -337,11 +352,7 @@ impl Cg<'_> {
                 }
             }
         }
-        Ok(PlacePtr {
-            reg,
-            addrspace,
-            ty,
-        })
+        Ok(PlacePtr { reg, addrspace, ty })
     }
 
     /// 载入一个 usize local 的值(`ProjElem::Index` 下标;无投影)。
@@ -384,7 +395,11 @@ impl Cg<'_> {
                         PrimTy::F32 => f64::from(*v as f32).to_bits(),
                         _ => v.to_bits(),
                     };
-                    Some((prim_llty(*p).to_owned(), format!("0x{bits:016X}"), Ty::Prim(*p)))
+                    Some((
+                        prim_llty(*p).to_owned(),
+                        format!("0x{bits:016X}"),
+                        Ty::Prim(*p),
+                    ))
                 }
                 Const::Bool(v) => Some((
                     "i8".to_owned(),
@@ -563,7 +578,10 @@ impl Cg<'_> {
             }
             TerminatorKind::SwitchBool { discr, then, else_ } => {
                 let Some((ll, v, _)) = self.operand(b, discr)? else {
-                    return Err(DeviceCodegenError::constraint(span, "switch on zero-sized value"));
+                    return Err(DeviceCodegenError::constraint(
+                        span,
+                        "switch on zero-sized value",
+                    ));
                 };
                 let c = self.fresh();
                 let _ = writeln!(self.fns, "  {c} = icmp ne {ll} {v}, 0");

@@ -169,8 +169,7 @@ fn main() -> ExitCode {
                     }
                     // device emit 通道(`--emit=nvptx-ir|ptx`)以 `kernel fn` 为根,
                     // 不要求 host `main`(RXS-0070);其余目标缺 main → RX6002。
-                    let device_emit =
-                        matches!(emit.as_deref(), Some("nvptx-ir") | Some("ptx"));
+                    let device_emit = matches!(emit.as_deref(), Some("nvptx-ir") | Some("ptx"));
                     if m.is_empty() && !device_emit {
                         diag.struct_error(E_MISSING_MAIN, "codegen.missing_main")
                             .emit();

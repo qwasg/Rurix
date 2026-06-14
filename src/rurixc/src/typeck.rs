@@ -1112,8 +1112,7 @@ impl Tck<'_, '_> {
                     // `View<space, T, ..>` / `ViewMut<space, T, ..>` 索引(M4.2,
                     // RXS-0071):元素类型 = 第二类型实参(args[0] = 地址空间标记)。
                     Ty::Adt(d, args)
-                        if self.res.lang_items.view_mutable(d).is_some()
-                            && args.len() >= 2 =>
+                        if self.res.lang_items.view_mutable(d).is_some() && args.len() >= 2 =>
                     {
                         args[1].clone()
                     }

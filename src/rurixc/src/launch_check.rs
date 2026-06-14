@@ -147,13 +147,7 @@ impl Walker<'_, '_> {
     }
 
     /// 单个 launch 实参裁决;返回 true 表示已报违例(调用方据此停止)。
-    fn check_arg(
-        &self,
-        param: &Ty,
-        arg_ty: &Ty,
-        stream_brand: Option<&Ty>,
-        elem: &Expr,
-    ) -> bool {
+    fn check_arg(&self, param: &Ty, arg_ty: &Ty, stream_brand: Option<&Ty>, elem: &Expr) -> bool {
         // host `Buffer<Ctx, T>` 满足 device `View<space, T>`/`ViewMut<space, T>`
         // 形参:元素类型 T 可合一(Buffer 提供 view);brand 与 Stream 一致。
         if let (Ty::Adt(pd, pargs), Ty::Adt(ad, aargs)) = (param, arg_ty)

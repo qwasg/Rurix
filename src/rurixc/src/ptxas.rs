@@ -91,7 +91,13 @@ pub fn dry_gate(ptx: &str, stem: &str) -> PtxasOutcome {
 pub fn sanitize_ascii(s: &str) -> String {
     let cleaned: String = s
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect();
     if cleaned.is_empty() {
         "kernel".to_owned()
