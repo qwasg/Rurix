@@ -157,6 +157,31 @@ def eval_counter(entry: dict, strict: bool) -> None:
             if (ROOT / "tests" / "ui" / d).is_dir()
         )
         count_or_gate(eid, n, 10, "条 .stderr snapshot", "M4.1 3xxx 子集已入,6xxx 随 M4.3,契约 G-M4-3", strict)
+    elif eid == "m5.counter.views_conformance_categories":
+        reject_dir = ROOT / "conformance" / "views" / "reject"
+        n = len([p for p in reject_dir.iterdir() if p.is_dir()]) if reject_dir.is_dir() else 0
+        count_or_gate(eid, n, 4, "个预设错误类别目录", "M5.1 建设期为正常状态,契约 G-M5-2", strict)
+    elif eid == "m5.counter.ui_golden_path5_snapshots":
+        # 黄金路径 5 = 并行安全错误:views 重叠/别名(M5.1,3xxx 续接)
+        # + shared+barrier 一致性违例(M5.2)+ scoped atomics scope 误用(M5.2);
+        # 契约 G-M5-3 覆盖各类;计数聚合三目录。
+        path5_dirs = ["views", "shared", "atomics"]
+        n = sum(
+            len(list((ROOT / "tests" / "ui" / d).glob("**/*.stderr")))
+            for d in path5_dirs
+            if (ROOT / "tests" / "ui" / d).is_dir()
+        )
+        count_or_gate(eid, n, 10, "条 .stderr snapshot", "M5.1/M5.2 建设期为正常状态,契约 G-M5-3", strict)
+    elif eid == "m5.counter.compute_sanitizer_clean":
+        # Compute Sanitizer racecheck+memcheck nightly 全绿(契约 G-M5-4,08 §5);
+        # 计数 = evidence/compute_sanitizer_*.json 中 clean=true 的报告数。
+        # M5.4 nightly 接入前为 0 → 建设期 normal SKIP / close-out strict FAIL。
+        n = 0
+        for f in (ROOT / "evidence").glob("compute_sanitizer_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("clean") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份 clean Sanitizer 报告", "M5.4 nightly 接入前为正常状态,契约 G-M5-4", strict)
     elif eid == "m1.counter.spec_clause_test_anchoring":
         # 条款 ↔ 测试锚定由 traceability 矩阵工具核对(M1.4 交付物,契约 G-M1-4);
         # 矩阵产物落地前 normal skip / strict FAIL,落地后委托其自身校验结果。
