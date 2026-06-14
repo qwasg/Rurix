@@ -58,9 +58,15 @@ fn run() -> Result<(), String> {
 
     let ctx = Context::new().map_err(|e| format!("创建 Context: {e:?}"))?;
 
-    let mut dx = ctx.alloc::<f32>(N).map_err(|e| format!("alloc dx: {e:?}"))?;
-    let mut dy = ctx.alloc::<f32>(N).map_err(|e| format!("alloc dy: {e:?}"))?;
-    let d_out = ctx.alloc::<f32>(N).map_err(|e| format!("alloc out: {e:?}"))?;
+    let mut dx = ctx
+        .alloc::<f32>(N)
+        .map_err(|e| format!("alloc dx: {e:?}"))?;
+    let mut dy = ctx
+        .alloc::<f32>(N)
+        .map_err(|e| format!("alloc dy: {e:?}"))?;
+    let d_out = ctx
+        .alloc::<f32>(N)
+        .map_err(|e| format!("alloc out: {e:?}"))?;
     dx.copy_from_host(&x).map_err(|e| format!("H2D x: {e:?}"))?;
     dy.copy_from_host(&y).map_err(|e| format!("H2D y: {e:?}"))?;
 
@@ -75,7 +81,9 @@ fn run() -> Result<(), String> {
     let kernel = module
         .function(SAXPY_KERNEL)
         .map_err(|e| format!("cuModuleGetFunction {SAXPY_KERNEL}: {e:?}"))?;
-    let stream = ctx.create_stream().map_err(|e| format!("create_stream: {e:?}"))?;
+    let stream = ctx
+        .create_stream()
+        .map_err(|e| format!("create_stream: {e:?}"))?;
 
     // launch 实参(kernel 形参顺序:out:ptr, x:ptr, y:ptr, a:f32, n:usize/i64)
     let mut p_out = d_out.device_ptr();

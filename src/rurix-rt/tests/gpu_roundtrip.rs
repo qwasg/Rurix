@@ -136,7 +136,9 @@ fn saxpy_roundtrip_isolated() {
         dx.copy_from_host(&x).expect("H2D x");
         dy.copy_from_host(&y).expect("H2D y");
 
-        let module = ctx.load_module(SAXPY_PTX).expect("装载协商 + cuModuleLoadDataEx");
+        let module = ctx
+            .load_module(SAXPY_PTX)
+            .expect("装载协商 + cuModuleLoadDataEx");
         eprintln!(
             "[rurix-rt] 装载协商通过,.version = {}",
             module.negotiated_version()
@@ -247,6 +249,8 @@ fn rurix_saxpy_e2e_isolated() {
                 got[i], expect[i]
             );
         }
-        eprintln!("[rurix-rt] Rurix SAXPY 端到端真跑通过:{n} 元素 f32 精确相等(device codegen PTX)");
+        eprintln!(
+            "[rurix-rt] Rurix SAXPY 端到端真跑通过:{n} 元素 f32 精确相等(device codegen PTX)"
+        );
     });
 }

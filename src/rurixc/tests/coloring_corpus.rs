@@ -113,7 +113,11 @@ fn reject_corpus_all_intercepted() {
 #[test]
 fn reject_has_expected_categories() {
     let coloring_reject = root_dir("coloring", "reject");
-    for cat in ["host_in_device", "direct_kernel_call", "barrier_non_uniform"] {
+    for cat in [
+        "host_in_device",
+        "direct_kernel_call",
+        "barrier_non_uniform",
+    ] {
         let d = coloring_reject.join(cat);
         assert!(
             d.is_dir() && !rx_files(&d).is_empty(),

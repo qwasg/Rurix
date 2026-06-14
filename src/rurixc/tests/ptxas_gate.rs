@@ -45,7 +45,10 @@ fn ptxas_dry_gate_accepts_valid_rejects_invalid() {
     );
     match ptxas::dry_gate(&bad, "bad") {
         PtxasOutcome::Rejected(reason) => {
-            assert!(!reason.is_empty(), "ptxas 拒绝应携 stderr 摘要(RX6004 诊断输入)");
+            assert!(
+                !reason.is_empty(),
+                "ptxas 拒绝应携 stderr 摘要(RX6004 诊断输入)"
+            );
             eprintln!("[ptxas_gate] RED:ptxas 拒绝非法 PTX → RX6004 通道(摘要: {reason})");
         }
         other => panic!("非法 PTX 应被 ptxas -arch=sm_89 拒绝,实得 {other:?}"),

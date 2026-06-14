@@ -57,10 +57,10 @@ fn nvptx_text(src: &str, module_name: &str) -> String {
             if !diag.has_errors() {
                 cx.check_consteval();
             }
-            if !diag.has_errors() {
-                if let Some(ir) = rurixc::device_codegen::build_and_emit(&cx, module_name) {
-                    text = ir;
-                }
+            if !diag.has_errors()
+                && let Some(ir) = rurixc::device_codegen::build_and_emit(&cx, module_name)
+            {
+                text = ir;
             }
         }
     }

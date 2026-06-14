@@ -334,18 +334,14 @@ mod tests {
     //@ spec: RXS-0066, RXS-0069
     #[test]
     fn device_context_calling_host_only_is_rx3001() {
-        let codes = check(
-            "fn host_only() {}\ndevice fn d() {\n    host_only();\n}\nfn main() {}",
-        );
+        let codes = check("fn host_only() {}\ndevice fn d() {\n    host_only();\n}\nfn main() {}");
         assert_eq!(codes, vec![3001]);
     }
 
     //@ spec: RXS-0066
     #[test]
     fn kernel_context_calling_host_only_is_rx3001() {
-        let codes = check(
-            "fn host_only() {}\nkernel fn k() {\n    host_only();\n}\nfn main() {}",
-        );
+        let codes = check("fn host_only() {}\nkernel fn k() {\n    host_only();\n}\nfn main() {}");
         assert_eq!(codes, vec![3001]);
     }
 
@@ -390,9 +386,7 @@ mod tests {
     //@ spec: RXS-0068
     #[test]
     fn uniform_barrier_is_clean() {
-        let codes = check(
-            "kernel fn k(t: ThreadCtx<1>) {\n    t.sync();\n}\nfn main() {}",
-        );
+        let codes = check("kernel fn k(t: ThreadCtx<1>) {\n    t.sync();\n}\nfn main() {}");
         assert!(codes.is_empty(), "{codes:?}");
     }
 

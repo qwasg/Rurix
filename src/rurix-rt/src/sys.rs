@@ -61,8 +61,13 @@ type FnMemAllocHost = unsafe extern "system" fn(*mut *mut c_void, usize) -> CuRe
 type FnMemFreeHost = unsafe extern "system" fn(*mut c_void) -> CuResult;
 type FnMemcpyHtoD = unsafe extern "system" fn(CuDevicePtr, *const c_void, usize) -> CuResult;
 type FnMemcpyDtoH = unsafe extern "system" fn(*mut c_void, CuDevicePtr, usize) -> CuResult;
-type FnModuleLoadDataEx =
-    unsafe extern "system" fn(*mut CuPtr, *const c_void, u32, *mut i32, *mut *mut c_void) -> CuResult;
+type FnModuleLoadDataEx = unsafe extern "system" fn(
+    *mut CuPtr,
+    *const c_void,
+    u32,
+    *mut i32,
+    *mut *mut c_void,
+) -> CuResult;
 type FnModuleUnload = unsafe extern "system" fn(CuPtr) -> CuResult;
 type FnModuleGetFunction = unsafe extern "system" fn(*mut CuPtr, CuPtr, *const c_char) -> CuResult;
 type FnLaunchKernel = unsafe extern "system" fn(
@@ -258,7 +263,12 @@ impl Cuda {
     /// # Safety
     /// `dst` 为有效设备地址且 `[dst, dst+bytes)` 在分配范围内;`src` 指向至少
     /// `bytes` 字节的可读主机内存。
-    pub unsafe fn memcpy_htod(&self, dst: CuDevicePtr, src: *const c_void, bytes: usize) -> CuResult {
+    pub unsafe fn memcpy_htod(
+        &self,
+        dst: CuDevicePtr,
+        src: *const c_void,
+        bytes: usize,
+    ) -> CuResult {
         // SAFETY: 调用方保证 dst/src 范围有效(见 fn 文档)。
         unsafe { (self.cu_memcpy_htod)(dst, src, bytes) }
     }
@@ -294,7 +304,11 @@ impl Cuda {
 
     /// # Safety
     /// `module` 为有效已装载模块;`name` 为 NUL 结尾 kernel 名。
-    pub unsafe fn module_get_function(&self, module: CuPtr, name: *const c_char) -> (CuResult, CuPtr) {
+    pub unsafe fn module_get_function(
+        &self,
+        module: CuPtr,
+        name: *const c_char,
+    ) -> (CuResult, CuPtr) {
         let mut f: CuPtr = std::ptr::null_mut();
         // SAFETY: 出参 `f` 有效可写;调用方保证 module/name 有效(见 fn 文档)。
         let r = unsafe { (self.cu_module_get_function)(&mut f, module, name) };
@@ -317,8 +331,17 @@ impl Cuda {
         // SAFETY: 调用方保证 f/params/stream 有效且 params 与 kernel 形参匹配(见 fn 文档)。
         unsafe {
             (self.cu_launch_kernel)(
-                f, grid[0], grid[1], grid[2], block[0], block[1], block[2], shared_bytes, stream,
-                params, std::ptr::null_mut(),
+                f,
+                grid[0],
+                grid[1],
+                grid[2],
+                block[0],
+                block[1],
+                block[2],
+                shared_bytes,
+                stream,
+                params,
+                std::ptr::null_mut(),
             )
         }
     }
@@ -332,7 +355,11 @@ impl Cuda {
             return None;
         }
         // SAFETY: cuGetErrorName 成功时 `p` 指向 NUL 结尾静态字符串(进程生命期)。
-        Some(unsafe { core::ffi::CStr::from_ptr(p) }.to_string_lossy().into_owned())
+        Some(
+            unsafe { core::ffi::CStr::from_ptr(p) }
+                .to_string_lossy()
+                .into_owned(),
+        )
     }
 
     /// `CUresult` → 错误描述(`cuGetErrorString`;失败返回 None)。
@@ -344,6 +371,10 @@ impl Cuda {
             return None;
         }
         // SAFETY: cuGetErrorString 成功时 `p` 指向 NUL 结尾静态字符串(进程生命期)。
-        Some(unsafe { core::ffi::CStr::from_ptr(p) }.to_string_lossy().into_owned())
+        Some(
+            unsafe { core::ffi::CStr::from_ptr(p) }
+                .to_string_lossy()
+                .into_owned(),
+        )
     }
 }
