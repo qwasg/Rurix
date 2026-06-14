@@ -18,6 +18,7 @@
 	.param .u64 rx_gemm_tile_8_param_4,
 	.param .u64 rx_gemm_tile_8_param_5
 )
+.reqntid 16, 16
 {
 	.reg .pred 	%p<10>;
 	.reg .b32 	%r<74>;

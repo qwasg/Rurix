@@ -14,6 +14,7 @@
 	.param .u64 .ptr .global .align 1 rx_reduce_8_param_1,
 	.param .u64 rx_reduce_8_param_2
 )
+.reqntid 256
 {
 	.reg .pred 	%p<6>;
 	.reg .b32 	%r<12>;

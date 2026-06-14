@@ -15,6 +15,7 @@
 	.param .u64 rx_transpose_8_param_2,
 	.param .u64 rx_transpose_8_param_3
 )
+.reqntid 16, 16
 {
 	.reg .pred 	%p<7>;
 	.reg .b32 	%r<7>;
