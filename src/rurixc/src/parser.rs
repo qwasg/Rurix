@@ -4,7 +4,7 @@
 //!   EOF)继续,单文件可多错,仍产出部分 AST(错误子树以 `Err` 节点占位);
 //! - 表达式按 RXS-0025 优先级表以 Pratt 方式解析;比较与区间不可链式;
 //! - 泛型实参闭合位置拆分 `>>` / `>=` / `>>=`(RXS-0021);
-//! - 事件流接口预留:见 [`ParseEvent`] // STUB(RD-004)。
+//! - 事件流接口(RD-004 已接通):见 [`ParseEvent`] 与 [`crate::lossless`];
 //!
 //! 错误码 RX0008 / RX0009(registry/error_codes.json,M1.3 分配);
 //! feature gate 检查(RX0010 / RX0011)在 [`crate::feature_gate`],parse 后单独跑。
@@ -21,10 +21,10 @@ pub const E_UNCLOSED_DELIMITER: ErrorCode = ErrorCode(9); // RX0009
 // 事件流接口预留
 // ---------------------------------------------------------------------------
 
-/// STUB(RD-004): parser 事件流接口预留(07 §9;RXS-0030 第 5 条)。
+/// parser 事件流(RD-004 已接通;07 §9;RXS-0030 第 5 条)。
 ///
-/// M1 仅定义事件形态并在主要节点边界与 token 消费点产出,无消费者;
-/// 完整无损语法树(rowan 式)通道随 M6 LSP MVP 评估接通(RD-004)。
+/// 事件在主要节点边界与 token 消费点产出;由 [`crate::lossless::build_tree`] 组装
+/// rowan 式无损语法树,供 LSP offset 映射消费。
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ParseEvent {
     Start(NodeKind),
@@ -32,7 +32,7 @@ pub enum ParseEvent {
     Finish(NodeKind),
 }
 
-/// STUB(RD-004): 事件节点粒度首批(粗粒度;细化随 RD-004 回填)。
+/// 事件节点粒度(RD-004;粗粒度,MVP 够用,细化随语法树消费扩展)。
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum NodeKind {
     SourceFile,
@@ -56,7 +56,7 @@ pub fn parse(
     parse_with_events(src, tokens, file, edition, diag).0
 }
 
-/// 同 [`parse`],附带事件流(STUB(RD-004):当前无消费者,供单测与未来无损树通道)。
+/// 同 [`parse`],附带事件流(供 [`crate::lossless`] 无损树通道)。
 pub fn parse_with_events(
     src: &str,
     tokens: Vec<Token>,

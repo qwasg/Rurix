@@ -42,7 +42,7 @@
 | [borrow.md](borrow.md) | 所有权与借用语义(desugar/穷尽性/drop scope 首批;move/init/Drop 执行语义;借用/生命周期主体) | RXS-0048 ~ RXS-0061 | M3.1 |
 | [consteval.md](consteval.md) | const 求值语义(const fn 子集 / const item 求值 / const 泛型 / 求值失败) | RXS-0062 ~ RXS-0065 | M3.4 |
 | [device.md](device.md) | device 语义(函数着色与跨着色调用 / 地址空间类型与一致性 / barrier uniform 可达性保守骨架 / 着色与地址空间诊断要求 / NVPTX codegen 目标与调用约定 / 地址空间 codegen 建模 / 线程索引与 launch bounds / ptxas 干验证关卡 / launch 类型契约与诊断要求 / PTX 装载协商 / poisoned context 状态机 / views 算子集语义与子 view 不相交证明 / shared+barrier 一致性数据流 / scoped atomics 类型契约与 PTX 映射 / device 数学函数 intrinsic 集与求值语义 / libdevice bitcode 链接流程与 codegen 诊断) | RXS-0066 ~ RXS-0082 | M4.1 |
-| [toolchain.md](toolchain.md) | 工具链语义(rx CLI 子命令语义面与退出码约定 / 包管理 rurix.toml·rurix.lock 格式与依赖三来源解析 / rx test 子进程隔离 / workspace 多包 / 离线重建复现门 / LSP 能力面契约) | RXS-0083 ~ RXS-0097（rx CLI 首批 + 包管理 manifest/lock/vendor + rx test/workspace/repro；LSP M6.4 续号） | M6.1 |
+| [toolchain.md](toolchain.md) | 工具链语义(rx CLI 子命令语义面与退出码约定 / 包管理 rurix.toml·rurix.lock 格式与依赖三来源解析 / rx test 子进程隔离 / workspace 多包 / 离线重建复现门 / LSP 能力面契约) | RXS-0083 ~ RXS-0103（rx CLI 首批 + 包管理 manifest/lock/vendor + rx test/workspace/repro + LSP MVP M6.4） | M6.1 |
 
 ## 5. 修订记录
 
@@ -67,3 +67,4 @@
 | v1.16 | 2026-06-15 | §4 toolchain.md 行区间更新至 RXS-0088（M6.1 rx CLI 子命令语义面首批条款化登记：总入口与子命令分发 + 退出码约定 / build / run / check / fmt 收编 RD-005 / bench 收编 RD-003；07 §2 §6 §9 单一前端 + 08 §7 D-239 + BENCH_PROTOCOL §3 已锁定决策的条款化，条款 PR 先于实现 PR，每条 ≥1 测试锚定，无体例变更）。包管理 manifest/lock 格式条款（M6.2）与 LSP 能力面条款（M6.4）续写 toolchain.md | Direct |
 | v1.17 | 2026-06-15 | §4 toolchain.md 行区间更新至 RXS-0094（M6.2 包管理 manifest/lock/vendor 条款化登记：rurix.toml 清单格式与声明式无 build.rs / 依赖三来源 path·git·archive 解析规则 / 依赖解析图与 feature additive-v1 加性合一 + 冲突检测 / rurix.lock 精确解析图格式 / 内容树规范化 SHA-256 / vendor 与离线解析路径；09 §7.1/§7.2 已锁定决策 D-308~D-311 的条款化，条款 PR 先于实现 PR，每条 ≥1 测试锚定，无体例变更）。LSP 能力面条款（M6.4）续写 toolchain.md | Direct |
 | v1.18 | 2026-06-15 | §4 toolchain.md 行区间更新至 RXS-0097（M6.3 rx test 子进程隔离 / workspace members 多包 / G-M6-1 三包离线重建逐字节复现门条款化登记：`#[test]`/`#[test(gpu)]` 逐测试子进程 harness、workspace members 进入单根 lock 图、`rx build --locked --offline` reproducible profile 两次 host EXE SHA-256 一致且 lock/vendor 不改写；14 §6 + 09 §7.1/§7.2 + M6 契约 D-M6-3/G-M6-1 的条款化，条款 PR 先于实现 PR，每条 ≥1 测试锚定，无体例变更）。LSP 能力面条款（M6.4）续写 toolchain.md | Direct |
+| v1.19 | 2026-06-15 | §4 toolchain.md 行区间更新至 RXS-0103（M6.4 LSP MVP 条款化登记：`rurixc --tooling-server` 常驻 query 层 / publishDiagnostics 诊断 JSON / completion / definition+references / documentHighlight / rename；07 §9 D-210 单一前端 + RD-004 无损语法树通道接通，条款 PR 先于实现 PR，每条 ≥1 测试锚定，无体例变更） | Direct |

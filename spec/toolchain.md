@@ -1,9 +1,10 @@
 # Rurix 语言规范 — 工具链语义(M6.1~M6.3:rx CLI / 包管理 / rx test 与离线复现)
 
-> 条款:RXS-0083 ~ RXS-0097(M6.1 rx CLI 子命令语义面首批 + M6.2 包管理 + M6.3 rx test / workspace / 离线重建复现门)。体例见 [README.md](README.md)。
+> 条款:RXS-0083 ~ RXS-0103(M6.1 rx CLI 子命令语义面首批 + M6.2 包管理 + M6.3 rx test / workspace / 离线重建复现门 + M6.4 LSP MVP)。体例见 [README.md](README.md)。
 > 依据:07 §2 §6 §9(查询化与增量编译 D-203 / 编译性能预算 / LSP 与工具模式 D-210——单一前端,常驻 query 层);08 §4 §7(rx bench harness 工具化 / 开发者工具集 rx CLI D-239);milestones/m0/BENCH_PROTOCOL.md(基准协议 §2/§3);M6 契约 D-M6-1 / G-M6-3 / G-M6-4 / G-M6-5(spec 先行)。
 > 本文为已选定决策(D-203/D-210/D-239)的初版条款化(档位 Direct);任何偏离 07/08 已锁定决策的语义动作须按 10 §3 升档。本文承载工具链语义条款,M6.2/M6.4 的包管理 `rurix.toml`/`rurix.lock` 格式条款与 LSP 能力面条款续写本文件(编号续号)。
 > **M6.2 续号(RXS-0089 ~ RXS-0094,包管理 manifest/lock/vendor)**:`rurix.toml`(意图)+ `rurix.lock`(精确解析图 + 内容树 SHA-256)格式语义 + 依赖三来源 path/git/archive 解析规则 + workspace 单根锁 + feature additive-v1 + 无 build.rs 声明式(09 §7.1/§7.2 已锁定决策 D-308~D-311 的条款化,档位 Direct;registry sumdb D-312 不触碰)。错误码 `RX7005` ~ `RX7009`(7xxx 链接/工具链段位续接)随 M6.2 实现 WP 正式分配,registry revision_log 留痕、含义冻结。
+> **M6.4 续号(RXS-0098 ~ RXS-0103,LSP MVP + 常驻 query 层)**:`rurixc --tooling-server` 常驻进程(stdio JSON-RPC)经单一前端 query 层服务 LSP MVP 六项能力(publishDiagnostics 直接消费 07 §5 诊断 JSON / completion / definition / references / documentHighlight / rename);进程内 memoization + 模块/函数级失效(RD-004 无损语法树通道接通,parser 事件流 → rowan 式绿树)。错误码 RX7012+(7xxx 续接)随 LSP 工具层诊断实现 WP 正式分配,registry revision_log 留痕、含义冻结。
 > **M6.3 续号(RXS-0095 ~ RXS-0097,rx test / workspace / 离线重建复现门)**:`rx test` 内建 `#[test]`/`#[test(gpu)]` 发现与逐测试子进程隔离(14 §6);workspace members 激活入单根锁;三包 workspace(path/git/archive)在 `rx build --locked --offline` reproducible profile 下两次 host EXE SHA-256 逐字节一致(G-M6-1,09 §7.1/§7.2,14 §1/§6 契约机制)。错误码 `RX7010`/`RX7011`随 M6.3 实现 WP 正式分配,registry revision_log 留痕、含义冻结。
 > **M6.1 范围裁决(rx CLI 总入口 + 核心子命令优先)**:rx 经 rurixc query 层复用单一前端,不另起引擎(07 §2);本批条款化 rx CLI 总入口分发 + 退出码约定 + build/run/check/fmt/bench 的语义契约,收编 rx fmt(RD-005)与 rx bench(RD-003)。`rx test`(子进程隔离,M6.3)/ `rx doc`/`fix`/`watch`/`vendor`(后续小里程碑)的语义面随各自里程碑续写。错误码 `RX7003`(及按需 `RX7004`)为 7xxx 链接/工具链段位 rx CLI 诊断首批,**spec 先行引用,正式分配于 M6.1 实现 WP**(沿用 3xxx/5xxx 在实现 PR 落 registry 的节奏,registry revision_log 留痕,编号不复用)。
 
@@ -303,6 +304,91 @@ ReproBuild ::= "rx" "build" "--manifest-path" <rurix.toml> "--locked" "--offline
 
 > 锚定测试:`conformance/workspace/repro/src/main.rx`(G-M6-1 workspace 根入口样例);`ci/offline_rebuild_repro.py`(两次 build 逐字节一致 + 篡改红绿门);`milestones/m6/offline_rebuild_evidence_schema.json`(证据 schema)。
 
+### RXS-0098 rurixc --tooling-server 常驻 query 层
+
+**Syntax**(工具模式调用形态,07 §9 D-210):
+
+```
+ToolingServer ::= "rurixc" "--tooling-server" ("--stdio")?
+```
+
+**Legality**:
+
+- LSP 语义必须全部来自 `rurixc` query 层(单一前端,07 §2/§9);`rx` 不得另起 language server 引擎。
+- `--tooling-server` 以 stdio JSON-RPC 2.0 常驻进程模式运行;MVP 不做跨会话红绿增量(D-203 Phase 2+)。
+- `ToolingSession` 维护已打开文档的源文本、版本号、无损语法树(RD-004)与 `QueryCtx`;文档变更触发 query memo 失效(模块/函数级粒度,MVP 可回退为整文档重建,但须保留模块/函数级失效 API 与单测)。
+
+**Implementation Requirements**:`src/rurixc/src/tooling/session.rs` 实现 `ToolingSession`;`src/rurixc/src/query.rs` 暴露 `invalidate_bodies` / `invalidate_module` 与 memo 计量单测。CI 门 `ci/lsp_smoke.py` 真跑 `--tooling-server` 往返冒烟。
+
+> 锚定测试:`src/rurixc/src/query.rs`(memo 命中与失效单测);`src/rurixc/src/tooling/session.rs`(session 生命周期);`ci/lsp_smoke.py`(server 往返)。
+
+### RXS-0099 publishDiagnostics 与 07 §5 诊断 JSON
+
+**Syntax**(诊断 JSON 字段,07 §5 第 4 条):
+
+```
+DiagJson ::= "{" "level" ":" Level "," "message" ":" string
+           ("," "code" ":" "RX####")?
+           ("," "spans" ":" SpanList)?
+           ("," "labels" ":" LabelList)?
+           ("," "suggestions" ":" SuggestionList)? "}"
+```
+
+**Legality**:
+
+- `publishDiagnostics` 必须直接消费与 `--error-format=json` 同形的结构化诊断 JSON;禁止 LSP 侧二次渲染文本诊断。
+- 诊断 span 必须为 UTF-8 字节偏移,经 `SourceMap` 映射为 LSP `Range`(UTF-16 code unit 列)。
+- MVP 容忍保存/`didChange` 后全量 body 重查询(07 §9);增量细化随 RD-004 通道与 Phase 2。
+
+**Implementation Requirements**:`src/rurixc/src/tooling/diag_json.rs` 序列化 `DiagData`;LSP server 在 `textDocument/didOpen` 与 `textDocument/didChange` 后 push `textDocument/publishDiagnostics`。`rurixc --emit=check --error-format=json` 输出同形 JSON 供非 LSP 回归。
+
+> 锚定测试:`src/rurixc/src/tooling/diag_json.rs`(JSON 形状单测);`conformance/toolchain/lsp_mvp/sample.rx`(类型错误诊断锚点);`ci/lsp_smoke.py`(诊断往返)。
+
+### RXS-0100 textDocument/completion
+
+**Legality**:
+
+- 补全请求必须在光标所在作用域内返回可见标识符与首批关键字(`fn`/`let`/`if`/`return` 等);MVP 限单文件,不跨 crate 索引。
+- 补全项 `label` 必须为标识符文本;`kind` 映射 LSP `CompletionItemKind`(函数/变量/关键字)。
+
+**Implementation Requirements**:`src/rurixc/src/tooling/ide_query.rs::completions_at`;LSP handler `textDocument/completion`;fixture `sample.rx` 在 `foo` 前缀处须命中局部绑定 `foo`。
+
+> 锚定测试:`src/rurixc/src/tooling/ide_query.rs`(completion 单测);`conformance/toolchain/lsp_mvp/sample.rx`;`ci/lsp_smoke.py`。
+
+### RXS-0101 textDocument/definition 与 textDocument/references
+
+**Legality**:
+
+- `definition` 必须解析光标处路径/绑定至 `DefId` 或 `LocalId`,返回定义点 span 映射的 LSP `Location`。
+- `references` 必须在单文件内返回所有同目标引用 span(MVP 不跨文件);未解析路径不得伪造结果。
+- 跳转失败返回空结果,不 ICE。
+
+**Implementation Requirements**:`ide_query::definition_at` / `ide_query::references_at`;LSP handlers `textDocument/definition` / `textDocument/references`;fixture 对 `helper` 调用须至少 2 处引用(定义 + 使用)。
+
+> 锚定测试:`src/rurixc/src/tooling/ide_query.rs`;`conformance/toolchain/lsp_mvp/sample.rx`;`ci/lsp_smoke.py`。
+
+### RXS-0102 textDocument/documentHighlight
+
+**Legality**:
+
+- 高亮请求须返回光标处符号的所有出现 span(只读/写入区分 MVP 可统一为 Read);MVP 单文件。
+- 结果映射 LSP `DocumentHighlight` 列表,range 与 RXS-0099 span 映射规则一致。
+
+**Implementation Requirements**:`ide_query::highlights_at`;LSP handler `textDocument/documentHighlight`;与 RXS-0101 引用集一致。
+
+> 锚定测试:`src/rurixc/src/tooling/ide_query.rs`;`ci/lsp_smoke.py`。
+
+### RXS-0103 textDocument/rename 与 WorkspaceEdit
+
+**Legality**:
+
+- 重命名须校验新名为合法标识符;冲突(同作用域已有同名) → 空编辑 + 诊断(按需 RX7012+)。
+- 成功时返回 `WorkspaceEdit` 覆盖单文件内全部引用 span 的文本替换;MVP 不跨文件。
+
+**Implementation Requirements**:`ide_query::rename_at`;LSP handler `textDocument/rename`;fixture 将 `foo` 重命名为 `renamed_foo` 须更新所有出现点。
+
+> 锚定测试:`src/rurixc/src/tooling/ide_query.rs`;`conformance/toolchain/lsp_mvp/sample.rx`;`ci/lsp_smoke.py`。
+
 ---
 
 ## 错误码引用汇总
@@ -320,8 +406,9 @@ ReproBuild ::= "rx" "build" "--manifest-path" <rurix.toml> "--locked" "--offline
 | RX7009 | 依赖来源不可达(--offline 需网无缓存 / path 目标缺失) | RXS-0090 / RXS-0094 |
 | RX7010 | rx test 测试发现/签名错误(无测试 / main 冲突 / 参数或返回类型不合法) | RXS-0095 |
 | RX7011 | rx test 子进程执行失败(编译失败 / spawn 失败 / 测试进程非零或异常终止) | RXS-0095 |
+| RX7012 | LSP rename 目标无效(新名非法 / 同作用域冲突 / 不可重命名符号) | RXS-0103 |
 
-含义以 [../registry/error_codes.json](../registry/error_codes.json) 为唯一事实源,本表仅引用。RX7001/RX7002 已于 M4.2/M5.3 分配,RX7003/RX7004 于 M6.1 分配。RX7005 ~ RX7009 为 7xxx 链接/工具链段位包管理诊断(07 §5 段位语义,工具链类归 7xxx 续接),**spec 先行引用,正式分配于 M6.2 实现 WP**(registry revision_log 留痕,编号不复用、含义冻结)。RX7010/RX7011 为 7xxx 链接/工具链段位 `rx test` 诊断,**spec 先行引用,正式分配于 M6.3 实现 WP**。
+含义以 [../registry/error_codes.json](../registry/error_codes.json) 为唯一事实源,本表仅引用。RX7001/RX7002 已于 M4.2/M5.3 分配,RX7003/RX7004 于 M6.1 分配。RX7005 ~ RX7009 为 7xxx 链接/工具链段位包管理诊断(07 §5 段位语义,工具链类归 7xxx 续接),**spec 先行引用,正式分配于 M6.2 实现 WP**(registry revision_log 留痕,编号不复用、含义冻结)。RX7010/RX7011 为 7xxx 链接/工具链段位 `rx test` 诊断,**spec 先行引用,正式分配于 M6.3 实现 WP**。RX7012 为 7xxx 链接/工具链段位 LSP rename 诊断,**spec 先行引用,正式分配于 M6.4 实现 WP**。
 
 ## 修订记录
 
@@ -330,3 +417,4 @@ ReproBuild ::= "rx" "build" "--manifest-path" <rurix.toml> "--locked" "--offline
 | v1.0 | 2026-06-15 | 初版:RXS-0083 ~ RXS-0088(M6.1 rx CLI 子命令语义面首批:总入口与子命令分发 + 退出码约定 / build / run / check / fmt 收编 RD-005 / bench 收编 RD-003;07 §2 §6 §9 单一前端 + 08 §7 D-239 rx CLI + BENCH_PROTOCOL §3 已锁定决策的条款化,M6 契约 D-M6-1 spec 先行)。错误码汇总表登记 RX7003/RX7004(spec 先行引用,实现 WP 正式分配,7xxx 续接);包管理 manifest/lock 格式条款(M6.2)与 LSP 能力面条款(M6.4)续写本文件 | Direct |
 | v1.1 | 2026-06-15 | 续写 RXS-0089 ~ RXS-0094(M6.2 包管理 manifest/lock/vendor:rurix.toml 清单格式与声明式无 build.rs / 依赖三来源 path·git·archive 解析规则 / 依赖解析图与 feature additive-v1 加性合一(unification="selected")+ 冲突检测 / rurix.lock 精确解析图格式 / 内容树规范化 SHA-256 / vendor 与离线解析路径 --locked·--offline;09 §7.1/§7.2 已锁定决策 D-308~D-311 的条款化,M6 契约 D-M6-2 / G-M6-1 spec 先行)。错误码汇总表登记 RX7005 ~ RX7009(spec 先行引用,实现 WP 正式分配,7xxx 续接);registry sumdb D-312 不触碰。LSP 能力面条款(M6.4)续写本文件 | Direct |
 | v1.2 | 2026-06-15 | 续写 RXS-0095 ~ RXS-0097(M6.3 rx test 子进程隔离 + workspace members 多包 + G-M6-1 三包离线重建逐字节复现门:顶层 `#[test]`/`#[test(gpu)]` 签名与逐测试子进程 harness / `[workspace].members` 进入单根 lock 图 / `rx build --locked --offline` reproducible profile 两次 host EXE SHA-256 一致且 lock/vendor 不改写;14 §6 / 09 §7.1§7.2 / M6 契约 D-M6-3·G-M6-1 的条款化)。错误码汇总表登记 RX7010/RX7011(spec 先行引用,实现 WP 正式分配,7xxx 续接) | Direct |
+| v1.3 | 2026-06-15 | 续写 RXS-0098 ~ RXS-0103(M6.4 LSP MVP + 常驻 query 层 + RD-004 无损语法树通道接通:`rurixc --tooling-server` stdio JSON-RPC / publishDiagnostics 消费 07 §5 诊断 JSON / completion / definition+references / documentHighlight / rename;07 §9 D-210 单一前端 + M6 契约 D-M6-4·G-M6-2·G-M6-5 的条款化)。错误码汇总表登记 RX7012(spec 先行引用,实现 WP 正式分配,7xxx 续接) | Direct |

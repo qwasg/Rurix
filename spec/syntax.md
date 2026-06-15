@@ -409,9 +409,9 @@ guard      = "if" expr
 2. 同步点(anchor 集)至少包含:item 起始 token(`fn` / `kernel` / `device` / `const` / `struct` / `enum` / `trait` / `impl` / `mod` / `use` / `static` / `type` / `extern` / `pub` / `#`)、语句终止符 `;`、块闭合 `}` 与 EOF。块/括号内恢复不得越过当前闭合定界符所在层级。
 3. 全部语法诊断必须携带精确 span 与 `RX00xx` 错误码,经 DiagCtxt 产出(emit-or-cancel,07 §5)。
 4. EOF 前未闭合的 `(` / `[` / `{` → `RX0009`(span 指向未闭合的开定界符)。
-5. parser 内部以事件流(节点开始/结束/token 消费)驱动 AST 构造,为无损语法树通道预留接口;完整通道 → RD-004(M6)。
+5. parser 内部以事件流(节点开始/结束/token 消费)驱动 AST 构造;**RD-004(M6.4)已接通**:事件流经 `lossless` 模块组装 rowan 式无损语法树,供 LSP offset 映射与 IDE 查询消费(07 §9)。
 
-> 锚定测试:parser 单测(单文件多错误恢复/未闭合定界符)。
+> 锚定测试:parser 单测(单文件多错误恢复/未闭合定界符);`src/rurixc/src/lossless.rs`(事件流 → 树 → offset round-trip,RXS-0030 第 5 条)。
 
 ### RXS-0031 feature gate
 
@@ -444,3 +444,4 @@ guard      = "if" expr
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
 | v1.0 | 2026-06-11 | 初版:RXS-0011 ~ RXS-0031(05 §12 / D-114、05 §1 / D-102、07 §1 / D-202 已选定决策的条款化,M1 契约 D-M1-3) | Direct |
+| v1.1 | 2026-06-15 | RXS-0030 第 5 条更新:RD-004 无损语法树通道 M6.4 接通(`src/rurixc/src/lossless.rs`);锚定测试扩列 lossless offset round-trip | Direct |

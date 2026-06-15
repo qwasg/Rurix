@@ -417,6 +417,24 @@ impl<'a> QueryCtx<'a> {
     pub fn device_mir_crate(&self) -> Vec<crate::mir::Body> {
         crate::mir_build::build_device_crate(self)
     }
+
+    /// 模块/函数级失效:清除指定 body 的类型检查 memo(RXS-0098)。
+    /// 整文档失效由 `ToolingSession` 重建 `QueryCtx` 承担(MVP 保存级全量)。
+    pub fn invalidate_bodies(&self, bodies: &[BodyId]) {
+        let mut checked = self.checked_bodies.borrow_mut();
+        let mut patterns = self.checked_patterns.borrow_mut();
+        for b in bodies {
+            checked.remove(b);
+            patterns.remove(b);
+        }
+    }
+
+    /// 模块级失效(MVP 单文件模块):清除当前 query 上下文内全部 body 级 memo。
+    /// 更细粒度的模块树 dirty set 留给 D-203 Phase 2+。
+    pub fn invalidate_module(&self) {
+        self.checked_bodies.borrow_mut().clear();
+        self.checked_patterns.borrow_mut().clear();
+    }
 }
 
 /// 类型是否完全 ground(无 Param/Infer/Err;const 强制求值的前置)。
@@ -476,5 +494,35 @@ mod tests {
             cx.def_kind(crate::hir::DefId(s as u32)),
             Some(DefKind::Struct)
         );
+    }
+
+    //@ spec: RXS-0098
+    #[test]
+    fn invalidate_bodies_keeps_resolutions_memo() {
+        let diag = DiagCtxt::new();
+        let cx = ctx_for("fn f() -> i32 { 1 }\nfn g() -> i32 { 2 }", &diag);
+        let _ = cx.resolutions();
+        let _ = cx.resolutions();
+        assert!(cx.memo_hits() >= 1);
+        cx.check_crate();
+        cx.invalidate_bodies(&[BodyId(0)]);
+        let _ = cx.check_body(BodyId(0));
+        let hits_before = cx.memo_hits();
+        let _ = cx.resolutions();
+        assert!(cx.memo_hits() > hits_before, "resolutions memo 仍应命中");
+    }
+
+    //@ spec: RXS-0098
+    #[test]
+    fn invalidate_module_clears_body_memo_but_keeps_resolutions() {
+        let diag = DiagCtxt::new();
+        let cx = ctx_for("fn f() -> i32 { 1 }\nfn g() -> i32 { 2 }", &diag);
+        let _ = cx.resolutions();
+        cx.check_crate();
+        cx.invalidate_module();
+        let _ = cx.check_body(BodyId(0));
+        let hits_before = cx.memo_hits();
+        let _ = cx.resolutions();
+        assert!(cx.memo_hits() > hits_before, "module 失效不应丢弃解析 memo");
     }
 }

@@ -33,7 +33,7 @@
 | RXS-0027 | spec/syntax.md | 9 | `conformance/syntax/calls_methods_chained.rx`, `conformance/syntax/device_math_chain.rx`, `conformance/syntax/index_field_tuple.rx` …(+6) |
 | RXS-0028 | spec/syntax.md | 4 | `conformance/syntax/expr_return_break_values.rx`, `conformance/syntax/if_else_chains.rx`, `conformance/syntax/loops_while_for.rx` …(+1) |
 | RXS-0029 | spec/syntax.md | 6 | `conformance/syntax/match_block_arms.rx`, `conformance/syntax/match_empty_and_nested.rx`, `conformance/syntax/match_guards.rx` …(+3) |
-| RXS-0030 | spec/syntax.md | 3 | `src/rurixc/src/parser.rs`, `tests/ui/parse/missing_semi.rx`, `tests/ui/parse/unclosed_brace.rx` |
+| RXS-0030 | spec/syntax.md | 4 | `src/rurixc/src/lossless.rs`, `src/rurixc/src/parser.rs`, `tests/ui/parse/missing_semi.rx` …(+1) |
 | RXS-0031 | spec/syntax.md | 5 | `conformance/syntax/feature_gate_closures.rx`, `src/rurixc/src/feature_gate.rs`, `src/rurixc/src/parser.rs` …(+2) |
 | RXS-0032 | spec/names.md | 7 | `conformance/resolve/block_items.rx`, `conformance/resolve/modules_basic.rx`, `conformance/resolve/nested_modules.rx` …(+4) |
 | RXS-0033 | spec/names.md | 5 | `conformance/resolve/shadowing_blocks.rx`, `conformance/resolve/statics_consts_patterns.rx`, `conformance/syntax/names_module_scope.rx` …(+2) |
@@ -101,3 +101,9 @@
 | RXS-0095 | spec/toolchain.md | 4 | `conformance/toolchain/rx_test_basic.rx`, `conformance/toolchain/rx_test_gpu.rx`, `src/rurixc/src/test_harness.rs` …(+1) |
 | RXS-0096 | spec/toolchain.md | 2 | `conformance/workspace/repro/src/main.rx`, `src/rurix-pkg/src/vendor.rs` |
 | RXS-0097 | spec/toolchain.md | 1 | `conformance/workspace/repro/src/main.rx` |
+| RXS-0098 | spec/toolchain.md | 3 | `src/rurixc/src/query.rs`, `src/rurixc/src/tooling/lsp.rs`, `src/rurixc/src/tooling/session.rs` |
+| RXS-0099 | spec/toolchain.md | 2 | `conformance/toolchain/lsp_mvp/sample.rx`, `src/rurixc/src/tooling/diag_json.rs` |
+| RXS-0100 | spec/toolchain.md | 3 | `conformance/toolchain/lsp_mvp/sample.rx`, `src/rurixc/src/tooling/ide_query.rs`, `src/rurixc/src/tooling/lsp.rs` |
+| RXS-0101 | spec/toolchain.md | 2 | `conformance/toolchain/lsp_mvp/sample.rx`, `src/rurixc/src/tooling/ide_query.rs` |
+| RXS-0102 | spec/toolchain.md | 2 | `conformance/toolchain/lsp_mvp/sample.rx`, `src/rurixc/src/tooling/ide_query.rs` |
+| RXS-0103 | spec/toolchain.md | 3 | `conformance/toolchain/lsp_mvp/sample.rx`, `src/rurixc/src/tooling/ide_query.rs`, `src/rurixc/src/tooling/lsp.rs` |
