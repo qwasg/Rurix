@@ -5,7 +5,7 @@
 [package]
 name = "app"
 version = "0.1.0"
-build = "build.rs"
+build = "declarative"
 
 [dependencies]
 foo = { path = "foo" }
