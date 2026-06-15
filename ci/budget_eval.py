@@ -194,11 +194,16 @@ def eval_counter(entry: dict, strict: bool) -> None:
                 n += 1
         count_or_gate(eid, n, 1, "份再分发面为空的审计报告", "审计证据回填前为正常状态,CI_GATES §4 第 2 项", strict)
     elif eid == "m6.counter.rx_cli_core_subcommands":
-        # rx CLI 核心子命令端到端覆盖数(契约 G-M6-3);rx CLI 落地前 evaluator
-        # 计数源(子命令端到端冒烟通过数)不存在 → 0 → 建设期 normal SKIP /
-        # close-out strict FAIL,对齐 M4/M5 计数器先例。落地时回填计数源。
+        # rx CLI 核心子命令端到端覆盖数(契约 G-M6-3);计数源 = evidence/
+        # rx_cli_smoke_*.json 中 subcommands_passed 去重集的最大基数(机器事实:
+        # ci/rx_cli_smoke.py 在样例工程逐子命令端到端真跑,退出码符合 RXS-0083)。
+        # M6.1 落地 build/run/check/fmt/bench(5)< 6 → 建设期 normal SKIP;
+        # rx test(M6.3)端到端纳入后达 6 转 PASS。证据缺失 → 0,对齐 M4/M5 先例。
         n = 0
-        count_or_gate(eid, n, 6, "个 rx CLI 核心子命令端到端", "M6.1/M6.3 rx CLI 落地前为正常状态,契约 G-M6-3", strict)
+        for f in (ROOT / "evidence").glob("rx_cli_smoke_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            n = max(n, len(set(doc.get("subcommands_passed", []))))
+        count_or_gate(eid, n, 6, "个 rx CLI 核心子命令端到端", "M6.1 落地 5/6(rx test 待 M6.3),建设期为正常状态,契约 G-M6-3", strict)
     elif eid == "m6.counter.offline_rebuild_reproducible":
         # 三包 workspace 离线重建逐字节可复现(契约 G-M6-1,09 §7.1);
         # 计数 = evidence/offline_rebuild_*.json 中 reproducible=true 的报告数。

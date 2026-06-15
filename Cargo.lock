@@ -12,3 +12,10 @@ dependencies = [
 [[package]]
 name = "rurixc"
 version = "0.1.0"
+
+[[package]]
+name = "rx"
+version = "0.1.0"
+dependencies = [
+ "rurixc",
+]

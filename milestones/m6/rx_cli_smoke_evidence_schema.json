@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/rx_cli_smoke/v1",
+  "title": "Rurix rx CLI 核心子命令端到端冒烟证据 JSON(M6.1,契约 G-M6-3)",
+  "description": "rx CLI 核心子命令在样例工程上端到端真跑成功的机器事实清单。subcommands_passed 去重计数计入 m6.counter.rx_cli_core_subcommands(ci/budget_eval.py;>= 预设核心集数则 PASS,建设期不足为 normal SKIP)。机器复核闸门 = ci/rx_cli_smoke.py(子命令端到端失败即非零退出,反 YAML-only)。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject",
+    "subcommands_passed",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": {
+      "description": "证据对象",
+      "const": "rx_cli_core_subcommands"
+    },
+    "subcommands_passed": {
+      "description": "在样例工程上端到端真跑成功(退出码符合 RXS-0083 约定)的 rx 核心子命令去重集",
+      "type": "array",
+      "items": {
+        "enum": ["build", "run", "check", "fmt", "bench", "test"]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "rx_binary": {
+      "description": "受测 rx 产物路径形态",
+      "type": "string"
+    },
+    "facts": {
+      "description": "逐子命令 ↔ 复现命令背书(反 YAML-only:每条结论可由命令实测复现)",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["subcommand", "command", "exit_code"],
+        "properties": {
+          "subcommand": { "type": "string" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "redgreen": {
+      "description": "门禁真实红绿验证留痕(反 YAML-only,H06 D11.8-2)",
+      "type": "object",
+      "properties": {
+        "red_command": { "type": "string" },
+        "red_exit_code": { "type": "integer" },
+        "green_command": { "type": "string" },
+        "green_exit_code": { "type": "integer" },
+        "run_url": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "harness_commit": { "type": "string" }
+  }
+}

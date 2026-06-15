@@ -3,6 +3,9 @@
 用法:
   py -3 bench/saxpy_bench.py --smoke                 # 装载 + 单次执行 + 正确性(CI 步骤 5)
   py -3 bench/saxpy_bench.py --emit evidence/x.json  # 完整协议采样并产出证据 JSON
+
+M6.1 收编(RD-003,RXS-0088):本脚本是 `rx bench saxpy --smoke` 默认编排的协议
+入口(src/rx/src/main.rs);rx bench 透传退出码,协议口径与证据格式不变。
 """
 from __future__ import annotations
 

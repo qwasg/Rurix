@@ -87,3 +87,7 @@ atomics.scope_misuse = scoped atomic scope misuse: {detail}
 # libdevice 链接 / device 数学 intrinsic 诊断(RX6006 / RX7002,spec/device.md RXS-0081~0082;M5.3 分配)
 codegen.device_math_unsupported = {detail} is not a supported device math intrinsic (outside libdevice coverage or unsupported element type)
 link.libdevice_failure = libdevice link failure: {reason}
+#
+# rx CLI 工具链诊断(RX7003 / RX7004,spec/toolchain.md RXS-0083/0085;M6.1 分配)
+toolchain.rx_cli_usage = rx CLI usage error: {detail}
+toolchain.rx_run_exec_failure = rx run: cannot execute build artifact: {detail}

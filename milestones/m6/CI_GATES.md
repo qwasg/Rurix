@@ -19,8 +19,8 @@
 
 | # | 步骤 | 失败即红 |
 |---|---|---|
-| 25 | rx CLI 核心子命令冒烟:build/run/check/test/fmt/bench 在样例工程端到端真跑(契约 G-M6-3 通道;M6.1/M6.3 落地接入)。**实测命令(M6.1+ 回填)**:占位 `rx build/run/check` 样例工程 + `cargo test -p rx`(占位 crate 名);计数核对 `py -3 ci/budget_eval.py`(`m6.counter.rx_cli_core_subcommands ≥` 预设核心集数)。**rx CLI 未落地 → 0 → normal SKIP** | 是 |
-| 26 | rx fmt 幂等门延续(契约 G-M6-4,RD-005 收编):`py -3 ci/check_fmt_idempotent.py`(经 rx fmt 收编后)对全 `conformance/`+`tests/` 语料二次格式化 0 diff(复用 M1 既有幂等机制,收编后路由到 rx fmt)。**rx fmt 收编前沿用既有 fmt 入口** | 是 |
+| 25 | rx CLI 核心子命令冒烟:build/run/check/test/fmt/bench 在样例工程端到端真跑(契约 G-M6-3 通道;M6.1/M6.3 落地接入)。**实测命令(M6.1 回填)**:`py -3 ci/rx_cli_smoke.py`(rx build/run/check + fmt 收编 + bench --smoke 在 `conformance/toolchain/*.rx` + `conformance/syntax/hello_world.rx` 样例上端到端真跑,失败即非零退出)+ `cargo test -p rx`(rx 子命令分发/退出码集成测试);计数核对 `py -3 ci/budget_eval.py`(`m6.counter.rx_cli_core_subcommands ≥` 预设核心集数,计数源 = `evidence/rx_cli_smoke_*.json` 的 `subcommands_passed` 去重基数)。**M6.1 落地 build/run/check/fmt/bench = 5,< 6(rx test 待 M6.3)→ normal SKIP 属预期** | 是 |
+| 26 | rx fmt 幂等门延续(契约 G-M6-4,RD-005 收编):`py -3 ci/check_fmt_idempotent.py`(经 rx fmt 收编后)对全 `conformance/syntax` 语料二次格式化 0 diff(复用 M1 既有幂等机制,M6.1 收编后路由到 `rx fmt --check-idempotent`;雏形 `rx_fmt` 二进制退役)。`tests/ui` 含词法错误样例(format 源不洁)不入幂等门语料 | 是 |
 | 27 | 三包 workspace 离线重建逐字节可复现门(契约 G-M6-1;M6.3 落地接入,GPU 队列无关 CPU-only):`rx build --locked --offline` 干净环境两次重建 content SHA-256 逐字节一致 + `rurix.lock` 解析图稳定。**实测命令(M6.3 回填)**:占位;计数核对 `py -3 ci/budget_eval.py`(`m6.counter.offline_rebuild_reproducible ≥1`)。**离线重建未落地 → 0 → normal SKIP** | 是 |
 | 28 | LSP 能力面冒烟(契约 G-M6-2/G-M6-5 通道;M6.4 落地接入,CPU-only):`rurixc --tooling-server` 五项 MVP 能力(诊断/补全/跳转/引用/高亮/重命名)往返冒烟。**实测命令(M6.4 回填)**:占位;计数核对 `py -3 ci/budget_eval.py`(`m6.counter.lsp_capabilities ≥` 预设能力数)。**LSP 未落地 → 0 → normal SKIP** | 是 |
 
@@ -71,3 +71,4 @@ m0~m5 历史预算的回填/冻结走 `check_guardrails.py` 既有机制(measure
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-06-15 | 初版(M6 契约配套;步骤 25–28 为 M6.1/M6.3/M6.4 计划项,落地时回填实测命令;guardrail 动作:基准 ref 维持 m5-closed 无需再切、新段位错误码首批分配随 M6.1+ 诊断 PR、rx fmt 幂等门延续、rx test 子进程隔离纳入 nightly 均为计划项)。配套 `ci/budget_eval.py` 新增 `m6.counter.rx_cli_core_subcommands`/`m6.counter.offline_rebuild_reproducible`/`m6.counter.lsp_capabilities` evaluator 分支(目录/证据缺失 → 0 → normal SKIP,对齐 M4/M5 计数器先例);`m6_budget.json` 含三计数器 + `m6.bench.lsp_interaction_latency_ms` estimated 占位(M6.5 回填)。`py -3 ci/budget_eval.py`(normal)= PASS(m6.* 占位 SKIP 属预期) |
+| v1.1 | 2026-06-15 | M6.1 回填步骤 25/26 实测命令(rx CLI 落地):步骤 25 = `py -3 ci/rx_cli_smoke.py`(build/run/check/fmt/bench 端到端真跑,写 `evidence/rx_cli_smoke_*.json`)+ `cargo test -p rx`;步骤 26 = `py -3 ci/check_fmt_idempotent.py`(收编后路由 `rx fmt --check-idempotent`,108 文件 byte-exact)。`m6.counter.rx_cli_core_subcommands` evaluator 计数源回填(`subcommands_passed` 去重基数;M6.1 = 5/6,rx test 待 M6.3 → normal SKIP 属预期)。新段位错误码首批分配 RX7003/RX7004(7xxx 续接,registry revision_log v1.16 留痕);新增 `milestones/m6/rx_cli_smoke_evidence_schema.json` + `ci/check_schemas.py` 路由(`rx_cli_smoke_` 前缀)。pr-smoke.yml 接入步骤 25/26(真实红绿验证见 §5 第 2/3 条) |

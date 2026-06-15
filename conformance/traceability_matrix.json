@@ -631,7 +631,8 @@
       "src/rurixc/tests/libdevice_link_mapping.rs"
     ],
     "RXS-0083": [
-      "src/rurixc/tests/toolchain_corpus.rs"
+      "src/rurixc/tests/toolchain_corpus.rs",
+      "src/rx/tests/cli.rs"
     ],
     "RXS-0084": [
       "conformance/toolchain/hello.rx",
@@ -646,7 +647,8 @@
     ],
     "RXS-0087": [
       "src/rurixc/tests/fmt_corpus.rs",
-      "src/rurixc/tests/toolchain_corpus.rs"
+      "src/rurixc/tests/toolchain_corpus.rs",
+      "src/rx/tests/cli.rs"
     ],
     "RXS-0088": [
       "src/rurixc/tests/toolchain_corpus.rs"
