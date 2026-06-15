@@ -94,6 +94,8 @@ def gather_repo() -> tuple[dict[str, str], dict[str, str]]:
     test_files += sorted((ROOT / "tests" / "ui").glob("**/*.rx"))
     test_files += sorted((ROOT / "src" / "rurixc").glob("**/*.rs"))
     test_files += sorted((ROOT / "src" / "rurix-rt").glob("**/*.rs"))
+    # M6.1:rx CLI crate(子命令语义面锚定;src/rx 随 rx CLI 落地存在)
+    test_files += sorted((ROOT / "src" / "rx").glob("**/*.rs"))
     test_texts = {
         p.relative_to(ROOT).as_posix(): p.read_text(encoding="utf-8") for p in test_files
     }

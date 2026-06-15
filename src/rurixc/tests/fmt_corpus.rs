@@ -1,5 +1,9 @@
 //! rx fmt 幂等性跑批(契约 G-M1-5 的 cargo test 侧通道;close-out 判据脚本为
 //! ci/check_fmt_idempotent.py,二者同判据:字节级 fmt(fmt(x)) == fmt(x))。
+//!
+//! M6.1:rx fmt 收编(RD-005)后本跑批锚定 rx fmt 语义条款(format_source 单一
+//! 事实源 + 字节级幂等承诺)。
+//@ spec: RXS-0087
 
 use std::fs;
 use std::path::{Path, PathBuf};

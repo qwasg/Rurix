@@ -1,0 +1,7 @@
+//@ spec: RXS-0084
+// rx build 端到端最小 host 程序(经 rurixc query 层单一前端产 EXE,RXS-0084)。
+
+fn main() {
+    let greeting = "hello, rx build";
+    println(greeting);
+}

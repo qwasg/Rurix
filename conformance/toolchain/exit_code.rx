@@ -1,0 +1,8 @@
+//@ spec: RXS-0085
+// rx run 语义:build 成功后执行产物并透传产物退出码(RXS-0085)。
+// 本样例正常退出(产物退出码 0 → rx run 退出码 0)。
+
+fn main() {
+    let msg = "hello, rx run";
+    println(msg);
+}

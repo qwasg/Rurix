@@ -1,0 +1,9 @@
+//@ spec: RXS-0086
+// rx check 语义:全量前端静态检查通过,不产 codegen/link 产物(RXS-0086)。
+
+fn main() {
+    let a = 1;
+    let b = 2;
+    let c = a + b;
+    println("checked");
+}
