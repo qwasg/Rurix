@@ -28,6 +28,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from bench import lock_clocks
 from bench.stats import bootstrap_ci, cv, trimmed_mean
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -147,6 +148,7 @@ def backfill_budget(agg_path: Path, agg: dict) -> None:
 
 
 def main() -> int:
+    lock_clocks.require_locked()  # 采样前置闸门:未锁频拒绝采样(契约 G-M5-1)
     date = collect_runs()
     agg_path, agg = aggregate(date)
     backfill_budget(agg_path, agg)
