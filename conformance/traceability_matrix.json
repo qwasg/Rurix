@@ -432,12 +432,16 @@
       "conformance/borrowck/accept/move_reinit.rx",
       "conformance/borrowck/reject/use_after_move/basic.rx",
       "conformance/borrowck/reject/use_after_move/conditional_move.rx",
+      "conformance/borrowck/reject/use_after_move/kernel.rx",
       "conformance/borrowck/reject/use_before_init/basic.rx",
+      "conformance/borrowck/reject/use_before_init/kernel_shared_unwritten.rx",
       "conformance/borrowck/reject/use_before_init/loop_maybe_uninit.rx",
       "src/rurixc/src/dataflow.rs",
+      "src/rurixc/src/device_codegen.rs",
       "src/rurixc/src/move_check.rs",
       "src/rurixc/tests/borrowck_corpus.rs",
       "tests/ui/borrowck/conditional_move.rx",
+      "tests/ui/borrowck/kernel_use_after_move.rx",
       "tests/ui/borrowck/loop_maybe_uninit.rx",
       "tests/ui/borrowck/use_after_move.rx",
       "tests/ui/borrowck/use_before_init.rx"
@@ -472,16 +476,24 @@
     ],
     "RXS-0060": [
       "conformance/borrowck/reject/assign_while_borrowed/basic.rx",
+      "conformance/borrowck/reject/assign_while_borrowed/hidden_in_aggregate.rx",
       "conformance/borrowck/reject/move_while_borrowed/basic.rx",
+      "conformance/borrowck/reject/move_while_borrowed/kernel.rx",
       "src/rurixc/src/borrow_check.rs",
+      "tests/ui/borrowck/assign_while_borrow_aggregate.rx",
       "tests/ui/borrowck/assign_while_borrowed.rx",
+      "tests/ui/borrowck/kernel_move_while_borrowed.rx",
       "tests/ui/borrowck/move_while_borrowed.rx"
     ],
     "RXS-0061": [
       "conformance/borrowck/accept/reference_to_param.rx",
       "conformance/borrowck/reject/dangling_reference/basic.rx",
+      "conformance/borrowck/reject/dangling_reference/device_fn.rx",
+      "conformance/borrowck/reject/dangling_reference/hidden_in_aggregate.rx",
       "src/rurixc/src/borrow_check.rs",
-      "tests/ui/borrowck/dangling_reference.rx"
+      "tests/ui/borrowck/dangling_hidden_in_aggregate.rx",
+      "tests/ui/borrowck/dangling_reference.rx",
+      "tests/ui/borrowck/device_fn_dangling.rx"
     ],
     "RXS-0062": [
       "conformance/consteval/const_eval_run.rx",
@@ -519,8 +531,11 @@
     ],
     "RXS-0068": [
       "conformance/coloring/accept/uniform_barrier.rx",
+      "conformance/coloring/accept/user_defined_sync.rx",
       "conformance/coloring/reject/barrier_non_uniform/basic.rx",
+      "conformance/coloring/reject/barrier_non_uniform/indirect_tid.rx",
       "src/rurixc/src/coloring.rs",
+      "tests/ui/coloring/barrier_indirect_tid.rx",
       "tests/ui/coloring/barrier_non_uniform.rx"
     ],
     "RXS-0069": [
@@ -551,26 +566,34 @@
     ],
     "RXS-0074": [
       "conformance/launch/accept/saxpy_launch.rx",
+      "conformance/launch/reject/arg_count_mismatch/basic.rx",
       "conformance/launch/reject/arg_type_mismatch/basic.rx",
       "conformance/launch/reject/context_brand_mismatch/basic.rx",
       "conformance/launch/reject/dim_mismatch/basic.rx",
       "conformance/launch/reject/launch_non_kernel/basic.rx",
+      "conformance/launch/reject/launch_non_kernel/host_fn.rx",
       "src/rurixc/src/launch_check.rs",
+      "tests/ui/launch/arg_count.rx",
       "tests/ui/launch/arg_type_mismatch.rx",
       "tests/ui/launch/context_brand_mismatch.rx",
       "tests/ui/launch/dim_mismatch.rx",
+      "tests/ui/launch/host_fn.rx",
       "tests/ui/launch/non_kernel.rx"
     ],
     "RXS-0075": [
       "conformance/launch/accept/saxpy_launch.rx",
+      "conformance/launch/reject/arg_count_mismatch/basic.rx",
       "conformance/launch/reject/arg_type_mismatch/basic.rx",
       "conformance/launch/reject/context_brand_mismatch/basic.rx",
       "conformance/launch/reject/dim_mismatch/basic.rx",
       "conformance/launch/reject/launch_non_kernel/basic.rx",
+      "conformance/launch/reject/launch_non_kernel/host_fn.rx",
       "src/rurixc/src/launch_check.rs",
+      "tests/ui/launch/arg_count.rx",
       "tests/ui/launch/arg_type_mismatch.rx",
       "tests/ui/launch/context_brand_mismatch.rx",
       "tests/ui/launch/dim_mismatch.rx",
+      "tests/ui/launch/host_fn.rx",
       "tests/ui/launch/non_kernel.rx"
     ],
     "RXS-0076": [
@@ -584,6 +607,7 @@
       "conformance/views/accept/chunks_disjoint.rx",
       "conformance/views/accept/split_at_disjoint.rx",
       "conformance/views/reject/alias_mut_write/basic.rx",
+      "conformance/views/reject/alias_mut_write/tuple_field_alias.rx",
       "conformance/views/reject/chunk_zero_or_window_oversize/basic.rx",
       "conformance/views/reject/chunk_zero_or_window_oversize/window_oversize.rx",
       "conformance/views/reject/overlap_windows/basic.rx",
@@ -591,7 +615,9 @@
       "src/rurixc/src/views_check.rs",
       "tests/ui/views/alias_parent_write.rx",
       "tests/ui/views/chunk_zero.rx",
+      "tests/ui/views/param_struct_alias.rx",
       "tests/ui/views/split_out_of_bounds.rx",
+      "tests/ui/views/tuple_field_alias.rx",
       "tests/ui/views/two_splits_alias.rx",
       "tests/ui/views/window_oversize.rx",
       "tests/ui/views/windows_overlap.rx"
@@ -609,10 +635,14 @@
       "tests/ui/shared/unsynced_read.rx"
     ],
     "RXS-0080": [
+      "conformance/atomics/accept/equal_scope_ok.rx",
       "conformance/atomics/accept/narrower_scope_ok.rx",
       "conformance/atomics/accept/scoped_atomics_ok.rx",
       "conformance/atomics/reject/scope_addrspace_incompat/basic.rx",
+      "conformance/atomics/reject/scope_addrspace_incompat/shared_gpu.rx",
       "conformance/atomics/reject/scope_overreach/basic.rx",
+      "conformance/atomics/reject/scope_overreach/block_brand_gpu.rx",
+      "conformance/atomics/reject/scope_overreach/gpu_brand_system.rx",
       "src/rurixc/src/typeck.rs",
       "src/rurixc/tests/atomics_ptx_mapping.rs",
       "tests/ui/atomics/gpu_scope_on_shared.rx",

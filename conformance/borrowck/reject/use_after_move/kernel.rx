@@ -1,0 +1,21 @@
+//@ spec: RXS-0054
+//@ expect-error: RX4001
+// kernel use-after-move(device MIR 安全门,M3 安全检查 device 扩展):`v` move 进
+// 首次 `eat` 调用,kernel 体内再次使用 → RX4001。kernel/device body 不在 host
+// `main` 可达 MIR 内,经 device MIR 安全门(check_device_safety)拦截。
+
+struct T {
+    id: i32,
+}
+
+device fn eat(t: T) -> i32 {
+    t.id
+}
+
+kernel fn k() {
+    let v = T { id: 1 };
+    let _a = eat(v);
+    let _b = eat(v);
+}
+
+fn main() {}

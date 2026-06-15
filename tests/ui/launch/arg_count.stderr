@@ -1,0 +1,5 @@
+error[RX2003]: this call takes 3 argument(s) but 2 were supplied
+  --> $DIR/launch/arg_count.rx:10:51
+   |
+10 |     stream.launch(saxpy, GridDim(n), BlockDim(n), (out, x)); //~ ERROR RX2003
+   |                                                   ^^^^^^^^ expected 3 argument(s)

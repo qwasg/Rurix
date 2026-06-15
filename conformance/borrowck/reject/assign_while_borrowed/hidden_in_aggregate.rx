@@ -1,0 +1,19 @@
+//@ spec: RXS-0060
+//@ expect-error: RX4005
+// host 聚合藏引用,所有者活跃期被写:`&x` 藏进 `Wrap { r }`,holder 闭包(经
+// aggregate)在 `w` 活跃期间写原值 `x` → RX4005(RXS-0060;借用活跃期所有者写)。
+
+struct Wrap {
+    r: &i32,
+}
+
+fn read(w: Wrap) -> i32 {
+    *w.r
+}
+
+fn main() {
+    let mut x = 1;
+    let w = Wrap { r: &x };
+    x = 5;
+    let _b = read(w);
+}

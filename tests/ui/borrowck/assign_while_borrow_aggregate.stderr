@@ -1,0 +1,5 @@
+error[RX4005]: cannot assign to `x` while it is borrowed
+  --> $DIR/borrowck/assign_while_borrow_aggregate.rx:13:5
+   |
+13 |     x = 5; //~ ERROR RX4005
+   |     ^^^^^ assigned here while borrowed

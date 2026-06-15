@@ -1,0 +1,10 @@
+//@ spec: RXS-0080
+//@ expect-error: RX3010
+// rank 格相邻边界(Block < Gpu):`Atomic<u32, Scope::Block>` 授予 block 作用域,
+// 操作使用更宽的 `Scope::Gpu` → 越权未授予的作用域,保守拒绝(RX3010,RXS-0080)。
+
+kernel fn overreach_block_gpu(a: Atomic<u32, Scope::Block>) {
+    a.fetch_add(1, Scope::Gpu);
+}
+
+fn main() {}

@@ -1,0 +1,14 @@
+//@ spec: RXS-0054
+//@ expect-error: RX4002
+// device use-before-init 收紧(device MIR 安全门):`shared let tile` 数组缓冲虽是
+// 合法 device 存储,但本 kernel 对其无任何 Index 元素写,先读即用 → 不再整体豁免
+// use-before-init → RX4002。经元素写后再读的 shared/数组缓冲仍豁免(见
+// conformance/shared accept 样例 / src/rurix-rt/kernels);未经元素写先读则报。
+
+kernel fn k(t: ThreadCtx<1>, dst: ViewMut<global, f32>) {
+    shared let tile: [f32; 64];
+    let i = t.thread_index();
+    dst[i] = tile[i];
+}
+
+fn main() {}

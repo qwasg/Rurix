@@ -1,0 +1,26 @@
+//@ spec: RXS-0060
+//@ expect-error: RX4005
+// kernel 借用冲突(device MIR 安全门):借用 `r = &t` 活跃期间 move 被借所有者
+// `t` 进 `eat` → RX4005。device body 经 device MIR 安全门(check_device_safety)
+// 跑 NLL 借用检查拦截(RXS-0060)。
+
+struct T {
+    id: i32,
+}
+
+device fn eat(t: T) -> i32 {
+    t.id
+}
+
+device fn peek(r: &T) -> i32 {
+    r.id
+}
+
+kernel fn k() {
+    let t = T { id: 1 };
+    let r = &t;
+    let _a = eat(t);
+    let _b = peek(r);
+}
+
+fn main() {}

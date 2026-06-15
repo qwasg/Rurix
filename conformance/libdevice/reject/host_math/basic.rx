@@ -1,4 +1,5 @@
 //@ spec: RXS-0081
+//@ expect-error: RX6006
 // host 上下文调用 device-only 数学 intrinsic → RX6006(RXS-0081 Legality)。
 fn main() {
     let x = 1.0f32;

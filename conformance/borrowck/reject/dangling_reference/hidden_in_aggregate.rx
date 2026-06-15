@@ -1,0 +1,18 @@
+//@ spec: RXS-0061
+//@ expect-error: RX4006
+// host 聚合藏引用经返回槽逃逸:`&x` 藏进 `Wrap { r }` 后随返回值逃逸,指代物
+// (本函数局部 `x`)不活过返回 → RX4006。holder/escape 闭包须穿透 aggregate
+// (RXS-0061 保守口径)。
+
+struct Wrap {
+    r: &i32,
+}
+
+fn dangle() -> Wrap {
+    let x = 1;
+    Wrap { r: &x }
+}
+
+fn main() {
+    let _w = dangle();
+}

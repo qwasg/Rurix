@@ -1,0 +1,14 @@
+//@ spec: RXS-0068
+//@ expect-error: RX3003
+// barrier 非 uniform(间接 thread-id 分支):线程索引经 `let i = t.thread_index()`
+// 传播到局部 `i`,`if i < 10 { t.sync() }` 的分支条件间接依赖 thread id → barrier
+// 仍判非 uniform(taint 传播,RXS-0068)。区别于直接条件含线程索引的 basic 反例。
+
+kernel fn k(t: ThreadCtx<1>) {
+    let i = t.thread_index();
+    if i < 10 {
+        t.sync();
+    }
+}
+
+fn main() {}

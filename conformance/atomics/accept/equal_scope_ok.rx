@@ -1,0 +1,12 @@
+//@ spec: RXS-0080
+// rank 格等阶边界(used_rank == brand_rank,不越权):`Atomic<u32, Scope::Gpu>` 以
+// `Scope::Gpu` 操作 → 等阶不越权,0 诊断。`AtomicView<global, ..>` 配 `Scope::System`
+// 同理合法(global 非 shared,规则 A 不触发;view 无 brand,规则 B 不适用)。
+
+kernel fn equal_scope(t: ThreadCtx<1>, a: Atomic<u32, Scope::Gpu>, g: AtomicView<global, u32, (16,)>) {
+    let i = t.thread_index();
+    a.fetch_add(1, Scope::Gpu);
+    g.fetch_max(i, 1, Scope::System);
+}
+
+fn main() {}

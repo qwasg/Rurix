@@ -1,0 +1,12 @@
+//@ spec: RXS-0078
+//@ expect-error: RX3007
+// view 别名藏进元组:`let pair = (v, v)` 后 pair.0 / pair.1 经 agg_fields 解析到
+// 同一根 view `v`,两路投影可变写证不出不相交 → 保守拒绝 RX3007(RXS-0078)。
+
+kernel fn k(v: ViewMut<global, f32>, i: usize, t: ThreadCtx<1>) {
+    let pair = (v, v);
+    pair.0[i] = 1.0;
+    pair.1[i] = 2.0;
+}
+
+fn main() {}

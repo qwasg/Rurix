@@ -1,0 +1,5 @@
+error[RX4006]: reference to `x` outlives the value it refers to
+ --> $DIR/borrowck/device_fn_dangling.rx:4:5
+  |
+4 |     &x //~ ERROR RX4006
+  |     ^^ reference to local outlives its referent

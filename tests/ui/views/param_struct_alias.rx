@@ -1,0 +1,12 @@
+//@ spec: RXS-0078
+struct Pair {
+    a: ViewMut<global, f32>,
+    b: ViewMut<global, f32>,
+}
+
+kernel fn k(p: Pair, i: usize) {
+    p.a[i] = 1.0;
+    p.b[i] = 2.0; //~ ERROR RX3007
+}
+
+fn main() {}

@@ -1,0 +1,5 @@
+error[RX3007]: overlapping or aliased mutable sub-views of `p`: cannot prove the sub-views are disjoint
+ --> $DIR/views/param_struct_alias.rx:9:5
+  |
+9 |     p.b[i] = 2.0; //~ ERROR RX3007
+  |     ^^^^^^ aliased mutable sub-view written here

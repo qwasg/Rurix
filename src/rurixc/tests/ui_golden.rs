@@ -133,6 +133,13 @@ fn run_case(path: &Path, src: &str) -> CaseResult {
                     if !diag.has_errors() {
                         cx.check_shared_barrier();
                     }
+                    // device MIR 安全门(M3 安全检查 device 扩展,RXS-0054/0057~0061):
+                    // kernel/device fn 体的 use-after-move(RX4001)/ 借用冲突(RX4005)/
+                    // 悬垂引用(RX4006),host 借用检查之后、device codegen 之前(对齐
+                    // driver 顺序;黄金路径 3 device 子集)
+                    if !diag.has_errors() {
+                        cx.check_device_safety();
+                    }
                 }
                 // device codegen(M4.2,黄金路径 4 的 6xxx 子集:RX6001/RX6003/
                 // RX6005,RXS-0070~0073)。`kernel fn` 为根;无 kernel → no-op。

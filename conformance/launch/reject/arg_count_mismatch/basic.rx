@@ -1,0 +1,15 @@
+//@ spec: RXS-0074, RXS-0075
+//@ expect-error: RX2003
+// launch negative: 参数元组元素数与 kernel 形参(剔除 ThreadCtx)不一致 → RX2003
+// (参数个数契约,复用实参数目不符;先于逐元素类型核对,防 zip 截断静默漏报).
+
+kernel fn saxpy(out: ViewMut<global, f32>, x: View<global, f32>, n: usize, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = x[i];
+    }
+}
+
+fn run<C>(stream: Stream<C>, out: Buffer<C, f32>, x: Buffer<C, f32>, n: usize) {
+    stream.launch(saxpy, GridDim(n), BlockDim(n), (out, x));
+}

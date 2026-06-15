@@ -1,0 +1,5 @@
+error[RX4006]: reference to `x` outlives the value it refers to
+ --> $DIR/borrowck/dangling_hidden_in_aggregate.rx:8:15
+  |
+8 |     Wrap { r: &x } //~ ERROR RX4006
+  |               ^^ reference to local outlives its referent

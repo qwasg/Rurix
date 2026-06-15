@@ -1,0 +1,16 @@
+//@ spec: RXS-0061
+//@ expect-error: RX4006
+// device fn 悬垂引用(device MIR 安全门):device fn 返回指向本函数局部 `x` 的
+// 引用,经返回槽逃逸其指代物 → RX4006。device body 经 device MIR 安全门
+// (check_device_safety)跑 NLL 借用检查拦截(RXS-0061)。
+
+device fn dangle() -> &i32 {
+    let x = 1;
+    &x
+}
+
+kernel fn k() {
+    let _r = dangle();
+}
+
+fn main() {}

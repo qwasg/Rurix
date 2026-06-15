@@ -1,0 +1,16 @@
+//@ spec: RXS-0054
+struct T {
+    id: i32,
+}
+
+device fn eat(t: T) -> i32 {
+    t.id
+}
+
+kernel fn k() {
+    let v = T { id: 1 };
+    let _a = eat(v);
+    let _b = eat(v); //~ ERROR RX4001
+}
+
+fn main() {}

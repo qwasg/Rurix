@@ -1,0 +1,9 @@
+//@ spec: RXS-0068
+kernel fn k(t: ThreadCtx<1>) {
+    let i = t.thread_index();
+    if i < 10 {
+        t.sync(); //~ ERROR RX3003
+    }
+}
+
+fn main() {}

@@ -1,0 +1,15 @@
+//@ spec: RXS-0060
+struct Wrap {
+    r: &i32,
+}
+
+fn read(w: Wrap) -> i32 {
+    *w.r
+}
+
+fn main() {
+    let mut x = 1;
+    let w = Wrap { r: &x };
+    x = 5; //~ ERROR RX4005
+    let _b = read(w);
+}

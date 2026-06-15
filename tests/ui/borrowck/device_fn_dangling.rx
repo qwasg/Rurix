@@ -1,0 +1,11 @@
+//@ spec: RXS-0061
+device fn dangle() -> &i32 {
+    let x = 1;
+    &x //~ ERROR RX4006
+}
+
+kernel fn k() {
+    let _r = dangle();
+}
+
+fn main() {}

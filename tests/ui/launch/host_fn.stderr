@@ -1,0 +1,5 @@
+error[RX3004]: cannot launch a host function: only a `kernel` function can be launched
+ --> $DIR/launch/host_fn.rx:5:19
+  |
+5 |     stream.launch(helper, GridDim(n), BlockDim(n), (out, x, n)); //~ ERROR RX3004
+  |                   ^^^^^^ only a `kernel` function can be launched

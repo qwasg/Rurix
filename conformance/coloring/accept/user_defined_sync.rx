@@ -1,0 +1,18 @@
+//@ spec: RXS-0068
+// barrier 判定来自 typeck device_calls(真实 ThreadCtx/block barrier),非方法名
+// 字符串猜测:用户自定义 `Gate::sync()` 在 thread-id 依赖分支内**不**报 RX3003
+// (非 device barrier intrinsic)。accept 正例 0 诊断。
+
+struct Gate {}
+
+impl Gate {
+    device fn sync(&self) {}
+}
+
+kernel fn k(t: ThreadCtx<1>, g: Gate) {
+    if t.global_id() < 10 {
+        g.sync();
+    }
+}
+
+fn main() {}

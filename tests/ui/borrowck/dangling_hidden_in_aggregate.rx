@@ -1,0 +1,13 @@
+//@ spec: RXS-0061
+struct Wrap {
+    r: &i32,
+}
+
+fn dangle() -> Wrap {
+    let x = 1;
+    Wrap { r: &x } //~ ERROR RX4006
+}
+
+fn main() {
+    let _w = dangle();
+}
