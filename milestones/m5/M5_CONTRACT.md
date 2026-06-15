@@ -193,7 +193,9 @@ guardrails:
 - **背书闸门 + 证据**:`ci/check_redistribution.py`(check_* 守卫,CPU-only,pr-smoke 常驻)+ [../../evidence/redistribution_audit_20260614.json](../../evidence/redistribution_audit_20260614.json)。
 - **真实红绿(反 YAML-only)**:
   - 本步本地复核(2026-06-15):红 `Add-Content bench/kernels/rurix_reduce.ptx '__nv_sqrtf'; py -3 ci/check_redistribution.py` → `FAIL`(exit 1,`rurix_reduce.ptx:87: __nv_sqrtf`);绿 `git checkout -- bench/kernels/rurix_reduce.ptx; py -3 ci/check_redistribution.py` → `PASS`(exit 0,再分发面为空)。
-  - CI 绿门背书:`https://github.com/qwasg/Rurix/actions/runs/27502668248/job/81288281409`(#26 pr-smoke 第 7 步「NVIDIA redistribution audit」= success;该 run 整体 FAILURE 系第 18 步 MIR golden 被 cancelled,与再分发无关)。本步 PR pr-smoke 跑绿后补登本步 run URL。
+  - CI 绿门背书:
+    - 本步 PR [#27](https://github.com/qwasg/Rurix/pull/27) pr-smoke 整体 **success**:`https://github.com/qwasg/Rurix/actions/runs/27518085104`(第 8 步「NVIDIA redistribution audit」= success;同 run 第 7 步「traceability matrix freshness (G-M5-5)」= success,本步新增门禁真实 CI 验证通过)。
+    - 第 5 步 PR [#26](https://github.com/qwasg/Rurix/pull/26) 重跑后 pr-smoke 整体 **success**:`https://github.com/qwasg/Rurix/actions/runs/27502668248`(「NVIDIA redistribution audit」步 success)。
 - **法律层(pending-human-review)**:PTX 内联 libdevice 派生实现是否构成 NVIDIA EULA Attachment A 意义下「再分发」、及白名单逐项核对,**留所有者/法务人工签署**(§8.8);数学 kernel 真分发(G1 cubin/fatbin 含 `__nv_*`)的逐项法律核对随首个分发产物 formal 签署。AI 不代签。
 
 ### 8.5 收口④——Compute Sanitizer racecheck+memcheck 红绿 run URL(G-M5-4,引用第 2 步 #24 归档)
@@ -232,4 +234,4 @@ guardrails:
 M5 新增 UI 用例已纳入锚定(矩阵 diff):
 - `RXS-0079`(shared+barrier) +3:`tests/ui/shared/broadcast_unsynced.rx`、`tests/ui/shared/neighbor_stencil.rx`、`tests/ui/shared/second_phase_unsynced.rx`(7→10 锚定)。
 - `RXS-0080`(scoped atomics) +2:`tests/ui/atomics/scope_overreach_gpu.rx`、`tests/ui/atomics/scope_overreach_gpu_system.rx`(9→11 锚定)。
-- 无未锚定条款、无幽灵锚定;`m1.counter.spec_clause_test_anchoring` 全锚定 PASS。新鲜度门禁本步接入 pr-smoke(`ci/trace_matrix.py --check`,G-M5-5 延续)。
+- 无未锚定条款、无幽灵锚定;`m1.counter.spec_clause_test_anchoring` 全锚定 PASS。新鲜度门禁本步接入 pr-smoke(`ci/trace_matrix.py --check`,G-M5-5 延续),真实 CI 验证通过:本步 PR #27 run `https://github.com/qwasg/Rurix/actions/runs/27518085104` 第 7 步「traceability matrix freshness (G-M5-5)」= success。
