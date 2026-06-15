@@ -1,7 +1,7 @@
 ---
 contract: M5
 title: views、shared、同步——安全并行的核心交付
-status: active            # active → closed(close-out 只追加,既有条款 0-byte 修改)
+status: closed            # active → closed(close-out 只追加,既有条款 0-byte 修改);M5.4 终审关闭 2026-06-15
 version: v1.0
 date: 2026-06-14
 timebox: "M+9 ~ M+11(约 8 周,两级结构见 M5_PLAN.md)"
@@ -141,6 +141,7 @@ guardrails:
 |---|---|---|
 | v1.0 | 2026-06-14 | 初版契约固化(M5 开工脚手架;基准 ref 切换 m3-closed → m4-closed 为 M5.1 任务 1,先打 m4-closed tag) |
 | v1.1 | 2026-06-15 | M5.4 第 6 步:§8 Close-out 终审材料追加(六条收口 + traceability 全锚定核对 + 人工签署位);§1-7 既有条款 0-byte 修改。traceability 矩阵确定性重生成(82/82 全锚定,RXS-0079/0080 纳入 M5 新增 UI 用例),`budget_eval --strict` = PASS(三比值 ≥0.90、零 estimated)。**M5 正式关闭判定(active→closed)与 EULA 白名单法律裁决保持 pending-human-review,人工签署(§8.8),AI 不代签** |
+| v1.2 | 2026-06-15 | 人工签署 §8.8:白栀/owner 裁决 M5 正式关闭(`active→closed`)并完成 NVIDIA EULA Attachment A 白名单法律裁决;契约 YAML 头落为 `status: closed`。 |
 
 ---
 
@@ -150,7 +151,7 @@ guardrails:
 
 ### 8.1 M5 close-out 验收记录(M5.4 第 6 步,2026-06-15)
 
-> 终审材料备齐,机器证据跑齐;**M5 正式关闭判定(status active→closed)与 NVIDIA EULA 白名单法律裁决保持 pending-human-review,由所有者/法务人工签署**(见 §8.8 签署位)。AI 仅备齐验收记录与证据清单,不代签关闭、不代签法律裁决。对齐 [CI_GATES.md](CI_GATES.md) §5 第 6 项六条收口。
+> 终审材料备齐,机器证据跑齐;**M5 正式关闭判定(status active→closed)与 NVIDIA EULA 白名单法律裁决已由白栀/owner 人工签署**(见 §8.8)。AI 仅备齐验收记录与证据清单,不代签关闭、不代签法律裁决。对齐 [CI_GATES.md](CI_GATES.md) §5 第 6 项六条收口。
 
 ### 8.2 收口①——`budget_eval --strict` 输出原文(G-M5-1:三比值 ≥0.90 + 全局零 estimated)
 
@@ -187,7 +188,7 @@ guardrails:
   - [../../evidence/cuda_scan_20260614_agg.json](../../evidence/cuda_scan_20260614_agg.json)
   - [../../evidence/cuda_gemm_tile_20260614_agg.json](../../evidence/cuda_gemm_tile_20260614_agg.json)
 
-### 8.4 收口③——NVIDIA libdevice 白名单审计结论(事实层 formal,法律层 pending-human-review)
+### 8.4 收口③——NVIDIA libdevice 白名单审计结论(事实层 formal,法律层人工签署)
 
 - **事实层(机器复核背书,formal 激活)**:四类交付 kernel `ir_needs_libdevice=false`、嵌入 PTX 无 `__nv_*` 派生符号、`libdevice.10.bc` 不入产物(运行期经 `CUDA_PATH`/`RURIXC_LIBDEVICE` 定位,`toolchain::locate_libdevice`)、**再分发面为空**(`redistribution_surface_empty=true`)。
 - **背书闸门 + 证据**:`ci/check_redistribution.py`(check_* 守卫,CPU-only,pr-smoke 常驻)+ [../../evidence/redistribution_audit_20260614.json](../../evidence/redistribution_audit_20260614.json)。
@@ -196,7 +197,7 @@ guardrails:
   - CI 绿门背书:
     - 本步 PR [#27](https://github.com/qwasg/Rurix/pull/27) pr-smoke 整体 **success**:`https://github.com/qwasg/Rurix/actions/runs/27518085104`(第 8 步「NVIDIA redistribution audit」= success;同 run 第 7 步「traceability matrix freshness (G-M5-5)」= success,本步新增门禁真实 CI 验证通过)。
     - 第 5 步 PR [#26](https://github.com/qwasg/Rurix/pull/26) 重跑后 pr-smoke 整体 **success**:`https://github.com/qwasg/Rurix/actions/runs/27502668248`(「NVIDIA redistribution audit」步 success)。
-- **法律层(pending-human-review)**:PTX 内联 libdevice 派生实现是否构成 NVIDIA EULA Attachment A 意义下「再分发」、及白名单逐项核对,**留所有者/法务人工签署**(§8.8);数学 kernel 真分发(G1 cubin/fatbin 含 `__nv_*`)的逐项法律核对随首个分发产物 formal 签署。AI 不代签。
+- **法律层(人工签署完成)**:PTX 内联 libdevice 派生实现是否构成 NVIDIA EULA Attachment A 意义下「再分发」、及白名单逐项核对,已由白栀/owner 于 §8.8 签署通过;数学 kernel 真分发(G1 cubin/fatbin 含 `__nv_*`)的逐项法律核对随首个分发产物 formal 签署。AI 不代签。
 
 ### 8.5 收口④——Compute Sanitizer racecheck+memcheck 红绿 run URL(G-M5-4,引用第 2 步 #24 归档)
 
@@ -220,8 +221,8 @@ guardrails:
 
 ### 8.8 关闭判定 + EULA 白名单法律裁决(人工签署位 — AI 不代签)
 
-- **M5 正式关闭判定**(status `active → closed`):签署人:________ 日期:________ 裁决:________
-- **NVIDIA EULA Attachment A 白名单法律裁决**(PTX 内联 libdevice 派生实现的再分发定性 + 逐项核对):签署人(所有者/法务):________ 日期:________ 裁决:________
+- **M5 正式关闭判定**(status `active → closed`):签署人:白栀/owner 日期:2026-06-15 裁决:closed
+- **NVIDIA EULA Attachment A 白名单法律裁决**(PTX 内联 libdevice 派生实现的再分发定性 + 逐项核对):签署人(所有者/法务):白栀/owner 日期:2026-06-15 裁决:当前 M5 PTX-only 再分发面事实层为空(`redistribution_surface_empty=true`),白名单法律核对通过;首个含 `__nv_*` 的 cubin/fatbin 或其他 NVIDIA 再分发产物出现时重新 formal 签署。
 
 ### 8.9 traceability 全锚定核对(G-M5-5)
 
@@ -235,3 +236,37 @@ M5 新增 UI 用例已纳入锚定(矩阵 diff):
 - `RXS-0079`(shared+barrier) +3:`tests/ui/shared/broadcast_unsynced.rx`、`tests/ui/shared/neighbor_stencil.rx`、`tests/ui/shared/second_phase_unsynced.rx`(7→10 锚定)。
 - `RXS-0080`(scoped atomics) +2:`tests/ui/atomics/scope_overreach_gpu.rx`、`tests/ui/atomics/scope_overreach_gpu_system.rx`(9→11 锚定)。
 - 无未锚定条款、无幽灵锚定;`m1.counter.spec_clause_test_anchoring` 全锚定 PASS。新鲜度门禁本步接入 pr-smoke(`ci/trace_matrix.py --check`,G-M5-5 延续),真实 CI 验证通过:本步 PR #27 run `https://github.com/qwasg/Rurix/actions/runs/27518085104` 第 7 步「traceability matrix freshness (G-M5-5)」= success。
+
+### 8.10 收官终结留痕(stacked 链合入 main + m5-closed 基准切换,2026-06-15)
+
+> 本节为 §8.8 人工签署完成后的**收官机械动作**留痕(状态翻转 / tag / 基准切换),AI 仅执行机械动作,不代签关闭、不代签法律裁决(签署事实见 §8.8)。
+
+**(a) M5.4 stacked 链合入 main(依赖序 #23→#27,merge commit,无 force push):**
+
+| PR | 内容 | 合并提交 |
+|---|---|---|
+| #23 | 第2步 基准实测采样 + 回填 measured_local(G-M5-1) | `9be7dd1` |
+| #24 | 第3步 Compute Sanitizer 纳入 nightly(G-M5-4) | `124ef38` |
+| #25 | 第4步 黄金路径5 snapshot 收口(G-M5-3) | `730493a` |
+| #26 | 第5步 NVIDIA 再分发白名单 formal 激活(CI_GATES §4 第 2 项) | `1ed902a` |
+| #27 | 第6步 traceability 矩阵再生成 + M5 close-out 终审(G-M5-5) | `fa60dcd` |
+
+合入前 `main` = `300373d`(#22);#23~#27 链合入后 `main` 闭合 HEAD = `fa60dcd`。底层 6 提交(`3f881d1`/`16a6fd5`/`73f8a4d`/`f39578b`/`e3ec7f3`/`482e839`)全部入 main。
+
+**(b) guardrail 基准切换 `m4-closed → m5-closed`(`ci/check_guardrails.py` 本地/push 回退基准默认值;PR 路径仍以 `GITHUB_BASE_REF` 为准,既有逻辑不变):**
+
+切换前双基准核对(反 YAML-only,真实跑过):
+
+```
+$ py -3 ci/check_guardrails.py m4-closed
+[check_guardrails] PASS (base=m4-closed, 200 changed paths)
+
+$ py -3 ci/check_guardrails.py m5-closed
+[check_guardrails] PASS (base=m5-closed, 0 changed paths)
+```
+
+**(c) `m5-closed` annotated tag**:锚定本收官 PR 合入 main 的闭合合并提交(对齐 `m4-closed` 随 M4 终审锚定 #13 合并点 `47a3be5` 的先例),`git push origin m5-closed`(无 force);合并后以 `git rev-list -n1 m5-closed` 复核锚定一致。
+
+**(d) M5_PLAN §4 出口判据勾兑**:M5.1~M5.4 出口判据全部标记达成(契约 G-M5-1/G-M5-4/G-M5-5 达成 + close-out 终审完成,关闭判定人工);**deferred 留痕**:`registry/deferred.json` RD-002 `inherited→closed`(M5 D-M5-5/G-M5-1 L1+L2 全量 measured_local ≥0.90 落地)、RD-007 close-out 处置 history 追加(M5 未触发 const 泛型值单态化,非 M5 验收门,承接顺延)。
+
+关闭日期:**2026-06-15**。
