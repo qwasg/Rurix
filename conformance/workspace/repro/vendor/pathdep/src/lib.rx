@@ -1,5 +1,3 @@
 fn pathdep_value() -> i32 {
     1
 }
-
-// G-M6-1 CI red verification tamper
