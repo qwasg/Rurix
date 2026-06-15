@@ -1,0 +1,16 @@
+# 样例 workspace 根清单(M6.2,RXS-0089~0094)——path-only,离线可解析。
+# 拓扑:app → foo → util,app → util(菱形,单根锁 dedup util);feature fast 经
+# foo/simd 加性启用(RXS-0091)。ci/pkg_resolve_smoke.py 在此样例上离线解析 +
+# 写 rurix.lock + 内容树 SHA-256 校验(篡改即红,反 YAML-only)。
+[package]
+name = "app"
+version = "0.1.0"
+build = "declarative"
+
+[dependencies]
+foo = { path = "foo" }
+util = { path = "util" }
+
+[features]
+default = ["fast"]
+fast = ["foo/simd"]

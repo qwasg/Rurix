@@ -652,6 +652,31 @@
     ],
     "RXS-0088": [
       "src/rurixc/tests/toolchain_corpus.rs"
+    ],
+    "RXS-0089": [
+      "src/rurix-pkg/src/manifest.rs",
+      "src/rurix-pkg/src/toml.rs"
+    ],
+    "RXS-0090": [
+      "src/rurix-pkg/src/manifest.rs",
+      "src/rurix-pkg/src/vendor.rs"
+    ],
+    "RXS-0091": [
+      "src/rurix-pkg/src/resolve.rs"
+    ],
+    "RXS-0092": [
+      "src/rurix-pkg/src/lock.rs",
+      "src/rurix-pkg/src/toml.rs",
+      "src/rurix-pkg/src/vendor.rs"
+    ],
+    "RXS-0093": [
+      "src/rurix-pkg/src/content_tree.rs",
+      "src/rurix-pkg/src/sha256.rs",
+      "src/rurix-pkg/src/vendor.rs"
+    ],
+    "RXS-0094": [
+      "src/rurix-pkg/src/vendor.rs",
+      "src/rx/tests/cli.rs"
     ]
   }
 }

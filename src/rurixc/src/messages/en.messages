@@ -91,3 +91,10 @@ link.libdevice_failure = libdevice link failure: {reason}
 # rx CLI 工具链诊断(RX7003 / RX7004,spec/toolchain.md RXS-0083/0085;M6.1 分配)
 toolchain.rx_cli_usage = rx CLI usage error: {detail}
 toolchain.rx_run_exec_failure = rx run: cannot execute build artifact: {detail}
+#
+# 包管理诊断(RX7005 ~ RX7009,spec/toolchain.md RXS-0089~0094;M6.2 分配)
+toolchain.pkg_manifest_invalid = invalid rurix.toml manifest: {detail}
+toolchain.pkg_resolution_conflict = dependency resolution conflict: {detail}
+toolchain.pkg_lock_mismatch = rurix.lock is out of date or inconsistent: {detail}
+toolchain.pkg_digest_mismatch = content tree digest mismatch: {detail}
+toolchain.pkg_source_unreachable = dependency source is unreachable: {detail}

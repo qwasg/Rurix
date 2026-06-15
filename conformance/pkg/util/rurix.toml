@@ -1,0 +1,4 @@
+# 叶依赖包 util(菱形汇合点;app 与 foo 经不同相对路径引用,规范化后单根锁 dedup)。
+[package]
+name = "util"
+version = "0.3.0"

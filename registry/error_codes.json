@@ -439,6 +439,46 @@
       "status": "active",
       "introduced_in": "M6.1",
       "spec_clauses": ["RXS-0085"]
+    },
+    {
+      "id": "RX7005",
+      "title": "rurix.toml 清单解析/校验错误(缺字段 / 非法值 / build 非声明式 / TOML 子集违例 / 清单不可读)",
+      "message_key": "toolchain.pkg_manifest_invalid",
+      "status": "active",
+      "introduced_in": "M6.2",
+      "spec_clauses": ["RXS-0089", "RXS-0090"]
+    },
+    {
+      "id": "RX7006",
+      "title": "依赖解析冲突(同名依赖来源/pin 不相容 / feature 引用不存在的 feature 或依赖)",
+      "message_key": "toolchain.pkg_resolution_conflict",
+      "status": "active",
+      "introduced_in": "M6.2",
+      "spec_clauses": ["RXS-0091"]
+    },
+    {
+      "id": "RX7007",
+      "title": "rurix.lock 不一致(--locked 下由当前清单重解析图 ≠ 入库 lock / lock 结构损坏)",
+      "message_key": "toolchain.pkg_lock_mismatch",
+      "status": "active",
+      "introduced_in": "M6.2",
+      "spec_clauses": ["RXS-0092"]
+    },
+    {
+      "id": "RX7008",
+      "title": "内容树 digest 不符(vendor 内容树 SHA-256 与 lock 记录不一致 / 缺 vendor 快照)",
+      "message_key": "toolchain.pkg_digest_mismatch",
+      "status": "active",
+      "introduced_in": "M6.2",
+      "spec_clauses": ["RXS-0093"]
+    },
+    {
+      "id": "RX7009",
+      "title": "依赖来源不可达(--offline 远端源无 vendor 缓存 / path 目标缺失 / 远端抓取未就绪)",
+      "message_key": "toolchain.pkg_source_unreachable",
+      "status": "active",
+      "introduced_in": "M6.2",
+      "spec_clauses": ["RXS-0090", "RXS-0094"]
     }
   ],
   "revision_log": [
@@ -526,6 +566,11 @@
       "version": "v1.16",
       "date": "2026-06-15",
       "change": "M6.1 分配 RX7003 + RX7004(spec/toolchain.md RXS-0083/0085 配套,M6_PLAN §1 任务 5,条款 PR 先行引用的正式分配)。新段位错误码裁决:rx CLI/工具链诊断按 07 §5 段位语义归 7xxx 链接/工具链段位续接(RX7001/RX7002 之后),不另起新段位(rx CLI 用法/产物执行诊断属工具链类语义)。RX7003 rx CLI 子命令用法错误(缺子命令 / 未知子命令 / 缺参 / test·doc·fix·watch·vendor 等已登记但未实现的分发位调用);RX7004 rx run 产物执行失败(build 成功但产物缺失 / 无法启动产物进程,区别于产物正常运行后的非零退出——后者经 rx run 透传不报错,RXS-0085)。message_key toolchain.rx_cli_usage / toolchain.rx_run_exec_failure 随本实现 WP 落 en.messages;段内分配制递增不复用、含义冻结(10 §6)。包管理(M6.2)/ LSP(M6.4)工具链诊断错误码无实现不预造(CI_GATES §4.2)"
+    },
+    {
+      "version": "v1.17",
+      "date": "2026-06-15",
+      "change": "M6.2 分配 RX7005 ~ RX7009(spec/toolchain.md RXS-0089~0094 配套,M6_PLAN §2 任务 4,条款 PR 先行引用的正式分配)。段位裁决:lock 不一致 / 内容树 digest 不符 / 依赖来源不可达 等包管理诊断按 07 §5 段位语义归 7xxx 链接/工具链段位续接(RX7004 之后),不另起新段位(包管理属工具链类语义);registry sumdb 透明日志诊断为 D-312 所有者决策点,SG registry 触发条件未满足,不预造。RX7005 rurix.toml 清单解析/校验错误(缺字段 / 非法值 / build 非声明式 无 build.rs 红线 / TOML 子集违例);RX7006 依赖解析冲突(同名依赖来源/pin 不相容 / feature 引用不存在);RX7007 rurix.lock 不一致(--locked 重解析图 ≠ 入库 lock);RX7008 内容树 digest 不符(vendor 内容树 SHA-256 ≠ lock 记录);RX7009 依赖来源不可达(--offline 远端无缓存 / path 目标缺失)。message_key toolchain.pkg_manifest_invalid / pkg_resolution_conflict / pkg_lock_mismatch / pkg_digest_mismatch / pkg_source_unreachable 随本实现 WP 落 en.messages(rx CLI 以 inline eprintln 发码,沿用 RX7003/RX7004 风格);段内分配制递增不复用、含义冻结(10 §6)。LSP(M6.4)工具链诊断错误码无实现不预造"
     }
   ]
 }
