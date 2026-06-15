@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "evidence_level": "measured_local",
+  "timestamp": "2026-06-15T09:35:35.391202+00:00",
+  "bench": {
+    "id": "lsp_interaction_latency",
+    "level": "lsp",
+    "problem_size": "generated 10001-line workspace (2499 fns)",
+    "harness_commit": "3748470",
+    "sample_lines": 10001,
+    "generator": "bench/gen_lsp_workspace.py@3748470 (forwarding-call fn chain; deterministic; target=10000)"
+  },
+  "environment": {
+    "cpu_name": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "logical_cores": 20,
+    "power_plan": "平衡",
+    "os_build": "10.0.28120",
+    "clock_control": "not_applicable_cpu",
+    "background_note": "desktop dev machine; LSP server is CPU path; background load not isolated, IQR rejection per protocol; GPU-bench mutex queue discipline reused to avoid interference"
+  },
+  "sampling": {
+    "timer": "lsp_roundtrip_wall",
+    "trimmed_pct": 0.2,
+    "instructions_u": "unavailable (windows; wall-clock latency is primary metric, instructions:u trend reference only)"
+  },
+  "results": {
+    "metric": "lsp_interaction_latency_ms",
+    "unit": "ms",
+    "trimmed_mean": 72.6226,
+    "worst_interaction": "publishDiagnostics",
+    "per_interaction": {
+      "completion": {
+        "warmup_iterations": 10,
+        "timed_iterations": 30,
+        "trials": 3,
+        "trimmed_mean": 35.9975,
+        "trial_medians": [
+          35.3755,
+          36.5469,
+          36.07
+        ],
+        "cv": 0.016364,
+        "ci95": [
+          35.3755,
+          36.5469
+        ],
+        "min": 35.3755,
+        "max": 36.5469,
+        "outliers_rejected_iqr": 9,
+        "correctness_check": "pass"
+      },
+      "definition": {
+        "warmup_iterations": 10,
+        "timed_iterations": 30,
+        "trials": 3,
+        "trimmed_mean": 29.9585,
+        "trial_medians": [
+          30.126,
+          30.0003,
+          29.7493
+        ],
+        "cv": 0.006402,
+        "ci95": [
+          29.7493,
+          30.126
+        ],
+        "min": 29.7493,
+        "max": 30.126,
+        "outliers_rejected_iqr": 3,
+        "correctness_check": "pass"
+      },
+      "publishDiagnostics": {
+        "warmup_iterations": 3,
+        "timed_iterations": 3,
+        "trials": 5,
+        "trimmed_mean": 72.6226,
+        "trial_medians": [
+          72.7772,
+          72.6848,
+          72.4058
+        ],
+        "cv": 0.002662,
+        "ci95": [
+          72.4058,
+          72.7772
+        ],
+        "min": 72.4058,
+        "max": 72.7772,
+        "outliers_rejected_iqr": 0,
+        "correctness_check": "pass"
+      }
+    },
+    "correctness_check": "pass"
+  },
+  "notes": "aggregate of 3 process-level independent runs (lsp_latency_20260615_1..3.json); per_interaction.trial_medians = per-run trimmed means. client-side wall latency around one JSON-RPC round-trip via rurixc --tooling-server; completion/definition are request-response, publishDiagnostics measures didChange (full-text resync, 07 §9) to publishDiagnostics frame; trimmed_mean = worst-case across the three interactions (per_interaction holds each)."
+}
