@@ -1,0 +1,3 @@
+fn pathdep_value() -> i32 {
+    1
+}

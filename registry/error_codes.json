@@ -479,6 +479,22 @@
       "status": "active",
       "introduced_in": "M6.2",
       "spec_clauses": ["RXS-0090", "RXS-0094"]
+    },
+    {
+      "id": "RX7010",
+      "title": "rx test 测试发现/签名错误(无匹配测试 / 顶层 main 冲突 / 参数或返回类型不合法)",
+      "message_key": "toolchain.rx_test_discovery",
+      "status": "active",
+      "introduced_in": "M6.3",
+      "spec_clauses": ["RXS-0095"]
+    },
+    {
+      "id": "RX7011",
+      "title": "rx test 子进程执行失败(临时 harness 编译失败 / spawn 失败 / 测试进程非零或异常终止)",
+      "message_key": "toolchain.rx_test_exec_failure",
+      "status": "active",
+      "introduced_in": "M6.3",
+      "spec_clauses": ["RXS-0095"]
     }
   ],
   "revision_log": [
@@ -571,6 +587,11 @@
       "version": "v1.17",
       "date": "2026-06-15",
       "change": "M6.2 分配 RX7005 ~ RX7009(spec/toolchain.md RXS-0089~0094 配套,M6_PLAN §2 任务 4,条款 PR 先行引用的正式分配)。段位裁决:lock 不一致 / 内容树 digest 不符 / 依赖来源不可达 等包管理诊断按 07 §5 段位语义归 7xxx 链接/工具链段位续接(RX7004 之后),不另起新段位(包管理属工具链类语义);registry sumdb 透明日志诊断为 D-312 所有者决策点,SG registry 触发条件未满足,不预造。RX7005 rurix.toml 清单解析/校验错误(缺字段 / 非法值 / build 非声明式 无 build.rs 红线 / TOML 子集违例);RX7006 依赖解析冲突(同名依赖来源/pin 不相容 / feature 引用不存在);RX7007 rurix.lock 不一致(--locked 重解析图 ≠ 入库 lock);RX7008 内容树 digest 不符(vendor 内容树 SHA-256 ≠ lock 记录);RX7009 依赖来源不可达(--offline 远端无缓存 / path 目标缺失)。message_key toolchain.pkg_manifest_invalid / pkg_resolution_conflict / pkg_lock_mismatch / pkg_digest_mismatch / pkg_source_unreachable 随本实现 WP 落 en.messages(rx CLI 以 inline eprintln 发码,沿用 RX7003/RX7004 风格);段内分配制递增不复用、含义冻结(10 §6)。LSP(M6.4)工具链诊断错误码无实现不预造"
+    },
+    {
+      "version": "v1.18",
+      "date": "2026-06-15",
+      "change": "M6.3 分配 RX7010 ~ RX7011(spec/toolchain.md RXS-0095 配套,M6_PLAN §3 任务 1,条款 PR 先行引用的正式分配)。段位裁决:rx test 测试发现/签名错误与子进程执行失败属工具链 harness 诊断,按 07 §5 段位语义归 7xxx 链接/工具链段位续接(RX7009 之后),不另起新段位。RX7010 覆盖无匹配测试 / 顶层 main 冲突 / 参数或返回类型不合法 / unsupported #[test(...)] 形态;RX7011 覆盖临时 harness 编译失败 / spawn 失败 / 测试进程非零或异常终止。message_key toolchain.rx_test_discovery / toolchain.rx_test_exec_failure 随本实现 WP 落 en.messages;段内分配制递增不复用、含义冻结(10 §6)"
     }
   ]
 }

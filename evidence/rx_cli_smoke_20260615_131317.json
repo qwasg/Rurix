@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "subject": "rx_cli_core_subcommands",
+  "subcommands_passed": [
+    "bench",
+    "build",
+    "check",
+    "fmt",
+    "run",
+    "test"
+  ],
+  "rx_binary": "target/debug/rx.exe",
+  "facts": [
+    {
+      "subcommand": "check",
+      "command": "check conformance/toolchain/check_ok.rx",
+      "exit_code": 0,
+      "note": "PASS"
+    },
+    {
+      "subcommand": "build",
+      "command": "build conformance/toolchain/hello.rx -o H:\\rurix\\build\\rx_cli_smoke\\hello.exe",
+      "exit_code": 0,
+      "note": "PASS"
+    },
+    {
+      "subcommand": "run",
+      "command": "run conformance/toolchain/exit_code.rx -o H:\\rurix\\build\\rx_cli_smoke\\exit_code.exe",
+      "exit_code": 0,
+      "note": "PASS"
+    },
+    {
+      "subcommand": "test",
+      "command": "test conformance/toolchain/rx_test_basic.rx",
+      "exit_code": 0,
+      "note": "PASS"
+    },
+    {
+      "subcommand": "fmt",
+      "command": "fmt --check-idempotent conformance/syntax/hello_world.rx",
+      "exit_code": 0,
+      "note": "PASS"
+    },
+    {
+      "subcommand": "bench",
+      "command": "bench saxpy --smoke",
+      "exit_code": 0,
+      "note": "PASS"
+    }
+  ],
+  "timestamp": "2026-06-15T13:13:17+08:00"
+}

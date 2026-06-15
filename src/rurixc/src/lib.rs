@@ -37,6 +37,7 @@ pub mod source_map;
 pub mod span;
 pub mod tbir;
 pub mod tbir_build;
+pub mod test_harness;
 pub mod toolchain;
 pub mod ty;
 pub mod typeck;

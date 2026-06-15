@@ -98,6 +98,6 @@
 | RXS-0092 | spec/toolchain.md | 3 | `src/rurix-pkg/src/lock.rs`, `src/rurix-pkg/src/toml.rs`, `src/rurix-pkg/src/vendor.rs` |
 | RXS-0093 | spec/toolchain.md | 3 | `src/rurix-pkg/src/content_tree.rs`, `src/rurix-pkg/src/sha256.rs`, `src/rurix-pkg/src/vendor.rs` |
 | RXS-0094 | spec/toolchain.md | 2 | `src/rurix-pkg/src/vendor.rs`, `src/rx/tests/cli.rs` |
-| RXS-0095 | spec/toolchain.md | 2 | `conformance/toolchain/rx_test_basic.rx`, `conformance/toolchain/rx_test_gpu.rx` |
-| RXS-0096 | spec/toolchain.md | 1 | `conformance/workspace/repro/src/main.rx` |
+| RXS-0095 | spec/toolchain.md | 4 | `conformance/toolchain/rx_test_basic.rx`, `conformance/toolchain/rx_test_gpu.rx`, `src/rurixc/src/test_harness.rs` …(+1) |
+| RXS-0096 | spec/toolchain.md | 2 | `conformance/workspace/repro/src/main.rx`, `src/rurix-pkg/src/vendor.rs` |
 | RXS-0097 | spec/toolchain.md | 1 | `conformance/workspace/repro/src/main.rx` |

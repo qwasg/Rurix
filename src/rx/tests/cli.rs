@@ -1,7 +1,7 @@
-//! rx CLI 子命令分发与退出码集成测试(spec/toolchain.md RXS-0083 / RXS-0087)。
+//! rx CLI 子命令分发与退出码集成测试(spec/toolchain.md RXS-0083 / RXS-0087 / RXS-0095)。
 //!
 //! 仅覆盖**不依赖工具链**(clang/link/CUDA)的路径:用法诊断 + 退出码约定 +
-//! fmt 收编幂等。build/run/check/bench 的端到端真跑见 `ci/rx_cli_smoke.py`
+//! fmt 收编幂等 + rx test 发现错误。build/run/check/test/bench 的端到端真跑见 `ci/rx_cli_smoke.py`
 //! (契约 G-M6-3,GPU/工具链 runner)。
 
 use std::path::{Path, PathBuf};
@@ -50,17 +50,35 @@ fn missing_and_unknown_subcommand_exit_2() {
     assert!(stderr.contains("RX7003"), "应携带 RX7003:{stderr}");
 }
 
-/// RXS-0083:已登记但未实现的分发位(test/doc/fix/watch)→ 退出码 2。
+/// RXS-0083:已登记但未实现的分发位(doc/fix/watch)→ 退出码 2。
 /// vendor 于 M6.2 落地(见 vendor_offline_lock_red_green),不再属未实现集。
+/// test 于 M6.3 落地(见 rx_test_bad_signature_is_rx7010)。
 //@ spec: RXS-0083
 #[test]
 fn reserved_subcommands_exit_2() {
-    for sub in ["test", "doc", "fix", "watch"] {
+    for sub in ["doc", "fix", "watch"] {
         let out = rx().arg(sub).output().expect("spawn rx");
         assert_eq!(out.status.code(), Some(2), "`{sub}` 未实现应退出 2");
         let stderr = String::from_utf8_lossy(&out.stderr);
         assert!(stderr.contains("RX7003"), "`{sub}` 应携带 RX7003:{stderr}");
     }
+}
+
+/// RXS-0095:rx test 发现到非法测试签名 → RX7010,退出码 1。
+//@ spec: RXS-0095
+#[test]
+fn rx_test_bad_signature_is_rx7010() {
+    let ws = temp_ws();
+    write(&ws, "bad_test.rx", "#[test]\nfn bad(x: i32) {}\n");
+    let out = rx()
+        .arg("test")
+        .arg(ws.join("bad_test.rx"))
+        .output()
+        .expect("spawn rx");
+    assert_eq!(out.status.code(), Some(1), "非法测试签名应退出 1");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("RX7010"), "应携带 RX7010:{stderr}");
+    let _ = std::fs::remove_dir_all(&ws);
 }
 
 /// RXS-0083:rx fmt 缺输入 → 用法错误退出码 2。

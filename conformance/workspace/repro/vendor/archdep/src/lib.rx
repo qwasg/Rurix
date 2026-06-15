@@ -1,0 +1,3 @@
+fn archdep_value() -> i32 {
+    3
+}

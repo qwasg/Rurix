@@ -1,4 +1,4 @@
-//! rx — Rurix 工具链 CLI 总入口(M6.1,08 §7 D-239;spec/toolchain.md RXS-0083~0088)。
+//! rx — Rurix 工具链 CLI 总入口(M6,08 §7 D-239;spec/toolchain.md RXS-0083~0097)。
 //!
 //! 单一前端纪律(07 §2,RXS-0083):涉及编译的子命令(build/run/check)经
 //! [`rurixc::driver`] 复用 rurixc query 层管线,**不另起引擎**;rx 是子命令分发
@@ -8,23 +8,29 @@
 //! 包管理(M6.2,RXS-0089~0094):`rx vendor` 与 `rx build` 的 manifest 解析前段
 //! 经 [`rurix_pkg`] 子系统(rurix.toml 三来源解析 + 依赖解析图 + rurix.lock +
 //! 内容树 SHA-256 + 离线路径);编译仍经 [`rurixc::driver`] 单一前端,不另起引擎。
+//! `rx test`(M6.3,RXS-0095):发现顶层 `#[test]`/`#[test(gpu)]`,逐测试渲染临时
+//! harness 并以子进程隔离运行;GPU 测试崩溃不连坐父 harness(14 §6)。
 //!
 //! 退出码约定(RXS-0083):0 成功 / 1 诊断错误 / 2 用法·I/O 错误。
 //! `rx run` 透传产物退出码为受控例外(RXS-0085)。
 //!
 //! 工具链诊断错误码(7xxx 链接/工具链段位,registry/error_codes.json):
 //! RX7003 子命令用法错误 / RX7004 rx run 产物执行失败 / RX7005~RX7009 包管理
-//! (清单/解析冲突/lock 不一致/digest 不符/来源不可达,RXS-0089~0094)。
+//! (清单/解析冲突/lock 不一致/digest 不符/来源不可达,RXS-0089~0094) /
+//! RX7010~RX7011 rx test 发现与子进程执行诊断。
 
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use rurix_pkg::PkgError;
 use rurixc::driver::{self, CompileOptions};
 use rurixc::fmt::format_source;
+use rurixc::test_harness::{self, TestKind};
 
 const USAGE: &str =
-    "usage: rx <build|run|check|fmt|bench|vendor> ...\n  (test|doc|fix|watch 后续小里程碑承接)";
+    "usage: rx <build|run|check|test|fmt|bench|vendor> ...\n  (doc|fix|watch 后续小里程碑承接)";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -40,8 +46,9 @@ fn main() -> ExitCode {
         "fmt" => cmd_fmt(rest),
         "bench" => cmd_bench(rest),
         "vendor" => cmd_vendor(rest),
-        // 已登记分发位,M6.1/M6.2 期返回"未实现"用法诊断(RXS-0083;后续里程碑承接)
-        "test" | "doc" | "fix" | "watch" => {
+        "test" => cmd_test(rest),
+        // 已登记分发位,返回"未实现"用法诊断(RXS-0083;后续里程碑承接)
+        "doc" | "fix" | "watch" => {
             usage_error(&format!("子命令 `{sub}` 尚未实现(后续小里程碑承接)"));
             ExitCode::from(2)
         }
@@ -160,6 +167,7 @@ fn cmd_build(args: &[String]) -> ExitCode {
             out: b.out,
             emit: None,
             profile_out: None,
+            reproducible: b.locked && b.offline,
         }));
     }
 
@@ -177,6 +185,7 @@ fn cmd_build(args: &[String]) -> ExitCode {
         out: b.out,
         emit: None,
         profile_out: None,
+        reproducible: false,
     }))
 }
 
@@ -239,6 +248,213 @@ fn cmd_vendor(args: &[String]) -> ExitCode {
     }
 }
 
+struct TestArgs {
+    input: Option<PathBuf>,
+    filter: Option<String>,
+    gpu: bool,
+    manifest_path: Option<PathBuf>,
+    locked: bool,
+    offline: bool,
+}
+
+/// `rx test [<file.rx>] [--filter <substring>] [--gpu] [--manifest-path <p>] [--locked] [--offline]`。
+fn parse_test_args(args: &[String]) -> Result<TestArgs, String> {
+    let mut t = TestArgs {
+        input: None,
+        filter: None,
+        gpu: false,
+        manifest_path: None,
+        locked: false,
+        offline: false,
+    };
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--filter" => {
+                i += 1;
+                t.filter = Some(args.get(i).ok_or("`--filter` 缺过滤字符串参数")?.clone());
+            }
+            "--gpu" => t.gpu = true,
+            "--manifest-path" => {
+                i += 1;
+                t.manifest_path = Some(PathBuf::from(
+                    args.get(i).ok_or("`--manifest-path` 缺路径参数")?,
+                ));
+            }
+            "--locked" => t.locked = true,
+            "--offline" => t.offline = true,
+            s if !s.starts_with('-') && t.input.is_none() => t.input = Some(PathBuf::from(s)),
+            s => return Err(format!("rx test 无法识别的参数 `{s}`")),
+        }
+        i += 1;
+    }
+    Ok(t)
+}
+
+/// rx test(RXS-0095):发现顶层 `#[test]`/`#[test(gpu)]`,逐测试生成临时
+/// `main` 并以子进程运行。GPU 分类测试用 `--gpu` 选择,同样经子进程隔离。
+fn cmd_test(args: &[String]) -> ExitCode {
+    let t = match parse_test_args(args) {
+        Ok(v) => v,
+        Err(e) => {
+            usage_error(&e);
+            return ExitCode::from(2);
+        }
+    };
+
+    let input = if let Some(mp) = &t.manifest_path {
+        let base = mp.parent().unwrap_or(Path::new(".")).to_path_buf();
+        let front = if t.locked {
+            rurix_pkg::vendor::verify_locked(&base, t.offline)
+        } else {
+            rurix_pkg::vendor::resolve_workspace(&base, t.offline)
+        };
+        if let Err(e) = front {
+            return report_pkg_error(e);
+        }
+        t.input
+            .clone()
+            .unwrap_or_else(|| base.join("src").join("test.rx"))
+    } else {
+        if t.locked || t.offline {
+            usage_error("--locked/--offline 仅在 --manifest-path 包上下文下有效");
+            return ExitCode::from(2);
+        }
+        let Some(input) = t.input.clone() else {
+            usage_error("rx test 缺输入 `.rx` 源文件或 --manifest-path");
+            return ExitCode::from(2);
+        };
+        input
+    };
+
+    let src = match fs::read_to_string(&input) {
+        Ok(s) => s,
+        Err(e) => {
+            usage_error(&format!("rx test 无法读取 {}: {e}", input.display()));
+            return ExitCode::from(2);
+        }
+    };
+    let discovered = match test_harness::discover_tests(&src) {
+        Ok(v) => v,
+        Err(e) => {
+            report_rx_test_discovery(e.detail());
+            return ExitCode::from(1);
+        }
+    };
+    let want_kind = if t.gpu { TestKind::Gpu } else { TestKind::Host };
+    let tests: Vec<_> = discovered
+        .into_iter()
+        .filter(|case| case.kind == want_kind)
+        .filter(|case| {
+            t.filter
+                .as_ref()
+                .is_none_or(|needle| case.name.contains(needle))
+        })
+        .collect();
+    if tests.is_empty() {
+        let kind = if t.gpu { "#[test(gpu)]" } else { "#[test]" };
+        report_rx_test_discovery(&format!("未发现匹配的 {kind} 测试"));
+        return ExitCode::from(1);
+    }
+
+    let temp = unique_temp_dir("rx_test");
+    if let Err(e) = fs::create_dir_all(&temp) {
+        report_rx_test_exec_failure(&format!(
+            "创建临时 harness 目录失败 {}: {e}",
+            temp.display()
+        ));
+        return ExitCode::from(1);
+    }
+
+    let mut failed = 0usize;
+    for (idx, case) in tests.iter().enumerate() {
+        println!("rx test: {} ...", case.name);
+        let harness_src = test_harness::render_harness(&src, case);
+        let stem = format!("{idx:04}_{}", sanitize_stem(&case.name));
+        let harness_path = temp.join(format!("{stem}.rx"));
+        let exe_path = temp.join(format!("{stem}.exe"));
+        if let Err(e) = fs::write(&harness_path, harness_src) {
+            report_rx_test_exec_failure(&format!("{}: 写临时 harness 失败: {e}", case.name));
+            failed += 1;
+            continue;
+        }
+        let compile_code = driver::compile(&CompileOptions {
+            input: harness_path,
+            out: Some(exe_path.clone()),
+            emit: None,
+            profile_out: None,
+            reproducible: false,
+        });
+        if compile_code != 0 {
+            report_rx_test_exec_failure(&format!(
+                "{}: harness 编译失败(exit {compile_code})",
+                case.name
+            ));
+            failed += 1;
+            continue;
+        }
+        match Command::new(&exe_path).status() {
+            Ok(status) if status.success() => {
+                println!("rx test: {} ... ok", case.name);
+            }
+            Ok(status) => {
+                report_rx_test_exec_failure(&format!("{}: 子进程退出 {}", case.name, status));
+                failed += 1;
+            }
+            Err(e) => {
+                report_rx_test_exec_failure(&format!(
+                    "{}: 无法启动子进程 {}: {e}",
+                    case.name,
+                    exe_path.display()
+                ));
+                failed += 1;
+            }
+        }
+    }
+    let _ = fs::remove_dir_all(&temp);
+
+    let total = tests.len();
+    if failed == 0 {
+        println!("rx test: PASS {total}/{total}");
+        ExitCode::SUCCESS
+    } else {
+        eprintln!("rx test: FAIL {} passed; {failed} failed", total - failed);
+        ExitCode::from(1)
+    }
+}
+
+fn report_rx_test_discovery(detail: &str) {
+    eprintln!("rx test: error[RX7010]: {detail}");
+}
+
+fn report_rx_test_exec_failure(detail: &str) {
+    eprintln!("rx test: error[RX7011]: {detail}");
+}
+
+fn unique_temp_dir(prefix: &str) -> PathBuf {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    std::env::temp_dir().join(format!("{prefix}_{}_{}", std::process::id(), nanos))
+}
+
+fn sanitize_stem(name: &str) -> String {
+    let mut out = String::new();
+    for ch in name.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '_' || ch == '-' {
+            out.push(ch);
+        } else {
+            out.push('_');
+        }
+    }
+    if out.is_empty() {
+        "test".to_owned()
+    } else {
+        out
+    }
+}
+
 /// rx check(RXS-0086):仅前端全量静态检查,不产 codegen/link 产物。
 fn cmd_check(args: &[String]) -> ExitCode {
     let (input, _out) = match parse_input_out(args) {
@@ -253,6 +469,7 @@ fn cmd_check(args: &[String]) -> ExitCode {
         out: None,
         emit: Some("check".to_owned()),
         profile_out: None,
+        reproducible: false,
     }))
 }
 
@@ -272,6 +489,7 @@ fn cmd_run(args: &[String]) -> ExitCode {
         out,
         emit: None,
         profile_out: None,
+        reproducible: false,
     });
     if build_code != 0 {
         return ExitCode::from(build_code);

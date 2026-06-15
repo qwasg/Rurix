@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "subject": "offline_rebuild_reproducible",
+  "reproducible": true,
+  "fixture": "conformance/workspace/repro",
+  "package_sources": [
+    "path",
+    "git",
+    "archive"
+  ],
+  "artifact_sha256_runs": [
+    "2522ee53e75065d2b553d1771fca9f059fe9ae34f1d63b0e4318026793b6096a",
+    "2522ee53e75065d2b553d1771fca9f059fe9ae34f1d63b0e4318026793b6096a"
+  ],
+  "lock_sha256_runs": [
+    "f78b23265215099d3e924a9f0e99e13cb7a87e56e1ff9429cd51ca04142100ff",
+    "f78b23265215099d3e924a9f0e99e13cb7a87e56e1ff9429cd51ca04142100ff"
+  ],
+  "vendor_sha256_runs": [
+    "6444a8a54180a11a5eac31623b27e032d614a140b575c8bf6a125d30df6491af",
+    "6444a8a54180a11a5eac31623b27e032d614a140b575c8bf6a125d30df6491af"
+  ],
+  "redgreen": {
+    "tamper": "vendor/pathdep/src/lib.rx",
+    "red_exit_code": 1,
+    "red_code": "RX7008",
+    "green_exit_code": 0
+  },
+  "rx_binary": "target/debug/rx.exe",
+  "facts": [
+    {
+      "run_id": "first",
+      "command": "H:\\rurix\\target\\debug\\rx.exe build --manifest-path H:\\rurix\\build\\offline_rebuild_tmp\\repro\\rurix.toml --locked --offline -o H:\\rurix\\build\\offline_rebuild_tmp\\repro\\build\\offline_rebuild\\repro_app.exe",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "artifact_sha256": "2522ee53e75065d2b553d1771fca9f059fe9ae34f1d63b0e4318026793b6096a",
+      "lock_sha256": "f78b23265215099d3e924a9f0e99e13cb7a87e56e1ff9429cd51ca04142100ff",
+      "vendor_sha256": "6444a8a54180a11a5eac31623b27e032d614a140b575c8bf6a125d30df6491af"
+    },
+    {
+      "run_id": "second",
+      "command": "H:\\rurix\\target\\debug\\rx.exe build --manifest-path H:\\rurix\\build\\offline_rebuild_tmp\\repro\\rurix.toml --locked --offline -o H:\\rurix\\build\\offline_rebuild_tmp\\repro\\build\\offline_rebuild\\repro_app.exe",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "artifact_sha256": "2522ee53e75065d2b553d1771fca9f059fe9ae34f1d63b0e4318026793b6096a",
+      "lock_sha256": "f78b23265215099d3e924a9f0e99e13cb7a87e56e1ff9429cd51ca04142100ff",
+      "vendor_sha256": "6444a8a54180a11a5eac31623b27e032d614a140b575c8bf6a125d30df6491af"
+    },
+    {
+      "run_id": "tamper-red",
+      "command": "H:\\rurix\\target\\debug\\rx.exe build --manifest-path H:\\rurix\\build\\offline_rebuild_tmp\\repro\\rurix.toml --locked --offline -o H:\\rurix\\build\\offline_rebuild_tmp\\repro\\build\\offline_rebuild\\repro_app.exe",
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "rx: error[RX7008]: 依赖 \"pathdep\" 内容树 digest 不符:vendor 实测 ed623445257caa5915eb2e74f80ff8e7a4bb8d11c9212eb5f04061172c3c9caa != lock 记录 d1e24ad8d5b2edca5433e67dab3fc1d3c24fac69d7cfbcdc826e32fdbb795e52\n"
+    },
+    {
+      "run_id": "restore-green",
+      "command": "H:\\rurix\\target\\debug\\rx.exe build --manifest-path H:\\rurix\\build\\offline_rebuild_tmp\\repro\\rurix.toml --locked --offline -o H:\\rurix\\build\\offline_rebuild_tmp\\repro\\build\\offline_rebuild\\repro_app.exe",
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "",
+      "artifact_sha256": "2522ee53e75065d2b553d1771fca9f059fe9ae34f1d63b0e4318026793b6096a",
+      "lock_sha256": "f78b23265215099d3e924a9f0e99e13cb7a87e56e1ff9429cd51ca04142100ff",
+      "vendor_sha256": "6444a8a54180a11a5eac31623b27e032d614a140b575c8bf6a125d30df6491af"
+    }
+  ],
+  "timestamp": "2026-06-15T13:13:11+08:00"
+}

@@ -42,6 +42,9 @@ pub struct CompileOptions {
     pub emit: Option<String>,
     /// self-profile JSON 行输出路径(`--self-profile`);None 时不落盘。
     pub profile_out: Option<PathBuf>,
+    /// 可复现 host 产物模式(RXS-0097):关闭 debug link/PDB 并启用链接器
+    /// `/Brepro`;普通 debug build 保持原 PDB/source path 语义。
+    pub reproducible: bool,
 }
 
 /// 端到端编译(单一前端,07 §2)。返回退出码(`u8`,供调用方 [`std::process::ExitCode::from`]
@@ -319,16 +322,17 @@ pub fn compile(opts: &CompileOptions) -> u8 {
             return 1;
         }
     };
-    if let Err(e) = run_tool(
-        Command::new(&clang)
-            .arg("-c")
-            .arg(&ll)
-            .arg("-o")
-            .arg(&obj)
-            .arg("-g")
-            .arg("--target=x86_64-pc-windows-msvc"),
-        "clang",
-    ) {
+    let mut clang_cmd = Command::new(&clang);
+    clang_cmd
+        .arg("-c")
+        .arg(&ll)
+        .arg("-o")
+        .arg(&obj)
+        .arg("--target=x86_64-pc-windows-msvc");
+    if !opts.reproducible {
+        clang_cmd.arg("-g");
+    }
+    if let Err(e) = run_tool(&mut clang_cmd, "clang") {
         toolchain_err(&diag, &sm, e);
         return 1;
     }
@@ -347,13 +351,17 @@ pub fn compile(opts: &CompileOptions) -> u8 {
     let mut cmd = Command::new(&link);
     cmd.arg("/nologo")
         .arg("/subsystem:console")
-        .arg("/debug:full")
         .arg(format!("/out:{}", exe.display()))
         .arg(&obj)
         .arg("libcmt.lib")
         .arg("libucrt.lib")
         .arg("libvcruntime.lib")
         .arg("kernel32.lib");
+    if opts.reproducible {
+        cmd.arg("/Brepro");
+    } else {
+        cmd.arg("/debug:full");
+    }
     for p in &libpaths {
         cmd.arg(format!("/libpath:{}", p.display()));
     }

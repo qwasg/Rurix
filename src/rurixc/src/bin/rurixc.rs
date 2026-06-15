@@ -52,5 +52,6 @@ fn main() -> ExitCode {
         out: out.map(PathBuf::from),
         emit,
         profile_out,
+        reproducible: false,
     }))
 }

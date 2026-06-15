@@ -122,3 +122,11 @@ jobs:
       - name: pkg manifest/lock/vendor offline gate (M6 CI_GATES §2.27a, D-M6-2)
         shell: powershell
         run: py -3 ci/pkg_resolve_smoke.py
+
+      # —— M6.3 增量(milestones/m6/CI_GATES.md §2 步骤 27;G-M6-1)——
+      # 三包 workspace(path/git/archive)离线重建逐字节复现门:
+      # `rx build --locked --offline` 同一路径两次清输出重建 EXE SHA-256 一致,
+      # lock/vendor 不改写;脚本内置 vendor digest 篡改 RX7008 红绿验证。失败即红。
+      - name: offline rebuild reproducibility gate (M6 CI_GATES §2.27, G-M6-1)
+        shell: powershell
+        run: py -3 ci/offline_rebuild_repro.py
