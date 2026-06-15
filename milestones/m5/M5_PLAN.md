@@ -34,7 +34,7 @@ flowchart LR
 | 4 | 3xxx 错误码段位续接分配(RX300x 接 M4 的 RX3006)+ `views.*` message-key(registry 只追加);host 回归网(hello-world 冒烟 + SAXPY 回归)持续绿 | `py -3 ci/check_schemas.py` PASS + UI snapshot |
 | 5 | conformance/views accept/reject 语料 + 批跑测试接入(`m5.counter.views_conformance_categories`) | conformance 正例 0 诊断 + reject 全拦截 |
 
-**出口判据**:views 不相交反例(契约 G-M5-2)全拦截;conformance 正例 0 诊断;host SAXPY/hello-world 回归不退化。
+**出口判据(✅ 已达成,M5 closed 2026-06-15)**:views 不相交反例(契约 G-M5-2)全拦截;conformance 正例 0 诊断;host SAXPY/hello-world 回归不退化。
 
 ## 2. M5.2 — shared+barrier 一致性与 scoped atomics(~2 周)
 
@@ -45,7 +45,7 @@ flowchart LR
 | 3 | **scoped atomics + PTX `atom.{order}.{scope}` 映射层(D-406 禁区 — 人工落笔)**:AI 完成类型契约条款化 + 挂测试骨架;PTX 映射语义实现由人工完成,本表只登记接入点与验证义务 | 人工实现真跑 + spec 锚定 |
 | 4 | scoped atomics scope 误用 → 黄金路径 5 子集 snapshot(bless 审批) | UI snapshot(G-M5-3 子集) |
 
-**出口判据**:shared+barrier 一致性违例全拦截;scoped atomics 类型契约条款化完成且映射(人工)真跑;黄金路径 5 的 shared/atomics 子集 snapshot 入库。
+**出口判据(✅ 已达成,M5 closed 2026-06-15)**:shared+barrier 一致性违例全拦截;scoped atomics 类型契约条款化完成且映射(人工)真跑;黄金路径 5 的 shared/atomics 子集 snapshot 入库。
 
 ## 3. M5.3 — libdevice 链接与 gpu 并行基元(~2–3 周)
 
@@ -57,7 +57,7 @@ flowchart LR
 | 4 | SG-002 复评留痕:tiled GEMM 基准落地后复评 SG-002 触发条件,结论(预期仍 not_triggered:自研 kernel 不动 Tensor Core/WGMMA intrinsics)入 spike_gating decisions + CI_GATES §4 | spike_gating 追加 decisions |
 | 5 | L1/L2 微基准 harness 接入(RD-002 承接,复用 BENCH_PROTOCOL §3;手写 CUDA C++ 对照实现作 denominator 锚点) | harness 冒烟正确性 PASS |
 
-**出口判据**:libdevice 链接接通且 gpu 基元 kernel 数学函数真跑;reduce/scan/transpose/GEMM 全管线产 EXE 真跑成功;基准 harness 就位。
+**出口判据(✅ 已达成,M5 closed 2026-06-15)**:libdevice 链接接通且 gpu 基元 kernel 数学函数真跑;reduce/scan/transpose/GEMM 全管线产 EXE 真跑成功;基准 harness 就位。
 
 ## 4. M5.4 — L1+L2 基准回填、Sanitizer 与 close-out(~1–2 周)
 
@@ -70,7 +70,7 @@ flowchart LR
 | 5 | NVIDIA 再分发白名单审计 formal 激活(libdevice 链接引入再分发物时逐项核对,M4 §8.2 标注到期时点):结论入 [CI_GATES.md](CI_GATES.md) §4 + close-out | 审计结论留痕 |
 | 6 | traceability 矩阵再生成(`ci/trace_matrix.py`,含 M5 新条款)+ 全锚定核对;M5 close-out 草拟(验收记录 + guardrail 输出 + Sanitizer 红绿 + 白名单结论 + run URL 追加契约 §8) | G-M5-5 + guardrail 全过 |
 
-**出口判据**:契约 G-M5-1 / G-M5-4 / G-M5-5 达成(measured ratio ≥0.90,`budget_eval --strict` PASS,Sanitizer nightly 全绿),close-out 终审完成(关闭判定人工)。
+**出口判据(✅ 已达成,M5 closed 2026-06-15)**:契约 G-M5-1 / G-M5-4 / G-M5-5 达成(measured ratio reduce 0.9925 / scan 1.0058 / gemm_tile 1.0016 ≥0.90,`budget_eval --strict` PASS,Sanitizer racecheck+memcheck nightly 全绿),close-out 终审完成(M5_CONTRACT §8,`status: closed`;关闭判定 + EULA 裁决由白栀/owner 人工签署 §8.8)。
 
 ## 5. 风险提示(引用,不另建登记)
 
@@ -88,3 +88,4 @@ flowchart LR
 |---|---|---|
 | v1.0 | 2026-06-14 | 初版(M5 契约配套;CI 步骤 22+ 为 M5.x 计划项,落地时回填实测命令;guardrail 三项动作:基准切换 m3-closed→m4-closed、NVIDIA 白名单 formal 激活、Compute Sanitizer nightly 均为计划项) |
 | v1.1 | 2026-06-14 | M5.4 任务 1(脚手架):锁频检查 `bench/lock_clocks.py`(--lock/--check/--unlock + `require_locked()` 前置闸门,接入三个 rurix_*_triple.py)+ CUDA 对照分母三次运行器 `bench/cuda_ref_triple.py` + 编排入口 `bench/m5_bench_all.py`;CUDA 对照 PTX(`bench/kernels/cuda_*.ptx`)纳入版本控制。实跑三次采样 + measured_local 回填留作任务 2(需管理员锁频后操作者执行) |
+| v1.2 | 2026-06-15 | M5.1~M5.4 出口判据全部勾掉(✅ 已达成);M5 契约 `status: closed`(G-M5-1 三比值 0.9925/1.0058/1.0016 ≥0.90、`budget_eval --strict` PASS、Sanitizer nightly 全绿、traceability 82/82 全锚定;关闭判定 + EULA 裁决由白栀/owner 人工签署,见 M5_CONTRACT §8.8)。stacked 链 #23→#27 合入 main、`m5-closed` tag、guardrail 基准 `m4-closed→m5-closed` 切换留痕见 M5_CONTRACT §8.10 / CI_GATES §6 |
