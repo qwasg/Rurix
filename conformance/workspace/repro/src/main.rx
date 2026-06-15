@@ -1,0 +1,8 @@
+//@ spec: RXS-0096
+//@ spec: RXS-0097
+// G-M6-1 root entry:workspace members/deps enter the single lock graph; build target remains root.
+
+fn main() {
+    let msg = "offline-rebuild-repro";
+    println(msg);
+}

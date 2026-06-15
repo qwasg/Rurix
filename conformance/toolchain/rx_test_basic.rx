@@ -1,0 +1,13 @@
+//@ spec: RXS-0095
+// rx test v1:top-level free #[test] functions are rendered into one-test harnesses.
+
+#[test]
+fn passes_unit() {
+    let msg = "rx-test-unit";
+    println(msg);
+}
+
+#[test]
+fn passes_code() -> i32 {
+    0
+}
