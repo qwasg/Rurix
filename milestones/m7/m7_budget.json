@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "namespace": "m7",
+  "description": "M7 预算(14 §3:entries + ratio_assertions + counter_assertions,命名空间强制前缀)。M7 标准库充实与 G0 图形演示三条硬证据:(1) UC-03 demo 单 EXE 分发 + 确定性输出图像序列(契约 G-M7-1,以计数器 m7.counter.uc03_demo_image_sequence 表达);(2) 软光栅 L3 基准入库(契约 G-M7-2,以 entry m7.bench.soft_raster_l3_frame_ms 表达,estimated 占位,direction/阈值 M7.5 裁定回填 measured_local;占位在 M7 内生灭,不跨里程碑欠债);(3) safe 覆盖率报告(契约 G-M7-3,以计数器 m7.counter.soft_raster_kernels_safe 表达,全 safe 代码目标)。计数器:core 数学库原语覆盖(G-M7-4)+ 软光栅 kernel safe 覆盖(G-M7-3)+ UC-03 demo 图像序列(G-M7-1)。entries 仅留软光栅 L3 一条 estimated 占位 = M7 不预欠其余 estimated bench 占位(实测随各小里程碑)。",
+  "source_docs": [
+    "14 §3",
+    "07 §4 §6 §7",
+    "08 §4 §5 §6",
+    "01 §6 (UC-03 旗舰用例)",
+    "11 §3 (M7 定义,标准库充实与 G0 图形演示验收门)",
+    "milestones/m0/BENCH_PROTOCOL.md",
+    "milestones/m7/M7_CONTRACT.md"
+  ],
+  "entries": [
+    {
+      "id": "m7.bench.soft_raster_l3_frame_ms",
+      "direction": "max",
+      "evidence": "estimated",
+      "skip_reason": "G0 软光栅 L3 基准未实测(契约 G-M7-2);M7.3 软光栅 kernel 落地 + M7.5 L3 规模场景 BENCH_PROTOCOL 协议化采样后 estimated → measured_local 回填,direction/阈值届时裁定(帧时间 direction=max,实测 × 安全系数为上界,参照行业线天花板)。占位在 M7 内生灭,不跨里程碑欠债(14 §3),close-out budget_eval --strict 判定",
+      "unit": "ms",
+      "threshold": null,
+      "evidence_file": null
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": [
+    {
+      "id": "m7.counter.math_primitives",
+      "description": "core 数学库原语端到端覆盖数 ≥ 预设核心集数(契约 G-M7-4;预设核心集 = Vec/Mat/swizzle/几何原语(点/向量/法线/AABB/射线等)的构造·算术·swizzle·矩阵乘·几何谓词,host+device 双路径,数量为 estimated 工程选择,增删经 Direct PR 留痕,对齐 G-M3-1/G-M4-2/G-M5-2 计数器先例)。evaluator 计数随数学库落地扩列(原语 conformance 通过数,计数源 = evidence/stdlib_math_*.json 的 primitives_passed 去重基数);数学库未落地 → 0 → 建设期 normal SKIP / close-out strict FAIL",
+      "expect": ">=8",
+      "evidence": "ci_checked"
+    },
+    {
+      "id": "m7.counter.soft_raster_kernels_safe",
+      "description": "G0 软光栅 kernel safe 覆盖数 ≥ 预设软光栅 kernel 数(契约 G-M7-3;预设 = binning/tile 光栅/深度/tonemap,11 §3 M7 全 safe 代码目标,数量为 estimated 工程选择,调整经 Direct PR 留痕)。evaluator 计数随软光栅 kernel 落地扩列(safe kernel 冒烟通过数,计数源 = evidence/soft_raster_*.json 的 safe_kernels 去重基数;凡落 unsafe 的 kernel 不计入 safe 覆盖且须 // SAFETY: + safe 覆盖率报告留痕原因);软光栅未落地 → 0 → 建设期 normal SKIP / close-out strict FAIL",
+      "expect": ">=4",
+      "evidence": "ci_checked"
+    },
+    {
+      "id": "m7.counter.uc03_demo_image_sequence",
+      "description": "UC-03 demo 单 EXE 输出确定性图像序列证据数 ≥1(契约 G-M7-1;01 §6 UC-03 SPH 仿真 + 软光栅出图)。evaluator 计数 = evidence/uc03_demo_*.json 中 image_sequence_ok=true 的报告数(机器事实:rx build 产单 EXE,运行输出确定性图像序列,固定输入/随机种子下逐帧 content SHA-256 两次运行逐字节一致;机器复核闸门经真实红绿验证——篡改一帧像素红、复原绿)。证据缺失 → 0 → 建设期 normal SKIP / close-out strict FAIL,对齐 m6.counter.offline_rebuild_reproducible 先例",
+      "expect": ">=1",
+      "evidence": "ci_checked"
+    }
+  ],
+  "namespace_check": {
+    "rule": "本文件所有 id 必须以 'm7.' 前缀开头;多预算合并加载时冲突即 FAIL(14 §3)",
+    "unit_test_required": true
+  },
+  "revision_log": [
+    {
+      "version": "v1.0",
+      "date": "2026-06-15",
+      "change": "初版模板(M7 契约配套):entry m7.bench.soft_raster_l3_frame_ms(estimated 占位,direction=max,M7.5 回填 measured_local,契约 G-M7-2)+ 三计数器 m7.counter.{math_primitives(>=8) / soft_raster_kernels_safe(>=4) / uc03_demo_image_sequence(>=1)}(契约 G-M7-4/G-M7-3/G-M7-1)。配套 ci/budget_eval.py 新增三 m7.counter.* evaluator 分支(目录/证据缺失 → 0 → normal SKIP / close-out strict FAIL,对齐 M4/M5/M6 计数器先例);M7 期 m7.* 占位/计数器 SKIP 属预期"
+    }
+  ]
+}
