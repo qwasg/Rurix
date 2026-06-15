@@ -1,9 +1,10 @@
-# Rurix 语言规范 — 工具链语义(M6.1:rx CLI 总入口与核心子命令)
+# Rurix 语言规范 — 工具链语义(M6.1~M6.3:rx CLI / 包管理 / rx test 与离线复现)
 
-> 条款:RXS-0083 ~ RXS-0088(M6.1 rx CLI 子命令语义面首批)。体例见 [README.md](README.md)。
+> 条款:RXS-0083 ~ RXS-0097(M6.1 rx CLI 子命令语义面首批 + M6.2 包管理 + M6.3 rx test / workspace / 离线重建复现门)。体例见 [README.md](README.md)。
 > 依据:07 §2 §6 §9(查询化与增量编译 D-203 / 编译性能预算 / LSP 与工具模式 D-210——单一前端,常驻 query 层);08 §4 §7(rx bench harness 工具化 / 开发者工具集 rx CLI D-239);milestones/m0/BENCH_PROTOCOL.md(基准协议 §2/§3);M6 契约 D-M6-1 / G-M6-3 / G-M6-4 / G-M6-5(spec 先行)。
 > 本文为已选定决策(D-203/D-210/D-239)的初版条款化(档位 Direct);任何偏离 07/08 已锁定决策的语义动作须按 10 §3 升档。本文承载工具链语义条款,M6.2/M6.4 的包管理 `rurix.toml`/`rurix.lock` 格式条款与 LSP 能力面条款续写本文件(编号续号)。
 > **M6.2 续号(RXS-0089 ~ RXS-0094,包管理 manifest/lock/vendor)**:`rurix.toml`(意图)+ `rurix.lock`(精确解析图 + 内容树 SHA-256)格式语义 + 依赖三来源 path/git/archive 解析规则 + workspace 单根锁 + feature additive-v1 + 无 build.rs 声明式(09 §7.1/§7.2 已锁定决策 D-308~D-311 的条款化,档位 Direct;registry sumdb D-312 不触碰)。错误码 `RX7005` ~ `RX7009`(7xxx 链接/工具链段位续接)随 M6.2 实现 WP 正式分配,registry revision_log 留痕、含义冻结。
+> **M6.3 续号(RXS-0095 ~ RXS-0097,rx test / workspace / 离线重建复现门)**:`rx test` 内建 `#[test]`/`#[test(gpu)]` 发现与逐测试子进程隔离(14 §6);workspace members 激活入单根锁;三包 workspace(path/git/archive)在 `rx build --locked --offline` reproducible profile 下两次 host EXE SHA-256 逐字节一致(G-M6-1,09 §7.1/§7.2,14 §1/§6 契约机制)。错误码 `RX7010`/`RX7011`随 M6.3 实现 WP 正式分配,registry revision_log 留痕、含义冻结。
 > **M6.1 范围裁决(rx CLI 总入口 + 核心子命令优先)**:rx 经 rurixc query 层复用单一前端,不另起引擎(07 §2);本批条款化 rx CLI 总入口分发 + 退出码约定 + build/run/check/fmt/bench 的语义契约,收编 rx fmt(RD-005)与 rx bench(RD-003)。`rx test`(子进程隔离,M6.3)/ `rx doc`/`fix`/`watch`/`vendor`(后续小里程碑)的语义面随各自里程碑续写。错误码 `RX7003`(及按需 `RX7004`)为 7xxx 链接/工具链段位 rx CLI 诊断首批,**spec 先行引用,正式分配于 M6.1 实现 WP**(沿用 3xxx/5xxx 在实现 PR 落 registry 的节奏,registry revision_log 留痕,编号不复用)。
 
 ---
@@ -14,15 +15,15 @@
 
 ```
 RxInvocation ::= "rx" Subcommand SubcommandArgs
-Subcommand   ::= "build" | "run" | "check" | "fmt" | "bench"
-               | "test" | "doc" | "fix" | "watch" | "vendor"   // 后续里程碑承接
+Subcommand   ::= "build" | "run" | "check" | "fmt" | "bench" | "vendor" | "test"
+               | "doc" | "fix" | "watch"   // 后续里程碑承接
 SubcommandArgs ::= <子命令各自定义的参数与 flag>
 ```
 
 **Legality**(子命令分发与用法裁决):
 
 - `rx` 总入口按**首位非 flag 实参**裁决子命令;缺子命令或子命令未识别 → 用法错误 `RX7003`(退出码 2,见退出码约定)。
-- 子命令名是**保留分发位**:`build`/`run`/`check`/`fmt`/`bench` 为 M6.1 落地核心集;`test`/`doc`/`fix`/`watch`/`vendor` 为已登记的分发位,M6.1 期调用返回"未实现"用法诊断(退出码 2),其语义面随各自里程碑(M6.2~M6.5)条款化。
+- 子命令名是**保留分发位**:`build`/`run`/`check`/`fmt`/`bench` 为 M6.1 落地核心集;`vendor` 为 M6.2 落地核心集;`test` 为 M6.3 落地核心集;`doc`/`fix`/`watch` 继续保留为后续分发位,调用返回"未实现"用法诊断(退出码 2),其语义面随各自里程碑(M6.4~M6.5 或后续)条款化。
 - **单一前端纪律(07 §2)**:涉及编译的子命令(build/run/check)经 rurixc query 层(`QueryCtx`)复用同一前端管线,**不另起编译引擎**;rx 是子命令分发与产物编排层,语义裁决归一到 rurixc。
 
 **退出码约定**(全子命令统一,与 rurixc 驱动同口径):
@@ -228,6 +229,82 @@ deps           = ["<name>", ...]      # 排序后的直接依赖名
 
 ---
 
+### RXS-0095 rx test 内建测试运行器与子进程隔离
+
+**Syntax**(`rx test`,M6.3;14 §6 harness 隔离纪律工具化):
+
+```
+RxTest ::= "rx" "test" TestInput? TestFlag*
+TestInput ::= <file.rx>
+TestFlag ::= "--filter" <substring>
+          | "--gpu"
+          | "--manifest-path" <rurix.toml>
+          | "--locked"
+          | "--offline"
+
+TestAttr ::= "#[test]" | "#[test(gpu)]"
+TestFn   ::= TestAttr "fn" IDENT "(" ")" ("->" ("()" | "i32"))? Block
+```
+
+**Legality**(测试发现与签名):
+
+- `rx test` 发现**顶层 free function** 上的 `#[test]` 与 `#[test(gpu)]`;trait/impl/extern 内关联函数不参与 M6.3 v1 发现。
+- 测试函数必须为 host 普通函数,无参数,有函数体,返回 `()`(显式或省略)或 `i32`;其他签名 → `RX7010`(测试发现/签名错误,退出码 1)。
+- M6.3 v1 为逐测试生成临时 `main` 的窄运行器:测试源文件不得同时定义顶层 `fn main`;存在顶层 `main` 且发现测试 → `RX7010`,避免生成 harness 与用户入口冲突。
+- 默认 `rx test <file.rx>` 仅运行 `#[test]` host 测试;`--gpu` 仅运行 `#[test(gpu)]` 分类测试;`--filter` 对测试函数名做子串过滤。过滤后无可运行测试 → `RX7010`。
+- `--locked`/`--offline` 仅在 `--manifest-path` 包上下文有效,先执行 RXS-0094 的 lock/vendor 校验;包前段失败按 RX7005~RX7009 返回,不进入测试执行。
+
+**Dynamic Semantics**(隔离运行):
+
+- 每个测试函数生成独立临时 harness 源文件,该 harness 只调用一个测试函数并以独立子进程执行。`()` 测试返回即成功;`i32` 测试返回 0 成功、非 0 失败。
+- 单个测试编译失败、spawn 失败、被信号/异常终止或退出非 0 → `RX7011`(测试子进程执行失败,退出码 1);父进程继续收集其余测试结果,最终汇总失败。
+- `#[test(gpu)]` 是分类与隔离契约:GPU 相关测试同样以独立子进程执行,使 GPU context poison / 进程崩溃不连坐 harness(14 §6)。完整 GPU 正确性仍由既有 self-hosted runner 与 Compute Sanitizer nightly 路径验证。
+
+**Implementation Requirements**:`rx test` 使用 `rurixc::test_harness` 复用 lexer/parser/AST 进行发现与签名校验,不得以正则扫描代替语义解析;每个测试编译仍经 `rurixc::driver` 单一前端,不另起编译引擎。临时 harness 目录须位于系统临时目录或构建目录下并在运行后 best-effort 清理。
+
+> 锚定测试:`src/rurixc/src/test_harness.rs`(测试发现/签名校验单测);`conformance/toolchain/rx_test_basic.rx` / `conformance/toolchain/rx_test_gpu.rx`(`#[test]` / `#[test(gpu)]` 样例);`ci/rx_cli_smoke.py`(rx test 端到端纳入核心子命令计数)。
+
+### RXS-0096 workspace members 多包参与单根锁
+
+**Syntax**(workspace 根清单,延续 RXS-0089):
+
+```
+[workspace]
+members = ["<rel-dir>", ...]
+```
+
+**Legality**(workspace 多包):
+
+- 若根清单含 `[workspace].members`,每个 member 必须指向一个含 `rurix.toml` 的本地包目录;缺失 → `RX7009`。
+- workspace members 参与同一个解析图与同一个 `rurix.lock`:根包 + members + 递归依赖(path/git/archive 三来源)必须落入同一 lock 图,并按 RXS-0091 的单根锁冲突规则合一。
+- member 包以其 `[package].name` 作为解析图节点名;若根 `[dependencies]` 已显式声明同名包且来源 locator 不同 → `RX7006`;相同 locator 视为同一节点。
+- M6.3 v1 编译入口仍为 root `src/main.rx`;workspace members/deps 进入 lock/digest 校验与离线复现门,跨包链接不在本步引入。
+
+**Implementation Requirements**:`rurix-pkg::vendor::resolve_workspace` 在调用解析器前把 workspace members 归一为根的 path 依赖边,使 `rx vendor` / `rx build --manifest-path` / `rx test --manifest-path` 共享同一解析图。远端 git/archive 源不新增网络抓取;离线重建使用已提交的 `vendor/<name>` 缓存。
+
+> 锚定测试:`src/rurix-pkg/src/vendor.rs`(workspace members 注入单根锁单测);`conformance/workspace/repro/rurix.toml`(path/git/archive 三来源 workspace 样例)。
+
+### RXS-0097 G-M6-1 离线重建逐字节复现门
+
+**Syntax**(门禁命令形态):
+
+```
+ReproBuild ::= "rx" "build" "--manifest-path" <rurix.toml> "--locked" "--offline" ("-o" <exe>)?
+```
+
+**Legality**(可复现判据):
+
+- G-M6-1 样例 workspace 必须至少包含三个依赖包,且 path/git/archive 三来源各 ≥1;git/archive 远端源在 M6.3 通过已提交 `vendor/<name>` 快照验证离线可重建,不触 registry sumdb(D-312)与网络抓取。
+- `rx build --locked --offline` 在包上下文中必须先执行 RXS-0094:不触网、不改 `rurix.lock`,并校验 lock 解析图与 vendor 内容树 digest。lock 不一致 → `RX7007`;vendor digest 不符 → `RX7008`;远端无缓存或 path 不可达 → `RX7009`。
+- 在 reproducible profile 下,同一干净路径中清输出后连续两次构建 host EXE,EXE 字节 SHA-256 必须一致;同时 `rurix.lock` SHA-256 与 vendor 内容树 digest 在两次构建前后不变。
+- 普通 debug build 的 PDB/source path 语义不受 G-M6-1 约束;reproducible profile 可关闭 debug link/PDB 并启用链接器可复现开关,以保证门禁哈希稳定。
+
+**Implementation Requirements**:CI 门 `ci/offline_rebuild_repro.py` 必须复制 fixture 到干净临时目录后真跑两次 `rx build --manifest-path ... --locked --offline`,比较 EXE SHA-256、lock SHA-256 与 vendor digest,并写 `evidence/offline_rebuild_*.json` 作为 `m6.counter.offline_rebuild_reproducible` 计数源。该门必须内建红绿验证:临时篡改 fixture 的 vendor 内容或 digest 后预期 `RX7008`/`RX7007` 红,复原后绿;应红却绿即脚本自身失败(反 YAML-only,H06 D11.8-2)。
+
+> 锚定测试:`conformance/workspace/repro/src/main.rx`(G-M6-1 workspace 根入口样例);`ci/offline_rebuild_repro.py`(两次 build 逐字节一致 + 篡改红绿门);`milestones/m6/offline_rebuild_evidence_schema.json`(证据 schema)。
+
+---
+
 ## 错误码引用汇总
 
 | 错误码 | 含义 | 条款 |
@@ -241,8 +318,10 @@ deps           = ["<name>", ...]      # 排序后的直接依赖名
 | RX7007 | rurix.lock 不一致(--locked 下重解析图 ≠ 入库 lock) | RXS-0092 |
 | RX7008 | 内容树 digest 不符(vendor 内容 SHA-256 ≠ lock 记录) | RXS-0093 |
 | RX7009 | 依赖来源不可达(--offline 需网无缓存 / path 目标缺失) | RXS-0090 / RXS-0094 |
+| RX7010 | rx test 测试发现/签名错误(无测试 / main 冲突 / 参数或返回类型不合法) | RXS-0095 |
+| RX7011 | rx test 子进程执行失败(编译失败 / spawn 失败 / 测试进程非零或异常终止) | RXS-0095 |
 
-含义以 [../registry/error_codes.json](../registry/error_codes.json) 为唯一事实源,本表仅引用。RX7001/RX7002 已于 M4.2/M5.3 分配,RX7003/RX7004 于 M6.1 分配。RX7005 ~ RX7009 为 7xxx 链接/工具链段位包管理诊断(07 §5 段位语义,工具链类归 7xxx 续接),**spec 先行引用,正式分配于 M6.2 实现 WP**(registry revision_log 留痕,编号不复用、含义冻结)。
+含义以 [../registry/error_codes.json](../registry/error_codes.json) 为唯一事实源,本表仅引用。RX7001/RX7002 已于 M4.2/M5.3 分配,RX7003/RX7004 于 M6.1 分配。RX7005 ~ RX7009 为 7xxx 链接/工具链段位包管理诊断(07 §5 段位语义,工具链类归 7xxx 续接),**spec 先行引用,正式分配于 M6.2 实现 WP**(registry revision_log 留痕,编号不复用、含义冻结)。RX7010/RX7011 为 7xxx 链接/工具链段位 `rx test` 诊断,**spec 先行引用,正式分配于 M6.3 实现 WP**。
 
 ## 修订记录
 
@@ -250,3 +329,4 @@ deps           = ["<name>", ...]      # 排序后的直接依赖名
 |---|---|---|---|
 | v1.0 | 2026-06-15 | 初版:RXS-0083 ~ RXS-0088(M6.1 rx CLI 子命令语义面首批:总入口与子命令分发 + 退出码约定 / build / run / check / fmt 收编 RD-005 / bench 收编 RD-003;07 §2 §6 §9 单一前端 + 08 §7 D-239 rx CLI + BENCH_PROTOCOL §3 已锁定决策的条款化,M6 契约 D-M6-1 spec 先行)。错误码汇总表登记 RX7003/RX7004(spec 先行引用,实现 WP 正式分配,7xxx 续接);包管理 manifest/lock 格式条款(M6.2)与 LSP 能力面条款(M6.4)续写本文件 | Direct |
 | v1.1 | 2026-06-15 | 续写 RXS-0089 ~ RXS-0094(M6.2 包管理 manifest/lock/vendor:rurix.toml 清单格式与声明式无 build.rs / 依赖三来源 path·git·archive 解析规则 / 依赖解析图与 feature additive-v1 加性合一(unification="selected")+ 冲突检测 / rurix.lock 精确解析图格式 / 内容树规范化 SHA-256 / vendor 与离线解析路径 --locked·--offline;09 §7.1/§7.2 已锁定决策 D-308~D-311 的条款化,M6 契约 D-M6-2 / G-M6-1 spec 先行)。错误码汇总表登记 RX7005 ~ RX7009(spec 先行引用,实现 WP 正式分配,7xxx 续接);registry sumdb D-312 不触碰。LSP 能力面条款(M6.4)续写本文件 | Direct |
+| v1.2 | 2026-06-15 | 续写 RXS-0095 ~ RXS-0097(M6.3 rx test 子进程隔离 + workspace members 多包 + G-M6-1 三包离线重建逐字节复现门:顶层 `#[test]`/`#[test(gpu)]` 签名与逐测试子进程 harness / `[workspace].members` 进入单根 lock 图 / `rx build --locked --offline` reproducible profile 两次 host EXE SHA-256 一致且 lock/vendor 不改写;14 §6 / 09 §7.1§7.2 / M6 契约 D-M6-3·G-M6-1 的条款化)。错误码汇总表登记 RX7010/RX7011(spec 先行引用,实现 WP 正式分配,7xxx 续接) | Direct |

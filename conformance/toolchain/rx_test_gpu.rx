@@ -1,0 +1,7 @@
+//@ spec: RXS-0095
+// #[test(gpu)] is a classification and subprocess-isolation contract in M6.3.
+
+#[test(gpu)]
+fn gpu_marked_smoke() -> i32 {
+    0
+}

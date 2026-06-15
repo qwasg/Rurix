@@ -1,0 +1,10 @@
+[package]
+name = "repro_app"
+version = "0.1.0"
+
+[workspace]
+members = ["pathdep"]
+
+[dependencies]
+gitdep = { git = "https://example.invalid/rurix/gitdep.git", rev = "0123456789abcdef0123456789abcdef01234567" }
+archdep = { archive = "https://example.invalid/rurix/archdep.tar.gz", sha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
