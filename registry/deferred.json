@@ -41,9 +41,10 @@
       "reason": "M0 期无 rx CLI;协议先以脚本形态固化,避免阻塞证据通道建设",
       "backfill_condition": "M6 工具链里程碑(rx CLI 全核心子命令,11 §3 M6)时收编;收编后 harness 脚本退役并在本条目 close 时留痕",
       "owner_milestone": "M6",
-      "status": "open",
+      "status": "inherited",
       "history": [
-        { "date": "2026-06-11", "event": "登记于 M0 契约 out-of-scope", "evidence": "milestones/m0/M0_CONTRACT.md §2.2" }
+        { "date": "2026-06-11", "event": "登记于 M0 契约 out-of-scope", "evidence": "milestones/m0/M0_CONTRACT.md §2.2" },
+        { "date": "2026-06-15", "event": "M6 开工承接(open→inherited,owner_milestone M6 不变):rx bench 工具化由 M6 D-M6-1/G-M6-4 落地——M5 bench harness 脚本(bench/*.py)协议收编进 rx bench(复用 BENCH_PROTOCOL §3:L0 锁频前置 / 三次进程级独立运行 / trimmed mean),收编后 harness 脚本退役。close 留痕待 rx bench 收编完结(M6.1)", "evidence": "milestones/m6/M6_CONTRACT.md §6 / M6_PLAN.md §1" }
       ]
     },
     {
@@ -52,9 +53,10 @@
       "reason": "M1 parser 仅预留事件流接口(07 §9);完整无损树服务于 LSP 增量细化,M1 期无消费者",
       "backfill_condition": "M6 LSP MVP 开工时评估接通;若 LSP MVP 按 07 §9 容忍'保存时全量 body 重查询'则可继续推迟,处置留痕。代码侧 // STUB(RD-004) 双侧标注",
       "owner_milestone": "M6",
-      "status": "open",
+      "status": "inherited",
       "history": [
-        { "date": "2026-06-11", "event": "登记于 M1 契约 out-of-scope", "evidence": "milestones/m1/M1_CONTRACT.md §2.2" }
+        { "date": "2026-06-11", "event": "登记于 M1 契约 out-of-scope", "evidence": "milestones/m1/M1_CONTRACT.md §2.2" },
+        { "date": "2026-06-15", "event": "M6 开工承接(open→inherited,owner_milestone M6 不变):无损语法树通道由 M6 D-M6-4 在 LSP MVP 开工时评估接通——若按 07 §9 容忍'保存时全量 body 重查询'则继续推迟,接通/推迟处置随 M6.4 留痕。代码侧 // STUB(RD-004) 双侧标注。非 M6 验收门", "evidence": "milestones/m6/M6_CONTRACT.md §6 / M6_PLAN.md §4" }
       ]
     },
     {
@@ -63,9 +65,10 @@
       "reason": "M1 仅交付雏形(语法定型即跟进防风格漂移,11 §3 M1;验收只到幂等门 G-M1-5);完整工具化依赖 rx CLI(M6)",
       "backfill_condition": "M6 rx CLI 全核心子命令交付时收编(11 §3 M6);收编后雏形形态退役并在本条目 close 时留痕",
       "owner_milestone": "M6",
-      "status": "open",
+      "status": "inherited",
       "history": [
-        { "date": "2026-06-11", "event": "登记于 M1 契约 out-of-scope", "evidence": "milestones/m1/M1_CONTRACT.md §2.2" }
+        { "date": "2026-06-11", "event": "登记于 M1 契约 out-of-scope", "evidence": "milestones/m1/M1_CONTRACT.md §2.2" },
+        { "date": "2026-06-15", "event": "M6 开工承接(open→inherited,owner_milestone M6 不变):rx fmt 完整工具化由 M6 D-M6-1/G-M6-4 落地——雏形格式器收编进 rx fmt,ci/check_fmt_idempotent.py 既有幂等门延续到 rx fmt(全语料二次格式化 0 diff),收编后雏形形态退役。close 留痕待 rx fmt 收编完结(M6.1)", "evidence": "milestones/m6/M6_CONTRACT.md §6 / M6_PLAN.md §1" }
       ]
     },
     {
@@ -89,7 +92,8 @@
       "history": [
         { "date": "2026-06-13", "event": "执行期登记于 M3.4 WP3(M3 契约 deferred_refs:[] 开工无预造,执行期按需登记 RD-###);const eval 解释器核心已交付,const 泛型值单态化随 M4+", "evidence": "milestones/m3/M3_CONTRACT.md §6 / M3_PLAN.md §4 / spec/consteval.md RXS-0064" },
         { "date": "2026-06-14", "event": "M4 close 时仍 open(M4 device codegen 作用面为 SAXPY 雏形子集,未触发 const 泛型值单态化,非 M4 验收门);M5 承接(inherited):随 device codegen 扩展(views 子 view 长度类 const 泛型)评估接通,spec/consteval.md RXS-0064 已条款化,回填仅补实现侧。非 M5 验收门,接通与否执行期处置留痕", "evidence": "milestones/m4/M4_CONTRACT.md §6 §8.1 / milestones/m5/M5_CONTRACT.md §6" },
-        { "date": "2026-06-15", "event": "M5 close-out 处置(维持 inherited,owner_milestone M5→M6 顺延):M5 device codegen 扩展(views/shared+barrier/scoped atomics/libdevice 基元 kernel)作用面未触发 const 泛型值运行期单态化需求(自研 kernel 不依赖 turbofish const 实参实例值代入),非 M5 验收门,M5 未接通;承接顺延至 M6 工具链里程碑随 device codegen 进一步扩展评估接通,RXS-0064 语义条款不变,回填仅补实现侧", "evidence": "milestones/m5/M5_CONTRACT.md §8.10 / M5_PLAN.md §4" }
+        { "date": "2026-06-15", "event": "M5 close-out 处置(维持 inherited,owner_milestone M5→M6 顺延):M5 device codegen 扩展(views/shared+barrier/scoped atomics/libdevice 基元 kernel)作用面未触发 const 泛型值运行期单态化需求(自研 kernel 不依赖 turbofish const 实参实例值代入),非 M5 验收门,M5 未接通;承接顺延至 M6 工具链里程碑随 device codegen 进一步扩展评估接通,RXS-0064 语义条款不变,回填仅补实现侧", "evidence": "milestones/m5/M5_CONTRACT.md §8.10 / M5_PLAN.md §4" },
+        { "date": "2026-06-15", "event": "M6 开工承接确认(维持 inherited,owner_milestone M6):M6 工具链与包管理(rx CLI / 包管理 / LSP MVP)作用面随 device codegen 进一步扩展评估接通 const 泛型值运行期单态化,RXS-0064 语义条款不变,回填仅补实现侧;**非 M6 验收门**,接通与否执行期处置留痕", "evidence": "milestones/m6/M6_CONTRACT.md §6 / M6_PLAN.md §0" }
       ]
     }
   ],
@@ -98,6 +102,7 @@
     { "version": "v1.1", "date": "2026-06-11", "change": "追加 RD-004 ~ RD-006(M1 契约配套;既有条目 0-byte)" },
     { "version": "v1.2", "date": "2026-06-13", "change": "追加 RD-007(M3.4 WP3 执行期登记:const 泛型值运行期单态化随 M4+;既有条目 0-byte)" },
     { "version": "v1.3", "date": "2026-06-14", "change": "M5 开工承接留痕(只追加 history,既有 history 行 0-byte):RD-002 open→inherited(owner_milestone M5 不变,M5 D-M5-5/G-M5-1 落地 L1+L2 全量微基准);RD-007 open→inherited(owner_milestone M4→M5,M4 close 时未触发 const 泛型值单态化,M5 随 device codegen 扩展评估接通,非 M5 验收门)" },
-    { "version": "v1.4", "date": "2026-06-15", "change": "M5 close-out 留痕(只追加 history,既有 history 行 0-byte):RD-002 inherited→closed(M5 D-M5-5/G-M5-1 兑现 L1+L2 全量 measured_local,三比值 ≥0.90,budget_eval --strict PASS);RD-007 维持 inherited、owner_milestone M5→M6 顺延(M5 device codegen 扩展未触发 const 泛型值单态化,非 M5 验收门,承接顺延 M6)" }
+    { "version": "v1.4", "date": "2026-06-15", "change": "M5 close-out 留痕(只追加 history,既有 history 行 0-byte):RD-002 inherited→closed(M5 D-M5-5/G-M5-1 兑现 L1+L2 全量 measured_local,三比值 ≥0.90,budget_eval --strict PASS);RD-007 维持 inherited、owner_milestone M5→M6 顺延(M5 device codegen 扩展未触发 const 泛型值单态化,非 M5 验收门,承接顺延 M6)" },
+    { "version": "v1.5", "date": "2026-06-15", "change": "M6 开工承接留痕(只追加 history,既有 history 行 0-byte):RD-003 open→inherited(owner_milestone M6 不变,rx bench 工具化由 M6 D-M6-1/G-M6-4 收编 BENCH_PROTOCOL §3 协议,M5 harness 脚本退役);RD-005 open→inherited(owner_milestone M6 不变,rx fmt 完整工具化由 M6 D-M6-1/G-M6-4 收编进 rx CLI,幂等门延续);RD-004 open→inherited(owner_milestone M6 不变,无损语法树通道由 M6 D-M6-4 在 LSP MVP 开工时评估接通,非验收门);RD-007 维持 inherited、owner_milestone M6(M6 随 device codegen 进一步扩展评估接通,非验收门,执行期处置留痕)" }
   ]
 }

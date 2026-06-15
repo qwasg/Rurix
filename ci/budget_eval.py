@@ -193,6 +193,28 @@ def eval_counter(entry: dict, strict: bool) -> None:
             if doc.get("redistribution_surface_empty") is True:
                 n += 1
         count_or_gate(eid, n, 1, "份再分发面为空的审计报告", "审计证据回填前为正常状态,CI_GATES §4 第 2 项", strict)
+    elif eid == "m6.counter.rx_cli_core_subcommands":
+        # rx CLI 核心子命令端到端覆盖数(契约 G-M6-3);rx CLI 落地前 evaluator
+        # 计数源(子命令端到端冒烟通过数)不存在 → 0 → 建设期 normal SKIP /
+        # close-out strict FAIL,对齐 M4/M5 计数器先例。落地时回填计数源。
+        n = 0
+        count_or_gate(eid, n, 6, "个 rx CLI 核心子命令端到端", "M6.1/M6.3 rx CLI 落地前为正常状态,契约 G-M6-3", strict)
+    elif eid == "m6.counter.offline_rebuild_reproducible":
+        # 三包 workspace 离线重建逐字节可复现(契约 G-M6-1,09 §7.1);
+        # 计数 = evidence/offline_rebuild_*.json 中 reproducible=true 的报告数。
+        # M6.3 复现门接入前为 0 → 建设期 normal SKIP / close-out strict FAIL。
+        n = 0
+        for f in (ROOT / "evidence").glob("offline_rebuild_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("reproducible") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份逐字节可复现的离线重建证据", "M6.3 离线重建复现门接入前为正常状态,契约 G-M6-1", strict)
+    elif eid == "m6.counter.lsp_capabilities":
+        # LSP MVP 能力面覆盖数(契约 G-M6-2/G-M6-5,07 §9);LSP server 落地前
+        # evaluator 计数源(能力面往返冒烟通过数)不存在 → 0 → 建设期 normal SKIP /
+        # close-out strict FAIL。落地时回填计数源。
+        n = 0
+        count_or_gate(eid, n, 5, "项 LSP MVP 能力面", "M6.4 LSP server 落地前为正常状态,契约 G-M6-2", strict)
     elif eid == "m1.counter.spec_clause_test_anchoring":
         # 条款 ↔ 测试锚定由 traceability 矩阵工具核对(M1.4 交付物,契约 G-M1-4);
         # 矩阵产物落地前 normal skip / strict FAIL,落地后委托其自身校验结果。
