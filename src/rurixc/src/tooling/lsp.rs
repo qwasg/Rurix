@@ -117,7 +117,7 @@ fn dispatch_request(
 ) -> Vec<String> {
     match method {
         "initialize" => vec![format!(
-            "{{\"jsonrpc\":\"2.0\",\"id\":{},\"result\":{{\"capabilities\":{{\"textDocumentSync\":1,\"completionProvider\":{{\"triggerCharacters\":[\".\"]}},\"definitionProvider\":true,\"referencesProvider\":true,\"documentHighlightProvider\":true,\"renameProvider\":true}}}}}}",
+            "{{\"jsonrpc\":\"2.0\",\"id\":{},\"result\":{{\"capabilities\":{{\"textDocumentSync\":1,\"completionProvider\":{{\"triggerCharacters\":[\".\"]}},\"referencesProvider\":true,\"documentHighlightProvider\":true,\"renameProvider\":true}}}}}}",
             id
         )],
         "textDocument/completion" => {
