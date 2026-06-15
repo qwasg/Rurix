@@ -27,16 +27,16 @@ use std::collections::{HashMap, HashSet};
 
 use crate::ast::{FnColor, LitKind};
 use crate::diag::ErrorCode;
-use crate::hir::{self, Body, BodyId, Crate, DefId, Expr, ExprKind, LocalId, PatKind, Res, Stmt};
+use crate::hir::{
+    self, Body, BodyId, Crate, DefId, DeviceIntrinsic, Expr, ExprKind, LocalId, PatKind, Res, Stmt,
+};
 use crate::query::QueryCtx;
 use crate::span::Span;
 use crate::ty::Ty;
+use crate::typeck::TypeckResults;
 
 pub const E_SHARED_BARRIER: ErrorCode = ErrorCode(3009); // RX3009(RXS-0079)
 pub const E_DEVICE_CONSTRAINT: ErrorCode = ErrorCode(6005); // RX6005(RXS-0071/0079)
-
-/// block barrier 方法名(`block.sync()`,RXS-0072/0079;对齐 [`crate::coloring`])。
-const BARRIER_METHOD: &str = "sync";
 
 /// 全 crate shared+barrier 一致性入口(provider:[`QueryCtx::check_shared_barrier`])。
 pub fn check_crate(cx: &QueryCtx<'_>) {
@@ -54,7 +54,13 @@ pub fn check_crate(cx: &QueryCtx<'_>) {
         if shared.is_empty() {
             continue; // 无 `shared let`:本 body 无一致性义务。
         }
-        let checker = Checker { cx, body, shared };
+        let tcr = cx.check_body(body_id);
+        let checker = Checker {
+            cx,
+            body,
+            shared,
+            tcr: &tcr,
+        };
         let mut state: State = HashMap::new();
         checker.walk_expr(&body.value, &mut state, false);
     }
@@ -143,6 +149,8 @@ struct Checker<'a, 'q> {
     body: &'a Body,
     /// `shared let` 局部集(LocalId.0)。
     shared: HashSet<u32>,
+    /// 本 body 的 typeck 结果(真实 barrier 判定经 `device_calls`,非方法名猜测)。
+    tcr: &'a TypeckResults,
 }
 
 impl Checker<'_, '_> {
@@ -230,17 +238,18 @@ impl Checker<'_, '_> {
 
     fn walk_expr(&self, e: &Expr, state: &mut State, in_unsafe: bool) {
         match &e.kind {
-            ExprKind::MethodCall {
-                receiver,
-                method,
-                args,
-            } => {
+            ExprKind::MethodCall { receiver, args, .. } => {
                 self.walk_expr(receiver, state, in_unsafe);
                 for a in args {
                     self.walk_expr(a, state, in_unsafe);
                 }
-                // `block.sync()` barrier:同步点 → 全 shared 位置转 Clean。
-                if method == BARRIER_METHOD {
+                // 真实 block barrier(typeck `DeviceIntrinsic::Barrier`,非按 `.sync()`
+                // 方法名猜测):同步点 → 全 shared 位置转 Clean。用户自定义 sync() 无
+                // device_calls 记录,不清同步状态(不被误当 barrier)。
+                if matches!(
+                    self.tcr.device_calls.get(&e.hir_id),
+                    Some(DeviceIntrinsic::Barrier)
+                ) {
                     state.clear();
                 }
             }
@@ -527,5 +536,48 @@ mod tests {
         // host fn 非 device 上下文:shared+barrier 扩展 pass 不实施(消费着色)。
         let src = "fn h(i: usize) {\n    shared let tile: [f32; 256];\n    tile[i] = 1.0;\n    let _ = tile[1];\n}\nfn main() {}";
         assert!(check(src).is_empty(), "{:?}", check(src));
+    }
+
+    //@ spec: RXS-0079
+    #[test]
+    fn user_defined_sync_does_not_synchronize_shared() {
+        // 用户自定义 sync()(非 block barrier)不清同步状态:写后经 user sync 仍未同步,
+        // 跨 lane 读报 RX3009(barrier 判定来自 typeck device_calls,非方法名匹配)。
+        let src = "struct Gate {}\nimpl Gate {\n    device fn sync(&self) {}\n}\nkernel fn k(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>, g: Gate) {\n    shared let tile: [f32; 256];\n    let i = t.thread_index();\n    tile[i] = src[i];\n    g.sync();\n    dst[0] = tile[1];\n}\nfn main() {}";
+        assert_eq!(check(src), vec![3009]);
+    }
+
+    //@ spec: RXS-0079
+    #[test]
+    fn two_shared_arrays_tracked_independently_clean() {
+        // 边界 clean 回归(锁定现状):两个 shared 数组各自 per-Local 追踪互不串扰,
+        // 单个 block.sync() 同步全部 shared 写前沿;barrier 后两数组的跨 lane 读均干净。
+        let src = format!(
+            "{HEAD}    shared let a: [f32; 256];\n    shared let b: [f32; 256];\n    let i = t.thread_index();\n    a[i] = src[i];\n    b[i] = src[i];\n    block.sync();\n    dst[0] = a[1] + b[1];\n}}\nfn main() {{}}"
+        );
+        assert!(check(&src).is_empty(), "{:?}", check(&src));
+    }
+
+    //@ spec: RXS-0079
+    #[test]
+    fn second_phase_with_barrier_is_clean() {
+        // 边界 clean 回归(锁定现状):barrier 复位写前沿后第二阶段写入,再经 barrier
+        // 同步,跨 lane 读干净。与 reject 反例 second_phase_unsynced(第二阶段缺 sync →
+        // RX3009,tests/ui/shared/)互为对照,锁定 barrier 跨阶段复位语义。
+        let src = format!(
+            "{HEAD}    shared let tile: [f32; 256];\n    let i = t.thread_index();\n    tile[i] = src[i];\n    block.sync();\n    let _x = tile[0];\n    tile[i] = src[i];\n    block.sync();\n    dst[0] = tile[1];\n}}\nfn main() {{}}"
+        );
+        assert!(check(&src).is_empty(), "{:?}", check(&src));
+    }
+
+    //@ spec: RXS-0079
+    #[test]
+    fn second_phase_unsynced_is_rx3009() {
+        // 单测级对照(↔ tests/ui/shared/second_phase_unsynced):第二阶段写后缺 barrier,
+        // 跨 lane 读 → RX3009,保持真实 reject 不被本轮 clean 回归放松。
+        let src = format!(
+            "{HEAD}    shared let tile: [f32; 256];\n    let i = t.thread_index();\n    tile[i] = src[i];\n    block.sync();\n    tile[i] = src[i];\n    dst[0] = tile[1];\n}}\nfn main() {{}}"
+        );
+        assert_eq!(check(&src), vec![3009]);
     }
 }

@@ -179,12 +179,9 @@ fn holder_closures(body: &Body, loans: &[Loan]) -> Vec<Vec<LocalIdx>> {
                 if !dest.proj.is_empty() {
                     continue;
                 }
-                if let Rvalue::Use(op) = rv
-                    && let Some(p) = op.place()
-                    && p.proj.is_empty()
-                {
+                for src in holder_flow_sources(body, dest, rv) {
                     for s in sets.iter_mut() {
-                        if s.contains(&p.local.0) && s.insert(dest.local.0) {
+                        if s.contains(&src.0) && s.insert(dest.local.0) {
                             changed = true;
                         }
                     }
@@ -200,6 +197,46 @@ fn holder_closures(body: &Body, loans: &[Loan]) -> Vec<Vec<LocalIdx>> {
         .collect()
 }
 
+/// 引用值流入 `dest`(空投影)的源 local。覆盖三类(RXS-0057 保守口径:引用
+/// 藏进 aggregate / tuple / field projection 仍被追踪):
+/// - 整体 `Use`(Copy/Move 同一引用值);
+/// - 聚合构造(`Wrap { r }` / `(r, _)` / variant 把引用藏入 struct/tuple/variant);
+/// - 从聚合中取出引用字段(`w.r`,仅当 `dest` 本身为引用类型——避免标量字段误标)。
+fn holder_flow_sources(body: &Body, dest: &Place, rv: &Rvalue) -> Vec<LocalIdx> {
+    match rv {
+        Rvalue::Use(op) => match op.place() {
+            Some(p) if p.proj.is_empty() => vec![p.local],
+            Some(p) if is_ref_local(body, dest.local) => vec![p.local],
+            _ => Vec::new(),
+        },
+        Rvalue::Aggregate(_, ops) | Rvalue::VariantAggregate { ops, .. } => ops
+            .iter()
+            .filter_map(|o| o.place().map(|p| p.local))
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// 经返回槽逃逸的引用流源:整体 `Use`,或经聚合构造把局部引用藏入返回值
+/// (`fn f() -> Wrap { Wrap { r: &x } }` 中 `&x` 的 holder 仍判为逃逸)。
+fn escape_flow_sources(rv: &Rvalue) -> Vec<LocalIdx> {
+    match rv {
+        Rvalue::Use(op) => match op.place() {
+            Some(p) if p.proj.is_empty() => vec![p.local],
+            _ => Vec::new(),
+        },
+        Rvalue::Aggregate(_, ops) | Rvalue::VariantAggregate { ops, .. } => ops
+            .iter()
+            .filter_map(|o| o.place().map(|p| p.local))
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+fn is_ref_local(body: &Body, l: LocalIdx) -> bool {
+    matches!(body.local(l).ty, crate::ty::Ty::Ref(..))
+}
+
 /// 经返回槽 `_0` 逃逸的 local 集(直接落 `_0` 或经 `_0 = use(p)` 一/多跳传播)。
 fn escapes_to_return(body: &Body) -> BitSet {
     let mut set = BitSet::new(body.locals.len());
@@ -213,13 +250,11 @@ fn escapes_to_return(body: &Body) -> BitSet {
                 if !dest.proj.is_empty() || !set.contains(dest.local.0 as usize) {
                     continue;
                 }
-                if let Rvalue::Use(op) = rv
-                    && let Some(p) = op.place()
-                    && p.proj.is_empty()
-                    && !set.contains(p.local.0 as usize)
-                {
-                    set.insert(p.local.0 as usize);
-                    changed = true;
+                for src in escape_flow_sources(rv) {
+                    if !set.contains(src.0 as usize) {
+                        set.insert(src.0 as usize);
+                        changed = true;
+                    }
                 }
             }
         }
@@ -660,6 +695,88 @@ mod tests {
             "fn id(r: &i32) -> &i32 { r }\nfn main() {\n    let x = 1;\n    let _r = id(&x);\n}",
         );
         assert!(codes.is_empty(), "{codes:?}");
+    }
+
+    //@ spec: RXS-0061
+    #[test]
+    fn dangling_reference_hidden_in_aggregate_detected() {
+        // 引用藏进 struct aggregate 后经返回槽逃逸:holder/escape 须穿透 aggregate
+        let codes = check(
+            "struct Wrap { r: &i32 }\nfn dangle() -> Wrap {\n    let x = 1;\n    Wrap { r: &x }\n}\nfn main() {\n    let _w = dangle();\n}",
+        );
+        assert_eq!(codes, vec![4006]);
+    }
+
+    //@ spec: RXS-0060
+    #[test]
+    fn write_owner_while_borrow_hidden_in_aggregate_detected() {
+        // 引用藏进 struct 字段后,原值在 holder(经 aggregate)活跃期被写 → RX4005
+        let codes = check(
+            "struct Wrap { r: &i32 }\nfn read(w: Wrap) -> i32 { *w.r }\nfn main() {\n    let mut x = 1;\n    let w = Wrap { r: &x };\n    x = 5;\n    let _b = read(w);\n}",
+        );
+        assert_eq!(codes, vec![4005]);
+    }
+
+    //@ spec: RXS-0061
+    #[test]
+    fn reference_hidden_in_tuple_does_not_dangle_for_param() {
+        // 参数引用藏进元组并返回:指代物活过本次调用,非悬垂(不误报)
+        let codes = check(
+            "fn wrap(r: &i32) -> (&i32, i32) { (r, 0) }\nfn main() {\n    let x = 1;\n    let _t = wrap(&x);\n}",
+        );
+        assert!(codes.is_empty(), "{codes:?}");
+    }
+
+    //@ spec: RXS-0060
+    #[test]
+    fn reading_non_ref_field_does_not_extend_borrow() {
+        // 回归(holder_flow_sources 字段读传播的非引用类型门控):聚合 `Pair` 藏
+        // 一笔 `&x`(holder 闭包含 `p`),随后读其**非引用**字段 `p.n`(i32)。该读
+        // 不得把 loan 活跃期经 `_v` 延长(`is_ref_local(dest)` 门控):`p.r` 此后
+        // 不再使用,`x = 5` 时 loan 已死 → 不误报 RX4005(否则字段读过近似误延借用)。
+        let codes = check(
+            "struct Pair { r: &i32, n: i32 }\nfn main() {\n    let mut x = 1;\n    let p = Pair { r: &x, n: 7 };\n    let _v = p.n;\n    x = 5;\n    let _u = _v + 1;\n}",
+        );
+        assert!(codes.is_empty(), "{codes:?}");
+    }
+
+    // -- device MIR 安全门(kernel/device fn 借用冲突,M3 安全检查 device 扩展) --
+
+    /// 经 device 安全门(check_device_safety)对 device MIR 跑 move+borrow。
+    fn check_device(src: &str) -> Vec<u16> {
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(src, SourceId(0), Edition::Rx0, &diag);
+        cx.check_crate();
+        cx.check_coloring();
+        assert!(diag.emitted().is_empty(), "前置诊断: {:?}", diag.emitted());
+        cx.check_device_safety();
+        let mut codes: Vec<u16> = diag
+            .emitted()
+            .iter()
+            .filter_map(|d| d.code.map(|c| c.0))
+            .collect();
+        codes.sort_unstable();
+        codes
+    }
+
+    //@ spec: RXS-0060
+    #[test]
+    fn kernel_move_while_borrowed_detected() {
+        // kernel 体内借用活跃期 move 被借所有者 → RX4005(device MIR 安全门)
+        let codes = check_device(
+            "struct T { id: i32 }\ndevice fn eat(t: T) -> i32 { t.id }\ndevice fn peek(r: &T) -> i32 { r.id }\nkernel fn k() {\n    let t = T { id: 1 };\n    let r = &t;\n    let _a = eat(t);\n    let _b = peek(r);\n}\nfn main() {}",
+        );
+        assert_eq!(codes, vec![4005]);
+    }
+
+    //@ spec: RXS-0061
+    #[test]
+    fn device_fn_dangling_reference_detected() {
+        // device fn 返回局部引用 → RX4006(device MIR 安全门)
+        let codes = check_device(
+            "device fn dangle() -> &i32 {\n    let x = 1;\n    &x\n}\nkernel fn k() {\n    let _r = dangle();\n}\nfn main() {}",
+        );
+        assert_eq!(codes, vec![4006]);
     }
 
     // -- query 接入:memo 命中/纯函数纪律 ------------------------------------

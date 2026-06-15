@@ -62,6 +62,9 @@ pub struct QueryCtx<'a> {
     /// const 求值强制检查已跑标记(RXS-0065;memo 防重复诊断)。
     checked_consteval: Cell<bool>,
     mir: OnceCell<Rc<Vec<crate::mir::Body>>>,
+    /// device MIR(`kernel fn` 为根;memo 化以保 lowering 诊断单次发射——
+    /// check_moves/check_borrows 与 device codegen 共享同一份,避免重复诊断)。
+    device_mir: OnceCell<Rc<Vec<crate::mir::Body>>>,
     // ---- 计量(self-profile 布点,07 §6) ----
     hits: Cell<u64>,
     misses: Cell<u64>,
@@ -102,6 +105,7 @@ impl<'a> QueryCtx<'a> {
             const_in_progress: RefCell::new(std::collections::HashSet::new()),
             checked_consteval: Cell::new(false),
             mir: OnceCell::new(),
+            device_mir: OnceCell::new(),
             hits: Cell::new(0),
             misses: Cell::new(0),
             tbir_bodies: Cell::new(0),
@@ -323,7 +327,8 @@ impl<'a> QueryCtx<'a> {
     }
 
     /// move/init 数据流检查(RXS-0053/RXS-0054;MIR 后、codegen 前强制;
-    /// provider:[`crate::move_check::check_body`] 对全部单态化实例)。
+    /// provider:[`crate::move_check::check_body`] 对全部单态化实例)。host MIR
+    /// (`main` 可达);device MIR 的 move/borrow 安全检查见 [`Self::check_device_safety`]。
     pub fn check_moves(&self) {
         if self.checked_moves.replace(true) {
             self.hit();
@@ -337,7 +342,8 @@ impl<'a> QueryCtx<'a> {
     }
 
     /// NLL 借用检查(RXS-0057~0061;MIR 后、codegen 前,move/init 之后强制;
-    /// provider:[`crate::borrow_check::check_body`] 对全部单态化实例)。
+    /// provider:[`crate::borrow_check::check_body`] 对全部单态化实例)。host MIR;
+    /// device MIR 的借用安全检查见 [`Self::check_device_safety`]。
     pub fn check_borrows(&self) {
         if self.checked_borrows.replace(true) {
             self.hit();
@@ -346,6 +352,30 @@ impl<'a> QueryCtx<'a> {
         self.miss();
         let mir = self.mir_crate();
         for body in mir.iter() {
+            crate::borrow_check::check_body(self.diag, body);
+        }
+    }
+
+    /// device MIR 安全门(M3 安全检查 device 扩展):对 `kernel`/`device fn` 为根
+    /// 的 device MIR 跑 move/init(RXS-0054:kernel use-after-move → RX4001)与 NLL
+    /// 借用检查(RXS-0057~0061:kernel borrow 冲突 → RX4005、悬垂引用 → RX4006)。
+    ///
+    /// 仅在前序检查(typeck/coloring/launch/host move·borrow/views/shared)无错时
+    /// 调用(由 driver 在 `check_shared_barrier` 之后、device codegen 之前以
+    /// `!diag.has_errors()` 把关):device MIR 只在程序"可达 device codegen"时构建,
+    /// 不对已因 views/shared/着色等报错的程序追加 device MIR lowering 噪声(RX6001 等),
+    /// 与既有 reject 用例的诊断面保持一致。device MIR memo 化,与 device codegen 共享。
+    ///
+    /// 该 `!has_errors()` 把关是阶段化中止(fail-fast),非语义放行:若 host
+    /// move/borrow 已报错,本门在当次编译被跳过,但程序整体仍被拒,kernel 体内的
+    /// 真实 use-after-move 等在 host 错误修复后的下一次编译经本门浮现——非漏报
+    /// (回归:move_check::tests::host_error_defers_kernel_safety_but_does_not_hide_it)。
+    pub fn check_device_safety(&self) {
+        let device_mir = self.device_mir_crate();
+        for body in device_mir.iter() {
+            crate::move_check::check_body(self.diag, body);
+        }
+        for body in device_mir.iter() {
             crate::borrow_check::check_body(self.diag, body);
         }
     }
@@ -412,10 +442,19 @@ impl<'a> QueryCtx<'a> {
     }
 
     /// device MIR(M4.2,RXS-0070;`kernel fn` 为根的 device 调用图收集;
-    /// provider:[`crate::mir_build::build_device_crate`])。不缓存(device
-    /// codegen 单次消费;host `main` 可达性收集与之独立)。
-    pub fn device_mir_crate(&self) -> Vec<crate::mir::Body> {
-        crate::mir_build::build_device_crate(self)
+    /// provider:[`crate::mir_build::build_device_crate`])。memo 化:lowering
+    /// 诊断(RX6001 等作用面外构造)只在首算发射一次,move/borrow 检查(M3 安全门
+    /// device 扩展)与 device codegen 共享同一份,避免重复诊断;host `main` 可达性
+    /// 收集与之独立。
+    pub fn device_mir_crate(&self) -> Rc<Vec<crate::mir::Body>> {
+        if let Some(m) = self.device_mir.get() {
+            self.hit();
+            return Rc::clone(m);
+        }
+        self.miss();
+        let m = Rc::new(crate::mir_build::build_device_crate(self));
+        let _ = self.device_mir.set(Rc::clone(&m));
+        m
     }
 
     /// 模块/函数级失效:清除指定 body 的类型检查 memo(RXS-0098)。

@@ -28,6 +28,7 @@ pub const E_LAUNCH_NON_KERNEL: ErrorCode = ErrorCode(3004); // RX3004(RXS-0074)
 pub const E_LAUNCH_DIM_MISMATCH: ErrorCode = ErrorCode(3005); // RX3005(RXS-0074)
 pub const E_LAUNCH_CONTEXT_BRAND: ErrorCode = ErrorCode(3006); // RX3006(RXS-0074)
 pub const E_MISMATCHED_TYPES: ErrorCode = ErrorCode(2001); // RX2001(复用,RXS-0074 参数契约)
+pub const E_ARG_COUNT_MISMATCH: ErrorCode = ErrorCode(2003); // RX2003(复用,RXS-0074 参数个数契约)
 
 const LAUNCH_METHOD: &str = "launch";
 
@@ -136,6 +137,21 @@ impl Walker<'_, '_> {
             .filter(|t| !self.is_thread_ctx_ty(t))
             .cloned()
             .collect();
+        // 参数个数契约(RXS-0074 参数契约,复用 RX2003 实参数目不符):launch 参数
+        // 元组元素数须与 kernel 形参数(剔除 ThreadCtx)一致。先于逐元素类型核对,
+        // 避免 zip 截断把"少传/多传参数"静默放过(漏报);形态完整才裁决(不级联)。
+        if params.len() != elems.len() {
+            self.diag()
+                .struct_error(E_ARG_COUNT_MISMATCH, "typeck.arg_count_mismatch")
+                .arg("expected", params.len().to_string())
+                .arg("found", elems.len().to_string())
+                .span_label(
+                    arg_tuple.span,
+                    format!("expected {} argument(s)", params.len()),
+                )
+                .emit();
+            return;
+        }
         for (param, elem) in params.iter().zip(elems.iter()) {
             let Some(arg_ty) = self.tcr.expr_ty.get(&elem.hir_id) else {
                 continue;
@@ -192,6 +208,12 @@ impl Walker<'_, '_> {
     }
 
     /// 表达式是否为 fn item 的值引用(launch kernel 引用判定)。
+    ///
+    /// 仅认 `Res::Def` 直引 fn 项:经局部变量 / fn-pointer 形参 / 路径重导出等
+    /// 间接引用形态 → `None` → 调用方容忍跳过(不报 RX3004)。这是 RXS-0075
+    /// "证不出即容忍、不级联"的 deliberate 取舍(非漏报):kernel 着色契约只在
+    /// 引用可静态判定为具体 fn 项时裁决,避免对不可判定引用误报。回归见
+    /// `tests::kernel_ref_via_fn_ptr_param_is_tolerated`。
     fn fn_ref(&self, e: &Expr) -> Option<DefId> {
         match &e.kind {
             ExprKind::Res(Res::Def(d)) => {
@@ -208,6 +230,12 @@ impl Walker<'_, '_> {
         }
     }
 
+    /// 形参是否为 `ThreadCtx<DIM>` 句柄(参数契约据此剔除,不计入 launch 参数核对)。
+    ///
+    /// 仅判定容器是否为 `ThreadCtx` lang item,**不读 `DIM` 实参**:`ThreadCtx<DIM>`
+    /// 与 `GridDim`/`BlockDim` 维数的跨核对登记 RD-007(inherited),M4.3 保守检查
+    /// 仅做 grid==block,DIM 跨核对未实现(须先在 `registry/deferred.json` 走 backfill
+    /// 方可接通,不可静默实现)。回归见 `tests::threadctx_dim_not_crosschecked_rd007`。
     fn is_thread_ctx_ty(&self, t: &Ty) -> bool {
         matches!(t, Ty::Adt(d, _) if self.res.lang_items.is_thread_ctx(*d))
     }
@@ -221,6 +249,10 @@ impl Walker<'_, '_> {
         self.dim_arity(e, false)
     }
 
+    /// 仅认构造器 Call 形态(`Res::Def` 为 `GridDim`/`BlockDim` lang item):经局部
+    /// 变量等非构造器形态传入的维度 → `None` → 维度契约跳过(不报 RX3005)。RXS-0075
+    /// deliberate 容忍(非漏报):维数只在两侧均能从构造器静态读出时才比对。回归见
+    /// `tests::grid_dim_via_local_is_tolerated`。
     fn dim_arity(&self, e: &Expr, grid: bool) -> Option<usize> {
         let ExprKind::Call { callee, args } = &e.kind else {
             return None;
@@ -450,11 +482,73 @@ mod tests {
         assert_eq!(check(&src), vec![3006]);
     }
 
+    //@ spec: RXS-0074, RXS-0075
+    #[test]
+    fn launch_arg_count_mismatch_is_rx2003() {
+        // kernel saxpy 剔除 ThreadCtx 后 3 形参,launch 元组仅 2 元素 → RX2003
+        // (覆盖盖原 zip 截断静默漏报面)。
+        let src = format!(
+            "{KERNEL}fn run<C>(s: Stream<C>, out: Buffer<C, f32>, x: Buffer<C, f32>, n: usize) {{\n    s.launch(saxpy, GridDim(n), BlockDim(n), (out, x));\n}}\nfn main() {{}}"
+        );
+        assert_eq!(check(&src), vec![2003]);
+    }
+
+    //@ spec: RXS-0074, RXS-0075
+    #[test]
+    fn launch_arg_count_too_many_is_rx2003() {
+        // 多传参数(4 元素 vs 3 形参)同样拦截,不被 zip 截断放过。
+        let src = format!(
+            "{KERNEL}fn run<C>(s: Stream<C>, out: Buffer<C, f32>, x: Buffer<C, f32>, n: usize) {{\n    s.launch(saxpy, GridDim(n), BlockDim(n), (out, x, n, n));\n}}\nfn main() {{}}"
+        );
+        assert_eq!(check(&src), vec![2003]);
+    }
+
+    //@ spec: RXS-0074, RXS-0075
+    #[test]
+    fn launch_host_fn_is_rx3004() {
+        // 无着色标注 = host 着色;对 host 函数发起 launch → RX3004(callee=host)。
+        let src = "fn helper(out: ViewMut<global, f32>, x: View<global, f32>, n: usize) {}\nfn run<C>(s: Stream<C>, out: Buffer<C, f32>, x: Buffer<C, f32>, n: usize) {\n    s.launch(helper, GridDim(n), BlockDim(n), (out, x, n));\n}\nfn main() {}";
+        assert_eq!(check(src), vec![3004]);
+    }
+
     //@ spec: RXS-0075
     #[test]
     fn non_launch_method_is_ignored() {
         // 接收者非 Stream:不触发 launch 检查(不级联)
         let src = "struct S {}\nimpl S {\n    fn launch(&self) {}\n}\nfn run(s: S) {\n    s.launch();\n}\nfn main() {}";
         assert!(check(src).is_empty());
+    }
+
+    //@ spec: RXS-0075
+    #[test]
+    fn kernel_ref_via_fn_ptr_param_is_tolerated() {
+        // kernel 引用经 fn-pointer 形参(Res::Local,非 Res::Def 直引 fn 项):fn_ref
+        // 证不出具体 fn 项 → 容忍跳过,不报 RX3004。deliberate 容忍(RXS-0075)而非
+        // 漏报——着色契约只在引用可静态判定为具体 fn 项时裁决。
+        let src = "fn run<C>(s: Stream<C>, kf: fn(ViewMut<global, f32>), out: Buffer<C, f32>) {\n    s.launch(kf, GridDim(1), BlockDim(1), (out,));\n}\nfn main() {}";
+        let codes = check(src);
+        assert!(codes.is_empty(), "{codes:?}");
+    }
+
+    //@ spec: RXS-0075
+    #[test]
+    fn grid_dim_via_local_is_tolerated() {
+        // GridDim 经 `let g = GridDim(1)` 间接绑定(非构造器形态)→ grid_arity 证不出;
+        // 即便 BlockDim(1, 1) 维数为 2,维度契约也跳过、不报 RX3005。deliberate 容忍
+        // (RXS-0075)而非漏报——维数只在两侧均能从构造器静态读出时才比对。
+        let src = "kernel fn k(out: ViewMut<global, f32>, t: ThreadCtx<1>) {}\nfn run<C>(s: Stream<C>, out: Buffer<C, f32>) {\n    let g = GridDim(1);\n    s.launch(k, g, BlockDim(1, 1), (out,));\n}\nfn main() {}";
+        let codes = check(src);
+        assert!(codes.is_empty(), "{codes:?}");
+    }
+
+    //@ spec: RXS-0074
+    #[test]
+    fn threadctx_dim_not_crosschecked_rd007() {
+        // kernel 形参 ThreadCtx<2> 但 GridDim(1)/BlockDim(1) 维数为 1:grid==block 通过,
+        // ThreadCtx<DIM> 与 grid/block 维数的跨核对未实现(RD-007 inherited)→ 不报。
+        // 钉死 deliberate 缺口:该跨核对若实现须先在 deferred.json 走 backfill(不可静默接通)。
+        let src = "kernel fn k(out: ViewMut<global, f32>, t: ThreadCtx<2>) {}\nfn run<C>(s: Stream<C>, out: Buffer<C, f32>) {\n    s.launch(k, GridDim(1), BlockDim(1), (out,));\n}\nfn main() {}";
+        let codes = check(src);
+        assert!(codes.is_empty(), "{codes:?}");
     }
 }

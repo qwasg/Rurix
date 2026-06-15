@@ -18,9 +18,15 @@
 //! - **view 划分越界**(`RX3008`):`chunks(0)`/`windows(0)` 零尺寸;以及子 view
 //!   长度静态可知时(`split_at` 低半 view 长度 = 字面 `mid`)划分点 / 窗口大小超界。
 //!
-//! 保守上界(07 §4):能证才报,证不出不报;`unsafe` 块内豁免(承担 P-03 验证义务,
-//! 对齐 [`crate::coloring`] barrier 骨架豁免)。完整区间/别名求解器随真实 kernel 需求
-//! 扩展(经 conformance 类别留痕);shared+barrier 一致性 / scoped atomics 随 M5.2+。
+//! 保守上界(07 §4),按通道区分(checker 为 **conservative reject**,非"证不出不报"):
+//! - **RX3008 越界**:仅在子 view 长度/划分点**静态可证**超界时报(证不出长度则放行,
+//!   不臆测);
+//! - **RX3007 重叠/别名**:对同根子 view 的可变写,**证不出不相交即保守拒绝并报**
+//!   (windows 恒重叠、不同 split 组 / 父子别名 / 藏进 aggregate 的别名 view 均拒绝)。
+//!
+//! `unsafe` 块内豁免(承担 P-03 验证义务,对齐 [`crate::coloring`] barrier 骨架豁免)。
+//! 完整区间/别名求解器随真实 kernel 需求扩展(经 conformance 类别留痕);shared+barrier
+//! 一致性 / scoped atomics 见 [`crate::shared_check`] / RXS-0080。
 
 use std::collections::{HashMap, HashSet};
 
@@ -53,6 +59,7 @@ pub fn check_crate(cx: &QueryCtx<'_>) {
             body,
             tcr: &tcr,
             prov: HashMap::new(),
+            agg_fields: HashMap::new(),
             writes: Vec::new(),
         };
         checker.walk_expr(&body.value, false);
@@ -108,7 +115,11 @@ struct ViewOpInfo {
 
 /// 对一个 view 局部的可变写(index-assign);`in_unsafe` 标记豁免。
 struct Write {
+    /// 解析出的源 view 局部(provenance 判定与命名用)。
     local: LocalId,
+    /// 写"位置"的唯一键:直接局部 `L{n}`,投影 `L{agg}.{field}`。两次写
+    /// 同一 place key 视作同一访问路径(不互判别名),不同 place key 才进入冲突判定。
+    place_key: String,
     span: Span,
     in_unsafe: bool,
 }
@@ -119,6 +130,10 @@ struct Checker<'a, 'q> {
     tcr: &'a TypeckResults,
     /// view 局部 → provenance(未登记者按整父 view 自根处理)。
     prov: HashMap<u32, Prov>,
+    /// 聚合(元组/结构体)局部的字段 → 源 view 局部(`let pair = (v, v)` 后
+    /// `pair.0`/`pair.1` 经此解析其别名根,RXS-0078:引用藏进 aggregate 仍追踪)。
+    /// 键 = (聚合局部 id, 字段键:元组位置串 / 结构体字段名)。
+    agg_fields: HashMap<(u32, String), LocalId>,
     writes: Vec<Write>,
 }
 
@@ -129,6 +144,23 @@ impl Checker<'_, '_> {
     fn is_view_mut_local(&self, l: LocalId) -> bool {
         matches!(
             self.tcr.local_ty.get(l.0 as usize),
+            Some(Ty::Adt(d, _)) if self.tcr_view_mutable(*d) == Some(true)
+        )
+    }
+
+    /// 局部是否为 view 族(`View` 或 `ViewMut`)。
+    fn is_any_view_local(&self, l: LocalId) -> bool {
+        matches!(
+            self.tcr.local_ty.get(l.0 as usize),
+            Some(Ty::Adt(d, _)) if self.tcr_view_mutable(*d).is_some()
+        )
+    }
+
+    /// 表达式定型是否为 `ViewMut`(消费 typeck `expr_ty`;用于无 provenance 登记
+    /// 的投影写——参数聚合 / 嵌套投影——的 view 判定)。
+    fn is_view_mut_expr(&self, e: &Expr) -> bool {
+        matches!(
+            self.tcr.expr_ty.get(&e.hir_id),
             Some(Ty::Adt(d, _)) if self.tcr_view_mutable(*d) == Some(true)
         )
     }
@@ -266,6 +298,35 @@ impl Checker<'_, '_> {
             return;
         }
 
+        // 形态 3:聚合(元组 / 结构体)字段含 view 局部 → 记录字段 → 源 view 映射,
+        // 供 `pair.0[i] = ..` / `s.field[i] = ..` 投影写解析其别名根(RXS-0078)。
+        if let PatKind::Binding { local: agg } = &pat.kind {
+            match &init.kind {
+                ExprKind::Tuple(elems) => {
+                    for (idx, elem) in elems.iter().enumerate() {
+                        if let Some(src) = Self::expr_local(elem)
+                            && self.is_any_view_local(src)
+                        {
+                            self.agg_fields.insert((agg.0, idx.to_string()), src);
+                        }
+                    }
+                    return;
+                }
+                ExprKind::StructLit { fields, .. } => {
+                    for (name, val) in fields {
+                        if let Some(e) = val
+                            && let Some(src) = Self::expr_local(e)
+                            && self.is_any_view_local(src)
+                        {
+                            self.agg_fields.insert((agg.0, name.clone()), src);
+                        }
+                    }
+                    return;
+                }
+                _ => {}
+            }
+        }
+
         // 形态 2:view 算子 `let .. = recv.op(args);`。
         let ExprKind::MethodCall {
             receiver,
@@ -381,7 +442,9 @@ impl Checker<'_, '_> {
         for i in 0..self.writes.len() {
             for j in (i + 1)..self.writes.len() {
                 let (wi, wj) = (&self.writes[i], &self.writes[j]);
-                if wi.in_unsafe || wj.in_unsafe || wi.local == wj.local {
+                // 同一访问路径(place key 相同)= 同一 view 同一写法,不互判别名;
+                // 不同 place key(含 `pair.0` vs `pair.1` 等投影别名)才进入冲突判定。
+                if wi.in_unsafe || wj.in_unsafe || wi.place_key == wj.place_key {
                     continue;
                 }
                 if !self.conflicts(wi.local, wj.local) {
@@ -409,15 +472,83 @@ impl Checker<'_, '_> {
     // -- walk -----------------------------------------------------------------
 
     fn record_write(&mut self, lhs: &Expr, in_unsafe: bool) {
-        if let ExprKind::Index { expr, .. } = &lhs.kind
-            && let Some(l) = Self::expr_local(expr)
+        let ExprKind::Index { expr: base, .. } = &lhs.kind else {
+            return;
+        };
+        // 直接 view 局部:`v[i] = ..`。
+        if let Some(l) = Self::expr_local(base)
             && self.is_view_mut_local(l)
         {
             self.writes.push(Write {
                 local: l,
+                place_key: format!("L{}", l.0),
                 span: lhs.span,
                 in_unsafe,
             });
+            return;
+        }
+        // 聚合字段投影:`pair.0[i] = ..` / `s.field[i] = ..`(藏进 tuple/struct 的
+        // view 别名);解析到源 view 局部,以投影路径为 place key 参与别名冲突判定。
+        if let Some((src, key)) = self.resolve_field_view(base) {
+            if self.is_view_mut_local(src) {
+                self.writes.push(Write {
+                    local: src,
+                    place_key: key,
+                    span: lhs.span,
+                    in_unsafe,
+                });
+            }
+            return;
+        }
+
+        // 无 provenance 登记的 view 投影写(参数为 view 结构体/元组,或嵌套投影):
+        // 聚合非 `let` 绑定故 `agg_fields` 无记录,证不出各字段子 view 不相交。
+        // 按 RXS-0078 保守口径(证不出不相交即拒绝)纳入冲突判定:以聚合局部为
+        // 根、投影路径为 place key,同一聚合的不同字段投影写互判别名 → RX3007;
+        // 单字段写 / 同字段同路径写不构成冲突(确为不相交则放行)。
+        if let Some((agg, key)) = self.unknown_view_projection(base) {
+            self.writes.push(Write {
+                local: agg,
+                place_key: key,
+                span: lhs.span,
+                in_unsafe,
+            });
+        }
+    }
+
+    /// 无 provenance 登记的 view 字段投影:`agg.field` 定型为 `ViewMut` 且 `agg`
+    /// 为简单局部(参数聚合 / 未经 `let` 记录的聚合)→ (聚合局部, 投影 place key)。
+    fn unknown_view_projection(&self, base: &Expr) -> Option<(LocalId, String)> {
+        if !self.is_view_mut_expr(base) {
+            return None;
+        }
+        match &base.kind {
+            ExprKind::TupleField { expr, index } => {
+                let agg = Self::expr_local(expr)?;
+                Some((agg, format!("L{}.{}", agg.0, index)))
+            }
+            ExprKind::Field { expr, field } => {
+                let agg = Self::expr_local(expr)?;
+                Some((agg, format!("L{}.{}", agg.0, field)))
+            }
+            _ => None,
+        }
+    }
+
+    /// 解析投影基址 `agg.field` 到其源 view 局部 + 唯一 place key(经 `agg_fields`)。
+    fn resolve_field_view(&self, base: &Expr) -> Option<(LocalId, String)> {
+        match &base.kind {
+            ExprKind::TupleField { expr, index } => {
+                let agg = Self::expr_local(expr)?;
+                let src = self.agg_fields.get(&(agg.0, index.to_string())).copied()?;
+                Some((src, format!("L{}.{}", agg.0, index)))
+            }
+            ExprKind::Field { expr, field } => {
+                let agg = Self::expr_local(expr)?;
+                let src = self.agg_fields.get(&(agg.0, field.clone())).copied()?;
+                Some((src, format!("L{}.{}", agg.0, field)))
+            }
+            _ => None,
         }
     }
 
@@ -629,6 +760,50 @@ mod tests {
             "{HEAD}    let (a, b) = v.split_at(4);\n    let (c, d) = v.split_at(6);\n    a[i] = 1.0;\n    c[i] = 2.0;\n}}\nfn main() {{}}"
         );
         assert_eq!(check(&src), vec![3007]);
+    }
+
+    //@ spec: RXS-0078
+    #[test]
+    fn tuple_field_aliased_mut_write_is_rx3007() {
+        // 引用藏进元组:pair.0 与 pair.1 同根别名 v,两路投影可变写 → RX3007
+        let src = format!(
+            "{HEAD}    let pair = (v, v);\n    pair.0[i] = 1.0;\n    pair.1[i] = 2.0;\n}}\nfn main() {{}}"
+        );
+        assert_eq!(check(&src), vec![3007]);
+    }
+
+    //@ spec: RXS-0078
+    #[test]
+    fn param_struct_field_aliased_mut_write_is_rx3007() {
+        // 参数为 view 结构体(非 let 绑定):p.a / p.b 无 provenance 登记,证不出
+        // 两子 view 不相交 → 保守拒绝 RX3007(覆盖此前漏检面,RXS-0078)。
+        let src = "struct Pair { a: ViewMut<global, f32>, b: ViewMut<global, f32> }\nkernel fn k(p: Pair, i: usize) {\n    p.a[i] = 1.0;\n    p.b[i] = 2.0;\n}\nfn main() {}";
+        assert_eq!(check(src), vec![3007]);
+    }
+
+    //@ spec: RXS-0078
+    #[test]
+    fn param_tuple_field_aliased_mut_write_is_rx3007() {
+        // 参数为 view 元组(非 let 绑定):pair.0 / pair.1 无 provenance,保守拒绝。
+        let src = "kernel fn k(pair: (ViewMut<global, f32>, ViewMut<global, f32>), i: usize) {\n    pair.0[i] = 1.0;\n    pair.1[i] = 2.0;\n}\nfn main() {}";
+        assert_eq!(check(src), vec![3007]);
+    }
+
+    //@ spec: RXS-0078
+    #[test]
+    fn param_struct_single_field_write_is_clean() {
+        // 参数 view 结构体仅写单字段:无第二路冲突写 → 放行(不过度拒绝)。
+        let src = "struct Pair { a: ViewMut<global, f32>, b: ViewMut<global, f32> }\nkernel fn k(p: Pair, i: usize) {\n    p.a[i] = 1.0;\n}\nfn main() {}";
+        assert!(check(src).is_empty(), "{:?}", check(src));
+    }
+
+    //@ spec: RXS-0078
+    #[test]
+    fn disjoint_sources_tuple_field_write_is_clean() {
+        // 聚合由两个 distinct view 参数构成(`let pair = (a, b)`):pair.0/pair.1
+        // 根不同 → 确为不相交 → 放行(RXS-0078 结构性不相交)。
+        let src = "kernel fn k(a: ViewMut<global, f32>, b: ViewMut<global, f32>, i: usize) {\n    let pair = (a, b);\n    pair.0[i] = 1.0;\n    pair.1[i] = 2.0;\n}\nfn main() {}";
+        assert!(check(src).is_empty(), "{:?}", check(src));
     }
 
     //@ spec: RXS-0078

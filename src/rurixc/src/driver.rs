@@ -168,6 +168,20 @@ pub fn compile(opts: &CompileOptions) -> u8 {
                     if !diag.has_errors() {
                         cx.check_shared_barrier();
                     }
+                    // device MIR 安全门(M3 安全检查 device 扩展,RXS-0054/0057~0061):
+                    // kernel/device fn 体内的 use-after-move(RX4001)、借用冲突
+                    // (RX4005)、悬垂引用(RX4006)在 --emit=check 阶段拦截。仅在前序
+                    // 无错时构建 device MIR 并检查,避免对已报错程序追加 lowering 噪声。
+                    //
+                    // 顺序约束(非漏报):此 `!has_errors()` 把关是**阶段化中止**(前段
+                    // 有错即停),非语义放行。"既有 host 错误 + kernel 真实 use-after-move"
+                    // 混合场景下,host move/borrow 先报错使本门跳过——程序仍被整体拒绝
+                    // (退出码非零),kernel 错误顺延到 host 修复后的下一次编译经本门浮现,
+                    // 不会让坏代码静默通过(回归见 move_check::tests::
+                    // host_error_defers_kernel_safety_but_does_not_hide_it)。
+                    if !diag.has_errors() {
+                        cx.check_device_safety();
+                    }
                     // device emit 通道(`--emit=nvptx-ir|ptx`)以 `kernel fn` 为根,
                     // 不要求 host `main`(RXS-0070);其余目标缺 main → RX6002。
                     let device_emit = matches!(emit.as_deref(), Some("nvptx-ir") | Some("ptx"));

@@ -69,13 +69,43 @@ pub(crate) struct InitMove {
     /// locals 数(位宽 = 2n)。
     pub(crate) n: usize,
     arg_count: usize,
+    /// use-before-init 跟踪豁免的 local(按 LocalIdx 下标)。device 存储收紧
+    /// (RXS-0054/RXS-0079):仅"经 Index 元素级写入的 device 存储"(`shared let`
+    /// addrspace(3) 缓冲 / `[T; N]` 数组缓冲)豁免——其元素写入常受 thread-id
+    /// 边界守卫条件化(如 tiled transpose `if x<w { tile[..]=.. }`),may-uninit
+    /// 数据流在分支汇合处会保守判其仍可能未初始化,但 codegen 背书该背景存储,
+    /// 故按 body 级"存在元素写"豁免(非流敏感)。真正未经元素写的标量
+    /// (`shared let acc: f32;` 未写先读)不豁免,仍报 RX4002。
+    exempt: Vec<bool>,
 }
 
 impl InitMove {
     pub(crate) fn new(body: &Body) -> InitMove {
+        let mut indexed_write = vec![false; body.locals.len()];
+        let mut note = |place: &Place| {
+            if place.proj.iter().any(|e| matches!(e, ProjElem::Index(_))) {
+                indexed_write[place.local.0 as usize] = true;
+            }
+        };
+        for bb in &body.blocks {
+            for stmt in &bb.stmts {
+                let StatementKind::Assign(dest, _) = &stmt.kind;
+                note(dest);
+            }
+            if let TerminatorKind::Call { dest, .. } = &bb.terminator.kind {
+                note(dest);
+            }
+        }
+        let exempt = body
+            .locals
+            .iter()
+            .enumerate()
+            .map(|(l, d)| (d.shared || d.array_len.is_some()) && indexed_write[l])
+            .collect();
         InitMove {
             n: body.locals.len(),
             arg_count: body.arg_count,
+            exempt,
         }
     }
 
@@ -104,9 +134,16 @@ impl Analysis for InitMove {
     }
 
     fn boundary(&self, _body: &Body, state: &mut BitSet) {
-        // 入口:参数已初始化;返回槽与其余局部 maybe-uninit(RXS-0054)
+        // 入口:参数已初始化;返回槽与其余局部 maybe-uninit(RXS-0054)。
+        // device 扩展收紧:仅"经 Index 元素级写入的 device 存储"(`shared let` /
+        // `[T; N]` 数组缓冲,见 [`InitMove::exempt`])由 codegen 背书其存储而不纳入
+        // use-before-init 跟踪;未经元素写的标量(含 `shared let` 标量)仍跟踪,
+        // 真正未写先读报 RX4002。
         state.insert(0);
         for l in (self.arg_count + 1)..self.n {
+            if self.exempt[l] {
+                continue;
+            }
             state.insert(l);
         }
     }
@@ -347,5 +384,113 @@ mod tests {
         let codes =
             check("fn main() {\n    let x: i32 = 1;\n    let _r = &x;\n    let _v = *_r;\n}");
         assert!(codes.is_empty(), "{codes:?}");
+    }
+
+    // -- device MIR 安全门(kernel/device fn use-after-move,M3 安全检查 device 扩展) --
+
+    /// 经 device 安全门(check_device_safety)对 device MIR 跑 move/init。
+    fn check_device(src: &str) -> Vec<u16> {
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(src, SourceId(0), Edition::Rx0, &diag);
+        cx.check_crate();
+        cx.check_coloring();
+        assert!(diag.emitted().is_empty(), "前置诊断: {:?}", diag.emitted());
+        cx.check_device_safety();
+        let mut codes: Vec<u16> = diag
+            .emitted()
+            .iter()
+            .filter_map(|d| d.code.map(|c| c.0))
+            .collect();
+        codes.sort_unstable();
+        codes
+    }
+
+    //@ spec: RXS-0054
+    #[test]
+    fn kernel_use_after_move_detected() {
+        // kernel 体内 use-after-move → RX4001(device MIR 安全门)
+        let codes = check_device(
+            "struct T { id: i32 }\ndevice fn eat(t: T) -> i32 { t.id }\nkernel fn k() {\n    let v = T { id: 1 };\n    let _a = eat(v);\n    let _b = eat(v);\n}\nfn main() {}",
+        );
+        assert_eq!(codes, vec![4001]);
+    }
+
+    //@ spec: RXS-0054
+    #[test]
+    fn kernel_shared_buffer_not_uninit() {
+        // shared let 缓冲元素级写入不误报 use-before-init(device 存储,RX4002 豁免)
+        let codes = check_device(
+            "kernel fn k(t: ThreadCtx<1>, dst: ViewMut<global, f32>) {\n    shared let tile: [f32; 64];\n    let i = t.thread_index();\n    tile[i] = 1.0;\n    dst[i] = tile[i];\n}\nfn main() {}",
+        );
+        assert!(codes.is_empty(), "{codes:?}");
+    }
+
+    //@ spec: RXS-0054
+    #[test]
+    fn kernel_shared_buffer_conditional_write_not_uninit() {
+        // thread-id 边界守卫下的条件化元素写(tiled transpose 模式):may-uninit
+        // 数据流在分支汇合处保守判其可能未初始化,但 device 存储经 body 级"存在
+        // 元素写"豁免(非流敏感),不误报 RX4002(收紧后仍豁免)。
+        let codes = check_device(
+            "kernel fn k(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>, w: usize) {\n    shared let tile: [f32; 64];\n    let i = t.thread_index();\n    if i < w {\n        tile[i] = src[i];\n    }\n    block.sync();\n    dst[i] = tile[i];\n}\nfn main() {}",
+        );
+        assert!(codes.is_empty(), "{codes:?}");
+    }
+
+    //@ spec: RXS-0054
+    #[test]
+    fn kernel_shared_scalar_use_before_init_detected() {
+        // device 存储收紧:未经元素写的 `shared let` 标量(无 Index 写)不再整体
+        // 豁免;未写先读 → RX4002(对真正未初始化标量仍报)。
+        let codes = check_device(
+            "kernel fn k(t: ThreadCtx<1>, dst: ViewMut<global, f32>) {\n    shared let acc: f32;\n    let i = t.thread_index();\n    dst[i] = acc;\n}\nfn main() {}",
+        );
+        assert_eq!(codes, vec![4002]);
+    }
+
+    //@ spec: RXS-0054
+    #[test]
+    fn kernel_local_scalar_use_before_init_detected() {
+        // 普通(非 shared/非数组)device 标量未写先读 → RX4002(收紧不波及既有口径)。
+        let codes = check_device(
+            "kernel fn k(t: ThreadCtx<1>, dst: ViewMut<global, f32>) {\n    let x: f32;\n    let i = t.thread_index();\n    dst[i] = x + 1.0;\n}\nfn main() {}",
+        );
+        assert_eq!(codes, vec![4002]);
+    }
+
+    //@ spec: RXS-0054
+    #[test]
+    fn host_error_defers_kernel_safety_but_does_not_hide_it() {
+        use crate::diag::DiagCtxt;
+        use crate::query::QueryCtx;
+        use crate::span::{Edition, SourceId};
+
+        // 顺序约束(driver.rs / query.rs::check_device_safety):device 安全门仅在
+        // 前序(含 host move/borrow)无错时构建 device MIR。混合场景——host fn
+        // use-after-move(RX4001)+ kernel use-after-move(RX4001):host 检查先报错,
+        // has_errors 置位 → driver 阶段化跳过 device 安全门(防 device lowering 噪声),
+        // 程序整体仍被拒(非误放行);host 错误一旦修复,kernel 错误经 device 安全门浮现。
+        let mixed = "struct T { id: i32 }\ndevice fn eat(t: T) -> i32 { t.id }\nfn heat(t: T) -> i32 { t.id }\nkernel fn kk() {\n    let v = T { id: 2 };\n    let _c = eat(v);\n    let _d = eat(v);\n}\nfn main() {\n    let h = T { id: 1 };\n    let _a = heat(h);\n    let _b = heat(h);\n}";
+
+        // 复刻 driver 阶段化:host move 检查先行。
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(mixed, SourceId(0), Edition::Rx0, &diag);
+        cx.check_crate();
+        cx.check_coloring();
+        assert!(!diag.has_errors(), "前置应干净: {:?}", diag.emitted());
+        let _ = cx.mir_crate();
+        cx.check_moves();
+        assert!(diag.has_errors(), "host use-after-move 应报");
+        // 此处 has_errors → driver 跳过 check_device_safety(阶段化中止):程序已被
+        // 拒,kernel 错误顺延到 host 修复后,非漏报。
+
+        // host 修复后(同 kernel),kernel use-after-move 经 device 安全门浮现。
+        let fixed = "struct T { id: i32 }\ndevice fn eat(t: T) -> i32 { t.id }\nkernel fn kk() {\n    let v = T { id: 2 };\n    let _c = eat(v);\n    let _d = eat(v);\n}\nfn main() {}";
+        let codes = check_device(fixed);
+        assert_eq!(
+            codes,
+            vec![4001],
+            "kernel use-after-move 须经 device 安全门捕获"
+        );
     }
 }

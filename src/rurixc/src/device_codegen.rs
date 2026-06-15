@@ -79,7 +79,7 @@ pub fn build_and_emit(cx: &QueryCtx<'_>, module_name: &str) -> Option<String> {
     }
     let krate = cx.hir_crate();
     let res = cx.resolutions();
-    match emit_nvptx_ir(&bodies, &krate, &res, module_name) {
+    match emit_nvptx_ir(bodies.as_slice(), &krate, &res, module_name) {
         Ok(ir) => Some(ir),
         Err(e) => {
             cx.diag()
@@ -1017,5 +1017,45 @@ mod tests {
         cx.check_crate_patterns();
         let _ = super::build_and_emit(&cx, "test");
         assert!(diag.has_errors(), "数组索引应触发诊断(RX6001/RX6003)");
+    }
+
+    //@ spec: RXS-0054, RXS-0070
+    #[test]
+    fn device_safety_error_skips_codegen_no_double_report() {
+        // 顺序自洽留痕:kernel use-after-move 由 device 安全门(check_device_safety)
+        // 报 RX4001;随后 build_and_emit 入口 `has_errors` 闸跳过 codegen,返回 None
+        // 且不追加 RX6003/6005——同一坏 kernel 不被安全门与 codegen 双报(对齐 driver
+        // 阶段化中止;codegen 仅在前序安全门全绿时运行)。
+        let src = "struct T { id: i32 }\ndevice fn eat(t: T) -> i32 { t.id }\nkernel fn k() {\n    let v = T { id: 1 };\n    let _a = eat(v);\n    let _b = eat(v);\n}\nfn main() {}";
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(src, SourceId(0), Edition::Rx0, &diag);
+        cx.check_crate();
+        cx.check_coloring();
+        cx.check_crate_patterns();
+        cx.check_device_safety();
+        let after_gate: Vec<u16> = diag
+            .emitted()
+            .iter()
+            .filter_map(|d| d.code.map(|c| c.0))
+            .collect();
+        assert_eq!(
+            after_gate,
+            vec![4001],
+            "device 安全门应仅报 RX4001: {after_gate:?}"
+        );
+        let ir = super::build_and_emit(&cx, "test");
+        assert!(
+            ir.is_none(),
+            "已报错程序不应产 device IR(入口 has_errors 闸)"
+        );
+        let after_codegen: Vec<u16> = diag
+            .emitted()
+            .iter()
+            .filter_map(|d| d.code.map(|c| c.0))
+            .collect();
+        assert_eq!(
+            after_codegen, after_gate,
+            "build_and_emit 入口闸不得追加 codegen 诊断(防双报): {after_codegen:?}"
+        );
     }
 }
