@@ -58,7 +58,7 @@ pub fn run_stdio_server() -> io::Result<()> {
 }
 
 fn write_message(out: &mut impl Write, json: &str) -> io::Result<()> {
-    writeln!(out, "Content-Length: {}", json.as_bytes().len())?;
+    writeln!(out, "Content-Length: {}", json.len())?;
     writeln!(out)?;
     out.write_all(json.as_bytes())?;
     out.flush()
@@ -140,18 +140,12 @@ fn dispatch_request(
                 id, arr
             )]
         }
-        "textDocument/definition" => vec![location_response(
-            session,
-            id,
-            params,
-            |cx, sm, file, line, col| definition_at(cx, sm, file, line, col),
-        )],
-        "textDocument/references" => vec![locations_response(
-            session,
-            id,
-            params,
-            |cx, sm, file, line, col| references_at(cx, sm, file, line, col),
-        )],
+        "textDocument/definition" => {
+            vec![location_response(session, id, params, definition_at)]
+        }
+        "textDocument/references" => {
+            vec![locations_response(session, id, params, references_at)]
+        }
         "textDocument/documentHighlight" => {
             let uri = text_document_uri(params);
             let line = position_line(params);
@@ -235,9 +229,9 @@ fn empty_result(id: &str) -> String {
 
 fn json_id_raw(rest: &str) -> String {
     let rest = rest.trim_start();
-    if rest.starts_with('"') {
+    if let Some(stripped) = rest.strip_prefix('"') {
         let mut escaped = false;
-        for (i, ch) in rest[1..].char_indices() {
+        for (i, ch) in stripped.char_indices() {
             if escaped {
                 escaped = false;
             } else if ch == '\\' {

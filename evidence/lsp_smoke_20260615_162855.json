@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "subject": "lsp_capabilities",
-  "timestamp": "2026-06-15T08:15:36.734167+00:00",
+  "timestamp": "2026-06-15T08:28:55.966492+00:00",
   "capabilities_passed": [
     "completion",
     "definition",
