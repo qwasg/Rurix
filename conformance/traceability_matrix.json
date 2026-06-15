@@ -602,6 +602,9 @@
       "src/rurix-rt/tests/gpu_roundtrip.rs",
       "src/rurixc/src/shared_check.rs",
       "tests/ui/shared/barrier_too_late.rx",
+      "tests/ui/shared/broadcast_unsynced.rx",
+      "tests/ui/shared/neighbor_stencil.rx",
+      "tests/ui/shared/second_phase_unsynced.rx",
       "tests/ui/shared/unsynced_read.rx"
     ],
     "RXS-0080": [
@@ -613,7 +616,9 @@
       "src/rurixc/tests/atomics_ptx_mapping.rs",
       "tests/ui/atomics/gpu_scope_on_shared.rx",
       "tests/ui/atomics/scope_addrspace.rx",
-      "tests/ui/atomics/scope_overreach.rx"
+      "tests/ui/atomics/scope_overreach.rx",
+      "tests/ui/atomics/scope_overreach_gpu.rx",
+      "tests/ui/atomics/scope_overreach_gpu_system.rx"
     ],
     "RXS-0081": [
       "conformance/libdevice/accept/device_math_intrinsics.rx",

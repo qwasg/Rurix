@@ -36,6 +36,13 @@ jobs:
         shell: powershell
         run: py -3 ci/check_guardrails.py
 
+      # —— M5 增量(milestones/m5/CI_GATES.md §4 第 6 步;G-M5-5 traceability 延续)——
+      # traceability 矩阵新鲜度门禁(check_* 守卫风格,CPU-only,不分配错误码):
+      # 入库矩阵与现状不一致或存在未锚定/幽灵锚定即红(消费方 budget_eval 只验非空)。
+      - name: traceability matrix freshness (M5 CI_GATES §4.6, G-M5-5)
+        shell: powershell
+        run: py -3 ci/trace_matrix.py --check
+
       # —— M5 增量(milestones/m5/CI_GATES.md §4 第 2 项;M5.4 第 5 步 formal 激活)——
       # NVIDIA 再分发面守卫(check_* 风格,CPU-only):嵌入 PTX 无 __nv_* + 源无 libdevice .bc 打包
       - name: NVIDIA redistribution audit (M5 CI_GATES §4.2)
