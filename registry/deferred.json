@@ -44,7 +44,8 @@
       "status": "inherited",
       "history": [
         { "date": "2026-06-11", "event": "登记于 M0 契约 out-of-scope", "evidence": "milestones/m0/M0_CONTRACT.md §2.2" },
-        { "date": "2026-06-15", "event": "M6 开工承接(open→inherited,owner_milestone M6 不变):rx bench 工具化由 M6 D-M6-1/G-M6-4 落地——M5 bench harness 脚本(bench/*.py)协议收编进 rx bench(复用 BENCH_PROTOCOL §3:L0 锁频前置 / 三次进程级独立运行 / trimmed mean),收编后 harness 脚本退役。close 留痕待 rx bench 收编完结(M6.1)", "evidence": "milestones/m6/M6_CONTRACT.md §6 / M6_PLAN.md §1" }
+        { "date": "2026-06-15", "event": "M6 开工承接(open→inherited,owner_milestone M6 不变):rx bench 工具化由 M6 D-M6-1/G-M6-4 落地——M5 bench harness 脚本(bench/*.py)协议收编进 rx bench(复用 BENCH_PROTOCOL §3:L0 锁频前置 / 三次进程级独立运行 / trimmed mean),收编后 harness 脚本退役。close 留痕待 rx bench 收编完结(M6.1)", "evidence": "milestones/m6/M6_CONTRACT.md §6 / M6_PLAN.md §1" },
+        { "date": "2026-06-15", "event": "M6.1 收编完结:rx bench 子命令落地(src/rx/src/main.rs)作统一入口编排既有 BENCH_PROTOCOL 协议(`rx bench [<name>] [--smoke]` 透传退出码,默认 saxpy);bench/*.py 协议脚本降级为被 rx bench 编排的协议库并加收编头注(bench/protocol.py / bench/saxpy_bench.py),口径(L0 锁频/三次进程级/trimmed mean)与 evidence/*.json 证据格式完全不变(evidence/ 只增不删不改,既有 measured_local 证据口径不变,spec/toolchain.md RXS-0088)。status 维持 inherited,formal close 翻转待 M6 close-out 终审(契约 §8)", "evidence": "src/rx/src/main.rs / bench/protocol.py / spec/toolchain.md RXS-0088" }
       ]
     },
     {
@@ -68,7 +69,8 @@
       "status": "inherited",
       "history": [
         { "date": "2026-06-11", "event": "登记于 M1 契约 out-of-scope", "evidence": "milestones/m1/M1_CONTRACT.md §2.2" },
-        { "date": "2026-06-15", "event": "M6 开工承接(open→inherited,owner_milestone M6 不变):rx fmt 完整工具化由 M6 D-M6-1/G-M6-4 落地——雏形格式器收编进 rx fmt,ci/check_fmt_idempotent.py 既有幂等门延续到 rx fmt(全语料二次格式化 0 diff),收编后雏形形态退役。close 留痕待 rx fmt 收编完结(M6.1)", "evidence": "milestones/m6/M6_CONTRACT.md §6 / M6_PLAN.md §1" }
+        { "date": "2026-06-15", "event": "M6 开工承接(open→inherited,owner_milestone M6 不变):rx fmt 完整工具化由 M6 D-M6-1/G-M6-4 落地——雏形格式器收编进 rx fmt,ci/check_fmt_idempotent.py 既有幂等门延续到 rx fmt(全语料二次格式化 0 diff),收编后雏形形态退役。close 留痕待 rx fmt 收编完结(M6.1)", "evidence": "milestones/m6/M6_CONTRACT.md §6 / M6_PLAN.md §1" },
+        { "date": "2026-06-15", "event": "M6.1 收编完结:rx fmt 子命令落地(src/rx/src/main.rs,复用 rurixc::fmt::format_source 单一事实源,spec/toolchain.md RXS-0087);雏形二进制 src/rurixc/src/bin/rx_fmt.rs 退役删除;ci/check_fmt_idempotent.py 幂等门路由到 `rx fmt --check-idempotent`(108 文件 byte-exact PASS);幂等承诺(G-M6-4)延续。status 维持 inherited,formal close 翻转待 M6 close-out 终审(契约 §8)", "evidence": "src/rx/src/main.rs / ci/check_fmt_idempotent.py / spec/toolchain.md RXS-0087" }
       ]
     },
     {

@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "subject": "rx_cli_core_subcommands",
+  "subcommands_passed": [
+    "bench",
+    "build",
+    "check",
+    "fmt",
+    "run"
+  ],
+  "rx_binary": "target/debug/rx.exe",
+  "facts": [
+    {
+      "subcommand": "check",
+      "command": "check conformance/toolchain/check_ok.rx",
+      "exit_code": 0,
+      "note": "PASS"
+    },
+    {
+      "subcommand": "build",
+      "command": "build conformance/toolchain/hello.rx -o H:\\rurix\\build\\rx_cli_smoke\\hello.exe",
+      "exit_code": 0,
+      "note": "PASS"
+    },
+    {
+      "subcommand": "run",
+      "command": "run conformance/toolchain/exit_code.rx -o H:\\rurix\\build\\rx_cli_smoke\\exit_code.exe",
+      "exit_code": 0,
+      "note": "PASS"
+    },
+    {
+      "subcommand": "fmt",
+      "command": "fmt --check-idempotent conformance/syntax/hello_world.rx",
+      "exit_code": 0,
+      "note": "PASS"
+    },
+    {
+      "subcommand": "bench",
+      "command": "bench saxpy --smoke",
+      "exit_code": 0,
+      "note": "PASS"
+    }
+  ],
+  "redgreen": {
+    "red_command": "篡改 conformance/toolchain/hello.rx(注入语法错误 `@@@ BROKEN`)后 py -3 ci/rx_cli_smoke.py --no-emit",
+    "red_exit_code": 1,
+    "green_command": "git checkout -- conformance/toolchain/hello.rx 后 py -3 ci/rx_cli_smoke.py --no-emit",
+    "green_exit_code": 0,
+    "run_url": "local red-green(反 YAML-only,H06 D11.8-2);pr-smoke 步骤 25 自托管 runner run URL 见 PR 描述。fmt 幂等门(步骤 26)红绿:扰动 src/rurixc/src/fmt.rs 累积注释 → check_fmt_idempotent FAIL(108/108)→ git checkout 复原 → PASS(108)"
+  },
+  "timestamp": "2026-06-15T11:24:30+08:00"
+}

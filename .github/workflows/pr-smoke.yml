@@ -101,3 +101,16 @@ jobs:
       - name: const eval smoke (M3 CI_GATES §2.16, G-M3-4)
         shell: powershell
         run: py -3 ci/consteval_smoke.py compile-run
+
+      # —— M6 增量(milestones/m6/CI_GATES.md §2 步骤 25;自 M6.1 存在起,G-M6-3)——
+      # rx CLI 核心子命令端到端真跑(build/run/check/fmt/bench);失败即红。
+      # 计数核对经 budget_eval(m6.counter.rx_cli_core_subcommands;建设期 5/6 SKIP)。
+      - name: rx CLI core subcommands smoke (M6 CI_GATES §2.25, G-M6-3)
+        shell: powershell
+        run: py -3 ci/rx_cli_smoke.py
+
+      # —— M6 增量(milestones/m6/CI_GATES.md §2 步骤 26;RD-005 收编,G-M6-4)——
+      # rx fmt 幂等门(全 conformance/syntax 语料经 rx fmt 二次格式化 0 diff)。
+      - name: rx fmt idempotent gate (M6 CI_GATES §2.26, G-M6-4)
+        shell: powershell
+        run: py -3 ci/check_fmt_idempotent.py

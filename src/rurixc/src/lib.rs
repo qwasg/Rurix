@@ -14,6 +14,7 @@ pub mod const_eval;
 pub mod dataflow;
 pub mod device_codegen;
 pub mod diag;
+pub mod driver;
 pub mod drop_elab;
 pub mod feature_gate;
 pub mod fmt;

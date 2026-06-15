@@ -629,6 +629,29 @@
     "RXS-0082": [
       "conformance/libdevice/accept/device_math_intrinsics.rx",
       "src/rurixc/tests/libdevice_link_mapping.rs"
+    ],
+    "RXS-0083": [
+      "src/rurixc/tests/toolchain_corpus.rs",
+      "src/rx/tests/cli.rs"
+    ],
+    "RXS-0084": [
+      "conformance/toolchain/hello.rx",
+      "src/rurixc/tests/toolchain_corpus.rs"
+    ],
+    "RXS-0085": [
+      "conformance/toolchain/exit_code.rx"
+    ],
+    "RXS-0086": [
+      "conformance/toolchain/check_ok.rx",
+      "src/rurixc/tests/toolchain_corpus.rs"
+    ],
+    "RXS-0087": [
+      "src/rurixc/tests/fmt_corpus.rs",
+      "src/rurixc/tests/toolchain_corpus.rs",
+      "src/rx/tests/cli.rs"
+    ],
+    "RXS-0088": [
+      "src/rurixc/tests/toolchain_corpus.rs"
     ]
   }
 }

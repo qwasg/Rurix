@@ -2,6 +2,12 @@
 
 职责:warmup/稳态 → 50×3 timed → 统计聚合 → 组装证据 JSON。
 被 saxpy_bench / bandwidth_bench 复用;计时回调返回"该次迭代耗时 ms"。
+
+M6.1 收编(RD-003,RXS-0088):本模块及 bench/*.py 协议脚本降级为"被 rx bench
+统一入口编排的协议库"——`rx bench [<name>] [--smoke]`(src/rx/src/main.rs)以本
+协议为单一事实源,口径(L0 锁频前置 / 三次进程级独立运行 / trimmed mean)与
+evidence/*.json 证据格式完全不变(evidence/ 只增不删不改)。formal close 待 M6
+close-out 终审(契约 §8)。
 """
 from __future__ import annotations
 

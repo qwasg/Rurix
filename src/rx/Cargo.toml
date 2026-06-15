@@ -1,0 +1,12 @@
+[package]
+name = "rx"
+description = "Rurix 工具链 CLI(rx)——子命令分发 + 核心子命令 build/run/check/fmt/bench;经 rurixc query 层单一前端(M6.1,08 §7 D-239,spec/toolchain.md RXS-0083~0088)"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+rurixc = { path = "../rurixc" }
+
+[lints]
+workspace = true

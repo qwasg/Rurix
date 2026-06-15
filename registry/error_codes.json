@@ -423,6 +423,22 @@
       "status": "active",
       "introduced_in": "M5.3",
       "spec_clauses": ["RXS-0082"]
+    },
+    {
+      "id": "RX7003",
+      "title": "rx CLI 子命令用法错误(缺子命令 / 未知子命令 / 缺参 / 未实现分发位)",
+      "message_key": "toolchain.rx_cli_usage",
+      "status": "active",
+      "introduced_in": "M6.1",
+      "spec_clauses": ["RXS-0083"]
+    },
+    {
+      "id": "RX7004",
+      "title": "rx run 产物执行失败(产物缺失 / 无法启动产物进程)",
+      "message_key": "toolchain.rx_run_exec_failure",
+      "status": "active",
+      "introduced_in": "M6.1",
+      "spec_clauses": ["RXS-0085"]
     }
   ],
   "revision_log": [
@@ -505,6 +521,11 @@
       "version": "v1.15",
       "date": "2026-06-14",
       "change": "M5.3 分配 RX6006 + RX7002(spec/device.md RXS-0081/0082 配套,M5_PLAN §3 任务 1/2,条款 PR 先行引用的正式分配)。RX6006 device codegen 不支持的数学 intrinsic(超出 libdevice 覆盖 / 不支持元素类型组合,6xxx codegen/目标段位续接 M4.2 RX6005);RX7002 libdevice bc 定位/链接失败(非降级语境 bc 缺失 / clang -mlink-builtin-bitcode 链接退出非零,7xxx 链接/工具链段位续接 RX7001;libdevice bc 缺失的开发环境降级为 SKIP 不报 RX7002)。message_key codegen.device_math_unsupported / link.libdevice_failure 随本实现 WP 落 en.messages;device 数学 intrinsic 下译 libdevice 外部符号 __nv_* 经 clang -mlink-builtin-bitcode 链接(internalize/DCE/NVVMReflect 内置流程,精确路径 nvvm-reflect-ftz=0);段内分配制递增不复用"
+    },
+    {
+      "version": "v1.16",
+      "date": "2026-06-15",
+      "change": "M6.1 分配 RX7003 + RX7004(spec/toolchain.md RXS-0083/0085 配套,M6_PLAN §1 任务 5,条款 PR 先行引用的正式分配)。新段位错误码裁决:rx CLI/工具链诊断按 07 §5 段位语义归 7xxx 链接/工具链段位续接(RX7001/RX7002 之后),不另起新段位(rx CLI 用法/产物执行诊断属工具链类语义)。RX7003 rx CLI 子命令用法错误(缺子命令 / 未知子命令 / 缺参 / test·doc·fix·watch·vendor 等已登记但未实现的分发位调用);RX7004 rx run 产物执行失败(build 成功但产物缺失 / 无法启动产物进程,区别于产物正常运行后的非零退出——后者经 rx run 透传不报错,RXS-0085)。message_key toolchain.rx_cli_usage / toolchain.rx_run_exec_failure 随本实现 WP 落 en.messages;段内分配制递增不复用、含义冻结(10 §6)。包管理(M6.2)/ LSP(M6.4)工具链诊断错误码无实现不预造(CI_GATES §4.2)"
     }
   ]
 }
