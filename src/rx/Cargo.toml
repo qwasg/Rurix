@@ -1,12 +1,13 @@
 [package]
 name = "rx"
-description = "Rurix 工具链 CLI(rx)——子命令分发 + 核心子命令 build/run/check/fmt/bench;经 rurixc query 层单一前端(M6.1,08 §7 D-239,spec/toolchain.md RXS-0083~0088)"
+description = "Rurix 工具链 CLI(rx)——子命令分发 + 核心子命令 build/run/check/fmt/bench/vendor;经 rurixc query 层单一前端 + rurix-pkg 包管理(M6.1/M6.2,08 §7 D-239,09 §7.1/§7.2,spec/toolchain.md RXS-0083~0094)"
 edition.workspace = true
 version.workspace = true
 publish.workspace = true
 
 [dependencies]
 rurixc = { path = "../rurixc" }
+rurix-pkg = { path = "../rurix-pkg" }
 
 [lints]
 workspace = true

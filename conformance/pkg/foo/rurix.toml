@@ -1,0 +1,10 @@
+# 依赖包 foo:经 path 依赖 util(../util,菱形一边);feature simd 加性。
+[package]
+name = "foo"
+version = "0.2.0"
+
+[dependencies]
+util = { path = "../util" }
+
+[features]
+simd = []

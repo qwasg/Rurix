@@ -92,3 +92,9 @@
 | RXS-0086 | spec/toolchain.md | 2 | `conformance/toolchain/check_ok.rx`, `src/rurixc/tests/toolchain_corpus.rs` |
 | RXS-0087 | spec/toolchain.md | 3 | `src/rurixc/tests/fmt_corpus.rs`, `src/rurixc/tests/toolchain_corpus.rs`, `src/rx/tests/cli.rs` |
 | RXS-0088 | spec/toolchain.md | 1 | `src/rurixc/tests/toolchain_corpus.rs` |
+| RXS-0089 | spec/toolchain.md | 2 | `src/rurix-pkg/src/manifest.rs`, `src/rurix-pkg/src/toml.rs` |
+| RXS-0090 | spec/toolchain.md | 2 | `src/rurix-pkg/src/manifest.rs`, `src/rurix-pkg/src/vendor.rs` |
+| RXS-0091 | spec/toolchain.md | 1 | `src/rurix-pkg/src/resolve.rs` |
+| RXS-0092 | spec/toolchain.md | 3 | `src/rurix-pkg/src/lock.rs`, `src/rurix-pkg/src/toml.rs`, `src/rurix-pkg/src/vendor.rs` |
+| RXS-0093 | spec/toolchain.md | 3 | `src/rurix-pkg/src/content_tree.rs`, `src/rurix-pkg/src/sha256.rs`, `src/rurix-pkg/src/vendor.rs` |
+| RXS-0094 | spec/toolchain.md | 2 | `src/rurix-pkg/src/vendor.rs`, `src/rx/tests/cli.rs` |

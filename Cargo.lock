@@ -3,6 +3,10 @@
 version = 4
 
 [[package]]
+name = "rurix-pkg"
+version = "0.1.0"
+
+[[package]]
 name = "rurix-rt"
 version = "0.1.0"
 dependencies = [
@@ -17,5 +21,6 @@ version = "0.1.0"
 name = "rx"
 version = "0.1.0"
 dependencies = [
+ "rurix-pkg",
  "rurixc",
 ]

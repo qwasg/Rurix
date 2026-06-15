@@ -1,0 +1,5 @@
+// 样例 workspace 根入口(M6.2 包管理冒烟样例;离线解析不编译此文件)。
+fn main() {
+    let n = 0;
+    println("app");
+}

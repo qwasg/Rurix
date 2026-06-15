@@ -114,3 +114,11 @@ jobs:
       - name: rx fmt idempotent gate (M6 CI_GATES §2.26, G-M6-4)
         shell: powershell
         run: py -3 ci/check_fmt_idempotent.py
+
+      # —— M6.2 增量(milestones/m6/CI_GATES.md §2 步骤 27a;D-M6-2,CPU-only)——
+      # 包管理离线解析 + rurix.lock 确定性 + 内容树 SHA-256 digest 红绿门
+      # (conformance/pkg 样例:rx vendor --offline / --locked 校验;篡改 vendor/lock
+      # → RX7008/RX7007 红 → 复原绿;path 源缺失 → RX7009)。失败即红(反 YAML-only)。
+      - name: pkg manifest/lock/vendor offline gate (M6 CI_GATES §2.27a, D-M6-2)
+        shell: powershell
+        run: py -3 ci/pkg_resolve_smoke.py
