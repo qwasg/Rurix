@@ -257,6 +257,39 @@ def eval_counter(entry: dict, strict: bool) -> None:
             doc = json.loads(f.read_text(encoding="utf-8"))
             n = max(n, len(set(doc.get("capabilities_passed", []))))
         count_or_gate(eid, n, 5, "项 LSP MVP 能力面", "M6.4 LSP server 落地前为正常状态,契约 G-M6-2", strict)
+    elif eid == "m7.counter.math_primitives":
+        # core 数学库原语端到端覆盖数(契约 G-M7-4;Vec/Mat/swizzle/几何原语,
+        # host+device 双路径,11 §3 M7);计数源 = evidence/stdlib_math_*.json 中
+        # primitives_passed 去重集的最大基数。M7.1 数学库落地前为 0 → 建设期
+        # normal SKIP / close-out strict FAIL,对齐 M4/M5/M6 计数器先例。
+        n = 0
+        for f in (ROOT / "evidence").glob("stdlib_math_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            n = max(n, len(set(doc.get("primitives_passed", []))))
+        count_or_gate(eid, n, 8, "个 core 数学库原语端到端", "M7.1 数学库落地前为正常状态,契约 G-M7-4", strict)
+    elif eid == "m7.counter.soft_raster_kernels_safe":
+        # G0 软光栅 kernel safe 覆盖数(契约 G-M7-3;binning/tile 光栅/深度/tonemap
+        # 全 safe 代码目标,11 §3 M7);计数源 = evidence/soft_raster_*.json 中
+        # safe_kernels 去重集的最大基数(凡落 unsafe 的 kernel 不计入 safe 覆盖,
+        # 须 // SAFETY: + safe 覆盖率报告留痕原因)。M7.3 软光栅落地前为 0 →
+        # 建设期 normal SKIP / close-out strict FAIL。
+        n = 0
+        for f in (ROOT / "evidence").glob("soft_raster_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            n = max(n, len(set(doc.get("safe_kernels", []))))
+        count_or_gate(eid, n, 4, "个 safe 软光栅 kernel", "M7.3 软光栅 kernel 落地前为正常状态,契约 G-M7-3", strict)
+    elif eid == "m7.counter.uc03_demo_image_sequence":
+        # UC-03 demo 单 EXE 输出确定性图像序列证据数 ≥1(契约 G-M7-1,01 §6 UC-03);
+        # 计数 = evidence/uc03_demo_*.json 中 image_sequence_ok=true 的报告数
+        # (机器事实:rx build 产单 EXE,运行输出确定性图像序列,逐帧 content
+        # SHA-256 两次运行逐字节一致)。M7.4 demo 落地前为 0 → 建设期 normal SKIP /
+        # close-out strict FAIL,对齐 m6.counter.offline_rebuild_reproducible 先例。
+        n = 0
+        for f in (ROOT / "evidence").glob("uc03_demo_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("image_sequence_ok") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份 UC-03 demo 图像序列证据", "M7.4 UC-03 demo 落地前为正常状态,契约 G-M7-1", strict)
     elif eid == "m1.counter.spec_clause_test_anchoring":
         # 条款 ↔ 测试锚定由 traceability 矩阵工具核对(M1.4 交付物,契约 G-M1-4);
         # 矩阵产物落地前 normal skip / strict FAIL,落地后委托其自身校验结果。
