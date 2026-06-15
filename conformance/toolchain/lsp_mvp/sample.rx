@@ -1,0 +1,12 @@
+//@ spec: RXS-0099, RXS-0100, RXS-0101, RXS-0102, RXS-0103
+// LSP MVP fixture:completion / goto / references / highlight / rename / diagnostics.
+
+fn helper() -> i32 {
+    10
+}
+
+fn main() {
+    let foo = helper();
+    let bar = foo;
+    let _ = bar;
+}

@@ -495,6 +495,14 @@
       "status": "active",
       "introduced_in": "M6.3",
       "spec_clauses": ["RXS-0095"]
+    },
+    {
+      "id": "RX7012",
+      "title": "LSP rename 目标无效(新名非法 / 同作用域冲突 / 不可重命名符号)",
+      "message_key": "toolchain.lsp_rename_invalid",
+      "status": "active",
+      "introduced_in": "M6.4",
+      "spec_clauses": ["RXS-0103"]
     }
   ],
   "revision_log": [
@@ -592,6 +600,11 @@
       "version": "v1.18",
       "date": "2026-06-15",
       "change": "M6.3 分配 RX7010 ~ RX7011(spec/toolchain.md RXS-0095 配套,M6_PLAN §3 任务 1,条款 PR 先行引用的正式分配)。段位裁决:rx test 测试发现/签名错误与子进程执行失败属工具链 harness 诊断,按 07 §5 段位语义归 7xxx 链接/工具链段位续接(RX7009 之后),不另起新段位。RX7010 覆盖无匹配测试 / 顶层 main 冲突 / 参数或返回类型不合法 / unsupported #[test(...)] 形态;RX7011 覆盖临时 harness 编译失败 / spawn 失败 / 测试进程非零或异常终止。message_key toolchain.rx_test_discovery / toolchain.rx_test_exec_failure 随本实现 WP 落 en.messages;段内分配制递增不复用、含义冻结(10 §6)"
+    },
+    {
+      "version": "v1.19",
+      "date": "2026-06-15",
+      "change": "M6.4 分配 RX7012(spec/toolchain.md RXS-0103 LSP rename 诊断,7xxx 续接)。message_key toolchain.lsp_rename_invalid 落 en.messages;段内分配制递增不复用、含义冻结(10 §6)"
     }
   ]
 }

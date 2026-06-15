@@ -45,6 +45,8 @@ pub struct CompileOptions {
     /// 可复现 host 产物模式(RXS-0097):关闭 debug link/PDB 并启用链接器
     /// `/Brepro`;普通 debug build 保持原 PDB/source path 语义。
     pub reproducible: bool,
+    /// 诊断输出格式:`json` 时输出 07 §5 结构化 JSON(RXS-0099);默认文本。
+    pub error_format: Option<String>,
 }
 
 /// 端到端编译(单一前端,07 §2)。返回退出码(`u8`,供调用方 [`std::process::ExitCode::from`]
@@ -56,6 +58,7 @@ pub fn compile(opts: &CompileOptions) -> u8 {
     let out = opts.out.clone();
     let emit = opts.emit.clone();
     let profile_out = opts.profile_out.clone();
+    let json_out = opts.error_format.as_deref() == Some("json");
 
     let src = match std::fs::read_to_string(&input_path) {
         Ok(s) => s,
@@ -178,10 +181,17 @@ pub fn compile(opts: &CompileOptions) -> u8 {
         }
     };
     if diag.has_errors() {
-        eprint!(
-            "{}",
-            render_diagnostics(&diag.emitted(), &sm, diag.messages())
-        );
+        if json_out {
+            println!(
+                "{}",
+                crate::tooling::diag_json::diags_to_json(&diag.emitted(), &sm, diag.messages())
+            );
+        } else {
+            eprint!(
+                "{}",
+                render_diagnostics(&diag.emitted(), &sm, diag.messages())
+            );
+        }
         return 1;
     }
     let mir_bodies = mir_bodies.expect("无错误则 MIR 存在");
@@ -189,6 +199,12 @@ pub fn compile(opts: &CompileOptions) -> u8 {
     // --emit=check:全量静态检查闭环(resolve/typeck/穷尽性/const eval/MIR/
     // move/borrow 均已跑),不产 codegen/link 产物——check 延迟计时口径(G-M3-3)
     if emit.as_deref() == Some("check") {
+        if json_out {
+            println!(
+                "{}",
+                crate::tooling::diag_json::diags_to_json(&diag.emitted(), &sm, diag.messages())
+            );
+        }
         if let Err(e) = finish_profile(&prof, &cx, t_start, profile_out.as_deref()) {
             toolchain_err(&diag, &sm, e);
             return 1;

@@ -54,10 +54,11 @@
       "reason": "M1 parser 仅预留事件流接口(07 §9);完整无损树服务于 LSP 增量细化,M1 期无消费者",
       "backfill_condition": "M6 LSP MVP 开工时评估接通;若 LSP MVP 按 07 §9 容忍'保存时全量 body 重查询'则可继续推迟,处置留痕。代码侧 // STUB(RD-004) 双侧标注",
       "owner_milestone": "M6",
-      "status": "inherited",
+      "status": "closed",
       "history": [
         { "date": "2026-06-11", "event": "登记于 M1 契约 out-of-scope", "evidence": "milestones/m1/M1_CONTRACT.md §2.2" },
-        { "date": "2026-06-15", "event": "M6 开工承接(open→inherited,owner_milestone M6 不变):无损语法树通道由 M6 D-M6-4 在 LSP MVP 开工时评估接通——若按 07 §9 容忍'保存时全量 body 重查询'则继续推迟,接通/推迟处置随 M6.4 留痕。代码侧 // STUB(RD-004) 双侧标注。非 M6 验收门", "evidence": "milestones/m6/M6_CONTRACT.md §6 / M6_PLAN.md §4" }
+        { "date": "2026-06-15", "event": "M6 开工承接(open→inherited,owner_milestone M6 不变):无损语法树通道由 M6 D-M6-4 在 LSP MVP 开工时评估接通——若按 07 §9 容忍'保存时全量 body 重查询'则继续推迟,接通/推迟处置随 M6.4 留痕。代码侧 // STUB(RD-004) 双侧标注。非 M6 验收门", "evidence": "milestones/m6/M6_CONTRACT.md §6 / M6_PLAN.md §4" },
+        { "date": "2026-06-15", "event": "M6.4 接通完结:parser 事件流经 src/rurixc/src/lossless.rs(rowan 式绿/红树)消费,供 LSP offset 映射与 ToolingSession 使用;RXS-0030 第 5 条更新。status inherited→closed(formal close 留痕待 M6 close-out 终审)", "evidence": "src/rurixc/src/lossless.rs / src/rurixc/src/tooling/session.rs / spec/syntax.md RXS-0030" }
       ]
     },
     {

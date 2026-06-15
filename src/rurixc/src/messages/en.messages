@@ -102,3 +102,4 @@ toolchain.pkg_source_unreachable = dependency source is unreachable: {detail}
 # rx test 诊断(RX7010 ~ RX7011,spec/toolchain.md RXS-0095;M6.3 分配)
 toolchain.rx_test_discovery = rx test discovery error: {detail}
 toolchain.rx_test_exec_failure = rx test child process failed: {detail}
+toolchain.lsp_rename_invalid = invalid LSP rename target: {detail}

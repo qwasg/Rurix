@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/lsp_smoke/v1",
+  "title": "Rurix LSP MVP 能力面冒烟证据 JSON(M6.4,契约 G-M6-2/G-M6-5)",
+  "description": "rurixc --tooling-smoke + --tooling-server 在 lsp_mvp fixture 上六项 LSP 能力往返通过的机器事实。capabilities_passed 去重计数计入 m6.counter.lsp_capabilities(>=5 PASS)。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject",
+    "capabilities_passed",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": { "const": "lsp_capabilities" },
+    "capabilities_passed": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "publishDiagnostics",
+          "completion",
+          "definition",
+          "references",
+          "highlight",
+          "rename"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["command", "exit_code", "capabilities_passed"],
+        "properties": {
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" },
+          "capabilities_passed": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "frame_count": { "type": "integer" }
+        }
+      }
+    },
+    "redgreen": {
+      "type": "object",
+      "properties": {
+        "tamper": { "type": "string" },
+        "red_exit_code": { "type": "integer" },
+        "green_exit_code": { "type": "integer" },
+        "run_url": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" }
+  }
+}

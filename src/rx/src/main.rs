@@ -168,6 +168,7 @@ fn cmd_build(args: &[String]) -> ExitCode {
             emit: None,
             profile_out: None,
             reproducible: b.locked && b.offline,
+            error_format: None,
         }));
     }
 
@@ -186,6 +187,7 @@ fn cmd_build(args: &[String]) -> ExitCode {
         emit: None,
         profile_out: None,
         reproducible: false,
+        error_format: None,
     }))
 }
 
@@ -384,6 +386,7 @@ fn cmd_test(args: &[String]) -> ExitCode {
             emit: None,
             profile_out: None,
             reproducible: false,
+            error_format: None,
         });
         if compile_code != 0 {
             report_rx_test_exec_failure(&format!(
@@ -470,6 +473,7 @@ fn cmd_check(args: &[String]) -> ExitCode {
         emit: Some("check".to_owned()),
         profile_out: None,
         reproducible: false,
+        error_format: None,
     }))
 }
 
@@ -490,6 +494,7 @@ fn cmd_run(args: &[String]) -> ExitCode {
         emit: None,
         profile_out: None,
         reproducible: false,
+        error_format: None,
     });
     if build_code != 0 {
         return ExitCode::from(build_code);

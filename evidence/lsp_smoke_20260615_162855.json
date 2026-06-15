@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "subject": "lsp_capabilities",
+  "timestamp": "2026-06-15T08:28:55.966492+00:00",
+  "capabilities_passed": [
+    "completion",
+    "definition",
+    "highlight",
+    "publishDiagnostics",
+    "references",
+    "rename"
+  ],
+  "facts": [
+    {
+      "command": "rurixc.exe --tooling-smoke conformance\\toolchain\\lsp_mvp\\sample.rx",
+      "exit_code": 0,
+      "capabilities_passed": [
+        "completion",
+        "definition",
+        "highlight",
+        "publishDiagnostics",
+        "references",
+        "rename"
+      ]
+    },
+    {
+      "command": "rurixc.exe --tooling-server",
+      "exit_code": 0,
+      "capabilities_passed": [
+        "completion",
+        "definition",
+        "highlight",
+        "publishDiagnostics",
+        "references",
+        "rename"
+      ],
+      "frame_count": 7
+    }
+  ],
+  "redgreen": {
+    "tamper": "RURIX_LSP_SMOKE_EXPECT_COMPLETION=___no_such_symbol___",
+    "red_exit_code": 1,
+    "green_exit_code": 0
+  }
+}

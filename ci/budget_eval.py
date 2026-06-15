@@ -215,10 +215,12 @@ def eval_counter(entry: dict, strict: bool) -> None:
                 n += 1
         count_or_gate(eid, n, 1, "份逐字节可复现的离线重建证据", "M6.3 离线重建复现门接入前为正常状态,契约 G-M6-1", strict)
     elif eid == "m6.counter.lsp_capabilities":
-        # LSP MVP 能力面覆盖数(契约 G-M6-2/G-M6-5,07 §9);LSP server 落地前
-        # evaluator 计数源(能力面往返冒烟通过数)不存在 → 0 → 建设期 normal SKIP /
-        # close-out strict FAIL。落地时回填计数源。
+        # LSP MVP 能力面覆盖数(契约 G-M6-2/G-M6-5,07 §9);计数源 =
+        # evidence/lsp_smoke_*.json 中 capabilities_passed 去重集的最大基数。
         n = 0
+        for f in (ROOT / "evidence").glob("lsp_smoke_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            n = max(n, len(set(doc.get("capabilities_passed", []))))
         count_or_gate(eid, n, 5, "项 LSP MVP 能力面", "M6.4 LSP server 落地前为正常状态,契约 G-M6-2", strict)
     elif eid == "m1.counter.spec_clause_test_anchoring":
         # 条款 ↔ 测试锚定由 traceability 矩阵工具核对(M1.4 交付物,契约 G-M1-4);

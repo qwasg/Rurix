@@ -245,6 +245,7 @@
       "src/rurixc/src/parser.rs"
     ],
     "RXS-0030": [
+      "src/rurixc/src/lossless.rs",
       "src/rurixc/src/parser.rs",
       "tests/ui/parse/missing_semi.rx",
       "tests/ui/parse/unclosed_brace.rx"
@@ -690,6 +691,33 @@
     ],
     "RXS-0097": [
       "conformance/workspace/repro/src/main.rx"
+    ],
+    "RXS-0098": [
+      "src/rurixc/src/query.rs",
+      "src/rurixc/src/tooling/lsp.rs",
+      "src/rurixc/src/tooling/session.rs"
+    ],
+    "RXS-0099": [
+      "conformance/toolchain/lsp_mvp/sample.rx",
+      "src/rurixc/src/tooling/diag_json.rs"
+    ],
+    "RXS-0100": [
+      "conformance/toolchain/lsp_mvp/sample.rx",
+      "src/rurixc/src/tooling/ide_query.rs",
+      "src/rurixc/src/tooling/lsp.rs"
+    ],
+    "RXS-0101": [
+      "conformance/toolchain/lsp_mvp/sample.rx",
+      "src/rurixc/src/tooling/ide_query.rs"
+    ],
+    "RXS-0102": [
+      "conformance/toolchain/lsp_mvp/sample.rx",
+      "src/rurixc/src/tooling/ide_query.rs"
+    ],
+    "RXS-0103": [
+      "conformance/toolchain/lsp_mvp/sample.rx",
+      "src/rurixc/src/tooling/ide_query.rs",
+      "src/rurixc/src/tooling/lsp.rs"
     ]
   }
 }

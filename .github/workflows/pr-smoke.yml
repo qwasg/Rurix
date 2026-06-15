@@ -130,3 +130,13 @@ jobs:
       - name: offline rebuild reproducibility gate (M6 CI_GATES §2.27, G-M6-1)
         shell: powershell
         run: py -3 ci/offline_rebuild_repro.py
+
+      # —— M6.4 增量(milestones/m6/CI_GATES.md §2 步骤 28;G-M6-2/G-M6-5)——
+      # LSP MVP 六项能力面冒烟(rurixc --tooling-smoke + 内建红绿门)。
+      - name: LSP capabilities smoke (M6 CI_GATES §2.28, G-M6-2)
+        shell: powershell
+        run: |
+          py -3 ci/lsp_smoke.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test -p rurixc tooling::lsp::tests
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

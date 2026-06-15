@@ -22,12 +22,7 @@ pub struct SourceFile {
 
 impl SourceFile {
     fn new(id: SourceId, name: String, src: String, edition: Edition) -> Self {
-        let mut line_starts = vec![0u32];
-        for (i, b) in src.bytes().enumerate() {
-            if b == b'\n' {
-                line_starts.push(i as u32 + 1);
-            }
-        }
+        let line_starts = line_starts(&src);
         Self {
             id,
             name,
@@ -35,6 +30,11 @@ impl SourceFile {
             edition,
             line_starts,
         }
+    }
+
+    fn update_src(&mut self, src: String) {
+        self.line_starts = line_starts(&src);
+        self.src = src;
     }
 
     /// 字节偏移 → 1-based 行列(列按字符计)。
@@ -72,6 +72,36 @@ impl SourceFile {
     pub fn line_count(&self) -> u32 {
         self.line_starts.len() as u32
     }
+
+    /// LSP 0-based 行列 → 字节偏移(列按字符计;ASCII fixture 与 UTF-16 一致)。
+    pub fn offset_at_lsp(&self, line: u32, character: u32) -> BytePos {
+        let line_idx = line as usize;
+        debug_assert!(line_idx < self.line_starts.len());
+        let start = self.line_starts[line_idx] as usize;
+        let text = self.line_text(line + 1);
+        let mut byte = start;
+        for (i, ch) in text.chars().enumerate() {
+            if i as u32 >= character {
+                break;
+            }
+            byte += ch.len_utf8();
+        }
+        BytePos(byte as u32)
+    }
+
+    pub fn src(&self) -> &str {
+        &self.src
+    }
+}
+
+fn line_starts(src: &str) -> Vec<u32> {
+    let mut line_starts = vec![0u32];
+    for (i, b) in src.bytes().enumerate() {
+        if b == b'\n' {
+            line_starts.push(i as u32 + 1);
+        }
+    }
+    line_starts
 }
 
 #[derive(Default)]
@@ -100,6 +130,10 @@ impl SourceMap {
         &self.files[id.0 as usize]
     }
 
+    pub fn update_file(&mut self, id: SourceId, src: impl Into<String>) {
+        self.files[id.0 as usize].update_src(src.into());
+    }
+
     /// span 覆盖的源码文本。
     pub fn snippet(&self, span: Span) -> &str {
         let f = self.file(span.file);
@@ -108,6 +142,17 @@ impl SourceMap {
 
     pub fn lookup(&self, id: SourceId, pos: BytePos) -> LineCol {
         self.file(id).lookup(pos)
+    }
+
+    /// 字节偏移 → LSP 0-based `(line, character)`(列按字符计)。
+    pub fn to_lsp_position(&self, span: Span) -> (u32, u32) {
+        let lc = self.lookup(span.file, span.lo);
+        (lc.line - 1, lc.col - 1)
+    }
+
+    /// LSP 0-based 位置 → 字节偏移。
+    pub fn from_lsp_position(&self, id: SourceId, line: u32, character: u32) -> BytePos {
+        self.file(id).offset_at_lsp(line, character)
     }
 }
 

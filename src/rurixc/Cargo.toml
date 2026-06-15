@@ -6,7 +6,8 @@ version.workspace = true
 publish.workspace = true
 
 [dependencies]
-# M1.1 零外部依赖:消息表为自有行格式(不引 JSON/serde),渲染库(annotate-snippets)随 M1.2 接入
+# M1.1 起消息表为自有行格式;M6.4 RD-004 接通 rowan 式无损语法树(07 §9)
+rowan = "0.15.1"
 
 [lints]
 workspace = true
