@@ -2,18 +2,19 @@
 """rx CLI 核心子命令端到端冒烟(M6 CI_GATES 步骤 25,契约 G-M6-3)。
 
 用法:
-    py -3 ci/rx_cli_smoke.py            # 真跑 build/run/check/fmt/bench --smoke
+    py -3 ci/rx_cli_smoke.py            # 真跑 build/run/check/test/fmt/bench --smoke
     py -3 ci/rx_cli_smoke.py --no-emit  # 同上但不写 evidence(本地快速核对)
 
 机制:构建 debug rx,在样例工程上逐子命令端到端真跑(退出码符合 RXS-0083 约定):
 - rx check conformance/toolchain/check_ok.rx        → 0(仅前端,RXS-0086)
 - rx build conformance/toolchain/hello.rx -o ...     → 0 + EXE 落盘(RXS-0084)
 - rx run   conformance/toolchain/exit_code.rx -o ... → 0(产物退出码透传,RXS-0085)
+- rx test  conformance/toolchain/rx_test_basic.rx    → 0(子进程隔离,RXS-0095)
 - rx fmt --check-idempotent conformance/syntax/...   → 0(收编 RD-005,RXS-0087)
 - rx bench saxpy --smoke                              → 0(收编 RD-003,RXS-0088,GPU)
 
 任一子命令端到端失败(非零退出)即整体 FAIL(反 YAML-only)。成功子命令去重集
-写 evidence/rx_cli_smoke_<yyyymmdd>.json(subcommands_passed),计入
+写 evidence/rx_cli_smoke_<yyyymmdd_hhmmss>.json(subcommands_passed),计入
 m6.counter.rx_cli_core_subcommands(ci/budget_eval.py)。
 """
 from __future__ import annotations
@@ -32,6 +33,18 @@ OUT_DIR = ROOT / "build" / "rx_cli_smoke"
 
 def run(cmd, **kw):
     return subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, **kw)
+
+
+def unique_evidence_path() -> Path:
+    base = ROOT / "evidence"
+    base.mkdir(parents=True, exist_ok=True)
+    stem = f"rx_cli_smoke_{datetime.datetime.now():%Y%m%d_%H%M%S}"
+    out = base / f"{stem}.json"
+    n = 1
+    while out.exists():
+        out = base / f"{stem}_{n}.json"
+        n += 1
+    return out
 
 
 def main() -> int:
@@ -54,6 +67,7 @@ def main() -> int:
                    "-o", str(OUT_DIR / "hello.exe")], 0),
         ("run", [str(RX), "run", "conformance/toolchain/exit_code.rx",
                  "-o", str(OUT_DIR / "exit_code.exe")], 0),
+        ("test", [str(RX), "test", "conformance/toolchain/rx_test_basic.rx"], 0),
         ("fmt", [str(RX), "fmt", "--check-idempotent",
                  "conformance/syntax/hello_world.rx"], 0),
         ("bench", [str(RX), "bench", "saxpy", "--smoke"], 0),
@@ -88,7 +102,7 @@ def main() -> int:
             "facts": facts,
             "timestamp": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
         }
-        out = ROOT / "evidence" / f"rx_cli_smoke_{datetime.date.today():%Y%m%d}.json"
+        out = unique_evidence_path()
         out.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         print(f"[rx_cli_smoke] evidence 写入 {out.relative_to(ROOT)}")
 

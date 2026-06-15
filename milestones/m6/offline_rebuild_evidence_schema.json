@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/offline_rebuild/v1",
+  "title": "Rurix G-M6-1 离线重建逐字节复现证据 JSON",
+  "description": "三包 workspace(path/git/archive)在 rx build --locked --offline 下两次重建 host EXE SHA-256 一致,且 lock/vendor 不改写；计入 m6.counter.offline_rebuild_reproducible。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject",
+    "reproducible",
+    "fixture",
+    "package_sources",
+    "artifact_sha256_runs",
+    "lock_sha256_runs",
+    "vendor_sha256_runs",
+    "redgreen",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": { "const": "offline_rebuild_reproducible" },
+    "reproducible": { "const": true },
+    "fixture": { "type": "string" },
+    "package_sources": {
+      "type": "array",
+      "items": { "enum": ["path", "git", "archive"] },
+      "minItems": 3,
+      "uniqueItems": true
+    },
+    "artifact_sha256_runs": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "lock_sha256_runs": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "vendor_sha256_runs": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "redgreen": {
+      "type": "object",
+      "required": ["tamper", "red_exit_code", "red_code", "green_exit_code"],
+      "properties": {
+        "tamper": { "type": "string" },
+        "red_exit_code": { "type": "integer" },
+        "red_code": { "const": "RX7008" },
+        "green_exit_code": { "type": "integer" },
+        "run_url": { "type": "string" }
+      }
+    },
+    "rx_binary": { "type": "string" },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["run_id", "command", "exit_code"],
+        "properties": {
+          "run_id": { "type": "string" },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" },
+          "stdout": { "type": "string" },
+          "stderr": { "type": "string" },
+          "artifact_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "lock_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "vendor_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" }
+  }
+}

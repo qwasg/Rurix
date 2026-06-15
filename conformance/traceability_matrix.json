@@ -680,10 +680,13 @@
     ],
     "RXS-0095": [
       "conformance/toolchain/rx_test_basic.rx",
-      "conformance/toolchain/rx_test_gpu.rx"
+      "conformance/toolchain/rx_test_gpu.rx",
+      "src/rurixc/src/test_harness.rs",
+      "src/rx/tests/cli.rs"
     ],
     "RXS-0096": [
-      "conformance/workspace/repro/src/main.rx"
+      "conformance/workspace/repro/src/main.rx",
+      "src/rurix-pkg/src/vendor.rs"
     ],
     "RXS-0097": [
       "conformance/workspace/repro/src/main.rx"

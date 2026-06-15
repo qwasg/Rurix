@@ -160,9 +160,10 @@ def check_evidence_files() -> None:
     sanitizer_schema = load(ROOT / "milestones/m5/compute_sanitizer_evidence_schema.json")
     redistribution_schema = load(ROOT / "milestones/m5/redistribution_audit_evidence_schema.json")
     rx_cli_smoke_schema = load(ROOT / "milestones/m6/rx_cli_smoke_evidence_schema.json")
+    offline_rebuild_schema = load(ROOT / "milestones/m6/offline_rebuild_evidence_schema.json")
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
-            or rx_cli_smoke_schema is None):
+            or rx_cli_smoke_schema is None or offline_rebuild_schema is None):
         return
     evidence_files = sorted((ROOT / "evidence").glob("*.json"))
     if not evidence_files:
@@ -179,6 +180,7 @@ def check_evidence_files() -> None:
     sanitizer_validator = jsonschema.Draft7Validator(sanitizer_schema)
     redistribution_validator = jsonschema.Draft7Validator(redistribution_schema)
     rx_cli_smoke_validator = jsonschema.Draft7Validator(rx_cli_smoke_schema)
+    offline_rebuild_validator = jsonschema.Draft7Validator(offline_rebuild_schema)
     for f in evidence_files:
         doc = load(f)
         if doc is None:
@@ -187,7 +189,8 @@ def check_evidence_files() -> None:
         # schema(G-M3-3 配套);compute_sanitizer_ → m5 Sanitizer schema
         # (G-M5-4 配套);redistribution_audit_ → m5 再分发审计 schema
         # (CI_GATES §4 第 2 项配套);rx_cli_smoke_ → m6 rx CLI 子命令冒烟 schema
-        # (G-M6-3 配套);其余 → m0 GPU schema
+        # (G-M6-3 配套);offline_rebuild_ → m6 离线重建复现 schema
+        # (G-M6-1 配套);其余 → m0 GPU schema
         if f.name.startswith("frontend_"):
             validator = frontend_validator
         elif f.name.startswith("compile_"):
@@ -198,6 +201,8 @@ def check_evidence_files() -> None:
             validator = redistribution_validator
         elif f.name.startswith("rx_cli_smoke_"):
             validator = rx_cli_smoke_validator
+        elif f.name.startswith("offline_rebuild_"):
+            validator = offline_rebuild_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):

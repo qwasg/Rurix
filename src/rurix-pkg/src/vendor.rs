@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use crate::content_tree;
 use crate::error::{PkgError, PkgResult};
 use crate::lock::Lock;
-use crate::manifest::{Manifest, Source};
+use crate::manifest::{Dependency, Manifest, Source};
 use crate::resolve::{self, LoadedPackage, PackageLoader, ResolveGraph};
 
 const MANIFEST_NAME: &str = "rurix.toml";
@@ -112,9 +112,53 @@ pub fn load_root(base_dir: &Path) -> PkgResult<(Manifest, String)> {
 
 /// 解析整个 workspace(单根锁,RXS-0091)→ 解析图。
 pub fn resolve_workspace(base_dir: &Path, offline: bool) -> PkgResult<ResolveGraph> {
-    let (root, root_sha) = load_root(base_dir)?;
+    let (mut root, root_sha) = load_root(base_dir)?;
+    activate_workspace_members(base_dir, &mut root)?;
     let loader = FsLoader::new(base_dir, offline);
     resolve::resolve(&root, &root_sha, &loader)
+}
+
+/// RXS-0096:把 `[workspace].members` 归一为根清单的 path 依赖边,使 root +
+/// members + 三来源依赖进入同一单根 lock 图。显式同名依赖若 locator 不同即冲突。
+fn activate_workspace_members(base_dir: &Path, root: &mut Manifest) -> PkgResult<()> {
+    let members = root.workspace_members.clone();
+    for rel in members {
+        let manifest_path = base_dir.join(&rel).join(MANIFEST_NAME);
+        if !manifest_path.is_file() {
+            return Err(PkgError::SourceUnreachable(format!(
+                "workspace member 不可达:{} 无 {MANIFEST_NAME}",
+                base_dir.join(&rel).display()
+            )));
+        }
+        let text = std::fs::read_to_string(&manifest_path).map_err(|e| {
+            PkgError::ManifestInvalid(format!(
+                "读取 workspace member 清单 {} 失败:{e}",
+                manifest_path.display()
+            ))
+        })?;
+        let member = Manifest::parse(&text)?;
+        let source = Source::Path(join_normalize(".", &rel));
+        let dep = Dependency {
+            source: source.clone(),
+            features: Vec::new(),
+            default_features: true,
+        };
+        match root.dependencies.get(&member.name) {
+            Some(existing) if existing.source.locator() == source.locator() => {}
+            Some(existing) => {
+                return Err(PkgError::ResolutionConflict(format!(
+                    "workspace member {:?} 来源 {} 与根依赖 {} 不一致",
+                    member.name,
+                    source.locator(),
+                    existing.source.locator()
+                )));
+            }
+            None => {
+                root.dependencies.insert(member.name.clone(), dep);
+            }
+        }
+    }
+    Ok(())
 }
 
 /// `rx vendor`:解析 → 落 vendor/<name>(path 依赖)→ 写 rurix.lock(RXS-0094)。
@@ -270,6 +314,26 @@ mod tests {
         );
         ws.write("foo/src/lib.rx", "fn foo() {}\n");
         ws
+    }
+
+    //@ spec: RXS-0096
+    #[test]
+    fn workspace_members_enter_single_root_lock_graph() {
+        let ws = TempWs::new();
+        ws.write(
+            "rurix.toml",
+            "[package]\nname = \"app\"\nversion = \"0.1.0\"\n[workspace]\nmembers = [\"member\"]\n",
+        );
+        ws.write("src/main.rx", "fn main() {}\n");
+        ws.write(
+            "member/rurix.toml",
+            "[package]\nname = \"member\"\nversion = \"0.1.0\"\n",
+        );
+        ws.write("member/src/lib.rx", "fn member() {}\n");
+        let g = resolve_workspace(&ws.0, true).unwrap();
+        assert!(g.nodes.contains_key("app"));
+        assert!(g.nodes.contains_key("member"));
+        assert_eq!(g.nodes["member"].source.locator(), "path:member");
     }
 
     //@ spec: RXS-0094

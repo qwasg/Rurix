@@ -98,3 +98,7 @@ toolchain.pkg_resolution_conflict = dependency resolution conflict: {detail}
 toolchain.pkg_lock_mismatch = rurix.lock is out of date or inconsistent: {detail}
 toolchain.pkg_digest_mismatch = content tree digest mismatch: {detail}
 toolchain.pkg_source_unreachable = dependency source is unreachable: {detail}
+#
+# rx test 诊断(RX7010 ~ RX7011,spec/toolchain.md RXS-0095;M6.3 分配)
+toolchain.rx_test_discovery = rx test discovery error: {detail}
+toolchain.rx_test_exec_failure = rx test child process failed: {detail}
