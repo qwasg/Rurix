@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/redistribution_audit/v1",
+  "title": "Rurix NVIDIA 再分发白名单审计证据 JSON(M5.4 第 5 步,CI_GATES §4 第 2 项 formal 激活)",
+  "description": "NVIDIA libdevice 再分发面的机器可复核事实清单。redistribution_surface_empty=true 计入 m5.counter.redistribution_audit_clean(ci/budget_eval.py)。eula_whitelist_verdict 为法律裁决字段:AI 仅起草事实,EULA Attachment A 白名单逐项核对/再分发判定由所有者/法务人工签署,保持 pending-human-review(AI 不代签)。机器复核闸门 = ci/check_redistribution.py。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "audit_subject",
+    "kernels",
+    "ir_needs_libdevice",
+    "embedded_ptx_has_nv_symbols",
+    "libdevice_bc_packaged",
+    "libdevice_locate",
+    "redistribution_surface_empty",
+    "eula_whitelist_verdict",
+    "guard",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "audit_subject": {
+      "description": "审计对象",
+      "const": "nvidia_libdevice_redistribution"
+    },
+    "kernels": {
+      "description": "纳入核验的交付 kernel 干名",
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1
+    },
+    "ir_needs_libdevice": {
+      "description": "四类 kernel 是否需要链 libdevice(toolchain::ir_needs_libdevice;IR 含 @__nv_ 即 true)。再分发面为空要求 false",
+      "type": "boolean"
+    },
+    "embedded_ptx_has_nv_symbols": {
+      "description": "版本化嵌入 PTX(bench/kernels/rurix_*.ptx)是否含 __nv_* libdevice 派生符号。再分发面为空要求 false",
+      "type": "boolean"
+    },
+    "libdevice_bc_packaged": {
+      "description": "rurixc/rurix-rt 是否把 libdevice*.bc 打包进产物(include_bytes!/include_str!)。禁打包,要求 false",
+      "type": "boolean"
+    },
+    "libdevice_locate": {
+      "description": "libdevice bitcode 运行期定位路径形态(toolchain::locate_libdevice,禁硬编码版本路径,经 CUDA_PATH/RURIXC_LIBDEVICE)",
+      "type": "string"
+    },
+    "redistribution_surface_empty": {
+      "description": "综合机器事实:NVIDIA libdevice 再分发面是否为空(计入 m5.counter.redistribution_audit_clean)",
+      "type": "boolean"
+    },
+    "eula_whitelist_verdict": {
+      "description": "NVIDIA EULA Attachment A 白名单逐项核对/再分发判定的人工签署状态(AI 不代签)",
+      "enum": ["pending-human-review", "signed-compliant", "signed-noncompliant"]
+    },
+    "eula_whitelist_note": {
+      "description": "法律裁决备注(人工签署前为待审说明)",
+      "type": "string"
+    },
+    "guard": {
+      "description": "机器复核闸门脚本路径",
+      "type": "string"
+    },
+    "facts": {
+      "description": "逐条事实 ↔ 复现命令背书(反 YAML-only:每条结论可由命令/产物实测复现)",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim", "command", "result"],
+        "properties": {
+          "claim": { "type": "string" },
+          "command": { "type": "string" },
+          "result": { "type": "string" }
+        }
+      }
+    },
+    "redgreen": {
+      "description": "formal 门真实红绿验证留痕(反 YAML-only,H06 D11.8-2)",
+      "type": "object",
+      "properties": {
+        "red_command": { "type": "string" },
+        "red_exit_code": { "type": "integer" },
+        "green_command": { "type": "string" },
+        "green_exit_code": { "type": "integer" },
+        "run_url": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "harness_commit": { "type": "string" }
+  }
+}

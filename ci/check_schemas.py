@@ -158,8 +158,9 @@ def check_evidence_files() -> None:
     frontend_schema = load(ROOT / "milestones/m1/frontend_evidence_schema.json")
     compile_schema = load(ROOT / "milestones/m3/compile_evidence_schema.json")
     sanitizer_schema = load(ROOT / "milestones/m5/compute_sanitizer_evidence_schema.json")
+    redistribution_schema = load(ROOT / "milestones/m5/redistribution_audit_evidence_schema.json")
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
-            or sanitizer_schema is None):
+            or sanitizer_schema is None or redistribution_schema is None):
         return
     evidence_files = sorted((ROOT / "evidence").glob("*.json"))
     if not evidence_files:
@@ -174,19 +175,23 @@ def check_evidence_files() -> None:
     frontend_validator = jsonschema.Draft7Validator(frontend_schema)
     compile_validator = jsonschema.Draft7Validator(compile_schema)
     sanitizer_validator = jsonschema.Draft7Validator(sanitizer_schema)
+    redistribution_validator = jsonschema.Draft7Validator(redistribution_schema)
     for f in evidence_files:
         doc = load(f)
         if doc is None:
             continue
         # 路由(按文件名前缀):frontend_ → m1 前端 schema;compile_ → m3 编译
         # schema(G-M3-3 配套);compute_sanitizer_ → m5 Sanitizer schema
-        # (G-M5-4 配套);其余 → m0 GPU schema
+        # (G-M5-4 配套);redistribution_audit_ → m5 再分发审计 schema
+        # (CI_GATES §4 第 2 项配套);其余 → m0 GPU schema
         if f.name.startswith("frontend_"):
             validator = frontend_validator
         elif f.name.startswith("compile_"):
             validator = compile_validator
         elif f.name.startswith("compute_sanitizer_"):
             validator = sanitizer_validator
+        elif f.name.startswith("redistribution_audit_"):
+            validator = redistribution_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):
