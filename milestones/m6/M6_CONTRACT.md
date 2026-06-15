@@ -1,7 +1,7 @@
 ---
 contract: M6
 title: 工具链与包管理——rx CLI / 包管理 / LSP MVP
-status: active            # active → closed(close-out 只追加,既有条款 0-byte 修改)
+status: closed            # active → closed(close-out 只追加,既有条款 0-byte 修改;M6 close-out 终审 §8 人工签署)
 version: v1.0
 date: 2026-06-15
 timebox: "M+11 ~ M+13(约 8 周,两级结构见 M6_PLAN.md)"
@@ -145,6 +145,8 @@ guardrails:
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-06-15 | 初版契约固化(M6 开工脚手架;基准 ref 维持 m5-closed 无需再切;deferred RD-003/RD-004/RD-005 open→inherited 承接、RD-007 维持 inherited;spec/toolchain.md RXS-0083 续号预留,条款体随 M6.1+ 与测试同 PR;新段位错误码首批分配随 M6.1+ 诊断 PR) |
+| v1.1 | 2026-06-15 | M6 整里程碑 close-out 终审材料追加(§8.2~§8.11):G-M6-1~G-M6-5 完整验收记录 + 红绿 run URL 汇总 + guardrail 五项核对输出原文(`budget_eval --strict` 42/0 / `trace_matrix --check` 103/103 / `check_schemas` / `check_fmt_idempotent` 108 files / `check_guardrails` 双基准)+ RD-003/RD-005 formal close 与 RD-007 维持处置留痕 + D-M6-5 顺延项(VS Code 扩展 / Natvis 首批人工部分)承接去向裁定 + 基准切换 `m5-closed→m6-closed` 与收官终结留痕(§8.11,对齐 M5 §8.10)。§1-7 既有条款 0-byte 修改。LSP 逐交互延迟阈值(54.0/44.94/108.93ms,实测×1.5)已于 #36 随 main 落 measured_local 并受 `check_budget` 0-byte 冻结,close-out 不改预算条目,owner 在 §8.11 签署"批准定档"。**M6 正式关闭判定(active→closed)与 LSP 延迟阈值定档由白栀/owner 人工签署(§8.11),AI 不代签** |
+| v1.2 | 2026-06-15 | 人工签署 §8.11:白栀/owner 裁决 M6 正式关闭(`active→closed`)并批准 LSP 10k 行交互延迟阈值定档(54.0/44.94/108.93ms);契约 YAML 头落为 `status: closed`。 |
 
 ---
 
@@ -159,3 +161,130 @@ guardrails:
 - 预算:[`m6_budget.json`](m6_budget.json) `m6.bench.lsp_interaction_latency_ms` estimated → measured_local(revision_log v1.1);逐交互阈值 = 实测 × 1.5(max 方向上界)= 54.0 / 44.94 / 108.93,publishDiagnostics 远在 07 §6 增量 check < 5s 行业线天花板内;阈值为 agent 提案,待人工终审批准(硬规则 1)。
 - 判定:`py -3 ci/budget_eval.py --strict` = PASS(全局零 estimated 残留,本占位在 M6 内生灭);`m6.bench.lsp_interaction_latency_ms` 经 `ci/budget_eval.py` 特例分支逐交互对阈。门接线 nightly 趋势归档(参考)+ pr-smoke `budget evaluator` / close-out `--strict`(达标判定)。真实 PR 红绿(#36):绿基线 [27537555626](https://github.com/qwasg/Rurix/actions/runs/27537555626) / 红 [27537714804](https://github.com/qwasg/Rurix/actions/runs/27537714804)(`thresholds.completion` 改到实测之下 → `budget evaluator load` 红)/ 绿 revert [27537807841](https://github.com/qwasg/Rurix/actions/runs/27537807841),详见 CI_GATES §6 v1.8。
 - 余项:VS Code 扩展 / Natvis 首批(D-M6-5 人工部分)与 M6 整里程碑 close-out 终审(`m6-closed` tag / 基准切换 / RD-003·RD-005 formal close / registry 汇总)留 M6 收官终审步(白栀/owner 人工签署),本契约 status 维持 `active`。
+
+### 8.2 M6 close-out 验收记录(收官终审,2026-06-15)
+
+> 终审材料备齐,机器证据跑齐;**M6 正式关闭判定(status active→closed)与 LSP 延迟阈值定档已由白栀/owner 人工签署**(见 §8.10)。AI 仅备齐验收记录与证据清单,执行机械动作,不代签关闭、不代签阈值定档。对齐 [CI_GATES.md](CI_GATES.md) §5 第 6 项六条收口与 M5 收官先例(§8.1~§8.10 / m4-closed→m5-closed)。M6.1~M6.5 已全部并入 main(#31~#36),收官前 main 闭合 HEAD = `c9b07eb`(#36 merge),push pr-smoke run [27538109697](https://github.com/qwasg/Rurix/actions/runs/27538109697) = success。
+
+### 8.3 收口①——`budget_eval --strict` 输出原文(G-M6-2 LSP measured_local + 全局零 estimated + 三计数器)
+
+命令:`py -3 ci/budget_eval.py --strict`(2026-06-15,本机 RTX 4070 Ti)。判定:**LSP 三类逐交互对子阈达标**(completion 35.998 / definition 29.959 / publishDiagnostics 72.623 ms,vs max 54.0 / 44.94 / 108.93)、**全局零 estimated 残留**(strict 任何 estimated 即 FAIL,实际 0 skip)、`m6.counter` 三计数器达标(6/1/6)、`spec_clause_test_anchoring` 103 条款全锚定:
+
+```
+  PASS m6.bench.lsp_interaction_latency_ms.completion: PASS — 35.998 ms vs max 54.0
+  PASS m6.bench.lsp_interaction_latency_ms.definition: PASS — 29.959 ms vs max 44.94
+  PASS m6.bench.lsp_interaction_latency_ms.publishDiagnostics: PASS — 72.623 ms vs max 108.93
+  PASS m6.counter.rx_cli_core_subcommands: PASS — 6 个 rx CLI 核心子命令端到端(要求 ≥6)
+  PASS m6.counter.offline_rebuild_reproducible: PASS — 1 份逐字节可复现的离线重建证据(要求 ≥1)
+  PASS m6.counter.lsp_capabilities: PASS — 6 项 LSP MVP 能力面(要求 ≥5)
+  PASS m1.counter.spec_clause_test_anchoring: PASS — 103 条款全部 ≥1 测试锚定
+[budget_eval] PASS (42 pass, 0 skip, strict mode)
+```
+
+### 8.4 收口②——guardrail 核对输出原文(`trace_matrix` / `check_schemas` / `check_fmt_idempotent` / `check_guardrails`)
+
+```
+$ py -3 ci/trace_matrix.py --check
+[trace_matrix] PASS (103/103 clauses anchored, 361 test files scanned)
+
+$ py -3 ci/check_schemas.py
+[check_schemas] PASS
+
+$ py -3 ci/check_fmt_idempotent.py
+[check_fmt_idempotent] PASS (108 files, rx fmt(fmt(x)) == fmt(x) byte-exact)
+
+$ py -3 ci/check_guardrails.py m5-closed
+[check_guardrails] PASS (base=m5-closed, 95 changed paths)
+```
+
+(基准切换后 `m6-closed` 基准核对见 §8.11(b)双基准核对留痕。)
+
+### 8.5 G-M6-1(三包 workspace 离线重建逐字节可复现)
+
+- 判据:path/git/archive 三来源各 ≥1 包的 workspace,`rx build --locked --offline` 干净环境两次重建 host EXE SHA-256 逐字节一致 + `rurix.lock`/`vendor/` 哈希稳定;`m6.counter.offline_rebuild_reproducible ≥1`(实测 1,`evidence/offline_rebuild_*.json` `reproducible=true`)。
+- 门:PR Smoke 步骤 27(`ci/offline_rebuild_repro.py` + `cargo test -p rurix-pkg` + `cargo test -p rx`),CI_GATES §2 / v1.3。
+- 真实红绿(反 YAML-only,#34 base main,CI_GATES §6 v1.4):红 commit `7f21554` 篡改 `vendor/pathdep/src/lib.rx` → run [27528818548](https://github.com/qwasg/Rurix/actions/runs/27528818548) `offline rebuild reproducibility gate` 失败(日志 `RX7008` 内容树 digest mismatch);绿 commit `324e8f6` 普通 revert 复原 → run [27529042970](https://github.com/qwasg/Rurix/actions/runs/27529042970) success。判定:**PASS**。
+
+### 8.6 G-M6-2(LSP 10k 行交互延迟达标 — measured_local)+ G-M6-4(LSP 能力面经 query 层)
+
+- 判据:`rurixc --tooling-server` 常驻 query 层,10k 行样例工程 completion/definition/publishDiagnostics 交互延迟 measured_local;`budget_eval --strict` 逐交互对阈达标(§8.3)。回填证据见 §8.1。`m6.counter.lsp_capabilities ≥5`(实测 6,六项 MVP 能力面全覆盖)。
+- 门:PR Smoke 步骤 28(`ci/lsp_smoke.py` `--tooling-smoke` + `--tooling-server` stdio JSON-RPC 双路径 + `cargo test -p rurixc tooling::lsp::tests`),CI_GATES §2 / v1.5~v1.7。
+- 真实红绿(反 YAML-only):
+  - 能力面(#35 base main,CI_GATES §6 v1.7):红 commit `dc4b867` 移除 `definitionProvider` → run [27534290155](https://github.com/qwasg/Rurix/actions/runs/27534290155) `LSP capabilities smoke` 失败;绿 revert commit `b794ad3` → run [27534478648](https://github.com/qwasg/Rurix/actions/runs/27534478648) success;clippy 修复绿基线 run [27533874687](https://github.com/qwasg/Rurix/actions/runs/27533874687)。
+  - 延迟阈值(#36 base main,CI_GATES §6 v1.8):绿基线 commit `4f965cc` run [27537555626](https://github.com/qwasg/Rurix/actions/runs/27537555626) success;红 commit `8089870` 把 `thresholds.completion` 改到实测之下 → run [27537714804](https://github.com/qwasg/Rurix/actions/runs/27537714804) `budget evaluator load` 失败(日志 `m6.bench.lsp_interaction_latency_ms.completion: FAIL — 35.998 违反 max 10.0`);绿 revert commit `25663c1` → run [27537807841](https://github.com/qwasg/Rurix/actions/runs/27537807841) success。判定:**PASS**。
+
+### 8.7 G-M6-3(rx CLI 核心子命令端到端)
+
+- 判据:build/run/check/test/fmt/bench 在样例工程端到端真跑成功;`m6.counter.rx_cli_core_subcommands ≥6`(实测 6/6,M6.3 纳入 rx test 后达标)。
+- 门:PR Smoke 步骤 25(`ci/rx_cli_smoke.py` + `cargo test -p rx`),CI_GATES §2 / v1.1·v1.3。判定:**PASS**(§8.3 计数器 6/6)。
+
+### 8.8 G-M6-4(rx fmt 幂等 RD-005 + rx bench 工具化 RD-003)
+
+- 判据:`rx fmt` 对全 `conformance/`+`tests/` 语料二次格式化 0 diff;`rx bench` 复用 BENCH_PROTOCOL §3 协议;M5 bench harness 脚本经 rx bench 收编后退役。
+- 门:PR Smoke 步骤 26(`ci/check_fmt_idempotent.py` 经 `rx fmt --check-idempotent`,108 文件 byte-exact,§8.4)。RD-003/RD-005 收编完结 → §8.9 / §8.10 formal close。判定:**PASS**。
+
+### 8.9 G-M6-5(traceability 延续)
+
+- 判据:M6 新增 RXS 条款(rx CLI 子命令语义面 / 包管理 manifest·lock 格式 / LSP 能力面,`spec/toolchain.md` RXS-0083 续号)每条 ≥1 测试锚定;`ci/trace_matrix.py` 全局口径核对。
+- 现状:`trace_matrix --check` = PASS(**103/103 条款全锚定**,361 测试文件,§8.4),M6 期由 82→103 增 21 条(rx CLI/包管理/LSP/无损语法树条款纳入锚定);新鲜度门禁 pr-smoke 常驻(G-M5-5 延续)。判定:**PASS**。
+
+| 通道 | 判据 | 现状 | 背书 |
+|---|---|---|---|
+| G-M6-1 | 三包离线重建逐字节复现 ≥1 | PASS(1 份 reproducible) | §8.5 / `m6.counter.offline_rebuild_reproducible` |
+| G-M6-2 | LSP 10k 行交互延迟 measured_local 达标 | PASS(35.998/29.959/72.623) | §8.3 / §8.6 / §8.1 |
+| G-M6-3 | rx CLI 核心子命令端到端 ≥6 | PASS(6/6) | §8.7 / `m6.counter.rx_cli_core_subcommands` |
+| G-M6-4 | rx fmt 幂等 + rx bench 工具化 | PASS(108 files byte-exact) | §8.8 / §8.4 |
+| G-M6-5 | M6 新条款每条 ≥1 测试锚定 | PASS(103/103) | §8.9 / `m1.counter.spec_clause_test_anchoring` |
+
+### 8.10 Deferred 继承/关闭汇总 + D-M6-5 顺延项处置(以 [../../registry/deferred.json](../../registry/deferred.json) 为唯一事实源)
+
+**RD formal close(deferred.json v1.6):**
+
+| 编号 | 状态变迁 | 锚定 | 留痕 |
+|---|---|---|---|
+| RD-003 | `inherited→closed` | M6.1 收编完结 + M6.5 `rx bench lsp` 实战 | rx bench 工具化收编 BENCH_PROTOCOL §3,M5 harness 脚本退役为被编排的协议库;G-M6-4 兑现(§8.8) |
+| RD-004 | 已 `inherited→closed`(M6.4) | M6.4 接通 | 无损语法树通道 `src/rurixc/src/lossless.rs`(rowan 式),供 LSP offset 映射;RXS-0030 第 5 条更新(非本步翻转) |
+| RD-005 | `inherited→closed` | M6.1 收编完结 | rx fmt 收编进 rx CLI(单一事实源 `rurixc::fmt::format_source`),雏形退役;幂等门 108 文件 byte-exact;G-M6-4 兑现(§8.8) |
+| RD-007 | 维持 `inherited`(owner M6) | M6 未触发 | const 泛型值运行期单态化:M6 工具链作用面未触发(不依赖 turbofish const 实参实例值代入),**非 M6 验收门**,顺延后续 device codegen 扩展评估接通,RXS-0064 语义不变(对齐 M5 close-out 顺延先例) |
+
+RD-001(M8)/RD-002(M5 已 closed)/RD-006(M8)不属 M6 范围,维持原承接。M6 收官无新增 deferred(执行期未登记 RD-###)。
+
+**D-M6-5 顺延项处置(VS Code 扩展 / Natvis 首批人工部分):**
+
+D-M6-5 的两条硬证据已兑现:LSP 10k 行交互延迟实测 measured_local(G-M6-2,§8.6 / §8.1)。其 **VS Code 扩展(LSP 客户端 + 语法高亮)** 与 **Natvis 首批(Buffer/View/Vec/Mat 可视化)** 的人工/半自动联调部分**未阻塞 G-M6-2**(CI_GATES §1:VS Code 扩展联调为人工/半自动,不入 PR Smoke 必经门;扩展打包随发布链路)。承接去向裁定:
+
+- **VS Code 扩展打包/分发** → 承接 **RD-001 / M8**(发布链路 rurixup/MSI/winget + 签名/SBOM/许可审计 + artifact 上传;08 §9 / 11 §3 M8);LSP server 侧(`rurixc --tooling-server` 六项 MVP 能力面)已由 M6.4 落地并经步骤 28 双路径门禁守护(§8.6),扩展为其前端客户端壳,随发布链路打包。
+- **Natvis 首批可视化** → 随 VS Code 扩展/调试体验打包纳入 **M8** 发布期交付(PDB 路线天然兼容,08 §5);M6 不入 PR Smoke 必经门。
+
+二者均**不另立新 RD 编号**(本属 D-M6-5 交付物的发布期承接,归 RD-001/M8 既有承接面),执行期顺延处置留痕于此。
+
+### 8.11 关闭判定 + LSP 延迟阈值定档(人工签署位 — AI 不代签)+ 收官终结留痕
+
+> 本节为人工签署 + 签署后的**收官机械动作**留痕(状态翻转 / tag / 基准切换),AI 仅执行机械动作,不代签关闭、不代签阈值定档。
+
+**(a) 人工签署:**
+
+- **M6 正式关闭判定**(status `active → closed`):签署人:白栀/owner 日期:2026-06-15 裁决:closed
+- **LSP 10k 行交互延迟阈值定档**(硬规则 1,agent 提案待人工终审):签署人:白栀/owner 日期:2026-06-15 裁决:批准定档 completion 54.0 / definition 44.94 / publishDiagnostics 108.93 ms(实测 35.9975 / 29.9585 / 72.6226 × 1.5,max 方向上界,publishDiagnostics 远在 07 §6 增量 check < 5s 行业线天花板内)。该值已于 #36 随 main 落 measured_local 并受 `check_budget` 0-byte 冻结,本步不改预算条目,仅 m6_budget.json revision_log v1.2 留痕 owner 批准。
+
+**(b) guardrail 基准切换 `m5-closed → m6-closed`(`ci/check_guardrails.py` 本地/push 回退基准默认值;PR 路径仍以 `GITHUB_BASE_REF` 为准,既有逻辑不变):**
+
+切换后双基准核对(反 YAML-only,真实跑过;`m6-closed` tag 锚定收官 merge commit = HEAD 故 0 changed paths):
+
+```
+$ py -3 ci/check_guardrails.py m5-closed
+[check_guardrails] PASS (base=m5-closed, 95 changed paths)
+
+$ py -3 ci/check_guardrails.py m6-closed
+[check_guardrails] PASS (base=m6-closed, 0 changed paths)
+```
+
+**(c) 收官 PR 合入 main(普通 merge,无 force push):**
+
+M6.1~M6.5 已全部并入 main(#31~#36,收官前 main 闭合 HEAD = `c9b07eb`,#36 merge,push pr-smoke run [27538109697](https://github.com/qwasg/Rurix/actions/runs/27538109697) success)。本收官终审 PR(分支 `m6-closeout`,base `main`)经 `gh pr checks` 全绿后普通 merge 入 main(保留历史,未使用 reset/rebase/force-push)。
+
+**(d) `m6-closed` annotated tag**:锚定本收官 PR 合入 main 的闭合 merge commit(对齐 `m5-closed` 随 M5 终审锚定收官合并点的先例),`git push origin m6-closed`(无 force);合并后以 `git rev-list -n1 m6-closed` 复核锚定一致。
+
+**(e) M6_PLAN 出口判据勾兑**:M6.1~M6.5 出口判据全部达成(G-M6-1~G-M6-5 兑现 + close-out 终审完成,关闭判定人工签署);**deferred 留痕**:`registry/deferred.json` RD-003/RD-005 `inherited→closed`(rx bench/rx fmt 工具化兑现 G-M6-4)、RD-004 已于 M6.4 `closed`、RD-007 维持 `inherited` 顺延(M6 未触发 const 泛型值单态化,非验收门),revision_log v1.6;SG-001~009 维持 `not_triggered`。
+
+关闭日期:**2026-06-15**。

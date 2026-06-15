@@ -67,6 +67,11 @@
       "version": "v1.1",
       "date": "2026-06-15",
       "change": "M6.5 回填(G-M6-2):lsp_latency_triple 三次进程级独立运行 trimmed mean,m6.bench.lsp_interaction_latency_ms estimated → measured_local;逐交互(completion/definition/publishDiagnostics)阈值 = 实测 × (1 + 0.5)(max 方向上界,publishDiagnostics < 5000ms 07 §6 行业线天花板内);标量 threshold = 最坏交互上界(满足 check_schemas);direction/unit/id 语义不改。阈值为 agent 提案,待人工终审批准(硬规则 1)"
+    },
+    {
+      "version": "v1.2",
+      "date": "2026-06-15",
+      "change": "M6 close-out 终审:LSP 逐交互延迟阈值定档由白栀/owner 人工签署批准(硬规则 1,M6_CONTRACT §8.11)——保持 v1.1 落档的 completion 54.0 / definition 44.94 / publishDiagnostics 108.93 ms(实测 × 1.5,max 方向上界),该值已于 #36 随 main 落 measured_local 并受 ci/check_guardrails.py check_budget 0-byte 冻结,close-out **不改预算条目**(本 revision_log 追加仅记录 owner 批准定档,entries/measured/thresholds 0-byte)。budget_eval --strict = PASS(42/0,逐交互对阈达标 + 全局零 estimated 残留)"
     }
   ]
 }
