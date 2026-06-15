@@ -14,10 +14,15 @@
 //!
 //! 在此之前,本骨架运行(`cargo test -- --ignored`)会 panic,提示映射尚未实现——
 //! 防止 D-406 禁区被 AI 误标为"已完成"。
+//!
+//! **追踪**:PTX 映射实现登记为 **RD-008**(`registry/deferred.json`,owner M7,
+//! D-406 人工落笔);backfill 时人工实现映射 codegen + Compute Sanitizer racecheck
+//! 背书后解开本 `#[ignore]` 并补真跑断言,关闭 RD-008。M5 仅交付类型契约 + RX3010
+//! + 本骨架(M5_PLAN §2 口径已更正:映射 codegen M5 期未交付)。
 
 //@ spec: RXS-0080
 #[test]
-#[ignore = "D-406 禁区:scoped atomics 的 PTX atom.{order}.{scope} 映射由人工落笔(RXS-0080 / 契约 G-M5-4)"]
+#[ignore = "D-406 禁区:scoped atomics 的 PTX atom.{order}.{scope} 映射由人工落笔(RXS-0080 / 契约 G-M5-4;追踪 RD-008)"]
 fn scoped_atomics_ptx_atom_mapping_is_human_authored() {
     panic!(
         "D-406:scoped atomics 的 PTX atom.{{order}}.{{scope}} 映射尚未由人工实现(RXS-0080)。\

@@ -39,18 +39,45 @@ fn rx_files(root: &Path) -> Vec<PathBuf> {
     out
 }
 
-/// 全管线(typeck → coloring → patterns → consteval → device codegen);返回诊断码。
+/// 全管线跑单文件,返回诊断码。阶段顺序与 fail-fast 严格对齐 driver device 通道
+/// (driver.rs::compile 的 `--emit=nvptx-ir|ptx` 分支:typeck→coloring→launch→
+/// patterns→consteval→mir/moves→borrows→views→shared→device_safety→codegen),
+/// 逐段前段有错即停。accept 正例须全程 0 诊断且能产 device IR——补齐 MIR 安全链
+/// 消除"corpus 跳过安全链直达 codegen"的口径漂移(若安全链对某正例报错即为真发现)。
 fn run_pipeline(src: &str, module: &str) -> Vec<u16> {
     let diag = DiagCtxt::new();
     let cx = QueryCtx::new(src, SourceId(0), Edition::Rx0, &diag);
     cx.check_crate();
     if !diag.has_errors() {
         cx.check_coloring();
+    }
+    if !diag.has_errors() {
+        cx.check_launch();
+    }
+    if !diag.has_errors() {
         cx.check_crate_patterns();
+    }
+    if !diag.has_errors() {
         cx.check_consteval();
-        if !diag.has_errors() {
-            let _ = rurixc::device_codegen::build_and_emit(&cx, module);
-        }
+    }
+    if !diag.has_errors() {
+        let _ = cx.mir_crate();
+        cx.check_moves();
+    }
+    if !diag.has_errors() {
+        cx.check_borrows();
+    }
+    if !diag.has_errors() {
+        cx.check_views();
+    }
+    if !diag.has_errors() {
+        cx.check_shared_barrier();
+    }
+    if !diag.has_errors() {
+        cx.check_device_safety();
+    }
+    if !diag.has_errors() {
+        let _ = rurixc::device_codegen::build_and_emit(&cx, module);
     }
     diag.emitted()
         .iter()

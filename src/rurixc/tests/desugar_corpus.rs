@@ -30,6 +30,12 @@ fn desugar_corpus_is_not_empty() {
 }
 
 /// M3.1 出口判据:for/`?` 用例在内的 desugar 正例全管线 0 诊断。
+///
+/// corpus↔driver 阶段顺序一致性(M0–M6 审查):本门为 **accept-only**,契约即
+/// "任一阶段产生任何诊断即失败"(`diag.emitted().is_empty()`)——比 `*_corpus.rs`
+/// reject 用的 fail-fast(`if !has_errors()` 钉死首报码、防级联抢报)语义**更强**,
+/// 且 driver 对干净输入本就跑完整前缀。故阶段间不补 fail-fast 判定:0 诊断契约下
+/// 它纯属无操作,且会暗示并不存在的 reject 处理(见 `pipeline_consistency.rs` 文件头)。
 #[test]
 fn desugar_corpus_full_pipeline_diagnostic_free() {
     for file in corpus() {

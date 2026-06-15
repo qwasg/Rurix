@@ -15,12 +15,14 @@ use rurixc::diag::DiagCtxt;
 use rurixc::query::QueryCtx;
 use rurixc::span::{Edition, SourceId};
 
-/// 契约预设四类(目录即类别,数量为 m4.counter.launch_conformance_categories 计数对象)。
-const REJECT_CATEGORIES: [&str; 4] = [
+/// 契约预设类别(目录即类别,数量为 m4.counter.launch_conformance_categories 计数对象)。
+/// M0–M6 审查补:arg_count_mismatch(RX2003 复用,参数个数契约)收敛 zip 截断漏报面。
+const REJECT_CATEGORIES: [&str; 5] = [
     "launch_non_kernel",
     "dim_mismatch",
     "arg_type_mismatch",
     "context_brand_mismatch",
+    "arg_count_mismatch",
 ];
 
 fn launch_dir(sub: &str) -> PathBuf {

@@ -40,14 +40,20 @@ fn rx_files(root: &Path) -> Vec<PathBuf> {
     out
 }
 
-/// resolve → typeck → 着色 → views → shared+barrier 一致性(HIR 层,无 MIR)。
-/// 阶段化:前段有错即停(防级联),shared 在 typeck/着色/views 干净后跑。
+/// resolve → typeck → 着色 → launch → views → shared+barrier 一致性(HIR 层,无 MIR)。
+/// 阶段化:前段有错即停(防级联),shared 在 typeck/着色/launch/views 干净后跑。
+/// `check_launch` 介于着色与 views 之间是为消除 corpus 顺序漂移(driver 顺序为
+/// coloring→launch→…→views→shared):含 launch 契约违例(RX3004/3005/3006)的样例
+/// 在 driver 会先被 launch 抢报,corpus 须同口径,而非直达 views/shared。
 fn run_pipeline(src: &str) -> Vec<u16> {
     let diag = DiagCtxt::new();
     let cx = QueryCtx::new(src, SourceId(0), Edition::Rx0, &diag);
     cx.check_crate();
     if !diag.has_errors() {
         cx.check_coloring();
+    }
+    if !diag.has_errors() {
+        cx.check_launch();
     }
     if !diag.has_errors() {
         cx.check_views();

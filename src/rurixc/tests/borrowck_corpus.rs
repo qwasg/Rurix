@@ -36,18 +36,37 @@ fn rx_files(root: &Path) -> Vec<PathBuf> {
     out
 }
 
-/// 全管线(含 move/init 检查)跑单文件,返回错误码序列。
+/// 全管线(含 move/init + 借用 + views/shared + device 安全门)跑单文件,返回错误码序列。
+///
+/// 阶段顺序与 fail-fast 严格对齐 driver `--emit=check`(driver.rs::compile,
+/// `check_device_safety` 后止):patterns → mir/moves → borrows → views → shared →
+/// device_safety,逐段 `!has_errors()` 前段有错即停。views/shared 介于 borrows 与
+/// device_safety 之间是消除"corpus 顺序漂移"的关键(driver 顺序为 borrows→views→
+/// shared→device_safety):若 shared 形状/一致性违例(RX6005/RX3009)在更早阶段浮现,
+/// corpus 须与 driver 同口径报同码,而非被 device_safety 抢报为 RX4002 等。device
+/// 反例(host `main` 可达 MIR 外的 kernel/device body)经 device_safety 拦截。
 fn run_pipeline(src: &str) -> Vec<u16> {
     let diag = DiagCtxt::new();
     let cx = QueryCtx::new(src, SourceId(0), Edition::Rx0, &diag);
     cx.check_crate();
     if !diag.has_errors() {
         cx.check_crate_patterns();
+    }
+    if !diag.has_errors() {
         let _ = cx.mir_crate();
         cx.check_moves();
-        if !diag.has_errors() {
-            cx.check_borrows();
-        }
+    }
+    if !diag.has_errors() {
+        cx.check_borrows();
+    }
+    if !diag.has_errors() {
+        cx.check_views();
+    }
+    if !diag.has_errors() {
+        cx.check_shared_barrier();
+    }
+    if !diag.has_errors() {
+        cx.check_device_safety();
     }
     diag.emitted()
         .iter()
