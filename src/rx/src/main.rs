@@ -148,6 +148,15 @@ fn cmd_build(args: &[String]) -> ExitCode {
     };
 
     if let Some(mp) = &b.manifest_path {
+        // 可复现包构建(G-M6-1 / RXS-0094):入口固定为包默认 <base>/src/main.rx,
+        // 禁止显式 input 绕过——否则可越过 manifest 唯一入口与内容树根,破坏逐字节
+        // 可复现门(`rx file.rx --manifest-path rx.toml` 报用法错误,exit 2)。
+        if b.input.is_some() {
+            usage_error(
+                "`--manifest-path` 包构建不接受显式输入文件:入口固定为 <base>/src/main.rx(RXS-0094)",
+            );
+            return ExitCode::from(2);
+        }
         let base = mp.parent().unwrap_or(Path::new(".")).to_path_buf();
         let front = if b.locked {
             rurix_pkg::vendor::verify_locked(&base, b.offline)
@@ -157,11 +166,8 @@ fn cmd_build(args: &[String]) -> ExitCode {
         if let Err(e) = front {
             return report_pkg_error(e);
         }
-        // 根入口:显式 input 优先,否则包默认 <base>/src/main.rx。
-        let entry = b
-            .input
-            .clone()
-            .unwrap_or_else(|| base.join("src").join("main.rx"));
+        // 根入口:包默认 <base>/src/main.rx(唯一入口,不接受显式 input 覆盖)。
+        let entry = base.join("src").join("main.rx");
         return ExitCode::from(driver::compile(&CompileOptions {
             input: entry,
             out: b.out,
@@ -305,6 +311,14 @@ fn cmd_test(args: &[String]) -> ExitCode {
     };
 
     let input = if let Some(mp) = &t.manifest_path {
+        // 包测试入口固定为 <base>/src/test.rx,禁止显式 input 绕过(对齐 rx build
+        // 可复现入口纪律,RXS-0094/0095)。
+        if t.input.is_some() {
+            usage_error(
+                "`--manifest-path` 包测试不接受显式输入文件:入口固定为 <base>/src/test.rx(RXS-0095)",
+            );
+            return ExitCode::from(2);
+        }
         let base = mp.parent().unwrap_or(Path::new(".")).to_path_buf();
         let front = if t.locked {
             rurix_pkg::vendor::verify_locked(&base, t.offline)
@@ -314,9 +328,7 @@ fn cmd_test(args: &[String]) -> ExitCode {
         if let Err(e) = front {
             return report_pkg_error(e);
         }
-        t.input
-            .clone()
-            .unwrap_or_else(|| base.join("src").join("test.rx"))
+        base.join("src").join("test.rx")
     } else {
         if t.locked || t.offline {
             usage_error("--locked/--offline 仅在 --manifest-path 包上下文下有效");

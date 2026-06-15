@@ -108,6 +108,53 @@ fn fmt_idempotent_on_wellformed() {
     );
 }
 
+/// RXS-0094:`--manifest-path` 包构建/测试拒绝显式输入文件(入口固定 src/main.rx
+/// / src/test.rx,防绕过可复现唯一入口,G-M6-1)→ 用法错误退出码 2。
+//@ spec: RXS-0094
+#[test]
+fn manifest_build_rejects_explicit_input() {
+    let ws = temp_ws();
+    write(
+        &ws,
+        "rurix.toml",
+        "[package]\nname = \"app\"\nversion = \"0.1.0\"\n",
+    );
+    write(&ws, "src/main.rx", "fn main() {}\n");
+    write(&ws, "other.rx", "fn main() {}\n");
+    let manifest = ws.join("rurix.toml");
+
+    // rx build other.rx --manifest-path rurix.toml → 退出 2(拒绝显式 input)。
+    let out = rx()
+        .arg("build")
+        .arg(ws.join("other.rx"))
+        .arg("--manifest-path")
+        .arg(&manifest)
+        .output()
+        .expect("spawn rx");
+    assert_eq!(
+        out.status.code(),
+        Some(2),
+        "manifest 构建带显式 input 应退出 2:{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+
+    // rx test other.rx --manifest-path rurix.toml → 同样退出 2。
+    let out = rx()
+        .arg("test")
+        .arg(ws.join("other.rx"))
+        .arg("--manifest-path")
+        .arg(&manifest)
+        .output()
+        .expect("spawn rx");
+    assert_eq!(
+        out.status.code(),
+        Some(2),
+        "manifest 测试带显式 input 应退出 2:{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let _ = std::fs::remove_dir_all(&ws);
+}
+
 /// RXS-0094:rx vendor 离线写 lock+vendor → rx vendor --locked 校验真实红绿
 /// (篡改 vendor 内容 → RX7008;篡改 lock → RX7007;复原 → 绿)。CPU-only 无 codegen。
 //@ spec: RXS-0094
