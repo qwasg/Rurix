@@ -1,0 +1,9 @@
+//@ spec: RXS-0079
+kernel fn k(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>) {
+    shared let tile: [f32; 256];
+    let i = t.thread_index();
+    tile[0] = src[0];
+    dst[i] = tile[i]; //~ ERROR RX3009
+}
+
+fn main() {}

@@ -1,0 +1,6 @@
+//@ spec: RXS-0080
+kernel fn k(a: Atomic<u32, Scope::Gpu>) {
+    a.fetch_add(1, Scope::System); //~ ERROR RX3010
+}
+
+fn main() {}

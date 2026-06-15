@@ -1,0 +1,5 @@
+error[RX3010]: scoped atomic scope misuse: atomic grants scope `Scope::Block`, but operation uses wider `Scope::Gpu`
+ --> $DIR/atomics/scope_overreach_gpu.rx:3:20
+  |
+3 |     a.fetch_add(1, Scope::Gpu); //~ ERROR RX3010
+  |                    ^^^^^^^^^^ scope exceeds the granted atomic scope
