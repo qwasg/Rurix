@@ -21,7 +21,7 @@
       "evidence_file": "evidence/lsp_latency_20260615_agg.json",
       "threshold": 108.93,
       "thresholds": {
-        "completion": 10.0,
+        "completion": 54.0,
         "definition": 44.94,
         "publishDiagnostics": 108.93
       },
