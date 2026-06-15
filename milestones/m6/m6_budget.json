@@ -15,9 +15,21 @@
     {
       "id": "m6.bench.lsp_interaction_latency_ms",
       "direction": "max",
-      "evidence": "estimated",
-      "skip_reason": "LSP 10k 行样例工程交互延迟(completion/publishDiagnostics(保存后)/definition)的 measured_local 随 M6.5 回填(契约 G-M6-2);阈值参照 07 §6 增量 check < 5s 行业线于回填时裁定,占位在 M6 内生灭,不跨里程碑欠债",
-      "unit": "ms"
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "evidence_file": "evidence/lsp_latency_20260615_agg.json",
+      "threshold": 108.93,
+      "thresholds": {
+        "completion": 54.0,
+        "definition": 44.94,
+        "publishDiagnostics": 108.93
+      },
+      "measured": {
+        "completion": 35.9975,
+        "definition": 29.9585,
+        "publishDiagnostics": 72.6226
+      }
     }
   ],
   "ratio_assertions": [],
@@ -50,6 +62,11 @@
       "version": "v1.0",
       "date": "2026-06-15",
       "change": "初版模板(M6 契约配套):entry m6.bench.lsp_interaction_latency_ms(estimated 占位,direction=max,M6.5 回填 measured_local,契约 G-M6-2)+ 三计数器 m6.counter.{rx_cli_core_subcommands(>=6) / offline_rebuild_reproducible(>=1) / lsp_capabilities(>=5)}(契约 G-M6-3/G-M6-1/G-M6-2/G-M6-5)。配套 ci/budget_eval.py 新增三 m6.counter.* evaluator 分支(目录/证据缺失 → 0 → normal SKIP / close-out strict FAIL,对齐 M4/M5 计数器先例);M6 期 m6.* 占位/计数器 SKIP 属预期"
+    },
+    {
+      "version": "v1.1",
+      "date": "2026-06-15",
+      "change": "M6.5 回填(G-M6-2):lsp_latency_triple 三次进程级独立运行 trimmed mean,m6.bench.lsp_interaction_latency_ms estimated → measured_local;逐交互(completion/definition/publishDiagnostics)阈值 = 实测 × (1 + 0.5)(max 方向上界,publishDiagnostics < 5000ms 07 §6 行业线天花板内);标量 threshold = 最坏交互上界(满足 check_schemas);direction/unit/id 语义不改。阈值为 agent 提案,待人工终审批准(硬规则 1)"
     }
   ]
 }

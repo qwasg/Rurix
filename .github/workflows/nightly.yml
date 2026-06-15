@@ -76,6 +76,28 @@ jobs:
         # pr-smoke 已在 cargo test --workspace 内覆盖;nightly 串行兜底防主干漂移。
         run: cargo test -p rurixc --test ui_golden
 
+      # —— M6.5 增量(milestones/m6/CI_GATES.md §3;G-M6-2 趋势参考)——
+      # LSP 10k 行交互延迟趋势归档:经 rx bench lsp(RD-003 编排)在生成的 10k 行
+      # 工程上跑 completion/definition/publishDiagnostics 延迟冒烟(功能哨兵 + 趋势
+      # JSON 上传)。CPU 路径,非硬阈门——延迟达标判定在 close-out budget_eval --strict
+      # 与 pr-smoke budget evaluator(measured_local 阈值),此处仅趋势参考。
+      - name: LSP 10k interaction latency trend archive (M6 CI_GATES §3, G-M6-2 trend)
+        shell: powershell
+        run: |
+          cargo build -p rx --bin rx
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          New-Item -ItemType Directory -Force build\nightly | Out-Null
+          .\target\debug\rx.exe bench lsp --smoke --emit=build/nightly/lsp_latency_trend.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-Content build\nightly\lsp_latency_trend.json
+
+      - name: upload lsp latency trend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lsp-latency-trend-${{ github.run_id }}
+          path: build/nightly/lsp_latency_trend.json
+          retention-days: 90
+
       - name: self-profile archive run (M2 CI_GATES §3, since M2.4)
         shell: powershell
         run: |

@@ -151,3 +151,11 @@ guardrails:
 ## 8. Close-out(只追加区 — 开工时为空)
 
 <!-- 验收记录、guardrail 核对输出、deferred 继承/关闭记录、离线重建复现红绿留痕、LSP 交互延迟 measured_local 证据追加于此;上方条款 0-byte 修改。 -->
+
+### 8.1 G-M6-2 LSP 10k 行交互延迟 measured_local 回填(M6.5,2026-06-15)
+
+- 采样:`rurixc --tooling-server` 常驻 query 层,在 `bench/gen_lsp_workspace.py` 确定性生成的 ~10k 行样例工程(前向调用链,来源留痕入证据)上,经客户端 JSON-RPC 墙钟计时 completion / definition / publishDiagnostics(`didChange` 保存后全文重同步,07 §9)三类交互;按 BENCH_PROTOCOL §3 三次进程级独立运行 + trimmed mean(`bench/lsp_bench.py` + `bench/lsp_latency_triple.py`,`rx bench lsp` 经 RD-003 泛分发编排)。CPU 路径 `clock_control=not_applicable_cpu`,沿用与 GPU 基准互斥队列纪律。
+- 证据:[`evidence/lsp_latency_20260615_agg.json`](../../evidence/lsp_latency_20260615_agg.json)(measured_local;+ `lsp_latency_20260615_1/2/3.json` 三次单 run)。实测(ms,trimmed mean):completion 35.9975 / definition 29.9585 / publishDiagnostics 72.6226。
+- 预算:[`m6_budget.json`](m6_budget.json) `m6.bench.lsp_interaction_latency_ms` estimated → measured_local(revision_log v1.1);逐交互阈值 = 实测 × 1.5(max 方向上界)= 54.0 / 44.94 / 108.93,publishDiagnostics 远在 07 §6 增量 check < 5s 行业线天花板内;阈值为 agent 提案,待人工终审批准(硬规则 1)。
+- 判定:`py -3 ci/budget_eval.py --strict` = PASS(全局零 estimated 残留,本占位在 M6 内生灭);`m6.bench.lsp_interaction_latency_ms` 经 `ci/budget_eval.py` 特例分支逐交互对阈。门接线 nightly 趋势归档(参考)+ pr-smoke `budget evaluator` / close-out `--strict`(达标判定)。真实 PR 红绿 run URL 见 M6 CI_GATES §6 v1.8(回填后追加)。
+- 余项:VS Code 扩展 / Natvis 首批(D-M6-5 人工部分)与 M6 整里程碑 close-out 终审(`m6-closed` tag / 基准切换 / RD-003·RD-005 formal close / registry 汇总)留 M6 收官终审步(白栀/owner 人工签署),本契约 status 维持 `active`。

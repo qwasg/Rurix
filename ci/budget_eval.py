@@ -47,6 +47,38 @@ def measured_value(entry: dict) -> float | None:
     return doc["results"]["trimmed_mean"]
 
 
+def eval_lsp_latency(entry: dict) -> None:
+    """M6.5 特例(契约 G-M6-2):单 entry 表达 LSP 三类交互延迟,逐交互对子阈值判定。
+
+    证据 results.per_interaction.{completion,definition,publishDiagnostics}.trimmed_mean
+    逐一对 entry.thresholds[name] 校验(direction=max,任一超阈 → FAIL,normal/strict 同)。
+    """
+    eid = entry["id"]
+    ef = entry.get("evidence_file")
+    if not ef or not (ROOT / ef).is_file():
+        err(f"{eid}: evidence_file 缺失或不存在: {ef!r}")
+        return
+    doc = json.loads((ROOT / ef).read_text(encoding="utf-8"))
+    per = doc.get("results", {}).get("per_interaction", {})
+    thresholds = entry.get("thresholds")
+    if not thresholds:
+        err(f"{eid}: measured_local 缺逐交互 thresholds(M6.5 回填,契约 G-M6-2)")
+        return
+    direction = entry.get("direction", "max")
+    unit = entry.get("unit", "ms")
+    for name, thr in thresholds.items():
+        sub = per.get(name)
+        if not sub or "trimmed_mean" not in sub:
+            err(f"{eid}.{name}: evidence per_interaction 缺该交互 trimmed_mean")
+            continue
+        value = sub["trimmed_mean"]
+        ok = value <= thr if direction == "max" else value >= thr
+        if ok:
+            PASSES.append(f"{eid}.{name}: PASS — {value:.3f} {unit} vs {direction} {thr}")
+        else:
+            err(f"{eid}.{name}: FAIL — {value:.3f} 违反 {direction} {thr}")
+
+
 def eval_entry(entry: dict, strict: bool) -> None:
     eid = entry["id"]
     ev = entry.get("evidence")
@@ -58,6 +90,9 @@ def eval_entry(entry: dict, strict: bool) -> None:
         return
     if ev == "unlocked":
         err(f"{eid}: unlocked 证据不得作为预算断言依据(BENCH_PROTOCOL §2.1)")
+        return
+    if eid == "m6.bench.lsp_interaction_latency_ms":
+        eval_lsp_latency(entry)
         return
     value = measured_value(entry)
     if value is None:

@@ -1,0 +1,94 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/lsp-latency/v1",
+  "title": "Rurix LSP 10k 行交互延迟证据 JSON(M6.5,契约 G-M6-2;CPU 路径 + 客户端往返计时)",
+  "description": "rurixc --tooling-server 常驻 query 层在程序化生成的 ~10k 行样例工程(bench/gen_lsp_workspace.py)上 completion / definition / publishDiagnostics(保存后)三类交互的客户端墙钟延迟(主指标;instructions:u 趋势参考)。计时为 perf_counter 包裹一次 JSON-RPC 往返(timer=lsp_roundtrip_wall);统计复用 BENCH_PROTOCOL §3 trimmed-mean(trial 内中位数 → 跨 trial trimmed mean)。CPU 无锁频维度,clock_control 固定 not_applicable_cpu,measured_local 记级(真实硬件 + 三次进程级独立运行 trimmed mean,14 §5)。results.trimmed_mean = 三交互最坏值(worst-case);逐交互明细在 results.per_interaction,由 ci/budget_eval.py 对 m6.bench.lsp_interaction_latency_ms 的逐交互 thresholds 校验。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "evidence_level",
+    "timestamp",
+    "bench",
+    "environment",
+    "sampling",
+    "results"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "evidence_level": { "enum": ["measured_local", "estimated"] },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "bench": {
+      "type": "object",
+      "required": ["id", "level", "problem_size", "harness_commit", "sample_lines", "generator"],
+      "properties": {
+        "id": { "const": "lsp_interaction_latency" },
+        "level": { "const": "lsp" },
+        "problem_size": { "type": "string" },
+        "harness_commit": { "type": "string" },
+        "sample_lines": { "type": "integer", "minimum": 1 },
+        "generator": { "type": "string", "description": "生成器来源留痕(脚本@commit + 模板规格)" }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "required": ["cpu_name", "logical_cores", "power_plan", "os_build", "clock_control", "background_note"],
+      "properties": {
+        "cpu_name": { "type": "string" },
+        "logical_cores": { "type": "integer" },
+        "power_plan": { "type": "string" },
+        "os_build": { "type": "string" },
+        "clock_control": { "const": "not_applicable_cpu" },
+        "background_note": { "type": "string" }
+      }
+    },
+    "sampling": {
+      "type": "object",
+      "required": ["timer", "trimmed_pct"],
+      "properties": {
+        "timer": { "const": "lsp_roundtrip_wall" },
+        "trimmed_pct": { "type": "number" },
+        "instructions_u": { "type": "string", "description": "instructions:u 趋势参考(Windows 记 unavailable)" }
+      }
+    },
+    "results": {
+      "type": "object",
+      "required": ["metric", "unit", "trimmed_mean", "per_interaction"],
+      "properties": {
+        "metric": { "const": "lsp_interaction_latency_ms" },
+        "unit": { "const": "ms" },
+        "trimmed_mean": { "type": "number", "description": "三交互最坏值(worst-case,满足标量 budget 校验)" },
+        "worst_interaction": { "enum": ["completion", "definition", "publishDiagnostics"] },
+        "correctness_check": { "enum": ["pass", "fail", "n/a"] },
+        "per_interaction": {
+          "type": "object",
+          "required": ["completion", "definition", "publishDiagnostics"],
+          "properties": {
+            "completion": { "$ref": "#/$defs/interaction" },
+            "definition": { "$ref": "#/$defs/interaction" },
+            "publishDiagnostics": { "$ref": "#/$defs/interaction" }
+          }
+        }
+      }
+    },
+    "notes": { "type": "string" }
+  },
+  "$defs": {
+    "interaction": {
+      "type": "object",
+      "required": ["warmup_iterations", "timed_iterations", "trials", "trimmed_mean", "trial_medians", "cv", "ci95"],
+      "properties": {
+        "warmup_iterations": { "type": "integer", "minimum": 0 },
+        "timed_iterations": { "type": "integer", "minimum": 1 },
+        "trials": { "type": "integer", "minimum": 3 },
+        "trimmed_mean": { "type": "number" },
+        "trial_medians": { "type": "array", "items": { "type": "number" }, "minItems": 3 },
+        "cv": { "type": "number" },
+        "ci95": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "outliers_rejected_iqr": { "type": "integer" },
+        "correctness_check": { "enum": ["pass", "fail", "n/a"] }
+      }
+    }
+  }
+}
