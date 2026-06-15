@@ -140,9 +140,98 @@ guardrails:
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-06-14 | 初版契约固化(M5 开工脚手架;基准 ref 切换 m3-closed → m4-closed 为 M5.1 任务 1,先打 m4-closed tag) |
+| v1.1 | 2026-06-15 | M5.4 第 6 步:§8 Close-out 终审材料追加(六条收口 + traceability 全锚定核对 + 人工签署位);§1-7 既有条款 0-byte 修改。traceability 矩阵确定性重生成(82/82 全锚定,RXS-0079/0080 纳入 M5 新增 UI 用例),`budget_eval --strict` = PASS(三比值 ≥0.90、零 estimated)。**M5 正式关闭判定(active→closed)与 EULA 白名单法律裁决保持 pending-human-review,人工签署(§8.8),AI 不代签** |
 
 ---
 
 ## 8. Close-out(只追加区 — 开工时为空)
 
 <!-- 验收记录、guardrail 核对输出、deferred 继承/关闭记录、NVIDIA 白名单审计结论、Compute Sanitizer 红绿留痕追加于此;上方条款 0-byte 修改。 -->
+
+### 8.1 M5 close-out 验收记录(M5.4 第 6 步,2026-06-15)
+
+> 终审材料备齐,机器证据跑齐;**M5 正式关闭判定(status active→closed)与 NVIDIA EULA 白名单法律裁决保持 pending-human-review,由所有者/法务人工签署**(见 §8.8 签署位)。AI 仅备齐验收记录与证据清单,不代签关闭、不代签法律裁决。对齐 [CI_GATES.md](CI_GATES.md) §5 第 6 项六条收口。
+
+### 8.2 收口①——`budget_eval --strict` 输出原文(G-M5-1:三比值 ≥0.90 + 全局零 estimated)
+
+命令:`py -3 ci/budget_eval.py --strict`(2026-06-15,本机 RTX 4070 Ti)。判定:**三条比值 ≥0.90**(`reduce 0.9925 / scan 1.0058 / gemm_tile 1.0016` vs min 0.90)、**全局零 estimated 残留**(strict 模式任何 estimated 即 FAIL,实际 0 skip)、`spec_clause_test_anchoring` 82 条款全锚定。
+
+```
+  PASS m5.bench.reduce_cuda.effective_bandwidth_gbps: PASS — 274.973 GB/s vs min 261.22
+  PASS m5.bench.scan_cuda.effective_bandwidth_gbps: PASS — 421.680 GB/s vs min 400.6
+  PASS m5.bench.gemm_tile_cuda.throughput_gflops: PASS — 3101.271 GFLOPS vs min 2946.21
+  PASS m5.bench.reduce.effective_bandwidth_gbps: PASS — 272.906 GB/s vs min 259.26
+  PASS m5.bench.scan.effective_bandwidth_gbps: PASS — 424.119 GB/s vs min 402.91
+  PASS m5.bench.gemm_tile.throughput_gflops: PASS — 3106.365 GFLOPS vs min 2951.05
+  PASS m5.ratio.reduce_vs_cuda: PASS — ratio 0.9925 vs min 0.9
+  PASS m5.ratio.scan_vs_cuda: PASS — ratio 1.0058 vs min 0.9
+  PASS m5.ratio.gemm_tile_vs_cuda: PASS — ratio 1.0016 vs min 0.9
+  PASS m5.counter.views_conformance_categories: PASS — 4 个预设错误类别目录(要求 ≥4)
+  PASS m5.counter.ui_golden_path5_snapshots: PASS — 16 条 .stderr snapshot(要求 ≥10)
+  PASS m5.counter.compute_sanitizer_clean: PASS — 11 份 clean Sanitizer 报告(要求 ≥1)
+  PASS m5.counter.redistribution_audit_clean: PASS — 1 份再分发面为空的审计报告(要求 ≥1)
+  PASS m1.counter.spec_clause_test_anchoring: PASS — 82 条款全部 ≥1 测试锚定
+[budget_eval] PASS (36 pass, 0 skip, strict mode)
+```
+
+### 8.3 收口②——measured_local 证据 JSON 路径清单(G-M5-1 三比值分子/分母锚点)
+
+全部 `evidence_level=measured_local`,三次进程级独立运行 trimmed mean(BENCH_PROTOCOL §3,锁频降级证据不得回填):
+
+- 分子(Rurix 自研 kernel):
+  - [../../evidence/rurix_reduce_20260614_agg.json](../../evidence/rurix_reduce_20260614_agg.json)
+  - [../../evidence/rurix_scan_20260614_agg.json](../../evidence/rurix_scan_20260614_agg.json)
+  - [../../evidence/rurix_gemm_tile_20260614_agg.json](../../evidence/rurix_gemm_tile_20260614_agg.json)
+- 分母(手写 CUDA C++ 对照):
+  - [../../evidence/cuda_reduce_20260614_agg.json](../../evidence/cuda_reduce_20260614_agg.json)
+  - [../../evidence/cuda_scan_20260614_agg.json](../../evidence/cuda_scan_20260614_agg.json)
+  - [../../evidence/cuda_gemm_tile_20260614_agg.json](../../evidence/cuda_gemm_tile_20260614_agg.json)
+
+### 8.4 收口③——NVIDIA libdevice 白名单审计结论(事实层 formal,法律层 pending-human-review)
+
+- **事实层(机器复核背书,formal 激活)**:四类交付 kernel `ir_needs_libdevice=false`、嵌入 PTX 无 `__nv_*` 派生符号、`libdevice.10.bc` 不入产物(运行期经 `CUDA_PATH`/`RURIXC_LIBDEVICE` 定位,`toolchain::locate_libdevice`)、**再分发面为空**(`redistribution_surface_empty=true`)。
+- **背书闸门 + 证据**:`ci/check_redistribution.py`(check_* 守卫,CPU-only,pr-smoke 常驻)+ [../../evidence/redistribution_audit_20260614.json](../../evidence/redistribution_audit_20260614.json)。
+- **真实红绿(反 YAML-only)**:
+  - 本步本地复核(2026-06-15):红 `Add-Content bench/kernels/rurix_reduce.ptx '__nv_sqrtf'; py -3 ci/check_redistribution.py` → `FAIL`(exit 1,`rurix_reduce.ptx:87: __nv_sqrtf`);绿 `git checkout -- bench/kernels/rurix_reduce.ptx; py -3 ci/check_redistribution.py` → `PASS`(exit 0,再分发面为空)。
+  - CI 绿门背书:
+    - 本步 PR [#27](https://github.com/qwasg/Rurix/pull/27) pr-smoke 整体 **success**:`https://github.com/qwasg/Rurix/actions/runs/27518085104`(第 8 步「NVIDIA redistribution audit」= success;同 run 第 7 步「traceability matrix freshness (G-M5-5)」= success,本步新增门禁真实 CI 验证通过)。
+    - 第 5 步 PR [#26](https://github.com/qwasg/Rurix/pull/26) 重跑后 pr-smoke 整体 **success**:`https://github.com/qwasg/Rurix/actions/runs/27502668248`(「NVIDIA redistribution audit」步 success)。
+- **法律层(pending-human-review)**:PTX 内联 libdevice 派生实现是否构成 NVIDIA EULA Attachment A 意义下「再分发」、及白名单逐项核对,**留所有者/法务人工签署**(§8.8);数学 kernel 真分发(G1 cubin/fatbin 含 `__nv_*`)的逐项法律核对随首个分发产物 formal 签署。AI 不代签。
+
+### 8.5 收口④——Compute Sanitizer racecheck+memcheck 红绿 run URL(G-M5-4,引用第 2 步 #24 归档)
+
+- **CI run URL**:`https://github.com/qwasg/Rurix/actions/runs/27501457898`(nightly on `feat/m5.4-sanitizer-nightly`,步骤「compute sanitizer racecheck+memcheck (M5.4 G-M5-4)」= success)。PR:[#24](https://github.com/qwasg/Rurix/pull/24)。
+- **红绿夹具(真实红绿验证)**:racecheck 已知竞争 kernel `fixture-race`(clean=false,exit 1)→ 修复 `fixture-clean`(clean=true,exit 0):[../../evidence/compute_sanitizer_racecheck_fixture-race_20260614.json](../../evidence/compute_sanitizer_racecheck_fixture-race_20260614.json) / [../../evidence/compute_sanitizer_racecheck_fixture-clean_20260614.json](../../evidence/compute_sanitizer_racecheck_fixture-clean_20260614.json)。
+- **全绿归档**:reduce/scan/transpose/gemm_tile + SAXPY 回归的 racecheck + memcheck 共 11 份 `clean=true` 报告(`evidence/compute_sanitizer_*_20260614.json`),计入 `m5.counter.compute_sanitizer_clean`。
+
+### 8.6 收口⑤——SG-002(Tensor Core/WGMMA/TMA)复评结论
+
+维持 `not_triggered`。tiled GEMM 自研 kernel(`src/rurix-rt/kernels/gemm_tile.rx`)走经典 16x16 shared-memory tiling,codegen 仅产 `ld/st.shared` + `bar.sync` + `fma.rn.f32`,不触 Tensor Core/WGMMA/TMA intrinsics;触发条件(L2 基准证明 GEMM 是真实用户瓶颈 且 中层抽象成熟度复评通过)未满足。复评留痕见 [../../registry/spike_gating.json](../../registry/spike_gating.json) SG-002 decisions(2026-06-14)。
+
+### 8.7 收口⑥——黄金路径 5 / views conformance / 各 G-M5-* 通道达成核对
+
+| 通道 | 判据 | 现状 | 背书 |
+|---|---|---|---|
+| G-M5-1 | 三比值 ≥0.90 + 零 estimated | PASS(0.9925/1.0058/1.0016) | §8.2 / §8.3 |
+| G-M5-2 | views 不相交 conformance ≥4 类 | PASS(4 类) | `m5.counter.views_conformance_categories` |
+| G-M5-3 | 黄金路径 5 snapshot ≥10 | PASS(16 条) | `m5.counter.ui_golden_path5_snapshots`(M5.4 第 4 步 11→16 收口) |
+| G-M5-4 | Sanitizer racecheck+memcheck 全绿 | PASS(11 份 clean) | §8.5 |
+| G-M5-5 | M5 新条款每条 ≥1 测试锚定 | PASS(82/82 全锚定) | §8.9 traceability 全锚定核对 |
+
+### 8.8 关闭判定 + EULA 白名单法律裁决(人工签署位 — AI 不代签)
+
+- **M5 正式关闭判定**(status `active → closed`):签署人:________ 日期:________ 裁决:________
+- **NVIDIA EULA Attachment A 白名单法律裁决**(PTX 内联 libdevice 派生实现的再分发定性 + 逐项核对):签署人(所有者/法务):________ 日期:________ 裁决:________
+
+### 8.9 traceability 全锚定核对(G-M5-5)
+
+`py -3 ci/trace_matrix.py`(确定性重生成,`sorted()` 全程无随机序)+ `py -3 ci/trace_matrix.py --check`(2026-06-15):
+
+```
+[trace_matrix] PASS (82/82 clauses anchored, 327 test files scanned)
+```
+
+M5 新增 UI 用例已纳入锚定(矩阵 diff):
+- `RXS-0079`(shared+barrier) +3:`tests/ui/shared/broadcast_unsynced.rx`、`tests/ui/shared/neighbor_stencil.rx`、`tests/ui/shared/second_phase_unsynced.rx`(7→10 锚定)。
+- `RXS-0080`(scoped atomics) +2:`tests/ui/atomics/scope_overreach_gpu.rx`、`tests/ui/atomics/scope_overreach_gpu_system.rx`(9→11 锚定)。
+- 无未锚定条款、无幽灵锚定;`m1.counter.spec_clause_test_anchoring` 全锚定 PASS。新鲜度门禁本步接入 pr-smoke(`ci/trace_matrix.py --check`,G-M5-5 延续),真实 CI 验证通过:本步 PR #27 run `https://github.com/qwasg/Rurix/actions/runs/27518085104` 第 7 步「traceability matrix freshness (G-M5-5)」= success。
