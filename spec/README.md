@@ -42,6 +42,7 @@
 | [borrow.md](borrow.md) | 所有权与借用语义(desugar/穷尽性/drop scope 首批;move/init/Drop 执行语义;借用/生命周期主体) | RXS-0048 ~ RXS-0061 | M3.1 |
 | [consteval.md](consteval.md) | const 求值语义(const fn 子集 / const item 求值 / const 泛型 / 求值失败) | RXS-0062 ~ RXS-0065 | M3.4 |
 | [device.md](device.md) | device 语义(函数着色与跨着色调用 / 地址空间类型与一致性 / barrier uniform 可达性保守骨架 / 着色与地址空间诊断要求 / NVPTX codegen 目标与调用约定 / 地址空间 codegen 建模 / 线程索引与 launch bounds / ptxas 干验证关卡 / launch 类型契约与诊断要求 / PTX 装载协商 / poisoned context 状态机 / views 算子集语义与子 view 不相交证明 / shared+barrier 一致性数据流 / scoped atomics 类型契约与 PTX 映射 / device 数学函数 intrinsic 集与求值语义 / libdevice bitcode 链接流程与 codegen 诊断) | RXS-0066 ~ RXS-0082 | M4.1 |
+| toolchain.md（M6.1 续号预留，条款体随实现 PR 落地） | 工具链语义(rx CLI 子命令语义面与退出码约定 / 包管理 rurix.toml·rurix.lock 格式与依赖三来源解析 / LSP 能力面契约) | RXS-0083 ~ （续号预留，待分配） | M6.1 |
 
 ## 5. 修订记录
 
@@ -62,3 +63,4 @@
 | v1.12 | 2026-06-14 | §4 device.md 行区间更新至 RXS-0078(M5.1 views 算子集语义与子 view 不相交证明条款追加登记;MIR 借用检查 device 扩展,条款 PR 先于实现 PR,无体例变更) | Direct |
 | v1.13 | 2026-06-14 | §4 device.md 行区间更新至 RXS-0080(M5.2 shared+barrier 一致性数据流 / scoped atomics 类型契约与 PTX 映射条款追加登记;MIR 借用检查 device 扩展数据流 + scoped atomics 映射 D-406 人工落笔,条款 PR 先于实现 PR,无体例变更) | Direct |
 | v1.14 | 2026-06-14 | §4 device.md 行区间更新至 RXS-0082(M5.3 device 数学函数 intrinsic 集与求值语义 / libdevice bitcode 链接流程与 codegen 诊断条款追加登记;libdevice 按需引入 06 §7 + 编译流程 07 §7 D-205/D-207 条款化,条款 PR 先于实现 PR,gpu 基元 kernel codegen 接通随实现 WP,无体例变更) | Direct |
+| v1.15 | 2026-06-15 | §4 文件清单追加 toolchain.md（RXS-0083 起续号预留，起始里程碑 M6.1：rx CLI 子命令语义面 / 包管理 rurix.toml·rurix.lock 格式与三来源解析 / LSP 能力面契约）。M6 开工脚手架仅登记新文件名 + 预留区间，**不落裸条款头**——条款体与测试锚定随 M6.1+ 实现 PR 同落（条款 PR 先于实现 PR，trace_matrix 维持全锚定），无体例变更 | Direct |
