@@ -46,9 +46,13 @@ jobs:
         shell: powershell
         # #[test(gpu)] 分类测试同样经 rx test 子进程隔离路径;完整 GPU 正确性
         # 仍由上方 Compute Sanitizer 全量 kernel 路径覆盖。
+        # PowerShell 多行 run 以末条语句成败定 step:cargo build 失败必须立即透传
+        # (否则磁盘上的旧 rx.exe 会被继续执行,吞掉 build 失败,反 YAML-only)。
         run: |
           cargo build -p rx
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .\target\debug\rx.exe test conformance\toolchain\rx_test_gpu.rx --gpu
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: upload compute-sanitizer reports
         if: always()

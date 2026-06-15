@@ -45,7 +45,9 @@ flowchart LR
 | 3 | **scoped atomics + PTX `atom.{order}.{scope}` 映射层(D-406 禁区 — 人工落笔)**:AI 完成类型契约条款化 + 挂测试骨架;PTX 映射语义实现由人工完成,本表只登记接入点与验证义务 | 人工实现真跑 + spec 锚定 |
 | 4 | scoped atomics scope 误用 → 黄金路径 5 子集 snapshot(bless 审批) | UI snapshot(G-M5-3 子集) |
 
-**出口判据(✅ 已达成,M5 closed 2026-06-15)**:shared+barrier 一致性违例全拦截;scoped atomics 类型契约条款化完成且映射(人工)真跑;黄金路径 5 的 shared/atomics 子集 snapshot 入库。
+**出口判据(✅ 已达成,M5 closed 2026-06-15)**:shared+barrier 一致性违例全拦截;scoped atomics 类型契约条款化完成(RXS-0080 + RX3010 + 测试骨架);黄金路径 5 的 shared/atomics 子集 snapshot 入库。
+
+> **口径更正(2026-06-15,执行期审查)**:原文「映射(人工)真跑」措辞过宽——scoped atomics 的 PTX `atom.{order}.{scope}` 映射 codegen 为 **D-406 禁区(人工落笔)**,M5 期**未实现**(`device_codegen` 无 atomic lowering;`src/rurixc/tests/atomics_ptx_mapping.rs` 维持 `#[ignore]` + panic 占位,刻意防误标为已完成)。M5 实交付 = 类型契约条款化 + RX3010 scope 误用诊断 + UI snapshot;**PTX 映射实现登记为 RD-008**(deferred,owner 顺延评估),M5 close-out §8.7 验收门 G-M5-1~5 不含 PTX 映射真跑,本更正使 plan 口径与契约 / 代码 / 测试一致(只追加更正说明,既有任务表 0-byte)。
 
 ## 3. M5.3 — libdevice 链接与 gpu 并行基元(~2–3 周)
 

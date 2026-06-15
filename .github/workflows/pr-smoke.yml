@@ -62,6 +62,12 @@ jobs:
         run: py -3 ci/budget_eval.py
 
       # —— M1 增量(milestones/m1/CI_GATES.md §2,步骤 7-8;error_codes schema 已并入步骤 2)——
+      - name: cargo audit (supply-chain vulnerability scan)
+        shell: powershell
+        run: |
+          cargo install cargo-audit --quiet 2>$null
+          cargo audit
+
       - name: cargo fmt check (M1 CI_GATES §2.7)
         shell: powershell
         run: cargo fmt --all --check

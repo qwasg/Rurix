@@ -18,7 +18,7 @@ pub const E_EXPECTED_TOKEN: ErrorCode = ErrorCode(8); // RX0008
 pub const E_UNCLOSED_DELIMITER: ErrorCode = ErrorCode(9); // RX0009
 
 // ---------------------------------------------------------------------------
-// 事件流接口预留
+// 事件流接口(RD-004 已接通,见 crate::lossless)
 // ---------------------------------------------------------------------------
 
 /// parser 事件流(RD-004 已接通;07 §9;RXS-0030 第 5 条)。
@@ -130,7 +130,7 @@ impl<'a> Parser<'a> {
         if tok.kind != Tk::Eof {
             self.pos += 1;
         }
-        self.events.push(ParseEvent::Token(tok.span)); // STUB(RD-004)
+        self.events.push(ParseEvent::Token(tok.span));
         tok
     }
 
@@ -321,7 +321,7 @@ impl<'a> Parser<'a> {
     // -- 源文件与 item(RXS-0011 ~ RXS-0019) -------------------------------
 
     fn parse_source_file(&mut self) -> SourceFile {
-        self.events.push(ParseEvent::Start(NodeKind::SourceFile)); // STUB(RD-004)
+        self.events.push(ParseEvent::Start(NodeKind::SourceFile));
         let lo = self.lo();
         let mut attrs = Vec::new();
         while self.at(Tk::Pound) && self.nth_kind(1) == Tk::Not {
@@ -331,7 +331,7 @@ impl<'a> Parser<'a> {
         while !self.at(Tk::Eof) {
             items.push(self.parse_item());
         }
-        self.events.push(ParseEvent::Finish(NodeKind::SourceFile)); // STUB(RD-004)
+        self.events.push(ParseEvent::Finish(NodeKind::SourceFile));
         SourceFile {
             attrs,
             items,
@@ -340,12 +340,12 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_item(&mut self) -> Item {
-        self.events.push(ParseEvent::Start(NodeKind::Item)); // STUB(RD-004)
+        self.events.push(ParseEvent::Start(NodeKind::Item));
         let lo = self.lo();
         let attrs = self.parse_outer_attrs();
         let vis = self.parse_visibility();
         let kind = self.parse_item_kind();
-        self.events.push(ParseEvent::Finish(NodeKind::Item)); // STUB(RD-004)
+        self.events.push(ParseEvent::Finish(NodeKind::Item));
         Item {
             attrs,
             vis,
@@ -1145,7 +1145,7 @@ impl<'a> Parser<'a> {
             lo,
             lo + 1,
             self.edition,
-        ))); // STUB(RD-004)
+        )));
         self.toks[idx] = Token {
             kind: rest,
             span: Span::new(self.file, lo + 1, tok.span.hi.0, self.edition),
@@ -1291,9 +1291,9 @@ impl<'a> Parser<'a> {
     // -- 类型(RXS-0022) ----------------------------------------------------
 
     fn parse_type(&mut self) -> Ty {
-        self.events.push(ParseEvent::Start(NodeKind::Ty)); // STUB(RD-004)
+        self.events.push(ParseEvent::Start(NodeKind::Ty));
         let ty = self.parse_type_inner();
-        self.events.push(ParseEvent::Finish(NodeKind::Ty)); // STUB(RD-004)
+        self.events.push(ParseEvent::Finish(NodeKind::Ty));
         ty
     }
 
@@ -1480,9 +1480,9 @@ impl<'a> Parser<'a> {
     // -- 模式(RXS-0023) ----------------------------------------------------
 
     fn parse_pattern(&mut self) -> Pat {
-        self.events.push(ParseEvent::Start(NodeKind::Pat)); // STUB(RD-004)
+        self.events.push(ParseEvent::Start(NodeKind::Pat));
         let pat = self.parse_pattern_inner();
-        self.events.push(ParseEvent::Finish(NodeKind::Pat)); // STUB(RD-004)
+        self.events.push(ParseEvent::Finish(NodeKind::Pat));
         pat
     }
 
@@ -1748,9 +1748,9 @@ impl<'a> Parser<'a> {
     // -- 语句与块(RXS-0024) ------------------------------------------------
 
     fn parse_block(&mut self) -> Block {
-        self.events.push(ParseEvent::Start(NodeKind::Block)); // STUB(RD-004)
+        self.events.push(ParseEvent::Start(NodeKind::Block));
         let block = self.with_no_struct(false, |p| p.parse_block_inner());
-        self.events.push(ParseEvent::Finish(NodeKind::Block)); // STUB(RD-004)
+        self.events.push(ParseEvent::Finish(NodeKind::Block));
         block
     }
 
@@ -1806,9 +1806,9 @@ impl<'a> Parser<'a> {
                             )
                     );
                     let expr = if block_like_start {
-                        self.events.push(ParseEvent::Start(NodeKind::Expr)); // STUB(RD-004)
+                        self.events.push(ParseEvent::Start(NodeKind::Expr));
                         let e = self.parse_primary_core(stmt_lo);
-                        self.events.push(ParseEvent::Finish(NodeKind::Expr)); // STUB(RD-004)
+                        self.events.push(ParseEvent::Finish(NodeKind::Expr));
                         e
                     } else {
                         self.parse_expr()
@@ -1909,9 +1909,9 @@ impl<'a> Parser<'a> {
     // -- 表达式(RXS-0025 ~ RXS-0029) ----------------------------------------
 
     pub(crate) fn parse_expr(&mut self) -> Expr {
-        self.events.push(ParseEvent::Start(NodeKind::Expr)); // STUB(RD-004)
+        self.events.push(ParseEvent::Start(NodeKind::Expr));
         let expr = self.parse_assign_expr();
-        self.events.push(ParseEvent::Finish(NodeKind::Expr)); // STUB(RD-004)
+        self.events.push(ParseEvent::Finish(NodeKind::Expr));
         expr
     }
 
@@ -3282,7 +3282,7 @@ mod tests {
     //@ spec: RXS-0030
     #[test]
     fn events_emitted_and_balanced() {
-        // STUB(RD-004):事件通道冒烟——Start/Finish 配平,token 事件非空
+        // 事件通道冒烟(RD-004 已接通)——Start/Finish 配平,token 事件非空
         let diag = DiagCtxt::new();
         let src = "fn f() -> i32 { 1 + 2 }";
         let tokens = lex(src, SourceId(0), Edition::Rx0, &diag);

@@ -14,6 +14,8 @@
      追加且既有行 0-byte,M3 CI_GATES §4 第 2 项,M3.3 WP6 激活)。
  10. tests/ptx/ 的 .nvptx golden 变更必须经审批 bless(tests/ptx/bless_log.md 同 diff
      追加且既有行 0-byte,M4 CI_GATES §4 第 3 项,M4.2 激活)。
+ 11. closed RD 不允许在源码/测试/spec/conformance 残留 STUB(RD-###) marker(14 §4
+     stub 双侧标注纪律;全量工作区扫描,排除注册表/closed 里程碑文档/元文档)。
 """
 from __future__ import annotations
 
@@ -351,6 +353,56 @@ def check_closed_contracts(base: str) -> None:
             err(f"{rel}: 已关闭契约的既有内容被修改(close-out 只追加,14 §1)")
 
 
+# 治理:closed RD 不允许残留 STUB(RD-###) marker 的扫描范围与排除区。
+# 全量工作区扫描(非 diff 驱动);排除注册表自身、closed 里程碑文档、以及描述 STUB
+# 约定本身的元文档(其内 STUB(RD-###) 为历史叙述/约定说明,只追加不可改)。
+_STUB_SCAN_DIRS = ("src", "tests", "spec", "conformance", "bench")
+_STUB_SCAN_SUFFIXES = (".rs", ".rx", ".md", ".toml")
+_STUB_MARKER_RE = re.compile(r"STUB\((RD-\d{3})\)")
+
+
+def check_closed_rd_stubs() -> None:
+    """closed RD 不得在源码/测试/spec/conformance 残留 STUB(RD-###) marker(14 §4
+    stub 双侧标注纪律:closed = 已接通/已交付,残留 marker 误导维护者)。全量扫描
+    (历史 stale 也拦);open/inherited RD 的 STUB 允许保留。"""
+    deferred = ROOT / "registry/deferred.json"
+    if not deferred.is_file():
+        return
+    try:
+        doc = json.loads(deferred.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return
+    closed = {
+        e["id"]
+        for e in doc.get("entries", [])
+        if e.get("status") == "closed" and isinstance(e.get("id"), str)
+    }
+    if not closed:
+        return
+    for d in _STUB_SCAN_DIRS:
+        root = ROOT / d
+        if not root.is_dir():
+            continue
+        for path in sorted(root.rglob("*")):
+            if not path.is_file() or path.suffix not in _STUB_SCAN_SUFFIXES:
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except (UnicodeDecodeError, OSError):
+                continue
+            if "STUB(RD-" not in text:
+                continue
+            for lineno, line in enumerate(text.splitlines(), start=1):
+                for m in _STUB_MARKER_RE.finditer(line):
+                    rd = m.group(1)
+                    if rd in closed:
+                        rel = path.relative_to(ROOT).as_posix()
+                        err(
+                            f"closed {rd} 残留 STUB marker: {rel}:{lineno}"
+                            f"(closed RD 须清理 STUB(RD-###) 双侧标注,14 §4)"
+                        )
+
+
 def main() -> int:
     base = resolve_base()
     if not git("rev-parse", "--verify", base).strip():
@@ -369,6 +421,7 @@ def main() -> int:
         check_budget(base, budget.relative_to(ROOT).as_posix())
     check_evidence(base, diffs)
     check_closed_contracts(base)
+    check_closed_rd_stubs()
     if ERRORS:
         print(f"[check_guardrails] FAIL (base={base})")
         for e in ERRORS:

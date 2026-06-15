@@ -20,3 +20,10 @@ __pycache__/
 
 # 自托管 runner(若误放仓库内)
 actions-runner/
+
+# Secrets & credentials(预防性排除)
+.env*
+*.key
+*.pem
+*.secret
+credentials.json

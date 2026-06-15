@@ -134,14 +134,16 @@ guardrails:
 | 编号 | 内容摘要 | 承接 |
 |---|---|---|
 | RD-007 | const 泛型值运行期单态化(turbofish const 实参 → 实例值代入 + codegen)+ 运行期数组 aggregate codegen | M7(M6 close-out owner M6→M7 顺延,inherited;M7 标准库充实与 G0 图形演示作用面——几何原语 / 数组长度类 const 泛型可能触发运行期单态化,届时按需接通或继续留痕,spec/consteval.md RXS-0064 语义不变,回填仅补实现侧。**非本契约验收门**,接通与否执行期处置留痕) |
+| RD-008 | scoped atomics 的 PTX `atom.{order}.{scope}` 映射 codegen 实现(D-406 人工落笔);M5 仅交付类型契约 + RX3010 + `atomics_ptx_mapping.rs` 骨架(`#[ignore]` + panic),映射实现待真实 kernel 需要 scoped atomic codegen 时人工落笔 + Compute Sanitizer 背书 | M7(2026-06-15 M0–M6 执行期审查登记,owner M7,open;**D-406 人工落笔禁区**,AI 不实现 PTX 映射,backfill 时只追加 deferred.json history、不静默改既有字段。**非本契约验收门**) |
 
-详情以 [../../registry/deferred.json](../../registry/deferred.json) 为唯一事实源,本表仅引用。RD-001(M8)/RD-006(M8)不属 M7 范围,维持原承接;RD-002/RD-003/RD-004/RD-005 已 closed。M7 开工无预造新 deferred;执行期做不完的事按 14 §4 追加 `RD-###` 并双侧标注。
+详情以 [../../registry/deferred.json](../../registry/deferred.json) 为唯一事实源,本表仅引用。RD-001(M8)/RD-006(M8)不属 M7 范围,维持原承接;RD-002/RD-003/RD-004/RD-005 已 closed。M7 开工无预造新 deferred;RD-008 系 2026-06-15 M0–M6 执行期审查按 14 §4 追加(scoped atomics PTX 映射未交付),双侧标注于 `deferred.json` v1.8;后续执行期做不完的事同样按 14 §4 追加 `RD-###` 并双侧标注。
 
 ## 7. 修订记录
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-06-15 | 初版契约固化(M7 开工脚手架;基准 ref 维持 m6-closed 无需再切;deferred RD-007 owner M6→M7 顺延承接、维持 inherited;新建 spec/stdlib.md RXS-0104 续号预留,条款体随 M7.1+ 与测试同 PR;新段位错误码首批分配随 M7.1+ 诊断 PR) |
+| v1.1 | 2026-06-15 | §6 只追加 RD-008 引用行(scoped atomics PTX `atom.{order}.{scope}` 映射 codegen,2026-06-15 M0–M6 执行期审查登记,owner M7,open,D-406 人工落笔禁区;事实源 deferred.json v1.8);既有 RD-007 行 0-byte 不动 |
 
 ---
 
