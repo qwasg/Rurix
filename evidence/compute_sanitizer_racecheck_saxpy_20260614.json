@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "tool": "racecheck",
+  "kernel": "saxpy",
+  "clean": true,
+  "exit_code": 0,
+  "errors_count": 0,
+  "hazards_count": 0,
+  "report_summary": "========= RACECHECK SUMMARY: 0 hazards displayed (0 errors, 0 warnings)",
+  "sanitizer_version": "NVIDIA (R) Compute Sanitizer",
+  "command": "bench/saxpy_bench.py --smoke",
+  "timestamp": "2026-06-14T14:08:06.413770+00:00",
+  "harness_commit": "3f881d1"
+}

@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/compute_sanitizer/v1",
+  "title": "Rurix Compute Sanitizer 证据 JSON(M5.4 G-M5-4)",
+  "description": "compute-sanitizer racecheck/memcheck 对 kernel --smoke 真跑的正确性维度报告。clean=true 计入 m5.counter.compute_sanitizer_clean(ci/budget_eval.py)。非性能证据:不含锁频/采样字段(Sanitizer 严禁用于 measured 基准,M5_PLAN §5)。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "tool",
+    "kernel",
+    "clean",
+    "exit_code",
+    "report_summary",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "tool": {
+      "description": "Sanitizer 子工具",
+      "enum": ["racecheck", "memcheck"]
+    },
+    "kernel": {
+      "description": "被检 kernel 干名(reduce/scan/transpose/gemm_tile/saxpy),或红绿夹具 fixture-race/fixture-clean",
+      "type": "string"
+    },
+    "clean": {
+      "description": "true = 退出码 0 且无 error/hazard(计入 compute_sanitizer_clean)",
+      "type": "boolean"
+    },
+    "exit_code": { "type": "integer" },
+    "errors_count": { "type": "integer", "minimum": 0 },
+    "hazards_count": { "type": "integer", "minimum": 0 },
+    "report_summary": {
+      "description": "sanitizer 报告摘要(SUMMARY/hazard/error 行截取)",
+      "type": "string"
+    },
+    "sanitizer_version": { "type": "string" },
+    "command": { "type": "string", "description": "被包裹的真跑命令" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "harness_commit": { "type": "string" }
+  }
+}

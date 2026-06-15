@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "tool": "racecheck",
+  "kernel": "fixture-race",
+  "clean": false,
+  "exit_code": 1,
+  "errors_count": 0,
+  "hazards_count": 1,
+  "report_summary": "========= Warning: Race reported between Write access at race_shared+0x80\n=========     and Read access at race_shared+0xa0 [256 hazards]\n========= RACECHECK SUMMARY: 1 hazard displayed (0 errors, 1 warning)",
+  "sanitizer_version": "NVIDIA (R) Compute Sanitizer",
+  "command": "bench/sanitizer_fixtures/fixture_runner.py --variant race",
+  "timestamp": "2026-06-14T14:07:35.699762+00:00",
+  "harness_commit": "3f881d1"
+}
