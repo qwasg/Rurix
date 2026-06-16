@@ -36,11 +36,11 @@
     }
   ],
   "redgreen": {
-    "red_command": "篡改 cublas gemm 绑定数值结果(扰动一元素)后与 torch.matmul 参考数值对照",
+    "red_command": "篡改 cublas GEMM 绑定数值结果(run_gemm cublas α=1→2,绑定 = 2·A·B ≠ A@B)后步骤 35 cublas 绑定冒烟与 torch.matmul 参考数值对照",
     "red_detected": true,
-    "green_command": "py -3 ci/cublas_binding_smoke.py(cargo build -p rurix-cublas → ctypes 零拷贝 → gemm/gemv 数值对照通过)",
+    "green_command": "py -3 ci/cublas_binding_smoke.py(cargo build -p rurix-cublas cdylib → ctypes 零拷贝 → gemm/gemv 数值对照通过)",
     "green_exit_code": 0,
-    "run_url": "local red-green(反 YAML-only,H06 D11.8-2);pr-smoke 步骤 35 self-hosted runner run URL 见 PR 描述"
+    "run_url": "self-hosted RTX 4070 Ti runner pr-smoke 步骤 35 真实红绿(反 YAML-only,H06 D11.8-2):绿 https://github.com/qwasg/Rurix/actions/runs/27619290198(step35 success) → 红 https://github.com/qwasg/Rurix/actions/runs/27619643676(step35 failure,篡改 cublas GEMM 绑定数值 α=2≠1) → 复原绿 https://github.com/qwasg/Rurix/actions/runs/27619860120(step35 success)"
   },
   "timestamp": "2026-06-16T20:47:17+08:00"
 }
