@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "evidence_level": "measured_local",
+  "timestamp": "2026-06-16T13:42:28.689216+00:00",
+  "bench": {
+    "id": "cuda_saxpy_f32",
+    "level": "L1",
+    "problem_size": "2^24 elements f32 (64 MiB/array)",
+    "harness_commit": "cab2167"
+  },
+  "environment": {
+    "driver_version": "591.86",
+    "nvml_version": "13.591.86",
+    "gpu_name": "NVIDIA GeForce RTX 4070 Ti",
+    "compute_capability": "8.9",
+    "driver_model": "WDDM",
+    "clocks": {
+      "locked": true,
+      "sm_clock_mhz": 2610,
+      "mem_clock_mhz": 10501,
+      "lock_method": "nvidia-smi -lgc/-lmc (elevated); persistence mode unsupported on Windows"
+    },
+    "thermal": {
+      "temp_start_c": 37,
+      "temp_end_c": 39,
+      "steady_state": true
+    },
+    "isolation_check": {
+      "other_compute_processes": 38
+    },
+    "cuda_driver_version": "13.1",
+    "tdr": {
+      "tdr_delay": "not_set(os_default)",
+      "tdr_level": "not_set(os_default)"
+    },
+    "hags_enabled": true,
+    "os_build": "Windows 10.0.28120"
+  },
+  "sampling": {
+    "warmup_iterations": 15,
+    "steady_state_cv": 0.038722,
+    "timed_iterations": 50,
+    "trials": 3,
+    "trimmed_pct": 0.2,
+    "l2_clear_mb": 256,
+    "timer": "cuda_event"
+  },
+  "results": {
+    "metric": "effective_bandwidth",
+    "unit": "GB/s",
+    "trial_medians": [
+      409.6,
+      406.2149,
+      410.8304
+    ],
+    "trimmed_mean": 408.8818,
+    "cv": 0.01585,
+    "ci95": [
+      408.8149,
+      410.9646
+    ],
+    "min": 215.1072,
+    "max": 521.5066,
+    "outliers_rejected_iqr": 38,
+    "correctness_check": "pass"
+  },
+  "notes": "handwritten CUDA C++ reference PTX (.version 8.0, entry cuda_saxpy); out=a*x+y, read x/y write out; metric id m8.bench.saxpy_cuda.effective_bandwidth_gbps"
+}

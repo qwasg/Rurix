@@ -13,8 +13,150 @@
     "milestones/m0/BENCH_PROTOCOL.md",
     "milestones/m8/M8_CONTRACT.md"
   ],
-  "entries": [],
-  "ratio_assertions": [],
+  "entries": [
+    {
+      "id": "m8.bench.saxpy.effective_bandwidth_gbps",
+      "direction": "min",
+      "threshold": 392.89,
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "GB/s",
+      "evidence_file": "evidence/m8_rurix_saxpy_20260616_agg.json",
+      "measured_value": 413.565
+    },
+    {
+      "id": "m8.bench.saxpy_cuda.effective_bandwidth_gbps",
+      "direction": "min",
+      "threshold": 385.79,
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "GB/s",
+      "evidence_file": "evidence/m8_cuda_saxpy_20260616_agg.json",
+      "measured_value": 406.0956
+    },
+    {
+      "id": "m8.bench.reduce.effective_bandwidth_gbps",
+      "direction": "min",
+      "threshold": 248.67,
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "GB/s",
+      "evidence_file": "evidence/m8_rurix_reduce_20260616_agg.json",
+      "measured_value": 261.7607
+    },
+    {
+      "id": "m8.bench.reduce_cuda.effective_bandwidth_gbps",
+      "direction": "min",
+      "threshold": 249.76,
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "GB/s",
+      "evidence_file": "evidence/m8_cuda_reduce_20260616_agg.json",
+      "measured_value": 262.9038
+    },
+    {
+      "id": "m8.bench.gemm.throughput_gflops",
+      "direction": "min",
+      "threshold": 2875.96,
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "GFLOPS",
+      "evidence_file": "evidence/m8_rurix_gemm_20260616_agg.json",
+      "measured_value": 3027.3249
+    },
+    {
+      "id": "m8.bench.gemm_cuda.throughput_gflops",
+      "direction": "min",
+      "threshold": 2871.38,
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "GFLOPS",
+      "evidence_file": "evidence/m8_cuda_gemm_20260616_agg.json",
+      "measured_value": 3022.507
+    },
+    {
+      "id": "m8.bench.cublas_gemm.throughput_gflops",
+      "direction": "min",
+      "threshold": 13590.87,
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "GFLOPS",
+      "evidence_file": "evidence/m8_cublas_gemm_20260616_agg.json",
+      "measured_value": 14306.1785
+    },
+    {
+      "id": "m8.bench.cublas_gemv.effective_bandwidth_gbps",
+      "direction": "min",
+      "threshold": 414.67,
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "GB/s",
+      "evidence_file": "evidence/m8_cublas_gemv_20260616_agg.json",
+      "measured_value": 436.4937
+    },
+    {
+      "id": "m8.bench.gemv_cuda.effective_bandwidth_gbps",
+      "direction": "min",
+      "threshold": 86.13,
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "GB/s",
+      "evidence_file": "evidence/m8_cuda_gemv_20260616_agg.json",
+      "measured_value": 90.6583
+    }
+  ],
+  "ratio_assertions": [
+    {
+      "id": "m8.ratio.saxpy_vs_cuda",
+      "numerator": "m8.bench.saxpy.effective_bandwidth_gbps",
+      "denominator": "m8.bench.saxpy_cuda.effective_bandwidth_gbps",
+      "direction": "min",
+      "threshold": 0.9,
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "measured_value": 1.0184
+    },
+    {
+      "id": "m8.ratio.reduce_vs_cuda",
+      "numerator": "m8.bench.reduce.effective_bandwidth_gbps",
+      "denominator": "m8.bench.reduce_cuda.effective_bandwidth_gbps",
+      "direction": "min",
+      "threshold": 0.9,
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "measured_value": 0.9957
+    },
+    {
+      "id": "m8.ratio.gemm_vs_cuda",
+      "numerator": "m8.bench.gemm.throughput_gflops",
+      "denominator": "m8.bench.gemm_cuda.throughput_gflops",
+      "direction": "min",
+      "threshold": 0.9,
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "measured_value": 1.0016
+    },
+    {
+      "id": "m8.ratio.cublas_gemm_vs_cuda",
+      "numerator": "m8.bench.cublas_gemm.throughput_gflops",
+      "denominator": "m8.bench.gemm_cuda.throughput_gflops",
+      "direction": "min",
+      "threshold": 0.9,
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "measured_value": 4.7332
+    },
+    {
+      "id": "m8.ratio.cublas_gemv_vs_cuda",
+      "numerator": "m8.bench.cublas_gemv.effective_bandwidth_gbps",
+      "denominator": "m8.bench.gemv_cuda.effective_bandwidth_gbps",
+      "direction": "min",
+      "threshold": 0.9,
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "measured_value": 4.8147
+    }
+  ],
   "counter_assertions": [
     {
       "id": "m8.counter.uc01_pytorch_operators",
@@ -56,6 +198,11 @@
       "version": "v1.0",
       "date": "2026-06-16",
       "change": "初版模板(M8 契约配套):entries 开工留空(不预造 estimated bench 占位,任务红线 + 对齐 M4/M5 先例;UC-01/UC-02 L1/L2 性能 m8.bench.* / m8.ratio.* 随各 m8.x 实测回填 measured_local,零 estimated 不跨里程碑欠债)+ 五计数器 m8.counter.{uc01_pytorch_operators(>=3) / uc02_stream_pipeline(>=1) / cublas_bindings(>=2) / release_artifacts_signed(>=1) / bilingual_diagnostic_coverage(>=1)}(契约 G-M8-1/G-M8-3/G-M8-2/G-M8-4/G-M8-5)。配套 ci/budget_eval.py 新增五 m8.counter.* evaluator 分支(目录/证据缺失 → 0 → normal SKIP / close-out strict FAIL,对齐 M4/M5/M6/M7 计数器先例);M8 期 m8.* 计数器建设期 SKIP 属预期"
+    },
+    {
+      "version": "v1.1",
+      "date": "2026-06-16",
+      "change": "M8.2 回填:UC-01 自研(saxpy/reduce/gemm)+ cublas(gemm/gemv)L1/L2 性能 measured_local(三次进程级独立运行 trimmed mean,BENCH_PROTOCOL §3)→ 9 entries(numerator + 手写 CUDA C++ 对照 denominator,threshold=实测×0.95)+ 5 ratio_assertions vs 手写 CUDA C++(阈值 0.90,契约 G-M8-2 / 01 §6):saxpy_vs_cuda=1.0184, reduce_vs_cuda=0.9957, gemm_vs_cuda=1.0016, cublas_gemm_vs_cuda=4.7332, cublas_gemv_vs_cuda=4.8147"
     }
   ]
 }

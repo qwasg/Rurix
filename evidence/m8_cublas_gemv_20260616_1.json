@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "evidence_level": "measured_local",
+  "timestamp": "2026-06-16T13:42:57.628282+00:00",
+  "bench": {
+    "id": "cublas_gemv_f32",
+    "level": "L1",
+    "problem_size": "8192x8192 f32 · 8192",
+    "harness_commit": "cab2167"
+  },
+  "environment": {
+    "driver_version": "591.86",
+    "nvml_version": "13.591.86",
+    "gpu_name": "NVIDIA GeForce RTX 4070 Ti",
+    "compute_capability": "8.9",
+    "driver_model": "WDDM",
+    "clocks": {
+      "locked": true,
+      "sm_clock_mhz": 2610,
+      "mem_clock_mhz": 10501,
+      "lock_method": "nvidia-smi -lgc/-lmc (elevated); persistence mode unsupported on Windows"
+    },
+    "thermal": {
+      "temp_start_c": 37,
+      "temp_end_c": 40,
+      "steady_state": true
+    },
+    "isolation_check": {
+      "other_compute_processes": 38
+    },
+    "cuda_driver_version": "13.1",
+    "tdr": {
+      "tdr_delay": "not_set(os_default)",
+      "tdr_level": "not_set(os_default)"
+    },
+    "hags_enabled": true,
+    "os_build": "Windows 10.0.28120"
+  },
+  "sampling": {
+    "warmup_iterations": 23,
+    "steady_state_cv": 0.026318,
+    "timed_iterations": 50,
+    "trials": 3,
+    "trimmed_pct": 0.2,
+    "l2_clear_mb": 256,
+    "timer": "cuda_event"
+  },
+  "results": {
+    "metric": "effective_bandwidth",
+    "unit": "GB/s",
+    "trial_medians": [
+      435.5841,
+      431.2632,
+      439.5545
+    ],
+    "trimmed_mean": 435.4673,
+    "cv": 0.020554,
+    "ci95": [
+      435.5841,
+      440.6857
+    ],
+    "min": 261.9052,
+    "max": 485.5704,
+    "outliers_rejected_iqr": 49,
+    "correctness_check": "pass"
+  },
+  "notes": "cublas SGEMV binding (C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v13.3\\bin\\x64\\cublas64_13.dll, Attachment A whitelist); row-major via cublasSgemv(OP_T,n,m,A,n,x,1,y,1); memory-bound; metric id m8.bench.cublas_gemv.effective_bandwidth_gbps"
+}
