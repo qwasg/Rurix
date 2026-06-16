@@ -121,3 +121,7 @@
 | RXS-0115 | spec/imageio.md | 1 | `src/image-io/src/lib.rs` |
 | RXS-0116 | spec/imageio.md | 1 | `src/image-io/src/lib.rs` |
 | RXS-0117 | spec/imageio.md | 1 | `src/image-io/src/lib.rs` |
+| RXS-0118 | spec/softraster.md | 2 | `conformance/soft_raster/device/sr_binning.rx`, `src/soft-raster/src/lib.rs` |
+| RXS-0119 | spec/softraster.md | 2 | `conformance/soft_raster/device/sr_raster_tile.rx`, `src/soft-raster/src/lib.rs` |
+| RXS-0120 | spec/softraster.md | 2 | `conformance/soft_raster/device/sr_depth.rx`, `src/soft-raster/src/lib.rs` |
+| RXS-0121 | spec/softraster.md | 2 | `conformance/soft_raster/device/sr_tonemap.rx`, `src/soft-raster/src/lib.rs` |

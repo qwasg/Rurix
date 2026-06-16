@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/soft_raster/v1",
+  "title": "Rurix G0 软光栅 kernel safe 覆盖 + 确定性帧像素冒烟证据 JSON(M7.3,契约 G-M7-3)",
+  "description": "G0 软光栅 kernel(binning/tile 光栅/深度/tonemap)全 safe 代码目标 + 确定性帧像素的机器事实清单。safe_kernels 去重计数计入 m7.counter.soft_raster_kernels_safe(ci/budget_eval.py;>= 预设软光栅 kernel 数 4 则 PASS,建设期不足为 normal SKIP)。凡落 unsafe 的 kernel 不计入 safe 覆盖,须 // SAFETY: + safe 覆盖率报告留痕原因(反哺 views 扩展清单)。机器复核闸门 = ci/soft_raster_smoke.py(device codegen IR 失败即非零退出 + host 确定性帧两次落盘逐帧 content SHA-256 逐字节一致 + 内建篡改帧像素红绿,反 YAML-only)。device 路径 = kernel/device fn 标量子集 device codegen + ptxas 干验证(聚合值类型 device codegen 为后续扩展,spec/softraster.md §4);host 路径 = src/soft-raster 全 safe CPU 参考产逐字节确定帧(复用 image-io PPM 确定编码)。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject",
+    "safe_kernels",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": {
+      "description": "证据对象",
+      "const": "soft_raster_kernels"
+    },
+    "safe_kernels": {
+      "description": "全 safe 代码目标下 device codegen 通过(且零 unsafe)的软光栅 kernel 去重集(binning/tile 光栅/深度/tonemap);凡落 unsafe 的 kernel 不计入",
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "device_facts": {
+      "description": "device codegen 逐 kernel ↔ 复现命令背书(NVPTX IR 产出 / ptxas 干验证)",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source", "emit", "exit_code"],
+        "properties": {
+          "source": { "type": "string" },
+          "emit": { "type": "string" },
+          "exit_code": { "type": "integer" },
+          "ptxas": { "type": "string" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "determinism": {
+      "description": "确定性帧像素背书:固定输入两次落盘逐帧 content SHA-256 逐字节一致",
+      "type": "object",
+      "properties": {
+        "frames": { "type": "integer" },
+        "frame_sha256_match": { "type": "boolean" },
+        "repro_binary": { "type": "string" }
+      }
+    },
+    "unsafe_kernels": {
+      "description": "落 unsafe 的 kernel 清单(反哺 views 扩展清单;全 safe 目标下应为空)",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "gpu_roundtrip": {
+      "description": "device 真跑 GPU roundtrip 状态(有硬件即跑,无则 skipped)",
+      "enum": ["ran", "skipped"]
+    },
+    "redgreen": {
+      "description": "门禁真实红绿验证留痕(反 YAML-only,H06 D11.8-2)",
+      "type": "object",
+      "properties": {
+        "red_command": { "type": "string" },
+        "red_sha_changed": { "type": "boolean" },
+        "green_command": { "type": "string" },
+        "green_exit_code": { "type": "integer" },
+        "run_url": { "type": "string" }
+      }
+    },
+    "rurixc_binary": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "harness_commit": { "type": "string" }
+  }
+}

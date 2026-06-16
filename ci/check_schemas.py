@@ -164,11 +164,12 @@ def check_evidence_files() -> None:
     lsp_smoke_schema = load(ROOT / "milestones/m6/lsp_smoke_evidence_schema.json")
     lsp_latency_schema = load(ROOT / "milestones/m6/lsp_latency_evidence_schema.json")
     stdlib_math_schema = load(ROOT / "milestones/m7/stdlib_math_evidence_schema.json")
+    soft_raster_schema = load(ROOT / "milestones/m7/soft_raster_evidence_schema.json")
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
             or lsp_smoke_schema is None or lsp_latency_schema is None
-            or stdlib_math_schema is None):
+            or stdlib_math_schema is None or soft_raster_schema is None):
         return
     evidence_files = sorted((ROOT / "evidence").glob("*.json"))
     if not evidence_files:
@@ -189,6 +190,7 @@ def check_evidence_files() -> None:
     lsp_smoke_validator = jsonschema.Draft7Validator(lsp_smoke_schema)
     lsp_latency_validator = jsonschema.Draft7Validator(lsp_latency_schema)
     stdlib_math_validator = jsonschema.Draft7Validator(stdlib_math_schema)
+    soft_raster_validator = jsonschema.Draft7Validator(soft_raster_schema)
     for f in evidence_files:
         doc = load(f)
         if doc is None:
@@ -201,7 +203,9 @@ def check_evidence_files() -> None:
         # (G-M6-1 配套);lsp_smoke_ → m6 LSP 能力面冒烟 schema
         # (G-M6-2/G-M6-5 配套);lsp_latency_ → m6 LSP 10k 行交互延迟 schema
         # (G-M6-2 measured_local 配套);stdlib_math_ → m7 core 数学库原语冒烟
-        # schema(G-M7-4 配套,m7.counter.math_primitives);其余 → m0 GPU schema
+        # schema(G-M7-4 配套,m7.counter.math_primitives);soft_raster_ → m7
+        # 软光栅 kernel safe 覆盖 + 确定性帧像素冒烟 schema(G-M7-3 配套,
+        # m7.counter.soft_raster_kernels_safe);其余 → m0 GPU schema
         if f.name.startswith("frontend_"):
             validator = frontend_validator
         elif f.name.startswith("compile_"):
@@ -220,6 +224,8 @@ def check_evidence_files() -> None:
             validator = lsp_latency_validator
         elif f.name.startswith("stdlib_math_"):
             validator = stdlib_math_validator
+        elif f.name.startswith("soft_raster_"):
+            validator = soft_raster_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):

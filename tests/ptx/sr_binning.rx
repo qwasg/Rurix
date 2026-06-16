@@ -1,0 +1,77 @@
+//@ spec: RXS-0118
+// G0 软光栅 — 图元分桶到 tile(binning,RXS-0118)。
+// 每线程拥有一个 tile(global_id → tile 线性下标),按图元下标 k 升序遍历全部图元,
+// 将包围盒与本 tile 像素矩形相交的图元下标依序追加入本桶列表(达 cap 截断)。
+// 每桶由唯一 owner 线程独写,atomics-free、确定性遍历序。全 safe。
+//
+// 布局:prim[k*6 + {0..5}] = (x0,y0,x1,y1,x2,y2) 屏幕坐标(仅 xy,bbox 用);
+//   bin_count[tile] = 本 tile 覆盖图元数;bin_list[tile*cap + s] = 第 s 个覆盖图元下标。
+
+device fn rx_min(a: f32, b: f32) -> f32 {
+    if a < b {
+        a
+    } else {
+        b
+    }
+}
+
+device fn rx_max(a: f32, b: f32) -> f32 {
+    if a > b {
+        a
+    } else {
+        b
+    }
+}
+
+// 区间 [a0,a1] 与 [b0,b1] 相交(半开判定,确定性):a0 < b1 && b0 < a1
+device fn overlaps(a0: f32, a1: f32, b0: f32, b1: f32) -> bool {
+    a0 < b1 && b0 < a1
+}
+
+kernel fn sr_binning(
+    t: ThreadCtx<1>,
+    prim: View<global, f32>,
+    bin_count: ViewMut<global, f32>,
+    bin_list: ViewMut<global, f32>,
+    tiles_x: usize,
+    tiles_y: usize,
+    tile_size: usize,
+    prim_count: usize,
+    cap: usize,
+) {
+    let tid = t.global_id();
+    let ntiles = tiles_x * tiles_y;
+    if tid < ntiles {
+        let tx = tid % tiles_x;
+        let ty = tid / tiles_x;
+        let tile_x0 = (tx * tile_size) as f32;
+        let tile_x1 = ((tx + 1) * tile_size) as f32;
+        let tile_y0 = (ty * tile_size) as f32;
+        let tile_y1 = ((ty + 1) * tile_size) as f32;
+        let mut count = 0;
+        let mut k = 0;
+        while k < prim_count {
+            let base = k * 6;
+            let x0 = prim[base];
+            let y0 = prim[base + 1];
+            let x1 = prim[base + 2];
+            let y1 = prim[base + 3];
+            let x2 = prim[base + 4];
+            let y2 = prim[base + 5];
+            let bx0 = rx_min(rx_min(x0, x1), x2);
+            let bx1 = rx_max(rx_max(x0, x1), x2);
+            let by0 = rx_min(rx_min(y0, y1), y2);
+            let by1 = rx_max(rx_max(y0, y1), y2);
+            if overlaps(bx0, bx1, tile_x0, tile_x1) && overlaps(by0, by1, tile_y0, tile_y1) {
+                if count < cap {
+                    bin_list[tid * cap + count] = k as f32;
+                    count += 1;
+                }
+            }
+            k += 1;
+        }
+        bin_count[tid] = count as f32;
+    }
+}
+
+fn main() {}

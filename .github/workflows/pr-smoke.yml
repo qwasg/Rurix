@@ -73,6 +73,16 @@ jobs:
         shell: powershell
         run: py -3 ci/image_io_smoke.py
 
+      # —— M7 增量(milestones/m7/CI_GATES.md §2 步骤 31;自 M7.3 存在起,G-M7-3,CPU-only)——
+      # G0 软光栅 kernel safe 覆盖 + 确定性帧像素门:软光栅 kernel(binning/tile 光栅/深度/
+      # tonemap)device codegen IR 产出(safe 覆盖计数 m7.counter.soft_raster_kernels_safe,
+      # 计数源 evidence/soft_raster_*.json 的 safe_kernels 去重基数,>=4 则 PASS)+ host CPU
+      # 参考(softraster_repro)固定输入两次落盘逐帧 content SHA-256 逐字节一致(确定性帧像素,
+      # RXS-0118~0121);内建篡改帧像素红绿(反 YAML-only)。失败即红。
+      - name: soft raster kernel smoke (M7 CI_GATES §2.31, G-M7-3)
+        shell: powershell
+        run: py -3 ci/soft_raster_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

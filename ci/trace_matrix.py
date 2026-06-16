@@ -100,6 +100,9 @@ def gather_repo() -> tuple[dict[str, str], dict[str, str]]:
     test_files += sorted((ROOT / "src" / "rurix-pkg").glob("**/*.rs"))
     # M7.2:image-io crate(图像缓冲/PPM P6 确定编码/图像序列落盘 单测锚定 RXS-0114~0117)
     test_files += sorted((ROOT / "src" / "image-io").glob("**/*.rs"))
+    # M7.3:soft-raster crate(软光栅 host CPU 参考 binning/tile 光栅/深度/tonemap
+    # 确定性单测锚定 RXS-0118~0121)
+    test_files += sorted((ROOT / "src" / "soft-raster").glob("**/*.rs"))
     test_texts = {
         p.relative_to(ROOT).as_posix(): p.read_text(encoding="utf-8") for p in test_files
     }

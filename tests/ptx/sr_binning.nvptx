@@ -1,0 +1,482 @@
+; ModuleID = 'sr_binning'
+source_filename = "sr_binning"
+target triple = "nvptx64-nvidia-cuda"
+
+declare i32 @llvm.nvvm.read.ptx.sreg.ctaid.x()
+declare i32 @llvm.nvvm.read.ptx.sreg.ntid.x()
+declare i32 @llvm.nvvm.read.ptx.sreg.tid.x()
+
+define internal i8 @rx_overlaps_10(float %arg1, float %arg2, float %arg3, float %arg4) {
+entry:
+  %l0 = alloca i8, addrspace(5)
+  %l1 = alloca float, addrspace(5)
+  %l2 = alloca float, addrspace(5)
+  %l3 = alloca float, addrspace(5)
+  %l4 = alloca float, addrspace(5)
+  %l5 = alloca i8, addrspace(5)
+  %l6 = alloca i8, addrspace(5)
+  %l7 = alloca i8, addrspace(5)
+  store float %arg1, ptr addrspace(5) %l1
+  store float %arg2, ptr addrspace(5) %l2
+  store float %arg3, ptr addrspace(5) %l3
+  store float %arg4, ptr addrspace(5) %l4
+  br label %bb0
+bb0:
+  %t0 = load float, ptr addrspace(5) %l1
+  %t1 = load float, ptr addrspace(5) %l4
+  %t2 = fcmp olt float %t0, %t1
+  %t3 = zext i1 %t2 to i8
+  store i8 %t3, ptr addrspace(5) %l6
+  %t4 = load i8, ptr addrspace(5) %l6
+  store i8 %t4, ptr addrspace(5) %l5
+  %t5 = load i8, ptr addrspace(5) %l5
+  %t6 = icmp ne i8 %t5, 0
+  br i1 %t6, label %bb1, label %bb2
+bb1:
+  %t7 = load float, ptr addrspace(5) %l3
+  %t8 = load float, ptr addrspace(5) %l2
+  %t9 = fcmp olt float %t7, %t8
+  %t10 = zext i1 %t9 to i8
+  store i8 %t10, ptr addrspace(5) %l7
+  %t11 = load i8, ptr addrspace(5) %l7
+  store i8 %t11, ptr addrspace(5) %l5
+  br label %bb2
+bb2:
+  %t12 = load i8, ptr addrspace(5) %l5
+  store i8 %t12, ptr addrspace(5) %l0
+  %t13 = load i8, ptr addrspace(5) %l0
+  ret i8 %t13
+}
+
+define internal float @rx_rx_max_9(float %arg1, float %arg2) {
+entry:
+  %l0 = alloca float, addrspace(5)
+  %l1 = alloca float, addrspace(5)
+  %l2 = alloca float, addrspace(5)
+  %l3 = alloca float, addrspace(5)
+  %l4 = alloca i8, addrspace(5)
+  store float %arg1, ptr addrspace(5) %l1
+  store float %arg2, ptr addrspace(5) %l2
+  br label %bb0
+bb0:
+  %t0 = load float, ptr addrspace(5) %l1
+  %t1 = load float, ptr addrspace(5) %l2
+  %t2 = fcmp ogt float %t0, %t1
+  %t3 = zext i1 %t2 to i8
+  store i8 %t3, ptr addrspace(5) %l4
+  %t4 = load i8, ptr addrspace(5) %l4
+  %t5 = icmp ne i8 %t4, 0
+  br i1 %t5, label %bb1, label %bb2
+bb1:
+  %t6 = load float, ptr addrspace(5) %l1
+  store float %t6, ptr addrspace(5) %l3
+  br label %bb3
+bb2:
+  %t7 = load float, ptr addrspace(5) %l2
+  store float %t7, ptr addrspace(5) %l3
+  br label %bb3
+bb3:
+  %t8 = load float, ptr addrspace(5) %l3
+  store float %t8, ptr addrspace(5) %l0
+  %t9 = load float, ptr addrspace(5) %l0
+  ret float %t9
+}
+
+define internal float @rx_rx_min_8(float %arg1, float %arg2) {
+entry:
+  %l0 = alloca float, addrspace(5)
+  %l1 = alloca float, addrspace(5)
+  %l2 = alloca float, addrspace(5)
+  %l3 = alloca float, addrspace(5)
+  %l4 = alloca i8, addrspace(5)
+  store float %arg1, ptr addrspace(5) %l1
+  store float %arg2, ptr addrspace(5) %l2
+  br label %bb0
+bb0:
+  %t0 = load float, ptr addrspace(5) %l1
+  %t1 = load float, ptr addrspace(5) %l2
+  %t2 = fcmp olt float %t0, %t1
+  %t3 = zext i1 %t2 to i8
+  store i8 %t3, ptr addrspace(5) %l4
+  %t4 = load i8, ptr addrspace(5) %l4
+  %t5 = icmp ne i8 %t4, 0
+  br i1 %t5, label %bb1, label %bb2
+bb1:
+  %t6 = load float, ptr addrspace(5) %l1
+  store float %t6, ptr addrspace(5) %l3
+  br label %bb3
+bb2:
+  %t7 = load float, ptr addrspace(5) %l2
+  store float %t7, ptr addrspace(5) %l3
+  br label %bb3
+bb3:
+  %t8 = load float, ptr addrspace(5) %l3
+  store float %t8, ptr addrspace(5) %l0
+  %t9 = load float, ptr addrspace(5) %l0
+  ret float %t9
+}
+
+define ptx_kernel void @rx_sr_binning_11(ptr addrspace(1) %arg2, ptr addrspace(1) %arg3, ptr addrspace(1) %arg4, i64 %arg5, i64 %arg6, i64 %arg7, i64 %arg8, i64 %arg9) {
+entry:
+  %l2 = alloca ptr addrspace(1), addrspace(5)
+  %l3 = alloca ptr addrspace(1), addrspace(5)
+  %l4 = alloca ptr addrspace(1), addrspace(5)
+  %l5 = alloca i64, addrspace(5)
+  %l6 = alloca i64, addrspace(5)
+  %l7 = alloca i64, addrspace(5)
+  %l8 = alloca i64, addrspace(5)
+  %l9 = alloca i64, addrspace(5)
+  %l10 = alloca i64, addrspace(5)
+  %l11 = alloca i64, addrspace(5)
+  %l12 = alloca i64, addrspace(5)
+  %l13 = alloca i64, addrspace(5)
+  %l14 = alloca float, addrspace(5)
+  %l15 = alloca float, addrspace(5)
+  %l16 = alloca float, addrspace(5)
+  %l17 = alloca float, addrspace(5)
+  %l18 = alloca i64, addrspace(5)
+  %l19 = alloca i64, addrspace(5)
+  %l20 = alloca i64, addrspace(5)
+  %l21 = alloca float, addrspace(5)
+  %l22 = alloca float, addrspace(5)
+  %l23 = alloca float, addrspace(5)
+  %l24 = alloca float, addrspace(5)
+  %l25 = alloca float, addrspace(5)
+  %l26 = alloca float, addrspace(5)
+  %l27 = alloca float, addrspace(5)
+  %l28 = alloca float, addrspace(5)
+  %l29 = alloca float, addrspace(5)
+  %l30 = alloca float, addrspace(5)
+  %l31 = alloca i64, addrspace(5)
+  %l32 = alloca i64, addrspace(5)
+  %l33 = alloca i8, addrspace(5)
+  %l34 = alloca i64, addrspace(5)
+  %l35 = alloca i64, addrspace(5)
+  %l36 = alloca i64, addrspace(5)
+  %l37 = alloca float, addrspace(5)
+  %l38 = alloca i64, addrspace(5)
+  %l39 = alloca i64, addrspace(5)
+  %l40 = alloca float, addrspace(5)
+  %l41 = alloca i64, addrspace(5)
+  %l42 = alloca float, addrspace(5)
+  %l43 = alloca i64, addrspace(5)
+  %l44 = alloca i64, addrspace(5)
+  %l45 = alloca float, addrspace(5)
+  %l46 = alloca i8, addrspace(5)
+  %l47 = alloca i64, addrspace(5)
+  %l48 = alloca i64, addrspace(5)
+  %l49 = alloca i64, addrspace(5)
+  %l50 = alloca i64, addrspace(5)
+  %l51 = alloca i64, addrspace(5)
+  %l52 = alloca i64, addrspace(5)
+  %l53 = alloca float, addrspace(5)
+  %l54 = alloca float, addrspace(5)
+  %l55 = alloca float, addrspace(5)
+  %l56 = alloca float, addrspace(5)
+  %l57 = alloca float, addrspace(5)
+  %l58 = alloca float, addrspace(5)
+  %l59 = alloca float, addrspace(5)
+  %l60 = alloca float, addrspace(5)
+  %l61 = alloca i8, addrspace(5)
+  %l62 = alloca i8, addrspace(5)
+  %l63 = alloca i8, addrspace(5)
+  %l64 = alloca i8, addrspace(5)
+  %l65 = alloca i64, addrspace(5)
+  %l66 = alloca i64, addrspace(5)
+  %l67 = alloca float, addrspace(5)
+  %l68 = alloca float, addrspace(5)
+  store ptr addrspace(1) %arg2, ptr addrspace(5) %l2
+  store ptr addrspace(1) %arg3, ptr addrspace(5) %l3
+  store ptr addrspace(1) %arg4, ptr addrspace(5) %l4
+  store i64 %arg5, ptr addrspace(5) %l5
+  store i64 %arg6, ptr addrspace(5) %l6
+  store i64 %arg7, ptr addrspace(5) %l7
+  store i64 %arg8, ptr addrspace(5) %l8
+  store i64 %arg9, ptr addrspace(5) %l9
+  br label %bb0
+bb0:
+  %t0 = call i32 @llvm.nvvm.read.ptx.sreg.ctaid.x()
+  %t1 = call i32 @llvm.nvvm.read.ptx.sreg.ntid.x()
+  %t2 = call i32 @llvm.nvvm.read.ptx.sreg.tid.x()
+  %t3 = mul i32 %t0, %t1
+  %t4 = add i32 %t3, %t2
+  %t5 = zext i32 %t4 to i64
+  store i64 %t5, ptr addrspace(5) %l31
+  br label %bb1
+bb1:
+  %t6 = load i64, ptr addrspace(5) %l31
+  store i64 %t6, ptr addrspace(5) %l10
+  %t7 = load i64, ptr addrspace(5) %l5
+  %t8 = load i64, ptr addrspace(5) %l6
+  %t9 = mul i64 %t7, %t8
+  store i64 %t9, ptr addrspace(5) %l32
+  %t10 = load i64, ptr addrspace(5) %l32
+  store i64 %t10, ptr addrspace(5) %l11
+  %t11 = load i64, ptr addrspace(5) %l10
+  %t12 = load i64, ptr addrspace(5) %l11
+  %t13 = icmp ult i64 %t11, %t12
+  %t14 = zext i1 %t13 to i8
+  store i8 %t14, ptr addrspace(5) %l33
+  %t15 = load i8, ptr addrspace(5) %l33
+  %t16 = icmp ne i8 %t15, 0
+  br i1 %t16, label %bb2, label %bb3
+bb2:
+  %t17 = load i64, ptr addrspace(5) %l10
+  %t18 = load i64, ptr addrspace(5) %l5
+  %t19 = urem i64 %t17, %t18
+  store i64 %t19, ptr addrspace(5) %l34
+  %t20 = load i64, ptr addrspace(5) %l34
+  store i64 %t20, ptr addrspace(5) %l12
+  %t21 = load i64, ptr addrspace(5) %l10
+  %t22 = load i64, ptr addrspace(5) %l5
+  %t23 = udiv i64 %t21, %t22
+  store i64 %t23, ptr addrspace(5) %l35
+  %t24 = load i64, ptr addrspace(5) %l35
+  store i64 %t24, ptr addrspace(5) %l13
+  %t25 = load i64, ptr addrspace(5) %l12
+  %t26 = load i64, ptr addrspace(5) %l7
+  %t27 = mul i64 %t25, %t26
+  store i64 %t27, ptr addrspace(5) %l36
+  %t28 = load i64, ptr addrspace(5) %l36
+  %t29 = uitofp i64 %t28 to float
+  store float %t29, ptr addrspace(5) %l37
+  %t30 = load float, ptr addrspace(5) %l37
+  store float %t30, ptr addrspace(5) %l14
+  %t31 = load i64, ptr addrspace(5) %l12
+  %t32 = add i64 %t31, 1
+  store i64 %t32, ptr addrspace(5) %l38
+  %t33 = load i64, ptr addrspace(5) %l38
+  %t34 = load i64, ptr addrspace(5) %l7
+  %t35 = mul i64 %t33, %t34
+  store i64 %t35, ptr addrspace(5) %l39
+  %t36 = load i64, ptr addrspace(5) %l39
+  %t37 = uitofp i64 %t36 to float
+  store float %t37, ptr addrspace(5) %l40
+  %t38 = load float, ptr addrspace(5) %l40
+  store float %t38, ptr addrspace(5) %l15
+  %t39 = load i64, ptr addrspace(5) %l13
+  %t40 = load i64, ptr addrspace(5) %l7
+  %t41 = mul i64 %t39, %t40
+  store i64 %t41, ptr addrspace(5) %l41
+  %t42 = load i64, ptr addrspace(5) %l41
+  %t43 = uitofp i64 %t42 to float
+  store float %t43, ptr addrspace(5) %l42
+  %t44 = load float, ptr addrspace(5) %l42
+  store float %t44, ptr addrspace(5) %l16
+  %t45 = load i64, ptr addrspace(5) %l13
+  %t46 = add i64 %t45, 1
+  store i64 %t46, ptr addrspace(5) %l43
+  %t47 = load i64, ptr addrspace(5) %l43
+  %t48 = load i64, ptr addrspace(5) %l7
+  %t49 = mul i64 %t47, %t48
+  store i64 %t49, ptr addrspace(5) %l44
+  %t50 = load i64, ptr addrspace(5) %l44
+  %t51 = uitofp i64 %t50 to float
+  store float %t51, ptr addrspace(5) %l45
+  %t52 = load float, ptr addrspace(5) %l45
+  store float %t52, ptr addrspace(5) %l17
+  store i64 0, ptr addrspace(5) %l18
+  store i64 0, ptr addrspace(5) %l19
+  br label %bb5
+bb3:
+  br label %bb4
+bb4:
+  ret void
+bb5:
+  %t53 = load i64, ptr addrspace(5) %l19
+  %t54 = load i64, ptr addrspace(5) %l8
+  %t55 = icmp ult i64 %t53, %t54
+  %t56 = zext i1 %t55 to i8
+  store i8 %t56, ptr addrspace(5) %l46
+  %t57 = load i8, ptr addrspace(5) %l46
+  %t58 = icmp ne i8 %t57, 0
+  br i1 %t58, label %bb6, label %bb7
+bb6:
+  %t59 = load i64, ptr addrspace(5) %l19
+  %t60 = mul i64 %t59, 6
+  store i64 %t60, ptr addrspace(5) %l47
+  %t61 = load i64, ptr addrspace(5) %l47
+  store i64 %t61, ptr addrspace(5) %l20
+  %t62 = load ptr addrspace(1), ptr addrspace(5) %l2
+  %t63 = load i64, ptr addrspace(5) %l20
+  %t64 = getelementptr float, ptr addrspace(1) %t62, i64 %t63
+  %t65 = load float, ptr addrspace(1) %t64
+  store float %t65, ptr addrspace(5) %l21
+  %t66 = load i64, ptr addrspace(5) %l20
+  %t67 = add i64 %t66, 1
+  store i64 %t67, ptr addrspace(5) %l48
+  %t68 = load ptr addrspace(1), ptr addrspace(5) %l2
+  %t69 = load i64, ptr addrspace(5) %l48
+  %t70 = getelementptr float, ptr addrspace(1) %t68, i64 %t69
+  %t71 = load float, ptr addrspace(1) %t70
+  store float %t71, ptr addrspace(5) %l22
+  %t72 = load i64, ptr addrspace(5) %l20
+  %t73 = add i64 %t72, 2
+  store i64 %t73, ptr addrspace(5) %l49
+  %t74 = load ptr addrspace(1), ptr addrspace(5) %l2
+  %t75 = load i64, ptr addrspace(5) %l49
+  %t76 = getelementptr float, ptr addrspace(1) %t74, i64 %t75
+  %t77 = load float, ptr addrspace(1) %t76
+  store float %t77, ptr addrspace(5) %l23
+  %t78 = load i64, ptr addrspace(5) %l20
+  %t79 = add i64 %t78, 3
+  store i64 %t79, ptr addrspace(5) %l50
+  %t80 = load ptr addrspace(1), ptr addrspace(5) %l2
+  %t81 = load i64, ptr addrspace(5) %l50
+  %t82 = getelementptr float, ptr addrspace(1) %t80, i64 %t81
+  %t83 = load float, ptr addrspace(1) %t82
+  store float %t83, ptr addrspace(5) %l24
+  %t84 = load i64, ptr addrspace(5) %l20
+  %t85 = add i64 %t84, 4
+  store i64 %t85, ptr addrspace(5) %l51
+  %t86 = load ptr addrspace(1), ptr addrspace(5) %l2
+  %t87 = load i64, ptr addrspace(5) %l51
+  %t88 = getelementptr float, ptr addrspace(1) %t86, i64 %t87
+  %t89 = load float, ptr addrspace(1) %t88
+  store float %t89, ptr addrspace(5) %l25
+  %t90 = load i64, ptr addrspace(5) %l20
+  %t91 = add i64 %t90, 5
+  store i64 %t91, ptr addrspace(5) %l52
+  %t92 = load ptr addrspace(1), ptr addrspace(5) %l2
+  %t93 = load i64, ptr addrspace(5) %l52
+  %t94 = getelementptr float, ptr addrspace(1) %t92, i64 %t93
+  %t95 = load float, ptr addrspace(1) %t94
+  store float %t95, ptr addrspace(5) %l26
+  %t96 = load float, ptr addrspace(5) %l21
+  %t97 = load float, ptr addrspace(5) %l23
+  %t98 = call float @rx_rx_min_8(float %t96, float %t97)
+  store float %t98, ptr addrspace(5) %l53
+  br label %bb8
+bb7:
+  %t99 = load i64, ptr addrspace(5) %l18
+  %t100 = uitofp i64 %t99 to float
+  store float %t100, ptr addrspace(5) %l68
+  %t101 = load float, ptr addrspace(5) %l68
+  %t102 = load ptr addrspace(1), ptr addrspace(5) %l3
+  %t103 = load i64, ptr addrspace(5) %l10
+  %t104 = getelementptr float, ptr addrspace(1) %t102, i64 %t103
+  store float %t101, ptr addrspace(1) %t104
+  br label %bb4
+bb8:
+  %t105 = load float, ptr addrspace(5) %l53
+  %t106 = load float, ptr addrspace(5) %l25
+  %t107 = call float @rx_rx_min_8(float %t105, float %t106)
+  store float %t107, ptr addrspace(5) %l54
+  br label %bb9
+bb9:
+  %t108 = load float, ptr addrspace(5) %l54
+  store float %t108, ptr addrspace(5) %l27
+  %t109 = load float, ptr addrspace(5) %l21
+  %t110 = load float, ptr addrspace(5) %l23
+  %t111 = call float @rx_rx_max_9(float %t109, float %t110)
+  store float %t111, ptr addrspace(5) %l55
+  br label %bb10
+bb10:
+  %t112 = load float, ptr addrspace(5) %l55
+  %t113 = load float, ptr addrspace(5) %l25
+  %t114 = call float @rx_rx_max_9(float %t112, float %t113)
+  store float %t114, ptr addrspace(5) %l56
+  br label %bb11
+bb11:
+  %t115 = load float, ptr addrspace(5) %l56
+  store float %t115, ptr addrspace(5) %l28
+  %t116 = load float, ptr addrspace(5) %l22
+  %t117 = load float, ptr addrspace(5) %l24
+  %t118 = call float @rx_rx_min_8(float %t116, float %t117)
+  store float %t118, ptr addrspace(5) %l57
+  br label %bb12
+bb12:
+  %t119 = load float, ptr addrspace(5) %l57
+  %t120 = load float, ptr addrspace(5) %l26
+  %t121 = call float @rx_rx_min_8(float %t119, float %t120)
+  store float %t121, ptr addrspace(5) %l58
+  br label %bb13
+bb13:
+  %t122 = load float, ptr addrspace(5) %l58
+  store float %t122, ptr addrspace(5) %l29
+  %t123 = load float, ptr addrspace(5) %l22
+  %t124 = load float, ptr addrspace(5) %l24
+  %t125 = call float @rx_rx_max_9(float %t123, float %t124)
+  store float %t125, ptr addrspace(5) %l59
+  br label %bb14
+bb14:
+  %t126 = load float, ptr addrspace(5) %l59
+  %t127 = load float, ptr addrspace(5) %l26
+  %t128 = call float @rx_rx_max_9(float %t126, float %t127)
+  store float %t128, ptr addrspace(5) %l60
+  br label %bb15
+bb15:
+  %t129 = load float, ptr addrspace(5) %l60
+  store float %t129, ptr addrspace(5) %l30
+  %t130 = load float, ptr addrspace(5) %l27
+  %t131 = load float, ptr addrspace(5) %l28
+  %t132 = load float, ptr addrspace(5) %l14
+  %t133 = load float, ptr addrspace(5) %l15
+  %t134 = call i8 @rx_overlaps_10(float %t130, float %t131, float %t132, float %t133)
+  store i8 %t134, ptr addrspace(5) %l62
+  br label %bb16
+bb16:
+  %t135 = load i8, ptr addrspace(5) %l62
+  store i8 %t135, ptr addrspace(5) %l61
+  %t136 = load i8, ptr addrspace(5) %l61
+  %t137 = icmp ne i8 %t136, 0
+  br i1 %t137, label %bb17, label %bb18
+bb17:
+  %t138 = load float, ptr addrspace(5) %l29
+  %t139 = load float, ptr addrspace(5) %l30
+  %t140 = load float, ptr addrspace(5) %l16
+  %t141 = load float, ptr addrspace(5) %l17
+  %t142 = call i8 @rx_overlaps_10(float %t138, float %t139, float %t140, float %t141)
+  store i8 %t142, ptr addrspace(5) %l63
+  br label %bb19
+bb18:
+  %t143 = load i8, ptr addrspace(5) %l61
+  %t144 = icmp ne i8 %t143, 0
+  br i1 %t144, label %bb20, label %bb21
+bb19:
+  %t145 = load i8, ptr addrspace(5) %l63
+  store i8 %t145, ptr addrspace(5) %l61
+  br label %bb18
+bb20:
+  %t146 = load i64, ptr addrspace(5) %l18
+  %t147 = load i64, ptr addrspace(5) %l9
+  %t148 = icmp ult i64 %t146, %t147
+  %t149 = zext i1 %t148 to i8
+  store i8 %t149, ptr addrspace(5) %l64
+  %t150 = load i8, ptr addrspace(5) %l64
+  %t151 = icmp ne i8 %t150, 0
+  br i1 %t151, label %bb23, label %bb24
+bb21:
+  br label %bb22
+bb22:
+  %t152 = load i64, ptr addrspace(5) %l19
+  %t153 = add i64 %t152, 1
+  store i64 %t153, ptr addrspace(5) %l19
+  br label %bb5
+bb23:
+  %t154 = load i64, ptr addrspace(5) %l10
+  %t155 = load i64, ptr addrspace(5) %l9
+  %t156 = mul i64 %t154, %t155
+  store i64 %t156, ptr addrspace(5) %l65
+  %t157 = load i64, ptr addrspace(5) %l65
+  %t158 = load i64, ptr addrspace(5) %l18
+  %t159 = add i64 %t157, %t158
+  store i64 %t159, ptr addrspace(5) %l66
+  %t160 = load i64, ptr addrspace(5) %l19
+  %t161 = uitofp i64 %t160 to float
+  store float %t161, ptr addrspace(5) %l67
+  %t162 = load float, ptr addrspace(5) %l67
+  %t163 = load ptr addrspace(1), ptr addrspace(5) %l4
+  %t164 = load i64, ptr addrspace(5) %l66
+  %t165 = getelementptr float, ptr addrspace(1) %t163, i64 %t164
+  store float %t162, ptr addrspace(1) %t165
+  %t166 = load i64, ptr addrspace(5) %l18
+  %t167 = add i64 %t166, 1
+  store i64 %t167, ptr addrspace(5) %l18
+  br label %bb25
+bb24:
+  br label %bb25
+bb25:
+  br label %bb22
+}
+

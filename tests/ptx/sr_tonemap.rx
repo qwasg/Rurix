@@ -1,0 +1,39 @@
+//@ spec: RXS-0121
+// G0 软光栅 — tonemap:HDR→LDR 像素量化(RXS-0121)。
+// 逐分量纯函数:钳制 [0,1](NaN→0)后就近取整 floor(clamp(c)*255+0.5),映射到
+// [0,255] 刻度(以 f32 承载,与 host u8 量化数值同义,对接 imageio RXS-0116)。
+// floor 经非负值截断(as usize)实现,不依赖 libdevice。每分量 owner 线程独写。全 safe。
+//
+// 布局:hdr[i] = HDR 分量(f32);ldr[i] = 量化刻度值 0.0..255.0。
+
+// 单分量确定量化(对接 spec/imageio.md RXS-0116:clamp[0,1]+NaN→0+半值向上就近取整)
+device fn sr_quantize(c: f32) -> f32 {
+    // NaN >= 0.0 为假 → 落入 else 分支取 0.0(NaN→0);否则钳制到 [0,1]。
+    let x = if c >= 0.0 {
+        if c > 1.0 {
+            1.0
+        } else {
+            c
+        }
+    } else {
+        0.0
+    };
+    let scaled = x * 255.0 + 0.5;
+    // scaled >= 0,as usize 截断 = floor(就近取整,半值向上)
+    let q = scaled as usize;
+    q as f32
+}
+
+kernel fn sr_tonemap(
+    t: ThreadCtx<1>,
+    hdr: View<global, f32>,
+    ldr: ViewMut<global, f32>,
+    n: usize,
+) {
+    let i = t.global_id();
+    if i < n {
+        ldr[i] = sr_quantize(hdr[i]);
+    }
+}
+
+fn main() {}

@@ -40,6 +40,13 @@ KERNELS: dict[str, list[str]] = {
     "transpose": ["bench/transpose_bench.py", "--smoke"],
     "gemm_tile": ["bench/gemm_tile_bench.py", "--smoke"],
     "saxpy": ["bench/saxpy_bench.py", "--smoke"],  # M4 SAXPY 回归
+    # M7.3 G0 软光栅 device kernel(全 safe,atomics-free;spec/softraster.md
+    # RXS-0118~0121,D-M7-3)纳入既有 Compute Sanitizer nightly(M5.4 机制延续,
+    # M7 CI_GATES §4 第 5 项;激活经真实 GPU 验证)
+    "sr_binning": ["bench/sr_binning_bench.py", "--smoke"],
+    "sr_raster_tile": ["bench/sr_raster_tile_bench.py", "--smoke"],
+    "sr_depth": ["bench/sr_depth_bench.py", "--smoke"],
+    "sr_tonemap": ["bench/sr_tonemap_bench.py", "--smoke"],
 }
 TOOLS = ("racecheck", "memcheck")
 

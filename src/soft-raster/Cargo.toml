@@ -1,0 +1,12 @@
+[package]
+name = "soft-raster"
+description = "Rurix G0 软光栅 host CPU 参考实现(M7.3,D-M7-3,spec/softraster.md RXS-0118~0121)——全 safe 确定性软光栅管线 binning/tile 光栅/深度/tonemap,与 device kernel(src/rurix-rt/kernels/sr_*.rx)标量数值语义同义;复用 image-io(RXS-0114~0117)Rgb/ImageBuffer/PPM 确定编码产逐字节确定帧像素,为 G-M7-3 safe 覆盖与确定性帧像素门铺底;全 safe(unsafe_code=deny)、纯函数·确定性"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+image-io = { path = "../image-io" }
+
+[lints]
+workspace = true

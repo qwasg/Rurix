@@ -1,0 +1,38 @@
+//@ spec: RXS-0120
+// G0 软光栅 — 深度:z-buffer 写入与深度测试(RXS-0120)。
+// 每线程拥有一个像素(global_id → 像素下标),按固定片元序(cand 下标升序)对该像素
+// 做 less 深度测试(z_cand < z_buf 通过则写深度与颜色);相等不覆盖(保留先到者)。
+// 每像素由唯一 owner 线程串行合成,atomics-free、确定性。全 safe。
+//
+// 布局:cand_z[i*frags + f] / cand_c[i*frags + f] = 像素 i 第 f 个候选深度 / 颜色;
+//   zbuf[i] / color[i] = 合成后该像素深度 / 颜色(初值远平面 zfar / 背景 0)。
+
+kernel fn sr_depth(
+    t: ThreadCtx<1>,
+    cand_z: View<global, f32>,
+    cand_c: View<global, f32>,
+    zbuf: ViewMut<global, f32>,
+    color: ViewMut<global, f32>,
+    npix: usize,
+    frags: usize,
+    zfar: f32,
+) {
+    let i = t.global_id();
+    if i < npix {
+        let mut zbest = zfar;
+        let mut cbest = 0.0;
+        let mut f = 0;
+        while f < frags {
+            let z = cand_z[i * frags + f];
+            if z < zbest {
+                zbest = z;
+                cbest = cand_c[i * frags + f];
+            }
+            f += 1;
+        }
+        zbuf[i] = zbest;
+        color[i] = cbest;
+    }
+}
+
+fn main() {}

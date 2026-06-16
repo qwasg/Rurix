@@ -1,0 +1,134 @@
+; ModuleID = 'sr_tonemap'
+source_filename = "sr_tonemap"
+target triple = "nvptx64-nvidia-cuda"
+
+declare i32 @llvm.nvvm.read.ptx.sreg.ctaid.x()
+declare i32 @llvm.nvvm.read.ptx.sreg.ntid.x()
+declare i32 @llvm.nvvm.read.ptx.sreg.tid.x()
+
+define internal float @rx_sr_quantize_8(float %arg1) {
+entry:
+  %l0 = alloca float, addrspace(5)
+  %l1 = alloca float, addrspace(5)
+  %l2 = alloca float, addrspace(5)
+  %l3 = alloca float, addrspace(5)
+  %l4 = alloca i64, addrspace(5)
+  %l5 = alloca float, addrspace(5)
+  %l6 = alloca i8, addrspace(5)
+  %l7 = alloca float, addrspace(5)
+  %l8 = alloca i8, addrspace(5)
+  %l9 = alloca float, addrspace(5)
+  %l10 = alloca float, addrspace(5)
+  %l11 = alloca i64, addrspace(5)
+  %l12 = alloca float, addrspace(5)
+  store float %arg1, ptr addrspace(5) %l1
+  br label %bb0
+bb0:
+  %t0 = load float, ptr addrspace(5) %l1
+  %t1 = fcmp oge float %t0, 0x0000000000000000
+  %t2 = zext i1 %t1 to i8
+  store i8 %t2, ptr addrspace(5) %l6
+  %t3 = load i8, ptr addrspace(5) %l6
+  %t4 = icmp ne i8 %t3, 0
+  br i1 %t4, label %bb1, label %bb2
+bb1:
+  %t5 = load float, ptr addrspace(5) %l1
+  %t6 = fcmp ogt float %t5, 0x3FF0000000000000
+  %t7 = zext i1 %t6 to i8
+  store i8 %t7, ptr addrspace(5) %l8
+  %t8 = load i8, ptr addrspace(5) %l8
+  %t9 = icmp ne i8 %t8, 0
+  br i1 %t9, label %bb4, label %bb5
+bb2:
+  store float 0x0000000000000000, ptr addrspace(5) %l5
+  br label %bb3
+bb3:
+  %t10 = load float, ptr addrspace(5) %l5
+  store float %t10, ptr addrspace(5) %l2
+  %t11 = load float, ptr addrspace(5) %l2
+  %t12 = fmul float %t11, 0x406FE00000000000
+  store float %t12, ptr addrspace(5) %l9
+  %t13 = load float, ptr addrspace(5) %l9
+  %t14 = fadd float %t13, 0x3FE0000000000000
+  store float %t14, ptr addrspace(5) %l10
+  %t15 = load float, ptr addrspace(5) %l10
+  store float %t15, ptr addrspace(5) %l3
+  %t16 = load float, ptr addrspace(5) %l3
+  %t17 = fptoui float %t16 to i64
+  store i64 %t17, ptr addrspace(5) %l11
+  %t18 = load i64, ptr addrspace(5) %l11
+  store i64 %t18, ptr addrspace(5) %l4
+  %t19 = load i64, ptr addrspace(5) %l4
+  %t20 = uitofp i64 %t19 to float
+  store float %t20, ptr addrspace(5) %l12
+  %t21 = load float, ptr addrspace(5) %l12
+  store float %t21, ptr addrspace(5) %l0
+  %t22 = load float, ptr addrspace(5) %l0
+  ret float %t22
+bb4:
+  store float 0x3FF0000000000000, ptr addrspace(5) %l7
+  br label %bb6
+bb5:
+  %t23 = load float, ptr addrspace(5) %l1
+  store float %t23, ptr addrspace(5) %l7
+  br label %bb6
+bb6:
+  %t24 = load float, ptr addrspace(5) %l7
+  store float %t24, ptr addrspace(5) %l5
+  br label %bb3
+}
+
+define ptx_kernel void @rx_sr_tonemap_9(ptr addrspace(1) %arg2, ptr addrspace(1) %arg3, i64 %arg4) {
+entry:
+  %l2 = alloca ptr addrspace(1), addrspace(5)
+  %l3 = alloca ptr addrspace(1), addrspace(5)
+  %l4 = alloca i64, addrspace(5)
+  %l5 = alloca i64, addrspace(5)
+  %l6 = alloca i64, addrspace(5)
+  %l7 = alloca i8, addrspace(5)
+  %l8 = alloca float, addrspace(5)
+  store ptr addrspace(1) %arg2, ptr addrspace(5) %l2
+  store ptr addrspace(1) %arg3, ptr addrspace(5) %l3
+  store i64 %arg4, ptr addrspace(5) %l4
+  br label %bb0
+bb0:
+  %t0 = call i32 @llvm.nvvm.read.ptx.sreg.ctaid.x()
+  %t1 = call i32 @llvm.nvvm.read.ptx.sreg.ntid.x()
+  %t2 = call i32 @llvm.nvvm.read.ptx.sreg.tid.x()
+  %t3 = mul i32 %t0, %t1
+  %t4 = add i32 %t3, %t2
+  %t5 = zext i32 %t4 to i64
+  store i64 %t5, ptr addrspace(5) %l6
+  br label %bb1
+bb1:
+  %t6 = load i64, ptr addrspace(5) %l6
+  store i64 %t6, ptr addrspace(5) %l5
+  %t7 = load i64, ptr addrspace(5) %l5
+  %t8 = load i64, ptr addrspace(5) %l4
+  %t9 = icmp ult i64 %t7, %t8
+  %t10 = zext i1 %t9 to i8
+  store i8 %t10, ptr addrspace(5) %l7
+  %t11 = load i8, ptr addrspace(5) %l7
+  %t12 = icmp ne i8 %t11, 0
+  br i1 %t12, label %bb2, label %bb3
+bb2:
+  %t13 = load ptr addrspace(1), ptr addrspace(5) %l2
+  %t14 = load i64, ptr addrspace(5) %l5
+  %t15 = getelementptr float, ptr addrspace(1) %t13, i64 %t14
+  %t16 = load float, ptr addrspace(1) %t15
+  %t17 = call float @rx_sr_quantize_8(float %t16)
+  store float %t17, ptr addrspace(5) %l8
+  br label %bb5
+bb3:
+  br label %bb4
+bb4:
+  ret void
+bb5:
+  %t18 = load float, ptr addrspace(5) %l8
+  %t19 = load ptr addrspace(1), ptr addrspace(5) %l3
+  %t20 = load i64, ptr addrspace(5) %l5
+  %t21 = getelementptr float, ptr addrspace(1) %t19, i64 %t20
+  store float %t18, ptr addrspace(1) %t21
+  br label %bb4
+}
+
