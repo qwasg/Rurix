@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "namespace": "m8",
+  "description": "M8 预算(14 §3:entries + ratio_assertions + counter_assertions,命名空间强制前缀)。M8 互操作、加固与 MVP 验收:计数器 = UC-01 PyTorch 算子替换覆盖(G-M8-1)+ UC-02 三 stream 流水线端到端(G-M8-3)+ cublas 绑定覆盖(G-M8-2)+ 发布链路签名产物(G-M8-4)+ 诊断双语全量覆盖(G-M8-5)。entries 开工留空 = M8 不预欠 estimated bench 占位(任务红线 + 对齐 M4/M5 先例);UC-01/UC-02 L1/L2 性能判据(≥ 手写 CUDA C++ 90%,01 §6)由 m8.bench.* / m8.ratio.* measured_local 于各 m8.x 实测回填,close-out budget_eval --strict 全局零 estimated 残留(不跨里程碑欠债)。",
+  "source_docs": [
+    "14 §3 §8",
+    "01 §6 (UC-01/UC-02/UC-03 旗舰用例 + L1/L2 性能判据)",
+    "02 §U1 §U2 (UC-01 PyTorch 算子替换 / UC-02 三 stream 重叠流水线)",
+    "09 (PYD/nanobind + __cuda_array_interface__/DLPack 双协议;cublas 绑定)",
+    "08 §9 (发布链路:rurixup/MSI/winget + 签名/SBOM/许可审计)",
+    "10 §6 (工具链发布门;诊断双语覆盖核对入 CI)",
+    "11 §3 (M8 定义,互操作、加固与 MVP 验收)",
+    "milestones/m0/BENCH_PROTOCOL.md",
+    "milestones/m8/M8_CONTRACT.md"
+  ],
+  "entries": [],
+  "ratio_assertions": [],
+  "counter_assertions": [
+    {
+      "id": "m8.counter.uc01_pytorch_operators",
+      "description": "UC-01 PyTorch 算子替换端到端覆盖数 ≥ 预设算子集数(契约 G-M8-1;rx build --emit=pyd 产 PYD,经 __cuda_array_interface__ v3 / DLPack 双协议零拷贝接入 PyTorch,算子替换端到端真跑,02 §U1 / 09)。预设算子集(SAXPY/Reduction/GEMM 类)数量为 estimated 工程选择,增删经 Direct PR 留痕,对齐 G-M5-1 UC-01 判据 / G-M3-1/G-M4-2 计数器先例。evaluator 计数 = evidence/uc01_*.json 中 operators_passed 去重集的最大基数;互操作未落地 → 0 → 建设期 normal SKIP / close-out strict FAIL",
+      "expect": ">=3",
+      "evidence": "ci_checked"
+    },
+    {
+      "id": "m8.counter.uc02_stream_pipeline",
+      "description": "UC-02 三 stream 重叠流水线端到端证据数 ≥1(契约 G-M8-3;affine Context/Stream/Event/Buffer + 跨线程所有权转移 + 流序分配类型化经全管线真跑,02 §U2 / 05/06/08)。evaluator 计数 = evidence/uc02_*.json 中 stream_pipeline_ok=true 的报告数(机器事实:三 stream 重叠 + 资源生命周期错误类别编译期拦截覆盖)。UC-02 demo 落地前为 0 → 建设期 normal SKIP / close-out strict FAIL,对齐 m6.counter.offline_rebuild_reproducible 先例",
+      "expect": ">=1",
+      "evidence": "ci_checked"
+    },
+    {
+      "id": "m8.counter.cublas_bindings",
+      "description": "cublas 绑定包覆盖数 ≥ 预设绑定数(契约 G-M8-2;GEMM/GEMV 三层绑定 raw FFI / safe wrapper / 高层 API,09)。预设绑定数(GEMM/GEMV)为 estimated 工程选择,增删经 Direct PR 留痕。evaluator 计数 = evidence/cublas_*.json 中 bindings_passed 去重集的最大基数;cublas 包未落地 → 0 → 建设期 normal SKIP / close-out strict FAIL",
+      "expect": ">=2",
+      "evidence": "ci_checked"
+    },
+    {
+      "id": "m8.counter.release_artifacts_signed",
+      "description": "发布链路签名产物数 ≥1(契约 G-M8-4,RD-001;全部 EXE/DLL/MSI 经 Azure Artifact Signing Authenticode + 时间戳,08 §9 / 14 §8 Release 层)。evaluator 计数 = evidence/release_*.json 中 signed_artifacts 去重集的最大基数(机器事实:产物签名验签通过 + SBOM 齐备 + 许可白名单审计通过)。发布链路建成前为 0 → 建设期 normal SKIP / close-out strict FAIL",
+      "expect": ">=1",
+      "evidence": "ci_checked"
+    },
+    {
+      "id": "m8.counter.bilingual_diagnostic_coverage",
+      "description": "诊断消息中英双语全量覆盖完整报告数 ≥1(契约 G-M8-5,RD-006;message-key zh/en key 集对齐,覆盖率核对入发布门,10 §6)。evaluator 计数 = evidence/bilingual_*.json 中 coverage_complete=true 的报告数(机器事实:zh 与 en 消息表 key 集合一致,无缺键)。双语全量回填前为 0 → 建设期 normal SKIP / close-out strict FAIL",
+      "expect": ">=1",
+      "evidence": "ci_checked"
+    }
+  ],
+  "namespace_check": {
+    "rule": "本文件所有 id 必须以 'm8.' 前缀开头;多预算合并加载时冲突即 FAIL(14 §3)",
+    "unit_test_required": true
+  },
+  "revision_log": [
+    {
+      "version": "v1.0",
+      "date": "2026-06-16",
+      "change": "初版模板(M8 契约配套):entries 开工留空(不预造 estimated bench 占位,任务红线 + 对齐 M4/M5 先例;UC-01/UC-02 L1/L2 性能 m8.bench.* / m8.ratio.* 随各 m8.x 实测回填 measured_local,零 estimated 不跨里程碑欠债)+ 五计数器 m8.counter.{uc01_pytorch_operators(>=3) / uc02_stream_pipeline(>=1) / cublas_bindings(>=2) / release_artifacts_signed(>=1) / bilingual_diagnostic_coverage(>=1)}(契约 G-M8-1/G-M8-3/G-M8-2/G-M8-4/G-M8-5)。配套 ci/budget_eval.py 新增五 m8.counter.* evaluator 分支(目录/证据缺失 → 0 → normal SKIP / close-out strict FAIL,对齐 M4/M5/M6/M7 计数器先例);M8 期 m8.* 计数器建设期 SKIP 属预期"
+    }
+  ]
+}
