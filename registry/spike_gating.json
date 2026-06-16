@@ -78,7 +78,8 @@
       "permanence": "conditional",
       "current_verdict": "not_triggered",
       "decisions": [
-        { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记;MVP = lockfile + vendor + checksum(D-312)" }
+        { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记;MVP = lockfile + vendor + checksum(D-312)" },
+        { "date": "2026-06-16", "verdict": "not_triggered", "rationale": "M8 MVP 收口期复评(owner 裁决):发布链路(rurixup/MSI/winget + Azure 签名/SBOM)与包管理维持 lockfile + vendor + checksum(D-312),社区规模未达触发阈(>50 生态包 / 社区强需求,11 §5 G2 期决策点);真 registry(sparse index + sumdb 透明日志 + scopes/OIDC trusted publishing/Sigstore)留 G2 期决策点。trigger_condition 0-byte 不改,维持 not_triggered。M8_CONTRACT §2.2 / §7 裁决留痕。" }
       ]
     },
     {
@@ -104,6 +105,7 @@
   ],
   "revision_log": [
     { "version": "v1.0", "date": "2026-06-11", "change": "初版:SG-001 ~ SG-009(14 §7 首批永久 gating 清单落位)" },
-    { "version": "v1.1", "date": "2026-06-14", "change": "M5.3 SG-002 复评追加 decisions(tiled GEMM 自研 kernel 经典 shared tiling 落地,不触 Tensor Core/WGMMA,维持 not_triggered;M5_PLAN §3 任务 4);trigger_condition 0-byte 不改" }
+    { "version": "v1.1", "date": "2026-06-14", "change": "M5.3 SG-002 复评追加 decisions(tiled GEMM 自研 kernel 经典 shared tiling 落地,不触 Tensor Core/WGMMA,维持 not_triggered;M5_PLAN §3 任务 4);trigger_condition 0-byte 不改" },
+    { "version": "v1.2", "date": "2026-06-16", "change": "M8 开工 SG-007 复评追加 decisions(owner 裁决:D-312 包 registry 方向 MVP 收口期维持 not_triggered,MVP=lockfile+vendor+checksum,真 registry 留 G2 期决策点;M8_CONTRACT §2.2 / §7);trigger_condition 0-byte 不改。SG-001~SG-006/SG-008/SG-009 维持 not_triggered(11 §2 MVP 红线)" }
   ]
 }

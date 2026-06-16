@@ -290,6 +290,58 @@ def eval_counter(entry: dict, strict: bool) -> None:
             if doc.get("image_sequence_ok") is True:
                 n += 1
         count_or_gate(eid, n, 1, "份 UC-03 demo 图像序列证据", "M7.4 UC-03 demo 落地前为正常状态,契约 G-M7-1", strict)
+    elif eid == "m8.counter.uc01_pytorch_operators":
+        # UC-01 PyTorch 算子替换端到端覆盖数(契约 G-M8-1;rx build --emit=pyd 产
+        # PYD,经 __cuda_array_interface__/DLPack 双协议零拷贝接入 PyTorch,02 §U1 / 09);
+        # 计数源 = evidence/uc01_*.json 中 operators_passed 去重集的最大基数。M8.1
+        # 互操作落地前为 0 → 建设期 normal SKIP / close-out strict FAIL,对齐 M5/M6/M7。
+        n = 0
+        for f in (ROOT / "evidence").glob("uc01_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            n = max(n, len(set(doc.get("operators_passed", []))))
+        count_or_gate(eid, n, 3, "个 UC-01 PyTorch 算子替换端到端", "M8.1 互操作落地前为正常状态,契约 G-M8-1", strict)
+    elif eid == "m8.counter.uc02_stream_pipeline":
+        # UC-02 三 stream 重叠流水线端到端证据数 ≥1(契约 G-M8-3;affine Context/
+        # Stream/Event/Buffer + 跨线程所有权转移 + 流序分配类型化,02 §U2);计数 =
+        # evidence/uc02_*.json 中 stream_pipeline_ok=true 的报告数。UC-02 demo 落地前
+        # 为 0 → 建设期 normal SKIP / close-out strict FAIL,对齐 m6.counter.offline_rebuild。
+        n = 0
+        for f in (ROOT / "evidence").glob("uc02_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("stream_pipeline_ok") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份 UC-02 三 stream 流水线端到端证据", "M8 UC-02 落地前为正常状态,契约 G-M8-3", strict)
+    elif eid == "m8.counter.cublas_bindings":
+        # cublas 绑定包覆盖数(契约 G-M8-2;GEMM/GEMV 三层绑定 raw FFI / safe wrapper /
+        # 高层 API,09);计数源 = evidence/cublas_*.json 中 bindings_passed 去重集的最大
+        # 基数。cublas 包落地前为 0 → 建设期 normal SKIP / close-out strict FAIL。
+        n = 0
+        for f in (ROOT / "evidence").glob("cublas_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            n = max(n, len(set(doc.get("bindings_passed", []))))
+        count_or_gate(eid, n, 2, "个 cublas GEMM/GEMV 绑定", "M8 cublas 包落地前为正常状态,契约 G-M8-2", strict)
+    elif eid == "m8.counter.release_artifacts_signed":
+        # 发布链路签名产物数 ≥1(契约 G-M8-4,RD-001;EXE/DLL/MSI 经 Azure Artifact
+        # Signing Authenticode + 时间戳,08 §9 / 14 §8 Release 层);计数源 =
+        # evidence/release_*.json 中 signed_artifacts 去重集的最大基数(机器事实:验签
+        # 通过 + SBOM 齐备 + 许可白名单审计通过)。发布链路建成前为 0 → 建设期 normal
+        # SKIP / close-out strict FAIL。
+        n = 0
+        for f in (ROOT / "evidence").glob("release_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            n = max(n, len(set(doc.get("signed_artifacts", []))))
+        count_or_gate(eid, n, 1, "个发布链路签名产物", "M8 发布链路建成前为正常状态,契约 G-M8-4", strict)
+    elif eid == "m8.counter.bilingual_diagnostic_coverage":
+        # 诊断消息中英双语全量覆盖完整报告数 ≥1(契约 G-M8-5,RD-006;message-key zh/en
+        # key 集对齐,覆盖率核对入发布门,10 §6);计数 = evidence/bilingual_*.json 中
+        # coverage_complete=true 的报告数(机器事实:zh 与 en 消息表 key 集合一致)。
+        # 双语全量回填前为 0 → 建设期 normal SKIP / close-out strict FAIL。
+        n = 0
+        for f in (ROOT / "evidence").glob("bilingual_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("coverage_complete") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份诊断双语全量覆盖证据", "M8 双语全量回填前为正常状态,契约 G-M8-5", strict)
     elif eid == "m1.counter.spec_clause_test_anchoring":
         # 条款 ↔ 测试锚定由 traceability 矩阵工具核对(M1.4 交付物,契约 G-M1-4);
         # 矩阵产物落地前 normal skip / strict FAIL,落地后委托其自身校验结果。
