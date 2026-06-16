@@ -1,7 +1,7 @@
 ---
 contract: M7
 title: 标准库充实与 G0 图形演示——core 数学库 / image-io / 软光栅 / UC-03 demo
-status: active            # active → closed(close-out 只追加,既有条款 0-byte 修改;M7 close-out 终审 §8 人工签署)
+status: closed            # active → closed(close-out 只追加,既有条款 0-byte 修改;M7 close-out 终审 §8 人工签署)
 version: v1.0
 date: 2026-06-15
 timebox: "M+13 ~ M+15(约 9 周,两级结构见 M7_PLAN.md)"
@@ -142,6 +142,7 @@ guardrails:
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-06-15 | 初版契约固化(M7 开工脚手架;基准 ref 维持 m6-closed 无需再切;deferred RD-007 owner M6→M7 顺延承接、维持 inherited;新建 spec/stdlib.md RXS-0104 续号预留,条款体随 M7.1+ 与测试同 PR;新段位错误码首批分配随 M7.1+ 诊断 PR) |
+| v1.1 | 2026-06-16 | 人工签署 §8.11:白栀/owner 裁决 M7 正式关闭(`active→closed`)并批准软光栅 L3 阈值定档(1.8333 ms,实测 1.2222 ms ×1.5,max 上界);契约 YAML 头落为 `status: closed`;guardrail 默认基准切换 `m6-closed→m7-closed`。AI 仅代录签署事实并执行机械落档,不代作关闭判定。 |
 
 ---
 
@@ -240,3 +241,53 @@ stacked PR 链(均待合入 main):#41(M7.1)→ #42(M7.2)→ #43(M7.3)→ #44(M7.
 - [ ] RD-007 owner_milestone M7→M8 顺延(M8 开工承接留痕)。
 - [ ] 各验收门 PR Smoke self-hosted runner 红绿 run URL 归档(#43 步骤 31 / #44 步骤 32 / 本 PR L3 基准)。
 - 签署:____________(白栀 / owner) 日期:__________
+
+### 8.11 人工签署 + 收官落档留痕(2026-06-16)
+
+> 本节记录 owner 对 M7 close-out 人工门的签署指令;Codex 仅代录签署事实并执行机械落档,不代作关闭判定、不伪造远端 runner 结果。
+
+**(a) 人工签署:**
+
+- **M7 正式关闭判定**(status `active → closed`):签署人:白栀/owner 日期:2026-06-16 裁决:closed。依据:§8.1~§8.9 验收记录 + 本节本地复核输出(G-M7-1~G-M7-5 全部 PASS)。
+- **软光栅 L3 阈值定档**(硬规则 1,agent 提案待人工终审):签署人:白栀/owner 日期:2026-06-16 裁决:批准定档 `m7.bench.soft_raster_l3_frame_ms` max 阈值 1.8333 ms(实测 1.2222 ms × 1.5 安全系数,G-M7-2)。
+
+**(b) 签署前本地机器复核(真实跑过):**
+
+```
+$ py -3 ci/budget_eval.py --strict
+[budget_eval] PASS (46 pass, 0 skip, strict mode)
+
+$ py -3 ci/trace_matrix.py --check
+[trace_matrix] PASS (121/121 clauses anchored, 379 test files scanned)
+
+$ py -3 ci/check_schemas.py
+[check_schemas] PASS
+
+$ py -3 ci/check_guardrails.py m6-closed
+[check_guardrails] PASS (base=m6-closed, 85 changed paths)
+```
+
+**(c) PR Smoke run URL 归档(签署时远端事实,不改写为已绿):**
+
+| PR / 步骤 | run URL | 签署时状态 |
+|---|---|---|
+| #43 / 步骤 31 软光栅 kernel 冒烟 + safe 覆盖 | [27593482919](https://github.com/qwasg/Rurix/actions/runs/27593482919) | success |
+| #44 / 步骤 32 UC-03 demo 单 EXE + 确定性图像序列 | [27595323648](https://github.com/qwasg/Rurix/actions/runs/27595323648) | queued |
+| #45 / M7.5 close-out + L3 基准 | [27596677522](https://github.com/qwasg/Rurix/actions/runs/27596677522) | pending |
+
+queued/pending 项由 owner 在本人工门中接受为远端归档待补事实;后续若 runner 完成或重跑,仅可在本区后续追加补录,不得回写 §8.11 既有行。
+
+**(d) guardrail 基准切换 `m6-closed → m7-closed`:**
+
+`ci/check_guardrails.py` 本地/无参回退基准已切到 `m7-closed`;PR 路径仍以 `GITHUB_BASE_REF` 为准,既有逻辑不变。切换前 `m6-closed` 核对见 §8.11(b)。`m7-closed` annotated tag 锚定本 close-out 签署提交(后续普通 merge 入 main 时该提交作为 M7 闭合点进入历史,不 force 移动 tag)。
+
+```
+$ py -3 ci/check_guardrails.py m7-closed
+[check_guardrails] PASS (base=m7-closed, 0 changed paths)
+```
+
+**(e) RD-007 / M8 承接:**
+
+RD-007 在 M7 close-out 维持 `inherited` 且 owner_milestone 维持 M7(见 §8.9 / `registry/deferred.json` v1.8);M8 开工时按既有先例追加顺延到 M8,本人工签署不改写 deferred 既有条目。
+
+关闭日期:**2026-06-16**。
