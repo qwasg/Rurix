@@ -117,3 +117,7 @@
 | RXS-0111 | spec/stdlib.md | 2 | `conformance/stdlib/device/geom_scalar.rx`, `conformance/stdlib/host/geom_ops.rx` |
 | RXS-0112 | spec/stdlib.md | 2 | `conformance/stdlib/device/geom_scalar.rx`, `conformance/stdlib/host/geom_ops.rx` |
 | RXS-0113 | spec/stdlib.md | 2 | `conformance/stdlib/device/geom_scalar.rx`, `conformance/stdlib/host/geom_ops.rx` |
+| RXS-0114 | spec/imageio.md | 1 | `src/image-io/src/lib.rs` |
+| RXS-0115 | spec/imageio.md | 1 | `src/image-io/src/lib.rs` |
+| RXS-0116 | spec/imageio.md | 1 | `src/image-io/src/lib.rs` |
+| RXS-0117 | spec/imageio.md | 1 | `src/image-io/src/lib.rs` |

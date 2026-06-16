@@ -65,6 +65,14 @@ jobs:
         shell: powershell
         run: py -3 ci/stdlib_math_smoke.py
 
+      # —— M7 增量(milestones/m7/CI_GATES.md §2 步骤 30;自 M7.2 存在起,D-M7-2,CPU-only)——
+      # image-io 确定性图像序列输出门:image-io crate 离线构建产 imgio_repro,同一固定
+      # 输入两次落盘逐帧 content SHA-256 逐字节一致(PPM P6 确定字节布局,RXS-0116/0117);
+      # 内建篡改字节序红绿(check_* 守卫,不写 evidence / 不计 budget counter)。失败即红。
+      - name: image-io deterministic image sequence smoke (M7 CI_GATES §2.30, D-M7-2)
+        shell: powershell
+        run: py -3 ci/image_io_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

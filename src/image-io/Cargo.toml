@@ -1,0 +1,12 @@
+[package]
+name = "image-io"
+description = "Rurix image-io 包骨架(M7.2,D-M7-2,spec/imageio.md RXS-0114~0117)——host-only 确定性图像序列输出:Rgb/Rgba 像素 + ImageBuffer 行主序缓冲 + PPM P6 确定编码(header 规范化 / f32→u8 确定量化)+ 确定性图像序列落盘(逐帧 content SHA-256 可核对,固定输入逐字节一致);零外部依赖,全 safe(unsafe_code=deny),纯函数·确定性,为 M7.4 UC-03 demo 出图落盘与 G-M7-1 复现铺底"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+# 零外部依赖(全仓纪律,供应链可信根):标准库 + 手写确定性 PPM P6 编码
+
+[lints]
+workspace = true

@@ -1,0 +1,12 @@
+# image-io Rurix 包清单(M7.2,D-M7-2;spec/toolchain.md RXS-0089 manifest 格式)。
+# 经 M6 包管理 rurix.toml 集成的确定性图像序列输出包(host-only,PPM P6 先行)。
+# 骨架:声明式无 build.rs(build = "declarative",唯一合法值),零依赖;
+# 供 M7.4 UC-03 demo 出图落盘与软光栅出图消费。条款见 spec/imageio.md
+# RXS-0114 ~ RXS-0117。
+[package]
+name = "image-io"
+version = "0.1.0"
+build = "declarative"
+
+[dependencies]
+# 骨架零依赖(确定性纯函数编码,标准库内即可)。
