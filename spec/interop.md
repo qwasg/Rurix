@@ -18,24 +18,125 @@
 
 全部互操作产物以 **C ABI / PYD 通道**为唯一对接面(Python **不经语言级绑定**,05 §FFI);**永不 Python 原生嵌入 / 解释器宿主**(死亡路线红线 1,SG-008 维持 not_triggered,见 §5)。device 分发维持 **PTX-only**(07 §7;cubin/fatbin 真分发 → G1,M8 out_of_scope);设备指针所有权 / 生命周期以 **affine 所有权 + 确定性诊断**定义,**不以 UB 表述**(§5)。
 
-**编号区间**:本文件条款自 **RXS-0122** 起续号(全 spec 唯一、分配制递增、永不复用,见 [README.md](README.md) §1;最高现存 RXS-0121 @ [softraster.md](softraster.md))。区间登记于 [README.md](README.md) §4 文件清单。**本脚手架 PR 不落带编号裸条款头**;计划条款骨架见 §2,条款体与锚定随 M8.1 实现 PR 同落。
+**编号区间**:本文件条款自 **RXS-0122** 起续号(全 spec 唯一、分配制递增、永不复用,见 [README.md](README.md) §1;最高现存 RXS-0121 @ [softraster.md](softraster.md))。本轮落地 **RXS-0122 ~ RXS-0125**(`rx build --emit=pyd` PYD 产出约定 / `__cuda_array_interface__` v3 / DLPack 双协议零拷贝 + 设备指针所有权 / C ABI 边界),每条 ≥1 测试锚定(`//@ spec: RXS-####`,`src/rurix-interop` crate 单测)。区间登记于 [README.md](README.md) §4 文件清单。
 
-## 2. 计划条款骨架(预留,非裸条款头)
+## 2. 条款
 
-> 下表为 M8.1 互操作语义面的**计划条款骨架**(自 RXS-0122 续号),仅作分解登记,**不构成 `### RXS-####` 裸条款头**(避免 `trace_matrix --check` 因无锚定 FAIL)。条款体(Syntax / Legality / Dynamic Semantics / Implementation Requirements,严禁 UB 节)+ 每条 ≥1 测试锚定(`//@ spec: RXS-####`)随 **M8.1 实现 PR** 同落,届时 §1 编号区间更新为实际落地区间、本节升格为「互操作条款落地说明」、[README.md](README.md) §4 行区间同步更新。
+> 每条按需分 Syntax / Legality / Dynamic Semantics / Implementation Requirements 节,**严禁 UB 节**(UB 为人类经 Full RFC 落笔的禁区,10 §7.5)。Legality 违例只**引用**错误码(§3 引用汇总),不在此定义其含义。互操作边界的设备指针生命周期 / 所有权语义以 **affine 所有权 + 确定性诊断(RX 错误码)** 定义,不以 UB 表述。
 
-| 计划条款号(预留) | 主题 | 语义要点(规划) |
-|---|---|---|
-| RXS-0122(预留) | `rx build --emit=pyd` PYD 产出约定 | `--emit=pyd` 通道:device codegen PTX-only + 绑定层 nanobind + scikit-build-core 工程,产 `.pyd` 扩展模块;产物形态 / 模块入口符号 / 未知 emit 拒绝 |
-| RXS-0123(预留) | `__cuda_array_interface__` v3 消费 / 产出 | CAI v3 字段语义(`data` device 指针 / `typestr` / `shape` / `strides` / `version` / `stream`)+ 版本协商;零拷贝消费 PyTorch/CuPy CUDA 张量 |
-| RXS-0124(预留) | DLPack 双协议零拷贝(capsule 消费 + 设备指针所有权) | `__dlpack__` / `from_dlpack` capsule 生产 / 消费;capsule 一次性消费语义 + 设备指针生命周期 / affine 所有权 / deleter 释放责任(不悬垂 / 不双重释放) |
-| RXS-0125(预留) | C ABI 边界 | C ABI 导出约定(不透明句柄 + create/destroy/operate)+ FFI 边界 unsafe 最小化 + safe wrapper 层对上全 safe;协议不支持 / 设备指针非法 / 形状不匹配诊断(新段位错误码 RX7013+,随实现 PR 分配) |
+### RXS-0122 `rx build --emit=pyd` PYD 产出约定
 
-> 实际落地条款号 / 条目数随 M8.1 实现 PR 确定(可 1~N 条,自 RXS-0122 递增);上表主题与区间为规划,非承诺。
+**Syntax**(CLI 形态):
 
-## 3. 错误码引用(预留)
+```
+PydEmit ::= "rx" "build" "--emit=pyd" <entry> ["-o" <out_dir>]
+```
 
-> 互操作诊断(协议不支持 / 设备指针非法 / 形状不匹配 等)的**新段位错误码首批分配**(续接 7xxx 链接/工具链段位,RX7013 起,07 §5 分配制递增、含义冻结、只追加)+ message-key 随 **M8.1 实现 PR** 落地(M8_CONTRACT §5 / CI_GATES §5.2:开工脚手架不预造错误码)。本脚手架 PR **不新增 / 不预造错误码**,不改 [../registry/error_codes.json](../registry/error_codes.json) 与 [../src/rurixc/src/messages/en.messages](../src/rurixc/src/messages/en.messages)。
+**Legality**:
+
+- `<entry>` 须含 ≥1 个 device `kernel fn`(作为零拷贝算子源);无 `kernel fn` → `RX7013`(互操作协议不支持:无可导出零拷贝算子)。
+- `--emit` 目标须为已识别集合 `{check, mir, llvm-ir, nvptx-ir, ptx, pyd}`;未识别目标 → 工具链诊断(不静默落入 host EXE 路径)。
+- `--emit=pyd` 以 `kernel fn` 为根,**不要求 host `main`**(对齐 device emit 通道 RXS-0070)。
+
+**Dynamic Semantics**:
+
+- 编译器侧把 `<entry>` 的 device `kernel fn` 全管线产 **PTX**(device codegen + `ptxas` 干验证,**PTX-only** 07 §7;cubin/fatbin → G1),写入 staging PTX 供打包消费。
+- 打包侧经 **nanobind + scikit-build-core**(09 §6)产 Python 扩展模块(`.pyd`),链接 `rurix-interop` 运行时(C ABI,RXS-0125;复用 M5 自研 kernel 嵌入 PTX),导出 UC-01 算子替换接口(SAXPY/Reduction/GEMM)与内省 `operators()` / `protocols()`。
+- 产物 `.pyd` 模块名稳定(Python 扩展模块按文件名导入,`PyInit_<module>`);拷贝至 `<out_dir>` 保留 ABI 标记名。
+
+**Implementation Requirements**:
+
+- 绑定层**规范性**为 nanobind + scikit-build-core(09 §6:相对 PyO3/maturin 的 C ABI 扩展编译速度 / 二进制体积 / 开销优势;Rurix 非 Rust 生态);device 分发维持 PTX-only。
+- 编译(rurixc `--emit=pyd`)与打包(`rx build` 编排 cargo staticlib + scikit-build-core)分层;PYD 运行期经 `rurix-interop` safe wrapper(对上全 safe,RXS-0125)。
+
+> 锚定测试:`src/rurix-interop`(`#[cfg(test)] pyd_project_template_present`:PYD 工程模板 pyproject.toml/CMakeLists.txt/binding.cpp + 算子内省存在)。
+
+### RXS-0123 `__cuda_array_interface__` v3 零拷贝消费
+
+**Syntax**(CAI v3 字段,消费 PyTorch/CuPy CUDA 张量):
+
+```
+CaiV3 ::= "{" "version" ":" 3 "," "data" ":" "(" DevPtr "," ReadOnly ")"
+              "," "typestr" ":" Str "," "shape" ":" Tuple ["," "strides" ":" (Tuple | null)]
+              ["," "stream" ":" Int] "}"
+```
+
+**Legality**:
+
+- `data[0]`(设备指针)须为非空、本 `Context` 设备上有效、可读写、容纳算子所需元素数的设备地址;空指针 / 非设备地址 → `RX7014`。
+- `shape` 维度须与算子契约相容且各维 > 0;维度为 0 / 算子维度不相容 → `RX7015`。
+- 元素类型 M8.1 规范性收窄为 `f32`(`typestr` `<f4`);其余元素类型为加性后续。
+- 合法性校验**先于任何 GPU 调用**(确定性诊断,纯 CPU 前置)。
+
+**Dynamic Semantics**:
+
+- 消费 `data` 设备指针**零拷贝**借用外部张量显存(不重分配、不主机往返),在与 PyTorch **共享的 device primary context** 内 launch 复用的 M5 kernel,结果写回 `out` 张量显存。
+- 借用缓冲在算子调用期内有效;不取得所有权(所有权语义见 RXS-0124)。
+
+**Implementation Requirements**:
+
+- 设备指针经 `rurix-rt` 借用缓冲([`Context::from_device_ptr`])在共享 primary context([`Context::from_primary`])内消费;`data`/`shape` 合法性在 FFI 边界(`rurix-interop`)先于 GPU 校验,违例返回 RX7014/RX7015。
+
+> 锚定测试:`src/rurix-interop`(`null_device_ptr_rejected` → RX7014;`zero_dim_rejected` → RX7015,先于 GPU)。
+
+### RXS-0124 DLPack 双协议零拷贝与设备指针所有权
+
+**Syntax**(DLPack capsule 生产 / 消费):
+
+```
+DlpackConsume ::= "from_dlpack" "(" Obj ")"      // Obj 实现 __dlpack__ → DLManagedTensor capsule
+DlpackProduce ::= Obj "." "__dlpack__" "(" ")"   // 产 DLPack capsule(零拷贝)
+```
+
+**Legality**:
+
+- 经 DLPack capsule 取得的设备指针须满足与 RXS-0123 同一设备指针合法性(非空 / 设备有效 / 容量足);违例 → `RX7014` / `RX7015`。
+- DLPack 与 `__cuda_array_interface__` v3 为**双协议**:同一算子接口须能经任一协议零拷贝消费同一 PyTorch CUDA 张量,数值结果一致。
+
+**Dynamic Semantics**:
+
+- DLPack capsule 消费为**一次性**语义(消费后 capsule 标记 used);设备内存**所有权留在外部框架(PyTorch)deleter**——借用缓冲为 **affine 借用**,其 Drop **不释放**外部显存(不悬垂、不双重释放;`rurix-rt` 借用缓冲 owned=false)。
+- 零拷贝路径数值语义与 RXS-0123(CAI v3)路径**同义**(同一 M5 kernel、同一 primary context)。
+
+**Implementation Requirements**:
+
+- 借用外部设备指针经 `rurix-rt` 借用缓冲(Drop 不 `cuMemFree`);所有 unsafe 借用块携 `// SAFETY:` + `unsafe-audit/` 注册(RXS-0125;M8_CONTRACT §5)。上层 nanobind `nb::ndarray<device::cuda>` 经 DLPack 导入抽取 `.data()` 设备指针,对上全 safe。
+
+> 锚定测试:`src/rurix-interop`(`null_device_ptr_rejected`:双协议设备指针合法性前置 → RX7014;借用缓冲所有权 = 外部 deleter,Drop 不释放)。
+
+### RXS-0125 C ABI 边界
+
+**Syntax**(C ABI 导出,Windows x64 唯一 ABI):
+
+```
+CAbiExport ::= "extern" "\"C\"" "fn" "rurix_uc01_" <op> "(" DevPtrArgs "," DimArgs ")" "->" "i32"
+```
+
+**Legality**:
+
+- 互操作经 **C ABI / PYD 通道**对接(Python **不经语言级绑定**,05 §FFI);**永不 Python 原生嵌入 / 解释器宿主**(红线 1,SG-008,§4)。
+- C ABI 入口接受设备指针(不透明 `u64` 地址)+ 维度按值,返回 `i32` 错误码:`0` = 成功;互操作诊断段位 `RX7013`/`RX7014`/`RX7015`(07 §5,只追加、含义冻结);负 = 运行时/驱动失败。
+
+**Dynamic Semantics**:
+
+- C ABI 边界为 FFI **unsafe 边界**(经裁决最小开 unsafe,档位 Mini);其上 `rurix-interop` safe wrapper 与 `rurix-rt` safe 运行时层**对上全 safe**(签名无 `unsafe`);unsafe 仅在借用外部设备指针处(每块 `// SAFETY:` + `unsafe-audit/rurix-interop.md` / `rurix-rt.md` 注册)。
+- 设备指针不在 C ABI 层解引用(仅前向 safe API);设备内存读写发生在 launch(`rurix-rt` U7 边界)。
+
+**Implementation Requirements**:
+
+- FFI 边界 crate(`rurix-interop`)`unsafe_code` 经裁决豁免 + `undocumented_unsafe_blocks = deny`;其余新 crate 默认 `unsafe_code = deny`(M8_CONTRACT §5 guardrail)。错误码 RX7013~RX7015 含义冻结(07 §5)。
+
+> 锚定测试:`src/rurix-interop`(`ffi_thin_wrapper_codes_consistent`:C ABI 薄包返回码语义一致,段位常量 RX7013~7015 冻结)。
+
+## 3. 错误码引用汇总
+
+> 本表**引用**互操作诊断错误码(07 §5 7xxx 链接/工具链段位续接,M8.1 首批分配 RX7013~RX7015,只追加、含义冻结),含义以 [../registry/error_codes.json](../registry/error_codes.json) 为唯一事实源;message-key 落 [../src/rurixc/src/messages/en.messages](../src/rurixc/src/messages/en.messages)。zh 双语全量覆盖属 M8.5 / RD-006。
+
+| 错误码 | 含义 | message-key | 条款 |
+|---|---|---|---|
+| RX7013 | 互操作协议不支持(对象未暴露 `__cuda_array_interface__` v3 / DLPack;或 `--emit=pyd` 输入无 `kernel fn`) | `interop.unsupported_protocol` | RXS-0122 / RXS-0125 |
+| RX7014 | 互操作设备指针非法(空指针 / 非设备地址 / 非本 context 设备内存) | `interop.invalid_device_pointer` | RXS-0123 / RXS-0124 |
+| RX7015 | 互操作形状不匹配(维度为 0 / 算子维度不相容) | `interop.shape_mismatch` | RXS-0123 |
 
 ## 4. 升档 / 禁区留痕
 
@@ -53,3 +154,4 @@
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
 | v1.0 | 2026-06-16 | 新建 spec/interop.md(M8.1 互操作语义面起始文件):登记编号区间 RXS-0122 起续号预留 + 文件级前言 / 范围(`rx build --emit=pyd` PYD 产出约定 / `__cuda_array_interface__` v3 + DLPack 双协议零拷贝 / C ABI 边界,C ABI·PYD 唯一通道、永不 Python 原生嵌入、PTX-only、affine 所有权不设 UB)/ 依据与授权(09 §6 + 02 §U1 + 01 §6 + 05 §FFI + 07 §7 + 11 §3 M8;M8_CONTRACT D-M8-1 / G-M8-1 / G-M8-7 `rfc_required: none` + M8_PLAN §1)/ 计划条款骨架(§2 预留,非裸条款头:RXS-0122 PYD 产出 / RXS-0123 CAI v3 / RXS-0124 DLPack 双协议 + 设备指针所有权 / RXS-0125 C ABI 边界)/ 错误码新段位预留说明(§3:互操作诊断续接 7xxx RX7013+ 随实现 PR 分配,脚手架不预造)/ 升档·禁区留痕(§4:PYD/C ABI unsafe 策略带档位标记 Mini、Python 原生嵌入红线 1/SG-008、PTX-only/G1、RD-007、D-406/RD-008、UB 节禁区)。**沿 README v1.15 toolchain.md / v1.20 stdlib.md 先例:本轮不落带编号裸条款头**——条款体与 ≥1 测试锚定随 M8.1 实现 PR 同落(条款 PR 先于实现 PR,trace_matrix 维持全锚定),无体例变更 | Direct |
+| v1.1 | 2026-06-16 | 落地带编号条款体 RXS-0122 ~ RXS-0125(M8.1 实现 PR,条款体随实现 + 测试锚定同落):RXS-0122 `rx build --emit=pyd` PYD 产出约定(device kernel→PTX PTX-only + nanobind/scikit-build-core 打包链接 rurix-interop;无 kernel→RX7013)/ RXS-0123 `__cuda_array_interface__` v3 零拷贝消费(设备指针 + shape 合法性,空指针→RX7014、维度 0→RX7015,先于 GPU 校验)/ RXS-0124 DLPack 双协议零拷贝与设备指针所有权(capsule 一次性消费 + affine 借用,所有权留外部 deleter,借用缓冲 Drop 不释放,不悬垂/不双重释放;与 CAI v3 路径数值同义)/ RXS-0125 C ABI 边界(`extern "C"` 导出 + i32 错误码 RX7013~7015,FFI unsafe 边界经裁决最小开 unsafe 档位 Mini,safe wrapper 对上全 safe,永不 Python 原生嵌入)。每条 ≥1 锚定(`src/rurix-interop` crate 单测:pyd 工程模板存在 / RX7014·RX7015 先于 GPU 校验 / C ABI 薄包返回码一致;trace_matrix 维持全锚定)。§1 编号区间更新为 RXS-0122 ~ RXS-0125;§2 计划骨架升格为条款体;§3 错误码新段位首批分配 RX7013~RX7015 落 registry/error_codes.json(v1.20)+ en.messages(7xxx 续接、含义冻结,07 §5)。实现裁决:rurix-interop FFI 边界 crate unsafe_code 经裁决豁免 + unsafe-audit 注册(对齐 rurix-rt 先例),rurix-rt 增 primary context 共享([`Context::from_primary`])+ 借用外部设备指针缓冲([`Context::from_device_ptr`],Drop 不 free);PTX-only(cubin/fatbin→G1)、不触 const 泛型(RD-007)、不触 device 原子(D-406/RD-008)、永不 Python 原生嵌入(红线 1/SG-008)。新决策面 PYD/C ABI 边界 unsafe 策略档位 **Mini**(口径 M8_CONTRACT §5 锁定),AI 不自判 Direct,判档争议向上取严。授权:09 §6 + 02 §U1 + 01 §6 + 05 §FFI + 07 §7 + 11 §3 M8,M8_CONTRACT D-M8-1 / G-M8-1 / G-M8-7 `rfc_required: none` | Direct |

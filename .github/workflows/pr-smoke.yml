@@ -93,6 +93,18 @@ jobs:
         shell: powershell
         run: py -3 ci/uc03_demo_smoke.py
 
+      # —— M8 增量(milestones/m8/CI_GATES.md §2 步骤 34;自 M8.1 存在起,G-M8-1)——
+      # UC-01 PyTorch 互操作冒烟:`rx build --emit=pyd` 经 rurixc 编译 device kernel→PTX
+      # (PTX-only)+ nanobind + scikit-build-core 打包链接 rurix-interop(C ABI,复用 M5
+      # 自研 kernel)产 PYD;PyTorch CUDA 张量经 __cuda_array_interface__ v3 / DLPack 双协议
+      # 零拷贝接入,SAXPY/Reduction/GEMM 算子替换端到端真跑 + 与 PyTorch 参考数值对照 +
+      # 内建篡改算子数值结果红绿(反 YAML-only);写唯一 evidence/uc01_interop_smoke.json
+      # (operators_passed)供 budget_eval(m8.counter.uc01_pytorch_operators,>=3 则 PASS)。
+      # 无 CUDA torch/GPU → 降级 SKIP(exit 0)。失败即红。
+      - name: UC-01 PyTorch interop smoke (M8 CI_GATES §2.34, G-M8-1)
+        shell: powershell
+        run: py -3 ci/uc01_interop_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

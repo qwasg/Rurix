@@ -1,3 +1,10 @@
+# Rurix CI / 互操作依赖。
+# torch CUDA 轮经 PyTorch 官方 cu128 index 获取(M8.1 G-M8-1 互操作链:RTX 4070 Ti / Ada sm_89);
+# nanobind + scikit-build-core = rx build --emit=pyd 绑定层(09 §6)。
+--extra-index-url https://download.pytorch.org/whl/cu128
 numpy>=1.26
 jsonschema>=4.21
 pytest>=8.0
+torch==2.7.1+cu128
+nanobind>=2.0.0
+scikit-build-core>=0.10

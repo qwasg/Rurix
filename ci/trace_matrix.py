@@ -103,6 +103,9 @@ def gather_repo() -> tuple[dict[str, str], dict[str, str]]:
     # M7.3:soft-raster crate(软光栅 host CPU 参考 binning/tile 光栅/深度/tonemap
     # 确定性单测锚定 RXS-0118~0121)
     test_files += sorted((ROOT / "src" / "soft-raster").glob("**/*.rs"))
+    # M8.1:rurix-interop crate(互操作 FFI 边界 C ABI + CAI v3/DLPack 双协议零拷贝
+    # 设备指针 + 算子替换 单测锚定 RXS-0122~0125)
+    test_files += sorted((ROOT / "src" / "rurix-interop").glob("**/*.rs"))
     test_texts = {
         p.relative_to(ROOT).as_posix(): p.read_text(encoding="utf-8") for p in test_files
     }

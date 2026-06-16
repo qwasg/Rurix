@@ -125,3 +125,7 @@
 | RXS-0119 | spec/softraster.md | 2 | `conformance/soft_raster/device/sr_raster_tile.rx`, `src/soft-raster/src/lib.rs` |
 | RXS-0120 | spec/softraster.md | 2 | `conformance/soft_raster/device/sr_depth.rx`, `src/soft-raster/src/lib.rs` |
 | RXS-0121 | spec/softraster.md | 2 | `conformance/soft_raster/device/sr_tonemap.rx`, `src/soft-raster/src/lib.rs` |
+| RXS-0122 | spec/interop.md | 1 | `src/rurix-interop/src/lib.rs` |
+| RXS-0123 | spec/interop.md | 1 | `src/rurix-interop/src/lib.rs` |
+| RXS-0124 | spec/interop.md | 1 | `src/rurix-interop/src/lib.rs` |
+| RXS-0125 | spec/interop.md | 1 | `src/rurix-interop/src/lib.rs` |

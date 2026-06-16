@@ -103,3 +103,8 @@ toolchain.pkg_source_unreachable = dependency source is unreachable: {detail}
 toolchain.rx_test_discovery = rx test discovery error: {detail}
 toolchain.rx_test_exec_failure = rx test child process failed: {detail}
 toolchain.lsp_rename_invalid = invalid LSP rename target: {detail}
+#
+# 互操作诊断(RX7013 ~ RX7015,spec/interop.md RXS-0122~0125;M8.1 分配)
+interop.unsupported_protocol = interop protocol unsupported: {detail}
+interop.invalid_device_pointer = invalid interop device pointer: {detail}
+interop.shape_mismatch = interop shape mismatch: {detail}

@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "subject": "uc01_pytorch_operators",
+  "operators_passed": [
+    "gemm",
+    "reduce",
+    "saxpy"
+  ],
+  "protocols": [
+    "__cuda_array_interface__",
+    "dlpack"
+  ],
+  "pyd": {
+    "module": "rurix_uc01",
+    "build_command": "rx build --emit=pyd src/rurix-rt/kernels/saxpy.rx -o build/uc01_interop_smoke",
+    "pyd_path": "build/uc01_interop_smoke/rurix_uc01.cp312-win_amd64.pyd",
+    "note": "nanobind + scikit-build-core 产 PYD,链接 rurix-interop staticlib(C ABI),复用 M5 自研 kernel 嵌入 PTX(PTX-only)"
+  },
+  "device": {
+    "gpu": "NVIDIA GeForce RTX 4070 Ti",
+    "torch": "2.7.1+cu128",
+    "cuda": "12.8"
+  },
+  "facts": [
+    {
+      "operator": "saxpy",
+      "protocol": "dlpack",
+      "max_abs_err": 0.0,
+      "tolerance": 1e-06
+    },
+    {
+      "operator": "saxpy",
+      "protocol": "__cuda_array_interface__",
+      "max_abs_err": 0.0,
+      "tolerance": 1e-06
+    },
+    {
+      "operator": "reduce",
+      "protocol": "dlpack",
+      "max_abs_err": 1.2630046674516128e-08,
+      "tolerance": 0.0001
+    },
+    {
+      "operator": "reduce",
+      "protocol": "__cuda_array_interface__",
+      "max_abs_err": 1.2630046674516128e-08,
+      "tolerance": 0.0001
+    },
+    {
+      "operator": "gemm",
+      "protocol": "dlpack",
+      "max_abs_err": 5.048397042628494e-07,
+      "tolerance": 0.001
+    },
+    {
+      "operator": "gemm",
+      "protocol": "__cuda_array_interface__",
+      "max_abs_err": 5.048397042628494e-07,
+      "tolerance": 0.001
+    }
+  ],
+  "redgreen": {
+    "red_command": "篡改 saxpy 算子数值结果(扰动一元素)后与 PyTorch 参考数值对照",
+    "red_detected": true,
+    "green_command": "py -3 ci/uc01_interop_smoke.py(rx build --emit=pyd → 双协议零拷贝 → 三算子数值对照通过)",
+    "green_exit_code": 0,
+    "run_url": "local red-green(反 YAML-only,H06 D11.8-2);pr-smoke 步骤 34 self-hosted runner run URL 见 PR 描述"
+  },
+  "timestamp": "2026-06-16T18:39:06+08:00"
+}

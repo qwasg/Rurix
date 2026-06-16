@@ -52,6 +52,9 @@ type FnDeviceGetCount = unsafe extern "system" fn(*mut i32) -> CuResult;
 type FnCtxCreate = unsafe extern "system" fn(*mut CuPtr, u32, CuDevice) -> CuResult;
 type FnCtxDestroy = unsafe extern "system" fn(CuPtr) -> CuResult;
 type FnCtxSync = unsafe extern "system" fn() -> CuResult;
+type FnCtxSetCurrent = unsafe extern "system" fn(CuPtr) -> CuResult;
+type FnPrimaryCtxRetain = unsafe extern "system" fn(*mut CuPtr, CuDevice) -> CuResult;
+type FnPrimaryCtxRelease = unsafe extern "system" fn(CuDevice) -> CuResult;
 type FnStreamCreate = unsafe extern "system" fn(*mut CuPtr, u32) -> CuResult;
 type FnStreamDestroy = unsafe extern "system" fn(CuPtr) -> CuResult;
 type FnStreamSync = unsafe extern "system" fn(CuPtr) -> CuResult;
@@ -94,6 +97,9 @@ pub struct Cuda {
     cu_ctx_create: FnCtxCreate,
     cu_ctx_destroy: FnCtxDestroy,
     cu_ctx_sync: FnCtxSync,
+    cu_ctx_set_current: FnCtxSetCurrent,
+    cu_primary_ctx_retain: FnPrimaryCtxRetain,
+    cu_primary_ctx_release: FnPrimaryCtxRelease,
     cu_stream_create: FnStreamCreate,
     cu_stream_destroy: FnStreamDestroy,
     cu_stream_sync: FnStreamSync,
@@ -154,6 +160,9 @@ impl Cuda {
                 cu_ctx_create: cast_fn(sym(c"cuCtxCreate_v2"))?,
                 cu_ctx_destroy: cast_fn(sym(c"cuCtxDestroy_v2"))?,
                 cu_ctx_sync: cast_fn(sym(c"cuCtxSynchronize"))?,
+                cu_ctx_set_current: cast_fn(sym(c"cuCtxSetCurrent"))?,
+                cu_primary_ctx_retain: cast_fn(sym(c"cuDevicePrimaryCtxRetain"))?,
+                cu_primary_ctx_release: cast_fn(sym(c"cuDevicePrimaryCtxRelease_v2"))?,
                 cu_stream_create: cast_fn(sym(c"cuStreamCreate"))?,
                 cu_stream_destroy: cast_fn(sym(c"cuStreamDestroy_v2"))?,
                 cu_stream_sync: cast_fn(sym(c"cuStreamSynchronize"))?,
@@ -209,6 +218,30 @@ impl Cuda {
     pub fn ctx_synchronize(&self) -> CuResult {
         // SAFETY: 作用于 current context(由 ctx_create 设置);无指针入参。
         unsafe { (self.cu_ctx_sync)() }
+    }
+
+    /// 保留设备 primary context(`cuDevicePrimaryCtxRetain`;互操作零拷贝:与
+    /// PyTorch/CuPy runtime API 共享同一 context,设备指针同 context 直接可用,
+    /// M8.1 UC-01 / RXS-0125)。
+    pub fn primary_ctx_retain(&self, dev: CuDevice) -> (CuResult, CuPtr) {
+        let mut ctx: CuPtr = std::ptr::null_mut();
+        // SAFETY: 出参 `ctx` 有效可写;`dev` 来自 device_get。
+        let r = unsafe { (self.cu_primary_ctx_retain)(&mut ctx, dev) };
+        (r, ctx)
+    }
+
+    /// # Safety
+    /// `dev` 必须是此前 `primary_ctx_retain` 成功的设备序号(retain/release 配对)。
+    pub unsafe fn primary_ctx_release(&self, dev: CuDevice) -> CuResult {
+        // SAFETY: 调用方保证 retain/release 配对(见 fn 文档)。
+        unsafe { (self.cu_primary_ctx_release)(dev) }
+    }
+
+    /// # Safety
+    /// `ctx` 必须是有效未销毁的 context 句柄(或 null = 解绑 current)。
+    pub unsafe fn ctx_set_current(&self, ctx: CuPtr) -> CuResult {
+        // SAFETY: 调用方保证 `ctx` 有效(见 fn 文档)。
+        unsafe { (self.cu_ctx_set_current)(ctx) }
     }
 
     pub fn stream_create(&self) -> (CuResult, CuPtr) {

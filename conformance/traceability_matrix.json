@@ -789,6 +789,18 @@
     "RXS-0121": [
       "conformance/soft_raster/device/sr_tonemap.rx",
       "src/soft-raster/src/lib.rs"
+    ],
+    "RXS-0122": [
+      "src/rurix-interop/src/lib.rs"
+    ],
+    "RXS-0123": [
+      "src/rurix-interop/src/lib.rs"
+    ],
+    "RXS-0124": [
+      "src/rurix-interop/src/lib.rs"
+    ],
+    "RXS-0125": [
+      "src/rurix-interop/src/lib.rs"
     ]
   }
 }
