@@ -1,0 +1,39 @@
+//@ spec: RXS-0106
+//@ expect-error: RX2001
+// 维度不匹配:对 Vec3 的逐元素算术方法传入异元数 Vec2 实参 → 类型不匹配 RX2001
+// (RXS-0106 Legality:加减乘除接收者与实参须同一 VecN 类型)。
+
+#[derive(Copy, Clone)]
+struct Vec3 {
+    x: f32,
+    y: f32,
+    z: f32,
+}
+
+#[derive(Copy, Clone)]
+struct Vec2 {
+    x: f32,
+    y: f32,
+}
+
+impl Vec3 {
+    device fn new(x: f32, y: f32, z: f32) -> Vec3 {
+        Vec3 { x: x, y: y, z: z }
+    }
+
+    device fn add(self, o: Vec3) -> Vec3 {
+        Vec3 { x: self.x + o.x, y: self.y + o.y, z: self.z + o.z }
+    }
+}
+
+impl Vec2 {
+    device fn new(x: f32, y: f32) -> Vec2 {
+        Vec2 { x: x, y: y }
+    }
+}
+
+fn main() {
+    let a = Vec3::new(1.0, 2.0, 3.0);
+    let b = Vec2::new(1.0, 2.0);
+    let _bad = a.add(b);
+}

@@ -1,0 +1,233 @@
+//@ spec: RXS-0104, RXS-0105, RXS-0106, RXS-0107
+// core 数学库 Vec 类型面(host 路径,具体 f32 结构体 + inherent device fn 方法):
+// 构造 / 分量访问与 swizzle / 逐元素算术 / 点积·叉积·范数。全 safe,host+device 双
+// 路径数值同义(device 标量分量原语见 conformance/stdlib/device/vec_scalar.rx)。
+// 由 ci/stdlib_math_smoke.py host 真跑:全部原语断言通过则打印 "stdlib-vec-ok"。
+
+#[derive(Copy, Clone)]
+struct Vec2 {
+    x: f32,
+    y: f32,
+}
+
+#[derive(Copy, Clone)]
+struct Vec3 {
+    x: f32,
+    y: f32,
+    z: f32,
+}
+
+#[derive(Copy, Clone)]
+struct Vec4 {
+    x: f32,
+    y: f32,
+    z: f32,
+    w: f32,
+}
+
+// 全 safe 软件平方根(Newton–Raphson,纯 f32;两路径同义,不依赖 device-only intrinsic)。
+device fn rx_sqrt(v: f32) -> f32 {
+    if v <= 0.0 {
+        return 0.0;
+    }
+    let mut g = v;
+    let mut i = 0;
+    while i < 30 {
+        g = 0.5 * (g + v / g);
+        i += 1;
+    }
+    g
+}
+
+device fn rx_abs(v: f32) -> f32 {
+    if v < 0.0 {
+        -v
+    } else {
+        v
+    }
+}
+
+device fn approx(a: f32, b: f32) -> bool {
+    rx_abs(a - b) < 0.0001
+}
+
+impl Vec2 {
+    // RXS-0104 构造
+    device fn new(x: f32, y: f32) -> Vec2 {
+        Vec2 { x: x, y: y }
+    }
+
+    // RXS-0107 点积
+    device fn dot(self, o: Vec2) -> f32 {
+        self.x * o.x + self.y * o.y
+    }
+}
+
+impl Vec3 {
+    // RXS-0104 构造
+    device fn new(x: f32, y: f32, z: f32) -> Vec3 {
+        Vec3 { x: x, y: y, z: z }
+    }
+
+    device fn splat(s: f32) -> Vec3 {
+        Vec3 { x: s, y: s, z: s }
+    }
+
+    device fn zero() -> Vec3 {
+        Vec3 { x: 0.0, y: 0.0, z: 0.0 }
+    }
+
+    // RXS-0105 swizzle(取子集 / 重排 / 重复扩展,方法形)
+    device fn xy(self) -> Vec2 {
+        Vec2 { x: self.x, y: self.y }
+    }
+
+    device fn zyx(self) -> Vec3 {
+        Vec3 { x: self.z, y: self.y, z: self.x }
+    }
+
+    device fn xxxx(self) -> Vec4 {
+        Vec4 { x: self.x, y: self.x, z: self.x, w: self.x }
+    }
+
+    // RXS-0106 逐元素算术
+    device fn add(self, o: Vec3) -> Vec3 {
+        Vec3 { x: self.x + o.x, y: self.y + o.y, z: self.z + o.z }
+    }
+
+    device fn sub(self, o: Vec3) -> Vec3 {
+        Vec3 { x: self.x - o.x, y: self.y - o.y, z: self.z - o.z }
+    }
+
+    device fn mul(self, o: Vec3) -> Vec3 {
+        Vec3 { x: self.x * o.x, y: self.y * o.y, z: self.z * o.z }
+    }
+
+    device fn scale(self, s: f32) -> Vec3 {
+        Vec3 { x: self.x * s, y: self.y * s, z: self.z * s }
+    }
+
+    device fn neg(self) -> Vec3 {
+        Vec3 { x: -self.x, y: -self.y, z: -self.z }
+    }
+
+    // RXS-0107 点积 / 叉积 / 范数
+    device fn dot(self, o: Vec3) -> f32 {
+        self.x * o.x + self.y * o.y + self.z * o.z
+    }
+
+    device fn cross(self, o: Vec3) -> Vec3 {
+        Vec3 {
+            x: self.y * o.z - self.z * o.y,
+            y: self.z * o.x - self.x * o.z,
+            z: self.x * o.y - self.y * o.x,
+        }
+    }
+
+    device fn length_sq(self) -> f32 {
+        self.dot(self)
+    }
+
+    device fn length(self) -> f32 {
+        rx_sqrt(self.length_sq())
+    }
+
+    device fn normalize(self) -> Vec3 {
+        let len = self.length();
+        if len == 0.0 {
+            Vec3::zero()
+        } else {
+            self.scale(1.0 / len)
+        }
+    }
+}
+
+impl Vec4 {
+    device fn new(x: f32, y: f32, z: f32, w: f32) -> Vec4 {
+        Vec4 { x: x, y: y, z: z, w: w }
+    }
+
+    device fn dot(self, o: Vec4) -> f32 {
+        self.x * o.x + self.y * o.y + self.z * o.z + self.w * o.w
+    }
+}
+
+device fn check_construct() -> bool {
+    let v = Vec3::new(1.0, 2.0, 3.0);
+    approx(v.x, 1.0) && approx(v.y, 2.0) && approx(v.z, 3.0)
+}
+
+device fn check_splat_zero() -> bool {
+    let s = Vec3::splat(2.0);
+    let z = Vec3::zero();
+    approx(s.x, 2.0) && approx(s.z, 2.0) && approx(z.x, 0.0) && approx(z.z, 0.0)
+}
+
+device fn check_swizzle() -> bool {
+    let v = Vec3::new(1.0, 2.0, 3.0);
+    let xy = v.xy();
+    let zyx = v.zyx();
+    let xxxx = v.xxxx();
+    approx(xy.x, 1.0) && approx(xy.y, 2.0)
+        && approx(zyx.x, 3.0) && approx(zyx.z, 1.0)
+        && approx(xxxx.x, 1.0) && approx(xxxx.w, 1.0)
+}
+
+device fn check_arith() -> bool {
+    let a = Vec3::new(1.0, 2.0, 3.0);
+    let b = Vec3::new(4.0, 5.0, 6.0);
+    let add = a.add(b);
+    let sub = b.sub(a);
+    let mul = a.mul(b);
+    let scl = a.scale(2.0);
+    let ng = a.neg();
+    approx(add.x, 5.0) && approx(add.z, 9.0)
+        && approx(sub.y, 3.0)
+        && approx(mul.z, 18.0)
+        && approx(scl.x, 2.0) && approx(scl.z, 6.0)
+        && approx(ng.x, -1.0)
+}
+
+device fn check_dot_cross() -> bool {
+    let a = Vec3::new(1.0, 2.0, 3.0);
+    let b = Vec3::new(4.0, 5.0, 6.0);
+    let ex = Vec3::new(1.0, 0.0, 0.0);
+    let ey = Vec3::new(0.0, 1.0, 0.0);
+    let cr = ex.cross(ey);
+    approx(a.dot(b), 32.0) && approx(cr.z, 1.0) && approx(cr.x, 0.0)
+}
+
+device fn check_norm() -> bool {
+    let a = Vec3::new(3.0, 4.0, 0.0);
+    let n = a.normalize();
+    let zn = Vec3::zero().normalize();
+    approx(a.length_sq(), 25.0)
+        && approx(a.length(), 5.0)
+        && approx(n.x, 0.6) && approx(n.y, 0.8)
+        && approx(zn.x, 0.0) && approx(zn.y, 0.0)
+}
+
+fn main() {
+    let mut ok = 0;
+    if check_construct() {
+        ok += 1;
+    }
+    if check_splat_zero() {
+        ok += 1;
+    }
+    if check_swizzle() {
+        ok += 1;
+    }
+    if check_arith() {
+        ok += 1;
+    }
+    if check_dot_cross() {
+        ok += 1;
+    }
+    if check_norm() {
+        ok += 1;
+    }
+    if ok == 6 {
+        println("stdlib-vec-ok");
+    }
+}

@@ -1,0 +1,62 @@
+//@ spec: RXS-0110
+//@ expect-error: RX2001
+// 几何类型语义区分:Point3 / Vector3 为互异类型,不可互换。对 Aabb.contains
+// (期望 Point3 实参)传入 Vector3 → 类型不匹配 RX2001(RXS-0110 Legality:
+// 三者类型不可互换,误用 → RX2001;RXS-0112 谓词实参类型不符同段)。
+
+#[derive(Copy, Clone)]
+struct Point3 {
+    x: f32,
+    y: f32,
+    z: f32,
+}
+
+#[derive(Copy, Clone)]
+struct Vector3 {
+    x: f32,
+    y: f32,
+    z: f32,
+}
+
+#[derive(Copy, Clone)]
+struct Aabb {
+    min_x: f32,
+    min_y: f32,
+    min_z: f32,
+    max_x: f32,
+    max_y: f32,
+    max_z: f32,
+}
+
+impl Point3 {
+    device fn new(x: f32, y: f32, z: f32) -> Point3 {
+        Point3 { x: x, y: y, z: z }
+    }
+}
+
+impl Vector3 {
+    device fn new(x: f32, y: f32, z: f32) -> Vector3 {
+        Vector3 { x: x, y: y, z: z }
+    }
+}
+
+impl Aabb {
+    device fn new(min: Point3, max: Point3) -> Aabb {
+        Aabb {
+            min_x: min.x, min_y: min.y, min_z: min.z,
+            max_x: max.x, max_y: max.y, max_z: max.z,
+        }
+    }
+
+    device fn contains(self, p: Point3) -> bool {
+        p.x >= self.min_x && p.x <= self.max_x
+            && p.y >= self.min_y && p.y <= self.max_y
+            && p.z >= self.min_z && p.z <= self.max_z
+    }
+}
+
+fn main() {
+    let bb = Aabb::new(Point3::new(0.0, 0.0, 0.0), Point3::new(2.0, 2.0, 2.0));
+    let v = Vector3::new(1.0, 1.0, 1.0);
+    let _bad = bb.contains(v);
+}

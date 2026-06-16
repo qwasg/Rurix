@@ -1,0 +1,35 @@
+//@ spec: RXS-0108, RXS-0109
+// core 数学库 Mat 类型面(device 路径,语义同义的标量分量 device fn 原语)。
+// NVPTX codegen 标量子集下以标量元素累加实现矩阵乘 / 矩阵-向量乘(row-major,固定
+// 累加序,确定性),经 device codegen + ptxas 干验证;与 host 结构体 API
+// (conformance/stdlib/host/mat_ops.rx)数值语义同义。全 safe。
+
+// RXS-0109 矩阵乘元素 C[i][j] = sum_k A[i][k]*B[k][j](Mat3 行,标量分量)
+device fn mat3_mul_elem(
+    a0: f32, a1: f32, a2: f32,
+    b0: f32, b1: f32, b2: f32,
+) -> f32 {
+    a0 * b0 + a1 * b1 + a2 * b2
+}
+
+// RXS-0109 矩阵-向量乘元素 w[i] = sum_k A[i][k]*v[k]
+device fn mat3_mulvec_elem(
+    a0: f32, a1: f32, a2: f32,
+    vx: f32, vy: f32, vz: f32,
+) -> f32 {
+    a0 * vx + a1 * vy + a2 * vz
+}
+
+kernel fn mat_kernel(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        let v = src[i];
+        // RXS-0108 构造(标量元素):对角阵行 (v,0,0)
+        let r0c = mat3_mul_elem(v, 0.0, 0.0, v, 0.0, 0.0);
+        // RXS-0109 矩阵-向量乘元素:第 0 行点乘向量 (1,2,3)
+        let w0 = mat3_mulvec_elem(v, 0.0, 0.0, 1.0, 2.0, 3.0);
+        dst[i] = r0c + w0;
+    }
+}
+
+fn main() {}

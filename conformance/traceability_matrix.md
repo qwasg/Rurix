@@ -107,3 +107,13 @@
 | RXS-0101 | spec/toolchain.md | 2 | `conformance/toolchain/lsp_mvp/sample.rx`, `src/rurixc/src/tooling/ide_query.rs` |
 | RXS-0102 | spec/toolchain.md | 2 | `conformance/toolchain/lsp_mvp/sample.rx`, `src/rurixc/src/tooling/ide_query.rs` |
 | RXS-0103 | spec/toolchain.md | 3 | `conformance/toolchain/lsp_mvp/sample.rx`, `src/rurixc/src/tooling/ide_query.rs`, `src/rurixc/src/tooling/lsp.rs` |
+| RXS-0104 | spec/stdlib.md | 2 | `conformance/stdlib/device/vec_scalar.rx`, `conformance/stdlib/host/vec_ops.rx` |
+| RXS-0105 | spec/stdlib.md | 3 | `conformance/stdlib/device/vec_scalar.rx`, `conformance/stdlib/host/vec_ops.rx`, `conformance/stdlib/reject/illegal_swizzle/basic.rx` |
+| RXS-0106 | spec/stdlib.md | 3 | `conformance/stdlib/device/vec_scalar.rx`, `conformance/stdlib/host/vec_ops.rx`, `conformance/stdlib/reject/dim_mismatch/basic.rx` |
+| RXS-0107 | spec/stdlib.md | 2 | `conformance/stdlib/device/vec_scalar.rx`, `conformance/stdlib/host/vec_ops.rx` |
+| RXS-0108 | spec/stdlib.md | 2 | `conformance/stdlib/device/mat_scalar.rx`, `conformance/stdlib/host/mat_ops.rx` |
+| RXS-0109 | spec/stdlib.md | 2 | `conformance/stdlib/device/mat_scalar.rx`, `conformance/stdlib/host/mat_ops.rx` |
+| RXS-0110 | spec/stdlib.md | 3 | `conformance/stdlib/device/geom_scalar.rx`, `conformance/stdlib/host/geom_ops.rx`, `conformance/stdlib/reject/geom_type_confusion/basic.rx` |
+| RXS-0111 | spec/stdlib.md | 2 | `conformance/stdlib/device/geom_scalar.rx`, `conformance/stdlib/host/geom_ops.rx` |
+| RXS-0112 | spec/stdlib.md | 2 | `conformance/stdlib/device/geom_scalar.rx`, `conformance/stdlib/host/geom_ops.rx` |
+| RXS-0113 | spec/stdlib.md | 2 | `conformance/stdlib/device/geom_scalar.rx`, `conformance/stdlib/host/geom_ops.rx` |

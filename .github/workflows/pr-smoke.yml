@@ -57,6 +57,14 @@ jobs:
         shell: powershell
         run: py -3 bench/saxpy_bench.py --smoke
 
+      # —— M7 增量(milestones/m7/CI_GATES.md §2 步骤 29;自 M7.1 存在起,G-M7-4)——
+      # core 数学库 Vec/Mat/swizzle 原语 host+device 双路径冒烟:host 结构体 API 真跑
+      # marker + device 标量分量原语 codegen IR;写 evidence/stdlib_math_smoke.json
+      # 供 budget_eval(m7.counter.math_primitives,>=8 则 PASS)。内建篡改红绿,失败即红。
+      - name: stdlib math primitives smoke (M7 CI_GATES §2.29, G-M7-4)
+        shell: powershell
+        run: py -3 ci/stdlib_math_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

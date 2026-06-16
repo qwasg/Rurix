@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "subject": "math_primitives",
+  "primitives_passed": [
+    "vec_construct",
+    "vec_swizzle",
+    "vec_add",
+    "vec_scale",
+    "vec_dot",
+    "vec_cross",
+    "vec_length",
+    "vec_normalize",
+    "mat_construct",
+    "mat_mul",
+    "mat_vec_mul",
+    "geom_convert",
+    "point_in_aabb",
+    "point_aabb_distance",
+    "ray_aabb_intersect"
+  ],
+  "host_facts": [
+    {
+      "source": "conformance/stdlib/host/vec_ops.rx",
+      "marker": "stdlib-vec-ok",
+      "exit_code": 0,
+      "note": "PASS"
+    },
+    {
+      "source": "conformance/stdlib/host/mat_ops.rx",
+      "marker": "stdlib-mat-ok",
+      "exit_code": 0,
+      "note": "PASS"
+    },
+    {
+      "source": "conformance/stdlib/host/geom_ops.rx",
+      "marker": "stdlib-geom-ok",
+      "exit_code": 0,
+      "note": "PASS"
+    }
+  ],
+  "device_facts": [
+    {
+      "source": "conformance/stdlib/device/vec_scalar.rx",
+      "emit": "--emit=nvptx-ir",
+      "exit_code": 0,
+      "ptxas": "ran",
+      "note": "PASS"
+    },
+    {
+      "source": "conformance/stdlib/device/mat_scalar.rx",
+      "emit": "--emit=nvptx-ir",
+      "exit_code": 0,
+      "ptxas": "ran",
+      "note": "PASS"
+    },
+    {
+      "source": "conformance/stdlib/device/geom_scalar.rx",
+      "emit": "--emit=nvptx-ir",
+      "exit_code": 0,
+      "ptxas": "ran",
+      "note": "PASS"
+    }
+  ],
+  "gpu_roundtrip": "skipped",
+  "redgreen": {
+    "red_command": "篡改 conformance/stdlib/host/vec_ops.rx 点积期望 32.0→99.0 后真跑",
+    "red_marker_absent": true,
+    "green_command": "py -3 ci/stdlib_math_smoke.py(原样源 → stdlib-vec-ok / stdlib-mat-ok)",
+    "green_exit_code": 0,
+    "run_url": "local red-green(反 YAML-only,H06 D11.8-2);pr-smoke 步骤 29 self-hosted runner run URL 见 PR 描述"
+  },
+  "rurixc_binary": "target/debug/rurixc.exe",
+  "timestamp": "2026-06-16T09:13:00+08:00"
+}
