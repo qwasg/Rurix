@@ -15,11 +15,12 @@
     {
       "id": "m7.bench.soft_raster_l3_frame_ms",
       "direction": "max",
-      "evidence": "estimated",
-      "skip_reason": "G0 软光栅 L3 基准未实测(契约 G-M7-2);M7.3 软光栅 kernel 落地 + M7.5 L3 规模场景 BENCH_PROTOCOL 协议化采样后 estimated → measured_local 回填,direction/阈值届时裁定(帧时间 direction=max,实测 × 安全系数为上界,参照行业线天花板)。占位在 M7 内生灭,不跨里程碑欠债(14 §3),close-out budget_eval --strict 判定",
+      "evidence": "measured_local",
+      "skip_reason": null,
       "unit": "ms",
-      "threshold": null,
-      "evidence_file": null
+      "threshold": 1.8333,
+      "evidence_file": "evidence/sr_l3_20260616_agg.json",
+      "measured_value": 1.2222
     }
   ],
   "ratio_assertions": [],
@@ -52,6 +53,11 @@
       "version": "v1.0",
       "date": "2026-06-15",
       "change": "初版模板(M7 契约配套):entry m7.bench.soft_raster_l3_frame_ms(estimated 占位,direction=max,M7.5 回填 measured_local,契约 G-M7-2)+ 三计数器 m7.counter.{math_primitives(>=8) / soft_raster_kernels_safe(>=4) / uc03_demo_image_sequence(>=1)}(契约 G-M7-4/G-M7-3/G-M7-1)。配套 ci/budget_eval.py 新增三 m7.counter.* evaluator 分支(目录/证据缺失 → 0 → normal SKIP / close-out strict FAIL,对齐 M4/M5/M6 计数器先例);M7 期 m7.* 占位/计数器 SKIP 属预期"
+    },
+    {
+      "version": "v1.1",
+      "date": "2026-06-16",
+      "change": "M7.5 回填(契约 G-M7-2,D-M7-5):软光栅 L3 端到端帧时间 measured_local(三次进程级独立运行 trimmed mean = 1.2222 ms;BENCH_PROTOCOL §3 L0 锁频 / 三次独立 / trimmed mean,evidence/sr_l3_20260616_agg.json)→ estimated 占位转 measured_local;direction=max,threshold = 实测 × 1.5(安全系数上界,参照行业线天花板)= 1.8333 ms。占位在 M7 内生灭,close-out budget_eval --strict 判定"
     }
   ]
 }

@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "evidence_level": "measured_local",
+  "timestamp": "2026-06-16T05:30:07.220032+00:00",
+  "bench": {
+    "id": "soft_raster_l3",
+    "level": "L3",
+    "problem_size": "1920x1080 frame; binning 4096 prims/240x135 tiles cap32, raster 1 big-tri, depth 2073600px x4 frags, tonemap 6220800 comp",
+    "harness_commit": "1531580"
+  },
+  "environment": {
+    "driver_version": "591.86",
+    "nvml_version": "13.591.86",
+    "gpu_name": "NVIDIA GeForce RTX 4070 Ti",
+    "compute_capability": "8.9",
+    "driver_model": "WDDM",
+    "clocks": {
+      "locked": true,
+      "sm_clock_mhz": 2610,
+      "mem_clock_mhz": 10501,
+      "lock_method": "nvidia-smi -lgc/-lmc (elevated); persistence mode unsupported on Windows"
+    },
+    "thermal": {
+      "temp_start_c": 37,
+      "temp_end_c": 41,
+      "steady_state": true
+    },
+    "isolation_check": {
+      "other_compute_processes": 40
+    },
+    "cuda_driver_version": "13.1",
+    "tdr": {
+      "tdr_delay": "not_set(os_default)",
+      "tdr_level": "not_set(os_default)"
+    },
+    "hags_enabled": true,
+    "os_build": "Windows 10.0.28120"
+  },
+  "sampling": {
+    "warmup_iterations": 10,
+    "steady_state_cv": 0.010439,
+    "timed_iterations": 50,
+    "trials": 3,
+    "trimmed_pct": 0.2,
+    "l2_clear_mb": 256,
+    "timer": "cuda_event"
+  },
+  "results": {
+    "metric": "frame_time",
+    "unit": "ms",
+    "trial_medians": [
+      1.24,
+      1.2284,
+      1.2213
+    ],
+    "trimmed_mean": 1.2299,
+    "cv": 0.01531,
+    "ci95": [
+      1.2223,
+      1.2318
+    ],
+    "min": 1.1868,
+    "max": 1.792,
+    "outliers_rejected_iqr": 12,
+    "correctness_check": "pass"
+  },
+  "notes": "G0 软光栅四 stage(binning/raster/depth/tonemap)device kernel RXS-0118~0121 背靠背 launch 单帧 GPU 墙钟;四 stage 各按 L3 独立放大,代表一帧大分辨率软光栅;kernel 签名不改(M7.3 PTX golden 冻结); desktop WDDM,其他 GPU 进程概况记入 isolation_check"
+}
