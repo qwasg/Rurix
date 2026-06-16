@@ -167,12 +167,14 @@ def check_evidence_files() -> None:
     soft_raster_schema = load(ROOT / "milestones/m7/soft_raster_evidence_schema.json")
     uc03_demo_schema = load(ROOT / "milestones/m7/uc03_demo_evidence_schema.json")
     uc01_interop_schema = load(ROOT / "milestones/m8/uc01_interop_evidence_schema.json")
+    cublas_binding_schema = load(ROOT / "milestones/m8/cublas_binding_evidence_schema.json")
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
             or lsp_smoke_schema is None or lsp_latency_schema is None
             or stdlib_math_schema is None or soft_raster_schema is None
-            or uc03_demo_schema is None or uc01_interop_schema is None):
+            or uc03_demo_schema is None or uc01_interop_schema is None
+            or cublas_binding_schema is None):
         return
     evidence_files = sorted((ROOT / "evidence").glob("*.json"))
     if not evidence_files:
@@ -196,6 +198,7 @@ def check_evidence_files() -> None:
     soft_raster_validator = jsonschema.Draft7Validator(soft_raster_schema)
     uc03_demo_validator = jsonschema.Draft7Validator(uc03_demo_schema)
     uc01_interop_validator = jsonschema.Draft7Validator(uc01_interop_schema)
+    cublas_binding_validator = jsonschema.Draft7Validator(cublas_binding_schema)
     for f in evidence_files:
         doc = load(f)
         if doc is None:
@@ -237,6 +240,8 @@ def check_evidence_files() -> None:
             validator = uc03_demo_validator
         elif f.name.startswith("uc01_"):
             validator = uc01_interop_validator
+        elif f.name.startswith("cublas_"):
+            validator = cublas_binding_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):

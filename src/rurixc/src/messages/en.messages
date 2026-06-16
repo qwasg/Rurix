@@ -108,3 +108,9 @@ toolchain.lsp_rename_invalid = invalid LSP rename target: {detail}
 interop.unsupported_protocol = interop protocol unsupported: {detail}
 interop.invalid_device_pointer = invalid interop device pointer: {detail}
 interop.shape_mismatch = interop shape mismatch: {detail}
+#
+# cublas 绑定诊断(RX7016 ~ RX7019,spec/cublas.md RXS-0126~0129;M8.2 分配)
+cublas.handle_init_failed = cublas handle initialization failed: {detail}
+cublas.invalid_device_pointer = invalid cublas device pointer: {detail}
+cublas.dimension_mismatch = cublas dimension mismatch: {detail}
+cublas.runtime_failed = cublas runtime failure: {detail}

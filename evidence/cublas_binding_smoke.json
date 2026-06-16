@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "subject": "cublas_bindings",
+  "bindings_passed": [
+    "gemm",
+    "gemv"
+  ],
+  "binding_layers": [
+    "raw_ffi",
+    "safe_wrapper",
+    "high_level_api"
+  ],
+  "build_command": "cargo build -p rurix-cublas(cdylib);ctypes 加载 rurix_cublas_gemm/gemv,torch CUDA 张量 data_ptr 设备地址零拷贝",
+  "device": {
+    "gpu": "NVIDIA GeForce RTX 4070 Ti",
+    "torch": "2.7.1+cu128",
+    "cuda": "12.8"
+  },
+  "redistribution": {
+    "runtime_dll": "cublas64_13.dll",
+    "attachment_a_whitelisted": true,
+    "note": "Attachment A 白名单最小集(cublas64_*.dll 运行期库);完整 Toolkit/驱动/Nsight 永不捆绑(r6);M8.2 链接系统 DLL,物理捆绑/再分发承接 M8.4"
+  },
+  "facts": [
+    {
+      "binding": "gemm",
+      "layer": "raw_ffi+safe_wrapper+high_level",
+      "max_rel_err": 0.0,
+      "tolerance": 0.001
+    },
+    {
+      "binding": "gemv",
+      "layer": "raw_ffi+safe_wrapper+high_level",
+      "max_rel_err": 0.0,
+      "tolerance": 0.001
+    }
+  ],
+  "redgreen": {
+    "red_command": "篡改 cublas GEMM 绑定数值结果(run_gemm cublas α=1→2,绑定 = 2·A·B ≠ A@B)后步骤 35 cublas 绑定冒烟与 torch.matmul 参考数值对照",
+    "red_detected": true,
+    "green_command": "py -3 ci/cublas_binding_smoke.py(cargo build -p rurix-cublas cdylib → ctypes 零拷贝 → gemm/gemv 数值对照通过)",
+    "green_exit_code": 0,
+    "run_url": "self-hosted RTX 4070 Ti runner pr-smoke 步骤 35 真实红绿(反 YAML-only,H06 D11.8-2):绿 https://github.com/qwasg/Rurix/actions/runs/27619290198(step35 success) → 红 https://github.com/qwasg/Rurix/actions/runs/27619643676(step35 failure,篡改 cublas GEMM 绑定数值 α=2≠1) → 复原绿 https://github.com/qwasg/Rurix/actions/runs/27619860120(step35 success)"
+  },
+  "timestamp": "2026-06-16T20:47:17+08:00"
+}
