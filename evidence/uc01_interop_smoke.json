@@ -60,11 +60,11 @@
     }
   ],
   "redgreen": {
-    "red_command": "篡改 saxpy 算子数值结果(扰动一元素)后与 PyTorch 参考数值对照",
+    "red_command": "篡改 SAXPY 算子数值结果(rurix-interop run_saxpy 标量 a+1.0)后步骤 34 互操作冒烟与 PyTorch 参考数值对照",
     "red_detected": true,
-    "green_command": "py -3 ci/uc01_interop_smoke.py(rx build --emit=pyd → 双协议零拷贝 → 三算子数值对照通过)",
+    "green_command": "py -3 ci/uc01_interop_smoke.py(rx build --emit=pyd → CAI v3 + DLPack 双协议零拷贝 → SAXPY/Reduction/GEMM 三算子数值对照通过)",
     "green_exit_code": 0,
-    "run_url": "local red-green(反 YAML-only,H06 D11.8-2);pr-smoke 步骤 34 self-hosted runner run URL 见 PR 描述"
+    "run_url": "self-hosted RTX 4070 Ti runner pr-smoke 步骤 34 真实红绿(反 YAML-only,H06 D11.8-2):绿 https://github.com/qwasg/Rurix/actions/runs/27611992733(step34 success) → 红 https://github.com/qwasg/Rurix/actions/runs/27612224034(step34 failure,篡改 SAXPY 数值结果) → 复原绿 https://github.com/qwasg/Rurix/actions/runs/27612384731(step34 success)"
   },
   "timestamp": "2026-06-16T18:39:06+08:00"
 }
