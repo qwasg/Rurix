@@ -1,0 +1,13 @@
+[package]
+name = "uc03-demo"
+description = "Rurix UC-03 旗舰验收 demo(M7.4,D-M7-4,契约 G-M7-1,01 §6 旗舰用例)——确定性 SPH 仿真 + G0 软光栅出图 + image-io PPM 图像序列落盘的单 EXE;复用 core 数学库(RXS-0104~0113)/ image-io(RXS-0114~0117)/ 软光栅 kernel(RXS-0118~0121),工程编排不新增 spec 语义面;全 safe(unsafe_code=deny)、纯函数·确定性——固定初值/固定步长两次运行逐帧 content SHA-256 逐字节一致,为 G-M7-1 确定性图像序列门铺底"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+soft-raster = { path = "../soft-raster" }
+image-io = { path = "../image-io" }
+
+[lints]
+workspace = true

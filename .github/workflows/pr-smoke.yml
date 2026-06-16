@@ -83,6 +83,16 @@ jobs:
         shell: powershell
         run: py -3 ci/soft_raster_smoke.py
 
+      # —— M7 增量(milestones/m7/CI_GATES.md §2 步骤 32;自 M7.4 存在起,G-M7-1,CPU-only)——
+      # UC-03 旗舰 demo 单 EXE + 确定性图像序列门:确定性 SPH 仿真 + G0 软光栅出图(uc03-demo
+      # crate)经 cargo 产 host 单 EXE,固定初值/固定步长两次运行落盘逐帧 content SHA-256
+      # 逐字节一致 + 序列含运动 + 内建篡改帧像素 R/B 通道序红绿(反 YAML-only);写唯一
+      # evidence/uc03_demo_smoke.json(image_sequence_ok=true)供 budget_eval
+      # (m7.counter.uc03_demo_image_sequence,>=1 则 PASS)。失败即红。
+      - name: UC-03 demo single-EXE deterministic image sequence smoke (M7 CI_GATES §2.32, G-M7-1)
+        shell: powershell
+        run: py -3 ci/uc03_demo_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "subject": "uc03_demo",
+  "image_sequence_ok": true,
+  "single_exe": {
+    "binary": "target/debug/uc03_demo",
+    "build_command": "cargo build -p uc03-demo --bin uc03_demo",
+    "note": "host 单可执行(cargo 产出);UC-03 demo 为本地构建产物不打包再分发(M8/G1),rx build 经包管理对接见 PR 描述"
+  },
+  "determinism": {
+    "frames": 12,
+    "distinct_frames": 12,
+    "frame_sha256_match": true,
+    "run_dirs": [
+      "build/uc03_demo_smoke/run_a",
+      "build/uc03_demo_smoke/run_b"
+    ]
+  },
+  "redgreen": {
+    "red_command": "篡改 uc03_demo 落盘帧像素字节序(R/B 通道交换)后计 content SHA-256",
+    "red_sha_changed": true,
+    "green_command": "py -3 ci/uc03_demo_smoke.py(固定初值两次运行逐帧 content SHA-256 逐字节一致)",
+    "green_exit_code": 0,
+    "run_url": "local red-green(反 YAML-only,H06 D11.8-2);pr-smoke 步骤 32 self-hosted runner run URL 见 PR 描述"
+  },
+  "timestamp": "2026-06-16T12:59:33+08:00"
+}
