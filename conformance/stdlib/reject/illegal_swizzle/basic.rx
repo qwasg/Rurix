@@ -1,0 +1,26 @@
+//@ spec: RXS-0105
+//@ expect-error: RX2004
+// 非法 swizzle:选择子含源类型不存在的分量(Vec3 无 w),该 swizzle 方法不存在 →
+// 无此方法 RX2004(RXS-0105 Legality)。
+
+#[derive(Copy, Clone)]
+struct Vec3 {
+    x: f32,
+    y: f32,
+    z: f32,
+}
+
+impl Vec3 {
+    device fn new(x: f32, y: f32, z: f32) -> Vec3 {
+        Vec3 { x: x, y: y, z: z }
+    }
+
+    device fn xy(self) -> Vec3 {
+        Vec3 { x: self.x, y: self.y, z: 0.0 }
+    }
+}
+
+fn main() {
+    let v = Vec3::new(1.0, 2.0, 3.0);
+    let _bad = v.wzyx();
+}

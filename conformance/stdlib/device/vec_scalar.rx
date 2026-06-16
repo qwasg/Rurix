@@ -1,0 +1,63 @@
+//@ spec: RXS-0104, RXS-0105, RXS-0106, RXS-0107
+// core 数学库 Vec 类型面(device 路径,语义同义的标量分量 device fn 原语)。
+// 当前 NVPTX codegen 为标量值类型子集(聚合/结构体值类型 codegen 为后续扩展,
+// 作用面外报 RX6003,见 spec/stdlib.md §5),故 device 路径以标量分量原语实现并经
+// device codegen + ptxas 干验证;与 host 结构体 API(conformance/stdlib/host/vec_ops.rx)
+// 数值语义同义。全 safe。
+
+// RXS-0107 全 safe 软件平方根(Newton–Raphson,纯 f32,两路径同义,不依赖 __nv_sqrtf)
+device fn rx_sqrt(v: f32) -> f32 {
+    if v <= 0.0 {
+        return 0.0;
+    }
+    let mut g = v;
+    let mut i = 0;
+    while i < 30 {
+        g = 0.5 * (g + v / g);
+        i += 1;
+    }
+    g
+}
+
+// RXS-0106 逐元素算术(标量分量)
+device fn add_x(a: f32, b: f32) -> f32 {
+    a + b
+}
+
+device fn scale_x(a: f32, s: f32) -> f32 {
+    a * s
+}
+
+// RXS-0107 点积(Vec3 标量分量)
+device fn dot3(ax: f32, ay: f32, az: f32, bx: f32, by: f32, bz: f32) -> f32 {
+    ax * bx + ay * by + az * bz
+}
+
+// RXS-0107 叉积分量(Vec3:返回 z 分量,x/y 同理)
+device fn cross3_z(ax: f32, ay: f32, bx: f32, by: f32) -> f32 {
+    ax * by - ay * bx
+}
+
+// RXS-0107 范数(Vec3 标量分量)
+device fn len3(ax: f32, ay: f32, az: f32) -> f32 {
+    rx_sqrt(dot3(ax, ay, az, ax, ay, az))
+}
+
+kernel fn vec_kernel(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        let v = src[i];
+        // RXS-0104 构造(标量分量)+ RXS-0106 算术 + RXS-0107 dot/cross/length
+        let ax = v;
+        let ay = add_x(v, 1.0);
+        let az = add_x(v, 2.0);
+        let d = dot3(ax, ay, az, 1.0, 0.0, 0.0);
+        let cz = cross3_z(ax, ay, 0.0, 1.0);
+        let l = len3(ax, ay, az);
+        // RXS-0105 swizzle(标量重排:此处取 az 作为首分量等价 .zyx 的 x)
+        let sw = az;
+        dst[i] = scale_x(d + cz + l + sw, 1.0);
+    }
+}
+
+fn main() {}

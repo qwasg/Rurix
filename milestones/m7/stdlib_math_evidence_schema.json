@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/stdlib_math/v1",
+  "title": "Rurix core 数学库原语端到端冒烟证据 JSON(M7.1,契约 G-M7-4)",
+  "description": "core 数学库 Vec/Mat/swizzle 原语在 host+device 双路径上端到端通过的机器事实清单。primitives_passed 去重计数计入 m7.counter.math_primitives(ci/budget_eval.py;>= 预设核心集数 8 则 PASS,建设期不足为 normal SKIP)。机器复核闸门 = ci/stdlib_math_smoke.py(host 真跑 marker + device codegen IR 失败即非零退出;内建篡改红绿,反 YAML-only)。host 路径 = 具体 f32 结构体 API 真跑;device 路径 = 语义同义标量分量 device fn 原语 device codegen + ptxas 干验证(聚合值类型 device codegen 为后续扩展,spec/stdlib.md §5)。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject",
+    "primitives_passed",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": {
+      "description": "证据对象",
+      "const": "math_primitives"
+    },
+    "primitives_passed": {
+      "description": "在 host(结构体 API 真跑)与 device(标量分量原语 codegen)双路径均通过的 core 数学库原语去重集",
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "host_facts": {
+      "description": "host 真跑逐文件 ↔ 复现命令背书(反 YAML-only)",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source", "marker", "exit_code"],
+        "properties": {
+          "source": { "type": "string" },
+          "marker": { "type": "string" },
+          "exit_code": { "type": "integer" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "device_facts": {
+      "description": "device codegen 逐文件 ↔ 复现命令背书(NVPTX IR 产出 / ptxas 干验证)",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source", "emit", "exit_code"],
+        "properties": {
+          "source": { "type": "string" },
+          "emit": { "type": "string" },
+          "exit_code": { "type": "integer" },
+          "ptxas": { "type": "string" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "gpu_roundtrip": {
+      "description": "device 真跑 GPU roundtrip 状态(有硬件即跑,无则 skipped)",
+      "enum": ["ran", "skipped"]
+    },
+    "redgreen": {
+      "description": "门禁真实红绿验证留痕(反 YAML-only,H06 D11.8-2)",
+      "type": "object",
+      "properties": {
+        "red_command": { "type": "string" },
+        "red_marker_absent": { "type": "boolean" },
+        "green_command": { "type": "string" },
+        "green_exit_code": { "type": "integer" },
+        "run_url": { "type": "string" }
+      }
+    },
+    "rurixc_binary": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "harness_commit": { "type": "string" }
+  }
+}

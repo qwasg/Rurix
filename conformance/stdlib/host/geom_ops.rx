@@ -1,0 +1,271 @@
+//@ spec: RXS-0110, RXS-0111, RXS-0112, RXS-0113
+// 几何原语类型面(host 路径,具体 f32 结构体 + inherent device fn 方法):
+// Point3 / Vector3 / Normal3 语义区分与互转(RXS-0110)/ AABB·Ray 类型与构造
+// (RXS-0111)/ 几何谓词 Point∈AABB 包含与点到 AABB 距离(RXS-0112)/ Ray–AABB
+// 相交 slab 法(RXS-0113)。全 safe,host+device 双路径数值同义(device 标量分量
+// 谓词原语见 conformance/stdlib/device/geom_scalar.rx)。由 ci/stdlib_math_smoke.py
+// host 真跑:全部断言通过则打印 "stdlib-geom-ok"。
+
+// RXS-0110:三个互异几何向量类型(语义区分),分量字段 x,y,z 类型 f32。
+#[derive(Copy, Clone)]
+struct Point3 {
+    x: f32,
+    y: f32,
+    z: f32,
+}
+
+#[derive(Copy, Clone)]
+struct Vector3 {
+    x: f32,
+    y: f32,
+    z: f32,
+}
+
+#[derive(Copy, Clone)]
+struct Normal3 {
+    x: f32,
+    y: f32,
+    z: f32,
+}
+
+// RXS-0111:AABB(扁平 min/max 分量)与 Ray(扁平 origin/dir 分量)。
+#[derive(Copy, Clone)]
+struct Aabb {
+    min_x: f32,
+    min_y: f32,
+    min_z: f32,
+    max_x: f32,
+    max_y: f32,
+    max_z: f32,
+}
+
+#[derive(Copy, Clone)]
+struct Ray {
+    ox: f32,
+    oy: f32,
+    oz: f32,
+    dx: f32,
+    dy: f32,
+    dz: f32,
+}
+
+// 全 safe 软件平方根(Newton–Raphson,纯 f32;RXS-0107 同一实现,两路径同义)。
+device fn rx_sqrt(v: f32) -> f32 {
+    if v <= 0.0 {
+        return 0.0;
+    }
+    let mut g = v;
+    let mut i = 0;
+    while i < 30 {
+        g = 0.5 * (g + v / g);
+        i += 1;
+    }
+    g
+}
+
+device fn rx_abs(v: f32) -> f32 {
+    if v < 0.0 {
+        -v
+    } else {
+        v
+    }
+}
+
+device fn approx(a: f32, b: f32) -> bool {
+    rx_abs(a - b) < 0.0001
+}
+
+device fn rx_min(a: f32, b: f32) -> f32 {
+    if a < b {
+        a
+    } else {
+        b
+    }
+}
+
+device fn rx_max(a: f32, b: f32) -> f32 {
+    if a > b {
+        a
+    } else {
+        b
+    }
+}
+
+// RXS-0112:点到 AABB 单轴偏移(点在区间内则 0,否则到近端的距离)。
+device fn axis_delta(p: f32, lo: f32, hi: f32) -> f32 {
+    rx_max(lo - p, 0.0) + rx_max(p - hi, 0.0)
+}
+
+impl Point3 {
+    device fn new(x: f32, y: f32, z: f32) -> Point3 {
+        Point3 { x: x, y: y, z: z }
+    }
+
+    // RXS-0110 互转:两点位移 Point3 − Point3 → Vector3
+    device fn sub(self, o: Point3) -> Vector3 {
+        Vector3 { x: self.x - o.x, y: self.y - o.y, z: self.z - o.z }
+    }
+
+    // RXS-0110 互转:平移 Point3 + Vector3 → Point3
+    device fn offset(self, v: Vector3) -> Point3 {
+        Point3 { x: self.x + v.x, y: self.y + v.y, z: self.z + v.z }
+    }
+
+    // RXS-0110 互转:位置向量 Point3 → Vector3
+    device fn as_vector(self) -> Vector3 {
+        Vector3 { x: self.x, y: self.y, z: self.z }
+    }
+}
+
+impl Vector3 {
+    device fn new(x: f32, y: f32, z: f32) -> Vector3 {
+        Vector3 { x: x, y: y, z: z }
+    }
+
+    device fn length(self) -> f32 {
+        rx_sqrt(self.x * self.x + self.y * self.y + self.z * self.z)
+    }
+
+    // RXS-0110 互转:归一化 Vector3 → Normal3(零向量边界 → 零 Normal3)
+    device fn to_normal(self) -> Normal3 {
+        let l = self.length();
+        if l == 0.0 {
+            Normal3 { x: 0.0, y: 0.0, z: 0.0 }
+        } else {
+            Normal3 { x: self.x / l, y: self.y / l, z: self.z / l }
+        }
+    }
+}
+
+impl Normal3 {
+    device fn new(x: f32, y: f32, z: f32) -> Normal3 {
+        Normal3 { x: x, y: y, z: z }
+    }
+
+    // RXS-0110 互转:Normal3 → Vector3
+    device fn to_vector(self) -> Vector3 {
+        Vector3 { x: self.x, y: self.y, z: self.z }
+    }
+}
+
+impl Aabb {
+    // RXS-0111 构造(自 Point3 角点投影分量)
+    device fn new(min: Point3, max: Point3) -> Aabb {
+        Aabb {
+            min_x: min.x, min_y: min.y, min_z: min.z,
+            max_x: max.x, max_y: max.y, max_z: max.z,
+        }
+    }
+
+    // RXS-0112 包含谓词 Point∈AABB
+    device fn contains(self, p: Point3) -> bool {
+        p.x >= self.min_x && p.x <= self.max_x
+            && p.y >= self.min_y && p.y <= self.max_y
+            && p.z >= self.min_z && p.z <= self.max_z
+    }
+
+    // RXS-0112 点到 AABB 距离(内部为 +0.0)
+    device fn distance(self, p: Point3) -> f32 {
+        let dx = axis_delta(p.x, self.min_x, self.max_x);
+        let dy = axis_delta(p.y, self.min_y, self.max_y);
+        let dz = axis_delta(p.z, self.min_z, self.max_z);
+        rx_sqrt(dx * dx + dy * dy + dz * dz)
+    }
+
+    // RXS-0113 Ray–AABB 相交(slab 法,固定 min/max 合取序)
+    device fn intersects(self, r: Ray) -> bool {
+        let ix = 1.0 / r.dx;
+        let iy = 1.0 / r.dy;
+        let iz = 1.0 / r.dz;
+        let t1x = (self.min_x - r.ox) * ix;
+        let t2x = (self.max_x - r.ox) * ix;
+        let t1y = (self.min_y - r.oy) * iy;
+        let t2y = (self.max_y - r.oy) * iy;
+        let t1z = (self.min_z - r.oz) * iz;
+        let t2z = (self.max_z - r.oz) * iz;
+        let tenter = rx_max(rx_max(rx_min(t1x, t2x), rx_min(t1y, t2y)), rx_min(t1z, t2z));
+        let texit = rx_min(rx_min(rx_max(t1x, t2x), rx_max(t1y, t2y)), rx_max(t1z, t2z));
+        texit >= tenter && texit >= 0.0
+    }
+}
+
+impl Ray {
+    // RXS-0111 构造(自 Point3 起点 + Vector3 方向投影分量)
+    device fn new(origin: Point3, dir: Vector3) -> Ray {
+        Ray {
+            ox: origin.x, oy: origin.y, oz: origin.z,
+            dx: dir.x, dy: dir.y, dz: dir.z,
+        }
+    }
+}
+
+// RXS-0110:语义区分 + 互转往返
+device fn check_convert() -> bool {
+    let p = Point3::new(1.0, 2.0, 3.0);
+    let q = Point3::new(4.0, 6.0, 3.0);
+    let d = q.sub(p);
+    let moved = p.offset(d);
+    let pv = p.as_vector();
+    let n = d.to_normal();
+    let nv = n.to_vector();
+    let zn = Vector3::new(0.0, 0.0, 0.0).to_normal();
+    approx(d.x, 3.0) && approx(d.y, 4.0) && approx(d.z, 0.0)
+        && approx(moved.x, 4.0) && approx(moved.y, 6.0)
+        && approx(pv.x, 1.0) && approx(pv.z, 3.0)
+        && approx(n.x, 0.6) && approx(n.y, 0.8) && approx(nv.z, 0.0)
+        && approx(zn.x, 0.0) && approx(zn.y, 0.0) && approx(zn.z, 0.0)
+}
+
+// RXS-0111:AABB / Ray 构造与字段
+device fn check_construct() -> bool {
+    let bb = Aabb::new(Point3::new(0.0, 0.0, 0.0), Point3::new(2.0, 2.0, 2.0));
+    let ray = Ray::new(Point3::new(-1.0, -1.0, -1.0), Vector3::new(1.0, 1.0, 1.0));
+    approx(bb.min_x, 0.0) && approx(bb.max_z, 2.0)
+        && approx(ray.ox, -1.0) && approx(ray.dx, 1.0)
+}
+
+// RXS-0112:包含
+device fn check_contains() -> bool {
+    let bb = Aabb::new(Point3::new(0.0, 0.0, 0.0), Point3::new(2.0, 2.0, 2.0));
+    let inside = bb.contains(Point3::new(1.0, 1.0, 1.0));
+    let outside = bb.contains(Point3::new(3.0, 1.0, 1.0));
+    inside && !outside
+}
+
+// RXS-0112:距离(内部 0,外部欧氏)
+device fn check_distance() -> bool {
+    let bb = Aabb::new(Point3::new(0.0, 0.0, 0.0), Point3::new(2.0, 2.0, 2.0));
+    let din = bb.distance(Point3::new(1.0, 1.0, 1.0));
+    let dout = bb.distance(Point3::new(4.0, 1.0, 1.0));
+    approx(din, 0.0) && approx(dout, 2.0)
+}
+
+// RXS-0113:Ray–AABB 相交(命中 / 不命中)
+device fn check_intersect() -> bool {
+    let bb = Aabb::new(Point3::new(0.0, 0.0, 0.0), Point3::new(2.0, 2.0, 2.0));
+    let hit = bb.intersects(Ray::new(Point3::new(-1.0, -1.0, -1.0), Vector3::new(1.0, 1.0, 1.0)));
+    let miss = bb.intersects(Ray::new(Point3::new(-1.0, -1.0, -1.0), Vector3::new(1.0, 1.0, -1.0)));
+    hit && !miss
+}
+
+fn main() {
+    let mut ok = 0;
+    if check_convert() {
+        ok += 1;
+    }
+    if check_construct() {
+        ok += 1;
+    }
+    if check_contains() {
+        ok += 1;
+    }
+    if check_distance() {
+        ok += 1;
+    }
+    if check_intersect() {
+        ok += 1;
+    }
+    if ok == 5 {
+        println("stdlib-geom-ok");
+    }
+}
