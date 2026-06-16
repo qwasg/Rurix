@@ -761,6 +761,18 @@
     "RXS-0113": [
       "conformance/stdlib/device/geom_scalar.rx",
       "conformance/stdlib/host/geom_ops.rx"
+    ],
+    "RXS-0114": [
+      "src/image-io/src/lib.rs"
+    ],
+    "RXS-0115": [
+      "src/image-io/src/lib.rs"
+    ],
+    "RXS-0116": [
+      "src/image-io/src/lib.rs"
+    ],
+    "RXS-0117": [
+      "src/image-io/src/lib.rs"
     ]
   }
 }

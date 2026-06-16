@@ -98,6 +98,8 @@ def gather_repo() -> tuple[dict[str, str], dict[str, str]]:
     test_files += sorted((ROOT / "src" / "rx").glob("**/*.rs"))
     # M6.2:包管理 crate(manifest/lock/vendor/内容树 单测锚定 RXS-0089~0094)
     test_files += sorted((ROOT / "src" / "rurix-pkg").glob("**/*.rs"))
+    # M7.2:image-io crate(图像缓冲/PPM P6 确定编码/图像序列落盘 单测锚定 RXS-0114~0117)
+    test_files += sorted((ROOT / "src" / "image-io").glob("**/*.rs"))
     test_texts = {
         p.relative_to(ROOT).as_posix(): p.read_text(encoding="utf-8") for p in test_files
     }
