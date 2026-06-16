@@ -141,7 +141,7 @@ fn run_gemm(c: u64, a: u64, b: u64, m: usize, n: usize, k: usize) -> Result<(), 
 
     let handle = CublasHandle::create()?;
     let lib = sys::cublas().ok_or(RX_CUBLAS_HANDLE_INIT_FAILED)?;
-    let alpha = 1.0f32;
+    let alpha = 2.0f32; // TEMP 篡改 cublas GEMM 绑定数值(α=2 ≠ 1)— 验证步骤35 红;下一提交复原
     let beta = 0.0f32;
     let (mi, ni, ki) = (m as i32, n as i32, k as i32);
     // cublasSgemm(OP_N, OP_N, /*m=*/N, /*n=*/M, /*k=*/K, alpha, /*A=*/B, /*lda=*/N,
