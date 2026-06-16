@@ -27,12 +27,18 @@
 | U6 | H2D/D2H 拷贝裸指针 | lib.rs `DeviceBuffer::copy_*` | 主机切片 `bytes` 字节有效;设备地址范围在分配内;`assert` 守长度 ≤ 容量 |
 | U7 | `cuLaunchKernel` 实参指针数组 | lib.rs `Stream::launch` | `params` 各元素指向调用方维持的有效实参存储,长度与 kernel 形参匹配(编译期 launch_check 裁决,RXS-0074) |
 | U8 | `slice::from_raw_parts(_mut)` pinned 视图 | lib.rs `PinnedBuffer::as_(mut_)slice` | ptr 为 cuMemAllocHost 返回的 `len*size_of::<T>()` 字节锁页内存,对齐满足;`&self`/`&mut self` 约束生命期与别名 |
+| U9 | primary context retain/release/set_current(`cuDevicePrimaryCtxRetain` / `cuDevicePrimaryCtxRelease_v2` / `cuCtxSetCurrent`) | sys.rs `Cuda::{primary_ctx_retain,primary_ctx_release,ctx_set_current}` + lib.rs `Context::from_primary` / `Drop` | `device` 来自 `device_get`;retain/release 配对(引用计数,Drop 仅 release 一次);`ctx_set_current` 入参为刚 retain 成功的有效 context;set_current 失败回滚 release(M8.1 互操作零拷贝:与 PyTorch runtime API 共享 primary context,RXS-0125) |
+| U10 | 借用外部设备指针构造缓冲(`from_device_ptr`,Drop 不 free) | lib.rs `Context::from_device_ptr` / `DeviceBuffer::drop`(`!owned` 早返) | 调用方(互操作 FFI 边界,经 `__cuda_array_interface__` v3 / DLPack capsule 取得)保证 `ptr` 在本 context 设备上有效、可读写、容纳 ≥ `len` 个 `T`,借用存活期内未被外部 deleter 释放;`owned=false` 故 Drop **不** `cuMemFree`(所有权留外部 deleter,不双重释放,M8.1 / RXS-0123/0124) |
 
 ## 销毁纪律(D-231)
 
-`Context::drop` 先 `cuCtxSynchronize` 再 `cuCtxDestroy`;Stream/Module/DeviceBuffer/
-PinnedBuffer 的 Drop 在各自资源上调用 free/unload,错误吞掉(Drop 无 panic)。生命周期
-brand(`'ctx`)保证资源不晚于 context(借用检查 + 反向 Drop 序)。
+`Context::drop` 先 `cuCtxSynchronize`,再按种类释放:独占 context(`cuCtxCreate`)走
+`cuCtxDestroy`,primary context(`from_primary` retain)走 `cuDevicePrimaryCtxRelease`
+(引用计数,不 destroy 与 PyTorch 共享的 context)。Stream/Module/PinnedBuffer 的 Drop 在
+各自资源上调用 free/unload;`DeviceBuffer` 的 Drop **仅当 `owned`** 才 `cuMemFree`——借用
+缓冲(`from_device_ptr`,零拷贝互操作)所有权在外部 deleter,Drop 不释放(不双重释放)。
+错误吞掉(Drop 无 panic)。生命周期 brand(`'ctx`)保证资源不晚于 context(借用检查 +
+反向 Drop 序)。
 
 ## 测试
 

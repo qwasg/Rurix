@@ -99,7 +99,13 @@ struct BuildArgs {
     manifest_path: Option<PathBuf>,
     locked: bool,
     offline: bool,
+    /// `--emit=<target>`(透传 rurixc:check/mir/llvm-ir/nvptx-ir/ptx;`pyd` = M8.1
+    /// 互操作 PYD 产出,RXS-0122)。None = 默认 host EXE。
+    emit: Option<String>,
 }
+
+/// `rx build --emit` 透传给 rurixc 的合法目标(host/device codegen 通道)。
+const RURIXC_EMIT_TARGETS: &[&str] = &["check", "mir", "llvm-ir", "nvptx-ir", "ptx"];
 
 /// `rx build [<input.rx>] [-o <out>] [--manifest-path <p>] [--locked] [--offline]`。
 fn parse_build_args(args: &[String]) -> Result<BuildArgs, String> {
@@ -109,6 +115,7 @@ fn parse_build_args(args: &[String]) -> Result<BuildArgs, String> {
         manifest_path: None,
         locked: false,
         offline: false,
+        emit: None,
     };
     let mut i = 0;
     while i < args.len() {
@@ -125,6 +132,15 @@ fn parse_build_args(args: &[String]) -> Result<BuildArgs, String> {
             }
             "--locked" => b.locked = true,
             "--offline" => b.offline = true,
+            s if s.starts_with("--emit=") => {
+                let target = s["--emit=".len()..].to_owned();
+                if target != "pyd" && !RURIXC_EMIT_TARGETS.contains(&target.as_str()) {
+                    return Err(format!(
+                        "无法识别的 --emit 目标 `{target}`(合法:check/mir/llvm-ir/nvptx-ir/ptx/pyd)"
+                    ));
+                }
+                b.emit = Some(target);
+            }
             s if !s.starts_with('-') && b.input.is_none() => b.input = Some(PathBuf::from(s)),
             s => return Err(format!("无法识别的参数 `{s}`")),
         }
@@ -147,6 +163,11 @@ fn cmd_build(args: &[String]) -> ExitCode {
         }
     };
 
+    // M8.1 互操作 PYD 产出(RXS-0122):rx 编排 nanobind + scikit-build-core 打包。
+    if b.emit.as_deref() == Some("pyd") {
+        return build_pyd(&b);
+    }
+
     if let Some(mp) = &b.manifest_path {
         let base = mp.parent().unwrap_or(Path::new(".")).to_path_buf();
         let front = if b.locked {
@@ -165,7 +186,7 @@ fn cmd_build(args: &[String]) -> ExitCode {
         return ExitCode::from(driver::compile(&CompileOptions {
             input: entry,
             out: b.out,
-            emit: None,
+            emit: b.emit.clone(),
             profile_out: None,
             reproducible: b.locked && b.offline,
             error_format: None,
@@ -184,11 +205,189 @@ fn cmd_build(args: &[String]) -> ExitCode {
     ExitCode::from(driver::compile(&CompileOptions {
         input,
         out: b.out,
-        emit: None,
+        emit: b.emit.clone(),
         profile_out: None,
         reproducible: false,
         error_format: None,
     }))
+}
+
+/// `rx build --emit=pyd <kernel.rx> [-o <out_dir>]`(M8.1,D-M8-1,RXS-0122):产
+/// Python 扩展模块(`.pyd`)经 **nanobind + scikit-build-core**(09 §6),链接
+/// `rurix-interop` 运行时(C ABI + 复用 M5 自研 kernel),供 PyTorch 经
+/// `__cuda_array_interface__` v3 / DLPack 双协议零拷贝接入。
+///
+/// 编排:(1) rurixc 把输入 device kernel 全管线产 PTX(`--emit=pyd` 编译校验,
+/// 无 kernel → RX7013);(2) `cargo build -p rurix-interop --release` 产 staticlib;
+/// (3) `pip install <pyd 工程> --target` 经 scikit-build-core 产 `.pyd`(注入
+/// `RURIX_INTEROP_LIB`);(4) 拷贝 `.pyd`(保留 ABI 标记名)到输出目录。
+fn build_pyd(b: &BuildArgs) -> ExitCode {
+    let Some(input) = b.input.clone() else {
+        usage_error("--emit=pyd 缺输入 `.rx` kernel 源");
+        return ExitCode::from(2);
+    };
+    let out_dir = b
+        .out
+        .clone()
+        .unwrap_or_else(|| input.parent().unwrap_or(Path::new(".")).to_path_buf());
+
+    // (1) 编译校验输入 device kernel → PTX(genuine 编译通道;无 kernel → RX7013)。
+    let stem = input
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("kernel")
+        .to_owned();
+    if let Err(e) = std::fs::create_dir_all(&out_dir) {
+        eprintln!(
+            "rx build --emit=pyd: 无法创建输出目录 {}: {e}",
+            out_dir.display()
+        );
+        return ExitCode::from(1);
+    }
+    let ptx_stage = out_dir.join(format!("{stem}.ptx"));
+    let rc = driver::compile(&CompileOptions {
+        input: input.clone(),
+        out: Some(ptx_stage),
+        emit: Some("pyd".to_owned()),
+        profile_out: None,
+        reproducible: false,
+        error_format: None,
+    });
+    if rc != 0 {
+        return ExitCode::from(rc);
+    }
+
+    // (2) 定位 workspace 根(含互操作 PYD 工程)。
+    let Some(root) = find_workspace_with_pyd() else {
+        eprintln!(
+            "rx build --emit=pyd: 未找到含 src/rurix-interop/pyd/pyproject.toml 的 workspace 根(从当前目录向上)"
+        );
+        return ExitCode::from(1);
+    };
+    let pyd_proj = root.join("src").join("rurix-interop").join("pyd");
+    let staticlib = root
+        .join("target")
+        .join("release")
+        .join("rurix_interop.lib");
+
+    // (3) cargo build staticlib(单一事实源:复用 M5 kernel 嵌入 PTX)。
+    eprintln!("rx build --emit=pyd: 构建 rurix-interop staticlib(cargo --release)…");
+    if !run_inherit(
+        "cargo",
+        &["build", "-p", "rurix-interop", "--release"],
+        &root,
+    ) {
+        eprintln!("rx build --emit=pyd: cargo build -p rurix-interop 失败");
+        return ExitCode::from(1);
+    }
+    if !staticlib.exists() {
+        eprintln!(
+            "rx build --emit=pyd: staticlib 未产出: {}",
+            staticlib.display()
+        );
+        return ExitCode::from(1);
+    }
+
+    // (4) scikit-build-core 产 .pyd(pip install --target,注入 RURIX_INTEROP_LIB)。
+    let stage = out_dir.join(".rx-pyd-stage");
+    let _ = std::fs::remove_dir_all(&stage);
+    let (py, mut py_args) = python_command();
+    let lib_define = format!(
+        "cmake.define.RURIX_INTEROP_LIB={}",
+        staticlib.display().to_string().replace('\\', "/")
+    );
+    let proj_s = pyd_proj.display().to_string();
+    let stage_s = stage.display().to_string();
+    py_args.extend(
+        [
+            "-m",
+            "pip",
+            "install",
+            proj_s.as_str(),
+            "--target",
+            stage_s.as_str(),
+            "--no-deps",
+            "--no-build-isolation",
+            "--upgrade",
+            "--config-settings",
+            lib_define.as_str(),
+        ]
+        .map(str::to_owned),
+    );
+    let py_args_ref: Vec<&str> = py_args.iter().map(String::as_str).collect();
+    eprintln!("rx build --emit=pyd: scikit-build-core 打包 PYD(nanobind)…");
+    if !run_inherit(&py, &py_args_ref, &root) {
+        eprintln!("rx build --emit=pyd: scikit-build-core 打包失败");
+        return ExitCode::from(1);
+    }
+
+    // (5) 拷贝产出的 .pyd(保留模块名 rurix_uc01.*.pyd)到输出目录。
+    let mut produced: Option<PathBuf> = None;
+    if let Ok(entries) = std::fs::read_dir(&stage) {
+        for e in entries.flatten() {
+            let p = e.path();
+            if p.extension().and_then(|s| s.to_str()) == Some("pyd") {
+                let dest = out_dir.join(p.file_name().unwrap());
+                if let Err(err) = std::fs::copy(&p, &dest) {
+                    eprintln!("rx build --emit=pyd: 拷贝 .pyd 失败: {err}");
+                    return ExitCode::from(1);
+                }
+                produced = Some(dest);
+            }
+        }
+    }
+    let _ = std::fs::remove_dir_all(&stage);
+    match produced {
+        Some(p) => {
+            eprintln!("rx build --emit=pyd: PYD 产出完成 → {}", p.display());
+            ExitCode::SUCCESS
+        }
+        None => {
+            eprintln!("rx build --emit=pyd: 未在打包产物中找到 .pyd");
+            ExitCode::from(1)
+        }
+    }
+}
+
+/// 从当前目录向上查找含 `src/rurix-interop/pyd/pyproject.toml` 的 workspace 根。
+fn find_workspace_with_pyd() -> Option<PathBuf> {
+    let mut dir = std::env::current_dir().ok()?;
+    loop {
+        if dir
+            .join("src")
+            .join("rurix-interop")
+            .join("pyd")
+            .join("pyproject.toml")
+            .is_file()
+        {
+            return Some(dir);
+        }
+        if !dir.pop() {
+            return None;
+        }
+    }
+}
+
+/// Python 解释器命令(沿 rx bench 先例:`RX_PYTHON` env 覆盖,否则 Windows `py -3`
+/// / 其余 `python3`)。
+fn python_command() -> (String, Vec<String>) {
+    if let Ok(p) = std::env::var("RX_PYTHON") {
+        (p, Vec::new())
+    } else if cfg!(windows) {
+        ("py".to_owned(), vec!["-3".to_owned()])
+    } else {
+        ("python3".to_owned(), Vec::new())
+    }
+}
+
+/// 运行外部命令(继承 stdout/stderr),返回是否成功退出(status.success())。
+fn run_inherit(prog: &str, args: &[&str], cwd: &Path) -> bool {
+    std::process::Command::new(prog)
+        .args(args)
+        .current_dir(cwd)
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
 }
 
 /// rx vendor(RXS-0094,收编保留分发位):解析图 → 落 vendor/<name>(path 依赖)

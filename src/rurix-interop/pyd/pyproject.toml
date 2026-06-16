@@ -1,0 +1,17 @@
+[build-system]
+# rx build --emit=pyd 的 PYD 绑定层(09 §6:nanobind + scikit-build-core,非 PyO3/maturin)。
+requires = ["scikit-build-core>=0.10", "nanobind>=2.0.0"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "rurix-uc01"
+version = "0.1.0"
+description = "Rurix UC-01 互操作:rx build --emit=pyd 产 PYD,CAI v3 / DLPack 双协议零拷贝接入 PyTorch(M8.1,spec/interop.md RXS-0122~0125)"
+requires-python = ">=3.10"
+
+[tool.scikit-build]
+# CMake 配置变量(RURIX_INTEROP_LIB)由 rx build --emit=pyd / 冒烟脚本经
+# SKBUILD_CMAKE_DEFINE 注入(rurix-interop staticlib 路径)。
+minimum-version = "0.10"
+build-dir = "build/{wheel_tag}"
+wheel.py-api = "cp312"

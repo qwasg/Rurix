@@ -1,0 +1,30 @@
+[package]
+name = "rurix-interop"
+description = "Rurix 互操作 FFI 边界(M8.1,D-M8-1:UC-01 PyTorch 算子替换 — C ABI 导出 + __cuda_array_interface__ v3 / DLPack 双协议零拷贝设备指针接入,复用 M5 自研 kernel,经 nanobind + scikit-build-core 产 PYD;spec/interop.md RXS-0122~0125)"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[lib]
+# staticlib = 链接进 nanobind PYD(scikit-build-core/CMake);rlib = cargo test/workspace。
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]
+# 复用运行时薄层(Context/Stream/DeviceBuffer/launch + primary ctx + 借用缓冲);
+# 运行时仍零外部依赖(nvcuda.dll 动态加载)。
+rurix-rt = { path = "../rurix-rt" }
+
+[build-dependencies]
+# 复用 rurixc 库把 M5 自研 kernel(../rurix-rt/kernels/{saxpy,reduce,gemm_tile}.rx)
+# 全管线产 PTX 嵌入 staticlib(单一事实源,对齐 rurix-rt build.rs);仅构建期依赖。
+rurixc = { path = "../rurixc" }
+
+# unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6;M8_CONTRACT §5 guardrail):rurix-interop 是
+# 互操作 FFI 边界 crate,经裁决最小开 unsafe(C ABI extern "C" 导出 + 外部设备指针借用),
+# 注册见 unsafe-audit/rurix-interop.md;safe wrapper 层对上全 safe。仍强制每 unsafe 块
+# 携 `// SAFETY:`(clippy undocumented_unsafe_blocks = deny)。其余新 crate 维持 deny。
+[lints.rust]
+unsafe_code = "allow"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "deny"

@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/uc01_interop/v1",
+  "title": "Rurix UC-01 PyTorch 互操作算子替换端到端冒烟证据 JSON(M8.1,契约 G-M8-1)",
+  "description": "rx build --emit=pyd 产 PYD,经 __cuda_array_interface__ v3 / DLPack 双协议零拷贝接入 PyTorch CUDA 张量,复用 M5 自研 kernel(SAXPY/Reduction/GEMM)算子替换端到端真跑、数值对照通过的机器事实清单。operators_passed 去重计数计入 m8.counter.uc01_pytorch_operators(ci/budget_eval.py;>=3 则 PASS,建设期不足为 normal SKIP)。机器复核闸门 = ci/uc01_interop_smoke.py(算子替换数值对照失败 / 内建篡改红绿无效即非零退出,反 YAML-only)。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject",
+    "operators_passed",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": {
+      "description": "证据对象",
+      "const": "uc01_pytorch_operators"
+    },
+    "operators_passed": {
+      "description": "经双协议零拷贝接入 PyTorch、算子替换数值对照通过的去重算子集(复用 M5 自研 kernel)",
+      "type": "array",
+      "items": { "enum": ["saxpy", "reduce", "gemm"] },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "protocols": {
+      "description": "经验证的零拷贝设备指针接入协议(双协议:CAI v3 + DLPack)",
+      "type": "array",
+      "items": { "enum": ["__cuda_array_interface__", "dlpack"] },
+      "uniqueItems": true
+    },
+    "pyd": {
+      "description": "rx build --emit=pyd 产出的 PYD 形态(nanobind + scikit-build-core)",
+      "type": "object",
+      "properties": {
+        "module": { "type": "string" },
+        "build_command": { "type": "string" },
+        "pyd_path": { "type": "string" },
+        "note": { "type": "string" }
+      }
+    },
+    "device": {
+      "description": "实测 GPU / torch CUDA 环境",
+      "type": "object",
+      "properties": {
+        "gpu": { "type": "string" },
+        "torch": { "type": "string" },
+        "cuda": { "type": "string" }
+      }
+    },
+    "facts": {
+      "description": "逐算子 ↔ 协议 ↔ 数值对照背书(反 YAML-only:每条结论可由命令实测复现)",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["operator", "protocol", "max_abs_err"],
+        "properties": {
+          "operator": { "type": "string" },
+          "protocol": { "type": "string" },
+          "max_abs_err": { "type": "number" },
+          "tolerance": { "type": "number" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "redgreen": {
+      "description": "门禁真实红绿验证留痕(反 YAML-only,H06 D11.8-2:篡改算子数值结果 → 红 → 复原绿)",
+      "type": "object",
+      "properties": {
+        "red_command": { "type": "string" },
+        "red_detected": { "type": "boolean" },
+        "green_command": { "type": "string" },
+        "green_exit_code": { "type": "integer" },
+        "run_url": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "harness_commit": { "type": "string" }
+  }
+}

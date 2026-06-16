@@ -168,9 +168,12 @@ pub fn compile(opts: &CompileOptions) -> u8 {
                     if !diag.has_errors() {
                         cx.check_shared_barrier();
                     }
-                    // device emit 通道(`--emit=nvptx-ir|ptx`)以 `kernel fn` 为根,
-                    // 不要求 host `main`(RXS-0070);其余目标缺 main → RX6002。
-                    let device_emit = matches!(emit.as_deref(), Some("nvptx-ir") | Some("ptx"));
+                    // device emit 通道(`--emit=nvptx-ir|ptx|pyd`)以 `kernel fn` 为根,
+                    // 不要求 host `main`(RXS-0070 / 互操作 PYD RXS-0122);其余缺 main → RX6002。
+                    let device_emit = matches!(
+                        emit.as_deref(),
+                        Some("nvptx-ir") | Some("ptx") | Some("pyd")
+                    );
                     if m.is_empty() && !device_emit {
                         diag.struct_error(E_MISSING_MAIN, "codegen.missing_main")
                             .emit();
@@ -295,6 +298,92 @@ pub fn compile(opts: &CompileOptions) -> u8 {
                 return 1;
             }
         }
+    }
+
+    // 互操作 PYD 通道(M8.1,RXS-0122):`--emit=pyd`。编译器侧把输入 device
+    // `kernel fn` 全管线产 PTX(与 --emit=ptx 同管线:device codegen + ptxas 干验证),
+    // 写入 staging PTX 文件供 PYD 打包消费;PYD 打包(nanobind + scikit-build-core,
+    // 链接 rurix-interop 运行时)由 `rx build --emit=pyd` 编排。输入无 `kernel fn`
+    // → 互操作协议不支持 RX7013(无可导出零拷贝算子源,RXS-0122/0125)。
+    if emit.as_deref() == Some("pyd") {
+        let ir = crate::device_codegen::build_and_emit(&cx, &stem);
+        if diag.has_errors() {
+            eprint!(
+                "{}",
+                render_diagnostics(&diag.emitted(), &sm, diag.messages())
+            );
+            return 1;
+        }
+        let Some(ir) = ir else {
+            diag.struct_error(ErrorCode(7013), "interop.unsupported_protocol")
+                .arg(
+                    "detail",
+                    "输入无 `kernel fn`;--emit=pyd 需 device kernel 作为零拷贝算子源",
+                )
+                .emit();
+            eprint!(
+                "{}",
+                render_diagnostics(&diag.emitted(), &sm, diag.messages())
+            );
+            return 1;
+        };
+        let ptx_out = out
+            .clone()
+            .unwrap_or_else(|| input_path.with_extension("ptx"));
+        match emit_ptx_and_gate(&ir, &stem, &ptx_out) {
+            Ok(PtxGate::Ok(_)) | Ok(PtxGate::SkippedNoPtxas(_)) => {
+                eprintln!(
+                    "rurixc: --emit=pyd: device kernel 编译为 PTX 完成({});PYD 打包(nanobind + scikit-build-core,链接 rurix-interop)由 rx build 编排(RXS-0122)",
+                    ptx_out.display()
+                );
+                return 0;
+            }
+            Ok(PtxGate::SkippedNoLibdevice) => {
+                eprintln!(
+                    "rurixc: note: libdevice.10.bc not found (no CUDA toolchain); --emit=pyd device PTX SKIPPED (RXS-0082)"
+                );
+                return 0;
+            }
+            Err(PtxError::LibdeviceLink(reason)) => {
+                diag.struct_error(ErrorCode(7002), "link.libdevice_failure")
+                    .arg("reason", reason)
+                    .emit();
+                eprint!(
+                    "{}",
+                    render_diagnostics(&diag.emitted(), &sm, diag.messages())
+                );
+                return 1;
+            }
+            Err(PtxError::Rejected { reason }) => {
+                diag.struct_error(ErrorCode(6004), "codegen.ptxas_rejected")
+                    .arg("reason", reason)
+                    .emit();
+                eprint!(
+                    "{}",
+                    render_diagnostics(&diag.emitted(), &sm, diag.messages())
+                );
+                return 1;
+            }
+            Err(PtxError::Toolchain(e)) => {
+                toolchain_err(&diag, &sm, e);
+                return 1;
+            }
+        }
+    }
+
+    // 未知 emit 目标拒绝(M8.1:避免未知 --emit 静默落入 host EXE 路径)。
+    if let Some(target) = emit.as_deref()
+        && !matches!(
+            target,
+            "check" | "mir" | "nvptx-ir" | "ptx" | "llvm-ir" | "pyd"
+        )
+    {
+        toolchain_err(
+            &diag,
+            &sm,
+            format!("未知 --emit 目标 `{target}`(合法:check/mir/llvm-ir/nvptx-ir/ptx/pyd)"),
+        );
+        return 1;
     }
 
     let t = Instant::now();

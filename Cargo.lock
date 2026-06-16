@@ -47,6 +47,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "rurix-interop"
+version = "0.1.0"
+dependencies = [
+ "rurix-rt",
+ "rurixc",
+]
+
+[[package]]
 name = "rurix-pkg"
 version = "0.1.0"
 

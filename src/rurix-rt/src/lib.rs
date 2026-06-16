@@ -20,7 +20,7 @@ use std::cell::Cell;
 
 pub use error::{CudaError, Result};
 
-use sys::{CuDevicePtr, CuPtr};
+use sys::{CuDevice, CuDevicePtr, CuPtr};
 
 /// PTX `.version` 协商降版阶梯(08 §2.4;高→低,驱动不支持时逐级回退)。
 const PTX_VERSION_LADDER: [&str; 3] = ["8.0", "7.8", "7.0"];
@@ -29,6 +29,11 @@ const PTX_VERSION_LADDER: [&str; 3] = ["8.0", "7.8", "7.0"];
 /// context 线程绑定);携 poisoned 状态机(RXS-0077)。
 pub struct Context {
     raw: CuPtr,
+    /// 设备序号(primary context retain/release 配对需要;互操作零拷贝 M8.1)。
+    device: CuDevice,
+    /// `true` = primary context(`cuDevicePrimaryCtxRetain`,Drop 走 release);
+    /// `false` = 独占 context(`cuCtxCreate`,Drop 走 destroy)。
+    primary: bool,
     /// poisoned 触发点(`Some((op, code))` 后全部操作确定性失败,08 §2.5)。
     poison: Cell<Option<(&'static str, sys::CuResult)>>,
     /// `*mut` 字段已使 Context !Send/!Sync;显式标注语义(affine,线程绑定)。
@@ -51,6 +56,40 @@ impl Context {
         error::check("cuCtxCreate", r)?;
         Ok(Context {
             raw,
+            device: dev,
+            primary: false,
+            poison: Cell::new(None),
+            _not_sync: PhantomData,
+        })
+    }
+
+    /// 保留并绑定设备 primary context(`cuDevicePrimaryCtxRetain` +
+    /// `cuCtxSetCurrent`;互操作零拷贝 M8.1 / RXS-0125)。
+    ///
+    /// 与 PyTorch / CuPy 等基于 CUDA runtime API 的框架**共享同一 primary
+    /// context**——外部框架(如 PyTorch CUDA caching allocator)分配的设备指针在
+    /// 同一 context 内直接有效,launch 复用 M5 自研 kernel 即可零拷贝读写,无需
+    /// 跨 context 搬运。Drop 走 `cuDevicePrimaryCtxRelease`(不 destroy 共享 context)。
+    pub fn from_primary(ordinal: i32) -> Result<Context> {
+        let cuda = sys::cuda().ok_or(CudaError::DriverUnavailable)?;
+        error::check("cuInit", cuda.init())?;
+        let (r, dev) = cuda.device_get(ordinal);
+        error::check("cuDeviceGet", r)?;
+        let (r, raw) = cuda.primary_ctx_retain(dev);
+        error::check("cuDevicePrimaryCtxRetain", r)?;
+        // SAFETY: raw 由 primary_ctx_retain 成功返回,为有效 context 句柄。
+        let r = unsafe { cuda.ctx_set_current(raw) };
+        if r != sys::CUDA_SUCCESS {
+            // SAFETY: dev 刚 retain 成功,release 与之配对(回滚 retain)。
+            unsafe {
+                let _ = cuda.primary_ctx_release(dev);
+            }
+            error::check("cuCtxSetCurrent", r)?;
+        }
+        Ok(Context {
+            raw,
+            device: dev,
+            primary: true,
             poison: Cell::new(None),
             _not_sync: PhantomData,
         })
@@ -91,8 +130,34 @@ impl Context {
             ctx: self,
             ptr,
             len: n,
+            owned: true,
             _t: PhantomData,
         })
+    }
+
+    /// 从外部设备指针构造**借用**缓冲(零拷贝互操作 M8.1 / RXS-0123 / RXS-0124)。
+    ///
+    /// 设备内存由外部框架(PyTorch / CuPy,经 `__cuda_array_interface__` v3 或
+    /// DLPack capsule)拥有;本缓冲仅借用其设备地址用于 launch,**Drop 不
+    /// `cuMemFree`**(所有权留在外部 deleter,affine 借用,不悬垂 / 不双重释放)。
+    /// 借用 brand 绑 `'ctx`,不晚于 context;须与外部内存同一 device primary context
+    /// ([`Context::from_primary`])以保证设备指针在本 context 内有效。
+    ///
+    /// # Safety
+    /// 调用方必须保证 `ptr` 是在本 `Context` 设备上有效、可读写、至少容纳 `len`
+    /// 个 `T` 的设备地址,且在本借用缓冲存活期间保持有效(外部 deleter 未释放)。
+    pub unsafe fn from_device_ptr<T: Copy>(
+        &self,
+        ptr: CuDevicePtr,
+        len: usize,
+    ) -> DeviceBuffer<'_, T> {
+        DeviceBuffer {
+            ctx: self,
+            ptr,
+            len,
+            owned: false,
+            _t: PhantomData,
+        }
     }
 
     /// 锁页主机内存分配(`cuMemAllocHost`,D-232;pinned staging)。
@@ -205,12 +270,20 @@ impl Context {
 
 impl Drop for Context {
     fn drop(&mut self) {
-        // 销毁纪律(D-231):先同步再 cuCtxDestroy;Drop 中错误吞掉(无 panic)。
+        // 销毁纪律(D-231):先同步再释放;Drop 中错误吞掉(无 panic)。
         if let Some(cuda) = sys::cuda() {
             let _ = cuda.ctx_synchronize();
-            // SAFETY: self.raw 由 ctx_create 产出且本类型独占,Drop 仅一次。
-            unsafe {
-                let _ = cuda.ctx_destroy(self.raw);
+            if self.primary {
+                // SAFETY: self.device 由 from_primary 经 primary_ctx_retain 成功,
+                // 与本次 release 配对(retain/release 引用计数),Drop 仅一次。
+                unsafe {
+                    let _ = cuda.primary_ctx_release(self.device);
+                }
+            } else {
+                // SAFETY: self.raw 由 ctx_create 产出且本类型独占,Drop 仅一次。
+                unsafe {
+                    let _ = cuda.ctx_destroy(self.raw);
+                }
             }
         }
     }
@@ -221,6 +294,9 @@ pub struct DeviceBuffer<'ctx, T: Copy> {
     ctx: &'ctx Context,
     ptr: CuDevicePtr,
     len: usize,
+    /// `true` = 本类型拥有(`cuMemAlloc`,Drop free);`false` = 借用外部设备内存
+    /// (互操作零拷贝,Drop 不 free;所有权在外部 deleter,M8.1)。
+    owned: bool,
     _t: PhantomData<T>,
 }
 
@@ -265,8 +341,13 @@ impl<T: Copy> DeviceBuffer<'_, T> {
 
 impl<T: Copy> Drop for DeviceBuffer<'_, T> {
     fn drop(&mut self) {
+        // 借用缓冲(from_device_ptr)不释放:设备内存所有权在外部框架 deleter,
+        // 释放它会双重释放(M8.1 零拷贝互操作所有权纪律)。
+        if !self.owned {
+            return;
+        }
         if let Some(cuda) = sys::cuda() {
-            // SAFETY: self.ptr 由 mem_alloc 产出且本类型独占,Drop 仅一次。
+            // SAFETY: self.ptr 由 mem_alloc 产出且本类型独占(owned),Drop 仅一次。
             unsafe {
                 let _ = cuda.mem_free(self.ptr);
             }
