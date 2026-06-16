@@ -527,6 +527,38 @@
       "status": "active",
       "introduced_in": "M8.1",
       "spec_clauses": ["RXS-0123"]
+    },
+    {
+      "id": "RX7016",
+      "title": "cublas 句柄初始化失败(cublas runtime DLL 不可用 / cublasCreate 失败 / 无 GPU 或共享 primary context)",
+      "message_key": "cublas.handle_init_failed",
+      "status": "active",
+      "introduced_in": "M8.2",
+      "spec_clauses": ["RXS-0126", "RXS-0127"]
+    },
+    {
+      "id": "RX7017",
+      "title": "cublas 设备指针非法(空指针 / 非设备地址 / 非本 context 设备内存)",
+      "message_key": "cublas.invalid_device_pointer",
+      "status": "active",
+      "introduced_in": "M8.2",
+      "spec_clauses": ["RXS-0127"]
+    },
+    {
+      "id": "RX7018",
+      "title": "cublas 维度不匹配(维度为 0 / GEMM·GEMV 算子维度不相容)",
+      "message_key": "cublas.dimension_mismatch",
+      "status": "active",
+      "introduced_in": "M8.2",
+      "spec_clauses": ["RXS-0127"]
+    },
+    {
+      "id": "RX7019",
+      "title": "cublas 执行运行时失败(cublasStatus_t != SUCCESS / context 同步失败)",
+      "message_key": "cublas.runtime_failed",
+      "status": "active",
+      "introduced_in": "M8.2",
+      "spec_clauses": ["RXS-0128"]
     }
   ],
   "revision_log": [
@@ -634,6 +666,11 @@
       "version": "v1.20",
       "date": "2026-06-16",
       "change": "M8.1 分配 RX7013 ~ RX7015(互操作诊断首批,spec/interop.md RXS-0122~0125 配套,M8_PLAN §1 任务 4,条款 PR 先行引用的正式分配)。段位裁决:互操作诊断(协议不支持 / 设备指针非法 / 形状不匹配)按 07 §5 段位语义归 7xxx 链接/工具链段位续接(RX7012 之后),**不另起新顶层段位**(对齐 M6 rx CLI/包管理/LSP 先例;check_schemas 强制 RX#### 第 3 位段位 0–7,互操作属工具链类语义)。RX7013 互操作协议不支持(对象未暴露 __cuda_array_interface__ v3 / DLPack;或 rx build --emit=pyd 输入无 kernel fn 可导出零拷贝算子——rurixc driver --emit=pyd 编译期发码);RX7014 互操作设备指针非法(空指针 / 非设备地址,rurix-interop FFI 边界运行期校验,先于任何 GPU 调用);RX7015 互操作形状不匹配(维度为 0 / 算子维度不相容,rurix-interop FFI 边界校验)。message_key interop.unsupported_protocol / interop.invalid_device_pointer / interop.shape_mismatch 落 en.messages;段内分配制递增不复用、含义冻结(10 §6)。cublas(M8.2)/ 发布链路(M8.4)/ 双语诊断(M8.5)错误码无实现不预造"
+    },
+    {
+      "version": "v1.21",
+      "date": "2026-06-16",
+      "change": "M8.2 分配 RX7016 ~ RX7019(cublas 绑定诊断,spec/cublas.md RXS-0126~0129 配套,M8_PLAN §2 任务 4,条款 PR 先行引用的正式分配)。段位裁决:cublas 绑定诊断(句柄初始化 / 设备指针非法 / 维度不匹配 / 执行运行时失败)按 07 §5 段位语义归 7xxx 链接/工具链段位续接(RX7015 之后),**不另起新顶层段位**(对齐 M8.1 互操作先例;cublas 绑定属工具链/库绑定类语义)。RX7016 cublas 句柄初始化失败(cublas runtime DLL 不可用 / cublasCreate 失败,rurix-cublas safe wrapper 运行期);RX7017 cublas 设备指针非法(空指针 / 非设备地址,先于任何 cublas 调用的纯 CPU 前置校验);RX7018 cublas 维度不匹配(维度为 0 / GEMM·GEMV 算子维度不相容);RX7019 cublas 执行运行时失败(cublasStatus_t != SUCCESS / context 同步失败)。message_key cublas.handle_init_failed / cublas.invalid_device_pointer / cublas.dimension_mismatch / cublas.runtime_failed 落 en.messages(rurix-cublas 以错误码常量发码,沿用 rurix-interop 风格);段内分配制递增不复用、含义冻结(10 §6)。发布链路(M8.4)/ 双语诊断(M8.5)错误码无实现不预造"
     }
   ]
 }

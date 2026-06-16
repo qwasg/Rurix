@@ -105,6 +105,10 @@ jobs:
         shell: powershell
         run: py -3 ci/uc01_interop_smoke.py
 
+      - name: cublas GEMM/GEMV binding smoke (M8 CI_GATES §2.35, G-M8-2)
+        shell: powershell
+        run: py -3 ci/cublas_binding_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

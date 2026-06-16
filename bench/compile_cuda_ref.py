@@ -18,7 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SRC_DIR = ROOT / "bench" / "cuda_ref"
 OUT_DIR = ROOT / "bench" / "kernels"
-KERNELS = ("reduce", "scan", "gemm_tile")
+KERNELS = ("reduce", "scan", "gemm_tile", "saxpy", "gemv")
 ARCH = "sm_89"
 
 

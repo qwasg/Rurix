@@ -129,3 +129,7 @@
 | RXS-0123 | spec/interop.md | 1 | `src/rurix-interop/src/lib.rs` |
 | RXS-0124 | spec/interop.md | 1 | `src/rurix-interop/src/lib.rs` |
 | RXS-0125 | spec/interop.md | 1 | `src/rurix-interop/src/lib.rs` |
+| RXS-0126 | spec/cublas.md | 1 | `src/rurix-cublas/src/lib.rs` |
+| RXS-0127 | spec/cublas.md | 1 | `src/rurix-cublas/src/lib.rs` |
+| RXS-0128 | spec/cublas.md | 1 | `src/rurix-cublas/src/lib.rs` |
+| RXS-0129 | spec/cublas.md | 1 | `src/rurix-cublas/src/lib.rs` |

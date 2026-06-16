@@ -1,0 +1,27 @@
+[package]
+name = "rurix-cublas"
+description = "Rurix cublas 绑定包(M8.2,D-M8-2:GEMM/GEMV 三层绑定 raw FFI / safe wrapper / 高层 API;cublas runtime DLL 动态加载、按需附带与 Attachment A 白名单审计;复用 rurix-rt 共享 primary context + 借用外部设备指针缓冲零拷贝;spec/cublas.md RXS-0126~0129)"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[lib]
+# cdylib = 经 ctypes 供 ci/cublas_binding_smoke.py 加载(torch CUDA 张量设备指针零拷贝);
+# rlib = cargo test/workspace(RXS-0126~0129 单测锚定)。
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# 复用运行时薄层(Context::from_primary 共享 primary context + from_device_ptr 借用
+# 外部设备指针缓冲 + ctx.synchronize);运行时零外部依赖(nvcuda.dll 动态加载)。
+rurix-rt = { path = "../rurix-rt" }
+
+# unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6;M8_CONTRACT §5 guardrail):rurix-cublas 是
+# cublas FFI 边界 crate,经裁决最小开 unsafe(cublas64_*.dll 动态加载 + cublas v2 C API
+# extern "C" 调用),注册见 unsafe-audit/rurix-cublas.md;safe wrapper 层对上全 safe。
+# 仍强制每 unsafe 块携 `// SAFETY:`(clippy undocumented_unsafe_blocks = deny)。
+# 其余新 crate 维持 deny。
+[lints.rust]
+unsafe_code = "allow"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "deny"

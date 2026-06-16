@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/cublas_binding/v1",
+  "title": "Rurix cublas GEMM/GEMV 三层绑定冒烟证据 JSON(M8.2,契约 G-M8-2)",
+  "description": "cargo build -p rurix-cublas 产 cdylib(三层绑定 raw FFI / safe wrapper / 高层 API),经 ctypes 加载,PyTorch CUDA 张量(行主序 f32)经 C ABI rurix_cublas_gemm/gemv 零拷贝(data_ptr 设备地址)调用 cublas、与 torch.matmul/torch.mv 数值对照通过的机器事实清单。bindings_passed 去重计数计入 m8.counter.cublas_bindings(ci/budget_eval.py;>=2 则 PASS,建设期不足为 normal SKIP)。runtime DLL 经 Attachment A 白名单审计留痕(RXS-0129)。机器复核闸门 = ci/cublas_binding_smoke.py(绑定数值对照失败 / 内建篡改红绿无效即非零退出,反 YAML-only)。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject",
+    "bindings_passed",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": {
+      "description": "证据对象",
+      "const": "cublas_bindings"
+    },
+    "bindings_passed": {
+      "description": "经 ctypes 零拷贝接入 PyTorch CUDA 张量、cublas 绑定数值对照通过的去重绑定集(GEMM/GEMV 三层绑定)",
+      "type": "array",
+      "items": { "enum": ["gemm", "gemv"] },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "binding_layers": {
+      "description": "三层绑定覆盖(raw FFI / safe wrapper / 高层 API)",
+      "type": "array",
+      "items": { "enum": ["raw_ffi", "safe_wrapper", "high_level_api"] },
+      "uniqueItems": true
+    },
+    "build_command": { "type": "string" },
+    "device": {
+      "description": "实测 GPU / torch CUDA 环境",
+      "type": "object",
+      "properties": {
+        "gpu": { "type": "string" },
+        "torch": { "type": "string" },
+        "cuda": { "type": "string" }
+      }
+    },
+    "redistribution": {
+      "description": "cublas runtime DLL Attachment A 白名单审计留痕(RXS-0129;完整 Toolkit/驱动/Nsight 永不捆绑,r6)",
+      "type": "object",
+      "properties": {
+        "runtime_dll": { "type": "string" },
+        "attachment_a_whitelisted": { "type": "boolean" },
+        "note": { "type": "string" }
+      }
+    },
+    "facts": {
+      "description": "逐绑定 ↔ 层 ↔ 数值对照背书(反 YAML-only:每条结论可由命令实测复现)",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["binding", "max_rel_err"],
+        "properties": {
+          "binding": { "type": "string" },
+          "layer": { "type": "string" },
+          "max_rel_err": { "type": "number" },
+          "tolerance": { "type": "number" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "redgreen": {
+      "description": "门禁真实红绿验证留痕(反 YAML-only,H06 D11.8-2:篡改绑定数值结果 → 红 → 复原绿)",
+      "type": "object",
+      "properties": {
+        "red_command": { "type": "string" },
+        "red_detected": { "type": "boolean" },
+        "green_command": { "type": "string" },
+        "green_exit_code": { "type": "integer" },
+        "run_url": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "harness_commit": { "type": "string" }
+  }
+}

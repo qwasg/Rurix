@@ -801,6 +801,18 @@
     ],
     "RXS-0125": [
       "src/rurix-interop/src/lib.rs"
+    ],
+    "RXS-0126": [
+      "src/rurix-cublas/src/lib.rs"
+    ],
+    "RXS-0127": [
+      "src/rurix-cublas/src/lib.rs"
+    ],
+    "RXS-0128": [
+      "src/rurix-cublas/src/lib.rs"
+    ],
+    "RXS-0129": [
+      "src/rurix-cublas/src/lib.rs"
     ]
   }
 }
