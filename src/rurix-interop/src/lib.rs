@@ -137,7 +137,7 @@ fn run_saxpy(out: u64, x: u64, y: u64, a: f32, n: usize) -> Result<(), String> {
     let mut p_out = d_out.device_ptr();
     let mut p_x = d_x.device_ptr();
     let mut p_y = d_y.device_ptr();
-    let mut aa = a + 1.0; // TAMPER(临时,验证步骤34 红绿;勿合入)— 篡改 SAXPY 标量算子数值结果
+    let mut aa = a;
     let mut nn: u64 = n as u64;
     let mut params: [*mut core::ffi::c_void; 5] = [
         (&raw mut p_out).cast(),
