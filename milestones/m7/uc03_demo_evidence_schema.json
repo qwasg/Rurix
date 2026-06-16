@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/uc03_demo/v1",
+  "title": "Rurix UC-03 旗舰 demo 单 EXE + 确定性图像序列冒烟证据 JSON(M7.4,契约 G-M7-1)",
+  "description": "UC-03 验收 demo(SPH 仿真 + G0 软光栅出图 + image-io PPM 落盘)单 EXE 分发 + 确定性输出图像序列的机器事实清单(01 §6 旗舰用例)。image_sequence_ok=true 的报告计入 m7.counter.uc03_demo_image_sequence(ci/budget_eval.py;>=1 则 PASS,建设期 demo 未落地为 normal SKIP)。机器复核闸门 = ci/uc03_demo_smoke.py(cargo 产单 EXE → 同一固定初值/固定步长两次运行落盘逐帧 content SHA-256 逐字节一致 + 内建篡改帧像素红绿,反 YAML-only)。单 EXE 为 host 本地构建产物,不打包再分发(真分发 G1 cubin/fatbin 随 M8);demo 工程编排复用 stdlib(RXS-0104~0113)/imageio(RXS-0114~0117)/softraster(RXS-0118~0121),不新增 spec 语义面。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject",
+    "image_sequence_ok",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": {
+      "description": "证据对象",
+      "const": "uc03_demo"
+    },
+    "image_sequence_ok": {
+      "description": "UC-03 demo 单 EXE 输出确定性图像序列且两次运行逐帧 content SHA-256 逐字节一致(契约 G-M7-1);计数源",
+      "const": true
+    },
+    "single_exe": {
+      "description": "单 EXE 构建链路背书(host 本地构建产物,不打包再分发)",
+      "type": "object",
+      "properties": {
+        "binary": { "type": "string" },
+        "build_command": { "type": "string" },
+        "note": { "type": "string" }
+      }
+    },
+    "determinism": {
+      "description": "确定性图像序列背书:固定初值/固定步长两次运行落盘逐帧 content SHA-256 逐字节一致 + 序列含运动",
+      "type": "object",
+      "properties": {
+        "frames": { "type": "integer" },
+        "distinct_frames": { "type": "integer" },
+        "frame_sha256_match": { "type": "boolean" },
+        "run_dirs": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "redgreen": {
+      "description": "门禁真实红绿验证留痕(反 YAML-only,H06 D11.8-2;篡改一帧像素红、复原绿)",
+      "type": "object",
+      "properties": {
+        "red_command": { "type": "string" },
+        "red_sha_changed": { "type": "boolean" },
+        "green_command": { "type": "string" },
+        "green_exit_code": { "type": "integer" },
+        "run_url": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "harness_commit": { "type": "string" }
+  }
+}
