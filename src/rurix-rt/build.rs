@@ -20,7 +20,19 @@ use rurixc::span::{Edition, SourceId};
 /// 嵌入的 device kernel 列表(M4.4 SAXPY + M5.3 gpu 并行基元)。每项 (kernel 文件名
 /// 干名 = module 名 = 常量前缀小写)产 `$OUT_DIR/{name}.ptx` + `{name}_meta.rs`
 /// (常量 `{UPPER}_KERNEL` = ptx_kernel 入口符号名;降级时为空)。
-const KERNELS: &[&str] = &["saxpy", "reduce", "scan", "transpose", "gemm_tile"];
+const KERNELS: &[&str] = &[
+    "saxpy",
+    "reduce",
+    "scan",
+    "transpose",
+    "gemm_tile",
+    // M7.3 G0 软光栅 kernel(binning/tile 光栅/深度/tonemap,全 safe,atomics-free;
+    // spec/softraster.md RXS-0118~0121,D-M7-3)
+    "sr_binning",
+    "sr_raster_tile",
+    "sr_depth",
+    "sr_tonemap",
+];
 
 fn main() {
     let manifest = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());

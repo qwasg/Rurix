@@ -1,0 +1,137 @@
+; ModuleID = 'sr_depth'
+source_filename = "sr_depth"
+target triple = "nvptx64-nvidia-cuda"
+
+declare i32 @llvm.nvvm.read.ptx.sreg.ctaid.x()
+declare i32 @llvm.nvvm.read.ptx.sreg.ntid.x()
+declare i32 @llvm.nvvm.read.ptx.sreg.tid.x()
+
+define ptx_kernel void @rx_sr_depth_8(ptr addrspace(1) %arg2, ptr addrspace(1) %arg3, ptr addrspace(1) %arg4, ptr addrspace(1) %arg5, i64 %arg6, i64 %arg7, float %arg8) {
+entry:
+  %l2 = alloca ptr addrspace(1), addrspace(5)
+  %l3 = alloca ptr addrspace(1), addrspace(5)
+  %l4 = alloca ptr addrspace(1), addrspace(5)
+  %l5 = alloca ptr addrspace(1), addrspace(5)
+  %l6 = alloca i64, addrspace(5)
+  %l7 = alloca i64, addrspace(5)
+  %l8 = alloca float, addrspace(5)
+  %l9 = alloca i64, addrspace(5)
+  %l10 = alloca float, addrspace(5)
+  %l11 = alloca float, addrspace(5)
+  %l12 = alloca i64, addrspace(5)
+  %l13 = alloca float, addrspace(5)
+  %l14 = alloca i64, addrspace(5)
+  %l15 = alloca i8, addrspace(5)
+  %l16 = alloca i8, addrspace(5)
+  %l17 = alloca i64, addrspace(5)
+  %l18 = alloca i64, addrspace(5)
+  %l19 = alloca i8, addrspace(5)
+  %l20 = alloca i64, addrspace(5)
+  %l21 = alloca i64, addrspace(5)
+  store ptr addrspace(1) %arg2, ptr addrspace(5) %l2
+  store ptr addrspace(1) %arg3, ptr addrspace(5) %l3
+  store ptr addrspace(1) %arg4, ptr addrspace(5) %l4
+  store ptr addrspace(1) %arg5, ptr addrspace(5) %l5
+  store i64 %arg6, ptr addrspace(5) %l6
+  store i64 %arg7, ptr addrspace(5) %l7
+  store float %arg8, ptr addrspace(5) %l8
+  br label %bb0
+bb0:
+  %t0 = call i32 @llvm.nvvm.read.ptx.sreg.ctaid.x()
+  %t1 = call i32 @llvm.nvvm.read.ptx.sreg.ntid.x()
+  %t2 = call i32 @llvm.nvvm.read.ptx.sreg.tid.x()
+  %t3 = mul i32 %t0, %t1
+  %t4 = add i32 %t3, %t2
+  %t5 = zext i32 %t4 to i64
+  store i64 %t5, ptr addrspace(5) %l14
+  br label %bb1
+bb1:
+  %t6 = load i64, ptr addrspace(5) %l14
+  store i64 %t6, ptr addrspace(5) %l9
+  %t7 = load i64, ptr addrspace(5) %l9
+  %t8 = load i64, ptr addrspace(5) %l6
+  %t9 = icmp ult i64 %t7, %t8
+  %t10 = zext i1 %t9 to i8
+  store i8 %t10, ptr addrspace(5) %l15
+  %t11 = load i8, ptr addrspace(5) %l15
+  %t12 = icmp ne i8 %t11, 0
+  br i1 %t12, label %bb2, label %bb3
+bb2:
+  %t13 = load float, ptr addrspace(5) %l8
+  store float %t13, ptr addrspace(5) %l10
+  store float 0x0000000000000000, ptr addrspace(5) %l11
+  store i64 0, ptr addrspace(5) %l12
+  br label %bb5
+bb3:
+  br label %bb4
+bb4:
+  ret void
+bb5:
+  %t14 = load i64, ptr addrspace(5) %l12
+  %t15 = load i64, ptr addrspace(5) %l7
+  %t16 = icmp ult i64 %t14, %t15
+  %t17 = zext i1 %t16 to i8
+  store i8 %t17, ptr addrspace(5) %l16
+  %t18 = load i8, ptr addrspace(5) %l16
+  %t19 = icmp ne i8 %t18, 0
+  br i1 %t19, label %bb6, label %bb7
+bb6:
+  %t20 = load i64, ptr addrspace(5) %l9
+  %t21 = load i64, ptr addrspace(5) %l7
+  %t22 = mul i64 %t20, %t21
+  store i64 %t22, ptr addrspace(5) %l17
+  %t23 = load i64, ptr addrspace(5) %l17
+  %t24 = load i64, ptr addrspace(5) %l12
+  %t25 = add i64 %t23, %t24
+  store i64 %t25, ptr addrspace(5) %l18
+  %t26 = load ptr addrspace(1), ptr addrspace(5) %l2
+  %t27 = load i64, ptr addrspace(5) %l18
+  %t28 = getelementptr float, ptr addrspace(1) %t26, i64 %t27
+  %t29 = load float, ptr addrspace(1) %t28
+  store float %t29, ptr addrspace(5) %l13
+  %t30 = load float, ptr addrspace(5) %l13
+  %t31 = load float, ptr addrspace(5) %l10
+  %t32 = fcmp olt float %t30, %t31
+  %t33 = zext i1 %t32 to i8
+  store i8 %t33, ptr addrspace(5) %l19
+  %t34 = load i8, ptr addrspace(5) %l19
+  %t35 = icmp ne i8 %t34, 0
+  br i1 %t35, label %bb8, label %bb9
+bb7:
+  %t36 = load float, ptr addrspace(5) %l10
+  %t37 = load ptr addrspace(1), ptr addrspace(5) %l4
+  %t38 = load i64, ptr addrspace(5) %l9
+  %t39 = getelementptr float, ptr addrspace(1) %t37, i64 %t38
+  store float %t36, ptr addrspace(1) %t39
+  %t40 = load float, ptr addrspace(5) %l11
+  %t41 = load ptr addrspace(1), ptr addrspace(5) %l5
+  %t42 = load i64, ptr addrspace(5) %l9
+  %t43 = getelementptr float, ptr addrspace(1) %t41, i64 %t42
+  store float %t40, ptr addrspace(1) %t43
+  br label %bb4
+bb8:
+  %t44 = load float, ptr addrspace(5) %l13
+  store float %t44, ptr addrspace(5) %l10
+  %t45 = load i64, ptr addrspace(5) %l9
+  %t46 = load i64, ptr addrspace(5) %l7
+  %t47 = mul i64 %t45, %t46
+  store i64 %t47, ptr addrspace(5) %l20
+  %t48 = load i64, ptr addrspace(5) %l20
+  %t49 = load i64, ptr addrspace(5) %l12
+  %t50 = add i64 %t48, %t49
+  store i64 %t50, ptr addrspace(5) %l21
+  %t51 = load ptr addrspace(1), ptr addrspace(5) %l3
+  %t52 = load i64, ptr addrspace(5) %l21
+  %t53 = getelementptr float, ptr addrspace(1) %t51, i64 %t52
+  %t54 = load float, ptr addrspace(1) %t53
+  store float %t54, ptr addrspace(5) %l11
+  br label %bb10
+bb9:
+  br label %bb10
+bb10:
+  %t55 = load i64, ptr addrspace(5) %l12
+  %t56 = add i64 %t55, 1
+  store i64 %t56, ptr addrspace(5) %l12
+  br label %bb5
+}
+

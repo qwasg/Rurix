@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "subject": "soft_raster_kernels",
+  "safe_kernels": [
+    "sr_binning",
+    "sr_raster_tile",
+    "sr_depth",
+    "sr_tonemap"
+  ],
+  "device_facts": [
+    {
+      "source": "conformance/soft_raster/device/sr_binning.rx",
+      "emit": "--emit=nvptx-ir",
+      "exit_code": 0,
+      "ptxas": "ran",
+      "note": "PASS"
+    },
+    {
+      "source": "conformance/soft_raster/device/sr_raster_tile.rx",
+      "emit": "--emit=nvptx-ir",
+      "exit_code": 0,
+      "ptxas": "ran",
+      "note": "PASS"
+    },
+    {
+      "source": "conformance/soft_raster/device/sr_depth.rx",
+      "emit": "--emit=nvptx-ir",
+      "exit_code": 0,
+      "ptxas": "ran",
+      "note": "PASS"
+    },
+    {
+      "source": "conformance/soft_raster/device/sr_tonemap.rx",
+      "emit": "--emit=nvptx-ir",
+      "exit_code": 0,
+      "ptxas": "ran",
+      "note": "PASS"
+    }
+  ],
+  "unsafe_kernels": [],
+  "determinism": {
+    "frames": 6,
+    "frame_sha256_match": true,
+    "repro_binary": "target/debug/softraster_repro"
+  },
+  "gpu_roundtrip": "skipped",
+  "redgreen": {
+    "red_command": "篡改 softraster_repro 落盘帧像素字节序(R/B 通道交换)后计 content SHA-256",
+    "red_sha_changed": true,
+    "green_command": "py -3 ci/soft_raster_smoke.py(固定输入两次落盘逐帧 content SHA-256 逐字节一致)",
+    "green_exit_code": 0,
+    "run_url": "local red-green(反 YAML-only,H06 D11.8-2);pr-smoke 步骤 31 self-hosted runner run URL 见 PR 描述"
+  },
+  "rurixc_binary": "target/debug/rurixc.exe",
+  "timestamp": "2026-06-16T12:06:24+08:00"
+}

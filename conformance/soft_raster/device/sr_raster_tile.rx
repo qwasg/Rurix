@@ -1,0 +1,54 @@
+//@ spec: RXS-0119
+// G0 软光栅 — tile 光栅:覆盖判定 / 重心坐标 / 边函数(RXS-0119)。
+// 2D ThreadCtx 映射图像像素 (x,y);边函数符号同号判定三角形覆盖,重心坐标对顶点
+// 属性插值;退化三角形(area2==0)不覆盖。每像素独立求值,确定性。全 safe。
+//
+// 布局:tri[0..8] = (x0,y0,x1,y1,x2,y2,a0,a1,a2)(三顶点屏幕 xy + 单标量属性);
+//   cover[y*w + x] = 覆盖时的插值属性,否则 0。
+
+// 边函数(二维叉积):edge(A,B,P) = (Bx-Ax)*(Py-Ay) - (By-Ay)*(Px-Ax)
+device fn edge(ax: f32, ay: f32, bx: f32, by: f32, px: f32, py: f32) -> f32 {
+    (bx - ax) * (py - ay) - (by - ay) * (px - ax)
+}
+
+kernel fn sr_raster_tile(
+    t: ThreadCtx<2>,
+    tri: View<global, f32>,
+    cover: ViewMut<global, f32>,
+    w: usize,
+    h: usize,
+) {
+    let x = t.global_id_x();
+    let y = t.global_id_y();
+    if x < w {
+        if y < h {
+            let x0 = tri[0];
+            let y0 = tri[1];
+            let x1 = tri[2];
+            let y1 = tri[3];
+            let x2 = tri[4];
+            let y2 = tri[5];
+            let a0 = tri[6];
+            let a1 = tri[7];
+            let a2 = tri[8];
+            let px = (x as f32) + 0.5;
+            let py = (y as f32) + 0.5;
+            let area2 = edge(x0, y0, x1, y1, x2, y2);
+            let mut out = 0.0;
+            if area2 != 0.0 {
+                let e0 = edge(x1, y1, x2, y2, px, py);
+                let e1 = edge(x2, y2, x0, y0, px, py);
+                let e2 = edge(x0, y0, x1, y1, px, py);
+                if e0 >= 0.0 && e1 >= 0.0 && e2 >= 0.0 {
+                    let w0 = e0 / area2;
+                    let w1 = e1 / area2;
+                    let w2 = e2 / area2;
+                    out = w0 * a0 + w1 * a1 + w2 * a2;
+                }
+            }
+            cover[y * w + x] = out;
+        }
+    }
+}
+
+fn main() {}
