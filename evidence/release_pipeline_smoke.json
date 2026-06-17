@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "subject": "release_pipeline",
+  "signed_artifacts": [
+    "rurixup.exe",
+    "rx.exe"
+  ],
+  "sbom_present": true,
+  "redistribution_audit_pass": true,
+  "allow_upload": true,
+  "signing_backend": "self-signed-test",
+  "eula_whitelist_verdict": "pending-human-review",
+  "bundle": {
+    "rurix_version": "0.1.0",
+    "language_core_count": 2,
+    "nvidia_redist_count": 0
+  },
+  "sbom_views": {
+    "spdx": "target/rurixup_release_smoke/green/sbom.spdx.json",
+    "cyclonedx": "target/rurixup_release_smoke/green/sbom.cdx.json"
+  },
+  "facts": [
+    {
+      "kind": "sign",
+      "name": "rurixup.exe",
+      "status": "Valid",
+      "timestamped": true,
+      "backend": "self-signed-test"
+    },
+    {
+      "kind": "sign",
+      "name": "rx.exe",
+      "status": "Valid",
+      "timestamped": true,
+      "backend": "self-signed-test"
+    },
+    {
+      "kind": "gate",
+      "name": "red:未签名产物",
+      "result": "[signing]",
+      "note": "应阻断(exit 2),实测 exit=2 failed_gates=[signing]"
+    },
+    {
+      "kind": "gate",
+      "name": "red:缺 SBOM",
+      "result": "[sbom]",
+      "note": "应阻断(exit 2),实测 exit=2 failed_gates=[sbom]"
+    },
+    {
+      "kind": "gate",
+      "name": "red:白名单外 NVIDIA 组件",
+      "result": "[redistribution-audit]",
+      "note": "应阻断(exit 2),实测 exit=2 failed_gates=[redistribution-audit]"
+    }
+  ],
+  "redgreen": {
+    "red_command": "workflow_dispatch release.yml on codex/m8.4-release-redgate with --simulate-missing-sbom",
+    "red_detected": true,
+    "green_command": "tag push v0.1.0-m8.4 -> RURIXUP_SIGN=1 py -3 ci/release_pipeline_smoke.py",
+    "green_exit_code": 0,
+    "run_url": "red=https://github.com/qwasg/Rurix/actions/runs/27675184250; green=https://github.com/qwasg/Rurix/actions/runs/27676332410"
+  },
+  "timestamp": "2026-06-17T16:35:06+08:00",
+  "harness_commit": "4d813ce89c04eb47d46721a903668aaf117b9c1e"
+}
