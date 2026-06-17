@@ -4,6 +4,7 @@ description = "Rurix 运行时(M4.3:CUDA Driver API 薄层 — Context/Stream/Bu
 edition.workspace = true
 version.workspace = true
 publish.workspace = true
+license.workspace = true
 
 [dependencies]
 # 零外部依赖:nvcuda.dll 运行时动态加载(LoadLibraryA/GetProcAddress),

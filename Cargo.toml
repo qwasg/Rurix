@@ -8,6 +8,7 @@ members = ["src/rurixc", "src/rurix-rt", "src/rx", "src/rurix-pkg", "src/image-i
 edition = "2024"
 version = "0.1.0"
 publish = false
+license = "MIT OR Apache-2.0"        # D-003:MVP 后 Apache-2.0 + MIT 双许可开源
 
 [workspace.lints.rust]
 unsafe_code = "deny"        # unsafe 纪律(10 §7.6):出现 unsafe 前须先建 unsafe-audit 注册条目,届时按块豁免

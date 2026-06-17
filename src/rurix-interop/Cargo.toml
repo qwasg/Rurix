@@ -4,6 +4,7 @@ description = "Rurix 互操作 FFI 边界(M8.1,D-M8-1:UC-01 PyTorch 算子替换
 edition.workspace = true
 version.workspace = true
 publish.workspace = true
+license.workspace = true
 
 [lib]
 # staticlib = 链接进 nanobind PYD(scikit-build-core/CMake);rlib = cargo test/workspace。
