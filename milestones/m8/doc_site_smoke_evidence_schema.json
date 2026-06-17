@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/doc_site/v1",
+  "title": "Rurix 文档站 rx doc 生成冒烟证据 JSON(M8.6,契约 G-M8-6 子项,CI_GATES §2 步骤 39)",
+  "description": "ci/doc_site_smoke.py 的机器事实清单:`rx doc` 从 spec/*.md + registry/error_codes.json + conformance/traceability_matrix.json 确定性生成静态文档站(同输入两次落盘 4 关键页逐字节一致),并断言关键页齐备 + spec 条款锚点齐备 + 错误码索引齐备(反 YAML-only,缺关键页/缺锚点/缺索引项即红)。门为 check_* 守卫风格,**不写 budget counter**(CI_GATES §2.39 功能冒烟非硬阈门)。门仅在绿态写证据(契合 evidence/ 只增不删不改)。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject",
+    "generation_complete",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": {
+      "description": "证据对象",
+      "const": "doc_site"
+    },
+    "generation_complete": {
+      "description": "rx doc 端到端生成成功且站点产物结构齐备(关键页 + 条款锚点 + 错误码索引)",
+      "type": "boolean"
+    },
+    "deterministic_rebuild_ok": {
+      "description": "同输入两次生成 4 关键页逐字节 SHA-256 一致(确定性可复现)",
+      "type": "boolean"
+    },
+    "clause_anchor_count": {
+      "description": "spec.html 覆盖的 RXS 条款锚点数(= 独立扫描 spec/*.md 的条款数)",
+      "type": "integer",
+      "minimum": 0
+    },
+    "error_code_index_count": {
+      "description": "errors.html 覆盖的错误码索引项数(= registry/error_codes.json entries 数)",
+      "type": "integer",
+      "minimum": 0
+    },
+    "page_count": {
+      "description": "生成的关键页数(index/spec/errors/traceability)",
+      "type": "integer",
+      "minimum": 0
+    },
+    "facts": {
+      "description": "逐项背书(反 YAML-only:每条结论可由 ci/doc_site_smoke.py 实测复现)",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": { "enum": ["generation", "determinism", "anchors"] },
+          "name": { "type": "string" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "redgreen": {
+      "description": "门禁真实红绿验证留痕(反 YAML-only,CI_GATES §6:删一关键页/抹一条款锚点/抹一错误码索引项 → 红;复原 → 绿)",
+      "type": "object",
+      "properties": {
+        "red_command": { "type": "string" },
+        "red_detected": { "type": "boolean" },
+        "green_command": { "type": "string" },
+        "green_exit_code": { "type": "integer" },
+        "run_url": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "harness_commit": { "type": "string" }
+  }
+}

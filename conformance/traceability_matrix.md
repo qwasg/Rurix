@@ -86,7 +86,7 @@
 | RXS-0080 | spec/device.md | 11 | `conformance/atomics/accept/narrower_scope_ok.rx`, `conformance/atomics/accept/scoped_atomics_ok.rx`, `conformance/atomics/reject/scope_addrspace_incompat/basic.rx` …(+8) |
 | RXS-0081 | spec/device.md | 4 | `conformance/libdevice/accept/device_math_intrinsics.rx`, `conformance/libdevice/reject/host_math/basic.rx`, `src/rurixc/tests/libdevice_link_mapping.rs` …(+1) |
 | RXS-0082 | spec/device.md | 2 | `conformance/libdevice/accept/device_math_intrinsics.rx`, `src/rurixc/tests/libdevice_link_mapping.rs` |
-| RXS-0083 | spec/toolchain.md | 2 | `src/rurixc/tests/toolchain_corpus.rs`, `src/rx/tests/cli.rs` |
+| RXS-0083 | spec/toolchain.md | 3 | `src/rurixc/tests/toolchain_corpus.rs`, `src/rx/src/doc.rs`, `src/rx/tests/cli.rs` |
 | RXS-0084 | spec/toolchain.md | 2 | `conformance/toolchain/hello.rx`, `src/rurixc/tests/toolchain_corpus.rs` |
 | RXS-0085 | spec/toolchain.md | 1 | `conformance/toolchain/exit_code.rx` |
 | RXS-0086 | spec/toolchain.md | 2 | `conformance/toolchain/check_ok.rx`, `src/rurixc/tests/toolchain_corpus.rs` |

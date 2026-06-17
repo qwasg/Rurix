@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "subject": "doc_site",
+  "generation_complete": true,
+  "deterministic_rebuild_ok": true,
+  "clause_anchor_count": 139,
+  "error_code_index_count": 68,
+  "page_count": 4,
+  "facts": [
+    {
+      "kind": "generation",
+      "name": "rx_doc_pages_present",
+      "note": "4 关键页齐备(index.html, spec.html, errors.html, traceability.html)"
+    },
+    {
+      "kind": "determinism",
+      "name": "byte_identical_rebuild",
+      "note": "同输入两次生成 4 关键页逐字节 SHA-256 一致"
+    },
+    {
+      "kind": "anchors",
+      "name": "spec_clause_anchors_complete",
+      "note": "spec.html 含独立扫描 spec/*.md 的全部 139 条 RXS 条款锚点"
+    },
+    {
+      "kind": "anchors",
+      "name": "error_code_index_complete",
+      "note": "errors.html 含 error_codes.json 的全部 68 个错误码索引项"
+    }
+  ],
+  "redgreen": {
+    "red_command": "删一关键页 / 抹一条款锚点 / 抹一错误码索引项 → py -3 ci/doc_site_smoke.py 退出 1",
+    "red_detected": true,
+    "green_command": "py -3 ci/doc_site_smoke.py",
+    "green_exit_code": 0,
+    "run_url": "green_baseline=https://github.com/qwasg/Rurix/actions/runs/27684598897; red_missing_error_code_anchor=https://github.com/qwasg/Rurix/actions/runs/27684925366; green_restored=https://github.com/qwasg/Rurix/actions/runs/27685136456"
+  },
+  "timestamp": "2026-06-17T19:29:04+08:00"
+}

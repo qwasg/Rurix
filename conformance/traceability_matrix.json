@@ -633,6 +633,7 @@
     ],
     "RXS-0083": [
       "src/rurixc/tests/toolchain_corpus.rs",
+      "src/rx/src/doc.rs",
       "src/rx/tests/cli.rs"
     ],
     "RXS-0084": [

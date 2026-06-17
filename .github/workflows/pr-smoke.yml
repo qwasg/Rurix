@@ -138,6 +138,14 @@ jobs:
         shell: powershell
         run: py -3 ci/release_pipeline_smoke.py
 
+      # 步骤 39(G-M8-6,CPU-only,check_* 守卫风格,不写 budget counter):文档站 `rx doc` 生成冒烟。
+      # cargo build -p rx → rx doc 两次生成 4 关键页(index/spec/errors/traceability)逐字节一致(确定性)
+      # + 断言关键页/条款锚点(独立扫 spec/*.md)/错误码索引(error_codes.json)齐备;内置缺页/缺锚点
+      # red 自检(反 YAML-only);全绿写 evidence/doc_site_smoke.json。失败即红。
+      - name: doc-site `rx doc` generation smoke (M8 CI_GATES §2.39, G-M8-6)
+        shell: powershell
+        run: py -3 ci/doc_site_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
