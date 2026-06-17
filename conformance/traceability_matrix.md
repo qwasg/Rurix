@@ -7,17 +7,17 @@
 | RXS-0001 | spec/lexical.md | 1 | `src/rurixc/src/lexer.rs` |
 | RXS-0002 | spec/lexical.md | 1 | `conformance/syntax/comments.rx` |
 | RXS-0003 | spec/lexical.md | 2 | `conformance/syntax/comments.rx`, `conformance/syntax/comments_between_items.rx` |
-| RXS-0004 | spec/lexical.md | 3 | `conformance/syntax/fn_basic.rx`, `conformance/syntax/hello_world.rx`, `conformance/syntax/idents_keywords.rx` |
-| RXS-0005 | spec/lexical.md | 26 | `conformance/syntax/atomics_sync.rx`, `conformance/syntax/buffers_context.rx`, `conformance/syntax/closures_and_calls.rx` …(+23) |
-| RXS-0006 | spec/lexical.md | 4 | `conformance/syntax/buffers_context.rx`, `conformance/syntax/const_generics.rx`, `conformance/syntax/literals_int.rx` …(+1) |
+| RXS-0004 | spec/lexical.md | 4 | `conformance/syntax/fn_basic.rx`, `conformance/syntax/hello_world.rx`, `conformance/syntax/idents_keywords.rx` …(+1) |
+| RXS-0005 | spec/lexical.md | 29 | `conformance/syntax/atomics_sync.rx`, `conformance/syntax/buffers_context.rx`, `conformance/syntax/closures_and_calls.rx` …(+26) |
+| RXS-0006 | spec/lexical.md | 5 | `conformance/syntax/buffers_context.rx`, `conformance/syntax/const_generics.rx`, `conformance/syntax/literals_int.rx` …(+2) |
 | RXS-0007 | spec/lexical.md | 2 | `conformance/syntax/literals_float.rx`, `conformance/syntax/vec_mat_swizzle.rx` |
-| RXS-0008 | spec/lexical.md | 8 | `conformance/syntax/buffers_context.rx`, `conformance/syntax/export_c.rx`, `conformance/syntax/ffi_extern.rx` …(+5) |
+| RXS-0008 | spec/lexical.md | 9 | `conformance/syntax/buffers_context.rx`, `conformance/syntax/export_c.rx`, `conformance/syntax/ffi_extern.rx` …(+6) |
 | RXS-0009 | spec/lexical.md | 12 | `conformance/syntax/atomics_sync.rx`, `conformance/syntax/closures_and_calls.rx`, `conformance/syntax/control_flow.rx` …(+9) |
 | RXS-0010 | spec/lexical.md | 1 | `src/rurixc/src/lexer.rs` |
 | RXS-0011 | spec/syntax.md | 5 | `conformance/syntax/comments_between_items.rx`, `conformance/syntax/items_mix.rx`, `src/rurixc/src/parser.rs` …(+2) |
 | RXS-0012 | spec/syntax.md | 6 | `conformance/syntax/attrs_meta.rx`, `conformance/syntax/attrs_on_items.rx`, `conformance/syntax/export_handles.rx` …(+3) |
 | RXS-0013 | spec/syntax.md | 5 | `conformance/syntax/paths_expr.rx`, `conformance/syntax/turbofish_nested.rx`, `conformance/syntax/visibility_levels.rx` …(+2) |
-| RXS-0014 | spec/syntax.md | 9 | `conformance/syntax/const_fn_eval.rx`, `conformance/syntax/device_math_chain.rx`, `conformance/syntax/fn_colors.rx` …(+6) |
+| RXS-0014 | spec/syntax.md | 12 | `conformance/syntax/const_fn_eval.rx`, `conformance/syntax/device_math_chain.rx`, `conformance/syntax/fn_colors.rx` …(+9) |
 | RXS-0015 | spec/syntax.md | 4 | `conformance/syntax/enum_payloads.rx`, `conformance/syntax/struct_generic_where.rx`, `conformance/syntax/struct_tuple_unit.rx` …(+1) |
 | RXS-0016 | spec/syntax.md | 7 | `conformance/syntax/impl_inherent_methods.rx`, `conformance/syntax/lifetimes_in_impls.rx`, `conformance/syntax/result_chain_host.rx` …(+4) |
 | RXS-0017 | spec/syntax.md | 3 | `conformance/syntax/mod_nested.rx`, `conformance/syntax/use_alias.rx`, `src/rurixc/src/parser.rs` |

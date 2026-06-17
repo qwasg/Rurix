@@ -1,0 +1,17 @@
+//@ spec: RXS-0014
+// 入门教程 ch01:函数着色入门——host fn / device fn / const fn。
+// device fn 单向可被 host 与 kernel 调用;const fn 编译期求值。
+// 经 `rx check` 全量前端静态检查通过。
+
+device fn lerp(a: f32, b: f32, t: f32) -> f32 {
+    a + (b - a) * t
+}
+
+const fn inc(n: usize) -> usize {
+    n + 1
+}
+
+fn main() {
+    let mid = lerp(0.0, 10.0, 0.5);
+    println("device fn 可从 host 调用");
+}

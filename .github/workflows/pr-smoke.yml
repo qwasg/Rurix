@@ -198,6 +198,14 @@ jobs:
         shell: powershell
         run: py -3 ci/rx_cli_smoke.py
 
+      # —— 入门教程示例冒烟(guide/ 配套)——
+      # conformance/tutorial/*.rx 经 rx check + rx run 端到端真跑,保证教程展示的
+      # 代码随工具链/语言面演进始终真实可编译(防 bit-rot,治理三角)。任一示例
+      # 任一子命令非零即红(反 YAML-only);故意改坏示例 → RX1001 红 → 复原绿。
+      - name: tutorial examples smoke (guide/)
+        shell: powershell
+        run: py -3 ci/tutorial_smoke.py
+
       # —— M6 增量(milestones/m6/CI_GATES.md §2 步骤 26;RD-005 收编,G-M6-4)——
       # rx fmt 幂等门(全 conformance/syntax 语料经 rx fmt 二次格式化 0 diff)。
       - name: rx fmt idempotent gate (M6 CI_GATES §2.26, G-M6-4)

@@ -16,7 +16,8 @@
     "RXS-0004": [
       "conformance/syntax/fn_basic.rx",
       "conformance/syntax/hello_world.rx",
-      "conformance/syntax/idents_keywords.rx"
+      "conformance/syntax/idents_keywords.rx",
+      "conformance/tutorial/01_hello.rx"
     ],
     "RXS-0005": [
       "conformance/syntax/atomics_sync.rx",
@@ -44,13 +45,17 @@
       "conformance/syntax/types_addrspace_contextual.rx",
       "conformance/syntax/unsafe_block.rx",
       "conformance/syntax/vec_mat_swizzle.rx",
-      "conformance/syntax/views_ops.rx"
+      "conformance/syntax/views_ops.rx",
+      "conformance/tutorial/01_hello.rx",
+      "conformance/tutorial/02_host_basics.rx",
+      "conformance/tutorial/04_first_kernel.rx"
     ],
     "RXS-0006": [
       "conformance/syntax/buffers_context.rx",
       "conformance/syntax/const_generics.rx",
       "conformance/syntax/literals_int.rx",
-      "conformance/syntax/static_const_items.rx"
+      "conformance/syntax/static_const_items.rx",
+      "conformance/tutorial/02_host_basics.rx"
     ],
     "RXS-0007": [
       "conformance/syntax/literals_float.rx",
@@ -64,7 +69,8 @@
       "conformance/syntax/launch_api.rx",
       "conformance/syntax/lifetimes.rx",
       "conformance/syntax/literals_char.rx",
-      "conformance/syntax/literals_string.rx"
+      "conformance/syntax/literals_string.rx",
+      "conformance/tutorial/01_hello.rx"
     ],
     "RXS-0009": [
       "conformance/syntax/atomics_sync.rx",
@@ -113,6 +119,9 @@
       "conformance/syntax/fn_where_ret.rx",
       "conformance/syntax/kernel_atomics_scoped.rx",
       "conformance/syntax/kernel_views_generic.rx",
+      "conformance/tutorial/02_host_basics.rx",
+      "conformance/tutorial/03_fn_colors.rx",
+      "conformance/tutorial/04_first_kernel.rx",
       "src/rurixc/src/parser.rs",
       "tests/ui/parse/self_not_first.rx"
     ],

@@ -65,6 +65,8 @@ cargo run -p rx -- doc --root . --out target/doc   # 生成文档站
 
 文档站(`rx doc`)从单一事实源(`spec/*.md`、`registry/error_codes.json`、`conformance/`)确定性生成:规范条款索引、错误码索引、traceability 矩阵。
 
+**想学怎么写 Rurix 代码**,见入门教程 [`guide/`](guide/)——从第一个 host 程序到第一个 kernel 的渐进式路径,示例均经 CI 门(`rx check`/`rx run`)真跑(API 收敛期,见 [`RD-008`](registry/deferred.json))。
+
 ## 治理与质量门
 
 Rurix 从第一天把治理内建为产品力(AI 时代语言基础设施,见 [`10_GOVERNANCE.md`](10_GOVERNANCE.md)):
