@@ -172,6 +172,9 @@ def check_evidence_files() -> None:
         ROOT / "milestones/m8/uc02_stream_pipeline_evidence_schema.json"
     )
     release_schema = load(ROOT / "milestones/m8/release_evidence_schema.json")
+    bilingual_schema = load(
+        ROOT / "milestones/m8/bilingual_diagnostic_coverage_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -179,7 +182,7 @@ def check_evidence_files() -> None:
             or stdlib_math_schema is None or soft_raster_schema is None
             or uc03_demo_schema is None or uc01_interop_schema is None
             or cublas_binding_schema is None or uc02_stream_pipeline_schema is None
-            or release_schema is None):
+            or release_schema is None or bilingual_schema is None):
         return
     evidence_files = sorted((ROOT / "evidence").glob("*.json"))
     if not evidence_files:
@@ -206,6 +209,7 @@ def check_evidence_files() -> None:
     cublas_binding_validator = jsonschema.Draft7Validator(cublas_binding_schema)
     uc02_stream_pipeline_validator = jsonschema.Draft7Validator(uc02_stream_pipeline_schema)
     release_validator = jsonschema.Draft7Validator(release_schema)
+    bilingual_validator = jsonschema.Draft7Validator(bilingual_schema)
     for f in evidence_files:
         doc = load(f)
         if doc is None:
@@ -224,7 +228,8 @@ def check_evidence_files() -> None:
         # 确定性图像序列冒烟 schema(G-M7-1 配套,m7.counter.uc03_demo_image_sequence);
         # uc01_/cublas_/uc02_ → m8 互操作/cublas/UC-02 流水线 schema;release_ → m8
         # 发布链路签名/SBOM/许可审计冒烟 schema(G-M8-4 配套,m8.counter.release_artifacts_signed);
-        # 其余 → m0 GPU schema
+        # bilingual_ → m8 诊断双语全量覆盖 schema(G-M8-5/RD-006 配套,
+        # m8.counter.bilingual_diagnostic_coverage);其余 → m0 GPU schema
         if f.name.startswith("frontend_"):
             validator = frontend_validator
         elif f.name.startswith("compile_"):
@@ -255,6 +260,8 @@ def check_evidence_files() -> None:
             validator = uc02_stream_pipeline_validator
         elif f.name.startswith("release_"):
             validator = release_validator
+        elif f.name.startswith("bilingual_"):
+            validator = bilingual_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):

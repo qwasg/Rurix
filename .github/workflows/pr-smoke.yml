@@ -119,6 +119,15 @@ jobs:
         shell: powershell
         run: py -3 ci/uc02_stream_pipeline_smoke.py
 
+      # 步骤 37(G-M8-5,RD-006,CPU-only):诊断消息中英双语全量覆盖核对。解析
+      # src/rurixc/src/messages/{en,zh}.messages,断言 zh 与 en 的 message-key 集完全对齐
+      # (zh 缺键 / zh 多键即红,反 YAML-only;覆盖率核对入发布门 10 §6);全对齐则写
+      # evidence/bilingual_diagnostic_coverage.json(coverage_complete)供 budget_eval
+      # (m8.counter.bilingual_diagnostic_coverage,>=1 则 PASS)。失败即红。
+      - name: bilingual diagnostic coverage gate (M8 CI_GATES §2.37, G-M8-5, RD-006)
+        shell: powershell
+        run: py -3 ci/bilingual_coverage.py
+
       # 步骤 38(G-M8-4,RD-001,Release 层前哨):发布链路签名/SBOM/许可审计冒烟。
       # rurixup release 真实调用构造三类子门红场景(未签名 / 缺 SBOM / 白名单外 NVIDIA 组件)
       # 断言发布门 hard-block 阻断(退出码 2,反 YAML-only);PR Smoke 不开真实签名

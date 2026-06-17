@@ -1,0 +1,117 @@
+# rurixc 诊断消息表(zh)— message-key 中英双语全量覆盖(RD-006,M8;07 §5 第 7 条,D-206)
+# 行格式:key = 模板文本;`{name}` 为参数占位;`#` 行注释。
+# key 集与 en.messages / registry/error_codes.json 的 message_key 完全对齐
+#   (check_schemas.py 交叉校验 + ci/bilingual_coverage.py 双语覆盖门,缺键即红)。
+# 与 en.messages 同序;{name} 占位、标识符 / 工具名 / 关键字 / 错误码保留英文,仅译散文。
+#
+# 词法诊断(RX0001 ~ RX0007,spec/lexical.md;M1.2 分配)
+lex.unexpected_char = 意外的字符序列 {found}
+lex.unterminated_block_comment = 块注释未闭合
+lex.unterminated_string = 字符串字面量未闭合
+lex.bad_char_literal = 非法的字符字面量:{reason}
+lex.bad_escape = 非法的转义序列:{esc}
+lex.bad_number = 非法的数值字面量:{reason}
+lex.bad_suffix = 非法的后缀 {suffix}
+#
+# 语法诊断(RX0008 ~ RX0011,spec/syntax.md;M1.3 分配)
+parse.expected_token = 期望 {expected},却找到 {found}
+parse.unclosed_delimiter = 定界符 {delim} 未闭合
+parse.gated_feature = 使用了受 feature `{feature}` 门控的实验性语法
+parse.unknown_feature = 未知的 feature {feature}
+#
+# 名称解析诊断(RX1001 ~ RX1004,spec/names.md;M2.1 分配)
+resolve.unresolved_name = 未解析的名称 {name}
+resolve.duplicate_definition = {name} 重复定义
+resolve.visibility_violation = {name} 在此作用域不可见
+resolve.bad_use_target = 非法的 use 目标 {target}
+#
+# 类型检查诊断(RX2001 ~ RX2006,spec/types.md;M2.2 分配)
+typeck.mismatched_types = 类型不匹配:期望 {expected},却找到 {found}
+typeck.bad_field = 类型 {ty} 上的 {kind} 字段 {field}
+typeck.arg_count_mismatch = 此调用需要 {expected} 个参数,但提供了 {found} 个
+typeck.unknown_method = 类型 {ty} 上未找到名为 {method} 的方法
+typeck.not_callable = 类型 {ty} 的表达式不可调用
+typeck.bad_operand = 运算符 {op} 不能作用于类型 {ty}
+#
+# 着色 / 地址空间诊断(RX3001 ~ RX3003,spec/device.md RXS-0066~0069;M4.1 分配)
+coloring.cross_color_call = 不能从 {context} 上下文调用 {callee}
+addrspace.mismatch = 地址空间不匹配:期望 {expected},却找到 {found}
+coloring.barrier_non_uniform = `block.sync()` 非一致可达:在依赖 thread-id 的分支内调用(需要 `unsafe`)
+#
+# 模式穷尽性诊断(RX2007,spec/borrow.md RXS-0051;M3.1 分配)
+typeck.non_exhaustive_match = match 非穷尽:{witness} 未覆盖
+#
+# Copy/Drop 定义处检查(RX2008 ~ RX2009,spec/borrow.md RXS-0053/RXS-0055;M3.2 分配)
+typeck.bad_derive_copy = `derive(Copy)` 不能作用于 {ty}:{reason}
+typeck.bad_drop_impl = {ty} 的 `Drop` impl 非法:{reason}
+#
+# move/init 数据流诊断(RX4001 ~ RX4003,spec/borrow.md RXS-0053/RXS-0054;M3.2 分配)
+borrowck.use_after_move = 使用了已移动的值 {place}
+borrowck.use_before_init = 使用了可能未初始化的值 {place}
+borrowck.move_out_of_ref = 不能将 {place} 移出引用
+#
+# NLL 借用检查诊断(RX4004 ~ RX4006,spec/borrow.md RXS-0058/RXS-0060/RXS-0061;M3.3 分配)
+borrowck.borrow_conflict = 对 {place} 的借用冲突:{kind}
+borrowck.borrow_while_borrowed = {place} 仍被借用时不能 {action}
+borrowck.dangling_reference = 对 {place} 的引用比其所指的值存活更久
+#
+# const 求值诊断(RX5001 ~ RX5003,spec/consteval.md RXS-0063/RXS-0065;M3.4 分配)
+consteval.overflow = 常量求值在 {op} 中溢出
+consteval.index_out_of_bounds = 常量索引 {index} 越界(长度为 {len})
+consteval.non_const_operation = {what} 不允许出现在常量上下文中
+#
+# codegen / 链接诊断(RX6001 ~ RX6002 / RX7001;M2.3 分配)
+codegen.unsupported_construct = codegen 暂不支持 {construct}(M2.3 host 子集)
+codegen.missing_main = 可执行目标未找到 `main` 函数
+link.toolchain_failure = 外部工具链失败:{reason}
+#
+# device codegen / ptxas 诊断(RX6003 ~ RX6005,spec/device.md RXS-0070~0073;M4.2 分配)
+codegen.device_unsupported = NVPTX device codegen 暂不支持 {detail}(M4.2 子集)
+codegen.ptxas_rejected = ptxas 拒绝了生成的 PTX:{reason}
+codegen.device_constraint = device codegen 约束被违反:{detail}
+#
+# launch 类型契约诊断(RX3004 ~ RX3006,spec/device.md RXS-0074~0075;M4.3 分配)
+launch.non_kernel = 无法 launch {callee}:只有 `kernel` 函数可被 launch
+launch.dim_mismatch = launch 的 grid 与 block 维度不一致:grid 为 {grid} 维,block 为 {block} 维
+launch.context_brand = context-brand 不匹配:{what} 与发起 launch 的 stream 属于不同的 context
+#
+# views 不相交证明诊断(RX3007 ~ RX3008,spec/device.md RXS-0078;M5.1 分配)
+views.overlapping_mut = {place} 的可变子视图重叠或别名:无法证明各子视图不相交
+views.out_of_bounds = 视图切分越界:{detail}
+#
+# shared+barrier 一致性诊断(RX3009,spec/device.md RXS-0079;M5.2 分配)
+shared.barrier_consistency = 无法证明 shared 读写已由 block barrier 同步:{detail}
+#
+# scoped atomics 诊断(RX3010,spec/device.md RXS-0080;M5.2 分配)
+atomics.scope_misuse = scoped atomic 的 scope 误用:{detail}
+#
+# libdevice 链接 / device 数学 intrinsic 诊断(RX6006 / RX7002,spec/device.md RXS-0081~0082;M5.3 分配)
+codegen.device_math_unsupported = {detail} 不是受支持的 device 数学 intrinsic(超出 libdevice 覆盖范围或元素类型不受支持)
+link.libdevice_failure = libdevice 链接失败:{reason}
+#
+# rx CLI 工具链诊断(RX7003 / RX7004,spec/toolchain.md RXS-0083/0085;M6.1 分配)
+toolchain.rx_cli_usage = rx CLI 用法错误:{detail}
+toolchain.rx_run_exec_failure = rx run:无法执行构建产物:{detail}
+#
+# 包管理诊断(RX7005 ~ RX7009,spec/toolchain.md RXS-0089~0094;M6.2 分配)
+toolchain.pkg_manifest_invalid = rurix.toml 清单非法:{detail}
+toolchain.pkg_resolution_conflict = 依赖解析冲突:{detail}
+toolchain.pkg_lock_mismatch = rurix.lock 过期或不一致:{detail}
+toolchain.pkg_digest_mismatch = 内容树 digest 不匹配:{detail}
+toolchain.pkg_source_unreachable = 依赖源不可达:{detail}
+#
+# rx test 诊断(RX7010 ~ RX7011,spec/toolchain.md RXS-0095;M6.3 分配)
+toolchain.rx_test_discovery = rx test 发现错误:{detail}
+toolchain.rx_test_exec_failure = rx test 子进程失败:{detail}
+toolchain.lsp_rename_invalid = 非法的 LSP rename 目标:{detail}
+#
+# 互操作诊断(RX7013 ~ RX7015,spec/interop.md RXS-0122~0125;M8.1 分配)
+interop.unsupported_protocol = 互操作协议不支持:{detail}
+interop.invalid_device_pointer = 非法的互操作 device 指针:{detail}
+interop.shape_mismatch = 互操作形状不匹配:{detail}
+#
+# cublas 绑定诊断(RX7016 ~ RX7019,spec/cublas.md RXS-0126~0129;M8.2 分配)
+cublas.handle_init_failed = cublas 句柄初始化失败:{detail}
+cublas.invalid_device_pointer = 非法的 cublas device 指针:{detail}
+cublas.dimension_mismatch = cublas 维度不匹配:{detail}
+cublas.runtime_failed = cublas 运行时失败:{detail}

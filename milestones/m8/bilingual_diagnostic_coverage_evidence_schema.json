@@ -1,0 +1,73 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/bilingual_diagnostic_coverage/v1",
+  "title": "Rurix 诊断消息中英双语全量覆盖证据 JSON(M8.5,契约 G-M8-5,RD-006)",
+  "description": "ci/bilingual_coverage.py 解析 src/rurixc/src/messages/{en,zh}.messages,断言 zh 与 en 的 message-key 集完全对齐(zh 缺键 / zh 多键即红,反 YAML-only;07 §5 第 7 条 message-key 骨架的双语全量覆盖,RD-006,M8 承接)的机器事实清单。coverage_complete=true 计入 m8.counter.bilingual_diagnostic_coverage(ci/budget_eval.py;>=1 则 PASS,双语全量回填前无证据 → 0 → normal SKIP)。机器复核闸门 = ci/bilingual_coverage.py(zh/en key 集任一缺/多即非零退出,反 YAML-only;覆盖率核对入发布门 10 §6,CI_GATES §2 步骤 37)。门仅在绿态写证据(契合 evidence/ 只增不删不改)。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject",
+    "coverage_complete",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": {
+      "description": "证据对象",
+      "const": "bilingual_diagnostic_coverage"
+    },
+    "coverage_complete": {
+      "description": "zh 与 en message-key 集是否完全对齐(无缺键 / 多键);true 计入 m8.counter.bilingual_diagnostic_coverage",
+      "type": "boolean"
+    },
+    "en_key_count": {
+      "description": "en.messages 的 message-key 数",
+      "type": "integer",
+      "minimum": 0
+    },
+    "zh_key_count": {
+      "description": "zh.messages 的 message-key 数",
+      "type": "integer",
+      "minimum": 0
+    },
+    "missing_in_zh": {
+      "description": "en 有而 zh 无的 key(缺键;coverage_complete=true 时为空)",
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "extra_in_zh": {
+      "description": "zh 有而 en 无的 key(多键;coverage_complete=true 时为空)",
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "facts": {
+      "description": "逐项背书(反 YAML-only:每条结论可由 ci/bilingual_coverage.py 实测复现)",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": { "enum": ["coverage"] },
+          "name": { "type": "string" },
+          "en_key_count": { "type": "integer" },
+          "zh_key_count": { "type": "integer" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "redgreen": {
+      "description": "门禁真实红绿验证留痕(反 YAML-only,CI_GATES §6 第 4 项:删/注释 zh 一个 key 使 en 有 zh 无 → 红;补译复原 → 绿)",
+      "type": "object",
+      "properties": {
+        "red_command": { "type": "string" },
+        "red_detected": { "type": "boolean" },
+        "green_command": { "type": "string" },
+        "green_exit_code": { "type": "integer" },
+        "run_url": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "harness_commit": { "type": "string" }
+  }
+}
