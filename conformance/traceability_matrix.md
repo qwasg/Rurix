@@ -138,3 +138,8 @@
 | RXS-0132 | spec/pipeline.md | 1 | `src/rurix-rt/src/pipeline.rs` |
 | RXS-0133 | spec/pipeline.md | 1 | `src/rurix-rt/src/pipeline.rs` |
 | RXS-0134 | spec/pipeline.md | 1 | `src/rurix-rt/src/pipeline.rs` |
+| RXS-0135 | spec/release.md | 2 | `src/rurixup/src/bundle.rs`, `src/rurixup/src/install.rs` |
+| RXS-0136 | spec/release.md | 1 | `src/rurixup/src/bundle.rs` |
+| RXS-0137 | spec/release.md | 1 | `src/rurixup/src/signing.rs` |
+| RXS-0138 | spec/release.md | 1 | `src/rurixup/src/sbom.rs` |
+| RXS-0139 | spec/release.md | 2 | `src/rurixup/src/gate.rs`, `src/rurixup/src/lib.rs` |

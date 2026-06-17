@@ -1,0 +1,93 @@
+# Release(CI 三层门禁第三层,14 §8 / milestones/m8/CI_GATES.md §3,RD-001 — M8.4 新建)
+# 在打 tag / 发布工作流触发(非每 PR);bench 严格模式 + hard block + 签名/SBOM/许可审计
+# + artifact 上传:任一门(签名 / SBOM / 许可审计 / bench strict / conformance/UI golden 全绿 /
+# L1 无 Critical 回归)失败 → 不上传 artifact(发布阻断,10 §6 工具链发布门)。
+# runner = 开发机 RTX 4070 Ti 自托管(由用户启动 run.cmd,AI 不自启)。
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:        # 手动触发(发布演练 / 真实红绿验证)
+
+concurrency:
+  group: gpu-runner          # 与 pr-smoke / nightly 共用 GPU runner,串行(CI_GATES §1)
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: [self-hosted, Windows, gpu]
+    timeout-minutes: 45
+    env:
+      RURIXUP_SIGN: "1"      # Release 层跑真实 Authenticode 签名/验签(自签测试证书,本机);
+                            # of-record 生产签名 Azure Artifact Signing 经 secret + 人工门控(spec/release.md §4),不自动调用
+      RURIXUP_RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: deps
+        shell: powershell
+        run: py -3 -m pip install -r requirements.txt --quiet --disable-pip-version-check
+
+      # —— hard block 门集(任一红 → 后续 artifact 上传不执行)——
+
+      - name: schema check (CI_GATES §3.2)
+        shell: powershell
+        run: py -3 ci/check_schemas.py
+
+      - name: guardrails (CI_GATES §3.3)
+        shell: powershell
+        run: py -3 ci/check_guardrails.py
+
+      - name: traceability matrix freshness (G-M5-5)
+        shell: powershell
+        run: py -3 ci/trace_matrix.py --check
+
+      - name: NVIDIA redistribution whitelist audit (M5.4 / M8.4, r6)
+        shell: powershell
+        run: py -3 ci/check_redistribution.py
+
+      # bench 严格模式:无容错跳过;estimated 即 FAIL;全局零 estimated 残留(14 §8)。
+      - name: budget eval --strict (Release 层 bench 严格模式, CI_GATES §3)
+        shell: powershell
+        run: py -3 ci/budget_eval.py --strict
+
+      - name: cargo fmt check
+        shell: powershell
+        run: cargo fmt --all --check
+
+      - name: cargo clippy
+        shell: powershell
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: cargo test (conformance / UI golden / unit 全绿)
+        shell: powershell
+        run: cargo test --workspace
+
+      # 发布链路:签名 + 验签 + SBOM SPDX/CycloneDX + 许可白名单审计 + 发布门 hard-block。
+      # 真实 Authenticode 签名(RURIXUP_SIGN=1):未签名/缺 SBOM/白名单外组件 → 发布门红 → 非零退出
+      # → 本 job 红 → 不上传 artifact。写 evidence/release_pipeline_smoke.json(signed_artifacts)。
+      - name: Release pipeline sign/SBOM/audit gate (G-M8-4, RD-001, RXS-0135~0139)
+        shell: powershell
+        run: py -3 ci/release_pipeline_smoke.py
+
+      # 计数核对:m8.counter.release_artifacts_signed >=1(发布链路签名产物)。
+      - name: budget eval release counter (normal)
+        shell: powershell
+        run: py -3 ci/budget_eval.py
+
+      # 全门绿后方上传发布产物 + SBOM + 签名清单(发布门 allow_upload=true 的兑现)。
+      - name: upload release artifacts (全门绿后)
+        uses: actions/upload-artifact@v4
+        with:
+          name: rurix-release-${{ github.ref_name }}
+          path: |
+            evidence/release_pipeline_smoke.json
+            target/rurixup_release_smoke/green/sbom.spdx.json
+            target/rurixup_release_smoke/green/sbom.cdx.json
+            target/rurixup_release_smoke/green/signing_manifest.json
+            target/rurixup_release_smoke/green/bundle.json
+          if-no-files-found: error

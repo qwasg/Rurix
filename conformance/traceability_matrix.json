@@ -828,6 +828,23 @@
     ],
     "RXS-0134": [
       "src/rurix-rt/src/pipeline.rs"
+    ],
+    "RXS-0135": [
+      "src/rurixup/src/bundle.rs",
+      "src/rurixup/src/install.rs"
+    ],
+    "RXS-0136": [
+      "src/rurixup/src/bundle.rs"
+    ],
+    "RXS-0137": [
+      "src/rurixup/src/signing.rs"
+    ],
+    "RXS-0138": [
+      "src/rurixup/src/sbom.rs"
+    ],
+    "RXS-0139": [
+      "src/rurixup/src/gate.rs",
+      "src/rurixup/src/lib.rs"
     ]
   }
 }
