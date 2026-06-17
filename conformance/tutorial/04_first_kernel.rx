@@ -1,0 +1,21 @@
+//@ spec: RXS-0005, RXS-0014
+// 入门教程 ch02:第一个 kernel——SAXPY(y = a*x + y)。
+// kernel fn 携类型化执行形 Grid<(N,)>;View/ViewMut 把地址空间(global)
+// 与形状(N,)做进类型参数。经 `rx check` 全量前端静态检查通过。
+//
+// 注:实际 launch(stream.launch(...))需运行时 Context/Stream 上下文,
+// 见 guide/02_first_kernel.md 与 conformance/launch/accept/saxpy_launch.rx。
+
+kernel fn saxpy<const N: usize>(
+    grid: Grid<(N,)>,
+    a: f32,
+    x: View<global, f32, (N,)>,
+    y: ViewMut<global, f32, (N,)>,
+) {
+    let i = grid.thread_index();
+    y[i] = a * x[i] + y[i];
+}
+
+fn main() {
+    println("saxpy kernel 已通过静态检查");
+}

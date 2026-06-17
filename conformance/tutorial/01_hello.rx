@@ -1,0 +1,8 @@
+//@ spec: RXS-0004, RXS-0005, RXS-0008
+// 入门教程 ch01:最小 host 程序(guide/01_first_program.md)。
+// 经 `rx check` 全量前端静态检查,`rx run` 构建并执行,产物退出码 0。
+
+fn main() {
+    let greeting = "你好,Rurix";
+    println(greeting);
+}

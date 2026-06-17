@@ -1,0 +1,25 @@
+//@ spec: RXS-0005, RXS-0006, RXS-0014
+// 入门教程 ch01:host 侧语言基础——结构体、函数、可变绑定、控制流、整数字面量。
+// 经 `rx check` 全量前端静态检查通过。
+
+struct Point {
+    x: f32,
+    y: f32,
+}
+
+fn add(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+fn main() {
+    let origin = Point { x: 0.0, y: 0.0 };
+    let mut total = 0;
+    for i in 0..5 {
+        total = add(total, i);
+    }
+    if total > 3 {
+        println("total 偏大");
+    } else {
+        println("total 偏小");
+    }
+}
