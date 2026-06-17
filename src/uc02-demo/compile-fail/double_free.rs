@@ -5,8 +5,8 @@
 use rurix_rt::DeviceBox;
 
 fn boom(b: DeviceBox<f32>) {
-    let _dup = b.len(); // TAMPER:合法访问,用于证明步骤 36 能抓住“应拦截却放行”
-    let _ = _dup;
+    let _dup = b.clone(); // ← double-free:DeviceBox 非 Clone,复制所有权 → E0599
+    let _ = b.len();
 }
 
 fn main() {
