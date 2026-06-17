@@ -4,6 +4,7 @@ description = "Rurix compiler (M1.1: diagnostics foundation - Span/SourceMap/Dia
 edition.workspace = true
 version.workspace = true
 publish.workspace = true
+license.workspace = true
 
 [dependencies]
 # M1.1 起消息表为自有行格式;M6.4 RD-004 接通 rowan 式无损语法树(07 §9)

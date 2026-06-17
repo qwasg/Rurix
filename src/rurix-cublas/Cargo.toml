@@ -4,6 +4,7 @@ description = "Rurix cublas 绑定包(M8.2,D-M8-2:GEMM/GEMV 三层绑定 raw FFI
 edition.workspace = true
 version.workspace = true
 publish.workspace = true
+license.workspace = true
 
 [lib]
 # cdylib = 经 ctypes 供 ci/cublas_binding_smoke.py 加载(torch CUDA 张量设备指针零拷贝);

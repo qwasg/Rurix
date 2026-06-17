@@ -4,6 +4,7 @@ description = "Rurix G0 软光栅 host CPU 参考实现(M7.3,D-M7-3,spec/softras
 edition.workspace = true
 version.workspace = true
 publish.workspace = true
+license.workspace = true
 
 [dependencies]
 image-io = { path = "../image-io" }

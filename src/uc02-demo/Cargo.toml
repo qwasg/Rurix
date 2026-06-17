@@ -4,6 +4,7 @@ description = "Rurix UC-02 旗舰验收 demo(M8.3,D-M8-3,契约 G-M8-3,02 §U2 /
 edition.workspace = true
 version.workspace = true
 publish.workspace = true
+license.workspace = true
 
 [dependencies]
 rurix-rt = { path = "../rurix-rt" }

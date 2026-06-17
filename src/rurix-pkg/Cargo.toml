@@ -4,6 +4,7 @@ description = "Rurix 包管理子系统(M6.2,09 §7.1/§7.2,spec/toolchain.md RX
 edition.workspace = true
 version.workspace = true
 publish.workspace = true
+license.workspace = true
 
 [dependencies]
 # 零外部依赖(全仓纪律,供应链可信根):手写 TOML 子集解析 + 手写 SHA-256
