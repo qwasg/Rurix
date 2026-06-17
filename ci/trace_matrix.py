@@ -109,6 +109,10 @@ def gather_repo() -> tuple[dict[str, str], dict[str, str]]:
     # M8.2:rurix-cublas crate(cublas FFI 边界 raw FFI / safe wrapper / 高层 GEMM·GEMV
     # API + runtime DLL Attachment A 白名单 单测锚定 RXS-0126~0129)
     test_files += sorted((ROOT / "src" / "rurix-cublas").glob("**/*.rs"))
+    # M8.4:rurixup crate(发布产物语义:原子分发与 content-tree 完整性 / 语言本体与
+    # NVIDIA 再分发组件分离打包 / 签名清单与验签发布前置 / SBOM SPDX·CycloneDX /
+    # Release 层 hard-block 发布门 单测锚定 RXS-0135~0139)
+    test_files += sorted((ROOT / "src" / "rurixup").glob("**/*.rs"))
     test_texts = {
         p.relative_to(ROOT).as_posix(): p.read_text(encoding="utf-8") for p in test_files
     }

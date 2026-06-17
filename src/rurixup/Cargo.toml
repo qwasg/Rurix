@@ -1,0 +1,20 @@
+[package]
+name = "rurixup"
+description = "Rurixup — Rurix 发布链路引导器与发布产物语义实现(M8.4,D-M8-4,契约 G-M8-4 / RD-001,spec/release.md RXS-0135~0139)——编译器/运行时/标准库按同一版号原子分发与 content-tree 完整性(复用 rurix-pkg RXS-0090/0092/0094 SHA-256/内容树)/ 语言本体与 NVIDIA 再分发组件分离打包(Attachment A 白名单最小集,完整 Toolkit/驱动/Nsight 永不捆绑 r6)/ 签名清单约定与验签发布前置(Authenticode + 时间戳,of-record Azure Artifact Signing)/ SBOM SPDX 构建视图 + CycloneDX 发布视图 / Release 层 hard-block 发布门;全 safe(unsafe_code=deny)、零外部依赖、纯函数确定性"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[lib]
+name = "rurixup"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rurixup"
+path = "src/main.rs"
+
+[dependencies]
+rurix-pkg = { path = "../rurix-pkg" }
+
+[lints]
+workspace = true

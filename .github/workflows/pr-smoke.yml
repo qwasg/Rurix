@@ -119,6 +119,16 @@ jobs:
         shell: powershell
         run: py -3 ci/uc02_stream_pipeline_smoke.py
 
+      # 步骤 38(G-M8-4,RD-001,Release 层前哨):发布链路签名/SBOM/许可审计冒烟。
+      # rurixup release 真实调用构造三类子门红场景(未签名 / 缺 SBOM / 白名单外 NVIDIA 组件)
+      # 断言发布门 hard-block 阻断(退出码 2,反 YAML-only);PR Smoke 不开真实签名
+      # (RURIXUP_SIGN 未设)→ 发布门红绿自检后 normal SKIP(m8.counter.release_artifacts_signed
+      # 建设期为 0)。真实 Authenticode 绿(自签测试证书 + 验签 Valid + 写 evidence)在
+      # Release workflow(release.yml,tag 触发)与 self-hosted runner 手动 RURIXUP_SIGN=1 跑。失败即红。
+      - name: Release pipeline signing/SBOM/audit smoke (M8 CI_GATES §2.38 / §3, G-M8-4, RD-001)
+        shell: powershell
+        run: py -3 ci/release_pipeline_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

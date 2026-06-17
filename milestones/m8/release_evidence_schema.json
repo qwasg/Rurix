@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/release_pipeline/v1",
+  "title": "Rurix 发布链路签名/SBOM/许可审计冒烟证据 JSON(M8.4,契约 G-M8-4,RD-001,spec/release.md RXS-0135~0139)",
+  "description": "发布链路冒烟(ci/release_pipeline_smoke.py,步骤 38,Release 层前哨):cargo build -p rurixup + 收集既有 EXE/DLL 产物 → 本机自签测试证书 Set-AuthenticodeSignature 签名 → Get-AuthenticodeSignature 验签(Valid) → rurixup release 建 bundle 清单(语言本体 ⟂ NVIDIA 再分发分区)+ 生成 SBOM SPDX 构建视图/CycloneDX 发布视图 + NVIDIA 再分发 Attachment A 白名单审计 + Release 层 hard-block 发布门决策 的机器事实清单。signed_artifacts 去重集最大基数计入 m8.counter.release_artifacts_signed(ci/budget_eval.py;>=1 则 PASS,发布链路建成前/无签名环境为 normal SKIP)。机器复核闸门 = ci/release_pipeline_smoke.py(未签名/缺 SBOM/白名单外组件使发布门红 → 非零退出,反 YAML-only)。NVIDIA EULA Attachment A 白名单逐项法律核对维持 eula_whitelist_verdict=pending-human-review(AI 仅起草机器事实,不代签,对齐 M5.4 redistribution_audit 先例)。Azure Artifact Signing 为 of-record 生产签名后端(CI secret + 人工门控,本机/CI 不自动调用真实证书)。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject",
+    "signed_artifacts",
+    "sbom_present",
+    "redistribution_audit_pass",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": {
+      "description": "证据对象",
+      "const": "release_pipeline"
+    },
+    "signed_artifacts": {
+      "description": "验签通过(Authenticode + 时间戳,Get-AuthenticodeSignature=Valid)的发布产物干名去重集(机器事实:验签通过 + SBOM 齐备 + 许可白名单审计通过);其基数计入 m8.counter.release_artifacts_signed(>=1)",
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "sbom_present": {
+      "description": "SBOM 齐备(SPDX 构建视图 + CycloneDX 发布视图均覆盖 bundle 全部分发组件,RXS-0138)",
+      "type": "boolean"
+    },
+    "redistribution_audit_pass": {
+      "description": "NVIDIA 再分发 Attachment A 白名单审计通过(NVIDIA 分区仅白名单最小集,完整 Toolkit/驱动/Nsight 永不捆绑 r6,RXS-0136;延续 M5.4 check_redistribution)",
+      "type": "boolean"
+    },
+    "allow_upload": {
+      "description": "Release 层 hard-block 发布门决策:全门绿 → 放行上传发布 artifact(RXS-0139);任一门红 → 阻断",
+      "type": "boolean"
+    },
+    "signing_backend": {
+      "description": "本次冒烟所用签名后端(本机冒烟=self-signed-test 产真实 Authenticode 红绿;生产 of-record=azure-artifact-signing,CI secret/人工门控不自动调用)",
+      "enum": ["self-signed-test", "azure-artifact-signing"]
+    },
+    "eula_whitelist_verdict": {
+      "description": "NVIDIA EULA Attachment A 白名单逐项法律核对人工签署状态(AI 不代签,沿 M5.4 redistribution_audit 先例)",
+      "enum": ["pending-human-review", "signed-compliant", "signed-noncompliant"]
+    },
+    "bundle": {
+      "description": "发布 bundle 清单摘要(版号 + 分区组件计数)",
+      "type": "object",
+      "properties": {
+        "rurix_version": { "type": "string" },
+        "language_core_count": { "type": "integer" },
+        "nvidia_redist_count": { "type": "integer" },
+        "content_tree_sha256": { "type": "string" }
+      }
+    },
+    "sbom_views": {
+      "description": "生成的 SBOM 视图产物路径",
+      "type": "object",
+      "properties": {
+        "spdx": { "type": "string" },
+        "cyclonedx": { "type": "string" }
+      }
+    },
+    "facts": {
+      "description": "逐项背书(反 YAML-only:每条结论可由命令/产物实测复现)——含逐产物验签状态(name ↔ status ↔ timestamped)+ 白名单审计逐项 + 发布门子门",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": { "enum": ["sign", "audit", "gate", "sbom", "bundle"] },
+          "name": { "type": "string" },
+          "status": { "type": "string" },
+          "timestamped": { "type": "boolean" },
+          "backend": { "type": "string" },
+          "result": { "type": "string" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "redgreen": {
+      "description": "Release 层发布门真实红绿验证留痕(反 YAML-only,CI_GATES §6 第 5 项:构造未签名产物/缺 SBOM/白名单外组件 → 发布门红;修复 → 绿,run URL 归档)",
+      "type": "object",
+      "properties": {
+        "red_command": { "type": "string" },
+        "red_detected": { "type": "boolean" },
+        "green_command": { "type": "string" },
+        "green_exit_code": { "type": "integer" },
+        "run_url": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "harness_commit": { "type": "string" }
+  }
+}
