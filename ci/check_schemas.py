@@ -175,6 +175,7 @@ def check_evidence_files() -> None:
     bilingual_schema = load(
         ROOT / "milestones/m8/bilingual_diagnostic_coverage_evidence_schema.json"
     )
+    doc_site_schema = load(ROOT / "milestones/m8/doc_site_smoke_evidence_schema.json")
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -182,7 +183,8 @@ def check_evidence_files() -> None:
             or stdlib_math_schema is None or soft_raster_schema is None
             or uc03_demo_schema is None or uc01_interop_schema is None
             or cublas_binding_schema is None or uc02_stream_pipeline_schema is None
-            or release_schema is None or bilingual_schema is None):
+            or release_schema is None or bilingual_schema is None
+            or doc_site_schema is None):
         return
     evidence_files = sorted((ROOT / "evidence").glob("*.json"))
     if not evidence_files:
@@ -210,6 +212,7 @@ def check_evidence_files() -> None:
     uc02_stream_pipeline_validator = jsonschema.Draft7Validator(uc02_stream_pipeline_schema)
     release_validator = jsonschema.Draft7Validator(release_schema)
     bilingual_validator = jsonschema.Draft7Validator(bilingual_schema)
+    doc_site_validator = jsonschema.Draft7Validator(doc_site_schema)
     for f in evidence_files:
         doc = load(f)
         if doc is None:
@@ -262,6 +265,8 @@ def check_evidence_files() -> None:
             validator = release_validator
         elif f.name.startswith("bilingual_"):
             validator = bilingual_validator
+        elif f.name.startswith("doc_"):
+            validator = doc_site_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):

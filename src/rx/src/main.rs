@@ -29,8 +29,10 @@ use rurixc::driver::{self, CompileOptions};
 use rurixc::fmt::format_source;
 use rurixc::test_harness::{self, TestKind};
 
+mod doc;
+
 const USAGE: &str =
-    "usage: rx <build|run|check|test|fmt|bench|vendor> ...\n  (doc|fix|watch 后续小里程碑承接)";
+    "usage: rx <build|run|check|test|fmt|bench|vendor|doc> ...\n  (fix|watch 后续小里程碑承接)";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -47,8 +49,10 @@ fn main() -> ExitCode {
         "bench" => cmd_bench(rest),
         "vendor" => cmd_vendor(rest),
         "test" => cmd_test(rest),
-        // 已登记分发位,返回"未实现"用法诊断(RXS-0083;后续里程碑承接)
-        "doc" | "fix" | "watch" => {
+        // rx doc(M8.6,D-M8-6 / G-M8-6):从既有单一事实源确定性生成文档站(RXS-0083 分发位兑现)。
+        "doc" => doc::run(rest),
+        // 仍保留的分发位,返回"未实现"用法诊断(RXS-0083;后续里程碑承接)
+        "fix" | "watch" => {
             usage_error(&format!("子命令 `{sub}` 尚未实现(后续小里程碑承接)"));
             ExitCode::from(2)
         }

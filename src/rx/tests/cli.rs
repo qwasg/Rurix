@@ -50,18 +50,50 @@ fn missing_and_unknown_subcommand_exit_2() {
     assert!(stderr.contains("RX7003"), "应携带 RX7003:{stderr}");
 }
 
-/// RXS-0083:已登记但未实现的分发位(doc/fix/watch)→ 退出码 2。
-/// vendor 于 M6.2 落地(见 vendor_offline_lock_red_green),不再属未实现集。
-/// test 于 M6.3 落地(见 rx_test_bad_signature_is_rx7010)。
+/// RXS-0083:已登记但未实现的分发位(fix/watch)→ 退出码 2。
+/// vendor 于 M6.2 落地(见 vendor_offline_lock_red_green),test 于 M6.3 落地
+/// (见 rx_test_bad_signature_is_rx7010),doc 于 M8.6 落地(见 doc_generates_deterministic_site)。
 //@ spec: RXS-0083
 #[test]
 fn reserved_subcommands_exit_2() {
-    for sub in ["doc", "fix", "watch"] {
+    for sub in ["fix", "watch"] {
         let out = rx().arg(sub).output().expect("spawn rx");
         assert_eq!(out.status.code(), Some(2), "`{sub}` 未实现应退出 2");
         let stderr = String::from_utf8_lossy(&out.stderr);
         assert!(stderr.contains("RX7003"), "`{sub}` 应携带 RX7003:{stderr}");
     }
+}
+
+/// RXS-0083:rx doc(M8.6,D-M8-6 / G-M8-6)从既有单一事实源(spec/error_codes/traceability)
+/// 确定性生成静态文档站:退出 0,关键页齐备(index/spec/errors/traceability)+ 条款锚点 + 错误码索引。
+//@ spec: RXS-0083
+#[test]
+fn doc_generates_deterministic_site() {
+    let ws = temp_ws();
+    let out = rx()
+        .args(["doc", "--root"])
+        .arg(repo_root())
+        .arg("--out")
+        .arg(&ws)
+        .output()
+        .expect("spawn rx");
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "rx doc 应成功:{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    for page in ["index.html", "spec.html", "errors.html", "traceability.html"] {
+        assert!(ws.join(page).is_file(), "缺关键页 {page}");
+    }
+    let spec = std::fs::read_to_string(ws.join("spec.html")).unwrap();
+    assert!(spec.contains("id=\"RXS-0083\""), "spec.html 应含 RXS-0083 锚点");
+    let errors = std::fs::read_to_string(ws.join("errors.html")).unwrap();
+    assert!(
+        errors.contains("id=\"RX0001\""),
+        "errors.html 应含错误码索引锚点"
+    );
+    let _ = std::fs::remove_dir_all(&ws);
 }
 
 /// RXS-0095:rx test 发现到非法测试签名 → RX7010,退出码 1。
