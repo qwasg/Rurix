@@ -114,4 +114,4 @@ interop.shape_mismatch = 互操作形状不匹配:{detail}
 cublas.handle_init_failed = cublas 句柄初始化失败:{detail}
 cublas.invalid_device_pointer = 非法的 cublas device 指针:{detail}
 cublas.dimension_mismatch = cublas 维度不匹配:{detail}
-cublas.runtime_failed = cublas 运行时失败:{detail}
+# cublas.runtime_failed = cublas 运行时失败:{detail}
