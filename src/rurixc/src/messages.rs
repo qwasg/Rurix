@@ -11,6 +11,11 @@ use std::sync::OnceLock;
 /// 内嵌消息源(en);与 `registry/error_codes.json` 的 message_key 互查。
 pub const EN_SOURCE: &str = include_str!("messages/en.messages");
 
+/// 内嵌消息源(zh);中英双语全量覆盖(RD-006,M8)。key 集与 [`EN_SOURCE`] 完全对齐
+/// ——`zh_aligns_with_en` 单测 + `ci/bilingual_coverage.py` 双语覆盖门(步骤 37)交叉守护,
+/// 缺键即红。
+pub const ZH_SOURCE: &str = include_str!("messages/zh.messages");
+
 #[derive(Clone, Debug, Default)]
 pub struct MessageTable {
     map: HashMap<String, String>,
@@ -82,6 +87,23 @@ mod tests {
     fn embedded_table_parses() {
         // key 有效性通道的兜底:内嵌源必须始终可解析(损坏即此测试红)
         let _ = table();
+    }
+
+    #[test]
+    fn zh_aligns_with_en() {
+        // 中英双语全量覆盖(RD-006,M8):zh 与 en 的 key 集必须完全对齐(缺键/多键即红)。
+        // 与 ci/bilingual_coverage.py(步骤 37)互为双保险。
+        use std::collections::BTreeSet;
+        let en = MessageTable::parse(EN_SOURCE).expect("en.messages 必须可解析");
+        let zh = MessageTable::parse(ZH_SOURCE).expect("zh.messages 必须可解析");
+        let en_keys: BTreeSet<&str> = en.map.keys().map(String::as_str).collect();
+        let zh_keys: BTreeSet<&str> = zh.map.keys().map(String::as_str).collect();
+        let missing_in_zh: Vec<&&str> = en_keys.difference(&zh_keys).collect();
+        let extra_in_zh: Vec<&&str> = zh_keys.difference(&en_keys).collect();
+        assert!(
+            missing_in_zh.is_empty() && extra_in_zh.is_empty(),
+            "zh/en message-key 集不对齐:zh 缺 {missing_in_zh:?};zh 多 {extra_in_zh:?}"
+        );
     }
 
     #[test]
