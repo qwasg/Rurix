@@ -83,11 +83,19 @@ fn doc_generates_deterministic_site() {
         "rx doc 应成功:{}",
         String::from_utf8_lossy(&out.stderr)
     );
-    for page in ["index.html", "spec.html", "errors.html", "traceability.html"] {
+    for page in [
+        "index.html",
+        "spec.html",
+        "errors.html",
+        "traceability.html",
+    ] {
         assert!(ws.join(page).is_file(), "缺关键页 {page}");
     }
     let spec = std::fs::read_to_string(ws.join("spec.html")).unwrap();
-    assert!(spec.contains("id=\"RXS-0083\""), "spec.html 应含 RXS-0083 锚点");
+    assert!(
+        spec.contains("id=\"RXS-0083\""),
+        "spec.html 应含 RXS-0083 锚点"
+    );
     let errors = std::fs::read_to_string(ws.join("errors.html")).unwrap();
     assert!(
         errors.contains("id=\"RX0001\""),
