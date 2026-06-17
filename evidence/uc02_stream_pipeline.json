@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "subject": "uc02_stream_pipeline",
+  "stream_pipeline_ok": true,
+  "reject_classes_intercepted": [
+    "cross_stream_unsync",
+    "cross_thread_send",
+    "double_free",
+    "use_after_free"
+  ],
+  "device_path_run": true,
+  "run_command": "cargo run -p uc02-demo;rustc 编译 src/uc02-demo/compile-fail/*.rs 断言拒绝",
+  "device": {
+    "result_line": "UC02_RESULT: ok chunks=4 n=4096 part_a_overlap_max_err=0.000000 part_b_cross_thread_max_err=0.000000 tol=0.000100"
+  },
+  "facts": [
+    {
+      "kind": "reject",
+      "name": "cross_stream_unsync",
+      "fixture": "src/uc02-demo/compile-fail/cross_stream_unsync.rs",
+      "expected_error": "E0599",
+      "rejected": true,
+      "note": "rustc 拒绝(编译期拦截)"
+    },
+    {
+      "kind": "reject",
+      "name": "cross_thread_send",
+      "fixture": "src/uc02-demo/compile-fail/cross_thread_send.rs",
+      "expected_error": "E0277",
+      "rejected": true,
+      "note": "rustc 拒绝(编译期拦截)"
+    },
+    {
+      "kind": "reject",
+      "name": "double_free",
+      "fixture": "src/uc02-demo/compile-fail/double_free.rs",
+      "expected_error": "E0599",
+      "rejected": true,
+      "note": "rustc 拒绝(编译期拦截)"
+    },
+    {
+      "kind": "reject",
+      "name": "use_after_free",
+      "fixture": "src/uc02-demo/compile-fail/use_after_move.rs",
+      "expected_error": "E0382",
+      "rejected": true,
+      "note": "rustc 拒绝(编译期拦截)"
+    },
+    {
+      "kind": "pipeline",
+      "name": "part_a_overlap_max_err",
+      "max_abs_err": 0.0,
+      "tolerance": 0.0001
+    },
+    {
+      "kind": "pipeline",
+      "name": "part_b_cross_thread_max_err",
+      "max_abs_err": 0.0,
+      "tolerance": 0.0001
+    }
+  ],
+  "redgreen": {
+    "red_command": "放行任一 compile-fail 违例(使应拦截者编译通过)/ 篡改 uc02-demo 数值",
+    "red_detected": true,
+    "green_command": "py -3 ci/uc02_stream_pipeline_smoke.py",
+    "green_exit_code": 0,
+    "run_url": "TODO:回填 self-hosted runner 绿→红→复原绿 run URL(步骤 36)"
+  },
+  "timestamp": "2026-06-17T09:57:34+08:00"
+}

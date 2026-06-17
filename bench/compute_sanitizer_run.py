@@ -47,6 +47,11 @@ KERNELS: dict[str, list[str]] = {
     "sr_raster_tile": ["bench/sr_raster_tile_bench.py", "--smoke"],
     "sr_depth": ["bench/sr_depth_bench.py", "--smoke"],
     "sr_tonemap": ["bench/sr_tonemap_bench.py", "--smoke"],
+    # M8.3 UC-02 三 stream 重叠 + 跨线程所有权转移 device 路径(spec/pipeline.md
+    # RXS-0130~0134,D-M8-3)纳入既有 Compute Sanitizer nightly(M5.4 机制延续,
+    # M8 CI_GATES §4 / M8_CONTRACT §5;运行期无数据竞争佐证编译期拦截;经 --target-processes
+    # all 跟随 uc02-demo 子 exe)
+    "uc02_stream": ["bench/uc02_stream_bench.py", "--smoke"],
 }
 TOOLS = ("racecheck", "memcheck")
 
@@ -156,7 +161,11 @@ def run_one(sanitizer: str, version: str, tool: str, label: str,
             target_cmd: list[str], out_dir: Path) -> dict:
     """跑一个 (tool, label) 组合,产证据 dict 并写盘。"""
     abs_cmd = [sys.executable, *[str(ROOT / a) if a.endswith(".py") else a for a in target_cmd]]
-    sani_args = ["--tool", tool, "--error-exitcode", "1", "--", *abs_cmd]
+    # --target-processes all:跟随子进程(M8.3 UC-02 device 路径 kernel/拷贝在 uc02-demo
+    # 子 exe 内执行,须随进程检查;对既有 in-process python ctypes kernel 为无害扩展——
+    # 它们不 spawn GPU 子进程,行为不变)。
+    sani_args = ["--tool", tool, "--target-processes", "all", "--error-exitcode", "1",
+                 "--", *abs_cmd]
     cmd = _wrap(sanitizer, sani_args)
     print(f"\n[sanitizer] >>> --tool {tool} -- {' '.join(target_cmd)}")
     proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)

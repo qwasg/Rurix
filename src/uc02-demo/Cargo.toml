@@ -1,0 +1,12 @@
+[package]
+name = "uc02-demo"
+description = "Rurix UC-02 旗舰验收 demo(M8.3,D-M8-3,契约 G-M8-3,02 §U2 / 01 §6 旗舰用例)——三 stream(H2D / compute / D2H)重叠流水线 + 跨线程所有权转移:复用 rurix-rt affine Context/Stream/Event/Buffer(SharedContext/DeviceBox/SharedEvent/InFlight,RXS-0130~0134),流序分配类型化 + Send 化 primary-context 共享句柄;资源生命周期错误类别(use-after-free / double-free / 跨 stream 未同步 / 跨线程非法转移)100% 编译期拦截(reject 样例见 compile-fail/,冒烟步骤 36 核对);全 safe(unsafe_code=deny),工程编排不新增 spec 语义面"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+rurix-rt = { path = "../rurix-rt" }
+
+[lints]
+workspace = true

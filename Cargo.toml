@@ -2,7 +2,7 @@
 # crate 划分最小起步,按需拆分(M1_PLAN §1)
 [workspace]
 resolver = "2"
-members = ["src/rurixc", "src/rurix-rt", "src/rx", "src/rurix-pkg", "src/image-io", "src/soft-raster", "src/uc03-demo", "src/rurix-interop", "src/rurix-cublas"]
+members = ["src/rurixc", "src/rurix-rt", "src/rx", "src/rurix-pkg", "src/image-io", "src/soft-raster", "src/uc02-demo", "src/uc03-demo", "src/rurix-interop", "src/rurix-cublas"]
 
 [workspace.package]
 edition = "2024"

@@ -37,6 +37,11 @@ pub const CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES: i32 = 4;
 pub const CU_JIT_ERROR_LOG_BUFFER: i32 = 5;
 pub const CU_JIT_ERROR_LOG_BUFFER_SIZE_BYTES: i32 = 6;
 
+/// `CU_EVENT_DEFAULT`(0):默认 event 标志(计时 + 阻塞同步,M8.3 UC-02 跨 stream 同步)。
+pub const CU_EVENT_DEFAULT: u32 = 0;
+/// `cuStreamWaitEvent` 标志(0 = 默认;M8.3 流序依赖,RXS-0131)。
+pub const CU_STREAM_WAIT_DEFAULT: u32 = 0;
+
 // -- Windows 动态加载(kernel32;std 默认链接,无需 toolkit) -----------------
 
 unsafe extern "system" {
@@ -88,6 +93,16 @@ type FnLaunchKernel = unsafe extern "system" fn(
 ) -> CuResult;
 type FnGetErrorName = unsafe extern "system" fn(CuResult, *mut *const c_char) -> CuResult;
 type FnGetErrorString = unsafe extern "system" fn(CuResult, *mut *const c_char) -> CuResult;
+// -- M8.3 UC-02:event 跨 stream 同步 + 异步搬运(三 stream 重叠流水线) ----------
+type FnEventCreate = unsafe extern "system" fn(*mut CuPtr, u32) -> CuResult;
+type FnEventRecord = unsafe extern "system" fn(CuPtr, CuPtr) -> CuResult;
+type FnEventDestroy = unsafe extern "system" fn(CuPtr) -> CuResult;
+type FnEventSync = unsafe extern "system" fn(CuPtr) -> CuResult;
+type FnStreamWaitEvent = unsafe extern "system" fn(CuPtr, CuPtr, u32) -> CuResult;
+type FnMemcpyHtoDAsync =
+    unsafe extern "system" fn(CuDevicePtr, *const c_void, usize, CuPtr) -> CuResult;
+type FnMemcpyDtoHAsync =
+    unsafe extern "system" fn(*mut c_void, CuDevicePtr, usize, CuPtr) -> CuResult;
 
 /// 已加载的 Driver API 入口集(进程内一次加载,函数指针 Send + Sync)。
 pub struct Cuda {
@@ -115,6 +130,13 @@ pub struct Cuda {
     cu_launch_kernel: FnLaunchKernel,
     cu_get_error_name: FnGetErrorName,
     cu_get_error_string: FnGetErrorString,
+    cu_event_create: FnEventCreate,
+    cu_event_record: FnEventRecord,
+    cu_event_destroy: FnEventDestroy,
+    cu_event_sync: FnEventSync,
+    cu_stream_wait_event: FnStreamWaitEvent,
+    cu_memcpy_htod_async: FnMemcpyHtoDAsync,
+    cu_memcpy_dtoh_async: FnMemcpyDtoHAsync,
 }
 
 static CUDA: OnceLock<Option<Cuda>> = OnceLock::new();
@@ -178,6 +200,13 @@ impl Cuda {
                 cu_launch_kernel: cast_fn(sym(c"cuLaunchKernel"))?,
                 cu_get_error_name: cast_fn(sym(c"cuGetErrorName"))?,
                 cu_get_error_string: cast_fn(sym(c"cuGetErrorString"))?,
+                cu_event_create: cast_fn(sym(c"cuEventCreate"))?,
+                cu_event_record: cast_fn(sym(c"cuEventRecord"))?,
+                cu_event_destroy: cast_fn(sym(c"cuEventDestroy_v2"))?,
+                cu_event_sync: cast_fn(sym(c"cuEventSynchronize"))?,
+                cu_stream_wait_event: cast_fn(sym(c"cuStreamWaitEvent"))?,
+                cu_memcpy_htod_async: cast_fn(sym(c"cuMemcpyHtoDAsync_v2"))?,
+                cu_memcpy_dtoh_async: cast_fn(sym(c"cuMemcpyDtoHAsync_v2"))?,
             })
         }
     }
@@ -409,5 +438,71 @@ impl Cuda {
                 .to_string_lossy()
                 .into_owned(),
         )
+    }
+
+    // -- M8.3 UC-02:event 跨 stream 同步 + 异步搬运(三 stream 重叠,RXS-0131) ----
+
+    /// 创建 event(`cuEventCreate`;default 标志,M8.3 跨 stream 流序依赖)。
+    pub fn event_create(&self) -> (CuResult, CuPtr) {
+        let mut e: CuPtr = std::ptr::null_mut();
+        // SAFETY: 出参 `e` 有效可写;flags=CU_EVENT_DEFAULT 合法。
+        let r = unsafe { (self.cu_event_create)(&mut e, CU_EVENT_DEFAULT) };
+        (r, e)
+    }
+
+    /// # Safety
+    /// `event` 为有效未销毁 event 句柄;`stream` 为有效句柄(或 null = default);两者同 current context。
+    pub unsafe fn event_record(&self, event: CuPtr, stream: CuPtr) -> CuResult {
+        // SAFETY: 调用方保证 event/stream 有效且同 context(见 fn 文档)。
+        unsafe { (self.cu_event_record)(event, stream) }
+    }
+
+    /// # Safety
+    /// `event` 必须是 `event_create` 返回且尚未销毁的句柄。
+    pub unsafe fn event_destroy(&self, event: CuPtr) -> CuResult {
+        // SAFETY: 调用方保证 `event` 有效未销毁(见 fn 文档)。
+        unsafe { (self.cu_event_destroy)(event) }
+    }
+
+    /// # Safety
+    /// `event` 为有效已 record 的 event 句柄。
+    pub unsafe fn event_synchronize(&self, event: CuPtr) -> CuResult {
+        // SAFETY: 调用方保证 `event` 有效(见 fn 文档)。
+        unsafe { (self.cu_event_sync)(event) }
+    }
+
+    /// # Safety
+    /// `stream` 有效(或 null);`event` 为有效已(或将)record 的 event,两者同 current context。
+    pub unsafe fn stream_wait_event(&self, stream: CuPtr, event: CuPtr) -> CuResult {
+        // SAFETY: 调用方保证 stream/event 有效且同 context(见 fn 文档)。
+        unsafe { (self.cu_stream_wait_event)(stream, event, CU_STREAM_WAIT_DEFAULT) }
+    }
+
+    /// # Safety
+    /// `dst` 为有效设备地址且 `[dst, dst+bytes)` 在分配内;`src` 指向 ≥ `bytes` 字节、在 stream
+    /// 操作完成前保持有效的(宜为锁页)主机内存;`stream` 有效(或 null)。
+    pub unsafe fn memcpy_htod_async(
+        &self,
+        dst: CuDevicePtr,
+        src: *const c_void,
+        bytes: usize,
+        stream: CuPtr,
+    ) -> CuResult {
+        // SAFETY: 调用方保证 dst/src/stream 有效且 src 在异步拷贝完成前存活(见 fn 文档)。
+        unsafe { (self.cu_memcpy_htod_async)(dst, src, bytes, stream) }
+    }
+
+    /// # Safety
+    /// `dst` 指向 ≥ `bytes` 字节、在 stream 操作完成前保持有效的(宜为锁页)主机内存;`src` 为有效
+    /// 设备地址且范围内;`stream` 有效(或 null)。
+    pub unsafe fn memcpy_dtoh_async(
+        &self,
+        dst: *mut c_void,
+        src: CuDevicePtr,
+        bytes: usize,
+        stream: CuPtr,
+    ) -> CuResult {
+        // SAFETY: 调用方保证 dst/src/stream 有效且 dst 在异步拷贝完成前存活(见 fn 文档)。
+        unsafe { (self.cu_memcpy_dtoh_async)(dst, src, bytes, stream) }
     }
 }

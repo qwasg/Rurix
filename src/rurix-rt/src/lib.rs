@@ -12,6 +12,7 @@
 //! 与逃逸为借用检查错误;完整 affine 销毁纪律(stream 先同步)随 M5 深化。
 
 mod error;
+pub mod pipeline;
 pub mod sys;
 
 use core::ffi::c_void;
@@ -19,11 +20,15 @@ use core::marker::PhantomData;
 use std::cell::Cell;
 
 pub use error::{CudaError, Result};
+pub use pipeline::{
+    Bound, DeviceBox, InFlight, PinnedBox, SharedContext, SharedEvent, SharedKernel, SharedModule,
+    SharedStream,
+};
 
 use sys::{CuDevice, CuDevicePtr, CuPtr};
 
 /// PTX `.version` 协商降版阶梯(08 §2.4;高→低,驱动不支持时逐级回退)。
-const PTX_VERSION_LADDER: [&str; 3] = ["8.0", "7.8", "7.0"];
+pub(crate) const PTX_VERSION_LADDER: [&str; 3] = ["8.0", "7.8", "7.0"];
 
 /// GPU 上下文(affine 根,D-231):拥有 `CUcontext`,!Send + !Sync(current
 /// context 线程绑定);携 poisoned 状态机(RXS-0077)。
@@ -501,7 +506,7 @@ pub fn parse_ptx_version(ptx: &str) -> Option<String> {
 }
 
 /// 改写首个 `.version` 为给定版本(降版协商;不动其余文本)。
-fn set_ptx_version(ptx: &str, version: &str) -> String {
+pub(crate) fn set_ptx_version(ptx: &str, version: &str) -> String {
     let Some(idx) = ptx.find(".version") else {
         return ptx.to_owned();
     };

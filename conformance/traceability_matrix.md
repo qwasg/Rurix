@@ -133,3 +133,8 @@
 | RXS-0127 | spec/cublas.md | 1 | `src/rurix-cublas/src/lib.rs` |
 | RXS-0128 | spec/cublas.md | 1 | `src/rurix-cublas/src/lib.rs` |
 | RXS-0129 | spec/cublas.md | 1 | `src/rurix-cublas/src/lib.rs` |
+| RXS-0130 | spec/pipeline.md | 1 | `src/rurix-rt/src/pipeline.rs` |
+| RXS-0131 | spec/pipeline.md | 1 | `src/rurix-rt/src/pipeline.rs` |
+| RXS-0132 | spec/pipeline.md | 1 | `src/rurix-rt/src/pipeline.rs` |
+| RXS-0133 | spec/pipeline.md | 1 | `src/rurix-rt/src/pipeline.rs` |
+| RXS-0134 | spec/pipeline.md | 1 | `src/rurix-rt/src/pipeline.rs` |
