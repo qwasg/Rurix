@@ -157,9 +157,59 @@ guardrails:
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-06-16 | 初版契约固化(M8 开工脚手架;基准 ref 切至 m7-closed 无需再切;deferred RD-001/RD-006 open→inherited 承接、RD-007 owner M7→M8 顺延维持 inherited;新建 spec/interop.md RXS-0122 续号预留,条款体随 M8.1+ 与测试同 PR;新段位错误码首批分配随 M8.1+ 诊断 PR)。**开工 owner 裁决**(M8 触发新决策面,经 AskQuestion 确认):① 分发格式 = 维持 PTX-only,cubin/fatbin 真分发留 G1(不拉前);② 签名后端 = **Azure Artifact Signing**(of-record,m8.x 发布子里程碑可带档复议);③ D-312/SG-007 包 registry = **评估后维持 not_triggered**(MVP=lockfile+vendor+checksum,真 registry 留 G2);④ base 分支 = #40~#45 合入 main 后基于 main 新建 feat/m8.0-scaffolding。判档:脚手架取 `rfc_required: none`(对齐 M4~M7 先例,高层决策已锁 00–14);各新决策面在对应 m8.x 子里程碑带档位标记落笔,**AI 不自判 Direct,判档争议向上取严** |
+| v1.1 | 2026-06-17 | **M8.6 close-out 裁决留痕**(只追加,既有 v1.0 行 0-byte):**stable API 快照冻结评估结论**(G-M8-6 / §5 guardrail #4,经 AskQuestion owner 裁定)= **评估后维持 not_frozen,快照机制不激活**。理据:M8 MVP 为第一层全量首次验收(01 §6),公开面(rx CLI 命令面 + 公开 crate API)仍处 pre-stable/收敛期,过早激活快照 + bless 守卫将锁死尚在演进的接口;冻结机制(stable 面定义 + 快照比对 + bless 审批)激活留首个 stable 发布(post-MVP / G1 期)。registry 留痕:新增 deferred **RD-008**(stable API 快照冻结机制激活,status open,owner_milestone G1);不新立 SG 条目(stable 面冻结非 14 §7 spike-gating 扩张方向,属机制激活时点裁决)。对齐 §7 v1.0 / SG-007 保守裁定先例(维持 not_triggered,真机制留后续决策点)。**AI 不自判,owner 裁定留痕**。文档站 `rx doc`(D-M8-6 子项)判档:系既有 spec/conformance/API 的工程化呈现,纯工程不造裸条款,归口既有 CLI 分发条款 RXS-0083,trace 维持 139/139,无 spec PR(详见 CI_GATES.md §7 v1.6) |
 
 ---
 
 ## 8. Close-out(只追加区 — 开工时为空)
 
 <!-- 验收记录、guardrail 核对输出、deferred 继承/关闭记录、UC-01/UC-02 端到端红绿留痕、发布链路签名/SBOM 证据、双语覆盖核对、MVP 验收判定、stable API 快照冻结评估结论追加于此;上方条款 0-byte 修改。M8 close-out 关闭判定 / 基准切换 / m8-closed tag 由白栀 / owner 人工签署兑现,AI 不代签。 -->
+
+### 8.1 Close-out 验收记录(AI 准备核对,owner 终审签署前;只追加,上方条款 0-byte)
+
+> 本节为 close-out 证据汇编与 MVP 验收判定(AI 本地核对)。**契约 status active→closed 翻转 / 基准 m7-closed→m8-closed 切换 / m8-closed tag 由白栀 / owner 人工签署兑现,AI 不代签**(§8 头注)。本节及 §7 v1.1、registry/deferred.json v1.10 为 owner 终审的输入材料。
+
+**1. 门禁全绿核对(本地,基准 m7-closed,2026-06-17)**
+
+| 门 | 命令 | 结果 |
+|---|---|---|
+| traceability(G-M8-7) | `py -3 ci/trace_matrix.py --check` | PASS — 139/139 条款锚定,394 测试文件 |
+| 预算(normal) | `py -3 ci/budget_eval.py` | PASS — 65 pass / 0 skip |
+| 预算(MVP 验收门 strict) | `py -3 ci/budget_eval.py --strict` | PASS — 65 pass / 0 skip,**零 estimated 占位,全部阈值 measured_local** |
+| guardrails(字节级) | `py -3 ci/check_guardrails.py` | PASS — base=m7-closed,128 changed paths |
+| schemas / structure | `py -3 ci/check_schemas.py` / `check_structure.py` | PASS / PASS |
+| 文档站冒烟(步骤 39) | `py -3 ci/doc_site_smoke.py` | PASS — rx doc 确定性 4 页 / 139 条款锚点 / 68 错误码索引 |
+| Rust 工具链 | `cargo fmt --all --check` / `cargo clippy --workspace --all-targets -D warnings` / `cargo test --workspace` | PASS / PASS / PASS(含 ui_golden 4/4、views_corpus 4/4、cli 7/7) |
+
+**2. MVP 验收门(11 §3 / 01 §6 第一层全量)— UC-01/UC-02/UC-03 端到端 + 性能判据 + 100% 资源生命周期拦截**
+
+- **UC-01 PyTorch 算子替换端到端**:`operators_passed=[saxpy, reduce, gemm]`(≥3),双协议 `[__cuda_array_interface__, dlpack]`;真实红绿 绿 [27611992733](https://github.com/qwasg/Rurix/actions/runs/27611992733) → 红 [27612224034](https://github.com/qwasg/Rurix/actions/runs/27612224034)(篡改 SAXPY 数值)→ 复原绿 [27612384731](https://github.com/qwasg/Rurix/actions/runs/27612384731)。证据 evidence/uc01_interop_smoke.json
+- **cublas GEMM/GEMV 三层绑定**:`bindings_passed=[gemm, gemv]`,层 `[raw_ffi, safe_wrapper, high_level_api]`;红绿 绿 [27619290198](https://github.com/qwasg/Rurix/actions/runs/27619290198) → 红 [27619643676](https://github.com/qwasg/Rurix/actions/runs/27619643676)(α=2≠1)→ 复原绿 [27619860120](https://github.com/qwasg/Rurix/actions/runs/27619860120)。证据 evidence/cublas_binding_smoke.json
+- **UC-02 三 stream 重叠流水线 + 资源生命周期 100% 编译期拦截**:`stream_pipeline_ok=true`,`device_path_run=true`,`reject_classes_intercepted=[cross_stream_unsync, cross_thread_send, double_free, use_after_free]`(预设 4 类全拦截);红绿 绿 [27660824070](https://github.com/qwasg/Rurix/actions/runs/27660824070) → 红 [27662126131](https://github.com/qwasg/Rurix/actions/runs/27662126131)(double_free 放行)→ 复原绿 [27662211754](https://github.com/qwasg/Rurix/actions/runs/27662211754)。证据 evidence/uc02_stream_pipeline.json
+- **UC-03 SPH + compute 软光栅端到端**:`image_sequence_ok=true`,单可执行,确定性 12/12 帧 SHA-256 一致;软光栅 L3 帧 1.222 ms vs max 1.8333(m7.bench.soft_raster_l3_frame_ms,measured_local)。证据 evidence/uc03_demo_smoke.json
+- **L1/L2 性能判据(≥ 手写 CUDA C++ 90%)**:`m8.ratio.*` measured_local — saxpy 1.0184 / reduce 0.9957 / gemm 1.0016 / cublas_gemm 4.7332 / cublas_gemv 4.8147,均 ≥0.90
+
+**3. 工具链发布门(10 §6)+ CI Release 层门禁(14 §8,RD-001)**
+
+- conformance / UI golden 全绿(`cargo test --workspace`,ui_golden 4/4)+ L1 基准无 Critical 回归(budget_eval --strict 全阈值 PASS)
+- 发布链路签名/SBOM/许可审计:`signed_artifacts=2`(rurixup.exe / rx.exe,Azure Artifact Signing,Authenticode + 时间戳)+ SBOM(SPDX 构建 + CycloneDX 发布)+ NVIDIA 白名单审计 + artifact 上传;红 [27675184250](https://github.com/qwasg/Rurix/actions/runs/27675184250)(缺 SBOM hard-block)→ 绿 [27676332410](https://github.com/qwasg/Rurix/actions/runs/27676332410)(tag v0.1.0-m8.4)。证据 evidence/release_pipeline_smoke.json
+- 诊断双语全量覆盖(RD-006,10 §6):`coverage_complete=true`,en/zh 各 68 key 对齐;红绿 绿 [27680365968](https://github.com/qwasg/Rurix/actions/runs/27680365968) → 红 [27680580391](https://github.com/qwasg/Rurix/actions/runs/27680580391)(zh 缺 cublas.runtime_failed)→ 复原绿 [27680780231](https://github.com/qwasg/Rurix/actions/runs/27680780231)。证据 evidence/bilingual_diagnostic_coverage.json
+- 文档站(D-M8-6,步骤 39):`rx doc` 确定性站点(4 页逐字节一致 / 139 条款锚点 / 68 错误码索引);红绿 绿 [27684598897](https://github.com/qwasg/Rurix/actions/runs/27684598897) → 红 [27684925366](https://github.com/qwasg/Rurix/actions/runs/27684925366)(抹错误码索引)→ 复原绿 [27685136456](https://github.com/qwasg/Rurix/actions/runs/27685136456)。证据 evidence/doc_site_smoke.json
+
+**4. stable API 快照冻结评估结论(G-M8-6)**
+
+见 §7 v1.1:**评估后维持 not_frozen,快照 + bless 机制不激活**(owner 经 AskQuestion 裁定),机制激活留首个 stable 发布(deferred RD-008,open)。理据:MVP 公开面仍 pre-stable,过早激活将锁死演进期接口;对齐 §7 v1.0 / SG-007 保守裁定先例。
+
+**5. Deferred 处置(registry/deferred.json v1.10 为唯一事实源)**
+
+- **RD-001**(CI Release 层门禁):M8.4 D-M8-4/G-M8-4 验收义务兑现(见 §8.1 第 3 节)→ 维持 inherited,**formal close inherited→closed 翻转待 owner §8 终审签署**(对齐 M6.1 待终审先例)
+- **RD-006**(诊断双语全量覆盖):M8.5 D-M8-5/G-M8-5 验收义务兑现(见 §8.1 第 3 节)→ 维持 inherited,**formal close 翻转待 owner §8 终审签署**
+- **RD-007**(const 泛型值运行期单态化):M8 互操作/绑定/收口作用面未触发,RXS-0064 语义不变 → 维持 inherited(非 M8 验收门,执行期处置,对齐 M5/M6/M7 顺延先例)
+- **RD-008**(stable API 快照冻结机制激活):新增 open,owner_milestone G1(§7 v1.1 裁定)
+
+**6. 待 owner 人工签署兑现(§8 头注,AI 不代签)**
+
+- [ ] 契约 YAML 头 `status: active → closed`
+- [ ] RD-001 / RD-006 formal close inherited→closed(deferred.json,owner 终审一并兑现)
+- [ ] 基准 ref `m7-closed → m8-closed` 切换
+- [ ] `m8-closed` tag 创建(指向 close-out 终审 commit)

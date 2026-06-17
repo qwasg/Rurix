@@ -20,7 +20,8 @@
       "status": "inherited",
       "history": [
         { "date": "2026-06-11", "event": "登记于 M0 契约 out-of-scope", "evidence": "milestones/m0/M0_CONTRACT.md §2.2" },
-        { "date": "2026-06-16", "event": "M8 开工承接(open→inherited,owner_milestone M8 不变):CI Release 层门禁由 M8 D-M8-4/G-M8-4 落地——发布链路(rurixup/MSI/winget)+ 签名(Azure Artifact Signing)/SBOM(SPDX+CycloneDX)/许可白名单审计 + artifact 上传同步建成,Release 层结构见 14 §8(bench --strict + hard block + 签名/SBOM/许可审计 + artifact 上传)。close 留痕待发布链路建成", "evidence": "milestones/m8/M8_CONTRACT.md §6 / M8_PLAN.md §4 / CI_GATES.md §3" }
+        { "date": "2026-06-16", "event": "M8 开工承接(open→inherited,owner_milestone M8 不变):CI Release 层门禁由 M8 D-M8-4/G-M8-4 落地——发布链路(rurixup/MSI/winget)+ 签名(Azure Artifact Signing)/SBOM(SPDX+CycloneDX)/许可白名单审计 + artifact 上传同步建成,Release 层结构见 14 §8(bench --strict + hard block + 签名/SBOM/许可审计 + artifact 上传)。close 留痕待发布链路建成", "evidence": "milestones/m8/M8_CONTRACT.md §6 / M8_PLAN.md §4 / CI_GATES.md §3" },
+        { "date": "2026-06-17", "event": "M8 close-out 处置(维持 inherited):CI Release 层门禁由 M8.4 D-M8-4/G-M8-4 兑现——rurixup/MSI/winget 打包 + Azure Artifact Signing(Authenticode,signed_artifacts=2 rurixup.exe/rx.exe)+ SBOM(SPDX+CycloneDX)+ NVIDIA 许可白名单审计 + artifact 上传 + Release 层 hard-block(14 §8),真实红绿 红 run 27675184250(缺 SBOM hard-block)→ 绿 run 27676332410(tag v0.1.0-m8.4)。验收义务兑现;formal close inherited→closed 翻转待 owner 契约 §8 终审签署(对齐 M6.1 待终审先例)", "evidence": "milestones/m8/M8_CONTRACT.md §8 / evidence/release_pipeline_smoke.json / CI_GATES.md §7 v1.4" }
       ]
     },
     {
@@ -86,7 +87,8 @@
       "status": "inherited",
       "history": [
         { "date": "2026-06-11", "event": "登记于 M1 契约 out-of-scope", "evidence": "milestones/m1/M1_CONTRACT.md §2.2" },
-        { "date": "2026-06-16", "event": "M8 开工承接(open→inherited,owner_milestone M8 不变):诊断消息中英双语全量覆盖由 M8 D-M8-5/G-M8-5 落地——message-key zh/en key 集全量对齐回填,覆盖率核对入发布门(10 §6 工具链发布门;ci/bilingual_coverage.py 缺键即红),纳入 M8.4 Release 层 hard block。close 留痕待双语全量回填", "evidence": "milestones/m8/M8_CONTRACT.md §6 / M8_PLAN.md §5 / CI_GATES.md §2 步骤37" }
+        { "date": "2026-06-16", "event": "M8 开工承接(open→inherited,owner_milestone M8 不变):诊断消息中英双语全量覆盖由 M8 D-M8-5/G-M8-5 落地——message-key zh/en key 集全量对齐回填,覆盖率核对入发布门(10 §6 工具链发布门;ci/bilingual_coverage.py 缺键即红),纳入 M8.4 Release 层 hard block。close 留痕待双语全量回填", "evidence": "milestones/m8/M8_CONTRACT.md §6 / M8_PLAN.md §5 / CI_GATES.md §2 步骤37" },
+        { "date": "2026-06-17", "event": "M8 close-out 处置(维持 inherited):诊断双语全量覆盖由 M8.5 D-M8-5/G-M8-5 兑现——src/rurixc/src/messages/{en,zh}.messages key 集完全对齐(coverage_complete=true,en/zh 各 68 key),覆盖率核对入发布门(10 §6,ci/bilingual_coverage.py 缺键即红),真实红绿 绿 run 27680365968 → 红 run 27680580391(zh 缺 cublas.runtime_failed)→ 复原绿 run 27680780231。验收义务兑现;formal close inherited→closed 翻转待 owner 契约 §8 终审签署(对齐 M6.1 待终审先例)", "evidence": "milestones/m8/M8_CONTRACT.md §8 / evidence/bilingual_diagnostic_coverage.json / CI_GATES.md §7 v1.5" }
       ]
     },
     {
@@ -104,7 +106,19 @@
         { "date": "2026-06-15", "event": "M6 close-out 处置(维持 inherited):M6 工具链与包管理(rx CLI / 包管理 / LSP MVP)作用面未触发 const 泛型值运行期单态化需求(rx CLI/pkg/LSP server 不依赖 turbofish const 实参实例值代入),非 M6 验收门,M6 未接通;owner_milestone 维持 M6,承接随后续 device codegen 进一步扩展评估接通,RXS-0064 语义条款不变,回填仅补实现侧。close-out 不强制翻转(对齐 M5 close-out 顺延先例)", "evidence": "milestones/m6/M6_CONTRACT.md §8.10 / M6_PLAN.md §4" },
         { "date": "2026-06-15", "event": "M7 开工承接(维持 inherited,owner_milestone M6→M7 顺延):M7 标准库充实与 G0 图形演示作用面——core 数学库几何原语 / 数组长度类 const 泛型(固定维度 Mat / tile 尺寸)可能触发运行期单态化,届时按需接通或继续留痕,RXS-0064 语义条款不变,回填仅补实现侧;**非 M7 验收门**,接通与否执行期处置留痕", "evidence": "milestones/m7/M7_CONTRACT.md §6 / M7_PLAN.md §0 §6" },
         { "date": "2026-06-16", "event": "M7 close-out 处置(维持 inherited,owner_milestone 维持 M7):M7.1~M7.5 实现(core 数学库 Vec/Mat/swizzle/几何原语 / image-io / G0 软光栅 kernel / UC-03 demo / 软光栅 L3 基准)均以固定维度常量(WIDTH/HEIGHT/TILE_SIZE / 帧分辨率 / 类型级 Mat 维度)实现,未依赖 turbofish const 实参实例值代入,**未触发** const 泛型值运行期单态化需求,**非 M7 验收门**,M7 未接通;owner_milestone 维持 M7,承接随后续 device codegen / 运行期数组 aggregate codegen 扩展评估接通(M8 开工时按既有先例顺延留痕),RXS-0064 语义条款不变,回填仅补实现侧。close-out 不强制翻转(对齐 M5/M6 close-out 顺延先例)", "evidence": "milestones/m7/M7_CONTRACT.md §8 / M7_PLAN.md §5" },
-        { "date": "2026-06-16", "event": "M8 开工承接(维持 inherited,owner_milestone M7→M8 顺延):M8 互操作、加固与 MVP 验收作用面——UC-01 PyTorch 互操作(PYD/nanobind/DLPack/__cuda_array_interface__)/ cublas 绑定 / UC-02 三 stream 流水线 / 发布链路均不依赖 turbofish const 实参实例值代入;若 UC-01/UC-02 算子或 cublas 绑定触发数组长度类 const 泛型运行期单态化则按需接通或继续留痕,RXS-0064 语义条款不变,回填仅补实现侧;**非 M8 验收门**,接通与否执行期处置留痕(对齐 M5/M6/M7 开工承接顺延先例)", "evidence": "milestones/m8/M8_CONTRACT.md §6 / M8_PLAN.md §0 §7" }
+        { "date": "2026-06-16", "event": "M8 开工承接(维持 inherited,owner_milestone M7→M8 顺延):M8 互操作、加固与 MVP 验收作用面——UC-01 PyTorch 互操作(PYD/nanobind/DLPack/__cuda_array_interface__)/ cublas 绑定 / UC-02 三 stream 流水线 / 发布链路均不依赖 turbofish const 实参实例值代入;若 UC-01/UC-02 算子或 cublas 绑定触发数组长度类 const 泛型运行期单态化则按需接通或继续留痕,RXS-0064 语义条款不变,回填仅补实现侧;**非 M8 验收门**,接通与否执行期处置留痕(对齐 M5/M6/M7 开工承接顺延先例)", "evidence": "milestones/m8/M8_CONTRACT.md §6 / M8_PLAN.md §0 §7" },
+        { "date": "2026-06-17", "event": "M8 close-out 处置(维持 inherited,owner_milestone 维持 M8):M8.1~M8.6 实现(UC-01 PyTorch 互操作 / cublas GEMM/GEMV 三层绑定 / UC-02 三 stream 流水线 / 发布链路 / 双语诊断 / 文档站)均不依赖 turbofish const 实参实例值代入,未触发 const 泛型值运行期单态化需求,**非 M8 验收门**,M8 未接通;承接随后续 device codegen / 运行期数组 aggregate codegen 扩展评估接通,RXS-0064 语义条款不变,回填仅补实现侧。close-out 不强制翻转(对齐 M5/M6/M7 close-out 顺延先例)", "evidence": "milestones/m8/M8_CONTRACT.md §8 / M8_PLAN.md §5" }
+      ]
+    },
+    {
+      "id": "RD-008",
+      "title": "stable API 快照冻结机制激活(stable 面定义 + 快照比对 + bless 审批守卫)",
+      "reason": "M8 MVP 为第一层全量首次验收(01 §6);公开面(rx CLI 命令面 + 公开 crate API)仍处 pre-stable/收敛期,过早激活快照+bless 守卫将锁死尚在演进的接口(G-M8-6 stable API 快照冻结评估,owner 经 AskQuestion 裁定维持 not_frozen)",
+      "backfill_condition": "首个 stable 发布(post-MVP / G1 期)时定义 stable 面并激活快照机制 + bless 审批守卫;激活与否随该里程碑裁决留痕。代码侧无 STUB 标注(为未激活机制而非半成品)",
+      "owner_milestone": "G1",
+      "status": "open",
+      "history": [
+        { "date": "2026-06-17", "event": "M8.6 close-out 执行期登记(owner 经 AskQuestion 裁定,M8_CONTRACT §7 v1.1):G-M8-6 stable API 快照冻结评估结论 = 评估后维持 not_frozen,快照+bless 机制不激活;冻结机制激活留首个 stable 发布。MVP 公开面仍 pre-stable,过早激活将锁死演进期接口。对齐 §7 v1.0 / SG-007 保守裁定先例(真机制留后续决策点)", "evidence": "milestones/m8/M8_CONTRACT.md §7 v1.1 §8 / CI_GATES.md §6" }
       ]
     }
   ],
@@ -118,6 +132,7 @@
     { "version": "v1.6", "date": "2026-06-15", "change": "M6 close-out 终审留痕(只追加 history,既有 history 行 0-byte):RD-003 inherited→closed(rx bench 工具化由 M6.1 完结 + M6.5 `rx bench lsp` 实战,M5 harness 脚本收编退役,G-M6-4 兑现);RD-005 inherited→closed(rx fmt 完整工具化由 M6.1 完结,雏形退役,幂等门 108 文件 byte-exact,G-M6-4 兑现);RD-004 已于 M6.4 inherited→closed(无损语法树通道 src/rurixc/src/lossless.rs);RD-007 维持 inherited、owner_milestone M6(M6 作用面未触发 const 泛型值单态化,非验收门,顺延后续 device codegen 扩展)。详见 milestones/m6/M6_CONTRACT.md §8.10" },
     { "version": "v1.7", "date": "2026-06-15", "change": "M7 开工承接留痕(只追加 history,既有 history 行 0-byte):RD-007 维持 inherited、owner_milestone M6→M7 顺延(M7 标准库充实与 G0 图形演示作用面——core 数学库几何原语 / 数组长度类 const 泛型可能触发运行期单态化,届时按需接通或继续留痕,RXS-0064 语义条款不变,回填仅补实现侧,非 M7 验收门)。RD-001/RD-006 维持 open(M8);RD-002/RD-003/RD-004/RD-005 维持 closed。详见 milestones/m7/M7_CONTRACT.md §6" },
     { "version": "v1.8", "date": "2026-06-16", "change": "M7 close-out 处置留痕(只追加 history,既有 history 行 0-byte):RD-007 维持 inherited、owner_milestone 维持 M7(M7.1~M7.5 standard 库充实 / G0 软光栅 / UC-03 demo / 软光栅 L3 基准均用固定维度常量实现,未触发 const 泛型值运行期单态化,非 M7 验收门,M7 未接通,承接随后续 device codegen 扩展评估接通,M8 开工时按先例顺延)。RD-001/RD-006 维持 open(M8);RD-002/RD-003/RD-004/RD-005 维持 closed。详见 milestones/m7/M7_CONTRACT.md §8" },
-    { "version": "v1.9", "date": "2026-06-16", "change": "M8 开工承接留痕(只追加 history,既有 history 行 0-byte):RD-001 open→inherited(owner_milestone M8 不变,CI Release 层门禁由 M8 D-M8-4/G-M8-4 落地——发布链路 rurixup/MSI/winget + Azure 签名/SBOM/许可审计 + artifact 上传,14 §8 Release 层结构);RD-006 open→inherited(owner_milestone M8 不变,诊断双语全量覆盖由 M8 D-M8-5/G-M8-5 落地——覆盖率核对入发布门,10 §6);RD-007 维持 inherited、owner_milestone M7→M8 顺延(M8 互操作与收口作用面若触发数组长度类 const 泛型运行期单态化则按需接通,RXS-0064 语义不变,非 M8 验收门)。RD-002/RD-003/RD-004/RD-005 维持 closed。详见 milestones/m8/M8_CONTRACT.md §6" }
+    { "version": "v1.9", "date": "2026-06-16", "change": "M8 开工承接留痕(只追加 history,既有 history 行 0-byte):RD-001 open→inherited(owner_milestone M8 不变,CI Release 层门禁由 M8 D-M8-4/G-M8-4 落地——发布链路 rurixup/MSI/winget + Azure 签名/SBOM/许可审计 + artifact 上传,14 §8 Release 层结构);RD-006 open→inherited(owner_milestone M8 不变,诊断双语全量覆盖由 M8 D-M8-5/G-M8-5 落地——覆盖率核对入发布门,10 §6);RD-007 维持 inherited、owner_milestone M7→M8 顺延(M8 互操作与收口作用面若触发数组长度类 const 泛型运行期单态化则按需接通,RXS-0064 语义不变,非 M8 验收门)。RD-002/RD-003/RD-004/RD-005 维持 closed。详见 milestones/m8/M8_CONTRACT.md §6" },
+    { "version": "v1.10", "date": "2026-06-17", "change": "M8 close-out 处置留痕(只追加 history,既有 history 行 0-byte):RD-001 维持 inherited(M8.4 D-M8-4/G-M8-4 CI Release 层门禁验收义务兑现,signed_artifacts=2 + SBOM + 白名单审计 + artifact 上传,红绿 27675184250→27676332410,formal close 翻转待 owner 契约 §8 终审);RD-006 维持 inherited(M8.5 D-M8-5/G-M8-5 双语全量覆盖验收义务兑现,en/zh 对齐 coverage_complete=true,红绿 27680365968→27680580391→27680780231,formal close 翻转待 owner §8 终审);RD-007 维持 inherited、owner_milestone M8(M8 互操作/绑定/收口未触发 const 泛型值单态化,非验收门,顺延后续 device codegen 扩展);**新增 RD-008**(stable API 快照冻结机制激活,open,owner_milestone G1:M8.6 close-out owner 裁定维持 not_frozen,机制激活留首个 stable 发布,M8_CONTRACT §7 v1.1)。RD-002/RD-003/RD-004/RD-005 维持 closed。详见 milestones/m8/M8_CONTRACT.md §8" }
   ]
 }
