@@ -109,6 +109,16 @@ jobs:
         shell: powershell
         run: py -3 ci/cublas_binding_smoke.py
 
+      # 步骤 36(G-M8-3):UC-02 三 stream 重叠流水线 + 跨线程所有权转移端到端。host 段对
+      # src/uc02-demo/compile-fail/*.rs 四类资源生命周期违例(use-after-free/double-free/
+      # 跨 stream 未同步/跨线程非法转移)断言 rustc 100% 编译期拦截(任一放行即红,反 YAML-only);
+      # device 段 cargo run -p uc02-demo 三 stream 重叠 + 跨线程转移数值对照;写
+      # evidence/uc02_stream_pipeline.json(stream_pipeline_ok)供 budget_eval
+      # (m8.counter.uc02_stream_pipeline,>=1 则 PASS)。无 GPU → device 段降级 SKIP(host 拦截段仍跑)。失败即红。
+      - name: UC-02 three-stream overlap pipeline smoke (M8 CI_GATES §2.36, G-M8-3)
+        shell: powershell
+        run: py -3 ci/uc02_stream_pipeline_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

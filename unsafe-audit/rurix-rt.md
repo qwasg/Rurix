@@ -29,6 +29,12 @@
 | U8 | `slice::from_raw_parts(_mut)` pinned 视图 | lib.rs `PinnedBuffer::as_(mut_)slice` | ptr 为 cuMemAllocHost 返回的 `len*size_of::<T>()` 字节锁页内存,对齐满足;`&self`/`&mut self` 约束生命期与别名 |
 | U9 | primary context retain/release/set_current(`cuDevicePrimaryCtxRetain` / `cuDevicePrimaryCtxRelease_v2` / `cuCtxSetCurrent`) | sys.rs `Cuda::{primary_ctx_retain,primary_ctx_release,ctx_set_current}` + lib.rs `Context::from_primary` / `Drop` | `device` 来自 `device_get`;retain/release 配对(引用计数,Drop 仅 release 一次);`ctx_set_current` 入参为刚 retain 成功的有效 context;set_current 失败回滚 release(M8.1 互操作零拷贝:与 PyTorch runtime API 共享 primary context,RXS-0125) |
 | U10 | 借用外部设备指针构造缓冲(`from_device_ptr`,Drop 不 free) | lib.rs `Context::from_device_ptr` / `DeviceBuffer::drop`(`!owned` 早返) | 调用方(互操作 FFI 边界,经 `__cuda_array_interface__` v3 / DLPack capsule 取得)保证 `ptr` 在本 context 设备上有效、可读写、容纳 ≥ `len` 个 `T`,借用存活期内未被外部 deleter 释放;`owned=false` 故 Drop **不** `cuMemFree`(所有权留外部 deleter,不双重释放,M8.1 / RXS-0123/0124) |
+| U11 | event 跨 stream 同步 FFI(`cuEventCreate` / `cuEventRecord` / `cuEventDestroy_v2` / `cuEventSynchronize` / `cuStreamWaitEvent`) | sys.rs `Cuda::{event_create,event_record,event_destroy,event_synchronize,stream_wait_event}`(M8.3 UC-02,RXS-0131) | event/stream 句柄有效、未销毁、同 current context,由上层所有权类型(`SharedEvent`/`SharedStream`)RAII 维持;出参指针有效可写;`event_record` 前 stream 有效,`stream_wait_event` 建立流序依赖不解引用数据 |
+| U12 | 异步搬运 FFI(`cuMemcpyHtoDAsync_v2` / `cuMemcpyDtoHAsync_v2`) | sys.rs `Cuda::{memcpy_htod_async,memcpy_dtoh_async}`(M8.3 UC-02,RXS-0131) | 设备地址范围在分配内;主机端(宜锁页)`src`/`dst` ≥ `bytes` 字节,且**在 stream 异步操作完成前保持有效**(由 `InFlight` 持 `PinnedBox` 保活至同步,杜绝悬垂);`stream` 有效 |
+| U13 | 跨线程共享 primary context(`SharedContext`/`SharedInner` 的 `unsafe impl Send + Sync` + 跨线程 `cuCtxSetCurrent` 重绑 + retain/release) | pipeline.rs `SharedInner`(Send/Sync/Drop)、`SharedContext::{from_primary,bind}`、各 affine 资源 `Drop`(重绑 current 后释放)(M8.3 UC-02,RXS-0133) | primary context 为**进程级**对象,多线程各自 `cuCtxSetCurrent` 后共享合法(Driver 线程模型);`SharedInner` 持句柄/设备序号纯数据,`Arc` 单点配对 retain/release(最后引用 Drop 仅 release 一次);任意线程的资源 Drop 先 `ctx_set_current(inner.raw)`(`Arc` 存活保证句柄有效)再释放 |
+| U14 | 跨线程 event 句柄转移(`SharedEvent` 的 `unsafe impl Send`) | pipeline.rs `SharedEvent`(`unsafe impl Send` / Drop)(M8.3 UC-02,RXS-0133) | `cuEvent` 为绑 context 的进程级驱动对象,跨线程 `move` 合法(持有者线程 current 为同一 context;`Arc<SharedInner>` 保证 context 存活,Drop 前重绑 current);仅 `Send`(move 转移),不 `Sync`(不跨线程共享 `&`) |
+| U15 | 跨 stream 流序依赖(`SharedStream::wait_event` 经 `cuStreamWaitEvent`) | pipeline.rs `SharedStream::wait_event` / `acquire`(M8.3 UC-02,RXS-0132 流序分配类型化) | `stream`/`event` 有效且同 current context;`acquire` 消费 `InFlight` 插入 wait 后重 brand 回 `DeviceBox`——「跨 stream 未同步访问」由类型系统(`InFlight` 无读接口)编译期拦截,不解引用未就绪数据 |
+| U16 | 异步搬运裸指针 + pinned 经 `InFlight` 保活(`SharedStream::{upload,download}`) | pipeline.rs `SharedStream::{upload,download}`(M8.3 UC-02,RXS-0131/0132) | `upload` move 入 `PinnedBox` 并随 `InFlight` 存活至同步(异步 H2D 期 pinned 源不悬垂);`download` 末 `cuStreamSynchronize` 后方返回(异步 D2H 期 pinned 目标存活);设备地址范围在分配内,`assert` 守长度 ≤ 容量 |
 
 ## 销毁纪律(D-231)
 
@@ -39,6 +45,15 @@
 缓冲(`from_device_ptr`,零拷贝互操作)所有权在外部 deleter,Drop 不释放(不双重释放)。
 错误吞掉(Drop 无 panic)。生命周期 brand(`'ctx`)保证资源不晚于 context(借用检查 +
 反向 Drop 序)。
+
+**M8.3 UC-02 shared 族销毁纪律(`pipeline.rs`,RXS-0130/0133)**:`SharedContext` 经 `Arc`
+引用计数包裹 primary context,`Clone` 仅 `Arc` +1(不重复 retain);`DeviceBox`/`PinnedBox`/
+`SharedStream`/`SharedEvent`/`SharedModule` 各持一份 `Arc<SharedInner>` 克隆,故 `SharedInner`
+(及其 `primary_ctx_release`)在**全部资源 Drop 之后**才发生(context 不早于其资源,跨线程亦
+然)。各资源 Drop 在**任意持有线程**先 `cuCtxSetCurrent(inner.raw)` 重绑本 context 再
+free/destroy/unload(`Arc` 存活保证句柄有效),Drop 仅一次(单一所有权、非 `Clone`,不双重
+释放)。current context 线程绑定守卫 `Bound` 为 `!Send`(`PhantomData<*const ()>`),不得跨线程
+转移;可跨线程的仅 `SharedContext`(`Send+Sync`)/ `DeviceBox`(`Send`)/ `SharedEvent`(`Send`)。
 
 ## 测试
 

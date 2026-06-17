@@ -813,6 +813,21 @@
     ],
     "RXS-0129": [
       "src/rurix-cublas/src/lib.rs"
+    ],
+    "RXS-0130": [
+      "src/rurix-rt/src/pipeline.rs"
+    ],
+    "RXS-0131": [
+      "src/rurix-rt/src/pipeline.rs"
+    ],
+    "RXS-0132": [
+      "src/rurix-rt/src/pipeline.rs"
+    ],
+    "RXS-0133": [
+      "src/rurix-rt/src/pipeline.rs"
+    ],
+    "RXS-0134": [
+      "src/rurix-rt/src/pipeline.rs"
     ]
   }
 }

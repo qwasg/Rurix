@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/uc02_stream_pipeline/v1",
+  "title": "Rurix UC-02 三 stream 重叠流水线 + 跨线程所有权转移冒烟证据 JSON(M8.3,契约 G-M8-3)",
+  "description": "cargo run -p uc02-demo 端到端真跑(三 stream H2D/compute/D2H 重叠 + event 流序依赖 + 流序分配类型化 InFlight + 跨线程 DeviceBox/SharedEvent 转移,复用 rurix-rt affine 运行时对象 RXS-0130~0134)逐元素数值对照通过(stream_pipeline_ok),以及预设资源生命周期错误类别(use-after-free / double-free / 跨 stream 未同步 / 跨线程非法转移)经 src/uc02-demo/compile-fail/*.rs **100% 编译期拦截**(rustc 拒绝每个应失败样例,RXS-0134)的机器事实清单。stream_pipeline_ok=true 计入 m8.counter.uc02_stream_pipeline(ci/budget_eval.py;>=1 则 PASS,建设期/无 GPU 为 normal SKIP)。机器复核闸门 = ci/uc02_stream_pipeline_smoke.py(任一应拦截违例编译通过 / 端到端数值对照失败即非零退出,反 YAML-only)。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject",
+    "stream_pipeline_ok",
+    "reject_classes_intercepted",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": {
+      "description": "证据对象",
+      "const": "uc02_stream_pipeline"
+    },
+    "stream_pipeline_ok": {
+      "description": "三 stream 重叠流水线(Part A 单线程重叠)+ 跨线程所有权转移(Part B)端到端逐元素数值对照通过(device 真跑;无 GPU/驱动则为 false,降级 normal SKIP)",
+      "type": "boolean"
+    },
+    "reject_classes_intercepted": {
+      "description": "经 compile-fail 样例 100% 编译期拦截的资源生命周期错误类别(rustc 拒绝)",
+      "type": "array",
+      "items": {
+        "enum": [
+          "use_after_free",
+          "double_free",
+          "cross_stream_unsync",
+          "cross_thread_send"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "device_path_run": {
+      "description": "device 端到端是否实跑(true=有 GPU 真跑;false=无 GPU 降级 SKIP,仅跑 host compile-fail 拦截)",
+      "type": "boolean"
+    },
+    "run_command": { "type": "string" },
+    "device": {
+      "description": "实测 GPU / 驱动环境",
+      "type": "object",
+      "properties": {
+        "gpu": { "type": "string" },
+        "driver": { "type": "string" },
+        "result_line": { "type": "string" }
+      }
+    },
+    "facts": {
+      "description": "逐项背书(反 YAML-only:每条结论可由命令实测复现)——含端到端数值对照(Part A/B max_abs_err)+ 逐 reject 类别拦截(fixture ↔ 预期 rustc 错误码 ↔ 实际拒绝)",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": { "enum": ["pipeline", "reject"] },
+          "name": { "type": "string" },
+          "max_abs_err": { "type": "number" },
+          "tolerance": { "type": "number" },
+          "fixture": { "type": "string" },
+          "expected_error": { "type": "string" },
+          "rejected": { "type": "boolean" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "redgreen": {
+      "description": "门禁真实红绿验证留痕(反 YAML-only,CI_GATES §79:放行某资源生命周期违例使其应拦截却编译通过 → 红;复原 → 绿)",
+      "type": "object",
+      "properties": {
+        "red_command": { "type": "string" },
+        "red_detected": { "type": "boolean" },
+        "green_command": { "type": "string" },
+        "green_exit_code": { "type": "integer" },
+        "run_url": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "harness_commit": { "type": "string" }
+  }
+}
