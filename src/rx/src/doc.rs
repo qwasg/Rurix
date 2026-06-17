@@ -420,7 +420,7 @@ fn render_errors(errors: &[ErrCode]) -> String {
             .collect::<Vec<_>>()
             .join(", ");
         body.push_str(&format!(
-            "<tr><td><code>{id}</code></td><td>{title}</td><td><code>{mk}</code></td>\
+            "<tr id=\"{id}\"><td><code>{id}</code></td><td>{title}</td><td><code>{mk}</code></td>\
 <td>{status}</td><td>{intro}</td><td>{clauses}</td></tr>\n",
             id = html_escape(&e.id),
             title = html_escape(&e.title),
