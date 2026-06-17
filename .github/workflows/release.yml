@@ -78,6 +78,7 @@ jobs:
           cargo build -q -p rurixup
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           .\target\debug\rurixup.exe release --version 0.1.0 --out-dir target\rurixup_release_smoke\forced-red --component "rurixup.exe|0.1.0|Apache-2.0|core|target\debug\rurixup.exe" --sign "rurixup.exe|Valid|true|selftest" --simulate-missing-sbom
+          exit $LASTEXITCODE
 
       # 计数核对:m8.counter.release_artifacts_signed >=1(发布链路签名产物)。
       - name: budget eval release counter (strict)
