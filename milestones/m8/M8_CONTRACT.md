@@ -259,3 +259,19 @@ $ py -3 ci/check_guardrails.py m8-closed
 ```
 
 关闭日期:**2026-06-17**。MVP 正式完结。
+
+### 8.3 G1 开工前收尾核对(2026-06-17)
+
+> 本节只记录 M8 关闭后的开工前清尾;不创建 G1 契约、计划、CI 门或目录脚手架。已关闭契约历史 checklist 不回写勾选,按 14 §1 只追加说明。
+
+**收尾结论:**
+
+- `m8-closed` annotated tag 已存在;`ci/check_guardrails.py` 无参回退基准已切到 `m8-closed`,且 §8.2 已记录 `check_guardrails.py m8-closed` PASS。
+- RD-001 / RD-006 已在 `registry/deferred.json` v1.11 formal close;M8 验收门无未关闭承接项。
+- RD-007 在 M8 未触发、非 M8/G1 开工脚手架;本次仅把 owner 从已关闭的 M8 顺延到 G1(`registry/deferred.json` v1.12),保持 `inherited`,RXS-0064 语义不变,后续随 device codegen / 运行期数组 aggregate codegen 扩展评估接通。
+- RD-008 维持 `open`/G1;stable API 快照冻结机制留首个 stable 发布裁决。
+- `milestones/g1/` 维持空目录;本轮未新增 G1 契约、计划、预算或 CI 脚手架。
+
+**旧 checklist 处置说明:**
+
+§8.1 第 6 节的四个待 owner 项已由 §8.2(a)~(d) 兑现;原 checklist 保持未改写是 append-only 纪律结果,不是未完成任务。G1 开工前剩余状态只剩 RD-007(`inherited`/G1)与 RD-008(`open`/G1)两个明确承接项,均非 G1 前置脚手架。
