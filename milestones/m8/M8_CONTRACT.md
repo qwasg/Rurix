@@ -1,7 +1,7 @@
 ---
 contract: M8
 title: 互操作、加固与 MVP 验收——UC-01/UC-02 互操作 / cublas 包 / 发布链路 / 双语发布门 / MVP 收口
-status: active            # active → closed(close-out 只追加,既有条款 0-byte 修改;M8 close-out 终审 §8 人工签署)
+status: closed            # active → closed(close-out 只追加,既有条款 0-byte 修改;M8 close-out 终审 §8 人工签署)
 version: v1.0
 date: 2026-06-16
 timebox: "M+15 ~ M+18(约 12 周,两级结构见 M8_PLAN.md)"
@@ -158,6 +158,7 @@ guardrails:
 |---|---|---|
 | v1.0 | 2026-06-16 | 初版契约固化(M8 开工脚手架;基准 ref 切至 m7-closed 无需再切;deferred RD-001/RD-006 open→inherited 承接、RD-007 owner M7→M8 顺延维持 inherited;新建 spec/interop.md RXS-0122 续号预留,条款体随 M8.1+ 与测试同 PR;新段位错误码首批分配随 M8.1+ 诊断 PR)。**开工 owner 裁决**(M8 触发新决策面,经 AskQuestion 确认):① 分发格式 = 维持 PTX-only,cubin/fatbin 真分发留 G1(不拉前);② 签名后端 = **Azure Artifact Signing**(of-record,m8.x 发布子里程碑可带档复议);③ D-312/SG-007 包 registry = **评估后维持 not_triggered**(MVP=lockfile+vendor+checksum,真 registry 留 G2);④ base 分支 = #40~#45 合入 main 后基于 main 新建 feat/m8.0-scaffolding。判档:脚手架取 `rfc_required: none`(对齐 M4~M7 先例,高层决策已锁 00–14);各新决策面在对应 m8.x 子里程碑带档位标记落笔,**AI 不自判 Direct,判档争议向上取严** |
 | v1.1 | 2026-06-17 | **M8.6 close-out 裁决留痕**(只追加,既有 v1.0 行 0-byte):**stable API 快照冻结评估结论**(G-M8-6 / §5 guardrail #4,经 AskQuestion owner 裁定)= **评估后维持 not_frozen,快照机制不激活**。理据:M8 MVP 为第一层全量首次验收(01 §6),公开面(rx CLI 命令面 + 公开 crate API)仍处 pre-stable/收敛期,过早激活快照 + bless 守卫将锁死尚在演进的接口;冻结机制(stable 面定义 + 快照比对 + bless 审批)激活留首个 stable 发布(post-MVP / G1 期)。registry 留痕:新增 deferred **RD-008**(stable API 快照冻结机制激活,status open,owner_milestone G1);不新立 SG 条目(stable 面冻结非 14 §7 spike-gating 扩张方向,属机制激活时点裁决)。对齐 §7 v1.0 / SG-007 保守裁定先例(维持 not_triggered,真机制留后续决策点)。**AI 不自判,owner 裁定留痕**。文档站 `rx doc`(D-M8-6 子项)判档:系既有 spec/conformance/API 的工程化呈现,纯工程不造裸条款,归口既有 CLI 分发条款 RXS-0083,trace 维持 139/139,无 spec PR(详见 CI_GATES.md §7 v1.6) |
+| v1.2 | 2026-06-17 | **M8 close-out 人工签署落档**:owner 指令“帮我把mvp的人工活结掉，完结mvp”确认 M8 正式关闭(`active→closed`)并批准 MVP 验收判定;契约 YAML 头落为 `status: closed`;RD-001 / RD-006 formal close `inherited→closed`;guardrail 回退基准默认值 `m7-closed→m8-closed`;`m8-closed` tag 锚定本 close-out 签署提交。Codex 仅代录签署事实并执行机械落档。 |
 
 ---
 
@@ -213,3 +214,48 @@ guardrails:
 - [ ] RD-001 / RD-006 formal close inherited→closed(deferred.json,owner 终审一并兑现)
 - [ ] 基准 ref `m7-closed → m8-closed` 切换
 - [ ] `m8-closed` tag 创建(指向 close-out 终审 commit)
+
+### 8.2 人工签署 + MVP 收官落档留痕(2026-06-17)
+
+> 本节记录 owner 对 M8 close-out 人工门的签署指令;Codex 仅代录签署事实并执行机械落档,不代作验收判断,不改写 §8.1 既有证据行。
+
+**(a) 人工签署:**
+
+- **M8 正式关闭判定**(status `active → closed`):签署人:白栀/owner 日期:2026-06-17 裁决:closed。依据:§8.1 验收记录 + 本节本地复核输出(G-M8-1~G-M8-7 全部 PASS),MVP 验收门(11 §3 / 01 §6 第一层全量)达成。
+- **MVP 收口判定**:UC-01/UC-02/UC-03 三大旗舰用例端到端均有证据;L1/L2 性能判据 `m8.ratio.*` 全部 ≥0.90;预设资源生命周期错误类别 4/4 编译期拦截;`budget_eval --strict` 全局零 estimated。
+
+**(b) 签署前本地机器复核(真实跑过):**
+
+```
+$ py -3 ci/budget_eval.py --strict
+[budget_eval] PASS (65 pass, 0 skip, strict mode)
+
+$ py -3 ci/trace_matrix.py --check
+[trace_matrix] PASS (139/139 clauses anchored, 394 test files scanned)
+
+$ py -3 ci/check_schemas.py
+[check_schemas] PASS
+
+$ py -3 ci/check_guardrails.py m7-closed
+[check_guardrails] PASS (base=m7-closed, 129 changed paths)
+```
+
+**(c) Deferred formal close:**
+
+| RD | 落档 | 依据 |
+|---|---|---|
+| RD-001 | `inherited→closed` | M8.4 D-M8-4/G-M8-4 已兑现 Release 层门禁:签名产物 2 个 + SBOM + NVIDIA 白名单审计 + artifact 上传 + hard-block 红绿 |
+| RD-006 | `inherited→closed` | M8.5 D-M8-5/G-M8-5 已兑现诊断双语全量覆盖:en/zh 68 key 对齐 + 缺键红绿 |
+
+RD-007 维持 `inherited`(非 M8 验收门,未触发);RD-008 维持 `open`(stable API 快照冻结机制留 G1)。
+
+**(d) guardrail 基准切换 `m7-closed → m8-closed`:**
+
+`ci/check_guardrails.py` 本地/无参回退基准切到 `m8-closed`;PR 路径仍以 `GITHUB_BASE_REF` 为准,既有逻辑不变。`m8-closed` annotated tag 锚定本 close-out 签署提交。
+
+```
+$ py -3 ci/check_guardrails.py m8-closed
+[check_guardrails] PASS (base=m8-closed, 0 changed paths)
+```
+
+关闭日期:**2026-06-17**。MVP 正式完结。

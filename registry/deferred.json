@@ -17,11 +17,12 @@
       "reason": "M0 无发布产物可挂;签名/SBOM 链路是 M8 交付物(11 §3 M8)",
       "backfill_condition": "M8 分发链路(rurixup/MSI/winget)开工时同步建成,Release 层结构见 14 §8",
       "owner_milestone": "M8",
-      "status": "inherited",
+      "status": "closed",
       "history": [
         { "date": "2026-06-11", "event": "登记于 M0 契约 out-of-scope", "evidence": "milestones/m0/M0_CONTRACT.md §2.2" },
         { "date": "2026-06-16", "event": "M8 开工承接(open→inherited,owner_milestone M8 不变):CI Release 层门禁由 M8 D-M8-4/G-M8-4 落地——发布链路(rurixup/MSI/winget)+ 签名(Azure Artifact Signing)/SBOM(SPDX+CycloneDX)/许可白名单审计 + artifact 上传同步建成,Release 层结构见 14 §8(bench --strict + hard block + 签名/SBOM/许可审计 + artifact 上传)。close 留痕待发布链路建成", "evidence": "milestones/m8/M8_CONTRACT.md §6 / M8_PLAN.md §4 / CI_GATES.md §3" },
-        { "date": "2026-06-17", "event": "M8 close-out 处置(维持 inherited):CI Release 层门禁由 M8.4 D-M8-4/G-M8-4 兑现——rurixup/MSI/winget 打包 + Azure Artifact Signing(Authenticode,signed_artifacts=2 rurixup.exe/rx.exe)+ SBOM(SPDX+CycloneDX)+ NVIDIA 许可白名单审计 + artifact 上传 + Release 层 hard-block(14 §8),真实红绿 红 run 27675184250(缺 SBOM hard-block)→ 绿 run 27676332410(tag v0.1.0-m8.4)。验收义务兑现;formal close inherited→closed 翻转待 owner 契约 §8 终审签署(对齐 M6.1 待终审先例)", "evidence": "milestones/m8/M8_CONTRACT.md §8 / evidence/release_pipeline_smoke.json / CI_GATES.md §7 v1.4" }
+        { "date": "2026-06-17", "event": "M8 close-out 处置(维持 inherited):CI Release 层门禁由 M8.4 D-M8-4/G-M8-4 兑现——rurixup/MSI/winget 打包 + Azure Artifact Signing(Authenticode,signed_artifacts=2 rurixup.exe/rx.exe)+ SBOM(SPDX+CycloneDX)+ NVIDIA 许可白名单审计 + artifact 上传 + Release 层 hard-block(14 §8),真实红绿 红 run 27675184250(缺 SBOM hard-block)→ 绿 run 27676332410(tag v0.1.0-m8.4)。验收义务兑现;formal close inherited→closed 翻转待 owner 契约 §8 终审签署(对齐 M6.1 待终审先例)", "evidence": "milestones/m8/M8_CONTRACT.md §8 / evidence/release_pipeline_smoke.json / CI_GATES.md §7 v1.4" },
+        { "date": "2026-06-17", "event": "M8 close-out formal close(inherited→closed):owner 终审签署 M8 正式关闭,CI Release 层门禁验收义务已由 M8.4 D-M8-4/G-M8-4 兑现——签名产物 signed_artifacts=2(rurixup.exe/rx.exe),SBOM(SPDX+CycloneDX),NVIDIA 白名单审计,artifact 上传,Release hard-block 红绿 27675184250→27676332410。RD-001 承接义务完结,formal close", "evidence": "milestones/m8/M8_CONTRACT.md §8.2 / evidence/release_pipeline_smoke.json / CI_GATES.md §7 v1.4" }
       ]
     },
     {
@@ -84,11 +85,12 @@
       "reason": "M1 仅落 message-key 骨架 + 单语基线(07 §5 第 7 条:骨架第一天定,编译期校验 key 有效性);双语全量是 MVP 首发承诺,挂收口里程碑",
       "backfill_condition": "M8 MVP 收口前全量回填双语并纳入发布门(10 §6 工具链发布门);覆盖率核对进 CI",
       "owner_milestone": "M8",
-      "status": "inherited",
+      "status": "closed",
       "history": [
         { "date": "2026-06-11", "event": "登记于 M1 契约 out-of-scope", "evidence": "milestones/m1/M1_CONTRACT.md §2.2" },
         { "date": "2026-06-16", "event": "M8 开工承接(open→inherited,owner_milestone M8 不变):诊断消息中英双语全量覆盖由 M8 D-M8-5/G-M8-5 落地——message-key zh/en key 集全量对齐回填,覆盖率核对入发布门(10 §6 工具链发布门;ci/bilingual_coverage.py 缺键即红),纳入 M8.4 Release 层 hard block。close 留痕待双语全量回填", "evidence": "milestones/m8/M8_CONTRACT.md §6 / M8_PLAN.md §5 / CI_GATES.md §2 步骤37" },
-        { "date": "2026-06-17", "event": "M8 close-out 处置(维持 inherited):诊断双语全量覆盖由 M8.5 D-M8-5/G-M8-5 兑现——src/rurixc/src/messages/{en,zh}.messages key 集完全对齐(coverage_complete=true,en/zh 各 68 key),覆盖率核对入发布门(10 §6,ci/bilingual_coverage.py 缺键即红),真实红绿 绿 run 27680365968 → 红 run 27680580391(zh 缺 cublas.runtime_failed)→ 复原绿 run 27680780231。验收义务兑现;formal close inherited→closed 翻转待 owner 契约 §8 终审签署(对齐 M6.1 待终审先例)", "evidence": "milestones/m8/M8_CONTRACT.md §8 / evidence/bilingual_diagnostic_coverage.json / CI_GATES.md §7 v1.5" }
+        { "date": "2026-06-17", "event": "M8 close-out 处置(维持 inherited):诊断双语全量覆盖由 M8.5 D-M8-5/G-M8-5 兑现——src/rurixc/src/messages/{en,zh}.messages key 集完全对齐(coverage_complete=true,en/zh 各 68 key),覆盖率核对入发布门(10 §6,ci/bilingual_coverage.py 缺键即红),真实红绿 绿 run 27680365968 → 红 run 27680580391(zh 缺 cublas.runtime_failed)→ 复原绿 run 27680780231。验收义务兑现;formal close inherited→closed 翻转待 owner 契约 §8 终审签署(对齐 M6.1 待终审先例)", "evidence": "milestones/m8/M8_CONTRACT.md §8 / evidence/bilingual_diagnostic_coverage.json / CI_GATES.md §7 v1.5" },
+        { "date": "2026-06-17", "event": "M8 close-out formal close(inherited→closed):owner 终审签署 M8 正式关闭,诊断双语全量覆盖验收义务已由 M8.5 D-M8-5/G-M8-5 兑现——coverage_complete=true,en/zh 各 68 key 对齐,ci/bilingual_coverage.py 缺键即红,真实红绿 27680365968→27680580391→27680780231。RD-006 承接义务完结,formal close", "evidence": "milestones/m8/M8_CONTRACT.md §8.2 / evidence/bilingual_diagnostic_coverage.json / CI_GATES.md §7 v1.5" }
       ]
     },
     {
@@ -133,6 +135,7 @@
     { "version": "v1.7", "date": "2026-06-15", "change": "M7 开工承接留痕(只追加 history,既有 history 行 0-byte):RD-007 维持 inherited、owner_milestone M6→M7 顺延(M7 标准库充实与 G0 图形演示作用面——core 数学库几何原语 / 数组长度类 const 泛型可能触发运行期单态化,届时按需接通或继续留痕,RXS-0064 语义条款不变,回填仅补实现侧,非 M7 验收门)。RD-001/RD-006 维持 open(M8);RD-002/RD-003/RD-004/RD-005 维持 closed。详见 milestones/m7/M7_CONTRACT.md §6" },
     { "version": "v1.8", "date": "2026-06-16", "change": "M7 close-out 处置留痕(只追加 history,既有 history 行 0-byte):RD-007 维持 inherited、owner_milestone 维持 M7(M7.1~M7.5 standard 库充实 / G0 软光栅 / UC-03 demo / 软光栅 L3 基准均用固定维度常量实现,未触发 const 泛型值运行期单态化,非 M7 验收门,M7 未接通,承接随后续 device codegen 扩展评估接通,M8 开工时按先例顺延)。RD-001/RD-006 维持 open(M8);RD-002/RD-003/RD-004/RD-005 维持 closed。详见 milestones/m7/M7_CONTRACT.md §8" },
     { "version": "v1.9", "date": "2026-06-16", "change": "M8 开工承接留痕(只追加 history,既有 history 行 0-byte):RD-001 open→inherited(owner_milestone M8 不变,CI Release 层门禁由 M8 D-M8-4/G-M8-4 落地——发布链路 rurixup/MSI/winget + Azure 签名/SBOM/许可审计 + artifact 上传,14 §8 Release 层结构);RD-006 open→inherited(owner_milestone M8 不变,诊断双语全量覆盖由 M8 D-M8-5/G-M8-5 落地——覆盖率核对入发布门,10 §6);RD-007 维持 inherited、owner_milestone M7→M8 顺延(M8 互操作与收口作用面若触发数组长度类 const 泛型运行期单态化则按需接通,RXS-0064 语义不变,非 M8 验收门)。RD-002/RD-003/RD-004/RD-005 维持 closed。详见 milestones/m8/M8_CONTRACT.md §6" },
-    { "version": "v1.10", "date": "2026-06-17", "change": "M8 close-out 处置留痕(只追加 history,既有 history 行 0-byte):RD-001 维持 inherited(M8.4 D-M8-4/G-M8-4 CI Release 层门禁验收义务兑现,signed_artifacts=2 + SBOM + 白名单审计 + artifact 上传,红绿 27675184250→27676332410,formal close 翻转待 owner 契约 §8 终审);RD-006 维持 inherited(M8.5 D-M8-5/G-M8-5 双语全量覆盖验收义务兑现,en/zh 对齐 coverage_complete=true,红绿 27680365968→27680580391→27680780231,formal close 翻转待 owner §8 终审);RD-007 维持 inherited、owner_milestone M8(M8 互操作/绑定/收口未触发 const 泛型值单态化,非验收门,顺延后续 device codegen 扩展);**新增 RD-008**(stable API 快照冻结机制激活,open,owner_milestone G1:M8.6 close-out owner 裁定维持 not_frozen,机制激活留首个 stable 发布,M8_CONTRACT §7 v1.1)。RD-002/RD-003/RD-004/RD-005 维持 closed。详见 milestones/m8/M8_CONTRACT.md §8" }
+    { "version": "v1.10", "date": "2026-06-17", "change": "M8 close-out 处置留痕(只追加 history,既有 history 行 0-byte):RD-001 维持 inherited(M8.4 D-M8-4/G-M8-4 CI Release 层门禁验收义务兑现,signed_artifacts=2 + SBOM + 白名单审计 + artifact 上传,红绿 27675184250→27676332410,formal close 翻转待 owner 契约 §8 终审);RD-006 维持 inherited(M8.5 D-M8-5/G-M8-5 双语全量覆盖验收义务兑现,en/zh 对齐 coverage_complete=true,红绿 27680365968→27680580391→27680780231,formal close 翻转待 owner §8 终审);RD-007 维持 inherited、owner_milestone M8(M8 互操作/绑定/收口未触发 const 泛型值单态化,非验收门,顺延后续 device codegen 扩展);**新增 RD-008**(stable API 快照冻结机制激活,open,owner_milestone G1:M8.6 close-out owner 裁定维持 not_frozen,机制激活留首个 stable 发布,M8_CONTRACT §7 v1.1)。RD-002/RD-003/RD-004/RD-005 维持 closed。详见 milestones/m8/M8_CONTRACT.md §8" },
+    { "version": "v1.11", "date": "2026-06-17", "change": "M8 close-out 人工签署 formal close 留痕:RD-001 inherited→closed(CI Release 层门禁由 M8.4 兑现,签名产物 2 个 + SBOM + 白名单审计 + artifact 上传 + hard-block 红绿);RD-006 inherited→closed(诊断双语全量覆盖由 M8.5 兑现,en/zh 68 key 对齐 + 缺键红绿)。RD-007 维持 inherited;RD-008 维持 open。详见 milestones/m8/M8_CONTRACT.md §8.2" }
   ]
 }
