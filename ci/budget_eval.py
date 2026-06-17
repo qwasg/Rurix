@@ -3,7 +3,9 @@
 - 多预算合并加载 + 命名空间前缀与冲突检测;
 - estimated 条目自动 skip 并输出 skip_reason 留痕;
 - measured_local 条目:读取 evidence_file,断言 results.trimmed_mean 对 threshold;
-- --strict:estimated 即 FAIL(close-out / Release 模式,M0 关闭用,契约 G-M0-1)。
+- --strict:estimated 即 FAIL(close-out / Release 模式,M0 关闭用,契约 G-M0-1);
+- --allow-pending <id>:strict 模式下对尚未到期的计数器保留 SKIP(Release 分阶段落地用,
+  例如 M8.4 发布链路先于 M8.5 双语覆盖)。
 """
 from __future__ import annotations
 
@@ -15,6 +17,7 @@ ROOT = Path(__file__).resolve().parent.parent
 ERRORS: list[str] = []
 SKIPS: list[str] = []
 PASSES: list[str] = []
+ALLOW_PENDING_IDS: set[str] = set()
 
 
 def err(msg: str) -> None:
@@ -135,10 +138,32 @@ def count_or_gate(eid: str, n: int, required: int, what: str, pending_hint: str,
     """M1 计数器通用判定:达标 PASS;未达标 → normal skip(建设期)/ strict FAIL(close-out)。"""
     if n >= required:
         PASSES.append(f"{eid}: PASS — {n} {what}(要求 ≥{required})")
+    elif strict and eid in ALLOW_PENDING_IDS:
+        SKIPS.append(f"{eid}: SKIP(strict allow-pending) — 当前 {n} {what}({pending_hint})")
     elif strict:
         err(f"{eid}: FAIL — 仅 {n} {what}(要求 ≥{required})")
     else:
         SKIPS.append(f"{eid}: SKIP — 当前 {n} {what}({pending_hint})")
+
+
+def parse_args(argv: list[str]) -> tuple[bool, set[str]]:
+    strict = False
+    allow_pending: set[str] = set()
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "--strict":
+            strict = True
+        elif arg == "--allow-pending":
+            if i + 1 >= len(argv):
+                err("--allow-pending 缺少计数器 id")
+            else:
+                allow_pending.add(argv[i + 1])
+                i += 1
+        else:
+            err(f"未知参数: {arg}")
+        i += 1
+    return strict, allow_pending
 
 
 def eval_counter(entry: dict, strict: bool) -> None:
@@ -362,7 +387,8 @@ def eval_counter(entry: dict, strict: bool) -> None:
 
 
 def main() -> int:
-    strict = "--strict" in sys.argv
+    global ALLOW_PENDING_IDS
+    strict, ALLOW_PENDING_IDS = parse_args(sys.argv[1:])
     merged = load_budgets()
     for entry in merged.values():
         group = entry["_group"]

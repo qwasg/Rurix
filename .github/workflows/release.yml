@@ -50,10 +50,12 @@ jobs:
         shell: powershell
         run: py -3 ci/check_redistribution.py
 
-      # bench 严格模式:无容错跳过;estimated 即 FAIL;全局零 estimated 残留(14 §8)。
-      - name: budget eval --strict (Release 层 bench 严格模式, CI_GATES §3)
+      # bench 严格模式:无容错跳过;estimated 即 FAIL。M8.4 发布链路先于 M8.5
+      # 双语覆盖落地,因此 Release 分阶段允许明确 pending 的未来计数器;签名前
+      # release_artifacts_signed 尚未生成证据,签名后必须 PASS。
+      - name: budget eval --strict pre-release (Release 层 bench 严格模式, CI_GATES §3)
         shell: powershell
-        run: py -3 ci/budget_eval.py --strict
+        run: py -3 ci/budget_eval.py --strict --allow-pending m8.counter.release_artifacts_signed --allow-pending m8.counter.bilingual_diagnostic_coverage
 
       - name: cargo fmt check
         shell: powershell
@@ -75,9 +77,9 @@ jobs:
         run: py -3 ci/release_pipeline_smoke.py
 
       # 计数核对:m8.counter.release_artifacts_signed >=1(发布链路签名产物)。
-      - name: budget eval release counter (normal)
+      - name: budget eval release counter (strict)
         shell: powershell
-        run: py -3 ci/budget_eval.py
+        run: py -3 ci/budget_eval.py --strict --allow-pending m8.counter.bilingual_diagnostic_coverage
 
       # 全门绿后方上传发布产物 + SBOM + 签名清单(发布门 allow_upload=true 的兑现)。
       - name: upload release artifacts (全门绿后)
