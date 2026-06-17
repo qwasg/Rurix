@@ -64,7 +64,7 @@
     "red_detected": true,
     "green_command": "py -3 ci/uc02_stream_pipeline_smoke.py",
     "green_exit_code": 0,
-    "run_url": "TODO:回填 self-hosted runner 绿→红→复原绿 run URL(步骤 36)"
+    "run_url": "self-hosted RTX 4070 Ti runner pr-smoke 步骤 36 真实红绿(反 YAML-only,H06 D11.8-2):绿 https://github.com/qwasg/Rurix/actions/runs/27660824070(step36 success) → 红 https://github.com/qwasg/Rurix/actions/runs/27662126131(step36 failure,double_free.rs 放行 E0599 拦截) → 复原绿 https://github.com/qwasg/Rurix/actions/runs/27662211754(step36 success)"
   },
-  "timestamp": "2026-06-17T09:57:34+08:00"
+  "timestamp": "2026-06-17T10:45:22+08:00"
 }
