@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 EN = ROOT / "src" / "rurixc" / "src" / "messages" / "en.messages"
 ZH = ROOT / "src" / "rurixc" / "src" / "messages" / "zh.messages"
 EVIDENCE = ROOT / "evidence" / "bilingual_diagnostic_coverage.json"
+RUN_URL_TODO = "TODO:回填 self-hosted runner 绿→红(缺键)→补译复绿 run URL(步骤 37,CI_GATES §6 第 4 项)"
 
 
 def fail(msg):
@@ -62,6 +63,20 @@ def red_self_test():
         fail(f"red 自检失败:比较器未识别缺键/多键(missing={missing},extra={extra},门失效)")
 
 
+def preserved_run_url():
+    """保留人工/CI 回填过的 run URL,避免后续绿跑把证据刷回 TODO。"""
+    if not EVIDENCE.is_file():
+        return RUN_URL_TODO
+    try:
+        prior = json.loads(EVIDENCE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return RUN_URL_TODO
+    run_url = prior.get("redgreen", {}).get("run_url")
+    if isinstance(run_url, str) and run_url and not run_url.startswith("TODO:"):
+        return run_url
+    return RUN_URL_TODO
+
+
 def main():
     red_self_test()
     if not EN.is_file():
@@ -101,7 +116,7 @@ def main():
             "red_detected": True,
             "green_command": "py -3 ci/bilingual_coverage.py",
             "green_exit_code": 0,
-            "run_url": "TODO:回填 self-hosted runner 绿→红(缺键)→补译复绿 run URL(步骤 37,CI_GATES §6 第 4 项)",
+            "run_url": preserved_run_url(),
         },
         "timestamp": datetime.datetime.now().astimezone().replace(microsecond=0).isoformat(),
     }

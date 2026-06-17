@@ -20,7 +20,7 @@
     "red_detected": true,
     "green_command": "py -3 ci/bilingual_coverage.py",
     "green_exit_code": 0,
-    "run_url": "TODO:回填 self-hosted runner 绿→红(缺键)→补译复绿 run URL(步骤 37,CI_GATES §6 第 4 项)"
+    "run_url": "green_baseline=https://github.com/qwasg/Rurix/actions/runs/27680365968; red_missing_zh_key=https://github.com/qwasg/Rurix/actions/runs/27680580391; green_restored=https://github.com/qwasg/Rurix/actions/runs/27680780231"
   },
-  "timestamp": "2026-06-17T17:54:53+08:00"
+  "timestamp": "2026-06-17T18:00:00+08:00"
 }
