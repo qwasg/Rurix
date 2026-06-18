@@ -514,6 +514,13 @@ pub fn scope<R>(
     let (presenter, export) = Presenter::create(cuda_luid, node_mask, render_size, window_size, 0)
         .map_err(InteropError::Shim)?;
     if export.adapter_luid != cuda_luid {
+        // shim 已将 memory_handle / fence_handle 移交 Rust;LUID 不匹配时须关闭两者,
+        // 否则 NT HANDLE 泄漏(shim destroy 不负责关闭已移交的 shared handle)。
+        // SAFETY: 两个 handle 为 shim create 移交的有效 NT HANDLE,尚未 import,关闭以避免泄漏。
+        unsafe {
+            rurix_d3d12::close_shared_handle(export.memory_handle);
+            rurix_d3d12::close_shared_handle(export.fence_handle);
+        }
         return Err(InteropError::LuidMismatch);
     }
 
@@ -529,9 +536,34 @@ pub fn scope<R>(
         reserved: [0; 16],
     };
     // SAFETY: (U17) desc.win32.handle 为 shim create 移交的有效 NT HANDLE;current context 一致。
-    let (r, ext_mem) = unsafe { cuda.import_external_memory(&mem_desc) }
-        .ok_or(InteropError::ExternalApiUnavailable)?;
-    cu_ext_check("cuImportExternalMemory", r)?;
+    let mem_import = unsafe { cuda.import_external_memory(&mem_desc) };
+    // 无论 import 成功与否,handle 必须关闭:成功时 CUDA 持有自身引用;失败时须关闭以避免泄漏。
+    // SAFETY: handle 为 shim create 移交的有效 NT HANDLE;import 已调用,按 CUDA 契约关闭。
+    unsafe {
+        rurix_d3d12::close_shared_handle(export.memory_handle);
+    }
+    let (r, ext_mem) = mem_import.ok_or_else(|| {
+        // 函数指针不可用;fence_handle 尚未 import,须关闭。
+        // SAFETY: fence_handle 为 shim create 移交的有效 NT HANDLE,尚未 import,关闭以避免泄漏。
+        unsafe {
+            rurix_d3d12::close_shared_handle(export.fence_handle);
+        }
+        InteropError::ExternalApiUnavailable
+    })?;
+    if let Err(e) = cu_ext_check("cuImportExternalMemory", r) {
+        // import 失败:ext_mem 可能为 null(驱动未写入),非 null 时 destroy 之;fence_handle 须关闭。
+        if !ext_mem.is_null() {
+            // SAFETY: ext_mem 非 null,为 import 返回的句柄(可能无效),destroy 释放驱动侧资源。
+            unsafe {
+                let _ = cuda.destroy_external_memory(ext_mem);
+            }
+        }
+        // SAFETY: fence_handle 为 shim create 移交的有效 NT HANDLE,尚未 import,关闭以避免泄漏。
+        unsafe {
+            rurix_d3d12::close_shared_handle(export.fence_handle);
+        }
+        return Err(e);
+    }
 
     let buf_desc = CudaExternalMemoryBufferDesc {
         offset: 0,
@@ -541,17 +573,22 @@ pub fn scope<R>(
     };
     // SAFETY: (U17) ext_mem 由上一步成功 import;desc 描述 [0, mapping_size) 映射区。
     let (r, dptr) = unsafe { cuda.external_memory_get_mapped_buffer(ext_mem, &buf_desc) }
-        .ok_or(InteropError::ExternalApiUnavailable)?;
+        .ok_or_else(|| {
+            // 函数指针不可用;ext_mem 须 destroy;fence_handle 须关闭。
+            // SAFETY: ext_mem 为成功 import 的句柄;fence_handle 为 shim 移交尚未 import 的 NT HANDLE。
+            unsafe {
+                let _ = cuda.destroy_external_memory(ext_mem);
+                rurix_d3d12::close_shared_handle(export.fence_handle);
+            }
+            InteropError::ExternalApiUnavailable
+        })?;
     if let Err(e) = cu_ext_check("cuExternalMemoryGetMappedBuffer", r) {
-        // SAFETY: (U17) 回滚:ext_mem 已 import 但未 map,destroy 之。
+        // SAFETY: (U17) 回滚:ext_mem 已 import 但未 map,destroy 之;fence_handle 须关闭。
         unsafe {
             let _ = cuda.destroy_external_memory(ext_mem);
+            rurix_d3d12::close_shared_handle(export.fence_handle);
         }
         return Err(e);
-    }
-    // SAFETY: handle 由 shim create 成功移交，CUDA import 后尚未关闭，按契约恰好关闭一次。
-    unsafe {
-        rurix_d3d12::close_shared_handle(export.memory_handle);
     }
 
     // import external semaphore（D3D12_FENCE）→ 立即关闭 NT HANDLE。
@@ -565,16 +602,40 @@ pub fn scope<R>(
         reserved: [0; 16],
     };
     // SAFETY: (U18) desc.win32.handle 为 shim create 移交的有效 fence NT HANDLE。
-    let (r, ext_sem) = unsafe { cuda.import_external_semaphore(&sem_desc) }
-        .ok_or(InteropError::ExternalApiUnavailable)?;
-    cu_ext_check("cuImportExternalSemaphore", r)?;
-    // SAFETY: handle 由 shim create 成功移交，CUDA import 后尚未关闭，按契约恰好关闭一次。
+    let sem_import = unsafe { cuda.import_external_semaphore(&sem_desc) };
+    // 无论 import 成功与否,handle 必须关闭。
+    // SAFETY: handle 为 shim create 移交的有效 NT HANDLE;import 已调用,按 CUDA 契约关闭。
     unsafe {
         rurix_d3d12::close_shared_handle(export.fence_handle);
     }
+    let (r, ext_sem) = sem_import.ok_or(InteropError::ExternalApiUnavailable)?;
+    if let Err(e) = cu_ext_check("cuImportExternalSemaphore", r) {
+        // import 失败:dptr 已成功 map,须先 cuMemFree 再 cuDestroyExternalMemory(RFC-0001 §4.4);
+        // ext_sem 非 null 时 destroy 之。
+        // SAFETY: (U17/U18) dptr 为成功 map 的设备地址;ext_mem 为成功 import 的句柄;
+        // ext_sem 非 null 时为 import 返回的句柄。按 §4.4 销毁序释放。
+        unsafe {
+            let _ = cuda.mem_free(dptr);
+            let _ = cuda.destroy_external_memory(ext_mem);
+            if !ext_sem.is_null() {
+                let _ = cuda.destroy_external_semaphore(ext_sem);
+            }
+        }
+        return Err(e);
+    }
 
     let (r, stream) = cuda.stream_create();
-    cu_ext_check("cuStreamCreate", r)?;
+    if let Err(e) = cu_ext_check("cuStreamCreate", r) {
+        // stream 创建失败:全部已 import 资源须清理(dptr 先 free,再 destroy ext_mem/ext_sem)。
+        // SAFETY: (U17/U18) dptr/ext_mem/ext_sem 均为成功 import/map 的有效句柄;
+        // 按 RFC-0001 §4.4 销毁序(dptr→ext_mem→ext_sem)释放。
+        unsafe {
+            let _ = cuda.mem_free(dptr);
+            let _ = cuda.destroy_external_semaphore(ext_sem);
+            let _ = cuda.destroy_external_memory(ext_mem);
+        }
+        return Err(e);
+    }
 
     let n_elems = (export.mapping_size / size_of::<f32>() as u64) as usize;
     let buffer = ExternalBuffer {
@@ -737,6 +798,16 @@ DONE:
             ),
             "stub/非设备环境应返回不可用错误,实得 {r:?}"
         );
+    }
+
+    //@ spec: RXS-0140
+    // scope() 错误路径(LUID mismatch / import 失败 / stream 创建失败)须关闭 shim 移交的
+    // NT HANDLE。close_shared_handle 须可安全调用——stub 模式为 no-op,real-shim 下
+    // CloseHandle(null) 返回 0 不崩溃。此测试锚定错误路径 cleanup 不引入 panic。
+    #[test]
+    fn close_shared_handle_safe_on_null() {
+        // SAFETY: null 句柄在 stub 模式为 no-op;real-shim 下 CloseHandle(null) 返回 0 不崩溃。
+        let _ = unsafe { rurix_d3d12::close_shared_handle(std::ptr::null_mut()) };
     }
 
     #[cfg(feature = "d3d12-interop-real")]
