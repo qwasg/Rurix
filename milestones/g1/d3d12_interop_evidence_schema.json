@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/d3d12_interop/v1",
+  "title": "Rurix CUDA–D3D12 interop 端到端冒烟证据 JSON(G1.1,契约 G-G1-1,RFC-0001 / RXS-0140~0143)",
+  "description": "ExternalBuffer/ExternalSemaphore import D3D12 共享 committed resource/fence → Rurix kernel 写 backbuffer 等价 f32 RGB buffer → 信号量同步,端到端数值对照通过(interop_ok),以及句柄生命周期 / 跨 context 误用 / 信号时序违例三类错误经 src/rurix-rt 类型系统 + conformance compile-fail 样例编译期拦截(rustc 拒绝每个应失败样例,RXS-0140~0142)的机器事实清单。interop_ok=true 计入 g1.counter.d3d12_interop(ci/budget_eval.py;>=1 则 PASS,建设期/无 D3D12·GPU·交互桌面为 normal SKIP)。机器复核闸门 = ci/d3d12_interop_smoke.py(任一应拦截违例编译通过 / 端到端数值对照失败 / 篡改同步时序未被发现即非零退出,反 YAML-only,CI_GATES §6)。无 D3D12/GPU/窗口 → 降级 SKIP(exit 0,不写证据)。",
+  "type": "object",
+  "required": ["schema_version", "subject", "interop_ok", "reject_classes_intercepted", "timestamp"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": {
+      "description": "证据对象",
+      "const": "d3d12_interop"
+    },
+    "interop_ok": {
+      "description": "CUDA–D3D12 interop 端到端(import → kernel 写共享 buffer → 信号量同步)数值对照通过(d3d12-interop-real 设备真跑;无 D3D12/GPU/交互桌面则不写证据降级 SKIP)",
+      "type": "boolean"
+    },
+    "reject_classes_intercepted": {
+      "description": "经类型系统 + compile-fail 样例 100% 编译期拦截的 interop 错误类别(rustc 拒绝)",
+      "type": "array",
+      "items": {
+        "enum": ["handle_lifetime", "cross_context", "signal_timing"]
+      },
+      "uniqueItems": true
+    },
+    "device_path_run": {
+      "description": "device 端到端是否实跑(true=有 D3D12+GPU+交互桌面 + d3d12-interop-real 真跑;false=降级 SKIP,仅跑 host compile-fail 拦截 + 类型面单测)",
+      "type": "boolean"
+    },
+    "run_command": { "type": "string" },
+    "abi_sizes_verified": {
+      "description": "CUDA external-resource descriptor + shim export 的 Windows x64 ABI 大小编译期 const assert 核对通过(104/88/96/144 + export 96,RXS-0143 / RFC-0001 §4.2.3)",
+      "type": "boolean"
+    },
+    "device": {
+      "description": "实测 GPU / 驱动 / WDDM·TDR·HAGS 环境画像(D-233 强制)",
+      "type": "object",
+      "properties": {
+        "gpu": { "type": "string" },
+        "driver": { "type": "string" },
+        "adapter_luid": { "type": "string" },
+        "wddm": { "type": "string" },
+        "tdr": { "type": "string" },
+        "hags": { "type": "string" },
+        "result_line": { "type": "string" }
+      }
+    },
+    "facts": {
+      "description": "逐项背书(反 YAML-only:每条结论可由命令实测复现)——含端到端数值对照(max_abs_err)+ 逐 reject 类别拦截(fixture ↔ 预期 rustc 错误 ↔ 实际拒绝)+ ABI size 核对",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": { "enum": ["interop", "reject", "abi"] },
+          "name": { "type": "string" },
+          "max_abs_err": { "type": "number" },
+          "tolerance": { "type": "number" },
+          "fixture": { "type": "string" },
+          "expected_error": { "type": "string" },
+          "rejected": { "type": "boolean" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "redgreen": {
+      "description": "门禁真实红绿验证留痕(反 YAML-only,CI_GATES §6.1:篡改 interop 同步时序 / 放行跨 context 误用使其应拦截却通过 → 红;复原 → 绿,run URL 归档)",
+      "type": "object",
+      "properties": {
+        "red_command": { "type": "string" },
+        "red_detected": { "type": "boolean" },
+        "green_command": { "type": "string" },
+        "green_exit_code": { "type": "integer" },
+        "run_url": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "harness_commit": { "type": "string" }
+  }
+}
