@@ -9,6 +9,19 @@ license.workspace = true
 [dependencies]
 soft-raster = { path = "../soft-raster" }
 image-io = { path = "../image-io" }
+# G1.1 实时窗口呈现（feature d3d12-present）的 interop scope 帧 typestate 通路;可选,默认关。
+rurix-rt = { path = "../rurix-rt", optional = true }
+
+[features]
+default = []
+# d3d12-present：G1.1 `--present` 实时窗口呈现（RFC-0001 / RXS-0142~0143）。启用 interop scope
+# 帧 typestate 通路（依赖 rurix-rt/d3d12-interop 类型面，stub shim）——**无 MSVC/D3D12 SDK 即可
+# 编译验证 present 通路 + 帧 typestate 类型面**;运行期 shim 不可用。G0 kernel sr_*.rx 语义 0-byte。
+d3d12-present = ["dep:rurix-rt", "rurix-rt/d3d12-interop"]
+# d3d12-present-real：在 d3d12-present 之上经 rurix-rt/d3d12-interop-real 编译真实 D3D12 shim
+# （需 MSVC + Windows SDK + 交互桌面会话）。仅 runner 窗口真跑（步骤 41）。
+d3d12-present-real = ["d3d12-present", "rurix-rt/d3d12-interop-real"]
+# **默认关闭**：常驻回归网 `cargo build/test/clippy --workspace` 维持离屏 PPM 路径而绿。
 
 [lints]
 workspace = true

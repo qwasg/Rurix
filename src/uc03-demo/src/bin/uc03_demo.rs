@@ -19,8 +19,16 @@ const FRAMES: u32 = 12;
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
+    // G1.1 实时窗口呈现模式（RFC-0001 / RXS-0142~0143）：`uc03_demo --present`。
+    // 默认离屏 PPM 序列路径不变（向后兼容,G-M7-1）。
+    if args.iter().any(|a| a == "--present") {
+        return run_present_mode();
+    }
     let Some(out_dir) = args.get(1) else {
-        eprintln!("用法: uc03_demo <out_dir>");
+        eprintln!("用法: uc03_demo <out_dir>            # 离屏 PPM 图像序列（默认）");
+        eprintln!(
+            "      uc03_demo --present            # 实时窗口呈现（需 --features d3d12-present-real，G1.1）"
+        );
         return ExitCode::from(2);
     };
     let dir = PathBuf::from(out_dir);
@@ -41,4 +49,32 @@ fn main() -> ExitCode {
         }
     }
     ExitCode::SUCCESS
+}
+
+/// 实时窗口呈现模式（feature `d3d12-present`）。无该 feature → 明确报错（不静默）。
+#[cfg(feature = "d3d12-present")]
+fn run_present_mode() -> ExitCode {
+    use soft_raster::{HEIGHT, WIDTH};
+    // render = 软光栅帧尺寸（G0 kernel 写共享 backbuffer）;window = 呈现窗口（nearest 放大）。
+    match uc03_demo::present::run_present(0, [WIDTH, HEIGHT], [1024, 768]) {
+        Ok(frames) => {
+            println!("UC03_PRESENT: ok frames={frames} sample_rgb=255,128,0");
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            // stub shim / 无 GPU / 非交互桌面：interop 不可用（确定性错误,非崩溃）。
+            eprintln!(
+                "UC03_PRESENT: skip — interop 不可用（需 --features d3d12-present-real + 交互桌面 + GPU + Windows SDK D3D12）: {e:?}"
+            );
+            ExitCode::from(3)
+        }
+    }
+}
+
+#[cfg(not(feature = "d3d12-present"))]
+fn run_present_mode() -> ExitCode {
+    eprintln!(
+        "uc03_demo --present 需 `--features d3d12-present`（或 d3d12-present-real 真跑）构建（G1.1 实时窗口呈现，RFC-0001 / RXS-0142~0143）"
+    );
+    ExitCode::from(2)
 }

@@ -177,6 +177,7 @@ def check_evidence_files() -> None:
     )
     doc_site_schema = load(ROOT / "milestones/m8/doc_site_smoke_evidence_schema.json")
     d3d12_interop_schema = load(ROOT / "milestones/g1/d3d12_interop_evidence_schema.json")
+    realtime_present_schema = load(ROOT / "milestones/g1/realtime_present_evidence_schema.json")
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -215,6 +216,7 @@ def check_evidence_files() -> None:
     bilingual_validator = jsonschema.Draft7Validator(bilingual_schema)
     doc_site_validator = jsonschema.Draft7Validator(doc_site_schema)
     d3d12_interop_validator = jsonschema.Draft7Validator(d3d12_interop_schema)
+    realtime_present_validator = jsonschema.Draft7Validator(realtime_present_schema)
     for f in evidence_files:
         doc = load(f)
         if doc is None:
@@ -271,6 +273,8 @@ def check_evidence_files() -> None:
             validator = doc_site_validator
         elif f.name.startswith("d3d12_interop_"):
             validator = d3d12_interop_validator
+        elif f.name.startswith("realtime_present_"):
+            validator = realtime_present_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):

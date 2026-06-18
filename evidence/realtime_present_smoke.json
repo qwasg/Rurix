@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "subject": "realtime_present",
+  "present_ok": true,
+  "g0_kernel_bytes_unchanged": true,
+  "device_path_run": true,
+  "frames_presented": 8,
+  "run_command": "cargo build -p uc03-demo --features d3d12-present;(real)cargo run -p uc03-demo --features d3d12-present-real -- --present",
+  "device": {
+    "result_line": "G0 sr_tonemap 写共享 buffer→fence 同步→窗口 Present + 数值回读通过"
+  },
+  "facts": [
+    {
+      "kind": "present",
+      "name": "frame_typestate_compiles",
+      "note": "Ready→Acquired→Presentable 消费式 typestate + 偶/奇 fence handoff 编译期保证 present 同步序(RXS-0142);交互 runner 连续 Present 8 帧且数值回读为 RGB 255/128/0"
+    }
+  ],
+  "redgreen": {
+    "red_command": "删 present 通路 signal/wait 同步 / 篡改帧像素",
+    "red_detected": true,
+    "green_command": "py -3 ci/realtime_present_smoke.py",
+    "green_exit_code": 0,
+    "run_url": "baseline_green=https://github.com/qwasg/Rurix/actions/runs/27760906828; red_pixel_tamper=https://github.com/qwasg/Rurix/actions/runs/27761328446; restored_green=https://github.com/qwasg/Rurix/actions/runs/27761630419"
+  },
+  "timestamp": "2026-06-18T21:10:16+08:00"
+}
