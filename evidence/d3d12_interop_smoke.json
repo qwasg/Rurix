@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "subject": "d3d12_interop",
+  "interop_ok": true,
+  "reject_classes_intercepted": [
+    "cross_context",
+    "handle_lifetime",
+    "signal_timing"
+  ],
+  "device_path_run": true,
+  "abi_sizes_verified": true,
+  "run_command": "cargo test -p rurix-rt --features d3d12-interop-real interop::tests::real_interop_numeric_roundtrip -- --exact --nocapture",
+  "device": {
+    "result_line": "import 共享 resource/fence→CUDA 写入→数值回读→D3D12 present 通过"
+  },
+  "facts": [
+    {
+      "kind": "reject",
+      "name": "cross_context",
+      "fixture": "src/rurix-rt/compile-fail/cross_context.rs",
+      "expected_error": "lifetime",
+      "rejected": true,
+      "note": "rustc 拒绝(编译期拦截)"
+    },
+    {
+      "kind": "reject",
+      "name": "handle_lifetime",
+      "fixture": "src/rurix-rt/compile-fail/handle_lifetime.rs",
+      "expected_error": "E0382",
+      "rejected": true,
+      "note": "rustc 拒绝(编译期拦截)"
+    },
+    {
+      "kind": "reject",
+      "name": "signal_timing",
+      "fixture": "src/rurix-rt/compile-fail/signal_timing.rs",
+      "expected_error": "E0599",
+      "rejected": true,
+      "note": "rustc 拒绝(编译期拦截)"
+    },
+    {
+      "kind": "abi",
+      "name": "external_resource_descriptor_sizes",
+      "note": "104/88/96/144 + export 96,编译期 const assert(RXS-0143 / RFC-0001 §4.2.3)"
+    }
+  ],
+  "redgreen": {
+    "red_command": "放行任一 compile-fail 违例(使应拦截者编译通过)/ 篡改 interop 同步时序",
+    "red_detected": true,
+    "green_command": "py -3 ci/d3d12_interop_smoke.py",
+    "green_exit_code": 0,
+    "run_url": "baseline_green=https://github.com/qwasg/Rurix/actions/runs/27760906828; red_numeric_tamper=https://github.com/qwasg/Rurix/actions/runs/27761138655; restored_green=https://github.com/qwasg/Rurix/actions/runs/27761630419"
+  },
+  "timestamp": "2026-06-18T21:10:16+08:00"
+}
