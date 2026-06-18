@@ -258,10 +258,9 @@ mod tests {
         if !has_real_shim() {
             let r = Presenter::create([0; 8], 0, [2, 2], [2, 2], 0);
             assert_eq!(r.err(), Some(RX_D3D12_E_NOTIMPL));
-            assert_eq!(
-                unsafe { close_shared_handle(core::ptr::null_mut()) },
-                RX_D3D12_E_NOTIMPL
-            );
+            // SAFETY: stub 构建不会解引用 handle，仅返回确定性 NOTIMPL。
+            let close_result = unsafe { close_shared_handle(core::ptr::null_mut()) };
+            assert_eq!(close_result, RX_D3D12_E_NOTIMPL);
         }
     }
 }
