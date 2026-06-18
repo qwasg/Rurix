@@ -143,3 +143,7 @@
 | RXS-0137 | spec/release.md | 1 | `src/rurixup/src/signing.rs` |
 | RXS-0138 | spec/release.md | 1 | `src/rurixup/src/sbom.rs` |
 | RXS-0139 | spec/release.md | 2 | `src/rurixup/src/gate.rs`, `src/rurixup/src/lib.rs` |
+| RXS-0140 | spec/interop_d3d12.md | 1 | `src/rurix-rt/src/interop.rs` |
+| RXS-0141 | spec/interop_d3d12.md | 1 | `src/rurix-rt/src/interop.rs` |
+| RXS-0142 | spec/interop_d3d12.md | 1 | `src/rurix-rt/src/interop.rs` |
+| RXS-0143 | spec/interop_d3d12.md | 1 | `src/rurix-rt/src/interop.rs` |
