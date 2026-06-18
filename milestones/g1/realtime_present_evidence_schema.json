@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/realtime_present/v1",
+  "title": "Rurix 软光栅实时窗口呈现冒烟证据 JSON(G1.1,契约 G-G1-1,RFC-0001 / RXS-0142~0143)",
+  "description": "G0 软光栅 kernel(RXS-0118~0121 语义与源码 0-byte)写 backbuffer 等价共享 f32 RGB buffer → 共享 fence 偶/奇值同步 → D3D12 固定 present pass → swapchain Present,交互式窗口实时刷新端到端真跑(present_ok)。present_ok=true 计入 g1.counter.realtime_present(ci/budget_eval.py;>=1 则 PASS,建设期/无窗口·显示·GPU 为 normal SKIP)。机器复核闸门 = ci/realtime_present_smoke.py(present 同步缺失 / 帧像素篡改未被发现即非零退出,反 YAML-only,CI_GATES §6.2)。无窗口/显示环境 → 降级 SKIP(exit 0,不写证据)。G0 kernel 语义面 0-byte(仅新增呈现通路)。",
+  "type": "object",
+  "required": ["schema_version", "subject", "present_ok", "g0_kernel_bytes_unchanged", "timestamp"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": { "const": "realtime_present" },
+    "present_ok": {
+      "description": "G0 kernel 写共享 buffer → 信号量同步 present 端到端真跑(d3d12-present-real + 交互桌面窗口;无窗口/显示/GPU 则不写证据降级 SKIP)",
+      "type": "boolean"
+    },
+    "g0_kernel_bytes_unchanged": {
+      "description": "G0 软光栅 kernel src/rurix-rt/kernels/sr_*.rx 与 RXS-0118~0121 语义面字节 0-byte(仅新增呈现通路;实现 PR git diff 核对)",
+      "type": "boolean"
+    },
+    "device_path_run": {
+      "description": "窗口 present 是否实跑(true=交互桌面 + GPU + real-shim 真跑;false=无窗口/显示降级 SKIP)",
+      "type": "boolean"
+    },
+    "frames_presented": {
+      "description": "实跑 present 的帧数(>0 表示窗口刷新真跑)",
+      "type": "integer"
+    },
+    "run_command": { "type": "string" },
+    "device": {
+      "description": "实测 GPU / 驱动 / WDDM·TDR·HAGS 环境画像(D-233 强制)",
+      "type": "object",
+      "properties": {
+        "gpu": { "type": "string" },
+        "driver": { "type": "string" },
+        "wddm": { "type": "string" },
+        "tdr": { "type": "string" },
+        "hags": { "type": "string" },
+        "result_line": { "type": "string" }
+      }
+    },
+    "facts": {
+      "description": "逐项背书(反 YAML-only)——含帧像素对照(present pass 读 f32 RGB /255 写 RGBA8 backbuffer 的采样像素 vs 期望)+ fence 偶/奇值序核对",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": { "enum": ["present", "pixel", "fence"] },
+          "name": { "type": "string" },
+          "max_abs_err": { "type": "number" },
+          "tolerance": { "type": "number" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "redgreen": {
+      "description": "门禁真实红绿验证留痕(反 YAML-only,CI_GATES §6.2:present 同步缺失 / 帧像素篡改 → 红;复原 → 绿,run URL 归档)",
+      "type": "object",
+      "properties": {
+        "red_command": { "type": "string" },
+        "red_detected": { "type": "boolean" },
+        "green_command": { "type": "string" },
+        "green_exit_code": { "type": "integer" },
+        "run_url": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "harness_commit": { "type": "string" }
+  }
+}

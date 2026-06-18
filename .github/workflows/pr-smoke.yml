@@ -160,6 +160,18 @@ jobs:
         shell: powershell
         run: py -3 ci/d3d12_interop_smoke.py
 
+      # 步骤 41（G-G1-1，RFC-0001 / RXS-0142~0143）：软光栅实时窗口呈现冒烟。
+      # host 段（总跑，无需窗口/GPU/MSVC）：--features d3d12-present 构建 uc03-demo，证 present
+      # 通路 + interop scope 帧 typestate（Ready→Acquired→Presentable）+ 偶/奇 fence handoff
+      # 类型面编译通过（present 同步序由类型系统保证，RXS-0142）。G0 kernel sr_*.rx 0-byte。
+      # device 段（交互桌面 + Windows SDK D3D12 + --features d3d12-present-real 真跑）：G0 kernel
+      # 写共享 buffer → fence 同步 → present pass → 窗口 Present 帧像素对照 → present_ok；无窗口/
+      # 显示 → 降级 SKIP(exit 0)。写 evidence/realtime_present_*.json 的 present_ok 计入
+      # g1.counter.realtime_present（建设期未落地 → 0 → normal SKIP 属预期）。失败即红。
+      - name: realtime window present smoke (G1 CI_GATES §2.41, G-G1-1, RFC-0001)
+        shell: powershell
+        run: py -3 ci/realtime_present_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

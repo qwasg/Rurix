@@ -17,6 +17,11 @@
 use image_io::{ImageBuffer, Rgb};
 use soft_raster::{HEIGHT, Tri, Vertex, WIDTH, render_hdr, tonemap_frame};
 
+/// 实时窗口呈现通路（G1.1，feature `d3d12-present`；RFC-0001 / RXS-0142~0143）。
+/// 复用 rurix-rt interop scope 帧 typestate;G0 软光栅 kernel 语义面 0-byte，仅新增呈现通路。
+#[cfg(feature = "d3d12-present")]
+pub mod present;
+
 /// 粒子网格列数(初始布局)。
 pub const GRID_NX: u32 = 6;
 /// 粒子网格行数(初始布局)。

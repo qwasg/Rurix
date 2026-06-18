@@ -155,5 +155,6 @@ name = "uc03-demo"
 version = "0.1.0"
 dependencies = [
  "image-io",
+ "rurix-rt",
  "soft-raster",
 ]
