@@ -1,0 +1,86 @@
+# G1 CI 门禁增量
+
+> 所属契约:[G1_CONTRACT.md](G1_CONTRACT.md)
+> 版本:v1.0(2026-06-18)
+> 基线:[../m0/CI_GATES.md](../m0/CI_GATES.md) ~ [../m8/CI_GATES.md](../m8/CI_GATES.md)(全部沿用:runner 约定、PR Smoke 1–39 步、Release 层门禁(14 §8,RD-001 M8 建成)、guardrail 含 M1.1/M1.2/M1.4/M3.3/M4.2/M4.3/M5.4/M6/M7/M8 激活项、nightly 含 Compute Sanitizer racecheck+memcheck + measured 基准 + rx test 子进程隔离 + 软光栅 device kernel + UC-01/UC-02/cublas 趋势 + 全量回归冻结);本文只规定 G1 期的**增量**。
+> 铁律不变:任何新增门禁必须在真实 PR 上以真实失败/通过路径验证过(反 YAML-only,H06 D11.8-2)。
+> 开工脚手架口径:本文 G1 增量步骤(40+)为 **g1.x 计划项**,开工**不**写入 workflow YAML 真实步骤(随各 g1.x 实现 PR 落地回填,对齐 M8 步骤 34–39 计划 → 回填范式);开工仅 (a) `ci/budget_eval.py` 接 `g1.counter.*` evaluator 分支(证据缺失 → 0 → normal SKIP)、(b) `ci/check_schemas.py`/`ci/budget_eval.py`/`ci/check_guardrails.py`/`tests/test_budget_namespace.py` 预算 glob 泛化纳入 `g1_budget.json`。
+
+---
+
+## 1. Runner
+
+沿用 M0 §1(自托管 RTX 4070 Ti 开发机)+ M4 §1(device 路径:CUDA Toolkit 含 `ptxas` + Driver API)+ M5 §1(Compute Sanitizer + libdevice bc)+ M6 §1(离线重建 + LSP server)+ M7 §1(数学库/软光栅/UC-03 demo 路径)+ M8 §1(Python 互操作链 + cublas runtime DLL + 发布链路签名/SBOM + 文档站)。G1 新增 runner 预置项(随实现落地时本表修订行留痕):
+
+- **D3D12/DXGI 互操作链**(G-G1-1):Windows SDK(D3D12 + DXGI 头/库)+ external memory/semaphore 互操作(`cuImportExternalMemory`/`cuImportExternalSemaphore`,CUDA Driver API)+ 窗口呈现路径;无窗口/无显示环境 → 实时呈现冒烟降级 SKIP(exit 0,对齐 GPU 步骤降级先例)。
+- **流序分配 + Graph API 评估**(G-G1-2):`cuMemAllocAsync` + `CUmemoryPool`(Driver API,CUDA Toolkit 已含);AsyncBuffer device 路径纳入既有 Compute Sanitizer racecheck+memcheck nightly。
+- **引擎集成**(G-G1-3):C++/D3D12 宿主框架(MSVC 2022 已含;宿主框架选型 g1.3 裁决留痕)+ Rurix DLL(`#[export(c)]` C ABI + 内建头文件)链接。
+- **生产分发 fatbin**(G-G1-5):`ptxas` 按架构预编 cubin + fatbin 打包(CUDA Toolkit 已含)+ rurixup 发布链路覆盖 fatbin + Release 层签名/SBOM/NVIDIA 白名单审计延续。
+
+## 2. PR Smoke 追加步骤（计划项，编号接 M8 §2 的 34–39；落地随 g1.x 实现 PR 回填 workflow）
+
+| # | 步骤 | 失败即红 |
+|---|---|---|
+| 40 | CUDA–D3D12 interop 冒烟(契约 G-G1-1 通道;G1.1 落地接入):`ExternalBuffer`/`ExternalSemaphore` import D3D12 共享堆/信号量 → Rurix kernel 写 backbuffer 等价纹理数值对照 + 句柄生命周期/跨 context/信号时序违例编译期拦截 + 内建篡改同步时序红绿;写 `evidence/d3d12_interop_*.json` 的 `interop_ok`;计数核对 `g1.counter.d3d12_interop ≥1`。无 D3D12/GPU → 降级 SKIP(exit 0)。建设期未落地 → 0 → normal SKIP 属预期 | 是 |
+| 41 | 软光栅实时窗口呈现冒烟(契约 G-G1-1 通道;G1.1 落地接入):G0 kernel(RXS-0118~0121 语义 0-byte)写 backbuffer → 信号量同步 present 端到端;写 `evidence/realtime_present_*.json` 的 `present_ok`;计数核对 `g1.counter.realtime_present ≥1`。无窗口/显示环境 → 降级 SKIP。建设期未落地 → 0 → normal SKIP 属预期 | 是 |
+| 42 | 流序分配 AsyncBuffer 冒烟(契约 G-G1-2 通道;G1.2 落地接入):`AsyncBuffer<'stream,T>` 三 stream 流序分配端到端 + 三类生命周期错误(分配未完成/释放后/跨 stream 未同步)编译期拦截覆盖 + 内建放行违例红绿;写 `evidence/async_buffer_*.json` 的 `pipeline_ok`;计数核对 `g1.counter.async_buffer_pipeline ≥1`。建设期未落地 → 0 → normal SKIP 属预期 | 是 |
+| 43 | 首个引擎集成冒烟(契约 G-G1-3 通道;G1.3 落地接入):Rurix DLL(C ABI)嵌入 C++/D3D12 宿主框架承担 compute pass 端到端数值/呈现对照 + 内建篡改 pass 结果红绿;写 `evidence/engine_integration_*.json` 的 `integration_ok`;计数核对 `g1.counter.engine_integration ≥1`。建设期未落地 → 0 → normal SKIP 属预期 | 是 |
+| 44 | 生产分发 fatbin 冒烟(契约 G-G1-5 通道;G1.5 落地接入,check_* 守卫风格):按架构预编 cubin + 保守 PTX fallback 装载协商往返 + manifest/lockfile [[artifact]] digest 校验 + cubin/fatbin codegen 形态纳入 PTX/IR golden + NVIDIA 白名单审计(check_redistribution 延续)。门为 check_* 守卫风格(不写 budget counter,功能冒烟);Release 层覆盖 fatbin 产物签名 | 是 |
+
+预算 evaluator(M0 步骤 6)自动合并加载 [g1_budget.json](g1_budget.json)(命名空间冲突即红;evaluator 开工已配 `g1.counter.d3d12_interop`/`g1.counter.realtime_present`/`g1.counter.async_buffer_pipeline`/`g1.counter.engine_integration` 四分支,证据缺失 → 0 → normal SKIP,对齐 M4~M8 计数器先例)。**G1 期 PR Smoke 跑 normal 模式**:`g1.counter.*` 建设期未达标 SKIP 属预期;性能判据(若有)`g1.bench.*`/`g1.ratio.*` 随各 g1.x 实测回填(**开工 entries 留空,不预欠 estimated 占位**)。**G1 close-out 必须跑 `--strict` 且全局零 estimated 残留**(延续 MVP 零占位纪律,14 §3;不跨里程碑欠债)。
+
+## 3. Release 层门禁（14 §8，M8 RD-001 已建成；G1 延续 + fatbin 覆盖）
+
+Release 层(bench `--strict` + hard block + 签名/SBOM/许可审计 + artifact 上传)由 M8.4 建成(RD-001 closed)。G1 增量:
+
+- **fatbin 产物纳入 Release 层**(G-G1-5):rurixup 发布链路覆盖按架构预编 cubin + fatbin,产物经 Azure Artifact Signing(Authenticode + 时间戳)+ SBOM(SPDX/CycloneDX)+ NVIDIA 再分发白名单审计(`check_redistribution`:cubin 产物经 Attachment A 白名单最小集,完整 Toolkit/驱动/Nsight 永不捆绑,r6)。
+- **激活经真实红绿验证**(反 YAML-only):构造白名单外 cubin 组件 / 缺 [[artifact]] digest → Release 门红 → 修复转绿,run URL 归档(落地随 G1.5 回填)。
+
+## 4. Nightly 追加
+
+- 既有 nightly 全保留(M5.4 Compute Sanitizer racecheck+memcheck + measured 基准 + rx test 子进程隔离 + M7 软光栅 device kernel + M8 UC-01/UC-02/cublas 趋势 + 全量回归冻结)。
+- **G1.2 AsyncBuffer device 路径**(落地接入):流序分配 device 路径纳入既有 Compute Sanitizer racecheck+memcheck nightly 全跑(**CUDA.jl #780 事故类永久回归项**)。
+- **G1.1 interop device 写路径**(落地接入):backbuffer 等价纹理写路径纳入 Sanitizer nightly。
+- **G1 性能基准趋势**:interop 呈现帧时 / fatbin 装载首启延迟(若立性能门)经 `rx bench` 入口纳入 nightly 趋势归档(门禁判定在 close-out `--strict`)。
+- **全量回归冻结**(G1.6 收口):全量 conformance/UI/MIR/PTX golden/基准回归纳入 nightly 冻结跑。
+
+## 5. Guardrail
+
+沿用 M0 五项 + M1 三项 + M3 一项 + M4(PTX/IR golden bless + unsafe-audit)+ M5(NVIDIA 再分发白名单 / Compute Sanitizer)+ M6(rx fmt 幂等 / rx test 隔离 / 新 crate unsafe_code=deny)+ M7(软光栅 unsafe-audit / PTX golden / Sanitizer 延续)+ M8(互操作/cublas/发布链路 unsafe-audit / Release 层 / stable API 快照评估)。G1 期动作:
+
+1. **基准 ref 默认 `m8-closed`**:M8 close-out 已完成 `m7-closed → m8-closed` 切换(M8 CI_GATES §7 v1.7 / M8_CONTRACT §8.2),`ci/check_guardrails.py` 无参默认 = `m8-closed`,**G1 开工无需再切**;PR 路径仍以 `GITHUB_BASE_REF` 为准。G1 close-out 时按 `check_*` 守卫风格 + 双基准核对切至 `g1-closed`(owner 人工签署兑现)。
+2. **新段位错误码首批分配**(interop 呈现/流序分配/引擎集成/分发诊断):随 G1.x 诊断 PR 留痕,段位按 07 §5 语义分配,分配制递增、含义冻结(10 §6,`check_error_codes` 延续)。**开工脚手架不预造错误码**。
+3. **interop / 引擎 / 分发 unsafe-audit**(D3D12 external memory/semaphore + DXGI 边界 / C ABI 引擎边界 / fatbin 装载):凡落 unsafe 须按 AGENTS 硬规则 9 注册条目,每 unsafe 块 `// SAFETY:`;interop/引擎/分发新 crate 默认 `unsafe_code=deny`(边界 crate 经裁决最小开 unsafe + 注册留痕)。
+4. **NVIDIA 再分发白名单审计延续**(M5.4 check_redistribution):G1 cubin/fatbin 真分发产物须经 Attachment A 白名单最小集审计;完整 Toolkit/驱动/Nsight 永不捆绑(许可红线 r6)。D3D12/DXGI 系 Windows SDK 系统组件,不受 NVIDIA 再分发约束。
+5. **Compute Sanitizer nightly 延续**(M5.4):G1.2 AsyncBuffer device 路径 + G1.1 interop device 写路径落地后纳入既有 nightly 全跑。
+6. **stable API 快照冻结机制**(RD-008):维持 not_frozen/未激活至首个 stable 发布;激活时机与 stable 面定义经 owner 裁决留痕,激活后 stable API 快照变更须经审批 bless。
+7. **G1 close-out 守卫切换**(G1.6,owner 人工签署):`ci/check_guardrails.py` 回退基准默认 `m8-closed → g1-closed`;`check_closed_contracts` 的 `M*_CONTRACT.md` glob 泛化为 `*_CONTRACT.md`(纳入已关闭的 `G1_CONTRACT.md` 字节守卫;`milestones/TEMPLATE_CONTRACT.md` 在 `milestones/` 根、不在 `milestones/*/` 子目录,泛化后不误匹配);`g1-closed` annotated tag 锚定 close-out 签署提交。
+
+14 §2 常驻集其余项的 G1 期评估结论:
+
+| 项 | 结论 |
+|---|---|
+| MIR/PTX/IR 文本 golden | M3.3/M4.2 已激活;G1 interop/流序分配 device codegen 形态变更纳入既有 PTX/IR golden;**cubin/fatbin 真分发产物形态纳入 golden + 白名单审计**(脱离 M8 PTX-only) |
+| stable API 快照 | M8 MVP 收口评估维持 not_frozen(RD-008);G1 维持未激活至首个 stable 发布,激活经 owner 裁决留痕 |
+| unsafe-audit 完整性 | M4.3 已激活(rurix-rt);G1 interop/引擎/fatbin 边界凡落 unsafe 按硬规则 9 注册;新 crate 维持 `unsafe_code=deny` |
+| Compute Sanitizer | M5.4 已激活;G1 AsyncBuffer + interop device 路径落地后纳入既有 nightly 全跑 |
+| NVIDIA 再分发白名单审计 | M5.4 已激活(`check_redistribution`);G1 cubin/fatbin 真分发产物经 Attachment A 白名单审计 |
+| registry sumdb(D-312) | 维持 not_triggered(SG-007;MVP+G1 = lockfile+vendor+checksum,真 registry 留 D-312/G2) |
+| 声明宏(SG-006) | 触发条件 = G1 后真实样板痛点 ≥3 类且 derive 不可覆盖;**G1 期满后复评**,本期不触发 |
+
+m0~m8 历史预算/契约/registry/error_codes/bless/spec guardrail 走既有机制,无需新代码。
+
+## 6. 验证程序（对应契约 G-G1-1~G-G1-6 与计划步骤 40–44）
+
+1. 步骤 40(CUDA–D3D12 interop)落地后,构造**篡改 interop 同步时序 / 放行跨 context 误用**的 PR → interop 冒烟红;复原转绿,run URL 归档(反 YAML-only)。
+2. 步骤 41(实时呈现)落地后,构造 present 同步缺失 / 帧像素篡改 → 红;复原 → 绿,run URL 归档。
+3. 步骤 42(AsyncBuffer)落地后,构造流序分配生命周期违例(应编译期拦截却放行)→ 红;复原 → 绿,run URL 归档。
+4. 步骤 43(引擎集成)落地后,构造 compute pass 数值结果篡改 → 红;复原 → 绿,run URL 归档。
+5. 步骤 44 / §3 Release 层 fatbin 落地后,构造白名单外 cubin 组件 / 缺 [[artifact]] digest → 门红;修复转绿,run URL 归档。
+6. close-out 附 `budget_eval --strict` 输出原文(全局零 estimated 残留)+ G1.1~G1.5 端到端证据 + Graph API spike report 结论 + RD-007/RD-008 处置留痕。
+
+## 7. 修订记录
+
+| 版本 | 日期 | 变更 |
+|---|---|---|
+| v1.0 | 2026-06-18 | 初版(G1 契约配套;计划步骤 40–44 为 G1.1~G1.5 计划项,落地时回填 workflow YAML 实测命令与 run URL;Release 层 M8 已建成,G1 延续 + fatbin 覆盖;guardrail 动作:基准 ref 默认 m8-closed 无需再切、新段位错误码随 G1.x 诊断 PR、interop/引擎/分发 unsafe-audit、NVIDIA 白名单审计延续、Compute Sanitizer nightly 延续、stable API 快照维持 not_frozen、G1 close-out 守卫切换(m8-closed→g1-closed + check_closed_contracts 口径泛化)均为计划/close-out 项;SG-006 G1 期满复评 / SG-007 维持 not_triggered)。配套 `ci/budget_eval.py` 新增 `g1.counter.d3d12_interop`/`g1.counter.realtime_present`/`g1.counter.async_buffer_pipeline`/`g1.counter.engine_integration` 四 evaluator 分支(证据缺失 → 0 → normal SKIP,对齐 M4~M8 计数器先例);`g1_budget.json` entries 留空(不预欠 estimated 占位)+ 四计数器;`ci/check_schemas.py`/`ci/budget_eval.py`/`ci/check_guardrails.py`/`tests/test_budget_namespace.py` 预算 glob `m*_budget.json → *_budget.json` 泛化纳入 g1。`py -3 ci/budget_eval.py`(normal)= PASS(g1.* 计数器 SKIP 属预期)。开工不写入 workflow YAML 真实步骤(随 g1.x 实现 PR 回填)|

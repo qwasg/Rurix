@@ -365,7 +365,7 @@ def main() -> int:
     check_ui_bless(base, diffs)
     check_mir_bless(base, diffs)
     check_ptx_bless(base, diffs)
-    for budget in sorted(ROOT.glob("milestones/*/m*_budget.json")):
+    for budget in sorted(ROOT.glob("milestones/*/*_budget.json")):
         check_budget(base, budget.relative_to(ROOT).as_posix())
     check_evidence(base, diffs)
     check_closed_contracts(base)

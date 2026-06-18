@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-BUDGETS = sorted(ROOT.glob("milestones/*/m*_budget.json"))
+BUDGETS = sorted(ROOT.glob("milestones/*/*_budget.json"))
 GROUPS = ("entries", "ratio_assertions", "counter_assertions")
 
 

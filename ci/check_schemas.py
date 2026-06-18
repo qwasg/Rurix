@@ -277,7 +277,7 @@ def main() -> int:
     check_deferred(ROOT / "registry/deferred.json")
     check_gating(ROOT / "registry/spike_gating.json")
     check_error_codes(ROOT / "registry/error_codes.json")
-    for budget in sorted(ROOT.glob("milestones/*/m*_budget.json")):
+    for budget in sorted(ROOT.glob("milestones/*/*_budget.json")):
         check_budget(budget)
     check_evidence_files()
     if ERRORS:
