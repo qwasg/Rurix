@@ -639,7 +639,7 @@ mod tests {
     rem.u64 %rd4, %rd3, 3;
     mov.b32 %r5, 0f00000000;
     setp.eq.u64 %p2, %rd4, 0;
-    @%p2 mov.b32 %r5, 0f3F800000;
+    @%p2 mov.b32 %r5, 0f3F000000;
     setp.eq.u64 %p3, %rd4, 1;
     @%p3 mov.b32 %r5, 0f3F000000;
     shl.b64 %rd5, %rd3, 2;
