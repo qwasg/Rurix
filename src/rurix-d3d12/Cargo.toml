@@ -1,0 +1,26 @@
+[package]
+name = "rurix-d3d12"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+description = "Rurix G1.1 D3D12/DXGI present 薄 C/C++ shim 边界（RFC-0001 §4.2；不进语言，D-130）。默认 stub（无 C++，返回 shim 不可用）；feature real-shim 经 build.rs+cc 编译真实 D3D12 shim 并链接 D3D12/DXGI/d3dcompiler。"
+
+[features]
+default = []
+# real-shim：经 build.rs + cc 编译真实 D3D12/DXGI C++ shim（shim/rx_d3d12_shim.cpp）
+# 并链接 Windows SDK D3D12 组件。需 MSVC + Windows SDK（含 D3D12 头/库 + d3dcompiler）。
+# **默认关闭**：无 SDK 环境 `cargo build --workspace` 仍编译 stub 而绿（常驻回归网）。
+real-shim = []
+
+[build-dependencies]
+cc = "1"
+
+# FFI 边界 crate（real-shim 段需 unsafe；stub 段无 unsafe）。豁免 workspace
+# unsafe_code=deny，维持 undocumented_unsafe_blocks=deny（AGENTS 硬规则 9；
+# 注册见 unsafe-audit/rurix-d3d12.md）。
+[lints.rust]
+unsafe_code = "allow"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "deny"

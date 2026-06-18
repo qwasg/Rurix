@@ -855,6 +855,18 @@
     "RXS-0139": [
       "src/rurixup/src/gate.rs",
       "src/rurixup/src/lib.rs"
+    ],
+    "RXS-0140": [
+      "src/rurix-rt/src/interop.rs"
+    ],
+    "RXS-0141": [
+      "src/rurix-rt/src/interop.rs"
+    ],
+    "RXS-0142": [
+      "src/rurix-rt/src/interop.rs"
+    ],
+    "RXS-0143": [
+      "src/rurix-rt/src/interop.rs"
     ]
   }
 }

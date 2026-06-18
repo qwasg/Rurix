@@ -7,8 +7,24 @@ publish.workspace = true
 license.workspace = true
 
 [dependencies]
-# 零外部依赖:nvcuda.dll 运行时动态加载(LoadLibraryA/GetProcAddress),
+# 零外部运行时依赖:nvcuda.dll 运行时动态加载(LoadLibraryA/GetProcAddress),
 # 不依赖 CUDA Toolkit 的 nvcuda.lib 导入库(08 §9 / 14 §2 PTX-only,无再分发物)。
+# G1.1 CUDA–D3D12 互操作(feature d3d12-interop)的 D3D12/DXGI 薄 C/C++ shim 边界:
+# 可选依赖,默认关闭(RFC-0001 §4.2;D3D12 侧不进语言,D-130)。
+rurix-d3d12 = { path = "../rurix-d3d12", optional = true }
+
+[features]
+default = []
+# d3d12-interop:G1.1 CUDA–D3D12 互操作呈现 Rust 类型面(RXS-0140~0143,RFC-0001):
+# 生成式 brand + ExternalBuffer/ExternalSemaphore + Ready→Acquired→Presentable typestate
+# + CUDA external-resource FFI。依赖 rurix-d3d12 的 **stub**(纯 Rust,无 C++)——故
+# `cargo build/test -p rurix-rt --features d3d12-interop` **无需 MSVC/D3D12 SDK** 即可编译,
+# 类型面编译期拦截(三类错误)与 fence 协议可在任意环境验证;运行期 shim 不可用。
+d3d12-interop = ["dep:rurix-d3d12"]
+# d3d12-interop-real:在 d3d12-interop 之上经 rurix-d3d12/real-shim 编译真实 D3D12/DXGI
+# C++ shim(需 MSVC + Windows SDK + 交互桌面会话)。仅 runner 设备真跑(步骤 40/41)启用。
+d3d12-interop-real = ["d3d12-interop", "rurix-d3d12/real-shim"]
+# **默认关闭全部**:常驻回归网 `cargo build/test/clippy --workspace` 不触 interop / D3D12 而绿。
 
 # build.rs 经 rurixc 库把 kernels/saxpy.rx 全管线产 PTX 嵌入 EXE(M4.4,D-M4-5);
 # 仅构建期依赖,不进运行时产物(运行时仍零依赖)。

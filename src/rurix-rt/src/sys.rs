@@ -103,6 +103,107 @@ type FnMemcpyHtoDAsync =
     unsafe extern "system" fn(CuDevicePtr, *const c_void, usize, CuPtr) -> CuResult;
 type FnMemcpyDtoHAsync =
     unsafe extern "system" fn(*mut c_void, CuDevicePtr, usize, CuPtr) -> CuResult;
+// -- G1.1 CUDA–D3D12 互操作:external memory/semaphore import(RXS-0140/0143;RFC-0001 §4.2.3) --
+// `CUexternalMemory`/`CUexternalSemaphore` 为不透明句柄(= CuPtr)。下列符号无 `_v2`
+// 后缀(RFC-0001 §4.2.3);作为 **Option 字段非致命解析**(缺失不禁用核心 CUDA)。
+type FnDeviceGetLuid = unsafe extern "system" fn(*mut c_char, *mut u32, CuDevice) -> CuResult;
+type FnImportExternalMemory =
+    unsafe extern "system" fn(*mut CuPtr, *const CudaExternalMemoryHandleDesc) -> CuResult;
+type FnExternalMemoryGetMappedBuffer = unsafe extern "system" fn(
+    *mut CuDevicePtr,
+    CuPtr,
+    *const CudaExternalMemoryBufferDesc,
+) -> CuResult;
+type FnDestroyExternalMemory = unsafe extern "system" fn(CuPtr) -> CuResult;
+type FnImportExternalSemaphore =
+    unsafe extern "system" fn(*mut CuPtr, *const CudaExternalSemaphoreHandleDesc) -> CuResult;
+type FnSignalExternalSemaphoresAsync = unsafe extern "system" fn(
+    *const CuPtr,
+    *const CudaExternalSemaphoreParams,
+    u32,
+    CuPtr,
+) -> CuResult;
+type FnWaitExternalSemaphoresAsync = unsafe extern "system" fn(
+    *const CuPtr,
+    *const CudaExternalSemaphoreParams,
+    u32,
+    CuPtr,
+) -> CuResult;
+type FnDestroyExternalSemaphore = unsafe extern "system" fn(CuPtr) -> CuResult;
+
+/// `CUexternalMemoryHandleType`:D3D12 resource = 5(RFC-0001 §4.2.2:采纳 RESOURCE,否决 HEAP=4)。
+pub const CU_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE: u32 = 5;
+/// `CUDA_EXTERNAL_MEMORY_DEDICATED`:committed resource 整块专用分配,必须置(RFC-0001 §4.2.2)。
+pub const CUDA_EXTERNAL_MEMORY_DEDICATED: u32 = 0x1;
+/// `CUexternalSemaphoreHandleType`:D3D12 fence = 4。
+pub const CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_D3D12_FENCE: u32 = 4;
+
+/// `CUDA_EXTERNAL_MEMORY_HANDLE_DESC` 的 win32 句柄成员(union 最大成员,16 字节)。
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct CudaWin32Handle {
+    /// NT HANDLE(`CreateSharedHandle` 产出;CUDA import 不接管所有权,RFC-0001 §4.2.2)。
+    pub handle: *mut c_void,
+    /// 命名共享(NULL = 用 handle)。
+    pub name: *const c_void,
+}
+
+/// `CUDA_EXTERNAL_MEMORY_HANDLE_DESC`(头文件 v1 布局,Windows x64 = 104 字节)。
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct CudaExternalMemoryHandleDesc {
+    /// `CUexternalMemoryHandleType`(D3D12_RESOURCE=5)。
+    pub type_: u32,
+    /// union 成员(仅用 win32;repr(C) 自动在 type_ 后补 4 字节对齐到 8)。
+    pub win32: CudaWin32Handle,
+    /// 分配字节数(`GetResourceAllocationInfo.SizeInBytes`)。
+    pub size: u64,
+    /// `CUDA_EXTERNAL_MEMORY_DEDICATED`。
+    pub flags: u32,
+    pub reserved: [u32; 16],
+}
+const _: () = assert!(size_of::<CudaExternalMemoryHandleDesc>() == 104);
+
+/// `CUDA_EXTERNAL_MEMORY_BUFFER_DESC`(Windows x64 = 88 字节)。
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct CudaExternalMemoryBufferDesc {
+    pub offset: u64,
+    pub size: u64,
+    pub flags: u32,
+    pub reserved: [u32; 16],
+}
+const _: () = assert!(size_of::<CudaExternalMemoryBufferDesc>() == 88);
+
+/// `CUDA_EXTERNAL_SEMAPHORE_HANDLE_DESC`(Windows x64 = 96 字节)。
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct CudaExternalSemaphoreHandleDesc {
+    /// `CUexternalSemaphoreHandleType`(D3D12_FENCE=4)。
+    pub type_: u32,
+    pub win32: CudaWin32Handle,
+    pub flags: u32,
+    pub reserved: [u32; 16],
+}
+const _: () = assert!(size_of::<CudaExternalSemaphoreHandleDesc>() == 96);
+
+/// `CUDA_EXTERNAL_SEMAPHORE_SIGNAL_PARAMS` / `..._WAIT_PARAMS`(同布局,Windows x64 = 144 字节)。
+/// 仅 `fence_value` 用于 D3D12 fence handoff(RFC-0001 §4.3:2n / 2n+1 / 2n+2)。
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct CudaExternalSemaphoreParams {
+    /// `params.fence.value`(D3D12 fence 目标值)。
+    pub fence_value: u64,
+    /// `params.nvSciSync`(union,未用)。
+    pub nv_sci_sync: u64,
+    /// `params.keyedMutex.key`(未用)。
+    pub keyed_mutex_key: u64,
+    /// `params.reserved[12]`。
+    pub params_reserved: [u32; 12],
+    pub flags: u32,
+    pub reserved: [u32; 16],
+}
+const _: () = assert!(size_of::<CudaExternalSemaphoreParams>() == 144);
 
 /// 已加载的 Driver API 入口集(进程内一次加载,函数指针 Send + Sync)。
 pub struct Cuda {
@@ -137,6 +238,15 @@ pub struct Cuda {
     cu_stream_wait_event: FnStreamWaitEvent,
     cu_memcpy_htod_async: FnMemcpyHtoDAsync,
     cu_memcpy_dtoh_async: FnMemcpyDtoHAsync,
+    // G1.1 external resource interop(Option:缺失不禁用核心 CUDA,RFC-0001 §4.2.3)。
+    cu_device_get_luid: Option<FnDeviceGetLuid>,
+    cu_import_external_memory: Option<FnImportExternalMemory>,
+    cu_external_memory_get_mapped_buffer: Option<FnExternalMemoryGetMappedBuffer>,
+    cu_destroy_external_memory: Option<FnDestroyExternalMemory>,
+    cu_import_external_semaphore: Option<FnImportExternalSemaphore>,
+    cu_signal_external_semaphores_async: Option<FnSignalExternalSemaphoresAsync>,
+    cu_wait_external_semaphores_async: Option<FnWaitExternalSemaphoresAsync>,
+    cu_destroy_external_semaphore: Option<FnDestroyExternalSemaphore>,
 }
 
 static CUDA: OnceLock<Option<Cuda>> = OnceLock::new();
@@ -207,6 +317,20 @@ impl Cuda {
                 cu_stream_wait_event: cast_fn(sym(c"cuStreamWaitEvent"))?,
                 cu_memcpy_htod_async: cast_fn(sym(c"cuMemcpyHtoDAsync_v2"))?,
                 cu_memcpy_dtoh_async: cast_fn(sym(c"cuMemcpyDtoHAsync_v2"))?,
+                // G1.1 external resource interop:非致命解析(无 `?`;缺失 → None →
+                // 上层 interop 报运行期不可用,核心 CUDA 不受影响,RFC-0001 §4.2.3)。
+                cu_device_get_luid: cast_fn(sym(c"cuDeviceGetLuid")),
+                cu_import_external_memory: cast_fn(sym(c"cuImportExternalMemory")),
+                cu_external_memory_get_mapped_buffer: cast_fn(sym(
+                    c"cuExternalMemoryGetMappedBuffer",
+                )),
+                cu_destroy_external_memory: cast_fn(sym(c"cuDestroyExternalMemory")),
+                cu_import_external_semaphore: cast_fn(sym(c"cuImportExternalSemaphore")),
+                cu_signal_external_semaphores_async: cast_fn(sym(
+                    c"cuSignalExternalSemaphoresAsync",
+                )),
+                cu_wait_external_semaphores_async: cast_fn(sym(c"cuWaitExternalSemaphoresAsync")),
+                cu_destroy_external_semaphore: cast_fn(sym(c"cuDestroyExternalSemaphore")),
             })
         }
     }
@@ -504,5 +628,135 @@ impl Cuda {
     ) -> CuResult {
         // SAFETY: 调用方保证 dst/src/stream 有效且 dst 在异步拷贝完成前存活(见 fn 文档)。
         unsafe { (self.cu_memcpy_dtoh_async)(dst, src, bytes, stream) }
+    }
+
+    // -- G1.1 CUDA–D3D12 互操作:external memory/semaphore(RXS-0140/0142/0143;RFC-0001 §4.2/§4.3) --
+    // 全部入口在符号缺失时返回 None(driver 不支持 external resource interop);上层
+    // interop 映射运行期诊断。signal/wait 单信号量(numExtSems=1)。
+
+    /// driver 是否导出全部 external-resource interop 符号(G1.1 可用性前置判定)。
+    pub fn has_external_resource_api(&self) -> bool {
+        self.cu_device_get_luid.is_some()
+            && self.cu_import_external_memory.is_some()
+            && self.cu_external_memory_get_mapped_buffer.is_some()
+            && self.cu_destroy_external_memory.is_some()
+            && self.cu_import_external_semaphore.is_some()
+            && self.cu_signal_external_semaphores_async.is_some()
+            && self.cu_wait_external_semaphores_async.is_some()
+            && self.cu_destroy_external_semaphore.is_some()
+    }
+
+    /// 设备 LUID + node mask(`cuDeviceGetLuid`;与 D3D12 adapter LUID 逐字节配对,RFC-0001 §4.4)。
+    pub fn device_get_luid(&self, dev: CuDevice) -> Option<(CuResult, [c_char; 8], u32)> {
+        let f = self.cu_device_get_luid?;
+        let mut luid = [0 as c_char; 8];
+        let mut node_mask: u32 = 0;
+        // SAFETY: 出参 `luid`(8 字节)/`node_mask` 有效可写;`dev` 来自 device_get;ABI 匹配。
+        let r = unsafe { f(luid.as_mut_ptr(), &mut node_mask, dev) };
+        Some((r, luid, node_mask))
+    }
+
+    /// # Safety
+    /// `desc` 指向有效 `CudaExternalMemoryHandleDesc`,其 `win32.handle` 为有效 NT HANDLE;current context 一致。
+    pub unsafe fn import_external_memory(
+        &self,
+        desc: *const CudaExternalMemoryHandleDesc,
+    ) -> Option<(CuResult, CuPtr)> {
+        let f = self.cu_import_external_memory?;
+        let mut ext: CuPtr = std::ptr::null_mut();
+        // SAFETY: 出参 `ext` 有效可写;调用方保证 `desc` 有效(见 fn 文档)。
+        let r = unsafe { f(&mut ext, desc) };
+        Some((r, ext))
+    }
+
+    /// # Safety
+    /// `ext_mem` 为 `import_external_memory` 成功返回且未销毁的句柄;`desc` 指向有效 buffer desc。
+    pub unsafe fn external_memory_get_mapped_buffer(
+        &self,
+        ext_mem: CuPtr,
+        desc: *const CudaExternalMemoryBufferDesc,
+    ) -> Option<(CuResult, CuDevicePtr)> {
+        let f = self.cu_external_memory_get_mapped_buffer?;
+        let mut dptr: CuDevicePtr = 0;
+        // SAFETY: 出参 `dptr` 有效可写;调用方保证 `ext_mem`/`desc` 有效(见 fn 文档)。
+        let r = unsafe { f(&mut dptr, ext_mem, desc) };
+        Some((r, dptr))
+    }
+
+    /// # Safety
+    /// `ext_mem` 为 `import_external_memory` 返回且 mapped buffer 已 `cuMemFree` 后的句柄(RFC-0001 §4.4 销毁序)。
+    pub unsafe fn destroy_external_memory(&self, ext_mem: CuPtr) -> Option<CuResult> {
+        let f = self.cu_destroy_external_memory?;
+        // SAFETY: 调用方保证 `ext_mem` 有效未销毁且 mapped buffer 已先释放(见 fn 文档)。
+        Some(unsafe { f(ext_mem) })
+    }
+
+    /// # Safety
+    /// `desc` 指向有效 `CudaExternalSemaphoreHandleDesc`,其 `win32.handle` 为有效 NT HANDLE。
+    pub unsafe fn import_external_semaphore(
+        &self,
+        desc: *const CudaExternalSemaphoreHandleDesc,
+    ) -> Option<(CuResult, CuPtr)> {
+        let f = self.cu_import_external_semaphore?;
+        let mut ext: CuPtr = std::ptr::null_mut();
+        // SAFETY: 出参 `ext` 有效可写;调用方保证 `desc` 有效(见 fn 文档)。
+        let r = unsafe { f(&mut ext, desc) };
+        Some((r, ext))
+    }
+
+    /// 在 `stream` 上 signal external semaphore 到 `value`(`cuSignalExternalSemaphoresAsync`,numExtSems=1)。
+    /// # Safety
+    /// `ext_sem` 为有效 external semaphore;`stream` 有效(或 null);current context 一致。
+    pub unsafe fn signal_external_semaphore(
+        &self,
+        ext_sem: CuPtr,
+        value: u64,
+        stream: CuPtr,
+    ) -> Option<CuResult> {
+        let f = self.cu_signal_external_semaphores_async?;
+        let params = CudaExternalSemaphoreParams {
+            fence_value: value,
+            nv_sci_sync: 0,
+            keyed_mutex_key: 0,
+            params_reserved: [0; 12],
+            flags: 0,
+            reserved: [0; 16],
+        };
+        let sems = [ext_sem];
+        // SAFETY: `sems`/`params` 为长度 1 的有效栈数组(numExtSems=1);调用方保证 ext_sem/stream
+        // 有效且 current context 一致(见 fn 文档)。
+        Some(unsafe { f(sems.as_ptr(), &params, 1, stream) })
+    }
+
+    /// 在 `stream` 上 wait external semaphore 至 `value`(`cuWaitExternalSemaphoresAsync`,numExtSems=1)。
+    /// # Safety
+    /// `ext_sem` 为有效 external semaphore;`stream` 有效(或 null);current context 一致。
+    pub unsafe fn wait_external_semaphore(
+        &self,
+        ext_sem: CuPtr,
+        value: u64,
+        stream: CuPtr,
+    ) -> Option<CuResult> {
+        let f = self.cu_wait_external_semaphores_async?;
+        let params = CudaExternalSemaphoreParams {
+            fence_value: value,
+            nv_sci_sync: 0,
+            keyed_mutex_key: 0,
+            params_reserved: [0; 12],
+            flags: 0,
+            reserved: [0; 16],
+        };
+        let sems = [ext_sem];
+        // SAFETY: `sems`/`params` 为长度 1 的有效栈数组(numExtSems=1);调用方保证 ext_sem/stream
+        // 有效且 current context 一致(见 fn 文档)。
+        Some(unsafe { f(sems.as_ptr(), &params, 1, stream) })
+    }
+
+    /// # Safety
+    /// `ext_sem` 为 `import_external_semaphore` 返回且无在途 signal/wait 的句柄(RFC-0001 §4.4)。
+    pub unsafe fn destroy_external_semaphore(&self, ext_sem: CuPtr) -> Option<CuResult> {
+        let f = self.cu_destroy_external_semaphore?;
+        // SAFETY: 调用方保证 `ext_sem` 有效未销毁且无在途操作(见 fn 文档)。
+        Some(unsafe { f(ext_sem) })
     }
 }
