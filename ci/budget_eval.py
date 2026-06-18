@@ -27,7 +27,7 @@ def err(msg: str) -> None:
 def load_budgets() -> dict[str, dict]:
     """合并加载全部预算,命名空间冲突即 FAIL。"""
     merged: dict[str, dict] = {}
-    for path in sorted(ROOT.glob("milestones/*/m*_budget.json")):
+    for path in sorted(ROOT.glob("milestones/*/*_budget.json")):
         doc = json.loads(path.read_text(encoding="utf-8"))
         ns = doc.get("namespace", "")
         for group in ("entries", "ratio_assertions", "counter_assertions"):
@@ -382,6 +382,53 @@ def eval_counter(entry: dict, strict: bool) -> None:
             err(f"{eid}: FAIL — traceability 矩阵不存在(契约 G-M1-4)")
         else:
             SKIPS.append(f"{eid}: SKIP — traceability 矩阵未生成(M1.4 交付物,建设期为正常状态)")
+    elif eid == "g1.counter.d3d12_interop":
+        # CUDA–D3D12 interop 端到端证据数 ≥1(契约 G-G1-1;ExternalBuffer/
+        # ExternalSemaphore import D3D12 共享堆/信号量 → Rurix kernel 写 backbuffer
+        # 等价纹理数值对照 + 句柄生命周期/跨 context/信号时序违例编译期拦截,06 §8.1 /
+        # D-130);计数 = evidence/d3d12_interop_*.json 中 interop_ok=true 的报告数。
+        # G1.1 落地前为 0 → 建设期 normal SKIP / close-out strict FAIL,对齐 M8 先例。
+        n = 0
+        for f in (ROOT / "evidence").glob("d3d12_interop_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("interop_ok") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份 CUDA–D3D12 interop 端到端证据", "G1.1 interop 落地前为正常状态,契约 G-G1-1", strict)
+    elif eid == "g1.counter.realtime_present":
+        # 软光栅 demo 实时窗口呈现端到端证据数 ≥1(契约 G-G1-1;G0 kernel
+        # RXS-0118~0121 语义 0-byte,写 backbuffer → 信号量同步 present,11 §4 /
+        # spec/softraster.md:153);计数 = evidence/realtime_present_*.json 中
+        # present_ok=true 的报告数。无窗口/显示环境冒烟降级 SKIP 不写证据。
+        # G1.1 落地前为 0 → 建设期 normal SKIP / close-out strict FAIL。
+        n = 0
+        for f in (ROOT / "evidence").glob("realtime_present_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("present_ok") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份软光栅实时窗口呈现证据", "G1.1 实时呈现落地前为正常状态,契约 G-G1-1", strict)
+    elif eid == "g1.counter.async_buffer_pipeline":
+        # 流序分配 AsyncBuffer<'stream,T> 端到端证据数 ≥1(契约 G-G1-2;三 stream
+        # 流序分配 + 分配未完成/释放后/跨 stream 未同步三类生命周期错误编译期拦截,
+        # 06 §5.4 / 08 §2.2 / D-122);计数 = evidence/async_buffer_*.json 中
+        # pipeline_ok=true 的报告数。device 路径并入 Compute Sanitizer nightly
+        # (CUDA.jl #780 事故类回归)。G1.2 落地前为 0 → 建设期 normal SKIP / strict FAIL。
+        n = 0
+        for f in (ROOT / "evidence").glob("async_buffer_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("pipeline_ok") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份流序分配 AsyncBuffer 端到端证据", "G1.2 AsyncBuffer 落地前为正常状态,契约 G-G1-2", strict)
+    elif eid == "g1.counter.engine_integration":
+        # 首个引擎集成端到端证据数 ≥1(契约 G-G1-3;Rurix DLL #[export(c)] C ABI
+        # 嵌入现存 C++/D3D12 渲染框架承担 compute pass,UC-05 前奏,06 §8.3 / 02 §U5);
+        # 计数 = evidence/engine_integration_*.json 中 integration_ok=true 的报告数。
+        # G1.3 落地前为 0 → 建设期 normal SKIP / close-out strict FAIL。
+        n = 0
+        for f in (ROOT / "evidence").glob("engine_integration_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("integration_ok") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份首个引擎集成端到端证据", "G1.3 引擎集成落地前为正常状态,契约 G-G1-3", strict)
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 

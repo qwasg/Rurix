@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "namespace": "g1",
+  "description": "G1 预算(14 §3:entries + ratio_assertions + counter_assertions,命名空间强制前缀)。G1 开工脚手架:entries/ratio_assertions 留空(不预欠 estimated 占位,延续 MVP 零占位纪律,14 §3);counter_assertions 为 G1.1~G1.3 计划计数器(证据缺失 → 0 → normal SKIP,close-out --strict 达标方过,对齐 M4~M8 计数器先例)。性能门(若有)g1.bench.*/g1.ratio.* 随各 g1.x 实测 measured_local 回填。占位规则:evidence=estimated 时 evaluator skip 并输出 skip_reason;占位存活 ≤2 个里程碑。",
+  "source_docs": [
+    "14 §3",
+    "11 §4",
+    "milestones/g1/G1_CONTRACT.md",
+    "milestones/g1/CI_GATES.md",
+    "milestones/m0/BENCH_PROTOCOL.md"
+  ],
+  "entries": [],
+  "ratio_assertions": [],
+  "counter_assertions": [
+    {
+      "id": "g1.counter.d3d12_interop",
+      "description": "CUDA–D3D12 interop 端到端证据数 ≥1(契约 G-G1-1;ExternalBuffer/ExternalSemaphore import D3D12 共享堆/信号量 → Rurix kernel 写 backbuffer 等价纹理数值对照 + 句柄生命周期/跨 context/信号时序违例编译期拦截,06 §8.1 / D-130);计数源 = evidence/d3d12_interop_*.json 中 interop_ok=true 的报告数。G1.1 落地前为 0 → 建设期 normal SKIP / close-out strict FAIL,对齐 m8.counter.uc02_stream_pipeline 先例。",
+      "expect": ">=1",
+      "evidence": "ci_checked"
+    },
+    {
+      "id": "g1.counter.realtime_present",
+      "description": "软光栅 demo 实时窗口呈现端到端证据数 ≥1(契约 G-G1-1;G0 kernel RXS-0118~0121 语义 0-byte,写 backbuffer → 信号量同步 present,11 §4 / spec/softraster.md:153);计数源 = evidence/realtime_present_*.json 中 present_ok=true 的报告数。G1.1 落地前为 0 → 建设期 normal SKIP / close-out strict FAIL。无窗口/显示环境冒烟降级 SKIP 不写证据。",
+      "expect": ">=1",
+      "evidence": "ci_checked"
+    },
+    {
+      "id": "g1.counter.async_buffer_pipeline",
+      "description": "流序分配 AsyncBuffer<'stream,T> 端到端证据数 ≥1(契约 G-G1-2;三 stream 流序分配 + 分配未完成/释放后/跨 stream 未同步三类生命周期错误编译期拦截,06 §5.4 / 08 §2.2 / D-122);计数源 = evidence/async_buffer_*.json 中 pipeline_ok=true 的报告数。G1.2 落地前为 0 → 建设期 normal SKIP / close-out strict FAIL。device 路径并入 Compute Sanitizer nightly(CUDA.jl #780 事故类回归)。",
+      "expect": ">=1",
+      "evidence": "ci_checked"
+    },
+    {
+      "id": "g1.counter.engine_integration",
+      "description": "首个引擎集成端到端证据数 ≥1(契约 G-G1-3;Rurix DLL #[export(c)] C ABI 嵌入现存 C++/D3D12 渲染框架承担 compute pass,UC-05 前奏,06 §8.3 / 02 §U5);计数源 = evidence/engine_integration_*.json 中 integration_ok=true 的报告数。G1.3 落地前为 0 → 建设期 normal SKIP / close-out strict FAIL。",
+      "expect": ">=1",
+      "evidence": "ci_checked"
+    }
+  ],
+  "namespace_check": {
+    "rule": "本文件所有 id 必须以 'g1.' 前缀开头;多预算合并加载时冲突即 FAIL(14 §3)。预算自动发现 glob 经 m*_budget.json → *_budget.json 泛化纳入 g1(ci/check_schemas.py / budget_eval.py / check_guardrails.py / tests/test_budget_namespace.py 同一 glob)。",
+    "unit_test_required": true
+  },
+  "revision_log": [
+    {
+      "version": "v1.0",
+      "date": "2026-06-18",
+      "change": "初版模板(G1 开工脚手架):entries/ratio_assertions 留空(不预欠 estimated 占位);counter_assertions 配 G1.1~G1.3 计划计数器(d3d12_interop / realtime_present / async_buffer_pipeline / engine_integration,证据缺失 → 0 → normal SKIP)。配套 ci/budget_eval.py 四 evaluator 分支 + 四脚本预算 glob 泛化纳入 g1。性能门 g1.bench.*/g1.ratio.* 随各 g1.x 实测回填。"
+    }
+  ]
+}
