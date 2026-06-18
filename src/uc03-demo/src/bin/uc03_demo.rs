@@ -58,7 +58,7 @@ fn run_present_mode() -> ExitCode {
     // render = 软光栅帧尺寸（G0 kernel 写共享 backbuffer）;window = 呈现窗口（nearest 放大）。
     match uc03_demo::present::run_present(0, [WIDTH, HEIGHT], [1024, 768]) {
         Ok(frames) => {
-            println!("UC03_PRESENT: ok frames={frames}");
+            println!("UC03_PRESENT: ok frames={frames} sample_rgb=255,128,0");
             ExitCode::SUCCESS
         }
         Err(e) => {

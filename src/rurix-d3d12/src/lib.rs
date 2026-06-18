@@ -146,7 +146,7 @@ impl Presenter {
             if rc != 0 || raw.is_null() {
                 return Err(if rc != 0 { rc } else { RX_D3D12_E_NOTIMPL });
             }
-            return Ok((Presenter { raw }, export));
+            Ok((Presenter { raw }, export))
         }
         #[cfg(not(feature = "real-shim"))]
         {
@@ -212,7 +212,11 @@ impl Drop for Presenter {
 }
 
 /// 关闭 import 后的临时 NT HANDLE（每个 handle 恰好一次，RFC-0001 §4.2.2）。stub：no-op 返回不可用。
-pub fn close_shared_handle(handle: *mut c_void) -> i32 {
+///
+/// # Safety
+///
+/// `handle` 必须是 shim `create` 移交、尚未关闭的有效 NT HANDLE。
+pub unsafe fn close_shared_handle(handle: *mut c_void) -> i32 {
     #[cfg(feature = "real-shim")]
     {
         // SAFETY: `handle` 为 shim `create` 经 out-export 移交、尚未关闭的 NT HANDLE。
@@ -255,7 +259,7 @@ mod tests {
             let r = Presenter::create([0; 8], 0, [2, 2], [2, 2], 0);
             assert_eq!(r.err(), Some(RX_D3D12_E_NOTIMPL));
             assert_eq!(
-                close_shared_handle(core::ptr::null_mut()),
+                unsafe { close_shared_handle(core::ptr::null_mut()) },
                 RX_D3D12_E_NOTIMPL
             );
         }

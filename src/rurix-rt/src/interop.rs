@@ -32,6 +32,10 @@ use crate::sys::{
 };
 use crate::{Context, CudaError};
 
+/// G0 `sr_tonemap` device kernel PTX（RXS-0121；由 rurix-rt build.rs 从原 `.rx` 生成）。
+pub const SR_TONEMAP_PTX: &str = include_str!(concat!(env!("OUT_DIR"), "/sr_tonemap.ptx"));
+include!(concat!(env!("OUT_DIR"), "/sr_tonemap_meta.rs"));
+
 /// 不变 brand（invariant over `'ctx`）：`for<'ctx>` 闭包生成不可伪造、不可逃逸的新鲜
 /// brand，使两个独立 [`scope`] 的资源类型不可混用（跨 context 编译期拦截，RXS-0141）。
 type Brand<'ctx> = PhantomData<fn(&'ctx ()) -> &'ctx ()>;
@@ -51,6 +55,10 @@ pub enum InteropError {
     FenceOverflow,
     /// CUDA device LUID 与 D3D12 adapter LUID 不一致（RFC-0001 §4.4）。
     LuidMismatch,
+    /// host/device 数值回读未通过设备冒烟对照。
+    DeviceVerificationFailed,
+    /// 请求访问的元素数超过共享 buffer 容量。
+    BufferTooSmall { requested: usize, available: usize },
 }
 
 impl From<CudaError> for InteropError {
@@ -402,6 +410,30 @@ impl<'ctx> AcquiredFrame<'ctx> {
         };
         cu_ext_check("cuLaunchKernel", rc)
     }
+    /// 同步本帧私有 stream 后，将共享 backbuffer 前缀回读到 host（设备 smoke 数值对照）。
+    pub fn readback_f32(&self, dst: &mut [f32]) -> Result<()> {
+        if dst.len() > self.core.buffer.len() {
+            return Err(InteropError::BufferTooSmall {
+                requested: dst.len(),
+                available: self.core.buffer.len(),
+            });
+        }
+        let cuda = self.core.cuda()?;
+        // SAFETY: (U3) stream 为本 FrameCore 独占有效句柄；同步确保此前 wait/launch 已完成。
+        let rc = unsafe { cuda.stream_synchronize(self.core.stream.raw) };
+        cu_ext_check("cuStreamSynchronize", rc)?;
+        let bytes = std::mem::size_of_val(dst);
+        // SAFETY: (U4) dst 指向 bytes 字节有效可写 host 存储；buffer 映射区至少含 dst.len()
+        // 个 f32（上方容量检查）；stream 已同步，D3D12 尚未取得本帧读权。
+        let rc = unsafe {
+            cuda.memcpy_dtoh(
+                dst.as_mut_ptr().cast::<c_void>(),
+                self.core.buffer.device_ptr(),
+                bytes,
+            )
+        };
+        cu_ext_check("cuMemcpyDtoH", rc)
+    }
     /// 完成写入：CUDA `cuSignalExternalSemaphoresAsync(cuda_done(n)=2n+1)`（RFC-0001 §4.3）。
     pub fn signal(self) -> Result<PresentableFrame<'ctx>> {
         let v = cuda_done_value(self.core.frame).ok_or(InteropError::FenceOverflow)?;
@@ -517,7 +549,10 @@ pub fn scope<R>(
         }
         return Err(e);
     }
-    rurix_d3d12::close_shared_handle(export.memory_handle);
+    // SAFETY: handle 由 shim create 成功移交，CUDA import 后尚未关闭，按契约恰好关闭一次。
+    unsafe {
+        rurix_d3d12::close_shared_handle(export.memory_handle);
+    }
 
     // import external semaphore（D3D12_FENCE）→ 立即关闭 NT HANDLE。
     let sem_desc = CudaExternalSemaphoreHandleDesc {
@@ -533,7 +568,10 @@ pub fn scope<R>(
     let (r, ext_sem) = unsafe { cuda.import_external_semaphore(&sem_desc) }
         .ok_or(InteropError::ExternalApiUnavailable)?;
     cu_ext_check("cuImportExternalSemaphore", r)?;
-    rurix_d3d12::close_shared_handle(export.fence_handle);
+    // SAFETY: handle 由 shim create 成功移交，CUDA import 后尚未关闭，按契约恰好关闭一次。
+    unsafe {
+        rurix_d3d12::close_shared_handle(export.fence_handle);
+    }
 
     let (r, stream) = cuda.stream_create();
     cu_ext_check("cuStreamCreate", r)?;
@@ -574,6 +612,43 @@ pub fn scope<R>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "d3d12-interop-real")]
+    const DEVICE_FILL_PTX: &str = r#".version 8.0
+.target sm_89
+.address_size 64
+
+.visible .entry rx_interop_fill(
+    .param .u64 out,
+    .param .u64 n
+)
+{
+    .reg .pred %p<4>;
+    .reg .b32 %r<7>;
+    .reg .b64 %rd<7>;
+
+    ld.param.u64 %rd1, [out];
+    ld.param.u64 %rd2, [n];
+    mov.u32 %r1, %ctaid.x;
+    mov.u32 %r2, %ntid.x;
+    mov.u32 %r3, %tid.x;
+    mad.lo.s32 %r4, %r1, %r2, %r3;
+    cvt.u64.u32 %rd3, %r4;
+    setp.ge.u64 %p1, %rd3, %rd2;
+    @%p1 bra DONE;
+    rem.u64 %rd4, %rd3, 3;
+    mov.b32 %r5, 0f00000000;
+    setp.eq.u64 %p2, %rd4, 0;
+    @%p2 mov.b32 %r5, 0f3F800000;
+    setp.eq.u64 %p3, %rd4, 1;
+    @%p3 mov.b32 %r5, 0f3F000000;
+    shl.b64 %rd5, %rd3, 2;
+    add.s64 %rd6, %rd1, %rd5;
+    st.global.b32 [%rd6], %r5;
+DONE:
+    ret;
+}
+"#;
 
     fn assert_not_send<T>() {}
     fn is_send<T: Send>() {}
@@ -648,6 +723,10 @@ mod tests {
         // 无 d3d12-interop-real（stub shim）/ 无 GPU / 非交互桌面:scope 返回确定性不可用错误,
         // 不 panic、不 UB（类型面与 fence 协议已在上方 test 验证,不依赖运行期可用性,RFC-0001 §4.4）。
         let r = scope(0, [4, 4], [8, 8], |_cx, _ready| Ok(()));
+        if cfg!(feature = "d3d12-interop-real") {
+            assert!(r.is_ok(), "real-shim 交互设备会话应成功建立,实得 {r:?}");
+            return;
+        }
         assert!(
             matches!(
                 r,
@@ -657,6 +736,43 @@ mod tests {
                     | Err(InteropError::LuidMismatch)
             ),
             "stub/非设备环境应返回不可用错误,实得 {r:?}"
+        );
+    }
+
+    #[cfg(feature = "d3d12-interop-real")]
+    #[test]
+    fn real_interop_numeric_roundtrip() {
+        let result = scope(0, [2, 2], [64, 64], |cx, ready| {
+            let module = cx.load_module(DEVICE_FILL_PTX)?;
+            let kernel = module.kernel("rx_interop_fill")?;
+            let mut acquired = ready.wait()?;
+            let n = acquired.buffer_mut().len();
+            let buffer_arg = {
+                let buffer = acquired.buffer_mut();
+                InteropKernelArg::buffer(&*buffer)
+            };
+            acquired.launch(
+                &kernel,
+                [(n as u32).div_ceil(256), 1, 1],
+                [256, 1, 1],
+                &mut [buffer_arg, InteropKernelArg::usize(n)],
+            )?;
+            let mut sample = [0.0f32; 3];
+            acquired.readback_f32(&mut sample)?;
+            if sample != [1.0, 0.5, 0.0] {
+                return Err(InteropError::DeviceVerificationFailed);
+            }
+            let presentable = acquired.signal()?;
+            let _ready = presentable.present()?;
+            println!(
+                "INTEROP_DEVICE: ok sample_rgb={},{},{}",
+                sample[0], sample[1], sample[2]
+            );
+            Ok(())
+        });
+        assert!(
+            result.is_ok(),
+            "real CUDA-D3D12 interop 数值闭环失败:{result:?}"
         );
     }
 }

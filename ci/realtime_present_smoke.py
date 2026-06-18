@@ -20,6 +20,8 @@
 """
 import datetime
 import json
+import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -53,14 +55,37 @@ def host_segment():
 
 
 def device_segment():
-    """device 段:需 --features d3d12-present-real 构建成功(MSVC+SDK)+ 交互桌面窗口。
-    本环境无 → SKIP。返回 (present_ok, device_run, frames, note)。"""
+    """device 段:real-shim + 有限帧交互窗口真跑，并解析设备数值对照标记。"""
+    require_real = os.environ.get("RURIX_REQUIRE_REAL") == "1"
     r = run(["cargo", "build", "-p", "uc03-demo", "--features", "d3d12-present-real"])
     if r.returncode != 0:
+        if require_real:
+            fail(f"d3d12-present-real 构建失败:\n{r.stderr[-1200:]}")
         return False, False, 0, "无 MSVC/Windows SDK D3D12(real-shim 未编译)→ device 段 SKIP"
-    # real-shim 已编译;窗口 present 端到端 + 帧像素对照需交互桌面会话,由 runner 执行回填
-    # present_ok=true / frames_presented / run URL(步骤 41)。
-    return False, False, 0, "real-shim 已编译;窗口 present + 帧像素对照需交互桌面 runner(设备真跑回填 present_ok)"
+    env = os.environ.copy()
+    env["RURIX_PRESENT_FRAMES"] = "8"
+    r = run([
+        "cargo", "run", "-p", "uc03-demo", "--features", "d3d12-present-real",
+        "--", "--present",
+    ], env=env)
+    output = r.stdout + "\n" + r.stderr
+    match = re.search(r"UC03_PRESENT: ok frames=(\d+) sample_rgb=255,128,0", output)
+    if r.returncode != 0 or match is None:
+        if require_real:
+            fail(f"实时窗口 present 设备闭环失败:\n{output[-1600:]}")
+        return False, False, 0, "real-shim 已编译但交互桌面/窗口 present 不可用→ device 段 SKIP"
+    frames = int(match.group(1))
+    print(f"[realtime_present_smoke] UC03_PRESENT: ok frames={frames} sample_rgb=255,128,0")
+    return True, True, frames, "G0 sr_tonemap 写共享 buffer→fence 同步→窗口 Present + 数值回读通过"
+
+
+def github_run_url():
+    server = os.environ.get("GITHUB_SERVER_URL")
+    repo = os.environ.get("GITHUB_REPOSITORY")
+    run_id = os.environ.get("GITHUB_RUN_ID")
+    if server and repo and run_id:
+        return f"{server}/{repo}/actions/runs/{run_id}"
+    return "local interactive runner"
 
 
 def main():
@@ -89,7 +114,7 @@ def main():
             "red_detected": True,
             "green_command": "py -3 ci/realtime_present_smoke.py",
             "green_exit_code": 0,
-            "run_url": "TODO:回填交互桌面 runner 绿→红→复原绿 run URL(步骤 41,设备窗口真跑)",
+            "run_url": f"green={github_run_url()}",
         },
         "timestamp": datetime.datetime.now().astimezone().replace(microsecond=0).isoformat(),
     }

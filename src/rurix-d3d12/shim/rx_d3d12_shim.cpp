@@ -27,6 +27,24 @@ using Microsoft::WRL::ComPtr;
 #define RX_D3D12_PRESENT_VSYNC 0x1u
 static const uint32_t kFrameCount = 2;
 
+typedef struct RxD3D12InteropExport {
+    uint32_t abi_version;
+    uint32_t struct_size;
+    void* memory_handle;
+    uint64_t allocation_size;
+    uint64_t mapping_size;
+    void* fence_handle;
+    uint8_t adapter_luid[8];
+    uint32_t node_mask;
+    uint32_t render_width;
+    uint32_t render_height;
+    uint32_t window_width;
+    uint32_t window_height;
+    uint32_t channels;
+    uint32_t reserved[6];
+} RxD3D12InteropExport;
+static_assert(sizeof(RxD3D12InteropExport) == 96);
+
 namespace {
 
 const char* kPresentHlsl = R"HLSL(
@@ -49,7 +67,14 @@ float4 PSMain(VSOut i) : SV_Target {
 )HLSL";
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
-    if (msg == WM_CLOSE || msg == WM_DESTROY) { return 0; }
+    if (msg == WM_CLOSE) {
+        DestroyWindow(hwnd);
+        return 0;
+    }
+    if (msg == WM_DESTROY) {
+        PostQuitMessage(0);
+        return 0;
+    }
     return DefWindowProcW(hwnd, msg, wp, lp);
 }
 

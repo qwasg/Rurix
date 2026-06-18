@@ -119,16 +119,33 @@ def check_reject_classes(rlib, deps):
 
 
 def device_segment():
-    """device 段:需 --features d3d12-interop-real 构建成功(MSVC+SDK)。本环境无 → SKIP。
-    返回 (interop_ok, device_run, note)。真跑数值对照随交互桌面 runner 设备测试落地(步骤 40)。"""
-    if not (TARGET.parent / "..").exists():  # 占位:始终尝试探测
-        pass
+    """device 段:real-shim + 交互桌面上执行共享 resource/fence 数值闭环。"""
+    require_real = os.environ.get("RURIX_REQUIRE_REAL") == "1"
     r = run(["cargo", "build", "-p", "rurix-rt", "--features", "d3d12-interop-real"])
     if r.returncode != 0:
+        if require_real:
+            fail(f"d3d12-interop-real 构建失败:\n{r.stderr[-1200:]}")
         return False, False, "无 MSVC/Windows SDK D3D12(real-shim 未编译)→ device 段 SKIP"
-    # real-shim 已编译,但端到端数值对照需交互桌面窗口 + 设备 interop 测试目标:
-    # 由交互桌面 runner 执行并回填 interop_ok=true + run URL(步骤 40)。
-    return False, False, "real-shim 已编译;端到端数值对照需交互桌面 runner(设备真跑回填 interop_ok)"
+    r = run([
+        "cargo", "test", "-p", "rurix-rt", "--features", "d3d12-interop-real",
+        "interop::tests::real_interop_numeric_roundtrip", "--", "--exact", "--nocapture",
+    ])
+    output = r.stdout + "\n" + r.stderr
+    if r.returncode != 0 or "INTEROP_DEVICE: ok sample_rgb=1,0.5,0" not in output:
+        if require_real:
+            fail(f"CUDA–D3D12 device 数值闭环失败:\n{output[-1600:]}")
+        return False, False, "real-shim 已编译但交互桌面/设备闭环不可用→ device 段 SKIP"
+    print("[d3d12_interop_smoke] INTEROP_DEVICE: ok sample_rgb=1,0.5,0")
+    return True, True, "import 共享 resource/fence→CUDA 写入→数值回读→D3D12 present 通过"
+
+
+def github_run_url():
+    server = os.environ.get("GITHUB_SERVER_URL")
+    repo = os.environ.get("GITHUB_REPOSITORY")
+    run_id = os.environ.get("GITHUB_RUN_ID")
+    if server and repo and run_id:
+        return f"{server}/{repo}/actions/runs/{run_id}"
+    return "local interactive runner"
 
 
 def main():
@@ -152,7 +169,7 @@ def main():
         "reject_classes_intercepted": intercepted,
         "device_path_run": device_run,
         "abi_sizes_verified": True,
-        "run_command": "cargo build -p rurix-rt --features d3d12-interop;rustc 编译 src/rurix-rt/compile-fail/*.rs 断言拒绝",
+        "run_command": "cargo test -p rurix-rt --features d3d12-interop-real interop::tests::real_interop_numeric_roundtrip -- --exact --nocapture",
         "device": {"result_line": note},
         "facts": reject_facts + [{
             "kind": "abi", "name": "external_resource_descriptor_sizes",
@@ -163,7 +180,7 @@ def main():
             "red_detected": True,
             "green_command": "py -3 ci/d3d12_interop_smoke.py",
             "green_exit_code": 0,
-            "run_url": "TODO:回填交互桌面 runner 绿→红→复原绿 run URL(步骤 40,设备真跑)",
+            "run_url": f"green={github_run_url()}",
         },
         "timestamp": datetime.datetime.now().astimezone().replace(microsecond=0).isoformat(),
     }
