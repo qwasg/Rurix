@@ -51,6 +51,6 @@
 
 ## 修订记录
 
-| 版次 | 日期 | 变更 | 档位 |
+| 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
 | v1.0 | 2026-06-18 | 新建 spec/interop_d3d12.md(G1.1 CUDA–D3D12 互操作呈现语义面起始文件):登记编号区间 RXS-0140 起续号预留(RXS-0140 ~ RXS-0143 计划)+ 文件级前言 / 范围(`ExternalBuffer`/`ExternalSemaphore` affine 类型与 import 句柄生命周期 / 生成式 context brand 与跨 context 编译期拦截 / `Ready→Acquired→Presentable` typestate 与共享 fence 偶奇值 handoff / D3D12 committed resource import ABI 与 present pass 布局;薄 C/C++ shim 不进语言、PTX-only、G0 kernel 0-byte、affine+生成式 brand+typestate 不设 UB)/ 依据与授权(RFC-0001 owner 批准 + 06 §8.1/§4.2/§6 + 08 §1/§2 + spec/softraster.md:153 + 01 §6;G1_CONTRACT D-G1-1 / G-G1-1 / G-G1-6 + G1_PLAN §1)/ 计划条款骨架(§2 预留,非裸条款头:RXS-0140 affine 类型与句柄生命周期 / RXS-0141 生成式 brand 跨 context 拦截 / RXS-0142 typestate 与偶奇 fence / RXS-0143 import ABI 与 present pass 布局)/ 错误码新段位说明(§3:编译期 rustc 原生零新码;运行期 7xxx RX7020+ 随实现按需,脚手架不预造)/ 升档·禁区留痕(§4:档位 Full RFC/RFC-0001、G0 0-byte、G2 D-131、多后端/红线1/RD-007/D-406、UB 节禁区)。**沿 README v1.25 / v1.29 先例:本轮不落带编号裸条款头**——条款体与 ≥1 测试锚定随 G1.1 实现 PR(步骤 40)同落(条款 PR 先于实现 PR,trace_matrix 维持全锚定),无体例变更 | **Full RFC**(RFC-0001) |
