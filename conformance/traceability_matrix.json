@@ -867,6 +867,21 @@
     ],
     "RXS-0143": [
       "src/rurix-rt/src/interop.rs"
+    ],
+    "RXS-0144": [
+      "src/rurix-rt/src/pipeline.rs"
+    ],
+    "RXS-0145": [
+      "src/rurix-rt/src/pipeline.rs"
+    ],
+    "RXS-0146": [
+      "src/rurix-rt/src/pipeline.rs"
+    ],
+    "RXS-0147": [
+      "src/rurix-rt/src/pipeline.rs"
+    ],
+    "RXS-0148": [
+      "src/rurix-rt/src/pipeline.rs"
     ]
   }
 }

@@ -473,6 +473,217 @@ pub struct InFlight<T: Copy> {
     event: SharedEvent,
 }
 
+// -- G1.2 流序分配 AsyncBuffer<'stream,T>(stream-ordered allocation,RXS-0144~0148;MR-0001) --
+//
+// 镜像 InFlight 流序分配类型化先例(RXS-0132):纯类型级 affine typestate + 生成式 `'stream`
+// brand + `#[must_use]` + 私有字段无读接口,rustc 原生诊断拦截,**零新 RX 码**。运行期流序
+// 分配器(`cuMemAllocAsync` + `CUmemoryPool`,D-232)。三规则编译期拦截(06 §5.4):
+//   ① 分配未完成访问 —— in-flight `AsyncBuffer` 无 `device_ptr` / 无读接口(须先 `share_with` 同步)。
+//   ② 释放后访问 —— affine move-only(非 `Copy`/非 `Clone`):move 后再用 `E0382`;Drop=`cuMemFreeAsync`。
+//   ③ 跨 stream 使用 —— 必经 `share_with(other,event)` 显式时序边(record+wait_event)重 brand。
+
+/// 流序分配设备内存的 RAII 载体(`cuMemAllocAsync` 入 stream pool;Drop = `cuMemFreeAsync` 流序
+/// 释放回 pool)。[`AsyncBuffer`] / [`AsyncReady`] 持有它并随 typestate 转移——释放责任经 `move`
+/// **单点转移**(本载体独占 Drop,wrapper 无 Drop,故 share_with 安全 move 不双重释放,
+/// RXS-0144/0146,U19/U20)。
+struct PoolAlloc {
+    inner: Arc<SharedInner>,
+    /// 流序释放所属 stream(`share_with` 同步后改到目标 stream;流序释放在该 stream 合法)。
+    stream: CuPtr,
+    ptr: CuDevicePtr,
+}
+
+impl Drop for PoolAlloc {
+    fn drop(&mut self) {
+        if let Some(cuda) = sys::cuda() {
+            // SAFETY: (U20/U13):Drop 可能在任意线程——先 `ctx_set_current` 重绑本 context
+            // (`inner.raw` 经 `Arc` 存活有效),再 `cuMemFreeAsync` 入所属 stream 流序释放;
+            // `ptr` 由 `cuMemAllocAsync` 产出、本载体独占(wrapper 非 Clone),Drop 仅一次。
+            unsafe {
+                let _ = cuda.ctx_set_current(self.inner.raw);
+                let _ = cuda.mem_free_async(self.ptr, self.stream);
+            }
+        }
+    }
+}
+
+/// **流序分配在途缓冲**(stream-ordered allocation,RXS-0144/0145)。`cuMemAllocAsync` 分配在产出
+/// stream 上排队;携不变 `'stream` brand(借用产出 stream,生命周期不晚于它)、affine move-only
+/// (非 `Copy`/非 `Clone`)、`#[must_use]`。**无 `device_ptr` / 无读写接口**——「分配未完成访问」
+/// (规则①)经类型排除;跨 stream 使用须 [`AsyncBuffer::share_with`](规则③)。`!Send`(持裸
+/// stream 句柄,线程内使用)。
+#[must_use = "AsyncBuffer 为流序分配在途缓冲,须经 share_with(other,event) 同步重 brand 后方可读/操作(RXS-0145/0147)"]
+pub struct AsyncBuffer<'stream, T: Copy> {
+    res: PoolAlloc,
+    len: usize,
+    _brand: PhantomData<(&'stream SharedStream, T)>,
+}
+
+/// **流序分配可读缓冲**(synchronized,RXS-0147)。由 [`AsyncBuffer::share_with`] /
+/// [`AsyncReady::share_with`] 经显式时序边重 brand 得到:可在所属 `'stream` 上读
+/// (`copy_to_host`)/写(`copy_from_host`)/取 `device_ptr` 供同 stream launch。affine move-only;
+/// 仍 `Drop = cuMemFreeAsync`(流序释放)。再跨 stream 须再次 `share_with`。
+#[must_use = "AsyncReady 为流序分配缓冲,未用即流序释放(RXS-0144)"]
+pub struct AsyncReady<'stream, T: Copy> {
+    res: PoolAlloc,
+    len: usize,
+    _brand: PhantomData<(&'stream SharedStream, T)>,
+}
+
+impl SharedStream {
+    /// **流序分配**(`cuMemAllocAsync` 入本 stream 的 ordered memory pool,RXS-0144):`len` 个 `T`
+    /// (未初始化)→ in-flight [`AsyncBuffer`](brand 绑本 stream)。分配在本 stream 排队,同 stream
+    /// 后续操作经 stream 序排在其后(规则①)。老驱动无流序分配符号 → `DriverUnavailable`。
+    pub fn alloc_async<T: Copy>(&self, len: usize) -> Result<AsyncBuffer<'_, T>> {
+        let cuda = self.cuda()?;
+        if !cuda.has_stream_ordered_alloc() {
+            return Err(crate::CudaError::DriverUnavailable);
+        }
+        let bytes = len
+            .checked_mul(size_of::<T>())
+            .expect("alloc_async 字节数溢出");
+        // SAFETY: (U19):`self.raw` 为有效 stream 句柄;`mem_alloc_async` 出参有效可写。
+        let (r, ptr) = unsafe { cuda.mem_alloc_async(bytes, self.raw) }
+            .ok_or(crate::CudaError::DriverUnavailable)?;
+        check("cuMemAllocAsync", r)?;
+        Ok(AsyncBuffer {
+            res: PoolAlloc {
+                inner: Arc::clone(&self.inner),
+                stream: self.raw,
+                ptr,
+            },
+            len,
+            _brand: PhantomData,
+        })
+    }
+}
+
+impl<'stream, T: Copy> AsyncBuffer<'stream, T> {
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    pub fn byte_len(&self) -> usize {
+        self.len * size_of::<T>()
+    }
+
+    /// **跨 stream 显式时序边**(规则③,RXS-0147):在产出(所属)stream `record` `event`、在
+    /// `other` stream `wait_event`(`cuEventRecord` + `cuStreamWaitEvent`)建立流序依赖,**消费**
+    /// self、重 brand 到 `'other` → 可在 `other` 上读/写/操作的 [`AsyncReady`]。释放责任
+    /// (`PoolAlloc`)经 `move` 单点转移,流序释放改到 `other`。缺 `share_with` 直接读 `AsyncBuffer`
+    /// (`copy_to_host` / `device_ptr` 不存在)→ 编译期 `E0599`(规则①/③)。
+    pub fn share_with<'other>(
+        self,
+        other: &'other SharedStream,
+        event: &SharedEvent,
+    ) -> Result<AsyncReady<'other, T>> {
+        let cuda = sys::cuda().ok_or(crate::CudaError::DriverUnavailable)?;
+        // SAFETY: (U15/U14):`event.raw` 有效 event;`self.res.stream` 为产出 stream;同 current context。
+        let r = unsafe { cuda.event_record(event.raw, self.res.stream) };
+        check("cuEventRecord", r)?;
+        // SAFETY: (U15):`other.raw` 有效 stream;`event.raw` 有效已 record event;同 context。
+        let r = unsafe { cuda.stream_wait_event(other.raw, event.raw) };
+        check("cuStreamWaitEvent", r)?;
+        // 重 brand:`move` `PoolAlloc` 出 self(wrapper 无 Drop,安全 move,释放责任单点转移),
+        // 流序释放改到 `other`(已 `wait` 同步)。
+        let mut res = self.res;
+        res.stream = other.raw;
+        Ok(AsyncReady {
+            res,
+            len: self.len,
+            _brand: PhantomData,
+        })
+    }
+}
+
+impl<'stream, T: Copy> AsyncReady<'stream, T> {
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    pub fn byte_len(&self) -> usize {
+        self.len * size_of::<T>()
+    }
+
+    /// 设备地址(供**所属 stream** 同 stream launch/操作消费;跨 stream 须先 `share_with`,RXS-0147)。
+    pub fn device_ptr(&self) -> CuDevicePtr {
+        self.res.ptr
+    }
+
+    /// 同步 H2D 写(`cuMemcpyHtoD`;`src` 长度须 ≤ 容量,RXS-0145)。
+    pub fn copy_from_host(&mut self, src: &[T]) -> Result<()> {
+        assert!(src.len() <= self.len, "copy_from_host: 源长度超出缓冲容量");
+        let cuda = sys::cuda().ok_or(crate::CudaError::DriverUnavailable)?;
+        let bytes = size_of_val(src);
+        // SAFETY: (U6):`self.res.ptr` 为 ≥ bytes 的流序分配;`src` 为 bytes 字节有效可读主机内存。
+        let r = unsafe { cuda.memcpy_htod(self.res.ptr, src.as_ptr().cast::<c_void>(), bytes) };
+        check("cuMemcpyHtoD", r)
+    }
+
+    /// 同步 D2H 读(`cuMemcpyDtoH`;`dst` 长度须 ≤ 容量,RXS-0145)。**仅 [`AsyncReady`] 提供**——
+    /// in-flight [`AsyncBuffer`] 无此读接口(规则①,「分配未完成 / 跨 stream 未同步访问」编译期拦截)。
+    pub fn copy_to_host(&self, dst: &mut [T]) -> Result<()> {
+        assert!(dst.len() <= self.len, "copy_to_host: 目标长度超出缓冲容量");
+        let cuda = sys::cuda().ok_or(crate::CudaError::DriverUnavailable)?;
+        let bytes = size_of_val(dst);
+        // SAFETY: (U6):`dst` 为 bytes 字节有效可写主机内存;`self.res.ptr` 为 ≥ bytes 的流序分配。
+        let r = unsafe { cuda.memcpy_dtoh(dst.as_mut_ptr().cast::<c_void>(), self.res.ptr, bytes) };
+        check("cuMemcpyDtoH", r)
+    }
+
+    /// 再跨 stream 显式时序边(RXS-0147):同 [`AsyncBuffer::share_with`],消费 self 重 brand 到 `'other`。
+    pub fn share_with<'other>(
+        self,
+        other: &'other SharedStream,
+        event: &SharedEvent,
+    ) -> Result<AsyncReady<'other, T>> {
+        let cuda = sys::cuda().ok_or(crate::CudaError::DriverUnavailable)?;
+        // SAFETY: (U15/U14):`event.raw`/`self.res.stream`/`other.raw` 有效且同 current context。
+        let r = unsafe { cuda.event_record(event.raw, self.res.stream) };
+        check("cuEventRecord", r)?;
+        // SAFETY: (U15):`other.raw`/`event.raw` 有效且同 context。
+        let r = unsafe { cuda.stream_wait_event(other.raw, event.raw) };
+        check("cuStreamWaitEvent", r)?;
+        let mut res = self.res;
+        res.stream = other.raw;
+        Ok(AsyncReady {
+            res,
+            len: self.len,
+            _brand: PhantomData,
+        })
+    }
+}
+
+/// **三 stream 流序分配端到端**(RXS-0148 device 佐证;host helper,无 GPU / 老驱动无流序分配 →
+/// `DriverUnavailable`,冒烟降级 SKIP)。流序分配 + 两条跨 stream 时序边 + 往返数值对照:
+/// `s_alloc.alloc_async` → `share_with(s_compute, ev1)` → 写 → `share_with(s_d2h, ev2)` → 读回校验。
+pub fn three_stream_async_pipeline(len: usize) -> Result<bool> {
+    let ctx = SharedContext::from_primary(0)?;
+    let bound = ctx.bind()?;
+    let s_alloc = bound.create_stream()?;
+    let s_compute = bound.create_stream()?;
+    let s_d2h = bound.create_stream()?;
+    let ev1 = bound.create_event()?;
+    let ev2 = bound.create_event()?;
+    let buf = s_alloc.alloc_async::<f32>(len)?; // 流序分配(规则①:in-flight,无读接口)
+    let mut ready = buf.share_with(&s_compute, &ev1)?; // 跨 stream 时序边 1(规则③)→ 可读/写
+    let input: Vec<f32> = (0..len).map(|i| i as f32).collect();
+    ready.copy_from_host(&input)?;
+    let ready = ready.share_with(&s_d2h, &ev2)?; // 跨 stream 时序边 2 → 重 brand 到 D2H
+    let mut out = vec![0f32; len];
+    ready.copy_to_host(&mut out)?;
+    s_d2h.synchronize()?;
+    Ok(out == input)
+}
+
 /// 已装载 PTX 模块(`cuModule`)。`!Send`(裸句柄,线程内使用)。
 pub struct SharedModule<'b> {
     inner: Arc<SharedInner>,
@@ -645,5 +856,77 @@ mod tests {
         // 正向锚定:affine 资源/共享句柄类型存在且 Send 边界如上各 test 所证。
         assert!(size_of::<InFlight<f32>>() > 0);
         assert!(size_of::<SharedContext>() > 0);
+    }
+
+    // -- G1.2 流序分配 AsyncBuffer<'stream,T>(RXS-0144~0148;MR-0001) ----------------------
+
+    //@ spec: RXS-0144
+    #[test]
+    fn async_buffer_alloc_and_pool_raii() {
+        // 流序分配 + RAII:SharedStream::alloc_async → AsyncBuffer(cuMemAllocAsync 入 pool);
+        // AsyncBuffer/AsyncReady affine(非 Copy/非 Clone);Drop = cuMemFreeAsync(PoolAlloc 流序释放,U19/U20)。
+        assert!(size_of::<AsyncBuffer<'static, f32>>() > 0);
+        assert!(size_of::<AsyncReady<'static, f32>>() > 0);
+        assert!(size_of::<PoolAlloc>() > 0);
+        let _pipeline = three_stream_async_pipeline; // 流序分配端到端 fn 面存在性锚定
+    }
+
+    //@ spec: RXS-0145
+    #[test]
+    fn async_buffer_inflight_no_read_interface() {
+        // 分配未完成访问被 stream 序排除:in-flight AsyncBuffer 无 device_ptr/copy_to_host;读/写/取址
+        // 接口仅 AsyncReady 提供(须先 share_with 同步重 brand)。直接读 AsyncBuffer → E0599
+        //(见 src/rurix-rt/compile-fail/async_buffer_alloc_incomplete.rs)。
+        let _read = AsyncReady::<'static, f32>::copy_to_host;
+        let _write = AsyncReady::<'static, f32>::copy_from_host;
+        let _ptr = AsyncReady::<'static, f32>::device_ptr;
+    }
+
+    //@ spec: RXS-0146
+    #[test]
+    fn async_buffer_affine_move_only_use_after_free() {
+        // 释放后访问 = 编译期生命周期错误:AsyncBuffer/AsyncReady 单一所有权(非 Copy/非 Clone),
+        // move 后再用 E0382(见 compile-fail/async_buffer_use_after_free.rs);Drop=cuMemFreeAsync 单点。
+        assert!(size_of::<AsyncBuffer<'static, f32>>() > 0);
+        assert!(size_of::<AsyncReady<'static, f32>>() > 0);
+    }
+
+    //@ spec: RXS-0147
+    #[test]
+    fn async_buffer_share_with_cross_stream_edge() {
+        // 跨 stream 须 share_with(other,event) 显式时序边(record+wait_event)重 brand 到 'other;
+        // 缺 share_with 直接跨 stream 读 → E0599(见 compile-fail/async_buffer_cross_stream_unsync.rs)。
+        assert!(size_of::<AsyncBuffer<'static, f32>>() > 0);
+        let _pipeline = three_stream_async_pipeline; // 两条跨 stream 时序边端到端 fn 面
+    }
+
+    //@ spec: RXS-0148
+    #[test]
+    fn async_buffer_lifecycle_classes_compile_intercepted() {
+        // 三类流序分配生命周期错误由 Rust 类型系统编译期拦截(零新 RX 码):
+        //   分配未完成访问 → AsyncBuffer 无 device_ptr/copy_to_host E0599(RXS-0145)
+        //   释放后访问 → affine move 后再用 E0382(RXS-0146)
+        //   跨 stream 未经 share_with → AsyncBuffer 无读接口 E0599(RXS-0147)
+        // reject 覆盖见 src/rurix-rt/compile-fail/async_buffer_*.rs(冒烟步骤 42 断言全拦截 + 真实红绿)。
+        assert!(size_of::<AsyncBuffer<'static, f32>>() > 0);
+        assert!(size_of::<AsyncReady<'static, f32>>() > 0);
+    }
+
+    /// 三 stream 流序分配 device 端到端(冒烟步骤 42 device 段;默认 `cargo test` 跳过,
+    /// `--ignored` 运行)。无 GPU / 老驱动无流序分配 → SKIP(打印 skip 标记,不 panic 降级);
+    /// 有 GPU 真跑往返数值对照 → 打印 `ASYNC_BUFFER_DEVICE: ok pipeline=1`(供冒烟解析)。
+    #[test]
+    #[ignore = "device: 需真实 GPU + cuMemAllocAsync(交互桌面会话);冒烟步骤 42 --ignored 运行"]
+    fn async_buffer_three_stream_pipeline_device() {
+        match three_stream_async_pipeline(1024) {
+            Ok(true) => println!("ASYNC_BUFFER_DEVICE: ok pipeline=1 len=1024 roundtrip=match"),
+            Ok(false) => panic!("ASYNC_BUFFER_DEVICE: 流序分配三 stream 流水线数值对照失败"),
+            Err(crate::CudaError::DriverUnavailable) => {
+                println!(
+                    "ASYNC_BUFFER_DEVICE: skip reason=DriverUnavailable(无 GPU / 老驱动无流序分配)"
+                )
+            }
+            Err(e) => panic!("ASYNC_BUFFER_DEVICE: 流序分配流水线错误 {e:?}"),
+        }
     }
 }

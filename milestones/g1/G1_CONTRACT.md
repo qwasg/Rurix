@@ -165,3 +165,14 @@ guardrails:
 ## 8. Close-out（只追加区 — 开工时为空）
 
 <!-- 验收记录、guardrail 核对输出、deferred 继承/关闭记录、G1.1~G1.5 子里程碑端到端红绿留痕、interop/AsyncBuffer/引擎集成证据、fatbin 分发签名/白名单审计、Graph API spike report 结论、性能 measured_local 回填、RD-007/RD-008 处置留痕追加于此;上方条款 0-byte 修改。G1 close-out 关闭判定 / 基准切换 / g1-closed tag 由 owner 人工签署兑现,AI 不代签。 -->
+
+### 8.1 G1.2 子里程碑验收留痕（2026-06-19）
+
+owner 于本工作会话授权完成 G1.2 人工收尾；以下由 Codex 代录机器事实与裁决，**不构成 AI 代签 G1 整体 close-out**：
+
+- `AsyncBuffer<'stream,T>`（MR-0001 / RXS-0144~0148）三类生命周期错误 3/3 编译期拦截；RTX 4070 Ti（driver 591.86 / CUDA Toolkit 13.3）三 stream 流序分配 + 两条 `share_with` 时序边 + 往返数值对照真跑，`pipeline_ok=true`。证据：[async_buffer_smoke.json](../../evidence/async_buffer_smoke.json)，`g1.counter.async_buffer_pipeline=1` PASS。
+- Compute Sanitizer 专项 racecheck 0 hazards / 0 errors、memcheck 0 errors，证据：[racecheck](../../evidence/compute_sanitizer_racecheck_async_buffer_20260619.json) / [memcheck](../../evidence/compute_sanitizer_memcheck_async_buffer_20260619.json)。
+- 真实红绿：baseline green [27833847240](https://github.com/qwasg/Rurix/actions/runs/27833847240) → 临时放行 alloc-incomplete 违例后步骤 42 red [27834392530](https://github.com/qwasg/Rurix/actions/runs/27834392530) → 恢复拦截 restored green [27834580448](https://github.com/qwasg/Rurix/actions/runs/27834580448)。
+- Graph API 裁决：**G1.2 不立项**；defer 至 G1.3 出现实测 launch-overhead 瓶颈时或 G2 重评估。当前不登记 SG-010、不起 Full RFC，详见 [graph_api_spike.md §7](graph_api_spike.md#7-裁决留痕owner-人工裁决)。
+
+判定：D-G1-2 / G-G1-2 子里程碑验收要件闭环；G1 契约仍为 `active`，不执行 `g1-closed` tag / 基准切换 / RD-007·RD-008 翻转。

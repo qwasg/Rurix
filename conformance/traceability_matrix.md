@@ -147,3 +147,8 @@
 | RXS-0141 | spec/interop_d3d12.md | 1 | `src/rurix-rt/src/interop.rs` |
 | RXS-0142 | spec/interop_d3d12.md | 1 | `src/rurix-rt/src/interop.rs` |
 | RXS-0143 | spec/interop_d3d12.md | 1 | `src/rurix-rt/src/interop.rs` |
+| RXS-0144 | spec/async_buffer.md | 1 | `src/rurix-rt/src/pipeline.rs` |
+| RXS-0145 | spec/async_buffer.md | 1 | `src/rurix-rt/src/pipeline.rs` |
+| RXS-0146 | spec/async_buffer.md | 1 | `src/rurix-rt/src/pipeline.rs` |
+| RXS-0147 | spec/async_buffer.md | 1 | `src/rurix-rt/src/pipeline.rs` |
+| RXS-0148 | spec/async_buffer.md | 1 | `src/rurix-rt/src/pipeline.rs` |

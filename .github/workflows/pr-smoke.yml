@@ -176,6 +176,21 @@ jobs:
           RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/realtime_present_smoke.py
 
+      # 步骤 42（G-G1-2，MR-0001 / RXS-0144~0148）：流序分配 AsyncBuffer 冒烟。
+      # host 段（总跑，无需 GPU）：默认构建 rurix-rt（AsyncBuffer<'stream,T> 随 rurix-rt 始终编译，
+      # 无 feature 门控，镜像 InFlight）+ 对 src/rurix-rt/compile-fail/async_buffer_*.rs 三类流序
+      # 分配错误（分配未完成访问 E0599 / 释放后访问 E0382 / 跨 stream 未同步 E0599，RXS-0145~0148）
+      # 逐个断言 rustc 拒绝 + red 自检（反 YAML-only：任一应拦截却编译通过即红）。device 段（GPU +
+      # cuMemAllocAsync 真跑）：三 stream 流序分配 + 两条 share_with 跨 stream 时序边 + 往返数值对照
+      # → pipeline_ok；无 GPU/老驱动无流序分配 → 降级 SKIP(exit 0)。写 evidence/async_buffer_*.json
+      # 的 pipeline_ok 计入 g1.counter.async_buffer_pipeline（建设期未落地 → 0 → normal SKIP 属预期）。
+      # device 路径并入 Compute Sanitizer nightly（CUDA.jl #780 事故类回归）。失败即红。
+      - name: AsyncBuffer stream-ordered allocation smoke (G1 CI_GATES §2.42, G-G1-2, MR-0001)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/async_buffer_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
