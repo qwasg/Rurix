@@ -52,6 +52,11 @@ KERNELS: dict[str, list[str]] = {
     # M8 CI_GATES §4 / M8_CONTRACT §5;运行期无数据竞争佐证编译期拦截;经 --target-processes
     # all 跟随 uc02-demo 子 exe)
     "uc02_stream": ["bench/uc02_stream_bench.py", "--smoke"],
+    # G1.2 流序分配 AsyncBuffer device 路径(spec/async_buffer.md RXS-0144~0148,MR-0001)
+    # 纳入既有 Compute Sanitizer nightly(M5.4 机制延续,G1 CI_GATES §4;CUDA.jl #780
+    # use-after-free 事故类**永久回归项**;经 --target-processes all 跟随 async_buffer_pipeline
+    # 示例 exe 的流序分配 cuMemAllocAsync / 拷贝 / cuMemFreeAsync)
+    "async_buffer": ["bench/async_buffer_bench.py", "--smoke"],
 }
 TOOLS = ("racecheck", "memcheck")
 
