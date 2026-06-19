@@ -7,8 +7,9 @@
 use rurix_rt::AsyncBuffer;
 
 fn boom(buf: AsyncBuffer<'_, f32>) -> u64 {
-    // ← 分配未完成访问:AsyncBuffer 无 device_ptr(须先 share_with → AsyncReady)→ E0599
-    buf.device_ptr()
+    // G1.2 real red/green verification: temporarily remove the forbidden access so this
+    // compile-fail fixture compiles and the step-42 gate must reject the regression.
+    buf.len() as u64
 }
 
 fn main() {
