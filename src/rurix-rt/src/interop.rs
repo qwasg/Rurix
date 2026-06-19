@@ -514,6 +514,11 @@ pub fn scope<R>(
     let (presenter, export) = Presenter::create(cuda_luid, node_mask, render_size, window_size, 0)
         .map_err(InteropError::Shim)?;
     if export.adapter_luid != cuda_luid {
+        // SAFETY: shim create 移交的两个 NT HANDLE 尚未关闭;LUID 不匹配时必须回收以防泄漏。
+        unsafe {
+            rurix_d3d12::close_shared_handle(export.memory_handle);
+            rurix_d3d12::close_shared_handle(export.fence_handle);
+        }
         return Err(InteropError::LuidMismatch);
     }
 
@@ -531,7 +536,14 @@ pub fn scope<R>(
     // SAFETY: (U17) desc.win32.handle 为 shim create 移交的有效 NT HANDLE;current context 一致。
     let (r, ext_mem) = unsafe { cuda.import_external_memory(&mem_desc) }
         .ok_or(InteropError::ExternalApiUnavailable)?;
-    cu_ext_check("cuImportExternalMemory", r)?;
+    if let Err(e) = cu_ext_check("cuImportExternalMemory", r) {
+        // SAFETY: import 失败;关闭 shim 移交的两个 NT HANDLE 防止泄漏。
+        unsafe {
+            rurix_d3d12::close_shared_handle(export.memory_handle);
+            rurix_d3d12::close_shared_handle(export.fence_handle);
+        }
+        return Err(e);
+    }
 
     let buf_desc = CudaExternalMemoryBufferDesc {
         offset: 0,
@@ -543,9 +555,11 @@ pub fn scope<R>(
     let (r, dptr) = unsafe { cuda.external_memory_get_mapped_buffer(ext_mem, &buf_desc) }
         .ok_or(InteropError::ExternalApiUnavailable)?;
     if let Err(e) = cu_ext_check("cuExternalMemoryGetMappedBuffer", r) {
-        // SAFETY: (U17) 回滚:ext_mem 已 import 但未 map,destroy 之。
+        // SAFETY: (U17) 回滚:ext_mem 已 import 但未 map,destroy 之;关闭两个 NT HANDLE。
         unsafe {
             let _ = cuda.destroy_external_memory(ext_mem);
+            rurix_d3d12::close_shared_handle(export.memory_handle);
+            rurix_d3d12::close_shared_handle(export.fence_handle);
         }
         return Err(e);
     }
@@ -567,14 +581,30 @@ pub fn scope<R>(
     // SAFETY: (U18) desc.win32.handle 为 shim create 移交的有效 fence NT HANDLE。
     let (r, ext_sem) = unsafe { cuda.import_external_semaphore(&sem_desc) }
         .ok_or(InteropError::ExternalApiUnavailable)?;
-    cu_ext_check("cuImportExternalSemaphore", r)?;
+    if let Err(e) = cu_ext_check("cuImportExternalSemaphore", r) {
+        // SAFETY: 回滚:dptr 已映射、ext_mem 已 import,均需释放;fence_handle 尚未关闭。
+        unsafe {
+            let _ = cuda.mem_free(dptr);
+            let _ = cuda.destroy_external_memory(ext_mem);
+            rurix_d3d12::close_shared_handle(export.fence_handle);
+        }
+        return Err(e);
+    }
     // SAFETY: handle 由 shim create 成功移交，CUDA import 后尚未关闭，按契约恰好关闭一次。
     unsafe {
         rurix_d3d12::close_shared_handle(export.fence_handle);
     }
 
     let (r, stream) = cuda.stream_create();
-    cu_ext_check("cuStreamCreate", r)?;
+    if let Err(e) = cu_ext_check("cuStreamCreate", r) {
+        // SAFETY: 回滚:ext_sem 已 import、dptr 已映射、ext_mem 已 import,均需释放。
+        unsafe {
+            let _ = cuda.destroy_external_semaphore(ext_sem);
+            let _ = cuda.mem_free(dptr);
+            let _ = cuda.destroy_external_memory(ext_mem);
+        }
+        return Err(e);
+    }
 
     let n_elems = (export.mapping_size / size_of::<f32>() as u64) as usize;
     let buffer = ExternalBuffer {
