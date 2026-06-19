@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "subject": "async_buffer",
+  "pipeline_ok": true,
+  "reject_classes_intercepted": [
+    "alloc_incomplete",
+    "cross_stream_unsync",
+    "use_after_free"
+  ],
+  "device_path_run": true,
+  "run_command": "cargo test -p rurix-rt pipeline::tests::async_buffer_three_stream_pipeline_device -- --ignored --exact --nocapture",
+  "device": {
+    "gpu": "NVIDIA GeForce RTX 4070 Ti",
+    "driver": "591.86; CUDA Toolkit 13.3 (nvcc V13.3.33)",
+    "result_line": "alloc_async→share_with(compute)→写→share_with(d2h)→读回往返数值对照通过"
+  },
+  "facts": [
+    {
+      "kind": "reject",
+      "name": "alloc_incomplete",
+      "fixture": "src/rurix-rt/compile-fail/async_buffer_alloc_incomplete.rs",
+      "expected_error": "E0599",
+      "rejected": true,
+      "note": "rustc 拒绝(编译期拦截)"
+    },
+    {
+      "kind": "reject",
+      "name": "cross_stream_unsync",
+      "fixture": "src/rurix-rt/compile-fail/async_buffer_cross_stream_unsync.rs",
+      "expected_error": "E0599",
+      "rejected": true,
+      "note": "rustc 拒绝(编译期拦截)"
+    },
+    {
+      "kind": "reject",
+      "name": "use_after_free",
+      "fixture": "src/rurix-rt/compile-fail/async_buffer_use_after_free.rs",
+      "expected_error": "E0382",
+      "rejected": true,
+      "note": "rustc 拒绝(编译期拦截)"
+    },
+    {
+      "kind": "pipeline",
+      "name": "three_stream_async_pipeline",
+      "note": "三 stream 流序分配(cuMemAllocAsync)+ 两条 share_with 跨 stream 时序边 + 往返 out==input(RXS-0148)"
+    }
+  ],
+  "redgreen": {
+    "red_command": "放行任一 compile-fail 违例(使应拦截者编译通过)/ 篡改往返数值对照",
+    "red_detected": true,
+    "green_command": "py -3 ci/async_buffer_smoke.py",
+    "green_exit_code": 0,
+    "run_url": "baseline_green=https://github.com/qwasg/Rurix/actions/runs/27833847240; red_alloc_incomplete_released=https://github.com/qwasg/Rurix/actions/runs/27834392530; restored_green=https://github.com/qwasg/Rurix/actions/runs/27834580448"
+  },
+  "timestamp": "2026-06-19T23:18:37+08:00",
+  "harness_commit": "39978c7"
+}
