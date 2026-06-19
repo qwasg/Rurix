@@ -103,6 +103,12 @@ type FnMemcpyHtoDAsync =
     unsafe extern "system" fn(CuDevicePtr, *const c_void, usize, CuPtr) -> CuResult;
 type FnMemcpyDtoHAsync =
     unsafe extern "system" fn(*mut c_void, CuDevicePtr, usize, CuPtr) -> CuResult;
+// -- G1.2 流序分配:stream-ordered allocator(`cuMemAllocAsync` + `CUmemoryPool`,D-232;RXS-0144) --
+// 非 `_v2`(CUDA 11.2+ 引入);作为 **Option 字段非致命解析**(老驱动缺失 → 上层报运行期
+// 不可用,核心 CUDA 不受影响,对齐 G1.1 external-resource 先例)。分配/释放都携 stream 句柄
+// (流序),分配自该 stream 当前 memory pool(默认 = 设备默认池)。
+type FnMemAllocAsync = unsafe extern "system" fn(*mut CuDevicePtr, usize, CuPtr) -> CuResult;
+type FnMemFreeAsync = unsafe extern "system" fn(CuDevicePtr, CuPtr) -> CuResult;
 // -- G1.1 CUDA–D3D12 互操作:external memory/semaphore import(RXS-0140/0143;RFC-0001 §4.2.3) --
 // `CUexternalMemory`/`CUexternalSemaphore` 为不透明句柄(= CuPtr)。下列符号无 `_v2`
 // 后缀(RFC-0001 §4.2.3);作为 **Option 字段非致命解析**(缺失不禁用核心 CUDA)。
@@ -238,6 +244,9 @@ pub struct Cuda {
     cu_stream_wait_event: FnStreamWaitEvent,
     cu_memcpy_htod_async: FnMemcpyHtoDAsync,
     cu_memcpy_dtoh_async: FnMemcpyDtoHAsync,
+    // G1.2 流序分配(Option:缺失不禁用核心 CUDA,D-232;RXS-0144)。
+    cu_mem_alloc_async: Option<FnMemAllocAsync>,
+    cu_mem_free_async: Option<FnMemFreeAsync>,
     // G1.1 external resource interop(Option:缺失不禁用核心 CUDA,RFC-0001 §4.2.3)。
     cu_device_get_luid: Option<FnDeviceGetLuid>,
     cu_import_external_memory: Option<FnImportExternalMemory>,
@@ -317,6 +326,10 @@ impl Cuda {
                 cu_stream_wait_event: cast_fn(sym(c"cuStreamWaitEvent"))?,
                 cu_memcpy_htod_async: cast_fn(sym(c"cuMemcpyHtoDAsync_v2"))?,
                 cu_memcpy_dtoh_async: cast_fn(sym(c"cuMemcpyDtoHAsync_v2"))?,
+                // G1.2 流序分配:非致命解析(无 `?`;老驱动缺失 → None → 上层报运行期不可用,
+                // 核心 CUDA 不受影响,D-232 / RXS-0144)。
+                cu_mem_alloc_async: cast_fn(sym(c"cuMemAllocAsync")),
+                cu_mem_free_async: cast_fn(sym(c"cuMemFreeAsync")),
                 // G1.1 external resource interop:非致命解析(无 `?`;缺失 → None →
                 // 上层 interop 报运行期不可用,核心 CUDA 不受影响,RFC-0001 §4.2.3)。
                 cu_device_get_luid: cast_fn(sym(c"cuDeviceGetLuid")),
@@ -628,6 +641,39 @@ impl Cuda {
     ) -> CuResult {
         // SAFETY: 调用方保证 dst/src/stream 有效且 dst 在异步拷贝完成前存活(见 fn 文档)。
         unsafe { (self.cu_memcpy_dtoh_async)(dst, src, bytes, stream) }
+    }
+
+    // -- G1.2 流序分配:stream-ordered allocator(`cuMemAllocAsync` + `CUmemoryPool`,RXS-0144) ----
+    // 符号缺失时返回 None(老驱动无流序分配);上层 AsyncBuffer 映射运行期不可用。
+
+    /// driver 是否导出流序分配符号(`cuMemAllocAsync`/`cuMemFreeAsync`;CUDA 11.2+,U19)。
+    pub fn has_stream_ordered_alloc(&self) -> bool {
+        self.cu_mem_alloc_async.is_some() && self.cu_mem_free_async.is_some()
+    }
+
+    /// 流序分配 `bytes` 字节到 `stream` 的 ordered memory pool(`cuMemAllocAsync`;默认池;
+    /// 分配在 `stream` 上排队,同 stream 后续操作经 stream 序排在其后,RXS-0144/0145)。
+    /// # Safety
+    /// `stream` 必须是有效 stream 句柄(或 null = default);current context 一致。
+    pub unsafe fn mem_alloc_async(
+        &self,
+        bytes: usize,
+        stream: CuPtr,
+    ) -> Option<(CuResult, CuDevicePtr)> {
+        let f = self.cu_mem_alloc_async?;
+        let mut ptr: CuDevicePtr = 0;
+        // SAFETY: (U19):出参 `ptr` 有效可写;调用方保证 `stream` 有效且 current context 一致(见 fn 文档)。
+        let r = unsafe { f(&mut ptr, bytes, stream) };
+        Some((r, ptr))
+    }
+
+    /// 流序释放 `ptr`(`cuMemFreeAsync`;入 `stream` 序释放回 pool,RXS-0144)。
+    /// # Safety
+    /// `ptr` 必须是 `mem_alloc_async` 返回且未释放的设备地址;`stream` 有效(或 null);current context 一致。
+    pub unsafe fn mem_free_async(&self, ptr: CuDevicePtr, stream: CuPtr) -> Option<CuResult> {
+        let f = self.cu_mem_free_async?;
+        // SAFETY: (U19):调用方保证 `ptr` 有效未释放、`stream` 有效且 current context 一致(见 fn 文档)。
+        Some(unsafe { f(ptr, stream) })
     }
 
     // -- G1.1 CUDA–D3D12 互操作:external memory/semaphore(RXS-0140/0142/0143;RFC-0001 §4.2/§4.3) --

@@ -24,8 +24,8 @@ use std::cell::Cell;
 
 pub use error::{CudaError, Result};
 pub use pipeline::{
-    Bound, DeviceBox, InFlight, PinnedBox, SharedContext, SharedEvent, SharedKernel, SharedModule,
-    SharedStream,
+    AsyncBuffer, AsyncReady, Bound, DeviceBox, InFlight, PinnedBox, SharedContext, SharedEvent,
+    SharedKernel, SharedModule, SharedStream,
 };
 
 use sys::{CuDevice, CuDevicePtr, CuPtr};
