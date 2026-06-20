@@ -77,8 +77,7 @@ mod tests {
     // 以 C ABI 签名存在(`#[unsafe(no_mangle)] extern "C"`)。
     #[test]
     fn c_abi_header_matches_exports() {
-        let header_path =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("include/rurix_engine.h");
+        let header_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("include/rurix_engine.h");
         let header = std::fs::read_to_string(&header_path)
             .unwrap_or_else(|e| panic!("缺随附头文件 {}: {e}", header_path.display()));
 
