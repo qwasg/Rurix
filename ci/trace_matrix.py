@@ -116,6 +116,9 @@ def gather_repo() -> tuple[dict[str, str], dict[str, str]]:
     # G1.3:rurix-engine crate(引擎集成 C ABI 边界:cdylib DLL 打包 + 随附头文件与导出 ABI
     # 逐一对应 单测锚定 RXS-0149)
     test_files += sorted((ROOT / "src" / "rurix-engine").glob("**/*.rs"))
+    # G1.4:rurix-geometry crate(生态包第二梯队几何库 host 纯 safe 参考;BVH/triangle mesh
+    # 纯编排复用既有几何原语/谓词语义,单测锚定 RXS-0110~0113,零新条款,MR-0004)
+    test_files += sorted((ROOT / "src" / "rurix-geometry").glob("**/*.rs"))
     test_texts = {
         p.relative_to(ROOT).as_posix(): p.read_text(encoding="utf-8") for p in test_files
     }
