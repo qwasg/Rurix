@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "subject": "engine_integration",
+  "integration_ok": true,
+  "header_matches_abi": true,
+  "c_abi_exports": [
+    "rurix_engine_abi_version",
+    "rurix_engine_compute_reduce",
+    "rurix_engine_compute_saxpy"
+  ],
+  "compute_pass": "saxpy",
+  "device_path_run": true,
+  "run_command": "cargo build -p rurix-engine;(real)cl engine_host.cpp /link rurix_engine.dll.lib cudart.lib d3d12.lib dxgi.lib;engine_host.exe",
+  "device": {
+    "result_line": "自建最小 C++/D3D12 render-graph 上下文(LUID 匹配 adapter)调 Rurix DLL SAXPY compute pass,设备数值对照 out==a*x+y 通过(n=4096,checksum=85d1316b4d754b25)"
+  },
+  "facts": [
+    {
+      "kind": "abi_header",
+      "name": "header_matches_exports",
+      "note": "随附头文件声明集 == ffi.rs `extern \"C\"` 导出集 == EXPORTED_C_ABI(头↔ABI 1:1,RXS-0149;复用 RXS-0125 C ABI 语义 0-byte)"
+    },
+    {
+      "kind": "compute_pass",
+      "name": "saxpy_numeric_roundtrip",
+      "note": "宿主 C++/D3D12 harness 经 C ABI 调 Rurix DLL SAXPY compute pass,设备数值对照 out==a*x+y(复用 device kernel,语义 0-byte)"
+    }
+  ],
+  "redgreen": {
+    "red_command": "篡改 compute pass 数值结果 → device 数值对照失败 / 头与 ABI 导出漂移 → host 段 red",
+    "red_detected": true,
+    "green_command": "py -3 ci/engine_integration_smoke.py",
+    "green_exit_code": 0,
+    "run_url": "green=local interactive runner"
+  },
+  "timestamp": "2026-06-20T15:34:26+08:00"
+}
