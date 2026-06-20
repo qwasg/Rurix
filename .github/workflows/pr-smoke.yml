@@ -49,6 +49,16 @@ jobs:
         shell: powershell
         run: py -3 ci/check_redistribution.py
 
+      # —— G1.4 增量(milestones/g1/CI_GATES.md §5 第 8 项;MR-0003,check_* 守卫风格,CPU-only)——
+      # 贡献校验阻断门(兑现 10 §7「开源后 CI 自动阻断缺 provenance/验证/条款号的 PR」,D-406):
+      # 扫 PR 范围(base..HEAD)非 merge commit,三类缺项即红——(1)provenance trailer
+      # (Assisted-by/Co-Authored-By);(2)语义改动(src/*.rs 或 spec/*.md)引用条款号 RXS-####;
+      # (3)src 改动 commit body 含验证标记。内置 red 自检(反 YAML-only)。不分配错误码/不写
+      # evidence/不计 budget。base 默认取 origin/<GITHUB_BASE_REF>(PR)/ origin/main(push)。
+      - name: contribution provenance/clause/verification gate (G1 CI_GATES §5.8, G-G1-4, MR-0003)
+        shell: powershell
+        run: py -3 ci/check_contribution.py
+
       - name: harness unit tests (CI_GATES §3.4)
         shell: powershell
         run: py -3 -m pytest tests/ -q
