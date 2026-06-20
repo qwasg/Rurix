@@ -882,6 +882,9 @@
     ],
     "RXS-0148": [
       "src/rurix-rt/src/pipeline.rs"
+    ],
+    "RXS-0149": [
+      "src/rurix-engine/src/lib.rs"
     ]
   }
 }

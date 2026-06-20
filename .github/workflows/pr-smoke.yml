@@ -191,6 +191,22 @@ jobs:
           RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/async_buffer_smoke.py
 
+      # 步骤 43（G-G1-3，MR-0002 / RXS-0149）：首个引擎集成冒烟。
+      # host 段（总跑，无需 MSVC/GPU）：cargo build -p rurix-engine 产 cdylib（rurix_engine.dll +
+      # import lib，复用 M8.1 既有 extern "C" C ABI RXS-0125 语义 0-byte）+ 校验随附头文件
+      # （include/rurix_engine.h）声明集 == ffi.rs `extern "C"` 导出集 == EXPORTED_C_ABI（头↔ABI
+      # 逐一对应，RXS-0149）+ red 自检（导出集漂移即红）。device 段（交互桌面 + MSVC + Windows
+      # SDK D3D12 + CUDA Toolkit + GPU 真跑）：cl 编译 src/rurix-engine/harness/engine_host.cpp 链接
+      # rurix_engine.dll.lib + cudart + d3d12/dxgi → 自建最小 C++/D3D12 render-graph 上下文（LUID
+      # 匹配 adapter）调 Rurix DLL SAXPY compute pass → 设备数值对照 out==a*x+y → integration_ok；
+      # 无 MSVC/CUDA/GPU → 降级 SKIP(exit 0)。写 evidence/engine_integration_*.json 的 integration_ok
+      # 计入 g1.counter.engine_integration（建设期未落地 → 0 → normal SKIP 属预期）。失败即红。
+      - name: first engine integration smoke (G1 CI_GATES §2.43, G-G1-3, MR-0002)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/engine_integration_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

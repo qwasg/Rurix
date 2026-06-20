@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/engine_integration/v1",
+  "title": "Rurix 首个引擎集成端到端冒烟证据 JSON(G1.3,契约 G-G1-3,MR-0002 / RXS-0149)",
+  "description": "Rurix DLL(C ABI,cdylib rurix_engine.dll,复用 M8.1 既有 extern \"C\" C ABI RXS-0125 语义 0-byte)嵌入自建最小 C++/D3D12 渲染 harness 承担 compute pass(SAXPY)的端到端机器事实清单:(a) host 段头↔ABI 逐一对应——随附头文件(include/rurix_engine.h)声明集 == ffi.rs `extern \"C\"` 导出集 == EXPORTED_C_ABI(header_matches_abi,RXS-0149,06 §8.3 / 02 §U5);(b) device 段宿主 C++/D3D12 render-graph 上下文(LUID 匹配 adapter)经 C ABI 调 Rurix DLL SAXPY compute pass + 设备数值对照 out==a*x+y(integration_ok,有 MSVC+CUDA+GPU 真跑;否则降级 SKIP integration_ok=false)。integration_ok=true 计入 g1.counter.engine_integration(ci/budget_eval.py;>=1 则 PASS,建设期/无 MSVC/无 GPU 为 normal SKIP)。机器复核闸门 = ci/engine_integration_smoke.py(头/导出漂移 / device 数值对照失败即非零退出,反 YAML-only,CI_GATES §6.4)。",
+  "type": "object",
+  "required": ["schema_version", "subject", "integration_ok", "header_matches_abi", "c_abi_exports", "timestamp"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": { "const": "engine_integration" },
+    "integration_ok": {
+      "description": "宿主 C++/D3D12 harness 经 C ABI 调 Rurix DLL compute pass 设备数值对照端到端真跑(有 MSVC+CUDA+GPU;否则不达标降级 SKIP)",
+      "type": "boolean"
+    },
+    "header_matches_abi": {
+      "description": "随附头文件(include/rurix_engine.h)声明集与 cdylib 导出 ABI 逐一对应(RXS-0149:无悬空声明 / 无未声明导出)",
+      "type": "boolean"
+    },
+    "c_abi_exports": {
+      "description": "引擎边界 cdylib 导出的 C ABI 符号集(复用 RXS-0125 既有 extern \"C\" 形态,前向 rurix-interop safe API)",
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "compute_pass": {
+      "description": "承担的 compute pass(复用既有 device kernel,语义 0-byte,仅经 C ABI 暴露)",
+      "type": "string"
+    },
+    "device_path_run": {
+      "description": "device 端到端是否实跑(true=有 MSVC+CUDA+GPU,cl 编译 harness + Rurix DLL compute pass 数值对照;false=无 MSVC/CUDA/GPU 降级 SKIP,仅 host 段头↔ABI 闸门)",
+      "type": "boolean"
+    },
+    "run_command": { "type": "string" },
+    "device": {
+      "description": "实测 GPU / 驱动 / D3D12 环境画像(D-233)",
+      "type": "object",
+      "properties": {
+        "gpu": { "type": "string" },
+        "driver": { "type": "string" },
+        "result_line": { "type": "string" }
+      }
+    },
+    "facts": {
+      "description": "逐项背书(反 YAML-only)——含头↔ABI 1:1 对应 + compute pass 设备数值对照",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": { "enum": ["abi_header", "compute_pass"] },
+          "name": { "type": "string" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "redgreen": {
+      "description": "门禁真实红绿验证留痕(反 YAML-only,CI_GATES §6.4:篡改 compute pass 数值结果 / 头与 ABI 导出漂移 → 红;复原 → 绿,run URL 归档)",
+      "type": "object",
+      "properties": {
+        "red_command": { "type": "string" },
+        "red_detected": { "type": "boolean" },
+        "green_command": { "type": "string" },
+        "green_exit_code": { "type": "integer" },
+        "run_url": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "harness_commit": { "type": "string" }
+  }
+}

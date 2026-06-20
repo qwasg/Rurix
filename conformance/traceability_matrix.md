@@ -152,3 +152,4 @@
 | RXS-0146 | spec/async_buffer.md | 1 | `src/rurix-rt/src/pipeline.rs` |
 | RXS-0147 | spec/async_buffer.md | 1 | `src/rurix-rt/src/pipeline.rs` |
 | RXS-0148 | spec/async_buffer.md | 1 | `src/rurix-rt/src/pipeline.rs` |
+| RXS-0149 | spec/engine_integration.md | 1 | `src/rurix-engine/src/lib.rs` |
