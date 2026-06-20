@@ -11,8 +11,9 @@
       呈现通路,不改 kernel(byte 守卫由 check_guardrails 基准核对)。
 
   (b) device 段(交互桌面会话 + GPU + Windows SDK D3D12 + --features d3d12-present-real 真跑;
-      否则降级 SKIP):G0 kernel 写共享 f32 RGB buffer → 共享 fence 同步 → D3D12 present pass →
-      Present 窗口刷新,采样帧像素对照通过 → present_ok=true。本环境(无 MSVC / 非交互桌面 /
+      否则降级 SKIP):UC-03 SPH → 完整 G0 软光栅 HDR 帧 → sr_tonemap 写共享 f32 RGB
+      buffer → 共享 fence同步 → D3D12 present pass → Present 窗口刷新；逐帧完整像素回读
+      对照、首帧非黑且动画帧变化 → present_ok=true。本环境(无 MSVC / 非交互桌面 /
       无显示)→ device SKIP,present_ok=false,g1.counter.realtime_present 为 normal SKIP(建设期预期)。
 
 写 evidence/realtime_present_smoke.json。present_ok=true 计入 g1.counter.realtime_present。
@@ -69,14 +70,38 @@ def device_segment():
         "--", "--present",
     ], env=env)
     output = r.stdout + "\n" + r.stderr
-    match = re.search(r"UC03_PRESENT: ok frames=(\d+) sample_rgb=255,128,0", output)
+    match = re.search(
+        r"UC03_PRESENT: ok frames=(\d+) scene=uc03_sph lit_pixels=(\d+) "
+        r"first_checksum=([0-9a-f]{16}) animated=(true|false)",
+        output,
+    )
     if r.returncode != 0 or match is None:
         if require_real:
             fail(f"实时窗口 present 设备闭环失败:\n{output[-1600:]}")
         return False, False, 0, "real-shim 已编译但交互桌面/窗口 present 不可用→ device 段 SKIP"
     frames = int(match.group(1))
-    print(f"[realtime_present_smoke] UC03_PRESENT: ok frames={frames} sample_rgb=255,128,0")
-    return True, True, frames, "G0 sr_tonemap 写共享 buffer→fence 同步→窗口 Present + 数值回读通过"
+    lit_pixels = int(match.group(2))
+    checksum = match.group(3)
+    animated = match.group(4) == "true"
+    if frames < 2 or lit_pixels <= 0 or not animated:
+        if require_real:
+            fail(
+                "实时窗口完整场景验证失败:"
+                f"frames={frames} lit_pixels={lit_pixels} animated={animated}"
+            )
+        return False, False, 0, "窗口可用但完整 SPH 场景/动画验证未通过→ device 段 SKIP"
+    result = (
+        f"UC03_PRESENT: ok frames={frames} scene=uc03_sph lit_pixels={lit_pixels} "
+        f"first_checksum={checksum} animated=true"
+    )
+    print(f"[realtime_present_smoke] {result}")
+    return (
+        True,
+        True,
+        frames,
+        "UC-03 SPH→完整软光栅 HDR→sr_tonemap→共享 buffer→fence→窗口 Present;"
+        f"整帧像素回读一致,lit_pixels={lit_pixels},checksum={checksum},animated=true",
+    )
 
 
 def github_run_url():
@@ -103,14 +128,15 @@ def main():
         "g0_kernel_bytes_unchanged": True,
         "device_path_run": device_run,
         "frames_presented": frames,
+        "scene": "uc03_sph",
         "run_command": "cargo build -p uc03-demo --features d3d12-present;(real)cargo run -p uc03-demo --features d3d12-present-real -- --present",
         "device": {"result_line": note},
         "facts": [{
             "kind": "present", "name": "frame_typestate_compiles",
-            "note": "Ready→Acquired→Presentable 消费式 typestate + 偶/奇 fence handoff 编译期保证 present 同步序(RXS-0142);窗口 present 帧像素对照随 runner 回填",
+            "note": "Ready→Acquired→Presentable 消费式 typestate + 偶/奇 fence handoff 编译期保证 present 同步序(RXS-0142);UC-03 SPH 完整软光栅帧逐帧整帧回读对照",
         }],
         "redgreen": {
-            "red_command": "删 present 通路 signal/wait 同步 / 篡改帧像素",
+            "red_command": "删 present 通路 signal/wait 同步 / 篡改完整场景任一帧像素 / 禁止 SPH 推进",
             "red_detected": True,
             "green_command": "py -3 ci/realtime_present_smoke.py",
             "green_exit_code": 0,

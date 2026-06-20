@@ -259,11 +259,18 @@ pub fn particles_to_tris(ps: &[Particle]) -> Vec<Tri> {
         .collect()
 }
 
+/// 渲染单帧粒子态 → 行主序 HDR RGB 帧(完整软光栅
+/// binning → tile 光栅 → depth 管线，分量 `0…1`)。
+#[must_use]
+pub fn render_particles_hdr(ps: &[Particle]) -> Vec<[f32; 3]> {
+    let tris = particles_to_tris(ps);
+    render_hdr(&tris)
+}
+
 /// 渲染单帧粒子态 → image-io `ImageBuffer<Rgb>`(软光栅 HDR → tonemap)。
 #[must_use]
 pub fn render_particles(ps: &[Particle]) -> ImageBuffer<Rgb> {
-    let tris = particles_to_tris(ps);
-    let hdr = render_hdr(&tris);
+    let hdr = render_particles_hdr(ps);
     tonemap_frame(&hdr)
 }
 
@@ -346,6 +353,22 @@ mod tests {
             }
         }
         assert!(any_lit, "首帧应有被粒子覆盖的非背景像素");
+    }
+
+    // 实时呈现复用的 HDR 路径必须与离屏 `render_particles` 逐像素同义。
+    #[test]
+    fn hdr_scene_matches_offscreen_frame() {
+        let ps = initial_particles();
+        let hdr = render_particles_hdr(&ps);
+        let frame = render_particles(&ps);
+        assert_eq!(hdr.len(), (WIDTH * HEIGHT) as usize);
+        for y in 0..HEIGHT {
+            for x in 0..WIDTH {
+                let i = (y * WIDTH + x) as usize;
+                let px = frame.get(x, y).unwrap();
+                assert_eq!(hdr[i], [px.r, px.g, px.b]);
+            }
+        }
     }
 
     //@ spec: RXS-0121

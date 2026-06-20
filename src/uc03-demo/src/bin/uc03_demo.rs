@@ -57,8 +57,14 @@ fn run_present_mode() -> ExitCode {
     use soft_raster::{HEIGHT, WIDTH};
     // render = 软光栅帧尺寸（G0 kernel 写共享 backbuffer）;window = 呈现窗口（nearest 放大）。
     match uc03_demo::present::run_present(0, [WIDTH, HEIGHT], [1024, 768]) {
-        Ok(frames) => {
-            println!("UC03_PRESENT: ok frames={frames} sample_rgb=255,128,0");
+        Ok(report) => {
+            println!(
+                "UC03_PRESENT: ok frames={} scene=uc03_sph lit_pixels={} first_checksum={:016x} animated={}",
+                report.frames,
+                report.first_frame_lit_pixels,
+                report.first_frame_checksum,
+                report.animation_changed
+            );
             ExitCode::SUCCESS
         }
         Err(e) => {

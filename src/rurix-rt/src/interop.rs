@@ -353,6 +353,34 @@ impl<'ctx> AcquiredFrame<'ctx> {
     pub fn buffer_mut(&mut self) -> &mut ExternalBuffer<'ctx, f32> {
         &mut self.core.buffer
     }
+    /// 将 host 侧 `f32` 帧写入已取得写权的共享 backbuffer。
+    ///
+    /// 先同步私有 stream，确保本帧 `wait(acquire)` 已完成，再执行同步 H2D 拷贝；返回时
+    /// `src` 可安全释放，后续 [`AcquiredFrame::launch`] 仍按同一帧时序写入/量化。
+    pub fn upload_f32(&mut self, src: &[f32]) -> Result<()> {
+        if src.len() > self.core.buffer.len() {
+            return Err(InteropError::BufferTooSmall {
+                requested: src.len(),
+                available: self.core.buffer.len(),
+            });
+        }
+        let cuda = self.core.cuda()?;
+        // SAFETY: (U3) stream 为本 FrameCore 独占有效句柄；同步确保 wait(acquire) 已完成，
+        // D3D12 已交出本帧写权。
+        let rc = unsafe { cuda.stream_synchronize(self.core.stream.raw) };
+        cu_ext_check("cuStreamSynchronize", rc)?;
+        let bytes = std::mem::size_of_val(src);
+        // SAFETY: (U3) src 指向 bytes 字节有效可读 host 存储；共享 buffer 映射区至少含
+        // src.len() 个 f32（上方容量检查）；本帧已取得排他写权。
+        let rc = unsafe {
+            cuda.memcpy_htod(
+                self.core.buffer.device_ptr(),
+                src.as_ptr().cast::<c_void>(),
+                bytes,
+            )
+        };
+        cu_ext_check("cuMemcpyHtoD", rc)
+    }
     /// 在私有 stream 上 launch kernel（同 stream 序；密封类型化实参,无裸指针逃逸）。
     pub fn launch(
         &mut self,

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "rurix://schemas/evidence/realtime_present/v1",
   "title": "Rurix 软光栅实时窗口呈现冒烟证据 JSON(G1.1,契约 G-G1-1,RFC-0001 / RXS-0142~0143)",
-  "description": "G0 软光栅 kernel(RXS-0118~0121 语义与源码 0-byte)写 backbuffer 等价共享 f32 RGB buffer → 共享 fence 偶/奇值同步 → D3D12 固定 present pass → swapchain Present,交互式窗口实时刷新端到端真跑(present_ok)。present_ok=true 计入 g1.counter.realtime_present(ci/budget_eval.py;>=1 则 PASS,建设期/无窗口·显示·GPU 为 normal SKIP)。机器复核闸门 = ci/realtime_present_smoke.py(present 同步缺失 / 帧像素篡改未被发现即非零退出,反 YAML-only,CI_GATES §6.2)。无窗口/显示环境 → 降级 SKIP(exit 0,不写证据)。G0 kernel 语义面 0-byte(仅新增呈现通路)。",
+  "description": "UC-03 SPH 完整场景经 G0 软光栅管线生成 HDR 帧，原有 sr_tonemap kernel(RXS-0121 语义与源码 0-byte)写 backbuffer 等价共享 f32 RGB buffer → 共享 fence 偶/奇值同步 → D3D12 固定 present pass → swapchain Present,交互式窗口实时刷新端到端真跑(present_ok)。逐帧整帧回读须与 host 确定性量化逐元素一致、首帧非黑且 SPH 动画帧发生变化。present_ok=true 计入 g1.counter.realtime_present(ci/budget_eval.py;>=1 则 PASS,建设期/无窗口·显示·GPU 为 normal SKIP)。机器复核闸门 = ci/realtime_present_smoke.py(present 同步缺失 / 完整帧像素篡改 / 禁止动画推进未被发现即非零退出,反 YAML-only,CI_GATES §6.2)。无窗口/显示环境 → 降级 SKIP(exit 0,不写证据)。G0 kernel 语义面 0-byte(仅完善呈现通路)。",
   "type": "object",
   "required": ["schema_version", "subject", "present_ok", "g0_kernel_bytes_unchanged", "timestamp"],
   "properties": {
@@ -23,6 +23,10 @@
     "frames_presented": {
       "description": "实跑 present 的帧数(>0 表示窗口刷新真跑)",
       "type": "integer"
+    },
+    "scene": {
+      "description": "实时窗口实际呈现的场景标识；完整 UC-03 路径固定为 uc03_sph",
+      "const": "uc03_sph"
     },
     "run_command": { "type": "string" },
     "device": {
