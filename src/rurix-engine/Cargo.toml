@@ -1,0 +1,27 @@
+[package]
+name = "rurix-engine"
+description = "Rurix 引擎集成边界(G1.3,D-G1-3:首个引擎集成 — Rurix DLL 经 C ABI 嵌入现存 C++/D3D12 渲染框架承担 compute pass,UC-05 前奏;复用 M8.1 既有 extern \"C\" C ABI(rurix-interop RXS-0125,语义 0-byte)编为 cdylib DLL + 与导出 ABI 1:1 的随附头文件,宿主自建最小 C++/D3D12 harness 链接调用;spec/engine_integration.md RXS-0149 / MR-0002)"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+# cdylib = 链接进宿主 C++/D3D12 harness 的 rurix_engine.dll(+ import lib),rurix-cublas 先例;
+# rlib = cargo test/workspace(头↔ABI 1:1 锚定单测 RXS-0149)。
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# 复用 M8.1 互操作 C ABI compute(safe API saxpy/reduce/gemm,RXS-0125,语义 0-byte);
+# rurix-interop 经其 build.rs 嵌入 M5 自研 kernel PTX(单一事实源),引擎边界仅前向不重发明。
+rurix-interop = { path = "../rurix-interop" }
+
+# unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6;MR-0002 §7):rurix-engine 是引擎集成 C ABI 导出
+# 边界 crate,经裁决最小开 unsafe(`#[unsafe(no_mangle)] extern "C"` 导出属性)——前向
+# rurix-interop safe API,本层无 unsafe 块;注册见 unsafe-audit/rurix-engine.md(U21)。
+# safe wrapper 层对上全 safe。仍强制每 unsafe 块携 `// SAFETY:`(若后续出现)。
+[lints.rust]
+unsafe_code = "allow"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "deny"

@@ -18,11 +18,39 @@
 
 **编号区间**：本文件条款自 **RXS-0149** 起续号（全 spec 唯一、分配制递增、永不复用，见 [README.md](README.md) §1；最高现存 RXS-0148 @ [async_buffer.md](async_buffer.md)）。本轮预留 **RXS-0149**（引擎集成 DLL 打包与 C ABI 头文件对应），条款体与 ≥1 测试锚定（`//@ spec: RXS-0149`，`src/rurix-engine` crate 单测）随 G1.3 实现 PR 同落。区间登记于 [README.md](README.md) §4 文件清单。
 
-## 2. 条款（计划骨架 — 脚手架不落裸条款头）
+## 2. 条款
 
-> 本脚手架 PR **不落**带编号裸条款头（沿 interop.md v1.0 / async_buffer.md 脚手架先例）；条款体随 G1.3 实现 PR（步骤 43）同落，每条 ≥1 测试锚定，trace_matrix 维持全锚定。
+> 每条按需分 Syntax / Legality / Dynamic Semantics / Implementation Requirements 节，**严禁 UB 节**（UB 为人类经 Full RFC 落笔的禁区，10 §7.5）。Legality 违例只**引用**错误码（§3 引用汇总，复用 RXS-0125 既有段位，本文件零新增），不在此定义其含义。C ABI 边界的设备指针生命周期 / 所有权语义以 **affine 所有权 + 确定性诊断（RX 错误码）** 定义，不以 UB 表述。
 
-- **RXS-0149（拟落）引擎集成 DLL 打包与 C ABI 头文件对应**：`cdylib` 产物形态（`rurix_engine.dll` + import lib）+ 导出符号**复用** RXS-0125 既有 `extern "C" fn … -> i32` 形态；导出符号集与随附头文件声明**逐一对应**（无悬空声明 / 无未声明导出）；宿主 C++/D3D12 框架经头文件 + import lib 链接调 compute pass C ABI 入口（设备指针 + 维度按值 → `i32` 错误码 0/RX7013~7015/负），compute pass 复用既有 device kernel（saxpy/reduce 等，**语义 0-byte**）；引擎边界 crate `unsafe_code` 经裁决最小开（C ABI 导出边界）+ unsafe-audit 注册，safe wrapper 对上全 safe。锚定测试：`src/rurix-engine`（`c_abi_header_matches_exports`：随附头文件声明 ↔ 导出符号一致）。
+### RXS-0149 引擎集成 DLL 打包与 C ABI 头文件对应
+
+**Syntax**（`cdylib` 产物 + C ABI 导出 + 随附头文件）:
+
+```
+EngineDll    ::= cdylib "rurix_engine.dll" "+" ImportLib            // rurix-cublas cdylib 先例
+EngineExport ::= "extern" "\"C\"" "fn" "rurix_engine_" <op> "(" DevPtrArgs ["," DimArgs] ")" "->" RetTy
+EngineHeader ::= <C 头文件函数声明>                                  // 与 EngineExport 1:1
+```
+
+**Legality**:
+
+- 导出符号集与随附头文件（`include/rurix_engine.h`）声明**逐一对应**：头文件每个 `rurix_engine_*` 函数声明 ↔ 恰一个 DLL 导出符号；**无悬空声明**（头声明无对应导出）/ **无未声明导出**（导出无对应头声明）。漂移 → 步骤 43 host 段红。
+- compute pass C ABI **复用** [interop.md](interop.md) RXS-0125 既有 `extern "C" fn … -> i32` 形态——**不扩 C ABI / ABI 表面、不新增导出语义、不引入跨边界新所有权语义**；扩张触 AGENTS 硬规则 5 须人工 Full RFC（10 §3，向上取严）。
+- 互操作经 **C ABI 通道**对接；**永不 Python 原生嵌入 / 解释器宿主**（死亡路线红线 1，SG-008，§4）。
+- 本期仅承担 **compute pass**，**不进图形着色阶段 / DXIL 第二后端**（G2，06 §8.2 / D-131）。
+
+**Dynamic Semantics**:
+
+- 宿主 C++/D3D12 框架经头文件 + import lib 链接 `rurix_engine.dll`，在最小 render-graph 上下文（与 CUDA device 同 adapter，**LUID 匹配**，复用 G1.1 interop 路径，RFC-0001 §4.4）调 compute pass C ABI 入口：接受设备指针（不透明 `u64`，device primary context 内有效）+ 维度按值，返回 `i32` 错误码（`0` = 成功；`RX7013`/`RX7014`/`RX7015`；负 = 运行时/驱动失败）。
+- compute pass 复用既有 device kernel（saxpy/reduce 等，**语义 0-byte**，经 build.rs 嵌入 PTX，**PTX-only** 07 §7）；设备指针不在 C ABI 层解引用（仅前向 safe API），设备内存读写发生在 launch（`rurix-rt` 边界）。
+
+**Implementation Requirements**:
+
+- 引擎边界 crate（`rurix-engine`）`unsafe_code` 经裁决最小开（仅 C ABI 导出属性 `#[unsafe(no_mangle)] extern "C"`，注册见 [`unsafe-audit/rurix-engine.md`](../unsafe-audit/rurix-engine.md)，U21）+ `undocumented_unsafe_blocks = deny`；`ffi` 导出层前向 `rurix-interop` safe API（RXS-0125），本层**无 `unsafe` 块**，safe wrapper 对上全 safe。其余新代码维持 `unsafe_code = deny`。
+- 头文件与导出 ABI **单一事实源对应**（D-113「编译器内建头文件生成」方向的本期工程兑现：以与 ABI **1:1** 的随附头文件兑现；`#[export(c)]` 编译器 codegen + 内建头文件生成实现 **defer**，RD-009）；一致性由 host 段闸门守卫（`crate::tests::c_abi_header_matches_exports` + CI 步骤 43，漂移即红）。
+- 引擎 DLL **不捆绑 NVIDIA 组件**（运行时动态加载 `nvcuda.dll`，对齐 rurix-rt）；D3D12/DXGI 系 Windows SDK 系统组件，不受 NVIDIA 再分发约束（`check_redistribution` 延续，r6）。
+
+> 锚定测试：`src/rurix-engine`（`c_abi_header_matches_exports`：随附头文件声明集 ↔ `EXPORTED_C_ABI` 导出集逐一对应 + 编译期 C ABI 签名引用，`//@ spec: RXS-0149`）。
 
 ## 3. 错误码引用汇总
 
@@ -44,3 +72,4 @@
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
 | v1.0 | 2026-06-20 | 新建 spec/engine_integration.md（G1.3 引擎集成语义面起始文件）：登记编号区间 RXS-0149 起续号预留 + 文件级前言 / 范围（引擎集成 DLL 打包约定 + C ABI 头文件与导出 ABI 逐一对应；**复用** M8.1 RXS-0125 既有手写 `extern "C"` C ABI 语义 0-byte、`cdylib` 产 DLL、自建最小 C++/D3D12 harness、仅承担 compute pass 不进图形着色阶段、永不 Python 原生嵌入、PTX-only、affine 所有权不设 UB）/ 依据与授权（06 §8.3 + 02 §U5 + 05 §11 D-113 + interop.md RXS-0125 + 07 §7 + 11 §4；G1_CONTRACT D-G1-3 / G-G1-3 + G1_PLAN §3 + MR-0002）/ 计划条款骨架（§2 预留，非裸条款头：RXS-0149 引擎集成 DLL 打包与 C ABI 头文件对应）/ 错误码零新增说明（§3：复用 RX7013~7015，7xxx 新段位若需从 RX7020 起随实现 PR 分配，脚手架不预造）/ 升档·禁区留痕（§4：C ABI 复用 vs `#[export(c)]` codegen 带档位标记 Mini-RFC + `#[export(c)]` codegen defer RD-009、扩 ABI 表面升 Full RFC、宿主自建 harness 裁决留痕、Python 原生嵌入红线 1/SG-008、图形着色阶段 G2/D-131、UB 节禁区）。**沿 interop.md / async_buffer.md 脚手架先例：本轮不落带编号裸条款头**——条款体与 ≥1 测试锚定随 G1.3 实现 PR（步骤 43）同落（条款 PR 先于实现 PR，trace_matrix 维持全锚定），无体例变更 | **Mini-RFC**（MR-0002） |
+| v1.1 | 2026-06-20 | 落地带编号条款体 RXS-0149（G1.3 实现 PR，条款体随实现 + 测试锚定同落）：RXS-0149 引擎集成 DLL 打包与 C ABI 头文件对应（`cdylib` 产物 `rurix_engine.dll` + import lib，rurix-cublas 先例；导出符号集与随附头文件声明逐一对应，无悬空声明 / 无未声明导出；compute pass C ABI **复用** RXS-0125 既有 `extern "C" fn … -> i32` 形态不扩 ABI 表面；宿主自建最小 C++/D3D12 harness 经头文件 + import lib 链接，最小 render-graph 上下文 LUID 匹配 adapter 调 compute pass，复用既有 device kernel saxpy/reduce 语义 0-byte + PTX-only；引擎边界 crate `unsafe_code` 经裁决最小开 C ABI 导出属性 + unsafe-audit U21 注册，safe wrapper 对上全 safe；头↔ABI 1:1 由随附头文件兑现 D-113 头文件方向，`#[export(c)]` 编译器 codegen defer RD-009；引擎 DLL 不捆绑 NVIDIA 组件，check_redistribution 延续 r6）。锚定测试 `src/rurix-engine`（`c_abi_header_matches_exports`，`//@ spec: RXS-0149`）；trace_matrix 维持全锚定。§2 计划骨架升格为条款体。错误码**零新增**（复用 RX7013~7015，对齐 G1.1/G1.2 零新码先例）。实现裁决：rurix-engine 引擎边界 crate 经裁决最小开 `unsafe_code` + unsafe-audit 注册（对齐 rurix-interop / rurix-cublas FFI 边界先例），前向 rurix-interop safe API 本层无 unsafe 块；仅承担 compute pass 不进图形着色阶段（G2，D-131）、不触 RD-007 / 红线 1。档位 **Mini-RFC**（MR-0002），AI 不自判 Direct，判档争议向上取严。授权 G1_CONTRACT D-G1-3 / G-G1-3 + G1_PLAN §3 | **Mini-RFC**（MR-0002） |

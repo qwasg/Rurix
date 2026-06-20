@@ -113,6 +113,9 @@ def gather_repo() -> tuple[dict[str, str], dict[str, str]]:
     # NVIDIA 再分发组件分离打包 / 签名清单与验签发布前置 / SBOM SPDX·CycloneDX /
     # Release 层 hard-block 发布门 单测锚定 RXS-0135~0139)
     test_files += sorted((ROOT / "src" / "rurixup").glob("**/*.rs"))
+    # G1.3:rurix-engine crate(引擎集成 C ABI 边界:cdylib DLL 打包 + 随附头文件与导出 ABI
+    # 逐一对应 单测锚定 RXS-0149)
+    test_files += sorted((ROOT / "src" / "rurix-engine").glob("**/*.rs"))
     test_texts = {
         p.relative_to(ROOT).as_posix(): p.read_text(encoding="utf-8") for p in test_files
     }
