@@ -1,6 +1,6 @@
 """PR Smoke 步骤 3:guardrail 字节级核对(14 §2 / CI_GATES.md §4,M0 版五项)。
 
-对比基准 ref(优先级:命令行参数 > GITHUB_BASE_REF > tag m8-closed):
+对比基准 ref(优先级:命令行参数 > GITHUB_BASE_REF > tag g1-closed):
   1. 规划文档集(00-14 与 deep-research/)0-byte;
   2. registry/*.json 既有条目只追加;
   3. 预算 JSON:measured_local 条目冻结;estimated 只允许转 measured_local;
@@ -52,9 +52,9 @@ def resolve_base() -> str:
     gh_base = os.environ.get("GITHUB_BASE_REF")
     if gh_base:
         return f"origin/{gh_base}"
-    # M8 终审收官起回退基准切至 m8-closed(M8 CI_GATES §7 v1.7 / M8_CONTRACT §8.2;
-    # 切换前双基准核对 m7-closed PASS + m8-closed PASS,反 YAML-only)
-    return "m8-closed"
+    # G1 close-out 收官起回退基准切至 g1-closed(G1 CI_GATES §5 第 7 项 / G1_CONTRACT §8.5;
+    # 承 M8 v1.7 m7-closed→m8-closed 先例;切换前双基准核对 m8-closed PASS + g1-closed PASS,反 YAML-only)
+    return "g1-closed"
 
 
 def changed_paths(base: str) -> list[str]:
@@ -339,7 +339,10 @@ def check_evidence(base: str, diffs: list[tuple[str, str]]) -> None:
 
 
 def check_closed_contracts(base: str) -> None:
-    for contract in sorted(ROOT.glob("milestones/*/M*_CONTRACT.md")):
+    # G1 close-out 起 glob 由 M*_CONTRACT.md 泛化为 *_CONTRACT.md,纳入已关闭 G1_CONTRACT.md
+    # 字节守卫(G1 CI_GATES §5 第 7 项);milestones/TEMPLATE_CONTRACT.md 在 milestones/ 根、
+    # 非 milestones/*/ 子目录,泛化后不误匹配;函数内 status: closed 守卫使 active 契约被跳过。
+    for contract in sorted(ROOT.glob("milestones/*/*_CONTRACT.md")):
         rel = contract.relative_to(ROOT).as_posix()
         base_text = git_show(base, rel)
         if base_text is None:
