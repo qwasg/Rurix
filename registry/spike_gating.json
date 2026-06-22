@@ -68,7 +68,8 @@
       "permanence": "conditional",
       "current_verdict": "not_triggered",
       "decisions": [
-        { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记;D-111 / 11 §2" }
+        { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记;D-111 / 11 §2" },
+        { "date": "2026-06-22", "verdict": "not_triggered", "rationale": "G1 期满复评(owner 裁决):声明宏触发条件 = G1 后真实样板痛点 ≥3 类且 derive 机制不可覆盖;G1.1~G1.5(interop typestate / AsyncBuffer 生命周期 / 引擎 C ABI / fatbin 变体)未积累 ≥3 类 derive 不可覆盖的样板痛点,既有 typestate / 生命周期 / `extern \"C\"` / 泛型 LanguageCore 覆盖充分,无声明宏刚需。trigger_condition 0-byte 不改,维持 not_triggered。G1_CONTRACT §8.4 第 8 节裁决留痕。" }
       ]
     },
     {
@@ -79,7 +80,8 @@
       "current_verdict": "not_triggered",
       "decisions": [
         { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记;MVP = lockfile + vendor + checksum(D-312)" },
-        { "date": "2026-06-16", "verdict": "not_triggered", "rationale": "M8 MVP 收口期复评(owner 裁决):发布链路(rurixup/MSI/winget + Azure 签名/SBOM)与包管理维持 lockfile + vendor + checksum(D-312),社区规模未达触发阈(>50 生态包 / 社区强需求,11 §5 G2 期决策点);真 registry(sparse index + sumdb 透明日志 + scopes/OIDC trusted publishing/Sigstore)留 G2 期决策点。trigger_condition 0-byte 不改,维持 not_triggered。M8_CONTRACT §2.2 / §7 裁决留痕。" }
+        { "date": "2026-06-16", "verdict": "not_triggered", "rationale": "M8 MVP 收口期复评(owner 裁决):发布链路(rurixup/MSI/winget + Azure 签名/SBOM)与包管理维持 lockfile + vendor + checksum(D-312),社区规模未达触发阈(>50 生态包 / 社区强需求,11 §5 G2 期决策点);真 registry(sparse index + sumdb 透明日志 + scopes/OIDC trusted publishing/Sigstore)留 G2 期决策点。trigger_condition 0-byte 不改,维持 not_triggered。M8_CONTRACT §2.2 / §7 裁决留痕。" },
+        { "date": "2026-06-22", "verdict": "not_triggered", "rationale": "G1 close-out 复评(owner 裁决):社区规模未达 D-312 触发阈(>50 生态包 / 社区强需求,11 §5 G2 期决策点),真 registry(sparse index + sumdb 透明日志 + OIDC/Sigstore)留 G2 期决策点;MVP+G1 = lockfile + vendor + checksum。trigger_condition 0-byte 不改,维持 not_triggered。G1_CONTRACT §8.4 第 8 节裁决留痕。" }
       ]
     },
     {

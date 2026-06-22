@@ -98,7 +98,7 @@
       "title": "const 泛型值的运行期单态化(turbofish const 实参 → 实例值代入 + codegen)",
       "reason": "M3.4 标量优先:const eval MIR 解释器(D-111 核心,RXS-0062~0065)已交付且 G-M3-4 经 const fn/const item 求值类真跑达成。const 泛型值进运行期单态化(`f::<3>()` 形态)需跨层改造——turbofish 实参在 AST→HIR 降级处被丢弃(lower.rs:709)、HIR FnDecl 不携带 const 参数类型、无 const 值的类型级表示、单态化 substs 为纯 Vec<Ty>;数组长度类 const 泛型进一步依赖运行期数组 aggregate codegen(同随 M4+,见 spec/consteval.md RXS-0064 范围裁决)。该跨层改造与 M3.4 标量优先预算不成比例且对 close-out 绿管线高风险(07 §4 保守先行)",
       "backfill_condition": "M4 device codegen / 运行期数组 aggregate codegen 开工时一并接通:HIR 保留 turbofish const 实参 + const 参数类型、引入 const 值的类型级表示、单态化按 (类型实参, const 值) 收集;spec/consteval.md RXS-0064 已条款化语义,回填仅补实现侧。代码侧无 STUB 标注(为未接入而非半成品)",
-      "owner_milestone": "G1",
+      "owner_milestone": "G2",
       "status": "inherited",
       "history": [
         { "date": "2026-06-13", "event": "执行期登记于 M3.4 WP3(M3 契约 deferred_refs:[] 开工无预造,执行期按需登记 RD-###);const eval 解释器核心已交付,const 泛型值单态化随 M4+", "evidence": "milestones/m3/M3_CONTRACT.md §6 / M3_PLAN.md §4 / spec/consteval.md RXS-0064" },
@@ -111,7 +111,8 @@
         { "date": "2026-06-16", "event": "M8 开工承接(维持 inherited,owner_milestone M7→M8 顺延):M8 互操作、加固与 MVP 验收作用面——UC-01 PyTorch 互操作(PYD/nanobind/DLPack/__cuda_array_interface__)/ cublas 绑定 / UC-02 三 stream 流水线 / 发布链路均不依赖 turbofish const 实参实例值代入;若 UC-01/UC-02 算子或 cublas 绑定触发数组长度类 const 泛型运行期单态化则按需接通或继续留痕,RXS-0064 语义条款不变,回填仅补实现侧;**非 M8 验收门**,接通与否执行期处置留痕(对齐 M5/M6/M7 开工承接顺延先例)", "evidence": "milestones/m8/M8_CONTRACT.md §6 / M8_PLAN.md §0 §7" },
         { "date": "2026-06-17", "event": "M8 close-out 处置(维持 inherited,owner_milestone 维持 M8):M8.1~M8.6 实现(UC-01 PyTorch 互操作 / cublas GEMM/GEMV 三层绑定 / UC-02 三 stream 流水线 / 发布链路 / 双语诊断 / 文档站)均不依赖 turbofish const 实参实例值代入,未触发 const 泛型值运行期单态化需求,**非 M8 验收门**,M8 未接通;承接随后续 device codegen / 运行期数组 aggregate codegen 扩展评估接通,RXS-0064 语义条款不变,回填仅补实现侧。close-out 不强制翻转(对齐 M5/M6/M7 close-out 顺延先例)", "evidence": "milestones/m8/M8_CONTRACT.md §8 / M8_PLAN.md §5" },
         { "date": "2026-06-17", "event": "G1 开工前收尾顺延(维持 inherited,owner_milestone M8→G1):M8 已正式关闭且 m8-closed tag/guardrail 基准已落档;RD-007 仍属后续 device codegen / 运行期数组 aggregate codegen 扩展评估项,非 G1 前置脚手架,本次仅把承接 owner 从已关闭 M8 推进到 G1,不创建 G1 契约或脚手架。RXS-0064 语义不变,回填仅补实现侧", "evidence": "milestones/m8/M8_CONTRACT.md §8.3 / registry/deferred.json v1.12" },
-        { "date": "2026-06-18", "event": "G1 开工承接(维持 inherited,owner_milestone 维持 G1):G1 期开工脚手架落位(milestones/g1/ G1_CONTRACT.md status active / G1_PLAN.md / CI_GATES.md / g1_budget.json,单 G1 阶段契约,owner 经 AskQuestion 裁定 D-005,首子里程碑 G1-1 interop)。RD-007 为 G1 期 device codegen / 运行期数组 aggregate codegen 扩展评估接通项,非 G1 开工脚手架验收门,本契约 deferred_refs 引用;RXS-0064 语义不变,回填仅补实现侧,接通与否执行期处置留痕", "evidence": "milestones/g1/G1_CONTRACT.md §6 / G1_PLAN.md §7 / registry/deferred.json v1.13" }
+        { "date": "2026-06-18", "event": "G1 开工承接(维持 inherited,owner_milestone 维持 G1):G1 期开工脚手架落位(milestones/g1/ G1_CONTRACT.md status active / G1_PLAN.md / CI_GATES.md / g1_budget.json,单 G1 阶段契约,owner 经 AskQuestion 裁定 D-005,首子里程碑 G1-1 interop)。RD-007 为 G1 期 device codegen / 运行期数组 aggregate codegen 扩展评估接通项,非 G1 开工脚手架验收门,本契约 deferred_refs 引用;RXS-0064 语义不变,回填仅补实现侧,接通与否执行期处置留痕", "evidence": "milestones/g1/G1_CONTRACT.md §6 / G1_PLAN.md §7 / registry/deferred.json v1.13" },
+        { "date": "2026-06-22", "event": "G1 close-out 处置(维持 inherited,owner_milestone G1→G2 顺延):G1.1~G1.5 实现(CUDA–D3D12 interop / 流序分配 AsyncBuffer / 首个引擎集成 / 开源社区基建 / 生产分发 fatbin)均不依赖 turbofish const 实参实例值代入,未触发 const 泛型值运行期单态化需求,非 G1 验收门,G1 未接通;承接随后续 device codegen / 运行期数组 aggregate codegen 扩展评估接通,RXS-0064 语义条款不变,回填仅补实现侧。close-out 不强制翻转(对齐 M5/M6/M7/M8 close-out 顺延先例),owner 人工签署兑现", "evidence": "milestones/g1/G1_CONTRACT.md §8.4 / registry/deferred.json v1.15" }
       ]
     },
     {
@@ -119,11 +120,12 @@
       "title": "stable API 快照冻结机制激活(stable 面定义 + 快照比对 + bless 审批守卫)",
       "reason": "M8 MVP 为第一层全量首次验收(01 §6);公开面(rx CLI 命令面 + 公开 crate API)仍处 pre-stable/收敛期,过早激活快照+bless 守卫将锁死尚在演进的接口(G-M8-6 stable API 快照冻结评估,owner 经 AskQuestion 裁定维持 not_frozen)",
       "backfill_condition": "首个 stable 发布(post-MVP / G1 期)时定义 stable 面并激活快照机制 + bless 审批守卫;激活与否随该里程碑裁决留痕。代码侧无 STUB 标注(为未激活机制而非半成品)",
-      "owner_milestone": "G1",
+      "owner_milestone": "G2",
       "status": "open",
       "history": [
         { "date": "2026-06-17", "event": "M8.6 close-out 执行期登记(owner 经 AskQuestion 裁定,M8_CONTRACT §7 v1.1):G-M8-6 stable API 快照冻结评估结论 = 评估后维持 not_frozen,快照+bless 机制不激活;冻结机制激活留首个 stable 发布。MVP 公开面仍 pre-stable,过早激活将锁死演进期接口。对齐 §7 v1.0 / SG-007 保守裁定先例(真机制留后续决策点)", "evidence": "milestones/m8/M8_CONTRACT.md §7 v1.1 §8 / CI_GATES.md §6" },
-        { "date": "2026-06-18", "event": "G1 开工承接(维持 open,owner_milestone 维持 G1):G1 期开工脚手架落位(milestones/g1/);stable API 快照冻结机制维持 not_frozen/未激活,激活留首个 stable 发布(post-MVP / G1 期),stable 面定义 + 快照比对 + bless 守卫激活与否随该子里程碑 owner 裁决留痕。本契约 deferred_refs 引用,非 G1 开工脚手架验收门(G1_CONTRACT §5 guardrail / §6 / CI_GATES §5 第 6 项)", "evidence": "milestones/g1/G1_CONTRACT.md §5 §6 / CI_GATES.md §5 / registry/deferred.json v1.13" }
+        { "date": "2026-06-18", "event": "G1 开工承接(维持 open,owner_milestone 维持 G1):G1 期开工脚手架落位(milestones/g1/);stable API 快照冻结机制维持 not_frozen/未激活,激活留首个 stable 发布(post-MVP / G1 期),stable 面定义 + 快照比对 + bless 守卫激活与否随该子里程碑 owner 裁决留痕。本契约 deferred_refs 引用,非 G1 开工脚手架验收门(G1_CONTRACT §5 guardrail / §6 / CI_GATES §5 第 6 项)", "evidence": "milestones/g1/G1_CONTRACT.md §5 §6 / CI_GATES.md §5 / registry/deferred.json v1.13" },
+        { "date": "2026-06-22", "event": "G1 close-out 处置(维持 open,owner_milestone G1→G2 顺延):G1 期无首个 stable 发布,公开面仍 pre-stable/收敛期,stable API 快照冻结机制维持 not_frozen/未激活;激活留首个 stable 发布(post-MVP),stable 面定义 + 快照比对 + bless 守卫激活与否随该里程碑 owner 裁决留痕。非 G1 验收门,owner 人工签署兑现", "evidence": "milestones/g1/G1_CONTRACT.md §8.4 / registry/deferred.json v1.15" }
       ]
     },
     {
@@ -131,10 +133,11 @@
       "title": "`#[export(c)]` C ABI 导出属性 + 编译器内建头文件生成(D-113)codegen 实现",
       "reason": "D-113 锁定 FFI 战略=导出走 `#[export(c)]` + 编译器内建头文件生成(cbindgen 角色内置化,05 §11 / P-11)。当前实现现实:`#[export(c)]` 仅作解析测试桩出现(src/rurixc/src/parser.rs,parsed-but-inert),无 DLL 导出表 codegen、无内建头文件生成(rurixc --emit 无 header/pyd);生产 C ABI 由 src/rurix-interop 以手写 `extern \"C\"` + `#[unsafe(no_mangle)]` 兑现(RXS-0125)。G1.3 首个引擎集成(owner 经 AskUserQuestion 裁 Mini-RFC/MR-0002 复用既有 C ABI)以 `extern \"C\"` C ABI + 与导出 ABI 1:1 的随附头文件即满足 G-G1-3;本期实现 `#[export(c)]` 编译器 codegen 与 G1.3 引擎集成预算不成比例,且触 FFI ABI codegen 面(AGENTS 硬规则 5,可能需 Full RFC)",
       "backfill_condition": "后续里程碑出现『需经 rurixc `#[export(c)]` 自动产 DLL 导出表 + 单一事实源内建头文件生成』的硬需求时接通;届时按 10 §3 判档(FFI ABI codegen 触硬规则 5 则人工 Full RFC,向上取严)。在此之前复用 `extern \"C\"` C ABI(RXS-0125 0-byte)+ 随附 1:1 头文件兑现,头↔ABI 一致性由 spec/engine_integration.md RXS-0149 + CI 步骤 43 host 段守卫(漂移即红)。代码侧无 STUB 标注(为未实现编译器特性而非半成品)",
-      "owner_milestone": "G1",
+      "owner_milestone": "G2",
       "status": "open",
       "history": [
-        { "date": "2026-06-20", "event": "G1.3 执行期登记(owner 经 AskUserQuestion 裁 Mini-RFC 复用 C ABI,MR-0002 §5):`#[export(c)]` 编译器 codegen + 内建头文件生成实现 defer,G1.3 复用既有手写 `extern \"C\"` C ABI(RXS-0125 语义 0-byte)+ 与导出 ABI 1:1 的随附头文件兑现 D-113 头文件单一事实源方向;非 G1.3 验收门,接通与否后续里程碑处置留痕(头↔ABI 一致性由 RXS-0149 + 步骤 43 host 段守卫)", "evidence": "rfcs/mini-0002-engine-integration.md §5 / spec/engine_integration.md RXS-0149 §4 / 13_DECISION_LOG.md D-113 / src/rurixc/src/parser.rs" }
+        { "date": "2026-06-20", "event": "G1.3 执行期登记(owner 经 AskUserQuestion 裁 Mini-RFC 复用 C ABI,MR-0002 §5):`#[export(c)]` 编译器 codegen + 内建头文件生成实现 defer,G1.3 复用既有手写 `extern \"C\"` C ABI(RXS-0125 语义 0-byte)+ 与导出 ABI 1:1 的随附头文件兑现 D-113 头文件单一事实源方向;非 G1.3 验收门,接通与否后续里程碑处置留痕(头↔ABI 一致性由 RXS-0149 + 步骤 43 host 段守卫)", "evidence": "rfcs/mini-0002-engine-integration.md §5 / spec/engine_integration.md RXS-0149 §4 / 13_DECISION_LOG.md D-113 / src/rurixc/src/parser.rs" },
+        { "date": "2026-06-22", "event": "G1 close-out 处置(维持 open,owner_milestone G1→G2 顺延):G1.3 复用既有手写 `extern \"C\"` C ABI(RXS-0125 0-byte)+ 与导出 ABI 1:1 的随附头文件兑现 G-G1-3,`#[export(c)]` 编译器 codegen + 内建头文件生成(D-113)未实现;触 FFI ABI codegen 面(硬规则 5,可能需 Full RFC),后续里程碑出现硬需求时按 10 §3 判档接通。非 G1 验收门,头↔ABI 一致性由 RXS-0149 + 步骤 43 host 段守卫,owner 人工签署兑现", "evidence": "milestones/g1/G1_CONTRACT.md §8.4 / registry/deferred.json v1.15" }
       ]
     }
   ],
@@ -153,6 +156,7 @@
     { "version": "v1.11", "date": "2026-06-17", "change": "M8 close-out 人工签署 formal close 留痕:RD-001 inherited→closed(CI Release 层门禁由 M8.4 兑现,签名产物 2 个 + SBOM + 白名单审计 + artifact 上传 + hard-block 红绿);RD-006 inherited→closed(诊断双语全量覆盖由 M8.5 兑现,en/zh 68 key 对齐 + 缺键红绿)。RD-007 维持 inherited;RD-008 维持 open。详见 milestones/m8/M8_CONTRACT.md §8.2" },
     { "version": "v1.12", "date": "2026-06-17", "change": "G1 开工前收尾顺延:RD-007 维持 inherited,owner_milestone M8→G1(M8 已 closed 且 m8-closed tag/guardrail 基准已落档;const 泛型值运行期单态化仍为后续 device codegen / 运行期数组 aggregate codegen 扩展评估项,非 G1 前置脚手架);RD-008 维持 open/G1。未创建 milestones/g1 脚手架。详见 milestones/m8/M8_CONTRACT.md §8.3" },
     { "version": "v1.13", "date": "2026-06-18", "change": "G1 期开工承接留痕(只追加 history,既有 history 行 0-byte):RD-007 维持 inherited、owner_milestone 维持 G1(G1 期 device codegen / 运行期数组 aggregate codegen 扩展评估接通项,非 G1 开工脚手架验收门,G1_CONTRACT deferred_refs 引用,RXS-0064 语义不变);RD-008 维持 open、owner_milestone 维持 G1(stable API 快照冻结机制维持 not_frozen,激活留首个 stable 发布)。配套 G1 开工脚手架落位 milestones/g1/(G1_CONTRACT.md status active / G1_PLAN.md / CI_GATES.md / g1_budget.json,单 G1 阶段契约,owner 经 AskQuestion 裁定 D-005 首子里程碑 G1-1 interop)。RD-001/RD-006 维持 closed;RD-002/RD-003/RD-004/RD-005 维持 closed。详见 milestones/g1/G1_CONTRACT.md §6 §7" },
-    { "version": "v1.14", "date": "2026-06-20", "change": "G1.3 开工执行期登记(只追加,既有条目 0-byte):新增 RD-009(`#[export(c)]` C ABI 导出属性 + 编译器内建头文件生成(D-113)codegen 实现,open,owner_milestone G1)——G1.3 首个引擎集成 owner 经 AskUserQuestion 裁 Mini-RFC/MR-0002 复用 M8.1 既有手写 `extern \"C\"` C ABI(RXS-0125 0-byte)+ 与导出 ABI 1:1 的随附头文件兑现 G-G1-3,`#[export(c)]` 编译器 codegen(当前仅 parser 测试桩)defer,头↔ABI 一致性由 spec/engine_integration.md RXS-0149 + CI 步骤 43 host 段守卫。RD-007 维持 inherited;RD-008 维持 open;RD-001~RD-006 维持 closed。详见 rfcs/mini-0002-engine-integration.md §5 / spec/engine_integration.md" }
+    { "version": "v1.14", "date": "2026-06-20", "change": "G1.3 开工执行期登记(只追加,既有条目 0-byte):新增 RD-009(`#[export(c)]` C ABI 导出属性 + 编译器内建头文件生成(D-113)codegen 实现,open,owner_milestone G1)——G1.3 首个引擎集成 owner 经 AskUserQuestion 裁 Mini-RFC/MR-0002 复用 M8.1 既有手写 `extern \"C\"` C ABI(RXS-0125 0-byte)+ 与导出 ABI 1:1 的随附头文件兑现 G-G1-3,`#[export(c)]` 编译器 codegen(当前仅 parser 测试桩)defer,头↔ABI 一致性由 spec/engine_integration.md RXS-0149 + CI 步骤 43 host 段守卫。RD-007 维持 inherited;RD-008 维持 open;RD-001~RD-006 维持 closed。详见 rfcs/mini-0002-engine-integration.md §5 / spec/engine_integration.md" },
+    { "version": "v1.15", "date": "2026-06-22", "change": "G1 close-out 处置留痕(只追加 history,既有 history / 不可变字段 0-byte;owner 人工签署兑现,AI 备绿草拟):RD-007 维持 inherited、owner_milestone G1→G2 顺延(G1.1~G1.5 未触发 const 泛型值运行期单态化需求,非 G1 验收门,承接随后续 device codegen / 运行期数组 aggregate codegen 扩展评估接通,RXS-0064 语义不变);RD-008 维持 open、owner_milestone G1→G2 顺延(G1 期无首个 stable 发布,快照冻结机制维持 not_frozen,激活留首个 stable 发布);RD-009 维持 open、owner_milestone G1→G2 顺延(G1.3 复用 `extern \"C\"` C ABI(RXS-0125)+ 随附 1:1 头文件兑现 G-G1-3,`#[export(c)]` 编译器 codegen defer,触 FFI ABI codegen 面后续判档)。RD-010 不存在(G1.5 未造新 deferred);RD-001~RD-006 维持 closed。对齐 M5/M6/M7/M8 close-out 不强制翻转顺延先例。详见 milestones/g1/G1_CONTRACT.md §8.4 / §8.5(owner 签署)" }
   ]
 }
