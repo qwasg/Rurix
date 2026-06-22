@@ -45,6 +45,9 @@ fn main() {
         println!("cargo:rerun-if-changed={}", kernel_rx.display());
         let ptx_out = out_dir.join(format!("{name}.ptx"));
         let meta_out = out_dir.join(format!("{name}_meta.rs"));
+        // 按架构预编 cubin(RXS-0150,G1.5;sm_89 基线)。始终写文件(空哨兵兜底)使
+        // 消费侧 `include_bytes!` 在无 ptxas / 降级时也编译通过(保守 PTX fallback)。
+        let cubin_out = out_dir.join(format!("{name}.{CUBIN_ARCH}.cubin"));
         let upper = name.to_uppercase();
         match gen_ptx(&kernel_rx, &ptx_out, name) {
             Ok(kernel) => {
@@ -53,9 +56,14 @@ fn main() {
                     format!("pub const {upper}_KERNEL: &str = \"{kernel}\";\n"),
                 )
                 .unwrap_or_else(|e| panic!("write {name}_meta.rs: {e}"));
+                // PTX 已过 dry_gate(RXS-0073);按架构预编 cubin 并保留字节(脱离 PTX-only,
+                // D-207)。无 ptxas / 拒绝 → 空 cubin 哨兵(降级仅 PTX fallback,保守兜底)。
+                let cubin = gen_cubin(&ptx_out, name);
+                std::fs::write(&cubin_out, &cubin)
+                    .unwrap_or_else(|e| panic!("write {name}.{CUBIN_ARCH}.cubin: {e}"));
             }
             Err(reason) => {
-                // 降级:空哨兵 PTX + 空入口名(bin/test 运行时据空 SKIP)
+                // 降级:空哨兵 PTX + 空入口名 + 空 cubin(bin/test 运行时据空 SKIP)
                 println!(
                     "cargo:warning=rurix-rt: {name} device codegen unavailable, embedded PTX skipped ({reason})"
                 );
@@ -66,8 +74,29 @@ fn main() {
                     format!("pub const {upper}_KERNEL: &str = \"\";\n"),
                 )
                 .unwrap_or_else(|e| panic!("write sentinel {name}_meta.rs: {e}"));
+                std::fs::write(&cubin_out, b"")
+                    .unwrap_or_else(|e| panic!("write sentinel {name}.{CUBIN_ARCH}.cubin: {e}"));
             }
         }
+    }
+}
+
+/// 按架构预编 cubin 目标(基线 `sm_89`,07 §7 / D-207;多架构矩阵 defer RD-010)。
+const CUBIN_ARCH: &str = "sm_89";
+
+/// PTX → 按架构预编 cubin 字节(RXS-0150;`ptxas -arch=sm_89` 保留字节)。无 ptxas /
+/// 空 PTX / 拒绝 → 空 cubin(降级仅 PTX fallback,保守兜底前向兼容,D-207;不阻断 build)。
+fn gen_cubin(ptx_out: &std::path::Path, module: &str) -> Vec<u8> {
+    let Ok(ptx) = std::fs::read_to_string(ptx_out) else {
+        return Vec::new();
+    };
+    if ptx.trim().is_empty() {
+        return Vec::new();
+    }
+    match rurixc::ptxas::compile_cubin(&ptx, module, CUBIN_ARCH) {
+        rurixc::ptxas::CubinOutcome::Compiled(bytes) => bytes,
+        // Skipped(无 ptxas)/ Rejected / Toolchain → 空 cubin 哨兵(降级仅 PTX fallback)。
+        _ => Vec::new(),
     }
 }
 

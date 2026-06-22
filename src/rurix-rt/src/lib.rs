@@ -266,6 +266,53 @@ impl Context {
         })
     }
 
+    /// 装载分发产物变体集 + fatbin 装载协商(RXS-0150/0151;G1.5,生产分发 fatbin)。
+    ///
+    /// 协商序([`select_load_variant`](crate::fatbin::select_load_variant)):查 device compute
+    /// capability → 命中按架构预编 cubin 即 `cuModuleLoadData`(首启免 JIT);未命中 / driver 无
+    /// cubin 装载 / cubin 被驱动拒绝 → **降级**既有 PTX 版号梯子 [`load_module`](Self::load_module)
+    /// (RXS-0076/0077 语义 0-byte)。cubin 拒绝**降级而非 reject**(不 poison context,保守兜底,
+    /// D-207),行为对无 cubin 时等价 M8 PTX-only。
+    pub fn load_module_artifacts(
+        &self,
+        set: &crate::fatbin::DeviceArtifactSet,
+    ) -> Result<Module<'_>> {
+        // 先尝试按架构预编 cubin(命中即用);未命中 / 不可用 / 拒绝 → 降级保守 PTX fallback。
+        if let Some(module) = self.try_load_cubin(set) {
+            return Ok(module);
+        }
+        self.load_module(set.ptx_fallback())
+    }
+
+    /// 尝试按架构预编 cubin 装载(RXS-0151);未命中 / driver 不支持 / cubin 拒绝 → `None`
+    /// (上层降级保守 PTX fallback,不 poison)。
+    fn try_load_cubin(&self, set: &crate::fatbin::DeviceArtifactSet) -> Option<Module<'_>> {
+        let cuda = sys::cuda()?;
+        if self.is_poisoned() || !cuda.has_cubin_load() || !set.has_cubin() {
+            return None;
+        }
+        let (rc, major, minor) = cuda.device_compute_capability(self.device)?;
+        if rc != sys::CUDA_SUCCESS {
+            return None;
+        }
+        let device_sm = crate::fatbin::SmTarget::from_capability(major, minor);
+        let crate::fatbin::LoadChoice::Cubin(sm) =
+            crate::fatbin::select_load_variant(&device_sm, set)
+        else {
+            return None;
+        };
+        let variant = set.cubin_for(&sm)?;
+        // SAFETY: (U22):variant.bytes() 为 build.rs `ptxas -arch` 预编的有效 cubin 二进制
+        // (RXS-0150);cubin 被驱动拒绝(架构不符等)时返回非 SUCCESS → None,上层降级 PTX
+        // (保守兜底,不 poison context,D-207)。
+        let (r, raw) = unsafe { cuda.module_load_data(variant.bytes().as_ptr().cast::<c_void>())? };
+        (r == sys::CUDA_SUCCESS).then_some(Module {
+            ctx: self,
+            raw,
+            version: sm.as_str().to_owned(),
+        })
+    }
+
     /// 同步 current context(`cuCtxSynchronize`;阻塞至全部排队操作完成)。
     pub fn synchronize(&self) -> Result<()> {
         let cuda = self.guard()?;
