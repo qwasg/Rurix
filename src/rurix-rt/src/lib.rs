@@ -12,6 +12,8 @@
 //! 与逃逸为借用检查错误;完整 affine 销毁纪律(stream 先同步)随 M5 深化。
 
 mod error;
+/// 生产分发 fatbin:分发产物变体模型 + 装载协商决策（G1.5，RXS-0150/0151；MR-0005）。
+pub mod fatbin;
 /// CUDA–D3D12 互操作呈现类型化（G1.1，RXS-0140~0143；RFC-0001 §4）。feature `d3d12-interop`。
 #[cfg(feature = "d3d12-interop")]
 pub mod interop;

@@ -885,6 +885,15 @@
     ],
     "RXS-0149": [
       "src/rurix-engine/src/lib.rs"
+    ],
+    "RXS-0150": [
+      "src/rurix-rt/src/fatbin.rs"
+    ],
+    "RXS-0151": [
+      "src/rurix-rt/src/fatbin.rs"
+    ],
+    "RXS-0152": [
+      "src/rurix-pkg/src/lock.rs"
     ]
   }
 }

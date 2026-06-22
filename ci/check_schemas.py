@@ -180,6 +180,7 @@ def check_evidence_files() -> None:
     realtime_present_schema = load(ROOT / "milestones/g1/realtime_present_evidence_schema.json")
     async_buffer_schema = load(ROOT / "milestones/g1/async_buffer_evidence_schema.json")
     engine_integration_schema = load(ROOT / "milestones/g1/engine_integration_evidence_schema.json")
+    fatbin_dist_schema = load(ROOT / "milestones/g1/fatbin_dist_evidence_schema.json")
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -226,6 +227,9 @@ def check_evidence_files() -> None:
         jsonschema.Draft7Validator(engine_integration_schema)
         if engine_integration_schema
         else None
+    )
+    fatbin_dist_validator = (
+        jsonschema.Draft7Validator(fatbin_dist_schema) if fatbin_dist_schema else None
     )
     for f in evidence_files:
         doc = load(f)
@@ -292,6 +296,11 @@ def check_evidence_files() -> None:
             and engine_integration_validator is not None
         ):
             validator = engine_integration_validator
+        elif (
+            f.name.startswith("fatbin_dist_")
+            and fatbin_dist_validator is not None
+        ):
+            validator = fatbin_dist_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):
