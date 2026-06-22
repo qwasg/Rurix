@@ -56,7 +56,7 @@
     "red_detected": true,
     "green_command": "$env:RURIX_REQUIRE_REAL='1'; py -3 ci/fatbin_dist_smoke.py",
     "green_exit_code": 0,
-    "run_url": "green=local interactive runner"
+    "run_url": "https://github.com/qwasg/Rurix/actions/runs/27946692960"
   },
   "timestamp": "2026-06-22T18:22:04+08:00"
 }
