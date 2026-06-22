@@ -141,11 +141,51 @@ def check_cublas_runtime_not_bundled() -> list[str]:
     return failures
 
 
+def check_cubin_fatbin_provenance() -> list[str]:
+    """断言 4(G1.5 生产分发 fatbin,RXS-0150):嵌入 cubin/fatbin 为 Rurix 构建产物。
+
+    cubin/fatbin = Rurix 自编**语言本体**(由 Rurix 自研 PTX 经 `ptxas -arch` 预编,自有许可,
+    非 NvidiaRedist)。再分发面为空由上游已审计 PTX 保证(断言 1 无 `__nv_*`,cubin 继承)。本断言:
+    (4a) `include_bytes!`/`include_str!` 嵌入的 cubin/fatbin 必须引用 `env!("OUT_DIR")` 构建产物,
+         不得打包提交的 NVIDIA 源 cubin / 完整 Toolkit 二进制(r6);
+    (4b) 仓库不得提交 cubin/fatbin 二进制(按架构预编 cubin 为 OUT_DIR 构建产物,非源树)。"""
+    failures: list[str] = []
+    # 4a:嵌入 cubin/fatbin 须为 OUT_DIR 构建产物(Rurix 自编,RXS-0150)。
+    for crate in ("src/rurixc", "src/rurix-rt"):
+        crate_dir = ROOT / crate
+        if not crate_dir.is_dir():
+            continue
+        for rs in sorted(crate_dir.rglob("*.rs")):
+            text = rs.read_text(encoding="utf-8")
+            for ln, line in enumerate(text.splitlines(), start=1):
+                low = line.lower()
+                if ("include_bytes!" in line or "include_str!" in line) and (
+                    ".cubin" in low or ".fatbin" in low
+                ):
+                    if "OUT_DIR" not in line:
+                        failures.append(
+                            f"{rs.relative_to(ROOT)}:{ln}: 嵌入 cubin/fatbin 非 env!(\"OUT_DIR\") "
+                            "构建产物(须 Rurix 自研 PTX 经 ptxas 预编,禁打包 NVIDIA 源 cubin/Toolkit"
+                            f",r6,RXS-0150):\n  {line.strip()}"
+                        )
+    # 4b:仓库不得提交 cubin/fatbin 二进制(OUT_DIR 构建产物,非源树;NVIDIA 源 cubin 永不入库)。
+    for pat in ("**/*.cubin", "**/*.fatbin"):
+        for f in sorted(ROOT.glob(pat)):
+            if "target" in f.parts:
+                continue  # 构建产物目录不计入源树审计
+            failures.append(
+                f"{f.relative_to(ROOT)}: 仓库提交了 cubin/fatbin 二进制(按架构预编 cubin 为 "
+                "OUT_DIR 构建产物,非源树;NVIDIA 源 cubin / 完整 Toolkit 永不入库,r6)"
+            )
+    return failures
+
+
 def main() -> int:
     failures: list[str] = []
     failures += check_embedded_ptx()
     failures += check_bc_not_packaged()
     failures += check_cublas_runtime_not_bundled()
+    failures += check_cubin_fatbin_provenance()
     if failures:
         print("[check_redistribution] FAIL — NVIDIA 再分发面非空/libdevice 被打包:")
         for f in failures:
@@ -154,7 +194,8 @@ def main() -> int:
     print(
         "[check_redistribution] PASS — 版本化嵌入 PTX 无 __nv_* 符号、"
         "源无 libdevice .bc 打包、cublas runtime DLL 不入产物且动态加载候选限 "
-        "Attachment A 白名单(再分发面为空)"
+        "Attachment A 白名单、cubin/fatbin 为 Rurix OUT_DIR 构建产物(非 NVIDIA 源 cubin/Toolkit,"
+        "G1.5 RXS-0150)(再分发面为空)"
     )
     return 0
 

@@ -46,7 +46,12 @@ jobs:
         shell: powershell
         run: py -3 ci/trace_matrix.py --check
 
-      - name: NVIDIA redistribution whitelist audit (M5.4 / M8.4, r6)
+      # G1.5(RXS-0150)起延续覆盖 cubin/fatbin 真分发产物:cubin/fatbin = Rurix 自编语言本体
+      # (由 Rurix 自研 PTX 经 ptxas 预编,非 NvidiaRedist),断言无 __nv_* libdevice 派生符号残留 +
+      # 嵌入 cubin/fatbin 为 env!("OUT_DIR") 构建产物(禁打包 NVIDIA 源 cubin/Toolkit)+ 仓库不提交
+      # cubin/fatbin 二进制(r6,完整 Toolkit/驱动/Nsight 永不捆绑)。fatbin 产物经既有 rurixup 发布链路
+      # 作 LanguageCore 组件进 SBOM + content-tree 完整性(RXS-0135~0139 语义 0-byte,泛型吸收)。
+      - name: NVIDIA redistribution whitelist audit (M5.4 / M8.4 / G1.5 cubin·fatbin, r6)
         shell: powershell
         run: py -3 ci/check_redistribution.py
 

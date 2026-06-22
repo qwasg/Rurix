@@ -41,6 +41,16 @@ def main() -> int:
                 f"{name}: bench/kernels 与 build 产物不一致 "
                 f"(运行 py -3 bench/sync_bench_ptx.py)"
             )
+            continue
+        # cubin 形态结构核对(G1.5,RXS-0150):cubin 由**已 bless 的 PTX** 经 `ptxas -arch=sm_89`
+        # 预编(build.rs)。cubin 字节随 ptxas 版号绑定不确定(G1_PLAN §7),故**不设字节级 golden**
+        # ——PTX `.nvptx` 文本 golden 维持唯一确定性 bless 门(M4.2);cubin 以**结构核对**纳入:
+        # 存在的预编 cubin 须为有效 ELF(捕获 cubin↔PTX 形态漂移 / 损坏)。
+        cubin = build_ptx.parent / f"{name}.sm_89.cubin"
+        if cubin.is_file() and cubin.stat().st_size > 0 and cubin.read_bytes()[:4] != b"\x7fELF":
+            mismatches.append(
+                f"{name}: 预编 cubin 非有效 ELF(cubin↔PTX 形态漂移 / 损坏,RXS-0150)"
+            )
     if mismatches:
         print("bench PTX 漂移:")
         for m in mismatches:

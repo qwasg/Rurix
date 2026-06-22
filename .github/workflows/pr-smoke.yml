@@ -207,6 +207,20 @@ jobs:
           RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/engine_integration_smoke.py
 
+      # 步骤 44（G-G1-5，MR-0005 / RXS-0150~0152，**check_* 守卫风格，不写 budget counter**）：
+      # 生产分发 fatbin 冒烟。host 段（总跑）：三类构造缺陷红绿自检（白名单外 cubin 组件 /
+      # 缺 [[artifact]] digest / cubin↔PTX golden 漂移）+ 真实 ci/check_redistribution.py（cubin/fatbin
+      # 延续：无 __nv_* 残留 / 不打包 libdevice .bc·Toolkit·驱动·Nsight，r6）。device 段（ptxas +
+      # CUDA + GPU 真跑）：build.rs 按架构预编 cubin（ptxas -arch=sm_89）→ fatbin_saxpy 经
+      # load_module_artifacts 装载协商（cubin 命中即用 / 未命中降级保守 PTX fallback，RXS-0151，降级
+      # 而非 reject）→ SAXPY 设备数值对照 → distribution_ok；无 ptxas/GPU → 降级 SKIP(exit 0)。
+      # 写 evidence/fatbin_dist_smoke.json。守卫「应红却放行」/ 真实审计红 / device 数值对照失败即红。
+      - name: production fatbin distribution smoke (G1 CI_GATES §2.44, G-G1-5, MR-0005)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/fatbin_dist_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

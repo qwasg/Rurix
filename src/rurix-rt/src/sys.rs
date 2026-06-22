@@ -42,6 +42,11 @@ pub const CU_EVENT_DEFAULT: u32 = 0;
 /// `cuStreamWaitEvent` 标志(0 = 默认;M8.3 流序依赖,RXS-0131)。
 pub const CU_STREAM_WAIT_DEFAULT: u32 = 0;
 
+/// `CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR`(75)/ `..._MINOR`(76):查 device sm 架构键
+/// 供 fatbin 装载协商(G1.5,RXS-0151;`select_load_variant`)。
+pub const CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR: i32 = 75;
+pub const CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR: i32 = 76;
+
 // -- Windows 动态加载(kernel32;std 默认链接,无需 toolkit) -----------------
 
 unsafe extern "system" {
@@ -109,6 +114,11 @@ type FnMemcpyDtoHAsync =
 // (流序),分配自该 stream 当前 memory pool(默认 = 设备默认池)。
 type FnMemAllocAsync = unsafe extern "system" fn(*mut CuDevicePtr, usize, CuPtr) -> CuResult;
 type FnMemFreeAsync = unsafe extern "system" fn(CuDevicePtr, CuPtr) -> CuResult;
+// -- G1.5 生产分发 fatbin:按架构预编 cubin 装载 + compute capability 查询(RXS-0150/0151,D-207) --
+// `cuModuleLoadData`(cubin 二进制装载,首启免 JIT)+ `cuDeviceGetAttribute`(sm 查询)。作为
+// **Option 字段非致命解析**(缺失 → 装载协商降级保守 PTX fallback,核心 PTX 路径不受影响,U22)。
+type FnModuleLoadData = unsafe extern "system" fn(*mut CuPtr, *const c_void) -> CuResult;
+type FnDeviceGetAttribute = unsafe extern "system" fn(*mut i32, i32, CuDevice) -> CuResult;
 // -- G1.1 CUDA–D3D12 互操作:external memory/semaphore import(RXS-0140/0143;RFC-0001 §4.2.3) --
 // `CUexternalMemory`/`CUexternalSemaphore` 为不透明句柄(= CuPtr)。下列符号无 `_v2`
 // 后缀(RFC-0001 §4.2.3);作为 **Option 字段非致命解析**(缺失不禁用核心 CUDA)。
@@ -256,6 +266,9 @@ pub struct Cuda {
     cu_signal_external_semaphores_async: Option<FnSignalExternalSemaphoresAsync>,
     cu_wait_external_semaphores_async: Option<FnWaitExternalSemaphoresAsync>,
     cu_destroy_external_semaphore: Option<FnDestroyExternalSemaphore>,
+    // G1.5 生产分发 fatbin:cubin 装载 + sm 查询(Option:缺失 → 装载协商降级 PTX fallback,D-207;U22)。
+    cu_module_load_data: Option<FnModuleLoadData>,
+    cu_device_get_attribute: Option<FnDeviceGetAttribute>,
 }
 
 static CUDA: OnceLock<Option<Cuda>> = OnceLock::new();
@@ -344,6 +357,10 @@ impl Cuda {
                 )),
                 cu_wait_external_semaphores_async: cast_fn(sym(c"cuWaitExternalSemaphoresAsync")),
                 cu_destroy_external_semaphore: cast_fn(sym(c"cuDestroyExternalSemaphore")),
+                // G1.5 fatbin:非致命解析(无 `?`;缺失 → 装载协商降级保守 PTX fallback,
+                // 核心 PTX 装载 cuModuleLoadDataEx 不受影响,D-207 / RXS-0151 / U22)。
+                cu_module_load_data: cast_fn(sym(c"cuModuleLoadData")),
+                cu_device_get_attribute: cast_fn(sym(c"cuDeviceGetAttribute")),
             })
         }
     }
@@ -804,5 +821,56 @@ impl Cuda {
         let f = self.cu_destroy_external_semaphore?;
         // SAFETY: 调用方保证 `ext_sem` 有效未销毁且无在途操作(见 fn 文档)。
         Some(unsafe { f(ext_sem) })
+    }
+
+    // -- G1.5 生产分发 fatbin:按架构预编 cubin 装载 + compute capability 查询(RXS-0150/0151;U22) --
+    // 符号缺失时返回 None / has_cubin_load=false → 上层装载协商降级保守 PTX fallback(D-207)。
+
+    /// driver 是否导出 cubin 装载 + sm 查询符号(`cuModuleLoadData`/`cuDeviceGetAttribute`;U22)。
+    /// 否 → 装载协商降级保守 PTX fallback(D-207,RXS-0151;核心 PTX 路径不受影响)。
+    pub fn has_cubin_load(&self) -> bool {
+        self.cu_module_load_data.is_some() && self.cu_device_get_attribute.is_some()
+    }
+
+    /// 查询 device compute capability `(major, minor)`(`cuDeviceGetAttribute`;构造 sm 架构键供
+    /// 装载协商 `select_load_variant`,RXS-0151)。符号缺失 → `None`(降级 PTX fallback)。
+    pub fn device_compute_capability(&self, dev: CuDevice) -> Option<(CuResult, u32, u32)> {
+        let f = self.cu_device_get_attribute?;
+        let mut major: i32 = 0;
+        let mut minor: i32 = 0;
+        // SAFETY: (U22):出参 `major` 有效可写;attrib 为合法 `CUdevice_attribute` 常量;
+        // `dev` 来自 device_get;ABI 匹配(`fn(*mut i32, i32, CUdevice) -> CUresult`)。
+        let r1 = unsafe {
+            f(
+                &mut major,
+                CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR,
+                dev,
+            )
+        };
+        if r1 != CUDA_SUCCESS {
+            return Some((r1, 0, 0));
+        }
+        // SAFETY: (U22):同上,查 minor。
+        let r2 = unsafe {
+            f(
+                &mut minor,
+                CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR,
+                dev,
+            )
+        };
+        Some((r2, major.max(0) as u32, minor.max(0) as u32))
+    }
+
+    /// 装载按架构预编 cubin 二进制(`cuModuleLoadData`;首启免 JIT,RXS-0151)。符号缺失 →
+    /// `None`(装载协商降级保守 PTX fallback,D-207)。
+    /// # Safety
+    /// (U22):`image` 指向有效的 cubin 二进制(`ptxas -arch=sm_xx` 预编产物,宜与 device 架构
+    /// 匹配);cubin 被驱动拒绝(架构不符等)时由调用方降级 PTX 重试(保守兜底,**不 poison**)。
+    pub unsafe fn module_load_data(&self, image: *const c_void) -> Option<(CuResult, CuPtr)> {
+        let f = self.cu_module_load_data?;
+        let mut m: CuPtr = std::ptr::null_mut();
+        // SAFETY: (U22):出参 `m` 有效可写;调用方保证 `image` 指向有效 cubin 二进制(见 fn 文档)。
+        let r = unsafe { f(&mut m, image) };
+        Some((r, m))
     }
 }
