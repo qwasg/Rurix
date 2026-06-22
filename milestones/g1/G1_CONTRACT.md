@@ -1,7 +1,7 @@
 ---
 contract: G1
 title: G1 期——CUDA–D3D12 interop / 实时呈现 / 流序分配 AsyncBuffer / 首个引擎集成 / 开源社区基建（MVP 后图形路线第二阶段）
-status: active            # active → closed（close-out 只追加,既有条款 0-byte 修改;G1 close-out 关闭判定 / 基准切换 / g1-closed tag 由 owner 人工签署,AI 不代签）
+status: closed            # active → closed（owner 白栀 §8.5 人工签署,2026-06-22;close-out 只追加,既有条款 0-byte;基准 m8-closed→g1-closed / g1-closed tag 已落档）
 version: v1.0
 date: 2026-06-18
 timebox: "MVP+约 12 个月（两级结构 G1.1~G1.4 见 G1_PLAN.md;月份为相对刻度,非日历承诺）"
@@ -292,3 +292,26 @@ owner §8.5 待办（镜像 M8 §8.2，AI 不代签）：
 4. registry/deferred.json v1.15 finalize（RD-007/008/009 owner_milestone G1→G2）；registry/spike_gating.json SG-006/007 decisions finalize。
 5. 双基准核对（`check_guardrails.py m8-closed` PASS + `g1-closed` PASS，0 changed paths）+ 已关闭 `G1_CONTRACT.md` byte-guard 红绿，run URL 归档。
 6. device-real 回归确认（Compute Sanitizer nightly + 四 device smoke，或引用 §8.1~8.3 子里程碑既有绿）。
+
+### 8.5 G1 close-out 人工签署落档（2026-06-22，owner 白栀 人工签署）
+
+owner 白栀于本工作会话授权并**人工签署 G1 期正式关闭**（`active → closed`），批准 G1 验收终审判定（§8.4）。本签署为 **owner 白栀一人** 的授权动作（签署主体一人）；§8.4 备绿、guardrail 切换代码、deferred.json v1.15、spike_gating SG-006/007 decisions 为本签署输入材料。AI 按 owner 授权代录机器事实与执行机械步骤，不构成第二签署人。
+
+**(a) 契约关闭**：`G1_CONTRACT.md` YAML `status: active → closed`（§1~§7 与 in_scope/acceptance_gates 既有条款 0-byte，close-out 只追加 §8）。D-G1-1~D-G1-6 / G-G1-1~G-G1-6 验收要件闭环（§8.4 第 1 节），G1 期收官。
+
+**(b) deferred 顺延生效**：registry/deferred.json v1.15 —— RD-007 维持 inherited、RD-008/RD-009 维持 open，owner_milestone G1→G2 顺延（对齐 M5/M6/M7/M8 close-out 不强制翻转顺延先例）；RD-010 不存在（G1.5 未造新 deferred）；RD-001~RD-006 维持 closed。registry/spike_gating.json —— SG-006 G1 期满复评 / SG-007 G1 close-out 复评，均维持 not_triggered（只追加 decisions，trigger_condition 0-byte）。
+
+**(c) guardrail 基准切换 `m8-closed → g1-closed`**：`ci/check_guardrails.py` 无参回退基准默认切到 `g1-closed`（docstring + `resolve_base()` 注释与返回值）；`check_closed_contracts` glob 泛化为 `*_CONTRACT.md`（纳入已关闭 `G1_CONTRACT.md` 字节守卫；`milestones/TEMPLATE_CONTRACT.md` 在 `milestones/` 根、非 `milestones/*/` 子目录，泛化后不误匹配）。PR 路径仍以 `GITHUB_BASE_REF` 为准，既有逻辑不变。`g1-closed` annotated tag 锚定本 close-out 签署提交（承 M8 CI_GATES §7 v1.7 `m7-closed→m8-closed` 范式）。
+
+**(d) 签署期双基准核对（反 YAML-only）**：
+- `py -3 ci/check_guardrails.py m8-closed` → PASS（base=m8-closed）
+- `py -3 ci/check_guardrails.py g1-closed` → PASS（base=g1-closed，0 changed paths，tag == 签署提交）
+- `py -3 ci/budget_eval.py --strict` → PASS（69 pass / 0 skip，全局零 estimated）；`py -3 ci/trace_matrix.py --check` → PASS（152/152 全锚定）
+
+**(e) 已关闭 `G1_CONTRACT.md` byte-guard 真实红绿（反 YAML-only，base=g1-closed）**：对 §1 顶部条款注入字节 → `[check_guardrails] FAIL … milestones/g1/G1_CONTRACT.md: 已关闭契约的既有内容被修改` 红 → `git restore` 复原 → `PASS`。证明泛化 glob 已把 `G1_CONTRACT.md` 纳入已关闭契约字节守卫。
+
+**(f) device-real 回归**：Compute Sanitizer racecheck+memcheck nightly（AsyncBuffer CUDA.jl #780 事故类 + G1.1 interop 写路径 + G1.5 fatbin 装载路径）+ 四 device smoke 由 §8.1~8.3 子里程碑既有绿覆盖（evidence/*_smoke.json + compute_sanitizer_*）。GitHub Actions 全量 smoke run URL 待自托管 `rurix-dev-4070ti` 上线回填（PR #77 smoke，对齐 G1.1~G1.5 runner-offline 回填先例）。
+
+**判定（owner 白栀 签署）**：**G1 期正式关闭（`closed`）**。MVP 后图形路线第二阶段（CUDA–D3D12 interop / 实时呈现 / 流序分配 AsyncBuffer / 首个引擎集成 / 开源社区基建 / 生产分发 fatbin）验收终审完成。后续 G2（原生 D3D12 + DXIL 第二后端 D-131 / 多后端 D-008 / 真 registry sumdb D-312 / VMM·多 GPU / 高级 intrinsics）启动与范围由 owner 另行裁定，本签署不启动 G2。
+
+— 签署人：**白栀 / owner**（2026-06-22）
