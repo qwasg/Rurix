@@ -153,3 +153,6 @@
 | RXS-0147 | spec/async_buffer.md | 1 | `src/rurix-rt/src/pipeline.rs` |
 | RXS-0148 | spec/async_buffer.md | 1 | `src/rurix-rt/src/pipeline.rs` |
 | RXS-0149 | spec/engine_integration.md | 1 | `src/rurix-engine/src/lib.rs` |
+| RXS-0150 | spec/release.md | 1 | `src/rurix-rt/src/fatbin.rs` |
+| RXS-0151 | spec/release.md | 1 | `src/rurix-rt/src/fatbin.rs` |
+| RXS-0152 | spec/release.md | 1 | `src/rurix-pkg/src/lock.rs` |
