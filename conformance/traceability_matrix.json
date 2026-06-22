@@ -758,19 +758,23 @@
     "RXS-0110": [
       "conformance/stdlib/device/geom_scalar.rx",
       "conformance/stdlib/host/geom_ops.rx",
-      "conformance/stdlib/reject/geom_type_confusion/basic.rx"
+      "conformance/stdlib/reject/geom_type_confusion/basic.rx",
+      "src/rurix-geometry/src/lib.rs"
     ],
     "RXS-0111": [
       "conformance/stdlib/device/geom_scalar.rx",
-      "conformance/stdlib/host/geom_ops.rx"
+      "conformance/stdlib/host/geom_ops.rx",
+      "src/rurix-geometry/src/lib.rs"
     ],
     "RXS-0112": [
       "conformance/stdlib/device/geom_scalar.rx",
-      "conformance/stdlib/host/geom_ops.rx"
+      "conformance/stdlib/host/geom_ops.rx",
+      "src/rurix-geometry/src/lib.rs"
     ],
     "RXS-0113": [
       "conformance/stdlib/device/geom_scalar.rx",
-      "conformance/stdlib/host/geom_ops.rx"
+      "conformance/stdlib/host/geom_ops.rx",
+      "src/rurix-geometry/src/lib.rs"
     ],
     "RXS-0114": [
       "src/image-io/src/lib.rs"
