@@ -1,0 +1,5 @@
+//@ spec: RXS-0156
+fragment fn fs_main() -> Texture2D<f32> { //~ ERROR RX3013
+}
+
+fn main() {}

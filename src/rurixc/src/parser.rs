@@ -415,12 +415,48 @@ impl<'a> Parser<'a> {
                 self.bump();
                 ItemKind::ExternBlock(self.parse_extern_block())
             }
+            // 着色阶段前缀式 `<stage> fn`(RXS-0153,RFC-0002 §9 Q1;cargo feature
+            // `shader-stages`)。着色阶段名是上下文关键字(词法层按标识符产出),仅在
+            // item 起始位置且其后紧跟 `fn` 时识别为着色阶段;着色取 kernel(入口着色),
+            // `stage` 标记记录阶段类别供类型面检查(crate::shader_stages)。
+            #[cfg(feature = "shader-stages")]
+            Tk::Ident if self.shader_stage_ahead().is_some() => {
+                let stage = self.shader_stage_ahead().unwrap();
+                self.bump(); // <stage> 上下文关键字
+                self.expect(Tk::Kw(Kw::Fn), "`fn`");
+                let mut f = self.parse_fn(FnColor::Kernel, FnCtx::Free);
+                f.stage = Some(stage);
+                ItemKind::Fn(f)
+            }
             _ => {
                 self.error_expected("an item");
                 self.recover_to_sync();
                 ItemKind::Err
             }
         }
+    }
+
+    /// 着色阶段前缀关键字前瞻(RXS-0153,cargo feature `shader-stages`):当前 token
+    /// 是着色阶段名(上下文关键字)且其后紧跟 `fn` 时返回阶段类别,否则 `None`
+    /// (按普通标识符路径处理)。前缀式 `<stage> fn` 与 `kernel fn` 平行(Q1)。
+    #[cfg(feature = "shader-stages")]
+    fn shader_stage_ahead(&self) -> Option<crate::ast::ShaderStage> {
+        use crate::ast::ShaderStage::*;
+        if self.kind() != Tk::Ident || self.nth_kind(1) != Tk::Kw(Kw::Fn) {
+            return None;
+        }
+        Some(match self.cur_text() {
+            "vertex" => Vertex,
+            "fragment" => Fragment,
+            "compute" => Compute,
+            "mesh" => Mesh,
+            "task" => Task,
+            "raygen" => RayGen,
+            "closesthit" => ClosestHit,
+            "anyhit" => AnyHit,
+            "miss" => Miss,
+            _ => return None,
+        })
     }
 
     fn parse_visibility(&mut self) -> Visibility {
@@ -558,6 +594,7 @@ impl<'a> Parser<'a> {
         };
         FnItem {
             color,
+            stage: None,
             name,
             generics,
             params,

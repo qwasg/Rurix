@@ -10,5 +10,13 @@ license.workspace = true
 # M1.1 起消息表为自有行格式;M6.4 RD-004 接通 rowan 式无损语法树(07 §9)
 rowan = "0.15.1"
 
+[features]
+# G2.1 着色阶段类型面(RFC-0002 §6;RXS-0153~0156)。默认启用以使标准
+# `cargo build/test -p rurixc` 覆盖着色阶段前端;`--no-default-features` 时着色阶段
+# 语法/类型面不参与编译(parser 不识别 `<stage> fn` 前缀关键字,着色阶段检查与
+# 错误码 RX3011~3013 不可达)。
+default = ["shader-stages"]
+shader-stages = []
+
 [lints]
 workspace = true

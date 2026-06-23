@@ -527,6 +527,10 @@ pub struct SelfKind {
 #[derive(Debug)]
 pub struct FnDecl {
     pub color: FnColor,
+    /// 着色阶段标记(RXS-0153);`None` = 普通函数。着色阶段函数 `color` 取
+    /// [`FnColor::Kernel`],`stage` 记录阶段类别——device codegen 收集排除着色阶段
+    /// 根(本 PR 仅类型面),着色阶段类型面检查在 AST 层(crate::shader_stages)。
+    pub stage: Option<crate::ast::ShaderStage>,
     /// 泛型参数名(序号即 `Res::GenericParam` 索引)。
     pub generic_params: Vec<String>,
     pub params: Vec<Param>,

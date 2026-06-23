@@ -33,6 +33,8 @@ pub mod ptxas;
 pub mod query;
 pub mod render;
 pub mod resolve;
+#[cfg(feature = "shader-stages")]
+pub mod shader_stages;
 pub mod shared_check;
 pub mod source_map;
 pub mod span;

@@ -129,6 +129,10 @@ pub fn compile(opts: &CompileOptions) -> u8 {
                 cx.check_coloring();
                 // launch 类型契约(M4.3,RXS-0074/0075):同着色层(typeck 后、MIR 前)
                 cx.check_launch();
+                // 着色阶段类型面(G2.1,RXS-0153~0156):AST 层,cargo feature
+                // `shader-stages`;着色阶段误用 / 阶段间接口 / 资源句柄 100% 编译期拦截
+                // (RX3011~3013;直接调用着色阶段入口复用 RX3001,经 check_coloring)
+                cx.check_shader_stages();
                 // 模式穷尽性(RXS-0051):TBIR 窄门时点(typeck 后、MIR 前),
                 // 全 body 覆盖(含 MIR 可达性外的 body)
                 cx.check_crate_patterns();

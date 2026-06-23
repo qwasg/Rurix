@@ -87,10 +87,14 @@ pub fn build_device_crate(cx: &QueryCtx<'_>) -> Vec<Body> {
     let mut out = Vec::new();
     let mut visited: HashSet<String> = HashSet::new();
     let mut worklist: Vec<(DefId, Vec<Ty>)> = Vec::new();
-    // 根 = 全部 `kernel fn`(有 body、无泛型参数;泛型 kernel 随单态化扩展 M4+)
+    // 根 = 全部 `kernel fn`(有 body、无泛型参数;泛型 kernel 随单态化扩展 M4+)。
+    // 着色阶段函数(`decl.stage.is_some()`)虽取 kernel 着色,但本里程碑仅类型面,
+    // 不进 device codegen 收集根(DXIL codegen 属 G2.2,RFC-0002 §8;PTX 后端不收集
+    // 图形/RT 着色阶段)。
     for item in &krate.items {
         if let hir::ItemKind::Fn(decl) = &item.kind
             && decl.color == crate::ast::FnColor::Kernel
+            && decl.stage.is_none()
             && decl.body.is_some()
             && decl.generic_params.is_empty()
             && visited.insert(mangle(&item.name, item.def_id, &[]))
