@@ -5,14 +5,14 @@
 | RFC 编号 | RFC-0002（4 位制，编号永不复用，10 §9.5） |
 | 标题 | 着色阶段进语言的类型面（vertex/fragment/compute/mesh/task/RT 作为 kernel 着色扩展） |
 | 档位 | **Full RFC**（10 §3：新语法 + 类型系统扩张；触及 AGENTS 硬规则 5 禁区边界——纹理路径内存模型映射 06 §4.2 标 🔒 不落笔） |
-| 状态 | **Draft** — owner 人工批准前不得推进下游 spec/实现 PR（硬规则 1，AI 不代签 RFC 批准/合并） |
+| 状态 | **Owner Approved（2026-06-23）** — owner 已在本工作会话明确裁决 §9 Q1~Q6 与 §4.5 🔒 边界处置；批准记录由 AI 代录，**不是 AI 代签或自行裁决**（硬规则 1）。下游 spec/实现 PR 仍须按硬规则 7 序进（spec 先于实现）；FCP-lite 额外评审/等待窗若适用，仍按 10 §2.2/§5 独立完成 |
 | 承接里程碑 | G2.1（验收门 **G-G2-1**），G2 首子里程碑 |
-| 关联条款 | 拟落 spec **RXS-0153~**（区间随条款数定，见 §5；当前最高现存 RXS-0152 @ release.md）；拟新建 `spec/shader_stages.md` |
+| 关联条款 | 拟落 spec **RXS-0153~RXS-0156**（4 条，已锁定，见 §5/§9 Q5；当前最高现存 RXS-0152 @ release.md）；拟新建 `spec/shader_stages.md` |
 | 依据决策 | D-002（图形分期，已批准）· 06 §8.2（着色阶段 = kernel 着色扩展，设计预留）· 06 §4.2（纹理路径内存模型禁区，🔒）· 05 §1（device⊂host 单向可达）· 05 §2.2（trait 单态化子集 D-104） |
-| Provenance | `Assisted-by: claude-code:claude-opus-4-8`。Human-in-the-loop（硬规则 1/2）：owner 批准前不推进下游实现；本草案由 AI 起草，禁区子节仅占位不落笔 |
-| Owner 批准 | 〈待 owner 签署 — 占位〉 |
+| Provenance | `Assisted-by: claude-code:claude-opus-4-8`。Human-in-the-loop（硬规则 1/2）：本草案由 AI 起草，禁区子节仅占位不落笔；owner 于 **2026-06-23** 在本工作会话明确裁决 §9 Q1~Q6 与 §4.5 边界处置，AI 仅代录该 owner 决定，不以 AI 身份署名或代签 |
+| Owner 批准 | **Approved — 2026-06-23**。批准范围：RFC 全文，特别包括 §9 Q1~Q6 裁决与 §4.5 🔒 禁区边界处置（维持占位，纹理内存模型映射留后续独立 Full RFC）。记录方式：owner 在工作会话中直接裁决，由 AI 写回仓库（代录，非代签） |
 
-> **批准记录占位**：本 RFC §4.5 标 🔒 的纹理/采样器内存模型映射边界属仅 owner 经 Full RFC 落笔的禁区（06 §4.2）。本草案**不写禁区内容**，仅陈述边界与留占位「〈待 owner 后续 Full RFC〉」。状态维持 Draft，owner 经 FCP-lite 批准前不推进下游。
+> **批准记录**：本 RFC §4.5 标 🔒 的纹理/采样器内存模型映射边界属仅 owner 经 Full RFC 落笔的禁区（06 §4.2）。owner 已于 2026-06-23 批准本 RFC 并裁决 §4.5 **维持边界声明 + 占位「〈待 owner 后续 Full RFC〉」**——纹理内存模型映射条款留后续独立 Full RFC，不在本 RFC 落笔。本 RFC 仅定义类型面（§4.4），状态翻为 Owner Approved；下游 spec/实现 PR 仍按硬规则 7 序进，FCP-lite 额外评审/等待窗若适用按治理规则独立完成。
 
 ---
 
@@ -142,13 +142,13 @@ fragment fn fs_textured(
 
 本 RFC **明确不定义**上述任何内存模型语义，仅在 §4.4 定义纹理/采样器的**类型形态（type-level shape）**。内存模型映射条款留后续 Full RFC：
 
-〈待 owner 后续 Full RFC〉
+〈待 owner 后续 Full RFC〉 — owner 于 2026-06-23 批准本 RFC 时裁决 §4.5 **维持占位**（§9 Q6）：纹理内存模型映射属独立未来 Full RFC，不在本 RFC 落笔。
 
 本边界与 §8 范围红线一致：本 RFC 的 `Texture2D<F>` / `Sampler` 是**类型面参数化形态**，不承诺任何采样语义、内存序或一致性保证。
 
 ## 5. 下游 spec 条款映射（spec diff，10 §3 要件）
 
-拟新建 `spec/shader_stages.md`，自 **RXS-0153** 起续号（当前最高现存 RXS-0152 @ release.md）。拟约 5–8 条（区间随最终条款数定，见 §9 Q5）。下表为**拟定**条款与测试锚定计划，**本会话不创建 `### RXS-0153` 等裸条款头**（条款体随 owner 批准后的 spec 脚手架/实现 PR 同落，trace 维持 152/152）：
+拟新建 `spec/shader_stages.md`，自 **RXS-0153** 起续号（当前最高现存 RXS-0152 @ release.md）。**区间已锁定 4 条 `RXS-0153~RXS-0156`**（owner 2026-06-23 裁决，§9 Q5）。下表为条款与测试锚定计划，**本会话不创建 `### RXS-0153` 等裸条款头**（条款体随 owner 批准后的 spec 脚手架/实现 PR 同落，trace 维持 152/152）：
 
 | 条款（拟） | 标题 | 测试锚定计划（每条 ≥1，`//@ spec: RXS-####`） |
 |---|---|---|
@@ -157,7 +157,7 @@ fragment fn fs_textured(
 | RXS-0155 | 阶段间接口类型契约（vertex out → fragment in 兼容性编译期校验） | conformance reject（接口类型不匹配）+ accept（兼容接口）+ UI golden |
 | RXS-0156 | 资源句柄 / 纹理采样器参数化类型的类型面（`Texture2D<F>` / `Sampler` 类型形态，平行 `View<space,T>`） | conformance accept（合法句柄签名）+ reject（句柄违例 / 非法位置）+ UI golden |
 
-> 上表条款数与区间为拟议；网格/RT 阶段间接口（payload/attribute）是否单列条款、纹理类型集合粒度等随 §9 裁决可能拆并为 5–8 条。区间最终值在 owner 批准时锁定。
+> 区间已锁定为 4 条 `RXS-0153~RXS-0156`（§9 Q5，owner 2026-06-23）：网格/RT 阶段间接口（payload/attribute）并入 RXS-0155、纹理类型集合并入 RXS-0156，本里程碑不拆条。
 
 - **错误码策略**：着色阶段误用 / 阶段间接口不匹配 / 资源句柄违例 = **Rurix 语义诊断**（编译期可检的着色/接口/句柄合法性，对齐 RXS-0066 着色诊断先例），归 **3xxx 着色/地址空间段位续号**（07 §5 语义分配；当前该段末号 **RX3010**，下一可用 **RX3011+**——**非全局 RX7020**，7xxx 为运行期/互操作段）。纯 Rust 通用错误（类型不符等）走 rustc 原生诊断（零新 RX）。**不预留、不预造**：RX3011+ 随实现 PR 按真实可达类别只追加分配 + en/zh message-key（`registry/error_codes.json` 只追加，`ci/bilingual_coverage.py` 覆盖）。
 - spec 条款 PR 先于实现 PR（硬规则 7）；trace_matrix 维持全锚定（沿用全局 `m1.counter.spec_clause_test_anchoring`，不另立 g2 counter，对齐 G-G1-6）。
@@ -192,19 +192,21 @@ fragment fn fs_textured(
 - **多后端**（AMD/Intel/Metal/Vulkan/SPIR-V）：死亡路线红线 3（D-008 维持不解除，SG-003 not_triggered）；DXIL 是 D3D12 原生路径，非通用多后端。
 - **多 GPU / VMM / NVLink / MIG**（A-06 单机单 GPU 语义边界）：不在本 RFC。
 
-## 9. 未决问题 / 关键裁决（留 owner，签署后回填）
+## 9. Q1~Q6 裁决结果（owner 2026-06-23 批准，AI 代录）
 
-- **Q1 着色阶段集合与关键字形态**：vertex/fragment/compute/mesh/task + RT raygen/closesthit/anyhit/miss 的关键字拼写、是否 `<stage> fn` 前缀式（vs 属性式 `#[stage(vertex)] fn`），compute 阶段与既有 `kernel` 着色的关系（D3D12 语境 compute 是否复用 kernel 还是独立）。
-- **Q2 阶段 I/O 标注形态**：插值限定与内建变量用属性式（`#[interpolate(..)]` / `#[builtin(..)]`）还是 type-level 包裹类型；普通无标注字段的处置（拒绝 / 默认插值）。
-- **Q3 阶段调用 / 分发 API**：扩展 `launch`（RXS-0074）还是新 `dispatch` / 管线对象入口；阶段进入点的 host 侧类型契约（本 RFC 仅类型面，分发运行期面是否本 RFC 触及边界）。
-- **Q4 纹理采样器类型与 View 的关系**：`Texture2D<F>` 是否完全平行 `View<space,T>`（地址空间参数化？子 view 算子？）；纹理维度类型集合（`Texture1D/2D/3D/Cube/Array` 哪些进首批）；`Sampler` 是否参数化。
-- **Q5 RXS 区间大小**：拟落条款数（5–8 条），网格/RT 阶段间接口是否单列、纹理类型集合粒度是否拆条，最终锁定 RXS-0153~RXS-015x 区间。
-- **Q6 禁区 §4.5 文本**：纹理/采样器内存模型映射边界文本由 owner 落笔（本 RFC 仅占位）。
+> owner 于 2026-06-23 在本工作会话明确裁决以下 Q1~Q6；AI 仅将该人工决定写回文档（代录），不自行裁决或代签（硬规则 1）。技术细节随 owner 批准后的 spec 脚手架/实现 PR 落条款体（trace 维持 152/152）。
+
+- **Q1 着色阶段集合与关键字形态**：采用**前缀式 `<stage> fn`**——`vertex` / `fragment` / `compute` / `mesh` / `task` fn + RT `raygen` / `closesthit` / `anyhit` / `miss` fn，与现状 `kernel fn` 平行（对齐 §3 示例）；否决属性式 `#[stage(..)] fn`。**compute 阶段（D3D12 语境）复用既有 `kernel` 着色**，不另立独立 coloring。
+- **Q2 阶段 I/O 标注形态**：插值限定与内建变量用**属性式标注** `#[interpolate(..)]` / `#[builtin(..)]`（对齐 §3/§4.2 示例）；否决 type-level 包裹类型。普通**无标注字段 = 编译期拒绝**（P-01 strict-only，不默认插值、不静默放行）。
+- **Q3 阶段调用 / 分发 API**：本 RFC **仅定义类型面**；阶段进入/分发的运行期面（扩展 `launch`/RXS-0074 vs 新 `dispatch`/管线对象入口）**明确不在本 RFC**，作 tracking 项留后续 spec/实现 PR 裁决（§6 tracking 清单维护）。
+- **Q4 纹理采样器类型与 View 的关系**：`Texture2D<F>` / `Sampler` 与 `View<space,T>` **平行但不强制完全同构**——地址空间参数化、子 view 算子是否适用按需，不预先承诺。**首批仅 `Texture2D<F>` + `Sampler`**；其余纹理维度（`Texture1D` / `Texture3D` / `TextureCube` / `Array`）**defer** 后续。内存模型语义一律不在本 RFC（§4.5 🔒）。
+- **Q5 RXS 区间大小**：**锁定 4 条 `RXS-0153~RXS-0156`**（§5 表为准）。网格（`task`→`mesh`→`fragment`）与 RT（payload/attribute）阶段间接口**并入 RXS-0155**，纹理类型集合**并入 RXS-0156**，本里程碑**不拆条**。区间不预留、不预造；条款体随 owner 批准后的 spec 脚手架/实现 PR 同落（trace 维持 152/152）。
+- **Q6 禁区 §4.5 文本**：**维持占位「〈待 owner 后续 Full RFC〉」**。纹理/采样器内存模型映射（tex proxy / 采样 opcode / 描述符编码 / 缓存一致性 / UB）= 06 §4.2 禁区，属**独立未来 Full RFC**（纹理路径 G2 引入时再扩展），本 RFC 不落笔，仅在 §4.5 作边界声明。
 
 ## 10. 稳定化与 provenance
 
 - **稳定化**（10 §5）：`shader-stages` feature gate 后 → tracking → 两里程碑无重大修订 → stabilization report → FCP-lite（10 §2.2，≥2/3 同意含语言负责人 + 5–7 天公开等待窗）。stable 面冻结随 **RD-008** 届时定义（G2.5 语言 1.0 为候选触发点）；本 RFC 引入的着色阶段类型面在首个 stable 发布前不进 stable 面。
-- **Provenance**：`Assisted-by: claude-code:claude-opus-4-8`。本草案由 AI 起草；§4.5 🔒 禁区不落笔、§9 未决问题留 owner。**owner 批准记录由 AI 代录，非 AI 代签 / 自行裁决**（硬规则 1）；owner 经 FCP-lite 批准前不推进下游 spec/实现 PR。
+- **Provenance**：`Assisted-by: claude-code:claude-opus-4-8`。本草案由 AI 起草；§4.5 🔒 禁区维持占位不落笔。owner 于 **2026-06-23** 在本工作会话明确裁决 §9 Q1~Q6 并授权记录批准；**该决定由 AI 代录，非 AI 代签 / 自行裁决**（硬规则 1）。技术问题已收敛为 §9 裁决；FCP-lite 额外评审/等待窗若适用，仍按 10 §2.2/§5 独立完成，本记录不虚构尚不存在的第二位评审。下游 spec/实现 PR 按硬规则 7 序进（spec 先于实现）。
 
 ## 11. 规范与实现依据
 
@@ -222,4 +224,4 @@ fragment fn fs_textured(
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
 | Draft v0.1 | 2026-06-23 | AI 起草初版（着色阶段语言类型面：§4.1 函数着色扩展 / §4.2 阶段 I/O 语义类型 / §4.3 阶段间接口契约 / §4.4 资源句柄·纹理采样器参数化类型面 / §4.5 🔒 纹理内存模型禁区边界占位 + §5 下游 spec 条款映射 RXS-0153~ + 错误码 RX3011+ 策略 + §6 feature gate `shader-stages`/实现序/真实红绿计划 + §7 备选 + §8 范围红线 + §9 Q1~Q6 未决留 owner + §10 稳定化 + §11 依据）。**待 owner 人工批准（FCP-lite），AI 不代签 / 不推进下游；§4.5 禁区文本与 §9 未决由 owner 落笔/裁决** | Full RFC（Draft） |
-| Owner approval | YYYY-MM-DD | 〈owner 人工批准全文（含 §4.5 🔒 禁区边界与 §9 Q1~Q6 裁决）并授权记录；AI 代录不代签〉 | Full RFC（Owner Approved） |
+| Owner approval | 2026-06-23 | owner 在本工作会话明确裁决 §9 Q1~Q6（Q1 前缀式 `<stage> fn` + compute 复用 kernel / Q2 属性式标注 + 无标注字段编译期拒绝 / Q3 仅类型面·分发面留 spec/impl PR / Q4 纹理平行 View 不强制同构·首批 `Texture2D<F>`+`Sampler` / **Q5 锁定 4 条 RXS-0153~0156** / Q6 §4.5 维持占位）并授权记录批准；AI 仅将该人工决定写回文档（代录），不代签。状态翻 Owner Approved。FCP-lite 额外评审/等待窗若适用按 10 §2.2/§5 独立完成 | Full RFC（Owner Approved） |
