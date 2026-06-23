@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "namespace": "g2",
+  "description": "G2 预算(14 §3:entries + ratio_assertions + counter_assertions,命名空间强制前缀)。G2 开工脚手架:entries/ratio_assertions/counter_assertions 全部留空。entries/ratio_assertions 留空 = 不预欠 estimated 占位(延续 MVP 零占位纪律,14 §3)。counter_assertions 留空 = 首子里程碑(G2.1 着色阶段类型面条款先行,owner 经 AskUserQuestion 裁定)为 spec-first 里程碑,验收走既有全局 m1.counter.spec_clause_test_anchoring 断言(RXS 条款 ≥1 测试锚定),无 device 证据 counter;且 G2 各 in_scope 实体项(DXIL codegen / 着色阶段 / 绑定推导 / UC-04)均 Full-RFC-gated,deliverable 形态未定,预造 counter 即预设 Full RFC 应定义的语义,违 AGENTS 硬规则脚手架不预造 counter 纪律(与 G1 不同:G1 的 counter 对应已锁定决策的 deliverable)。device 证据 counter(g2.counter.*)随首个需 device 证据的 g2.x 实现 PR 落地 + 配套 ci/budget_eval.py evaluator 分支(条款先于实现,对齐 M4~G1 counter 先例)。性能门(若有)g2.bench.*/g2.ratio.* 随各 g2.x 实测 measured_local 回填。占位规则:evidence=estimated 时 evaluator skip 并输出 skip_reason;占位存活 ≤2 个里程碑。",
+  "source_docs": [
+    "14 §3",
+    "11 §5",
+    "milestones/g2/G2_CONTRACT.md",
+    "milestones/g2/CI_GATES.md",
+    "milestones/m0/BENCH_PROTOCOL.md"
+  ],
+  "entries": [],
+  "ratio_assertions": [],
+  "counter_assertions": [],
+  "namespace_check": {
+    "rule": "本文件所有 id 必须以 'g2.' 前缀开头;多预算合并加载时冲突即 FAIL(14 §3)。预算自动发现 glob 已于 G1 经 m*_budget.json → *_budget.json 泛化纳入 g2(ci/check_schemas.py / budget_eval.py / check_guardrails.py / tests/test_budget_namespace.py 同一 glob)。",
+    "unit_test_required": true
+  },
+  "revision_log": [
+    {
+      "version": "v1.0",
+      "date": "2026-06-23",
+      "change": "初版模板(G2 开工脚手架):entries/ratio_assertions/counter_assertions 全部留空。entries/ratio_assertions 留空(不预欠 estimated 占位);counter_assertions 留空(首子里程碑 G2.1 着色阶段条款先行为 spec-first,验收走既有全局 m1.counter.spec_clause_test_anchoring 断言,无 device 证据 counter;G2 各 in_scope 实体均 Full-RFC-gated,不预造 counter)。g2.counter.* / g2.bench.* / g2.ratio.* 随各 g2.x 实现/实测回填 + 配套 ci/budget_eval.py evaluator 分支(条款先于实现)。预算 glob 已于 G1 泛化为 *_budget.json,自动纳入 g2,无新 CI 代码改动。"
+    }
+  ]
+}
