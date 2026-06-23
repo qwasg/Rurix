@@ -156,3 +156,7 @@
 | RXS-0150 | spec/release.md | 1 | `src/rurix-rt/src/fatbin.rs` |
 | RXS-0151 | spec/release.md | 1 | `src/rurix-rt/src/fatbin.rs` |
 | RXS-0152 | spec/release.md | 1 | `src/rurix-pkg/src/lock.rs` |
+| RXS-0153 | spec/shader_stages.md | 4 | `conformance/shader/accept/basic_stages.rx`, `conformance/shader/reject/stage_misuse/direct_call.rx`, `src/rurixc/src/shader_stages.rs` …(+1) |
+| RXS-0154 | spec/shader_stages.md | 4 | `conformance/shader/accept/basic_stages.rx`, `conformance/shader/reject/io_annotation/unannotated_field.rx`, `src/rurixc/src/shader_stages.rs` …(+1) |
+| RXS-0155 | spec/shader_stages.md | 4 | `conformance/shader/accept/basic_stages.rx`, `conformance/shader/reject/interface_mismatch/vs_fs_mismatch.rx`, `src/rurixc/src/shader_stages.rs` …(+1) |
+| RXS-0156 | spec/shader_stages.md | 4 | `conformance/shader/accept/basic_stages.rx`, `conformance/shader/reject/resource_handle/handle_return.rx`, `src/rurixc/src/shader_stages.rs` …(+1) |

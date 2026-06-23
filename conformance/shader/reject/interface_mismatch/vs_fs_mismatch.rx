@@ -1,0 +1,22 @@
+//@ spec: RXS-0155
+//@ expect-error: RX3012
+// 阶段间接口类型契约:fragment 输入 varying 须与上游 vertex 输出兼容(名 + 类型 +
+// 插值限定);`FsIn.color` 在 vertex 输出 `VsOut` 无对应 varying → 接口不匹配 RX3012。
+struct VsOut {
+    #[builtin(position)] pos: f32,
+    #[interpolate(perspective)] uv: f32,
+}
+
+struct FsIn {
+    #[interpolate(perspective)] color: f32,
+}
+
+vertex fn vs_main() -> VsOut {
+    VsOut { pos: 0.0, uv: 0.0 }
+}
+
+fragment fn fs_main(inp: FsIn) -> VsOut {
+    VsOut { pos: 0.0, uv: 0.0 }
+}
+
+fn main() {}

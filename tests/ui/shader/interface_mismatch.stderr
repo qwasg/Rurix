@@ -1,0 +1,5 @@
+error[RX3012]: shader stage interface mismatch: fragment input varying `color: f32` (#[interpolate(perspective)]) has no compatible upstream vertex output varying
+  --> $DIR/shader/interface_mismatch.rx:15:26
+   |
+15 | fragment fn fs_main(inp: FsIn) -> VsOut { //~ ERROR RX3012
+   |                          ^^^^ incompatible fragment stage input interface

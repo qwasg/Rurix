@@ -1,0 +1,6 @@
+//@ spec: RXS-0153
+vertex fn vs_main() {}
+
+fn main() {
+    vs_main(); //~ ERROR RX3001
+}

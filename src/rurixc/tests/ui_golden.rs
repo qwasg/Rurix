@@ -112,6 +112,11 @@ fn run_case(path: &Path, src: &str) -> CaseResult {
             if !diag.has_errors() {
                 cx.check_launch();
             }
+            // 着色阶段类型面(G2.1,RX3011~3013,RXS-0153~0156):AST 层,cargo
+            // feature `shader-stages`(直接调用着色阶段入口复用 RX3001,经 coloring)
+            if !diag.has_errors() {
+                cx.check_shader_stages();
+            }
             if !diag.has_errors() {
                 cx.check_crate_patterns();
                 // const 求值(M3.4,5xxx,typeck 后、MIR 前)

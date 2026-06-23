@@ -84,6 +84,11 @@ shared.barrier_consistency = cannot prove shared write/read is synchronized by a
 # scoped atomics 诊断(RX3010,spec/device.md RXS-0080;M5.2 分配)
 atomics.scope_misuse = scoped atomic scope misuse: {detail}
 #
+# 着色阶段类型面诊断(RX3011 ~ RX3013,spec/shader_stages.md RXS-0154~0156;G2.1 分配)
+shader.stage_io_invalid = invalid shader stage I/O field: {detail}
+shader.stage_interface_mismatch = shader stage interface mismatch: {detail}
+shader.resource_handle_invalid = invalid shader resource handle: {detail}
+#
 # libdevice 链接 / device 数学 intrinsic 诊断(RX6006 / RX7002,spec/device.md RXS-0081~0082;M5.3 分配)
 codegen.device_math_unsupported = {detail} is not a supported device math intrinsic (outside libdevice coverage or unsupported element type)
 link.libdevice_failure = libdevice link failure: {reason}

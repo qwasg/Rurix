@@ -85,6 +85,11 @@ shared.barrier_consistency = 无法证明 shared 读写已由 block barrier 同�
 # scoped atomics 诊断(RX3010,spec/device.md RXS-0080;M5.2 分配)
 atomics.scope_misuse = scoped atomic 的 scope 误用:{detail}
 #
+# 着色阶段类型面诊断(RX3011 ~ RX3013,spec/shader_stages.md RXS-0154~0156;G2.1 分配)
+shader.stage_io_invalid = 非法的着色阶段 I/O 字段:{detail}
+shader.stage_interface_mismatch = 阶段间接口不匹配:{detail}
+shader.resource_handle_invalid = 非法的着色资源句柄:{detail}
+#
 # libdevice 链接 / device 数学 intrinsic 诊断(RX6006 / RX7002,spec/device.md RXS-0081~0082;M5.3 分配)
 codegen.device_math_unsupported = {detail} 不是受支持的 device 数学 intrinsic(超出 libdevice 覆盖范围或元素类型不受支持)
 link.libdevice_failure = libdevice 链接失败:{reason}

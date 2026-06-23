@@ -274,6 +274,16 @@ impl<'a> QueryCtx<'a> {
         crate::launch_check::check_crate(self);
     }
 
+    /// 着色阶段类型面检查(RXS-0153~0156;AST 层,cargo feature `shader-stages`;
+    /// provider:[`crate::shader_stages::check`])。着色阶段误用 / 阶段间接口不匹配 /
+    /// 资源句柄违例 100% 编译期拦截(RX3011~3013;直接调用着色阶段入口复用 RX3001,
+    /// 经 [`Self::check_coloring`])。feature 未启用时为 no-op(着色阶段语法/类型面
+    /// 不参与编译,RFC-0002 §6)。
+    pub fn check_shader_stages(&self) {
+        #[cfg(feature = "shader-stages")]
+        crate::shader_stages::check(self.ast(), self.diag);
+    }
+
     /// views 不相交检查(RXS-0078;device 借用扩展 pass,HIR 层,host 借用检查
     /// 之后、device codegen 之前;provider:[`crate::views_check::check_crate`])。
     /// 仅 device 上下文 body 实施;memo 防重复诊断。

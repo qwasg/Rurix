@@ -231,6 +231,18 @@ jobs:
           RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/fatbin_dist_smoke.py
 
+      # 步骤 45（G-G2-1，RFC-0002 / RXS-0153~0156，**纯 host/CPU-only，check_* 守卫风格**）：
+      # 着色阶段条款 / 类型面拦截冒烟。经 rurixc 前端(cargo feature `shader-stages`,默认启用)
+      # 用 `rurixc --emit=check` 对临时 .rx 做真实红绿:green = 合法着色阶段声明 + 阶段专属 I/O
+      # 标注(#[interpolate]/#[builtin]) + 共享接口 + Texture2D/Sampler 作 fragment 形参 → 0 诊断;
+      # red = 直接调用着色阶段入口(RX3001 复用)/ 无标注 I/O 字段(RX3011)/ 阶段间接口不匹配
+      # (RX3012)/ 资源句柄违例(RX3013)→ 退出非零且含对应错误码。内置 red 自检(green 样例注入
+      # 无标注字段 → 翻红 RX3011,反 YAML-only)。着色阶段类型面为编译期(无 device/GPU);DXIL
+      # codegen(G2.2)/ 绑定布局推导(G2.3)/ 🔒 纹理内存模型映射(06 §4.2 禁区)不在本 PR。失败即红。
+      - name: shader stage clause / type-face interception smoke (G2 CI_GATES §2.45, G-G2-1, RFC-0002)
+        shell: powershell
+        run: py -3 ci/shader_stages_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

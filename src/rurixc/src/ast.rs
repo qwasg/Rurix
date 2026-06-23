@@ -185,9 +185,33 @@ pub enum FnColor {
     Const,
 }
 
+/// 着色阶段类别(RXS-0153,spec/shader_stages.md;RFC-0002 §9 Q1 前缀式
+/// `<stage> fn`)。着色阶段是 kernel 着色的扩展(新 coloring 类别):它们与
+/// `kernel fn` 同享"非直接可调用入口 + 设备上下文体"的着色语义(着色检查复用
+/// kernel 规则,见 [`crate::coloring`]),`compute` 阶段在 D3D12 语境直接复用既有
+/// kernel 着色(Q1)。`stage` 标记仅用于着色阶段专属类型面检查
+/// (I/O 标注 / 阶段间接口 / 资源句柄,见 `crate::shader_stages`)与 device codegen
+/// 收集排除(本 PR 仅类型面,着色阶段不进 PTX 收集根)。
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ShaderStage {
+    Vertex,
+    Fragment,
+    Compute,
+    Mesh,
+    Task,
+    RayGen,
+    ClosestHit,
+    AnyHit,
+    Miss,
+}
+
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct FnItem {
     pub color: FnColor,
+    /// 着色阶段标记(RXS-0153);`None` = 普通 host/kernel/device/const 函数。
+    /// 着色阶段函数的 `color` 取 [`FnColor::Kernel`](入口着色语义),`stage`
+    /// 记录具体阶段类别供着色阶段类型面检查消费(RFC-0002 §9 Q1)。
+    pub stage: Option<ShaderStage>,
     pub name: Ident,
     pub generics: Generics,
     pub params: Vec<Param>,
