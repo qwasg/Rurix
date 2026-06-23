@@ -44,7 +44,7 @@
 | D-122 | 流序分配类型（AsyncBuffer）推迟到 G1 | 经典路径先做对；CUDA.jl #780 混用事故复杂度实证 | [06](06_GPU_GRAPHICS_PROGRAMMING_MODEL.md) §3 |
 | D-123 | 同步三层：结构化 safe / scoped atomics safe / 弱序 unsafe；映射条款锚定 morally strong | r5 核心结论：必须显式设计源语言→PTX scope/order 映射层 | [06](06_GPU_GRAPHICS_PROGRAMMING_MODEL.md) §4 |
 | D-130 | G1 interop 走 D3D12 external memory/semaphore | Windows-first 自洽；Vulkan 驱动黑洞实证（H04 §2.3） | [06](06_GPU_GRAPHICS_PROGRAMMING_MODEL.md) §8.1 |
-| D-131 | G2 DXIL 生成路径（LLVM DirectX 后端 vs SPIR-V 转译） | **待决**（G2 启动时按当时后端成熟度评估，所有者批准） | [06](06_GPU_GRAPHICS_PROGRAMMING_MODEL.md) §8.2 |
+| D-131 | G2 DXIL 生成路径（LLVM DirectX 后端 vs SPIR-V→DXIL 转译） | **待决**（G2.2 重评估已裁 [RFC-0003](rfcs/0003-dxil-backend.md) §9 Q-D131 = **C：暂不锁路径，限时双路 spike——A 结构首选 / B 对照——取证后由 owner 凭当时成熟度证据再裁 A/B**；C 不构成禁区 A/B 架构承诺，最终 A/B 路径待 spike 证据 + owner 裁决） | [06](06_GPU_GRAPHICS_PROGRAMMING_MODEL.md) §8.2 |
 
 ## 4. 编译器与运行时决策（D-2xx，已选定）
 
@@ -106,7 +106,7 @@
 | D-005 | MVP 验收后的 G1 优先级与协作者引入 | MVP 验收 | 先 G1-1（interop 出图）后社区 |
 | D-006 | 12 个月评审点：AI 集群有效性与节奏调整 | M+12 | 数据说话（里程碑燃尽 + 质量门统计） |
 | D-007 | 开源执行细节（时点/仓库形态/公告策略） | MVP 验收前 1–2 月 | 验收即开源，附 conformance 与三 demo |
-| D-131 | G2 DXIL 生成路径 | G2 启动 | 届时按 LLVM DirectX 后端成熟度评估 |
+| D-131 | G2 DXIL 生成路径 | G2.2 启动（重评估已裁 C） | RFC-0003 §9 Q-D131 = C：暂不锁，限时双路 spike（A 首选 / B 对照）取证后由 owner 凭据再裁 A/B；最终 A/B 待 spike 证据 + owner 裁决 |
 | D-312 | registry 启动 | 生态包 >50 或社区强需求 | sumdb 透明日志模型 |
 | D-008 | 多后端红线解除（红线 3） | G2 完成后 | 维持红线直至 NVIDIA 纵深完成 |
 
@@ -115,3 +115,5 @@
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-06-11 | 初版：D-001~007、D-1xx~D-4xx 首批登记 |
+| v1.1 | 2026-06-23 | D-131（G2 DXIL 生成路径）un-defer 勘误：由被动延期标记为「待决（G2.2 启动重评估中）」，路径（LLVM DirectX 后端 vs SPIR-V→DXIL 转译）裁决载体 = [RFC-0003](rfcs/0003-dxil-backend.md) §9 Q-D131（按当时后端成熟度评估，所有者批准）；最终路径留〈待 owner RFC-0003 §9 裁决〉占位，AI 不代决（AGENTS 硬规则 1）。同步 §3 决策表行 + §7 待决清单行。规划文档勘误（00 §6.3 追加式修订，独立 PR，预期触 check_guardrails check_planning_docs 红，待 owner --admin 合入） |
+| v1.2 | 2026-06-23 | D-131 路径裁决载体 RFC-0003 §9 Q-D131 经 owner 委托裁决为 **C**（暂不锁 A/B，限时双路 spike——A 结构首选 / B 对照——取证后由 owner 凭当时成熟度证据再裁 A/B；C 不构成禁区 A/B 架构承诺，A/B 裁决权仍留 owner，硬规则 1 未被代行）；回填 §3/§7 占位（〈待 owner RFC-0003 §9 裁决〉→ RFC-0003 §9 = C）。状态维持「待决」（最终 A/B 待 spike 证据 + owner 裁决）。RFC-0003 经 owner 合并 PR #83 翻 Owner Approved。仍属规划文档勘误（00 §6.3，独立 PR #84，check_planning_docs 预期红，待 owner --admin 合入） |
