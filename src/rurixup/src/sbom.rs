@@ -143,6 +143,9 @@ pub fn generate(bundle: &BundleManifest) -> SbomViews {
 
 /// 组件齐备判据(RXS-0138):bundle 每个组件的干名与版本均出现于 **两** 视图——
 /// 任一视图缺任一组件即不齐备(发布阻断的 SBOM 子门)。空 bundle 视为不齐备。
+///
+/// 匹配方式:检查 JSON 中是否存在精确的 `"key": "value"` 字段模式,而非裸子串匹配,
+/// 避免组件名互为子串时产生误报(如 `"rurixc"` 匹配到 `"rurixc.exe"`)。
 pub fn components_covered(bundle: &BundleManifest, views: &SbomViews) -> bool {
     if bundle.components.is_empty() {
         return false;
@@ -150,10 +153,17 @@ pub fn components_covered(bundle: &BundleManifest, views: &SbomViews) -> bool {
     bundle.components.iter().all(|c| {
         let name = json_escape(&c.name);
         let ver = json_escape(&c.version);
-        views.spdx.contains(&name)
-            && views.spdx.contains(&ver)
-            && views.cyclonedx.contains(&name)
-            && views.cyclonedx.contains(&ver)
+        // 精确 JSON 字段模式匹配(避免子串误报):
+        // SPDX: "name": "<name>" + "versionInfo": "<ver>"
+        // CycloneDX: "name": "<name>" + "version": "<ver>"
+        let spdx_name = format!("\"name\": \"{}\"", name);
+        let spdx_ver = format!("\"versionInfo\": \"{}\"", ver);
+        let cdx_name = format!("\"name\": \"{}\"", name);
+        let cdx_ver = format!("\"version\": \"{}\"", ver);
+        views.spdx.contains(&spdx_name)
+            && views.spdx.contains(&spdx_ver)
+            && views.cyclonedx.contains(&cdx_name)
+            && views.cyclonedx.contains(&cdx_ver)
     })
 }
 
@@ -228,5 +238,35 @@ mod tests {
         let empty = BundleManifest::new("0.1.0");
         let empty_views = generate(&empty);
         assert!(!components_covered(&empty, &empty_views));
+    }
+
+    //@ spec: RXS-0138
+    // 组件名互为子串时不得误报齐备(旧实现用裸 contains 子串匹配,
+    // "rurixc" 会匹配到 "rurixc.exe" 导致发布门绕过)。
+    #[test]
+    fn sbom_coverage_no_false_positive_on_substring_name() {
+        let mut bundle = BundleManifest::new("0.1.0");
+        bundle.push(Component {
+            name: "rurixc.exe".to_string(),
+            version: "0.1.0".to_string(),
+            license: "Apache-2.0".to_string(),
+            partition: Partition::LanguageCore,
+            sha256: "aa".repeat(32),
+        });
+        let views = generate(&bundle);
+
+        // 追加名互为子串的组件 "rurixc"(版本同)→ 不得误报齐备。
+        let mut extended = bundle.clone();
+        extended.push(Component {
+            name: "rurixc".to_string(),
+            version: "0.1.0".to_string(),
+            license: "Apache-2.0".to_string(),
+            partition: Partition::LanguageCore,
+            sha256: "bb".repeat(32),
+        });
+        assert!(
+            !components_covered(&extended, &views),
+            "子串组件名不得通过齐备性检查"
+        );
     }
 }
