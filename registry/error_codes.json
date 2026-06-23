@@ -292,6 +292,30 @@
       "spec_clauses": ["RXS-0080"]
     },
     {
+      "id": "RX3011",
+      "title": "着色阶段 I/O 标注违例(着色阶段 I/O 字段无 #[interpolate(..)]/#[builtin(..)] 标注 / 未知 builtin 名 / 未知插值限定)",
+      "message_key": "shader.stage_io_invalid",
+      "status": "active",
+      "introduced_in": "G2.1",
+      "spec_clauses": ["RXS-0154"]
+    },
+    {
+      "id": "RX3012",
+      "title": "阶段间接口不匹配(fragment 输入 varying 与上游 vertex 输出不兼容,名/类型/插值限定)",
+      "message_key": "shader.stage_interface_mismatch",
+      "status": "active",
+      "introduced_in": "G2.1",
+      "spec_clauses": ["RXS-0155"]
+    },
+    {
+      "id": "RX3013",
+      "title": "资源句柄违例(Texture2D/Sampler 出现在返回位置 / 结构体字段 / 非着色阶段签名;或未支持的纹理维度 defer)",
+      "message_key": "shader.resource_handle_invalid",
+      "status": "active",
+      "introduced_in": "G2.1",
+      "spec_clauses": ["RXS-0156"]
+    },
+    {
       "id": "RX4001",
       "title": "使用已移出的值(use after move,含 maybe-moved 保守判定)",
       "message_key": "borrowck.use_after_move",
@@ -671,6 +695,11 @@
       "version": "v1.21",
       "date": "2026-06-16",
       "change": "M8.2 分配 RX7016 ~ RX7019(cublas 绑定诊断,spec/cublas.md RXS-0126~0129 配套,M8_PLAN §2 任务 4,条款 PR 先行引用的正式分配)。段位裁决:cublas 绑定诊断(句柄初始化 / 设备指针非法 / 维度不匹配 / 执行运行时失败)按 07 §5 段位语义归 7xxx 链接/工具链段位续接(RX7015 之后),**不另起新顶层段位**(对齐 M8.1 互操作先例;cublas 绑定属工具链/库绑定类语义)。RX7016 cublas 句柄初始化失败(cublas runtime DLL 不可用 / cublasCreate 失败,rurix-cublas safe wrapper 运行期);RX7017 cublas 设备指针非法(空指针 / 非设备地址,先于任何 cublas 调用的纯 CPU 前置校验);RX7018 cublas 维度不匹配(维度为 0 / GEMM·GEMV 算子维度不相容);RX7019 cublas 执行运行时失败(cublasStatus_t != SUCCESS / context 同步失败)。message_key cublas.handle_init_failed / cublas.invalid_device_pointer / cublas.dimension_mismatch / cublas.runtime_failed 落 en.messages(rurix-cublas 以错误码常量发码,沿用 rurix-interop 风格);段内分配制递增不复用、含义冻结(10 §6)。发布链路(M8.4)/ 双语诊断(M8.5)错误码无实现不预造"
+    },
+    {
+      "version": "v1.22",
+      "date": "2026-06-23",
+      "change": "G2.1 分配 RX3011 ~ RX3013(着色阶段类型面诊断,spec/shader_stages.md RXS-0154~0156 配套,RFC-0002 §5,PR-B2 实现 PR 真实可达类别只追加)。3xxx 着色/地址空间段位续接(RX3010 之后):RX3011 着色阶段 I/O 标注违例(着色阶段 I/O 字段无 #[interpolate(..)]/#[builtin(..)] 标注——无标注字段编译期拒绝 P-01 strict-only / 未知 builtin 名 / 未知插值限定,RXS-0154);RX3012 阶段间接口不匹配(fragment 输入 varying 与上游 vertex 输出名/类型/插值限定不兼容,RXS-0155);RX3013 资源句柄违例(Texture2D/Sampler 出现在返回位置 / 结构体字段 / 非着色阶段签名,或未支持纹理维度 defer,RXS-0156)。**着色阶段误用(RXS-0153)复用既有 RX3001**(直接调用着色阶段入口 / 跨着色非法调用,着色阶段取 kernel 入口着色,无新码)。message_key shader.stage_io_invalid / shader.stage_interface_mismatch / shader.resource_handle_invalid 同落 en/zh.messages(双语全量覆盖门 ci/bilingual_coverage.py);着色阶段类型面为 AST 层编译期检查(cargo feature shader-stages,纯 host/CPU-only),DXIL codegen(G2.2)/ 绑定布局推导(G2.3)/ 纹理内存模型映射(06 §4.2 禁区)不在本 PR;段内分配制递增不复用、含义冻结(10 §6)"
     }
   ]
 }
