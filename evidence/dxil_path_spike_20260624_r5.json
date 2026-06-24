@@ -1,0 +1,551 @@
+{
+  "schema_version": 1,
+  "subject": "dxil_path_spike",
+  "status": "measured_local",
+  "rd_ref": "RD-010",
+  "decision_ref": "RFC-0003 §9 Q-D131=C / 13 §D-131",
+  "timestamp": "2026-06-24T16:36:05+08:00",
+  "host_env": {
+    "os": "nt / win32",
+    "clang_source": "default_llvm_path"
+  },
+  "tool_versions": {
+    "clang": "clang version 22.1.7 (https://github.com/llvm/llvm-project a255c1ed36a1d06f79bd2633ba9f8d900153007c)",
+    "llc": "LLVM (http://llvm.org/):",
+    "dxc": "dxcompiler.dll: 1.8 - 1.8.0.4739 (d9a5e97d0)",
+    "dxv": "unavailable",
+    "spirv_to_dxil": "unavailable",
+    "spirv_cross": "Git commit: vulkan-sdk-1.3.290.0-44-g65d73934 Timestamp: 2024-10-04T13:35:00",
+    "spirv_producer": "Glslang Version: 11:15.0.0"
+  },
+  "path_a": {
+    "status": "measured_local",
+    "target_available": true,
+    "probe_command": "H:\\llvm-upstream-test\\build\\bin\\llc.exe --version ; C:\\Program Files\\LLVM\\bin\\clang.exe --print-targets ; (RURIX_LLC=H:\\llvm-upstream-test\\build\\bin\\llc.exe)",
+    "target_list_excerpt": "llc --version registered-targets match: dxil   - DirectX Intermediate Language || clang --print-targets match: (no directx/dxil target listed)",
+    "dxil_emit_ok": "fail",
+    "validator_pass": "fail",
+    "shader_model_coverage": "诊断 SM 6.0/6.2/6.5/6.6 × (bare/enriched) × (asm/obj) 各×12;asm 全 SM 稳定,obj 全 SM 非确定性崩溃",
+    "validator_compat": "dxc=dxcompiler.dll: 1.8 - 1.8.0.4739 (d9a5e97d0) dxv=unavailable;IDxcValidator 经 dxcompiler.dll 真验证(dxil.dll 独立签名 validator 缺失,measured 的是 dxcompiler 内置 validator);validator_available=True",
+    "llc_commit": "82c5bce5233f964da4f8086b2341067314d841d7",
+    "llc_commit_date": "2026-06-24T16:07:05+08:00",
+    "emit_stability_matrix": [
+      {
+        "shader_model": "6.0",
+        "variant": "bare",
+        "asm": {
+          "tag": "bare_asm_sm6.0",
+          "filetype": "asm",
+          "attempts": 12,
+          "ok": 12,
+          "crash": 0,
+          "other": 0,
+          "sizes": [
+            765
+          ]
+        },
+        "obj": {
+          "tag": "bare_obj_sm6.0",
+          "filetype": "obj",
+          "attempts": 12,
+          "ok": 5,
+          "crash": 7,
+          "other": 0,
+          "sizes": [
+            1872
+          ]
+        }
+      },
+      {
+        "shader_model": "6.0",
+        "variant": "enriched",
+        "asm": {
+          "tag": "enriched_asm_sm6.0",
+          "filetype": "asm",
+          "attempts": 12,
+          "ok": 12,
+          "crash": 0,
+          "other": 0,
+          "sizes": [
+            913
+          ]
+        },
+        "obj": {
+          "tag": "enriched_obj_sm6.0",
+          "filetype": "obj",
+          "attempts": 12,
+          "ok": 9,
+          "crash": 3,
+          "other": 0,
+          "sizes": [
+            1924
+          ]
+        }
+      },
+      {
+        "shader_model": "6.2",
+        "variant": "bare",
+        "asm": {
+          "tag": "bare_asm_sm6.2",
+          "filetype": "asm",
+          "attempts": 12,
+          "ok": 12,
+          "crash": 0,
+          "other": 0,
+          "sizes": [
+            765
+          ]
+        },
+        "obj": {
+          "tag": "bare_obj_sm6.2",
+          "filetype": "obj",
+          "attempts": 12,
+          "ok": 5,
+          "crash": 7,
+          "other": 0,
+          "sizes": [
+            1872
+          ]
+        }
+      },
+      {
+        "shader_model": "6.2",
+        "variant": "enriched",
+        "asm": {
+          "tag": "enriched_asm_sm6.2",
+          "filetype": "asm",
+          "attempts": 12,
+          "ok": 12,
+          "crash": 0,
+          "other": 0,
+          "sizes": [
+            913
+          ]
+        },
+        "obj": {
+          "tag": "enriched_obj_sm6.2",
+          "filetype": "obj",
+          "attempts": 12,
+          "ok": 6,
+          "crash": 6,
+          "other": 0,
+          "sizes": [
+            1920
+          ]
+        }
+      },
+      {
+        "shader_model": "6.5",
+        "variant": "bare",
+        "asm": {
+          "tag": "bare_asm_sm6.5",
+          "filetype": "asm",
+          "attempts": 12,
+          "ok": 12,
+          "crash": 0,
+          "other": 0,
+          "sizes": [
+            765
+          ]
+        },
+        "obj": {
+          "tag": "bare_obj_sm6.5",
+          "filetype": "obj",
+          "attempts": 12,
+          "ok": 10,
+          "crash": 2,
+          "other": 0,
+          "sizes": [
+            1872
+          ]
+        }
+      },
+      {
+        "shader_model": "6.5",
+        "variant": "enriched",
+        "asm": {
+          "tag": "enriched_asm_sm6.5",
+          "filetype": "asm",
+          "attempts": 12,
+          "ok": 12,
+          "crash": 0,
+          "other": 0,
+          "sizes": [
+            913
+          ]
+        },
+        "obj": {
+          "tag": "enriched_obj_sm6.5",
+          "filetype": "obj",
+          "attempts": 12,
+          "ok": 7,
+          "crash": 5,
+          "other": 0,
+          "sizes": [
+            1920
+          ]
+        }
+      },
+      {
+        "shader_model": "6.6",
+        "variant": "bare",
+        "asm": {
+          "tag": "bare_asm_sm6.6",
+          "filetype": "asm",
+          "attempts": 12,
+          "ok": 12,
+          "crash": 0,
+          "other": 0,
+          "sizes": [
+            765
+          ]
+        },
+        "obj": {
+          "tag": "bare_obj_sm6.6",
+          "filetype": "obj",
+          "attempts": 12,
+          "ok": 4,
+          "crash": 8,
+          "other": 0,
+          "sizes": [
+            1864
+          ]
+        }
+      },
+      {
+        "shader_model": "6.6",
+        "variant": "enriched",
+        "asm": {
+          "tag": "enriched_asm_sm6.6",
+          "filetype": "asm",
+          "attempts": 12,
+          "ok": 12,
+          "crash": 0,
+          "other": 0,
+          "sizes": [
+            913
+          ]
+        },
+        "obj": {
+          "tag": "enriched_obj_sm6.6",
+          "filetype": "obj",
+          "attempts": 12,
+          "ok": 3,
+          "crash": 9,
+          "other": 0,
+          "sizes": [
+            1916
+          ]
+        }
+      }
+    ],
+    "interop": {
+      "validator_available": true,
+      "bare": {
+        "parsed": {
+          "ok": true,
+          "part_fourccs": [
+            "DXIL",
+            "SFI0",
+            "HASH",
+            "ISG1",
+            "OSG1",
+            "PSV0"
+          ],
+          "is_signed": false,
+          "size": 1872,
+          "digest_hex": "00000000000000000000000000000000",
+          "version": [
+            1,
+            0
+          ]
+        },
+        "dxil_program_version": {
+          "ok": true,
+          "program_version_raw": 327776,
+          "shader_model": "6.0",
+          "shader_kind": 5,
+          "size_in_uint32": 413,
+          "dxil_part_magic": "DXIL",
+          "dxil_version_raw": 256,
+          "dxil_version_hex": "0x100"
+        },
+        "validate": {
+          "status": "measured",
+          "accepted": false,
+          "validation_status_hr": "0x80aa0009",
+          "error_message": "load dxil metadata failed - error code -2136342513\n\nValidation failed.",
+          "validator_dll": "C:\\ti-localappdata\\ti-build-cache\\vulkan-1.3.296.0\\Bin\\dxcompiler.dll"
+        }
+      },
+      "enriched": {
+        "parsed": {
+          "ok": true,
+          "part_fourccs": [
+            "DXIL",
+            "SFI0",
+            "HASH",
+            "ISG1",
+            "OSG1",
+            "PSV0"
+          ],
+          "is_signed": false,
+          "size": 1924,
+          "digest_hex": "00000000000000000000000000000000",
+          "version": [
+            1,
+            0
+          ]
+        },
+        "dxil_program_version": {
+          "ok": true,
+          "program_version_raw": 327776,
+          "shader_model": "6.0",
+          "shader_kind": 5,
+          "size_in_uint32": 426,
+          "dxil_part_magic": "DXIL",
+          "dxil_version_raw": 256,
+          "dxil_version_hex": "0x100"
+        },
+        "validate": {
+          "status": "measured",
+          "accepted": false,
+          "validation_status_hr": "0x80aa0009",
+          "error_message": "load dxil metadata failed - error code -2136342513\n\nValidation failed.",
+          "validator_dll": "C:\\ti-localappdata\\ti-build-cache\\vulkan-1.3.296.0\\Bin\\dxcompiler.dll"
+        }
+      },
+      "container_diff": {
+        "llc_parts": [
+          "DXIL",
+          "SFI0",
+          "HASH",
+          "ISG1",
+          "OSG1",
+          "PSV0"
+        ],
+        "dxc_parts": [
+          "SFI0",
+          "ISG1",
+          "OSG1",
+          "PSV0",
+          "STAT",
+          "HASH",
+          "DXIL"
+        ],
+        "llc_missing_vs_dxc": [
+          "STAT"
+        ],
+        "llc_extra_vs_dxc": [],
+        "order_differs": true,
+        "llc_signed": false,
+        "dxc_signed": true
+      },
+      "dxc_control": {
+        "parsed": {
+          "part_fourccs": [
+            "SFI0",
+            "ISG1",
+            "OSG1",
+            "PSV0",
+            "STAT",
+            "HASH",
+            "DXIL"
+          ],
+          "is_signed": true,
+          "size": 2060,
+          "version": [
+            1,
+            0
+          ]
+        },
+        "dxil_program_version": {
+          "ok": true,
+          "program_version_raw": 327776,
+          "shader_model": "6.0",
+          "shader_kind": 5,
+          "size_in_uint32": 223,
+          "dxil_part_magic": "DXIL",
+          "dxil_version_raw": 256,
+          "dxil_version_hex": "0x100"
+        },
+        "validate": {
+          "status": "measured",
+          "accepted": true,
+          "validation_status_hr": "0x0",
+          "error_message": "",
+          "validator_dll": "C:\\ti-localappdata\\ti-build-cache\\vulkan-1.3.296.0\\Bin\\dxcompiler.dll"
+        }
+      }
+    },
+    "facts": [
+      {
+        "kind": "emit_stability",
+        "name": "asm_vs_obj_crash_rate",
+        "note": "诊断1 每配置×12发:[-filetype=asm 文本DXIL] 全配置稳定: bare/sm6.0:12ok/0crash; enriched/sm6.0:12ok/0crash; bare/sm6.2:12ok/0crash; enriched/sm6.2:12ok/0crash; bare/sm6.5:12ok/0crash; enriched/sm6.5:12ok/0crash; bare/sm6.6:12ok/0crash; enriched/sm6.6:12ok/0crash || [-filetype=obj 二进制DXContainer] 非确定性崩溃(0xC0000005,后端对象写出器): bare/sm6.0:5ok/7crash; enriched/sm6.0:9ok/3crash; bare/sm6.2:5ok/7crash; enriched/sm6.2:6ok/6crash; bare/sm6.5:10ok/2crash; enriched/sm6.5:7ok/5crash; bare/sm6.6:4ok/8crash; enriched/sm6.6:3ok/9crash"
+      },
+      {
+        "kind": "emit_stability",
+        "name": "key_finding",
+        "note": "关键发现:文本 DXIL(asm)emit 稳定,崩溃仅出现在二进制容器化(obj)→ 打通方向 = emit 文本 DXIL 再另行容器化/签名;补 dxc 风格元数据(entryPoints/numthreads/valver)不降 obj 崩溃率(实测 enriched ≥ bare 崩溃)"
+      },
+      {
+        "kind": "interop_validator",
+        "name": "IDxcValidator_validate_llc",
+        "note": "诊断2 dxcompiler.dll IDxcValidator::Validate(真验证,非 -dumpbin)对 llc 产 DXContainer:accepted=False status=0x80aa0009 err='load dxil metadata failed - error code -2136342513\\n\\nValidation failed.';enriched 同测 accepted=False status=0x80aa0009 → validation error 非签名缺失 → llc 产 DXIL 不合规=上游 backend 问题"
+      },
+      {
+        "kind": "interop_control",
+        "name": "dxc_self_validate",
+        "note": "对照:dxc 自产容器 IDxcValidator accepted=True status=0x0(=工具/validator 本身可用,gap 在 llc↔dxc 互操作非工具坏)"
+      },
+      {
+        "kind": "interop_container_diff",
+        "name": "container_structure",
+        "note": "容器结构 diff:llc parts=['DXIL', 'SFI0', 'HASH', 'ISG1', 'OSG1', 'PSV0'] vs dxc parts=['SFI0', 'ISG1', 'OSG1', 'PSV0', 'STAT', 'HASH', 'DXIL'];llc 缺=['STAT'] 多=[] 顺序异=True;签名 llc_signed=False dxc_signed=True"
+      },
+      {
+        "kind": "dxil_version_subaxis",
+        "name": "llc_vs_dxc_dxil_version",
+        "note": "DXIL 版本子轴(round-5):更新 llc 产 DXIL part program_version=6.0(raw=327776) dxil_version=0x100 ok=True(reason=None) || dxc 1.8 自产 program_version=6.0 dxil_version=0x100;若更新 llc 的 DXIL 版本 > dxc 1.8 dxil.dll 支持,互操作可能因 validator 版本被拒(非 llc codegen 之过),如属此情须用匹配/更新 dxil.dll 再验"
+      }
+    ],
+    "repro": [
+      "1. 隔离目录自编更新 llvm-project(round-5:commit 82c5bce5233f964da4f8086b2341067314d841d7 date 2026-06-24T16:07:05+08:00,新于 D-205 pin a255c1ed/22.1.7);cmake -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=DirectX -DLLVM_TARGETS_TO_BUILD=X86 -DCMAKE_BUILD_TYPE=Release;ninja llc llvm-as;设 RURIX_LLC 指向其 llc.exe(绝不动 C:\\Program Files\\LLVM 或 H:\\llvm-dxil round-3 pin 基线)。",
+      "2. 设 RURIX_DXC 指向 dxc.exe(同目录须有 dxcompiler.dll 供 IDxcValidator);本环境 dxc 1.8.0.4739(Vulkan SDK)。",
+      "3. py -3 spike/dxil-path-probe/run_spike.py(RURIX_SPIKE_SUFFIX=_r5,RURIX_LLC_COMMIT/RURIX_LLC_COMMIT_DATE 注入更新 commit)重跑;诊断1 量 asm/obj×SM×元数据崩溃率,诊断2 IDxcValidator 真验证 + DXIL 版本子轴。",
+      "4. 与 round-4 pin(a255c1ed/22.1.7)同口径对照:obj 写出器崩溃是否消失 / IDxcValidator 是否接受 / DXIL 版本是否 > dxc 1.8 支持。"
+    ]
+  },
+  "path_b": {
+    "status": "measured_local",
+    "translators_available": true,
+    "probe_command": "which spirv-to-dxil ; which spirv-cross ; which dxc ; which dxv ; which spirv-val ; which glslangValidator",
+    "translator_list_excerpt": "present=['SPIRV-Cross', 'dxc', 'glslang(SPIR-V producer)', 'spirv-val']; direct_chain=False; combo_chain=True",
+    "dxil_emit_ok": "pass",
+    "validator_pass": "pass",
+    "supply_chain": "引入第二中间表示 SPIR-V + 外部转译依赖。本环境探到:SPIRV-Cross, dxc, glslang(SPIR-V producer), spirv-val。供应链长尾:Mesa(spirv-to-dxil)/ Khronos(SPIRV-Cross)/ Microsoft(dxc) 三独立来源,各自版本/许可/合规性需独立 pin 与审计(对齐 D-205 LLVM 单栈 pin 纪律的对照成本)。",
+    "determinism_notes": "端到端二次编译 SHA256 一致 4/4(deterministic);spirv-cross/dxc 零 stderr 警告(工具层无静默降级)。strict-only(P-01)语义级行为等价(无静默降级/回退)须运行期 golden 验证,本 spike 不预判完整保真",
+    "e2e_results": [
+      {
+        "name": "cs_reduce_shared",
+        "stage": "cs",
+        "profile": "cs_6_0",
+        "spirv_emit": "pass",
+        "spirv_val": "pass",
+        "spirv_cross": "pass",
+        "dxil_emit": "pass",
+        "container_magic": "DXBC",
+        "determinism": "deterministic",
+        "dxc_builtin_validator": "pass",
+        "shader_model_coverage": {
+          "cs_6_0": "pass",
+          "cs_6_2": "pass",
+          "cs_6_6": "pass"
+        },
+        "spirv_cross_stderr_len": 0,
+        "dxc_dxil_stderr_len": 0
+      },
+      {
+        "name": "cs_saxpy",
+        "stage": "cs",
+        "profile": "cs_6_0",
+        "spirv_emit": "pass",
+        "spirv_val": "pass",
+        "spirv_cross": "pass",
+        "dxil_emit": "pass",
+        "container_magic": "DXBC",
+        "determinism": "deterministic",
+        "dxc_builtin_validator": "pass",
+        "shader_model_coverage": {
+          "cs_6_0": "pass",
+          "cs_6_2": "pass",
+          "cs_6_6": "pass"
+        },
+        "spirv_cross_stderr_len": 0,
+        "dxc_dxil_stderr_len": 0
+      },
+      {
+        "name": "ps_texture",
+        "stage": "ps",
+        "profile": "ps_6_0",
+        "spirv_emit": "pass",
+        "spirv_val": "pass",
+        "spirv_cross": "pass",
+        "dxil_emit": "pass",
+        "container_magic": "DXBC",
+        "determinism": "deterministic",
+        "dxc_builtin_validator": "pass",
+        "shader_model_coverage": {
+          "ps_6_0": "pass",
+          "ps_6_6": "pass"
+        },
+        "spirv_cross_stderr_len": 0,
+        "dxc_dxil_stderr_len": 0
+      },
+      {
+        "name": "vs_passthrough",
+        "stage": "vs",
+        "profile": "vs_6_0",
+        "spirv_emit": "pass",
+        "spirv_val": "pass",
+        "spirv_cross": "pass",
+        "dxil_emit": "pass",
+        "container_magic": "DXBC",
+        "determinism": "deterministic",
+        "dxc_builtin_validator": "pass",
+        "shader_model_coverage": {
+          "vs_6_0": "pass",
+          "vs_6_6": "pass"
+        },
+        "spirv_cross_stderr_len": 0,
+        "dxc_dxil_stderr_len": 0
+      }
+    ],
+    "facts": [
+      {
+        "kind": "translator_chain",
+        "name": "spirv-cross→dxc(combo)",
+        "note": "端到端实测语料 4 个,stage 覆盖 ['cs', 'ps', 'vs'];emit pass=4/4(DXBC 容器),dxc 内置验证 pass=4/4"
+      },
+      {
+        "kind": "determinism",
+        "name": "sha256_recompile",
+        "note": "同输入二次编译字节一致 4/4(deterministic)"
+      },
+      {
+        "kind": "shader_model",
+        "name": "sm_matrix",
+        "note": "转译回 HLSL 跨 SM emit 覆盖 ['cs_6_0', 'cs_6_2', 'cs_6_6', 'ps_6_0', 'ps_6_6', 'vs_6_0', 'vs_6_6'](各语料 stage 矩阵)"
+      },
+      {
+        "kind": "strict_only_fidelity",
+        "name": "tool_warnings",
+        "note": "spirv-cross/dxc stderr 警告语料数=0/4(0=工具层无静默降级警告;语义级行为等价须运行期 golden,本 spike 范围外)"
+      },
+      {
+        "kind": "validator_scope",
+        "name": "dxv_absent",
+        "note": "独立 DXIL validator dxv 缺失、dxil.dll 不在工具链 Bin;dxc 默认路径(无 -Vd)与 -Vd 产物字节不同 → dxcompiler.dll 内置 validator 已执行验证+签名摘要写入"
+      }
+    ],
+    "repro": [
+      "round-2 已实测端到端转译(combo 链 + corpus/);如需扩展:",
+      "1. 扩充 corpus/ 代表性语料(更多 stage / 资源类型 / SM 矩阵)。",
+      "2. 接入独立 DXIL validator(dxv 或带 dxil.dll 的 dxc 完整签名)做 dxc 内置验证之外的二次合规背书。",
+      "3. 运行期 golden(device 真跑)验证 strict-only 语义级行为等价(无静默降级/回退),超出取证 spike 范围、留实现 PR。"
+    ]
+  },
+  "comparison_criteria": [
+    "target_or_translator_available",
+    "dxil_emit_ok",
+    "validator_pass(dxc/dxv)",
+    "shader_model_coverage",
+    "supply_chain_cost",
+    "determinism_strict_only_fidelity",
+    "fit_with_D-205_single_llvm_stack"
+  ],
+  "run_command": "py -3 spike/dxil-path-probe/run_spike.py",
+  "owner_decision": "A/B 最终路径裁决权属 owner(RFC-0003 §9 Q-D131 / 13 §D-131 / AGENTS 硬规则 1);本 spike 仅产证据基底,AI 不代决。owner 裁定后回填 RFC-0003 §9 + 13 §D-131(经勘误 PR)+ close RD-010,再进 PR-C1 spec 脚手架。",
+  "notes": "纯取证 spike,非性能基准、非常驻 CI 门。探针隔离于 spike/dxil-path-probe/ 标 // SPIKE(RD-010),不入 src/ 生产路径、不随产品编译、spike 结束可弃。measured-first / blocked-honest:工具/target 探到记实测,探不到如实 blocked + repro,绝不杜撰(AGENTS 硬规则 3/4)。"
+}

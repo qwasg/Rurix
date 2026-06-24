@@ -56,6 +56,55 @@ def parse_dxbc(data: bytes) -> dict:
     }
 
 
+def dxil_part_version(data: bytes) -> dict:
+    """round-5 DXIL 版本子轴:从 DXContainer 的 DXIL part 提取 DxilProgramHeader 版本。
+
+    DXIL part 内容布局(小端):
+      ProgramVersion(u32) | SizeInUint32(u32) | BitcodeHeader{ DxilMagic[4]="DXIL" |
+      DxilVersion(u32) | BitcodeOffset(u32) | BitcodeSize(u32) } | bitcode...
+    ProgramVersion 解码(HLSL DxilContainer.h):Minor=v&0xF, Major=(v>>4)&0xF,
+      ShaderKind=(v>>16)&0xFFFF。绝不杜撰:解析失败返回 ok=False + reason。
+    """
+    p = parse_dxbc(data)
+    if not p.get("ok"):
+        return {"ok": False, "reason": "container_parse_failed"}
+    # 定位 DXIL part 的字节偏移(parse_dxbc 只记 fourcc/size,这里重扫 offset 取 data)
+    part_count = p.get("part_count", 0)
+    dxil_off = None
+    for i in range(part_count):
+        off_pos = 32 + 4 * i
+        if off_pos + 4 > len(data):
+            break
+        off = struct.unpack("<I", data[off_pos:off_pos + 4])[0]
+        if off + 8 > len(data):
+            continue
+        if data[off:off + 4] == b"DXIL":
+            dxil_off = off
+            break
+    if dxil_off is None:
+        return {"ok": False, "reason": "no_DXIL_part"}
+    body = dxil_off + 8  # 跳过 FourCC + PartSize
+    if body + 24 > len(data):
+        return {"ok": False, "reason": "DXIL_part_truncated"}
+    prog_ver = struct.unpack("<I", data[body:body + 4])[0]
+    size_u32 = struct.unpack("<I", data[body + 4:body + 8])[0]
+    dxil_magic = data[body + 8:body + 12]
+    dxil_ver_raw = struct.unpack("<I", data[body + 12:body + 16])[0]
+    sm_minor = prog_ver & 0xF
+    sm_major = (prog_ver >> 4) & 0xF
+    shader_kind = (prog_ver >> 16) & 0xFFFF
+    return {
+        "ok": True,
+        "program_version_raw": prog_ver,
+        "shader_model": f"{sm_major}.{sm_minor}",
+        "shader_kind": shader_kind,
+        "size_in_uint32": size_u32,
+        "dxil_part_magic": dxil_magic.decode("ascii", "replace"),
+        "dxil_version_raw": dxil_ver_raw,
+        "dxil_version_hex": hex(dxil_ver_raw),
+    }
+
+
 def diff_parts(llc_parsed: dict, dxc_parsed: dict) -> dict:
     """对照 llc 容器与 dxc 自产容器的 part 集合/顺序/签名,定位结构差异。"""
     llc_fc = llc_parsed.get("part_fourccs", []) if llc_parsed.get("ok") else []
