@@ -1,0 +1,32 @@
+llc.exe : Assertion failed: MMI.EntryPropertyVec.size() == 1, file H:\llvm-clean-82c5bce5-src\llvm\lib\Target\DirectX\DXContainerGlobals.cpp, line 252
+At line:1 char:1
++ & $llcA -filetype=obj 'H:\llvm-audit-round6\bare_sm60.ll' -o 'H:\llvm ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Assertion faile...s.cpp, line 252:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+PLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace and instructions to reproduce the bug.
+Stack dump:
+0.	Program arguments: H:\\llvm-clean-82c5bce5-build\\bin\\llc.exe -filetype=obj H:\\llvm-audit-round6\\bare_sm60.ll -o H:\\llvm-audit-round6\\assert_capture.obj
+1.	Running pass 'DXContainer Global Emitter' on module 'H:\llvm-audit-round6\bare_sm60.ll'.
+Exception Code: 0x80000003
+0x00007FF7F5D1A255, H:\llvm-clean-82c5bce5-build\bin\llc.exe(0x00007FF7F3A20000) + 0x22FA255 byte(s), HandleAbort() + 0x5 byte(s), H:\llvm-clean-82c5bce5-src\llvm\lib\Support\Windows\Signals.inc, line 372 + 0x0 by
+te(s)
+0x00007FF94844084F, C:\WINDOWS\System32\ucrtbase.dll(0x00007FF948370000) + 0xD084F byte(s), raise() + 0x1DF byte(s)
+0x00007FF948423381, C:\WINDOWS\System32\ucrtbase.dll(0x00007FF948370000) + 0xB3381 byte(s), abort() + 0x31 byte(s)
+0x00007FF948440EBA, C:\WINDOWS\System32\ucrtbase.dll(0x00007FF948370000) + 0xD0EBA byte(s), _get_wpgmptr() + 0x18A byte(s)
+0x00007FF948441091, C:\WINDOWS\System32\ucrtbase.dll(0x00007FF948370000) + 0xD1091 byte(s), _wassert() + 0x71 byte(s)
+0x00007FF7F41B913C, H:\llvm-clean-82c5bce5-build\bin\llc.exe(0x00007FF7F3A20000) + 0x79913C byte(s), `anonymous namespace'::DXContainerGlobals::addRootSignature() + 0x8C byte(s), H:\llvm-clean-82c5bce5-src\llvm\li
+b\Target\DirectX\DXContainerGlobals.cpp, line 253 + 0x0 byte(s)
+0x00007FF7F41BAE9B, H:\llvm-clean-82c5bce5-build\bin\llc.exe(0x00007FF7F3A20000) + 0x79AE9B byte(s), `anonymous namespace'::DXContainerGlobals::runOnModule() + 0xCB byte(s), H:\llvm-clean-82c5bce5-src\llvm\lib\Tar
+get\DirectX\DXContainerGlobals.cpp, line 103 + 0x0 byte(s)
+0x00007FF7F4E3C113, H:\llvm-clean-82c5bce5-build\bin\llc.exe(0x00007FF7F3A20000) + 0x141C113 byte(s), `anonymous namespace'::MPPassManager::runOnModule() + 0x3B3 byte(s), H:\llvm-clean-82c5bce5-src\llvm\lib\IR\Leg
+acyPassManager.cpp, line 1568 + 0x0 byte(s)
+0x00007FF7F4E3B2E8, H:\llvm-clean-82c5bce5-build\bin\llc.exe(0x00007FF7F3A20000) + 0x141B2E8 byte(s), llvm::legacy::PassManagerImpl::run() + 0xE8 byte(s), H:\llvm-clean-82c5bce5-src\llvm\lib\IR\LegacyPassManager.c
+pp, line 534 + 0x0 byte(s)
+0x00007FF7F3B95B17, H:\llvm-clean-82c5bce5-build\bin\llc.exe(0x00007FF7F3A20000) + 0x175B17 byte(s), compileModule() + 0x2617 byte(s), H:\llvm-clean-82c5bce5-src\llvm\tools\llc\llc.cpp, line 882 + 0x0 byte(s)
+0x00007FF7F3B99C2B, H:\llvm-clean-82c5bce5-build\bin\llc.exe(0x00007FF7F3A20000) + 0x179C2B byte(s), main() + 0x6AB byte(s), H:\llvm-clean-82c5bce5-src\llvm\tools\llc\llc.cpp, line 460 + 0x1B byte(s)
+0x00007FF7F7032DB4, H:\llvm-clean-82c5bce5-build\bin\llc.exe(0x00007FF7F3A20000) + 0x3612DB4 byte(s), __scrt_common_main_seh() + 0x10C byte(s), D:\a\_work\1\s\src\vctools\crt\vcstartup\src\startup\exe_common.inl, 
+line 288 + 0x22 byte(s)
+0x00007FF948F15C27, C:\WINDOWS\System32\KERNEL32.DLL(0x00007FF948EE0000) + 0x35C27 byte(s), BaseThreadInitThunk() + 0x17 byte(s)
+0x00007FF94B20DF80, C:\WINDOWS\SYSTEM32\ntdll.dll(0x00007FF94B180000) + 0x8DF80 byte(s), RtlUserThreadStart() + 0x20 byte(s)
