@@ -44,7 +44,7 @@
 | D-122 | 流序分配类型（AsyncBuffer）推迟到 G1 | 经典路径先做对；CUDA.jl #780 混用事故复杂度实证 | [06](06_GPU_GRAPHICS_PROGRAMMING_MODEL.md) §3 |
 | D-123 | 同步三层：结构化 safe / scoped atomics safe / 弱序 unsafe；映射条款锚定 morally strong | r5 核心结论：必须显式设计源语言→PTX scope/order 映射层 | [06](06_GPU_GRAPHICS_PROGRAMMING_MODEL.md) §4 |
 | D-130 | G1 interop 走 D3D12 external memory/semaphore | Windows-first 自洽；Vulkan 驱动黑洞实证（H04 §2.3） | [06](06_GPU_GRAPHICS_PROGRAMMING_MODEL.md) §8.1 |
-| D-131 | G2 DXIL 生成路径（LLVM DirectX 后端 vs SPIR-V→DXIL 转译） | **待决**（G2.2 重评估已裁 [RFC-0003](rfcs/0003-dxil-backend.md) §9 Q-D131 = **C：暂不锁路径，限时双路 spike——A 结构首选 / B 对照——取证后由 owner 凭当时成熟度证据再裁 A/B**；C 不构成禁区 A/B 架构承诺，最终 A/B 路径待 spike 证据 + owner 裁决） | [06](06_GPU_GRAPHICS_PROGRAMMING_MODEL.md) §8.2 |
+| D-131 | G2 DXIL 生成路径（LLVM DirectX 后端 vs SPIR-V→DXIL 转译） | **A：LLVM DirectX 后端直接 emit DXIL**（G2.2 round-1~8 双路 spike 取证后 owner 凭据裁定，回填 [RFC-0003](rfcs/0003-dxil-backend.md) §9 Q-D131 = C→A；依据:结构首选(NVPTX 同构/D-205 单栈/无第二 IR) + round-7 同年代签名 validator 到手排除『dxc 太旧』假说(Bug 2 归因 established) + round-8 源码级 root cause(`DXContainerGlobals.cpp:388-389`)+ 14 行 PoC patch 使 validator pre 0/25→post 25/25 accept(浅修);A 路 patch 上游未 merge 期以受控 dev-only 临时工具链偏差解锁开发(RD-011 跟踪);G-G2-2 仍 open) | [06](06_GPU_GRAPHICS_PROGRAMMING_MODEL.md) §8.2 |
 
 ## 4. 编译器与运行时决策（D-2xx，已选定）
 
@@ -106,7 +106,7 @@
 | D-005 | MVP 验收后的 G1 优先级与协作者引入 | MVP 验收 | 先 G1-1（interop 出图）后社区 |
 | D-006 | 12 个月评审点：AI 集群有效性与节奏调整 | M+12 | 数据说话（里程碑燃尽 + 质量门统计） |
 | D-007 | 开源执行细节（时点/仓库形态/公告策略） | MVP 验收前 1–2 月 | 验收即开源，附 conformance 与三 demo |
-| D-131 | G2 DXIL 生成路径 | G2.2 启动（重评估已裁 C） | RFC-0003 §9 Q-D131 = C：暂不锁，限时双路 spike（A 首选 / B 对照）取证后由 owner 凭据再裁 A/B；最终 A/B 待 spike 证据 + owner 裁决 |
+| D-131 | G2 DXIL 生成路径 | G2.2（已裁决 = A） | round-1~8 双路 spike 取证后 owner 裁定 **A（LLVM DirectX 后端直接 emit DXIL）**，回填 RFC-0003 §9 Q-D131 C→A + §3 决策表；A 路 round-8 PSV patch 注册为受控 dev-only 临时偏差(RD-011)。待决项已结，留行存档（编号不复用，10 §9.5） |
 | D-312 | registry 启动 | 生态包 >50 或社区强需求 | sumdb 透明日志模型 |
 | D-008 | 多后端红线解除（红线 3） | G2 完成后 | 维持红线直至 NVIDIA 纵深完成 |
 
@@ -117,3 +117,4 @@
 | v1.0 | 2026-06-11 | 初版：D-001~007、D-1xx~D-4xx 首批登记 |
 | v1.1 | 2026-06-23 | D-131（G2 DXIL 生成路径）un-defer 勘误：由被动延期标记为「待决（G2.2 启动重评估中）」，路径（LLVM DirectX 后端 vs SPIR-V→DXIL 转译）裁决载体 = [RFC-0003](rfcs/0003-dxil-backend.md) §9 Q-D131（按当时后端成熟度评估，所有者批准）；最终路径留〈待 owner RFC-0003 §9 裁决〉占位，AI 不代决（AGENTS 硬规则 1）。同步 §3 决策表行 + §7 待决清单行。规划文档勘误（00 §6.3 追加式修订，独立 PR，预期触 check_guardrails check_planning_docs 红，待 owner --admin 合入） |
 | v1.2 | 2026-06-23 | D-131 路径裁决载体 RFC-0003 §9 Q-D131 经 owner 委托裁决为 **C**（暂不锁 A/B，限时双路 spike——A 结构首选 / B 对照——取证后由 owner 凭当时成熟度证据再裁 A/B；C 不构成禁区 A/B 架构承诺，A/B 裁决权仍留 owner，硬规则 1 未被代行）；回填 §3/§7 占位（〈待 owner RFC-0003 §9 裁决〉→ RFC-0003 §9 = C）。状态维持「待决」（最终 A/B 待 spike 证据 + owner 裁决）。RFC-0003 经 owner 合并 PR #83 翻 Owner Approved。仍属规划文档勘误（00 §6.3，独立 PR #84，check_planning_docs 预期红，待 owner --admin 合入） |
+| v1.3 | 2026-06-24 | **D-131 最终路径裁决 C→A 回填**：G2.2 双路 DXIL spike round-1~8 取证完结，owner 凭证据裁定最终生成路径 = **A（LLVM DirectX 后端直接 emit DXIL）**。裁决依据三证:① **结构首选**(与 NVPTX 后端同构、D-205 LLVM 单栈、无第二中间 IR，RFC-0003 §7 A);② **签名 validator 到手**(round-7 取同年代 2026 DXC v1.9.2602.24 自带 dxil.dll 签名 validator + dxv.exe，决定性子轴 新 dxc 自产 52B PSV accept / llc 52B PSV reject 排除『dxc 太旧』假说，Bug 2 归因 established = LLVM emit PSV 内部不一致);③ **浅修 established**(round-8 源码级 root cause 定位到 `DXContainerGlobals.cpp:388-389`，14 行单函数 PoC patch 使 validator pre 0/25→post 25/25 accept，A 路 validator 互操作 gap 可被已知小补丁闭合)。证据指针 `evidence/dxil_path_spike_report_round{6,7,8}.md` + `dxil_path_spike_20260624_r{7,8}.json`(RD-010)。同步回填 §3 决策表行(待决→A)+ §7 待决清单行(已裁决 = A)+ RFC-0003 §9 Q-D131(C→A 追加式回填)。下游解锁:A 路依赖的 round-8 PSV patch 上游未 merge 期以**受控 dev-only 临时**工具链偏差解锁 PR-C1/C2 开发(registry RD-011 + recipe doc 跟踪)，同步上游 PR 并行;退役条件 = 上游 merge + release + D-205 pin bump(D-205 真 bump 属 owner 独立决策，不在本勘误)。**本回填为 AI 代录 owner 裁决(代录非代决，硬规则 1)，以 owner 合并本勘误 PR 生效**;G-G2-2 仍 open(A 工具链 validator 可行性 ≠ Rurix MIR→DXIL 实现 ≠ device 真跑 golden，AI 不代签)。规划文档勘误（00 §6.3 追加式修订，独立 PR，check_guardrails check_planning_docs 预期对 13 红，待 owner --admin 合入） |
