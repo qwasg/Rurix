@@ -81,7 +81,11 @@ def build_evidence() -> dict:
 def main() -> int:
     ev = build_evidence()
     date_tag = datetime.datetime.now().strftime("%Y%m%d")
-    out_path = ROOT / "evidence" / f"dxil_path_spike_{date_tag}.json"
+    # round 后缀(env RURIX_SPIKE_SUFFIX,默认 _r4):避免覆盖既有证据(round-2 的
+    # dxil_path_spike_20260624.json 等须 byte-unchanged,evidence/ 不可篡改门强制);
+    # 新名仍 startswith "dxil_path_spike_"(check_schemas dxil_path_spike 校验器匹配)。
+    suffix = os.environ.get("RURIX_SPIKE_SUFFIX", "_r4")
+    out_path = ROOT / "evidence" / f"dxil_path_spike_{date_tag}{suffix}.json"
     payload = json.dumps(ev, ensure_ascii=False, indent=2) + "\n"
     # 二进制写 + 显式 LF,禁文本模式(防 CRLF;.gitattributes * -text)
     data = payload.encode("utf-8").replace(b"\r\n", b"\n")
