@@ -140,3 +140,35 @@ set RURIX_LLC=H:\llvm-clean-82c5bce5-build\bin\llc.exe
 - [ ] post(无 valver)PSV0 InfoSize = 24,IDxcValidator 25/25 accept(`{0x0:25}`)+ dxv.exe `Validation succeeded.`
 - [ ] pre(未 patch)对照 PSV0 = 52,0/25 accept(`{0x80aa0013:25}`)
 - [ ] 仓库内仅本 recipe(diff 文本),无 patch 二进制 / llc 入库;`C:\Program Files\LLVM` 未改
+
+## 8. 上游 PR 提交 + round-8「14 行单点 PoC」精度更正(2026-06-24 追加,append-only)
+
+> 本节为末尾追加更正段;§0~§7 既有内容 0-byte 不动。跟踪见 `registry/deferred.json` **RD-011** 同日 history。
+> 上游 PR:**https://github.com/llvm/llvm-project/pull/205546**(OPEN,base main,+93/-4,4 文件)。
+
+### 8.1 上游 PR 实况
+
+| 项 | 值 |
+|---|---|
+| URL | https://github.com/llvm/llvm-project/pull/205546 |
+| 状态 | OPEN(base main) |
+| 规模 | +93 / -4,4 文件 |
+| 本地验证 | DirectX lit 测试 465 全过;新测试 pre-fail / post-pass;2026 签名 validator post **25/25 accept** |
+
+### 8.2 精度更正:最终 patch 非孤立 14 行单点
+
+§3 与 round-8 报告把 patch 描述为「14 行单函数单点 PoC」。**实测推翻该精度**——最终上游 patch 形态:
+
+- `getPSVVersion()` 辅助函数(按模块 `ValidatorVersion` 派生 PSV 版本,非内联进 `addPipelineStateValidationInfo()`);
+- **2 个既有上游测试更正**:`test/CodeGen/DirectX` 的 `RuntimeInfoCS.ll` 与 `PipelineStateValidation.ll`,`valver 1.7 → 1.8`;
+- 新增测试文件 `PSVVersionFromValidatorVersion.ll`。
+
+**涟漪根因**:既有上游测试编码了「永远写 PSV v3、忽略 `dx.valver`」的 buggy 行为;修复 PSV 版本派生后,这些既有测试的期望值必然连带更新(否则既有测试反而失败)。故修复非孤立单点。
+
+**判定收紧**:由 round-8 的「孤立单点 SHALLOW 浅修」修正为「**局部修复但含语义涟漪**」——触及既有测试编码的 buggy 行为、需社区评审认可,非孤立单点。
+
+### 8.3 漂移声明与退役口径修正
+
+- **本地 PoC ≠ 最终 merged 形态**:§3 本地 diff(`DXContainerGlobals.cpp` 内联 `valver → PSVVersion` 派生)与上游最终形态可能不同——reviewer 可能偏好显式断言 v2 而非 bump 既有测试 `valver`、或抽出独立 helper。
+- **退役以上游 merged 形态为准**:RD-011 退役对齐 = **上游 merged 形态 + D-205 pin bump 到含修复版本**(非本地 PoC 形态);§6 退役条件不变,本节仅澄清「对齐目标 = 上游 merged 形态」。
+- **不回改 round-8 evidence**:`evidence/dxil_path_spike_report_round8.md` 等为当时诚实快照,不可篡改门保护,**不回改**;本更正仅走本 recipe §8 追加 + RD-011 history 追加。
