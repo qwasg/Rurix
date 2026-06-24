@@ -157,3 +157,101 @@ pub fn ir_to_ptx(ir: &str, ptx_out: &Path) -> Result<String, String> {
         Err(e) => Err(format!("cannot spawn clang (nvptx): {e}")),
     }
 }
+
+// ===========================================================================
+// DXIL 第二后端工具链(G2.2 PR-C2 分片1,RXS-0157;feature `dxil-backend`)。
+//
+// D-131=A 路径:DirectX 三元组 LLVM IR → patched llc -filetype=obj → DXIL 容器 →
+// dxc validator(IDxcValidator / dxv.exe)接受。patched llc 经 `RURIX_LLC` dev env
+// 绝对路径定位(受控临时偏差,RD-011 + spike/dxil-path-probe recipe),**不写死、
+// 不改 committed D-205 pin / 上方 `locate_clang`**;env 缺失 → 回落 committed pin
+// 候选,均不可用 → 调用方 SKIP(非静默 fallback 到其他后端,P-01)。
+// ===========================================================================
+
+/// patched llc 定位(RXS-0157 IR2;RD-011 dev 偏差):`RURIX_LLC` 绝对路径 >
+/// committed D-205 pin `C:\Program Files\LLVM\bin\llc.exe` > PATH `llc`。返回首个
+/// **存在**的候选(env 候选要求文件存在,pin/PATH 候选按名返回交由 spawn 判定);
+/// 全不可用 → `None`(调用方 SKIP,真实红绿在带 patched llc 的 dev/CI 环境)。
+#[cfg(feature = "dxil-backend")]
+pub fn locate_llc() -> Option<PathBuf> {
+    if let Ok(p) = std::env::var("RURIX_LLC") {
+        let pb = PathBuf::from(p);
+        if pb.is_file() {
+            return Some(pb);
+        }
+    }
+    let pin = PathBuf::from("C:\\Program Files\\LLVM\\bin\\llc.exe");
+    if pin.is_file() {
+        return Some(pin);
+    }
+    None
+}
+
+/// DirectX 三元组 LLVM IR 文本 → DXIL 容器对象(patched llc `-filetype=obj`)。
+/// 中间 `.dxil.ll` 落 `obj_out` 同名旁路;成功返回 `()`(失败 = 工具链错误串,
+/// 上层映射 RX6007)。`llc` 由 [`locate_llc`] 提供。
+#[cfg(feature = "dxil-backend")]
+pub fn llc_emit_dxil(llc: &Path, ir: &str, obj_out: &Path) -> Result<(), String> {
+    let ll = obj_out.with_extension("dxil.ll");
+    std::fs::write(&ll, ir).map_err(|e| format!("cannot write {}: {e}", ll.display()))?;
+    let out = Command::new(llc)
+        .arg(&ll)
+        .arg("-filetype=obj")
+        .arg("-o")
+        .arg(obj_out)
+        .output();
+    match out {
+        Ok(o) if o.status.success() => Ok(()),
+        Ok(o) => Err(format!(
+            "llc (dxil) exited with {}: {}{}",
+            o.status,
+            String::from_utf8_lossy(&o.stdout).trim(),
+            String::from_utf8_lossy(&o.stderr).trim()
+        )),
+        Err(e) => Err(format!("cannot spawn llc (dxil): {e}")),
+    }
+}
+
+/// dxc 签名 validator 套件目录定位(RXS-0157 IR3;round-7 取得的 2026 签名
+/// validator):`RURIX_DXC_DIR` > `RURIX_DXC_NEW_DIR`(spike 现场约定)。返回含
+/// `dxv.exe` + `dxc.exe` 的目录;不可用 → `None`(调用方 SKIP validator,真实红绿
+/// 在带 validator 的环境)。
+#[cfg(feature = "dxil-backend")]
+pub fn locate_dxc_dir() -> Option<PathBuf> {
+    for key in ["RURIX_DXC_DIR", "RURIX_DXC_NEW_DIR"] {
+        if let Ok(p) = std::env::var(key) {
+            let pb = PathBuf::from(p);
+            if pb.join("dxv.exe").is_file() {
+                return Some(pb);
+            }
+        }
+    }
+    None
+}
+
+/// dxc validator 验证 DXIL 容器(`dxv.exe <obj>`;RXS-0157 IR3,strict-only):
+/// 接受 → `Ok(true)`,拒绝 → `Ok(false)`,spawn 失败 → `Err`(工具链串)。
+#[cfg(feature = "dxil-backend")]
+pub fn dxv_validate(dxc_dir: &Path, obj: &Path) -> Result<bool, String> {
+    let dxv = dxc_dir.join("dxv.exe");
+    match Command::new(&dxv).arg(obj).output() {
+        Ok(o) => Ok(o.status.success()),
+        Err(e) => Err(format!("cannot spawn dxv: {e}")),
+    }
+}
+
+/// dxc 反汇编 DXIL 容器为确定性文本(`dxc -dumpbin <obj>`;RXS-0157 IR3 golden
+/// 文本反汇编形态)。失败 → `Err`(工具链串)。
+#[cfg(feature = "dxil-backend")]
+pub fn dxc_disasm(dxc_dir: &Path, obj: &Path) -> Result<String, String> {
+    let dxc = dxc_dir.join("dxc.exe");
+    match Command::new(&dxc).arg("-dumpbin").arg(obj).output() {
+        Ok(o) if o.status.success() => Ok(String::from_utf8_lossy(&o.stdout).replace("\r\n", "\n")),
+        Ok(o) => Err(format!(
+            "dxc -dumpbin exited with {}: {}",
+            o.status,
+            String::from_utf8_lossy(&o.stderr).trim()
+        )),
+        Err(e) => Err(format!("cannot spawn dxc: {e}")),
+    }
+}

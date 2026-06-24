@@ -94,6 +94,9 @@ shader.resource_handle_invalid = 非法的着色资源句柄:{detail}
 codegen.device_math_unsupported = {detail} 不是受支持的 device 数学 intrinsic(超出 libdevice 覆盖范围或元素类型不受支持)
 link.libdevice_failure = libdevice 链接失败:{reason}
 #
+# DXIL codegen 诊断(RX6007,spec/dxil_backend.md RXS-0157;G2.2 PR-C2 分片1 分配)
+codegen.dxil_unsupported = DXIL codegen 目标不可用或暂不支持:{detail}
+#
 # rx CLI 工具链诊断(RX7003 / RX7004,spec/toolchain.md RXS-0083/0085;M6.1 分配)
 toolchain.rx_cli_usage = rx CLI 用法错误:{detail}
 toolchain.rx_run_exec_failure = rx run:无法执行构建产物:{detail}

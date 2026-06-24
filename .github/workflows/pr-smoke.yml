@@ -243,6 +243,22 @@ jobs:
         shell: powershell
         run: py -3 ci/shader_stages_smoke.py
 
+      # 步骤 46（G-G2-2,RFC-0003 / RXS-0157,PR-C2 分片1）：DXIL 第二后端 codegen 冒烟。
+      # `cargo test -p rurixc --features dxil-backend`(dxil_codegen 单测 + dxil_corpus
+      # accept/reject + dxil_golden)。IR 层(rurixc 自有 DirectX 三元组 LLVM IR `.dxil-ll`
+      # golden + accept/reject RX6007)**总跑**、无外部工具依赖;`.dxil-disasm` 反汇编关卡需
+      # patched llc(经 `RURIX_LLC`,**RD-011 受控 dev-only 临时工具链偏差**,patch 不入库、
+      # 不改 committed D-205 pin)+ dxc 签名 validator(经 `RURIX_DXC_DIR`),CI runner 未配
+      # 二者时 disasm 关卡 normal SKIP(对齐 RXS-0073 ptxas 干验证 SKIP 纪律,真实红绿在带
+      # 工具链的 dev/runner;G-G2-2 device 真跑/呈现对照仍 open,不在本步)。失败即红。
+      - name: DXIL second-backend codegen smoke (G2 CI_GATES §2.46, G-G2-2, RFC-0003, RD-011 dev 偏差)
+        shell: powershell
+        run: |
+          cargo test -p rurixc --features dxil-backend --lib dxil_codegen
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test -p rurixc --features dxil-backend --test dxil_corpus --test dxil_golden
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

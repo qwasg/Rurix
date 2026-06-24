@@ -18,5 +18,12 @@ rowan = "0.15.1"
 default = ["shader-stages"]
 shader-stages = []
 
+# G2.2 DXIL 第二后端(RFC-0003 §6 / §9 Q-Gate;RXS-0157)。默认**不**启用——
+# DXIL 后端为 MIR 之后的第二 codegen 路径,gate 后不参与编译,PTX 路径(D-207)
+# 不受影响(RFC-0003 §4.5)。`cargo build/test -p rurixc --features dxil-backend`
+# 启用 `--target dxil` 分发与 dxil_codegen 模块;patched llc 经 RURIX_LLC dev env
+# 定位(受控临时偏差,RD-011),不写死 / 不改 committed D-205 pin。
+dxil-backend = []
+
 [lints]
 workspace = true

@@ -93,6 +93,9 @@ shader.resource_handle_invalid = invalid shader resource handle: {detail}
 codegen.device_math_unsupported = {detail} is not a supported device math intrinsic (outside libdevice coverage or unsupported element type)
 link.libdevice_failure = libdevice link failure: {reason}
 #
+# DXIL codegen 诊断(RX6007,spec/dxil_backend.md RXS-0157;G2.2 PR-C2 分片1 分配)
+codegen.dxil_unsupported = DXIL codegen target unavailable or unsupported: {detail}
+#
 # rx CLI 工具链诊断(RX7003 / RX7004,spec/toolchain.md RXS-0083/0085;M6.1 分配)
 toolchain.rx_cli_usage = rx CLI usage error: {detail}
 toolchain.rx_run_exec_failure = rx run: cannot execute build artifact: {detail}

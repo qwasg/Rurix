@@ -47,6 +47,10 @@ pub struct CompileOptions {
     pub reproducible: bool,
     /// 诊断输出格式:`json` 时输出 07 §5 结构化 JSON(RXS-0099);默认文本。
     pub error_format: Option<String>,
+    /// codegen 目标后端(RXS-0157,RFC-0003 §9 Q-CLI):`Some("dxil")` 选 DXIL
+    /// 第二后端(MIR 之后 target 分叉,gate `dxil-backend`);`None`/`Some("ptx")`
+    /// 维持现状默认 host/PTX 通道(零语义漂移)。
+    pub target: Option<String>,
 }
 
 /// 端到端编译(单一前端,07 §2)。返回退出码(`u8`,供调用方 [`std::process::ExitCode::from`]
@@ -59,6 +63,7 @@ pub fn compile(opts: &CompileOptions) -> u8 {
     let emit = opts.emit.clone();
     let profile_out = opts.profile_out.clone();
     let json_out = opts.error_format.as_deref() == Some("json");
+    let target = opts.target.clone();
 
     let src = match std::fs::read_to_string(&input_path) {
         Ok(s) => s,
@@ -177,7 +182,7 @@ pub fn compile(opts: &CompileOptions) -> u8 {
                     let device_emit = matches!(
                         emit.as_deref(),
                         Some("nvptx-ir") | Some("ptx") | Some("pyd")
-                    );
+                    ) || target.as_deref() == Some("dxil");
                     if m.is_empty() && !device_emit {
                         diag.struct_error(E_MISSING_MAIN, "codegen.missing_main")
                             .emit();
@@ -231,10 +236,15 @@ pub fn compile(opts: &CompileOptions) -> u8 {
         return 0;
     }
 
-    // device codegen 通道(M4.2,RXS-0070~0073):`--emit=nvptx-ir`(NVPTX
-    // LLVM IR 文本)/ `--emit=ptx`(经 pin 的 clang `--target=nvptx64` 产 PTX +
-    // ptxas -arch=sm_89 干验证关卡)。device MIR 以 `kernel fn` 为根收集(独立于
-    // host `main`);codegen 失败 → RX6003/RX6005 诊断。
+    // DXIL 第二后端 target 分发(G2.2,RXS-0157;RFC-0003 §4.1 MIR 之后分叉)。
+    // `--target dxil`:device MIR(kernel 根)→ DirectX 三元组 LLVM IR → patched llc
+    // -filetype=obj → DXIL 容器 → dxc validator accept。target 分叉不改 PTX 路径
+    // (D-207,§4.5)。feature `dxil-backend` 未启用 → RX6007(L1 后端不可用)。
+    if target.as_deref() == Some("dxil") {
+        return compile_dxil_target(&diag, &sm, &cx, &stem, out.as_deref(), &input_path);
+    }
+
+    // device codegen 通道(M4.2,RXS-0070~0073):`--emit=nvptx-ir` / `--emit=ptx`。
     if emit.as_deref() == Some("nvptx-ir") || emit.as_deref() == Some("ptx") {
         let mode = emit.as_deref().unwrap();
         let ir = crate::device_codegen::build_and_emit(&cx, &stem);
@@ -652,4 +662,109 @@ fn newest_subdir(dir: &Path) -> Option<PathBuf> {
         .collect();
     subs.sort();
     subs.pop()
+}
+
+/// `--target dxil` 端到端(RXS-0157;feature `dxil-backend` 启用)。device MIR
+/// (kernel 根)→ DirectX 三元组 LLVM IR(`dxil_codegen`)→ patched llc -filetype=obj
+/// → DXIL 容器 → dxc validator accept。无 kernel → 退出码 2;子集外 / 降级失败 →
+/// RX6007;patched llc / validator 缺失 → SKIP(开发环境降级,真实红绿在带工具链环境,
+/// 对齐 RXS-0073 ptxas 干验证 SKIP 纪律)。
+#[cfg(feature = "dxil-backend")]
+fn compile_dxil_target(
+    diag: &DiagCtxt,
+    sm: &SourceMap,
+    cx: &QueryCtx<'_>,
+    stem: &str,
+    out: Option<&Path>,
+    input_path: &Path,
+) -> u8 {
+    let ir = crate::dxil_codegen::build_and_emit_dxil(cx, stem);
+    if diag.has_errors() {
+        eprint!(
+            "{}",
+            render_diagnostics(&diag.emitted(), sm, diag.messages())
+        );
+        return 1;
+    }
+    let Some(ir) = ir else {
+        eprintln!("rurixc: no compute `kernel fn` found; nothing to emit for --target dxil");
+        return 2;
+    };
+    let obj_out = out
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| input_path.with_extension("dxc"));
+    let Some(llc) = crate::toolchain::locate_llc() else {
+        eprintln!(
+            "rurixc: note: patched llc not found (set RURIX_LLC to dev DXIL llc, RD-011); DXIL emit + dxc validator gate SKIPPED (RXS-0157)"
+        );
+        return 0;
+    };
+    if let Err(e) = crate::toolchain::llc_emit_dxil(&llc, &ir, &obj_out) {
+        diag.struct_error(ErrorCode(6007), "codegen.dxil_unsupported")
+            .arg("detail", format!("patched llc DXIL emit failed: {e}"))
+            .emit();
+        eprint!(
+            "{}",
+            render_diagnostics(&diag.emitted(), sm, diag.messages())
+        );
+        return 1;
+    }
+    let Some(dxc_dir) = crate::toolchain::locate_dxc_dir() else {
+        eprintln!(
+            "rurixc: note: dxc validator not found (set RURIX_DXC_DIR); DXIL emitted at {} but validator gate SKIPPED (RXS-0157)",
+            obj_out.display()
+        );
+        return 0;
+    };
+    match crate::toolchain::dxv_validate(&dxc_dir, &obj_out) {
+        Ok(true) => {
+            eprintln!(
+                "rurixc: --target dxil: DXIL container emitted + dxc validator accepted ({})",
+                obj_out.display()
+            );
+            0
+        }
+        Ok(false) => {
+            diag.struct_error(ErrorCode(6007), "codegen.dxil_unsupported")
+                .arg(
+                    "detail",
+                    "dxc validator rejected emitted DXIL container".to_owned(),
+                )
+                .emit();
+            eprint!(
+                "{}",
+                render_diagnostics(&diag.emitted(), sm, diag.messages())
+            );
+            1
+        }
+        Err(e) => {
+            toolchain_err(diag, sm, e);
+            1
+        }
+    }
+}
+
+/// `--target dxil` 但 feature `dxil-backend` 未启用(RXS-0157 L1):DXIL 后端不参与
+/// 编译 → RX6007(P-01 strict-only,不降级 host/PTX)。
+#[cfg(not(feature = "dxil-backend"))]
+fn compile_dxil_target(
+    diag: &DiagCtxt,
+    sm: &SourceMap,
+    _cx: &QueryCtx<'_>,
+    _stem: &str,
+    _out: Option<&Path>,
+    _input_path: &Path,
+) -> u8 {
+    diag.struct_error(ErrorCode(6007), "codegen.dxil_unsupported")
+        .arg(
+            "detail",
+            "`--target dxil` 需启用 cargo feature `dxil-backend`(RFC-0003 §9 Q-Gate;未启用时 DXIL 后端不参与编译,PTX 路径不受影响)"
+                .to_owned(),
+        )
+        .emit();
+    eprint!(
+        "{}",
+        render_diagnostics(&diag.emitted(), sm, diag.messages())
+    );
+    1
 }

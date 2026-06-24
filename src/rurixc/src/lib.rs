@@ -16,6 +16,8 @@ pub mod device_codegen;
 pub mod diag;
 pub mod driver;
 pub mod drop_elab;
+#[cfg(feature = "dxil-backend")]
+pub mod dxil_codegen;
 pub mod feature_gate;
 pub mod fmt;
 pub mod hir;

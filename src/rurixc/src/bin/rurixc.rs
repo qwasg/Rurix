@@ -40,6 +40,7 @@ fn main() -> ExitCode {
     let mut input: Option<String> = None;
     let mut out: Option<String> = None;
     let mut emit: Option<String> = None;
+    let mut target: Option<String> = None;
     let mut profile_out: Option<PathBuf> = None;
     let mut error_format: Option<String> = None;
     let mut i = 0;
@@ -50,6 +51,11 @@ fn main() -> ExitCode {
                 out = args.get(i).cloned();
             }
             s if s.starts_with("--emit=") => emit = Some(s["--emit=".len()..].to_owned()),
+            "--target" => {
+                i += 1;
+                target = args.get(i).cloned();
+            }
+            s if s.starts_with("--target=") => target = Some(s["--target=".len()..].to_owned()),
             s if s.starts_with("--self-profile=") => {
                 profile_out = Some(PathBuf::from(&s["--self-profile=".len()..]));
             }
@@ -77,6 +83,7 @@ fn main() -> ExitCode {
         profile_out,
         reproducible: false,
         error_format,
+        target,
     }))
 }
 

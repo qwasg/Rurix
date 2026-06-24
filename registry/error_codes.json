@@ -434,6 +434,14 @@
       "spec_clauses": ["RXS-0081", "RXS-0082"]
     },
     {
+      "id": "RX6007",
+      "title": "DXIL codegen 目标不可用 / 暂不支持的构造 / 降级失败(--target dxil:feature dxil-backend 未启用 / 子集外构造 / IR emit·patched llc·dxc validator 降级失败)",
+      "message_key": "codegen.dxil_unsupported",
+      "status": "active",
+      "introduced_in": "G2.2",
+      "spec_clauses": ["RXS-0157"]
+    },
+    {
       "id": "RX7001",
       "title": "外部工具链失败(clang/link.exe 定位失败、版本不符 pin 或退出非零)",
       "message_key": "link.toolchain_failure",
@@ -700,6 +708,11 @@
       "version": "v1.22",
       "date": "2026-06-23",
       "change": "G2.1 分配 RX3011 ~ RX3013(着色阶段类型面诊断,spec/shader_stages.md RXS-0154~0156 配套,RFC-0002 §5,PR-B2 实现 PR 真实可达类别只追加)。3xxx 着色/地址空间段位续接(RX3010 之后):RX3011 着色阶段 I/O 标注违例(着色阶段 I/O 字段无 #[interpolate(..)]/#[builtin(..)] 标注——无标注字段编译期拒绝 P-01 strict-only / 未知 builtin 名 / 未知插值限定,RXS-0154);RX3012 阶段间接口不匹配(fragment 输入 varying 与上游 vertex 输出名/类型/插值限定不兼容,RXS-0155);RX3013 资源句柄违例(Texture2D/Sampler 出现在返回位置 / 结构体字段 / 非着色阶段签名,或未支持纹理维度 defer,RXS-0156)。**着色阶段误用(RXS-0153)复用既有 RX3001**(直接调用着色阶段入口 / 跨着色非法调用,着色阶段取 kernel 入口着色,无新码)。message_key shader.stage_io_invalid / shader.stage_interface_mismatch / shader.resource_handle_invalid 同落 en/zh.messages(双语全量覆盖门 ci/bilingual_coverage.py);着色阶段类型面为 AST 层编译期检查(cargo feature shader-stages,纯 host/CPU-only),DXIL codegen(G2.2)/ 绑定布局推导(G2.3)/ 纹理内存模型映射(06 §4.2 禁区)不在本 PR;段内分配制递增不复用、含义冻结(10 §6)"
+    },
+    {
+      "version": "v1.23",
+      "date": "2026-06-24",
+      "change": "G2.2 分配 RX6007(DXIL codegen 目标诊断,spec/dxil_backend.md RXS-0157 配套,RFC-0003 §5,PR-C2 分片1 实现 PR 真实可达类别只追加)。6xxx codegen/目标段位续接(RX6006 之后):RX6007 DXIL codegen 目标不可用 / 暂不支持的构造 / 降级失败——`--target dxil` 而 cargo feature dxil-backend 未启用(L1 后端可用性)/ DXIL 后端最小子集外构造(View·资源句柄形参 / 非平凡体,绑定布局推导属 G2.3、FFI ABI 属禁区,L2)/ DXIL 降级管线(DirectX 三元组 IR emit·patched llc -filetype=obj·dxc validator)失败(L3,P-01 strict-only 无运行期 fallback)。工具链缺失(patched llc 经 RURIX_LLC 不可用 / validator 不可用)为开发环境降级 SKIP,不报 RX6007(对齐 RXS-0073 ptxas 干验证 SKIP 纪律,真实红绿在带工具链环境)。message_key codegen.dxil_unsupported 同落 en/zh.messages(双语全量覆盖门 ci/bilingual_coverage.py);DXIL 后端为 MIR 之后 target 分叉、与 NVPTX 后端并列各自从 MIR 独立降级,不改 PTX 路径(D-207);本片不碰 DXIL 完整阶段着色器类型对应(RXS-0158)/ 绑定布局推导(G2.3)/ 🔒 纹理内存模型映射(06 §4.2 禁区);段内分配制递增不复用、含义冻结(10 §6)"
     }
   ]
 }
