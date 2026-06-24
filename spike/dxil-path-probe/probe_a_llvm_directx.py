@@ -163,7 +163,11 @@ def measure_interop(dxc_path, good_obj_bare, good_obj_enr, workdir):
             dxc_parsed = dcont.parse_dxbc(dxc_bytes)
             if dll:
                 ctrl_val = dval.validate_container(dll, dxc_bytes)
-                out["dxc_control"] = {"parsed": {k: dxc_parsed.get(k) for k in ("part_fourccs", "is_signed", "size")}, "validate": ctrl_val}
+                out["dxc_control"] = {
+                    "parsed": {k: dxc_parsed.get(k) for k in ("part_fourccs", "is_signed", "size", "version")},
+                    "dxil_program_version": dcont.dxil_part_version(dxc_bytes),
+                    "validate": ctrl_val,
+                }
     # llc bare + enriched 容器:解析 + 真验证
     for key, gobj in (("bare", good_obj_bare), ("enriched", good_obj_enr)):
         if not gobj or not os.path.isfile(gobj):
@@ -172,7 +176,8 @@ def measure_interop(dxc_path, good_obj_bare, good_obj_enr, workdir):
         with open(gobj, "rb") as f:
             llc_bytes = f.read()
         parsed = dcont.parse_dxbc(llc_bytes)
-        entry = {"parsed": {k: parsed.get(k) for k in ("ok", "part_fourccs", "is_signed", "size", "digest_hex")}}
+        entry = {"parsed": {k: parsed.get(k) for k in ("ok", "part_fourccs", "is_signed", "size", "digest_hex", "version")},
+                 "dxil_program_version": dcont.dxil_part_version(llc_bytes)}
         if dll:
             out["validator_available"] = True
             entry["validate"] = dval.validate_container(dll, llc_bytes)
@@ -211,6 +216,9 @@ def probe() -> dict:
     det = detect_directx_target(clang_path, llc_path)
     facts = []
     repro = []
+    # round-5:更新 LLVM commit(经 RURIX_LLC_COMMIT 注入,精确可复现);默认标 unknown
+    llc_commit = os.environ.get("RURIX_LLC_COMMIT", "unknown")
+    llc_commit_date = os.environ.get("RURIX_LLC_COMMIT_DATE", "unknown")
 
     if det["available"] and llc_path:
         workdir = tempfile.mkdtemp(prefix="dxil_spike_a_r4_")
@@ -238,6 +246,11 @@ def probe() -> dict:
                           "note": f"对照:dxc 自产容器 IDxcValidator accepted={vctrl.get('accepted')} status={vctrl.get('validation_status_hr')}(=工具/validator 本身可用,gap 在 llc↔dxc 互操作非工具坏)"})
             facts.append({"kind": "interop_container_diff", "name": "container_structure",
                           "note": f"容器结构 diff:llc parts={diff.get('llc_parts')} vs dxc parts={diff.get('dxc_parts')};llc 缺={diff.get('llc_missing_vs_dxc')} 多={diff.get('llc_extra_vs_dxc')} 顺序异={diff.get('order_differs')};签名 llc_signed={diff.get('llc_signed')} dxc_signed={diff.get('dxc_signed')}"})
+            # round-5 DXIL 版本子轴:更新 llc emit 的 DXIL 版本 vs dxc 1.8 dxil.dll
+            llc_pv = (interop.get("bare") or {}).get("dxil_program_version") or {}
+            dxc_pv = (interop.get("dxc_control") or {}).get("dxil_program_version") or {}
+            facts.append({"kind": "dxil_version_subaxis", "name": "llc_vs_dxc_dxil_version",
+                          "note": f"DXIL 版本子轴(round-5):更新 llc 产 DXIL part program_version={llc_pv.get('shader_model')}(raw={llc_pv.get('program_version_raw')}) dxil_version={llc_pv.get('dxil_version_hex')} ok={llc_pv.get('ok')}(reason={llc_pv.get('reason')}) || dxc 1.8 自产 program_version={dxc_pv.get('shader_model')} dxil_version={dxc_pv.get('dxil_version_hex')};若更新 llc 的 DXIL 版本 > dxc 1.8 dxil.dll 支持,互操作可能因 validator 版本被拒(非 llc codegen 之过),如属此情须用匹配/更新 dxil.dll 再验"})
         elif vbare.get("status") == "n/a":
             validator_pass = "n/a"
             facts.append({"kind": "interop_validator", "name": "IDxcValidator_validate_llc", "note": f"obj 全崩溃/失败,无成功容器可验证;asm 文本 DXIL 稳定但非二进制容器,IDxcValidator 需容器输入"})
@@ -258,14 +271,16 @@ def probe() -> dict:
             "validator_pass": validator_pass,
             "shader_model_coverage": f"诊断 SM 6.0/6.2/6.5/6.6 × (bare/enriched) × (asm/obj) 各×{ATTEMPTS};asm 全 SM 稳定,obj 全 SM 非确定性崩溃",
             "validator_compat": validator_compat,
+            "llc_commit": llc_commit,
+            "llc_commit_date": llc_commit_date,
             "emit_stability_matrix": matrix,
             "interop": interop,
             "facts": facts,
             "repro": [
-                "1. 自编带 DirectX target 的 LLVM(已备:H:\\llvm-dxil\\build\\bin,LLVM 22.1.7 pin commit a255c1ed,含 dxil target);设 RURIX_LLC 指向其 llc.exe。",
+                f"1. 隔离目录自编更新 llvm-project(round-5:commit {llc_commit} date {llc_commit_date},新于 D-205 pin a255c1ed/22.1.7);cmake -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=DirectX -DLLVM_TARGETS_TO_BUILD=X86 -DCMAKE_BUILD_TYPE=Release;ninja llc llvm-as;设 RURIX_LLC 指向其 llc.exe(绝不动 C:\\Program Files\\LLVM 或 H:\\llvm-dxil round-3 pin 基线)。",
                 "2. 设 RURIX_DXC 指向 dxc.exe(同目录须有 dxcompiler.dll 供 IDxcValidator);本环境 dxc 1.8.0.4739(Vulkan SDK)。",
-                "3. py -3 spike/dxil-path-probe/run_spike.py(RURIX_SPIKE_SUFFIX=_r4)重跑;诊断1 量 asm/obj×SM×元数据崩溃率,诊断2 IDxcValidator 真验证。",
-                "4. blocker:obj DXContainer 写出器非确定性崩溃(0xC0000005)+ IDxcValidator 拒绝 llc DXIL(0x80aa000f load dxil metadata failed,非签名缺失)→ 打通依赖上游 LLVM DirectX 后端成熟(容器写出器稳定 + DXIL 元数据与 dxc validator 互操作修复)或 validator 版本依赖项。",
+                "3. py -3 spike/dxil-path-probe/run_spike.py(RURIX_SPIKE_SUFFIX=_r5,RURIX_LLC_COMMIT/RURIX_LLC_COMMIT_DATE 注入更新 commit)重跑;诊断1 量 asm/obj×SM×元数据崩溃率,诊断2 IDxcValidator 真验证 + DXIL 版本子轴。",
+                "4. 与 round-4 pin(a255c1ed/22.1.7)同口径对照:obj 写出器崩溃是否消失 / IDxcValidator 是否接受 / DXIL 版本是否 > dxc 1.8 支持。",
             ],
         }
     else:
