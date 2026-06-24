@@ -181,6 +181,7 @@ def check_evidence_files() -> None:
     async_buffer_schema = load(ROOT / "milestones/g1/async_buffer_evidence_schema.json")
     engine_integration_schema = load(ROOT / "milestones/g1/engine_integration_evidence_schema.json")
     fatbin_dist_schema = load(ROOT / "milestones/g1/fatbin_dist_evidence_schema.json")
+    dxil_path_spike_schema = load(ROOT / "milestones/g2/dxil_path_spike_evidence_schema.json")
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -230,6 +231,9 @@ def check_evidence_files() -> None:
     )
     fatbin_dist_validator = (
         jsonschema.Draft7Validator(fatbin_dist_schema) if fatbin_dist_schema else None
+    )
+    dxil_path_spike_validator = (
+        jsonschema.Draft7Validator(dxil_path_spike_schema) if dxil_path_spike_schema else None
     )
     for f in evidence_files:
         doc = load(f)
@@ -301,6 +305,14 @@ def check_evidence_files() -> None:
             and fatbin_dist_validator is not None
         ):
             validator = fatbin_dist_validator
+        elif (
+            f.name.startswith("dxil_path_spike_")
+            and dxil_path_spike_validator is not None
+        ):
+            # G2.2 Q-D131=C 双路 DXIL spike 取证证据(RD-010;RFC-0003 §9 Q-D131)→
+            # milestones/g2/dxil_path_spike_evidence_schema.json(measured-first /
+            # blocked-honest,纯取证非性能基准;不入 budget counter,A/B 结论留 owner)
+            validator = dxil_path_spike_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):
