@@ -182,6 +182,11 @@ def check_evidence_files() -> None:
     engine_integration_schema = load(ROOT / "milestones/g1/engine_integration_evidence_schema.json")
     fatbin_dist_schema = load(ROOT / "milestones/g1/fatbin_dist_evidence_schema.json")
     dxil_path_spike_schema = load(ROOT / "milestones/g2/dxil_path_spike_evidence_schema.json")
+    dxil_b_graphics_sig_schema = load(ROOT / "milestones/g2/dxil_b_graphics_sig_evidence_schema.json")
+    dxil_b_strict_only_schema = load(ROOT / "milestones/g2/dxil_b_strict_only_evidence_schema.json")
+    dxil_a_graphics_sig_effort_schema = load(
+        ROOT / "milestones/g2/dxil_a_graphics_sig_effort_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -234,6 +239,21 @@ def check_evidence_files() -> None:
     )
     dxil_path_spike_validator = (
         jsonschema.Draft7Validator(dxil_path_spike_schema) if dxil_path_spike_schema else None
+    )
+    dxil_b_graphics_sig_validator = (
+        jsonschema.Draft7Validator(dxil_b_graphics_sig_schema)
+        if dxil_b_graphics_sig_schema
+        else None
+    )
+    dxil_b_strict_only_validator = (
+        jsonschema.Draft7Validator(dxil_b_strict_only_schema)
+        if dxil_b_strict_only_schema
+        else None
+    )
+    dxil_a_graphics_sig_effort_validator = (
+        jsonschema.Draft7Validator(dxil_a_graphics_sig_effort_schema)
+        if dxil_a_graphics_sig_effort_schema
+        else None
     )
     for f in evidence_files:
         doc = load(f)
@@ -305,6 +325,35 @@ def check_evidence_files() -> None:
             and fatbin_dist_validator is not None
         ):
             validator = fatbin_dist_validator
+        elif (
+            f.name.startswith("dxil_a_graphics_sig_effort_")
+            and dxil_a_graphics_sig_effort_validator is not None
+        ):
+            # G2.2 A 路图形签名工作量评估 spike 证据(RD-010;RFC-0003 §9 Q-D131=A /
+            # issue #90504 / #57928)→ milestones/g2/dxil_a_graphics_sig_effort_evidence_schema.json
+            # (measured-first / blocked-honest,纯评估 spike 非性能基准;源码勘察 + 上游状态 +
+            # 禁区vs conformance 裁断 + 分档工作量 estimated + carry-patch + PoC 锚定;
+            # 不入 budget counter,A/B/混合架构结论留 owner)
+            validator = dxil_a_graphics_sig_effort_validator
+        elif (
+            f.name.startswith("dxil_b_strict_only_")
+            and dxil_b_strict_only_validator is not None
+        ):
+            # G2.2 B 路 strict-only 达标取证证据(RD-014;RFC-0004 §4.4 / 04 P-01 / P-13)→
+            # milestones/g2/dxil_b_strict_only_evidence_schema.json(measured-first /
+            # blocked-honest,纯取证非性能基准;语义名保持配置 b_keep vs 默认 b_default vs direct
+            # 三链签名 part dump 对照,证语言层零静默降级能否不靠 P-01 例外达标;不入 budget
+            # counter,P-01 规范线 / A/B / ②③契约线归属裁断留 owner)
+            validator = dxil_b_strict_only_validator
+        elif (
+            f.name.startswith("dxil_b_graphics_sig_")
+            and dxil_b_graphics_sig_validator is not None
+        ):
+            # G2.2 B 路图形签名能力取证证据(RD-010;RFC-0003 §9 Q-D131 / §7 B 路)→
+            # milestones/g2/dxil_b_graphics_sig_evidence_schema.json(measured-first /
+            # blocked-honest,纯取证非性能基准;ISG1/OSG1 签名 part dump 对照 A elemcount=0,
+            # 不入 budget counter,A/B/混合架构结论留 owner)
+            validator = dxil_b_graphics_sig_validator
         elif (
             f.name.startswith("dxil_path_spike_")
             and dxil_path_spike_validator is not None

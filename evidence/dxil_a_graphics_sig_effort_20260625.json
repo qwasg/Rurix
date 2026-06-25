@@ -1,0 +1,220 @@
+{
+  "schema_version": 1,
+  "subject": "dxil_a_graphics_sig_effort",
+  "status": "measured_local",
+  "rd_ref": "RD-010",
+  "decision_ref": "RFC-0003 §9 Q-D131=A / 13 §D-131 / llvm-project #90504 / #57928 / #143523",
+  "host_env": {
+    "os": "win32"
+  },
+  "llvm_env": {
+    "src_worktree": "H:\\llvm-clean-82c5bce5-src (只读勘察 + PoC;隔离不入库)",
+    "head_commit": "626063a6bb516702413ee89d08bef5574fd66d5f ([DirectX] Select PSV version from the module validator version, RD-011 PSV patch)",
+    "base_commit": "82c5bce5233f964da4f8086b2341067314d841d7 (origin/main, grafted shallow clone)",
+    "llvm_version": "LLVM 23.0.0git, Optimized build with assertions",
+    "llc_baseline_sha256": "CB56E0D99D1768CF557E523C6A861C4EDD5CF40C8472D838F2C899613B409FF2",
+    "llc_poc_sha256": "6E7584E5C7F9AF41412B29C7D435A1BFF9308F1AB985ECD93753863377297DCE",
+    "git_history": "blocked: grafted shallow clone(origin/main 单 commit graft),无法做 DirectX 后端历史活跃度逐 commit 分析;改用 GitHub API issue/PR 状态评估上游活跃度"
+  },
+  "validator": {
+    "dir": "H:\\dxc-round7\\extracted\\bin\\x64",
+    "version": "1.9.2602.24 (d355aa836)",
+    "n": 1,
+    "dxv_present": true
+  },
+  "source_survey": {
+    "sites": [
+      {
+        "id": "S1-backend-empty-sig",
+        "file": "llvm/lib/Target/DirectX/DXContainerGlobals.cpp",
+        "line": "226-236 (addSignature)",
+        "what": "图形签名 emit 出口:无条件构造空 InputSig/OutputSig 直接 write 8 字节空 ISG1/OSG1,从不 addParam;不读任何模块元数据。FIXME: support graphics shader.",
+        "snippet": "// FIXME: support graphics shader. see issue #90504"
+      },
+      {
+        "id": "S2-backend-metadata-nullptr",
+        "file": "llvm/lib/Target/DirectX/DXILTranslateMetadata.cpp",
+        "line": "541-543 (translateMetadata)",
+        "what": "dx.entryPoints 的 Signatures 操作数硬编码 nullptr;签名元数据从不构造。FIXME: Add support to construct Signatures (issue #57928)",
+        "snippet": "// FIXME: Add support to construct Signatures\\nMDTuple *Signatures = nullptr;"
+      },
+      {
+        "id": "S3-frontend-intrinsic-hardcoded",
+        "file": "clang/lib/CodeGen/CGHLSLRuntime.cpp",
+        "line": "1036-1090 (emitDXILUserSemanticLoad/Store)",
+        "what": "前端 dx.load.input/dx.store.output 已生成,但 sigpoint/row/col/index 全硬编码占位(getInt32(4),getInt32(0),getInt32(0),getInt8(0));packing 规则未实现。FIXME: generate proper sigpoint, index, col, row values; DXIL packing rules etc shall be handled here.",
+        "snippet": "// DXIL packing rules etc shall be handled here.\\n// FIXME: generate proper sigpoint, index, col, row values."
+      },
+      {
+        "id": "S4-psv-sig-elements-empty",
+        "file": "llvm/lib/Target/DirectX/DXContainerGlobals.cpp",
+        "line": "268-375 (addResourcesForPSV / addPipelineStateValidationInfo)",
+        "what": "PSV 路径填 Resources 但从不填 PSVRuntimeInfo.InputElements/OutputElements/PatchOrPrimElements(签名元素 PSV 侧同样空)",
+        "snippet": "addResourcesForPSV 只 push Resources,无 SigInputElements"
+      },
+      {
+        "id": "S5-addparam-api",
+        "file": "llvm/include/llvm/MC/DXContainerPSVInfo.h",
+        "line": "90-115 (class mcdxbc::Signature::addParam)",
+        "what": "填一个签名元素强制要求 Stream/Name/Index/SystemValue/CompType/Register/Mask/ExclusiveMask/MinPrecision;Register/Mask/ExclusiveMask = 寄存器/分量 packing 布局",
+        "snippet": "void addParam(Stream,Name,Index,SystemValue,CompType,Register,Mask,ExclusiveMask,MinPrecision)"
+      }
+    ],
+    "backend_consumption_points": 0,
+    "addparam_required_fields": [
+      "Stream",
+      "Name",
+      "Index",
+      "SystemValue(D3DSystemValue)",
+      "CompType(SigComponentType)",
+      "Register",
+      "Mask",
+      "ExclusiveMask",
+      "MinPrecision"
+    ],
+    "missing_blocks": [
+      "(a) 后端签名 part 生成:addSignature 从元数据/模块 I/O 派生 ISG1/OSG1 元素 (#90504,open,无在途 PR)",
+      "(b) 后端签名元数据构造:DXILTranslateMetadata 把签名编进 dx.entryPoints (#57928,open,无在途 PR)",
+      "(c) 前端 SV 索引/packing:CGHLSLRuntime dx.load.input/store.output 的 sigpoint/row/col/register-component packing (硬编码占位待实现)",
+      "(d) PSV 签名字段:PSVRuntimeInfo InputElements/OutputElements 填充 + 与 ISG1/OSG1 一致 (validator 交叉校验)",
+      "(e) ViewIdState/依赖分析:PSV 的 input-output 依赖位 (完整签名需要)"
+    ]
+  },
+  "upstream": {
+    "issues": [
+      {
+        "number": 90504,
+        "state": "open",
+        "title": "[DirectX] Generate ISG1, OSG1 parts from signature module metadata",
+        "url": "https://github.com/llvm/llvm-project/issues/90504",
+        "created": "2024-04-29",
+        "updated": "2026-06-19",
+        "note": "后端签名 part 生成总 issue;addSignature FIXME 指向此;无在途实现 PR"
+      },
+      {
+        "number": 57928,
+        "state": "open",
+        "title": "[CGHLSL][DirectX] Generate module metadata for input output signature",
+        "url": "https://github.com/llvm/llvm-project/issues/57928",
+        "created": "2022",
+        "updated": "2026-06-19",
+        "note": "前端/元数据侧签名构造 issue;DXILTranslateMetadata Signatures=nullptr FIXME 指向此;无在途实现 PR"
+      },
+      {
+        "number": 143523,
+        "state": "open",
+        "title": "[HLSL][DirectX] Implement SV_Position semantic when targeting DXIL on pixel shaders",
+        "url": "https://github.com/llvm/llvm-project/issues/143523",
+        "created": "2025-06-10",
+        "updated": "2026-06-19",
+        "note": "恰是最小 SV-only(pixel SV_Position)场景的活跃跟踪 issue;unassigned;前端 intrinsic 地基(dx.load.input)在建但 packing 未完成"
+      },
+      {
+        "number": 67346,
+        "state": "merged",
+        "title": "[DX] Add support for program signatures",
+        "url": "https://github.com/llvm/llvm-project/pull/67346",
+        "created": "2023-09-25",
+        "updated": "2023-10-05",
+        "note": "已 merged(+859/-65,13 文件):建了 mcdxbc::Signature/addParam/PSV 签名元素基础设施,但未接图形 emit 路径"
+      }
+    ],
+    "in_flight_signature_pr": false,
+    "direction": "warm-but-incomplete: 2026 年前端 HLSL 语义工作活跃(CGHLSLRuntime dx.load.input/store.output 地基 + #143523 SV_Position pixel 场景 + #90504/#57928 2026-06-19 同日触达),但签名→DXContainer ISG1/OSG1 生成当前无在途 PR;基础设施(#67346)2023 已 merged 闲置至今未接图形。direction 活跃但签名出口子任务停滞"
+  },
+  "forbidden_zone_vs_conformance": {
+    "packing_verdict": "conformance",
+    "rationale": "签名 register/component packing 布局是 DXIL/D3D12 规范 + dxc 既定的硬性 conformance 规则,非 Rurix 自由 ABI 决策:① clang 源码注释明示 DXIL packing rules etc shall be handled here 且 DXC completely ignores the semantic/index pair, Locations are assigned from the first semantic to the last(复刻 dxc 既定算法,非自由设计);② DxilProgramSignatureElement 二进制格式由 DXContainer 容器规范固定;③ HLSL packing rules(VS output/GS/PS in-out)由 MS 官方文档规范化;④ 跨阶段签名匹配 + DXIL validator 强制 packing 一致(本轮 PoC 实测 validator 按模块重算期望签名并交叉校验,见 poc);⑤ B 路证据(dxil_b_graphics_sig_20260625.json)dxc 直产 register/mask 值(SV_Position reg0 mask0xF, POSITION reg1 mask0x7...)即 dxc 算法分配,印证无设计自由度。实现 = 复刻 dxc DxilSignatureAllocator 算法 = conformance,非 ABI 设计。事实陈述供 owner 裁是否需 Full RFC,不替 owner 落笔禁区(硬规则 5)。",
+    "citations": [
+      "https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-packing-rules (HLSL implements packing rules for VS output / GS in-out / PS in-out)",
+      "DirectXShaderCompiler lib/DXIL/DxilSignatureAllocator + DxilSignatureElement (dxc 签名分配算法)",
+      "clang/lib/CodeGen/CGHLSLRuntime.cpp:1043,1067 注释(DXIL packing rules / 复刻 DXC location 分配)",
+      "https://www.llvm.org/docs/DirectX/DXContainer.html (DXContainer PSV0 Signature Elements 二进制格式)"
+    ],
+    "sv_semantic_mapping": "SV 系统值语义名→D3DSystemValue 的映射(SV_Position→Position 等)= RXS-0159 类型面已裁;register/mask packing = conformance(本判断);二者分层,packing 非类型面亦非自由 ABI 设计,而是 dxc/规范既定复刻项。"
+  },
+  "effort_estimate": {
+    "level": "estimated",
+    "tiers": [
+      {
+        "tier": "T0 最小 SV-only (vertex SV_Position 输出 + fragment SV_Target 输出/SV_Position 输入,无 user varying packing)",
+        "components": [
+          "(a)后端 addSignature 从模块 I/O 派生 SV 元素",
+          "(b)签名元数据构造 dx.entryPoints(或后端直读 dx.load.input/store.output intrinsic)",
+          "(c)前端 sigpoint/row/col 正确化(SV 专属,无 user-varying packing)",
+          "(d)PSV InputElements/OutputElements 填充 + 与 ISG1/OSG1 一致"
+        ],
+        "loc_estimate": "estimated ~300-600 LOC 跨 clang 前端 + LLVM 后端 3-4 文件(前端 CGHLSLRuntime + 后端 DXILTranslateMetadata + DXContainerGlobals + PSV);非孤立单点。比 RD-011 14 行 PSV 单函数 patch 大 1-2 个数量级",
+        "risk": "高:experimental 后端 + 三处 FIXME 跨前后端协同 + validator 按模块重算签名交叉校验(本轮 PoC 实测孤立签名元素被拒 0x80aa0013)+ obj 写出器历史不稳(round-4/5 崩溃,虽 round-8 well-formed 输入稳定)。SV-only 可避开 user-varying packing 但 SV 仍需正确 register/sigpoint/PSV 一致"
+      },
+      {
+        "tier": "T1 完整签名 (user varying + 插值 interpolation mode + register-component packing + 多 RT)",
+        "components": [
+          "T0 全部",
+          "user 语义名 varying 元素 + 插值限定符(linear/nointerpolation...)",
+          "register-component packing 算法(复刻 dxc DxilSignatureAllocator)",
+          "多 RT(SV_Target0..N)",
+          "跨阶段 varying 兼容(vs out↔ps in)",
+          "ViewIdState 依赖分析"
+        ],
+        "loc_estimate": "estimated 增量 ~800-1500+ LOC(packing 算法 + 插值 + 跨阶段匹配 + ViewId);complete graphics signature 是 dxc 中数千行模块的复刻面",
+        "risk": "很高:packing 算法虽属 conformance(复刻 dxc,见 forbidden_zone_vs_conformance)无设计自由度,但工程量大、validator 一致性严苛;插值模式 + ViewId 依赖 + 跨阶段链接均需逐项对齐 dxc 行为"
+      }
+    ]
+  },
+  "carry_patch": {
+    "feasible": "partial-blocked: 像 RD-011 那样 carry 小 patch 解锁 A-graphics 开发不可行——最小 SV-only 非孤立单函数 patch,而是跨 clang 前端 + LLVM 后端 + PSV 的协同实现(见 source_survey.missing_blocks a-e),validator 交叉校验要求三侧(ISG1/OSG1 + PSV 元素 + 模块 I/O intrinsic)一致。本轮 PoC 证孤立后端 patch 被 validator 拒。",
+    "vs_rd011": "RD-011 = 14 行单函数 PSV 版本派生 patch(浅修上游既有 bug,validator pre 0/25→post 25/25)。A-graphics 最小 SV-only carry = ~300-600 LOC 跨 3-4 文件新功能实现(非修 bug),量级大 1-2 个数量级,且需自行实现而非 cherry-pick 上游(上游 #90504/#57928 无在途 PR 可 carry)。",
+    "rationale": "RD-011 可行因其是浅修单点既有缺陷;A-graphics 签名是上游未实现的整块新功能(三处 FIXME),carry 等于在 fork 里替上游实现 #90504+#57928+前端 packing,可维护性/rebase 成本远高于 RD-011。"
+  },
+  "poc": {
+    "done": true,
+    "reason": "做了有界 PoC 锚定核心可行性问题(孤立签名元素是否被 validator 接受);单函数 ~12 行 patch + 增量重建(round-8 同体量,分钟级),在可控体量内。",
+    "patch": {
+      "file": "llvm/lib/Target/DirectX/DXContainerGlobals.cpp (addSignature)",
+      "diff_stat": "+10/-2 行,单函数(硬编码 pixel shader 一个 SV_Position 输入元素;非真实现:无元数据驱动/无 PSV 填充/无 packing)",
+      "patch_sha256": "046E729E8FE8967A611CF6102132F2A47F3FE6C04A129FEB68D3B5C49C3111EA",
+      "patch_path": "H:\\dxil-a-graphics-sig\\addsignature_poc.patch (隔离不入库)",
+      "rebuild": "ninja -j6 llc 增量重建成功(DXContainerGlobals.cpp.obj + relink,分钟级);PoC 后已 git checkout 还原源码 + 重建还原 baseline llc(elemcount 复 0),RD-011 dev 工具链未污染"
+    },
+    "samples": [
+      {
+        "name": "ps_svpos_pre",
+        "input": "ps_svpos.ll (dxil shadermodel6.0-pixel, 空 body, dx.valver 1.8)",
+        "llc": "baseline",
+        "sha256": "ECCE20985EAABFD9B881D48A0C58E205658BB48814BF0417A55DFF7D295B4E6A",
+        "ISG1_elemcount": 0,
+        "OSG1_elemcount": 0,
+        "idxc_accept": true,
+        "idxc_status": "0x0",
+        "dxv": "Validation succeeded.",
+        "note": "空签名 pixel shader validator 接受(空签名结构合法)"
+      },
+      {
+        "name": "ps_svpos_post",
+        "input": "同上",
+        "llc": "PoC patched(硬编码 1 个 SV_Position 输入元素)",
+        "sha256": "12440C52B2A2EA83F385C20006DEC831BA4EB5BBBE36C08322FAD7817C7B2B40",
+        "ISG1_elemcount": 1,
+        "ISG1_element": {
+          "semantic_name": "SV_Position",
+          "system_value": "SV_Position",
+          "system_value_raw": 1,
+          "comp_type": "float32",
+          "register": 0,
+          "mask": 15,
+          "exclusive_mask": 0
+        },
+        "OSG1_elemcount": 0,
+        "idxc_accept": false,
+        "idxc_status": "0x80aa0013",
+        "dxv": "error: Container part 'Program Input Signature' does not match expected for module. Validation failed.",
+        "note": "签名 part 成功承载真实 SV_Position 元素(elemcount=1),但 validator 拒绝——签名是模块派生的交叉校验项"
+      }
+    ],
+    "conclusion": "硬锚定:① 签名 PART 承载真实 SV 元素 = trivial(addParam + ~12 行 + 分钟级重建即让 ISG1 elemcount 0→1 含 SV_Position/reg0/mask0xF);② 但 validator(2026 签名 validator,IDxcValidator + dxv.exe)拒绝孤立签名元素,status 0x80aa0013『Program Input Signature does not match expected for module』——validator 按模块重算期望签名并交叉校验。故最小 SV-only 工作量不在 part emit(trivial),而在让模块一致编码签名(前端 intrinsic packing #57928 + 后端从元数据派生 #90504 + PSV 元素填充 + validator 三侧一致),即 effort_estimate.T0 的 (a)-(d)。PoC 既非假绿(未录空 golden)亦非伪 SV(elemcount 真 0→1),拒绝结果是正确的交叉校验信号,非工具坏。"
+  },
+  "notes": "纯评估 spike:不裁 A/B/混合架构、不代签(硬规则 1);不改 Rurix src/spec/codegen;不动 D-131(维持 A)/D-205 pin/toolchain.rs;未向 llvm-project 公开提交。禁区归属(packing=conformance)只作事实陈述,不替 owner 落笔禁区条款(硬规则 5)。LLVM PoC patch/重建 llc/obj 隔离于 H:\\dxil-a-graphics-sig + H:\\llvm-clean-82c5bce5-* 不入库,digest 见 llvm_env/poc。git 浅克隆限制致后端历史活跃度逐 commit 分析 blocked,改用 GitHub API。",
+  "owner_decision": "A-graphics 工作量 + 禁区归属 + carry-patch 可行性结论留 owner 据本证据裁 A-graphics vs 混合架构(图形=B);本 spike 不裁决、不代签(硬规则 1)。",
+  "timestamp": "2026-06-25T06:44:01.885632+00:00"
+}
