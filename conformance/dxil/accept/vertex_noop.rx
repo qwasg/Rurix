@@ -1,0 +1,7 @@
+//@ spec: RXS-0158
+//@ dxil-shader: vertex
+// 合法最小 vertex 着色阶段入口:无 I/O 签名形参、空体(RXS-0153 前缀式 `vertex fn`)。
+// --target dxil 经 DXIL 后端按阶段降级为 DirectX 三元组 vertex shader
+// (shadermodel6.0-vertex + hlsl.shader=vertex),patched llc -filetype=obj 产 DXIL
+// 容器、dxc validator 接受。期望 0 诊断、产出 DXIL vertex shader IR。
+vertex fn vs_noop() {}

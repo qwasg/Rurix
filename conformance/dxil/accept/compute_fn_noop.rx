@@ -1,0 +1,7 @@
+//@ spec: RXS-0158
+//@ dxil-shader: compute
+// 合法最小 compute 着色阶段入口(RXS-0153 前缀式 `compute fn`,compute-via-kernel
+// 与 `kernel fn` 同享 kernel 入口着色)。--target dxil 降级为 DirectX 三元组 compute
+// shader(shadermodel6.0-compute + hlsl.shader=compute + hlsl.numthreads),patched
+// llc -filetype=obj 产 DXIL 容器、dxc validator 接受。期望 0 诊断、产出 compute IR。
+compute fn cs_fn_noop() {}

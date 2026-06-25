@@ -22,7 +22,7 @@
 
 ## 2. 条款
 
-> 本节自 PR-C2 分片1 起落带编号条款体。本片**只落 RXS-0157**(codegen target 分发与 DXIL 后端分叉);RXS-0158/0159/0160(阶段着色器类型 / 阶段 I/O 签名 / 阶段间接口)仍为 §9 Q-Range 待锁定的**计划映射**(非裸条款头,仅计划登记,详见 RFC-0003 §5),随后续分片落地。
+> 本节自 PR-C2 分片1 起落带编号条款体。分片1 落 **RXS-0157**(codegen target 分发与 DXIL 后端分叉);**分片2 落 RXS-0158**(着色阶段着色 → DXIL 着色器类型降级对应);RXS-0159/0160(阶段 I/O 签名 / 阶段间接口)仍为 §9 Q-Range 待锁定的**计划映射**(非裸条款头,仅计划登记,详见 RFC-0003 §5),随后续分片落地。
 > 各条按需分 **Syntax / Legality / Dynamic Semantics / Implementation Requirements** 节,**严禁 UB 节**(target 不支持 / 降级失败以编译期 6xxx codegen 诊断定义,P-01 strict-only,无运行期 fallback;10 §7.5)。**本片不碰** 🔒 纹理内存模型映射(06 §4.2 禁区)/ FFI ABI 二进制布局(RFC-0003 §4.6 / §9 Q-Builtin)/ 绑定布局推导(G2.3,P-11);触及即停手升档。
 
 ### RXS-0157 codegen target 分发与 DXIL 后端分叉
@@ -52,9 +52,51 @@ DXIL 后端为 codegen/工具链面,本条无运行期语言语义(着色器在 
 - IR3(golden):DXIL golden 取**文本反汇编形态**(RFC-0003 §9 Q-Golden),**经 dxc validator 验证通过后**入 golden(不合规 DXIL 不得入 golden);确定性、纳入既有 bless 体系。
 - IR4(错误码):target 不可用 / 子集外构造 / 降级失败归 **RX6007**(6xxx codegen/目标段,只追加,registry/error_codes.json + en/zh message-key);工具链缺失为 SKIP 不发码。
 
+### RXS-0158 着色阶段着色 → DXIL 着色器类型降级对应
+
+RXS-0153 着色阶段着色(`vertex`/`fragment`/`compute`/`mesh`/`task` + RT `raygen`/`closesthit`/`anyhit`/`miss`,spec/shader_stages.md)经 DXIL 后端降级为对应 **DXIL 着色器类型**:即 DirectX 三元组的 shader-stage 环境分量(`dxil-unknown-shadermodel<sm>-<env>`)、入口 `hlsl.shader` 属性值与 shader model 下限的精确对应。本条只覆盖**阶段 → 着色器类型 + shader profile**(结构/类型面);**不**定义阶段 I/O → 签名/系统值语义 SV_*(RXS-0159)、阶段间接口链接一致性(RXS-0160),亦**不碰** 🔒 纹理内存模型映射(06 §4.2)/ 内建变量·签名二进制 ABI 布局(RFC-0003 §4.6/§9 Q-Builtin)/ 绑定布局推导(G2.3,P-11)。
+
+#### 着色器类型对应表
+
+| Rurix 着色阶段 | DXIL 着色器类型 | triple 环境分量 `<env>` | `hlsl.shader` 属性值 | shader model 下限 | 本片状态 |
+|---|---|---|---|---|---|
+| `compute`(及 `kernel`,RXS-0153 compute-via-kernel) | compute shader | `compute` | `compute` | SM 6.0 | **已落**(承 RXS-0157;`hlsl.numthreads`) |
+| `vertex` | vertex shader | `vertex` | `vertex` | SM 6.0 | **已落** |
+| `fragment` | pixel shader | `pixel` | `pixel` | SM 6.0 | **已落** |
+| `mesh` | mesh shader | `mesh` | `mesh` | SM 6.5 | 映射登记,实现 deferred(RD-012) |
+| `task` | amplification shader | `amplification` | `amplification` | SM 6.5 | 映射登记,实现 deferred(RD-012) |
+| `raygen` | RT raygeneration(library) | `library` | `raygeneration` | SM 6.3 | 映射登记,实现 deferred(RD-012) |
+| `closesthit` | RT closesthit(library) | `library` | `closesthit` | SM 6.3 | 映射登记,实现 deferred(RD-012) |
+| `anyhit` | RT anyhit(library) | `library` | `anyhit` | SM 6.3 | 映射登记,实现 deferred(RD-012) |
+| `miss` | RT miss(library) | `library` | `miss` | SM 6.3 | 映射登记,实现 deferred(RD-012) |
+
+> **deferred 诚实标注(RD-012)**:`mesh`/`task` 着色器的合规 DXIL 需线程组维度 + 输出拓扑/`DispatchMesh` 声明(dxc validator 对空体 mesh/amplification 入口报缺失),RT 着色器为 **DXIL library 多入口形态**——两者的最小合规降级均越出「阶段→着色器类型(类型面)」、落入阶段 I/O(RXS-0159)/ library 多入口与 ABI 面,本片**不**实现,以 RD-012 显式登记承接后续子分片。本表对其映射**完整登记**(triple env / `hlsl.shader` / SM 下限),但**无 passing 测试锚定的规范性降级条款**:不支持阶段的 DXIL 降级请求 → **RX6008** 编译期诊断(下文 Legality L2)。光栅(vertex/fragment)与 compute 阶段提供 passing 锚定(accept + DXIL golden,经 dxc validator 接受)。
+
+#### Syntax
+
+阶段→着色器类型降级为 codegen 面,非语言文法面:着色阶段源码(`<stage> fn`,RXS-0153 前缀式)不因 DXIL 降级改写。`--target dxil` 对同一着色阶段函数按其阶段类别产对应 DXIL 着色器类型的 DirectX 三元组 LLVM IR(`compute fn` 与 `kernel fn` 同产 compute shader,RXS-0153 compute-via-kernel)。
+
+#### Legality
+
+- L1(可降级阶段最小子集):本片仅 `compute`(及 `kernel`)/ `vertex` / `fragment` 着色阶段可降级,且沿 RXS-0157 最小子集——无 ABI 形参、平凡(空)体 → DXIL `void` 入口。子集外构造(I/O 签名形参 / 非平凡体——需 RXS-0159 阶段 I/O 签名或绑定布局推导 G2.3 / FFI ABI 禁区)→ **RX6007**(承 RXS-0157 L2,本条不重定义)。
+- L2(deferred 阶段):`mesh` / `task` / RT(`raygen`/`closesthit`/`anyhit`/`miss`)着色阶段的 DXIL 降级**本片未实现**(RD-012;合规降级越出阶段→着色器类型类型面,见上表 deferred 标注)→ **RX6008**(DXIL 着色阶段降级暂未支持,P-01 strict-only,无静默 fallback、不降级为其他着色器类型)。
+- L3(降级失败):同 RXS-0157 L3——DXIL 降级管线(IR emit / patched llc → DXIL 容器 / dxc validator)失败 → **RX6007**;工具链缺失为开发环境降级 **SKIP**(非发码,对齐 RXS-0073/RXS-0157)。
+
+#### Dynamic Semantics
+
+阶段→着色器类型降级为编译期确定性变换,本条无运行期语言语义(着色器在 D3D12/DXR 管线的执行属运行时/G2.3+,不在本条)。给定阶段着色 MIR 入口,其 DirectX 三元组 LLVM IR(triple 环境分量 + `hlsl.shader` 属性)对相同输入字节确定(两次产出一致)。
+
+#### Implementation Requirements
+
+- IR1(阶段→着色器类型映射):降级按上表将阶段类别映射为 triple 环境分量(`dxil-unknown-shadermodel<sm>-<env>`)+ 入口 `hlsl.shader` 属性值;`compute`/`mesh`/`task` 附 `hlsl.numthreads`(本片仅 compute 落地,取最小 `1,1,1`),`vertex`/`fragment` 不附 numthreads。映射在 [`dxil_codegen`](../src/rurixc/src/dxil_codegen.rs) 由阶段标记(HIR `FnDecl::stage`,RXS-0153;`None` 取 compute)裁定;DXIL 收集根扩到含着色阶段入口(`build_dxil_crate`),不改 PTX 收集根(`build_device_crate` 维持排除着色阶段,D-207)。
+- IR2(deferred 阶段发码):`mesh`/`task`/RT 阶段降级请求 → `RX6008`(message-key `codegen.dxil_stage_unsupported`,附阶段名 + RD-012),不产任何 DXIL(strict-only)。
+- IR3(SM 下限登记):上表 shader model 下限随阶段登记(光栅/compute SM6.0、mesh/amp SM6.5、RT SM6.3);本片落地阶段(SM6.0)经 patched llc + dxc validator(1.9.2602.24)接受实测,SM6.5/6.3 阶段为 deferred 阶段的映射登记值,无 passing 测试(RD-012)。
+- IR4(错误码):新增 **RX6008**(DXIL 着色阶段降级暂未支持;6xxx codegen/目标段续接 RX6007,只追加,registry/error_codes.json + en/zh message-key);子集外/降级失败仍归 RX6007(承 RXS-0157)。
+
 ## 3. 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
 | v1.0 | 2026-06-24 | 新建 dxil_backend.md（PR-C1 spec 脚手架，承 RFC-0003 / D-131=A）:登记文件名 + 文件级语义面说明（MIR→DXIL 第二后端，承 RFC-0002 着色阶段类型面 RXS-0153~0156）+ §1 范围与 **RXS-0157~ 预留区间声明**（区间大小未锁定，随 RFC-0003 §9 Q-Range 与路径裁定一并定）+ §2 条款占位（条款体随 PR-C2 实现 PR 同落）。**沿 README v1.32 interop_d3d12.md / v1.33 async_buffer.md / v1.37 shader_stages.md 脚手架先例:仅登记文件名 + 预留区间，不落带编号裸条款头**——本文件**零 `### RXS-####` 条款头**，`ci/trace_matrix.py --check` 维持全锚定 **156/156**（无新增裸条款头、无悬空锚点、零新 RXS）。条款体（RXS-0157 起）与每条 ≥1 `//@ spec` 测试锚定随 PR-C2（DXIL 后端实现 PR）同落（条款 PR 先于实现 PR）。禁区声明:🔒 纹理路径内存模型映射（06 §4.2）/ FFI ABI 二进制布局（RFC-0003 §4.6 / §9 Q-Builtin）/ 绑定布局推导（G2.3，P-11）/ 多后端架构承诺（D-008/SG-003）均不在本文件，触及即停手升档。错误码 **6xxx codegen 段**脚手架不预造、不预留，随 PR-C2 按真实可达类别只追加。档位 **Full RFC**（RFC-0003;触 codegen 第二后端 + target 分发，AI 不自判 Direct，判档争议向上取严）。授权 G2_CONTRACT D-G2-2 / G-G2-2 + G2_PLAN G2.2 子里程碑，无体例变更 | **Full RFC**（RFC-0003） |
 | v1.1 | 2026-06-24 | **PR-C2 分片1:落首条带编号条款体 `### RXS-0157`**(codegen target 分发与 DXIL 后端分叉)+ 配套最小 compute kernel 端到端实现(rurixc `dxil_codegen` 模块 + `--target dxil` 分发 + cargo feature `dxil-backend` + patched llc 经 `RURIX_LLC` dev env 定位 RD-011 + dxc validator accept)。条款体按 FLS 体例分 Syntax / Legality(L1 后端可用性·L2 最小子集·L3 降级失败 → RX6007)/ Dynamic Semantics / Implementation Requirements(IR1 分发点·IR2 D-131=A 路径·IR3 golden 文本反汇编经 validator·IR4 错误码 RX6007),**严禁 UB 节**。配套 conformance accept(空体 compute kernel 产 DXIL,`//@ spec: RXS-0157`)+ reject(子集外构造 → RX6007)+ DXIL golden(文本反汇编 + bless)。错误码新增 **RX6007**(6xxx codegen/目标段续接 RX6006,只追加)+ en/zh message-key(双语覆盖)。`ci/trace_matrix.py --check` 全锚定 **157/157**(新增 RXS-0157 带测试锚定、无悬空)。RXS-0158/0159/0160 仍为 §9 Q-Range 计划映射(非裸条款头),随后续分片落地。本片不碰 🔒 纹理内存模型映射 / FFI ABI 布局 / 绑定布局推导(G2.3)。档位 **Full RFC**(RFC-0003),无体例变更 | **Full RFC**（RFC-0003） |
+| v1.2 | 2026-06-25 | **PR-C2 分片2:落 `### RXS-0158`**(着色阶段着色 → DXIL 着色器类型降级对应)。含**着色器类型对应表**(vertex→vertex / fragment→pixel / compute(及 kernel)→compute / mesh→mesh / task→amplification / RT raygen·closesthit·anyhit·miss→library 对应 RT 类型),每阶段登记 triple 环境分量 `<env>` + `hlsl.shader` 属性值 + shader model 下限(光栅/compute SM6.0 / mesh·amp SM6.5 / RT SM6.3)。条款体分 Syntax / Legality(L1 可降级阶段最小子集承 RXS-0157 / L2 deferred 阶段 → RX6008 / L3 降级失败 → RX6007)/ Dynamic Semantics / Implementation Requirements(IR1 阶段→着色器类型映射·DXIL 收集根扩到含着色阶段不改 PTX 根 / IR2 deferred 阶段 RX6008 / IR3 SM 下限登记 / IR4 错误码 RX6008),**严禁 UB 节、不定义 I/O 签名 ABI**。**实现取舍(诚实标注)**:vertex / fragment / compute 提供 passing 锚定(accept + DXIL golden,经 patched llc + dxc validator 1.9.2602.24 接受);mesh / task / RT 的合规 DXIL 降级越出阶段→着色器类型类型面(需线程组/DispatchMesh/输出拓扑或 library 多入口 + I/O 签名 ABI),本片**仅完整登记映射、不实现**,以 **RD-012** deferred 显式承接,reject 锚定(不支持阶段 → RX6008)。错误码新增 **RX6008**(`codegen.dxil_stage_unsupported`,6xxx 段续接 RX6007,只追加)+ en/zh message-key(双语覆盖)。配套 conformance accept(vertex/fragment/compute fn 各产对应 DXIL,`//@ spec: RXS-0158`)+ reject(mesh/task/raygen → RX6008)+ 各落地阶段 DXIL golden(`.dxil-ll` + 经 validator 接受的 `.dxil-disasm`,bless)。`ci/trace_matrix.py --check` 全锚定 **158/158**。本片不碰 🔒 纹理内存模型映射(06 §4.2)/ 内建变量·签名二进制 ABI 布局(RFC-0003 §4.6/§9 Q-Builtin)/ 绑定布局推导(G2.3,P-11)/ 阶段 I/O 签名 SV_*(RXS-0159)。档位 **Full RFC**(RFC-0003),无体例变更 | **Full RFC**（RFC-0003） |

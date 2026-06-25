@@ -1,0 +1,6 @@
+//@ spec: RXS-0158
+//@ expect-error: RX6008
+// RXS-0158 L2:RT raygen 着色阶段(→ DXIL library 多入口 raygeneration,SM6.3)为
+// library 形态,越出阶段→着色器类型类型面;映射已登记 RXS-0158 对应表,实现 deferred
+// (RD-012)→ RX6008(strict-only)。
+raygen fn rg_noop() {}

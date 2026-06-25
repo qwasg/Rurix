@@ -928,6 +928,15 @@
       "conformance/dxil/reject/nontrivial_body.rx",
       "conformance/dxil/reject/view_param.rx",
       "src/rurixc/src/dxil_codegen.rs"
+    ],
+    "RXS-0158": [
+      "conformance/dxil/accept/compute_fn_noop.rx",
+      "conformance/dxil/accept/fragment_noop.rx",
+      "conformance/dxil/accept/vertex_noop.rx",
+      "conformance/dxil/reject/mesh_deferred.rx",
+      "conformance/dxil/reject/raygen_deferred.rx",
+      "conformance/dxil/reject/task_deferred.rx",
+      "src/rurixc/src/dxil_codegen.rs"
     ]
   }
 }
