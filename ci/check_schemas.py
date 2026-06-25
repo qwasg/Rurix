@@ -183,6 +183,9 @@ def check_evidence_files() -> None:
     fatbin_dist_schema = load(ROOT / "milestones/g1/fatbin_dist_evidence_schema.json")
     dxil_path_spike_schema = load(ROOT / "milestones/g2/dxil_path_spike_evidence_schema.json")
     dxil_b_graphics_sig_schema = load(ROOT / "milestones/g2/dxil_b_graphics_sig_evidence_schema.json")
+    dxil_a_graphics_sig_effort_schema = load(
+        ROOT / "milestones/g2/dxil_a_graphics_sig_effort_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -239,6 +242,11 @@ def check_evidence_files() -> None:
     dxil_b_graphics_sig_validator = (
         jsonschema.Draft7Validator(dxil_b_graphics_sig_schema)
         if dxil_b_graphics_sig_schema
+        else None
+    )
+    dxil_a_graphics_sig_effort_validator = (
+        jsonschema.Draft7Validator(dxil_a_graphics_sig_effort_schema)
+        if dxil_a_graphics_sig_effort_schema
         else None
     )
     for f in evidence_files:
@@ -311,6 +319,16 @@ def check_evidence_files() -> None:
             and fatbin_dist_validator is not None
         ):
             validator = fatbin_dist_validator
+        elif (
+            f.name.startswith("dxil_a_graphics_sig_effort_")
+            and dxil_a_graphics_sig_effort_validator is not None
+        ):
+            # G2.2 A 路图形签名工作量评估 spike 证据(RD-010;RFC-0003 §9 Q-D131=A /
+            # issue #90504 / #57928)→ milestones/g2/dxil_a_graphics_sig_effort_evidence_schema.json
+            # (measured-first / blocked-honest,纯评估 spike 非性能基准;源码勘察 + 上游状态 +
+            # 禁区vs conformance 裁断 + 分档工作量 estimated + carry-patch + PoC 锚定;
+            # 不入 budget counter,A/B/混合架构结论留 owner)
+            validator = dxil_a_graphics_sig_effort_validator
         elif (
             f.name.startswith("dxil_b_graphics_sig_")
             and dxil_b_graphics_sig_validator is not None
