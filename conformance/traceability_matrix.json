@@ -922,6 +922,12 @@
       "conformance/shader/reject/resource_handle/handle_return.rx",
       "src/rurixc/src/shader_stages.rs",
       "tests/ui/shader/handle_return.rx"
+    ],
+    "RXS-0157": [
+      "conformance/dxil/accept/cs_noop.rx",
+      "conformance/dxil/reject/nontrivial_body.rx",
+      "conformance/dxil/reject/view_param.rx",
+      "src/rurixc/src/dxil_codegen.rs"
     ]
   }
 }

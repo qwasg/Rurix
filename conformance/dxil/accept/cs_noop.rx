@@ -1,0 +1,6 @@
+//@ spec: RXS-0157
+// 合法最小 compute 着色入口:无 ABI 形参、空体 compute kernel(RXS-0153
+// compute-via-kernel 着色)。--target dxil 经 DXIL 后端降级为 DirectX 三元组
+// LLVM IR(shadermodel6.0-compute + hlsl.shader/hlsl.numthreads),patched llc
+// -filetype=obj 产 DXIL 容器、dxc validator 接受。期望 0 诊断、产出 DXIL IR。
+kernel fn cs_noop() {}

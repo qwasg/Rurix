@@ -286,6 +286,46 @@ def check_ptx_bless(base: str, diffs: list[tuple[str, str]]) -> None:
         )
 
 
+DXIL_BLESS_LOG = "tests/dxil/bless_log.md"
+
+
+def check_dxil_bless(base: str, diffs: list[tuple[str, str]]) -> None:
+    """DXIL golden 变更必须经审批 bless(14 §2 常驻集 / RFC-0003 §9 Q-Golden;
+    G2.2 PR-C2 分片1 激活,RXS-0157)。
+
+    diff 含 tests/dxil/**/*.dxil-ll 或 *.dxil-disasm 的新增/修改/删除时:
+    bless_log.md 必须同 diff 追加新行(既有行 0-byte);bless_log 自身不得删除。
+    """
+    golden_changes = [
+        (status, path)
+        for status, path in diffs
+        if path.startswith("tests/dxil/")
+        and (path.endswith(".dxil-ll") or path.endswith(".dxil-disasm"))
+    ]
+    log_deleted = any(status == "D" and path == DXIL_BLESS_LOG for status, path in diffs)
+    if log_deleted:
+        err(f"{DXIL_BLESS_LOG}: DXIL golden bless 审批记录不得删除(14 §2)")
+        return
+    if not golden_changes:
+        return
+    log_file = ROOT / DXIL_BLESS_LOG
+    if not log_file.is_file():
+        err(f"{DXIL_BLESS_LOG}: 缺失——DXIL golden 变更必须携带 bless 审批记录(14 §2)")
+        return
+    cur_rows = bless_log_rows(log_file.read_text(encoding="utf-8"))
+    base_text = git_show(base, DXIL_BLESS_LOG)
+    base_rows = bless_log_rows(base_text) if base_text is not None else []
+    if cur_rows[: len(base_rows)] != base_rows:
+        err(f"{DXIL_BLESS_LOG}: 既有审批行被修改(只追加,14 §2)")
+        return
+    if len(cur_rows) <= len(base_rows):
+        changed = ", ".join(p for _, p in golden_changes[:5])
+        err(
+            f"{DXIL_BLESS_LOG}: DXIL golden 变更未附 bless 审批行(未审批 bless 即 FAIL,"
+            f"G2 CI_GATES): {changed}"
+        )
+
+
 def check_error_codes(base: str, path: str) -> None:
     """错误码语义可加不可改(10 §6 稳定面;M1 CI_GATES §4 第 8 项,M1.1 激活)。"""
     base_text = git_show(base, path)
@@ -368,6 +408,7 @@ def main() -> int:
     check_ui_bless(base, diffs)
     check_mir_bless(base, diffs)
     check_ptx_bless(base, diffs)
+    check_dxil_bless(base, diffs)
     for budget in sorted(ROOT.glob("milestones/*/*_budget.json")):
         check_budget(base, budget.relative_to(ROOT).as_posix())
     check_evidence(base, diffs)

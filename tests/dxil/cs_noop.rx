@@ -1,0 +1,6 @@
+//@ spec: RXS-0157
+// 最小 compute kernel DXIL golden 语料(空体 compute 入口)。golden 形态:
+// 1) rurixc 自有 DirectX 三元组 LLVM IR 文本(`.dxil-ll`,确定性、无外部工具);
+// 2) 经 patched llc → DXIL 容器 + dxc validator 接受后的文本反汇编(`.dxil-disasm`,
+//    RFC-0003 §9 Q-Golden;工具链缺失时 SKIP,真实红绿在带工具链环境)。
+kernel fn cs_noop() {}
