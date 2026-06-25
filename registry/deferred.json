@@ -182,6 +182,17 @@
       "history": [
         { "date": "2026-06-25", "event": "G2.2 PR-C2 分片2 执行期登记(open):RXS-0158 着色阶段着色 → DXIL 着色器类型降级对应表完整登记全部阶段,vertex/fragment/compute 落地 passing 锚定(SM6.0 空体 void 入口经 patched llc + dxc validator 1.9.2602.24 接受);mesh/task/RT 合规降级越出阶段→着色器类型类型面(mesh/amp 需线程组维度+输出拓扑+DispatchMesh、RT 为 library 多入口+payload/attribute I/O ABI,落入 RXS-0159 阶段 I/O 签名 / library 与 ABI 面),本片仅登记映射、不实现,请求降级 → RX6008。承接 RXS-0159 及后续阶段降级子分片,补 passing 锚定后 close。非 G2.2 验收门翻转项,本登记为 AI 代录,接通与否后续里程碑处置留痕(硬规则 1)", "evidence": "spec/dxil_backend.md RXS-0158 着色器类型对应表 + L2 / src/rurixc/src/dxil_codegen.rs stage_target / registry/error_codes.json RX6008 / conformance/dxil/reject/{mesh_deferred,task_deferred,raygen_deferred}.rx" }
       ]
+    },
+    {
+      "id": "RD-013",
+      "title": "DXIL 着色阶段 I/O 入口 body 数据流降级(输入读取 / 输出写入的语句级 codegen)",
+      "reason": "RXS-0159 阶段 I/O → DXIL 签名/系统值语义降级**仅落类型面**:#[builtin] → DXIL 系统值语义名(SV_*)、#[interpolate] → DXIL 插值限定符、vertex out / fragment in/out 签名结构(按语义元素)。PR-C2 分片3 对带 I/O 签名的 vertex/fragment 入口产 DirectX 三元组 LLVM IR 时,签名语义(SV_* / 插值)经类型面元数据完整 emit,但**入口 body 的数据流 codegen**(读取输入签名元素 → 真实计算 → 写出输出签名元素)越出类型面、需完整语句降级(承 RXS-0157/0158 最小子集『平凡体』之外),本片以 void 入口 stub 形态 emit 签名(不降级 body 数据流)。完整 body 数据流降级与签名 ABI 布局(寄存器/偏移,RFC-0003 §4.6 🔒 FFI ABI 禁区)耦合,且需 device codegen 语句降级扩展(对齐 RX6001/RX6003 host/device codegen 子集边界),不在本片类型面范围",
+      "backfill_condition": "后续 DXIL codegen 子分片落地阶段 body 语句级降级(输入/输出签名元素的读写数据流)时承接:补真实 body 数据流 codegen(非 void stub)+ 经 dxc validator 接受的端到端 golden;签名元素二进制布局(寄存器/偏移/component mask)属 RFC-0003 §4.6/§9 Q-Builtin 🔒 FFI ABI 禁区,由 LLVM DirectX 后端 emit、owner 后续独立 Full RFC 定义,不在本条回填范围。在此之前带 I/O 签名的 vertex/fragment 入口以 void stub + 签名类型面元数据 emit(RXS-0159 IR3)。代码侧 dxil_codegen::emit_dxil_ir 对带签名的着色阶段入口标 // STUB(RD-013),映射签名类型面不降级 body",
+      "owner_milestone": "G2.2",
+      "status": "open",
+      "history": [
+        { "date": "2026-06-25", "event": "G2.2 PR-C2 分片3 执行期登记(open):RXS-0159 阶段 I/O → DXIL 签名/系统值语义降级仅落类型面(#[builtin]→SV_* / #[interpolate]→插值限定符 / vertex out·fragment in/out 签名结构),带 I/O 签名的 vertex/fragment 入口以 void 入口 stub + 签名类型面元数据 emit;入口 body 数据流降级(输入读取/输出写入语句级 codegen)越出类型面、与签名二进制 ABI 布局(🔒 RFC-0003 §4.6 禁区)耦合且需 device codegen 语句降级扩展,本片不实现,以 RD-013 显式 deferred 承接后续子分片。签名 SV 语义名 / 插值映射经 dxil_codegen 类型面完整 emit + 单测/conformance/golden(.dxil-ll)锚定;disasm + dxc validator 真验证为带工具链环境关卡(RD-011 dev 偏差 SKIP)。非 G2.2 验收门翻转项,本登记为 AI 代录,接通与否后续里程碑处置留痕(硬规则 1)", "evidence": "spec/dxil_backend.md RXS-0159 + IR3 / src/rurixc/src/dxil_codegen.rs emit_dxil_ir(// STUB(RD-013)) / registry/error_codes.json RX6009 / tests/dxil/{vs_io,ps_io}.dxil-ll" }
+      ]
     }
   ],
   "revision_log": [

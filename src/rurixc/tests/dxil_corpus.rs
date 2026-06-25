@@ -1,9 +1,10 @@
 //! conformance/dxil DXIL 第二后端语料批跑(G2.2 PR-C2;RFC-0003;cargo feature
 //! `dxil-backend`)。RXS-0157 codegen target 分发 + RXS-0158 着色阶段着色 → DXIL
-//! 着色器类型降级对应——accept(合法最小着色阶段入口 vertex/fragment/compute 经 DXIL
-//! 后端产对应 DirectX 三元组 LLVM IR,0 诊断,`//@ dxil-shader:` 指令裁定着色器类型)+
-//! reject(子集外构造 → RX6007 / deferred 阶段 mesh·task·RT → RX6008,strict-only
-//! 无 fallback)。
+//! 着色器类型降级对应 + RXS-0159 阶段 I/O → DXIL 签名/系统值语义降级(类型面)——
+//! accept(合法最小着色阶段入口 vertex/fragment/compute 经 DXIL 后端产对应 DirectX
+//! 三元组 LLVM IR,0 诊断,`//@ dxil-shader:` 裁定着色器类型,`//@ dxil-sig:` 裁定
+//! 阶段 I/O 签名系统值语义)+ reject(子集外构造 → RX6007 / deferred 阶段 mesh·task·RT
+//! → RX6008 / 不可映射内建变量·非法插值 → RX6009,strict-only 无 fallback)。
 //!
 //! 管线:resolve → typeck → 着色/barrier → 穷尽性 → const eval → `dxil_codegen::
 //! build_and_emit_dxil`(device MIR kernel 根 → DXIL IR)。纯 host/CPU-only(本测试
@@ -108,6 +109,24 @@ fn accept_corpus_emits_dxil() {
             "{} DXIL IR 缺 hlsl.shader={env} 入口属性",
             f.display()
         );
+        // RXS-0159:`//@ dxil-sig: <SV semantic>` 指令断言阶段 I/O 签名语义元数据
+        // (类型面 SV_* / 插值限定符;无寄存器/偏移)。
+        if let Some(sem) = src
+            .lines()
+            .find_map(|l| l.trim().strip_prefix("//@ dxil-sig:"))
+            .map(str::trim)
+        {
+            assert!(
+                ir.contains("!rurix.dxil.sig."),
+                "{} 缺 RXS-0159 阶段 I/O 签名元数据(!rurix.dxil.sig.*)",
+                f.display()
+            );
+            assert!(
+                ir.contains(&format!("!\"{sem}\"")),
+                "{} DXIL IR 缺签名系统值语义 {sem}",
+                f.display()
+            );
+        }
     }
 }
 

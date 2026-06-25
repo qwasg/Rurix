@@ -937,6 +937,13 @@
       "conformance/dxil/reject/raygen_deferred.rx",
       "conformance/dxil/reject/task_deferred.rx",
       "src/rurixc/src/dxil_codegen.rs"
+    ],
+    "RXS-0159": [
+      "conformance/dxil/accept/fragment_io.rx",
+      "conformance/dxil/accept/vertex_io.rx",
+      "conformance/dxil/reject/builtin_unmappable.rx",
+      "conformance/dxil/reject/interp_integer.rx",
+      "src/rurixc/src/dxil_codegen.rs"
     ]
   }
 }

@@ -100,6 +100,9 @@ codegen.dxil_unsupported = DXIL codegen 目标不可用或暂不支持:{detail}
 # DXIL 着色阶段降级诊断(RX6008,spec/dxil_backend.md RXS-0158;G2.2 PR-C2 分片2 分配)
 codegen.dxil_stage_unsupported = DXIL 着色阶段降级暂未支持:{detail}
 #
+# DXIL 阶段 I/O 签名/系统值语义降级诊断(RX6009,spec/dxil_backend.md RXS-0159;G2.2 PR-C2 分片3 分配)
+codegen.dxil_signature_unsupported = DXIL 阶段 I/O 签名/系统值语义降级失败:{detail}
+#
 # rx CLI 工具链诊断(RX7003 / RX7004,spec/toolchain.md RXS-0083/0085;M6.1 分配)
 toolchain.rx_cli_usage = rx CLI 用法错误:{detail}
 toolchain.rx_run_exec_failure = rx run:无法执行构建产物:{detail}

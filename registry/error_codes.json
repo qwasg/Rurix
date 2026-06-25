@@ -450,6 +450,14 @@
       "spec_clauses": ["RXS-0158"]
     },
     {
+      "id": "RX6009",
+      "title": "DXIL 阶段 I/O 签名/系统值语义降级失败(不可映射的内建变量→SV_* / 非法插值组合,如整数 varying 非 flat;类型面,不涉二进制 ABI 布局)",
+      "message_key": "codegen.dxil_signature_unsupported",
+      "status": "active",
+      "introduced_in": "G2.2",
+      "spec_clauses": ["RXS-0159"]
+    },
+    {
       "id": "RX7001",
       "title": "外部工具链失败(clang/link.exe 定位失败、版本不符 pin 或退出非零)",
       "message_key": "link.toolchain_failure",
@@ -726,6 +734,11 @@
       "version": "v1.24",
       "date": "2026-06-25",
       "change": "G2.2 分配 RX6008(DXIL 着色阶段降级暂未支持,spec/dxil_backend.md RXS-0158 配套,RFC-0003 §5,PR-C2 分片2 实现 PR 真实可达类别只追加)。6xxx codegen/目标段位续接(RX6007 之后):RX6008 DXIL 着色阶段降级暂未支持——RXS-0158 着色阶段着色 → DXIL 着色器类型降级对应表中 mesh/task/RT(raygen·closesthit·anyhit·miss)阶段的合规 DXIL 降级越出『阶段→着色器类型(类型面)』(mesh/amplification 需线程组维度+输出拓扑+DispatchMesh 声明、RT 为 DXIL library 多入口形态,均落入阶段 I/O 签名 RXS-0159 / library 与 ABI 面),本片仅完整登记映射(triple env / hlsl.shader / SM 下限)、不实现,以 RD-012 显式 deferred 承接后续子分片;请求降级这些阶段 → RX6008 编译期诊断(P-01 strict-only,无静默 fallback、不降级为其他着色器类型)。已落地阶段 vertex(→vertex shader)/fragment(→pixel shader)/compute(→compute shader,承 RXS-0157)经 patched llc + dxc validator(1.9.2602.24)接受;子集外构造 / 降级失败仍归 RX6007(承 RXS-0157,本码不重定义)。message_key codegen.dxil_stage_unsupported 同落 en/zh.messages(双语全量覆盖门 ci/bilingual_coverage.py);DXIL 收集根扩到含着色阶段入口(build_dxil_crate),不改 PTX 收集根(build_device_crate 维持排除着色阶段,D-207);本片不碰 阶段 I/O 签名 SV_*(RXS-0159)/ 绑定布局推导(G2.3)/ 🔒 纹理内存模型映射(06 §4.2 禁区)/ 内建变量·签名二进制 ABI 布局(RFC-0003 §4.6);段内分配制递增不复用、含义冻结(10 §6)"
+    },
+    {
+      "version": "v1.25",
+      "date": "2026-06-25",
+      "change": "G2.2 分配 RX6009(DXIL 阶段 I/O 签名/系统值语义降级失败,spec/dxil_backend.md RXS-0159 配套,RFC-0003 §4.2/§5,PR-C2 分片3 实现 PR 真实可达类别只追加)。6xxx codegen/目标段位续接(RX6008 之后):RX6009 DXIL 阶段 I/O → 签名/系统值语义降级失败——RXS-0159 阶段专属 I/O(#[builtin] 内建变量 / #[interpolate] 插值限定)→ DXIL 输入/输出签名与系统值语义 SV_* 的**类型面映射**中,内建变量在该阶段/方向无对应 DXIL 系统值(不可映射,如 thread_id 在 vertex/fragment 入口、vertex_id 作输出)/ 非法插值组合(整数 varying 非 flat 插值,DXIL 要求 nointerpolation)→ RX6009 编译期 codegen 诊断(P-01 strict-only,无静默 fallback)。本码**仅类型面 SV 语义名 / 插值限定符映射失败**,不涉签名元素的寄存器打包 / 字节偏移 / component mask 等二进制 ABI 布局(RFC-0003 §4.6/§9 Q-Builtin 🔒 FFI ABI 禁区,由 LLVM DirectX 后端 emit,Rurix 不定义/不冻结)。message_key codegen.dxil_signature_unsupported 同落 en/zh.messages(双语全量覆盖门 ci/bilingual_coverage.py);I/O 入口 body 数据流降级 deferred(RD-013,本片仅签名类型面 + void 入口 stub);子集外构造 / 降级失败仍归 RX6007(承 RXS-0157),deferred 阶段仍归 RX6008(承 RXS-0158)。段内分配制递增不复用、含义冻结(10 §6)"
     }
   ]
 }
