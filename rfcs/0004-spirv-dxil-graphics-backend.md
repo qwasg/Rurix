@@ -5,12 +5,12 @@
 | RFC 编号 | RFC-0004（4 位制，编号永不复用，10 §9.5） |
 | 标题 | SPIR-V→DXIL 图形后端 / 混合 codegen（compute=A / 图形=B） |
 | 档位 | **Full RFC**（10 §3：新 codegen 路径 + 第二中间表示(SPIR-V) + 外部转译依赖；触 AGENTS 硬规则 5 禁区边界——DXIL 文本语义 UB / 纹理路径内存模型映射(06 §4.2) / 签名·FFI ABI 二进制布局，均标 🔒 只落边界声明、不落禁区语义本体；且触**准永久公理 P-01(strict-only)**——§4.4 为图形=B 的 strict-only 达标要求,不设例外） |
-| 状态 | **Draft（2026-06-25，代录定稿文本）**。**owner 经 FCP-lite 批准前不推进下游 spec/实现 PR（硬规则 1，AI 不代签 / 不代决 / 不自合）**;§4.4 strict-only 达标要求及细化边界、§4.6 🔒 禁区边界声明、§9 裁决文本已落,生效以 owner 合并本决策包为准。`evidence/dxil_b_strict_only_report.md` 已随本决策包自含落地(原 strict-only 取证栈，已吸收),证据引用不悬空 |
+| 状态 | **Accepted / Owner Approved（2026-06-25，owner FCP-lite 批准；详见下「Owner 批准」字段）**。RFC 定稿文本(§4.4 strict-only 达标要求及细化边界、§4.6 🔒 禁区边界声明、§9 全部裁决文本)经 owner 批准生效;下游 PR-D1 在本批准 PR 经 owner --admin 合入后解锁(spec-first,硬规则 7,AI 不自启 / 不代签 / 不自合)。`evidence/dxil_b_strict_only_report.md` 已随决策包自含落地,证据引用不悬空 |
 | 承接里程碑 | G2.2（验收门 **G-G2-2**），承 RFC-0003 混合 codegen 分发(图形分支) |
 | 关联条款 | 拟重构 spec **RXS-0159**(按 B 路径)+ **RXS-0160** + B 新增面(MIR→SPIR-V)预留区间(见 §5)；落 `spec/dxil_backend.md`(承 RFC-0003)。**本 RFC 不创建裸条款头**，trace 维持现状 |
 | 依据决策 | D-131（G2 DXIL 生成路径,v1.4 增补 = **混合 compute=A/图形=B**）· D-002（图形分期,已批准）· D-205（LLVM pin,vendored）· RFC-0003（MIR→DXIL 第二后端,Owner Approved;本 RFC 为其图形分支细化）· 06 §4.2(纹理内存模型禁区,🔒)· 04 P-01(strict-only,准永久公理)/ P-13(防 AI 幻觉治理) |
 | Provenance | `Assisted-by: kiro:claude-opus-4-8`。Human-in-the-loop（硬规则 1/2）：本草案由 AI 起草骨架;§4.4 strict-only 达标要求、§4.6 🔒 禁区边界声明、§9 裁决文本为代录定稿,**生效以 owner 合并本决策包为准**;`evidence/dxil_b_strict_only_report.md` 已随本决策包自含落地(原 strict-only 取证栈，已吸收),证据引用不悬空。**owner FCP-lite 批准前不推进下游实现,AI 不自启、不代签** |
-| Owner 批准 | 〈待 owner FCP-lite 批准；本版已含 §4.4 strict-only 达标要求与细化边界、§4.6 🔒 禁区边界声明、§9 全部裁决文本；strict-only 证据已自含于本决策包(原 #101，已吸收)；记录方式 owner 落笔〉 |
+| Owner 批准 | **Approved — owner（Language Lead）2026-06-25**。owner 以 Language Lead / owner 身份批准 RFC-0004 当前定稿文本:§4.4 图形=B 的 strict-only 达标要求、P-01 不设例外不另划边界、§4.6 所列禁区与职责边界、§9 全部裁决项。AI 代录 owner 裁决(代录非代决,硬规则 1),不代扩大 / 改写 / 补充裁决含义;经 owner --admin 合并本批准 PR 生效。本批准不代表 G-G2-2 device 真跑已完成,设备红→绿验证仍 open。RFC 批准 PR 合入后 PR-D1 正式解锁 |
 
 ---
 
