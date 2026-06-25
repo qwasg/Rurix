@@ -183,6 +183,7 @@ def check_evidence_files() -> None:
     fatbin_dist_schema = load(ROOT / "milestones/g1/fatbin_dist_evidence_schema.json")
     dxil_path_spike_schema = load(ROOT / "milestones/g2/dxil_path_spike_evidence_schema.json")
     dxil_b_graphics_sig_schema = load(ROOT / "milestones/g2/dxil_b_graphics_sig_evidence_schema.json")
+    dxil_b_strict_only_schema = load(ROOT / "milestones/g2/dxil_b_strict_only_evidence_schema.json")
     dxil_a_graphics_sig_effort_schema = load(
         ROOT / "milestones/g2/dxil_a_graphics_sig_effort_evidence_schema.json"
     )
@@ -242,6 +243,11 @@ def check_evidence_files() -> None:
     dxil_b_graphics_sig_validator = (
         jsonschema.Draft7Validator(dxil_b_graphics_sig_schema)
         if dxil_b_graphics_sig_schema
+        else None
+    )
+    dxil_b_strict_only_validator = (
+        jsonschema.Draft7Validator(dxil_b_strict_only_schema)
+        if dxil_b_strict_only_schema
         else None
     )
     dxil_a_graphics_sig_effort_validator = (
@@ -329,6 +335,16 @@ def check_evidence_files() -> None:
             # 禁区vs conformance 裁断 + 分档工作量 estimated + carry-patch + PoC 锚定;
             # 不入 budget counter,A/B/混合架构结论留 owner)
             validator = dxil_a_graphics_sig_effort_validator
+        elif (
+            f.name.startswith("dxil_b_strict_only_")
+            and dxil_b_strict_only_validator is not None
+        ):
+            # G2.2 B 路 strict-only 达标取证证据(RD-014;RFC-0004 §4.4 / 04 P-01 / P-13)→
+            # milestones/g2/dxil_b_strict_only_evidence_schema.json(measured-first /
+            # blocked-honest,纯取证非性能基准;语义名保持配置 b_keep vs 默认 b_default vs direct
+            # 三链签名 part dump 对照,证语言层零静默降级能否不靠 P-01 例外达标;不入 budget
+            # counter,P-01 规范线 / A/B / ②③契约线归属裁断留 owner)
+            validator = dxil_b_strict_only_validator
         elif (
             f.name.startswith("dxil_b_graphics_sig_")
             and dxil_b_graphics_sig_validator is not None
