@@ -442,6 +442,14 @@
       "spec_clauses": ["RXS-0157"]
     },
     {
+      "id": "RX6008",
+      "title": "DXIL 着色阶段降级暂未支持(mesh/task/RT 阶段的 DXIL 着色器类型降级实现 deferred,RD-012;映射已登记 RXS-0158 对应表)",
+      "message_key": "codegen.dxil_stage_unsupported",
+      "status": "active",
+      "introduced_in": "G2.2",
+      "spec_clauses": ["RXS-0158"]
+    },
+    {
       "id": "RX7001",
       "title": "外部工具链失败(clang/link.exe 定位失败、版本不符 pin 或退出非零)",
       "message_key": "link.toolchain_failure",
@@ -713,6 +721,11 @@
       "version": "v1.23",
       "date": "2026-06-24",
       "change": "G2.2 分配 RX6007(DXIL codegen 目标诊断,spec/dxil_backend.md RXS-0157 配套,RFC-0003 §5,PR-C2 分片1 实现 PR 真实可达类别只追加)。6xxx codegen/目标段位续接(RX6006 之后):RX6007 DXIL codegen 目标不可用 / 暂不支持的构造 / 降级失败——`--target dxil` 而 cargo feature dxil-backend 未启用(L1 后端可用性)/ DXIL 后端最小子集外构造(View·资源句柄形参 / 非平凡体,绑定布局推导属 G2.3、FFI ABI 属禁区,L2)/ DXIL 降级管线(DirectX 三元组 IR emit·patched llc -filetype=obj·dxc validator)失败(L3,P-01 strict-only 无运行期 fallback)。工具链缺失(patched llc 经 RURIX_LLC 不可用 / validator 不可用)为开发环境降级 SKIP,不报 RX6007(对齐 RXS-0073 ptxas 干验证 SKIP 纪律,真实红绿在带工具链环境)。message_key codegen.dxil_unsupported 同落 en/zh.messages(双语全量覆盖门 ci/bilingual_coverage.py);DXIL 后端为 MIR 之后 target 分叉、与 NVPTX 后端并列各自从 MIR 独立降级,不改 PTX 路径(D-207);本片不碰 DXIL 完整阶段着色器类型对应(RXS-0158)/ 绑定布局推导(G2.3)/ 🔒 纹理内存模型映射(06 §4.2 禁区);段内分配制递增不复用、含义冻结(10 §6)"
+    },
+    {
+      "version": "v1.24",
+      "date": "2026-06-25",
+      "change": "G2.2 分配 RX6008(DXIL 着色阶段降级暂未支持,spec/dxil_backend.md RXS-0158 配套,RFC-0003 §5,PR-C2 分片2 实现 PR 真实可达类别只追加)。6xxx codegen/目标段位续接(RX6007 之后):RX6008 DXIL 着色阶段降级暂未支持——RXS-0158 着色阶段着色 → DXIL 着色器类型降级对应表中 mesh/task/RT(raygen·closesthit·anyhit·miss)阶段的合规 DXIL 降级越出『阶段→着色器类型(类型面)』(mesh/amplification 需线程组维度+输出拓扑+DispatchMesh 声明、RT 为 DXIL library 多入口形态,均落入阶段 I/O 签名 RXS-0159 / library 与 ABI 面),本片仅完整登记映射(triple env / hlsl.shader / SM 下限)、不实现,以 RD-012 显式 deferred 承接后续子分片;请求降级这些阶段 → RX6008 编译期诊断(P-01 strict-only,无静默 fallback、不降级为其他着色器类型)。已落地阶段 vertex(→vertex shader)/fragment(→pixel shader)/compute(→compute shader,承 RXS-0157)经 patched llc + dxc validator(1.9.2602.24)接受;子集外构造 / 降级失败仍归 RX6007(承 RXS-0157,本码不重定义)。message_key codegen.dxil_stage_unsupported 同落 en/zh.messages(双语全量覆盖门 ci/bilingual_coverage.py);DXIL 收集根扩到含着色阶段入口(build_dxil_crate),不改 PTX 收集根(build_device_crate 维持排除着色阶段,D-207);本片不碰 阶段 I/O 签名 SV_*(RXS-0159)/ 绑定布局推导(G2.3)/ 🔒 纹理内存模型映射(06 §4.2 禁区)/ 内建变量·签名二进制 ABI 布局(RFC-0003 §4.6);段内分配制递增不复用、含义冻结(10 §6)"
     }
   ]
 }

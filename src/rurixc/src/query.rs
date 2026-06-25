@@ -428,6 +428,14 @@ impl<'a> QueryCtx<'a> {
         crate::mir_build::build_device_crate(self)
     }
 
+    /// DXIL 后端 MIR(G2.2 PR-C2 分片2,RXS-0158;feature `dxil-backend`;收集根含
+    /// 着色阶段入口,provider:[`crate::mir_build::build_dxil_crate`])。不缓存
+    /// (dxil codegen 单次消费;与 PTX 收集根 `device_mir_crate` 独立,不改 PTX 路径)。
+    #[cfg(feature = "dxil-backend")]
+    pub fn dxil_mir_crate(&self) -> Vec<crate::mir::Body> {
+        crate::mir_build::build_dxil_crate(self)
+    }
+
     /// 模块/函数级失效:清除指定 body 的类型检查 memo(RXS-0098)。
     /// 整文档失效由 `ToolingSession` 重建 `QueryCtx` 承担(MVP 保存级全量)。
     pub fn invalidate_bodies(&self, bodies: &[BodyId]) {

@@ -687,7 +687,9 @@ fn compile_dxil_target(
         return 1;
     }
     let Some(ir) = ir else {
-        eprintln!("rurixc: no compute `kernel fn` found; nothing to emit for --target dxil");
+        eprintln!(
+            "rurixc: no shader entry (`kernel`/`compute`/`vertex`/`fragment` fn) found; nothing to emit for --target dxil"
+        );
         return 2;
     };
     let obj_out = out

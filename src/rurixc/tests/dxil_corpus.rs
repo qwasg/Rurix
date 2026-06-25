@@ -1,7 +1,9 @@
-//! conformance/dxil DXIL 第二后端语料批跑(G2.2 PR-C2 分片1,RFC-0003;cargo
-//! feature `dxil-backend`)。RXS-0157:codegen target 分发与 DXIL 后端分叉——
-//! accept(合法最小 compute kernel 经 DXIL 后端产 DirectX 三元组 LLVM IR,0 诊断)+
-//! reject(子集外构造 / target 不支持 → RX6007,strict-only 无 fallback)。
+//! conformance/dxil DXIL 第二后端语料批跑(G2.2 PR-C2;RFC-0003;cargo feature
+//! `dxil-backend`)。RXS-0157 codegen target 分发 + RXS-0158 着色阶段着色 → DXIL
+//! 着色器类型降级对应——accept(合法最小着色阶段入口 vertex/fragment/compute 经 DXIL
+//! 后端产对应 DirectX 三元组 LLVM IR,0 诊断,`//@ dxil-shader:` 指令裁定着色器类型)+
+//! reject(子集外构造 → RX6007 / deferred 阶段 mesh·task·RT → RX6008,strict-only
+//! 无 fallback)。
 //!
 //! 管线:resolve → typeck → 着色/barrier → 穷尽性 → const eval → `dxil_codegen::
 //! build_and_emit_dxil`(device MIR kernel 根 → DXIL IR)。纯 host/CPU-only(本测试
@@ -71,7 +73,8 @@ fn run_dxil(src: &str, module: &str) -> (Option<String>, Vec<u16>) {
     (ir, codes)
 }
 
-/// accept 正例:0 诊断 + 产出 DirectX 三元组 DXIL IR(compute shader 形态)。
+/// accept 正例:0 诊断 + 产出 DirectX 三元组 DXIL IR(按 `//@ dxil-shader: <env>`
+/// 指令断言对应着色器类型;缺指令默认 compute,RXS-0157/0158)。
 #[test]
 fn accept_corpus_emits_dxil() {
     let files = rx_files(&dxil_dir("accept"));
@@ -86,14 +89,23 @@ fn accept_corpus_emits_dxil() {
             f.display()
         );
         let ir = ir.unwrap_or_else(|| panic!("{} 未产出 DXIL IR", f.display()));
+        // `//@ dxil-shader: <env>` 指令裁定期望 DXIL 着色器类型(RXS-0158 对应表);
+        // 缺指令默认 compute(RXS-0157 compute-via-kernel)。
+        let env = src
+            .lines()
+            .find_map(|l| l.trim().strip_prefix("//@ dxil-shader:"))
+            .map(str::trim)
+            .unwrap_or("compute");
         assert!(
-            ir.contains("target triple = \"dxil-unknown-shadermodel6.0-compute\""),
-            "{} DXIL IR 缺 DirectX 三元组",
+            ir.contains(&format!(
+                "target triple = \"dxil-unknown-shadermodel6.0-{env}\""
+            )),
+            "{} DXIL IR 缺 {env} 着色器类型 DirectX 三元组",
             f.display()
         );
         assert!(
-            ir.contains("\"hlsl.shader\"=\"compute\""),
-            "{} DXIL IR 缺 hlsl.shader=compute 入口属性",
+            ir.contains(&format!("\"hlsl.shader\"=\"{env}\"")),
+            "{} DXIL IR 缺 hlsl.shader={env} 入口属性",
             f.display()
         );
     }

@@ -1,0 +1,6 @@
+//@ spec: RXS-0158
+// 最小 vertex 着色阶段 DXIL golden 语料(空体 vertex 入口,RXS-0153 `vertex fn`)。
+// golden 形态:1) rurixc 自有 DirectX 三元组 LLVM IR(`.dxil-ll`,shadermodel6.0-
+// vertex + hlsl.shader=vertex,确定性、无外部工具);2) 经 patched llc → DXIL 容器 +
+// dxc validator 接受后的文本反汇编(`.dxil-disasm`,工具链缺失时 SKIP)。
+vertex fn vs_noop() {}

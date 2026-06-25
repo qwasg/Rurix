@@ -1,0 +1,6 @@
+//@ spec: RXS-0158
+//@ expect-error: RX6008
+// RXS-0158 L2:mesh 着色阶段(→ DXIL mesh shader,SM6.5)的合规降级需线程组维度 +
+// 输出拓扑声明,越出阶段→着色器类型类型面;映射已登记 RXS-0158 对应表,实现 deferred
+// (RD-012)→ RX6008(strict-only,不降级为其他着色器类型)。
+mesh fn ms_noop() {}

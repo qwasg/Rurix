@@ -1,0 +1,50 @@
+;
+; Input signature:
+;
+; Name                 Index   Mask Register SysValue  Format   Used
+; -------------------- ----- ------ -------- -------- ------- ------
+; no parameters
+;
+; Output signature:
+;
+; Name                 Index   Mask Register SysValue  Format   Used
+; -------------------- ----- ------ -------- -------- ------- ------
+; no parameters
+; shader hash: c330ce361e35c3520fee20e0671615fe
+;
+; Pipeline Runtime Information: 
+;
+;PSVRuntimeInfo:
+; Vertex Shader
+; OutputPositionPresent=0
+; MinimumExpectedWaveLaneCount: 0
+; MaximumExpectedWaveLaneCount: 4294967295
+;
+;
+; Buffer Definitions:
+;
+;
+; Resource Bindings:
+;
+; Name                                 Type  Format         Dim      ID      HLSL Bind  Count
+; ------------------------------ ---------- ------- ----------- ------- -------------- ------
+;
+target datalayout = "e-m:e-p:32:32-i1:32-i8:8-i16:16-i32:32-i64:64-f16:16-f32:32-f64:64-n8:16:32:64"
+target triple = "dxil-ms-dx"
+
+; Function Attrs: noinline nounwind
+define void @rx_vs_noop_8() #0 {
+entry:
+  ret void
+}
+
+attributes #0 = { noinline nounwind }
+
+!dx.shaderModel = !{!0}
+!dx.version = !{!1}
+!dx.entryPoints = !{!2}
+
+!0 = !{!"vs", i32 6, i32 0}
+!1 = !{i32 1, i32 0}
+!2 = !{void ()* @rx_vs_noop_8, !"rx_vs_noop_8", null, null, null}
+

@@ -118,7 +118,44 @@ pub fn build_device_crate(cx: &QueryCtx<'_>) -> Vec<Body> {
     out
 }
 
-/// const 求值专用单实例构建(M3.4,RXS-0062):构建 const item / const fn 的
+/// DXIL 第二后端 MIR 收集根(G2.2 PR-C2 分片2,RXS-0158;feature `dxil-backend`)。
+/// 与 [`build_device_crate`](PTX 后端,D-207)并列、各自从 MIR 独立降级:收集根
+/// 扩到**含着色阶段入口**(`decl.stage.is_some()`,RXS-0153 vertex/fragment/mesh/
+/// task/RT)+ 普通 `kernel fn`(compute-via-kernel,stage `None`)。PTX 收集根
+/// (`build_device_crate`)维持排除着色阶段不受影响(RFC-0003 §4.5)。阶段→DXIL
+/// 着色器类型的映射在 [`crate::dxil_codegen`] 经 HIR `FnDecl::stage` 裁定。
+#[cfg(feature = "dxil-backend")]
+pub fn build_dxil_crate(cx: &QueryCtx<'_>) -> Vec<Body> {
+    let krate = cx.hir_crate();
+    let mut out = Vec::new();
+    let mut visited: HashSet<String> = HashSet::new();
+    let mut worklist: Vec<(DefId, Vec<Ty>)> = Vec::new();
+    // 根 = 全部 kernel 着色 fn(含着色阶段入口 stage.is_some();有 body、无泛型参数)。
+    for item in &krate.items {
+        if let hir::ItemKind::Fn(decl) = &item.kind
+            && decl.color == crate::ast::FnColor::Kernel
+            && decl.body.is_some()
+            && decl.generic_params.is_empty()
+            && visited.insert(mangle(&item.name, item.def_id, &[]))
+        {
+            worklist.push((item.def_id, Vec::new()));
+        }
+    }
+    while let Some((def, args)) = worklist.pop() {
+        let (mut body, callees, _const_err) = build_body(cx, def, args);
+        crate::drop_elab::elaborate(&mut body);
+        let drop_callees = crate::drop_elab::collect_drop_callees(&krate, &body);
+        out.push(body);
+        for (d, a) in callees.into_iter().chain(drop_callees) {
+            let sym = mangle(&krate.item(d).name, d, &a);
+            if visited.insert(sym) {
+                worklist.push((d, a));
+            }
+        }
+    }
+    out.sort_by(|a, b| a.symbol.cmp(&b.symbol));
+    out
+}
 /// MIR body 供 [`crate::const_eval`] 解释,不入 `main` 可达性收集、不跑 drop
 /// elaboration(标量 const 无 needs-drop)。body 内对其他 const 的引用在构建期
 /// 即经 [`QueryCtx::eval_const`] 内联;若引用求值失败(含环引用),首个错误经
