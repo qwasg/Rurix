@@ -5,12 +5,12 @@
 | RFC 编号 | RFC-0004（4 位制，编号永不复用，10 §9.5） |
 | 标题 | SPIR-V→DXIL 图形后端 / 混合 codegen（compute=A / 图形=B） |
 | 档位 | **Full RFC**（10 §3：新 codegen 路径 + 第二中间表示(SPIR-V) + 外部转译依赖；触 AGENTS 硬规则 5 禁区边界——DXIL 文本语义 UB / 纹理路径内存模型映射(06 §4.2) / 签名·FFI ABI 二进制布局，均标 🔒 只落边界声明、不落禁区语义本体；且触**准永久公理 P-01(strict-only)**——§4.4 为图形=B 的 strict-only 达标要求,不设例外） |
-| 状态 | **Draft（2026-06-25，代录定稿文本）**。**owner 经 FCP-lite 批准前不推进下游 spec/实现 PR（硬规则 1，AI 不代签 / 不代决 / 不自合）**;§4.4 strict-only 达标要求及细化边界、§4.6 🔒 禁区边界声明、§9 裁决文本已落,生效以 owner 合并 #100 为准。`evidence/dxil_b_strict_only_report.md` 属本栈 **#101**，须先于/随 #100 一并落地 |
+| 状态 | **Draft（2026-06-25，代录定稿文本）**。**owner 经 FCP-lite 批准前不推进下游 spec/实现 PR（硬规则 1，AI 不代签 / 不代决 / 不自合）**;§4.4 strict-only 达标要求及细化边界、§4.6 🔒 禁区边界声明、§9 裁决文本已落,生效以 owner 合并本决策包为准。`evidence/dxil_b_strict_only_report.md` 已随本决策包自含落地(原 strict-only 取证栈，已吸收),证据引用不悬空 |
 | 承接里程碑 | G2.2（验收门 **G-G2-2**），承 RFC-0003 混合 codegen 分发(图形分支) |
 | 关联条款 | 拟重构 spec **RXS-0159**(按 B 路径)+ **RXS-0160** + B 新增面(MIR→SPIR-V)预留区间(见 §5)；落 `spec/dxil_backend.md`(承 RFC-0003)。**本 RFC 不创建裸条款头**，trace 维持现状 |
 | 依据决策 | D-131（G2 DXIL 生成路径,v1.4 增补 = **混合 compute=A/图形=B**）· D-002（图形分期,已批准）· D-205（LLVM pin,vendored）· RFC-0003（MIR→DXIL 第二后端,Owner Approved;本 RFC 为其图形分支细化）· 06 §4.2(纹理内存模型禁区,🔒)· 04 P-01(strict-only,准永久公理)/ P-13(防 AI 幻觉治理) |
-| Provenance | `Assisted-by: kiro:claude-opus-4-8`。Human-in-the-loop（硬规则 1/2）：本草案由 AI 起草骨架;§4.4 strict-only 达标要求、§4.6 🔒 禁区边界声明、§9 裁决文本为代录定稿,**生效以 owner 合并 #100 为准**;`evidence/dxil_b_strict_only_report.md` 属本栈 **#101**，未先于/随 #100 落地前,本 RFC 不得单独先合。**owner FCP-lite 批准前不推进下游实现,AI 不自启、不代签** |
-| Owner 批准 | 〈待 owner FCP-lite 批准；本版已含 §4.4 strict-only 达标要求与细化边界、§4.6 🔒 禁区边界声明、§9 全部裁决文本；`#101` 证据须先于/随 `#100` 落地；记录方式 owner 落笔〉 |
+| Provenance | `Assisted-by: kiro:claude-opus-4-8`。Human-in-the-loop（硬规则 1/2）：本草案由 AI 起草骨架;§4.4 strict-only 达标要求、§4.6 🔒 禁区边界声明、§9 裁决文本为代录定稿,**生效以 owner 合并本决策包为准**;`evidence/dxil_b_strict_only_report.md` 已随本决策包自含落地(原 strict-only 取证栈，已吸收),证据引用不悬空。**owner FCP-lite 批准前不推进下游实现,AI 不自启、不代签** |
+| Owner 批准 | 〈待 owner FCP-lite 批准；本版已含 §4.4 strict-only 达标要求与细化边界、§4.6 🔒 禁区边界声明、§9 全部裁决文本；strict-only 证据已自含于本决策包(原 #101，已吸收)；记录方式 owner 落笔〉 |
 
 ---
 
@@ -49,11 +49,11 @@ vertex fn vs_main(in: VertexIn) -> VertexOut { /* ... */ }
 fragment fn fs_main(in: VertexOut) -> FragmentOut { /* ... */ }
 ```
 
-`strict-only`(P-01)维持:任一分支降级失败 = **结构化编译错误**(6xxx 段,RFC-0003 §5),无静默降级、无 permissive 回退。**注（代录 owner 裁断，owner 合并 #100 生效）**:B 路严禁任何对用户声明/可观察签名元素的静默降级或丢弃——留不住即显式 6xxx 编译错(P-01 不开例外、不设边界,§4.4 是 B 的达标条件而非例外);用户语义名经 by-construction 保真 + 强制译后签名一致性校验门兜底(§4.4/§4.2)。varying 名/寄存器布局落契约线下;声明但未用的外部输入若在译后被消除,必须显式 6xxx 诊断,不得静默通过(§4.4)。
+`strict-only`(P-01)维持:任一分支降级失败 = **结构化编译错误**(6xxx 段,RFC-0003 §5),无静默降级、无 permissive 回退。**注（代录 owner 裁断，owner 合并本决策包生效）**:B 路严禁任何对用户声明/可观察签名元素的静默降级或丢弃——留不住即显式 6xxx 编译错(P-01 不开例外、不设边界,§4.4 是 B 的达标条件而非例外);用户语义名经 by-construction 保真 + 强制译后签名一致性校验门兜底(§4.4/§4.2)。varying 名/寄存器布局落契约线下;声明但未用的外部输入若在译后被消除,必须显式 6xxx 诊断,不得静默通过(§4.4)。
 
 ## 4. 参考级设计
 
-> 本节落笔**混合分发架构与 B 路图形降级的设计面**;§4.4 为 **strict-only 达标要求**(代录 owner 裁断,核心规范句 owner 合并 #100 生效 + 细化边界定稿);触及禁区的子节(§4.6)标 🔒,本 RFC 只落**边界声明**,不落禁区语义本体。
+> 本节落笔**混合分发架构与 B 路图形降级的设计面**;§4.4 为 **strict-only 达标要求**(代录 owner 裁断,核心规范句 owner 合并本决策包生效 + 细化边界定稿);触及禁区的子节(§4.6)标 🔒,本 RFC 只落**边界声明**,不落禁区语义本体。
 
 ### 4.1 混合 codegen 分发（分叉点与判据）
 
@@ -94,11 +94,11 @@ B 路引入外部转译依赖,供应链纪律类比 D-205(LLVM pin):
 
 ### 4.4 strict-only 达标要求（代录 owner 裁断 + 强制签名一致性校验门）
 
-> **本子节为图形=B 对准永久公理 P-01（strict-only，04 P-01）的达标要求,非例外/边界声明。核心规范句与细化边界均为 AI 代录定稿文本,生效以 owner 合并 #100 为准(P-13/硬规则 1)。**
+> **本子节为图形=B 对准永久公理 P-01（strict-only，04 P-01）的达标要求,非例外/边界声明。核心规范句与细化边界均为 AI 代录定稿文本,生效以 owner 合并本决策包为准(P-13/硬规则 1)。**
 
-**规范句（代录 owner 裁断，owner 合并 #100 生效）**:图形=B 路**严禁任何对用户声明或可观察签名元素的静默降级或丢弃**——凡用户在源码中声明的、或外部可观察的签名元素,转译链(MIR→SPIR-V→SPIRV-Cross→HLSL→dxc→DXIL)若留不住,**必须显式 6xxx 编译错误**(承 RFC-0003 §5),**绝不静默丢/改**。**P-01(strict-only)不开例外、不设边界**:§4.4 是图形=B 的**达标条件**,而非对 P-01 的例外/边界声明——B 要被接受,须证语言层零静默降级(不靠任何 P-01 例外)。
+**规范句（代录 owner 裁断，owner 合并本决策包生效）**:图形=B 路**严禁任何对用户声明或可观察签名元素的静默降级或丢弃**——凡用户在源码中声明的、或外部可观察的签名元素,转译链(MIR→SPIR-V→SPIRV-Cross→HLSL→dxc→DXIL)若留不住,**必须显式 6xxx 编译错误**(承 RFC-0003 §5),**绝不静默丢/改**。**P-01(strict-only)不开例外、不设边界**:§4.4 是图形=B 的**达标条件**,而非对 P-01 的例外/边界声明——B 要被接受,须证语言层零静默降级(不靠任何 P-01 例外)。
 
-**达标机制（measured 事实，来自 `evidence/dxil_b_strict_only_report.md`，命令真实输出；该取证为本栈 PR #101，须先于/随 #100 一并落 main，否则本 RFC 不得单独先合）**:
+**达标机制（measured 事实，来自 `evidence/dxil_b_strict_only_report.md`，命令真实输出；该取证已随本决策包自含落 main，原 strict-only 取证栈 #101 已吸收，证据引用不悬空）**:
 
 1. **用户语义名 by-construction 保真**:Rurix MIR→SPIR-V 自有降级握有用户 I/O 全部语义信息(RXS-0154 `#[builtin]`/`#[interpolate]` + 字段名),可对所有用户命名 I/O **by-construction** emit SPIR-V `UserSemantic` 装饰并在 SPIR-V→HLSL 段驱动保名。measured 证此机制对顶点输入语义名有效:`POSITION`/`NORMAL` 默认经 SPIR-V 往返降级为通用 `TEXCOORD#`,经 `dxc -spirv -fspv-reflect`(携 `UserSemantic`)+ `spirv-cross --set-hlsl-named-vertex-input-semantic`(经 SPIR-V 反射自动导出,非硬编码)端到端**保真存活**(签名 part dump 实证:`vs_sig` ISG1 默认 `[TEXCOORD0,TEXCOORD1,TEXCOORD2]` → 保名 `[POSITION0,NORMAL0,TEXCOORD0]`)。
 2. **强制译后签名一致性校验门**:B 链产 DXIL 后,codegen **强制**解析 DXIL ISG1/OSG1 签名 part 与 MIR 意图签名做结构化对照;比较域 = **(a)** 外部接口签名元素(顶点输入 / 片元输出 / 入口 `#[builtin]` 系统值 / 显式用户语义名),**(b)** 阶段间链接所需的字段/类型/插值/location 配对,**(c)** 被源码使用的输入元素。**任何用户声明或可观察元素未保真**——含**声明但未用的外部输入元素**——→ 发 **6xxx 显式编译错误**。measured 支撑:签名 part 可程序化解析(×N 稳定解出 elemcount + 名 + 系统值 + register),译后校验门有可靠输入;6xxx 段已存在(RFC-0003 §5)→ 错误码载体就位 → 该校验门**设计级可行**,不依赖 P-01 例外。
@@ -169,12 +169,12 @@ B 路引入外部转译依赖,供应链纪律类比 D-205(LLVM pin):
 - **D-205 pin bump / A-graphics 迁移触发**：属 owner 独立决策(§4.5),不在本 RFC。
 - **语言面扩展**：着色阶段类型面属 G2.1(RFC-0002);本 RFC 是 codegen 面,不新增语言构造。
 
-## 9. 关键裁决（代录定稿文本；生效以 owner 合并 #100 为准）
+## 9. 关键裁决（代录定稿文本；生效以 owner 合并本决策包为准）
 
 | Q | 待裁项 | AI 倾向（供参,不代决） | 裁决 |
 |---|---|---|---|
 | Q-Hybrid-RFC | 图形=B 设计面**新建 RFC-0004** vs **作 RFC-0003 增补** | 新建 RFC-0004(B 引入第二 IR + 外部依赖 + strict-only 达标要求 + 三个 🔒 禁区边界,应与 RFC-0003 的 compute=A 主述解耦) | **新建 RFC-0004**。RFC-0003 保留 compute=A 主述与 D-131 指针;图形=B 的设计/供应链/strict-only 细化统一收口在 RFC-0004,避免把第二 IR 与图形转译细节回灌进 RFC-0003 主体。 |
-| Q-P01-Boundary | §4.4 转译链保真:strict-only 达标要求 vs P-01 例外/边界 | 〈代录 owner 裁断,见裁决列〉 | **代录 owner 裁断(owner 合并 #100 生效)**:P-01 不开例外、不设边界;§4.4 改为 **strict-only 达标要求**。用户可观察边界 = 外部接口签名元素 + `#[builtin]` 系统值 + 顶点输入/片元输出语义 + 阶段间字段/类型/插值/location 配对;varying semantic 串名/寄存器/packing 落契约线下。**声明但未用的外部输入 = 显式 6xxx 诊断**,不要求为过关而强制保留。运行期等价以 G-G2-2 device 真跑 golden + validator + DXIL golden + 签名篡改红绿验收。 |
+| Q-P01-Boundary | §4.4 转译链保真:strict-only 达标要求 vs P-01 例外/边界 | 〈代录 owner 裁断,见裁决列〉 | **代录 owner 裁断(owner 合并本决策包生效)**:P-01 不开例外、不设边界;§4.4 改为 **strict-only 达标要求**。用户可观察边界 = 外部接口签名元素 + `#[builtin]` 系统值 + 顶点输入/片元输出语义 + 阶段间字段/类型/插值/location 配对;varying semantic 串名/寄存器/packing 落契约线下。**声明但未用的外部输入 = 显式 6xxx 诊断**,不要求为过关而强制保留。运行期等价以 G-G2-2 device 真跑 golden + validator + DXIL golden + 签名篡改红绿验收。 |
 | Q-Range-B | RXS-0159 重构 + RXS-0160 + B 新增面区间大小/拆分 | 锁 `RXS-0159` 保号重构 + `RXS-0160~0162` | **锁定**:`RXS-0159` 保号按 B 重构;新增 `RXS-0160`(阶段链接一致性)、`RXS-0161`(MIR→SPIR-V 图形降级面)、`RXS-0162`(B 转译链确定性/validator gate/供应链 pin/strict-only 核验)。#97 A 路 `RXS-0159` 不入 main,由 PR-D2 统一重写。 |
 | Q-Supply | SPIRV-Cross/dxc/glslang pin 形态(vendored/env/lockfile) + 再分发审计 | lockfile `[[toolchain]]` + SHA256 pin + 再分发白名单(类比 D-205/D-313) | **锁 `[[toolchain]]` + SHA256 pin** 为 canonical 形态;显式 env override 仅允许本地 probe/dev,不构成 CI/stable path。SPIRV-Cross/dxc/glslang 再分发审计纳入白名单/许可门,作为 PR-D2/G-G2-2 前置。 |
 | Q-Gate-B | 复用 `dxil-backend` vs 细分 `dxil-graphics-b` feature | 复用 `dxil-backend`(图形=B 为其分支) | **复用 `dxil-backend`**。不再引入 `dxil-graphics-b` 子 gate,避免把混合分支暴露成新的用户面组合维度。 |
@@ -183,11 +183,11 @@ B 路引入外部转译依赖,供应链纪律类比 D-205(LLVM pin):
 ## 10. 稳定化与 provenance
 
 - **稳定化**(10 §5)：图形=B 经 feature gate → tracking → 两里程碑无重大修订 → stabilization report → FCP-lite(10 §2.2);B 转译产物面/供应链 pin 在首个 stable 前不进 stable 面(随 RD-008)。
-- **Provenance**：`Assisted-by: kiro:claude-opus-4-8`。本草案由 AI 起草骨架;§4.4 strict-only 达标要求与细化边界、§4.6 🔒 禁区边界声明、§9 裁决文本为代录定稿,**生效以 owner 合并 #100 为准**。`evidence/dxil_b_strict_only_report.md` 属本栈 **PR #101**,须先于/随 #100 落地。**owner FCP-lite 批准前不推进下游 spec/实现 PR,AI 不代签 / 不代决 / 不自合**(硬规则 1)。FCP-lite 评审/等待窗按 10 §2.2 独立完成,本记录不虚构尚不存在的评审。
+- **Provenance**：`Assisted-by: kiro:claude-opus-4-8`。本草案由 AI 起草骨架;§4.4 strict-only 达标要求与细化边界、§4.6 🔒 禁区边界声明、§9 裁决文本为代录定稿,**生效以 owner 合并本决策包为准**。`evidence/dxil_b_strict_only_report.md` 已随本决策包自含落地(原 strict-only 取证栈 #101，已吸收),证据引用不悬空。**owner FCP-lite 批准前不推进下游 spec/实现 PR,AI 不代签 / 不代决 / 不自合**(硬规则 1)。FCP-lite 评审/等待窗按 10 §2.2 独立完成,本记录不虚构尚不存在的评审。
 
 ## 11. 规范与实现依据
 
-- **证据(measured,命令真实输出)**:`evidence/dxil_slice3_rxs0159_sig_disasm_round8.md`(A 路图形签名 ISG1/OSG1 elemcount=0 + 根因 #90504 + Signature::addParam FFI ABI 耦合)/ `evidence/dxil_b_graphics_sig_report.md`(B 路图形签名 elemcount>0、SV 端到端存活、IDxcValidator+dxv.exe ×25 accept、×25 容器 SHA256 deterministic、§5 保真子轴)/ `evidence/dxil_b_strict_only_report.md`(B strict-only 达标取证:顶点输入语义名 by-construction 保名 measured 可消除损耗①;译后签名一致性校验门设计级可行——签名 part 可程序化解析 + 6xxx 段就位;本栈 PR #101,**须先于/随 #100 落 main**)/ `evidence/dxil_a_graphics_sig_effort_report.md`(A-graphics estimated ~800-1500 LOC、#90504/#57928 open 无在途、carry-patch partial-blocked、packing=conformance)。
+- **证据(measured,命令真实输出)**:`evidence/dxil_slice3_rxs0159_sig_disasm_round8.md`(A 路图形签名 ISG1/OSG1 elemcount=0 + 根因 #90504 + Signature::addParam FFI ABI 耦合)/ `evidence/dxil_b_graphics_sig_report.md`(B 路图形签名 elemcount>0、SV 端到端存活、IDxcValidator+dxv.exe ×25 accept、×25 容器 SHA256 deterministic、§5 保真子轴)/ `evidence/dxil_b_strict_only_report.md`(B strict-only 达标取证:顶点输入语义名 by-construction 保名 measured 可消除损耗①;译后签名一致性校验门设计级可行——签名 part 可程序化解析 + 6xxx 段就位;已随本决策包自含落 main，原 strict-only 取证栈 #101 已吸收)/ `evidence/dxil_a_graphics_sig_effort_report.md`(A-graphics estimated ~800-1500 LOC、#90504/#57928 open 无在途、carry-patch partial-blocked、packing=conformance)。
 - **工具链版本(取证实测,隔离不入库)**:dxc -spirv 1.8.0.4739 / spirv-val v2024.4 / spirv-cross vulkan-sdk-1.3.290 / dxc 1.9.2602.24(round-7 套件,含 dxil.dll 签名 validator + dxv.exe);glslang 15.0.0(producer 备选)。SHA256 见 `dxil_b_graphics_sig_20260625.json`。
 - **决策/上游**:13 §D-131(v1.4 混合)· RFC-0003(MIR→DXIL 第二后端)· D-002/D-205 · 06 §4.2(纹理禁区)· 04 P-01(strict-only)/P-13 · 上游 [#90504](https://github.com/llvm/llvm-project/issues/90504)/[#57928](https://github.com/llvm/llvm-project/issues/57928)(A-graphics 迁移前置,RD-015)。
 - **registry**:RD-010(A/B 裁决,close)· RD-011(A compute PSV patch)· RD-014(B 供应链跟踪)· RD-015(A-graphics 上游迁移跟踪)。
@@ -199,5 +199,6 @@ B 路引入外部转译依赖,供应链纪律类比 D-205(LLVM pin):
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
 | Draft v0.1 | 2026-06-25 | AI 起草骨架(§1 摘要混合通路图 / §2 动机 + 为何 Full RFC / §3 用户视角混合透明 / §4.1 混合分发判据 / §4.2 B 转译链设计面 / §4.3 供应链 pin + 确定性 + strict-only 核验 / §4.4 🔒 P-01 边界声明占位 + 实测事实 / §4.5 A-graphics 迁移条件 + #90504/#57928 / §4.6 🔒 禁区占位(签名 ABI / 纹理内存模型 / UB)/ §5 下游条款计划表(RXS-0159 按 B 重构 + RXS-0160 + B 新增面,不落条款体)/ §6 feature gate + 栈式 PR + 真实红绿 / §7 备选 / §8 范围红线 / §9 未决留 owner(Q-Hybrid-RFC/Q-P01-Boundary/Q-Range-B/Q-Supply/Q-Gate-B/Q-Golden-B)/ §10 稳定化 / §11 依据)。**待 owner FCP-lite 批准 + 裁决 §9;§4.4 P-01 边界 + §4.6 禁区由 owner 落笔。AI 不代签 / 不代决 / 不推进下游** | Full RFC（Draft） |
-| Draft v0.2 | 2026-06-25 | 代录 owner 对 §4.4 的裁断(P-01 不开例外;B 严禁对用户声明/可观察签名元素静默降级/丢弃,留不住即显式 6xxx)+ 强制签名一致性校验门入设计面:§4.4 由「🔒 P-01 边界/例外声明占位」改写为 **strict-only 达标要求**(代录 owner 裁断核心规范句 owner 合并 #100 生效 + 达标机制 by-construction 保名/强制译后签名一致性校验门/校验门不可裁剪 + 契约线归类 + 细化处〈待 owner〉占位)/ §4.2 落「强制签名一致性校验门(MIR 意图 vs DXIL 签名 → 6xxx,不可裁剪)」设计面 / §4.3 strict-only 核验叠加校验门 / §3 用户视角注代录裁断 / §9 Q-P01-Boundary 更新为代录裁断(其余 §9 项维持〈待 owner〉)/ §4 intro·§8·§10·front-matter·§11 证据指针(+ `dxil_b_strict_only_report.md`)同步。**§4.6 🔒 禁区维持占位不落笔;不落 codegen/条款体;AI 代录非代决,owner 合并 #100 生效,细化处〈待 owner〉** | Full RFC（Draft） |
-| Draft v0.3 | 2026-06-25 | 代录定稿三处留白:§4.4 细化边界**落定**(「用户可观察」精确边界 = 外部接口签名元素 + `#[builtin]` 系统值 + 顶点输入/片元输出语义 + 阶段间字段/类型/插值/location 配对;varying semantic 串名/寄存器/packing 落契约线下;**声明但未用的外部输入 = 显式 6xxx 诊断**,不要求强制保留;运行期等价验证形态 = G-G2-2 device 真跑 golden + validator + DXIL golden + 签名篡改红绿);§4.6 🔒 禁区由“占位”改为**边界声明**(签名/FFI ABI 只承诺源码层存在性与语义名,不承诺寄存器/packing/字节布局;纹理路径内存模型未建模即显式拒绝;SPIR-V/DXIL 不建立独立 UB 契约,不得借后端 UB 空间静默漂移);§9 全部裁决落定(Q-Hybrid-RFC=新建 RFC-0004 / Q-Range-B=`RXS-0159` 保号重构 + `RXS-0160~0162` / Q-Supply=`[[toolchain]]`+SHA256 pin / Q-Gate-B=复用 `dxil-backend` / Q-Golden-B=仅 DXIL 文本反汇编入 golden)。并同步 §5 计划表 / §6 gate / §8 范围红线 / §10 provenance / §11 `#101` 证据前置约束。**仍待 owner FCP-lite 批准;`#101` 须先于/随 `#100` 落地;AI 不代签 / 不自合** | Full RFC（Draft） |
+| Draft v0.2 | 2026-06-25 | 代录 owner 对 §4.4 的裁断(P-01 不开例外;B 严禁对用户声明/可观察签名元素静默降级/丢弃,留不住即显式 6xxx)+ 强制签名一致性校验门入设计面:§4.4 由「🔒 P-01 边界/例外声明占位」改写为 **strict-only 达标要求**(代录 owner 裁断核心规范句 owner 合并本决策包生效 + 达标机制 by-construction 保名/强制译后签名一致性校验门/校验门不可裁剪 + 契约线归类 + 细化处〈待 owner〉占位)/ §4.2 落「强制签名一致性校验门(MIR 意图 vs DXIL 签名 → 6xxx,不可裁剪)」设计面 / §4.3 strict-only 核验叠加校验门 / §3 用户视角注代录裁断 / §9 Q-P01-Boundary 更新为代录裁断(其余 §9 项维持〈待 owner〉)/ §4 intro·§8·§10·front-matter·§11 证据指针(+ `dxil_b_strict_only_report.md`)同步。**§4.6 🔒 禁区维持占位不落笔;不落 codegen/条款体;AI 代录非代决,owner 合并本决策包生效,细化处〈待 owner〉** | Full RFC（Draft） |
+| Draft v0.3 | 2026-06-25 | 代录定稿三处留白:§4.4 细化边界**落定**(「用户可观察」精确边界 = 外部接口签名元素 + `#[builtin]` 系统值 + 顶点输入/片元输出语义 + 阶段间字段/类型/插值/location 配对;varying semantic 串名/寄存器/packing 落契约线下;**声明但未用的外部输入 = 显式 6xxx 诊断**,不要求强制保留;运行期等价验证形态 = G-G2-2 device 真跑 golden + validator + DXIL golden + 签名篡改红绿);§4.6 🔒 禁区由“占位”改为**边界声明**(签名/FFI ABI 只承诺源码层存在性与语义名,不承诺寄存器/packing/字节布局;纹理路径内存模型未建模即显式拒绝;SPIR-V/DXIL 不建立独立 UB 契约,不得借后端 UB 空间静默漂移);§9 全部裁决落定(Q-Hybrid-RFC=新建 RFC-0004 / Q-Range-B=`RXS-0159` 保号重构 + `RXS-0160~0162` / Q-Supply=`[[toolchain]]`+SHA256 pin / Q-Gate-B=复用 `dxil-backend` / Q-Golden-B=仅 DXIL 文本反汇编入 golden)。并同步 §5 计划表 / §6 gate / §8 范围红线 / §10 provenance / §11 strict-only 证据(原 #101)自含约束。**仍待 owner FCP-lite 批准;strict-only 证据(原 #101)已随本决策包自含;AI 不代签 / 不自合** | Full RFC（Draft） |
+| Draft v0.4 | 2026-06-25 | 干净自含化勘误(无语义改动):本决策包重构为干净自含 PR(去 #96/#97 代码祖先、strict-only 证据原 #101 已吸收入本包)后,将全文「生效以 owner 合并 #100 为准」「#101 须先于/随 #100 落地」等旧 stacked 栈绑定改为 PR 号无关的通用生效条件「owner 合并本决策包生效」+「strict-only 证据已自含、引用不悬空」(front-matter 状态/Provenance/Owner 批准、§3、§4 intro、§4.4、§9 header/Q-P01-Boundary、§10、§11、修订记录 v0.2/v0.3)。**仅清理 PR 号引用,owner 裁断实质(P-01 不开例外 / §4.4 strict-only 达标要求 / §9 全部裁决 / §4.6 禁区边界)逐字不变;仍待 owner FCP-lite 批准;AI 不代签 / 不自合** | Full RFC（Draft） |
