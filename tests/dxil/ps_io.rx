@@ -1,0 +1,9 @@
+//@ spec: RXS-0159
+// fragment(pixel)着色阶段 I/O DXIL golden 语料(RXS-0159 阶段 I/O → DXIL 签名/系统
+// 值语义,类型面)。输入 frag_coord → SV_Position + 透视插值 varying;输出渲染目标
+// 颜色 → SV_Target。golden:`.dxil-ll`(rurixc 自有 DirectX 三元组 LLVM IR + 类型面
+// 签名元数据 !rurix.dxil.sig.in/out,确定性);`.dxil-disasm` 在带工具链环境录入,
+// dev 环境工具链缺失 → SKIP(RD-011)。入口 body 数据流降级 deferred(RD-013)。
+struct FsIn { #[builtin(frag_coord)] coord: f32, #[interpolate(perspective)] uv: f32 }
+struct FsOut { #[interpolate(perspective)] color: f32 }
+fragment fn fs_io(inp: FsIn) -> FsOut { FsOut { color: 0.0 } }

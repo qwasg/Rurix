@@ -162,3 +162,4 @@
 | RXS-0156 | spec/shader_stages.md | 4 | `conformance/shader/accept/basic_stages.rx`, `conformance/shader/reject/resource_handle/handle_return.rx`, `src/rurixc/src/shader_stages.rs` …(+1) |
 | RXS-0157 | spec/dxil_backend.md | 4 | `conformance/dxil/accept/cs_noop.rx`, `conformance/dxil/reject/nontrivial_body.rx`, `conformance/dxil/reject/view_param.rx` …(+1) |
 | RXS-0158 | spec/dxil_backend.md | 7 | `conformance/dxil/accept/compute_fn_noop.rx`, `conformance/dxil/accept/fragment_noop.rx`, `conformance/dxil/accept/vertex_noop.rx` …(+4) |
+| RXS-0159 | spec/dxil_backend.md | 5 | `conformance/dxil/accept/fragment_io.rx`, `conformance/dxil/accept/vertex_io.rx`, `conformance/dxil/reject/builtin_unmappable.rx` …(+2) |

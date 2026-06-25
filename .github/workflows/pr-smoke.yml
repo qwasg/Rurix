@@ -243,15 +243,18 @@ jobs:
         shell: powershell
         run: py -3 ci/shader_stages_smoke.py
 
-      # 步骤 46（G-G2-2,RFC-0003 / RXS-0157 + RXS-0158,PR-C2 分片1/2）：DXIL 第二后端 codegen 冒烟。
+      # 步骤 46（G-G2-2,RFC-0003 / RXS-0157 + RXS-0158 + RXS-0159,PR-C2 分片1/2/3）：DXIL 第二后端 codegen 冒烟。
       # `cargo test -p rurixc --features dxil-backend`(dxil_codegen 单测 + dxil_corpus
       # accept/reject + dxil_golden)。IR 层(rurixc 自有 DirectX 三元组 LLVM IR `.dxil-ll`
-      # golden + accept/reject RX6007/RX6008)**总跑**、无外部工具依赖——含 RXS-0158 各阶段:
+      # golden + accept/reject RX6007/RX6008/RX6009)**总跑**、无外部工具依赖——含 RXS-0158 各阶段:
       # vertex→vertex / fragment→pixel / compute→compute 着色器类型 accept,mesh/task/RT
-      # 阶段降级 deferred(RD-012)→ RX6008 reject;`.dxil-disasm` 反汇编关卡需 patched llc
-      # (经 `RURIX_LLC`,**RD-011 受控 dev-only 临时工具链偏差**,patch 不入库、不改 committed
-      # D-205 pin)+ dxc 签名 validator(经 `RURIX_DXC_DIR`),CI runner 未配二者时 disasm 关卡
-      # normal SKIP(对齐 RXS-0073 ptxas 干验证 SKIP 纪律,真实红绿在带工具链的 dev/runner;
+      # 阶段降级 deferred(RD-012)→ RX6008 reject;RXS-0159 阶段 I/O → DXIL 签名/系统值语义(类型面):
+      # vertex SV_Position 输出 / fragment SV_Target 输出 accept(`!rurix.dxil.sig.*` 签名元数据,
+      # 仅 SV 语义名/插值限定符无寄存器/偏移——二进制 ABI 布局属 §9 Q-Builtin 🔒 禁区),不可映射内建
+      # 变量 / 整数非 flat 插值 → RX6009 reject;入口 body 数据流降级 deferred(RD-013);`.dxil-disasm`
+      # 反汇编关卡需 patched llc(经 `RURIX_LLC`,**RD-011 受控 dev-only 临时工具链偏差**,patch 不入库、
+      # 不改 committed D-205 pin)+ dxc 签名 validator(经 `RURIX_DXC_DIR`),CI runner 未配二者时
+      # disasm 关卡 normal SKIP(对齐 RXS-0073 ptxas 干验证 SKIP 纪律,真实红绿在带工具链的 dev/runner;
       # G-G2-2 device 真跑/呈现对照仍 open,不在本步)。失败即红。
       - name: DXIL second-backend codegen smoke (G2 CI_GATES §2.46, G-G2-2, RFC-0003, RD-011 dev 偏差)
         shell: powershell

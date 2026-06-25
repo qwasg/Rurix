@@ -1,0 +1,10 @@
+//@ spec: RXS-0159
+//@ dxil-shader: pixel
+//@ dxil-sig: SV_Target
+// 合法 fragment I/O:输入片元坐标(frag_coord → SV_Position)+ 透视插值 varying,
+// 输出渲染目标颜色(fragment 输出 varying → SV_Target)。--target dxil 经 DXIL 后端
+// 按 RXS-0159 类型面映射产输入/输出签名语义元数据(SV_* / 插值限定符,无二进制布局)。
+struct FsIn { #[builtin(frag_coord)] coord: f32, #[interpolate(perspective)] uv: f32 }
+struct FsOut { #[interpolate(perspective)] color: f32 }
+fragment fn fs_io(inp: FsIn) -> FsOut { FsOut { color: 0.0 } }
+fn main() {}

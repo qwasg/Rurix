@@ -1,0 +1,9 @@
+//@ spec: RXS-0159
+//@ expect-error: RX6009
+// RXS-0159:thread_id 是 compute 系统值(SV_DispatchThreadID),在 vertex 入口无对应
+// DXIL 输入签名系统值 → 不可映射的内建变量 → SV_* → RX6009(类型面降级失败,
+// strict-only,无静默 fallback)。RXS-0154 已校验 thread_id 为已知 builtin,本码裁其
+// 在 DXIL vertex 签名中无 SV 对应。
+struct VsIn { #[builtin(thread_id)] tid: u32 }
+vertex fn vs_bad(inp: VsIn) {}
+fn main() {}

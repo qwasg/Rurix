@@ -1,0 +1,8 @@
+//@ spec: RXS-0159
+//@ expect-error: RX6009
+// RXS-0159:整数 varying 必须 flat(DXIL nointerpolation);非 flat 插值整数(此处
+// u32 + perspective)为非法插值组合 → RX6009(类型面降级失败,strict-only)。位置
+// 内建变量(position → SV_Position)合法,违例仅在整数 varying 的插值限定。
+struct VsOut { #[builtin(position)] pos: f32, #[interpolate(perspective)] id: u32 }
+vertex fn vs_bad() -> VsOut { VsOut { pos: 0.0, id: 0 } }
+fn main() {}
