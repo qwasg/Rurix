@@ -1,0 +1,318 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/dxil_a_graphics_sig_effort/v1",
+  "title": "Rurix G2.2 A 路图形签名工作量评估 spike 证据 JSON(RD-010;RFC-0003 §9 Q-D131=A / issue #90504 / #57928)",
+  "description": "纯评估 spike 机器事实清单(非性能基准、非常驻 CI 门)。量化让 A 路(LLVM DirectX 后端)产带真实 SV 签名的图形 DXIL 要做多少、风险多大、carry-patch 是否可行,供 owner 裁 A-graphics vs 混合架构(图形=B)。measured-first / blocked-honest(硬规则 3/4):源码行/上游状态/PoC 结果全来自命令真实输出 + GitHub API + 隔离 LLVM 重建;工作量数字明确标 estimated。不裁 A/B/混合架构、不代签(硬规则 1);禁区归属判断只作事实陈述,不替 owner 落笔禁区(硬规则 5)。LLVM PoC patch/重建产物隔离不入库,digest 写本证据。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject",
+    "status",
+    "timestamp",
+    "llvm_env",
+    "source_survey",
+    "upstream",
+    "forbidden_zone_vs_conformance",
+    "effort_estimate",
+    "carry_patch",
+    "poc"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "subject": {
+      "const": "dxil_a_graphics_sig_effort"
+    },
+    "status": {
+      "enum": [
+        "measured_local",
+        "blocked"
+      ]
+    },
+    "rd_ref": {
+      "type": "string"
+    },
+    "decision_ref": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "host_env": {
+      "type": "object",
+      "properties": {
+        "os": {
+          "type": "string"
+        }
+      }
+    },
+    "llvm_env": {
+      "type": "object",
+      "required": [
+        "head_commit",
+        "llvm_version"
+      ],
+      "properties": {
+        "src_worktree": {
+          "type": "string"
+        },
+        "head_commit": {
+          "type": "string"
+        },
+        "base_commit": {
+          "type": "string"
+        },
+        "llvm_version": {
+          "type": "string"
+        },
+        "llc_baseline_sha256": {
+          "type": "string"
+        },
+        "llc_poc_sha256": {
+          "type": "string"
+        },
+        "git_history": {
+          "type": "string"
+        }
+      }
+    },
+    "validator": {
+      "type": "object",
+      "properties": {
+        "dir": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "n": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "dxv_present": {
+          "type": "boolean"
+        }
+      }
+    },
+    "source_survey": {
+      "type": "object",
+      "required": [
+        "sites",
+        "backend_consumption_points"
+      ],
+      "properties": {
+        "sites": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "file",
+              "line",
+              "what"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "string"
+              },
+              "what": {
+                "type": "string"
+              },
+              "snippet": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "backend_consumption_points": {
+          "type": "integer"
+        },
+        "addparam_required_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "missing_blocks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "upstream": {
+      "type": "object",
+      "properties": {
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "number",
+              "state",
+              "title"
+            ],
+            "properties": {
+              "number": {
+                "type": "integer"
+              },
+              "state": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "created": {
+                "type": "string"
+              },
+              "updated": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "in_flight_signature_pr": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "direction": {
+          "type": "string"
+        }
+      }
+    },
+    "forbidden_zone_vs_conformance": {
+      "type": "object",
+      "required": [
+        "packing_verdict"
+      ],
+      "properties": {
+        "packing_verdict": {
+          "enum": [
+            "conformance",
+            "free_abi",
+            "mixed",
+            "blocked"
+          ]
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "citations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sv_semantic_mapping": {
+          "type": "string"
+        }
+      }
+    },
+    "effort_estimate": {
+      "type": "object",
+      "required": [
+        "tiers"
+      ],
+      "properties": {
+        "level": {
+          "const": "estimated"
+        },
+        "tiers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "tier",
+              "components",
+              "loc_estimate",
+              "risk"
+            ],
+            "properties": {
+              "tier": {
+                "type": "string"
+              },
+              "components": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "loc_estimate": {
+                "type": "string"
+              },
+              "risk": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "carry_patch": {
+      "type": "object",
+      "required": [
+        "feasible"
+      ],
+      "properties": {
+        "feasible": {
+          "type": "string"
+        },
+        "vs_rd011": {
+          "type": "string"
+        },
+        "rationale": {
+          "type": "string"
+        }
+      }
+    },
+    "poc": {
+      "type": "object",
+      "required": [
+        "done"
+      ],
+      "properties": {
+        "done": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "patch": {
+          "type": "object"
+        },
+        "samples": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "conclusion": {
+          "type": "string"
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    },
+    "owner_decision": {
+      "type": "string"
+    }
+  }
+}

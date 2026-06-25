@@ -1,0 +1,463 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/dxil_b_graphics_sig/v1",
+  "title": "Rurix G2.2 B 路图形签名能力取证证据 JSON(RD-010;RFC-0003 §9 Q-D131 / §7 B 路)",
+  "description": "纯取证 spike 机器事实清单(非性能基准、非常驻 CI 门;探针隔离于 spike/dxil-path-probe/ 标 // SPIKE(RD-010),不入 src/ 生产路径)。取证 B 路(SPIR-V→DXIL 转译,dxc 原生图形签名)能否产带真实 SV 签名(SV_Position/SV_Target/SV_VertexID/SV_IsFrontFace/插值 varying)的图形 DXIL,与 round-8 A 路 ISG1/OSG1 elemcount=0(空签名假绿)苹果对苹果对照,作为 owner 评估混合架构(compute=A/图形=B)的输入。决定性维度=DXContainer ISG1/OSG1 签名 part dump(elemcount + 各元素 SV 语义名);保真子轴=入口意图(dxc 直产基线签名)vs 出口(B 链签名)的语义名/数量/系统值对照。measured-first / blocked-honest(硬规则 3/4):数字全来自命令输出,探不到如实 blocked;validator accept 不等于签名达产物——必看签名 part dump。本 spike 不裁 A/B/混合架构,结论留 owner(硬规则 1)。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject",
+    "status",
+    "timestamp",
+    "tool_versions",
+    "validator",
+    "samples"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "subject": {
+      "const": "dxil_b_graphics_sig"
+    },
+    "status": {
+      "enum": [
+        "measured_local",
+        "blocked"
+      ]
+    },
+    "rd_ref": {
+      "type": "string"
+    },
+    "decision_ref": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "host_env": {
+      "type": "object",
+      "properties": {
+        "os": {
+          "type": "string"
+        }
+      }
+    },
+    "tool_versions": {
+      "type": "object",
+      "required": [
+        "dxc_spirv_producer",
+        "spirv_cross",
+        "dxc_validator"
+      ],
+      "properties": {
+        "dxc_spirv_producer": {
+          "type": "string"
+        },
+        "spirv_cross": {
+          "type": "string"
+        },
+        "spirv_val": {
+          "type": "string"
+        },
+        "dxc_validator": {
+          "type": "string"
+        }
+      }
+    },
+    "validator": {
+      "type": "object",
+      "required": [
+        "n"
+      ],
+      "properties": {
+        "dir": {
+          "type": "string"
+        },
+        "n": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "dxv_present": {
+          "type": "boolean"
+        }
+      }
+    },
+    "wrapper_control": {
+      "type": "object"
+    },
+    "owner_decision": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "samples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "profile": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "b_chain": {
+            "type": "object"
+          },
+          "direct_baseline": {
+            "type": "object"
+          },
+          "signature": {
+            "type": "object",
+            "properties": {
+              "direct": {
+                "type": "object",
+                "properties": {
+                  "ok": {
+                    "type": "boolean"
+                  },
+                  "is_signed": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "ISG1": {
+                    "type": "object",
+                    "properties": {
+                      "elemcount": {
+                        "type": "integer"
+                      },
+                      "elements": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "system_value": {
+                              "type": "string"
+                            },
+                            "register": {
+                              "type": "integer"
+                            },
+                            "mask": {
+                              "type": "integer"
+                            },
+                            "comp_type": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      },
+                      "reason": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "OSG1": {
+                    "type": "object",
+                    "properties": {
+                      "elemcount": {
+                        "type": "integer"
+                      },
+                      "elements": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "system_value": {
+                              "type": "string"
+                            },
+                            "register": {
+                              "type": "integer"
+                            },
+                            "mask": {
+                              "type": "integer"
+                            },
+                            "comp_type": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      },
+                      "reason": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              },
+              "b": {
+                "type": "object",
+                "properties": {
+                  "ok": {
+                    "type": "boolean"
+                  },
+                  "is_signed": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "ISG1": {
+                    "type": "object",
+                    "properties": {
+                      "elemcount": {
+                        "type": "integer"
+                      },
+                      "elements": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "system_value": {
+                              "type": "string"
+                            },
+                            "register": {
+                              "type": "integer"
+                            },
+                            "mask": {
+                              "type": "integer"
+                            },
+                            "comp_type": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      },
+                      "reason": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "OSG1": {
+                    "type": "object",
+                    "properties": {
+                      "elemcount": {
+                        "type": "integer"
+                      },
+                      "elements": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "system_value": {
+                              "type": "string"
+                            },
+                            "register": {
+                              "type": "integer"
+                            },
+                            "mask": {
+                              "type": "integer"
+                            },
+                            "comp_type": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      },
+                      "reason": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "fidelity": {
+            "type": "object",
+            "properties": {
+              "ISG1": {
+                "type": "object",
+                "properties": {
+                  "elemcount_direct": {
+                    "type": "integer"
+                  },
+                  "elemcount_b": {
+                    "type": "integer"
+                  },
+                  "elemcount_match": {
+                    "type": "boolean"
+                  },
+                  "sv_direct": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "sv_b": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "sv_preserved": {
+                    "type": "boolean"
+                  },
+                  "sv_dropped": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "user_names_direct": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "user_names_b": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "user_names_preserved": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "OSG1": {
+                "type": "object",
+                "properties": {
+                  "elemcount_direct": {
+                    "type": "integer"
+                  },
+                  "elemcount_b": {
+                    "type": "integer"
+                  },
+                  "elemcount_match": {
+                    "type": "boolean"
+                  },
+                  "sv_direct": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "sv_b": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "sv_preserved": {
+                    "type": "boolean"
+                  },
+                  "sv_dropped": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "user_names_direct": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "user_names_b": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "user_names_preserved": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          },
+          "validation": {
+            "type": "object",
+            "properties": {
+              "direct": {
+                "type": "object",
+                "properties": {
+                  "idxc_accept": {
+                    "type": "string"
+                  },
+                  "idxc_status_hist": {
+                    "type": "object"
+                  },
+                  "dxv_accept": {
+                    "type": "string"
+                  },
+                  "dxv_last_reject": {
+                    "type": "string"
+                  },
+                  "idxc": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              },
+              "b": {
+                "type": "object",
+                "properties": {
+                  "idxc_accept": {
+                    "type": "string"
+                  },
+                  "idxc_status_hist": {
+                    "type": "object"
+                  },
+                  "dxv_accept": {
+                    "type": "string"
+                  },
+                  "dxv_last_reject": {
+                    "type": "string"
+                  },
+                  "idxc": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "determinism": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}

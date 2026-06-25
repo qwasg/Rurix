@@ -1,0 +1,286 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/dxil_b_strict_only/v1",
+  "title": "Rurix G2.2 B 路 strict-only 达标取证证据 JSON(RD-014;RFC-0004 §4.4 / 04 P-01 / P-13)",
+  "description": "纯取证 spike 机器事实清单(非性能基准、非常驻 CI 门;探针 probe_b_strict_only.py 隔离于 spike/dxil-path-probe/ 标 SPIKE(RD-014),不入 src/)。取证 B 路经语义名保持配置(dxc -fspv-reflect 携 UserSemantic + spirv-cross --set-hlsl-named-vertex-input-semantic 经 SPIR-V 反射自动导出)能否语言层零静默降级,不靠 P-01 例外达标 RFC-0004 §4.4。每语料三链:direct(意图上界)/ b_default(默认 TEXCOORD 降级基线)/ b_keep(保名)。决定性维度=ISG1/OSG1 签名 part dump;保真对照=b_default/b_keep vs direct。measured-first / blocked-honest;validator accept 不等于名保真——必看签名 part dump。不裁 P-01 规范线 / 不裁 A/B,留 owner。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject",
+    "status",
+    "timestamp",
+    "tool_versions",
+    "validator",
+    "samples"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "subject": {
+      "const": "dxil_b_strict_only"
+    },
+    "status": {
+      "enum": [
+        "measured_local",
+        "blocked"
+      ]
+    },
+    "rd_ref": {
+      "type": "string"
+    },
+    "decision_ref": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "host_env": {
+      "type": "object",
+      "properties": {
+        "os": {
+          "type": "string"
+        }
+      }
+    },
+    "tool_versions": {
+      "type": "object",
+      "required": [
+        "dxc_spirv_producer",
+        "spirv_cross",
+        "dxc_validator"
+      ],
+      "properties": {
+        "dxc_spirv_producer": {
+          "type": "string"
+        },
+        "spirv_cross": {
+          "type": "string"
+        },
+        "spirv_val": {
+          "type": "string"
+        },
+        "dxc_validator": {
+          "type": "string"
+        }
+      }
+    },
+    "validator": {
+      "type": "object",
+      "required": [
+        "n"
+      ],
+      "properties": {
+        "dir": {
+          "type": "string"
+        },
+        "n": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "dxv_present": {
+          "type": "boolean"
+        }
+      }
+    },
+    "keep_mechanism": {
+      "type": "string"
+    },
+    "owner_decision": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "samples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "profile": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "b_chain_default": {
+            "type": "object"
+          },
+          "b_chain_keep": {
+            "type": "object"
+          },
+          "direct_baseline": {
+            "type": "object"
+          },
+          "signature": {
+            "type": "object",
+            "properties": {
+              "direct": {
+                "$ref": "#/definitions/sigdump"
+              },
+              "b_default": {
+                "$ref": "#/definitions/sigdump"
+              },
+              "b_keep": {
+                "$ref": "#/definitions/sigdump"
+              }
+            }
+          },
+          "fidelity_default": {
+            "$ref": "#/definitions/fidelity"
+          },
+          "fidelity_keep": {
+            "$ref": "#/definitions/fidelity"
+          },
+          "validation": {
+            "type": "object",
+            "properties": {
+              "direct": {
+                "type": "object"
+              },
+              "b_keep": {
+                "type": "object"
+              }
+            }
+          },
+          "determinism_keep": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "sigpart": {
+      "type": "object",
+      "properties": {
+        "elemcount": {
+          "type": "integer"
+        },
+        "elements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "system_value": {
+                "type": "string"
+              },
+              "register": {
+                "type": "integer"
+              },
+              "mask": {
+                "type": "integer"
+              },
+              "comp_type": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "sigdump": {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "is_signed": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "ISG1": {
+          "$ref": "#/definitions/sigpart"
+        },
+        "OSG1": {
+          "$ref": "#/definitions/sigpart"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "fidpart": {
+      "type": "object",
+      "properties": {
+        "elemcount_direct": {
+          "type": "integer"
+        },
+        "elemcount_b": {
+          "type": "integer"
+        },
+        "elemcount_match": {
+          "type": "boolean"
+        },
+        "sv_direct": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sv_b": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sv_preserved": {
+          "type": "boolean"
+        },
+        "sv_dropped": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "user_names_direct": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "user_names_b": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "user_names_preserved": {
+          "type": "boolean"
+        }
+      }
+    },
+    "fidelity": {
+      "type": "object",
+      "properties": {
+        "ISG1": {
+          "$ref": "#/definitions/fidpart"
+        },
+        "OSG1": {
+          "$ref": "#/definitions/fidpart"
+        }
+      }
+    }
+  }
+}
