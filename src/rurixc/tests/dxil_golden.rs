@@ -192,9 +192,7 @@ fn normalize_b_disasm(s: &str) -> String {
         } else if raw.contains("dxc(private)") || raw.contains("dxcoob ") {
             // 保留 metadata id 前缀(如 `!0 = `),仅规范化版本串。
             let id = raw.split('=').next().unwrap_or("").trim_end();
-            lines.push(format!(
-                "{id} = !{{!\"dxc <OWNER-BLESSED-NORMALIZED>\"}}"
-            ));
+            lines.push(format!("{id} = !{{!\"dxc <OWNER-BLESSED-NORMALIZED>\"}}"));
         } else {
             lines.push(raw.to_owned());
         }
