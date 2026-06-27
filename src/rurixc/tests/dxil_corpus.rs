@@ -136,3 +136,139 @@ fn corpus_files_carry_spec_anchor() {
         );
     }
 }
+
+// ═══════════════════ 图形=B 语料(G2.2 PR-D2,RXS-0158/0159/0161/0162) ═══════════════════
+//
+// 图形阶段(vertex/fragment)语料置于 `conformance/dxil/graphics/{accept,reject}/`,与
+// 上方 compute A 路语料(`accept`/`reject` 顶层)互不干扰(各自 `rx_files` 根不相交)。
+// B 路真链(spirv-cross→dxc→DXIL)依赖外部工具且**环境相关**(trivial passthrough 被
+// DCE → 校验门如期拒),故本语料只断言 **host 侧确定性面**(阶段分类 + io_sig 携带 +
+// `dxil_spirv::emit_spirv` 合法 SPIR-V + 确定性 / 不可映射 strict-only 6xxx),不在此跑
+// 真链;B 全链确定性 ×N + validator gate + 签名校验门红绿见 `ci/dxil_codegen_smoke.py`
+// (CI 步骤 46)+ `dxil_sig_gate` / `dxil_spirv` 单测 + owner pin 环境 device 真跑。
+//
+// 锚定(`//@ spec`)恒被 `corpus_files_carry_spec_anchor`(递归 `dxil_dir("")`)覆盖。
+
+/// 合法图形语料:前段 0 诊断 + 收图形阶段根(io_sig 非空)+ `emit_spirv` 产合法且
+/// 确定性的 SPIR-V 字流(RXS-0158 阶段分类 / RXS-0161 降级面 / RXS-0162 确定性 host 面)。
+#[cfg(feature = "shader-stages")]
+#[test]
+fn accept_graphics_corpus_lowers_to_spirv() {
+    use rurixc::ast::ShaderStage;
+    let files = rx_files(&dxil_dir("graphics/accept"));
+    assert!(
+        !files.is_empty(),
+        "conformance/dxil/graphics/accept 正例集为空"
+    );
+    for f in files {
+        let src = fs::read_to_string(&f).expect("读取样例失败");
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(&src, SourceId(0), Edition::Rx0, &diag);
+        cx.check_crate();
+        cx.check_coloring();
+        cx.check_crate_patterns();
+        cx.check_consteval();
+        let bodies = cx.device_mir_crate();
+        let codes: Vec<u16> = diag
+            .emitted()
+            .iter()
+            .filter_map(|d| d.code.map(|c| c.0))
+            .collect();
+        assert!(
+            codes.is_empty(),
+            "{} 产生诊断: {codes:?}(graphics accept 须 0 诊断)",
+            f.display()
+        );
+        let gfx: Vec<_> = bodies
+            .iter()
+            .filter(|b| matches!(b.stage, Some(ShaderStage::Vertex | ShaderStage::Fragment)))
+            .collect();
+        assert!(
+            !gfx.is_empty(),
+            "{} 应收 ≥1 vertex/fragment 图形阶段根",
+            f.display()
+        );
+        for b in gfx {
+            assert!(
+                !b.io_sig.is_empty(),
+                "{} 图形阶段根 io_sig 应非空(RXS-0161 收集根携意图签名)",
+                f.display()
+            );
+            let stage = b.stage.expect("图形根 stage");
+            let spv = rurixc::dxil_spirv::emit_spirv(stage, &b.io_sig).unwrap_or_else(|e| {
+                panic!("{} emit_spirv 应 Ok(已建模子集), 实得 {e:?}", f.display())
+            });
+            assert_eq!(
+                spv.first().copied(),
+                Some(0x0723_0203),
+                "{} SPIR-V magic 应为 0x07230203",
+                f.display()
+            );
+            // RXS-0162 确定性(host 面):同 io_sig ×N emit_spirv 字节全等(Property 3 的
+            // host 可达面;B 全链容器 SHA256 确定性见步骤 46)。
+            let spv2 = rurixc::dxil_spirv::emit_spirv(stage, &b.io_sig).expect("二次 emit");
+            assert_eq!(
+                spv,
+                spv2,
+                "{} emit_spirv 非确定性(同输入字节漂移)",
+                f.display()
+            );
+        }
+    }
+}
+
+/// 反例图形语料:前段 0 诊断后,B 路分发对不可映射构造 strict-only 落
+/// `//@ expect-error` 声明的 6xxx(host 确定性:编码器在映射处停手,工具链不可达),
+/// 绝不产物。
+#[cfg(feature = "shader-stages")]
+#[test]
+fn reject_graphics_corpus_intercepted() {
+    use rurixc::dxil_codegen::{DispatchOutcome, dispatch_and_emit};
+    let files = rx_files(&dxil_dir("graphics/reject"));
+    assert!(
+        !files.is_empty(),
+        "conformance/dxil/graphics/reject 反例集为空"
+    );
+    for f in files {
+        let src = fs::read_to_string(&f).expect("读取样例失败");
+        let expected: u16 = src
+            .lines()
+            .find_map(|l| l.trim().strip_prefix("//@ expect-error: RX"))
+            .unwrap_or_else(|| panic!("{} 缺 //@ expect-error: RX#### 头", f.display()))
+            .trim()
+            .parse()
+            .expect("expect-error 码格式非法");
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(&src, SourceId(0), Edition::Rx0, &diag);
+        cx.check_crate();
+        cx.check_coloring();
+        cx.check_crate_patterns();
+        cx.check_consteval();
+        assert!(
+            !diag.has_errors(),
+            "{} 前段应先 0 诊断(reject 须来自 B 路降级 strict-only,非前段)",
+            f.display()
+        );
+        let bodies = cx.device_mir_crate();
+        let mut produced = false;
+        for b in &bodies {
+            match dispatch_and_emit(&diag, b, "gfx") {
+                DispatchOutcome::PathAIr(_) | DispatchOutcome::PathBSignatures(_) => {
+                    produced = true;
+                }
+                DispatchOutcome::SkippedB(_) | DispatchOutcome::Diagnosed => {}
+            }
+        }
+        assert!(!produced, "{} reject 不应产出 DXIL 产物", f.display());
+        let codes: Vec<u16> = diag
+            .emitted()
+            .iter()
+            .filter_map(|d| d.code.map(|c| c.0))
+            .collect();
+        assert!(
+            codes.contains(&expected),
+            "{} 未拦截到 RX{expected}: {codes:?}",
+            f.display()
+        );
+    }
+}
