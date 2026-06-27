@@ -443,7 +443,7 @@ impl Builder {
 /// **不**调用 `mir_build`/codegen 主链;接入 MIR 主流程是任务 4。
 pub fn emit_spirv(stage: ShaderStage, io_sig: &[IoSigElem]) -> Result<Vec<u32>, DxilError> {
     // 仅 vertex/fragment 走 B 路最小子集;compute 走既有 A 路、mesh/task/RT 为
-    // STUB(RD-017),均不在本编码器范围 → 不可映射(strict-only)。
+    // STUB(RD-012),均不在本编码器范围 → 不可映射(strict-only)。
     let exec_model = match stage {
         ShaderStage::Vertex => EXEC_MODEL_VERTEX,
         ShaderStage::Fragment => EXEC_MODEL_FRAGMENT,
