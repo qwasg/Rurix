@@ -156,6 +156,65 @@ jobs:
         shell: powershell
         run: py -3 ci/doc_site_smoke.py
 
+      - name: configure Windows GPU toolchain
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          $vcvarsCandidates = @()
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (Test-Path $vswhere) {
+            $vsInstall = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+            if ($vsInstall) {
+              $vcvarsCandidates += (Join-Path $vsInstall "VC\Auxiliary\Build\vcvars64.bat")
+            }
+          }
+          $vcvarsCandidates += @(
+            "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat",
+            "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
+          )
+          $vcvars = $vcvarsCandidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+          if (-not $vcvars) {
+            throw "vcvars64.bat not found; real GPU CI requires MSVC C++ tools"
+          }
+
+          $vsEnv = @{}
+          & cmd.exe /d /c "call `"$vcvars`" >nul && set" | ForEach-Object {
+            $parts = $_ -split "=", 2
+            if ($parts.Length -eq 2) {
+              $vsEnv[$parts[0]] = $parts[1]
+            }
+          }
+          foreach ($name in @(
+            "INCLUDE", "LIB", "LIBPATH", "UniversalCRTSdkDir", "UCRTVersion",
+            "VCINSTALLDIR", "VCToolsInstallDir", "VSCMD_ARG_HOST_ARCH", "VSCMD_ARG_TGT_ARCH",
+            "VSCMD_VER", "VSINSTALLDIR", "WindowsLibPath", "WindowsSdkBinPath",
+            "WindowsSdkDir", "WindowsSDKLibVersion", "WindowsSDKVersion"
+          )) {
+            if ($vsEnv.ContainsKey($name)) {
+              "$name=$($vsEnv[$name])" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            }
+          }
+          foreach ($entry in (($vsEnv["PATH"] -split ";") | Where-Object { $_ })) {
+            $entry | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          }
+
+          $cudaRoots = @()
+          if ($env:CUDA_PATH) {
+            $cudaRoots += $env:CUDA_PATH
+          }
+          $cudaBase = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA"
+          if (Test-Path $cudaBase) {
+            $cudaRoots += (Get-ChildItem $cudaBase -Directory | Sort-Object LastWriteTime -Descending | ForEach-Object { $_.FullName })
+          }
+          $cuda = $cudaRoots | Where-Object { $_ -and (Test-Path (Join-Path $_ "bin\ptxas.exe")) } | Select-Object -First 1
+          if (-not $cuda) {
+            throw "CUDA Toolkit with ptxas.exe not found; real GPU CI requires CUDA"
+          }
+          "CUDA_PATH=$cuda" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          (Join-Path $cuda "bin") | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          Write-Host "Configured MSVC via $vcvars"
+          Write-Host "Configured CUDA_PATH=$cuda"
+
       # 步骤 40（G-G1-1，RFC-0001 / RXS-0140~0143）：CUDA–D3D12 interop 冒烟。
       # host 段（总跑，无需 GPU/D3D12/MSVC）：--features d3d12-interop 构建（external-resource
       # descriptor + export 的编译期 ABI size const assert 104/88/96/144 + 96，RXS-0143）+ 对
@@ -243,20 +302,30 @@ jobs:
         shell: powershell
         run: py -3 ci/shader_stages_smoke.py
 
-      # 步骤 46（G-G2-2,RFC-0003 / RXS-0157,PR-C2 分片1）：DXIL 第二后端 codegen 冒烟。
+      # 步骤 46（G-G2-2,RFC-0003/RFC-0004 / RXS-0157/RXS-0162）：DXIL 第二后端 codegen 冒烟。
       # `cargo test -p rurixc --features dxil-backend`(dxil_codegen 单测 + dxil_corpus
       # accept/reject + dxil_golden)。IR 层(rurixc 自有 DirectX 三元组 LLVM IR `.dxil-ll`
       # golden + accept/reject RX6007)**总跑**、无外部工具依赖;`.dxil-disasm` 反汇编关卡需
       # patched llc(经 `RURIX_LLC`,**RD-011 受控 dev-only 临时工具链偏差**,patch 不入库、
       # 不改 committed D-205 pin)+ dxc 签名 validator(经 `RURIX_DXC_DIR`),CI runner 未配
       # 二者时 disasm 关卡 normal SKIP(对齐 RXS-0073 ptxas 干验证 SKIP 纪律,真实红绿在带
-      # 工具链的 dev/runner;G-G2-2 device 真跑/呈现对照仍 open,不在本步)。失败即红。
+      # 工具链的 dev/runner)。随后 `ci/dxil_codegen_smoke.py` 复核图形=B host 转译链
+      # (SPIRV-Cross→dxc→DXIL + dxv validator + 篡改红绿),`ci/dxil_device_smoke.py`
+      # 编译签名 DXIL 后在真实 D3D12 hardware adapter 上建 graphics PSO、离屏 draw/readback。
+      # 任一 validator/device 红即红;run URL 即 G-G2-2 device 见证入口。
       - name: DXIL second-backend codegen smoke (G2 CI_GATES §2.46, G-G2-2, RFC-0003, RD-011 dev 偏差)
         shell: powershell
+        env:
+          RURIX_DXC_DIR: ${{ vars.RURIX_DXC_DIR || 'H:\dxc-round7\extracted\bin\x64' }}
+          RURIX_REQUIRE_REAL: "1"
         run: |
           cargo test -p rurixc --features dxil-backend --lib dxil_codegen
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test -p rurixc --features dxil-backend --test dxil_corpus --test dxil_golden
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          py -3 ci/dxil_codegen_smoke.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          py -3 ci/dxil_device_smoke.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: budget evaluator load (CI_GATES §3.6)

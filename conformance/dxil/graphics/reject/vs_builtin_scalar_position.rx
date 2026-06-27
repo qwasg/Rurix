@@ -1,0 +1,15 @@
+//@ spec: RXS-0159, RXS-0161
+//@ expect-error: RX6013
+// 子集外(RXS-0161 L2 / RXS-0159 L2 不可映射):builtin `position` 须 vec4<f32> 系统值
+// (裁剪空间位置),此处声明为标量 f32 → 类型与 spirv-val 对 SV_Position 的强约束不符
+// → dxil_spirv::emit_spirv 发 DxilError::Unmappable → 经 B 路分发 strict-only 落
+// RX6013(codegen.dxil_unmappable;不静默降级、不产物)。host 侧确定性(编码器在映射
+// 处停手,工具链不可达即拒)。🔒 纹理访问语义结构上不可达(io_sig 仅标量/向量),
+// 非本例域。
+struct VsOut {
+    #[builtin(position)] pos: f32,
+}
+
+vertex fn vs_main() -> VsOut {
+    VsOut { pos: 0.0 }
+}

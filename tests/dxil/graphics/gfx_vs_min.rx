@@ -1,0 +1,15 @@
+//@ spec: RXS-0162
+// 图形=B DXIL golden 语料(RXS-0162 B 转译链 + validator gate + golden 形态)。最小可
+// 映射 vertex 着色阶段:单 interpolate varying 输出(标量 f32,已建模子集)→ B 路
+// MIR→SPIR-V(dxil_spirv::emit_spirv)→ SPIRV-Cross→HLSL→dxc→DXIL→dumpbin 文本反汇编
+// 入 golden(`.dxil-disasm`)。本片 SPIR-V 为平凡 passthrough(入口 body 数据流降级属
+// RD-013 deferred),故 spirv-cross 经 DCE 消未写输出 → 译后签名退化(空),golden 形态
+// 反映该现状。owner pin 环境已用签名 validator(dxv.exe/dxil.dll) bless 当前文本
+// golden;这只锁当前 B 路可复现形态,不关闭 RD-013/RD-017。
+struct VsOut {
+    #[interpolate(perspective)] uv: f32,
+}
+
+vertex fn vs_main() -> VsOut {
+    VsOut { uv: 0.0 }
+}
