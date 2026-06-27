@@ -61,15 +61,17 @@ def locate(env_keys: list[str], names: list[str]) -> str | None:
         v = os.environ.get(k)
         if v and Path(v).is_file():
             return v
-    for n in names:
-        p = shutil.which(n)
-        if p:
-            return p
     # RURIX_DXC_DIR / RURIX_DXC_NEW_DIR 目录内 dxc.exe(对齐 toolchain.rs)。
+    # 需先于 PATH:开发机 PATH 上常有 Vulkan SDK dxc,但签名 validator 目录另由
+    # RURIX_DXC_DIR 指定；若先吃 PATH 会导致 validator gate 用 dxv 验证了另一套 dxc 产物。
     for k in ("RURIX_DXC_DIR", "RURIX_DXC_NEW_DIR"):
         v = os.environ.get(k)
         if v and (Path(v) / "dxc.exe").is_file() and "dxc" in names:
             return str(Path(v) / "dxc.exe")
+    for n in names:
+        p = shutil.which(n)
+        if p:
+            return p
     return None
 
 
