@@ -24,7 +24,9 @@ use crate::ast::{FnColor, ShaderStage};
 use crate::diag::{DiagCtxt, ErrorCode};
 use crate::dxil_sig_gate::signature_gate;
 use crate::dxil_spirv::{self, DxilError};
-use crate::mir::{Body, Const, IoSigElem, Operand, Rvalue, StatementKind, TerminatorKind};
+use crate::mir::{
+    Body, Const, IoDir, IoSigElem, IoSigKind, Operand, Rvalue, StatementKind, TerminatorKind,
+};
 use crate::query::QueryCtx;
 use crate::span::Span;
 use crate::toolchain::{self, DxilSignatures};
@@ -270,6 +272,55 @@ fn classify_tool_failure(step: &str, reason: String) -> Result<DxilBOutcome, Dxi
     }
 }
 
+/// 从 vertex 阶段 I/O 意图签名导出 spirv-cross **顶点输入**语义保名旗标
+/// (`--set-hlsl-vertex-input-semantic <location> <semantic>`,RFC-0004 §4.4 机制①)。
+///
+/// **机制(实测,贴 evidence/dxil_b_strict_only_report.md §3 + 本任务报告)**:spirv-cross
+/// HLSL 后端默认把顶点输入语义按 location 写为通用 `TEXCOORD#`;`--set-hlsl-vertex-input-
+/// semantic <location> <semantic>` 按 **location** 覆盖回用户语义名。[`dxil_spirv::emit_spirv`]
+/// 对 Input 方向 varying/interpolate **按 io_sig 顺序递增分配 `Location`**(builtin 取
+/// `BuiltIn` 装饰、**不**占 location),故此处按同一顺序复算 `location → field_name` 映射,
+/// **经 io_sig 导出、非硬编码**(与 `emit_io_elem` 的 `next_in_location` 严格对齐)。
+///
+/// 实测要点:spirv-cross **不**消费 SPIR-V `UserSemantic` 装饰为 HLSL 语义(机制是
+/// **location**,非 UserSemantic);`--set-hlsl-named-vertex-input-semantic` 按变量
+/// `OpName` 匹配,而 `emit_spirv` 不 emit `OpName`,故按 location 覆盖是 Rust-emit SPIR-V
+/// 路径下可复现的保名通道(本机 dxc 1.8.0.4739 / spirv-cross vulkan-sdk 实测 ISG1
+/// `POSITION`/`NORMAL` 存活、不退化)。
+///
+/// **边界(实测,STUB(RD-017))**:本机制仅覆盖 **vertex 阶段输入**用户语义名。**输出
+/// varying** 与 **fragment 输入 varying** 无对应保名旗标(spirv-cross HLSL 后端无输出/
+/// 片元语义旗标,UserSemantic 不被消费)→ 仍退化为 `TEXCOORD#`,经 strict-only 校验门
+/// **RX6011** 显式拒绝(RD-017 跟踪保名能力缺口,不静默通过,P-01)。
+fn vertex_input_semantic_flags(stage: ShaderStage, io_sig: &[IoSigElem]) -> Vec<String> {
+    if stage != ShaderStage::Vertex {
+        // STUB(RD-017):fragment 输入 varying 无保名旗标(spirv-cross 无片元输入语义
+        // 旗标)→ 退化 TEXCOORD# → 校验门 RX6011 拒(保名缺口 deferred RD-017)。
+        return Vec::new();
+    }
+    let mut flags = Vec::new();
+    let mut location: u32 = 0;
+    for elem in io_sig {
+        if !matches!(elem.dir, IoDir::In) {
+            continue;
+        }
+        match &elem.kind {
+            // builtin 输入取 BuiltIn 装饰、**不**占 location(对齐 emit_spirv::emit_io_elem)。
+            IoSigKind::Builtin(_) => {}
+            // 非 builtin 输入按 io_sig 顺序占 location;有用户语义名 → emit 保名旗标。
+            IoSigKind::Varying | IoSigKind::Interpolate(_) => {
+                if !elem.field_name.is_empty() {
+                    flags.push("--set-hlsl-vertex-input-semantic".to_owned());
+                    flags.push(location.to_string());
+                    flags.push(elem.field_name.clone());
+                }
+                location += 1;
+            }
+        }
+    }
+    flags
+}
+
 /// B 链跑链体(步骤 3~7):写临时 `.spv` → spirv-cross → dxc → dumpbin →
 /// `parse_dxil_signatures`。临时目录由调用方 [`emit_dxil_b`] 创建并统一清理。
 fn run_b_chain(
@@ -279,6 +330,7 @@ fn run_b_chain(
     profile: &str,
     dir: &Path,
     io_sig: &[IoSigElem],
+    extra: &[String],
 ) -> Result<DxilBOutcome, DxilBError> {
     // 3) 写临时 `.spv`:`&[u32]` 小端 → `&[u8]`(纯 safe,`u32::to_le_bytes`,R1.11)。
     let spv_path = dir.join("stage.spv");
@@ -290,9 +342,11 @@ fn run_b_chain(
         return Ok(DxilBOutcome::Skipped(format!("写临时 .spv 失败: {e}")));
     }
 
-    // 4) spirv-cross:SPIR-V → HLSL(SM 6.0;extra 保名旗标随保真细化分片补)。
+    // 4) spirv-cross:SPIR-V → HLSL(SM 6.0)。`extra` = 顶点输入语义保名旗标
+    //    (`--set-hlsl-vertex-input-semantic <loc> <semantic>`,经 io_sig 导出,
+    //    [`vertex_input_semantic_flags`];RFC-0004 §4.4 机制①,实测顶点输入名存活)。
     let hlsl_path = dir.join("stage.hlsl");
-    if let Err(e) = toolchain::spirv_cross_to_hlsl(spvx, &spv_path, &hlsl_path, 60, &[]) {
+    if let Err(e) = toolchain::spirv_cross_to_hlsl(spvx, &spv_path, &hlsl_path, 60, extra) {
         return classify_tool_failure("spirv-cross", e);
     }
 
@@ -361,12 +415,16 @@ pub fn emit_dxil_b(stage: ShaderStage, io_sig: &[IoSigElem]) -> Result<DxilBOutc
         return Ok(DxilBOutcome::Skipped("dxc 不可定位".to_owned()));
     };
 
+    // 顶点输入语义保名旗标(经 io_sig 导出,非硬编码;RFC-0004 §4.4 机制①,实测)。
+    // fragment / 无命名输入 → 空(behavior 不变)。
+    let extra = vertex_input_semantic_flags(stage, io_sig);
+
     // 3~7) 临时工作目录内跑链;无论成败统一清理。
     let dir = match scratch_dir() {
         Ok(d) => d,
         Err(e) => return Ok(DxilBOutcome::Skipped(format!("临时目录创建失败: {e}"))),
     };
-    let outcome = run_b_chain(&spv, &spvx, &dxc, profile, &dir, io_sig);
+    let outcome = run_b_chain(&spv, &spvx, &dxc, profile, &dir, io_sig, &extra);
     let _ = std::fs::remove_dir_all(&dir);
     outcome
 }
@@ -937,6 +995,68 @@ mod tests {
             emitted_codes(&diag).contains(&6013),
             "不可映射构造应发 RX6013,实得 {:?}",
             emitted_codes(&diag)
+        );
+    }
+
+    /// 顶点输入语义保名旗标导出(工具无关,恒跑):[`vertex_input_semantic_flags`] 按
+    /// io_sig 顺序复算 location → field_name(与 emit_spirv 的 next_in_location 对齐),
+    /// 经 io_sig 导出、**非硬编码**(RFC-0004 §4.4 机制①,实测顶点输入名存活)。
+    //@ spec: RXS-0159
+    #[test]
+    fn vertex_input_semantic_flags_derive_from_io_sig() {
+        // vertex:命名输入 POSITION(loc0)/ NORMAL(loc1)+ builtin vertex_index(不占
+        // location)+ 命名输出(不取输入旗标)。
+        let io_sig = vec![
+            io(
+                "POSITION",
+                IoSigKind::Varying,
+                MirIoType::Vector(PrimTy::F32, 3),
+                IoDir::In,
+            ),
+            io(
+                "vertex_index",
+                IoSigKind::Builtin("vertex_index".to_owned()),
+                MirIoType::Scalar(PrimTy::U32),
+                IoDir::In,
+            ),
+            io(
+                "NORMAL",
+                IoSigKind::Varying,
+                MirIoType::Vector(PrimTy::F32, 3),
+                IoDir::In,
+            ),
+            io(
+                "color",
+                IoSigKind::Varying,
+                MirIoType::Vector(PrimTy::F32, 4),
+                IoDir::Out,
+            ),
+        ];
+        let flags = vertex_input_semantic_flags(ShaderStage::Vertex, &io_sig);
+        // POSITION→loc0(builtin 不占 location)、NORMAL→loc1;输出 color 不取旗标。
+        assert_eq!(
+            flags,
+            vec![
+                "--set-hlsl-vertex-input-semantic".to_owned(),
+                "0".to_owned(),
+                "POSITION".to_owned(),
+                "--set-hlsl-vertex-input-semantic".to_owned(),
+                "1".to_owned(),
+                "NORMAL".to_owned(),
+            ],
+            "顶点输入保名旗标应按 io_sig 顺序复算 location(builtin 不占位),非硬编码"
+        );
+
+        // fragment:本机制不适用(无顶点输入语义旗标)→ 空(边界,STUB(RD-017))。
+        assert!(
+            vertex_input_semantic_flags(ShaderStage::Fragment, &fragment_io()).is_empty(),
+            "fragment 阶段不导出顶点输入保名旗标(spirv-cross 无片元输入语义旗标,RD-017)"
+        );
+
+        // vertex 无命名输入(仅 builtin 输入 / 命名输出)→ 空(行为不变)。
+        assert!(
+            vertex_input_semantic_flags(ShaderStage::Vertex, &vertex_io()).is_empty(),
+            "无命名顶点输入 → 无保名旗标(行为不变)"
         );
     }
 }

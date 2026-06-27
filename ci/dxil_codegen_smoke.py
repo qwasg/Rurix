@@ -115,6 +115,34 @@ def signatures_system_values(disasm: str) -> set[str]:
     return svs
 
 
+def input_signature_names(disasm: str) -> set[str]:
+    """解析 ISG1(`; Input signature:`)注释表的语义名集合(剥尾随语义 index 数字,
+    大写)。用于核验顶点输入用户语义名保真(POSITION 不退化为 TEXCOORD#)。容错:
+    无表 → 空集;遇 `Output signature:` / 非注释行结束本段。"""
+    names: set[str] = set()
+    in_sec = False
+    for raw in disasm.replace("\r\n", "\n").split("\n"):
+        line = raw.strip()
+        body = line.lstrip(";").strip()
+        if body.startswith("Input signature:"):
+            in_sec = True
+            continue
+        if body.startswith("Output signature:") or body.startswith("Pipeline"):
+            in_sec = False
+            continue
+        if not in_sec:
+            continue
+        if not line.startswith(";"):
+            in_sec = False
+            continue
+        toks = body.split()
+        if not toks or toks[0] in ("Name", "no") or toks[0].startswith("---"):
+            continue
+        # 列体例:Name Index Mask Register SysValue Format [Used];Name=toks[0]。
+        names.add(toks[0].rstrip("0123456789").upper())
+    return names
+
+
 def pin_matches(located_sha: str, pin_sha: str) -> bool:
     """供应链 pin 命中判定(纯函数,canonical 命中)。"""
     return located_sha.lower() == pin_sha.lower()
@@ -133,6 +161,16 @@ def red_self_test() -> None:
         _fail(f"red 自检:系统值解析漏检 {ok}")
     if signatures_system_values("; no parameters"):
         _fail("red 自检:系统值解析误检(空签名表)")
+    # (b') 输入语义名解析:ISG1 含 POSITION 应识别(剥尾随数字);Output 段不计入;
+    #      退化为 TEXCOORD 的输入应解析为 TEXCOORD(便于断言保名 vs 退化)。
+    in_names = input_signature_names(
+        "; Input signature:\n; Name Index Mask Register SysValue Format Used\n"
+        "; POSITION 0 xyz 0 NONE float\n; Output signature:\n; TEXCOORD 0 xyzw 0 NONE float xyzw"
+    )
+    if "POSITION" not in in_names or "TEXCOORD" in in_names:
+        _fail(f"red 自检:输入语义名解析失效(应仅 ISG1 段 POSITION){in_names}")
+    if input_signature_names("; Input signature:\n; no parameters"):
+        _fail("red 自检:输入语义名解析误检(空输入签名)")
     # (c) toolchain pin 解析:能取出 file→sha。
     pins = parse_toolchain_pins(
         '[[toolchain]]\nname = "dxc"\nfile = "dxc.exe"\nsha256 = "deadbeef"\n'
@@ -147,23 +185,33 @@ def _fail(msg: str) -> None:
 
 
 # 参考着色阶段(host 冒烟取证;非 Rurix 编码器产物——编码器路径由 cargo dxil_golden /
-# dxil_spirv 单测覆盖,本冒烟证**外部转译链**端到端 + 确定性 + 系统值保真 + 篡改红绿)。
-# 写真输出(SV_Position + COLOR)使签名经链落地(避平凡 passthrough DCE);系统值
-# SV_Position / SV_VertexID 经链保真,用户 varying COLOR 经 spirv-cross 退化为 TEXCOORD
-# (机制① 缺口,strict-only 由 Rust signature_gate 兜底)。
+# dxil_spirv 单测覆盖,本冒烟证**外部转译链**端到端 + 确定性 + 系统值保真 + 顶点输入名
+# 保真 + 篡改红绿)。写真输出(SV_Position + COLOR)使签名经链落地(避平凡 passthrough
+# DCE);系统值 SV_Position / SV_VertexID 经链保真;**顶点输入用户语义名 POSITION** 经
+# 顶点输入语义保名旗标(`--set-hlsl-vertex-input-semantic <loc> <semantic>`,RFC-0004
+# §4.4 机制①;生产侧由 dxil_codegen::vertex_input_semantic_flags 经 io_sig 导出)端到端
+# **存活**(实测);用户**输出 varying** COLOR 经 spirv-cross 退化为 TEXCOORD(机制① 边界:
+# spirv-cross 无输出语义旗标,STUB(RD-017),strict-only 由 Rust signature_gate RX6011 兜底)。
 REF_HLSL = """\
 struct VsOut {
     float4 pos : SV_Position;
     float4 color : COLOR0;
 };
 
-VsOut main(uint vid : SV_VertexID) {
+VsOut main(float3 ipos : POSITION, uint vid : SV_VertexID) {
     VsOut o;
-    o.pos = float4(float(vid), 0.0, 0.0, 1.0);
+    o.pos = float4(ipos, 1.0) + float4(float(vid), 0.0, 0.0, 0.0);
     o.color = float4(1.0, 0.5, 0.25, 1.0);
     return o;
 }
 """
+
+# 顶点输入语义保名旗标(`--set-hlsl-vertex-input-semantic <location> <semantic>`,
+# RFC-0004 §4.4 机制①)。生产侧由 dxil_codegen::vertex_input_semantic_flags(stage,io_sig)
+# 经 io_sig 顺序导出 location → 语义名(非硬编码,Rust 单测 vertex_input_semantic_flags_
+# derive_from_io_sig 锚定);本参考着色阶段唯一命名顶点输入 POSITION 取 location 0
+# (SV_VertexID 系统值不占 location),按 location 覆盖保名。
+KEEP_VERTEX_INPUT_FLAGS = ["--set-hlsl-vertex-input-semantic", "0", "POSITION"]
 
 
 def run(argv: list[str]) -> subprocess.CompletedProcess:
@@ -179,10 +227,15 @@ def emit_reference_spirv(dxc: str, work: Path) -> Path | None:
     return spv if p.returncode == 0 and spv.is_file() else None
 
 
-def transpile_chain(spirv_cross: str, dxc: str, spv: Path, work: Path, tag: str) -> tuple[bytes | None, str]:
-    """SPIR-V → (spirv-cross) HLSL → (dxc) DXIL 容器。返回 (容器字节 | None, 反汇编文本)。"""
+def transpile_chain(spirv_cross: str, dxc: str, spv: Path, work: Path, tag: str,
+                    extra: list[str] | None = None) -> tuple[bytes | None, str]:
+    """SPIR-V → (spirv-cross) HLSL → (dxc) DXIL 容器。返回 (容器字节 | None, 反汇编文本)。
+    `extra` = 顶点输入语义保名旗标(经 io_sig 导出,生产对齐;None → 空)。"""
     hlsl = work / f"{tag}.hlsl"
-    pc = run([spirv_cross, "--hlsl", "--shader-model", "60", "--output", str(hlsl), str(spv)])
+    argv = [spirv_cross, "--hlsl", "--shader-model", "60"]
+    argv += extra or []
+    argv += ["--output", str(hlsl), str(spv)]
+    pc = run(argv)
     if pc.returncode != 0 or not hlsl.is_file():
         return None, f"spirv-cross 失败: {pc.stderr.strip()[:200]}"
     dxil = work / f"{tag}.dxil"
@@ -233,7 +286,9 @@ def main() -> int:
         else:
             note("spirv-val 不可用 → SPIR-V 独立验证 SKIP")
 
-        container0, disasm0 = transpile_chain(spirv_cross, dxc, spv, work, "run0")
+        container0, disasm0 = transpile_chain(
+            spirv_cross, dxc, spv, work, "run0", KEEP_VERTEX_INPUT_FLAGS
+        )
         check(container0 is not None, f"B 转译链端到端失败: {disasm0}")
         if container0 is None:
             return _report(evidence)
@@ -242,7 +297,7 @@ def main() -> int:
         # ── 2) 确定性(Property 3):同 SPIR-V ×N 容器 SHA256 全等。 ──
         digests = [hashlib.sha256(container0).hexdigest()]
         for i in range(1, 4):
-            c, _ = transpile_chain(spirv_cross, dxc, spv, work, f"run{i}")
+            c, _ = transpile_chain(spirv_cross, dxc, spv, work, f"run{i}", KEEP_VERTEX_INPUT_FLAGS)
             check(c is not None, f"确定性子跑 {i} 转译失败")
             if c is not None:
                 digests.append(hashlib.sha256(c).hexdigest())
@@ -256,10 +311,24 @@ def main() -> int:
         check("SV_Position" in svs, f"译后签名缺 SV_Position(系统值未保真): {svs}")
         check("SV_VertexID" in svs, f"译后签名缺 SV_VertexID(系统值未保真): {svs}")
         evidence["checks"]["system_values_preserved"] = sorted(svs)
+
+        # ── 3b) 顶点输入用户语义名保真(RFC-0004 §4.4 机制①,RXS-0159 IR1(a)):
+        #        POSITION 经顶点输入语义保名旗标端到端**存活**,不退化为通用 TEXCOORD#。 ──
+        in_names = input_signature_names(disasm0)
+        check(
+            "POSITION" in in_names,
+            f"顶点输入用户语义名 POSITION 未保真(应经 --set-hlsl-vertex-input-semantic "
+            f"存活、不退化 TEXCOORD#;机制① 接入生产缺口)。ISG1 名集={sorted(in_names)}",
+        )
+        evidence["checks"]["vertex_input_semantic_preserved"] = sorted(in_names)
+        # 输出 varying COLOR 经 spirv-cross 退化为 TEXCOORD(机制① 边界,STUB(RD-017)):
+        # spirv-cross 无输出语义保名旗标 → 输出/片元 varying 名不可保真,strict-only 由
+        # Rust signature_gate RX6011 兜底(命名输出 varying I/O 显式拒绝,不静默)。
         if "TEXCOORD" in disasm0 and "COLOR" not in disasm0:
             note(
-                "用户 varying COLOR 经 spirv-cross 退化为 TEXCOORD(机制① by-construction "
-                "保名未被本机 spirv-cross 保真;strict-only 由 Rust signature_gate RX6011 兜底)"
+                "用户**输出 varying** COLOR 经 spirv-cross 退化为 TEXCOORD(机制① 边界:"
+                "spirv-cross 无输出语义旗标、不消费 UserSemantic;deferred RD-017;"
+                "命名输出 varying I/O 经 Rust signature_gate RX6011 strict-only 显式拒绝)"
             )
 
         # ── 4) validator gate(签名 validator 可用时;否则结构性 dxc 编译为代)。 ──
@@ -268,8 +337,9 @@ def main() -> int:
         if dxc_dir and (Path(dxc_dir) / "dxv.exe").is_file():
             dxv = str(Path(dxc_dir) / "dxv.exe")
         if dxv:
-            # 复跑链产 DXIL 落盘后 dxv 验证。
-            run([spirv_cross, "--hlsl", "--shader-model", "60", "--output", str(work / "v.hlsl"), str(spv)])
+            # 复跑链产 DXIL 落盘后 dxv 验证(同生产保名旗标)。
+            run([spirv_cross, "--hlsl", "--shader-model", "60", *KEEP_VERTEX_INPUT_FLAGS,
+                 "--output", str(work / "v.hlsl"), str(spv)])
             run([dxc, "-T", "vs_6_0", "-E", "main", "-Fo", str(work / "v.dxil"), str(work / "v.hlsl")])
             pv = run([dxv, str(work / "v.dxil")])
             check(pv.returncode == 0, f"DXIL 容器未过签名 validator(dxv): {pv.stdout.strip()[:200]}")
@@ -286,10 +356,10 @@ def main() -> int:
         tampered = bytearray(spv_bytes)
         tampered[0] ^= 0xFF  # 破坏 magic word 首字节。
         spv.write_bytes(bytes(tampered))
-        c_red, _ = transpile_chain(spirv_cross, dxc, spv, work, "tamper")
+        c_red, _ = transpile_chain(spirv_cross, dxc, spv, work, "tamper", KEEP_VERTEX_INPUT_FLAGS)
         check(c_red is None, "篡改 SPIR-V 字流后转译链仍成功(strict-only 红路径失效)")
         spv.write_bytes(spv_bytes)
-        c_green, _ = transpile_chain(spirv_cross, dxc, spv, work, "restore")
+        c_green, _ = transpile_chain(spirv_cross, dxc, spv, work, "restore", KEEP_VERTEX_INPUT_FLAGS)
         check(c_green is not None, "复原 SPIR-V 后转译链未转绿")
         evidence["checks"]["tamper_spirv_red_green"] = (c_red is None) and (c_green is not None)
 
@@ -345,7 +415,7 @@ def _report(evidence: dict) -> int:
     summary = evidence.get("checks", {})
     print(f"[dxil_codegen_smoke] checks: {json.dumps(summary, ensure_ascii=False)}")
     print(
-        "[dxil_codegen_smoke] PASS(转译链可达 + 确定性 ×N + 系统值保真 + "
+        "[dxil_codegen_smoke] PASS(转译链可达 + 确定性 ×N + 系统值保真 + 顶点输入名保真 + "
         "validator gate + 签名篡改红绿 + 供应链 pin)"
     )
     return 0
