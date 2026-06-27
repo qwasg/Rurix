@@ -1,7 +1,7 @@
-; NOT BLESSED (local) — RXS-0162 图形=B DXIL 反汇编 golden。
-; 本机 dxc(Vulkan SDK)无签名 validator(dxil.dll/dxv),owner 在 pin 环境重 bless;
+; OWNER BLESSED — RXS-0162 图形=B DXIL 反汇编 golden。
+; owner pin 环境签名 validator(dxv.exe/dxil.dll)已验证;本文件为当前 B 路文本形态基线。
 ; 版本噪声行(shader hash / dxc ident)已规范化为占位,不写死工具版本布局为语言保证。
-; 平凡 passthrough(RD-013 入口 body 数据流降级 deferred)→ spirv-cross DCE → 签名退化。
+; 平凡 passthrough(RD-013 入口 body 数据流降级 deferred)→ spirv-cross DCE → TEXCOORD;RD-017 未关闭。
 ;
 ; Input signature:
 ;
@@ -15,7 +15,7 @@
 ; -------------------- ----- ------ -------- -------- ------- ------
 ; TEXCOORD                 0   x           0     NONE   float   x   
 ;
-; shader hash: <NOT-BLESSED-NORMALIZED>
+; shader hash: <OWNER-BLESSED-NORMALIZED>
 ;
 ; Pipeline Runtime Information: 
 ;
@@ -77,9 +77,9 @@ attributes #0 = { nounwind }
 !dx.viewIdState = !{!4}
 !dx.entryPoints = !{!5}
 
-!0 = !{!"dxc(private) <NOT-BLESSED-NORMALIZED>"}
+!0 = !{!"dxc <OWNER-BLESSED-NORMALIZED>"}
 !1 = !{i32 1, i32 0}
-!2 = !{i32 1, i32 8}
+!2 = !{i32 1, i32 9}
 !3 = !{!"vs", i32 6, i32 0}
 !4 = !{[2 x i32] [i32 0, i32 1]}
 !5 = !{void ()* @main, !"main", !6, null, null}

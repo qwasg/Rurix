@@ -160,9 +160,9 @@ fn dxil_corpus_carries_spec_anchor() {
 // B 路 golden 置于 `tests/dxil/graphics/`(子目录;A 路 `rx_files()` 用 `read_dir`
 // **非递归**,自然不收;本组用独立 lister)。形态:DXIL 文本反汇编(`.dxil-disasm`),
 // 经 B 全链(dxil_spirv::emit_spirv→SPIRV-Cross→dxc→dumpbin)产出。validator gate:
-// 若签名 validator 目录(`RURIX_DXC_DIR` 含 dxv.exe)可用则入 golden 前 dxv 验证;本机
-// Vulkan SDK dxc **无** dxil.dll/dxv → 结构性 dxc 编译成功即过(NOT BLESSED,owner 在
-// pin 环境带签名 validator 重 bless)。版本噪声行(shader hash / dxc ident)规范化,使
+// 若签名 validator 目录(`RURIX_DXC_DIR` 含 dxv.exe)可用则入 golden 前 dxv 验证;owner
+// pin 环境带签名 validator bless 后,本 golden 锁当前已登记 RD-013/RD-017 缺口下的
+// B 路文本形态。版本噪声行(shader hash / dxc ident)规范化,使
 // golden 不写死工具版本布局为语言保证(硬约束;RXS-0162 IR5)。spirv-cross/dxc 缺失 →
 // SKIP(开发环境降级,exit 0,对齐 RXS-0073)。`RURIX_BLESS=1` 重写 + bless_log 留痕。
 
@@ -188,12 +188,12 @@ fn normalize_b_disasm(s: &str) -> String {
     for raw in s.replace("\r\n", "\n").lines() {
         let t = raw.trim_start();
         if t.starts_with("; shader hash:") {
-            lines.push("; shader hash: <NOT-BLESSED-NORMALIZED>".to_owned());
-        } else if raw.contains("dxc(private)") {
+            lines.push("; shader hash: <OWNER-BLESSED-NORMALIZED>".to_owned());
+        } else if raw.contains("dxc(private)") || raw.contains("dxcoob ") {
             // 保留 metadata id 前缀(如 `!0 = `),仅规范化版本串。
             let id = raw.split('=').next().unwrap_or("").trim_end();
             lines.push(format!(
-                "{id} = !{{!\"dxc(private) <NOT-BLESSED-NORMALIZED>\"}}"
+                "{id} = !{{!\"dxc <OWNER-BLESSED-NORMALIZED>\"}}"
             ));
         } else {
             lines.push(raw.to_owned());
@@ -225,7 +225,7 @@ fn graphics_stage_io(src: &str) -> Option<(rurixc::ast::ShaderStage, Vec<rurixc:
 #[cfg(feature = "shader-stages")]
 #[test]
 fn dxil_b_disasm_golden_matches_when_toolchain_present() {
-    // 版本相关 NOT-BLESSED golden:仅在**显式配置**的 pin 工具(env 指向真实文件)下
+    // 版本相关 golden:仅在**显式配置**的 pin 工具(env 指向真实文件)下
     // 跑字节比对——`locate_*` 的 PATH by-name 回落(spawn 决定)不触发,避免随机 PATH
     // 工具产不同反汇编致误红。env 未设 → SKIP(对齐 A 路 .dxil-disasm 经 RURIX_DXC_DIR
     // 显式门控的纪律;真实红绿在带 pin B 工具链的 dev/owner 环境)。
@@ -241,10 +241,10 @@ fn dxil_b_disasm_golden_matches_when_toolchain_present() {
     };
     let bless = bless_mode();
     let header = concat!(
-        "; NOT BLESSED (local) — RXS-0162 图形=B DXIL 反汇编 golden。\n",
-        "; 本机 dxc(Vulkan SDK)无签名 validator(dxil.dll/dxv),owner 在 pin 环境重 bless;\n",
+        "; OWNER BLESSED — RXS-0162 图形=B DXIL 反汇编 golden。\n",
+        "; owner pin 环境签名 validator(dxv.exe/dxil.dll)已验证;本文件为当前 B 路文本形态基线。\n",
         "; 版本噪声行(shader hash / dxc ident)已规范化为占位,不写死工具版本布局为语言保证。\n",
-        "; 平凡 passthrough(RD-013 入口 body 数据流降级 deferred)→ spirv-cross DCE → 签名退化。\n",
+        "; 平凡 passthrough(RD-013 入口 body 数据流降级 deferred)→ spirv-cross DCE → TEXCOORD;RD-017 未关闭。\n",
     );
     let tmp = std::env::temp_dir().join(format!("rxdxilbgold_{}", std::process::id()));
     fs::create_dir_all(&tmp).expect("临时目录");
@@ -292,7 +292,7 @@ fn dxil_b_disasm_golden_matches_when_toolchain_present() {
                 "{stem}: DXIL 容器未通过签名 validator(不得入 golden)"
             );
         }
-        // 5) dumpbin 反汇编 → 规范化 + NOT BLESSED 头。
+        // 5) dumpbin 反汇编 → 规范化 + owner bless 头。
         let dxc_dir = dxc.parent().map(Path::to_path_buf).unwrap_or_default();
         let disasm = rurixc::toolchain::dxc_disasm(&dxc_dir, &dxil_path)
             .unwrap_or_else(|e| panic!("{stem}: dxc 反汇编失败: {e}"));
