@@ -217,8 +217,55 @@ fn accept_graphics_corpus_lowers_to_spirv() {
     }
 }
 
-/// 反例图形语料:前段 0 诊断后,B 路分发对不可映射构造 strict-only 落
-/// `//@ expect-error` 声明的 6xxx(host 确定性:编码器在映射处停手,工具链不可达),
+/// RXS-0160:vertex+fragment 配对的图形 accept 语料经多阶段联编点链接核对 → `Linked`。
+/// 对 graphics/accept 中同时含 vertex+fragment 阶段根的文件(如 `vs_fs_link.rx`)断言
+/// [`link_graphics_stages`] 链接一致(host 侧确定性;builtin 不参与、location 不比对
+/// ABI 中立)。单阶段文件 → `NoPair`(无配对,不断言)。错链错误码归类待 owner 裁
+/// (RX6011 复用 / RX6014 新开,spec §2 RXS-0160 IR3),accept 路径不涉错误码。
+#[cfg(feature = "shader-stages")]
+#[test]
+fn accept_graphics_link_consistent() {
+    use rurixc::ast::ShaderStage;
+    use rurixc::dxil_codegen::{StageLinkOutcome, link_graphics_stages};
+    let files = rx_files(&dxil_dir("graphics/accept"));
+    let mut linked_any = false;
+    for f in files {
+        let src = fs::read_to_string(&f).expect("读取样例失败");
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(&src, SourceId(0), Edition::Rx0, &diag);
+        cx.check_crate();
+        cx.check_coloring();
+        cx.check_crate_patterns();
+        cx.check_consteval();
+        assert!(
+            !diag.has_errors(),
+            "{} graphics accept 须 0 诊断",
+            f.display()
+        );
+        let bodies = cx.device_mir_crate();
+        let has_vs = bodies
+            .iter()
+            .any(|b| matches!(b.stage, Some(ShaderStage::Vertex)));
+        let has_fs = bodies
+            .iter()
+            .any(|b| matches!(b.stage, Some(ShaderStage::Fragment)));
+        if has_vs && has_fs {
+            assert_eq!(
+                link_graphics_stages(&bodies),
+                StageLinkOutcome::Linked,
+                "{} vertex+fragment 配对应链接一致(RXS-0160)",
+                f.display()
+            );
+            linked_any = true;
+        }
+    }
+    assert!(
+        linked_any,
+        "graphics/accept 应含 ≥1 vertex+fragment 链接一致配对样例(RXS-0160)"
+    );
+}
+
+/// 反例图形语料:前段 0 诊断后,B 路分发对不可映射构造 strict-only 落/// `//@ expect-error` 声明的 6xxx(host 确定性:编码器在映射处停手,工具链不可达),
 /// 绝不产物。
 #[cfg(feature = "shader-stages")]
 #[test]
