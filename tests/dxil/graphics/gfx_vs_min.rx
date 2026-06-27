@@ -4,8 +4,8 @@
 // MIR→SPIR-V(dxil_spirv::emit_spirv)→ SPIRV-Cross→HLSL→dxc→DXIL→dumpbin 文本反汇编
 // 入 golden(`.dxil-disasm`)。本片 SPIR-V 为平凡 passthrough(入口 body 数据流降级属
 // RD-013 deferred),故 spirv-cross 经 DCE 消未写输出 → 译后签名退化(空),golden 形态
-// 反映该现状,**NOT BLESSED (local)**:本机 dxc(Vulkan SDK)无签名 validator(dxil.dll/
-// dxv),owner 在 pin 环境重 bless(签名 validator + RD-013 落实输出写真后签名保真)。
+// 反映该现状。owner pin 环境已用签名 validator(dxv.exe/dxil.dll) bless 当前文本
+// golden;这只锁当前 B 路可复现形态,不关闭 RD-013/RD-017。
 struct VsOut {
     #[interpolate(perspective)] uv: f32,
 }
