@@ -442,6 +442,38 @@
       "spec_clauses": ["RXS-0157"]
     },
     {
+      "id": "RX6010",
+      "title": "DXIL B 链转译失败(spirv-cross / dxc / dumpbin 工具运行后退出非零;工具缺失/spawn 失败为 SKIP 非本码)",
+      "message_key": "codegen.dxil_b_transpile_failed",
+      "status": "active",
+      "introduced_in": "G2.2",
+      "spec_clauses": ["RXS-0157", "RXS-0162"]
+    },
+    {
+      "id": "RX6011",
+      "title": "DXIL 签名不一致(输出方向用户语义名 / 系统值在译后 DXIL 签名未保真:缺失 / 改名 / 错配)",
+      "message_key": "codegen.dxil_sig_mismatch",
+      "status": "active",
+      "introduced_in": "G2.2",
+      "spec_clauses": ["RXS-0159", "RXS-0162"]
+    },
+    {
+      "id": "RX6012",
+      "title": "DXIL 声明输入被消除(源码声明的外部输入在译后签名中被消除且不可等价保留,含被 DCE)",
+      "message_key": "codegen.dxil_sig_dropped_input",
+      "status": "active",
+      "introduced_in": "G2.2",
+      "spec_clauses": ["RXS-0159", "RXS-0162"]
+    },
+    {
+      "id": "RX6013",
+      "title": "DXIL 不可映射构造(MIR→SPIR-V 编码器最小子集外:不可映射类型 / 未建模 builtin / 越界向量宽度 / 阶段不符)",
+      "message_key": "codegen.dxil_unmappable",
+      "status": "active",
+      "introduced_in": "G2.2",
+      "spec_clauses": ["RXS-0157"]
+    },
+    {
       "id": "RX7001",
       "title": "外部工具链失败(clang/link.exe 定位失败、版本不符 pin 或退出非零)",
       "message_key": "link.toolchain_failure",
@@ -713,6 +745,11 @@
       "version": "v1.23",
       "date": "2026-06-24",
       "change": "G2.2 分配 RX6007(DXIL codegen 目标诊断,spec/dxil_backend.md RXS-0157 配套,RFC-0003 §5,PR-C2 分片1 实现 PR 真实可达类别只追加)。6xxx codegen/目标段位续接(RX6006 之后):RX6007 DXIL codegen 目标不可用 / 暂不支持的构造 / 降级失败——`--target dxil` 而 cargo feature dxil-backend 未启用(L1 后端可用性)/ DXIL 后端最小子集外构造(View·资源句柄形参 / 非平凡体,绑定布局推导属 G2.3、FFI ABI 属禁区,L2)/ DXIL 降级管线(DirectX 三元组 IR emit·patched llc -filetype=obj·dxc validator)失败(L3,P-01 strict-only 无运行期 fallback)。工具链缺失(patched llc 经 RURIX_LLC 不可用 / validator 不可用)为开发环境降级 SKIP,不报 RX6007(对齐 RXS-0073 ptxas 干验证 SKIP 纪律,真实红绿在带工具链环境)。message_key codegen.dxil_unsupported 同落 en/zh.messages(双语全量覆盖门 ci/bilingual_coverage.py);DXIL 后端为 MIR 之后 target 分叉、与 NVPTX 后端并列各自从 MIR 独立降级,不改 PTX 路径(D-207);本片不碰 DXIL 完整阶段着色器类型对应(RXS-0158)/ 绑定布局推导(G2.3)/ 🔒 纹理内存模型映射(06 §4.2 禁区);段内分配制递增不复用、含义冻结(10 §6)"
+    },
+    {
+      "version": "v1.24",
+      "date": "2026-06-26",
+      "change": "G2.2 任务7 分配 RX6010 ~ RX6013(DXIL B 路 strict-only 失败诊断,spec/dxil_backend.md RXS-0157/0159/0162 配套,RFC-0004 §4.4/§4.6,PR-D2 实现真实可达类别只追加)。**编号冲突核查与裁决**:6xxx 段当前最高 = RX6007;registry/deferred.json 已引用 RX6008(RD-012 mesh/amplification·task·RT 着色阶段降级)与 RX6009(RD-013 阶段 I/O 入口 body 数据流降级),二者均 status=open 未实现,**honor 既有引用**(段内编号不复用,10 §9.5)——RX6008/RX6009 留给 RD-012/RD-013 既有语义不改派(其 registry 落条目 + status 翻转归后续里程碑/owner),本片真实可达类别自下一空号 RX6010 起分配。dxil_sig_gate.rs 内 `// TODO(task 7)` 的『RX6009 候选』为非约束建议,因 RX6009 已被 RD-013 占用故改派 RX6011/RX6012(无歧义调和,不触人工升档)。真实可达类别(任务4/5/6 代码 emit 点):RX6010 DXIL B 链转译失败(DxilBError::Toolchain,spirv-cross/dxc/dumpbin exit≠0;工具缺失/spawn 失败为 SKIP 非本码)、RX6011 DXIL 签名不一致(SigGateError::SigMismatch,输出方向语义名/系统值未保真)、RX6012 DXIL 声明输入被消除(SigGateError::SigDroppedInput,声明外部输入被消除/DCE 且不可等价保留,与 SigMismatch 分两码:missing_error 已按方向 In→dropped/Out→mismatch 区分语义,分码诊断更精确)、RX6013 DXIL 不可映射构造(dxil_spirv::DxilError::Unmappable 经 DxilBError::Spirv 透传:不可映射类型/未建模 builtin/越界向量宽度/阶段不符)。**纹理访问语义不创建码**(IoSigElem/MirIoType 结构上无法表达资源句柄/采样器,本层不可达,R3.6 不预造);**SKIP 不造码**(工具链缺失为环境降级,strict-only 仅语言层失败落码)。emit 点 src/rurixc/src/dxil_codegen.rs::emit_b_error 从复用 RX6007 通道改接 RX6010~6013(feature dxil-backend 门控,默认构建零漂移);A 路 RX6007(compute 子集外 / mesh·task·RT stub / patched llc·dxc validator 降级失败)语义与 emit 点不动(R6.7 零漂移)。message_key codegen.dxil_b_transpile_failed / dxil_sig_mismatch / dxil_sig_dropped_input / dxil_unmappable 同落 en/zh.messages(双语全量覆盖门 ci/bilingual_coverage.py);段内分配制递增不复用、含义冻结(10 §6)"
     }
   ]
 }

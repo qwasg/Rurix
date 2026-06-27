@@ -38,6 +38,16 @@ pub struct Body {
     pub arg_count: usize,
     pub blocks: Vec<BasicBlock>,
     pub span: Span,
+    /// 着色阶段类别(G2.2 图形=B,RXS-0161):`None` = 非着色阶段(host /
+    /// compute / kernel 既有路径,PTX 收集与 codegen 行为零漂移)。仅 cargo
+    /// feature `dxil-backend` 下的图形阶段根收集会置 `Some(Vertex|Fragment)`;
+    /// 默认(PTX)路径恒为 `None`(RFC-0004 §4.1;R1.2/R6.7)。
+    pub stage: Option<crate::ast::ShaderStage>,
+    /// I/O 意图签名(G2.2 图形=B,RXS-0161):源码声明的、跨契约线可观察的
+    /// 着色阶段 I/O 元素表(字段名 / builtin·interpolate·varying 种类 / 类型 /
+    /// in|out 方向),作 B 路 SPIR-V 保名 by-construction 与签名一致性校验门的
+    /// 意图侧依据。非着色阶段(含默认 PTX 路径)恒为空,行为零漂移。
+    pub io_sig: Vec<IoSigElem>,
 }
 
 impl Body {
@@ -48,6 +58,59 @@ impl Body {
     pub fn ret_ty(&self) -> &Ty {
         &self.locals[0].ty
     }
+}
+
+/// 着色阶段 I/O 元素方向(in|out;RXS-0161 意图签名维度之一)。
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum IoDir {
+    In,
+    Out,
+}
+
+/// 着色阶段 I/O 元素种类(RXS-0161;决定 SPIR-V 装饰策略)。
+///
+/// 与前端 [`crate::shader_stages`] 的字段标注面对齐:`#[builtin(..)]` →
+/// [`IoSigKind::Builtin`](emit `BuiltIn` 装饰)、`#[interpolate(..)]` →
+/// [`IoSigKind::Interpolate`](插值 varying,emit `Location` 装饰)、无标注的
+/// 普通 varying → [`IoSigKind::Varying`](emit `Location` 装饰)。
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub enum IoSigKind {
+    /// `#[builtin(name)]` 系统值(保留源码 builtin 名,如 `position`)。
+    Builtin(String),
+    /// `#[interpolate(mode)]` 插值 varying(保留插值限定名,如 `flat`)。
+    Interpolate(String),
+    /// 无插值标注的 location varying。
+    Varying,
+}
+
+/// 着色阶段 I/O 意图签名元素类型(RXS-0161 已建模子集:标量 / 向量)。
+///
+/// 仅覆盖 [`crate::shader_stages`] RXS-0154 已建模的标量与向量子集;不可映射
+/// 类型在 B 路编码器阶段触发 6xxx(strict-only,R1.9),本层不发明降级。
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum MirIoType {
+    /// 标量(如 `f32`/`i32`/`u32`)。
+    Scalar(PrimTy),
+    /// 向量(分量类型 + 分量数,2..=4;如 `vec4<f32>`)。
+    Vector(PrimTy, u8),
+}
+
+/// 着色阶段 I/O 意图签名元素(RXS-0161)。
+///
+/// 记录源码声明且跨契约线可观察的单个 I/O 元素:`field_name`(保名依据)、
+/// `kind`(builtin / interpolate / varying)、`ty`(已建模类型子集)、`dir`
+/// (in|out 方向)。B 路 SPIR-V 编码器据此 by-construction emit `UserSemantic`/
+/// `Location`/`BuiltIn` 装饰,签名一致性校验门据此比对译后 DXIL ISG1/OSG1。
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct IoSigElem {
+    /// 源码字段名(保名依据;非寄存器号/布局)。
+    pub field_name: String,
+    /// 元素种类(builtin / interpolate / varying)。
+    pub kind: IoSigKind,
+    /// 元素类型(已建模标量/向量子集)。
+    pub ty: MirIoType,
+    /// 方向(in|out)。
+    pub dir: IoDir,
 }
 
 #[derive(Debug)]
@@ -479,5 +542,108 @@ fn unop_name(op: UnOp) -> &'static str {
         UnOp::Neg => "Neg",
         UnOp::Not => "Not",
         UnOp::Deref => "Deref",
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 单测:I/O 意图签名携带(RXS-0161,R1.1)与默认路径中立性(R1.2/R6.7)
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ast::{FnColor, ShaderStage};
+    use crate::hir::{DefId, PrimTy};
+    use crate::span::{Edition, SourceId};
+
+    fn dummy_span() -> Span {
+        Span::new(SourceId(0), 0, 0, Edition::Rx0)
+    }
+
+    /// 无 body 内容的最小骨架(仅用于验证 `Body` 携带 stage / io_sig 的字段面)。
+    fn skeleton(stage: Option<ShaderStage>, io_sig: Vec<IoSigElem>) -> Body {
+        Body {
+            def: DefId(0),
+            symbol: "rx_vs_main".to_owned(),
+            color: FnColor::Kernel,
+            generic_args: Vec::new(),
+            locals: Vec::new(),
+            arg_count: 0,
+            blocks: Vec::new(),
+            span: dummy_span(),
+            stage,
+            io_sig,
+        }
+    }
+
+    /// 图形阶段 `Body` 可携带 stage 与逐元素 I/O 意图签名(字段名 / 种类 / 类型 /
+    /// 方向四维度全保真),为 B 路保名 by-construction 与校验门提供意图侧依据。
+    #[test]
+    fn graphics_stage_body_carries_io_signature() {
+        let io_sig = vec![
+            IoSigElem {
+                field_name: "position".to_owned(),
+                kind: IoSigKind::Builtin("position".to_owned()),
+                ty: MirIoType::Vector(PrimTy::F32, 4),
+                dir: IoDir::Out,
+            },
+            IoSigElem {
+                field_name: "color".to_owned(),
+                kind: IoSigKind::Interpolate("flat".to_owned()),
+                ty: MirIoType::Vector(PrimTy::F32, 4),
+                dir: IoDir::Out,
+            },
+            IoSigElem {
+                field_name: "uv".to_owned(),
+                kind: IoSigKind::Varying,
+                ty: MirIoType::Vector(PrimTy::F32, 2),
+                dir: IoDir::In,
+            },
+        ];
+        let body = skeleton(Some(ShaderStage::Vertex), io_sig.clone());
+
+        assert_eq!(body.stage, Some(ShaderStage::Vertex));
+        assert_eq!(body.io_sig.len(), 3);
+
+        // builtin 保留源码 builtin 名 + out 方向。
+        assert_eq!(body.io_sig[0].field_name, "position");
+        assert_eq!(
+            body.io_sig[0].kind,
+            IoSigKind::Builtin("position".to_owned())
+        );
+        assert_eq!(body.io_sig[0].ty, MirIoType::Vector(PrimTy::F32, 4));
+        assert_eq!(body.io_sig[0].dir, IoDir::Out);
+
+        // interpolate 保留插值限定名。
+        assert_eq!(
+            body.io_sig[1].kind,
+            IoSigKind::Interpolate("flat".to_owned())
+        );
+
+        // 普通 varying + in 方向。
+        assert_eq!(body.io_sig[2].kind, IoSigKind::Varying);
+        assert_eq!(body.io_sig[2].dir, IoDir::In);
+        assert_eq!(body.io_sig[2].ty, MirIoType::Vector(PrimTy::F32, 2));
+    }
+
+    /// 默认(非着色阶段)`Body` 的 stage 为 `None` 且 io_sig 为空——默认 PTX 路径
+    /// 构造行为中立,无任何图形阶段意图携带(R1.2/R6.7 零漂移的字段面保证)。
+    #[test]
+    fn default_path_body_has_neutral_signature_fields() {
+        let body = skeleton(None, Vec::new());
+        assert_eq!(body.stage, None);
+        assert!(body.io_sig.is_empty());
+    }
+
+    /// 标量类型亦在已建模子集内(标量 / 向量两形态均可表示)。
+    #[test]
+    fn io_sig_supports_scalar_and_vector_types() {
+        let scalar = IoSigElem {
+            field_name: "depth".to_owned(),
+            kind: IoSigKind::Builtin("depth".to_owned()),
+            ty: MirIoType::Scalar(PrimTy::F32),
+            dir: IoDir::Out,
+        };
+        assert_eq!(scalar.ty, MirIoType::Scalar(PrimTy::F32));
     }
 }

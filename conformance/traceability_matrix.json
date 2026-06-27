@@ -928,6 +928,20 @@
       "conformance/dxil/reject/nontrivial_body.rx",
       "conformance/dxil/reject/view_param.rx",
       "src/rurixc/src/dxil_codegen.rs"
+    ],
+    "RXS-0158": [
+      "src/rurixc/src/dxil_codegen.rs"
+    ],
+    "RXS-0159": [
+      "src/rurixc/src/dxil_sig_gate.rs"
+    ],
+    "RXS-0161": [
+      "src/rurixc/src/dxil_codegen.rs",
+      "src/rurixc/src/mir_build.rs"
+    ],
+    "RXS-0162": [
+      "src/rurixc/src/dxil_codegen.rs",
+      "src/rurixc/src/dxil_sig_gate.rs"
     ]
   }
 }

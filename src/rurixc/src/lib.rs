@@ -18,6 +18,10 @@ pub mod driver;
 pub mod drop_elab;
 #[cfg(feature = "dxil-backend")]
 pub mod dxil_codegen;
+#[cfg(feature = "dxil-backend")]
+pub mod dxil_sig_gate;
+#[cfg(feature = "dxil-backend")]
+pub mod dxil_spirv;
 pub mod feature_gate;
 pub mod fmt;
 pub mod hir;
