@@ -410,6 +410,11 @@ impl Builder {
         }
 
         // by-construction 保名:对有用户语义名的 I/O emit UserSemantic。
+        // STUB(RD-017):`UserSemantic` 装饰仅作 SPIR-V 层 provenance(经 spirv-val 干净
+        // 保留),**spirv-cross 不消费**它为 HLSL 语义(实测)。vertex 输入语义名保名经
+        // `dxil_codegen::vertex_input_semantic_flags` 的 location 覆盖旗标达成(RXS-0159
+        // IR1(a));**输出 varying / fragment 输入 varying** 名当前无保名通道 → 退化
+        // `TEXCOORD#` → 校验门 RX6011 strict-only 拒(保名能力缺口 deferred RD-017)。
         if !elem.field_name.is_empty() {
             let mut operands = vec![var, DECORATION_USER_SEMANTIC];
             Self::push_string(&mut operands, &elem.field_name);
@@ -438,7 +443,7 @@ impl Builder {
 /// **不**调用 `mir_build`/codegen 主链;接入 MIR 主流程是任务 4。
 pub fn emit_spirv(stage: ShaderStage, io_sig: &[IoSigElem]) -> Result<Vec<u32>, DxilError> {
     // 仅 vertex/fragment 走 B 路最小子集;compute 走既有 A 路、mesh/task/RT 为
-    // STUB(RD-016),均不在本编码器范围 → 不可映射(strict-only)。
+    // STUB(RD-017),均不在本编码器范围 → 不可映射(strict-only)。
     let exec_model = match stage {
         ShaderStage::Vertex => EXEC_MODEL_VERTEX,
         ShaderStage::Fragment => EXEC_MODEL_FRAGMENT,

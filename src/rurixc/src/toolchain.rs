@@ -324,9 +324,11 @@ pub fn locate_dxc() -> Option<PathBuf> {
 }
 
 /// SPIRV-Cross: SPIR-V → HLSL(RFC-0004 §4.2 (b))。`shader_model` 取目标 SM(如 60);
-/// `extra` 透传保名等附加旗标(如 `--set-hlsl-named-vertex-input-semantic`,经
-/// SPIR-V 反射驱动用户语义名保真,RFC-0004 §4.4 机制 1)。成功写 `hlsl_out`;失败 →
-/// `Err`(工具链串,上层映射 6xxx)。
+/// `extra` 透传保名等附加旗标(生产用 `--set-hlsl-vertex-input-semantic <location>
+/// <semantic>` 按 location 覆盖顶点输入语义名,经 io_sig 导出,RFC-0004 §4.4 机制①;
+/// 实测 spirv-cross **不**消费 SPIR-V `UserSemantic` 装饰为 HLSL 语义,故保名走 location
+/// 覆盖而非 `--set-hlsl-named-vertex-input-semantic`(后者按 OpName 匹配,Rust-emit SPIR-V
+/// 未 emit OpName))。成功写 `hlsl_out`;失败 → `Err`(工具链串,上层映射 6xxx)。
 #[cfg(feature = "dxil-backend")]
 pub fn spirv_cross_to_hlsl(
     tool: &Path,
@@ -708,7 +710,19 @@ mod dxil_b_chain_tests {
             return;
         }
         let hlsl_out = dir.join("vs_rt.hlsl");
-        if let Err(e) = spirv_cross_to_hlsl(&spvx, &spv, &hlsl_out, 60, &[]) {
+        // 顶点输入语义保名旗标(`--set-hlsl-vertex-input-semantic <loc> <semantic>`,
+        // RFC-0004 §4.4 机制①;POSITION→loc0 / NORMAL→loc1,按 ISG1 location 顺序)。
+        // 生产侧由 dxil_codegen::vertex_input_semantic_flags 经 io_sig 导出(非硬编码);
+        // 本驱动冒烟直接以等价旗标实测顶点输入名经链端到端存活(不退化为 TEXCOORD#)。
+        let keep_flags = [
+            "--set-hlsl-vertex-input-semantic".to_owned(),
+            "0".to_owned(),
+            "POSITION".to_owned(),
+            "--set-hlsl-vertex-input-semantic".to_owned(),
+            "1".to_owned(),
+            "NORMAL".to_owned(),
+        ];
+        if let Err(e) = spirv_cross_to_hlsl(&spvx, &spv, &hlsl_out, 60, &keep_flags) {
             eprintln!("[SKIP] spirv-cross SPIR-V->HLSL 失败: {e}");
             return;
         }
@@ -727,6 +741,21 @@ mod dxil_b_chain_tests {
         assert!(
             !sigs.input.is_empty(),
             "B 链产 DXIL 输入签名 elemcount=0(应 >0;签名不可达即 B 路前提失败)。disasm:\n{disasm}"
+        );
+        // 机制①实测断言:顶点输入用户语义名 POSITION/NORMAL 经保名旗标端到端存活,
+        // **不**退化为通用 TEXCOORD#(strip 尾随数字 + 大小写无关匹配)。
+        let has_input = |want: &str| {
+            sigs.input.iter().any(|e| {
+                e.name
+                    .trim_end_matches(|c: char| c.is_ascii_digit())
+                    .eq_ignore_ascii_case(want)
+            })
+        };
+        assert!(
+            has_input("POSITION") && has_input("NORMAL"),
+            "顶点输入语义名应经保名旗标存活(POSITION/NORMAL 不退化为 TEXCOORD#)。\
+             ISG1={:?}",
+            sigs.input
         );
         let _ = std::fs::remove_dir_all(&dir);
     }
