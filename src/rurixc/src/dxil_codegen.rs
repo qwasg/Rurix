@@ -553,6 +553,50 @@ pub fn dispatch_and_emit(diag: &DiagCtxt, body: &Body, module_name: &str) -> Dis
     }
 }
 
+/// vertex+fragment 多阶段联编点的链接核对结果(RXS-0160 IR2)。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StageLinkOutcome {
+    /// 无 vertex+fragment 配对(单阶段编译 / 缺一阶段)→ 无链接核对(behavior 不变,
+    /// 单阶段 / A 路零漂移,RXS-0157 R6.7)。
+    NoPair,
+    /// vertex out ↔ fragment in 链接一致(语义名 / 类型 / 插值全配对)。
+    Linked,
+    /// 错链(strict-only;映射 6xxx **待 owner 裁** RX6011 复用 / RX6014 新开,落码归
+    /// owner 确认后实现步,见 [`signature_gate::StageLinkError`])。
+    LinkError(signature_gate::StageLinkError),
+}
+
+/// vertex+fragment 多阶段联编点接缝(RXS-0160 IR2):从 device MIR body 集合中收集
+/// vertex / fragment 两阶段的 `io_sig`,汇集到链接核对入口
+/// [`signature_gate::check_stage_link`]。
+///
+/// 由单着色阶段编译([`dispatch_and_emit`] 逐 body)扩到 **vertex+fragment 配对**的
+/// 链接核对:取首个 vertex 阶段 body 与首个 fragment 阶段 body,以 vertex 输出方向 +
+/// fragment 输入方向的 `io_sig` 核实跨阶段 varying 链接键(语义名 / 类型 / 插值)。
+/// 无 vertex+fragment 配对(单阶段编译 / 缺一阶段)→ [`StageLinkOutcome::NoPair`]
+/// (behavior 不变,零漂移)。
+///
+/// **错误码 emit 待 owner 裁(判档点,需人工升档)**:错链返回
+/// [`StageLinkOutcome::LinkError`],**本接缝不接线生产 6xxx emit**——错链映射 RX6011
+/// 复用 / RX6014 新开属语义归类裁决(spec §2 RXS-0160 IR3),落码 + 诊断接线归 owner
+/// 确认后的实现步(不擅自落 `registry/error_codes.json` / message-key)。strict-only
+/// 语义由 `check_stage_link` 保证(错链必 Err,绝不静默通过)。
+pub fn link_graphics_stages(bodies: &[Body]) -> StageLinkOutcome {
+    let vs = bodies
+        .iter()
+        .find(|b| matches!(b.stage, Some(ShaderStage::Vertex)));
+    let fs = bodies
+        .iter()
+        .find(|b| matches!(b.stage, Some(ShaderStage::Fragment)));
+    match (vs, fs) {
+        (Some(v), Some(f)) => match signature_gate::check_stage_link(&v.io_sig, &f.io_sig) {
+            Ok(()) => StageLinkOutcome::Linked,
+            Err(e) => StageLinkOutcome::LinkError(e),
+        },
+        _ => StageLinkOutcome::NoPair,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1057,6 +1101,114 @@ mod tests {
         assert!(
             vertex_input_semantic_flags(ShaderStage::Vertex, &vertex_io()).is_empty(),
             "无命名顶点输入 → 无保名旗标(行为不变)"
+        );
+    }
+
+    // ───────────────── RXS-0160:vertex+fragment 多阶段联编点接缝 ─────────────────
+
+    /// 链接一致的 vertex 输出(position builtin out + uv interpolate out)。
+    fn vs_link_io() -> Vec<IoSigElem> {
+        vec![
+            io(
+                "position",
+                IoSigKind::Builtin("position".to_owned()),
+                MirIoType::Vector(PrimTy::F32, 4),
+                IoDir::Out,
+            ),
+            io(
+                "uv",
+                IoSigKind::Interpolate("perspective".to_owned()),
+                MirIoType::Vector(PrimTy::F32, 2),
+                IoDir::Out,
+            ),
+        ]
+    }
+
+    /// 与 [`vs_link_io`] 链接一致的 fragment 输入(frag_coord builtin in + uv
+    /// interpolate in + out_color varying out)。
+    fn fs_link_io() -> Vec<IoSigElem> {
+        vec![
+            io(
+                "frag_coord",
+                IoSigKind::Builtin("position".to_owned()),
+                MirIoType::Vector(PrimTy::F32, 4),
+                IoDir::In,
+            ),
+            io(
+                "uv",
+                IoSigKind::Interpolate("perspective".to_owned()),
+                MirIoType::Vector(PrimTy::F32, 2),
+                IoDir::In,
+            ),
+            io(
+                "out_color",
+                IoSigKind::Varying,
+                MirIoType::Vector(PrimTy::F32, 4),
+                IoDir::Out,
+            ),
+        ]
+    }
+
+    /// accept:vertex+fragment 配对 + 链接一致 → `Linked`(多阶段联编点核对通过)。
+    //@ spec: RXS-0160
+    #[test]
+    fn link_graphics_stages_consistent_pair_is_linked() {
+        let bodies = vec![
+            make_body(Some(ShaderStage::Vertex), vs_link_io()),
+            make_body(Some(ShaderStage::Fragment), fs_link_io()),
+        ];
+        assert_eq!(
+            link_graphics_stages(&bodies),
+            StageLinkOutcome::Linked,
+            "vertex+fragment 链接一致应 Linked"
+        );
+    }
+
+    /// reject:fragment 输入 varying(`extra`)在 vertex 输出无链接键 → `LinkError`
+    /// (错链;strict-only,错误码归类待 owner 裁,本接缝不接线生产 emit)。
+    //@ spec: RXS-0160
+    #[test]
+    fn link_graphics_stages_mismatched_pair_is_link_error() {
+        let fs = vec![io(
+            "extra",
+            IoSigKind::Varying,
+            MirIoType::Vector(PrimTy::F32, 4),
+            IoDir::In,
+        )];
+        let bodies = vec![
+            make_body(Some(ShaderStage::Vertex), vs_link_io()),
+            make_body(Some(ShaderStage::Fragment), fs),
+        ];
+        assert!(
+            matches!(
+                link_graphics_stages(&bodies),
+                StageLinkOutcome::LinkError(_)
+            ),
+            "错链应 LinkError"
+        );
+    }
+
+    /// 单阶段编译(仅 vertex,缺 fragment)→ `NoPair`(无链接核对,零漂移)。
+    //@ spec: RXS-0160
+    #[test]
+    fn link_graphics_stages_single_stage_is_no_pair() {
+        let bodies = vec![make_body(Some(ShaderStage::Vertex), vs_link_io())];
+        assert_eq!(
+            link_graphics_stages(&bodies),
+            StageLinkOutcome::NoPair,
+            "缺 fragment 阶段应 NoPair(单阶段编译零漂移)"
+        );
+    }
+
+    /// 无图形阶段(compute/kernel,stage None)→ `NoPair`(A 路 / 单阶段零漂移)。
+    //@ spec: RXS-0160
+    #[test]
+    fn link_graphics_stages_no_graphics_is_no_pair() {
+        let bodies = vec![make_body(None, Vec::new())];
+        assert_eq!(
+            link_graphics_stages(&bodies),
+            StageLinkOutcome::NoPair,
+            "无图形阶段(compute)应 NoPair(零漂移)"
         );
     }
 }

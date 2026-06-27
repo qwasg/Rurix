@@ -74,6 +74,47 @@ pub mod signature_gate {
 
     impl std::error::Error for SigGateError {}
 
+    /// 阶段间接口链接核对失败(RXS-0160;strict-only)。
+    ///
+    /// **错误码归类待 owner 裁决(判档点,需人工升档)**:错链映射 6xxx 的具体码——
+    /// `RX6011` 复用(签名不一致同语义类)抑或 `RX6014` 新开(6xxx 段下一空号;
+    /// `RX6008`/`RX6009` 分别由 RD-012/RD-013 预留不复用)——属语义归类裁决(spec §2
+    /// RXS-0160 IR3)。本枚举只定义链接核对的失败语义,**不**直接发码、**不**改
+    /// `registry/error_codes.json`、**不**接线生产 emit;落码归 owner 确认后的实现步。
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub enum StageLinkError {
+        /// fragment 输入 varying 在上游 vertex 输出中无同**语义名等价**链接键
+        /// (错链:缺链接,RXS-0160 L2)。
+        Unlinked {
+            /// 失链的诊断上下文(fragment 输入语义名 / 类型)。
+            detail: String,
+        },
+        /// 语义名等价的链接键两端**类型不一致**或**插值限定不一致**
+        /// (错链:类型 / 插值失配,RXS-0160 L3)。
+        LinkMismatch {
+            /// 失配的诊断上下文(语义名 / 两端类型或插值限定)。
+            detail: String,
+        },
+    }
+
+    impl std::fmt::Display for StageLinkError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                StageLinkError::Unlinked { detail } => {
+                    write!(
+                        f,
+                        "DXIL 阶段间接口错链(fragment 输入无上游 vertex 输出链接键): {detail}"
+                    )
+                }
+                StageLinkError::LinkMismatch { detail } => {
+                    write!(f, "DXIL 阶段间接口错链(链接键类型/插值限定失配): {detail}")
+                }
+            }
+        }
+    }
+
+    impl std::error::Error for StageLinkError {}
+
     /// 强制签名一致性校验门(不可裁剪,无旁路)。
     ///
     /// 比对译后 DXIL 签名 `actual`(ISG1/OSG1)与 MIR 意图签名 `intent`:
@@ -114,6 +155,86 @@ pub mod signature_gate {
             }
         }
         Ok(())
+    }
+
+    /// 阶段间接口 → 阶段链接一致性核对(RXS-0160;不可裁剪,无旁路,strict-only)。
+    ///
+    /// 以**语义名等价**为链接键(复用 [`semantic_name_matches`],大小写无关 + 剥语义
+    /// index 后缀,对齐 RXS-0159)核实 vertex 输出方向 varying/interpolate(`vs_out_sig`
+    /// 中 `dir == Out`)与 fragment 输入方向 varying/interpolate(`fs_in_sig` 中
+    /// `dir == In`)的跨阶段配对:
+    /// - fragment 输入 varying 无同语义名链接键 → [`StageLinkError::Unlinked`];
+    /// - 链接键两端类型不一致 / 插值限定不一致 → [`StageLinkError::LinkMismatch`]。
+    ///
+    /// **不**比对 location 编号 / 寄存器 / mask(ABI 中立,RFC-0004 §4.6(a);对齐
+    /// [`check`] 的 Property 7)。builtin 系统值(`position`/`frag_coord` 等)为阶段内
+    /// 系统值(经光栅器,非跨阶段用户 varying),**不**参与链接核对(RXS-0160 L1)。
+    ///
+    /// # Errors
+    /// 任一 fragment 输入 varying 错链 → 对应 [`StageLinkError`](strict-only;上层映射
+    /// 6xxx 并终止该联编产物,错误码归类待 owner 裁,见 [`StageLinkError`])。
+    pub fn check_stage_link(
+        vs_out_sig: &[IoSigElem],
+        fs_in_sig: &[IoSigElem],
+    ) -> Result<(), StageLinkError> {
+        // vertex 输出方向的跨阶段 varying(builtin 系统值不参与链接核对,L1)。
+        let vs_varyings: Vec<&IoSigElem> = vs_out_sig
+            .iter()
+            .filter(|e| matches!(e.dir, IoDir::Out) && is_link_varying(&e.kind))
+            .collect();
+        // fragment 输入方向的跨阶段 varying,逐个核实链接键。
+        for fin in fs_in_sig
+            .iter()
+            .filter(|e| matches!(e.dir, IoDir::In) && is_link_varying(&e.kind))
+        {
+            // 链接键 = 语义名等价(不比对 location,ABI 中立)。
+            let Some(vout) = vs_varyings
+                .iter()
+                .find(|v| semantic_name_matches(&v.field_name, &fin.field_name))
+            else {
+                return Err(StageLinkError::Unlinked {
+                    detail: format!(
+                        "fragment 输入 varying `{}`(类型 {:?})在上游 vertex 输出中无同语义名链接键",
+                        fin.field_name, fin.ty
+                    ),
+                });
+            };
+            // 类型一致性(MirIoType 全等;不取 location/mask)。
+            if vout.ty != fin.ty {
+                return Err(StageLinkError::LinkMismatch {
+                    detail: format!(
+                        "链接键 `{}` 两端类型失配:vertex 输出 {:?} ↔ fragment 输入 {:?}",
+                        fin.field_name, vout.ty, fin.ty
+                    ),
+                });
+            }
+            // 插值限定一致性(Varying↔Varying / Interpolate(x)↔Interpolate(x))。
+            if !interp_matches(&vout.kind, &fin.kind) {
+                return Err(StageLinkError::LinkMismatch {
+                    detail: format!(
+                        "链接键 `{}` 两端插值限定失配:vertex 输出 {:?} ↔ fragment 输入 {:?}",
+                        fin.field_name, vout.kind, fin.kind
+                    ),
+                });
+            }
+        }
+        Ok(())
+    }
+
+    /// 跨阶段链接 varying 判定:仅 `Varying` / `Interpolate(_)` 参与链接核对;
+    /// `Builtin` 系统值为阶段内(经光栅器),不参与(RXS-0160 L1)。
+    fn is_link_varying(kind: &IoSigKind) -> bool {
+        matches!(kind, IoSigKind::Varying | IoSigKind::Interpolate(_))
+    }
+
+    /// 插值限定一致性:`Varying`↔`Varying` 或 `Interpolate(x)`↔`Interpolate(x)`
+    /// (同模式名)视为一致;`Varying`↔`Interpolate` 或不同插值模式 → 失配。
+    fn interp_matches(a: &IoSigKind, b: &IoSigKind) -> bool {
+        match (a, b) {
+            (IoSigKind::Varying, IoSigKind::Varying) => true,
+            (IoSigKind::Interpolate(x), IoSigKind::Interpolate(y)) => x == y,
+            _ => false,
+        }
     }
 
     /// 缺失元素的错误归类(判定边界,见模块/任务报告):
@@ -206,7 +327,7 @@ pub mod signature_gate {
 
 #[cfg(test)]
 mod tests {
-    use super::signature_gate::{SigGateError, check};
+    use super::signature_gate::{SigGateError, StageLinkError, check, check_stage_link};
     use crate::hir::PrimTy;
     use crate::mir::{IoDir, IoSigElem, IoSigKind, MirIoType};
     use crate::toolchain::{DxilSignatures, SigElement};
@@ -670,6 +791,202 @@ mod tests {
         match check(&sigs, &vertex_intent()) {
             Err(SigGateError::SigMismatch { .. }) => {}
             other => panic!("改写 builtin 系统值应 SigMismatch,实得 {other:?}"),
+        }
+    }
+
+    // ════════════════ RXS-0160:阶段间接口 → 阶段链接一致性核对 ════════════════
+    //
+    // `check_stage_link(vs_out_sig, fs_in_sig)` 以语义名等价为链接键核实 vertex 输出
+    // varying ↔ fragment 输入 varying 的语义名 / 类型 / 插值一致性(builtin 系统值不参与,
+    // location 不比对 ABI 中立)。错链 → StageLinkError(strict-only;错误码归类待 owner)。
+
+    /// 链接一致的 vertex 输出集(position builtin out + color varying out +
+    /// uv interpolate(perspective) out)。
+    fn vs_link_out() -> Vec<IoSigElem> {
+        vec![
+            io(
+                "position",
+                IoSigKind::Builtin("position".to_owned()),
+                MirIoType::Vector(PrimTy::F32, 4),
+                IoDir::Out,
+            ),
+            io(
+                "color",
+                IoSigKind::Varying,
+                MirIoType::Vector(PrimTy::F32, 4),
+                IoDir::Out,
+            ),
+            io(
+                "uv",
+                IoSigKind::Interpolate("perspective".to_owned()),
+                MirIoType::Vector(PrimTy::F32, 2),
+                IoDir::Out,
+            ),
+        ]
+    }
+
+    /// 与 [`vs_link_out`] 链接一致的 fragment 输入集(frag_coord builtin in +
+    /// color varying in + uv interpolate(perspective) in)。
+    fn fs_link_in() -> Vec<IoSigElem> {
+        vec![
+            io(
+                "frag_coord",
+                IoSigKind::Builtin("position".to_owned()),
+                MirIoType::Vector(PrimTy::F32, 4),
+                IoDir::In,
+            ),
+            io(
+                "color",
+                IoSigKind::Varying,
+                MirIoType::Vector(PrimTy::F32, 4),
+                IoDir::In,
+            ),
+            io(
+                "uv",
+                IoSigKind::Interpolate("perspective".to_owned()),
+                MirIoType::Vector(PrimTy::F32, 2),
+                IoDir::In,
+            ),
+        ]
+    }
+
+    /// accept(工具无关):链接一致(语义名 / 类型 / 插值全配对,builtin 不参与)→ `Ok`。
+    //@ spec: RXS-0160
+    #[test]
+    fn stage_link_consistent_passes() {
+        assert!(
+            check_stage_link(&vs_link_out(), &fs_link_in()).is_ok(),
+            "vertex out ↔ fragment in 链接一致应通过链接核对"
+        );
+    }
+
+    /// accept:fragment 无输入 varying(仅 builtin frag_coord)→ 无链接键需求 → `Ok`。
+    //@ spec: RXS-0160
+    #[test]
+    fn stage_link_no_fragment_varying_passes() {
+        let fs_in = vec![io(
+            "frag_coord",
+            IoSigKind::Builtin("position".to_owned()),
+            MirIoType::Vector(PrimTy::F32, 4),
+            IoDir::In,
+        )];
+        assert!(
+            check_stage_link(&vs_link_out(), &fs_in).is_ok(),
+            "fragment 仅 builtin 输入(无 varying)应无错链"
+        );
+    }
+
+    /// accept(ABI 中立):vertex 输出顺序打乱 + 链接键语义 index 后缀(vertex `color0`
+    /// ↔ fragment `color`,`semantic_name_matches` 剥 vertex 侧尾随数字)不改变链接判定。
+    //@ spec: RXS-0160
+    #[test]
+    fn stage_link_abi_neutral_order_and_index_suffix() {
+        // vertex 输出:color 带语义 index 后缀(剥尾随数字后语义不变)+ 顺序与基线相反。
+        let mut vs = vec![
+            io(
+                "position",
+                IoSigKind::Builtin("position".to_owned()),
+                MirIoType::Vector(PrimTy::F32, 4),
+                IoDir::Out,
+            ),
+            io(
+                "color0",
+                IoSigKind::Varying,
+                MirIoType::Vector(PrimTy::F32, 4),
+                IoDir::Out,
+            ),
+            io(
+                "uv",
+                IoSigKind::Interpolate("perspective".to_owned()),
+                MirIoType::Vector(PrimTy::F32, 2),
+                IoDir::Out,
+            ),
+        ];
+        vs.reverse();
+        // fragment 输入:color / uv(无后缀)。
+        let fs = vec![
+            io(
+                "color",
+                IoSigKind::Varying,
+                MirIoType::Vector(PrimTy::F32, 4),
+                IoDir::In,
+            ),
+            io(
+                "uv",
+                IoSigKind::Interpolate("perspective".to_owned()),
+                MirIoType::Vector(PrimTy::F32, 2),
+                IoDir::In,
+            ),
+        ];
+        assert!(
+            check_stage_link(&vs, &fs).is_ok(),
+            "顺序 / 语义 index 后缀(ABI 维度)不应改变链接判定"
+        );
+    }
+
+    /// reject:fragment 输入 varying(`extra`)在 vertex 输出无同语义名 → `Unlinked`。
+    //@ spec: RXS-0160
+    #[test]
+    fn stage_link_unlinked_fragment_input() {
+        let fs = vec![io(
+            "extra",
+            IoSigKind::Varying,
+            MirIoType::Vector(PrimTy::F32, 4),
+            IoDir::In,
+        )];
+        match check_stage_link(&vs_link_out(), &fs) {
+            Err(StageLinkError::Unlinked { .. }) => {}
+            other => panic!("缺链接键应 Unlinked,实得 {other:?}"),
+        }
+    }
+
+    /// reject:链接键语义名等价但类型失配(color 两端 vec4 ↔ vec2)→ `LinkMismatch`。
+    //@ spec: RXS-0160
+    #[test]
+    fn stage_link_type_mismatch() {
+        let fs = vec![io(
+            "color",
+            IoSigKind::Varying,
+            MirIoType::Vector(PrimTy::F32, 2), // 上游 vertex 输出为 vec4。
+            IoDir::In,
+        )];
+        match check_stage_link(&vs_link_out(), &fs) {
+            Err(StageLinkError::LinkMismatch { .. }) => {}
+            other => panic!("链接键类型失配应 LinkMismatch,实得 {other:?}"),
+        }
+    }
+
+    /// reject:链接键语义名 / 类型一致但插值限定失配(uv:perspective ↔ flat)→
+    /// `LinkMismatch`。
+    //@ spec: RXS-0160
+    #[test]
+    fn stage_link_interpolation_mismatch() {
+        let fs = vec![io(
+            "uv",
+            IoSigKind::Interpolate("flat".to_owned()), // 上游为 perspective。
+            MirIoType::Vector(PrimTy::F32, 2),
+            IoDir::In,
+        )];
+        match check_stage_link(&vs_link_out(), &fs) {
+            Err(StageLinkError::LinkMismatch { .. }) => {}
+            other => panic!("插值限定失配应 LinkMismatch,实得 {other:?}"),
+        }
+    }
+
+    /// reject:链接键类型一致但 Varying ↔ Interpolate 种类失配 → `LinkMismatch`。
+    //@ spec: RXS-0160
+    #[test]
+    fn stage_link_varying_vs_interpolate_mismatch() {
+        // vertex 输出 color 为普通 Varying;fragment 输入 color 声明为 Interpolate。
+        let fs = vec![io(
+            "color",
+            IoSigKind::Interpolate("flat".to_owned()),
+            MirIoType::Vector(PrimTy::F32, 4),
+            IoDir::In,
+        )];
+        match check_stage_link(&vs_link_out(), &fs) {
+            Err(StageLinkError::LinkMismatch { .. }) => {}
+            other => panic!("Varying↔Interpolate 种类失配应 LinkMismatch,实得 {other:?}"),
         }
     }
 }

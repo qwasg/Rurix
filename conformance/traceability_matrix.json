@@ -940,6 +940,11 @@
       "src/rurixc/src/dxil_codegen.rs",
       "src/rurixc/src/dxil_sig_gate.rs"
     ],
+    "RXS-0160": [
+      "conformance/dxil/graphics/accept/vs_fs_link.rx",
+      "src/rurixc/src/dxil_codegen.rs",
+      "src/rurixc/src/dxil_sig_gate.rs"
+    ],
     "RXS-0161": [
       "conformance/dxil/graphics/accept/vs_varying.rx",
       "conformance/dxil/graphics/reject/vs_builtin_scalar_position.rx",
