@@ -1,0 +1,91 @@
+; NOT BLESSED (local) — RXS-0162 图形=B DXIL 反汇编 golden。
+; 本机 dxc(Vulkan SDK)无签名 validator(dxil.dll/dxv),owner 在 pin 环境重 bless;
+; 版本噪声行(shader hash / dxc ident)已规范化为占位,不写死工具版本布局为语言保证。
+; 平凡 passthrough(RD-013 入口 body 数据流降级 deferred)→ spirv-cross DCE → 签名退化。
+;
+; Input signature:
+;
+; Name                 Index   Mask Register SysValue  Format   Used
+; -------------------- ----- ------ -------- -------- ------- ------
+; no parameters
+;
+; Output signature:
+;
+; Name                 Index   Mask Register SysValue  Format   Used
+; -------------------- ----- ------ -------- -------- ------- ------
+; TEXCOORD                 0   x           0     NONE   float   x   
+;
+; shader hash: <NOT-BLESSED-NORMALIZED>
+;
+; Pipeline Runtime Information: 
+;
+;PSVRuntimeInfo:
+; Vertex Shader
+; OutputPositionPresent=0
+; MinimumExpectedWaveLaneCount: 0
+; MaximumExpectedWaveLaneCount: 4294967295
+; UsesViewID: false
+; SigInputElements: 0
+; SigOutputElements: 1
+; SigPatchConstOrPrimElements: 0
+; SigInputVectors: 0
+; SigOutputVectors[0]: 1
+; SigOutputVectors[1]: 0
+; SigOutputVectors[2]: 0
+; SigOutputVectors[3]: 0
+; EntryFunctionName: main
+;
+;
+; Output signature:
+;
+; Name                 Index             InterpMode DynIdx
+; -------------------- ----- ---------------------- ------
+; TEXCOORD                 0                 linear       
+;
+; Buffer Definitions:
+;
+;
+; Resource Bindings:
+;
+; Name                                 Type  Format         Dim      ID      HLSL Bind  Count
+; ------------------------------ ---------- ------- ----------- ------- -------------- ------
+;
+;
+; ViewId state:
+;
+; Number of inputs: 0, outputs: 1
+; Outputs dependent on ViewId: {  }
+; Inputs contributing to computation of Outputs:
+;
+target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
+target triple = "dxil-ms-dx"
+
+define void @main() {
+  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float 0.000000e+00)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+  ret void
+}
+
+; Function Attrs: nounwind
+declare void @dx.op.storeOutput.f32(i32, i32, i32, i8, float) #0
+
+attributes #0 = { nounwind }
+
+!llvm.ident = !{!0}
+!dx.version = !{!1}
+!dx.valver = !{!2}
+!dx.shaderModel = !{!3}
+!dx.viewIdState = !{!4}
+!dx.entryPoints = !{!5}
+
+!0 = !{!"dxc(private) <NOT-BLESSED-NORMALIZED>"}
+!1 = !{i32 1, i32 0}
+!2 = !{i32 1, i32 8}
+!3 = !{!"vs", i32 6, i32 0}
+!4 = !{[2 x i32] [i32 0, i32 1]}
+!5 = !{void ()* @main, !"main", !6, null, null}
+!6 = !{null, !7, null}
+!7 = !{!8}
+!8 = !{i32 0, !"TEXCOORD", i8 9, i8 0, !9, i8 2, i32 1, i8 1, i32 0, i8 0, !10}
+!9 = !{i32 0}
+!10 = !{i32 3, i32 1}
+
