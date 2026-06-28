@@ -21,11 +21,13 @@ use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 use crate::ast::{FnColor, ShaderStage};
+use crate::binding_layout;
 use crate::diag::{DiagCtxt, ErrorCode};
 use crate::dxil_sig_gate::signature_gate;
 use crate::dxil_spirv::{self, DxilError};
 use crate::mir::{
-    Body, Const, IoDir, IoSigElem, IoSigKind, Operand, Rvalue, StatementKind, TerminatorKind,
+    Body, Const, IoDir, IoSigElem, IoSigKind, Operand, ResourceBinding, Rvalue, StatementKind,
+    TerminatorKind,
 };
 use crate::query::QueryCtx;
 use crate::span::Span;
@@ -192,13 +194,28 @@ fn classify_stage(stage: Option<ShaderStage>) -> StageRoute {
     }
 }
 
-/// B 路产出(本任务到 `parse_dxil_signatures` 产出 [`DxilSignatures`] 为止)。
+/// B 路产出(B 链译后签名 + host 侧推导的 RTS0 root signature 容器字节)。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DxilBOutcome {
-    /// B 链跑通,得译后签名(任务5 `signature_gate::check` 的意图比对输入)。
-    Produced(DxilSignatures),
+    /// B 链跑通,得译后签名(任务5 `signature_gate::check` 的意图比对输入)+ host 侧
+    /// 绑定布局推导序列化出的 RTS0 root signature 容器字节(RXS-0165;PR-E2b 生产
+    /// 接线,供 device PSO 创建消费,G-G2-3)。
+    Produced {
+        /// B 链译后签名(ISG1/OSG1)。
+        sigs: DxilSignatures,
+        /// host 侧推导序列化的 RTS0 root signature 容器(确定性;非 stable ABI)。
+        root_signature: Vec<u8>,
+    },
     /// 工具链不可用(定位失败 / spawn 失败 / 临时文件失败)→ SKIP(非 6xxx,
     /// 环境降级,对齐 RXS-0073);携带 SKIP 原因供 note 展示。
+    Skipped(String),
+}
+
+/// B 链跑链体内部结果(签名 / SKIP;RTS0 由 [`emit_dxil_b`] 在 host 侧另行推导组装)。
+enum BChainResult {
+    /// B 链跑通,得译后签名。
+    Sigs(DxilSignatures),
+    /// 工具链不可用 → SKIP(携带原因)。
     Skipped(String),
 }
 
@@ -259,9 +276,9 @@ fn scratch_dir() -> std::io::Result<PathBuf> {
 /// - **工具运行后拒绝**(exit != 0)= B 链转译失败 → 6xxx(strict-only,R6.1)。
 ///
 /// (分片1 工具链驱动只读复用、勿改,故据其错误串前缀判别 spawn↔exit。)
-fn classify_tool_failure(step: &str, reason: String) -> Result<DxilBOutcome, DxilBError> {
+fn classify_tool_failure(step: &str, reason: String) -> Result<BChainResult, DxilBError> {
     if reason.contains("cannot spawn") {
-        Ok(DxilBOutcome::Skipped(format!(
+        Ok(BChainResult::Skipped(format!(
             "{step} 不可执行(spawn 失败): {reason}"
         )))
     } else {
@@ -331,7 +348,7 @@ fn run_b_chain(
     dir: &Path,
     io_sig: &[IoSigElem],
     extra: &[String],
-) -> Result<DxilBOutcome, DxilBError> {
+) -> Result<BChainResult, DxilBError> {
     // 3) 写临时 `.spv`:`&[u32]` 小端 → `&[u8]`(纯 safe,`u32::to_le_bytes`,R1.11)。
     let spv_path = dir.join("stage.spv");
     let mut bytes = Vec::with_capacity(spv.len() * 4);
@@ -339,7 +356,7 @@ fn run_b_chain(
         bytes.extend_from_slice(&w.to_le_bytes());
     }
     if let Err(e) = std::fs::write(&spv_path, &bytes) {
-        return Ok(DxilBOutcome::Skipped(format!("写临时 .spv 失败: {e}")));
+        return Ok(BChainResult::Skipped(format!("写临时 .spv 失败: {e}")));
     }
 
     // 4) spirv-cross:SPIR-V → HLSL(SM 6.0)。`extra` = 顶点输入语义保名旗标
@@ -373,31 +390,42 @@ fn run_b_chain(
     //    失败 → 6xxx,**终止该入口产物**(不返回 Produced、不产 golden)。
     signature_gate::check(&sigs, io_sig).map_err(DxilBError::SigGate)?;
 
-    Ok(DxilBOutcome::Produced(sigs))
+    Ok(BChainResult::Sigs(sigs))
 }
 
 /// B 路 codegen:着色阶段(`stage` ∈ {Vertex, Fragment})+ I/O 意图签名(`io_sig`)
-/// → MIR→SPIR-V→spirv-cross→dxc→dumpbin→`parse_dxil_signatures`→`signature_gate::check`
-/// → [`DxilSignatures`]。
+/// 与资源句柄绑定(`resources`)→ MIR→SPIR-V(含资源 `DescriptorSet`/`Binding` 装饰)
+/// →spirv-cross→dxc→dumpbin→`parse_dxil_signatures`→`signature_gate::check`
+/// → [`DxilSignatures`] 与 host 侧推导序列化的 RTS0 root signature 容器
+/// ([`DxilBOutcome::Produced`])。
 ///
 /// 强制签名一致性校验门(`signature_gate::check`,任务5)在 B 链末尾(步骤8)运行,
 /// 不可裁剪、无旁路:译后签名与 `io_sig` 不一致 → strict-only 失败,绝不返回
 /// [`DxilBOutcome::Produced`]。
 ///
+/// RTS0 推导(RXS-0165;PR-E2b 生产接线):`binding_layout::infer_root_signature`
+/// → `serialize_rts0`,纯 host 推导(工具链无关);`emit_spirv` 已先拒 bindless/
+/// unbounded(RD-018),故生产侧资源(`Texture2D<F>`/`Sampler`)恒可推导。
+///
 /// # Errors
 /// - 编码器不可映射构造(非 vertex·fragment 阶段 / 不可映射类型 / 未建模 builtin /
-///   builtin 类型不符 / 越界向量宽度)→ [`DxilBError::Spirv`](strict-only,6xxx)。
+///   builtin 类型不符 / 越界向量宽度 / bindless 资源)→ [`DxilBError::Spirv`]
+///   (strict-only,6xxx)。
 /// - B 链外部工具运行后拒绝 → [`DxilBError::Toolchain`](6xxx)。
 /// - 签名一致性校验门拒绝(语义名 / 系统值未保真 / 声明输入被消除)→
 ///   [`DxilBError::SigGate`](6xxx,任务5)。
 ///
 /// 工具链不可用(定位失败 / spawn 失败 / 临时文件失败)→ `Ok(`[`DxilBOutcome::Skipped`]`)`
 /// (非 6xxx,环境降级,真实红绿在带工具链的 dev/owner 环境)。
-pub fn emit_dxil_b(stage: ShaderStage, io_sig: &[IoSigElem]) -> Result<DxilBOutcome, DxilBError> {
-    // 1) MIR→SPIR-V(任务2 编码器);不可映射 → 透传 6xxx(strict-only,不静默降级)。
-    //    🔒 io_sig 仅可表达已建模标量/向量,资源句柄/采样器结构上不可达 → 纹理访问
-    //    语义在本层不可触及(见模块顶注);未来扩展由 emit_spirv 在映射处停手升档。
-    let spv = dxil_spirv::emit_spirv(stage, io_sig).map_err(DxilBError::Spirv)?;
+pub fn emit_dxil_b(
+    stage: ShaderStage,
+    io_sig: &[IoSigElem],
+    resources: &[ResourceBinding],
+) -> Result<DxilBOutcome, DxilBError> {
+    // 1) MIR→SPIR-V(任务2 编码器 + RXS-0163 资源绑定装饰);不可映射 → 透传 6xxx
+    //    (strict-only,不静默降级)。资源句柄绑定的 `DescriptorSet`/`Binding` 由
+    //    host 侧 `binding_layout::infer_spirv_bindings` 确定性推导(见 emit_spirv)。
+    let spv = dxil_spirv::emit_spirv(stage, io_sig, resources).map_err(DxilBError::Spirv)?;
 
     // emit_spirv 成功即保证 stage ∈ {Vertex, Fragment};据此取 dxc profile。
     let profile = match stage {
@@ -406,6 +434,10 @@ pub fn emit_dxil_b(stage: ShaderStage, io_sig: &[IoSigElem]) -> Result<DxilBOutc
         // 不可达(非图形阶段已在 emit_spirv 被拒);防御性 SKIP,不 panic。
         _ => return Ok(DxilBOutcome::Skipped("非图形阶段(不可达)".to_owned())),
     };
+
+    // 1b) root signature 形态推导 + RTS0 容器序列化(RXS-0165;纯 host,工具链无关)。
+    //     emit_spirv 已先拒 bindless/unbounded → 生产侧资源恒可推导。
+    let root_signature = serialize_root_signature(resources)?;
 
     // 2) 工具链定位:缺失 → SKIP(非 6xxx,环境降级)。
     let Some(spvx) = toolchain::locate_spirv_cross() else {
@@ -424,9 +456,34 @@ pub fn emit_dxil_b(stage: ShaderStage, io_sig: &[IoSigElem]) -> Result<DxilBOutc
         Ok(d) => d,
         Err(e) => return Ok(DxilBOutcome::Skipped(format!("临时目录创建失败: {e}"))),
     };
-    let outcome = run_b_chain(&spv, &spvx, &dxc, profile, &dir, io_sig, &extra);
+    let result = run_b_chain(&spv, &spvx, &dxc, profile, &dir, io_sig, &extra);
     let _ = std::fs::remove_dir_all(&dir);
-    outcome
+    match result {
+        Ok(BChainResult::Sigs(sigs)) => Ok(DxilBOutcome::Produced {
+            sigs,
+            root_signature,
+        }),
+        Ok(BChainResult::Skipped(why)) => Ok(DxilBOutcome::Skipped(why)),
+        Err(e) => Err(e),
+    }
+}
+
+/// root signature 形态推导 + RTS0 容器序列化(RXS-0165;PR-E2b 生产接线)。
+///
+/// **E2b-1 interim**:绑定推导失败暂经 `RX6013`(`codegen.dxil_unmappable`)透传——
+/// register/layout 冲突 / root signature 超 64 DWORD / PSV0 失配的**专属码
+/// `RX6015`/`RX6016`/`RX6017`** 落 E2b-2(owner Q-Err 已裁)。`emit_spirv` 在本函数
+/// 前已先拒 bindless/unbounded(RD-018),生产侧资源(`Texture2D<F>`/`Sampler`,
+/// 基数 One)恒可推导,故 `Err` 分支在 E2b-1 不可达,仅作 strict-only 防御
+/// (绝不静默产出空 root signature)。
+fn serialize_root_signature(resources: &[ResourceBinding]) -> Result<Vec<u8>, DxilBError> {
+    match binding_layout::infer_root_signature(resources) {
+        Ok(rs) => Ok(binding_layout::serialize_rts0(&rs)),
+        Err(e) => Err(DxilBError::Spirv(DxilError::Unmappable {
+            what: "binding-layout".to_owned(),
+            detail: e.to_string(),
+        })),
+    }
 }
 
 /// 单个 device [`Body`] 的 DXIL codegen 分发产出(任务4分发点的整体结果)。
@@ -434,8 +491,13 @@ pub fn emit_dxil_b(stage: ShaderStage, io_sig: &[IoSigElem]) -> Result<DxilBOutc
 pub enum DispatchOutcome {
     /// `None`(compute/kernel)→ A 路 DirectX 三元组 LLVM IR 文本(RXS-0157)。
     PathAIr(String),
-    /// Vertex/Fragment → B 路译后签名(任务5校验门接缝输入)。
-    PathBSignatures(DxilSignatures),
+    /// Vertex/Fragment → B 路译后签名(任务5校验门接缝输入)+ RTS0 root signature。
+    PathBSignatures {
+        /// B 链译后签名(ISG1/OSG1)。
+        sigs: DxilSignatures,
+        /// host 侧推导序列化的 RTS0 root signature 容器(RXS-0165;PR-E2b)。
+        root_signature: Vec<u8>,
+    },
     /// Vertex/Fragment → B 路工具链 SKIP(非 6xxx;携带原因)。
     SkippedB(String),
     /// 已发诊断(A 路 RX6007 子集外 / B 路 strict-only 6xxx / mesh·task·RT stub 6xxx);
@@ -512,12 +574,18 @@ pub fn dispatch_and_emit(diag: &DiagCtxt, body: &Body, module_name: &str) -> Dis
             }
         },
         // ── B 路(vertex/fragment):MIR→SPIR-V→…→parse_dxil_signatures。 ──
-        StageRoute::PathB(stage) => match emit_dxil_b(stage, &body.io_sig) {
-            Ok(DxilBOutcome::Produced(sigs)) => {
+        StageRoute::PathB(stage) => match emit_dxil_b(stage, &body.io_sig, &body.resources) {
+            Ok(DxilBOutcome::Produced {
+                sigs,
+                root_signature,
+            }) => {
                 // 校验门已在 B 链内部(run_b_chain 步骤8)强制通过:能到此即译后签名
                 // 与 MIR 意图签名一致(用户语义名/系统值/被用输入/链接键保真)。校验
                 // 失败的入口绝不到此(已转 Err 分支落 6xxx),Property 5 不旁路由此保证。
-                DispatchOutcome::PathBSignatures(sigs)
+                DispatchOutcome::PathBSignatures {
+                    sigs,
+                    root_signature,
+                }
             }
             Ok(DxilBOutcome::Skipped(why)) => {
                 eprintln!(
@@ -738,6 +806,7 @@ mod tests {
             span: sp,
             stage,
             io_sig,
+            resources: Vec::new(),
         }
     }
 
@@ -820,7 +889,7 @@ mod tests {
             let body = make_body(Some(stage), io_sig);
             match dispatch_and_emit(&diag, &body, "gfx") {
                 // 校验门通过(签名保真)。
-                DispatchOutcome::PathBSignatures(_) => {}
+                DispatchOutcome::PathBSignatures { .. } => {}
                 // 工具链不可用 → SKIP(非 6xxx,环境降级)。
                 DispatchOutcome::SkippedB(_) => {}
                 // 带工具链真跑:trivial passthrough DCE 消除声明输入 → 校验门
@@ -880,7 +949,7 @@ mod tests {
             MirIoType::Scalar(PrimTy::F64),
             IoDir::Out,
         )];
-        let r = emit_dxil_b(ShaderStage::Vertex, &io);
+        let r = emit_dxil_b(ShaderStage::Vertex, &io, &[]);
         assert!(
             matches!(r, Err(DxilBError::Spirv(DxilError::Unmappable { .. }))),
             "f64 应透传不可映射 6xxx,实得 {r:?}"
@@ -937,8 +1006,8 @@ mod tests {
             ("vertex", ShaderStage::Vertex, vertex_io()),
             ("fragment", ShaderStage::Fragment, fragment_io()),
         ] {
-            match emit_dxil_b(stage, &io_sig) {
-                Ok(DxilBOutcome::Produced(sigs)) => {
+            match emit_dxil_b(stage, &io_sig, &[]) {
+                Ok(DxilBOutcome::Produced { sigs, .. }) => {
                     // 校验门已强制通过:译后签名与意图签名保真。
                     eprintln!("[OK] {tag} B 链产签名且校验门通过: {sigs:?}");
                 }

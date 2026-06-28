@@ -160,6 +160,10 @@ fn attach_graphics_io_sig(cx: &QueryCtx<'_>, krate: &hir::Crate, def: DefId, bod
     };
     body.stage = Some(stage);
     body.io_sig = dxil_io::io_sig_for(cx.ast(), &krate.item(def).name, stage);
+    // PR-E2b 生产接线(RXS-0163):同序提取资源句柄形参绑定声明,作 host 侧
+    // 绑定布局推导(binding_layout)的确定性输入(io_sig 与 resources 互不交叠:
+    // 命名 I/O 结构体 → io_sig;资源句柄形参 → resources)。
+    body.resources = dxil_io::resources_for(cx.ast(), &krate.item(def).name, stage);
 }
 
 /// 默认 / 非 `dxil-backend`:图形阶段根不收集,`Body` 的 stage/io_sig 维持
@@ -185,7 +189,9 @@ mod dxil_io {
 
     use crate::ast::{self, MetaInner, MetaKind, ShaderStage, TyKind};
     use crate::hir::PrimTy;
-    use crate::mir::{IoDir, IoSigElem, IoSigKind, MirIoType};
+    use crate::mir::{
+        IoDir, IoSigElem, IoSigKind, MirIoType, MirResourceType, ResourceBinding, ResourceCount,
+    };
 
     /// 提取指定图形阶段函数(名 + 阶段匹配)的 I/O 意图签名表。
     pub(super) fn io_sig_for(
@@ -219,6 +225,65 @@ mod dxil_io {
             }
         }
         out
+    }
+
+    /// 提取指定图形阶段函数的资源句柄形参绑定声明(RXS-0163;PR-E2b 生产接线)。
+    ///
+    /// 按**声明序**扫描阶段函数形参,命中资源句柄类型(RXS-0156 首批:`Texture2D<F>`
+    /// → SRV / `Sampler` → Sampler)者落 [`ResourceBinding`](源码形参名保名 + 资源
+    /// 类型 + 基数)。命名 I/O 结构体形参(varying)与原生类型形参不入(由
+    /// [`io_sig_for`] 各管其责)。首批无数组语法 → 基数恒 [`ResourceCount::One`]。
+    pub(super) fn resources_for(
+        file: &ast::SourceFile,
+        fn_name: &str,
+        stage: ShaderStage,
+    ) -> Vec<ResourceBinding> {
+        let mut out = Vec::new();
+        let Some(f) = find_stage_fn(&file.items, fn_name, stage) else {
+            return out;
+        };
+        for p in &f.params {
+            if let ast::ParamKind::Typed { pat, ty } = &p.kind
+                && let Some(res) = ast_ty_to_resource(ty)
+            {
+                out.push(ResourceBinding {
+                    name: pat_binding_name(pat).unwrap_or_default(),
+                    res,
+                    count: ResourceCount::One,
+                });
+            }
+        }
+        out
+    }
+
+    /// 简单绑定形参名(`name: Ty` → "name");非简单绑定模式 → None。
+    fn pat_binding_name(pat: &ast::Pat) -> Option<String> {
+        match &pat.kind {
+            ast::PatKind::Binding { name, .. } => Some(name.name.clone()),
+            _ => None,
+        }
+    }
+
+    /// AST 类型 → 资源句柄建模(RXS-0156 首批 `Texture2D<F>`/`Sampler`);非资源
+    /// 句柄类型 → None。`Texture2D` 取首个类型实参的头 prim 作分量类型(缺省 `f32`)。
+    fn ast_ty_to_resource(ty: &ast::Ty) -> Option<MirResourceType> {
+        let ty = unwrap_ty(ty);
+        let head = ty_head_name(ty)?;
+        match head {
+            "Texture2D" => {
+                let prim = if let TyKind::Path(p) = &ty.kind {
+                    p.segments
+                        .last()
+                        .and_then(vector_elem_prim)
+                        .unwrap_or(PrimTy::F32)
+                } else {
+                    PrimTy::F32
+                };
+                Some(MirResourceType::Texture2D(prim))
+            }
+            "Sampler" => Some(MirResourceType::Sampler),
+            _ => None,
+        }
     }
 
     /// 收集全 crate(含嵌套 mod)命名字段结构体 → 字段切片(按名;同名取首个)。
@@ -502,6 +567,10 @@ fn build_body(cx: &QueryCtx<'_>, def: DefId, generic_args: Vec<Ty>) -> BuildOutp
             // 根收集与 I/O 签名携带由后续分片在 `dxil-backend` feature 下接线。
             stage: None,
             io_sig: Vec::new(),
+            // PR-E2b 生产接线(RXS-0163):资源句柄绑定声明亦由图形阶段根收集
+            // (`attach_graphics_io_sig`)在 `dxil-backend` 下携带;默认路径恒空,
+            // 行为零漂移(R1.2/R6.7)。
+            resources: Vec::new(),
         },
         b.callees,
         b.const_err,
@@ -1911,6 +1980,120 @@ bb1:
                 .iter()
                 .any(|e| e.field_name == "tex" || e.field_name == "samp"),
             "资源句柄不应进入 io_sig"
+        );
+    }
+
+    /// PR-E2b E2b-1 端到端(闭合 assumed-1):着色阶段签名资源句柄形参 →
+    /// `Body.resources` 收集(RXS-0163)→ `emit_spirv` 资源绑定装饰 emit
+    /// (`DescriptorSet`/`Binding` + opaque 资源类型)→ `infer_root_signature` +
+    /// `serialize_rts0` 产 RTS0 容器(RXS-0165)。证明 MIR→SPIR-V 资源绑定不再
+    /// 「结构上不可达」:资源句柄端到端贯通 emit 与 root signature 推导。
+    //@ spec: RXS-0163, RXS-0165
+    #[cfg(all(feature = "dxil-backend", feature = "shader-stages"))]
+    #[test]
+    fn e2b1_resources_flow_into_spirv_and_root_signature() {
+        use crate::ast::ShaderStage;
+        use crate::hir::PrimTy;
+        use crate::mir::{MirResourceType, ResourceClass, ResourceCount};
+
+        // SPIR-V 解码常量(core 规范)。
+        const OP_DECORATE: u16 = 71;
+        const OP_TYPE_IMAGE: u16 = 25;
+        const OP_TYPE_SAMPLER: u16 = 26;
+        const DECORATION_BINDING: u32 = 33;
+        const DECORATION_DESCRIPTOR_SET: u32 = 34;
+
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(
+            "struct FsOut {\n\
+            \x20   color: f32,\n\
+             }\n\
+             fragment fn fs_main(tex: Texture2D<f32>, samp: Sampler) -> FsOut {\n\
+            \x20   FsOut { color: 0.0 }\n\
+             }\n\
+             fn main() {}",
+            SourceId(0),
+            Edition::Rx0,
+            &diag,
+        );
+        assert!(
+            !diag.has_errors(),
+            "资源句柄 fragment 前段应 0 诊断(实得 {:?})",
+            diag.emitted()
+                .iter()
+                .filter_map(|d| d.code)
+                .collect::<Vec<_>>()
+        );
+        let device = cx.device_mir_crate();
+        let fs = device
+            .iter()
+            .find(|b| b.stage == Some(ShaderStage::Fragment))
+            .expect("fragment 图形阶段根应进入 device MIR");
+
+        // 1) 资源句柄形参按声明序进 `Body.resources`(io_sig 与 resources 不交叠)。
+        assert_eq!(fs.resources.len(), 2, "resources: {:?}", fs.resources);
+        assert_eq!(fs.resources[0].name, "tex");
+        assert_eq!(fs.resources[0].res, MirResourceType::Texture2D(PrimTy::F32));
+        assert_eq!(fs.resources[0].res.class(), ResourceClass::Srv);
+        assert_eq!(fs.resources[0].count, ResourceCount::One);
+        assert_eq!(fs.resources[1].name, "samp");
+        assert_eq!(fs.resources[1].res, MirResourceType::Sampler);
+        assert_eq!(fs.resources[1].res.class(), ResourceClass::Sampler);
+
+        // 2) emit_spirv 携资源 → 资源绑定装饰 + opaque 资源类型(闭合 assumed-1)。
+        let spv = crate::dxil_spirv::emit_spirv(ShaderStage::Fragment, &fs.io_sig, &fs.resources)
+            .expect("带资源的 fragment emit 应 Ok");
+        // 手动遍历指令(跳过 5 字 header),统计资源装饰 / opaque 类型。
+        let mut sets = Vec::new();
+        let mut bindings = Vec::new();
+        let mut has_image = false;
+        let mut has_sampler = false;
+        let mut i = 5;
+        while i < spv.len() {
+            let word = spv[i];
+            let wc = (word >> 16) as usize;
+            let op = (word & 0xFFFF) as u16;
+            if wc == 0 || i + wc > spv.len() {
+                break;
+            }
+            let ops = &spv[i + 1..i + wc];
+            match op {
+                OP_DECORATE if ops.get(1) == Some(&DECORATION_DESCRIPTOR_SET) => sets.push(ops[2]),
+                OP_DECORATE if ops.get(1) == Some(&DECORATION_BINDING) => bindings.push(ops[2]),
+                OP_TYPE_IMAGE => has_image = true,
+                OP_TYPE_SAMPLER => has_sampler = true,
+                _ => {}
+            }
+            i += wc;
+        }
+        assert!(has_image, "Texture2D 应 emit OpTypeImage");
+        assert!(has_sampler, "Sampler 应 emit OpTypeSampler");
+        assert_eq!(sets, vec![0, 0], "首期单 set,两资源 DescriptorSet 恒 0");
+        assert_eq!(
+            bindings,
+            vec![0, 1],
+            "Binding 按声明序确定性递增(tex=0, samp=1)"
+        );
+        // 确定性:同输入二次 emit 字节全等。
+        assert_eq!(
+            spv,
+            crate::dxil_spirv::emit_spirv(ShaderStage::Fragment, &fs.io_sig, &fs.resources)
+                .unwrap()
+        );
+
+        // 3) root signature 形态推导 + RTS0 容器序列化(RXS-0165;确定性)。
+        let rs = crate::binding_layout::infer_root_signature(&fs.resources)
+            .expect("Texture2D/Sampler 应可推导 root signature");
+        let rts0 = crate::binding_layout::serialize_rts0(&rs);
+        assert_eq!(&rts0[0..4], b"DXBC", "RTS0 外层 DXBC 容器 fourcc");
+        assert!(
+            rts0.windows(4).any(|w| w == b"RTS0"),
+            "容器应含 RTS0 part fourcc"
+        );
+        assert_eq!(
+            rts0,
+            crate::binding_layout::serialize_rts0(&rs),
+            "RTS0 序列化应确定性(同输入字节全等)"
         );
     }
 }

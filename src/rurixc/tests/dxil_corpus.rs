@@ -195,9 +195,10 @@ fn accept_graphics_corpus_lowers_to_spirv() {
                 f.display()
             );
             let stage = b.stage.expect("图形根 stage");
-            let spv = rurixc::dxil_spirv::emit_spirv(stage, &b.io_sig).unwrap_or_else(|e| {
-                panic!("{} emit_spirv 应 Ok(已建模子集), 实得 {e:?}", f.display())
-            });
+            let spv = rurixc::dxil_spirv::emit_spirv(stage, &b.io_sig, &b.resources)
+                .unwrap_or_else(|e| {
+                    panic!("{} emit_spirv 应 Ok(已建模子集), 实得 {e:?}", f.display())
+                });
             assert_eq!(
                 spv.first().copied(),
                 Some(0x0723_0203),
@@ -206,7 +207,8 @@ fn accept_graphics_corpus_lowers_to_spirv() {
             );
             // RXS-0162 确定性(host 面):同 io_sig ×N emit_spirv 字节全等(Property 3 的
             // host 可达面;B 全链容器 SHA256 确定性见步骤 46)。
-            let spv2 = rurixc::dxil_spirv::emit_spirv(stage, &b.io_sig).expect("二次 emit");
+            let spv2 =
+                rurixc::dxil_spirv::emit_spirv(stage, &b.io_sig, &b.resources).expect("二次 emit");
             assert_eq!(
                 spv,
                 spv2,
@@ -300,7 +302,7 @@ fn reject_graphics_corpus_intercepted() {
         let mut produced = false;
         for b in &bodies {
             match dispatch_and_emit(&diag, b, "gfx") {
-                DispatchOutcome::PathAIr(_) | DispatchOutcome::PathBSignatures(_) => {
+                DispatchOutcome::PathAIr(_) | DispatchOutcome::PathBSignatures { .. } => {
                     produced = true;
                 }
                 DispatchOutcome::SkippedB(_) | DispatchOutcome::Diagnosed => {}

@@ -259,8 +259,9 @@ fn dxil_b_disasm_golden_matches_when_toolchain_present() {
             ));
             continue;
         };
-        // 1) MIR→SPIR-V(Rurix 自有降级)。
-        let spv = rurixc::dxil_spirv::emit_spirv(stage, &io_sig)
+        // 1) MIR→SPIR-V(Rurix 自有降级)。资源绑定 golden 随 E2b-3 落地,本通道暂
+        //    保持 io-only(空资源),既有反汇编 golden 形态不漂移。
+        let spv = rurixc::dxil_spirv::emit_spirv(stage, &io_sig, &[])
             .unwrap_or_else(|e| panic!("{stem}: emit_spirv 应 Ok, 实得 {e:?}"));
         let mut bytes = Vec::with_capacity(spv.len() * 4);
         for w in &spv {

@@ -48,6 +48,12 @@ pub struct Body {
     /// in|out 方向),作 B 路 SPIR-V 保名 by-construction 与签名一致性校验门的
     /// 意图侧依据。非着色阶段(含默认 PTX 路径)恒为空,行为零漂移。
     pub io_sig: Vec<IoSigElem>,
+    /// 资源句柄绑定声明(G2.3 绑定布局推导,RXS-0163;PR-E2b 生产接线):着色阶段
+    /// 签名里的资源句柄形参(`Texture2D<F>`/`Sampler`)按**声明序**提取,作 host
+    /// 侧绑定布局推导(SPIR-V `DescriptorSet`/`Binding` 装饰 / register-space 分配 /
+    /// root signature 形态 + RTS0 序列化)的确定性输入([`crate::binding_layout`])。
+    /// 非着色阶段(含默认 PTX 路径)恒为空,行为零漂移(R1.2/R6.7)。
+    pub resources: Vec<ResourceBinding>,
 }
 
 impl Body {
@@ -657,6 +663,7 @@ mod tests {
             span: dummy_span(),
             stage,
             io_sig,
+            resources: Vec::new(),
         }
     }
 
