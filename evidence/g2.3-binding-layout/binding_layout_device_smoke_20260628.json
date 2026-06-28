@@ -4,7 +4,7 @@
   "milestone_gate": "G-G2-3 (E2b-4)",
   "status": "measured_local",
   "generated": "2026-06-28T17:31:28+08:00",
-  "host_note": "G2.3 绑定布局推导产物 device 真跑(E2b-4)。measured=真实 D3D12 hardware + signed dxc pin 产出；run_url provenance 见下(本地 interactive runner;真实 CI run URL 由 owner 回填,AI 不伪造)。",
+  "host_note": "G2.3 绑定布局推导产物 device 真跑(E2b-4)。measured=真实 D3D12 hardware + signed dxc pin 产出；run_url 见下(self-hosted GPU runner PR smoke 步骤 47 PASS,已回填为真实 GitHub Actions device 见证入口,AI 不伪造)。",
   "binding_product": {
     "resource_set": "Texture2D<f32> tex (SRV t0) + Sampler samp (s0)",
     "rts0_bytes": 148,
