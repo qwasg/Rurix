@@ -53,7 +53,7 @@ acceptance_gates:
   - id: G-G2-3
     check: "绑定布局推导:descriptor / root signature 由编译器推导生成（P-11）,**经人工 Full RFC 前置（codegen 推导面）**;推导正确性 conformance + golden;真实红绿。**脚手架不实现,仅登记 gating**"
   - id: G-G2-4
-    check: "UC-04 deferred 渲染器 demo:依赖 G2.1~G2.3 就位,原生 D3D12 + DXIL 端到端出图（多 pass deferred 管线）真跑;呈现对照 + 真实红绿。**脚手架不实现,仅登记 gating**"
+    check: "UC-04 deferred 渲染器 demo:依赖 G2.1~G2.3 就位,原生 D3D12 + DXIL 端到端出图（多 pass deferred 管线）真跑;呈现对照 + 真实红绿。**防降级硬门**:green 必须证明 Rurix source 经 rurixc 图形=B DXIL 路径 + RFC-0005 RTS0/绑定布局进入 D3D12 PSO 并完成 hardware 多 pass deferred draw + offscreen readback;手写 HLSL/DXIL、CPU 预填、单 pass textured draw、fullscreen copy、固定像素注入、host-only 模拟、窗口截图或 SKIP 均不得替代验收;RD-013 或其他前置缺口阻断时标 blocked,不得签 G-G2-4。**脚手架不实现,仅登记 gating**"
   - id: G-G2-5
     check: "语言 1.0 + 首个 edition:spec 全量条款化 + conformance 覆盖达标 + edition 机制落地,**edition/stabilization 经人工 Full RFC（10 §3）**;stable API 快照冻结机制（RD-008）在首个 stable 发布时按 owner 裁决激活（stable 面定义 + 快照比对 + bless 守卫);close-out budget_eval --strict 零 estimated。**脚手架不实现,仅登记 gating**"
   - id: G-G2-6
