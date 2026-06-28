@@ -4,15 +4,15 @@
 |---|---|
 | RFC 编号 | RFC-0006（4 位制，编号永不复用，10 §9.5） |
 | 标题 | UC-04 deferred 渲染器 demo / 原生 D3D12 运行时出图路径（多 pass：G-buffer + lighting + present/readback） |
-| 档位 | **Full RFC**（10 §3：首次落 **D3D12 运行时面**——PSO 装配 / 资源状态机 / barrier 语义 / swapchain 呈现（06 §8.2 第 4/5 点，RFC-0003 §8 / RFC-0004 §8 显式 defer 到本面）；并触 AGENTS 硬规则 5 禁区边界——**纹理路径内存模型映射（06 §4.2 🔒）** / **D3D12 运行时 stable ABI** / **FFI ABI（host↔D3D12/DXIL 运行时边界）** / **barrier·资源状态并发语义**；本 RFC 只作设计面 + 边界声明 + owner 待裁清单，不落运行时语义本体、不实现 renderer） |
-| 状态 | **Draft / Awaiting Owner**。AI 起草骨架；**owner FCP-lite 批准前不得推进下游实现 PR（硬规则 1，AI 不代签、不自判 Direct）**。所有路径性抉择落 §9 待裁清单，AI 不自填默认、不自判 Direct |
+| 档位 | **Full RFC**（10 §3：首次落 **D3D12 运行时面**——PSO 装配 / 资源状态机 / barrier 语义 / swapchain 呈现（06 §8.2 第 4/5 点，RFC-0003 §8 / RFC-0004 §8 显式 defer 到本面）；并触 AGENTS 硬规则 5 禁区边界——**纹理路径内存模型映射（06 §4.2 🔒）** / **D3D12 运行时 stable ABI** / **FFI ABI（host↔D3D12/DXIL 运行时边界）** / **barrier·资源状态并发语义**；本 RFC 只作设计面 + 边界声明 + owner 裁决清单（§9 已裁 2026-06-28），不落运行时语义本体、不实现 renderer） |
+| 状态 | **Accepted / Owner Approved（2026-06-28）**。owner（Language Lead）已在本工作会话同意 RFC-0006 全文 + §9 全部裁决（Q-Present=offscreen-first / Q-DemoCrate=独立 demo crate（`src/uc04-demo`）/ Q-RuntimeShape=safe wrapper / Q-DeferredPass=G-buffer(albedo+normal+depth)→单光源→offscreen readback / Q-Barrier=首期手动 barrier 编排 / Q-Texture=不落纹理内存模型本体 / Q-Range=RXS-0167~0170 / Q-Err=6xxx 续号（自 RX6018）/ Q-Gate=新增 `d3d12-runtime`/`uc04-demo` 专属 gate / Q-RD=RD-019/020/021 按实际 scope append-only / Q-CIStep=step 48 offscreen REQUIRE_REAL）；记录由 AI 代录，非 AI 代签。下游 PR 仍按 §6 栈式序进（PR-F1 spec 脚手架先于 PR-F2 实现），🔒 禁区语义本体（纹理内存模型 / barrier 并发语义 / 运行时 stable ABI）仍须 owner 后续 Full RFC 落笔 |
 | 承接里程碑 | G2.4（验收门 **G-G2-4**，D-G2-4），承 G2.1 着色阶段类型面（RFC-0002）+ G2.2 DXIL B 链 codegen（RFC-0003 / RFC-0004）+ G2.3 绑定布局推导（RFC-0005，owner Approved 2026-06-28）就位 |
-| 关联条款 | 拟落 spec **RXS-0167 起**（区间随 §9 Q-Range 裁定，见 §5）；落点（新建 `spec/d3d12_runtime.md` vs 延伸既有文件）= §9 Q-File 待裁。**本 RFC 不创建裸条款头**，trace 维持现状（当前最高现存 RXS-0166 @ [binding_layout.md](../spec/binding_layout.md)） |
+| 关联条款 | 拟落 spec **RXS-0167 ~ RXS-0170**（§9 Q-Range 已裁，见 §5）；落点（新建 `spec/d3d12_runtime.md` vs 延伸既有文件）随 **PR-F1** 按实际 scope 定（本轮 §9 未单列 Q-File，比照 Q-RD 处置）。**本 RFC 不创建裸条款头**，trace 维持现状（当前最高现存 RXS-0166 @ [binding_layout.md](../spec/binding_layout.md)） |
 | 依据决策 | D-002（图形分期，已批准）· 06 §8.2 第 4/5 点（PSO / 资源状态 / barrier 运行时面 = G2 设计预留）· 06 §4.2（纹理路径内存模型禁区，🔒）· 04 P-01（strict-only）· 04 P-13（防 AI 幻觉治理）· RFC-0002（着色阶段类型面）· RFC-0003 §8 / RFC-0004 §8（PSO/资源状态/barrier 运行时面 defer 到 G2.4）· RFC-0005（绑定布局推导 + RTS0）· RFC-0001（CUDA–D3D12 interop，D3D12 device/queue/swapchain 运行时先例） |
-| Provenance | `Assisted-by: kiro:claude-opus-4-8`。Human-in-the-loop（硬规则 1/2）：本草案由 AI 起草，§9 全部路径抉择留 owner，owner 批准前不推进下游实现；禁区子节仅作边界声明，不落语义本体 |
-| Owner 批准 | 〈待 owner FCP-lite — Draft / Awaiting Owner〉 |
+| Provenance | `Assisted-by: kiro:claude-opus-4-8`（Draft + owner 裁决落文档）。Human-in-the-loop（硬规则 1/2）：本草案由 AI 起草，§9 全部路径抉择由 owner（Language Lead）于 2026-06-28 裁决，AI 代录、非代签 / 不代决；禁区子节仅作边界声明，不落语义本体 |
+| Owner 批准 | **Approved — owner（Language Lead）2026-06-28**。批准范围：RFC-0006 全文；§4.5 🔒 禁区边界声明（不落禁区语义本体）；§9 全部裁决（Q-Present=offscreen-first / Q-DemoCrate=独立 demo crate `src/uc04-demo` / Q-RuntimeShape=safe wrapper / Q-DeferredPass=G-buffer(albedo+normal+depth)→单光源→offscreen readback / Q-Barrier=首期手动 barrier 编排 / Q-Texture=不落纹理内存模型本体 / Q-Range=RXS-0167~0170 / Q-Err=6xxx 续号自 RX6018 / Q-Gate=`d3d12-runtime`/`uc04-demo` 专属 gate / Q-RD=RD-019/020/021 append-only / Q-CIStep=step 48 offscreen REQUIRE_REAL）。记录方式：AI 按 owner 本会话明确裁决代录，非 AI 代签；本批准不声称 device 真跑、golden bless、稳定化或禁区语义本体已完成 |
 
-> **批准记录占位**：本 RFC 是 G2 期**首个触及 D3D12 运行时执行面**的 RFC——RFC-0002/0003/0004/0005 均把 PSO 装配 / 资源状态机 / barrier 语义 / swapchain 呈现显式 defer 到 G2.4（见 RFC-0003 §8「PSO / 资源状态 / barrier 运行时面…不在本 codegen RFC」、RFC-0004 §8）。这些面触及 🔒 纹理路径内存模型映射（06 §4.2）、D3D12 运行时 stable ABI、host↔运行时 FFI ABI、barrier/资源状态并发语义——只能由人类经 Full RFC 落笔（硬规则 5）。本 RFC 在 §4/§8 仅作**边界声明**，不落运行时语义本体；§9 全部路径抉择（Q-Present / Q-DemoCrate / Q-RuntimeShape / Q-DeferredPass / Q-Barrier / Q-Texture / Q-Range / Q-Err / Q-RD / Q-CIStep）留 owner 裁决，AI 不自填默认值「偷偷定型」、不自判 Direct。
+> **批准记录**：本 RFC 是 G2 期**首个触及 D3D12 运行时执行面**的 RFC——RFC-0002/0003/0004/0005 均把 PSO 装配 / 资源状态机 / barrier 语义 / swapchain 呈现显式 defer 到 G2.4（见 RFC-0003 §8「PSO / 资源状态 / barrier 运行时面…不在本 codegen RFC」、RFC-0004 §8）。这些面触及 🔒 纹理路径内存模型映射（06 §4.2）、D3D12 运行时 stable ABI、host↔运行时 FFI ABI、barrier/资源状态并发语义——只能由人类经 Full RFC 落笔（硬规则 5）。owner（Language Lead）于 2026-06-28 以人工裁决批准 RFC-0006 全文并裁决 §9 全部路径项（Q-Present / Q-DemoCrate / Q-RuntimeShape / Q-DeferredPass / Q-Barrier / Q-Texture / Q-Range / Q-Err / Q-Gate / Q-RD / Q-CIStep，见 §9）；AI 仅代录该人工决定，非代签 / 不代决。§4/§8 仍仅作**边界声明**，不落运行时语义本体；本批准不把任何禁区语义本体（纹理采样内存模型 / barrier 并发语义 / 运行时 stable ABI / FFI ABI 物理布局）冻结或落地，触及即另起 owner Full RFC。
 
 ---
 
@@ -25,7 +25,7 @@ G2.1 着色阶段类型面（RFC-0002，vertex/fragment fn + 资源句柄 RXS-01
 G2.2 DXIL B 链 codegen（RFC-0003/0004，图形=B：MIR→SPIR-V→SPIRV-Cross→HLSL→dxc→DXIL）
 G2.3 绑定布局推导 + RTS0（RFC-0005，descriptor/root signature 编译器推导，G-G2-3 已闭环）
                           │
-本 RFC（G2.4，仅设计面 + 边界声明 + owner 待裁清单）：
+本 RFC（G2.4，仅设计面 + 边界声明 + owner 裁决清单，§9 已裁）：
    ├─ deferred 管线最小形态：几何 pass（G-buffer：albedo/normal/depth 等 MRT）
    │                         → lighting pass（采样 G-buffer → 着色）
    │                         → present/readback（窗口呈现 或 offscreen 像素回读对照）
@@ -80,11 +80,11 @@ fragment fn lighting_fs(
 
 ### 4.1 deferred 管线最小形态（设计锚点）
 
-UC-04 deferred 渲染器的最小可验收形态（精确 pass 集 / 通道数 / lighting 模型 = §9 Q-DeferredPass 待裁）：
+UC-04 deferred 渲染器的最小可验收形态（§9 Q-DeferredPass 已裁：G-buffer albedo+normal+depth → 单光源 lighting → offscreen readback）：
 
 - **几何 pass（G-buffer 生成）**：场景几何经 `gbuffer_vs`/`gbuffer_fs`（RFC-0002 着色阶段）渲染到多渲染目标（MRT：至少 albedo + normal + depth；通道数/格式留 §9）。绑定布局由 RFC-0005 推导，DXIL 由 RFC-0004 B 链产出。
 - **lighting pass（延迟着色）**：全屏 pass 采样几何 pass 写出的 G-buffer（作为 shader resource）做延迟光照计算，输出到中间色彩目标或直接到呈现目标。
-- **present / readback**：呈现到窗口 swapchain，**或** offscreen 渲染后回读像素做数值对照（呈现策略 = §9 Q-Present 待裁）。
+- **offscreen readback**：offscreen 渲染后回读像素做数值对照（§9 Q-Present 已裁 = offscreen-first；窗口 swapchain present 作后续可选阶段，不阻塞 G-G2-4，defer 登 RD-019）。
 - **strict-only 装配**：每 pass 的 DXIL 着色器对象 + RTS0 root signature 经运行时装配进 PSO；装配不一致（RTS0 与着色器绑定不匹配 / RT 格式与 PSO 不匹配）→ 显式错误，无静默降级（P-01）。
 
 ### 4.2 D3D12 运行时面锚点（设计锚点，本体留 §9 / 实现 PR）
@@ -121,29 +121,29 @@ deferred 管线装配的 strict-only 核验面（具体诊断粒度/错误类别
 
 ## 5. 下游 spec 条款计划表（spec diff，10 §3 要件；不落条款体）
 
-落点（新建 `spec/d3d12_runtime.md` vs 延伸既有文件）= §9 Q-File 待裁。**本 RFC 不创建 `### RXS-####` 裸条款头**——下表为条款的**计划表**，条款体随 owner 批准本 RFC 后的实现 PR 同落（条款 PR 先于实现 PR，硬规则 7；trace 维持全锚定）。**区间/拆分/条数随 §9 Q-Range owner 裁定**，下表条款号为**拟议占位**（当前最高现存 RXS-0166 @ binding_layout.md，故拟自 RXS-0167 起）。
+落点（新建 `spec/d3d12_runtime.md` vs 延伸既有文件）随 **PR-F1** 按实际 scope 定（本轮 §9 未单列 Q-File，比照 Q-RD 处置）。**本 RFC 不创建 `### RXS-####` 裸条款头**——下表为条款的**计划表**，条款体随 owner 批准本 RFC 后的实现 PR 同落（条款 PR 先于实现 PR，硬规则 7；trace 维持全锚定）。**区间 §9 Q-Range 已裁定锁 RXS-0167 ~ RXS-0170**（4 条，对齐 Q-Present=offscreen-first / Q-DeferredPass 最小集），下表条款号即裁定区间（当前最高现存 RXS-0166 @ binding_layout.md，自 RXS-0167 起续号）。
 
-| 条款（拟，占位） | 标题 | 测试锚定计划（每条 ≥1，`//@ spec`） |
+| 条款（§9 Q-Range 已裁锁定） | 标题 | 测试锚定计划（每条 ≥1，`//@ spec`） |
 |---|---|---|
-| RXS-0167（拟） | DXIL 着色器对象 + RTS0 → graphics PSO 装配一致性 | PSO 装配 accept（RTS0/着色器/RT 格式一致）+ reject（不一致 → strict-only 显式错）+ host 侧装配核验 |
-| RXS-0168（拟） | deferred 多 pass 管线编排（几何 pass MRT → lighting pass 采样 → present/readback） | 多 pass 编排 accept + reject（pass 顺序/目标缺失）+ device 像素对照 |
-| RXS-0169（拟） | 资源状态 + barrier 编排（pass 间 RT↔SRV 状态转换的编排锚点；🔒 并发语义本体不在本条） | 状态转换编排 accept + reject（缺 barrier/非法转换 → strict-only）；🔒 并发语义本体「需人工升档」 |
-| RXS-0170（拟） | 呈现 / 回读路径（窗口 present 或 offscreen readback，按 §9 Q-Present） | present/readback accept + device 像素对照 + 无显示环境降级 SKIP |
+| RXS-0167 | DXIL + RTS0 → graphics PSO 装配一致性 | PSO 装配 accept（RTS0/着色器/RT 格式一致）+ reject（不一致 → strict-only 显式错）+ host 侧装配核验 |
+| RXS-0168 | deferred 多 pass 编排（几何 pass MRT → lighting pass 采样 G-buffer → offscreen readback） | 多 pass 编排 accept + reject（pass 顺序/目标缺失）+ device 像素对照 |
+| RXS-0169 | 资源状态 + barrier 编排锚点（pass 间 RT → SRV → RT/Copy/Readback 状态转换；首期手动编排；🔒 并发语义本体不在本条） | 状态转换编排 accept + reject（缺 barrier/非法转换 → strict-only）；🔒 并发语义本体「需人工升档」 |
+| RXS-0170 | offscreen readback + 像素对照（Q-Present=offscreen-first；窗口 present 不进必要条款，登 RD-019） | offscreen readback accept + device 像素对照（REQUIRE_REAL，Q-CIStep）；窗口 present 路径作 RD 后续 |
 
-> 上表条款号、条数、拆分粒度均为**拟议占位**，实际随 §9 Q-Range / Q-File / Q-Present / Q-DeferredPass / Q-Barrier owner 裁决调整。🔒 纹理访问内存模型映射（06 §4.2）/ barrier 并发语义本体 / 运行时 stable ABI / FFI ABI 二进制布局**不进任何条款**（§4.5），触及即停手标「需人工升档」。
+> 上表条款号、条数、拆分由 **§9 Q-Range owner 裁定锁定 RXS-0167 ~ RXS-0170**（PR-F1 只登记预留区间不落裸条款头，条款体与锚定测试随 PR-F2 同落）。🔒 纹理访问内存模型映射（06 §4.2）/ barrier 并发语义本体 / 运行时 stable ABI / FFI ABI 二进制布局**不进任何条款**（§4.5），触及即停手标「需人工升档」，另起 owner Full RFC。
 
-- **错误码策略**：deferred 管线装配 / 资源状态 / barrier / 呈现失败的诊断段位 = **§9 Q-Err 待裁**（候选：复用 6xxx codegen/目标段，或新开运行时诊断段位；当前 6xxx 段最高现存 RX6017）。**本 RFC 不预留、不预造、不落码、不改 `registry/error_codes.json`**——具体码随实现 PR 按真实可达类别只追加分配 + en/zh message-key（`ci/bilingual_coverage.py` 覆盖），段位/复用 vs 新开由 owner 在 Q-Err 裁定。纯 Rust 通用错误走 rustc 原生诊断（零新 RX）。
+- **错误码策略（§9 Q-Err 已裁）**：编译期/装配期可预测错误**续用 6xxx codegen/装配段，自 RX6018 起**按真实可达类别追加（当前 6xxx 段最高现存 RX6017）。**本 RFC 不预留、不预造、不落码、不改 `registry/error_codes.json`**——具体码随实现 PR（PR-F2）按真实可达类别只追加分配 + en/zh message-key（`ci/bilingual_coverage.py` 覆盖）。**D3D12 API 返回的纯运行期/环境失败不滥发语言 RX**，作为 smoke/evidence runtime failure 报告；若后续需稳定运行时诊断段，再由 owner 单独裁新段位。纯 Rust 通用错误走 rustc 原生诊断（零新 RX）。
 
 ## 6. feature gate / tracking / 实现序 + 真实红绿 + device 见证（10 §3 要件）
 
-- **feature gate**：候选 = 复用 `dxil-backend`（图形 codegen 基座所在 gate），或新增 demo/runtime 专属 gate（如 `d3d12-runtime` / demo crate feature）= §9 Q-Gate 待裁；新 crate 默认 `unsafe_code=deny`，D3D12 运行时边界 crate 若需 unsafe 须按硬规则 9 每 `unsafe` 块 `// SAFETY:` + unsafe-audit 注册（U23 续号）。
-- **栈式 PR（门控于本 RFC 批准 + §9 裁定后）**（拟议，精确拆分随 owner 裁定）：
-  - **PR-F1 spec 脚手架**：新建/延伸 spec 文件登记 RXS 区间与计划映射（**不落裸条款头**）+ spec/README §4 同步；`trace_matrix --check` PASS。
-  - **PR-F2 spec 条款体 + 运行时实现**：条款体 + D3D12 运行时封装层 + PSO 装配 + 资源状态/barrier 编排 + deferred demo crate + 错误码落码 + golden（若有）+ bless + device 真跑。
-  - **CI 步骤 48**（CI_GATES §2 计划项，UC-04 deferred 冒烟）随实现 PR 回填 workflow；SKIP/REQUIRE_REAL 策略 = §9 Q-CIStep。
+- **feature gate（§9 Q-Gate 已裁）**：新增**运行时/demo 专属 gate**（推荐 `d3d12-runtime` 或 `uc04-demo`，终名随 PR-F1），**不把 D3D12 runtime 面塞进 `dxil-backend`**——`dxil-backend` 只作为 codegen 前置依赖。新 crate（Q-DemoCrate=独立 demo crate `src/uc04-demo`）默认 `unsafe_code=deny`，D3D12 运行时边界若必须 unsafe 须集中到最小 runtime module、按硬规则 9 每 `unsafe` 块 `// SAFETY:` + unsafe-audit 注册（U23 续号）。
+- **栈式 PR（本 RFC 已 owner Approved + §9 已裁，闸口开启）**：
+  - **PR-F1 spec 脚手架**：新建/延伸 spec 文件登记 **RXS-0167 ~ RXS-0170** 预留区间与计划映射（**不落裸条款头**）+ spec/README §4 同步 + RD-019/020/021 按实际 scope append-only 落 `registry/deferred.json`（Q-RD）+ 落点（`spec/d3d12_runtime.md` vs 延伸）定调；`trace_matrix --check` PASS。
+  - **PR-F2 spec 条款体 + 运行时实现**：RXS-0167~0170 条款体 + `src/uc04-demo` 独立 demo crate（`unsafe_code=deny`）+ safe wrapper D3D12 device/queue/PSO/command list/resource/barrier 封装 + 首期手动 barrier 编排 + offscreen readback + 错误码自 RX6018 落码 + golden（若有）+ bless + device 真跑。
+  - **CI 步骤 48**（CI_GATES §2 计划项，UC-04 deferred offscreen 冒烟）随实现 PR 回填 workflow；策略（§9 Q-CIStep 已裁）= offscreen readback REQUIRE_REAL（`RURIX_REQUIRE_REAL=1` 缺 D3D12/MSVC/signed DXC pin/validator/GPU 即红，窗口 present 路径若存在可 SKIP 但不替代 offscreen 真跑）。
 - **真实红绿（反 YAML-only，CI_GATES §6 第 4 项）**：构造 deferred 管线 pass 结果篡改 / 像素篡改 → 红 → 复原绿，归档前后输出 / run URL（G-G2-4 验收门）。host 段可达面（PSO 装配一致性 / 资源状态编排核验）与 device 段（原生 D3D12 hardware 多 pass draw + 像素对照）分轴，对齐 G-G2-2/G-G2-3 host+device 双段先例。
 - **device 见证 + run-url 要求（G-G2-4 验收硬要件，反 YAML-only）**：
-  - device 见证须为**原生 D3D12 hardware 多 pass deferred draw**（几何 pass MRT → lighting pass 采样 G-buffer → present/readback），非 G2.3 的单 pass textured draw 冒烟；输出含 adapter 名 + 多 pass 状态 + 采样/呈现像素对照（对齐 G-G2-3 `DXIL_BIND: ok adapter=... draw=ok` 日志范式）。
+  - device 见证须为**原生 D3D12 hardware 多 pass deferred draw**（几何 pass MRT → lighting pass 采样 G-buffer → offscreen readback，Q-Present=offscreen-first），非 G2.3 的单 pass textured draw 冒烟；输出含 adapter 名 + 多 pass 状态 + 采样/offscreen 像素对照（对齐 G-G2-3 `DXIL_BIND: ok adapter=... draw=ok` 日志范式）。
   - run-url 须为**真实 GitHub Actions device 见证入口**（AI 不伪造，硬规则 1），device witness 回填 `evidence/g2.4-uc04-deferred/`（evidence 只增不删不改，M0.3 起）。
   - signed pin 纪律延续 G-G2-2/G-G2-3（`RURIX_DXC_DIR` dxc+dxv+dxil.dll 三件齐备方认定签名 pin；`RURIX_REQUIRE_REAL=1` 缺 validator/D3D12/MSVC 即红）。
   - **G-G2-4 签字归 owner**（AI 代录非代签，硬规则 1）：device run URL、golden bless（若有）、子里程碑签字、CI step 48 落地由 owner 兑现。
@@ -170,35 +170,43 @@ deferred 管线装配的 strict-only 核验面（具体诊断粒度/错误类别
 - **多后端 / Python 嵌入 / 高级 GPU intrinsics / VMM·多 GPU**：死亡路线红线 1/3 + 永久 gating（SG-001/002/003/004/005/008）+ A-06 单机单 GPU 边界，均不触碰。
 - **CI step 48 落地 / G-G2-4 签字 / RD·SG 状态翻转**：归 owner / 实现 PR，本 RFC 草案阶段不动。
 
-## 9. 未决问题 / 关键裁决（全部留 owner，AI 不自填默认、不自判 Direct）
+## 9. §9 owner 裁决清单（Accepted / Owner Approved 2026-06-28）
 
-> 下列 Q 全部为 owner 裁决项；AI 给出**倾向（供参，不代决）**，owner 签署后回填裁决列。触 🔒 禁区的项（Q-Barrier 语义本体 / Q-Texture）须人类经 Full RFC 落笔（硬规则 5）。
+> 以下为本 RFC 的**路径性抉择**。owner（Language Lead）于 2026-06-28 在本工作会话明确裁决下表全部项并批准 RFC-0006 全文；AI 代录，非 AI 代签 / 不代决。候选与 AI 倾向保留为审计上下文，裁决列为后续 PR-F1/PR-F2 的约束。触 🔒 禁区的语义本体（Q-Barrier 并发语义 / Q-Texture 采样内存模型）**仍须 owner 后续 Full RFC 落笔**，本批准不落任何禁区语义本体（硬规则 5）。
 
-| Q | 待裁项 | AI 倾向（供参，不代决） | 裁决 |
+| Q | 待裁项 | AI 倾向（供参，不代决） | 裁决（owner 2026-06-28） |
 |---|---|---|---|
-| Q-Present | 呈现策略：窗口 swapchain present / offscreen-first 像素回读 / 两阶段（先 offscreen 后窗口） | offscreen-first（CI device 可真跑 + 像素对照，对齐 G-G2-2/G-G2-3 readback 先例；窗口呈现作可选第二阶段） | 〈待 owner〉 |
-| Q-DemoCrate | UC-04 demo crate 位置与边界（`examples/` / 独立 crate / `src/` 下子 crate；与既有引擎集成 crate 的关系） | 独立 demo crate（默认 `unsafe_code=deny`，运行时边界最小开 unsafe + U23 注册），不污染语言核心 | 〈待 owner〉 |
-| Q-RuntimeShape | D3D12 运行时封装层形态：薄 FFI 绑定 / safe wrapper crate / demo 内联（与 RFC-0001 interop 基座的复用关系） | safe wrapper（最小 D3D12 device/queue/PSO/command list 封装，复用 RFC-0001 device 基座），运行时 ABI 非 stable（§4.5(c)） | 〈待 owner〉 |
-| Q-DeferredPass | deferred 最小 pass 形态：G-buffer 通道数/格式 + lighting 模型 + 是否含 present | 最小集 = G-buffer（albedo+normal+depth）→ 单光源 lighting → offscreen readback；present 作可选 | 〈待 owner〉 |
-| Q-Barrier | 资源状态/barrier 最小模型：手动 barrier API / 编译器状态跟踪推导；**并发语义本体边界** | 首期手动 barrier 编排锚点（运行时显式插入），状态跟踪推导后期；🔒 **barrier 并发语义本体须 owner Full RFC 落笔**，本期仅编排锚点 | 〈待 owner〉 |
-| Q-Texture | texture memory model 是否触及 06 §4.2：G-buffer 写入/采样若需纹理访问语义映射，**须 Full RFC owner 落笔** | 首期维持 opaque 句柄 + RT/SRV 视图绑定形态（不落采样内存模型本体）；凡触及采样 opcode/内存序即停手「需人工升档」 → owner Full RFC | 〈待 owner〉 |
-| Q-Range | 下游 RXS 区间/条数/拆分（拟自 RXS-0167 起，§5 拟 4 条） | RXS-0167~0170（PSO 装配 / 多 pass 编排 / 资源状态 barrier 编排 / 呈现回读），随 Q-Present/Q-DeferredPass 调整 | 〈待 owner〉 |
-| Q-Err | 错误码段位：复用 6xxx codegen/目标段 / 新开运行时诊断段位（当前 6xxx 最高 RX6017） | 运行时装配失败若属 codegen/目标可达类别复用 6xxx 续号；纯运行期 D3D12 失败若需新段位由 owner 按 07 §5 分配；不预留、不预造 | 〈待 owner〉 |
-| Q-Gate | feature gate：复用 `dxil-backend` / 新增 `d3d12-runtime` 或 demo crate feature | demo/运行时专属 gate（隔离运行时面，不把 D3D12 运行时暴露成 dxil-backend 用户面组合维度） | 〈待 owner〉 |
-| Q-RD | 是否需新 RD：deferred 范围内做不完的项（如窗口呈现 / 高级 lighting / 状态跟踪推导 / 纹理内存模型）登记 RD（下一个未用 = RD-019，RD-016 已跳号永不复用） | 若 Q-Present 选 offscreen-first，则窗口呈现登记 RD（RD-019+）；纹理内存模型若 defer 亦登记 RD；均 owner 裁 | 〈待 owner〉 |
-| Q-CIStep | CI step 48（UC-04 deferred 冒烟）SKIP/REQUIRE_REAL 策略 | 对齐步骤 46/47：默认 `RURIX_DXC_DIR` pin，`RURIX_REQUIRE_REAL=1` 缺 D3D12/MSVC/validator 即红，无显示环境 present 路径降级 SKIP（offscreen readback 路径维持 REQUIRE_REAL） | 〈待 owner〉 |
+| Q-Present | 呈现策略：窗口 swapchain present / offscreen-first 像素回读 / 两阶段（先 offscreen 后窗口） | offscreen-first（CI device 可真跑 + 像素对照，对齐 G-G2-2/G-G2-3 readback 先例；窗口呈现作可选第二阶段） | **裁决 = offscreen-first**。理由：CI/self-hosted GPU 可稳定真跑 + 像素对照；窗口 swapchain present 作为后续可选阶段，不阻塞 G-G2-4（窗口 present defer，登 RD-019） |
+| Q-DemoCrate | UC-04 demo crate 位置与边界（`examples/` / 独立 crate / `src/` 下子 crate；与既有引擎集成 crate 的关系） | 独立 demo crate（默认 `unsafe_code=deny`，运行时边界最小开 unsafe + U23 注册），不污染语言核心 | **裁决 = 独立 demo crate**。位置 `src/uc04-demo`（owner 推荐，over `examples/uc04-deferred`，避免 examples 承担运行时 crate 职责）；默认 `unsafe_code=deny`，D3D12 边界若必须 unsafe 集中到最小 runtime module 并登记 unsafe-audit（U23 续号） |
+| Q-RuntimeShape | D3D12 运行时封装层形态：薄 FFI 绑定 / safe wrapper crate / demo 内联（与 RFC-0001 interop 基座的复用关系） | safe wrapper（最小 D3D12 device/queue/PSO/command list 封装，复用 RFC-0001 device 基座），运行时 ABI 非 stable（§4.5(c)） | **裁决 = safe wrapper crate/module**。做最小 D3D12 device/queue/PSO/command list/resource/barrier 封装；运行时 ABI 明确 non-stable，不进入语言 stable 面（§4.5(c)） |
+| Q-DeferredPass | deferred 最小 pass 形态：G-buffer 通道数/格式 + lighting 模型 + 是否含 present | 最小集 = G-buffer（albedo+normal+depth）→ 单光源 lighting → offscreen readback；present 作可选 | **裁决 = 最小 deferred**：G-buffer(albedo + normal + depth) → 单光源 lighting → offscreen readback。窗口 present 不作为 G-G2-4 必要条件 |
+| Q-Barrier | 资源状态/barrier 最小模型：手动 barrier API / 编译器状态跟踪推导；**并发语义本体边界** | 首期手动 barrier 编排锚点（运行时显式插入），状态跟踪推导后期；🔒 **barrier 并发语义本体须 owner Full RFC 落笔**，本期仅编排锚点 | **裁决 = 首期手动 barrier 编排**。实现层显式插入 RT → SRV → RT/Copy/Readback 状态转换；不做编译器自动状态跟踪（自动状态推导 defer，登 RD-020）。🔒 barrier 并发/可见性语义本体不在本期定义，触及即升档（owner Full RFC） |
+| Q-Texture | texture memory model 是否触及 06 §4.2：G-buffer 写入/采样若需纹理访问语义映射，**须 Full RFC owner 落笔** | 首期维持 opaque 句柄 + RT/SRV 视图绑定形态（不落采样内存模型本体）；凡触及采样 opcode/内存序即停手「需人工升档」 → owner Full RFC | **裁决 = 不落纹理内存模型本体**。首期只消费 opaque `Texture2D`/`Sampler` 句柄 + D3D12 RT/SRV 视图绑定；🔒 不定义采样 opcode、LOD/导数、越界、缓存一致性等 06 §4.2 语义。触及这些语义则停手，另起 owner Full RFC（defer 登 RD-021） |
+| Q-Range | 下游 RXS 区间/条数/拆分（拟自 RXS-0167 起，§5 拟 4 条） | RXS-0167~0170（PSO 装配 / 多 pass 编排 / 资源状态 barrier 编排 / 呈现回读），随 Q-Present/Q-DeferredPass 调整 | **裁决 = RXS-0167~0170**：RXS-0167（DXIL + RTS0 → graphics PSO 装配一致性）/ RXS-0168（deferred 多 pass 编排）/ RXS-0169（资源状态/barrier 编排锚点）/ RXS-0170（offscreen readback + 像素对照）。窗口 present 不进必要条款，可作 RD 后续 |
+| Q-Err | 错误码段位：复用 6xxx codegen/目标段 / 新开运行时诊断段位（当前 6xxx 最高 RX6017） | 运行时装配失败若属 codegen/目标可达类别复用 6xxx 续号；纯运行期 D3D12 失败若需新段位由 owner 按 07 §5 分配；不预留、不预造 | **裁决 = 编译期/装配期可预测错误续用 6xxx**，从 **RX6018** 起按真实可达类别追加；D3D12 API 返回的纯运行期/环境失败不滥发语言 RX，作为 smoke/evidence runtime failure 报告。若后续需稳定运行时诊断段，再由 owner 单独裁新段位 |
+| Q-Gate | feature gate：复用 `dxil-backend` / 新增 `d3d12-runtime` 或 demo crate feature | demo/运行时专属 gate（隔离运行时面，不把 D3D12 运行时暴露成 dxil-backend 用户面组合维度） | **裁决 = 新增运行时/demo 专属 gate**（推荐 `d3d12-runtime` 或 `uc04-demo`，终名随 PR-F1）；不把 D3D12 runtime 面塞进 `dxil-backend`，`dxil-backend` 只作为 codegen 前置依赖 |
+| Q-RD | 是否需新 RD：deferred 范围内做不完的项（如窗口呈现 / 高级 lighting / 状态跟踪推导 / 纹理内存模型）登记 RD（下一个未用 = RD-019，RD-016 已跳号永不复用） | 若 Q-Present 选 offscreen-first，则窗口呈现登记 RD（RD-019+）；纹理内存模型若 defer 亦登记 RD；均 owner 裁 | **裁决 = 需要，按实际 defer append-only 登记**：RD-019（窗口 swapchain present deferred）/ RD-020（自动资源状态跟踪推导 deferred）/ RD-021（纹理内存模型映射 deferred，需 owner Full RFC）。不在 RFC 草案阶段预造 registry；在本批准记录或 PR-F1 按实际 scope 登记 |
+| Q-CIStep | CI step 48（UC-04 deferred 冒烟）SKIP/REQUIRE_REAL 策略 | 对齐步骤 46/47：默认 `RURIX_DXC_DIR` pin，`RURIX_REQUIRE_REAL=1` 缺 D3D12/MSVC/validator 即红，无显示环境 present 路径降级 SKIP（offscreen readback 路径维持 REQUIRE_REAL） | **裁决 = step 48 offscreen readback 为 REQUIRE_REAL**。对齐步骤 46/47：`RURIX_REQUIRE_REAL=1` 下缺 D3D12/MSVC/signed DXC pin/validator/GPU 即红；窗口 present 路径若存在可 SKIP，但不得替代 offscreen 真跑 |
+
+**registry 处置（owner 2026-06-28 裁决，append-only 按实际 scope）**：
+
+- **RD-019 / RD-020 / RD-021**：分别登记窗口 swapchain present defer（Q-Present）/ 自动资源状态跟踪推导 defer（Q-Barrier）/ 纹理内存模型映射 defer（Q-Texture，须 owner Full RFC）。**本批准阶段不预造 registry 条目**——按 owner 裁决在 **PR-F1** 按实际 scope append-only 落 `registry/deferred.json`（下一个未用 RD = RD-019，RD-016 已跳号永不复用，10 §9.5）。
+- **错误码（Q-Err）**：6xxx codegen/装配段自 **RX6018** 起按真实可达类别追加，落码随 PR-F2，本批准不预占、不落码、不改 `registry/error_codes.json`（当前最高现存 RX6017）；纯运行期/环境 D3D12 失败作 smoke/evidence runtime failure，不发语言 RX。
+- **unsafe-audit（U23）**：demo crate D3D12 边界若必须 unsafe，集中到最小 runtime module，随实现 PR 每 `unsafe` 块 `// SAFETY:` + U23 续号注册（硬规则 9）。
+- **SG / stable 面**：包 registry（D-312，SG-007）维持 not_triggered；运行时 ABI 非 stable（§4.5(c)），stable 面随 RD-008（G2.5 候选触发点），本 RFC 不冻结。
+- **spec 落点（Q-File，本轮 §9 未单列）**：新建 `spec/d3d12_runtime.md` vs 延伸既有文件随 **PR-F1** 按实际 scope 定（比照 Q-RD「批准记录 / PR-F1 登记」处置，owner 后续可定调）。
 
 ## 10. 稳定化与 provenance
 
 - **稳定化**（10 §5）：UC-04 运行时面经 feature gate → tracking → 两里程碑无重大修订 → stabilization report → FCP-lite（10 §2.2，≥2/3 同意含语言负责人 + 5–7 天公开等待窗）。D3D12 运行时接口 / 绑定布局物理布局在首个 stable 前不进 stable 面（随 RD-008，G2.5 候选触发点）。
-- **Provenance**：`Assisted-by: kiro:claude-opus-4-8`。owner 批准记录由 AI 代录，非 AI 代签 / 自行裁决（硬规则 1）；§9 全部裁决留 owner。
+- **Provenance**：`Assisted-by: kiro:claude-opus-4-8`（Draft + owner 裁决落文档）。owner（Language Lead）于 2026-06-28 裁决 §9 全部路径项并批准 RFC-0006 全文；批准记录由 AI 代录，非 AI 代签 / 自行裁决（硬规则 1）。
 
 ## 11. 规范与实现依据
 
 - **决策/规范**：13 §D-002（图形分期，已批准）· 06 §8.2 第 4/5 点（PSO / 资源状态 / barrier 运行时面 = G2 设计预留）· 06 §4.2（纹理路径内存模型禁区，🔒）· 04 P-01（strict-only）/ P-11（单一事实源）/ P-13（防 AI 幻觉治理）· 11 §5（G2 = UC-04 deferred 渲染器 demo）。
 - **前置 RFC（依赖闭合）**：[RFC-0002](0002-shader-stages.md)（着色阶段类型面，Owner Approved）· [RFC-0003](0003-dxil-backend.md)（MIR→DXIL 第二后端，Owner Approved）· [RFC-0004](0004-spirv-dxil-graphics-backend.md)（图形=B codegen + §4.6 禁区边界，Owner Approved）· [RFC-0005](0005-binding-layout-inference.md)（绑定布局推导 + RTS0，Owner Approved 2026-06-28）· [RFC-0001](0001-cuda-d3d12-interop.md)（CUDA–D3D12 interop，D3D12 device/queue/swapchain 运行时先例）。
 - **G2.3 已闭环 device 见证（UC-04 前置事实）**：G-G2-3 RTS0 `CreateRootSignature` accept + textured PSO + offscreen draw 像素对照（[G2_CONTRACT.md](../milestones/g2/G2_CONTRACT.md) §8.3 / [CI_GATES.md](../milestones/g2/CI_GATES.md) §7 v1.4 step 47）。
-- **registry**：RD-008（stable API 快照冻结，open，G2.5 候选触发点）· RD-018（bindless defer，RFC-0005）· 下一个未用 RD = RD-019（RD-016 已跳号，永不复用，10 §9.5）· 6xxx codegen 段最高现存 RX6017 · 下一个未用 RFC = 本 RFC-0006（README §5 编号台账）。
+- **registry**：RD-008（stable API 快照冻结，open，G2.5 候选触发点）· RD-018（bindless defer，RFC-0005）· **§9 Q-RD 已裁登记 RD-019（窗口 swapchain present defer）/ RD-020（自动资源状态跟踪推导 defer）/ RD-021（纹理内存模型映射 defer，须 owner Full RFC）**——按 owner 裁决在 PR-F1 按实际 scope append-only 落 `registry/deferred.json`，本批准阶段不预造（下一个未用 RD = RD-019，RD-016 已跳号永不复用，10 §9.5）· 6xxx codegen 段最高现存 RX6017，§9 Q-Err 已裁自 **RX6018** 续号（落码随 PR-F2，不预占）· 下一个未用 RFC = RFC-0007（README §5 编号台账）。
 
 ---
 
@@ -207,3 +215,4 @@ deferred 管线装配的 strict-only 核验面（具体诊断粒度/错误类别
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
 | Draft v0.1 | 2026-06-28 | AI 起草骨架（§1 摘要 deferred 通路图 + 边界 / §2 动机 + 为何 Full RFC（首次承接 RFC-0002/0003/0004/0005 共同 defer 的运行时面）/ §3 用户视角声明式 deferred 示意 + 开放问题留 §9 / §4.1 deferred 管线最小形态 / §4.2 D3D12 运行时面锚点 / §4.3 单一事实源消费 / §4.4 strict-only 装配核验 / §4.5 🔒 禁区边界声明（纹理内存模型 / barrier 并发语义 / 运行时 stable ABI / FFI ABI / DXIL·SPIR-V UB）/ §5 下游条款计划表（RXS-0167~0170 占位，不落条款体）/ §6 feature gate + 栈式 PR + 真实红绿 + device 见证/run-url 要件 / §7 备选 / §8 范围红线 / §9 未决留 owner（Q-Present/Q-DemoCrate/Q-RuntimeShape/Q-DeferredPass/Q-Barrier/Q-Texture/Q-Range/Q-Err/Q-Gate/Q-RD/Q-CIStep）/ §10 稳定化 / §11 依据）。**Draft / Awaiting Owner——待 owner FCP-lite 批准 + 裁决 §9；🔒 禁区语义本体由 owner 落笔；不落 codegen/条款体/运行时实现/CI/registry；AI 不代签 / 不代决 / 不推进下游** | Full RFC（Draft） |
+| Owner approval | 2026-06-28 | owner（Language Lead）在本工作会话同意 RFC-0006 全文并裁决 §9 全部路径项：Q-Present=offscreen-first（窗口 present defer→RD-019）/ Q-DemoCrate=独立 demo crate `src/uc04-demo`（`unsafe_code=deny`，D3D12 边界 unsafe 集中最小 runtime module + U23）/ Q-RuntimeShape=safe wrapper（最小 device/queue/PSO/command list/resource/barrier 封装，运行时 ABI non-stable）/ Q-DeferredPass=G-buffer(albedo+normal+depth)→单光源 lighting→offscreen readback / Q-Barrier=首期手动 barrier 编排（RT→SRV→RT/Copy/Readback；自动状态跟踪 defer→RD-020；🔒 并发语义本体触即升档）/ Q-Texture=不落纹理内存模型本体（opaque Texture2D/Sampler + RT/SRV 视图绑定；触采样语义停手→RD-021/owner Full RFC）/ Q-Range=RXS-0167~0170 / Q-Err=6xxx 续号自 RX6018（纯运行期 D3D12 失败不发语言 RX，作 runtime failure 报告）/ Q-Gate=新增 `d3d12-runtime`/`uc04-demo` 专属 gate（`dxil-backend` 仅 codegen 前置）/ Q-RD=RD-019/020/021 按实际 scope append-only（PR-F1 落 registry）/ Q-CIStep=step 48 offscreen readback REQUIRE_REAL（对齐步 46/47，窗口 present 路径可 SKIP 不替代）。AI 代录，非 AI 代签。状态翻 Accepted / Owner Approved；下游 PR-F1 spec 脚手架解锁（仍不落条款体、不接线实现、不动禁区语义本体；G-G2-4 签字 / device run URL / CI step 48 落地归 owner 兑现） | Full RFC（Owner Approved） |
