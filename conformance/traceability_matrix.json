@@ -968,11 +968,13 @@
     "RXS-0165": [
       "src/rurixc/src/binding_layout.rs",
       "src/rurixc/src/dxil_codegen.rs",
-      "src/rurixc/src/mir_build.rs"
+      "src/rurixc/src/mir_build.rs",
+      "src/rurixc/tests/dxil_golden.rs"
     ],
     "RXS-0166": [
       "src/rurixc/src/binding_layout.rs",
-      "src/rurixc/src/dxil_codegen.rs"
+      "src/rurixc/src/dxil_codegen.rs",
+      "src/rurixc/tests/dxil_golden.rs"
     ]
   }
 }
