@@ -328,6 +328,24 @@ jobs:
           py -3 ci/dxil_device_smoke.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      # 步骤 47（G-G2-3,RFC-0005 / RXS-0163~0166）：绑定布局推导产物 device 真跑。
+      # E2b-3 host golden(tests/dxil/binding/fs_tex_samp.binding-golden)已把 SPIR-V 资源绑定
+      # 装饰 + RTS0 容器的确定性 SHA-256 定型为 owner-blessed 回归锚;本步补齐 golden 单测结构上
+      # 无法证明的另一半——推导出的 RTS0 root signature 在真实 D3D12 device 上是否被接受、绑定的
+      # Texture2D/Sampler 是否经该 root signature 在硬件上真正出图。`ci/dxil_binding_device_smoke.py`:
+      # cargo example emit_binding_rts0 经公开 binding_layout API 落盘 RTS0(SHA-256 == blessed
+      # golden 基线,否则红)→ signed dxc 编译 textured VS/PS + dxv 验签 → 真实 D3D12 hardware
+      # CreateRootSignature(rurix RTS0)accept + 篡改 RTS0 reject(device 级红绿)+ 经推导 SRV(t0)/
+      # Sampler(s0)descriptor table 绑定纹理离屏 textured draw/readback 像素对照。signed pin =
+      # RURIX_DXC_DIR(dxc+dxv+dxil.dll;PATH Vulkan dxc 不算签名)。任一 device/validator 红即红;
+      # run URL 即 G-G2-3 device 见证入口。
+      - name: DXIL binding-layout device smoke (G2 CI_GATES §2.47, G-G2-3, RFC-0005)
+        shell: powershell
+        env:
+          RURIX_DXC_DIR: ${{ vars.RURIX_DXC_DIR || 'H:\dxc-round7\extracted\bin\x64' }}
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/dxil_binding_device_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

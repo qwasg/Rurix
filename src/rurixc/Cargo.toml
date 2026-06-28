@@ -25,5 +25,11 @@ shader-stages = []
 # 定位(受控临时偏差,RD-011),不写死 / 不改 committed D-205 pin。
 dxil-backend = []
 
+# G2.3 PR-E2b-4 device 真跑支撑工具(非生产 codegen):落盘绑定布局 RTS0 容器字节供
+# D3D12 CreateRootSignature 真机核验(ci/dxil_binding_device_smoke.py)。须 dxil-backend。
+[[example]]
+name = "emit_binding_rts0"
+required-features = ["dxil-backend"]
+
 [lints]
 workspace = true
