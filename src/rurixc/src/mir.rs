@@ -113,6 +113,90 @@ pub struct IoSigElem {
     pub dir: IoDir,
 }
 
+/// 资源种类轴(G2.3 绑定布局推导,RXS-0164;RFC-0005 §9 Q-Space=B 按资源种类分轴)。
+///
+/// 仅**数据建模**:把 RXS-0156 资源句柄类型面归类到 D3D12 的四个寄存器轴
+/// (CBV→`b` / SRV→`t` / UAV→`u` / Sampler→`s`),供 host 侧 register/space 分配
+/// 推导按声明序各轴独立递增。不改既有标量/向量 I/O 路径([`IoSigKind`]/[`MirIoType`])
+/// 语义,不接线生产 emit;具体 register/space 数值物理布局属 🔒 ABI 禁区,不在此冻结。
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ResourceClass {
+    /// constant buffer view → `b` 轴。
+    Cbv,
+    /// shader resource view(只读纹理 / 只读 structured buffer)→ `t` 轴。
+    Srv,
+    /// unordered access view(可写 structured buffer 等)→ `u` 轴。
+    Uav,
+    /// sampler → `s` 轴。
+    Sampler,
+}
+
+/// 资源句柄类型建模(G2.3 绑定布局推导,RXS-0163;承 RXS-0156 资源句柄类型面)。
+///
+/// 仅**数据建模**:把着色阶段签名里的资源句柄(`Texture2D<F>` / `Sampler` /
+/// constant buffer / structured buffer)归约到绑定布局推导所需的最小信息,供
+/// host 侧推导 SPIR-V 资源绑定装饰、register/space 分配与 root signature 形态。
+/// 与 [`MirIoType`](标量/向量 I/O)并列、互不影响;纹理访问语义(采样 opcode /
+/// 描述符编码 / 缓存 / LOD)属 🔒 禁区,在本层结构上不可达、不建模。
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum MirResourceType {
+    /// `Texture2D<F>`(F = 已建模标量分量类型)→ SRV。
+    Texture2D(PrimTy),
+    /// `Sampler` → Sampler(RFC-0005 §9 Q-Sampler=B dynamic sampler)。
+    Sampler,
+    /// constant buffer → CBV。
+    ConstantBuffer,
+    /// structured buffer:`read_only` → SRV,否则 → UAV。
+    StructuredBuffer {
+        /// 只读(SRV)vs 可写(UAV)。
+        read_only: bool,
+    },
+}
+
+impl MirResourceType {
+    /// 资源种类轴归类(RXS-0164;CBV→b / SRV→t / UAV→u / Sampler→s)。
+    pub fn class(&self) -> ResourceClass {
+        match self {
+            MirResourceType::Texture2D(_) => ResourceClass::Srv,
+            MirResourceType::Sampler => ResourceClass::Sampler,
+            MirResourceType::ConstantBuffer => ResourceClass::Cbv,
+            MirResourceType::StructuredBuffer { read_only: true } => ResourceClass::Srv,
+            MirResourceType::StructuredBuffer { read_only: false } => ResourceClass::Uav,
+        }
+    }
+}
+
+/// 资源绑定基数(G2.3 绑定布局推导,RXS-0163;RFC-0005 §9 Q-Bindless=A→RD-018)。
+///
+/// 本期收敛**有界** descriptor 布局:`One` 单 descriptor、`Bounded(n)` 有界数组
+/// (消费 n 个连续寄存器)。`Unbounded` = bindless / unbounded descriptor array,
+/// 经 owner 裁决 defer 至 RD-018——本层把它建模为**显式不可映射**输入,推导侧以
+/// strict-only 占位「6xxx」拒绝(无 fallback),不发明 descriptor heap 编码。
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ResourceCount {
+    /// 单 descriptor。
+    One,
+    /// 有界 descriptor 数组(`n` 个连续寄存器;`n >= 1`)。
+    Bounded(u32),
+    /// unbounded / bindless(RD-018 defer;推导侧 strict-only 拒绝)。
+    Unbounded,
+}
+
+/// 资源绑定声明元素(G2.3 绑定布局推导输入,RXS-0163)。
+///
+/// 记录着色阶段签名里单个资源句柄形参的源码名(保名依据,非寄存器号/布局)、
+/// 资源类型与基数。**声明序即确定性分配序**:host 侧推导按 `Vec<ResourceBinding>`
+/// 的顺序确定性导出 SPIR-V 绑定 / register/space / root signature 形态。
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct ResourceBinding {
+    /// 源码形参名(保名依据;非寄存器号/物理布局)。
+    pub name: String,
+    /// 资源类型(归约到绑定布局推导所需最小信息)。
+    pub res: MirResourceType,
+    /// 资源基数(单 / 有界数组 / unbounded;RD-018)。
+    pub count: ResourceCount,
+}
+
 #[derive(Debug)]
 pub struct Local {
     pub ty: Ty,

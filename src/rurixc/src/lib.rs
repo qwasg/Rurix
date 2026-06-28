@@ -7,6 +7,8 @@
 //! M1.4 范围:诊断渲染/UI golden 通道/rx fmt 雏形(契约 D-M1-4 / D-M1-5)。
 
 pub mod ast;
+#[cfg(feature = "dxil-backend")]
+pub mod binding_layout;
 pub mod borrow_check;
 pub mod codegen;
 pub mod coloring;
