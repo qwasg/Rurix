@@ -35,7 +35,7 @@
     "red": "篡改 RTS0 容器 fourcc(DXBC 首字节翻转)→ CreateRootSignature reject(device 级红路径,证 accept 为真实解析而非 no-op)",
     "run_command": "RURIX_DXC_DIR=H:\\dxc-round7\\extracted\\bin\\x64 RURIX_REQUIRE_REAL=1 py -3 ci/dxil_binding_device_smoke.py"
   },
-  "run_url": "local interactive runner",
-  "run_url_note": "真实 GitHub Actions device run URL 由 owner 在 self-hosted GPU runner 跑后回填(provenance 归 owner,AI 不伪造,对齐 G-G2-2 device 见证纪律)。",
+  "run_url": "https://github.com/qwasg/Rurix/actions/runs/28319066260",
+  "run_url_note": "self-hosted GPU runner PR smoke step 47 PASS;run URL 已回填为真实 GitHub Actions device 见证入口。G-G2-3 acceptance 签署仍归 owner,AI 不代签。",
   "stdout": "DXIL_BIND: ok adapter=\"NVIDIA GeForce RTX 4070 Ti\" rurix_rts0=accept tamper_rts0=reject sampled=64,127,255,255 draw=ok"
 }
