@@ -76,11 +76,12 @@ pub mod signature_gate {
 
     /// 阶段间接口链接核对失败(RXS-0160;strict-only)。
     ///
-    /// **错误码归类待 owner 裁决(判档点,需人工升档)**:错链映射 6xxx 的具体码——
-    /// `RX6011` 复用(签名不一致同语义类)抑或 `RX6014` 新开(6xxx 段下一空号;
-    /// `RX6008`/`RX6009` 分别由 RD-012/RD-013 预留不复用)——属语义归类裁决(spec §2
-    /// RXS-0160 IR3)。本枚举只定义链接核对的失败语义,**不**直接发码、**不**改
-    /// `registry/error_codes.json`、**不**接线生产 emit;落码归 owner 确认后的实现步。
+    /// **错误码(G2.3 PR-E2b-2 已落,owner 裁定方案 B)**:错链经
+    /// [`crate::dxil_codegen::emit_stage_link_error`] 落 `RX6014`
+    /// `codegen.dxil_stage_link_mismatch`——owner 裁定**新开 RX6014**(6xxx 段当时下一
+    /// 空号;`RX6008`/`RX6009` 分别由 RD-012/RD-013 预留不复用),**不**复用 RX6011
+    /// (RX6011 = 单阶段输出签名不一致,语义不同)。本枚举只定义链接核对的失败语义,
+    /// **不**直接发码、**不**改 `registry/error_codes.json`(发码在 dxil_codegen 边界)。
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub enum StageLinkError {
         /// fragment 输入 varying 在上游 vertex 输出中无同**语义名等价**链接键

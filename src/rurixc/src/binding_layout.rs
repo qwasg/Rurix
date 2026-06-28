@@ -40,28 +40,33 @@ use crate::mir::{ResourceBinding, ResourceClass, ResourceCount};
 
 /// 绑定布局推导失败(strict-only;RFC-0005 §4 / P-01,无运行期 fallback)。
 ///
-/// **错误码占位「6xxx」(判档点,落码归 PR-E2b / owner)**:本枚举只定义推导失败的
-/// 类型化语义,**不**直接发码、**不**改 `registry/error_codes.json`、**不**接线生产
-/// emit。各变体最终 6xxx 段位由 owner 在 PR-E2b 按真实可达类别裁定(避开 RX6014
-/// 与 RXS-0160 争号);`Unmappable` 计划复用 RX6013 `codegen.dxil_unmappable`
-/// (PR-E1 §3),其余为新真实可达类别新开码——均归 PR-E2b。
+/// **错误码(G2.3 PR-E2b-2 已落,owner 已裁)**:本枚举只定义推导失败的类型化语义,
+/// **不**直接发码、**不**改 `registry/error_codes.json`、**不**接线生产 emit;落码与
+/// emit 接线在 [`crate::dxil_codegen`] 边界([`DxilBError::Binding`] →
+/// `emit_b_error` 按变体分派)。各变体专属码(避开 RX6014:owner 裁定 RX6014 给
+/// RXS-0160 阶段间接口错链):`Unmappable` 复用 RX6013 `codegen.dxil_unmappable`
+/// (bindless / unbounded RD-018,owner 已裁不新开);`RegisterConflict` → RX6015
+/// `codegen.dxil_register_conflict`;`RootSignatureTooLarge` → RX6016
+/// `codegen.dxil_root_signature_too_large`;`Psv0Mismatch` → RX6017
+/// `codegen.dxil_psv0_mismatch`。🔒 诊断 message 只描述失败类别,不落 register/space/
+/// packing 物理布局值。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BindingInferError {
     /// 资源不可映射为合规有界绑定(bindless / unbounded descriptor array →
     /// RD-018 defer;或资源种类不可降级)。strict-only 拒绝,不发明 descriptor
-    /// heap 编码(占位「6xxx」,计划复用 RX6013)。
+    /// heap 编码(复用 RX6013 `codegen.dxil_unmappable`,owner 已裁不新开)。
     Unmappable {
         /// 不可映射构造的诊断上下文(资源名 / 种类 / 基数)。
         detail: String,
     },
     /// register/layout 冲突:两个资源占同一(种类轴, register, space)。
-    /// strict-only 拒绝,无 fallback(占位「6xxx」新开码,PR-E2b)。
+    /// strict-only 拒绝,无 fallback(RX6015 `codegen.dxil_register_conflict`)。
     RegisterConflict {
         /// 冲突的诊断上下文(两端资源名 / 轴 / register / space)。
         detail: String,
     },
-    /// root signature 推导超 D3D12 64 DWORD 上限。strict-only 拒绝(占位「6xxx」
-    /// 新开码,PR-E2b)。
+    /// root signature 推导超 D3D12 64 DWORD 上限。strict-only 拒绝
+    /// (RX6016 `codegen.dxil_root_signature_too_large`)。
     RootSignatureTooLarge {
         /// 推导出的 DWORD 成本。
         dwords: u32,
@@ -69,7 +74,7 @@ pub enum BindingInferError {
         limit: u32,
     },
     /// PSV0 反射与推导意图不一致(不可推导 / 篡改 / mismatch)。strict-only 拒绝
-    /// (占位「6xxx」新开码,PR-E2b)。
+    /// (RX6017 `codegen.dxil_psv0_mismatch`)。
     Psv0Mismatch {
         /// 失配的诊断上下文。
         detail: String,

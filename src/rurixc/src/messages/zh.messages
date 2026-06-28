@@ -103,6 +103,12 @@ codegen.dxil_sig_mismatch = DXIL 签名不一致:{detail}
 codegen.dxil_sig_dropped_input = DXIL 声明输入被消除:{detail}
 codegen.dxil_unmappable = 不可映射的 DXIL 构造:{detail}
 #
+# DXIL 绑定布局推导 + 阶段间接口链接 strict-only 失败诊断(RX6014 ~ RX6017,spec/binding_layout.md RXS-0163~0166 + spec/dxil_backend.md RXS-0160;G2.3 PR-E2b-2 分配)
+codegen.dxil_stage_link_mismatch = DXIL 阶段间接口错链:{detail}
+codegen.dxil_register_conflict = DXIL 绑定 register/layout 冲突:{detail}
+codegen.dxil_root_signature_too_large = DXIL root signature 推导超 DWORD 上限:{detail}
+codegen.dxil_psv0_mismatch = DXIL PSV0 反射与推导意图不一致:{detail}
+#
 # rx CLI 工具链诊断(RX7003 / RX7004,spec/toolchain.md RXS-0083/0085;M6.1 分配)
 toolchain.rx_cli_usage = rx CLI 用法错误:{detail}
 toolchain.rx_run_exec_failure = rx run:无法执行构建产物:{detail}

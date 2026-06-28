@@ -166,7 +166,7 @@
 | RXS-0160 | spec/dxil_backend.md | 3 | `conformance/dxil/graphics/accept/vs_fs_link.rx`, `src/rurixc/src/dxil_codegen.rs`, `src/rurixc/src/dxil_sig_gate.rs` |
 | RXS-0161 | spec/dxil_backend.md | 4 | `conformance/dxil/graphics/accept/vs_varying.rx`, `conformance/dxil/graphics/reject/vs_builtin_scalar_position.rx`, `src/rurixc/src/dxil_codegen.rs` …(+1) |
 | RXS-0162 | spec/dxil_backend.md | 3 | `conformance/dxil/graphics/accept/vs_varying.rx`, `src/rurixc/src/dxil_codegen.rs`, `src/rurixc/src/dxil_sig_gate.rs` |
-| RXS-0163 | spec/binding_layout.md | 2 | `src/rurixc/src/binding_layout.rs`, `src/rurixc/src/mir_build.rs` |
-| RXS-0164 | spec/binding_layout.md | 1 | `src/rurixc/src/binding_layout.rs` |
-| RXS-0165 | spec/binding_layout.md | 2 | `src/rurixc/src/binding_layout.rs`, `src/rurixc/src/mir_build.rs` |
-| RXS-0166 | spec/binding_layout.md | 1 | `src/rurixc/src/binding_layout.rs` |
+| RXS-0163 | spec/binding_layout.md | 3 | `src/rurixc/src/binding_layout.rs`, `src/rurixc/src/dxil_codegen.rs`, `src/rurixc/src/mir_build.rs` |
+| RXS-0164 | spec/binding_layout.md | 2 | `src/rurixc/src/binding_layout.rs`, `src/rurixc/src/dxil_codegen.rs` |
+| RXS-0165 | spec/binding_layout.md | 3 | `src/rurixc/src/binding_layout.rs`, `src/rurixc/src/dxil_codegen.rs`, `src/rurixc/src/mir_build.rs` |
+| RXS-0166 | spec/binding_layout.md | 2 | `src/rurixc/src/binding_layout.rs`, `src/rurixc/src/dxil_codegen.rs` |

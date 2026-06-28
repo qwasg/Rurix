@@ -219,8 +219,8 @@ enum BChainResult {
     Skipped(String),
 }
 
-/// B 路 strict-only 失败(任务7 已按真实可达类别只追加落码 RX6010~RX6013;
-/// emit 点见 [`emit_b_error`])。
+/// B 路 strict-only 失败(任务7 落码 RX6010~RX6013;G2.3 PR-E2b-2 续接绑定布局推导
+/// 失败 RX6013/6015/6016/6017;emit 点见 [`emit_b_error`])。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DxilBError {
     /// MIR→SPIR-V 编码器不可映射(透传任务2 [`DxilError::Unmappable`];含未来纹理访问
@@ -240,6 +240,14 @@ pub enum DxilBError {
     /// RX6009=RD-013 故不复用 RX6009。不可裁剪、无旁路(R2.5 / Property 5):校验失败
     /// 的入口绝不返回 `Produced`、绝不产 golden。
     SigGate(signature_gate::SigGateError),
+    /// 绑定布局推导失败(RXS-0163~0166;G2.3 PR-E2b-2 按变体专属落码,
+    /// [`emit_b_error`] 分派):`Unmappable` → `RX6013` `codegen.dxil_unmappable`
+    /// (bindless / unbounded descriptor array RD-018 defer,复用既有不可映射码,owner
+    /// 已裁不新开);`RegisterConflict` → `RX6015` `codegen.dxil_register_conflict`;
+    /// `RootSignatureTooLarge` → `RX6016` `codegen.dxil_root_signature_too_large`;
+    /// `Psv0Mismatch` → `RX6017` `codegen.dxil_psv0_mismatch`。strict-only,无运行期
+    /// fallback。🔒 诊断只描述失败类别,不落 register/space/packing 物理布局值。
+    Binding(binding_layout::BindingInferError),
 }
 
 impl std::fmt::Display for DxilBError {
@@ -250,6 +258,7 @@ impl std::fmt::Display for DxilBError {
                 write!(f, "B 链 {step} 转译失败: {reason}")
             }
             DxilBError::SigGate(e) => write!(f, "{e}"),
+            DxilBError::Binding(e) => write!(f, "{e}"),
         }
     }
 }
@@ -470,19 +479,18 @@ pub fn emit_dxil_b(
 
 /// root signature 形态推导 + RTS0 容器序列化(RXS-0165;PR-E2b 生产接线)。
 ///
-/// **E2b-1 interim**:绑定推导失败暂经 `RX6013`(`codegen.dxil_unmappable`)透传——
-/// register/layout 冲突 / root signature 超 64 DWORD / PSV0 失配的**专属码
-/// `RX6015`/`RX6016`/`RX6017`** 落 E2b-2(owner Q-Err 已裁)。`emit_spirv` 在本函数
-/// 前已先拒 bindless/unbounded(RD-018),生产侧资源(`Texture2D<F>`/`Sampler`,
-/// 基数 One)恒可推导,故 `Err` 分支在 E2b-1 不可达,仅作 strict-only 防御
-/// (绝不静默产出空 root signature)。
+/// **G2.3 PR-E2b-2(本片落码)**:绑定推导失败按失败类别经 [`DxilBError::Binding`]
+/// 携带真实 [`binding_layout::BindingInferError`] 变体上抛,[`emit_b_error`] 分派专属
+/// 码——`Unmappable` → `RX6013`(复用)/ `RegisterConflict` → `RX6015` / `RootSignature
+/// TooLarge` → `RX6016` / `Psv0Mismatch` → `RX6017`(替换 E2b-1 经 `RX6013` 一律透传的
+/// interim)。`emit_spirv` 在本函数前已先拒 bindless/unbounded(RD-018),生产侧资源
+/// (`Texture2D<F>`/`Sampler`,基数 One)恒可推导,故 `Err` 分支当前仍主要作 strict-only
+/// 防御(绝不静默产出空 root signature),失败类别的真实红绿由 [`binding_layout`] host
+/// 单测 + [`emit_b_error`] 分派单测保证。
 fn serialize_root_signature(resources: &[ResourceBinding]) -> Result<Vec<u8>, DxilBError> {
     match binding_layout::infer_root_signature(resources) {
         Ok(rs) => Ok(binding_layout::serialize_rts0(&rs)),
-        Err(e) => Err(DxilBError::Spirv(DxilError::Unmappable {
-            what: "binding-layout".to_owned(),
-            detail: e.to_string(),
-        })),
+        Err(e) => Err(DxilBError::Binding(e)),
     }
 }
 
@@ -517,10 +525,16 @@ pub enum DispatchOutcome {
 /// - [`SigGateError::SigDroppedInput`] → `RX6012` `codegen.dxil_sig_dropped_input`
 ///   (声明的外部输入被消除且不可等价保留);
 /// - [`DxilBError::Spirv`](`DxilError::Unmappable`)→ `RX6013` `codegen.dxil_unmappable`
-///   (MIR→SPIR-V 编码器最小子集外构造)。
+///   (MIR→SPIR-V 编码器最小子集外构造);
+/// - [`DxilBError::Binding`] → 按 [`binding_layout::BindingInferError`] 变体分派
+///   (G2.3 PR-E2b-2):`Unmappable` → `RX6013`(复用,bindless/unbounded RD-018)/
+///   `RegisterConflict` → `RX6015` / `RootSignatureTooLarge` → `RX6016` /
+///   `Psv0Mismatch` → `RX6017`。
 ///
 /// 🔒 纹理访问语义结构上不可达(`io_sig` 仅标量/向量),**不造码**(R3.6 不预造)。
+/// 🔒 绑定布局诊断只描述失败类别,**不**落 register/space/packing 物理布局值。
 fn emit_b_error(diag: &DiagCtxt, span: Span, err: &DxilBError) {
+    use crate::binding_layout::BindingInferError;
     use crate::dxil_sig_gate::signature_gate::SigGateError;
     match err {
         DxilBError::Toolchain { step, reason } => {
@@ -544,6 +558,25 @@ fn emit_b_error(diag: &DiagCtxt, span: Span, err: &DxilBError) {
         }
         DxilBError::Spirv(e) => {
             diag.struct_error(ErrorCode(6013), "codegen.dxil_unmappable")
+                .arg("detail", e.to_string())
+                .span_label(span, "in DXIL graphics entry")
+                .emit();
+        }
+        DxilBError::Binding(e) => {
+            // 绑定布局推导失败按类别分派专属码(RXS-0163~0166;owner 已裁:
+            // Unmappable 复用 RX6013,其余新开 RX6015/6016/6017)。诊断载荷只取失败
+            // 类别描述(BindingInferError::Display),🔒 不含 register/space 物理值。
+            let (code, key) = match e {
+                BindingInferError::Unmappable { .. } => (6013, "codegen.dxil_unmappable"),
+                BindingInferError::RegisterConflict { .. } => {
+                    (6015, "codegen.dxil_register_conflict")
+                }
+                BindingInferError::RootSignatureTooLarge { .. } => {
+                    (6016, "codegen.dxil_root_signature_too_large")
+                }
+                BindingInferError::Psv0Mismatch { .. } => (6017, "codegen.dxil_psv0_mismatch"),
+            };
+            diag.struct_error(ErrorCode(code), key)
                 .arg("detail", e.to_string())
                 .span_label(span, "in DXIL graphics entry")
                 .emit();
@@ -629,8 +662,9 @@ pub enum StageLinkOutcome {
     NoPair,
     /// vertex out ↔ fragment in 链接一致(语义名 / 类型 / 插值全配对)。
     Linked,
-    /// 错链(strict-only;映射 6xxx **待 owner 裁** RX6011 复用 / RX6014 新开,落码归
-    /// owner 确认后实现步,见 [`signature_gate::StageLinkError`])。
+    /// 错链(strict-only;经 [`emit_stage_link_error`] 落 `RX6014`
+    /// `codegen.dxil_stage_link_mismatch`,owner 裁定方案 B 新开码、不复用 RX6011,
+    /// 见 [`signature_gate::StageLinkError`])。
     LinkError(signature_gate::StageLinkError),
 }
 
@@ -644,11 +678,11 @@ pub enum StageLinkOutcome {
 /// 无 vertex+fragment 配对(单阶段编译 / 缺一阶段)→ [`StageLinkOutcome::NoPair`]
 /// (behavior 不变,零漂移)。
 ///
-/// **错误码 emit 待 owner 裁(判档点,需人工升档)**:错链返回
-/// [`StageLinkOutcome::LinkError`],**本接缝不接线生产 6xxx emit**——错链映射 RX6011
-/// 复用 / RX6014 新开属语义归类裁决(spec §2 RXS-0160 IR3),落码 + 诊断接线归 owner
-/// 确认后的实现步(不擅自落 `registry/error_codes.json` / message-key)。strict-only
-/// 语义由 `check_stage_link` 保证(错链必 Err,绝不静默通过)。
+/// **错误码(G2.3 PR-E2b-2 已落,owner 裁定方案 B)**:错链返回
+/// [`StageLinkOutcome::LinkError`],经 [`emit_stage_link_error`] 落 `RX6014`
+/// `codegen.dxil_stage_link_mismatch`——owner 裁定**新开 RX6014**(不复用 RX6011 单阶段
+/// 签名不一致语义;spec §2 RXS-0160 IR3)。strict-only 语义由 `check_stage_link` 保证
+/// (错链必 Err,绝不静默通过)。
 pub fn link_graphics_stages(bodies: &[Body]) -> StageLinkOutcome {
     let vs = bodies
         .iter()
@@ -663,6 +697,20 @@ pub fn link_graphics_stages(bodies: &[Body]) -> StageLinkOutcome {
         },
         _ => StageLinkOutcome::NoPair,
     }
+}
+
+/// 阶段间接口错链 → `RX6014` `codegen.dxil_stage_link_mismatch` 结构化诊断(RXS-0160;
+/// G2.3 PR-E2b-2,owner 裁定方案 B 新开码)。
+///
+/// 两类 [`signature_gate::StageLinkError`](`Unlinked` 缺链接键 / `LinkMismatch`
+/// 类型·插值失配)均落同一 `RX6014`(同属阶段间接口错链失败类别,RXS-0160 L2/L3);
+/// strict-only,无运行期 fallback。🔒 诊断只描述错链失败类别,**不**落 location /
+/// register / mask 物理布局值(ABI 中立,RFC-0004 §4.6(a))。
+pub fn emit_stage_link_error(diag: &DiagCtxt, span: Span, err: &signature_gate::StageLinkError) {
+    diag.struct_error(ErrorCode(6014), "codegen.dxil_stage_link_mismatch")
+        .arg("detail", err.to_string())
+        .span_label(span, "in DXIL graphics stage link")
+        .emit();
 }
 
 #[cfg(test)]
@@ -1111,6 +1159,85 @@ mod tests {
         );
     }
 
+    /// 绑定布局推导失败经 [`emit_b_error`] 按变体分派专属码(RXS-0163~0166;
+    /// G2.3 PR-E2b-2,owner 已裁:Unmappable 复用 RX6013,其余新开 RX6015/6016/6017)。
+    //@ spec: RXS-0163, RXS-0164, RXS-0165, RXS-0166
+    #[test]
+    fn emit_b_error_binding_routes_to_dedicated_codes() {
+        use crate::binding_layout::BindingInferError;
+        let cases: &[(DxilBError, u16)] = &[
+            (
+                DxilBError::Binding(BindingInferError::Unmappable {
+                    detail: "bindless 资源(RD-018 defer)".to_owned(),
+                }),
+                6013,
+            ),
+            (
+                DxilBError::Binding(BindingInferError::RegisterConflict {
+                    detail: "t0 区间重叠".to_owned(),
+                }),
+                6015,
+            ),
+            (
+                DxilBError::Binding(BindingInferError::RootSignatureTooLarge {
+                    dwords: 66,
+                    limit: 64,
+                }),
+                6016,
+            ),
+            (
+                DxilBError::Binding(BindingInferError::Psv0Mismatch {
+                    detail: "反射资源数与意图不一致".to_owned(),
+                }),
+                6017,
+            ),
+        ];
+        for (err, expected) in cases {
+            let diag = DiagCtxt::new();
+            emit_b_error(&diag, dummy_span(), err);
+            let codes = emitted_codes(&diag);
+            assert!(
+                codes.contains(expected),
+                "{err:?} 应发 RX{expected},实得 {codes:?}"
+            );
+            // 零漂移:绑定布局失败绝不复用 RX6007(A 路)/ RX6011~6012(签名校验门)。
+            assert!(
+                !codes.contains(&6007),
+                "绑定布局失败绝不复用 A 路 RX6007,实得 {codes:?}"
+            );
+        }
+    }
+
+    /// 阶段间接口错链经 [`emit_stage_link_error`] 落 `RX6014`
+    /// `codegen.dxil_stage_link_mismatch`(RXS-0160;owner 裁定方案 B 新开码,
+    /// 不复用 RX6011),两类错链(`Unlinked` / `LinkMismatch`)同落 RX6014。
+    //@ spec: RXS-0160
+    #[test]
+    fn emit_stage_link_error_routes_to_rx6014() {
+        let errs = [
+            signature_gate::StageLinkError::Unlinked {
+                detail: "fragment 输入 `extra` 无上游链接键".to_owned(),
+            },
+            signature_gate::StageLinkError::LinkMismatch {
+                detail: "链接键 `color` 两端类型失配".to_owned(),
+            },
+        ];
+        for err in &errs {
+            let diag = DiagCtxt::new();
+            emit_stage_link_error(&diag, dummy_span(), err);
+            let codes = emitted_codes(&diag);
+            assert!(
+                codes.contains(&6014),
+                "阶段间接口错链应发 RX6014,实得 {codes:?}"
+            );
+            // 零漂移:错链新开码 RX6014,绝不复用单阶段签名不一致 RX6011。
+            assert!(
+                !codes.contains(&6011),
+                "错链 owner 裁定新开 RX6014,绝不复用 RX6011,实得 {codes:?}"
+            );
+        }
+    }
+
     /// 顶点输入语义保名旗标导出(工具无关,恒跑):[`vertex_input_semantic_flags`] 按
     /// io_sig 顺序复算 location → field_name(与 emit_spirv 的 next_in_location 对齐),
     /// 经 io_sig 导出、**非硬编码**(RFC-0004 §4.4 机制①,实测顶点输入名存活)。
@@ -1234,7 +1361,8 @@ mod tests {
     }
 
     /// reject:fragment 输入 varying(`extra`)在 vertex 输出无链接键 → `LinkError`
-    /// (错链;strict-only,错误码归类待 owner 裁,本接缝不接线生产 emit)。
+    /// (错链;strict-only)→ 经 [`emit_stage_link_error`] 落 `RX6014`(owner 裁定方案 B
+    /// 新开码,G2.3 PR-E2b-2)。
     //@ spec: RXS-0160
     #[test]
     fn link_graphics_stages_mismatched_pair_is_link_error() {
@@ -1248,12 +1376,17 @@ mod tests {
             make_body(Some(ShaderStage::Vertex), vs_link_io()),
             make_body(Some(ShaderStage::Fragment), fs),
         ];
+        let outcome = link_graphics_stages(&bodies);
+        let StageLinkOutcome::LinkError(err) = outcome else {
+            panic!("错链应 LinkError,实得 {outcome:?}");
+        };
+        // 错链经生产 emit 接缝落真实码 RX6014(替换 owner 裁码前的占位「6xxx」)。
+        let diag = DiagCtxt::new();
+        emit_stage_link_error(&diag, dummy_span(), &err);
         assert!(
-            matches!(
-                link_graphics_stages(&bodies),
-                StageLinkOutcome::LinkError(_)
-            ),
-            "错链应 LinkError"
+            emitted_codes(&diag).contains(&6014),
+            "错链应发 RX6014,实得 {:?}",
+            emitted_codes(&diag)
         );
     }
 

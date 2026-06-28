@@ -222,8 +222,9 @@ fn accept_graphics_corpus_lowers_to_spirv() {
 /// RXS-0160:vertex+fragment 配对的图形 accept 语料经多阶段联编点链接核对 → `Linked`。
 /// 对 graphics/accept 中同时含 vertex+fragment 阶段根的文件(如 `vs_fs_link.rx`)断言
 /// [`link_graphics_stages`] 链接一致(host 侧确定性;builtin 不参与、location 不比对
-/// ABI 中立)。单阶段文件 → `NoPair`(无配对,不断言)。错链错误码归类待 owner 裁
-/// (RX6011 复用 / RX6014 新开,spec §2 RXS-0160 IR3),accept 路径不涉错误码。
+/// ABI 中立)。单阶段文件 → `NoPair`(无配对,不断言)。错链错误码 = `RX6014`
+/// `codegen.dxil_stage_link_mismatch`(owner 裁定方案 B 新开码,G2.3 PR-E2b-2,
+/// spec §2 RXS-0160 IR3),accept 路径不涉错误码。
 #[cfg(feature = "shader-stages")]
 #[test]
 fn accept_graphics_link_consistent() {

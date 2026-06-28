@@ -102,6 +102,12 @@ codegen.dxil_sig_mismatch = DXIL signature mismatch: {detail}
 codegen.dxil_sig_dropped_input = DXIL declared input eliminated: {detail}
 codegen.dxil_unmappable = unmappable DXIL construct: {detail}
 #
+# DXIL 绑定布局推导 + 阶段间接口链接 strict-only 失败诊断(RX6014 ~ RX6017,spec/binding_layout.md RXS-0163~0166 + spec/dxil_backend.md RXS-0160;G2.3 PR-E2b-2 分配)
+codegen.dxil_stage_link_mismatch = DXIL stage interface link mismatch: {detail}
+codegen.dxil_register_conflict = DXIL binding register/layout conflict: {detail}
+codegen.dxil_root_signature_too_large = DXIL root signature exceeds DWORD limit: {detail}
+codegen.dxil_psv0_mismatch = DXIL PSV0 reflection mismatch: {detail}
+#
 # rx CLI 工具链诊断(RX7003 / RX7004,spec/toolchain.md RXS-0083/0085;M6.1 分配)
 toolchain.rx_cli_usage = rx CLI usage error: {detail}
 toolchain.rx_run_exec_failure = rx run: cannot execute build artifact: {detail}

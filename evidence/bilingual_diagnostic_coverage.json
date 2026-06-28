@@ -2,16 +2,16 @@
   "schema_version": 1,
   "subject": "bilingual_diagnostic_coverage",
   "coverage_complete": true,
-  "en_key_count": 68,
-  "zh_key_count": 68,
+  "en_key_count": 80,
+  "zh_key_count": 80,
   "missing_in_zh": [],
   "extra_in_zh": [],
   "facts": [
     {
       "kind": "coverage",
       "name": "zh_en_key_set_aligned",
-      "en_key_count": 68,
-      "zh_key_count": 68,
+      "en_key_count": 80,
+      "zh_key_count": 80,
       "note": "zh 与 en message-key 集完全对齐(无缺键 / 多键)"
     }
   ],
@@ -22,5 +22,5 @@
     "green_exit_code": 0,
     "run_url": "green_baseline=https://github.com/qwasg/Rurix/actions/runs/27680365968; red_missing_zh_key=https://github.com/qwasg/Rurix/actions/runs/27680580391; green_restored=https://github.com/qwasg/Rurix/actions/runs/27680780231"
   },
-  "timestamp": "2026-06-17T18:00:00+08:00"
+  "timestamp": "2026-06-28T16:43:50+08:00"
 }

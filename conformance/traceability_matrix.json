@@ -958,17 +958,21 @@
     ],
     "RXS-0163": [
       "src/rurixc/src/binding_layout.rs",
+      "src/rurixc/src/dxil_codegen.rs",
       "src/rurixc/src/mir_build.rs"
     ],
     "RXS-0164": [
-      "src/rurixc/src/binding_layout.rs"
+      "src/rurixc/src/binding_layout.rs",
+      "src/rurixc/src/dxil_codegen.rs"
     ],
     "RXS-0165": [
       "src/rurixc/src/binding_layout.rs",
+      "src/rurixc/src/dxil_codegen.rs",
       "src/rurixc/src/mir_build.rs"
     ],
     "RXS-0166": [
-      "src/rurixc/src/binding_layout.rs"
+      "src/rurixc/src/binding_layout.rs",
+      "src/rurixc/src/dxil_codegen.rs"
     ]
   }
 }
