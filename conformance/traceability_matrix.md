@@ -161,3 +161,12 @@
 | RXS-0155 | spec/shader_stages.md | 4 | `conformance/shader/accept/basic_stages.rx`, `conformance/shader/reject/interface_mismatch/vs_fs_mismatch.rx`, `src/rurixc/src/shader_stages.rs` …(+1) |
 | RXS-0156 | spec/shader_stages.md | 4 | `conformance/shader/accept/basic_stages.rx`, `conformance/shader/reject/resource_handle/handle_return.rx`, `src/rurixc/src/shader_stages.rs` …(+1) |
 | RXS-0157 | spec/dxil_backend.md | 4 | `conformance/dxil/accept/cs_noop.rx`, `conformance/dxil/reject/nontrivial_body.rx`, `conformance/dxil/reject/view_param.rx` …(+1) |
+| RXS-0158 | spec/dxil_backend.md | 3 | `conformance/dxil/graphics/accept/fs_passthrough.rx`, `conformance/dxil/graphics/accept/vs_varying.rx`, `src/rurixc/src/dxil_codegen.rs` |
+| RXS-0159 | spec/dxil_backend.md | 4 | `conformance/dxil/graphics/accept/fs_passthrough.rx`, `conformance/dxil/graphics/reject/vs_builtin_scalar_position.rx`, `src/rurixc/src/dxil_codegen.rs` …(+1) |
+| RXS-0160 | spec/dxil_backend.md | 3 | `conformance/dxil/graphics/accept/vs_fs_link.rx`, `src/rurixc/src/dxil_codegen.rs`, `src/rurixc/src/dxil_sig_gate.rs` |
+| RXS-0161 | spec/dxil_backend.md | 4 | `conformance/dxil/graphics/accept/vs_varying.rx`, `conformance/dxil/graphics/reject/vs_builtin_scalar_position.rx`, `src/rurixc/src/dxil_codegen.rs` …(+1) |
+| RXS-0162 | spec/dxil_backend.md | 3 | `conformance/dxil/graphics/accept/vs_varying.rx`, `src/rurixc/src/dxil_codegen.rs`, `src/rurixc/src/dxil_sig_gate.rs` |
+| RXS-0163 | spec/binding_layout.md | 3 | `src/rurixc/src/binding_layout.rs`, `src/rurixc/src/dxil_codegen.rs`, `src/rurixc/src/mir_build.rs` |
+| RXS-0164 | spec/binding_layout.md | 2 | `src/rurixc/src/binding_layout.rs`, `src/rurixc/src/dxil_codegen.rs` |
+| RXS-0165 | spec/binding_layout.md | 4 | `src/rurixc/src/binding_layout.rs`, `src/rurixc/src/dxil_codegen.rs`, `src/rurixc/src/mir_build.rs` …(+1) |
+| RXS-0166 | spec/binding_layout.md | 3 | `src/rurixc/src/binding_layout.rs`, `src/rurixc/src/dxil_codegen.rs`, `src/rurixc/tests/dxil_golden.rs` |

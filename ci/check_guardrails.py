@@ -293,14 +293,19 @@ def check_dxil_bless(base: str, diffs: list[tuple[str, str]]) -> None:
     """DXIL golden 变更必须经审批 bless(14 §2 常驻集 / RFC-0003 §9 Q-Golden;
     G2.2 PR-C2 分片1 激活,RXS-0157)。
 
-    diff 含 tests/dxil/**/*.dxil-ll 或 *.dxil-disasm 的新增/修改/删除时:
-    bless_log.md 必须同 diff 追加新行(既有行 0-byte);bless_log 自身不得删除。
+    diff 含 tests/dxil/**/*.dxil-ll / *.dxil-disasm / *.binding-golden(G2.3 PR-E2b-3
+    绑定布局推导产物 digest golden,RXS-0165/0166)的新增/修改/删除时:bless_log.md
+    必须同 diff 追加新行(既有行 0-byte);bless_log 自身不得删除。
     """
     golden_changes = [
         (status, path)
         for status, path in diffs
         if path.startswith("tests/dxil/")
-        and (path.endswith(".dxil-ll") or path.endswith(".dxil-disasm"))
+        and (
+            path.endswith(".dxil-ll")
+            or path.endswith(".dxil-disasm")
+            or path.endswith(".binding-golden")
+        )
     ]
     log_deleted = any(status == "D" and path == DXIL_BLESS_LOG for status, path in diffs)
     if log_deleted:

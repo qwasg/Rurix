@@ -1,0 +1,14 @@
+//@ spec: RXS-0158, RXS-0159
+// 合法图形=B fragment 着色阶段(RXS-0158 阶段→着色器类型:fragment→pixel shader):
+// 接 vertex 输出 varying(In)并透传为 fragment 输出(Out)。RXS-0159 阶段 I/O 签名
+// 意图面:io_sig 逐字段携源码语义名 / interpolate 种类 / 标量类型 / in|out 方向四维度
+// (B 路 by-construction UserSemantic 保名与强制签名一致性校验门的意图侧依据)。host
+// 侧确定性:emit_spirv 产合法 SPIR-V(In/Out Location 装饰 + UserSemantic 保名)。
+// 译后 ISG1/OSG1 vs 意图签名的强制校验门红绿见 dxil_sig_gate 单测 + 步骤 46。恒跑。
+struct VsOut {
+    #[interpolate(perspective)] uv: f32,
+}
+
+fragment fn fs_main(inp: VsOut) -> VsOut {
+    inp
+}

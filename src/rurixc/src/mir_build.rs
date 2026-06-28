@@ -88,13 +88,18 @@ pub fn build_device_crate(cx: &QueryCtx<'_>) -> Vec<Body> {
     let mut visited: HashSet<String> = HashSet::new();
     let mut worklist: Vec<(DefId, Vec<Ty>)> = Vec::new();
     // 根 = 全部 `kernel fn`(有 body、无泛型参数;泛型 kernel 随单态化扩展 M4+)。
-    // 着色阶段函数(`decl.stage.is_some()`)虽取 kernel 着色,但本里程碑仅类型面,
-    // 不进 device codegen 收集根(DXIL codegen 属 G2.2,RFC-0002 §8;PTX 后端不收集
-    // 图形/RT 着色阶段)。
+    //
+    // 着色阶段根收集口径(RXS-0161,R1.3 / R1.2 / R6.7):
+    // - 默认(非 `dxil-backend`)构建:仅收非着色阶段 kernel 根(`stage == None`),
+    //   图形/RT 着色阶段一律不收 —— PTX 后端行为与既有测试零漂移。
+    // - cargo feature `dxil-backend` 启用:额外收 vertex / fragment 图形阶段根
+    //   (B 路 DXIL codegen 入口),并携 AST 层 I/O 意图签名进 MIR。mesh/task/RT
+    //   不在此收集(deferred,任务 15 stub);compute 阶段沿用排除(走既有 A 路)。
+    // 收集判定见 [`collectable_stage`](feature 门控,零漂移)。
     for item in &krate.items {
         if let hir::ItemKind::Fn(decl) = &item.kind
             && decl.color == crate::ast::FnColor::Kernel
-            && decl.stage.is_none()
+            && collectable_stage(decl.stage)
             && decl.body.is_some()
             && decl.generic_params.is_empty()
             && visited.insert(mangle(&item.name, item.def_id, &[]))
@@ -106,6 +111,9 @@ pub fn build_device_crate(cx: &QueryCtx<'_>) -> Vec<Body> {
         let (mut body, callees, _const_err) = build_body(cx, def, args);
         crate::drop_elab::elaborate(&mut body);
         let drop_callees = crate::drop_elab::collect_drop_callees(&krate, &body);
+        // 图形阶段根:携 stage 类别 + AST I/O 意图签名进 MIR(仅 `dxil-backend`;
+        // 默认构建为 no-op,`stage`/`io_sig` 维持 build_body 的 None/空,零漂移)。
+        attach_graphics_io_sig(cx, &krate, def, &mut body);
         out.push(body);
         for (d, a) in callees.into_iter().chain(drop_callees) {
             let sym = mangle(&krate.item(d).name, d, &a);
@@ -116,6 +124,320 @@ pub fn build_device_crate(cx: &QueryCtx<'_>) -> Vec<Body> {
     }
     out.sort_by(|a, b| a.symbol.cmp(&b.symbol));
     out
+}
+
+/// device codegen 收集根判定(RXS-0161,R1.2/R1.3/R6.7):默认仅非着色阶段
+/// kernel 根(`stage == None`),vertex/fragment 图形阶段根仅在 `dxil-backend`
+/// feature 下额外收纳(B 路 DXIL 入口)。mesh/task/RT 与 compute 不在此收。
+#[cfg(feature = "dxil-backend")]
+fn collectable_stage(stage: Option<crate::ast::ShaderStage>) -> bool {
+    use crate::ast::ShaderStage;
+    matches!(
+        stage,
+        None | Some(ShaderStage::Vertex | ShaderStage::Fragment)
+    )
+}
+
+/// device codegen 收集根判定(默认 / 非 `dxil-backend`):仅非着色阶段 kernel
+/// 根。图形/RT 着色阶段一律排除 —— PTX 路径行为与既有测试逐一致(零漂移)。
+#[cfg(not(feature = "dxil-backend"))]
+fn collectable_stage(stage: Option<crate::ast::ShaderStage>) -> bool {
+    stage.is_none()
+}
+
+/// 为 vertex / fragment 图形阶段根携 stage 类别 + AST I/O 意图签名(RXS-0161,
+/// R1.3):`dxil-backend` 下从 AST `shader_stages` 形参/返回位置的 I/O 结构体
+/// 字段标注提取 [`crate::mir::IoSigElem`] 表,置入 `body`。非图形阶段(含全部
+/// device fn callee)为 no-op。
+#[cfg(feature = "dxil-backend")]
+fn attach_graphics_io_sig(cx: &QueryCtx<'_>, krate: &hir::Crate, def: DefId, body: &mut Body) {
+    use crate::ast::ShaderStage;
+    let hir::ItemKind::Fn(decl) = &krate.item(def).kind else {
+        return;
+    };
+    let Some(stage @ (ShaderStage::Vertex | ShaderStage::Fragment)) = decl.stage else {
+        return;
+    };
+    body.stage = Some(stage);
+    body.io_sig = dxil_io::io_sig_for(cx.ast(), &krate.item(def).name, stage);
+    // PR-E2b 生产接线(RXS-0163):同序提取资源句柄形参绑定声明,作 host 侧
+    // 绑定布局推导(binding_layout)的确定性输入(io_sig 与 resources 互不交叠:
+    // 命名 I/O 结构体 → io_sig;资源句柄形参 → resources)。
+    body.resources = dxil_io::resources_for(cx.ast(), &krate.item(def).name, stage);
+}
+
+/// 默认 / 非 `dxil-backend`:图形阶段根不收集,`Body` 的 stage/io_sig 维持
+/// build_body 的中立默认(`None`/空),保证 PTX 路径零漂移(R1.2/R6.7)。
+#[cfg(not(feature = "dxil-backend"))]
+fn attach_graphics_io_sig(_cx: &QueryCtx<'_>, _krate: &hir::Crate, _def: DefId, _body: &mut Body) {}
+
+/// AST → MIR 图形阶段 I/O 意图签名提取(RXS-0161,仅 `dxil-backend`)。
+///
+/// HIR `FieldDef` 不携 `#[builtin(..)]`/`#[interpolate(..)]` 属性(那是 AST 面),
+/// 故 I/O 签名意图须自 AST 提取。本模块**只读** AST(`cx.ast()`),按图形阶段
+/// 函数的形参(`In`)/返回(`Out`)位置可达的 I/O 结构体字段,逐字段携带源码
+/// 字段名 / builtin·interpolate·varying 种类 / 已建模类型 / 方向四维度。
+///
+/// 类型映射(R1.9 边界):标量 prim → [`MirIoType::Scalar`]、向量约定名 →
+/// [`MirIoType::Vector`];超出已建模子集的类型**不在此静默丢弃**——元素仍
+/// 进 io_sig(字段名/种类/方向保真),不可映射的 6xxx 拒绝由 B 路编码器
+/// (任务 2/4)裁决。资源句柄(`Texture2D`/`Sampler`)非命名 I/O 结构体,
+/// 自然不入 io_sig(opaque handle 形态,RFC-0004 §4.6(b))。
+#[cfg(feature = "dxil-backend")]
+mod dxil_io {
+    use std::collections::HashMap;
+
+    use crate::ast::{self, MetaInner, MetaKind, ShaderStage, TyKind};
+    use crate::hir::PrimTy;
+    use crate::mir::{
+        IoDir, IoSigElem, IoSigKind, MirIoType, MirResourceType, ResourceBinding, ResourceCount,
+    };
+
+    /// 提取指定图形阶段函数(名 + 阶段匹配)的 I/O 意图签名表。
+    pub(super) fn io_sig_for(
+        file: &ast::SourceFile,
+        fn_name: &str,
+        stage: ShaderStage,
+    ) -> Vec<IoSigElem> {
+        let mut structs: HashMap<String, &[ast::FieldDef]> = HashMap::new();
+        collect_named_structs(&file.items, &mut structs);
+
+        let mut out = Vec::new();
+        let Some(f) = find_stage_fn(&file.items, fn_name, stage) else {
+            return out;
+        };
+        // 形参 → In 方向(资源句柄等非命名 I/O 结构体自然跳过)。
+        for p in &f.params {
+            if let ast::ParamKind::Typed { ty, .. } = &p.kind
+                && let Some(fields) = io_struct_fields(ty, &structs)
+            {
+                for fld in fields {
+                    out.push(field_to_elem(fld, IoDir::In));
+                }
+            }
+        }
+        // 返回类型 → Out 方向。
+        if let Some(ret) = &f.ret
+            && let Some(fields) = io_struct_fields(ret, &structs)
+        {
+            for fld in fields {
+                out.push(field_to_elem(fld, IoDir::Out));
+            }
+        }
+        out
+    }
+
+    /// 提取指定图形阶段函数的资源句柄形参绑定声明(RXS-0163;PR-E2b 生产接线)。
+    ///
+    /// 按**声明序**扫描阶段函数形参,命中资源句柄类型(RXS-0156 首批:`Texture2D<F>`
+    /// → SRV / `Sampler` → Sampler)者落 [`ResourceBinding`](源码形参名保名 + 资源
+    /// 类型 + 基数)。命名 I/O 结构体形参(varying)与原生类型形参不入(由
+    /// [`io_sig_for`] 各管其责)。首批无数组语法 → 基数恒 [`ResourceCount::One`]。
+    pub(super) fn resources_for(
+        file: &ast::SourceFile,
+        fn_name: &str,
+        stage: ShaderStage,
+    ) -> Vec<ResourceBinding> {
+        let mut out = Vec::new();
+        let Some(f) = find_stage_fn(&file.items, fn_name, stage) else {
+            return out;
+        };
+        for p in &f.params {
+            if let ast::ParamKind::Typed { pat, ty } = &p.kind
+                && let Some(res) = ast_ty_to_resource(ty)
+            {
+                out.push(ResourceBinding {
+                    name: pat_binding_name(pat).unwrap_or_default(),
+                    res,
+                    count: ResourceCount::One,
+                });
+            }
+        }
+        out
+    }
+
+    /// 简单绑定形参名(`name: Ty` → "name");非简单绑定模式 → None。
+    fn pat_binding_name(pat: &ast::Pat) -> Option<String> {
+        match &pat.kind {
+            ast::PatKind::Binding { name, .. } => Some(name.name.clone()),
+            _ => None,
+        }
+    }
+
+    /// AST 类型 → 资源句柄建模(RXS-0156 首批 `Texture2D<F>`/`Sampler`);非资源
+    /// 句柄类型 → None。`Texture2D` 取首个类型实参的头 prim 作分量类型(缺省 `f32`)。
+    fn ast_ty_to_resource(ty: &ast::Ty) -> Option<MirResourceType> {
+        let ty = unwrap_ty(ty);
+        let head = ty_head_name(ty)?;
+        match head {
+            "Texture2D" => {
+                let prim = if let TyKind::Path(p) = &ty.kind {
+                    p.segments
+                        .last()
+                        .and_then(vector_elem_prim)
+                        .unwrap_or(PrimTy::F32)
+                } else {
+                    PrimTy::F32
+                };
+                Some(MirResourceType::Texture2D(prim))
+            }
+            "Sampler" => Some(MirResourceType::Sampler),
+            _ => None,
+        }
+    }
+
+    /// 收集全 crate(含嵌套 mod)命名字段结构体 → 字段切片(按名;同名取首个)。
+    fn collect_named_structs<'a>(
+        items: &'a [ast::Item],
+        out: &mut HashMap<String, &'a [ast::FieldDef]>,
+    ) {
+        for it in items {
+            match &it.kind {
+                ast::ItemKind::Struct(s) => {
+                    if let ast::VariantBody::Named(fields) = &s.body {
+                        out.entry(s.name.name.clone()).or_insert(fields.as_slice());
+                    }
+                }
+                ast::ItemKind::Mod(m) => collect_named_structs(&m.items, out),
+                _ => {}
+            }
+        }
+    }
+
+    /// 按名 + 阶段查找图形阶段函数(含嵌套 mod)。
+    fn find_stage_fn<'a>(
+        items: &'a [ast::Item],
+        name: &str,
+        stage: ShaderStage,
+    ) -> Option<&'a ast::FnItem> {
+        for it in items {
+            match &it.kind {
+                ast::ItemKind::Fn(f) if f.stage == Some(stage) && f.name.name == name => {
+                    return Some(f);
+                }
+                ast::ItemKind::Mod(m) => {
+                    if let Some(found) = find_stage_fn(&m.items, name, stage) {
+                        return Some(found);
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
+    /// 类型若命中命名结构体(I/O varying 结构体)→ 其字段切片;否则 None
+    /// (资源句柄 / 原生类型等非 I/O 结构体)。
+    fn io_struct_fields<'a>(
+        ty: &ast::Ty,
+        structs: &HashMap<String, &'a [ast::FieldDef]>,
+    ) -> Option<&'a [ast::FieldDef]> {
+        let head = ty_head_name(ty)?;
+        structs.get(head).copied()
+    }
+
+    /// 单个 AST I/O 字段 → MIR 意图签名元素(四维度保真)。
+    fn field_to_elem(f: &ast::FieldDef, dir: IoDir) -> IoSigElem {
+        IoSigElem {
+            field_name: f.name.name.clone(),
+            kind: field_anno_kind(f),
+            ty: ast_ty_to_mir_io(&f.ty),
+            dir,
+        }
+    }
+
+    /// 字段标注 → I/O 种类(首个 `#[builtin(..)]`/`#[interpolate(..)]`;无标注
+    /// 落 [`IoSigKind::Varying`])。与 [`crate::shader_stages`] 的 `field_anno`
+    /// 同口径(builtin/interpolate 取列表首个 meta 名)。
+    fn field_anno_kind(f: &ast::FieldDef) -> IoSigKind {
+        for attr in &f.attrs {
+            let [seg] = attr.meta.path.segments.as_slice() else {
+                continue;
+            };
+            let key = seg.ident.name.as_str();
+            if key != "builtin" && key != "interpolate" {
+                continue;
+            }
+            let arg = match &attr.meta.kind {
+                MetaKind::List(inner) => inner.iter().find_map(|mi| match mi {
+                    MetaInner::Meta(m) => m.path.segments.last().map(|s| s.ident.name.clone()),
+                    MetaInner::Lit(_) => None,
+                }),
+                _ => None,
+            }
+            .unwrap_or_default();
+            return if key == "builtin" {
+                IoSigKind::Builtin(arg)
+            } else {
+                IoSigKind::Interpolate(arg)
+            };
+        }
+        IoSigKind::Varying
+    }
+
+    /// AST 类型 → 已建模 MIR I/O 类型(标量 / 向量)。超出子集的类型不在此
+    /// 静默丢弃(元素仍携),保守落 [`MirIoType::Scalar`] 占位 —— 真正的不可
+    /// 映射 6xxx 拒绝由 B 路编码器(任务 2/4)裁决(strict-only,R1.9)。
+    fn ast_ty_to_mir_io(ty: &ast::Ty) -> MirIoType {
+        let ty = unwrap_ty(ty);
+        if let TyKind::Path(p) = &ty.kind
+            && let Some(seg) = p.segments.last()
+        {
+            let name = seg.ident.name.as_str();
+            if let Some(prim) = PrimTy::from_name(name) {
+                return MirIoType::Scalar(prim);
+            }
+            if let Some(n) = vector_arity(name) {
+                let elem = vector_elem_prim(seg).unwrap_or(PrimTy::F32);
+                return MirIoType::Vector(elem, n);
+            }
+        }
+        // 不可映射类型占位:意图侧字段名/种类/方向已保真,类型由编码器复核。
+        MirIoType::Scalar(PrimTy::F32)
+    }
+
+    /// 向量约定名 → 分量数(`vec2/vec3/vec4`,2..=4;非向量名返回 None)。
+    fn vector_arity(name: &str) -> Option<u8> {
+        match name {
+            "vec2" => Some(2),
+            "vec3" => Some(3),
+            "vec4" => Some(4),
+            _ => None,
+        }
+    }
+
+    /// 向量分量 prim(末段 `<elem>` 首个类型实参的头 prim;缺省 None)。
+    fn vector_elem_prim(seg: &ast::PathSegment) -> Option<PrimTy> {
+        let args = seg.args.as_ref()?;
+        for a in &args.args {
+            if let ast::GenericArg::Type(t) = a {
+                return ty_head_name(t).and_then(PrimTy::from_name);
+            }
+        }
+        None
+    }
+
+    /// 类型头名(`Texture2D<f32>` → "Texture2D";`&T`/`*T`/`(T)` 取内层头;
+    /// 非路径类型 → None)。
+    fn ty_head_name(ty: &ast::Ty) -> Option<&str> {
+        match &ty.kind {
+            TyKind::Path(p) => p.segments.last().map(|s| s.ident.name.as_str()),
+            TyKind::Paren(inner) | TyKind::Ref { inner, .. } | TyKind::RawPtr { inner, .. } => {
+                ty_head_name(inner)
+            }
+            _ => None,
+        }
+    }
+
+    /// 剥 `&T`/`*T`/`(T)` 外层,取内层类型(用于类型映射)。
+    fn unwrap_ty(ty: &ast::Ty) -> &ast::Ty {
+        match &ty.kind {
+            TyKind::Paren(inner) | TyKind::Ref { inner, .. } | TyKind::RawPtr { inner, .. } => {
+                unwrap_ty(inner)
+            }
+            _ => ty,
+        }
+    }
 }
 
 /// const 求值专用单实例构建(M3.4,RXS-0062):构建 const item / const fn 的
@@ -239,6 +561,16 @@ fn build_body(cx: &QueryCtx<'_>, def: DefId, generic_args: Vec<Ty>) -> BuildOutp
             arg_count,
             blocks,
             span: item.span,
+            // G2.2 图形=B(RXS-0161):本构建路径为默认(host/compute/kernel,
+            // 含 PTX device 收集)——恒不携着色阶段意图(`stage = None`、`io_sig`
+            // 空),保证默认路径 MIR 构造与既有测试零漂移(R1.2/R6.7)。图形阶段
+            // 根收集与 I/O 签名携带由后续分片在 `dxil-backend` feature 下接线。
+            stage: None,
+            io_sig: Vec::new(),
+            // PR-E2b 生产接线(RXS-0163):资源句柄绑定声明亦由图形阶段根收集
+            // (`attach_graphics_io_sig`)在 `dxil-backend` 下携带;默认路径恒空,
+            // 行为零漂移(R1.2/R6.7)。
+            resources: Vec::new(),
         },
         b.callees,
         b.const_err,
@@ -1543,6 +1875,225 @@ bb1:
         assert_eq!(
             super::unescape("a\\n\\x41\\u{42}"),
             Some("a\nAB".to_owned())
+        );
+    }
+
+    /// 默认路径零漂移(R1.2/R6.7):`build_crate` 产出的每个 `Body` 的图形阶段
+    /// 意图字段恒中立(`stage = None`、`io_sig` 空)——`mir::Body` 扩展不改默认
+    /// (host/PTX)路径 MIR 构造行为(RXS-0161;图形阶段根收集属后续分片)。
+    #[test]
+    fn default_path_bodies_carry_neutral_shader_signature() {
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(
+            "fn pick<T>(a: T, b: T) -> T { a }\n\
+             fn main() {\n    let _i = pick(1i64, 2);\n    let _x = 3 + 4;\n}",
+            SourceId(0),
+            Edition::Rx0,
+            &diag,
+        );
+        cx.check_crate();
+        assert!(diag.emitted().is_empty(), "前置诊断: {:?}", diag.emitted());
+        let mir = cx.mir_crate();
+        assert!(!mir.is_empty(), "应至少收集到 main 实例");
+        for body in mir.iter() {
+            assert_eq!(
+                body.stage, None,
+                "默认路径 body `{}` 不应携着色阶段",
+                body.symbol
+            );
+            assert!(
+                body.io_sig.is_empty(),
+                "默认路径 body `{}` 不应携 I/O 意图签名",
+                body.symbol
+            );
+        }
+    }
+
+    /// `dxil-backend` 下 `build_device_crate` 收 vertex/fragment 图形阶段根,且
+    /// 自 AST `shader_stages` 携 I/O 意图签名进 MIR(RXS-0161,R1.3):图形根
+    /// 进入 device MIR、`stage` 置 `Some(Vertex|Fragment)`、`io_sig` 非空且逐
+    /// 元素四维度(字段名 / builtin·interpolate·varying 种类 / 类型 / in|out
+    /// 方向)保真;资源句柄(`Texture2D`/`Sampler`)非命名 I/O 结构体,不入
+    /// io_sig(opaque handle 形态)。
+    //@ spec: RXS-0161
+    #[cfg(all(feature = "dxil-backend", feature = "shader-stages"))]
+    #[test]
+    fn dxil_backend_collects_graphics_roots_with_io_sig() {
+        use crate::ast::ShaderStage;
+        use crate::hir::PrimTy;
+        use crate::mir::{IoDir, IoSigKind, MirIoType};
+
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(
+            "struct VsOut {\n\
+            \x20   #[builtin(position)] pos: f32,\n\
+            \x20   #[interpolate(perspective)] uv: f32,\n\
+            \x20   #[interpolate(flat)] mat_id: u32,\n\
+             }\n\
+             vertex fn vs_main() -> VsOut {\n\
+            \x20   VsOut { pos: 0.0, uv: 0.0, mat_id: 0 }\n\
+             }\n\
+             fragment fn fs_main(inp: VsOut, tex: Texture2D<f32>, samp: Sampler) -> VsOut {\n\
+            \x20   inp\n\
+             }\n\
+             fn main() {}",
+            SourceId(0),
+            Edition::Rx0,
+            &diag,
+        );
+        let device = cx.device_mir_crate();
+
+        // 图形阶段根入 device MIR(vertex + fragment 各一)。
+        let vs = device
+            .iter()
+            .find(|b| b.stage == Some(ShaderStage::Vertex))
+            .expect("vertex 图形阶段根应进入 device MIR");
+        let fs = device
+            .iter()
+            .find(|b| b.stage == Some(ShaderStage::Fragment))
+            .expect("fragment 图形阶段根应进入 device MIR");
+
+        // vertex:返回 VsOut → 3 个 Out 元素(builtin / interpolate ×2)。
+        assert_eq!(vs.io_sig.len(), 3, "vertex io_sig: {:?}", vs.io_sig);
+        assert!(
+            vs.io_sig.iter().all(|e| e.dir == IoDir::Out),
+            "vertex 返回位置 I/O 应全为 Out 方向"
+        );
+        let pos = &vs.io_sig[0];
+        assert_eq!(pos.field_name, "pos");
+        assert_eq!(pos.kind, IoSigKind::Builtin("position".to_owned()));
+        assert_eq!(pos.ty, MirIoType::Scalar(PrimTy::F32));
+        assert_eq!(
+            vs.io_sig[1].kind,
+            IoSigKind::Interpolate("perspective".to_owned())
+        );
+        assert_eq!(vs.io_sig[2].kind, IoSigKind::Interpolate("flat".to_owned()));
+        assert_eq!(vs.io_sig[2].ty, MirIoType::Scalar(PrimTy::U32));
+
+        // fragment:形参 VsOut(3 个 In)+ 返回 VsOut(3 个 Out);资源句柄不入。
+        assert_eq!(fs.io_sig.len(), 6, "fragment io_sig: {:?}", fs.io_sig);
+        let ins = fs.io_sig.iter().filter(|e| e.dir == IoDir::In).count();
+        let outs = fs.io_sig.iter().filter(|e| e.dir == IoDir::Out).count();
+        assert_eq!((ins, outs), (3, 3), "fragment In/Out 计数");
+        assert!(
+            !fs.io_sig
+                .iter()
+                .any(|e| e.field_name == "tex" || e.field_name == "samp"),
+            "资源句柄不应进入 io_sig"
+        );
+    }
+
+    /// PR-E2b E2b-1 端到端(闭合 assumed-1):着色阶段签名资源句柄形参 →
+    /// `Body.resources` 收集(RXS-0163)→ `emit_spirv` 资源绑定装饰 emit
+    /// (`DescriptorSet`/`Binding` + opaque 资源类型)→ `infer_root_signature` +
+    /// `serialize_rts0` 产 RTS0 容器(RXS-0165)。证明 MIR→SPIR-V 资源绑定不再
+    /// 「结构上不可达」:资源句柄端到端贯通 emit 与 root signature 推导。
+    //@ spec: RXS-0163, RXS-0165
+    #[cfg(all(feature = "dxil-backend", feature = "shader-stages"))]
+    #[test]
+    fn e2b1_resources_flow_into_spirv_and_root_signature() {
+        use crate::ast::ShaderStage;
+        use crate::hir::PrimTy;
+        use crate::mir::{MirResourceType, ResourceClass, ResourceCount};
+
+        // SPIR-V 解码常量(core 规范)。
+        const OP_DECORATE: u16 = 71;
+        const OP_TYPE_IMAGE: u16 = 25;
+        const OP_TYPE_SAMPLER: u16 = 26;
+        const DECORATION_BINDING: u32 = 33;
+        const DECORATION_DESCRIPTOR_SET: u32 = 34;
+
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(
+            "struct FsOut {\n\
+            \x20   color: f32,\n\
+             }\n\
+             fragment fn fs_main(tex: Texture2D<f32>, samp: Sampler) -> FsOut {\n\
+            \x20   FsOut { color: 0.0 }\n\
+             }\n\
+             fn main() {}",
+            SourceId(0),
+            Edition::Rx0,
+            &diag,
+        );
+        assert!(
+            !diag.has_errors(),
+            "资源句柄 fragment 前段应 0 诊断(实得 {:?})",
+            diag.emitted()
+                .iter()
+                .filter_map(|d| d.code)
+                .collect::<Vec<_>>()
+        );
+        let device = cx.device_mir_crate();
+        let fs = device
+            .iter()
+            .find(|b| b.stage == Some(ShaderStage::Fragment))
+            .expect("fragment 图形阶段根应进入 device MIR");
+
+        // 1) 资源句柄形参按声明序进 `Body.resources`(io_sig 与 resources 不交叠)。
+        assert_eq!(fs.resources.len(), 2, "resources: {:?}", fs.resources);
+        assert_eq!(fs.resources[0].name, "tex");
+        assert_eq!(fs.resources[0].res, MirResourceType::Texture2D(PrimTy::F32));
+        assert_eq!(fs.resources[0].res.class(), ResourceClass::Srv);
+        assert_eq!(fs.resources[0].count, ResourceCount::One);
+        assert_eq!(fs.resources[1].name, "samp");
+        assert_eq!(fs.resources[1].res, MirResourceType::Sampler);
+        assert_eq!(fs.resources[1].res.class(), ResourceClass::Sampler);
+
+        // 2) emit_spirv 携资源 → 资源绑定装饰 + opaque 资源类型(闭合 assumed-1)。
+        let spv = crate::dxil_spirv::emit_spirv(ShaderStage::Fragment, &fs.io_sig, &fs.resources)
+            .expect("带资源的 fragment emit 应 Ok");
+        // 手动遍历指令(跳过 5 字 header),统计资源装饰 / opaque 类型。
+        let mut sets = Vec::new();
+        let mut bindings = Vec::new();
+        let mut has_image = false;
+        let mut has_sampler = false;
+        let mut i = 5;
+        while i < spv.len() {
+            let word = spv[i];
+            let wc = (word >> 16) as usize;
+            let op = (word & 0xFFFF) as u16;
+            if wc == 0 || i + wc > spv.len() {
+                break;
+            }
+            let ops = &spv[i + 1..i + wc];
+            match op {
+                OP_DECORATE if ops.get(1) == Some(&DECORATION_DESCRIPTOR_SET) => sets.push(ops[2]),
+                OP_DECORATE if ops.get(1) == Some(&DECORATION_BINDING) => bindings.push(ops[2]),
+                OP_TYPE_IMAGE => has_image = true,
+                OP_TYPE_SAMPLER => has_sampler = true,
+                _ => {}
+            }
+            i += wc;
+        }
+        assert!(has_image, "Texture2D 应 emit OpTypeImage");
+        assert!(has_sampler, "Sampler 应 emit OpTypeSampler");
+        assert_eq!(sets, vec![0, 0], "首期单 set,两资源 DescriptorSet 恒 0");
+        assert_eq!(
+            bindings,
+            vec![0, 1],
+            "Binding 按声明序确定性递增(tex=0, samp=1)"
+        );
+        // 确定性:同输入二次 emit 字节全等。
+        assert_eq!(
+            spv,
+            crate::dxil_spirv::emit_spirv(ShaderStage::Fragment, &fs.io_sig, &fs.resources)
+                .unwrap()
+        );
+
+        // 3) root signature 形态推导 + RTS0 容器序列化(RXS-0165;确定性)。
+        let rs = crate::binding_layout::infer_root_signature(&fs.resources)
+            .expect("Texture2D/Sampler 应可推导 root signature");
+        let rts0 = crate::binding_layout::serialize_rts0(&rs);
+        assert_eq!(&rts0[0..4], b"DXBC", "RTS0 外层 DXBC 容器 fourcc");
+        assert!(
+            rts0.windows(4).any(|w| w == b"RTS0"),
+            "容器应含 RTS0 part fourcc"
+        );
+        assert_eq!(
+            rts0,
+            crate::binding_layout::serialize_rts0(&rs),
+            "RTS0 序列化应确定性(同输入字节全等)"
         );
     }
 }

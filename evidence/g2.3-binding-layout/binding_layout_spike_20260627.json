@@ -1,0 +1,395 @@
+{
+  "schema": "g2.3-binding-layout-spike/v1",
+  "generated_utc": "2026-06-27T13:47:31Z",
+  "host_note": "spike 隔离取证；measured=工具链产出，assumed=Rurix io_sig 资源绑定 emit（当前结构上不可达，不实测）",
+  "tools": {
+    "dxc_pin": "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+    "dxc_pin_version": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)",
+    "spirv_cross": "C:\\ti-localappdata\\ti-build-cache\\vulkan-1.3.296.0\\Bin\\spirv-cross.exe",
+    "spirv_cross_version": "Git commit: vulkan-sdk-1.3.290.0-44-g65d73934 Timestamp: 2024-10-04T13:35:00",
+    "spirv_dxc": "C:\\ti-localappdata\\ti-build-cache\\vulkan-1.3.296.0\\Bin\\dxc.exe",
+    "spirv_dxc_version": "dxcompiler.dll: 1.8 - 1.8.0.4739 (d9a5e97d0)",
+    "spirv_dis": "C:\\ti-localappdata\\ti-build-cache\\vulkan-1.3.296.0\\Bin\\spirv-dis.exe"
+  },
+  "status": "MEASURED",
+  "missing_tools": [],
+  "corpus": [
+    {
+      "name": "ps_textured",
+      "profile": "ps_6_0",
+      "stage": "frag",
+      "steps": {
+        "hlsl_to_spirv": {
+          "rc": 0,
+          "ok": true,
+          "stderr": ""
+        },
+        "spirv_dis": {
+          "rc": 0
+        },
+        "spirv_cross": {
+          "rc": 0,
+          "ok": true,
+          "stderr": ""
+        },
+        "dxc_to_dxil": {
+          "rc": 0,
+          "ok": true,
+          "compile_src": "ps_textured.cross.hlsl",
+          "stderr": ""
+        }
+      },
+      "spirv_bindings": [
+        {
+          "var": "%samp0",
+          "name": "samp0",
+          "set": 0,
+          "binding": 1
+        },
+        {
+          "var": "%tex0",
+          "name": "tex0",
+          "set": 0,
+          "binding": 0
+        }
+      ],
+      "hlsl_registers": [
+        {
+          "name": "tex0",
+          "class": "t",
+          "index": 0,
+          "space": 0
+        },
+        {
+          "name": "samp0",
+          "class": "s",
+          "index": 1,
+          "space": 0
+        }
+      ],
+      "spirv_cross_sha256": "6c7331eaf93e6b0dff254cfb3f4afc57af4e3c455f11c3caf47908058fb1b7fa",
+      "dxil_sha256": "6b97cc8f20bdeb8b3104f3adda052692cc84850ef3791b67696a2e32ca977428",
+      "container": {
+        "container_bytes": 3652,
+        "parts_present": [
+          "DXIL",
+          "PSV0",
+          "ISG1",
+          "OSG1",
+          "STAT",
+          "SFI0",
+          "HASH"
+        ],
+        "has_root_signature_RTS0": false,
+        "has_psv0_reflection": true,
+        "dumpbin_rc": 0,
+        "dumpbin_excerpt": ";\n; Input signature:\n;\n; Name                 Index   Mask Register SysValue  Format   Used\n; -------------------- ----- ------ -------- -------- ------- ------\n; TEXCOORD                 0   xy          0     NONE   float   xy  \n;\n;\n; Output signature:\n;\n; Name                 Index   Mask Register SysValue  Format   Used\n; -------------------- ----- ------ -------- -------- ------- ------\n; SV_Target                0   xyzw        0   TARGET   float   xyzw\n;\n; shader hash: 49b865bfface08be6c6f79735dc0f446\n;\n; Pipeline Runtime Information: \n;\n;PSVRuntimeInfo:\n; Pixel Shader\n; DepthOutput=0\n; SampleFrequency=0\n; MinimumExpectedWaveLaneCount: 0\n; MaximumExpectedWaveLaneCount: 4294967295\n; UsesViewID: false\n; SigInputElements: 1\n; SigOutputElements: 1\n; SigPatchConstOrPrimElements: 0\n; SigInputVectors: 1\n; SigOutputVectors[0]: 1"
+      },
+      "deterministic": true
+    },
+    {
+      "name": "ps_mixed",
+      "profile": "ps_6_0",
+      "stage": "frag",
+      "steps": {
+        "hlsl_to_spirv": {
+          "rc": 0,
+          "ok": true,
+          "stderr": ""
+        },
+        "spirv_dis": {
+          "rc": 0
+        },
+        "spirv_cross": {
+          "rc": 0,
+          "ok": true,
+          "stderr": ""
+        },
+        "dxc_to_dxil": {
+          "rc": 0,
+          "ok": true,
+          "compile_src": "ps_mixed.cross.hlsl",
+          "stderr": ""
+        }
+      },
+      "spirv_bindings": [
+        {
+          "var": "%Globals",
+          "name": "Globals",
+          "set": 0,
+          "binding": 0
+        },
+        {
+          "var": "%albedo",
+          "name": "albedo",
+          "set": 0,
+          "binding": 1
+        },
+        {
+          "var": "%normal",
+          "name": "normal",
+          "set": 0,
+          "binding": 2
+        },
+        {
+          "var": "%samp_linear",
+          "name": "samp_linear",
+          "set": 0,
+          "binding": 3
+        },
+        {
+          "var": "%samp_point",
+          "name": "samp_point",
+          "set": 0,
+          "binding": 4
+        }
+      ],
+      "hlsl_registers": [
+        {
+          "name": "type_Globals",
+          "class": "b",
+          "index": 0,
+          "space": 0
+        },
+        {
+          "name": "albedo",
+          "class": "t",
+          "index": 1,
+          "space": 0
+        },
+        {
+          "name": "normal",
+          "class": "t",
+          "index": 2,
+          "space": 0
+        },
+        {
+          "name": "samp_linear",
+          "class": "s",
+          "index": 3,
+          "space": 0
+        },
+        {
+          "name": "samp_point",
+          "class": "s",
+          "index": 4,
+          "space": 0
+        }
+      ],
+      "spirv_cross_sha256": "83d2b60bbb93bc8b6ee6acb492925baf7f4301af8743893831b325ecd778aa21",
+      "dxil_sha256": "88b338caa5aae4dd81a0999d817892e541c3ff5103e87d3b2ea875ff2727d087",
+      "container": {
+        "container_bytes": 4216,
+        "parts_present": [
+          "DXIL",
+          "PSV0",
+          "ISG1",
+          "OSG1",
+          "STAT",
+          "SFI0",
+          "HASH"
+        ],
+        "has_root_signature_RTS0": false,
+        "has_psv0_reflection": true,
+        "dumpbin_rc": 0,
+        "dumpbin_excerpt": ";\n; Input signature:\n;\n; Name                 Index   Mask Register SysValue  Format   Used\n; -------------------- ----- ------ -------- -------- ------- ------\n; TEXCOORD                 0   xy          0     NONE   float   xy  \n;\n;\n; Output signature:\n;\n; Name                 Index   Mask Register SysValue  Format   Used\n; -------------------- ----- ------ -------- -------- ------- ------\n; SV_Target                0   xyzw        0   TARGET   float   xyzw\n;\n; shader hash: 9b3c8c079540e36eae36403f171bf6b1\n;\n; Pipeline Runtime Information: \n;\n;PSVRuntimeInfo:\n; Pixel Shader\n; DepthOutput=0\n; SampleFrequency=0\n; MinimumExpectedWaveLaneCount: 0\n; MaximumExpectedWaveLaneCount: 4294967295\n; UsesViewID: false\n; SigInputElements: 1\n; SigOutputElements: 1\n; SigPatchConstOrPrimElements: 0\n; SigInputVectors: 1\n; SigOutputVectors[0]: 1"
+      },
+      "deterministic": true
+    },
+    {
+      "name": "cs_structured",
+      "profile": "cs_6_0",
+      "stage": "comp",
+      "steps": {
+        "hlsl_to_spirv": {
+          "rc": 0,
+          "ok": true,
+          "stderr": ""
+        },
+        "spirv_dis": {
+          "rc": 0
+        },
+        "spirv_cross": {
+          "rc": 0,
+          "ok": true,
+          "stderr": ""
+        },
+        "dxc_to_dxil": {
+          "rc": 0,
+          "ok": true,
+          "compile_src": "cs_structured.cross.hlsl",
+          "stderr": ""
+        }
+      },
+      "spirv_bindings": [
+        {
+          "var": "%Params",
+          "name": "Params",
+          "set": 0,
+          "binding": 0
+        },
+        {
+          "var": "%dst",
+          "name": "dst",
+          "set": 0,
+          "binding": 2
+        },
+        {
+          "var": "%src",
+          "name": "src",
+          "set": 0,
+          "binding": 1
+        }
+      ],
+      "hlsl_registers": [
+        {
+          "name": "type_Params",
+          "class": "b",
+          "index": 0,
+          "space": 0
+        },
+        {
+          "name": "src",
+          "class": "t",
+          "index": 1,
+          "space": 0
+        },
+        {
+          "name": "dst",
+          "class": "u",
+          "index": 2,
+          "space": 0
+        }
+      ],
+      "spirv_cross_sha256": "6bafd9018cad20123053a2e1f86a096fad9598c9bc3785e3d993d63e95c71951",
+      "dxil_sha256": "43c2c6437845db6f79c8a642dea1813e044f96e200e971e95bb8406e1b98201e",
+      "container": {
+        "container_bytes": 3416,
+        "parts_present": [
+          "DXIL",
+          "PSV0",
+          "ISG1",
+          "OSG1",
+          "STAT",
+          "SFI0",
+          "HASH"
+        ],
+        "has_root_signature_RTS0": false,
+        "has_psv0_reflection": true,
+        "dumpbin_rc": 0,
+        "dumpbin_excerpt": ";\n; Input signature:\n;\n; Name                 Index   Mask Register SysValue  Format   Used\n; -------------------- ----- ------ -------- -------- ------- ------\n; no parameters\n;\n; Output signature:\n;\n; Name                 Index   Mask Register SysValue  Format   Used\n; -------------------- ----- ------ -------- -------- ------- ------\n; no parameters\n; shader hash: 1073f053ed189c7745deb38231971f7f\n;\n; Pipeline Runtime Information: \n;\n;PSVRuntimeInfo:\n; Compute Shader\n; NumThreads=(64,1,1)\n; MinimumExpectedWaveLaneCount: 0\n; MaximumExpectedWaveLaneCount: 4294967295\n; UsesViewID: false\n; SigInputElements: 0\n; SigOutputElements: 0\n; SigPatchConstOrPrimElements: 0\n; SigInputVectors: 0\n; SigOutputVectors[0]: 0\n; SigOutputVectors[1]: 0\n; SigOutputVectors[2]: 0\n; SigOutputVectors[3]: 0"
+      },
+      "deterministic": true
+    },
+    {
+      "name": "ps_rootsig",
+      "profile": "ps_6_0",
+      "stage": "frag",
+      "steps": {
+        "hlsl_to_spirv": {
+          "rc": 0,
+          "ok": true,
+          "stderr": ""
+        },
+        "spirv_dis": {
+          "rc": 0
+        },
+        "spirv_cross": {
+          "rc": 0,
+          "ok": true,
+          "stderr": ""
+        },
+        "dxc_to_dxil": {
+          "rc": 0,
+          "ok": true,
+          "compile_src": "ps_rootsig.hlsl",
+          "stderr": ""
+        }
+      },
+      "spirv_bindings": [
+        {
+          "var": "%Globals",
+          "name": "Globals",
+          "set": 0,
+          "binding": 0
+        },
+        {
+          "var": "%albedo",
+          "name": "albedo",
+          "set": 0,
+          "binding": 0
+        },
+        {
+          "var": "%normal",
+          "name": "normal",
+          "set": 0,
+          "binding": 1
+        },
+        {
+          "var": "%samp_linear",
+          "name": "samp_linear",
+          "set": 0,
+          "binding": 0
+        },
+        {
+          "var": "%samp_point",
+          "name": "samp_point",
+          "set": 0,
+          "binding": 1
+        }
+      ],
+      "hlsl_registers": [
+        {
+          "name": "type_Globals",
+          "class": "b",
+          "index": 0,
+          "space": 0
+        },
+        {
+          "name": "albedo",
+          "class": "t",
+          "index": 0,
+          "space": 0
+        },
+        {
+          "name": "normal",
+          "class": "t",
+          "index": 1,
+          "space": 0
+        },
+        {
+          "name": "samp_linear",
+          "class": "s",
+          "index": 0,
+          "space": 0
+        },
+        {
+          "name": "samp_point",
+          "class": "s",
+          "index": 1,
+          "space": 0
+        }
+      ],
+      "spirv_cross_sha256": "97f8034e1b95d8e4ab3f03b795e2007de99d6a6de5c5180034904f679e127cc4",
+      "dxil_sha256": "3c662ded4115dc168e2ef93103cb4970339a06f107527fade17918e76b3d7192",
+      "container": {
+        "container_bytes": 4408,
+        "parts_present": [
+          "DXIL",
+          "PSV0",
+          "RTS0",
+          "ISG1",
+          "OSG1",
+          "STAT",
+          "SFI0",
+          "HASH"
+        ],
+        "has_root_signature_RTS0": true,
+        "has_psv0_reflection": true,
+        "dumpbin_rc": 0,
+        "dumpbin_excerpt": ";\n; Input signature:\n;\n; Name                 Index   Mask Register SysValue  Format   Used\n; -------------------- ----- ------ -------- -------- ------- ------\n; TEXCOORD                 0   xy          0     NONE   float   xy  \n;\n;\n; Output signature:\n;\n; Name                 Index   Mask Register SysValue  Format   Used\n; -------------------- ----- ------ -------- -------- ------- ------\n; SV_Target                0   xyzw        0   TARGET   float   xyzw\n;\n; shader hash: eb79c17eb7d9e6acab518f7fcec1b542\n;\n; Pipeline Runtime Information: \n;\n;PSVRuntimeInfo:\n; Pixel Shader\n; DepthOutput=0\n; SampleFrequency=0\n; MinimumExpectedWaveLaneCount: 0\n; MaximumExpectedWaveLaneCount: 4294967295\n; UsesViewID: false\n; SigInputElements: 1\n; SigOutputElements: 1\n; SigPatchConstOrPrimElements: 0\n; SigInputVectors: 1\n; SigOutputVectors[0]: 1"
+      },
+      "deterministic": true
+    }
+  ]
+}

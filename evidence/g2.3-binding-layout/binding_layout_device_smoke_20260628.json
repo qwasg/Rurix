@@ -1,0 +1,41 @@
+{
+  "schema": "g2.3-binding-layout-device/v1",
+  "subject": "dxil_binding_device_smoke",
+  "milestone_gate": "G-G2-3 (E2b-4)",
+  "status": "measured_local",
+  "generated": "2026-06-28T17:31:28+08:00",
+  "host_note": "G2.3 绑定布局推导产物 device 真跑(E2b-4)。measured=真实 D3D12 hardware + signed dxc pin 产出；run_url 见下(self-hosted GPU runner PR smoke 步骤 47 PASS,已回填为真实 GitHub Actions device 见证入口,AI 不伪造)。",
+  "binding_product": {
+    "resource_set": "Texture2D<f32> tex (SRV t0) + Sampler samp (s0)",
+    "rts0_bytes": 148,
+    "rts0_sha256": "409b6a1e64888136889ad1602a2b0fda10ea7bf00ff3da3aabe2428fecc2c0a2",
+    "rts0_sha256_matches_blessed_golden": true,
+    "blessed_golden": "tests/dxil/binding/fs_tex_samp.binding-golden",
+    "note": "device 消费的 RTS0 字节由公开 binding_layout::serialize_rts0 经 cargo example emit_binding_rts0 落盘,其 SHA-256 与已 bless 的 golden 基线逐字节一致 — 证明 device 核验的正是 E2b-3 已定型的绑定布局产物。"
+  },
+  "tools": {
+    "dxc_dir": "H:\\dxc-round7\\extracted\\bin\\x64",
+    "dxc_sha256": "1367fd29d0ebba5bf10d1041a9deff85396d30090b3651d872ec65d11a476ea4",
+    "dxv_sha256": "f26242efb0197ffefa51eb5cb14603207d1d81fa547394020a5767bf65979f61",
+    "vcvars64": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Auxiliary\\Build\\vcvars64.bat",
+    "signed_pin_note": "签名 pin = RURIX_DXC_DIR(含 dxc.exe + dxv.exe + dxil.dll);PATH 上的 Vulkan SDK dxc(无 dxv/dxil.dll)不作为 signed 依据。"
+  },
+  "adapter": "NVIDIA GeForce RTX 4070 Ti",
+  "checks": {
+    "rts0_emitted_matches_blessed_golden": true,
+    "vs_dxv_validated": true,
+    "ps_dxv_validated": true,
+    "rurix_rts0_create_root_signature_accept": true,
+    "tampered_rts0_create_root_signature_reject": true,
+    "textured_pso_with_rurix_root_signature": true,
+    "offscreen_textured_draw_readback_pixel": "64,127,255,255"
+  },
+  "redgreen": {
+    "green": "rurix RTS0 (148B, sha256 409b6a1e…c0a2) → D3D12 CreateRootSignature accept → textured PSO + Texture2D 经 Sampler 绑定(SRV t0 / Sampler s0 descriptor tables)→ 离屏 draw → 采样像素 64,127,255,255",
+    "red": "篡改 RTS0 容器 fourcc(DXBC 首字节翻转)→ CreateRootSignature reject(device 级红路径,证 accept 为真实解析而非 no-op)",
+    "run_command": "RURIX_DXC_DIR=H:\\dxc-round7\\extracted\\bin\\x64 RURIX_REQUIRE_REAL=1 py -3 ci/dxil_binding_device_smoke.py"
+  },
+  "run_url": "https://github.com/qwasg/Rurix/actions/runs/28319066260",
+  "run_url_note": "self-hosted GPU runner PR smoke step 47 PASS;run URL 已回填为真实 GitHub Actions device 见证入口。G-G2-3 acceptance 签署仍归 owner,AI 不代签。",
+  "stdout": "DXIL_BIND: ok adapter=\"NVIDIA GeForce RTX 4070 Ti\" rurix_rts0=accept tamper_rts0=reject sampled=64,127,255,255 draw=ok"
+}
