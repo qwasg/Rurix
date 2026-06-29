@@ -33,11 +33,15 @@
 //! `stage + &[IoSigElem]`(均为任务 1 已落地的公开类型),由 `#[cfg(test)]` 单测/
 //! PBT 直接构造 I/O 元素喂编码器并以本机 spirv-val 独立验证(R1.8,Property 1)。
 
-use crate::ast::ShaderStage;
+use crate::ast::{BinOp, ShaderStage};
 use crate::binding_layout::{self, BindingInferError};
 use crate::hir::PrimTy;
-use crate::mir::{IoDir, IoSigElem, IoSigKind, MirIoType, MirResourceType, ResourceBinding};
+use crate::mir::{
+    Body, Const, IoDir, IoSigElem, IoSigKind, LocalIdx, MirIoType, MirResourceType, Operand, Place,
+    ProjElem, ResourceBinding, Rvalue, StatementKind, TerminatorKind,
+};
 
+use std::collections::HashMap;
 use std::fmt;
 
 // ───────────────────────── 错误类型 ─────────────────────────
@@ -115,9 +119,21 @@ const OP_TYPE_IMAGE: u16 = 25;
 const OP_TYPE_SAMPLER: u16 = 26;
 const OP_TYPE_POINTER: u16 = 32;
 const OP_TYPE_FUNCTION: u16 = 33;
+const OP_CONSTANT: u16 = 43;
 const OP_VARIABLE: u16 = 59;
+const OP_LOAD: u16 = 61;
+const OP_STORE: u16 = 62;
 const OP_DECORATE: u16 = 71;
 const OP_FUNCTION: u16 = 54;
+const OP_IADD: u16 = 128;
+const OP_FADD: u16 = 129;
+const OP_ISUB: u16 = 130;
+const OP_FSUB: u16 = 131;
+const OP_IMUL: u16 = 132;
+const OP_FMUL: u16 = 133;
+const OP_UDIV: u16 = 134;
+const OP_SDIV: u16 = 135;
+const OP_FDIV: u16 = 136;
 const OP_LABEL: u16 = 248;
 const OP_RETURN: u16 = 253;
 const OP_FUNCTION_END: u16 = 56;
@@ -171,6 +187,15 @@ const IMAGE_SAMPLED_WITH_SAMPLER: u32 = 1;
 struct BuiltinMapping {
     builtin: u32,
     expected: MirIoType,
+}
+
+/// 已 emit 的 I/O 变量记录。RXS-0171 只把源码层 I/O 元素绑定到 SPIR-V
+/// Input/Output 变量,不暴露或冻结 Location/register/mask/packing 等 ABI 数值。
+#[derive(Clone, Copy, Debug)]
+struct IoVar {
+    dir: IoDir,
+    ty: MirIoType,
+    var_id: u32,
 }
 
 /// 把源码 builtin 名(在给定 `stage`/`dir` 下)映射到 SPIR-V `BuiltIn` 枚举与其
@@ -374,7 +399,7 @@ impl Builder {
 
     /// emit 一个 I/O 元素:全局 `OpVariable` + 装饰(`Location`/`BuiltIn` +
     /// `UserSemantic` 保名),并登记入口接口列表。
-    fn emit_io_elem(&mut self, elem: &IoSigElem, stage: ShaderStage) -> Result<(), DxilError> {
+    fn emit_io_elem(&mut self, elem: &IoSigElem, stage: ShaderStage) -> Result<IoVar, DxilError> {
         let storage = match elem.dir {
             IoDir::In => STORAGE_INPUT,
             IoDir::Out => STORAGE_OUTPUT,
@@ -447,7 +472,11 @@ impl Builder {
             self.used_user_semantic = true;
         }
 
-        Ok(())
+        Ok(IoVar {
+            dir: elem.dir,
+            ty: elem.ty,
+            var_id: var,
+        })
     }
 
     /// emit 一个资源句柄绑定(RXS-0163;PR-E2b 生产接线):opaque 资源类型
@@ -538,6 +567,497 @@ impl Builder {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+struct SpirvValue {
+    id: u32,
+    ty: MirIoType,
+}
+
+#[derive(Clone, Debug)]
+enum LocalValue {
+    Unit,
+    Value(SpirvValue),
+    Aggregate(Vec<SpirvValue>),
+}
+
+/// RXS-0171 最小 body lowering:只支持 straight-line 的 Use / Const / 标量或向量
+/// 算术 BinaryOp,并把输出 I/O 聚合返回值机械分解为逐元素 OpStore。
+struct BodyLowerer<'a> {
+    body: &'a Body,
+    input_vars: Vec<IoVar>,
+    output_vars: Vec<IoVar>,
+    local_values: HashMap<u32, LocalValue>,
+    output_written: Vec<bool>,
+    ops: Vec<u32>,
+}
+
+impl<'a> BodyLowerer<'a> {
+    fn new(body: &'a Body, io_vars: &'a [IoVar]) -> Self {
+        let input_vars = io_vars
+            .iter()
+            .copied()
+            .filter(|v| v.dir == IoDir::In)
+            .collect();
+        let output_vars: Vec<IoVar> = io_vars
+            .iter()
+            .copied()
+            .filter(|v| v.dir == IoDir::Out)
+            .collect();
+        let output_written = vec![false; output_vars.len()];
+        BodyLowerer {
+            body,
+            input_vars,
+            output_vars,
+            local_values: HashMap::new(),
+            output_written,
+            ops: Vec::new(),
+        }
+    }
+
+    fn lower(mut self, b: &mut Builder) -> Result<Vec<u32>, DxilError> {
+        let mut block = 0usize;
+        let mut seen = vec![false; self.body.blocks.len()];
+        loop {
+            let Some(bb) = self.body.blocks.get(block) else {
+                return Err(DxilError::unmappable(
+                    "body-control-flow",
+                    format!("basic block bb{block} 越界"),
+                ));
+            };
+            if seen[block] {
+                return Err(DxilError::unmappable(
+                    "body-control-flow",
+                    "RXS-0171 最小切片不支持循环或重复进入 basic block",
+                ));
+            }
+            seen[block] = true;
+
+            for stmt in &bb.stmts {
+                match &stmt.kind {
+                    StatementKind::Assign(place, rv) => self.lower_assign(b, place, rv)?,
+                }
+            }
+
+            match &bb.terminator.kind {
+                TerminatorKind::Return => break,
+                TerminatorKind::Goto(next) => {
+                    block = next.0 as usize;
+                }
+                other => {
+                    return Err(DxilError::unmappable(
+                        "body-terminator",
+                        format!(
+                            "RXS-0171 最小切片仅支持 straight-line Goto/Return, 实得 {other:?}"
+                        ),
+                    ));
+                }
+            }
+        }
+
+        if !self.output_vars.is_empty() && !self.output_written.iter().all(|w| *w) {
+            return Err(DxilError::unmappable(
+                "output-return",
+                "着色 body 未写出所有声明的 Output I/O 元素",
+            ));
+        }
+
+        Ok(self.ops)
+    }
+
+    fn lower_assign(
+        &mut self,
+        b: &mut Builder,
+        place: &Place,
+        rv: &Rvalue,
+    ) -> Result<(), DxilError> {
+        if place.local == LocalIdx(0) {
+            if let Some(index) = single_field_projection(place)? {
+                let expected = self.output_ty(index)?;
+                let value = self.lower_rvalue_value(b, rv, Some(expected))?;
+                return self.store_output(index, value);
+            }
+            let value = self.lower_rvalue_any(b, rv)?;
+            return self.store_return_value(value);
+        }
+
+        if !place.proj.is_empty() {
+            return Err(DxilError::unmappable(
+                "body-destination",
+                format!("RXS-0171 最小切片不支持写入投影 place `{place:?}`"),
+            ));
+        }
+
+        let value = self.lower_rvalue_any(b, rv)?;
+        self.local_values.insert(place.local.0, value);
+        Ok(())
+    }
+
+    fn lower_rvalue_any(&mut self, b: &mut Builder, rv: &Rvalue) -> Result<LocalValue, DxilError> {
+        match rv {
+            Rvalue::Use(op) => self.lower_operand_any(b, op, None),
+            Rvalue::BinaryOp(op, lhs, rhs) => {
+                Ok(LocalValue::Value(self.lower_binary_op(b, *op, lhs, rhs)?))
+            }
+            Rvalue::Aggregate(ty, ops) => self.lower_output_aggregate(b, ty, ops),
+            other => Err(DxilError::unmappable(
+                "body-rvalue",
+                format!("RXS-0171 最小切片不支持 rvalue `{other:?}`"),
+            )),
+        }
+    }
+
+    fn lower_rvalue_value(
+        &mut self,
+        b: &mut Builder,
+        rv: &Rvalue,
+        expected: Option<MirIoType>,
+    ) -> Result<SpirvValue, DxilError> {
+        match rv {
+            Rvalue::Use(op) => self.lower_operand_value(b, op, expected),
+            Rvalue::BinaryOp(op, lhs, rhs) => self.lower_binary_op(b, *op, lhs, rhs),
+            Rvalue::Aggregate(..) => Err(DxilError::unmappable(
+                "body-rvalue",
+                "输出字段写入需要标量/向量值,不能直接写聚合",
+            )),
+            other => Err(DxilError::unmappable(
+                "body-rvalue",
+                format!("RXS-0171 最小切片不支持 rvalue `{other:?}`"),
+            )),
+        }
+    }
+
+    fn lower_output_aggregate(
+        &mut self,
+        b: &mut Builder,
+        ty: &crate::ty::Ty,
+        operands: &[Operand],
+    ) -> Result<LocalValue, DxilError> {
+        if self.output_vars.is_empty() {
+            return Err(DxilError::unmappable(
+                "aggregate",
+                "无 Output I/O 签名时不允许聚合返回值降级",
+            ));
+        }
+        if ty != self.body.ret_ty() || operands.len() != self.output_vars.len() {
+            return Err(DxilError::unmappable(
+                "aggregate",
+                format!(
+                    "仅允许声明的输出 I/O 聚合返回值机械分解; ret_ty={:?}, aggregate_ty={ty:?}, fields={}, outs={}",
+                    self.body.ret_ty(),
+                    operands.len(),
+                    self.output_vars.len()
+                ),
+            ));
+        }
+
+        let mut values = Vec::with_capacity(operands.len());
+        for (idx, op) in operands.iter().enumerate() {
+            values.push(self.lower_operand_value(b, op, Some(self.output_ty(idx)?))?);
+        }
+        Ok(LocalValue::Aggregate(values))
+    }
+
+    fn lower_operand_any(
+        &mut self,
+        b: &mut Builder,
+        op: &Operand,
+        expected: Option<MirIoType>,
+    ) -> Result<LocalValue, DxilError> {
+        match op {
+            Operand::Const(Const::Unit) => Ok(LocalValue::Unit),
+            Operand::Const(c) => Ok(LocalValue::Value(self.lower_const(b, c, expected)?)),
+            Operand::Copy(place) | Operand::Move(place) => {
+                if place.proj.is_empty()
+                    && let Some(v) = self.lower_place_aggregate(b, place)?
+                {
+                    return Ok(LocalValue::Aggregate(v));
+                }
+                Ok(LocalValue::Value(self.lower_place_value(b, place)?))
+            }
+        }
+    }
+
+    fn lower_operand_value(
+        &mut self,
+        b: &mut Builder,
+        op: &Operand,
+        expected: Option<MirIoType>,
+    ) -> Result<SpirvValue, DxilError> {
+        match self.lower_operand_any(b, op, expected)? {
+            LocalValue::Value(v) => Ok(v),
+            LocalValue::Unit => Err(DxilError::unmappable(
+                "operand",
+                "unit 常量不能作为 SPIR-V 标量/向量值",
+            )),
+            LocalValue::Aggregate(_) => Err(DxilError::unmappable(
+                "operand",
+                "聚合值只能用于输出 I/O 聚合返回分解",
+            )),
+        }
+    }
+
+    fn lower_place_value(
+        &mut self,
+        b: &mut Builder,
+        place: &Place,
+    ) -> Result<SpirvValue, DxilError> {
+        if let Some(field) = single_field_projection(place)? {
+            if place.local.0 >= 1 && (place.local.0 as usize) <= self.body.arg_count {
+                return self.load_input_field(b, field);
+            }
+            let local = self
+                .local_values
+                .get(&place.local.0)
+                .cloned()
+                .ok_or_else(|| {
+                    DxilError::unmappable(
+                        "place",
+                        format!("local _{} 尚未在 RXS-0171 白名单中物化", place.local.0),
+                    )
+                })?;
+            return match local {
+                LocalValue::Aggregate(fields) => fields.get(field).copied().ok_or_else(|| {
+                    DxilError::unmappable(
+                        "place-field",
+                        format!("local _{} 字段 {field} 越界", place.local.0),
+                    )
+                }),
+                LocalValue::Value(_) | LocalValue::Unit => Err(DxilError::unmappable(
+                    "place-field",
+                    format!("local _{} 不是可投影聚合", place.local.0),
+                )),
+            };
+        }
+
+        if !place.proj.is_empty() {
+            return Err(DxilError::unmappable(
+                "place-projection",
+                format!("RXS-0171 最小切片不支持 projection `{place:?}`"),
+            ));
+        }
+
+        let local = self
+            .local_values
+            .get(&place.local.0)
+            .cloned()
+            .ok_or_else(|| {
+                DxilError::unmappable(
+                    "place",
+                    format!("local _{} 尚未在 RXS-0171 白名单中物化", place.local.0),
+                )
+            })?;
+        match local {
+            LocalValue::Value(v) => Ok(v),
+            LocalValue::Unit | LocalValue::Aggregate(_) => Err(DxilError::unmappable(
+                "place",
+                format!("local _{} 不是标量/向量值", place.local.0),
+            )),
+        }
+    }
+
+    fn lower_place_aggregate(
+        &mut self,
+        b: &mut Builder,
+        place: &Place,
+    ) -> Result<Option<Vec<SpirvValue>>, DxilError> {
+        if !place.proj.is_empty() {
+            return Ok(None);
+        }
+        if place.local.0 >= 1 && (place.local.0 as usize) <= self.body.arg_count {
+            let mut values = Vec::with_capacity(self.input_vars.len());
+            for idx in 0..self.input_vars.len() {
+                values.push(self.load_input_field(b, idx)?);
+            }
+            return Ok(Some(values));
+        }
+        Ok(match self.local_values.get(&place.local.0) {
+            Some(LocalValue::Aggregate(fields)) => Some(fields.clone()),
+            _ => None,
+        })
+    }
+
+    fn lower_const(
+        &mut self,
+        b: &mut Builder,
+        c: &Const,
+        expected: Option<MirIoType>,
+    ) -> Result<SpirvValue, DxilError> {
+        let (ty, literal) = match c {
+            Const::Int(v, prim @ (PrimTy::I32 | PrimTy::U32)) => {
+                let ty = MirIoType::Scalar(*prim);
+                if let Some(expected) = expected
+                    && expected != ty
+                {
+                    return Err(DxilError::unmappable(
+                        "constant-type",
+                        format!("常量类型 {ty:?} 与期望 {expected:?} 不符"),
+                    ));
+                }
+                let word = match prim {
+                    PrimTy::I32 => i32::try_from(*v).map(|x| x as u32).map_err(|_| {
+                        DxilError::unmappable("constant", format!("i32 常量 {v} 越界"))
+                    })?,
+                    PrimTy::U32 => u32::try_from(*v).map_err(|_| {
+                        DxilError::unmappable("constant", format!("u32 常量 {v} 越界"))
+                    })?,
+                    _ => unreachable!(),
+                };
+                (ty, word)
+            }
+            Const::Float(v, PrimTy::F32) => {
+                let ty = MirIoType::Scalar(PrimTy::F32);
+                if let Some(expected) = expected
+                    && expected != ty
+                {
+                    return Err(DxilError::unmappable(
+                        "constant-type",
+                        format!("常量类型 {ty:?} 与期望 {expected:?} 不符"),
+                    ));
+                }
+                (ty, (*v as f32).to_bits())
+            }
+            other => {
+                return Err(DxilError::unmappable(
+                    "constant",
+                    format!("RXS-0171 最小切片仅支持 f32/i32/u32 常量, 实得 {other:?}"),
+                ));
+            }
+        };
+
+        let ty_id = b.value_type(ty)?;
+        let id = b.alloc_id();
+        Builder::emit(&mut b.types, OP_CONSTANT, &[ty_id, id, literal]);
+        Ok(SpirvValue { id, ty })
+    }
+
+    fn lower_binary_op(
+        &mut self,
+        b: &mut Builder,
+        op: BinOp,
+        lhs: &Operand,
+        rhs: &Operand,
+    ) -> Result<SpirvValue, DxilError> {
+        let a = self.lower_operand_value(b, lhs, None)?;
+        let bval = self.lower_operand_value(b, rhs, Some(a.ty))?;
+        if a.ty != bval.ty {
+            return Err(DxilError::unmappable(
+                "binary-op-type",
+                format!("二元操作左右类型不一致: {:?} vs {:?}", a.ty, bval.ty),
+            ));
+        }
+        let prim = mir_io_prim(a.ty);
+        let opcode = match (op, prim) {
+            (BinOp::Add, PrimTy::F32) => OP_FADD,
+            (BinOp::Sub, PrimTy::F32) => OP_FSUB,
+            (BinOp::Mul, PrimTy::F32) => OP_FMUL,
+            (BinOp::Div, PrimTy::F32) => OP_FDIV,
+            (BinOp::Add, PrimTy::I32 | PrimTy::U32) => OP_IADD,
+            (BinOp::Sub, PrimTy::I32 | PrimTy::U32) => OP_ISUB,
+            (BinOp::Mul, PrimTy::I32 | PrimTy::U32) => OP_IMUL,
+            (BinOp::Div, PrimTy::I32) => OP_SDIV,
+            (BinOp::Div, PrimTy::U32) => OP_UDIV,
+            _ => {
+                return Err(DxilError::unmappable(
+                    "binary-op",
+                    format!("RXS-0171 最小切片仅支持 f32/i32/u32 加减乘除, 实得 {op:?}/{prim:?}"),
+                ));
+            }
+        };
+
+        let ty_id = b.value_type(a.ty)?;
+        let id = b.alloc_id();
+        Builder::emit(&mut self.ops, opcode, &[ty_id, id, a.id, bval.id]);
+        Ok(SpirvValue { id, ty: a.ty })
+    }
+
+    fn load_input_field(&mut self, b: &mut Builder, field: usize) -> Result<SpirvValue, DxilError> {
+        let var = self.input_vars.get(field).copied().ok_or_else(|| {
+            DxilError::unmappable("input-field", format!("输入 I/O 字段 {field} 越界"))
+        })?;
+        let ty_id = b.value_type(var.ty)?;
+        let id = b.alloc_id();
+        Builder::emit(&mut self.ops, OP_LOAD, &[ty_id, id, var.var_id]);
+        Ok(SpirvValue { id, ty: var.ty })
+    }
+
+    fn store_return_value(&mut self, value: LocalValue) -> Result<(), DxilError> {
+        match value {
+            LocalValue::Unit if self.output_vars.is_empty() => Ok(()),
+            LocalValue::Aggregate(fields) => self.store_output_aggregate(&fields),
+            LocalValue::Value(v) if self.output_vars.len() == 1 => self.store_output(0, v),
+            LocalValue::Unit => Err(DxilError::unmappable(
+                "output-return",
+                "声明了 Output I/O 时不能返回 unit",
+            )),
+            LocalValue::Value(_) => Err(DxilError::unmappable(
+                "output-return",
+                "多字段 Output I/O 必须以输出结构体聚合返回",
+            )),
+        }
+    }
+
+    fn store_output_aggregate(&mut self, fields: &[SpirvValue]) -> Result<(), DxilError> {
+        if fields.len() != self.output_vars.len() {
+            return Err(DxilError::unmappable(
+                "output-return",
+                format!(
+                    "输出聚合字段数 {} 与 Output I/O 元素数 {} 不一致",
+                    fields.len(),
+                    self.output_vars.len()
+                ),
+            ));
+        }
+        for (idx, value) in fields.iter().copied().enumerate() {
+            self.store_output(idx, value)?;
+        }
+        Ok(())
+    }
+
+    fn store_output(&mut self, index: usize, value: SpirvValue) -> Result<(), DxilError> {
+        let out = self.output_vars.get(index).copied().ok_or_else(|| {
+            DxilError::unmappable("output-field", format!("输出 I/O 字段 {index} 越界"))
+        })?;
+        if out.ty != value.ty {
+            return Err(DxilError::unmappable(
+                "output-type",
+                format!(
+                    "输出字段 {index} 类型 {:?} 与值类型 {:?} 不符",
+                    out.ty, value.ty
+                ),
+            ));
+        }
+        Builder::emit(&mut self.ops, OP_STORE, &[out.var_id, value.id]);
+        if let Some(w) = self.output_written.get_mut(index) {
+            *w = true;
+        }
+        Ok(())
+    }
+
+    fn output_ty(&self, index: usize) -> Result<MirIoType, DxilError> {
+        self.output_vars
+            .get(index)
+            .map(|v| v.ty)
+            .ok_or_else(|| DxilError::unmappable("output-field", format!("字段 {index} 越界")))
+    }
+}
+
+fn single_field_projection(place: &Place) -> Result<Option<usize>, DxilError> {
+    match place.proj.as_slice() {
+        [] => Ok(None),
+        [ProjElem::Field(idx)] => Ok(Some(*idx as usize)),
+        _ => Err(DxilError::unmappable(
+            "place-projection",
+            format!("RXS-0171 最小切片仅支持单层 Field 投影, 实得 {place:?}"),
+        )),
+    }
+}
+
+fn mir_io_prim(ty: MirIoType) -> PrimTy {
+    match ty {
+        MirIoType::Scalar(p) | MirIoType::Vector(p, _) => p,
+    }
+}
+
 /// 把一个着色阶段(`stage`)与其 I/O 意图签名(`io_sig`)编码为合法 SPIR-V
 /// 二进制字流(`Vec<u32>`)。
 ///
@@ -558,6 +1078,23 @@ pub fn emit_spirv(
     stage: ShaderStage,
     io_sig: &[IoSigElem],
     resources: &[ResourceBinding],
+) -> Result<Vec<u32>, DxilError> {
+    emit_spirv_inner(stage, io_sig, resources, None)
+}
+
+/// 把完整图形着色阶段 [`Body`] 编码为 SPIR-V。相较 [`emit_spirv`] 的签名-only
+/// 兼容入口,本函数按 RXS-0171 降级最小 body 数据流:Input place → `OpLoad`,
+/// f32/i32/u32 常量 → `OpConstant`,白名单算术 → SPIR-V 算术 op,输出 I/O 聚合返回
+/// → 逐 Output 元素 `OpStore`。
+pub fn emit_spirv_body(stage: ShaderStage, body: &Body) -> Result<Vec<u32>, DxilError> {
+    emit_spirv_inner(stage, &body.io_sig, &body.resources, Some(body))
+}
+
+fn emit_spirv_inner(
+    stage: ShaderStage,
+    io_sig: &[IoSigElem],
+    resources: &[ResourceBinding],
+    body: Option<&Body>,
 ) -> Result<Vec<u32>, DxilError> {
     // 仅 vertex/fragment 走 B 路最小子集;compute 走既有 A 路、mesh/task/RT 为
     // STUB(RD-012),均不在本编码器范围 → 不可映射(strict-only)。
@@ -581,8 +1118,9 @@ pub fn emit_spirv(
     Builder::emit(&mut b.types, OP_TYPE_FUNCTION, &[fn_type_id, void_id]);
 
     // 逐 I/O 元素:类型/指针/变量/装饰/接口登记。
+    let mut io_vars = Vec::with_capacity(io_sig.len());
     for elem in io_sig {
-        b.emit_io_elem(elem, stage)?;
+        io_vars.push(b.emit_io_elem(elem, stage)?);
     }
 
     // 资源句柄绑定(RXS-0163;PR-E2b 生产接线):host 侧确定性推导
@@ -598,6 +1136,10 @@ pub fn emit_spirv(
     // 入口函数与首基本块 id(forward-ref:OpEntryPoint/OpExecutionMode 先于定义引用)。
     let main_id = b.alloc_id();
     let label_id = b.alloc_id();
+    let body_ops = match body {
+        Some(body) => BodyLowerer::new(body, &io_vars).lower(&mut b)?,
+        None => Vec::new(),
+    };
 
     // ── 组装最终模块(严格遵守 SPIR-V 逻辑分节序) ──
     let mut module: Vec<u32> = Vec::new();
@@ -651,13 +1193,15 @@ pub fn emit_spirv(
     module.extend_from_slice(&b.types);
     module.extend_from_slice(&b.variables);
 
-    // 9) 平凡 passthrough main:OpFunction/OpLabel/OpReturn/OpFunctionEnd。
+    // 9) main:body-aware 入口会先 emit 降级后的 OpLoad/OpStore/算术;签名-only
+    //    兼容入口保持平凡 OpReturn。
     Builder::emit(
         &mut module,
         OP_FUNCTION,
         &[void_id, main_id, FUNCTION_CONTROL_NONE, fn_type_id],
     );
     Builder::emit(&mut module, OP_LABEL, &[label_id]);
+    module.extend_from_slice(&body_ops);
     Builder::emit(&mut module, OP_RETURN, &[]);
     Builder::emit(&mut module, OP_FUNCTION_END, &[]);
 
@@ -672,6 +1216,11 @@ pub fn emit_spirv(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ast::{FnColor, UnOp};
+    use crate::hir::DefId;
+    use crate::mir::{BasicBlock, Local, Statement, Terminator};
+    use crate::span::{Edition, SourceId, Span};
+    use crate::ty::Ty;
 
     /// 便捷构造一个 [`IoSigElem`]。
     fn elem(name: &str, kind: IoSigKind, ty: MirIoType, dir: IoDir) -> IoSigElem {
@@ -774,6 +1323,77 @@ mod tests {
         out
     }
 
+    fn dummy_span() -> Span {
+        Span::new(SourceId(0), 0, 0, Edition::Rx0)
+    }
+
+    fn local(ty: Ty) -> Local {
+        Local {
+            ty,
+            name: None,
+            span: dummy_span(),
+            shared: false,
+            array_len: None,
+        }
+    }
+
+    fn output_adt() -> Ty {
+        Ty::Adt(DefId(7100), Vec::new())
+    }
+
+    fn input_adt() -> Ty {
+        Ty::Adt(DefId(7101), Vec::new())
+    }
+
+    fn assign(local: LocalIdx, rv: Rvalue) -> Statement {
+        Statement {
+            kind: StatementKind::Assign(Place::local(local), rv),
+            span: dummy_span(),
+        }
+    }
+
+    fn field(local: LocalIdx, index: u32) -> Place {
+        let mut place = Place::local(local);
+        place.proj.push(ProjElem::Field(index));
+        place
+    }
+
+    fn body_with(
+        stage: ShaderStage,
+        io_sig: Vec<IoSigElem>,
+        locals: Vec<Local>,
+        arg_count: usize,
+        stmts: Vec<Statement>,
+    ) -> Body {
+        Body {
+            def: DefId(0),
+            symbol: "main".to_owned(),
+            color: FnColor::Kernel,
+            generic_args: Vec::new(),
+            locals,
+            arg_count,
+            blocks: vec![BasicBlock {
+                stmts,
+                terminator: Terminator {
+                    kind: TerminatorKind::Return,
+                    span: dummy_span(),
+                },
+            }],
+            span: dummy_span(),
+            stage: Some(stage),
+            io_sig,
+            resources: Vec::new(),
+        }
+    }
+
+    fn variable_ids(instrs: &[(u16, Vec<u32>)], storage: u32) -> Vec<u32> {
+        instrs
+            .iter()
+            .filter(|(op, ops)| *op == OP_VARIABLE && ops.get(2) == Some(&storage))
+            .map(|(_, ops)| ops[1])
+            .collect()
+    }
+
     // ── 结构性单测(不依赖 spirv-val,恒跑) ──
 
     #[test]
@@ -857,6 +1477,185 @@ mod tests {
         assert!(
             !instrs.iter().any(|(op, _)| *op == OP_EXECUTION_MODE),
             "vertex 不应 emit OriginUpperLeft execution mode"
+        );
+    }
+
+    /// RXS-0171:输出 I/O 聚合返回值机械分解为逐 Output 元素 OpStore。
+    //@ spec: RXS-0171
+    #[test]
+    fn body_output_aggregate_return_splits_to_store() {
+        let out_ty = output_adt();
+        let temp = LocalIdx(1);
+        let body = body_with(
+            ShaderStage::Fragment,
+            vec![elem(
+                "out_luma",
+                IoSigKind::Varying,
+                MirIoType::Scalar(PrimTy::F32),
+                IoDir::Out,
+            )],
+            vec![local(out_ty.clone()), local(out_ty.clone())],
+            0,
+            vec![
+                assign(
+                    temp,
+                    Rvalue::Aggregate(
+                        out_ty.clone(),
+                        vec![Operand::Const(Const::Float(0.5, PrimTy::F32))],
+                    ),
+                ),
+                assign(LocalIdx(0), Rvalue::Use(Operand::Move(Place::local(temp)))),
+            ],
+        );
+        let m = emit_spirv_body(ShaderStage::Fragment, &body).expect("body lowering ok");
+        let instrs = instructions(&m);
+        assert!(instrs.iter().any(|(op, _)| *op == OP_CONSTANT));
+        assert!(instrs.iter().any(|(op, _)| *op == OP_STORE));
+    }
+
+    /// RXS-0171:参数结构体字段声明序绑定 In 元素,返回结构体字段声明序绑定 Out 元素。
+    //@ spec: RXS-0171
+    #[test]
+    fn body_field_order_binding_drives_load_and_store_order() {
+        let out_ty = output_adt();
+        let body = body_with(
+            ShaderStage::Fragment,
+            vec![
+                elem(
+                    "a",
+                    IoSigKind::Varying,
+                    MirIoType::Scalar(PrimTy::F32),
+                    IoDir::In,
+                ),
+                elem(
+                    "b",
+                    IoSigKind::Varying,
+                    MirIoType::Scalar(PrimTy::F32),
+                    IoDir::In,
+                ),
+                elem(
+                    "x",
+                    IoSigKind::Varying,
+                    MirIoType::Scalar(PrimTy::F32),
+                    IoDir::Out,
+                ),
+                elem(
+                    "y",
+                    IoSigKind::Varying,
+                    MirIoType::Scalar(PrimTy::F32),
+                    IoDir::Out,
+                ),
+            ],
+            vec![local(out_ty.clone()), local(input_adt())],
+            1,
+            vec![assign(
+                LocalIdx(0),
+                Rvalue::Aggregate(
+                    out_ty,
+                    vec![
+                        Operand::Copy(field(LocalIdx(1), 1)),
+                        Operand::Copy(field(LocalIdx(1), 0)),
+                    ],
+                ),
+            )],
+        );
+        let m = emit_spirv_body(ShaderStage::Fragment, &body).expect("body lowering ok");
+        let instrs = instructions(&m);
+        let inputs = variable_ids(&instrs, STORAGE_INPUT);
+        let outputs = variable_ids(&instrs, STORAGE_OUTPUT);
+        let loads: Vec<u32> = instrs
+            .iter()
+            .filter(|(op, _)| *op == OP_LOAD)
+            .map(|(_, ops)| ops[2])
+            .collect();
+        let stores: Vec<u32> = instrs
+            .iter()
+            .filter(|(op, _)| *op == OP_STORE)
+            .map(|(_, ops)| ops[0])
+            .collect();
+        assert_eq!(
+            loads,
+            vec![inputs[1], inputs[0]],
+            "Field(1), Field(0) 绑定 In 序"
+        );
+        assert_eq!(stores, outputs, "输出聚合按 Out 声明序 store");
+    }
+
+    /// RXS-0171:输入 place load + f32 常量 + 标量二元算术 + 输出 store。
+    //@ spec: RXS-0171
+    #[test]
+    fn body_binary_arithmetic_lowers_to_spirv_ops() {
+        let out_ty = output_adt();
+        let sum = LocalIdx(2);
+        let body = body_with(
+            ShaderStage::Fragment,
+            vec![
+                elem(
+                    "in_luma",
+                    IoSigKind::Varying,
+                    MirIoType::Scalar(PrimTy::F32),
+                    IoDir::In,
+                ),
+                elem(
+                    "out_luma",
+                    IoSigKind::Varying,
+                    MirIoType::Scalar(PrimTy::F32),
+                    IoDir::Out,
+                ),
+            ],
+            vec![
+                local(out_ty.clone()),
+                local(input_adt()),
+                local(Ty::Prim(PrimTy::F32)),
+            ],
+            1,
+            vec![
+                assign(
+                    sum,
+                    Rvalue::BinaryOp(
+                        BinOp::Add,
+                        Operand::Copy(field(LocalIdx(1), 0)),
+                        Operand::Const(Const::Float(1.0, PrimTy::F32)),
+                    ),
+                ),
+                assign(
+                    LocalIdx(0),
+                    Rvalue::Aggregate(out_ty, vec![Operand::Copy(Place::local(sum))]),
+                ),
+            ],
+        );
+        let m = emit_spirv_body(ShaderStage::Fragment, &body).expect("body lowering ok");
+        let instrs = instructions(&m);
+        assert!(instrs.iter().any(|(op, _)| *op == OP_LOAD));
+        assert!(instrs.iter().any(|(op, _)| *op == OP_CONSTANT));
+        assert!(instrs.iter().any(|(op, _)| *op == OP_FADD));
+        assert!(instrs.iter().any(|(op, _)| *op == OP_STORE));
+    }
+
+    /// RXS-0171 strict-only:白名单外 rvalue 不可映射(上层映射 RX6013)。
+    //@ spec: RXS-0171
+    #[test]
+    fn body_unsupported_rvalue_is_unmappable() {
+        let out_ty = output_adt();
+        let body = body_with(
+            ShaderStage::Fragment,
+            vec![elem(
+                "out_luma",
+                IoSigKind::Varying,
+                MirIoType::Scalar(PrimTy::F32),
+                IoDir::Out,
+            )],
+            vec![local(out_ty)],
+            0,
+            vec![assign(
+                LocalIdx(0),
+                Rvalue::UnaryOp(UnOp::Neg, Operand::Const(Const::Float(1.0, PrimTy::F32))),
+            )],
+        );
+        let r = emit_spirv_body(ShaderStage::Fragment, &body);
+        assert!(
+            matches!(r, Err(DxilError::Unmappable { .. })),
+            "unsupported rvalue 必须 strict-only 拒绝, 实得 {r:?}"
         );
     }
 

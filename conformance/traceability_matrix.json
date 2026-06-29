@@ -975,6 +975,26 @@
       "src/rurixc/src/binding_layout.rs",
       "src/rurixc/src/dxil_codegen.rs",
       "src/rurixc/tests/dxil_golden.rs"
+    ],
+    "RXS-0167": [
+      "src/uc04-demo/src/error.rs",
+      "src/uc04-demo/src/pso.rs"
+    ],
+    "RXS-0168": [
+      "src/uc04-demo/src/deferred.rs"
+    ],
+    "RXS-0169": [
+      "src/uc04-demo/src/barrier.rs"
+    ],
+    "RXS-0170": [
+      "src/uc04-demo/src/device.rs",
+      "src/uc04-demo/src/readback.rs"
+    ],
+    "RXS-0171": [
+      "conformance/dxil/graphics/accept/fs_body_arith.rx",
+      "conformance/dxil/graphics/accept/vs_body_output.rx",
+      "src/rurixc/src/dxil_codegen.rs",
+      "src/rurixc/src/dxil_spirv.rs"
     ]
   }
 }

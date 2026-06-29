@@ -435,7 +435,30 @@ pub fn emit_dxil_b(
     //    (strict-only,不静默降级)。资源句柄绑定的 `DescriptorSet`/`Binding` 由
     //    host 侧 `binding_layout::infer_spirv_bindings` 确定性推导(见 emit_spirv)。
     let spv = dxil_spirv::emit_spirv(stage, io_sig, resources).map_err(DxilBError::Spirv)?;
+    emit_dxil_b_from_spv(stage, io_sig, resources, spv)
+}
 
+/// B 路生产入口:消费完整 MIR [`Body`] 并按 RXS-0171 降级图形 body I/O 数据流。
+///
+/// 旧 [`emit_dxil_b`] 保留为签名-only 测试/工具入口;生产分发使用本函数,避免
+/// RD-013 所述的 void stub 路径继续旁路 `body.blocks` / `locals`。
+pub fn emit_dxil_b_body(body: &Body) -> Result<DxilBOutcome, DxilBError> {
+    let Some(stage @ (ShaderStage::Vertex | ShaderStage::Fragment)) = body.stage else {
+        return Err(DxilBError::Spirv(DxilError::Unmappable {
+            what: "stage".to_owned(),
+            detail: format!("Body stage {:?} 不在图形=B body lowering 范围", body.stage),
+        }));
+    };
+    let spv = dxil_spirv::emit_spirv_body(stage, body).map_err(DxilBError::Spirv)?;
+    emit_dxil_b_from_spv(stage, &body.io_sig, &body.resources, spv)
+}
+
+fn emit_dxil_b_from_spv(
+    stage: ShaderStage,
+    io_sig: &[IoSigElem],
+    resources: &[ResourceBinding],
+    spv: Vec<u32>,
+) -> Result<DxilBOutcome, DxilBError> {
     // emit_spirv 成功即保证 stage ∈ {Vertex, Fragment};据此取 dxc profile。
     let profile = match stage {
         ShaderStage::Vertex => "vs_6_0",
@@ -607,7 +630,7 @@ pub fn dispatch_and_emit(diag: &DiagCtxt, body: &Body, module_name: &str) -> Dis
             }
         },
         // ── B 路(vertex/fragment):MIR→SPIR-V→…→parse_dxil_signatures。 ──
-        StageRoute::PathB(stage) => match emit_dxil_b(stage, &body.io_sig, &body.resources) {
+        StageRoute::PathB(_stage) => match emit_dxil_b_body(body) {
             Ok(DxilBOutcome::Produced {
                 sigs,
                 root_signature,
@@ -716,6 +739,7 @@ pub fn emit_stage_link_error(diag: &DiagCtxt, span: Span, err: &signature_gate::
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ast::UnOp;
     use crate::diag::DiagCtxt;
     use crate::query::QueryCtx;
     use crate::span::{Edition, SourceId};
@@ -761,7 +785,9 @@ mod tests {
     // ───────────────── 任务4:stage 分发 + B 链 单测 ─────────────────
 
     use crate::hir::{DefId, PrimTy};
-    use crate::mir::{BasicBlock, IoDir, IoSigKind, Local, MirIoType, Terminator};
+    use crate::mir::{
+        BasicBlock, IoDir, IoSigKind, Local, LocalIdx, MirIoType, Place, Statement, Terminator,
+    };
     use crate::ty::Ty;
 
     fn dummy_span() -> Span {
@@ -1024,6 +1050,46 @@ mod tests {
         assert!(
             emitted_codes(&diag).contains(&6013),
             "应发 RX6013 不可映射构造"
+        );
+    }
+
+    /// RXS-0171 strict-only:白名单外 body rvalue 经生产分发映射为 RX6013。
+    //@ spec: RXS-0171
+    #[test]
+    fn dispatch_unsupported_body_rvalue_diagnoses_rx6013() {
+        let io = vec![io(
+            "out_luma",
+            IoSigKind::Varying,
+            MirIoType::Scalar(PrimTy::F32),
+            IoDir::Out,
+        )];
+        let mut body = make_body(Some(ShaderStage::Fragment), io);
+        let sp = dummy_span();
+        body.locals = vec![Local {
+            ty: Ty::Adt(DefId(9017), Vec::new()),
+            name: None,
+            span: sp,
+            shared: false,
+            array_len: None,
+        }];
+        body.blocks[0].stmts.push(Statement {
+            kind: StatementKind::Assign(
+                Place::local(LocalIdx(0)),
+                Rvalue::UnaryOp(UnOp::Neg, Operand::Const(Const::Float(1.0, PrimTy::F32))),
+            ),
+            span: sp,
+        });
+
+        let diag = DiagCtxt::new();
+        let outcome = dispatch_and_emit(&diag, &body, "gfx");
+        assert!(
+            matches!(outcome, DispatchOutcome::Diagnosed),
+            "unsupported body rvalue 应诊断不产物,实得 {outcome:?}"
+        );
+        assert!(
+            emitted_codes(&diag).contains(&6013),
+            "unsupported body rvalue 应发 RX6013,实得 {:?}",
+            emitted_codes(&diag)
         );
     }
 

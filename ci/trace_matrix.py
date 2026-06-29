@@ -119,6 +119,10 @@ def gather_repo() -> tuple[dict[str, str], dict[str, str]]:
     # G1.4:rurix-geometry crate(生态包第二梯队几何库 host 纯 safe 参考;BVH/triangle mesh
     # 纯编排复用既有几何原语/谓词语义,单测锚定 RXS-0110~0113,零新条款,MR-0004)
     test_files += sorted((ROOT / "src" / "rurix-geometry").glob("**/*.rs"))
+    # G2.4:uc04-demo crate(UC-04 deferred 渲染器 host 侧 safe 装配/编排模型,PR-F2
+    # blocked-honest interim slice;PSO 装配/deferred 编排/barrier 锚点/readback 布局
+    # 单测锚定 RXS-0167~0170,纯 host/safe,RFC-0006)
+    test_files += sorted((ROOT / "src" / "uc04-demo").glob("**/*.rs"))
     test_texts = {
         p.relative_to(ROOT).as_posix(): p.read_text(encoding="utf-8") for p in test_files
     }

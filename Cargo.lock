@@ -169,3 +169,10 @@ dependencies = [
  "rurix-rt",
  "soft-raster",
 ]
+
+[[package]]
+name = "uc04-demo"
+version = "0.1.0"
+dependencies = [
+ "rurixc",
+]
