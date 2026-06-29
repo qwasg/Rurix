@@ -1,7 +1,7 @@
 ; OWNER BLESSED — RXS-0162 图形=B DXIL 反汇编 golden。
 ; owner pin 环境签名 validator(dxv.exe/dxil.dll)已验证;本文件为当前 B 路文本形态基线。
 ; 版本噪声行(shader hash / dxc ident)已规范化为占位,不写死工具版本布局为语言保证。
-; 平凡 passthrough(RD-013 入口 body 数据流降级 deferred)→ spirv-cross DCE → TEXCOORD;RD-017 未关闭。
+; 生产忠实 B 链:RXS-0171 入口 body I/O 数据流降级 + RXS-0172 输出/片元 varying 用户语义名保名(uv/normal 等保真,非 TEXCOORD 退化)。
 ;
 ; Input signature:
 ;
@@ -13,7 +13,7 @@
 ;
 ; Name                 Index   Mask Register SysValue  Format   Used
 ; -------------------- ----- ------ -------- -------- ------- ------
-; TEXCOORD                 0   x           0     NONE   float   x   
+; uv                       0   x           0     NONE   float   x   
 ;
 ; shader hash: <OWNER-BLESSED-NORMALIZED>
 ;
@@ -40,7 +40,7 @@
 ;
 ; Name                 Index             InterpMode DynIdx
 ; -------------------- ----- ---------------------- ------
-; TEXCOORD                 0                 linear       
+; uv                       0                 linear       
 ;
 ; Buffer Definitions:
 ;
@@ -85,7 +85,7 @@ attributes #0 = { nounwind }
 !5 = !{void ()* @main, !"main", !6, null, null}
 !6 = !{null, !7, null}
 !7 = !{!8}
-!8 = !{i32 0, !"TEXCOORD", i8 9, i8 0, !9, i8 2, i32 1, i8 1, i32 0, i8 0, !10}
+!8 = !{i32 0, !"uv", i8 9, i8 0, !9, i8 2, i32 1, i8 1, i32 0, i8 0, !10}
 !9 = !{i32 0}
 !10 = !{i32 3, i32 1}
 
