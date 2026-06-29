@@ -995,6 +995,9 @@
       "conformance/dxil/graphics/accept/vs_body_output.rx",
       "src/rurixc/src/dxil_codegen.rs",
       "src/rurixc/src/dxil_spirv.rs"
+    ],
+    "RXS-0172": [
+      "src/rurixc/src/dxil_codegen.rs"
     ]
   }
 }

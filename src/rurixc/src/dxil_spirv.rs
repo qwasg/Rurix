@@ -459,12 +459,13 @@ impl Builder {
             }
         }
 
-        // by-construction 保名:对有用户语义名的 I/O emit UserSemantic。
-        // STUB(RD-017):`UserSemantic` 装饰仅作 SPIR-V 层 provenance(经 spirv-val 干净
-        // 保留),**spirv-cross 不消费**它为 HLSL 语义(实测)。vertex 输入语义名保名经
-        // `dxil_codegen::vertex_input_semantic_flags` 的 location 覆盖旗标达成(RXS-0159
-        // IR1(a));**输出 varying / fragment 输入 varying** 名当前无保名通道 → 退化
-        // `TEXCOORD#` → 校验门 RX6011 strict-only 拒(保名能力缺口 deferred RD-017)。
+        // by-construction provenance:对有用户语义名的 I/O emit UserSemantic(SPIR-V 层
+        // provenance,经 spirv-val 干净保留)。**spirv-cross 不消费**它为 HLSL 语义(实测)。
+        // 保名通道:vertex 输入经 `dxil_codegen::vertex_input_semantic_flags` 的 location
+        // 覆盖旗标(机制①,RXS-0159 IR1(a));**输出 varying / fragment 输入 varying** 经
+        // **RXS-0172** `dxil_codegen::restore_varying_semantics` 在 spirv-cross→dxc 的 HLSL
+        // 边界按 location provenance 改回用户名(RD-017,选项①);保名失败仍经校验门 RX6011
+        // strict-only 拒(不放宽门,Property 5)。
         if !elem.field_name.is_empty() {
             let mut operands = vec![var, DECORATION_USER_SEMANTIC];
             Self::push_string(&mut operands, &elem.field_name);
