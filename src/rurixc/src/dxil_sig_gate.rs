@@ -32,6 +32,7 @@
 //! 采样器,故纹理访问语义在本层不可达;校验门不发明任何 ABI 二进制布局 / UB 契约。
 
 pub mod signature_gate {
+    use crate::ast::ShaderStage;
     use crate::mir::{IoDir, IoSigElem, IoSigKind};
     use crate::toolchain::{DxilSignatures, SigElement};
 
@@ -132,30 +133,107 @@ pub mod signature_gate {
     /// 上层映射 6xxx 并终止该入口产物)。
     pub fn check(actual: &DxilSignatures, intent: &[IoSigElem]) -> Result<(), SigGateError> {
         for elem in intent {
-            let sig = match elem.dir {
-                IoDir::In => &actual.input,
-                IoDir::Out => &actual.output,
-            };
-            match &elem.kind {
-                // 系统值:须映射到对应 DXIL 系统值(名 / sysvalue 任一命中)。
-                IoSigKind::Builtin(name) => {
-                    let found = sig.iter().any(|e| sysvalue_matches(e, name));
-                    if !found {
-                        return Err(missing_error(elem, &builtin_detail(elem, name)));
-                    }
+            check_elem(actual, elem)?;
+        }
+        Ok(())
+    }
+
+    /// 带着色阶段上下文的强制签名一致性校验门(RXS-0173)。
+    ///
+    /// 在 [`check`] 逐元素核对基础上,对 **fragment 阶段输出方向** 的 varying /
+    /// interpolate 元素按 **渲染目标系统值**(`SV_Target#`,声明序索引 = 渲染目标序)
+    /// 忠实核对——D3D12 像素着色器输出按渲染目标索引绑定、**无用户语义名通道**,故
+    /// fragment 输出以系统值类(`SV_Target`)忠实匹配,而非要求用户语义名(如
+    /// `albedo`/`normal`/`depth`)出现于 OSG1(RXS-0173 L1)。其余方向 / 阶段维持
+    /// [`check`] 的逐元素语义名 / 系统值核对(vertex 输出仍走 RXS-0172 用户语义名
+    /// 保名、fragment 输入仍走 RXS-0172、`#[builtin]` 仍走 RXS-0159 系统值映射)。
+    ///
+    /// **不放宽校验门**(RXS-0173 L2):fragment 输出仍须真实存活于 OSG1(以
+    /// `SV_Target#` 形态),缺失 / 数目不符 → [`SigGateError::SigMismatch`](RX6011)。
+    /// 系统值类匹配是 D3D12 ABI 既定的忠实映射,**非**以 location/等价冒充保名
+    /// (对比 RXS-0172 L2 否决的 location 冒充)。
+    ///
+    /// 生产 B 链([`crate::dxil_codegen`] `run_b_chain`)使用本入口;[`check`] 保留
+    /// 为阶段无关的兼容/测试入口。
+    ///
+    /// # Errors
+    /// - fragment 输出渲染目标在 OSG1 缺失 / 数目不符 → [`SigGateError::SigMismatch`]。
+    /// - 其余未保真元素 → 同 [`check`]。
+    pub fn check_with_stage(
+        actual: &DxilSignatures,
+        intent: &[IoSigElem],
+        stage: ShaderStage,
+    ) -> Result<(), SigGateError> {
+        let fragment = matches!(stage, ShaderStage::Fragment);
+        if fragment {
+            // RXS-0173 L1/L3:fragment 输出 varying/interpolate(渲染目标)按声明序映射
+            // SV_Target#;声明的渲染目标数须在译后 OSG1 以 ≥ 同数的 SV_Target# 元素保真
+            // (缺失/数目不符 → strict-only 拒,detect 输出 MRT 被消除)。
+            let declared_rt = intent
+                .iter()
+                .filter(|e| matches!(e.dir, IoDir::Out) && is_render_target_varying(&e.kind))
+                .count();
+            let osg1_rt = actual.output.iter().filter(|e| is_sv_target(e)).count();
+            if osg1_rt < declared_rt {
+                return Err(SigGateError::SigMismatch {
+                    detail: format!(
+                        "fragment 输出渲染目标数不符:声明 {declared_rt} 个输出 varying,译后 \
+                         OSG1 仅 {osg1_rt} 个 SV_Target#(疑输出 MRT 被消除/未保真,RXS-0173 L2)"
+                    ),
+                });
+            }
+        }
+        for elem in intent {
+            // fragment 输出 varying 已按 SV_Target# 渲染目标系统值核对(上),不再以
+            // 用户语义名核对(D3D12 像素输出无用户语义名通道,RXS-0173 L1/L4)。
+            if fragment && matches!(elem.dir, IoDir::Out) && is_render_target_varying(&elem.kind) {
+                continue;
+            }
+            check_elem(actual, elem)?;
+        }
+        Ok(())
+    }
+
+    /// 单个 MIR 意图元素的逐元素签名核对(由 [`check`] / [`check_with_stage`] 复用)。
+    fn check_elem(actual: &DxilSignatures, elem: &IoSigElem) -> Result<(), SigGateError> {
+        let sig = match elem.dir {
+            IoDir::In => &actual.input,
+            IoDir::Out => &actual.output,
+        };
+        match &elem.kind {
+            // 系统值:须映射到对应 DXIL 系统值(名 / sysvalue 任一命中)。
+            IoSigKind::Builtin(name) => {
+                let found = sig.iter().any(|e| sysvalue_matches(e, name));
+                if !found {
+                    return Err(missing_error(elem, &builtin_detail(elem, name)));
                 }
-                // 用户语义名:varying/interpolate 须以等价语义名出现,未退化为通用名。
-                IoSigKind::Varying | IoSigKind::Interpolate(_) => {
-                    let found = sig
-                        .iter()
-                        .any(|e| semantic_name_matches(&e.name, &elem.field_name));
-                    if !found {
-                        return Err(missing_error(elem, &varying_detail(elem)));
-                    }
+            }
+            // 用户语义名:varying/interpolate 须以等价语义名出现,未退化为通用名。
+            IoSigKind::Varying | IoSigKind::Interpolate(_) => {
+                let found = sig
+                    .iter()
+                    .any(|e| semantic_name_matches(&e.name, &elem.field_name));
+                if !found {
+                    return Err(missing_error(elem, &varying_detail(elem)));
                 }
             }
         }
         Ok(())
+    }
+
+    /// fragment 输出渲染目标候选:`Varying` / `Interpolate`(经 RXS-0171 输出 I/O 聚合
+    /// 写出的 fragment 输出字段)。`Builtin`(如 `frag_depth` → `SV_Depth`)不计入渲染
+    /// 目标序,维持 RXS-0159 系统值映射(RXS-0173 L2)。
+    fn is_render_target_varying(kind: &IoSigKind) -> bool {
+        matches!(kind, IoSigKind::Varying | IoSigKind::Interpolate(_))
+    }
+
+    /// 译后 OSG1 元素是否为 `SV_Target#` 渲染目标系统值(按名:剥尾随数字后大写 ==
+    /// `SV_TARGET`;兼容 sysvalue 列 `TARGET`)。RXS-0173 L1。
+    fn is_sv_target(e: &SigElement) -> bool {
+        let name = strip_trailing_digits(&e.name).to_ascii_uppercase();
+        let sv = strip_trailing_digits(&e.sysvalue).to_ascii_uppercase();
+        name == "SV_TARGET" || sv == "TARGET"
     }
 
     /// 阶段间接口 → 阶段链接一致性核对(RXS-0160;不可裁剪,无旁路,strict-only)。
@@ -310,6 +388,10 @@ pub mod signature_gate {
             "instance_index" => &["SV_INSTANCEID", "INSTID"],
             // 片元深度(fragment out)。
             "frag_depth" | "depth" => &["SV_DEPTH", "DEPTH"],
+            // 片元渲染目标输出(fragment out,RXS-0173;按渲染目标索引绑定,声明序映射
+            // SV_Target#)。fragment 输出主路经 check_with_stage 的 is_sv_target 计数核对,
+            // 本 token 供以 Builtin("target") 建模渲染目标的备用核对口径。
+            "target" => &["SV_TARGET", "TARGET"],
             // 点尺寸(D3D 无独立系统值缩写,SPIR-V PointSize 不落 DXIL SV;按全名核实,
             // 真跑下通常不达 → strict-only 倾向报错,留待带工具链环境细化)。
             "point_size" => &["SV_POINTSIZE"],
@@ -328,7 +410,10 @@ pub mod signature_gate {
 
 #[cfg(test)]
 mod tests {
-    use super::signature_gate::{SigGateError, StageLinkError, check, check_stage_link};
+    use super::signature_gate::{
+        SigGateError, StageLinkError, check, check_stage_link, check_with_stage,
+    };
+    use crate::ast::ShaderStage;
     use crate::hir::PrimTy;
     use crate::mir::{IoDir, IoSigElem, IoSigKind, MirIoType};
     use crate::toolchain::{DxilSignatures, SigElement};
@@ -792,6 +877,143 @@ mod tests {
         match check(&sigs, &vertex_intent()) {
             Err(SigGateError::SigMismatch { .. }) => {}
             other => panic!("改写 builtin 系统值应 SigMismatch,实得 {other:?}"),
+        }
+    }
+
+    // ════════════════ RXS-0173:fragment 输出 → SV_Target# 渲染目标系统值映射 ════════════════
+    //
+    // `check_with_stage(actual, intent, ShaderStage::Fragment)` 对 fragment 输出 varying
+    // 按声明序映射 SV_Target# 渲染目标系统值忠实核对(非用户语义名),vertex 输出仍走
+    // RXS-0172 用户语义名保名;不放宽门(缺失/数目不符 → RX6011 SigMismatch)。
+
+    /// UC-04 几何 pass fragment 意图(G-buffer MRT):1 输入 varying(uv,interpolate)+
+    /// 3 输出 varying(albedo/normal/depth → SV_Target0/1/2,RXS-0173)。
+    fn fragment_mrt_intent() -> Vec<IoSigElem> {
+        vec![
+            io(
+                "uv",
+                IoSigKind::Interpolate("perspective".to_owned()),
+                MirIoType::Scalar(PrimTy::F32),
+                IoDir::In,
+            ),
+            io(
+                "albedo",
+                IoSigKind::Varying,
+                MirIoType::Scalar(PrimTy::F32),
+                IoDir::Out,
+            ),
+            io(
+                "normal",
+                IoSigKind::Varying,
+                MirIoType::Scalar(PrimTy::F32),
+                IoDir::Out,
+            ),
+            io(
+                "depth",
+                IoSigKind::Varying,
+                MirIoType::Scalar(PrimTy::F32),
+                IoDir::Out,
+            ),
+        ]
+    }
+
+    /// 忠实译后签名:fragment 输入 varying `uv`(RXS-0172 保名)+ 3 个 SV_Target# 渲染
+    /// 目标(声明序索引 0/1/2)。
+    fn fragment_mrt_faithful() -> DxilSignatures {
+        DxilSignatures {
+            input: vec![sig("uv", "NONE", 0, "0", true)],
+            output: vec![
+                sig("SV_Target", "NONE", 0, "0", true),
+                sig("SV_Target", "NONE", 1, "1", true),
+                sig("SV_Target", "NONE", 2, "2", true),
+            ],
+        }
+    }
+
+    /// accept(RXS-0173 L1):fragment 3 输出 varying 按声明序匹配 SV_Target0/1/2 + 输入
+    /// varying 保名 → `check_with_stage(.., Fragment)` 通过(uc04_gbuffer_fs 几何 pass FS
+    /// 写 MRT 不再被签名门 strict-only 拒)。
+    //@ spec: RXS-0173
+    #[test]
+    fn accept_fragment_mrt_targets_pass() {
+        assert!(
+            check_with_stage(
+                &fragment_mrt_faithful(),
+                &fragment_mrt_intent(),
+                ShaderStage::Fragment
+            )
+            .is_ok(),
+            "fragment 输出按声明序映射 SV_Target0/1/2(忠实)+ 输入保名应通过校验门"
+        );
+    }
+
+    /// accept(RXS-0173,sysvalue 列 TARGET 形态兼容):OSG1 名空、sysvalue=TARGET 亦命中。
+    //@ spec: RXS-0173
+    #[test]
+    fn accept_fragment_mrt_sysvalue_target_form() {
+        let actual = DxilSignatures {
+            input: vec![sig("uv", "NONE", 0, "0", true)],
+            output: vec![
+                sig("", "TARGET", 0, "0", true),
+                sig("", "TARGET", 1, "1", true),
+                sig("", "TARGET", 2, "2", true),
+            ],
+        };
+        assert!(
+            check_with_stage(&actual, &fragment_mrt_intent(), ShaderStage::Fragment).is_ok(),
+            "sysvalue=TARGET 形态的 SV_Target 亦应命中渲染目标核对"
+        );
+    }
+
+    /// reject(RXS-0173 L2,不放宽门):fragment 一个输出渲染目标被消除(OSG1 仅 2 个
+    /// SV_Target,声明 3 个)→ `SigMismatch`(RX6011),strict-only 显式拒。
+    //@ spec: RXS-0173
+    #[test]
+    fn reject_fragment_mrt_dropped_target_is_sig_mismatch() {
+        let mut actual = fragment_mrt_faithful();
+        actual.output.pop(); // 消除 depth → SV_Target2(数目 3→2 不符)。
+        match check_with_stage(&actual, &fragment_mrt_intent(), ShaderStage::Fragment) {
+            Err(SigGateError::SigMismatch { .. }) => {}
+            other => panic!("fragment 输出 MRT 被消除应 SigMismatch(RX6011),实得 {other:?}"),
+        }
+    }
+
+    /// reject(RXS-0173 不旁路输入):fragment 输入 varying(uv)被消除仍经 check_elem
+    /// 落 `SigDroppedInput`(阶段上下文只改输出核对口径,不放宽输入)。
+    //@ spec: RXS-0173
+    #[test]
+    fn reject_fragment_dropped_input_under_stage() {
+        let mut actual = fragment_mrt_faithful();
+        actual.input.clear(); // uv 输入被消除。
+        match check_with_stage(&actual, &fragment_mrt_intent(), ShaderStage::Fragment) {
+            Err(SigGateError::SigDroppedInput { .. }) => {}
+            other => panic!("fragment 输入被消除应 SigDroppedInput,实得 {other:?}"),
+        }
+    }
+
+    /// vertex 阶段不受 RXS-0173 影响:vertex 输出 varying 仍按 RXS-0172 用户语义名核对
+    /// (`check_with_stage(.., Vertex)` 等价 `check`)——保真过、退化通用名拒。
+    //@ spec: RXS-0173
+    #[test]
+    fn vertex_stage_unaffected_by_rxs0173() {
+        // 保真:vertex 输出 COLOR(用户名)+ SV_Position + 输入 VERTID → 过。
+        assert!(
+            check_with_stage(
+                &vertex_faithful_sigs(),
+                &vertex_intent(),
+                ShaderStage::Vertex
+            )
+            .is_ok(),
+            "vertex 阶段应维持 check 行为(用户语义名 + 系统值忠实)"
+        );
+        // 退化:vertex 输出 color → TEXCOORD(通用名)→ 仍 SigMismatch(未被 RXS-0173 误放行)。
+        let mut sigs = vertex_faithful_sigs();
+        sigs.output[1] = sig("TEXCOORD", "NONE", 0, "1", true);
+        match check_with_stage(&sigs, &vertex_intent(), ShaderStage::Vertex) {
+            Err(SigGateError::SigMismatch { .. }) => {}
+            other => {
+                panic!("vertex 输出退化通用名应 SigMismatch(RXS-0173 不误放行),实得 {other:?}")
+            }
         }
     }
 

@@ -2,9 +2,11 @@
 //! fallback)。装配期可预测错误映射 6xxx 诊断码 **RX6018~RX6022**
 //! (`registry/error_codes.json` + en/zh message-key `runtime.uc04_*`)。
 //!
-//! [`Uc04Error::BlockedOnRd013`] 为 device 阻塞 sentinel,**非语言 RX**(不滥发诊断码)——
-//! device 真绿阻塞于 RD-013(图形=B 入口 body 数据流降级未实现),按 G-G2-4 防降级硬门
-//! 标 blocked,不以替代物伪造。
+//! [`Uc04Error::ShimUnavailable`] / [`Uc04Error::DeviceRunFailed`] 为 device 段 sentinel,
+//! **非语言 RX**(不滥发诊断码;D3D12 纯运行期/环境失败,06 §8.2 / spec/d3d12_runtime.md §0)——
+//! 缺 `real-shim`/MSVC/D3D12 或 device 真跑失败按环境失败报告,不以替代物伪造 device 绿
+//! (G-G2-4 防降级硬门)。RD-013(图形=B 入口 body 数据流降级)已由 RXS-0171 + 本 device
+//! 路径(消费 Rurix 图形=B DXIL 真出图)兑现闭环。
 
 use std::fmt;
 
@@ -37,10 +39,18 @@ pub enum Uc04Error {
         /// readback 布局失败诊断上下文。
         detail: String,
     },
-    /// device 段 blocked-honest:hardware 出图阻塞于 RD-013(无 Rurix 自产可出图着色器)。
-    /// **非语言 RX**——按 G-G2-4 防降级硬门标 blocked,不以替代物伪造 device 绿。
-    BlockedOnRd013 {
-        /// 阻塞上下文。
+    /// device 段:`real-shim`(D3D12 离屏 shim)未编入 / pin 工具缺失 → 无法真跑。
+    /// **非语言 RX**(环境失败,不滥发诊断码);按 G-G2-4 防降级硬门标环境缺失,不伪造 device 绿。
+    ShimUnavailable {
+        /// 缺失上下文(缺 real-shim feature / MSVC / D3D12)。
+        detail: String,
+    },
+    /// device 段:D3D12 shim 真跑失败(adapter/PSO/draw/readback 返回非 0,或像素对照失败)。
+    /// **非语言 RX**(运行期/环境失败,不滥发诊断码)。
+    DeviceRunFailed {
+        /// shim 返回码(HRESULT 位码或哨兵负码;0 表示像素对照失败)。
+        code: i32,
+        /// 失败上下文。
         detail: String,
     },
 }
@@ -48,8 +58,9 @@ pub enum Uc04Error {
 impl Uc04Error {
     /// 装配期可预测错误对应的 6xxx 诊断码(RXS-0167~0170)。
     ///
-    /// [`Uc04Error::BlockedOnRd013`] 为 device 阻塞 sentinel,**非**语言诊断码 → `None`
-    /// (D3D12 纯运行期/环境失败不滥发语言 RX,06 §8.2 / spec/d3d12_runtime.md §0)。
+    /// [`Uc04Error::ShimUnavailable`] / [`Uc04Error::DeviceRunFailed`] 为 device 段 sentinel,
+    /// **非**语言诊断码 → `None`(D3D12 纯运行期/环境失败不滥发语言 RX,06 §8.2 /
+    /// spec/d3d12_runtime.md §0)。
     pub fn rx_code(&self) -> Option<&'static str> {
         match self {
             Uc04Error::PsoTargetMismatch { .. } => Some("RX6018"),
@@ -57,7 +68,7 @@ impl Uc04Error {
             Uc04Error::PassOrchestration { .. } => Some("RX6020"),
             Uc04Error::BarrierPlan { .. } => Some("RX6021"),
             Uc04Error::ReadbackLayout { .. } => Some("RX6022"),
-            Uc04Error::BlockedOnRd013 { .. } => None,
+            Uc04Error::ShimUnavailable { .. } | Uc04Error::DeviceRunFailed { .. } => None,
         }
     }
 }
@@ -80,8 +91,14 @@ impl fmt::Display for Uc04Error {
             Uc04Error::ReadbackLayout { detail } => {
                 write!(f, "UC-04 readback 布局失配: {detail}")
             }
-            Uc04Error::BlockedOnRd013 { detail } => {
-                write!(f, "UC-04 device 段 blocked-on-RD-013: {detail}")
+            Uc04Error::ShimUnavailable { detail } => {
+                write!(
+                    f,
+                    "UC-04 device shim 不可用(real-shim/MSVC/D3D12 缺失): {detail}"
+                )
+            }
+            Uc04Error::DeviceRunFailed { code, detail } => {
+                write!(f, "UC-04 device 真跑失败(code={code}): {detail}")
             }
         }
     }
@@ -132,9 +149,17 @@ mod tests {
             .rx_code(),
             Some("RX6022")
         );
-        // device 阻塞 = blocked-honest sentinel,非语言诊断码。
+        // device 段 sentinel(shim 缺失 / 真跑失败)= 环境/运行期失败,非语言诊断码。
         assert_eq!(
-            Uc04Error::BlockedOnRd013 {
+            Uc04Error::ShimUnavailable {
+                detail: String::new()
+            }
+            .rx_code(),
+            None
+        );
+        assert_eq!(
+            Uc04Error::DeviceRunFailed {
+                code: -1,
                 detail: String::new()
             }
             .rx_code(),

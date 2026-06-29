@@ -1,0 +1,17 @@
+//@ spec: RXS-0171, RXS-0173, RXS-0161, RXS-0162
+// UC-04 deferred lighting/合成 pass fragment(选项 B:**不采样 G-buffer**)。读自身插值
+// 输入 varying(uv,来自 lighting VS 透传)→ 白名单 f32 算术 → 写单一渲染目标输出
+// (color → SV_Target0,RXS-0173 fragment 输出渲染目标系统值映射)。**不读 G-buffer SRV**
+// (lighting 真采样 = RD-021 / 06§4.2 纹理路径内存模型禁区,本期 defer;折中边界见
+// G2_CONTRACT §8.5)。body 仅 Use + 单层 Field 投影 + f32 BinaryOp + 输出聚合分解(白名单内)。
+struct LpVary {
+    #[interpolate(perspective)] uv: f32,
+}
+
+struct LpOut {
+    color: f32,
+}
+
+fragment fn uc04_lighting_fs(inp: LpVary) -> LpOut {
+    LpOut { color: inp.uv + 0.5 }
+}

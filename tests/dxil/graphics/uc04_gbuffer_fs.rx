@@ -1,0 +1,23 @@
+//@ spec: RXS-0171, RXS-0168
+// UC-04 deferred 几何 pass fragment 写 G-buffer MRT(RXS-0171 body I/O 数据流降级最小切片,
+// 子集内):读插值 varying(uv/normal)→ 白名单 f32 算术(+/*)→ 多目标输出聚合返回值
+// 机械分解为逐 Out OpStore(albedo/normal/depth 三 MRT 目标,模拟 G-buffer 写入)。
+// **不采样 G-buffer**(lighting pass 才采样 SRV G-buffer = RD-021 / 06§4.2 纹理路径内存
+// 模型禁区;Rurix 源无采样/取数语法,emit_spirv_body 无 OpImageSample*/Fetch 路径,资源
+// 句柄仅止于 opaque 绑定声明 → lighting 采样半结构不可达,见
+// evidence/g2.4-uc04-deferred/rd021_scoping_20260629.md)。几何 pass 只写 MRT,在白名单内。
+// host 侧确定性:emit_spirv_body 产 OpLoad(输入 varying)+ 白名单算术 op + OpStore ×N。
+struct GBufVary {
+    #[interpolate(perspective)] uv: f32,
+    #[interpolate(perspective)] normal: f32,
+}
+
+struct GBufferTargets {
+    albedo: f32,
+    normal: f32,
+    depth: f32,
+}
+
+fragment fn uc04_gbuffer_fs(inp: GBufVary) -> GBufferTargets {
+    GBufferTargets { albedo: inp.uv + 0.25, normal: inp.normal * 0.5, depth: 1.0 }
+}

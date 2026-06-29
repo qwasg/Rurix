@@ -221,6 +221,9 @@ enum BChainResult {
     Sigs {
         sigs: DxilSignatures,
         disasm: String,
+        /// 经校验门接受的 DXIL 容器字节(`stage.dxil`,dxc 产);供 D3D12 PSO 创建消费
+        /// (G2.4 device 真跑,[`emit_dxil_b_container`])。生产签名/RTS0/golden 出口忽略它。
+        dxil: Vec<u8>,
     },
     /// 工具链不可用 → SKIP(携带原因)。
     Skipped(String),
@@ -535,6 +538,7 @@ fn rewrite_field_semantic(line: &str, prov: &[(u32, String)]) -> String {
 
 /// B 链跑链体(步骤 3~7):写临时 `.spv` → spirv-cross → dxc → dumpbin →
 /// `parse_dxil_signatures`。临时目录由调用方 [`emit_dxil_b`] 创建并统一清理。
+#[allow(clippy::too_many_arguments)] // B 链参数面(spv/工具/profile/io_sig/extra/stage)各为不同关注点,聚合为 struct 反损可读性。
 fn run_b_chain(
     spv: &[u32],
     spvx: &Path,
@@ -543,6 +547,7 @@ fn run_b_chain(
     dir: &Path,
     io_sig: &[IoSigElem],
     extra: &[String],
+    stage: ShaderStage,
 ) -> Result<BChainResult, DxilBError> {
     // 3) 写临时 `.spv`:`&[u32]` 小端 → `&[u8]`(纯 safe,`u32::to_le_bytes`,R1.11)。
     let spv_path = dir.join("stage.spv");
@@ -600,9 +605,22 @@ fn run_b_chain(
     //    比对译后签名与 MIR 意图签名(用户语义名 / 系统值 / 被用输入 / 阶段间
     //    location 链接键),缺失 / 改名 / 错配 / 「声明但未用输入被消除」→ strict-only
     //    失败 → 6xxx,**终止该入口产物**(不返回 Produced、不产 golden)。
-    signature_gate::check(&sigs, io_sig).map_err(DxilBError::SigGate)?;
+    //    fragment 输出 varying 按 RXS-0173 以 SV_Target# 渲染目标系统值忠实核对(阶段
+    //    上下文 `stage`),vertex 输出维持 RXS-0172 用户语义名保名。
+    signature_gate::check_with_stage(&sigs, io_sig, stage).map_err(DxilBError::SigGate)?;
 
-    Ok(BChainResult::Sigs { sigs, disasm })
+    // 9) 回读经校验门接受的 DXIL 容器字节(步骤5 dxc 产 `stage.dxil`),供 device
+    //    PSO 创建消费(G2.4)。读失败按环境降级 SKIP(非 6xxx;校验门已过故文件应在)。
+    let dxil = match std::fs::read(&dxil_path) {
+        Ok(b) => b,
+        Err(e) => {
+            return Ok(BChainResult::Skipped(format!(
+                "读回 DXIL 容器字节失败: {e}"
+            )));
+        }
+    };
+
+    Ok(BChainResult::Sigs { sigs, disasm, dxil })
 }
 
 /// B 路 codegen:着色阶段(`stage` ∈ {Vertex, Fragment})+ I/O 意图签名(`io_sig`)
@@ -691,7 +709,7 @@ fn emit_dxil_b_from_spv(
         Ok(d) => d,
         Err(e) => return Ok(DxilBOutcome::Skipped(format!("临时目录创建失败: {e}"))),
     };
-    let result = run_b_chain(&spv, &spvx, &dxc, profile, &dir, io_sig, &extra);
+    let result = run_b_chain(&spv, &spvx, &dxc, profile, &dir, io_sig, &extra, stage);
     let _ = std::fs::remove_dir_all(&dir);
     match result {
         Ok(BChainResult::Sigs { sigs, .. }) => Ok(DxilBOutcome::Produced {
@@ -749,10 +767,79 @@ pub fn emit_dxil_b_disasm(body: &Body) -> Result<Option<String>, DxilBError> {
         Err(_) => return Ok(None),
     };
     // 3~8) 与生产出口共用 run_b_chain(含 RXS-0172 保名 + 强制 signature_gate)。
-    let result = run_b_chain(&spv, &spvx, &dxc, profile, &dir, &body.io_sig, &extra);
+    let result = run_b_chain(
+        &spv,
+        &spvx,
+        &dxc,
+        profile,
+        &dir,
+        &body.io_sig,
+        &extra,
+        stage,
+    );
     let _ = std::fs::remove_dir_all(&dir);
     match result {
         Ok(BChainResult::Sigs { disasm, .. }) => Ok(Some(normalize_b_disasm(&disasm))),
+        Ok(BChainResult::Skipped(_)) => Ok(None),
+        Err(e) => Err(e),
+    }
+}
+
+/// B 路生产入口:消费完整 MIR [`Body`] 产出**经校验门接受的 DXIL 容器字节**(供 D3D12
+/// PSO 创建消费;G2.4 UC-04 device 真跑)。与 [`emit_dxil_b_body`] / [`emit_dxil_b_disasm`]
+/// **同一条**生产链:`emit_spirv_body`(RXS-0171 body I/O 数据流降级)→ 顶点输入保名旗标
+/// → RXS-0172 输出/片元输入 varying 用户语义名保名 → dxc(产 DXIL 容器)→ dumpbin →
+/// `parse_dxil_signatures` → 强制 `signature_gate::check_with_stage`(RXS-0173 fragment
+/// 输出 SV_Target# 忠实核对)。返回的字节 = 校验门所验产物本身(无第二条手搓链)。
+///
+/// **G-G2-4 防降级**:device PSO 消费的 DXIL 来自本入口(Rurix 源经图形=B 链),非手写
+/// HLSL/DXIL;校验门失败的入口绝不返回字节(`?` 终止落 6xxx)。
+///
+/// # Returns
+/// - `Ok(Some(dxil))`:工具链可用、链跑通且校验门通过 → DXIL 容器字节。
+/// - `Ok(None)`:工具链不可用(spirv-cross / dxc 定位或 spawn 失败 / 临时目录失败)→
+///   环境降级(非 6xxx;真实产出在带 pin B 工具链的 dev/CI 环境)。
+///
+/// # Errors
+/// 同 [`emit_dxil_b_body`]:不可映射构造 / 工具运行后拒绝 / 校验门拒绝 → 6xxx,绝不
+/// 静默成功。
+pub fn emit_dxil_b_container(body: &Body) -> Result<Option<Vec<u8>>, DxilBError> {
+    let Some(stage @ (ShaderStage::Vertex | ShaderStage::Fragment)) = body.stage else {
+        return Err(DxilBError::Spirv(DxilError::Unmappable {
+            what: "stage".to_owned(),
+            detail: format!("Body stage {:?} 不在图形=B body lowering 范围", body.stage),
+        }));
+    };
+    // 1) MIR→SPIR-V:消费完整 Body(RXS-0171 body 降级),与 emit_dxil_b_body 同源。
+    let spv = dxil_spirv::emit_spirv_body(stage, body).map_err(DxilBError::Spirv)?;
+    let profile = match stage {
+        ShaderStage::Vertex => "vs_6_0",
+        ShaderStage::Fragment => "ps_6_0",
+        _ => return Ok(None),
+    };
+    // 2) 工具链定位:缺失 → SKIP(环境降级,非 6xxx)。
+    let (Some(spvx), Some(dxc)) = (toolchain::locate_spirv_cross(), toolchain::locate_dxc()) else {
+        return Ok(None);
+    };
+    let extra = vertex_input_semantic_flags(stage, &body.io_sig);
+    let dir = match scratch_dir() {
+        Ok(d) => d,
+        Err(_) => return Ok(None),
+    };
+    // 3~9) 与生产出口共用 run_b_chain(含 RXS-0172/0173 + 强制 signature_gate + 回读 DXIL)。
+    let result = run_b_chain(
+        &spv,
+        &spvx,
+        &dxc,
+        profile,
+        &dir,
+        &body.io_sig,
+        &extra,
+        stage,
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+    match result {
+        Ok(BChainResult::Sigs { dxil, .. }) => Ok(Some(dxil)),
         Ok(BChainResult::Skipped(_)) => Ok(None),
         Err(e) => Err(e),
     }

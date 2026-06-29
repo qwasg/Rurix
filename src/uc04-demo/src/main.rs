@@ -126,23 +126,112 @@ fn main() {
         layout.row_pitch, layout.buffer_size
     );
 
-    // device 段:blocked-honest(G-G2-4 防降级硬门)。
-    println!(
-        "[device] blocked-on-RD-013:hardware 多 pass deferred draw + offscreen 像素对照须 Rurix \
-         source → 图形=B DXIL 出图;RD-013 open → 不伪造 device 绿、不签 G-G2-4。"
-    );
+    // device 段(G2.4 选项 B:不采样 G-buffer 的最小多 pass deferred)。real-shim 下经
+    // D3D12 离屏 shim 真出图:几何 pass(Rurix VS/FS)写 G-buffer MRT → lighting/合成 pass
+    // (Rurix VS/FS,不采样)写 final → offscreen readback 中心像素对照;无 real-shim → 显式
+    // ShimUnavailable(不伪造 device 绿,G-G2-4 防降级硬门)。
+    let _ = (&pso, &plan, &anchors, &layout); // host 模型已打印;device 走 Rurix DXIL 真出图。
     #[cfg(feature = "d3d12-runtime")]
-    {
-        use uc04_demo::device::{OffscreenRequest, execute_offscreen};
-        let req = OffscreenRequest {
-            pso: &pso,
-            plan: &plan,
-            barriers: &anchors,
-            readback: &layout,
-        };
-        match execute_offscreen(&req) {
-            Err(e) => println!("[device] execute_offscreen → {e}"),
-            Ok(_) => unreachable!("device 段 blocked-honest,不应返回 Ok"),
+    device_run();
+}
+
+/// device 真出图(`d3d12-runtime`):读 4 个 Rurix 图形=B DXIL(命令行给出)+ 构造 RFC-0005
+/// RTS0(空资源集 + IA 输入布局 flag,经 `serialize_rts0` 单一事实源)→ execute_offscreen →
+/// 打印 `DXIL_UC04` 见证行 / 显式错误(非伪造)。
+#[cfg(feature = "d3d12-runtime")]
+fn device_run() {
+    use uc04_demo::Format;
+    use uc04_demo::barrier::{BarrierAnchor, BarrierTransition, ResourceState};
+    use uc04_demo::deferred::{DeferredPlan, GBufferTarget};
+    use uc04_demo::device::{OffscreenRequest, OffscreenResult, execute_offscreen};
+    use uc04_demo::pso::AssembledPso;
+    use uc04_demo::readback::ReadbackLayout;
+
+    use rurixc::binding_layout::{infer_root_signature, serialize_rts0};
+
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() != 5 {
+        eprintln!(
+            "[device] usage: uc04-demo <geom_vs.dxil> <geom_fs.dxil> <light_vs.dxil> <light_fs.dxil>"
+        );
+        std::process::exit(2);
+    }
+    let read = |p: &str| -> Vec<u8> {
+        std::fs::read(p).unwrap_or_else(|e| {
+            eprintln!("[device] 读 DXIL {p} 失败: {e}");
+            std::process::exit(2);
+        })
+    };
+    let geom_vs = read(&args[1]);
+    let geom_fs = read(&args[2]);
+    let light_vs = read(&args[3]);
+    let light_fs = read(&args[4]);
+
+    // RFC-0005 RTS0(P-11 单一事实源):选项 B 无资源 → 空 root signature;加
+    // ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT(0x1)以承顶点缓冲输入布局(带 IA 的 PSO 必需)。
+    let mut rs = infer_root_signature(&[]).expect("空资源集 root signature 推导(RFC-0005)");
+    rs.flags = 0x1; // D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
+    let rts0_bytes = serialize_rts0(&rs);
+
+    let pso = AssembledPso {
+        root_signature: rs,
+        rts0_bytes,
+        rtv_formats: vec![Format::Rgba8Unorm],
+        dsv_format: None,
+    };
+    let plan = DeferredPlan {
+        gbuffer_color: vec![GBufferTarget::Albedo, GBufferTarget::Normal],
+        has_depth: false,
+        lighting_srv: vec![], // 选项 B:lighting 不采样 G-buffer。
+    };
+    let barriers: Vec<BarrierAnchor> = vec![BarrierAnchor {
+        at: "after-lighting",
+        transition: BarrierTransition {
+            resource: "final".to_owned(),
+            from: ResourceState::RenderTarget,
+            to: ResourceState::CopySource,
+        },
+    }];
+    let readback = ReadbackLayout {
+        row_pitch: 256,
+        buffer_size: 256 * 64,
+        format: Format::Rgba8Unorm,
+    };
+    let req = OffscreenRequest {
+        pso: &pso,
+        plan: &plan,
+        barriers: &barriers,
+        readback: &readback,
+        width: 64,
+        height: 64,
+        geom_vs_dxil: &geom_vs,
+        geom_fs_dxil: &geom_fs,
+        light_vs_dxil: &light_vs,
+        light_fs_dxil: &light_fs,
+    };
+    match execute_offscreen(&req) {
+        Ok(OffscreenResult {
+            adapter,
+            gbuffer_albedo,
+            final_pixel,
+        }) => {
+            // G-G2-4 device 见证行(对齐 G-G2-2/G-G2-3 DXIL_DEVICE/DXIL_BIND 范式)。
+            println!(
+                "DXIL_UC04: ok adapter=\"{adapter}\" gbuffer={},{},{},{} final={},{},{},{} draw=ok",
+                gbuffer_albedo[0],
+                gbuffer_albedo[1],
+                gbuffer_albedo[2],
+                gbuffer_albedo[3],
+                final_pixel[0],
+                final_pixel[1],
+                final_pixel[2],
+                final_pixel[3],
+            );
+            std::process::exit(0);
+        }
+        Err(e) => {
+            eprintln!("DXIL_UC04: fail {e}");
+            std::process::exit(1);
         }
     }
 }
