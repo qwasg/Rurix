@@ -213,8 +213,15 @@ pub enum DxilBOutcome {
 
 /// B 链跑链体内部结果(签名 / SKIP;RTS0 由 [`emit_dxil_b`] 在 host 侧另行推导组装)。
 enum BChainResult {
-    /// B 链跑通,得译后签名。
-    Sigs(DxilSignatures),
+    /// B 链跑通,得译后签名 + 经校验门接受的 dumpbin 反汇编文本。
+    ///
+    /// `disasm` 是 `signature_gate` 实际取数、实际验过的**同一份** dumpbin 产物
+    /// (步骤6),不另起手搓链——golden 据此即「校验门所验产物」单一真相源
+    /// ([`emit_dxil_b_disasm`])。生产签名/RTS0 出口忽略它,行为零漂移。
+    Sigs {
+        sigs: DxilSignatures,
+        disasm: String,
+    },
     /// 工具链不可用 → SKIP(携带原因)。
     Skipped(String),
 }
@@ -595,7 +602,7 @@ fn run_b_chain(
     //    失败 → 6xxx,**终止该入口产物**(不返回 Produced、不产 golden)。
     signature_gate::check(&sigs, io_sig).map_err(DxilBError::SigGate)?;
 
-    Ok(BChainResult::Sigs(sigs))
+    Ok(BChainResult::Sigs { sigs, disasm })
 }
 
 /// B 路 codegen:着色阶段(`stage` ∈ {Vertex, Fragment})+ I/O 意图签名(`io_sig`)
@@ -687,13 +694,87 @@ fn emit_dxil_b_from_spv(
     let result = run_b_chain(&spv, &spvx, &dxc, profile, &dir, io_sig, &extra);
     let _ = std::fs::remove_dir_all(&dir);
     match result {
-        Ok(BChainResult::Sigs(sigs)) => Ok(DxilBOutcome::Produced {
+        Ok(BChainResult::Sigs { sigs, .. }) => Ok(DxilBOutcome::Produced {
             sigs,
             root_signature,
         }),
         Ok(BChainResult::Skipped(why)) => Ok(DxilBOutcome::Skipped(why)),
         Err(e) => Err(e),
     }
+}
+
+/// 生产忠实 B 链反汇编(golden 单一真相源;RXS-0162 golden + RXS-0171 body 降级 +
+/// RXS-0172 varying 保名)。
+///
+/// 驱动与 [`emit_dxil_b_body`] **同一条**生产链:`emit_spirv_body`(RXS-0171 入口
+/// body I/O 数据流降级)→ 顶点输入保名旗标([`vertex_input_semantic_flags`])→
+/// RXS-0172 输出/片元 varying 用户语义名保名([`restore_varying_semantics`],在
+/// `run_b_chain` 内 HLSL 边界)→ dxc → dumpbin → `parse_dxil_signatures` → 强制
+/// `signature_gate::check`。返回**经校验门接受**的规范化反汇编文本。
+///
+/// golden 比对此返回值,故 golden 字节 = 校验门所验产物本身——不再有第二条手搓
+/// 链(签名-only `emit_spirv` + 空旗标 + 跳过保名)与生产链漂移。规范化仅抹平
+/// 工具版本噪声行(shader hash / dxc ident),不动语言相关结构。
+///
+/// # Returns
+/// - `Ok(Some(disasm))`:工具链可用、链跑通且校验门通过。
+/// - `Ok(None)`:工具链不可用(spirv-cross / dxc 定位或 spawn 失败 / 临时目录失败)
+///   → 环境降级(非 6xxx;真实红绿在带 pin B 工具链的 dev/owner 环境)。
+///
+/// # Errors
+/// 同 [`emit_dxil_b_body`]:不可映射构造 / 工具运行后拒绝 / 校验门拒绝 → 6xxx,
+/// 绝不静默成功。
+pub fn emit_dxil_b_disasm(body: &Body) -> Result<Option<String>, DxilBError> {
+    let Some(stage @ (ShaderStage::Vertex | ShaderStage::Fragment)) = body.stage else {
+        return Err(DxilBError::Spirv(DxilError::Unmappable {
+            what: "stage".to_owned(),
+            detail: format!("Body stage {:?} 不在图形=B body lowering 范围", body.stage),
+        }));
+    };
+    // 1) MIR→SPIR-V:消费完整 Body(RXS-0171 body 降级),与 emit_dxil_b_body 同源。
+    let spv = dxil_spirv::emit_spirv_body(stage, body).map_err(DxilBError::Spirv)?;
+    let profile = match stage {
+        ShaderStage::Vertex => "vs_6_0",
+        ShaderStage::Fragment => "ps_6_0",
+        _ => return Ok(None),
+    };
+    // 2) 工具链定位:缺失 → SKIP(环境降级,非 6xxx)。
+    let (Some(spvx), Some(dxc)) = (toolchain::locate_spirv_cross(), toolchain::locate_dxc()) else {
+        return Ok(None);
+    };
+    // 顶点输入语义保名旗标(经 io_sig 导出;RFC-0004 §4.4 机制①)。
+    let extra = vertex_input_semantic_flags(stage, &body.io_sig);
+    let dir = match scratch_dir() {
+        Ok(d) => d,
+        Err(_) => return Ok(None),
+    };
+    // 3~8) 与生产出口共用 run_b_chain(含 RXS-0172 保名 + 强制 signature_gate)。
+    let result = run_b_chain(&spv, &spvx, &dxc, profile, &dir, &body.io_sig, &extra);
+    let _ = std::fs::remove_dir_all(&dir);
+    match result {
+        Ok(BChainResult::Sigs { disasm, .. }) => Ok(Some(normalize_b_disasm(&disasm))),
+        Ok(BChainResult::Skipped(_)) => Ok(None),
+        Err(e) => Err(e),
+    }
+}
+
+/// 规范化 dxc 反汇编中的版本噪声行(shader hash 内容/版本派生 + dxc ident 构建串),
+/// 使 golden 聚焦语言相关结构(签名表 / 入口 / 着色器类型),不写死工具版本。
+fn normalize_b_disasm(s: &str) -> String {
+    let mut lines = Vec::new();
+    for raw in s.replace("\r\n", "\n").lines() {
+        let t = raw.trim_start();
+        if t.starts_with("; shader hash:") {
+            lines.push("; shader hash: <OWNER-BLESSED-NORMALIZED>".to_owned());
+        } else if raw.contains("dxc(private)") || raw.contains("dxcoob ") {
+            // 保留 metadata id 前缀(如 `!0 = `),仅规范化版本串。
+            let id = raw.split('=').next().unwrap_or("").trim_end();
+            lines.push(format!("{id} = !{{!\"dxc <OWNER-BLESSED-NORMALIZED>\"}}"));
+        } else {
+            lines.push(raw.to_owned());
+        }
+    }
+    lines.join("\n")
 }
 
 /// root signature 形态推导 + RTS0 容器序列化(RXS-0165;PR-E2b 生产接线)。
