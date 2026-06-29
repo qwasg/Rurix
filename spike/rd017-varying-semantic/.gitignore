@@ -1,0 +1,4 @@
+# SPIKE 中间产物 / 运行日志 / pycache，throwaway，不入库。
+run.log
+__pycache__/
+_out/
