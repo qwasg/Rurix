@@ -103,10 +103,12 @@ cargo test -p rurixc --features "dxil-backend shader-stages" --test dxil_golden 
 ## 7. device run URL(push_ci,真实回填)
 
 本机 measured_local 已绿(§2/§3)。真实 GitHub Actions device 见证 run URL(self-hosted runner
-`rurix-dev-4070ti` pr-smoke step 48)于 push 后回填本节(**AI 不伪造 run URL**,硬规则 1):
+pr-smoke step 48)已回填(**AI 不伪造 run URL**,硬规则 1):
 
-- pr-smoke run URL:`<待 push 后回填>`
-- step 48 `DXIL_UC04: ok adapter=... gbuffer=... final=... draw=ok`:`<待回填>`
+- pr-smoke run URL:[https://github.com/qwasg/Rurix/actions/runs/28383303273](https://github.com/qwasg/Rurix/actions/runs/28383303273)(PR #115,head `8d2be86`,**全量 success**)。
+- step 48 见证行(真硬件):`DXIL_UC04: ok adapter="NVIDIA GeForce RTX 4070 Ti" gbuffer=191,0,0,0 final=255,0,0,0 draw=ok`;`[dxil_uc04_device_smoke] PASS adapter="NVIDIA GeForce RTX 4070 Ti" gbuffer.R=191 final.R=255; run_url=https://github.com/qwasg/Rurix/actions/runs/28383303273`。
+- 同 run 步骤 46(G-G2-2)`DXIL_DEVICE: ok ... pixel=64,127,255,255` / 步骤 47(G-G2-3)`DXIL_BIND: ok ... rurix_rts0=accept tamper_rts0=reject sampled=64,127,255,255` 亦全绿(G2.2/G2.3 device 见证不回归)。
+- step 48 在 `RURIX_REQUIRE_REAL=1` 下真跑(缺 validator/D3D12/MSVC/signed-DXC 即红);CI 环境 MSVC BuildTools 14.44 + Windows SDK 10.0.26100 + signed DXC pin,非 SKIP 充绿。
 
 > 本报告所有数字/输出来自本机真实命令(硬规则 3);实质 AI 内容标 `Assisted-by: cursor:claude-opus-4.8`(硬规则 2);
 > agent 完全自主签署执行(AGENTS v3.0 硬规则 1)。RD-021 纹理采样禁区未动(选项 B,采样完备性仍 defer);
