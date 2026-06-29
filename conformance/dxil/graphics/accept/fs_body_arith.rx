@@ -1,0 +1,10 @@
+//@ spec: RXS-0171
+// RXS-0171: fragment body 可读取输入 I/O 字段(OpLoad),执行白名单 f32 算术,
+// 再以输出 I/O 聚合返回值写出(OpStore)。不涉及纹理/采样/资源访问语义。
+struct FsIo {
+    #[interpolate(perspective)] uv: f32,
+}
+
+fragment fn fs_body_arith(inp: FsIo) -> FsIo {
+    FsIo { uv: inp.uv + 1.0 }
+}

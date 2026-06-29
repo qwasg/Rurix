@@ -174,3 +174,4 @@
 | RXS-0168 | spec/d3d12_runtime.md | 1 | `src/uc04-demo/src/deferred.rs` |
 | RXS-0169 | spec/d3d12_runtime.md | 1 | `src/uc04-demo/src/barrier.rs` |
 | RXS-0170 | spec/d3d12_runtime.md | 2 | `src/uc04-demo/src/device.rs`, `src/uc04-demo/src/readback.rs` |
+| RXS-0171 | spec/dxil_backend.md | 2 | `conformance/dxil/graphics/accept/fs_body_arith.rx`, `conformance/dxil/graphics/accept/vs_body_output.rx` |

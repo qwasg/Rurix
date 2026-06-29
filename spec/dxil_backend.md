@@ -18,11 +18,11 @@
 
 DXIL 后端语义维持 **D-131 = 混合 compute=A / 图形=B**:compute 经 LLVM DirectX 后端直接 emit DXIL,与 NVPTX 后端同构并维持 D-205 LLVM 单栈;图形经内部 MIR→SPIR-V→SPIRV-Cross→HLSL→dxc→DXIL 链(RFC-0004),SPIR-V 仅为图形 B 路内部中间表示,不构成对外通用多后端承诺。**🔒 纹理/采样器内存模型映射**(06 §4.2 禁区:tex proxy / 采样 opcode / 描述符编码 / 缓存一致性 / UB)、**内建变量/根参数/常量缓冲二进制 ABI 布局**(RFC-0003 §4.6 / RFC-0004 §4.6 FFI ABI 禁区)、**绑定布局推导实现**(G2.3,P-11)均**不在本文件**;DXIL golden 取**文本反汇编形态** + 经 dxc validator 验证后入 golden(RFC-0003 §9 Q-Golden / RFC-0004 §9 Q-Golden-B)。target 不支持 / 降级失败 / 非法 I/O 映射以 **编译期 6xxx codegen 诊断(P-01 strict-only)**定义,**不以 UB 表述**。
 
-**编号区间**:本文件条款自 **RXS-0157** 起续号(全 spec 唯一、分配制递增、永不复用,见 [README.md](README.md) §1;最高现存 RXS-0156 @ [shader_stages.md](shader_stages.md))。区间裁决:**RFC-0004 §9 Q-Range-B 锁定** RXS-0159 保号按 B 重构 + RXS-0160~0162 新增面。**已落带编号条款体**:RXS-0157(target 分发)/ **RXS-0158**(着色阶段 → 着色器类型,PR-D2)/ **RXS-0159**(阶段 I/O 签名,按 B)/ **RXS-0160**(阶段间接口 → 阶段链接一致性核对,按 B)/ **RXS-0161**(MIR→SPIR-V 降级面)/ **RXS-0162**(B 转译链确定性 + validator gate + 供应链 pin)。**RXS-0160** 的 vertex out↔fragment in 链接核对 vertex+fragment 多阶段联编点接缝(`link_graphics_stages`)+ 链接核对入口(`check_stage_link`)已落,承 RXS-0159 语义名等价基件;**错链错误码 = RX6014**(owner 裁定方案 B 新开码,不复用 RX6011,见 §2 RXS-0160 IR3),G2.3 PR-E2b-2 已落码。**D-131 v1.4 裁定混合 compute=A / 图形=B**(13 §D-131;RFC-0004 owner Approved 2026-06-25):图形 I/O 签名降级(RXS-0159)由 A 路类型面 stub 改 **B 路**(MIR→SPIR-V→SPIRV-Cross→HLSL→dxc→DXIL)重写,A 路签名产物 ISG1/OSG1 `elemcount=0` 不可达(上游 #90504/#57928,RFC-0004 §4.5),**#97 的 A 路 RXS-0159 不入 main,由 PR-D2 统一按 B 重写**。条款体与每条 ≥1 测试锚定随实现 PR 同落(条款 PR 先于实现 PR,trace_matrix 全锚定 **161/161**)。区间登记于 [README.md](README.md) §4 文件清单。
+**编号区间**:本文件条款自 **RXS-0157** 起续号(全 spec 唯一、分配制递增、永不复用,见 [README.md](README.md) §1;最高现存 RXS-0156 @ [shader_stages.md](shader_stages.md))。区间裁决:**RFC-0004 §9 Q-Range-B 锁定** RXS-0159 保号按 B 重构 + RXS-0160~0162 新增面。**已落带编号条款体**:RXS-0157(target 分发)/ **RXS-0158**(着色阶段 → 着色器类型,PR-D2)/ **RXS-0159**(阶段 I/O 签名,按 B)/ **RXS-0160**(阶段间接口 → 阶段链接一致性核对,按 B)/ **RXS-0161**(MIR→SPIR-V 降级面)/ **RXS-0162**(B 转译链确定性 + validator gate + 供应链 pin)/ **RXS-0171**(RD-013 body I/O 数据流降级最小切片)。**RXS-0160** 的 vertex out↔fragment in 链接核对 vertex+fragment 多阶段联编点接缝(`link_graphics_stages`)+ 链接核对入口(`check_stage_link`)已落,承 RXS-0159 语义名等价基件;**错链错误码 = RX6014**(owner 裁定方案 B 新开码,不复用 RX6011,见 §2 RXS-0160 IR3),G2.3 PR-E2b-2 已落码。**D-131 v1.4 裁定混合 compute=A / 图形=B**(13 §D-131;RFC-0004 owner Approved 2026-06-25):图形 I/O 签名降级(RXS-0159)由 A 路类型面 stub 改 **B 路**(MIR→SPIR-V→SPIRV-Cross→HLSL→dxc→DXIL)重写,A 路签名产物 ISG1/OSG1 `elemcount=0` 不可达(上游 #90504/#57928,RFC-0004 §4.5),**#97 的 A 路 RXS-0159 不入 main,由 PR-D2 统一按 B 重写**。条款体与每条 ≥1 测试锚定随实现 PR 同落(条款 PR 先于实现 PR,trace_matrix 全锚定 **171/171**)。区间登记于 [README.md](README.md) §4 文件清单。
 
 ## 2. 条款
 
-> 本节落带编号条款体。**已落**:RXS-0157(codegen target 分发与 DXIL 后端分叉)/ RXS-0158(着色阶段 → DXIL 着色器类型)/ RXS-0159(阶段 I/O → DXIL 签名/系统值语义,按 B)/ RXS-0160(阶段间接口 → 阶段链接一致性核对,按 B)/ RXS-0161(图形着色阶段 MIR→SPIR-V 降级面)/ RXS-0162(B 转译链确定性 + validator gate + 供应链 pin + strict-only 核验)。**RXS-0160 错链错误码 = RX6014**(owner 裁定方案 B 新开码,不复用 RX6011,见 RXS-0160 IR3),G2.3 PR-E2b-2 已落码。
+> 本节落带编号条款体。**已落**:RXS-0157(codegen target 分发与 DXIL 后端分叉)/ RXS-0158(着色阶段 → DXIL 着色器类型)/ RXS-0159(阶段 I/O → DXIL 签名/系统值语义,按 B)/ RXS-0160(阶段间接口 → 阶段链接一致性核对,按 B)/ RXS-0161(图形着色阶段 MIR→SPIR-V 降级面)/ RXS-0162(B 转译链确定性 + validator gate + 供应链 pin + strict-only 核验)/ RXS-0171(RD-013 body I/O 数据流降级最小切片)。**RXS-0160 错链错误码 = RX6014**(owner 裁定方案 B 新开码,不复用 RX6011,见 RXS-0160 IR3),G2.3 PR-E2b-2 已落码。
 > 各条按需分 **Syntax / Legality / Dynamic Semantics / Implementation Requirements** 节,**严禁 UB 节**(target 不支持 / 降级失败以编译期 6xxx codegen 诊断定义,P-01 strict-only,无运行期 fallback;10 §7.5)。**本片不碰** 🔒 纹理内存模型映射(06 §4.2 禁区)/ FFI ABI 二进制布局(RFC-0003 §4.6 / §9 Q-Builtin)/ 绑定布局推导(G2.3,P-11);触及即停手升档。
 
 ### 2.1 图形=B 条款计划映射收口(RFC-0004)
@@ -204,10 +204,39 @@ B 全链为编译期确定性变换,本条无运行期语言语义(着色器在 
 - IR5(golden 形态):仅 **DXIL 文本反汇编**入 golden(Q-Golden-B);`tests/dxil/graphics/*.dxil-disasm` 为 owner pin 环境 bless 后的文本基线,入库前须经签名 validator 接受。当前 `gfx_vs_min` 语料锁定已登记 RD-013/RD-017 缺口下的 `TEXCOORD` baseline,不声称 output varying 用户语义保真已兑现;device 真跑 / run URL / evidence 见 G-G2-2 远端 run。
 - IR6(错误码):RX6010(B 链转译失败,`DxilBError::Toolchain`)。
 
+### RXS-0171 DXIL 图形=B 着色 body I/O 数据流降级（RD-013 最小切片）
+
+本条解锁 RD-013 的最小语言语义切片:图形=B 路的 vertex/fragment 着色 body 可读取已声明 Input I/O 元素、执行白名单标量/向量表达式、并写出已声明 Output I/O 元素。owner 代表在 2026-06-29 本工作会话裁定 Q1–Q4 推荐组合:Q1=C1-a(形参/返回值值语义)、Q2=C2-a(字段序绑定)、Q3=C3-c(ABI 中立分层)、Q4=C4-c refined(白名单子集 + RX6013 strict-only)。本条只承诺源码层 I/O 数据流,不关闭 RD-013 的 golden/device/bless 义务,不签 G-G2-4。
+
+#### Syntax
+
+本条不新增语法。着色阶段函数按 RXS-0153/RXS-0154 既有语法书写:`vertex fn` / `fragment fn` 的 I/O 结构体形参表示输入 I/O,返回 I/O 结构体表示输出 I/O。函数 body 内对形参字段的读取是普通值读取;返回 I/O 结构体值是普通返回值。
+
+#### Legality
+
+- L1(值语义):输入 I/O 结构体作为普通形参按值读取;输出 I/O 结构体作为普通返回值写出。不得发明全局 I/O 变量、隐式 inout、隐式副作用通道或运行期 fallback。
+- L2(字段序绑定):参数 I/O 结构体字段按源码声明序绑定到 `io_sig` 中 `dir == In` 的元素;返回 I/O 结构体字段按源码声明序绑定到 `dir == Out` 的元素。资源句柄形参与 `resources` 归 RXS-0163~0166,不参与本条字段序绑定。
+- L3(ABI 中立边界):本条只承诺源码层 I/O 元素、方向、字段序、语义名/系统值、插值种类与标量/向量类型。**不**承诺 DXIL register、component mask、packing、字节布局、root signature 布局或稳定 SPIR-V `Location` 数值;触及显式 register/mask/packing/byte layout 即停手升 owner Full RFC(§4.6 禁区)。
+- L4(最小 rvalue 白名单):首期 body lowering 仅支持 `Use`、f32/i32/u32 `Const`、标量或向量 f32/i32/u32 加/减/乘/除 `BinaryOp`,以及“声明的输出 I/O 聚合返回值”的机械分解。控制流分支/循环、调用、借用/引用、cast、unary、enum/variant/discriminant、资源/纹理/采样访问、非输出 I/O 聚合或其他 rvalue → **RX6013**(`codegen.dxil_unmappable`,strict-only)。
+- L5(输出完整性):存在 `dir == Out` 元素时,body 必须在返回前写出所有 Output I/O 元素;缺失、字段数不一致或类型不一致 → **RX6013**。无 Output I/O 时仅允许 `unit` 返回。
+
+#### Dynamic Semantics
+
+图形=B body lowering 是编译期确定性变换。运行时可观察语义为:每次着色器调用读取当前 invocation 的输入 I/O 值,按白名单表达式求值,并把返回 I/O 结构体字段值写入对应输出 I/O 元素。本条不定义未建模构造的运行期行为;不支持即编译期 6xxx 诊断,不设 UB 节。
+
+#### Implementation Requirements
+
+- IR1(生产接线):图形=B 生产分发必须把完整 [`Body`](../src/rurixc/src/mir.rs)(`blocks` / `locals` / `arg_count` / `io_sig` / `resources`)送入 body-aware 降级入口;不得继续以只消费 `stage + io_sig + resources` 的 void stub 作为生产路径。
+- IR2(SPIR-V lowering):Input place 读取降为 `OpLoad`;f32/i32/u32 常量降为 `OpConstant`;白名单算术降为对应 SPIR-V 算术 op;输出 I/O 聚合返回值逐 Out 元素降为 `OpStore`;函数仍以 `OpReturn` 收尾。产物必须保持 `spirv-val` 干净。
+- IR3(签名门不旁路):RXS-0159 强制签名一致性校验门仍在 B 链末尾运行。body lowering 不能裁剪 `signature_gate::check`,不能以 validator accept 代替签名意图保真。
+- IR4(strict-only 诊断):白名单外 MIR body 构造经 [`DxilBError::Spirv`](../src/rurixc/src/dxil_codegen.rs) 映射为 **RX6013**;工具链转译失败仍按 RXS-0162 使用 RX6010,签名门失败仍按 RXS-0159 使用 RX6011/RX6012。
+- IR5(测试锚定):≥1 `//@ spec: RXS-0171` 覆盖字段序绑定、Input `OpLoad`、Output 聚合分解 `OpStore`、常量/二元算术、unsupported rvalue → RX6013,并在 `conformance/dxil/graphics/accept` 覆盖 vertex 输出写入与 fragment 输入读取后写出。
+
 ## 3. 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
+| v1.9 | 2026-06-29 | **RD-013 Q1–Q4 owner 代表裁决落库 + RXS-0171 条款体落地**。本轮采用用户在工作会话提供的推荐组合作为 owner/owner 代表裁决输入:Q1=C1-a 形参/返回值值语义、Q2=C2-a MIR place↔`io_sig` 字段序绑定、Q3=C3-c ABI 中立分层、Q4=C4-c refined 白名单子集 + RX6013 strict-only。新增 `### RXS-0171`(DXIL 图形=B 着色 body I/O 数据流降级最小切片):定义输入 I/O 结构体普通形参读取、输出 I/O 结构体普通返回写出;字段声明序绑定 In/Out;仅承诺源码层元素/方向/字段序/语义名/系统值/类型,不冻结 register/mask/packing/byte layout/稳定 Location;资源/纹理/采样/显式布局触及即升 owner Full RFC。实现侧接线 `emit_dxil_b_body`/`emit_spirv_body` 消费完整 Body,lower OpLoad/OpConstant/基础算术/OpStore;unsupported rvalue 与输出不完整均 RX6013。配套单测 + conformance RXS-0171 锚定;RD-013 status 仍 open,DXIL golden/device bless、CI step 48、G-G2-4 签字均归 owner 后续确认。| **Full RFC**（RFC-0004 / RD-013 owner 裁决） |
 | v1.6 | 2026-06-27 | **G-G2-2 owner 收口 + DXIL golden bless 落档**。owner 白栀于本工作会话监督确认 device 真跑 run URL、DXIL 文本 golden bless 与 G-G2-2 子里程碑签字;AI 代录机器事实,不代签 G2 整体 close-out。`tests/dxil/graphics/gfx_vs_min.dxil-disasm` 在 signed DXC pin 环境(`H:\dxc-round7\extracted\bin\x64` 含 `dxc.exe`/`dxv.exe`/`dxil.dll`)和显式 `spirv-cross.exe` 下经 `RURIX_BLESS=1 cargo test -p rurixc --features dxil-backend --test dxil_golden dxil_b_disasm_golden_matches_when_toolchain_present -- --exact --nocapture` 重 bless;入 golden 前 `dxv.exe` validator 接受,版本噪声规范化为 `OWNER-BLESSED-NORMALIZED`。远端 PR smoke [28284960733](https://github.com/qwasg/Rurix/actions/runs/28284960733) 全量 success,步骤 46 输出 `DXIL_DEVICE: ok adapter="NVIDIA GeForce RTX 4070 Ti" pixel=64,127,255,255 draw=ok`。当前 `gfx_vs_min` 仍为 RD-013/RD-017 缺口下的 TEXCOORD baseline,不关闭 deferred、不声称 output varying 用户语义保真。§2 仅更新当前 golden 形态说明;RXS-0160 计划映射、🔒 签名二进制 ABI 布局/纹理内存模型/DXIL·SPIR-V UB 边界仍不触及。| **Full RFC**（RFC-0004 / PR-D2） |
 | v1.0 | 2026-06-24 | 新建 dxil_backend.md（PR-C1 spec 脚手架，承 RFC-0003 / D-131=A）:登记文件名 + 文件级语义面说明（MIR→DXIL 第二后端，承 RFC-0002 着色阶段类型面 RXS-0153~0156）+ §1 范围与 **RXS-0157~ 预留区间声明**（区间大小未锁定，随 RFC-0003 §9 Q-Range 与路径裁定一并定）+ §2 条款占位（条款体随 PR-C2 实现 PR 同落）。**沿 README v1.32 interop_d3d12.md / v1.33 async_buffer.md / v1.37 shader_stages.md 脚手架先例:仅登记文件名 + 预留区间，不落带编号裸条款头**——本文件**零 `### RXS-####` 条款头**，`ci/trace_matrix.py --check` 维持全锚定 **156/156**（无新增裸条款头、无悬空锚点、零新 RXS）。条款体（RXS-0157 起）与每条 ≥1 `//@ spec` 测试锚定随 PR-C2（DXIL 后端实现 PR）同落（条款 PR 先于实现 PR）。禁区声明:🔒 纹理路径内存模型映射（06 §4.2）/ FFI ABI 二进制布局（RFC-0003 §4.6 / §9 Q-Builtin）/ 绑定布局推导（G2.3，P-11）/ 多后端架构承诺（D-008/SG-003）均不在本文件，触及即停手升档。错误码 **6xxx codegen 段**脚手架不预造、不预留，随 PR-C2 按真实可达类别只追加。档位 **Full RFC**（RFC-0003;触 codegen 第二后端 + target 分发，AI 不自判 Direct，判档争议向上取严）。授权 G2_CONTRACT D-G2-2 / G-G2-2 + G2_PLAN G2.2 子里程碑，无体例变更 | **Full RFC**（RFC-0003） |
 | v1.1 | 2026-06-24 | **PR-C2 分片1:落首条带编号条款体 `### RXS-0157`**(codegen target 分发与 DXIL 后端分叉)+ 配套最小 compute kernel 端到端实现(rurixc `dxil_codegen` 模块 + `--target dxil` 分发 + cargo feature `dxil-backend` + patched llc 经 `RURIX_LLC` dev env 定位 RD-011 + dxc validator accept)。条款体按 FLS 体例分 Syntax / Legality(L1 后端可用性·L2 最小子集·L3 降级失败 → RX6007)/ Dynamic Semantics / Implementation Requirements(IR1 分发点·IR2 D-131=A 路径·IR3 golden 文本反汇编经 validator·IR4 错误码 RX6007),**严禁 UB 节**。配套 conformance accept(空体 compute kernel 产 DXIL,`//@ spec: RXS-0157`)+ reject(子集外构造 → RX6007)+ DXIL golden(文本反汇编 + bless)。错误码新增 **RX6007**(6xxx codegen/目标段续接 RX6006,只追加)+ en/zh message-key(双语覆盖)。`ci/trace_matrix.py --check` 全锚定 **157/157**(新增 RXS-0157 带测试锚定、无悬空)。RXS-0158/0159/0160 仍为 §9 Q-Range 计划映射(非裸条款头),随后续分片落地。本片不碰 🔒 纹理内存模型映射 / FFI ABI 布局 / 绑定布局推导(G2.3)。档位 **Full RFC**(RFC-0003),无体例变更 | **Full RFC**（RFC-0003） |
