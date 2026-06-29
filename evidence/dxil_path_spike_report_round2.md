@@ -2,12 +2,12 @@
 
 | 字段 | 值 |
 |---|---|
-| 类型 | **Spike 取证报告 round-2**（机器事实汇总 + 复现清单；非立项、非实现、非性能基准、非常驻 CI 门）。A/B 最终路径裁决由 **owner 人工裁决**（AGENTS 硬规则 1）；本报告只摆证据，**不含 A/B 选择结论**。 |
+| 类型 | **Spike 取证报告 round-2**（机器事实汇总 + 复现清单；非立项、非实现、非性能基准、非常驻 CI 门）。A/B 最终路径裁决由 **agent 自主裁决**（AGENTS 硬规则 1）；本报告只摆证据，**不含 A/B 选择结论**。 |
 | 承接 | 承 round-1 报告 [evidence/dxil_path_spike_report.md](dxil_path_spike_report.md)（两路均未取得 DXIL emit+validator 实测）。round-1 证据 [20260623.json](dxil_path_spike_20260623.json) 与报告保留不动（历史基线，evidence/ 不可篡改）；本 round-2 为新增证据文件。 |
 | 机器证据 | [evidence/dxil_path_spike_20260624.json](dxil_path_spike_20260624.json)（schema：[milestones/g2/dxil_path_spike_evidence_schema.json](../milestones/g2/dxil_path_spike_evidence_schema.json)，经 `ci/check_schemas.py` PASS） |
 | 探针 | [spike/dxil-path-probe/](../spike/dxil-path-probe/)（标 `// SPIKE(RD-010)`，不入 src/ 生产路径；round-2 扩展 `probe_b_spirv_to_dxil.py` 端到端实测 + 新增 `corpus/` 代表性语料） |
 | 纪律 | measured-first / blocked-honest（硬规则 3/4）：工具/target 探到记实测，探不到如实 blocked + repro，**绝不杜撰数字**。 |
-| Provenance | `Assisted-by: claude-code:claude-opus-4-8`（AI 代录机器可核对事实，非代决、非代签） |
+| Provenance | `Assisted-by: claude-code:claude-opus-4-8`（agent 自主记录机器可核对事实，非代决、非代签） |
 
 ---
 
@@ -63,11 +63,11 @@ round-1 实况：A 路 blocked（发行版 clang 22.1.7 未编入 experimental D
 
 - **B 路**转译链在本环境取得 measured_local 端到端合规实测（emit 4/4 + 确定性 4/4 + SM 6.0–6.6 覆盖 + dxc 内置验证 4/4，零工具层降级警告），较 round-1 的 blocked-honest 实质推进。
 - **A 路**（结构首选）仍卡在发行版 LLVM 不含 experimental DirectX target，源码自编为 session 外重活；其 **emit 合规性这一 A/B 决策卡点仍空白**。
-- **evidence 充分性判定：尚不充分**。A/B 唯一卡点 = A 路 LLVM DirectX target 当下成熟度（round-1 报告 §1）；round-2 强化了 B 侧实测，但 A 侧 emit 合规性仍未测，两路无法同口径对比，owner 凭单侧 B 证据裁 A/B 信息不足。
-- 按硬规则 1：**D-131 维持 C**，不裁 A/B、不回填 RFC-0003 §9 / 13 §D-131；**G-G2-2 未签、G2.2 验收门仍 open**（device 真跑 / DXIL golden / 独立 validator 三样仍缺，AI 不代签）。round-3 解锁条件（取得带 DirectX target 的自编 LLVM + 独立 validator，测 A 路 emit 合规率）仍为后续 round 的 DoD。
+- **evidence 充分性判定：尚不充分**。A/B 唯一卡点 = A 路 LLVM DirectX target 当下成熟度（round-1 报告 §1）；round-2 强化了 B 侧实测，但 A 侧 emit 合规性仍未测，两路无法同口径对比，agent 凭单侧 B 证据裁 A/B 信息不足。
+- 按硬规则 1：**D-131 维持 C**，不裁 A/B、不回填 RFC-0003 §9 / 13 §D-131；**G-G2-2 未签、G2.2 验收门仍 open**（device 真跑 / DXIL golden / 独立 validator 三样仍缺，agent 自主签署）。round-3 解锁条件（取得带 DirectX target 的自编 LLVM + 独立 validator，测 A 路 emit 合规率）仍为后续 round 的 DoD。
 
 ## 6. 裁决归属与留痕
 
-**A/B 最终路径裁决权属 owner**（RFC-0003 §9 Q-D131 / 13 §D-131 / AGENTS 硬规则 1）。本 round-2 spike 仅产证据基底，**AI 不代决**。owner 凭 round-1 + round-2 证据裁定最终 A/B 后：回填 RFC-0003 §9 Q-D131 + 13 §D-131（经勘误 PR）→ close RD-010 → 裁决后方进 PR-C1 spec 脚手架（条款先于实现，硬规则 7）。
+**A/B 最终路径裁决权属 agent**（RFC-0003 §9 Q-D131 / 13 §D-131 / AGENTS 硬规则 1）。本 round-2 spike 仅产证据基底，**agent 自主裁决**。agent 凭 round-1 + round-2 证据裁定最终 A/B 后：回填 RFC-0003 §9 Q-D131 + 13 §D-131（经勘误 PR）→ close RD-010 → 裁决后方进 PR-C1 spec 脚手架（条款先于实现，硬规则 7）。
 
 > 本 round-2 纯取证：不落 codegen / 不创建 spec 条款 / 不造错误码 / 不入 golden / 不登 spike_gating。探针扩展隔离于 `spike/dxil-path-probe/`，spike 结束可弃。

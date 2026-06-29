@@ -1,0 +1,15 @@
+//@ spec: RXS-0171, RXS-0158, RXS-0161, RXS-0162
+// UC-04 deferred 几何 pass vertex(RXS-0171 body I/O 数据流降级最小切片,子集内):
+// 输出插值 varying(uv/normal)供下游 fragment 几何 pass 写 G-buffer MRT。body 仅
+// Use/Const + 输出 I/O 聚合返回值机械分解 → 逐 Out OpStore(RXS-0171 L4 白名单)。
+// **几何 pass 不采样 G-buffer**(采样归 lighting pass = RD-021 / 06§4.2 禁区,见
+// evidence/g2.4-uc04-deferred/rd021_scoping_20260629.md);本语料只写,在白名单内。
+// host 侧确定性(RXS-0162):emit_spirv / emit_spirv_body 同输入 ×N 字节全等,工具链无关恒跑。
+struct GBufVary {
+    #[interpolate(perspective)] uv: f32,
+    #[interpolate(perspective)] normal: f32,
+}
+
+vertex fn uc04_gbuffer_vs() -> GBufVary {
+    GBufVary { uv: 0.5, normal: 0.25 }
+}

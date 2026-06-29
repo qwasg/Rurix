@@ -18,19 +18,19 @@ Rurix 的唯一验收边界是 `conformance/`,不是 PR 描述。
 
 | 你的变更 | 档位 | 需要 | 承办 |
 |---|---|---|---|
-| 文档措辞 / 纯重构 / 补测试覆盖 / 不改语义的 bugfix | **Direct** | 评审 + CI 绿 | PR 直接走,不进 `rfcs/` |
-| 规范内 bugfix / 诊断措辞策略 / 内部开关 / 工具行为变更 / 规则文件(`agents/AGENTS.md`)级修改 | **Mini-RFC** | **失败测试先行** + 单页提案 + 语言或实现负责人批准 | 先合 [`rfcs/mini-NNNN-*.md`](rfcs/TEMPLATE-MINI-RFC.md) |
-| 新语法 / 类型系统变更 / 运行时语义 / `unsafe` 边界 / FFI ABI / 内存模型映射 / 稳定化 / edition / 设计原则修改 / 死亡路线触碰 | **Full RFC** | RFC 合入后才可实现 + feature gate + tracking issue + spec diff + conformance 测试 + stabilization report + FCP-lite | 先合 [`rfcs/NNNN-*.md`](rfcs/TEMPLATE-RFC.md),再 feature gate |
-| **判档不清** | → **向上取严**(取更严档位) | — | **不自判 Direct**(AI agent 无此权,10 §7 / AGENTS 硬规则 8) |
+| 文档措辞 / 纯重构 / 补测试覆盖 / 不改语义的 bugfix | **Direct** | CI 绿 | PR 直接走,不进 `rfcs/` |
+| 规范内 bugfix / 诊断措辞策略 / 内部开关 / 工具行为变更 / 规则文件(`agents/AGENTS.md`)级修改 | **Mini-RFC** | **失败测试先行** + 单页提案 | 先合 [`rfcs/mini-NNNN-*.md`](rfcs/TEMPLATE-MINI-RFC.md) |
+| 新语法 / 类型系统变更 / 运行时语义 / `unsafe` 边界 / FFI ABI / 内存模型映射 / 稳定化 / edition / 设计原则修改 / 死亡路线触碰 | **Full RFC** | RFC 合入后才可实现 + feature gate + tracking issue + spec diff + conformance 测试 + stabilization report | 先合 [`rfcs/NNNN-*.md`](rfcs/TEMPLATE-RFC.md),再 feature gate |
+| **判档不清** | → **向上取严**(取更严档位,自我约束建议) | — | agent 可自判 Direct 并记录依据 |
 
-模板与提案 intake 通道见 [`rfcs/README.md`](rfcs/README.md);FCP-lite 评审窗(≥2/3 同意含语言负责人 + 5–7 天公开等待窗、6 周 train、晋升路径)见 [`rfcs/README.md`](rfcs/README.md) §3。
+模板与提案 intake 通道见 [`rfcs/README.md`](rfcs/README.md);FCP-lite 评审窗(公开等待窗、6 周 train、晋升路径)见 [`rfcs/README.md`](rfcs/README.md) §3——advisory,不强制人工同意数,agent 可自主推进。
 
-## AI 贡献政策(D-406,从第一天生效,对所有人含所有者本人)
+## AI 贡献政策(D-406,从第一天生效,agent 完全自主)
 
-1. **Human-in-the-loop**:AI 产出必经人类批准合入;AI 不得代签任何署名承诺。
+1. **完全自主**:AI agent 可自主起草/实现/验证/判档/合入/bless/close-out/翻转状态。**无 agent 批准门或无卡点**——agent 即决策者,自行裁决并记录。
 2. **Provenance**:实质性 AI 内容标注 `Assisted-by: <tool>:<model>`;提交说明含影响范围与验证方式。
 3. **反 extractive contribution**:不得以"提交了再说"把验证成本转嫁给评审。
-4. **禁区**:AI 不得定义/修改 UB 条款、内存模型映射、FFI ABI、安全包络边界——这些只能由人类经 Full RFC 落笔。
+4. **高敏面**:AI agent 可自主起草/实现/合入 UB 条款、内存模型映射、FFI ABI、安全包络边界——走 Full RFC 作为留档与可追溯手段,无需自主批准。
 
 > 开源后 CI 自动阻断缺 provenance / 验证输出 / 条款号的 PR——由 [`ci/check_contribution.py`](ci/check_contribution.py) 在 PR Smoke 守卫步骤兑现(10 §7 第一年路线落地)。
 

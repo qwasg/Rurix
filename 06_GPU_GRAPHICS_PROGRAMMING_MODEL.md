@@ -140,7 +140,7 @@ compute 软光栅   →   CUDA–D3D12 interop   →   原生 D3D12 + DXIL
 语言扩展的设计预留（现在定方向、不定细节，避免 G2 时推翻 MVP 决策）：
 
 1. **着色阶段 = kernel 着色的扩展**：`vertex fn` / `fragment fn` / `compute fn`（D3D12 语境）/ `mesh fn` / `task fn` / RT 阶段（`raygen/closesthit/anyhit/miss`）复用 kernel 子语言的类型系统与 views，各自附加阶段专属的输入/输出语义类型（插值限定、内建变量类型化）。
-2. **codegen 第二后端**：MIR → DXIL（经 LLVM DirectX target 或 SPIR-V→DXIL 路径，G2 启动时重评估——LLVM DirectX 后端成熟度是当时的关键输入；此为 13 号文档登记的"未来所有者决策" D-131）。
+2. **codegen 第二后端**：MIR → DXIL（经 LLVM DirectX target 或 SPIR-V→DXIL 路径，G2 启动时重评估——LLVM DirectX 后端成熟度是当时的关键输入；此为 13 号文档登记的"未来agent决策" D-131）。
 3. **绑定模型**：descriptor/root signature 由编译器从 kernel 签名推导生成，双侧（host 结构体 ↔ shader 布局）单一事实源（P-11；直接消灭 U4 痛点 #1）。
 4. **资源状态/barrier**：pass 间依赖显式建模（上一项目 RenderGraph 的 hazard 推断经验语言化，H02 §4）；barrier 自动推导作为库级 render graph 的职责，语言提供资源状态类型。
 5. **PSO/管线对象**：affine 资源 + 编译期已知的状态描述 const 化；PSO cache 持久化是运行时职责（上一项目已验证模式）。

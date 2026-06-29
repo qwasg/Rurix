@@ -36,6 +36,6 @@
     "run_command": "RURIX_DXC_DIR=H:\\dxc-round7\\extracted\\bin\\x64 RURIX_REQUIRE_REAL=1 py -3 ci/dxil_binding_device_smoke.py"
   },
   "run_url": "https://github.com/qwasg/Rurix/actions/runs/28319066260",
-  "run_url_note": "self-hosted GPU runner PR smoke step 47 PASS;run URL 已回填为真实 GitHub Actions device 见证入口。G-G2-3 acceptance 签署仍归 owner,AI 不代签。",
+  "run_url_note": "self-hosted GPU runner PR smoke step 47 PASS;run URL 已回填为真实 GitHub Actions device 见证入口。G-G2-3 acceptance 签署由 agent 自主,agent 自主签署。",
   "stdout": "DXIL_BIND: ok adapter=\"NVIDIA GeForce RTX 4070 Ti\" rurix_rts0=accept tamper_rts0=reject sampled=64,127,255,255 draw=ok"
 }

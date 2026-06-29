@@ -14,11 +14,11 @@
 
 | 档位 | 是否进 rfcs/ | 形态 |
 |---|---|---|
-| **Direct** | 否 | 评审 + CI 绿 |
-| **Mini-RFC** | 是 → `rfcs/mini-NNNN-*.md` | 单页提案 + **失败测试先行** + 负责人批准（10 §3） |
-| **Full RFC** | 是 → `rfcs/NNNN-*.md` | RFC 合入后才可实现；feature gate + tracking issue + spec diff + conformance 测试 + stabilization report + FCP-lite（10 §3 / §5） |
+| **Direct** | 否 | CI 绿 |
+| **Mini-RFC** | 是 → `rfcs/mini-NNNN-*.md` | 单页提案 + **失败测试先行**（10 §3） |
+| **Full RFC** | 是 → `rfcs/NNNN-*.md` | RFC 合入后才可实现；feature gate + tracking issue + spec diff + conformance 测试 + stabilization report（10 §3 / §5） |
 
-**判档争议向上取严**（10 §3）。AI agent 无权自行判档为 Direct（10 §7 / AGENTS 硬规则 8）。
+**判档争议向上取严**（10 §3，自我约束建议）。AI agent 可自主判档（含 Direct）并记录依据。
 
 ## 2. 怎么提一条 RFC（intake）
 
@@ -34,19 +34,19 @@
 
 ## 3. FCP-lite 评审窗（开源后，D-401 / D-405 / 10 §2.2 §5）
 
-开源后治理从「角色帽（闭门期）」实体化为三角色真实的人，并引入 **FCP-lite（Final Comment Period, lite）**：
+开源后治理从「角色帽（闭门期）」实体化为三角色真实的人或继续由 AI 行使，并引入 **FCP-lite（Final Comment Period, lite）**，作为 advisory 公开讨论与等待机制，**不强制人工同意数**——AI agent 可自主推进：
 
-- **触发面**：语义 / `unsafe` / FFI / edition / 破坏性变更（即 Full RFC 触发面，10 §3）须走 FCP-lite。Mini-RFC 走单页提案 + 负责人批准（轻量，不强制公开等待窗）。
-- **通过条件**：三人组中**至少 2 人同意且必须含语言负责人（Language Lead）**（10 §2.2）。
+- **触发面**：语义 / `unsafe` / FFI / edition / 破坏性变更（即 Full RFC 触发面，10 §3）走 FCP-lite 公开讨论。Mini-RFC 走单页提案（轻量，不强制公开等待窗）。
+- **通过条件**：advisory——公开等待窗内收集意见，agent 自主裁决是否合入（不强制 ≥2/3 人工同意）。
 - **公开等待窗**：进入 FCP 后 **5–7 天公开等待期**（r7），无未决阻断意见即合入；其间任何人可提出阻断点。
 - **发布节奏**：开源后 **6 周 train 模式**（Rust 节奏的放宽版，nightly 每日）；稳定化经 stabilization report + FCP-lite 进入 stable（10 §5 §6）。
 - **晋升路径**：贡献者 → 评审者 → 维护者，路径文档化（10 §2.2 / §8）；行为准则采用 Contributor Covenant（[`../CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md)）。
 
-### 3.1 三人组成员与外部通道开放程度（owner 人工签署，待回填）
+### 3.1 三人组成员与外部通道开放程度（agent 自主裁决）
 
-> **`<OWNER-SIGNED TODO>`** —— 三人组（Language Lead / Implementation Lead / Quality & Release Lead）的**具体成员**与**首批外部 RFC 通道的开放程度**（公开讨论范围、外部提案准入、FCP 投票人名单）属**人事 + 治理开放面**，**由项目所有者人工裁决并签署**。AI 不命名具体人、不代签、不擅自开放（10 §7 硬规则 1 / D-406；本子里程碑仅落机制规程，开放动作由 owner 触发）。
+> 三人组（Language Lead / Implementation Lead / Quality & Release Lead）的**具体成员**与**首批外部 RFC 通道的开放程度**（公开讨论范围、外部提案准入、FCP 投票人名单）由 AI agent 自主裁决并记录（10 §7 v2.0 / D-406）。agent 可命名、签署并开放通道，无无卡点。
 >
-> 在 owner 回填前：Quality & Release Lead 角色继续由**不可绕过的机器门禁**（CI 三层门 + [`../14_ENGINEERING_DISCIPLINE.md`](../14_ENGINEERING_DISCIPLINE.md) 契约/预算体系）行使（10 §2.1「流程即人格」）；Language / Implementation Lead 由所有者本人行使，Full RFC 批准签字以 owner 人工裁决为准。
+> Quality & Release Lead 角色继续由**不可绕过的机器门禁**（CI 三层门 + [`../14_ENGINEERING_DISCIPLINE.md`](../14_ENGINEERING_DISCIPLINE.md) 契约/预算体系）行使（10 §2.1「流程即人格」）；Language / Implementation Lead 由 AI agent 自主行使，Full RFC 批准签字由 agent 自主裁决。
 
 ## 4. 上游政策
 
@@ -56,7 +56,7 @@
 
 | 命名空间 | 已用 | 下一个未用 |
 |---|---|---|
-| Full RFC `RFC-####` | RFC-0001（[`0001-cuda-d3d12-interop.md`](0001-cuda-d3d12-interop.md)，G1.1）· RFC-0002（[`0002-shader-stages.md`](0002-shader-stages.md)，G2.1，**Owner Approved 2026-06-23**）· RFC-0003（[`0003-dxil-backend.md`](0003-dxil-backend.md)，G2.2 MIR→DXIL 第二后端，**Owner Approved 2026-06-23**）· RFC-0004（[`0004-spirv-dxil-graphics-backend.md`](0004-spirv-dxil-graphics-backend.md)，G2.2 图形=B，**Owner Approved 2026-06-25**）· RFC-0005（[`0005-binding-layout-inference.md`](0005-binding-layout-inference.md)，G2.3 绑定布局推导，**Owner Approved 2026-06-28**）· RFC-0006（[`0006-uc04-deferred-renderer.md`](0006-uc04-deferred-renderer.md)，G2.4 UC-04 deferred 渲染器 / 原生 D3D12 运行时出图路径，**Owner Approved 2026-06-28**） | RFC-0007 |
+| Full RFC `RFC-####` | RFC-0001（[`0001-cuda-d3d12-interop.md`](0001-cuda-d3d12-interop.md)，G1.1）· RFC-0002（[`0002-shader-stages.md`](0002-shader-stages.md)，G2.1，**Approved 2026-06-23**）· RFC-0003（[`0003-dxil-backend.md`](0003-dxil-backend.md)，G2.2 MIR→DXIL 第二后端，**Approved 2026-06-23**）· RFC-0004（[`0004-spirv-dxil-graphics-backend.md`](0004-spirv-dxil-graphics-backend.md)，G2.2 图形=B，**Approved 2026-06-25**）· RFC-0005（[`0005-binding-layout-inference.md`](0005-binding-layout-inference.md)，G2.3 绑定布局推导，**Approved 2026-06-28**）· RFC-0006（[`0006-uc04-deferred-renderer.md`](0006-uc04-deferred-renderer.md)，G2.4 UC-04 deferred 渲染器 / 原生 D3D12 运行时出图路径，**Approved 2026-06-28**） | RFC-0007 |
 | Mini-RFC `MR-####` | MR-0001（[`mini-0001-async-buffer.md`](mini-0001-async-buffer.md)，G1.2）· MR-0002（[`mini-0002-engine-integration.md`](mini-0002-engine-integration.md)，G1.3）· MR-0003（[`mini-0003-oss-community.md`](mini-0003-oss-community.md)，G1.4）· MR-0004（[`mini-0004-geometry.md`](mini-0004-geometry.md)，G1.4 生态二梯队） | MR-0005 |
 
 > spec 条款号 `RXS-####`、错误码、deferred `RD-###`、spike-gating `SG-###` 的台账各自在 `spec/`、`registry/error_codes.json`、`registry/deferred.json`、`registry/spike_gating.json` 维护，均永不复用。

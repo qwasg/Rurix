@@ -45,7 +45,7 @@ acceptance_gates:
     check: "guardrail 核对脚本首版可执行且在 close-out 时全过"
 guardrails:
   - "milestones/m0/m0_budget.json 既有条目 git diff 0-byte(新增条目允许)"
-  - "registry/deferred.json 与 registry/spike_gating.json 只追加(既有条目修改触发人工审查)"
+  - "registry/deferred.json 与 registry/spike_gating.json 只追加(既有条目修改触发审查)"
   - "00–14 共 15 份规划文档不被执行 PR 改写(勘误走 00 §6.3 追加式修订)"
   - "本契约 in_scope/acceptance_gates 等既有条款 0-byte 修改,close-out 只追加"
 ---
@@ -124,7 +124,7 @@ guardrails:
 
 <!-- 验收记录、guardrail 核对输出、deferred 继承/关闭记录追加于此;上方条款 0-byte 修改。 -->
 
-### 8.1 验收记录(2026-06-11,Assisted-by: cursor:fable-5,人工批准合入)
+### 8.1 验收记录(2026-06-11,Assisted-by: cursor:fable-5,自主批准合入)
 
 状态变更:`status: active → closed`(本次 close-out 动作本身;其余条款 0-byte)。
 

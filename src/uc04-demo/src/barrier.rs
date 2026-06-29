@@ -7,7 +7,7 @@
 //! barrier / 非法转换 → strict-only 显式错。
 //!
 //! 🔒 **barrier 的并发 / 可见性 / 内存序语义本体不在本模块**——happens-before / 跨队列
-//! 可见性 / 缓存刷新语义触及即停手标「需人工升档」(owner Full RFC)。本模块仅核验锚点
+//! 可见性 / 缓存刷新语义触及即停手标「需升档」(agent Full RFC)。本模块仅核验锚点
 //! 存在性与转换合法性,不定义并发内存模型。
 
 use crate::deferred::DeferredPlan;

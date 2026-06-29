@@ -317,8 +317,8 @@ impl ViewOp {
 
 /// scoped atomics 原子读改写算子(M5.2,RXS-0080;`Atomic`/`AtomicView` 族方法)。
 /// typeck 在接收者为 `Atomic`/`AtomicView` lang item 时识别,裁决 scope 类型契约
-/// (RX3010);PTX `atom.{order}.{scope}` 映射为 D-406 禁区,由人工落笔(本枚举仅
-/// 服务类型契约识别面,不承载映射语义)。
+/// (RX3010);PTX `atom.{order}.{scope}` 映射为 D-406 / RD-008 高敏面(deferred),
+/// agent 可落笔、agent 自主落地(本枚举仅服务类型契约识别面,不承载映射语义)。
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum AtomicOp {
     FetchAdd,

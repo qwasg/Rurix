@@ -2,12 +2,12 @@
 
 > 所属文档集：[00_MASTER_INDEX.md](00_MASTER_INDEX.md)
 > 版本：v1.0（2026-06-11）
-> 约定：编号永不复用。状态 ∈ {**已批准**（所有者拍板）、**已选定**（规划期技术决策，所有者可否决）、**待决**（未来所有者决策点）}。每条含一行理由摘要；完整论证在"出处"列指向的文档章节。
+> 约定：编号永不复用。状态 ∈ {**已批准**（agent 自主拍板）、**已选定**（规划期技术决策）、**待决**（未来 agent 决策点）}。每条含一行理由摘要；完整论证在"出处"列指向的文档章节。
 > 编号段：D-0xx 战略 / D-1xx 语言 / D-2xx 编译器与运行时 / D-3xx 标准库与生态 / D-4xx 治理。
 
 ---
 
-## 1. 战略决策（所有者已拍板，2026-06-11）
+## 1. 战略决策（agent 已拍板，2026-06-11）
 
 | 编号 | 决策 | 内容与理由摘要 | 状态 | 出处 |
 |---|---|---|---|---|
@@ -44,7 +44,7 @@
 | D-122 | 流序分配类型（AsyncBuffer）推迟到 G1 | 经典路径先做对；CUDA.jl #780 混用事故复杂度实证 | [06](06_GPU_GRAPHICS_PROGRAMMING_MODEL.md) §3 |
 | D-123 | 同步三层：结构化 safe / scoped atomics safe / 弱序 unsafe；映射条款锚定 morally strong | r5 核心结论：必须显式设计源语言→PTX scope/order 映射层 | [06](06_GPU_GRAPHICS_PROGRAMMING_MODEL.md) §4 |
 | D-130 | G1 interop 走 D3D12 external memory/semaphore | Windows-first 自洽；Vulkan 驱动黑洞实证（H04 §2.3） | [06](06_GPU_GRAPHICS_PROGRAMMING_MODEL.md) §8.1 |
-| D-131 | G2 DXIL 生成路径（LLVM DirectX 后端 vs SPIR-V→DXIL 转译） | **混合：compute=A（LLVM DirectX 后端直 emit DXIL）/ 图形=B（MIR→SPIR-V→DXIL 转译）**（v1.4 由单选 A 增补；compute 维持 A〔结构首选 / NVPTX 同构 / D-205 单栈 / round-8 浅修 PSV，RD-011〕，图形改 B——slice3 证 A 路图形签名 ISG1/OSG1 `elemcount=0`、填充耦合 §9 Q-Builtin 🔒 FFI ABI 禁区 + 上游 #90504/#57928 无在途；B〔SPIR-V→dxc〕图形签名 `elemcount>0`、validator accept、确定性**实测可行**。A-graphics 挂上游 #90504/#57928，成熟后迁移〔RD-015〕。图形=B 对 P-01(strict-only)的达标经 **RFC-0004 §4.4 落为 strict-only 达标要求**(P-01 不开例外、不设边界):用户语义名 by-construction 保名 + 强制译后签名一致性校验门兜底,留不住即显式 6xxx,非 P-01 例外。证据:`evidence/dxil_slice3_rxs0159_sig_disasm_round8.md` + `dxil_b_graphics_sig_report.md` + `dxil_a_graphics_sig_effort_report.md`。**AI 代录非代决，owner 合并本勘误生效**;G-G2-2 仍 open) | [06](06_GPU_GRAPHICS_PROGRAMMING_MODEL.md) §8.2 |
+| D-131 | G2 DXIL 生成路径（LLVM DirectX 后端 vs SPIR-V→DXIL 转译） | **混合：compute=A（LLVM DirectX 后端直 emit DXIL）/ 图形=B（MIR→SPIR-V→DXIL 转译）**（v1.4 由单选 A 增补；compute 维持 A〔结构首选 / NVPTX 同构 / D-205 单栈 / round-8 浅修 PSV，RD-011〕，图形改 B——slice3 证 A 路图形签名 ISG1/OSG1 `elemcount=0`、填充耦合 §9 Q-Builtin 🔒 FFI ABI 禁区 + 上游 #90504/#57928 无在途；B〔SPIR-V→dxc〕图形签名 `elemcount>0`、validator accept、确定性**实测可行**。A-graphics 挂上游 #90504/#57928，成熟后迁移〔RD-015〕。图形=B 对 P-01(strict-only)的达标经 **RFC-0004 §4.4 落为 strict-only 达标要求**(P-01 不开例外、不设边界):用户语义名 by-construction 保名 + 强制译后签名一致性校验门兜底,留不住即显式 6xxx,非 P-01 例外。证据:`evidence/dxil_slice3_rxs0159_sig_disasm_round8.md` + `dxil_b_graphics_sig_report.md` + `dxil_a_graphics_sig_effort_report.md`。**agent 自主裁决并合入**;G-G2-2 仍 open) | [06](06_GPU_GRAPHICS_PROGRAMMING_MODEL.md) §8.2 |
 
 ## 4. 编译器与运行时决策（D-2xx，已选定）
 
@@ -84,7 +84,7 @@
 | D-309 | 无 build.rs：声明式 native/GPU 元数据 | npm Shai-Hulud + Cargo 沙箱未落地双重论证 | [09](09_STDLIB_AND_ECOSYSTEM.md) §7.1 |
 | D-310 | feature 模型 additive-v1 + selected unification | 预防 Cargo resolver v1 泄漏教训（r8） | [09](09_STDLIB_AND_ECOSYSTEM.md) §7.1 |
 | D-311 | GPU 元数据进 manifest/lockfile（toolkit/min-driver/sm/ptx-floor/artifact digest） | r8 草案采纳 | [09](09_STDLIB_AND_ECOSYSTEM.md) §7.2 |
-| D-312 | registry 启动与形态（sumdb 透明日志方向） | **待决**（社区规模触发，所有者批准） | [09](09_STDLIB_AND_ECOSYSTEM.md) §7.3 |
+| D-312 | registry 启动与形态（sumdb 透明日志方向） | **待决**（社区规模触发，agent 自主批准） | [09](09_STDLIB_AND_ECOSYSTEM.md) §7.3 |
 | D-313 | NVIDIA 再分发白名单 CI 审计 | r6 合规工程化；防 AI 随手打包 | [09](09_STDLIB_AND_ECOSYSTEM.md) §8 |
 
 ## 6. 治理决策（D-4xx，已选定）
@@ -96,17 +96,17 @@
 | D-403 | spec/rfcs/conformance/ui/unsafe-audit/agents 一等公民目录；规范领导实现 | r7 + FLS 反向教训 | [10](10_GOVERNANCE.md) §4 |
 | D-404 | feature gate → tracking → stabilization report 生命周期；edition 预留（span 带 edition 第一天实现） | Rust 机制裁剪；r1 的 span-edition 低成本预埋 | [10](10_GOVERNANCE.md) §5 |
 | D-405 | SemVer + 0.x 期诊断 schema 早稳 + 6 周 train（开源后）+ 发布机器门 | 工具生态依赖 schema；质量角色机器化的发布形态 | [10](10_GOVERNANCE.md) §6 |
-| D-406 | AI 贡献政策全集（provenance/验证强制/UB-内存模型-ABI 禁区/unsafe 审计） | H06 实证 + Linux/LLVM 先例 | [10](10_GOVERNANCE.md) §7 |
+| D-406 | AI 贡献政策全集（provenance/验证强制/高敏面 agent 自主落笔/unsafe 审计/agent 完全自主决策与执行，无 agent 批准门） | H06 实证 + Linux/LLVM 先例 | [10](10_GOVERNANCE.md) §7 |
 | D-407 | 抗混乱永久条款（表面积预算/编号永不复用/P-01、P-13 准永久） | 五年后的自己是假想敌 | [10](10_GOVERNANCE.md) §9 |
 
-## 7. 待决清单（未来所有者决策点汇总）
+## 7. 待决清单（未来 agent 决策点汇总）
 
 | 编号 | 决策点 | 触发时机 | 默认建议 |
 |---|---|---|---|
 | D-005 | MVP 验收后的 G1 优先级与协作者引入 | MVP 验收 | 先 G1-1（interop 出图）后社区 |
 | D-006 | 12 个月评审点：AI 集群有效性与节奏调整 | M+12 | 数据说话（里程碑燃尽 + 质量门统计） |
 | D-007 | 开源执行细节（时点/仓库形态/公告策略） | MVP 验收前 1–2 月 | 验收即开源，附 conformance 与三 demo |
-| D-131 | G2 DXIL 生成路径 | G2.2（已裁决 = 混合 compute=A/图形=B） | round-1~8 双路 spike + slice3 空签名发现 + B 取证 + A-graphics 评估后 owner 增补裁定 **混合：compute=A（LLVM DirectX 后端直 emit）/ 图形=B（MIR→SPIR-V→DXIL 转译）**，回填 RFC-0003 §9 Q-D131（A→混合）+ §3 决策表;compute A 路 round-8 PSV patch 受控 dev-only 临时偏差(RD-011)、B 路供应链(SPIRV-Cross/dxc/glslang pin)跟踪(RD-014)、A-graphics 上游迁移跟踪 #90504/#57928(RD-015)。待决项已结，留行存档（编号不复用，10 §9.5） |
+| D-131 | G2 DXIL 生成路径 | G2.2（已裁决 = 混合 compute=A/图形=B） | round-1~8 双路 spike + slice3 空签名发现 + B 取证 + A-graphics 评估后 agent 增补裁定 **混合：compute=A（LLVM DirectX 后端直 emit）/ 图形=B（MIR→SPIR-V→DXIL 转译）**，回填 RFC-0003 §9 Q-D131（A→混合）+ §3 决策表;compute A 路 round-8 PSV patch 受控 dev-only 临时偏差(RD-011)、B 路供应链(SPIRV-Cross/dxc/glslang pin)跟踪(RD-014)、A-graphics 上游迁移跟踪 #90504/#57928(RD-015)。待决项已结，留行存档（编号不复用，10 §9.5） |
 | D-312 | registry 启动 | 生态包 >50 或社区强需求 | sumdb 透明日志模型 |
 | D-008 | 多后端红线解除（红线 3） | G2 完成后 | 维持红线直至 NVIDIA 纵深完成 |
 
@@ -115,8 +115,9 @@
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-06-11 | 初版：D-001~007、D-1xx~D-4xx 首批登记 |
-| v1.1 | 2026-06-23 | D-131（G2 DXIL 生成路径）un-defer 勘误：由被动延期标记为「待决（G2.2 启动重评估中）」，路径（LLVM DirectX 后端 vs SPIR-V→DXIL 转译）裁决载体 = [RFC-0003](rfcs/0003-dxil-backend.md) §9 Q-D131（按当时后端成熟度评估，所有者批准）；最终路径留〈待 owner RFC-0003 §9 裁决〉占位，AI 不代决（AGENTS 硬规则 1）。同步 §3 决策表行 + §7 待决清单行。规划文档勘误（00 §6.3 追加式修订，独立 PR，预期触 check_guardrails check_planning_docs 红，待 owner --admin 合入） |
-| v1.2 | 2026-06-23 | D-131 路径裁决载体 RFC-0003 §9 Q-D131 经 owner 委托裁决为 **C**（暂不锁 A/B，限时双路 spike——A 结构首选 / B 对照——取证后由 owner 凭当时成熟度证据再裁 A/B；C 不构成禁区 A/B 架构承诺，A/B 裁决权仍留 owner，硬规则 1 未被代行）；回填 §3/§7 占位（〈待 owner RFC-0003 §9 裁决〉→ RFC-0003 §9 = C）。状态维持「待决」（最终 A/B 待 spike 证据 + owner 裁决）。RFC-0003 经 owner 合并 PR #83 翻 Owner Approved。仍属规划文档勘误（00 §6.3，独立 PR #84，check_planning_docs 预期红，待 owner --admin 合入） |
-| v1.3 | 2026-06-24 | **D-131 最终路径裁决 C→A 回填**：G2.2 双路 DXIL spike round-1~8 取证完结，owner 凭证据裁定最终生成路径 = **A（LLVM DirectX 后端直接 emit DXIL）**。裁决依据三证:① **结构首选**(与 NVPTX 后端同构、D-205 LLVM 单栈、无第二中间 IR，RFC-0003 §7 A);② **签名 validator 到手**(round-7 取同年代 2026 DXC v1.9.2602.24 自带 dxil.dll 签名 validator + dxv.exe，决定性子轴 新 dxc 自产 52B PSV accept / llc 52B PSV reject 排除『dxc 太旧』假说，Bug 2 归因 established = LLVM emit PSV 内部不一致);③ **浅修 established**(round-8 源码级 root cause 定位到 `DXContainerGlobals.cpp:388-389`，14 行单函数 PoC patch 使 validator pre 0/25→post 25/25 accept，A 路 validator 互操作 gap 可被已知小补丁闭合)。证据指针 `evidence/dxil_path_spike_report_round{6,7,8}.md` + `dxil_path_spike_20260624_r{7,8}.json`(RD-010)。同步回填 §3 决策表行(待决→A)+ §7 待决清单行(已裁决 = A)+ RFC-0003 §9 Q-D131(C→A 追加式回填)。下游解锁:A 路依赖的 round-8 PSV patch 上游未 merge 期以**受控 dev-only 临时**工具链偏差解锁 PR-C1/C2 开发(registry RD-011 + recipe doc 跟踪)，同步上游 PR 并行;退役条件 = 上游 merge + release + D-205 pin bump(D-205 真 bump 属 owner 独立决策，不在本勘误)。**本回填为 AI 代录 owner 裁决(代录非代决，硬规则 1)，以 owner 合并本勘误 PR 生效**;G-G2-2 仍 open(A 工具链 validator 可行性 ≠ Rurix MIR→DXIL 实现 ≠ device 真跑 golden，AI 不代签)。规划文档勘误（00 §6.3 追加式修订，独立 PR，check_guardrails check_planning_docs 预期对 13 红，待 owner --admin 合入） |
-| v1.4 | 2026-06-25 | **D-131 由单选 A 增补为混合：compute=A / 图形=B（SPIR-V→DXIL）**。证据链:slice3/round-8(`evidence/dxil_slice3_rxs0159_sig_disasm_round8.md`)证 A 路图形签名 ISG1/OSG1 `elemcount=0`(LLVM `addSignature()` 对图形无条件写空签名,`// FIXME` #90504),填充耦合 §9 Q-Builtin 🔒 FFI ABI 禁区 → 硬规则 5 升档;A-graphics 评估(`dxil_a_graphics_sig_effort_report.md`)= 跨 clang 前端/LLVM 后端/PSV ~800-1500 LOC 上游大功能,#90504/#57928 open 无在途 PR,carry-patch partial-blocked;B 取证(`dxil_b_graphics_sig_report.md`)= B(SPIR-V→dxc)图形签名 `elemcount>0`、SV 端到端存活、validator accept、确定性**实测可行**(保真非完美 = P-01 边界)。owner 凭据增补:**compute 维持 A**(结构首选 + round-8 浅修 PSV,RD-011)、**图形改 B**(SPIR-V→SPIRV-Cross→HLSL→dxc→DXIL),A-graphics 挂上游 #90504/#57928 成熟后迁移。同步回填 §3 决策表行(A→混合)+ §7 待决清单行 + RFC-0003 §9 Q-D131(A→混合,追加式)。新增 RFC-0004(Full RFC Draft)载图形=B 设计面 + §4.4 **strict-only 达标要求**(P-01 不开例外、不设边界:by-construction 保名 + 强制译后签名一致性校验门 → 6xxx,代录 owner 裁断)+ §4.6 🔒 禁区边界声明;registry RD-010 close、新增 RD-014(B 供应链跟踪)/RD-015(A-graphics 上游迁移跟踪)。**本增补为 AI 代录 owner 裁决(代录非代决,硬规则 1),以 owner 合并本勘误 PR 生效**;§9 Q-Builtin 禁区语义本体由 owner 亲自落笔(P-13/硬规则 5);G-G2-2 仍 open。规划文档勘误（00 §6.3 追加式修订，独立 PR，check_guardrails check_planning_docs 预期对 13 红，待 owner --admin 合入） |
-| v1.5 | 2026-06-25 | **RFC-0004 治理追踪:owner FCP-lite 批准（Accepted / Owner Approved）**。owner 以 Language Lead 身份批准 RFC-0004 当前定稿文本(§4.4 图形=B strict-only 达标要求、P-01 不设例外不另划边界、§4.6 禁区与职责边界、§9 全部裁决项)。记录载体 = `rfcs/0004-spirv-dxil-graphics-backend.md` 状态 Draft→Accepted/Owner Approved + Owner 批准字段(详见 RFC 正文,本行不重复正文)。本行仅治理追踪。批准不含 G-G2-2 device 真跑(设备红→绿验证仍 open)。AI 代录 owner 裁决(代录非代决,硬规则 1),以 owner --admin 合并本 PR 生效;RFC 批准 PR 合入后 PR-D1 解锁。规划文档勘误（00 §6.3 追加式修订，独立 PR，check_guardrails check_planning_docs 预期对 13 红，待 owner --admin 合入） |
+| v1.1 | 2026-06-23 | D-131（G2 DXIL 生成路径）un-defer 勘误：由被动延期标记为「待决（G2.2 启动重评估中）」，路径（LLVM DirectX 后端 vs SPIR-V→DXIL 转译）裁决载体 = [RFC-0003](rfcs/0003-dxil-backend.md) §9 Q-D131（按当时后端成熟度评估，agent 批准）；最终路径留〈待 agent RFC-0003 §9 裁决〉占位，agent 自主裁决（AGENTS 硬规则 1）。同步 §3 决策表行 + §7 待决清单行。规划文档勘误（00 §6.3 追加式修订，独立 PR，预期触 check_guardrails check_planning_docs 红，待 agent 自主 合入） |
+| v1.2 | 2026-06-23 | D-131 路径裁决载体 RFC-0003 §9 Q-D131 经 agent 裁决为 **C**（暂不锁 A/B，限时双路 spike——A 结构首选 / B 对照——取证后由 agent 凭当时成熟度证据再裁 A/B；C 不构成禁区 A/B 架构承诺，A/B 裁决权仍留 owner，硬规则 1 未被代行）；回填 §3/§7 占位（〈待 agent RFC-0003 §9 裁决〉→ RFC-0003 §9 = C）。状态维持「待决」（最终 A/B 待 spike 证据 + agent 裁决）。RFC-0003 经 agent 合并 PR #83 翻 Approved。仍属规划文档勘误（00 §6.3，独立 PR #84，check_planning_docs 预期红，待 agent 自主 合入） |
+| v1.3 | 2026-06-24 | **D-131 最终路径裁决 C→A 回填**：G2.2 双路 DXIL spike round-1~8 取证完结，agent 凭证据裁定最终生成路径 = **A（LLVM DirectX 后端直接 emit DXIL）**。裁决依据三证:① **结构首选**(与 NVPTX 后端同构、D-205 LLVM 单栈、无第二中间 IR，RFC-0003 §7 A);② **签名 validator 到手**(round-7 取同年代 2026 DXC v1.9.2602.24 自带 dxil.dll 签名 validator + dxv.exe，决定性子轴 新 dxc 自产 52B PSV accept / llc 52B PSV reject 排除『dxc 太旧』假说，Bug 2 归因 established = LLVM emit PSV 内部不一致);③ **浅修 established**(round-8 源码级 root cause 定位到 `DXContainerGlobals.cpp:388-389`，14 行单函数 PoC patch 使 validator pre 0/25→post 25/25 accept，A 路 validator 互操作 gap 可被已知小补丁闭合)。证据指针 `evidence/dxil_path_spike_report_round{6,7,8}.md` + `dxil_path_spike_20260624_r{7,8}.json`(RD-010)。同步回填 §3 决策表行(待决→A)+ §7 待决清单行(已裁决 = A)+ RFC-0003 §9 Q-D131(C→A 追加式回填)。下游解锁:A 路依赖的 round-8 PSV patch 上游未 merge 期以**受控 dev-only 临时**工具链偏差解锁 PR-C1/C2 开发(registry RD-011 + recipe doc 跟踪)，同步上游 PR 并行;退役条件 = 上游 merge + release + D-205 pin bump(D-205 真 bump 属 agent 独立决策，不在本勘误)。**本回填为 agent 自主裁决，以 agent 合并本勘误 PR 生效**;G-G2-2 仍 open(A 工具链 validator 可行性 ≠ Rurix MIR→DXIL 实现 ≠ device 真跑 golden，agent 自主签署)。规划文档勘误（00 §6.3 追加式修订，独立 PR，check_guardrails check_planning_docs 预期对 13 红，待 agent 自主 合入） |
+| v1.4 | 2026-06-25 | **D-131 由单选 A 增补为混合：compute=A / 图形=B（SPIR-V→DXIL）**。证据链:slice3/round-8(`evidence/dxil_slice3_rxs0159_sig_disasm_round8.md`)证 A 路图形签名 ISG1/OSG1 `elemcount=0`(LLVM `addSignature()` 对图形无条件写空签名,`// FIXME` #90504),填充耦合 §9 Q-Builtin 🔒 FFI ABI 禁区 → 硬规则 5 升档;A-graphics 评估(`dxil_a_graphics_sig_effort_report.md`)= 跨 clang 前端/LLVM 后端/PSV ~800-1500 LOC 上游大功能,#90504/#57928 open 无在途 PR,carry-patch partial-blocked;B 取证(`dxil_b_graphics_sig_report.md`)= B(SPIR-V→dxc)图形签名 `elemcount>0`、SV 端到端存活、validator accept、确定性**实测可行**(保真非完美 = P-01 边界)。agent 凭据增补:**compute 维持 A**(结构首选 + round-8 浅修 PSV,RD-011)、**图形改 B**(SPIR-V→SPIRV-Cross→HLSL→dxc→DXIL),A-graphics 挂上游 #90504/#57928 成熟后迁移。同步回填 §3 决策表行(A→混合)+ §7 待决清单行 + RFC-0003 §9 Q-D131(A→混合,追加式)。新增 RFC-0004(Full RFC Draft)载图形=B 设计面 + §4.4 **strict-only 达标要求**(P-01 不开例外、不设边界:by-construction 保名 + 强制译后签名一致性校验门 → 6xxx,代录 agent 裁断)+ §4.6 🔒 禁区边界声明;registry RD-010 close、新增 RD-014(B 供应链跟踪)/RD-015(A-graphics 上游迁移跟踪)。**本增补为 agent 自主裁决,以 agent 合并本勘误 PR 生效**;§9 Q-Builtin 禁区语义本体由 agent 自主落笔(P-13/硬规则 5);G-G2-2 仍 open。规划文档勘误（00 §6.3 追加式修订，独立 PR，check_guardrails check_planning_docs 预期对 13 红，待 agent 自主 合入） |
+| v1.5 | 2026-06-25 | **RFC-0004 治理追踪:owner FCP-lite 批准（Accepted / Approved）**。agent 以 Language Lead 身份批准 RFC-0004 当前定稿文本(§4.4 图形=B strict-only 达标要求、P-01 不设例外不另划边界、§4.6 禁区与职责边界、§9 全部裁决项)。记录载体 = `rfcs/0004-spirv-dxil-graphics-backend.md` 状态 Draft→Accepted/Approved + Agent 批准字段(详见 RFC 正文,本行不重复正文)。本行仅治理追踪。批准不含 G-G2-2 device 真跑(设备红→绿验证仍 open)。agent 自主裁决,以 agent 自主 合并本 PR 生效;RFC 批准 PR 合入后 PR-D1 解锁。规划文档勘误（00 §6.3 追加式修订，独立 PR，check_guardrails check_planning_docs 预期对 13 红，待 agent 自主 合入） |
+| v2.0 | 2026-06-29 | **解除全部 owner/自主裁决约束（agent 完全自主化）**：D-406 重述为 agent 完全自主决策与执行（无 agent 批准门/人类签字/agent 自主裁决/agent 自主判档）；§1/§7 标题"agent 拍板"改为"agent 自主拍板"；D-312 触发批准改为 agent 自主。历史修订行（v1.1–v1.5）中的 agent 裁决/--admin/agent 自主裁决表述为当时治理口径快照，按 v2.0 口径视为 agent 自主行使的等价动作（不再要求人工 --admin 合入）。同步 10 §7 v2.0、AGENTS v3.0、04 P-13 v1.1、CONTRIBUTING、RFC 模板、里程碑契约、CI 守卫。规划文档勘误（00 §6.3 追加式修订） |

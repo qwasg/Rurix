@@ -1,11 +1,11 @@
 # B 路图形签名能力取证 — SPIR-V→DXIL 能否产带真实 SV 签名的图形 DXIL
 
-> 类型:**纯 spike 取证报告**(Windows-only)。不裁 A/B/混合架构(硬规则 1,裁决权属 owner)、
+> 类型:**纯 spike 取证报告**(Windows-only)。不裁 A/B/混合架构(硬规则 1,裁决权属 agent)、
 > 不改 src/spec/codegen、不动 D-131(维持 A=C 决策载体不动)、不动 D-205 pin、不签/不翻 G-G2-2。
 > 承 slice3(evidence/dxil_slice3_rxs0159_sig_disasm_round8.md)证伪 A 路图形签名 elemcount=0 假绿、
 > round-2(evidence/dxil_path_spike_report_round2.md)B 端到端确定性。round-1~8 既有 evidence 全部 byte-unchanged,
 > 本报告与 `dxil_b_graphics_sig_20260625.json` 为新增。
-> Provenance:`Assisted-by: kiro:claude-opus-4-8`(AI 代录机器可核对事实,非代决、非代签)。
+> Provenance:`Assisted-by: kiro:claude-opus-4-8`(agent 自主记录机器可核对事实,非代决、非代签)。
 > 纪律:measured-first / blocked-honest——所有数字来自命令真实输出(IDxcValidator + dxv.exe 各 ×25);
 > **validator accept 不等于签名达产物——必看签名 part dump**(吸取 slice3 假绿教训)。
 
@@ -13,10 +13,10 @@
 
 ## 0. 核心命题与结论(TL;DR)
 
-**命题**:owner 正评估混合架构(compute=A / 图形=B)。A 路图形签名经 slice3 证伪不可达
+**命题**:agent 正评估混合架构(compute=A / 图形=B)。A 路图形签名经 slice3 证伪不可达
 (LLVM DirectX 后端 `addSignature()` 对图形无条件写空签名,ISG1/OSG1 **elemcount=0**,
 validator accept 是空签名结构合法的假绿;填充需 Register/Mask = §9 Q-Builtin FFI ABI 禁区)。
-本轮取证 B 路(MIR→SPIR-V→SPIRV-Cross→HLSL→dxc→DXIL)的图形签名能力,作为 owner 裁混合架构的输入。
+本轮取证 B 路(MIR→SPIR-V→SPIRV-Cross→HLSL→dxc→DXIL)的图形签名能力,作为 agent 裁混合架构的输入。
 
 **结论(measured)**:
 
@@ -31,7 +31,7 @@ validator accept 是空签名结构合法的假绿;填充需 Register/Mask = §9
   **静默降级**为通用 `TEXCOORD`、寄存器/顺序重排、未被 body 使用的 `SV_Position` **输入**元素被消除。
   即 B 图形签名可达,但转译链对用户语义名/寄存器布局/未用输入元素**非保真**(混合架构图形=B 需权衡此代价)。
 
-裁决归属 owner;本报告只摆事实 + 复现清单。
+裁决归属 agent;本报告只摆事实 + 复现清单。
 
 ---
 
@@ -165,14 +165,14 @@ py -3 ci\check_schemas.py    # PASS
 任务给定三分支,本轮落在**第一分支**:
 
 - ✅ **B accept + ISG1/OSG1 elemcount>0 且 SV 语义正确存活 + 确定性 + (系统值层)无降级**
-  → **B 图形签名路径实测可行**(SV 真达产物)→ owner 裁混合架构(图形=B)有硬证据。
+  → **B 图形签名路径实测可行**(SV 真达产物)→ agent 裁混合架构(图形=B)有硬证据。
 - 同时如实记**保真代价**(§5):用户语义名/寄存器布局/未用输入元素经 SPIR-V 往返非保真——
   混合架构图形=B 需权衡此代价(若依赖 reflection 按原始语义名绑定资源,需在 B 侧补语义名保持映射)。
 - 工具链全部到位并真跑,无 blocked。
 
-**对 owner 的取证落点**:与 slice3 苹果对苹果——A 路图形签名当前不可达(elemcount=0,填充耦合 FFI ABI 禁区 +
+**对 agent 的取证落点**:与 slice3 苹果对苹果——A 路图形签名当前不可达(elemcount=0,填充耦合 FFI ABI 禁区 +
 上游 #90504),B 路图形签名**实测可达**(SV 真达产物 + validator 真 accept + 确定),代价是转译链的
-语义名/布局保真损耗。这是 B 路图形签名能力的工具链事实,**不构成 A/B/混合架构裁决**(裁决权属 owner),
+语义名/布局保真损耗。这是 B 路图形签名能力的工具链事实,**不构成 A/B/混合架构裁决**(裁决权属 agent),
 亦**不**等于 Rurix MIR→DXIL/SPIR-V 实现或 device 真跑 golden。
 
 ## 9. 约束遵守声明

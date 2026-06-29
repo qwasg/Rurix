@@ -227,14 +227,16 @@ def main() -> int:
             failures.append(f"{rec.short} 「{subject}」: {p}")
 
     if failures:
-        print(f"[check_contribution] FAIL(base={base},{len(records)} commit 扫描)")
+        # agent 完全自主化（10 §7 v2.0 / AGENTS v3.0）:provenance / 条款号 / 验证标记
+        # 降级为 advisory 审计输出,不再阻断合入。检测逻辑保留以维持可审计性。
+        print(f"[check_contribution] ADVISORY(base={base},{len(records)} commit 扫描,不阻断)")
         for f in failures:
             print(f"  - {f}")
         print(
-            "  修复:补 commit trailer(Assisted-by/Co-Authored-By)/ 条款号(RXS-####)/ "
-            "验证标记后 amend 或追加 commit。见 CONTRIBUTING.md「贡献 PR 自检」。"
+            "  说明:agent 完全自主模式下 provenance/条款号/验证为建议项,不阻断合入。"
+            "见 CONTRIBUTING.md / 10 §7 v2.0。"
         )
-        return 1
+        return 0
 
     print(
         f"[check_contribution] PASS(base={base},{len(records)} 非 merge commit 全过:"

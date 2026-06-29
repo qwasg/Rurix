@@ -2,7 +2,7 @@
 
 > 类型：**纯取证审计报告**（Windows-only 本地归因）。不立项、不裁 A/B、不改 src/spec/golden/codegen、不动 D-131（仍 C）、不签/不翻 G-G2-2、未向 llvm-project 公开提交任何内容。
 > 承 round-1~5；round-1~5 既有 evidence/ 文件全部 byte-unchanged，本报告为**新增**文件。
-> Provenance：`Assisted-by: kiro:claude-opus-4-8`（AI 代录机器可核对事实，非代决、非代签）。
+> Provenance：`Assisted-by: kiro:claude-opus-4-8`（agent 自主记录机器可核对事实，非代决、非代签）。
 > 纪律：所有判定基于真实命令/日志/hash/栈/diff；无法完成的检查标记 UNRESOLVED；无真实符号栈处写 "Root cause not established."
 
 本轮核心目标：在 **仅 Windows** 条件下，优先**证伪「LLVM 上游问题」**，排除 PATH 混用 / 源码污染 / 旧 build cache / ABI·DLL 混用 / Python 探针 / 并发文件冲突 / 非法 IR / Validator ctypes 错误 / dxc·llc 输入不等价，之后才允许归类上游。

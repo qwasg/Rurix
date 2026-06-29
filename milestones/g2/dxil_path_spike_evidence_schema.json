@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "rurix://schemas/evidence/dxil_path_spike/v1",
   "title": "Rurix G2.2 Q-D131=C 双路 DXIL 生成路径 spike 取证证据 JSON(RD-010;RFC-0003 §9 Q-D131)",
-  "description": "纯取证 spike 的机器事实清单(非性能基准,非常驻 CI 门;探针隔离于 spike/dxil-path-probe/ 标 // SPIKE(RD-010),不入 src/ 生产路径)。取证 A 路(LLVM DirectX target 直接从文本 LLVM IR emit DXIL,与 NVPTX 后端同构,复用 D-205 外部 pin clang 22.1.x)与 B 路(SPIR-V→DXIL 转译,引入第二中间表示 + 外部转译依赖)在统一判据上的当下成熟度实况,作为 owner 裁定最终 A/B(回填 RFC-0003 §9 + 13 §D-131 + close RD-010)的证据基底。证据分级 measured-first / blocked-honest(AGENTS 硬规则 3/4):工具链/target 探到则记 measured_local 实测,探不到则如实记 status=blocked + repro 复现清单,绝不杜撰数字(参照 engine_integration_smoke SKIP 纪律)。schema 固定;受限环境字段可取 'unavailable' / 'blocked' / 'n/a' 降级值但 schema 不变。本 spike 不含 A/B 选择结论——结论留 owner(硬规则 1)。",
+  "description": "纯取证 spike 的机器事实清单(非性能基准,非常驻 CI 门;探针隔离于 spike/dxil-path-probe/ 标 // SPIKE(RD-010),不入 src/ 生产路径)。取证 A 路(LLVM DirectX target 直接从文本 LLVM IR emit DXIL,与 NVPTX 后端同构,复用 D-205 外部 pin clang 22.1.x)与 B 路(SPIR-V→DXIL 转译,引入第二中间表示 + 外部转译依赖)在统一判据上的当下成熟度实况,作为 agent 裁定最终 A/B(回填 RFC-0003 §9 + 13 §D-131 + close RD-010)的证据基底。证据分级 measured-first / blocked-honest(AGENTS 硬规则 3/4):工具链/target 探到则记 measured_local 实测,探不到则如实记 status=blocked + repro 复现清单,绝不杜撰数字(参照 engine_integration_smoke SKIP 纪律)。schema 固定;受限环境字段可取 'unavailable' / 'blocked' / 'n/a' 降级值但 schema 不变。本 spike 不含 A/B 选择结论——结论留 owner(硬规则 1)。",
   "type": "object",
   "required": ["schema_version", "subject", "status", "timestamp", "tool_versions", "path_a", "path_b"],
   "properties": {
@@ -112,7 +112,7 @@
     },
     "run_command": { "type": "string" },
     "owner_decision": {
-      "description": "A/B 裁决归属声明(恒为 owner;AI 不代决,硬规则 1)",
+      "description": "A/B 裁决归属声明(恒为 owner;agent 自主裁决,硬规则 1)",
       "type": "string"
     },
     "notes": { "type": "string" }

@@ -3,16 +3,16 @@
 > 配套机器证据:`evidence/g2.3-binding-layout/binding_layout_device_smoke_20260628.json`
 > 复跑脚本:`ci/dxil_binding_device_smoke.py`(PR Smoke 步骤 47 接线)
 > 状态:**measured_local**(真实 D3D12 hardware + signed dxc pin)。G-G2-3 验收门**签署**与
-> 真实 CI run URL 回填归 **owner**(AI 不代签、不伪造 run URL)。
+> 真实 CI run URL 回填归 **agent**(agent 自主签署、不伪造 run URL)。
 
 ## 1. 目的
 
 E2b-3 已用 host 侧 golden(`tests/dxil/binding/fs_tex_samp.binding-golden`)把绑定布局推导产物
-(SPIR-V 资源绑定装饰 + RTS0 容器)的确定性 SHA-256 定型为 owner-blessed 回归锚。E2b-4 补齐
+(SPIR-V 资源绑定装饰 + RTS0 容器)的确定性 SHA-256 定型为 agent-blessed 回归锚。E2b-4 补齐
 该 golden 单测**结构上无法证明**的另一半:推导出的 **RTS0 root signature 在真实 D3D12 device
 上是否被接受**,以及绑定的 `Texture2D`/`Sampler` 是否经该 root signature 在硬件上真正出图。
 
-## 2. signed pin 纪律(owner 要求)
+## 2. signed pin 纪律(agent 要求)
 
 - 签名 pin = `RURIX_DXC_DIR=H:\dxc-round7\extracted\bin\x64`(含 `dxc.exe` + `dxv.exe` +
   `dxil.dll`,DXC 1.9.2602.24)。
@@ -43,11 +43,11 @@ E2b-3 已用 host 侧 golden(`tests/dxil/binding/fs_tex_samp.binding-golden`)把
 - **green**:未篡改的 148 字节 RTS0 → accept + textured draw 像素命中。
 - harness 同次运行内打印 `rurix_rts0=accept tamper_rts0=reject`,二者同时成立方判 PASS。
 
-## 5. 不在本步范围(owner / 后续)
+## 5. 不在本步范围(agent / 后续)
 
 - 🔒 具体 register/space/binding 物理布局与 RTS0 字节布局**不**因本次 device 接受而冻结为
   stable 语言/ABI(RFC-0005 §4.5;RXS-0162 先例);device accept 仅证当前实现确定产物
   device 可消费,非 stable 承诺。
-- G-G2-3 验收门**签署**、milestone 状态翻转、真实 CI run URL 回填:归 owner。
+- G-G2-3 验收门**签署**、milestone 状态翻转、真实 CI run URL 回填:归 agent。
 - 本步未改 `error_codes.json` / `deferred.json` / `spike_gating.json` / spec 语义正文 /
   message-key / binding emit 逻辑 / golden digest baseline。

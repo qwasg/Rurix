@@ -2,7 +2,7 @@
 
 > 条款:RXS-0104 ~ RXS-0113(M7.1 core 数学库 Vec/Mat/swizzle 类型面 RXS-0104~0109 + 几何原语 Point·Vector·Normal·AABB·Ray 与几何谓词 RXS-0110~0113)。体例见 [README.md](README.md)。
 > 依据:01 §6(UC-03 旗舰用例:SPH 仿真 + 软光栅出图);08 §5(stdlib 充实——core 数学库 Vec/Mat/swizzle/几何原语,全 safe API);05 §1(device ⊂ host——同一类型面在 host 与 device 两个执行世界语义一致);11 §3 M7(标准库充实与 G0 图形演示)。授权:[../milestones/m7/M7_CONTRACT.md](../milestones/m7/M7_CONTRACT.md)(`in_scope: core_math_stdlib` / `spec_m7_clauses`,D-M7-1,G-M7-4 / G-M7-5,`rfc_required: none`)+ [../milestones/m7/M7_PLAN.md](../milestones/m7/M7_PLAN.md) §1 M7.1 第 1 项。
-> 档位:**Direct**。本文是对 01/08/11 已锁定决策(UC-03 旗舰用例 / stdlib 充实 / G0 软光栅 demo)的初版条款化、纯追加且尚无 stable 面;**AI 无权自判 Direct**,判档以 M7_CONTRACT.md YAML 头 `rfc_required: none` 与上述授权为据,判档争议向上取严。任何偏离已锁定决策、或触及 **const 泛型值运行期单态化(RD-007)** / **软光栅 unsafe 逃生**语义的条款,必须停下标注「需人工升档」,不在本文件自行落笔(10 §3,M7_CONTRACT §6 / out_of_scope)。
+> 档位:**Direct**。本文是对 01/08/11 已锁定决策(UC-03 旗舰用例 / stdlib 充实 / G0 软光栅 demo)的初版条款化、纯追加且尚无 stable 面;**agent 自主判档**,判档以 M7_CONTRACT.md YAML 头 `rfc_required: none` 与上述授权为据,判档争议向上取严。任何偏离已锁定决策、或触及 **const 泛型值运行期单态化(RD-007)** / **软光栅 unsafe 逃生**语义的条款,必须停下标注「需升档」,不在本文件自行落笔(10 §3,M7_CONTRACT §6 / out_of_scope)。
 > 规范先行(AGENTS.md 硬规则第 7 条):**条款 PR 先于实现 PR**;缺条款的语义 PR 必须先补 spec。`ci/trace_matrix.py --check` 要求每条 `### RXS-####` 条款 ≥1 测试锚定(`//@ spec: RXS-####`),本轮带编号条款体(RXS-0104 ~ RXS-0109)连同每条 ≥1 conformance 锚定样例(`conformance/stdlib/**`)一并落地,该门维持全绿。
 > 双路径实现说明(M7.1 NVPTX codegen 标量子集):host 路径以具体 `f32` 结构体类型面(`Vec2`/`Vec3`/`Vec4`、`Mat2`/`Mat3`/`Mat4`)+ inherent `device fn` 方法实现;device 路径在当前 NVPTX codegen **标量值类型子集**(聚合/结构体值类型 codegen 为后续扩展,现作用面外报 `RX6003`,见 §5)下,以**数值语义同义**的标量分量 `device fn` 原语实现并经 device codegen + `ptxas` 干验证。两路径数值语义同义(05 §1 device ⊂ host);元素类型 M7.1 规范性收窄为 `f32`(族记 `VecN<T>`/`MatRxC<T>` 的 `T`,其余元素类型加性后续)。
 
@@ -25,7 +25,7 @@
 
 ## 2. 条款
 
-> 每条按需分 Syntax / Legality / Dynamic Semantics / Implementation Requirements 节,**严禁 UB 节**(UB 为人类经 Full RFC 落笔的禁区,10 §7.5)。Legality 违例只**引用**错误码(§4 引用汇总),不在此定义其含义。
+> 每条按需分 Syntax / Legality / Dynamic Semantics / Implementation Requirements 节,**严禁 UB 节**(UB 为经 Full RFC 由 agent 自主落笔的高敏面,10 §7.5)。Legality 违例只**引用**错误码(§4 引用汇总),不在此定义其含义。
 
 ### RXS-0104 Vec 类型与构造
 
@@ -323,9 +323,9 @@ AabbIntersectRay ::= Expr "." "intersects" "(" Expr ")"   // Aabb.intersects(Ray
 ## 5. 升档 / 禁区留痕
 
 - **聚合值类型 device codegen(后续扩展,非禁区)**:当前 NVPTX codegen 为**标量值类型子集**,结构体 / 聚合值类型(`Vec`/`Mat` 结构体作为 device 函数参数 / 返回 / 局部 / 字段投影 / 构造)在作用面外报 `RX6003`(RXS-0070 / RXS-0073)。故本轮 device 路径以**语义同义的标量分量 `device fn` 原语**实现并经 device codegen + `ptxas` 干验证;聚合值类型 device codegen 为后续工程扩展(届时 host 结构体 API 可直接在 device 复用),其接通**不改本文件既有条款语义**(纯实现侧回填)。
-- **const 泛型值运行期单态化(RD-007)**:本文件以具体维度类型名(`Vec2`/`Vec3`/`Vec4`、`Mat2`/`Mat3`/`Mat4`)编码维度,**不使用 const 泛型维度**,故不触发 RD-007。RD-007 **非 M7 验收门**(M7_CONTRACT out_of_scope / §6,inherited;owner M6→M7 顺延);本文件**不实现 RD-007**,亦不改 [consteval.md](consteval.md) RXS-0064 语义。若后续几何原语 / 数组长度类条款确需 const 泛型值运行期单态化语义,**停下标注「需人工升档」**,按 14 §4 处置,不在本文件自行落笔。
-- **软光栅 unsafe 逃生**:全 safe 代码目标下的 unsafe 落点语义属 G0 软光栅 kernel 作用面(D-M7-3,后续里程碑 spec 段),不在本文件 core 数学库类型面登记;触及即停下标注「需人工升档」。
-- **既有禁区**:不碰 device 原子 lowering 与 `atom.{order}.{scope}` PTX 映射(D-406 / RD-008 人工落笔禁区);本文件全 safe、host+device 双路径数值同义,不引入任何 device-only unsafe 语义。
+- **const 泛型值运行期单态化(RD-007)**:本文件以具体维度类型名(`Vec2`/`Vec3`/`Vec4`、`Mat2`/`Mat3`/`Mat4`)编码维度,**不使用 const 泛型维度**,故不触发 RD-007。RD-007 **非 M7 验收门**(M7_CONTRACT out_of_scope / §6,inherited;owner M6→M7 顺延);本文件**不实现 RD-007**,亦不改 [consteval.md](consteval.md) RXS-0064 语义。若后续几何原语 / 数组长度类条款确需 const 泛型值运行期单态化语义,**停下标注「需升档」**,按 14 §4 处置,不在本文件自行落笔。
+- **软光栅 unsafe 逃生**:全 safe 代码目标下的 unsafe 落点语义属 G0 软光栅 kernel 作用面(D-M7-3,后续里程碑 spec 段),不在本文件 core 数学库类型面登记;触及即停下标注「需升档」。
+- **既有禁区**:不碰 device 原子 lowering 与 `atom.{order}.{scope}` PTX 映射(D-406 / RD-008 agent 自主落笔的高敏面);本文件全 safe、host+device 双路径数值同义,不引入任何 device-only unsafe 语义。
 
 ---
 

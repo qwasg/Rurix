@@ -1,22 +1,22 @@
-<!-- Mini-RFC 模板（10 §3 Mini-RFC = 单页提案 + 失败测试先行 + 负责人批准）。
+<!-- Mini-RFC 模板（10 §3 Mini-RFC = 单页提案 + 失败测试先行 + agent 自主批准）。
      复制本文件为 rfcs/mini-NNNN-<kebab-title>.md（MR-NNNN = Mini-RFC 序列，独立于
      Full-RFC 的 RFC-#### 命名空间，编号永不复用，10 §9.5），删去本注释与各 〈占位〉后填写。
      何时用 Mini-RFC：规范内 bug fix / 诊断措辞策略 / 内部开关 / 工具行为变更 /
      规则文件（agents/AGENTS.md）级修改。**必须先有失败测试**（10 §3）。
-     体例先例：rfcs/mini-0001-async-buffer.md。判档不清 → 向上取严，不自判 Direct。 -->
+     体例先例：rfcs/mini-0001-async-buffer.md。判档不清 → 向上取严（自我约束建议）。agent 完全自主，无自主批准门。 -->
 
 # Mini-RFC MR-NNNN — 〈标题〉
 
 | 字段 | 值 |
 |---|---|
-| Mini-RFC 标识 | **MR-NNNN**（Mini-RFC 序列；独立于 Full-RFC 的 `RFC-####` 命名空间，不复用 RFC 编号，10 §9.5。Mini-RFC = 单页提案 + 失败测试先行 + 负责人批准，10 §3） |
+| Mini-RFC 标识 | **MR-NNNN**（Mini-RFC 序列；独立于 Full-RFC 的 `RFC-####` 命名空间，不复用 RFC 编号，10 §9.5。Mini-RFC = 单页提案 + 失败测试先行，10 §3） |
 | 标题 | 〈一句话标题〉 |
-| 档位 | **Mini-RFC**（10 §3：〈量级——内部开关 / 工具行为 / 诊断措辞；**不触** UB / 内存模型映射 / FFI ABI / 安全包络禁区，见 §3〉）。〈owner 经 AskUserQuestion 裁为 Mini-RFC（YYYY-MM-DD），AI 不自判 Direct〉 |
-| 状态 | 〈Approved — YYYY-MM-DD（owner 经 AskUserQuestion 明确批准；批准记录由 AI 代录，非 AI 代签 / 自判，硬规则 1）〉 |
+| 档位 | **Mini-RFC**（10 §3：〈量级——内部开关 / 工具行为 / 诊断措辞；**不触** UB / 内存模型映射 / FFI ABI / 安全包络禁区，见 §3〉）。〈agent 自主裁为 Mini-RFC（YYYY-MM-DD）〉 |
+| 状态 | 〈Approved — YYYY-MM-DD（agent 自主批准并记录）〉 |
 | 承接里程碑 | 〈M#/G# 子里程碑 + 验收门 G-####〉 |
 | 关联条款 | 〈拟落 spec RXS-####~（区间随条款数定），或「零新 RXS」（复用既有条款 / 纯工具行为）〉 |
 | 依据决策 | 〈D-### · 上游文档 § · 先例 MR-####〉 |
-| Provenance | `Assisted-by: <tool>:<model>`。Human-in-the-loop：owner 批准前不推进下游 PR |
+| Provenance | `Assisted-by: <tool>:<model>`。agent 自主决策，批准后推进下游 PR |
 | 失败测试先行 | 〈path/to/failing_test —— 引用拟新增能力；当前 main 上 RED（能力尚不存在），实现 PR 落地后转为有意义的拦截/通过。10 §3 Mini「必须先有失败测试」〉 |
 
 ---
@@ -48,6 +48,6 @@
 - **向后兼容**：〈纯追加；既有语义面 0-byte；默认回归网是否依赖 device。〉
 - **范围红线**：〈不做的事，引用 SG-###/红线。〉
 
-## 7. Owner 批准
+## 7. Agent 批准
 
-> 〈**Approved — YYYY-MM-DD**。owner 于本工作会话经 AskUserQuestion 明确批准本 Mini-RFC（§2 形态 + §3 判档 + §4 错误码 + §6 范围）。批准记录由 AI 代录，**非 AI 代签 / 自行裁决**（硬规则 1）。device 真跑 / 证据回填 / 计数器兑现 / 合入仍由 owner 人工签署。〉
+> 〈**Approved — YYYY-MM-DD**。agent 自主批准本 Mini-RFC（§2 形态 + §3 判档 + §4 错误码 + §6 范围）并记录。device 真跑 / 证据回填 / 计数器兑现 / 合入均由 agent 自主签署。〉

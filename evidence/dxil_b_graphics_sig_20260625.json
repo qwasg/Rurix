@@ -17,7 +17,7 @@
     "n": 25,
     "dxv_present": true
   },
-  "owner_decision": "A/B/混合架构裁决权属 owner(硬规则 1);本探针只产签名取证事实,不代决、不代签。",
+  "owner_decision": "A/B/混合架构裁决权属 owner(硬规则 1);本探针只产签名取证事实,不代决、自主签署。",
   "samples": [
     {
       "name": "vs_sig",

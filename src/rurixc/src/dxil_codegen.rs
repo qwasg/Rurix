@@ -165,7 +165,7 @@ fn render_dxil_module(entry_symbol: &str, module_name: &str) -> String {
 // 🔒 禁区(R1.10 / R6.3):B 路输入 `io_sig`(`MirIoType` 仅标量/向量)结构上无法
 //   表达资源句柄/描述符/采样器,故纹理访问语义(描述符编码 / 采样 opcode / 缓存 /
 //   LOD / 导数 / 越界)在本层不可达;一旦未来类型面扩展触及,`emit_spirv` 将在映射
-//   处发 [`DxilError::Unmappable`] 并标「需人工升档」,本层只透传、不发明 lowering /
+//   处发 [`DxilError::Unmappable`] 并标「需升档」,本层只透传、不发明 lowering /
 //   ABI 二进制布局 / UB 契约(RFC-0004 §4.6)。
 // ===========================================================================
 
@@ -963,7 +963,7 @@ pub enum StageLinkOutcome {
     /// vertex out ↔ fragment in 链接一致(语义名 / 类型 / 插值全配对)。
     Linked,
     /// 错链(strict-only;经 [`emit_stage_link_error`] 落 `RX6014`
-    /// `codegen.dxil_stage_link_mismatch`,owner 裁定方案 B 新开码、不复用 RX6011,
+    /// `codegen.dxil_stage_link_mismatch`,agent 裁定方案 B 新开码、不复用 RX6011,
     /// 见 [`signature_gate::StageLinkError`])。
     LinkError(signature_gate::StageLinkError),
 }
@@ -978,9 +978,9 @@ pub enum StageLinkOutcome {
 /// 无 vertex+fragment 配对(单阶段编译 / 缺一阶段)→ [`StageLinkOutcome::NoPair`]
 /// (behavior 不变,零漂移)。
 ///
-/// **错误码(G2.3 PR-E2b-2 已落,owner 裁定方案 B)**:错链返回
+/// **错误码(G2.3 PR-E2b-2 已落,agent 裁定方案 B)**:错链返回
 /// [`StageLinkOutcome::LinkError`],经 [`emit_stage_link_error`] 落 `RX6014`
-/// `codegen.dxil_stage_link_mismatch`——owner 裁定**新开 RX6014**(不复用 RX6011 单阶段
+/// `codegen.dxil_stage_link_mismatch`——agent 裁定**新开 RX6014**(不复用 RX6011 单阶段
 /// 签名不一致语义;spec §2 RXS-0160 IR3)。strict-only 语义由 `check_stage_link` 保证
 /// (错链必 Err,绝不静默通过)。
 pub fn link_graphics_stages(bodies: &[Body]) -> StageLinkOutcome {
@@ -1000,7 +1000,7 @@ pub fn link_graphics_stages(bodies: &[Body]) -> StageLinkOutcome {
 }
 
 /// 阶段间接口错链 → `RX6014` `codegen.dxil_stage_link_mismatch` 结构化诊断(RXS-0160;
-/// G2.3 PR-E2b-2,owner 裁定方案 B 新开码)。
+/// G2.3 PR-E2b-2,agent 裁定方案 B 新开码)。
 ///
 /// 两类 [`signature_gate::StageLinkError`](`Unlinked` 缺链接键 / `LinkMismatch`
 /// 类型·插值失配)均落同一 `RX6014`(同属阶段间接口错链失败类别,RXS-0160 L2/L3);
@@ -1596,7 +1596,7 @@ mod tests {
     // 向量,**结构上无法**表达资源句柄/描述符/采样器,故纹理访问语义(描述符编码/
     // 采样 opcode/缓存/LOD/导数/越界)在本层不可构造、不可达(任务2 即如此);该路径
     // 由后续绑定布局分片(G2.3,P-11)覆盖,本层保留 emit_dxil_b 的 DxilBError::Spirv
-    // 透传接缝 + 模块顶注「需人工升档」标注。故本任务无纹理 6xxx 单测(输入不可达)。
+    // 透传接缝 + 模块顶注「需升档」标注。故本任务无纹理 6xxx 单测(输入不可达)。
 
     /// B 链端到端(带工具链 → 真跑直到 `signature_gate::check`;缺失 → SKIP 不 fail)。
     /// vertex + fragment 各一例。
@@ -1774,7 +1774,7 @@ mod tests {
     }
 
     /// 阶段间接口错链经 [`emit_stage_link_error`] 落 `RX6014`
-    /// `codegen.dxil_stage_link_mismatch`(RXS-0160;owner 裁定方案 B 新开码,
+    /// `codegen.dxil_stage_link_mismatch`(RXS-0160;agent 裁定方案 B 新开码,
     /// 不复用 RX6011),两类错链(`Unlinked` / `LinkMismatch`)同落 RX6014。
     //@ spec: RXS-0160
     #[test]
@@ -1927,7 +1927,7 @@ mod tests {
     }
 
     /// reject:fragment 输入 varying(`extra`)在 vertex 输出无链接键 → `LinkError`
-    /// (错链;strict-only)→ 经 [`emit_stage_link_error`] 落 `RX6014`(owner 裁定方案 B
+    /// (错链;strict-only)→ 经 [`emit_stage_link_error`] 落 `RX6014`(agent 裁定方案 B
     /// 新开码,G2.3 PR-E2b-2)。
     //@ spec: RXS-0160
     #[test]
@@ -1946,7 +1946,7 @@ mod tests {
         let StageLinkOutcome::LinkError(err) = outcome else {
             panic!("错链应 LinkError,实得 {outcome:?}");
         };
-        // 错链经生产 emit 接缝落真实码 RX6014(替换 owner 裁码前的占位「6xxx」)。
+        // 错链经生产 emit 接缝落真实码 RX6014(替换 agent 裁码前的占位「6xxx」)。
         let diag = DiagCtxt::new();
         emit_stage_link_error(&diag, dummy_span(), &err);
         assert!(

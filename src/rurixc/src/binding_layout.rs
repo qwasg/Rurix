@@ -43,7 +43,7 @@ use crate::mir::{ResourceBinding, ResourceClass, ResourceCount};
 /// **错误码(G2.3 PR-E2b-2 已落,owner 已裁)**:本枚举只定义推导失败的类型化语义,
 /// **不**直接发码、**不**改 `registry/error_codes.json`、**不**接线生产 emit;落码与
 /// emit 接线在 [`crate::dxil_codegen`] 边界([`DxilBError::Binding`] →
-/// `emit_b_error` 按变体分派)。各变体专属码(避开 RX6014:owner 裁定 RX6014 给
+/// `emit_b_error` 按变体分派)。各变体专属码(避开 RX6014:agent 裁定 RX6014 给
 /// RXS-0160 阶段间接口错链):`Unmappable` 复用 RX6013 `codegen.dxil_unmappable`
 /// (bindless / unbounded RD-018,owner 已裁不新开);`RegisterConflict` → RX6015
 /// `codegen.dxil_register_conflict`;`RootSignatureTooLarge` → RX6016

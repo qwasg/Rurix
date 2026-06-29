@@ -1,6 +1,6 @@
 # A 路 DirectX 图形签名工作量评估 spike — 给 A-graphics 成本一个实测锚（2026-06-25）
 
-> 类型：**纯评估 spike**（Windows-only）。不裁 A/B/混合架构（硬规则 1，裁决权属 owner）、
+> 类型：**纯评估 spike**（Windows-only）。不裁 A/B/混合架构（硬规则 1，裁决权属 agent）、
 > 不改 Rurix src/spec/codegen、不动 D-131（维持 A）/D-205 pin/toolchain.rs、未向 llvm-project 公开提交。
 > 跟踪：`registry/deferred.json` **RD-010**（A/B 路径裁决取证）/ **RD-011**（dev-only patched llc）。
 > 关联：RFC-0003 §4.6/§9 Q-Builtin（禁区边界）/ `evidence/dxil_slice3_rxs0159_sig_disasm_round8.md`（空签名根因）/
@@ -17,11 +17,11 @@
 
 - **最小 SV-only**：estimated **~300-600 LOC / 3-4 文件**，跨前后端协同，**非孤立单点**。
 - **完整签名**（user varying + 插值 + packing + 多 RT）：estimated 增量 **~800-1500+ LOC**。
-- **packing 布局 = conformance**（复刻 dxc/D3D12 既定算法），**非自由 ABI 设计**——事实陈述供 owner 判是否仍需 Full RFC（不替 owner 落笔禁区，硬规则 5）。
+- **packing 布局 = conformance**（复刻 dxc/D3D12 既定算法），**非自由 ABI 设计**——事实陈述供 agent 判是否仍需 Full RFC（不替 agent 落笔禁区，硬规则 5）。
 - **carry-patch 不可行**（像 RD-011 那样）：最小 SV-only 是上游未实现的整块新功能（三处 FIXME），非浅修单点；上游 **#90504 / #57928 无在途 PR 可 cherry-pick**。
 - **PoC 硬锚**：~12 行 patch 即让 ISG1 出现真实 SV_Position（elemcount 0→1），但 validator **拒绝**（`0x80aa0013`，"Program Input Signature does not match expected for module"）——证明工作量不在 part emit（trivial），而在让模块一致编码签名。
 
-**取证落点**：与 slice3/B 苹果对苹果——A 路图形签名启动成本**高、跨前后端、周期长**，上游签名出口子任务**停滞无在途 PR**；证据偏向「图形成本远高于 compute」。裁决留 owner。
+**取证落点**：与 slice3/B 苹果对苹果——A 路图形签名启动成本**高、跨前后端、周期长**，上游签名出口子任务**停滞无在途 PR**；证据偏向「图形成本远高于 compute」。裁决留 agent。
 
 ---
 
@@ -86,9 +86,9 @@
 **分层结论**：SV 系统值语义名→D3DSystemValue 映射（SV_Position→Position）= RXS-0159 类型面已裁；
 register/mask **packing = conformance 复刻项**（既非类型面亦非自由 ABI 设计）。
 
-> **事实陈述供 owner 裁**（硬规则 5）：若 owner 认 packing 属 conformance 复刻（非自由 ABI），
+> **事实陈述供 agent 裁**（硬规则 5）：若 agent 认 packing 属 conformance 复刻（非自由 ABI），
 > 则 slice3/RFC §4.6(c) 标的「签名二进制布局 = FFI ABI 禁区、需 Full RFC」**可能降级为 conformance 说明**——
-> 但此判断由 owner 落笔，本 spike 只陈述「packing 无设计自由度、是 dxc/规范既定算法」这一事实，**不替 owner 改禁区条款**。
+> 但此判断由 agent 落笔，本 spike 只陈述「packing 无设计自由度、是 dxc/规范既定算法」这一事实，**不替 agent 改禁区条款**。
 
 ## 5. 工作量估算（分档，level=estimated）
 
@@ -164,7 +164,7 @@ py -3 ci\check_schemas.py    # PASS
 
 - **硬规则 1**：未裁 A/B/混合架构、未代签；结论只到「A-graphics 工作量 + 禁区归属 + carry-patch 可行性」。D-131 维持 A。
 - **硬规则 3/4**：源码行/上游 URL/PoC status/SHA256 全来自命令真实输出 + GitHub API + 隔离 LLVM 重建；工作量明确标 **estimated**；git 浅克隆致历史活跃度分析 **blocked**（如实记，改用 GitHub API）。
-- **硬规则 5**：勘察/PoC 仅读写隔离 LLVM 源码；**未在 Rurix 仓库落任何禁区(签名 ABI 布局)条款**——禁区归属(packing=conformance)只作「是否需 Full RFC」的事实陈述，不替 owner 落笔禁区内容。
+- **硬规则 5**：勘察/PoC 仅读写隔离 LLVM 源码；**未在 Rurix 仓库落任何禁区(签名 ABI 布局)条款**——禁区归属(packing=conformance)只作「是否需 Full RFC」的事实陈述，不替 agent 落笔禁区内容。
 - 不改 Rurix src/spec/codegen；不动 D-131/D-205 pin/toolchain.rs；未向 llvm-project 公开提交。
 - **evidence/ 不可篡改门**：既有 evidence 全部 byte-unchanged；仅新增 `dxil_a_graphics_sig_effort_20260625.json` + 本报告 + g2 schema + check_schemas 接线。
 - **隔离纪律**：LLVM PoC patch / 重建 llc / obj 隔离于 `H:\dxil-a-graphics-sig` + `H:\llvm-clean-82c5bce5-*` 不入库，digest 见证据 JSON `llvm_env`/`poc`。

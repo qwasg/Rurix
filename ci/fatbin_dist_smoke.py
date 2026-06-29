@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """生产分发 fatbin 冒烟(G1 CI_GATES §2 步骤 44,契约 G-G1-5,Mini-RFC/MR-0005 / RXS-0150~0152)。
 
-**check_* 守卫风格,不写 budget counter**(owner 裁:不立装载首启延迟性能门,仅功能冒烟 +
+**check_* 守卫风格,不写 budget counter**(agent 裁:不立装载首启延迟性能门,仅功能冒烟 +
 nightly 趋势)。两段机器复核闸门(反 YAML-only,CI_GATES §6.5):
 
   (a) host 段(总跑,无需 GPU/ptxas)——三类构造缺陷红绿自检 + 真实再分发审计:

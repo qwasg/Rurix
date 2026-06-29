@@ -1,6 +1,6 @@
 {
   "title": "RD-017 varying 语义名保名机制 spike 证据(选项① HLSL 边界改写)",
-  "description": "G2.4 RD-017 取证 spike(measured-first / blocked-honest):输出 varying / fragment 输入 varying 用户语义名经 HLSL 边界改写后,dxc 接受 + signature_gate 不放宽也过 + 物理 ABI 不变 + 确定性。纯取证非性能基准,不入 budget counter;golden bless / device 真跑 / RD-017 状态翻转归 owner(G-G2-4)。",
+  "description": "G2.4 RD-017 取证 spike(measured-first / blocked-honest):输出 varying / fragment 输入 varying 用户语义名经 HLSL 边界改写后,dxc 接受 + signature_gate 不放宽也过 + 物理 ABI 不变 + 确定性。纯取证非性能基准,不入 budget counter;golden bless / device 真跑 / RD-017 状态翻转归 agent(G-G2-4)。",
   "type": "object",
   "required": ["schema_version", "subject", "rd_ref", "status", "samples", "summary", "timestamp"],
   "additionalProperties": true,

@@ -14,7 +14,7 @@
 | R-102 | **LLVM NVPTX 边角 bug**（shfl 选择失败/sqrt 近似失效/ptxas 优化级正确性，r2） | 中 | 高 | pin LLVM 22.1.x；NVPTX 雷区回归集（[07](07_COMPILER_ARCHITECTURE.md) §7）；IR golden 锁形状；ptxas 干验证关卡 |
 | R-103 | **LLVM 版本升级税**长期复利（Triton 实证的持续成本，r2/r3） | 高 | 中 | 季度评估制；vendored 构建 + fork 补丁须带 upstream 链接（[10](10_GOVERNANCE.md) §8）；升级走独立里程碑不夹带 |
 | R-104 | **views 安全包络不够用**：真实 kernel 大量落 unsafe，安全卖点失效（Descend 边界，r5） | 中 | 高 | G0 软光栅/SPH 是包络压力测试（M7 验收要求 safe 覆盖率报告）；views 算子集按 deferred 清单迭代；包络外配 Sanitizer 纪律使 unsafe 仍可工程化 |
-| R-105 | **PTX 弱内存模型映射出错**（morally strong 条件未满足导致 silent 错果，r5） | 低 | 极高 | 映射条款人工落笔 + AI 禁区（D-406）；conformance 锚定；litmus 测试集（GPUMC 风格）进 nightly |
+| R-105 | **PTX 弱内存模型映射出错**（morally strong 条件未满足导致 silent 错果，r5） | 低 | 极高 | 映射条款由 agent 自主经 Full RFC 落笔（D-406 v2.0）；conformance 锚定；litmus 测试集（GPUMC 风格）进 nightly |
 | R-106 | **WDDM/TDR 现实**：长 kernel 超 2s 被杀、计时扭曲（r4/r11） | 高 | 中 | P-14 全套（环境画像/TDR lint/计时刷队列协议）；demo 设计避免单 kernel >100ms |
 | R-107 | **D3D12 interop 未知数**（G1）：external memory/semaphore 在消费级 WDDM 的行为差异 | 中 | 中 | G1 启动前 spike：纯 C 验证 interop 通路再做语言化；上一项目"先探测后承诺"模式 |
 | R-108 | **借用检查器+views 扩展的正确性**：soundness 漏洞 | 中 | 高 | 不相交证明走保守规则（拒绝可疑而非放行）；fuzz + conformance；RustBelt 式义务清单只锚定 unsafe 原语（不贪全栈证明，r5） |

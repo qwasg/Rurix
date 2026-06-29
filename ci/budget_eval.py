@@ -246,7 +246,7 @@ def eval_counter(entry: dict, strict: bool) -> None:
         # NVIDIA 再分发白名单审计 formal 激活(CI_GATES §4 第 2 项,M5.4 第 5 步);
         # 计数 = evidence/redistribution_audit_*.json 中 redistribution_surface_empty=true
         # 的报告数。机器事实(嵌入 PTX 无 __nv_*、libdevice.10.bc 不入产物);键于机器事实,
-        # 不键于 EULA 法律签署(裁决保持 pending-human-review,AI 不代签)。
+        # 不键于 EULA 法律签署(裁决保持 pending-human-review)。
         n = 0
         for f in (ROOT / "evidence").glob("redistribution_audit_*.json"):
             doc = json.loads(f.read_text(encoding="utf-8"))

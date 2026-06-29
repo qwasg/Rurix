@@ -71,7 +71,7 @@
     {
       "version": "v1.2",
       "date": "2026-06-15",
-      "change": "M6 close-out 终审:LSP 逐交互延迟阈值定档由白栀/owner 人工签署批准(硬规则 1,M6_CONTRACT §8.11)——保持 v1.1 落档的 completion 54.0 / definition 44.94 / publishDiagnostics 108.93 ms(实测 × 1.5,max 方向上界),该值已于 #36 随 main 落 measured_local 并受 ci/check_guardrails.py check_budget 0-byte 冻结,close-out **不改预算条目**(本 revision_log 追加仅记录 owner 批准定档,entries/measured/thresholds 0-byte)。budget_eval --strict = PASS(42/0,逐交互对阈达标 + 全局零 estimated 残留)"
+      "change": "M6 close-out 终审:LSP 逐交互延迟阈值定档由白栀/agent 自主签署批准(硬规则 1,M6_CONTRACT §8.11)——保持 v1.1 落档的 completion 54.0 / definition 44.94 / publishDiagnostics 108.93 ms(实测 × 1.5,max 方向上界),该值已于 #36 随 main 落 measured_local 并受 ci/check_guardrails.py check_budget 0-byte 冻结,close-out **不改预算条目**(本 revision_log 追加仅记录 agent 批准定档,entries/measured/thresholds 0-byte)。budget_eval --strict = PASS(42/0,逐交互对阈达标 + 全局零 estimated 残留)"
     }
   ]
 }

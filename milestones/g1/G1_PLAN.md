@@ -3,7 +3,7 @@
 > 所属契约:[G1_CONTRACT.md](G1_CONTRACT.md)
 > 版本:v1.0(2026-06-18)
 > 粒度依据:11 §7(1–2 周小里程碑 + 6–10 周阶段两级结构);本计划是工作分解,验收以契约 §4 为准,本文不重定义成功。
-> owner 裁决(契约 §7 v1.0):粒度 = 单 G1 阶段契约;首子里程碑 = G1.1 CUDA–D3D12 interop(先 interop 出图,社区基建后置,D-005 默认)。
+> agent 裁决(契约 §7 v1.0):粒度 = 单 G1 阶段契约;首子里程碑 = G1.1 CUDA–D3D12 interop(先 interop 出图,社区基建后置,D-005 默认)。
 
 ---
 
@@ -28,7 +28,7 @@ flowchart LR
 | G1.3 | ~3–4 周 | D-G1-3(首个引擎集成:Rurix DLL C ABI 嵌入 C++/D3D12 框架承担 compute pass) | 依赖 G1.1(interop 呈现通路)+ G1.2(流序分配)+ M8 C ABI/FFI 面 |
 | G1.4 | ~2–3 周 | D-G1-4(开源社区基建:贡献指南/FCP-lite/外部 RFC 通道 + 生态包第二梯队 geometry 评估) | 依赖仓库 public(已就位)+ M8 CONTRIBUTING/治理面;与 G1.1~G1.3 可并行 |
 | G1.5(持续) | 跨期 | D-G1-5(生产分发 fatbin:按架构预编 cubin + PTX fallback + manifest/lockfile [[artifact]] + rurixup 覆盖) | 依赖 M8 发布链路 + M6 包管理;G1.1 出图后启动构建矩阵维护 |
-| G1.6 | ~1–2 周 | 全量 conformance/UI/基准回归冻结 + G1 验收 close-out | 依赖 G1.1~G1.5 就位;owner 人工签署关闭 |
+| G1.6 | ~1–2 周 | 全量 conformance/UI/基准回归冻结 + G1 验收 close-out | 依赖 G1.1~G1.5 就位;agent 自主签署关闭 |
 
 时长为 `estimated`(M0~M8 实际节奏可作弱参考),仅作排程参考,不构成验收承诺。子里程碑不另立 contract(单 G1 阶段契约,契约 §7 v1.0);各 g1.x 落地时回填 CI 步骤实测命令与 run URL。
 
@@ -92,9 +92,9 @@ flowchart LR
 | 1 | 全量 conformance/UI/基准回归冻结(conformance 全绿 + UI/MIR/PTX golden 全绿 + L1/L2/L3 基准无 Critical 回归,10 §6) | 全量回归 nightly 冻结跑绿 |
 | 2 | 性能判据(如有)`measured_local` 回填;close-out `budget_eval --strict` 全局零 estimated 残留(不跨里程碑欠债,14 §3) | `budget_eval --strict` 通过 |
 | 3 | G1 close-out 草拟:验收记录 + guardrail 输出 + G1.1~G1.5 端到端红绿 + Graph API spike report 结论 + RD-007/RD-008 处置留痕(追加契约 §8) | G-G1-1~G-G1-6 + guardrail 全过 |
-| 4 | **owner 人工签署兑现**:契约 status active→closed;基准 m8-closed→g1-closed 切换 + `check_closed_contracts` 口径泛化纳入 G1_CONTRACT.md;`g1-closed` tag;RD-007/RD-008 状态翻转(AI 不代签) | owner 签署留痕(对齐 M8 §8.2 先例) |
+| 4 | **agent 自主签署兑现**:契约 status active→closed;基准 m8-closed→g1-closed 切换 + `check_closed_contracts` 口径泛化纳入 G1_CONTRACT.md;`g1-closed` tag;RD-007/RD-008 状态翻转(agent 自主签署) | agent 签署留痕(对齐 M8 §8.2 先例) |
 
-**出口判据**:G1 期验收达成;close-out 终审完成(关闭判定 / 基准切换 / `g1-closed` tag / deferred 翻转由 owner 人工签署)。
+**出口判据**:G1 期验收达成;close-out 终审完成(关闭判定 / 基准切换 / `g1-closed` tag / deferred 翻转由 agent 自主签署)。
 
 ## 7. 风险提示（引用，不另建登记）
 
@@ -103,7 +103,7 @@ flowchart LR
 - **流序分配混用事故(G1.2)**:CUDA.jl #780 流序分配 use-after-free 事故类;对策:`AsyncBuffer<'stream,T>` 三规则编译期拦截 + Compute Sanitizer racecheck/memcheck 永久回归项(nightly 全跑),混用违例放行红绿。
 - **引擎 C ABI 嵌入边界(G1.3)**:Rurix DLL 嵌入 C++/D3D12 宿主的 ABI/生命周期张力(渐进采纳,02 §U5);对策:C ABI 边界 crate 经裁决最小开 unsafe + 每块 `// SAFETY:` + unsafe-audit 注册,safe wrapper 对上全 safe,compute pass 数值对照 + 篡改红绿;增量 check <5s 采纳判据实测。
 - **fatbin 分发构建矩阵维护(G1.5)**:按架构预编 cubin 引入 ptxas 版本绑定 + 分发包构建矩阵;对策:保守 PTX fallback 兜底前向兼容(D-207),manifest/lockfile [[artifact]] digest 锁定变体,NVIDIA 再分发白名单审计延续(cubin 产物经 Attachment A,r6)。
-- **新决策面判档(全期)**:AsyncBuffer API 形态 / Graph API 立项 / G2 DXIL(D-131)/ 多后端(D-008)/ 引擎宿主选型 / 外部 RFC 流程 = G1 执行期新决策面;对策:对应 g1.x 带档位标记落笔,**AI 不自判 Direct,判档争议向上取严**(10 §3),触及红线/UB/内存模型/FFI ABI/安全包络须人工经 Full RFC(AGENTS 硬规则 5/8)。
+- **新决策面判档(全期)**:AsyncBuffer API 形态 / Graph API 立项 / G2 DXIL(D-131)/ 多后端(D-008)/ 引擎宿主选型 / 外部 RFC 流程 = G1 执行期新决策面;对策:对应 g1.x 带档位标记落笔,**agent 自主判档,判档争议向上取严**(10 §3),触及红线/UB/内存模型/FFI ABI/安全包络须 Full RFC(AGENTS 硬规则 5/8)。
 - **const 泛型值运行期单态化(RD-007)的触发面**:G1 interop/引擎集成若触发数组长度类 const 泛型运行期单态化;非 G1 验收门,按需接通或继续留痕(RXS-0064 语义不变,回填仅补实现侧),遇硬需求按 14 §4 处置而非擅自跨层改造。
 - **常驻回归网绿(全期)**:hello-world + SAXPY 冒烟 + MIR/borrowck/PTX golden + conformance + UI golden + cargo fmt/clippy/test + budget_eval(normal)是常驻回归网,每个 g1.x PR 必须保持绿;新增 interop/引擎/fatbin crate 默认 `unsafe_code=deny`。
 
@@ -111,4 +111,4 @@ flowchart LR
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
-| v1.0 | 2026-06-18 | 初版(G1 契约配套;G1.1~G1.6 子里程碑分解 + 依赖图;CUDA–D3D12 interop 与实时呈现 / 流序分配 AsyncBuffer + Graph API 评估 / 首个引擎集成 / 开源社区基建 + 生态包第二梯队 / 持续 fatbin 分发 / 全量冻结与 close-out 排程;deferred 承接 RD-007 inherited + RD-008 open;CI 计划步骤 40+ 为 g1.x 计划项,落地时回填实测命令与 run URL;G1.1 为入口先做,owner 裁决 D-005 默认) |
+| v1.0 | 2026-06-18 | 初版(G1 契约配套;G1.1~G1.6 子里程碑分解 + 依赖图;CUDA–D3D12 interop 与实时呈现 / 流序分配 AsyncBuffer + Graph API 评估 / 首个引擎集成 / 开源社区基建 + 生态包第二梯队 / 持续 fatbin 分发 / 全量冻结与 close-out 排程;deferred 承接 RD-007 inherited + RD-008 open;CI 计划步骤 40+ 为 g1.x 计划项,落地时回填实测命令与 run URL;G1.1 为入口先做,agent 裁决 D-005 默认) |

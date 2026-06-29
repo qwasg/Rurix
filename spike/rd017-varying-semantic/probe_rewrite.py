@@ -359,7 +359,7 @@ def probe() -> dict:
             "dxc": tool_version(dxc, ["--version"]),
             "spirv_cross": tool_version(cross, ["--version"]) or "(no --version)",
         },
-        "validator_note": "签名 validator(dxv/dxil.dll)为 owner pin 环境;本探针只测 dxc 接受 + 签名名存活 + ABI 中立 + 确定性,不代签 golden/device(G-G2-4 owner)。",
+        "validator_note": "签名 validator(dxv/dxil.dll)为 agent pin 环境;本探针只测 dxc 接受 + 签名名存活 + ABI 中立 + 确定性,不代签 golden/device(G-G2-4 owner)。",
         "samples": [],
     }
     if not (dxc and cross and _HAVE_DC):
@@ -369,7 +369,7 @@ def probe() -> dict:
     wd = Path(tempfile.mkdtemp(prefix="rd017_rewrite_"))
     for name, profile, sub, part, intent in SAMPLES:
         out["samples"].append(_run_sample(name, profile, sub, part, intent, dxc, cross, wd))
-    # 顶层判据汇总(供 owner / 报告速读)。
+    # 顶层判据汇总(供 agent / 报告速读)。
     measured = [s for s in out["samples"] if s.get("status") == "measured_local"]
     out["summary"] = {
         "samples_measured": len(measured),

@@ -931,6 +931,7 @@
     ],
     "RXS-0158": [
       "conformance/dxil/graphics/accept/fs_passthrough.rx",
+      "conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx",
       "conformance/dxil/graphics/accept/vs_varying.rx",
       "src/rurixc/src/dxil_codegen.rs"
     ],
@@ -946,12 +947,14 @@
       "src/rurixc/src/dxil_sig_gate.rs"
     ],
     "RXS-0161": [
+      "conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx",
       "conformance/dxil/graphics/accept/vs_varying.rx",
       "conformance/dxil/graphics/reject/vs_builtin_scalar_position.rx",
       "src/rurixc/src/dxil_codegen.rs",
       "src/rurixc/src/mir_build.rs"
     ],
     "RXS-0162": [
+      "conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx",
       "conformance/dxil/graphics/accept/vs_varying.rx",
       "src/rurixc/src/dxil_codegen.rs",
       "src/rurixc/src/dxil_sig_gate.rs"
@@ -981,6 +984,8 @@
       "src/uc04-demo/src/pso.rs"
     ],
     "RXS-0168": [
+      "conformance/dxil/graphics/accept/uc04_gbuffer_fs.rx",
+      "src/rurixc/tests/dxil_golden.rs",
       "src/uc04-demo/src/deferred.rs"
     ],
     "RXS-0169": [
@@ -992,9 +997,12 @@
     ],
     "RXS-0171": [
       "conformance/dxil/graphics/accept/fs_body_arith.rx",
+      "conformance/dxil/graphics/accept/uc04_gbuffer_fs.rx",
+      "conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx",
       "conformance/dxil/graphics/accept/vs_body_output.rx",
       "src/rurixc/src/dxil_codegen.rs",
-      "src/rurixc/src/dxil_spirv.rs"
+      "src/rurixc/src/dxil_spirv.rs",
+      "src/rurixc/tests/dxil_golden.rs"
     ],
     "RXS-0172": [
       "src/rurixc/src/dxil_codegen.rs"

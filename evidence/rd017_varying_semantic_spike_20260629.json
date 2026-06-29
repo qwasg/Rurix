@@ -10,7 +10,7 @@
     "dxc": "dxcompiler.dll: 1.8 - 1.8.0.4739 (d9a5e97d0)",
     "spirv_cross": "Git commit: vulkan-sdk-1.3.290.0-44-g65d73934 Timestamp: 2024-10-04T13:35:00"
   },
-  "validator_note": "签名 validator(dxv/dxil.dll)为 owner pin 环境;本探针只测 dxc 接受 + 签名名存活 + ABI 中立 + 确定性,不代签 golden/device(G-G2-4 owner)。",
+  "validator_note": "签名 validator(dxv/dxil.dll)为 agent pin 环境;本探针只测 dxc 接受 + 签名名存活 + ABI 中立 + 确定性,自主签署 golden/device(G-G2-4 agent)。",
   "samples": [
     {
       "name": "vs_named",

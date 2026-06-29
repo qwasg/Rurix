@@ -76,9 +76,9 @@ pub mod signature_gate {
 
     /// 阶段间接口链接核对失败(RXS-0160;strict-only)。
     ///
-    /// **错误码(G2.3 PR-E2b-2 已落,owner 裁定方案 B)**:错链经
+    /// **错误码(G2.3 PR-E2b-2 已落,agent 裁定方案 B)**:错链经
     /// [`crate::dxil_codegen::emit_stage_link_error`] 落 `RX6014`
-    /// `codegen.dxil_stage_link_mismatch`——owner 裁定**新开 RX6014**(6xxx 段当时下一
+    /// `codegen.dxil_stage_link_mismatch`——agent 裁定**新开 RX6014**(6xxx 段当时下一
     /// 空号;`RX6008`/`RX6009` 分别由 RD-012/RD-013 预留不复用),**不**复用 RX6011
     /// (RX6011 = 单阶段输出签名不一致,语义不同)。本枚举只定义链接核对的失败语义,
     /// **不**直接发码、**不**改 `registry/error_codes.json`(发码在 dxil_codegen 边界)。
@@ -173,7 +173,7 @@ pub mod signature_gate {
     ///
     /// # Errors
     /// 任一 fragment 输入 varying 错链 → 对应 [`StageLinkError`](strict-only;上层映射
-    /// 6xxx 并终止该联编产物,错误码归类待 owner 裁,见 [`StageLinkError`])。
+    /// 6xxx 并终止该联编产物,错误码归类待 agent 裁,见 [`StageLinkError`])。
     pub fn check_stage_link(
         vs_out_sig: &[IoSigElem],
         fs_in_sig: &[IoSigElem],
@@ -799,7 +799,7 @@ mod tests {
     //
     // `check_stage_link(vs_out_sig, fs_in_sig)` 以语义名等价为链接键核实 vertex 输出
     // varying ↔ fragment 输入 varying 的语义名 / 类型 / 插值一致性(builtin 系统值不参与,
-    // location 不比对 ABI 中立)。错链 → StageLinkError(strict-only;错误码归类待 owner)。
+    // location 不比对 ABI 中立)。错链 → StageLinkError(strict-only;错误码归类待 agent)。
 
     /// 链接一致的 vertex 输出集(position builtin out + color varying out +
     /// uv interpolate(perspective) out)。

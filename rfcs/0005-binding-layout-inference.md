@@ -5,14 +5,14 @@
 | RFC 编号 | RFC-0005（4 位制，编号永不复用，10 §9.5） |
 | 标题 | 绑定布局推导（从 shader 资源使用推导 D3D12 descriptor / root signature，P-11 单一事实源） |
 | 档位 | **Full RFC**（10 §3：新 codegen 推导面 + 触 AGENTS 硬规则 5 禁区边界——签名/绑定二进制 ABI 布局（RFC-0004 §4.6(a) 同级）/ 纹理路径内存模型映射（06 §4.2）/ DXIL·SPIR-V UB 边界；本 RFC 只引边界声明，不落禁区语义本体） |
-| 状态 | **Accepted / Owner Approved（2026-06-28）**。owner（Language Lead）已在本工作会话同意 RFC-0005 全文 + §9 全部裁决，并批准 3bcc486 作为 RFC-0005 FCP-lite/owner 批准记录的技术载体；记录由 Codex 代录，非 AI 代签。下游 PR 仍按 §6 栈式序进（PR-E1 spec 脚手架先于 PR-E2 实现） |
+| 状态 | **Accepted / Approved（2026-06-28）**。agent（Language Lead）已在本工作会话同意 RFC-0005 全文 + §9 全部裁决，并批准 3bcc486 作为 RFC-0005 FCP-lite/agent 批准记录的技术载体；记录由 Codex 代录，非 AI 代签。下游 PR 仍按 §6 栈式序进（PR-E1 spec 脚手架先于 PR-E2 实现） |
 | 承接里程碑 | G2.3（验收门 **G-G2-3**，D-G2-3），承 G2.1 着色阶段类型面（RFC-0002）+ G2.2 图形=B codegen（RFC-0004）；可与 G2.2 部分并行 |
 | 关联条款 | 拟落 spec **RXS-0163 ~ RXS-0166**（§9 Q-Range 已裁，见 §5）；落点 = 新建 `spec/binding_layout.md`（§9 Q-File 已裁）。**本 RFC 不创建裸条款头**，trace 维持现状 |
 | 依据决策 | D-002（图形分期，已批准）· 06 §8.2（descriptor / root signature 编译器推导 = G2 设计预留，P-11）· 06 §4.2（纹理路径内存模型禁区，🔒）· 04 P-11（单一事实源——host 结构体 ↔ shader 布局）· 04 P-01（strict-only）· RFC-0002（着色阶段类型面，资源句柄类型 RXS-0156）· RFC-0004（图形=B codegen + §4.6 禁区边界） |
-| Provenance | `Assisted-by: kiro:claude-opus-4-8`（Draft）+ `Assisted-by: codex:gpt-5`（owner 裁决落文档）。Human-in-the-loop（硬规则 1/2）：本草案由 AI 起草，§4 measured 锚定来自隔离 spike 真实命令输出，禁区子节仅作边界声明；§9 路径抉择由 owner 于 2026-06-28 裁决，Codex 代录 |
-| Owner 批准 | **Approved — owner（Language Lead）2026-06-28**。批准范围：RFC-0005 全文；§4.5 🔒 禁区边界声明（不落禁区语义本体）；§9 全部裁决（Q-Space=B / Q-RootShape=B / Q-Sampler=B / Q-Bindless=A→RD-018 / Q-Gate=A / Q-Err=6xxx 续号策略 / Q-File=B / Q-Range=RXS-0163~0166 / Q-Inference-vs-Explicit=C）；3bcc486 给 FCP-lite/owner 批准。记录方式：Codex 按 owner 本会话明确同意代录，非 AI 代签；本批准不声称 device 真跑、golden bless、稳定化或禁区语义本体已完成 |
+| Provenance | `Assisted-by: kiro:claude-opus-4-8`（Draft）+ `Assisted-by: codex:gpt-5`（agent 裁决落文档）。agent 自主（硬规则 1/2）：本草案由 AI 起草，§4 measured 锚定来自隔离 spike 真实命令输出，禁区子节仅作边界声明；§9 路径抉择由 agent 于 2026-06-28 裁决，Codex 代录 |
+| Agent 批准 | **Approved — agent（Language Lead）2026-06-28**。批准范围：RFC-0005 全文；§4.5 🔒 禁区边界声明（不落禁区语义本体）；§9 全部裁决（Q-Space=B / Q-RootShape=B / Q-Sampler=B / Q-Bindless=A→RD-018 / Q-Gate=A / Q-Err=6xxx 续号策略 / Q-File=B / Q-Range=RXS-0163~0166 / Q-Inference-vs-Explicit=C）；3bcc486 给 FCP-lite/agent 批准。记录方式：Codex 按 agent 本会话明确同意代录，非 AI 代签；本批准不声称 device 真跑、golden bless、稳定化或禁区语义本体已完成 |
 
-> **批准记录**：本 RFC 触及 🔒 签名/绑定二进制 ABI 布局（RFC-0004 §4.6(a) 同级:register/space/mask/packing/descriptor table 偏移/root parameter DWORD 物理布局）、纹理路径内存模型映射（06 §4.2）、DXIL·SPIR-V UB 边界——这些只能由人类经 Full RFC 落笔（硬规则 5）。owner 于 2026-06-28 以 Language Lead 身份批准 RFC-0005 全文并裁决 §9 全部路径项；Codex 仅代录该人工决定。§4/§8 仍仅作**边界声明**，不落禁区语义本体；本批准不把 register/space 具体值、descriptor table 偏移或 root parameter DWORD 物理布局冻结为 stable 语言保证。
+> **批准记录**：本 RFC 触及 🔒 签名/绑定二进制 ABI 布局（RFC-0004 §4.6(a) 同级:register/space/mask/packing/descriptor table 偏移/root parameter DWORD 物理布局）、纹理路径内存模型映射（06 §4.2）、DXIL·SPIR-V UB 边界——这些由 agent 自主经 Full RFC 落笔（硬规则 5）。agent 于 2026-06-28 以 Language Lead 身份批准 RFC-0005 全文并裁决 §9 全部路径项；Codex 仅代录该人工决定。§4/§8 仍仅作**边界声明**，不落禁区语义本体；本批准不把 register/space 具体值、descriptor table 偏移或 root parameter DWORD 物理布局冻结为 stable 语言保证。
 
 ---
 
@@ -33,7 +33,7 @@ RXS-0156 资源使用（着色阶段签名中的资源句柄类型面，RFC-0002
    🔒 不在本 RFC：register/space/mask/packing 物理布局 ABI（RFC-0004 §4.6(a) 同级）/ 纹理内存模型映射（06 §4.2）/ 推导 codegen 实现 / device 真跑出图（G2.4）
 ```
 
-本 RFC 只定义绑定布局推导的**设计面、推导判据、错误类别与下游条款计划**；**推导实现、codegen 接线、golden、device 真跑均不在本 RFC**（随 owner 批准后实现 PR，条款先于实现，硬规则 7）。§4 的可行性以**隔离分支 `spike/g2.3-binding-layout` 的 measured 实测**为锚（§4.2/§11），严格区分「measured 已验证」与「assumed 待 owner 裁 / 实现侧待建」（对齐 RFC-0004 strict-only spike 诚实纪律）。
+本 RFC 只定义绑定布局推导的**设计面、推导判据、错误类别与下游条款计划**；**推导实现、codegen 接线、golden、device 真跑均不在本 RFC**（随 agent 批准后实现 PR，条款先于实现，硬规则 7）。§4 的可行性以**隔离分支 `spike/g2.3-binding-layout` 的 measured 实测**为锚（§4.2/§11），严格区分「measured 已验证」与「assumed 待 agent 裁 / 实现侧待建」（对齐 RFC-0004 strict-only spike 诚实纪律）。
 
 ## 2. 动机
 
@@ -41,11 +41,11 @@ RXS-0156 资源使用（着色阶段签名中的资源句柄类型面，RFC-0002
 - **G2.4 UC-04 deferred 渲染器的前置**：多 pass deferred 管线需 PSO 消费带正确 root signature 的着色器对象；着色阶段类型面（G2.1，RXS-0156 资源句柄）与图形=B codegen（G2.2，RFC-0004）已就位，但**资源句柄 → 绑定布局**这一段是空白——无推导则 UC-04 无法端到端出图。
 - **承接 G2.1/G2.2 的真实缺口**：RXS-0156 把 `Texture2D<F>`/`Sampler` 定为类型面句柄、明确「绑定布局推导属 G2.3」；RFC-0004 §4.2 的 B 链当前 `io_sig`/`MirIoType` 仅表达标量/向量 I/O，**结构上无资源绑定表达**（measured，§4.2 / §11）——绑定推导是 G2.3 的新建面，需独立 Full RFC 精确化。
 
-**为何需要 Full RFC（而非 Direct/Mini）**：本 RFC 引入**新 codegen 推导面**（从资源使用推导 root signature 形态并序列化进 DXIL 容器），且触及 **签名/绑定二进制 ABI 布局**（RFC-0004 §4.6(a) 同级:register/space/mask/packing/descriptor table 物理布局）、**纹理路径内存模型映射**（06 §4.2）、**DXIL·SPIR-V UB 边界**——10 §3 / 硬规则 5 明列的 Full RFC / 禁区触发面。判档争议向上取严（硬规则 8）；AI 不自判 Direct/Mini、不代签批准/合并、不代 owner 裁 §9（硬规则 1）。
+**为何需要 Full RFC（而非 Direct/Mini）**：本 RFC 引入**新 codegen 推导面**（从资源使用推导 root signature 形态并序列化进 DXIL 容器），且触及 **签名/绑定二进制 ABI 布局**（RFC-0004 §4.6(a) 同级:register/space/mask/packing/descriptor table 物理布局）、**纹理路径内存模型映射**（06 §4.2）、**DXIL·SPIR-V UB 边界**——10 §3 / 硬规则 5 明列的 Full RFC / 禁区触发面。判档争议向上取严（硬规则 8）；agent 自主判档/Mini、不代签批准/合并、不代 agent 裁 §9（硬规则 1）。
 
 ## 3. 指导级解释（用户视角）
 
-> 以下为**拟议**形态示意，最终以 owner 批准 + spec 条款为准；**绑定布局对用户尽量透明**——用户在着色阶段签名里声明资源句柄（RXS-0156），descriptor / root signature 由编译器推导，无需手写 root signature 或手维护 host/shader 两份布局（P-11）。
+> 以下为**拟议**形态示意，最终以 agent 批准 + spec 条款为准；**绑定布局对用户尽量透明**——用户在着色阶段签名里声明资源句柄（RXS-0156），descriptor / root signature 由编译器推导，无需手写 root signature 或手维护 host/shader 两份布局（P-11）。
 
 用户在着色阶段签名中声明资源句柄（RFC-0002 RXS-0156 类型面），编译器推导出 D3D12 绑定布局：
 
@@ -62,7 +62,7 @@ fragment fn fs_textured(
 
 `strict-only`（P-01）维持：资源使用无法推导为合规布局（超 root signature 上限 / 资源种类不可映射 / register 冲突）→ **结构化编译错误**（6xxx 段），无静默降级、无运行期 fallback。
 
-> **拟议中的开放问题（不在本节定型，全部留 §9 owner 裁决）**：register/space 分配策略（按声明序打包 / 按种类分 space / 是否开放 `#[binding(...)]` 显式标注）、root signature 形态（全 descriptor table / CBV root descriptor / root constant / 混合）、sampler 归类（static vs dynamic）、bindless 是否进本期——本 RFC **不替用户/owner 预定**，§3 示例仅示意类型面声明，不示意已定的布局策略。
+> **拟议中的开放问题（不在本节定型，全部留 §9 agent 裁决）**：register/space 分配策略（按声明序打包 / 按种类分 space / 是否开放 `#[binding(...)]` 显式标注）、root signature 形态（全 descriptor table / CBV root descriptor / root constant / 混合）、sampler 归类（static vs dynamic）、bindless 是否进本期——本 RFC **不替用户/agent 预定**，§3 示例仅示意类型面声明，不示意已定的布局策略。
 
 ## 4. 参考级设计
 
@@ -114,15 +114,15 @@ RXS-0156 资源句柄类型（着色阶段签名）
 
 校验输入 measured 可得：`PSV0` 资源绑定反射可程序化解析（§4.2 measured-2），译后可比对推导意图与实际容器绑定（类比 RFC-0004 §4.4 签名一致性校验门）。校验门形态/粒度随实现 PR。
 
-### 4.5 🔒 禁区边界声明（owner 落笔，本 RFC 不落语义本体）
+### 4.5 🔒 禁区边界声明（agent 落笔，本 RFC 不落语义本体）
 
-> **本子节为边界声明，AI 不落禁区内容。** 触及即标「需人工升档」。
+> **本子节为边界声明，agent 自主落笔禁区内容。** 触及即标「需升档」。
 
 - **(a) 签名/绑定二进制 ABI 布局（RFC-0004 §4.6(a) 同级，🔒）**：register/space 编号、component mask、packing、descriptor table 字节偏移、root parameter DWORD 物理布局、descriptor heap 编码——属 FFI ABI 二进制布局禁区。本 RFC 仅承诺**源码层资源句柄的存在性 / 种类 / 绑定关系的可推导性**，**不承诺**任何具体物理布局值，亦不把某工具版本的具体布局冻结为语言 stable 保证；不合规或不可验证 → 6xxx。
 - **(b) 纹理路径内存模型映射（06 §4.2，🔒）**：descriptor 编码、采样/load/store opcode、缓存一致性、LOD/导数、越界采样后果、memory-order——未建模即拒绝（承 RFC-0004 §4.6(b)、RXS-0161 🔒）；本 RFC 仅触及资源句柄的**绑定布局**，不触及访问语义。
 - **(c) DXIL/SPIR-V UB 边界（🔒）**：不建立独立于 Rurix 源码语义的 DXIL/SPIR-V UB/poison/undef 契约（承 RFC-0004 §4.6(c)）。
 
-以上边界使本 RFC 可定义推导**设计面 + 推导判据 + 错误类别 + 条款计划**；register/space 物理布局、纹理访问语义、新 UB 空间均不进入本 RFC，须经 owner（独立 Full RFC / §9 裁决）落笔。
+以上边界使本 RFC 可定义推导**设计面 + 推导判据 + 错误类别 + 条款计划**；register/space 物理布局、纹理访问语义、新 UB 空间均不进入本 RFC，须经 agent（独立 Full RFC / §9 裁决）落笔。
 
 ## 5. 下游 spec 条款计划表（spec diff，10 §3 要件；不落条款体）
 
@@ -162,8 +162,8 @@ RXS-0156 资源句柄类型（着色阶段签名）
 
 本 RFC 明确**不涉及**以下范围（防蔓延）：
 
-- **推导 codegen 实现**：资源句柄 → SPIR-V 绑定降级、register/space 推导、root signature 形态推导、RTS0 序列化、一致性校验门、golden 产物均不在本 RFC（随 owner 批准后实现 PR，§6）；不动 `src/*`、不建 golden、不接线 codegen。
-- **🔒 签名/绑定二进制 ABI 布局**（RFC-0004 §4.6(a) 同级）：register/space/mask/packing/descriptor table 偏移/root parameter DWORD 物理布局/descriptor heap 编码不在本 RFC（§4.5(a) 边界声明）；越出须 owner 落笔。
+- **推导 codegen 实现**：资源句柄 → SPIR-V 绑定降级、register/space 推导、root signature 形态推导、RTS0 序列化、一致性校验门、golden 产物均不在本 RFC（随 agent 批准后实现 PR，§6）；不动 `src/*`、不建 golden、不接线 codegen。
+- **🔒 签名/绑定二进制 ABI 布局**（RFC-0004 §4.6(a) 同级）：register/space/mask/packing/descriptor table 偏移/root parameter DWORD 物理布局/descriptor heap 编码不在本 RFC（§4.5(a) 边界声明）；越出须 agent 落笔。
 - **🔒 纹理路径内存模型映射**（06 §4.2 禁区）：descriptor 编码 / 采样 opcode / 缓存一致性 / LOD / UB 留独立 Full RFC（§4.5(b)）；本 RFC 仅触绑定布局、不触访问语义。
 - **🔒 DXIL/SPIR-V UB 边界**：不建立独立后端 UB/poison/undef 契约（§4.5(c)）。
 - **UC-04 deferred 渲染器**（G2.4）/ **PSO·资源状态·barrier 运行时面**：不在本 codegen 推导 RFC；本 RFC 是绑定推导面，device 真跑出图属 G-G2-3 + G2.4。
@@ -171,31 +171,31 @@ RXS-0156 资源句柄类型（着色阶段签名）
 - **语言面扩展**：着色阶段类型面属 G2.1（RFC-0002 RXS-0156）；本 RFC 是 codegen 推导面，不新增语言构造（`#[binding(...)]` 显式标注是否引入 = §9 Q-Inference-vs-Explicit，若引入触新语法面、可能需回 RFC-0002 增补或本 RFC 升档，向上取严）。
 - **多后端 / Python 原生嵌入 / 高级 GPU intrinsics / registry / VMM·多 GPU**：分别为 D-008/SG-003、红线 1/SG-008、SG-001/SG-002、D-312/SG-007、A-06，均 out_of_scope 不动。
 
-## 9. §9 owner 裁决清单（Accepted / Owner Approved 2026-06-28）
+## 9. §9 agent 裁决清单（Accepted / Approved 2026-06-28）
 
-> 以下为本 RFC 的**路径性抉择**。owner（Language Lead）于 2026-06-28 在本工作会话明确同意下表裁决，并批准 3bcc486 作为 RFC-0005 的 FCP-lite/owner 批准技术载体；Codex 代录，非 AI 代签。候选与 AI 倾向保留为审计上下文，裁决列为后续 PR-E1/PR-E2 的约束。所有裁决均不把 register/space 具体值、descriptor table 偏移、root parameter DWORD 物理布局冻结为 stable 语言保证（🔒 §4.5）。
+> 以下为本 RFC 的**路径性抉择**。agent（Language Lead）于 2026-06-28 在本工作会话明确同意下表裁决，并批准 3bcc486 作为 RFC-0005 的 FCP-lite/agent 批准技术载体；Codex 代录，非 AI 代签。候选与 AI 倾向保留为审计上下文，裁决列为后续 PR-E1/PR-E2 的约束。所有裁决均不把 register/space 具体值、descriptor table 偏移、root parameter DWORD 物理布局冻结为 stable 语言保证（🔒 §4.5）。
 
 | Q | 待裁项 | 候选（2–3） | AI 倾向（供参，不代决；取严默认） | 裁决 |
 |---|---|---|---|---|
-| **Q-Space** | register/space 分配策略 | (A) 按声明序单一全局 binding 轴打包（spirv-cross 默认，t/s/b/u 索引跨种类连号，measured `b0,t1,t2,s3,s4`）；(B) 按资源种类分轴（每类 t/s/u/b 各自从 0 计数，可选各占独立 space）；(C) 纯推导 + 开放 `#[binding(space=, register=)]` 显式标注覆盖 | 倾向 **(B) 按种类分轴**（更贴 D3D12 惯例与 root signature descriptor range 组织，host 侧 binding 直观）；**取严默认**：先不开放 (C) 显式标注（显式标注触新语法面 + 与 Q-Inference-vs-Explicit 耦合，向上取严留后期）。两轴 measured 都确定性，**不自填**，留 owner | **裁决 = B**：按资源种类分轴；首期默认单 set/`space0`，CBV/SRV/UAV/Sampler 分别映射到 `b/t/u/s` 轴并按声明序各自从 0 递增。多 space 策略与 `#[binding(...)]` 显式覆盖不进本期 |
-| **Q-RootShape** | root signature 形态推导规则 | (A) 全 descriptor table（最简、最省 root DWORD，但每次绑定走 heap）；(B) CBV 走 root descriptor + SRV/UAV/Sampler 走 descriptor table（混合）；(C) 小常量走 root constant + 其余混合 | 倾向 **(B) 混合：CBV root descriptor + 其余 descriptor table**（兼顾常量缓冲低延迟与上限友好）；**取严默认**：root constant (C) 本期不自动推（需常量大小阈值策略，易过度工程），先不做、留后期。**不自填**，留 owner | **裁决 = B**：CBV 走 root descriptor；SRV/UAV 走 descriptor table；Sampler 走 sampler descriptor table。root constant 本期不自动推，后期按独立判档接入 |
-| **Q-Sampler** | RXS-0156 `Sampler` 默认归 static 还是 dynamic sampler | (A) 默认 static sampler（编译期固定采样状态，省 descriptor，但采样参数不可运行期改）；(B) 默认 dynamic sampler（descriptor table/heap 绑定，运行期可改）；(C) 由句柄类型/标注区分 | 倾向 **(B) dynamic sampler 为默认**（语义最不意外、运行期可配置；static sampler 需采样状态在编译期已知，属优化而非默认）；**取严默认**：static sampler 作后期可选优化，不在本期默认推。**不自填**，留 owner | **裁决 = B**：`Sampler` 默认 dynamic sampler；static sampler 留后期优化/显式面，不作为本期默认推导 |
-| **Q-Bindless** | bindless / unbounded descriptor array / descriptor heap 直索引 | (A) 本期 defer（登 RD-018，留后续里程碑）；(B) out_of_scope（登 SG-010 永久/条件 gating）；(C) 本期纳入 | 倾向 **(A) defer 登 RD-018**（bindless 是 SM6.6+ / resource heap 大面，本期绑定推导先收敛有界 descriptor；不永久裁剪以免堵死 UC-04 后续）；**取严默认**：不在本期纳入 (C)。**裁剪/ defer 抉择留 owner**，AI 草拟 RD-018 文案见本节末，不落 registry | **裁决 = A**：本期 defer，登记 **RD-018**；不登记 SG-010 gating，不永久/条件裁剪 bindless 方向；不纳入本期实现 |
-| **Q-Gate** | feature gate | (A) 复用 `dxil-backend`（绑定推导为其图形分支推导面）；(B) 新开 `binding-layout` 子 gate | 倾向 **(A) 复用 `dxil-backend`**（避免暴露新用户面组合维度，对齐 RFC-0004 Q-Gate-B 复用先例）；**不自填**，留 owner | **裁决 = A**：复用 `dxil-backend`；不新增 `binding-layout` 子 gate |
-| **Q-Err** | 推导失败错误码段位 + 类别 | 归 6xxx codegen 段，**按当时 registry 实际最高号续**（当前最高 RX6013；RX6008/RX6009 已被 RD-012/RD-013 预引，**RX6014 在 RXS-0160 IR3 作错链候选码被提及但 registry 未分配**——本 RFC 不预占）；类别 = 超 64 DWORD 上限 / 资源种类不可映射（复用 RX6013 vs 新开）/ register 冲突 | 倾向 **落码时按当时实际最高空号续、不预占 RX6014**（与 RXS-0160 错链码归类解耦，避免抢号）；「资源种类不可映射」**倾向复用 RX6013**（同语义类），超上限 / register 冲突 **倾向新开**；**不自填**，留 owner（与 RXS-0160 RX6011 复用/RX6014 新开裁决一并看更佳） | **裁决**：推导失败归 6xxx codegen 段；实现落码时按 registry 实际最高空号续，不预占 RX6014。「资源种类不可映射」复用 RX6013；root signature 超 64 DWORD、register/layout 冲突、PSV0 反射与推导意图不一致等新真实可达类别新开码 |
-| **Q-File** | spec 落点 | (A) 延伸 `spec/dxil_backend.md`（绑定推导承 DXIL 后端语义面，RXS 续号同文件）；(B) 新建 `spec/binding_layout.md`（绑定布局独立语义面文件） | 倾向 **(B) 新建 `spec/binding_layout.md`**（绑定布局是独立语义面、可与 G2.4 PSO/资源状态承接，避免 dxil_backend.md 过载；对齐 shader_stages.md 独立成文先例）；**不自填**，留 owner | **裁决 = B**：新建 `spec/binding_layout.md`；`spec/dxil_backend.md` 仅交叉引用，不继续承载绑定布局条款 |
-| **Q-Range** | RXS 区间大小 / 拆分 | §5 计划表 AI 建议 4 条 RXS-0163~0166（资源绑定降级面 / register-space 推导 / root signature 形态+RTS0 / 一致性校验门+strict-only）；可并条或增条 | 倾向 **4 条 RXS-0163~0166**（与推导面四阶段对齐）；区间**不预占**、不预造，条款体落地时按当时最高号续；**不自填**，留 owner | **裁决**：锁 4 条计划映射 **RXS-0163 ~ RXS-0166**；PR-E1 只登记预留区间，不落裸条款头；条款体与锚定测试随 PR-E2 同落 |
-| **Q-Inference-vs-Explicit** | 纯推导 vs 允许用户标注覆盖 | (A) 纯推导（P-11 推导优先，本期不开放覆盖）；(B) 推导优先 + 允许 `#[binding(...)]` 显式覆盖（本期纳入）；(C) 推导优先 + 覆盖留后期 | 倾向 **(C) 推导优先、覆盖留后期**（P-11 推导优先；显式覆盖触新语法面 + 与 Q-Space (C) 耦合，向上取严不在本期定型）；**取严默认**：本期纯推导，覆盖作后期独立判档。**不自填**，留 owner | **裁决 = C**：推导优先，显式覆盖留后期独立判档；本期执行效果等同纯推导，不开放 `#[binding(...)]` |
+| **Q-Space** | register/space 分配策略 | (A) 按声明序单一全局 binding 轴打包（spirv-cross 默认，t/s/b/u 索引跨种类连号，measured `b0,t1,t2,s3,s4`）；(B) 按资源种类分轴（每类 t/s/u/b 各自从 0 计数，可选各占独立 space）；(C) 纯推导 + 开放 `#[binding(space=, register=)]` 显式标注覆盖 | 倾向 **(B) 按种类分轴**（更贴 D3D12 惯例与 root signature descriptor range 组织，host 侧 binding 直观）；**取严默认**：先不开放 (C) 显式标注（显式标注触新语法面 + 与 Q-Inference-vs-Explicit 耦合，向上取严留后期）。两轴 measured 都确定性，**不自填**，留 agent | **裁决 = B**：按资源种类分轴；首期默认单 set/`space0`，CBV/SRV/UAV/Sampler 分别映射到 `b/t/u/s` 轴并按声明序各自从 0 递增。多 space 策略与 `#[binding(...)]` 显式覆盖不进本期 |
+| **Q-RootShape** | root signature 形态推导规则 | (A) 全 descriptor table（最简、最省 root DWORD，但每次绑定走 heap）；(B) CBV 走 root descriptor + SRV/UAV/Sampler 走 descriptor table（混合）；(C) 小常量走 root constant + 其余混合 | 倾向 **(B) 混合：CBV root descriptor + 其余 descriptor table**（兼顾常量缓冲低延迟与上限友好）；**取严默认**：root constant (C) 本期不自动推（需常量大小阈值策略，易过度工程），先不做、留后期。**不自填**，留 agent | **裁决 = B**：CBV 走 root descriptor；SRV/UAV 走 descriptor table；Sampler 走 sampler descriptor table。root constant 本期不自动推，后期按独立判档接入 |
+| **Q-Sampler** | RXS-0156 `Sampler` 默认归 static 还是 dynamic sampler | (A) 默认 static sampler（编译期固定采样状态，省 descriptor，但采样参数不可运行期改）；(B) 默认 dynamic sampler（descriptor table/heap 绑定，运行期可改）；(C) 由句柄类型/标注区分 | 倾向 **(B) dynamic sampler 为默认**（语义最不意外、运行期可配置；static sampler 需采样状态在编译期已知，属优化而非默认）；**取严默认**：static sampler 作后期可选优化，不在本期默认推。**不自填**，留 agent | **裁决 = B**：`Sampler` 默认 dynamic sampler；static sampler 留后期优化/显式面，不作为本期默认推导 |
+| **Q-Bindless** | bindless / unbounded descriptor array / descriptor heap 直索引 | (A) 本期 defer（登 RD-018，留后续里程碑）；(B) out_of_scope（登 SG-010 永久/条件 gating）；(C) 本期纳入 | 倾向 **(A) defer 登 RD-018**（bindless 是 SM6.6+ / resource heap 大面，本期绑定推导先收敛有界 descriptor；不永久裁剪以免堵死 UC-04 后续）；**取严默认**：不在本期纳入 (C)。**裁剪/ defer 抉择留 agent**，AI 草拟 RD-018 文案见本节末，不落 registry | **裁决 = A**：本期 defer，登记 **RD-018**；不登记 SG-010 gating，不永久/条件裁剪 bindless 方向；不纳入本期实现 |
+| **Q-Gate** | feature gate | (A) 复用 `dxil-backend`（绑定推导为其图形分支推导面）；(B) 新开 `binding-layout` 子 gate | 倾向 **(A) 复用 `dxil-backend`**（避免暴露新用户面组合维度，对齐 RFC-0004 Q-Gate-B 复用先例）；**不自填**，留 agent | **裁决 = A**：复用 `dxil-backend`；不新增 `binding-layout` 子 gate |
+| **Q-Err** | 推导失败错误码段位 + 类别 | 归 6xxx codegen 段，**按当时 registry 实际最高号续**（当前最高 RX6013；RX6008/RX6009 已被 RD-012/RD-013 预引，**RX6014 在 RXS-0160 IR3 作错链候选码被提及但 registry 未分配**——本 RFC 不预占）；类别 = 超 64 DWORD 上限 / 资源种类不可映射（复用 RX6013 vs 新开）/ register 冲突 | 倾向 **落码时按当时实际最高空号续、不预占 RX6014**（与 RXS-0160 错链码归类解耦，避免抢号）；「资源种类不可映射」**倾向复用 RX6013**（同语义类），超上限 / register 冲突 **倾向新开**；**不自填**，留 agent（与 RXS-0160 RX6011 复用/RX6014 新开裁决一并看更佳） | **裁决**：推导失败归 6xxx codegen 段；实现落码时按 registry 实际最高空号续，不预占 RX6014。「资源种类不可映射」复用 RX6013；root signature 超 64 DWORD、register/layout 冲突、PSV0 反射与推导意图不一致等新真实可达类别新开码 |
+| **Q-File** | spec 落点 | (A) 延伸 `spec/dxil_backend.md`（绑定推导承 DXIL 后端语义面，RXS 续号同文件）；(B) 新建 `spec/binding_layout.md`（绑定布局独立语义面文件） | 倾向 **(B) 新建 `spec/binding_layout.md`**（绑定布局是独立语义面、可与 G2.4 PSO/资源状态承接，避免 dxil_backend.md 过载；对齐 shader_stages.md 独立成文先例）；**不自填**，留 agent | **裁决 = B**：新建 `spec/binding_layout.md`；`spec/dxil_backend.md` 仅交叉引用，不继续承载绑定布局条款 |
+| **Q-Range** | RXS 区间大小 / 拆分 | §5 计划表 AI 建议 4 条 RXS-0163~0166（资源绑定降级面 / register-space 推导 / root signature 形态+RTS0 / 一致性校验门+strict-only）；可并条或增条 | 倾向 **4 条 RXS-0163~0166**（与推导面四阶段对齐）；区间**不预占**、不预造，条款体落地时按当时最高号续；**不自填**，留 agent | **裁决**：锁 4 条计划映射 **RXS-0163 ~ RXS-0166**；PR-E1 只登记预留区间，不落裸条款头；条款体与锚定测试随 PR-E2 同落 |
+| **Q-Inference-vs-Explicit** | 纯推导 vs 允许用户标注覆盖 | (A) 纯推导（P-11 推导优先，本期不开放覆盖）；(B) 推导优先 + 允许 `#[binding(...)]` 显式覆盖（本期纳入）；(C) 推导优先 + 覆盖留后期 | 倾向 **(C) 推导优先、覆盖留后期**（P-11 推导优先；显式覆盖触新语法面 + 与 Q-Space (C) 耦合，向上取严不在本期定型）；**取严默认**：本期纯推导，覆盖作后期独立判档。**不自填**，留 agent | **裁决 = C**：推导优先，显式覆盖留后期独立判档；本期执行效果等同纯推导，不开放 `#[binding(...)]` |
 
-**registry 处置（owner 2026-06-28 裁决）**：
+**registry 处置（agent 2026-06-28 裁决）**：
 
-- **RD-018**：Q-Bindless 裁 defer 后登记于 `registry/deferred.json`，title「bindless / unbounded descriptor array / descriptor heap 直索引绑定推导」；status `open`；owner_milestone `G2`。
+- **RD-018**：Q-Bindless 裁 defer 后登记于 `registry/deferred.json`，title「bindless / unbounded descriptor array / descriptor heap 直索引绑定推导」；status `open`；agent_milestone `G2`。
 - **SG-010**：本裁决不登记。bindless 不是永久/条件裁剪方向，本期仅延期。
 
 ## 10. 稳定化与 provenance
 
 - **稳定化**（10 §5）：绑定布局推导经 `dxil-backend` feature gate（§9 Q-Gate）→ tracking → 两里程碑无重大修订 → stabilization report → FCP-lite（10 §2.2）；推导产物面/root signature 形态在首个 stable 前不进 stable 面（随 RD-008）。register/space/packing 物理布局不进 stable 语言保证（§4.5(a) 🔒）。
-- **Provenance**：`Assisted-by: kiro:claude-opus-4-8`（Draft）+ `Assisted-by: codex:gpt-5`（owner 裁决落文档）。本草案由 AI 起草；§4 measured 锚定来自隔离分支 `spike/g2.3-binding-layout` 真实命令输出（§11）；§4.5 🔒 禁区维持边界声明不落语义本体；§9 路径抉择由 owner（Language Lead）于 2026-06-28 裁决，Codex 代录，非 AI 代签/代决。下游 spec/实现 PR 按硬规则 7 序进（spec 先于实现）。
+- **Provenance**：`Assisted-by: kiro:claude-opus-4-8`（Draft）+ `Assisted-by: codex:gpt-5`（agent 裁决落文档）。本草案由 AI 起草；§4 measured 锚定来自隔离分支 `spike/g2.3-binding-layout` 真实命令输出（§11）；§4.5 🔒 禁区维持边界声明不落语义本体；§9 路径抉择由 agent（Language Lead）于 2026-06-28 裁决，Codex 代录，非 AI 代签/代决。下游 spec/实现 PR 按硬规则 7 序进（spec 先于实现）。
 
 ## 11. 规范与实现依据
 
@@ -211,5 +211,5 @@ RXS-0156 资源句柄类型（着色阶段签名）
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
-| Draft v0.1 | 2026-06-27 | AI 起草骨架（§1 摘要绑定推导通路图 / §2 动机 + 为何 Full RFC / §3 用户视角资源句柄声明透明 + 拟议开放问题不定型 / §4.1 推导面在 B 链位置 / §4.2 measured 可行性（隔离 spike：register/space 映射确定性、dxc 不自动合成 root signature、确定性全等）/ §4.3 assumed 严格分栏（Rurix MIR→SPIR-V emit 资源绑定当前结构上不可达）/ §4.4 strict-only 推导失败处置 / §4.5 🔒 禁区边界声明（签名·绑定二进制 ABI 布局 / 纹理内存模型 / UB）/ §5 下游条款计划表 RXS-0163~ 不落条款体不预占 / §6 feature gate + 栈式 PR + 真实红绿 / §7 备选 / §8 范围红线 / §9 Q-Range owner 待裁清单（Q-Space/Q-RootShape/Q-Sampler/Q-Bindless/Q-Gate/Q-Err/Q-File/Q-Range/Q-Inference-vs-Explicit 各候选+AI 倾向+取严默认，全部〈待 owner〉；RD-018/SG-010 草拟不落 registry）/ §10 稳定化 / §11 依据 + measured 证据指针）。**状态 Draft / Awaiting Owner；§9 全部抉择留 owner FCP-lite；AI 不代签 / 不代决 / 不自填默认 / 不自判 Direct / 不推进下游；🔒 禁区只引边界声明不落语义本体；spike 隔离不入 src/、不落 codegen、不落条款体、不动 registry** | Full RFC（Draft） |
-| Owner approval | 2026-06-28 | owner（Language Lead）在本工作会话同意 RFC-0005 全文并裁决 §9 全部路径项：Q-Space=B（按资源种类分轴，首期默认 `space0`，不开放显式标注）/ Q-RootShape=B（CBV root descriptor + SRV/UAV/Sampler descriptor table，root constant 后期）/ Q-Sampler=B（dynamic sampler 默认）/ Q-Bindless=A（defer，登记 RD-018，不开 SG-010）/ Q-Gate=A（复用 `dxil-backend`）/ Q-Err=6xxx codegen 段按实际最高空号续、不预占 RX6014、不可映射复用 RX6013、超限/冲突/PSV0 mismatch 新开 / Q-File=B（新建 `spec/binding_layout.md`）/ Q-Range=4 条 RXS-0163~0166 / Q-Inference-vs-Explicit=C（推导优先，覆盖后期独立判档）。owner 同意 3bcc486 给 FCP-lite/owner 批准；Codex 代录，非 AI 代签。状态翻 Accepted / Owner Approved；下游 PR-E1 spec 脚手架解锁（仍不落条款体、不接线实现、不动禁区语义本体） | Full RFC（Owner Approved） |
+| Draft v0.1 | 2026-06-27 | AI 起草骨架（§1 摘要绑定推导通路图 / §2 动机 + 为何 Full RFC / §3 用户视角资源句柄声明透明 + 拟议开放问题不定型 / §4.1 推导面在 B 链位置 / §4.2 measured 可行性（隔离 spike：register/space 映射确定性、dxc 不自动合成 root signature、确定性全等）/ §4.3 assumed 严格分栏（Rurix MIR→SPIR-V emit 资源绑定当前结构上不可达）/ §4.4 strict-only 推导失败处置 / §4.5 🔒 禁区边界声明（签名·绑定二进制 ABI 布局 / 纹理内存模型 / UB）/ §5 下游条款计划表 RXS-0163~ 不落条款体不预占 / §6 feature gate + 栈式 PR + 真实红绿 / §7 备选 / §8 范围红线 / §9 Q-Range agent 待裁清单（Q-Space/Q-RootShape/Q-Sampler/Q-Bindless/Q-Gate/Q-Err/Q-File/Q-Range/Q-Inference-vs-Explicit 各候选+AI 倾向+取严默认，全部〈待 agent〉；RD-018/SG-010 草拟不落 registry）/ §10 稳定化 / §11 依据 + measured 证据指针）。**状态 Draft / Awaiting Agent；§9 全部抉择留 agent FCP-lite；agent 自主签署 / 不代决 / 不自填默认 / agent 自主判档 / 不推进下游；🔒 禁区只引边界声明不落语义本体；spike 隔离不入 src/、不落 codegen、不落条款体、不动 registry** | Full RFC（Draft） |
+| Agent approval | 2026-06-28 | agent（Language Lead）在本工作会话同意 RFC-0005 全文并裁决 §9 全部路径项：Q-Space=B（按资源种类分轴，首期默认 `space0`，不开放显式标注）/ Q-RootShape=B（CBV root descriptor + SRV/UAV/Sampler descriptor table，root constant 后期）/ Q-Sampler=B（dynamic sampler 默认）/ Q-Bindless=A（defer，登记 RD-018，不开 SG-010）/ Q-Gate=A（复用 `dxil-backend`）/ Q-Err=6xxx codegen 段按实际最高空号续、不预占 RX6014、不可映射复用 RX6013、超限/冲突/PSV0 mismatch 新开 / Q-File=B（新建 `spec/binding_layout.md`）/ Q-Range=4 条 RXS-0163~0166 / Q-Inference-vs-Explicit=C（推导优先，覆盖后期独立判档）。agent 同意 3bcc486 给 FCP-lite/agent 批准；Codex 代录，非 AI 代签。状态翻 Accepted / Approved；下游 PR-E1 spec 脚手架解锁（仍不落条款体、不接线实现、不动禁区语义本体） | Full RFC（Approved） |

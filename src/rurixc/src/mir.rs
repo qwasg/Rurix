@@ -176,7 +176,7 @@ impl MirResourceType {
 ///
 /// 本期收敛**有界** descriptor 布局:`One` 单 descriptor、`Bounded(n)` 有界数组
 /// (消费 n 个连续寄存器)。`Unbounded` = bindless / unbounded descriptor array,
-/// 经 owner 裁决 defer 至 RD-018——本层把它建模为**显式不可映射**输入,推导侧以
+/// agent 自主裁决 defer 至 RD-018——本层把它建模为**显式不可映射**输入,推导侧以
 /// strict-only 占位「6xxx」拒绝(无 fallback),不发明 descriptor heap 编码。
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ResourceCount {

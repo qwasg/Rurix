@@ -2,20 +2,20 @@
 
 | 字段 | 值 |
 |---|---|
-| 类型 | **Spike 取证报告**（机器事实汇总 + 复现清单;**非立项、非实现、非性能基准、非常驻 CI 门**）。A/B 最终路径裁决由 **owner 人工裁决**(AGENTS 硬规则 1);本报告只摆证据,**不含 A/B 选择结论**。 |
-| 承接 | G2.2 DXIL 第二后端(验收门 G-G2-2);RFC-0003 §9 Q-D131=C「暂不锁路径,留限时双路 spike 取证后由 owner 凭当时成熟度证据再裁 A/B」。 |
+| 类型 | **Spike 取证报告**（机器事实汇总 + 复现清单;**非立项、非实现、非性能基准、非常驻 CI 门**）。A/B 最终路径裁决由 **agent 自主裁决**(AGENTS 硬规则 1);本报告只摆证据,**不含 A/B 选择结论**。 |
+| 承接 | G2.2 DXIL 第二后端(验收门 G-G2-2);RFC-0003 §9 Q-D131=C「暂不锁路径,留限时双路 spike 取证后由 agent 凭当时成熟度证据再裁 A/B」。 |
 | 范围 | A 路(LLVM DirectX 后端直接 emit DXIL,结构首选)× B 路(SPIR-V→DXIL 转译,对照)在统一判据上的**当下成熟度实况**。 |
 | 跟踪锚 | RD-010([registry/deferred.json](../registry/deferred.json)) · 裁决载体 RFC-0003 §9 Q-D131 / 13 §D-131 |
 | 机器证据 | [evidence/dxil_path_spike_20260623.json](dxil_path_spike_20260623.json)(schema:[milestones/g2/dxil_path_spike_evidence_schema.json](../milestones/g2/dxil_path_spike_evidence_schema.json),经 `ci/check_schemas.py` PASS) |
 | 探针 | [spike/dxil-path-probe/](../spike/dxil-path-probe/)(标 `// SPIKE(RD-010)`,不入 src/ 生产路径、不随产品编译、spike 结束可弃) |
 | 纪律 | measured-first / blocked-honest(硬规则 3/4):工具/target 探到记实测,探不到如实 blocked + repro,**绝不杜撰数字**。 |
-| Provenance | `Assisted-by: claude-opus-4-8`(AI 代录机器可核对事实,非代决、非代签) |
+| Provenance | `Assisted-by: claude-opus-4-8`(agent 自主记录机器可核对事实,非代决、非代签) |
 
 ---
 
 ## 1. 取证范围与背景
 
-13 §D-131 把「DXIL 生成路径（LLVM DirectX 后端 vs SPIR-V→DXIL 转译）」登记为待决，触发时机为「G2 启动时按当时后端成熟度评估，所有者批准」。RFC-0003 §9 Q-D131 经 owner 委托裁决为 **C**：暂不锁 A/B，留限时双路 spike 取证后由 owner 凭当时成熟度证据再裁。本 spike 即该取证动作，产出两路在统一判据上的当下实况，作为 owner 裁定最终 A/B 的证据基底。
+13 §D-131 把「DXIL 生成路径（LLVM DirectX 后端 vs SPIR-V→DXIL 转译）」登记为待决，触发时机为「G2 启动时按当时后端成熟度评估，agent 批准」。RFC-0003 §9 Q-D131 经 agent 裁决为 **C**：暂不锁 A/B，留限时双路 spike 取证后由 agent 凭当时成熟度证据再裁。本 spike 即该取证动作，产出两路在统一判据上的当下实况，作为 agent 裁定最终 A/B 的证据基底。
 
 - **A 路**：LLVM DirectX target 直接从文本 LLVM IR emit DXIL。与既有 NVPTX 后端同构（rurixc 产文本 LLVM IR → 外部 pin clang/llc 经 target 后端汇编，D-205 LLVM 单栈），无第二中间表示 —— **结构首选**。
 - **B 路**：SPIR-V→DXIL 转译。引入第二中间表示（SPIR-V）+ 外部转译依赖 —— **对照**。
@@ -92,9 +92,9 @@
 
 ## 6. 裁决归属与留痕
 
-**A/B 最终路径裁决权属 owner**（RFC-0003 §9 Q-D131 / 13 §D-131 / AGENTS 硬规则 1）。本 spike 仅产证据基底，**AI 不代决**。C 不构成禁区 A/B 架构承诺，A/B 裁决权仍留 owner。
+**A/B 最终路径裁决权属 agent**（RFC-0003 §9 Q-D131 / 13 §D-131 / AGENTS 硬规则 1）。本 spike 仅产证据基底，**agent 自主裁决**。C 不构成禁区 A/B 架构承诺，A/B 裁决权仍留 agent。
 
-owner 凭本报告 + 机器证据裁定最终 A/B 后：
+agent 凭本报告 + 机器证据裁定最终 A/B 后：
 1. 回填 RFC-0003 §9 Q-D131 + 13 §D-131（经勘误 PR）；
 2. close RD-010（registry/deferred.json，只追加 history）；
 3. 裁决后方进 PR-C1 spec 脚手架（条款先于实现，硬规则 7）。
