@@ -71,6 +71,21 @@ fn run_dxil(src: &str, module: &str) -> (Option<String>, Vec<u16>) {
     (ir, codes)
 }
 
+fn spirv_opcodes(module: &[u32]) -> Vec<u16> {
+    let mut out = Vec::new();
+    let mut i = 5;
+    while i < module.len() {
+        let word = module[i];
+        let wc = (word >> 16) as usize;
+        if wc == 0 || i + wc > module.len() {
+            break;
+        }
+        out.push((word & 0xffff) as u16);
+        i += wc;
+    }
+    out
+}
+
 /// accept 正例:0 诊断 + 产出 DirectX 三元组 DXIL IR(compute shader 形态)。
 #[test]
 fn accept_corpus_emits_dxil() {
@@ -215,6 +230,76 @@ fn accept_graphics_corpus_lowers_to_spirv() {
                 "{} emit_spirv 非确定性(同输入字节漂移)",
                 f.display()
             );
+        }
+    }
+}
+
+/// RXS-0171:图形 body I/O 数据流最小切片。RXS-0171 专用 accept 语料必须经
+/// body-aware `emit_spirv_body` 产出真实 `OpLoad` / `OpStore` / 白名单算术,
+/// 不再只停在签名-only void main。
+#[cfg(feature = "shader-stages")]
+#[test]
+fn accept_graphics_body_corpus_lowers_io_dataflow() {
+    use rurixc::ast::ShaderStage;
+    const OP_LOAD: u16 = 61;
+    const OP_STORE: u16 = 62;
+    const OP_FADD: u16 = 129;
+
+    let files: Vec<PathBuf> = rx_files(&dxil_dir("graphics/accept"))
+        .into_iter()
+        .filter(|f| {
+            fs::read_to_string(f)
+                .map(|src| src.lines().next().unwrap_or("").contains("RXS-0171"))
+                .unwrap_or(false)
+        })
+        .collect();
+    assert!(
+        !files.is_empty(),
+        "graphics/accept 应含 RXS-0171 body dataflow 语料"
+    );
+
+    for f in files {
+        let src = fs::read_to_string(&f).expect("读取样例失败");
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(&src, SourceId(0), Edition::Rx0, &diag);
+        cx.check_crate();
+        cx.check_coloring();
+        cx.check_crate_patterns();
+        cx.check_consteval();
+        assert!(
+            !diag.has_errors(),
+            "{} RXS-0171 graphics accept 须 0 前段诊断",
+            f.display()
+        );
+        let bodies = cx.device_mir_crate();
+        let gfx: Vec<_> = bodies
+            .iter()
+            .filter(|b| matches!(b.stage, Some(ShaderStage::Vertex | ShaderStage::Fragment)))
+            .collect();
+        assert!(!gfx.is_empty(), "{} 应收图形阶段根", f.display());
+        for b in gfx {
+            let stage = b.stage.expect("图形根 stage");
+            let spv = rurixc::dxil_spirv::emit_spirv_body(stage, b)
+                .unwrap_or_else(|e| panic!("{} emit_spirv_body 应 Ok, 实得 {e:?}", f.display()));
+            let ops = spirv_opcodes(&spv);
+            assert!(
+                ops.contains(&OP_STORE),
+                "{} body 应写出 OpStore",
+                f.display()
+            );
+            if b.io_sig
+                .iter()
+                .any(|e| matches!(e.dir, rurixc::mir::IoDir::In))
+            {
+                assert!(ops.contains(&OP_LOAD), "{} body 应读取 OpLoad", f.display());
+            }
+            if f.file_stem().and_then(|s| s.to_str()) == Some("fs_body_arith") {
+                assert!(
+                    ops.contains(&OP_FADD),
+                    "{} body 应含 f32 OpFAdd",
+                    f.display()
+                );
+            }
         }
     }
 }

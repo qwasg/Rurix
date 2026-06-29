@@ -992,7 +992,9 @@
     ],
     "RXS-0171": [
       "conformance/dxil/graphics/accept/fs_body_arith.rx",
-      "conformance/dxil/graphics/accept/vs_body_output.rx"
+      "conformance/dxil/graphics/accept/vs_body_output.rx",
+      "src/rurixc/src/dxil_codegen.rs",
+      "src/rurixc/src/dxil_spirv.rs"
     ]
   }
 }
