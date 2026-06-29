@@ -135,3 +135,9 @@ cublas.handle_init_failed = cublas 句柄初始化失败:{detail}
 cublas.invalid_device_pointer = 非法的 cublas device 指针:{detail}
 cublas.dimension_mismatch = cublas 维度不匹配:{detail}
 cublas.runtime_failed = cublas 运行时失败:{detail}
+## UC-04 deferred 渲染器装配/编排诊断(RX6018 ~ RX6022,spec/d3d12_runtime.md RXS-0167~0170;G2.4 PR-F2 分配)
+runtime.uc04_pso_assembly_mismatch = UC-04 graphics PSO 装配不一致:{detail}
+runtime.uc04_rts0_pso_mismatch = UC-04 RTS0 ↔ PSO 绑定不一致:{detail}
+runtime.uc04_pass_orchestration = UC-04 deferred pass 编排失败:{detail}
+runtime.uc04_barrier_plan = UC-04 barrier 编排失败:{detail}
+runtime.uc04_readback_layout = UC-04 readback 缓冲布局失配:{detail}

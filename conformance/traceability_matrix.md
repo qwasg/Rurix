@@ -170,3 +170,7 @@
 | RXS-0164 | spec/binding_layout.md | 2 | `src/rurixc/src/binding_layout.rs`, `src/rurixc/src/dxil_codegen.rs` |
 | RXS-0165 | spec/binding_layout.md | 4 | `src/rurixc/src/binding_layout.rs`, `src/rurixc/src/dxil_codegen.rs`, `src/rurixc/src/mir_build.rs` …(+1) |
 | RXS-0166 | spec/binding_layout.md | 3 | `src/rurixc/src/binding_layout.rs`, `src/rurixc/src/dxil_codegen.rs`, `src/rurixc/tests/dxil_golden.rs` |
+| RXS-0167 | spec/d3d12_runtime.md | 2 | `src/uc04-demo/src/error.rs`, `src/uc04-demo/src/pso.rs` |
+| RXS-0168 | spec/d3d12_runtime.md | 1 | `src/uc04-demo/src/deferred.rs` |
+| RXS-0169 | spec/d3d12_runtime.md | 1 | `src/uc04-demo/src/barrier.rs` |
+| RXS-0170 | spec/d3d12_runtime.md | 2 | `src/uc04-demo/src/device.rs`, `src/uc04-demo/src/readback.rs` |
