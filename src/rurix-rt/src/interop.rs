@@ -103,6 +103,7 @@ pub struct ExternalBuffer<'ctx, T: Copy> {
     ext_mem: CuPtr,
     dptr: CuDevicePtr,
     len: usize,
+    ctx: CuPtr,
     _brand: Brand<'ctx>,
     _t: PhantomData<T>,
 }
@@ -126,7 +127,9 @@ impl<T: Copy> Drop for ExternalBuffer<'_, T> {
             // SAFETY: (U17) RFC-0001 §4.4 销毁序——`dptr` 由 external_memory_get_mapped_buffer
             // 产出、本类型独占（非 Clone），先 cuMemFree；`ext_mem` 由 import_external_memory
             // 产出、独占，mapped 释放后 destroy。Drop 仅一次（单一所有权,不双重释放）。
+            // 先重绑本 context（对齐 pipeline.rs DeviceBox/PinnedBox Drop 模式）。
             unsafe {
+                let _ = cuda.ctx_set_current(self.ctx);
                 let _ = cuda.mem_free(self.dptr);
                 if !self.ext_mem.is_null() {
                     let _ = cuda.destroy_external_memory(self.ext_mem);
@@ -140,6 +143,7 @@ impl<T: Copy> Drop for ExternalBuffer<'_, T> {
 /// 非 `Copy`/非 `Clone`；Drop `cuDestroyExternalSemaphore`。
 pub struct ExternalSemaphore<'ctx> {
     ext_sem: CuPtr,
+    ctx: CuPtr,
     _brand: Brand<'ctx>,
 }
 
@@ -150,7 +154,9 @@ impl Drop for ExternalSemaphore<'_> {
         {
             // SAFETY: (U18) `ext_sem` 由 import_external_semaphore 产出、本类型独占;
             // shutdown 序保证销毁前无在途 signal/wait（RFC-0001 §4.4）。Drop 仅一次。
+            // 先重绑本 context（对齐 pipeline.rs SharedEvent Drop 模式）。
             unsafe {
+                let _ = cuda.ctx_set_current(self.ctx);
                 let _ = cuda.destroy_external_semaphore(self.ext_sem);
             }
         }
@@ -292,13 +298,16 @@ struct FrameCore<'ctx> {
 /// 私有 CUDA stream（affine；Drop 销毁）。
 struct OwnedStream {
     raw: CuPtr,
+    ctx: CuPtr,
 }
 
 impl Drop for OwnedStream {
     fn drop(&mut self) {
         if let Some(cuda) = sys::cuda() {
             // SAFETY: (U3) `raw` 由 stream_create 产出、本类型独占,Drop 仅一次。
+            // 先重绑本 context（对齐 pipeline.rs SharedStream Drop 模式）。
             unsafe {
+                let _ = cuda.ctx_set_current(self.ctx);
                 let _ = cuda.stream_destroy(self.raw);
             }
         }
@@ -577,15 +586,18 @@ pub fn scope<R>(
     cu_ext_check("cuStreamCreate", r)?;
 
     let n_elems = (export.mapping_size / size_of::<f32>() as u64) as usize;
+    let ctx_raw = _ctx.as_raw();
     let buffer = ExternalBuffer {
         ext_mem,
         dptr,
         len: n_elems,
+        ctx: ctx_raw,
         _brand: PhantomData,
         _t: PhantomData,
     };
     let semaphore = ExternalSemaphore {
         ext_sem,
+        ctx: ctx_raw,
         _brand: PhantomData,
     };
     let icx = InteropContext {
@@ -598,7 +610,7 @@ pub fn scope<R>(
         core: FrameCore {
             buffer,
             semaphore,
-            stream: OwnedStream { raw: stream },
+            stream: OwnedStream { raw: stream, ctx: ctx_raw },
             presenter,
             frame: 0,
             _brand: PhantomData,
@@ -693,6 +705,25 @@ DONE:
         assert!(size_of::<ReadyFrame<'static>>() > 0);
         assert!(size_of::<AcquiredFrame<'static>>() > 0);
         assert!(size_of::<PresentableFrame<'static>>() > 0);
+    }
+
+    //@ spec: RXS-0140 Drop context rebinding
+    #[test]
+    fn external_resources_carry_context_for_drop() {
+        // ExternalBuffer/ExternalSemaphore/OwnedStream 持有 ctx 句柄,
+        // 确保 Drop 时重绑 current context（对齐 pipeline.rs 模式,
+        // 防止 context 切换后 Drop 清理失败导致 GPU 资源泄漏）。
+        use core::mem::size_of;
+        // ctx: CuPtr (= *mut c_void = usize) 额外增加一个指针宽度
+        let ptr_width = size_of::<usize>();
+        assert!(
+            size_of::<ExternalBuffer<'static, f32>>() >= ptr_width * 3, // ext_mem + dptr + ctx (minimum)
+            "ExternalBuffer should carry ctx handle for Drop context rebinding"
+        );
+        assert!(
+            size_of::<ExternalSemaphore<'static>>() >= ptr_width * 2, // ext_sem + ctx (minimum)
+            "ExternalSemaphore should carry ctx handle for Drop context rebinding"
+        );
     }
 
     //@ spec: RXS-0143

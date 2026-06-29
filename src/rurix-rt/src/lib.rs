@@ -323,6 +323,11 @@ impl Context {
     pub fn is_poisoned(&self) -> bool {
         self.poison.get().is_some()
     }
+
+    /// 底层 `CUcontext` 原始句柄(供 interop Drop 重绑 current context)。
+    pub(crate) fn as_raw(&self) -> CuPtr {
+        self.raw
+    }
 }
 
 impl Drop for Context {
