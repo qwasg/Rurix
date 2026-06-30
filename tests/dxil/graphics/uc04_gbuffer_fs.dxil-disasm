@@ -7,8 +7,8 @@
 ;
 ; Name                 Index   Mask Register SysValue  Format   Used
 ; -------------------- ----- ------ -------- -------- ------- ------
-; uv                       0   x           0     NONE   float   x   
-; normal                   0    y          0     NONE   float    y  
+; uv                       0   xy          0     NONE   float       
+; normal                   0     z         0     NONE   float     z 
 ;
 ;
 ; Output signature:
@@ -67,22 +67,18 @@
 ;
 ; ViewId state:
 ;
-; Number of inputs: 2, outputs: 9
+; Number of inputs: 3, outputs: 9
 ; Outputs dependent on ViewId: {  }
 ; Inputs contributing to computation of Outputs:
-;   output 0 depends on inputs: { 0 }
-;   output 4 depends on inputs: { 1 }
+;   output 4 depends on inputs: { 2 }
 ;
 target datalayout = "e-m:e-p:32:32-i1:32-i8:32-i16:32-i32:32-i64:64-f16:32-f32:32-f64:64-n8:16:32:64"
 target triple = "dxil-ms-dx"
 
 define void @main() {
   %1 = call float @dx.op.loadInput.f32(i32 4, i32 1, i32 0, i8 0, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
-  %2 = call float @dx.op.loadInput.f32(i32 4, i32 0, i32 0, i8 0, i32 undef)  ; LoadInput(inputSigId,rowIndex,colIndex,gsVertexAxis)
-  %3 = fadd fast float %2, 2.500000e-01
-  %4 = fmul fast float %1, 5.000000e-01
-  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float %3)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
-  call void @dx.op.storeOutput.f32(i32 5, i32 1, i32 0, i8 0, float %4)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+  call void @dx.op.storeOutput.f32(i32 5, i32 0, i32 0, i8 0, float 7.500000e-01)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
+  call void @dx.op.storeOutput.f32(i32 5, i32 1, i32 0, i8 0, float %1)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
   call void @dx.op.storeOutput.f32(i32 5, i32 2, i32 0, i8 0, float 1.000000e+00)  ; StoreOutput(outputSigId,rowIndex,colIndex,value)
   ret void
 }
@@ -107,18 +103,18 @@ attributes #1 = { nounwind }
 !1 = !{i32 1, i32 0}
 !2 = !{i32 1, i32 9}
 !3 = !{!"ps", i32 6, i32 0}
-!4 = !{[4 x i32] [i32 2, i32 9, i32 1, i32 16]}
+!4 = !{[5 x i32] [i32 3, i32 9, i32 0, i32 0, i32 16]}
 !5 = !{void ()* @main, !"main", !6, null, null}
 !6 = !{!7, !12, null}
-!7 = !{!8, !11}
-!8 = !{i32 0, !"uv", i8 9, i8 0, !9, i8 2, i32 1, i8 1, i32 0, i8 0, !10}
+!7 = !{!8, !10}
+!8 = !{i32 0, !"uv", i8 9, i8 0, !9, i8 2, i32 1, i8 2, i32 0, i8 0, null}
 !9 = !{i32 0}
-!10 = !{i32 3, i32 1}
-!11 = !{i32 1, !"normal", i8 9, i8 0, !9, i8 2, i32 1, i8 1, i32 0, i8 1, !10}
+!10 = !{i32 1, !"normal", i8 9, i8 0, !9, i8 2, i32 1, i8 1, i32 0, i8 2, !11}
+!11 = !{i32 3, i32 1}
 !12 = !{!13, !14, !16}
-!13 = !{i32 0, !"SV_Target", i8 9, i8 16, !9, i8 0, i32 1, i8 1, i32 0, i8 0, !10}
-!14 = !{i32 1, !"SV_Target", i8 9, i8 16, !15, i8 0, i32 1, i8 1, i32 1, i8 0, !10}
+!13 = !{i32 0, !"SV_Target", i8 9, i8 16, !9, i8 0, i32 1, i8 1, i32 0, i8 0, !11}
+!14 = !{i32 1, !"SV_Target", i8 9, i8 16, !15, i8 0, i32 1, i8 1, i32 1, i8 0, !11}
 !15 = !{i32 1}
-!16 = !{i32 2, !"SV_Target", i8 9, i8 16, !17, i8 0, i32 1, i8 1, i32 2, i8 0, !10}
+!16 = !{i32 2, !"SV_Target", i8 9, i8 16, !17, i8 0, i32 1, i8 1, i32 2, i8 0, !11}
 !17 = !{i32 2}
 

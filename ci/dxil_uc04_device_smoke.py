@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""UC-04 deferred 渲染器 device smoke(G-G2-4;RFC-0006 选项 B:不采样 G-buffer 的最小多
-pass deferred)。
+"""UC-04 deferred 渲染器 device smoke(G-G2-4;RFC-0006 + RFC-0007 严格面:lighting pass
+**真采样 G-buffer**,真延迟着色)。
 
 G-G2-2(ci/dxil_device_smoke.py)证单 pass B 链 DXIL 在硬件出图;G-G2-3
 (ci/dxil_binding_device_smoke.py)证 RFC-0005 RTS0 在硬件被 CreateRootSignature 接受。本
@@ -13,10 +13,13 @@ smoke 证 **G-G2-4**:UC-04 deferred 渲染器端到端——
   2. signed dxc pin 的 dxv.exe 逐个 validator 接受 4 个 DXIL。
   3. cargo build -p uc04-demo --features real-shim(cc 编 D3D12 离屏 shim,消费 Rurix DXIL +
      RFC-0005 RTS0,P-11)。
-  4. 真硬件:几何 pass(Rurix VS/FS)写 G-buffer MRT → lighting/合成 pass(Rurix VS/FS,**不
-     采样 G-buffer**=选项 B 折中边界,采样完备性仍 blocked 于 RD-021)写 final → 手动 barrier
-     (RXS-0169)→ offscreen readback 取 albedo 与 final 中心像素对照(DXIL_UC04: ok 见证行)。
-  5. 内建篡改红绿:篡改一个 Rurix DXIL 容器字节 → dxv 拒(validator 红)+ device PSO 创建拒
+  4. 真硬件:几何 pass(Rurix VS/FS)写 G-buffer MRT → albedo RT→SRV barrier(RXS-0176 IR1)→
+     lighting pass(Rurix VS/FS)**经 SRV t0 + Sampler s0 真采样 G-buffer albedo**(RXS-0175/0176,
+     OpImageSampleExplicitLod LOD0)→ final = f(采样值) → offscreen readback 取 albedo 与 final
+     中心像素对照(DXIL_UC04: ok 见证行);final.R 追踪采样到的 gbuffer.R。
+  5. **数据流严格红绿(RXS-0176 IR2,核心)**:变体几何 FS 源(albedo 0.75→0.5)经同一图形=B 链产
+     DXIL → device 复跑 → final 像素随之改变(证 final=f(采样值),非 lighting 自身输入);复原绿。
+  6. DXIL 容器篡改红绿:篡改一个 Rurix DXIL 容器字节 → dxv 拒(validator 红)+ device PSO 创建拒
      (DXIL hash 不符 → device 红)→ 复原绿。
 
 防降级硬门(G-G2-4):VS/FS 全部来自 Rurix 源经图形=B DXIL;RTS0 经 CreateRootSignature 真机
@@ -108,9 +111,9 @@ def github_run_url() -> str:
     return "local interactive runner"
 
 
-def emit_dxil(stem: str, out: Path, env: dict[str, str]) -> bool:
-    """把 UC-04 Rurix 着色源经图形=B DXIL 链落盘 DXIL 容器(cargo example emit_uc04_dxil)。"""
-    src = SRC_DIR / f"{stem}.rx"
+def emit_dxil(src: Path, out: Path, env: dict[str, str]) -> bool:
+    """把 UC-04 Rurix 着色源(任意路径)经图形=B DXIL 链落盘 DXIL 容器(cargo example
+    emit_uc04_dxil)。数据流变体亦经此同一编译器链产出(非手编 DXIL,防降级)。"""
     p = run(
         ["cargo", "run", "-q", "-p", "rurixc", "--features", "dxil-backend shader-stages",
          "--example", "emit_uc04_dxil", "--", str(src), str(out)],
@@ -173,7 +176,7 @@ def main() -> int:
     dxil: dict[str, Path] = {}
     for stem in SHADERS:
         out = WORK / f"{stem}.dxil"
-        if not emit_dxil(stem, out, env):
+        if not emit_dxil(SRC_DIR / f"{stem}.rx", out, env):
             return fail(f"cargo example emit_uc04_dxil 产 {stem} DXIL 失败(图形=B 链)")
         dxil[stem] = out
 
@@ -194,13 +197,52 @@ def main() -> int:
     gr = int(m.group("gr"))
     fr = int(m.group("fr"))
     adapter = m.group("adapter")
-    # 几何 pass albedo = uv(0.5) + 0.25 = 0.75 → R8 ≈ 191;lighting final = uv(0.5) + 0.5 = 1.0 → R8 = 255。
+    # 严格面(RFC-0007):几何 pass FS 写常量 albedo 0.75 → gbuffer R8 ≈ 191;lighting pass FS
+    # **真采样** albedo SRV → final = 采样到的 albedo → final.R 追踪 gbuffer.R(≈191)。
     if not (185 <= gr <= 197):
-        return fail(f"G-buffer albedo 中心像素 R={gr} 不在期望 [185,197](几何 pass FS 写 MRT)")
-    if not (fr >= 250):
-        return fail(f"final 中心像素 R={fr} 不在期望 ≥250(lighting pass FS 出图)")
+        return fail(f"G-buffer albedo 中心像素 R={gr} 不在期望 [185,197](几何 pass FS 写常量 0.75)")
+    if not (185 <= fr <= 197):
+        return fail(f"final 中心像素 R={fr} 不在期望 [185,197](lighting 真采样 albedo 0.75)")
+    if abs(fr - gr) > 6:
+        return fail(f"final.R={fr} 未追踪 gbuffer.R={gr}(|Δ|>6)——疑似 lighting 未真采样 G-buffer")
 
-    # 5) 内建篡改红绿:篡改几何 FS DXIL 容器头(DXBC fourcc 首字节)→ dxv 拒(validator
+    # 5) 数据流严格判据红绿(RXS-0176 IR2,本轮核心):变体几何 FS 源(albedo 常量 0.75→0.5)经
+    #    **同一图形=B 编译器链**产 DXIL → device 复跑 → final 像素**必须随之改变**(证 final =
+    #    f(采样到的 G-buffer 值),而非 lighting 自身输入);复原绿。**非手编 DXIL**(防降级)。
+    orig_geom_fs_src = (SRC_DIR / "uc04_gbuffer_fs.rx").read_text(encoding="utf-8")
+    alt_geom_fs_src = orig_geom_fs_src.replace("albedo: 0.75", "albedo: 0.5")
+    if alt_geom_fs_src == orig_geom_fs_src:
+        return fail("无法构造数据流变体:uc04_gbuffer_fs.rx 未含 'albedo: 0.75' 锚点")
+    alt_src = WORK / "uc04_gbuffer_fs_alt.rx"
+    alt_src.write_text(alt_geom_fs_src, encoding="utf-8")
+    geom_fs_alt = WORK / "uc04_gbuffer_fs_alt.dxil"
+    if not emit_dxil(alt_src, geom_fs_alt, env):
+        return fail("变体几何 FS(albedo 0.5)图形=B DXIL 产出失败")
+    if not dxv_validate(dxv, geom_fs_alt):
+        return fail("变体几何 FS DXIL 未过 dxv validator(变体须为合法 Rurix DXIL)")
+    dxil_alt = dict(dxil)
+    dxil_alt["uc04_gbuffer_fs"] = geom_fs_alt
+    ok_alt, out_alt, m_alt = device_run(dxil_alt, env)
+    print(out_alt)
+    if not ok_alt or m_alt is None:
+        return fail("变体几何 FS device 复跑失败(数据流 green 变体路径)")
+    gr_alt = int(m_alt.group("gr"))
+    fr_alt = int(m_alt.group("fr"))
+    # 变体 albedo 0.5 → gbuffer R8 ≈ 127;若 lighting 真采样,final 随之 ≈127。
+    if not (120 <= gr_alt <= 134):
+        return fail(f"变体 G-buffer albedo R={gr_alt} 不在期望 [120,134](变体几何 FS 写常量 0.5)")
+    if abs(fr_alt - fr) < 30:
+        return fail(
+            f"final 未随采样值改变(原 R={fr} → 变体 R={fr_alt},|Δ|<30)——final 不依赖采样值,未达严格面"
+        )
+    if abs(fr_alt - gr_alt) > 6:
+        return fail(f"变体 final.R={fr_alt} 未追踪变体 gbuffer.R={gr_alt}(|Δ|>6)——疑似未真采样")
+    # 复原绿:用原始几何 FS 复跑,final.R 回到 ≈191。
+    ok_rg, _org, m_rg = device_run(dxil, env)
+    if not ok_rg or m_rg is None or abs(int(m_rg.group("fr")) - fr) > 6:
+        return fail("复原原始几何 FS 后 final 未回到原值(数据流红绿不闭合)")
+
+    # 6) DXIL 容器篡改红绿:篡改几何 FS DXIL 容器头(DXBC fourcc 首字节)→ dxv 拒(validator
     #    红)+ device CreateGraphicsPipelineState 拒(device 红,证非 no-op/固定像素);复原绿。
     tampered = WORK / "uc04_gbuffer_fs.tampered.dxil"
     raw = bytearray(dxil["uc04_gbuffer_fs"].read_bytes())
@@ -223,19 +265,30 @@ def main() -> int:
         "subject": "dxil_uc04_device_smoke",
         "status": "measured_local",
         "timestamp": _dt.datetime.now().astimezone().replace(microsecond=0).isoformat(),
-        "milestone": "G2.4 / G-G2-4 (RFC-0006, option B: no G-buffer sampling)",
+        "milestone": "G2.4 / G-G2-4 (RFC-0006 + RFC-0007, strict: lighting 真采样 G-buffer)",
         "adapter": adapter,
         "pipeline": {
             "shaders_from_rurix_source": SHADERS,
-            "geometry_pass": "Rurix VS/FS → G-buffer MRT (albedo R8 / normal R16F / depth R32F)",
-            "lighting_pass": "Rurix VS/FS → final (self-interpolated input, NOT sampling G-buffer = option B)",
-            "rts0": "RFC-0005 serialize_rts0 (empty resources + IA input-layout flag), CreateRootSignature accept",
-            "readback": "offscreen center pixel (albedo + final)",
-            "sampling_completeness": "deferred to RD-021 (06 §4.2 texture memory model, Full RFC pending)",
+            "geometry_pass": "Rurix VS/FS → G-buffer MRT (albedo R8G8B8A8 / normal R16F / depth R32F); FS 写常量 albedo 0.75",
+            "lighting_pass": "Rurix VS/FS → final = f(sampled G-buffer albedo SRV) (RFC-0007 真采样, OpImageSampleExplicitLod LOD0, dx.op.sampleLevel)",
+            "barrier": "RXS-0176 IR1: albedo RENDER_TARGET → PIXEL_SHADER_RESOURCE before lighting samples",
+            "rts0": "RFC-0005 serialize_rts0 per-pass (geometry IA-only; lighting SRV t0 + Sampler s0 descriptor table), CreateRootSignature accept",
+            "readback": "offscreen center pixel (albedo + final); final.R tracks sampled gbuffer.R",
+            "sampling_completeness": "RD-021 closed (RFC-0007 first-converged subset: explicit LOD 0, Texture2D<f32>+Sampler+vec2<f32>→vec4<f32>); RD-022~024 defer remaining",
         },
         "pixels": {
             "gbuffer_albedo": [int(m.group("gr")), int(m.group("gg")), int(m.group("gb")), int(m.group("ga"))],
             "final": [int(m.group("fr")), int(m.group("fg")), int(m.group("fb")), int(m.group("fa"))],
+        },
+        "dataflow_redgreen": {
+            "criterion": "RXS-0176 IR2: tamper geometry FS albedo constant (Rurix source 0.75→0.5, same B-chain) → final pixel changes",
+            "original_albedo_const": 0.75,
+            "variant_albedo_const": 0.5,
+            "gbuffer_R_original": gr,
+            "gbuffer_R_variant": gr_alt,
+            "final_R_original": fr,
+            "final_R_variant": fr_alt,
+            "final_changed_with_sampled_value": abs(fr_alt - fr) >= 30,
         },
         "tools": {
             "dxc_dir": str(dxc_dir),
@@ -248,7 +301,10 @@ def main() -> int:
             "dxv_validate_all_shaders": True,
             "real_shim_build": True,
             "hardware_multipass_deferred_draw": True,
+            "lighting_samples_gbuffer_srv": True,
             "offscreen_readback_pixel_compare": True,
+            "final_tracks_sampled_albedo": True,
+            "dataflow_tamper_constant_changes_final": True,
             "tamper_dxil_dxv_reject": True,
             "tamper_dxil_device_reject": True,
             "restore_green": True,

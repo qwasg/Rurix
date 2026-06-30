@@ -135,9 +135,10 @@ fn main() {
     device_run();
 }
 
-/// device 真出图(`d3d12-runtime`):读 4 个 Rurix 图形=B DXIL(命令行给出)+ 构造 RFC-0005
-/// RTS0(空资源集 + IA 输入布局 flag,经 `serialize_rts0` 单一事实源)→ execute_offscreen →
-/// 打印 `DXIL_UC04` 见证行 / 显式错误(非伪造)。
+/// device 真出图(`d3d12-runtime`):读 4 个 Rurix 图形=B DXIL(命令行给出)+ 构造**每 pass**
+/// RFC-0005 RTS0(几何 = 空资源 + IA flag;lighting = SRV t0 + Sampler s0,经 `infer_root_signature`
+/// → `serialize_rts0` 单一事实源,RFC-0007 真采样)→ execute_offscreen → 打印 `DXIL_UC04` 见证行 /
+/// 显式错误(非伪造)。
 #[cfg(feature = "d3d12-runtime")]
 fn device_run() {
     use uc04_demo::Format;
@@ -167,11 +168,23 @@ fn device_run() {
     let light_vs = read(&args[3]);
     let light_fs = read(&args[4]);
 
-    // RFC-0005 RTS0(P-11 单一事实源):选项 B 无资源 → 空 root signature;加
+    // 几何 pass RFC-0005 RTS0(P-11 单一事实源):无资源 → 空 root signature;加
     // ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT(0x1)以承顶点缓冲输入布局(带 IA 的 PSO 必需)。
-    let mut rs = infer_root_signature(&[]).expect("空资源集 root signature 推导(RFC-0005)");
+    let mut rs =
+        infer_root_signature(&[]).expect("几何 pass 空资源集 root signature 推导(RFC-0005)");
     rs.flags = 0x1; // D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT
     let rts0_bytes = serialize_rts0(&rs);
+
+    // lighting pass RFC-0005 RTS0:SRV t0(albedo)+ Sampler s0,经 infer_root_signature 推导
+    // (RFC-0007 真采样 G-buffer;descriptor table 由 device CreateRootSignature 真机解析)。
+    let light_resources = vec![
+        rb("g_albedo", MirResourceType::Texture2D(PrimTy::F32)),
+        rb("g_samp", MirResourceType::Sampler),
+    ];
+    let mut light_rs = infer_root_signature(&light_resources)
+        .expect("lighting pass root signature 推导(RFC-0005)");
+    light_rs.flags = 0x1; // 带 IA 输入布局(lighting VS 亦消费顶点缓冲)
+    let light_rts0_bytes = serialize_rts0(&light_rs);
 
     let pso = AssembledPso {
         root_signature: rs,
@@ -182,16 +195,26 @@ fn device_run() {
     let plan = DeferredPlan {
         gbuffer_color: vec![GBufferTarget::Albedo, GBufferTarget::Normal],
         has_depth: false,
-        lighting_srv: vec![], // 选项 B:lighting 不采样 G-buffer。
+        lighting_srv: vec![GBufferTarget::Albedo], // RFC-0007:lighting 真采样 albedo SRV。
     };
-    let barriers: Vec<BarrierAnchor> = vec![BarrierAnchor {
-        at: "after-lighting",
-        transition: BarrierTransition {
-            resource: "final".to_owned(),
-            from: ResourceState::RenderTarget,
-            to: ResourceState::CopySource,
+    let barriers: Vec<BarrierAnchor> = vec![
+        BarrierAnchor {
+            at: "after-geometry",
+            transition: BarrierTransition {
+                resource: "gbuf:Albedo".to_owned(),
+                from: ResourceState::RenderTarget,
+                to: ResourceState::PixelShaderResource,
+            },
         },
-    }];
+        BarrierAnchor {
+            at: "after-lighting",
+            transition: BarrierTransition {
+                resource: "final".to_owned(),
+                from: ResourceState::RenderTarget,
+                to: ResourceState::CopySource,
+            },
+        },
+    ];
     let readback = ReadbackLayout {
         row_pitch: 256,
         buffer_size: 256 * 64,
@@ -199,6 +222,7 @@ fn device_run() {
     };
     let req = OffscreenRequest {
         pso: &pso,
+        light_rts0: &light_rts0_bytes,
         plan: &plan,
         barriers: &barriers,
         readback: &readback,

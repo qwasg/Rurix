@@ -23,13 +23,18 @@ use crate::pso::AssembledPso;
 use crate::readback::ReadbackLayout;
 
 /// UC-04 offscreen shim C ABI 版本(与 `shim/uc04_offscreen.cpp` `kAbiVersion` 一致)。
-pub const RX_UC04_ABI_VERSION: u32 = 1;
+/// v2 = RFC-0007 严格面:每 pass 双 RTS0(geometry + lighting)+ lighting 真采样 G-buffer。
+pub const RX_UC04_ABI_VERSION: u32 = 2;
 
 /// offscreen 出图请求(host 侧已校验的装配/编排/barrier/readback 产物 + Rurix 图形=B
 /// DXIL 着色器对象字节 + 尺寸)。
 pub struct OffscreenRequest<'a> {
-    /// RXS-0167 装配出的 graphics PSO 描述(`rts0_bytes` = RFC-0005 RTS0,P-11 单一事实源)。
+    /// RXS-0167 装配出的几何 pass graphics PSO 描述(`rts0_bytes` = 几何 pass RFC-0005 RTS0,
+    /// IA-only 空资源,P-11 单一事实源)。
     pub pso: &'a AssembledPso,
+    /// lighting pass RFC-0005 RTS0 容器字节(SRV t0 + Sampler s0 descriptor table,由
+    /// `infer_root_signature([Texture2D, Sampler])` → `serialize_rts0` 推导;RFC-0007 真采样)。
+    pub light_rts0: &'a [u8],
     /// RXS-0168 校验通过的 deferred 编排计划。
     pub plan: &'a DeferredPlan,
     /// RXS-0169 校验通过的 barrier 锚点集。
@@ -72,8 +77,10 @@ mod ffi {
             abi_version: u32,
             width: u32,
             height: u32,
-            rts0: *const u8,
-            rts0_len: usize,
+            geom_rts0: *const u8,
+            geom_rts0_len: usize,
+            light_rts0: *const u8,
+            light_rts0_len: usize,
             geom_vs: *const u8,
             geom_vs_len: usize,
             geom_fs: *const u8,
@@ -114,11 +121,12 @@ pub fn execute_offscreen(req: &OffscreenRequest<'_>) -> Result<OffscreenResult, 
         let mut gbuffer = [0u8; 4];
         let mut final_px = [0u8; 4];
         let mut adapter_buf = [0u8; 256];
-        // SAFETY: 全部入参指针指向本调用栈上有效存储——req.* 字节切片为只读有效内存(配对
-        // 长度参数 = 各切片实际 `len()`),out_gbuffer_pixel/out_final_pixel 为 4 字节可写数组、
-        // out_adapter 为 256 字节可写缓冲(配对 cap)。shim 按版本化 C ABI(`rx_uc04_abi_version`
-        // = `RX_UC04_ABI_VERSION` = 1,首参核对)只读入 DXIL/RTS0 字节、回填 out 像素与 adapter
-        // 名,不持有任何指针越出本调用;返回 i32 状态码(0=成功)。unsafe-audit/uc04-demo.md U24。
+        // SAFETY: 全部入参指针指向本调用栈上有效存储——req.* 字节切片(含 pso.rts0_bytes 几何
+        // RTS0 与 light_rts0 lighting RTS0)为只读有效内存(配对长度参数 = 各切片实际 `len()`),
+        // out_gbuffer_pixel/out_final_pixel 为 4 字节可写数组、out_adapter 为 256 字节可写缓冲(配对
+        // cap)。shim 按版本化 C ABI(`rx_uc04_abi_version` = `RX_UC04_ABI_VERSION` = 2,首参核对)
+        // 只读入 DXIL/RTS0 字节、回填 out 像素与 adapter 名,不持有任何指针越出本调用;返回 i32
+        // 状态码(0=成功)。unsafe-audit/uc04-demo.md U24。
         let code = unsafe {
             ffi::rx_uc04_offscreen_run(
                 RX_UC04_ABI_VERSION,
@@ -126,6 +134,8 @@ pub fn execute_offscreen(req: &OffscreenRequest<'_>) -> Result<OffscreenResult, 
                 req.height,
                 req.pso.rts0_bytes.as_ptr(),
                 req.pso.rts0_bytes.len(),
+                req.light_rts0.as_ptr(),
+                req.light_rts0.len(),
                 req.geom_vs_dxil.as_ptr(),
                 req.geom_vs_dxil.len(),
                 req.geom_fs_dxil.as_ptr(),
@@ -239,6 +249,7 @@ mod tests {
         let (pso, plan, barriers, readback) = sample_request_parts();
         let req = OffscreenRequest {
             pso: &pso,
+            light_rts0: &[],
             plan: &plan,
             barriers: &barriers,
             readback: &readback,
