@@ -1,7 +1,7 @@
 ---
 contract: G2
 title: G2 期——原生 D3D12 + DXIL 第二后端 / 着色阶段进语言 / 绑定布局推导 / UC-04 deferred 渲染器 / 语言 1.0 + edition（MVP 后图形路线第三阶段）
-status: active            # active → closed（G2 close-out 时 agent 自主签署翻转；基准 g1-closed→g2-closed 切换 + g2-closed tag 同属 close-out 动作，本期不做）
+status: closed            # active → closed（agent §8.8 自主签署,2026-06-30；close-out 只追加,上方条款 0-byte；基准 g1-closed→g2-closed 切换 + g2-closed tag 已落档）
 version: v1.0
 date: 2026-06-23
 timebox: "MVP+约 18–24 个月（两级结构 G2.1~G2.n 见 G2_PLAN.md；月份为相对刻度，非日历承诺）"
@@ -286,3 +286,57 @@ agent于本工作会话明确签署 G-G2-3（「签 G-G2-3 / agent 确认验收 
 - **第二会话独立复核（measured_local，逐条真实输出，AI 不轻信前会话「备绿」报告，硬规则 3/10）**：`py -3 ci/trace_matrix.py --check` **PASS 180/180**（453 测试文件扫描）；`py -3 ci/budget_eval.py --strict` **PASS（69 pass, 0 skip, strict, 全局零 estimated；anchoring 180）**；`py -3 ci/stable_snapshot.py --check` **PASS（180 条款 / 88 错误码 / editions `['2026']` / 8 子命令）**；`py -3 ci/edition_smoke.py` **PASS（红绿闭合）**；`py -3 ci/bilingual_coverage.py` **PASS 88/88**；`py -3 ci/check_schemas.py` PASS；`cargo fmt --check` 干净；`cargo clippy --all-targets --features "dxil-backend shader-stages" -- -D warnings` 干净（exit 0）；`cargo test -p rurix-pkg` **34/0** + `--test edition_corpus` **2/0**；`cargo test -p rurixc --features "dxil-backend shader-stages" --lib` **404/0** / `--test dxil_corpus` **7/0** / `--test dxil_golden` **5/0（+1 ignored）**；`cargo test --workspace`（全量 conformance）**全 ok，零 failed**；`registry/deferred.json` 复核 RD-008 = `closed`、RD-007 = `inherited`、RD-009 = `open`（仅 RD-008 翻转，revision_log v1.43）。`py -3 ci/check_guardrails.py` / `ci/check_contribution.py` exit 0 ADVISORY，flagged 项均为 G2 分支 vs g1-closed 既有差异，本任务 append 项未被标红。完整取证见 [evidence/g2.5-lang1.0-edition/edition_ci_runurl_backfill_20260630.md](../../evidence/g2.5-lang1.0-edition/edition_ci_runurl_backfill_20260630.md)。
 
 判定（**追加，不改 §8.7 签字判定**）：G-G2-5 的 CI 步骤 49 run URL 缺口已由真实绿 CI run 28447171962 闭合；G2.5 全套验收门经第二会话独立复跑确认仍全绿。**G2 契约整体仍 `active`**——本回填不执行 `g2-closed` tag / 基准切换（g1-closed→g2-closed）/ 契约 status active→closed / G2 整体 close-out / RD-007·RD-009 翻转（均属 G2.6，本任务范围外）。
+
+
+## 8.8 G2 整体 close-out 终审 + 签署（2026-06-30，**agent 完全自主签署**）
+
+> **地位声明**：本节由 agent 在 AGENTS v3.0（硬规则 1：完全自主，含 close-out / 翻转状态 / bless / 基准切换 / tag 全权限）下**自主签署 G2 整体 close-out**，翻转契约 `status: active → closed`、切基准 `g1-closed → g2-closed`、落 `g2-closed` tag。§8.1~§8.7.1 及上方条款（§1~§7、YAML `in_scope`/`acceptance_gates`/`guardrails`）**0-byte 不改**（仅 YAML `status` 字段 active→closed 翻转 + 本 §8.8 追加，硬规则 6）。Provenance：`Assisted-by: cursor:claude-opus-4.8`。所有数字来自本会话真实命令输出（硬规则 3）。
+
+### 8.8.1 验收门终审（G-G2-1 ~ G-G2-6 全闭环）
+
+| 门 | 子里程碑 | 状态 | 留痕 |
+|---|---|---|---|
+| G-G2-1 | 着色阶段类型面条款先行（RXS-0153~0156，真实红绿） | ✅ 闭环 | §8.1 |
+| G-G2-2 | DXIL 第二后端（图形=B 链 MIR→SPIR-V→…→DXIL，device 真跑 + golden bless + run URL） | ✅ 闭环 | §8.2 |
+| G-G2-3 | 绑定布局推导（RFC-0005 RTS0，device accept/篡改 reject + run URL） | ✅ 闭环 | §8.3 |
+| G-G2-4 | UC-04 deferred 渲染器（lighting pass 真采样 G-buffer 严格面，数据流红绿 191↔127，run 28442661542） | ✅ 闭环（§8.6 supersede §8.5） | §8.4/§8.5/§8.6 |
+| G-G2-5 | 语言 1.0 + 首个 edition（RFC-0008 + RXS-0177~0180 + RD-008 stable 快照激活 + CI step 49 run 28447171962） | ✅ 闭环 | §8.7/§8.7.1 |
+| G-G2-6 | traceability 延续（RXS-0153~0180 每条 ≥1 锚定，trace 全锚定，条款先于实现） | ✅ 闭环 | trace 180/180 |
+
+### 8.8.2 全量回归冻结（measured_local，本会话逐条真实输出）
+
+- `cargo test --workspace`（全量 conformance）：**76 套件全 ok，0 failed**。
+- `cargo clippy --all-targets --features "dxil-backend shader-stages" -- -D warnings`：干净（exit 0）。
+- `cargo fmt --check`：干净。
+- `py -3 ci/trace_matrix.py --check`：**PASS 180/180**（453 测试文件，沿用全局 `m1.counter.spec_clause_test_anchoring`，无另立 g2 counter）。
+- `py -3 ci/budget_eval.py --strict`：**PASS（69 pass, 0 skip, strict mode，全局零 estimated）**——G2 未立 `g2.bench.*`/`g2.ratio.*` 性能门（无 estimated 残留，14 §3）。
+- `py -3 ci/stable_snapshot.py --check`：PASS（spec_clauses=180 / error_codes=88 / editions=['2026'] / subcommands=8）。
+- `py -3 ci/bilingual_coverage.py`：PASS（en/zh 88/88）。
+- `py -3 ci/check_schemas.py`：PASS。
+
+### 8.8.3 Deferred 处置（诚实分级，不 force-close 无证据项，硬规则 3）
+
+- **closed**：RD-008（stable API 快照冻结机制，§8.7 G2.5 激活）、RD-013 / RD-017 / RD-021（§8.5/§8.6 G2.4）、RD-001~006 / RD-010。
+- **维持 inherited（carry-forward）**：**RD-007**（const 泛型值运行期单态化）——G2.1~G2.5 graphics+edition 全程未依赖 turbofish const 实参实例值代入，未触发接通点；对齐 M5/M6/M7/M8/G1 close-out 顺延先例，承接后续 device codegen / 运行期数组 aggregate codegen 阶段，RXS-0064 语义不变。
+- **维持 open（carry-forward）**：**RD-009**（`#[export(c)]` C ABI 导出 codegen）——G2 未现硬需求，生产 C ABI 仍由手写 `extern "C"`（RXS-0125）兑现，触 FFI ABI 面后续判档；RD-011/012/014/015/018/019/020/022/023/024 各 backfill 条件未兑现，维持 open。
+- 留痕：`registry/deferred.json` v1.44（RD-007/RD-009 history append）。**G2 为路线图末段（11 §5），post-G2 里程碑未定义，RD-007/RD-009 owner_milestone 维持 G2 待后续阶段顺延**——不为强行清零而 force-close 未实现项。
+
+### 8.8.4 Spike Gating 复评（`registry/spike_gating.json` v1.3）
+
+SG-001（MLIR）/ SG-002（Tensor Core/WGMMA/TMA）/ SG-003（多后端，D-008 红线 3）/ SG-007（registry，D-312）G2 期满复评**全部维持 `not_triggered`**。关键裁决：
+
+- **红线 3（多后端 D-008）不解除**：D-008 触发条件之一『G2 完成』现已兑现（G-G2-1~G-G2-6 闭环），但条件之二『agent 正式解除红线 3』agent 裁决**不解除**——DXIL 第二后端是 NVIDIA / D3D12 原生纵深（非通用多后端 AMD/Intel/Metal/Vulkan/SPIR-V），『NVIDIA 纵深完成』口径未达成；红线解除属独立 one-at-a-time 主动决策（10 §9.2），不因 G2 close-out 自动触发。后续如解除须独立 errata + 一次一条。SG-003 维持 not_triggered。
+- **registry（D-312）维持休眠**：G2 期决策点复评社区规模未达触发阈（>50 生态包 / 强需求）。
+
+### 8.8.5 生态成功判据处置（显式 carve-out，不宣称达成）
+
+G2 目标（§1）含『生态成功判据 ≥3 个非作者维护的真实项目（11 §5 / 01 §6）』。该判据 = 01 §6 第二层**3 年期时间驱动的社会成功判据**（"开源后 12 个月内"），非 agent 可制造的技术交付物。本 close-out **仅在技术面闭环 G2**（G-G2-1~G-G2-6 全达成），生态判据**显式 carve-out、不宣称达成**，留时间窗自然兑现 + registry（D-312）触发点联动。诚实分级：技术 G2 = 完成；生态 G2 = 待时间窗。
+
+### 8.8.6 基准切换 + tag + 红线复评（agent 自主签署兑现）
+
+- **契约 status**：YAML 头 `status: active → closed`（上方条款 0-byte，仅本 §8.8 追加）。
+- **guardrail 基准切换**：`ci/check_guardrails.py` `resolve_base()` 无参回退基准默认 `g1-closed → g2-closed`（docstring + 注释 + 返回值）；**PR 路径仍以 `GITHUB_BASE_REF` 为准，既有逻辑不变**。`check_closed_contracts` glob 已于 G1 close-out 泛化为 `*_CONTRACT.md`，本契约翻 closed 后自动纳入字节守卫（无需再改 glob）。
+- **`g2-closed` tag**：锚定本 close-out 合入 main 的提交（落档后 `g1-closed`/`g2-closed` 双基准 `check_guardrails.py` advisory 复核）。
+- **红线复评**：死亡路线红线 1（Python 原生嵌入，SG-008 永久）/ 红线 3（多后端，SG-003，本 close-out 明确不解除）维持；无红线解除动作。
+
+判定（**agent 完全自主签署**）：**G2 期技术面验收达成 + G2 整体 close-out 终审完成**（G-G2-1~G-G2-6 全闭环 + 全量回归冻结绿 + budget_eval --strict 零 estimated + RD/SG 诚实处置 + 生态判据显式 carve-out）。契约 `status: closed`；基准 `g1-closed → g2-closed`；`g2-closed` tag 落档；RD-008 closed（§8.7 已翻）、RD-007 inherited / RD-009 open carry-forward；红线 3 维持不解除。G2 期收官。
