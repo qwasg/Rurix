@@ -96,7 +96,32 @@ ResourceTy ::= "Texture2D" "<" Type ">"   // 格式参数化纹理(首批仅 2D)
 
 > 锚定测试:`conformance/shader/reject/resource_handle/*.rx`(句柄返回位置违例 `RX3013`)、`conformance/shader/accept/*.rx`(`Texture2D<F>`+`Sampler` 作 fragment 形参 0 诊断);`tests/ui/shader/handle_return.rx`(`RX3013` snapshot);`shader_stages` 单测(返回位置 / 未支持维度)。
 
-## 3. 错误码引用汇总（RX3011 ~ RX3013，G2.1 分配）
+### RXS-0174 采样表达式类型面（`Texture2D<F>.sample(Sampler, vec2<f32>) → vec4<F>`，承 RXS-0156，RFC-0007）
+
+> **编号续号说明**:本条 RXS-0174 由 **RFC-0007**(纹理采样语义本体)新增,**超出 G2.1/RFC-0002 锁定的 RXS-0153~0156 区间**(独立 RFC 续号,全 spec 唯一递增、永不复用)。本条把 RXS-0156 的 opaque 资源句柄类型面升级为**可在着色 body 求值的采样表达式**类型面,是 UC-04 lighting pass 真采样 G-buffer 的语言前置。
+
+**Syntax**(采样表达式,复用既有方法调用产生式 `MethodCall`,无新 token):
+
+```
+SampleExpr ::= Expr "." "sample" "(" Expr "," Expr ")"
+            // receiver.sample(sampler, coord):receiver = Texture2D<F> 句柄形参引用,
+            // sampler = Sampler 句柄形参引用,coord = vec2<f32> 归一化 UV
+```
+
+**Legality**(采样表达式合法性;**首期收敛子集**,RFC-0007 §4.2):
+
+- `tex.sample(samp, coord)` 合法当且仅当:`tex : Texture2D<F>`(F = 已建模标量分量类型,首期 `f32`)、`samp : Sampler`、`coord : vec2<f32>`、**且包含该表达式的函数为 `fragment` 着色阶段**。
+- receiver(`tex`)与第一实参(`samp`)必须**直接是资源句柄形参引用**(句柄非值类型,承 RXS-0156:不可存入 `let`/结构体后再采样)。
+- 违例(receiver 非 `Texture2D<F>` / `samp` 非 `Sampler` / `coord` 非 `vec2<f32>` / 元数不符 / 非 fragment 阶段采样) → `RX3014`(采样表达式类型/阶段违例,编译期 strict-only 拦截)。
+- 结果类型 = `vec4<F>`(SPIR-V/DXIL 采样结果恒 4 分量;首期 `vec4<f32>`),可被后续白名单算术消费或作为输出 I/O 字段写出。
+
+**Dynamic Semantics**(采样语义本体的**类型面投影**;完整内存模型映射见 spec/dxil_backend.md RXS-0176 🔒):采样在纹理基础 mip 层(**显式 LOD 0**,规避 fragment 隐式导数,RFC-0007 §4.6)、按绑定 sampler 过滤模式、在归一化坐标 `coord ∈ [0,1]²` 处读取,产 `vec4<F>`。**非 fragment 阶段采样 / 隐式 LOD / 任意 mip 层 / texel fetch / 比较采样 / 多分量纹理 / 可配置 sampler 状态** = 首期**规避项**,登记 deferred **RD-022~RD-024**(RFC-0007 §8),触及即 `RX3014`(类型面)或 `RX6023`(codegen 面),**不静默降级**。
+
+**Implementation Requirements**:typeck 于 AST 层([`shader_stages`](../src/rurixc/src/shader_stages.rs))识别 `method == "sample"` 且 receiver 类型为 `Texture2D<F>` 时按本条规则核对(receiver/`samp` 解析回资源句柄形参、`coord` 类型、阶段);MIR 降级为 `Rvalue::ResourceSample`(spec/dxil_backend.md RXS-0175),SPIR-V `OpImageSampleExplicitLod`(Lod 0)。诊断 span 指向采样表达式。
+
+> 锚定测试:`conformance/shader/reject/sample/*.rx`(采样违例 `RX3014`:非 fragment / 类型不符)+ `tests/ui/shader/*.stderr`(`RX3014` snapshot);accept 经 `conformance/dxil/graphics/accept/uc04_lighting_fs.rx`(fragment 真采样 0 诊断);`shader_stages` 单测(采样类型规则 accept/reject)。
+
+## 3. 错误码引用汇总（RX3011 ~ RX3014）
 
 > 三类编译期拦截(着色阶段误用 / 阶段间接口不匹配 / 资源句柄违例)属 **Rurix 语义诊断**(编译期可检的着色/接口/句柄合法性,对齐 RXS-0066 着色诊断先例),归 **3xxx 着色/地址空间段位续号**(07 §5 语义分配;接 RX3010 之后 **RX3011+**——**非全局 7xxx 段**,7xxx 为运行期/互操作段)。纯 Rust 通用错误(类型不符等)走 rustc 原生诊断(零新 RX)。
 
@@ -106,13 +131,14 @@ ResourceTy ::= "Texture2D" "<" Type ">"   // 格式参数化纹理(首批仅 2D)
 | RX3011 | 着色阶段 I/O 标注违例:着色阶段 I/O 字段无 `#[interpolate(..)]`/`#[builtin(..)]` 标注 / 未知 builtin 名 / 未知插值限定 | RXS-0154 |
 | RX3012 | 阶段间接口不匹配:fragment 输入 varying 与上游 vertex 输出名/类型/插值限定不兼容 | RXS-0155 |
 | RX3013 | 资源句柄违例:`Texture2D`/`Sampler` 出现在返回位置 / 结构体字段 / 非着色阶段签名,或未支持纹理维度(defer) | RXS-0156 |
+| RX3014 | 采样表达式违例:`tex.sample(samp, coord)` receiver 非 `Texture2D<F>` / `samp` 非 `Sampler` / `coord` 非 `vec2<f32>` / 元数不符 / 非 fragment 阶段采样(首期收敛子集外) | RXS-0174 |
 
-**只追加、不预造**:RX3011~3013 按**实现中真实可达、用户可行动**的错误类别只追加(着色阶段误用复用既有 RX3001,无新码);含义冻结(10 §6,`check_error_codes` 延续),`registry/error_codes.json` 只追加并同时落 [../src/rurixc/src/messages/en.messages](../src/rurixc/src/messages/en.messages)(`shader.stage_io_invalid` / `shader.stage_interface_mismatch` / `shader.resource_handle_invalid`)+ [../src/rurixc/src/messages/zh.messages](../src/rurixc/src/messages/zh.messages) 双语 message-key(`ci/bilingual_coverage.py` 覆盖门)。
+**只追加、不预造**:RX3011~3014 按**实现中真实可达、用户可行动**的错误类别只追加(着色阶段误用复用既有 RX3001,无新码);含义冻结(10 §6,`check_error_codes` 延续),`registry/error_codes.json` 只追加并同时落 [../src/rurixc/src/messages/en.messages](../src/rurixc/src/messages/en.messages)(`shader.stage_io_invalid` / `shader.stage_interface_mismatch` / `shader.resource_handle_invalid` / `shader.sample_expr_invalid`)+ [../src/rurixc/src/messages/zh.messages](../src/rurixc/src/messages/zh.messages) 双语 message-key(`ci/bilingual_coverage.py` 覆盖门)。RX3014 由 RFC-0007 分配(采样表达式类型面)。
 
 ## 4. 升档 / 禁区留痕
 
 - **本文件档位 = Full RFC(RFC-0002)**:本设计触 **新语法 + 类型系统扩张**(着色阶段函数着色 / 阶段 I/O type-level 标注 / 阶段间接口契约 / 纹理采样器参数化类型,AGENTS 硬规则 5 / 10 §3 Full RFC 触发面),经 Full RFC 由 agent 自主落笔。RFC-0002 已由 agent 于 2026-06-23 裁决 §9 Q1~Q6 与 §4.5 🔒 禁区边界处置(agent 自主)。**agent 自主判档**,判档争议向上取严。
-- **🔒 纹理 / 采样器内存模型映射(06 §4.2 禁区)**:tex proxy / PTX·DXIL 采样 opcode 映射 / 采样器描述符编码 / 纹理缓存一致性 / 采样 UB 边界属内存模型禁区,本文件 `Texture2D<F>` / `Sampler` **仅类型面参数化形态**,不承诺任何采样语义、内存序或一致性保证;内存模型映射条款留**后续独立 Full RFC**(agent 落笔,RFC-0002 §4.5 / §9 Q6 维持占位「〈待 agent 后续 Full RFC〉」)。触及即停下标注「需升档」。
+- **🔒 纹理 / 采样器内存模型映射(06 §4.2 禁区)**:tex proxy / PTX·DXIL 采样 opcode 映射 / 采样器描述符编码 / 纹理缓存一致性 / 采样 UB 边界属内存模型禁区。RXS-0156 的 `Texture2D<F>` / `Sampler` **仅类型面参数化形态**;**采样语义本体首期收敛映射已由 RFC-0007(agent 2026-06-30 自主批准)落笔**——采样表达式类型面见 RXS-0174(本文件),SPIR-V/DXIL 采样 opcode 降级 + 06 §4.2 内存模型条款见 spec/dxil_backend.md RXS-0175/RXS-0176(🔒 禁区子节)。规避子能力(隐式 LOD/导数 / 任意 mip / texel fetch / 比较采样 / 可配置 sampler / 非 fragment 阶段 / 多分量纹理)登记 deferred RD-022~RD-024(RFC-0007 §8),后续 Full RFC 增补,**不一次落全**。触及收敛子集外即停下标注「需升档」或 strict-only 拒(RX3014/RX6023)。
 - **G2.2 DXIL codegen(D-131)**:MIR→DXIL 后端、内建变量寄存器/语义槽映射、DXIL 文本 golden → G2.2,不在本文件;触及即停下标注「需升档」。
 - **G2.3 绑定布局推导(P-11)**:descriptor / root signature 编译器推导生成 → G2.3,不在本文件;本文件仅定义资源句柄在签名中的类型表达供 G2.3 消费。
 - **多后端 / Python 原生嵌入 / device 高级 intrinsics**:分别为 D-008/SG-003、红线 1/SG-008、SG-001/SG-002,均不在本文件着色阶段类型面登记;触及即停下标注「需升档」。
@@ -126,3 +152,4 @@ ResourceTy ::= "Texture2D" "<" Type ">"   // 格式参数化纹理(首批仅 2D)
 |---|---|---|---|
 | v1.0 | 2026-06-23 | 新建 spec/shader_stages.md(G2.1 着色阶段类型面起始文件):登记编号区间 RXS-0153 起续号预留(**已锁定 4 条 RXS-0153 ~ RXS-0156**,RFC-0002 §9 Q5)+ 文件级前言 / 范围(着色阶段函数着色扩展 RXS-0066 / 阶段专属 I/O 语义类型属性式标注 / 阶段间接口类型契约 vertex out→fragment in / 资源句柄·纹理采样器参数化类型面 `Texture2D<F>`+`Sampler` 平行 View;复用 kernel 子语言+views、device⊂host 单向可达、trait 单态化子集、PTX-only、🔒 纹理内存模型映射禁区不落笔)/ 依据与授权(RFC-0002 agent 批准 + 06 §8.2/§4.2 + 05 §1/§2.2 + spec/device.md RXS-0066/0067/0074/0078;G2_CONTRACT D-G2-1/D-G2-6 / G-G2-1/G-G2-6 + G2_PLAN G2.1)/ 计划条款骨架(§2 预留,非裸条款头,照搬 RFC-0002 §5 表:RXS-0153 着色阶段函数着色规则 / RXS-0154 阶段专属 I/O 语义类型 / RXS-0155 阶段间接口类型契约 / RXS-0156 资源句柄·纹理采样器参数化类型面)/ 错误码新段位说明(§3:着色阶段语义诊断归 3xxx 段 RX3011+ 续号,脚手架不预造、不预留;纯 Rust 错误走 rustc 原生零新码)/ 升档·禁区留痕(§4:档位 Full RFC/RFC-0002、🔒 纹理内存模型映射禁区、G2.2 D-131、G2.3 P-11、多后端/红线1/SG、UB 节禁区)。**沿 README v1.32 / v1.33 先例:本轮不落带编号裸条款头**——条款体与每条 ≥1 测试锚定随 G2.1 实现 PR(PR-B2,步骤 45)同落(条款 PR 先于实现 PR,trace_matrix 维持全锚定 152/152),无体例变更 | **Full RFC**(RFC-0002) |
 | v1.1 | 2026-06-23 | **G2.1 实现 PR(PR-B2):§2 计划骨架升格为带编号条款体 `### RXS-0153 ~ ### RXS-0156`**(FLS 体例,按需分 Syntax / Legality / Dynamic Semantics / Implementation Requirements 节,**严禁 UB 节**;Legality 引用对应 RX 码):RXS-0153 着色阶段函数着色规则(前缀式 `<stage> fn`,着色阶段取 kernel 入口着色,直接调用入口 / 跨着色非法调用复用 `RX3001`;compute 复用 kernel;device⊂host 单向可达;trait 单态化子集)/ RXS-0154 阶段专属 I/O 语义类型(`#[interpolate(..)]`/`#[builtin(..)]` 属性式,无标注字段编译期拒绝 → `RX3011`)/ RXS-0155 阶段间接口类型契约(vertex out → fragment in varying 兼容 → 不兼容 `RX3012`,网格/RT 并入本条)/ RXS-0156 资源句柄·纹理采样器参数化类型面(`Texture2D<F>`+`Sampler` 仅着色阶段签名形参,返回/字段/非阶段位置或未支持维度 → `RX3013`,纹理仅类型形态无采样/内存语义)。§3 错误码表回填 RX3011~3013(3xxx 段续号,着色阶段误用复用 RX3001;en/zh message-key 同落,bilingual_coverage 覆盖)。配套 rurixc 着色阶段前端(parser 上下文关键字 `<stage> fn` + AST 层着色阶段类型面检查,gate `cargo feature shader-stages`)+ conformance accept/reject(`conformance/shader/`)+ UI golden(`tests/ui/shader/*.stderr`,经 bless)+ 每条 ≥1 `//@ spec: RXS-####` 锚定(trace_matrix 152→156 全锚定)。**仅类型面/语法面 + 编译期拦截**:不碰 DXIL codegen(G2.2)/ 绑定布局推导(G2.3)/ 🔒 纹理内存模型映射(06 §4.2 禁区);区间锁定 4 条不拆条 | **Full RFC**(RFC-0002) |
+| v1.2 | 2026-06-30 | **RFC-0007 采样语义本体落库 + RXS-0174 采样表达式类型面条款(spec-first,G2.4 严格面)**。承 RFC-0007(agent 2026-06-30 自主批准,废止 G2_CONTRACT §8.5 选项 B「不采样」折中、关闭 RD-021):把 RXS-0156 的 opaque 资源句柄类型面升级为**可在着色 body 求值的采样表达式**类型面。新增 `### RXS-0174`(采样表达式类型面,**超出 G2.1/RFC-0002 锁定的 RXS-0153~0156 区间,独立 RFC 续号**):`tex.sample(samp, coord)` 复用 `MethodCall` 产生式(无新 token);合法当且仅当 `tex : Texture2D<F>`、`samp : Sampler`、`coord : vec2<f32>` 且包含函数为 `fragment` 阶段;结果 `vec4<F>`;首期收敛子集(显式 LOD 0,规避隐式导数;receiver/`samp` 须直接句柄形参引用),违例 `RX3014`;规避项登记 RD-022~RD-024。§3 错误码表回填 RX3014(3xxx 段续号,`shader.sample_expr_invalid` en/zh message-key)。§4 🔒 纹理内存模型映射禁区留痕更新:采样语义本体首期收敛映射已由 RFC-0007 落笔(类型面 RXS-0174 本文件 + codegen/内存模型 RXS-0175/0176 @ dxil_backend.md),不再「占位待后续」。**条款先于实现**(硬规则 7),测试锚定随实现 commit 同落(trace_matrix 维持全锚定)。🔒 完整内存模型映射(采样 opcode/坐标/LOD/寻址/越界/缓存可见性·memory-order)落 dxil_backend.md RXS-0176 | **Full RFC**(RFC-0007) |

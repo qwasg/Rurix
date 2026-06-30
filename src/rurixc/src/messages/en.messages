@@ -88,6 +88,7 @@ atomics.scope_misuse = scoped atomic scope misuse: {detail}
 shader.stage_io_invalid = invalid shader stage I/O field: {detail}
 shader.stage_interface_mismatch = shader stage interface mismatch: {detail}
 shader.resource_handle_invalid = invalid shader resource handle: {detail}
+shader.sample_expr_invalid = invalid texture sampling expression: {detail}
 #
 # libdevice 链接 / device 数学 intrinsic 诊断(RX6006 / RX7002,spec/device.md RXS-0081~0082;M5.3 分配)
 codegen.device_math_unsupported = {detail} is not a supported device math intrinsic (outside libdevice coverage or unsupported element type)
@@ -107,6 +108,9 @@ codegen.dxil_stage_link_mismatch = DXIL stage interface link mismatch: {detail}
 codegen.dxil_register_conflict = DXIL binding register/layout conflict: {detail}
 codegen.dxil_root_signature_too_large = DXIL root signature exceeds DWORD limit: {detail}
 codegen.dxil_psv0_mismatch = DXIL PSV0 reflection mismatch: {detail}
+#
+# DXIL 纹理采样首期收敛子集 strict-only 失败诊断(RX6023,spec/dxil_backend.md RXS-0175;G2.4 RFC-0007 分配)
+codegen.dxil_sample_unsupported = DXIL texture sampling outside first-phase subset: {detail}
 #
 # rx CLI 工具链诊断(RX7003 / RX7004,spec/toolchain.md RXS-0083/0085;M6.1 分配)
 toolchain.rx_cli_usage = rx CLI usage error: {detail}

@@ -288,6 +288,52 @@ B 全链为编译期确定性变换,本条无运行期语言语义(着色器在 
 - IR5(ABI 中立):本条**不**冻结或承诺 DXIL register、component mask、packing、字节布局、稳定 SPIR-V `Location`;`SV_Target` 索引 = D3D12 RTV 绑定顺序(外部 conformance,§4.6(a) 范畴),触及显式 register/mask/packing/byte layout 即停手升 agent Full RFC。**不**碰纹理/采样/资源访问语义(06 §4.2,RD-021 仍 defer)。
 - IR6(测试锚定):≥1 `//@ spec: RXS-0173` 覆盖 (a) fragment 3 输出按声明序匹配 `SV_Target0/1/2` → 校验门(不放宽)过、(b) 删一输出 / 渲染目标数目不符 → RX6011 strict-only 拒、(c) vertex 输出仍走 RXS-0172 用户名保名(本条不误伤其他方向)。conformance/golden 真链 bless 经 agent pin 环境(G-G2-4),uc04_gbuffer_fs 几何 pass FS 写 MRT 经 full B 链不再被签名门拒。
 
+### RXS-0175 DXIL 图形=B 资源采样 rvalue 降级（`Rvalue::ResourceSample` → `OpImageSampleExplicitLod`，RFC-0007）
+
+本条扩展 RXS-0171 的 body lowering 白名单,新增**资源采样 rvalue** 降级面:着色 body 可对已声明 `Texture2D<F>` 资源句柄经 `Sampler` 采样,产 `vec4<F>` 值参与后续白名单数据流。承 RFC-0007(agent 2026-06-30 自主批准),是 UC-04 lighting pass 真采样 G-buffer 的 codegen 前置。**RXS-0171 L4 白名单的「资源/纹理/采样访问 → RX6013」对采样表达式不再 strict-only 拒**;采样首期收敛子集外的构造另以 **RX6023** 拒(区别于 RX6013 通用不可映射,专指采样子集外)。
+
+#### Syntax
+
+本条不新增语法。采样表达式按 RXS-0174 既有 `MethodCall` 产生式书写:`tex.sample(samp, coord)`。
+
+#### Legality
+
+- L1(采样 rvalue 白名单):body lowering 新增支持 `Rvalue::ResourceSample { texture, sampler, coord }`,其中 `texture` 指向 `body.resources` 中 `MirResourceType::Texture2D(F)` 元素、`sampler` 指向 `MirResourceType::Sampler` 元素(均按声明序下标,承 RXS-0163),`coord` 为白名单求值的 `vec2<f32>` 值。
+- L2(首期收敛子集):仅 `Texture2D<f32>` 经 `Sampler` 的**显式 LOD 0** 采样、坐标 `vec2<f32>` 归一化 UV、结果 `vec4<f32>`、阶段 `fragment`。子集外(隐式 LOD / 非 `Texture2D<f32>` / coord 非 vec2f / 非 fragment 阶段 / texel fetch / 比较采样 / 多分量纹理) → **RX6023**(`codegen.dxil_sample_unsupported`,strict-only),登记 deferred RD-022~RD-024(RFC-0007 §8)。
+- L3(ABI 中立边界):本条只承诺采样语义(读取纹理内容产 `vec4<F>`);**不**冻结 descriptor 编码、采样 opcode 二进制布局、register/space 数值(承 RFC-0003 §4.6 / RFC-0005 §4.5 🔒)。SRV/Sampler 的 register/space/descriptor table 推导归 RXS-0163~0166(binding_layout)。
+- L4(句柄非值):`texture`/`sampler` 句柄不进 `local_values`、不可作普通值参与算术或存入 `let`/结构体(承 RXS-0156);采样表达式的 receiver/`samp` 实参必须直接是资源句柄形参引用。
+
+#### Dynamic Semantics
+
+采样 rvalue lowering 是编译期确定性变换。运行时可观察语义为:每次 fragment 调用在归一化坐标 `coord` 处、按绑定 sampler 过滤模式、对纹理基础 mip 层(LOD 0)读取,产 `vec4<F>`(完整内存模型映射见 RXS-0176 🔒)。本条不定义子集外构造的运行期行为;不支持即编译期 RX6023,不设 UB 节。
+
+#### Implementation Requirements
+
+- IR1(SPIR-V lowering):`Rvalue::ResourceSample` 降为 `OpLoad`(纹理变量)+ `OpLoad`(采样器变量)+ `OpSampledImage`(组合 `OpTypeSampledImage`)+ `OpImageSampleExplicitLod`(结果 `vec4<F>`,ImageOperands `Lod` = 0x2,LOD 常量 0.0)。新增 SPIR-V opcode 常量 `OpTypeSampledImage`(27)/`OpSampledImage`(86)/`OpImageSampleExplicitLod`(88)。产物保持 `spirv-val` 干净。
+- IR2(B 链贯通):SPIR-V `OpImageSampleExplicitLod` 经 spirv-cross 降为 HLSL `tex.SampleLevel(samp, uv, 0.0)`,经 dxc 产 DXIL `dx.op.sampleLevel.f32`,dxv validator 接受。
+- IR3(签名门不旁路):RXS-0159 强制签名一致性校验门仍在 B 链末尾运行;采样不旁路 `signature_gate::check`。SRV/Sampler 绑定一致性由 RXS-0166 PSV0 反射核对(binding_layout)。
+- IR4(strict-only 诊断):采样首期收敛子集外构造经 `DxilError::Unmappable`(分类 `sample-*`)映射为 **RX6023**(`codegen.dxil_sample_unsupported`);非采样的白名单外构造仍按 RXS-0171 IR4 用 RX6013。
+- IR5(测试锚定):≥1 `//@ spec: RXS-0175` 覆盖 (a) `ResourceSample` 降为 `OpSampledImage`+`OpImageSampleExplicitLod`、(b) 采样结果参与后续算术/输出写出、(c) 子集外(隐式 LOD / 非 fragment / coord 非 vec2f) → RX6023 strict-only 拒;accept 经 `conformance/dxil/graphics/accept/uc04_lighting_fs.rx`(fragment 真采样)。
+
+### RXS-0176 🔒 纹理采样内存模型映射（06 §4.2 纹理路径首期收敛，RFC-0007 §4.6）
+
+> 🔒 **本条为 06 §4.2 内存模型映射禁区(纹理路径)条款**,经 RFC-0007(agent 2026-06-30 自主批准,含本子节)落笔。仅覆盖**只读 SRV 显式-LOD-0 采样 + clamp 寻址**的首期收敛映射;隐式导数 / mip / 可配置 sampler / texel fetch / 比较采样 / UAV 写 + memory-order 留 RD-022~RD-024 后续 Full RFC 增补,**不一次落全**(避免占位式过度承诺)。本条**严禁 UB 节**——采样越界由 sampler 寻址模式吸收为 well-defined 行为(P-01 strict-only)。
+
+#### Dynamic Semantics（采样语义本体,对齐 06 §4.2）
+
+- DS1(采样 opcode 语义):`tex.sample(samp, coord)` = 在归一化坐标处、按绑定 sampler 过滤模式、对 `Texture2D<F>` **基础 mip 层(LOD 0)** 做过滤读取,产 `vec4<F>`。映射 SPIR-V `OpImageSampleExplicitLod`(Lod 显式 0)→ DXIL `dx.op.sampleLevel`。**不**映射隐式 LOD(`OpImageSampleImplicitLod` / `dx.op.sample`,依赖 quad 导数)→ **RD-022**。
+- DS2(坐标空间与归一化):`coord ∈ [0,1]²` 归一化 UV,(0,0)=纹素左上、(1,1)=右下。非归一化整型取址(texel fetch)→ **RD-023**。
+- DS3(LOD / 导数):本期 LOD 恒 0(显式),**无隐式导数依赖**——采样可出现于 fragment straight-line body(RXS-0171 直线切片内)的任意位置,无 quad 导数 / 非均匀控制流后果条款义务;隐式导数 + LOD 选择 + 派生链一致性 → **RD-022**。
+- DS4(寻址 / 过滤模式):由绑定 sampler 决定;本期 sampler = 静态默认(min/mag/mip 线性、UVW clamp-to-edge)。可配置 sampler 状态(point/aniso/wrap/border)→ **RD-022**。
+- DS5(越界采样后果):归一化坐标越界由 sampler clamp 寻址吸收 → 取最近边缘纹素,**well-defined,非 UB**(P-01:无运行期未定义行为,无 UB 节)。
+- DS6(缓存可见性与 memory-order):SRV 采样为**只读**访问,无 store → **无 memory-order 约束**(无 inter-thread 可见性问题)。跨 pass 写后读可见性(几何 pass 写 G-buffer RT → lighting pass 采样 SRV)由 D3D12 `ResourceBarrier`(`RENDER_TARGET → PIXEL_SHADER_RESOURCE`)保证,**采样语义假定该 barrier 已就位**(缺失 → 渲染未定义,归 RXS-0169 deferred 编排校验拦截 RX6021,**非采样语义层**)。可写图像(UAV)的 memory-order 不在本条(后续里程碑)。
+
+#### Implementation Requirements
+
+- IR1(barrier 编排依赖):lighting pass 采样 G-buffer 前,几何 pass 写入的 G-buffer 渲染目标须经 RT→SRV resource barrier(RXS-0169 编排锚点);device 侧 shim 落 `D3D12_RESOURCE_STATE_RENDER_TARGET → D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE` 转换 + SRV/Sampler descriptor table 绑定。
+- IR2(数据流严格判据):device 须证明 lighting final = f(几何 pass 写入并被采样的 G-buffer 值)——篡改几何 pass FS 写入常量 → final 像素随之改变(红),复原绿(`ci/dxil_uc04_device_smoke.py`)。仅「多 pass + 写 G-buffer」不充分;final 不依赖采样值即视为未达严格面。
+- IR3(测试锚定):≥1 `//@ spec: RXS-0176` 覆盖 device 数据流红绿(采样值依赖证明)+ clamp 越界 well-defined 断言。
+
 ## 3. 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
@@ -304,3 +350,4 @@ B 全链为编译期确定性变换,本条无运行期语言语义(着色器在 
 | v1.9 | 2026-06-29 | **RD-013 Q1–Q4 owner 代表裁决落库 + RXS-0171 条款体落地**。本轮采用用户在工作会话提供的推荐组合作为 owner/owner 代表裁决输入:Q1=C1-a 形参/返回值值语义、Q2=C2-a MIR place↔`io_sig` 字段序绑定、Q3=C3-c ABI 中立分层、Q4=C4-c refined 白名单子集 + RX6013 strict-only。新增 `### RXS-0171`(DXIL 图形=B 着色 body I/O 数据流降级最小切片):定义输入 I/O 结构体普通形参读取、输出 I/O 结构体普通返回写出;字段声明序绑定 In/Out;仅承诺源码层元素/方向/字段序/语义名/系统值/类型,不冻结 register/mask/packing/byte layout/稳定 Location;资源/纹理/采样/显式布局触及即升 agent Full RFC。实现侧接线 `emit_dxil_b_body`/`emit_spirv_body` 消费完整 Body,lower OpLoad/OpConstant/基础算术/OpStore;unsupported rvalue 与输出不完整均 RX6013。配套单测 + conformance RXS-0171 锚定;RD-013 status 仍 open,DXIL golden/device bless、CI step 48、G-G2-4 签字均归 agent 后续确认。| **Full RFC**（RFC-0004 / RD-013 agent 裁决） |
 | v2.0 | 2026-06-29 | **RD-017 保名机制 agent 裁决落库 + RXS-0172 条款体落地(spec-first,先于实现 PR)**。owner 代表本工作会话裁定:采**选项①**(spirv-cross 产 HLSL 后于 HLSL 边界做受限、可验证的语义名 token 改写),**否决选项③**(不放宽 `signature_gate`、不以 location 等价冒充保名);#114 维持现状不拆 RD-013,RD-017 自 `af4ee25` 开 stacked 分支(base `feat/g2.4-uc04-pr-f2-impl`)。新增 `### RXS-0172`(输出 varying / fragment 输入 varying 用户语义名保名):关闭 RXS-0159 IR1(b) 缺口——`dir==Out` varying 与 fragment `dir==In` varying 用户语义名经 B 链端到端保真;provenance 由 `io_sig` 导出(与 `vertex_input_semantic_flags` 同源)、改写点在 `run_b_chain` 的 spirv-cross→dxc 之间;**只动 HLSL semantic token**,不冻结 register/mask/packing/byte layout/稳定 Location,semantic_index 后缀随保名自然变化非物理 ABI(校验门不比对);**不放宽 RX6011**(Property 5),fail-closed(provenance 不一致即退化名经门拒);不新增错误码(backstop = RXS-0159 RX6011)。机制取证 `evidence/rd017_varying_semantic_spike_20260629.json`(隔离 spike measured_local:改写后 dxc 接受 + 校验门不放宽也过 + 物理 ABI 不变 + 确定性;dxc 1.8.0.4739 / spirv-cross 1.3.290,签名 validator/golden/device 留 agent pin 环境)。**条款先于实现**(硬规则 7):RXS-0172 测试锚定与实现随本分支实现 commit 同落。RD-017 status 翻转 / golden bless / device 真跑归 agent(G-G2-4),本条不签收口。🔒 签名二进制 ABI 布局(RFC-0004 §4.6(a))/ 纹理内存模型(06 §4.2)/ DXIL·SPIR-V UB 边界不触及。档位 **Full RFC**(RFC-0004),无体例变更 | **Full RFC**（RFC-0004） |
 | v2.1 | 2026-06-29 | **RD-017 片元输出 MRT 边界收口 + RXS-0173 条款体落地(spec-first,G2.4 选项 B)**。承 G2.4 RD-021 停手分支次发现(几何 pass FS 写 G-buffer MRT 经 full B 链被签名门 strict-only 拒:spirv-cross 把 fragment 输出降为 `SV_Target#` 渲染目标语义,而 RXS-0172 改写器只匹配 `TEXCOORD`)。新增 `### RXS-0173`(fragment 着色阶段输出 → `SV_Target#` 渲染目标系统值映射):fragment 输出 I/O 字段按声明序 `n` 忠实映射 OSG1 `SV_Target<n>` 渲染目标系统值(等价 `position→SV_Position` 系统值类匹配),**因 D3D12 像素输出按渲染目标索引绑定、无用户语义名通道** → 签名门以系统值类忠实匹配 fragment 输出而非要求用户名(`albedo`/`normal`/`depth`)出现于 OSG1。**机制取舍说明**:不采用"把 HLSL 里 `SV_Target#` 改名为用户名"(会破坏 D3D12 渲染目标按索引绑定、device draw 必坏),改为签名门系统值类识别(忠实于 D3D12 ABI,**非放宽门、非以 location/等价冒充保名**);RXS-0172 否决的"location 冒充"是把退化通用名当保名,本条是把渲染目标系统值忠实建模——二者不同。**不放宽 RXS-0159 校验门**(fragment 输出仍须真实存活于 OSG1,缺失/数目不符 → RX6011),**不新增错误码**(backstop = RX6011)。条款按 FLS 分 Syntax / Legality(L1 渲染目标映射 / L2 不放宽门 / L3 声明序即渲染目标序 / L4 方向限定)/ Dynamic Semantics / Implementation Requirements(IR1 `builtin_sv_tokens` 增 `target→SV_TARGET` + `check` 引入阶段上下文 / IR2 声明序绑定 / IR3 门不旁路 / IR4 RX6011 backstop / IR5 ABI 中立 / IR6 测试锚定),**严禁 UB 节**。`vertex` 输出维持 RXS-0172 用户名保名、fragment 输入维持 RXS-0172、vertex 输入维持 RXS-0159 IR1(a)、`#[builtin]`(含 `SV_Depth`)维持 RXS-0159 映射,均不受本条影响。`ci/trace_matrix.py --check` 全锚定 RXS-0173 入后 173/173(RXS-0173 ≥1 `//@ spec` 锚定)。🔒 register/mask/packing/byte layout(§4.6(a))/ 纹理采样内存模型(06 §4.2,RD-021 仍 defer)/ DXIL·SPIR-V UB 不触及。`Assisted-by: cursor:claude-opus-4.8`。档位 **Full RFC**(RFC-0004 / RFC-0006 G2.4),无体例变更 | **Full RFC**（RFC-0004 / RFC-0006 G2.4） |
+| v2.2 | 2026-06-30 | **RFC-0007 采样语义本体落库 + RXS-0175/RXS-0176 条款体(spec-first,G2.4 严格面)**。承 RFC-0007(agent 2026-06-30 自主批准,废止 G2_CONTRACT §8.5 选项 B「不采样」折中、关闭 RD-021)。新增 `### RXS-0175`(图形=B 资源采样 rvalue 降级):扩展 RXS-0171 body 白名单,新增 `Rvalue::ResourceSample { texture, sampler, coord }` 降级——`OpLoad` 纹理/采样器 + `OpSampledImage`(组合 `OpTypeSampledImage`)+ `OpImageSampleExplicitLod`(结果 vec4<F>,ImageOperands Lod 0)→ spirv-cross HLSL `SampleLevel(samp,uv,0.0)` → dxc DXIL `dx.op.sampleLevel`;首期收敛子集(Texture2D<f32> + Sampler + 显式 LOD 0 + coord vec2<f32> + fragment 阶段),子集外 → **RX6023** `codegen.dxil_sample_unsupported`(strict-only,区别于 RX6013 通用不可映射);RXS-0171 L4「资源/纹理/采样 → RX6013」对采样表达式不再拒;句柄非值(承 RXS-0156);ABI 中立(不冻结 descriptor/采样 opcode 布局/register)。新增 `### RXS-0176` 🔒(纹理采样内存模型映射,06 §4.2 纹理路径首期收敛):采样 opcode 语义(LOD 0 显式,非隐式导数)/ 坐标归一化 [0,1]² / LOD 导数(无隐式依赖)/ 寻址过滤(sampler clamp+线性默认)/ 越界(clamp 吸收 well-defined 非 UB)/ 缓存可见性·memory-order(只读 SRV 无 memory-order,跨 pass 写后读由 RT→SRV barrier 保证,假定 RXS-0169 编排就位);数据流严格判据 IR2(篡改几何 FS → final 改变红 / 复原绿)。规避子能力登记 deferred **RD-022~RD-024**(隐式 LOD/导数·mip·可配置 sampler / texel fetch·gather·比较采样 / 非 fragment 阶段·多分量纹理)。错误码 `registry/error_codes.json` 只追加 **RX6023** + en/zh message-key(`shader-stages`/`dxil-backend` feature gate 复用,不新增 feature)。**严禁 UB 节**(越界 clamp well-defined,P-01)。`ci/trace_matrix.py --check` RXS-0175/0176 各 ≥1 `//@ spec` 锚定(173→175)。🔒 descriptor/采样 opcode 二进制布局(RFC-0003 §4.6 / RFC-0005 §4.5)不冻结。`Assisted-by: kiro:claude-opus-4.8`。档位 **Full RFC**（RFC-0007 / RFC-0006 G2.4 严格面） | **Full RFC**（RFC-0007 / RFC-0006 G2.4 严格面） |

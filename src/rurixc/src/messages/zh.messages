@@ -89,6 +89,7 @@ atomics.scope_misuse = scoped atomic 的 scope 误用:{detail}
 shader.stage_io_invalid = 非法的着色阶段 I/O 字段:{detail}
 shader.stage_interface_mismatch = 阶段间接口不匹配:{detail}
 shader.resource_handle_invalid = 非法的着色资源句柄:{detail}
+shader.sample_expr_invalid = 非法的纹理采样表达式:{detail}
 #
 # libdevice 链接 / device 数学 intrinsic 诊断(RX6006 / RX7002,spec/device.md RXS-0081~0082;M5.3 分配)
 codegen.device_math_unsupported = {detail} 不是受支持的 device 数学 intrinsic(超出 libdevice 覆盖范围或元素类型不受支持)
@@ -108,6 +109,9 @@ codegen.dxil_stage_link_mismatch = DXIL 阶段间接口错链:{detail}
 codegen.dxil_register_conflict = DXIL 绑定 register/layout 冲突:{detail}
 codegen.dxil_root_signature_too_large = DXIL root signature 推导超 DWORD 上限:{detail}
 codegen.dxil_psv0_mismatch = DXIL PSV0 反射与推导意图不一致:{detail}
+#
+# DXIL 纹理采样首期收敛子集 strict-only 失败诊断(RX6023,spec/dxil_backend.md RXS-0175;G2.4 RFC-0007 分配)
+codegen.dxil_sample_unsupported = DXIL 纹理采样越出首期收敛子集:{detail}
 #
 # rx CLI 工具链诊断(RX7003 / RX7004,spec/toolchain.md RXS-0083/0085;M6.1 分配)
 toolchain.rx_cli_usage = rx CLI 用法错误:{detail}

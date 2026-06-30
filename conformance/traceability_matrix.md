@@ -165,7 +165,7 @@
 | RXS-0159 | spec/dxil_backend.md | 4 | `conformance/dxil/graphics/accept/fs_passthrough.rx`, `conformance/dxil/graphics/reject/vs_builtin_scalar_position.rx`, `src/rurixc/src/dxil_codegen.rs` …(+1) |
 | RXS-0160 | spec/dxil_backend.md | 3 | `conformance/dxil/graphics/accept/vs_fs_link.rx`, `src/rurixc/src/dxil_codegen.rs`, `src/rurixc/src/dxil_sig_gate.rs` |
 | RXS-0161 | spec/dxil_backend.md | 7 | `conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx`, `conformance/dxil/graphics/accept/uc04_lighting_fs.rx`, `conformance/dxil/graphics/accept/uc04_lighting_vs.rx` …(+4) |
-| RXS-0162 | spec/dxil_backend.md | 6 | `conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx`, `conformance/dxil/graphics/accept/uc04_lighting_fs.rx`, `conformance/dxil/graphics/accept/uc04_lighting_vs.rx` …(+3) |
+| RXS-0162 | spec/dxil_backend.md | 5 | `conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx`, `conformance/dxil/graphics/accept/uc04_lighting_vs.rx`, `conformance/dxil/graphics/accept/vs_varying.rx` …(+2) |
 | RXS-0163 | spec/binding_layout.md | 3 | `src/rurixc/src/binding_layout.rs`, `src/rurixc/src/dxil_codegen.rs`, `src/rurixc/src/mir_build.rs` |
 | RXS-0164 | spec/binding_layout.md | 2 | `src/rurixc/src/binding_layout.rs`, `src/rurixc/src/dxil_codegen.rs` |
 | RXS-0165 | spec/binding_layout.md | 4 | `src/rurixc/src/binding_layout.rs`, `src/rurixc/src/dxil_codegen.rs`, `src/rurixc/src/mir_build.rs` …(+1) |
@@ -174,6 +174,9 @@
 | RXS-0168 | spec/d3d12_runtime.md | 3 | `conformance/dxil/graphics/accept/uc04_gbuffer_fs.rx`, `src/rurixc/tests/dxil_golden.rs`, `src/uc04-demo/src/deferred.rs` |
 | RXS-0169 | spec/d3d12_runtime.md | 1 | `src/uc04-demo/src/barrier.rs` |
 | RXS-0170 | spec/d3d12_runtime.md | 2 | `src/uc04-demo/src/device.rs`, `src/uc04-demo/src/readback.rs` |
-| RXS-0171 | spec/dxil_backend.md | 9 | `conformance/dxil/graphics/accept/fs_body_arith.rx`, `conformance/dxil/graphics/accept/uc04_gbuffer_fs.rx`, `conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx` …(+6) |
+| RXS-0171 | spec/dxil_backend.md | 8 | `conformance/dxil/graphics/accept/fs_body_arith.rx`, `conformance/dxil/graphics/accept/uc04_gbuffer_fs.rx`, `conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx` …(+5) |
 | RXS-0172 | spec/dxil_backend.md | 3 | `conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx`, `conformance/dxil/graphics/accept/uc04_lighting_vs.rx`, `src/rurixc/src/dxil_codegen.rs` |
-| RXS-0173 | spec/dxil_backend.md | 2 | `conformance/dxil/graphics/accept/uc04_lighting_fs.rx`, `src/rurixc/src/dxil_sig_gate.rs` |
+| RXS-0173 | spec/dxil_backend.md | 3 | `conformance/dxil/graphics/accept/uc04_gbuffer_fs.rx`, `conformance/dxil/graphics/accept/uc04_lighting_fs.rx`, `src/rurixc/src/dxil_sig_gate.rs` |
+| RXS-0174 | spec/shader_stages.md | 1 | `conformance/dxil/graphics/accept/uc04_lighting_fs.rx` |
+| RXS-0175 | spec/dxil_backend.md | 1 | `conformance/dxil/graphics/accept/uc04_lighting_fs.rx` |
+| RXS-0176 | spec/dxil_backend.md | 1 | `conformance/dxil/graphics/accept/uc04_lighting_fs.rx` |

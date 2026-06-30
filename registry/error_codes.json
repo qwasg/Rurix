@@ -316,6 +316,14 @@
       "spec_clauses": ["RXS-0156"]
     },
     {
+      "id": "RX3014",
+      "title": "采样表达式违例(tex.sample(samp,coord):receiver 非 Texture2D<F> / samp 非 Sampler / coord 非 vec2<f32> / 元数不符 / 非 fragment 阶段采样;首期收敛子集外)",
+      "message_key": "shader.sample_expr_invalid",
+      "status": "active",
+      "introduced_in": "G2.4",
+      "spec_clauses": ["RXS-0174"]
+    },
+    {
       "id": "RX4001",
       "title": "使用已移出的值(use after move,含 maybe-moved 保守判定)",
       "message_key": "borrowck.use_after_move",
@@ -544,6 +552,14 @@
       "status": "active",
       "introduced_in": "G2.4",
       "spec_clauses": ["RXS-0170"]
+    },
+    {
+      "id": "RX6023",
+      "title": "DXIL 纹理采样首期收敛子集外(隐式 LOD / 非 Texture2D<f32> / coord 非 vec2<f32> / 非 fragment 阶段 / texel fetch / 比较采样 / 多分量纹理;RXS-0175 strict-only,区别于 RX6013 通用不可映射)",
+      "message_key": "codegen.dxil_sample_unsupported",
+      "status": "active",
+      "introduced_in": "G2.4",
+      "spec_clauses": ["RXS-0175"]
     },
     {
       "id": "RX7001",
