@@ -180,29 +180,13 @@ fn graphics_rx_files() -> Vec<PathBuf> {
     out
 }
 
-/// 规范化 dxc 反汇编中的版本噪声行(shader hash 内容/版本派生 + dxc ident 构建串),
-/// 使 golden 聚焦语言相关结构(签名表 / 入口 / 着色器类型),不写死工具版本。
+/// 规范化 dxc 反汇编中的版本噪声行已下沉为 `dxil_codegen::emit_dxil_b_disasm` 的内部
+/// 步骤(golden 单一真相源,RXS-0162/0171/0172);本测试不再手搓链/手搓规范化。
+///
+/// 从图形 golden 语料源码取首个 vertex/fragment 阶段根的完整 MIR `Body`(供生产忠实
+/// 链 `emit_dxil_b_disasm` 消费——body 降级 + varying 保名都依赖完整 Body)。
 #[cfg(feature = "shader-stages")]
-fn normalize_b_disasm(s: &str) -> String {
-    let mut lines = Vec::new();
-    for raw in s.replace("\r\n", "\n").lines() {
-        let t = raw.trim_start();
-        if t.starts_with("; shader hash:") {
-            lines.push("; shader hash: <OWNER-BLESSED-NORMALIZED>".to_owned());
-        } else if raw.contains("dxc(private)") || raw.contains("dxcoob ") {
-            // 保留 metadata id 前缀(如 `!0 = `),仅规范化版本串。
-            let id = raw.split('=').next().unwrap_or("").trim_end();
-            lines.push(format!("{id} = !{{!\"dxc <OWNER-BLESSED-NORMALIZED>\"}}"));
-        } else {
-            lines.push(raw.to_owned());
-        }
-    }
-    lines.join("\n")
-}
-
-/// 从图形 golden 语料源码取首个 vertex/fragment 阶段根的 (stage, io_sig)。
-#[cfg(feature = "shader-stages")]
-fn graphics_stage_io(src: &str) -> Option<(rurixc::ast::ShaderStage, Vec<rurixc::mir::IoSigElem>)> {
+fn graphics_stage_body(src: &str) -> Option<rurixc::mir::Body> {
     use rurixc::ast::ShaderStage;
     let diag = DiagCtxt::new();
     let cx = QueryCtx::new(src, SourceId(0), Edition::Rx0, &diag);
@@ -215,11 +199,11 @@ fn graphics_stage_io(src: &str) -> Option<(rurixc::ast::ShaderStage, Vec<rurixc:
     bodies
         .into_iter()
         .find(|b| matches!(b.stage, Some(ShaderStage::Vertex | ShaderStage::Fragment)))
-        .map(|b| (b.stage.expect("图形 stage"), b.io_sig))
 }
 
-/// `.dxil-disasm` golden(B 路):emit_spirv → SPIRV-Cross → dxc → dumpbin,validator
-/// gate(可用时)→ 规范化反汇编 → golden 比对。工具缺失 → SKIP。
+/// `.dxil-disasm` golden(B 路):驱动**生产忠实**链 `dxil_codegen::emit_dxil_b_disasm`
+/// (emit_spirv_body 体降级 + RXS-0172 varying 保名 + 强制 signature_gate)→ golden
+/// 比对。golden 字节 = 校验门所验产物本身。工具缺失 → SKIP。
 #[cfg(feature = "shader-stages")]
 #[test]
 fn dxil_b_disasm_golden_matches_when_toolchain_present() {
@@ -227,7 +211,7 @@ fn dxil_b_disasm_golden_matches_when_toolchain_present() {
     // 跑字节比对——`locate_*` 的 PATH by-name 回落(spawn 决定)不触发,避免随机 PATH
     // 工具产不同反汇编致误红。env 未设 → SKIP(对齐 A 路 .dxil-disasm 经 RURIX_DXC_DIR
     // 显式门控的纪律;真实红绿在带 pin B 工具链的 dev/owner 环境)。
-    let (Some(spvx), Some(dxc)) = (
+    let (Some(_spvx), Some(_dxc)) = (
         rurixc::toolchain::locate_spirv_cross().filter(|p| p.is_file()),
         rurixc::toolchain::locate_dxc().filter(|p| p.is_file()),
     ) else {
@@ -242,60 +226,33 @@ fn dxil_b_disasm_golden_matches_when_toolchain_present() {
         "; OWNER BLESSED — RXS-0162 图形=B DXIL 反汇编 golden。\n",
         "; owner pin 环境签名 validator(dxv.exe/dxil.dll)已验证;本文件为当前 B 路文本形态基线。\n",
         "; 版本噪声行(shader hash / dxc ident)已规范化为占位,不写死工具版本布局为语言保证。\n",
-        "; 平凡 passthrough(RD-013 入口 body 数据流降级 deferred)→ spirv-cross DCE → TEXCOORD;RD-017 未关闭。\n",
+        "; 生产忠实 B 链:RXS-0171 入口 body I/O 数据流降级 + RXS-0172 输出/片元 varying 用户语义名保名(uv/normal 等保真,非 TEXCOORD 退化)。\n",
     );
-    let tmp = std::env::temp_dir().join(format!("rxdxilbgold_{}", std::process::id()));
-    fs::create_dir_all(&tmp).expect("临时目录");
     let mut mismatches = Vec::new();
     for path in graphics_rx_files() {
         let src = fs::read_to_string(&path)
             .expect("读取语料失败")
             .replace("\r\n", "\n");
         let stem = path.file_stem().unwrap().to_string_lossy().into_owned();
-        let Some((stage, io_sig)) = graphics_stage_io(&src) else {
+        let Some(body) = graphics_stage_body(&src) else {
             mismatches.push(format!(
                 "{}: 未收到 vertex/fragment 图形阶段根",
                 path.display()
             ));
             continue;
         };
-        // 1) MIR→SPIR-V(Rurix 自有降级)。资源绑定 golden 随 E2b-3 落地,本通道暂
-        //    保持 io-only(空资源),既有反汇编 golden 形态不漂移。
-        let spv = rurixc::dxil_spirv::emit_spirv(stage, &io_sig, &[])
-            .unwrap_or_else(|e| panic!("{stem}: emit_spirv 应 Ok, 实得 {e:?}"));
-        let mut bytes = Vec::with_capacity(spv.len() * 4);
-        for w in &spv {
-            bytes.extend_from_slice(&w.to_le_bytes());
-        }
-        let spv_path = tmp.join(format!("{stem}.spv"));
-        fs::write(&spv_path, &bytes).expect("写 .spv");
-        // 2) SPIRV-Cross → HLSL。
-        let hlsl_path = tmp.join(format!("{stem}.hlsl"));
-        rurixc::toolchain::spirv_cross_to_hlsl(&spvx, &spv_path, &hlsl_path, 60, &[])
-            .unwrap_or_else(|e| panic!("{stem}: spirv-cross 失败: {e}"));
-        // 3) dxc → DXIL 容器(vertex=vs_6_0)。
-        let profile = match stage {
-            rurixc::ast::ShaderStage::Vertex => "vs_6_0",
-            rurixc::ast::ShaderStage::Fragment => "ps_6_0",
-            other => panic!("{stem}: 非图形阶段 {other:?}"),
+        // 生产忠实链(emit_spirv_body 体降级 + 顶点输入保名 + RXS-0172 输出/片元 varying
+        // 保名 + 强制 signature_gate)产规范化反汇编;golden 字节 = 校验门所验产物本身,
+        // 不再手搓「签名-only emit_spirv + 空旗标 + 跳过保名」第二条链。
+        let produced = match rurixc::dxil_codegen::emit_dxil_b_disasm(&body) {
+            Ok(Some(d)) => format!("{header}{d}\n"),
+            Ok(None) => {
+                // 预检已确认 pin 工具在位;此处 None = 链中途环境降级(spawn 等)→ SKIP 该语料。
+                eprintln!("{stem}: 生产 B 链工具链中途不可用 → SKIP");
+                continue;
+            }
+            Err(e) => panic!("{stem}: 生产 B 链失败(编码器/校验门 strict-only): {e:?}"),
         };
-        let dxil_path = tmp.join(format!("{stem}.dxil"));
-        rurixc::toolchain::dxc_hlsl_to_dxil(&dxc, &hlsl_path, profile, "main", &dxil_path)
-            .unwrap_or_else(|e| panic!("{stem}: dxc HLSL→DXIL 失败: {e}"));
-        // 4) validator gate(签名 validator 可用时;入 golden 前必须接受)。
-        if let Some(dxc_dir) = rurixc::toolchain::locate_dxc_dir()
-            && dxc_dir.join("dxv.exe").is_file()
-        {
-            assert!(
-                rurixc::toolchain::dxv_validate(&dxc_dir, &dxil_path).expect("dxv 调用失败"),
-                "{stem}: DXIL 容器未通过签名 validator(不得入 golden)"
-            );
-        }
-        // 5) dumpbin 反汇编 → 规范化 + owner bless 头。
-        let dxc_dir = dxc.parent().map(Path::to_path_buf).unwrap_or_default();
-        let disasm = rurixc::toolchain::dxc_disasm(&dxc_dir, &dxil_path)
-            .unwrap_or_else(|e| panic!("{stem}: dxc 反汇编失败: {e}"));
-        let produced = format!("{header}{}\n", normalize_b_disasm(&disasm));
         let golden = path.with_extension("dxil-disasm");
         if bless {
             fs::write(&golden, &produced).expect("bless 写入失败");
@@ -314,12 +271,85 @@ fn dxil_b_disasm_golden_matches_when_toolchain_present() {
             )),
         }
     }
-    let _ = fs::remove_dir_all(&tmp);
     assert!(
         mismatches.is_empty(),
         "B DXIL 反汇编 golden 比对失败:\n{}",
         mismatches.join("\n")
     );
+}
+
+// ═══════════════ UC-04 几何 pass 语料 best-effort DXIL 反汇编 dump(G2.4,RD-021 停手分支) ═══════════════
+//
+// RD-021 停手分支(见 evidence/g2.4-uc04-deferred/rd021_scoping_20260629.md):UC-04 lighting
+// pass 采样 G-buffer 触 06§4.2 禁区 + RXS-0171 白名单(RX6013),device 绿不达成。本 dump 把
+// **不采样**的几何 pass Rurix 语料(`conformance/dxil/graphics/accept/uc04_gbuffer_*.rx`)经
+// 生产忠实 B 链 `emit_dxil_b_disasm` 出真 DXIL 文本,**NOT BLESSED**——owner pin 环境重 bless
+// 入 `tests/dxil/graphics/` golden 归 agent;本测试只 `--ignored` 按需打印供 agent 审阅,不
+// 做 golden 比对、不写 golden 文件、不进常驻 CI(默认 `#[ignore]`)。pin B 工具缺失 → SKIP。
+
+/// 读取 `conformance/dxil/graphics/accept/<stem>.rx` 源码(UC-04 几何 pass 语料)。
+#[cfg(feature = "shader-stages")]
+fn uc04_gbuffer_src(stem: &str) -> String {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../conformance/dxil/graphics/accept")
+        .join(format!("{stem}.rx"));
+    fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("读取 UC-04 几何 pass 语料 {} 失败: {e}", path.display()))
+        .replace("\r\n", "\n")
+}
+
+/// `--ignored` 按需 dump:UC-04 几何 pass VS/FS Rurix 语料经生产忠实 B 链产 DXIL 文本反汇编
+/// (NOT BLESSED,供 agent 审阅 / pin 环境 bless)。pin B 工具缺失 → SKIP(对齐 RXS-0162)。
+//@ spec: RXS-0171, RXS-0168
+#[cfg(feature = "shader-stages")]
+#[test]
+#[ignore]
+fn uc04_gbuffer_disasm_dump_not_blessed() {
+    let (Some(_spvx), Some(_dxc)) = (
+        rurixc::toolchain::locate_spirv_cross().filter(|p| p.is_file()),
+        rurixc::toolchain::locate_dxc().filter(|p| p.is_file()),
+    ) else {
+        eprintln!(
+            "uc04_gbuffer_disasm_dump: 未显式配置 pin B 工具链(RURIX_SPIRV_CROSS / RURIX_DXC)→ \
+             SKIP(NOT BLESSED dump,owner pin 环境重 bless 留 owner)"
+        );
+        return;
+    };
+    let banner = concat!(
+        "; NOT BLESSED — UC-04 几何 pass Rurix 语料 best-effort DXIL 反汇编(G2.4 RD-021 停手分支)。\n",
+        "; owner pin 环境重 bless 入 tests/dxil/graphics/ golden 归 owner;本 dump 仅供审阅,非 golden。\n",
+        "; 生产忠实 B 链:RXS-0171 入口 body I/O 数据流降级 + RXS-0172 输出/片元 varying 用户语义名保名。\n",
+        "; 几何 pass 只写 G-buffer MRT,不采样(lighting 采样 = RD-021 / 06§4.2 禁区,结构不可达)。\n",
+    );
+    for stem in ["uc04_gbuffer_vs", "uc04_gbuffer_fs"] {
+        let src = uc04_gbuffer_src(stem);
+        let body = graphics_stage_body(&src).unwrap_or_else(|| {
+            panic!("{stem}: 未收到 vertex/fragment 图形阶段根(语料应 0 诊断 + 收图形根)")
+        });
+        match rurixc::dxil_codegen::emit_dxil_b_disasm(&body) {
+            Ok(Some(d)) => {
+                println!("===== {stem}.dxil-disasm (NOT BLESSED) =====");
+                println!("{banner}{d}");
+                println!("===== end {stem} =====");
+            }
+            Ok(None) => {
+                eprintln!("{stem}: 生产 B 链工具链中途不可用 → SKIP 该语料");
+            }
+            Err(e) => {
+                // 生产 B 链 strict-only 拒(签名门/编码器):fragment 输出 MRT 用户名保名
+                // 经 spirv-cross 降为 SV_Target(非 TEXCOORD),RXS-0172 当前改写器只匹配
+                // TEXCOORD → 用户名未恢复 → 签名门 RX6011 strict-only 拒。此为 RD-017
+                // (open)fragment 输出 MRT 用户名保名边界,**非 RD-021**(几何 pass FS 不
+                // 采样;采样归 lighting pass = RD-021 禁区)。host 侧 emit_spirv_body 仍
+                // 产合法 SPIR-V(OpLoad/OpStore,见 dxil_corpus accept 测试);blessed DXIL
+                // 归 agent pin 环境 + RD-017 收口。记录供 agent,不 panic。
+                eprintln!(
+                    "{stem}: 生产 B 链 strict-only 拒(RD-017 fragment 输出 MRT 用户名保名边界,\
+                     非采样/RD-021): {e:?}"
+                );
+            }
+        }
+    }
 }
 
 // ═══════════════ 绑定布局推导产物 golden(G2.3 PR-E2b-3,RXS-0165/0166) ═══════════════

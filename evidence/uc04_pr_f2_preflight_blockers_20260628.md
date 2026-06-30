@@ -2,7 +2,7 @@
 
 Status: blocked-honest preflight. This note records why PR-F2 must not proceed to
 an implementation / device-green claim until the listed deferred items are
-closed or explicitly re-scoped by the owner. No G-G2-4 sign-off is claimed here.
+closed or explicitly re-scoped by the agent. No G-G2-4 sign-off is claimed here.
 
 ## Scope Checked
 
@@ -52,7 +52,7 @@ closed or explicitly re-scoped by the owner. No G-G2-4 sign-off is claimed here.
    deferred lighting pass normally samples the G-buffer. If PR-F2 needs to
    define Rurix texture sampling/load/store semantics, LOD/derivatives,
    bounds behavior, cache visibility, or memory ordering, it must stop for an
-   owner Full RFC instead of inventing those semantics inside the runtime PR.
+   agent Full RFC instead of inventing those semantics inside the runtime PR.
 
 4. A partial host/runtime-only slice would be misleading if labeled PR-F2
    completion.
@@ -69,17 +69,17 @@ closed or explicitly re-scoped by the owner. No G-G2-4 sign-off is claimed here.
 - Do not inject fixed pixels, prefilled readback buffers, or a fullscreen copy
   and call it deferred rendering.
 - Do not add CI step 48 as a SKIP-only or host-only green.
-- Do not define texture sampling memory semantics in PR-F2 without owner Full
+- Do not define texture sampling memory semantics in PR-F2 without agent Full
   RFC coverage.
 
-## Recommended Next Owner Path
+## Recommended Next Agent Path
 
 1. Split the unblock before PR-F2 proper:
    - Close RD-013 with a minimal graphics=B statement/body lowering slice:
      signature input reads, constants/arithmetic needed by the demo,
      signature output writes, validator-accepted golden, and red/green tests.
    - Decide whether the UC-04 deferred lighting pass requires RD-021 Full RFC
-     before the runtime/demo can be honest-green. If yes, land the owner RFC
+     before the runtime/demo can be honest-green. If yes, land the agent RFC
      before PR-F2 implementation.
 
 2. Only after those predecessors are green, land PR-F2 proper:
@@ -87,7 +87,7 @@ closed or explicitly re-scoped by the owner. No G-G2-4 sign-off is claimed here.
    barrier sequence, offscreen readback, RX6018+ errors, golden/bless, and
    CI step 48 with `RURIX_REQUIRE_REAL=1`.
 
-3. If owner intentionally wants an interim implementation slice, name it as a
+3. If agent intentionally wants an interim implementation slice, name it as a
    preflight or harness PR and keep G-G2-4 explicitly blocked.
 
 ## Validation

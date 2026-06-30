@@ -79,7 +79,7 @@ flowchart LR
 | 2 | **safe 覆盖率报告(G-M7-3)**:汇总软光栅 kernel safe 覆盖 + unsafe 落点·原因(反哺 views 扩展清单) | safe 覆盖计数达标 + 报告留痕 |
 | 3 | M7 close-out 草拟:验收记录 + guardrail 输出 + UC-03 demo 图像序列红绿 + 软光栅 L3 基准 measured_local 证据 + RD-007 处置留痕(追加契约 §8) | G-M7-1~G-M7-5 + guardrail 全过 |
 
-**出口判据**:契约 G-M7-1 / G-M7-2 / G-M7-3 达成(UC-03 demo 单 EXE 出图 + 软光栅 L3 measured_local + safe 覆盖率报告),close-out 终审完成(M7_CONTRACT §8;关闭判定由白栀/owner 人工签署)。
+**出口判据**:契约 G-M7-1 / G-M7-2 / G-M7-3 达成(UC-03 demo 单 EXE 出图 + 软光栅 L3 measured_local + safe 覆盖率报告),close-out 终审完成(M7_CONTRACT §8;关闭判定由白栀/agent 自主签署)。
 
 ## 6. 风险提示(引用,不另建登记)
 

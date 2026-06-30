@@ -26,10 +26,10 @@ L3 端到端基准(D-M7-5)所串联的同一批 device kernel 亦零 unsafe,host
 
 | # | kernel | spec 条款 | device 源 | host 参考(同义) | safe 依据 |
 |---|---|---|---|---|---|
-| 1 | `sr_binning` | RXS-0118 | [src/rurix-rt/kernels/sr_binning.rx](../../src/rurix-rt/kernels/sr_binning.rx) | `bin_triangles` | 每 tile 单 owner 升序遍历,atomics-free,无 `unsafe` |
+| 1 | `sr_binning` | RXS-0118 | [src/rurix-rt/kernels/sr_binning.rx](../../src/rurix-rt/kernels/sr_binning.rx) | `bin_triangles` | 每 tile 单 agent 升序遍历,atomics-free,无 `unsafe` |
 | 2 | `sr_raster_tile` | RXS-0119 | [src/rurix-rt/kernels/sr_raster_tile.rx](../../src/rurix-rt/kernels/sr_raster_tile.rx) | `shade_pixel` | 每像素独立边函数/重心,无 `unsafe` |
-| 3 | `sr_depth` | RXS-0120 | [src/rurix-rt/kernels/sr_depth.rx](../../src/rurix-rt/kernels/sr_depth.rx) | `render_hdr` | 每像素 owner 固定片元序 less 合成,atomics-free,无 `unsafe` |
-| 4 | `sr_tonemap` | RXS-0121 | [src/rurix-rt/kernels/sr_tonemap.rx](../../src/rurix-rt/kernels/sr_tonemap.rx) | `tonemap_channel` | 每分量 owner 独写量化,无 `unsafe` |
+| 3 | `sr_depth` | RXS-0120 | [src/rurix-rt/kernels/sr_depth.rx](../../src/rurix-rt/kernels/sr_depth.rx) | `render_hdr` | 每像素 agent 固定片元序 less 合成,atomics-free,无 `unsafe` |
+| 4 | `sr_tonemap` | RXS-0121 | [src/rurix-rt/kernels/sr_tonemap.rx](../../src/rurix-rt/kernels/sr_tonemap.rx) | `tonemap_channel` | 每分量 agent 独写量化,无 `unsafe` |
 
 host 参考 crate [src/soft-raster/src/lib.rs](../../src/soft-raster/src/lib.rs) 与 [src/image-io](../../src/image-io)
 均继承 workspace lints `unsafe_code = "deny"`([Cargo.toml](../../Cargo.toml) L12–16),源码零 `unsafe` 块。
@@ -50,7 +50,7 @@ host 参考 crate [src/soft-raster/src/lib.rs](../../src/soft-raster/src/lib.rs)
 反哺 views 扩展清单(05 §7:`split` / `group` / `transpose` / `reverse` / `zip`;RXS-0078:
 `split_at` / `chunks` / `windows`;`src/rurixc/src/hir.rs::ViewOp`)。
 
-**本轮零 unsafe**:四 kernel 以 `View<global>` 索引 + 每像素/每 tile/每分量单一 owner 独写实现
+**本轮零 unsafe**:四 kernel 以 `View<global>` 索引 + 每像素/每 tile/每分量单一 agent 独写实现
 覆盖/深度/量化,未触发原子合成或别名可变写,无需 unsafe 逃生。故:
 
 - `unsafe-audit/` 无新增条目(仅既有 [unsafe-audit/rurix-rt.md](../../unsafe-audit/rurix-rt.md) U1–U8 运行时原语)。

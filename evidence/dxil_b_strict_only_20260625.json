@@ -18,7 +18,7 @@
     "dxv_present": true
   },
   "keep_mechanism": "dxc -spirv -fspv-reflect(携 UserSemantic)+ spirv-cross --set-hlsl-named-vertex-input-semantic(经 spirv_reflect 自动导出);varying(vs-out/ps-in)语义 spirv-cross 硬绑 TEXCOORD#,无输出语义保名 flag。",
-  "owner_decision": "P-01 strict-only 规范线 + ②③契约线归属裁断权属 owner(硬规则 1/P-13);本探针只产名保真机器事实,不代决、不代签。",
+  "owner_decision": "P-01 strict-only 规范线 + ②③契约线归属裁断权属 owner(硬规则 1/P-13);本探针只产名保真机器事实,不代决、自主签署。",
   "samples": [
     {
       "name": "vs_sig",

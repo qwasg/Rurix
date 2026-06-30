@@ -1,0 +1,23 @@
+//@ spec: RXS-0171, RXS-0168, RXS-0173
+// UC-04 deferred 几何 pass fragment 写 G-buffer MRT(RXS-0171 body I/O 数据流降级,严格面)。
+// 读插值 varying(normal)+ 白名单常量 → 多目标输出聚合返回值机械分解为逐 Out OpStore
+// (albedo R8 / normal R16F / depth R32F 三 MRT 目标)。**albedo 由常量 0.75 写入**——
+// 此常量是数据流严格判据的篡改锚点(ci/dxil_uc04_device_smoke.py:篡改此常量 → lighting
+// 真采样到的 albedo 改变 → final 像素随之改变,证 final = f(采样 G-buffer 值);RXS-0176 IR2)。
+// **几何 pass 只写 MRT,不采样**(采样归 lighting pass = RXS-0175);albedo 写入供 lighting
+// pass 经 SRV 真采样(RT→SRV barrier 后)。host 侧确定性:emit_spirv_body 产 OpLoad(normal)
+// + OpStore ×3。fragment 输出按 RXS-0173 映射 SV_Target0/1/2 渲染目标系统值。
+struct GBufVary {
+    #[interpolate(perspective)] uv: vec2<f32>,
+    #[interpolate(perspective)] normal: f32,
+}
+
+struct GBufferTargets {
+    albedo: f32,
+    normal: f32,
+    depth: f32,
+}
+
+fragment fn uc04_gbuffer_fs(inp: GBufVary) -> GBufferTargets {
+    GBufferTargets { albedo: 0.75, normal: inp.normal, depth: 1.0 }
+}

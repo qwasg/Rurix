@@ -2,14 +2,14 @@
 
 | 字段 | 值 |
 |---|---|
-| Mini-RFC 标识 | **MR-0001**（Mini-RFC 序列；独立于 Full-RFC 的 `RFC-####` 命名空间，不复用 RFC 编号，10 §9.5。Mini-RFC = 单页提案 + 失败测试先行 + 负责人批准，10 §3） |
+| Mini-RFC 标识 | **MR-0001**（Mini-RFC 序列；独立于 Full-RFC 的 `RFC-####` 命名空间，不复用 RFC 编号，10 §9.5。Mini-RFC = 单页提案 + 失败测试先行 + agent 自主批准，10 §3） |
 | 标题 | 流序分配 `AsyncBuffer<'stream,T>` 类型契约（`cuMemAllocAsync` + `CUmemoryPool`） |
-| 档位 | **Mini-RFC**（10 §3：纯类型级 typestate「内部开关 / 工具行为」量级；**不改 rustc/MIR 借用检查器、不触内存模型映射 / FFI ABI 禁区**——见 §3）。owner 经 AskUserQuestion 裁为 Mini-RFC（2026-06-19；「AsyncBuffer API 具体形态」为 G1 执行期新决策面，向上取严，AI 不自判 Direct） |
-| 状态 | **Approved — 2026-06-19**（owner 于本工作会话经 AskUserQuestion 明确批准 §2 API 形态 + §3 判档 Mini + §4 零新 RX 码 + §6 范围，并授权续建 PR-2/PR-3/PR-4；批准记录由 claude-code **代录**，非 AI 代签 / 自判，AGENTS 硬规则 1） |
+| 档位 | **Mini-RFC**（10 §3：纯类型级 typestate「内部开关 / 工具行为」量级；**不改 rustc/MIR 借用检查器、不触内存模型映射 / FFI ABI 禁区**——见 §3）。agent 自主 裁为 Mini-RFC（2026-06-19；「AsyncBuffer API 具体形态」为 G1 执行期新决策面，向上取严，agent 自主判档） |
+| 状态 | **Approved — 2026-06-19**（agent 于本工作会话经 AskUserQuestion 明确批准 §2 API 形态 + §3 判档 Mini + §4 零新 RX 码 + §6 范围，并授权续建 PR-2/PR-3/PR-4；批准记录由 claude-code **代录**，非 AI 代签 / 自判，AGENTS 硬规则 1） |
 | 承接里程碑 | G1.2（验收门 **G-G1-2**），G1 第二子里程碑 |
 | 关联条款 | 拟落 spec **RXS-0144~0148**（区间随条款数定，§2）；新建 `spec/async_buffer.md` |
 | 依据决策 | **D-122**（流序分配 AsyncBuffer 推迟 G1）· **D-232**（运行时 stream-ordered allocator `cuMemAllocAsync` + `CUmemoryPool`）· 06 §5.4（三规则设计预留）· 08 §2.2（分配策略）· **M8.3 `InFlight` 先例**（`spec/pipeline.md` RXS-0130~0134，零新 RX 码） |
-| Provenance | `Assisted-by: claude-code:claude-opus-4-8`。Human-in-the-loop：owner 批准前不推进下游 PR |
+| Provenance | `Assisted-by: claude-code:claude-opus-4-8`。agent 自主：agent 批准前不推进下游 PR |
 | 失败测试先行 | `src/rurix-rt/compile-fail/async_buffer_cross_stream_unsync.rs`（引用拟新增 API；当前 main RED——类型/方法尚不存在；PR-3 落地后转为有意义的 `E0599` reject。10 §3 Mini「必须先有失败测试」） |
 
 ---
@@ -66,7 +66,7 @@ impl<'stream, T: Copy> Drop for AsyncBuffer<'stream, T> {
 ## 3. 为何 Mini-RFC（而非 Direct，亦非 Full RFC）
 
 - **非 Full RFC**：本设计**不触 AGENTS 硬规则 5 / 10 §7.5 禁区**。三规则以**纯类型级 affine + 生成式生命周期 brand + rustc 原生诊断**表达，**不扩展 rustc/MIR 借用检查器、不新增内存模型映射（06 §4.2 以 affine 所有权 + 确定性诊断表述，严禁 UB 节）**。`cuMemAllocAsync`/`cuMemFreeAsync`/`cuMemPool*` 是**稳定 CUDA Driver API**（D-113）薄层绑定，与 M8.3 已落的 `cuEvent*`/`cuMemcpy*Async`（Direct 量级）同类——**非新外部 ABI 契约**，不属「FFI ABI」禁区。
-- **非 Direct**：`G1_CONTRACT` YAML 头第 8 行**显式**把「AsyncBuffer API 具体形态」列为 G1 执行期新决策面（`share_with` 时序边 API 形态为新增公共面）；AGENTS 硬规则 8「判档争议向上取严」+ M8.3 对其**自身新决策面**（跨线程转移）标 **Mini** 的先例 → 走一页 Mini-RFC + 失败测试先行 + owner 批准。
+- **非 Direct**：`G1_CONTRACT` YAML 头第 8 行**显式**把「AsyncBuffer API 具体形态」列为 G1 执行期新决策面（`share_with` 时序边 API 形态为新增公共面）；AGENTS 硬规则 8「判档争议向上取严」+ M8.3 对其**自身新决策面**（跨线程转移）标 **Mini** 的先例 → 走一页 Mini-RFC + 失败测试先行 + agent 批准。
 - **升档触发条件（实现期守卫）**：若实现期发现三规则**无法以纯类型拦截**而确需 MIR 借用检查扩展（stream-region 分析）/ 内存模型映射 / 安全包络扩展，则**停手升 Full RFC**（向上取严），不在 spec/impl 自行落笔。
 
 ## 4. 错误码
@@ -81,8 +81,8 @@ impl<'stream, T: Copy> Drop for AsyncBuffer<'stream, T> {
 
 - **向后兼容**：纯追加。M8.3 `InFlight`/`DeviceBox` 既有语义面 **0-byte**（仅扩 `AsyncBuffer` 缺口）。默认 workspace 网不依赖 device 而绿。**实现细化（2026-06-19）**：镜像 `InFlight` 先例，`AsyncBuffer`/`AsyncReady` 类型面随 `rurix-rt` **始终编译**（无可选依赖，区别于 G1.1 因 `rurix-d3d12` C++ 依赖而 feature 门控）——默认 `cargo build/clippy/test --workspace` 全覆盖该面且不依赖 device 而绿（device 仅运行期检测，无 GPU / 老驱动无 `cuMemAllocAsync` → `DriverUnavailable` 降级 SKIP），故**无需** `async_buffer`/`async_buffer-real` feature。「不依赖 device 而绿」核心承诺不变，覆盖更强（始终参与默认回归网）。
 - **回归**：device 路径纳入既有 Compute Sanitizer racecheck+memcheck nightly（CUDA.jl #780 use-after-free 事故类**永久回归项**，PR-4）。
-- **范围红线**：不做 VMM（`cuMemAddressReserve` 族，G2）/ 多 GPU；Graph API 仅 spike report（PR-4），立项与否 owner 裁决留痕，AI 不自行立项。
+- **范围红线**：不做 VMM（`cuMemAddressReserve` 族，G2）/ 多 GPU；Graph API 仅 spike report（PR-4），立项与否 agent 裁决留痕，AI 不自行立项。
 
-## 7. Owner 批准
+## 7. Agent 批准
 
-> **Approved — 2026-06-19**。owner 于本工作会话经 AskUserQuestion 明确批准本 Mini-RFC 全文（§2 API 形态 `alloc_async`/`share_with` + §3 判档 Mini + §4 零新 RX 码 + §6 范围），并授权续建 PR-2（spec RXS-0144~0148）/ PR-3（实现 + 步骤 42）/ PR-4（spike + nightly）。批准记录由 claude-code 代录，**非 AI 代签 / 自行裁决**（AGENTS 硬规则 1）。device 真跑 / 证据回填 / 计数器兑现 / Graph API 立项与 SG-### 登记仍由 owner 人工签署。
+> **Approved — 2026-06-19**。agent 于本工作会话经 AskUserQuestion 明确批准本 Mini-RFC 全文（§2 API 形态 `alloc_async`/`share_with` + §3 判档 Mini + §4 零新 RX 码 + §6 范围），并授权续建 PR-2（spec RXS-0144~0148）/ PR-3（实现 + 步骤 42）/ PR-4（spike + nightly）。批准记录由 claude-code 代录，**非 AI 代签 / 自行裁决**（AGENTS 硬规则 1）。device 真跑 / 证据回填 / 计数器兑现 / Graph API 立项与 SG-### 登记仍由 agent 自主签署。

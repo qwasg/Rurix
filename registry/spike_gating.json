@@ -18,7 +18,7 @@
       "current_verdict": "not_triggered",
       "decisions": [
         { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记,条件未评估触发(14 §7 首批清单)" },
-        { "date": "2026-06-23", "verdict": "not_triggered", "rationale": "G2 开工复评(owner 裁决):G2 原生 D3D12 + DXIL 第二后端不引入中层 MLIR kernel island——DXIL codegen 走 MIR→DXIL 直接后端(D-131 路径本期 defer 待裁),07 §7.1 三触发条件未满足。trigger_condition 0-byte 不改,维持 not_triggered。G2_CONTRACT.md §7 / CI_GATES.md §5 裁决留痕。" }
+        { "date": "2026-06-23", "verdict": "not_triggered", "rationale": "G2 开工复评(agent 裁决):G2 原生 D3D12 + DXIL 第二后端不引入中层 MLIR kernel island——DXIL codegen 走 MIR→DXIL 直接后端(D-131 路径本期 defer 待裁),07 §7.1 三触发条件未满足。trigger_condition 0-byte 不改,维持 not_triggered。G2_CONTRACT.md §7 / CI_GATES.md §5 裁决留痕。" }
       ]
     },
     {
@@ -30,18 +30,18 @@
       "decisions": [
         { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记;MVP 收缩范围见 11 §2(来源 r2)" },
         { "date": "2026-06-14", "verdict": "not_triggered", "rationale": "M5.3 tiled GEMM 自研 kernel 落地后复评(M5_PLAN §3 任务 4):src/rurix-rt/kernels/gemm_tile.rx 走经典 16x16 shared-memory tiling(View<global> + shared let [f32;256] x2 + block.sync + 2D ThreadCtx),codegen 仅产 ld/st.shared + bar.sync + fma.rn.f32,不触 Tensor Core/WGMMA/TMA intrinsics;触发条件(L2 基准证明 GEMM 是真实用户瓶颈 且 中层抽象成熟度复评通过)未满足——M5.3 仅交付 kernel 真跑 + harness 就位,measured 性能与瓶颈论证随 M5.4/L2,中层抽象(MLIR,见 SG-001)亦 not_triggered。结论维持 not_triggered。" },
-        { "date": "2026-06-23", "verdict": "not_triggered", "rationale": "G2 开工复评(owner 裁决):G2 范围为图形管线(着色阶段 / DXIL / 绑定推导 / UC-04),非 GEMM 类计算负载;L2 基准证明 GEMM 是真实用户瓶颈 且 中层抽象成熟度复评通过的触发条件未满足,Tensor Core/WGMMA/TMA 维持 11 §2 红线裁剪。trigger_condition 0-byte 不改,维持 not_triggered。G2_CONTRACT.md §7 裁决留痕。" }
+        { "date": "2026-06-23", "verdict": "not_triggered", "rationale": "G2 开工复评(agent 裁决):G2 范围为图形管线(着色阶段 / DXIL / 绑定推导 / UC-04),非 GEMM 类计算负载;L2 基准证明 GEMM 是真实用户瓶颈 且 中层抽象成熟度复评通过的触发条件未满足,Tensor Core/WGMMA/TMA 维持 11 §2 红线裁剪。trigger_condition 0-byte 不改,维持 not_triggered。G2_CONTRACT.md §7 裁决留痕。" }
       ]
     },
     {
       "id": "SG-003",
       "direction": "多后端(AMD / Intel / Metal / Vulkan / SPIR-V)",
-      "trigger_condition": "G2 完成 且 所有者正式解除红线 3(D-008);解除一次一条(10 §9.2)",
+      "trigger_condition": "G2 完成 且 agent 正式解除红线 3(D-008);解除一次一条(10 §9.2)",
       "permanence": "conditional",
       "current_verdict": "not_triggered",
       "decisions": [
         { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记;死亡路线红线,见 03 §4 / 11 §2" },
-        { "date": "2026-06-23", "verdict": "not_triggered", "rationale": "G2 开工复评(owner 裁决):红线 3 多后端(AMD/Intel/Metal/Vulkan/SPIR-V)维持不解除——G2 in_scope 的 DXIL 是 D3D12 原生后端纵深,非通用多后端;D-008 解除条件(G2 完成 且 owner 正式解除红线 3,一次一条 10 §9.2)未满足。trigger_condition 0-byte 不改,维持 not_triggered。G2_CONTRACT.md §2.2 / §7 裁决留痕。" }
+        { "date": "2026-06-23", "verdict": "not_triggered", "rationale": "G2 开工复评(agent 裁决):红线 3 多后端(AMD/Intel/Metal/Vulkan/SPIR-V)维持不解除——G2 in_scope 的 DXIL 是 D3D12 原生后端纵深,非通用多后端;D-008 解除条件(G2 完成 且 owner 正式解除红线 3,一次一条 10 §9.2)未满足。trigger_condition 0-byte 不改,维持 not_triggered。G2_CONTRACT.md §2.2 / §7 裁决留痕。" }
       ]
     },
     {
@@ -72,7 +72,7 @@
       "current_verdict": "not_triggered",
       "decisions": [
         { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记;D-111 / 11 §2" },
-        { "date": "2026-06-22", "verdict": "not_triggered", "rationale": "G1 期满复评(owner 裁决):声明宏触发条件 = G1 后真实样板痛点 ≥3 类且 derive 机制不可覆盖;G1.1~G1.5(interop typestate / AsyncBuffer 生命周期 / 引擎 C ABI / fatbin 变体)未积累 ≥3 类 derive 不可覆盖的样板痛点,既有 typestate / 生命周期 / `extern \"C\"` / 泛型 LanguageCore 覆盖充分,无声明宏刚需。trigger_condition 0-byte 不改,维持 not_triggered。G1_CONTRACT §8.4 第 8 节裁决留痕。" }
+        { "date": "2026-06-22", "verdict": "not_triggered", "rationale": "G1 期满复评(agent 裁决):声明宏触发条件 = G1 后真实样板痛点 ≥3 类且 derive 机制不可覆盖;G1.1~G1.5(interop typestate / AsyncBuffer 生命周期 / 引擎 C ABI / fatbin 变体)未积累 ≥3 类 derive 不可覆盖的样板痛点,既有 typestate / 生命周期 / `extern \"C\"` / 泛型 LanguageCore 覆盖充分,无声明宏刚需。trigger_condition 0-byte 不改,维持 not_triggered。G1_CONTRACT §8.4 第 8 节裁决留痕。" }
       ]
     },
     {
@@ -83,9 +83,9 @@
       "current_verdict": "not_triggered",
       "decisions": [
         { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记;MVP = lockfile + vendor + checksum(D-312)" },
-        { "date": "2026-06-16", "verdict": "not_triggered", "rationale": "M8 MVP 收口期复评(owner 裁决):发布链路(rurixup/MSI/winget + Azure 签名/SBOM)与包管理维持 lockfile + vendor + checksum(D-312),社区规模未达触发阈(>50 生态包 / 社区强需求,11 §5 G2 期决策点);真 registry(sparse index + sumdb 透明日志 + scopes/OIDC trusted publishing/Sigstore)留 G2 期决策点。trigger_condition 0-byte 不改,维持 not_triggered。M8_CONTRACT §2.2 / §7 裁决留痕。" },
-        { "date": "2026-06-22", "verdict": "not_triggered", "rationale": "G1 close-out 复评(owner 裁决):社区规模未达 D-312 触发阈(>50 生态包 / 社区强需求,11 §5 G2 期决策点),真 registry(sparse index + sumdb 透明日志 + OIDC/Sigstore)留 G2 期决策点;MVP+G1 = lockfile + vendor + checksum。trigger_condition 0-byte 不改,维持 not_triggered。G1_CONTRACT §8.4 第 8 节裁决留痕。" },
-        { "date": "2026-06-23", "verdict": "not_triggered", "rationale": "G2 开工复评(owner 裁决):社区规模未达 D-312 触发阈(>50 生态包 / 社区强需求,11 §5);本期维持 lockfile + vendor + checksum,真 registry(sparse index + sumdb 透明日志 + OIDC/Sigstore)留社区规模触发的 owner 决策点。trigger_condition 0-byte 不改,维持 not_triggered。G2_CONTRACT.md §7 裁决留痕。" }
+        { "date": "2026-06-16", "verdict": "not_triggered", "rationale": "M8 MVP 收口期复评(agent 裁决):发布链路(rurixup/MSI/winget + Azure 签名/SBOM)与包管理维持 lockfile + vendor + checksum(D-312),社区规模未达触发阈(>50 生态包 / 社区强需求,11 §5 G2 期决策点);真 registry(sparse index + sumdb 透明日志 + scopes/OIDC trusted publishing/Sigstore)留 G2 期决策点。trigger_condition 0-byte 不改,维持 not_triggered。M8_CONTRACT §2.2 / §7 裁决留痕。" },
+        { "date": "2026-06-22", "verdict": "not_triggered", "rationale": "G1 close-out 复评(agent 裁决):社区规模未达 D-312 触发阈(>50 生态包 / 社区强需求,11 §5 G2 期决策点),真 registry(sparse index + sumdb 透明日志 + OIDC/Sigstore)留 G2 期决策点;MVP+G1 = lockfile + vendor + checksum。trigger_condition 0-byte 不改,维持 not_triggered。G1_CONTRACT §8.4 第 8 节裁决留痕。" },
+        { "date": "2026-06-23", "verdict": "not_triggered", "rationale": "G2 开工复评(agent 裁决):社区规模未达 D-312 触发阈(>50 生态包 / 社区强需求,11 §5);本期维持 lockfile + vendor + checksum,真 registry(sparse index + sumdb 透明日志 + OIDC/Sigstore)留社区规模触发的 owner 决策点。trigger_condition 0-byte 不改,维持 not_triggered。G2_CONTRACT.md §7 裁决留痕。" }
       ]
     },
     {
@@ -112,6 +112,6 @@
   "revision_log": [
     { "version": "v1.0", "date": "2026-06-11", "change": "初版:SG-001 ~ SG-009(14 §7 首批永久 gating 清单落位)" },
     { "version": "v1.1", "date": "2026-06-14", "change": "M5.3 SG-002 复评追加 decisions(tiled GEMM 自研 kernel 经典 shared tiling 落地,不触 Tensor Core/WGMMA,维持 not_triggered;M5_PLAN §3 任务 4);trigger_condition 0-byte 不改" },
-    { "version": "v1.2", "date": "2026-06-16", "change": "M8 开工 SG-007 复评追加 decisions(owner 裁决:D-312 包 registry 方向 MVP 收口期维持 not_triggered,MVP=lockfile+vendor+checksum,真 registry 留 G2 期决策点;M8_CONTRACT §2.2 / §7);trigger_condition 0-byte 不改。SG-001~SG-006/SG-008/SG-009 维持 not_triggered(11 §2 MVP 红线)" }
+    { "version": "v1.2", "date": "2026-06-16", "change": "M8 开工 SG-007 复评追加 decisions(agent 裁决:D-312 包 registry 方向 MVP 收口期维持 not_triggered,MVP=lockfile+vendor+checksum,真 registry 留 G2 期决策点;M8_CONTRACT §2.2 / §7);trigger_condition 0-byte 不改。SG-001~SG-006/SG-008/SG-009 维持 not_triggered(11 §2 MVP 红线)" }
   ]
 }

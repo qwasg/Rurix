@@ -187,6 +187,9 @@ def check_evidence_files() -> None:
     dxil_a_graphics_sig_effort_schema = load(
         ROOT / "milestones/g2/dxil_a_graphics_sig_effort_evidence_schema.json"
     )
+    rd017_varying_semantic_spike_schema = load(
+        ROOT / "milestones/g2/rd017_varying_semantic_spike_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -253,6 +256,11 @@ def check_evidence_files() -> None:
     dxil_a_graphics_sig_effort_validator = (
         jsonschema.Draft7Validator(dxil_a_graphics_sig_effort_schema)
         if dxil_a_graphics_sig_effort_schema
+        else None
+    )
+    rd017_varying_semantic_spike_validator = (
+        jsonschema.Draft7Validator(rd017_varying_semantic_spike_schema)
+        if rd017_varying_semantic_spike_schema
         else None
     )
     for f in evidence_files:
@@ -362,6 +370,16 @@ def check_evidence_files() -> None:
             # milestones/g2/dxil_path_spike_evidence_schema.json(measured-first /
             # blocked-honest,纯取证非性能基准;不入 budget counter,A/B 结论留 owner)
             validator = dxil_path_spike_validator
+        elif (
+            f.name.startswith("rd017_varying_semantic_spike_")
+            and rd017_varying_semantic_spike_validator is not None
+        ):
+            # G2.4 RD-017 varying 语义名保名机制 spike 证据(owner ruling 选项① HLSL 边界
+            # 改写 / 否决③)→ milestones/g2/rd017_varying_semantic_spike_evidence_schema.json
+            # (measured-first / blocked-honest,纯取证非性能基准;输出/片元输入 varying 用户名
+            # 经 HLSL 边界改写后 dxc 接受 + signature_gate 不放宽也过 + 物理 ABI 不变 + 确定性,
+            # 不入 budget counter;golden bless / device 真跑 / RD-017 状态翻转留 owner,G-G2-4)
+            validator = rd017_varying_semantic_spike_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):

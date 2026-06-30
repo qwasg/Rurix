@@ -1,0 +1,313 @@
+{
+  "schema_version": 1,
+  "subject": "rd017_varying_semantic_rewrite",
+  "rd_ref": "RD-017",
+  "decision_ref": "owner ruling: 选项① HLSL 边界保名改写 / 否决③(不放宽 signature_gate)",
+  "host_env": {
+    "os": "win32"
+  },
+  "tool_versions": {
+    "dxc": "dxcompiler.dll: 1.8 - 1.8.0.4739 (d9a5e97d0)",
+    "spirv_cross": "Git commit: vulkan-sdk-1.3.290.0-44-g65d73934 Timestamp: 2024-10-04T13:35:00"
+  },
+  "validator_note": "签名 validator(dxv/dxil.dll)为 agent pin 环境;本探针只测 dxc 接受 + 签名名存活 + ABI 中立 + 确定性,自主签署 golden/device(G-G2-4 agent)。",
+  "samples": [
+    {
+      "name": "vs_named",
+      "profile": "vs_6_0",
+      "checked_part": "OSG1",
+      "spirv_emit": "pass",
+      "spirv_cross": "pass",
+      "target_struct": "SPIRV_Cross_Output",
+      "degraded_semantics": [
+        {
+          "field": "out_var_NORMAL",
+          "semantic": "TEXCOORD0"
+        },
+        {
+          "field": "out_var_WORLDPOS",
+          "semantic": "TEXCOORD1"
+        },
+        {
+          "field": "out_var_TEXCOORD0",
+          "semantic": "TEXCOORD2"
+        },
+        {
+          "field": "gl_Position",
+          "semantic": "SV_Position"
+        }
+      ],
+      "degraded_dxil_emit": "pass",
+      "gate_before_rewrite": {
+        "dxil_names": [
+          "TEXCOORD",
+          "TEXCOORD",
+          "TEXCOORD",
+          "SV_Position"
+        ],
+        "checks": [
+          {
+            "want": "NORMAL",
+            "found_equiv": false
+          },
+          {
+            "want": "WORLDPOS",
+            "found_equiv": false
+          },
+          {
+            "want": "UV",
+            "found_equiv": false
+          }
+        ],
+        "gate_pass": false
+      },
+      "rewrite_changes": [
+        {
+          "line_no": 17,
+          "field": "out_var_NORMAL",
+          "from": "TEXCOORD0",
+          "to": "NORMAL",
+          "location": 0
+        },
+        {
+          "line_no": 18,
+          "field": "out_var_WORLDPOS",
+          "from": "TEXCOORD1",
+          "to": "WORLDPOS",
+          "location": 1
+        },
+        {
+          "line_no": 19,
+          "field": "out_var_TEXCOORD0",
+          "from": "TEXCOORD2",
+          "to": "UV",
+          "location": 2
+        }
+      ],
+      "hlsl_abi_neutral": {
+        "line_count_invariant": true,
+        "violations": [],
+        "abi_neutral": true
+      },
+      "rewritten_dxil_emit": "pass",
+      "dxc_stderr_len": 0,
+      "gate_after_rewrite": {
+        "dxil_names": [
+          "NORMAL",
+          "WORLDPOS",
+          "UV",
+          "SV_Position"
+        ],
+        "checks": [
+          {
+            "want": "NORMAL",
+            "found_equiv": true
+          },
+          {
+            "want": "WORLDPOS",
+            "found_equiv": true
+          },
+          {
+            "want": "UV",
+            "found_equiv": true
+          }
+        ],
+        "gate_pass": true
+      },
+      "binary_abi_diff": {
+        "comparable": true,
+        "elemcount_invariant": true,
+        "physical_abi_invariant": true,
+        "physical_abi_violations": [],
+        "semantic_index_changes": [
+          {
+            "idx": 1,
+            "before": 1,
+            "after": 0
+          },
+          {
+            "idx": 2,
+            "before": 2,
+            "after": 0
+          }
+        ],
+        "semantic_name_changes": [
+          {
+            "idx": 0,
+            "from": "TEXCOORD",
+            "to": "NORMAL"
+          },
+          {
+            "idx": 1,
+            "from": "TEXCOORD",
+            "to": "WORLDPOS"
+          },
+          {
+            "idx": 2,
+            "from": "TEXCOORD",
+            "to": "UV"
+          }
+        ]
+      },
+      "determinism": {
+        "n": 4,
+        "rewrite_text_unique": 1,
+        "rewrite_text_consistent": true,
+        "rewritten_dxil_unique": 1,
+        "rewritten_dxil_consistent": true
+      },
+      "status": "measured_local"
+    },
+    {
+      "name": "ps_named",
+      "profile": "ps_6_0",
+      "checked_part": "ISG1",
+      "spirv_emit": "pass",
+      "spirv_cross": "pass",
+      "target_struct": "SPIRV_Cross_Input",
+      "degraded_semantics": [
+        {
+          "field": "in_var_NORMAL",
+          "semantic": "TEXCOORD0"
+        },
+        {
+          "field": "in_var_WORLDPOS",
+          "semantic": "TEXCOORD1"
+        },
+        {
+          "field": "in_var_TEXCOORD0",
+          "semantic": "TEXCOORD2"
+        }
+      ],
+      "degraded_dxil_emit": "pass",
+      "gate_before_rewrite": {
+        "dxil_names": [
+          "TEXCOORD",
+          "TEXCOORD",
+          "TEXCOORD"
+        ],
+        "checks": [
+          {
+            "want": "NORMAL",
+            "found_equiv": false
+          },
+          {
+            "want": "WORLDPOS",
+            "found_equiv": false
+          },
+          {
+            "want": "UV",
+            "found_equiv": false
+          }
+        ],
+        "gate_pass": false
+      },
+      "rewrite_changes": [
+        {
+          "line_no": 7,
+          "field": "in_var_NORMAL",
+          "from": "TEXCOORD0",
+          "to": "NORMAL",
+          "location": 0
+        },
+        {
+          "line_no": 8,
+          "field": "in_var_WORLDPOS",
+          "from": "TEXCOORD1",
+          "to": "WORLDPOS",
+          "location": 1
+        },
+        {
+          "line_no": 9,
+          "field": "in_var_TEXCOORD0",
+          "from": "TEXCOORD2",
+          "to": "UV",
+          "location": 2
+        }
+      ],
+      "hlsl_abi_neutral": {
+        "line_count_invariant": true,
+        "violations": [],
+        "abi_neutral": true
+      },
+      "rewritten_dxil_emit": "pass",
+      "dxc_stderr_len": 0,
+      "gate_after_rewrite": {
+        "dxil_names": [
+          "NORMAL",
+          "WORLDPOS",
+          "UV"
+        ],
+        "checks": [
+          {
+            "want": "NORMAL",
+            "found_equiv": true
+          },
+          {
+            "want": "WORLDPOS",
+            "found_equiv": true
+          },
+          {
+            "want": "UV",
+            "found_equiv": true
+          }
+        ],
+        "gate_pass": true
+      },
+      "binary_abi_diff": {
+        "comparable": true,
+        "elemcount_invariant": true,
+        "physical_abi_invariant": true,
+        "physical_abi_violations": [],
+        "semantic_index_changes": [
+          {
+            "idx": 1,
+            "before": 1,
+            "after": 0
+          },
+          {
+            "idx": 2,
+            "before": 2,
+            "after": 0
+          }
+        ],
+        "semantic_name_changes": [
+          {
+            "idx": 0,
+            "from": "TEXCOORD",
+            "to": "NORMAL"
+          },
+          {
+            "idx": 1,
+            "from": "TEXCOORD",
+            "to": "WORLDPOS"
+          },
+          {
+            "idx": 2,
+            "from": "TEXCOORD",
+            "to": "UV"
+          }
+        ]
+      },
+      "determinism": {
+        "n": 4,
+        "rewrite_text_unique": 1,
+        "rewrite_text_consistent": true,
+        "rewritten_dxil_unique": 1,
+        "rewritten_dxil_consistent": true
+      },
+      "status": "measured_local"
+    }
+  ],
+  "summary": {
+    "samples_measured": 2,
+    "all_dxc_accept_after_rewrite": true,
+    "all_gate_pass_after_rewrite_unrelaxed": true,
+    "all_gate_reject_before_rewrite": true,
+    "all_hlsl_abi_neutral": true,
+    "all_physical_abi_invariant": true,
+    "all_deterministic": true
+  },
+  "status": "measured_local",
+  "timestamp": "2026-06-29T06:40:27.067805+00:00"
+}

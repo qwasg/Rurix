@@ -9,7 +9,7 @@ unlocked)→ 整组作废,拒绝回填**(BENCH_PROTOCOL §2.1,unlocked 不得回
   - evidence_file = evidence/sr_l3_<date>_agg.json(去 estimated 占位);
   - direction = max(帧时间越小越好,阈值为上界);
   - threshold = 实测 trimmed_mean × 安全系数(SAFETY_FACTOR,实测 × 安全系数为上界,
-    参照行业线天花板;裁定经 Direct PR 留痕,close-out 终审人工签署);
+    参照行业线天花板;裁定经 Direct PR 留痕,close-out 终审自主签署);
   - revision_log 追加。
 
 回填后核验:`py -3 ci/budget_eval.py --strict`(全局零 estimated 残留 + 帧时间
@@ -33,7 +33,7 @@ from bench.stats import bootstrap_ci, cv, trimmed_mean
 ROOT = Path(__file__).resolve().parent.parent
 RUNS = 3
 # 帧时间上界安全系数(实测 × 安全系数为 direction=max 上界;1.5 = 50% 回归裕度,
-# 远低于行业线软光栅 L3 帧天花板;Direct 裁定,close-out 终审人工签署)。
+# 远低于行业线软光栅 L3 帧天花板;Direct 裁定,close-out 终审自主签署)。
 SAFETY_FACTOR = 1.5
 PREFIX = "sr_l3"
 ENTRY_ID = "m7.bench.soft_raster_l3_frame_ms"

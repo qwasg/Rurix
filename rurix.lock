@@ -12,7 +12,7 @@
 # 再分发审计随 registry/deferred.json **RD-014**（本文件仅引用，不在此完成法律签署）。
 # 本机实测候选（Vulkan SDK 1.3.296.0；dxc 1.8.0.4739 / SPIRV-Cross
 # vulkan-sdk-1.3.290.0-44-g65d73934 / SPIRV-Tools v2024.4）；签名 validator
-# （dxil.dll / dxv.exe）不随 Vulkan SDK 分发，归 owner pin 环境（device 真跑 / golden
+# （dxil.dll / dxv.exe）不随 Vulkan SDK 分发，归 agent pin 环境（device 真跑 / golden
 # bless）。CI 转译链冒烟见 ci/dxil_codegen_smoke.py（CI 步骤 46）。
 lock_version = 1
 

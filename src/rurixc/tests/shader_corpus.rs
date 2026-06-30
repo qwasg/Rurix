@@ -2,8 +2,9 @@
 //! `shader-stages`)。着色阶段误用 / 阶段间接口不匹配 / 资源句柄违例 reject 全拦截
 //! 与 accept 正例 0 诊断(RXS-0153~0156)。
 //!
-//! 管线:resolve → typeck → 着色/barrier(RX3001 复用,着色阶段入口直接调用)→
-//! 着色阶段类型面检查(RX3011~3013;AST 层)。纯 host/CPU-only(着色阶段类型面为
+//! 管线:着色阶段类型面检查(RX3011~3013;AST 层)→ resolve → typeck → 着色/barrier
+//! (RX3001 复用,着色阶段入口直接调用)。镜像 driver:句柄位置违例先于 typeck
+//! body↔返回类型匹配裁决(避免 RX2001 掩盖 RX3013)。纯 host/CPU-only(着色阶段类型面为
 //! 编译期,无 device)。reject 体例:`reject/<category>/*.rx`,文件头次行
 //! `//@ expect-error: RX####`。
 #![cfg(feature = "shader-stages")]
@@ -41,17 +42,19 @@ fn rx_files(root: &Path) -> Vec<PathBuf> {
     out
 }
 
-/// resolve → typeck → 着色/barrier → 着色阶段类型面检查(阶段化:前段有错即停,
-/// 防级联),返回错误码序列。
+/// 着色阶段类型面检查(AST 层,RX3011~3013)→ resolve → typeck → 着色/barrier
+/// (RX3001 复用)。阶段化镜像 driver(`driver.rs`):资源句柄位置违例须在 typeck
+/// body↔返回类型匹配前裁决,否则非法句柄返回类型先触 RX2001 掩盖 spec 强制的
+/// RX3013(RXS-0156)。前段有错即停,防级联。返回错误码序列。
 fn run_pipeline(src: &str) -> Vec<u16> {
     let diag = DiagCtxt::new();
     let cx = QueryCtx::new(src, SourceId(0), Edition::Rx0, &diag);
-    cx.check_crate();
+    cx.check_shader_stages();
     if !diag.has_errors() {
-        cx.check_coloring();
+        cx.check_crate();
     }
     if !diag.has_errors() {
-        cx.check_shader_stages();
+        cx.check_coloring();
     }
     diag.emitted()
         .iter()

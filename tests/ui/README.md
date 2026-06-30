@@ -9,11 +9,11 @@
 - `//~ ERROR RX####` 行注释:注释所在行必须产出同码 error 诊断,且数量一致。
 - snapshot 内路径规范化为 `$DIR/...`,LF 行尾。
 
-## 受控 bless(14 §6:审批动作,不是日常操作)
+## 受控 bless(14 §6:agent 自主 bless,留痕可审计)
 
 1. `RURIX_BLESS=1 cargo test -p rurixc --test ui_golden` 重写 snapshot;
-2. **任何 `.stderr` 新增/修改/删除必须同 PR 在 [bless_log.md](bless_log.md) 追加一条审批记录**(既有行 0-byte),否则 `ci/check_guardrails.py` FAIL(M1 CI_GATES §4 第 6 项);
-3. bless 记录须写明文件、理由与批准人。
+2. **任何 `.stderr` 新增/修改/删除应同 PR 在 [bless_log.md](bless_log.md) 追加一条留痕记录**(既有行 0-byte);`ci/check_guardrails.py` 检测未留痕变更并 advisory 提示(agent 完全自主模式下不阻断合入,10 §7 v2.0);
+3. bless 记录须写明文件、理由与批准人(agent 自主签署)。
 
 ## 修订记录
 

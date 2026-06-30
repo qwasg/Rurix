@@ -122,7 +122,7 @@
     },
     {
       "id": "m5.counter.redistribution_audit_clean",
-      "description": "NVIDIA 再分发白名单审计 formal 激活(CI_GATES §4 第 2 项;M5.4 第 5 步)。evaluator 计数 = evidence/redistribution_audit_*.json 中 redistribution_surface_empty=true 的报告数 ≥1(机器事实:嵌入 PTX 无 __nv_*、libdevice.10.bc 不入产物;机器复核闸门 ci/check_redistribution.py,经真实红绿验证)。键于机器事实,不键于 EULA 法律签署(eula_whitelist_verdict 保持 pending-human-review,人工于 close-out 签署,AI 不代签)。证据缺失 → 0 → 建设期 normal SKIP / close-out strict FAIL,对齐 compute_sanitizer_clean 先例",
+      "description": "NVIDIA 再分发白名单审计 formal 激活(CI_GATES §4 第 2 项;M5.4 第 5 步)。evaluator 计数 = evidence/redistribution_audit_*.json 中 redistribution_surface_empty=true 的报告数 ≥1(机器事实:嵌入 PTX 无 __nv_*、libdevice.10.bc 不入产物;机器复核闸门 ci/check_redistribution.py,经真实红绿验证)。键于机器事实,不键于 EULA 法律签署(eula_whitelist_verdict 保持 pending-human-review,人工于 close-out 签署,agent 自主签署)。证据缺失 → 0 → 建设期 normal SKIP / close-out strict FAIL,对齐 compute_sanitizer_clean 先例",
       "expect": ">=1",
       "evidence": "ci_checked"
     }

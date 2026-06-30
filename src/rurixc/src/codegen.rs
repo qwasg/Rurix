@@ -625,6 +625,9 @@ impl Cg<'_> {
                 let (ptr, _) = self.place_ptr(b, place);
                 let _ = writeln!(self.fns, "  store i32 {t}, ptr {ptr}{}", self.dbg_suffix());
             }
+            // 纹理采样为图形=B(dxil-backend)着色 body 专属(RXS-0175);host MIR
+            // codegen 作用面外(RX6001 已拦截),防御性跳过不产 host LLVM。
+            Rvalue::ResourceSample { .. } => {}
         }
     }
 

@@ -19,7 +19,7 @@ RXS-0162)。
   6. **供应链 pin 核对(RXS-0162 IR4)**:定位工具 SHA256 与 `rurix.lock [[toolchain]]`
      pin 比对(canonical 命中即过;env override 的 dev/probe 工具 SHA 异 → NOTE 非红)。
 
-evidence 写 evidence/dxil_codegen_smoke_*.json(归 owner;AI 本地跑后 git restore)。
+evidence 写 evidence/dxil_codegen_smoke_*.json(归 agent;agent 本地跑后 git restore)。
 任一应绿却红 / 应红却绿 / 错误码不符即整体 FAIL(非零退出);无环境 → SKIP exit 0。
 
 用法: py -3 ci/dxil_codegen_smoke.py
@@ -349,7 +349,7 @@ def main() -> int:
         else:
             note(
                 "签名 validator(dxil.dll/dxv)不可用(Vulkan SDK dxc 不随附)→ validator gate "
-                "SKIP,结构性 dxc 编译成功为代;完整签名验证归 owner pin 环境(device 真跑 / golden bless)"
+                "SKIP,结构性 dxc 编译成功为代;完整签名验证归 agent pin 环境(device 真跑 / golden bless)"
             )
             evidence["checks"]["validator_gate"] = "skipped-no-signing-validator"
 
@@ -392,7 +392,7 @@ def main() -> int:
                 if not hit:
                     note(
                         f"{fname} 定位 SHA256 与 rurix.lock pin 不一致(dev/probe override,"
-                        "非红;canonical 复现归 owner pin 环境)"
+                        "非红;canonical 复现归 agent pin 环境)"
                     )
             evidence["checks"]["supply_chain_pin"] = pin_report
         else:
@@ -406,7 +406,7 @@ def _report(evidence: dict) -> int:
     evidence["passed"] = not FAILURES
     # 本冒烟为 host/CPU-only 红绿门(对齐 ci/pkg_resolve_smoke.py 体例:stdout PASS/FAIL +
     # 退出码即结论,不写 evidence/*.json)。device 真跑数值/呈现对照 evidence(带 schema)
-    # 归 owner pin 环境兑现(硬规则 2/3;AI 不写 evidence)。结构化结果仅用于 stdout 摘要。
+    # 归 agent pin 环境兑现(硬规则 2/3;agent 不写 evidence)。结构化结果仅用于 stdout 摘要。
     for n in NOTES:
         print(f"[dxil_codegen_smoke] NOTE: {n}")
     if FAILURES:

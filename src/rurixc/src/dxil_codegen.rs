@@ -165,7 +165,7 @@ fn render_dxil_module(entry_symbol: &str, module_name: &str) -> String {
 // 🔒 禁区(R1.10 / R6.3):B 路输入 `io_sig`(`MirIoType` 仅标量/向量)结构上无法
 //   表达资源句柄/描述符/采样器,故纹理访问语义(描述符编码 / 采样 opcode / 缓存 /
 //   LOD / 导数 / 越界)在本层不可达;一旦未来类型面扩展触及,`emit_spirv` 将在映射
-//   处发 [`DxilError::Unmappable`] 并标「需人工升档」,本层只透传、不发明 lowering /
+//   处发 [`DxilError::Unmappable`] 并标「需升档」,本层只透传、不发明 lowering /
 //   ABI 二进制布局 / UB 契约(RFC-0004 §4.6)。
 // ===========================================================================
 
@@ -213,8 +213,18 @@ pub enum DxilBOutcome {
 
 /// B 链跑链体内部结果(签名 / SKIP;RTS0 由 [`emit_dxil_b`] 在 host 侧另行推导组装)。
 enum BChainResult {
-    /// B 链跑通,得译后签名。
-    Sigs(DxilSignatures),
+    /// B 链跑通,得译后签名 + 经校验门接受的 dumpbin 反汇编文本。
+    ///
+    /// `disasm` 是 `signature_gate` 实际取数、实际验过的**同一份** dumpbin 产物
+    /// (步骤6),不另起手搓链——golden 据此即「校验门所验产物」单一真相源
+    /// ([`emit_dxil_b_disasm`])。生产签名/RTS0 出口忽略它,行为零漂移。
+    Sigs {
+        sigs: DxilSignatures,
+        disasm: String,
+        /// 经校验门接受的 DXIL 容器字节(`stage.dxil`,dxc 产);供 D3D12 PSO 创建消费
+        /// (G2.4 device 真跑,[`emit_dxil_b_container`])。生产签名/RTS0/golden 出口忽略它。
+        dxil: Vec<u8>,
+    },
     /// 工具链不可用 → SKIP(携带原因)。
     Skipped(String),
 }
@@ -314,14 +324,15 @@ fn classify_tool_failure(step: &str, reason: String) -> Result<BChainResult, Dxi
 /// 路径下可复现的保名通道(本机 dxc 1.8.0.4739 / spirv-cross vulkan-sdk 实测 ISG1
 /// `POSITION`/`NORMAL` 存活、不退化)。
 ///
-/// **边界(实测,STUB(RD-017))**:本机制仅覆盖 **vertex 阶段输入**用户语义名。**输出
-/// varying** 与 **fragment 输入 varying** 无对应保名旗标(spirv-cross HLSL 后端无输出/
-/// 片元语义旗标,UserSemantic 不被消费)→ 仍退化为 `TEXCOORD#`,经 strict-only 校验门
-/// **RX6011** 显式拒绝(RD-017 跟踪保名能力缺口,不静默通过,P-01)。
+/// **边界(实测)**:本机制仅覆盖 **vertex 阶段输入**用户语义名(机制①,按 location
+/// 覆盖旗标)。**输出 varying** 与 **fragment 输入 varying** 的保名经 **RXS-0172**
+/// (选项① HLSL 边界改写,[`restore_varying_semantics`])在 spirv-cross 产 HLSL 与 dxc
+/// 之间复原(spirv-cross HLSL 后端无输出/片元语义旗标、不消费 UserSemantic);保名失败
+/// 仍经 strict-only 校验门 **RX6011** 拒(不放宽门,P-01 / Property 5)。
 fn vertex_input_semantic_flags(stage: ShaderStage, io_sig: &[IoSigElem]) -> Vec<String> {
     if stage != ShaderStage::Vertex {
-        // STUB(RD-017):fragment 输入 varying 无保名旗标(spirv-cross 无片元输入语义
-        // 旗标)→ 退化 TEXCOORD# → 校验门 RX6011 拒(保名缺口 deferred RD-017)。
+        // fragment 输入 varying 不经顶点输入旗标(spirv-cross 无片元输入语义旗标);其保名
+        // 由 RXS-0172 `restore_varying_semantics` 在 HLSL 边界复原(RD-017)。
         return Vec::new();
     }
     let mut flags = Vec::new();
@@ -347,8 +358,187 @@ fn vertex_input_semantic_flags(stage: ShaderStage, io_sig: &[IoSigElem]) -> Vec<
     flags
 }
 
+/// RXS-0172:输出 varying / fragment 输入 varying 用户语义名保名(选项①,HLSL 边界改写)。
+///
+/// 在 spirv-cross 产 HLSL 与 dxc 之间施加:把退化为通用 `TEXCOORD<location>` 的 varying
+/// 语义 token 按 `io_sig` 的 **location→用户语义名** provenance 改回用户名。provenance
+/// 与 [`vertex_input_semantic_flags`] / [`dxil_spirv::emit_spirv`] **同源**(varying 按
+/// 方向各自递增 `Location`,`#[builtin]` 不占 location)。`dir == In` 映射 spirv-cross
+/// 输入 struct(entry 形参类型),`dir == Out` 映射输出 struct(entry 返回类型)。
+///
+/// **边界(RXS-0172 L3,ABI 中立)**:只替换 HLSL struct field 的 semantic token,不动
+/// 类型 / 字段名 / 行结构 / 寄存器 packing,不冻结 register/mask/packing/byte layout/
+/// 稳定 `Location`。
+///
+/// **fail-closed(RXS-0172 L4)**:仅在 provenance 明确(目标 struct 内存在对应
+/// `TEXCOORD<loc>` field)时改写;不匹配则保留退化名,经末端 `signature_gate` RX6011
+/// 拒(不放宽门,Property 5;RXS-0172 L2)。vertex 阶段输入经机制①(顶点输入保名旗标)
+/// 已非 `TEXCOORD#`,本改写对其 In 方向自然 no-op。
+fn restore_varying_semantics(io_sig: &[IoSigElem], hlsl: &str) -> String {
+    let structs = collect_struct_names(hlsl);
+    let (in_struct, out_struct) = find_entry_io_structs(hlsl, &structs);
+    let mut text = hlsl.to_string();
+    if let Some(s) = in_struct {
+        text = rewrite_struct_varyings(&text, &s, &varying_provenance(io_sig, true));
+    }
+    if let Some(s) = out_struct {
+        text = rewrite_struct_varyings(&text, &s, &varying_provenance(io_sig, false));
+    }
+    text
+}
+
+/// 按方向(`want_in`:In/Out)导出 varying 的 location→用户语义名 provenance。
+/// 与 [`emit_io_elem`](dxil_spirv) 同源:builtin 不占 location,varying/interpolate
+/// 按方向各自从 0 递增;空 `field_name` 不参与(无可恢复名)。
+fn varying_provenance(io_sig: &[IoSigElem], want_in: bool) -> Vec<(u32, String)> {
+    let mut out = Vec::new();
+    let mut location: u32 = 0;
+    for elem in io_sig {
+        if matches!(elem.dir, IoDir::In) != want_in {
+            continue;
+        }
+        match &elem.kind {
+            IoSigKind::Builtin(_) => {}
+            IoSigKind::Varying | IoSigKind::Interpolate(_) => {
+                if !elem.field_name.is_empty() {
+                    out.push((location, elem.field_name.clone()));
+                }
+                location += 1;
+            }
+        }
+    }
+    out
+}
+
+/// 收集 HLSL 顶层 `struct <Name>` 声明名(供 entry I/O struct 识别)。
+fn collect_struct_names(hlsl: &str) -> Vec<String> {
+    let mut names = Vec::new();
+    for line in hlsl.lines() {
+        if let Some(rest) = line.trim_start().strip_prefix("struct ") {
+            let name: String = rest
+                .chars()
+                .take_while(|c| c.is_alphanumeric() || *c == '_')
+                .collect();
+            if !name.is_empty() {
+                names.push(name);
+            }
+        }
+    }
+    names
+}
+
+/// 解析 entry(` main(`)签名,识别输入 struct(形参类型)与输出 struct(返回类型)。
+/// 返回 `(输入 struct, 输出 struct)`;非 struct(如 PS 直返 `float4 : SV_Target`)为 `None`。
+fn find_entry_io_structs(hlsl: &str, structs: &[String]) -> (Option<String>, Option<String>) {
+    let known = |t: &str| structs.iter().any(|s| s == t);
+    for line in hlsl.lines() {
+        let Some(mpos) = line.find(" main(") else {
+            continue;
+        };
+        let out_struct = line[..mpos]
+            .split_whitespace()
+            .last()
+            .map(str::to_owned)
+            .filter(|t| known(t));
+        let mut in_struct = None;
+        if let Some(op) = line[mpos..].find('(') {
+            let start = mpos + op + 1;
+            if let Some(cp) = line[start..].find(')') {
+                let params = &line[start..start + cp];
+                for tok in params.split(|c: char| !(c.is_alphanumeric() || c == '_')) {
+                    if !tok.is_empty() && known(tok) {
+                        in_struct = Some(tok.to_owned());
+                        break;
+                    }
+                }
+            }
+        }
+        return (in_struct, out_struct);
+    }
+    (None, None)
+}
+
+/// 在指定 struct 块内,把 field 的 `TEXCOORD<loc>` 语义按 provenance 改回用户名。
+/// 只动 semantic token(`:` 后的标识符),前缀(类型/字段名/冒号)与后缀(`;`/packing)
+/// 逐字节保留(RXS-0172 L3 ABI 中立)。
+fn rewrite_struct_varyings(hlsl: &str, struct_name: &str, prov: &[(u32, String)]) -> String {
+    if prov.is_empty() {
+        return hlsl.to_owned();
+    }
+    let header = format!("struct {struct_name}");
+    let mut in_block = false;
+    let mut out_lines: Vec<String> = Vec::new();
+    for line in hlsl.lines() {
+        let trimmed = line.trim_start();
+        if !in_block {
+            let is_header = trimmed.strip_prefix(&header).is_some_and(|tail| {
+                tail.chars()
+                    .next()
+                    .is_none_or(|c| !(c.is_alphanumeric() || c == '_'))
+            });
+            if is_header {
+                in_block = true;
+            }
+            out_lines.push(line.to_owned());
+            continue;
+        }
+        if trimmed.starts_with('}') {
+            in_block = false;
+            out_lines.push(line.to_owned());
+            continue;
+        }
+        out_lines.push(rewrite_field_semantic(line, prov));
+    }
+    let mut s = out_lines.join("\n");
+    if hlsl.ends_with('\n') {
+        s.push('\n');
+    }
+    s
+}
+
+/// 改写单个 field 行的 semantic token:若 `:` 后语义为 `TEXCOORD<loc>` 且 provenance
+/// 命中,替换为用户名;否则原样返回(fail-closed,RXS-0172 L4)。
+fn rewrite_field_semantic(line: &str, prov: &[(u32, String)]) -> String {
+    let Some(colon) = line.rfind(':') else {
+        return line.to_owned();
+    };
+    let after = &line[colon + 1..];
+    let lead = after.len() - after.trim_start().len();
+    let sem_start = colon + 1 + lead;
+    let rest = &line[sem_start..];
+    let sem_len = rest
+        .chars()
+        .take_while(|c| c.is_alphanumeric() || *c == '_')
+        .count();
+    if sem_len == 0 {
+        return line.to_owned();
+    }
+    let sem = &rest[..sem_len];
+    let digits = match sem
+        .strip_prefix("TEXCOORD")
+        .or_else(|| sem.strip_prefix("texcoord"))
+    {
+        Some(d) => d,
+        None => return line.to_owned(),
+    };
+    let Ok(loc) = digits.parse::<u32>() else {
+        return line.to_owned();
+    };
+    for (l, field) in prov {
+        if *l == loc {
+            let mut s = String::with_capacity(line.len());
+            s.push_str(&line[..sem_start]);
+            s.push_str(field);
+            s.push_str(&line[sem_start + sem_len..]);
+            return s;
+        }
+    }
+    line.to_owned()
+}
+
 /// B 链跑链体(步骤 3~7):写临时 `.spv` → spirv-cross → dxc → dumpbin →
 /// `parse_dxil_signatures`。临时目录由调用方 [`emit_dxil_b`] 创建并统一清理。
+#[allow(clippy::too_many_arguments)] // B 链参数面(spv/工具/profile/io_sig/extra/stage)各为不同关注点,聚合为 struct 反损可读性。
 fn run_b_chain(
     spv: &[u32],
     spvx: &Path,
@@ -357,6 +547,7 @@ fn run_b_chain(
     dir: &Path,
     io_sig: &[IoSigElem],
     extra: &[String],
+    stage: ShaderStage,
 ) -> Result<BChainResult, DxilBError> {
     // 3) 写临时 `.spv`:`&[u32]` 小端 → `&[u8]`(纯 safe,`u32::to_le_bytes`,R1.11)。
     let spv_path = dir.join("stage.spv");
@@ -374,6 +565,23 @@ fn run_b_chain(
     let hlsl_path = dir.join("stage.hlsl");
     if let Err(e) = toolchain::spirv_cross_to_hlsl(spvx, &spv_path, &hlsl_path, 60, extra) {
         return classify_tool_failure("spirv-cross", e);
+    }
+
+    // 4.5) RXS-0172 输出 varying / fragment 输入 varying 用户语义名保名(选项①):在
+    //     spirv-cross 产 HLSL 与 dxc 之间,按 io_sig location provenance 把退化的
+    //     `TEXCOORD#` 改回用户语义名(`restore_varying_semantics`,与机制① 同源 provenance)。
+    //     只动 semantic token(ABI 中立,RXS-0172 L3);fail-closed(provenance 不明确不改写,
+    //     RXS-0172 L4);保名失败由步骤 8 signature_gate RX6011 闭合、不放宽门(Property 5)。
+    match std::fs::read_to_string(&hlsl_path) {
+        Ok(src) => {
+            let restored = restore_varying_semantics(io_sig, &src);
+            if restored != src
+                && let Err(e) = std::fs::write(&hlsl_path, restored.as_bytes())
+            {
+                return Ok(BChainResult::Skipped(format!("写回保名 HLSL 失败: {e}")));
+            }
+        }
+        Err(e) => return Ok(BChainResult::Skipped(format!("读回译 HLSL 失败: {e}"))),
     }
 
     // 5) dxc:HLSL → DXIL 容器(profile vs_6_0/ps_6_0,entry "main")。
@@ -397,9 +605,22 @@ fn run_b_chain(
     //    比对译后签名与 MIR 意图签名(用户语义名 / 系统值 / 被用输入 / 阶段间
     //    location 链接键),缺失 / 改名 / 错配 / 「声明但未用输入被消除」→ strict-only
     //    失败 → 6xxx,**终止该入口产物**(不返回 Produced、不产 golden)。
-    signature_gate::check(&sigs, io_sig).map_err(DxilBError::SigGate)?;
+    //    fragment 输出 varying 按 RXS-0173 以 SV_Target# 渲染目标系统值忠实核对(阶段
+    //    上下文 `stage`),vertex 输出维持 RXS-0172 用户语义名保名。
+    signature_gate::check_with_stage(&sigs, io_sig, stage).map_err(DxilBError::SigGate)?;
 
-    Ok(BChainResult::Sigs(sigs))
+    // 9) 回读经校验门接受的 DXIL 容器字节(步骤5 dxc 产 `stage.dxil`),供 device
+    //    PSO 创建消费(G2.4)。读失败按环境降级 SKIP(非 6xxx;校验门已过故文件应在)。
+    let dxil = match std::fs::read(&dxil_path) {
+        Ok(b) => b,
+        Err(e) => {
+            return Ok(BChainResult::Skipped(format!(
+                "读回 DXIL 容器字节失败: {e}"
+            )));
+        }
+    };
+
+    Ok(BChainResult::Sigs { sigs, disasm, dxil })
 }
 
 /// B 路 codegen:着色阶段(`stage` ∈ {Vertex, Fragment})+ I/O 意图签名(`io_sig`)
@@ -488,16 +709,159 @@ fn emit_dxil_b_from_spv(
         Ok(d) => d,
         Err(e) => return Ok(DxilBOutcome::Skipped(format!("临时目录创建失败: {e}"))),
     };
-    let result = run_b_chain(&spv, &spvx, &dxc, profile, &dir, io_sig, &extra);
+    let result = run_b_chain(&spv, &spvx, &dxc, profile, &dir, io_sig, &extra, stage);
     let _ = std::fs::remove_dir_all(&dir);
     match result {
-        Ok(BChainResult::Sigs(sigs)) => Ok(DxilBOutcome::Produced {
+        Ok(BChainResult::Sigs { sigs, .. }) => Ok(DxilBOutcome::Produced {
             sigs,
             root_signature,
         }),
         Ok(BChainResult::Skipped(why)) => Ok(DxilBOutcome::Skipped(why)),
         Err(e) => Err(e),
     }
+}
+
+/// 生产忠实 B 链反汇编(golden 单一真相源;RXS-0162 golden + RXS-0171 body 降级 +
+/// RXS-0172 varying 保名)。
+///
+/// 驱动与 [`emit_dxil_b_body`] **同一条**生产链:`emit_spirv_body`(RXS-0171 入口
+/// body I/O 数据流降级)→ 顶点输入保名旗标([`vertex_input_semantic_flags`])→
+/// RXS-0172 输出/片元 varying 用户语义名保名([`restore_varying_semantics`],在
+/// `run_b_chain` 内 HLSL 边界)→ dxc → dumpbin → `parse_dxil_signatures` → 强制
+/// `signature_gate::check`。返回**经校验门接受**的规范化反汇编文本。
+///
+/// golden 比对此返回值,故 golden 字节 = 校验门所验产物本身——不再有第二条手搓
+/// 链(签名-only `emit_spirv` + 空旗标 + 跳过保名)与生产链漂移。规范化仅抹平
+/// 工具版本噪声行(shader hash / dxc ident),不动语言相关结构。
+///
+/// # Returns
+/// - `Ok(Some(disasm))`:工具链可用、链跑通且校验门通过。
+/// - `Ok(None)`:工具链不可用(spirv-cross / dxc 定位或 spawn 失败 / 临时目录失败)
+///   → 环境降级(非 6xxx;真实红绿在带 pin B 工具链的 dev/owner 环境)。
+///
+/// # Errors
+/// 同 [`emit_dxil_b_body`]:不可映射构造 / 工具运行后拒绝 / 校验门拒绝 → 6xxx,
+/// 绝不静默成功。
+pub fn emit_dxil_b_disasm(body: &Body) -> Result<Option<String>, DxilBError> {
+    let Some(stage @ (ShaderStage::Vertex | ShaderStage::Fragment)) = body.stage else {
+        return Err(DxilBError::Spirv(DxilError::Unmappable {
+            what: "stage".to_owned(),
+            detail: format!("Body stage {:?} 不在图形=B body lowering 范围", body.stage),
+        }));
+    };
+    // 1) MIR→SPIR-V:消费完整 Body(RXS-0171 body 降级),与 emit_dxil_b_body 同源。
+    let spv = dxil_spirv::emit_spirv_body(stage, body).map_err(DxilBError::Spirv)?;
+    let profile = match stage {
+        ShaderStage::Vertex => "vs_6_0",
+        ShaderStage::Fragment => "ps_6_0",
+        _ => return Ok(None),
+    };
+    // 2) 工具链定位:缺失 → SKIP(环境降级,非 6xxx)。
+    let (Some(spvx), Some(dxc)) = (toolchain::locate_spirv_cross(), toolchain::locate_dxc()) else {
+        return Ok(None);
+    };
+    // 顶点输入语义保名旗标(经 io_sig 导出;RFC-0004 §4.4 机制①)。
+    let extra = vertex_input_semantic_flags(stage, &body.io_sig);
+    let dir = match scratch_dir() {
+        Ok(d) => d,
+        Err(_) => return Ok(None),
+    };
+    // 3~8) 与生产出口共用 run_b_chain(含 RXS-0172 保名 + 强制 signature_gate)。
+    let result = run_b_chain(
+        &spv,
+        &spvx,
+        &dxc,
+        profile,
+        &dir,
+        &body.io_sig,
+        &extra,
+        stage,
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+    match result {
+        Ok(BChainResult::Sigs { disasm, .. }) => Ok(Some(normalize_b_disasm(&disasm))),
+        Ok(BChainResult::Skipped(_)) => Ok(None),
+        Err(e) => Err(e),
+    }
+}
+
+/// B 路生产入口:消费完整 MIR [`Body`] 产出**经校验门接受的 DXIL 容器字节**(供 D3D12
+/// PSO 创建消费;G2.4 UC-04 device 真跑)。与 [`emit_dxil_b_body`] / [`emit_dxil_b_disasm`]
+/// **同一条**生产链:`emit_spirv_body`(RXS-0171 body I/O 数据流降级)→ 顶点输入保名旗标
+/// → RXS-0172 输出/片元输入 varying 用户语义名保名 → dxc(产 DXIL 容器)→ dumpbin →
+/// `parse_dxil_signatures` → 强制 `signature_gate::check_with_stage`(RXS-0173 fragment
+/// 输出 SV_Target# 忠实核对)。返回的字节 = 校验门所验产物本身(无第二条手搓链)。
+///
+/// **G-G2-4 防降级**:device PSO 消费的 DXIL 来自本入口(Rurix 源经图形=B 链),非手写
+/// HLSL/DXIL;校验门失败的入口绝不返回字节(`?` 终止落 6xxx)。
+///
+/// # Returns
+/// - `Ok(Some(dxil))`:工具链可用、链跑通且校验门通过 → DXIL 容器字节。
+/// - `Ok(None)`:工具链不可用(spirv-cross / dxc 定位或 spawn 失败 / 临时目录失败)→
+///   环境降级(非 6xxx;真实产出在带 pin B 工具链的 dev/CI 环境)。
+///
+/// # Errors
+/// 同 [`emit_dxil_b_body`]:不可映射构造 / 工具运行后拒绝 / 校验门拒绝 → 6xxx,绝不
+/// 静默成功。
+pub fn emit_dxil_b_container(body: &Body) -> Result<Option<Vec<u8>>, DxilBError> {
+    let Some(stage @ (ShaderStage::Vertex | ShaderStage::Fragment)) = body.stage else {
+        return Err(DxilBError::Spirv(DxilError::Unmappable {
+            what: "stage".to_owned(),
+            detail: format!("Body stage {:?} 不在图形=B body lowering 范围", body.stage),
+        }));
+    };
+    // 1) MIR→SPIR-V:消费完整 Body(RXS-0171 body 降级),与 emit_dxil_b_body 同源。
+    let spv = dxil_spirv::emit_spirv_body(stage, body).map_err(DxilBError::Spirv)?;
+    let profile = match stage {
+        ShaderStage::Vertex => "vs_6_0",
+        ShaderStage::Fragment => "ps_6_0",
+        _ => return Ok(None),
+    };
+    // 2) 工具链定位:缺失 → SKIP(环境降级,非 6xxx)。
+    let (Some(spvx), Some(dxc)) = (toolchain::locate_spirv_cross(), toolchain::locate_dxc()) else {
+        return Ok(None);
+    };
+    let extra = vertex_input_semantic_flags(stage, &body.io_sig);
+    let dir = match scratch_dir() {
+        Ok(d) => d,
+        Err(_) => return Ok(None),
+    };
+    // 3~9) 与生产出口共用 run_b_chain(含 RXS-0172/0173 + 强制 signature_gate + 回读 DXIL)。
+    let result = run_b_chain(
+        &spv,
+        &spvx,
+        &dxc,
+        profile,
+        &dir,
+        &body.io_sig,
+        &extra,
+        stage,
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+    match result {
+        Ok(BChainResult::Sigs { dxil, .. }) => Ok(Some(dxil)),
+        Ok(BChainResult::Skipped(_)) => Ok(None),
+        Err(e) => Err(e),
+    }
+}
+
+/// 规范化 dxc 反汇编中的版本噪声行(shader hash 内容/版本派生 + dxc ident 构建串),
+/// 使 golden 聚焦语言相关结构(签名表 / 入口 / 着色器类型),不写死工具版本。
+fn normalize_b_disasm(s: &str) -> String {
+    let mut lines = Vec::new();
+    for raw in s.replace("\r\n", "\n").lines() {
+        let t = raw.trim_start();
+        if t.starts_with("; shader hash:") {
+            lines.push("; shader hash: <OWNER-BLESSED-NORMALIZED>".to_owned());
+        } else if raw.contains("dxc(private)") || raw.contains("dxcoob ") {
+            // 保留 metadata id 前缀(如 `!0 = `),仅规范化版本串。
+            let id = raw.split('=').next().unwrap_or("").trim_end();
+            lines.push(format!("{id} = !{{!\"dxc <OWNER-BLESSED-NORMALIZED>\"}}"));
+        } else {
+            lines.push(raw.to_owned());
+        }
+    }
+    lines.join("\n")
 }
 
 /// root signature 形态推导 + RTS0 容器序列化(RXS-0165;PR-E2b 生产接线)。
@@ -580,10 +944,21 @@ fn emit_b_error(diag: &DiagCtxt, span: Span, err: &DxilBError) {
                 .emit();
         }
         DxilBError::Spirv(e) => {
-            diag.struct_error(ErrorCode(6013), "codegen.dxil_unmappable")
-                .arg("detail", e.to_string())
-                .span_label(span, "in DXIL graphics entry")
-                .emit();
+            // 采样首期收敛子集外 → RX6023(RXS-0175);其余 MIR→SPIR-V 不可映射 → RX6013。
+            match e {
+                DxilError::SampleUnsupported { .. } => {
+                    diag.struct_error(ErrorCode(6023), "codegen.dxil_sample_unsupported")
+                        .arg("detail", e.to_string())
+                        .span_label(span, "in DXIL graphics entry")
+                        .emit();
+                }
+                DxilError::Unmappable { .. } => {
+                    diag.struct_error(ErrorCode(6013), "codegen.dxil_unmappable")
+                        .arg("detail", e.to_string())
+                        .span_label(span, "in DXIL graphics entry")
+                        .emit();
+                }
+            }
         }
         DxilBError::Binding(e) => {
             // 绑定布局推导失败按类别分派专属码(RXS-0163~0166;owner 已裁:
@@ -686,7 +1061,7 @@ pub enum StageLinkOutcome {
     /// vertex out ↔ fragment in 链接一致(语义名 / 类型 / 插值全配对)。
     Linked,
     /// 错链(strict-only;经 [`emit_stage_link_error`] 落 `RX6014`
-    /// `codegen.dxil_stage_link_mismatch`,owner 裁定方案 B 新开码、不复用 RX6011,
+    /// `codegen.dxil_stage_link_mismatch`,agent 裁定方案 B 新开码、不复用 RX6011,
     /// 见 [`signature_gate::StageLinkError`])。
     LinkError(signature_gate::StageLinkError),
 }
@@ -701,9 +1076,9 @@ pub enum StageLinkOutcome {
 /// 无 vertex+fragment 配对(单阶段编译 / 缺一阶段)→ [`StageLinkOutcome::NoPair`]
 /// (behavior 不变,零漂移)。
 ///
-/// **错误码(G2.3 PR-E2b-2 已落,owner 裁定方案 B)**:错链返回
+/// **错误码(G2.3 PR-E2b-2 已落,agent 裁定方案 B)**:错链返回
 /// [`StageLinkOutcome::LinkError`],经 [`emit_stage_link_error`] 落 `RX6014`
-/// `codegen.dxil_stage_link_mismatch`——owner 裁定**新开 RX6014**(不复用 RX6011 单阶段
+/// `codegen.dxil_stage_link_mismatch`——agent 裁定**新开 RX6014**(不复用 RX6011 单阶段
 /// 签名不一致语义;spec §2 RXS-0160 IR3)。strict-only 语义由 `check_stage_link` 保证
 /// (错链必 Err,绝不静默通过)。
 pub fn link_graphics_stages(bodies: &[Body]) -> StageLinkOutcome {
@@ -723,7 +1098,7 @@ pub fn link_graphics_stages(bodies: &[Body]) -> StageLinkOutcome {
 }
 
 /// 阶段间接口错链 → `RX6014` `codegen.dxil_stage_link_mismatch` 结构化诊断(RXS-0160;
-/// G2.3 PR-E2b-2,owner 裁定方案 B 新开码)。
+/// G2.3 PR-E2b-2,agent 裁定方案 B 新开码)。
 ///
 /// 两类 [`signature_gate::StageLinkError`](`Unlinked` 缺链接键 / `LinkMismatch`
 /// 类型·插值失配)均落同一 `RX6014`(同属阶段间接口错链失败类别,RXS-0160 L2/L3);
@@ -852,6 +1227,228 @@ mod tests {
                 IoDir::Out,
             ),
         ]
+    }
+
+    /// RXS-0172 provenance:varying 按方向各自从 0 递增 location,builtin 不占,空名跳过
+    /// (与 `vertex_input_semantic_flags` / `emit_io_elem` 同源)。
+    //@ spec: RXS-0172
+    #[test]
+    fn rxs0172_varying_provenance_matches_location_assignment() {
+        let io_sig = vec![
+            io(
+                "position",
+                IoSigKind::Builtin("position".to_owned()),
+                MirIoType::Vector(PrimTy::F32, 4),
+                IoDir::Out,
+            ),
+            io(
+                "normal",
+                IoSigKind::Varying,
+                MirIoType::Vector(PrimTy::F32, 3),
+                IoDir::Out,
+            ),
+            io(
+                "uv",
+                IoSigKind::Interpolate("perspective".to_owned()),
+                MirIoType::Vector(PrimTy::F32, 2),
+                IoDir::Out,
+            ),
+            io(
+                "frag_coord",
+                IoSigKind::Builtin("position".to_owned()),
+                MirIoType::Vector(PrimTy::F32, 4),
+                IoDir::In,
+            ),
+        ];
+        // Out 方向:builtin position 不占 location,normal→0,uv→1。
+        assert_eq!(
+            varying_provenance(&io_sig, false),
+            vec![(0, "normal".to_owned()), (1, "uv".to_owned())]
+        );
+        // In 方向:仅 builtin,无 varying → 空。
+        assert!(varying_provenance(&io_sig, true).is_empty());
+    }
+
+    /// 模拟 spirv-cross 回译 HLSL(vertex 输出 struct 的 varying 退化为 TEXCOORD#)。
+    fn vs_degraded_hlsl() -> &'static str {
+        "struct SPIRV_Cross_Input\n\
+         {\n\
+         \x20   float3 in_var_POSITION : POSITION;\n\
+         };\n\
+         \n\
+         struct SPIRV_Cross_Output\n\
+         {\n\
+         \x20   float3 out_var_NORMAL : TEXCOORD0;\n\
+         \x20   float2 out_var_UV : TEXCOORD1;\n\
+         \x20   float4 gl_Position : SV_Position;\n\
+         };\n\
+         \n\
+         SPIRV_Cross_Output main(SPIRV_Cross_Input stage_input)\n\
+         {\n\
+         \x20   SPIRV_Cross_Output stage_output;\n\
+         \x20   return stage_output;\n\
+         }\n"
+    }
+
+    /// RXS-0172 L1/L3:vertex 输出 varying 退化名按 location provenance 复原为用户语义名,
+    /// 只动 semantic token(类型/字段名/`;`/行数不变),SV_Position 与输入 struct 不动。
+    //@ spec: RXS-0172
+    #[test]
+    fn rxs0172_output_varying_semantics_restored() {
+        let io_sig = vec![
+            io(
+                "position",
+                IoSigKind::Builtin("position".to_owned()),
+                MirIoType::Vector(PrimTy::F32, 4),
+                IoDir::Out,
+            ),
+            io(
+                "normal",
+                IoSigKind::Varying,
+                MirIoType::Vector(PrimTy::F32, 3),
+                IoDir::Out,
+            ),
+            io(
+                "uv",
+                IoSigKind::Varying,
+                MirIoType::Vector(PrimTy::F32, 2),
+                IoDir::Out,
+            ),
+        ];
+        let src = vs_degraded_hlsl();
+        let out = restore_varying_semantics(&io_sig, src);
+        // 保名:输出 struct 的 TEXCOORD0/1 → normal/uv。
+        assert!(out.contains("float3 out_var_NORMAL : normal;"), "{out}");
+        assert!(out.contains("float2 out_var_UV : uv;"), "{out}");
+        // SV_Position 不动;退化 TEXCOORD# 已消失(输出 struct)。
+        assert!(out.contains("float4 gl_Position : SV_Position;"));
+        assert!(!out.contains(": TEXCOORD"));
+        // ABI 中立:类型/字段名保留;行数不变。
+        assert!(out.contains("float3 out_var_NORMAL :"));
+        assert!(out.contains("float2 out_var_UV :"));
+        assert_eq!(src.lines().count(), out.lines().count());
+    }
+
+    /// RXS-0172 L4:fail-closed —— provenance 不覆盖的 location 退化名保留(经末端门拒)。
+    //@ spec: RXS-0172
+    #[test]
+    fn rxs0172_unmapped_location_is_left_degraded_fail_closed() {
+        // 仅给 location 0 的 provenance;location 1(uv)无对应 → 保留 TEXCOORD1。
+        let io_sig = vec![
+            io(
+                "position",
+                IoSigKind::Builtin("position".to_owned()),
+                MirIoType::Vector(PrimTy::F32, 4),
+                IoDir::Out,
+            ),
+            io(
+                "normal",
+                IoSigKind::Varying,
+                MirIoType::Vector(PrimTy::F32, 3),
+                IoDir::Out,
+            ),
+        ];
+        let out = restore_varying_semantics(&io_sig, vs_degraded_hlsl());
+        assert!(out.contains("float3 out_var_NORMAL : normal;"), "{out}");
+        // 无 provenance 的 TEXCOORD1 不被改写(fail-closed,留给 RX6011)。
+        assert!(out.contains("float2 out_var_UV : TEXCOORD1;"), "{out}");
+    }
+
+    /// RXS-0172 L1:fragment 输入 varying 退化名按 location provenance 复原。
+    //@ spec: RXS-0172
+    #[test]
+    fn rxs0172_fragment_input_varying_restored() {
+        let src = "struct SPIRV_Cross_Input\n\
+                   {\n\
+                   \x20   float3 in_var_NORMAL : TEXCOORD0;\n\
+                   \x20   float2 in_var_UV : TEXCOORD1;\n\
+                   };\n\
+                   \n\
+                   float4 main(SPIRV_Cross_Input stage_input) : SV_Target\n\
+                   {\n\
+                   \x20   return 0.0.xxxx;\n\
+                   }\n";
+        let io_sig = vec![
+            io(
+                "normal",
+                IoSigKind::Varying,
+                MirIoType::Vector(PrimTy::F32, 3),
+                IoDir::In,
+            ),
+            io(
+                "uv",
+                IoSigKind::Varying,
+                MirIoType::Vector(PrimTy::F32, 2),
+                IoDir::In,
+            ),
+            io(
+                "frag_coord",
+                IoSigKind::Builtin("position".to_owned()),
+                MirIoType::Vector(PrimTy::F32, 4),
+                IoDir::In,
+            ),
+        ];
+        let out = restore_varying_semantics(&io_sig, src);
+        assert!(out.contains("float3 in_var_NORMAL : normal;"), "{out}");
+        assert!(out.contains("float2 in_var_UV : uv;"), "{out}");
+        assert!(!out.contains(": TEXCOORD"));
+    }
+
+    /// RXS-0172 L2:保名标准不放宽 —— 退化名经强制校验门 RX6011 拒,复原后等价名过。
+    /// 用生产 `signature_gate::check`(不放宽)对模拟的 dxc 译后签名核验。
+    //@ spec: RXS-0172
+    #[test]
+    fn rxs0172_gate_not_relaxed_degraded_rejected_restored_accepted() {
+        use crate::toolchain::{DxilSignatures, SigElement};
+        let intent = vec![
+            io(
+                "normal",
+                IoSigKind::Varying,
+                MirIoType::Vector(PrimTy::F32, 3),
+                IoDir::Out,
+            ),
+            io(
+                "uv",
+                IoSigKind::Varying,
+                MirIoType::Vector(PrimTy::F32, 2),
+                IoDir::Out,
+            ),
+        ];
+        let mk = |name: &str, idx: u32| SigElement {
+            name: name.to_owned(),
+            index: idx,
+            register: idx.to_string(),
+            sysvalue: "NONE".to_owned(),
+            used: true,
+        };
+        // 退化(TEXCOORD#):门拒(RX6011 SigMismatch)。
+        let degraded = DxilSignatures {
+            input: Vec::new(),
+            output: vec![mk("TEXCOORD", 0), mk("TEXCOORD", 1)],
+        };
+        assert!(
+            signature_gate::check(&degraded, &intent).is_err(),
+            "退化 TEXCOORD# 必须被 RX6011 拒(门不放宽)"
+        );
+        // 复原(用户名):门过,无需放宽。
+        let restored = DxilSignatures {
+            input: Vec::new(),
+            output: vec![mk("normal", 0), mk("uv", 0)],
+        };
+        assert!(
+            signature_gate::check(&restored, &intent).is_ok(),
+            "复原用户语义名后校验门应过(不放宽)"
+        );
+    }
+
+    /// RXS-0172:entry I/O struct 识别(返回类型=输出 struct;形参类型=输入 struct)。
+    //@ spec: RXS-0172
+    #[test]
+    fn rxs0172_entry_io_struct_identification() {
+        let structs = collect_struct_names(vs_degraded_hlsl());
+        let (in_s, out_s) = find_entry_io_structs(vs_degraded_hlsl(), &structs);
+        assert_eq!(in_s.as_deref(), Some("SPIRV_Cross_Input"));
+        assert_eq!(out_s.as_deref(), Some("SPIRV_Cross_Output"));
     }
 
     /// 构造一个最小平凡 [`Body`](空体 + 单 Return 块);`stage`/`io_sig` 由调用方设。
@@ -1097,7 +1694,7 @@ mod tests {
     // 向量,**结构上无法**表达资源句柄/描述符/采样器,故纹理访问语义(描述符编码/
     // 采样 opcode/缓存/LOD/导数/越界)在本层不可构造、不可达(任务2 即如此);该路径
     // 由后续绑定布局分片(G2.3,P-11)覆盖,本层保留 emit_dxil_b 的 DxilBError::Spirv
-    // 透传接缝 + 模块顶注「需人工升档」标注。故本任务无纹理 6xxx 单测(输入不可达)。
+    // 透传接缝 + 模块顶注「需升档」标注。故本任务无纹理 6xxx 单测(输入不可达)。
 
     /// B 链端到端(带工具链 → 真跑直到 `signature_gate::check`;缺失 → SKIP 不 fail)。
     /// vertex + fragment 各一例。
@@ -1275,7 +1872,7 @@ mod tests {
     }
 
     /// 阶段间接口错链经 [`emit_stage_link_error`] 落 `RX6014`
-    /// `codegen.dxil_stage_link_mismatch`(RXS-0160;owner 裁定方案 B 新开码,
+    /// `codegen.dxil_stage_link_mismatch`(RXS-0160;agent 裁定方案 B 新开码,
     /// 不复用 RX6011),两类错链(`Unlinked` / `LinkMismatch`)同落 RX6014。
     //@ spec: RXS-0160
     #[test]
@@ -1353,10 +1950,11 @@ mod tests {
             "顶点输入保名旗标应按 io_sig 顺序复算 location(builtin 不占位),非硬编码"
         );
 
-        // fragment:本机制不适用(无顶点输入语义旗标)→ 空(边界,STUB(RD-017))。
+        // fragment:顶点输入保名旗标机制不适用(无顶点输入语义旗标)→ 空(边界;fragment
+        // 输入 varying 保名经 RXS-0172 `restore_varying_semantics`,见该函数单测)。
         assert!(
             vertex_input_semantic_flags(ShaderStage::Fragment, &fragment_io()).is_empty(),
-            "fragment 阶段不导出顶点输入保名旗标(spirv-cross 无片元输入语义旗标,RD-017)"
+            "fragment 阶段不导出顶点输入保名旗标(spirv-cross 无片元输入语义旗标;保名走 RXS-0172)"
         );
 
         // vertex 无命名输入(仅 builtin 输入 / 命名输出)→ 空(行为不变)。
@@ -1427,7 +2025,7 @@ mod tests {
     }
 
     /// reject:fragment 输入 varying(`extra`)在 vertex 输出无链接键 → `LinkError`
-    /// (错链;strict-only)→ 经 [`emit_stage_link_error`] 落 `RX6014`(owner 裁定方案 B
+    /// (错链;strict-only)→ 经 [`emit_stage_link_error`] 落 `RX6014`(agent 裁定方案 B
     /// 新开码,G2.3 PR-E2b-2)。
     //@ spec: RXS-0160
     #[test]
@@ -1446,7 +2044,7 @@ mod tests {
         let StageLinkOutcome::LinkError(err) = outcome else {
             panic!("错链应 LinkError,实得 {outcome:?}");
         };
-        // 错链经生产 emit 接缝落真实码 RX6014(替换 owner 裁码前的占位「6xxx」)。
+        // 错链经生产 emit 接缝落真实码 RX6014(替换 agent 裁码前的占位「6xxx」)。
         let diag = DiagCtxt::new();
         emit_stage_link_error(&diag, dummy_span(), &err);
         assert!(

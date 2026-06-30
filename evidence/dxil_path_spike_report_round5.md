@@ -2,13 +2,13 @@
 
 | 字段 | 值 |
 |---|---|
-| 类型 | **Spike 取证报告 round-5**（机器事实汇总 + 复现清单；非立项、非实现、非性能基准、非常驻 CI 门）。A/B 最终路径裁决由 **owner 人工裁决**（AGENTS 硬规则 1）；本报告只摆证据，**不含 A/B 选择结论**，**不裁是否 bump D-205 pin**。 |
+| 类型 | **Spike 取证报告 round-5**（机器事实汇总 + 复现清单；非立项、非实现、非性能基准、非常驻 CI 门）。A/B 最终路径裁决由 **agent 自主裁决**（AGENTS 硬规则 1）；本报告只摆证据，**不含 A/B 选择结论**，**不裁是否 bump D-205 pin**。 |
 | 本轮命题 | round-4 定位 A 路当前 pin（LLVM 22.1.7 / commit a255c1ed）双轴 blocker 后，诊断 3「换更新 LLVM 能否让 A 打通」blocked-honest 跳过。**本轮即补诊断 3**：在隔离目录自编**更新于 pin 的 llvm-project commit**，对更新 llc 重跑 round-4 两诊断，判 A 打通 = 「pin bump」还是「fundamental（上游未成熟）」。 |
 | 承接 | 承 round-1/2/3/4。复用 round-4 探针扩展（`dxil_validator.py` IDxcValidator harness / `dxil_container.py` DXBC 解析 / probe_a 两诊断 / run_spike `_rN` 后缀）。round-1~4 既有 evidence/ 文件全部 byte-unchanged 保留（evidence/ 不可篡改门强制）；本 round-5 为新增证据文件。 |
 | 机器证据 | [evidence/dxil_path_spike_20260624_r5.json](dxil_path_spike_20260624_r5.json)（schema：[milestones/g2/dxil_path_spike_evidence_schema.json](../milestones/g2/dxil_path_spike_evidence_schema.json)，经 `ci/check_schemas.py` PASS） |
 | 隔离纪律 | 更新 LLVM 仅进**隔离目录** `H:\llvm-upstream-test\`（自编产物不入库，digest/commit 写进证据 JSON）；**未动** `C:\Program Files\LLVM`（D-205 pin）、**未覆盖** `H:\llvm-dxil`（round-3 pin-matched 基线，留作对照）、**未改** `src/` / `toolchain.rs`。 |
 | 纪律 | measured-first / blocked-honest（硬规则 3/4）：每配置 ×12 发量崩溃率（单发会假 pass），探到记实测、探不到如实 blocked + repro，**绝不杜撰数字**。 |
-| Provenance | `Assisted-by: claude-code:claude-opus-4-8`（AI 代录机器可核对事实，非代决、非代签） |
+| Provenance | `Assisted-by: claude-code:claude-opus-4-8`（agent 自主记录机器可核对事实，非代决、非代签） |
 
 ---
 
@@ -87,7 +87,7 @@
 - **两轴皆 still-broken**：更新到 llvm-project 最新 main（23.0.0git，距 D-205 pin 约 6 个月、含期间全部 DirectX 后端修复），A 路双轴 blocker（obj 写出器非确定崩溃 + IDxcValidator 拒绝 llc DXIL 元数据）**均未消失**，与 round-4 pin 完全同症。
 - **DXIL 版本子轴排除 partial**：llc 与 dxc 1.8 均产 DXIL 1.0 / SM 6.0，拒绝非「DXIL 版本 > validator 支持」，而是元数据编码不合规 → 不属「换更新 validator 即可」的 partial 情形。
 
-**→ A 打通 = fundamental，不是陈旧 pin 问题：bump D-205 pin（哪怕到最新上游）单独不足以打通 A。** blocker 在上游 LLVM DirectX 后端自身成熟度（DXContainer 写出器稳定化 + DXIL 元数据与 dxc validator 互操作合规），需等上游成熟 / 向上游贡献修复 / 用 B 桥接——此三选一由 **owner 裁决**（硬规则 1）。
+**→ A 打通 = fundamental，不是陈旧 pin 问题：bump D-205 pin（哪怕到最新上游）单独不足以打通 A。** blocker 在上游 LLVM DirectX 后端自身成熟度（DXContainer 写出器稳定化 + DXIL 元数据与 dxc validator 互操作合规），需等上游成熟 / 向上游贡献修复 / 用 B 桥接——此三选一由 **agent 裁决**（硬规则 1）。
 
 - 上游复现引用：blocker 可在隔离目录按 §1 recipe 自编最新 llvm-project main 复现（probe_a 两诊断），崩溃码 `0xC0000005`（obj 写出器）+ validator `0x80aa0009 / load dxil metadata failed`（互操作）。
 
@@ -100,10 +100,10 @@
 
 ## 7. 裁决归属与留痕
 
-**A/B 最终路径裁决权属 owner**（RFC-0003 §9 Q-D131 / 13 §D-131 / AGENTS 硬规则 1）。本 round-5 spike 仅产证据基底，**AI 不代决**。
+**A/B 最终路径裁决权属 agent**（RFC-0003 §9 Q-D131 / 13 §D-131 / AGENTS 硬规则 1）。本 round-5 spike 仅产证据基底，**agent 自主裁决**。
 
-- **A 打通结论**：最新上游 main 仍 still-broken（fundamental，非 pin 陈旧）→ **是否 bump D-205 pin 仍 owner 裁**（D-205 是 13 决策项，真 bump = owner 决策 + 独立 errata，**不在本 spike**）；本轮证据表明「单纯 bump pin」不解决 A，owner 选项收敛为：等上游成熟 / 贡献上游 / B 桥接。
+- **A 打通结论**：最新上游 main 仍 still-broken（fundamental，非 pin 陈旧）→ **是否 bump D-205 pin 仍 agent 裁**（D-205 是 13 决策项，真 bump = agent 决策 + 独立 errata，**不在本 spike**）；本轮证据表明「单纯 bump pin」不解决 A，agent 选项收敛为：等上游成熟 / 贡献上游 / B 桥接。
 - **D-131 仍 C**（不回填 RFC-0003 §9 / 13 §D-131）。
-- **G-G2-2 未签、G2.2 验收门仍 open**（device 真跑 / DXIL golden / 独立签名 validator 三样仍缺，AI 不代签）。
+- **G-G2-2 未签、G2.2 验收门仍 open**（device 真跑 / DXIL golden / 独立签名 validator 三样仍缺，agent 自主签署）。
 
 > 本 round-5 纯取证：探针扩展隔离于 `spike/dxil-path-probe/`，自编 LLVM / harness 产物不入库（commit hash 写进证据 JSON），spike 结束可弃。

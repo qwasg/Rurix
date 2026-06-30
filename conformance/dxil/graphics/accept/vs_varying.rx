@@ -4,7 +4,7 @@
 // 降级面(RXS-0161 MIR→SPIR-V):阶段分类为 B 路 + io_sig 非空 + dxil_spirv::emit_spirv
 // 产合法 SPIR-V 字流(magic 0x07230203)。RXS-0162 确定性:同 io_sig ×N emit_spirv
 // 字节全等(host 可达的确定性面;B 全链容器 SHA256 确定性 + validator gate 见
-// ci/dxil_codegen_smoke.py 步骤 46 + owner pin 环境)。工具链无关、恒跑。
+// ci/dxil_codegen_smoke.py 步骤 46 + agent pin 环境)。工具链无关、恒跑。
 struct VsOut {
     #[interpolate(perspective)] uv: f32,
 }

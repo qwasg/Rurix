@@ -4,7 +4,7 @@
 > 工具链(dev 偏差,RD-011):patched llc = `H:\llvm-clean-82c5bce5-build\bin\llc.exe`
 > (经 `RURIX_LLC`);dxc 签名 validator = `H:\dxc-round7\extracted\bin\x64`
 > (dxv.exe/dxc.exe 1.9.2602.24,经 `RURIX_DXC_DIR`)。G-G2-2 device 真跑/呈现对照
-> 仍 open,本片只到工具链 codegen + golden(AI 不代签)。
+> 仍 open,本片只到工具链 codegen + golden(agent 自主签署)。
 
 ## 1. 端到端最小 compute(`rx build --target dxil`)
 

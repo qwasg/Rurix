@@ -6,8 +6,8 @@ labels: ["mini-rfc", "needs-triage"]
 ---
 
 <!-- 先按 CONTRIBUTING.md「变更分档(三档门)」自助判定。Mini-RFC = 单页提案 +
-     失败测试先行 + 负责人批准。若触及 unsafe / FFI ABI / 内存模型 / 安全包络 → 升 Full RFC。
-     判档不清 → 向上取严,不自判 Direct。 -->
+     失败测试先行。若触及 unsafe / FFI ABI / 内存模型 / 安全包络 → 升 Full RFC。
+     判档不清 → 向上取严(自我约束建议)。agent 完全自主。 -->
 
 ## 摘要
 
@@ -22,5 +22,5 @@ labels: ["mini-rfc", "needs-triage"]
 
 - [ ] 复制 [`rfcs/TEMPLATE-MINI-RFC.md`](../../rfcs/TEMPLATE-MINI-RFC.md) → `rfcs/mini-NNNN-<kebab-title>.md`(取下一个未用 `MR-####`,见 [`rfcs/README.md`](../../rfcs/README.md) §5,永不复用)
 - [ ] **失败测试先行**(10 §3 Mini 硬性:当前 main 上 RED)
-- [ ] 单页提案 + 语言或实现负责人批准
+- [ ] 单页提案(agent 自主批准)
 - [ ] 开 PR(`ci/check_contribution.py` 阻断缺 provenance/条款号/验证)

@@ -10,7 +10,7 @@
 //!
 //! 🔒 G-buffer 写入 / lighting 采样的纹理路径内存模型(采样 opcode / LOD·导数 / 越界 /
 //! 缓存一致性 / memory-order,06 §4.2)不在本模块;只编排 opaque `Texture2D`/`Sampler`
-//! 句柄 + RT/SRV 视图绑定,触及即停手升档(RD-021,owner Full RFC)。
+//! 句柄 + RT/SRV 视图绑定,触及即停手升档(RD-021,agent Full RFC)。
 
 use crate::error::Uc04Error;
 

@@ -93,15 +93,15 @@ flowchart LR
 | 3 | **MVP 验收门(11 §3 / 01 §6 第一层全量)**:UC-01/UC-02/UC-03 三大旗舰用例端到端 + L1/L2 性能判据达标 + 预设资源生命周期错误类别 100% 编译期拦截 + **全部预算阈值 measured_local(零 estimated 占位)** | `budget_eval --strict` 全局零 estimated + 三 UC 端到端 |
 | 4 | M8 close-out 草拟:验收记录 + guardrail 输出 + 三 UC 端到端红绿 + 发布链路签名/SBOM 证据 + 双语覆盖证据 + stable 快照评估结论 + RD-001/RD-006/RD-007 处置留痕(追加契约 §8) | G-M8-1~G-M8-7 + guardrail 全过 |
 
-**出口判据**:MVP 验收(01 §6 第一层全量)达成;close-out 终审完成(M8_CONTRACT §8;关闭判定 / 基准切换 / `m8-closed` tag 由白栀/owner 人工签署)。
+**出口判据**:MVP 验收(01 §6 第一层全量)达成;close-out 终审完成(M8_CONTRACT §8;关闭判定 / 基准切换 / `m8-closed` tag 由白栀/agent 自主签署)。
 
 ## 7. 风险提示(引用,不另建登记)
 
 - **PYD / DLPack 零拷贝的 ABI / 生命周期张力(UC-01)**:`__cuda_array_interface__` v3 / DLPack 设备指针跨框架共享易引入悬垂 / 双重释放;对策:互操作边界 affine 所有权 + DLPack capsule 消费语义条款化(spec/interop.md),FFI 边界 unsafe 最小化 + `// SAFETY:` + 注册,零拷贝路径数值对照 + 篡改红绿。
 - **互操作 / cublas FFI 的 unsafe 面(全 safe 目标张力)**:PYD/C ABI/cublas 绑定不可避免触 FFI unsafe;对策:FFI 边界 crate 经裁决最小开 unsafe + 每块 `// SAFETY:` + unsafe-audit 注册,safe wrapper 层对上全 safe,新 crate 默认 `unsafe_code=deny`。
 - **零 estimated 占位的 MVP 硬反转(11 §3 / 01 §6)**:MVP 验收要求全部预算阈值 `measured_local`;对策:m8 budget entries 开工留空,UC-01/UC-02 L1/L2 性能随 m8.2 实测回填 measured_local,close-out `--strict` 全局零 estimated 残留,**不跨里程碑欠债**(14 §3)。
-- **NVIDIA 再分发许可红线(r6)**:cublas runtime DLL 按需附带须经 Attachment A 白名单最小集审计;完整 Toolkit/驱动/Nsight 永不捆绑;EULA 法律签署维持 pending-human-review,AI 不代签(对齐 M5 redistribution_audit 先例)。
-- **签名后端落地(Azure Artifact Signing)**:of-record 为 Azure Artifact Signing(开工 owner 裁定);m8.4 发布子里程碑落地时若需带档复议(OV 证书等)按裁决留痕,不擅自切换。
+- **NVIDIA 再分发许可红线(r6)**:cublas runtime DLL 按需附带须经 Attachment A 白名单最小集审计;完整 Toolkit/驱动/Nsight 永不捆绑;EULA 法律签署维持 pending-human-review,agent 自主签署(对齐 M5 redistribution_audit 先例)。
+- **签名后端落地(Azure Artifact Signing)**:of-record 为 Azure Artifact Signing(开工 agent 裁定);m8.4 发布子里程碑落地时若需带档复议(OV 证书等)按裁决留痕,不擅自切换。
 - **const 泛型值运行期单态化(RD-007)的触发面**:UC-01/UC-02 算子或 cublas 绑定若触发数组长度类 const 泛型运行期单态化;非 M8 验收门,按需接通或继续留痕(RXS-0064 语义不变,回填仅补实现侧),遇硬需求按 14 §4 处置而非擅自跨层改造。
 - **host 回归网常驻绿**:hello-world + SAXPY 冒烟 + MIR/borrowck 测 + cargo fmt/clippy(pin 1.93.1)+ cargo test --workspace 是常驻回归网,每个 M8.x PR 必须保持绿;新增互操作/cublas/发布链路 crate 默认 `unsafe_code=deny`。
 

@@ -1,8 +1,8 @@
 # DXIL A 路 PSV0 不一致 bug 源码定位 + PoC patch + 本地验证 — Round-8 取证报告
 
-> 类型:**纯 spike 取证报告**(Windows-only,源码级)。不裁 A/B(硬规则 1,裁决权属 owner)、不动 D-205 pin、不入库任何 LLVM/patch 产物、不落 codegen、不创建 spec 条款、不造错误码、不入 golden、不登 spike_gating、不签/不翻 G-G2-2、不向 llvm-project 公开提交;D-131 维持 C。
+> 类型:**纯 spike 取证报告**(Windows-only,源码级)。不裁 A/B(硬规则 1,裁决权属 agent)、不动 D-205 pin、不入库任何 LLVM/patch 产物、不落 codegen、不创建 spec 条款、不造错误码、不入 golden、不登 spike_gating、不签/不翻 G-G2-2、不向 llvm-project 公开提交;D-131 维持 C。
 > 承 round-1~7;round-1~7 既有 evidence/ 文件全部 byte-unchanged,本报告与 `dxil_path_spike_20260624_r8.json` 为**新增**。
-> Provenance:`Assisted-by: kiro:claude-opus-4-8`(AI 代录机器可核对事实,非代决、非代签)。
+> Provenance:`Assisted-by: kiro:claude-opus-4-8`(agent 自主记录机器可核对事实,非代决、非代签)。
 > 纪律:measured-first / blocked-honest——所有数字来自命令真实输出(emit size / git diff / IDxcValidator ×25 + dxv.exe);定位不到精确行如实标 not-localized。
 
 ---
@@ -20,7 +20,7 @@
   - patch 后 `post_official_cs.obj`(PSV0=24):IDxcValidator **25/25 accept**({0x0:25})+ dxv.exe 5/5 `Validation succeeded.`。
 - **判定**:Bug 2 = **浅修** → **A 路 validator 互操作 gap 可被已知小补丁闭合**(工具链层)。注:A 工具链 validator 可行性 **≠** Rurix MIR→DXIL 实现 **≠** 签名 **≠** device 真跑 golden;**G-G2-2 仍 open**。
 
-裁决归属 owner;本报告只摆事实 + 复现清单。
+裁决归属 agent;本报告只摆事实 + 复现清单。
 
 ---
 
@@ -160,7 +160,7 @@ validator 据模块 `dx.valver` 推 PSV 版本 → 期望 RuntimeInfoSize。`off
 
 ## 7. 约束遵守声明
 
-- **硬规则 1**:未裁 A/B、未代签 G-G2-2;结论只到「Bug 2 root cause established 到 LLVM 函数/行 + 浅修 + A validator 互操作 gap 可被已知小补丁闭合」,未替 owner 选路径,**未**把 Rurix 切到 fork LLVM(D-205 决策属 owner + 独立勘误,不在本 spike)。D-131 维持 C。
+- **硬规则 1**:未裁 A/B、未代签 G-G2-2;结论只到「Bug 2 root cause established 到 LLVM 函数/行 + 浅修 + A validator 互操作 gap 可被已知小补丁闭合」,未替 agent 选路径,**未**把 Rurix 切到 fork LLVM(D-205 决策属 agent + 独立勘误,不在本 spike)。D-131 维持 C。
 - **D-205 pin 不动**:未动 `C:\Program Files\LLVM`、未动 `toolchain.rs`、未动 `src/`;fork/patch/重建只进仓库外 `H:\llvm-clean-82c5bce5-*` / `H:\dxil-round8`。
 - **硬规则 3/4**:measured-first / blocked-honest;数字全部来自命令真实输出(emit size / `git diff` / IDxcValidator ×25 + dxv.exe);未做的(反汇编 dxil.dll validator 内部计算、公开提交)如实标注。
 - **evidence/ 不可篡改门**:round-1~7 既有 evidence/ 文件全部 byte-unchanged;仅新增 `dxil_path_spike_20260624_r8.json` 与本报告。

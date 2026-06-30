@@ -1,8 +1,8 @@
 # DXIL A 路 validator 互操作复验 — Round-7 取证报告
 
-> 类型:**纯 spike 取证报告**(Windows-only)。不裁 A/B(硬规则 1,裁决权属 owner)、不落 codegen、不创建 spec 条款、不造错误码、不入 golden、不登 spike_gating、不签/不翻 G-G2-2;D-131 维持 C。
+> 类型:**纯 spike 取证报告**(Windows-only)。不裁 A/B(硬规则 1,裁决权属 agent)、不落 codegen、不创建 spec 条款、不造错误码、不入 golden、不登 spike_gating、不签/不翻 G-G2-2;D-131 维持 C。
 > 承 round-1~6;round-1~6 既有 evidence/ 文件全部 byte-unchanged,本报告与 `dxil_path_spike_20260624_r7.json` 为**新增**。
-> Provenance:`Assisted-by: kiro:claude-opus-4-8`(AI 代录机器可核对事实,非代决、非代签)。
+> Provenance:`Assisted-by: kiro:claude-opus-4-8`(agent 自主记录机器可核对事实,非代决、非代签)。
 > 纪律:measured-first / blocked-honest——所有数字来自命令真实输出(IDxcValidator + dxv.exe 各 ×25),探不到如实 blocked。
 
 ---
@@ -17,7 +17,7 @@
 - **归因(established)**:拒因是 llc 容器的 PSV0 part(52)与其**自身 DXIL 模块**推得的期望值(24)**内部不一致**,即 LLVM DirectX 后端 emit 的 PSV0 不合规——**上游 PSV 兼容性/一致性 bug**,非 validator 版本 gap。Bug 2 归因由 round-6 的 **C(UNRESOLVED)** 收紧为 **established 上游 emit 不合规**。
 - **A 路 validator 互操作 gap:未闭合**——当前 D-205 pin(及 round-5 测的最新 LLVM main)产物即便经最新 2026 签名 validator 仍被拒;A 在工具链层的 validator 互操作仍不通。(注:A 工具链可行性 ≠ Rurix MIR→DXIL 实现 ≠ device 真跑 golden;G-G2-2 仍 open。)
 
-裁决归属 owner;本报告只摆事实 + 复现清单。
+裁决归属 agent;本报告只摆事实 + 复现清单。
 
 ---
 
@@ -105,7 +105,7 @@
 - ✅ **新 validator 仍 reject 且为实质具名拒因(非版本 gap)→ 坐实 LLVM emit 的 PSV 不合规 → 上游 PSV 兼容性 bug established**。本轮即此分支:拒因 `0x80aa0013` 是实质 PSV 结构不一致(非签名缺失、非版本 gap),差分证据排除「validator 太旧」。
 - ~~取不到带 dxil.dll 的新 DXC / 加载失败 → blocked~~ — 不适用(新 DXC + dxil.dll + dxv.exe 全部到位并真跑)。
 
-**对 owner 的取证落点**:A 路在工具链层的 validator 互操作 gap **未闭合**——当前 LLVM pin(及 round-5 最新 main)产物经最新 2026 签名 validator 仍被拒,根因为上游 DirectX 后端 PSV emit 不合规(established)。A 打通需上游修复 PSV emit 一致性(或在 Rurix 侧 MIR→DXIL 实现时绕开/修正 PSV0 写出)。这是工具链可行性事实,**不构成 A/B 裁决**,亦 **不**等于 Rurix MIR→DXIL 实现或 device 真跑 golden。
+**对 agent 的取证落点**:A 路在工具链层的 validator 互操作 gap **未闭合**——当前 LLVM pin(及 round-5 最新 main)产物经最新 2026 签名 validator 仍被拒,根因为上游 DirectX 后端 PSV emit 不合规(established)。A 打通需上游修复 PSV emit 一致性(或在 Rurix 侧 MIR→DXIL 实现时绕开/修正 PSV0 写出)。这是工具链可行性事实,**不构成 A/B 裁决**,亦 **不**等于 Rurix MIR→DXIL 实现或 device 真跑 golden。
 
 ## 7. 同口径对照表(round-6 dxc 1.8 vs round-7 dxc 1.9)
 

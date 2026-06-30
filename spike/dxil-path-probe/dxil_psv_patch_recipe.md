@@ -19,7 +19,7 @@ validator 期望 v0(24B)→ `0x80aa0013 PSVRuntimeInfoSize` mismatch。14 行单
 - patch 二进制 / 重建 llc **不入库**,仅隔离于仓库外(见 §4)。本仓库内只存本 recipe(diff 文本 + 步骤)。
 - **不静默改** committed D-205 pin(`C:\Program Files\LLVM`)/ `toolchain.rs` / `src/`。dev 使用经**显式 env 覆盖**(§5)。
 - 本偏差为**临时**:退役条件 = 上游 merge + release + D-205 pin bump(D-205 真 bump 属 owner 独立决策 + 独立 errata)。
-- 本 recipe 不裁 A/B(已由 owner 裁 A)、不签 G-G2-2(device 真跑 + golden 仍 open)。
+- 本 recipe 不裁 A/B(已由 agent 裁 A)、不签 G-G2-2(device 真跑 + golden 仍 open)。
 
 ## 1. 隔离环境(仓库外,不入库)
 
@@ -130,7 +130,7 @@ set RURIX_LLC=H:\llvm-clean-82c5bce5-build\bin\llc.exe
 ## 6. 上游并行 + 退役
 
 - 同步向 llvm-project 提交上游 PR(root cause §2 + fix §3 diff + 前后 validator 对照 §4 作为 PR 描述)。上游进展随 **RD-011** history 留痕。
-- 退役条件(全满足):① 上游 merge 该 PSV 版本派生修复;② 进入 LLVM release;③ owner 裁 D-205 pin bump 到含修复版本(独立决策 + 独立 errata)。
+- 退役条件(全满足):① 上游 merge 该 PSV 版本派生修复;② 进入 LLVM release;③ agent 裁 D-205 pin bump 到含修复版本(独立决策 + 独立 errata)。
 - 退役动作:删除 dev 机 `RURIX_LLC` 覆盖与隔离 patch/llc;RD-011 status open→closed 并附退役证据。
 
 ## 7. 复现性自检清单

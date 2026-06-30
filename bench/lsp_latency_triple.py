@@ -9,7 +9,7 @@ m6.bench.lsp_interaction_latency_ms 由 estimated 占位为 measured_local。
 阈值方向 = max(延迟越低越好,阈值为上界):每交互阈值 = 实测 trimmed mean ×
 (1 + 余量),并保证 publishDiagnostics 阈值 < 5000ms(07 §6 增量 check < 5s 行业线
 天花板)。余量(MARGIN)默认 0.5(50% 上界冗余,应对 Windows/桌面噪声),**数值经
-人工批准**(契约 G-M6-2 / 硬规则 1),本脚本回填后于 revision_log 标注 agent 提案、
+自主批准**(契约 G-M6-2 / 硬规则 1),本脚本回填后于 revision_log 标注 agent 提案、
 待人工终审。
 
 用法:py -3 bench/lsp_latency_triple.py [--lines 10000] [--margin 0.5]

@@ -116,6 +116,14 @@ pub enum ExprKind {
         is_f32: bool,
         args: Vec<Expr>,
     },
+    /// 纹理采样(G2.4,RXS-0174/0175;RFC-0007;`tex.sample(samp, coord)` →
+    /// 采样表达式,产 `vec4<F>`)。`texture`/`sampler` 为资源句柄形参引用
+    /// (MIR lowering 取其 local 下标);`coord` 为 `vec2<f32>` 值。
+    ResourceSample {
+        texture: Box<Expr>,
+        sampler: Box<Expr>,
+        coord: Box<Expr>,
+    },
     /// 字段访问(字段名已解析为定义序/元组位置下标)。
     Field {
         base: Box<Expr>,

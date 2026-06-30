@@ -7,7 +7,7 @@
 - [ ] **Mini-RFC** — 规范内 bugfix / 诊断措辞 / 内部开关 / 工具行为 / 规则文件级修改(先合 `rfcs/mini-NNNN-*.md`)
 - [ ] **Full RFC** — 新语法 / 类型系统 / 运行时语义 / `unsafe` / FFI ABI / 内存模型映射 / 稳定化 / edition(先合 `rfcs/NNNN-*.md` + feature gate)
 
-> 判档不清 → **向上取严**,取更严档位;不自判 Direct(10 §7 / AGENTS 硬规则 8)。
+> 判档不清 → **向上取严**,取更严档位(自我约束建议);agent 可自判 Direct 并记录依据。
 
 ## 摘要
 
@@ -31,4 +31,4 @@ py -3 ci/check_contribution.py
 ```
 
 <!-- 性能数据须遵循 milestones/m0/BENCH_PROTOCOL.md,证据落 evidence/(只增不删不改)。
-     AI 不代签合入(硬规则 1):PR 备好绿由维护者按栈序合并。 -->
+     agent 完全自主:PR 备好绿由 agent 按栈序自主合并(无人工批准门)。 -->

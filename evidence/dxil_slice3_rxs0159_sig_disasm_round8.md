@@ -12,7 +12,7 @@
 分片3 此前 dxc validation **SKIP**（无 patched llc），golden 只到 `.dxil-ll`（IR），
 未证 RXS-0159 的 SV 签名映射**真达 DXIL 产物**。本轮在 RD-011 patched llc 环境补证。
 
-**结论 =（B）真发现 → 需人工升档（blocked）**：
+**结论 =（B）真发现 → 需升档（blocked）**：
 
 - vertex_io / fragment_io 经 patched llc `-filetype=obj` 产 DXContainer，
   **IDxcValidator ×25 = 25/25 accept（`{0x0:25}`）、dxv.exe ×20 = 20/20 `Validation succeeded.`**；
@@ -24,7 +24,7 @@
   `dx.entryPoints` 签名元素）当前都不会被 lower 成 ISG1/OSG1 元素。
 - 让 SV 元素进产物需 patch 后端调 `Signature::addParam(... Register, Mask,
   ExclusiveMask ...)`，即定义**寄存器/分量 mask 二进制布局** = RFC-0003 §4.6 / §9 Q-Builtin
-  🔒 **FFI ABI 禁区**，**越出 RXS-0159 类型面** → 按硬规则 5 停手标「需人工升档」。
+  🔒 **FFI ABI 禁区**，**越出 RXS-0159 类型面** → 按硬规则 5 停手标「需升档」。
 - **不录 `.dxil-disasm` golden**（签名空，录入即伪造 SV 真达）；不 patch LLVM 后端；如实 blocked + 复现。
 
 ---
@@ -118,7 +118,7 @@ void DXContainerGlobals::addSignature(Module &M,
 `dx.entryPoints` 签名元素，当前后端**同样**不会 lower 进 ISG1/OSG1（消费代码不存在，#90504）。
 分支 B「改 lowering 为后端可消费形态」**对当前后端不成立**。
 
-## 6. 判定与处置（硬规则 5 边界 → 需人工升档）
+## 6. 判定与处置（硬规则 5 边界 → 需升档）
 
 让 SV 元素真达产物的**唯一**途径 = patch LLVM DirectX 后端 `addSignature` 实现图形签名
 填充，必经 `Signature::addParam(Register, Mask, ExclusiveMask, ...)` 给出**寄存器/分量 mask
@@ -127,8 +127,8 @@ void DXContainerGlobals::addSignature(Module &M,
 
 按任务分支 B 末路条款 + 硬规则 5：
 
-- **停手标「需人工升档」**：签名真达产物耦合 ABI 二进制布局，需 owner 独立 Full RFC
-  （承 RD-013 backfill_condition 已声明的「签名元素二进制布局…由 owner 后续独立 Full RFC 定义」）+
+- **停手标「需升档」**：签名真达产物耦合 ABI 二进制布局，需 agent 独立 Full RFC
+  （承 RD-013 backfill_condition 已声明的「签名元素二进制布局…由 agent 后续独立 Full RFC 定义」）+
   上游 #90504 图形签名支持落地。
 - **不录 `.dxil-disasm` golden**（签名空，录入即伪造）；**不 patch LLVM 后端**（禁区）；
   **不改 RXS-0159 语义 / 不动 PTX / 不动 committed D-205 pin / trace 维持 159/159**。

@@ -174,5 +174,6 @@ dependencies = [
 name = "uc04-demo"
 version = "0.1.0"
 dependencies = [
+ "cc",
  "rurixc",
 ]

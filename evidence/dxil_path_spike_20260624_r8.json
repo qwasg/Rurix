@@ -119,6 +119,6 @@
     "depth_judgment(shallow:A validator 互操作 gap 可被已知小补丁闭合)"
   ],
   "run_command": "py -3 H:\\dxil-round8\\r8_probe.py H:\\dxil-round8\\post_official_cs.obj",
-  "owner_decision": "A/B 最终路径裁决权属 owner(RFC-0003 §9 Q-D131 / 13 §D-131 / 硬规则 1);本 spike 仅产证据,AI 不代决。round-8 结论仅到『Bug 2 root cause established 到 LLVM 源码函数/行(DXContainerGlobals.cpp:388-389 PSV 版本未按模块 valver 派生)+ 浅修(14 行 PoC 使 validator reject→accept)+ A 工具链 validator 互操作 gap 可被已知小补丁闭合』,不替 owner 裁 A/B、不把 Rurix 切到 fork LLVM(D-205 决策属 owner+独立勘误)、不签 G-G2-2,D-131 维持 C。",
+  "owner_decision": "A/B 最终路径裁决权属 owner(RFC-0003 §9 Q-D131 / 13 §D-131 / 硬规则 1);本 spike 仅产证据,agent 自主裁决。round-8 结论仅到『Bug 2 root cause established 到 LLVM 源码函数/行(DXContainerGlobals.cpp:388-389 PSV 版本未按模块 valver 派生)+ 浅修(14 行 PoC 使 validator reject→accept)+ A 工具链 validator 互操作 gap 可被已知小补丁闭合』,不替 agent 裁 A/B、不把 Rurix 切到 fork LLVM(D-205 决策属 owner+独立勘误)、不签 G-G2-2,D-131 维持 C。",
   "notes": "纯取证 spike round-8;LLVM fork worktree + PoC patch + 重建 llc 全隔离于仓库外 H:\\llvm-clean-82c5bce5-* / H:\\dxil-round8,不入库(patch diff 全文抄进 report,digest 见 round8_detail)。未动 D-205 pin(C:\\Program Files\\LLVM)/toolchain.rs/src/。measured-first:数字来自命令真实输出(IDxcValidator ×25 + dxv.exe + emit size + git diff)。round-1~7 既有 evidence/ 文件 byte-unchanged,本证据为新增。未向 llvm-project 公开提交任何内容;禁区(DXIL UB/纹理内存模型/FFI ABI)未碰——PSV 是容器元数据结构非禁区。"
 }

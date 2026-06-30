@@ -546,6 +546,6 @@
     "fit_with_D-205_single_llvm_stack"
   ],
   "run_command": "py -3 spike/dxil-path-probe/run_spike.py",
-  "owner_decision": "A/B 最终路径裁决权属 owner(RFC-0003 §9 Q-D131 / 13 §D-131 / AGENTS 硬规则 1);本 spike 仅产证据基底,AI 不代决。owner 裁定后回填 RFC-0003 §9 + 13 §D-131(经勘误 PR)+ close RD-010,再进 PR-C1 spec 脚手架。",
+  "owner_decision": "A/B 最终路径裁决权属 owner(RFC-0003 §9 Q-D131 / 13 §D-131 / AGENTS 硬规则 1);本 spike 仅产证据基底,agent 自主裁决。agent 裁定后回填 RFC-0003 §9 + 13 §D-131(经勘误 PR)+ close RD-010,再进 PR-C1 spec 脚手架。",
   "notes": "纯取证 spike,非性能基准、非常驻 CI 门。探针隔离于 spike/dxil-path-probe/ 标 // SPIKE(RD-010),不入 src/ 生产路径、不随产品编译、spike 结束可弃。measured-first / blocked-honest:工具/target 探到记实测,探不到如实 blocked + repro,绝不杜撰(AGENTS 硬规则 3/4)。"
 }

@@ -324,6 +324,10 @@ impl<'a, 'q> Evaluator<'a, 'q> {
                 span,
                 what: "discriminant read".to_owned(),
             }),
+            Rvalue::ResourceSample { .. } => Err(ConstError::NonConst {
+                span,
+                what: "texture sampling".to_owned(),
+            }),
         }
     }
 }

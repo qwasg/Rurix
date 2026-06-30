@@ -283,7 +283,7 @@ def build_evidence(res: dict) -> dict:
             "attribution(LLVM emit PSV internal inconsistency vs validator age)",
         ],
         "run_command": "py -3 spike/dxil-path-probe/probe_round7_validator.py",
-        "owner_decision": "A/B 最终路径裁决权属 owner(RFC-0003 §9 Q-D131 / 13 §D-131 / 硬规则 1);本 spike 仅产证据,AI 不代决。round-7 结论仅到『A 路 validator 互操作 gap 未闭合(当前 pin 即便最新 2026 validator 仍拒)+ Bug 2 归因坐实=LLVM emit PSV 不合规(非 dxc 太旧)』,不替 owner 裁 A/B,不签 G-G2-2,D-131 维持 C。",
+        "owner_decision": "A/B 最终路径裁决权属 owner(RFC-0003 §9 Q-D131 / 13 §D-131 / 硬规则 1);本 spike 仅产证据,agent 自主裁决。round-7 结论仅到『A 路 validator 互操作 gap 未闭合(当前 pin 即便最新 2026 validator 仍拒)+ Bug 2 归因坐实=LLVM emit PSV 不合规(非 dxc 太旧)』,不替 agent 裁 A/B,不签 G-G2-2,D-131 维持 C。",
         "notes": "纯取证 spike round-7;新 DXC/dxil.dll 隔离于仓库外 H:\\dxc-round7,不入库(version/sha256 见 path_a)。measured-first / blocked-honest:数字来自命令真实输出(IDxcValidator + dxv.exe 各 ×25)。round-1~6 既有 evidence/ 文件 byte-unchanged,本证据为新增。",
     }
 

@@ -316,6 +316,14 @@
       "spec_clauses": ["RXS-0156"]
     },
     {
+      "id": "RX3014",
+      "title": "采样表达式违例(tex.sample(samp,coord):receiver 非 Texture2D<F> / samp 非 Sampler / coord 非 vec2<f32> / 元数不符 / 非 fragment 阶段采样;首期收敛子集外)",
+      "message_key": "shader.sample_expr_invalid",
+      "status": "active",
+      "introduced_in": "G2.4",
+      "spec_clauses": ["RXS-0174"]
+    },
+    {
       "id": "RX4001",
       "title": "使用已移出的值(use after move,含 maybe-moved 保守判定)",
       "message_key": "borrowck.use_after_move",
@@ -546,6 +554,14 @@
       "spec_clauses": ["RXS-0170"]
     },
     {
+      "id": "RX6023",
+      "title": "DXIL 纹理采样首期收敛子集外(隐式 LOD / 非 Texture2D<f32> / coord 非 vec2<f32> / 非 fragment 阶段 / texel fetch / 比较采样 / 多分量纹理;RXS-0175 strict-only,区别于 RX6013 通用不可映射)",
+      "message_key": "codegen.dxil_sample_unsupported",
+      "status": "active",
+      "introduced_in": "G2.4",
+      "spec_clauses": ["RXS-0175"]
+    },
+    {
       "id": "RX7001",
       "title": "外部工具链失败(clang/link.exe 定位失败、版本不符 pin 或退出非零)",
       "message_key": "link.toolchain_failure",
@@ -771,7 +787,7 @@
     {
       "version": "v1.14",
       "date": "2026-06-14",
-      "change": "M5.2 分配 RX3009 ~ RX3010(spec/device.md RXS-0079/0080 配套,M5_PLAN §2 任务 2/3,条款 PR 先行引用的正式分配)。3xxx 着色/地址空间段位续接 shared+barrier 一致性数据流 / scoped atomics scope 类型契约:RX3009 shared+barrier 一致性违例(shared 写后未过 block.sync() 即读他 lane 写入 / 证不出经 barrier 同步的保守拒绝,device 借用扩展数据流)、RX3010 scoped atomics scope 误用(越权作用域 / 与地址空间不相容 / 不支持的 scope·order 组合,typeck 层裁决)。message_key shared.barrier_consistency / atomics.scope_misuse 随本实现 WP 落 en.messages;scoped atomics 的 PTX atom.{order}.{scope} 映射为 D-406 禁区(人工落笔,不占编译期段位);段内分配制递增不复用(列于 RX3008 与 RX4001 之间为段位有序,JSON 数组序非分配序)"
+      "change": "M5.2 分配 RX3009 ~ RX3010(spec/device.md RXS-0079/0080 配套,M5_PLAN §2 任务 2/3,条款 PR 先行引用的正式分配)。3xxx 着色/地址空间段位续接 shared+barrier 一致性数据流 / scoped atomics scope 类型契约:RX3009 shared+barrier 一致性违例(shared 写后未过 block.sync() 即读他 lane 写入 / 证不出经 barrier 同步的保守拒绝,device 借用扩展数据流)、RX3010 scoped atomics scope 误用(越权作用域 / 与地址空间不相容 / 不支持的 scope·order 组合,typeck 层裁决)。message_key shared.barrier_consistency / atomics.scope_misuse 随本实现 WP 落 en.messages;scoped atomics 的 PTX atom.{order}.{scope} 映射为 D-406 禁区(自主落笔,不占编译期段位);段内分配制递增不复用(列于 RX3008 与 RX4001 之间为段位有序,JSON 数组序非分配序)"
     },
     {
       "version": "v1.15",
@@ -786,7 +802,7 @@
     {
       "version": "v1.17",
       "date": "2026-06-15",
-      "change": "M6.2 分配 RX7005 ~ RX7009(spec/toolchain.md RXS-0089~0094 配套,M6_PLAN §2 任务 4,条款 PR 先行引用的正式分配)。段位裁决:lock 不一致 / 内容树 digest 不符 / 依赖来源不可达 等包管理诊断按 07 §5 段位语义归 7xxx 链接/工具链段位续接(RX7004 之后),不另起新段位(包管理属工具链类语义);registry sumdb 透明日志诊断为 D-312 所有者决策点,SG registry 触发条件未满足,不预造。RX7005 rurix.toml 清单解析/校验错误(缺字段 / 非法值 / build 非声明式 无 build.rs 红线 / TOML 子集违例);RX7006 依赖解析冲突(同名依赖来源/pin 不相容 / feature 引用不存在);RX7007 rurix.lock 不一致(--locked 重解析图 ≠ 入库 lock);RX7008 内容树 digest 不符(vendor 内容树 SHA-256 ≠ lock 记录);RX7009 依赖来源不可达(--offline 远端无缓存 / path 目标缺失)。message_key toolchain.pkg_manifest_invalid / pkg_resolution_conflict / pkg_lock_mismatch / pkg_digest_mismatch / pkg_source_unreachable 随本实现 WP 落 en.messages(rx CLI 以 inline eprintln 发码,沿用 RX7003/RX7004 风格);段内分配制递增不复用、含义冻结(10 §6)。LSP(M6.4)工具链诊断错误码无实现不预造"
+      "change": "M6.2 分配 RX7005 ~ RX7009(spec/toolchain.md RXS-0089~0094 配套,M6_PLAN §2 任务 4,条款 PR 先行引用的正式分配)。段位裁决:lock 不一致 / 内容树 digest 不符 / 依赖来源不可达 等包管理诊断按 07 §5 段位语义归 7xxx 链接/工具链段位续接(RX7004 之后),不另起新段位(包管理属工具链类语义);registry sumdb 透明日志诊断为 D-312 agent 决策点,SG registry 触发条件未满足,不预造。RX7005 rurix.toml 清单解析/校验错误(缺字段 / 非法值 / build 非声明式 无 build.rs 红线 / TOML 子集违例);RX7006 依赖解析冲突(同名依赖来源/pin 不相容 / feature 引用不存在);RX7007 rurix.lock 不一致(--locked 重解析图 ≠ 入库 lock);RX7008 内容树 digest 不符(vendor 内容树 SHA-256 ≠ lock 记录);RX7009 依赖来源不可达(--offline 远端无缓存 / path 目标缺失)。message_key toolchain.pkg_manifest_invalid / pkg_resolution_conflict / pkg_lock_mismatch / pkg_digest_mismatch / pkg_source_unreachable 随本实现 WP 落 en.messages(rx CLI 以 inline eprintln 发码,沿用 RX7003/RX7004 风格);段内分配制递增不复用、含义冻结(10 §6)。LSP(M6.4)工具链诊断错误码无实现不预造"
     },
     {
       "version": "v1.18",
@@ -826,7 +842,7 @@
     {
       "version": "v1.25",
       "date": "2026-06-28",
-      "change": "G2.3 PR-E2b-2 分配 RX6014 ~ RX6017(DXIL 绑定布局推导 + 阶段间接口链接 strict-only 失败诊断,spec/binding_layout.md RXS-0163~0166 + spec/dxil_backend.md RXS-0160 配套,RFC-0005 §4/§9 + RFC-0004 §4.4,实现真实可达类别只追加)。**编号冲突核查与裁决(落码前重核)**:6xxx 段当前最高 = RX6013;registry/deferred.json RX6008(RD-012 mesh/task/RT 降级)/ RX6009(RD-013 阶段 I/O body 数据流降级)维持既有引用不改派(段内编号不复用,10 §9.5),本片真实可达类别自下一空号 RX6014 起。**owner scope 裁断 = 方案 B**:RXS-0160 阶段间接口错链(E2b-1 前为『RX6011 复用 / RX6014 新开』判档点)按 owner 裁定**新开 RX6014**(不复用 RX6011 单阶段签名不一致语义),绑定布局码顺延 RX6015/6016/6017(对齐 E2b-1 interim 注释 owner Q-Err 已裁)。RX6014 DXIL 阶段间接口错链(StageLinkError::Unlinked 缺链接键 / LinkMismatch 类型·插值失配,经 dxil_codegen::emit_stage_link_error,RXS-0160 L2/L3);RX6015 DXIL 绑定布局 register/layout 冲突(BindingInferError::RegisterConflict,同种类轴+同 space register 区间重叠,RXS-0164 L2);RX6016 DXIL root signature 推导超 64 DWORD 上限(BindingInferError::RootSignatureTooLarge,RXS-0165 L2);RX6017 DXIL 绑定布局 PSV0 反射与推导意图不一致(BindingInferError::Psv0Mismatch,资源数/register/space/count 失配,RXS-0166 L2)。**绑定布局不可映射(BindingInferError::Unmappable,bindless/unbounded RD-018 defer)复用既有 RX6013**(owner 已裁,不新开码,段内编号不复用)——E2b-1 interim 把全部绑定失败经 RX6013 透传,本片改 dxil_codegen::serialize_root_signature 返回 DxilBError::Binding(BindingInferError) + emit_b_error 按变体分派 RX6013/6015/6016/6017(feature dxil-backend 门控,默认构建零漂移)。**🔒 错误码 message 只描述失败类别,不落 register/space/packing 物理布局值**(06 §4.2 / RFC-0004 §4.6(a) 禁区)。message_key codegen.dxil_stage_link_mismatch / dxil_register_conflict / dxil_root_signature_too_large / dxil_psv0_mismatch 同落 en/zh.messages(双语全量覆盖门 ci/bilingual_coverage.py);段内分配制递增不复用、含义冻结(10 §6)"
+      "change": "G2.3 PR-E2b-2 分配 RX6014 ~ RX6017(DXIL 绑定布局推导 + 阶段间接口链接 strict-only 失败诊断,spec/binding_layout.md RXS-0163~0166 + spec/dxil_backend.md RXS-0160 配套,RFC-0005 §4/§9 + RFC-0004 §4.4,实现真实可达类别只追加)。**编号冲突核查与裁决(落码前重核)**:6xxx 段当前最高 = RX6013;registry/deferred.json RX6008(RD-012 mesh/task/RT 降级)/ RX6009(RD-013 阶段 I/O body 数据流降级)维持既有引用不改派(段内编号不复用,10 §9.5),本片真实可达类别自下一空号 RX6014 起。**owner scope 裁断 = 方案 B**:RXS-0160 阶段间接口错链(E2b-1 前为『RX6011 复用 / RX6014 新开』判档点)按 agent 裁定**新开 RX6014**(不复用 RX6011 单阶段签名不一致语义),绑定布局码顺延 RX6015/6016/6017(对齐 E2b-1 interim 注释 owner Q-Err 已裁)。RX6014 DXIL 阶段间接口错链(StageLinkError::Unlinked 缺链接键 / LinkMismatch 类型·插值失配,经 dxil_codegen::emit_stage_link_error,RXS-0160 L2/L3);RX6015 DXIL 绑定布局 register/layout 冲突(BindingInferError::RegisterConflict,同种类轴+同 space register 区间重叠,RXS-0164 L2);RX6016 DXIL root signature 推导超 64 DWORD 上限(BindingInferError::RootSignatureTooLarge,RXS-0165 L2);RX6017 DXIL 绑定布局 PSV0 反射与推导意图不一致(BindingInferError::Psv0Mismatch,资源数/register/space/count 失配,RXS-0166 L2)。**绑定布局不可映射(BindingInferError::Unmappable,bindless/unbounded RD-018 defer)复用既有 RX6013**(agent 已裁,不新开码,段内编号不复用)——E2b-1 interim 把全部绑定失败经 RX6013 透传,本片改 dxil_codegen::serialize_root_signature 返回 DxilBError::Binding(BindingInferError) + emit_b_error 按变体分派 RX6013/6015/6016/6017(feature dxil-backend 门控,默认构建零漂移)。**🔒 错误码 message 只描述失败类别,不落 register/space/packing 物理布局值**(06 §4.2 / RFC-0004 §4.6(a) 禁区)。message_key codegen.dxil_stage_link_mismatch / dxil_register_conflict / dxil_root_signature_too_large / dxil_psv0_mismatch 同落 en/zh.messages(双语全量覆盖门 ci/bilingual_coverage.py);段内分配制递增不复用、含义冻结(10 §6)"
     },
     {
       "version": "v1.26",

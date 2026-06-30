@@ -103,7 +103,15 @@ fn run_case(path: &Path, src: &str) -> CaseResult {
         let cx = QueryCtx::from_ast(ast, src, id, &diag);
         let _ = cx.resolutions();
         if !diag.has_errors() {
-            cx.check_crate();
+            // 着色阶段类型面(G2.1,RX3011~3013,RXS-0153~0156):AST 层,cargo
+            // feature `shader-stages`;**resolve 后、typeck 前**(镜像 driver):资源句柄
+            // 位置违例须先于 typeck body↔返回类型匹配裁决,否则非法句柄返回类型先触
+            // RX2001 掩盖 spec 强制的 RX3013(RXS-0156)。直接调用着色阶段入口复用
+            // RX3001 经下方 coloring(typeck 后)。
+            cx.check_shader_stages();
+            if !diag.has_errors() {
+                cx.check_crate();
+            }
             if !diag.has_errors() {
                 cx.check_coloring();
             }
@@ -111,11 +119,6 @@ fn run_case(path: &Path, src: &str) -> CaseResult {
             // 同着色层(typeck 后、MIR 前);黄金路径 4 的 launch 子集
             if !diag.has_errors() {
                 cx.check_launch();
-            }
-            // 着色阶段类型面(G2.1,RX3011~3013,RXS-0153~0156):AST 层,cargo
-            // feature `shader-stages`(直接调用着色阶段入口复用 RX3001,经 coloring)
-            if !diag.has_errors() {
-                cx.check_shader_stages();
             }
             if !diag.has_errors() {
                 cx.check_crate_patterns();

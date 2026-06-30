@@ -6,8 +6,9 @@
 //! Implementation Requirements)。reject 体例:`reject/<category>/*.rx`,文件头次行
 //! `//@ expect-error: RX####`;批跑断言"产生诊断且全部为预期码"(反例全拦截口径)。
 //!
-//! 注:PTX `atom.{order}.{scope}` 映射为 D-406 禁区(人工落笔),本语料只覆盖 safe
-//! 层 scope 类型契约,不涉映射真跑(映射真跑随人工 PR + Compute Sanitizer,G-M5-4)。
+//! 注:PTX `atom.{order}.{scope}` 映射为 D-406 / RD-008 高敏面(deferred,agent 可落笔、经 owner
+//! 批准后落地),本语料只覆盖 safe
+//! 层 scope 类型契约,不涉映射真跑(映射真跑随承接 PR + Compute Sanitizer,G-M5-4)。
 
 use std::fs;
 use std::path::{Path, PathBuf};

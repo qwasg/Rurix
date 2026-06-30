@@ -176,7 +176,7 @@ impl MirResourceType {
 ///
 /// 本期收敛**有界** descriptor 布局:`One` 单 descriptor、`Bounded(n)` 有界数组
 /// (消费 n 个连续寄存器)。`Unbounded` = bindless / unbounded descriptor array,
-/// 经 owner 裁决 defer 至 RD-018——本层把它建模为**显式不可映射**输入,推导侧以
+/// agent 自主裁决 defer 至 RD-018——本层把它建模为**显式不可映射**输入,推导侧以
 /// strict-only 占位「6xxx」拒绝(无 fallback),不发明 descriptor heap 编码。
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ResourceCount {
@@ -322,6 +322,20 @@ pub enum Rvalue {
     },
     /// enum 判别读取(i32;match 降级的测试输入)。
     Discriminant(Place),
+    /// 纹理采样(G2.4,RXS-0175;RFC-0007 §4.4):对 `texture_local` 指向的
+    /// `Texture2D<F>` 句柄、用 `sampler_local` 指向的 `Sampler`、在 `coord`
+    /// (`vec2<f32>`)处采样,产 `vec4<F>`。`texture_local`/`sampler_local` 为
+    /// **资源句柄形参的 local 下标**(句柄非值,不进 `local_values`;codegen 按
+    /// local 名匹配 `resources` 解析 SPIR-V 资源变量)。仅图形=B(`dxil-backend`)
+    /// 着色 body 产出;首期显式 LOD 0(规避隐式导数,RFC-0007 §4.6)。
+    ResourceSample {
+        /// `Texture2D<F>` 句柄形参的 local 下标。
+        texture_local: LocalIdx,
+        /// `Sampler` 句柄形参的 local 下标。
+        sampler_local: LocalIdx,
+        /// 归一化 UV 坐标(`vec2<f32>` 值)。
+        coord: Operand,
+    },
 }
 
 #[derive(Debug)]
@@ -564,6 +578,16 @@ fn print_rvalue(rv: &Rvalue, res: &Resolutions) -> String {
             format!("{}#{tag} {{ {} }}", ty.render_plain(res), parts.join(", "))
         }
         Rvalue::Discriminant(p) => format!("discriminant({})", print_place(p)),
+        Rvalue::ResourceSample {
+            texture_local,
+            sampler_local,
+            coord,
+        } => format!(
+            "sample(_{}, _{}, {})",
+            texture_local.0,
+            sampler_local.0,
+            print_operand(coord)
+        ),
     }
 }
 

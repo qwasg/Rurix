@@ -4,7 +4,7 @@
 // `VsOut.uv`(interpolate perspective, f32)↔ fragment 输入 `VsOut.uv` 链接一致(builtin
 // 系统值不参与链接核对,location 编号不比对 ABI 中立)。host 侧确定性:
 // link_graphics_stages 收集两阶段 io_sig → check_stage_link → Linked(见
-// dxil_corpus::accept_graphics_link_consistent)。错链错误码归类待 owner 裁
+// dxil_corpus::accept_graphics_link_consistent)。错链错误码归类待 agent 裁
 // (RX6011 复用 / RX6014 新开,spec §2 RXS-0160 IR3);本例为 accept 不涉错误码。
 struct VsOut {
     #[interpolate(perspective)] uv: f32,

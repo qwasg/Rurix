@@ -62,6 +62,15 @@ pub enum DxilError {
         /// 诊断上下文(字段名 / 阶段 / 方向 / 类型等)。
         detail: String,
     },
+    /// 纹理采样首期收敛子集外(RXS-0175;RFC-0007):隐式 LOD / 非 `Texture2D<f32>` /
+    /// coord 非 `vec2<f32>` / texel fetch / 比较采样 / 多分量纹理等。
+    ///
+    /// strict-only:遇此即失败(任务映射 `RX6023` `codegen.dxil_sample_unsupported`,
+    /// 经 `DxilBError::Spirv` 透传;区别于 `Unmappable` → RX6013 通用不可映射)。
+    SampleUnsupported {
+        /// 采样子集外构造的诊断上下文。
+        detail: String,
+    },
 }
 
 impl DxilError {
@@ -72,6 +81,13 @@ impl DxilError {
             detail: detail.into(),
         }
     }
+
+    /// 构造一个 [`DxilError::SampleUnsupported`](采样子集外,RX6023)。
+    fn sample_unsupported(detail: impl Into<String>) -> Self {
+        DxilError::SampleUnsupported {
+            detail: detail.into(),
+        }
+    }
 }
 
 impl fmt::Display for DxilError {
@@ -79,6 +95,9 @@ impl fmt::Display for DxilError {
         match self {
             DxilError::Unmappable { what, detail } => {
                 write!(f, "unmappable SPIR-V construct ({what}): {detail}")
+            }
+            DxilError::SampleUnsupported { detail } => {
+                write!(f, "texture sampling outside first-phase subset: {detail}")
             }
         }
     }
@@ -117,12 +136,17 @@ const OP_TYPE_FLOAT: u16 = 22;
 const OP_TYPE_VECTOR: u16 = 23;
 const OP_TYPE_IMAGE: u16 = 25;
 const OP_TYPE_SAMPLER: u16 = 26;
+const OP_TYPE_SAMPLED_IMAGE: u16 = 27;
 const OP_TYPE_POINTER: u16 = 32;
 const OP_TYPE_FUNCTION: u16 = 33;
 const OP_CONSTANT: u16 = 43;
 const OP_VARIABLE: u16 = 59;
 const OP_LOAD: u16 = 61;
 const OP_STORE: u16 = 62;
+/// `OpSampledImage`(组合 image + sampler 为采样图像,RXS-0175;RFC-0007)。
+const OP_SAMPLED_IMAGE: u16 = 86;
+/// `OpImageSampleExplicitLod`(显式 LOD 采样,首期 LOD 0 规避隐式导数,RFC-0007 §4.6)。
+const OP_IMAGE_SAMPLE_EXPLICIT_LOD: u16 = 88;
 const OP_DECORATE: u16 = 71;
 const OP_FUNCTION: u16 = 54;
 const OP_IADD: u16 = 128;
@@ -180,6 +204,8 @@ const DIM_2D: u32 = 1;
 const IMAGE_FORMAT_UNKNOWN: u32 = 0;
 /// `OpTypeImage` Sampled = 1(与采样器配合使用的采样图像)。
 const IMAGE_SAMPLED_WITH_SAMPLER: u32 = 1;
+/// `ImageOperands` `Lod` bit(0x2;显式 LOD 采样,RXS-0175)。
+const IMAGE_OPERANDS_LOD: u32 = 0x2;
 
 // ───────────────────────── 编码器本体 ─────────────────────────
 
@@ -196,6 +222,23 @@ struct IoVar {
     dir: IoDir,
     ty: MirIoType,
     var_id: u32,
+}
+
+/// 已 emit 的资源句柄变量记录(RXS-0175;采样 body lowering 消费)。`type_id` =
+/// 该资源的 SPIR-V 类型 id(`OpTypeImage` for texture / `OpTypeSampler` for sampler);
+/// `sampled_prim` = 纹理分量类型(texture 用,sampler 占位 f32)。
+#[derive(Clone, Debug)]
+struct ResourceVarInfo {
+    /// 源码形参名(保名依据;BodyLowerer 按 MIR local 名匹配解析此变量)。
+    name: String,
+    /// SPIR-V 全局变量 id(`UniformConstant` 存储类)。
+    var_id: u32,
+    /// 资源 SPIR-V 类型 id(image / sampler)。
+    type_id: u32,
+    /// 是否为纹理图像(true=Texture2D,false=Sampler)。
+    is_image: bool,
+    /// 纹理分量类型(image 用;sampler 占位)。
+    sampled_prim: PrimTy,
 }
 
 /// 把源码 builtin 名(在给定 `stage`/`dir` 下)映射到 SPIR-V `BuiltIn` 枚举与其
@@ -276,6 +319,10 @@ struct Builder {
     scalar_cache: Vec<(PrimTy, u32)>,
     vector_cache: Vec<(PrimTy, u8, u32)>,
     pointer_cache: Vec<(u32, u32, u32)>,
+    /// 已 emit 的资源句柄变量(RXS-0175;采样 body lowering 按声明序消费)。
+    resource_vars: Vec<ResourceVarInfo>,
+    /// `OpTypeSampledImage` 去重缓存(image_type_id → sampled_image_type_id)。
+    sampled_image_cache: Vec<(u32, u32)>,
 }
 
 impl Builder {
@@ -292,6 +339,8 @@ impl Builder {
             scalar_cache: Vec::new(),
             vector_cache: Vec::new(),
             pointer_cache: Vec::new(),
+            resource_vars: Vec::new(),
+            sampled_image_cache: Vec::new(),
         }
     }
 
@@ -459,12 +508,13 @@ impl Builder {
             }
         }
 
-        // by-construction 保名:对有用户语义名的 I/O emit UserSemantic。
-        // STUB(RD-017):`UserSemantic` 装饰仅作 SPIR-V 层 provenance(经 spirv-val 干净
-        // 保留),**spirv-cross 不消费**它为 HLSL 语义(实测)。vertex 输入语义名保名经
-        // `dxil_codegen::vertex_input_semantic_flags` 的 location 覆盖旗标达成(RXS-0159
-        // IR1(a));**输出 varying / fragment 输入 varying** 名当前无保名通道 → 退化
-        // `TEXCOORD#` → 校验门 RX6011 strict-only 拒(保名能力缺口 deferred RD-017)。
+        // by-construction provenance:对有用户语义名的 I/O emit UserSemantic(SPIR-V 层
+        // provenance,经 spirv-val 干净保留)。**spirv-cross 不消费**它为 HLSL 语义(实测)。
+        // 保名通道:vertex 输入经 `dxil_codegen::vertex_input_semantic_flags` 的 location
+        // 覆盖旗标(机制①,RXS-0159 IR1(a));**输出 varying / fragment 输入 varying** 经
+        // **RXS-0172** `dxil_codegen::restore_varying_semantics` 在 spirv-cross→dxc 的 HLSL
+        // 边界按 location provenance 改回用户名(RD-017,选项①);保名失败仍经校验门 RX6011
+        // strict-only 拒(不放宽门,Property 5)。
         if !elem.field_name.is_empty() {
             let mut operands = vec![var, DECORATION_USER_SEMANTIC];
             Self::push_string(&mut operands, &elem.field_name);
@@ -496,7 +546,7 @@ impl Builder {
         set: u32,
         binding: u32,
     ) -> Result<(), DxilError> {
-        let res_type = match res.res {
+        let (res_type, is_image, sampled_prim) = match res.res {
             MirResourceType::Texture2D(prim) => {
                 let sampled_type = self.scalar_type(prim)?;
                 let id = self.alloc_id();
@@ -516,12 +566,12 @@ impl Builder {
                         IMAGE_FORMAT_UNKNOWN,
                     ],
                 );
-                id
+                (id, true, prim)
             }
             MirResourceType::Sampler => {
                 let id = self.alloc_id();
                 Self::emit(&mut self.types, OP_TYPE_SAMPLER, &[id]);
-                id
+                (id, false, PrimTy::F32)
             }
             other => {
                 return Err(DxilError::unmappable(
@@ -563,7 +613,31 @@ impl Builder {
             self.used_user_semantic = true;
         }
 
+        // 登记资源变量(RXS-0175;采样 body lowering 按名匹配 MIR local 解析)。
+        self.resource_vars.push(ResourceVarInfo {
+            name: res.name.clone(),
+            var_id: var,
+            type_id: res_type,
+            is_image,
+            sampled_prim,
+        });
+
         Ok(())
+    }
+
+    /// 取/造 `OpTypeSampledImage`(组合采样图像类型;RXS-0175)。
+    fn sampled_image_type(&mut self, image_type: u32) -> u32 {
+        if let Some(&(_, id)) = self
+            .sampled_image_cache
+            .iter()
+            .find(|&&(img, _)| img == image_type)
+        {
+            return id;
+        }
+        let id = self.alloc_id();
+        Self::emit(&mut self.types, OP_TYPE_SAMPLED_IMAGE, &[id, image_type]);
+        self.sampled_image_cache.push((image_type, id));
+        id
     }
 }
 
@@ -589,10 +663,12 @@ struct BodyLowerer<'a> {
     local_values: HashMap<u32, LocalValue>,
     output_written: Vec<bool>,
     ops: Vec<u32>,
+    /// 已 emit 的资源句柄变量(RXS-0175;采样 lowering 按 MIR local 名匹配解析)。
+    resource_vars: Vec<ResourceVarInfo>,
 }
 
 impl<'a> BodyLowerer<'a> {
-    fn new(body: &'a Body, io_vars: &'a [IoVar]) -> Self {
+    fn new(body: &'a Body, io_vars: &'a [IoVar], resource_vars: Vec<ResourceVarInfo>) -> Self {
         let input_vars = io_vars
             .iter()
             .copied()
@@ -611,6 +687,7 @@ impl<'a> BodyLowerer<'a> {
             local_values: HashMap::new(),
             output_written,
             ops: Vec::new(),
+            resource_vars,
         }
     }
 
@@ -699,6 +776,16 @@ impl<'a> BodyLowerer<'a> {
                 Ok(LocalValue::Value(self.lower_binary_op(b, *op, lhs, rhs)?))
             }
             Rvalue::Aggregate(ty, ops) => self.lower_output_aggregate(b, ty, ops),
+            Rvalue::ResourceSample {
+                texture_local,
+                sampler_local,
+                coord,
+            } => Ok(LocalValue::Value(self.lower_resource_sample(
+                b,
+                texture_local.0,
+                sampler_local.0,
+                coord,
+            )?)),
             other => Err(DxilError::unmappable(
                 "body-rvalue",
                 format!("RXS-0171 最小切片不支持 rvalue `{other:?}`"),
@@ -970,6 +1057,117 @@ impl<'a> BodyLowerer<'a> {
         Ok(SpirvValue { id, ty: a.ty })
     }
 
+    /// 解析 MIR local 下标 → 已 emit 的资源句柄变量(按 local 名匹配 `resource_vars`,
+    /// RXS-0175;句柄非值,不进 `local_values`)。
+    fn resource_for_local(&self, local: u32) -> Result<ResourceVarInfo, DxilError> {
+        let name = self
+            .body
+            .locals
+            .get(local as usize)
+            .and_then(|l| l.name.as_deref())
+            .ok_or_else(|| {
+                DxilError::sample_unsupported(format!(
+                    "采样句柄 local _{local} 无源码名,无法解析资源绑定"
+                ))
+            })?;
+        self.resource_vars
+            .iter()
+            .find(|r| r.name == name)
+            .cloned()
+            .ok_or_else(|| {
+                DxilError::sample_unsupported(format!(
+                    "采样句柄 `{name}`(local _{local})未在资源绑定声明中(RXS-0163/0175)"
+                ))
+            })
+    }
+
+    /// 纹理采样 lowering(RXS-0175;RFC-0007 §4.5):`OpLoad` 纹理/采样器 +
+    /// `OpSampledImage` + `OpImageSampleExplicitLod`(显式 LOD 0,规避隐式导数)→
+    /// `vec4<F>`。首期收敛子集外(coord 非 `vec2<f32>` / 非 `Texture2D<f32>` /
+    /// sampler 实参非 `Sampler`)→ [`DxilError::SampleUnsupported`](RX6023)。
+    fn lower_resource_sample(
+        &mut self,
+        b: &mut Builder,
+        texture_local: u32,
+        sampler_local: u32,
+        coord: &Operand,
+    ) -> Result<SpirvValue, DxilError> {
+        // coord 须为 vec2<f32>(归一化 UV;首期子集,RXS-0175)。
+        let coord_val = self.lower_operand_value(b, coord, None)?;
+        if coord_val.ty != MirIoType::Vector(PrimTy::F32, 2) {
+            return Err(DxilError::sample_unsupported(format!(
+                "采样坐标类型 {:?} 非 vec2<f32>(首期收敛子集)",
+                coord_val.ty
+            )));
+        }
+
+        let tex = self.resource_for_local(texture_local)?;
+        let samp = self.resource_for_local(sampler_local)?;
+        if !tex.is_image {
+            return Err(DxilError::sample_unsupported(format!(
+                "采样 receiver `{}` 非 Texture2D 纹理句柄",
+                tex.name
+            )));
+        }
+        if samp.is_image {
+            return Err(DxilError::sample_unsupported(format!(
+                "采样 sampler 实参 `{}` 非 Sampler 采样器句柄",
+                samp.name
+            )));
+        }
+        if tex.sampled_prim != PrimTy::F32 {
+            return Err(DxilError::sample_unsupported(format!(
+                "首期仅支持 Texture2D<f32>(实得分量类型 {:?})",
+                tex.sampled_prim
+            )));
+        }
+
+        // OpLoad 纹理 / 采样器对象(UniformConstant opaque 资源,SPIR-V 合法)。
+        let img_id = b.alloc_id();
+        Builder::emit(&mut self.ops, OP_LOAD, &[tex.type_id, img_id, tex.var_id]);
+        let samp_id = b.alloc_id();
+        Builder::emit(
+            &mut self.ops,
+            OP_LOAD,
+            &[samp.type_id, samp_id, samp.var_id],
+        );
+
+        // OpSampledImage 组合。
+        let si_ty = b.sampled_image_type(tex.type_id);
+        let si_id = b.alloc_id();
+        Builder::emit(
+            &mut self.ops,
+            OP_SAMPLED_IMAGE,
+            &[si_ty, si_id, img_id, samp_id],
+        );
+
+        // 显式 LOD 0 常量(规避隐式导数,RFC-0007 §4.6)。
+        let f32_ty = b.scalar_type(PrimTy::F32)?;
+        let lod0 = b.alloc_id();
+        Builder::emit(&mut b.types, OP_CONSTANT, &[f32_ty, lod0, 0.0f32.to_bits()]);
+
+        // OpImageSampleExplicitLod:结果 vec4<f32>,ImageOperands = Lod。
+        let result_mir = MirIoType::Vector(PrimTy::F32, 4);
+        let result_ty = b.value_type(result_mir)?;
+        let result_id = b.alloc_id();
+        Builder::emit(
+            &mut self.ops,
+            OP_IMAGE_SAMPLE_EXPLICIT_LOD,
+            &[
+                result_ty,
+                result_id,
+                si_id,
+                coord_val.id,
+                IMAGE_OPERANDS_LOD,
+                lod0,
+            ],
+        );
+        Ok(SpirvValue {
+            id: result_id,
+            ty: result_mir,
+        })
+    }
+
     fn load_input_field(&mut self, b: &mut Builder, field: usize) -> Result<SpirvValue, DxilError> {
         let var = self.input_vars.get(field).copied().ok_or_else(|| {
             DxilError::unmappable("input-field", format!("输入 I/O 字段 {field} 越界"))
@@ -1137,7 +1335,7 @@ fn emit_spirv_inner(
     let main_id = b.alloc_id();
     let label_id = b.alloc_id();
     let body_ops = match body {
-        Some(body) => BodyLowerer::new(body, &io_vars).lower(&mut b)?,
+        Some(body) => BodyLowerer::new(body, &io_vars, b.resource_vars.clone()).lower(&mut b)?,
         None => Vec::new(),
     };
 
@@ -1889,7 +2087,9 @@ mod tests {
             .map(|(_, ops)| ops[2])
             .collect();
         assert_eq!(sets, vec![0, 0], "首期单 set");
-        assert_eq!(bindings, vec![0, 1], "Binding 声明序递增");
+        // tex(SRV 轴)与 samp(Sampler 轴)各为不同种类轴 → per-class binding 各从 0
+        // (RXS-0164;与 RTS0 register t0/s0 同口径,RFC-0007 对齐,sampler 不再落 s1)。
+        assert_eq!(bindings, vec![0, 0], "Binding 按种类轴 per-class 从 0");
 
         // 资源 UniformConstant 变量不入 OpEntryPoint interface(SPIR-V 1.0)。
         let (_, ep_ops) = instrs.iter().find(|(op, _)| *op == OP_ENTRY_POINT).unwrap();

@@ -1,0 +1,20 @@
+//@ spec: RXS-0174, RXS-0175, RXS-0176, RXS-0173, RXS-0161
+// UC-04 deferred lighting/合成 pass fragment(严格面 / RFC-0007:**真采样 G-buffer**)。
+// **真延迟着色**:经 Sampler 在插值 UV 处采样 G-buffer albedo SRV(几何 pass 写入的纹理)
+// → final 输出 = 采样到的 albedo(`vec4<f32>` → SV_Target0)。final 真依赖采样到的 G-buffer
+// 值——篡改几何 pass FS 写入的 albedo 常量 → 采样值改变 → final 改变(数据流严格判据,
+// RXS-0176 IR2;ci/dxil_uc04_device_smoke.py 红绿)。
+// 采样表达式 `albedo.sample(samp, inp.uv)`(RXS-0174 类型面 / RXS-0175 codegen 面 →
+// OpImageSampleExplicitLod 显式 LOD 0,规避隐式导数 RFC-0007 §4.6 / RXS-0176 内存模型)。
+// SRV t0 / Sampler s0 descriptor table 经 RFC-0005 RXS-0163~0166 推导。
+struct LpVary {
+    #[interpolate(perspective)] uv: vec2<f32>,
+}
+
+struct LpOut {
+    color: vec4<f32>,
+}
+
+fragment fn uc04_lighting_fs(inp: LpVary, albedo: Texture2D<f32>, samp: Sampler) -> LpOut {
+    LpOut { color: albedo.sample(samp, inp.uv) }
+}

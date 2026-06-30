@@ -346,6 +346,29 @@ jobs:
           RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/dxil_binding_device_smoke.py
 
+      # 步骤 48（G-G2-4,RFC-0006 + RFC-0007 / RXS-0167~0176；严格面:lighting pass 真采样 G-buffer）：
+      # UC-04 deferred 渲染器 device 真跑出图。`ci/dxil_uc04_device_smoke.py`:把 4 个 UC-04 着色器
+      # (几何 pass VS/FS + lighting/合成 pass VS/FS)**Rurix 源**经 rurixc 图形=B DXIL 链(cargo
+      # example emit_uc04_dxil:RXS-0171 body 降级 + RXS-0172/0173 签名保真 + RXS-0175 采样降级 +
+      # 强制 signature_gate)落盘 DXIL 容器(**非手写 HLSL/DXIL**)→ dxv 逐个验签 → cargo build
+      # uc04-demo --features real-shim(cc 编 D3D12 离屏 shim,消费 Rurix DXIL + 每 pass RFC-0005 RTS0,
+      # P-11)→ 真硬件几何 pass 写 G-buffer MRT → albedo RT→SRV barrier(RXS-0176 IR1)→ lighting pass
+      # **经 SRV t0 + Sampler s0 真采样 G-buffer albedo**(RXS-0175/0176,OpImageSampleExplicitLod LOD0)
+      # → final = f(采样值) → offscreen readback albedo+final 中心像素对照(DXIL_UC04: ok 见证行,
+      # final.R 追踪采样到的 gbuffer.R)→ **数据流严格红绿**(变体几何 FS 源 albedo 0.75→0.5 经同一
+      # 图形=B 链 → final 像素随之改变,RXS-0176 IR2)→ DXIL 容器篡改红绿(dxv 拒 + device PSO 拒,
+      # 复原绿)。防降级硬门:VS/FS 全来自 Rurix 源经图形=B DXIL、每 pass RTS0 经 CreateRootSignature
+      # 真机解析进 PSO、真 hardware 多 pass deferred draw + 真采样 + offscreen readback。signed pin =
+      # RURIX_DXC_DIR(dxc+dxv+dxil.dll)+ RURIX_SPIRV_CROSS;RURIX_REQUIRE_REAL=1 缺 validator/D3D12/
+      # MSVC/signed-DXC 即红(不 SKIP 充绿)。run URL 即 G-G2-4 device 见证入口。
+      - name: DXIL UC-04 deferred device smoke (G2 CI_GATES §2.48, G-G2-4, RFC-0006 + RFC-0007)
+        shell: powershell
+        env:
+          RURIX_DXC_DIR: ${{ vars.RURIX_DXC_DIR || 'H:\dxc-round7\extracted\bin\x64' }}
+          RURIX_SPIRV_CROSS: ${{ vars.RURIX_SPIRV_CROSS || 'C:\ti-localappdata\ti-build-cache\vulkan-1.3.296.0\Bin\spirv-cross.exe' }}
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/dxil_uc04_device_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
