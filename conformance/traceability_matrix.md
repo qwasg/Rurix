@@ -180,3 +180,7 @@
 | RXS-0174 | spec/shader_stages.md | 1 | `conformance/dxil/graphics/accept/uc04_lighting_fs.rx` |
 | RXS-0175 | spec/dxil_backend.md | 1 | `conformance/dxil/graphics/accept/uc04_lighting_fs.rx` |
 | RXS-0176 | spec/dxil_backend.md | 1 | `conformance/dxil/graphics/accept/uc04_lighting_fs.rx` |
+| RXS-0177 | spec/edition.md | 2 | `src/rurix-pkg/src/manifest.rs`, `src/rurix-pkg/tests/edition_corpus.rs` |
+| RXS-0178 | spec/edition.md | 2 | `src/rurix-pkg/src/manifest.rs`, `src/rurix-pkg/tests/edition_corpus.rs` |
+| RXS-0179 | spec/edition.md | 2 | `src/rurix-pkg/src/manifest.rs`, `src/rurix-pkg/tests/edition_corpus.rs` |
+| RXS-0180 | spec/edition.md | 1 | `src/rurix-pkg/src/manifest.rs` |

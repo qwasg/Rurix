@@ -1027,6 +1027,21 @@
     ],
     "RXS-0176": [
       "conformance/dxil/graphics/accept/uc04_lighting_fs.rx"
+    ],
+    "RXS-0177": [
+      "src/rurix-pkg/src/manifest.rs",
+      "src/rurix-pkg/tests/edition_corpus.rs"
+    ],
+    "RXS-0178": [
+      "src/rurix-pkg/src/manifest.rs",
+      "src/rurix-pkg/tests/edition_corpus.rs"
+    ],
+    "RXS-0179": [
+      "src/rurix-pkg/src/manifest.rs",
+      "src/rurix-pkg/tests/edition_corpus.rs"
+    ],
+    "RXS-0180": [
+      "src/rurix-pkg/src/manifest.rs"
     ]
   }
 }

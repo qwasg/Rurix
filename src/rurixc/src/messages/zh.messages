@@ -128,6 +128,8 @@ toolchain.pkg_source_unreachable = 依赖源不可达:{detail}
 toolchain.rx_test_discovery = rx test 发现错误:{detail}
 toolchain.rx_test_exec_failure = rx test 子进程失败:{detail}
 toolchain.lsp_rename_invalid = 非法的 LSP rename 目标:{detail}
+# edition 诊断(RX7020,spec/edition.md RXS-0179;G2.5 RFC-0008 分配)
+toolchain.edition_unknown = 未知的 rurix.toml edition:{detail}
 #
 # 互操作诊断(RX7013 ~ RX7015,spec/interop.md RXS-0122~0125;M8.1 分配)
 interop.unsupported_protocol = 互操作协议不支持:{detail}

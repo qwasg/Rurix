@@ -1,0 +1,6 @@
+# conformance/edition accept: 显式声明首个 edition "2026"(RXS-0177/0178,RFC-0008)。
+# 期望: Manifest::parse Ok, edition = Edition2026。
+[package]
+name = "edition-explicit-2026"
+version = "0.1.0"
+edition = "2026"

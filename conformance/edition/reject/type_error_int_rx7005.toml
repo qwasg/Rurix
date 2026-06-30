@@ -1,0 +1,6 @@
+# conformance/edition reject: edition 值非字符串(整数)→ RX7005 清单类型错误
+# (RXS-0177 L2,复用 ManifestInvalid 不新增码)。期望: Manifest::parse Err(ManifestInvalid), code RX7005。
+[package]
+name = "edition-type-error"
+version = "0.1.0"
+edition = 2026

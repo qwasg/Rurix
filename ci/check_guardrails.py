@@ -14,6 +14,9 @@
      追加且既有行 0-byte,M3 CI_GATES §4 第 2 项,M3.3 WP6 激活)。
  10. tests/ptx/ 的 .nvptx golden 变更必须经审批 bless(tests/ptx/bless_log.md 同 diff
      追加且既有行 0-byte,M4 CI_GATES §4 第 3 项,M4.2 激活)。
+ 11. tests/stable/ 的 .snapshot stable API 快照变更必须经审批 bless(tests/stable/
+     bless_log.md 同 diff 追加且既有行 0-byte,RD-008 stable API 快照冻结机制,
+     G2.5 语言 1.0 激活;RFC-0008 §9 Q-RD008 / spec/edition.md RXS-0180)。
 """
 from __future__ import annotations
 
@@ -331,6 +334,45 @@ def check_dxil_bless(base: str, diffs: list[tuple[str, str]]) -> None:
         )
 
 
+STABLE_BLESS_LOG = "tests/stable/bless_log.md"
+
+
+def check_stable_snapshot_bless(base: str, diffs: list[tuple[str, str]]) -> None:
+    """stable API 快照变更必须经审批 bless(RD-008 stable API 快照冻结机制,
+    G2.5 语言 1.0 激活;RFC-0008 §9 Q-RD008 / spec/edition.md RXS-0180)。
+
+    diff 含 tests/stable/**/*.snapshot 的新增/修改/删除时:bless_log.md 必须同 diff
+    追加新行(既有行 0-byte);bless_log 自身不得删除。镜像 UI/MIR/PTX/DXIL golden bless。
+    """
+    snapshot_changes = [
+        (status, path)
+        for status, path in diffs
+        if path.startswith("tests/stable/") and path.endswith(".snapshot")
+    ]
+    log_deleted = any(status == "D" and path == STABLE_BLESS_LOG for status, path in diffs)
+    if log_deleted:
+        err(f"{STABLE_BLESS_LOG}: stable 快照 bless 审批记录不得删除(RD-008)")
+        return
+    if not snapshot_changes:
+        return
+    log_file = ROOT / STABLE_BLESS_LOG
+    if not log_file.is_file():
+        err(f"{STABLE_BLESS_LOG}: 缺失——stable 快照变更必须携带 bless 审批记录(RD-008)")
+        return
+    cur_rows = bless_log_rows(log_file.read_text(encoding="utf-8"))
+    base_text = git_show(base, STABLE_BLESS_LOG)
+    base_rows = bless_log_rows(base_text) if base_text is not None else []
+    if cur_rows[: len(base_rows)] != base_rows:
+        err(f"{STABLE_BLESS_LOG}: 既有审批行被修改(只追加,RD-008)")
+        return
+    if len(cur_rows) <= len(base_rows):
+        changed = ", ".join(p for _, p in snapshot_changes[:5])
+        err(
+            f"{STABLE_BLESS_LOG}: stable 快照变更未附 bless 审批行(未审批 bless 即 FAIL,"
+            f"RD-008 / G2.5): {changed}"
+        )
+
+
 def check_error_codes(base: str, path: str) -> None:
     """错误码语义可加不可改(10 §6 稳定面;M1 CI_GATES §4 第 8 项,M1.1 激活)。"""
     base_text = git_show(base, path)
@@ -414,6 +456,7 @@ def main() -> int:
     check_mir_bless(base, diffs)
     check_ptx_bless(base, diffs)
     check_dxil_bless(base, diffs)
+    check_stable_snapshot_bless(base, diffs)
     for budget in sorted(ROOT.glob("milestones/*/*_budget.json")):
         check_budget(base, budget.relative_to(ROOT).as_posix())
     check_evidence(base, diffs)

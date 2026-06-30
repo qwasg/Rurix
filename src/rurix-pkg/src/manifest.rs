@@ -8,6 +8,57 @@ use std::collections::BTreeMap;
 use crate::error::{PkgError, PkgResult};
 use crate::toml::{self, Value};
 
+/// edition 合法值集合(首期,冻结于 RFC-0008 §4.2;新增 edition 经后续 Full RFC,
+/// 不在本里程碑扩展)。spec/edition.md RXS-0178 L1 与本常量一字对齐。
+pub const VALID_EDITIONS: &[&str] = &["2026"];
+
+/// 语义版本边界声明(RXS-0177~0180;RFC-0008)。首个 edition `"2026"` 定位为
+/// **机制锚点**:首期 edition-gated 行为差异 = 空集(`"2026"` 与无 edition 声明
+/// 行为完全一致,RFC-0008 §9 Q-Scope),仅建立"语言面有 edition 边界、未来破坏性
+/// 变更经 edition 隔离"的机制基座。纯编译期/host 声明语义,不触 🔒 禁区。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Edition {
+    /// 首个 edition `"2026"`(缺省;RFC-0008 §9 Q-Name / Q-Default)。
+    #[default]
+    Edition2026,
+}
+
+/// edition 解析失败(RXS-0179;未知/不匹配 edition,strict-only,无 fallback,P-01)。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EditionError {
+    /// 字符串值不在合法集合 `{ "2026" }`(映射 RX7020,无 fallback,不回退缺省)。
+    Unknown(String),
+}
+
+impl Edition {
+    /// 首个 edition(缺省 edition,RXS-0177 缺省语义:清单缺 `edition` 键时取此值)。
+    pub const FIRST: Edition = Edition::Edition2026;
+
+    /// edition 字符串 → 内部表示(RXS-0178,确定性纯函数,无 I/O / 无环境依赖)。
+    /// 合法集合外 → `EditionError::Unknown`(strict-only,无 fallback,P-01)。
+    pub fn parse(s: &str) -> Result<Edition, EditionError> {
+        match s {
+            "2026" => Ok(Edition::Edition2026),
+            other => Err(EditionError::Unknown(other.to_owned())),
+        }
+    }
+
+    /// edition 的规范字符串(stable 面版本锚,RXS-0180 L1;进 stable 快照内容)。
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Edition::Edition2026 => "2026",
+        }
+    }
+
+    /// edition-gated 行为分发锚点(RXS-0177 / RFC-0008 §4.5)。首期 edition-gated
+    /// 行为差异 = 空集 → 任意两 edition 间恒无行为差异(返回 `false`);未来 edition
+    /// 在此接入差异分发,而非散落 ad-hoc 版本判断(机制锚点)。
+    pub fn behavior_differs(&self, _other: Edition) -> bool {
+        // 首期仅 Edition2026,edition-gated 行为差异 = 空集(RFC-0008 §9 Q-Scope)。
+        false
+    }
+}
+
 /// 语义化三段版本(major.minor.patch)。
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Version {
@@ -81,6 +132,8 @@ pub struct Dependency {
 pub struct Manifest {
     pub name: String,
     pub version: Version,
+    /// 语义版本边界(RXS-0177;缺省 = 首个 edition `Edition::FIRST`,向后兼容)。
+    pub edition: Edition,
     pub dependencies: BTreeMap<String, Dependency>,
     /// feature → 启用项(其他 feature 或 `<dep>` / `<dep>/<feat>`)。
     pub features: BTreeMap<String, Vec<String>>,
@@ -131,6 +184,23 @@ impl Manifest {
             }
         }
 
+        // edition 声明(RXS-0177~0179,RFC-0008):缺省 = 首个 edition(向后兼容);
+        // 值非字符串 → RX7005(类型错误,复用 ManifestInvalid);未知值 → RX7020
+        // (strict-only,无 fallback,不回退缺省,P-01)。
+        let edition = match pkg.get("edition") {
+            None => Edition::FIRST,
+            Some(v) => {
+                let s = v.as_str().ok_or_else(|| {
+                    PkgError::ManifestInvalid("package.edition 须为字符串".to_owned())
+                })?;
+                Edition::parse(s).map_err(|e| match e {
+                    EditionError::Unknown(bad) => PkgError::EditionUnknown(format!(
+                        "package.edition {bad:?} 不在合法集合 {VALID_EDITIONS:?}(strict-only,无 fallback;新增 edition 经 Full RFC)"
+                    )),
+                })?
+            }
+        };
+
         let mut dependencies = BTreeMap::new();
         if let Some(deps) = root.get("dependencies").and_then(Value::as_table) {
             for (dep_name, spec) in deps {
@@ -161,6 +231,7 @@ impl Manifest {
         Ok(Manifest {
             name,
             version,
+            edition,
             dependencies,
             features,
             workspace_members,
@@ -313,6 +384,74 @@ a = { archive = "https://h/a.tar", sha256 = "00000000000000000000000000000000000
         );
         assert!(m.dependencies["p"].source.is_local());
         assert!(!m.dependencies["g"].source.is_local());
+    }
+
+    //@ spec: RXS-0177
+    #[test]
+    fn edition_default_and_explicit_and_type_error() {
+        // RXS-0177:缺 edition 键 → 首个 edition(向后兼容,既有清单 0-byte)。
+        let m = Manifest::parse("[package]\nname = \"app\"\nversion = \"0.1.0\"\n").unwrap();
+        assert_eq!(m.edition, Edition::FIRST);
+        assert_eq!(m.edition, Edition::Edition2026);
+        // 显式 edition = "2026" 解析为 Edition2026。
+        let m2 =
+            Manifest::parse("[package]\nname = \"app\"\nversion = \"0.1.0\"\nedition = \"2026\"\n")
+                .unwrap();
+        assert_eq!(m2.edition, Edition::Edition2026);
+        // edition 值非字符串(整数)→ RX7005(类型错误复用 ManifestInvalid,不新增码)。
+        let err =
+            Manifest::parse("[package]\nname = \"app\"\nversion = \"0.1.0\"\nedition = 2026\n")
+                .unwrap_err();
+        assert_eq!(err.code(), "RX7005");
+    }
+
+    //@ spec: RXS-0178
+    #[test]
+    fn edition_parse_is_deterministic_and_validates() {
+        // RXS-0178:Edition::parse 确定性纯函数,合法集 { "2026" }。
+        assert_eq!(Edition::parse("2026"), Ok(Edition::Edition2026));
+        // 两次解析相同输入结果一致(确定性)。
+        assert_eq!(Edition::parse("2026"), Edition::parse("2026"));
+        // 合法集合外 → Err::Unknown(strict-only)。
+        assert_eq!(
+            Edition::parse("2099"),
+            Err(EditionError::Unknown("2099".to_owned()))
+        );
+        assert!(Edition::parse("").is_err());
+        assert!(Edition::parse("latest").is_err());
+        // 合法集合常量与 parse 行为一致(RFC-0008 §4.2 一字对齐)。
+        assert_eq!(VALID_EDITIONS, &["2026"]);
+        for e in VALID_EDITIONS {
+            assert!(Edition::parse(e).is_ok());
+        }
+    }
+
+    //@ spec: RXS-0179
+    #[test]
+    fn rejects_unknown_edition_rx7020_no_fallback() {
+        // RXS-0179:未知 edition → RX7020 strict-only 拒,不回退缺省。
+        let err =
+            Manifest::parse("[package]\nname = \"app\"\nversion = \"0.1.0\"\nedition = \"2099\"\n")
+                .unwrap_err();
+        assert_eq!(err.code(), "RX7020");
+        assert!(matches!(err, PkgError::EditionUnknown(_)));
+        // 不回退缺省:未知 edition 是 Err,不是 Ok(Edition::FIRST)。
+        assert!(
+            Manifest::parse("[package]\nname = \"app\"\nversion = \"0.1.0\"\nedition = \"2015\"\n")
+                .is_err()
+        );
+    }
+
+    //@ spec: RXS-0180
+    #[test]
+    fn edition_is_stable_surface_anchor() {
+        // RXS-0180:edition 作 stable 面版本锚边界;规范字符串进 stable 快照内容。
+        assert_eq!(Edition::FIRST.as_str(), "2026");
+        assert_eq!(Edition::Edition2026.as_str(), "2026");
+        // 首期 edition-gated 行为差异 = 空集(机制锚点,RFC-0008 §9 Q-Scope)。
+        assert!(!Edition::Edition2026.behavior_differs(Edition::Edition2026));
+        // edition 合法值集作 stable 快照基准的存在性(stable 面 = 含 edition 值集)。
+        assert!(VALID_EDITIONS.contains(&Edition::FIRST.as_str()));
     }
 
     //@ spec: RXS-0090

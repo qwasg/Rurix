@@ -711,6 +711,14 @@
       "status": "active",
       "introduced_in": "M8.2",
       "spec_clauses": ["RXS-0128"]
+    },
+    {
+      "id": "RX7020",
+      "title": "edition 未知/不匹配(rurix.toml [package].edition 不在合法集合 {\"2026\"})",
+      "message_key": "toolchain.edition_unknown",
+      "status": "active",
+      "introduced_in": "G2.5",
+      "spec_clauses": ["RXS-0179"]
     }
   ],
   "revision_log": [
@@ -848,6 +856,11 @@
       "version": "v1.26",
       "date": "2026-06-29",
       "change": "G2.4 PR-F2(blocked-honest interim slice)分配 RX6018 ~ RX6022(UC-04 deferred 渲染器 host 侧装配/编排期可预测错误,spec/d3d12_runtime.md RXS-0167~0170 配套,RFC-0006 §9,实现真实可达类别只追加)。6xxx codegen/目标段位续接(RX6017 之后):RX6018 UC-04 graphics PSO 装配不一致(PS 输出签名 ↔ 渲染目标格式集基数 / 深度写入意图 ↔ 深度模板格式失配,Uc04Error::PsoTargetMismatch,RXS-0167 L2);RX6019 UC-04 RTS0 ↔ PSO 绑定不一致(着色器资源绑定反射与 RFC-0005 推导 RTS0 意图不等价,Uc04Error::Rts0PsoMismatch,**复用 binding_layout::check_binding_consistency** P-11 单一事实源,RXS-0167 L3);RX6020 UC-04 deferred pass 编排失败(pass 顺序乱序 / G-buffer MRT 目标缺失 / lighting SRV 引用未声明目标 / readback 源缺失,Uc04Error::PassOrchestration,RXS-0168 L2);RX6021 UC-04 barrier 编排失败(缺所需资源状态转换 barrier / 非法资源状态转换,Uc04Error::BarrierPlan,首期手动编排不自动补 barrier 自动状态跟踪 defer RD-020,RXS-0169 L2);RX6022 UC-04 offscreen readback 缓冲布局/格式失配(row pitch 未对齐 TEXTURE_DATA_PITCH_ALIGNMENT / 格式与源不一致 / 尺寸不足,Uc04Error::ReadbackLayout,RXS-0170 L2)。**全部 strict-only、无运行期 fallback(P-01)**,emit 点 src/uc04-demo host 侧 safe 装配/编排模型(纯 host/safe,零新 unsafe)。**device 段 blocked-honest:Uc04Error::BlockedOnRd013 为 device 阻塞 sentinel 非语言 RX(rx_code()→None)**——hardware 多 pass deferred draw 真绿阻塞于 RD-013(图形=B 入口 body 数据流降级未实现),按 G-G2-4 防降级硬门标 blocked,不滥发诊断码、不伪造 device 绿。**纯 D3D12 运行期/环境失败不落语言 RX**(06 §8.2,作 runtime failure 报告)。message_key runtime.uc04_pso_assembly_mismatch / uc04_rts0_pso_mismatch / uc04_pass_orchestration / uc04_barrier_plan / uc04_readback_layout 同落 en/zh.messages(双语全量覆盖门 ci/bilingual_coverage.py);段内分配制递增不复用、含义冻结(10 §6)"
+    },
+    {
+      "version": "v1.27",
+      "date": "2026-06-30",
+      "change": "G2.5 分配 RX7020(edition 未知/不匹配诊断,spec/edition.md RXS-0179 配套,RFC-0008 §4.3/§5,实现真实可达类别只追加)。7xxx 工具链/链接段位续接(RX7019 之后):RX7020 edition 未知/不匹配——rurix.toml [package].edition 字符串值不在合法集合 {\"2026\"}(如 \"2099\"/\"2015\"/\"latest\"/空串),Manifest::parse 经 Edition::parse 的 Err(EditionError::Unknown) 映射 PkgError::EditionUnknown(code RX7020),strict-only 拒绝清单解析、无 fallback、不回退缺省 edition(P-01)。**edition 值类型错误(非字符串)复用既有 RX7005**(toolchain.pkg_manifest_invalid 清单类型错误,不新增码)。edition 为编译期/host 工具链声明语义,纯 host/safe,不触 🔒 禁区(无 UB/内存模型映射/FFI ABI/安全包络)。message_key toolchain.edition_unknown 同落 en/zh.messages(双语全量覆盖门 ci/bilingual_coverage.py);段内分配制递增不复用、含义冻结(10 §6)。RX3014/RX6023(G2.4 RFC-0007 采样面)既有 entries 不动"
     }
   ]
 }
