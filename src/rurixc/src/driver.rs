@@ -119,75 +119,82 @@ pub fn compile(opts: &CompileOptions) -> u8 {
         if diag.has_errors() {
             None
         } else {
-            let t = Instant::now();
-            cx.check_crate();
-            prof.record(
-                "typeck",
-                t,
-                &[("bodies_checked", cx.hir_crate().bodies.len() as u64)],
-            );
+            // 着色阶段类型面(G2.1,RXS-0153~0156):AST 层,cargo feature
+            // `shader-stages`;着色阶段误用 / 阶段间接口 / 资源句柄 100% 编译期拦截
+            // (RX3011~3013)。**resolve 后、typeck 前**:资源句柄位置违例须在 typeck
+            // body↔返回类型匹配前裁决——否则非法句柄返回类型(`-> Texture2D<F>`)会先触
+            // 类型不匹配 RX2001 掩盖 spec 强制的 RX3013(RXS-0156)。直接调用着色阶段入口
+            // 复用 RX3001,经下方 check_coloring(typeck 后)。
+            cx.check_shader_stages();
             if diag.has_errors() {
                 None
             } else {
-                // 着色 + barrier 骨架(M4.1,RXS-0066/0068):HIR 层,typeck 后、
-                // MIR 前;地址空间一致性(RXS-0067)已在 typeck 合一处裁决
-                cx.check_coloring();
-                // launch 类型契约(M4.3,RXS-0074/0075):同着色层(typeck 后、MIR 前)
-                cx.check_launch();
-                // 着色阶段类型面(G2.1,RXS-0153~0156):AST 层,cargo feature
-                // `shader-stages`;着色阶段误用 / 阶段间接口 / 资源句柄 100% 编译期拦截
-                // (RX3011~3013;直接调用着色阶段入口复用 RX3001,经 check_coloring)
-                cx.check_shader_stages();
-                // 模式穷尽性(RXS-0051):TBIR 窄门时点(typeck 后、MIR 前),
-                // 全 body 覆盖(含 MIR 可达性外的 body)
-                cx.check_crate_patterns();
-                // const 求值强制检查(M3.4,RXS-0062~0065):typeck 后、MIR 前
-                if !diag.has_errors() {
-                    cx.check_consteval();
-                }
+                let t = Instant::now();
+                cx.check_crate();
+                prof.record(
+                    "typeck",
+                    t,
+                    &[("bodies_checked", cx.hir_crate().bodies.len() as u64)],
+                );
                 if diag.has_errors() {
                     None
                 } else {
-                    let t = Instant::now();
-                    let m = cx.mir_crate();
-                    prof.record("mir", t, &[("mir_bodies", m.len() as u64)]);
-                    // TBIR 窄门(M3.1):逐实例即建即用,聚合计时/计数经 QueryCtx 上报
-                    let (tb_bodies, tb_scopes, tb_ms) = cx.tbir_stats();
-                    prof.record_ms(
-                        "tbir",
-                        tb_ms,
-                        &[("tbir_bodies", tb_bodies), ("tbir_scopes", tb_scopes)],
-                    );
-                    // move/init 数据流(M3.2,RXS-0054):MIR 后、codegen 前强制
+                    // 着色 + barrier 骨架(M4.1,RXS-0066/0068):HIR 层,typeck 后、
+                    // MIR 前;地址空间一致性(RXS-0067)已在 typeck 合一处裁决
+                    cx.check_coloring();
+                    // launch 类型契约(M4.3,RXS-0074/0075):同着色层(typeck 后、MIR 前)
+                    cx.check_launch();
+                    // 模式穷尽性(RXS-0051):TBIR 窄门时点(typeck 后、MIR 前),
+                    // 全 body 覆盖(含 MIR 可达性外的 body)
+                    cx.check_crate_patterns();
+                    // const 求值强制检查(M3.4,RXS-0062~0065):typeck 后、MIR 前
                     if !diag.has_errors() {
-                        cx.check_moves();
+                        cx.check_consteval();
                     }
-                    // NLL 借用检查(M3.3,RXS-0057~0061):move/init 之后强制
-                    if !diag.has_errors() {
-                        cx.check_borrows();
+                    if diag.has_errors() {
+                        None
+                    } else {
+                        let t = Instant::now();
+                        let m = cx.mir_crate();
+                        prof.record("mir", t, &[("mir_bodies", m.len() as u64)]);
+                        // TBIR 窄门(M3.1):逐实例即建即用,聚合计时/计数经 QueryCtx 上报
+                        let (tb_bodies, tb_scopes, tb_ms) = cx.tbir_stats();
+                        prof.record_ms(
+                            "tbir",
+                            tb_ms,
+                            &[("tbir_bodies", tb_bodies), ("tbir_scopes", tb_scopes)],
+                        );
+                        // move/init 数据流(M3.2,RXS-0054):MIR 后、codegen 前强制
+                        if !diag.has_errors() {
+                            cx.check_moves();
+                        }
+                        // NLL 借用检查(M3.3,RXS-0057~0061):move/init 之后强制
+                        if !diag.has_errors() {
+                            cx.check_borrows();
+                        }
+                        // views 不相交证明(M5.1,RXS-0078):device 借用扩展,host
+                        // 借用检查之后、device codegen 之前(仅 device 上下文 body)
+                        if !diag.has_errors() {
+                            cx.check_views();
+                        }
+                        // shared+barrier 一致性(M5.2,RXS-0079):device 借用扩展的
+                        // 数据流分析,views 不相交之后、device codegen 之前(仅 device
+                        // 上下文 body)
+                        if !diag.has_errors() {
+                            cx.check_shared_barrier();
+                        }
+                        // device emit 通道(`--emit=nvptx-ir|ptx|pyd`)以 `kernel fn` 为根,
+                        // 不要求 host `main`(RXS-0070 / 互操作 PYD RXS-0122);其余缺 main → RX6002。
+                        let device_emit = matches!(
+                            emit.as_deref(),
+                            Some("nvptx-ir") | Some("ptx") | Some("pyd")
+                        ) || target.as_deref() == Some("dxil");
+                        if m.is_empty() && !device_emit {
+                            diag.struct_error(E_MISSING_MAIN, "codegen.missing_main")
+                                .emit();
+                        }
+                        Some(m)
                     }
-                    // views 不相交证明(M5.1,RXS-0078):device 借用扩展,host
-                    // 借用检查之后、device codegen 之前(仅 device 上下文 body)
-                    if !diag.has_errors() {
-                        cx.check_views();
-                    }
-                    // shared+barrier 一致性(M5.2,RXS-0079):device 借用扩展的
-                    // 数据流分析,views 不相交之后、device codegen 之前(仅 device
-                    // 上下文 body)
-                    if !diag.has_errors() {
-                        cx.check_shared_barrier();
-                    }
-                    // device emit 通道(`--emit=nvptx-ir|ptx|pyd`)以 `kernel fn` 为根,
-                    // 不要求 host `main`(RXS-0070 / 互操作 PYD RXS-0122);其余缺 main → RX6002。
-                    let device_emit = matches!(
-                        emit.as_deref(),
-                        Some("nvptx-ir") | Some("ptx") | Some("pyd")
-                    ) || target.as_deref() == Some("dxil");
-                    if m.is_empty() && !device_emit {
-                        diag.struct_error(E_MISSING_MAIN, "codegen.missing_main")
-                            .emit();
-                    }
-                    Some(m)
                 }
             }
         }
