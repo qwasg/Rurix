@@ -67,6 +67,11 @@ pub struct LangItems {
     pub addr_spaces: [Option<DefId>; 5],
     /// 设备线程上下文 `ThreadCtx<DIM>`(M4.2,RXS-0072;方法 → device intrinsics)。
     pub thread_ctx: Option<DefId>,
+    /// 着色资源句柄(G2.4,RXS-0156/0174;RFC-0007):`Texture2D<F>` 纹理 / `Sampler`
+    /// 采样器。类型位置兜底识别(可被用户遮蔽),方法 `.sample(..)` → 采样 intrinsic
+    /// (typeck 层,RFC-0007 采样语义本体)。
+    pub texture2d: Option<DefId>,
+    pub sampler: Option<DefId>,
     /// host 运行时 launch 类型契约已知类型(M4.3,RXS-0074;类型/值位置兜底,
     /// 可被用户遮蔽)。`Stream<Ctx>` 的首类型实参为 context-brand;`GridDim`/
     /// `BlockDim` 兼为值位置构造器(变维数容忍)。
@@ -125,6 +130,9 @@ impl LangItems {
             // scoped atomics 容器(RXS-0080):类型位置兜底(可被用户遮蔽)。
             "Atomic" => self.atomic,
             "AtomicView" => self.atomic_view,
+            // 着色资源句柄(RXS-0156/0174,RFC-0007):类型位置兜底(可被用户遮蔽)。
+            "Texture2D" => self.texture2d,
+            "Sampler" => self.sampler,
             _ => ADDR_SPACES
                 .iter()
                 .position(|n| *n == name)
@@ -147,6 +155,16 @@ impl LangItems {
     /// `ThreadCtx` 容器判定(RXS-0072;device intrinsic 方法识别)。
     pub fn is_thread_ctx(&self, d: DefId) -> bool {
         Some(d) == self.thread_ctx
+    }
+
+    /// `Texture2D<F>` 纹理句柄判定(RXS-0156/0174;采样 intrinsic 方法识别,RFC-0007)。
+    pub fn is_texture2d(&self, d: DefId) -> bool {
+        Some(d) == self.texture2d
+    }
+
+    /// `Sampler` 采样器句柄判定(RXS-0156/0174;RFC-0007)。
+    pub fn is_sampler(&self, d: DefId) -> bool {
+        Some(d) == self.sampler
     }
 
     /// `Stream` 容器判定(RXS-0074;launch 方法接收者识别)。
@@ -315,6 +333,8 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
             buffer: None,
             addr_spaces: [None; 5],
             thread_ctx: None,
+            texture2d: None,
+            sampler: None,
             context: None,
             module: None,
             stream: None,
@@ -346,6 +366,13 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
         // 方法识别为 device intrinsics(typeck 层)。同 View 族兜底纪律(可遮蔽)。
         r.out.lang_items.thread_ctx =
             Some(r.new_def(DefKind::Struct, "ThreadCtx", Vis::Pub, span, 0));
+        // 着色资源句柄(G2.4,RXS-0156/0174;RFC-0007):`Texture2D<F>` / `Sampler`
+        // 内建容器,方法 `.sample(samp, uv)` 识别为采样 intrinsic(typeck 层)。
+        // 追加于既有 lang items 之后,不动摇既有 DefId 编号(MIR/PTX golden 符号名
+        // 稳定性);同 View 族兜底纪律(用户同名定义优先遮蔽,不入模块命名空间)。
+        r.out.lang_items.texture2d =
+            Some(r.new_def(DefKind::Struct, "Texture2D", Vis::Pub, span, 0));
+        r.out.lang_items.sampler = Some(r.new_def(DefKind::Struct, "Sampler", Vis::Pub, span, 0));
         // host 运行时 launch 类型契约已知类型(M4.3,RXS-0074):Context/Module/
         // Stream(brand)/GridDim/BlockDim。追加于既有 device lang items 之后,
         // 不动摇 view 族/ThreadCtx 既有 DefId 编号(MIR/PTX golden 符号名稳定性)。

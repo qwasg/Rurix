@@ -359,6 +359,24 @@ impl Builder<'_> {
                         },
                     };
                 }
+                // 纹理采样(G2.4,RXS-0174/0175;RFC-0007):`tex.sample(samp, coord)`
+                // → 采样表达式。typeck 已核对 receiver=Texture2D / args=(Sampler, coord)
+                // / fragment 阶段(违例 RX3014);此处仅当恰 2 实参时产采样节点,否则容忍
+                // 区兜底(typeck 已发诊断)。
+                if self.tcr.sample_calls.contains(&e.hir_id) && args.len() == 2 {
+                    let texture = Box::new(self.expr(receiver));
+                    let sampler = Box::new(self.expr(&args[0]));
+                    let coord = Box::new(self.expr(&args[1]));
+                    return tbir::Expr {
+                        ty,
+                        span,
+                        kind: tbir::ExprKind::ResourceSample {
+                            texture,
+                            sampler,
+                            coord,
+                        },
+                    };
+                }
                 match self.tcr.call_targets.get(&e.hir_id) {
                     Some((def, gargs)) => {
                         let (def, gargs) = (*def, gargs.clone());
@@ -614,6 +632,15 @@ impl ExhaustCx<'_> {
             | tbir::ExprKind::Cast(expr)
             | tbir::ExprKind::Return(Some(expr))
             | tbir::ExprKind::BreakValue(expr) => self.walk_expr(expr),
+            tbir::ExprKind::ResourceSample {
+                texture,
+                sampler,
+                coord,
+            } => {
+                self.walk_expr(texture);
+                self.walk_expr(sampler);
+                self.walk_expr(coord);
+            }
             tbir::ExprKind::Binary { lhs, rhs, .. }
             | tbir::ExprKind::Assign { lhs, rhs, .. }
             | tbir::ExprKind::Range { lo: lhs, hi: rhs }

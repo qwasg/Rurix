@@ -944,10 +944,21 @@ fn emit_b_error(diag: &DiagCtxt, span: Span, err: &DxilBError) {
                 .emit();
         }
         DxilBError::Spirv(e) => {
-            diag.struct_error(ErrorCode(6013), "codegen.dxil_unmappable")
-                .arg("detail", e.to_string())
-                .span_label(span, "in DXIL graphics entry")
-                .emit();
+            // 采样首期收敛子集外 → RX6023(RXS-0175);其余 MIR→SPIR-V 不可映射 → RX6013。
+            match e {
+                DxilError::SampleUnsupported { .. } => {
+                    diag.struct_error(ErrorCode(6023), "codegen.dxil_sample_unsupported")
+                        .arg("detail", e.to_string())
+                        .span_label(span, "in DXIL graphics entry")
+                        .emit();
+                }
+                DxilError::Unmappable { .. } => {
+                    diag.struct_error(ErrorCode(6013), "codegen.dxil_unmappable")
+                        .arg("detail", e.to_string())
+                        .span_label(span, "in DXIL graphics entry")
+                        .emit();
+                }
+            }
         }
         DxilBError::Binding(e) => {
             // 绑定布局推导失败按类别分派专属码(RXS-0163~0166;owner 已裁:

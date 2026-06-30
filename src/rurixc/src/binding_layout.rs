@@ -139,17 +139,24 @@ pub struct SpirvBinding {
 pub fn infer_spirv_bindings(
     resources: &[ResourceBinding],
 ) -> Result<Vec<SpirvBinding>, BindingInferError> {
+    // SPIR-V `Binding` 按资源种类轴(per-class)递增,与 register/space 推导
+    // (`infer_register_assignments`)同口径——确保 SPIR-V binding → spirv-cross HLSL
+    // register(t/s/b/u 各自从 0)→ RTS0 register 三者一致(RXS-0164)。RFC-0007 采样真
+    // 用例暴露:旧全局递增 binding 会令 `(Texture2D, Sampler)` 的 sampler 落 SPIR-V binding 1
+    // → spirv-cross HLSL `s1`,而 RTS0 推导 sampler 为 `s0` → device 描述符表 register 失配
+    // (lighting pass 采样不到 G-buffer)。改 per-class 后 sampler binding 0 → `s0` ↔ RTS0 `s0`。
+    let mut counters = AxisCounters::default();
     let mut out = Vec::with_capacity(resources.len());
-    let mut next_binding: u32 = 0;
     for r in resources {
         let span = descriptor_span(r)?;
+        let class = r.res.class();
+        let binding = counters.take(class, span);
         out.push(SpirvBinding {
             name: r.name.clone(),
-            class: r.res.class(),
+            class,
             set: 0,
-            binding: next_binding,
+            binding,
         });
-        next_binding += span;
     }
     Ok(out)
 }
@@ -678,15 +685,20 @@ mod tests {
 
     // ──────────────── RXS-0163:资源句柄 → SPIR-V 资源绑定降级面 ────────────────
 
-    /// accept:声明序确定性 → DescriptorSet 恒 0,Binding 自 0 递增。
+    /// accept:声明序确定性 → DescriptorSet 恒 0,Binding **按资源种类轴(per-class)**
+    /// 自 0 递增(RXS-0164;与 register/RTS0 同口径,RFC-0007 对齐)。
     //@ spec: RXS-0163
     #[test]
     fn spirv_bindings_deterministic_by_declaration_order() {
         let bindings = infer_spirv_bindings(&mixed()).expect("混合资源应可推导");
         assert_eq!(bindings.len(), 4);
-        for (i, b) in bindings.iter().enumerate() {
+        // cbv/tex/samp/rw 各为不同种类轴(CBV/SRV/Sampler/UAV),per-class binding 各从 0。
+        for b in &bindings {
             assert_eq!(b.set, 0, "首期单 set");
-            assert_eq!(b.binding, i as u32, "binding 按声明序递增");
+            assert_eq!(
+                b.binding, 0,
+                "每种类轴首个资源 binding 从 0(per-class,RXS-0164)"
+            );
         }
         assert_eq!(bindings[0].class, ResourceClass::Cbv);
         assert_eq!(bindings[1].class, ResourceClass::Srv);
@@ -696,7 +708,7 @@ mod tests {
         assert_eq!(bindings, infer_spirv_bindings(&mixed()).unwrap());
     }
 
-    /// accept:有界 descriptor 数组占多个连续 binding。
+    /// accept:有界 descriptor 数组占多个连续 binding(per-class 轴内递增)。
     //@ spec: RXS-0163
     #[test]
     fn spirv_bindings_bounded_array_spans_multiple() {
@@ -709,9 +721,9 @@ mod tests {
             rb("samp", MirResourceType::Sampler),
         ];
         let bindings = infer_spirv_bindings(&resources).unwrap();
+        // texs 占 SRV 轴 binding 0..3;samp 为 Sampler 轴 → 独立从 binding 0 起(per-class)。
         assert_eq!(bindings[0].binding, 0);
-        // texs 占 binding 0..3 → samp 起于 binding 3。
-        assert_eq!(bindings[1].binding, 3);
+        assert_eq!(bindings[1].binding, 0);
     }
 
     /// reject:unbounded / bindless → Unmappable(RD-018 defer,strict-only)。

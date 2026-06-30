@@ -26,6 +26,7 @@ pub const E_BAD_FIELD: ErrorCode = ErrorCode(2002); // RX2002
 pub const E_ARG_COUNT: ErrorCode = ErrorCode(2003); // RX2003
 pub const E_UNKNOWN_METHOD: ErrorCode = ErrorCode(2004); // RX2004
 pub const E_ATOMICS_SCOPE: ErrorCode = ErrorCode(3010); // RX3010(RXS-0080)
+pub const E_SAMPLE_EXPR: ErrorCode = ErrorCode(3014); // RX3014(RXS-0174,RFC-0007)
 pub const E_NOT_CALLABLE: ErrorCode = ErrorCode(2005); // RX2005
 pub const E_BAD_OPERAND: ErrorCode = ErrorCode(2006); // RX2006
 pub const E_BAD_DERIVE_COPY: ErrorCode = ErrorCode(2008); // RX2008
@@ -60,6 +61,10 @@ pub struct TypeckResults {
     /// (数学函数, 元素类型 f32/f64);接收者为 `f32`/`f64` 时识别,tbir/MIR/
     /// codegen 消费(下译为 libdevice `__nv_*` 外部符号)。
     pub device_math_calls: HashMap<HirId, (crate::hir::DeviceMathFn, PrimTy)>,
+    /// 纹理采样调用点(G2.4,RXS-0174;RFC-0007):MethodCall 节点 → 采样标记
+    /// (接收者为 `Texture2D<F>` lang item + 方法 `sample` 时识别;tbir/MIR/codegen
+    /// 消费,降为 `Rvalue::ResourceSample` → `OpImageSampleExplicitLod`)。
+    pub sample_calls: std::collections::HashSet<HirId>,
 }
 
 // ---------------------------------------------------------------------------
@@ -505,6 +510,10 @@ pub fn check_body_provider(cx: &QueryCtx<'_>, body_id: BodyId) -> TypeckResults 
         hir::ItemKind::Fn(decl) => decl.color,
         _ => FnColor::Host,
     };
+    let ctx_stage = match &owner.kind {
+        hir::ItemKind::Fn(decl) => decl.stage,
+        _ => None,
+    };
 
     let mut tck = Tck {
         cx,
@@ -515,6 +524,7 @@ pub fn check_body_provider(cx: &QueryCtx<'_>, body_id: BodyId) -> TypeckResults 
         ret_ty: Ty::Err,
         results: TypeckResults::default(),
         ctx_color,
+        ctx_stage,
     };
 
     // 期望返回类型与参数绑定
@@ -611,6 +621,9 @@ struct Tck<'a, 'q> {
     results: TypeckResults,
     /// 当前 body 的上下文着色(RXS-0066/0081;device 数学 intrinsic 门禁)。
     ctx_color: FnColor,
+    /// 当前 body 的着色阶段(RXS-0174;采样表达式阶段可用性门禁,RFC-0007;
+    /// `None` = 普通/非着色阶段函数)。
+    ctx_stage: Option<crate::ast::ShaderStage>,
 }
 
 impl Tck<'_, '_> {
@@ -700,6 +713,16 @@ impl Tck<'_, '_> {
             .struct_error(E_DEVICE_CONSTRAINT, "codegen.device_constraint")
             .arg("detail", detail)
             .span_label(span, "device codegen constraint violated")
+            .emit();
+    }
+
+    /// 采样表达式违例(RXS-0174;RFC-0007):非 fragment 阶段 / sampler 实参非
+    /// `Sampler` / 元数不符 → RX3014(strict-only,首期收敛子集外)。
+    fn err_sample_expr(&self, span: Span, detail: &str) {
+        self.diag()
+            .struct_error(E_SAMPLE_EXPR, "shader.sample_expr_invalid")
+            .arg("detail", detail)
+            .span_label(span, "invalid texture sampling expression")
             .emit();
     }
 
@@ -1627,6 +1650,43 @@ impl Tck<'_, '_> {
                 }
                 self.results.device_math_calls.insert(call_id, (op, elem));
                 Ty::Prim(elem)
+            }
+            // 纹理采样 intrinsic(G2.4,RXS-0174;RFC-0007):`Texture2D<F>` 接收者的
+            // `sample(samp, coord)` 方法 → 采样表达式,产 vec4<F>。原生 lang item
+            // 句柄无用户 inherent impl(无遮蔽问题);首期仅 fragment 阶段可采样、
+            // samp 实参须 `Sampler`、恰 2 实参;违例 RX3014(strict-only)。vec4<F>
+            // 非真实类型(承 vec 名约定,结构性 Ty::Err),codegen 层裁决类型/越界。
+            Ty::Adt(d, _) if self.res.lang_items.is_texture2d(*d) && method == "sample" => {
+                let arg_tys: Vec<Ty> = args.iter().map(|a| self.check_expr(a)).collect();
+                // 阶段可用性:首期仅 fragment 可采样(RXS-0174)。
+                if self.ctx_stage != Some(crate::ast::ShaderStage::Fragment) {
+                    self.err_sample_expr(
+                        span,
+                        "texture sampling is only available in `fragment` shader stage \
+                         (RXS-0174; first-phase convergent subset)",
+                    );
+                }
+                // 元数 + sampler 实参类型核对。
+                if arg_tys.len() != 2 {
+                    self.err_sample_expr(
+                        span,
+                        "`sample` expects exactly (sampler, coord) arguments (RXS-0174)",
+                    );
+                } else {
+                    let samp_ty = self.infcx.resolve(&self.autoderef(&arg_tys[0]));
+                    let is_samp =
+                        matches!(&samp_ty, Ty::Adt(sd, _) if self.res.lang_items.is_sampler(*sd));
+                    // coord(arg[1])为 vec2<f32>(结构性 Ty::Err 容忍,codegen 层裁决)。
+                    if !is_samp && !matches!(samp_ty, Ty::Err) {
+                        self.err_sample_expr(
+                            span,
+                            "first argument to `sample` must be a `Sampler` handle (RXS-0174)",
+                        );
+                    }
+                }
+                self.results.sample_calls.insert(call_id);
+                // vec4<F> 非真实类型(承 vec2/vec4 名约定结构性);返回容忍区。
+                Ty::Err
             }
             Ty::Adt(d, _adt_args) => {
                 let found = self

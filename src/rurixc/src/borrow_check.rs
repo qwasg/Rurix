@@ -357,6 +357,16 @@ fn rvalue_read_locals(rv: &Rvalue) -> Vec<LocalIdx> {
             }
         }
         Rvalue::Ref(_, p) | Rvalue::Discriminant(p) => v.push(p.local),
+        // 采样(RXS-0175):coord 读 + texture/sampler 句柄 local 均计为活跃读。
+        Rvalue::ResourceSample {
+            coord,
+            texture_local,
+            sampler_local,
+        } => {
+            push(coord);
+            v.push(*texture_local);
+            v.push(*sampler_local);
+        }
     }
     v
 }
@@ -547,6 +557,8 @@ fn operands_of_rvalue(rv: &Rvalue) -> Vec<&Operand> {
         Rvalue::BinaryOp(_, a, b) => vec![a, b],
         Rvalue::Aggregate(_, ops) | Rvalue::VariantAggregate { ops, .. } => ops.iter().collect(),
         Rvalue::Ref(..) | Rvalue::Discriminant(_) => Vec::new(),
+        // 采样(RXS-0175):coord 为读 operand;texture/sampler 句柄非 operand。
+        Rvalue::ResourceSample { coord, .. } => vec![coord],
     }
 }
 

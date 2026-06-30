@@ -719,6 +719,10 @@ impl Cg<'_> {
                 b.span,
                 "enum discriminant read in device code",
             )),
+            Rvalue::ResourceSample { .. } => Err(DeviceCodegenError::constraint(
+                b.span,
+                "texture sampling is out of the device (PTX) codegen subset (RXS-0175 is graphics=B only)",
+            )),
         }
     }
 

@@ -1024,6 +1024,39 @@ impl Builder<'_, '_> {
             tbir::ExprKind::DeviceMathCall { op, is_f32, args } => {
                 self.lower_device_math_call(e, *op, *is_f32, args)
             }
+            tbir::ExprKind::ResourceSample {
+                texture,
+                sampler,
+                coord,
+            } => {
+                // 纹理采样(G2.4,RXS-0175;RFC-0007):receiver/sampler 须为资源句柄
+                // 形参的裸 local 引用(句柄非值,无投影);coord 为 vec2<f32> 值。
+                let ty = self.ty_of(e);
+                let Some(tex_p) = self.place_of(texture) else {
+                    return self
+                        .unsupported(texture.span, "texture sample receiver must be a handle");
+                };
+                let Some(samp_p) = self.place_of(sampler) else {
+                    return self.unsupported(sampler.span, "sampler argument must be a handle");
+                };
+                if !tex_p.proj.is_empty() || !samp_p.proj.is_empty() {
+                    return self.unsupported(
+                        e.span,
+                        "texture/sampler must be direct resource handle parameter references \
+                         (RXS-0174)",
+                    );
+                }
+                let coord_op = self.op_of(coord);
+                self.rvalue_to_op(
+                    Rvalue::ResourceSample {
+                        texture_local: tex_p.local,
+                        sampler_local: samp_p.local,
+                        coord: coord_op,
+                    },
+                    ty,
+                    e.span,
+                )
+            }
             tbir::ExprKind::Field { .. } => match self.place_of(e) {
                 Some(p) => {
                     let ty = self.ty_of(e);
@@ -2071,8 +2104,8 @@ bb1:
         assert_eq!(sets, vec![0, 0], "首期单 set,两资源 DescriptorSet 恒 0");
         assert_eq!(
             bindings,
-            vec![0, 1],
-            "Binding 按声明序确定性递增(tex=0, samp=1)"
+            vec![0, 0],
+            "Binding 按种类轴 per-class 从 0(tex=SRV t0, samp=Sampler s0;RXS-0164 与 RTS0 同口径)"
         );
         // 确定性:同输入二次 emit 字节全等。
         assert_eq!(
