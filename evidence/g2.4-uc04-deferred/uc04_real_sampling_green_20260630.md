@@ -122,3 +122,23 @@ bless 留痕：`tests/dxil/bless_log.md`（2026-06-30 行）。
 - **CI run URL**：本取证为本机 measured_local（run_url=`local interactive runner`）；真实 GitHub Actions
   device run URL（pr-smoke step 48）待 self-hosted runner 上线后回填本节，按 §8.5 先例（run 28383303273）范式。
   本机有 GPU、已做真实运行，**不以 SKIP/替代物伪造**；CI 回填为 provenance 补强，非验收前置。
+
+## 9. CI run URL 回填（self-hosted runner 上线，§8 残留兑现）
+
+self-hosted runner `rurix-dev-4070ti`（RTX 4070 Ti）上线，PR #115 pr-smoke 全 48 步绿，G-G2-4 device 见证 CI run URL 回填：
+
+- **run**: https://github.com/qwasg/Rurix/actions/runs/28442661542 （`pull_request`，PR #115，sha `c0e8730`，conclusion `success`）
+- **step 48（G-G2-4 UC-04 deferred device smoke）** CI 见证行（runner 自 `GITHUB_*` 派生 run_url，非伪造）：
+  - `DXIL_UC04: ok adapter="NVIDIA GeForce RTX 4070 Ti" gbuffer=191,0,0,0 final=191,0,0,0 draw=ok`
+  - 数据流变体（albedo 0.75→0.5 经同一图形=B 链）：`DXIL_UC04: ok adapter="NVIDIA GeForce RTX 4070 Ti" gbuffer=127,0,0,0 final=127,0,0,0 draw=ok`
+  - `[dxil_uc04_device_smoke] PASS adapter="NVIDIA GeForce RTX 4070 Ti" gbuffer.R=191 final.R=191; run_url=https://github.com/qwasg/Rurix/actions/runs/28442661542`
+- **step 28（G-G2-1 着色阶段类型面拦截）** 绿：RX3001/3011/3012/3013 + green。
+- 与本机 measured_local（§1~§6）见证一致（gbuffer=191 final=191，变体 127）；CI 与本机双见证闭合。
+
+### 9.1 随附修复（commit `c0e8730`）
+
+首次 pr-smoke 在 step 28（着色阶段类型面 `ci/shader_stages_smoke.py`）红，根因：采样面 commit `0c86647` 使 typeck 把 `-> Texture2D<F>` 当作具体返回类型，空 body 触类型不匹配 RX2001，先于 spec 强制的资源句柄违例 RX3013（RXS-0156）发出并 short-circuit `check_shader_stages`，导致 `-> Texture2D<F>` 误报 RX2001。该回归被 `0c86647`/`db667dd` 提交但漏跑 `shader_corpus` / `ui_golden` / `shader_stages_smoke`（§8.6 host 门枚举未覆盖三者），CI 全量 `cargo test --workspace` + shader_stages_smoke 才暴露。
+
+修复（镜像 driver + 两处测试 harness 一致）：着色阶段 AST 层检查（RX3011~3013）前移至 resolve 后、typeck 前——非法句柄位置先于 body↔返回类型匹配裁决，RX3013 不再被 RX2001 掩盖。`src/rurixc/src/driver.rs` / `src/rurixc/tests/shader_corpus.rs` / `src/rurixc/tests/ui_golden.rs`（`ui/shader/handle_return.stderr` 既有期望即 RX3013，无需重 bless，仅 harness 对齐）。RXS-0156「句柄仅签名形参」语义不变。
+
+修复后验证（measured_local，回填前置）：`cargo test -p rurixc --features "dxil-backend shader-stages"` 27/27 targets 绿（lib 404/0 + shader_corpus 4/0 + ui_golden 4/0）；`cargo test --workspace` 75/0；`cargo clippy --workspace --all-targets -- -D warnings` 干净；`cargo fmt --check` 干净；`py -3 ci/shader_stages_smoke.py` PASS。CI run 28442661542 全 48 步绿复证。

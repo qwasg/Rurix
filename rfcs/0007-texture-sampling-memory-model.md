@@ -162,7 +162,7 @@ device 侧 lighting pass root signature 由 `infer_root_signature` → `serializ
   **仅「多 pass + 写 G-buffer」不充分;final 不依赖采样值即视为未达严格面。**
 - **device 见证**:原生 D3D12 hardware 多 pass deferred draw(几何 pass MRT → RT→SRV barrier → lighting pass
   **真采样** G-buffer → offscreen readback),adapter 名 + 采样像素 + 数据流红绿对照(`DXIL_UC04: ok ...`)。
-  CI step 48 `RURIX_REQUIRE_REAL=1`;本机 measured_local,CI run URL 待 self-hosted runner 上线回填(不伪造)。
+  CI step 48 `RURIX_REQUIRE_REAL=1`;本机 measured_local,CI run URL 已回填 self-hosted `rurix-dev-4070ti`(RTX 4070 Ti)pr-smoke step 48 全绿 run https://github.com/qwasg/Rurix/actions/runs/28442661542(不伪造)。
 
 ## 7. 备选方案
 
@@ -225,3 +225,4 @@ device 侧 lighting pass root signature 由 `infer_root_signature` → `serializ
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
 | v1.0 | 2026-06-30 | 初版 Full RFC:纹理采样内存模型语义本体(§4.3~§4.7 06 §4.2 🔒 禁区落笔)+ 首期收敛子集(显式 LOD 0)+ §5 RXS-0174~0176 条款投影 + §8 RD-022~RD-024 登记 + §9 agent 自主裁决 Q-Syntax/Q-LOD/Q-Subset/Q-Stage/Q-ErrCode/Q-Defer/Q-MemModel。废止 G2_CONTRACT §8.5 选项 B「不采样」折中、关闭 RD-021。Agent Approved 2026-06-30(完全自主,硬规则 1);`Assisted-by: claude-code:claude-opus-4.8`。 | Full RFC |
+| v1.1 | 2026-06-30 | §6 device 见证 CI run URL 回填:self-hosted `rurix-dev-4070ti`(RTX 4070 Ti)pr-smoke step 48 全绿 run https://github.com/qwasg/Rurix/actions/runs/28442661542(PR #115);随附修复 driver 着色阶段类型面前移至 typeck 前(恢复句柄返回位 RX3013,RXS-0156;commit c0e8730)——采样类型面回归致 `-> Texture2D<F>` 误触 RX2001 掩盖 RX3013,前移裁决次序后 CI 步 28 着色阶段类型面 + 步 48 device smoke 全绿。`Assisted-by: claude-opus-4.8`。 | Full RFC（provenance 回填） |
