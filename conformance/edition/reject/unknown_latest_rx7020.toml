@@ -1,0 +1,6 @@
+# conformance/edition reject: 未知 edition "latest" → RX7020 strict-only 拒(RXS-0179)。
+# 期望: Manifest::parse Err(EditionUnknown), code RX7020。
+[package]
+name = "edition-unknown-latest"
+version = "0.1.0"
+edition = "latest"

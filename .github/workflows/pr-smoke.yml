@@ -369,6 +369,20 @@ jobs:
           RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/dxil_uc04_device_smoke.py
 
+      # 步骤 49（G-G2-5,RFC-0008 / RXS-0177~0180 + RD-008）：语言 1.0 + 首个 edition
+      # 冒烟。edition 为编译期/host 工具链面，**无 device**（不得 SKIP 充绿）。
+      # `ci/edition_smoke.py`:① cargo test -p rurix-pkg --test edition_corpus +
+      # manifest::tests::edition——conformance/edition/accept 合法 edition 经
+      # Manifest::parse 接受、reject 未知 edition → RX7020 / 类型错误 → RX7005
+      # strict-only 拒（真实红绿）；② py -3 ci/stable_snapshot.py --check——RD-008
+      # stable API 快照冻结机制激活后 stable 面（spec RXS 条款 ID 全集 + 错误码
+      # ID/含义 + edition 合法值集 + rx CLI 子命令面）与入库 tests/stable/stable_api.snapshot
+      # 一致；③ 篡改 stable 快照 → --check 翻红 → 复原绿（红绿闭合，反 YAML-only）。
+      # 🔒 快照不冻结二进制 ABI（RXS-0180 L3）。任一断言失败即红；纯 host，无 device。
+      - name: language 1.0 + edition smoke (G2 CI_GATES §2.49, G-G2-5, RFC-0008 + RD-008)
+        shell: powershell
+        run: py -3 ci/edition_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

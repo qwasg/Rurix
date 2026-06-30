@@ -1,0 +1,5 @@
+# conformance/edition accept: 缺 edition 键 → 缺省取首个 edition(RXS-0177 缺省语义,
+# 向后兼容,既有无 edition 字段清单 0-byte 不破坏)。期望: Manifest::parse Ok, edition = FIRST。
+[package]
+name = "edition-default"
+version = "0.1.0"
