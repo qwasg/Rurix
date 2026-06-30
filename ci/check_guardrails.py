@@ -1,6 +1,6 @@
 """PR Smoke 步骤 3:guardrail 字节级核对(14 §2 / CI_GATES.md §4,M0 版五项)。
 
-对比基准 ref(优先级:命令行参数 > GITHUB_BASE_REF > tag g1-closed):
+对比基准 ref(优先级:命令行参数 > GITHUB_BASE_REF > tag g2-closed):
   1. 规划文档集(00-14 与 deep-research/)0-byte;
   2. registry/*.json 既有条目只追加;
   3. 预算 JSON:measured_local 条目冻结;estimated 只允许转 measured_local;
@@ -55,9 +55,9 @@ def resolve_base() -> str:
     gh_base = os.environ.get("GITHUB_BASE_REF")
     if gh_base:
         return f"origin/{gh_base}"
-    # G1 close-out 收官起回退基准切至 g1-closed(G1 CI_GATES §5 第 7 项 / G1_CONTRACT §8.5;
-    # 承 M8 v1.7 m7-closed→m8-closed 先例;切换前双基准核对 m8-closed PASS + g1-closed PASS,反 YAML-only)
-    return "g1-closed"
+    # G2 close-out 收官起回退基准切至 g2-closed(G2 CI_GATES / G2_CONTRACT §8.8;
+    # 承 G1 close-out m8-closed→g1-closed 先例;切换前双基准核对 g1-closed PASS + g2-closed PASS,反 YAML-only)
+    return "g2-closed"
 
 
 def changed_paths(base: str) -> list[str]:
