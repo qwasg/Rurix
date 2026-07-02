@@ -88,6 +88,10 @@ name = "rurix-geometry"
 version = "0.1.0"
 
 [[package]]
+name = "rurix-godot"
+version = "0.1.0"
+
+[[package]]
 name = "rurix-interop"
 version = "0.1.0"
 dependencies = [

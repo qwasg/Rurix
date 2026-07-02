@@ -1,0 +1,100 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Thu, 2 Jul 2026 18:00:00 +0800
+Subject: [PATCH] Wire GRX-009 luminance_reduction opt-in gate into the Godot
+ core Auto Exposure call site
+
+Stacked on 0001-rurix-accel-module-scaffold.patch and
+0002-rurix-accel-luminance-pass-gate.patch. This segment 2 patch wires the
+Godot core Auto Exposure luminance_reduction call site to an opt-in Rurix
+gate:
+
+- D3D12Hooks gains a virtual try_record_luminance_reduction() that defaults
+  to false, so any hooks implementation that does not override it (or the
+  absence of a hooks singleton) keeps the native Godot luminance path.
+- renderer_scene_render_rd.cpp calls the gate before the native
+  luminance_reduction: only when the gate returns true (module setting
+  enabled AND bridge session/symbol present AND rxgd_record_pass returns
+  RXGD_STATUS_OK) is the native call skipped.
+- The rurix_accel module marks try_record_luminance_reduction() as override.
+
+The Rurix bridge still always returns RXGD_STATUS_FALLBACK for
+RXGD_PASS_LUMINANCE_REDUCTION (no compiled kernel), the per-pass setting
+defaults to false, so in practice the gate returns false and the native
+Godot luminance path runs. No real GPU pass, no acceleration, and no
+performance improvement is claimed.
+---
+diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
+index 1234567..2345678 100644
+--- a/drivers/d3d12/d3d12_hooks.h
++++ b/drivers/d3d12/d3d12_hooks.h
+@@ -42,7 +42,11 @@ public:
+ 	virtual D3D_FEATURE_LEVEL get_feature_level() const = 0;
+ 	virtual LUID get_adapter_luid() const = 0;
+ 	virtual void set_device(ID3D12Device *p_device) = 0;
+ 	virtual void set_command_queue(ID3D12CommandQueue *p_queue) = 0;
+ 	virtual void cleanup_device() = 0;
++	// GRX-009 segment 2: opt-in hook for the luminance_reduction pass. The base
++	// implementation returns false so any hooks that do not override this (or
++	// the absence of a hooks singleton) keep the native Godot luminance path.
++	virtual bool try_record_luminance_reduction() { return false; }
+ 	static D3D12Hooks *get_singleton() { return singleton; }
+ };
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index 2a9d989..3b0aa9a 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -68,12 +68,12 @@ public:
+ 	void set_command_queue(ID3D12CommandQueue *p_queue) override;
+ 	void cleanup_device() override;
+ 	bool is_ready() const;
+ 	// GRX-009 segment 1: returns true only when the Rurix bridge actually
+ 	// recorded the luminance_reduction pass. Any other outcome (setting
+ 	// disabled, missing session/symbol, or a non-OK bridge status such as
+ 	// RXGD_STATUS_FALLBACK) returns false and the caller must keep the
+ 	// native Godot luminance path.
+-	bool try_record_luminance_reduction();
++	bool try_record_luminance_reduction() override;
+ };
+ 
+ #endif // D3D12_ENABLED
+diff --git a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
+index 3456789..4567890 100644
+--- a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
++++ b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
+@@ -31,7 +31,11 @@
+ #include "renderer_scene_render_rd.h"
+ 
+ #include "core/config/project_settings.h"
+ #include "core/io/image.h"
++#ifdef D3D12_ENABLED
++// GRX-009 segment 2: opt-in luminance_reduction gate lives on the D3D12 hooks.
++#include "drivers/d3d12/d3d12_hooks.h"
++#endif
+ #include "servers/rendering/renderer_rd/environment/fog.h"
+ #include "servers/rendering/renderer_rd/framebuffer_cache_rd.h"
+ #include "servers/rendering/renderer_rd/shaders/decal_data_inc.glsl.gen.h"
+@@ -564,7 +568,20 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+ 		double step = RSG::camera_attributes->camera_attributes_get_auto_exposure_adjust_speed(p_render_data->camera_attributes) * time_step;
+ 		float auto_exposure_min_sensitivity = RSG::camera_attributes->camera_attributes_get_auto_exposure_min_sensitivity(p_render_data->camera_attributes);
+ 		float auto_exposure_max_sensitivity = RSG::camera_attributes->camera_attributes_get_auto_exposure_max_sensitivity(p_render_data->camera_attributes);
+-		luminance->luminance_reduction(rb->get_internal_texture(), rb->get_internal_size(), luminance_buffers, auto_exposure_min_sensitivity, auto_exposure_max_sensitivity, step, set_immediate);
++		bool rurix_recorded_luminance = false;
++#ifdef D3D12_ENABLED
++		if (D3D12Hooks::get_singleton() != nullptr) {
++			// GRX-009 segment 2 opt-in gate. Returns true only when the Rurix
++			// module setting is enabled AND the bridge session/symbol exist AND
++			// rxgd_record_pass returns RXGD_STATUS_OK. The bridge currently
++			// always returns RXGD_STATUS_FALLBACK for luminance_reduction, so
++			// this stays false and the native Godot path below runs.
++			rurix_recorded_luminance = D3D12Hooks::get_singleton()->try_record_luminance_reduction();
++		}
++#endif
++		if (!rurix_recorded_luminance) {
++			luminance->luminance_reduction(rb->get_internal_texture(), rb->get_internal_size(), luminance_buffers, auto_exposure_min_sensitivity, auto_exposure_max_sensitivity, step, set_immediate);
++		}
+ 
+ 		// Swap final reduce with prev luminance.
+ 
+-- 
+2.50.0

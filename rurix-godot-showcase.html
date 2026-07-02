@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rurix-Godot：安全可证的 Godot GPU 加速桥</title>
+  <style>
+    :root {
+      --bg: #0b0d12;
+      --panel: #12151d;
+      --panel-2: #1a1e29;
+      --text: #e6eaf2;
+      --muted: #95a1b5;
+      --accent: #4ade80;
+      --accent-2: #38bdf8;
+      --accent-3: #f472b6;
+      --warn: #fbbf24;
+      --border: #252b3a;
+      --radius: 16px;
+      --maxw: 960px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+    a { color: var(--accent-2); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    header {
+      position: relative;
+      overflow: hidden;
+      padding: 80px 20px 60px;
+      background: radial-gradient(1200px 600px at 80% -10%, rgba(74,222,128,.12), transparent),
+                  radial-gradient(1000px 500px at 10% 120%, rgba(56,189,248,.10), transparent),
+                  var(--panel);
+      border-bottom: 1px solid var(--border);
+    }
+    .header-inner { max-width: var(--maxw); margin: 0 auto; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      background: rgba(74,222,128,.12);
+      color: var(--accent);
+      border: 1px solid rgba(74,222,128,.25);
+      margin-bottom: 18px;
+    }
+    h1 {
+      font-size: clamp(32px, 6vw, 52px);
+      line-height: 1.15;
+      margin: 0 0 18px;
+      letter-spacing: -0.02em;
+    }
+    h1 span { color: var(--accent); }
+    .subtitle {
+      font-size: 18px;
+      color: var(--muted);
+      max-width: 720px;
+    }
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 26px;
+    }
+    .tag {
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    main { max-width: var(--maxw); margin: 0 auto; padding: 40px 20px 80px; }
+    section { margin-bottom: 60px; }
+    h2 {
+      font-size: 24px;
+      margin: 0 0 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    h2 .num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #052e16;
+      font-size: 16px;
+      font-weight: 800;
+    }
+    .lead { font-size: 17px; color: var(--muted); margin-bottom: 22px; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px;
+      transition: transform .15s ease, border-color .15s ease;
+    }
+    .card:hover { transform: translateY(-3px); border-color: #3a4258; }
+    .card h3 { margin: 0 0 10px; font-size: 17px; color: var(--accent-2); }
+    .card p { margin: 0; color: var(--muted); font-size: 15px; }
+    .diagram {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin: 24px 0;
+      overflow-x: auto;
+    }
+    .diagram svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .metric {
+      background: var(--panel-2);
+      border-radius: 12px;
+      padding: 18px;
+      text-align: center;
+      border: 1px solid var(--border);
+    }
+    .metric .value {
+      font-size: 30px;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1;
+    }
+    .metric .label { font-size: 13px; color: var(--muted); margin-top: 8px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      font-size: 14px;
+    }
+    th, td { padding: 14px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { background: var(--panel-2); color: var(--accent-2); font-weight: 600; }
+    tr:last-child td { border-bottom: none; }
+    td:first-child { font-weight: 600; }
+    .status { display: inline-flex; align-items: center; gap: 6px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot.ok { background: var(--accent); }
+    .dot.warn { background: var(--warn); }
+    .dot.future { background: var(--accent-3); }
+    .cta {
+      background: linear-gradient(90deg, rgba(74,222,128,.15), rgba(56,189,248,.15));
+      border: 1px solid rgba(74,222,128,.25);
+      border-radius: var(--radius);
+      padding: 28px;
+      text-align: center;
+    }
+    .cta h3 { margin: 0 0 10px; font-size: 20px; }
+    .cta p { margin: 0 auto 18px; max-width: 620px; color: var(--muted); }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #052e16;
+      font-weight: 700;
+    }
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      padding: 40px 20px;
+      border-top: 1px solid var(--border);
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      background: rgba(255,255,255,.06);
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: .92em;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div class="badge">TRAE Work 创意产物 · 硬件交互赛道</div>
+      <h1>Rurix-Godot：<span>安全可证的 Godot GPU 加速桥</span></h1>
+      <p class="subtitle">
+        为 Godot 4.7-dev Windows D3D12 Forward+ 渲染管线提供可选式、可回退、可审计的 GPU pass 替换方案，
+        在不破坏引擎原渲染路径的前提下，用 Rurix 静态编译语言释放 NVIDIA GPU 的底层并发潜力。
+      </p>
+      <div class="tags">
+        <span class="tag">硬件交互</span>
+        <span class="tag">Godot 引擎优化</span>
+        <span class="tag">D3D12 Forward+</span>
+        <span class="tag">GPU 系统编程</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="intro">
+      <h2><span class="num">1</span>创意介绍</h2>
+      <p class="lead">
+        开源游戏引擎 Godot 在 Windows D3D12 Forward+ 管线下，部分 GPU pass 仍采用通用实现，难以充分压榨 NVIDIA GPU 的并行能力；
+        而开发者若直接用 CUDA/HLSL 改写，又容易在资源生命周期、并发时序与内存安全上“踩坑”。
+      </p>
+      <div class="cards">
+        <div class="card">
+          <h3>痛点</h3>
+          <p>Godot 默认 pass 性能天花板明显；深度魔改渲染器维护成本高，且容易引入内存/并发 bug。</p>
+        </div>
+        <div class="card">
+          <h3>灵感</h3>
+          <p>Rurix 已把资源所有权、流序分配、CUDA/D3D12 互操作做成类型系统一等公民，可像“外接加速卡”一样桥接 Godot。</p>
+        </div>
+        <div class="card">
+          <h3>产品形态</h3>
+          <p>Godot opt-in 模块 <code>modules/rurix_accel</code> + Rurix C ABI 桥接库 <code>rurix_godot.dll</code>。</p>
+        </div>
+      </div>
+
+      <div class="diagram">
+        <svg width="720" height="260" viewBox="0 0 720 260" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#4ade80" stop-opacity=".25"/><stop offset="100%" stop-color="#38bdf8" stop-opacity=".25"/></linearGradient>
+          </defs>
+          <rect x="20" y="20" width="210" height="220" rx="14" fill="url(#g1)" stroke="#4ade80" stroke-width="1.5"/>
+          <text x="125" y="48" text-anchor="middle" fill="#e6eaf2" font-size="15" font-weight="700">Godot 4.7-dev</text>
+          <rect x="45" y="68" width="160" height="42" rx="8" fill="#1a1e29" stroke="#3a4258"/>
+          <text x="125" y="94" text-anchor="middle" fill="#95a1b5" font-size="13">Forward+ Renderer</text>
+          <rect x="45" y="122" width="160" height="42" rx="8" fill="#1a1e29" stroke="#3a4258"/>
+          <text x="125" y="148" text-anchor="middle" fill="#95a1b5" font-size="13">rurix_accel module</text>
+          <rect x="45" y="176" width="160" height="42" rx="8" fill="#1a1e29" stroke="#3a4258"/>
+          <text x="125" y="202" text-anchor="middle" fill="#95a1b5" font-size="13">Fallback Path</text>
+
+          <rect x="300" y="80" width="160" height="100" rx="14" fill="#12151d" stroke="#38bdf8" stroke-width="1.5"/>
+          <text x="380" y="108" text-anchor="middle" fill="#e6eaf2" font-size="15" font-weight="700">C ABI Bridge</text>
+          <text x="380" y="130" text-anchor="middle" fill="#95a1b5" font-size="12">rxgd_create_session</text>
+          <text x="380" y="148" text-anchor="middle" fill="#95a1b5" font-size="12">rxgd_record_pass</text>
+          <text x="380" y="166" text-anchor="middle" fill="#95a1b5" font-size="12">RXGD_STATUS_FALLBACK</text>
+
+          <rect x="510" y="20" width="190" height="220" rx="14" fill="url(#g1)" stroke="#f472b6" stroke-width="1.5"/>
+          <text x="605" y="48" text-anchor="middle" fill="#e6eaf2" font-size="15" font-weight="700">Rurix Toolchain</text>
+          <rect x="535" y="68" width="140" height="38" rx="8" fill="#1a1e29" stroke="#3a4258"/>
+          <text x="605" y="91" text-anchor="middle" fill="#95a1b5" font-size="13">rurixc compiler</text>
+          <rect x="535" y="118" width="140" height="38" rx="8" fill="#1a1e29" stroke="#3a4258"/>
+          <text x="605" y="141" text-anchor="middle" fill="#95a1b5" font-size="13">DXIL backend</text>
+          <rect x="535" y="168" width="140" height="38" rx="8" fill="#1a1e29" stroke="#3a4258"/>
+          <text x="605" y="191" text-anchor="middle" fill="#95a1b5" font-size="13">rurix-rt runtime</text>
+
+          <path d="M230 100 H300" stroke="#4ade80" stroke-width="2" fill="none" marker-end="url(#a)"/>
+          <path d="M460 130 H510" stroke="#38bdf8" stroke-width="2" fill="none" marker-end="url(#a)"/>
+          <path d="M230 198 C260 198 260 210 300 180" stroke="#fbbf24" stroke-width="2" fill="none" stroke-dasharray="5,4"/>
+          <text x="270" y="225" fill="#fbbf24" font-size="12">unsupported → fallback</text>
+          <defs>
+            <marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L0,6 L9,3 z" fill="#38bdf8"/>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+    </section>
+
+    <section id="users">
+      <h2><span class="num">2</span>目标用户与使用场景</h2>
+      <div class="cards">
+        <div class="card">
+          <h3>独立开发者 & 小型工作室</h3>
+          <p>用 Godot 开发 Windows PC 3D 游戏，希望在不重写渲染器的情况下获得更稳定的帧率。</p>
+        </div>
+        <div class="card">
+          <h3>引擎技术团队</h3>
+          <p>需要深入研究 Forward+ 渲染瓶颈，验证新的 GPU pass 实现与视觉一致性。</p>
+        </div>
+        <div class="card">
+          <h3>图形程序员</h3>
+          <p>希望用一门带所有权与类型安全的语言编写 GPU kernel，降低 CUDA/HLSL 的手动心智负担。</p>
+        </div>
+      </div>
+      <table style="margin-top:24px">
+        <thead>
+          <tr><th>场景</th><th>瓶颈</th><th>Rurix-Godot 如何介入</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>高密度聚光灯场景</td>
+            <td>clustered light binning CPU/GPU 开销大</td>
+            <td>用 Rurix 重写 compute binning，减少 barrier 与 dispatch 次数</td>
+          </tr>
+          <tr>
+            <td>大量网格实例</td>
+            <td>draw call 与 culling 成本随实例数线性增长</td>
+            <td>GPU culling + indirect draw args 生成</td>
+          </tr>
+          <tr>
+            <td>复杂后处理链</td>
+            <td>tonemap/SSAO/SSIL/TAA 多次 fullscreen dispatch</td>
+            <td>相邻 pass fusion，合并 barrier 与 root signature 切换</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="value">
+      <h2><span class="num">3</span>价值与意义</h2>
+      <div class="cards">
+        <div class="card">
+          <h3>效率提升</h3>
+          <p>目标在 7 个标准场景下实现几何平均 FPS ≥ 1.5×、P95 帧时间降低 ≥ 30%，单场景 FPS 不跌破原版的 95%。</p>
+        </div>
+        <div class="card">
+          <h3>安全可证</h3>
+          <p>Rurix 的类型系统把资源生命周期、流序分配、跨线程转移错误拦截在编译期，降低运行时崩溃与内存泄漏风险。</p>
+        </div>
+        <div class="card">
+          <h3>可审计的开源范式</h3>
+          <p>Apache-2.0/MIT 双许可；所有性能声明基于 measured_local evidence JSON 与视觉 diff，推动开源引擎形成可复现优化标准。</p>
+        </div>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="value">≥1.5×</div><div class="label">几何平均 FPS 目标</div></div>
+        <div class="metric"><div class="value">≥30%</div><div class="label">P95 帧时间降低</div></div>
+        <div class="metric"><div class="value">≥0.95</div><div class="label">单场景最低 FPS 比例</div></div>
+        <div class="metric"><div class="value">10</div><div class="label">已定义可替换 Pass</div></div>
+      </div>
+    </section>
+
+    <section id="roadmap">
+      <h2><span class="num">4</span>三阶段加速路线</h2>
+      <p class="lead">每个 pass 单独启用/禁用，失败自动 fallback 回 Godot 原路径；所有阶段必须有视觉 diff 与性能证据才能推进。</p>
+      <table>
+        <thead>
+          <tr><th>阶段</th><th>覆盖 Pass</th><th>核心收益</th><th>状态</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Tier 1 · 低风险</td>
+            <td>luminance reduction、tonemap、SSAO/SSIL blur、TAA resolve、particles copy</td>
+            <td>快速验证 ABI 与视觉一致性，小幅降低 dispatch 开销</td>
+            <td><span class="status"><span class="dot future"></span>开发中</span></td>
+          </tr>
+          <tr>
+            <td>Tier 2 · 高收益</td>
+            <td>clustered light binning、GPU culling、visible instance compaction、material sorting、indirect draw args</td>
+            <td>针对 Forward+ 核心瓶颈，目标贡献主要 FPS 提升</td>
+            <td><span class="status"><span class="dot future"></span>待 Tier 1 完成后启动</span></td>
+          </tr>
+          <tr>
+            <td>Tier 3 · 结构性优化</td>
+            <td>post FX fusion、descriptor/root signature cache、PSO prewarm、bindless/resource-array</td>
+            <td>减少 barrier、PSO churn 与启动卡顿，进一步压低 P95</td>
+            <td><span class="status"><span class="dot future"></span>规划中</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="evidence">
+      <h2><span class="num">5</span>证据链与验收门</h2>
+      <p class="lead">性能声明必须有 measured_local evidence，禁止 estimated 占位；每道 CI 门都经过“构造缺陷 → 红 → 复原 → 绿”的真实红绿验证。</p>
+      <div class="cards">
+        <div class="card">
+          <h3>7 场景基准</h3>
+          <p>clustered_lights、many_mesh_instances、material_variants、post_fx_chain、volumetric_fog、particles、mixed_forward_plus；warmup 300、sample 2000、vsync off、1920×1080。</p>
+        </div>
+        <div class="card">
+          <h3>视觉 diff</h3>
+          <p>LDR 绝对 diff；HDR/temporal pass 使用 SSIM/PSNR + temporal stability，确保替换 pass 不损失画质。</p>
+        </div>
+        <div class="card">
+          <h3>fallback telemetry</h3>
+          <p>任意 pass 编译失败、验证失败、设备不支持或视觉 diff 超阈值时，自动 fallback 并记录原因。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="cta">
+      <div class="cta">
+        <h3>让 Godot 的 GPU 优化可验证、可回退、可复用</h3>
+        <p>
+          Rurix-Godot 不是“重写渲染器”，而是为开源游戏引擎提供一张安全可控的 GPU 加速升级卡。
+          从 Tier 1 低风险 pass 到 Tier 3 结构优化，每一步都用真实数据说话。
+        </p>
+        <a class="btn" href="https://github.com/qwasg/Rurix" target="_blank" rel="noopener">查看 Rurix 开源仓库</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>本展示文件由 TRAE Work 生成 · 项目仓库：rurix（本地工作区 h:\rurix）</p>
+    <p>Godot 是 Godot Engine 社区的注册商标；Rurix 为独立开源 GPU 系统编程语言与工具链项目。</p>
+  </footer>
+</body>
+</html>

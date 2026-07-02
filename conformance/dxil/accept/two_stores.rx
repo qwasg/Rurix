@@ -1,0 +1,7 @@
+//@ spec: RXS-0157
+// RD-013 slice 1 hardening: 同一索引重复 store 时,每个 store 的 GEP SSA 定义名
+// 必须唯一(ptr 纳入 temp 分配,不再按 resource/index 拼名撞名)。
+kernel fn two_stores(src: View<global, f32>, dst: ViewMut<global, f32>) {
+    dst[0] = src[0];
+    dst[0] = src[0];
+}

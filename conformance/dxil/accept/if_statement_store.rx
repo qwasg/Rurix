@@ -1,0 +1,7 @@
+//@ spec: RXS-0157
+kernel fn if_statement_store(t: ThreadCtx<1>, dst: ViewMut<global, f32>, len: usize) {
+    let gid = t.global_id();
+    if gid < len {
+        dst[0] = 1.0;
+    }
+}

@@ -1,0 +1,67 @@
+// GRX-009 segment 3a draft: offline-only luminance reduction kernel input.
+// This mirrors Godot's luminance reduction intent using linear luminance
+// views instead of real Texture2D/image bindings. Runtime mapping is NOT
+// implemented here; this file exists only to provide a real Rurix source
+// input for offline compile evidence.
+
+kernel fn luminance_reduce_level(
+    src_luminance: View<global, f32>,
+    dst_luminance: ViewMut<global, f32>,
+    source_width: usize,
+    source_height: usize,
+    max_luminance: f32,
+    min_luminance: f32,
+    exposure_adjust: f32,
+    t: ThreadCtx<1>,
+) {
+    let dst_width = if source_width > 1 {
+        (source_width + 7) / 8
+    } else {
+        1
+    };
+    let dst_height = if source_height > 1 {
+        (source_height + 7) / 8
+    } else {
+        1
+    };
+    let dst_len = dst_width * dst_height;
+    let dst_index = t.global_id();
+
+    if dst_index < dst_len {
+        let x = dst_index % dst_width;
+        let y = dst_index / dst_width;
+        let src_x = x * 8;
+        let src_y = y * 8;
+
+        let mut accum = 0.0;
+        let mut count = 0.0;
+        let mut dy = 0;
+        while dy < 8 {
+            let sy = src_y + dy;
+            if sy < source_height {
+                let mut dx = 0;
+                while dx < 8 {
+                    let sx = src_x + dx;
+                    if sx < source_width {
+                        let src_index = sy * source_width + sx;
+                        accum = accum + src_luminance[src_index];
+                        count = count + 1.0;
+                    }
+                    dx = dx + 1;
+                }
+            }
+            dy = dy + 1;
+        }
+
+        let avg = if count > 0.0 { accum / count } else { 0.0 };
+        let clamped_min = if avg < min_luminance { min_luminance } else { avg };
+        let clamped = if clamped_min > max_luminance {
+            max_luminance
+        } else {
+            clamped_min
+        };
+        dst_luminance[dst_index] = clamped * exposure_adjust;
+    }
+}
+
+fn main() {}

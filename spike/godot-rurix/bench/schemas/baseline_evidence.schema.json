@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "spike/godot-rurix/bench/schemas/baseline_evidence.schema.json",
+  "title": "GRX baseline evidence document",
+  "description": "Aggregated measured_local evidence for one benchmark run (baseline or rurix). quick_smoke documents are smoke evidence only and MUST NOT be used as strict perf_gate input; full-mode documents require warmup_frames=300 and sample_frames=2000 (enforced by perf_gate.py).",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "run_mode",
+    "evidence_level",
+    "target_backend",
+    "resolution",
+    "vsync",
+    "warmup_frames",
+    "sample_frames",
+    "scenes"
+  ],
+  "properties": {
+    "run_mode": {
+      "description": "full = strict-eligible sampling; quick_smoke = smoke evidence only.",
+      "enum": ["full", "quick_smoke"]
+    },
+    "evidence_level": {
+      "const": "measured_local"
+    },
+    "target_backend": {
+      "const": "Godot 4.7-dev Windows D3D12 Forward+"
+    },
+    "resolution": {
+      "type": "array",
+      "items": {"type": "integer"},
+      "const": [1920, 1080]
+    },
+    "vsync": {
+      "const": false
+    },
+    "warmup_frames": {
+      "description": "Positive integer. full mode must be 300 (enforced by perf_gate.py).",
+      "type": "integer",
+      "minimum": 1
+    },
+    "sample_frames": {
+      "description": "Positive integer. full mode must be 2000 (enforced by perf_gate.py).",
+      "type": "integer",
+      "minimum": 1
+    },
+    "scenes": {
+      "description": "Exactly seven scenes; fixed name/order is enforced by perf_gate.py reader.",
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "name",
+          "avg_fps",
+          "p95_frame_time_ms",
+          "sample_count",
+          "raw_artifact_path"
+        ],
+        "properties": {
+          "name": {
+            "enum": [
+              "clustered_lights",
+              "many_mesh_instances",
+              "material_variants",
+              "post_fx_chain",
+              "volumetric_fog",
+              "particles",
+              "mixed_forward_plus"
+            ]
+          },
+          "avg_fps": {"type": "number", "exclusiveMinimum": 0},
+          "p95_frame_time_ms": {"type": "number", "exclusiveMinimum": 0},
+          "sample_count": {"type": "integer", "minimum": 1},
+          "raw_artifact_path": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

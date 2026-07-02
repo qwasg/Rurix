@@ -1,0 +1,16 @@
+{
+  "run_mode": "scaffold",
+  "evidence_level": "scaffold",
+  "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
+  "note": "GRX-009 segment-1 gated scaffold state for the luminance_reduction pass. The pass is default-disabled (project setting rendering/rurix_accel/passes/luminance_reduction/enabled=false) and the Rurix bridge rxgd_record_pass currently always returns RXGD_STATUS_FALLBACK for RXGD_PASS_LUMINANCE_REDUCTION because no compiled Rurix DXIL luminance kernel exists, so the native Godot luminance path stays active. This document records that disabled/fallback wiring state only: it is NOT measured telemetry, no real in-engine fallback event was captured, and no acceleration, visual verification, or performance improvement is claimed.",
+  "passes": [
+    {
+      "pass_id": "luminance_reduction",
+      "enable_state": "disabled",
+      "fallback_reason": "manual_disabled",
+      "godot_fallback_active": true,
+      "telemetry_timestamp": null,
+      "telemetry_frame": null
+    }
+  ]
+}

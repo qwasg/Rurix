@@ -1,0 +1,21 @@
+{
+  "target": "Godot 4.7-dev Windows D3D12 Forward+",
+  "warmup_frames": 300,
+  "sample_frames": 2000,
+  "vsync": false,
+  "resolution": [1920, 1080],
+  "perf_gate": {
+    "geomean_fps_ratio_min": 1.5,
+    "p95_frame_time_reduction_min": 0.3,
+    "single_scene_fps_ratio_min": 0.95
+  },
+  "scenes": [
+    "clustered_lights",
+    "many_mesh_instances",
+    "material_variants",
+    "post_fx_chain",
+    "volumetric_fog",
+    "particles",
+    "mixed_forward_plus"
+  ]
+}

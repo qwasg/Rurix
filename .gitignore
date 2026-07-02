@@ -15,6 +15,21 @@ __pycache__/
 *.log
 ~$*
 
+# 本地外部源码快照 / 引擎工作区
+external/
+
+# IDE / agent 本地状态
+.cursor/
+.kiro/
+.kimi/
+.trae/
+.claude/
+.vscode/
+.idea/
+.windsurf/
+.zed/
+*.code-workspace
+
 # device codegen IR→PTX 中间产物(toolchain::ir_to_ptx 旁路 .dev.ll;M4.4)
 *.dev.ll
 

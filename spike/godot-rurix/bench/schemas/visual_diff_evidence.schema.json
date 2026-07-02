@@ -1,0 +1,135 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "spike/godot-rurix/bench/schemas/visual_diff_evidence.schema.json",
+  "title": "GRX visual diff evidence document",
+  "description": "GRX-007 scaffold: reference/candidate frame capture plan and LDR per-channel absolute diff evidence for the seven fixed benchmark scenes. This is scaffold-stage format only. A capture frame with status=skip MUST record a skip_reason and MUST NOT carry fabricated diff numbers or frame paths: reference_frame_path, candidate_frame_path, ldr_diff, hdr_diff, and temporal_diff must be null or absent when status=skip. HDR and temporal diff fields are declared but not produced at this stage. Visual verification is only considered done when real reference AND candidate frame files exist and an ldr_diff (or hdr/temporal diff) is actually computed.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "run_mode",
+    "evidence_level",
+    "target_backend",
+    "resolution",
+    "scenes"
+  ],
+  "properties": {
+    "run_mode": {
+      "description": "scaffold = build-stage placeholder plan; full = real capture run. Scaffold documents are not eligible as close-out visual evidence.",
+      "enum": ["scaffold", "full"]
+    },
+    "evidence_level": {
+      "description": "measured_local once real frames are captured; scaffold placeholder plans use scaffold.",
+      "enum": ["scaffold", "measured_local"]
+    },
+    "target_backend": {
+      "const": "Godot 4.7-dev Windows D3D12 Forward+"
+    },
+    "resolution": {
+      "type": "array",
+      "items": {"type": "integer"},
+      "const": [1920, 1080]
+    },
+    "scenes": {
+      "description": "Exactly seven scenes; fixed name/order is enforced by visual_diff.py reader. Each scene defines at least one capture frame.",
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["name", "capture_frames"],
+        "properties": {
+          "name": {
+            "enum": [
+              "clustered_lights",
+              "many_mesh_instances",
+              "material_variants",
+              "post_fx_chain",
+              "volumetric_fog",
+              "particles",
+              "mixed_forward_plus"
+            ]
+          },
+          "capture_frames": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": true,
+              "required": ["frame_index", "status"],
+              "if": {"properties": {"status": {"const": "pass"}}},
+              "then": {
+                "required": [
+                  "reference_frame_path",
+                  "candidate_frame_path",
+                  "ldr_diff"
+                ],
+                "properties": {"ldr_diff": {"type": "object"}}
+              },
+              "else": {
+                "properties": {
+                  "reference_frame_path": {"type": "null"},
+                  "candidate_frame_path": {"type": "null"},
+                  "ldr_diff": {"type": "null"},
+                  "hdr_diff": {"type": "null"},
+                  "temporal_diff": {"type": "null"}
+                }
+              },
+              "properties": {
+                "frame_index": {"type": "integer", "minimum": 0},
+                "status": {
+                  "description": "pass requires real reference+candidate frame files and a computed ldr_diff; skip requires a non-empty skip_reason.",
+                  "enum": ["pass", "skip"]
+                },
+                "skip_reason": {
+                  "description": "Required when status=skip. Must name the concrete missing input: missing capture backend / missing Godot full run / missing frame artifact.",
+                  "type": ["string", "null"]
+                },
+                "reference_frame_path": {"type": ["string", "null"]},
+                "candidate_frame_path": {"type": ["string", "null"]},
+                "ldr_diff": {
+                  "description": "LDR per-channel absolute diff. Only present for status=pass with real frames. per_channel_max_abs / per_channel_mean_abs are [r, g, b] non-negative arrays and are both required when ldr_diff is an object.",
+                  "type": ["object", "null"],
+                  "additionalProperties": true,
+                  "required": ["per_channel_max_abs", "per_channel_mean_abs"],
+                  "properties": {
+                    "per_channel_max_abs": {
+                      "type": "array",
+                      "items": {"type": "number", "minimum": 0},
+                      "minItems": 3,
+                      "maxItems": 3
+                    },
+                    "per_channel_mean_abs": {
+                      "type": "array",
+                      "items": {"type": "number", "minimum": 0},
+                      "minItems": 3,
+                      "maxItems": 3
+                    }
+                  }
+                },
+                "hdr_diff": {
+                  "description": "Declared but not produced at GRX-007 scaffold stage. ssim/psnr remain null until a real HDR pipeline exists.",
+                  "type": ["object", "null"],
+                  "additionalProperties": true,
+                  "properties": {
+                    "ssim": {"type": ["number", "null"]},
+                    "psnr": {"type": ["number", "null"]}
+                  }
+                },
+                "temporal_diff": {
+                  "description": "Declared but not produced at GRX-007 scaffold stage. temporal_stability remains null until a real temporal capture window exists.",
+                  "type": ["object", "null"],
+                  "additionalProperties": true,
+                  "properties": {
+                    "temporal_stability": {"type": ["number", "null"]},
+                    "sample_window_frames": {"type": ["integer", "null"]}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

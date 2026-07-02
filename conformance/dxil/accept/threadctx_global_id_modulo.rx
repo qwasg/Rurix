@@ -1,0 +1,8 @@
+//@ spec: RXS-0157
+kernel fn threadctx_global_id_modulo(t: ThreadCtx<1>, dst: ViewMut<global, f32>, len: usize) {
+    let gid = t.global_id();
+    let x = gid % len;
+    let y = x + 1;
+    let v = if y < len { 1.0 } else { 0.0 };
+    dst[0] = v;
+}

@@ -1,0 +1,5 @@
+//@ spec: RXS-0157
+kernel fn scalar_select(dst: ViewMut<global, f32>, width: usize) {
+    let x = if width > 1 { 1.0 } else { 0.0 };
+    dst[0] = x;
+}

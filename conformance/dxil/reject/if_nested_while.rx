@@ -1,0 +1,8 @@
+//@ spec: RXS-0157
+//@ expect-error: RX6007
+kernel fn if_nested_while(t: ThreadCtx<1>, dst: ViewMut<global, f32>, len: usize) {
+    let gid = t.global_id();
+    if gid < len {
+        while true {};
+    }
+}

@@ -1,0 +1,138 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "spike/godot-rurix/bench/schemas/fallback_telemetry.schema.json",
+  "title": "GRX fallback telemetry evidence document",
+  "description": "GRX-008 scaffold: fallback telemetry format for Rurix-accelerated passes. This is scaffold-stage format only. Every pass entry is a placeholder; the presence of a pass entry here does NOT mean that pass has been wired up, accelerated, or that a real fallback occurred. No acceleration pass is implemented at this stage and no telemetry is measured. Scaffold documents (run_mode=scaffold / evidence_level=scaffold) may leave telemetry_timestamp/telemetry_frame null but every pass must be disabled with godot_fallback_active=true. Full runs (run_mode=full or evidence_level=measured_local) require a non-empty telemetry_timestamp and a non-negative integer telemetry_frame, and measured_local documents may not use a pass_id starting with placeholder_.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "run_mode",
+    "evidence_level",
+    "target_backend",
+    "note",
+    "passes"
+  ],
+  "properties": {
+    "run_mode": {
+      "description": "scaffold = build-stage placeholder plan; full = real telemetry run. Scaffold documents are not eligible as close-out telemetry evidence.",
+      "enum": ["scaffold", "full"]
+    },
+    "evidence_level": {
+      "description": "measured_local once real telemetry is captured; scaffold placeholder documents use scaffold.",
+      "enum": ["scaffold", "measured_local"]
+    },
+    "target_backend": {
+      "const": "Godot 4.7-dev Windows D3D12 Forward+"
+    },
+    "note": {
+      "description": "Must state that this document does not represent any pass being wired up or any real fallback having occurred.",
+      "type": "string",
+      "minLength": 1
+    },
+    "passes": {
+      "description": "Placeholder telemetry entries for candidate acceleration passes. Each entry records enable/disable state, a fallback reason, whether the Godot fallback path is active, and telemetry timestamp/frame/pass id.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "pass_id",
+          "enable_state",
+          "fallback_reason",
+          "godot_fallback_active",
+          "telemetry_timestamp",
+          "telemetry_frame"
+        ],
+        "properties": {
+          "pass_id": {
+            "description": "Non-empty identifier of the candidate pass. Naming a pass here does not mean it is implemented.",
+            "type": "string",
+            "minLength": 1
+          },
+          "enable_state": {
+            "description": "Whether the acceleration pass is enabled or disabled. Scaffold passes are disabled.",
+            "enum": ["enabled", "disabled"]
+          },
+          "fallback_reason": {
+            "description": "Why the Godot fallback path is (or would be) active for this pass.",
+            "enum": [
+              "compile_failed",
+              "validation_failed",
+              "unsupported_device",
+              "visual_diff_failed",
+              "manual_disabled"
+            ]
+          },
+          "godot_fallback_active": {
+            "description": "True when the Godot fallback path is active (no Rurix acceleration).",
+            "type": "boolean"
+          },
+          "telemetry_timestamp": {
+            "description": "Telemetry emission timestamp (e.g. ISO-8601). null placeholder is allowed at the scaffold stage but the field must be present.",
+            "type": ["string", "null"]
+          },
+          "telemetry_frame": {
+            "description": "Frame index the telemetry was emitted at. null placeholder is allowed at the scaffold stage but the field must be present.",
+            "type": ["integer", "null"],
+            "minimum": 0
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "anyOf": [
+          {"properties": {"run_mode": {"const": "full"}}},
+          {"properties": {"evidence_level": {"const": "measured_local"}}}
+        ]
+      },
+      "then": {
+        "properties": {
+          "passes": {
+            "items": {
+              "properties": {
+                "telemetry_timestamp": {"type": "string", "minLength": 1},
+                "telemetry_frame": {"type": "integer", "minimum": 0}
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"run_mode": {"const": "scaffold"}}},
+      "then": {
+        "properties": {
+          "passes": {
+            "items": {
+              "properties": {
+                "enable_state": {"const": "disabled"},
+                "godot_fallback_active": {"const": true}
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["evidence_level"],
+        "properties": {"evidence_level": {"const": "measured_local"}}
+      },
+      "then": {
+        "properties": {
+          "passes": {
+            "items": {
+              "properties": {
+                "pass_id": {"not": {"pattern": "^placeholder_"}}
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

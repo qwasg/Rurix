@@ -1,0 +1,7 @@
+{
+  "note": "GRX-007 minimal LDR reference frame fixture. Two pixels of integer [r,g,b] channels used only to exercise visual_diff.py per-channel absolute diff. Not a real captured frame; not visual verification.",
+  "pixels": [
+    [10, 20, 30],
+    [40, 50, 60]
+  ]
+}

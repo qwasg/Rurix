@@ -1,0 +1,7 @@
+//@ spec: RXS-0157
+//@ expect-error: RX6007
+// RD-013 slice 1 保守方案:资源 global 恒 [1 x float],非 0 常量索引 strict
+// reject,不产越界 `getelementptr inbounds [1 x float] ... i32 1`。
+kernel fn k(src: View<global, f32>, dst: ViewMut<global, f32>) {
+    dst[1] = src[0];
+}

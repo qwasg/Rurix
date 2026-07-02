@@ -1,0 +1,7 @@
+//@ spec: RXS-0157
+//@ expect-error: RX6007
+kernel fn threadctx_global_id_x_method(t: ThreadCtx<1>, dst: ViewMut<global, f32>) {
+    let gid = t.global_id_x();
+    let x = if gid < 1 { 1.0 } else { 0.0 };
+    dst[0] = x;
+}

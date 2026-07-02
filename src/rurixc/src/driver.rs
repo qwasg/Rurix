@@ -685,7 +685,7 @@ fn compile_dxil_target(
     out: Option<&Path>,
     input_path: &Path,
 ) -> u8 {
-    let ir = crate::dxil_codegen::build_and_emit_dxil(cx, stem);
+    let artifacts = crate::dxil_codegen::build_and_emit_dxil_artifacts(cx, stem);
     if diag.has_errors() {
         eprint!(
             "{}",
@@ -693,16 +693,76 @@ fn compile_dxil_target(
         );
         return 1;
     }
-    let Some(ir) = ir else {
+    let Some(artifacts) = artifacts else {
         eprintln!("rurixc: no compute `kernel fn` found; nothing to emit for --target dxil");
         return 2;
     };
+    let ir = artifacts.ir;
+    // DXIL 主产物路径(`-o`;compile_offline 传 `<pass>.dxil`)。llc 可用 → 容器 obj
+    // 落此;llc SKIP → 直接落 DirectX 三元组 LLVM IR 文本(GRX-009:离线 artifact 须
+    // 真实存在但仍按 artifact_kind/semantic_status 区分 debug evidence 与 compile-ready
+    // container;probe/schema 不得把 IR 文本误判为 validator 通过的 DXIL 容器)。
     let obj_out = out
         .map(Path::to_path_buf)
         .unwrap_or_else(|| input_path.with_extension("dxc"));
+
+    // 派生 root signature(RTS0)与 descriptor layout JSON 路径(与主产物同目录、
+    // 同 file stem;compile_offline 期望 `<pass>.rts0.bin` / `<pass>_descriptor_layout.json`)。
+    let file_stem = obj_out
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_else(|| stem.to_owned());
+    let rts0_out = obj_out.with_file_name(format!("{file_stem}.rts0.bin"));
+    let descriptor_out = obj_out.with_file_name(format!("{file_stem}_descriptor_layout.json"));
+
+    // 先落 root signature + descriptor layout(host/safe 推导产物,无需工具链)。
+    if let Err(e) = std::fs::write(&rts0_out, &artifacts.root_signature) {
+        diag.struct_error(ErrorCode(6007), "codegen.dxil_unsupported")
+            .arg(
+                "detail",
+                format!("写 root signature {} 失败: {e}", rts0_out.display()),
+            )
+            .emit();
+        eprint!(
+            "{}",
+            render_diagnostics(&diag.emitted(), sm, diag.messages())
+        );
+        return 1;
+    }
+    if let Err(e) = std::fs::write(&descriptor_out, artifacts.descriptor_layout_json.as_bytes()) {
+        diag.struct_error(ErrorCode(6007), "codegen.dxil_unsupported")
+            .arg(
+                "detail",
+                format!(
+                    "写 descriptor layout {} 失败: {e}",
+                    descriptor_out.display()
+                ),
+            )
+            .emit();
+        eprint!(
+            "{}",
+            render_diagnostics(&diag.emitted(), sm, diag.messages())
+        );
+        return 1;
+    }
+
     let Some(llc) = crate::toolchain::locate_llc() else {
+        // llc 缺失:落 DXIL LLVM IR 文本作调试证据(SKIP 容器 emit + validator)。
+        if let Err(e) = std::fs::write(&obj_out, ir.as_bytes()) {
+            diag.struct_error(ErrorCode(6007), "codegen.dxil_unsupported")
+                .arg(
+                    "detail",
+                    format!("写 DXIL IR {} 失败: {e}", obj_out.display()),
+                )
+                .emit();
+            eprint!(
+                "{}",
+                render_diagnostics(&diag.emitted(), sm, diag.messages())
+            );
+            return 1;
+        }
         eprintln!(
-            "rurixc: note: patched llc not found (set RURIX_LLC to dev DXIL llc, RD-011); DXIL emit + dxc validator gate SKIPPED (RXS-0157)"
+            "rurixc: note: patched llc not found (set RURIX_LLC to dev DXIL llc, RD-011); wrote artifact_kind=dxil_ir_text + RTS0 root signature + descriptor layout as debug/blocker evidence, semantic_status=dxil_ir_only, but DXIL container emit + dxc validator gate SKIPPED (RXS-0157); this is not current compile-ready evidence and not a validated DXIL container"
         );
         return 0;
     };
@@ -718,7 +778,7 @@ fn compile_dxil_target(
     }
     let Some(dxc_dir) = crate::toolchain::locate_dxc_dir() else {
         eprintln!(
-            "rurixc: note: dxc validator not found (set RURIX_DXC_DIR); DXIL emitted at {} but validator gate SKIPPED (RXS-0157)",
+            "rurixc: note: dxc validator not found (set RURIX_DXC_DIR); DXIL emitted at {} (+ RTS0 + descriptor layout) but validator gate SKIPPED (RXS-0157)",
             obj_out.display()
         );
         return 0;

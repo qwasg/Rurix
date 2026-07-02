@@ -1,0 +1,61 @@
+{
+  "run_mode": "quick_smoke",
+  "evidence_level": "measured_local",
+  "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
+  "resolution": [1920, 1080],
+  "vsync": false,
+  "warmup_frames": 30,
+  "sample_frames": 60,
+  "note": "quick_smoke smoke evidence only; NOT eligible for strict perf gate input. Numbers reflect quick_smoke magnitudes and are not a full baseline.",
+  "scenes": [
+    {
+      "name": "clustered_lights",
+      "avg_fps": 1048.271,
+      "p95_frame_time_ms": 1.389,
+      "sample_count": 60,
+      "raw_artifact_path": "target/grx/godot-bench-runs/20260701T114859Z_quick_smoke/raw/clustered_lights.json"
+    },
+    {
+      "name": "many_mesh_instances",
+      "avg_fps": 2431.545,
+      "p95_frame_time_ms": 0.797,
+      "sample_count": 60,
+      "raw_artifact_path": "target/grx/godot-bench-runs/20260701T114859Z_quick_smoke/raw/many_mesh_instances.json"
+    },
+    {
+      "name": "material_variants",
+      "avg_fps": 2181.373,
+      "p95_frame_time_ms": 1.389,
+      "sample_count": 60,
+      "raw_artifact_path": "target/grx/godot-bench-runs/20260701T114859Z_quick_smoke/raw/material_variants.json"
+    },
+    {
+      "name": "post_fx_chain",
+      "avg_fps": 3745.630,
+      "p95_frame_time_ms": 0.499,
+      "sample_count": 60,
+      "raw_artifact_path": "target/grx/godot-bench-runs/20260701T114859Z_quick_smoke/raw/post_fx_chain.json"
+    },
+    {
+      "name": "volumetric_fog",
+      "avg_fps": 3358.185,
+      "p95_frame_time_ms": 0.502,
+      "sample_count": 60,
+      "raw_artifact_path": "target/grx/godot-bench-runs/20260701T114859Z_quick_smoke/raw/volumetric_fog.json"
+    },
+    {
+      "name": "particles",
+      "avg_fps": 1126.488,
+      "p95_frame_time_ms": 1.389,
+      "sample_count": 60,
+      "raw_artifact_path": "target/grx/godot-bench-runs/20260701T114859Z_quick_smoke/raw/particles.json"
+    },
+    {
+      "name": "mixed_forward_plus",
+      "avg_fps": 1308.476,
+      "p95_frame_time_ms": 1.389,
+      "sample_count": 60,
+      "raw_artifact_path": "target/grx/godot-bench-runs/20260701T114859Z_quick_smoke/raw/mixed_forward_plus.json"
+    }
+  ]
+}

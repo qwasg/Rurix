@@ -111,6 +111,183 @@ fn accept_corpus_emits_dxil() {
             "{} DXIL IR 缺 hlsl.shader=compute 入口属性",
             f.display()
         );
+        // RD-013 slice 1 hardening(全 accept 通用):
+        // 1) SSA 定义名(`  %name = ...`)全 body 唯一 —— 重复 store 同一 index 不得撞名。
+        let mut ssa_defs = std::collections::HashSet::new();
+        for line in ir.lines() {
+            let Some(rest) = line.strip_prefix("  %") else {
+                continue;
+            };
+            let Some((name, _)) = rest.split_once(" = ") else {
+                continue;
+            };
+            assert!(
+                ssa_defs.insert(name.to_owned()),
+                "{} IR 出现 duplicate SSA 定义名 %{name}",
+                f.display()
+            );
+        }
+        // 1b) 顶格 label 行(`name:`)全 body 唯一 —— if lowering 的 br 目标不得撞名。
+        let mut labels = std::collections::HashSet::new();
+        for line in ir.lines() {
+            let Some(label) = line.strip_suffix(':') else {
+                continue;
+            };
+            if label.is_empty() || label.contains(' ') {
+                continue;
+            }
+            assert!(
+                labels.insert(label.to_owned()),
+                "{} IR 出现 duplicate label {label}:",
+                f.display()
+            );
+        }
+        // 2) 资源 global 恒 [1 x float] → 所有 inbounds GEP 只允许索引 0(无越界访问)。
+        for line in ir.lines() {
+            if line.contains("getelementptr inbounds [1 x float]") {
+                assert!(
+                    line.trim_end().ends_with("i32 0, i32 0"),
+                    "{} IR 对 [1 x float] 产生非 0 索引 inbounds GEP: {line}",
+                    f.display()
+                );
+            }
+        }
+        if stem == "two_stores" {
+            assert_eq!(
+                ir.matches("store float").count(),
+                2,
+                "{} 应恰含 2 个 store(重复 store 同一 index)",
+                f.display()
+            );
+        }
+        if stem == "copy_arith" {
+            for needle in ["load float", "fmul float", "fadd float", "store float"] {
+                assert!(
+                    ir.contains(needle),
+                    "{} DXIL IR 缺 slice 1 {needle} 证据",
+                    f.display()
+                );
+            }
+        }
+        if stem == "copy_one" {
+            assert!(
+                ir.contains("load float"),
+                "{} DXIL IR 缺 slice 1 load 证据",
+                f.display()
+            );
+            assert!(
+                ir.contains("store float"),
+                "{} DXIL IR 缺 slice 1 store 证据",
+                f.display()
+            );
+            let load_pos = ir.find("load float").expect("load 已断言存在");
+            let store_pos = ir.find("store float").expect("store 已断言存在");
+            let ret_pos = ir.find("ret void").expect("compute 入口应含 ret void");
+            assert!(
+                load_pos < ret_pos && store_pos < ret_pos,
+                "{} slice 1 body lowering 必须出现在 ret void 之前",
+                f.display()
+            );
+        }
+        if stem == "scalar_gain" {
+            for needle in [
+                "@rx_gain_root_constant",
+                "load float",
+                "fmul float",
+                "store float",
+            ] {
+                assert!(
+                    ir.contains(needle),
+                    "{} DXIL IR 缺 segment 3a scalar gain 证据 {needle}",
+                    f.display()
+                );
+            }
+        }
+        if stem == "scalar_select" {
+            for needle in [
+                "@rx_width_root_constant",
+                "icmp sgt i64",
+                "select i1",
+                "store float",
+            ] {
+                assert!(
+                    ir.contains(needle),
+                    "{} DXIL IR 缺 segment 3a select 证据 {needle}",
+                    f.display()
+                );
+            }
+            let select_pos = ir.find("select i1").expect("select 已断言存在");
+            let ret_pos = ir.find("ret void").expect("compute 入口应含 ret void");
+            assert!(
+                select_pos < ret_pos,
+                "{} segment 3a select lowering 必须出现在 ret void 之前",
+                f.display()
+            );
+        }
+        if stem == "if_statement_store" {
+            for needle in [
+                "br i1 ",
+                "if.then.0:",
+                "br label %if.end.0",
+                "if.end.0:",
+                "store float",
+            ] {
+                assert!(
+                    ir.contains(needle),
+                    "{} DXIL IR 缺 segment 3a statement if 证据 {needle}",
+                    f.display()
+                );
+            }
+            let br_pos = ir.find("br i1 ").expect("br 已断言存在");
+            let then_pos = ir.find("if.then.0:").expect("then label 已断言存在");
+            let store_pos = ir.find("store float").expect("store 已断言存在");
+            let end_pos = ir.find("if.end.0:").expect("end label 已断言存在");
+            assert!(
+                br_pos < then_pos && then_pos < store_pos && store_pos < end_pos,
+                "{} statement if 结构次序应为 br i1 < if.then.0 < store < if.end.0",
+                f.display()
+            );
+        }
+        if stem == "if_then_more_stores" {
+            assert_eq!(
+                ir.matches("store float").count(),
+                2,
+                "{} 应恰含 2 个 store(then 块内 1 个 + if.end 之后 1 个)",
+                f.display()
+            );
+            let end_pos = ir.find("if.end.0:").expect("end label 应存在");
+            let last_store = ir.rfind("store float").expect("store 已断言存在");
+            assert!(
+                end_pos < last_store,
+                "{} 语句位 if 之后的 store 应落在 if.end.0 块内",
+                f.display()
+            );
+        }
+        if stem == "threadctx_global_id" {
+            for needle in [
+                "declare i32 @rx.dxil.thread_id.x()",
+                "call i32 @rx.dxil.thread_id.x()",
+                "zext i32",
+                "icmp slt i64",
+                "select i1",
+                "store float",
+            ] {
+                assert!(
+                    ir.contains(needle),
+                    "{} DXIL IR 缺 segment 3a ThreadCtx.global_id 证据 {needle}",
+                    f.display()
+                );
+            }
+            let thread_id_pos = ir
+                .find("call i32 @rx.dxil.thread_id.x()")
+                .expect("thread id lowering 已断言存在");
+            let ret_pos = ir.find("ret void").expect("compute 入口应含 ret void");
+            assert!(
+                thread_id_pos < ret_pos,
+                "{} segment 3a ThreadCtx.global_id lowering 必须出现在 ret void 之前",
+                f.display()
+            );
+        }
     }
 }
 

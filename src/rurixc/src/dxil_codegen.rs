@@ -6,29 +6,30 @@
 //! NVPTX 后端(`device_codegen`)并列、各自从 MIR 独立降级,不共享后端 lowering
 //! (RFC-0003 §4.5)。
 //!
-//! **最小 compute 子集(分片1)**:仅支持 compute 着色入口(`kernel fn`,RXS-0153
-//! compute-via-kernel 着色)的最小子集——无 ABI 形参、平凡(空)体 → DXIL `void` 入口
-//! (`dxil-unknown-shadermodel6.0-compute` 三元组 + `hlsl.shader`="compute" /
-//! `hlsl.numthreads` 入口属性,对齐 LLVM DirectX 后端 emit 形态)。子集外构造
-//! (View/资源句柄形参、非平凡体——需绑定布局推导 G2.3 / FFI ABI 禁区)→ `RX6007`。
+//! **最小 compute 子集(分片1 + GRX-009 segment 3a 增量)**:支持 compute 着色入口
+//! (`kernel fn`,RXS-0153 compute-via-kernel 着色)的空入口与最小 body lowering
+//! 子集:简单 `let`/赋值、`usize`/`f32` 常量与二元算术、简单比较 + 标量 select
+//! (无语句 if 表达式)、`ThreadCtx<1>.global_id()`、no-else statement if(语句位 +
+//! 函数体 tail 位,then block 复用语句 lowering)、`View<global, f32>` load、
+//! `ViewMut<global, f32>` store。资源常量索引仅支持 0(资源 global 为
+//! `[1 x float]`,非 0 索引会产越界 inbounds GEP → strict `RX6007`)。`while`/
+//! `%` 取模/else 与 else-if/mutable 再赋值/动态资源索引/dynamic dispatch shape 等
+//! 子集外构造继续 strict `RX6007`,禁止静默降级为 entry shell。
 //!
 //! 下游(IR → patched llc -filetype=obj → DXIL 容器 → dxc validator)见
 //! [`crate::toolchain::ir_to_dxil`];golden 取文本反汇编经 validator 验证(RFC-0003
-//! §9 Q-Golden)。**本片不碰** 🔒 纹理内存模型映射(06 §4.2)/ FFI ABI 二进制布局
-//! (RFC-0003 §4.6)/ 绑定布局推导(G2.3,P-11)。
+//! §9 Q-Golden)。**本片不碰** 🔒 Godot resource mapping/纹理内存模型映射(06 §4.2)/
+//! FFI ABI 二进制布局(RFC-0003 §4.6)。
 
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
-use crate::ast::{FnColor, ShaderStage};
+use crate::ast::{BinOp, FnColor, LitKind, LitSuffix, ShaderStage};
 use crate::binding_layout;
 use crate::diag::{DiagCtxt, ErrorCode};
 use crate::dxil_sig_gate::signature_gate;
 use crate::dxil_spirv::{self, DxilError};
-use crate::mir::{
-    Body, Const, IoDir, IoSigElem, IoSigKind, Operand, ResourceBinding, Rvalue, StatementKind,
-    TerminatorKind,
-};
+use crate::mir::{Body, IoDir, IoSigElem, IoSigKind, ResourceBinding};
 use crate::query::QueryCtx;
 use crate::span::Span;
 use crate::toolchain::{self, DxilSignatures};
@@ -49,11 +50,58 @@ impl DxilCodegenError {
     }
 }
 
+/// compute kernel 形参推导出的离线绑定布局(GRX-009 segment 3a.1;最小支持)。
+///
+/// 从受支持的 compute 入口形参(`View`/`ViewMut` 资源视图 + `usize`/`f32` 标量 root
+/// constant + `ThreadCtx` 线程内建)经 [`binding_layout`] safe 推导得到资源绑定 +
+/// root signature 形态,供离线 artifact(RTS0 root signature 字节 + descriptor
+/// layout JSON)落盘。body lowering 仅覆盖 RD-013 slice 1 straight-line 子集。
+#[derive(Debug, Clone)]
+pub struct ComputeLayout {
+    /// 声明序资源绑定(`View`→SRV / `ViewMut`→UAV)。
+    pub resources: Vec<ResourceBinding>,
+    /// root signature 形态(经 `binding_layout::infer_root_signature`)。
+    pub root_signature: binding_layout::RootSignature,
+    /// 标量 root constant 形参个数(`usize`/`f32`;不入 descriptor,只计数留痕)。
+    pub root_constants: u32,
+}
+
+/// DXIL compute 入口的离线 artifact 三元组(GRX-009 segment 3a.1)。
+///
+/// - `ir`:DirectX 三元组 LLVM IR 文本(空入口或 slice 1 straight-line body)。
+/// - `root_signature`:RTS0 容器字节(`binding_layout::serialize_rts0`)。
+/// - `descriptor_layout_json`:descriptor layout 意图的确定性 JSON(host/safe)。
+#[derive(Debug, Clone)]
+pub struct DxilComputeArtifacts {
+    /// DirectX 三元组 LLVM IR 文本。
+    pub ir: String,
+    /// RTS0 root signature 容器字节。
+    pub root_signature: Vec<u8>,
+    /// descriptor layout 意图 JSON(确定性序列化)。
+    pub descriptor_layout_json: String,
+}
+
 /// 驱动 / 测试入口:构建 device MIR(`kernel fn` 为根)+ DXIL 最小 compute codegen。
 /// 无 kernel → `None`(无 device 产物);子集外 / 降级失败 → 经 `cx.diag()` 落
 /// `RX6007` 结构化诊断并返回 `None`;成功 → `Some(DirectX 三元组 LLVM IR 文本)`。
 /// patched llc → DXIL 容器 + dxc validator 由驱动在产 IR 后另行实施(RXS-0157 IR2)。
+///
+/// GRX-009 segment 3a.1:受支持的 compute 入口形参(View/ViewMut/标量/ThreadCtx)不再
+/// 硬拒,经 [`derive_compute_bindings`] 进入绑定布局推导(strict-only:未知形参类型仍
+/// RX6007);body 仅支持 RD-013 slice 1,子集外 strict reject,不能降级为 entry-shell
+/// compile success。
 pub fn build_and_emit_dxil(cx: &QueryCtx<'_>, module_name: &str) -> Option<String> {
+    build_and_emit_dxil_artifacts(cx, module_name).map(|a| a.ir)
+}
+
+/// 驱动入口(GRX-009 segment 3a.1):构建 device MIR + DXIL compute codegen,产出
+/// 离线 artifact 三元组(DXIL IR / RTS0 root signature / descriptor layout JSON)。
+/// 无 kernel → `None`;子集外(未知形参类型 / unsupported body / 绑定推导失败)→ 落
+/// `RX6007`(或 binding_layout 的 6xxx)并返回 `None`。strict-only,无 fallback。
+pub fn build_and_emit_dxil_artifacts(
+    cx: &QueryCtx<'_>,
+    module_name: &str,
+) -> Option<DxilComputeArtifacts> {
     let bodies = cx.device_mir_crate();
     if bodies.is_empty() {
         return None;
@@ -64,60 +112,1270 @@ pub fn build_and_emit_dxil(cx: &QueryCtx<'_>, module_name: &str) -> Option<Strin
     }
     // compute 入口 = kernel 着色 body(RXS-0153 compute-via-kernel);取首个为最小入口。
     let entry = bodies.iter().find(|b| b.color == FnColor::Kernel)?;
-    match emit_dxil_ir(entry, module_name) {
-        Ok(ir) => Some(ir),
+    let krate = cx.hir_crate();
+    let fn_name = krate.item(entry.def).name.clone();
+    let Some(kernel_fn) = find_kernel_fn(&cx.ast().items, &fn_name) else {
+        cx.diag()
+            .struct_error(ErrorCode(6007), "codegen.dxil_unsupported")
+            .arg(
+                "detail",
+                "无法在 AST 定位 compute kernel 声明(内部不一致)".to_owned(),
+            )
+            .span_label(entry.span, "in DXIL compute entry")
+            .emit();
+        return None;
+    };
+    // 从 AST 形参推导绑定布局(strict-only:未知形参类型 → RX6007)。
+    let layout = match derive_compute_bindings(cx, entry) {
+        Ok(layout) => layout,
         Err(e) => {
             cx.diag()
                 .struct_error(ErrorCode(6007), "codegen.dxil_unsupported")
                 .arg("detail", e.detail.clone())
                 .span_label(e.span, "in DXIL compute entry")
                 .emit();
-            None
+            return None;
         }
-    }
+    };
+    let lowered_body = match lower_compute_body_slice1(cx, entry, kernel_fn) {
+        Ok(lowered_body) => lowered_body,
+        Err(e) => {
+            cx.diag()
+                .struct_error(ErrorCode(6007), "codegen.dxil_unsupported")
+                .arg("detail", e.detail.clone())
+                .span_label(e.span, "in DXIL compute entry")
+                .emit();
+            return None;
+        }
+    };
+    let ir = match emit_dxil_ir_with_body(entry, module_name, &lowered_body) {
+        Ok(ir) => ir,
+        Err(e) => {
+            cx.diag()
+                .struct_error(ErrorCode(6007), "codegen.dxil_unsupported")
+                .arg("detail", e.detail.clone())
+                .span_label(e.span, "in DXIL compute entry")
+                .emit();
+            return None;
+        }
+    };
+    let root_signature = binding_layout::serialize_rts0(&layout.root_signature);
+    let descriptor_layout_json = render_descriptor_layout_json(module_name, &layout);
+    Some(DxilComputeArtifacts {
+        ir,
+        root_signature,
+        descriptor_layout_json,
+    })
 }
 
-/// 单个 compute kernel body → DXIL DirectX 三元组 LLVM IR 文本(最小子集)。
-/// 子集校验(RXS-0157 L2):无 ABI 形参 + 平凡体(块内零语句,终结子仅 Goto/Return/
-/// Unreachable);违例 → `DxilCodegenError`(上层映射 RX6007)。
-pub fn emit_dxil_ir(body: &Body, module_name: &str) -> Result<String, DxilCodegenError> {
-    if body.arg_count != 0 {
+/// GRX-009 segment 3a.1:从 compute kernel 的 **AST 形参**推导离线绑定布局
+/// (strict-only)。compute 入口的 `body.resources` 恒空(仅图形阶段填充,见
+/// mir_build),故本函数直接读 AST 形参类型分类:
+/// - `View<_, T>`(只读视图)→ SRV(`StructuredBuffer{read_only:true}`)。
+/// - `ViewMut<_, T>`(可写视图)→ UAV(`StructuredBuffer{read_only:false}`)。
+/// - `usize`/`f32`(标量)→ root constant 计数(不入 descriptor)。
+/// - `ThreadCtx<N>`→ 线程内建(跳过,不产资源 / root constant)。
+/// - 其它任何类型 → [`DxilCodegenError`](上层映射 RX6007,无 fallback)。
+///
+/// 资源绑定经 [`binding_layout::infer_root_signature`] 推导 root signature(其内部
+/// 跑 register/space 分配 + 冲突门 + 64-DWORD 上限门,失败继续 strict-only 报错)。
+fn derive_compute_bindings(
+    cx: &QueryCtx<'_>,
+    entry: &Body,
+) -> Result<ComputeLayout, DxilCodegenError> {
+    use crate::ast::{ParamKind, TyKind};
+
+    // 经 HIR item 名 + AST 定位该 kernel 的形参声明(compute 入口 stage 恒 None)。
+    let krate = cx.hir_crate();
+    let fn_name = krate.item(entry.def).name.clone();
+    let ast = cx.ast();
+    let Some(f) = find_kernel_fn(&ast.items, &fn_name) else {
+        // 前端已建 MIR,理应可在 AST 定位;定位失败 = 内部不一致 → strict-only 停手。
         return Err(DxilCodegenError::unsupported(
-            body.span,
-            "DXIL 最小 compute 子集暂不支持带形参的 compute 入口(View/资源句柄绑定布局推导属 G2.3,FFI ABI 属禁区)",
+            entry.span,
+            "无法在 AST 定位 compute kernel 形参声明(内部不一致)",
         ));
-    }
-    for bb in &body.blocks {
-        for st in &bb.stmts {
-            // 最小子集仅容忍隐式 unit 返回赋值(`_0 = ()`,空体语义);其余语句
-            // (真实计算 / 内存写 / 调用)需 codegen 降级 + 可能绑定布局,属后续分片。
-            let StatementKind::Assign(_, Rvalue::Use(Operand::Const(Const::Unit))) = &st.kind
-            else {
-                return Err(DxilCodegenError::unsupported(
-                    st.span,
-                    "DXIL 最小 compute 子集暂不支持非平凡 compute 体(分片1 仅空体入口,语句降级随后续分片)",
-                ));
-            };
-        }
-        match bb.terminator.kind {
-            TerminatorKind::Goto(_) | TerminatorKind::Return | TerminatorKind::Unreachable => {}
-            _ => {
-                return Err(DxilCodegenError::unsupported(
-                    bb.terminator.span,
-                    "DXIL 最小 compute 子集暂不支持该控制流终结子(分片1 仅空体入口)",
-                ));
+    };
+
+    let mut resources = Vec::new();
+    let mut root_constants = 0u32;
+    for p in &f.params {
+        let ParamKind::Typed { pat, ty } = &p.kind else {
+            return Err(DxilCodegenError::unsupported(
+                p.span,
+                "DXIL compute 入口不支持 self 形参",
+            ));
+        };
+        let name = ast_pat_binding_name(pat).unwrap_or_default();
+        let head = ast_ty_head_name(ty).unwrap_or("");
+        match head {
+            "View" => resources.push(ResourceBinding {
+                name,
+                res: crate::mir::MirResourceType::StructuredBuffer { read_only: true },
+                count: crate::mir::ResourceCount::One,
+            }),
+            "ViewMut" => resources.push(ResourceBinding {
+                name,
+                res: crate::mir::MirResourceType::StructuredBuffer { read_only: false },
+                count: crate::mir::ResourceCount::One,
+            }),
+            // 标量 root constant(usize/f32,含向量约定不在此期范围)。
+            "usize" | "u32" | "i32" | "f32" | "f64" | "u64" | "i64" | "u16" | "i16" | "u8"
+            | "i8" | "bool" => {
+                root_constants += 1;
+            }
+            // 线程内建:不产资源、不产 root constant。
+            "ThreadCtx" => {}
+            other => {
+                let detail = if other.is_empty() {
+                    "DXIL compute 入口含不支持的形参类型(strict-only,仅支持 View/ViewMut/标量/ThreadCtx)".to_owned()
+                } else {
+                    format!(
+                        "DXIL compute 入口不支持形参类型 `{other}`(strict-only,仅支持 View/ViewMut/标量/ThreadCtx;其余绑定布局属禁区)"
+                    )
+                };
+                let ty_kind_span = match &ty.kind {
+                    TyKind::Path(pth) => pth.span,
+                    _ => ty.span,
+                };
+                return Err(DxilCodegenError::unsupported(ty_kind_span, detail));
             }
         }
     }
-    Ok(render_dxil_module(&body.symbol, module_name))
+
+    let root_signature = binding_layout::infer_root_signature(&resources).map_err(|e| {
+        DxilCodegenError::unsupported(entry.span, format!("绑定布局推导失败(strict-only): {e}"))
+    })?;
+
+    Ok(ComputeLayout {
+        resources,
+        root_signature,
+        root_constants,
+    })
 }
 
-/// DirectX 三元组 LLVM IR 文本(最小空体 compute 入口)。形态对齐 LLVM DirectX 后端
-/// emit 期望(shadermodel6.0-compute 三元组 + DXIL 数据布局 + `hlsl.shader`/
-/// `hlsl.numthreads` 入口属性);经 patched llc -filetype=obj 产 DXIL 容器、dxc
-/// validator 接受(round-8 recipe 验证)。numthreads 取最小 `1,1,1`(分片1 无 launch
-/// bounds 降级)。确定性:给定符号名输出字节确定。
-fn render_dxil_module(entry_symbol: &str, module_name: &str) -> String {
+/// 按名定位顶层 / 嵌套 mod 内的 `kernel fn`(compute 入口;`FnColor::Kernel`)。
+fn find_kernel_fn<'a>(items: &'a [crate::ast::Item], name: &str) -> Option<&'a crate::ast::FnItem> {
+    use crate::ast::{FnColor, ItemKind};
+    for it in items {
+        match &it.kind {
+            ItemKind::Fn(f) if f.color == FnColor::Kernel && f.name.name == name => {
+                return Some(f);
+            }
+            ItemKind::Mod(m) => {
+                if let Some(found) = find_kernel_fn(&m.items, name) {
+                    return Some(found);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// AST 类型头名(剥 `&T`/`*T`/`(T)`;取路径末段 ident)。
+fn ast_ty_head_name(ty: &crate::ast::Ty) -> Option<&str> {
+    use crate::ast::TyKind;
+    match &ty.kind {
+        TyKind::Path(p) => p.segments.last().map(|s| s.ident.name.as_str()),
+        TyKind::Paren(inner) | TyKind::Ref { inner, .. } | TyKind::RawPtr { inner, .. } => {
+            ast_ty_head_name(inner)
+        }
+        _ => None,
+    }
+}
+
+/// 简单绑定形参名(`name: Ty` → "name");非简单绑定 → None。
+fn ast_pat_binding_name(pat: &crate::ast::Pat) -> Option<String> {
+    match &pat.kind {
+        crate::ast::PatKind::Binding { name, .. } => Some(name.name.clone()),
+        _ => None,
+    }
+}
+
+/// descriptor layout 意图的确定性 JSON 序列化(host/safe;GRX-009 离线 artifact)。
+/// 手写 JSON(无 serde 依赖),字段序固定 → 相同输入字节确定。**非 stable ABI**:
+/// register/space 数值为实现确定、gate 后产物,不冻结为语言保证。
+fn render_descriptor_layout_json(module_name: &str, layout: &ComputeLayout) -> String {
+    use std::fmt::Write as _;
+    let assignments =
+        binding_layout::infer_register_assignments(&layout.resources).unwrap_or_default();
+    let mut out = String::new();
+    out.push_str("{\n");
+    let _ = writeln!(out, "  \"module\": \"{}\",", json_escape(module_name));
+    let _ = writeln!(out, "  \"root_constants\": {},", layout.root_constants);
+    out.push_str("  \"resources\": [");
+    for (i, a) in assignments.iter().enumerate() {
+        if i == 0 {
+            out.push('\n');
+        }
+        let _ = write!(
+            out,
+            "    {{ \"name\": \"{}\", \"class\": \"{}\", \"register\": {}, \"space\": {}, \"count\": {} }}",
+            json_escape(&a.name),
+            a.axis_prefix(),
+            a.register,
+            a.space,
+            a.span
+        );
+        if i + 1 < assignments.len() {
+            out.push(',');
+        }
+        out.push('\n');
+    }
+    if assignments.is_empty() {
+        out.push_str("],\n");
+    } else {
+        out.push_str("  ],\n");
+    }
+    let _ = writeln!(
+        out,
+        "  \"root_signature_parameters\": {}",
+        layout.root_signature.parameters.len()
+    );
+    out.push_str("}\n");
+    out
+}
+
+/// 最小 JSON 字符串转义(descriptor layout JSON;仅覆盖标识符可能出现的字符)。
+fn json_escape(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
+#[derive(Debug, Clone, Default)]
+struct LoweredComputeBody {
+    resources: Vec<LoweredComputeResource>,
+    scalar_params: Vec<LoweredScalarParam>,
+    ops: Vec<LoweredComputeOp>,
+}
+
+#[derive(Debug, Clone)]
+struct LoweredComputeResource {
+    name: String,
+    mutable: bool,
+}
+
+#[derive(Debug, Clone)]
+struct LoweredScalarParam {
+    name: String,
+    ty: LoweredScalarTy,
+}
+
+#[derive(Debug, Clone)]
+enum LoweredComputeOp {
+    Load {
+        dst: String,
+        resource: String,
+        index: u64,
+    },
+    Store {
+        /// GEP 结果 SSA 名(经 [`ComputeLowerCx::temp`] 分配,渲染为 `%{ptr}.ptr`;
+        /// 重复 store 同一资源/索引时保持定义名唯一)。
+        ptr: String,
+        resource: String,
+        index: u64,
+        value: LoweredValue,
+    },
+    Binary {
+        dst: String,
+        op: BinOp,
+        lhs: LoweredValue,
+        rhs: LoweredValue,
+    },
+    ScalarParam {
+        dst: String,
+        name: String,
+        ty: LoweredScalarTy,
+    },
+    ThreadGlobalId {
+        dst: String,
+    },
+    Compare {
+        dst: String,
+        op: BinOp,
+        lhs: LoweredValue,
+        rhs: LoweredValue,
+    },
+    Select {
+        dst: String,
+        cond: LoweredValue,
+        then_value: LoweredValue,
+        else_value: LoweredValue,
+    },
+    /// 最小 no-else statement if(GRX-009 segment 3a):`br i1 cond` 分叉到
+    /// `if.then.{id}` / `if.end.{id}` 两 label(`id` 经 [`ComputeLowerCx::block_id`]
+    /// 单调分配,deterministic 且全 body 唯一)。then_ops 复用同一 temp 计数器,
+    /// SSA 名跨块唯一;else / else-if 仍 strict RX6007。
+    If {
+        id: u32,
+        cond: LoweredValue,
+        then_ops: Vec<LoweredComputeOp>,
+    },
+}
+
+#[derive(Debug, Clone)]
+struct LoweredValue {
+    ty: LoweredScalarTy,
+    repr: LoweredValueRepr,
+}
+
+#[derive(Debug, Clone)]
+enum LoweredValueRepr {
+    Const(String),
+    Temp(String),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LoweredScalarTy {
+    F32,
+    I64,
+    Bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ComputeParamKind {
+    ViewF32,
+    ViewMutF32,
+    Scalar,
+    ThreadCtx,
+}
+
+#[derive(Debug, Clone)]
+struct ComputeParamInfo {
+    kind: ComputeParamKind,
+    scalar_ty: Option<LoweredScalarTy>,
+    span: Span,
+}
+
+#[derive(Debug, Default)]
+struct ComputeLowerCx {
+    params: std::collections::HashMap<String, ComputeParamInfo>,
+    locals: std::collections::HashMap<String, LoweredValue>,
+    resources: Vec<LoweredComputeResource>,
+    scalar_params: Vec<LoweredScalarParam>,
+    ops: Vec<LoweredComputeOp>,
+    next_temp: u32,
+    next_block: u32,
+}
+
+fn lower_compute_body_slice1(
+    cx: &QueryCtx<'_>,
+    entry: &Body,
+    f: &crate::ast::FnItem,
+) -> Result<LoweredComputeBody, DxilCodegenError> {
+    let mut lcx = ComputeLowerCx::new(cx, f)?;
+    let Some(body) = f.body.as_ref() else {
+        return Err(DxilCodegenError::unsupported(
+            entry.span,
+            "DXIL compute 入口缺少 body",
+        ));
+    };
+    for stmt in &body.stmts {
+        lower_compute_stmt_slice1(cx, &mut lcx, stmt)?;
+    }
+    if let Some(tail) = &body.tail {
+        // 块形 `if` 在 `}` 前被 parser 收为 body.tail(RXS-0024 同策略):unit tail-if
+        // 走 statement-if lowering,避免落「尾表达式」拒绝;其余 tail 继续 strict RX6007。
+        if let crate::ast::ExprKind::If { cond, then, else_ } = &tail.kind {
+            lower_if_stmt_slice3a(cx, &mut lcx, cond, then, else_)?;
+        } else {
+            return Err(unsupported_expr(tail, "尾表达式"));
+        }
+    }
+    Ok(LoweredComputeBody {
+        resources: lcx.resources,
+        scalar_params: lcx.scalar_params,
+        ops: lcx.ops,
+    })
+}
+
+impl ComputeLowerCx {
+    fn new(cx: &QueryCtx<'_>, f: &crate::ast::FnItem) -> Result<Self, DxilCodegenError> {
+        use crate::ast::ParamKind;
+
+        let mut params = std::collections::HashMap::new();
+        let mut resources = Vec::new();
+        let mut scalar_params = Vec::new();
+        for p in &f.params {
+            let ParamKind::Typed { pat, ty } = &p.kind else {
+                return Err(DxilCodegenError::unsupported(
+                    p.span,
+                    "DXIL compute body lowering slice 1 不支持 self 形参",
+                ));
+            };
+            let Some(name) = ast_pat_binding_name(pat) else {
+                return Err(DxilCodegenError::unsupported(
+                    pat.span,
+                    "DXIL compute body lowering slice 1 仅支持简单绑定形参",
+                ));
+            };
+            let head = ast_ty_head_name(ty).unwrap_or("");
+            let mut scalar_ty = None;
+            let kind = match head {
+                "View" => {
+                    require_view_global_f32(ty)?;
+                    resources.push(LoweredComputeResource {
+                        name: name.clone(),
+                        mutable: false,
+                    });
+                    ComputeParamKind::ViewF32
+                }
+                "ViewMut" => {
+                    require_view_global_f32(ty)?;
+                    resources.push(LoweredComputeResource {
+                        name: name.clone(),
+                        mutable: true,
+                    });
+                    ComputeParamKind::ViewMutF32
+                }
+                "ThreadCtx" => {
+                    require_threadctx_1d(cx, ty)?;
+                    ComputeParamKind::ThreadCtx
+                }
+                "f32" => {
+                    scalar_ty = Some(LoweredScalarTy::F32);
+                    scalar_params.push(LoweredScalarParam {
+                        name: name.clone(),
+                        ty: LoweredScalarTy::F32,
+                    });
+                    ComputeParamKind::Scalar
+                }
+                "usize" | "u32" | "i32" | "u64" | "i64" | "u16" | "i16" | "u8" | "i8" => {
+                    scalar_ty = Some(LoweredScalarTy::I64);
+                    scalar_params.push(LoweredScalarParam {
+                        name: name.clone(),
+                        ty: LoweredScalarTy::I64,
+                    });
+                    ComputeParamKind::Scalar
+                }
+                "bool" => {
+                    scalar_ty = Some(LoweredScalarTy::Bool);
+                    scalar_params.push(LoweredScalarParam {
+                        name: name.clone(),
+                        ty: LoweredScalarTy::Bool,
+                    });
+                    ComputeParamKind::Scalar
+                }
+                "f64" => ComputeParamKind::Scalar,
+                _ => ComputeParamKind::Scalar,
+            };
+            params.insert(
+                name,
+                ComputeParamInfo {
+                    kind,
+                    scalar_ty,
+                    span: ty.span,
+                },
+            );
+        }
+        Ok(Self {
+            params,
+            locals: std::collections::HashMap::new(),
+            resources,
+            scalar_params,
+            ops: Vec::new(),
+            next_temp: 0,
+            next_block: 0,
+        })
+    }
+
+    fn temp(&mut self) -> String {
+        let name = format!("v{}", self.next_temp);
+        self.next_temp += 1;
+        name
+    }
+
+    fn block_id(&mut self) -> u32 {
+        let id = self.next_block;
+        self.next_block += 1;
+        id
+    }
+}
+
+fn lower_compute_stmt_slice1(
+    cx: &QueryCtx<'_>,
+    lcx: &mut ComputeLowerCx,
+    stmt: &crate::ast::Stmt,
+) -> Result<(), DxilCodegenError> {
+    use crate::ast::StmtKind;
+
+    match &stmt.kind {
+        StmtKind::Let(let_stmt) => {
+            if let_stmt.shared {
+                return Err(DxilCodegenError::unsupported(
+                    stmt.span,
+                    "DXIL compute body lowering slice 1 不支持 shared let",
+                ));
+            }
+            let Some(name) = ast_pat_binding_name(&let_stmt.pat) else {
+                return Err(DxilCodegenError::unsupported(
+                    let_stmt.pat.span,
+                    "DXIL compute body lowering slice 1 仅支持简单 let 绑定",
+                ));
+            };
+            let Some(init) = &let_stmt.init else {
+                return Err(DxilCodegenError::unsupported(
+                    stmt.span,
+                    "DXIL compute body lowering slice 1 要求 let 带初始化表达式",
+                ));
+            };
+            let value = lower_scalar_expr_slice3a(cx, lcx, init)?;
+            lcx.locals.insert(name, value);
+            Ok(())
+        }
+        StmtKind::Expr { expr, semi: _ } => lower_compute_expr_stmt_slice1(cx, lcx, expr),
+        StmtKind::Empty => Ok(()),
+        StmtKind::Item(_) => Err(DxilCodegenError::unsupported(
+            stmt.span,
+            "DXIL compute body lowering slice 1 不支持嵌套 item",
+        )),
+    }
+}
+
+fn lower_compute_expr_stmt_slice1(
+    cx: &QueryCtx<'_>,
+    lcx: &mut ComputeLowerCx,
+    expr: &crate::ast::Expr,
+) -> Result<(), DxilCodegenError> {
+    use crate::ast::ExprKind;
+
+    match &expr.kind {
+        ExprKind::Assign { op: None, lhs, rhs } => lower_store_slice1(cx, lcx, lhs, rhs),
+        ExprKind::Assign { op: Some(_), .. } => Err(DxilCodegenError::unsupported(
+            expr.span,
+            "DXIL compute body lowering slice 1 不支持复合赋值",
+        )),
+        ExprKind::While { .. } => Err(DxilCodegenError::unsupported(
+            expr.span,
+            "DXIL compute body lowering slice 1 不支持 while",
+        )),
+        ExprKind::If { cond, then, else_ } => lower_if_stmt_slice3a(cx, lcx, cond, then, else_),
+        ExprKind::For { .. } | ExprKind::Loop { .. } | ExprKind::Match { .. } => {
+            Err(DxilCodegenError::unsupported(
+                expr.span,
+                "DXIL compute body lowering slice 1 不支持复杂控制流",
+            ))
+        }
+        _ => Err(unsupported_expr(expr, "表达式语句")),
+    }
+}
+
+fn lower_store_slice1(
+    cx: &QueryCtx<'_>,
+    lcx: &mut ComputeLowerCx,
+    lhs: &crate::ast::Expr,
+    rhs: &crate::ast::Expr,
+) -> Result<(), DxilCodegenError> {
+    let (resource, index) = lower_index_lvalue_slice1(cx, lcx, lhs)?;
+    match lcx.params.get(&resource) {
+        Some(info) if info.kind == ComputeParamKind::ViewMutF32 => {}
+        Some(info) => {
+            return Err(DxilCodegenError::unsupported(
+                info.span,
+                "DXIL compute body lowering slice 1 store 目标必须是 ViewMut<global, f32>",
+            ));
+        }
+        None => {
+            return Err(DxilCodegenError::unsupported(
+                lhs.span,
+                "DXIL compute body lowering slice 1 store 目标必须是资源形参",
+            ));
+        }
+    }
+    let value = lower_f32_expr_slice1(cx, lcx, rhs)?;
+    // ptr temp 在 rhs 之后分配,保持 IR 文本内 temp 编号单调。
+    let ptr = lcx.temp();
+    lcx.ops.push(LoweredComputeOp::Store {
+        ptr,
+        resource,
+        index,
+        value,
+    });
+    Ok(())
+}
+
+fn lower_f32_expr_slice1(
+    cx: &QueryCtx<'_>,
+    lcx: &mut ComputeLowerCx,
+    expr: &crate::ast::Expr,
+) -> Result<LoweredValue, DxilCodegenError> {
+    let value = lower_scalar_expr_slice3a(cx, lcx, expr)?;
+    if value.ty != LoweredScalarTy::F32 {
+        return Err(DxilCodegenError::unsupported(
+            expr.span,
+            "DXIL compute body lowering slice 3a store 仅支持 f32 值",
+        ));
+    }
+    Ok(value)
+}
+
+fn lower_scalar_expr_slice3a(
+    cx: &QueryCtx<'_>,
+    lcx: &mut ComputeLowerCx,
+    expr: &crate::ast::Expr,
+) -> Result<LoweredValue, DxilCodegenError> {
+    use crate::ast::ExprKind;
+
+    match &expr.kind {
+        ExprKind::Paren(inner) => lower_scalar_expr_slice3a(cx, lcx, inner),
+        ExprKind::Lit(lit) if lit.kind == LitKind::Float => Ok(LoweredValue::constant(
+            LoweredScalarTy::F32,
+            parse_f32_lit_text(cx, lit)?,
+        )),
+        ExprKind::Lit(lit) if lit.kind == LitKind::Int => Ok(LoweredValue::constant(
+            LoweredScalarTy::I64,
+            parse_i64_lit_text(cx, lit)?.to_string(),
+        )),
+        ExprKind::Path(path) => {
+            let Some(name) = single_path_name(path) else {
+                return Err(unsupported_expr(expr, "复杂路径"));
+            };
+            if let Some(value) = lcx.locals.get(name) {
+                return Ok(value.clone());
+            }
+            match lcx.params.get(name) {
+                Some(info) if info.kind == ComputeParamKind::ThreadCtx => {
+                    Err(DxilCodegenError::unsupported(
+                        info.span,
+                        "DXIL compute body lowering slice 1 不支持 ThreadCtx body lowering",
+                    ))
+                }
+                Some(info) if info.kind == ComputeParamKind::Scalar => {
+                    let Some(ty) = info.scalar_ty else {
+                        return Err(DxilCodegenError::unsupported(
+                            info.span,
+                            "DXIL compute body lowering slice 3a 不支持该标量形参类型",
+                        ));
+                    };
+                    let dst = lcx.temp();
+                    lcx.ops.push(LoweredComputeOp::ScalarParam {
+                        dst: dst.clone(),
+                        name: name.to_owned(),
+                        ty,
+                    });
+                    Ok(LoweredValue::temp(ty, dst))
+                }
+                Some(_) => Err(DxilCodegenError::unsupported(
+                    expr.span,
+                    "DXIL compute body lowering slice 3a 不支持直接读取资源句柄",
+                )),
+                None => Err(DxilCodegenError::unsupported(
+                    expr.span,
+                    "DXIL compute body lowering slice 1 遇到未知局部",
+                )),
+            }
+        }
+        ExprKind::Index { expr: base, index } => lower_load_slice1(cx, lcx, base, index),
+        ExprKind::MethodCall {
+            receiver,
+            method,
+            generic_args,
+            args,
+        } if path_expr_name(receiver).is_some_and(|name| {
+            lcx.params
+                .get(name)
+                .is_some_and(|info| info.kind == ComputeParamKind::ThreadCtx)
+        }) && method.name == "global_id"
+            && generic_args.is_none()
+            && args.is_empty() =>
+        {
+            let dst = lcx.temp();
+            lcx.ops
+                .push(LoweredComputeOp::ThreadGlobalId { dst: dst.clone() });
+            Ok(LoweredValue::temp(LoweredScalarTy::I64, dst))
+        }
+        ExprKind::Binary { op, lhs, rhs } => {
+            if matches!(
+                op,
+                BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Gt | BinOp::Le | BinOp::Ge
+            ) {
+                let (lhs, rhs) = lower_compatible_binary_operands(cx, lcx, lhs, rhs)?;
+                if lhs.ty == LoweredScalarTy::Bool {
+                    return Err(DxilCodegenError::unsupported(
+                        expr.span,
+                        "DXIL compute body lowering slice 3a 不支持 bool 比较",
+                    ));
+                }
+                let dst = lcx.temp();
+                lcx.ops.push(LoweredComputeOp::Compare {
+                    dst: dst.clone(),
+                    op: *op,
+                    lhs,
+                    rhs,
+                });
+                return Ok(LoweredValue::temp(LoweredScalarTy::Bool, dst));
+            }
+            if !matches!(
+                op,
+                BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div | BinOp::Rem
+            ) {
+                return Err(DxilCodegenError::unsupported(
+                    expr.span,
+                    "DXIL compute body lowering slice 3a 仅支持标量 + - * / 与简单比较",
+                ));
+            }
+            let (lhs, rhs) = lower_compatible_binary_operands(cx, lcx, lhs, rhs)?;
+            if lhs.ty == LoweredScalarTy::Bool {
+                return Err(DxilCodegenError::unsupported(
+                    expr.span,
+                    "DXIL compute body lowering slice 3a 不支持 bool 算术",
+                ));
+            }
+            if *op == BinOp::Rem && lhs.ty != LoweredScalarTy::I64 {
+                return Err(DxilCodegenError::unsupported(
+                    expr.span,
+                    "DXIL compute body lowering slice 3a 仅支持整数 `%` 取模(modulo)",
+                ));
+            }
+            let ty = lhs.ty;
+            let dst = lcx.temp();
+            lcx.ops.push(LoweredComputeOp::Binary {
+                dst: dst.clone(),
+                op: *op,
+                lhs,
+                rhs,
+            });
+            Ok(LoweredValue::temp(ty, dst))
+        }
+        ExprKind::While { .. } => Err(DxilCodegenError::unsupported(
+            expr.span,
+            "DXIL compute body lowering slice 1 不支持 while",
+        )),
+        ExprKind::If { cond, then, else_ } => {
+            lower_select_expr_slice3a(cx, lcx, expr.span, cond, then, else_)
+        }
+        ExprKind::For { .. } | ExprKind::Loop { .. } | ExprKind::Match { .. } => {
+            Err(DxilCodegenError::unsupported(
+                expr.span,
+                "DXIL compute body lowering slice 1 不支持复杂控制流",
+            ))
+        }
+        _ => Err(unsupported_expr(expr, "f32 表达式")),
+    }
+}
+
+impl LoweredValue {
+    fn constant(ty: LoweredScalarTy, value: String) -> Self {
+        Self {
+            ty,
+            repr: LoweredValueRepr::Const(value),
+        }
+    }
+
+    fn temp(ty: LoweredScalarTy, name: String) -> Self {
+        Self {
+            ty,
+            repr: LoweredValueRepr::Temp(name),
+        }
+    }
+}
+
+fn lower_compatible_binary_operands(
+    cx: &QueryCtx<'_>,
+    lcx: &mut ComputeLowerCx,
+    lhs: &crate::ast::Expr,
+    rhs: &crate::ast::Expr,
+) -> Result<(LoweredValue, LoweredValue), DxilCodegenError> {
+    let span = lhs.span.to(rhs.span);
+    let lhs = lower_scalar_expr_slice3a(cx, lcx, lhs)?;
+    let rhs = lower_scalar_expr_slice3a(cx, lcx, rhs)?;
+    coerce_binary_values(lhs, rhs, span)
+}
+
+fn coerce_binary_values(
+    lhs: LoweredValue,
+    rhs: LoweredValue,
+    span: Span,
+) -> Result<(LoweredValue, LoweredValue), DxilCodegenError> {
+    if lhs.ty == rhs.ty {
+        return Ok((lhs, rhs));
+    }
+    if lhs.ty == LoweredScalarTy::F32 && matches!(rhs.repr, LoweredValueRepr::Const(_)) {
+        return Ok((lhs, rhs.with_ty(LoweredScalarTy::F32)));
+    }
+    if rhs.ty == LoweredScalarTy::F32 && matches!(lhs.repr, LoweredValueRepr::Const(_)) {
+        return Ok((lhs.with_ty(LoweredScalarTy::F32), rhs));
+    }
+    Err(DxilCodegenError::unsupported(
+        span,
+        "DXIL compute body lowering slice 3a 不支持类型不一致的标量表达式",
+    ))
+}
+
+impl LoweredValue {
+    fn with_ty(mut self, ty: LoweredScalarTy) -> Self {
+        self.ty = ty;
+        self
+    }
+}
+
+fn lower_select_expr_slice3a(
+    cx: &QueryCtx<'_>,
+    lcx: &mut ComputeLowerCx,
+    span: Span,
+    cond: &crate::ast::Expr,
+    then: &crate::ast::Block,
+    else_: &Option<Box<crate::ast::Expr>>,
+) -> Result<LoweredValue, DxilCodegenError> {
+    if !then.stmts.is_empty() {
+        return Err(DxilCodegenError::unsupported(
+            then.span,
+            "DXIL compute body lowering slice 3a 仅支持无语句 if 表达式 then block",
+        ));
+    }
+    let Some(then_tail) = &then.tail else {
+        return Err(DxilCodegenError::unsupported(
+            then.span,
+            "DXIL compute body lowering slice 3a 要求 if then block 带标量尾表达式",
+        ));
+    };
+    let Some(else_expr) = else_ else {
+        return Err(DxilCodegenError::unsupported(
+            span,
+            "DXIL compute body lowering slice 3a 要求 if 表达式带 else",
+        ));
+    };
+    let else_tail = match &else_expr.kind {
+        crate::ast::ExprKind::Block(block) if block.stmts.is_empty() => {
+            block.tail.as_deref().ok_or_else(|| {
+                DxilCodegenError::unsupported(
+                    block.span,
+                    "DXIL compute body lowering slice 3a 要求 if else block 带标量尾表达式",
+                )
+            })?
+        }
+        crate::ast::ExprKind::Block(block) => {
+            return Err(DxilCodegenError::unsupported(
+                block.span,
+                "DXIL compute body lowering slice 3a 仅支持无语句 if 表达式 else block",
+            ));
+        }
+        crate::ast::ExprKind::If { .. } => {
+            return Err(DxilCodegenError::unsupported(
+                else_expr.span,
+                "DXIL compute body lowering slice 3a 不支持 else-if 复杂控制流",
+            ));
+        }
+        _ => else_expr.as_ref(),
+    };
+    let cond_value = lower_scalar_expr_slice3a(cx, lcx, cond)?;
+    if cond_value.ty != LoweredScalarTy::Bool {
+        return Err(DxilCodegenError::unsupported(
+            cond.span,
+            "DXIL compute body lowering slice 3a if 条件必须是 bool 比较结果",
+        ));
+    }
+    let then_value = lower_scalar_expr_slice3a(cx, lcx, then_tail)?;
+    let else_value = lower_scalar_expr_slice3a(cx, lcx, else_tail)?;
+    let (then_value, else_value) = coerce_binary_values(then_value, else_value, span)?;
+    if then_value.ty == LoweredScalarTy::Bool {
+        return Err(DxilCodegenError::unsupported(
+            span,
+            "DXIL compute body lowering slice 3a 不支持 bool select 结果",
+        ));
+    }
+    let ty = then_value.ty;
+    let dst = lcx.temp();
+    lcx.ops.push(LoweredComputeOp::Select {
+        dst: dst.clone(),
+        cond: cond_value,
+        then_value,
+        else_value,
+    });
+    Ok(LoweredValue::temp(ty, dst))
+}
+
+/// 最小 no-else statement if lowering(GRX-009 segment 3a):`if cond { stmts }` 作
+/// unit 语句(语句位 + 函数体 tail 位共用)。cond 须现有 bool compare lowering 结果;
+/// then block 逐句复用 [`lower_compute_stmt_slice1`](modulo / while / mutable
+/// assignment / dynamic index 等子集外构造继续 strict RX6007);else / else-if 与
+/// then block 尾表达式继续 strict RX6007,禁止静默降级。
+fn lower_if_stmt_slice3a(
+    cx: &QueryCtx<'_>,
+    lcx: &mut ComputeLowerCx,
+    cond: &crate::ast::Expr,
+    then: &crate::ast::Block,
+    else_: &Option<Box<crate::ast::Expr>>,
+) -> Result<(), DxilCodegenError> {
+    if let Some(else_expr) = else_ {
+        return Err(DxilCodegenError::unsupported(
+            else_expr.span,
+            "DXIL compute body lowering slice 3a statement if 不支持 else / else-if",
+        ));
+    }
+    let cond_value = lower_scalar_expr_slice3a(cx, lcx, cond)?;
+    if cond_value.ty != LoweredScalarTy::Bool {
+        return Err(DxilCodegenError::unsupported(
+            cond.span,
+            "DXIL compute body lowering slice 3a if 条件必须是 bool 比较结果",
+        ));
+    }
+    // then block 换缓冲收集 ops;locals 快照/恢复(then 内 let 不外泄,块外引用
+    // then 定义会违反 SSA 支配关系,strict 归「未知局部」)。temp 计数器共享,
+    // SSA 名跨块唯一。
+    let saved_locals = lcx.locals.clone();
+    let outer_ops = std::mem::take(&mut lcx.ops);
+    let mut lowered = Ok(());
+    for stmt in &then.stmts {
+        lowered = lower_compute_stmt_slice1(cx, lcx, stmt);
+        if lowered.is_err() {
+            break;
+        }
+    }
+    if lowered.is_ok()
+        && let Some(then_tail) = &then.tail
+    {
+        lowered = Err(DxilCodegenError::unsupported(
+            then_tail.span,
+            "DXIL compute body lowering slice 3a statement if then block 不支持尾表达式",
+        ));
+    }
+    let then_ops = std::mem::replace(&mut lcx.ops, outer_ops);
+    lcx.locals = saved_locals;
+    lowered?;
+    let id = lcx.block_id();
+    lcx.ops.push(LoweredComputeOp::If {
+        id,
+        cond: cond_value,
+        then_ops,
+    });
+    Ok(())
+}
+
+fn lower_load_slice1(
+    cx: &QueryCtx<'_>,
+    lcx: &mut ComputeLowerCx,
+    base: &crate::ast::Expr,
+    index: &crate::ast::Expr,
+) -> Result<LoweredValue, DxilCodegenError> {
+    let Some(resource) = path_expr_name(base) else {
+        return Err(unsupported_expr(base, "资源索引基址"));
+    };
+    match lcx.params.get(resource) {
+        Some(info) if info.kind == ComputeParamKind::ViewF32 => {}
+        Some(info) if info.kind == ComputeParamKind::ThreadCtx => {
+            return Err(DxilCodegenError::unsupported(
+                info.span,
+                "DXIL compute body lowering slice 1 不支持 ThreadCtx body lowering",
+            ));
+        }
+        Some(info) => {
+            return Err(DxilCodegenError::unsupported(
+                info.span,
+                "DXIL compute body lowering slice 1 load 源必须是 View<global, f32>",
+            ));
+        }
+        None => {
+            return Err(DxilCodegenError::unsupported(
+                base.span,
+                "DXIL compute body lowering slice 1 load 源必须是资源形参",
+            ));
+        }
+    }
+    let index = lower_resource_index_slice1(cx, index)?;
+    let dst = lcx.temp();
+    lcx.ops.push(LoweredComputeOp::Load {
+        dst: dst.clone(),
+        resource: resource.to_owned(),
+        index,
+    });
+    Ok(LoweredValue::temp(LoweredScalarTy::F32, dst))
+}
+
+fn lower_index_lvalue_slice1(
+    cx: &QueryCtx<'_>,
+    _lcx: &ComputeLowerCx,
+    expr: &crate::ast::Expr,
+) -> Result<(String, u64), DxilCodegenError> {
+    use crate::ast::ExprKind;
+
+    match &expr.kind {
+        ExprKind::Index { expr: base, index } => {
+            let Some(resource) = path_expr_name(base) else {
+                return Err(unsupported_expr(base, "store 资源基址"));
+            };
+            Ok((resource.to_owned(), lower_resource_index_slice1(cx, index)?))
+        }
+        _ => Err(unsupported_expr(expr, "store 左值")),
+    }
+}
+
+/// 资源常量索引(load/store 共用):slice 1 资源 global 恒 `[1 x float]`,仅索引 0
+/// 在界内;非 0 常量索引 strict reject(RX6007),不产越界 inbounds GEP。
+fn lower_resource_index_slice1(
+    cx: &QueryCtx<'_>,
+    expr: &crate::ast::Expr,
+) -> Result<u64, DxilCodegenError> {
+    let index = lower_usize_const_slice1(cx, expr)?;
+    if index != 0 {
+        return Err(DxilCodegenError::unsupported(
+            expr.span,
+            format!(
+                "DXIL compute body lowering slice 1 仅支持资源常量索引 0(资源 global 为 [1 x float],索引 {index} 越界)"
+            ),
+        ));
+    }
+    Ok(index)
+}
+
+fn lower_usize_const_slice1(
+    cx: &QueryCtx<'_>,
+    expr: &crate::ast::Expr,
+) -> Result<u64, DxilCodegenError> {
+    use crate::ast::ExprKind;
+
+    match &expr.kind {
+        ExprKind::Paren(inner) => lower_usize_const_slice1(cx, inner),
+        ExprKind::Lit(lit) if lit.kind == LitKind::Int => parse_usize_lit_text(cx, lit),
+        ExprKind::Binary { op, lhs, rhs } => {
+            let lhs = lower_usize_const_slice1(cx, lhs)?;
+            let rhs = lower_usize_const_slice1(cx, rhs)?;
+            match op {
+                BinOp::Add => lhs.checked_add(rhs),
+                BinOp::Sub => lhs.checked_sub(rhs),
+                BinOp::Mul => lhs.checked_mul(rhs),
+                BinOp::Div if rhs != 0 => Some(lhs / rhs),
+                _ => None,
+            }
+            .ok_or_else(|| {
+                DxilCodegenError::unsupported(
+                    expr.span,
+                    "DXIL compute body lowering slice 1 不支持该 usize 常量算术",
+                )
+            })
+        }
+        _ => Err(unsupported_expr(expr, "usize 常量索引")),
+    }
+}
+
+fn require_view_global_f32(ty: &crate::ast::Ty) -> Result<(), DxilCodegenError> {
+    let Some(args) = ast_ty_path_args(ty) else {
+        return Err(DxilCodegenError::unsupported(
+            ty.span,
+            "DXIL compute body lowering slice 1 要求 View/ViewMut 带 <global, f32>",
+        ));
+    };
+    if args.len() != 2
+        || !generic_arg_is_type_path(&args[0], "global")
+        || !generic_arg_is_type_path(&args[1], "f32")
+    {
+        return Err(DxilCodegenError::unsupported(
+            ty.span,
+            "DXIL compute body lowering slice 1 仅支持 View<global, f32> / ViewMut<global, f32>",
+        ));
+    }
+    Ok(())
+}
+
+fn require_threadctx_1d(cx: &QueryCtx<'_>, ty: &crate::ast::Ty) -> Result<(), DxilCodegenError> {
+    let Some(args) = ast_ty_path_args(ty) else {
+        return Err(DxilCodegenError::unsupported(
+            ty.span,
+            "DXIL compute body lowering slice 3a 仅支持 ThreadCtx<1>",
+        ));
+    };
+    if args.len() != 1 || !generic_arg_is_int(cx, args.first().unwrap(), "1") {
+        return Err(DxilCodegenError::unsupported(
+            ty.span,
+            "DXIL compute body lowering slice 3a 仅支持 ThreadCtx<1>",
+        ));
+    }
+    Ok(())
+}
+
+fn ast_ty_path_args(ty: &crate::ast::Ty) -> Option<&[crate::ast::GenericArg]> {
+    use crate::ast::TyKind;
+
+    match &ty.kind {
+        TyKind::Path(p) => p
+            .segments
+            .last()?
+            .args
+            .as_ref()
+            .map(|args| args.args.as_slice()),
+        TyKind::Paren(inner) | TyKind::Ref { inner, .. } | TyKind::RawPtr { inner, .. } => {
+            ast_ty_path_args(inner)
+        }
+        _ => None,
+    }
+}
+
+fn generic_arg_is_type_path(arg: &crate::ast::GenericArg, name: &str) -> bool {
+    matches!(arg, crate::ast::GenericArg::Type(ty) if ast_ty_head_name(ty) == Some(name))
+}
+
+fn generic_arg_is_int(cx: &QueryCtx<'_>, arg: &crate::ast::GenericArg, expected: &str) -> bool {
+    match arg {
+        crate::ast::GenericArg::Type(ty) => ty_const_arg_lit(ty).is_some_and(|lit| {
+            lit.kind == LitKind::Int
+                && strip_int_suffix(lit_text(cx, lit.span).trim()).trim() == expected
+        }),
+        crate::ast::GenericArg::Const(expr) => expr_int_lit(expr).is_some_and(|lit| {
+            lit.kind == LitKind::Int
+                && strip_int_suffix(lit_text(cx, lit.span).trim()).trim() == expected
+        }),
+        crate::ast::GenericArg::Lifetime(_) => false,
+    }
+}
+
+fn ty_const_arg_lit(ty: &crate::ast::Ty) -> Option<&crate::ast::Lit> {
+    match &ty.kind {
+        crate::ast::TyKind::ConstArg(lit) => Some(lit),
+        crate::ast::TyKind::Paren(inner) => ty_const_arg_lit(inner),
+        _ => None,
+    }
+}
+
+fn expr_int_lit(expr: &crate::ast::Expr) -> Option<&crate::ast::Lit> {
+    match &expr.kind {
+        crate::ast::ExprKind::Lit(lit) => Some(lit),
+        crate::ast::ExprKind::Paren(inner) => expr_int_lit(inner),
+        _ => None,
+    }
+}
+
+fn parse_usize_lit_text(cx: &QueryCtx<'_>, lit: &crate::ast::Lit) -> Result<u64, DxilCodegenError> {
+    let text = lit_text(cx, lit.span).replace('_', "");
+    let digits = strip_int_suffix(&text);
+    digits.parse::<u64>().map_err(|_| {
+        DxilCodegenError::unsupported(
+            lit.span,
+            "DXIL compute body lowering slice 1 无法解析 usize 常量",
+        )
+    })
+}
+
+fn parse_i64_lit_text(cx: &QueryCtx<'_>, lit: &crate::ast::Lit) -> Result<i64, DxilCodegenError> {
+    let text = lit_text(cx, lit.span).replace('_', "");
+    let digits = strip_int_suffix(&text);
+    digits.parse::<i64>().map_err(|_| {
+        DxilCodegenError::unsupported(
+            lit.span,
+            "DXIL compute body lowering slice 3a 无法解析整数常量",
+        )
+    })
+}
+
+fn parse_f32_lit_text(
+    cx: &QueryCtx<'_>,
+    lit: &crate::ast::Lit,
+) -> Result<String, DxilCodegenError> {
+    let text = lit_text(cx, lit.span).replace('_', "");
+    let value = match lit.kind {
+        LitKind::Int => strip_int_suffix(&text).parse::<f32>(),
+        LitKind::Float => strip_float_suffix(&text, lit.suffix).parse::<f32>(),
+        _ => unreachable!(),
+    }
+    .map_err(|_| {
+        DxilCodegenError::unsupported(
+            lit.span,
+            "DXIL compute body lowering slice 1 无法解析 f32 常量",
+        )
+    })?;
+    Ok(format_f32_const(value))
+}
+
+fn lit_text(cx: &QueryCtx<'_>, span: Span) -> String {
+    let src = cx.src();
+    let lo = span.lo.0 as usize;
+    let hi = span.hi.0 as usize;
+    src.get(lo..hi.min(src.len()))
+        .unwrap_or("")
+        .trim()
+        .to_owned()
+}
+
+fn strip_int_suffix(text: &str) -> &str {
+    for suffix in [
+        "usize", "u64", "u32", "u16", "u8", "i64", "i32", "i16", "i8",
+    ] {
+        if let Some(stripped) = text.strip_suffix(suffix) {
+            return stripped;
+        }
+    }
+    text
+}
+
+fn strip_float_suffix(text: &str, suffix: Option<LitSuffix>) -> &str {
+    match suffix {
+        Some(LitSuffix::F32) => text.strip_suffix("f32").unwrap_or(text),
+        Some(LitSuffix::F64) => text.strip_suffix("f64").unwrap_or(text),
+        _ => text,
+    }
+}
+
+fn format_f32_const(value: f32) -> String {
+    if value.fract() == 0.0 {
+        format!("{value:.1}")
+    } else {
+        value.to_string()
+    }
+}
+
+fn path_expr_name(expr: &crate::ast::Expr) -> Option<&str> {
+    use crate::ast::ExprKind;
+
+    match &expr.kind {
+        ExprKind::Path(path) => single_path_name(path),
+        ExprKind::Paren(inner) => path_expr_name(inner),
+        _ => None,
+    }
+}
+
+fn single_path_name(path: &crate::ast::Path) -> Option<&str> {
+    if path.segments.len() == 1 {
+        Some(path.segments[0].ident.name.as_str())
+    } else {
+        None
+    }
+}
+
+fn unsupported_expr(expr: &crate::ast::Expr, context: &str) -> DxilCodegenError {
+    DxilCodegenError::unsupported(
+        expr.span,
+        format!("DXIL compute body lowering slice 1 不支持{context}"),
+    )
+}
+
+/// 单个 compute kernel body → DXIL DirectX 三元组 LLVM IR 文本(空入口)。
+/// artifact 路径使用 [`emit_dxil_ir_with_body`] 承载 RD-013 slice 1 body lowering;
+/// 此公开入口保留给既有 A 路分发/单测的最小空体渲染。
+pub fn emit_dxil_ir(body: &Body, module_name: &str) -> Result<String, DxilCodegenError> {
+    Ok(render_dxil_module(
+        &body.symbol,
+        module_name,
+        &LoweredComputeBody::default(),
+    ))
+}
+
+fn emit_dxil_ir_with_body(
+    body: &Body,
+    module_name: &str,
+    lowered_body: &LoweredComputeBody,
+) -> Result<String, DxilCodegenError> {
+    Ok(render_dxil_module(&body.symbol, module_name, lowered_body))
+}
+
+/// DirectX 三元组 LLVM IR 文本(空入口或 RD-013 slice 1 body)。形态对齐 LLVM DirectX
+/// 后端 emit 期望(shadermodel6.0-compute 三元组 + DXIL 数据布局 + `hlsl.shader`/
+/// `hlsl.numthreads` 入口属性)。当前 body IR 仅是最小可观察 lowering 接缝,不等同于
+/// 已验证 DXIL container 或 Godot resource mapping。
+fn render_dxil_module(
+    entry_symbol: &str,
+    module_name: &str,
+    lowered_body: &LoweredComputeBody,
+) -> String {
     let mut out = String::new();
     let _ = writeln!(out, "; ModuleID = '{module_name}'");
     let _ = writeln!(out, "source_filename = \"{module_name}\"");
@@ -130,8 +1388,35 @@ fn render_dxil_module(entry_symbol: &str, module_name: &str) -> String {
         "target triple = \"dxil-unknown-shadermodel6.0-compute\""
     );
     out.push('\n');
+    for resource in &lowered_body.resources {
+        let qualifier = if resource.mutable { "uav" } else { "srv" };
+        let _ = writeln!(
+            out,
+            "@rx_{name}_{qualifier} = external addrspace(1) global [1 x float]",
+            name = resource.name
+        );
+    }
+    for scalar in &lowered_body.scalar_params {
+        let _ = writeln!(
+            out,
+            "@rx_{name}_root_constant = external global {ty}",
+            name = scalar.name,
+            ty = render_scalar_ty(scalar.ty)
+        );
+    }
+    if !lowered_body.resources.is_empty() || !lowered_body.scalar_params.is_empty() {
+        out.push('\n');
+    }
+    if lowered_body
+        .ops
+        .iter()
+        .any(|op| matches!(op, LoweredComputeOp::ThreadGlobalId { .. }))
+    {
+        out.push_str("declare i32 @rx.dxil.thread_id.x()\n\n");
+    }
     let _ = writeln!(out, "define void @{entry_symbol}() #0 {{");
     out.push_str("entry:\n");
+    render_lowered_compute_ops(&mut out, lowered_body);
     out.push_str("  ret void\n");
     out.push_str("}\n");
     out.push('\n');
@@ -139,6 +1424,153 @@ fn render_dxil_module(entry_symbol: &str, module_name: &str) -> String {
         "attributes #0 = { noinline nounwind \"hlsl.numthreads\"=\"1,1,1\" \"hlsl.shader\"=\"compute\" }\n",
     );
     out
+}
+
+fn render_lowered_compute_ops(out: &mut String, body: &LoweredComputeBody) {
+    render_lowered_ops(out, &body.ops);
+}
+
+fn render_lowered_ops(out: &mut String, ops: &[LoweredComputeOp]) {
+    for op in ops {
+        match op {
+            LoweredComputeOp::Load {
+                dst,
+                resource,
+                index,
+            } => {
+                let _ = writeln!(
+                    out,
+                    "  %{dst}.ptr = getelementptr inbounds [1 x float], ptr addrspace(1) @rx_{resource}_srv, i32 0, i32 {index}"
+                );
+                let _ = writeln!(out, "  %{dst} = load float, ptr addrspace(1) %{dst}.ptr");
+            }
+            LoweredComputeOp::Store {
+                ptr,
+                resource,
+                index,
+                value,
+            } => {
+                let _ = writeln!(
+                    out,
+                    "  %{ptr}.ptr = getelementptr inbounds [1 x float], ptr addrspace(1) @rx_{resource}_uav, i32 0, i32 {index}"
+                );
+                let _ = writeln!(
+                    out,
+                    "  store float {}, ptr addrspace(1) %{ptr}.ptr",
+                    render_lowered_value(value)
+                );
+            }
+            LoweredComputeOp::Binary { dst, op, lhs, rhs } => {
+                let opcode = match (lhs.ty, *op) {
+                    (LoweredScalarTy::F32, BinOp::Add) => "fadd",
+                    (LoweredScalarTy::F32, BinOp::Sub) => "fsub",
+                    (LoweredScalarTy::F32, BinOp::Mul) => "fmul",
+                    (LoweredScalarTy::F32, BinOp::Div) => "fdiv",
+                    (LoweredScalarTy::I64, BinOp::Add) => "add",
+                    (LoweredScalarTy::I64, BinOp::Sub) => "sub",
+                    (LoweredScalarTy::I64, BinOp::Mul) => "mul",
+                    (LoweredScalarTy::I64, BinOp::Div) => "sdiv",
+                    (LoweredScalarTy::I64, BinOp::Rem) => "srem",
+                    _ => unreachable!(),
+                };
+                let _ = writeln!(
+                    out,
+                    "  %{dst} = {opcode} {ty} {}, {}",
+                    render_lowered_value(lhs),
+                    render_lowered_value(rhs),
+                    ty = render_scalar_ty(lhs.ty)
+                );
+            }
+            LoweredComputeOp::ScalarParam { dst, name, ty } => {
+                let _ = writeln!(
+                    out,
+                    "  %{dst} = load {ty}, ptr @rx_{name}_root_constant",
+                    ty = render_scalar_ty(*ty)
+                );
+            }
+            LoweredComputeOp::ThreadGlobalId { dst } => {
+                let _ = writeln!(out, "  %{dst}.u32 = call i32 @rx.dxil.thread_id.x()");
+                let _ = writeln!(out, "  %{dst} = zext i32 %{dst}.u32 to i64");
+            }
+            LoweredComputeOp::Compare { dst, op, lhs, rhs } => {
+                let pred = render_compare_predicate(lhs.ty, *op);
+                let _ = writeln!(
+                    out,
+                    "  %{dst} = {cmp} {pred} {ty} {}, {}",
+                    render_lowered_value(lhs),
+                    render_lowered_value(rhs),
+                    cmp = if lhs.ty == LoweredScalarTy::F32 {
+                        "fcmp"
+                    } else {
+                        "icmp"
+                    },
+                    ty = render_scalar_ty(lhs.ty)
+                );
+            }
+            LoweredComputeOp::Select {
+                dst,
+                cond,
+                then_value,
+                else_value,
+            } => {
+                let _ = writeln!(
+                    out,
+                    "  %{dst} = select i1 {}, {ty} {}, {ty} {}",
+                    render_lowered_value(cond),
+                    render_lowered_value(then_value),
+                    render_lowered_value(else_value),
+                    ty = render_scalar_ty(then_value.ty)
+                );
+            }
+            LoweredComputeOp::If { id, cond, then_ops } => {
+                let _ = writeln!(
+                    out,
+                    "  br i1 {}, label %if.then.{id}, label %if.end.{id}",
+                    render_lowered_value(cond)
+                );
+                let _ = writeln!(out, "if.then.{id}:");
+                render_lowered_ops(out, then_ops);
+                let _ = writeln!(out, "  br label %if.end.{id}");
+                let _ = writeln!(out, "if.end.{id}:");
+            }
+        }
+    }
+}
+
+fn render_lowered_value(value: &LoweredValue) -> String {
+    match &value.repr {
+        LoweredValueRepr::Const(v) => match value.ty {
+            LoweredScalarTy::F32 => format_f32_const(v.parse::<f32>().unwrap_or(0.0)),
+            LoweredScalarTy::I64 | LoweredScalarTy::Bool => v.clone(),
+        },
+        LoweredValueRepr::Temp(v) => format!("%{v}"),
+    }
+}
+
+fn render_scalar_ty(ty: LoweredScalarTy) -> &'static str {
+    match ty {
+        LoweredScalarTy::F32 => "float",
+        LoweredScalarTy::I64 => "i64",
+        LoweredScalarTy::Bool => "i1",
+    }
+}
+
+fn render_compare_predicate(ty: LoweredScalarTy, op: BinOp) -> &'static str {
+    match (ty, op) {
+        (LoweredScalarTy::F32, BinOp::Eq) => "oeq",
+        (LoweredScalarTy::F32, BinOp::Ne) => "one",
+        (LoweredScalarTy::F32, BinOp::Lt) => "olt",
+        (LoweredScalarTy::F32, BinOp::Gt) => "ogt",
+        (LoweredScalarTy::F32, BinOp::Le) => "ole",
+        (LoweredScalarTy::F32, BinOp::Ge) => "oge",
+        (LoweredScalarTy::I64, BinOp::Eq) => "eq",
+        (LoweredScalarTy::I64, BinOp::Ne) => "ne",
+        (LoweredScalarTy::I64, BinOp::Lt) => "slt",
+        (LoweredScalarTy::I64, BinOp::Gt) => "sgt",
+        (LoweredScalarTy::I64, BinOp::Le) => "sle",
+        (LoweredScalarTy::I64, BinOp::Ge) => "sge",
+        _ => unreachable!(),
+    }
 }
 
 // ===========================================================================
@@ -211,7 +1643,36 @@ pub enum DxilBOutcome {
     Skipped(String),
 }
 
-/// B 链跑链体内部结果(签名 / SKIP;RTS0 由 [`emit_dxil_b`] 在 host 侧另行推导组装)。
+/// 统一的 B 路编译产物包。
+///
+/// 单次 B 链执行可同时拿到译后签名、host 侧推导的 root signature、经校验门接受的
+/// dumpbin 反汇编文本与 DXIL 容器字节。公开包装器按各自用途从此结构取字段,避免
+/// 再各自重跑或重写同一条生产链。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DxilBArtifacts {
+    /// 该次编译对应的图形阶段。
+    pub stage: ShaderStage,
+    /// B 链译后签名(ISG1/OSG1)。
+    pub sigs: DxilSignatures,
+    /// host 侧推导序列化的 RTS0 root signature 容器。
+    pub root_signature: Vec<u8>,
+    /// 经校验门接受的 dumpbin 反汇编文本。
+    pub disasm: String,
+    /// 经校验门接受的 DXIL 容器字节。
+    pub dxil: Vec<u8>,
+}
+
+/// 统一 B 路编译入口的结果:成功产统一产物包或因工具链不可用而 SKIP。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DxilBCompileResult {
+    /// B 链跑通,产出完整 artifacts。
+    Produced(DxilBArtifacts),
+    /// 工具链不可用(定位失败 / spawn 失败 / 临时文件失败)→ SKIP(非 6xxx)。
+    Skipped(String),
+}
+
+/// B 链跑链体内部结果(译后签名 / 文本 / 容器 / SKIP;RTS0 由上层统一装配入
+/// [`DxilBArtifacts`])。
 enum BChainResult {
     /// B 链跑通,得译后签名 + 经校验门接受的 dumpbin 反汇编文本。
     ///
@@ -305,6 +1766,26 @@ fn classify_tool_failure(step: &str, reason: String) -> Result<BChainResult, Dxi
             step: step.to_owned(),
             reason,
         })
+    }
+}
+
+/// 统一校验图形=B body lowering 支持的阶段,并复用既有不可映射错误形态。
+fn graphics_body_stage(body: &Body) -> Result<ShaderStage, DxilBError> {
+    match body.stage {
+        Some(stage @ (ShaderStage::Vertex | ShaderStage::Fragment)) => Ok(stage),
+        _ => Err(DxilBError::Spirv(DxilError::Unmappable {
+            what: "stage".to_owned(),
+            detail: format!("Body stage {:?} 不在图形=B body lowering 范围", body.stage),
+        })),
+    }
+}
+
+/// 图形=B 链对 dxc profile 的阶段映射。
+fn dxil_b_profile(stage: ShaderStage) -> Option<&'static str> {
+    match stage {
+        ShaderStage::Vertex => Some("vs_6_0"),
+        ShaderStage::Fragment => Some("ps_6_0"),
+        _ => None,
     }
 }
 
@@ -656,36 +2137,50 @@ pub fn emit_dxil_b(
     //    (strict-only,不静默降级)。资源句柄绑定的 `DescriptorSet`/`Binding` 由
     //    host 侧 `binding_layout::infer_spirv_bindings` 确定性推导(见 emit_spirv)。
     let spv = dxil_spirv::emit_spirv(stage, io_sig, resources).map_err(DxilBError::Spirv)?;
-    emit_dxil_b_from_spv(stage, io_sig, resources, spv)
+    match compile_dxil_b_from_spv(stage, io_sig, resources, spv)? {
+        DxilBCompileResult::Produced(artifacts) => Ok(DxilBOutcome::Produced {
+            sigs: artifacts.sigs,
+            root_signature: artifacts.root_signature,
+        }),
+        DxilBCompileResult::Skipped(why) => Ok(DxilBOutcome::Skipped(why)),
+    }
 }
 
-/// B 路生产入口:消费完整 MIR [`Body`] 并按 RXS-0171 降级图形 body I/O 数据流。
+/// B 路统一生产入口:消费完整 MIR [`Body`] 并按 RXS-0171 降级图形 body I/O 数据流,
+/// 返回完整 [`DxilBArtifacts`] 或工具链 SKIP。
 ///
-/// 旧 [`emit_dxil_b`] 保留为签名-only 测试/工具入口;生产分发使用本函数,避免
-/// RD-013 所述的 void stub 路径继续旁路 `body.blocks` / `locals`。
-pub fn emit_dxil_b_body(body: &Body) -> Result<DxilBOutcome, DxilBError> {
-    let Some(stage @ (ShaderStage::Vertex | ShaderStage::Fragment)) = body.stage else {
-        return Err(DxilBError::Spirv(DxilError::Unmappable {
-            what: "stage".to_owned(),
-            detail: format!("Body stage {:?} 不在图形=B body lowering 范围", body.stage),
-        }));
-    };
+/// 现有 `emit_dxil_b_body` / `emit_dxil_b_disasm` / `emit_dxil_b_container` 都应经此
+/// 单一真相源取结果,避免重复编排阶段校验、SPIR-V 降级、profile 选择、工具链定位与
+/// 临时目录生命周期。
+pub fn compile_dxil_b_body(body: &Body) -> Result<DxilBCompileResult, DxilBError> {
+    let stage = graphics_body_stage(body)?;
     let spv = dxil_spirv::emit_spirv_body(stage, body).map_err(DxilBError::Spirv)?;
-    emit_dxil_b_from_spv(stage, &body.io_sig, &body.resources, spv)
+    compile_dxil_b_from_spv(stage, &body.io_sig, &body.resources, spv)
 }
 
-fn emit_dxil_b_from_spv(
+/// B 路签名/root-signature 兼容包装器:公开语义保持不变,内部改为复用
+/// [`compile_dxil_b_body`] 的统一产物编译入口。
+pub fn emit_dxil_b_body(body: &Body) -> Result<DxilBOutcome, DxilBError> {
+    match compile_dxil_b_body(body)? {
+        DxilBCompileResult::Produced(artifacts) => Ok(DxilBOutcome::Produced {
+            sigs: artifacts.sigs,
+            root_signature: artifacts.root_signature,
+        }),
+        DxilBCompileResult::Skipped(why) => Ok(DxilBOutcome::Skipped(why)),
+    }
+}
+
+fn compile_dxil_b_from_spv(
     stage: ShaderStage,
     io_sig: &[IoSigElem],
     resources: &[ResourceBinding],
     spv: Vec<u32>,
-) -> Result<DxilBOutcome, DxilBError> {
+) -> Result<DxilBCompileResult, DxilBError> {
     // emit_spirv 成功即保证 stage ∈ {Vertex, Fragment};据此取 dxc profile。
-    let profile = match stage {
-        ShaderStage::Vertex => "vs_6_0",
-        ShaderStage::Fragment => "ps_6_0",
+    let profile = match dxil_b_profile(stage) {
+        Some(profile) => profile,
         // 不可达(非图形阶段已在 emit_spirv 被拒);防御性 SKIP,不 panic。
-        _ => return Ok(DxilBOutcome::Skipped("非图形阶段(不可达)".to_owned())),
+        None => return Ok(DxilBCompileResult::Skipped("非图形阶段(不可达)".to_owned())),
     };
 
     // 1b) root signature 形态推导 + RTS0 容器序列化(RXS-0165;纯 host,工具链无关)。
@@ -694,10 +2189,12 @@ fn emit_dxil_b_from_spv(
 
     // 2) 工具链定位:缺失 → SKIP(非 6xxx,环境降级)。
     let Some(spvx) = toolchain::locate_spirv_cross() else {
-        return Ok(DxilBOutcome::Skipped("spirv-cross 不可定位".to_owned()));
+        return Ok(DxilBCompileResult::Skipped(
+            "spirv-cross 不可定位".to_owned(),
+        ));
     };
     let Some(dxc) = toolchain::locate_dxc() else {
-        return Ok(DxilBOutcome::Skipped("dxc 不可定位".to_owned()));
+        return Ok(DxilBCompileResult::Skipped("dxc 不可定位".to_owned()));
     };
 
     // 顶点输入语义保名旗标(经 io_sig 导出,非硬编码;RFC-0004 §4.4 机制①,实测)。
@@ -707,16 +2204,25 @@ fn emit_dxil_b_from_spv(
     // 3~7) 临时工作目录内跑链;无论成败统一清理。
     let dir = match scratch_dir() {
         Ok(d) => d,
-        Err(e) => return Ok(DxilBOutcome::Skipped(format!("临时目录创建失败: {e}"))),
+        Err(e) => {
+            return Ok(DxilBCompileResult::Skipped(format!(
+                "临时目录创建失败: {e}"
+            )));
+        }
     };
     let result = run_b_chain(&spv, &spvx, &dxc, profile, &dir, io_sig, &extra, stage);
     let _ = std::fs::remove_dir_all(&dir);
     match result {
-        Ok(BChainResult::Sigs { sigs, .. }) => Ok(DxilBOutcome::Produced {
-            sigs,
-            root_signature,
-        }),
-        Ok(BChainResult::Skipped(why)) => Ok(DxilBOutcome::Skipped(why)),
+        Ok(BChainResult::Sigs { sigs, disasm, dxil }) => {
+            Ok(DxilBCompileResult::Produced(DxilBArtifacts {
+                stage,
+                sigs,
+                root_signature,
+                disasm,
+                dxil,
+            }))
+        }
+        Ok(BChainResult::Skipped(why)) => Ok(DxilBCompileResult::Skipped(why)),
         Err(e) => Err(e),
     }
 }
@@ -743,45 +2249,9 @@ fn emit_dxil_b_from_spv(
 /// 同 [`emit_dxil_b_body`]:不可映射构造 / 工具运行后拒绝 / 校验门拒绝 → 6xxx,
 /// 绝不静默成功。
 pub fn emit_dxil_b_disasm(body: &Body) -> Result<Option<String>, DxilBError> {
-    let Some(stage @ (ShaderStage::Vertex | ShaderStage::Fragment)) = body.stage else {
-        return Err(DxilBError::Spirv(DxilError::Unmappable {
-            what: "stage".to_owned(),
-            detail: format!("Body stage {:?} 不在图形=B body lowering 范围", body.stage),
-        }));
-    };
-    // 1) MIR→SPIR-V:消费完整 Body(RXS-0171 body 降级),与 emit_dxil_b_body 同源。
-    let spv = dxil_spirv::emit_spirv_body(stage, body).map_err(DxilBError::Spirv)?;
-    let profile = match stage {
-        ShaderStage::Vertex => "vs_6_0",
-        ShaderStage::Fragment => "ps_6_0",
-        _ => return Ok(None),
-    };
-    // 2) 工具链定位:缺失 → SKIP(环境降级,非 6xxx)。
-    let (Some(spvx), Some(dxc)) = (toolchain::locate_spirv_cross(), toolchain::locate_dxc()) else {
-        return Ok(None);
-    };
-    // 顶点输入语义保名旗标(经 io_sig 导出;RFC-0004 §4.4 机制①)。
-    let extra = vertex_input_semantic_flags(stage, &body.io_sig);
-    let dir = match scratch_dir() {
-        Ok(d) => d,
-        Err(_) => return Ok(None),
-    };
-    // 3~8) 与生产出口共用 run_b_chain(含 RXS-0172 保名 + 强制 signature_gate)。
-    let result = run_b_chain(
-        &spv,
-        &spvx,
-        &dxc,
-        profile,
-        &dir,
-        &body.io_sig,
-        &extra,
-        stage,
-    );
-    let _ = std::fs::remove_dir_all(&dir);
-    match result {
-        Ok(BChainResult::Sigs { disasm, .. }) => Ok(Some(normalize_b_disasm(&disasm))),
-        Ok(BChainResult::Skipped(_)) => Ok(None),
-        Err(e) => Err(e),
+    match compile_dxil_b_body(body)? {
+        DxilBCompileResult::Produced(artifacts) => Ok(Some(normalize_b_disasm(&artifacts.disasm))),
+        DxilBCompileResult::Skipped(_) => Ok(None),
     }
 }
 
@@ -804,44 +2274,9 @@ pub fn emit_dxil_b_disasm(body: &Body) -> Result<Option<String>, DxilBError> {
 /// 同 [`emit_dxil_b_body`]:不可映射构造 / 工具运行后拒绝 / 校验门拒绝 → 6xxx,绝不
 /// 静默成功。
 pub fn emit_dxil_b_container(body: &Body) -> Result<Option<Vec<u8>>, DxilBError> {
-    let Some(stage @ (ShaderStage::Vertex | ShaderStage::Fragment)) = body.stage else {
-        return Err(DxilBError::Spirv(DxilError::Unmappable {
-            what: "stage".to_owned(),
-            detail: format!("Body stage {:?} 不在图形=B body lowering 范围", body.stage),
-        }));
-    };
-    // 1) MIR→SPIR-V:消费完整 Body(RXS-0171 body 降级),与 emit_dxil_b_body 同源。
-    let spv = dxil_spirv::emit_spirv_body(stage, body).map_err(DxilBError::Spirv)?;
-    let profile = match stage {
-        ShaderStage::Vertex => "vs_6_0",
-        ShaderStage::Fragment => "ps_6_0",
-        _ => return Ok(None),
-    };
-    // 2) 工具链定位:缺失 → SKIP(环境降级,非 6xxx)。
-    let (Some(spvx), Some(dxc)) = (toolchain::locate_spirv_cross(), toolchain::locate_dxc()) else {
-        return Ok(None);
-    };
-    let extra = vertex_input_semantic_flags(stage, &body.io_sig);
-    let dir = match scratch_dir() {
-        Ok(d) => d,
-        Err(_) => return Ok(None),
-    };
-    // 3~9) 与生产出口共用 run_b_chain(含 RXS-0172/0173 + 强制 signature_gate + 回读 DXIL)。
-    let result = run_b_chain(
-        &spv,
-        &spvx,
-        &dxc,
-        profile,
-        &dir,
-        &body.io_sig,
-        &extra,
-        stage,
-    );
-    let _ = std::fs::remove_dir_all(&dir);
-    match result {
-        Ok(BChainResult::Sigs { dxil, .. }) => Ok(Some(dxil)),
-        Ok(BChainResult::Skipped(_)) => Ok(None),
-        Err(e) => Err(e),
+    match compile_dxil_b_body(body)? {
+        DxilBCompileResult::Produced(artifacts) => Ok(Some(artifacts.dxil)),
+        DxilBCompileResult::Skipped(_) => Ok(None),
     }
 }
 
@@ -1138,17 +2573,63 @@ mod tests {
         assert!(ir.contains("ret void"));
     }
 
-    /// RXS-0157 L2:带 ABI 形参的 kernel(View 形参)→ 子集外 → RX6007。
+    /// GRX-009 segment 3a.1:受支持 compute 形参进入离线绑定布局推导。
     //@ spec: RXS-0157
     #[test]
-    fn kernel_with_view_param_is_rx6007() {
-        let src = "kernel fn k(out: ViewMut<global, f32>) {}\n";
+    fn kernel_with_supported_compute_params_emits_artifacts() {
+        let src = "kernel fn k(src: View<global, f32>, out: ViewMut<global, f32>, w: usize, gain: f32, t: ThreadCtx<1>) {}\n";
         let diag = DiagCtxt::new();
         let cx = QueryCtx::new(src, SourceId(0), Edition::Rx0, &diag);
         cx.check_crate();
         cx.check_coloring();
+        cx.check_crate_patterns();
+        cx.check_consteval();
+        let artifacts = build_and_emit_dxil_artifacts(&cx, "k").expect("应产出 DXIL artifact");
+        assert!(
+            artifacts
+                .ir
+                .contains("target triple = \"dxil-unknown-shadermodel6.0-compute\"")
+        );
+        assert!(!artifacts.root_signature.is_empty());
+        assert!(
+            artifacts
+                .descriptor_layout_json
+                .contains("\"name\": \"src\"")
+        );
+        assert!(
+            artifacts
+                .descriptor_layout_json
+                .contains("\"name\": \"out\"")
+        );
+        assert!(
+            artifacts
+                .descriptor_layout_json
+                .contains("\"root_constants\": 2")
+        );
+        let codes: Vec<u16> = diag
+            .emitted()
+            .iter()
+            .filter_map(|d| d.code.map(|c| c.0))
+            .collect();
+        assert!(
+            codes.is_empty(),
+            "受支持 compute 形参不应发诊断,实得 {codes:?}"
+        );
+    }
+
+    /// strict-only:未知 compute 形参类型仍拒绝,不 silent fallback。
+    //@ spec: RXS-0157
+    #[test]
+    fn kernel_with_unknown_compute_param_is_rx6007() {
+        let src = "struct Params { x: f32 }\nkernel fn k(p: Params) {}\n";
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(src, SourceId(0), Edition::Rx0, &diag);
+        cx.check_crate();
+        cx.check_coloring();
+        cx.check_crate_patterns();
+        cx.check_consteval();
         let ir = build_and_emit_dxil(&cx, "k");
-        assert!(ir.is_none(), "带形参 compute 入口应被拒(子集外)");
+        assert!(ir.is_none(), "未知 compute 形参类型必须 strict-only 拒绝");
         let codes: Vec<u16> = diag
             .emitted()
             .iter()
@@ -1157,11 +2638,40 @@ mod tests {
         assert!(codes.contains(&6007), "应发 RX6007,实得 {codes:?}");
     }
 
+    /// GRX-009 segment 3a:最小 no-else tail-if statement lowering → 真实 branch/label
+    /// (`br i1` 分叉 + `if.then.0`/`if.end.0` deterministic label,store 落 then 块内)。
+    //@ spec: RXS-0157
+    #[test]
+    fn tail_if_statement_lowers_to_branch_labels() {
+        let src = "kernel fn k(t: ThreadCtx<1>, dst: ViewMut<global, f32>, len: usize) {\n    let gid = t.global_id();\n    if gid < len {\n        dst[0] = 1.0;\n    }\n}\n";
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(src, SourceId(0), Edition::Rx0, &diag);
+        cx.check_crate();
+        cx.check_coloring();
+        cx.check_crate_patterns();
+        cx.check_consteval();
+        assert!(!diag.has_errors(), "tail-if kernel 应 0 前段诊断");
+        let ir = build_and_emit_dxil(&cx, "k").expect("应产出 DXIL IR");
+        let br_pos = ir.find("br i1 ").expect("应含条件分支 br i1");
+        let then_pos = ir.find("if.then.0:").expect("应含 if.then.0 label");
+        let store_pos = ir.find("store float").expect("then 块应含 store");
+        let end_pos = ir.find("if.end.0:").expect("应含 if.end.0 label");
+        assert!(
+            br_pos < then_pos && then_pos < store_pos && store_pos < end_pos,
+            "分支结构次序应为 br i1 < if.then.0 < store < if.end.0"
+        );
+        assert!(
+            ir.contains("br label %if.end.0"),
+            "then 块应以 br label %if.end.0 收束"
+        );
+    }
+
     // ───────────────── 任务4:stage 分发 + B 链 单测 ─────────────────
 
     use crate::hir::{DefId, PrimTy};
     use crate::mir::{
-        BasicBlock, IoDir, IoSigKind, Local, LocalIdx, MirIoType, Place, Statement, Terminator,
+        BasicBlock, Const, IoDir, IoSigKind, Local, LocalIdx, MirIoType, Operand, Place, Rvalue,
+        Statement, StatementKind, Terminator, TerminatorKind,
     };
     use crate::ty::Ty;
 
@@ -1624,6 +3134,17 @@ mod tests {
         assert!(
             matches!(r, Err(DxilBError::Spirv(DxilError::Unmappable { .. }))),
             "f64 应透传不可映射 6xxx,实得 {r:?}"
+        );
+    }
+
+    /// 统一 artifacts 入口对非图形阶段保持与既有包装器一致的不可映射错误。
+    #[test]
+    fn compile_dxil_b_body_rejects_non_graphics_stage() {
+        let body = make_body(Some(ShaderStage::Mesh), Vec::new());
+        let r = compile_dxil_b_body(&body);
+        assert!(
+            matches!(r, Err(DxilBError::Spirv(DxilError::Unmappable { .. }))),
+            "统一 artifacts 入口应拒绝非图形阶段,实得 {r:?}"
         );
     }
 

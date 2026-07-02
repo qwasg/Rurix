@@ -1,0 +1,4 @@
+//@ spec: RXS-0157
+kernel fn scalar_gain(src: View<global, f32>, dst: ViewMut<global, f32>, gain: f32) {
+    dst[0] = src[0] * gain;
+}

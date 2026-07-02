@@ -1,0 +1,5 @@
+//@ spec: RXS-0157
+//@ expect-error: RX6007
+kernel fn f32_modulo(dst: ViewMut<global, f32>, a: f32, b: f32) {
+    dst[0] = a % b;
+}

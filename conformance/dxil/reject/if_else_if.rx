@@ -1,0 +1,9 @@
+//@ spec: RXS-0157
+//@ expect-error: RX6007
+kernel fn if_else_if(dst: ViewMut<global, f32>, width: usize) {
+    if width > 1 {
+        dst[0] = 1.0;
+    } else if width > 0 {
+        dst[0] = 0.5;
+    }
+}

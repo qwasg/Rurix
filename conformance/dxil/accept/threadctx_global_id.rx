@@ -1,0 +1,6 @@
+//@ spec: RXS-0157
+kernel fn threadctx_global_id(t: ThreadCtx<1>, dst: ViewMut<global, f32>, dst_len: usize) {
+    let gid = t.global_id();
+    let x = if gid < dst_len { 1.0 } else { 0.0 };
+    dst[0] = x;
+}

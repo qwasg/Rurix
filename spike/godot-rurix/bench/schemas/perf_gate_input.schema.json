@@ -1,0 +1,91 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "spike/godot-rurix/bench/schemas/perf_gate_input.schema.json",
+  "title": "GRX strict perf gate input",
+  "description": "Strict close-out perf gate input comparing baseline vs rurix. Only measured_local full-mode runs qualify. perf_gate.py --strict rejects any SKIP or estimated markers, quick_smoke, missing scenes, and missing raw artifact paths.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "evidence_level",
+    "run_mode",
+    "target_backend",
+    "resolution",
+    "vsync",
+    "warmup_frames",
+    "sample_frames",
+    "scenes"
+  ],
+  "properties": {
+    "evidence_level": {
+      "const": "measured_local"
+    },
+    "run_mode": {
+      "description": "Strict perf gate input must be full mode; quick_smoke is rejected.",
+      "const": "full"
+    },
+    "target_backend": {
+      "const": "Godot 4.7-dev Windows D3D12 Forward+"
+    },
+    "resolution": {
+      "type": "array",
+      "items": {"type": "integer"},
+      "const": [1920, 1080]
+    },
+    "vsync": {
+      "const": false
+    },
+    "warmup_frames": {
+      "const": 300
+    },
+    "sample_frames": {
+      "const": 2000
+    },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "geomean_fps_ratio_min": {"type": "number", "exclusiveMinimum": 0},
+        "p95_frame_time_reduction_min": {"type": "number"},
+        "single_scene_fps_ratio_min": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "scenes": {
+      "description": "Exactly seven scenes; fixed name/order is enforced by perf_gate.py reader.",
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": [
+          "name",
+          "baseline_fps",
+          "rurix_fps",
+          "baseline_p95_ms",
+          "rurix_p95_ms",
+          "baseline_raw_artifact_path",
+          "rurix_raw_artifact_path"
+        ],
+        "properties": {
+          "name": {
+            "enum": [
+              "clustered_lights",
+              "many_mesh_instances",
+              "material_variants",
+              "post_fx_chain",
+              "volumetric_fog",
+              "particles",
+              "mixed_forward_plus"
+            ]
+          },
+          "baseline_fps": {"type": "number", "exclusiveMinimum": 0},
+          "rurix_fps": {"type": "number", "exclusiveMinimum": 0},
+          "baseline_p95_ms": {"type": "number", "exclusiveMinimum": 0},
+          "rurix_p95_ms": {"type": "number", "exclusiveMinimum": 0},
+          "baseline_raw_artifact_path": {"type": "string", "minLength": 1},
+          "rurix_raw_artifact_path": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}

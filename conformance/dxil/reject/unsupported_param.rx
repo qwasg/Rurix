@@ -1,0 +1,8 @@
+//@ spec: RXS-0157
+//@ expect-error: RX6007
+// strict-only:未知 compute 入口形参类型不进入 descriptor layout 推导,继续 RX6007。
+struct Params {
+    x: f32,
+}
+
+kernel fn k(p: Params) {}

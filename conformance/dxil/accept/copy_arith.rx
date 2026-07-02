@@ -1,0 +1,7 @@
+//@ spec: RXS-0157
+// RD-013 slice 1: load + f32 算术(fmul/fadd)+ store 的 straight-line body,
+// 证明 body lowering 覆盖不止 copy_one 的纯拷贝形态。
+kernel fn copy_arith(src: View<global, f32>, dst: ViewMut<global, f32>) {
+    let x = src[0];
+    dst[0] = x * 2.0 + 0.5;
+}

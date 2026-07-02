@@ -1,0 +1,374 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Wed, 1 Jul 2026 12:00:00 +0800
+Subject: [PATCH] Add opt-in Rurix D3D12 Forward+ acceleration module scaffold
+
+---
+ modules/rurix_accel/SCsub              |  9 +++
+ modules/rurix_accel/config.py          | 13 ++++
+ modules/rurix_accel/register_types.cpp | 38 +++++++++
+ modules/rurix_accel/register_types.h   |  6 ++
+ modules/rurix_accel/rurix_accel.cpp    | 195 +++++++++++++++++++++++++++++++++++++
+ modules/rurix_accel/rurix_accel.h      |  54 +++++++++++++
+ 6 files changed, 316 insertions(+)
+ create mode 100644 modules/rurix_accel/SCsub
+ create mode 100644 modules/rurix_accel/config.py
+ create mode 100644 modules/rurix_accel/register_types.cpp
+ create mode 100644 modules/rurix_accel/register_types.h
+ create mode 100644 modules/rurix_accel/rurix_accel.cpp
+ create mode 100644 modules/rurix_accel/rurix_accel.h
+
+diff --git a/modules/rurix_accel/SCsub b/modules/rurix_accel/SCsub
+new file mode 100644
+index 0000000000..1111111111
+--- /dev/null
++++ b/modules/rurix_accel/SCsub
+@@ -0,0 +1,9 @@
++#!/usr/bin/env python
++
++Import("env")
++Import("env_modules")
++
++env_rurix_accel = env_modules.Clone()
++
++env_rurix_accel.add_source_files(env.modules_sources, "register_types.cpp")
++env_rurix_accel.add_source_files(env.modules_sources, "rurix_accel.cpp")
+diff --git a/modules/rurix_accel/config.py b/modules/rurix_accel/config.py
+new file mode 100644
+index 0000000000..2222222222
+--- /dev/null
++++ b/modules/rurix_accel/config.py
+@@ -0,0 +1,14 @@
++def can_build(env, platform):
++    return platform == "windows"
++
++
++def get_opts(platform):
++    from SCons.Variables import BoolVariable
++
++    return [
++        BoolVariable("module_rurix_accel_enabled", "Enable opt-in Rurix D3D12 Forward+ acceleration bridge", False),
++    ]
++
++
++def configure(env):
++    pass
+diff --git a/modules/rurix_accel/register_types.cpp b/modules/rurix_accel/register_types.cpp
+new file mode 100644
+index 0000000000..3333333333
+--- /dev/null
++++ b/modules/rurix_accel/register_types.cpp
+@@ -0,0 +1,38 @@
++#include "register_types.h"
++
++#include "rurix_accel.h"
++
++#include "core/config/project_settings.h"
++
++static RurixAccelD3D12Hooks *rurix_accel_hooks = nullptr;
++
++void initialize_rurix_accel_module(ModuleInitializationLevel p_level) {
++	if (p_level != MODULE_INITIALIZATION_LEVEL_SERVERS) {
++		return;
++	}
++
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/enabled", false);
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/require_forward_plus", true);
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/dll_path", "rurix_godot.dll");
++
++#if defined(D3D12_ENABLED)
++	if (GLOBAL_GET("rendering/rurix_accel/enabled")) {
++		if (RurixAccelD3D12Hooks::bridge_preflight()) {
++			rurix_accel_hooks = memnew(RurixAccelD3D12Hooks);
++		}
++	}
++#endif
++}
++
++void uninitialize_rurix_accel_module(ModuleInitializationLevel p_level) {
++	if (p_level != MODULE_INITIALIZATION_LEVEL_SERVERS) {
++		return;
++	}
++
++#if defined(D3D12_ENABLED)
++	if (rurix_accel_hooks != nullptr) {
++		memdelete(rurix_accel_hooks);
++		rurix_accel_hooks = nullptr;
++	}
++#endif
++}
+diff --git a/modules/rurix_accel/register_types.h b/modules/rurix_accel/register_types.h
+new file mode 100644
+index 0000000000..4444444444
+--- /dev/null
++++ b/modules/rurix_accel/register_types.h
+@@ -0,0 +1,6 @@
++#pragma once
++
++#include "modules/register_module_types.h"
++
++void initialize_rurix_accel_module(ModuleInitializationLevel p_level);
++void uninitialize_rurix_accel_module(ModuleInitializationLevel p_level);
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+new file mode 100644
+index 0000000000..5555555555
+--- /dev/null
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -0,0 +1,195 @@
++#include "rurix_accel.h"
++
++#if defined(D3D12_ENABLED)
++
++#include "core/config/project_settings.h"
++#include "core/string/print_string.h"
++
++#include <dxgi1_6.h>
++#include <string.h>
++#include <windows.h>
++
++namespace {
++bool _is_zero_luid(const LUID &p_luid) {
++	return p_luid.LowPart == 0 && p_luid.HighPart == 0;
++}
++
++void _unload_bridge_library(void *&r_library) {
++	if (r_library != nullptr) {
++		FreeLibrary((HMODULE)r_library);
++		r_library = nullptr;
++	}
++}
++
++bool _load_bridge_library(const String &p_dll_path, void *&r_library, RxGdAbiVersion &r_rxgd_abi_version, RxGdCreateD3D12Session &r_rxgd_create_d3d12_session, RxGdDestroySession &r_rxgd_destroy_session) {
++	r_library = LoadLibraryW((LPCWSTR)p_dll_path.utf16().get_data());
++	if (r_library == nullptr) {
++		print_verbose("RurixAccel: rurix_godot.dll not found; Godot fallback path remains active.");
++		return false;
++	}
++
++	r_rxgd_abi_version = (RxGdAbiVersion)GetProcAddress((HMODULE)r_library, "rxgd_abi_version");
++	r_rxgd_create_d3d12_session = (RxGdCreateD3D12Session)GetProcAddress((HMODULE)r_library, "rxgd_create_d3d12_session");
++	r_rxgd_destroy_session = (RxGdDestroySession)GetProcAddress((HMODULE)r_library, "rxgd_destroy_session");
++	if (r_rxgd_abi_version == nullptr || r_rxgd_create_d3d12_session == nullptr || r_rxgd_destroy_session == nullptr) {
++		print_error("RurixAccel: invalid rurix_godot.dll ABI; disabling acceleration.");
++		_unload_bridge_library(r_library);
++		r_rxgd_abi_version = nullptr;
++		r_rxgd_create_d3d12_session = nullptr;
++		r_rxgd_destroy_session = nullptr;
++		return false;
++	}
++
++	if (r_rxgd_abi_version() != RXGD_ABI_VERSION) {
++		print_error("RurixAccel: ABI version mismatch; disabling acceleration.");
++		_unload_bridge_library(r_library);
++		r_rxgd_abi_version = nullptr;
++		r_rxgd_create_d3d12_session = nullptr;
++		r_rxgd_destroy_session = nullptr;
++		return false;
++	}
++
++	return true;
++}
++
++bool _probe_default_adapter_luid(LUID &r_adapter_luid) {
++	IDXGIFactory1 *factory = nullptr;
++	HRESULT hr = CreateDXGIFactory1(IID_PPV_ARGS(&factory));
++	if (FAILED(hr) || factory == nullptr) {
++		return false;
++	}
++
++	IDXGIAdapter1 *adapter = nullptr;
++	IDXGIFactory6 *factory6 = nullptr;
++	if (SUCCEEDED(factory->QueryInterface(IID_PPV_ARGS(&factory6))) && factory6 != nullptr) {
++		hr = factory6->EnumAdapterByGpuPreference(
++				0,
++				DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE,
++				IID_PPV_ARGS(&adapter));
++		factory6->Release();
++		factory6 = nullptr;
++	}
++
++	if (adapter == nullptr) {
++		hr = factory->EnumAdapters1(0, &adapter);
++	}
++	factory->Release();
++	factory = nullptr;
++
++	if (FAILED(hr) || adapter == nullptr) {
++		return false;
++	}
++
++	DXGI_ADAPTER_DESC1 desc = {};
++	adapter->GetDesc1(&desc);
++	adapter->Release();
++
++	if (_is_zero_luid(desc.AdapterLuid)) {
++		return false;
++	}
++
++	r_adapter_luid = desc.AdapterLuid;
++	return true;
++}
++} // namespace
++
++bool RurixAccelD3D12Hooks::bridge_preflight() {
++	String dll_path = GLOBAL_GET("rendering/rurix_accel/dll_path");
++	void *probe_library = nullptr;
++	RxGdAbiVersion probe_abi_version = nullptr;
++	RxGdCreateD3D12Session probe_create_d3d12_session = nullptr;
++	RxGdDestroySession probe_destroy_session = nullptr;
++	const bool ready = _load_bridge_library(dll_path, probe_library, probe_abi_version, probe_create_d3d12_session, probe_destroy_session);
++	_unload_bridge_library(probe_library);
++	return ready;
++}
++
++RurixAccelD3D12Hooks::RurixAccelD3D12Hooks() {
++	adapter_luid_valid = _probe_default_adapter_luid(adapter_luid);
++	if (!adapter_luid_valid) {
++		print_verbose("RurixAccel: failed to probe a default DXGI adapter; keeping Godot D3D12 feature-level fallback only.");
++	}
++
++	String dll_path = GLOBAL_GET("rendering/rurix_accel/dll_path");
++	if (!_load_bridge_library(dll_path, library, rxgd_abi_version, rxgd_create_d3d12_session, rxgd_destroy_session)) {
++		return;
++	}
++}
++
++RurixAccelD3D12Hooks::~RurixAccelD3D12Hooks() {
++	cleanup_device();
++	_unload_bridge_library(library);
++}
++
++D3D_FEATURE_LEVEL RurixAccelD3D12Hooks::get_feature_level() const {
++	return D3D_FEATURE_LEVEL_11_0;
++}
++
++LUID RurixAccelD3D12Hooks::get_adapter_luid() const {
++	return adapter_luid;
++}
++
++void RurixAccelD3D12Hooks::set_device(ID3D12Device *p_device) {
++	device = p_device;
++	adapter_luid = {};
++	adapter_luid_valid = false;
++	if (device != nullptr) {
++		const LUID device_luid = device->GetAdapterLuid();
++		if (!_is_zero_luid(device_luid)) {
++			adapter_luid = device_luid;
++			adapter_luid_valid = true;
++		}
++	}
++	if (!adapter_luid_valid) {
++		adapter_luid_valid = _probe_default_adapter_luid(adapter_luid);
++	}
++	try_create_session();
++}
++
++void RurixAccelD3D12Hooks::set_command_queue(ID3D12CommandQueue *p_queue) {
++	queue = p_queue;
++	try_create_session();
++}
++
++void RurixAccelD3D12Hooks::cleanup_device() {
++	if (session != nullptr && rxgd_destroy_session != nullptr) {
++		rxgd_destroy_session(session);
++	}
++	session = nullptr;
++	device = nullptr;
++	queue = nullptr;
++	adapter_luid = {};
++	adapter_luid_valid = _probe_default_adapter_luid(adapter_luid);
++}
++
++bool RurixAccelD3D12Hooks::is_ready() const {
++	return session != nullptr;
++}
++
++void RurixAccelD3D12Hooks::try_create_session() {
++	if (session != nullptr || library == nullptr || device == nullptr || queue == nullptr) {
++		return;
++	}
++	if (rxgd_abi_version() != RXGD_ABI_VERSION) {
++		print_error("RurixAccel: ABI version mismatch; disabling acceleration.");
++		return;
++	}
++	RxGdCaps caps = {};
++	caps.abi_version = RXGD_ABI_VERSION;
++	caps.struct_size = sizeof(RxGdCaps);
++	caps.backend = RXGD_BACKEND_D3D12;
++	caps.render_method = RXGD_RENDER_METHOD_FORWARD_PLUS;
++	if (adapter_luid_valid) {
++		memcpy(caps.adapter_luid, &adapter_luid, sizeof(adapter_luid));
++	}
++
++	int32_t rc = rxgd_create_d3d12_session(device, queue, caps, &session);
++	if (rc != 0) {
++		print_verbose(vformat("RurixAccel: session unavailable rc=%d; Godot fallback path remains active.", rc));
++		session = nullptr;
++		return;
++	}
++	print_verbose("RurixAccel: D3D12 Forward+ bridge session ready.");
++}
++
++#endif // D3D12_ENABLED
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+new file mode 100644
+index 0000000000..6666666666
+--- /dev/null
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -0,0 +1,54 @@
++#pragma once
++
++#if defined(D3D12_ENABLED)
++
++#include "core/string/ustring.h"
++#include "drivers/d3d12/d3d12_hooks.h"
++#include <stdint.h>
++
++#define RXGD_ABI_VERSION 1u
++#define RXGD_BACKEND_D3D12 1u
++#define RXGD_RENDER_METHOD_FORWARD_PLUS 1u
++
++typedef struct RxGdCaps {
++	uint32_t abi_version;
++	uint32_t struct_size;
++	uint32_t backend;
++	uint32_t render_method;
++	uint32_t flags;
++	uint32_t vendor_id;
++	uint32_t device_id;
++	uint8_t adapter_luid[8];
++} RxGdCaps;
++
++typedef struct RxGdSession RxGdSession;
++typedef uint32_t (*RxGdAbiVersion)(void);
++typedef int32_t (*RxGdCreateD3D12Session)(void *device, void *queue, RxGdCaps caps, RxGdSession **out_session);
++typedef void (*RxGdDestroySession)(RxGdSession *session);
++
++class RurixAccelD3D12Hooks : public D3D12Hooks {
++	void *library = nullptr;
++	ID3D12Device *device = nullptr;
++	ID3D12CommandQueue *queue = nullptr;
++	LUID adapter_luid = {};
++	bool adapter_luid_valid = false;
++	RxGdSession *session = nullptr;
++	RxGdAbiVersion rxgd_abi_version = nullptr;
++	RxGdCreateD3D12Session rxgd_create_d3d12_session = nullptr;
++	RxGdDestroySession rxgd_destroy_session = nullptr;
++
++	void try_create_session();
++
++public:
++	static bool bridge_preflight();
++	RurixAccelD3D12Hooks();
++	~RurixAccelD3D12Hooks() override;
++	D3D_FEATURE_LEVEL get_feature_level() const override;
++	LUID get_adapter_luid() const override;
++	void set_device(ID3D12Device *p_device) override;
++	void set_command_queue(ID3D12CommandQueue *p_queue) override;
++	void cleanup_device() override;
++	bool is_ready() const;
++};
++
++#endif // D3D12_ENABLED
+-- 
+2.50.0

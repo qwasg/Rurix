@@ -1,0 +1,24 @@
+{
+  "run_mode": "scaffold",
+  "evidence_level": "scaffold",
+  "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
+  "note": "GRX-008 RED test sample: this is a scaffold document but one placeholder pass sets godot_fallback_active=false. Scaffold placeholders must keep the Godot fallback path active, so fallback_telemetry.py --validate-only MUST FORMAT FAIL. This is not actual fallback telemetry.",
+  "passes": [
+    {
+      "pass_id": "placeholder_compile_failed",
+      "enable_state": "disabled",
+      "fallback_reason": "compile_failed",
+      "godot_fallback_active": false,
+      "telemetry_timestamp": null,
+      "telemetry_frame": null
+    },
+    {
+      "pass_id": "placeholder_validation_failed",
+      "enable_state": "disabled",
+      "fallback_reason": "validation_failed",
+      "godot_fallback_active": true,
+      "telemetry_timestamp": null,
+      "telemetry_frame": null
+    }
+  ]
+}

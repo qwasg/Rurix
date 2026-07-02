@@ -1,0 +1,116 @@
+{
+  "run_mode": "full",
+  "evidence_level": "measured_local",
+  "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
+  "resolution": [1920, 1080],
+  "note": "GRX-007 RED test sample: the clustered_lights capture frame is status=pass but its ldr_diff is missing per_channel_mean_abs. visual_diff.py --validate-only MUST FORMAT FAIL. This is not visual verification.",
+  "scenes": [
+    {
+      "name": "clustered_lights",
+      "capture_frames": [
+        {
+          "frame_index": 600,
+          "status": "pass",
+          "skip_reason": null,
+          "reference_frame_path": "spike/godot-rurix/bench/samples/frames/ldr_reference_min.json",
+          "candidate_frame_path": "spike/godot-rurix/bench/samples/frames/ldr_candidate_min.json",
+          "ldr_diff": {
+            "per_channel_max_abs": [4, 5, 5]
+          },
+          "hdr_diff": null,
+          "temporal_diff": null
+        }
+      ]
+    },
+    {
+      "name": "many_mesh_instances",
+      "capture_frames": [
+        {
+          "frame_index": 600,
+          "status": "skip",
+          "skip_reason": "missing capture backend",
+          "reference_frame_path": null,
+          "candidate_frame_path": null,
+          "ldr_diff": null,
+          "hdr_diff": null,
+          "temporal_diff": null
+        }
+      ]
+    },
+    {
+      "name": "material_variants",
+      "capture_frames": [
+        {
+          "frame_index": 600,
+          "status": "skip",
+          "skip_reason": "missing capture backend",
+          "reference_frame_path": null,
+          "candidate_frame_path": null,
+          "ldr_diff": null,
+          "hdr_diff": null,
+          "temporal_diff": null
+        }
+      ]
+    },
+    {
+      "name": "post_fx_chain",
+      "capture_frames": [
+        {
+          "frame_index": 600,
+          "status": "skip",
+          "skip_reason": "missing capture backend",
+          "reference_frame_path": null,
+          "candidate_frame_path": null,
+          "ldr_diff": null,
+          "hdr_diff": null,
+          "temporal_diff": null
+        }
+      ]
+    },
+    {
+      "name": "volumetric_fog",
+      "capture_frames": [
+        {
+          "frame_index": 600,
+          "status": "skip",
+          "skip_reason": "missing capture backend",
+          "reference_frame_path": null,
+          "candidate_frame_path": null,
+          "ldr_diff": null,
+          "hdr_diff": null,
+          "temporal_diff": null
+        }
+      ]
+    },
+    {
+      "name": "particles",
+      "capture_frames": [
+        {
+          "frame_index": 600,
+          "status": "skip",
+          "skip_reason": "missing capture backend",
+          "reference_frame_path": null,
+          "candidate_frame_path": null,
+          "ldr_diff": null,
+          "hdr_diff": null,
+          "temporal_diff": null
+        }
+      ]
+    },
+    {
+      "name": "mixed_forward_plus",
+      "capture_frames": [
+        {
+          "frame_index": 600,
+          "status": "skip",
+          "skip_reason": "missing capture backend",
+          "reference_frame_path": null,
+          "candidate_frame_path": null,
+          "ldr_diff": null,
+          "hdr_diff": null,
+          "temporal_diff": null
+        }
+      ]
+    }
+  ]
+}

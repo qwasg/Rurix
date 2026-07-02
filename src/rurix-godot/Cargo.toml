@@ -1,0 +1,18 @@
+[package]
+name = "rurix-godot"
+description = "Rurix Godot D3D12 Forward+ acceleration bridge C ABI scaffold"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+
+[lints.rust]
+unsafe_code = "allow"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "deny"

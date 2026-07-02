@@ -1,0 +1,5 @@
+//@ spec: RXS-0157
+// RD-013 slice 1: straight-line compute body 可降低出最小 View load + ViewMut store。
+kernel fn copy_one(src: View<global, f32>, dst: ViewMut<global, f32>) {
+    dst[0] = src[0];
+}

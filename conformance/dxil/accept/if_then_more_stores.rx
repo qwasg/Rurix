@@ -1,0 +1,8 @@
+//@ spec: RXS-0157
+kernel fn if_then_more_stores(t: ThreadCtx<1>, dst: ViewMut<global, f32>, len: usize) {
+    let gid = t.global_id();
+    if gid < len {
+        dst[0] = 1.0;
+    }
+    dst[0] = 2.0;
+}

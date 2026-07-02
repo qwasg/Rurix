@@ -1,0 +1,16 @@
+{
+  "run_mode": "full",
+  "evidence_level": "measured_local",
+  "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
+  "note": "GRX-008 RED test sample: this claims run_mode=full / evidence_level=measured_local but leaves telemetry_timestamp and telemetry_frame null. Full/measured_local telemetry must carry a real timestamp and frame, so fallback_telemetry.py --validate-only MUST FORMAT FAIL. This is not actual fallback telemetry.",
+  "passes": [
+    {
+      "pass_id": "luminance_reduction",
+      "enable_state": "enabled",
+      "fallback_reason": "manual_disabled",
+      "godot_fallback_active": true,
+      "telemetry_timestamp": null,
+      "telemetry_frame": null
+    }
+  ]
+}

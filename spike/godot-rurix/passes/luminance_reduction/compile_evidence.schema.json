@@ -1,0 +1,179 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GRX-009 Luminance Reduction Offline Compile Evidence",
+  "type": "object",
+  "required": [
+    "pass_id",
+    "segment",
+    "status",
+    "runtime_state",
+    "manifest_segment_after_run",
+    "attempted_at_utc",
+    "inputs",
+    "commands",
+    "artifacts"
+  ],
+  "properties": {
+    "pass_id": {
+      "const": "luminance_reduction"
+    },
+    "segment": {
+      "const": "3a"
+    },
+    "status": {
+      "enum": ["success", "compile_failed", "toolchain_missing"]
+    },
+    "runtime_state": {
+      "const": "fallback_only"
+    },
+    "manifest_segment_after_run": {
+      "type": "integer",
+      "enum": [2, 3]
+    },
+    "attempted_at_utc": {
+      "type": "string"
+    },
+    "inputs": {
+      "type": "object",
+      "required": ["package_manifest", "entry_file", "godot_reference_files"],
+      "properties": {
+        "package_manifest": { "type": "string" },
+        "entry_file": { "type": "string" },
+        "godot_reference_files": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "commands": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["label", "argv", "exit_code", "stdout_path", "stderr_path"],
+        "properties": {
+          "label": { "type": "string" },
+          "argv": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" }
+          },
+          "exit_code": { "type": "integer" },
+          "stdout_path": { "type": "string" },
+          "stderr_path": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "required": ["dxil", "root_signature", "descriptor_layout"],
+      "properties": {
+        "dxil": { "$ref": "#/definitions/artifact" },
+        "root_signature": { "$ref": "#/definitions/artifact" },
+        "descriptor_layout": { "$ref": "#/definitions/artifact" }
+      },
+      "additionalProperties": false
+    },
+    "blocker_category": {
+      "type": ["string", "null"]
+    },
+    "blocker_summary": {
+      "type": ["string", "null"]
+    },
+    "notes": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "debug_artifacts": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/artifact" }
+    }
+  },
+  "definitions": {
+    "artifact": {
+      "type": "object",
+      "required": ["path", "exists", "sha256", "artifact_kind", "produced_by_current_run"],
+      "properties": {
+        "path": { "type": "string" },
+        "exists": { "type": "boolean" },
+        "sha256": { "type": ["string", "null"] },
+        "artifact_kind": {
+          "enum": ["dxil_container", "dxil_ir_text", "binary", "missing"]
+        },
+        "produced_by_current_run": { "type": "boolean" },
+        "semantic_status": {
+          "enum": ["lowered_compute_body", "entry_shell_only", "unknown"]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": { "const": "success" }
+        }
+      },
+      "then": {
+        "properties": {
+          "manifest_segment_after_run": { "const": 3 },
+          "artifacts": {
+            "properties": {
+              "dxil": {
+                "properties": {
+                  "exists": { "const": true },
+                  "artifact_kind": { "const": "dxil_container" },
+                  "produced_by_current_run": { "const": true },
+                  "semantic_status": { "enum": ["lowered_compute_body", "unknown"] }
+                }
+              },
+              "root_signature": {
+                "properties": {
+                  "exists": { "const": true },
+                  "produced_by_current_run": { "const": true }
+                }
+              },
+              "descriptor_layout": {
+                "properties": {
+                  "exists": { "const": true },
+                  "produced_by_current_run": { "const": true }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": { "const": "compile_failed" }
+        }
+      },
+      "then": {
+        "required": ["blocker_category", "blocker_summary"],
+        "properties": {
+          "manifest_segment_after_run": { "const": 2 }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": { "const": "toolchain_missing" }
+        }
+      },
+      "then": {
+        "required": ["blocker_category", "blocker_summary"],
+        "properties": {
+          "manifest_segment_after_run": { "const": 2 }
+        }
+      }
+    }
+  ],
+  "additionalProperties": true
+}

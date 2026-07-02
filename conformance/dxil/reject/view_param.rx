@@ -1,6 +1,0 @@
-//@ spec: RXS-0157
-//@ expect-error: RX6007
-// 子集外(RXS-0157 L2):带 View ABI 形参的 compute 入口。DXIL 最小子集仅支持
-// 无形参空体入口;View/资源句柄形参需绑定布局推导(G2.3)/ FFI ABI(禁区),
-// 不在本分片 → RX6007(strict-only,不降级)。
-kernel fn k(out: ViewMut<global, f32>) {}

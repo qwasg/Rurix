@@ -1,0 +1,80 @@
+{
+  "pass_id": "luminance_reduction",
+  "status": "gated_scaffold_segment_3a_blocked",
+  "implemented": false,
+  "default_enable_state": "disabled",
+  "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
+  "target_scenes": ["post_fx_chain", "mixed_forward_plus"],
+  "godot_hook_investigation": {
+    "note": "Investigation only; external/godot-master is NOT modified. Paths and functions are recorded for later mapping and are not wired up.",
+    "effect_class": {
+      "header": "servers/rendering/renderer_rd/effects/luminance.h",
+      "source": "servers/rendering/renderer_rd/effects/luminance.cpp",
+      "functions": [
+        "RendererRD::Luminance::luminance_reduction",
+        "RendererRD::Luminance::LuminanceBuffers::configure",
+        "RendererRD::Luminance::LuminanceBuffers::free_data",
+        "RendererRD::Luminance::get_current_luminance_buffer"
+      ]
+    },
+    "shaders": [
+      "servers/rendering/renderer_rd/shaders/effects/luminance_reduce.glsl",
+      "servers/rendering/renderer_rd/shaders/effects/luminance_reduce_raster.glsl"
+    ],
+    "call_sites": [
+      {"file": "servers/rendering/renderer_rd/renderer_scene_render_rd.cpp", "region": "Auto Exposure", "lines": [558, 567]},
+      {"file": "servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp", "lines": [2439, 2486]}
+    ]
+  },
+  "io_resources_placeholder": {
+    "input": "hdr_internal_texture",
+    "intermediate": "luminance_reduce_buffers",
+    "output": "current_luminance_buffer",
+    "note": "placeholder; not wired"
+  },
+  "dispatch_shape_placeholder": {
+    "candidates": ["compute_reduce_pyramid", "raster_fragment_reduce"],
+    "selected": null,
+    "note": "shape TBD; no thread group counts claimed"
+  },
+  "fallback": {
+    "reasons": ["compile_failed", "validation_failed", "unsupported_device", "visual_diff_failed", "manual_disabled"],
+    "on_any_failure": "godot_native_luminance"
+  },
+  "offline_compile_status": "compile_failed",
+  "offline_compile_evidence": "spike/godot-rurix/passes/luminance_reduction/offline_compile_evidence.json",
+  "offline_compile_artifacts": {
+    "dxil": "spike/godot-rurix/passes/luminance_reduction/artifacts/luminance_reduction.dxil",
+    "root_signature": "spike/godot-rurix/passes/luminance_reduction/artifacts/luminance_reduction.rts0.bin",
+    "descriptor_layout": "spike/godot-rurix/passes/luminance_reduction/artifacts/luminance_reduction_descriptor_layout.json"
+  },
+  "compile_blockers": [
+    {
+      "category": "while_lowering_missing",
+      "summary": "The current segment 3a compile attempt advanced past ThreadCtx.global_id, tail if statement body lowering, and integer `%` modulo lowering, and is now blocked because the DXIL compute backend strict-rejects the while loop in the luminance kernel reduction body."
+    }
+  ],
+  "implementation_status": {
+    "segment": 2,
+    "bridge_gate": "src/rurix-godot LuminanceReductionGate: default disabled; request_enable remains fallback_only for GRX-009 segment 3a; rxgd_record_pass returns RXGD_STATUS_FALLBACK for RXGD_PASS_LUMINANCE_REDUCTION and records no estimated GPU/CPU time",
+    "godot_module_patch": "spike/godot-rurix/patches/0002-rurix-accel-luminance-pass-gate.patch (module-scoped; per-pass setting rendering/rurix_accel/passes/luminance_reduction/enabled defaults to false; try_record_luminance_reduction() returns false on any non-OK bridge status)",
+    "godot_core_callsite_patch": "spike/godot-rurix/patches/0003-rurix-accel-luminance-core-callsite-wiring.patch (stacked on 0001+0002; adds a default-false virtual D3D12Hooks::try_record_luminance_reduction(); wires servers/rendering/renderer_rd/renderer_scene_render_rd.cpp Auto Exposure to call the opt-in gate before the native luminance_reduction and skip it only when the gate returns true)",
+    "godot_core_call_site_wired": true,
+    "wired_call_sites": [
+      {"file": "servers/rendering/renderer_rd/renderer_scene_render_rd.cpp", "region": "Auto Exposure", "note": "opt-in gate calls D3D12Hooks::try_record_luminance_reduction() before native luminance_reduction"}
+    ],
+    "real_gpu_pass": false,
+    "segment_3a_offline_compile_attempted": true,
+    "segment_3a_last_result": "compile_failed",
+    "segment_3a_last_result_note": "offline compile evidence records compile_failed/while_lowering_missing; ThreadCtx.global_id, the tail if statement body, and integer `%` modulo now lower, but the while loop in the luminance reduction body is still strict-rejected, so no validated DXIL container and no real GPU pass are available",
+    "visual_diff_evidence": "none (all visual evidence remains SKIP/placeholder)",
+    "perf_evidence": "none (no performance improvement is claimed)",
+    "disabled_telemetry_sample": "spike/godot-rurix/bench/samples/fallback_telemetry_luminance_disabled_example.json",
+    "callsite_wired_disabled_telemetry_sample": "spike/godot-rurix/bench/samples/fallback_telemetry_luminance_callsite_wired_disabled_example.json"
+  },
+  "evidence_requirements": {
+    "visual": "reuse GRX-007 visual_diff.py LDR diff with real reference+candidate frames",
+    "perf": "reuse GRX-006 baseline/perf gate; no perf improvement claimed"
+  },
+  "disclaimer": "GRX-009 segment 3a offline compile evidence is blocked at compile_failed/while_lowering_missing: the DXIL compute backend now lowers ThreadCtx.global_id, the no-else tail if statement body, and integer `%` modulo in the luminance kernel, and strict-rejects the while loop in the reduction body. Patch 0003 still wires the Godot core Auto Exposure call site to an opt-in gate, but the bridge gate remains fallback_only, the per-pass setting defaults to disabled, and the Rurix bridge still returns RXGD_STATUS_FALLBACK for RXGD_PASS_LUMINANCE_REDUCTION, so the native Godot luminance path takes over in practice. No real DXIL container, no real GPU pass, no real visual diff evidence, no measured telemetry, and no performance improvement is claimed."
+}

@@ -1,0 +1,117 @@
+{
+  "run_mode": "scaffold",
+  "evidence_level": "scaffold",
+  "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
+  "resolution": [1920, 1080],
+  "note": "GRX-007 RED test sample: the clustered_lights capture frame is status=skip but carries a fabricated ldr_diff. A skip frame must not smuggle in diff numbers, so visual_diff.py --validate-only MUST FORMAT FAIL. This is not visual verification.",
+  "scenes": [
+    {
+      "name": "clustered_lights",
+      "capture_frames": [
+        {
+          "frame_index": 600,
+          "status": "skip",
+          "skip_reason": "missing capture backend",
+          "reference_frame_path": null,
+          "candidate_frame_path": null,
+          "ldr_diff": {
+            "per_channel_max_abs": [1, 1, 1],
+            "per_channel_mean_abs": [0.5, 0.5, 0.5]
+          },
+          "hdr_diff": null,
+          "temporal_diff": null
+        }
+      ]
+    },
+    {
+      "name": "many_mesh_instances",
+      "capture_frames": [
+        {
+          "frame_index": 600,
+          "status": "skip",
+          "skip_reason": "missing Godot full run",
+          "reference_frame_path": null,
+          "candidate_frame_path": null,
+          "ldr_diff": null,
+          "hdr_diff": null,
+          "temporal_diff": null
+        }
+      ]
+    },
+    {
+      "name": "material_variants",
+      "capture_frames": [
+        {
+          "frame_index": 600,
+          "status": "skip",
+          "skip_reason": "missing frame artifact",
+          "reference_frame_path": null,
+          "candidate_frame_path": null,
+          "ldr_diff": null,
+          "hdr_diff": null,
+          "temporal_diff": null
+        }
+      ]
+    },
+    {
+      "name": "post_fx_chain",
+      "capture_frames": [
+        {
+          "frame_index": 600,
+          "status": "skip",
+          "skip_reason": "missing capture backend",
+          "reference_frame_path": null,
+          "candidate_frame_path": null,
+          "ldr_diff": null,
+          "hdr_diff": null,
+          "temporal_diff": null
+        }
+      ]
+    },
+    {
+      "name": "volumetric_fog",
+      "capture_frames": [
+        {
+          "frame_index": 600,
+          "status": "skip",
+          "skip_reason": "missing Godot full run",
+          "reference_frame_path": null,
+          "candidate_frame_path": null,
+          "ldr_diff": null,
+          "hdr_diff": null,
+          "temporal_diff": null
+        }
+      ]
+    },
+    {
+      "name": "particles",
+      "capture_frames": [
+        {
+          "frame_index": 600,
+          "status": "skip",
+          "skip_reason": "missing frame artifact",
+          "reference_frame_path": null,
+          "candidate_frame_path": null,
+          "ldr_diff": null,
+          "hdr_diff": null,
+          "temporal_diff": null
+        }
+      ]
+    },
+    {
+      "name": "mixed_forward_plus",
+      "capture_frames": [
+        {
+          "frame_index": 600,
+          "status": "skip",
+          "skip_reason": "missing capture backend",
+          "reference_frame_path": null,
+          "candidate_frame_path": null,
+          "ldr_diff": null,
+          "hdr_diff": null,
+          "temporal_diff": null
+        }
+      ]
+    }
+  ]
+}

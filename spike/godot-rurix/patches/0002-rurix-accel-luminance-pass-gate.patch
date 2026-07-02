@@ -1,0 +1,177 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Thu, 2 Jul 2026 12:00:00 +0800
+Subject: [PATCH] Add default-disabled GRX-009 luminance_reduction gate to rurix_accel module
+
+Stacked on 0001-rurix-accel-module-scaffold.patch. Module-scoped only:
+no Godot core renderer file is touched. The per-pass project setting
+defaults to false and try_record_luminance_reduction() returns false on
+any non-OK bridge status, so the native Godot luminance path stays
+active. The Rurix bridge currently always returns RXGD_STATUS_FALLBACK
+for this pass (no compiled kernel), so no acceleration is claimed.
+---
+diff --git a/modules/rurix_accel/register_types.cpp b/modules/rurix_accel/register_types.cpp
+index bf512db..cdd9864 100644
+--- a/modules/rurix_accel/register_types.cpp
++++ b/modules/rurix_accel/register_types.cpp
+@@ -14,6 +14,10 @@ void initialize_rurix_accel_module(ModuleInitializationLevel p_level) {
+ 	GLOBAL_DEF_BASIC("rendering/rurix_accel/enabled", false);
+ 	GLOBAL_DEF_BASIC("rendering/rurix_accel/require_forward_plus", true);
+ 	GLOBAL_DEF_BASIC("rendering/rurix_accel/dll_path", "rurix_godot.dll");
++	// GRX-009: per-pass opt-in gate; the luminance_reduction pass stays on the
++	// native Godot path unless this is explicitly enabled AND the bridge
++	// actually records the pass.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/luminance_reduction/enabled", false);
+ 
+ #if defined(D3D12_ENABLED)
+ 	if (GLOBAL_GET("rendering/rurix_accel/enabled")) {
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index 8304240..343df9d 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -21,7 +21,7 @@ void _unload_bridge_library(void *&r_library) {
+ 	}
+ }
+ 
+-bool _load_bridge_library(const String &p_dll_path, void *&r_library, RxGdAbiVersion &r_rxgd_abi_version, RxGdCreateD3D12Session &r_rxgd_create_d3d12_session, RxGdDestroySession &r_rxgd_destroy_session) {
++bool _load_bridge_library(const String &p_dll_path, void *&r_library, RxGdAbiVersion &r_rxgd_abi_version, RxGdCreateD3D12Session &r_rxgd_create_d3d12_session, RxGdRecordPass &r_rxgd_record_pass, RxGdDestroySession &r_rxgd_destroy_session) {
+ 	r_library = LoadLibraryW((LPCWSTR)p_dll_path.utf16().get_data());
+ 	if (r_library == nullptr) {
+ 		print_verbose("RurixAccel: rurix_godot.dll not found; Godot fallback path remains active.");
+@@ -30,12 +30,14 @@ bool _load_bridge_library(const String &p_dll_path, void *&r_library, RxGdAbiVer
+ 
+ 	r_rxgd_abi_version = (RxGdAbiVersion)GetProcAddress((HMODULE)r_library, "rxgd_abi_version");
+ 	r_rxgd_create_d3d12_session = (RxGdCreateD3D12Session)GetProcAddress((HMODULE)r_library, "rxgd_create_d3d12_session");
++	r_rxgd_record_pass = (RxGdRecordPass)GetProcAddress((HMODULE)r_library, "rxgd_record_pass");
+ 	r_rxgd_destroy_session = (RxGdDestroySession)GetProcAddress((HMODULE)r_library, "rxgd_destroy_session");
+-	if (r_rxgd_abi_version == nullptr || r_rxgd_create_d3d12_session == nullptr || r_rxgd_destroy_session == nullptr) {
++	if (r_rxgd_abi_version == nullptr || r_rxgd_create_d3d12_session == nullptr || r_rxgd_record_pass == nullptr || r_rxgd_destroy_session == nullptr) {
+ 		print_error("RurixAccel: invalid rurix_godot.dll ABI; disabling acceleration.");
+ 		_unload_bridge_library(r_library);
+ 		r_rxgd_abi_version = nullptr;
+ 		r_rxgd_create_d3d12_session = nullptr;
++		r_rxgd_record_pass = nullptr;
+ 		r_rxgd_destroy_session = nullptr;
+ 		return false;
+ 	}
+@@ -45,6 +47,7 @@ bool _load_bridge_library(const String &p_dll_path, void *&r_library, RxGdAbiVer
+ 		_unload_bridge_library(r_library);
+ 		r_rxgd_abi_version = nullptr;
+ 		r_rxgd_create_d3d12_session = nullptr;
++		r_rxgd_record_pass = nullptr;
+ 		r_rxgd_destroy_session = nullptr;
+ 		return false;
+ 	}
+@@ -98,8 +101,9 @@ bool RurixAccelD3D12Hooks::bridge_preflight() {
+ 	void *probe_library = nullptr;
+ 	RxGdAbiVersion probe_abi_version = nullptr;
+ 	RxGdCreateD3D12Session probe_create_d3d12_session = nullptr;
++	RxGdRecordPass probe_record_pass = nullptr;
+ 	RxGdDestroySession probe_destroy_session = nullptr;
+-	const bool ready = _load_bridge_library(dll_path, probe_library, probe_abi_version, probe_create_d3d12_session, probe_destroy_session);
++	const bool ready = _load_bridge_library(dll_path, probe_library, probe_abi_version, probe_create_d3d12_session, probe_record_pass, probe_destroy_session);
+ 	_unload_bridge_library(probe_library);
+ 	return ready;
+ }
+@@ -111,7 +115,7 @@ RurixAccelD3D12Hooks::RurixAccelD3D12Hooks() {
+ 	}
+ 
+ 	String dll_path = GLOBAL_GET("rendering/rurix_accel/dll_path");
+-	if (!_load_bridge_library(dll_path, library, rxgd_abi_version, rxgd_create_d3d12_session, rxgd_destroy_session)) {
++	if (!_load_bridge_library(dll_path, library, rxgd_abi_version, rxgd_create_d3d12_session, rxgd_record_pass, rxgd_destroy_session)) {
+ 		return;
+ 	}
+ }
+@@ -192,4 +196,27 @@ void RurixAccelD3D12Hooks::try_create_session() {
+ 	print_verbose("RurixAccel: D3D12 Forward+ bridge session ready.");
+ }
+ 
++bool RurixAccelD3D12Hooks::try_record_luminance_reduction() {
++	// GRX-009 segment 1 gate: every early return below means the caller must
++	// keep the native Godot luminance path.
++	if (!GLOBAL_GET("rendering/rurix_accel/passes/luminance_reduction/enabled")) {
++		// manual_disabled: the pass is opt-in and defaults to disabled.
++		return false;
++	}
++	if (session == nullptr || rxgd_record_pass == nullptr) {
++		// No bridge session or record entry point; equivalent to
++		// unsupported_device for this pass.
++		return false;
++	}
++	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_LUMINANCE_REDUCTION, nullptr, 0, nullptr, 0);
++	if (rc != RXGD_STATUS_OK) {
++		if (!luminance_fallback_logged) {
++			print_verbose(vformat("RurixAccel: luminance_reduction fallback rc=%d; Godot native luminance path remains active.", rc));
++			luminance_fallback_logged = true;
++		}
++		return false;
++	}
++	return true;
++}
++
+ #endif // D3D12_ENABLED
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index 3d867b3..2a9d989 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -7,8 +7,11 @@
+ #include <stdint.h>
+ 
+ #define RXGD_ABI_VERSION 1u
++#define RXGD_STATUS_OK 0
++#define RXGD_STATUS_FALLBACK 1
+ #define RXGD_BACKEND_D3D12 1u
+ #define RXGD_RENDER_METHOD_FORWARD_PLUS 1u
++#define RXGD_PASS_LUMINANCE_REDUCTION 4u
+ 
+ typedef struct RxGdCaps {
+ 	uint32_t abi_version;
+@@ -21,9 +24,23 @@ typedef struct RxGdCaps {
+ 	uint8_t adapter_luid[8];
+ } RxGdCaps;
+ 
++typedef struct RxGdResource {
++	uint32_t abi_version;
++	uint32_t struct_size;
++	uint32_t resource_type;
++	uint32_t format;
++	uint32_t width;
++	uint32_t height;
++	uint32_t depth;
++	uint32_t mip_levels;
++	uint64_t usage_flags;
++	uint64_t native_handle;
++} RxGdResource;
++
+ typedef struct RxGdSession RxGdSession;
+ typedef uint32_t (*RxGdAbiVersion)(void);
+ typedef int32_t (*RxGdCreateD3D12Session)(void *device, void *queue, RxGdCaps caps, RxGdSession **out_session);
++typedef int32_t (*RxGdRecordPass)(RxGdSession *session, uint32_t pass_id, const RxGdResource *resources, uint64_t resource_count, const uint8_t *push_constants, uint64_t push_constant_size);
+ typedef void (*RxGdDestroySession)(RxGdSession *session);
+ 
+ class RurixAccelD3D12Hooks : public D3D12Hooks {
+@@ -35,7 +52,9 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
+ 	RxGdSession *session = nullptr;
+ 	RxGdAbiVersion rxgd_abi_version = nullptr;
+ 	RxGdCreateD3D12Session rxgd_create_d3d12_session = nullptr;
++	RxGdRecordPass rxgd_record_pass = nullptr;
+ 	RxGdDestroySession rxgd_destroy_session = nullptr;
++	bool luminance_fallback_logged = false;
+ 
+ 	void try_create_session();
+ 
+@@ -49,6 +68,12 @@ public:
+ 	void set_command_queue(ID3D12CommandQueue *p_queue) override;
+ 	void cleanup_device() override;
+ 	bool is_ready() const;
++	// GRX-009 segment 1: returns true only when the Rurix bridge actually
++	// recorded the luminance_reduction pass. Any other outcome (setting
++	// disabled, missing session/symbol, or a non-OK bridge status such as
++	// RXGD_STATUS_FALLBACK) returns false and the caller must keep the
++	// native Godot luminance path.
++	bool try_record_luminance_reduction();
+ };
+ 
+ #endif // D3D12_ENABLED
+-- 
+2.50.0

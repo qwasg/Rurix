@@ -1,0 +1,239 @@
+extends Node
+
+const TARGET_BACKEND := "__TARGET_BACKEND__"
+const DEFAULT_WARMUP_FRAMES := __DEFAULT_WARMUP_FRAMES__
+const DEFAULT_SAMPLE_FRAMES := __DEFAULT_SAMPLE_FRAMES__
+const DEFAULT_VSYNC_ENABLED := __DEFAULT_VSYNC_ENABLED__
+const DEFAULT_RESOLUTION := Vector2i(
+    __DEFAULT_RESOLUTION_WIDTH__,
+    __DEFAULT_RESOLUTION_HEIGHT__
+)
+const DEFAULT_EVIDENCE_LEVEL := "measured_local"
+const DEFAULT_RUN_MODE := "full"
+
+@onready var scene_container: Node = $SceneContainer
+
+var scene_name := ""
+var scene_path := ""
+var raw_output_path := ""
+var warmup_frames := DEFAULT_WARMUP_FRAMES
+var sample_frames := DEFAULT_SAMPLE_FRAMES
+var vsync_enabled := DEFAULT_VSYNC_ENABLED
+var resolution := DEFAULT_RESOLUTION
+var evidence_level := DEFAULT_EVIDENCE_LEVEL
+var run_mode := DEFAULT_RUN_MODE
+
+var loaded_scene: Node = null
+var frame_times_ms: Array[float] = []
+var processed_frames := 0
+var sampling_complete := false
+
+
+func _ready() -> void:
+    var config := _parse_runner_config()
+    scene_name = str(config.get("scene_name", ""))
+    scene_path = str(config.get("scene_path", ""))
+    raw_output_path = str(config.get("raw_output_path", ""))
+    warmup_frames = int(config.get("warmup_frames", DEFAULT_WARMUP_FRAMES))
+    sample_frames = int(config.get("sample_frames", DEFAULT_SAMPLE_FRAMES))
+    vsync_enabled = bool(config.get("vsync", DEFAULT_VSYNC_ENABLED))
+    resolution = config.get("resolution", DEFAULT_RESOLUTION)
+    evidence_level = str(config.get("evidence_level", DEFAULT_EVIDENCE_LEVEL))
+    run_mode = str(config.get("run_mode", DEFAULT_RUN_MODE))
+
+    if scene_name.is_empty() or scene_path.is_empty() or raw_output_path.is_empty():
+        _fail_and_quit("missing required runner arguments")
+        return
+    if warmup_frames <= 0 or sample_frames <= 0:
+        _fail_and_quit("warmup_frames and sample_frames must be positive")
+        return
+
+    _apply_display_configuration()
+    if not _load_target_scene():
+        return
+
+    print("[benchmark-runner] scene_name=%s" % scene_name)
+    print("[benchmark-runner] scene_path=%s" % scene_path)
+    print("[benchmark-runner] raw_output_path=%s" % raw_output_path)
+    set_process(true)
+
+
+func _process(delta: float) -> void:
+    if sampling_complete:
+        return
+
+    processed_frames += 1
+    if processed_frames <= warmup_frames:
+        return
+
+    var frame_time_ms := delta * 1000.0
+    if frame_time_ms <= 0.0:
+        _fail_and_quit("encountered non-positive frame time")
+        return
+
+    frame_times_ms.append(frame_time_ms)
+    if frame_times_ms.size() >= sample_frames:
+        sampling_complete = true
+        _write_success_payload()
+        get_tree().quit(0)
+
+
+func _parse_runner_config() -> Dictionary:
+    var args := OS.get_cmdline_user_args()
+    var config := {
+        "warmup_frames": DEFAULT_WARMUP_FRAMES,
+        "sample_frames": DEFAULT_SAMPLE_FRAMES,
+        "vsync": DEFAULT_VSYNC_ENABLED,
+        "resolution": DEFAULT_RESOLUTION,
+        "evidence_level": DEFAULT_EVIDENCE_LEVEL,
+        "run_mode": DEFAULT_RUN_MODE,
+    }
+
+    var index := 0
+    while index < args.size():
+        var key := args[index]
+        if not key.begins_with("--"):
+            index += 1
+            continue
+        if index + 1 >= args.size():
+            break
+        var value := args[index + 1]
+        match key:
+            "--scene-name":
+                config["scene_name"] = value
+            "--scene-path":
+                config["scene_path"] = value
+            "--raw-output-path":
+                config["raw_output_path"] = value
+            "--warmup-frames":
+                config["warmup_frames"] = int(value)
+            "--sample-frames":
+                config["sample_frames"] = int(value)
+            "--vsync":
+                config["vsync"] = _parse_bool(value)
+            "--resolution-width":
+                var width := int(value)
+                var current_resolution: Vector2i = config["resolution"]
+                config["resolution"] = Vector2i(width, current_resolution.y)
+            "--resolution-height":
+                var height := int(value)
+                var current_resolution: Vector2i = config["resolution"]
+                config["resolution"] = Vector2i(current_resolution.x, height)
+            "--evidence-level":
+                config["evidence_level"] = value
+            "--run-mode":
+                config["run_mode"] = value
+        index += 2
+    return config
+
+
+func _parse_bool(value: String) -> bool:
+    var normalized := value.strip_edges().to_lower()
+    return normalized in ["1", "true", "yes", "on"]
+
+
+func _apply_display_configuration() -> void:
+    var window := get_window()
+    if window != null:
+        window.size = resolution
+    if vsync_enabled:
+        DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED)
+    else:
+        DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+
+
+func _load_target_scene() -> bool:
+    var packed_scene := load(scene_path)
+    if packed_scene == null:
+        _fail_and_quit("failed to load scene: %s" % scene_path)
+        return false
+
+    loaded_scene = packed_scene.instantiate()
+    if loaded_scene == null:
+        _fail_and_quit("failed to instantiate scene: %s" % scene_path)
+        return false
+
+    scene_container.add_child(loaded_scene)
+    return true
+
+
+func _write_success_payload() -> void:
+    var avg_frame_time_ms := _mean(frame_times_ms)
+    var payload := {
+        "status": "success",
+        "scene_name": scene_name,
+        "scene_path": scene_path,
+        "warmup_frames": warmup_frames,
+        "sample_frames": sample_frames,
+        "frame_times_ms": frame_times_ms,
+        "avg_fps": 1000.0 / avg_frame_time_ms,
+        "p95_frame_time_ms": _compute_p95(frame_times_ms),
+        "gpu_timestamps_available": false,
+        "gpu_frame_times_ms": null,
+        "evidence_level": evidence_level,
+        "run_mode": run_mode,
+        "resolution": [resolution.x, resolution.y],
+        "vsync": vsync_enabled,
+        "target_backend": TARGET_BACKEND,
+        "sample_count": frame_times_ms.size(),
+    }
+    _write_payload(payload)
+    print(
+        "[benchmark-runner] completed scene=%s samples=%d avg_fps=%.3f p95_ms=%.3f"
+        % [scene_name, frame_times_ms.size(), payload["avg_fps"], payload["p95_frame_time_ms"]]
+    )
+
+
+func _fail_and_quit(error_message: String) -> void:
+    var payload := {
+        "status": "error",
+        "error": error_message,
+        "scene_name": scene_name,
+        "scene_path": scene_path,
+        "warmup_frames": warmup_frames,
+        "sample_frames": sample_frames,
+        "frame_times_ms": frame_times_ms,
+        "avg_fps": null,
+        "p95_frame_time_ms": null,
+        "gpu_timestamps_available": false,
+        "gpu_frame_times_ms": null,
+        "evidence_level": evidence_level,
+        "run_mode": run_mode,
+        "resolution": [resolution.x, resolution.y],
+        "vsync": vsync_enabled,
+        "target_backend": TARGET_BACKEND,
+        "sample_count": frame_times_ms.size(),
+    }
+    _write_payload(payload)
+    push_error(error_message)
+    print("[benchmark-runner] ERROR %s" % error_message)
+    get_tree().quit(1)
+
+
+func _write_payload(payload: Dictionary) -> void:
+    var directory_path := raw_output_path.get_base_dir()
+    var mkdir_error := DirAccess.make_dir_recursive_absolute(directory_path)
+    if mkdir_error != OK:
+        push_error("failed to create output directory: %s" % directory_path)
+        return
+    var file := FileAccess.open(raw_output_path, FileAccess.WRITE)
+    if file == null:
+        push_error("failed to open output file: %s" % raw_output_path)
+        return
+    file.store_string(JSON.stringify(payload, "  ") + "\n")
+    file.close()
+
+
+func _mean(values: Array[float]) -> float:
+    var total := 0.0
+    for value in values:
+        total += value
+    return total / float(values.size())
+
+
+func _compute_p95(values: Array[float]) -> float:
+    var sorted_values := values.duplicate()
+    sorted_values.sort()
+    var index := int(ceil(float(sorted_values.size()) * 0.95)) - 1
+    index = min(max(index, 0), sorted_values.size() - 1)
+    return sorted_values[index]
