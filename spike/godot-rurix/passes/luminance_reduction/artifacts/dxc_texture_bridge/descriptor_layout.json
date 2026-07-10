@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "pass_id": "luminance_reduction",
+  "artifact_kind": "dxc_texture_bridge_descriptor_layout_scaffold",
+  "root_constants": "none",
+  "canonical_artifact_eligible": false,
+  "resources": [
+    {
+      "name": "src_luminance",
+      "binding": "t0 space0",
+      "class": "SRV",
+      "register": 0,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "Texture2D<float>",
+      "binding_kind": "texture2d"
+    },
+    {
+      "name": "dst_luminance",
+      "binding": "u0 space0",
+      "class": "UAV",
+      "register": 0,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "RWTexture2D<float>",
+      "binding_kind": "rwtexture2d"
+    }
+  ]
+}

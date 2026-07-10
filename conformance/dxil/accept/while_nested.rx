@@ -1,0 +1,14 @@
+//@ spec: RXS-0157
+kernel fn while_nested(dst: ViewMut<global, f32>) {
+    let mut y = 0;
+    let mut total = 0.0;
+    while y < 2 {
+        let mut x = 0;
+        while x < 2 {
+            total = total + 1.0;
+            x = x + 1;
+        }
+        y = y + 1;
+    }
+    dst[0] = total;
+}

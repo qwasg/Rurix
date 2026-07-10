@@ -1,0 +1,65 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Fri, 3 Jul 2026 21:30:00 +0800
+Subject: [PATCH] Add GRX-009 luminance resource mapping scaffold markers
+
+Stacked on 0001-rurix-accel-module-scaffold.patch,
+0002-rurix-accel-luminance-pass-gate.patch, and
+0003-rurix-accel-luminance-core-callsite-wiring.patch. This segment 3b patch
+keeps the module/bridge path fallback-first while documenting the intended
+luminance_reduction descriptor shape:
+
+- root constants / root-cbuffer binding b0: source_width, source_height,
+  max_luminance, min_luminance, exposure_adjust.
+- SRV src_luminance = t0 and UAV dst_luminance = u0.
+- the target D3D12 device must confirm 64-bit integer shader capability before
+  any future runtime path may proceed.
+- RXGD_PASS_LUMINANCE_REDUCTION still treats any missing resource, descriptor
+  mismatch, unsupported cap, or bridge fallback as RXGD_STATUS_FALLBACK.
+
+This is a resource mapping scaffold only. It is not a real GPU pass, does not
+make rxgd_record_pass return OK for luminance_reduction, does not skip the
+native Godot luminance path, and does not claim visual, telemetry, or
+performance evidence.
+---
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index 3b0aa9a..4c1bc91 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -53,7 +53,16 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
+ 	RxGdAbiVersion rxgd_abi_version = nullptr;
+ 	RxGdCreateD3D12Session rxgd_create_d3d12_session = nullptr;
+ 	RxGdRecordPass rxgd_record_pass = nullptr;
+ 	RxGdDestroySession rxgd_destroy_session = nullptr;
+ 	bool luminance_fallback_logged = false;
++	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 28;
++	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_RESOURCE_COUNT = 2;
++	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_SCAFFOLD = "resource mapping scaffold";
++	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_ROOT_CB = "b0";
++	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_SRC = "src_luminance = t0";
++	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_DST = "dst_luminance = u0";
++	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_CAP = "64-bit integer shader capability";
++	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_PARAMS = "source_width source_height max_luminance min_luminance exposure_adjust";
++	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_FALLBACK = "RXGD_PASS_LUMINANCE_REDUCTION remains RXGD_STATUS_FALLBACK unless a future bridge returns OK";
+ 
+ 	void try_create_session();
+ 
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index 343df9d..55ca7ac 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -196,6 +196,12 @@ void RurixAccelD3D12Hooks::try_create_session() {
+ }
+ 
+ bool RurixAccelD3D12Hooks::try_record_luminance_reduction() {
++	(void)LUMINANCE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES;
++	(void)LUMINANCE_RESOURCE_MAPPING_RESOURCE_COUNT;
++	(void)LUMINANCE_RESOURCE_MAPPING_SCAFFOLD;
++	(void)LUMINANCE_RESOURCE_MAPPING_ROOT_CB;
++	(void)LUMINANCE_RESOURCE_MAPPING_SRC;
++	(void)LUMINANCE_RESOURCE_MAPPING_DST;
+ 	// GRX-009 segment 1 gate: every early return below means the caller must
+ 	// keep the native Godot luminance path.
+ 	if (!GLOBAL_GET("rendering/rurix_accel/passes/luminance_reduction/enabled")) {
+-- 
+2.50.0

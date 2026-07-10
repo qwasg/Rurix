@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "pass_id": "luminance_reduction",
+  "segment": "4k_texture_dxc_feasibility",
+  "status": "success",
+  "ready": true,
+  "issue": null,
+  "generated_at_utc": "2026-07-08T09:47:53Z",
+  "tools": {
+    "dxc": {
+      "found": true,
+      "path": "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+      "version_output": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)"
+    },
+    "dxv": {
+      "found": true,
+      "path": "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe",
+      "version_output": "OVERVIEW: dxil validator\n\nUSAGE: dxv.exe [options] <input dxil file>\n\nOPTIONS:\n  -help         - Print help\n  -o=<filename> - Override output filename for signed container"
+    }
+  },
+  "commands": [
+    {
+      "label": "dxc_texture_compute_compile",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+        "-T",
+        "cs_6_0",
+        "-E",
+        "main",
+        "-Qstrip_debug",
+        "-Fo",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\toolchain_probe\\dxc_texture\\texture_feasibility.dxil",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\toolchain_probe\\dxc_texture\\texture_feasibility.hlsl"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/toolchain_probe/dxc_texture/dxc_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/toolchain_probe/dxc_texture/dxc_stderr.txt"
+    },
+    {
+      "label": "dxv_texture_container_validation",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\toolchain_probe\\dxc_texture\\texture_feasibility.dxil"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/toolchain_probe/dxc_texture/dxv_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/toolchain_probe/dxc_texture/dxv_stderr.txt"
+    }
+  ],
+  "hlsl": {
+    "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/toolchain_probe/dxc_texture/texture_feasibility.hlsl",
+    "entry_point": "main",
+    "target_profile": "cs_6_0",
+    "sha256": "5ef820aeb236d5d00e8ac72e3e5bca11e572487deeb9cb9f8d39bef14fe2c5ef"
+  },
+  "dxil_container": {
+    "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/toolchain_probe/dxc_texture/texture_feasibility.dxil",
+    "exists": true,
+    "size_bytes": 3196,
+    "sha256": "bf270f779f225cf535f92c0e629d1f2fa917f772ee31f551f8ed333e636f04b0",
+    "artifact_kind": "dxil_container",
+    "produced_by_current_run": true
+  },
+  "validation": {
+    "tool": "dxv.exe",
+    "status": "pass",
+    "skip_reason": null,
+    "exit_code": 0,
+    "stdout_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/toolchain_probe/dxc_texture/dxv_stdout.txt",
+    "stderr_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/toolchain_probe/dxc_texture/dxv_stderr.txt"
+  },
+  "descriptor_binding_expectation": {
+    "resources": [
+      {
+        "name": "src_luminance",
+        "class": "t",
+        "register": 0,
+        "space": 0,
+        "hlsl_type": "Texture2D<float>",
+        "binding_kind": "texture2d"
+      },
+      {
+        "name": "dst_luminance",
+        "class": "u",
+        "register": 0,
+        "space": 0,
+        "hlsl_type": "RWTexture2D<float>",
+        "binding_kind": "rwtexture2d"
+      }
+    ]
+  },
+  "root_signature_expectation": {
+    "rurix_owned_rts0_available": false,
+    "issue": "dxc container does not provide a Rurix-owned .rts0.bin or descriptor layout contract without root signature extraction or synthesis"
+  },
+  "rurix_artifact_contract_comparison": {
+    "satisfies_current_bridge_descriptor_layout_contract": false,
+    "current_tracked_binding_kind": "raw_buffer_view",
+    "missing_work": [
+      "root_signature_extraction",
+      "descriptor_layout_synthesis",
+      "binding_kind_mapping",
+      "DXIL_validation_integration",
+      "Rurix_source_provenance"
+    ]
+  },
+  "next_action_if_ready": "design_grx009_dxc_texture_artifact_bridge",
+  "next_action_if_not_ready": "provide_grx009_runtime_mappable_luminance_kernel_artifact",
+  "does_not_imply": [
+    "Godot runtime luminance pass completion",
+    "real_gpu_pass=true",
+    "real_d3d12_dispatch_recorded=true",
+    "visual success",
+    "GPU timestamp success",
+    "performance claim",
+    "canonical luminance artifact replacement"
+  ]
+}

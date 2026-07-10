@@ -1,0 +1,2 @@
+subagent can write: yes
+agent_id: (not provided in subagent context)

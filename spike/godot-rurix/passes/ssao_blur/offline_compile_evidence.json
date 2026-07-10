@@ -1,0 +1,187 @@
+{
+  "pass_id": "ssao_blur",
+  "segment": "offline_compile",
+  "status": "success",
+  "runtime_state": "fallback_only",
+  "attempted_at_utc": "2026-07-08T15:25:30Z",
+  "provenance": "hlsl_bridge_workaround",
+  "rurix_owned": false,
+  "rurix_owned_rts0": true,
+  "canonical_switch_exception": "owner_approved_hlsl_bridge_workaround",
+  "provenance_policy": "spike/godot-rurix/passes/luminance_reduction/texture_artifact_provenance_policy.json",
+  "math_parity_evidence": "spike/godot-rurix/passes/ssao_blur/math_parity_evidence.json",
+  "math_parity_status": "smart_blur_cpu_reference_proven_pending_gpu_dispatch",
+  "inputs": {
+    "package_manifest": "spike/godot-rurix/passes/ssao_blur/rurix.toml",
+    "entry_file": "spike/godot-rurix/passes/ssao_blur/artifacts/hlsl_bridge/ssao_blur_smart.hlsl",
+    "rurix_math_source": "spike/godot-rurix/passes/ssao_blur/src/lib.rx",
+    "godot_reference_files": [
+      "external/godot-master/servers/rendering/renderer_rd/effects/ss_effects.cpp",
+      "external/godot-master/servers/rendering/renderer_rd/shaders/effects/ssao_blur.glsl"
+    ]
+  },
+  "tools": {
+    "dxc": {
+      "found": true,
+      "path": "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+      "version_output": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)"
+    },
+    "dxv": {
+      "found": true,
+      "path": "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe"
+    }
+  },
+  "hlsl": {
+    "path": "spike/godot-rurix/passes/ssao_blur/artifacts/hlsl_bridge/ssao_blur_smart.hlsl",
+    "entry_point": "main",
+    "target_profile": "cs_6_0",
+    "sha256": "b4a2b5d8d986d973f7d0e5caf65406f30839019a629ea91c2e893213b01ace52"
+  },
+  "commands": [
+    {
+      "label": "dxc_compile",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+        "-T",
+        "cs_6_0",
+        "-E",
+        "main",
+        "-Qstrip_debug",
+        "-Fo",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\ssao_blur\\artifacts\\hlsl_bridge\\ssao_blur_smart.dxil",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\ssao_blur\\artifacts\\hlsl_bridge\\ssao_blur_smart.hlsl"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/ssao_blur/artifacts/hlsl_bridge/dxc_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/ssao_blur/artifacts/hlsl_bridge/dxc_stderr.txt"
+    },
+    {
+      "label": "dxv_validate",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\ssao_blur\\artifacts\\hlsl_bridge\\ssao_blur_smart.dxil"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/ssao_blur/artifacts/hlsl_bridge/dxv_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/ssao_blur/artifacts/hlsl_bridge/dxv_stderr.txt"
+    },
+    {
+      "label": "emit_grx011_ssao_blur_rts0",
+      "argv": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "rurixc",
+        "--features",
+        "dxil-backend shader-stages",
+        "--example",
+        "emit_grx011_ssao_blur_rts0",
+        "--",
+        "spike/godot-rurix/passes/ssao_blur/artifacts/ssao_blur_descriptor_layout.json",
+        "spike/godot-rurix/passes/ssao_blur/artifacts/ssao_blur.rts0.bin"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/ssao_blur/artifacts/hlsl_bridge/emit_rts0_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/ssao_blur/artifacts/hlsl_bridge/emit_rts0_stderr.txt"
+    }
+  ],
+  "attempted_binding_kinds": [
+    "texture2d",
+    "rwtexture2d"
+  ],
+  "runtime_mappable": true,
+  "known_gaps": [
+    "MODE_SMART single pass only; MODE_WIDE (+-2 texel cross, bidirectional edge products, 0.8 base weight) unsupported",
+    "MODE_NON_SMART (diagonal 0.2-weighted taps) unsupported",
+    "multi-pass ping-pong chain unscheduled (ssao_blur_passes default 2; wide passes for pass < blur_passes-2)",
+    "4-slice deinterleaved loop unscheduled (kernel covers one slice per dispatch)",
+    "SSIL blur unsupported (ssil_blur.glsl: rgba16 value image + separate r8 edges image; RXGD_PASS_SSIL_BLUR not wired)",
+    "mirror-sampler border addressing not reproduced (kernel clamps at the border; border texels may differ)",
+    "rg8 unorm storage quantization not modelled (kernel computes float values; native slices are R8G8_UNORM)",
+    "gather-vs-load half-pixel addressing seam outside interior texels",
+    "no multiview",
+    "no temporal/noise stability evidence (GRX-011 plan note; 4g-level, later slice)",
+    "GPU-side math parity observation pending a real dispatch (math_parity_evidence.json)"
+  ],
+  "does_not_imply": [
+    "Godot runtime SSAO blur pass completion",
+    "real_gpu_pass=true",
+    "real_d3d12_dispatch_recorded=true",
+    "visual success",
+    "temporal stability success",
+    "GPU timestamp success",
+    "performance claim",
+    "default pass enablement",
+    "math parity proven (see math_parity_evidence.json)"
+  ],
+  "dxil_provenance": {
+    "produced_by": "dxc",
+    "compiler_version": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)",
+    "target_profile": "cs_6_0",
+    "entry_point": "main",
+    "hlsl_source": {
+      "path": "spike/godot-rurix/passes/ssao_blur/artifacts/hlsl_bridge/ssao_blur_smart.hlsl",
+      "sha256": "b4a2b5d8d986d973f7d0e5caf65406f30839019a629ea91c2e893213b01ace52"
+    },
+    "validation": {
+      "tool": "dxv.exe",
+      "status": "pass",
+      "exit_code": 0
+    }
+  },
+  "root_signature_generator": {
+    "kind": "rurixc_binding_layout_example",
+    "command": [
+      "cargo",
+      "run",
+      "-q",
+      "-p",
+      "rurixc",
+      "--features",
+      "dxil-backend shader-stages",
+      "--example",
+      "emit_grx011_ssao_blur_rts0",
+      "--",
+      "spike/godot-rurix/passes/ssao_blur/artifacts/ssao_blur_descriptor_layout.json",
+      "spike/godot-rurix/passes/ssao_blur/artifacts/ssao_blur.rts0.bin"
+    ],
+    "source_api": "rurixc::binding_layout::{infer_root_signature, pack_root_constants, serialize_rts0}",
+    "root_constants": "28_bytes_at_root_parameter_index_0"
+  },
+  "artifacts": {
+    "dxil": {
+      "path": "spike/godot-rurix/passes/ssao_blur/artifacts/ssao_blur.dxil",
+      "exists": true,
+      "size_bytes": 4672,
+      "sha256": "0a730561d08a2b37d26a8bc3f29df893febedb32d55e2e5b5c3d7a84b369ce32",
+      "artifact_kind": "dxil_container",
+      "produced_by_current_run": true,
+      "semantic_status": "lowered_compute_body"
+    },
+    "root_signature": {
+      "path": "spike/godot-rurix/passes/ssao_blur/artifacts/ssao_blur.rts0.bin",
+      "exists": true,
+      "size_bytes": 152,
+      "sha256": "f08794f9886e1ebc4c905e3006732e572ec913a75255c5b488cf4877a1391f03",
+      "artifact_kind": "rurix_owned_rts0_root_signature",
+      "produced_by_current_run": true
+    },
+    "descriptor_layout": {
+      "path": "spike/godot-rurix/passes/ssao_blur/artifacts/ssao_blur_descriptor_layout.json",
+      "exists": true,
+      "size_bytes": 2153,
+      "sha256": "ba09771d5cc65511972eaa6f5810b9f614756a4ab323cc3d9ea2afdf7b525e2c",
+      "artifact_kind": "descriptor_layout_json",
+      "produced_by_current_run": true
+    }
+  },
+  "notes": [
+    "Runtime remains fallback_only: the real dispatch path is linked only under the d3d12-recording-shim feature and armed only by the opt-in RXGD_CAP_SSAO_BLUR_REAL_PASS flag; the shipping feature-off bridge fails closed with real_dispatch_path_not_linked.",
+    "The canonical artifacts/ paths carry the texture-capable hlsl_bridge workaround package: a DXC cs_6_0 DXIL container (validated by dxv), the Rurix-owned RTS0 root signature serialized by rurixc::binding_layout::serialize_rts0 (28-byte root constants + SRV t0 + UAV u0), and the descriptor layout with per-slot texture2d/rwtexture2d binding kinds.",
+    "This canonical package uses the owner-approved hlsl_bridge_workaround provenance exception (GRX-009 texture_artifact_provenance_policy.json, which applies to every texture compute pass): the artifact is runtime-mappable but NOT rurix_owned; a rurixc-owned ssao_blur compile still requires a patched llc that supports texture intrinsics plus multi-channel texture element support in the Rurix lang items.",
+    "The kernel math mirrors the ssao_blur.glsl MODE_SMART single-pass single-slice subset only; see known_gaps."
+  ],
+  "blocker_category": null,
+  "blocker_summary": null
+}

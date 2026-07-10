@@ -1,0 +1,315 @@
+{
+  "schema_version": 1,
+  "subject": "grx009_godot_runtime_luminance_bridge_dispatch_recording_smoke",
+  "pass_id": "luminance_reduction",
+  "segment": "4f",
+  "runtime_state": "fallback_only",
+  "real_gpu_pass": false,
+  "real_d3d12_dispatch_recorded": false,
+  "godot_runtime_luminance_path_enabled": false,
+  "default_enable_state": "disabled",
+  "gpu_timestamp_status": "not_yet",
+  "gpu_time_ns": null,
+  "bridge": {
+    "dll": "target/debug/rurix_godot.dll",
+    "feature": "d3d12-recording-shim",
+    "record_arm": "RXGD_CAP_LUMINANCE_DISPATCH_RECORD (harness-only, set via the default-false dispatch_recording_smoke opt-in)"
+  },
+  "godot": {
+    "smoke_opt_in": "rendering/rurix_accel/passes/luminance_reduction/dispatch_recording_smoke",
+    "smoke_opt_in_default": false,
+    "project_dir": "target/grx009_godot_runtime_bridge_recording_smoke/project",
+    "runtime_record_marker": "RXGD_GODOT_RUNTIME_LUMINANCE_RECORD",
+    "requires_full_patch_stack": "0001..0008",
+    "exe": "H:\\rurix\\target\\grx009_segment4f_source_audit_v3\\godot\\bin\\godot.windows.template_debug.x86_64.console.exe",
+    "exit_code": 0,
+    "session_ready": true,
+    "session_unavailable": false,
+    "runtime_record_marker_present": true
+  },
+  "artifacts": {
+    "dxil": {
+      "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/luminance_reduction.dxil",
+      "sha256": "c77a54ded13417a8d27400abdad38a95454cb4de269cf2d4c9633011967abb9b"
+    },
+    "root_signature": {
+      "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/luminance_reduction.rts0.bin",
+      "sha256": "f08794f9886e1ebc4c905e3006732e572ec913a75255c5b488cf4877a1391f03"
+    },
+    "descriptor_layout": {
+      "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/luminance_reduction_descriptor_layout.json",
+      "sha256": "673da613157ada7a264019d4b2071feb7995b8a47206e0bae807ac885f07269b"
+    }
+  },
+  "offline_evidence": {
+    "path": "spike/godot-rurix/passes/luminance_reduction/offline_compile_evidence.json",
+    "dxil_sha256": "c77a54ded13417a8d27400abdad38a95454cb4de269cf2d4c9633011967abb9b",
+    "root_signature_sha256": "f08794f9886e1ebc4c905e3006732e572ec913a75255c5b488cf4877a1391f03",
+    "descriptor_layout_sha256": "673da613157ada7a264019d4b2071feb7995b8a47206e0bae807ac885f07269b"
+  },
+  "artifact_hashes_match_offline_evidence": true,
+  "note": "GRX-009 segment 4f Godot-runtime bridge D3D12 dispatch recording smoke evidence only. Even a success here keeps runtime_state=fallback_only, real_gpu_pass=false, real_d3d12_dispatch_recorded=false, godot_runtime_luminance_path_enabled=false, and default_enable_state=disabled: the recording path is compiled only under the test-only d3d12-recording-shim feature and armed only by the default-false dispatch_recording_smoke opt-in the generated smoke project turns on. The shipping/feature-off bridge and the default Godot config still return RXGD_STATUS_FALLBACK. It makes no visual, perf, GPU-timestamp, or measured-fallback-telemetry claim.",
+  "dll_fingerprint": {
+    "dll_path_at_run": "target/debug/rurix_godot.dll",
+    "dll_sha256": "21f92adebf1397f076568b6a3aff79b5e97091c92fa97221de26bcad87047de9",
+    "dll_size_bytes": 220672,
+    "dll_mtime_utc": "2026-07-07T05:20:36+00:00",
+    "build_profile": "debug",
+    "features": [
+      "d3d12-recording-shim"
+    ],
+    "mutable_artifact_note": "target/debug/rurix_godot.dll is a mutable build artifact; a later feature-off `cargo build -p rurix-godot` can overwrite it in place. Rerun ci/grx009_godot_runtime_bridge_recording_smoke.py to refresh this fingerprint and reproduce the exact feature-built DLL.",
+    "snapshot_dll_path": "target/grx009_godot_runtime_bridge_recording_smoke/rurix_godot_d3d12_recording_shim.dll",
+    "snapshot_dll_sha256": "21f92adebf1397f076568b6a3aff79b5e97091c92fa97221de26bcad87047de9"
+  },
+  "status": "success",
+  "godot_runtime_bridge_recorded_dispatch": true,
+  "timestamp": "2026-07-07T13:22:41+08:00",
+  "run_url": "local interactive runner",
+  "godot_exe_fingerprint": {
+    "exe_path_at_run": "H:\\rurix\\target\\grx009_segment4f_source_audit_v3\\godot\\bin\\godot.windows.template_debug.x86_64.console.exe",
+    "exe_sha256": "191372d4c3757e7911e0826463e2bbd3ebdc08e27a8fdb6377b89a269fea0f6e",
+    "exe_size_bytes": 300544,
+    "exe_mtime_utc": "2026-07-05T13:07:21+00:00",
+    "committed": false,
+    "scratch_build_note": "Scratch Godot build binaries are NOT committed to the repo. This console exe is a local, gitignored artifact rebuilt from the ignored external/godot-master snapshot with the full 0001..0008 segment 4f patch stack applied (module_rurix_accel_enabled=yes d3d12=yes). Only its fingerprint is recorded here so the historical measured success stays auditable; re-point RURIX_GRX009_SEGMENT4F_GODOT_EXE at an equivalent rebuild to reproduce it."
+  },
+  "patch_stack_identity": {
+    "patches_dir": "spike/godot-rurix/patches",
+    "stack": "0001..0008",
+    "patches": [
+      {
+        "patch": "0001-rurix-accel-module-scaffold.patch",
+        "path": "spike/godot-rurix/patches/0001-rurix-accel-module-scaffold.patch",
+        "sha256": "6cbfdbfc3dd6506e2280f16849d6369132ef207dbc5d871f81043664657dad20",
+        "size_bytes": 11609
+      },
+      {
+        "patch": "0002-rurix-accel-luminance-pass-gate.patch",
+        "path": "spike/godot-rurix/patches/0002-rurix-accel-luminance-pass-gate.patch",
+        "sha256": "7b39b73a15a20989fa633b8284b22dbff12fb01155cfc2678d9f2a3de3a65aba",
+        "size_bytes": 8272
+      },
+      {
+        "patch": "0003-rurix-accel-luminance-core-callsite-wiring.patch",
+        "path": "spike/godot-rurix/patches/0003-rurix-accel-luminance-core-callsite-wiring.patch",
+        "sha256": "6ce221e709f732e0192fe976bcc3a9bbb8c7400ec057b3b48fe7f73dc6f09d0a",
+        "size_bytes": 5320
+      },
+      {
+        "patch": "0004-rurix-accel-luminance-resource-mapping-scaffold.patch",
+        "path": "spike/godot-rurix/patches/0004-rurix-accel-luminance-resource-mapping-scaffold.patch",
+        "sha256": "2d84d98212ecacd0bce18b1369b1dc7e4f54b43b562979c62c8ad84e11093321",
+        "size_bytes": 3489
+      },
+      {
+        "patch": "0005-rurix-accel-luminance-runtime-binding-preflight.patch",
+        "path": "spike/godot-rurix/patches/0005-rurix-accel-luminance-runtime-binding-preflight.patch",
+        "sha256": "8e924527b4ff3fc825d75f1d5f06489c1a3e24761b7d2e1af65f7dfe6f970f79",
+        "size_bytes": 12044
+      },
+      {
+        "patch": "0006-rurix-accel-luminance-gated-dispatch-bringup.patch",
+        "path": "spike/godot-rurix/patches/0006-rurix-accel-luminance-gated-dispatch-bringup.patch",
+        "sha256": "a902b5b66e7ede84f9a254661bd8f4a76c6de5695dc1715632ee95cbe92eeeae",
+        "size_bytes": 4413
+      },
+      {
+        "patch": "0007-rurix-accel-luminance-native-resource-handle-mapping.patch",
+        "path": "spike/godot-rurix/patches/0007-rurix-accel-luminance-native-resource-handle-mapping.patch",
+        "sha256": "e36fca8b3082451e9bafe16f9b735a0f7e9bea0bb65b0828129741d30df077a1",
+        "size_bytes": 14031
+      },
+      {
+        "patch": "0008-rurix-accel-luminance-godot-runtime-bridge-recording-smoke.patch",
+        "path": "spike/godot-rurix/patches/0008-rurix-accel-luminance-godot-runtime-bridge-recording-smoke.patch",
+        "sha256": "e245ab5a2c5030a66901fece1abbf3127331d0e01a788917794cf5925c235a08",
+        "size_bytes": 6887
+      }
+    ]
+  },
+  "scratch_source_provenance": {
+    "base_snapshot": "external/godot-master",
+    "source_root_at_run": "H:\\rurix\\target\\grx009_segment4f_source_audit_v3\\godot",
+    "source_clean": true,
+    "source_status": [],
+    "tracked_patch_stack_only": true,
+    "source_audit_supported": true,
+    "source_audit_errors": [],
+    "source_provenance_sidecar_path": "H:\\rurix\\target\\grx009_segment4f_source_audit_v3\\source_provenance.json",
+    "applied_patch_stack": {
+      "patches_dir": "spike/godot-rurix/patches",
+      "stack": "0001..0008",
+      "patches": [
+        {
+          "patch": "0001-rurix-accel-module-scaffold.patch",
+          "path": "spike/godot-rurix/patches/0001-rurix-accel-module-scaffold.patch",
+          "sha256": "6cbfdbfc3dd6506e2280f16849d6369132ef207dbc5d871f81043664657dad20",
+          "size_bytes": 11609
+        },
+        {
+          "patch": "0002-rurix-accel-luminance-pass-gate.patch",
+          "path": "spike/godot-rurix/patches/0002-rurix-accel-luminance-pass-gate.patch",
+          "sha256": "7b39b73a15a20989fa633b8284b22dbff12fb01155cfc2678d9f2a3de3a65aba",
+          "size_bytes": 8272
+        },
+        {
+          "patch": "0003-rurix-accel-luminance-core-callsite-wiring.patch",
+          "path": "spike/godot-rurix/patches/0003-rurix-accel-luminance-core-callsite-wiring.patch",
+          "sha256": "6ce221e709f732e0192fe976bcc3a9bbb8c7400ec057b3b48fe7f73dc6f09d0a",
+          "size_bytes": 5320
+        },
+        {
+          "patch": "0004-rurix-accel-luminance-resource-mapping-scaffold.patch",
+          "path": "spike/godot-rurix/patches/0004-rurix-accel-luminance-resource-mapping-scaffold.patch",
+          "sha256": "2d84d98212ecacd0bce18b1369b1dc7e4f54b43b562979c62c8ad84e11093321",
+          "size_bytes": 3489
+        },
+        {
+          "patch": "0005-rurix-accel-luminance-runtime-binding-preflight.patch",
+          "path": "spike/godot-rurix/patches/0005-rurix-accel-luminance-runtime-binding-preflight.patch",
+          "sha256": "8e924527b4ff3fc825d75f1d5f06489c1a3e24761b7d2e1af65f7dfe6f970f79",
+          "size_bytes": 12044
+        },
+        {
+          "patch": "0006-rurix-accel-luminance-gated-dispatch-bringup.patch",
+          "path": "spike/godot-rurix/patches/0006-rurix-accel-luminance-gated-dispatch-bringup.patch",
+          "sha256": "a902b5b66e7ede84f9a254661bd8f4a76c6de5695dc1715632ee95cbe92eeeae",
+          "size_bytes": 4413
+        },
+        {
+          "patch": "0007-rurix-accel-luminance-native-resource-handle-mapping.patch",
+          "path": "spike/godot-rurix/patches/0007-rurix-accel-luminance-native-resource-handle-mapping.patch",
+          "sha256": "e36fca8b3082451e9bafe16f9b735a0f7e9bea0bb65b0828129741d30df077a1",
+          "size_bytes": 14031
+        },
+        {
+          "patch": "0008-rurix-accel-luminance-godot-runtime-bridge-recording-smoke.patch",
+          "path": "spike/godot-rurix/patches/0008-rurix-accel-luminance-godot-runtime-bridge-recording-smoke.patch",
+          "sha256": "e245ab5a2c5030a66901fece1abbf3127331d0e01a788917794cf5925c235a08",
+          "size_bytes": 6887
+        }
+      ]
+    },
+    "godot_exe": {
+      "path_at_run": "H:\\rurix\\target\\grx009_segment4f_source_audit_v3\\godot\\bin\\godot.windows.template_debug.x86_64.console.exe",
+      "sha256": "191372d4c3757e7911e0826463e2bbd3ebdc08e27a8fdb6377b89a269fea0f6e",
+      "size_bytes": 300544,
+      "mtime_utc": "2026-07-05T13:07:21+00:00"
+    },
+    "build": {
+      "available": false,
+      "command": null,
+      "log_path": null
+    },
+    "base_commit": "2aa1773de3d03e3aa1e120a76fe38b7200ada980",
+    "base_tree": "6afb1013d67159858bc04b5a613db339bb7823a8",
+    "final_head": "d40ae9786c3f861f238201264ec5dc79417ace7a",
+    "final_tree": "40ccccc18931b200d1957aea7934734f39403767",
+    "actual_head": "b256a608614832964cc4ed1a65596bc69f936d3f",
+    "actual_tree": "40ccccc18931b200d1957aea7934734f39403767",
+    "patch_application_audit": [
+      {
+        "order": 1,
+        "patch": "0001-rurix-accel-module-scaffold.patch",
+        "path": "spike/godot-rurix/patches/0001-rurix-accel-module-scaffold.patch",
+        "sha256": "6cbfdbfc3dd6506e2280f16849d6369132ef207dbc5d871f81043664657dad20",
+        "size_bytes": 11609,
+        "commit": "8617c22f1707c089795433473fd8decfee032cb1",
+        "tree": "c329422d07988a603e8d04958c6ba3e0f5852b8f"
+      },
+      {
+        "order": 2,
+        "patch": "0002-rurix-accel-luminance-pass-gate.patch",
+        "path": "spike/godot-rurix/patches/0002-rurix-accel-luminance-pass-gate.patch",
+        "sha256": "7b39b73a15a20989fa633b8284b22dbff12fb01155cfc2678d9f2a3de3a65aba",
+        "size_bytes": 8272,
+        "commit": "85d09a64d189d683b10e402e05ec12764f43de67",
+        "tree": "f5a6e90f7e4b889785d2b7aa7771d62f49e8f0f0"
+      },
+      {
+        "order": 3,
+        "patch": "0003-rurix-accel-luminance-core-callsite-wiring.patch",
+        "path": "spike/godot-rurix/patches/0003-rurix-accel-luminance-core-callsite-wiring.patch",
+        "sha256": "6ce221e709f732e0192fe976bcc3a9bbb8c7400ec057b3b48fe7f73dc6f09d0a",
+        "size_bytes": 5320,
+        "commit": "a71098f02abd6f4eae75e2ed73289b5d363570dd",
+        "tree": "2faaaba207deabd22dce8017dde8881742831d3c"
+      },
+      {
+        "order": 4,
+        "patch": "0004-rurix-accel-luminance-resource-mapping-scaffold.patch",
+        "path": "spike/godot-rurix/patches/0004-rurix-accel-luminance-resource-mapping-scaffold.patch",
+        "sha256": "2d84d98212ecacd0bce18b1369b1dc7e4f54b43b562979c62c8ad84e11093321",
+        "size_bytes": 3489,
+        "commit": "09b7edcf77043889f857dff4c43da6f3ee981a99",
+        "tree": "a402290da2a9a94b1b247b642d5588bb6dc93f2e"
+      },
+      {
+        "order": 5,
+        "patch": "0005-rurix-accel-luminance-runtime-binding-preflight.patch",
+        "path": "spike/godot-rurix/patches/0005-rurix-accel-luminance-runtime-binding-preflight.patch",
+        "sha256": "8e924527b4ff3fc825d75f1d5f06489c1a3e24761b7d2e1af65f7dfe6f970f79",
+        "size_bytes": 12044,
+        "commit": "da8c67660df3964842485ec17d011f1cf90a535a",
+        "tree": "790a49fcdfc83f51bf0e5c63c1138833870c75ab"
+      },
+      {
+        "order": 6,
+        "patch": "0006-rurix-accel-luminance-gated-dispatch-bringup.patch",
+        "path": "spike/godot-rurix/patches/0006-rurix-accel-luminance-gated-dispatch-bringup.patch",
+        "sha256": "a902b5b66e7ede84f9a254661bd8f4a76c6de5695dc1715632ee95cbe92eeeae",
+        "size_bytes": 4413,
+        "commit": "55cb69ffd50c98f8ea51adbf9ace0e9270479d4e",
+        "tree": "320de8d47541871ecca77705f6ae7dc30039bd60"
+      },
+      {
+        "order": 7,
+        "patch": "0007-rurix-accel-luminance-native-resource-handle-mapping.patch",
+        "path": "spike/godot-rurix/patches/0007-rurix-accel-luminance-native-resource-handle-mapping.patch",
+        "sha256": "e36fca8b3082451e9bafe16f9b735a0f7e9bea0bb65b0828129741d30df077a1",
+        "size_bytes": 14031,
+        "commit": "e2030dca050412b031734c26fc7d1425c0577684",
+        "tree": "4b749abdd6a0fce0da22b12115c16c46e831b7eb"
+      },
+      {
+        "order": 8,
+        "patch": "0008-rurix-accel-luminance-godot-runtime-bridge-recording-smoke.patch",
+        "path": "spike/godot-rurix/patches/0008-rurix-accel-luminance-godot-runtime-bridge-recording-smoke.patch",
+        "sha256": "e245ab5a2c5030a66901fece1abbf3127331d0e01a788917794cf5925c235a08",
+        "size_bytes": 6887,
+        "commit": "d40ae9786c3f861f238201264ec5dc79417ace7a",
+        "tree": "40ccccc18931b200d1957aea7934734f39403767"
+      }
+    ],
+    "expected_stack_ok": true
+  },
+  "runtime_log_audit": {
+    "unexpected_rxgd_diag_count": 0,
+    "rxgd_diag_allowed_by_tracked_patch_queue": false,
+    "unexpected_godot_error_count": 0,
+    "allowed_godot_errors": [
+      {
+        "message": "Could not load global script cache",
+        "observed_count": 1,
+        "rationale": "Tolerated Godot global script cache shutdown/cache warning in the generated minimal smoke project; it does not indicate runtime bridge recording failure when the process exits 0 and recording checks pass."
+      }
+    ],
+    "unexpected_lines_tail": []
+  },
+  "recording": {
+    "runtime_record_marker": "RXGD_GODOT_RUNTIME_LUMINANCE_RECORD",
+    "recorded": "1",
+    "pass": "RXGD_PASS_LUMINANCE_REDUCTION"
+  },
+  "checks": {
+    "artifact_hashes_match_offline_evidence": true,
+    "descriptor_layout_matches_resource_mapping": true,
+    "recording_shim_linked": true,
+    "godot_runtime_session_ready": true,
+    "godot_runtime_call_site_recorded": true,
+    "recorded_one_pass": true,
+    "godot_exit_code_zero": true
+  },
+  "stdout": "0\nLoading cache for shader ShadowFrustumShaderRD, variant 0\nShader 'MotionVectorsShaderRD' (group 0) SHA256: 4bf5fd6a6a9a835069a367fc37971ac640a9d6a5b943db3fb9643b413e581101\nLoading cache for shader MotionVectorsShaderRD, variant 0\nShader 'LuminanceReduceShaderRD' (group 0) SHA256: 37fd3fbb679aeaa067d9ed653685e75773e026e48f103e4a06871f7fde695391\nLoading cache for shader LuminanceReduceShaderRD, variant 0\nLoading cache for shader LuminanceReduceShaderRD, variant 1\nLoading cache for shader LuminanceReduceShaderRD, variant 2\nShader 'SmaaEdgeDetectionShaderRD' (group 0) SHA256: 915ef649557da1321a9152f81ed25c982166e5683e530d7f9f315ef3cb1afbb3\nLoading cache for shader SmaaEdgeDetectionShaderRD, variant 0\nShader 'SmaaWeightCalculationShaderRD' (group 0) SHA256: 5151a7d7f46f7df7af41b8043a78713ab24c844e7d713eeac0120d3b9785214f\nLoading cache for shader SmaaWeightCalculationShaderRD, variant 0\nShader 'SmaaBlendingShaderRD' (group 0) SHA256: b96fc41dd6eb678f5485574e7cd7e6558b15dab159bc36543625d89febefb7e3\nLoading cache for shader SmaaBlendingShaderRD, variant 0\nShader 'TonemapShaderRD' (group 0) SHA256: 386054e64098de3a7dc888fa68eb422c38ec3799bd45b8374d81bc211341b454\nLoading cache for shader TonemapShaderRD, variant 0\nLoading cache for shader TonemapShaderRD, variant 1\nLoading cache for shader TonemapShaderRD, variant 2\nLoading cache for shader TonemapShaderRD, variant 3\nShader 'VrsShaderRD' (group 0) SHA256: 1ef1a7f55a3acc70454293143a423ee23a8687d86d06c3013f720d898f731556\nLoading cache for shader VrsShaderRD, variant 0\nLoading cache for shader VrsShaderRD, variant 2\nLoading cache for shader VrsShaderRD, variant 3\nShader 'FsrUpscaleShaderRD' (group 0) SHA256: f36fcf461e39024aa540cd5f51a23187b4ffc9531e2352a42880835b470f4670\nLoading cache for shader FsrUpscaleShaderRD, variant 0\nLoading cache for shader FsrUpscaleShaderRD, variant 1\nShader 'ResolveShaderRD' (group 0) SHA256: 3ba217e5262938d043ea3610903026c2eaee42fdcc8c03d0741e865286dd4d82\nLoading cache for shader ResolveShaderRD, variant 0\nLoading cache for shader ResolveShaderRD, variant 1\nLoading cache for shader ResolveShaderRD, variant 2\nShader 'BlitShaderRD' (group 0) SHA256: eecd3b106b557407414c4549672df768e119df3f9617f0e6edd225cf3a726370\nWASAPI: Activated output_device using IAudioClient3 interface\nWASAPI: wFormatTag = 65534\nWASAPI: nChannels = 2\nWASAPI: nSamplesPerSec = 48000\nWASAPI: nAvgBytesPerSec = 384000\nWASAPI: nBlockAlign = 8\nWASAPI: wBitsPerSample = 32\nWASAPI: cbSize = 22\nWASAPI: mix_rate = 48000\nWASAPI: fundamental_period_frames = 480\nWASAPI: min_period_frames = 480\nWASAPI: max_period_frames = 480\nWASAPI: selected a period frame size of 480\nWASAPI: detected 2 channels\nWASAPI: audio buffer frames: 480 calculated latency: 10ms\n\nLoading cache for shader BlitShaderRD, variant 0\nLoading cache for shader BlitShaderRD, variant 1\nLoading cache for shader BlitShaderRD, variant 2\nLoading cache for shader BlitShaderRD, variant 3\nTextServer: Primary interface set to: \"ICU / HarfBuzz / Graphite (Built-in)\".\nCORE API HASH: 415917037\nEDITOR API HASH: 1463541022\nSceneTreeFTI: traversal method DEFAULT\nMbedTLS: Some X509 certificates could not be parsed (1 certificates skipped).\nLoaded system CA certificates\nLoading resource: res://main.tscn\nLoading resource: res://main.gd\nGRX009Segment4f: scene ready\nRXGD_GODOT_RUNTIME_LUMINANCE_RECORD: pass=RXGD_PASS_LUMINANCE_REDUCTION recorded=1\nRXGD_GODOT_RUNTIME_LUMINANCE_RECORD: pass=RXGD_PASS_LUMINANCE_REDUCTION recorded=1\nRXGD_GODOT_RUNTIME_LUMINANCE_RECORD: pass=RXGD_PASS_LUMINANCE_REDUCTION recorded=1\nRXGD_GODOT_RUNTIME_LUMINANCE_RECORD: pass=RXGD_PASS_LUMINANCE_REDUCTION recorded=1\nRXGD_GODOT_RUNTIME_LUMINANCE_RECORD: pass=RXGD_PASS_LUMINANCE_REDUCTION recorded=1\nRXGD_GODOT_RUNTIME_LUMINANCE_RECORD: pass=RXGD_PASS_LUMINANCE_REDUCTION recorded=1\nRXGD_GODOT_RUNTIME_LUMINANCE_RECORD: pass=RXGD_PASS_LUMINANCE_REDUCTION recorded=1\nGRX009Segment4f: quitting\nRXGD_GODOT_RUNTIME_LUMINANCE_RECORD: pass=RXGD_PASS_LUMINANCE_REDUCTION recorded=1\nXR: Clearing primary interface\nXR: Removed interface \"Native mobile\"\nXR: Removed interface \"OpenXR\"\nFreeing Default Tex_Blit Shader\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_MOTION' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_ALPHA' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_SECONDARY' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'CANVAS_INSTANCE_DATA' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nAccessibility: window 0 adapter destroyed.\nRXGD_BRIDGE_REC: dispatch=144,81,1 fence=1 dst=144x81 dst_first=0 checksum=0xb67962c5 dxil_signed=yes\nRXGD_BRIDGE_REC: dispatch=144,81,1 fence=1 dst=144x81 dst_first=0 checksum=0xb67962c5 dxil_signed=yes\nRXGD_BRIDGE_REC: dispatch=144,81,1 fence=1 dst=144x81 dst_first=0 checksum=0xb67962c5 dxil_signed=yes\nRXGD_BRIDGE_REC: dispatch=144,81,1 fence=1 dst=144x81 dst_first=0 checksum=0xb67962c5 dxil_signed=yes\nRXGD_BRIDGE_REC: dispatch=144,81,1 fence=1 dst=144x81 dst_first=0 checksum=0xb67962c5 dxil_signed=yes\nRXGD_BRIDGE_REC: dispatch=144,81,1 fence=1 dst=144x81 dst_first=0 checksum=0xb67962c5 dxil_signed=yes\nRXGD_BRIDGE_REC: dispatch=144,81,1 fence=1 dst=144x81 dst_first=0 checksum=0xb67962c5 dxil_signed=yes\nRXGD_BRIDGE_REC: dispatch=144,81,1 fence=1 dst=144x81 dst_first=0 checksum=0xb67962c5 dxil_signed=yes\n\nERROR: Could not load global script cache.\n   at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)"
+}

@@ -10,14 +10,25 @@
 ; Name                 Index   Mask Register SysValue  Format   Used
 ; -------------------- ----- ------ -------- -------- ------- ------
 ; no parameters
-; shader hash: 08eae2eea9954aa16d445d0c8d211270
+; shader hash: 0dd71838a7bfbb59d31050c51784d530
 ;
 ; Pipeline Runtime Information: 
 ;
 ;PSVRuntimeInfo:
 ; Compute Shader
+; NumThreads=(1,1,1)
 ; MinimumExpectedWaveLaneCount: 0
 ; MaximumExpectedWaveLaneCount: 4294967295
+; UsesViewID: false
+; SigInputElements: 0
+; SigOutputElements: 0
+; SigPatchConstOrPrimElements: 0
+; SigInputVectors: 0
+; SigOutputVectors[0]: 0
+; SigOutputVectors[1]: 0
+; SigOutputVectors[2]: 0
+; SigOutputVectors[3]: 0
+; EntryFunctionName: rx_cs_noop_8
 ;
 ;
 ; Buffer Definitions:
@@ -39,13 +50,15 @@ entry:
 
 attributes #0 = { noinline nounwind }
 
-!dx.shaderModel = !{!0}
-!dx.version = !{!1}
-!dx.entryPoints = !{!2}
+!dx.valver = !{!0}
+!dx.shaderModel = !{!1}
+!dx.version = !{!2}
+!dx.entryPoints = !{!3}
 
-!0 = !{!"cs", i32 6, i32 0}
-!1 = !{i32 1, i32 0}
-!2 = !{void ()* @rx_cs_noop_8, !"rx_cs_noop_8", null, null, !3}
-!3 = !{i32 4, !4}
-!4 = !{i32 1, i32 1, i32 1}
+!0 = !{i32 1, i32 8}
+!1 = !{!"cs", i32 6, i32 0}
+!2 = !{i32 1, i32 0}
+!3 = !{void ()* @rx_cs_noop_8, !"rx_cs_noop_8", null, null, !4}
+!4 = !{i32 4, !5}
+!5 = !{i32 1, i32 1, i32 1}
 

@@ -1,0 +1,205 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Fri, 10 Jul 2026 22:50:00 +0800
+Subject: [PATCH] Add the GRX-010 tonemap recording-smoke and gated real-pass
+ opt-in arms with result writeback scaffold
+
+Stacked on 0001..0012. This is the GRX-010 bridge-recording / real-pass
+opt-in slice (the GRX-009 0008+0009+0010 layers merged into one patch for
+the tonemap pass). It is a bring-up gate, not a default enablement, and it
+does not change the shipping fallback semantics.
+
+- modules/rurix_accel/register_types.cpp: adds three per-pass opt-in
+  settings that all default to false and are separate from
+  rendering/rurix_accel/passes/tonemap/enabled:
+  .../tonemap/dispatch_recording_smoke (harness-only recording-smoke marker
+  arm), .../tonemap/dispatch_real_pass (the gated REAL tonemap pass arm),
+  and .../tonemap/real_pass_force_capability_downgrade (a harness-only
+  forced-failure knob for the fallback red/green leg).
+- modules/rurix_accel/rurix_accel.h: declares the reserved tonemap
+  real-pass arm flag RXGD_CAP_TONEMAP_REAL_PASS (bridge value 1 << 4)
+  carried in RxGdCaps.flags. This reuses the existing flags field: the C
+  ABI struct layout and RXGD_ABI_VERSION are unchanged.
+- modules/rurix_accel/rurix_accel.cpp: try_create_session() sets
+  RXGD_CAP_TONEMAP_REAL_PASS ONLY when the tonemap dispatch_real_pass
+  opt-in is enabled, and clears RXGD_CAP_SHADER_INT64 ONLY when the
+  harness-only tonemap real_pass_force_capability_downgrade knob is enabled
+  (making the bridge tonemap preflight fail closed with
+  unsupported_device for the forced-failure leg). try_record_tonemap()
+  emits a distinctive RXGD_GODOT_RUNTIME_TONEMAP_REAL_PASS marker only when
+  rxgd_record_pass actually returned RXGD_STATUS_OK on the real-pass arm,
+  and the RXGD_GODOT_RUNTIME_TONEMAP_RECORD marker only under the
+  harness-only dispatch_recording_smoke opt-in, so a real-pass success is
+  never misreported as a recording-smoke run and vice versa.
+- renderer_scene_render_rd.cpp Tonemap call site: when try_record_tonemap()
+  returned true on the real-pass arm, the Rurix bridge has already
+  dispatched the tonemap kernel INTO the real LDR destination
+  ID3D12Resource* resolved in patch 0012, so the LINEAR + linear_to_srgb
+  subset result is physically written into the destination texture. The
+  result writeback SCAFFOLD prints a machine-readable
+  RXGD_GODOT_RUNTIME_TONEMAP_REAL_PASS_WRITEBACK marker recording that
+  writeback, then deliberately clears rurix_recorded_tonemap so the FULL
+  native Godot tonemapper still runs as the continuation/backstop: the
+  kernel covers only the LINEAR tonemapper with the SDR convert_to_srgb leg
+  (no auto exposure, glow, FXAA, BCS, color correction, debanding, or other
+  tonemap modes; GPU math parity is still pending measurement), so the
+  native raster pass re-renders the frame and the rendered image can never
+  change while the scaffold is in place.
+
+The bridge fails closed on the real-pass arm: it runs the runtime binding
+preflight, the dispatch eligibility gate, the per-slot kernel-binding-kind
+conformance check, and the math-parity gate, and returns
+RXGD_STATUS_FALLBACK with a machine-readable RXGD_TONEMAP_REAL_PASS_BLOCKED
+diagnostic naming the FIRST missing prerequisite; the real dispatch is only
+linked under the test-only d3d12-recording-shim bridge feature, so the
+shipping feature-off bridge fails closed with real_dispatch_path_not_linked
+even when every software gate passes. This does not change
+RXGD_ABI_VERSION, does not enable the pass by default (all four tonemap
+per-pass settings still default to false), does not flip real_gpu_pass to
+true by itself, and makes no visual, measured-telemetry, GPU-timestamp, or
+performance claim by itself.
+---
+diff --git a/modules/rurix_accel/register_types.cpp b/modules/rurix_accel/register_types.cpp
+index 27aa305..bc394ba 100644
+--- a/modules/rurix_accel/register_types.cpp
++++ b/modules/rurix_accel/register_types.cpp
+@@ -56,6 +56,39 @@ void initialize_rurix_accel_module(ModuleInitializationLevel p_level) {
+ 	// RXGD_PASS_TONEMAP, so the native tonemap path keeps rendering in
+ 	// practice and no acceleration is claimed.
+ 	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/tonemap/enabled", false);
++	// GRX-010: harness-only Godot-runtime tonemap bridge dispatch recording
++	// smoke opt-in (0008-level, template copy of the luminance
++	// dispatch_recording_smoke). Defaults to false so the shipping build
++	// never arms the recording-smoke marker path. It only gates the
++	// module-side RXGD_GODOT_RUNTIME_TONEMAP_RECORD marker; the bridge
++	// record path itself is only linked when the loaded rurix_godot.dll is
++	// built with the test-only d3d12-recording-shim feature AND the
++	// dispatch_real_pass opt-in below armed the fail-closed real-pass gate.
++	// The default build/config never enables it and the shipping
++	// (feature-off) bridge still returns RXGD_STATUS_FALLBACK for
++	// RXGD_PASS_TONEMAP.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/tonemap/dispatch_recording_smoke", false);
++	// GRX-010: opt-in gated REAL tonemap pass bring-up arm (0009-level).
++	// Defaults to false so the shipping build never arms the real-pass
++	// attempt. Even when enabled the bridge runs its runtime binding
++	// preflight, dispatch eligibility, per-slot kernel-binding-kind
++	// conformance, and math-parity checks and keeps returning
++	// RXGD_STATUS_FALLBACK (with a machine-readable
++	// RXGD_TONEMAP_REAL_PASS_BLOCKED diagnostic naming the first missing
++	// prerequisite) unless every check passes AND a runtime-mappable real
++	// dispatch path is linked (d3d12-recording-shim builds only); the
++	// shipping feature-off bridge fails closed with
++	// real_dispatch_path_not_linked, so the native Godot tonemap path keeps
++	// rendering.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/tonemap/dispatch_real_pass", false);
++	// GRX-010: harness-only forced-failure knob for the tonemap fallback
++	// red/green leg (0009-level template of the luminance
++	// real_pass_force_capability_downgrade). When enabled the module clears
++	// the shader-int64 capability it advertises to the bridge, so the
++	// bridge tonemap preflight fails closed with unsupported_device while
++	// the native Godot tonemap path keeps rendering. Defaults to false;
++	// never enabled by the shipping build/config.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/tonemap/real_pass_force_capability_downgrade", false);
+ 
+ #if defined(D3D12_ENABLED)
+ 	if (GLOBAL_GET("rendering/rurix_accel/enabled")) {
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index dcbc15a..897a2e5 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -217,6 +217,23 @@ void RurixAccelD3D12Hooks::try_create_session() {
+ 	if (GLOBAL_GET("rendering/rurix_accel/passes/luminance_reduction/real_pass_force_capability_downgrade")) {
+ 		caps.flags &= ~RXGD_CAP_SHADER_INT64;
+ 	}
++	// GRX-010: arm the opt-in gated REAL tonemap pass attempt ONLY when the
++	// default-false tonemap dispatch_real_pass opt-in is enabled. The bridge
++	// still fails closed (fallback + RXGD_TONEMAP_REAL_PASS_BLOCKED first
++	// missing prerequisite) unless every gate passes AND the
++	// d3d12-recording-shim real dispatch path is linked and completes; this
++	// is a bring-up gate, not a default runtime pass.
++	if (GLOBAL_GET("rendering/rurix_accel/passes/tonemap/dispatch_real_pass")) {
++		caps.flags |= RXGD_CAP_TONEMAP_REAL_PASS;
++	}
++	// GRX-010: harness-only tonemap forced-failure knob. Clearing the
++	// shader-int64 capability makes the bridge tonemap preflight fail
++	// closed with unsupported_device while the native Godot tonemap path
++	// keeps rendering; the fallback red/green leg of the GRX-010 real-pass
++	// enablement smoke verifies exactly this.
++	if (GLOBAL_GET("rendering/rurix_accel/passes/tonemap/real_pass_force_capability_downgrade")) {
++		caps.flags &= ~RXGD_CAP_SHADER_INT64;
++	}
+ 	if (adapter_luid_valid) {
+ 		memcpy(caps.adapter_luid, &adapter_luid, sizeof(adapter_luid));
+ 	}
+@@ -382,6 +399,19 @@ bool RurixAccelD3D12Hooks::try_record_tonemap(uint64_t p_source_native_handle, u
+ 		}
+ 		return false;
+ 	}
++	// GRX-010: only reachable when the bridge's opt-in real-pass arm
++	// actually returned RXGD_STATUS_OK after a real recorded dispatch
++	// (d3d12-recording-shim builds only; the shipping feature-off bridge
++	// always falls back with real_dispatch_path_not_linked first). The
++	// REAL_PASS marker reports the real-pass arm; the RECORD marker belongs
++	// to the harness-only recording smoke opt-in so a real-pass success is
++	// never misreported as a recording-smoke run and vice versa.
++	if (GLOBAL_GET("rendering/rurix_accel/passes/tonemap/dispatch_real_pass")) {
++		print_line("RXGD_GODOT_RUNTIME_TONEMAP_REAL_PASS: pass=RXGD_PASS_TONEMAP dispatched=1");
++	}
++	if (GLOBAL_GET("rendering/rurix_accel/passes/tonemap/dispatch_recording_smoke")) {
++		print_line("RXGD_GODOT_RUNTIME_TONEMAP_RECORD: pass=RXGD_PASS_TONEMAP recorded=1");
++	}
+ 	return true;
+ }
+ 
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index 39e76fc..98efe05 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -33,6 +33,16 @@
+ // recorded fallback reason and an RXGD_REAL_PASS_BLOCKED diagnostic until
+ // a runtime-mappable real dispatch path exists.
+ #define RXGD_CAP_LUMINANCE_REAL_PASS 8u
++// GRX-010 opt-in tonemap real-pass arm carried in RxGdCaps.flags (ABI v1,
++// no struct layout change; bridge value 1 << 4). Set only when the
++// default-false rendering/rurix_accel/passes/tonemap/dispatch_real_pass
++// opt-in is enabled. Setting it never on its own makes the bridge return
++// RXGD_STATUS_OK: the fail-closed TonemapGate runs preflight ->
++// eligibility -> binding-kind -> math-parity -> linked-dispatch checks and
++// returns RXGD_STATUS_FALLBACK with an RXGD_TONEMAP_REAL_PASS_BLOCKED
++// diagnostic unless every check passes AND the d3d12-recording-shim real
++// dispatch path is linked and completes.
++#define RXGD_CAP_TONEMAP_REAL_PASS 16u
+ 
+ typedef struct RxGdCaps {
+ 	uint32_t abi_version;
+diff --git a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
+index e98b098..247b1af 100644
+--- a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
++++ b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
+@@ -890,6 +890,24 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+ 				if (rurix_source_native_handle != 0 && rurix_dest_native_handle != 0) {
+ 					rurix_recorded_tonemap = D3D12Hooks::get_singleton()->try_record_tonemap(rurix_source_native_handle, (uint32_t)MAX(color_size.x, 0), (uint32_t)MAX(color_size.y, 0), rurix_dest_native_handle, (uint32_t)MAX(tonemap.dest_texture_size.x, 0), (uint32_t)MAX(tonemap.dest_texture_size.y, 0), tonemap.exposure, tonemap.white, tonemap.luminance_multiplier);
+ 				}
++				if (rurix_recorded_tonemap) {
++					// GRX-010 result writeback SCAFFOLD (0010-level). The
++					// Rurix bridge dispatched the tonemap kernel directly
++					// into the real LDR destination ID3D12Resource*, so the
++					// LINEAR + linear_to_srgb subset result is physically
++					// written into the destination texture. Record that
++					// writeback with a machine-readable marker, then keep the
++					// FULL native Godot tonemapper as the
++					// continuation/backstop: the kernel covers only the
++					// LINEAR tonemapper with the SDR convert_to_srgb leg (no
++					// auto exposure, glow, FXAA, BCS, color correction,
++					// debanding, or other tonemap modes; GPU math parity is
++					// still pending measurement), so the native raster pass
++					// re-renders the frame and the image can never change
++					// while this scaffold is in place.
++					print_line("RXGD_GODOT_RUNTIME_TONEMAP_REAL_PASS_WRITEBACK: dst=tonemap_destination native_continuation=active scaffold=1");
++					rurix_recorded_tonemap = false;
++				}
+ 			}
+ #endif
+ 			if (!rurix_recorded_tonemap) {
+-- 
+2.50.0

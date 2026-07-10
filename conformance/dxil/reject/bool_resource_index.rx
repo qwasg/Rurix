@@ -1,0 +1,5 @@
+//@ spec: RXS-0157
+//@ expect-error: RX2001
+kernel fn bool_resource_index(src: View<global, f32>, dst: ViewMut<global, f32>) {
+    dst[0] = src[0 == 0];
+}

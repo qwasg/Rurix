@@ -1,8 +1,3 @@
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s
-     Running `target\debug\rurixc.exe H:\rurix\spike\godot-rurix\passes\luminance_reduction\src\lib.rx --target dxil -o H:\rurix\spike\godot-rurix\passes\luminance_reduction\artifacts\luminance_reduction.dxil`
-error[RX6007]: DXIL codegen target unavailable or unsupported: DXIL compute body lowering slice 1 不支持 while
-  --> lib.rx:39:9
-   |
-39 |         while dy < 8 {
-   |         ^^^^^^^^^^^^^^ in DXIL compute entry
-error: process didn't exit successfully: `target\debug\rurixc.exe H:\rurix\spike\godot-rurix\passes\luminance_reduction\src\lib.rx --target dxil -o H:\rurix\spike\godot-rurix\passes\luminance_reduction\artifacts\luminance_reduction.dxil` (exit code: 1)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running `target\debug\rurixc.exe H:\rurix\spike\godot-rurix\passes\luminance_reduction\src\lib_texture.rx --target dxil -o H:\rurix\spike\godot-rurix\passes\luminance_reduction\artifacts\luminance_reduction.dxil`
+rurixc: note: patched llc not found (set RURIX_LLC to dev DXIL llc, RD-011); wrote artifact_kind=dxil_ir_text + RTS0 root signature + descriptor layout as debug/blocker evidence, semantic_status=dxil_ir_only, but DXIL container emit + dxc validator gate SKIPPED (RXS-0157); this is not current compile-ready evidence and not a validated DXIL container

@@ -1,0 +1,16 @@
+{
+  "run_mode": "full",
+  "evidence_level": "measured_local",
+  "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
+  "note": "GRX-009 segment 4g measured fallback telemetry: with rendering/rurix_accel/passes/luminance_reduction/enabled=true the tracked Godot Auto Exposure call site invoked the shipping (feature-off) Rurix bridge, which returned RXGD_STATUS_FALLBACK (observed via the tracked patch-0002 marker), and the native Godot luminance path rendered the frame. The 0002-level module call carries no resource bindings, so the bridge preflight records validation_failed by construction. runtime_state stays fallback_only, real_gpu_pass=false, and no performance or FPS claim is made.",
+  "passes": [
+    {
+      "pass_id": "luminance_reduction",
+      "enable_state": "enabled",
+      "fallback_reason": "validation_failed",
+      "godot_fallback_active": true,
+      "telemetry_timestamp": "2026-07-07T13:20:29+08:00",
+      "telemetry_frame": 24
+    }
+  ]
+}

@@ -1,0 +1,235 @@
+{
+  "blocker_id": "texture_intrinsic_unsupported_by_llc",
+  "blocker_summary": "Patched llc (LLVM 22.1.7 at H:\\llvm-dxil\\build\\bin\\llc.exe) has ZERO texture load/store intrinsic support: it rejects llvm.dx.resource.load.texture.2d and llvm.dx.resource.store.texture.2d with 'unknown intrinsic' errors and contains zero llvm.dx.texture.* strings in the binary, blocking the luminance_reduction pass from producing Texture2D/RWTexture2D DXIL artifacts.",
+  "llc": {
+    "path": "H:\\llvm-dxil\\build\\bin\\llc.exe",
+    "version": "LLVM 22.1.7",
+    "build_type": "patched",
+    "registered_targets": [
+      "dxil",
+      "x86",
+      "x86-64"
+    ]
+  },
+  "investigation_methodology": [
+    "Minimal .ll scratch cases (cases A-J): ten hand-authored LLVM IR modules in spike/godot-rurix/passes/luminance_reduction/artifacts/toolchain_probe/, each isolating a single intrinsic + target-ext-type combination, compiled with 'llc.exe <case>.ll -filetype=obj -o <case>.obj' and the exit code / stderr / obj_produced recorded in probe_results.json.",
+    "IntrinsicsDirectX.td source review: read H:\\llvm-dxil\\llvm-project\\llvm\\include\\llvm\\IR\\IntrinsicsDirectX.td to enumerate every int_dx_resource_load_* / int_dx_resource_store_* definition, and read H:\\llvm-dxil\\llvm-project\\llvm\\lib\\Target\\DirectX\\DXILResourceAccess.cpp createLoadIntrinsic (L389-420) and createStoreIntrinsic (L153-183) to inspect the C++ lowering dispatch for ResourceKind::Texture2D.",
+    "llc.exe binary findstr: ran findstr for 'llvm.dx.resource.' and 'llvm.dx.texture.' against H:\\llvm-dxil\\build\\bin\\llc.exe to enumerate which intrinsic name strings are physically present in the compiled binary, independent of the .td source.",
+    "cross-version llc survey: ran the case_A.ll (load.texture.2d) and case_H.ll (store.texture.2d) reject cases through EVERY DXIL-capable llc build on this workstation via cross_version_texture_intrinsic_probe.py, recording the per-build verdict in cross_version_probe_results.json. This isolates whether a newer/alternate llc would recognize the texture intrinsics."
+  ],
+  "cross_toolchain_confirmation": {
+    "summary": "The texture load/store intrinsics are rejected by EVERY DXIL-capable llc build on this machine, across two LLVM major versions. This proves the gap is an upstream DirectX-backend limitation (the intrinsics are not defined in any surveyed toolchain), not a regression specific to the patched 22.1.7 build that simply bumping to a newer llc would fix.",
+    "confirmed_at_utc": "2026-07-07T10:16:54Z",
+    "test_cases": [
+      "case_A.ll (llvm.dx.resource.load.texture.2d, target(\"dx.Texture2D<float>\", 0, 0)) -- the exact form rurixc emits for a Texture2D<f32> load",
+      "case_H.ll (llvm.dx.resource.store.texture.2d, target(\"dx.RWTexture2D<float>\", 0, 0)) -- the exact form rurixc emits for a RWTexture2D<f32> store"
+    ],
+    "llc_builds_surveyed": [
+      {
+        "path": "H:\\llvm-dxil\\build\\bin\\llc.exe",
+        "version": "LLVM 22.1.7",
+        "build_type": "patched DirectX backend (llvm-project commit a255c1ed36a1d06f79bd2633ba9f8d900153007c)",
+        "load_texture_2d_verdict": "reject_unknown_intrinsic (exit 1, no obj)",
+        "store_texture_2d_verdict": "reject_unknown_intrinsic (exit 1, no obj)",
+        "texture_intrinsic_capable": false
+      },
+      {
+        "path": "H:\\llvm-clean-82c5bce5-build\\bin\\llc.exe",
+        "version": "LLVM 23.0.0git",
+        "build_type": "clean upstream, optimized build with assertions (llvm-project commit 82c5bce5233f964da4f8086b2341067314d841d7, 2026-06-24)",
+        "load_texture_2d_verdict": "reject_unknown_intrinsic (exit 1, no obj)",
+        "store_texture_2d_verdict": "reject_unknown_intrinsic (exit 1, no obj)",
+        "texture_intrinsic_capable": false
+      },
+      {
+        "path": "H:\\llvm-upstream-test\\build\\bin\\llc.exe",
+        "version": "LLVM 23.0.0git",
+        "build_type": "clean upstream, optimized build (llvm-project commit 82c5bce5233f964da4f8086b2341067314d841d7, 2026-06-24)",
+        "load_texture_2d_verdict": "reject_unknown_intrinsic (exit 1, no obj)",
+        "store_texture_2d_verdict": "reject_unknown_intrinsic (exit 1, no obj)",
+        "texture_intrinsic_capable": false
+      }
+    ],
+    "any_texture_intrinsic_capable": false,
+    "interpretation": "Even the bleeding-edge 23.0.0git upstream llc (roughly two LLVM releases ahead of the patched 22.1.7 DirectX build) still lacks int_dx_resource_load_texture* / int_dx_resource_store_texture*, so bumping to a newer llc does not unblock segment 4i. The required toolchain capability -- a llc whose DirectX backend defines AND lowers the texture load/store intrinsics rurixc emits -- does not exist in any locally available build. Producing a real runtime-mappable texture-capable DXIL container requires either landing the four upstream capabilities enumerated in patched_llc_capability_list, or bridging via dxc (graphics=B path) once texture lowering exists upstream.",
+    "results_artifact": "spike/godot-rurix/passes/luminance_reduction/artifacts/toolchain_probe/cross_version_probe_results.json",
+    "repro_command": "py -3 spike/godot-rurix/passes/luminance_reduction/artifacts/toolchain_probe/cross_version_texture_intrinsic_probe.py"
+  },
+  "non_determinism_note": "llc 22.1.7 has a non-deterministic crash in the 'DXContainer Global Emitter' pass (memory-safety bug, Exception Code 0xC0000005 access violation). Cases C, D, I, and J flip between crash and accept across runs: in this probe run cases C and D accepted (obj produced, exit 0) while cases I and J crashed (exit 3221225477). On a subsequent run cases C/D may crash and cases I/J may accept. This non-determinism is itself toolchain-blocker evidence: even the 'accepted' intrinsics cannot be relied upon to produce objects consistently. The crash occurs regardless of whether the texture handle is used, and also affects dx.TypedBuffer / dx.RawBuffer handles when left unused (cases E, F, G).",
+  "accepted_intrinsics": [
+    {
+      "name": "llvm.dx.resource.load.rawbuffer",
+      "signature": "{ float, i1 } @llvm.dx.resource.load.rawbuffer(target(\"dx.RawBuffer\", float, 0, 0) %h, i32 %index, i32 %offset)",
+      "target_ext_type": "target(\"dx.RawBuffer\", float, 0, 0)",
+      "evidence": "Case J (load.rawbuffer + target(\"dx.RawBuffer\", float, 0, 0)): NON-DETERMINISTIC. In this probe run obj_produced=false, exit=3221225477 (crash in DXContainer Global Emitter). In other runs the intrinsic is accepted and obj is produced. The intrinsic IS recognized by name (present in llc.exe binary findstr as string #9 and defined as int_dx_resource_load_rawbuffer in IntrinsicsDirectX.td); the crash is a downstream emitter bug, not an intrinsic-name rejection."
+    },
+    {
+      "name": "llvm.dx.resource.load.typedbuffer",
+      "signature": "{ float, i1 } @llvm.dx.resource.load.typedbuffer(target(\"dx.TypedBuffer\", float, 0, 0, 0) %h, i32 %index)",
+      "target_ext_type": "target(\"dx.TypedBuffer\", float, 0, 0, 0)",
+      "evidence": "Case C (load.typedbuffer + target(\"dx.TypedBuffer\", float, 0, 0, 0)): obj_produced=true, exit=0 (accepted this run). Case D (load.typedbuffer + target(\"dx.Texture2D<float>\", 0, 0)): obj_produced=true, exit=0 (accepted this run; IR-level selection does not cross-validate resource kind against intrinsic name). Both cases produced .obj files, proving the typedbuffer load intrinsic is recognized by llc."
+    },
+    {
+      "name": "llvm.dx.resource.store.rawbuffer",
+      "signature": "void @llvm.dx.resource.store.rawbuffer(target(\"dx.RawBuffer\", float, 1, 0, 0) %h, i32 %index, i32 %offset, float %value)",
+      "target_ext_type": "target(\"dx.RawBuffer\", float, 1, 0, 0)",
+      "evidence": "No dedicated scratch case in this probe run. The intrinsic IS recognized by name: present in llc.exe binary findstr (string #12) and defined as int_dx_resource_store_rawbuffer in IntrinsicsDirectX.td. Distinction: recognized-by-name is NOT the same as obj-produced; this case was not exercised end-to-end. Not rejected as 'unknown intrinsic'."
+    },
+    {
+      "name": "llvm.dx.resource.store.typedbuffer",
+      "signature": "void @llvm.dx.resource.store.typedbuffer(target(\"dx.TypedBuffer\", float, 1, 0, 0) %h, i32 %index, float %value)",
+      "target_ext_type": "target(\"dx.TypedBuffer\", float, 1, 0, 0)",
+      "evidence": "Case I (store.typedbuffer + target(\"dx.TypedBuffer\", float, 1, 0, 0)): NON-DETERMINISTIC. In this probe run obj_produced=false, exit=3221225477 (crash in DXContainer Global Emitter). The intrinsic IS recognized by name (present in llc.exe binary findstr string #13 and defined as int_dx_resource_store_typedbuffer in IntrinsicsDirectX.td); NOT rejected as 'unknown intrinsic'. The crash is a downstream emitter bug. Distinction: recognized-by-name is NOT the same as obj-produced."
+    }
+  ],
+  "rejected_intrinsics": [
+    {
+      "name": "llvm.dx.resource.load.texture.2d",
+      "attempted_signature": "{ float, i1 } @llvm.dx.resource.load.texture.2d(target(\"dx.Texture2D<float>\", 0, 0) %h, i32 0, i32 0)",
+      "exact_error": "H:\\llvm-dxil\\build\\bin\\llc.exe: error: H:\\llvm-dxil\\build\\bin\\llc.exe: H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\toolchain_probe\\case_A.ll:24:27: error: unknown intrinsic 'llvm.dx.resource.load.texture.2d'\n  %r = call { float, i1 } @llvm.dx.resource.load.texture.2d(target(\"dx.Texture2D<float>\", 0, 0) %h, i32 0, i32 0)\n                          ^",
+      "evidence": "Case A (load.texture.2d + target(\"dx.Texture2D<float>\", 0, 0)): exit=1, obj_produced=false. Also reproduced in Case B (load.texture.2d + target(\"dx.Texture2D<float>\") without trailing 0,0 params): same 'unknown intrinsic' error, exit=1, obj_produced=false. This is the form rurixc currently emits."
+    },
+    {
+      "name": "llvm.dx.resource.store.texture.2d",
+      "attempted_signature": "void @llvm.dx.resource.store.texture.2d(target(\"dx.RWTexture2D<float>\", 0, 0) %h, i32 0, i32 0, float 1.0)",
+      "exact_error": "H:\\llvm-dxil\\build\\bin\\llc.exe: error: H:\\llvm-dxil\\build\\bin\\llc.exe: H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\toolchain_probe\\case_H.ll:25:13: error: unknown intrinsic 'llvm.dx.resource.store.texture.2d'\n  call void @llvm.dx.resource.store.texture.2d(target(\"dx.RWTexture2D<float>\", 0, 0) %h, i32 0, i32 0, float 1.0)\n            ^",
+      "evidence": "Case H (store.texture.2d + target(\"dx.RWTexture2D<float>\", 0, 0)): exit=1, obj_produced=false. Mirrors Case A for the store direction; both load and store texture intrinsics are equally unsupported."
+    }
+  ],
+  "target_ext_type_status": {
+    "dx.Texture2D<float>": {
+      "status": "unregistered",
+      "evidence": "target(\"dx.Texture2D<float>\", 0, 0) is not registered as a valid target-ext type. When a handle of this type is allocated but left unused (Case E: handlefrombinding only), llc crashes in 'DXContainer Global Emitter' with Exception Code 0xC0000005 (exit 3221225477). When the same type is used with a recognized intrinsic (Case D: load.typedbuffer), IR-level selection does NOT cross-validate the resource kind and obj is produced, but this does not imply the type is registered.",
+      "contrast": "Contrast with dx.TypedBuffer and dx.RawBuffer, which ARE registered target-ext types (Cases C, J use them as handle types)."
+    },
+    "dx.RWTexture2D<float>": {
+      "status": "unregistered",
+      "evidence": "target(\"dx.RWTexture2D<float>\", 0, 0) is not registered as a valid target-ext type. Used in Case H (store.texture.2d) but rejected at the intrinsic-name level before the type-registration path is reached. No scratch case isolates the RWTexture2D type-registration crash because the store.texture.2d intrinsic is rejected first.",
+      "contrast": "Contrast with dx.TypedBuffer (writable variant target(\"dx.TypedBuffer\", float, 1, 0, 0)) and dx.RawBuffer, which ARE registered."
+    },
+    "dx.TypedBuffer": {
+      "status": "registered",
+      "evidence": "target(\"dx.TypedBuffer\", float, 0, 0, 0) is registered. Case C uses it as the handle type and obj is produced (exit 0). Case G (handlefrombinding only, unused) still crashes the DXContainer Global Emitter, indicating the crash is not specific to texture types but affects unused handles of any target-ext type."
+    },
+    "dx.RawBuffer": {
+      "status": "registered",
+      "evidence": "target(\"dx.RawBuffer\", float, 0, 0) is registered. Case J uses it as the handle type. Registration form documented in docs/DirectX/DXILResources.rst."
+    }
+  },
+  "td_source_findings": {
+    "td_file": "H:\\llvm-dxil\\llvm-project\\llvm\\include\\llvm\\IR\\IntrinsicsDirectX.td",
+    "defined_intrinsics": [
+      "int_dx_resource_load_typedbuffer",
+      "int_dx_resource_load_rawbuffer",
+      "int_dx_resource_load_cbufferrow.2",
+      "int_dx_resource_load_cbufferrow.4",
+      "int_dx_resource_load_cbufferrow.8",
+      "int_dx_resource_store_typedbuffer",
+      "int_dx_resource_store_rawbuffer"
+    ],
+    "missing_intrinsics": [
+      "int_dx_resource_load_texture* (no load.texture.2d, load.texture.3d, load.texture.2dms, etc. defined)",
+      "int_dx_resource_store_texture* (no store.texture.2d, store.texture.3d, etc. defined)"
+    ],
+    "cpp_lowering_file": "H:\\llvm-dxil\\llvm-project\\llvm\\lib\\Target\\DirectX\\DXILResourceAccess.cpp",
+    "createLoadIntrinsic": {
+      "location": "L389-420",
+      "behavior_for_Texture2D": "ResourceKind::Texture2D hits reportFatalUsageError(\"Load not yet implemented for resource type\")"
+    },
+    "createStoreIntrinsic": {
+      "location": "L153-183",
+      "behavior_for_Texture2D": "similar stub for ResourceKind::Texture2D (no real lowering; reportFatalUsageError path)"
+    }
+  },
+  "binary_findstr_results": [
+    {
+      "index": 1,
+      "string": "llvm.dx.resource.casthandle"
+    },
+    {
+      "index": 2,
+      "string": "llvm.dx.resource.getdimensions.x"
+    },
+    {
+      "index": 3,
+      "string": "llvm.dx.resource.getpointer"
+    },
+    {
+      "index": 4,
+      "string": "llvm.dx.resource.handlefrombinding"
+    },
+    {
+      "index": 5,
+      "string": "llvm.dx.resource.handlefromimplicitbinding"
+    },
+    {
+      "index": 6,
+      "string": "llvm.dx.resource.load.cbufferrow.2"
+    },
+    {
+      "index": 7,
+      "string": "llvm.dx.resource.load.cbufferrow.4"
+    },
+    {
+      "index": 8,
+      "string": "llvm.dx.resource.load.cbufferrow.8"
+    },
+    {
+      "index": 9,
+      "string": "llvm.dx.resource.load.rawbuffer"
+    },
+    {
+      "index": 10,
+      "string": "llvm.dx.resource.load.typedbuffer"
+    },
+    {
+      "index": 11,
+      "string": "llvm.dx.resource.nonuniformindex"
+    },
+    {
+      "index": 12,
+      "string": "llvm.dx.resource.store.rawbuffer"
+    },
+    {
+      "index": 13,
+      "string": "llvm.dx.resource.store.typedbuffer"
+    },
+    {
+      "index": 14,
+      "string": "llvm.dx.resource.updatecounter"
+    }
+  ],
+  "binary_findstr_texture_count": {
+    "pattern_searched": "llvm.dx.texture.*",
+    "strings_found": 0,
+    "interpretation": "ZERO strings matching llvm.dx.texture.* found in llc.exe. This is the binary-level confirmation that no texture intrinsic exists in the compiled toolchain, independent of the .td source review. Combined with the .td source review (no int_dx_resource_load_texture* / int_dx_resource_store_texture* definitions) and the scratch-case rejections (Cases A, B, H), this is a three-way confirmation that texture load/store intrinsics are entirely absent from patched llc."
+  },
+  "patched_llc_capability_list": [
+    {
+      "capability": "Add texture load intrinsic",
+      "location": "H:\\llvm-dxil\\llvm-project\\llvm\\include\\llvm\\IR\\IntrinsicsDirectX.td (add new definition int_dx_resource_load_texture_2d)",
+      "required_signature": "{ float, i1 } <- [target(\"dx.Texture2D<float>\", 0, 0), i32, i32] (handle, coord_x, coord_y)",
+      "rationale": "Defines the intrinsic name so llc stops rejecting llvm.dx.resource.load.texture.2d as 'unknown intrinsic'. Maps to DXIL opcode textureLoad (66)."
+    },
+    {
+      "capability": "Add texture store intrinsic",
+      "location": "H:\\llvm-dxil\\llvm-project\\llvm\\include\\llvm\\IR\\IntrinsicsDirectX.td (add new definition int_dx_resource_store_texture_2d)",
+      "required_signature": "void <- [target(\"dx.RWTexture2D<float>\", 0, 0), i32, i32, float] (handle, coord_x, coord_y, value)",
+      "rationale": "Defines the intrinsic name so llc stops rejecting llvm.dx.resource.store.texture.2d as 'unknown intrinsic'. Maps to DXIL opcode textureStore (67)."
+    },
+    {
+      "capability": "Register target-ext types dx.Texture2D<float> and dx.RWTexture2D<float>",
+      "location": "H:\\llvm-dxil\\llvm-project\\llvm\\lib\\Target\\DirectX (target-ext type registration; refer to docs/DirectX/DXILResources.rst for the dx.TypedBuffer / dx.RawBuffer registration form)",
+      "required_signature": "target(\"dx.Texture2D<float>\", 0, 0) and target(\"dx.RWTexture2D<float>\", 0, 0) registered as valid target-ext types",
+      "rationale": "Currently unregistered, causing the DXContainer Global Emitter to crash (Exception Code 0xC0000005, exit 3221225477) whenever a handle of these types is allocated, even when unused (Cases E, F). Registration is required for any texture-handle-bearing module to reach obj emission."
+    },
+    {
+      "capability": "Implement C++ lowering for texture load/store",
+      "location": "H:\\llvm-dxil\\llvm-project\\llvm\\lib\\Target\\DirectX\\DXILResourceAccess.cpp, createLoadIntrinsic (L389-420) and createStoreIntrinsic (L153-183)",
+      "required_signature": "For ResourceKind::Texture2D: replace reportFatalUsageError(\"Load not yet implemented for resource type\") stub with real lowering that emits dx.op.textureLoad (opcode 66) / dx.op.textureStore (opcode 67) DXIL opcodes",
+      "rationale": "Even after the intrinsic name is registered in .td and the target-ext type is registered, the C++ lowering currently stubs out Texture2D with a fatal error. Without real lowering, the intrinsic will compile past name lookup but fail at DXIL opcode emission."
+    }
+  ],
+  "repro_command": "py -3 spike/godot-rurix/passes/luminance_reduction/artifacts/toolchain_probe/run_probe.py",
+  "evidence_collected_at_utc": "2026-07-06T14:10:00Z"
+}

@@ -1,0 +1,1 @@
+emit_grx009_texture_rts0: wrote 152 bytes to spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/root_signature.rts0.bin

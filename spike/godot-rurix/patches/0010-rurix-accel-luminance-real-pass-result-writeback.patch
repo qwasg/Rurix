@@ -1,0 +1,98 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Wed, 8 Jul 2026 19:50:00 +0800
+Subject: [PATCH] Scaffold the GRX-009 real-pass result writeback for the
+ luminance level-0 dispatch
+
+Stacked on 0001-rurix-accel-module-scaffold.patch,
+0002-rurix-accel-luminance-pass-gate.patch,
+0003-rurix-accel-luminance-core-callsite-wiring.patch,
+0004-rurix-accel-luminance-resource-mapping-scaffold.patch,
+0005-rurix-accel-luminance-runtime-binding-preflight.patch,
+0006-rurix-accel-luminance-gated-dispatch-bringup.patch,
+0007-rurix-accel-luminance-native-resource-handle-mapping.patch,
+0008-rurix-accel-luminance-godot-runtime-bridge-recording-smoke.patch, and
+0009-rurix-accel-luminance-real-pass-optin.patch. This stage A5 patch is a
+result writeback SCAFFOLD only: it wires what happens at the Auto Exposure
+call site AFTER the opt-in real-pass arm (dispatch_real_pass) actually
+returned RXGD_STATUS_OK from a real recorded level-0 dispatch.
+
+- servers/rendering/renderer_rd/renderer_scene_render_rd.cpp Auto Exposure
+  call site: when try_record_luminance_reduction() returned true on the
+  real-pass arm, the Rurix bridge has already dispatched the level-0
+  reduction INTO the real luminance_buffers->reduce[0] ID3D12Resource*
+  resolved in segment 4e, so the level-0 result is physically written back
+  into Godot's own reduce pyramid storage. The scaffold prints a
+  machine-readable RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS_WRITEBACK marker
+  recording that writeback, then deliberately clears
+  rurix_recorded_luminance so the FULL native Godot luminance path still
+  runs as the continuation/backstop: multi-level pyramid, EMA feedback,
+  previous-luminance double buffering, and the final WRITE_LUMINANCE
+  clamp/min/max level are not yet parity-proven on the Rurix side
+  (math_parity_evidence.json is level-0 CPU-proven, pending GPU), so the
+  native path re-renders every level and the rendered image can never
+  change while the scaffold is in place.
+
+- modules/rurix_accel/rurix_accel.cpp: the segment 4d/4f
+  RXGD_GODOT_RUNTIME_LUMINANCE_RECORD marker is now printed only under the
+  harness-only dispatch_recording_smoke opt-in, so a real-pass success on
+  the dispatch_real_pass arm is reported by the
+  RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS marker alone and is never
+  misreported as a recording-smoke run (the segment 4h harness treats the
+  RECORD marker as an integrity failure).
+
+Replacing the native continuation (actually skipping native level 0 and
+running only the remaining native levels off the Rurix-written reduce[0])
+belongs to the multi-level continuation round and requires measured GPU
+math-parity evidence first. This patch does not change RXGD_ABI_VERSION,
+does not enable any per-pass setting by default, does not alter the
+fail-closed bridge semantics, and makes no visual, measured-telemetry,
+GPU-timestamp, or performance claim by itself.
+---
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index 10f99e0..7c41b02 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -307,7 +307,13 @@ bool RurixAccelD3D12Hooks::try_record_luminance_reduction(uint64_t p_source_nati
+ 	if (GLOBAL_GET("rendering/rurix_accel/passes/luminance_reduction/dispatch_real_pass")) {
+ 		print_line("RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS: pass=RXGD_PASS_LUMINANCE_REDUCTION dispatched=1");
+ 	}
+-	print_line("RXGD_GODOT_RUNTIME_LUMINANCE_RECORD: pass=RXGD_PASS_LUMINANCE_REDUCTION recorded=1");
++	// GRX-009 stage A5: the RECORD marker belongs to the segment 4d/4f
++	// harness-only recording smoke; print it only under that opt-in so a
++	// real-pass success on the dispatch_real_pass arm is never misreported
++	// as a recording-smoke run.
++	if (GLOBAL_GET("rendering/rurix_accel/passes/luminance_reduction/dispatch_recording_smoke")) {
++		print_line("RXGD_GODOT_RUNTIME_LUMINANCE_RECORD: pass=RXGD_PASS_LUMINANCE_REDUCTION recorded=1");
++	}
+ 	return true;
+ }
+ 
+diff --git a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
+index c393ffe..5b20d17 100644
+--- a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
++++ b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
+@@ -589,6 +589,21 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+ 			if (rurix_source_native_handle != 0 && rurix_dest_native_handle != 0) {
+ 				rurix_recorded_luminance = D3D12Hooks::get_singleton()->try_record_luminance_reduction(rurix_source_native_handle, (uint32_t)MAX(rurix_source_size.x, 0), (uint32_t)MAX(rurix_source_size.y, 0), rurix_dest_native_handle, (uint32_t)rurix_dest_size.x, (uint32_t)rurix_dest_size.y, auto_exposure_max_sensitivity, auto_exposure_min_sensitivity, (float)step);
+ 			}
++			if (rurix_recorded_luminance) {
++				// GRX-009 stage A5 result writeback SCAFFOLD. The Rurix bridge
++				// dispatched the level-0 reduction directly into the real
++				// luminance_buffers->reduce[0] ID3D12Resource*, so the level-0
++				// result is already written back into Godot's reduce pyramid
++				// storage. Record that writeback with a machine-readable
++				// marker, then keep the FULL native Godot luminance path as
++				// the continuation/backstop: multi-level pyramid, EMA, prev
++				// luminance, and the final WRITE_LUMINANCE clamp level are not
++				// yet parity-proven on the Rurix side, so the native path
++				// re-renders every level and the image can never change while
++				// this scaffold is in place.
++				print_line("RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS_WRITEBACK: level0_dst=reduce[0] native_continuation=active scaffold=1");
++				rurix_recorded_luminance = false;
++			}
+ 		}
+ #endif
+ 		if (!rurix_recorded_luminance) {
+-- 
+2.50.0

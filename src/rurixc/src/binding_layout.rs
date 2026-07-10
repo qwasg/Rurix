@@ -318,6 +318,56 @@ pub struct DescriptorRange {
     pub space: u32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RootConstantType {
+    I64,
+    F32,
+    Bool,
+}
+
+impl RootConstantType {
+    pub fn dword_size(self) -> u32 {
+        match self {
+            RootConstantType::I64 => 2,
+            RootConstantType::F32 | RootConstantType::Bool => 1,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            RootConstantType::I64 => "i64",
+            RootConstantType::F32 => "f32",
+            RootConstantType::Bool => "bool",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RootConstant {
+    pub name: String,
+    pub ty: RootConstantType,
+    pub order: u32,
+    pub dword_offset: u32,
+    pub dword_size: u32,
+}
+
+pub fn pack_root_constants(params: Vec<(String, RootConstantType)>) -> Vec<RootConstant> {
+    let mut dword_offset = 0u32;
+    let mut out = Vec::with_capacity(params.len());
+    for (order, (name, ty)) in params.into_iter().enumerate() {
+        let dword_size = ty.dword_size();
+        out.push(RootConstant {
+            name,
+            ty,
+            order: order as u32,
+            dword_offset,
+            dword_size,
+        });
+        dword_offset += dword_size;
+    }
+    out
+}
+
 /// root parameter 形态(§9 Q-RootShape=B)。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RootParameter {
@@ -332,6 +382,9 @@ pub enum RootParameter {
     DescriptorTable {
         /// 表内 range 序列(确定性:SRV 先于 UAV)。
         ranges: Vec<DescriptorRange>,
+    },
+    RootConstants {
+        constants: Vec<RootConstant>,
     },
 }
 
@@ -429,14 +482,15 @@ fn axis_range(assignments: &[RegisterAssignment], class: ResourceClass) -> Optio
     })
 }
 
-/// root signature DWORD 成本(D3D12 既定:CBV root descriptor = 2 DWORD;
-/// descriptor table = 1 DWORD;root constant 后期不在本期形态)。
 pub fn root_signature_cost_dwords(rs: &RootSignature) -> u32 {
     rs.parameters
         .iter()
         .map(|p| match p {
             RootParameter::CbvRootDescriptor { .. } => 2,
             RootParameter::DescriptorTable { .. } => 1,
+            RootParameter::RootConstants { constants } => {
+                constants.iter().map(|c| c.dword_size).sum()
+            }
         })
         .sum()
 }
@@ -445,6 +499,7 @@ pub fn root_signature_cost_dwords(rs: &RootSignature) -> u32 {
 
 /// D3D12 `D3D12_ROOT_PARAMETER_TYPE`(序列化机械码,非语言 ABI 冻结)。
 const PARAM_TYPE_DESCRIPTOR_TABLE: u32 = 0;
+const PARAM_TYPE_32BIT_CONSTANTS: u32 = 1;
 const PARAM_TYPE_CBV: u32 = 2;
 /// `D3D12_SHADER_VISIBILITY_ALL`。
 const SHADER_VISIBILITY_ALL: u32 = 0;
@@ -503,7 +558,8 @@ fn serialize_rts0_payload(rs: &RootSignature) -> Vec<u8> {
     let n = rs.parameters.len() as u32;
     const HEADER: u32 = 6 * 4; // Version/NumParameters/ParametersOffset/NumStaticSamplers/StaticSamplersOffset/Flags
     const PARAM_RECORD: u32 = 3 * 4; // type + visibility + payloadOffset
-    const PARAM_STRUCT: u32 = 2 * 4; // CBV(reg,space)与 table(num,rangesOff)均 8 字节
+    const PARAM_STRUCT: u32 = 2 * 4;
+    const ROOT_CONSTANT_STRUCT: u32 = 3 * 4;
     const RANGE: u32 = 5 * 4; // rangeType+num+base+space+offset
 
     let params_offset = HEADER;
@@ -511,14 +567,20 @@ fn serialize_rts0_payload(rs: &RootSignature) -> Vec<u8> {
 
     // 一遍:为每个参数算载荷偏移 + 为每个 table 算其 range 数组偏移。
     let mut struct_cursor = structs_start;
-    let mut ranges_cursor = structs_start + PARAM_STRUCT * n;
     let mut param_payload_off = Vec::with_capacity(rs.parameters.len());
     let mut table_ranges_off = Vec::with_capacity(rs.parameters.len());
     for p in &rs.parameters {
         param_payload_off.push(struct_cursor);
-        struct_cursor += PARAM_STRUCT;
+        struct_cursor += match p {
+            RootParameter::RootConstants { .. } => ROOT_CONSTANT_STRUCT,
+            _ => PARAM_STRUCT,
+        };
+    }
+    let mut ranges_cursor = struct_cursor;
+    for p in &rs.parameters {
         match p {
             RootParameter::CbvRootDescriptor { .. } => table_ranges_off.push(0),
+            RootParameter::RootConstants { .. } => table_ranges_off.push(0),
             RootParameter::DescriptorTable { ranges } => {
                 table_ranges_off.push(ranges_cursor);
                 ranges_cursor += RANGE * ranges.len() as u32;
@@ -539,6 +601,7 @@ fn serialize_rts0_payload(rs: &RootSignature) -> Vec<u8> {
         let ptype = match p {
             RootParameter::CbvRootDescriptor { .. } => PARAM_TYPE_CBV,
             RootParameter::DescriptorTable { .. } => PARAM_TYPE_DESCRIPTOR_TABLE,
+            RootParameter::RootConstants { .. } => PARAM_TYPE_32BIT_CONSTANTS,
         };
         push_u32(&mut buf, ptype);
         push_u32(&mut buf, SHADER_VISIBILITY_ALL);
@@ -554,6 +617,11 @@ fn serialize_rts0_payload(rs: &RootSignature) -> Vec<u8> {
             RootParameter::DescriptorTable { ranges } => {
                 push_u32(&mut buf, ranges.len() as u32);
                 push_u32(&mut buf, table_ranges_off[i]);
+            }
+            RootParameter::RootConstants { constants } => {
+                push_u32(&mut buf, 0);
+                push_u32(&mut buf, 0);
+                push_u32(&mut buf, constants.iter().map(|c| c.dword_size).sum());
             }
         }
     }
@@ -909,6 +977,38 @@ mod tests {
         assert_eq!(
             u32::from_le_bytes(bytes[24..28].try_into().unwrap()) as usize,
             bytes.len()
+        );
+    }
+
+    /// accept:scalar root constants 以声明序 packing,并计入 root signature DWORD 成本。
+    //@ spec: RXS-0165
+    #[test]
+    fn root_constants_pack_and_serialize() {
+        let constants = pack_root_constants(vec![
+            ("w".to_owned(), RootConstantType::I64),
+            ("gain".to_owned(), RootConstantType::F32),
+        ]);
+        assert_eq!(constants[0].name, "w");
+        assert_eq!(constants[0].order, 0);
+        assert_eq!(constants[0].dword_offset, 0);
+        assert_eq!(constants[0].dword_size, 2);
+        assert_eq!(constants[1].name, "gain");
+        assert_eq!(constants[1].order, 1);
+        assert_eq!(constants[1].dword_offset, 2);
+        assert_eq!(constants[1].dword_size, 1);
+
+        let rs = RootSignature {
+            parameters: vec![RootParameter::RootConstants { constants }],
+            flags: 0,
+        };
+        assert_eq!(root_signature_cost_dwords(&rs), 3);
+        let bytes = serialize_rts0(&rs);
+        assert_eq!(bytes, serialize_rts0(&rs));
+        let part_off = u32::from_le_bytes(bytes[32..36].try_into().unwrap()) as usize;
+        let payload = part_off + 8;
+        assert_eq!(
+            u32::from_le_bytes(bytes[payload + 4..payload + 8].try_into().unwrap()),
+            1
         );
     }
 

@@ -214,14 +214,14 @@ pub fn llc_emit_dxil(llc: &Path, ir: &str, obj_out: &Path) -> Result<(), String>
 
 /// dxc 签名 validator 套件目录定位(RXS-0157 IR3;round-7 取得的 2026 签名
 /// validator):`RURIX_DXC_DIR` > `RURIX_DXC_NEW_DIR`(spike 现场约定)。返回含
-/// `dxv.exe` + `dxc.exe` 的目录;不可用 → `None`(调用方 SKIP validator,真实红绿
-/// 在带 validator 的环境)。
+/// `dxv.exe` + `dxc.exe` + `dxil.dll` 的目录;不可用 → `None`(调用方 SKIP validator,
+/// 真实红绿在带 validator 的环境)。
 #[cfg(feature = "dxil-backend")]
 pub fn locate_dxc_dir() -> Option<PathBuf> {
     for key in ["RURIX_DXC_DIR", "RURIX_DXC_NEW_DIR"] {
         if let Ok(p) = std::env::var(key) {
             let pb = PathBuf::from(p);
-            if pb.join("dxv.exe").is_file() {
+            if dxc_validator_suite_ready(&pb) {
                 return Some(pb);
             }
         }
@@ -229,13 +229,36 @@ pub fn locate_dxc_dir() -> Option<PathBuf> {
     None
 }
 
-/// dxc validator 验证 DXIL 容器(`dxv.exe <obj>`;RXS-0157 IR3,strict-only):
-/// 接受 → `Ok(true)`,拒绝 → `Ok(false)`,spawn 失败 → `Err`(工具链串)。
 #[cfg(feature = "dxil-backend")]
-pub fn dxv_validate(dxc_dir: &Path, obj: &Path) -> Result<bool, String> {
+pub fn dxc_validator_suite_ready(dir: &Path) -> bool {
+    ["dxc.exe", "dxv.exe", "dxil.dll"]
+        .iter()
+        .all(|name| dir.join(name).is_file())
+}
+
+#[cfg(feature = "dxil-backend")]
+pub struct DxvValidationResult {
+    pub argv: Vec<String>,
+    pub exit_code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
+    pub success: bool,
+}
+
+/// dxc validator 验证 DXIL 容器(`dxv.exe <obj>`;RXS-0157 IR3,strict-only):
+/// 接受/拒绝均返回完整进程证据,spawn 失败 → `Err`(工具链串)。
+#[cfg(feature = "dxil-backend")]
+pub fn dxv_validate(dxc_dir: &Path, obj: &Path) -> Result<DxvValidationResult, String> {
     let dxv = dxc_dir.join("dxv.exe");
+    let argv = vec![dxv.display().to_string(), obj.display().to_string()];
     match Command::new(&dxv).arg(obj).output() {
-        Ok(o) => Ok(o.status.success()),
+        Ok(o) => Ok(DxvValidationResult {
+            argv,
+            exit_code: o.status.code(),
+            stdout: String::from_utf8_lossy(&o.stdout).replace("\r\n", "\n"),
+            stderr: String::from_utf8_lossy(&o.stderr).replace("\r\n", "\n"),
+            success: o.status.success(),
+        }),
         Err(e) => Err(format!("cannot spawn dxv: {e}")),
     }
 }

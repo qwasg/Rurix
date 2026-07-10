@@ -1,0 +1,5 @@
+//@ spec: RXS-0157
+//@ expect-error: RX6007
+// GRX-009 strict-only:f32 元素类型之外的 Texture2D<i32> 不进 descriptor layout,
+// 不降级为 entry-shell compile success,继续 RX6007(与 raw-buffer strict 形对齐)。
+kernel fn k(tex: Texture2D<i32>) {}

@@ -69,8 +69,12 @@ pub struct LangItems {
     pub thread_ctx: Option<DefId>,
     /// 着色资源句柄(G2.4,RXS-0156/0174;RFC-0007):`Texture2D<F>` 纹理 / `Sampler`
     /// 采样器。类型位置兜底识别(可被用户遮蔽),方法 `.sample(..)` → 采样 intrinsic
-    /// (typeck 层,RFC-0007 采样语义本体)。
+    /// (typeck 层,RFC-0007 采样语义本体)。`Texture2D<F>` 现兼 graphics 阶段 SRV
+    /// 与 compute kernel SRV 路径(GRX-009 runtime-mappable luminance kernel artifact)。
     pub texture2d: Option<DefId>,
+    /// compute-kernel UAV 纹理 lang item(GRX-009):`RWTexture2D<F>` → UAV。
+    /// 类型位置兜底识别(可被用户遮蔽);与 `texture2d` 同源,区别在 `class()` → Uav。
+    pub rwtexture2d: Option<DefId>,
     pub sampler: Option<DefId>,
     /// host 运行时 launch 类型契约已知类型(M4.3,RXS-0074;类型/值位置兜底,
     /// 可被用户遮蔽)。`Stream<Ctx>` 的首类型实参为 context-brand;`GridDim`/
@@ -132,6 +136,7 @@ impl LangItems {
             "AtomicView" => self.atomic_view,
             // 着色资源句柄(RXS-0156/0174,RFC-0007):类型位置兜底(可被用户遮蔽)。
             "Texture2D" => self.texture2d,
+            "RWTexture2D" => self.rwtexture2d,
             "Sampler" => self.sampler,
             _ => ADDR_SPACES
                 .iter()
@@ -334,6 +339,7 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
             addr_spaces: [None; 5],
             thread_ctx: None,
             texture2d: None,
+            rwtexture2d: None,
             sampler: None,
             context: None,
             module: None,
@@ -370,8 +376,12 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
         // 内建容器,方法 `.sample(samp, uv)` 识别为采样 intrinsic(typeck 层)。
         // 追加于既有 lang items 之后,不动摇既有 DefId 编号(MIR/PTX golden 符号名
         // 稳定性);同 View 族兜底纪律(用户同名定义优先遮蔽,不入模块命名空间)。
+        // GRX-009:`RWTexture2D<F>` 计算内核 UAV 纹理 lang item 追加于 `Texture2D`
+        // 之后,与 `Texture2D` 同源但 `class()` → Uav,区别于 SRV。
         r.out.lang_items.texture2d =
             Some(r.new_def(DefKind::Struct, "Texture2D", Vis::Pub, span, 0));
+        r.out.lang_items.rwtexture2d =
+            Some(r.new_def(DefKind::Struct, "RWTexture2D", Vis::Pub, span, 0));
         r.out.lang_items.sampler = Some(r.new_def(DefKind::Struct, "Sampler", Vis::Pub, span, 0));
         // host 运行时 launch 类型契约已知类型(M4.3,RXS-0074):Context/Module/
         // Stream(brand)/GridDim/BlockDim。追加于既有 device lang items 之后,

@@ -1,0 +1,269 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Fri, 10 Jul 2026 22:40:00 +0800
+Subject: [PATCH] Wire GRX-010 tonemap runtime resource binding with native
+ D3D12 resource handle mapping
+
+Stacked on 0001..0011. This is the GRX-010 runtime resource binding slice
+(the GRX-009 0005+0007 layers merged into one patch for the tonemap pass):
+it lets the Godot Tonemap call site pass the REAL tonemap binding to the
+Rurix bridge so the fail-closed TonemapGate can validate it, while the
+runtime stays fallback-first.
+
+- drivers/d3d12/d3d12_hooks.h: D3D12Hooks::try_record_tonemap() now carries
+  the tonemap binding: real D3D12 ID3D12Resource* native handles (resolved
+  through RenderingDevice::get_driver_resource, not logical Godot RID ids)
+  for the HDR source color texture and the LDR destination texture, the
+  source/destination dimensions, and the b0 root constant scalars
+  (exposure, white, luminance_multiplier).
+- renderer_scene_render_rd.cpp Tonemap block: records the destination
+  *texture* RID backing dest_fb (the intermediate Tonemapper/destination
+  texture on the spatial-upscaler/SMAA leg, or the render target RD texture
+  on the plain leg; the msaa_2d leg stays invalid and falls back), resolves
+  both native handles via RenderingDevice::get_driver_resource(
+  DRIVER_RESOURCE_TEXTURE, RID, 0), and passes color_size as the source
+  extent plus tonemap.dest_texture_size as the destination extent together
+  with tonemap.exposure / tonemap.white / tonemap.luminance_multiplier.
+  When RenderingDevice is unavailable or either handle resolves to 0 the
+  call site keeps the native Godot tonemap path instead of binding a null
+  resource.
+- modules/rurix_accel: the RurixAccelD3D12Hooks override marshals two
+  RXGD_RESOURCE_TEXTURE records (SRV src_color = t0, then UAV dst_color =
+  u0) and the 28-byte b0 root constant block (source_width/source_height as
+  64-bit integers per the GRX-009 canonical template, then exposure, white,
+  luminance_multiplier as 32-bit floats) into rxgd_record_pass, with a
+  zero-native-handle guard that returns false (native Godot fallback). The
+  fallback log line now carries the native-resource-handle-mapping wording.
+- The bridge TonemapGate runtime binding preflight validates the descriptor
+  shape (exactly two texture resources), the 28-byte push constants, the
+  nonzero source dimensions matching the bound src_color resource, the 1:1
+  dst extent, and the 64-bit integer shader capability; any mismatch and
+  even a fully valid preflight still end in RXGD_STATUS_FALLBACK on the
+  default record path.
+
+This is not a real GPU pass: the default record path never returns OK for
+RXGD_PASS_TONEMAP, no D3D12 dispatch is recorded by the shipping
+(feature-off) bridge, the per-pass setting defaults to false, the native
+Godot tonemap path stays active, and no visual diff, measured telemetry, or
+performance claim is made.
+---
+diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
+index 868dcc9..57a8a34 100644
+--- a/drivers/d3d12/d3d12_hooks.h
++++ b/drivers/d3d12/d3d12_hooks.h
+@@ -56,9 +56,16 @@ public:
+ 	// any hooks that do not override this (or the absence of a hooks singleton)
+ 	// keep the native Godot luminance path.
+ 	virtual bool try_record_luminance_reduction(uint64_t p_source_native_handle, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_native_handle, uint32_t p_dest_width, uint32_t p_dest_height, float p_max_luminance, float p_min_luminance, float p_exposure_adjust) { return false; }
+-	// GRX-010: opt-in hook for the tonemap pass. The base implementation
+-	// returns false so any hooks that do not override this (or the absence of
+-	// a hooks singleton) keep the native Godot tonemap path.
+-	virtual bool try_record_tonemap() { return false; }
++	// GRX-010 runtime resource binding: native resource handle mapping hook
++	// for the tonemap pass (0005/0007-level wiring in one slice). The caller
++	// passes the real D3D12 ID3D12Resource* native handles (resolved through
++	// RenderingDevice::get_driver_resource, not logical Godot RID ids) for
++	// the HDR source color texture and the LDR destination texture, the
++	// source/destination dimensions, and the b0 root constant scalars
++	// (exposure, white, luminance_multiplier) so the bridge can validate the
++	// binding contract and bind real resources. The base implementation
++	// returns false so any hooks that do not override this (or the absence
++	// of a hooks singleton) keep the native Godot tonemap path.
++	virtual bool try_record_tonemap(uint64_t p_source_native_handle, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_native_handle, uint32_t p_dest_width, uint32_t p_dest_height, float p_exposure, float p_white, float p_luminance_multiplier) { return false; }
+ 	static D3D12Hooks *get_singleton() { return singleton; }
+ };
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index dbd1bd2..dcbc15a 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -317,13 +317,15 @@ bool RurixAccelD3D12Hooks::try_record_luminance_reduction(uint64_t p_source_nati
+ 	return true;
+ }
+ 
+-bool RurixAccelD3D12Hooks::try_record_tonemap() {
+-	// GRX-010 gate: every early return below means the caller must keep the
+-	// native Godot tonemap path. This is 0002-level module wiring: the call
+-	// carries no resource bindings (native handle mapping belongs to a later
+-	// slice), and the fail-closed bridge TonemapGate always returns
+-	// RXGD_STATUS_FALLBACK for RXGD_PASS_TONEMAP today, so the native
+-	// tonemapper keeps rendering in practice.
++bool RurixAccelD3D12Hooks::try_record_tonemap(uint64_t p_source_native_handle, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_native_handle, uint32_t p_dest_width, uint32_t p_dest_height, float p_exposure, float p_white, float p_luminance_multiplier) {
++	// GRX-010 runtime resource binding gate: every early return below means
++	// the caller must keep the native Godot tonemap path. This is the
++	// 0005/0007-level wiring in one slice: the call now carries the real
++	// tonemap binding (native ID3D12Resource* handles, dimensions, and the
++	// b0 root constant scalars) so the fail-closed bridge TonemapGate can
++	// run its runtime binding preflight. The default record path (no
++	// real-pass opt-in) still always returns RXGD_STATUS_FALLBACK for
++	// RXGD_PASS_TONEMAP, so the native tonemapper keeps rendering.
+ 	if (!GLOBAL_GET("rendering/rurix_accel/passes/tonemap/enabled")) {
+ 		// manual_disabled: the pass is opt-in and defaults to disabled.
+ 		return false;
+@@ -333,10 +335,49 @@ bool RurixAccelD3D12Hooks::try_record_tonemap() {
+ 		// unsupported_device for this pass.
+ 		return false;
+ 	}
+-	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_TONEMAP, nullptr, 0, nullptr, 0);
++	if (p_source_native_handle == 0 || p_dest_native_handle == 0) {
++		// A zero native handle means RenderingDevice could not resolve a real
++		// ID3D12Resource*; keep the native Godot tonemap path instead of
++		// binding a null resource.
++		return false;
++	}
++	// Marshal the tonemap binding for the bridge. native_handle carries the
++	// real D3D12 ID3D12Resource* resolved from
++	// RenderingDevice::get_driver_resource, not a logical Godot RID id.
++	RxGdResource resources[TONEMAP_RESOURCE_MAPPING_RESOURCE_COUNT] = {};
++	resources[0].abi_version = RXGD_ABI_VERSION;
++	resources[0].struct_size = (uint32_t)sizeof(RxGdResource);
++	resources[0].resource_type = RXGD_RESOURCE_TEXTURE;
++	resources[0].width = p_source_width;
++	resources[0].height = p_source_height;
++	resources[0].depth = 1;
++	resources[0].mip_levels = 1;
++	resources[0].native_handle = p_source_native_handle;
++	resources[1].abi_version = RXGD_ABI_VERSION;
++	resources[1].struct_size = (uint32_t)sizeof(RxGdResource);
++	resources[1].resource_type = RXGD_RESOURCE_TEXTURE;
++	resources[1].width = p_dest_width;
++	resources[1].height = p_dest_height;
++	resources[1].depth = 1;
++	resources[1].mip_levels = 1;
++	resources[1].native_handle = p_dest_native_handle;
++	// b0 root constants (28 bytes / 7 DWORDs): source_width and
++	// source_height as 64-bit integers (the tonemap kernel declares the
++	// 64-bit integer shader capability per the GRX-009 canonical template),
++	// then exposure, white and luminance_multiplier as 32-bit floats,
++	// little-endian like D3D12.
++	uint8_t push_constants[TONEMAP_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES] = {};
++	const uint64_t source_width = p_source_width;
++	const uint64_t source_height = p_source_height;
++	memcpy(&push_constants[0], &source_width, sizeof(source_width));
++	memcpy(&push_constants[8], &source_height, sizeof(source_height));
++	memcpy(&push_constants[16], &p_exposure, sizeof(p_exposure));
++	memcpy(&push_constants[20], &p_white, sizeof(p_white));
++	memcpy(&push_constants[24], &p_luminance_multiplier, sizeof(p_luminance_multiplier));
++	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_TONEMAP, resources, TONEMAP_RESOURCE_MAPPING_RESOURCE_COUNT, push_constants, TONEMAP_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES);
+ 	if (rc != RXGD_STATUS_OK) {
+ 		if (!tonemap_fallback_logged) {
+-			print_verbose(vformat("RurixAccel: tonemap fallback rc=%d; Godot native tonemap path remains active.", rc));
++			print_verbose(vformat("RurixAccel: tonemap native resource handle mapping fallback rc=%d; Godot native tonemap path remains active.", rc));
+ 			tonemap_fallback_logged = true;
+ 		}
+ 		return false;
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index a877f3b..39e76fc 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -79,6 +79,12 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
+ 	bool tonemap_fallback_logged = false;
+ 	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 28;
+ 	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_RESOURCE_COUNT = 2;
++	// GRX-010 tonemap resource mapping (resource_mapping.md): b0 carries
++	// 7 DWORDs / 28 bytes ([i64 source_width, i64 source_height, f32
++	// exposure, f32 white, f32 luminance_multiplier]) and the binding is
++	// exactly two texture resources (src_color = SRV t0, dst_color = UAV u0).
++	static constexpr uint32_t TONEMAP_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 28;
++	static constexpr uint32_t TONEMAP_RESOURCE_MAPPING_RESOURCE_COUNT = 2;
+ 	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_SCAFFOLD = "resource mapping scaffold";
+ 	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_ROOT_CB = "b0";
+ 	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_SRC = "src_luminance = t0";
+@@ -108,12 +114,16 @@ public:
+ 	// preflight-only bridge) returns false and the caller must keep the native
+ 	// Godot luminance path.
+ 	bool try_record_luminance_reduction(uint64_t p_source_native_handle, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_native_handle, uint32_t p_dest_width, uint32_t p_dest_height, float p_max_luminance, float p_min_luminance, float p_exposure_adjust) override;
+-	// GRX-010: returns true only when the Rurix bridge actually recorded the
+-	// tonemap pass. Any other outcome (setting disabled, missing
+-	// session/symbol, or a non-OK bridge status such as RXGD_STATUS_FALLBACK
+-	// from the fail-closed TonemapGate) returns false and the caller must
+-	// keep the native Godot tonemap path.
+-	bool try_record_tonemap() override;
++	// GRX-010 runtime resource binding: native resource handle mapping.
++	// Marshals the real D3D12 ID3D12Resource* native handles (not logical
++	// Godot RID ids), the source/destination dimensions, and the b0 root
++	// constants (exposure, white, luminance_multiplier) to the Rurix bridge
++	// and returns true only when the bridge actually recorded the tonemap
++	// pass. Any other outcome (setting disabled, missing session/symbol, a
++	// null native handle, or a non-OK bridge status such as
++	// RXGD_STATUS_FALLBACK from the fail-closed TonemapGate) returns false
++	// and the caller must keep the native Godot tonemap path.
++	bool try_record_tonemap(uint64_t p_source_native_handle, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_native_handle, uint32_t p_dest_width, uint32_t p_dest_height, float p_exposure, float p_white, float p_luminance_multiplier) override;
+ };
+ 
+ #endif // D3D12_ENABLED
+diff --git a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
+index f7e8820..e98b098 100644
+--- a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
++++ b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
+@@ -816,6 +816,13 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+ 
+ 		RID dest_fb;
+ 		RD::DataFormat dest_fb_format;
++		// GRX-010 runtime resource binding: the LDR destination *texture* RID
++		// backing dest_fb, resolved only on the legs where a real texture RID
++		// exists (the intermediate Tonemapper/destination texture, or the
++		// render target's RD texture). The msaa_2d leg stays invalid so the
++		// gate below falls back to the native Godot tonemap path instead of
++		// guessing a resource.
++		RID rurix_tonemap_dest_texture;
+ 		if (spatial_upscaler != nullptr || use_smaa) {
+ 			// If we use a spatial upscaler to upscale or SMAA to antialias we need to write our result into an intermediate buffer.
+ 			// Note that this is cached so we only create the texture the first time.
+@@ -823,6 +830,7 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+ 			RID dest_texture = rb->create_texture(SNAME("Tonemapper"), SNAME("destination"), dest_fb_format, RD::TEXTURE_USAGE_SAMPLING_BIT | RD::TEXTURE_USAGE_STORAGE_BIT | RD::TEXTURE_USAGE_COLOR_ATTACHMENT_BIT, RD::TEXTURE_SAMPLES_1, Size2i(), 0, 1, true, true);
+ 			dest_fb = FramebufferCacheRD::get_singleton()->get_cache(dest_texture);
+ 			tonemap.dest_texture_size = rb->get_internal_size();
++			rurix_tonemap_dest_texture = dest_texture;
+ 		} else {
+ 			// If we do a bilinear upscale we just render into our render target and our shader will upscale automatically.
+ 			// Target size in this case is lying as we never get our real target size communicated.
+@@ -833,6 +841,7 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+ 				texture_storage->render_target_set_msaa_needs_resolve(render_target, true); // Make sure this gets resolved.
+ 			} else {
+ 				dest_fb = texture_storage->render_target_get_rd_framebuffer(render_target);
++				rurix_tonemap_dest_texture = texture_storage->render_target_get_rd_texture(render_target);
+ 			}
+ 			tonemap.dest_texture_size = texture_storage->render_target_get_size(render_target);
+ 		}
+@@ -856,14 +865,31 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+ 		if (can_use_storage) {
+ 			bool rurix_recorded_tonemap = false;
+ #ifdef D3D12_ENABLED
+-			if (D3D12Hooks::get_singleton() != nullptr) {
+-				// GRX-010 opt-in gate. Returns true only when the Rurix module
+-				// setting is enabled AND the bridge session/symbol exist AND
+-				// rxgd_record_pass returns RXGD_STATUS_OK. The fail-closed
+-				// bridge TonemapGate currently always returns
+-				// RXGD_STATUS_FALLBACK for RXGD_PASS_TONEMAP, so this stays
+-				// false and the native Godot tonemapper below runs.
+-				rurix_recorded_tonemap = D3D12Hooks::get_singleton()->try_record_tonemap();
++			if (D3D12Hooks::get_singleton() != nullptr && rurix_tonemap_dest_texture.is_valid()) {
++				// GRX-010 runtime resource binding gate (0005/0007-level in
++				// one slice). Resolves the real D3D12 ID3D12Resource* native
++				// handles (not logical Godot RID ids) for the HDR source
++				// color texture and the LDR destination texture through
++				// RenderingDevice::get_driver_resource, then passes them plus
++				// the source/destination sizes and the b0 root constant
++				// scalars (exposure, white, luminance_multiplier) so the
++				// Rurix bridge can validate the tonemap binding contract.
++				// When RenderingDevice is unavailable, the destination has no
++				// texture RID (msaa_2d leg), or either native handle resolves
++				// to 0, the pass falls back to the native Godot tonemap path.
++				// Returns true only when the Rurix module setting is enabled
++				// AND the bridge session/symbol exist AND rxgd_record_pass
++				// returns RXGD_STATUS_OK. The fail-closed bridge TonemapGate
++				// still always returns RXGD_STATUS_FALLBACK for
++				// RXGD_PASS_TONEMAP on the default path (runtime binding
++				// preflight only, no real dispatch), so this stays false and
++				// the native Godot tonemapper below runs.
++				RenderingDevice *rurix_rd = RD::get_singleton();
++				const uint64_t rurix_source_native_handle = rurix_rd != nullptr ? rurix_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_TEXTURE, color_texture, 0) : 0;
++				const uint64_t rurix_dest_native_handle = rurix_rd != nullptr ? rurix_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_TEXTURE, rurix_tonemap_dest_texture, 0) : 0;
++				if (rurix_source_native_handle != 0 && rurix_dest_native_handle != 0) {
++					rurix_recorded_tonemap = D3D12Hooks::get_singleton()->try_record_tonemap(rurix_source_native_handle, (uint32_t)MAX(color_size.x, 0), (uint32_t)MAX(color_size.y, 0), rurix_dest_native_handle, (uint32_t)MAX(tonemap.dest_texture_size.x, 0), (uint32_t)MAX(tonemap.dest_texture_size.y, 0), tonemap.exposure, tonemap.white, tonemap.luminance_multiplier);
++				}
+ 			}
+ #endif
+ 			if (!rurix_recorded_tonemap) {
+-- 
+2.50.0

@@ -1,0 +1,142 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Mon, 6 Jul 2026 12:00:00 +0800
+Subject: [PATCH] Add the GRX-009 segment 4h opt-in gated real luminance pass
+ arm
+
+Stacked on 0001-rurix-accel-module-scaffold.patch,
+0002-rurix-accel-luminance-pass-gate.patch,
+0003-rurix-accel-luminance-core-callsite-wiring.patch,
+0004-rurix-accel-luminance-resource-mapping-scaffold.patch,
+0005-rurix-accel-luminance-runtime-binding-preflight.patch,
+0006-rurix-accel-luminance-gated-dispatch-bringup.patch,
+0007-rurix-accel-luminance-native-resource-handle-mapping.patch, and
+0008-rurix-accel-luminance-godot-runtime-bridge-recording-smoke.patch. This
+segment 4h patch adds the explicit opt-in arm for the gated REAL luminance
+pass attempt. It is a bring-up gate, not a default enablement, and it does not
+change the shipping fallback semantics.
+
+- modules/rurix_accel/register_types.cpp: adds two per-pass opt-in settings
+  that both default to false and are separate from .../enabled,
+  .../dispatch_bringup, and .../dispatch_recording_smoke:
+  rendering/rurix_accel/passes/luminance_reduction/dispatch_real_pass (the
+  segment 4h real-pass arm) and
+  .../real_pass_force_capability_downgrade (a harness-only forced-failure
+  knob for the segment 4h fallback red/green leg).
+- modules/rurix_accel/rurix_accel.h: declares the reserved real-pass arm flag
+  RXGD_CAP_LUMINANCE_REAL_PASS carried in RxGdCaps.flags. This reuses the
+  existing flags field: the C ABI struct layout and RXGD_ABI_VERSION are
+  unchanged.
+- modules/rurix_accel/rurix_accel.cpp: try_create_session() sets
+  RXGD_CAP_LUMINANCE_REAL_PASS ONLY when the dispatch_real_pass opt-in is
+  enabled, and clears RXGD_CAP_SHADER_INT64 ONLY when the harness-only
+  real_pass_force_capability_downgrade knob is enabled (making the bridge
+  preflight fail closed with unsupported_device for the forced-failure leg).
+  try_record_luminance_reduction() emits a distinctive
+  RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS marker only when rxgd_record_pass
+  actually returned RXGD_STATUS_OK on the real-pass arm.
+
+The bridge fails closed on the real-pass arm: it runs the runtime binding
+preflight, the dispatch eligibility gate, and the segment 4h
+kernel-binding-kind conformance check, and returns RXGD_STATUS_FALLBACK with a
+machine-readable RXGD_REAL_PASS_BLOCKED diagnostic naming the first missing
+prerequisite. With the tracked segment 3a artifact the kernel declares
+raw-buffer views while the Godot runtime provides Texture2D native handles,
+so the conformance check always fails closed and the
+RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS marker is never printed today. This
+does not change RXGD_ABI_VERSION, does not enable the pass by default (all
+five per-pass settings still default to false), does not flip real_gpu_pass to
+true, and makes no visual, measured-telemetry, GPU-timestamp, or performance
+claim by itself.
+---
+diff --git a/modules/rurix_accel/register_types.cpp b/modules/rurix_accel/register_types.cpp
+index e7c2efd..bee3d93 100644
+--- a/modules/rurix_accel/register_types.cpp
++++ b/modules/rurix_accel/register_types.cpp
+@@ -31,6 +31,24 @@ void initialize_rurix_accel_module(ModuleInitializationLevel p_level) {
+ 	// enables it and the shipping (feature-off) bridge still returns
+ 	// RXGD_STATUS_FALLBACK for RXGD_PASS_LUMINANCE_REDUCTION.
+ 	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/luminance_reduction/dispatch_recording_smoke", false);
++	// GRX-009 segment 4h: opt-in gated REAL luminance pass bring-up arm.
++	// Defaults to false so the shipping build never arms the real-pass
++	// attempt. Even when enabled the bridge runs its runtime binding
++	// preflight, dispatch eligibility, and kernel-binding-kind conformance
++	// checks and keeps returning RXGD_STATUS_FALLBACK (with a
++	// machine-readable RXGD_REAL_PASS_BLOCKED diagnostic naming the first
++	// missing prerequisite) unless every check passes AND a runtime-mappable
++	// real dispatch path is linked; with the tracked segment 3a artifact the
++	// kernel-binding-kind conformance check always fails closed, so the
++	// native Godot luminance path keeps rendering.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/luminance_reduction/dispatch_real_pass", false);
++	// GRX-009 segment 4h: harness-only forced-failure knob for the fallback
++	// red/green leg. When enabled the module clears the shader-int64
++	// capability it advertises to the bridge, so the bridge preflight fails
++	// closed with unsupported_device while the native Godot luminance path
++	// keeps rendering. Defaults to false; never enabled by the shipping
++	// build/config.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/luminance_reduction/real_pass_force_capability_downgrade", false);
+ 
+ #if defined(D3D12_ENABLED)
+ 	if (GLOBAL_GET("rendering/rurix_accel/enabled")) {
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index da137ec..10f99e0 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -200,6 +200,23 @@ void RurixAccelD3D12Hooks::try_create_session() {
+ 	if (GLOBAL_GET("rendering/rurix_accel/passes/luminance_reduction/dispatch_recording_smoke")) {
+ 		caps.flags |= RXGD_CAP_LUMINANCE_DISPATCH_RECORD;
+ 	}
++	// GRX-009 segment 4h: arm the opt-in gated REAL luminance pass attempt
++	// ONLY when the default-false dispatch_real_pass opt-in is enabled. The
++	// bridge still fails closed (fallback + RXGD_REAL_PASS_BLOCKED first
++	// missing prerequisite) unless every gate passes AND a runtime-mappable
++	// real dispatch path is linked; this is a bring-up gate, not a default
++	// runtime pass.
++	if (GLOBAL_GET("rendering/rurix_accel/passes/luminance_reduction/dispatch_real_pass")) {
++		caps.flags |= RXGD_CAP_LUMINANCE_REAL_PASS;
++	}
++	// GRX-009 segment 4h: harness-only forced-failure knob. Clearing the
++	// shader-int64 capability makes the bridge preflight fail closed with
++	// unsupported_device while the native Godot luminance path keeps
++	// rendering; the fallback red/green leg of the segment 4h smoke
++	// verifies exactly this.
++	if (GLOBAL_GET("rendering/rurix_accel/passes/luminance_reduction/real_pass_force_capability_downgrade")) {
++		caps.flags &= ~RXGD_CAP_SHADER_INT64;
++	}
+ 	if (adapter_luid_valid) {
+ 		memcpy(caps.adapter_luid, &adapter_luid, sizeof(adapter_luid));
+ 	}
+@@ -283,6 +300,13 @@ bool RurixAccelD3D12Hooks::try_record_luminance_reduction(uint64_t p_source_nati
+ 	// bridge dispatch recording smoke can observe the recording. This line is
+ 	// only reachable under the test-only dispatch_recording_smoke opt-in plus a
+ 	// d3d12-recording-shim rurix_godot.dll; the default build never prints it.
++	// GRX-009 segment 4h: only reachable when a future runtime-mappable real
++	// dispatch path actually returned RXGD_STATUS_OK on the real-pass arm;
++	// with the tracked segment 3a artifact the bridge always falls back
++	// first, so this marker is never printed today.
++	if (GLOBAL_GET("rendering/rurix_accel/passes/luminance_reduction/dispatch_real_pass")) {
++		print_line("RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS: pass=RXGD_PASS_LUMINANCE_REDUCTION dispatched=1");
++	}
+ 	print_line("RXGD_GODOT_RUNTIME_LUMINANCE_RECORD: pass=RXGD_PASS_LUMINANCE_REDUCTION recorded=1");
+ 	return true;
+ }
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index 9a31824..4061d4b 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -25,6 +25,13 @@
+ // feature. The shipping (feature-off) bridge ignores it and keeps returning
+ // RXGD_STATUS_FALLBACK for RXGD_PASS_LUMINANCE_REDUCTION.
+ #define RXGD_CAP_LUMINANCE_DISPATCH_RECORD 4u
++// GRX-009 segment 4h opt-in real-pass arm carried in RxGdCaps.flags (ABI
++// v1, no struct layout change). Set only when the default-false
++// dispatch_real_pass opt-in is enabled. Setting it never on its own makes
++// the bridge return RXGD_STATUS_OK: the bridge fails closed with a
++// recorded fallback reason and an RXGD_REAL_PASS_BLOCKED diagnostic until
++// a runtime-mappable real dispatch path exists.
++#define RXGD_CAP_LUMINANCE_REAL_PASS 8u
+ 
+ typedef struct RxGdCaps {
+ 	uint32_t abi_version;
+-- 
+2.50.0

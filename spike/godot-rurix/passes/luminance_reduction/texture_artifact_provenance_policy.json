@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "pass_id": "luminance_reduction",
+  "segment": "4l_texture_artifact_provenance_policy",
+  "status": "success",
+  "policy_ready": true,
+  "generated_at_utc": "2026-07-08T11:00:00Z",
+  "owner_decision": {
+    "approved_by": "owner",
+    "approved_at_utc": "2026-07-08T11:00:00Z",
+    "decision": "approve_hlsl_bridge_workaround_as_temporary_runtime_mappable_canonical",
+    "machine_role": "local_test_machine"
+  },
+  "policy_document": "spike/godot-rurix/passes/luminance_reduction/texture_artifact_provenance_policy.md",
+  "bridge_contract_document": "spike/godot-rurix/passes/luminance_reduction/dxc_texture_artifact_bridge.md",
+  "provenance_policy": {
+    "provenance": "hlsl_bridge_workaround",
+    "rurix_owned": false,
+    "rurix_owned_rts0": true,
+    "rts0_synthesis": "rurix_binding_layout",
+    "canonical_switch_exception": "owner_approved_hlsl_bridge_workaround",
+    "revert_to_rurix_owned_when": [
+      "patched_llc_supports_texture_load_store_intrinsics",
+      "lib_texture_rx_offline_compile_status_success",
+      "dxv_validation_pass_on_rurix_owned_container"
+    ]
+  },
+  "prerequisite_evidence": {
+    "texture_dxc_feasibility": "spike/godot-rurix/passes/luminance_reduction/texture_dxc_feasibility_evidence.json",
+    "bridge_design": "spike/godot-rurix/passes/luminance_reduction/dxc_texture_artifact_bridge_design.json",
+    "bridge_scaffold": "spike/godot-rurix/passes/luminance_reduction/dxc_texture_artifact_bridge_scaffold_evidence.json",
+    "descriptor_rts0_crosscheck": "spike/godot-rurix/passes/luminance_reduction/dxc_texture_descriptor_rts0_crosscheck_evidence.json"
+  },
+  "runtime_mappable": false,
+  "real_gpu_pass": false,
+  "canonical_artifact_replaced": false,
+  "offline_compile_status_changed": false,
+  "does_not_imply": [
+    "runtime_mappable=true",
+    "real_gpu_pass=true",
+    "canonical artifact replacement",
+    "visual success",
+    "performance claim",
+    "default pass enablement"
+  ],
+  "next_action_if_ready": "provide_grx009_runtime_mappable_luminance_kernel_artifact"
+}

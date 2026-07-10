@@ -1,0 +1,200 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GRX-009 Stage A2 HLSL Bridge Math Parity Evidence",
+  "description": "Evidence produced by generate_math_parity_evidence.py. Compares a CPU reference implementation of the luminance reduction math (mirroring src/lib_texture.rx for level reduction and src/lib.rx clamp/exposure plus EMA for the final WRITE_LUMINANCE level) against GPU dispatch results of the artifacts/hlsl_bridge/ DXC-compiled kernel. status=pending_gpu_dispatch is the honest state while no GPU dispatch results exist; status=success requires measured_gpu=true and all cases within tolerance. This evidence never implies real_gpu_pass=true, a Godot runtime pass, canonical artifact replacement, or any performance claim.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject",
+    "pass_id",
+    "status",
+    "provenance",
+    "rurix_owned",
+    "measured_gpu",
+    "real_gpu_pass",
+    "canonical_artifact_replaced",
+    "generated_at_utc",
+    "kernel",
+    "cpu_reference",
+    "gpu_results",
+    "comparison",
+    "cases",
+    "does_not_imply"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": { "const": "grx009_stage_a2_hlsl_bridge_math_parity" },
+    "pass_id": { "const": "luminance_reduction" },
+    "status": { "enum": ["success", "fail", "pending_gpu_dispatch"] },
+    "provenance": { "const": "hlsl_bridge_workaround" },
+    "rurix_owned": { "const": false },
+    "measured_gpu": { "type": "boolean" },
+    "real_gpu_pass": { "const": false },
+    "canonical_artifact_replaced": { "const": false },
+    "generated_at_utc": { "type": "string" },
+    "kernel": {
+      "type": "object",
+      "required": ["hlsl", "dxil_base", "dxil_write_luminance"],
+      "properties": {
+        "hlsl": { "$ref": "#/definitions/hashed_path" },
+        "dxil_base": { "$ref": "#/definitions/hashed_path" },
+        "dxil_write_luminance": { "$ref": "#/definitions/hashed_path" }
+      },
+      "additionalProperties": true
+    },
+    "cpu_reference": {
+      "type": "object",
+      "required": ["implementation", "math_source", "float_model"],
+      "properties": {
+        "implementation": { "type": "string" },
+        "math_source": {
+          "type": "object",
+          "required": ["level_reduction", "final_level"],
+          "properties": {
+            "level_reduction": { "type": "string" },
+            "final_level": { "type": "string" }
+          }
+        },
+        "float_model": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "gpu_results": {
+      "type": ["object", "null"],
+      "description": "null while pending. When present: the GPU dispatch results document (path + sha256) whose per-case outputs were compared.",
+      "properties": {
+        "path": { "type": "string" },
+        "sha256": { "type": ["string", "null"] },
+        "dispatch_kind": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "comparison": {
+      "type": "object",
+      "required": ["max_abs_error_tolerance", "measured"],
+      "properties": {
+        "max_abs_error_tolerance": { "type": "number", "exclusiveMinimum": 0 },
+        "measured": { "type": "boolean" },
+        "max_abs_error_observed": { "type": ["number", "null"] },
+        "all_cases_within_tolerance": { "type": ["boolean", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/case" }
+    },
+    "pending_reason": { "type": "string" },
+    "next_action_when_gpu_available": { "type": "string" },
+    "does_not_imply": { "type": "array", "items": { "type": "string" } }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "pending_gpu_dispatch" } } },
+      "then": {
+        "required": ["pending_reason", "next_action_when_gpu_available"],
+        "properties": {
+          "measured_gpu": { "const": false },
+          "gpu_results": { "const": null }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "status": { "const": "success" } } },
+      "then": {
+        "properties": {
+          "measured_gpu": { "const": true },
+          "gpu_results": { "type": "object" },
+          "comparison": {
+            "properties": {
+              "measured": { "const": true },
+              "all_cases_within_tolerance": { "const": true }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "hashed_path": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string" },
+        "sha256": { "type": ["string", "null"] },
+        "exists": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "case": {
+      "type": "object",
+      "required": [
+        "case_id",
+        "variant",
+        "source_width",
+        "source_height",
+        "dst_width",
+        "dst_height",
+        "input_pattern",
+        "constants",
+        "cpu_expected",
+        "gpu_observed",
+        "case_status"
+      ],
+      "properties": {
+        "case_id": { "type": "string" },
+        "variant": { "enum": ["base", "write_luminance"] },
+        "source_width": { "type": "integer", "minimum": 1 },
+        "source_height": { "type": "integer", "minimum": 1 },
+        "dst_width": { "type": "integer", "minimum": 1 },
+        "dst_height": { "type": "integer", "minimum": 1 },
+        "input_pattern": { "type": "string" },
+        "constants": {
+          "type": "object",
+          "required": ["source_width", "source_height", "max_luminance", "min_luminance", "exposure_adjust"],
+          "properties": {
+            "source_width": { "type": "integer" },
+            "source_height": { "type": "integer" },
+            "max_luminance": { "type": "number" },
+            "min_luminance": { "type": "number" },
+            "exposure_adjust": { "type": "number" },
+            "prev_luminance": { "type": ["number", "null"] }
+          },
+          "additionalProperties": false
+        },
+        "cpu_expected": {
+          "type": "object",
+          "required": ["dst_f32_le_sha256", "sample_texels"],
+          "properties": {
+            "dst_f32_le_sha256": {
+              "type": "string",
+              "description": "sha256 of the expected destination grid packed as row-major little-endian float32."
+            },
+            "sample_texels": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["x", "y", "value"],
+                "properties": {
+                  "x": { "type": "integer", "minimum": 0 },
+                  "y": { "type": "integer", "minimum": 0 },
+                  "value": { "type": "number" }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": true
+        },
+        "gpu_observed": {
+          "type": ["object", "null"],
+          "description": "null while pending; mirrors cpu_expected shape plus max_abs_error when measured."
+        },
+        "case_status": { "enum": ["match", "mismatch", "pending"] }
+      },
+      "additionalProperties": true
+    }
+  }
+}

@@ -1,0 +1,175 @@
+{
+  "schema_version": 1,
+  "pass_id": "luminance_reduction",
+  "segment": "4k_dxc_texture_artifact_bridge_scaffold",
+  "status": "success",
+  "scaffold_ready": true,
+  "issue": null,
+  "generated_at_utc": "2026-07-08T11:22:49Z",
+  "runtime_mappable": false,
+  "real_gpu_pass": false,
+  "canonical_artifact_replaced": false,
+  "offline_compile_status_changed": false,
+  "artifact_dir": "spike/godot-rurix/passes/luminance_reduction/artifacts/dxc_texture_bridge",
+  "source_feasibility_evidence": "spike/godot-rurix/passes/luminance_reduction/texture_dxc_feasibility_evidence.json",
+  "provenance": "hlsl_bridge_workaround",
+  "rurix_owned": false,
+  "design_or_scaffold_only": true,
+  "canonical_artifact_eligible": false,
+  "does_not_imply": [
+    "offline_compile_success",
+    "runtime_mappable=true",
+    "real_gpu_pass=true",
+    "canonical artifact replacement",
+    "visual success",
+    "performance claim"
+  ],
+  "next_action_if_ready": "define_grx009_texture_artifact_provenance_policy",
+  "dxil_container_metadata": {
+    "dxc": {
+      "found": true,
+      "path": "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+      "version_output": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)"
+    },
+    "dxv": {
+      "found": true,
+      "path": "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe",
+      "version_output": "OVERVIEW: dxil validator\n\nUSAGE: dxv.exe [options] <input dxil file>\n\nOPTIONS:\n  -help         - Print help\n  -o=<filename> - Override output filename for signed container"
+    },
+    "compile": {
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+        "-T",
+        "cs_6_0",
+        "-E",
+        "main",
+        "-Qstrip_debug",
+        "-Fo",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\toolchain_probe\\dxc_texture\\texture_feasibility.dxil",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\toolchain_probe\\dxc_texture\\texture_feasibility.hlsl"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/toolchain_probe/dxc_texture/dxc_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/toolchain_probe/dxc_texture/dxc_stderr.txt"
+    },
+    "validation": {
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\toolchain_probe\\dxc_texture\\texture_feasibility.dxil"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/toolchain_probe/dxc_texture/dxv_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/toolchain_probe/dxc_texture/dxv_stderr.txt",
+      "status": "pass"
+    },
+    "container": {
+      "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/dxc_texture_bridge/texture_bridge_scaffold.dxil",
+      "source_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/toolchain_probe/dxc_texture/texture_feasibility.dxil",
+      "size_bytes": 3196,
+      "sha256": "bf270f779f225cf535f92c0e629d1f2fa917f772ee31f551f8ed333e636f04b0",
+      "artifact_kind": "dxil_container"
+    },
+    "target_profile": "cs_6_0",
+    "entry_point": "main",
+    "source": {
+      "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/toolchain_probe/dxc_texture/texture_feasibility.hlsl",
+      "entry_point": "main",
+      "target_profile": "cs_6_0",
+      "sha256": "5ef820aeb236d5d00e8ac72e3e5bca11e572487deeb9cb9f8d39bef14fe2c5ef"
+    }
+  },
+  "descriptor_layout_artifact": {
+    "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/dxc_texture_bridge/descriptor_layout.json",
+    "size_bytes": 704,
+    "sha256": "65cd6b3012e08332de897f9a0cc222011e587f8e2ad8ba718472347e731b72d9",
+    "root_constants": "none",
+    "resources": [
+      {
+        "name": "src_luminance",
+        "binding": "t0 space0",
+        "class": "SRV",
+        "register": 0,
+        "space": 0,
+        "count": 1,
+        "hlsl_type": "Texture2D<float>",
+        "binding_kind": "texture2d"
+      },
+      {
+        "name": "dst_luminance",
+        "binding": "u0 space0",
+        "class": "UAV",
+        "register": 0,
+        "space": 0,
+        "count": 1,
+        "hlsl_type": "RWTexture2D<float>",
+        "binding_kind": "rwtexture2d"
+      }
+    ],
+    "canonical_artifact_eligible": false
+  },
+  "root_signature_scaffold": {
+    "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/dxc_texture_bridge/root_signature_scaffold.json",
+    "size_bytes": 2182,
+    "sha256": "870e67d38fcf3e15335079c4ba3ac952f0cdcb6793ac5f556c2edabf9f2067ad",
+    "schema_version": 1,
+    "pass_id": "luminance_reduction",
+    "artifact_kind": "dxc_texture_bridge_root_signature_scaffold",
+    "root_signature_status": "rurix_synthesized",
+    "rts0_integration_status": "success",
+    "rts0_integration_ready": true,
+    "rurix_owned_rts0_generated": true,
+    "rts0_artifact": {
+      "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/dxc_texture_bridge/root_signature.rts0.bin",
+      "size_bytes": 128,
+      "sha256": "bed820418c0a7cf9d1e9d160de9f42ac56fee8f067c1880bd3af28f9d62fec0c",
+      "artifact_kind": "rurix_owned_rts0_root_signature"
+    },
+    "descriptor_layout_artifact": {
+      "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/dxc_texture_bridge/descriptor_layout.json",
+      "size_bytes": 704,
+      "sha256": "65cd6b3012e08332de897f9a0cc222011e587f8e2ad8ba718472347e731b72d9",
+      "artifact_kind": "dxc_texture_bridge_descriptor_layout_scaffold"
+    },
+    "generator": {
+      "kind": "rurixc_binding_layout_example",
+      "command": [
+        "cargo",
+        "run",
+        "-p",
+        "rurixc",
+        "--features",
+        "dxil-backend shader-stages",
+        "--example",
+        "emit_grx009_texture_rts0",
+        "--",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\dxc_texture_bridge\\descriptor_layout.json",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\dxc_texture_bridge\\root_signature.rts0.bin"
+      ],
+      "source_api": "rurixc::binding_layout::{infer_root_signature, serialize_rts0}"
+    },
+    "cross_check_status": "success",
+    "root_constants": "none",
+    "canonical_artifact_eligible": false,
+    "descriptor_rts0_crosscheck_ready": true,
+    "cross_check_evidence": "spike/godot-rurix/passes/luminance_reduction/dxc_texture_descriptor_rts0_crosscheck_evidence.json",
+    "descriptor_sha256": "65cd6b3012e08332de897f9a0cc222011e587f8e2ad8ba718472347e731b72d9",
+    "rts0_sha256": "bed820418c0a7cf9d1e9d160de9f42ac56fee8f067c1880bd3af28f9d62fec0c",
+    "reserialized_rts0_sha256": "bed820418c0a7cf9d1e9d160de9f42ac56fee8f067c1880bd3af28f9d62fec0c",
+    "byte_for_byte_match": true,
+    "runtime_mappable": false,
+    "real_gpu_pass": false,
+    "canonical_artifact_replaced": false
+  },
+  "binding_kind_mapping": {
+    "RXGD_RESOURCE_TEXTURE": {
+      "src_luminance": "texture2d",
+      "dst_luminance": "rwtexture2d",
+      "rule": "by descriptor slot"
+    },
+    "RXGD_RESOURCE_BUFFER": "raw_buffer_view",
+    "canonical_descriptor_binding_kind": "raw_buffer_view",
+    "canonical_descriptor_replaced": false
+  },
+  "rts0_integration_ready": true,
+  "rts0_integration_status": "success"
+}

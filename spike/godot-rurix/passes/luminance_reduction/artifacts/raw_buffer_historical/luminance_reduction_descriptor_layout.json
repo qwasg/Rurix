@@ -1,0 +1,73 @@
+{
+  "module": "lib",
+  "root_constants": 5,
+  "root_constant_layout": [
+    {
+      "name": "source_width",
+      "type": "i64",
+      "order": 0,
+      "root_parameter_index": 0,
+      "dword_offset": 0,
+      "dword_size": 2
+    },
+    {
+      "name": "source_height",
+      "type": "i64",
+      "order": 1,
+      "root_parameter_index": 0,
+      "dword_offset": 2,
+      "dword_size": 2
+    },
+    {
+      "name": "max_luminance",
+      "type": "f32",
+      "order": 2,
+      "root_parameter_index": 0,
+      "dword_offset": 4,
+      "dword_size": 1
+    },
+    {
+      "name": "min_luminance",
+      "type": "f32",
+      "order": 3,
+      "root_parameter_index": 0,
+      "dword_offset": 5,
+      "dword_size": 1
+    },
+    {
+      "name": "exposure_adjust",
+      "type": "f32",
+      "order": 4,
+      "root_parameter_index": 0,
+      "dword_offset": 6,
+      "dword_size": 1
+    }
+  ],
+  "resources": [
+    {
+      "name": "src_luminance",
+      "class": "t",
+      "register": 0,
+      "space": 0,
+      "count": 1,
+      "binding_kind": "raw_buffer_view"
+    },
+    {
+      "name": "dst_luminance",
+      "class": "u",
+      "register": 0,
+      "space": 0,
+      "count": 1,
+      "binding_kind": "raw_buffer_view"
+    }
+  ],
+  "root_signature_parameters": 2,
+  "segment3b_mapping": {
+    "status": "resource_mapping_scaffold_only",
+    "requires_64bit_integer_shader_capability": true,
+    "runtime_state": "fallback_only",
+    "real_gpu_pass": false,
+    "root_constant_bytes": 28,
+    "root_constant_dwords": 7
+  }
+}

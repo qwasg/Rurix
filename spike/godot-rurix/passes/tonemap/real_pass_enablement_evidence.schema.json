@@ -1,0 +1,336 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GRX-010 Tonemap Real-Pass Enablement Gate Evidence",
+  "description": "Evidence produced by ci/grx010_tonemap_real_pass_enablement_smoke.py. The gate measures the opt-in (default-false rendering/rurix_accel/passes/tonemap/dispatch_real_pass) gated REAL tonemap pass attempt against a scratch Godot build carrying the full 0001..0013 patch stack and a rurix_godot.dll built WITH the d3d12-recording-shim feature (the only build with the linked real dispatch path; the shipping feature-off bridge fails closed with real_dispatch_path_not_linked). The canonical tonemap package is texture-capable (per-slot texture2d/rwtexture2d binding kinds, owner-approved hlsl_bridge_workaround provenance) and the LINEAR + linear_to_srgb math subset is CPU-proven pending GPU observation, so every software gate can pass; expected_first_missing_prerequisite=real_dispatch_recording_failed pins the honest fail-closed outcome when the linked real dispatch itself cannot complete in the environment. status=success is reserved for a strict run where the opt-in real dispatch actually executed AND completed (RXGD_GODOT_RUNTIME_TONEMAP_REAL_PASS observed with the patch 0013 writeback scaffold marker) AND the LDR visual gate stayed within thresholds; only such a run may set real_gpu_pass=true, and even then default_enable_state stays disabled, the native Godot tonemapper stays the continuation/backstop, and performance_claim stays none. This gate never implies a default-enabled pass, a GPU timestamp, or any performance/FPS improvement.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject",
+    "pass_id",
+    "segment",
+    "status",
+    "runtime_state",
+    "godot_runtime_tonemap_path_enabled",
+    "default_enable_state",
+    "gpu_timestamp_status",
+    "performance_claim",
+    "expected_first_missing_prerequisite",
+    "known_gaps",
+    "artifacts",
+    "offline_evidence",
+    "artifact_hashes_match_offline_evidence",
+    "timestamp",
+    "run_url"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": { "const": "grx010_tonemap_real_pass_enablement_smoke" },
+    "pass_id": { "const": "tonemap" },
+    "segment": { "const": "grx010_real_pass_enablement" },
+    "status": { "enum": ["success", "fail", "skip"] },
+    "skip_kind": { "enum": ["environment", "measured_prerequisite_blocked"] },
+    "first_missing_prerequisite": { "type": "string" },
+    "expected_first_missing_prerequisite": { "const": "real_dispatch_recording_failed" },
+    "known_gaps": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "runtime_state": { "const": "fallback_only" },
+    "real_gpu_pass": {
+      "type": "boolean",
+      "description": "True ONLY in a strict status=success document where the opt-in real dispatch executed and completed; false everywhere else."
+    },
+    "real_d3d12_dispatch_recorded": { "type": "boolean" },
+    "godot_runtime_tonemap_path_enabled": { "const": false },
+    "default_enable_state": { "const": "disabled" },
+    "gpu_timestamp_status": { "const": "not_yet" },
+    "performance_claim": { "const": "none" },
+    "target_backend": { "const": "Godot 4.7-dev Windows D3D12 Forward+" },
+    "artifacts": {
+      "type": "object",
+      "required": ["dxil", "root_signature", "descriptor_layout"],
+      "properties": {
+        "dxil": { "$ref": "#/definitions/hashed_path" },
+        "root_signature": { "$ref": "#/definitions/hashed_path" },
+        "descriptor_layout": { "$ref": "#/definitions/hashed_path" }
+      },
+      "additionalProperties": false
+    },
+    "offline_evidence": {
+      "type": "object",
+      "required": ["path", "dxil_sha256", "root_signature_sha256", "descriptor_layout_sha256"],
+      "additionalProperties": true
+    },
+    "artifact_hashes_match_offline_evidence": { "type": "boolean" },
+    "timestamp": { "type": "string" },
+    "run_url": { "type": "string" },
+    "reason": { "type": "string" },
+    "evidence_kind": { "const": "historical_measured_success" },
+    "latest_evidence_path": { "type": "string" },
+    "godot_exe_fingerprint": { "type": "object" },
+    "dll_fingerprint": {
+      "type": "object",
+      "properties": {
+        "features": {
+          "type": "array",
+          "items": { "const": "d3d12-recording-shim" },
+          "description": "The GRX-010 gate measures the d3d12-recording-shim bridge build: the tonemap real-pass arm routes through the linked recording shim, so a real dispatch is only attemptable there. The shipping feature-off bridge stays fail-closed."
+        }
+      }
+    },
+    "patch_stack_identity": {
+      "type": "object",
+      "properties": {
+        "stack": { "const": "0001..0013" }
+      }
+    },
+    "scratch_source_provenance": { "type": "object" },
+    "pass_enable_matrix": { "$ref": "#/definitions/pass_enable_matrix" },
+    "visual": { "$ref": "#/definitions/visual" },
+    "fallback_telemetry": { "$ref": "#/definitions/fallback_telemetry" },
+    "runtime_log_audit": { "$ref": "#/definitions/runtime_log_audit" },
+    "stdout_reference": { "type": "string" },
+    "stdout_candidate": { "type": "string" },
+    "stdout_forced_fallback": { "type": "string" },
+    "checks": { "type": "object" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "success" } } },
+      "then": {
+        "required": [
+          "pass_enable_matrix",
+          "visual",
+          "fallback_telemetry",
+          "runtime_log_audit",
+          "stdout_reference",
+          "stdout_candidate",
+          "stdout_forced_fallback",
+          "checks",
+          "real_gpu_pass",
+          "real_d3d12_dispatch_recorded",
+          "real_pass_marker_line"
+        ],
+        "properties": {
+          "real_gpu_pass": { "const": true },
+          "real_d3d12_dispatch_recorded": { "const": true },
+          "real_pass_marker_line": { "type": "string", "minLength": 1 },
+          "visual": {
+            "properties": { "measured_local": { "const": true } },
+            "required": [
+              "measured_local",
+              "metric_kind",
+              "width",
+              "height",
+              "format",
+              "capture_frame_index",
+              "reference_frame",
+              "candidate_frame",
+              "diff_artifact",
+              "diffs",
+              "max_abs_diff_threshold",
+              "mean_abs_diff_threshold"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "status": { "const": "skip" } } },
+      "then": {
+        "required": ["reason", "skip_kind"],
+        "properties": {
+          "real_gpu_pass": { "const": false },
+          "real_d3d12_dispatch_recorded": { "const": false }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": { "const": "skip" },
+          "skip_kind": { "const": "measured_prerequisite_blocked" }
+        },
+        "required": ["skip_kind"]
+      },
+      "then": {
+        "required": [
+          "first_missing_prerequisite",
+          "pass_enable_matrix",
+          "visual",
+          "fallback_telemetry",
+          "runtime_log_audit",
+          "checks"
+        ]
+      }
+    },
+    {
+      "if": { "properties": { "status": { "const": "fail" } } },
+      "then": {
+        "required": ["reason"],
+        "properties": {
+          "real_gpu_pass": { "const": false },
+          "real_d3d12_dispatch_recorded": { "const": false }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "hashed_path": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string" },
+        "sha256": { "type": ["string", "null"] },
+        "size_bytes": { "type": ["integer", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "visual": {
+      "type": "object",
+      "properties": {
+        "measured_local": {
+          "type": "boolean",
+          "description": "True ONLY when real reference/candidate/forced frame artifacts exist on disk and the recorded diffs were computed from them."
+        },
+        "metric_kind": { "const": "ldr_absolute_diff" },
+        "width": { "type": "integer", "minimum": 64 },
+        "height": { "type": "integer", "minimum": 64 },
+        "format": { "const": "R8G8B8_raw" },
+        "capture_frame_index": { "type": "integer", "minimum": 1 },
+        "reference_frame": { "$ref": "#/definitions/hashed_path" },
+        "candidate_frame": { "$ref": "#/definitions/hashed_path" },
+        "forced_fallback_frame": { "$ref": "#/definitions/hashed_path" },
+        "diff_artifact": { "$ref": "#/definitions/hashed_path" },
+        "max_abs_diff_threshold": { "const": 2 },
+        "mean_abs_diff_threshold": { "const": 0.25 },
+        "diffs": {
+          "type": "object",
+          "required": ["candidate", "forced_fallback"],
+          "properties": {
+            "candidate": { "$ref": "#/definitions/diff_entry" },
+            "forced_fallback": { "$ref": "#/definitions/diff_entry" }
+          }
+        },
+        "frame_artifact_note": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "diff_entry": {
+      "type": "object",
+      "required": ["max_abs_diff", "mean_abs_diff", "within_threshold"],
+      "properties": {
+        "max_abs_diff": { "type": "number", "minimum": 0 },
+        "mean_abs_diff": { "type": "number", "minimum": 0 },
+        "within_threshold": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "fallback_telemetry": {
+      "type": "object",
+      "properties": {
+        "fallback_path_observed": { "type": "boolean" },
+        "bridge_fallback_marker": {
+          "const": "RurixAccel: tonemap native resource handle mapping fallback rc="
+        },
+        "real_pass_blocked_marker": { "const": "RXGD_TONEMAP_REAL_PASS_BLOCKED" },
+        "candidate_blocked_marker_line": { "type": ["string", "null"] },
+        "forced_blocked_marker_line": { "type": ["string", "null"] },
+        "telemetry_document": { "$ref": "#/definitions/hashed_path" },
+        "no_fps_claim": { "const": true }
+      },
+      "additionalProperties": true
+    },
+    "pass_enable_matrix": {
+      "type": "object",
+      "required": [
+        "disabled_default",
+        "enabled_real_pass_optin",
+        "forced_capability_downgrade"
+      ],
+      "properties": {
+        "disabled_default": { "$ref": "#/definitions/matrix_leg" },
+        "enabled_real_pass_optin": { "$ref": "#/definitions/matrix_leg" },
+        "forced_capability_downgrade": { "$ref": "#/definitions/matrix_leg" }
+      },
+      "additionalProperties": false
+    },
+    "matrix_leg": {
+      "type": "object",
+      "required": [
+        "role",
+        "project_settings",
+        "exit_code",
+        "session_ready",
+        "bridge_fallback_marker_observed",
+        "real_pass_blocked_marker_observed",
+        "real_pass_marker_observed",
+        "writeback_marker_observed",
+        "record_marker_observed"
+      ],
+      "properties": {
+        "role": {
+          "enum": [
+            "reference",
+            "enabled_real_pass_optin",
+            "forced_capability_downgrade"
+          ]
+        },
+        "project_settings": { "type": "object" },
+        "exit_code": { "type": "integer" },
+        "session_ready": { "type": "boolean" },
+        "bridge_fallback_marker_observed": { "type": "boolean" },
+        "bridge_fallback_marker_line": { "type": ["string", "null"] },
+        "real_pass_blocked_marker_observed": { "type": "boolean" },
+        "real_pass_blocked_marker_line": { "type": ["string", "null"] },
+        "real_pass_marker_observed": { "type": "boolean" },
+        "writeback_marker_observed": { "type": "boolean" },
+        "record_marker_observed": { "type": "boolean" },
+        "capture_meta": { "type": ["object", "null"] },
+        "capture_error": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "runtime_log_audit": {
+      "type": "object",
+      "description": "FULL merged stdout+stderr audit of all three matrix legs. Only the known 'Could not load global script cache' warning may be allowed (with a rationale); unexpected Godot ERROR or untracked RXGD_DIAG lines fail the smoke and the gate.",
+      "required": ["reference", "candidate", "forced_fallback"],
+      "properties": {
+        "reference": { "$ref": "#/definitions/runtime_log_audit_leg" },
+        "candidate": { "$ref": "#/definitions/runtime_log_audit_leg" },
+        "forced_fallback": { "$ref": "#/definitions/runtime_log_audit_leg" }
+      },
+      "additionalProperties": false
+    },
+    "runtime_log_audit_leg": {
+      "type": "object",
+      "required": [
+        "unexpected_rxgd_diag_count",
+        "unexpected_godot_error_count",
+        "allowed_godot_errors",
+        "unexpected_lines_tail"
+      ],
+      "properties": {
+        "unexpected_rxgd_diag_count": { "type": "integer", "minimum": 0 },
+        "rxgd_diag_allowed_by_tracked_patch_queue": { "type": "boolean" },
+        "unexpected_godot_error_count": { "type": "integer", "minimum": 0 },
+        "allowed_godot_errors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["message", "rationale"],
+            "properties": {
+              "message": { "const": "Could not load global script cache" },
+              "observed_count": { "type": "integer", "minimum": 0 },
+              "rationale": { "type": "string", "minLength": 1 }
+            },
+            "additionalProperties": true
+          }
+        },
+        "unexpected_lines_tail": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    }
+  }
+}

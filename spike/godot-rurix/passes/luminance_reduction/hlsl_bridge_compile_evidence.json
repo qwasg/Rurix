@@ -1,0 +1,265 @@
+{
+  "schema_version": 1,
+  "pass_id": "luminance_reduction",
+  "segment": "stage_a2_hlsl_bridge_math_equivalent_kernel",
+  "status": "success",
+  "ready": true,
+  "issue": null,
+  "generated_at_utc": "2026-07-08T11:22:01Z",
+  "provenance": "hlsl_bridge_workaround",
+  "rurix_owned": false,
+  "runtime_mappable": false,
+  "real_gpu_pass": false,
+  "canonical_artifact_replaced": false,
+  "offline_compile_status_changed": false,
+  "math_parity_status": "pending_gpu_dispatch",
+  "math_parity_evidence": "spike/godot-rurix/passes/luminance_reduction/math_parity_evidence.json",
+  "math_target": {
+    "level_reduction": "spike/godot-rurix/passes/luminance_reduction/src/lib_texture.rx",
+    "final_level": "spike/godot-rurix/passes/luminance_reduction/src/lib.rx"
+  },
+  "tools": {
+    "dxc": {
+      "found": true,
+      "path": "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+      "version_output": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)"
+    },
+    "dxv": {
+      "found": true,
+      "path": "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe",
+      "version_output": "OVERVIEW: dxil validator\n\nUSAGE: dxv.exe [options] <input dxil file>\n\nOPTIONS:\n  -help         - Print help\n  -o=<filename> - Override output filename for signed container"
+    }
+  },
+  "hlsl": {
+    "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/luminance_reduce_level.hlsl",
+    "entry_point": "main",
+    "target_profile": "cs_6_0",
+    "sha256": "7a35a7f9ec14704d7e27d596f035844ef04b33d929b9e8f43788a7f746af7599"
+  },
+  "commands": [
+    {
+      "label": "dxc_compile_base",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+        "-T",
+        "cs_6_0",
+        "-E",
+        "main",
+        "-Qstrip_debug",
+        "-Fo",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\hlsl_bridge\\luminance_reduce_level.dxil",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\hlsl_bridge\\luminance_reduce_level.hlsl"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/dxc_stdout_base.txt",
+      "stderr_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/dxc_stderr_base.txt"
+    },
+    {
+      "label": "dxv_validate_base",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\hlsl_bridge\\luminance_reduce_level.dxil"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/dxv_stdout_base.txt",
+      "stderr_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/dxv_stderr_base.txt"
+    },
+    {
+      "label": "emit_grx009_texture_rts0_base",
+      "argv": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "rurixc",
+        "--features",
+        "dxil-backend shader-stages",
+        "--example",
+        "emit_grx009_texture_rts0",
+        "--",
+        "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/descriptor_layout.json",
+        "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/root_signature.rts0.bin"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/emit_rts0_stdout_base.txt",
+      "stderr_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/emit_rts0_stderr_base.txt"
+    },
+    {
+      "label": "dxc_compile_write_luminance",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+        "-T",
+        "cs_6_0",
+        "-E",
+        "main",
+        "-Qstrip_debug",
+        "-D",
+        "RX_WRITE_LUMINANCE=1",
+        "-Fo",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\hlsl_bridge\\luminance_reduce_level_write_luminance.dxil",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\hlsl_bridge\\luminance_reduce_level.hlsl"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/dxc_stdout_write_luminance.txt",
+      "stderr_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/dxc_stderr_write_luminance.txt"
+    },
+    {
+      "label": "dxv_validate_write_luminance",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\hlsl_bridge\\luminance_reduce_level_write_luminance.dxil"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/dxv_stdout_write_luminance.txt",
+      "stderr_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/dxv_stderr_write_luminance.txt"
+    },
+    {
+      "label": "emit_grx009_texture_rts0_write_luminance",
+      "argv": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "rurixc",
+        "--features",
+        "dxil-backend shader-stages",
+        "--example",
+        "emit_grx009_texture_rts0",
+        "--",
+        "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/descriptor_layout_write_luminance.json",
+        "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/root_signature_write_luminance.rts0.bin"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/emit_rts0_stdout_write_luminance.txt",
+      "stderr_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/emit_rts0_stderr_write_luminance.txt"
+    }
+  ],
+  "variants": [
+    {
+      "variant": "base",
+      "defines": [],
+      "role": "level_reduction (8x8 tile partial-tile-correct mean; no clamp/exposure)",
+      "status": "success",
+      "dxil": {
+        "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/luminance_reduce_level.dxil",
+        "exists": true,
+        "size_bytes": 4024,
+        "sha256": "14761af20456557a019086d51185cdc5375acf89bf9ac208927e703d265c3d2e",
+        "artifact_kind": "dxil_container",
+        "produced_by_current_run": true
+      },
+      "validation": {
+        "tool": "dxv.exe",
+        "status": "pass",
+        "exit_code": 0,
+        "stdout_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/dxv_stdout_base.txt",
+        "stderr_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/dxv_stderr_base.txt"
+      },
+      "descriptor_layout": {
+        "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/descriptor_layout.json",
+        "exists": true,
+        "size_bytes": 2010,
+        "sha256": "6498ce2b14ce7216c0451a1f2e6a452a19b6c4ca9e0ab593bb9dc35a7ff89fe8",
+        "artifact_kind": "hlsl_bridge_descriptor_layout",
+        "produced_by_current_run": true
+      },
+      "root_signature": {
+        "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/root_signature.rts0.bin",
+        "exists": true,
+        "size_bytes": 152,
+        "sha256": "f08794f9886e1ebc4c905e3006732e572ec913a75255c5b488cf4877a1391f03",
+        "artifact_kind": "rurix_owned_rts0_root_signature",
+        "produced_by_current_run": true
+      },
+      "root_signature_generator": {
+        "kind": "rurixc_binding_layout_example",
+        "command": [
+          "cargo",
+          "run",
+          "-q",
+          "-p",
+          "rurixc",
+          "--features",
+          "dxil-backend shader-stages",
+          "--example",
+          "emit_grx009_texture_rts0",
+          "--",
+          "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/descriptor_layout.json",
+          "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/root_signature.rts0.bin"
+        ],
+        "source_api": "rurixc::binding_layout::{infer_root_signature, pack_root_constants, serialize_rts0}",
+        "root_constants": "28_bytes_at_root_parameter_index_0"
+      },
+      "issue": null
+    },
+    {
+      "variant": "write_luminance",
+      "defines": [
+        "RX_WRITE_LUMINANCE=1"
+      ],
+      "role": "final_level (clamp(min,max) + EMA prev + (cur-prev)*exposure_adjust)",
+      "status": "success",
+      "dxil": {
+        "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/luminance_reduce_level_write_luminance.dxil",
+        "exists": true,
+        "size_bytes": 4412,
+        "sha256": "ce2f247835dec6794de1f6a2b2af64b6e8c0c66017715914889f4e6b49ffca4d",
+        "artifact_kind": "dxil_container",
+        "produced_by_current_run": true
+      },
+      "validation": {
+        "tool": "dxv.exe",
+        "status": "pass",
+        "exit_code": 0,
+        "stdout_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/dxv_stdout_write_luminance.txt",
+        "stderr_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/dxv_stderr_write_luminance.txt"
+      },
+      "descriptor_layout": {
+        "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/descriptor_layout_write_luminance.json",
+        "exists": true,
+        "size_bytes": 2278,
+        "sha256": "c55d37b50c21a110c06285831077f047342ce9e99b9ba2bac2f9701d43a5aebd",
+        "artifact_kind": "hlsl_bridge_descriptor_layout",
+        "produced_by_current_run": true
+      },
+      "root_signature": {
+        "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/root_signature_write_luminance.rts0.bin",
+        "exists": true,
+        "size_bytes": 152,
+        "sha256": "436948d47664266999e8a4489fa1b406bc25982fce3b18a1e13d1a6c81714eea",
+        "artifact_kind": "rurix_owned_rts0_root_signature",
+        "produced_by_current_run": true
+      },
+      "root_signature_generator": {
+        "kind": "rurixc_binding_layout_example",
+        "command": [
+          "cargo",
+          "run",
+          "-q",
+          "-p",
+          "rurixc",
+          "--features",
+          "dxil-backend shader-stages",
+          "--example",
+          "emit_grx009_texture_rts0",
+          "--",
+          "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/descriptor_layout_write_luminance.json",
+          "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/root_signature_write_luminance.rts0.bin"
+        ],
+        "source_api": "rurixc::binding_layout::{infer_root_signature, pack_root_constants, serialize_rts0}",
+        "root_constants": "28_bytes_at_root_parameter_index_0"
+      },
+      "issue": null
+    }
+  ],
+  "does_not_imply": [
+    "Godot runtime luminance pass completion",
+    "real_gpu_pass=true",
+    "real_d3d12_dispatch_recorded=true",
+    "visual success",
+    "GPU timestamp success",
+    "performance claim",
+    "canonical luminance artifact replacement",
+    "math parity proven (see math_parity_evidence.json)"
+  ]
+}

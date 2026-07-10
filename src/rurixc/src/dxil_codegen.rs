@@ -8,13 +8,14 @@
 //!
 //! **最小 compute 子集(分片1 + GRX-009 segment 3a 增量)**:支持 compute 着色入口
 //! (`kernel fn`,RXS-0153 compute-via-kernel 着色)的空入口与最小 body lowering
-//! 子集:简单 `let`/赋值、`usize`/`f32` 常量与二元算术、简单比较 + 标量 select
-//! (无语句 if 表达式)、`ThreadCtx<1>.global_id()`、no-else statement if(语句位 +
-//! 函数体 tail 位,then block 复用语句 lowering)、`View<global, f32>` load、
-//! `ViewMut<global, f32>` store。资源常量索引仅支持 0(资源 global 为
-//! `[1 x float]`,非 0 索引会产越界 inbounds GEP → strict `RX6007`)。`while`/
-//! `%` 取模/else 与 else-if/mutable 再赋值/动态资源索引/dynamic dispatch shape 等
-//! 子集外构造继续 strict `RX6007`,禁止静默降级为 entry shell。
+//! 子集:简单 `let`/赋值、`let mut` mutable scalar local、`usize`/`f32` 常量与二元
+//! 算术、整数 `%`(`srem i64`)、简单比较 + 标量 select(无语句 if 表达式)、
+//! `ThreadCtx<1>.global_id()`、no-else statement if(语句位 + 函数体 tail 位,then
+//! block 复用语句 lowering)、最小 `while cond { stmts }`、`View<global, f32>`
+//! load、`ViewMut<global, f32>` store、i64 动态资源索引。资源常量索引仅支持 0,
+//! 非 0 常量索引缺少资源边界 evidence → strict `RX6007`。f32 `%` 取模/else 与
+//! else-if/break/continue/dynamic dispatch shape 等子集外构造继续 strict `RX6007`,
+//! 禁止静默降级为 entry shell。
 //!
 //! 下游(IR → patched llc -filetype=obj → DXIL 容器 → dxc validator)见
 //! [`crate::toolchain::ir_to_dxil`];golden 取文本反汇编经 validator 验证(RFC-0003
@@ -62,8 +63,8 @@ pub struct ComputeLayout {
     pub resources: Vec<ResourceBinding>,
     /// root signature 形态(经 `binding_layout::infer_root_signature`)。
     pub root_signature: binding_layout::RootSignature,
-    /// 标量 root constant 形参个数(`usize`/`f32`;不入 descriptor,只计数留痕)。
-    pub root_constants: u32,
+    /// 标量 root constant layout(按 compute 入口声明序)。
+    pub root_constants: Vec<binding_layout::RootConstant>,
 }
 
 /// DXIL compute 入口的离线 artifact 三元组(GRX-009 segment 3a.1)。
@@ -91,7 +92,7 @@ pub struct DxilComputeArtifacts {
 /// RX6007);body 仅支持 RD-013 slice 1,子集外 strict reject,不能降级为 entry-shell
 /// compile success。
 pub fn build_and_emit_dxil(cx: &QueryCtx<'_>, module_name: &str) -> Option<String> {
-    build_and_emit_dxil_artifacts(cx, module_name).map(|a| a.ir)
+    build_dxil_compute(cx, module_name).map(|b| b.ir)
 }
 
 /// 驱动入口(GRX-009 segment 3a.1):构建 device MIR + DXIL compute codegen,产出
@@ -102,6 +103,22 @@ pub fn build_and_emit_dxil_artifacts(
     cx: &QueryCtx<'_>,
     module_name: &str,
 ) -> Option<DxilComputeArtifacts> {
+    let built = build_dxil_compute(cx, module_name)?;
+    let root_signature = binding_layout::serialize_rts0(&built.layout.root_signature);
+    let descriptor_layout_json = render_descriptor_layout_json(module_name, &built.layout);
+    Some(DxilComputeArtifacts {
+        ir: built.ir,
+        root_signature,
+        descriptor_layout_json,
+    })
+}
+
+struct BuiltDxilCompute {
+    ir: String,
+    layout: ComputeLayout,
+}
+
+fn build_dxil_compute(cx: &QueryCtx<'_>, module_name: &str) -> Option<BuiltDxilCompute> {
     let bodies = cx.device_mir_crate();
     if bodies.is_empty() {
         return None;
@@ -159,13 +176,7 @@ pub fn build_and_emit_dxil_artifacts(
             return None;
         }
     };
-    let root_signature = binding_layout::serialize_rts0(&layout.root_signature);
-    let descriptor_layout_json = render_descriptor_layout_json(module_name, &layout);
-    Some(DxilComputeArtifacts {
-        ir,
-        root_signature,
-        descriptor_layout_json,
-    })
+    Some(BuiltDxilCompute { ir, layout })
 }
 
 /// GRX-009 segment 3a.1:从 compute kernel 的 **AST 形参**推导离线绑定布局
@@ -183,8 +194,6 @@ fn derive_compute_bindings(
     cx: &QueryCtx<'_>,
     entry: &Body,
 ) -> Result<ComputeLayout, DxilCodegenError> {
-    use crate::ast::{ParamKind, TyKind};
-
     // 经 HIR item 名 + AST 定位该 kernel 的形参声明(compute 入口 stage 恒 None)。
     let krate = cx.hir_crate();
     let fn_name = krate.item(entry.def).name.clone();
@@ -196,42 +205,188 @@ fn derive_compute_bindings(
             "无法在 AST 定位 compute kernel 形参声明(内部不一致)",
         ));
     };
+    let params = collect_compute_param_sigs(cx, f, ComputeParamMode::Entry)?;
+    let resources = compute_resource_bindings(&params);
+    let root_constant_params = params
+        .iter()
+        .filter_map(|p| match p {
+            ComputeParamSig::Scalar { name, ty, .. } => Some((name.clone(), *ty)),
+            _ => None,
+        })
+        .collect();
 
-    let mut resources = Vec::new();
-    let mut root_constants = 0u32;
+    let root_constants = binding_layout::pack_root_constants(root_constant_params);
+    let mut root_signature = binding_layout::infer_root_signature(&resources).map_err(|e| {
+        DxilCodegenError::unsupported(entry.span, format!("绑定布局推导失败(strict-only): {e}"))
+    })?;
+    if !root_constants.is_empty() {
+        root_signature.parameters.insert(
+            0,
+            binding_layout::RootParameter::RootConstants {
+                constants: root_constants.clone(),
+            },
+        );
+        let dwords = binding_layout::root_signature_cost_dwords(&root_signature);
+        if dwords > binding_layout::ROOT_SIGNATURE_DWORD_LIMIT {
+            return Err(DxilCodegenError::unsupported(
+                entry.span,
+                format!(
+                    "绑定布局推导失败(strict-only): root signature 推导超上限: {dwords} DWORD > {} DWORD",
+                    binding_layout::ROOT_SIGNATURE_DWORD_LIMIT
+                ),
+            ));
+        }
+    }
+
+    Ok(ComputeLayout {
+        resources,
+        root_signature,
+        root_constants,
+    })
+}
+
+#[derive(Debug, Clone, Copy)]
+enum ComputeParamMode {
+    Entry,
+    Body,
+}
+
+#[derive(Debug, Clone)]
+enum ComputeParamSig {
+    Resource {
+        name: String,
+        res: crate::mir::MirResourceType,
+        kind: ComputeParamKind,
+        span: Span,
+    },
+    Scalar {
+        name: String,
+        ty: binding_layout::RootConstantType,
+        lowered_ty: LoweredScalarTy,
+        span: Span,
+    },
+    ThreadCtx {
+        name: String,
+        span: Span,
+    },
+    IgnoredScalar {
+        name: String,
+        span: Span,
+    },
+}
+
+fn collect_compute_param_sigs(
+    cx: &QueryCtx<'_>,
+    f: &crate::ast::FnItem,
+    mode: ComputeParamMode,
+) -> Result<Vec<ComputeParamSig>, DxilCodegenError> {
+    use crate::ast::{ParamKind, TyKind};
+
+    let mut out = Vec::with_capacity(f.params.len());
     for p in &f.params {
         let ParamKind::Typed { pat, ty } = &p.kind else {
-            return Err(DxilCodegenError::unsupported(
-                p.span,
-                "DXIL compute 入口不支持 self 形参",
-            ));
+            let detail = match mode {
+                ComputeParamMode::Entry => "DXIL compute 入口不支持 self 形参",
+                ComputeParamMode::Body => "DXIL compute body lowering slice 1 不支持 self 形参",
+            };
+            return Err(DxilCodegenError::unsupported(p.span, detail));
         };
-        let name = ast_pat_binding_name(pat).unwrap_or_default();
+        let Some(name) = ast_pat_binding_name(pat) else {
+            let detail = match mode {
+                ComputeParamMode::Entry => "DXIL compute 入口仅支持简单绑定形参",
+                ComputeParamMode::Body => "DXIL compute body lowering slice 1 仅支持简单绑定形参",
+            };
+            return Err(DxilCodegenError::unsupported(pat.span, detail));
+        };
         let head = ast_ty_head_name(ty).unwrap_or("");
-        match head {
-            "View" => resources.push(ResourceBinding {
-                name,
-                res: crate::mir::MirResourceType::StructuredBuffer { read_only: true },
-                count: crate::mir::ResourceCount::One,
-            }),
-            "ViewMut" => resources.push(ResourceBinding {
-                name,
-                res: crate::mir::MirResourceType::StructuredBuffer { read_only: false },
-                count: crate::mir::ResourceCount::One,
-            }),
-            // 标量 root constant(usize/f32,含向量约定不在此期范围)。
-            "usize" | "u32" | "i32" | "f32" | "f64" | "u64" | "i64" | "u16" | "i16" | "u8"
-            | "i8" | "bool" => {
-                root_constants += 1;
+        let sig = match head {
+            "View" => {
+                if matches!(mode, ComputeParamMode::Body) {
+                    require_texture_or_view_global_f32(ty)?;
+                }
+                ComputeParamSig::Resource {
+                    name,
+                    res: crate::mir::MirResourceType::StructuredBuffer { read_only: true },
+                    kind: ComputeParamKind::ViewF32,
+                    span: ty.span,
+                }
             }
-            // 线程内建:不产资源、不产 root constant。
-            "ThreadCtx" => {}
+            "ViewMut" => {
+                if matches!(mode, ComputeParamMode::Body) {
+                    require_texture_or_view_global_f32(ty)?;
+                }
+                ComputeParamSig::Resource {
+                    name,
+                    res: crate::mir::MirResourceType::StructuredBuffer { read_only: false },
+                    kind: ComputeParamKind::ViewMutF32,
+                    span: ty.span,
+                }
+            }
+            "Texture2D" => {
+                if matches!(mode, ComputeParamMode::Body) {
+                    require_texture_or_view_global_f32(ty)?;
+                }
+                ComputeParamSig::Resource {
+                    name,
+                    res: crate::mir::MirResourceType::Texture2D(crate::hir::PrimTy::F32),
+                    kind: ComputeParamKind::Texture2DF32,
+                    span: ty.span,
+                }
+            }
+            "RWTexture2D" => {
+                if matches!(mode, ComputeParamMode::Body) {
+                    require_texture_or_view_global_f32(ty)?;
+                }
+                ComputeParamSig::Resource {
+                    name,
+                    res: crate::mir::MirResourceType::RWTexture2D(crate::hir::PrimTy::F32),
+                    kind: ComputeParamKind::RWTexture2DF32,
+                    span: ty.span,
+                }
+            }
+            "ThreadCtx" => {
+                if matches!(mode, ComputeParamMode::Body) {
+                    require_threadctx_1d(cx, ty)?;
+                }
+                ComputeParamSig::ThreadCtx {
+                    name,
+                    span: ty.span,
+                }
+            }
+            "f32" => ComputeParamSig::Scalar {
+                name,
+                ty: binding_layout::RootConstantType::F32,
+                lowered_ty: LoweredScalarTy::F32,
+                span: ty.span,
+            },
+            "usize" | "u32" | "i32" | "u64" | "i64" | "u16" | "i16" | "u8" | "i8" => {
+                ComputeParamSig::Scalar {
+                    name,
+                    ty: binding_layout::RootConstantType::I64,
+                    lowered_ty: LoweredScalarTy::I64,
+                    span: ty.span,
+                }
+            }
+            "bool" => ComputeParamSig::Scalar {
+                name,
+                ty: binding_layout::RootConstantType::Bool,
+                lowered_ty: LoweredScalarTy::Bool,
+                span: ty.span,
+            },
+            "f64" if matches!(mode, ComputeParamMode::Body) => ComputeParamSig::IgnoredScalar {
+                name,
+                span: ty.span,
+            },
+            _ if matches!(mode, ComputeParamMode::Body) => ComputeParamSig::IgnoredScalar {
+                name,
+                span: ty.span,
+            },
             other => {
                 let detail = if other.is_empty() {
-                    "DXIL compute 入口含不支持的形参类型(strict-only,仅支持 View/ViewMut/标量/ThreadCtx)".to_owned()
+                    "DXIL compute 入口含不支持的形参类型(strict-only,仅支持 View/ViewMut/Texture2D/RWTexture2D/标量/ThreadCtx)".to_owned()
                 } else {
                     format!(
-                        "DXIL compute 入口不支持形参类型 `{other}`(strict-only,仅支持 View/ViewMut/标量/ThreadCtx;其余绑定布局属禁区)"
+                        "DXIL compute 入口不支持形参类型 `{other}`(strict-only,仅支持 View/ViewMut/Texture2D/RWTexture2D/标量/ThreadCtx;其余绑定布局属禁区)"
                     )
                 };
                 let ty_kind_span = match &ty.kind {
@@ -240,18 +395,35 @@ fn derive_compute_bindings(
                 };
                 return Err(DxilCodegenError::unsupported(ty_kind_span, detail));
             }
-        }
+        };
+        out.push(sig);
     }
+    Ok(out)
+}
 
-    let root_signature = binding_layout::infer_root_signature(&resources).map_err(|e| {
-        DxilCodegenError::unsupported(entry.span, format!("绑定布局推导失败(strict-only): {e}"))
-    })?;
+fn compute_resource_bindings(params: &[ComputeParamSig]) -> Vec<ResourceBinding> {
+    params
+        .iter()
+        .filter_map(|p| match p {
+            ComputeParamSig::Resource { name, res, .. } => Some(ResourceBinding {
+                name: name.clone(),
+                res: *res,
+                count: crate::mir::ResourceCount::One,
+            }),
+            _ => None,
+        })
+        .collect()
+}
 
-    Ok(ComputeLayout {
-        resources,
-        root_signature,
-        root_constants,
-    })
+fn lowered_resource_bindings(resources: &[LoweredComputeResource]) -> Vec<ResourceBinding> {
+    resources
+        .iter()
+        .map(|r| ResourceBinding {
+            name: r.name.clone(),
+            res: r.res,
+            count: crate::mir::ResourceCount::One,
+        })
+        .collect()
 }
 
 /// 按名定位顶层 / 嵌套 mod 内的 `kernel fn`(compute 入口;`FnColor::Kernel`)。
@@ -293,6 +465,24 @@ fn ast_pat_binding_name(pat: &crate::ast::Pat) -> Option<String> {
     }
 }
 
+fn ast_pat_binding_mutability(pat: &crate::ast::Pat) -> Option<bool> {
+    match &pat.kind {
+        crate::ast::PatKind::Binding { mutable, .. } => Some(*mutable),
+        _ => None,
+    }
+}
+
+fn ast_scalar_ty(ty: &crate::ast::Ty) -> Option<LoweredScalarTy> {
+    match ast_ty_head_name(ty)? {
+        "f32" => Some(LoweredScalarTy::F32),
+        "usize" | "u32" | "i32" | "u64" | "i64" | "u16" | "i16" | "u8" | "i8" => {
+            Some(LoweredScalarTy::I64)
+        }
+        "bool" => Some(LoweredScalarTy::Bool),
+        _ => None,
+    }
+}
+
 /// descriptor layout 意图的确定性 JSON 序列化(host/safe;GRX-009 离线 artifact)。
 /// 手写 JSON(无 serde 依赖),字段序固定 → 相同输入字节确定。**非 stable ABI**:
 /// register/space 数值为实现确定、gate 后产物,不冻结为语言保证。
@@ -303,20 +493,51 @@ fn render_descriptor_layout_json(module_name: &str, layout: &ComputeLayout) -> S
     let mut out = String::new();
     out.push_str("{\n");
     let _ = writeln!(out, "  \"module\": \"{}\",", json_escape(module_name));
-    let _ = writeln!(out, "  \"root_constants\": {},", layout.root_constants);
-    out.push_str("  \"resources\": [");
-    for (i, a) in assignments.iter().enumerate() {
+    let _ = writeln!(
+        out,
+        "  \"root_constants\": {},",
+        layout.root_constants.len()
+    );
+    out.push_str("  \"root_constant_layout\": [");
+    for (i, c) in layout.root_constants.iter().enumerate() {
         if i == 0 {
             out.push('\n');
         }
         let _ = write!(
             out,
-            "    {{ \"name\": \"{}\", \"class\": \"{}\", \"register\": {}, \"space\": {}, \"count\": {} }}",
+            "    {{ \"name\": \"{}\", \"type\": \"{}\", \"order\": {}, \"root_parameter_index\": 0, \"dword_offset\": {}, \"dword_size\": {} }}",
+            json_escape(&c.name),
+            c.ty.as_str(),
+            c.order,
+            c.dword_offset,
+            c.dword_size
+        );
+        if i + 1 < layout.root_constants.len() {
+            out.push(',');
+        }
+        out.push('\n');
+    }
+    if layout.root_constants.is_empty() {
+        out.push_str("],\n");
+    } else {
+        out.push_str("  ],\n");
+    }
+    out.push_str("  \"resources\": [");
+    // GRX-009:`assignments` 与 `layout.resources` 同序(均按声明序),zip 取对应 `res`
+    // 用于 `binding_kind` 字段。空 resources 走 `]` 短路。
+    for (i, (rb, a)) in layout.resources.iter().zip(assignments.iter()).enumerate() {
+        if i == 0 {
+            out.push('\n');
+        }
+        let _ = write!(
+            out,
+            "    {{ \"name\": \"{}\", \"class\": \"{}\", \"register\": {}, \"space\": {}, \"count\": {}, \"binding_kind\": \"{}\" }}",
             json_escape(&a.name),
             a.axis_prefix(),
             a.register,
             a.space,
-            a.span
+            a.span,
+            binding_kind_str(&rb.res),
         );
         if i + 1 < assignments.len() {
             out.push(',');
@@ -337,18 +558,68 @@ fn render_descriptor_layout_json(module_name: &str, layout: &ComputeLayout) -> S
     out
 }
 
-/// 最小 JSON 字符串转义(descriptor layout JSON;仅覆盖标识符可能出现的字符)。
+/// GRX-009 descriptor layout `binding_kind` 字段串。spec ADDDED Requirements
+/// 「Descriptor Layout binding_kind Field」固定取值,与 bridge `runtime_resource_binding_kind`
+/// 映射对齐(`RXGD_RESOURCE_TEXTURE → "texture2d"`、`RXGD_RESOURCE_BUFFER → "raw_buffer_view"`)。
+fn binding_kind_str(res: &crate::mir::MirResourceType) -> &'static str {
+    match res {
+        crate::mir::MirResourceType::Texture2D(_) => "texture2d",
+        crate::mir::MirResourceType::RWTexture2D(_) => "rwtexture2d",
+        // View/ViewMut → StructuredBuffer(SRV/UAV):均映射为 `raw_buffer_view`
+        // (bridge `runtime_resource_binding_kind` 按 RXGD_RESOURCE_BUFFER 取此值)。
+        crate::mir::MirResourceType::StructuredBuffer { .. } => "raw_buffer_view",
+        crate::mir::MirResourceType::Sampler => "sampler",
+        crate::mir::MirResourceType::ConstantBuffer => "constant_buffer",
+    }
+}
+
+/// JSON 字符串转义:host/safe 离线 artifact 序列化专用(GRX-009)。
+///
+/// 仅转义 JSON 必需的 5 个字符(`"` `\` `\n` `\r` `\t`),其余字节(含 UTF-8 多字节
+/// 序列)原样批量复制。`NEEDS_ESCAPE` 查找表把 per-byte 判定降到 O(1),并为未来
+/// SIMD 向量化扫锚;字节级遍历避免 `chars()` 的 UTF-8 解码开销。
+///
+/// 切片点只在 ASCII 单字节字符处出现 → 必然落在 UTF-8 char 边界,因此 `s.get()`
+/// 返回 `Some` 仅需 O(1) char-boundary 检查,无需完整 UTF-8 再校验。`expect` 不变式:
+/// 切片起点/终点始终紧跟一个 ASCII 字节之后。
+#[inline]
 fn json_escape(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for c in s.chars() {
-        match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            _ => out.push(c),
+    const NEEDS_ESCAPE: [bool; 256] = {
+        let mut t = [false; 256];
+        t[b'"' as usize] = true;
+        t[b'\\' as usize] = true;
+        t[b'\n' as usize] = true;
+        t[b'\r' as usize] = true;
+        t[b'\t' as usize] = true;
+        t
+    };
+
+    let bytes = s.as_bytes();
+    // 最坏情况:全为需转义字符(每个 1→2 字节),2× 上界避免再分配。
+    let mut out = String::with_capacity(bytes.len() * 2);
+
+    let mut start = 0usize;
+    let mut i = 0usize;
+    while i < bytes.len() {
+        let b = bytes[i];
+        if NEEDS_ESCAPE[b as usize] {
+            if start < i {
+                out.push_str(s.get(start..i).expect("ASCII 切片点必在 UTF-8 char 边界"));
+            }
+            out.push_str(match b {
+                b'"' => "\\\"",
+                b'\\' => "\\\\",
+                b'\n' => "\\n",
+                b'\r' => "\\r",
+                b'\t' => "\\t",
+                _ => unreachable!(),
+            });
+            start = i + 1;
         }
+        i += 1;
+    }
+    if start < bytes.len() {
+        out.push_str(s.get(start..).expect("ASCII 切片点必在 UTF-8 char 边界"));
     }
     out
 }
@@ -363,7 +634,9 @@ struct LoweredComputeBody {
 #[derive(Debug, Clone)]
 struct LoweredComputeResource {
     name: String,
-    mutable: bool,
+    /// 资源 MIR 类型(GRX-009:区分 raw-buffer StructuredBuffer 与 Texture2D/RWTexture2D
+    /// 三种;mutable 由 `res.class() == ResourceClass::Uav` 派生)。
+    res: crate::mir::MirResourceType,
 }
 
 #[derive(Debug, Clone)]
@@ -373,18 +646,38 @@ struct LoweredScalarParam {
 }
 
 #[derive(Debug, Clone)]
+enum LoweredLocal {
+    Immutable(LoweredValue),
+    Mutable { slot: String, ty: LoweredScalarTy },
+}
+
+#[derive(Debug, Clone)]
 enum LoweredComputeOp {
     Load {
         dst: String,
         resource: String,
-        index: u64,
+        index: LoweredResourceIndex,
     },
     Store {
         /// GEP 结果 SSA 名(经 [`ComputeLowerCx::temp`] 分配,渲染为 `%{ptr}.ptr`;
         /// 重复 store 同一资源/索引时保持定义名唯一)。
         ptr: String,
         resource: String,
-        index: u64,
+        index: LoweredResourceIndex,
+        value: LoweredValue,
+    },
+    LocalAlloca {
+        slot: String,
+        ty: LoweredScalarTy,
+    },
+    LocalLoad {
+        dst: String,
+        slot: String,
+        ty: LoweredScalarTy,
+    },
+    LocalStore {
+        slot: String,
+        ty: LoweredScalarTy,
         value: LoweredValue,
     },
     Binary {
@@ -422,6 +715,18 @@ enum LoweredComputeOp {
         cond: LoweredValue,
         then_ops: Vec<LoweredComputeOp>,
     },
+    While {
+        id: u32,
+        cond_ops: Vec<LoweredComputeOp>,
+        cond: LoweredValue,
+        body_ops: Vec<LoweredComputeOp>,
+    },
+}
+
+#[derive(Debug, Clone)]
+enum LoweredResourceIndex {
+    ConstZero,
+    Dynamic(LoweredValue),
 }
 
 #[derive(Debug, Clone)]
@@ -447,6 +752,10 @@ enum LoweredScalarTy {
 enum ComputeParamKind {
     ViewF32,
     ViewMutF32,
+    /// GRX-009:compute-kernel SRV 纹理(`Texture2D<f32>` → texelLoad 路径)。
+    Texture2DF32,
+    /// GRX-009:compute-kernel UAV 纹理(`RWTexture2D<f32>` → texelStore 路径)。
+    RWTexture2DF32,
     Scalar,
     ThreadCtx,
 }
@@ -461,12 +770,13 @@ struct ComputeParamInfo {
 #[derive(Debug, Default)]
 struct ComputeLowerCx {
     params: std::collections::HashMap<String, ComputeParamInfo>,
-    locals: std::collections::HashMap<String, LoweredValue>,
+    locals: std::collections::HashMap<String, LoweredLocal>,
     resources: Vec<LoweredComputeResource>,
     scalar_params: Vec<LoweredScalarParam>,
     ops: Vec<LoweredComputeOp>,
     next_temp: u32,
     next_block: u32,
+    next_local: u32,
 }
 
 fn lower_compute_body_slice1(
@@ -485,13 +795,7 @@ fn lower_compute_body_slice1(
         lower_compute_stmt_slice1(cx, &mut lcx, stmt)?;
     }
     if let Some(tail) = &body.tail {
-        // 块形 `if` 在 `}` 前被 parser 收为 body.tail(RXS-0024 同策略):unit tail-if
-        // 走 statement-if lowering,避免落「尾表达式」拒绝;其余 tail 继续 strict RX6007。
-        if let crate::ast::ExprKind::If { cond, then, else_ } = &tail.kind {
-            lower_if_stmt_slice3a(cx, &mut lcx, cond, then, else_)?;
-        } else {
-            return Err(unsupported_expr(tail, "尾表达式"));
-        }
+        lower_unit_tail_expr_slice3a(cx, &mut lcx, tail)?;
     }
     Ok(LoweredComputeBody {
         resources: lcx.resources,
@@ -502,82 +806,70 @@ fn lower_compute_body_slice1(
 
 impl ComputeLowerCx {
     fn new(cx: &QueryCtx<'_>, f: &crate::ast::FnItem) -> Result<Self, DxilCodegenError> {
-        use crate::ast::ParamKind;
-
         let mut params = std::collections::HashMap::new();
         let mut resources = Vec::new();
         let mut scalar_params = Vec::new();
-        for p in &f.params {
-            let ParamKind::Typed { pat, ty } = &p.kind else {
-                return Err(DxilCodegenError::unsupported(
-                    p.span,
-                    "DXIL compute body lowering slice 1 不支持 self 形参",
-                ));
-            };
-            let Some(name) = ast_pat_binding_name(pat) else {
-                return Err(DxilCodegenError::unsupported(
-                    pat.span,
-                    "DXIL compute body lowering slice 1 仅支持简单绑定形参",
-                ));
-            };
-            let head = ast_ty_head_name(ty).unwrap_or("");
-            let mut scalar_ty = None;
-            let kind = match head {
-                "View" => {
-                    require_view_global_f32(ty)?;
-                    resources.push(LoweredComputeResource {
-                        name: name.clone(),
-                        mutable: false,
-                    });
-                    ComputeParamKind::ViewF32
-                }
-                "ViewMut" => {
-                    require_view_global_f32(ty)?;
-                    resources.push(LoweredComputeResource {
-                        name: name.clone(),
-                        mutable: true,
-                    });
-                    ComputeParamKind::ViewMutF32
-                }
-                "ThreadCtx" => {
-                    require_threadctx_1d(cx, ty)?;
-                    ComputeParamKind::ThreadCtx
-                }
-                "f32" => {
-                    scalar_ty = Some(LoweredScalarTy::F32);
-                    scalar_params.push(LoweredScalarParam {
-                        name: name.clone(),
-                        ty: LoweredScalarTy::F32,
-                    });
-                    ComputeParamKind::Scalar
-                }
-                "usize" | "u32" | "i32" | "u64" | "i64" | "u16" | "i16" | "u8" | "i8" => {
-                    scalar_ty = Some(LoweredScalarTy::I64);
-                    scalar_params.push(LoweredScalarParam {
-                        name: name.clone(),
-                        ty: LoweredScalarTy::I64,
-                    });
-                    ComputeParamKind::Scalar
-                }
-                "bool" => {
-                    scalar_ty = Some(LoweredScalarTy::Bool);
-                    scalar_params.push(LoweredScalarParam {
-                        name: name.clone(),
-                        ty: LoweredScalarTy::Bool,
-                    });
-                    ComputeParamKind::Scalar
-                }
-                "f64" => ComputeParamKind::Scalar,
-                _ => ComputeParamKind::Scalar,
-            };
-            params.insert(
-                name,
-                ComputeParamInfo {
+        for sig in collect_compute_param_sigs(cx, f, ComputeParamMode::Body)? {
+            match sig {
+                ComputeParamSig::Resource {
+                    name,
+                    res,
                     kind,
-                    scalar_ty,
-                    span: ty.span,
-                },
-            );
+                    span,
+                } => {
+                    resources.push(LoweredComputeResource {
+                        name: name.clone(),
+                        res,
+                    });
+                    params.insert(
+                        name,
+                        ComputeParamInfo {
+                            kind,
+                            scalar_ty: None,
+                            span,
+                        },
+                    );
+                }
+                ComputeParamSig::Scalar {
+                    name,
+                    lowered_ty,
+                    span,
+                    ..
+                } => {
+                    scalar_params.push(LoweredScalarParam {
+                        name: name.clone(),
+                        ty: lowered_ty,
+                    });
+                    params.insert(
+                        name,
+                        ComputeParamInfo {
+                            kind: ComputeParamKind::Scalar,
+                            scalar_ty: Some(lowered_ty),
+                            span,
+                        },
+                    );
+                }
+                ComputeParamSig::ThreadCtx { name, span } => {
+                    params.insert(
+                        name,
+                        ComputeParamInfo {
+                            kind: ComputeParamKind::ThreadCtx,
+                            scalar_ty: None,
+                            span,
+                        },
+                    );
+                }
+                ComputeParamSig::IgnoredScalar { name, span } => {
+                    params.insert(
+                        name,
+                        ComputeParamInfo {
+                            kind: ComputeParamKind::Scalar,
+                            scalar_ty: None,
+                            span,
+                        },
+                    );
+                }
+            }
         }
         Ok(Self {
             params,
@@ -587,6 +879,7 @@ impl ComputeLowerCx {
             ops: Vec::new(),
             next_temp: 0,
             next_block: 0,
+            next_local: 0,
         })
     }
 
@@ -600,6 +893,12 @@ impl ComputeLowerCx {
         let id = self.next_block;
         self.next_block += 1;
         id
+    }
+
+    fn local_slot(&mut self, name: &str) -> String {
+        let id = self.next_local;
+        self.next_local += 1;
+        format!("local.{}.{id}", sanitize_local_name(name))
     }
 }
 
@@ -624,6 +923,12 @@ fn lower_compute_stmt_slice1(
                     "DXIL compute body lowering slice 1 仅支持简单 let 绑定",
                 ));
             };
+            let mutable = ast_pat_binding_mutability(&let_stmt.pat).ok_or_else(|| {
+                DxilCodegenError::unsupported(
+                    let_stmt.pat.span,
+                    "DXIL compute body lowering slice 1 仅支持简单 let 绑定",
+                )
+            })?;
             let Some(init) = &let_stmt.init else {
                 return Err(DxilCodegenError::unsupported(
                     stmt.span,
@@ -631,7 +936,43 @@ fn lower_compute_stmt_slice1(
                 ));
             };
             let value = lower_scalar_expr_slice3a(cx, lcx, init)?;
-            lcx.locals.insert(name, value);
+            if let Some(ty) = let_stmt.ty.as_ref().and_then(ast_scalar_ty) {
+                if value.ty != ty
+                    && !(ty == LoweredScalarTy::F32
+                        && matches!(value.repr, LoweredValueRepr::Const(_)))
+                {
+                    return Err(DxilCodegenError::unsupported(
+                        let_stmt.ty.as_ref().unwrap().span,
+                        "DXIL compute body lowering slice 3a let 标量类型与初始化表达式不一致",
+                    ));
+                }
+            } else if let Some(ty) = &let_stmt.ty {
+                return Err(DxilCodegenError::unsupported(
+                    ty.span,
+                    "DXIL compute body lowering slice 3a 仅支持 f32/i64/bool 标量 local",
+                ));
+            }
+            if mutable {
+                let ty = let_stmt
+                    .ty
+                    .as_ref()
+                    .and_then(ast_scalar_ty)
+                    .unwrap_or(value.ty);
+                let value = value.with_ty(ty);
+                let slot = lcx.local_slot(&name);
+                lcx.ops.push(LoweredComputeOp::LocalAlloca {
+                    slot: slot.clone(),
+                    ty,
+                });
+                lcx.ops.push(LoweredComputeOp::LocalStore {
+                    slot: slot.clone(),
+                    ty,
+                    value,
+                });
+                lcx.locals.insert(name, LoweredLocal::Mutable { slot, ty });
+            } else {
+                lcx.locals.insert(name, LoweredLocal::Immutable(value));
+            }
             Ok(())
         }
         StmtKind::Expr { expr, semi: _ } => lower_compute_expr_stmt_slice1(cx, lcx, expr),
@@ -651,14 +992,15 @@ fn lower_compute_expr_stmt_slice1(
     use crate::ast::ExprKind;
 
     match &expr.kind {
-        ExprKind::Assign { op: None, lhs, rhs } => lower_store_slice1(cx, lcx, lhs, rhs),
+        ExprKind::Assign { op: None, lhs, rhs } => lower_assignment_slice3a(cx, lcx, lhs, rhs),
         ExprKind::Assign { op: Some(_), .. } => Err(DxilCodegenError::unsupported(
             expr.span,
             "DXIL compute body lowering slice 1 不支持复合赋值",
         )),
-        ExprKind::While { .. } => Err(DxilCodegenError::unsupported(
+        ExprKind::While { cond, body } => lower_while_stmt_slice3a(cx, lcx, cond, body),
+        ExprKind::Break(_) | ExprKind::Continue => Err(DxilCodegenError::unsupported(
             expr.span,
-            "DXIL compute body lowering slice 1 不支持 while",
+            "DXIL compute body lowering slice 3a 不支持 break/continue",
         )),
         ExprKind::If { cond, then, else_ } => lower_if_stmt_slice3a(cx, lcx, cond, then, else_),
         ExprKind::For { .. } | ExprKind::Loop { .. } | ExprKind::Match { .. } => {
@@ -671,6 +1013,34 @@ fn lower_compute_expr_stmt_slice1(
     }
 }
 
+fn lower_assignment_slice3a(
+    cx: &QueryCtx<'_>,
+    lcx: &mut ComputeLowerCx,
+    lhs: &crate::ast::Expr,
+    rhs: &crate::ast::Expr,
+) -> Result<(), DxilCodegenError> {
+    if let Some(name) = path_expr_name(lhs) {
+        let Some(local) = lcx.locals.get(name).cloned() else {
+            return Err(DxilCodegenError::unsupported(
+                lhs.span,
+                "DXIL compute body lowering slice 3a local assignment 目标必须是已声明 mutable scalar local",
+            ));
+        };
+        let LoweredLocal::Mutable { slot, ty } = local else {
+            return Err(DxilCodegenError::unsupported(
+                lhs.span,
+                "DXIL compute body lowering slice 3a 不支持给不可变 local 赋值",
+            ));
+        };
+        let value = lower_scalar_expr_slice3a(cx, lcx, rhs)?;
+        let value = coerce_scalar_value(value, ty, rhs.span)?;
+        lcx.ops
+            .push(LoweredComputeOp::LocalStore { slot, ty, value });
+        return Ok(());
+    }
+    lower_store_slice1(cx, lcx, lhs, rhs)
+}
+
 fn lower_store_slice1(
     cx: &QueryCtx<'_>,
     lcx: &mut ComputeLowerCx,
@@ -680,10 +1050,11 @@ fn lower_store_slice1(
     let (resource, index) = lower_index_lvalue_slice1(cx, lcx, lhs)?;
     match lcx.params.get(&resource) {
         Some(info) if info.kind == ComputeParamKind::ViewMutF32 => {}
+        Some(info) if info.kind == ComputeParamKind::RWTexture2DF32 => {}
         Some(info) => {
             return Err(DxilCodegenError::unsupported(
                 info.span,
-                "DXIL compute body lowering slice 1 store 目标必须是 ViewMut<global, f32>",
+                "DXIL compute body lowering slice 1 store 目标必须是 ViewMut<global, f32> 或 RWTexture2D<f32>(GRX-009)",
             ));
         }
         None => {
@@ -737,12 +1108,30 @@ fn lower_scalar_expr_slice3a(
             LoweredScalarTy::I64,
             parse_i64_lit_text(cx, lit)?.to_string(),
         )),
+        ExprKind::Lit(lit) => match lit.kind {
+            LitKind::Bool(value) => Ok(LoweredValue::constant(
+                LoweredScalarTy::Bool,
+                if value { "true" } else { "false" }.to_owned(),
+            )),
+            _ => Err(unsupported_expr(expr, "标量字面量")),
+        },
         ExprKind::Path(path) => {
             let Some(name) = single_path_name(path) else {
                 return Err(unsupported_expr(expr, "复杂路径"));
             };
-            if let Some(value) = lcx.locals.get(name) {
-                return Ok(value.clone());
+            if let Some(local) = lcx.locals.get(name).cloned() {
+                return match local {
+                    LoweredLocal::Immutable(value) => Ok(value),
+                    LoweredLocal::Mutable { slot, ty } => {
+                        let dst = lcx.temp();
+                        lcx.ops.push(LoweredComputeOp::LocalLoad {
+                            dst: dst.clone(),
+                            slot,
+                            ty,
+                        });
+                        Ok(LoweredValue::temp(ty, dst))
+                    }
+                };
             }
             match lcx.params.get(name) {
                 Some(info) if info.kind == ComputeParamKind::ThreadCtx => {
@@ -852,6 +1241,10 @@ fn lower_scalar_expr_slice3a(
             expr.span,
             "DXIL compute body lowering slice 1 不支持 while",
         )),
+        ExprKind::Break(_) | ExprKind::Continue => Err(DxilCodegenError::unsupported(
+            expr.span,
+            "DXIL compute body lowering slice 3a 不支持 break/continue",
+        )),
         ExprKind::If { cond, then, else_ } => {
             lower_select_expr_slice3a(cx, lcx, expr.span, cond, then, else_)
         }
@@ -863,6 +1256,23 @@ fn lower_scalar_expr_slice3a(
         }
         _ => Err(unsupported_expr(expr, "f32 表达式")),
     }
+}
+
+fn coerce_scalar_value(
+    value: LoweredValue,
+    ty: LoweredScalarTy,
+    span: Span,
+) -> Result<LoweredValue, DxilCodegenError> {
+    if value.ty == ty {
+        return Ok(value);
+    }
+    if ty == LoweredScalarTy::F32 && matches!(value.repr, LoweredValueRepr::Const(_)) {
+        return Ok(value.with_ty(LoweredScalarTy::F32));
+    }
+    Err(DxilCodegenError::unsupported(
+        span,
+        "DXIL compute body lowering slice 3a 不支持类型不一致的标量赋值",
+    ))
 }
 
 impl LoweredValue {
@@ -1034,12 +1444,9 @@ fn lower_if_stmt_slice3a(
         }
     }
     if lowered.is_ok()
-        && let Some(then_tail) = &then.tail
+        && let Some(tail) = &then.tail
     {
-        lowered = Err(DxilCodegenError::unsupported(
-            then_tail.span,
-            "DXIL compute body lowering slice 3a statement if then block 不支持尾表达式",
-        ));
+        lowered = lower_unit_tail_expr_slice3a(cx, lcx, tail);
     }
     let then_ops = std::mem::replace(&mut lcx.ops, outer_ops);
     lcx.locals = saved_locals;
@@ -1053,6 +1460,65 @@ fn lower_if_stmt_slice3a(
     Ok(())
 }
 
+fn lower_while_stmt_slice3a(
+    cx: &QueryCtx<'_>,
+    lcx: &mut ComputeLowerCx,
+    cond: &crate::ast::Expr,
+    body: &crate::ast::Block,
+) -> Result<(), DxilCodegenError> {
+    let outer_ops = std::mem::take(&mut lcx.ops);
+    let cond_value = lower_scalar_expr_slice3a(cx, lcx, cond);
+    let cond_ops = std::mem::replace(&mut lcx.ops, outer_ops);
+    let cond_value = cond_value?;
+    if cond_value.ty != LoweredScalarTy::Bool {
+        return Err(DxilCodegenError::unsupported(
+            cond.span,
+            "DXIL compute body lowering slice 3a while 条件必须是 bool 比较结果",
+        ));
+    }
+
+    let saved_locals = lcx.locals.clone();
+    let outer_ops = std::mem::take(&mut lcx.ops);
+    let mut lowered = Ok(());
+    for stmt in &body.stmts {
+        lowered = lower_compute_stmt_slice1(cx, lcx, stmt);
+        if lowered.is_err() {
+            break;
+        }
+    }
+    if lowered.is_ok()
+        && let Some(tail) = &body.tail
+    {
+        lowered = lower_unit_tail_expr_slice3a(cx, lcx, tail);
+    }
+    let body_ops = std::mem::replace(&mut lcx.ops, outer_ops);
+    lcx.locals = saved_locals;
+    lowered?;
+
+    let id = lcx.block_id();
+    lcx.ops.push(LoweredComputeOp::While {
+        id,
+        cond_ops,
+        cond: cond_value,
+        body_ops,
+    });
+    Ok(())
+}
+
+fn lower_unit_tail_expr_slice3a(
+    cx: &QueryCtx<'_>,
+    lcx: &mut ComputeLowerCx,
+    expr: &crate::ast::Expr,
+) -> Result<(), DxilCodegenError> {
+    match &expr.kind {
+        crate::ast::ExprKind::If { cond, then, else_ } => {
+            lower_if_stmt_slice3a(cx, lcx, cond, then, else_)
+        }
+        crate::ast::ExprKind::While { cond, body } => lower_while_stmt_slice3a(cx, lcx, cond, body),
+        _ => Err(unsupported_expr(expr, "尾表达式")),
+    }
+}
+
 fn lower_load_slice1(
     cx: &QueryCtx<'_>,
     lcx: &mut ComputeLowerCx,
@@ -1064,6 +1530,7 @@ fn lower_load_slice1(
     };
     match lcx.params.get(resource) {
         Some(info) if info.kind == ComputeParamKind::ViewF32 => {}
+        Some(info) if info.kind == ComputeParamKind::Texture2DF32 => {}
         Some(info) if info.kind == ComputeParamKind::ThreadCtx => {
             return Err(DxilCodegenError::unsupported(
                 info.span,
@@ -1073,7 +1540,7 @@ fn lower_load_slice1(
         Some(info) => {
             return Err(DxilCodegenError::unsupported(
                 info.span,
-                "DXIL compute body lowering slice 1 load 源必须是 View<global, f32>",
+                "DXIL compute body lowering slice 1 load 源必须是 View<global, f32> 或 Texture2D<f32>(GRX-009)",
             ));
         }
         None => {
@@ -1083,7 +1550,7 @@ fn lower_load_slice1(
             ));
         }
     }
-    let index = lower_resource_index_slice1(cx, index)?;
+    let index = lower_resource_index_slice1(cx, lcx, index)?;
     let dst = lcx.temp();
     lcx.ops.push(LoweredComputeOp::Load {
         dst: dst.clone(),
@@ -1095,9 +1562,9 @@ fn lower_load_slice1(
 
 fn lower_index_lvalue_slice1(
     cx: &QueryCtx<'_>,
-    _lcx: &ComputeLowerCx,
+    lcx: &mut ComputeLowerCx,
     expr: &crate::ast::Expr,
-) -> Result<(String, u64), DxilCodegenError> {
+) -> Result<(String, LoweredResourceIndex), DxilCodegenError> {
     use crate::ast::ExprKind;
 
     match &expr.kind {
@@ -1105,42 +1572,60 @@ fn lower_index_lvalue_slice1(
             let Some(resource) = path_expr_name(base) else {
                 return Err(unsupported_expr(base, "store 资源基址"));
             };
-            Ok((resource.to_owned(), lower_resource_index_slice1(cx, index)?))
+            Ok((
+                resource.to_owned(),
+                lower_resource_index_slice1(cx, lcx, index)?,
+            ))
         }
         _ => Err(unsupported_expr(expr, "store 左值")),
     }
 }
 
-/// 资源常量索引(load/store 共用):slice 1 资源 global 恒 `[1 x float]`,仅索引 0
-/// 在界内;非 0 常量索引 strict reject(RX6007),不产越界 inbounds GEP。
 fn lower_resource_index_slice1(
     cx: &QueryCtx<'_>,
+    lcx: &mut ComputeLowerCx,
     expr: &crate::ast::Expr,
-) -> Result<u64, DxilCodegenError> {
-    let index = lower_usize_const_slice1(cx, expr)?;
-    if index != 0 {
+) -> Result<LoweredResourceIndex, DxilCodegenError> {
+    if let Some(index) = lower_usize_const_slice1(cx, expr)? {
+        if index != 0 {
+            return Err(DxilCodegenError::unsupported(
+                expr.span,
+                format!(
+                    "DXIL compute body lowering slice 1 仅支持资源常量索引 0(索引 {index} 缺少资源边界 evidence)"
+                ),
+            ));
+        }
+        return Ok(LoweredResourceIndex::ConstZero);
+    }
+    let index = lower_scalar_expr_slice3a(cx, lcx, expr)?;
+    if index.ty != LoweredScalarTy::I64 {
         return Err(DxilCodegenError::unsupported(
             expr.span,
-            format!(
-                "DXIL compute body lowering slice 1 仅支持资源常量索引 0(资源 global 为 [1 x float],索引 {index} 越界)"
-            ),
+            "DXIL compute body lowering slice 3a 资源动态索引必须是 i64/usize 标量表达式",
         ));
     }
-    Ok(index)
+    Ok(LoweredResourceIndex::Dynamic(index))
 }
 
 fn lower_usize_const_slice1(
     cx: &QueryCtx<'_>,
     expr: &crate::ast::Expr,
-) -> Result<u64, DxilCodegenError> {
+) -> Result<Option<u64>, DxilCodegenError> {
     use crate::ast::ExprKind;
 
     match &expr.kind {
         ExprKind::Paren(inner) => lower_usize_const_slice1(cx, inner),
-        ExprKind::Lit(lit) if lit.kind == LitKind::Int => parse_usize_lit_text(cx, lit),
+        ExprKind::Lit(lit) if lit.kind == LitKind::Int => parse_usize_lit_text(cx, lit).map(Some),
         ExprKind::Binary { op, lhs, rhs } => {
-            let lhs = lower_usize_const_slice1(cx, lhs)?;
-            let rhs = lower_usize_const_slice1(cx, rhs)?;
+            if !matches!(op, BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div) {
+                return Ok(None);
+            }
+            let Some(lhs) = lower_usize_const_slice1(cx, lhs)? else {
+                return Ok(None);
+            };
+            let Some(rhs) = lower_usize_const_slice1(cx, rhs)? else {
+                return Ok(None);
+            };
             match op {
                 BinOp::Add => lhs.checked_add(rhs),
                 BinOp::Sub => lhs.checked_sub(rhs),
@@ -1148,6 +1633,7 @@ fn lower_usize_const_slice1(
                 BinOp::Div if rhs != 0 => Some(lhs / rhs),
                 _ => None,
             }
+            .map(Some)
             .ok_or_else(|| {
                 DxilCodegenError::unsupported(
                     expr.span,
@@ -1155,7 +1641,7 @@ fn lower_usize_const_slice1(
                 )
             })
         }
-        _ => Err(unsupported_expr(expr, "usize 常量索引")),
+        _ => Ok(None),
     }
 }
 
@@ -1176,6 +1662,37 @@ fn require_view_global_f32(ty: &crate::ast::Ty) -> Result<(), DxilCodegenError> 
         ));
     }
     Ok(())
+}
+
+/// GRX-009 texture-capable kernel artifact:放宽 strict-only 形约束,同时接受
+/// `Texture2D<f32>`/`RWTexture2D<f32>`(compute-kernel SRV/UAV 纹理)与
+/// `View<global, f32>`/`ViewMut<global, f32>`(raw-buffer 路径,保留 strict 形)。
+/// strict-only f32:非 f32 元素类型 → 拒绝(`Texture2D<i32>` 不进 descriptor layout)。
+/// strict-only global address space:View/ViewMut 仍要求 `global`(其他地址空间不接受)。
+fn require_texture_or_view_global_f32(ty: &crate::ast::Ty) -> Result<(), DxilCodegenError> {
+    let head = ast_ty_head_name(ty).unwrap_or("");
+    match head {
+        "Texture2D" | "RWTexture2D" => {
+            let Some(args) = ast_ty_path_args(ty) else {
+                return Err(DxilCodegenError::unsupported(
+                    ty.span,
+                    "DXIL compute body lowering GRX-009 要求 Texture2D/RWTexture2D 带 <f32>",
+                ));
+            };
+            if args.len() != 1 || !generic_arg_is_type_path(&args[0], "f32") {
+                return Err(DxilCodegenError::unsupported(
+                    ty.span,
+                    "DXIL compute body lowering GRX-009 仅支持 Texture2D<f32> / RWTexture2D<f32>(strict-only,非 f32 元素类型不接受)",
+                ));
+            }
+            Ok(())
+        }
+        "View" | "ViewMut" => require_view_global_f32(ty),
+        _ => Err(DxilCodegenError::unsupported(
+            ty.span,
+            "DXIL compute body lowering GRX-009 仅接受 View<global, f32>/ViewMut<global, f32>/Texture2D<f32>/RWTexture2D<f32>",
+        )),
+    }
 }
 
 fn require_threadctx_1d(cx: &QueryCtx<'_>, ty: &crate::ast::Ty) -> Result<(), DxilCodegenError> {
@@ -1333,6 +1850,22 @@ fn path_expr_name(expr: &crate::ast::Expr) -> Option<&str> {
     }
 }
 
+fn sanitize_local_name(name: &str) -> String {
+    let mut out = String::new();
+    for ch in name.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '_' || ch == '.' {
+            out.push(ch);
+        } else {
+            out.push('_');
+        }
+    }
+    if out.is_empty() {
+        "unnamed".to_owned()
+    } else {
+        out
+    }
+}
+
 fn single_path_name(path: &crate::ast::Path) -> Option<&str> {
     if path.segments.len() == 1 {
         Some(path.segments[0].ident.name.as_str())
@@ -1356,6 +1889,10 @@ pub fn emit_dxil_ir(body: &Body, module_name: &str) -> Result<String, DxilCodege
         &body.symbol,
         module_name,
         &LoweredComputeBody::default(),
+        &DxilBindingPlan {
+            resources: Vec::new(),
+            scalars: Vec::new(),
+        },
     ))
 }
 
@@ -1364,17 +1901,156 @@ fn emit_dxil_ir_with_body(
     module_name: &str,
     lowered_body: &LoweredComputeBody,
 ) -> Result<String, DxilCodegenError> {
-    Ok(render_dxil_module(&body.symbol, module_name, lowered_body))
+    let plan = plan_dxil_bindings(body, lowered_body)?;
+    Ok(render_dxil_module(
+        &body.symbol,
+        module_name,
+        lowered_body,
+        &plan,
+    ))
+}
+
+/// 渲染期绑定计划:资源 register/space + root constant 的 cbuffer 字节偏移。
+/// 与 descriptor layout JSON 同源([`binding_layout::infer_register_assignments`] /
+/// [`binding_layout::pack_root_constants`]),防 IR 与离线 artifact 漂移。
+struct DxilBindingPlan {
+    /// 资源名 → (res, register, space);声明序与 `lowered_body.resources` 一致。
+    /// `res` 为 MIR 资源类型(GRX-009:区分 raw-buffer StructuredBuffer 与
+    /// Texture2D/RWTexture2D;mutable 由 `res.class() == Uav` 派生)。
+    resources: Vec<(String, crate::mir::MirResourceType, u32, u32)>,
+    /// root constant 名 → (类型, cbuffer 字节偏移 = dword_offset×4)。
+    scalars: Vec<(String, LoweredScalarTy, u32)>,
+}
+
+impl DxilBindingPlan {
+    fn resource(&self, name: &str) -> Option<&(String, crate::mir::MirResourceType, u32, u32)> {
+        self.resources.iter().find(|(n, ..)| n == name)
+    }
+
+    fn scalar(&self, name: &str) -> Option<&(String, LoweredScalarTy, u32)> {
+        self.scalars.iter().find(|(n, ..)| n == name)
+    }
+}
+
+fn plan_dxil_bindings(
+    body: &Body,
+    lowered_body: &LoweredComputeBody,
+) -> Result<DxilBindingPlan, DxilCodegenError> {
+    // 资源 register/space:重建声明序 ResourceBinding(与 derive_compute_bindings
+    // 同构)走同一分配函数,保证与 descriptor layout / RTS0 同源。GRX-009:直接
+    // 透传 `r.res`(Texture2D/RWTexture2D 不再被回退为 StructuredBuffer)。
+    let bindings = lowered_resource_bindings(&lowered_body.resources);
+    let assignments = binding_layout::infer_register_assignments(&bindings).map_err(|e| {
+        DxilCodegenError::unsupported(body.span, format!("绑定布局推导失败(strict-only): {e}"))
+    })?;
+    let resources = lowered_body
+        .resources
+        .iter()
+        .zip(assignments.iter())
+        .map(|(r, a)| (r.name.clone(), r.res, a.register, a.space))
+        .collect();
+
+    // root constant → cbuffer 字节偏移(密排 dword × 4;与 pack_root_constants 同源)。
+    // cbuffer 行规则门(strict-only):i64 须 8 字节对齐(偶数 dword),否则 16 字节
+    // 行内寻址与 root constant 密排 dword 布局不相容 → 拒绝,不产不一致 IR。
+    let packed = binding_layout::pack_root_constants(
+        lowered_body
+            .scalar_params
+            .iter()
+            .map(|s| {
+                let ty = match s.ty {
+                    LoweredScalarTy::F32 => binding_layout::RootConstantType::F32,
+                    LoweredScalarTy::I64 => binding_layout::RootConstantType::I64,
+                    LoweredScalarTy::Bool => binding_layout::RootConstantType::Bool,
+                };
+                (s.name.clone(), ty)
+            })
+            .collect(),
+    );
+    let mut scalars = Vec::with_capacity(packed.len());
+    for (s, c) in lowered_body.scalar_params.iter().zip(packed.iter()) {
+        if s.ty == LoweredScalarTy::I64 && c.dword_offset % 2 != 0 {
+            return Err(DxilCodegenError::unsupported(
+                body.span,
+                format!(
+                    "root constant `{}`(i64)落在奇数 dword 偏移 {},与 cbuffer 行对齐规则不相容(strict-only)",
+                    s.name, c.dword_offset
+                ),
+            ));
+        }
+        scalars.push((s.name.clone(), s.ty, c.dword_offset * 4));
+    }
+    Ok(DxilBindingPlan { resources, scalars })
+}
+
+/// 资源句柄 SSA 名(entry 头部 `handlefrombinding` 结果;体内 load/store 复用)。
+fn resource_handle_name(name: &str) -> String {
+    format!("rx_h_{name}")
+}
+
+/// `target("dx.RawBuffer", float, is_uav, 0)` 目标类型文本(StructuredBuffer 忠实形,
+/// 对齐 MIR `StructuredBuffer{read_only}` 与 RTS0 root descriptor 可绑定性)。
+fn rawbuffer_target_ty(mutable: bool) -> String {
+    format!(
+        "target(\"dx.RawBuffer\", float, {}, 0)",
+        if mutable { 1 } else { 0 }
+    )
+}
+
+/// GRX-009 texture-capable kernel artifact:纹理目标类型文本。
+/// `!mutable` → `target("dx.Texture2D<float>", 0, 0)`(SRV),`mutable` →
+/// `target("dx.RWTexture2D<float>", 0, 0)`(UAV)。spec ADDDED Requirements
+/// 「Texture-Capable DXIL Lowering」固定 0, 0 后缀;真实 patched llc 是否支持该
+/// target 类型由离线 compile 路径发现,本层只产 compiler emit。
+fn texture_target_ty(mutable: bool) -> String {
+    if mutable {
+        r#"target("dx.RWTexture2D<float>", 0, 0)"#.to_string()
+    } else {
+        r#"target("dx.Texture2D<float>", 0, 0)"#.to_string()
+    }
+}
+
+/// GRX-009:按 MIR 资源类型选 `rawbuffer_target_ty` vs `texture_target_ty`,
+/// 并返回 (target_ty 文本, is_texture 标志)。raw-buffer 路径(`View`/`ViewMut`)
+/// 沿用 `rawbuffer_target_ty`;`Texture2D`/`RWTexture2D` 走 `texture_target_ty`。
+fn resource_target_ty(res: crate::mir::MirResourceType) -> (String, bool) {
+    match res {
+        crate::mir::MirResourceType::Texture2D(_) => (texture_target_ty(false), true),
+        crate::mir::MirResourceType::RWTexture2D(_) => (texture_target_ty(true), true),
+        _ => {
+            let mutable = res.class() == crate::mir::ResourceClass::Uav;
+            (rawbuffer_target_ty(mutable), false)
+        }
+    }
+}
+
+/// cbuffer 布局 LLVM 类型名(镜像 clang HLSL `__cblayout_<name>` 约定)。
+fn cblayout_type_name(module_name: &str) -> String {
+    format!("%__cblayout_{module_name}")
+}
+
+/// cbuffer 字段的 LLVM 存储类型(bool 按 D3D12 root constant 单 dword = i32 落存,
+/// 读取处再比零还原 i1;f32/i64 与标量类型一致)。
+fn cbuffer_field_ty(ty: LoweredScalarTy) -> &'static str {
+    match ty {
+        LoweredScalarTy::F32 => "float",
+        LoweredScalarTy::I64 => "i64",
+        LoweredScalarTy::Bool => "i32",
+    }
 }
 
 /// DirectX 三元组 LLVM IR 文本(空入口或 RD-013 slice 1 body)。形态对齐 LLVM DirectX
 /// 后端 emit 期望(shadermodel6.0-compute 三元组 + DXIL 数据布局 + `hlsl.shader`/
-/// `hlsl.numthreads` 入口属性)。当前 body IR 仅是最小可观察 lowering 接缝,不等同于
-/// 已验证 DXIL container 或 Godot resource mapping。
+/// `hlsl.numthreads` 入口属性)。资源/线程内建/root constant 一律走上游 `llvm.dx.*`
+/// intrinsic(`handlefrombinding`/`load.rawbuffer`/`store.rawbuffer`/`getpointer`/
+/// `thread.id`),由 patched llc 的 DirectX 后端降为 dx.op + 资源元数据——手搓
+/// external global / 自造 intrinsic 均过不了 dxv(External declaration unused /
+/// not a DXIL function)。当前 body IR 仍不等同于 Godot resource mapping。
 fn render_dxil_module(
     entry_symbol: &str,
     module_name: &str,
     lowered_body: &LoweredComputeBody,
+    plan: &DxilBindingPlan,
 ) -> String {
     let mut out = String::new();
     let _ = writeln!(out, "; ModuleID = '{module_name}'");
@@ -1388,49 +2064,113 @@ fn render_dxil_module(
         "target triple = \"dxil-unknown-shadermodel6.0-compute\""
     );
     out.push('\n');
-    for resource in &lowered_body.resources {
-        let qualifier = if resource.mutable { "uav" } else { "srv" };
-        let _ = writeln!(
-            out,
-            "@rx_{name}_{qualifier} = external addrspace(1) global [1 x float]",
-            name = resource.name
-        );
-    }
-    for scalar in &lowered_body.scalar_params {
-        let _ = writeln!(
-            out,
-            "@rx_{name}_root_constant = external global {ty}",
-            name = scalar.name,
-            ty = render_scalar_ty(scalar.ty)
-        );
-    }
-    if !lowered_body.resources.is_empty() || !lowered_body.scalar_params.is_empty() {
+    let cblayout = cblayout_type_name(module_name);
+    if !plan.scalars.is_empty() {
+        let fields: Vec<&'static str> = plan
+            .scalars
+            .iter()
+            .map(|(_, ty, _)| cbuffer_field_ty(*ty))
+            .collect();
+        let _ = writeln!(out, "{cblayout} = type <{{ {} }}>", fields.join(", "));
         out.push('\n');
-    }
-    if lowered_body
-        .ops
-        .iter()
-        .any(|op| matches!(op, LoweredComputeOp::ThreadGlobalId { .. }))
-    {
-        out.push_str("declare i32 @rx.dxil.thread_id.x()\n\n");
     }
     let _ = writeln!(out, "define void @{entry_symbol}() #0 {{");
     out.push_str("entry:\n");
-    render_lowered_compute_ops(&mut out, lowered_body);
+    // entry 头部:cbuffer / 资源句柄(register/space 与 descriptor layout 同源)。
+    // root constants 经 RTS0 以 b0 绑定 → cbuffer 句柄 (space 0, b0, range 1)。
+    if !plan.scalars.is_empty() {
+        let _ = writeln!(
+            out,
+            "  %rx_cb = call target(\"dx.CBuffer\", {cblayout}) @llvm.dx.resource.handlefrombinding(i32 0, i32 0, i32 1, i32 0, ptr null)"
+        );
+    }
+    for (name, res, register, space) in &plan.resources {
+        // GRX-009:按 MIR 资源类型选 rawbuffer vs texture target ty。`handlefrombinding`
+        // 调用形态保持一致(spec ADDDED Requirements「Texture-Capable DXIL Lowering」)。
+        let (target_ty, _is_texture) = resource_target_ty(*res);
+        let _ = writeln!(
+            out,
+            "  %{handle} = call {ty} @llvm.dx.resource.handlefrombinding(i32 {space}, i32 {register}, i32 1, i32 {register}, ptr null)",
+            handle = resource_handle_name(name),
+            ty = target_ty,
+        );
+    }
+    render_lowered_compute_ops(&mut out, lowered_body, module_name, plan);
     out.push_str("  ret void\n");
     out.push_str("}\n");
     out.push('\n');
     out.push_str(
         "attributes #0 = { noinline nounwind \"hlsl.numthreads\"=\"1,1,1\" \"hlsl.shader\"=\"compute\" }\n",
     );
+    // `!dx.valver`:llc DXContainer 写出器恒产 PSV0 v3(52 字节);模块不声明
+    // validator version 时 dxv 按默认版本期望 24 字节 PSV0 → 容器级
+    // `PSVRuntimeInfoSize` mismatch 拒绝。声明 1.8 与 pinned 签名 validator
+    // (dxc-round7,1.9)实测相容。
+    out.push('\n');
+    out.push_str("!dx.valver = !{!0}\n");
+    out.push('\n');
+    out.push_str("!0 = !{i32 1, i32 8}\n");
     out
 }
 
-fn render_lowered_compute_ops(out: &mut String, body: &LoweredComputeBody) {
-    render_lowered_ops(out, &body.ops);
+fn render_lowered_compute_ops(
+    out: &mut String,
+    body: &LoweredComputeBody,
+    module_name: &str,
+    plan: &DxilBindingPlan,
+) {
+    render_local_allocas(out, &body.ops);
+    render_lowered_ops(out, &body.ops, module_name, plan);
 }
 
-fn render_lowered_ops(out: &mut String, ops: &[LoweredComputeOp]) {
+fn render_local_allocas(out: &mut String, ops: &[LoweredComputeOp]) {
+    for op in ops {
+        match op {
+            LoweredComputeOp::LocalAlloca { slot, ty } => {
+                let _ = writeln!(
+                    out,
+                    "  %{slot}.addr = alloca {ty}",
+                    ty = render_scalar_ty(*ty)
+                );
+            }
+            LoweredComputeOp::If { then_ops, .. } => render_local_allocas(out, then_ops),
+            LoweredComputeOp::While {
+                cond_ops, body_ops, ..
+            } => {
+                render_local_allocas(out, cond_ops);
+                render_local_allocas(out, body_ops);
+            }
+            _ => {}
+        }
+    }
+}
+
+/// rawbuffer intrinsic 的 i32 元素索引操作数:常量 0 直用;动态 i64 索引先 trunc
+/// (`%{temp_prefix}.idx`)。intrinsic 索引位宽即 i32(dx.op.bufferLoad 同形)。
+fn render_rawbuffer_index(
+    out: &mut String,
+    index: &LoweredResourceIndex,
+    temp_prefix: &str,
+) -> String {
+    match index {
+        LoweredResourceIndex::ConstZero => "0".to_owned(),
+        LoweredResourceIndex::Dynamic(value) => {
+            let _ = writeln!(
+                out,
+                "  %{temp_prefix}.idx = trunc i64 {} to i32",
+                render_lowered_value(value)
+            );
+            format!("%{temp_prefix}.idx")
+        }
+    }
+}
+
+fn render_lowered_ops(
+    out: &mut String,
+    ops: &[LoweredComputeOp],
+    module_name: &str,
+    plan: &DxilBindingPlan,
+) {
     for op in ops {
         match op {
             LoweredComputeOp::Load {
@@ -1438,11 +2178,36 @@ fn render_lowered_ops(out: &mut String, ops: &[LoweredComputeOp]) {
                 resource,
                 index,
             } => {
-                let _ = writeln!(
-                    out,
-                    "  %{dst}.ptr = getelementptr inbounds [1 x float], ptr addrspace(1) @rx_{resource}_srv, i32 0, i32 {index}"
-                );
-                let _ = writeln!(out, "  %{dst} = load float, ptr addrspace(1) %{dst}.ptr");
+                // GRX-009:按 MIR 资源类型分 rawbuffer vs texture load 路径。
+                // rawbuffer 路径保留不变(`@llvm.dx.resource.load.rawbuffer`);
+                // `Texture2D<f32>` 走 `@llvm.dx.resource.load.texture.*`(texelLoad 等价)。
+                let res = plan
+                    .resource(resource)
+                    .map(|(_, r, ..)| *r)
+                    .unwrap_or(crate::mir::MirResourceType::StructuredBuffer { read_only: true });
+                let idx = render_rawbuffer_index(out, index, dst);
+                match res {
+                    crate::mir::MirResourceType::Texture2D(_) => {
+                        let ty = texture_target_ty(false);
+                        let _ = writeln!(
+                            out,
+                            "  %{dst}.ld = call {{ float, i1 }} @llvm.dx.resource.load.texture.2d({ty} %{handle}, i32 {idx}, i32 0)",
+                            handle = resource_handle_name(resource),
+                        );
+                        let _ =
+                            writeln!(out, "  %{dst} = extractvalue {{ float, i1 }} %{dst}.ld, 0");
+                    }
+                    _ => {
+                        let ty = rawbuffer_target_ty(res.class() == crate::mir::ResourceClass::Uav);
+                        let _ = writeln!(
+                            out,
+                            "  %{dst}.ld = call {{ float, i1 }} @llvm.dx.resource.load.rawbuffer({ty} %{handle}, i32 {idx}, i32 0)",
+                            handle = resource_handle_name(resource),
+                        );
+                        let _ =
+                            writeln!(out, "  %{dst} = extractvalue {{ float, i1 }} %{dst}.ld, 0");
+                    }
+                }
             }
             LoweredComputeOp::Store {
                 ptr,
@@ -1450,14 +2215,49 @@ fn render_lowered_ops(out: &mut String, ops: &[LoweredComputeOp]) {
                 index,
                 value,
             } => {
+                // GRX-009:按 MIR 资源类型分 rawbuffer vs texture store 路径。
+                // rawbuffer 路径保留不变(`@llvm.dx.resource.store.rawbuffer`);
+                // `RWTexture2D<f32>` 走 `@llvm.dx.resource.store.texture.*`(texelStore 等价)。
+                let res = plan
+                    .resource(resource)
+                    .map(|(_, r, ..)| *r)
+                    .unwrap_or(crate::mir::MirResourceType::StructuredBuffer { read_only: false });
+                let idx = render_rawbuffer_index(out, index, ptr);
+                match res {
+                    crate::mir::MirResourceType::RWTexture2D(_) => {
+                        let ty = texture_target_ty(true);
+                        let _ = writeln!(
+                            out,
+                            "  call void @llvm.dx.resource.store.texture.2d({ty} %{handle}, i32 {idx}, i32 0, float {})",
+                            render_lowered_value(value),
+                            handle = resource_handle_name(resource),
+                        );
+                    }
+                    _ => {
+                        let ty = rawbuffer_target_ty(res.class() == crate::mir::ResourceClass::Uav);
+                        let _ = writeln!(
+                            out,
+                            "  call void @llvm.dx.resource.store.rawbuffer({ty} %{handle}, i32 {idx}, i32 0, float {})",
+                            render_lowered_value(value),
+                            handle = resource_handle_name(resource),
+                        );
+                    }
+                }
+            }
+            LoweredComputeOp::LocalAlloca { .. } => {}
+            LoweredComputeOp::LocalLoad { dst, slot, ty } => {
                 let _ = writeln!(
                     out,
-                    "  %{ptr}.ptr = getelementptr inbounds [1 x float], ptr addrspace(1) @rx_{resource}_uav, i32 0, i32 {index}"
+                    "  %{dst} = load {ty}, ptr %{slot}.addr",
+                    ty = render_scalar_ty(*ty)
                 );
+            }
+            LoweredComputeOp::LocalStore { slot, ty, value } => {
                 let _ = writeln!(
                     out,
-                    "  store float {}, ptr addrspace(1) %{ptr}.ptr",
-                    render_lowered_value(value)
+                    "  store {ty} {}, ptr %{slot}.addr",
+                    render_lowered_value(value),
+                    ty = render_scalar_ty(*ty)
                 );
             }
             LoweredComputeOp::Binary { dst, op, lhs, rhs } => {
@@ -1482,14 +2282,30 @@ fn render_lowered_ops(out: &mut String, ops: &[LoweredComputeOp]) {
                 );
             }
             LoweredComputeOp::ScalarParam { dst, name, ty } => {
+                let byte_offset = plan.scalar(name).map(|(_, _, off)| *off).unwrap_or(0);
+                let cblayout = cblayout_type_name(module_name);
                 let _ = writeln!(
                     out,
-                    "  %{dst} = load {ty}, ptr @rx_{name}_root_constant",
-                    ty = render_scalar_ty(*ty)
+                    "  %{dst}.ptr = call ptr addrspace(2) @llvm.dx.resource.getpointer(target(\"dx.CBuffer\", {cblayout}) %rx_cb, i32 {byte_offset})"
                 );
+                match ty {
+                    LoweredScalarTy::Bool => {
+                        // bool root constant 落存单 dword(i32),读取处比零还原 i1。
+                        let _ =
+                            writeln!(out, "  %{dst}.i32 = load i32, ptr addrspace(2) %{dst}.ptr");
+                        let _ = writeln!(out, "  %{dst} = icmp ne i32 %{dst}.i32, 0");
+                    }
+                    _ => {
+                        let _ = writeln!(
+                            out,
+                            "  %{dst} = load {ty}, ptr addrspace(2) %{dst}.ptr",
+                            ty = render_scalar_ty(*ty)
+                        );
+                    }
+                }
             }
             LoweredComputeOp::ThreadGlobalId { dst } => {
-                let _ = writeln!(out, "  %{dst}.u32 = call i32 @rx.dxil.thread_id.x()");
+                let _ = writeln!(out, "  %{dst}.u32 = call i32 @llvm.dx.thread.id(i32 0)");
                 let _ = writeln!(out, "  %{dst} = zext i32 %{dst}.u32 to i64");
             }
             LoweredComputeOp::Compare { dst, op, lhs, rhs } => {
@@ -1529,9 +2345,28 @@ fn render_lowered_ops(out: &mut String, ops: &[LoweredComputeOp]) {
                     render_lowered_value(cond)
                 );
                 let _ = writeln!(out, "if.then.{id}:");
-                render_lowered_ops(out, then_ops);
+                render_lowered_ops(out, then_ops, module_name, plan);
                 let _ = writeln!(out, "  br label %if.end.{id}");
                 let _ = writeln!(out, "if.end.{id}:");
+            }
+            LoweredComputeOp::While {
+                id,
+                cond_ops,
+                cond,
+                body_ops,
+            } => {
+                let _ = writeln!(out, "  br label %while.cond.{id}");
+                let _ = writeln!(out, "while.cond.{id}:");
+                render_lowered_ops(out, cond_ops, module_name, plan);
+                let _ = writeln!(
+                    out,
+                    "  br i1 {}, label %while.body.{id}, label %while.end.{id}",
+                    render_lowered_value(cond)
+                );
+                let _ = writeln!(out, "while.body.{id}:");
+                render_lowered_ops(out, body_ops, module_name, plan);
+                let _ = writeln!(out, "  br label %while.cond.{id}");
+                let _ = writeln!(out, "while.end.{id}:");
             }
         }
     }
@@ -2577,7 +3412,8 @@ mod tests {
     //@ spec: RXS-0157
     #[test]
     fn kernel_with_supported_compute_params_emits_artifacts() {
-        let src = "kernel fn k(src: View<global, f32>, out: ViewMut<global, f32>, w: usize, gain: f32, t: ThreadCtx<1>) {}\n";
+        let src =
+            "kernel fn k(src: View<global, f32>, out: ViewMut<global, f32>, t: ThreadCtx<1>) {}\n";
         let diag = DiagCtxt::new();
         let cx = QueryCtx::new(src, SourceId(0), Edition::Rx0, &diag);
         cx.check_crate();
@@ -2604,7 +3440,7 @@ mod tests {
         assert!(
             artifacts
                 .descriptor_layout_json
-                .contains("\"root_constants\": 2")
+                .contains("\"root_constants\": 0")
         );
         let codes: Vec<u16> = diag
             .emitted()
@@ -2615,6 +3451,286 @@ mod tests {
             codes.is_empty(),
             "受支持 compute 形参不应发诊断,实得 {codes:?}"
         );
+    }
+
+    /// GRX-009:texture-capable kernel artifact round —— `Texture2D<f32>` /
+    /// `RWTexture2D<f32>` 入参产出 DXIL/RTS0/layout 三件套,layout 中 `binding_kind`
+    /// 为 `texture2d`/`rwtexture2d`、`class` 为 `t`/`u`,DXIL IR 含
+    /// `target("dx.Texture2D<float>", 0, 0)` / `target("dx.RWTexture2D<float>", 0, 0)`
+    /// 与 `@llvm.dx.resource.load.texture.2d` / `@llvm.dx.resource.store.texture.2d`。
+    //@ spec: GRX-009 Texture-Capable DXIL Lowering
+    #[test]
+    fn kernel_with_texture2d_params_emits_artifacts() {
+        let src = "kernel fn k(tex: Texture2D<f32>, dst: RWTexture2D<f32>, t: ThreadCtx<1>) {\n    dst[0] = tex[0];\n}\n";
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(src, SourceId(0), Edition::Rx0, &diag);
+        cx.check_crate();
+        cx.check_coloring();
+        cx.check_crate_patterns();
+        cx.check_consteval();
+        let artifacts = build_and_emit_dxil_artifacts(&cx, "k");
+        let codes: Vec<u16> = diag
+            .emitted()
+            .iter()
+            .filter_map(|d| d.code.map(|c| c.0))
+            .collect();
+        assert!(
+            codes.is_empty(),
+            "texture-capable kernel 不应发诊断,实得 {codes:?}"
+        );
+        let artifacts = artifacts.expect("应产出 texture-capable DXIL artifact 三件套");
+        // DXIL IR:DirectX 三元组 + texture target types + load/store intrinsics。
+        assert!(
+            artifacts
+                .ir
+                .contains("target triple = \"dxil-unknown-shadermodel6.0-compute\"")
+        );
+        assert!(
+            artifacts
+                .ir
+                .contains(r#"target("dx.Texture2D<float>", 0, 0)"#),
+            "DXIL IR 缺 Texture2D target ty: {}",
+            artifacts.ir
+        );
+        assert!(
+            artifacts
+                .ir
+                .contains(r#"target("dx.RWTexture2D<float>", 0, 0)"#),
+            "DXIL IR 缺 RWTexture2D target ty: {}",
+            artifacts.ir
+        );
+        assert!(
+            artifacts.ir.contains("@llvm.dx.resource.load.texture.2d"),
+            "DXIL IR 缺 texture load intrinsic: {}",
+            artifacts.ir
+        );
+        assert!(
+            artifacts.ir.contains("@llvm.dx.resource.store.texture.2d"),
+            "DXIL IR 缺 texture store intrinsic: {}",
+            artifacts.ir
+        );
+        // RTS0:非空(SRV+UAV descriptor table 至少一项)。
+        assert!(
+            !artifacts.root_signature.is_empty(),
+            "RTS0 root signature 应非空"
+        );
+        // descriptor layout JSON:`binding_kind` + `class` 字段。
+        assert!(
+            artifacts
+                .descriptor_layout_json
+                .contains("\"name\": \"tex\""),
+            "缺 tex 资源记录: {}",
+            artifacts.descriptor_layout_json
+        );
+        assert!(
+            artifacts
+                .descriptor_layout_json
+                .contains("\"name\": \"dst\""),
+            "缺 dst 资源记录: {}",
+            artifacts.descriptor_layout_json
+        );
+        // tex(Texture2D SRV)→ class=t + binding_kind=texture2d。
+        let tex_idx = artifacts
+            .descriptor_layout_json
+            .find("\"name\": \"tex\"")
+            .expect("tex 记录已断言存在");
+        let tex_slice_end = (tex_idx + 200).min(artifacts.descriptor_layout_json.len());
+        let tex_record = &artifacts.descriptor_layout_json[tex_idx..tex_slice_end];
+        let tex_end = tex_record.find('}').expect("tex 记录应有 }");
+        let tex_record = &tex_record[..tex_end];
+        assert!(
+            tex_record.contains("\"class\": \"t\""),
+            "tex 应 class=t(SRV): {tex_record}"
+        );
+        assert!(
+            tex_record.contains("\"binding_kind\": \"texture2d\""),
+            "tex 应 binding_kind=texture2d: {tex_record}"
+        );
+        // dst(RWTexture2D UAV)→ class=u + binding_kind=rwtexture2d。
+        let dst_idx = artifacts
+            .descriptor_layout_json
+            .find("\"name\": \"dst\"")
+            .expect("dst 记录已断言存在");
+        let dst_slice_end = (dst_idx + 200).min(artifacts.descriptor_layout_json.len());
+        let dst_record = &artifacts.descriptor_layout_json[dst_idx..dst_slice_end];
+        let dst_end = dst_record.find('}').expect("dst 记录应有 }");
+        let dst_record = &dst_record[..dst_end];
+        assert!(
+            dst_record.contains("\"class\": \"u\""),
+            "dst 应 class=u(UAV): {dst_record}"
+        );
+        assert!(
+            dst_record.contains("\"binding_kind\": \"rwtexture2d\""),
+            "dst 应 binding_kind=rwtexture2d: {dst_record}"
+        );
+        let codes: Vec<u16> = diag
+            .emitted()
+            .iter()
+            .filter_map(|d| d.code.map(|c| c.0))
+            .collect();
+        assert!(
+            codes.is_empty(),
+            "texture-capable kernel 不应发诊断,实得 {codes:?}"
+        );
+    }
+
+    /// GRX-009:`binding_kind` 字段对所有资源种类(View/ViewMut/Texture2D/RWTexture2D)
+    /// 均正确输出。spec ADDDED Requirements「Descriptor Layout binding_kind Field」。
+    //@ spec: GRX-009 Descriptor Layout binding_kind Field
+    #[test]
+    fn descriptor_layout_records_binding_kind_for_all_resource_kinds() {
+        // View → raw_buffer_view / ViewMut → raw_buffer_view。
+        let view_src =
+            "kernel fn k(src: View<global, f32>, out: ViewMut<global, f32>) { out[0] = src[0]; }\n";
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(view_src, SourceId(0), Edition::Rx0, &diag);
+        cx.check_crate();
+        cx.check_coloring();
+        cx.check_crate_patterns();
+        cx.check_consteval();
+        let view_artifacts =
+            build_and_emit_dxil_artifacts(&cx, "k").expect("View/ViewMut kernel 应产 artifact");
+        assert!(
+            view_artifacts
+                .descriptor_layout_json
+                .contains("\"binding_kind\": \"raw_buffer_view\""),
+            "View/ViewMut 资源应 binding_kind=raw_buffer_view: {}",
+            view_artifacts.descriptor_layout_json
+        );
+        assert!(
+            view_artifacts
+                .descriptor_layout_json
+                .contains("\"class\": \"t\"")
+                && view_artifacts
+                    .descriptor_layout_json
+                    .contains("\"class\": \"u\""),
+            "View/ViewMut 资源应同时含 class=t 和 class=u: {}",
+            view_artifacts.descriptor_layout_json
+        );
+
+        // Texture2D / RWTexture2D → texture2d / rwtexture2d。
+        let tex_src =
+            "kernel fn k(tex: Texture2D<f32>, dst: RWTexture2D<f32>) { dst[0] = tex[0]; }\n";
+        let diag2 = DiagCtxt::new();
+        let cx2 = QueryCtx::new(tex_src, SourceId(0), Edition::Rx0, &diag2);
+        cx2.check_crate();
+        cx2.check_coloring();
+        cx2.check_crate_patterns();
+        cx2.check_consteval();
+        let tex_artifacts = build_and_emit_dxil_artifacts(&cx2, "k")
+            .expect("Texture2D/RWTexture2D kernel 应产 artifact");
+        assert!(
+            tex_artifacts
+                .descriptor_layout_json
+                .contains("\"binding_kind\": \"texture2d\""),
+            "Texture2D 资源应 binding_kind=texture2d: {}",
+            tex_artifacts.descriptor_layout_json
+        );
+        assert!(
+            tex_artifacts
+                .descriptor_layout_json
+                .contains("\"binding_kind\": \"rwtexture2d\""),
+            "RWTexture2D 资源应 binding_kind=rwtexture2d: {}",
+            tex_artifacts.descriptor_layout_json
+        );
+        // 不应再含 raw_buffer_view(纯 texture kernel)。
+        assert!(
+            !tex_artifacts
+                .descriptor_layout_json
+                .contains("\"binding_kind\": \"raw_buffer_view\""),
+            "纯 texture kernel 不应含 raw_buffer_view: {}",
+            tex_artifacts.descriptor_layout_json
+        );
+    }
+
+    /// scalar root constants 进入 artifact layout,保留 name/type/order/offset/size。
+    //@ spec: RXS-0157
+    #[test]
+    fn kernel_with_scalar_root_constants_emits_layout_artifacts() {
+        let src = "kernel fn k(src: View<global, f32>, out: ViewMut<global, f32>, w: usize, gain: f32, t: ThreadCtx<1>) {\n    out[0] = src[0] * gain;\n}\n";
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(src, SourceId(0), Edition::Rx0, &diag);
+        cx.check_crate();
+        cx.check_coloring();
+        cx.check_crate_patterns();
+        cx.check_consteval();
+        let ir =
+            build_and_emit_dxil(&cx, "k").expect("含 scalar root constant 应仍产 IR-only evidence");
+        // root constants → cbuffer b0:布局类型 + 句柄 + getpointer 读取
+        // (w:i64@byte0,gain:f32@byte8 = 密排 dword×4)。
+        assert!(ir.contains("%__cblayout_k = type <{ i64, float }>"), "{ir}");
+        assert!(
+            ir.contains("%rx_cb = call target(\"dx.CBuffer\", %__cblayout_k) @llvm.dx.resource.handlefrombinding(i32 0, i32 0, i32 1, i32 0, ptr null)"),
+            "{ir}"
+        );
+        assert!(
+            ir.contains(
+                "@llvm.dx.resource.getpointer(target(\"dx.CBuffer\", %__cblayout_k) %rx_cb, i32 8)"
+            ),
+            "{ir}"
+        );
+        assert!(ir.contains("target triple = \"dxil-unknown-shadermodel6.0-compute\""));
+
+        let artifacts = build_and_emit_dxil_artifacts(&cx, "k")
+            .expect("应产出 scalar root constants artifact layout");
+        assert!(!artifacts.root_signature.is_empty());
+        for needle in [
+            "\"root_constants\": 2",
+            "\"name\": \"w\"",
+            "\"type\": \"i64\"",
+            "\"order\": 0",
+            "\"dword_offset\": 0",
+            "\"dword_size\": 2",
+            "\"name\": \"gain\"",
+            "\"type\": \"f32\"",
+            "\"order\": 1",
+            "\"dword_offset\": 2",
+            "\"dword_size\": 1",
+            "\"root_signature_parameters\": 2",
+        ] {
+            assert!(
+                artifacts.descriptor_layout_json.contains(needle),
+                "descriptor layout 缺 scalar root constant layout 证据 {needle}: {}",
+                artifacts.descriptor_layout_json
+            );
+        }
+        let codes: Vec<u16> = diag
+            .emitted()
+            .iter()
+            .filter_map(|d| d.code.map(|c| c.0))
+            .collect();
+        assert!(
+            codes.is_empty(),
+            "scalar root constants layout 不应发诊断,实得 {codes:?}"
+        );
+    }
+
+    /// strict-only:scalar root constants 超 64 DWORD 仍 fail closed。
+    //@ spec: RXS-0157
+    #[test]
+    fn kernel_with_too_many_scalar_root_constants_is_rx6007() {
+        let mut src = String::from("kernel fn k(out: ViewMut<global, f32>");
+        for i in 0..33 {
+            let _ = write!(src, ", p{i}: usize");
+        }
+        src.push_str(") {}\n");
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(&src, SourceId(0), Edition::Rx0, &diag);
+        cx.check_crate();
+        cx.check_coloring();
+        cx.check_crate_patterns();
+        cx.check_consteval();
+        let artifacts = build_and_emit_dxil_artifacts(&cx, "k");
+        assert!(
+            artifacts.is_none(),
+            "超 64 DWORD root constants 必须 fail closed"
+        );
+        let codes: Vec<u16> = diag
+            .emitted()
+            .iter()
+            .filter_map(|d| d.code.map(|c| c.0))
+            .collect();
+        assert!(codes.contains(&6007), "应发 RX6007,实得 {codes:?}");
     }
 
     /// strict-only:未知 compute 形参类型仍拒绝,不 silent fallback。
@@ -2654,7 +3770,9 @@ mod tests {
         let ir = build_and_emit_dxil(&cx, "k").expect("应产出 DXIL IR");
         let br_pos = ir.find("br i1 ").expect("应含条件分支 br i1");
         let then_pos = ir.find("if.then.0:").expect("应含 if.then.0 label");
-        let store_pos = ir.find("store float").expect("then 块应含 store");
+        let store_pos = ir
+            .find("@llvm.dx.resource.store.rawbuffer")
+            .expect("then 块应含资源 store");
         let end_pos = ir.find("if.end.0:").expect("应含 if.end.0 label");
         assert!(
             br_pos < then_pos && then_pos < store_pos && store_pos < end_pos,
@@ -3597,5 +4715,91 @@ mod tests {
             StageLinkOutcome::NoPair,
             "无图形阶段(compute)应 NoPair(零漂移)"
         );
+    }
+
+    /// `json_escape` 边界与等价性:空串、纯 ASCII、5 个转义字符、UTF-8 多字节、
+    /// 头尾转义、连续转义、超长输入。回归边界确保字节级批量复制不损坏 UTF-8。
+    #[test]
+    fn json_escape_empty_yields_empty() {
+        assert_eq!(json_escape(""), "");
+    }
+
+    #[test]
+    fn json_escape_plain_ascii_unchanged() {
+        assert_eq!(json_escape("hello world 123"), "hello world 123");
+    }
+
+    #[test]
+    fn json_escape_escapes_all_five_special_chars() {
+        assert_eq!(json_escape("\""), "\\\"");
+        assert_eq!(json_escape("\\"), "\\\\");
+        assert_eq!(json_escape("\n"), "\\n");
+        assert_eq!(json_escape("\r"), "\\r");
+        assert_eq!(json_escape("\t"), "\\t");
+    }
+
+    #[test]
+    fn json_escape_preserves_non_escape_control_bytes() {
+        // 0x01..0x08、0x0b、0x0c、0x0e..0x1f 不在 JSON 必需转义集合内,
+        // 当前实现原样输出(与原 chars() 版本行为一致)。
+        let s = "\u{0001}\u{0008}\u{000b}\u{000c}\u{001f}";
+        assert_eq!(json_escape(s), s);
+    }
+
+    #[test]
+    fn json_escape_mixed_special_and_plain() {
+        let input = "a\"b\\c\nd\re\tf";
+        let expected = "a\\\"b\\\\c\\nd\\re\\tf";
+        assert_eq!(json_escape(input), expected);
+    }
+
+    #[test]
+    fn json_escape_escape_at_head_and_tail() {
+        assert_eq!(json_escape("\"abc"), "\\\"abc");
+        assert_eq!(json_escape("abc\""), "abc\\\"");
+        assert_eq!(json_escape("\""), "\\\"");
+    }
+
+    #[test]
+    fn json_escape_consecutive_escapes() {
+        assert_eq!(json_escape("\"\"\""), "\\\"\\\"\\\"");
+        assert_eq!(json_escape("\n\n"), "\\n\\n");
+    }
+
+    #[test]
+    fn json_escape_preserves_utf8_multibyte() {
+        // 中文 + emoji + 带转义字符混合:验证字节级批量复制不切断多字节序列。
+        let input = "你好\"world\\🎉\n";
+        let expected = "你好\\\"world\\\\🎉\\n";
+        assert_eq!(json_escape(input), expected);
+    }
+
+    #[test]
+    fn json_escape_long_string_linear() {
+        // 1 KiB 普通字符 + 间隔转义:验证批量复制路径与上界容量分配。
+        let mut input = String::with_capacity(1024);
+        for i in 0..64 {
+            input.push_str(&format!("seg{:03}_", i));
+            if i % 8 == 0 {
+                input.push('"');
+            }
+        }
+        let out = json_escape(&input);
+        // 每个 `"` → `\"`,数量等于 i%8==0 的 i(0,8,...,56)→ 8 个。
+        let quote_count = (0..64).filter(|i| i % 8 == 0).count();
+        assert_eq!(
+            out.matches("\\\"").count(),
+            quote_count,
+            "转义引号计数应匹配"
+        );
+        // 未转义部分应能复原(去掉 `\"` 中的反斜杠)。
+        assert_eq!(out.replace("\\\"", "\""), input);
+    }
+
+    #[test]
+    fn json_escape_only_escape_chars() {
+        let s = "\"\\\n\r\t\"\\\n\r\t";
+        let expected = "\\\"\\\\\\n\\r\\t\\\"\\\\\\n\\r\\t";
+        assert_eq!(json_escape(s), expected);
     }
 }

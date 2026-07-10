@@ -1,0 +1,6 @@
+//@ spec: RXS-0157
+//@ expect-error: RX2001
+kernel fn f32_resource_index(src: View<global, f32>, dst: ViewMut<global, f32>) {
+    let i = 1.0;
+    dst[0] = src[i];
+}

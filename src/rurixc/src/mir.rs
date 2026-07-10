@@ -146,8 +146,12 @@ pub enum ResourceClass {
 /// 描述符编码 / 缓存 / LOD)属 🔒 禁区,在本层结构上不可达、不建模。
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum MirResourceType {
-    /// `Texture2D<F>`(F = 已建模标量分量类型)→ SRV。
+    /// `Texture2D<F>`(F = 已建模标量分量类型)→ SRV。现兼 graphics 阶段 SRV
+    /// 与 compute kernel SRV 路径(GRX-009 runtime-mappable luminance kernel artifact)。
     Texture2D(PrimTy),
+    /// `RWTexture2D<F>`(F = scalar element type)→ UAV(GRX-009 compute-kernel UAV
+    /// 纹理 lang item;与 `Texture2D` 同源,区别在 `class()` → Uav)。
+    RWTexture2D(PrimTy),
     /// `Sampler` → Sampler(RFC-0005 §9 Q-Sampler=B dynamic sampler)。
     Sampler,
     /// constant buffer → CBV。
@@ -164,6 +168,7 @@ impl MirResourceType {
     pub fn class(&self) -> ResourceClass {
         match self {
             MirResourceType::Texture2D(_) => ResourceClass::Srv,
+            MirResourceType::RWTexture2D(_) => ResourceClass::Uav,
             MirResourceType::Sampler => ResourceClass::Sampler,
             MirResourceType::ConstantBuffer => ResourceClass::Cbv,
             MirResourceType::StructuredBuffer { read_only: true } => ResourceClass::Srv,

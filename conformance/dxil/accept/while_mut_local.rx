@@ -1,0 +1,10 @@
+//@ spec: RXS-0157
+kernel fn while_mut_local(dst: ViewMut<global, f32>) {
+    let mut i = 0;
+    let mut total = 0.0;
+    while i < 2 {
+        total = total + 1.0;
+        i = i + 1;
+    }
+    dst[0] = total;
+}

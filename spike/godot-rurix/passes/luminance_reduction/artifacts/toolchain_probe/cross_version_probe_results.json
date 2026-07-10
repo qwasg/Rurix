@@ -1,0 +1,115 @@
+{
+  "status": "complete",
+  "probe_run_at_utc": "2026-07-07T10:16:54Z",
+  "texture_cases": [
+    {
+      "case": "case_A.ll",
+      "intrinsic": "llvm.dx.resource.load.texture.2d",
+      "direction": "load",
+      "resource": "Texture2D<float>"
+    },
+    {
+      "case": "case_H.ll",
+      "intrinsic": "llvm.dx.resource.store.texture.2d",
+      "direction": "store",
+      "resource": "RWTexture2D<float>"
+    }
+  ],
+  "llc_builds": [
+    {
+      "llc_path": "H:\\llvm-dxil\\build\\bin\\llc.exe",
+      "llc_version": "LLVM version 22.1.7",
+      "texture_intrinsic_capable": false,
+      "cases": [
+        {
+          "case": "case_A.ll",
+          "intrinsic": "llvm.dx.resource.load.texture.2d",
+          "direction": "load",
+          "resource": "Texture2D<float>",
+          "expected": "REJECT",
+          "exit_code": 1,
+          "obj_produced": false,
+          "stderr_excerpt": "H:\\llvm-dxil\\build\\bin\\llc.exe: error: H:\\llvm-dxil\\build\\bin\\llc.exe: H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\toolchain_probe\\case_A.ll:24:27: error: unknown intrinsic 'llvm.dx.resource.load.texture.2d'\n  %r = call { float, i1 } @llvm.dx.resource.load.texture.2d(target(\"dx.Texture2D<float>\", 0, 0) %h, i32 0, i32 0)\n                          ^",
+          "verdict": "reject_unknown_intrinsic",
+          "texture_intrinsic_capable": false
+        },
+        {
+          "case": "case_H.ll",
+          "intrinsic": "llvm.dx.resource.store.texture.2d",
+          "direction": "store",
+          "resource": "RWTexture2D<float>",
+          "expected": "REJECT",
+          "exit_code": 1,
+          "obj_produced": false,
+          "stderr_excerpt": "H:\\llvm-dxil\\build\\bin\\llc.exe: error: H:\\llvm-dxil\\build\\bin\\llc.exe: H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\toolchain_probe\\case_H.ll:25:13: error: unknown intrinsic 'llvm.dx.resource.store.texture.2d'\n  call void @llvm.dx.resource.store.texture.2d(target(\"dx.RWTexture2D<float>\", 0, 0) %h, i32 0, i32 0, float 1.0)\n            ^",
+          "verdict": "reject_unknown_intrinsic",
+          "texture_intrinsic_capable": false
+        }
+      ]
+    },
+    {
+      "llc_path": "H:\\llvm-clean-82c5bce5-build\\bin\\llc.exe",
+      "llc_version": "LLVM version 23.0.0git",
+      "texture_intrinsic_capable": false,
+      "cases": [
+        {
+          "case": "case_A.ll",
+          "intrinsic": "llvm.dx.resource.load.texture.2d",
+          "direction": "load",
+          "resource": "Texture2D<float>",
+          "expected": "REJECT",
+          "exit_code": 1,
+          "obj_produced": false,
+          "stderr_excerpt": "H:\\llvm-clean-82c5bce5-build\\bin\\llc.exe: error: H:\\llvm-clean-82c5bce5-build\\bin\\llc.exe: H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\toolchain_probe\\case_A.ll:24:27: error: unknown intrinsic 'llvm.dx.resource.load.texture.2d'\n  %r = call { float, i1 } @llvm.dx.resource.load.texture.2d(target(\"dx.Texture2D<float>\", 0, 0) %h, i32 0, i32 0)\n                          ^",
+          "verdict": "reject_unknown_intrinsic",
+          "texture_intrinsic_capable": false
+        },
+        {
+          "case": "case_H.ll",
+          "intrinsic": "llvm.dx.resource.store.texture.2d",
+          "direction": "store",
+          "resource": "RWTexture2D<float>",
+          "expected": "REJECT",
+          "exit_code": 1,
+          "obj_produced": false,
+          "stderr_excerpt": "H:\\llvm-clean-82c5bce5-build\\bin\\llc.exe: error: H:\\llvm-clean-82c5bce5-build\\bin\\llc.exe: H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\toolchain_probe\\case_H.ll:25:13: error: unknown intrinsic 'llvm.dx.resource.store.texture.2d'\n  call void @llvm.dx.resource.store.texture.2d(target(\"dx.RWTexture2D<float>\", 0, 0) %h, i32 0, i32 0, float 1.0)\n            ^",
+          "verdict": "reject_unknown_intrinsic",
+          "texture_intrinsic_capable": false
+        }
+      ]
+    },
+    {
+      "llc_path": "H:\\llvm-upstream-test\\build\\bin\\llc.exe",
+      "llc_version": "LLVM version 23.0.0git",
+      "texture_intrinsic_capable": false,
+      "cases": [
+        {
+          "case": "case_A.ll",
+          "intrinsic": "llvm.dx.resource.load.texture.2d",
+          "direction": "load",
+          "resource": "Texture2D<float>",
+          "expected": "REJECT",
+          "exit_code": 1,
+          "obj_produced": false,
+          "stderr_excerpt": "H:\\llvm-upstream-test\\build\\bin\\llc.exe: error: H:\\llvm-upstream-test\\build\\bin\\llc.exe: H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\toolchain_probe\\case_A.ll:24:27: error: unknown intrinsic 'llvm.dx.resource.load.texture.2d'\n  %r = call { float, i1 } @llvm.dx.resource.load.texture.2d(target(\"dx.Texture2D<float>\", 0, 0) %h, i32 0, i32 0)\n                          ^",
+          "verdict": "reject_unknown_intrinsic",
+          "texture_intrinsic_capable": false
+        },
+        {
+          "case": "case_H.ll",
+          "intrinsic": "llvm.dx.resource.store.texture.2d",
+          "direction": "store",
+          "resource": "RWTexture2D<float>",
+          "expected": "REJECT",
+          "exit_code": 1,
+          "obj_produced": false,
+          "stderr_excerpt": "H:\\llvm-upstream-test\\build\\bin\\llc.exe: error: H:\\llvm-upstream-test\\build\\bin\\llc.exe: H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\toolchain_probe\\case_H.ll:25:13: error: unknown intrinsic 'llvm.dx.resource.store.texture.2d'\n  call void @llvm.dx.resource.store.texture.2d(target(\"dx.RWTexture2D<float>\", 0, 0) %h, i32 0, i32 0, float 1.0)\n            ^",
+          "verdict": "reject_unknown_intrinsic",
+          "texture_intrinsic_capable": false
+        }
+      ]
+    }
+  ],
+  "any_texture_intrinsic_capable": false,
+  "conclusion": "No texture-intrinsic-capable llc found. Every surveyed llc rejects llvm.dx.resource.load.texture.2d / llvm.dx.resource.store.texture.2d by name (or fails to emit an object), across the patched LLVM 22.1.7 DirectX build and the bleeding-edge 23.0.0git upstream build. The texture-intrinsic gap is an upstream DirectX-backend limitation, not a patched-build regression. Segment 4i stays fail-closed: offline_compile_evidence.json remains compile_failed / runtime_mappable=false and the bridge tracked package stays raw_buffer_view."
+}

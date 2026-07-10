@@ -31,6 +31,10 @@ dxil-backend = []
 name = "emit_binding_rts0"
 required-features = ["dxil-backend"]
 
+[[example]]
+name = "emit_grx009_texture_rts0"
+required-features = ["dxil-backend"]
+
 # G2.4 UC-04 device 真跑支撑工具(非生产 codegen):把 UC-04 几何 pass Rurix 着色源经
 # 图形=B DXIL 链落盘 DXIL 容器字节供 D3D12 graphics PSO 真机创建(ci/dxil_uc04_device_smoke.py)。
 # 须 dxil-backend + shader-stages + pin B 工具(spirv-cross / dxc)。

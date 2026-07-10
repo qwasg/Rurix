@@ -1,0 +1,4 @@
+//@ spec: RXS-0157
+// GRX-009:Texture2D<f32> compute 入口形参(SRV)进入 descriptor layout 推导。
+// 空 body 仍只发射最小 void 入口;真实 body lowering 由 rwtexture_param 正例覆盖。
+kernel fn k(tex: Texture2D<f32>) {}

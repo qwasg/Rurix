@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "pass_id": "luminance_reduction",
+  "segment": "4k_dxc_texture_artifact_bridge_design",
+  "status": "design_ready",
+  "design_ready": true,
+  "runtime_mappable": false,
+  "real_gpu_pass": false,
+  "canonical_artifact_replaced": false,
+  "offline_compile_status_changed": false,
+  "source_feasibility_evidence": "spike/godot-rurix/passes/luminance_reduction/texture_dxc_feasibility_evidence.json",
+  "contract_document": "spike/godot-rurix/passes/luminance_reduction/dxc_texture_artifact_bridge.md",
+  "required_contract_sections": [
+    "root_signature_strategy",
+    "descriptor_layout_synthesis",
+    "binding_kind_mapping",
+    "dxil_validation_metadata",
+    "rurix_provenance",
+    "canonical_switch_conditions",
+    "fail_closed_conditions"
+  ],
+  "next_action_if_design_ready": "implement_grx009_dxc_texture_artifact_bridge_scaffold",
+  "does_not_imply": [
+    "offline_compile_success",
+    "runtime_mappable=true",
+    "real_gpu_pass=true",
+    "canonical artifact replacement",
+    "visual success",
+    "performance claim"
+  ]
+}

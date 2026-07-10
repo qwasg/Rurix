@@ -1,0 +1,167 @@
+{
+  "pass_id": "tonemap",
+  "status": "segment_a_contract_offline_kernel_bridge_gate_default_disabled",
+  "implemented": false,
+  "default_enable_state": "disabled",
+  "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
+  "target_scenes": [
+    "post_fx_chain",
+    "mixed_forward_plus"
+  ],
+  "bridge_pass_id": "RXGD_PASS_TONEMAP (5)",
+  "godot_hook_investigation": {
+    "note": "Investigation only; external/godot-master is NOT modified. Paths and functions are recorded for the patch 0011 call-site gate and later native-handle mapping.",
+    "effect_class": {
+      "header": "servers/rendering/renderer_rd/effects/tone_mapper.h",
+      "source": "servers/rendering/renderer_rd/effects/tone_mapper.cpp",
+      "functions": [
+        "RendererRD::ToneMapper::tonemapper",
+        "RendererRD::ToneMapper::tonemapper_mobile",
+        "RendererRD::ToneMapper::tonemapper_subpass"
+      ],
+      "native_pass_shape": "raster fullscreen fragment pass (writes p_dst_framebuffer), NOT a compute dispatch"
+    },
+    "shaders": [
+      "servers/rendering/renderer_rd/shaders/effects/tonemap.glsl",
+      "servers/rendering/renderer_rd/shaders/effects/tonemap_mobile.glsl"
+    ],
+    "call_sites": [
+      {
+        "file": "servers/rendering/renderer_rd/renderer_scene_render_rd.cpp",
+        "function": "_render_buffers_post_process_and_tonemap",
+        "region": "Tonemap",
+        "lines": [
+          690,
+          826
+        ],
+        "note": "can_use_storage leg: tone_mapper->tonemapper(color_texture, dest_fb, tonemap); patch 0011 gates this call. The tonemapper_mobile leg (L828) is not wired."
+      }
+    ],
+    "source_resource": "color_texture = use_upscaled_texture ? rb->get_upscaled_texture() : rb->get_internal_texture() (renderer_scene_render_rd.cpp L492)",
+    "dest_resource": "dest_fb render-target framebuffer (or intermediate Tonemapper/destination texture when a spatial upscaler / SMAA follows)"
+  },
+  "resource_mapping": "spike/godot-rurix/passes/tonemap/resource_mapping.md",
+  "descriptor_mapping": {
+    "root_cbuffer_binding": "b0 space0",
+    "root_constants": [
+      "source_width",
+      "source_height",
+      "exposure",
+      "white",
+      "luminance_multiplier"
+    ],
+    "root_constant_bytes": 28,
+    "root_constant_dwords": 7,
+    "resources": [
+      {
+        "name": "src_color",
+        "binding": "t0 space0",
+        "kind": "SRV",
+        "binding_kind": "texture2d"
+      },
+      {
+        "name": "dst_color",
+        "binding": "u0 space0",
+        "kind": "UAV",
+        "binding_kind": "rwtexture2d"
+      }
+    ],
+    "dst_shape": "dst extent == src extent (1:1 full-resolution tonemap; contrast with GRX-009's max(source / 8, 1) reduce shape)",
+    "requires_64bit_integer_shader_capability": true,
+    "on_missing_resource_or_cap_or_descriptor_mismatch": "RXGD_STATUS_FALLBACK"
+  },
+  "supported_math_subset": {
+    "tonemapper": "TONEMAPPER_LINEAR (Godot default ENV_TONE_MAPPER_LINEAR)",
+    "output": "SDR convert_to_srgb=true leg (linear_to_srgb)",
+    "scalars": [
+      "luminance_multiplier",
+      "exposure"
+    ],
+    "alpha": "passthrough",
+    "white": "carried in b0 for TonemapPushConstant shape parity; unused by LINEAR"
+  },
+  "known_gaps": [
+    "TONEMAPPER_LINEAR only; Reinhard/Filmic/ACES/AgX tonemappers unsupported",
+    "no auto exposure (source_auto_exposure texture leg unmapped)",
+    "no glow (pre/post/softlight/bicubic), no glow map",
+    "no FXAA, no BCS, no color correction (1D/3D LUT), no debanding",
+    "no multiview",
+    "SDR convert_to_srgb=true leg only; HDR output (convert_to_srgb=false) unsupported",
+    "sRGB output is not clamped to [0,1] (native path relies on framebuffer quantization)",
+    "raster-vs-compute output seam: Godot writes the LDR result via a fullscreen fragment pass; this kernel writes a full-res UAV",
+    "GPU-side math parity observation pending a real dispatch (math_parity_evidence.json)"
+  ],
+  "fallback": {
+    "reasons": [
+      "compile_failed",
+      "validation_failed",
+      "unsupported_device",
+      "visual_diff_failed",
+      "manual_disabled"
+    ],
+    "on_any_failure": "godot_native_tonemap"
+  },
+  "offline_compile_status": "success",
+  "offline_compile_provenance": "hlsl_bridge_workaround",
+  "offline_compile_runtime_mappable": true,
+  "offline_compile_evidence": "spike/godot-rurix/passes/tonemap/offline_compile_evidence.json",
+  "offline_compile_artifacts": {
+    "dxil": "spike/godot-rurix/passes/tonemap/artifacts/tonemap.dxil",
+    "root_signature": "spike/godot-rurix/passes/tonemap/artifacts/tonemap.rts0.bin",
+    "descriptor_layout": "spike/godot-rurix/passes/tonemap/artifacts/tonemap_descriptor_layout.json"
+  },
+  "math_parity_evidence": "spike/godot-rurix/passes/tonemap/math_parity_evidence.json",
+  "math_parity_status": "linear_srgb_cpu_reference_proven_pending_gpu_dispatch",
+  "compile_blockers": [
+    {
+      "category": "provenance_workaround_active",
+      "summary": "the canonical tonemap package is the owner-approved hlsl_bridge_workaround artifact (DXC cs_6_0 container validated by dxv, per-slot texture2d/rwtexture2d binding kinds, Rurix-owned RTS0; GRX-009 texture_artifact_provenance_policy.json applies to every texture compute pass); a rurixc-owned tonemap compile still requires a patched llc that supports texture intrinsics plus float4 texture element support in the Rurix Texture2D<F>/RWTexture2D<F> lang items"
+    }
+  ],
+  "implementation_status": {
+    "segment": "a",
+    "segment_detail": "contract_offline_kernel_bridge_gate_patch_0011_standalone_dispatch_smoke",
+    "runtime_state": "fallback_only",
+    "runtime_state_note": "The bridge TonemapGate is fail-closed: rxgd_record_pass returns RXGD_STATUS_FALLBACK for RXGD_PASS_TONEMAP on the default path (no RXGD_CAP_TONEMAP_REAL_PASS opt-in), and the shipping feature-off bridge fails closed with real_dispatch_path_not_linked even when every software gate passes. The previous placeholder estimated-timing path for RXGD_PASS_TONEMAP was removed; no estimated tonemap GPU time is attributed any more.",
+    "bridge_gate": "src/rurix-godot TonemapGate: preflight (int64 cap, 2 texture resources, 28-byte b0, dims match, 1:1 dst shape) -> dispatch eligibility (RXGD_CAP_TONEMAP_REAL_PASS opt-in, non-null native handles, TonemapDispatchPackage layout/digest match vs offline evidence) -> per-slot kernel-binding-kind conformance ([texture2d, rwtexture2d]) -> math-parity gate (linear_srgb_cpu_reference_proven_pending_gpu_dispatch) -> real dispatch only under the d3d12-recording-shim feature; every failure records a fallback reason and prints the once-per-session RXGD_TONEMAP_REAL_PASS_BLOCKED diagnostic",
+    "godot_module_patch": "spike/godot-rurix/patches/0011-rurix-accel-tonemap-pass-gate-and-callsite.patch (stacked on 0001..0010; default-false rendering/rurix_accel/passes/tonemap/enabled setting, try_record_tonemap() module gate, default-false virtual D3D12Hooks::try_record_tonemap(), and the Tonemap call-site opt-in gate in renderer_scene_render_rd.cpp; the native tonemapper path is always preserved as fallback)",
+    "godot_core_call_site_wired": true,
+    "wired_call_sites": [
+      {
+        "file": "servers/rendering/renderer_rd/renderer_scene_render_rd.cpp",
+        "region": "Tonemap",
+        "note": "opt-in gate calls D3D12Hooks::try_record_tonemap() before the native tone_mapper->tonemapper(...) on the can_use_storage leg (patch 0011; applyability verified via git apply --check on a scratch copy)"
+      }
+    ],
+    "real_gpu_pass": false,
+    "real_d3d12_dispatch_recorded": false,
+    "godot_runtime_tonemap_path_enabled": false,
+    "standalone_d3d12_dispatch_smoke": {
+      "harness": "ci/grx010_tonemap_d3d12_dispatch_smoke.py",
+      "evidence": "spike/godot-rurix/passes/tonemap/real_d3d12_dispatch_smoke.json",
+      "run_command": "$env:RURIX_DXC_DIR='H:\\dxc-round7\\extracted\\bin\\x64'; py -3 ci\\grx010_tonemap_d3d12_dispatch_smoke.py",
+      "purpose": "Prove the tracked offline tonemap DXIL container + RTS0 root signature + descriptor layout can complete one minimal compute dispatch on a real D3D12 device/command queue AND that the measured GPU texel matches the CPU reference (linear_to_srgb(src * luminance_multiplier * exposure)) within tolerance. Standalone measured evidence only; the bridge records no dispatch and returns no OK.",
+      "does_not_imply": [
+        "Godot runtime tonemap pass completion",
+        "bridge rxgd_record_pass returning RXGD_STATUS_OK",
+        "real_gpu_pass = true",
+        "real_d3d12_dispatch_recorded = true",
+        "any visual diff, measured fallback telemetry, or performance claim"
+      ]
+    },
+    "remaining_segments": [
+      "Godot runtime resource binding wiring (0005/0007-level: hook parameters + native ID3D12Resource* mapping)",
+      "Godot runtime bridge dispatch recording smoke (4f-level; needs a full patch-stack scratch rebuild)",
+      "in-engine real visual diff + measured fallback telemetry gate (4g-level)",
+      "gated real-pass enablement gate with measured success (4h-level)",
+      "additional tonemapper modes / auto exposure / glow / FXAA / BCS / color correction / debanding / HDR output",
+      "raster-vs-compute output seam design",
+      "per-pass FPS baseline comparison (contract requires >= 0.95x baseline before any default-enable discussion)"
+    ]
+  },
+  "evidence_requirements": {
+    "visual": "in-engine LDR absolute diff (GRX-009 segment 4g template) in a later slice; this slice's measured ceiling is the standalone dispatch smoke + CPU parity",
+    "perf": "reuse GRX-006 baseline/perf gate; no perf improvement claimed"
+  },
+  "disclaimer": "GRX-010 segment A delivers the tonemap pass contract, the DXC/DXV/RTS0 offline kernel package (hlsl_bridge_workaround provenance, runtime-mappable per the owner-approved GRX-009 texture artifact provenance policy), the fail-closed bridge TonemapGate (default RXGD_STATUS_FALLBACK; opt-in RXGD_CAP_TONEMAP_REAL_PASS arm fails closed with real_dispatch_path_not_linked on the shipping feature-off bridge), Godot patch 0011 (per-pass setting default false + call-site opt-in gate; native tonemap path always preserved), and the standalone real D3D12 dispatch smoke. It does NOT enable the pass by default, does NOT complete a Godot runtime tonemap pass, records no bridge dispatch on the default path, and makes no visual, GPU-timestamp, FPS, or performance claim."
+}

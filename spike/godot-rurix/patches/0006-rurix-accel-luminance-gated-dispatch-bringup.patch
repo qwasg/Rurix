@@ -1,0 +1,83 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Sat, 4 Jul 2026 18:30:00 +0800
+Subject: [PATCH] Wire GRX-009 luminance gated dispatch bring-up opt-in
+
+Stacked on 0001-rurix-accel-module-scaffold.patch,
+0002-rurix-accel-luminance-pass-gate.patch,
+0003-rurix-accel-luminance-core-callsite-wiring.patch,
+0004-rurix-accel-luminance-resource-mapping-scaffold.patch, and
+0005-rurix-accel-luminance-runtime-binding-preflight.patch. This segment 4b
+patch is gated dispatch bring-up wiring only. It keeps the pass default
+disabled and fallback-first: the native Godot luminance path stays active and
+the bridge still returns RXGD_STATUS_FALLBACK for RXGD_PASS_LUMINANCE_REDUCTION.
+
+- A new per-pass opt-in setting
+  rendering/rurix_accel/passes/luminance_reduction/dispatch_bringup defaults to
+  false. It is separate from the existing .../enabled setting so the gated
+  dispatch bring-up path must be explicitly opted into.
+- rurix_accel.h declares the reserved capability flag
+  RXGD_CAP_LUMINANCE_DISPATCH_BRINGUP (1u << 1) carried in RxGdCaps.flags. This
+  reuses the existing flags field: the C ABI struct layout and RXGD_ABI_VERSION
+  are unchanged.
+- try_create_session() sets RXGD_CAP_LUMINANCE_DISPATCH_BRINGUP in caps.flags
+  only when the dispatch_bringup opt-in setting is enabled. The bridge treats
+  this flag as the Godot opt-in for its dispatch eligibility gate.
+
+Even when the opt-in is enabled, this is not a real GPU pass: the bridge
+dispatch bring-up gate stays closed (no linked runtime dispatch kernel and no
+measured local D3D12 dispatch evidence), so rxgd_record_pass still never
+returns OK for RXGD_PASS_LUMINANCE_REDUCTION, no D3D12 dispatch is recorded,
+the native Godot luminance path stays active, and no visual diff, measured
+telemetry, or performance claim is made.
+---
+diff --git a/modules/rurix_accel/register_types.cpp b/modules/rurix_accel/register_types.cpp
+index 1a2b3c4..2b3c4d5 100644
+--- a/modules/rurix_accel/register_types.cpp
++++ b/modules/rurix_accel/register_types.cpp
+@@ -17,7 +17,11 @@ void initialize_rurix_accel_module(ModuleInitializationLevel p_level) {
+ 	// GRX-009: per-pass opt-in gate; the luminance_reduction pass stays on the
+ 	// native Godot path unless this is explicitly enabled AND the bridge
+ 	// actually records the pass.
+ 	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/luminance_reduction/enabled", false);
++	// GRX-009 segment 4b: gated dispatch bring-up opt-in. Defaults to false so
++	// the native Godot luminance path stays active; even when enabled the bridge
++	// still falls back because no real D3D12 dispatch executes yet.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/luminance_reduction/dispatch_bringup", false);
+ 
+ #if defined(D3D12_ENABLED)
+ 	if (GLOBAL_GET("rendering/rurix_accel/enabled")) {
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index 4c1bc91..5d2cd02 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -13,5 +13,9 @@
+ #define RXGD_RENDER_METHOD_FORWARD_PLUS 1u
+ #define RXGD_RESOURCE_TEXTURE 1u
+ #define RXGD_PASS_LUMINANCE_REDUCTION 4u
++// GRX-009 segment 4b reserved capability flag carried in RxGdCaps.flags
++// (ABI v1, no struct layout change). Set only when the Godot dispatch
++// bring-up opt-in setting is enabled.
++#define RXGD_CAP_LUMINANCE_DISPATCH_BRINGUP 2u
+ 
+ typedef struct RxGdCaps {
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index 9b693ac..a1b2c3d 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -183,6 +183,13 @@ void RurixAccelD3D12Hooks::try_create_session() {
+ 	caps.struct_size = sizeof(RxGdCaps);
+ 	caps.backend = RXGD_BACKEND_D3D12;
+ 	caps.render_method = RXGD_RENDER_METHOD_FORWARD_PLUS;
++	// GRX-009 segment 4b: advertise the reserved gated dispatch bring-up opt-in
++	// flag only when the Godot per-pass setting is enabled. Even then the bridge
++	// still returns RXGD_STATUS_FALLBACK and no D3D12 dispatch is recorded.
++	// The flag defaults off and the native Godot luminance path stays active.
++	if (GLOBAL_GET("rendering/rurix_accel/passes/luminance_reduction/dispatch_bringup")) {
++		caps.flags |= RXGD_CAP_LUMINANCE_DISPATCH_BRINGUP;
++	}
+ 	if (adapter_luid_valid) {
+ 		memcpy(caps.adapter_luid, &adapter_luid, sizeof(adapter_luid));
+ 	}
+-- 
+2.50.0

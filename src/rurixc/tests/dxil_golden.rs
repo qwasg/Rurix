@@ -108,8 +108,9 @@ fn dxil_disasm_golden_matches_when_toolchain_present() {
         let obj = tmp.join(format!("{stem}.dxc"));
         rurixc::toolchain::llc_emit_dxil(&llc, &ir, &obj).expect("patched llc emit DXIL 失败");
         // strict-only:入 golden 前 validator 必须接受(不合规 DXIL 不得入 golden)。
+        let validation = rurixc::toolchain::dxv_validate(&dxc_dir, &obj).expect("dxv 调用失败");
         assert!(
-            rurixc::toolchain::dxv_validate(&dxc_dir, &obj).expect("dxv 调用失败"),
+            validation.success,
             "{}: DXIL 容器未通过 dxc validator(不得入 golden)",
             stem
         );
@@ -516,6 +517,22 @@ fn root_signature_summary(rs: &rurixc::binding_layout::RootSignature) -> String 
                     })
                     .collect();
                 parts.push(format!("DescriptorTable[{}]", rs.join(", ")));
+            }
+            RootParameter::RootConstants { constants } => {
+                let cs: Vec<String> = constants
+                    .iter()
+                    .map(|c| {
+                        format!(
+                            "{}:{}@{}+{}#{}",
+                            c.name,
+                            c.ty.as_str(),
+                            c.dword_offset,
+                            c.dword_size,
+                            c.order
+                        )
+                    })
+                    .collect();
+                parts.push(format!("RootConstants[{}]", cs.join(", ")));
             }
         }
     }

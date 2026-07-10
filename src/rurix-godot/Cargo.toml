@@ -11,6 +11,28 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 
+[build-dependencies]
+# GRX-009 segment 4d: build.rs only *uses* cc when the `d3d12-recording-shim`
+# feature is on (guarded by the CARGO_FEATURE_* env var); otherwise it is a
+# no-op. cc is a build-time-only helper (it links no D3D12), so the default
+# build still needs no Windows SDK / D3D12. Mirrors src/uc04-demo.
+cc = "1"
+
+[features]
+default = []
+# GRX-009 segment 4d bridge real D3D12 dispatch recording shim (Windows-only,
+# default OFF). When enabled, build.rs + cc compile shim/rxgd_luminance_record.cpp
+# and link the Windows SDK D3D12 components so `rxgd_record_pass` can record ONE
+# real luminance compute dispatch in the explicit, test-only bridge recording
+# harness (ci/grx009_luminance_bridge_recording_smoke.py). Recording only fires
+# when the caller advertises real D3D12 device/queue + resource handles, the
+# dispatch_bringup opt-in flag, the harness-only record-arm flag, the 64-bit
+# integer capability, and the tracked artifact bytes hash to the offline digests.
+# DEFAULT `cargo test -p rurix-godot` needs no Windows SDK / D3D12 link and keeps
+# the RXGD_STATUS_FALLBACK behaviour; the Godot module never sets the record-arm
+# flag, so the shipping (feature-off) bridge path is unchanged.
+d3d12-recording-shim = []
+
 [lints.rust]
 unsafe_code = "allow"
 

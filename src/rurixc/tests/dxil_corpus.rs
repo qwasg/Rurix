@@ -142,26 +142,43 @@ fn accept_corpus_emits_dxil() {
                 f.display()
             );
         }
-        // 2) 资源 global 恒 [1 x float] → 所有 inbounds GEP 只允许索引 0(无越界访问)。
-        for line in ir.lines() {
-            if line.contains("getelementptr inbounds [1 x float]") {
-                assert!(
-                    line.trim_end().ends_with("i32 0, i32 0"),
-                    "{} IR 对 [1 x float] 产生非 0 索引 inbounds GEP: {line}",
-                    f.display()
-                );
-            }
+        // 2) 资源/线程内建/root constant 一律走上游 `llvm.dx.*` intrinsic:手搓
+        //    external global(External declaration unused)与自造 intrinsic
+        //    (not a DXIL function)均过不了 dxv,不得回潮。
+        for forbidden in [
+            "getelementptr inbounds [1 x float]",
+            "external addrspace(1) global",
+            "@rx.dxil.thread_id.x",
+            "= external global",
+        ] {
+            assert!(
+                !ir.contains(forbidden),
+                "{} IR 不得再含手搓资源建模残留 {forbidden}",
+                f.display()
+            );
         }
+        // 3) `!dx.valver`:模块须声明 validator version,否则 llc 恒产的 PSV0 v3
+        //    (52 字节)与 dxv 默认期望(24 字节)容器级 mismatch。
+        assert!(
+            ir.contains("!dx.valver = !{!0}") && ir.contains("!0 = !{i32 1, i32 8}"),
+            "{} IR 缺 !dx.valver 模块元数据",
+            f.display()
+        );
         if stem == "two_stores" {
             assert_eq!(
-                ir.matches("store float").count(),
+                ir.matches("@llvm.dx.resource.store.rawbuffer").count(),
                 2,
-                "{} 应恰含 2 个 store(重复 store 同一 index)",
+                "{} 应恰含 2 个资源 store(重复 store 同一 index)",
                 f.display()
             );
         }
         if stem == "copy_arith" {
-            for needle in ["load float", "fmul float", "fadd float", "store float"] {
+            for needle in [
+                "@llvm.dx.resource.load.rawbuffer",
+                "fmul float",
+                "fadd float",
+                "@llvm.dx.resource.store.rawbuffer",
+            ] {
                 assert!(
                     ir.contains(needle),
                     "{} DXIL IR 缺 slice 1 {needle} 证据",
@@ -171,17 +188,21 @@ fn accept_corpus_emits_dxil() {
         }
         if stem == "copy_one" {
             assert!(
-                ir.contains("load float"),
+                ir.contains("@llvm.dx.resource.load.rawbuffer"),
                 "{} DXIL IR 缺 slice 1 load 证据",
                 f.display()
             );
             assert!(
-                ir.contains("store float"),
+                ir.contains("@llvm.dx.resource.store.rawbuffer"),
                 "{} DXIL IR 缺 slice 1 store 证据",
                 f.display()
             );
-            let load_pos = ir.find("load float").expect("load 已断言存在");
-            let store_pos = ir.find("store float").expect("store 已断言存在");
+            let load_pos = ir
+                .find("@llvm.dx.resource.load.rawbuffer")
+                .expect("load 已断言存在");
+            let store_pos = ir
+                .find("@llvm.dx.resource.store.rawbuffer")
+                .expect("store 已断言存在");
             let ret_pos = ir.find("ret void").expect("compute 入口应含 ret void");
             assert!(
                 load_pos < ret_pos && store_pos < ret_pos,
@@ -191,10 +212,10 @@ fn accept_corpus_emits_dxil() {
         }
         if stem == "scalar_gain" {
             for needle in [
-                "@rx_gain_root_constant",
-                "load float",
+                "@llvm.dx.resource.getpointer",
+                "load float, ptr addrspace(2)",
                 "fmul float",
-                "store float",
+                "@llvm.dx.resource.store.rawbuffer",
             ] {
                 assert!(
                     ir.contains(needle),
@@ -205,10 +226,10 @@ fn accept_corpus_emits_dxil() {
         }
         if stem == "scalar_select" {
             for needle in [
-                "@rx_width_root_constant",
+                "@llvm.dx.resource.getpointer",
                 "icmp sgt i64",
                 "select i1",
-                "store float",
+                "@llvm.dx.resource.store.rawbuffer",
             ] {
                 assert!(
                     ir.contains(needle),
@@ -230,7 +251,7 @@ fn accept_corpus_emits_dxil() {
                 "if.then.0:",
                 "br label %if.end.0",
                 "if.end.0:",
-                "store float",
+                "@llvm.dx.resource.store.rawbuffer",
             ] {
                 assert!(
                     ir.contains(needle),
@@ -240,7 +261,9 @@ fn accept_corpus_emits_dxil() {
             }
             let br_pos = ir.find("br i1 ").expect("br 已断言存在");
             let then_pos = ir.find("if.then.0:").expect("then label 已断言存在");
-            let store_pos = ir.find("store float").expect("store 已断言存在");
+            let store_pos = ir
+                .find("@llvm.dx.resource.store.rawbuffer")
+                .expect("store 已断言存在");
             let end_pos = ir.find("if.end.0:").expect("end label 已断言存在");
             assert!(
                 br_pos < then_pos && then_pos < store_pos && store_pos < end_pos,
@@ -250,13 +273,15 @@ fn accept_corpus_emits_dxil() {
         }
         if stem == "if_then_more_stores" {
             assert_eq!(
-                ir.matches("store float").count(),
+                ir.matches("@llvm.dx.resource.store.rawbuffer").count(),
                 2,
-                "{} 应恰含 2 个 store(then 块内 1 个 + if.end 之后 1 个)",
+                "{} 应恰含 2 个资源 store(then 块内 1 个 + if.end 之后 1 个)",
                 f.display()
             );
             let end_pos = ir.find("if.end.0:").expect("end label 应存在");
-            let last_store = ir.rfind("store float").expect("store 已断言存在");
+            let last_store = ir
+                .rfind("@llvm.dx.resource.store.rawbuffer")
+                .expect("store 已断言存在");
             assert!(
                 end_pos < last_store,
                 "{} 语句位 if 之后的 store 应落在 if.end.0 块内",
@@ -265,12 +290,11 @@ fn accept_corpus_emits_dxil() {
         }
         if stem == "threadctx_global_id" {
             for needle in [
-                "declare i32 @rx.dxil.thread_id.x()",
-                "call i32 @rx.dxil.thread_id.x()",
+                "call i32 @llvm.dx.thread.id(i32 0)",
                 "zext i32",
                 "icmp slt i64",
                 "select i1",
-                "store float",
+                "@llvm.dx.resource.store.rawbuffer",
             ] {
                 assert!(
                     ir.contains(needle),
@@ -279,7 +303,7 @@ fn accept_corpus_emits_dxil() {
                 );
             }
             let thread_id_pos = ir
-                .find("call i32 @rx.dxil.thread_id.x()")
+                .find("call i32 @llvm.dx.thread.id(i32 0)")
                 .expect("thread id lowering 已断言存在");
             let ret_pos = ir.find("ret void").expect("compute 入口应含 ret void");
             assert!(
@@ -287,6 +311,162 @@ fn accept_corpus_emits_dxil() {
                 "{} segment 3a ThreadCtx.global_id lowering 必须出现在 ret void 之前",
                 f.display()
             );
+        }
+        if stem == "threadctx_global_id_modulo" {
+            assert!(
+                ir.contains("srem i64"),
+                "{} DXIL IR 缺 segment 3a 整数 modulo lowering 证据 srem i64",
+                f.display()
+            );
+            let srem_pos = ir.find("srem i64").expect("srem 已断言存在");
+            let ret_pos = ir.find("ret void").expect("compute 入口应含 ret void");
+            assert!(
+                srem_pos < ret_pos,
+                "{} segment 3a 整数 modulo lowering 必须出现在 ret void 之前",
+                f.display()
+            );
+        }
+        if stem == "dynamic_load_index" {
+            for needle in [
+                "call i32 @llvm.dx.thread.id(i32 0)",
+                "zext i32",
+                "%rx_h_src = call target(\"dx.RawBuffer\", float, 0, 0) @llvm.dx.resource.handlefrombinding(i32 0, i32 0, i32 1, i32 0, ptr null)",
+                "trunc i64",
+                "@llvm.dx.resource.load.rawbuffer",
+                "@llvm.dx.resource.store.rawbuffer",
+            ] {
+                assert!(
+                    ir.contains(needle),
+                    "{} DXIL IR 缺 segment 3a dynamic load index 证据 {needle}",
+                    f.display()
+                );
+            }
+            assert!(
+                ir.lines()
+                    .any(|line| line.contains("@llvm.dx.resource.load.rawbuffer")
+                        && line.contains(", i32 %")),
+                "{} dynamic load index 必须以 i32 SSA 索引(trunc 自 i64)进 load.rawbuffer",
+                f.display()
+            );
+        }
+        if stem == "dynamic_store_index" {
+            for needle in [
+                "call i32 @llvm.dx.thread.id(i32 0)",
+                "zext i32",
+                "%rx_h_dst = call target(\"dx.RawBuffer\", float, 1, 0) @llvm.dx.resource.handlefrombinding(i32 0, i32 0, i32 1, i32 0, ptr null)",
+                "trunc i64",
+                "@llvm.dx.resource.load.rawbuffer",
+                "@llvm.dx.resource.store.rawbuffer",
+            ] {
+                assert!(
+                    ir.contains(needle),
+                    "{} DXIL IR 缺 segment 3a dynamic store index 证据 {needle}",
+                    f.display()
+                );
+            }
+            assert!(
+                ir.lines()
+                    .any(|line| line.contains("@llvm.dx.resource.store.rawbuffer")
+                        && line.contains(", i32 %")),
+                "{} dynamic store index 必须以 i32 SSA 索引(trunc 自 i64)进 store.rawbuffer",
+                f.display()
+            );
+        }
+        // GRX-009:texture-capable compute kernel 语料断言。
+        // texture_param(Texture2D<f32> SRV,空 body):布局推导 + 句柄 emit 不发诊断。
+        if stem == "texture_param" {
+            assert!(
+                ir.contains(r#"target("dx.Texture2D<float>", 0, 0)"#),
+                "{} DXIL IR 缺 Texture2D target ty",
+                f.display()
+            );
+            assert!(
+                ir.contains("@llvm.dx.resource.handlefrombinding"),
+                "{} DXIL IR 缺 handlefrombinding",
+                f.display()
+            );
+        }
+        // rwtexture_param(Texture2D<f32> SRV + RWTexture2D<f32> UAV,body lowering):
+        // 走 texture load/store intrinsic,替代 raw-buffer 路径。
+        if stem == "rwtexture_param" {
+            for needle in [
+                r#"target("dx.Texture2D<float>", 0, 0)"#,
+                r#"target("dx.RWTexture2D<float>", 0, 0)"#,
+                "@llvm.dx.resource.load.texture.2d",
+                "@llvm.dx.resource.store.texture.2d",
+            ] {
+                assert!(
+                    ir.contains(needle),
+                    "{} DXIL IR 缺 GRX-009 texture lowering 证据 {needle}",
+                    f.display()
+                );
+            }
+            assert!(
+                !ir.contains("@llvm.dx.resource.load.rawbuffer")
+                    && !ir.contains("@llvm.dx.resource.store.rawbuffer"),
+                "{} texture kernel 不应回退到 raw-buffer intrinsic",
+                f.display()
+            );
+        }
+        if stem == "while_mut_local" {
+            for needle in [
+                "while.cond.0:",
+                "while.body.0:",
+                "while.end.0:",
+                "br label %while.cond.0",
+                "alloca i64",
+                "alloca float",
+                "load i64",
+                "load float",
+                "store i64",
+                "store float",
+            ] {
+                assert!(
+                    ir.contains(needle),
+                    "{} DXIL IR 缺 segment 3a while/mutable local 证据 {needle}",
+                    f.display()
+                );
+            }
+            let cond_pos = ir.find("while.cond.0:").expect("while cond label 应存在");
+            let body_pos = ir.find("while.body.0:").expect("while body label 应存在");
+            let end_pos = ir.find("while.end.0:").expect("while end label 应存在");
+            let ret_pos = ir.find("ret void").expect("compute 入口应含 ret void");
+            let alloca_pos = ir.find("alloca i64").expect("i64 alloca 应存在");
+            assert!(
+                cond_pos < body_pos && body_pos < end_pos && end_pos < ret_pos,
+                "{} while 结构次序应为 cond < body < end < ret",
+                f.display()
+            );
+            assert!(
+                alloca_pos < cond_pos,
+                "{} mutable local alloca 必须 hoist 到 entry block,早于 while.cond.0",
+                f.display()
+            );
+        }
+        if stem == "while_nested" {
+            for needle in [
+                "while.cond.0:",
+                "while.body.0:",
+                "while.end.0:",
+                "while.cond.1:",
+                "while.body.1:",
+                "while.end.1:",
+            ] {
+                assert!(
+                    ir.contains(needle),
+                    "{} DXIL IR 缺 segment 3a nested while 证据 {needle}",
+                    f.display()
+                );
+            }
+            let ret_pos = ir.find("ret void").expect("compute 入口应含 ret void");
+            for needle in ["while.cond.0:", "while.cond.1:"] {
+                let pos = ir.find(needle).expect("nested while label 已断言存在");
+                assert!(
+                    pos < ret_pos,
+                    "{} nested while label {needle} 必须出现在 ret void 之前",
+                    f.display()
+                );
+            }
         }
     }
 }
@@ -313,6 +493,13 @@ fn reject_corpus_all_intercepted() {
             "{} 未拦截到 RX{expected}: {codes:?}",
             f.display()
         );
+        if stem == "f32_modulo" {
+            assert!(
+                codes.contains(&6007),
+                "{} f32 modulo reject 必须保持 RX6007: {codes:?}",
+                f.display()
+            );
+        }
     }
 }
 
