@@ -1,0 +1,184 @@
+{
+  "pass_id": "tonemap",
+  "segment": "offline_compile",
+  "status": "success",
+  "runtime_state": "fallback_only",
+  "attempted_at_utc": "2026-07-08T14:44:20Z",
+  "provenance": "hlsl_bridge_workaround",
+  "rurix_owned": false,
+  "rurix_owned_rts0": true,
+  "canonical_switch_exception": "owner_approved_hlsl_bridge_workaround",
+  "provenance_policy": "spike/godot-rurix/passes/luminance_reduction/texture_artifact_provenance_policy.json",
+  "math_parity_evidence": "spike/godot-rurix/passes/tonemap/math_parity_evidence.json",
+  "math_parity_status": "linear_srgb_cpu_reference_proven_pending_gpu_dispatch",
+  "inputs": {
+    "package_manifest": "spike/godot-rurix/passes/tonemap/rurix.toml",
+    "entry_file": "spike/godot-rurix/passes/tonemap/artifacts/hlsl_bridge/tonemap_apply.hlsl",
+    "rurix_math_source": "spike/godot-rurix/passes/tonemap/src/lib.rx",
+    "godot_reference_files": [
+      "external/godot-master/servers/rendering/renderer_rd/effects/tone_mapper.cpp",
+      "external/godot-master/servers/rendering/renderer_rd/shaders/effects/tonemap.glsl"
+    ]
+  },
+  "tools": {
+    "dxc": {
+      "found": true,
+      "path": "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+      "version_output": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)"
+    },
+    "dxv": {
+      "found": true,
+      "path": "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe"
+    }
+  },
+  "hlsl": {
+    "path": "spike/godot-rurix/passes/tonemap/artifacts/hlsl_bridge/tonemap_apply.hlsl",
+    "entry_point": "main",
+    "target_profile": "cs_6_0",
+    "sha256": "70e29e2862e4e1bcb5544d3905ba2e9a71d9e71da4740ef80e8e0f09414e2a48"
+  },
+  "commands": [
+    {
+      "label": "dxc_compile",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+        "-T",
+        "cs_6_0",
+        "-E",
+        "main",
+        "-Qstrip_debug",
+        "-Fo",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\tonemap\\artifacts\\hlsl_bridge\\tonemap_apply.dxil",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\tonemap\\artifacts\\hlsl_bridge\\tonemap_apply.hlsl"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/tonemap/artifacts/hlsl_bridge/dxc_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/tonemap/artifacts/hlsl_bridge/dxc_stderr.txt"
+    },
+    {
+      "label": "dxv_validate",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\tonemap\\artifacts\\hlsl_bridge\\tonemap_apply.dxil"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/tonemap/artifacts/hlsl_bridge/dxv_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/tonemap/artifacts/hlsl_bridge/dxv_stderr.txt"
+    },
+    {
+      "label": "emit_grx010_tonemap_rts0",
+      "argv": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "rurixc",
+        "--features",
+        "dxil-backend shader-stages",
+        "--example",
+        "emit_grx010_tonemap_rts0",
+        "--",
+        "spike/godot-rurix/passes/tonemap/artifacts/tonemap_descriptor_layout.json",
+        "spike/godot-rurix/passes/tonemap/artifacts/tonemap.rts0.bin"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/tonemap/artifacts/hlsl_bridge/emit_rts0_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/tonemap/artifacts/hlsl_bridge/emit_rts0_stderr.txt"
+    }
+  ],
+  "attempted_binding_kinds": [
+    "texture2d",
+    "rwtexture2d"
+  ],
+  "runtime_mappable": true,
+  "known_gaps": [
+    "TONEMAPPER_LINEAR only; Reinhard/Filmic/ACES/AgX tonemappers unsupported",
+    "no auto exposure (source_auto_exposure texture leg unmapped)",
+    "no glow (pre/post/softlight/bicubic), no glow map",
+    "no FXAA, no BCS, no color correction (1D/3D LUT), no debanding",
+    "no multiview",
+    "SDR convert_to_srgb=true leg only; HDR output (convert_to_srgb=false) unsupported",
+    "sRGB output is not clamped to [0,1] (native path relies on framebuffer quantization)",
+    "raster-vs-compute output seam: Godot writes the LDR result via a fullscreen fragment pass; this kernel writes a full-res UAV",
+    "GPU-side math parity observation pending a real dispatch (math_parity_evidence.json)"
+  ],
+  "does_not_imply": [
+    "Godot runtime tonemap pass completion",
+    "real_gpu_pass=true",
+    "real_d3d12_dispatch_recorded=true",
+    "visual success",
+    "GPU timestamp success",
+    "performance claim",
+    "default pass enablement",
+    "math parity proven (see math_parity_evidence.json)"
+  ],
+  "dxil_provenance": {
+    "produced_by": "dxc",
+    "compiler_version": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)",
+    "target_profile": "cs_6_0",
+    "entry_point": "main",
+    "hlsl_source": {
+      "path": "spike/godot-rurix/passes/tonemap/artifacts/hlsl_bridge/tonemap_apply.hlsl",
+      "sha256": "70e29e2862e4e1bcb5544d3905ba2e9a71d9e71da4740ef80e8e0f09414e2a48"
+    },
+    "validation": {
+      "tool": "dxv.exe",
+      "status": "pass",
+      "exit_code": 0
+    }
+  },
+  "root_signature_generator": {
+    "kind": "rurixc_binding_layout_example",
+    "command": [
+      "cargo",
+      "run",
+      "-q",
+      "-p",
+      "rurixc",
+      "--features",
+      "dxil-backend shader-stages",
+      "--example",
+      "emit_grx010_tonemap_rts0",
+      "--",
+      "spike/godot-rurix/passes/tonemap/artifacts/tonemap_descriptor_layout.json",
+      "spike/godot-rurix/passes/tonemap/artifacts/tonemap.rts0.bin"
+    ],
+    "source_api": "rurixc::binding_layout::{infer_root_signature, pack_root_constants, serialize_rts0}",
+    "root_constants": "28_bytes_at_root_parameter_index_0"
+  },
+  "artifacts": {
+    "dxil": {
+      "path": "spike/godot-rurix/passes/tonemap/artifacts/tonemap.dxil",
+      "exists": true,
+      "size_bytes": 4436,
+      "sha256": "4b3d60118523b746622ba3ec01f192f820b9c67b8644a71992a490a13e8aa392",
+      "artifact_kind": "dxil_container",
+      "produced_by_current_run": true,
+      "semantic_status": "lowered_compute_body"
+    },
+    "root_signature": {
+      "path": "spike/godot-rurix/passes/tonemap/artifacts/tonemap.rts0.bin",
+      "exists": true,
+      "size_bytes": 152,
+      "sha256": "f08794f9886e1ebc4c905e3006732e572ec913a75255c5b488cf4877a1391f03",
+      "artifact_kind": "rurix_owned_rts0_root_signature",
+      "produced_by_current_run": true
+    },
+    "descriptor_layout": {
+      "path": "spike/godot-rurix/passes/tonemap/artifacts/tonemap_descriptor_layout.json",
+      "exists": true,
+      "size_bytes": 2099,
+      "sha256": "1777b8b16b1e713c0ca55ce4c3e8fdc607a1e55bd15e6e7555e9fe20bc72a7ae",
+      "artifact_kind": "descriptor_layout_json",
+      "produced_by_current_run": true
+    }
+  },
+  "notes": [
+    "Runtime remains fallback_only: the real dispatch path is linked only under the d3d12-recording-shim feature and armed only by the opt-in RXGD_CAP_TONEMAP_REAL_PASS flag; the shipping feature-off bridge fails closed with real_dispatch_path_not_linked.",
+    "The canonical artifacts/ paths carry the texture-capable hlsl_bridge workaround package: a DXC cs_6_0 DXIL container (validated by dxv), the Rurix-owned RTS0 root signature serialized by rurixc::binding_layout::serialize_rts0 (28-byte root constants + SRV t0 + UAV u0), and the descriptor layout with per-slot texture2d/rwtexture2d binding kinds.",
+    "This canonical package uses the owner-approved hlsl_bridge_workaround provenance exception (GRX-009 texture_artifact_provenance_policy.json, which applies to every texture compute pass): the artifact is runtime-mappable but NOT rurix_owned; a rurixc-owned tonemap compile still requires a patched llc that supports texture intrinsics plus float4 texture element support in the Rurix lang items.",
+    "The kernel math mirrors the tonemap.glsl LINEAR + convert_to_srgb subset only; see known_gaps."
+  ],
+  "blocker_category": null,
+  "blocker_summary": null
+}

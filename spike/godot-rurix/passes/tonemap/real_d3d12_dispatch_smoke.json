@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "subject": "grx010_tonemap_real_d3d12_dispatch_smoke",
+  "pass_id": "tonemap",
+  "segment": "standalone_dispatch_smoke",
+  "runtime_state": "fallback_only",
+  "real_gpu_pass": false,
+  "artifacts": {
+    "dxil": {
+      "path": "spike/godot-rurix/passes/tonemap/artifacts/tonemap.dxil",
+      "sha256": "4b3d60118523b746622ba3ec01f192f820b9c67b8644a71992a490a13e8aa392"
+    },
+    "root_signature": {
+      "path": "spike/godot-rurix/passes/tonemap/artifacts/tonemap.rts0.bin",
+      "sha256": "f08794f9886e1ebc4c905e3006732e572ec913a75255c5b488cf4877a1391f03"
+    },
+    "descriptor_layout": {
+      "path": "spike/godot-rurix/passes/tonemap/artifacts/tonemap_descriptor_layout.json",
+      "sha256": "1777b8b16b1e713c0ca55ce4c3e8fdc607a1e55bd15e6e7555e9fe20bc72a7ae"
+    }
+  },
+  "offline_evidence": {
+    "path": "spike/godot-rurix/passes/tonemap/offline_compile_evidence.json",
+    "dxil_sha256": "4b3d60118523b746622ba3ec01f192f820b9c67b8644a71992a490a13e8aa392",
+    "root_signature_sha256": "f08794f9886e1ebc4c905e3006732e572ec913a75255c5b488cf4877a1391f03",
+    "descriptor_layout_sha256": "1777b8b16b1e713c0ca55ce4c3e8fdc607a1e55bd15e6e7555e9fe20bc72a7ae"
+  },
+  "artifact_hashes_match_offline_evidence": true,
+  "note": "GRX-010 standalone real D3D12 dispatch smoke evidence only. Even a success here keeps runtime_state=fallback_only and real_gpu_pass=false; it is not a Godot runtime pass, visual, perf, or measured-telemetry claim.",
+  "status": "success",
+  "timestamp": "2026-07-08T22:45:46+08:00",
+  "run_url": "local interactive runner",
+  "device": {
+    "adapter": "NVIDIA GeForce RTX 4070 Ti",
+    "experimental_shader_models": "off",
+    "dxil_signed_for_load": "yes",
+    "dxil_validator": "H:/dxc-round7/extracted/bin/x64/dxil.dll"
+  },
+  "dispatch": {
+    "dimensions": "1,1,1",
+    "fence_completed_value": "1",
+    "dst_shape": "8x8",
+    "dst_first_value": "0.735357",
+    "readback_checksum": "0x7af2e7c5"
+  },
+  "cpu_reference": {
+    "formula": "linear_to_srgb(src.rgb * luminance_multiplier * exposure); alpha passthrough",
+    "constants": {
+      "exposure": 0.5,
+      "white": 1.0,
+      "luminance_multiplier": 1.0,
+      "src_rgb": 1.0,
+      "src_a": 0.25
+    },
+    "expected_rgb": "0.735357",
+    "expected_a": "0.25",
+    "observed": "0.735357,0.735357,0.735357,0.25",
+    "match": "1",
+    "rgb_tolerance": 0.002
+  },
+  "checks": {
+    "artifact_hashes_match_offline_evidence": true,
+    "descriptor_layout_matches_resource_mapping": true,
+    "root_signature_create_from_rurix_rts0": true,
+    "compute_pso_from_rurix_dxil": true,
+    "srv_uav_root_constants_bound_from_layout": true,
+    "dispatch_executed": true,
+    "fence_completed": true,
+    "dst_uav_readback": true,
+    "dst_matches_cpu_reference": true
+  },
+  "stdout": "RXGD_DISPATCH: experimental_shader_models=off\nRXGD_DISPATCH: dxil_signed_for_load=yes\nRXGD_DISPATCH: adapter=\"NVIDIA GeForce RTX 4070 Ti\"\nRXGD_DISPATCH: cpu_reference expected_rgb=0.735357 expected_a=0.25 observed=0.735357,0.735357,0.735357,0.25 match=1\nRXGD_DISPATCH: ok adapter=\"NVIDIA GeForce RTX 4070 Ti\" dispatch=1,1,1 fence=1 dst=8x8 dst_first=0.735357 checksum=0x7af2e7c5"
+}

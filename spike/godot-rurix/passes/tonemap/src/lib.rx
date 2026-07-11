@@ -1,0 +1,69 @@
+// GRX-010 tonemap kernel Rurix math source (forward-looking; NOT yet
+// compilable to a runtime-mappable DXIL container).
+//
+// This mirrors the supported math subset of Godot's tonemap.glsl fragment
+// path (TONEMAPPER_LINEAR + FLAG_CONVERT_TO_SRGB, no auto exposure / glow /
+// FXAA / BCS / color correction / debanding) and is the math target the
+// DXC-compiled bridge kernel `artifacts/hlsl_bridge/tonemap_apply.hlsl`
+// must stay equivalent to.
+//
+// Toolchain blockers (why the canonical package is the hlsl_bridge
+// workaround instead of a rurixc-owned compile):
+//   1. The patched llc lacks `llvm.dx.resource.load.texture.2d` /
+//      `store.texture.2d` support (GRX-009
+//      texture_intrinsic_toolchain_blocker.json applies unchanged).
+//   2. The Rurix `Texture2D<F>` / `RWTexture2D<F>` lang items currently
+//      lower single-channel f32 element types only; tonemap needs float4
+//      (RGBA) texture elements. This kernel therefore models the RGBA
+//      texel as four consecutive f32 lanes of a linear index space, which
+//      documents the per-channel math but is NOT the final binding shape.
+//
+// Per-texel math (see PASS_CONTRACT.md §5 and resource_mapping.md):
+//   rgb = src.rgb * luminance_multiplier * exposure   // LINEAR tonemapper
+//   srgb(c) = c < 0.0031308 ? 12.92*c : 1.055*pow(c, 1/2.4) - 0.055
+//   dst.rgb = srgb(rgb); dst.a = src.a
+//
+// `white` is carried for push-constant shape parity with Godot's
+// TonemapPushConstant and is intentionally unused by the linear mode.
+
+kernel fn tonemap_apply_linear_srgb(
+    src_color: Texture2D<f32>,
+    dst_color: RWTexture2D<f32>,
+    source_width: usize,
+    source_height: usize,
+    exposure: f32,
+    white: f32,
+    luminance_multiplier: f32,
+    t: ThreadCtx<1>,
+) {
+    // One thread per RGBA channel lane: lane = texel_index * 4 + channel.
+    let lane_count = source_width * source_height * 4;
+    let lane = t.global_id();
+
+    if lane < lane_count {
+        let channel = lane % 4;
+        let value = src_color[lane];
+
+        if channel < 3 {
+            // Linear tonemapper: identity after luminance_multiplier and
+            // exposure scaling (tonemap.glsl L860 + L870 + L247-249).
+            let scaled = value * luminance_multiplier * exposure;
+
+            // linear_to_srgb (tonemap.glsl L230-233), componentwise.
+            let clamped = if scaled < 0.0 { 0.0 } else { scaled };
+            let srgb = if clamped < 0.0031308 {
+                12.92 * clamped
+            } else {
+                // pow(c, 1/2.4) modelled via exp/log lowering in the
+                // future rurixc path; kept symbolic here.
+                1.055 * powf(clamped, 1.0 / 2.4) - 0.055
+            };
+            dst_color[lane] = srgb;
+        } else {
+            // Alpha passthrough (tonemap.glsl keeps color.a unchanged).
+            dst_color[lane] = value;
+        }
+    }
+}
+
+fn main() {}

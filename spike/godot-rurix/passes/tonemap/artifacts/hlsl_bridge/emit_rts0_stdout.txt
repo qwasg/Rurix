@@ -1,0 +1,1 @@
+emit_grx010_tonemap_rts0: wrote 152 bytes to spike/godot-rurix/passes/tonemap/artifacts/tonemap.rts0.bin
