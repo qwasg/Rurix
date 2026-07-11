@@ -12,6 +12,18 @@ deterministic synthetic inputs and writes ``math_parity_evidence.json``
   clamp * exposure plus EMA): ``cur = clamp(avg, min, max)``,
   ``out = prev + (cur - prev) * exposure_adjust``.
 
+GRX-009 Wave 2 additions (append-only; the four ``cases`` above are unchanged):
+
+- ``pyramid_parity`` — the full multi-level reduce chain (spatial pyramid) for a
+  256x144 source: level 0 reduces the input pattern, each later level reduces the
+  previous level's output grid, ceil-div-8 cascade to 1x1 mirroring
+  ``LuminanceReductionGate::plan_luminance_pyramid_levels``.
+- ``ema_sequence`` — a >= 8 frame temporal EMA of the final 1x1 luminance,
+  including the first-frame ``p_set`` (prev == 0) and clamp boundaries, modeling
+  the WRITE_LUMINANCE kernel across frames.
+- ``semantics`` — records the ``one_frame_latency`` declaration, the ``p_set``
+  first-frame semantics, and where clamp applies (see ``hook_contract_v2.md``).
+
 All arithmetic is rounded to IEEE-754 binary32 after every operation so the
 expected values are bit-comparable with a D3D12 dispatch of the
 ``artifacts/hlsl_bridge/`` kernel (strict-IEEE fp; the comparison still uses
@@ -46,6 +58,17 @@ EVIDENCE_PATH = PASS_DIR / "math_parity_evidence.json"
 
 MAX_ABS_ERROR_TOLERANCE = 1e-6
 INPUT_PATTERN = "f32(((x * 31 + y * 17) % 97)) / f32(97)"
+
+# GRX-009 Wave 2 multi-level pyramid + EMA reference parameters.
+# A 256x144 source cascades ceil-div-8 as 256x144 -> 32x18 -> 4x3 -> 1x1
+# (three dispatches), mirroring plan_luminance_pyramid_levels. Kept modest so
+# the per-op-f32 CPU reference stays fast.
+PYRAMID_SOURCE = (256, 144)
+# >= 8 frames of per-frame source brightness scales chosen so the clamp bites at
+# both bounds. With the 8x8 pattern mean ~0.498, scales 2.5/3.0 exceed max=1.2
+# (max bite) and scales 0.05/0.2 fall below min=0.1 (min bite).
+EMA_SCALES = [0.2, 3.0, 1.0, 0.05, 2.5, 1.0, 0.5, 0.8]
+EMA_CONSTANTS = {"max_luminance": 1.2, "min_luminance": 0.1, "exposure_adjust": 0.4}
 
 DOES_NOT_IMPLY = [
     "Godot runtime luminance pass completion",
@@ -137,6 +160,132 @@ def final_level_cpu(
             out_row.append(f32(prev_luminance + f32(f32(cur - prev_luminance) * exposure_adjust)))
         out.append(out_row)
     return out
+
+
+def reduce_grid_cpu(src: list[list[float]]) -> list[list[float]]:
+    """8x8 tile mean of an arbitrary source grid (f32 per op). Same math as
+    reduce_level_cpu but over a provided grid instead of the input pattern, so it
+    can be chained level to level for the multi-level pyramid."""
+    source_height = len(src)
+    source_width = len(src[0])
+    dst_width = ceil_div8(source_width)
+    dst_height = ceil_div8(source_height)
+    dst = [[0.0] * dst_width for _ in range(dst_height)]
+    for y in range(dst_height):
+        for x in range(dst_width):
+            src_x = x * 8
+            src_y = y * 8
+            accum = 0.0
+            count = 0.0
+            for dy in range(8):
+                sy = src_y + dy
+                if sy < source_height:
+                    for dx in range(8):
+                        sx = src_x + dx
+                        if sx < source_width:
+                            accum = f32(accum + src[sy][sx])
+                            count = f32(count + 1.0)
+            dst[y][x] = f32(accum / count) if count > 0.0 else 0.0
+    return dst
+
+
+def source_grid(width: int, height: int, scale: float = 1.0) -> list[list[float]]:
+    """Build a source grid from the synthetic input pattern, optionally scaled
+    (per-frame brightness for the EMA sequence)."""
+    scale = f32(scale)
+    return [[f32(input_texel(x, y) * scale) for x in range(width)] for y in range(height)]
+
+
+def plan_levels(source_width: int, source_height: int) -> list[tuple[int, int, int, int, bool]]:
+    """Mirror LuminanceReductionGate::plan_luminance_pyramid_levels: ceil-div-8
+    cascade until 1x1. Returns (src_w, src_h, dst_w, dst_h, is_final) per level."""
+    levels: list[tuple[int, int, int, int, bool]] = []
+    w, h = max(source_width, 1), max(source_height, 1)
+    while True:
+        dst_width = ceil_div8(w)
+        dst_height = ceil_div8(h)
+        is_final = dst_width == 1 and dst_height == 1
+        levels.append((w, h, dst_width, dst_height, is_final))
+        if is_final:
+            break
+        w, h = dst_width, dst_height
+    return levels
+
+
+def pyramid_chain_cpu(source_width: int, source_height: int) -> list[dict[str, object]]:
+    """Full multi-level reduce chain: level 0 reduces the input pattern, each
+    later level reduces the previous level's output grid. The final level's grid
+    is the raw 1x1 reduced luminance (pre-EMA); the temporal EMA is modeled
+    separately in ema_sequence."""
+    plan = plan_levels(source_width, source_height)
+    cur = source_grid(source_width, source_height, 1.0)
+    out: list[dict[str, object]] = []
+    for i, (sw, sh, dw, dh, is_final) in enumerate(plan):
+        dst = reduce_grid_cpu(cur)
+        out.append(
+            {
+                "level_index": i,
+                "variant": "write_luminance" if is_final else "base",
+                "is_final": is_final,
+                "src_width": sw,
+                "src_height": sh,
+                "dst_width": dw,
+                "dst_height": dh,
+                "cpu_expected": {
+                    "dst_f32_le_sha256": grid_sha256(dst),
+                    "sample_texels": sample_texels(dst),
+                },
+                "gpu_observed": None,
+                "case_status": "pending",
+            }
+        )
+        cur = dst
+    return out
+
+
+def reduce_to_final_cpu(grid: list[list[float]]) -> float:
+    """Reduce a grid all the way to a single 1x1 value (chained 8x8 tile means)."""
+    reduced = grid
+    while len(reduced) > 1 or len(reduced[0]) > 1:
+        reduced = reduce_grid_cpu(reduced)
+    return reduced[0][0]
+
+
+def ema_sequence_cpu(
+    source_width: int,
+    source_height: int,
+    max_luminance: float,
+    min_luminance: float,
+    exposure_adjust: float,
+    scales: list[float],
+) -> list[dict[str, object]]:
+    """>= 8 frame temporal EMA of the final 1x1 luminance, modeling the
+    WRITE_LUMINANCE KERNEL: the first frame has prev == 0 (zero-cleared,
+    Godot's p_set) so out = cur * adjust; later frames use out = prev +
+    (cur - prev) * adjust with prev == the previous frame's output."""
+    frames: list[dict[str, object]] = []
+    prev = 0.0
+    for f, scale in enumerate(scales):
+        grid = source_grid(source_width, source_height, scale)
+        raw_avg = reduce_to_final_cpu(grid)
+        clamped = f32(min(max(raw_avg, min_luminance), max_luminance))
+        p_set = f == 0
+        prev_used = 0.0 if p_set else prev
+        current_out = f32(prev_used + f32(f32(clamped - prev_used) * exposure_adjust))
+        frames.append(
+            {
+                "frame_index": f,
+                "p_set": p_set,
+                "source_scale": f32(scale),
+                "raw_avg": raw_avg,
+                "clamped_cur": clamped,
+                "clamp_active": bool(clamped != raw_avg),
+                "prev_luminance": prev_used,
+                "current_out": current_out,
+            }
+        )
+        prev = current_out
+    return frames
 
 
 def grid_sha256(dst: list[list[float]]) -> str:
@@ -290,6 +439,80 @@ def main() -> int:
             "all_cases_within_tolerance": None,
         },
         "cases": cases,
+        "pyramid_parity": {
+            "description": (
+                "GRX-009 Wave 2 full multi-level reduce chain (spatial pyramid): "
+                "level 0 reduces the input pattern, each later level reduces the "
+                "previous level's output grid, ceil-div-8 cascade to 1x1 mirroring "
+                "LuminanceReductionGate::plan_luminance_pyramid_levels. Each level "
+                "grid is the partial-tile-correct 8x8 tile mean; the final level "
+                "grid is the raw pre-EMA 1x1 luminance (the temporal EMA is modeled "
+                "in ema_sequence). GPU side is pending a real multi-level dispatch."
+            ),
+            "source_width": PYRAMID_SOURCE[0],
+            "source_height": PYRAMID_SOURCE[1],
+            "input_pattern": INPUT_PATTERN,
+            "levels": pyramid_chain_cpu(*PYRAMID_SOURCE),
+        },
+        "ema_sequence": {
+            "description": (
+                "GRX-009 Wave 2 temporal EMA of the final 1x1 luminance over "
+                f"{len(EMA_SCALES)} frames including the first-frame p_set. Models "
+                "the WRITE_LUMINANCE kernel out = prev + (cur - prev) * "
+                "exposure_adjust with cur = clamp(avg, min, max); the first frame "
+                "uses prev == 0 (zero-cleared, Godot p_set) so out = cur * adjust. "
+                "Frame scales are chosen so the clamp bites at both bounds. GPU "
+                "side is pending a real multi-frame dispatch."
+            ),
+            "source_width": 8,
+            "source_height": 8,
+            "input_pattern_base": INPUT_PATTERN,
+            "constants": EMA_CONSTANTS,
+            "frames": ema_sequence_cpu(
+                8,
+                8,
+                EMA_CONSTANTS["max_luminance"],
+                EMA_CONSTANTS["min_luminance"],
+                EMA_CONSTANTS["exposure_adjust"],
+                EMA_SCALES,
+            ),
+        },
+        "semantics": {
+            "one_frame_latency": {
+                "declared": True,
+                "description": (
+                    "When the Godot runtime hook records these dispatches from "
+                    "within a frame, Godot has not yet submitted that frame's "
+                    "rendering to the queue, so a self-queue dispatch reading the "
+                    "internal_texture (source) reads the PREVIOUS frame's content, "
+                    "and prev is the previous frame's 1x1 luminance. The luminance "
+                    "pass uses time-domain EMA feedback, so a 1-frame delay is "
+                    "engineering-defensible; it is recorded here, not hidden. A "
+                    "later enablement smoke may fingerprint the dispatch input in "
+                    "test-only readback mode to demonstrate the ordering."
+                ),
+                "reference": "hook_contract_v2.md",
+            },
+            "p_set_first_frame": {
+                "description": (
+                    "Mirrors Godot's p_set: on the first frame there is no previous "
+                    "luminance, so no EMA blend is applied. The fixed WRITE_LUMINANCE "
+                    "kernel expresses this via a zero-cleared prev texture, for which "
+                    "prev + (cur - prev) * adjust degenerates to cur * adjust. Native "
+                    "p_set == false writes clamp(avg) directly (no exposure factor); "
+                    "the fixed kernel differs by the exposure factor on the first "
+                    "frame only, a bounded documented divergence. ema_sequence models "
+                    "the kernel behavior."
+                ),
+            },
+            "clamp": {
+                "description": (
+                    "clamp(avg, min_luminance, max_luminance) is applied only at the "
+                    "final WRITE_LUMINANCE level (per Godot), before the EMA. Reduce "
+                    "levels write the raw 8x8 tile mean with no clamp/exposure."
+                ),
+            },
+        },
         "does_not_imply": DOES_NOT_IMPLY,
     }
 

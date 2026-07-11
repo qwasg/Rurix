@@ -1,28 +1,64 @@
-// rxgd_luminance_record.cpp — GRX-009 segment 4d bridge D3D12 dispatch recording shim.
+// rxgd_luminance_record.cpp — GRX-009 bridge D3D12 dispatch recording shim.
 //
 // Compiled only under the rurix-godot `d3d12-recording-shim` feature (see
-// build.rs). It records ONE minimal luminance compute dispatch on a REAL
-// caller-provided D3D12 device / command queue and REAL src/dst
-// ID3D12Resource* handles, using the tracked offline luminance DXIL container +
-// RTS0 root signature (bytes are passed in by the Rust bridge, which first
-// verified they hash to the segment 3a offline compile evidence digests).
+// build.rs). It records REAL D3D12 compute dispatches on a caller-provided
+// D3D12 device / command queue and REAL ID3D12Resource* handles, using tracked
+// offline DXIL containers + RTS0 root signatures (bytes are passed in by the
+// Rust bridge, which first verified they hash to the offline compile evidence
+// digests).
 //
 // This shim NEVER creates a device, NEVER accepts fake/null handles, and NEVER
 // fakes a dispatch: any failure returns a negative status and the bridge falls
 // back. It does not enable the Godot runtime luminance path.
 //
-// Layout (from the tracked descriptor layout, mirrors the segment 4c smoke):
+// ── Wave 2 execution model v2 (shim ABI 2) ────────────────────────────────
+// The v1 shim re-created a root signature, PSO, command allocator, descriptor
+// heap, fence and readback buffer on EVERY dispatch and always blocked on an
+// INFINITE fence wait. v2 introduces a per-(device,queue) `ShimSession` that:
+//   * caches root signature + PSO once per kernel identity (FNV-1a of the DXIL
+//     container ^ FNV-1a of the RTS0 bytes),
+//   * keeps a command-allocator ring (>= 3 slots) recycled by fence value,
+//   * keeps one shader-visible CBV_SRV_UAV descriptor heap sub-allocated by a
+//     rolling cursor,
+//   * keeps one shared fence + event,
+//   * records per-pass recorded/fallback counters and prints ONE machine-
+//     readable `RXGD_SUMMARY pass=<id> recorded=<n> fallback=<n>` line per pass
+//     when the session is closed (rxgd_luminance_record_shim_session_close,
+//     driven from the Rust rxgd_destroy_session under the feature).
+//
+// Two record entry points share a single `ShimSession::record_levels` core:
+//   * rxgd_luminance_record_dispatch(...) — the historical single-level
+//     2-resource (SRV t0 src, UAV u0 dst) path. Always runs in TEST-ONLY
+//     READBACK mode (readback=true): it dispatches, transitions the dst UAV to
+//     COPY_SOURCE, copies to a per-call readback buffer, WAITS on the fence,
+//     checksums the readback, and prints the per-frame `RXGD_BRIDGE_REC:`
+//     marker that ci/grx009_luminance_bridge_recording_smoke.py parses. The 4c
+//     /4d smoke semantics are unchanged.
+//   * rxgd_luminance_record_levels(...) — the multi-kernel / multi-resource /
+//     multi-level pyramid path. It records K dispatches (reduce chain + final
+//     WRITE_LUMINANCE) with inter-level UAV/state barriers in ONE command list
+//     and ONE submit. In PRODUCTION mode (readback=false) it records the fence
+//     value into the allocator ring and DOES NOT block (allocators are recycled
+//     by checking fence completion before reuse); no per-frame marker is
+//     printed. In readback mode it also reads back the final level. This entry
+//     is defined for the later enablement smoke slices (patch side); no
+//     real-GPU test in this cargo-only slice drives it.
+//
+// ── ONE-FRAME LATENCY (honest, documented) ────────────────────────────────
+// When the Godot runtime hook records these dispatches from within a frame,
+// Godot has not yet submitted that frame's own rendering to the queue, so a
+// self-queue dispatch that reads Godot's internal_texture reads the PREVIOUS
+// frame's content. The luminance pass uses time-domain EMA feedback, so a 1
+// frame delay is defensible, but it must be recorded as such (see
+// hook_contract_v2.md and math_parity_evidence.json semantics). This shim does
+// not hide it: it records exactly what it is handed.
+//
+// Layout (from the tracked descriptor layouts):
 //   root param 0 = 7-dword (28-byte) b0 root constants
 //                  (source_width/source_height as i64 + 3 f32 scalars)
-//   root param 1 = descriptor table [ SRV t0 (src_luminance), UAV u0 (dst) ]
-//
-// Contract with the harness (ci/grx009_luminance_bridge_recording_smoke.py):
-//   * src is an R32_FLOAT Texture2D already populated and left in
-//     D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE.
-//   * dst is an R32_FLOAT Texture2D (ALLOW_UNORDERED_ACCESS) in
-//     D3D12_RESOURCE_STATE_UNORDERED_ACCESS.
-// The shim only dispatches, transitions dst -> COPY_SOURCE, copies to its own
-// readback buffer, waits on a fence, and checksums the readback.
+//   root param 1 = descriptor table:
+//                    reduce kernel : [ SRV t0 (src), UAV u0 (dst) ]
+//                    write kernel  : [ SRV t0 (src), SRV t1 (prev), UAV u0 (dst) ]
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -34,7 +70,9 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <string>
+#include <map>
+#include <mutex>
+#include <utility>
 #include <vector>
 
 #ifdef RXGD_HAVE_DXCAPI
@@ -44,7 +82,17 @@
 using Microsoft::WRL::ComPtr;
 
 // Shim <-> Rust ABI version (kept in sync with the Rust d3d12_shim module).
-static const uint32_t kShimAbiVersion = 1u;
+// Bumped 1 -> 2 for the Wave 2 v2 execution model (session cache + rings +
+// multi-level record entry + summary + explicit session close).
+static const uint32_t kShimAbiVersion = 2u;
+
+// Command-allocator ring depth. >= 3 so several frames of dispatches can be in
+// flight while older allocators are recycled by fence completion.
+static const size_t kAllocatorRingDepth = 3u;
+// Shader-visible descriptor heap capacity (rolling sub-allocation). Generous so
+// a full multi-level pyramid submission (per level: 2-3 descriptors) fits many
+// times before the cursor wraps.
+static const UINT kDescriptorHeapCapacity = 1024u;
 
 extern "C" struct RxgdRecordResult {
     uint64_t fence_completed_value;
@@ -55,8 +103,39 @@ extern "C" struct RxgdRecordResult {
     uint32_t dst_height;
     uint32_t readback_checksum;
     float dst_first_value;
-    int32_t dxil_signed;      // 1 = in-memory DXIL was signed, 0 = not signed
+    int32_t dxil_signed;      // 1 = all in-memory DXIL kernels were signed
     char error_detail[256];
+};
+
+// One bound resource for a multi-level job.
+extern "C" struct RxgdShimResource {
+    void* resource;           // ID3D12Resource*
+    uint32_t reserved0;       // padding / future flags (must be 0)
+    uint32_t reserved1;
+};
+
+// One kernel's tracked bytes for a multi-level job.
+extern "C" struct RxgdShimKernel {
+    const uint8_t* dxil;
+    size_t dxil_len;
+    const uint8_t* rts0;
+    size_t rts0_len;
+    uint32_t binding_count;   // 2 = reduce (SRV+UAV), 3 = write (SRV+SRV+UAV)
+    uint32_t reserved0;
+};
+
+// One dispatch level in a multi-level sequence.
+extern "C" struct RxgdShimLevel {
+    uint32_t kernel_index;    // index into the kernels[] array
+    uint32_t srv_index;       // index into resources[] for SRV t0 (source)
+    uint32_t uav_index;       // index into resources[] for UAV u0 (dest)
+    uint32_t prev_index;      // index into resources[] for SRV t1 (prev), write only
+    uint32_t dispatch_x;
+    uint32_t dispatch_y;
+    uint32_t dispatch_z;
+    uint32_t dst_width;       // dst UAV texel extent (for readback footprint)
+    uint32_t dst_height;
+    uint8_t push_constants[28];
 };
 
 static void set_detail(RxgdRecordResult* out, const char* what, HRESULT hr) {
@@ -68,6 +147,15 @@ static void set_detail_msg(RxgdRecordResult* out, const char* what) {
     if (!out) return;
     std::snprintf(out->error_detail, sizeof(out->error_detail), "%s",
                   what ? what : "");
+}
+
+static uint64_t fnv1a64(const uint8_t* data, size_t len) {
+    uint64_t h = 1469598103934665603ull;  // FNV offset basis
+    for (size_t i = 0; i < len; ++i) {
+        h ^= data[i];
+        h *= 1099511628211ull;  // FNV prime
+    }
+    return h;
 }
 
 static D3D12_HEAP_PROPERTIES heap_props(D3D12_HEAP_TYPE type) {
@@ -193,15 +281,508 @@ static bool sign_dxil_in_place(std::vector<uint8_t>&) {
 }
 #endif
 
+// ── Session-cached kernel / allocator ring / descriptor heap ───────────────
+
+struct CachedKernel {
+    ComPtr<ID3D12RootSignature> root;
+    ComPtr<ID3D12PipelineState> pso;
+    bool dxil_signed = false;
+};
+
+struct AllocatorSlot {
+    ComPtr<ID3D12CommandAllocator> alloc;
+    UINT64 fence_value = 0;  // fence value the last submit using this slot signals
+};
+
+struct PassCounters {
+    uint64_t recorded = 0;
+    uint64_t fallback = 0;
+};
+
+struct ShimSession {
+    ID3D12Device* device;         // borrowed (caller-owned, not AddRef'd)
+    ID3D12CommandQueue* queue;    // borrowed (caller-owned, not AddRef'd)
+
+    std::map<uint64_t, CachedKernel> kernels;  // key = fnv(dxil) ^ rotl(fnv(rts0))
+    std::vector<AllocatorSlot> allocators;
+    size_t alloc_cursor = 0;
+    ComPtr<ID3D12GraphicsCommandList> cmd;
+    ComPtr<ID3D12DescriptorHeap> heap;
+    UINT descriptor_increment = 0;
+    UINT heap_cursor = 0;
+    ComPtr<ID3D12Fence> fence;
+    UINT64 next_fence_value = 0;
+    HANDLE fence_event = nullptr;
+    bool initialized = false;
+    std::map<uint32_t, PassCounters> counters;
+
+    ShimSession(ID3D12Device* d, ID3D12CommandQueue* q) : device(d), queue(q) {}
+    ~ShimSession() {
+        if (fence_event) CloseHandle(fence_event);
+    }
+
+    // Lazily create the allocator ring, descriptor heap, shared fence + event
+    // and the reusable command list. Kept out of the constructor so a session
+    // that never records touches no D3D12 state.
+    bool ensure_initialized(RxgdRecordResult* out) {
+        if (initialized) return true;
+        allocators.resize(kAllocatorRingDepth);
+        for (auto& slot : allocators) {
+            HRESULT hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT,
+                                                        IID_PPV_ARGS(&slot.alloc));
+            if (FAILED(hr)) {
+                set_detail(out, "CreateCommandAllocator(ring)", hr);
+                return false;
+            }
+        }
+        D3D12_DESCRIPTOR_HEAP_DESC hd = {};
+        hd.NumDescriptors = kDescriptorHeapCapacity;
+        hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+        hd.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+        HRESULT hr = device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&heap));
+        if (FAILED(hr)) {
+            set_detail(out, "CreateDescriptorHeap(session ring)", hr);
+            return false;
+        }
+        descriptor_increment =
+            device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+        hr = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
+        if (FAILED(hr)) {
+            set_detail(out, "CreateFence(session)", hr);
+            return false;
+        }
+        fence_event = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+        if (!fence_event) {
+            set_detail_msg(out, "CreateEvent(session)");
+            return false;
+        }
+        // One reusable command list, created closed (Reset per record).
+        hr = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,
+                                       allocators[0].alloc.Get(), nullptr,
+                                       IID_PPV_ARGS(&cmd));
+        if (FAILED(hr)) {
+            set_detail(out, "CreateCommandList(session)", hr);
+            return false;
+        }
+        cmd->Close();
+        initialized = true;
+        return true;
+    }
+
+    // Get-or-create the cached root signature + PSO for a kernel identity.
+    CachedKernel* get_or_create_kernel(const uint8_t* dxil, size_t dxil_len,
+                                       const uint8_t* rts0, size_t rts0_len,
+                                       RxgdRecordResult* out) {
+        uint64_t rts0_hash = fnv1a64(rts0, rts0_len);
+        uint64_t key = fnv1a64(dxil, dxil_len) ^
+                       ((rts0_hash << 1) | (rts0_hash >> 63));
+        auto it = kernels.find(key);
+        if (it != kernels.end()) return &it->second;
+
+        CachedKernel k;
+        // Sign an in-memory copy of the DXIL container so it can create a PSO on
+        // a normal (non-Developer-Mode) device. The tracked artifact bytes the
+        // bridge passed in are never modified.
+        std::vector<uint8_t> signed_dxil(dxil, dxil + dxil_len);
+        k.dxil_signed = sign_dxil_in_place(signed_dxil);
+        HRESULT hr = device->CreateRootSignature(0, rts0, rts0_len, IID_PPV_ARGS(&k.root));
+        if (FAILED(hr)) {
+            set_detail(out, "CreateRootSignature(rurix rts0)", hr);
+            return nullptr;
+        }
+        D3D12_COMPUTE_PIPELINE_STATE_DESC pd = {};
+        pd.pRootSignature = k.root.Get();
+        pd.CS = {signed_dxil.data(), signed_dxil.size()};
+        hr = device->CreateComputePipelineState(&pd, IID_PPV_ARGS(&k.pso));
+        if (FAILED(hr)) {
+            set_detail(out, "CreateComputePipelineState(rurix dxil)", hr);
+            return nullptr;
+        }
+        auto res = kernels.emplace(key, std::move(k));
+        return &res.first->second;
+    }
+
+    // Acquire the next allocator in the ring, blocking only if that specific
+    // slot's previous submit has not completed yet (bounded recycle wait). This
+    // is the production-path recycle: it never does a blanket fence wait.
+    ID3D12CommandAllocator* acquire_allocator() {
+        AllocatorSlot& slot = allocators[alloc_cursor];
+        alloc_cursor = (alloc_cursor + 1) % allocators.size();
+        if (slot.fence_value != 0 && fence->GetCompletedValue() < slot.fence_value) {
+            fence->SetEventOnCompletion(slot.fence_value, fence_event);
+            WaitForSingleObject(fence_event, INFINITE);
+        }
+        slot.alloc->Reset();
+        return slot.alloc.Get();
+    }
+
+    // Reserve `count` contiguous descriptors from the shader-visible heap,
+    // returning the starting index. Wraps around (test-only ring; a big heap
+    // keeps in-flight submissions from colliding).
+    UINT reserve_descriptors(UINT count) {
+        if (heap_cursor + count > kDescriptorHeapCapacity) heap_cursor = 0;
+        UINT base = heap_cursor;
+        heap_cursor += count;
+        return base;
+    }
+
+    D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle(UINT index) const {
+        D3D12_CPU_DESCRIPTOR_HANDLE h = heap->GetCPUDescriptorHandleForHeapStart();
+        h.ptr += (SIZE_T)index * descriptor_increment;
+        return h;
+    }
+    D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle(UINT index) const {
+        D3D12_GPU_DESCRIPTOR_HANDLE h = heap->GetGPUDescriptorHandleForHeapStart();
+        h.ptr += (UINT64)index * descriptor_increment;
+        return h;
+    }
+
+    void note(uint32_t pass_id, bool recorded) {
+        PassCounters& c = counters[pass_id];
+        if (recorded) c.recorded += 1; else c.fallback += 1;
+    }
+
+    // Print one machine-readable summary line per pass touched this session.
+    void print_summary() {
+        for (const auto& kv : counters) {
+            std::printf("RXGD_SUMMARY pass=%u recorded=%llu fallback=%llu\n",
+                        kv.first, (unsigned long long)kv.second.recorded,
+                        (unsigned long long)kv.second.fallback);
+        }
+        std::fflush(stdout);
+    }
+
+    // Core multi-level record. `kernels`/`resources`/`levels` are borrowed. On
+    // success returns 0 and fills `out`; on any D3D12 failure returns a negative
+    // status with `out->error_detail` set. `readback` selects test-only readback
+    // + fence wait + RXGD_BRIDGE_REC marker (true) vs production no-wait (false).
+    int record_levels(uint32_t pass_id,
+                      const RxgdShimKernel* kern, uint32_t kernel_count,
+                      const RxgdShimResource* resources, uint32_t resource_count,
+                      const RxgdShimLevel* levels, uint32_t level_count,
+                      bool readback, RxgdRecordResult* out) {
+        if (level_count == 0) {
+            set_detail_msg(out, "record_levels called with zero levels");
+            return -30;
+        }
+        if (!ensure_initialized(out)) return -31;
+
+        // Resolve + cache every kernel referenced by the levels up front.
+        std::vector<CachedKernel*> resolved(kernel_count, nullptr);
+        bool all_signed = true;
+        for (uint32_t i = 0; i < kernel_count; ++i) {
+            resolved[i] = get_or_create_kernel(kern[i].dxil, kern[i].dxil_len,
+                                               kern[i].rts0, kern[i].rts0_len, out);
+            if (!resolved[i]) return -32;
+            all_signed = all_signed && resolved[i]->dxil_signed;
+        }
+
+        ID3D12CommandAllocator* alloc = acquire_allocator();
+        HRESULT hr = cmd->Reset(alloc, nullptr);
+        if (FAILED(hr)) {
+            set_detail(out, "command list Reset", hr);
+            return -33;
+        }
+        ID3D12DescriptorHeap* heaps[] = {heap.Get()};
+        cmd->SetDescriptorHeaps(1, heaps);
+
+        // Per-resource logical D3D12 state, tracked so inter-level role changes
+        // (a level's UAV dst read as the next level's SRV src) get a correct
+        // transition barrier. Seed each resource with the state implied by its
+        // FIRST use across levels (caller contract: provide SRV sources in
+        // NON_PIXEL_SHADER_RESOURCE and UAV dests in UNORDERED_ACCESS).
+        std::vector<D3D12_RESOURCE_STATES> state(resource_count,
+                                                 D3D12_RESOURCE_STATE_COMMON);
+        std::vector<bool> seeded(resource_count, false);
+        auto seed = [&](uint32_t idx, D3D12_RESOURCE_STATES s) {
+            if (idx < resource_count && !seeded[idx]) {
+                state[idx] = s;
+                seeded[idx] = true;
+            }
+        };
+        for (uint32_t li = 0; li < level_count; ++li) {
+            const RxgdShimLevel& lv = levels[li];
+            const RxgdShimKernel& kb = kern[lv.kernel_index];
+            seed(lv.srv_index, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+            if (kb.binding_count == 3)
+                seed(lv.prev_index, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+            seed(lv.uav_index, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+        }
+
+        auto transition = [&](uint32_t idx, D3D12_RESOURCE_STATES after) {
+            if (idx >= resource_count) return;
+            if (state[idx] == after) return;
+            D3D12_RESOURCE_BARRIER b = {};
+            b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+            b.Transition.pResource =
+                reinterpret_cast<ID3D12Resource*>(resources[idx].resource);
+            b.Transition.StateBefore = state[idx];
+            b.Transition.StateAfter = after;
+            b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+            cmd->ResourceBarrier(1, &b);
+            state[idx] = after;
+        };
+
+        uint32_t last_uav_index = levels[level_count - 1].uav_index;
+        UINT last_dst_w = std::max<UINT>(levels[level_count - 1].dst_width, 1u);
+        UINT last_dst_h = std::max<UINT>(levels[level_count - 1].dst_height, 1u);
+        UINT last_gx = 0, last_gy = 0, last_gz = 0;
+
+        for (uint32_t li = 0; li < level_count; ++li) {
+            const RxgdShimLevel& lv = levels[li];
+            const RxgdShimKernel& kb = kern[lv.kernel_index];
+            CachedKernel* k = resolved[lv.kernel_index];
+
+            ID3D12Resource* src =
+                reinterpret_cast<ID3D12Resource*>(resources[lv.srv_index].resource);
+            ID3D12Resource* dst =
+                reinterpret_cast<ID3D12Resource*>(resources[lv.uav_index].resource);
+            ID3D12Resource* prev =
+                (kb.binding_count == 3)
+                    ? reinterpret_cast<ID3D12Resource*>(resources[lv.prev_index].resource)
+                    : nullptr;
+
+            // Ensure inputs/outputs are in the right state for this level.
+            transition(lv.srv_index, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+            if (prev)
+                transition(lv.prev_index, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+            transition(lv.uav_index, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+            // Reserve + write the descriptor table for this level.
+            UINT base = reserve_descriptors(kb.binding_count);
+            UINT slot = base;
+            D3D12_SHADER_RESOURCE_VIEW_DESC srv = {};
+            srv.Format = typed_view_format(src->GetDesc().Format);
+            srv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+            srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+            srv.Texture2D.MipLevels = 1;
+            device->CreateShaderResourceView(src, &srv, cpu_handle(slot++));
+            if (prev) {
+                D3D12_SHADER_RESOURCE_VIEW_DESC psrv = {};
+                psrv.Format = typed_view_format(prev->GetDesc().Format);
+                psrv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+                psrv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+                psrv.Texture2D.MipLevels = 1;
+                device->CreateShaderResourceView(prev, &psrv, cpu_handle(slot++));
+            }
+            D3D12_UNORDERED_ACCESS_VIEW_DESC uav = {};
+            uav.Format = typed_view_format(dst->GetDesc().Format);
+            uav.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+            device->CreateUnorderedAccessView(dst, nullptr, &uav, cpu_handle(slot++));
+
+            cmd->SetComputeRootSignature(k->root.Get());
+            cmd->SetPipelineState(k->pso.Get());
+            uint32_t rc[7];
+            std::memcpy(rc, lv.push_constants, 28);
+            cmd->SetComputeRoot32BitConstants(0, 7, rc, 0);
+            cmd->SetComputeRootDescriptorTable(1, gpu_handle(base));
+            const UINT gx = std::max<UINT>(lv.dispatch_x, 1u);
+            const UINT gy = std::max<UINT>(lv.dispatch_y, 1u);
+            const UINT gz = std::max<UINT>(lv.dispatch_z, 1u);
+            cmd->Dispatch(gx, gy, gz);
+            last_gx = gx; last_gy = gy; last_gz = gz;
+
+            // Inter-level ordering: a UAV barrier on this level's dst so a later
+            // level that reads it (as SRV, after a transition) observes the
+            // completed writes.
+            if (li + 1 < level_count) {
+                D3D12_RESOURCE_BARRIER ub = {};
+                ub.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+                ub.UAV.pResource = dst;
+                cmd->ResourceBarrier(1, &ub);
+            }
+        }
+
+        // Optional test-only readback of the final level's dst UAV.
+        ComPtr<ID3D12Resource> readback_buf;
+        D3D12_PLACED_SUBRESOURCE_FOOTPRINT dfp = {};
+        UINT64 dtotal = 0;
+        if (readback) {
+            ID3D12Resource* dst = reinterpret_cast<ID3D12Resource*>(
+                resources[last_uav_index].resource);
+            D3D12_RESOURCE_DESC dst_desc = dst->GetDesc();
+            // Clean single-mip 2D footprint desc (Godot resources can carry an
+            // Alignment/Flags combination that GetCopyableFootprints rejects,
+            // returning UINT64_MAX). Only typed format + extent matter here.
+            D3D12_RESOURCE_DESC footprint_desc = {};
+            footprint_desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+            footprint_desc.Alignment = 0;
+            footprint_desc.Width = dst_desc.Width;
+            footprint_desc.Height = dst_desc.Height;
+            footprint_desc.DepthOrArraySize = 1;
+            footprint_desc.MipLevels = 1;
+            footprint_desc.Format = typed_view_format(dst_desc.Format);
+            footprint_desc.SampleDesc.Count = 1;
+            footprint_desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+            footprint_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+            UINT drows = 0;
+            UINT64 drow_size = 0;
+            device->GetCopyableFootprints(&footprint_desc, 0, 1, 0, &dfp, &drows,
+                                          &drow_size, &dtotal);
+            if (dtotal == 0 || dtotal == UINT64_MAX) {
+                set_detail_msg(out, "GetCopyableFootprints returned an invalid total size");
+                return -34;
+            }
+            auto readback_heap = heap_props(D3D12_HEAP_TYPE_READBACK);
+            auto rb_desc = buffer_desc(dtotal);
+            hr = device->CreateCommittedResource(&readback_heap, D3D12_HEAP_FLAG_NONE,
+                                                 &rb_desc, D3D12_RESOURCE_STATE_COPY_DEST,
+                                                 nullptr, IID_PPV_ARGS(&readback_buf));
+            if (FAILED(hr)) {
+                set_detail(out, "CreateCommittedResource(readback)", hr);
+                return -34;
+            }
+            transition(last_uav_index, D3D12_RESOURCE_STATE_COPY_SOURCE);
+            D3D12_TEXTURE_COPY_LOCATION cdst = {};
+            cdst.pResource = readback_buf.Get();
+            cdst.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+            cdst.PlacedFootprint = dfp;
+            D3D12_TEXTURE_COPY_LOCATION csrc = {};
+            csrc.pResource = dst;
+            csrc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+            csrc.SubresourceIndex = 0;
+            cmd->CopyTextureRegion(&cdst, 0, 0, 0, &csrc, nullptr);
+            // Restore the final dst to UNORDERED_ACCESS so the caller's resource
+            // state is unchanged (matches the historical single-level contract).
+            transition(last_uav_index, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+        }
+
+        hr = cmd->Close();
+        if (FAILED(hr)) {
+            set_detail(out, "Close command list", hr);
+            return -35;
+        }
+        ID3D12CommandList* lists[] = {cmd.Get()};
+        queue->ExecuteCommandLists(1, lists);
+        UINT64 submit_value = ++next_fence_value;
+        if (FAILED(queue->Signal(fence.Get(), submit_value))) {
+            set_detail_msg(out, "Signal fence");
+            return -36;
+        }
+        // Record the fence value against the allocator slot we used, so the ring
+        // recycle can reuse it once complete.
+        allocators[(alloc_cursor + allocators.size() - 1) % allocators.size()].fence_value =
+            submit_value;
+
+        out->fence_completed_value = submit_value;
+        out->dispatch_x = last_gx;
+        out->dispatch_y = last_gy;
+        out->dispatch_z = last_gz;
+        out->dst_width = last_dst_w;
+        out->dst_height = last_dst_h;
+        out->dxil_signed = all_signed ? 1 : 0;
+
+        if (!readback) {
+            // Production path: DO NOT block. The dispatch is submitted; the fence
+            // value is tracked for allocator recycling. No per-frame marker.
+            out->readback_checksum = 0;
+            out->dst_first_value = 0.0f;
+            std::snprintf(out->error_detail, sizeof(out->error_detail), "ok");
+            return 0;
+        }
+
+        // Test-only readback path: wait for completion, checksum, marker.
+        if (fence->GetCompletedValue() < submit_value) {
+            if (FAILED(fence->SetEventOnCompletion(submit_value, fence_event))) {
+                set_detail_msg(out, "SetEventOnCompletion");
+                return -37;
+            }
+            WaitForSingleObject(fence_event, INFINITE);
+        }
+        out->fence_completed_value = fence->GetCompletedValue();
+        if (out->fence_completed_value < submit_value) {
+            set_detail_msg(out, "fence did not reach completion");
+            return -38;
+        }
+
+        uint8_t* mapped = nullptr;
+        D3D12_RANGE range = {0, (SIZE_T)dtotal};
+        if (FAILED(readback_buf->Map(0, &range, reinterpret_cast<void**>(&mapped)))) {
+            set_detail_msg(out, "Map readback");
+            return -39;
+        }
+        uint32_t checksum = 2166136261u;  // FNV-1a over the dst rows
+        float first = 0.0f;
+        bool got_first = false;
+        for (UINT y = 0; y < last_dst_h; ++y) {
+            const uint8_t* rowp = mapped + dfp.Offset + (SIZE_T)y * dfp.Footprint.RowPitch;
+            for (UINT x = 0; x < last_dst_w; ++x) {
+                const uint8_t* px = rowp + (SIZE_T)x * 4;
+                if (!got_first) {
+                    std::memcpy(&first, px, 4);
+                    got_first = true;
+                }
+                for (int b = 0; b < 4; ++b) {
+                    checksum ^= px[b];
+                    checksum *= 16777619u;
+                }
+            }
+        }
+        readback_buf->Unmap(0, nullptr);
+
+        out->readback_checksum = checksum;
+        out->dst_first_value = first;
+        std::snprintf(out->error_detail, sizeof(out->error_detail), "ok");
+        std::printf("RXGD_BRIDGE_REC: dispatch=%u,%u,%u fence=%llu dst=%ux%u dst_first=%g "
+                    "checksum=0x%08x dxil_signed=%s\n",
+                    last_gx, last_gy, last_gz,
+                    (unsigned long long)out->fence_completed_value, last_dst_w, last_dst_h,
+                    first, checksum, out->dxil_signed ? "yes" : "no");
+        std::fflush(stdout);
+        return 0;
+    }
+};
+
+// Per-(device,queue) session registry. The test-only recording feature drives
+// one bridge session at a time; keying by (device,queue) is sufficient and lets
+// the historical single-dispatch entry (which carries no session handle) reuse
+// the same cached D3D12 state as the explicit multi-level entry.
+static std::mutex g_registry_mutex;
+static std::map<std::pair<void*, void*>, ShimSession*> g_sessions;
+
+static ShimSession* get_or_create_session(void* device, void* queue) {
+    std::lock_guard<std::mutex> lock(g_registry_mutex);
+    auto key = std::make_pair(device, queue);
+    auto it = g_sessions.find(key);
+    if (it != g_sessions.end()) return it->second;
+    ShimSession* s = new ShimSession(reinterpret_cast<ID3D12Device*>(device),
+                                     reinterpret_cast<ID3D12CommandQueue*>(queue));
+    g_sessions.emplace(key, s);
+    return s;
+}
+
+static void close_session(void* device, void* queue) {
+    std::lock_guard<std::mutex> lock(g_registry_mutex);
+    auto key = std::make_pair(device, queue);
+    auto it = g_sessions.find(key);
+    if (it == g_sessions.end()) return;
+    it->second->print_summary();
+    delete it->second;
+    g_sessions.erase(it);
+}
+
+// ── C ABI ──────────────────────────────────────────────────────────────────
+
 extern "C" __declspec(dllexport) uint32_t rxgd_luminance_record_shim_abi_version(void) {
     return kShimAbiVersion;
 }
 
-// Records one minimal luminance compute dispatch on the caller-provided real
-// D3D12 device/queue and src/dst resources. Returns 0 on success, negative on
-// failure. Never accepts null handles and never fakes a dispatch.
+// Flush + tear down the cached session for (device,queue). Prints one
+// RXGD_SUMMARY line per pass the session recorded. Driven from the Rust
+// rxgd_destroy_session under the d3d12-recording-shim feature. Safe to call for
+// a (device,queue) that never recorded (no-op).
+extern "C" __declspec(dllexport) void rxgd_luminance_record_shim_session_close(
+    uint32_t abi_version, void* device_ptr, void* queue_ptr) {
+    if (abi_version != kShimAbiVersion) return;
+    close_session(device_ptr, queue_ptr);
+}
+
+// Historical single-level 2-resource (SRV t0 src, UAV u0 dst) recording entry.
+// Always test-only readback mode. Returns 0 on success, negative on failure.
+// Never accepts null handles and never fakes a dispatch.
 extern "C" __declspec(dllexport) int32_t rxgd_luminance_record_dispatch(
     uint32_t abi_version,
+    uint32_t pass_id,
     void* device_ptr,
     void* queue_ptr,
     const uint8_t* dxil_bytes,
@@ -237,247 +818,106 @@ extern "C" __declspec(dllexport) int32_t rxgd_luminance_record_dispatch(
         return -5;
     }
 
-    ID3D12Device* device = reinterpret_cast<ID3D12Device*>(device_ptr);
-    ID3D12CommandQueue* queue = reinterpret_cast<ID3D12CommandQueue*>(queue_ptr);
-    ID3D12Resource* src = reinterpret_cast<ID3D12Resource*>(src_resource_ptr);
-    ID3D12Resource* dst = reinterpret_cast<ID3D12Resource*>(dst_resource_ptr);
+    ShimSession* session = get_or_create_session(device_ptr, queue_ptr);
 
-    // Sign an in-memory copy of the tracked DXIL container so it can create a
-    // compute PSO on a normal (non-Developer-Mode) device. The tracked artifact
-    // bytes passed in by the bridge are not modified.
-    std::vector<uint8_t> dxil(dxil_bytes, dxil_bytes + dxil_len);
-    out->dxil_signed = sign_dxil_in_place(dxil) ? 1 : 0;
+    RxgdShimKernel kernel = {};
+    kernel.dxil = dxil_bytes;
+    kernel.dxil_len = dxil_len;
+    kernel.rts0 = rts0_bytes;
+    kernel.rts0_len = rts0_len;
+    kernel.binding_count = 2;  // SRV t0 (src) + UAV u0 (dst)
 
-    // (A) Root signature DIRECTLY from the Rurix RTS0 bytes (device-parse proof).
-    ComPtr<ID3D12RootSignature> root;
-    HRESULT hr = device->CreateRootSignature(0, rts0_bytes, rts0_len, IID_PPV_ARGS(&root));
-    if (FAILED(hr)) {
-        set_detail(out, "CreateRootSignature(rurix rts0)", hr);
-        return -10;
-    }
+    RxgdShimResource resources[2] = {};
+    resources[0].resource = src_resource_ptr;
+    resources[1].resource = dst_resource_ptr;
 
-    // (B) Compute PSO from the Rurix DXIL container.
-    D3D12_COMPUTE_PIPELINE_STATE_DESC pd = {};
-    pd.pRootSignature = root.Get();
-    pd.CS = {dxil.data(), dxil.size()};
-    ComPtr<ID3D12PipelineState> pso;
-    hr = device->CreateComputePipelineState(&pd, IID_PPV_ARGS(&pso));
-    if (FAILED(hr)) {
-        set_detail(out, "CreateComputePipelineState(rurix dxil)", hr);
-        return -11;
-    }
+    RxgdShimLevel level = {};
+    level.kernel_index = 0;
+    level.srv_index = 0;
+    level.uav_index = 1;
+    level.prev_index = 0;  // unused for a 2-binding kernel
+    level.dispatch_x = std::max<UINT>((src_w + 7) / 8, 1u);
+    level.dispatch_y = std::max<UINT>((src_h + 7) / 8, 1u);
+    level.dispatch_z = 1;
+    level.dst_width = std::max<UINT>(dst_w, 1u);
+    level.dst_height = std::max<UINT>(dst_h, 1u);
+    std::memcpy(level.push_constants, push_constants, 28);
 
-    ComPtr<ID3D12CommandAllocator> alloc;
-    hr = device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&alloc));
-    if (FAILED(hr)) {
-        set_detail(out, "CreateCommandAllocator", hr);
-        return -12;
-    }
+    int rc = session->record_levels(pass_id, &kernel, 1, resources, 2, &level, 1,
+                                    /*readback=*/true, out);
+    session->note(pass_id, rc == 0);
+    return rc;
+}
 
-    // Descriptor heap: index 0 = SRV(t0, src), index 1 = UAV(u0, dst).
-    D3D12_DESCRIPTOR_HEAP_DESC hd = {};
-    hd.NumDescriptors = 2;
-    hd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-    hd.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-    ComPtr<ID3D12DescriptorHeap> heap;
-    hr = device->CreateDescriptorHeap(&hd, IID_PPV_ARGS(&heap));
-    if (FAILED(hr)) {
-        set_detail(out, "CreateDescriptorHeap(cbv_srv_uav)", hr);
-        return -13;
-    }
-    const UINT inc = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-    D3D12_CPU_DESCRIPTOR_HANDLE cpu0 = heap->GetCPUDescriptorHandleForHeapStart();
-    // Derive the view formats from the real resource formats so a typeless
-    // Godot texture gets a view-compatible typed format instead of a hardcoded
-    // R32_FLOAT (which is invalid for e.g. R16G16B16A16_TYPELESS and removes the
-    // device on some drivers).
-    const DXGI_FORMAT src_view_format = typed_view_format(src->GetDesc().Format);
-    const DXGI_FORMAT dst_view_format = typed_view_format(dst->GetDesc().Format);
-    D3D12_SHADER_RESOURCE_VIEW_DESC srv = {};
-    srv.Format = src_view_format;
-    srv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-    srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    srv.Texture2D.MipLevels = 1;
-    device->CreateShaderResourceView(src, &srv, cpu0);
-    D3D12_CPU_DESCRIPTOR_HANDLE cpu1 = cpu0;
-    cpu1.ptr += inc;
-    D3D12_UNORDERED_ACCESS_VIEW_DESC uav = {};
-    uav.Format = dst_view_format;
-    uav.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-    device->CreateUnorderedAccessView(dst, nullptr, &uav, cpu1);
+// Multi-kernel / multi-resource / multi-level pyramid recording entry.
+// Records `level_count` dispatches (reduce chain + final WRITE_LUMINANCE) with
+// inter-level barriers in ONE command list and ONE submit. `readback` selects
+// test-only readback + fence wait + RXGD_BRIDGE_REC marker (non-zero) vs the
+// production no-wait path (zero). Defined for the later enablement smoke slices;
+// no real-GPU test in the cargo-only slice drives it.
+extern "C" __declspec(dllexport) int32_t rxgd_luminance_record_levels(
+    uint32_t abi_version,
+    uint32_t pass_id,
+    void* device_ptr,
+    void* queue_ptr,
+    const RxgdShimKernel* kernels,
+    uint32_t kernel_count,
+    const RxgdShimResource* resources,
+    uint32_t resource_count,
+    const RxgdShimLevel* levels,
+    uint32_t level_count,
+    uint32_t readback,
+    RxgdRecordResult* out) {
+    if (!out) return -1;
+    std::memset(out, 0, sizeof(*out));
 
-    // Readback buffer for the dst UAV (dst_w*dst_h R32_FLOAT).
-    // Godot's real luminance destination is created with a *typeless* format
-    // (e.g. R32_TYPELESS), unlike the segment 4d bare harness which used a typed
-    // R32_FLOAT. GetCopyableFootprints cannot size a fully-typeless resource and
-    // returns UINT64_MAX; creating a readback buffer that large hangs the
-    // device. Resolve the typeless format to the typed single-plane equivalent
-    // we bind the UAV as (both are 32-bit, so the placed-footprint copy is
-    // bit-compatible) before computing the footprint.
-    D3D12_RESOURCE_DESC dst_desc = dst->GetDesc();
-    // Build a clean single-mip 2D footprint desc rather than copying the live
-    // Godot resource desc verbatim: Godot's texture can carry an Alignment /
-    // Flags combination (observed Alignment=512) that GetCopyableFootprints
-    // rejects, returning UINT64_MAX. Only the typed format + extent matter for
-    // the placed-footprint readback copy.
-    D3D12_RESOURCE_DESC footprint_desc = {};
-    footprint_desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    footprint_desc.Alignment = 0;
-    footprint_desc.Width = dst_desc.Width;
-    footprint_desc.Height = dst_desc.Height;
-    footprint_desc.DepthOrArraySize = 1;
-    footprint_desc.MipLevels = 1;
-    footprint_desc.Format = typed_view_format(dst_desc.Format);
-    footprint_desc.SampleDesc.Count = 1;
-    footprint_desc.SampleDesc.Quality = 0;
-    footprint_desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-    footprint_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
-    D3D12_PLACED_SUBRESOURCE_FOOTPRINT dfp = {};
-    UINT drows = 0;
-    UINT64 drow_size = 0, dtotal = 0;
-    device->GetCopyableFootprints(&footprint_desc, 0, 1, 0, &dfp, &drows, &drow_size, &dtotal);
-    if (dtotal == 0 || dtotal == UINT64_MAX) {
-        // Invalid/unsized footprint: never create an absurd committed resource
-        // (that hangs the device). Fall back cleanly instead.
-        set_detail_msg(out, "GetCopyableFootprints returned an invalid total size");
-        return -14;
+    if (abi_version != kShimAbiVersion) {
+        set_detail_msg(out, "shim abi version mismatch");
+        return -2;
     }
-    auto readback_heap = heap_props(D3D12_HEAP_TYPE_READBACK);
-    auto rb_desc = buffer_desc(dtotal);
-    ComPtr<ID3D12Resource> readback;
-    hr = device->CreateCommittedResource(&readback_heap, D3D12_HEAP_FLAG_NONE, &rb_desc,
-                                         D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
-                                         IID_PPV_ARGS(&readback));
-    if (FAILED(hr)) {
-        set_detail(out, "CreateCommittedResource(readback)", hr);
-        return -14;
+    if (!device_ptr || !queue_ptr) {
+        set_detail_msg(out, "null device/queue handle");
+        return -3;
     }
-
-    ComPtr<ID3D12GraphicsCommandList> cmd;
-    hr = device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, alloc.Get(), pso.Get(),
-                                   IID_PPV_ARGS(&cmd));
-    if (FAILED(hr)) {
-        set_detail(out, "CreateCommandList", hr);
-        return -15;
+    if (!kernels || kernel_count == 0 || !resources || resource_count == 0 ||
+        !levels || level_count == 0) {
+        set_detail_msg(out, "empty kernels/resources/levels");
+        return -4;
     }
-
-    // Bind the Rurix root signature and issue one minimal dispatch. The src is
-    // already in NON_PIXEL_SHADER_RESOURCE and dst in UNORDERED_ACCESS (harness
-    // contract), so no pre-dispatch barrier is needed.
-    cmd->SetComputeRootSignature(root.Get());
-    ID3D12DescriptorHeap* heaps[] = {heap.Get()};
-    cmd->SetDescriptorHeaps(1, heaps);
-    uint32_t rc[7];
-    std::memcpy(rc, push_constants, 28);  // 7 dwords: i64 src_w, i64 src_h, 3 f32
-    cmd->SetComputeRoot32BitConstants(0, 7, rc, 0);
-    cmd->SetComputeRootDescriptorTable(1, heap->GetGPUDescriptorHandleForHeapStart());
-    cmd->SetPipelineState(pso.Get());
-    const UINT gx = std::max<UINT>((src_w + 7) / 8, 1u);
-    const UINT gy = std::max<UINT>((src_h + 7) / 8, 1u);
-    const UINT gz = 1;
-    cmd->Dispatch(gx, gy, gz);
-
-    // Read back the dst UAV.
-    D3D12_RESOURCE_BARRIER db = {};
-    db.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    db.Transition.pResource = dst;
-    db.Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-    db.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
-    db.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    cmd->ResourceBarrier(1, &db);
-    D3D12_TEXTURE_COPY_LOCATION cdst = {};
-    cdst.pResource = readback.Get();
-    cdst.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-    cdst.PlacedFootprint = dfp;
-    D3D12_TEXTURE_COPY_LOCATION csrc = {};
-    csrc.pResource = dst;
-    csrc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-    csrc.SubresourceIndex = 0;
-    cmd->CopyTextureRegion(&cdst, 0, 0, 0, &csrc, nullptr);
-    // Restore dst to UNORDERED_ACCESS so the caller's resource state is unchanged.
-    D3D12_RESOURCE_BARRIER rb = db;
-    rb.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
-    rb.Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-    cmd->ResourceBarrier(1, &rb);
-    hr = cmd->Close();
-    if (FAILED(hr)) {
-        set_detail(out, "Close command list", hr);
-        return -16;
-    }
-
-    ID3D12CommandList* lists[] = {cmd.Get()};
-    queue->ExecuteCommandLists(1, lists);
-    ComPtr<ID3D12Fence> fence;
-    hr = device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence));
-    if (FAILED(hr)) {
-        set_detail(out, "CreateFence", hr);
-        return -17;
-    }
-    HANDLE ev = CreateEventW(nullptr, FALSE, FALSE, nullptr);
-    if (!ev) {
-        set_detail_msg(out, "CreateEvent");
-        return -18;
-    }
-    if (FAILED(queue->Signal(fence.Get(), 1))) {
-        CloseHandle(ev);
-        set_detail_msg(out, "Signal fence");
-        return -19;
-    }
-    if (fence->GetCompletedValue() < 1) {
-        if (FAILED(fence->SetEventOnCompletion(1, ev))) {
-            CloseHandle(ev);
-            set_detail_msg(out, "SetEventOnCompletion");
-            return -20;
-        }
-        WaitForSingleObject(ev, INFINITE);
-    }
-    CloseHandle(ev);
-    const UINT64 fence_done = fence->GetCompletedValue();
-    if (fence_done < 1) {
-        set_detail_msg(out, "fence did not reach completion");
-        return -21;
-    }
-
-    // Checksum the dst readback bytes (completion + output verification).
-    uint8_t* mapped = nullptr;
-    D3D12_RANGE range = {0, (SIZE_T)dtotal};
-    if (FAILED(readback->Map(0, &range, reinterpret_cast<void**>(&mapped)))) {
-        set_detail_msg(out, "Map readback");
-        return -22;
-    }
-    uint32_t checksum = 2166136261u;  // FNV-1a over the dst rows
-    float first = 0.0f;
-    bool got_first = false;
-    const UINT rb_w = std::max<UINT>(dst_w, 1u);
-    const UINT rb_h = std::max<UINT>(dst_h, 1u);
-    for (UINT y = 0; y < rb_h; ++y) {
-        const uint8_t* rowp = mapped + dfp.Offset + (SIZE_T)y * dfp.Footprint.RowPitch;
-        for (UINT x = 0; x < rb_w; ++x) {
-            const uint8_t* px = rowp + (SIZE_T)x * 4;
-            if (!got_first) {
-                std::memcpy(&first, px, 4);
-                got_first = true;
-            }
-            for (int b = 0; b < 4; ++b) {
-                checksum ^= px[b];
-                checksum *= 16777619u;
-            }
+    // Fail closed on any null resource / kernel byte range, and on any level
+    // index out of range: never dispatch against an undefined binding.
+    for (uint32_t i = 0; i < resource_count; ++i) {
+        if (!resources[i].resource) {
+            set_detail_msg(out, "null resource handle in levels job");
+            return -5;
         }
     }
-    readback->Unmap(0, nullptr);
+    for (uint32_t i = 0; i < kernel_count; ++i) {
+        if (!kernels[i].dxil || kernels[i].dxil_len == 0 || !kernels[i].rts0 ||
+            kernels[i].rts0_len == 0 ||
+            (kernels[i].binding_count != 2 && kernels[i].binding_count != 3)) {
+            set_detail_msg(out, "invalid kernel byte range / binding_count");
+            return -6;
+        }
+    }
+    for (uint32_t i = 0; i < level_count; ++i) {
+        const RxgdShimLevel& lv = levels[i];
+        if (lv.kernel_index >= kernel_count || lv.srv_index >= resource_count ||
+            lv.uav_index >= resource_count) {
+            set_detail_msg(out, "level references out-of-range kernel/resource index");
+            return -7;
+        }
+        if (kernels[lv.kernel_index].binding_count == 3 &&
+            lv.prev_index >= resource_count) {
+            set_detail_msg(out, "write level references out-of-range prev index");
+            return -8;
+        }
+    }
 
-    out->fence_completed_value = fence_done;
-    out->dispatch_x = gx;
-    out->dispatch_y = gy;
-    out->dispatch_z = gz;
-    out->dst_width = rb_w;
-    out->dst_height = rb_h;
-    out->readback_checksum = checksum;
-    out->dst_first_value = first;
-    std::snprintf(out->error_detail, sizeof(out->error_detail), "ok");
-    std::printf("RXGD_BRIDGE_REC: dispatch=%u,%u,%u fence=%llu dst=%ux%u dst_first=%g "
-                "checksum=0x%08x dxil_signed=%s\n",
-                gx, gy, gz, (unsigned long long)fence_done, rb_w, rb_h, first, checksum,
-                out->dxil_signed ? "yes" : "no");
-    return 0;
+    ShimSession* session = get_or_create_session(device_ptr, queue_ptr);
+    int rc = session->record_levels(pass_id, kernels, kernel_count, resources,
+                                    resource_count, levels, level_count,
+                                    readback != 0, out);
+    session->note(pass_id, rc == 0);
+    return rc;
 }

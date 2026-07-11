@@ -349,6 +349,54 @@ impl LuminanceDispatchPackage {
     }
 }
 
+/// Ceil-divide by 8 with the Godot / `lib_texture.rx` degenerate rule: a
+/// dimension of 1 stays 1 (a 1×1 level is already final). Mirrors the HLSL
+/// `(dim > 1) ? ((dim + 7) / 8) : 1` used by the reduce kernel.
+fn ceil_div8(dim: u32) -> u32 {
+    if dim > 1 { (dim + 7) / 8 } else { 1 }
+}
+
+/// GRX-009 Wave 2: one dispatch level of the luminance reduction pyramid — the
+/// source extent it reduces and the destination (`ceil(src/8)`) extent it
+/// writes. `is_final` marks the 1×1 WRITE_LUMINANCE level (clamp + EMA).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PyramidLevel {
+    pub src_width: u32,
+    pub src_height: u32,
+    pub dst_width: u32,
+    pub dst_height: u32,
+    pub is_final: bool,
+}
+
+/// GRX-009 Wave 2: plan the luminance reduction pyramid for a source extent,
+/// mirroring the native Godot cascade — each level reduces by 8×8 tiles
+/// (`ceil(dim/8)`, a 1-dimension staying 1) until the destination is 1×1; the
+/// last level is the final WRITE_LUMINANCE level. Always returns at least one
+/// level (a source already ≤ 8×8 yields a single final level). The chain
+/// strictly shrinks each step, so it always terminates.
+pub fn plan_luminance_pyramid_levels(source_width: u32, source_height: u32) -> Vec<PyramidLevel> {
+    let mut levels = Vec::new();
+    let (mut w, mut h) = (source_width.max(1), source_height.max(1));
+    loop {
+        let dst_width = ceil_div8(w);
+        let dst_height = ceil_div8(h);
+        let is_final = dst_width == 1 && dst_height == 1;
+        levels.push(PyramidLevel {
+            src_width: w,
+            src_height: h,
+            dst_width,
+            dst_height,
+            is_final,
+        });
+        if is_final {
+            break;
+        }
+        w = dst_width;
+        h = dst_height;
+    }
+    levels
+}
+
 /// GRX-009 gate for the `luminance_reduction` pass (segment 4b).
 ///
 /// The gate starts disabled and stays disabled in this segment. Segment 4a
@@ -835,6 +883,134 @@ impl LuminanceReductionGate {
         }
         // Compiled package must be available and match the offline evidence.
         self.dispatch_package.verify_matches_offline_evidence()
+    }
+
+    /// GRX-009 Wave 2 hook-contract validation for the multi-level pyramid
+    /// binding (fail-closed). The resource array is
+    /// `[source, reduce[0..L-1], current, prev]` where `L = level_count - 1`,
+    /// so its length is `level_count + 2`. Every entry must be a texture with a
+    /// non-zero native handle: any zero handle (a missing Godot buffer) fails
+    /// the WHOLE pyramid closed to the native path — no partial dispatch. See
+    /// `hook_contract_v2.md`.
+    pub fn check_pyramid_resource_binding(
+        resources: &[RxGdResource],
+        level_count: usize,
+    ) -> Result<(), FallbackReason> {
+        if level_count == 0 {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        // [source] + [reduce; L] + [current] + [prev], L = level_count - 1.
+        if resources.len() != level_count + 2 {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        // Fail closed on any missing (zero) native handle: the whole pyramid
+        // falls back rather than dispatching against an undefined binding.
+        if resources.iter().any(|resource| resource.native_handle == 0) {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        // The reduce/write kernels bind Texture2D / RWTexture2D at every slot;
+        // a buffer resource never conforms.
+        if resources
+            .iter()
+            .any(|resource| resource.resource_type != RXGD_RESOURCE_TEXTURE)
+        {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        Ok(())
+    }
+
+    /// GRX-009 Wave 2: one opt-in gated REAL multi-level luminance pyramid
+    /// attempt (fail-closed). Plans the pyramid for `source_width`×
+    /// `source_height`, checks the device precondition + the hook-contract
+    /// resource array (`[source, reduce[0..L-1], current, prev]`) + the compiled
+    /// package identity, then records the full reduce chain + final
+    /// WRITE_LUMINANCE in ONE submit through the linked shim. Every failure
+    /// returns `RXGD_STATUS_FALLBACK` with a recorded reason + the
+    /// once-per-session `RXGD_REAL_PASS_BLOCKED` diagnostic naming the first
+    /// missing prerequisite.
+    ///
+    /// The real dispatch is linked only under the `d3d12-recording-shim`
+    /// feature; the shipping feature-off bridge fails closed with
+    /// `real_dispatch_path_not_linked`. This method is NOT wired into
+    /// `rxgd_record_pass` in this slice: the multi-resource hook that supplies
+    /// `reduce[]`/`current`/`prev` is a later patch slice (see
+    /// `hook_contract_v2.md`); the method + tests define the bridge-side
+    /// contract for it.
+    ///
+    /// `first_frame` mirrors the native `p_set`: on the first frame there is no
+    /// previous luminance, so the caller supplies a zero-cleared `prev` (the EMA
+    /// then degenerates to `cur * exposure_adjust`). This method never fabricates
+    /// a `prev`; it records exactly the binding it is handed. ONE-FRAME LATENCY:
+    /// hooked from a Godot frame, `source`/`prev` carry the previous frame's
+    /// content — documented, not hidden.
+    #[cfg_attr(not(test), allow(dead_code))]
+    #[allow(clippy::too_many_arguments)]
+    fn record_pyramid_attempt(
+        &mut self,
+        caps: RxGdCaps,
+        resources: &[RxGdResource],
+        source_width: u32,
+        source_height: u32,
+        max_luminance: f32,
+        min_luminance: f32,
+        exposure_adjust: f32,
+        first_frame: bool,
+        device: usize,
+        queue: usize,
+    ) -> i32 {
+        let _ = first_frame; // caller-owned prev buffer selection; no code path here.
+        if caps.flags & RXGD_CAP_SHADER_INT64 == 0 {
+            return self.real_pass_blocked(
+                "dispatch_eligibility_failed",
+                FallbackReason::UnsupportedDevice,
+            );
+        }
+        if device == 0 || queue == 0 {
+            return self.real_pass_blocked(
+                "dispatch_eligibility_failed",
+                FallbackReason::UnsupportedDevice,
+            );
+        }
+        let levels = plan_luminance_pyramid_levels(source_width, source_height);
+        if let Err(reason) = Self::check_pyramid_resource_binding(resources, levels.len()) {
+            return self.real_pass_blocked("pyramid_binding_invalid", reason);
+        }
+        if let Err(reason) = self.dispatch_package.verify_matches_offline_evidence() {
+            return self.real_pass_blocked("dispatch_eligibility_failed", reason);
+        }
+        #[cfg(feature = "d3d12-recording-shim")]
+        {
+            let handles: Vec<usize> = resources
+                .iter()
+                .map(|resource| resource.native_handle as usize)
+                .collect();
+            match d3d12_recording_shim::record_luminance_pyramid_dispatch(
+                device,
+                queue,
+                &handles,
+                &levels,
+                max_luminance,
+                min_luminance,
+                exposure_adjust,
+                /*readback=*/ false,
+            ) {
+                Ok(record) => {
+                    self.enabled = true;
+                    self.last_dispatch_record = Some(record);
+                    self.last_real_pass_blocked = None;
+                    RXGD_STATUS_OK
+                }
+                Err(reason) => self.real_pass_blocked("real_dispatch_recording_failed", reason),
+            }
+        }
+        #[cfg(not(feature = "d3d12-recording-shim"))]
+        {
+            let _ = (max_luminance, min_luminance, exposure_adjust);
+            self.real_pass_blocked(
+                "real_dispatch_path_not_linked",
+                FallbackReason::CompileFailed,
+            )
+        }
     }
 }
 
@@ -2013,9 +2189,15 @@ pub extern "C" fn rxgd_destroy_session(session: *mut RxGdSession) {
     }
     // SAFETY: Handles are created only by `rxgd_create_d3d12_session` using
     // `Box::into_raw`; this function is the single ownership-reclaiming entry.
-    unsafe {
-        drop(Box::from_raw(session as *mut SessionInner));
-    }
+    let inner = unsafe { Box::from_raw(session as *mut SessionInner) };
+    // GRX-009 Wave 2: flush + tear down the cached shim session for this
+    // (device, queue), printing one machine-readable `RXGD_SUMMARY pass=<id>
+    // recorded=<n> fallback=<n>` line per pass the shim recorded. No-op when the
+    // shim was never entered (default shipping path). Only linked under the
+    // recording-shim feature.
+    #[cfg(feature = "d3d12-recording-shim")]
+    d3d12_recording_shim::close_shim_session(inner.device, inner.queue);
+    drop(inner);
 }
 
 fn caps_supported(caps: RxGdCaps) -> bool {
@@ -2135,14 +2317,17 @@ where
 mod d3d12_recording_shim {
     use super::{
         DispatchRecord, FallbackReason, LUMINANCE_OFFLINE_DXIL_SHA256,
-        LUMINANCE_OFFLINE_ROOT_SIGNATURE_SHA256, SSAO_BLUR_OFFLINE_DXIL_SHA256,
+        LUMINANCE_OFFLINE_ROOT_SIGNATURE_SHA256, PyramidLevel, RXGD_PASS_LUMINANCE_REDUCTION,
+        RXGD_PASS_SSAO_BLUR, RXGD_PASS_TONEMAP, SSAO_BLUR_OFFLINE_DXIL_SHA256,
         SSAO_BLUR_OFFLINE_ROOT_SIGNATURE_SHA256, TONEMAP_OFFLINE_DXIL_SHA256,
         TONEMAP_OFFLINE_ROOT_SIGNATURE_SHA256,
     };
     use core::ffi::c_void;
 
     /// Shim <-> Rust ABI version (kept in sync with `rxgd_luminance_record.cpp`).
-    const SHIM_ABI_VERSION: u32 = 1;
+    /// Bumped 1 -> 2 for the Wave 2 v2 execution model (session cache + ring
+    /// allocators + descriptor-heap ring + multi-level record entry + summary).
+    pub(super) const SHIM_ABI_VERSION: u32 = 2;
 
     /// Tracked offline luminance artifacts (segment 4i, texture-capable).
     /// Embedded so the bridge never reads them from disk at runtime; their
@@ -2153,6 +2338,26 @@ mod d3d12_recording_shim {
     const LUMINANCE_RTS0: &[u8] = include_bytes!(
         "../../../spike/godot-rurix/passes/luminance_reduction/artifacts/luminance_reduction.rts0.bin"
     );
+
+    /// Wave 2 multi-level pyramid: the tracked texture-capable final-level
+    /// WRITE_LUMINANCE kernel (`-D RX_WRITE_LUMINANCE=1` variant of
+    /// `luminance_reduce_level.hlsl`). Binds SRV t0 (src) + SRV t1 (prev) + UAV
+    /// u0 (dst) and applies `clamp(avg,min,max)` then the EMA
+    /// `prev + (cur - prev) * exposure_adjust`. Embedded from the hlsl_bridge
+    /// workaround artifact; its digests are re-verified before any dispatch.
+    const LUMINANCE_WRITE_DXIL: &[u8] = include_bytes!(
+        "../../../spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/luminance_reduce_level_write_luminance.dxil"
+    );
+    const LUMINANCE_WRITE_RTS0: &[u8] = include_bytes!(
+        "../../../spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/root_signature_write_luminance.rts0.bin"
+    );
+    /// SHA-256 of the embedded WRITE_LUMINANCE artifacts (computed from the
+    /// on-disk files). Re-verified before any pyramid dispatch so a stale or
+    /// tampered artifact can never drive a real dispatch.
+    const LUMINANCE_WRITE_DXIL_SHA256: &str =
+        "ce2f247835dec6794de1f6a2b2af64b6e8c0c66017715914889f4e6b49ffca4d";
+    const LUMINANCE_WRITE_RTS0_SHA256: &str =
+        "436948d47664266999e8a4489fa1b406bc25982fce3b18a1e13d1a6c81714eea";
 
     /// Tracked offline tonemap artifacts (GRX-010, texture-capable
     /// hlsl_bridge workaround package). Same embedding + digest discipline
@@ -2184,12 +2389,56 @@ mod d3d12_recording_shim {
         error_detail: [u8; 256],
     }
 
+    /// One bound resource for a multi-level job (mirrors the C++ `RxgdShimResource`).
+    #[repr(C)]
+    struct RxgdShimResource {
+        resource: *mut c_void,
+        reserved0: u32,
+        reserved1: u32,
+    }
+
+    /// One kernel's tracked bytes for a multi-level job (mirrors the C++
+    /// `RxgdShimKernel`). `binding_count` is 2 (reduce: SRV+UAV) or 3 (write:
+    /// SRV+SRV+UAV).
+    #[repr(C)]
+    struct RxgdShimKernel {
+        dxil: *const u8,
+        dxil_len: usize,
+        rts0: *const u8,
+        rts0_len: usize,
+        binding_count: u32,
+        reserved0: u32,
+    }
+
+    /// One dispatch level in a multi-level sequence (mirrors the C++
+    /// `RxgdShimLevel`).
+    #[repr(C)]
+    struct RxgdShimLevel {
+        kernel_index: u32,
+        srv_index: u32,
+        uav_index: u32,
+        prev_index: u32,
+        dispatch_x: u32,
+        dispatch_y: u32,
+        dispatch_z: u32,
+        dst_width: u32,
+        dst_height: u32,
+        push_constants: [u8; 28],
+    }
+
     unsafe extern "C" {
         fn rxgd_luminance_record_shim_abi_version() -> u32;
+
+        fn rxgd_luminance_record_shim_session_close(
+            abi_version: u32,
+            device: *mut c_void,
+            queue: *mut c_void,
+        );
 
         #[allow(clippy::too_many_arguments)]
         fn rxgd_luminance_record_dispatch(
             abi_version: u32,
+            pass_id: u32,
             device: *mut c_void,
             queue: *mut c_void,
             dxil: *const u8,
@@ -2206,6 +2455,39 @@ mod d3d12_recording_shim {
             dst_h: u32,
             out: *mut RxgdRecordResult,
         ) -> i32;
+
+        #[allow(clippy::too_many_arguments)]
+        fn rxgd_luminance_record_levels(
+            abi_version: u32,
+            pass_id: u32,
+            device: *mut c_void,
+            queue: *mut c_void,
+            kernels: *const RxgdShimKernel,
+            kernel_count: u32,
+            resources: *const RxgdShimResource,
+            resource_count: u32,
+            levels: *const RxgdShimLevel,
+            level_count: u32,
+            readback: u32,
+            out: *mut RxgdRecordResult,
+        ) -> i32;
+    }
+
+    /// Flush + tear down the cached shim session for `(device, queue)`, printing
+    /// one `RXGD_SUMMARY pass=<id> recorded=<n> fallback=<n>` line per pass the
+    /// session recorded. Called from `rxgd_destroy_session` under the feature.
+    /// Safe to call for a `(device, queue)` that never recorded (no-op).
+    pub fn close_shim_session(device: usize, queue: usize) {
+        // SAFETY: the close entry only frees the shim-owned cache for the
+        // `(device, queue)` key and prints the summary; it dereferences neither
+        // pointer as a D3D12 object and retains nothing past the call.
+        unsafe {
+            rxgd_luminance_record_shim_session_close(
+                SHIM_ABI_VERSION,
+                device as *mut c_void,
+                queue as *mut c_void,
+            );
+        }
     }
 
     /// Record one real luminance compute dispatch through the linked shim.
@@ -2228,6 +2510,7 @@ mod d3d12_recording_shim {
         dst_h: u32,
     ) -> Result<DispatchRecord, FallbackReason> {
         record_texture_pass_dispatch(
+            RXGD_PASS_LUMINANCE_REDUCTION,
             LUMINANCE_DXIL,
             LUMINANCE_RTS0,
             LUMINANCE_OFFLINE_DXIL_SHA256,
@@ -2263,6 +2546,7 @@ mod d3d12_recording_shim {
         dst_h: u32,
     ) -> Result<DispatchRecord, FallbackReason> {
         record_texture_pass_dispatch(
+            RXGD_PASS_TONEMAP,
             TONEMAP_DXIL,
             TONEMAP_RTS0,
             TONEMAP_OFFLINE_DXIL_SHA256,
@@ -2298,6 +2582,7 @@ mod d3d12_recording_shim {
         dst_h: u32,
     ) -> Result<DispatchRecord, FallbackReason> {
         record_texture_pass_dispatch(
+            RXGD_PASS_SSAO_BLUR,
             SSAO_BLUR_DXIL,
             SSAO_BLUR_RTS0,
             SSAO_BLUR_OFFLINE_DXIL_SHA256,
@@ -2314,11 +2599,190 @@ mod d3d12_recording_shim {
         )
     }
 
+    /// Wave 2 multi-level pyramid: record the full reduce chain + final
+    /// WRITE_LUMINANCE level in ONE submit through the shim's multi-level entry.
+    ///
+    /// `resource_handles` is the hook-contract array `[source, reduce[0..L-1],
+    /// current, prev]` (`L = levels.len() - 1`) as `ID3D12Resource*` pointer
+    /// values (as `usize`), all validated non-zero by the caller. `levels` is
+    /// the planned pyramid ([`super::plan_luminance_pyramid_levels`]). Each
+    /// reduce level uses the SRV+UAV kernel; the final level uses the SRV+SRV+UAV
+    /// WRITE_LUMINANCE kernel and reads `prev` for the EMA. `readback` selects
+    /// the test-only readback (fence wait + marker) vs the production no-wait
+    /// path.
+    ///
+    /// ONE-FRAME LATENCY: when driven from a Godot runtime hook, `source`/`prev`
+    /// carry the previous frame's content (Godot has not yet submitted this
+    /// frame); the EMA feedback makes a 1-frame delay defensible. This function
+    /// records exactly what it is handed (see hook_contract_v2.md).
+    #[allow(clippy::too_many_arguments)]
+    pub fn record_luminance_pyramid_dispatch(
+        device: usize,
+        queue: usize,
+        resource_handles: &[usize],
+        levels: &[PyramidLevel],
+        max_luminance: f32,
+        min_luminance: f32,
+        exposure_adjust: f32,
+        readback: bool,
+    ) -> Result<DispatchRecord, FallbackReason> {
+        // Artifact integrity for BOTH kernels (reduce + WRITE_LUMINANCE): the
+        // embedded bytes must hash to the baked digests, or the runtime binding
+        // does not correspond to the tracked compiled package.
+        if sha256_hex(LUMINANCE_DXIL) != LUMINANCE_OFFLINE_DXIL_SHA256
+            || sha256_hex(LUMINANCE_RTS0) != LUMINANCE_OFFLINE_ROOT_SIGNATURE_SHA256
+            || sha256_hex(LUMINANCE_WRITE_DXIL) != LUMINANCE_WRITE_DXIL_SHA256
+            || sha256_hex(LUMINANCE_WRITE_RTS0) != LUMINANCE_WRITE_RTS0_SHA256
+        {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        // SAFETY: the shim ABI query takes no arguments and only returns a
+        // compile-time constant; it dereferences no pointer.
+        let shim_abi = unsafe { rxgd_luminance_record_shim_abi_version() };
+        if shim_abi != SHIM_ABI_VERSION {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        let num_levels = levels.len();
+        if num_levels == 0 || resource_handles.len() != num_levels + 2 {
+            return Err(FallbackReason::ValidationFailed);
+        }
+
+        // Kernel table: index 0 = reduce (SRV t0 + UAV u0), index 1 =
+        // WRITE_LUMINANCE (SRV t0 + SRV t1 + UAV u0).
+        let kernels = [
+            RxgdShimKernel {
+                dxil: LUMINANCE_DXIL.as_ptr(),
+                dxil_len: LUMINANCE_DXIL.len(),
+                rts0: LUMINANCE_RTS0.as_ptr(),
+                rts0_len: LUMINANCE_RTS0.len(),
+                binding_count: 2,
+                reserved0: 0,
+            },
+            RxgdShimKernel {
+                dxil: LUMINANCE_WRITE_DXIL.as_ptr(),
+                dxil_len: LUMINANCE_WRITE_DXIL.len(),
+                rts0: LUMINANCE_WRITE_RTS0.as_ptr(),
+                rts0_len: LUMINANCE_WRITE_RTS0.len(),
+                binding_count: 3,
+                reserved0: 0,
+            },
+        ];
+        let resources: Vec<RxgdShimResource> = resource_handles
+            .iter()
+            .map(|&h| RxgdShimResource {
+                resource: h as *mut c_void,
+                reserved0: 0,
+                reserved1: 0,
+            })
+            .collect();
+        let mut shim_levels: Vec<RxgdShimLevel> = Vec::with_capacity(num_levels);
+        for (i, lvl) in levels.iter().enumerate() {
+            let is_final = i + 1 == num_levels;
+            let kernel_index = if is_final { 1 } else { 0 };
+            // Resource array layout: [source(0), reduce[0..L-1](1..=L),
+            // current(L+1), prev(L+2)]. Level i reads index i (source or the
+            // previous level's output) and writes index i+1, except the final
+            // level writes `current` (num_levels) and reads `prev` (num_levels+1).
+            let srv_index = i as u32;
+            let uav_index = if is_final {
+                num_levels as u32
+            } else {
+                (i + 1) as u32
+            };
+            let prev_index = (num_levels + 1) as u32;
+            // [numthreads(8,8,1)], one thread per dest texel: dispatch
+            // ceil(dst / 8) thread groups.
+            let dispatch_x = ((lvl.dst_width + 7) / 8).max(1);
+            let dispatch_y = ((lvl.dst_height + 7) / 8).max(1);
+            let mut pc = [0u8; 28];
+            pc[0..8].copy_from_slice(&(u64::from(lvl.src_width)).to_le_bytes());
+            pc[8..16].copy_from_slice(&(u64::from(lvl.src_height)).to_le_bytes());
+            pc[16..20].copy_from_slice(&max_luminance.to_le_bytes());
+            pc[20..24].copy_from_slice(&min_luminance.to_le_bytes());
+            pc[24..28].copy_from_slice(&exposure_adjust.to_le_bytes());
+            shim_levels.push(RxgdShimLevel {
+                kernel_index,
+                srv_index,
+                uav_index,
+                prev_index,
+                dispatch_x,
+                dispatch_y,
+                dispatch_z: 1,
+                dst_width: lvl.dst_width,
+                dst_height: lvl.dst_height,
+                push_constants: pc,
+            });
+        }
+
+        let mut out = RxgdRecordResult {
+            fence_completed_value: 0,
+            dispatch_x: 0,
+            dispatch_y: 0,
+            dispatch_z: 0,
+            dst_width: 0,
+            dst_height: 0,
+            readback_checksum: 0,
+            dst_first_value: 0.0,
+            dxil_signed: 0,
+            error_detail: [0u8; 256],
+        };
+        let start = std::time::Instant::now();
+        // SAFETY: `kernels`/`resources`/`shim_levels` are exclusive local arrays
+        // whose element pointers reference embedded read-only artifact bytes and
+        // caller-validated non-null resource handles; each pointer/length pair is
+        // valid for the call. `out` is an exclusive local. The device/queue
+        // pointer values were validated non-null by the caller. The shim honours
+        // the versioned ABI (first arg checked against `SHIM_ABI_VERSION`), only
+        // reads the byte inputs, records the dispatches, writes `out`, and
+        // retains no pointer past the call.
+        let rc = unsafe {
+            rxgd_luminance_record_levels(
+                SHIM_ABI_VERSION,
+                RXGD_PASS_LUMINANCE_REDUCTION,
+                device as *mut c_void,
+                queue as *mut c_void,
+                kernels.as_ptr(),
+                kernels.len() as u32,
+                resources.as_ptr(),
+                resources.len() as u32,
+                shim_levels.as_ptr(),
+                shim_levels.len() as u32,
+                if readback { 1 } else { 0 },
+                &mut out,
+            )
+        };
+        let cpu_record_ns = start.elapsed().as_nanos() as u64;
+        if rc != 0 {
+            let detail_len = out
+                .error_detail
+                .iter()
+                .position(|&b| b == 0)
+                .unwrap_or(out.error_detail.len());
+            let detail = String::from_utf8_lossy(&out.error_detail[..detail_len]);
+            eprintln!(
+                "RXGD_SHIM_DIAG rxgd_luminance_record_levels rc={rc} dxil_signed={} detail=\"{detail}\"",
+                out.dxil_signed
+            );
+            return Err(FallbackReason::ValidationFailed);
+        }
+        Ok(DispatchRecord {
+            fence_completed_value: out.fence_completed_value,
+            dispatch: (out.dispatch_x, out.dispatch_y, out.dispatch_z),
+            dst_width: out.dst_width,
+            dst_height: out.dst_height,
+            readback_checksum: out.readback_checksum,
+            dst_first_value: out.dst_first_value,
+            dxil_signed: out.dxil_signed != 0,
+            cpu_record_ns,
+        })
+    }
+
     /// Shared parameterized texture-pass recording path: verifies the
     /// embedded artifact digests for the requested pass package, then hands
     /// the real handles plus the pass's DXIL/RTS0 bytes to the shim.
     #[allow(clippy::too_many_arguments)]
     fn record_texture_pass_dispatch(
+        pass_id: u32,
         dxil_bytes: &'static [u8],
         rts0_bytes: &'static [u8],
         expected_dxil_sha256: &str,
@@ -2374,6 +2838,7 @@ mod d3d12_recording_shim {
         let rc = unsafe {
             rxgd_luminance_record_dispatch(
                 SHIM_ABI_VERSION,
+                pass_id,
                 device as *mut c_void,
                 queue as *mut c_void,
                 dxil_bytes.as_ptr(),
@@ -2538,6 +3003,24 @@ mod d3d12_recording_shim {
             assert_eq!(
                 sha256_hex(TONEMAP_RTS0),
                 TONEMAP_OFFLINE_ROOT_SIGNATURE_SHA256
+            );
+        }
+
+        #[test]
+        fn embedded_write_luminance_artifacts_match_digests() {
+            use super::{
+                LUMINANCE_WRITE_DXIL, LUMINANCE_WRITE_DXIL_SHA256, LUMINANCE_WRITE_RTS0,
+                LUMINANCE_WRITE_RTS0_SHA256,
+            };
+            // Digests computed from the on-disk hlsl_bridge WRITE_LUMINANCE
+            // artifacts; guards against embedding a stale/tampered kernel.
+            assert_eq!(
+                sha256_hex(LUMINANCE_WRITE_DXIL),
+                LUMINANCE_WRITE_DXIL_SHA256
+            );
+            assert_eq!(
+                sha256_hex(LUMINANCE_WRITE_RTS0),
+                LUMINANCE_WRITE_RTS0_SHA256
             );
         }
     }
@@ -4237,6 +4720,205 @@ mod tests {
         assert_eq!(
             gate.last_fallback_reason(),
             Some(FallbackReason::CompileFailed)
+        );
+    }
+
+    // ── GRX-009 Wave 2 multi-level pyramid (level chain + hook contract) ──────
+
+    /// A source already ≤ 8×8 (or 1×1) yields a single final WRITE_LUMINANCE
+    /// level whose destination is 1×1.
+    #[test]
+    fn pyramid_plan_single_level_for_small_source() {
+        for (w, h) in [(8u32, 8u32), (1, 1), (5, 7), (3, 8)] {
+            let levels = plan_luminance_pyramid_levels(w, h);
+            assert_eq!(levels.len(), 1, "source {w}x{h} should be one level");
+            assert!(levels[0].is_final);
+            assert_eq!((levels[0].dst_width, levels[0].dst_height), (1, 1));
+            assert_eq!(
+                (levels[0].src_width, levels[0].src_height),
+                (w.max(1), h.max(1))
+            );
+        }
+    }
+
+    /// A 16×16 source cascades 16×16 → 2×2 → 1×1 (two dispatches); only the last
+    /// level is the final WRITE_LUMINANCE level.
+    #[test]
+    fn pyramid_plan_two_level_cascade() {
+        let levels = plan_luminance_pyramid_levels(16, 16);
+        assert_eq!(levels.len(), 2);
+        assert_eq!(
+            levels[0],
+            PyramidLevel {
+                src_width: 16,
+                src_height: 16,
+                dst_width: 2,
+                dst_height: 2,
+                is_final: false
+            }
+        );
+        assert_eq!(
+            levels[1],
+            PyramidLevel {
+                src_width: 2,
+                src_height: 2,
+                dst_width: 1,
+                dst_height: 1,
+                is_final: true
+            }
+        );
+    }
+
+    /// A 1920×1080 source cascades in four dispatches down to 1×1. Dims follow
+    /// the tracked kernel's ceil-div-8 (240×135 → 30×17 → 4×3 → 1×1); each
+    /// level's source equals the previous level's destination.
+    #[test]
+    fn pyramid_plan_1080p_four_levels_chain_is_contiguous() {
+        let levels = plan_luminance_pyramid_levels(1920, 1080);
+        assert_eq!(levels.len(), 4);
+        assert_eq!((levels[0].dst_width, levels[0].dst_height), (240, 135));
+        assert!(levels.last().unwrap().is_final);
+        assert_eq!(
+            (
+                levels.last().unwrap().dst_width,
+                levels.last().unwrap().dst_height
+            ),
+            (1, 1)
+        );
+        // Exactly one final level; the chain is contiguous.
+        assert_eq!(levels.iter().filter(|l| l.is_final).count(), 1);
+        for pair in levels.windows(2) {
+            assert_eq!(
+                (pair[0].dst_width, pair[0].dst_height),
+                (pair[1].src_width, pair[1].src_height)
+            );
+        }
+    }
+
+    /// Hook-contract resource array `[source, reduce[0..L-1], current, prev]` is
+    /// `level_count + 2` textures; a correct binding validates.
+    #[test]
+    fn pyramid_resource_binding_accepts_full_contract_array() {
+        let levels = plan_luminance_pyramid_levels(1920, 1080); // 4 levels -> 6 resources
+        let resources: Vec<RxGdResource> = (0..levels.len() + 2)
+            .map(|i| RxGdResource::texture((i as u64) + 100, 64, 64, 41))
+            .collect();
+        assert_eq!(resources.len(), 6);
+        assert_eq!(
+            LuminanceReductionGate::check_pyramid_resource_binding(&resources, levels.len()),
+            Ok(())
+        );
+    }
+
+    /// Fail-closed: any single zero (missing) native handle fails the WHOLE
+    /// pyramid binding.
+    #[test]
+    fn pyramid_resource_binding_any_zero_handle_fails_closed() {
+        let level_count = 4;
+        for zero_slot in 0..level_count + 2 {
+            let mut resources: Vec<RxGdResource> = (0..level_count + 2)
+                .map(|i| RxGdResource::texture((i as u64) + 100, 64, 64, 41))
+                .collect();
+            resources[zero_slot].native_handle = 0;
+            assert_eq!(
+                LuminanceReductionGate::check_pyramid_resource_binding(&resources, level_count),
+                Err(FallbackReason::ValidationFailed),
+                "zero handle at slot {zero_slot} must fail closed"
+            );
+        }
+    }
+
+    /// Fail-closed: wrong array length, a buffer resource, and a zero level
+    /// count are all rejected.
+    #[test]
+    fn pyramid_resource_binding_shape_violations_fail_closed() {
+        let ok: Vec<RxGdResource> = (0..6)
+            .map(|i| RxGdResource::texture((i as u64) + 1, 64, 64, 41))
+            .collect();
+        // level_count 4 expects 6 resources; 5 or 7 must fail.
+        assert_eq!(
+            LuminanceReductionGate::check_pyramid_resource_binding(&ok[..5], 4),
+            Err(FallbackReason::ValidationFailed)
+        );
+        assert_eq!(
+            LuminanceReductionGate::check_pyramid_resource_binding(&ok, 3),
+            Err(FallbackReason::ValidationFailed)
+        );
+        // A buffer resource never conforms at any slot (kernels bind
+        // Texture2D / RWTexture2D).
+        let mut with_buffer = ok.clone();
+        with_buffer[2].resource_type = RXGD_RESOURCE_BUFFER;
+        assert_eq!(
+            LuminanceReductionGate::check_pyramid_resource_binding(&with_buffer, 4),
+            Err(FallbackReason::ValidationFailed)
+        );
+        // Zero level count is invalid.
+        assert_eq!(
+            LuminanceReductionGate::check_pyramid_resource_binding(&ok, 0),
+            Err(FallbackReason::ValidationFailed)
+        );
+    }
+
+    /// The gated pyramid attempt fails closed (and records the first missing
+    /// prerequisite) when a resource handle is missing, before any dispatch.
+    #[test]
+    fn pyramid_attempt_missing_handle_blocks_before_dispatch() {
+        let caps = luminance_dispatch_optin_caps(); // carries RXGD_CAP_SHADER_INT64
+        let mut resources: Vec<RxGdResource> = (0..6)
+            .map(|i| RxGdResource::texture((i as u64) + 100, 64, 64, 41))
+            .collect();
+        resources[4].native_handle = 0; // missing `current`
+        let mut gate = LuminanceReductionGate::new();
+        assert_eq!(
+            gate.record_pyramid_attempt(caps, &resources, 1920, 1080, 8.0, 0.05, 0.5, false, 1, 2),
+            RXGD_STATUS_FALLBACK
+        );
+        assert!(!gate.is_enabled());
+        assert_eq!(
+            gate.last_real_pass_blocked(),
+            Some("pyramid_binding_invalid")
+        );
+    }
+
+    /// The gated pyramid attempt fails closed on a null device handle
+    /// (eligibility) before it can reach the binding check or any dispatch.
+    #[test]
+    fn pyramid_attempt_null_device_blocks_on_eligibility() {
+        let caps = luminance_dispatch_optin_caps();
+        let resources: Vec<RxGdResource> = (0..6)
+            .map(|i| RxGdResource::texture((i as u64) + 100, 64, 64, 41))
+            .collect();
+        let mut gate = LuminanceReductionGate::new();
+        assert_eq!(
+            gate.record_pyramid_attempt(caps, &resources, 1920, 1080, 8.0, 0.05, 0.5, false, 0, 2),
+            RXGD_STATUS_FALLBACK
+        );
+        assert!(!gate.is_enabled());
+        assert_eq!(
+            gate.last_real_pass_blocked(),
+            Some("dispatch_eligibility_failed")
+        );
+    }
+
+    /// Feature-off shipping bridge: even a fully valid pyramid binding with real
+    /// non-null device/queue handles fails closed with
+    /// `real_dispatch_path_not_linked` — no dispatch path is compiled in.
+    #[cfg(not(feature = "d3d12-recording-shim"))]
+    #[test]
+    fn pyramid_attempt_feature_off_is_not_linked() {
+        let caps = luminance_dispatch_optin_caps();
+        let resources: Vec<RxGdResource> = (0..6)
+            .map(|i| RxGdResource::texture((i as u64) + 100, 64, 64, 41))
+            .collect();
+        let mut gate = LuminanceReductionGate::new();
+        assert_eq!(
+            gate.record_pyramid_attempt(caps, &resources, 1920, 1080, 8.0, 0.05, 0.5, true, 1, 2),
+            RXGD_STATUS_FALLBACK
+        );
+        assert!(!gate.is_enabled());
+        assert_eq!(
+            gate.last_real_pass_blocked(),
+            Some("real_dispatch_path_not_linked")
         );
     }
 }

@@ -8,7 +8,7 @@
   "measured_gpu": false,
   "real_gpu_pass": false,
   "canonical_artifact_replaced": false,
-  "generated_at_utc": "2026-07-08T11:22:30Z",
+  "generated_at_utc": "2026-07-11T13:53:21Z",
   "kernel": {
     "hlsl": {
       "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/luminance_reduce_level.hlsl",
@@ -194,6 +194,223 @@
       "case_status": "pending"
     }
   ],
+  "pyramid_parity": {
+    "description": "GRX-009 Wave 2 full multi-level reduce chain (spatial pyramid): level 0 reduces the input pattern, each later level reduces the previous level's output grid, ceil-div-8 cascade to 1x1 mirroring LuminanceReductionGate::plan_luminance_pyramid_levels. Each level grid is the partial-tile-correct 8x8 tile mean; the final level grid is the raw pre-EMA 1x1 luminance (the temporal EMA is modeled in ema_sequence). GPU side is pending a real multi-level dispatch.",
+    "source_width": 256,
+    "source_height": 144,
+    "input_pattern": "f32(((x * 31 + y * 17) % 97)) / f32(97)",
+    "levels": [
+      {
+        "level_index": 0,
+        "variant": "base",
+        "is_final": false,
+        "src_width": 256,
+        "src_height": 144,
+        "dst_width": 32,
+        "dst_height": 18,
+        "cpu_expected": {
+          "dst_f32_le_sha256": "4a12b1069742a619689d665fa699c5321823c7de57be849acb1911a6c93b6d77",
+          "sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "value": 0.49758380651474
+            },
+            {
+              "x": 0,
+              "y": 17,
+              "value": 0.4888852834701538
+            },
+            {
+              "x": 16,
+              "y": 9,
+              "value": 0.49210697412490845
+            },
+            {
+              "x": 31,
+              "y": 0,
+              "value": 0.4896906614303589
+            },
+            {
+              "x": 31,
+              "y": 17,
+              "value": 0.48099222779273987
+            }
+          ]
+        },
+        "gpu_observed": null,
+        "case_status": "pending"
+      },
+      {
+        "level_index": 1,
+        "variant": "base",
+        "is_final": false,
+        "src_width": 32,
+        "src_height": 18,
+        "dst_width": 4,
+        "dst_height": 3,
+        "cpu_expected": {
+          "dst_f32_le_sha256": "6e94eb1eceae63844d8c7a06e48a717ffc7c177cb0aed4c9f6124280e98cdb32",
+          "sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "value": 0.49485543370246887
+            },
+            {
+              "x": 0,
+              "y": 2,
+              "value": 0.4950970411300659
+            },
+            {
+              "x": 2,
+              "y": 1,
+              "value": 0.49478739500045776
+            },
+            {
+              "x": 3,
+              "y": 0,
+              "value": 0.49484026432037354
+            },
+            {
+              "x": 3,
+              "y": 2,
+              "value": 0.49459365010261536
+            }
+          ]
+        },
+        "gpu_observed": null,
+        "case_status": "pending"
+      },
+      {
+        "level_index": 2,
+        "variant": "write_luminance",
+        "is_final": true,
+        "src_width": 4,
+        "src_height": 3,
+        "dst_width": 1,
+        "dst_height": 1,
+        "cpu_expected": {
+          "dst_f32_le_sha256": "68ed6fbead31ff2d6dd4b8a2d46bfe754c38ce0ad3fcb5de6c6a79047277e9f9",
+          "sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "value": 0.4948277175426483
+            }
+          ]
+        },
+        "gpu_observed": null,
+        "case_status": "pending"
+      }
+    ]
+  },
+  "ema_sequence": {
+    "description": "GRX-009 Wave 2 temporal EMA of the final 1x1 luminance over 8 frames including the first-frame p_set. Models the WRITE_LUMINANCE kernel out = prev + (cur - prev) * exposure_adjust with cur = clamp(avg, min, max); the first frame uses prev == 0 (zero-cleared, Godot p_set) so out = cur * adjust. Frame scales are chosen so the clamp bites at both bounds. GPU side is pending a real multi-frame dispatch.",
+    "source_width": 8,
+    "source_height": 8,
+    "input_pattern_base": "f32(((x * 31 + y * 17) % 97)) / f32(97)",
+    "constants": {
+      "max_luminance": 1.2,
+      "min_luminance": 0.1,
+      "exposure_adjust": 0.4
+    },
+    "frames": [
+      {
+        "frame_index": 0,
+        "p_set": true,
+        "source_scale": 0.20000000298023224,
+        "raw_avg": 0.09951674193143845,
+        "clamped_cur": 0.10000000149011612,
+        "clamp_active": true,
+        "prev_luminance": 0.0,
+        "current_out": 0.03999999910593033
+      },
+      {
+        "frame_index": 1,
+        "p_set": false,
+        "source_scale": 3.0,
+        "raw_avg": 1.4927520751953125,
+        "clamped_cur": 1.2000000476837158,
+        "clamp_active": true,
+        "prev_luminance": 0.03999999910593033,
+        "current_out": 0.5040000677108765
+      },
+      {
+        "frame_index": 2,
+        "p_set": false,
+        "source_scale": 1.0,
+        "raw_avg": 0.49758380651474,
+        "clamped_cur": 0.49758380651474,
+        "clamp_active": false,
+        "prev_luminance": 0.5040000677108765,
+        "current_out": 0.5014335513114929
+      },
+      {
+        "frame_index": 3,
+        "p_set": false,
+        "source_scale": 0.05000000074505806,
+        "raw_avg": 0.02487918548285961,
+        "clamped_cur": 0.10000000149011612,
+        "clamp_active": true,
+        "prev_luminance": 0.5014335513114929,
+        "current_out": 0.34086012840270996
+      },
+      {
+        "frame_index": 4,
+        "p_set": false,
+        "source_scale": 2.5,
+        "raw_avg": 1.2439591884613037,
+        "clamped_cur": 1.2000000476837158,
+        "clamp_active": true,
+        "prev_luminance": 0.34086012840270996,
+        "current_out": 0.6845160722732544
+      },
+      {
+        "frame_index": 5,
+        "p_set": false,
+        "source_scale": 1.0,
+        "raw_avg": 0.49758380651474,
+        "clamped_cur": 0.49758380651474,
+        "clamp_active": false,
+        "prev_luminance": 0.6845160722732544,
+        "current_out": 0.6097431778907776
+      },
+      {
+        "frame_index": 6,
+        "p_set": false,
+        "source_scale": 0.5,
+        "raw_avg": 0.24879190325737,
+        "clamped_cur": 0.24879190325737,
+        "clamp_active": false,
+        "prev_luminance": 0.6097431778907776,
+        "current_out": 0.46536266803741455
+      },
+      {
+        "frame_index": 7,
+        "p_set": false,
+        "source_scale": 0.800000011920929,
+        "raw_avg": 0.3980669677257538,
+        "clamped_cur": 0.3980669677257538,
+        "clamp_active": false,
+        "prev_luminance": 0.46536266803741455,
+        "current_out": 0.4384443759918213
+      }
+    ]
+  },
+  "semantics": {
+    "one_frame_latency": {
+      "declared": true,
+      "description": "When the Godot runtime hook records these dispatches from within a frame, Godot has not yet submitted that frame's rendering to the queue, so a self-queue dispatch reading the internal_texture (source) reads the PREVIOUS frame's content, and prev is the previous frame's 1x1 luminance. The luminance pass uses time-domain EMA feedback, so a 1-frame delay is engineering-defensible; it is recorded here, not hidden. A later enablement smoke may fingerprint the dispatch input in test-only readback mode to demonstrate the ordering.",
+      "reference": "hook_contract_v2.md"
+    },
+    "p_set_first_frame": {
+      "description": "Mirrors Godot's p_set: on the first frame there is no previous luminance, so no EMA blend is applied. The fixed WRITE_LUMINANCE kernel expresses this via a zero-cleared prev texture, for which prev + (cur - prev) * adjust degenerates to cur * adjust. Native p_set == false writes clamp(avg) directly (no exposure factor); the fixed kernel differs by the exposure factor on the first frame only, a bounded documented divergence. ema_sequence models the kernel behavior."
+    },
+    "clamp": {
+      "description": "clamp(avg, min_luminance, max_luminance) is applied only at the final WRITE_LUMINANCE level (per Godot), before the EMA. Reduce levels write the raw 8x8 tile mean with no clamp/exposure."
+    }
+  },
   "does_not_imply": [
     "Godot runtime luminance pass completion",
     "real_gpu_pass=true",
