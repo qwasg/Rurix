@@ -264,8 +264,9 @@ mod dxil_io {
         }
     }
 
-    /// AST 类型 → 资源句柄建模(RXS-0156 首批 `Texture2D<F>`/`Sampler`);非资源
-    /// 句柄类型 → None。`Texture2D` 取首个类型实参的头 prim 作分量类型(缺省 `f32`)。
+    /// AST 类型 → 资源句柄建模(RXS-0156 首批 `Texture2D<F>`/`Sampler`;GRX-009 增量
+    /// `RWTexture2D<F>` compute-kernel UAV);非资源句柄类型 → None。`Texture2D`/
+    /// `RWTexture2D` 取首个类型实参的头 prim 作分量类型(缺省 `f32`)。
     fn ast_ty_to_resource(ty: &ast::Ty) -> Option<MirResourceType> {
         let ty = unwrap_ty(ty);
         let head = ty_head_name(ty)?;
@@ -280,6 +281,18 @@ mod dxil_io {
                     PrimTy::F32
                 };
                 Some(MirResourceType::Texture2D(prim))
+            }
+            // GRX-009:RWTexture2D<F> → UAV(图形阶段资源句柄提取对称收口)。
+            "RWTexture2D" => {
+                let prim = if let TyKind::Path(p) = &ty.kind {
+                    p.segments
+                        .last()
+                        .and_then(vector_elem_prim)
+                        .unwrap_or(PrimTy::F32)
+                } else {
+                    PrimTy::F32
+                };
+                Some(MirResourceType::RWTexture2D(prim))
             }
             "Sampler" => Some(MirResourceType::Sampler),
             _ => None,
@@ -824,11 +837,15 @@ impl Builder<'_, '_> {
             }
             // `View`/`ViewMut` 容器索引(M4.2,RXS-0071):base 为地址空间指针,
             // 偏移 index(usize)得元素 place。数组(`shared let [T; N]` 等,M5.3)
-            // 索引同样产 place(device codegen 落 addrspace 3/5 数组 gep)。其余非
-            // 容器索引作用面外(op_of 报 RX6001)。
+            // 索引同样产 place(device codegen 落 addrspace 3/5 数组 gep)。GRX-009:
+            // `Texture2D<f32>`/`RWTexture2D<f32>` 资源句柄索引同样产 place(compute
+            // kernel body lowering 由 dxil_codegen 直接吃 AST,但 device MIR 构建
+            // 须先成事不报错,故此处放宽 is_view_ty 兼容纹理句柄)。其余非容器索引
+            // 作用面外(op_of 报 RX6001)。
             tbir::ExprKind::Index { base, index } => {
                 let bt = self.ty_of(base);
-                if !self.is_view_ty(&bt) && !matches!(bt, Ty::Array(_)) {
+                if !self.is_view_ty(&bt) && !self.is_texture_ty(&bt) && !matches!(bt, Ty::Array(_))
+                {
                     return None;
                 }
                 let mut p = self.place_of_or_temp(base);
@@ -843,6 +860,18 @@ impl Builder<'_, '_> {
     /// 类型是否为 `View`/`ViewMut` 族容器(M4.2,RXS-0071;索引 place 化判定)。
     fn is_view_ty(&self, ty: &Ty) -> bool {
         matches!(ty, Ty::Adt(d, _) if self.res.lang_items.view_mutable(*d).is_some())
+    }
+
+    /// 类型是否为 `Texture2D`/`RWTexture2D` 资源句柄(GRX-009;compute kernel SRV/UAV
+    /// 纹理句柄索引 place 化判定)。仅服务 MIR build 不报错 pass-through,真正 body
+    /// lowering 由 dxil_codegen 直接吃 AST 走 texture load/store intrinsic 路径。
+    fn is_texture_ty(&self, ty: &Ty) -> bool {
+        matches!(
+            ty,
+            Ty::Adt(d, _)
+                if self.res.lang_items.is_texture2d(*d)
+                    || self.res.lang_items.rwtexture2d == Some(*d)
+        )
     }
 
     /// 索引下标物化为 usize local(`ProjElem::Index` 载荷)。

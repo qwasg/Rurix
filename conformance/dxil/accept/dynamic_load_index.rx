@@ -1,0 +1,6 @@
+//@ spec: RXS-0157
+kernel fn dynamic_load_index(src: View<global, f32>, dst: ViewMut<global, f32>, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    let v = src[i];
+    dst[0] = v;
+}

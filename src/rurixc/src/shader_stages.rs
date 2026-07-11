@@ -55,6 +55,8 @@ const KNOWN_INTERP: &[&str] = &[
 
 /// 首批支持的纹理类型名(RFC-0002 §9 Q4:仅 `Texture2D`,其余维度 defer)。
 const SUPPORTED_TEXTURE: &str = "Texture2D";
+/// GRX-009:compute-kernel UAV 纹理类型名(`RWTexture2D<F>`)。
+const SUPPORTED_RWTEXTURE: &str = "RWTexture2D";
 /// 采样器类型名(RFC-0002 §4.4)。
 const SAMPLER: &str = "Sampler";
 
@@ -279,10 +281,13 @@ fn check_fn(
         check_handle_return(ret, diag);
     }
     // 形参:着色阶段允许 `Texture2D<F>`/`Sampler` 作签名形参;未支持纹理维度 → RX3013。
-    // 非着色阶段函数不得携带资源句柄形参(首批仅着色阶段签名,RFC-0002 §4.4)。
+    // GRX-009:`kernel fn` 同样允许 `Texture2D<f32>`/`RWTexture2D<f32>` 作计算内核签名形参
+    // (compute-kernel SRV/UAV 纹理句柄);非着色/非 kernel 函数不得携带资源句柄形参
+    // (RFC-0002 §4.4)。
+    let allow_handle_param = f.stage.is_some() || f.color == crate::ast::FnColor::Kernel;
     for p in &f.params {
         if let crate::ast::ParamKind::Typed { ty, .. } = &p.kind {
-            check_handle_param(ty, f.stage.is_some(), diag);
+            check_handle_param(ty, allow_handle_param, diag);
         }
     }
     // RXS-0155:fragment 输入 varying 须与上游 vertex 输出兼容。
@@ -295,8 +300,8 @@ fn check_fn(
 /// `Some(false)` = 资源句柄但未支持维度(defer);`None` = 非资源句柄类型。
 fn texture_kind(ty: &Ty) -> Option<bool> {
     let head = ty_head_name(ty)?;
-    if head == SUPPORTED_TEXTURE || head == SAMPLER {
-        Some(true)
+    if head == SUPPORTED_TEXTURE || head == SUPPORTED_RWTEXTURE || head == SAMPLER {
+        Some(true) // `Texture2D`/`RWTexture2D`/`Sampler`:首批支持
     } else if head.starts_with("Texture") {
         Some(false) // Texture1D/Texture3D/TextureCube/*Array 等:首批不支持
     } else {

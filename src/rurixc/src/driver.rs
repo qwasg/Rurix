@@ -778,20 +778,20 @@ fn compile_dxil_target(
     }
     let Some(dxc_dir) = crate::toolchain::locate_dxc_dir() else {
         eprintln!(
-            "rurixc: note: dxc validator not found (set RURIX_DXC_DIR); DXIL emitted at {} (+ RTS0 + descriptor layout) but validator gate SKIPPED (RXS-0157)",
+            "rurixc: note: dxc validator suite not found or incomplete (set RURIX_DXC_DIR or RURIX_DXC_NEW_DIR to a directory containing dxc.exe, dxv.exe, and dxil.dll); DXIL emitted at {} (+ RTS0 + descriptor layout) but validator gate SKIPPED (RXS-0157)",
             obj_out.display()
         );
         return 0;
     };
     match crate::toolchain::dxv_validate(&dxc_dir, &obj_out) {
-        Ok(true) => {
+        Ok(result) if result.success => {
             eprintln!(
                 "rurixc: --target dxil: DXIL container emitted + dxc validator accepted ({})",
                 obj_out.display()
             );
             0
         }
-        Ok(false) => {
+        Ok(result) => {
             diag.struct_error(ErrorCode(6007), "codegen.dxil_unsupported")
                 .arg(
                     "detail",
@@ -802,6 +802,27 @@ fn compile_dxil_target(
                 "{}",
                 render_diagnostics(&diag.emitted(), sm, diag.messages())
             );
+            eprintln!("rurixc: dxv validator argv begin");
+            for arg in &result.argv {
+                eprintln!("{arg}");
+            }
+            eprintln!("rurixc: dxv validator argv end");
+            match result.exit_code {
+                Some(code) => eprintln!("rurixc: dxv validator exit_code: {code}"),
+                None => eprintln!("rurixc: dxv validator exit_code: unavailable"),
+            }
+            eprintln!("rurixc: dxv validator stdout begin");
+            eprint!("{}", result.stdout);
+            if !result.stdout.ends_with('\n') {
+                eprintln!();
+            }
+            eprintln!("rurixc: dxv validator stdout end");
+            eprintln!("rurixc: dxv validator stderr begin");
+            eprint!("{}", result.stderr);
+            if !result.stderr.ends_with('\n') {
+                eprintln!();
+            }
+            eprintln!("rurixc: dxv validator stderr end");
             1
         }
         Err(e) => {

@@ -1203,14 +1203,17 @@ impl Tck<'_, '_> {
             hir::ExprKind::Index { expr, index } => {
                 let bt = self.check_expr(expr);
                 let it = self.check_expr(index);
-                self.demand(index.span, &Ty::Prim(PrimTy::Usize), &it);
                 match self.autoderef(&bt) {
-                    Ty::Array(t) | Ty::Slice(t) => *t,
+                    Ty::Array(t) | Ty::Slice(t) => {
+                        self.demand(index.span, &Ty::Prim(PrimTy::Usize), &it);
+                        *t
+                    }
                     // `View<space, T, ..>` / `ViewMut<space, T, ..>` 索引(M4.2,
                     // RXS-0071):元素类型 = 第二类型实参(args[0] = 地址空间标记)。
                     Ty::Adt(d, args)
                         if self.res.lang_items.view_mutable(d).is_some() && args.len() >= 2 =>
                     {
+                        self.demand(index.span, &Ty::Prim(PrimTy::Usize), &it);
                         args[1].clone()
                     }
                     // 其余 Adt 索引(运算符 trait 形态)M2.2 容忍
