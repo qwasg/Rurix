@@ -1,10 +1,13 @@
 {
   "pass_id": "luminance_reduction",
-  "status": "gated_scaffold_segment_3a_blocked",
-  "implemented": false,
+  "status": "stage_a5_real_pass_measured_success_default_disabled",
+  "implemented": true,
   "default_enable_state": "disabled",
   "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
-  "target_scenes": ["post_fx_chain", "mixed_forward_plus"],
+  "target_scenes": [
+    "post_fx_chain",
+    "mixed_forward_plus"
+  ],
   "godot_hook_investigation": {
     "note": "Investigation only; external/godot-master is NOT modified. Paths and functions are recorded for later mapping and are not wired up.",
     "effect_class": {
@@ -22,26 +25,322 @@
       "servers/rendering/renderer_rd/shaders/effects/luminance_reduce_raster.glsl"
     ],
     "call_sites": [
-      {"file": "servers/rendering/renderer_rd/renderer_scene_render_rd.cpp", "region": "Auto Exposure", "lines": [558, 567]},
-      {"file": "servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp", "lines": [2439, 2486]}
+      {
+        "file": "servers/rendering/renderer_rd/renderer_scene_render_rd.cpp",
+        "region": "Auto Exposure",
+        "lines": [
+          558,
+          567
+        ]
+      },
+      {
+        "file": "servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp",
+        "lines": [
+          2439,
+          2486
+        ]
+      }
     ]
   },
-  "io_resources_placeholder": {
-    "input": "hdr_internal_texture",
-    "intermediate": "luminance_reduce_buffers",
-    "output": "current_luminance_buffer",
-    "note": "placeholder; not wired"
+  "resource_mapping": "spike/godot-rurix/passes/luminance_reduction/resource_mapping.md",
+  "io_resources_mapping_scaffold": {
+    "input": "hdr_internal_texture / p_source_texture for the first native Godot level",
+    "intermediate": "p_luminance_buffers->reduce[i] R32_SFLOAT pyramid levels",
+    "output": "p_luminance_buffers->current after the final SWAP(current, reduce[last])",
+    "rurix_scaffold": "single-level src_luminance SRV t0 to dst_luminance UAV u0 mapping; not a runtime pyramid replacement",
+    "note": "tracked resource mapping scaffold; not wired as a real runtime pass"
   },
-  "dispatch_shape_placeholder": {
-    "candidates": ["compute_reduce_pyramid", "raster_fragment_reduce"],
-    "selected": null,
-    "note": "shape TBD; no thread group counts claimed"
+  "dispatch_shape_mapping_scaffold": {
+    "godot_compute_shape": "8x8 local shader block; each level dispatches over current source_size and then divides source_size by 8 with clamp to 1",
+    "rurix_scaffold_shape": "single-level descriptor mapping only",
+    "not_implemented": [
+      "full reduction pyramid replacement",
+      "inter-level barriers",
+      "previous luminance feedback binding",
+      "runtime dispatch"
+    ]
+  },
+  "descriptor_mapping_scaffold": {
+    "root_cbuffer_binding": "b0 space0",
+    "root_constants": [
+      "source_width",
+      "source_height",
+      "max_luminance",
+      "min_luminance",
+      "exposure_adjust"
+    ],
+    "resources": [
+      {
+        "name": "src_luminance",
+        "binding": "t0 space0",
+        "kind": "SRV"
+      },
+      {
+        "name": "dst_luminance",
+        "binding": "u0 space0",
+        "kind": "UAV"
+      }
+    ],
+    "requires_64bit_integer_shader_capability": true,
+    "on_missing_resource_or_cap_or_descriptor_mismatch": "RXGD_STATUS_FALLBACK",
+    "binding_kind_field": "segment 4i added a per-resource 'binding_kind' string field to the descriptor layout emitted by render_descriptor_layout_json. Values are 'texture2d' (SRV Texture2D), 'rwtexture2d' (UAV RWTexture2D), 'raw_buffer_view' (View/ViewMut), 'sampler', or 'constant_buffer'. The canonical tracked luminance kernel (src/lib_texture.rx) emits 'texture2d' for src_luminance and 'rwtexture2d' for dst_luminance; the historical raw-buffer fixture (src/lib.rx, artifacts/raw_buffer_historical/) emits 'raw_buffer_view' for both."
+  },
+  "runtime_binding_preflight": {
+    "segment": "4a",
+    "checks": [
+      "64-bit integer shader capability flag must be present in RxGdCaps.flags",
+      "exactly 2 texture resources in src_luminance (t0) then dst_luminance (u0) order",
+      "28-byte b0 root constant block: source_width/source_height as 64-bit integers, then max_luminance/min_luminance/exposure_adjust as 32-bit floats",
+      "source dimensions in the b0 block must be nonzero and match the bound src_luminance resource",
+      "dst_luminance must have the level-0 reduce shape max(source / 8, 1) per axis"
+    ],
+    "on_success": "RXGD_STATUS_FALLBACK (gate stays disabled; no D3D12 dispatch is recorded)",
+    "on_failure": "RXGD_STATUS_FALLBACK with fallback reason validation_failed or unsupported_device; no estimated GPU/CPU time is accumulated",
+    "native_handle_semantics": "logical Godot RID id, not a D3D12 GPU handle; real handle binding belongs to a future gated dispatch slice",
+    "kernel_binding_kinds_per_slot": [
+      "texture2d",
+      "rwtexture2d"
+    ],
+    "kernel_binding_kind": "texture2d (slot 0 src_luminance SRV t0); slot 1 dst_luminance UAV u0 is rwtexture2d"
+  },
+  "gated_dispatch_bringup": {
+    "segment": "4b",
+    "godot_opt_in_setting": "rendering/rurix_accel/passes/luminance_reduction/dispatch_bringup",
+    "godot_opt_in_default": false,
+    "opt_in_signal": "reserved capability flag RXGD_CAP_LUMINANCE_DISPATCH_BRINGUP (1u << 1) carried in RxGdCaps.flags; no C ABI struct layout change and RXGD_ABI_VERSION stays 1",
+    "eligibility_checks": [
+      "segment 4a runtime binding preflight must pass first",
+      "Godot dispatch bring-up opt-in flag RXGD_CAP_LUMINANCE_DISPATCH_BRINGUP present in RxGdCaps.flags",
+      "64-bit integer shader capability present in RxGdCaps.flags",
+      "native D3D12 device and command queue handles are non-null",
+      "both resource native handles are non-null",
+      "compiled package is available and its descriptor layout (2 resources, 28-byte b0 root constants, SRV t0, UAV u0, 64-bit integer requirement) and offline compile evidence digests (DXIL, root signature, descriptor layout SHA-256) match the tracked evidence"
+    ],
+    "on_ineligible": "RXGD_STATUS_FALLBACK with fallback reason manual_disabled (opt-in off), unsupported_device (missing capability or null native handles), or validation_failed (null resource handle or layout/digest mismatch); no estimated GPU/CPU time is accumulated",
+    "on_eligible": "RXGD_STATUS_FALLBACK: the explicit dispatch gate stays closed because no linked runtime dispatch kernel exists; no D3D12 dispatch is recorded by the bridge and no estimated GPU/CPU time is accumulated",
+    "real_local_d3d12_dispatch_smoke": "segment 4c harness ci/grx009_luminance_d3d12_dispatch_smoke.py records measured status=success evidence (see segment_4c_real_d3d12_dispatch_smoke); this is standalone smoke evidence and does not make the bridge record a dispatch or return OK",
+    "next_action_when_ready": "start_grx009_bridge_real_d3d12_dispatch_recording"
+  },
+  "segment_4c_real_d3d12_dispatch_smoke": {
+    "segment": "4c",
+    "harness": "ci/grx009_luminance_d3d12_dispatch_smoke.py",
+    "evidence": "spike/godot-rurix/passes/luminance_reduction/real_d3d12_dispatch_smoke.json",
+    "run_command": "$env:RURIX_DXC_DIR='H:\\dxc-round7\\extracted\\bin\\x64'; py -3 ci\\grx009_luminance_d3d12_dispatch_smoke.py",
+    "purpose": "Prove the tracked offline luminance DXIL container + RTS0 root signature + descriptor layout can complete one minimal compute dispatch on a real D3D12 device/command queue.",
+    "device_requirements": [
+      "real hardware D3D12 adapter (fake/null handles never accepted)",
+      "64-bit integer shader capability (Int64ShaderOps) on the device",
+      "signed DXC suite carrying dxil.dll so the compiler-emitted DXIL container can be signed in memory to load without Developer Mode; the tracked artifact bytes are never modified",
+      "MSVC vcvars64 to build the C++ D3D12 harness"
+    ],
+    "status_semantics": {
+      "success": "root signature created directly from the Rurix RTS0 bytes, compute PSO created from the tracked DXIL container, SRV t0 / UAV u0 / b0 root constants bound from the descriptor layout, one minimal dispatch executed, fence completed, dst UAV read back; records adapter, artifact hashes, dispatch dimensions, fence value, and readback checksum",
+      "skip": "no hardware D3D12 adapter / no D3D12 runtime / device lacks 64-bit integer capability / missing signed DXC suite / missing MSVC; records a concrete reason and does not advance readiness",
+      "fail": "PSO / root signature / descriptor / resource / readback failure, artifact hash mismatch vs offline evidence, or descriptor-layout vs resource-mapping mismatch; keeps the D3D12 error code and log"
+    },
+    "on_missing_adapter_or_layout_mismatch": "SKIP (no adapter) or FAIL (layout/hash mismatch); never returns success, never advances readiness",
+    "does_not_imply": [
+      "Godot runtime luminance pass completion",
+      "bridge rxgd_record_pass returning RXGD_STATUS_OK",
+      "real_gpu_pass = true",
+      "real_d3d12_dispatch_recorded = true (the bridge still records no dispatch)",
+      "any visual diff, measured fallback telemetry, or performance claim"
+    ]
+  },
+  "segment_4d_bridge_dispatch_recording_smoke": {
+    "segment": "4d",
+    "harness": "ci/grx009_luminance_bridge_recording_smoke.py",
+    "evidence": "spike/godot-rurix/passes/luminance_reduction/bridge_dispatch_recording_evidence.json",
+    "run_command": "$env:RURIX_DXC_DIR='H:\\dxc-round7\\extracted\\bin\\x64'; py -3 ci\\grx009_luminance_bridge_recording_smoke.py",
+    "purpose": "Prove the Rurix Godot bridge (rurix_godot.dll built with the default-off d3d12-recording-shim feature) can record ONE minimal luminance compute dispatch on a real D3D12 device/command queue through its C ABI (rxgd_create_d3d12_session -> rxgd_register_texture -> rxgd_record_pass -> rxgd_collect_timestamps). Bridge smoke evidence only; not a Godot runtime pass.",
+    "bridge_feature": "d3d12-recording-shim (default OFF; not enabled in the shipping bridge or the Godot module build)",
+    "recording_arm": "harness-only capability flag RXGD_CAP_LUMINANCE_DISPATCH_RECORD (1u << 2) carried in RxGdCaps.flags; the Godot module never sets it, so the default runtime path never enters the recording arm",
+    "device_requirements": [
+      "real hardware D3D12 adapter (fake/null handles never accepted)",
+      "64-bit integer shader capability (Int64ShaderOps) on the device",
+      "signed DXC suite carrying dxil.dll so the bridge shim can sign the in-memory DXIL container to load without Developer Mode; the tracked artifact bytes are never modified",
+      "MSVC vcvars64 to build the bridge DLL (cc-compiled shim) and the C++ harness"
+    ],
+    "ok_conditions": "rxgd_record_pass may return RXGD_STATUS_OK for RXGD_PASS_LUMINANCE_REDUCTION only when the recording shim is linked, the harness passes real D3D12 device/queue and src/dst handles with the dispatch_bringup opt-in + record-arm flags + the 64-bit integer capability, and the embedded artifact bytes hash to the offline compile evidence digests. Otherwise the bridge falls back.",
+    "status_semantics": {
+      "success": "the bridge recorded one real dispatch: rxgd_record_pass returned RXGD_STATUS_OK, recorded_passes=1, fallback_passes=0, gpu_time_ns=0, the fence completed, and the dst UAV was read back; records adapter, artifact hashes, bridge dispatch dimensions, fence value, readback checksum, and bridge frame stats",
+      "skip": "no hardware D3D12 adapter / no D3D12 runtime / device lacks 64-bit integer capability / missing signed DXC suite / missing MSVC; records a concrete reason and does not advance readiness",
+      "fail": "DLL build/load failure, missing C ABI symbol, rxgd_record_pass not returning OK, inconsistent bridge frame stats, artifact hash mismatch vs offline evidence, or descriptor-layout vs resource-mapping mismatch"
+    },
+    "gpu_timestamp_status": "not_yet (no GPU timestamp implemented; gpu_time_ns is never fabricated and stays 0 / null)",
+    "evidence_artifact_hygiene": {
+      "evidence_is_historical_run_artifact": true,
+      "note": "bridge_dispatch_recording_evidence.json is the artifact of ONE historical measured run, not a continuously recomputed live status.",
+      "recorded_dll_fingerprint": "the smoke records the feature-built DLL fingerprint (dll_fingerprint: dll_path_at_run, dll_sha256, dll_size_bytes, dll_mtime_utc, build_profile=debug, features=[d3d12-recording-shim]) plus an immutable snapshot copy under target/grx009_bridge_recording_smoke/rurix_godot_d3d12_recording_shim.dll (snapshot_dll_path/snapshot_dll_sha256)",
+      "snapshot_binary_not_committed": "the snapshot lives under target/ (gitignored) and is never committed to Git",
+      "target_debug_dll_is_mutable": "target/debug/rurix_godot.dll is a mutable build artifact; a later feature-off `cargo build -p rurix-godot` overwrites it in place, so its hash will no longer match the recorded feature-built DLL fingerprint",
+      "readiness_does_not_gate_on_current_dll": "4d readiness stays true when the current target/debug/rurix_godot.dll no longer matches the recorded fingerprint, because the evidence is historical measured evidence; the probe emits a warning (not a failure) and exposes grx009_bridge_recording_evidence_dll_sha256, grx009_bridge_recording_current_dll_sha256, and grx009_bridge_recording_current_dll_matches_evidence",
+      "refresh_command": "$env:RURIX_DXC_DIR='H:\\dxc-round7\\extracted\\bin\\x64'; py -3 ci\\grx009_luminance_bridge_recording_smoke.py (rerun to refresh the current artifact fingerprint and reproduce the exact feature-built DLL)"
+    },
+    "does_not_imply": [
+      "Godot runtime luminance pass completion",
+      "godot_runtime_luminance_path_enabled = true (stays false)",
+      "default_enable_state changing from disabled",
+      "real_gpu_pass = true",
+      "the default (feature-off) bridge returning RXGD_STATUS_OK",
+      "any visual diff, measured fallback telemetry, GPU timestamp, or performance claim"
+    ],
+    "next_action_when_ready": "start_grx009_godot_native_resource_handle_mapping"
+  },
+  "segment_4e_native_resource_handle_mapping": {
+    "segment": "4e",
+    "patch": "spike/godot-rurix/patches/0007-rurix-accel-luminance-native-resource-handle-mapping.patch",
+    "purpose": "Change the resource the Godot runtime hands to the Rurix bridge for the luminance pass from a logical Godot RID id into the real D3D12 ID3D12Resource* native handle, so a future Godot-runtime-driven recording path can bind real resources. This is native handle mapping preflight only; it is not a Godot runtime pass and does not enable the pass.",
+    "godot_driver_seams": [
+      "RenderingDevice::get_driver_resource(DRIVER_RESOURCE_TEXTURE, RID, 0)",
+      "RenderingDeviceDriverD3D12::get_resource_native_handle(DRIVER_RESOURCE_TEXTURE, TextureID) returns ID3D12Resource*"
+    ],
+    "native_handle_mapping": [
+      "source: rb->get_internal_texture() resolved to a real ID3D12Resource* via RenderingDevice::get_driver_resource",
+      "dest: luminance_buffers->reduce[0] resolved to a real ID3D12Resource* via RenderingDevice::get_driver_resource",
+      "either native handle resolving to 0 (or a missing RenderingDevice) forces the native Godot luminance fallback path"
+    ],
+    "hook_parameter_change": "D3D12Hooks / RurixAccelD3D12Hooks try_record_luminance_reduction parameters renamed from logical RID ids (p_source_texture_id / p_dest_texture_id) to real native handles (p_source_native_handle / p_dest_native_handle); RxGdResource.native_handle now carries the real ID3D12Resource*",
+    "abi_change": false,
+    "sets_dispatch_record_capability": false,
+    "shipping_bridge_behavior": "the shipping/feature-off bridge still returns RXGD_STATUS_FALLBACK for RXGD_PASS_LUMINANCE_REDUCTION; the Godot module never sets RXGD_CAP_LUMINANCE_DISPATCH_RECORD",
+    "does_not_imply": [
+      "Godot runtime luminance pass completion",
+      "godot_runtime_luminance_path_enabled = true (stays false)",
+      "default_enable_state changing from disabled",
+      "real_gpu_pass = true",
+      "real_d3d12_dispatch_recorded = true (the default Godot runtime path records no dispatch)",
+      "the shipping (feature-off) bridge returning RXGD_STATUS_OK",
+      "any visual diff, measured fallback telemetry, GPU timestamp, or performance claim"
+    ],
+    "next_action_when_ready": "start_grx009_godot_runtime_bridge_dispatch_recording_smoke"
+  },
+  "segment_4f_godot_runtime_bridge_recording_smoke": {
+    "segment": "4f",
+    "patch": "spike/godot-rurix/patches/0008-rurix-accel-luminance-godot-runtime-bridge-recording-smoke.patch",
+    "harness": "ci/grx009_godot_runtime_bridge_recording_smoke.py",
+    "evidence": "spike/godot-rurix/passes/luminance_reduction/godot_runtime_bridge_recording_evidence.json",
+    "run_command": "$env:RURIX_DXC_DIR='H:\\dxc-round7\\extracted\\bin\\x64'; py -3 ci\\grx009_godot_runtime_bridge_recording_smoke.py",
+    "purpose": "Prove the patched Godot runtime luminance call site (Auto Exposure) can drive ONE real bridge-recorded RXGD_PASS_LUMINANCE_REDUCTION D3D12 dispatch through the real ID3D12Resource* native handles it resolves in segment 4e, using a harness-only opt-in. This is test-only / harness-only Godot-runtime smoke evidence; it is not a default runtime pass.",
+    "test_only_opt_in": "rendering/rurix_accel/passes/luminance_reduction/dispatch_recording_smoke",
+    "test_only_opt_in_default": false,
+    "record_arm": "harness-only capability flag RXGD_CAP_LUMINANCE_DISPATCH_RECORD (1u << 2) carried in RxGdCaps.flags; patch 0008 sets it ONLY when the default-false dispatch_recording_smoke opt-in is enabled, and it only has effect when the loaded rurix_godot.dll is built with the test-only d3d12-recording-shim feature",
+    "abi_change": false,
+    "requires_full_patch_stack": "0001..0008 (rebuilt Godot; the tracked external/godot-master build carries only 0001+0002+0003, so this smoke needs a scratch build pointed to by RURIX_GRX009_SEGMENT4F_GODOT_EXE)",
+    "runtime_record_marker": "RXGD_GODOT_RUNTIME_LUMINANCE_RECORD (printed by the module only when rxgd_record_pass returned RXGD_STATUS_OK for the Godot-runtime call site)",
+    "device_requirements": [
+      "a Godot console exe rebuilt with the full 0001..0008 patch stack and module_rurix_accel_enabled=yes d3d12=yes (RURIX_GRX009_SEGMENT4F_GODOT_EXE)",
+      "real hardware D3D12 adapter (fake/null handles never accepted) with the 64-bit integer shader capability",
+      "signed DXC suite carrying dxil.dll so the recording shim can sign the in-memory DXIL container; the tracked artifact bytes are never modified",
+      "MSVC vcvars64 to build the d3d12-recording-shim rurix_godot.dll"
+    ],
+    "status_semantics": {
+      "success": "the Godot runtime luminance call site drove one real bridge-recorded dispatch: the RXGD_GODOT_RUNTIME_LUMINANCE_RECORD marker reported recorded=1, artifact digests still match the offline evidence, and the descriptor layout matches the resource mapping; records adapter/exe/marker fields",
+      "skip": "no segment-4f Godot scratch build / no real D3D12 adapter / no signed DXC suite / no MSVC / no bridge session / marker not observed; records a concrete reason and does not advance readiness",
+      "fail": "artifact hash mismatch vs offline evidence, descriptor-layout vs resource-mapping mismatch, DLL build failure, or the marker present without recorded=1"
+    },
+    "does_not_imply": [
+      "Godot runtime luminance pass completion",
+      "godot_runtime_luminance_path_enabled = true (stays false)",
+      "default_enable_state changing from disabled",
+      "real_gpu_pass = true",
+      "real_d3d12_dispatch_recorded = true (default Godot runtime path records no dispatch)",
+      "the shipping (feature-off) bridge or default Godot config returning RXGD_STATUS_OK",
+      "any visual diff, measured fallback telemetry, GPU timestamp, or performance claim"
+    ],
+    "next_action_when_ready": "start_grx009_luminance_real_visual_diff_and_measured_fallback_telemetry"
+  },
+  "segment_4g_visual_fallback_gate": {
+    "segment": "4g",
+    "harness": "ci/grx009_segment4g_visual_fallback_smoke.py",
+    "schema": "spike/godot-rurix/passes/luminance_reduction/visual_fallback_evidence.schema.json",
+    "evidence_latest": "spike/godot-rurix/passes/luminance_reduction/visual_fallback_evidence.json",
+    "evidence_success": "spike/godot-rurix/passes/luminance_reduction/visual_fallback_success_evidence.json",
+    "measured_fallback_telemetry": "spike/godot-rurix/passes/luminance_reduction/measured_fallback_telemetry.json",
+    "run_command": "py -3 ci\\grx009_segment4g_visual_fallback_smoke.py",
+    "purpose": "First REAL visual diff + measured fallback telemetry gate for the luminance_reduction path. Two deterministic runs of the tracked Godot build render the same minimal auto-exposure scene: the reference run keeps the per-pass setting at its default false, the candidate run enables it \u2014 the shipping (feature-off) bridge returns RXGD_STATUS_FALLBACK (observed via the tracked patch-0002 marker), so the native Godot luminance path renders both frames and enabling the falling-back pass must not change the image. This validates the visual/fallback gate ONLY; it is NOT visual verification of a Rurix GPU pass (no such pass runs) and does not enable anything by default.",
+    "godot_build": "tracked external/godot-master console build (patch stack 0001+0002+0003, module_rurix_accel_enabled=yes d3d12=yes), overridable via RURIX_GRX009_SEGMENT4G_GODOT_EXE; no scratch full-stack rebuild is required because the gate measures default/enabled-fallback behavior only",
+    "bridge_build": "shipping feature-OFF rurix_godot.dll (no d3d12-recording-shim); the evidence dll_fingerprint must record an empty features list",
+    "pass_enable_matrix": {
+      "disabled_default": "reference run: rendering/rurix_accel/passes/luminance_reduction/enabled=false (default); the call site never invokes the bridge, so the fallback marker must NOT appear",
+      "enabled_fallback": "candidate run: .../enabled=true; the Auto Exposure call site invokes the bridge, the bridge falls back, and the run MUST print the tracked patch-0002 marker 'RurixAccel: luminance_reduction fallback rc=' (the measured fallback-path-observed signal)"
+    },
+    "visual_metric": {
+      "metric_kind": "ldr_absolute_diff",
+      "frame_format": "R8G8B8_raw",
+      "max_abs_diff_threshold": 2,
+      "mean_abs_diff_threshold": 0.25,
+      "min_frame_dimension": 64,
+      "anti_fabrication": "the probe re-verifies the frame artifact SHA-256 digests, requires file size == width*height*3, recomputes the LDR diff (including the diff artifact bytes) in-process, and requires the recorded numbers and pinned thresholds to match; a hand-edited or placeholder success JSON can never advance the gate"
+    },
+    "frame_artifacts": [
+      "spike/godot-rurix/passes/luminance_reduction/artifacts/visual/luminance_fallback_reference.rgb8",
+      "spike/godot-rurix/passes/luminance_reduction/artifacts/visual/luminance_fallback_candidate.rgb8",
+      "spike/godot-rurix/passes/luminance_reduction/artifacts/visual/luminance_fallback_diff.rgb8"
+    ],
+    "status_semantics": {
+      "success": "both runs exit 0 with a ready bridge session, the candidate run observed the fallback marker (and the reference run did not), real RGB8 frames were captured with matching dimensions, the LDR absolute diff sits within the pinned thresholds, and the generated measured_local GRX-008 telemetry document passes fallback_telemetry.py --validate-only; success publishes the tracked frame artifacts + telemetry and writes the historical success evidence",
+      "skip": "missing tracked Godot exe / run timeout / no ready bridge session / fallback marker not observed in this environment; records a concrete reason and does not advance readiness (RURIX_REQUIRE_REAL=1 turns SKIP into FAIL)",
+      "fail": "artifact hash mismatch vs offline evidence, DLL build failure, non-zero Godot exit, capture failure, dimension mismatch, LDR diff over threshold, fallback marker in the disabled run, or an invalid generated telemetry document"
+    },
+    "evidence_artifact_hygiene": "two-file latest/success pattern mirroring segment 4f: visual_fallback_evidence.json is rewritten on every run (reproducible-default SKIP without the tracked exe) and never advances the gate on its own; visual_fallback_success_evidence.json is written only on a strict status=success run and is never deleted or overwritten by a later SKIP/FAIL run, so the readiness gate advances off the historical measured success only",
+    "does_not_imply": [
+      "Rurix-pass visual verification (both frames come from the native Godot luminance path; no Rurix GPU pass runs)",
+      "Godot runtime luminance pass completion",
+      "godot_runtime_luminance_path_enabled = true (stays false)",
+      "default_enable_state changing from disabled",
+      "real_gpu_pass = true",
+      "real_d3d12_dispatch_recorded = true",
+      "any GPU timestamp, FPS, or performance improvement claim"
+    ],
+    "next_action_when_ready": "start_grx009_luminance_gated_real_pass_enablement"
+  },
+  "segment_4h_real_pass_enablement_gate": {
+    "segment": "4h",
+    "harness": "ci/grx009_segment4h_real_pass_enablement_smoke.py",
+    "schema": "spike/godot-rurix/passes/luminance_reduction/real_pass_enablement_evidence.schema.json",
+    "evidence_latest": "spike/godot-rurix/passes/luminance_reduction/real_pass_enablement_evidence.json",
+    "evidence_success": "spike/godot-rurix/passes/luminance_reduction/real_pass_enablement_success_evidence.json",
+    "telemetry": "spike/godot-rurix/passes/luminance_reduction/real_pass_enablement_telemetry.json",
+    "run_command": "py -3 ci\\grx009_segment4h_real_pass_enablement_smoke.py",
+    "purpose": "Gated REAL luminance pass enablement gate: the first explicit opt-in arm (rendering/rurix_accel/passes/luminance_reduction/dispatch_real_pass, default false, patch 0009) for an actual Rurix real pass. The bridge real-pass attempt runs runtime binding preflight, dispatch eligibility, the per-slot kernel-binding-kind conformance check, and the math-parity gate; with the stage A2-A5 texture-capable hlsl_bridge canonical package every software gate can pass, and under a d3d12-recording-shim bridge DLL the linked real dispatch may return RXGD_STATUS_OK. When the dispatch cannot complete the gate honestly reports first_missing_prerequisite=real_dispatch_recording_failed (feature-off shipping bridge: real_dispatch_path_not_linked) instead of claiming a real GPU pass. This is a bring-up gate, NOT a default enablement.",
+    "godot_build": "scratch Godot console build carrying the FULL 0001..0009 patch stack (module_rurix_accel_enabled=yes d3d12=yes), provided via RURIX_GRX009_SEGMENT4H_GODOT_EXE plus the RURIX_GRX009_SEGMENT4H_GODOT_SOURCE / _SOURCE_PROVENANCE / _BUILD_COMMAND / _BUILD_LOG env vars; the tracked external/godot-master build only has 0001+0002+0003 and must NOT be reused",
+    "bridge_build": "shipping feature-OFF rurix_godot.dll: the segment 4h real-pass gate chain is compiled into the shipping bridge and is fail-closed there, so the gate measures the exact DLL that ships (the evidence dll_fingerprint must record an empty features list)",
+    "pass_enable_matrix": {
+      "disabled_default": "reference run: all per-pass settings at their false defaults; no bridge invocation, no markers",
+      "enabled_real_pass_optin": "candidate run: .../enabled=true + .../dispatch_bringup=true + .../dispatch_real_pass=true; with the stage A5 d3d12-recording-shim bridge the real-pass attempt may complete a real dispatch and print the 'RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS' marker; otherwise the run MUST print both the tracked 0007-level fallback marker and the once-per-session 'RXGD_REAL_PASS_BLOCKED first_missing_prerequisite=real_dispatch_recording_failed' diagnostic",
+      "forced_capability_downgrade": "forced-failure red leg: candidate settings plus .../real_pass_force_capability_downgrade=true (harness-only knob; the module clears the shader-int64 capability), so the bridge preflight fails closed with unsupported_device while the native Godot path keeps rendering"
+    },
+    "visual_metric": {
+      "metric_kind": "ldr_absolute_diff",
+      "frame_format": "R8G8B8_raw",
+      "max_abs_diff_threshold": 2,
+      "mean_abs_diff_threshold": 0.25,
+      "min_frame_dimension": 64,
+      "scope": "measured_local real frames: the candidate and forced-failure frames must match the native reference frame within the pinned LDR thresholds (arming the fail-closed opt-in must not change the image); on a future strict success the same thresholds gate the native reference vs the real Rurix-pass candidate frame, and an over-threshold diff is a FAIL that keeps the pass default disabled"
+    },
+    "outcome_semantics": {
+      "skip_environment": "a precondition (scratch exe, auditable provenance sidecar, ready session) is unavailable; RURIX_REQUIRE_REAL=1 upgrades this to FAIL",
+      "skip_measured_prerequisite_blocked": "every leg ran and measured EXACTLY the predicted fail-closed shape; the evidence records first_missing_prerequisite (today: kernel_binding_kind_mismatch, so a runtime-mappable texture-capable math-parity kernel artifact round is required) and never advances the gate",
+      "fail": "any integrity violation (unexpected markers, over-threshold diff, invalid telemetry, unexpected ERROR lines, non-zero exits, tampered artifacts)",
+      "success": "strict and currently unreachable by design: the opt-in real dispatch executed AND completed (RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS observed) AND the visual gate stayed green AND every audit passed; only then is real_gpu_pass=true recorded in the historical success artifact, and even then default_enable_state stays disabled and performance_claim stays none"
+    },
+    "no_default_enablement": true,
+    "no_performance_claim": true
   },
   "fallback": {
-    "reasons": ["compile_failed", "validation_failed", "unsupported_device", "visual_diff_failed", "manual_disabled"],
+    "reasons": [
+      "compile_failed",
+      "validation_failed",
+      "unsupported_device",
+      "visual_diff_failed",
+      "manual_disabled"
+    ],
     "on_any_failure": "godot_native_luminance"
   },
-  "offline_compile_status": "compile_failed",
+  "offline_compile_status": "success",
+  "offline_compile_provenance": "hlsl_bridge_workaround",
+  "offline_compile_runtime_mappable": true,
   "offline_compile_evidence": "spike/godot-rurix/passes/luminance_reduction/offline_compile_evidence.json",
   "offline_compile_artifacts": {
     "dxil": "spike/godot-rurix/passes/luminance_reduction/artifacts/luminance_reduction.dxil",
@@ -50,31 +349,238 @@
   },
   "compile_blockers": [
     {
-      "category": "while_lowering_missing",
-      "summary": "The current segment 3a compile attempt advanced past ThreadCtx.global_id, tail if statement body lowering, and integer `%` modulo lowering, and is now blocked because the DXIL compute backend strict-rejects the while loop in the luminance kernel reduction body."
+      "category": "provenance_workaround_active",
+      "summary": "the canonical texture-capable package is the owner-approved hlsl_bridge_workaround artifact (DXC cs_6_0 container validated by dxv, per-slot texture2d/rwtexture2d binding kinds, Rurix-owned RTS0); a rurixc-owned texture-capable compile still requires a patched llc that supports llvm.dx.resource.load.texture.2d"
     }
   ],
   "implementation_status": {
-    "segment": 2,
-    "bridge_gate": "src/rurix-godot LuminanceReductionGate: default disabled; request_enable remains fallback_only for GRX-009 segment 3a; rxgd_record_pass returns RXGD_STATUS_FALLBACK for RXGD_PASS_LUMINANCE_REDUCTION and records no estimated GPU/CPU time",
+    "segment": 4,
+    "segment_detail": "stage_a5_real_pass_measured_success_default_disabled",
+    "runtime_state": "fallback_only_by_default_real_pass_optin_measured",
+    "runtime_state_note": "The DEFAULT runtime path stays fallback-only: with all per-pass settings at their false defaults the bridge still returns RXGD_STATUS_FALLBACK for RXGD_PASS_LUMINANCE_REDUCTION and the native Godot luminance path renders. real_gpu_pass=true records the segment 4h strict MEASURED success of the opt-in arm (dispatch_real_pass under a d3d12-recording-shim bridge on the 0001..0010 scratch build); it is not a default enablement and carries no performance claim.",
+    "bridge_gate": "src/rurix-godot LuminanceReductionGate: default disabled; request_enable and request_dispatch_bringup both remain fallback_only for GRX-009 segment 4b; rxgd_record_pass runs record_gated_dispatch_bringup for RXGD_PASS_LUMINANCE_REDUCTION (segment 4a runtime binding preflight, then a dispatch eligibility gate: RXGD_CAP_LUMINANCE_DISPATCH_BRINGUP opt-in flag, 64-bit integer shader capability, non-null native D3D12 device/queue and resource handles, and a compiled package whose descriptor layout and offline evidence digests match) but still returns RXGD_STATUS_FALLBACK even when every precondition passes, records no D3D12 dispatch, and accumulates no estimated GPU/CPU time",
     "godot_module_patch": "spike/godot-rurix/patches/0002-rurix-accel-luminance-pass-gate.patch (module-scoped; per-pass setting rendering/rurix_accel/passes/luminance_reduction/enabled defaults to false; try_record_luminance_reduction() returns false on any non-OK bridge status)",
     "godot_core_callsite_patch": "spike/godot-rurix/patches/0003-rurix-accel-luminance-core-callsite-wiring.patch (stacked on 0001+0002; adds a default-false virtual D3D12Hooks::try_record_luminance_reduction(); wires servers/rendering/renderer_rd/renderer_scene_render_rd.cpp Auto Exposure to call the opt-in gate before the native luminance_reduction and skip it only when the gate returns true)",
     "godot_core_call_site_wired": true,
     "wired_call_sites": [
-      {"file": "servers/rendering/renderer_rd/renderer_scene_render_rd.cpp", "region": "Auto Exposure", "note": "opt-in gate calls D3D12Hooks::try_record_luminance_reduction() before native luminance_reduction"}
+      {
+        "file": "servers/rendering/renderer_rd/renderer_scene_render_rd.cpp",
+        "region": "Auto Exposure",
+        "note": "opt-in gate calls D3D12Hooks::try_record_luminance_reduction() before native luminance_reduction"
+      }
     ],
-    "real_gpu_pass": false,
+    "real_gpu_pass": true,
     "segment_3a_offline_compile_attempted": true,
-    "segment_3a_last_result": "compile_failed",
-    "segment_3a_last_result_note": "offline compile evidence records compile_failed/while_lowering_missing; ThreadCtx.global_id, the tail if statement body, and integer `%` modulo now lower, but the while loop in the luminance reduction body is still strict-rejected, so no validated DXIL container and no real GPU pass are available",
-    "visual_diff_evidence": "none (all visual evidence remains SKIP/placeholder)",
+    "segment_3a_last_result": "success",
+    "segment_3a_last_result_note": "canonical offline_compile_evidence.json records status=success with runtime_mappable=true under the owner-approved hlsl_bridge_workaround provenance: the canonical artifacts/ paths (luminance_reduction.dxil, .rts0.bin, _descriptor_layout.json) carry the texture-capable hlsl_bridge package (DXC cs_6_0 DXIL container validated by dxv, Rurix-owned RTS0 root signature from rurixc::binding_layout::serialize_rts0, per-slot texture2d/rwtexture2d binding kinds). The bridge tracked package is texture-capable (LUMINANCE_KERNEL_RESOURCE_BINDING_KINDS=[texture2d, rwtexture2d]). The historical raw-buffer segment 3a fixture is retained in offline_compile_evidence_raw_buffer.json / artifacts/raw_buffer_historical/. A rurixc-owned texture-capable compile still requires a patched llc that supports llvm.dx.resource.load.texture.2d. Default runtime remains fallback_only (real dispatch only under the d3d12-recording-shim feature plus the opt-in real-pass arm) and no measured real GPU pass success exists yet",
+    "segment_3b_resource_mapping_scaffold": true,
+    "segment_3b_resource_mapping": "spike/godot-rurix/passes/luminance_reduction/resource_mapping.md",
+    "segment_3b_patch": "spike/godot-rurix/patches/0004-rurix-accel-luminance-resource-mapping-scaffold.patch (stacked scaffold; module/bridge mapping markers only; does not make the bridge return OK)",
+    "segment_3b_last_result_note": "resource mapping scaffold records Godot source/reduce/current luminance resources, source dimensions, min/max/exposure parameters, descriptor bindings b0/t0/u0, and the required 64-bit integer shader capability gate. Runtime remains fallback_only and no real GPU pass exists",
+    "segment_4a_runtime_binding_preflight": true,
+    "segment_4a_patch": "spike/godot-rurix/patches/0005-rurix-accel-luminance-runtime-binding-preflight.patch (stacked on 0001+0002+0003+0004; extends the D3D12Hooks luminance hook so the Godot side passes the real luminance binding: logical RID ids, source/destination dimensions, and the b0 root constant scalars; the bridge still returns RXGD_STATUS_FALLBACK and records no D3D12 dispatch)",
+    "segment_4a_last_result_note": "runtime binding preflight wires the segment 3b resource mapping scaffold into a bridge-side validation layer: rxgd_record_pass validates the b0/t0/u0 descriptor shape, the 28-byte push constant block, the source dimensions against the bound src_luminance resource, the max(source / 8, 1) level-0 reduce shape of dst_luminance, and the 64-bit integer shader capability. Validation failure returns fallback with a recorded reason and no estimated GPU/CPU time; validation success still returns RXGD_STATUS_FALLBACK because no real dispatch path exists. Runtime remains fallback_only, real_gpu_pass stays false, no D3D12 dispatch is recorded, and no visual diff, measured telemetry, or performance claim is made",
+    "segment_4b_gated_dispatch_bringup": true,
+    "real_d3d12_dispatch_recorded": false,
+    "segment_4b_patch": "spike/godot-rurix/patches/0006-rurix-accel-luminance-gated-dispatch-bringup.patch (stacked on 0001+0002+0003+0004+0005; adds a default-false rendering/rurix_accel/passes/luminance_reduction/dispatch_bringup opt-in, declares the reserved RXGD_CAP_LUMINANCE_DISPATCH_BRINGUP flag carried in RxGdCaps.flags without any ABI struct layout change, and sets that flag in try_create_session only when the opt-in setting is enabled; the bridge still returns RXGD_STATUS_FALLBACK and records no D3D12 dispatch)",
+    "segment_4b_last_result_note": "gated dispatch bring-up puts an explicit, opt-in dispatch eligibility gate in front of the segment 4a runtime binding preflight. rxgd_record_pass runs record_gated_dispatch_bringup: it re-runs the full preflight, then checks the Godot opt-in flag (RXGD_CAP_LUMINANCE_DISPATCH_BRINGUP), the 64-bit integer shader capability, non-null native D3D12 device/queue handles, non-null resource native handles, and that the compiled package descriptor layout and offline compile evidence digests (DXIL, root signature, descriptor layout SHA-256) match. Any failure returns RXGD_STATUS_FALLBACK with a recorded reason. Even when every precondition passes, request_dispatch_bringup keeps the explicit dispatch gate closed: segment 4c has a standalone measured D3D12 dispatch smoke, but there is no bridge-linked runtime dispatch recording path, no measured bridge telemetry, and rxgd_record_pass must not return OK, so the pass still returns RXGD_STATUS_FALLBACK, records no D3D12 dispatch, and accumulates no estimated GPU/CPU time. The standalone segment 4c real D3D12 dispatch smoke (ci/grx009_luminance_d3d12_dispatch_smoke.py) has since completed with status=success on a real D3D12 adapter (see segment_4c_real_d3d12_dispatch_smoke), so the next action is start_grx009_bridge_real_d3d12_dispatch_recording. That smoke is standalone measured evidence only: the bridge still records no dispatch, runtime remains fallback_only, real_gpu_pass stays false, real_d3d12_dispatch_recorded stays false, and no visual diff, measured telemetry, or performance claim is made",
+    "real_local_d3d12_dispatch_smoke": "segment 4c: ci/grx009_luminance_d3d12_dispatch_smoke.py records measured status=success in spike/godot-rurix/passes/luminance_reduction/real_d3d12_dispatch_smoke.json (real D3D12 device/queue, Rurix RTS0 accepted, compute PSO from the tracked DXIL, minimal dispatch + fence completion + dst UAV readback). This is standalone smoke evidence: the bridge still records no dispatch, real_d3d12_dispatch_recorded stays false, real_gpu_pass stays false, and no dispatch returns OK until a bridge real dispatch recording slice lands with measured telemetry",
+    "segment_4c_real_d3d12_dispatch_smoke": true,
+    "segment_4c_real_d3d12_dispatch_smoke_status": "success",
+    "segment_4c_real_d3d12_dispatch_smoke_evidence": "spike/godot-rurix/passes/luminance_reduction/real_d3d12_dispatch_smoke.json",
+    "segment_4c_last_result_note": "The segment 4c real D3D12 dispatch smoke completed one minimal compute dispatch of the tracked luminance package (DXIL container + RTS0 root signature + descriptor layout) on a real D3D12 device/command queue: the RTS0 bytes were accepted by CreateRootSignature, a compute PSO was created from the DXIL container (signed in memory via the signed DXC dxil.dll so it loads without Developer Mode; the tracked artifact bytes are unchanged and still match the segment 3a offline compile evidence digests), the SRV t0 / UAV u0 / 28-byte b0 root constants were bound from the descriptor layout, the dispatch executed, the fence completed, and the dst UAV was read back. This is measured smoke evidence only. It does NOT record a bridge dispatch, does NOT enable the Godot luminance Rurix path, does NOT make rxgd_record_pass return OK, and makes no visual diff, measured fallback telemetry, or performance claim. runtime_state stays fallback_only, real_gpu_pass stays false, and real_d3d12_dispatch_recorded stays false",
+    "segment_4d_bridge_dispatch_recording_smoke": true,
+    "segment_4d_bridge_dispatch_recording_smoke_status": "success",
+    "segment_4d_bridge_dispatch_recording_smoke_evidence": "spike/godot-rurix/passes/luminance_reduction/bridge_dispatch_recording_evidence.json",
+    "segment_4d_bridge_feature": "d3d12-recording-shim (default OFF; the shipping bridge and the Godot module build never enable it)",
+    "segment_4d_last_result_note": "The segment 4d bridge real D3D12 dispatch recording smoke drove the Rurix Godot bridge C ABI on a real D3D12 device/command queue: rurix_godot.dll built with the default-off d3d12-recording-shim feature loaded via LoadLibrary, rxgd_create_d3d12_session accepted the real ID3D12Device*/ID3D12CommandQueue*, two RxGdResource records carried the real src (SRV t0) and dst (UAV u0) ID3D12Resource* handles, and rxgd_record_pass(RXGD_PASS_LUMINANCE_REDUCTION) returned RXGD_STATUS_OK after the linked shim recorded one minimal compute dispatch (RTS0 root signature, compute PSO from the in-memory-signed tracked DXIL, SRV/UAV/b0 bound, dispatch, fence completion, dst UAV readback). rxgd_collect_timestamps reported recorded_passes=1, fallback_passes=0, gpu_time_ns=0, last_error=0. The recording path is compiled ONLY under the test-only feature and armed ONLY by the harness-only RXGD_CAP_LUMINANCE_DISPATCH_RECORD flag; the Godot module never sets it and the shipping (feature-off) bridge is unchanged and still returns RXGD_STATUS_FALLBACK. This is measured BRIDGE smoke evidence only. It does NOT enable the Godot luminance Rurix path, does NOT complete a Godot runtime pass, keeps runtime_state=fallback_only, real_gpu_pass=false, real_d3d12_dispatch_recorded=false (that field tracks the default Godot runtime path), godot_runtime_luminance_path_enabled=false, default_enable_state=disabled, and gpu_timestamp_status=not_yet (no GPU timestamp, gpu_time_ns is never fabricated). No visual diff, measured fallback telemetry, or performance claim is made. Next action: start_grx009_godot_native_resource_handle_mapping",
+    "segment_4e_native_resource_handle_mapping": true,
+    "segment_4e_patch": "spike/godot-rurix/patches/0007-rurix-accel-luminance-native-resource-handle-mapping.patch (stacked on 0001+0002+0003+0004+0005+0006; renames the D3D12Hooks luminance hook parameters from logical RID ids to real native handles, rewires the Auto Exposure call site to resolve the real D3D12 ID3D12Resource* native handles for rb->get_internal_texture() and luminance_buffers->reduce[0] via RenderingDevice::get_driver_resource(DRIVER_RESOURCE_TEXTURE, RID, 0) with a zero-handle fallback to the native Godot luminance path, and stores those real ID3D12Resource* handles in RxGdResource.native_handle; RXGD_ABI_VERSION is unchanged, the pass stays default-disabled, and RXGD_CAP_LUMINANCE_DISPATCH_RECORD is never set)",
+    "segment_4e_last_result_note": "The segment 4e native resource handle mapping changes the resource the Godot runtime hands to the Rurix bridge from a logical Godot RID id into the real D3D12 ID3D12Resource* native handle. Patch 0007 renames the D3D12Hooks::try_record_luminance_reduction parameters (p_source_native_handle / p_dest_native_handle), rewires the Auto Exposure call site in renderer_scene_render_rd.cpp to resolve the real native handles for the source HDR texture (rb->get_internal_texture()) and the level-0 reduce destination (luminance_buffers->reduce[0]) through RenderingDevice::get_driver_resource, falls back to the native Godot luminance path when RenderingDevice is unavailable or either native handle resolves to 0, and stores those real ID3D12Resource* handles in RxGdResource.native_handle instead of logical RID ids. This is native handle mapping preflight only: it does NOT enable the Godot luminance Rurix path (godot_runtime_luminance_path_enabled=false), does NOT set the harness-only RXGD_CAP_LUMINANCE_DISPATCH_RECORD flag, and the shipping/feature-off bridge still returns RXGD_STATUS_FALLBACK for RXGD_PASS_LUMINANCE_REDUCTION. It is NOT a real GPU pass, records no runtime D3D12 dispatch through the default Godot path, keeps runtime_state=fallback_only, real_gpu_pass=false, and real_d3d12_dispatch_recorded=false, and makes no visual diff, measured telemetry, or performance claim. Next action: start_grx009_godot_runtime_bridge_dispatch_recording_smoke",
+    "segment_4f_godot_runtime_bridge_recording_smoke": true,
+    "segment_4f_patch": "spike/godot-rurix/patches/0008-rurix-accel-luminance-godot-runtime-bridge-recording-smoke.patch (stacked on 0001..0007; adds a default-false rendering/rurix_accel/passes/luminance_reduction/dispatch_recording_smoke opt-in, declares the harness-only RXGD_CAP_LUMINANCE_DISPATCH_RECORD flag in the module carried in RxGdCaps.flags without any ABI struct layout change, sets that flag in try_create_session only when the opt-in is enabled, and prints the RXGD_GODOT_RUNTIME_LUMINANCE_RECORD marker from try_record_luminance_reduction only when rxgd_record_pass returned RXGD_STATUS_OK)",
+    "segment_4f_harness": "ci/grx009_godot_runtime_bridge_recording_smoke.py",
+    "segment_4f_evidence": "spike/godot-rurix/passes/luminance_reduction/godot_runtime_bridge_recording_evidence.json",
+    "segment_4f_last_result_note": "The segment 4f Godot-runtime bridge dispatch recording smoke drives the patched Godot runtime luminance call site (Auto Exposure) to record ONE real bridge-recorded RXGD_PASS_LUMINANCE_REDUCTION D3D12 dispatch through the real ID3D12Resource* native handles resolved in segment 4e. Patch 0008 adds a default-false dispatch_recording_smoke opt-in and the harness-only RXGD_CAP_LUMINANCE_DISPATCH_RECORD record-arm; the module only sets that flag when the opt-in is enabled, and the record path is only linked under the test-only d3d12-recording-shim rurix_godot.dll. The harness needs a Godot scratch build rebuilt with the full 0001..0008 patch stack (RURIX_GRX009_SEGMENT4F_GODOT_EXE); when the scratch build, a real D3D12 adapter, signed DXC, or MSVC is unavailable it records a concrete SKIP and does not advance readiness. This is test-only / harness-only Godot-runtime smoke evidence: RXGD_ABI_VERSION is unchanged, the shipping/feature-off bridge and default Godot config still return RXGD_STATUS_FALLBACK for RXGD_PASS_LUMINANCE_REDUCTION, and it keeps runtime_state=fallback_only, real_gpu_pass=false, real_d3d12_dispatch_recorded=false (default Godot runtime path), godot_runtime_luminance_path_enabled=false, default_enable_state=disabled, and gpu_timestamp_status=not_yet. No visual diff, measured fallback telemetry, GPU timestamp, or performance claim is made. Next action when the runtime smoke succeeds: start_grx009_luminance_real_visual_diff_and_measured_fallback_telemetry.",
+    "segment_4g_visual_fallback_gate": true,
+    "segment_4g_harness": "ci/grx009_segment4g_visual_fallback_smoke.py",
+    "segment_4g_evidence": "spike/godot-rurix/passes/luminance_reduction/visual_fallback_success_evidence.json",
+    "segment_4g_last_result_note": "The segment 4g visual/fallback gate recorded a measured status=success on the local tracked Godot build (2026-07-05): both pass-enable-matrix runs exited 0 with a ready D3D12 Forward+ bridge session; the candidate run (per-pass enabled=true) printed the tracked patch-0002 fallback marker 'RurixAccel: luminance_reduction fallback rc=1' while the reference run (default enabled=false) did not; both runs captured real 256x144 R8G8B8_raw frames that are byte-identical (LDR absolute diff max_abs=0, mean_abs=0, thresholds max<=2 / mean<=0.25), so enabling the falling-back pass provably does not change the image; and the generated measured_local GRX-008 fallback telemetry document passed fallback_telemetry.py --validate-only. This is a fallback-path visual diff + measured fallback telemetry gate ONLY: both frames were rendered by the native Godot luminance path (the shipping feature-off bridge returned RXGD_STATUS_FALLBACK), so it is NOT visual verification of a Rurix GPU pass, and runtime_state stays fallback_only, real_gpu_pass stays false, real_d3d12_dispatch_recorded stays false, the pass stays default-disabled, and no GPU timestamp, FPS, or performance improvement is claimed. Next action when the probe gate is green: start_grx009_luminance_gated_real_pass_enablement",
+    "segment_4h_real_pass_enablement_gate": true,
+    "segment_4h_patch": "spike/godot-rurix/patches/0009-rurix-accel-luminance-real-pass-optin.patch (stacked on 0001..0008; adds the default-false dispatch_real_pass opt-in that arms RXGD_CAP_LUMINANCE_REAL_PASS, the harness-only real_pass_force_capability_downgrade forced-failure knob, and the RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS marker that only a future runtime-mappable real dispatch can print)",
+    "segment_4h_harness": "ci/grx009_segment4h_real_pass_enablement_smoke.py",
+    "segment_4h_evidence": "spike/godot-rurix/passes/luminance_reduction/real_pass_enablement_evidence.json",
+    "segment_4h_last_result_note": "Stage A5 (2026-07-08): the segment 4h gated real-pass enablement gate recorded a strict MEASURED status=success (real_pass_enablement_success_evidence.json): with the stage A2-A5 texture-capable hlsl_bridge canonical package and a d3d12-recording-shim bridge DLL, the opt-in arm (enabled + dispatch_bringup + dispatch_real_pass, all default false) drove a real recorded RXGD_PASS_LUMINANCE_REDUCTION dispatch on the 0001..0010 scratch Godot build (NVIDIA GeForce RTX 4070 Ti): the RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS marker was observed, the LDR visual gate stayed green (max_abs=0, mean_abs=0), the forced_capability_downgrade red leg measured unsupported_device fallback, the measured_local telemetry passed GRX-008 validation, and the 0001..0010 patch-stack/provenance/log audits were green. real_gpu_pass=true and real_d3d12_dispatch_recorded=true are recorded IN THE SUCCESS EVIDENCE for the opt-in arm; the manifest real_gpu_pass=true mirrors that measured opt-in result. The DEFAULT path stays fallback-only (runtime_state=fallback_only_by_default_real_pass_optin_measured), default_enable_state stays disabled per the owner decision in real_pass_default_enable_decision.json (keep_default_disabled), and no visual-superiority, GPU timestamp, FPS, or performance improvement is claimed.",
+    "segment_4h_real_pass_measured_success": {
+      "status": "success",
+      "evidence": "spike/godot-rurix/passes/luminance_reduction/real_pass_enablement_success_evidence.json",
+      "telemetry": "spike/godot-rurix/passes/luminance_reduction/real_pass_enablement_telemetry.json",
+      "default_enable_decision": "spike/godot-rurix/passes/luminance_reduction/real_pass_default_enable_decision.json",
+      "default_enable_decision_document": "spike/godot-rurix/passes/luminance_reduction/real_pass_default_enable_decision.md",
+      "decision": "keep_default_disabled",
+      "real_gpu_pass_scope": "opt_in_only: the measured real dispatch requires the default-false dispatch_real_pass arm plus a d3d12-recording-shim bridge DLL; the default runtime path stays fallback-only and the shipping feature-off bridge fails closed with real_dispatch_path_not_linked",
+      "patch_stack": "0001..0010",
+      "writeback": "patch 0010 result writeback scaffold: the level-0 result is dispatched into the real luminance_buffers->reduce[0] resource while the native Godot luminance path still runs as continuation/backstop, so the image cannot change and no net benefit exists yet",
+      "performance_claim": "none",
+      "next_action_when_ready": "start_grx010_tonemap_pass_contract"
+    },
+    "segment_4h_fail_closed_texture_intrinsic_unsupported": false,
+    "segment_4h_fail_closed_summary": "RESOLVED by the stage A2-A5 hlsl_bridge workaround round: the canonical artifact paths now carry the owner-approved texture-capable hlsl_bridge package (DXC cs_6_0 container validated by dxv, per-slot texture2d/rwtexture2d binding kinds, Rurix-owned RTS0), so the segment 4h kernel-binding-kind conformance check passes for the Texture2D ID3D12Resource* handles the Godot runtime provides. The underlying toolchain blocker is unchanged: a rurixc-owned texture-capable compile still requires a patched llc that supports llvm.dx.resource.load.texture.2d (the forward-looking compiler/kernel changes are retained). Runtime default remains fallback_only, real_gpu_pass stays false pending a measured success, default_enable_state stays disabled, and no FPS/performance claim is made.",
+    "segment_4i_math_parity_blocked": false,
+    "segment_4i_summary": "Stage A3-A5: the bridge binding-kind check is per-slot (LUMINANCE_KERNEL_RESOURCE_BINDING_KINDS=[texture2d, rwtexture2d]) and passes for the Godot runtime texture handles. check_real_pass_math_parity now allows the level-0 attempt because level-0 math parity is CPU-proven (math_parity_evidence.json, status=pending_gpu_dispatch; LUMINANCE_KERNEL_MATH_PARITY_STATUS=level_0_cpu_proven_pending_gpu). The real dispatch path is linked on the real-pass arm under the d3d12-recording-shim feature (record_real_pass_attempt -> attempt_real_dispatch_recording); the shipping feature-off bridge fails closed with real_dispatch_path_not_linked. Full pyramid/EMA/WRITE_LUMINANCE parity is gated on measured GPU results and the multi-level continuation round (patch 0010 keeps the native path as continuation/backstop).",
+    "segment_4i_next_blocker": "real_dispatch_recording_failed when the linked real dispatch cannot complete in the environment (feature-on DLL, signed DXC dxil.dll, real adapter required); measured real-pass success evidence (real_pass_enablement_success_evidence.json) is required before implemented/real_gpu_pass may flip",
+    "segment_4i_math_parity_status": "level_0_cpu_proven_pending_gpu",
+    "segment_4i_known_gaps": [
+      "single 8x8 reduction level only; no multi-level pyramid cascade",
+      "no EMA feedback (Godot applies prev + (cur-prev)*exposure_adjust at the final WRITE_LUMINANCE level)",
+      "no previous-luminance double buffering (Godot's current luminance buffer)",
+      "no final-level clamp(min,max) gating",
+      "partial-tile divisor matches Godot level 0 but inter-level barrier and pyramid shape parity not yet proven",
+      "fail-closed: the texture-capable kernel source cannot compile to a real DXIL container because the patched llc at H:\\llvm-dxil\\build\\bin\\llc.exe does not support the llvm.dx.resource.load.texture.2d intrinsic; the bridge tracked package stays raw-buffer and the FIRST missing real-pass prerequisite stays kernel_binding_kind_mismatch"
+    ],
+    "segment_4k_dxc_texture_artifact_bridge_design": {
+      "status": "design_ready",
+      "document": "spike/godot-rurix/passes/luminance_reduction/dxc_texture_artifact_bridge.md",
+      "evidence": "spike/godot-rurix/passes/luminance_reduction/dxc_texture_artifact_bridge_design.json",
+      "source_feasibility_evidence": "spike/godot-rurix/passes/luminance_reduction/texture_dxc_feasibility_evidence.json",
+      "next_action_when_ready": "implement_grx009_dxc_texture_artifact_bridge_scaffold",
+      "does_not_imply": [
+        "canonical artifact replacement",
+        "offline compile success",
+        "runtime_mappable=true",
+        "real_gpu_pass=true",
+        "visual success",
+        "performance claim"
+      ]
+    },
+    "segment_4k_dxc_texture_artifact_bridge_scaffold": {
+      "status": "success",
+      "scaffold_ready": true,
+      "evidence": "spike/godot-rurix/passes/luminance_reduction/dxc_texture_artifact_bridge_scaffold_evidence.json",
+      "artifact_dir": "spike/godot-rurix/passes/luminance_reduction/artifacts/dxc_texture_bridge",
+      "source_feasibility_evidence": "spike/godot-rurix/passes/luminance_reduction/texture_dxc_feasibility_evidence.json",
+      "runtime_mappable": false,
+      "real_gpu_pass": false,
+      "canonical_artifact_replaced": false,
+      "offline_compile_status_changed": false,
+      "provenance": "hlsl_bridge_workaround",
+      "rurix_owned": false,
+      "design_or_scaffold_only": true,
+      "next_action_when_ready": "prepare_grx009_texture_artifact_descriptor_rts0_crosscheck_or_provenance_policy",
+      "does_not_imply": [
+        "canonical artifact replacement",
+        "offline compile success",
+        "runtime_mappable=true",
+        "real_gpu_pass=true",
+        "visual success",
+        "performance claim"
+      ]
+    },
+    "godot_runtime_luminance_path_enabled": false,
+    "visual_diff_evidence": "spike/godot-rurix/passes/luminance_reduction/visual_fallback_success_evidence.json (segment 4g measured fallback-path visual diff ONLY: reference = pass disabled, candidate = pass enabled but falling back, both rendered by the native Godot path; this proves the fallback preserves visuals and is NOT visual verification of a Rurix GPU pass)",
     "perf_evidence": "none (no performance improvement is claimed)",
     "disabled_telemetry_sample": "spike/godot-rurix/bench/samples/fallback_telemetry_luminance_disabled_example.json",
-    "callsite_wired_disabled_telemetry_sample": "spike/godot-rurix/bench/samples/fallback_telemetry_luminance_callsite_wired_disabled_example.json"
+    "callsite_wired_disabled_telemetry_sample": "spike/godot-rurix/bench/samples/fallback_telemetry_luminance_callsite_wired_disabled_example.json",
+    "segment_4k_dxc_texture_artifact_rts0_integration": {
+      "status": "rurix_synthesized",
+      "rts0_integration_status": "success",
+      "rts0_integration_ready": true,
+      "root_signature_metadata": "spike/godot-rurix/passes/luminance_reduction/artifacts/dxc_texture_bridge/root_signature_scaffold.json",
+      "descriptor_layout": "spike/godot-rurix/passes/luminance_reduction/artifacts/dxc_texture_bridge/descriptor_layout.json",
+      "rts0_artifact": {
+        "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/dxc_texture_bridge/root_signature.rts0.bin",
+        "size_bytes": 128,
+        "sha256": "bed820418c0a7cf9d1e9d160de9f42ac56fee8f067c1880bd3af28f9d62fec0c",
+        "artifact_kind": "rurix_owned_rts0_root_signature"
+      },
+      "runtime_mappable": false,
+      "real_gpu_pass": false,
+      "canonical_artifact_replaced": false,
+      "offline_compile_status_changed": false,
+      "provenance": "hlsl_bridge_workaround",
+      "rurix_owned": false,
+      "next_action_when_ready": "prepare_grx009_texture_artifact_descriptor_rts0_crosscheck_or_provenance_policy",
+      "does_not_imply": [
+        "canonical artifact replacement",
+        "offline compile success",
+        "runtime_mappable=true",
+        "real_gpu_pass=true",
+        "visual success",
+        "performance claim"
+      ]
+    },
+    "segment_4k_dxc_texture_descriptor_rts0_crosscheck": {
+      "status": "success",
+      "descriptor_rts0_crosscheck_ready": true,
+      "evidence": "spike/godot-rurix/passes/luminance_reduction/dxc_texture_descriptor_rts0_crosscheck_evidence.json",
+      "descriptor_layout": {
+        "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/dxc_texture_bridge/descriptor_layout.json",
+        "size_bytes": 704,
+        "sha256": "65cd6b3012e08332de897f9a0cc222011e587f8e2ad8ba718472347e731b72d9",
+        "artifact_kind": "dxc_texture_bridge_descriptor_layout_scaffold"
+      },
+      "rts0_artifact": {
+        "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/dxc_texture_bridge/root_signature.rts0.bin",
+        "size_bytes": 128,
+        "sha256": "bed820418c0a7cf9d1e9d160de9f42ac56fee8f067c1880bd3af28f9d62fec0c",
+        "artifact_kind": "rurix_owned_rts0_root_signature"
+      },
+      "reserialized_rts0_artifact": {
+        "path": "target/grx009_descriptor_rts0_crosscheck/root_signature.reserialized.rts0.bin",
+        "size_bytes": 128,
+        "sha256": "bed820418c0a7cf9d1e9d160de9f42ac56fee8f067c1880bd3af28f9d62fec0c",
+        "artifact_kind": "rurix_owned_rts0_root_signature_reserialized"
+      },
+      "byte_for_byte_match": true,
+      "runtime_mappable": false,
+      "real_gpu_pass": false,
+      "canonical_artifact_replaced": false,
+      "offline_compile_status_changed": false,
+      "provenance": "hlsl_bridge_workaround",
+      "rurix_owned": false,
+      "next_action_when_ready": "define_grx009_texture_artifact_provenance_policy"
+    },
+    "segment_4l_texture_artifact_provenance_policy": {
+      "status": "success",
+      "policy_ready": true,
+      "evidence": "spike/godot-rurix/passes/luminance_reduction/texture_artifact_provenance_policy.json",
+      "policy_document": "spike/godot-rurix/passes/luminance_reduction/texture_artifact_provenance_policy.md",
+      "bridge_contract_document": "spike/godot-rurix/passes/luminance_reduction/dxc_texture_artifact_bridge.md",
+      "owner_decision": "approve_hlsl_bridge_workaround_as_temporary_runtime_mappable_canonical",
+      "canonical_switch_exception": "owner_approved_hlsl_bridge_workaround",
+      "runtime_mappable": false,
+      "real_gpu_pass": false,
+      "canonical_artifact_replaced": false,
+      "offline_compile_status_changed": false,
+      "provenance": "hlsl_bridge_workaround",
+      "rurix_owned": false,
+      "next_action_when_ready": "provide_grx009_runtime_mappable_luminance_kernel_artifact"
+    },
+    "stage_a3_a5_real_pass_dispatch_linking": {
+      "status": "real_pass_measured_success_default_disabled",
+      "canonical_artifact": "texture-capable hlsl_bridge workaround package copied to the canonical artifacts/ paths (dxil sha256 14761af20456557a019086d51185cdc5375acf89bf9ac208927e703d265c3d2e, rts0 sha256 f08794f9886e1ebc4c905e3006732e572ec913a75255c5b488cf4877a1391f03, descriptor layout sha256 6498ce2b14ce7216c0451a1f2e6a452a19b6c4ca9e0ab593bb9dc35a7ff89fe8); the bridge LUMINANCE_OFFLINE_* constants match",
+      "binding_kind_check": "per-slot: LUMINANCE_KERNEL_RESOURCE_BINDING_KINDS=[texture2d, rwtexture2d]; Godot runtime Texture2D handles conform, buffer resources fail closed",
+      "math_parity_gate": "level_0_cpu_proven_pending_gpu (math_parity_evidence.json); the level-0 real-pass attempt is no longer blocked on math parity, full pyramid/EMA parity gated on measured GPU results",
+      "real_dispatch_path": "record_real_pass_attempt routes through attempt_real_dispatch_recording under the d3d12-recording-shim feature and may return RXGD_STATUS_OK after a real recorded dispatch; the shipping feature-off bridge fails closed with real_dispatch_path_not_linked",
+      "result_writeback_patch": "spike/godot-rurix/patches/0010-rurix-accel-luminance-real-pass-result-writeback.patch (scaffold: the level-0 result is dispatched into the real luminance_buffers->reduce[0] resource; the native Godot luminance path still runs as continuation/backstop so the image cannot change)",
+      "harness": "ci/grx009_segment4h_real_pass_enablement_smoke.py (builds rurix-godot with --features d3d12-recording-shim; expected first missing prerequisite when the dispatch cannot complete: real_dispatch_recording_failed)",
+      "implemented_and_real_gpu_pass_gate": "a strict measured status=success run wrote real_pass_enablement_success_evidence.json (stage A5, 2026-07-08), so implemented/real_gpu_pass flipped to true for the measured opt-in arm; without that strict success artifact both fields must stay false (fail-closed)",
+      "does_not_imply": [
+        "default enablement (all per-pass settings stay default false; owner decision keep_default_disabled)",
+        "net-benefit Rurix dispatch (patch 0010 writeback is scaffold; native continuation re-renders all levels)",
+        "visual-superiority claim",
+        "performance claim"
+      ]
+    }
   },
   "evidence_requirements": {
     "visual": "reuse GRX-007 visual_diff.py LDR diff with real reference+candidate frames",
     "perf": "reuse GRX-006 baseline/perf gate; no perf improvement claimed"
   },
-  "disclaimer": "GRX-009 segment 3a offline compile evidence is blocked at compile_failed/while_lowering_missing: the DXIL compute backend now lowers ThreadCtx.global_id, the no-else tail if statement body, and integer `%` modulo in the luminance kernel, and strict-rejects the while loop in the reduction body. Patch 0003 still wires the Godot core Auto Exposure call site to an opt-in gate, but the bridge gate remains fallback_only, the per-pass setting defaults to disabled, and the Rurix bridge still returns RXGD_STATUS_FALLBACK for RXGD_PASS_LUMINANCE_REDUCTION, so the native Godot luminance path takes over in practice. No real DXIL container, no real GPU pass, no real visual diff evidence, no measured telemetry, and no performance improvement is claimed."
+  "disclaimer": "GRX-009 segment 4b gated dispatch bring-up adds an explicit, opt-in dispatch eligibility gate in front of the segment 4a runtime binding preflight. Patch 0006 adds a default-false rendering/rurix_accel/passes/luminance_reduction/dispatch_bringup opt-in, declares the reserved RXGD_CAP_LUMINANCE_DISPATCH_BRINGUP flag carried in RxGdCaps.flags (no ABI struct layout change, RXGD_ABI_VERSION stays 1), and sets that flag only when the opt-in is enabled. The bridge checks the opt-in flag, the 64-bit integer capability, non-null native D3D12 device/queue and resource handles, and that the compiled package layout/digests match the offline evidence; even when every precondition passes the explicit dispatch gate stays closed, so rxgd_record_pass still returns RXGD_STATUS_FALLBACK for RXGD_PASS_LUMINANCE_REDUCTION, records no D3D12 dispatch, and accumulates no estimated GPU/CPU time. The per-pass settings default to disabled and the native Godot luminance path takes over in practice. GRX-009 segment 4c adds a real Windows D3D12 dispatch smoke (ci/grx009_luminance_d3d12_dispatch_smoke.py) whose measured evidence (real_d3d12_dispatch_smoke.json) records status=success: the tracked luminance DXIL container + RTS0 root signature + descriptor layout completed one minimal compute dispatch on a real D3D12 device/command queue (root signature accept, compute PSO from the tracked DXIL, minimal dispatch, fence completion, dst UAV readback). That smoke is standalone measured evidence only; it does not make the bridge record a dispatch or return OK, does not enable the Godot luminance Rurix path, and keeps runtime_state=fallback_only, real_gpu_pass=false, and real_d3d12_dispatch_recorded=false. GRX-009 segment 4d adds a bridge real D3D12 dispatch recording smoke (ci/grx009_luminance_bridge_recording_smoke.py) whose measured evidence (bridge_dispatch_recording_evidence.json) records status=success: rurix_godot.dll built with the default-off d3d12-recording-shim feature recorded ONE real luminance compute dispatch on a real D3D12 device/queue through its C ABI (rxgd_record_pass returned RXGD_STATUS_OK, recorded_passes=1, fallback_passes=0, fence completed, dst UAV read back). The recording path is compiled only under the test-only feature and armed only by the harness-only RXGD_CAP_LUMINANCE_DISPATCH_RECORD flag; the Godot module never sets it and the shipping (feature-off) bridge is unchanged and still returns RXGD_STATUS_FALLBACK for RXGD_PASS_LUMINANCE_REDUCTION. That bridge smoke is measured evidence only; it does not enable the Godot luminance Rurix path (godot_runtime_luminance_path_enabled=false), does not complete a Godot runtime pass, and keeps runtime_state=fallback_only, real_gpu_pass=false, real_d3d12_dispatch_recorded=false, default_enable_state=disabled, and gpu_timestamp_status=not_yet. GRX-009 segment 4e adds native D3D12 resource handle mapping (patch 0007): the Godot runtime now resolves the real D3D12 ID3D12Resource* native handles for rb->get_internal_texture() and luminance_buffers->reduce[0] through RenderingDevice::get_driver_resource(DRIVER_RESOURCE_TEXTURE, RID, 0) and hands those real handles (not logical RID ids) to the bridge in RxGdResource.native_handle, falling back to the native Godot luminance path when RenderingDevice is unavailable or either native handle resolves to 0. This is native handle mapping preflight only: RXGD_ABI_VERSION is unchanged, the pass stays default-disabled, the Godot module never sets RXGD_CAP_LUMINANCE_DISPATCH_RECORD, and the shipping/feature-off bridge still returns RXGD_STATUS_FALLBACK for RXGD_PASS_LUMINANCE_REDUCTION. It does not enable the Godot luminance Rurix path, does not complete a Godot runtime pass, and keeps runtime_state=fallback_only, real_gpu_pass=false, and real_d3d12_dispatch_recorded=false. GRX-009 segment 4f adds a Godot-runtime bridge dispatch recording smoke (patch 0008 + ci/grx009_godot_runtime_bridge_recording_smoke.py): patch 0008 adds a default-false rendering/rurix_accel/passes/luminance_reduction/dispatch_recording_smoke opt-in and declares the harness-only RXGD_CAP_LUMINANCE_DISPATCH_RECORD flag in the module, which try_create_session sets ONLY when that opt-in is enabled (RXGD_ABI_VERSION stays 1, no struct layout change), and try_record_luminance_reduction prints the RXGD_GODOT_RUNTIME_LUMINANCE_RECORD marker only when rxgd_record_pass returned RXGD_STATUS_OK. This lets the patched Godot runtime luminance call site drive one real bridge-recorded dispatch through the segment 4e native handles, but only under the test-only opt-in plus a d3d12-recording-shim rurix_godot.dll and only on a Godot scratch build rebuilt with the full 0001..0008 stack (RURIX_GRX009_SEGMENT4F_GODOT_EXE); an unavailable scratch build, real D3D12 adapter, signed DXC, or MSVC records a concrete SKIP that does not advance readiness. By default (no opt-in enabled) the Godot module still never sets RXGD_CAP_LUMINANCE_DISPATCH_RECORD, and the shipping/feature-off bridge and default Godot config still return RXGD_STATUS_FALLBACK for RXGD_PASS_LUMINANCE_REDUCTION. Even a segment 4f success keeps runtime_state=fallback_only, real_gpu_pass=false, real_d3d12_dispatch_recorded=false, godot_runtime_luminance_path_enabled=false, default_enable_state=disabled, and gpu_timestamp_status=not_yet. GRX-009 segment 4g adds the first real visual diff + measured fallback telemetry gate (ci/grx009_segment4g_visual_fallback_smoke.py): two deterministic runs of the tracked Godot build (patch stack 0001+0002+0003) render the same minimal auto-exposure scene with the per-pass setting default-false (reference) vs true (candidate); the candidate run's Auto Exposure call site invokes the shipping feature-off bridge, which returns RXGD_STATUS_FALLBACK (measured via the tracked patch-0002 'RurixAccel: luminance_reduction fallback rc=' marker), so the native Godot luminance path renders BOTH frames, and the captured raw RGB8 frames must match within the pinned LDR absolute-diff thresholds (max_abs<=2, mean_abs<=0.25). The measured success evidence (visual_fallback_success_evidence.json, hash-pinned frame artifacts under artifacts/visual/, and the measured_local GRX-008 measured_fallback_telemetry.json) proves ONLY that the fallback path is really taken and preserves visuals: it is NOT visual verification of a Rurix GPU pass (no Rurix pass runs in either frame), it does not enable the pass by default, and it keeps runtime_state=fallback_only, real_gpu_pass=false, real_d3d12_dispatch_recorded=false, godot_runtime_luminance_path_enabled=false, and default_enable_state=disabled. No real GPU pass, no default Godot runtime bridge-recorded D3D12 dispatch, no GPU timestamp, no Rurix-pass visual verification, and no performance or FPS improvement is claimed; the only visual/telemetry evidence held is the measured fallback-path gate above.",
+  "texture_intrinsic_toolchain_blocker": {
+    "evidence_path": "spike/godot-rurix/passes/luminance_reduction/texture_intrinsic_toolchain_blocker.json",
+    "probe_dir": "spike/godot-rurix/passes/luminance_reduction/artifacts/toolchain_probe/",
+    "blocker_id": "texture_intrinsic_unsupported_by_llc"
+  }
 }

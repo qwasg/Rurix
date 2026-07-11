@@ -1,0 +1,108 @@
+{
+  "status": "complete",
+  "llc_path": "H:\\llvm-dxil\\build\\bin\\llc.exe",
+  "llc_version": "LLVM version 22.1.7",
+  "probe_run_at_utc": "2026-07-06T14:22:47Z",
+  "cases": [
+    {
+      "label": "A",
+      "ll": "case_A.ll",
+      "expected": "REJECT",
+      "actual_exit_code": 1,
+      "actual_stderr_excerpt": "H:\\llvm-dxil\\build\\bin\\llc.exe: error: H:\\llvm-dxil\\build\\bin\\llc.exe: H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\toolchain_probe\\case_A.ll:24:27: error: unknown intrinsic 'llvm.dx.resource.load.texture.2d'\n  %r = call { float, i1 } @llvm.dx.resource.load.texture.2d(target(\"dx.Texture2D<float>\", 0, 0) %h, i32 0, i32 0)\n                          ^",
+      "obj_produced": false,
+      "verdict": "reject",
+      "note": ""
+    },
+    {
+      "label": "B",
+      "ll": "case_B.ll",
+      "expected": "REJECT",
+      "actual_exit_code": 1,
+      "actual_stderr_excerpt": "H:\\llvm-dxil\\build\\bin\\llc.exe: error: H:\\llvm-dxil\\build\\bin\\llc.exe: H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\toolchain_probe\\case_B.ll:24:27: error: unknown intrinsic 'llvm.dx.resource.load.texture.2d'\n  %r = call { float, i1 } @llvm.dx.resource.load.texture.2d(target(\"dx.Texture2D<float>\") %h, i32 0, i32 0)\n                          ^",
+      "obj_produced": false,
+      "verdict": "reject",
+      "note": ""
+    },
+    {
+      "label": "C",
+      "ll": "case_C.ll",
+      "expected": "ACCEPT",
+      "actual_exit_code": 0,
+      "actual_stderr_excerpt": "",
+      "obj_produced": true,
+      "verdict": "accept",
+      "note": ""
+    },
+    {
+      "label": "D",
+      "ll": "case_D.ll",
+      "expected": "ACCEPT",
+      "actual_exit_code": 0,
+      "actual_stderr_excerpt": "",
+      "obj_produced": true,
+      "verdict": "accept",
+      "note": ""
+    },
+    {
+      "label": "E",
+      "ll": "case_E.ll",
+      "expected": "CRASH",
+      "actual_exit_code": 3221225477,
+      "actual_stderr_excerpt": "PLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace and instructions to reproduce the bug.\nStack dump:\n0.\tProgram arguments: H:\\\\llvm-dxil\\\\build\\\\bin\\\\llc.exe H:\\\\rurix\\\\spike\\\\godot-rurix\\\\passes\\\\luminance_reduction\\\\artifacts\\\\toolchain_probe\\\\case_E.ll -filetype=obj -o H:\\\\rurix\\\\spike\\\\godot-rurix\\\\passes\\\\luminance_reduction\\\\artifacts\\\\toolchain_probe\\\\case_E.obj\n1.\tRunning pass 'DXContainer Global Emitter' on module 'H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\toolchain_probe\\case_E.ll'.\nException Code: 0xC0000005\n0x00007FF66F611856, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0xA71856 byte(s)\n0x00007FF66EFEC995, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0x44C995 byte(s)\n0x00007FF66EFEE2E1, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0x44E2E1 byte(s)\n0x00007FF66F5D76B1, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0xA376B1 byte(s)\n0x00007FF66F5D6F40, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0xA36F40 byte(s)\n0x00007FF66EC4C189, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0xAC189 byte(s)\n0x00007FF66EC4F4EC, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0xAF4EC byte(s)\n0x00007FF6706E03C0, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0x1B403C0 byte(s)\n0x00007FFF715F5C27, C:\\WINDOWS\\System32\\KERNEL32.DLL(0x00007FFF715C0000) + 0x35C27 byte(s), BaseThreadInitThunk() + 0x17 byte(s)\n0x00007FFF7372DFC0, C:\\WINDOWS\\SYSTEM32\\ntdll.dll(0x00007FFF736A0000) + 0x8DFC0 byte(s), RtlUserThreadStart() + 0x20 byte(s)",
+      "obj_produced": false,
+      "verdict": "crash",
+      "note": ""
+    },
+    {
+      "label": "F",
+      "ll": "case_F.ll",
+      "expected": "CRASH",
+      "actual_exit_code": 3221225477,
+      "actual_stderr_excerpt": "PLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace and instructions to reproduce the bug.\nStack dump:\n0.\tProgram arguments: H:\\\\llvm-dxil\\\\build\\\\bin\\\\llc.exe H:\\\\rurix\\\\spike\\\\godot-rurix\\\\passes\\\\luminance_reduction\\\\artifacts\\\\toolchain_probe\\\\case_F.ll -filetype=obj -o H:\\\\rurix\\\\spike\\\\godot-rurix\\\\passes\\\\luminance_reduction\\\\artifacts\\\\toolchain_probe\\\\case_F.obj\n1.\tRunning pass 'DXContainer Global Emitter' on module 'H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\toolchain_probe\\case_F.ll'.\nException Code: 0xC0000005\n0x00007FF66F611856, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0xA71856 byte(s)\n0x00007FF66EFEC995, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0x44C995 byte(s)\n0x00007FF66EFEE2E1, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0x44E2E1 byte(s)\n0x00007FF66F5D76B1, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0xA376B1 byte(s)\n0x00007FF66F5D6F40, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0xA36F40 byte(s)\n0x00007FF66EC4C189, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0xAC189 byte(s)\n0x00007FF66EC4F4EC, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0xAF4EC byte(s)\n0x00007FF6706E03C0, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0x1B403C0 byte(s)\n0x00007FFF715F5C27, C:\\WINDOWS\\System32\\KERNEL32.DLL(0x00007FFF715C0000) + 0x35C27 byte(s), BaseThreadInitThunk() + 0x17 byte(s)\n0x00007FFF7372DFC0, C:\\WINDOWS\\SYSTEM32\\ntdll.dll(0x00007FFF736A0000) + 0x8DFC0 byte(s), RtlUserThreadStart() + 0x20 byte(s)",
+      "obj_produced": false,
+      "verdict": "crash",
+      "note": ""
+    },
+    {
+      "label": "G",
+      "ll": "case_G.ll",
+      "expected": "CRASH",
+      "actual_exit_code": 3221225477,
+      "actual_stderr_excerpt": "PLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace and instructions to reproduce the bug.\nStack dump:\n0.\tProgram arguments: H:\\\\llvm-dxil\\\\build\\\\bin\\\\llc.exe H:\\\\rurix\\\\spike\\\\godot-rurix\\\\passes\\\\luminance_reduction\\\\artifacts\\\\toolchain_probe\\\\case_G.ll -filetype=obj -o H:\\\\rurix\\\\spike\\\\godot-rurix\\\\passes\\\\luminance_reduction\\\\artifacts\\\\toolchain_probe\\\\case_G.obj\n1.\tRunning pass 'DXContainer Global Emitter' on module 'H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\toolchain_probe\\case_G.ll'.\nException Code: 0xC0000005\n0x00007FF66F611856, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0xA71856 byte(s)\n0x00007FF66EFEC995, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0x44C995 byte(s)\n0x00007FF66EFEE2E1, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0x44E2E1 byte(s)\n0x00007FF66F5D76B1, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0xA376B1 byte(s)\n0x00007FF66F5D6F40, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0xA36F40 byte(s)\n0x00007FF66EC4C189, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0xAC189 byte(s)\n0x00007FF66EC4F4EC, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0xAF4EC byte(s)\n0x00007FF6706E03C0, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0x1B403C0 byte(s)\n0x00007FFF715F5C27, C:\\WINDOWS\\System32\\KERNEL32.DLL(0x00007FFF715C0000) + 0x35C27 byte(s), BaseThreadInitThunk() + 0x17 byte(s)\n0x00007FFF7372DFC0, C:\\WINDOWS\\SYSTEM32\\ntdll.dll(0x00007FFF736A0000) + 0x8DFC0 byte(s), RtlUserThreadStart() + 0x20 byte(s)",
+      "obj_produced": false,
+      "verdict": "crash",
+      "note": ""
+    },
+    {
+      "label": "H",
+      "ll": "case_H.ll",
+      "expected": "REJECT",
+      "actual_exit_code": 1,
+      "actual_stderr_excerpt": "H:\\llvm-dxil\\build\\bin\\llc.exe: error: H:\\llvm-dxil\\build\\bin\\llc.exe: H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\toolchain_probe\\case_H.ll:25:13: error: unknown intrinsic 'llvm.dx.resource.store.texture.2d'\n  call void @llvm.dx.resource.store.texture.2d(target(\"dx.RWTexture2D<float>\", 0, 0) %h, i32 0, i32 0, float 1.0)\n            ^",
+      "obj_produced": false,
+      "verdict": "reject",
+      "note": ""
+    },
+    {
+      "label": "I",
+      "ll": "case_I.ll",
+      "expected": "CRASH",
+      "actual_exit_code": 3221225477,
+      "actual_stderr_excerpt": "PLEASE submit a bug report to https://github.com/llvm/llvm-project/issues/ and include the crash backtrace and instructions to reproduce the bug.\nStack dump:\n0.\tProgram arguments: H:\\\\llvm-dxil\\\\build\\\\bin\\\\llc.exe H:\\\\rurix\\\\spike\\\\godot-rurix\\\\passes\\\\luminance_reduction\\\\artifacts\\\\toolchain_probe\\\\case_I.ll -filetype=obj -o H:\\\\rurix\\\\spike\\\\godot-rurix\\\\passes\\\\luminance_reduction\\\\artifacts\\\\toolchain_probe\\\\case_I.obj\n1.\tRunning pass 'DXContainer Global Emitter' on module 'H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\toolchain_probe\\case_I.ll'.\nException Code: 0xC0000005\n0x00007FF66F611856, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0xA71856 byte(s)\n0x00007FF66EFEC995, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0x44C995 byte(s)\n0x00007FF66EFEE2E1, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0x44E2E1 byte(s)\n0x00007FF66F5D76B1, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0xA376B1 byte(s)\n0x00007FF66F5D6F40, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0xA36F40 byte(s)\n0x00007FF66EC4C189, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0xAC189 byte(s)\n0x00007FF66EC4F4EC, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0xAF4EC byte(s)\n0x00007FF6706E03C0, H:\\llvm-dxil\\build\\bin\\llc.exe(0x00007FF66EBA0000) + 0x1B403C0 byte(s)\n0x00007FFF715F5C27, C:\\WINDOWS\\System32\\KERNEL32.DLL(0x00007FFF715C0000) + 0x35C27 byte(s), BaseThreadInitThunk() + 0x17 byte(s)\n0x00007FFF7372DFC0, C:\\WINDOWS\\SYSTEM32\\ntdll.dll(0x00007FFF736A0000) + 0x8DFC0 byte(s), RtlUserThreadStart() + 0x20 byte(s)",
+      "obj_produced": false,
+      "verdict": "crash",
+      "note": ""
+    },
+    {
+      "label": "J",
+      "ll": "case_J.ll",
+      "expected": "ACCEPT",
+      "actual_exit_code": 0,
+      "actual_stderr_excerpt": "",
+      "obj_produced": true,
+      "verdict": "accept",
+      "note": ""
+    }
+  ]
+}

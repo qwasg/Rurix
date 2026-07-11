@@ -1,0 +1,203 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Sat, 4 Jul 2026 12:30:00 +0800
+Subject: [PATCH] Wire GRX-009 luminance runtime binding preflight parameter
+ passing
+
+Stacked on 0001-rurix-accel-module-scaffold.patch,
+0002-rurix-accel-luminance-pass-gate.patch,
+0003-rurix-accel-luminance-core-callsite-wiring.patch, and
+0004-rurix-accel-luminance-resource-mapping-scaffold.patch. This segment 4a
+patch is runtime binding preflight wiring only: it lets the Godot side pass
+the real luminance binding to the Rurix bridge so the bridge can validate it,
+while the runtime stays fallback-only.
+
+- D3D12Hooks::try_record_luminance_reduction() now carries the luminance
+  binding: logical Godot RID ids for the source HDR texture and the level-0
+  reduce destination (not D3D12 GPU handles), source/destination dimensions,
+  and the b0 root constant scalars.
+- The Auto Exposure call site passes rb->get_internal_texture() with
+  rb->get_internal_size(), luminance_buffers->reduce[0] with its
+  max(source / 8, 1) size, and the max/min sensitivity plus exposure adjust
+  step.
+- The rurix_accel module marshals two RXGD_RESOURCE_TEXTURE records
+  (SRV src_luminance = t0, then UAV dst_luminance = u0) and the 28-byte b0
+  root constant block (source_width/source_height as 64-bit integers because
+  the shader declares the 64-bit integer shader capability, then
+  max_luminance, min_luminance, exposure_adjust) into rxgd_record_pass.
+- The bridge runtime binding preflight validates the descriptor shape, the
+  28-byte push constants, the source dimensions, and the 64-bit integer
+  shader capability; any mismatch and even a fully valid preflight still end
+  in RXGD_STATUS_FALLBACK.
+
+This is not a real GPU pass: rxgd_record_pass still never returns OK for
+RXGD_PASS_LUMINANCE_REDUCTION, no D3D12 dispatch is recorded, the per-pass
+setting defaults to false, the native Godot luminance path stays active, and
+no visual diff, measured telemetry, or performance claim is made.
+---
+diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
+index 8c25c16..04c8e6c 100644
+--- a/drivers/d3d12/d3d12_hooks.h
++++ b/drivers/d3d12/d3d12_hooks.h
+@@ -32,6 +32,8 @@
+
+ #include <drivers/d3d12/godot_d3dx12.h>
+
++#include <stdint.h>
++
+ class D3D12Hooks {
+ private:
+ 	static D3D12Hooks *singleton;
+@@ -44,9 +46,13 @@ public:
+ 	virtual void set_device(ID3D12Device *p_device) = 0;
+ 	virtual void set_command_queue(ID3D12CommandQueue *p_queue) = 0;
+ 	virtual void cleanup_device() = 0;
+-	// GRX-009 segment 2: opt-in hook for the luminance_reduction pass. The base
+-	// implementation returns false so any hooks that do not override this (or
+-	// the absence of a hooks singleton) keep the native Godot luminance path.
+-	virtual bool try_record_luminance_reduction() { return false; }
++	// GRX-009 segment 4a: opt-in runtime binding preflight hook for the
++	// luminance_reduction pass. The caller passes the logical Godot RID ids
++	// (not D3D12 GPU handles), the source/destination dimensions, and the b0
++	// root constant scalars so the bridge can validate the binding contract.
++	// The base implementation returns false so any hooks that do not override
++	// this (or the absence of a hooks singleton) keep the native Godot
++	// luminance path.
++	virtual bool try_record_luminance_reduction(uint64_t p_source_texture_id, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_texture_id, uint32_t p_dest_width, uint32_t p_dest_height, float p_max_luminance, float p_min_luminance, float p_exposure_adjust) { return false; }
+ 	static D3D12Hooks *get_singleton() { return singleton; }
+ };
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index 800cc5d..9b693ac 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -196,15 +196,15 @@ void RurixAccelD3D12Hooks::try_create_session() {
+ 	print_verbose("RurixAccel: D3D12 Forward+ bridge session ready.");
+ }
+
+-bool RurixAccelD3D12Hooks::try_record_luminance_reduction() {
+-	(void)LUMINANCE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES;
+-	(void)LUMINANCE_RESOURCE_MAPPING_RESOURCE_COUNT;
++bool RurixAccelD3D12Hooks::try_record_luminance_reduction(uint64_t p_source_texture_id, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_texture_id, uint32_t p_dest_width, uint32_t p_dest_height, float p_max_luminance, float p_min_luminance, float p_exposure_adjust) {
+ 	(void)LUMINANCE_RESOURCE_MAPPING_SCAFFOLD;
+ 	(void)LUMINANCE_RESOURCE_MAPPING_ROOT_CB;
+ 	(void)LUMINANCE_RESOURCE_MAPPING_SRC;
+ 	(void)LUMINANCE_RESOURCE_MAPPING_DST;
+-	// GRX-009 segment 1 gate: every early return below means the caller must
+-	// keep the native Godot luminance path.
++	// GRX-009 segment 4a runtime binding preflight gate: every early return
++	// below means the caller must keep the native Godot luminance path. Even
++	// a fully valid preflight currently ends in RXGD_STATUS_FALLBACK because
++	// the bridge records no real D3D12 dispatch.
+ 	if (!GLOBAL_GET("rendering/rurix_accel/passes/luminance_reduction/enabled")) {
+ 		// manual_disabled: the pass is opt-in and defaults to disabled.
+ 		return false;
+@@ -214,10 +214,42 @@ bool RurixAccelD3D12Hooks::try_record_luminance_reduction() {
+ 		// unsupported_device for this pass.
+ 		return false;
+ 	}
+-	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_LUMINANCE_REDUCTION, nullptr, 0, nullptr, 0);
++	// Marshal the luminance binding for the bridge preflight. native_handle
++	// carries the logical Godot RID id, not a D3D12 GPU handle; real handle
++	// binding belongs to a future gated dispatch slice.
++	RxGdResource resources[LUMINANCE_RESOURCE_MAPPING_RESOURCE_COUNT] = {};
++	resources[0].abi_version = RXGD_ABI_VERSION;
++	resources[0].struct_size = (uint32_t)sizeof(RxGdResource);
++	resources[0].resource_type = RXGD_RESOURCE_TEXTURE;
++	resources[0].width = p_source_width;
++	resources[0].height = p_source_height;
++	resources[0].depth = 1;
++	resources[0].mip_levels = 1;
++	resources[0].native_handle = p_source_texture_id;
++	resources[1].abi_version = RXGD_ABI_VERSION;
++	resources[1].struct_size = (uint32_t)sizeof(RxGdResource);
++	resources[1].resource_type = RXGD_RESOURCE_TEXTURE;
++	resources[1].width = p_dest_width;
++	resources[1].height = p_dest_height;
++	resources[1].depth = 1;
++	resources[1].mip_levels = 1;
++	resources[1].native_handle = p_dest_texture_id;
++	// b0 root constants (28 bytes / 7 DWORDs): source_width and
++	// source_height as 64-bit integers (the shader declares the 64-bit
++	// integer shader capability), then max_luminance, min_luminance and
++	// exposure_adjust as 32-bit floats, little-endian like D3D12.
++	uint8_t push_constants[LUMINANCE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES] = {};
++	const uint64_t source_width = p_source_width;
++	const uint64_t source_height = p_source_height;
++	memcpy(&push_constants[0], &source_width, sizeof(source_width));
++	memcpy(&push_constants[8], &source_height, sizeof(source_height));
++	memcpy(&push_constants[16], &p_max_luminance, sizeof(p_max_luminance));
++	memcpy(&push_constants[20], &p_min_luminance, sizeof(p_min_luminance));
++	memcpy(&push_constants[24], &p_exposure_adjust, sizeof(p_exposure_adjust));
++	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_LUMINANCE_REDUCTION, resources, LUMINANCE_RESOURCE_MAPPING_RESOURCE_COUNT, push_constants, LUMINANCE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES);
+ 	if (rc != RXGD_STATUS_OK) {
+ 		if (!luminance_fallback_logged) {
+-			print_verbose(vformat("RurixAccel: luminance_reduction fallback rc=%d; Godot native luminance path remains active.", rc));
++			print_verbose(vformat("RurixAccel: luminance_reduction runtime binding preflight fallback rc=%d; Godot native luminance path remains active.", rc));
+ 			luminance_fallback_logged = true;
+ 		}
+ 		return false;
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index a55beaf..7ae10bd 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -11,6 +11,7 @@
+ #define RXGD_STATUS_FALLBACK 1
+ #define RXGD_BACKEND_D3D12 1u
+ #define RXGD_RENDER_METHOD_FORWARD_PLUS 1u
++#define RXGD_RESOURCE_TEXTURE 1u
+ #define RXGD_PASS_LUMINANCE_REDUCTION 4u
+
+ typedef struct RxGdCaps {
+@@ -77,12 +78,14 @@ public:
+ 	void set_command_queue(ID3D12CommandQueue *p_queue) override;
+ 	void cleanup_device() override;
+ 	bool is_ready() const;
+-	// GRX-009 segment 1: returns true only when the Rurix bridge actually
+-	// recorded the luminance_reduction pass. Any other outcome (setting
+-	// disabled, missing session/symbol, or a non-OK bridge status such as
+-	// RXGD_STATUS_FALLBACK) returns false and the caller must keep the
+-	// native Godot luminance path.
+-	bool try_record_luminance_reduction() override;
++	// GRX-009 segment 4a: runtime binding preflight. Marshals the logical
++	// luminance binding (RID ids, dimensions, b0 root constants) to the
++	// Rurix bridge and returns true only when the bridge actually recorded
++	// the luminance_reduction pass. Any other outcome (setting disabled,
++	// missing session/symbol, or a non-OK bridge status such as
++	// RXGD_STATUS_FALLBACK from the preflight-only bridge) returns false
++	// and the caller must keep the native Godot luminance path.
++	bool try_record_luminance_reduction(uint64_t p_source_texture_id, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_texture_id, uint32_t p_dest_width, uint32_t p_dest_height, float p_max_luminance, float p_min_luminance, float p_exposure_adjust) override;
+ };
+
+ #endif // D3D12_ENABLED
+diff --git a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
+index bdef80b..7085289 100644
+--- a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
++++ b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
+@@ -570,13 +570,20 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+ 		float auto_exposure_max_sensitivity = RSG::camera_attributes->camera_attributes_get_auto_exposure_max_sensitivity(p_render_data->camera_attributes);
+ 		bool rurix_recorded_luminance = false;
+ #ifdef D3D12_ENABLED
+-		if (D3D12Hooks::get_singleton() != nullptr) {
+-			// GRX-009 segment 2 opt-in gate. Returns true only when the Rurix
+-			// module setting is enabled AND the bridge session/symbol exist AND
+-			// rxgd_record_pass returns RXGD_STATUS_OK. The bridge currently
+-			// always returns RXGD_STATUS_FALLBACK for luminance_reduction, so
+-			// this stays false and the native Godot path below runs.
+-			rurix_recorded_luminance = D3D12Hooks::get_singleton()->try_record_luminance_reduction();
++		if (D3D12Hooks::get_singleton() != nullptr && !luminance_buffers->reduce.is_empty()) {
++			// GRX-009 segment 4a runtime binding preflight gate. Passes the
++			// logical luminance binding (source HDR texture RID id and size,
++			// level-0 reduce destination RID id and its max(source / 8, 1)
++			// size, and the b0 root constant scalars) so the Rurix bridge can
++			// validate the binding contract. Returns true only when the Rurix
++			// module setting is enabled AND the bridge session/symbol exist
++			// AND rxgd_record_pass returns RXGD_STATUS_OK. The bridge still
++			// always returns RXGD_STATUS_FALLBACK for luminance_reduction
++			// (runtime binding preflight only, no real dispatch), so this
++			// stays false and the native Godot path below runs.
++			const Size2i rurix_source_size = rb->get_internal_size();
++			const Size2i rurix_dest_size = Size2i(MAX(rurix_source_size.x / 8, 1), MAX(rurix_source_size.y / 8, 1));
++			rurix_recorded_luminance = D3D12Hooks::get_singleton()->try_record_luminance_reduction(rb->get_internal_texture().get_id(), (uint32_t)MAX(rurix_source_size.x, 0), (uint32_t)MAX(rurix_source_size.y, 0), luminance_buffers->reduce[0].get_id(), (uint32_t)rurix_dest_size.x, (uint32_t)rurix_dest_size.y, auto_exposure_max_sensitivity, auto_exposure_min_sensitivity, (float)step);
+ 		}
+ #endif
+ 		if (!rurix_recorded_luminance) {

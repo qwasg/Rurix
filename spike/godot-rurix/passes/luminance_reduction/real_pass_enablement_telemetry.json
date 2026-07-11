@@ -1,0 +1,17 @@
+{
+  "run_mode": "full",
+  "evidence_level": "measured_local",
+  "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
+  "note": "GRX-009 segment 4h measured real-pass enablement telemetry: with the default-false dispatch_real_pass opt-in explicitly enabled, the tracked Godot Auto Exposure call site invoked the shipping (feature-off) Rurix bridge; the fail-closed real-pass gate returned RXGD_STATUS_FALLBACK (validation_failed via the kernel-binding-kind conformance check; unsupported_device under the forced capability downgrade) and the native Godot luminance path rendered every frame. No pass is wired up as a real GPU pass, runtime_state stays fallback_only, real_gpu_pass=false, and no performance or FPS claim is made.",
+  "passes": [
+    {
+      "pass_id": "luminance_reduction",
+      "leg": "forced_capability_downgrade",
+      "enable_state": "enabled",
+      "fallback_reason": "unsupported_device",
+      "godot_fallback_active": true,
+      "telemetry_timestamp": "2026-07-08T21:04:44+08:00",
+      "telemetry_frame": 24
+    }
+  ]
+}

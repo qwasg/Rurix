@@ -1,0 +1,208 @@
+{
+  "schema_version": 1,
+  "subject": "grx009_stage_a2_hlsl_bridge_math_parity",
+  "pass_id": "luminance_reduction",
+  "status": "pending_gpu_dispatch",
+  "provenance": "hlsl_bridge_workaround",
+  "rurix_owned": false,
+  "measured_gpu": false,
+  "real_gpu_pass": false,
+  "canonical_artifact_replaced": false,
+  "generated_at_utc": "2026-07-08T11:22:30Z",
+  "kernel": {
+    "hlsl": {
+      "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/luminance_reduce_level.hlsl",
+      "sha256": "7a35a7f9ec14704d7e27d596f035844ef04b33d929b9e8f43788a7f746af7599",
+      "exists": true
+    },
+    "dxil_base": {
+      "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/luminance_reduce_level.dxil",
+      "sha256": "14761af20456557a019086d51185cdc5375acf89bf9ac208927e703d265c3d2e",
+      "exists": true
+    },
+    "dxil_write_luminance": {
+      "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/luminance_reduce_level_write_luminance.dxil",
+      "sha256": "ce2f247835dec6794de1f6a2b2af64b6e8c0c66017715914889f4e6b49ffca4d",
+      "exists": true
+    }
+  },
+  "cpu_reference": {
+    "implementation": "spike/godot-rurix/passes/luminance_reduction/generate_math_parity_evidence.py",
+    "math_source": {
+      "level_reduction": "spike/godot-rurix/passes/luminance_reduction/src/lib_texture.rx",
+      "final_level": "spike/godot-rurix/passes/luminance_reduction/src/lib.rx (clamp * exposure) + EMA prev + (cur - prev) * exposure_adjust"
+    },
+    "float_model": "IEEE-754 binary32 rounded after every operation (struct pack/unpack round-trip)"
+  },
+  "gpu_results": null,
+  "comparison": {
+    "max_abs_error_tolerance": 1e-06,
+    "measured": false,
+    "max_abs_error_observed": null,
+    "all_cases_within_tolerance": null
+  },
+  "cases": [
+    {
+      "case_id": "base_16x16_exact_tiles",
+      "variant": "base",
+      "source_width": 16,
+      "source_height": 16,
+      "dst_width": 2,
+      "dst_height": 2,
+      "input_pattern": "f32(((x * 31 + y * 17) % 97)) / f32(97)",
+      "constants": {
+        "source_width": 16,
+        "source_height": 16,
+        "max_luminance": 8.0,
+        "min_luminance": 0.0,
+        "exposure_adjust": 1.0,
+        "prev_luminance": null
+      },
+      "cpu_expected": {
+        "dst_f32_le_sha256": "a6f8fa6ca04280d1868fab025812e0651154e01a8c425dcac91b195fce100c13",
+        "sample_texels": [
+          {
+            "x": 0,
+            "y": 0,
+            "value": 0.49758380651474
+          },
+          {
+            "x": 0,
+            "y": 1,
+            "value": 0.4933956265449524
+          },
+          {
+            "x": 1,
+            "y": 0,
+            "value": 0.4761597812175751
+          },
+          {
+            "x": 1,
+            "y": 1,
+            "value": 0.5032215714454651
+          }
+        ]
+      },
+      "gpu_observed": null,
+      "case_status": "pending"
+    },
+    {
+      "case_id": "base_20x13_partial_tiles",
+      "variant": "base",
+      "source_width": 20,
+      "source_height": 13,
+      "dst_width": 3,
+      "dst_height": 2,
+      "input_pattern": "f32(((x * 31 + y * 17) % 97)) / f32(97)",
+      "constants": {
+        "source_width": 20,
+        "source_height": 13,
+        "max_luminance": 8.0,
+        "min_luminance": 0.0,
+        "exposure_adjust": 1.0,
+        "prev_luminance": null
+      },
+      "cpu_expected": {
+        "dst_f32_le_sha256": "f1cc1f8011b46512f702da4e1af014902b81bd655b87528264aea42475b4d4e7",
+        "sample_texels": [
+          {
+            "x": 0,
+            "y": 0,
+            "value": 0.49758380651474
+          },
+          {
+            "x": 0,
+            "y": 1,
+            "value": 0.47113388776779175
+          },
+          {
+            "x": 1,
+            "y": 1,
+            "value": 0.5278350710868835
+          },
+          {
+            "x": 2,
+            "y": 0,
+            "value": 0.5186856389045715
+          },
+          {
+            "x": 2,
+            "y": 1,
+            "value": 0.44536080956459045
+          }
+        ]
+      },
+      "gpu_observed": null,
+      "case_status": "pending"
+    },
+    {
+      "case_id": "base_1x1_degenerate",
+      "variant": "base",
+      "source_width": 1,
+      "source_height": 1,
+      "dst_width": 1,
+      "dst_height": 1,
+      "input_pattern": "f32(((x * 31 + y * 17) % 97)) / f32(97)",
+      "constants": {
+        "source_width": 1,
+        "source_height": 1,
+        "max_luminance": 8.0,
+        "min_luminance": 0.0,
+        "exposure_adjust": 1.0,
+        "prev_luminance": null
+      },
+      "cpu_expected": {
+        "dst_f32_le_sha256": "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
+        "sample_texels": [
+          {
+            "x": 0,
+            "y": 0,
+            "value": 0.0
+          }
+        ]
+      },
+      "gpu_observed": null,
+      "case_status": "pending"
+    },
+    {
+      "case_id": "write_luminance_8x8_clamp_ema",
+      "variant": "write_luminance",
+      "source_width": 8,
+      "source_height": 8,
+      "dst_width": 1,
+      "dst_height": 1,
+      "input_pattern": "f32(((x * 31 + y * 17) % 97)) / f32(97)",
+      "constants": {
+        "source_width": 8,
+        "source_height": 8,
+        "max_luminance": 2.0,
+        "min_luminance": 0.6,
+        "exposure_adjust": 0.5,
+        "prev_luminance": 0.25
+      },
+      "cpu_expected": {
+        "dst_f32_le_sha256": "a816848b94157bfdbcbe96c45576640537f247780d36dc51d2b2000a1fcf3d74",
+        "sample_texels": [
+          {
+            "x": 0,
+            "y": 0,
+            "value": 0.42500001192092896
+          }
+        ]
+      },
+      "gpu_observed": null,
+      "case_status": "pending"
+    }
+  ],
+  "does_not_imply": [
+    "Godot runtime luminance pass completion",
+    "real_gpu_pass=true",
+    "real_d3d12_dispatch_recorded=true",
+    "visual success",
+    "GPU timestamp success",
+    "performance claim",
+    "canonical luminance artifact replacement"
+  ],
+  "pending_reason": "no GPU dispatch results document available (RURIX_GRX009_GPU_RESULTS unset or missing); CPU float32 reference recorded, GPU side pending",
+  "next_action_when_gpu_available": "dispatch artifacts/hlsl_bridge/ DXIL variants against the recorded synthetic inputs, write a GPU results document, and re-run generate_math_parity_evidence.py with RURIX_GRX009_GPU_RESULTS pointing at it"
+}

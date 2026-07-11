@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "pass_id": "luminance_reduction",
+  "cross_check_status": "success",
+  "descriptor_rts0_crosscheck_ready": true,
+  "generated_at_utc": "2026-07-08T11:22:49Z",
+  "descriptor_layout_artifact": {
+    "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/dxc_texture_bridge/descriptor_layout.json",
+    "size_bytes": 704,
+    "sha256": "65cd6b3012e08332de897f9a0cc222011e587f8e2ad8ba718472347e731b72d9",
+    "artifact_kind": "dxc_texture_bridge_descriptor_layout_scaffold"
+  },
+  "rts0_artifact": {
+    "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/dxc_texture_bridge/root_signature.rts0.bin",
+    "size_bytes": 128,
+    "sha256": "bed820418c0a7cf9d1e9d160de9f42ac56fee8f067c1880bd3af28f9d62fec0c",
+    "artifact_kind": "rurix_owned_rts0_root_signature"
+  },
+  "reserialized_rts0_artifact": {
+    "path": "target/grx009_descriptor_rts0_crosscheck/root_signature.reserialized.rts0.bin",
+    "size_bytes": 128,
+    "sha256": "bed820418c0a7cf9d1e9d160de9f42ac56fee8f067c1880bd3af28f9d62fec0c",
+    "artifact_kind": "rurix_owned_rts0_root_signature_reserialized"
+  },
+  "byte_for_byte_match": true,
+  "root_constants": "none",
+  "generator": {
+    "kind": "rurixc_binding_layout_example",
+    "command": [
+      "cargo",
+      "run",
+      "-q",
+      "-p",
+      "rurixc",
+      "--features",
+      "dxil-backend shader-stages",
+      "--example",
+      "emit_grx009_texture_rts0",
+      "--",
+      "H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\dxc_texture_bridge\\descriptor_layout.json",
+      "H:\\rurix\\target\\grx009_descriptor_rts0_crosscheck\\root_signature.reserialized.rts0.bin"
+    ],
+    "source_api": "rurixc::binding_layout::{infer_root_signature, serialize_rts0}"
+  },
+  "runtime_mappable": false,
+  "real_gpu_pass": false,
+  "canonical_artifact_replaced": false,
+  "offline_compile_status_changed": false,
+  "provenance": "hlsl_bridge_workaround",
+  "rurix_owned": false,
+  "next_action_if_ready": "define_grx009_texture_artifact_provenance_policy"
+}

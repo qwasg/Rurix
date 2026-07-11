@@ -1,0 +1,203 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Sat, 4 Jul 2026 22:30:00 +0800
+Subject: [PATCH] Map Godot native D3D12 resource handles into the GRX-009
+ luminance bridge binding
+
+Stacked on 0001-rurix-accel-module-scaffold.patch,
+0002-rurix-accel-luminance-pass-gate.patch,
+0003-rurix-accel-luminance-core-callsite-wiring.patch,
+0004-rurix-accel-luminance-resource-mapping-scaffold.patch,
+0005-rurix-accel-luminance-runtime-binding-preflight.patch, and
+0006-rurix-accel-luminance-gated-dispatch-bringup.patch. This segment 4e patch
+is native resource handle mapping only. It changes the resource the Godot
+runtime hands to the Rurix bridge from a logical Godot RID id into the real
+D3D12 ID3D12Resource* native handle, while keeping the runtime fallback-first:
+the native Godot luminance path stays active and the shipping bridge still
+returns RXGD_STATUS_FALLBACK for RXGD_PASS_LUMINANCE_REDUCTION.
+
+- drivers/d3d12/d3d12_hooks.h: the base D3D12Hooks luminance hook parameters
+  are renamed from logical RID ids (p_source_texture_id / p_dest_texture_id)
+  to real native handles (p_source_native_handle / p_dest_native_handle); the
+  comment now documents that the caller passes real ID3D12Resource* handles
+  resolved through RenderingDevice::get_driver_resource, not RID ids.
+- servers/rendering/renderer_rd/renderer_scene_render_rd.cpp Auto Exposure call
+  site: resolves the real D3D12 native handles for rb->get_internal_texture()
+  (source) and luminance_buffers->reduce[0] (level-0 reduce destination) via
+  RenderingDevice::get_driver_resource(DRIVER_RESOURCE_TEXTURE, RID, 0). When
+  RenderingDevice is unavailable or either native handle resolves to 0 the pass
+  falls back to the native Godot luminance path instead of binding a null
+  resource.
+- modules/rurix_accel: the RurixAccelD3D12Hooks override is renamed to match,
+  a zero-native-handle guard returns false (native Godot fallback), and the two
+  RXGD_RESOURCE_TEXTURE records now carry the real ID3D12Resource* native
+  handles in RxGdResource.native_handle.
+
+This does not change RXGD_ABI_VERSION, does not enable the pass by default, and
+does not set RXGD_CAP_LUMINANCE_DISPATCH_RECORD (the harness-only record-arm
+flag). It is native handle mapping preflight only: it is not a real GPU pass,
+records no D3D12 dispatch through the shipping/feature-off bridge, does not skip
+the native Godot luminance path, and makes no visual diff, measured telemetry,
+or performance claim.
+---
+diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
+index 04c8e6c..29864a4 100644
+--- a/drivers/d3d12/d3d12_hooks.h
++++ b/drivers/d3d12/d3d12_hooks.h
+@@ -46,13 +46,15 @@ public:
+ 	virtual void set_device(ID3D12Device *p_device) = 0;
+ 	virtual void set_command_queue(ID3D12CommandQueue *p_queue) = 0;
+ 	virtual void cleanup_device() = 0;
+-	// GRX-009 segment 4a: opt-in runtime binding preflight hook for the
+-	// luminance_reduction pass. The caller passes the logical Godot RID ids
+-	// (not D3D12 GPU handles), the source/destination dimensions, and the b0
+-	// root constant scalars so the bridge can validate the binding contract.
+-	// The base implementation returns false so any hooks that do not override
+-	// this (or the absence of a hooks singleton) keep the native Godot
+-	// luminance path.
+-	virtual bool try_record_luminance_reduction(uint64_t p_source_texture_id, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_texture_id, uint32_t p_dest_width, uint32_t p_dest_height, float p_max_luminance, float p_min_luminance, float p_exposure_adjust) { return false; }
++	// GRX-009 segment 4e: native resource handle mapping hook for the
++	// luminance_reduction pass. The caller now passes the real D3D12
++	// ID3D12Resource* native handles (resolved through
++	// RenderingDevice::get_driver_resource, not logical Godot RID ids) for the
++	// source HDR texture and the level-0 reduce destination, the
++	// source/destination dimensions, and the b0 root constant scalars so the
++	// bridge can bind real resources. The base implementation returns false so
++	// any hooks that do not override this (or the absence of a hooks singleton)
++	// keep the native Godot luminance path.
++	virtual bool try_record_luminance_reduction(uint64_t p_source_native_handle, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_native_handle, uint32_t p_dest_width, uint32_t p_dest_height, float p_max_luminance, float p_min_luminance, float p_exposure_adjust) { return false; }
+ 	static D3D12Hooks *get_singleton() { return singleton; }
+ };
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index 1f117b2..9117dfc 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -203,7 +203,7 @@ void RurixAccelD3D12Hooks::try_create_session() {
+ 	print_verbose("RurixAccel: D3D12 Forward+ bridge session ready.");
+ }
+ 
+-bool RurixAccelD3D12Hooks::try_record_luminance_reduction(uint64_t p_source_texture_id, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_texture_id, uint32_t p_dest_width, uint32_t p_dest_height, float p_max_luminance, float p_min_luminance, float p_exposure_adjust) {
++bool RurixAccelD3D12Hooks::try_record_luminance_reduction(uint64_t p_source_native_handle, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_native_handle, uint32_t p_dest_width, uint32_t p_dest_height, float p_max_luminance, float p_min_luminance, float p_exposure_adjust) {
+ 	(void)LUMINANCE_RESOURCE_MAPPING_SCAFFOLD;
+ 	(void)LUMINANCE_RESOURCE_MAPPING_ROOT_CB;
+ 	(void)LUMINANCE_RESOURCE_MAPPING_SRC;
+@@ -221,9 +221,15 @@ bool RurixAccelD3D12Hooks::try_record_luminance_reduction(uint64_t p_source_text
+ 		// unsupported_device for this pass.
+ 		return false;
+ 	}
+-	// Marshal the luminance binding for the bridge preflight. native_handle
+-	// carries the logical Godot RID id, not a D3D12 GPU handle; real handle
+-	// binding belongs to a future gated dispatch slice.
++	if (p_source_native_handle == 0 || p_dest_native_handle == 0) {
++		// GRX-009 segment 4e: a zero native handle means RenderingDevice could
++		// not resolve a real ID3D12Resource*; keep the native Godot luminance
++		// path instead of binding a null resource.
++		return false;
++	}
++	// GRX-009 segment 4e: marshal the luminance binding for the bridge.
++	// native_handle now carries the real D3D12 ID3D12Resource* resolved from
++	// RenderingDevice::get_driver_resource, not a logical Godot RID id.
+ 	RxGdResource resources[LUMINANCE_RESOURCE_MAPPING_RESOURCE_COUNT] = {};
+ 	resources[0].abi_version = RXGD_ABI_VERSION;
+ 	resources[0].struct_size = (uint32_t)sizeof(RxGdResource);
+@@ -232,7 +238,7 @@ bool RurixAccelD3D12Hooks::try_record_luminance_reduction(uint64_t p_source_text
+ 	resources[0].height = p_source_height;
+ 	resources[0].depth = 1;
+ 	resources[0].mip_levels = 1;
+-	resources[0].native_handle = p_source_texture_id;
++	resources[0].native_handle = p_source_native_handle;
+ 	resources[1].abi_version = RXGD_ABI_VERSION;
+ 	resources[1].struct_size = (uint32_t)sizeof(RxGdResource);
+ 	resources[1].resource_type = RXGD_RESOURCE_TEXTURE;
+@@ -240,7 +246,7 @@ bool RurixAccelD3D12Hooks::try_record_luminance_reduction(uint64_t p_source_text
+ 	resources[1].height = p_dest_height;
+ 	resources[1].depth = 1;
+ 	resources[1].mip_levels = 1;
+-	resources[1].native_handle = p_dest_texture_id;
++	resources[1].native_handle = p_dest_native_handle;
+ 	// b0 root constants (28 bytes / 7 DWORDs): source_width and
+ 	// source_height as 64-bit integers (the shader declares the 64-bit
+ 	// integer shader capability), then max_luminance, min_luminance and
+@@ -256,7 +262,7 @@ bool RurixAccelD3D12Hooks::try_record_luminance_reduction(uint64_t p_source_text
+ 	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_LUMINANCE_REDUCTION, resources, LUMINANCE_RESOURCE_MAPPING_RESOURCE_COUNT, push_constants, LUMINANCE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES);
+ 	if (rc != RXGD_STATUS_OK) {
+ 		if (!luminance_fallback_logged) {
+-			print_verbose(vformat("RurixAccel: luminance_reduction runtime binding preflight fallback rc=%d; Godot native luminance path remains active.", rc));
++			print_verbose(vformat("RurixAccel: luminance_reduction native resource handle mapping fallback rc=%d; Godot native luminance path remains active.", rc));
+ 			luminance_fallback_logged = true;
+ 		}
+ 		return false;
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index 4728709..c6958d7 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -82,14 +82,15 @@ public:
+ 	void set_command_queue(ID3D12CommandQueue *p_queue) override;
+ 	void cleanup_device() override;
+ 	bool is_ready() const;
+-	// GRX-009 segment 4a: runtime binding preflight. Marshals the logical
+-	// luminance binding (RID ids, dimensions, b0 root constants) to the
+-	// Rurix bridge and returns true only when the bridge actually recorded
+-	// the luminance_reduction pass. Any other outcome (setting disabled,
+-	// missing session/symbol, or a non-OK bridge status such as
+-	// RXGD_STATUS_FALLBACK from the preflight-only bridge) returns false
+-	// and the caller must keep the native Godot luminance path.
+-	bool try_record_luminance_reduction(uint64_t p_source_texture_id, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_texture_id, uint32_t p_dest_width, uint32_t p_dest_height, float p_max_luminance, float p_min_luminance, float p_exposure_adjust) override;
++	// GRX-009 segment 4e: native resource handle mapping. Marshals the real
++	// D3D12 ID3D12Resource* native handles (not logical Godot RID ids),
++	// dimensions, and b0 root constants to the Rurix bridge and returns true
++	// only when the bridge actually recorded the luminance_reduction pass. Any
++	// other outcome (setting disabled, missing session/symbol, a null native
++	// handle, or a non-OK bridge status such as RXGD_STATUS_FALLBACK from the
++	// preflight-only bridge) returns false and the caller must keep the native
++	// Godot luminance path.
++	bool try_record_luminance_reduction(uint64_t p_source_native_handle, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_native_handle, uint32_t p_dest_width, uint32_t p_dest_height, float p_max_luminance, float p_min_luminance, float p_exposure_adjust) override;
+ };
+ 
+ #endif // D3D12_ENABLED
+diff --git a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
+index 7085289..c393ffe 100644
+--- a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
++++ b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
+@@ -571,19 +571,28 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+ 		bool rurix_recorded_luminance = false;
+ #ifdef D3D12_ENABLED
+ 		if (D3D12Hooks::get_singleton() != nullptr && !luminance_buffers->reduce.is_empty()) {
+-			// GRX-009 segment 4a runtime binding preflight gate. Passes the
+-			// logical luminance binding (source HDR texture RID id and size,
+-			// level-0 reduce destination RID id and its max(source / 8, 1)
+-			// size, and the b0 root constant scalars) so the Rurix bridge can
+-			// validate the binding contract. Returns true only when the Rurix
+-			// module setting is enabled AND the bridge session/symbol exist
+-			// AND rxgd_record_pass returns RXGD_STATUS_OK. The bridge still
+-			// always returns RXGD_STATUS_FALLBACK for luminance_reduction
+-			// (runtime binding preflight only, no real dispatch), so this
+-			// stays false and the native Godot path below runs.
++			// GRX-009 segment 4e native resource handle mapping gate. Resolves
++			// the real D3D12 ID3D12Resource* native handles (not logical Godot
++			// RID ids) for the source HDR texture and the level-0 reduce
++			// destination through RenderingDevice::get_driver_resource, then
++			// passes them plus the source/destination sizes and the b0 root
++			// constant scalars so the Rurix bridge can bind real resources.
++			// When RenderingDevice is unavailable or either native handle
++			// resolves to 0, the pass falls back to the native Godot luminance
++			// path. Returns true only when the Rurix module setting is enabled
++			// AND the bridge session/symbol exist AND rxgd_record_pass returns
++			// RXGD_STATUS_OK. The bridge still always returns
++			// RXGD_STATUS_FALLBACK for luminance_reduction (native handle
++			// mapping preflight only, no real dispatch), so this stays false
++			// and the native Godot path below runs.
+ 			const Size2i rurix_source_size = rb->get_internal_size();
+ 			const Size2i rurix_dest_size = Size2i(MAX(rurix_source_size.x / 8, 1), MAX(rurix_source_size.y / 8, 1));
+-			rurix_recorded_luminance = D3D12Hooks::get_singleton()->try_record_luminance_reduction(rb->get_internal_texture().get_id(), (uint32_t)MAX(rurix_source_size.x, 0), (uint32_t)MAX(rurix_source_size.y, 0), luminance_buffers->reduce[0].get_id(), (uint32_t)rurix_dest_size.x, (uint32_t)rurix_dest_size.y, auto_exposure_max_sensitivity, auto_exposure_min_sensitivity, (float)step);
++			RenderingDevice *rurix_rd = RD::get_singleton();
++			const uint64_t rurix_source_native_handle = rurix_rd != nullptr ? rurix_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_TEXTURE, rb->get_internal_texture(), 0) : 0;
++			const uint64_t rurix_dest_native_handle = rurix_rd != nullptr ? rurix_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_TEXTURE, luminance_buffers->reduce[0], 0) : 0;
++			if (rurix_source_native_handle != 0 && rurix_dest_native_handle != 0) {
++				rurix_recorded_luminance = D3D12Hooks::get_singleton()->try_record_luminance_reduction(rurix_source_native_handle, (uint32_t)MAX(rurix_source_size.x, 0), (uint32_t)MAX(rurix_source_size.y, 0), rurix_dest_native_handle, (uint32_t)rurix_dest_size.x, (uint32_t)rurix_dest_size.y, auto_exposure_max_sensitivity, auto_exposure_min_sensitivity, (float)step);
++			}
+ 		}
+ #endif
+ 		if (!rurix_recorded_luminance) {
+-- 
+2.50.0

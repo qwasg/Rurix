@@ -1,72 +1,137 @@
 {
   "pass_id": "luminance_reduction",
   "segment": "3a",
-  "status": "compile_failed",
+  "status": "success",
   "runtime_state": "fallback_only",
-  "manifest_segment_after_run": 2,
-  "attempted_at_utc": "2026-07-02T12:08:12Z",
+  "manifest_segment_after_run": 3,
+  "attempted_at_utc": "2026-07-08T11:55:00Z",
+  "provenance": "hlsl_bridge_workaround",
+  "rurix_owned": false,
+  "rurix_owned_rts0": true,
+  "canonical_switch_exception": "owner_approved_hlsl_bridge_workaround",
+  "provenance_policy": "spike/godot-rurix/passes/luminance_reduction/texture_artifact_provenance_policy.json",
+  "hlsl_bridge_compile_evidence": "spike/godot-rurix/passes/luminance_reduction/hlsl_bridge_compile_evidence.json",
+  "math_parity_evidence": "spike/godot-rurix/passes/luminance_reduction/math_parity_evidence.json",
   "inputs": {
     "package_manifest": "spike/godot-rurix/passes/luminance_reduction/rurix.toml",
-    "entry_file": "spike/godot-rurix/passes/luminance_reduction/src/lib.rx",
+    "entry_file": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/luminance_reduce_level.hlsl",
+    "rurix_math_source": "spike/godot-rurix/passes/luminance_reduction/src/lib_texture.rx",
     "godot_reference_files": [
       "external/godot-master/servers/rendering/renderer_rd/effects/luminance.cpp",
       "external/godot-master/servers/rendering/renderer_rd/shaders/effects/luminance_reduce.glsl"
     ]
   },
+  "dxil_provenance": {
+    "produced_by": "dxc",
+    "compiler_version": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)",
+    "target_profile": "cs_6_0",
+    "entry_point": "main",
+    "hlsl_source": {
+      "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/luminance_reduce_level.hlsl",
+      "sha256": "7a35a7f9ec14704d7e27d596f035844ef04b33d929b9e8f43788a7f746af7599"
+    },
+    "validation": {
+      "tool": "dxv.exe",
+      "status": "pass",
+      "exit_code": 0
+    }
+  },
   "commands": [
     {
-      "label": "cargo_run_rurixc_target_dxil",
+      "label": "dxc_compile_base",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+        "-T",
+        "cs_6_0",
+        "-E",
+        "main",
+        "-Qstrip_debug",
+        "-Fo",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\hlsl_bridge\\luminance_reduce_level.dxil",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\hlsl_bridge\\luminance_reduce_level.hlsl"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/dxc_stdout_base.txt",
+      "stderr_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/dxc_stderr_base.txt"
+    },
+    {
+      "label": "dxv_validate_base",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\hlsl_bridge\\luminance_reduce_level.dxil"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/dxv_stdout_base.txt",
+      "stderr_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/dxv_stderr_base.txt"
+    },
+    {
+      "label": "emit_grx009_texture_rts0_base",
       "argv": [
         "cargo",
         "run",
+        "-q",
         "-p",
-        "rurixc",
-        "--bin",
         "rurixc",
         "--features",
         "dxil-backend shader-stages",
+        "--example",
+        "emit_grx009_texture_rts0",
         "--",
-        "H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\src\\lib.rx",
-        "--target",
-        "dxil",
-        "-o",
-        "H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\luminance_reduction.dxil"
+        "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/descriptor_layout.json",
+        "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/root_signature.rts0.bin"
       ],
-      "exit_code": 1,
-      "stdout_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/compile_stdout.txt",
-      "stderr_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/compile_stderr.txt"
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/emit_rts0_stdout_base.txt",
+      "stderr_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/emit_rts0_stderr_base.txt"
     }
   ],
   "artifacts": {
     "dxil": {
       "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/luminance_reduction.dxil",
-      "exists": false,
-      "sha256": null,
-      "artifact_kind": "missing",
-      "produced_by_current_run": false,
-      "semantic_status": "unknown"
+      "exists": true,
+      "sha256": "14761af20456557a019086d51185cdc5375acf89bf9ac208927e703d265c3d2e",
+      "artifact_kind": "dxil_container",
+      "produced_by_current_run": true,
+      "semantic_status": "lowered_compute_body"
     },
     "root_signature": {
       "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/luminance_reduction.rts0.bin",
-      "exists": false,
-      "sha256": null,
-      "artifact_kind": "missing",
-      "produced_by_current_run": false
+      "exists": true,
+      "sha256": "f08794f9886e1ebc4c905e3006732e572ec913a75255c5b488cf4877a1391f03",
+      "artifact_kind": "binary",
+      "produced_by_current_run": true
     },
     "descriptor_layout": {
       "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/luminance_reduction_descriptor_layout.json",
-      "exists": false,
-      "sha256": null,
-      "artifact_kind": "missing",
-      "produced_by_current_run": false
+      "exists": true,
+      "sha256": "0067fcb119fe1c364263839e529112965af300a45583152225502391f9512749",
+      "artifact_kind": "binary",
+      "produced_by_current_run": true
     }
   },
-  "blocker_category": "while_lowering_missing",
-  "blocker_summary": "The DXIL compute backend now lowers integer `%` modulo in the luminance kernel, and the first remaining blocker is while-loop body lowering.",
+  "blocker_category": null,
+  "blocker_summary": null,
   "notes": [
-    "Runtime remains fallback_only for GRX-009 segment 3a.",
-    "Current artifacts describe only files produced by this compile attempt after stale outputs were cleared.",
-    "Do not advance pass_manifest to segment 3 unless the DXIL artifact is a real container produced by the current run and not dxil_ir_text.",
-    "debug_artifacts and entry_shell_only IR are debugging evidence, not real luminance pass compile success."
+    "Runtime remains fallback_only by default: the real dispatch path is linked only under the d3d12-recording-shim feature and armed only by the opt-in RXGD_CAP_LUMINANCE_REAL_PASS flag.",
+    "The canonical artifacts/ paths carry the texture-capable hlsl_bridge workaround package: a DXC cs_6_0 DXIL container (validated by dxv, produced_by=dxc, HLSL source sha256=7a35a7f9ec14704d7e27d596f035844ef04b33d929b9e8f43788a7f746af7599), the Rurix-owned RTS0 root signature serialized by rurixc::binding_layout::serialize_rts0 (28-byte root constants + SRV t0 + UAV u0), and the rurixc-emitted src/lib_texture.rx descriptor layout with per-slot texture2d/rwtexture2d binding kinds.",
+    "This canonical switch is the owner-approved hlsl_bridge_workaround provenance exception (texture_artifact_provenance_policy.json, policy_ready=true): the artifact is runtime-mappable but NOT rurix_owned; a rurixc-owned texture-capable compile still requires a patched llc that supports llvm.dx.resource.load.texture.2d.",
+    "The kernel math mirrors src/lib_texture.rx level-0 reduction (8x8 tile, arithmetic mean, partial-tile divisor); level-0 parity is CPU-proven in math_parity_evidence.json (status=pending_gpu_dispatch: GPU observation pending a real dispatch).",
+    "The final-level write_luminance variant (clamp(min,max) + EMA prev + (cur-prev)*exposure_adjust) already has a DXV-pass DXIL container at artifacts/hlsl_bridge/luminance_reduce_level_write_luminance.dxil; it is NOT yet part of the canonical package.",
+    "The historical raw-buffer segment 3a fixture is retained at artifacts/raw_buffer_historical/ with its own evidence in offline_compile_evidence_raw_buffer.json.",
+    "See hlsl_bridge_compile_evidence.json for the full stage A2 compile/validate/rts0 command evidence."
+  ],
+  "attempted_binding_kinds": [
+    "texture2d",
+    "rwtexture2d"
+  ],
+  "runtime_mappable": true,
+  "math_parity_status": "level0_cpu_reference_proven_pending_gpu_dispatch",
+  "known_gaps": [
+    "single-level kernel (no multi-level pyramid cascade)",
+    "no EMA feedback (prev + (cur-prev)*exposure_adjust) in the canonical base variant; the write_luminance variant (clamp+EMA) already has a DXV-pass DXIL at artifacts/hlsl_bridge/luminance_reduce_level_write_luminance.dxil but is not canonical yet",
+    "no previous-luminance double buffering",
+    "no final-level WRITE_LUMINANCE clamp/min/max gating in the canonical base variant",
+    "level-0 only; Godot native uses ceil(log_8(max_dim)) levels",
+    "GPU-side math parity observation pending a real dispatch (math_parity_evidence.json)"
   ]
 }

@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "pass_id": "luminance_reduction",
+  "segment": "4m_real_pass_default_enable_decision",
+  "status": "success",
+  "decision_ready": true,
+  "generated_at_utc": "2026-07-08T13:30:00Z",
+  "owner_decision": {
+    "approved_by": "owner",
+    "approved_at_utc": "2026-07-08T13:30:00Z",
+    "decision": "keep_default_disabled",
+    "machine_role": "local_test_machine"
+  },
+  "decision_document": "spike/godot-rurix/passes/luminance_reduction/real_pass_default_enable_decision.md",
+  "default_enable_state": "disabled",
+  "performance_claim": "none",
+  "decision_rationale": [
+    "no_per_pass_fps_evidence: the GRX contract requires per-pass FPS >= 0.95x baseline before any default enablement, and no full baseline or per-pass benchmark evidence exists (GRX-005 runner evidence is quick-smoke only)",
+    "patch_0010_writeback_is_scaffold: the level-0 result writeback keeps the native Godot luminance path running as continuation/backstop (it still re-renders every reduction level), so the opt-in Rurix dispatch yields no measured net benefit yet",
+    "math_parity_gpu_leg_partial: math parity for the GPU leg is level-0 CPU-proven pending multi-level observation (math_parity_evidence.json status=pending_gpu_dispatch); full pyramid/EMA/WRITE_LUMINANCE parity is not proven"
+  ],
+  "reevaluate_when": [
+    "full_baseline_benchmark_evidence_available",
+    "per_pass_fps_ratio_measured_at_or_above_0_95x_baseline",
+    "multi_level_math_parity_proven",
+    "native_continuation_retired_or_net_benefit_measured"
+  ],
+  "prerequisite_evidence": {
+    "real_pass_enablement_success": "spike/godot-rurix/passes/luminance_reduction/real_pass_enablement_success_evidence.json",
+    "real_pass_enablement_telemetry": "spike/godot-rurix/passes/luminance_reduction/real_pass_enablement_telemetry.json",
+    "texture_artifact_provenance_policy": "spike/godot-rurix/passes/luminance_reduction/texture_artifact_provenance_policy.json"
+  },
+  "does_not_imply": [
+    "default pass enablement",
+    "performance claim",
+    "FPS, p95, or GPU-timestamp claim",
+    "multi-level math parity",
+    "net-benefit Rurix dispatch (patch 0010 result writeback is a scaffold; the native Godot continuation re-renders all levels)"
+  ],
+  "next_action_if_ready": "start_grx010_tonemap_pass_contract"
+}

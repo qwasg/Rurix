@@ -1,0 +1,98 @@
+// GRX-009 segment 3a/4h texture-capable luminance reduction kernel input.
+// This mirrors Godot's luminance reduction intent using real
+// `Texture2D<f32>` (SRV) / `RWTexture2D<f32>` (UAV) bindings instead of
+// linear `View`/`ViewMut` raw-buffer views. Runtime mapping is now
+// possible: texture handles match Godot's Texture2D `ID3D12Resource*`
+// resource chain, so the bridge binding-kind check advances from
+// `kernel_binding_kind_mismatch` to the next honest prerequisite
+// (`math_pyramid_parity_not_proven`).
+//
+// Scope: this is level-0 only (single 8x8 reduction tile). The
+// following are intentionally deferred to a follow-up slice
+// (`design_grx009_luminance_pyramid_continuation_kernel`):
+//   - multi-level pyramid cascade (level-1..N continuation kernels)
+//   - EMA feedback (`prev + (cur - prev) * exposure_adjust`)
+//   - previous-luminance double buffering (read/write prev frame)
+//   - final-level WRITE_LUMINANCE clamp/min/max/adjust gating
+//
+// `max_luminance` / `min_luminance` / `exposure_adjust` are kept in the
+// signature for API parity with the future pyramid kernel but are
+// intentionally unused at level 0 (per Godot: only the final
+// WRITE_LUMINANCE level applies clamp/min/max/adjust).
+
+kernel fn luminance_reduce_level_texture(
+    src_luminance: Texture2D<f32>,
+    dst_luminance: RWTexture2D<f32>,
+    source_width: usize,
+    source_height: usize,
+    max_luminance: f32,
+    min_luminance: f32,
+    exposure_adjust: f32,
+    t: ThreadCtx<1>,
+) {
+    // Level-0 math mirrors lib.rx exactly: ceil-div 8x8 tile reduction.
+    let dst_width = if source_width > 1 {
+        (source_width + 7) / 8
+    } else {
+        1
+    };
+    let dst_height = if source_height > 1 {
+        (source_height + 7) / 8
+    } else {
+        1
+    };
+    let dst_len = dst_width * dst_height;
+    let dst_index = t.global_id();
+
+    // NOTE: `max_luminance`/`min_luminance`/`exposure_adjust` are API-parity
+    // parameters intentionally unused at level 0 (per Godot: only the final
+    // WRITE_LUMINANCE level applies clamp/min/max/adjust). They are kept in
+    // the signature so the binding surface matches the future pyramid kernel.
+
+    if dst_index < dst_len {
+        let x = dst_index % dst_width;
+        let y = dst_index / dst_width;
+        let src_x = x * 8;
+        let src_y = y * 8;
+
+        let mut accum = 0.0;
+        let mut count = 0.0;
+        let mut dy = 0;
+        while dy < 8 {
+            let sy = src_y + dy;
+            if sy < source_height {
+                let mut dx = 0;
+                while dx < 8 {
+                    let sx = src_x + dx;
+                    if sx < source_width {
+                        // Per-pixel luminance: the source is declared
+                        // `Texture2D<f32>` (single-channel R32F in
+                        // Godot's luminance texture chain), so the
+                        // loaded value IS the luminance; use directly.
+                        // If source were HDR RGBA, per-pixel luminance
+                        // would be max(R,G,B); for R32F luminance
+                        // source max(R,G,B) = R, so direct read is
+                        // equivalent. (Do NOT attempt to read RGBA:
+                        // `Texture2D<f32>` only exposes one channel.)
+                        let src_index = sy * source_width + sx;
+                        let src_lum = src_luminance[src_index];
+                        accum = accum + src_lum;
+                        count = count + 1.0;
+                    }
+                    dx = dx + 1;
+                }
+            }
+            dy = dy + 1;
+        }
+
+        // Per-tile arithmetic mean, partial-tile-correct divisor
+        // (count = valid pixel count, same as lib.rx). KEY DIFFERENCE
+        // from lib.rx: NO clamp(min,max) and NO `* exposure_adjust` at
+        // level 0 — per Godot, those ops belong only to the final
+        // WRITE_LUMINANCE level, which is out of scope here.
+        let avg = if count > 0.0 { accum / count } else { 0.0 };
+        dst_luminance[dst_index] = avg;
+    }
+}
+
+fn main() {}

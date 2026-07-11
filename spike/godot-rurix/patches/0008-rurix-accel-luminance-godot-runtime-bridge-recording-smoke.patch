@@ -1,0 +1,121 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Sun, 5 Jul 2026 10:30:00 +0800
+Subject: [PATCH] Arm a harness-only Godot-runtime luminance bridge dispatch
+ recording smoke path
+
+Stacked on 0001-rurix-accel-module-scaffold.patch,
+0002-rurix-accel-luminance-pass-gate.patch,
+0003-rurix-accel-luminance-core-callsite-wiring.patch,
+0004-rurix-accel-luminance-resource-mapping-scaffold.patch,
+0005-rurix-accel-luminance-runtime-binding-preflight.patch,
+0006-rurix-accel-luminance-gated-dispatch-bringup.patch, and
+0007-rurix-accel-luminance-native-resource-handle-mapping.patch. This segment 4f
+patch adds a test-only / harness-only arm that lets the Godot runtime luminance
+call site drive ONE real bridge-recorded D3D12 dispatch through the real
+ID3D12Resource* native handles resolved in segment 4e. It is not a default
+runtime pass and does not change the shipping fallback semantics.
+
+- modules/rurix_accel/register_types.cpp: adds a new per-pass opt-in setting
+  rendering/rurix_accel/passes/luminance_reduction/dispatch_recording_smoke that
+  defaults to false. It is separate from .../enabled and .../dispatch_bringup so
+  the harness-only recording arm must be explicitly opted into; the shipping
+  build/config never enables it.
+- modules/rurix_accel/rurix_accel.h: declares the shader-int64 capability flag
+  and the harness-only record-arm flag RXGD_CAP_LUMINANCE_DISPATCH_RECORD
+  carried in RxGdCaps.flags. This reuses the existing flags field: the C ABI
+  struct layout and RXGD_ABI_VERSION are unchanged.
+- modules/rurix_accel/rurix_accel.cpp: try_create_session() sets
+  RXGD_CAP_LUMINANCE_DISPATCH_RECORD in caps.flags ONLY when the
+  dispatch_recording_smoke opt-in is enabled; the record arm still only runs when
+  the loaded rurix_godot.dll was built with the test-only d3d12-recording-shim
+  feature (the shipping feature-off bridge ignores the flag and returns
+  RXGD_STATUS_FALLBACK). try_record_luminance_reduction() emits a distinctive
+  RXGD_GODOT_RUNTIME_LUMINANCE_RECORD marker only when rxgd_record_pass actually
+  returned RXGD_STATUS_OK, so the harness-only Godot-runtime bridge dispatch
+  recording smoke can observe the recording.
+
+This does not change RXGD_ABI_VERSION, does not enable the pass by default (all
+three per-pass settings still default to false), does not flip real_gpu_pass to
+true, and keeps the shipping/feature-off bridge returning RXGD_STATUS_FALLBACK
+for RXGD_PASS_LUMINANCE_REDUCTION. It is a test-only smoke arm: it is not a real
+GPU pass, records no D3D12 dispatch through the shipping/feature-off bridge, and
+makes no visual diff, measured fallback telemetry, GPU timestamp, or performance
+claim.
+---
+diff --git a/modules/rurix_accel/register_types.cpp b/modules/rurix_accel/register_types.cpp
+index a8ead72..e7c2efd 100644
+--- a/modules/rurix_accel/register_types.cpp
++++ b/modules/rurix_accel/register_types.cpp
+@@ -22,6 +22,15 @@ void initialize_rurix_accel_module(ModuleInitializationLevel p_level) {
+ 	// the native Godot luminance path stays active; even when enabled the bridge
+ 	// still falls back because no real D3D12 dispatch executes yet.
+ 	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/luminance_reduction/dispatch_bringup", false);
++	// GRX-009 segment 4f: harness-only Godot-runtime bridge dispatch recording
++	// smoke opt-in. Defaults to false so the shipping build never arms the
++	// record path. When enabled AND the loaded rurix_godot.dll is built with the
++	// test-only d3d12-recording-shim feature, the Godot runtime luminance call
++	// site can drive one real bridge-recorded D3D12 dispatch through the native
++	// resource handles resolved in segment 4e. The default build/config never
++	// enables it and the shipping (feature-off) bridge still returns
++	// RXGD_STATUS_FALLBACK for RXGD_PASS_LUMINANCE_REDUCTION.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/luminance_reduction/dispatch_recording_smoke", false);
+ 
+ #if defined(D3D12_ENABLED)
+ 	if (GLOBAL_GET("rendering/rurix_accel/enabled")) {
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index 9117dfc..38cd2de 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -190,6 +190,16 @@ void RurixAccelD3D12Hooks::try_create_session() {
+ 	if (GLOBAL_GET("rendering/rurix_accel/passes/luminance_reduction/dispatch_bringup")) {
+ 		caps.flags |= RXGD_CAP_LUMINANCE_DISPATCH_BRINGUP;
+ 	}
++	caps.flags |= RXGD_CAP_SHADER_INT64;
++	// GRX-009 segment 4f: arm the harness-only record path ONLY when the
++	// default-false dispatch_recording_smoke opt-in is enabled. Even then the
++	// shipping (feature-off) bridge ignores RXGD_CAP_LUMINANCE_DISPATCH_RECORD
++	// and returns RXGD_STATUS_FALLBACK; the record path only runs when the
++	// loaded rurix_godot.dll was built with the test-only d3d12-recording-shim
++	// feature. This is a test-only smoke arm, not a default runtime pass.
++	if (GLOBAL_GET("rendering/rurix_accel/passes/luminance_reduction/dispatch_recording_smoke")) {
++		caps.flags |= RXGD_CAP_LUMINANCE_DISPATCH_RECORD;
++	}
+ 	if (adapter_luid_valid) {
+ 		memcpy(caps.adapter_luid, &adapter_luid, sizeof(adapter_luid));
+ 	}
+@@ -267,6 +276,13 @@ bool RurixAccelD3D12Hooks::try_record_luminance_reduction(uint64_t p_source_nati
+ 		}
+ 		return false;
+ 	}
++	// GRX-009 segment 4f: the Godot runtime luminance call site drove a real
++	// bridge-recorded D3D12 dispatch through the segment 4e native resource
++	// handles. Emit a distinctive marker so the harness-only Godot-runtime
++	// bridge dispatch recording smoke can observe the recording. This line is
++	// only reachable under the test-only dispatch_recording_smoke opt-in plus a
++	// d3d12-recording-shim rurix_godot.dll; the default build never prints it.
++	print_line("RXGD_GODOT_RUNTIME_LUMINANCE_RECORD: pass=RXGD_PASS_LUMINANCE_REDUCTION recorded=1");
+ 	return true;
+ }
+ 
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index c6958d7..df2fb1c 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -17,6 +17,14 @@
+ // (ABI v1, no struct layout change). Set only when the Godot dispatch
+ // bring-up opt-in setting is enabled.
+ #define RXGD_CAP_LUMINANCE_DISPATCH_BRINGUP 2u
++#define RXGD_CAP_SHADER_INT64 1u
++// GRX-009 segment 4f harness-only record-arm flag carried in RxGdCaps.flags
++// (ABI v1, no struct layout change). Set only when the default-false
++// dispatch_recording_smoke opt-in is enabled; it only has effect when the
++// loaded rurix_godot.dll is built with the test-only d3d12-recording-shim
++// feature. The shipping (feature-off) bridge ignores it and keeps returning
++// RXGD_STATUS_FALLBACK for RXGD_PASS_LUMINANCE_REDUCTION.
++#define RXGD_CAP_LUMINANCE_DISPATCH_RECORD 4u
+ 
+ typedef struct RxGdCaps {
+ 	uint32_t abi_version;
+-- 
+2.50.0

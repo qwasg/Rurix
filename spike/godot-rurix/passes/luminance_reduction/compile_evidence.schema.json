@@ -21,7 +21,7 @@
       "const": "3a"
     },
     "status": {
-      "enum": ["success", "compile_failed", "toolchain_missing"]
+      "enum": ["success", "compile_failed", "toolchain_missing", "validation_failed"]
     },
     "runtime_state": {
       "const": "fallback_only"
@@ -68,14 +68,7 @@
       }
     },
     "artifacts": {
-      "type": "object",
-      "required": ["dxil", "root_signature", "descriptor_layout"],
-      "properties": {
-        "dxil": { "$ref": "#/definitions/artifact" },
-        "root_signature": { "$ref": "#/definitions/artifact" },
-        "descriptor_layout": { "$ref": "#/definitions/artifact" }
-      },
-      "additionalProperties": false
+      "type": "object"
     },
     "blocker_category": {
       "type": ["string", "null"]
@@ -90,6 +83,20 @@
     "debug_artifacts": {
       "type": "object",
       "additionalProperties": { "$ref": "#/definitions/artifact" }
+    },
+    "attempted_binding_kinds": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "runtime_mappable": {
+      "type": "boolean"
+    },
+    "math_parity_status": {
+      "type": "string"
+    },
+    "known_gaps": {
+      "type": "array",
+      "items": { "type": "string" }
     }
   },
   "definitions": {
@@ -122,8 +129,10 @@
         "properties": {
           "manifest_segment_after_run": { "const": 3 },
           "artifacts": {
+            "required": ["dxil", "root_signature", "descriptor_layout"],
             "properties": {
               "dxil": {
+                "$ref": "#/definitions/artifact",
                 "properties": {
                   "exists": { "const": true },
                   "artifact_kind": { "const": "dxil_container" },
@@ -132,18 +141,21 @@
                 }
               },
               "root_signature": {
+                "$ref": "#/definitions/artifact",
                 "properties": {
                   "exists": { "const": true },
                   "produced_by_current_run": { "const": true }
                 }
               },
               "descriptor_layout": {
+                "$ref": "#/definitions/artifact",
                 "properties": {
                   "exists": { "const": true },
                   "produced_by_current_run": { "const": true }
                 }
               }
-            }
+            },
+            "additionalProperties": false
           }
         }
       }
@@ -157,7 +169,37 @@
       "then": {
         "required": ["blocker_category", "blocker_summary"],
         "properties": {
-          "manifest_segment_after_run": { "const": 2 }
+          "manifest_segment_after_run": { "const": 2 },
+          "runtime_mappable": { "const": false },
+          "artifacts": {
+            "required": ["attempted_texture_dxil", "bridge_tracked_fallback"],
+            "properties": {
+              "attempted_texture_dxil": {
+                "type": "object",
+                "required": ["artifact_kind", "produced_by_current_run", "semantic_status"],
+                "properties": {
+                  "artifact_kind": { "const": "dxil_container" },
+                  "produced_by_current_run": { "const": false },
+                  "semantic_status": { "const": "missing" },
+                  "note": { "type": "string" }
+                },
+                "additionalProperties": false
+              },
+              "bridge_tracked_fallback": {
+                "type": "object",
+                "required": ["source", "binding_kind", "dxil", "root_signature", "descriptor_layout"],
+                "properties": {
+                  "source": { "type": "string" },
+                  "binding_kind": { "type": "string" },
+                  "dxil": { "$ref": "#/definitions/artifact" },
+                  "root_signature": { "$ref": "#/definitions/artifact" },
+                  "descriptor_layout": { "$ref": "#/definitions/artifact" }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
         }
       }
     },
@@ -170,7 +212,38 @@
       "then": {
         "required": ["blocker_category", "blocker_summary"],
         "properties": {
-          "manifest_segment_after_run": { "const": 2 }
+          "manifest_segment_after_run": { "const": 2 },
+          "artifacts": {
+            "required": ["dxil", "root_signature", "descriptor_layout"],
+            "properties": {
+              "dxil": { "$ref": "#/definitions/artifact" },
+              "root_signature": { "$ref": "#/definitions/artifact" },
+              "descriptor_layout": { "$ref": "#/definitions/artifact" }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": { "const": "validation_failed" }
+        }
+      },
+      "then": {
+        "required": ["blocker_category", "blocker_summary"],
+        "properties": {
+          "manifest_segment_after_run": { "const": 2 },
+          "artifacts": {
+            "required": ["dxil", "root_signature", "descriptor_layout"],
+            "properties": {
+              "dxil": { "$ref": "#/definitions/artifact" },
+              "root_signature": { "$ref": "#/definitions/artifact" },
+              "descriptor_layout": { "$ref": "#/definitions/artifact" }
+            },
+            "additionalProperties": false
+          }
         }
       }
     }

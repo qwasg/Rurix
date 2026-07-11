@@ -1,0 +1,254 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GRX-009 Luminance Reduction Segment 4g Visual/Fallback Gate Evidence",
+  "description": "Evidence produced by ci/grx009_segment4g_visual_fallback_smoke.py. The visual section records a real LDR absolute diff between a reference frame (pass disabled, default) and a candidate frame (pass enabled but falling back through the shipping feature-off bridge) rendered by the tracked Godot build. measured_local is true ONLY when real frame artifacts exist and were diffed; a status=skip document must not carry measured visual numbers. The fallback_telemetry section records the measured pass enable matrix and the observed bridge fallback marker. This gate never implies a real GPU pass, a Rurix-pass visual verification, a default-enabled pass, a GPU timestamp, or any performance/FPS improvement.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject",
+    "pass_id",
+    "segment",
+    "status",
+    "runtime_state",
+    "real_gpu_pass",
+    "real_d3d12_dispatch_recorded",
+    "godot_runtime_luminance_path_enabled",
+    "default_enable_state",
+    "gpu_timestamp_status",
+    "performance_claim",
+    "artifacts",
+    "offline_evidence",
+    "artifact_hashes_match_offline_evidence",
+    "timestamp",
+    "run_url"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": { "const": "grx009_segment4g_luminance_visual_fallback_smoke" },
+    "pass_id": { "const": "luminance_reduction" },
+    "segment": { "const": "4g" },
+    "status": { "enum": ["success", "fail", "skip"] },
+    "runtime_state": { "const": "fallback_only" },
+    "real_gpu_pass": { "const": false },
+    "real_d3d12_dispatch_recorded": { "const": false },
+    "godot_runtime_luminance_path_enabled": { "const": false },
+    "default_enable_state": { "const": "disabled" },
+    "gpu_timestamp_status": { "const": "not_yet" },
+    "performance_claim": { "const": "none" },
+    "target_backend": { "const": "Godot 4.7-dev Windows D3D12 Forward+" },
+    "artifacts": {
+      "type": "object",
+      "required": ["dxil", "root_signature", "descriptor_layout"],
+      "properties": {
+        "dxil": { "$ref": "#/definitions/hashed_path" },
+        "root_signature": { "$ref": "#/definitions/hashed_path" },
+        "descriptor_layout": { "$ref": "#/definitions/hashed_path" }
+      },
+      "additionalProperties": false
+    },
+    "offline_evidence": {
+      "type": "object",
+      "required": ["path", "dxil_sha256", "root_signature_sha256", "descriptor_layout_sha256"],
+      "additionalProperties": true
+    },
+    "artifact_hashes_match_offline_evidence": { "type": "boolean" },
+    "timestamp": { "type": "string" },
+    "run_url": { "type": "string" },
+    "reason": { "type": "string" },
+    "evidence_kind": { "const": "historical_measured_success" },
+    "latest_evidence_path": { "type": "string" },
+    "godot_exe_fingerprint": { "type": "object" },
+    "dll_fingerprint": {
+      "type": "object",
+      "properties": {
+        "features": {
+          "type": "array",
+          "maxItems": 0,
+          "description": "Shipping bridge build: no d3d12-recording-shim or other feature may be enabled for this gate."
+        }
+      }
+    },
+    "visual": { "$ref": "#/definitions/visual" },
+    "fallback_telemetry": { "$ref": "#/definitions/fallback_telemetry" },
+    "pass_enable_matrix": { "$ref": "#/definitions/pass_enable_matrix" },
+    "runtime_log_audit": { "$ref": "#/definitions/runtime_log_audit" },
+    "stdout_reference": { "type": "string" },
+    "stdout_candidate": { "type": "string" },
+    "checks": { "type": "object" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "success" } } },
+      "then": {
+        "required": [
+          "visual",
+          "fallback_telemetry",
+          "pass_enable_matrix",
+          "runtime_log_audit",
+          "stdout_reference",
+          "stdout_candidate",
+          "checks"
+        ],
+        "properties": {
+          "visual": {
+            "properties": { "measured_local": { "const": true }, "within_threshold": { "const": true } },
+            "required": [
+              "measured_local",
+              "metric_kind",
+              "width",
+              "height",
+              "format",
+              "capture_frame_index",
+              "reference_frame",
+              "candidate_frame",
+              "diff_artifact",
+              "max_abs_diff",
+              "mean_abs_diff",
+              "max_abs_diff_threshold",
+              "mean_abs_diff_threshold",
+              "within_threshold"
+            ]
+          },
+          "fallback_telemetry": {
+            "properties": { "fallback_path_observed": { "const": true } },
+            "required": [
+              "fallback_path_observed",
+              "bridge_fallback_marker",
+              "bridge_fallback_marker_line",
+              "pass_enable_matrix",
+              "telemetry_document"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "status": { "enum": ["skip", "fail"] } } },
+      "then": {
+        "required": ["reason"]
+      }
+    }
+  ],
+  "definitions": {
+    "hashed_path": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string" },
+        "sha256": { "type": ["string", "null"] },
+        "size_bytes": { "type": ["integer", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "visual": {
+      "type": "object",
+      "properties": {
+        "measured_local": {
+          "type": "boolean",
+          "description": "True ONLY when real reference+candidate frame artifacts exist on disk and the recorded diff was computed from them."
+        },
+        "metric_kind": { "const": "ldr_absolute_diff" },
+        "width": { "type": "integer", "minimum": 64 },
+        "height": { "type": "integer", "minimum": 64 },
+        "format": { "const": "R8G8B8_raw" },
+        "capture_frame_index": { "type": "integer", "minimum": 0 },
+        "reference_frame": { "$ref": "#/definitions/hashed_path" },
+        "candidate_frame": { "$ref": "#/definitions/hashed_path" },
+        "diff_artifact": { "$ref": "#/definitions/hashed_path" },
+        "reference_frame_png": { "$ref": "#/definitions/hashed_path" },
+        "candidate_frame_png": { "$ref": "#/definitions/hashed_path" },
+        "diff_artifact_png": { "$ref": "#/definitions/hashed_path" },
+        "max_abs_diff": { "type": "number", "minimum": 0 },
+        "mean_abs_diff": { "type": "number", "minimum": 0 },
+        "max_abs_diff_threshold": { "const": 2 },
+        "mean_abs_diff_threshold": { "const": 0.25 },
+        "within_threshold": { "type": "boolean" },
+        "visual_scope_note": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "fallback_telemetry": {
+      "type": "object",
+      "properties": {
+        "fallback_path_observed": { "type": "boolean" },
+        "bridge_fallback_marker": {
+          "const": "RurixAccel: luminance_reduction fallback rc="
+        },
+        "bridge_fallback_marker_line": { "type": ["string", "null"] },
+        "pass_enable_matrix": { "$ref": "#/definitions/pass_enable_matrix" },
+        "telemetry_document": { "$ref": "#/definitions/hashed_path" },
+        "no_fps_claim": { "const": true }
+      },
+      "additionalProperties": true
+    },
+    "pass_enable_matrix": {
+      "type": "object",
+      "required": ["disabled_default", "enabled_fallback"],
+      "properties": {
+        "disabled_default": { "$ref": "#/definitions/matrix_leg" },
+        "enabled_fallback": { "$ref": "#/definitions/matrix_leg" }
+      },
+      "additionalProperties": false
+    },
+    "runtime_log_audit": {
+      "type": "object",
+      "description": "Segment 4g preflight hardening: FULL merged stdout+stderr audit of both matrix legs. Only the known 'Could not load global script cache' warning may be allowed (with a rationale); unexpected Godot ERROR or untracked RXGD_DIAG lines fail the smoke and the gate.",
+      "required": ["reference", "candidate"],
+      "properties": {
+        "reference": { "$ref": "#/definitions/runtime_log_audit_leg" },
+        "candidate": { "$ref": "#/definitions/runtime_log_audit_leg" }
+      },
+      "additionalProperties": false
+    },
+    "runtime_log_audit_leg": {
+      "type": "object",
+      "required": [
+        "unexpected_rxgd_diag_count",
+        "unexpected_godot_error_count",
+        "allowed_godot_errors",
+        "unexpected_lines_tail"
+      ],
+      "properties": {
+        "unexpected_rxgd_diag_count": { "type": "integer", "minimum": 0 },
+        "rxgd_diag_allowed_by_tracked_patch_queue": { "type": "boolean" },
+        "unexpected_godot_error_count": { "type": "integer", "minimum": 0 },
+        "allowed_godot_errors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["message", "rationale"],
+            "properties": {
+              "message": { "const": "Could not load global script cache" },
+              "observed_count": { "type": "integer", "minimum": 0 },
+              "rationale": { "type": "string", "minLength": 1 }
+            },
+            "additionalProperties": true
+          }
+        },
+        "unexpected_lines_tail": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "matrix_leg": {
+      "type": "object",
+      "required": [
+        "role",
+        "project_setting",
+        "exit_code",
+        "session_ready",
+        "bridge_fallback_marker_observed"
+      ],
+      "properties": {
+        "role": { "enum": ["reference", "candidate"] },
+        "project_setting": { "type": "string" },
+        "exit_code": { "type": "integer" },
+        "session_ready": { "type": "boolean" },
+        "bridge_fallback_marker_observed": { "type": "boolean" },
+        "bridge_fallback_marker_line": { "type": ["string", "null"] },
+        "capture_meta": { "type": ["object", "null"] },
+        "capture_error": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    }
+  }
+}

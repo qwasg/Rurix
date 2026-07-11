@@ -1,0 +1,73 @@
+{
+  "pass_id": "luminance_reduction",
+  "segment": "3a",
+  "status": "success",
+  "runtime_state": "fallback_only",
+  "manifest_segment_after_run": 3,
+  "attempted_at_utc": "2026-07-08T11:53:16Z",
+  "inputs": {
+    "package_manifest": "spike/godot-rurix/passes/luminance_reduction/rurix.toml",
+    "entry_file": "spike/godot-rurix/passes/luminance_reduction/src/lib.rx",
+    "godot_reference_files": [
+      "external/godot-master/servers/rendering/renderer_rd/effects/luminance.cpp",
+      "external/godot-master/servers/rendering/renderer_rd/shaders/effects/luminance_reduce.glsl"
+    ]
+  },
+  "commands": [
+    {
+      "label": "cargo_run_rurixc_target_dxil",
+      "argv": [
+        "cargo",
+        "run",
+        "-p",
+        "rurixc",
+        "--bin",
+        "rurixc",
+        "--features",
+        "dxil-backend shader-stages",
+        "--",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\src\\lib.rx",
+        "--target",
+        "dxil",
+        "-o",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\raw_buffer_historical\\luminance_reduction.dxil"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/raw_buffer_historical/compile_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/luminance_reduction/artifacts/raw_buffer_historical/compile_stderr.txt"
+    }
+  ],
+  "artifacts": {
+    "dxil": {
+      "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/raw_buffer_historical/luminance_reduction.dxil",
+      "exists": true,
+      "sha256": "e3347c03c00b5794c48bea5a099b2660fd56090504e828f8720e79f125673b8e",
+      "artifact_kind": "dxil_container",
+      "produced_by_current_run": true,
+      "semantic_status": "lowered_compute_body"
+    },
+    "root_signature": {
+      "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/raw_buffer_historical/luminance_reduction.rts0.bin",
+      "exists": true,
+      "sha256": "f08794f9886e1ebc4c905e3006732e572ec913a75255c5b488cf4877a1391f03",
+      "artifact_kind": "binary",
+      "produced_by_current_run": true
+    },
+    "descriptor_layout": {
+      "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/raw_buffer_historical/luminance_reduction_descriptor_layout.json",
+      "exists": true,
+      "sha256": "673da613157ada7a264019d4b2071feb7995b8a47206e0bae807ac885f07269b",
+      "artifact_kind": "binary",
+      "produced_by_current_run": true
+    }
+  },
+  "blocker_category": null,
+  "blocker_summary": null,
+  "notes": [
+    "Raw-buffer historical fixture retained for measured-fixture continuity; the current bridge tracked package remains raw-buffer fail-closed while the texture-capable compile is blocked by the patched llc's lack of texture intrinsic support.",
+    "Runtime remains fallback_only for GRX-009 segment 3a.",
+    "Current artifacts describe only files produced by this compile attempt after stale outputs were cleared.",
+    "Do not advance pass_manifest to segment 3 unless the DXIL artifact is a real container produced by the current run and not dxil_ir_text.",
+    "debug_artifacts and entry_shell_only IR are debugging evidence, not real luminance pass compile success."
+  ]
+}

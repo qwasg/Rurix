@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "pass_id": "luminance_reduction",
+  "artifact_kind": "hlsl_bridge_descriptor_layout",
+  "provenance": "hlsl_bridge_workaround",
+  "rurix_owned": false,
+  "canonical_artifact_eligible": false,
+  "variant": "write_luminance",
+  "defines": [
+    "RX_WRITE_LUMINANCE=1"
+  ],
+  "entry_point": "main",
+  "target_profile": "cs_6_0",
+  "root_constants": "28_bytes",
+  "root_constant_bytes": 28,
+  "root_constant_dwords": 7,
+  "root_constant_layout": [
+    {
+      "name": "source_width",
+      "type": "i64",
+      "order": 0,
+      "root_parameter_index": 0,
+      "dword_offset": 0,
+      "dword_size": 2
+    },
+    {
+      "name": "source_height",
+      "type": "i64",
+      "order": 1,
+      "root_parameter_index": 0,
+      "dword_offset": 2,
+      "dword_size": 2
+    },
+    {
+      "name": "max_luminance",
+      "type": "f32",
+      "order": 2,
+      "root_parameter_index": 0,
+      "dword_offset": 4,
+      "dword_size": 1
+    },
+    {
+      "name": "min_luminance",
+      "type": "f32",
+      "order": 3,
+      "root_parameter_index": 0,
+      "dword_offset": 5,
+      "dword_size": 1
+    },
+    {
+      "name": "exposure_adjust",
+      "type": "f32",
+      "order": 4,
+      "root_parameter_index": 0,
+      "dword_offset": 6,
+      "dword_size": 1
+    }
+  ],
+  "i64_dims_note": "source_width/source_height are carried as uint2 (low, high dword) in the HLSL cbuffer to keep plain cs_6_0 without the optional Int64 capability; only the low dword is consumed and the runtime must write 0 to the high dwords.",
+  "resources": [
+    {
+      "name": "src_luminance",
+      "binding": "t0 space0",
+      "class": "SRV",
+      "register": 0,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "Texture2D<float>",
+      "binding_kind": "texture2d"
+    },
+    {
+      "name": "prev_luminance",
+      "binding": "t1 space0",
+      "class": "SRV",
+      "register": 1,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "Texture2D<float>",
+      "binding_kind": "texture2d"
+    },
+    {
+      "name": "dst_luminance",
+      "binding": "u0 space0",
+      "class": "UAV",
+      "register": 0,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "RWTexture2D<float>",
+      "binding_kind": "rwtexture2d"
+    }
+  ],
+  "root_signature_parameters": 2
+}
