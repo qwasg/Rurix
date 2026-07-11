@@ -1,0 +1,96 @@
+// GRX-011 ssao_blur kernel Rurix math source (forward-looking; NOT yet
+// compilable to a runtime-mappable DXIL container).
+//
+// This mirrors the supported math subset of Godot's ssao_blur.glsl
+// MODE_SMART variant (one edge-aware blur pass on one deinterleaved slice;
+// no MODE_WIDE/MODE_NON_SMART, no multi-pass ping-pong chain, no SSIL blur)
+// and is the math target the DXC-compiled bridge kernel
+// `artifacts/hlsl_bridge/ssao_blur_smart.hlsl` must stay equivalent to.
+//
+// Toolchain blockers (why the canonical package is the hlsl_bridge
+// workaround instead of a rurixc-owned compile):
+//   1. The patched llc lacks `llvm.dx.resource.load.texture.2d` /
+//      `store.texture.2d` support (GRX-009
+//      texture_intrinsic_toolchain_blocker.json applies unchanged).
+//   2. The Rurix `Texture2D<F>` / `RWTexture2D<F>` lang items currently
+//      lower single-channel f32 element types only; the ssao_blur slice
+//      carries (value, packed_edges) in two channels. This kernel therefore
+//      models the RG texel as two consecutive f32 lanes of a linear index
+//      space, which documents the per-channel math but is NOT the final
+//      binding shape.
+//
+// Per-texel math (see PASS_CONTRACT.md §5 and resource_mapping.md):
+//   edges = clamp(unpack_edges(center.y) + edge_sharpness, 0, 1)
+//   sum = 0.5 * center.x + edges.L*L + edges.R*R + edges.T*T + edges.B*B
+//   w   = 0.5 + edges.L + edges.R + edges.T + edges.B
+//   dst = (sum / w, center.y)   // packed edges passthrough; z/w = 0
+//
+// `half_screen_pixel_size_x/y` are carried for push-constant shape parity
+// with Godot's SSAOBlurPushConstant and are intentionally unused by this
+// Load-addressed kernel.
+
+kernel fn ssao_blur_smart(
+    src_ssao: Texture2D<f32>,
+    dst_ssao: RWTexture2D<f32>,
+    source_width: usize,
+    source_height: usize,
+    edge_sharpness: f32,
+    half_screen_pixel_size_x: f32,
+    half_screen_pixel_size_y: f32,
+    t: ThreadCtx<1>,
+) {
+    // One thread per texel; the RG channels are modelled as lane pairs:
+    // value_lane = texel_index * 2, edges_lane = texel_index * 2 + 1.
+    let texel_count = source_width * source_height;
+    let texel = t.global_id();
+
+    if texel < texel_count {
+        let x = texel % source_width;
+        let y = texel / source_width;
+
+        // Clamp border addressing (interior texels match Godot's gather).
+        let xl = if x > 0 { x - 1 } else { 0 };
+        let xr = if x + 1 < source_width { x + 1 } else { source_width - 1 };
+        let yt = if y > 0 { y - 1 } else { 0 };
+        let yb = if y + 1 < source_height { y + 1 } else { source_height - 1 };
+
+        let center_value = src_ssao[(y * source_width + x) * 2];
+        let packed_edges = src_ssao[(y * source_width + x) * 2 + 1];
+        let value_l = src_ssao[(y * source_width + xl) * 2];
+        let value_r = src_ssao[(y * source_width + xr) * 2];
+        let value_t = src_ssao[(yt * source_width + x) * 2];
+        let value_b = src_ssao[(yb * source_width + x) * 2];
+
+        // unpack_edges (ssao_blur.glsl L39-48): 2-bit LRTB fields of the
+        // packed byte, each / 3.0, then clamp(+ edge_sharpness, 0, 1).
+        let packed = (packed_edges * 255.5) as u32;
+        let mut edge_l = (((packed >> 6) & 3) as f32) / 3.0 + edge_sharpness;
+        let mut edge_r = (((packed >> 4) & 3) as f32) / 3.0 + edge_sharpness;
+        let mut edge_t = (((packed >> 2) & 3) as f32) / 3.0 + edge_sharpness;
+        let mut edge_b = ((packed & 3) as f32) / 3.0 + edge_sharpness;
+        edge_l = if edge_l < 0.0 { 0.0 } else if edge_l > 1.0 { 1.0 } else { edge_l };
+        edge_r = if edge_r < 0.0 { 0.0 } else if edge_r > 1.0 { 1.0 } else { edge_r };
+        edge_t = if edge_t < 0.0 { 0.0 } else if edge_t > 1.0 { 1.0 } else { edge_t };
+        edge_b = if edge_b < 0.0 { 0.0 } else if edge_b > 1.0 { 1.0 } else { edge_b };
+
+        // sample_blurred (L95-122): center weight 0.5, add L, R, T, B.
+        let mut sum = center_value * 0.5;
+        let mut sum_weight = 0.5;
+        sum = sum + value_l * edge_l;
+        sum_weight = sum_weight + edge_l;
+        sum = sum + value_r * edge_r;
+        sum_weight = sum_weight + edge_r;
+        sum = sum + value_t * edge_t;
+        sum_weight = sum_weight + edge_t;
+        sum = sum + value_b * edge_b;
+        sum_weight = sum_weight + edge_b;
+
+        let _ = half_screen_pixel_size_x; // shape parity only
+        let _ = half_screen_pixel_size_y; // shape parity only
+
+        dst_ssao[(y * source_width + x) * 2] = sum / sum_weight;
+        dst_ssao[(y * source_width + x) * 2 + 1] = packed_edges;
+    }
+}
+
+fn main() {}

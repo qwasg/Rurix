@@ -1,0 +1,239 @@
+{
+  "pass_id": "ssao_blur",
+  "subject": "grx011_ssao_blur_math_parity",
+  "status": "pending_gpu_dispatch",
+  "generated_at_utc": "2026-07-08T15:25:44Z",
+  "math_status": "smart_blur_cpu_reference_proven_pending_gpu_dispatch",
+  "cpu_reference": {
+    "formula": "edges = clamp(unpack_edges(center.y) + edge_sharpness, 0, 1); sum = 0.5*center.x + edges.L*L + edges.R*R + edges.T*T + edges.B*B; w = 0.5 + edges.L + edges.R + edges.T + edges.B; dst = (sum/w, center.y, 0, 0); unpack_edges per ssao_blur.glsl L39-48 (packed byte -> 4x 2-bit LRTB / 3.0); clamp border addressing; every operation rounded to binary32",
+    "hlsl_kernel": {
+      "path": "spike/godot-rurix/passes/ssao_blur/artifacts/hlsl_bridge/ssao_blur_smart.hlsl",
+      "sha256": "b4a2b5d8d986d973f7d0e5caf65406f30839019a629ea91c2e893213b01ace52"
+    },
+    "dxil": {
+      "path": "spike/godot-rurix/passes/ssao_blur/artifacts/hlsl_bridge/ssao_blur_smart.dxil",
+      "sha256": "0a730561d08a2b37d26a8bc3f29df893febedb32d55e2e5b5c3d7a84b369ce32"
+    },
+    "rurix_math_source": "spike/godot-rurix/passes/ssao_blur/src/lib.rx",
+    "godot_math_source": "external/godot-master/servers/rendering/renderer_rd/shaders/effects/ssao_blur.glsl (L39-48, L50-55, L95-122, L153)"
+  },
+  "max_abs_error_tolerance": 1e-05,
+  "gpu_dispatch_kind": null,
+  "cases": [
+    {
+      "case_id": "ssao_blur_8x8_sharp0",
+      "width": 8,
+      "height": 8,
+      "constants": {
+        "source_width": 8,
+        "source_height": 8,
+        "edge_sharpness": 0.0,
+        "half_screen_pixel_size_x": 0.125,
+        "half_screen_pixel_size_y": 0.125
+      },
+      "input_pattern": {
+        "value": "f32(((x * 29 + y * 13) % 101)) / f32(100)  # ssao value in [0, 1]",
+        "packed_edges": "f32((x * 7 + y * 3 + 11) % 256) / f32(255)  # packed LRTB edges byte as unorm"
+      },
+      "cpu_expected_rgba_f32_le_sha256": "65f4a179359b45bc24a397456537cc49063541f799f5b1738c7a9b377bc9e2a6",
+      "cpu_expected_sample_texels": [
+        {
+          "x": 0,
+          "y": 0,
+          "rgba": [
+            0.059999994933605194,
+            0.04313725605607033,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "x": 4,
+          "y": 4,
+          "rgba": [
+            0.8379999995231628,
+            0.20000000298023224,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "x": 7,
+          "y": 7,
+          "rgba": [
+            0.8555554747581482,
+            0.3176470696926117,
+            0.0,
+            0.0
+          ]
+        }
+      ],
+      "gpu_observed": null
+    },
+    {
+      "case_id": "ssao_blur_8x8_sharp02",
+      "width": 8,
+      "height": 8,
+      "constants": {
+        "source_width": 8,
+        "source_height": 8,
+        "edge_sharpness": 0.02,
+        "half_screen_pixel_size_x": 0.125,
+        "half_screen_pixel_size_y": 0.125
+      },
+      "input_pattern": {
+        "value": "f32(((x * 29 + y * 13) % 101)) / f32(100)  # ssao value in [0, 1]",
+        "packed_edges": "f32((x * 7 + y * 3 + 11) % 256) / f32(255)  # packed LRTB edges byte as unorm"
+      },
+      "cpu_expected_rgba_f32_le_sha256": "df09ab7f611441db12d0006cd551365af419a95f896fdc660ae0fdd2df73b331",
+      "cpu_expected_sample_texels": [
+        {
+          "x": 0,
+          "y": 0,
+          "rgba": [
+            0.06098802015185356,
+            0.04313725605607033,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "x": 4,
+          "y": 4,
+          "rgba": [
+            0.8320472240447998,
+            0.20000000298023224,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "x": 7,
+          "y": 7,
+          "rgba": [
+            0.853502094745636,
+            0.3176470696926117,
+            0.0,
+            0.0
+          ]
+        }
+      ],
+      "gpu_observed": null
+    },
+    {
+      "case_id": "ssao_blur_16x9_sharp0",
+      "width": 16,
+      "height": 9,
+      "constants": {
+        "source_width": 16,
+        "source_height": 9,
+        "edge_sharpness": 0.0,
+        "half_screen_pixel_size_x": 0.0625,
+        "half_screen_pixel_size_y": 0.1111111119389534
+      },
+      "input_pattern": {
+        "value": "f32(((x * 29 + y * 13) % 101)) / f32(100)  # ssao value in [0, 1]",
+        "packed_edges": "f32((x * 7 + y * 3 + 11) % 256) / f32(255)  # packed LRTB edges byte as unorm"
+      },
+      "cpu_expected_rgba_f32_le_sha256": "2c99ad61583eea0d16b2f0dfda599a714869f27d8db5023e3524473f496ef19a",
+      "cpu_expected_sample_texels": [
+        {
+          "x": 0,
+          "y": 0,
+          "rgba": [
+            0.059999994933605194,
+            0.04313725605607033,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "x": 8,
+          "y": 4,
+          "rgba": [
+            0.785882294178009,
+            0.30980393290519714,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "x": 15,
+          "y": 8,
+          "rgba": [
+            0.190769225358963,
+            0.5490196347236633,
+            0.0,
+            0.0
+          ]
+        }
+      ],
+      "gpu_observed": null
+    },
+    {
+      "case_id": "ssao_blur_9x7_partial_tiles",
+      "width": 9,
+      "height": 7,
+      "constants": {
+        "source_width": 9,
+        "source_height": 7,
+        "edge_sharpness": 0.05,
+        "half_screen_pixel_size_x": 0.1111111119389534,
+        "half_screen_pixel_size_y": 0.1428571492433548
+      },
+      "input_pattern": {
+        "value": "f32(((x * 29 + y * 13) % 101)) / f32(100)  # ssao value in [0, 1]",
+        "packed_edges": "f32((x * 7 + y * 3 + 11) % 256) / f32(255)  # packed LRTB edges byte as unorm"
+      },
+      "cpu_expected_rgba_f32_le_sha256": "29693664bbd4403ca4f7656c6b492cc2b9203a0a5a4c37d0fedd681c5bbb9a47",
+      "cpu_expected_sample_texels": [
+        {
+          "x": 0,
+          "y": 0,
+          "rgba": [
+            0.06237409636378288,
+            0.04313725605607033,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "x": 4,
+          "y": 3,
+          "rgba": [
+            0.706969678401947,
+            0.1882352977991104,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "x": 8,
+          "y": 6,
+          "rgba": [
+            0.37163934111595154,
+            0.3333333432674408,
+            0.0,
+            0.0
+          ]
+        }
+      ],
+      "gpu_observed": null
+    }
+  ],
+  "notes": [
+    "GPU-observed values are pending a real dispatch; the standalone smoke ci/grx011_ssao_blur_d3d12_dispatch_smoke.py independently verifies every measured GPU texel against the same CPU formula.",
+    "half_screen_pixel_size_x/y are intentionally unused by the Load-addressed kernel and carried only for SSAOBlurPushConstant shape parity.",
+    "Interior texels are texel-exact vs Godot's half-pixel gather addressing; border texels use clamp addressing (mirror-sampler difference is a recorded gap)."
+  ],
+  "does_not_imply": [
+    "Godot runtime SSAO blur pass completion",
+    "real_gpu_pass=true",
+    "real_d3d12_dispatch_recorded=true",
+    "visual success",
+    "temporal stability success",
+    "GPU timestamp success",
+    "performance claim",
+    "default pass enablement"
+  ]
+}
