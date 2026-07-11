@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "pass_id": "tonemap",
+  "segment": "grx010_real_pass_default_enable_decision",
+  "status": "success",
+  "decision_ready": true,
+  "generated_at_utc": "2026-07-11T00:00:00Z",
+  "owner_decision": {
+    "approved_by": "owner",
+    "approved_at_utc": "2026-07-11T00:00:00Z",
+    "decision": "keep_default_disabled",
+    "machine_role": "local_test_machine"
+  },
+  "decision_document": "spike/godot-rurix/passes/tonemap/real_pass_default_enable_decision.md",
+  "default_enable_state": "disabled",
+  "performance_claim": "none",
+  "decision_rationale": [
+    "no_per_pass_fps_evidence: the GRX contract requires per-pass FPS >= 0.95x baseline before any default enablement, and no full baseline or per-pass benchmark evidence exists",
+    "linear_srgb_only_subset: math parity covers only the TONEMAPPER_LINEAR + linear_to_srgb SDR subset (math_parity_evidence.json status=pending_gpu_dispatch); Reinhard/Filmic/ACES/AgX, auto exposure, glow, FXAA, BCS, color correction, debanding, multiview, and HDR output are unsupported gaps",
+    "patch_0013_writeback_is_scaffold: the LINEAR result writeback keeps the native Godot tonemapper running as continuation/backstop (it still re-renders every frame), so the opt-in Rurix dispatch yields no measured net benefit yet, and the raster-vs-compute output seam is not designed"
+  ],
+  "reevaluate_when": [
+    "full_baseline_benchmark_evidence_available",
+    "per_pass_fps_ratio_measured_at_or_above_0_95x_baseline",
+    "broader_tonemapper_mode_or_hdr_math_parity_proven_beyond_linear_srgb",
+    "raster_vs_compute_output_seam_designed_or_native_continuation_retired_or_net_benefit_measured"
+  ],
+  "prerequisite_evidence": {
+    "real_pass_enablement_success": "spike/godot-rurix/passes/tonemap/real_pass_enablement_success_evidence.json",
+    "real_pass_enablement_telemetry": "spike/godot-rurix/passes/tonemap/real_pass_enablement_telemetry.json",
+    "texture_artifact_provenance_policy": "spike/godot-rurix/passes/luminance_reduction/texture_artifact_provenance_policy.json"
+  },
+  "does_not_imply": [
+    "default pass enablement",
+    "performance claim",
+    "FPS, p95, or GPU-timestamp claim",
+    "broader tonemapper mode / HDR math parity beyond the LINEAR + sRGB subset",
+    "net-benefit Rurix dispatch (patch 0013 result writeback is a scaffold; the native Godot tonemapper re-renders every frame)"
+  ],
+  "next_action_if_ready": "start_grx011_ssao_blur_godot_patch_0014"
+}

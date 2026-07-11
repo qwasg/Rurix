@@ -1,7 +1,7 @@
 {
   "pass_id": "tonemap",
-  "status": "segment_a_contract_offline_kernel_bridge_gate_default_disabled",
-  "implemented": false,
+  "status": "grx010_real_pass_measured_success_default_disabled",
+  "implemented": true,
   "default_enable_state": "disabled",
   "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
   "target_scenes": [
@@ -119,10 +119,10 @@
     }
   ],
   "implementation_status": {
-    "segment": "a",
-    "segment_detail": "contract_offline_kernel_bridge_gate_patch_0011_standalone_dispatch_smoke",
-    "runtime_state": "fallback_only",
-    "runtime_state_note": "The bridge TonemapGate is fail-closed: rxgd_record_pass returns RXGD_STATUS_FALLBACK for RXGD_PASS_TONEMAP on the default path (no RXGD_CAP_TONEMAP_REAL_PASS opt-in), and the shipping feature-off bridge fails closed with real_dispatch_path_not_linked even when every software gate passes. The previous placeholder estimated-timing path for RXGD_PASS_TONEMAP was removed; no estimated tonemap GPU time is attributed any more.",
+    "segment": "close_out",
+    "segment_detail": "grx010_real_pass_measured_success_default_disabled",
+    "runtime_state": "fallback_only_by_default_real_pass_optin_measured",
+    "runtime_state_note": "The DEFAULT runtime path stays fallback-only: with all per-pass settings at their false defaults the bridge still returns RXGD_STATUS_FALLBACK for RXGD_PASS_TONEMAP and the native Godot tonemapper renders. real_gpu_pass=true / real_d3d12_dispatch_recorded=true record the strict MEASURED success of the opt-in real-pass arm (dispatch_real_pass under a d3d12-recording-shim bridge on the 0001..0013 scratch build); it is not a default enablement and carries no performance claim. The shipping feature-off bridge still fails closed with real_dispatch_path_not_linked, and the patch 0013 result writeback is a SCAFFOLD (native Godot tonemapper stays the continuation/backstop). No estimated tonemap GPU time is attributed.",
     "bridge_gate": "src/rurix-godot TonemapGate: preflight (int64 cap, 2 texture resources, 28-byte b0, dims match, 1:1 dst shape) -> dispatch eligibility (RXGD_CAP_TONEMAP_REAL_PASS opt-in, non-null native handles, TonemapDispatchPackage layout/digest match vs offline evidence) -> per-slot kernel-binding-kind conformance ([texture2d, rwtexture2d]) -> math-parity gate (linear_srgb_cpu_reference_proven_pending_gpu_dispatch) -> real dispatch only under the d3d12-recording-shim feature; every failure records a fallback reason and prints the once-per-session RXGD_TONEMAP_REAL_PASS_BLOCKED diagnostic",
     "godot_module_patch": "spike/godot-rurix/patches/0011-rurix-accel-tonemap-pass-gate-and-callsite.patch (stacked on 0001..0010; default-false rendering/rurix_accel/passes/tonemap/enabled setting, try_record_tonemap() module gate, default-false virtual D3D12Hooks::try_record_tonemap(), and the Tonemap call-site opt-in gate in renderer_scene_render_rd.cpp; the native tonemapper path is always preserved as fallback)",
     "godot_core_call_site_wired": true,
@@ -133,8 +133,8 @@
         "note": "opt-in gate calls D3D12Hooks::try_record_tonemap() before the native tone_mapper->tonemapper(...) on the can_use_storage leg (patch 0011; applyability verified via git apply --check on a scratch copy)"
       }
     ],
-    "real_gpu_pass": false,
-    "real_d3d12_dispatch_recorded": false,
+    "real_gpu_pass": true,
+    "real_d3d12_dispatch_recorded": true,
     "godot_runtime_tonemap_path_enabled": false,
     "standalone_d3d12_dispatch_smoke": {
       "harness": "ci/grx010_tonemap_d3d12_dispatch_smoke.py",
@@ -149,19 +149,31 @@
         "any visual diff, measured fallback telemetry, or performance claim"
       ]
     },
+    "real_pass_measured_success": {
+      "status": "success",
+      "evidence": "spike/godot-rurix/passes/tonemap/real_pass_enablement_success_evidence.json",
+      "telemetry": "spike/godot-rurix/passes/tonemap/real_pass_enablement_telemetry.json",
+      "default_enable_decision": "spike/godot-rurix/passes/tonemap/real_pass_default_enable_decision.json",
+      "default_enable_decision_document": "spike/godot-rurix/passes/tonemap/real_pass_default_enable_decision.md",
+      "decision": "keep_default_disabled",
+      "real_gpu_pass_scope": "opt_in_only: the measured real dispatch requires the default-false dispatch_real_pass arm plus a d3d12-recording-shim bridge DLL; the default runtime path stays fallback-only and the shipping feature-off bridge fails closed with real_dispatch_path_not_linked",
+      "patch_stack": "0001..0013",
+      "writeback": "patch 0013 result writeback scaffold: the LINEAR + linear_to_srgb result is dispatched into the real Godot tonemap destination resource while the native Godot tonemapper still runs as continuation/backstop, so the image cannot change and no net benefit exists yet",
+      "performance_claim": "none",
+      "next_action_when_ready": "start_grx011_ssao_blur_godot_patch_0014"
+    },
     "remaining_segments": [
-      "Godot runtime resource binding wiring (0005/0007-level: hook parameters + native ID3D12Resource* mapping)",
-      "Godot runtime bridge dispatch recording smoke (4f-level; needs a full patch-stack scratch rebuild)",
-      "in-engine real visual diff + measured fallback telemetry gate (4g-level)",
-      "gated real-pass enablement gate with measured success (4h-level)",
-      "additional tonemapper modes / auto exposure / glow / FXAA / BCS / color correction / debanding / HDR output",
-      "raster-vs-compute output seam design",
+      "additional tonemapper modes (Reinhard/Filmic/ACES/AgX) beyond TONEMAPPER_LINEAR",
+      "auto exposure (source_auto_exposure texture leg)",
+      "glow (pre/post/softlight/bicubic) and glow map",
+      "HDR output (convert_to_srgb=false) beyond the SDR sRGB-only subset",
+      "raster-vs-compute output seam design (native path writes the LDR result via a fullscreen fragment pass; this kernel writes a full-res UAV)",
       "per-pass FPS baseline comparison (contract requires >= 0.95x baseline before any default-enable discussion)"
     ]
   },
   "evidence_requirements": {
-    "visual": "in-engine LDR absolute diff (GRX-009 segment 4g template) in a later slice; this slice's measured ceiling is the standalone dispatch smoke + CPU parity",
+    "visual": "in-engine LDR absolute diff (GRX-009 segment 4g template) recorded by the real-pass enablement smoke: reference (disabled) vs candidate (opt-in real pass) vs forced-fallback frames, all within the pinned thresholds (max_abs<=2, mean_abs<=0.25)",
     "perf": "reuse GRX-006 baseline/perf gate; no perf improvement claimed"
   },
-  "disclaimer": "GRX-010 segment A delivers the tonemap pass contract, the DXC/DXV/RTS0 offline kernel package (hlsl_bridge_workaround provenance, runtime-mappable per the owner-approved GRX-009 texture artifact provenance policy), the fail-closed bridge TonemapGate (default RXGD_STATUS_FALLBACK; opt-in RXGD_CAP_TONEMAP_REAL_PASS arm fails closed with real_dispatch_path_not_linked on the shipping feature-off bridge), Godot patch 0011 (per-pass setting default false + call-site opt-in gate; native tonemap path always preserved), and the standalone real D3D12 dispatch smoke. It does NOT enable the pass by default, does NOT complete a Godot runtime tonemap pass, records no bridge dispatch on the default path, and makes no visual, GPU-timestamp, FPS, or performance claim."
+  "disclaimer": "GRX-010 tonemap is closed out at the stage-A5-equivalent level: the tonemap pass contract, the DXC/DXV/RTS0 offline kernel package (hlsl_bridge_workaround provenance, runtime-mappable per the owner-approved GRX-009 texture artifact provenance policy), the fail-closed bridge TonemapGate (default RXGD_STATUS_FALLBACK; opt-in RXGD_CAP_TONEMAP_REAL_PASS arm), the Godot patch stack 0001..0013 (per-pass settings default false, runtime resource binding, recording smoke + real-pass opt-in; native tonemap path always preserved), the standalone real D3D12 dispatch smoke, and the gated real-pass enablement gate that recorded a strict MEASURED success (real_pass_enablement_success_evidence.json). implemented=true / real_gpu_pass=true / real_d3d12_dispatch_recorded=true record the MEASURED opt-in real-pass arm only. The DEFAULT path stays fallback-only, default_enable_state stays disabled per the owner decision (real_pass_default_enable_decision.json, keep_default_disabled), the shipping feature-off bridge still fails closed with real_dispatch_path_not_linked, the patch 0013 writeback is a SCAFFOLD (native Godot tonemapper continuation/backstop), and NO visual-superiority, GPU-timestamp, FPS, or performance improvement is claimed."
 }

@@ -85,6 +85,33 @@ def pre_a5_fixture_manifest(base: dict[str, object]) -> dict[str, object]:
     return candidate
 
 
+def pre_close_out_tonemap_manifest(base: dict[str, object]) -> dict[str, object]:
+    """Normalize the real (close-out) tonemap manifest back to the pre-close-out
+    fail-closed shape.
+
+    The GRX-010 close-out flipped the REAL tonemap manifest to implemented=true,
+    runtime_state=fallback_only_by_default_real_pass_optin_measured,
+    real_gpu_pass=true, and real_d3d12_dispatch_recorded=true. The probe accepts
+    those new values only while the strict measured success artifact
+    real_pass_enablement_success_evidence.json exists AND passes the full audit
+    (grx010_real_pass_measured_success_active). This derivation restores the old
+    false-valued shape so the pre-close-out assertions stay testable without
+    touching the real manifest on disk."""
+    candidate = copy.deepcopy(base)
+    candidate["implemented"] = False
+    candidate["status"] = (
+        "segment_a_contract_offline_kernel_bridge_gate_default_disabled"
+    )
+    implementation_status = candidate.get("implementation_status")
+    if not isinstance(implementation_status, dict):
+        raise AssertionError("tonemap manifest implementation_status must be an object")
+    implementation_status["runtime_state"] = "fallback_only"
+    implementation_status["real_gpu_pass"] = False
+    implementation_status["real_d3d12_dispatch_recorded"] = False
+    implementation_status.pop("real_pass_measured_success", None)
+    return candidate
+
+
 def validation_failed_manifest(base: dict[str, object]) -> dict[str, object]:
     manifest = copy.deepcopy(base)
     manifest["offline_compile_status"] = "validation_failed"
@@ -3745,6 +3772,131 @@ def run_grx010_tonemap_gate_cases() -> None:
     print("grx010 tonemap gate red/green cases passed")
 
 
+def run_grx010_tonemap_close_out_cases() -> None:
+    """GRX-010 tonemap stage-A5-equivalent close-out red/green regression.
+
+    Mirrors the GRX-009 segment 4h / 4m coverage: the real close-out state is
+    green (strict measured success active + owner default-enable decision
+    ready); a pre-close-out fixture manifest (false-valued) stays acceptable;
+    a tampered success artifact is rejected by the strict audit, drives a
+    conflict, and makes the fail-closed manifest _ok helpers reject the new
+    true-valued manifest; a SKIP success document never advances the gate."""
+    sys.path.insert(0, str(ROOT))
+    from ci import godot_rurix_toolchain_probe as probe
+
+    real_pass_dir = ROOT / "spike" / "godot-rurix" / "passes" / "tonemap"
+    real_manifest_path = real_pass_dir / "pass_manifest.json"
+    real_success_path = real_pass_dir / "real_pass_enablement_success_evidence.json"
+    real_manifest_bytes = real_manifest_path.read_bytes()
+    real_success_bytes = real_success_path.read_bytes()
+
+    # Green: the real close-out state advances every gate.
+    if not probe.grx010_real_pass_measured_success_active():
+        raise AssertionError(
+            "expected the real tonemap real-pass measured success to be active"
+        )
+    if probe.grx010_real_pass_enablement_issue() is not None:
+        raise AssertionError(
+            "expected the real tonemap real-pass enablement audit green, got "
+            f"{probe.grx010_real_pass_enablement_issue()!r}"
+        )
+    if not probe.grx010_real_pass_default_enable_decision_ready():
+        raise AssertionError(
+            "expected the real tonemap owner default-enable decision gate ready, "
+            f"got issue {probe.grx010_real_pass_default_enable_decision_issue()!r}"
+        )
+    if probe.grx010_real_pass_success_evidence_conflict():
+        raise AssertionError("real success evidence must not report a conflict")
+
+    real_manifest = load_json(real_manifest_path)
+    real_success = load_json(real_success_path)
+
+    # Green: a pre-close-out (false-valued) manifest stays acceptable — the
+    # fail-closed _ok helpers always accept the old shape.
+    pre = pre_close_out_tonemap_manifest(real_manifest)
+    impl = pre["implementation_status"]
+    if not probe.grx010_manifest_implemented_ok(pre):
+        raise AssertionError("pre-close-out implemented=false must be accepted")
+    if not probe.grx010_manifest_runtime_state_ok(impl):
+        raise AssertionError("pre-close-out runtime_state=fallback_only must be accepted")
+    if not probe.grx010_manifest_real_gpu_pass_ok(impl):
+        raise AssertionError("pre-close-out real_gpu_pass=false must be accepted")
+    if not probe.grx010_manifest_dispatch_recorded_ok(impl):
+        raise AssertionError("pre-close-out dispatch_recorded=false must be accepted")
+
+    # Red: a tampered success artifact fails the strict audit (in-memory).
+    tampered = copy.deepcopy(real_success)
+    tampered["artifacts"]["dxil"]["sha256"] = "0" * 64
+    tampered_issue = probe.grx010_real_pass_enablement_issue(tampered)
+    if tampered_issue is None:
+        raise AssertionError(
+            "a tampered tonemap success artifact must be rejected by the audit"
+        )
+
+    # Red: a SKIP success document never advances the gate.
+    skipped = copy.deepcopy(real_success)
+    skipped["status"] = "skip"
+    skipped.pop("real_pass_marker_line", None)
+    skip_issue = probe.grx010_real_pass_enablement_issue(skipped)
+    if skip_issue is None or "not success" not in skip_issue:
+        raise AssertionError(
+            f"a SKIP tonemap success document must be rejected, got {skip_issue!r}"
+        )
+
+    # Red: point the probe at a tampered on-disk success evidence -> conflict
+    # is reported AND the fail-closed manifest _ok helpers reject the
+    # close-out (true-valued) manifest because the measured success is not
+    # active.
+    saved_path = probe.GRX010_REAL_PASS_ENABLEMENT_SUCCESS_EVIDENCE
+    with tempfile.TemporaryDirectory() as tmp:
+        tampered_path = pathlib.Path(tmp) / "real_pass_enablement_success_evidence.json"
+        write_json(tampered_path, tampered)
+        probe.GRX010_REAL_PASS_ENABLEMENT_SUCCESS_EVIDENCE = tampered_path
+        probe._GRX010_REAL_PASS_SUCCESS_AUDIT_CACHE.clear()
+        try:
+            if probe.grx010_real_pass_measured_success_active():
+                raise AssertionError(
+                    "a tampered on-disk success evidence must not be active"
+                )
+            if not probe.grx010_real_pass_success_evidence_conflict():
+                raise AssertionError(
+                    "a tampered on-disk success evidence must report a conflict"
+                )
+            close_out_impl = real_manifest["implementation_status"]
+            if probe.grx010_manifest_implemented_ok(real_manifest):
+                raise AssertionError(
+                    "close-out implemented=true must be rejected while the "
+                    "measured success is not active"
+                )
+            if probe.grx010_manifest_runtime_state_ok(close_out_impl):
+                raise AssertionError(
+                    "close-out runtime_state must be rejected while the measured "
+                    "success is not active"
+                )
+            if probe.grx010_manifest_real_gpu_pass_ok(close_out_impl):
+                raise AssertionError(
+                    "close-out real_gpu_pass=true must be rejected while the "
+                    "measured success is not active"
+                )
+            if probe.grx010_manifest_dispatch_recorded_ok(close_out_impl):
+                raise AssertionError(
+                    "close-out real_d3d12_dispatch_recorded=true must be rejected "
+                    "while the measured success is not active"
+                )
+        finally:
+            probe.GRX010_REAL_PASS_ENABLEMENT_SUCCESS_EVIDENCE = saved_path
+            probe._GRX010_REAL_PASS_SUCCESS_AUDIT_CACHE.clear()
+
+    # The real manifest / success evidence on disk must be untouched.
+    if real_manifest_path.read_bytes() != real_manifest_bytes:
+        raise AssertionError("real tonemap pass_manifest.json changed during close-out cases")
+    if real_success_path.read_bytes() != real_success_bytes:
+        raise AssertionError(
+            "real tonemap real_pass_enablement_success_evidence.json changed during close-out cases"
+        )
+    print("grx010 tonemap close-out cases passed")
+
+
 def main() -> int:
     original_manifest_bytes = REAL_MANIFEST_PATH.read_bytes()
     original_evidence_bytes = REAL_EVIDENCE_PATH.read_bytes()
@@ -3782,6 +3934,7 @@ def main() -> int:
     run_dxc_texture_descriptor_rts0_crosscheck_gate_cases(manifest, evidence)
     run_texture_artifact_provenance_policy_gate_cases(manifest, evidence)
     run_grx010_tonemap_gate_cases()
+    run_grx010_tonemap_close_out_cases()
     if REAL_MANIFEST_PATH.read_bytes() != original_manifest_bytes:
         raise AssertionError("real pass_manifest.json changed during validation_failed test")
     if REAL_EVIDENCE_PATH.read_bytes() != original_evidence_bytes:

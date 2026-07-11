@@ -238,6 +238,150 @@ GRX009_MANIFEST_OPTIN_MEASURED_RUNTIME_STATE = (
 # success-evidence path so monkeypatched fixture pass dirs get their own entry.
 _GRX009_REAL_PASS_SUCCESS_AUDIT_CACHE: dict[str, bool] = {}
 
+# --- GRX-010 tonemap stage-A5-equivalent close-out constants. Patch 0012
+# (runtime resource binding) and 0013 (recording smoke + real-pass opt-in)
+# complete the 0001..0013 stack; the tonemap opt-in real-pass arm has a strict
+# measured success (real_pass_enablement_success_evidence.json). The default
+# runtime path stays fallback-only, default_enable_state stays disabled, and no
+# performance/FPS/GPU-timestamp claim is ever made. Mirrors GRX-009 segment 4h
+# + segment 4m. ---
+GRX010_PATCH_0012 = (
+    BENCH_DIR.parent
+    / "patches"
+    / "0012-rurix-accel-tonemap-runtime-resource-binding.patch"
+)
+GRX010_PATCH_0013 = (
+    BENCH_DIR.parent
+    / "patches"
+    / "0013-rurix-accel-tonemap-recording-smoke-and-real-pass-optin.patch"
+)
+# The full tonemap patch stack 0001..0013 (GRX-009 0001..0010 + tonemap
+# 0011..0013). Reused for the success-evidence patch-stack-identity and scratch
+# source provenance audits.
+GRX010_PATCH_STACK_ID = "0001..0013"
+GRX010_PATCH_STACK_FILES = (
+    GRX009_PATCH_0001,
+    GRX009_PATCH_0002,
+    GRX009_PATCH_0003,
+    GRX009_PATCH_0004,
+    GRX009_PATCH_0005,
+    GRX009_PATCH_0006,
+    GRX009_PATCH_0007,
+    GRX009_PATCH_0008,
+    GRX009_PATCH_0009,
+    GRX009_PATCH_0010,
+    GRX010_PATCH_0011,
+    GRX010_PATCH_0012,
+    GRX010_PATCH_0013,
+)
+GRX010_OFFLINE_COMPILE_EVIDENCE = GRX010_PASS_DIR / "offline_compile_evidence.json"
+GRX010_DXIL_ARTIFACT = GRX010_PASS_DIR / "artifacts" / "tonemap.dxil"
+GRX010_ROOT_SIGNATURE_ARTIFACT = GRX010_PASS_DIR / "artifacts" / "tonemap.rts0.bin"
+GRX010_DESCRIPTOR_LAYOUT = (
+    GRX010_PASS_DIR / "artifacts" / "tonemap_descriptor_layout.json"
+)
+# Tonemap real-pass enablement gate (mirror of GRX-009 segment 4h): the latest
+# evidence is reproducible-default SKIP without the 0001..0013 scratch exe; the
+# readiness gate advances only off the historical measured success artifact.
+GRX010_REAL_PASS_ENABLEMENT_EVIDENCE = (
+    GRX010_PASS_DIR / "real_pass_enablement_evidence.json"
+)
+GRX010_REAL_PASS_ENABLEMENT_SUCCESS_EVIDENCE = (
+    GRX010_PASS_DIR / "real_pass_enablement_success_evidence.json"
+)
+GRX010_REAL_PASS_ENABLEMENT_SCHEMA = (
+    GRX010_PASS_DIR / "real_pass_enablement_evidence.schema.json"
+)
+GRX010_REAL_PASS_ENABLEMENT_TELEMETRY = (
+    GRX010_PASS_DIR / "real_pass_enablement_telemetry.json"
+)
+# Tonemap visual real-pass frame artifacts (committed only on a strict
+# status=success run; hash-pinned in the success evidence).
+GRX010_VISUAL_REAL_PASS_REFERENCE_FRAME = (
+    GRX010_PASS_DIR / "artifacts" / "visual" / "tonemap_real_pass_reference.rgb8"
+)
+GRX010_VISUAL_REAL_PASS_CANDIDATE_FRAME = (
+    GRX010_PASS_DIR / "artifacts" / "visual" / "tonemap_real_pass_candidate.rgb8"
+)
+GRX010_VISUAL_REAL_PASS_DIFF_ARTIFACT = (
+    GRX010_PASS_DIR / "artifacts" / "visual" / "tonemap_real_pass_diff.rgb8"
+)
+# Owner default-enable decision (mirror of GRX-009 segment 4m): written only
+# after the tonemap real-pass strict measured success; records
+# keep_default_disabled with the rationale (no per-pass FPS evidence, patch
+# 0013 writeback scaffold, LINEAR + sRGB-only math subset) and the
+# re-evaluation conditions.
+GRX010_REAL_PASS_DEFAULT_ENABLE_DECISION_EVIDENCE = (
+    GRX010_PASS_DIR / "real_pass_default_enable_decision.json"
+)
+GRX010_REAL_PASS_DEFAULT_ENABLE_DECISION_DOC = (
+    GRX010_PASS_DIR / "real_pass_default_enable_decision.md"
+)
+GRX010_REAL_PASS_DEFAULT_ENABLE_DECISION = "keep_default_disabled"
+GRX010_DECISION_SEGMENT = "grx010_real_pass_default_enable_decision"
+# Stage-A5 pins mirrored from ci/grx010_tonemap_real_pass_enablement_smoke.py;
+# the validation-failed regression test asserts probe/harness parity.
+GRX010_REAL_PASS_SUBJECT = "grx010_tonemap_real_pass_enablement_smoke"
+GRX010_REAL_PASS_SEGMENT = "grx010_real_pass_enablement"
+GRX010_SUCCESS_EVIDENCE_KIND = "historical_measured_success"
+GRX010_LATEST_EVIDENCE_REL_PATH = (
+    "spike/godot-rurix/passes/tonemap/real_pass_enablement_evidence.json"
+)
+GRX010_EXPECTED_FIRST_MISSING_PREREQUISITE = "real_dispatch_recording_failed"
+GRX010_FALLBACK_MARKER = (
+    "RurixAccel: tonemap native resource handle mapping fallback rc="
+)
+GRX010_REAL_PASS_BLOCKED_MARKER = "RXGD_TONEMAP_REAL_PASS_BLOCKED"
+GRX010_REAL_PASS_MARKER = "RXGD_GODOT_RUNTIME_TONEMAP_REAL_PASS"
+GRX010_WRITEBACK_MARKER = "RXGD_GODOT_RUNTIME_TONEMAP_REAL_PASS_WRITEBACK"
+GRX010_RECORD_MARKER = "RXGD_GODOT_RUNTIME_TONEMAP_RECORD"
+GRX010_MANIFEST_OPTIN_MEASURED_RUNTIME_STATE = (
+    "fallback_only_by_default_real_pass_optin_measured"
+)
+# The 22 checks the tonemap real-pass enablement smoke emits: all must be True
+# on a strict success EXCEPT the two candidate-fallback checks, which must be
+# False (a success candidate leg never falls back / never prints the blocked
+# diagnostic).
+GRX010_REQUIRED_TRUE_CHECKS = (
+    "artifact_hashes_match_offline_evidence",
+    "reference_run_exit_zero",
+    "candidate_run_exit_zero",
+    "forced_fallback_run_exit_zero",
+    "session_ready_all_runs",
+    "markers_absent_reference",
+    "fallback_marker_observed_forced_fallback",
+    "real_pass_blocked_marker_observed_forced_fallback",
+    "record_marker_absent_all_runs",
+    "frames_captured",
+    "dimensions_match",
+    "capture_frame_indices_match",
+    "runtime_log_audit_clean",
+    "diff_within_threshold_candidate",
+    "diff_within_threshold_forced_fallback",
+    "telemetry_document_valid",
+    "telemetry_entries_coherent",
+    "scratch_source_provenance_ok",
+    "native_continuation_writeback_scaffold",
+    "real_pass_dispatched_and_completed",
+)
+GRX010_REQUIRED_FALSE_CHECKS = (
+    "fallback_marker_observed_candidate",
+    "real_pass_blocked_marker_observed_candidate",
+)
+# Next actions along the GRX-010 close-out chain, consulted only once the
+# segment A slice (contract + patch 0011 + standalone dispatch smoke) is ready.
+GRX010_FIX_PATCH_0012_ACTION = "fix_grx010_patch_0012_applyability"
+GRX010_FIX_PATCH_0013_ACTION = "fix_grx010_patch_0013_applyability"
+GRX010_PROVIDE_ENABLEMENT_ACTION = (
+    "provide_grx010_tonemap_real_pass_enablement_success"
+)
+GRX010_DESIGN_DECISION_ACTION = (
+    "design_grx010_tonemap_real_pass_default_enable_decision"
+)
+GRX011_NEXT_ACTION = "start_grx011_ssao_blur_godot_patch_0014"
+# Cache for the (expensive) strict tonemap real-pass success audit.
+_GRX010_REAL_PASS_SUCCESS_AUDIT_CACHE: dict[str, bool] = {}
+
 
 def grx009_real_pass_measured_success_active() -> bool:
     """Stage A5 fail-closed switch: True only when the segment 4h strict
@@ -913,7 +1057,11 @@ def grx010_tonemap_contract_issue(
         return "grx010_manifest_pass_id_mismatch"
     if manifest.get("default_enable_state") != "disabled":
         return "grx010_manifest_not_default_disabled"
-    if manifest.get("implemented") is not False:
+    # Stage-A5 fail-closed relaxation (mirror of GRX-009): implemented=false is
+    # always accepted; implemented=true only under the audited tonemap real-pass
+    # measured success. A tampered/absent success artifact fails closed back to
+    # requiring the pre-close-out shape.
+    if not grx010_manifest_implemented_ok(manifest):
         return "grx010_manifest_implemented_must_stay_false"
     if manifest.get("offline_compile_status") != "success":
         return "grx010_manifest_offline_compile_status_mismatch"
@@ -922,12 +1070,14 @@ def grx010_tonemap_contract_issue(
     implementation_status = manifest.get("implementation_status")
     if not isinstance(implementation_status, dict):
         return "grx010_manifest_implementation_status_missing"
-    if implementation_status.get("runtime_state") != "fallback_only":
+    if not grx010_manifest_runtime_state_ok(implementation_status):
         return "grx010_manifest_runtime_state_mismatch"
-    if implementation_status.get("real_gpu_pass") is not False:
+    if not grx010_manifest_real_gpu_pass_ok(implementation_status):
         return "grx010_manifest_real_gpu_pass_must_stay_false"
-    if implementation_status.get("real_d3d12_dispatch_recorded") is not False:
+    if not grx010_manifest_dispatch_recorded_ok(implementation_status):
         return "grx010_manifest_dispatch_recorded_must_stay_false"
+    # The default Godot runtime tonemap path stays disabled even after the
+    # measured opt-in success (only the opt-in arm ran a real dispatch).
     if implementation_status.get("godot_runtime_tonemap_path_enabled") is not False:
         return "grx010_manifest_runtime_path_must_stay_disabled"
 
@@ -5201,6 +5351,728 @@ def grx009_real_pass_default_enable_decision_ready(
     )
 
 
+# =====================================================================
+# GRX-010 tonemap stage-A5-equivalent close-out gates. Mirror of the
+# GRX-009 segment 4h real-pass enablement + segment 4m owner default-enable
+# decision, adapted to the tonemap markers, the 0001..0013 patch stack, and
+# the tonemap-specific patch 0013 writeback-scaffold marker. Even a strict
+# measured success keeps default_enable_state=disabled and performance_claim
+# =none.
+# =====================================================================
+def grx010_manifest() -> dict[str, object] | None:
+    return load_json_file(GRX010_PASS_DIR / "pass_manifest.json")
+
+
+def grx010_real_pass_enablement_success_evidence() -> dict[str, object] | None:
+    """The *historical measured success* tonemap real-pass artifact. Written
+    only on a strict status=success run (opt-in real dispatch executed AND
+    completed AND the LDR visual gate stayed within thresholds); never deleted
+    or overwritten by a later SKIP/FAIL run. The readiness gate advances off
+    this file."""
+    return load_json_file(GRX010_REAL_PASS_ENABLEMENT_SUCCESS_EVIDENCE)
+
+
+def _grx010_enablement_artifact_digests_issue(
+    evidence: dict[str, object],
+) -> str | None:
+    """The recorded evidence artifact digests must equal the on-disk canonical
+    tonemap artifacts AND the tonemap offline compile evidence digests, byte
+    for byte (anti-fabrication)."""
+    artifacts = evidence.get("artifacts")
+    if not isinstance(artifacts, dict):
+        return "success evidence artifacts block is missing"
+    offline = load_json_file(GRX010_OFFLINE_COMPILE_EVIDENCE)
+    offline_artifacts = offline.get("artifacts") if isinstance(offline, dict) else None
+    if not isinstance(offline_artifacts, dict):
+        return "tonemap offline compile evidence is missing"
+    disk_paths = {
+        "dxil": GRX010_DXIL_ARTIFACT,
+        "root_signature": GRX010_ROOT_SIGNATURE_ARTIFACT,
+        "descriptor_layout": GRX010_DESCRIPTOR_LAYOUT,
+    }
+    for key, disk_path in disk_paths.items():
+        entry = artifacts.get(key)
+        recorded = (
+            normalize_string(entry.get("sha256")) if isinstance(entry, dict) else None
+        )
+        actual = sha256_of_file(disk_path)
+        offline_entry = offline_artifacts.get(key)
+        offline_sha = (
+            normalize_string(offline_entry.get("sha256"))
+            if isinstance(offline_entry, dict)
+            else None
+        )
+        if recorded is None or actual is None or recorded != actual:
+            return (
+                "success evidence artifact digests do not match the on-disk "
+                "tonemap artifacts"
+            )
+        if offline_sha is None or offline_sha != actual:
+            return (
+                "on-disk tonemap artifacts no longer match the offline compile "
+                "evidence digests"
+            )
+    return None
+
+
+def grx010_real_pass_enablement_issue(
+    evidence: dict[str, object] | None = None,
+) -> str | None:
+    """First concrete missing prerequisite for the GRX-010 tonemap real-pass
+    enablement gate, or None.
+
+    The gate only accepts a REAL measured strict success: a status=success
+    historical artifact where the opt-in real dispatch actually executed and
+    completed (``RXGD_GODOT_RUNTIME_TONEMAP_REAL_PASS`` marker line pinned and
+    the patch 0013 writeback scaffold marker observed on the candidate leg),
+    the raw RGB8 frame artifacts exist on disk with matching SHA-256 digests, a
+    fresh recompute of |reference - candidate| matches the recorded diff and
+    sits within the pinned LDR thresholds, the forced-failure red leg fell back
+    with ``unsupported_device``, the 0001..0013 patch-stack identity and scratch
+    source provenance audits hold, the runtime log audit is clean, and no
+    performance/FPS/GPU-timestamp claim exists. Even such a success keeps
+    default_enable_state=disabled and performance_claim=none."""
+    if not GRX010_REAL_PASS_ENABLEMENT_SCHEMA.exists():
+        return "tonemap real_pass_enablement_evidence.schema.json is missing"
+    if evidence is None:
+        evidence = grx010_real_pass_enablement_success_evidence()
+    if not isinstance(evidence, dict):
+        return (
+            "historical measured success artifact "
+            "real_pass_enablement_success_evidence.json is missing; the tonemap "
+            "opt-in real-pass gate has not measured a strict success"
+        )
+    status = normalize_string(evidence.get("status"))
+    if status != "success":
+        return (
+            "tonemap real-pass enablement success evidence status is "
+            f"{status or 'missing'}, not success (a SKIP/FAIL run is never ready)"
+        )
+    if evidence.get("subject") != GRX010_REAL_PASS_SUBJECT:
+        return (
+            "success evidence subject is not "
+            "grx010_tonemap_real_pass_enablement_smoke"
+        )
+    if evidence.get("pass_id") != "tonemap":
+        return "success evidence pass_id is not tonemap"
+    if normalize_string(evidence.get("segment")) != GRX010_REAL_PASS_SEGMENT:
+        return "success evidence segment is not grx010_real_pass_enablement"
+    if evidence.get("evidence_kind") != GRX010_SUCCESS_EVIDENCE_KIND:
+        return "success evidence evidence_kind is not historical_measured_success"
+    if (
+        normalize_string(evidence.get("latest_evidence_path"))
+        != GRX010_LATEST_EVIDENCE_REL_PATH
+    ):
+        return "success evidence latest_evidence_path is wrong"
+    if evidence.get("runtime_state") != "fallback_only":
+        return "success evidence does not keep runtime_state=fallback_only"
+    if evidence.get("godot_runtime_tonemap_path_enabled") is not False:
+        return (
+            "success evidence does not keep "
+            "godot_runtime_tonemap_path_enabled=false"
+        )
+    if evidence.get("default_enable_state") != "disabled":
+        return "success evidence does not keep default_enable_state=disabled"
+    if evidence.get("gpu_timestamp_status") != "not_yet":
+        return "success evidence does not keep gpu_timestamp_status=not_yet"
+    if normalize_string(evidence.get("performance_claim")) != "none":
+        return (
+            "success evidence performance_claim is not 'none'; no performance or "
+            "FPS improvement claim is allowed at this gate"
+        )
+    if (
+        normalize_string(evidence.get("expected_first_missing_prerequisite"))
+        != GRX010_EXPECTED_FIRST_MISSING_PREREQUISITE
+    ):
+        return "success evidence does not pin the expected first missing prerequisite"
+    if evidence.get("real_gpu_pass") is not True:
+        return "success evidence does not record real_gpu_pass=true"
+    if evidence.get("real_d3d12_dispatch_recorded") is not True:
+        return "success evidence does not record real_d3d12_dispatch_recorded=true"
+    marker_line = normalize_string(evidence.get("real_pass_marker_line"))
+    if not marker_line or GRX010_REAL_PASS_MARKER not in marker_line:
+        return (
+            "success evidence does not pin the observed "
+            f"{GRX010_REAL_PASS_MARKER} marker line"
+        )
+
+    checks = evidence.get("checks")
+    if not isinstance(checks, dict) or any(
+        checks.get(name) is not True for name in GRX010_REQUIRED_TRUE_CHECKS
+    ):
+        return "success evidence checks are not all green"
+    if any(checks.get(name) is not False for name in GRX010_REQUIRED_FALSE_CHECKS):
+        return (
+            "success evidence records a candidate fallback/blocked marker check; "
+            "the success outcome is contradictory"
+        )
+
+    matrix = evidence.get("pass_enable_matrix")
+    if not isinstance(matrix, dict):
+        return "success evidence is missing the pass_enable_matrix"
+    reference_leg = matrix.get("disabled_default")
+    candidate_leg = matrix.get("enabled_real_pass_optin")
+    forced_leg = matrix.get("forced_capability_downgrade")
+    if not all(
+        isinstance(leg, dict) for leg in (reference_leg, candidate_leg, forced_leg)
+    ):
+        return (
+            "pass_enable_matrix must record the disabled_default, "
+            "enabled_real_pass_optin, and forced_capability_downgrade legs"
+        )
+    for name, leg in (
+        ("disabled_default", reference_leg),
+        ("enabled_real_pass_optin", candidate_leg),
+        ("forced_capability_downgrade", forced_leg),
+    ):
+        if leg.get("exit_code") != 0:
+            return f"pass_enable_matrix {name} leg did not exit 0"
+        if leg.get("session_ready") is not True:
+            return f"pass_enable_matrix {name} leg did not observe a ready session"
+        if leg.get("record_marker_observed") is not False:
+            return f"pass_enable_matrix {name} leg observed the recording marker"
+    for marker_key in (
+        "bridge_fallback_marker_observed",
+        "real_pass_blocked_marker_observed",
+        "real_pass_marker_observed",
+        "writeback_marker_observed",
+    ):
+        if reference_leg.get(marker_key) is not False:
+            return (
+                "disabled_default leg unexpectedly observed a bridge marker; "
+                "the disabled pass must never invoke the bridge"
+            )
+    if candidate_leg.get("real_pass_marker_observed") is not True:
+        return "enabled_real_pass_optin leg did not observe the real-pass marker"
+    if candidate_leg.get("writeback_marker_observed") is not True:
+        return (
+            "enabled_real_pass_optin leg did not observe the patch 0013 "
+            "writeback scaffold marker"
+        )
+    if candidate_leg.get("real_pass_blocked_marker_observed") is not False:
+        return (
+            "enabled_real_pass_optin leg observed the blocked diagnostic; the "
+            "success outcome is contradictory"
+        )
+    if candidate_leg.get("bridge_fallback_marker_observed") is not False:
+        return (
+            "enabled_real_pass_optin leg observed the fallback marker; the "
+            "success outcome is contradictory"
+        )
+    if forced_leg.get("bridge_fallback_marker_observed") is not True:
+        return (
+            "forced_capability_downgrade leg did not observe the fallback "
+            "marker; the forced-failure red leg was not measured"
+        )
+    if forced_leg.get("real_pass_blocked_marker_observed") is not True:
+        return (
+            "forced_capability_downgrade leg did not observe the blocked "
+            "diagnostic"
+        )
+    if forced_leg.get("real_pass_marker_observed") is not False:
+        return "forced_capability_downgrade leg observed the real-pass marker"
+    if forced_leg.get("writeback_marker_observed") is not False:
+        return "forced_capability_downgrade leg observed the writeback marker"
+
+    visual = evidence.get("visual")
+    if not isinstance(visual, dict):
+        return "success evidence is missing the visual section"
+    if visual.get("measured_local") is not True:
+        return "visual evidence is not measured_local=true"
+    if visual.get("metric_kind") != GRX009_SEGMENT4G_METRIC_KIND:
+        return f"visual metric_kind is not {GRX009_SEGMENT4G_METRIC_KIND}"
+    if visual.get("format") != GRX009_SEGMENT4G_FRAME_FORMAT:
+        return f"visual frame format is not {GRX009_SEGMENT4G_FRAME_FORMAT}"
+    width = visual.get("width")
+    height = visual.get("height")
+    if not _grx009_is_frame_dimension(width) or not _grx009_is_frame_dimension(height):
+        return (
+            "visual width/height are malformed or below the "
+            f"{GRX009_SEGMENT4G_MIN_FRAME_DIMENSION}px minimum"
+        )
+    capture_frame_index = visual.get("capture_frame_index")
+    if (
+        not isinstance(capture_frame_index, int)
+        or isinstance(capture_frame_index, bool)
+        or capture_frame_index < 1
+    ):
+        return "visual capture_frame_index is missing or malformed"
+    if visual.get("max_abs_diff_threshold") != GRX009_SEGMENT4G_MAX_ABS_DIFF_THRESHOLD:
+        return "recorded max_abs_diff_threshold does not equal the pinned gate threshold"
+    if (
+        visual.get("mean_abs_diff_threshold")
+        != GRX009_SEGMENT4G_MEAN_ABS_DIFF_THRESHOLD
+    ):
+        return "recorded mean_abs_diff_threshold does not equal the pinned gate threshold"
+    expected_size = width * height * 3
+
+    frame_bytes: dict[str, bytes] = {}
+    for key, path in (
+        ("reference_frame", GRX010_VISUAL_REAL_PASS_REFERENCE_FRAME),
+        ("candidate_frame", GRX010_VISUAL_REAL_PASS_CANDIDATE_FRAME),
+        ("diff_artifact", GRX010_VISUAL_REAL_PASS_DIFF_ARTIFACT),
+    ):
+        entry = visual.get(key)
+        if not isinstance(entry, dict):
+            return f"visual {key} entry is missing"
+        if not path.is_file():
+            return f"visual {key} artifact is missing on disk ({path.name})"
+        actual_sha = sha256_of_file(path)
+        if actual_sha is None or normalize_string(entry.get("sha256")) != actual_sha:
+            return f"visual {key} sha256 does not match the on-disk artifact"
+        try:
+            raw = path.read_bytes()
+        except OSError:
+            return f"visual {key} artifact is unreadable ({path.name})"
+        if len(raw) != expected_size:
+            return (
+                f"visual {key} size {len(raw)} does not equal width*height*3="
+                f"{expected_size} (malformed dimensions)"
+            )
+        frame_bytes[key] = raw
+
+    computed_diff = bytes(
+        abs(a - b)
+        for a, b in zip(frame_bytes["reference_frame"], frame_bytes["candidate_frame"])
+    )
+    if computed_diff != frame_bytes["diff_artifact"]:
+        return (
+            "diff artifact bytes do not equal the recomputed "
+            "|reference - candidate| LDR diff"
+        )
+    computed_max = max(computed_diff) if computed_diff else 0
+    computed_mean = (sum(computed_diff) / len(computed_diff)) if computed_diff else 0.0
+    diffs = visual.get("diffs")
+    if not isinstance(diffs, dict):
+        return "visual diffs section is missing"
+    candidate_diff = diffs.get("candidate")
+    forced_diff = diffs.get("forced_fallback")
+    if not isinstance(candidate_diff, dict) or not isinstance(forced_diff, dict):
+        return "visual diffs must record candidate and forced_fallback entries"
+    recorded_max = candidate_diff.get("max_abs_diff")
+    if (
+        not isinstance(recorded_max, (int, float))
+        or isinstance(recorded_max, bool)
+        or float(recorded_max) != float(computed_max)
+    ):
+        return "recorded candidate max_abs_diff does not match the recomputed diff"
+    recorded_mean = candidate_diff.get("mean_abs_diff")
+    if (
+        not isinstance(recorded_mean, (int, float))
+        or isinstance(recorded_mean, bool)
+        or abs(float(recorded_mean) - computed_mean) > GRX009_SEGMENT4G_MEAN_ABS_EPSILON
+    ):
+        return "recorded candidate mean_abs_diff does not match the recomputed diff"
+    if (
+        computed_max > GRX009_SEGMENT4G_MAX_ABS_DIFF_THRESHOLD
+        or computed_mean > GRX009_SEGMENT4G_MEAN_ABS_DIFF_THRESHOLD
+    ):
+        return (
+            "measured LDR absolute diff exceeds the pinned visual gate threshold "
+            f"(max_abs={computed_max}, mean_abs={computed_mean:.6f})"
+        )
+    for name, entry in (("candidate", candidate_diff), ("forced_fallback", forced_diff)):
+        if entry.get("within_threshold") is not True:
+            return f"visual diffs {name} within_threshold is not true"
+
+    telemetry = evidence.get("fallback_telemetry")
+    if not isinstance(telemetry, dict):
+        return "success evidence is missing the fallback_telemetry section"
+    if telemetry.get("no_fps_claim") is not True:
+        return "fallback telemetry does not record no_fps_claim=true"
+    telemetry_entry = telemetry.get("telemetry_document")
+    if not isinstance(telemetry_entry, dict):
+        return "fallback telemetry is missing the telemetry_document fingerprint"
+    if not GRX010_REAL_PASS_ENABLEMENT_TELEMETRY.is_file():
+        return "tonemap real_pass_enablement_telemetry.json is missing on disk"
+    telemetry_sha = sha256_of_file(GRX010_REAL_PASS_ENABLEMENT_TELEMETRY)
+    if (
+        telemetry_sha is None
+        or normalize_string(telemetry_entry.get("sha256")) != telemetry_sha
+    ):
+        return (
+            "real_pass_enablement_telemetry.json sha256 does not match the "
+            "recorded fingerprint"
+        )
+    telemetry_doc = load_json_file(GRX010_REAL_PASS_ENABLEMENT_TELEMETRY)
+    if telemetry_doc is None:
+        return "real_pass_enablement_telemetry.json is unreadable"
+    if telemetry_doc.get("evidence_level") != "measured_local":
+        return "real-pass enablement telemetry is not evidence_level=measured_local"
+    passes = telemetry_doc.get("passes")
+    forced_entry = None
+    if isinstance(passes, list):
+        for entry in passes:
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("leg") == "enabled_real_pass_optin":
+                return (
+                    "telemetry document carries a candidate fallback entry "
+                    "although the success evidence claims a real pass; the "
+                    "outcome is contradictory"
+                )
+            if entry.get("leg") == "forced_capability_downgrade":
+                forced_entry = entry
+    if forced_entry is None:
+        return "telemetry document has no forced_capability_downgrade entry"
+    if forced_entry.get("pass_id") != "tonemap":
+        return "forced telemetry entry pass_id is not tonemap"
+    if normalize_string(forced_entry.get("enable_state")) != "enabled":
+        return "forced telemetry entry does not record enable_state=enabled"
+    if normalize_string(forced_entry.get("fallback_reason")) != "unsupported_device":
+        return "forced telemetry entry fallback_reason is not unsupported_device"
+    if forced_entry.get("godot_fallback_active") is not True:
+        return "forced telemetry entry does not record godot_fallback_active=true"
+    telemetry_frame = forced_entry.get("telemetry_frame")
+    if (
+        not isinstance(telemetry_frame, int)
+        or isinstance(telemetry_frame, bool)
+        or telemetry_frame != capture_frame_index
+    ):
+        return (
+            "forced telemetry entry telemetry_frame is stale: it does not "
+            "equal the visual capture_frame_index"
+        )
+    if (
+        _bench_script_exit_code(
+            GRX008_FALLBACK_TELEMETRY_SCRIPT,
+            ["--validate-only", str(GRX010_REAL_PASS_ENABLEMENT_TELEMETRY)],
+        )
+        != 0
+    ):
+        return (
+            "real_pass_enablement_telemetry.json does not pass "
+            "fallback_telemetry.py --validate-only"
+        )
+
+    if evidence.get("artifact_hashes_match_offline_evidence") is not True:
+        return (
+            "success evidence does not record "
+            "artifact_hashes_match_offline_evidence=true"
+        )
+    artifact_issue = _grx010_enablement_artifact_digests_issue(evidence)
+    if artifact_issue is not None:
+        return artifact_issue
+
+    exe_fp = evidence.get("godot_exe_fingerprint")
+    if not isinstance(exe_fp, dict):
+        return "success evidence godot_exe_fingerprint is missing"
+    if not _is_sha256_hex(exe_fp.get("exe_sha256")):
+        return "success evidence godot_exe_fingerprint sha256 is malformed"
+    if not _is_positive_int(exe_fp.get("exe_size_bytes")):
+        return "success evidence godot_exe_fingerprint size is malformed"
+    if exe_fp.get("committed") is not False:
+        return "success evidence godot_exe_fingerprint must record committed=false"
+
+    dll_fp = evidence.get("dll_fingerprint")
+    if not isinstance(dll_fp, dict):
+        return "success evidence dll_fingerprint is missing"
+    if not _is_sha256_hex(dll_fp.get("dll_sha256")):
+        return "success evidence dll_fingerprint sha256 is malformed"
+    dll_features = dll_fp.get("features")
+    # The tonemap real-pass arm's linked real dispatch path is compiled ONLY
+    # under the d3d12-recording-shim feature (the shipping feature-off bridge
+    # stays fail-closed), so the strict success must record exactly that build.
+    if not isinstance(dll_features, list) or dll_features != [
+        GRX009_SEGMENT4F_RECORDING_SHIM_FEATURE
+    ]:
+        return (
+            "success evidence dll_fingerprint must record the "
+            "d3d12-recording-shim bridge build (the only build with the linked "
+            "real dispatch path)"
+        )
+
+    if not grx009_segment4f_patch_stack_identity_ok(
+        evidence.get("patch_stack_identity"),
+        GRX010_PATCH_STACK_FILES,
+        GRX010_PATCH_STACK_ID,
+    ):
+        return (
+            "success evidence patch_stack_identity does not match the tracked "
+            f"{GRX010_PATCH_STACK_ID} patch stack"
+        )
+    if not grx009_segment4f_scratch_source_provenance_ok(
+        evidence,
+        GRX010_PATCH_STACK_FILES,
+        GRX010_PATCH_STACK_ID,
+    ):
+        return (
+            "success evidence scratch source provenance does not pass the "
+            f"{GRX010_PATCH_STACK_ID} tracked-patch-stack-only audit"
+        )
+
+    log_issue = grx009_segment4h_runtime_log_audit_issue(evidence)
+    if log_issue is not None:
+        return log_issue
+    return None
+
+
+def grx010_real_pass_measured_success_active() -> bool:
+    """Stage-A5 fail-closed switch: True only when the tonemap real-pass
+    ``real_pass_enablement_success_evidence.json`` exists AND passes the full
+    strict audit. A missing artifact, a SKIP/FAIL document, or a hand-edited
+    placeholder never activates the relaxed manifest acceptance
+    (implemented=true, real_gpu_pass=true,
+    runtime_state=fallback_only_by_default_real_pass_optin_measured)."""
+    path = GRX010_REAL_PASS_ENABLEMENT_SUCCESS_EVIDENCE
+    if not path.exists():
+        return False
+    key = str(path)
+    cached = _GRX010_REAL_PASS_SUCCESS_AUDIT_CACHE.get(key)
+    if cached is None:
+        cached = grx010_real_pass_enablement_issue() is None
+        _GRX010_REAL_PASS_SUCCESS_AUDIT_CACHE[key] = cached
+    return cached
+
+
+def grx010_real_pass_success_evidence_conflict() -> bool:
+    """True when a tonemap real-pass success artifact exists but FAILS the
+    strict audit (placeholder/tampered document); fail-closed rejection."""
+    return (
+        GRX010_REAL_PASS_ENABLEMENT_SUCCESS_EVIDENCE.exists()
+        and not grx010_real_pass_measured_success_active()
+    )
+
+
+def grx010_manifest_implemented_ok(manifest: dict[str, object]) -> bool:
+    """implemented=false is always accepted; implemented=true only under the
+    audited tonemap real-pass measured success (fail-closed otherwise)."""
+    value = manifest.get("implemented")
+    if value is False:
+        return True
+    return value is True and grx010_real_pass_measured_success_active()
+
+
+def grx010_manifest_runtime_state_ok(
+    implementation_status: dict[str, object],
+) -> bool:
+    """runtime_state=fallback_only is always accepted; the stage-A5
+    fallback_only_by_default_real_pass_optin_measured value only under the
+    audited measured success (fail-closed otherwise)."""
+    runtime_state = implementation_status.get("runtime_state")
+    if runtime_state == "fallback_only":
+        return True
+    return (
+        runtime_state == GRX010_MANIFEST_OPTIN_MEASURED_RUNTIME_STATE
+        and grx010_real_pass_measured_success_active()
+    )
+
+
+def grx010_manifest_real_gpu_pass_ok(
+    implementation_status: dict[str, object],
+) -> bool:
+    """real_gpu_pass=false is always accepted; true only under the audited
+    stage-A5 measured success (fail-closed otherwise)."""
+    value = implementation_status.get("real_gpu_pass")
+    if value is False:
+        return True
+    return value is True and grx010_real_pass_measured_success_active()
+
+
+def grx010_manifest_dispatch_recorded_ok(
+    implementation_status: dict[str, object],
+) -> bool:
+    """real_d3d12_dispatch_recorded=false is always accepted; true only under
+    the audited stage-A5 measured success (fail-closed otherwise)."""
+    value = implementation_status.get("real_d3d12_dispatch_recorded")
+    if value is False:
+        return True
+    return value is True and grx010_real_pass_measured_success_active()
+
+
+GRX010_DEFAULT_ENABLE_DECISION_DOC_SECTIONS = [
+    "## Owner Decision",
+    "## Rationale",
+    "## Re-evaluation Conditions",
+    "## Fail-Closed Invariants",
+]
+
+
+def grx010_real_pass_default_enable_decision_evidence() -> dict[str, object] | None:
+    return load_json_file(GRX010_REAL_PASS_DEFAULT_ENABLE_DECISION_EVIDENCE)
+
+
+def grx010_real_pass_default_enable_decision_status(
+    evidence: dict[str, object] | None = None,
+) -> str:
+    candidate = (
+        evidence
+        if evidence is not None
+        else grx010_real_pass_default_enable_decision_evidence()
+    )
+    if not isinstance(candidate, dict):
+        return "missing"
+    return normalize_string(candidate.get("status")) or "malformed"
+
+
+def grx010_real_pass_default_enable_decision_issue(
+    evidence: dict[str, object] | None = None,
+    manifest: dict[str, object] | None = None,
+) -> str | None:
+    """First missing prerequisite of the tonemap owner default-enable decision
+    gate, or None. Mirror of the GRX-009 segment 4m gate: ready only when the
+    tonemap real-pass strict measured success is active AND the owner decision
+    evidence records keep_default_disabled with a signed owner block, the
+    rationale/re-evaluation lists, the decision document with its required
+    sections, performance_claim=none, and the manifest keeps
+    default_enable_state=disabled while referencing the decision files from the
+    real_pass_measured_success block."""
+    if not grx010_real_pass_measured_success_active():
+        return "real_pass_measured_success_not_active"
+    candidate = (
+        evidence
+        if evidence is not None
+        else grx010_real_pass_default_enable_decision_evidence()
+    )
+    if not isinstance(candidate, dict):
+        return "default_enable_decision_evidence_missing"
+    if candidate.get("pass_id") != "tonemap":
+        return "default_enable_decision_pass_id_mismatch"
+    if normalize_string(candidate.get("segment")) != GRX010_DECISION_SEGMENT:
+        return "default_enable_decision_segment_mismatch"
+    if normalize_string(candidate.get("status")) != "success":
+        return "default_enable_decision_status_must_be_success"
+    if candidate.get("decision_ready") is not True:
+        return "default_enable_decision_ready_must_be_true"
+    if normalize_string(candidate.get("default_enable_state")) != "disabled":
+        return "default_enable_decision_state_must_be_disabled"
+    if normalize_string(candidate.get("performance_claim")) != "none":
+        return "default_enable_decision_performance_claim_must_be_none"
+    owner_decision = candidate.get("owner_decision")
+    if not isinstance(owner_decision, dict):
+        return "default_enable_decision_owner_block_missing"
+    if normalize_string(owner_decision.get("decision")) != (
+        GRX010_REAL_PASS_DEFAULT_ENABLE_DECISION
+    ):
+        return "default_enable_decision_owner_decision_mismatch"
+    if not normalize_string(owner_decision.get("approved_by")):
+        return "default_enable_decision_owner_approved_by_missing"
+    if not normalize_string(owner_decision.get("machine_role")):
+        return "default_enable_decision_owner_machine_role_missing"
+    rationale = candidate.get("decision_rationale")
+    if not isinstance(rationale, list) or not rationale:
+        return "default_enable_decision_rationale_missing"
+    reevaluate = candidate.get("reevaluate_when")
+    if not isinstance(reevaluate, list) or not reevaluate:
+        return "default_enable_decision_reevaluate_conditions_missing"
+    prerequisite = candidate.get("prerequisite_evidence")
+    if not isinstance(prerequisite, dict):
+        return "default_enable_decision_prerequisite_evidence_missing"
+    success_path = grx009_repo_path(
+        normalize_string(prerequisite.get("real_pass_enablement_success"))
+    )
+    if success_path != GRX010_REAL_PASS_ENABLEMENT_SUCCESS_EVIDENCE:
+        return "default_enable_decision_prerequisite_success_path_mismatch"
+    decision_doc_path = grx009_repo_path(
+        normalize_string(candidate.get("decision_document"))
+    )
+    if decision_doc_path != GRX010_REAL_PASS_DEFAULT_ENABLE_DECISION_DOC:
+        return "default_enable_decision_document_path_mismatch"
+    if not GRX010_REAL_PASS_DEFAULT_ENABLE_DECISION_DOC.is_file():
+        return "default_enable_decision_document_missing"
+    if not file_contains_all(
+        GRX010_REAL_PASS_DEFAULT_ENABLE_DECISION_DOC,
+        GRX010_DEFAULT_ENABLE_DECISION_DOC_SECTIONS,
+    ):
+        return "default_enable_decision_document_required_sections_missing"
+    if normalize_string(candidate.get("next_action_if_ready")) != GRX011_NEXT_ACTION:
+        return "default_enable_decision_next_action_mismatch"
+    manifest_doc = manifest if manifest is not None else grx010_manifest()
+    if not isinstance(manifest_doc, dict):
+        return "manifest_missing"
+    if manifest_doc.get("default_enable_state") != "disabled":
+        return "manifest_default_enable_state_must_remain_disabled"
+    implementation_status = manifest_doc.get("implementation_status")
+    if not isinstance(implementation_status, dict):
+        return "manifest_implementation_status_missing"
+    measured_success = implementation_status.get("real_pass_measured_success")
+    if not isinstance(measured_success, dict):
+        return "manifest_measured_success_block_missing"
+    if normalize_string(measured_success.get("status")) != "success":
+        return "manifest_measured_success_status_mismatch"
+    if normalize_string(measured_success.get("decision")) != (
+        GRX010_REAL_PASS_DEFAULT_ENABLE_DECISION
+    ):
+        return "manifest_measured_success_decision_mismatch"
+    if grx009_repo_path(
+        normalize_string(measured_success.get("default_enable_decision"))
+    ) != GRX010_REAL_PASS_DEFAULT_ENABLE_DECISION_EVIDENCE:
+        return "manifest_measured_success_decision_path_mismatch"
+    if grx009_repo_path(
+        normalize_string(measured_success.get("evidence"))
+    ) != GRX010_REAL_PASS_ENABLEMENT_SUCCESS_EVIDENCE:
+        return "manifest_measured_success_evidence_path_mismatch"
+    if normalize_string(measured_success.get("next_action_when_ready")) != (
+        GRX011_NEXT_ACTION
+    ):
+        return "manifest_measured_success_next_action_mismatch"
+    if normalize_string(measured_success.get("performance_claim")) != "none":
+        return "manifest_measured_success_performance_claim_must_be_none"
+    return None
+
+
+def grx010_real_pass_default_enable_decision_ready(
+    evidence: dict[str, object] | None = None,
+    manifest: dict[str, object] | None = None,
+) -> bool:
+    return (
+        grx010_real_pass_default_enable_decision_issue(evidence, manifest) is None
+    )
+
+
+def grx010_patch_0012_applyability_result() -> dict[str, object]:
+    """0012 stacks on 0004..0011 (0004..0010 forward-applicable + tonemap
+    0011), checked in a temporary scratch copy so the snapshot working tree is
+    never modified."""
+    return evaluate_stacked_patch_applyability(
+        ROOT,
+        EXTERNAL_GODOT,
+        [
+            GRX009_PATCH_0004,
+            GRX009_PATCH_0005,
+            GRX009_PATCH_0006,
+            GRX009_PATCH_0007,
+            GRX009_PATCH_0008,
+            GRX009_PATCH_0009,
+            GRX009_PATCH_0010,
+            GRX010_PATCH_0011,
+        ],
+        GRX010_PATCH_0012,
+        "0012",
+    )
+
+
+def grx010_patch_0012_applyable(result: dict[str, object] | None = None) -> bool:
+    candidate = result or grx010_patch_0012_applyability_result()
+    return candidate.get("ok") is True and candidate.get("ready") is True
+
+
+def grx010_patch_0013_applyability_result() -> dict[str, object]:
+    """0013 stacks on 0004..0012."""
+    return evaluate_stacked_patch_applyability(
+        ROOT,
+        EXTERNAL_GODOT,
+        [
+            GRX009_PATCH_0004,
+            GRX009_PATCH_0005,
+            GRX009_PATCH_0006,
+            GRX009_PATCH_0007,
+            GRX009_PATCH_0008,
+            GRX009_PATCH_0009,
+            GRX009_PATCH_0010,
+            GRX010_PATCH_0011,
+            GRX010_PATCH_0012,
+        ],
+        GRX010_PATCH_0013,
+        "0013",
+    )
+
+
+def grx010_patch_0013_applyable(result: dict[str, object] | None = None) -> bool:
+    candidate = result or grx010_patch_0013_applyability_result()
+    return candidate.get("ok") is True and candidate.get("ready") is True
+
+
 def grx009_manifest() -> dict[str, object] | None:
     return load_json_file(GRX009_PASS_MANIFEST)
 
@@ -6611,6 +7483,47 @@ def summarize(results: list[ProbeResult]) -> dict[str, object]:
     grx010_dispatch_smoke_status_value = grx010_tonemap_d3d12_dispatch_smoke_status()
     grx010_dispatch_smoke_issue_value = grx010_tonemap_d3d12_dispatch_smoke_issue()
     grx010_dispatch_smoke_ready_value = grx010_dispatch_smoke_issue_value is None
+    # GRX-010 stage-A5 close-out gates: the tonemap runtime-binding (0012) and
+    # recording-smoke/real-pass-optin (0013) patches, the opt-in real-pass
+    # measured success, and the owner default-enable decision.
+    grx010_manifest_data = grx010_manifest()
+    grx010_patch_0012_applyability = grx010_patch_0012_applyability_result()
+    grx010_patch_0012_applyable_ready = grx010_patch_0012_applyable(
+        grx010_patch_0012_applyability
+    )
+    grx010_patch_0013_applyability = grx010_patch_0013_applyability_result()
+    grx010_patch_0013_applyable_ready = grx010_patch_0013_applyable(
+        grx010_patch_0013_applyability
+    )
+    grx010_real_pass_success_doc = grx010_real_pass_enablement_success_evidence()
+    grx010_real_pass_success_status = (
+        normalize_string(grx010_real_pass_success_doc.get("status"))
+        if isinstance(grx010_real_pass_success_doc, dict)
+        else None
+    )
+    grx010_real_pass_enablement_issue_value = grx010_real_pass_enablement_issue(
+        grx010_real_pass_success_doc
+    )
+    grx010_real_pass_enablement_ready_value = (
+        grx010_real_pass_enablement_issue_value is None
+    )
+    grx010_default_enable_decision_doc = (
+        grx010_real_pass_default_enable_decision_evidence()
+    )
+    grx010_default_enable_decision_status_value = (
+        grx010_real_pass_default_enable_decision_status(
+            grx010_default_enable_decision_doc
+        )
+    )
+    grx010_default_enable_decision_issue_value = (
+        grx010_real_pass_default_enable_decision_issue(
+            grx010_default_enable_decision_doc,
+            grx010_manifest_data,
+        )
+    )
+    grx010_default_enable_decision_ready_value = (
+        grx010_default_enable_decision_issue_value is None
+    )
     grx009_texture_dxc_feasibility_doc = grx009_texture_dxc_feasibility_evidence()
     grx009_texture_dxc_feasibility_status_value = (
         grx009_texture_dxc_feasibility_status(grx009_texture_dxc_feasibility_doc)
@@ -7217,6 +8130,7 @@ def summarize(results: list[ProbeResult]) -> dict[str, object]:
                             and grx009_segment4g
                             and grx009_segment4h
                         ):
+                            next_command = None
                             if grx009_default_enable_decision_ready_value:
                                 grx009_closed_out_preamble = (
                                     "GRX-009 stage A5 is closed out: segment 4h gated "
@@ -7268,24 +8182,81 @@ def summarize(results: list[ProbeResult]) -> dict[str, object]:
                                         "a real D3D12 adapter; SKIP never advances the "
                                         "gate."
                                     )
-                                else:
-                                    next_action = GRX010_NEXT_ACTION_AFTER_CONTRACT
+                                elif not grx010_patch_0012_applyable_ready:
+                                    next_action = GRX010_FIX_PATCH_0012_ACTION
                                     next_action_reason = grx009_closed_out_preamble + (
-                                        "The GRX-010 tonemap segment A slice is measured "
-                                        "and ready: the contract trio, the "
-                                        "hlsl_bridge_workaround offline package (DXC cs_6_0 "
-                                        "+ DXV pass + Rurix-owned RTS0), the fail-closed "
-                                        "bridge TonemapGate (default RXGD_STATUS_FALLBACK; "
-                                        "shipping feature-off bridge fails closed with "
-                                        "real_dispatch_path_not_linked), patch 0011 "
-                                        "(stacked-applyable, native tonemap path always "
-                                        "preserved), and the standalone real D3D12 "
-                                        "dispatch smoke (measured GPU texel matches the "
-                                        "CPU reference) are all green. Proceed to the "
-                                        "tonemap runtime resource binding slice "
-                                        "(0005/0007-level native handle wiring); the pass "
-                                        "stays default disabled with no visual/perf claim."
+                                        "The GRX-010 tonemap segment A slice and the "
+                                        "standalone real D3D12 dispatch smoke are ready, "
+                                        "but 0012-rurix-accel-tonemap-runtime-resource-"
+                                        "binding.patch does not pass git apply --check on "
+                                        "a scratch copy of the 0001+0002+0003 snapshot "
+                                        "with 0004..0011 applied. Fix the 0012 patch "
+                                        "artifact; the native Godot tonemap path stays "
+                                        "active and no real pass is claimed."
                                     )
+                                    next_command = r"py -3 ci\godot_rurix_patch_stack.py"
+                                elif not grx010_patch_0013_applyable_ready:
+                                    next_action = GRX010_FIX_PATCH_0013_ACTION
+                                    next_action_reason = grx009_closed_out_preamble + (
+                                        "The GRX-010 tonemap runtime resource binding "
+                                        "patch 0012 is stacked-applyable, but "
+                                        "0013-rurix-accel-tonemap-recording-smoke-and-"
+                                        "real-pass-optin.patch does not pass git apply "
+                                        "--check on a scratch copy with 0004..0012 "
+                                        "applied. Fix the 0013 patch artifact; the native "
+                                        "Godot tonemap path stays active and no real pass "
+                                        "is claimed."
+                                    )
+                                    next_command = r"py -3 ci\godot_rurix_patch_stack.py"
+                                elif not grx010_real_pass_enablement_ready_value:
+                                    next_action = GRX010_PROVIDE_ENABLEMENT_ACTION
+                                    next_action_reason = grx009_closed_out_preamble + (
+                                        "The GRX-010 tonemap 0001..0013 patch stack is "
+                                        "stacked-applyable, but the opt-in real-pass "
+                                        "enablement gate has not measured a strict success "
+                                        "(issue="
+                                        f"{grx010_real_pass_enablement_issue_value or 'unknown'}). "
+                                        "Run ci/grx010_tonemap_real_pass_enablement_smoke.py "
+                                        "on the 0001..0013 scratch Godot build with the "
+                                        "d3d12-recording-shim bridge; SKIP never advances "
+                                        "the gate. The pass stays default disabled and no "
+                                        "performance claim is made."
+                                    )
+                                elif not grx010_default_enable_decision_ready_value:
+                                    next_action = GRX010_DESIGN_DECISION_ACTION
+                                    next_action_reason = grx009_closed_out_preamble + (
+                                        "GRX-010 tonemap gated real-pass enablement is "
+                                        "strict and measured "
+                                        "(real_pass_enablement_success_evidence.json "
+                                        "records a completed opt-in real dispatch with the "
+                                        "LDR visual gate within thresholds, the forced-"
+                                        "failure fallback red leg measured, and the full "
+                                        "0001..0013 provenance/log audits green). The "
+                                        "runtime default STILL stays disabled and no "
+                                        "performance/FPS/GPU-timestamp claim exists; the "
+                                        "owner default-enable decision gate is not ready "
+                                        "yet (issue="
+                                        f"{grx010_default_enable_decision_issue_value or 'unknown'}). "
+                                        "Any default-enable decision is a separate owner-"
+                                        "decided slice."
+                                    )
+                                    next_command = None
+                                else:
+                                    next_action = GRX011_NEXT_ACTION
+                                    next_action_reason = grx009_closed_out_preamble + (
+                                        "GRX-010 tonemap is closed out: the opt-in real-"
+                                        "pass enablement is strict and measured "
+                                        "(real_pass_enablement_success_evidence.json, "
+                                        "22 checks green incl. the forced_capability_"
+                                        "downgrade red leg), and the owner default-enable "
+                                        "decision (real_pass_default_enable_decision.json) "
+                                        "records keep_default_disabled. The tonemap pass "
+                                        "stays default disabled with NO performance/FPS/"
+                                        "GPU-timestamp claim; the native Godot tonemapper "
+                                        "remains the continuation/backstop. Proceed to "
+                                        "GRX-011 (SSAO/blur, Godot patch 0014)."
+                                    )
+                                    next_command = None
                             else:
                                 next_action = (
                                     "design_grx009_luminance_real_pass_default_enable_decision"
@@ -7304,7 +8275,6 @@ def summarize(results: list[ProbeResult]) -> dict[str, object]:
                                     "Any default-enable decision, visual hardening, or "
                                     "performance gate is a separate owner-decided slice."
                                 )
-                            next_command = None
                         elif (
                             grx009_segment4b
                             and grx009_real_d3d12_dispatch_smoke
@@ -8083,6 +9053,31 @@ def summarize(results: list[ProbeResult]) -> dict[str, object]:
         "grx010_tonemap_d3d12_dispatch_smoke_ready": grx010_dispatch_smoke_ready_value,
         "grx010_tonemap_d3d12_dispatch_smoke_status": grx010_dispatch_smoke_status_value,
         "grx010_tonemap_d3d12_dispatch_smoke_issue": grx010_dispatch_smoke_issue_value,
+        "grx010_patch_0012_applyable": grx010_patch_0012_applyable_ready,
+        "grx010_patch_0012_applyability_reason": normalize_string(
+            grx010_patch_0012_applyability.get("reason")
+        ),
+        "grx010_patch_0013_applyable": grx010_patch_0013_applyable_ready,
+        "grx010_patch_0013_applyability_reason": normalize_string(
+            grx010_patch_0013_applyability.get("reason")
+        ),
+        "grx010_real_pass_enablement_success_status": grx010_real_pass_success_status,
+        "grx010_real_pass_enablement_ready": grx010_real_pass_enablement_ready_value,
+        "grx010_real_pass_enablement_issue": grx010_real_pass_enablement_issue_value,
+        "grx010_real_pass_default_enable_decision_status": (
+            grx010_default_enable_decision_status_value
+        ),
+        "grx010_real_pass_default_enable_decision_ready": (
+            grx010_default_enable_decision_ready_value
+        ),
+        "grx010_real_pass_default_enable_decision_issue": (
+            grx010_default_enable_decision_issue_value
+        ),
+        "grx010_real_pass_default_enable_decision_evidence_path": (
+            str(GRX010_REAL_PASS_DEFAULT_ENABLE_DECISION_EVIDENCE)
+            if GRX010_REAL_PASS_DEFAULT_ENABLE_DECISION_EVIDENCE.exists()
+            else None
+        ),
         "grx009_patch_0009_applyability_details": grx009_patch_0009_applyability.get(
             "details"
         ),
@@ -8630,6 +9625,59 @@ def main() -> int:
         print(
             "[godot-toolchain] grx010_tonemap_d3d12_dispatch_smoke_issue: "
             + str(summary["grx010_tonemap_d3d12_dispatch_smoke_issue"])
+        )
+    print(
+        "[godot-toolchain] grx010_patch_0012_applyable: "
+        + ("true" if summary["grx010_patch_0012_applyable"] else "false")
+    )
+    if summary["grx010_patch_0012_applyability_reason"]:
+        print(
+            "[godot-toolchain] grx010_patch_0012_applyability_reason: "
+            + str(summary["grx010_patch_0012_applyability_reason"])
+        )
+    print(
+        "[godot-toolchain] grx010_patch_0013_applyable: "
+        + ("true" if summary["grx010_patch_0013_applyable"] else "false")
+    )
+    if summary["grx010_patch_0013_applyability_reason"]:
+        print(
+            "[godot-toolchain] grx010_patch_0013_applyability_reason: "
+            + str(summary["grx010_patch_0013_applyability_reason"])
+        )
+    print(
+        "[godot-toolchain] grx010_real_pass_enablement_success_status: "
+        + str(summary["grx010_real_pass_enablement_success_status"] or "missing")
+        + " (historical measured success artifact; readiness advances off this "
+        + "file; the opt-in real-pass arm ran a real dispatch on the 0001..0013 "
+        + "scratch build; default stays disabled and no performance claim exists)"
+    )
+    print(
+        "[godot-toolchain] grx010_real_pass_enablement_ready: "
+        + ("true" if summary["grx010_real_pass_enablement_ready"] else "false")
+    )
+    if summary["grx010_real_pass_enablement_issue"]:
+        print(
+            "[godot-toolchain] grx010_real_pass_enablement_issue: "
+            + str(summary["grx010_real_pass_enablement_issue"])
+        )
+    print(
+        "[godot-toolchain] grx010_real_pass_default_enable_decision_status: "
+        + str(summary["grx010_real_pass_default_enable_decision_status"])
+        + " (owner decision; keep_default_disabled keeps the tonemap pass "
+        + "default disabled with no performance claim)"
+    )
+    print(
+        "[godot-toolchain] grx010_real_pass_default_enable_decision_ready: "
+        + (
+            "true"
+            if summary["grx010_real_pass_default_enable_decision_ready"]
+            else "false"
+        )
+    )
+    if summary["grx010_real_pass_default_enable_decision_issue"]:
+        print(
+            "[godot-toolchain] grx010_real_pass_default_enable_decision_issue: "
+            + str(summary["grx010_real_pass_default_enable_decision_issue"])
         )
     print(
         "[godot-toolchain] grx009_patch_0009_applyable: "

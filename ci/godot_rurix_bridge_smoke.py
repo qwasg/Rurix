@@ -88,6 +88,20 @@ PATCH11 = (
     / "patches"
     / "0011-rurix-accel-tonemap-pass-gate-and-callsite.patch"
 )
+PATCH12 = (
+    ROOT
+    / "spike"
+    / "godot-rurix"
+    / "patches"
+    / "0012-rurix-accel-tonemap-runtime-resource-binding.patch"
+)
+PATCH13 = (
+    ROOT
+    / "spike"
+    / "godot-rurix"
+    / "patches"
+    / "0013-rurix-accel-tonemap-recording-smoke-and-real-pass-optin.patch"
+)
 EXTERNAL_GODOT = ROOT / "external" / "godot-master"
 
 IDE_IGNORE_PROBES = [
@@ -307,6 +321,48 @@ def check_patch_state() -> str:
                 f"details: {details}"
             )
         print("[godot-rurix] patch 0011 stacked applyability: ready")
+        patch12 = evaluate_stacked_patch_applyability(
+            ROOT,
+            EXTERNAL_GODOT,
+            [PATCH4, PATCH5, PATCH6, PATCH7, PATCH8, PATCH9, PATCH10, PATCH11],
+            PATCH12,
+            "0012",
+        )
+        if patch12["ok"] is not True:
+            details = patch12.get("details", {})
+            raise SystemExit(
+                f"{patch12['reason']}; fix "
+                "0012-rurix-accel-tonemap-runtime-resource-binding.patch "
+                "so it applies after 0004..0011 in a scratch copy.\n"
+                f"details: {details}"
+            )
+        print("[godot-rurix] patch 0012 stacked applyability: ready")
+        patch13 = evaluate_stacked_patch_applyability(
+            ROOT,
+            EXTERNAL_GODOT,
+            [
+                PATCH4,
+                PATCH5,
+                PATCH6,
+                PATCH7,
+                PATCH8,
+                PATCH9,
+                PATCH10,
+                PATCH11,
+                PATCH12,
+            ],
+            PATCH13,
+            "0013",
+        )
+        if patch13["ok"] is not True:
+            details = patch13.get("details", {})
+            raise SystemExit(
+                f"{patch13['reason']}; fix "
+                "0013-rurix-accel-tonemap-recording-smoke-and-real-pass-optin.patch "
+                "so it applies after 0004..0012 in a scratch copy.\n"
+                f"details: {details}"
+            )
+        print("[godot-rurix] patch 0013 stacked applyability: ready")
     return state
 
 
@@ -462,6 +518,28 @@ def main() -> int:
             "tone_mapper->tonemapper",
             "RXGD_STATUS_FALLBACK",
             "default",
+        ],
+    )
+    require_text(
+        PATCH12,
+        [
+            "RenderingDevice::get_driver_resource",
+            "ID3D12Resource*",
+            "try_record_tonemap",
+            "RXGD_PASS_TONEMAP",
+            "RXGD_STATUS_FALLBACK",
+        ],
+    )
+    require_text(
+        PATCH13,
+        [
+            "rendering/rurix_accel/passes/tonemap/dispatch_real_pass",
+            "rendering/rurix_accel/passes/tonemap/dispatch_recording_smoke",
+            "rendering/rurix_accel/passes/tonemap/real_pass_force_capability_downgrade",
+            "RXGD_CAP_TONEMAP_REAL_PASS",
+            "RXGD_GODOT_RUNTIME_TONEMAP_RECORD",
+            "d3d12-recording-shim",
+            "RXGD_STATUS_FALLBACK",
         ],
     )
     check_external_ignored()

@@ -3,7 +3,7 @@
   "segment": "offline_compile",
   "status": "success",
   "runtime_state": "fallback_only",
-  "attempted_at_utc": "2026-07-08T14:44:20Z",
+  "attempted_at_utc": "2026-07-11T10:45:30Z",
   "provenance": "hlsl_bridge_workaround",
   "rurix_owned": false,
   "rurix_owned_rts0": true,

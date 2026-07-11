@@ -124,3 +124,18 @@
 - gated real-pass enablement gate 与 measured success（4h 级别）。
 - 其余 tonemapper 模式（Reinhard/Filmic/ACES/AgX）、auto exposure、glow、FXAA、BCS、color correction、debanding、HDR 输出、raster-vs-compute 输出接缝。
 - full baseline / per-pass FPS 对比数据；任何性能提升声明。
+
+## 12. Close-out（GRX-010 stage-A5 对等）
+
+> 本节为 close-out 追加段;§1–§11 的调查/契约/marker 保持不变(pass_id = tonemap、RXGD_PASS_TONEMAP、TONEMAPPER_LINEAR、RXGD_CAP_TONEMAP_REAL_PASS 等契约字面不动),§11 known gaps 不变。
+
+GRX-010 tonemap 已 close-out(复用 GRX-009 4a..4h 成熟模板)。在 §8 patch 0011 之后补齐两段栈式 patch:
+
+- **segment B — patch 0012(runtime resource binding)**:`0012-rurix-accel-tonemap-runtime-resource-binding.patch`(栈式叠 0001..0011,scratch copy `git apply --check` 通过)把 Godot runtime tonemap call site 传给 bridge 的资源从 logical id 改成真实 `ID3D12Resource*` native handle——`renderer_scene_render_rd.cpp` Tonemap 段用 `RenderingDevice::get_driver_resource(DRIVER_RESOURCE_TEXTURE, RID, 0)` 解析 source/dest 真实句柄,句柄为 0 或 `RenderingDevice` 不可用时 fallback 到原生 tonemapper;fallback marker 升级为 `RurixAccel: tonemap native resource handle mapping fallback rc=`。
+- **segment C — patch 0013(recording smoke + real-pass opt-in)**:`0013-rurix-accel-tonemap-recording-smoke-and-real-pass-optin.patch`(栈式叠 0001..0012)新增默认 `false` 的 `rendering/rurix_accel/passes/tonemap/{dispatch_real_pass,dispatch_recording_smoke,real_pass_force_capability_downgrade}` opt-in、`RXGD_CAP_TONEMAP_REAL_PASS`(1u<<4,复用 `RxGdCaps.flags`,`RXGD_ABI_VERSION` 保持 1)、`RXGD_GODOT_RUNTIME_TONEMAP_RECORD` marker 与 `d3d12-recording-shim` 下的 real dispatch path;patch 0013 result writeback 为 **SCAFFOLD**(native Godot tonemapper 仍作 continuation/backstop 重渲染每帧)。
+
+**Enablement measured success 事实**:`ci/grx010_tonemap_real_pass_enablement_smoke.py` 在 0001..0013 scratch Godot(Windows D3D12 Forward+)上记录 strict MEASURED success(`real_pass_enablement_success_evidence.json`,`status=success`):opt-in real-pass 腿(`enabled`+`dispatch_real_pass`,均默认 false)真正执行且完成——`RXGD_GODOT_RUNTIME_TONEMAP_REAL_PASS` marker + patch 0013 writeback scaffold marker 入证,22 checks 全绿含 `forced_capability_downgrade` 红腿实测 `unsupported_device`,LDR visual gate `max_abs=0`/`mean_abs=0`(reference/candidate/forced 三帧在 pinned 阈值内),measured_local telemetry 通过 GRX-008 校验,`0001..0013` patch-stack/溯源/日志审计全绿,DLL 指纹记 `features=[d3d12-recording-shim]`(唯一带 linked real dispatch path 的构建)。manifest 顶层如实翻转 `implemented=true`、`real_gpu_pass=true`(opt-in 实测口径)、`real_d3d12_dispatch_recorded=true`、`runtime_state=fallback_only_by_default_real_pass_optin_measured`;`default_enable_state` 保持 `disabled`。
+
+**Owner default-enable decision 引用**:`real_pass_default_enable_decision.json` / `real_pass_default_enable_decision.md` 记 `keep_default_disabled`,理由:无 per-pass FPS 证据(契约要求 per-pass FPS >= 0.95x baseline)、仅 `TONEMAPPER_LINEAR` + sRGB 子集、patch 0013 writeback 仍 scaffold + raster-vs-compute output seam 未设计;full baseline + per-pass benchmark 后由 owner 复评。
+
+**Fail-closed 不变**:默认 Godot config 下 bridge 对 `RXGD_PASS_TONEMAP` 仍返回 `RXGD_STATUS_FALLBACK`、native tonemapper 接管;shipping feature-off bridge 仍 fail closed 为 `real_dispatch_path_not_linked`。probe manifest 检查 fail-closed 放宽:仅当 strict success 存在且全量审计通过(`grx010_real_pass_measured_success_active`)才接受翻转后的新值,placeholder/篡改 success 文档报 `grx010_real_pass_success_evidence_conflict` 回落旧值。**§11 known gaps 全部保留不变**(其余 tonemapper 模式 / auto exposure / glow / HDR / raster-vs-compute seam / per-pass FPS 门)。probe enablement + 决策双 ready 后 `next_action=start_grx011_ssao_blur_godot_patch_0014`。无 FPS、p95、GPU timestamp 或任何性能提升宣称。

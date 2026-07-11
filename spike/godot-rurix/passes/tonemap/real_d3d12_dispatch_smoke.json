@@ -28,7 +28,7 @@
   "artifact_hashes_match_offline_evidence": true,
   "note": "GRX-010 standalone real D3D12 dispatch smoke evidence only. Even a success here keeps runtime_state=fallback_only and real_gpu_pass=false; it is not a Godot runtime pass, visual, perf, or measured-telemetry claim.",
   "status": "success",
-  "timestamp": "2026-07-08T22:45:46+08:00",
+  "timestamp": "2026-07-11T18:45:34+08:00",
   "run_url": "local interactive runner",
   "device": {
     "adapter": "NVIDIA GeForce RTX 4070 Ti",
