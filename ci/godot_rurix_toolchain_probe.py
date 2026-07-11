@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import os
 import pathlib
@@ -379,6 +380,41 @@ GRX010_DESIGN_DECISION_ACTION = (
     "design_grx010_tonemap_real_pass_default_enable_decision"
 )
 GRX011_NEXT_ACTION = "start_grx011_ssao_blur_godot_patch_0014"
+
+# --- GRX gate sequence (table-driven per-pass registration) ----------------
+# Industrialized GRX-011+ scaffolding. From GRX-011 onward every pass ships one
+# gate module under ci/grx_gates/ exporting `evaluate() -> dict` (see
+# ci/grx_gates/_common.py for the interface contract). Registered gates are
+# listed here in order; `walk_grx_gate_sequence` (below) consults them, fail
+# closed, ONLY once the legacy grx010 chain has closed out and handed off to
+# grx011 (next_action == GRX011_NEXT_ACTION).
+#
+# The table is EMPTY until Wave 2 registers the first downstream gate (grx011);
+# while it is empty the probe's next_action is computed exactly as before (this
+# is a HARD regression requirement — do not add behaviour on the empty path).
+# Each entry is a dict describing one gate module:
+#   {"gate_id": "grx011", "module": "grx011_ssao_blur"}    # ci/grx_gates/<module>.py
+#   {"gate_id": "grx011", "module_path": "/abs/path.py"}   # explicit path (tests)
+GRX_GATES_DIR = ROOT / "ci" / "grx_gates"
+GRX_GATE_SEQUENCE: list[dict[str, object]] = []
+GRX_GATE_REQUIRED_KEYS = (
+    "gate_id",
+    "contract_ready",
+    "patch_applyability",
+    "dispatch_smoke_ready",
+    "enablement_ready",
+    "decision_ready",
+    "first_issue",
+    "next_action",
+)
+GRX_GATE_READINESS_KEYS = (
+    "contract_ready",
+    "patch_applyability",
+    "dispatch_smoke_ready",
+    "enablement_ready",
+    "decision_ready",
+)
+
 # Cache for the (expensive) strict tonemap real-pass success audit.
 _GRX010_REAL_PASS_SUCCESS_AUDIT_CACHE: dict[str, bool] = {}
 
@@ -694,6 +730,167 @@ def normalize_string(value: object) -> str | None:
         return None
     stripped = value.strip()
     return stripped or None
+
+
+def evaluate_grx_gate_entry(entry: object) -> dict[str, object]:
+    """Load and evaluate one GRX gate-module entry, fail closed.
+
+    Returns a normalized record with keys ``gate_id``, ``all_ready``,
+    ``next_action``, ``first_issue``, ``module_error`` and ``evaluation``.
+    ``module_error`` is non-None on ANY failure (non-dict entry, missing/broken
+    module file, import error, missing/non-callable ``evaluate``, ``evaluate``
+    raising, a non-dict result, or an interface violation). ``all_ready`` is
+    True only when every readiness key is True and ``first_issue`` is None; the
+    probe never advances ``next_action`` from a module that is not ``all_ready``.
+    See ci/grx_gates/_common.py for the gate-module interface contract.
+    """
+    gate_id = "unknown"
+    if isinstance(entry, dict):
+        gate_id = normalize_string(entry.get("gate_id")) or "unknown"
+    result: dict[str, object] = {
+        "gate_id": gate_id,
+        "all_ready": False,
+        "next_action": None,
+        "first_issue": None,
+        "module_error": None,
+        "evaluation": None,
+    }
+    if not isinstance(entry, dict):
+        result["module_error"] = "gate entry is not a dict"
+        return result
+
+    module_path_text = normalize_string(entry.get("module_path"))
+    if module_path_text:
+        module_file = pathlib.Path(module_path_text)
+    else:
+        module_name = normalize_string(entry.get("module"))
+        if not module_name:
+            result["module_error"] = "gate entry missing both 'module' and 'module_path'"
+            return result
+        module_file = GRX_GATES_DIR / f"{module_name}.py"
+    if not module_file.is_file():
+        result["module_error"] = f"gate module file not found: {module_file}"
+        return result
+
+    # Make the shared gate helpers importable (`import _common`) regardless of
+    # how the probe itself was launched (script vs in-process import).
+    gates_dir = str(GRX_GATES_DIR)
+    if gates_dir not in sys.path:
+        sys.path.insert(0, gates_dir)
+
+    try:
+        spec = importlib.util.spec_from_file_location(
+            f"grx_gate_{gate_id}_{module_file.stem}", module_file
+        )
+        if spec is None or spec.loader is None:
+            result["module_error"] = f"could not build import spec for {module_file}"
+            return result
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    except Exception as exc:  # noqa: BLE001 - fail closed on any load error
+        result["module_error"] = f"gate module import failed: {type(exc).__name__}: {exc}"
+        return result
+
+    evaluate = getattr(module, "evaluate", None)
+    if not callable(evaluate):
+        result["module_error"] = "gate module does not export a callable evaluate()"
+        return result
+    try:
+        evaluation = evaluate()
+    except Exception as exc:  # noqa: BLE001 - fail closed on any evaluate error
+        result["module_error"] = f"evaluate() raised {type(exc).__name__}: {exc}"
+        return result
+    if not isinstance(evaluation, dict):
+        result["module_error"] = "evaluate() did not return a dict"
+        return result
+
+    missing = [key for key in GRX_GATE_REQUIRED_KEYS if key not in evaluation]
+    if missing:
+        result["module_error"] = f"evaluate() result missing required keys: {missing}"
+        return result
+    for key in GRX_GATE_READINESS_KEYS:
+        if not isinstance(evaluation.get(key), bool):
+            result["module_error"] = f"evaluate() key {key!r} must be a bool"
+            return result
+    first_issue_value = evaluation.get("first_issue")
+    if first_issue_value is not None and not isinstance(first_issue_value, str):
+        result["module_error"] = "evaluate() key 'first_issue' must be str or None"
+        return result
+    next_action_value = evaluation.get("next_action")
+    if next_action_value is not None and not isinstance(next_action_value, str):
+        result["module_error"] = "evaluate() key 'next_action' must be str or None"
+        return result
+
+    result["evaluation"] = evaluation
+    result["first_issue"] = normalize_string(first_issue_value)
+    result["next_action"] = normalize_string(next_action_value)
+    result["all_ready"] = (
+        all(evaluation.get(key) is True for key in GRX_GATE_READINESS_KEYS)
+        and result["first_issue"] is None
+    )
+    return result
+
+
+def walk_grx_gate_sequence(
+    sequence: object,
+    base_next_action: str | None,
+    base_next_action_reason: str | None = None,
+    base_next_command: str | None = None,
+) -> dict[str, object]:
+    """Table-driven walk over the GRX gate sequence, fail closed.
+
+    Starts from the base ``next_action`` produced by the legacy grx010 chain.
+    For each registered gate in order: if the module fails to load, violates the
+    ``evaluate()`` interface, or reports a non-empty ``first_issue`` / any
+    readiness key false, the walk records a ``grx_gate_module_error``, leaves
+    ``next_action`` UNCHANGED, and stops (does not consult later gates). Only a
+    fully-ready gate advances ``next_action`` to its gate-provided value and
+    lets the walk continue. An EMPTY sequence is a pure no-op, so the returned
+    ``next_action`` equals ``base_next_action`` (hard regression requirement).
+    """
+    next_action = base_next_action
+    next_action_reason = base_next_action_reason
+    next_command = base_next_command
+    evaluations: list[dict[str, object]] = []
+    module_errors: list[dict[str, object]] = []
+    for entry in sequence:
+        evaluation = evaluate_grx_gate_entry(entry)
+        module_error = evaluation.get("module_error")
+        if module_error is None and evaluation.get("all_ready") is not True:
+            # A conforming module that is simply not complete yet: fail closed
+            # (do not advance) and surface the first_issue as a gate error.
+            module_error = "gate not ready: first_issue=" + (
+                normalize_string(evaluation.get("first_issue")) or "unknown"
+            )
+        record = {
+            "gate_id": evaluation.get("gate_id"),
+            "all_ready": evaluation.get("all_ready"),
+            "first_issue": evaluation.get("first_issue"),
+            "next_action": evaluation.get("next_action"),
+            "module_error": module_error,
+        }
+        evaluations.append(record)
+        if module_error is not None:
+            module_errors.append(
+                {"gate_id": evaluation.get("gate_id"), "reason": module_error}
+            )
+            break
+        candidate = normalize_string(evaluation.get("next_action"))
+        if candidate:
+            next_action = candidate
+            next_action_reason = (
+                f"GRX gate {evaluation.get('gate_id')} reports contract, patch, "
+                "dispatch, enablement and decision all ready with no first_issue; "
+                f"advancing next_action to {candidate}."
+            )
+            next_command = None
+    return {
+        "next_action": next_action,
+        "next_action_reason": next_action_reason,
+        "next_command": next_command,
+        "evaluations": evaluations,
+        "module_errors": module_errors,
+    }
 
 
 def infer_vs_installation_root(raw_path: object) -> str | None:
@@ -8905,6 +9102,34 @@ def summarize(results: list[ProbeResult]) -> dict[str, object]:
         next_action_reason = "All required blockers are clear for the default `d3d12=yes` build."
         next_command = recommended_scons
 
+    # --- GRX gate sequence (table-driven per-pass registration) -------------
+    # Engages ONLY once the legacy grx010 chain has closed out and handed off to
+    # grx011 (next_action == GRX011_NEXT_ACTION), then walks the registered
+    # downstream gate modules fail closed. With an EMPTY table this is a no-op
+    # and next_action is unchanged (hard regression requirement).
+    grx_gate_sequence_ids = [
+        normalize_string(entry.get("gate_id")) if isinstance(entry, dict) else None
+        for entry in GRX_GATE_SEQUENCE
+    ]
+    grx_gate_evaluations: list[dict[str, object]] = []
+    grx_gate_module_errors: list[dict[str, object]] = []
+    if next_action == GRX011_NEXT_ACTION:
+        gate_walk = walk_grx_gate_sequence(
+            GRX_GATE_SEQUENCE, next_action, next_action_reason, next_command
+        )
+        next_action = gate_walk["next_action"]
+        next_action_reason = gate_walk["next_action_reason"]
+        next_command = gate_walk["next_command"]
+        grx_gate_evaluations = gate_walk["evaluations"]
+        grx_gate_module_errors = gate_walk["module_errors"]
+        for error in grx_gate_module_errors:
+            warnings.append(
+                "grx_gate_module_error gate_id="
+                + str(error.get("gate_id"))
+                + " reason="
+                + str(error.get("reason"))
+            )
+
     return {
         "build_ready": build_ready,
         "build_artifacts_ready": build_artifacts_ready,
@@ -9287,6 +9512,9 @@ def summarize(results: list[ProbeResult]) -> dict[str, object]:
         "next_action": next_action,
         "next_action_reason": next_action_reason,
         "next_command": next_command,
+        "grx_gate_sequence": grx_gate_sequence_ids,
+        "grx_gate_evaluations": grx_gate_evaluations,
+        "grx_gate_module_errors": grx_gate_module_errors,
         "blockers": blockers,
         "warnings": warnings,
         "optional_tools_missing": optional_tools_missing,
@@ -10020,6 +10248,15 @@ def main() -> int:
         print("[godot-toolchain] next_action_reason: " + summary["next_action_reason"])
     if summary["next_command"]:
         print("[godot-toolchain] next_command: " + str(summary["next_command"]))
+    grx_gate_module_errors = summary.get("grx_gate_module_errors")
+    if grx_gate_module_errors:
+        for error in grx_gate_module_errors:
+            print(
+                "[godot-toolchain] grx_gate_module_error: gate_id="
+                + str(error.get("gate_id"))
+                + " reason="
+                + str(error.get("reason"))
+            )
     write_report(summary)
 
     if any(result.status == "FAIL" for result in results):

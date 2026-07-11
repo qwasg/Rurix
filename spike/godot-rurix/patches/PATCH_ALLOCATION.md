@@ -1,0 +1,124 @@
+# GRX Godot Patch Allocation Registry
+
+Industrialized ledger for the `spike/godot-rurix/patches/` stack. GRX-011..022
+are developed by multiple agents in parallel off the shared per-pass template
+(`spike/godot-rurix/passes/PASS_TEMPLATE.md`). Every patch number and every
+`RxGdCaps.flags` capability bit is pre-allocated here so parallel agents never
+collide. This file is the single source of truth for patch-number and cap-bit
+ownership; keep it in sync (see §4 rules).
+
+- Patch stack home: `spike/godot-rurix/patches/NNNN-rurix-accel-*.patch`
+- Applyability checker: `ci/godot_rurix_patch_stack.py` (stacked scratch-copy
+  `git apply --check`; the ignored `external/godot-master` snapshot is never
+  mutated).
+- The Godot side is only ever changed through these patch files; the tracked
+  Godot snapshot source is never edited directly.
+
+## 1. Allocated patches (0001-0013, in use)
+
+| Patch | File | Pass / milestone |
+| --- | --- | --- |
+| 0001 | `0001-rurix-accel-module-scaffold.patch` | luminance_reduction (GRX-009) — module scaffold |
+| 0002 | `0002-rurix-accel-luminance-pass-gate.patch` | luminance_reduction — pass gate |
+| 0003 | `0003-rurix-accel-luminance-core-callsite-wiring.patch` | luminance_reduction — core call-site wiring |
+| 0004 | `0004-rurix-accel-luminance-resource-mapping-scaffold.patch` | luminance_reduction — resource-mapping scaffold |
+| 0005 | `0005-rurix-accel-luminance-runtime-binding-preflight.patch` | luminance_reduction — runtime binding preflight |
+| 0006 | `0006-rurix-accel-luminance-gated-dispatch-bringup.patch` | luminance_reduction — gated dispatch bring-up |
+| 0007 | `0007-rurix-accel-luminance-native-resource-handle-mapping.patch` | luminance_reduction — native resource-handle mapping |
+| 0008 | `0008-rurix-accel-luminance-godot-runtime-bridge-recording-smoke.patch` | luminance_reduction — runtime bridge recording smoke |
+| 0009 | `0009-rurix-accel-luminance-real-pass-optin.patch` | luminance_reduction — real-pass opt-in |
+| 0010 | `0010-rurix-accel-luminance-real-pass-result-writeback.patch` | luminance_reduction — real-pass result writeback |
+| 0011 | `0011-rurix-accel-tonemap-pass-gate-and-callsite.patch` | tonemap (GRX-010) — pass gate + call-site |
+| 0012 | `0012-rurix-accel-tonemap-runtime-resource-binding.patch` | tonemap — runtime resource binding |
+| 0013 | `0013-rurix-accel-tonemap-recording-smoke-and-real-pass-optin.patch` | tonemap — recording smoke + real-pass opt-in |
+
+## 2. Pre-allocated patches (0014-0040+, reserved)
+
+Each pass reserves a small contiguous block (typically three: gate+callsite →
+runtime binding → recording+real-pass, mirroring the GRX-010 0011/0012/0013
+triple). Numbers are reserved even if a pass ends up using fewer; unused
+reserved numbers become holes (monotonic, holes allowed — §4).
+
+| Patches | Pass | Milestone | Notes |
+| --- | --- | --- | --- |
+| 0014-0016 | ssao_blur | GRX-011 | 0014 gate+callsite / 0015 runtime binding / 0016 recording+real-pass opt-in |
+| 0017-0019 | taa_resolve | GRX-012 | 0017 gate+callsite / 0018 runtime binding / 0019 recording+real-pass opt-in |
+| 0020-0022 | particles_copy | GRX-013 | 0020 gate+callsite / 0021 runtime binding / 0022 recording+real-pass opt-in |
+| 0023-0025 | cluster_store | GRX-014 | 0023 gate+callsite / 0024 runtime binding / 0025 recording+real-pass opt-in |
+| 0026 | material_sorting (sort telemetry) | GRX-017 | single telemetry-only slice (no real-pass dispatch triple) |
+| 0027-0029 | gpu_culling | GRX-015 | 0027 gate+callsite / 0028 runtime binding / 0029 recording+real-pass opt-in |
+| 0030-0032 | instance_compaction | GRX-016 | 0030 gate+callsite / 0031 runtime binding / 0032 recording+real-pass opt-in |
+| 0033-0035 | indirect_args | GRX-018 | 0033 gate+callsite / 0034 runtime binding / 0035 recording+real-pass opt-in |
+| 0036-0038 | fused_post_chain | GRX-019 | 0036 gate+callsite / 0037 runtime binding / 0038 recording+real-pass opt-in |
+| 0039 | pso_prewarm | GRX-021 | OPTIONAL single slice (may not need a Godot patch at all) |
+| 0040+ | bindless | GRX-022 | reserve pool start; allocate concrete numbers only AFTER the bindless RFC is adjudicated |
+
+> Milestone ordering note: the patch blocks are grouped by pass, not strictly by
+> GRX number (GRX-017 `material_sorting` is the single 0026 telemetry slice
+> placed between the GRX-014 and GRX-015 blocks). Follow the milestone column,
+> not numeric adjacency.
+
+## 3. `RxGdCaps.flags` capability-bit allocation
+
+Cap bits live in `src/rurix-godot/src/lib.rs` (carried in `RxGdCaps.flags`,
+ABI v1 — reusing `flags` bits never changes the C ABI struct layout, so
+`RXGD_ABI_VERSION` stays `1`). Bits 0-5 are already defined; bits 6-14 are
+pre-allocated for the parallel passes in the order the milestone plan lists
+them. A pass's real-pass opt-in patch (its `...16`/`...19`/... slice) is what
+first makes the Godot side set its bit; the default Godot config never sets any
+of these, and setting a bit never by itself makes the bridge return
+`RXGD_STATUS_OK`.
+
+| Bit | Value | Constant (`RXGD_CAP_*`) | Pass | Status |
+| --- | --- | --- | --- | --- |
+| 0 | `1 << 0` | `SHADER_INT64` | (device capability) | defined |
+| 1 | `1 << 1` | `LUMINANCE_DISPATCH_BRINGUP` | luminance_reduction | defined |
+| 2 | `1 << 2` | `LUMINANCE_DISPATCH_RECORD` | luminance_reduction | defined |
+| 3 | `1 << 3` | `LUMINANCE_REAL_PASS` | luminance_reduction | defined |
+| 4 | `1 << 4` | `TONEMAP_REAL_PASS` | tonemap | defined |
+| 5 | `1 << 5` | `SSAO_BLUR_REAL_PASS` | ssao_blur | defined |
+| 6 | `1 << 6` | `TAA_RESOLVE_REAL_PASS` | taa_resolve (GRX-012) | reserved |
+| 7 | `1 << 7` | `PARTICLES_COPY_REAL_PASS` | particles_copy (GRX-013) | reserved |
+| 8 | `1 << 8` | `CLUSTER_STORE_REAL_PASS` | cluster_store (GRX-014) | reserved |
+| 9 | `1 << 9` | `GPU_CULLING_REAL_PASS` | gpu_culling (GRX-015) | reserved |
+| 10 | `1 << 10` | `INSTANCE_COMPACTION_REAL_PASS` | instance_compaction (GRX-016) | reserved |
+| 11 | `1 << 11` | `MATERIAL_SORTING_REAL_PASS` | material_sorting (GRX-017) | reserved |
+| 12 | `1 << 12` | `INDIRECT_ARGS_REAL_PASS` | indirect_args (GRX-018) | reserved |
+| 13 | `1 << 13` | `FUSED_POST_CHAIN_REAL_PASS` | fused_post_chain (GRX-019) | reserved |
+| 14 | `1 << 14` | `PSO_PREWARM_REAL_PASS` | pso_prewarm (GRX-021) | reserved |
+| 15+ | `1 << 15`+ | (reserve pool) | bindless (GRX-022) / future | reserve pool |
+
+> The `RXGD_PASS_*` per-pass id enum in `src/rurix-godot/src/lib.rs` is a
+> separate namespace (`CLUSTER_STORE=1`, `SSAO_BLUR=2`, `SSIL_BLUR=3`,
+> `LUMINANCE_REDUCTION=4`, `TONEMAP=5`, `TAA_RESOLVE=6`, `PARTICLES_COPY=7`,
+> `GPU_CULLING=8`, `INDIRECT_ARGS=9`, `FUSED_POST_CHAIN=10`, ...). Do not confuse
+> a pass id with its cap bit; allocate any new `RXGD_PASS_*` id in that enum, not
+> here.
+
+## 4. Rules (normative)
+
+1. **Single stack-lock holder.** The right to append to the patch stack (add or
+   modify any `NNNN-*.patch`) is held by exactly ONE agent at a time. Acquire
+   the stack-lock before generating patches; release it when your slice lands.
+   Stages S1-S4 and S6 of `PASS_TEMPLATE.md` are cross-pass parallel and need no
+   lock; the patch-authoring stages S5 and S7 are serialized by this lock.
+2. **Monotonic numbering, holes allowed.** Patch numbers only ever increase.
+   Never renumber or reuse a number. A pass that uses fewer patches than its
+   reserved block leaves the unused numbers as permanent holes (e.g. GRX-021 may
+   use only 0039 and leave nothing else).
+3. **Overflow uses the reserve pool, atomically.** If a pass needs more patches
+   than its reserved block, take the next free number(s) from the reserve pool
+   (§2, `0040+` / cap bit 15+). Any change to THIS registry (claiming a reserve
+   number or cap bit) MUST land in the SAME commit as the patch that consumes
+   it — the ledger and the stack never diverge.
+4. **Patches are generated, never hand-written.** Every patch MUST be produced
+   by `git diff --no-index` (or an equivalent generated diff) against a scratch
+   copy of the Godot snapshot with ALL prior patches in the stack already
+   applied. Do not hand-edit hunks. Verify with
+   `py -3 ci/godot_rurix_patch_stack.py` (stacked applyability on a temporary
+   scratch copy; the real `external/godot-master` snapshot is never touched).
+5. **Cap bits are append-only.** Claim the next free `RxGdCaps.flags` bit from
+   §3 in milestone order; never reuse or renumber a bit (reusing a bit is an ABI
+   hazard even though the struct layout is unchanged). Reusing a `flags` bit
+   keeps `RXGD_ABI_VERSION = 1`; a real struct-layout change would require an ABI
+   bump and is out of scope for these passes.

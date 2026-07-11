@@ -3897,6 +3897,132 @@ def run_grx010_tonemap_close_out_cases() -> None:
     print("grx010 tonemap close-out cases passed")
 
 
+def run_grx_gate_sequence_cases() -> None:
+    """GRX gate sequence (table-driven per-pass registration) regression.
+
+    (1) The real, empty ``GRX_GATE_SEQUENCE`` is a pure no-op: the walk keeps
+        the base ``next_action`` and records no evaluations/errors, and the full
+        probe subprocess still emits the unchanged grx010 hand-off next_action
+        (``start_grx011_ssao_blur_godot_patch_0014``) with no
+        ``grx_gate_module_error`` (hard regression requirement).
+    (2) A broken gate module injected into a temporary sequence is reported as a
+        ``grx_gate_module_error`` and MUST NOT rewrite ``next_action``: covers a
+        syntax-error module, a module without ``evaluate``, an ``evaluate`` that
+        raises, and a conforming-but-not-ready module. A fully-ready module
+        advances ``next_action`` to its gate-provided value.
+
+    All fixtures are temp files; the real ``ci/grx_gates/`` directory is never
+    mutated.
+    """
+    sys.path.insert(0, str(ROOT))
+    from ci import godot_rurix_toolchain_probe as probe
+
+    base = probe.GRX011_NEXT_ACTION
+
+    # (1) The shipped table must be empty (Wave 2 registers grx011).
+    if probe.GRX_GATE_SEQUENCE:
+        raise AssertionError(
+            "GRX_GATE_SEQUENCE must ship empty until Wave 2 registers grx011"
+        )
+    empty_walk = probe.walk_grx_gate_sequence([], base, "base reason", None)
+    if empty_walk["next_action"] != base:
+        raise AssertionError(
+            f"empty gate walk must keep next_action {base!r}, got {empty_walk['next_action']!r}"
+        )
+    if empty_walk["module_errors"] or empty_walk["evaluations"]:
+        raise AssertionError("empty gate walk must record no evaluations or errors")
+
+    # (1b) The full probe subprocess with the real empty table still emits the
+    # unchanged grx010 hand-off next_action and no module-error line.
+    completed = subprocess.run(
+        ["py", "-3", "ci\\godot_rurix_toolchain_probe.py"],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    assert_contains(completed.stdout, f"next_action: {base}")
+    assert_not_contains(completed.stdout, "grx_gate_module_error")
+
+    # (2) Broken / non-ready gate modules must fail closed.
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_dir = pathlib.Path(tmp)
+        syntax_error = tmp_dir / "broken_syntax.py"
+        syntax_error.write_text("def evaluate(:\n    pass\n", encoding="utf-8")
+        missing_evaluate = tmp_dir / "no_evaluate.py"
+        missing_evaluate.write_text("VALUE = 1\n", encoding="utf-8")
+        raising_evaluate = tmp_dir / "raises.py"
+        raising_evaluate.write_text(
+            "def evaluate():\n    raise RuntimeError('boom')\n", encoding="utf-8"
+        )
+        not_ready = tmp_dir / "not_ready.py"
+        not_ready.write_text(
+            "def evaluate():\n"
+            "    return {\n"
+            "        'gate_id': 'grx011',\n"
+            "        'contract_ready': True,\n"
+            "        'patch_applyability': False,\n"
+            "        'dispatch_smoke_ready': False,\n"
+            "        'enablement_ready': False,\n"
+            "        'decision_ready': False,\n"
+            "        'first_issue': 'patch 0014 not applyable',\n"
+            "        'next_action': 'start_grx011_ssao_blur_godot_patch_0014',\n"
+            "    }\n",
+            encoding="utf-8",
+        )
+        all_ready = tmp_dir / "all_ready.py"
+        all_ready.write_text(
+            "def evaluate():\n"
+            "    return {\n"
+            "        'gate_id': 'grx011',\n"
+            "        'contract_ready': True,\n"
+            "        'patch_applyability': True,\n"
+            "        'dispatch_smoke_ready': True,\n"
+            "        'enablement_ready': True,\n"
+            "        'decision_ready': True,\n"
+            "        'first_issue': None,\n"
+            "        'next_action': 'start_grx012_taa_resolve_godot_patch_0017',\n"
+            "    }\n",
+            encoding="utf-8",
+        )
+
+        for broken in (syntax_error, missing_evaluate, raising_evaluate, not_ready):
+            walk = probe.walk_grx_gate_sequence(
+                [{"gate_id": "grx011", "module_path": str(broken)}], base
+            )
+            if walk["next_action"] != base:
+                raise AssertionError(
+                    f"broken gate {broken.name} must not rewrite next_action; "
+                    f"got {walk['next_action']!r}"
+                )
+            if not walk["module_errors"]:
+                raise AssertionError(
+                    f"broken gate {broken.name} must record a grx_gate_module_error"
+                )
+
+        # A fully-ready gate advances next_action to its gate-provided value.
+        ready_walk = probe.walk_grx_gate_sequence(
+            [{"gate_id": "grx011", "module_path": str(all_ready)}], base
+        )
+        if ready_walk["module_errors"]:
+            raise AssertionError(
+                f"a fully-ready gate must not error: {ready_walk['module_errors']!r}"
+            )
+        if ready_walk["next_action"] != "start_grx012_taa_resolve_godot_patch_0017":
+            raise AssertionError(
+                "a fully-ready gate must advance next_action, got "
+                f"{ready_walk['next_action']!r}"
+            )
+
+    # The real gate package directory must be untouched by these cases.
+    real_gates_dir = ROOT / "ci" / "grx_gates"
+    tracked = sorted(path.name for path in real_gates_dir.glob("*.py"))
+    if tracked != ["__init__.py", "_common.py"]:
+        raise AssertionError(f"unexpected files in ci/grx_gates/: {tracked}")
+    print("grx gate sequence table-driven cases passed")
+
+
 def main() -> int:
     original_manifest_bytes = REAL_MANIFEST_PATH.read_bytes()
     original_evidence_bytes = REAL_EVIDENCE_PATH.read_bytes()
@@ -3935,6 +4061,7 @@ def main() -> int:
     run_texture_artifact_provenance_policy_gate_cases(manifest, evidence)
     run_grx010_tonemap_gate_cases()
     run_grx010_tonemap_close_out_cases()
+    run_grx_gate_sequence_cases()
     if REAL_MANIFEST_PATH.read_bytes() != original_manifest_bytes:
         raise AssertionError("real pass_manifest.json changed during validation_failed test")
     if REAL_EVIDENCE_PATH.read_bytes() != original_evidence_bytes:
