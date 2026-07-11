@@ -1,7 +1,9 @@
 //@ spec: RXS-0157
 // GRX-009:Texture2D<f32>(SRV)+ RWTexture2D<f32>(UAV)compute 入口形参进入
-// 离线绑定布局推导,body lowering 走 `@llvm.dx.resource.load.texture.2d` /
-// `@llvm.dx.resource.store.texture.2d`(替代 raw-buffer 路径,strict-only f32)。
+// 离线绑定布局推导,body lowering 走上游/本地 patch 纹理 intrinsic
+// `@llvm.dx.resource.load.level` / `@llvm.dx.resource.store.texture`
+// (上游 `target("dx.Texture", float, W, 0, 0, 2)` 拼写,替代 raw-buffer 路径,
+// strict-only f32)。
 kernel fn k(src: Texture2D<f32>, dst: RWTexture2D<f32>) {
     dst[0] = src[0];
 }

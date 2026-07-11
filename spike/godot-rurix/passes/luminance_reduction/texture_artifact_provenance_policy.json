@@ -43,5 +43,21 @@
     "performance claim",
     "default pass enablement"
   ],
-  "next_action_if_ready": "provide_grx009_runtime_mappable_luminance_kernel_artifact"
+  "next_action_if_ready": "provide_grx009_runtime_mappable_luminance_kernel_artifact",
+  "errata": {
+    "date": "2026-07-11",
+    "toolchain_unblocked": true,
+    "achieved_target_ext_form": "target(\"dx.Texture\", float, IsWriteable, 0, 0, 2) (upstream), NOT the abandoned self-invented dx.Texture2D<float>/dx.RWTexture2D<float>",
+    "load_intrinsic": "llvm.dx.resource.load.level (upstream PR #193343) -> dx.op.textureLoad(66)",
+    "store_intrinsic": "llvm.dx.resource.store.texture (local llc patch H:/llvm-clean-82c5bce5-src commit 2afad69a7, issue #194930, registry/deferred.json RD-025) -> dx.op.textureStore(67)",
+    "revert_condition_status": {
+      "1_llc_supports_texture_intrinsics_and_target_ext": "satisfied_via_upstream_dx_Texture_form",
+      "2_lib_texture_status_success_and_runtime_mappable_true": "not_satisfied_runtime_mappable_false_single_level_only_and_needs_d3d12_dispatch",
+      "3_dxv_accepts_and_provenance_flips_rurix_owned_true": "dxv_accepts_but_provenance_not_flipped_because_2_unmet",
+      "4_bridge_tracked_digests_updated": "not_done_no_switch"
+    },
+    "canonical_switch_performed": false,
+    "reason": "Not all four revert conditions are true (condition 2 unmet: single-level kernel, math parity + D3D12 dispatch pending). Fail-closed preserved. See texture_intrinsic_toolchain_blocker.json resolution.",
+    "cross_reference": "texture_intrinsic_toolchain_blocker.json resolution / spike/dxil-path-probe/dxil_texture_store_patch_recipe.md"
+  }
 }

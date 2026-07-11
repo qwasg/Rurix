@@ -657,6 +657,10 @@ enum LoweredComputeOp {
         dst: String,
         resource: String,
         index: LoweredResourceIndex,
+        /// GRX-009 段 stage 3:纹理 2D texel 坐标 `(x, y)`(方法调用 `tex.load(x,y)`
+        /// 形)。`Some` → 纹理 load 用 `(x,y)`;`None` → 1D `index` 派生 `(idx,0)`
+        /// (`tex[idx]` 形 / raw-buffer 路径)。raw-buffer load 恒 `None`。
+        tex_coords_2d: Option<(LoweredValue, LoweredValue)>,
     },
     Store {
         /// GEP 结果 SSA 名(经 [`ComputeLowerCx::temp`] 分配,渲染为 `%{ptr}.ptr`;
@@ -665,6 +669,9 @@ enum LoweredComputeOp {
         resource: String,
         index: LoweredResourceIndex,
         value: LoweredValue,
+        /// GRX-009 段 stage 3:纹理 2D texel 坐标 `(x, y)`(方法调用
+        /// `dst.store(x,y,v)` 形)。语义同 `Load::tex_coords_2d`。
+        tex_coords_2d: Option<(LoweredValue, LoweredValue)>,
     },
     LocalAlloca {
         slot: String,
@@ -997,6 +1004,40 @@ fn lower_compute_expr_stmt_slice1(
             expr.span,
             "DXIL compute body lowering slice 1 不支持复合赋值",
         )),
+        // GRX-009 段 stage 3:compute texel 2D store —— `dst.store(x, y, v)`(接收者
+        // 为 `RWTexture2D<f32>` 形参)。x/y usize/i64 texel 坐标 + f32 value,降为本地
+        // patch `@llvm.dx.resource.store.texture` 的 `<2 x i32>` coords `(x, y)` +
+        // 标量 float。typeck 已定型(store→unit)。
+        ExprKind::MethodCall {
+            receiver,
+            method,
+            generic_args,
+            args,
+        } if method.name == "store"
+            && generic_args.is_none()
+            && args.len() == 3
+            && path_expr_name(receiver).is_some_and(|name| {
+                lcx.params
+                    .get(name)
+                    .is_some_and(|info| info.kind == ComputeParamKind::RWTexture2DF32)
+            }) =>
+        {
+            let resource = path_expr_name(receiver)
+                .expect("guard 已确保接收者为路径形参")
+                .to_owned();
+            let x = lower_texture_coord_slice3(cx, lcx, &args[0])?;
+            let y = lower_texture_coord_slice3(cx, lcx, &args[1])?;
+            let value = lower_f32_expr_slice1(cx, lcx, &args[2])?;
+            let ptr = lcx.temp();
+            lcx.ops.push(LoweredComputeOp::Store {
+                ptr,
+                resource,
+                index: LoweredResourceIndex::ConstZero,
+                value,
+                tex_coords_2d: Some((x, y)),
+            });
+            Ok(())
+        }
         ExprKind::While { cond, body } => lower_while_stmt_slice3a(cx, lcx, cond, body),
         ExprKind::Break(_) | ExprKind::Continue => Err(DxilCodegenError::unsupported(
             expr.span,
@@ -1072,6 +1113,7 @@ fn lower_store_slice1(
         resource,
         index,
         value,
+        tex_coords_2d: None,
     });
     Ok(())
 }
@@ -1183,6 +1225,38 @@ fn lower_scalar_expr_slice3a(
             lcx.ops
                 .push(LoweredComputeOp::ThreadGlobalId { dst: dst.clone() });
             Ok(LoweredValue::temp(LoweredScalarTy::I64, dst))
+        }
+        // GRX-009 段 stage 3:compute texel 2D load —— `tex.load(x, y)`(接收者为
+        // `Texture2D<f32>` 形参)。x/y 为 usize/i64 texel 坐标,降为上游
+        // `@llvm.dx.resource.load.level` 的 `<2 x i32>` coords `(x, y)`(mip=0、
+        // offsets=zeroinitializer),产 f32。typeck 已定型(load→f32);此处按 AST 降级。
+        ExprKind::MethodCall {
+            receiver,
+            method,
+            generic_args,
+            args,
+        } if method.name == "load"
+            && generic_args.is_none()
+            && args.len() == 2
+            && path_expr_name(receiver).is_some_and(|name| {
+                lcx.params
+                    .get(name)
+                    .is_some_and(|info| info.kind == ComputeParamKind::Texture2DF32)
+            }) =>
+        {
+            let resource = path_expr_name(receiver)
+                .expect("guard 已确保接收者为路径形参")
+                .to_owned();
+            let x = lower_texture_coord_slice3(cx, lcx, &args[0])?;
+            let y = lower_texture_coord_slice3(cx, lcx, &args[1])?;
+            let dst = lcx.temp();
+            lcx.ops.push(LoweredComputeOp::Load {
+                dst: dst.clone(),
+                resource,
+                index: LoweredResourceIndex::ConstZero,
+                tex_coords_2d: Some((x, y)),
+            });
+            Ok(LoweredValue::temp(LoweredScalarTy::F32, dst))
         }
         ExprKind::Binary { op, lhs, rhs } => {
             if matches!(
@@ -1556,6 +1630,7 @@ fn lower_load_slice1(
         dst: dst.clone(),
         resource: resource.to_owned(),
         index,
+        tex_coords_2d: None,
     });
     Ok(LoweredValue::temp(LoweredScalarTy::F32, dst))
 }
@@ -1605,6 +1680,24 @@ fn lower_resource_index_slice1(
         ));
     }
     Ok(LoweredResourceIndex::Dynamic(index))
+}
+
+/// GRX-009 段 stage 3:纹理 2D texel 坐标标量降级(`tex.load(x,y)` / `dst.store(x,y,v)`
+/// 的 x/y)。坐标须是 usize/i64 标量表达式(与动态资源索引同域);常量与动态均走
+/// `lower_scalar_expr_slice3a`(常量 0 也保留为 i64 值,render 层统一 trunc 到 i32)。
+fn lower_texture_coord_slice3(
+    cx: &QueryCtx<'_>,
+    lcx: &mut ComputeLowerCx,
+    expr: &crate::ast::Expr,
+) -> Result<LoweredValue, DxilCodegenError> {
+    let v = lower_scalar_expr_slice3a(cx, lcx, expr)?;
+    if v.ty != LoweredScalarTy::I64 {
+        return Err(DxilCodegenError::unsupported(
+            expr.span,
+            "DXIL compute body lowering 段 stage 3 纹理 texel 坐标必须是 usize/i64 标量表达式",
+        ));
+    }
+    Ok(v)
 }
 
 fn lower_usize_const_slice1(
@@ -1997,16 +2090,20 @@ fn rawbuffer_target_ty(mutable: bool) -> String {
     )
 }
 
-/// GRX-009 texture-capable kernel artifact:纹理目标类型文本。
-/// `!mutable` → `target("dx.Texture2D<float>", 0, 0)`(SRV),`mutable` →
-/// `target("dx.RWTexture2D<float>", 0, 0)`(UAV)。spec ADDDED Requirements
-/// 「Texture-Capable DXIL Lowering」固定 0, 0 后缀;真实 patched llc 是否支持该
-/// target 类型由离线 compile 路径发现,本层只产 compiler emit。
+/// GRX-009 texture-capable kernel artifact:纹理目标类型文本(**上游 DirectX target
+/// ext 拼写**,LLVM PR #193343 texture load.level + 本地 store.texture patch)。
+/// 形态:`target("dx.Texture", <ElemTy>, IsWriteable, IsROV, IsSigned, Dimension)`。
+/// Texture2D<f32>(SRV)→ `target("dx.Texture", float, 0, 0, 0, 2)`;
+/// RWTexture2D<f32>(UAV)→ `target("dx.Texture", float, 1, 0, 0, 2)`
+/// (`IsWriteable=1`)。Dimension=2 = Texture2D;ROV=0、Signed=0(float)。此拼写被
+/// patched llc(`llvm.dx.resource.load.level`/`store.texture` → dx.op.textureLoad(66)/
+/// textureStore(67))识别并降级;旧自造拼写 `target("dx.Texture2D<float>", 0, 0)` 已
+/// 淘汰(任何 llc 均按名拒绝,见 texture_intrinsic_toolchain_blocker.json)。
 fn texture_target_ty(mutable: bool) -> String {
     if mutable {
-        r#"target("dx.RWTexture2D<float>", 0, 0)"#.to_string()
+        r#"target("dx.Texture", float, 1, 0, 0, 2)"#.to_string()
     } else {
-        r#"target("dx.Texture2D<float>", 0, 0)"#.to_string()
+        r#"target("dx.Texture", float, 0, 0, 0, 2)"#.to_string()
     }
 }
 
@@ -2165,6 +2262,89 @@ fn render_rawbuffer_index(
     }
 }
 
+/// GRX-009 纹理 texel 坐标(render 层内部表示):1D 线性索引(打通形)或 2D `(x,y)`。
+#[derive(Debug, Clone)]
+enum LoweredTextureCoords {
+    /// 1D 线性索引 → texel `(idx, 0)`(段 stage 2 打通形,非 2D 语义等价)。
+    Coords1D(LoweredResourceIndex),
+    /// 2D texel 坐标 `(x, y)`(段 stage 3,与 HLSL bridge `Load(int3(sx,sy,0))` 一致)。
+    Coords2D { x: LoweredValue, y: LoweredValue },
+}
+
+/// 由 Load/Store 的 `index` + 可选 2D 坐标字段决定纹理 texel 坐标形态:2D 坐标存在则
+/// 取 `Coords2D`(方法调用 `tex.load(x,y)` 形),否则从 1D `index` 派生 `Coords1D`。
+fn texture_coords(
+    index: &LoweredResourceIndex,
+    tex_coords_2d: &Option<(LoweredValue, LoweredValue)>,
+) -> LoweredTextureCoords {
+    match tex_coords_2d {
+        Some((x, y)) => LoweredTextureCoords::Coords2D {
+            x: x.clone(),
+            y: y.clone(),
+        },
+        None => LoweredTextureCoords::Coords1D(index.clone()),
+    }
+}
+
+/// GRX-009 texture texel 坐标:把资源索引组装为 `<2 x i32>` 坐标操作数,供上游
+/// `llvm.dx.resource.load.level` / `store.texture` 使用。返回可直接嵌入 intrinsic 调用
+/// 的 `<2 x i32> ...` 文本。
+///
+/// - `Coords1D`(段 stage 2 打通形):单一线性索引 → texel `(idx, 0)`。ConstZero →
+///   `<2 x i32> zeroinitializer`;Dynamic(i64)→ trunc 到 i32 后 insertelement 进
+///   (idx, 0)。**注意**:此形非 2D 语义等价(texel `(idx,0)` ≠ `(x,y)`),仅为
+///   toolchain 打通里程碑;真实 2D 坐标由 `Coords2D` 承载(段 stage 3)。
+/// - `Coords2D`:两个 i64 标量 `(x, y)` 各 trunc 到 i32 后 insertelement 进 `(x, y)`,
+///   与 HLSL bridge `Load(int3(sx, sy, 0))` 的 texel 寻址一致。
+fn render_texture_coords(
+    out: &mut String,
+    coords: &LoweredTextureCoords,
+    temp_prefix: &str,
+) -> String {
+    match coords {
+        LoweredTextureCoords::Coords1D(LoweredResourceIndex::ConstZero) => {
+            "<2 x i32> zeroinitializer".to_owned()
+        }
+        LoweredTextureCoords::Coords1D(LoweredResourceIndex::Dynamic(value)) => {
+            let _ = writeln!(
+                out,
+                "  %{temp_prefix}.idx = trunc i64 {} to i32",
+                render_lowered_value(value)
+            );
+            let _ = writeln!(
+                out,
+                "  %{temp_prefix}.c0 = insertelement <2 x i32> poison, i32 %{temp_prefix}.idx, i32 0"
+            );
+            let _ = writeln!(
+                out,
+                "  %{temp_prefix}.coords = insertelement <2 x i32> %{temp_prefix}.c0, i32 0, i32 1"
+            );
+            format!("<2 x i32> %{temp_prefix}.coords")
+        }
+        LoweredTextureCoords::Coords2D { x, y } => {
+            let _ = writeln!(
+                out,
+                "  %{temp_prefix}.x = trunc i64 {} to i32",
+                render_lowered_value(x)
+            );
+            let _ = writeln!(
+                out,
+                "  %{temp_prefix}.y = trunc i64 {} to i32",
+                render_lowered_value(y)
+            );
+            let _ = writeln!(
+                out,
+                "  %{temp_prefix}.c0 = insertelement <2 x i32> poison, i32 %{temp_prefix}.x, i32 0"
+            );
+            let _ = writeln!(
+                out,
+                "  %{temp_prefix}.coords = insertelement <2 x i32> %{temp_prefix}.c0, i32 %{temp_prefix}.y, i32 1"
+            );
+            format!("<2 x i32> %{temp_prefix}.coords")
+        }
+    }
+}
+
 fn render_lowered_ops(
     out: &mut String,
     ops: &[LoweredComputeOp],
@@ -2177,27 +2357,29 @@ fn render_lowered_ops(
                 dst,
                 resource,
                 index,
+                tex_coords_2d,
             } => {
                 // GRX-009:按 MIR 资源类型分 rawbuffer vs texture load 路径。
                 // rawbuffer 路径保留不变(`@llvm.dx.resource.load.rawbuffer`);
-                // `Texture2D<f32>` 走 `@llvm.dx.resource.load.texture.*`(texelLoad 等价)。
+                // `Texture2D<f32>` 走上游 `@llvm.dx.resource.load.level`(返回元素类型本身,
+                // 无 `{float,i1}`;coords 为 `<2 x i32>`,mip=0、offsets=zeroinitializer)。
                 let res = plan
                     .resource(resource)
                     .map(|(_, r, ..)| *r)
                     .unwrap_or(crate::mir::MirResourceType::StructuredBuffer { read_only: true });
-                let idx = render_rawbuffer_index(out, index, dst);
                 match res {
                     crate::mir::MirResourceType::Texture2D(_) => {
                         let ty = texture_target_ty(false);
+                        let coords =
+                            render_texture_coords(out, &texture_coords(index, tex_coords_2d), dst);
                         let _ = writeln!(
                             out,
-                            "  %{dst}.ld = call {{ float, i1 }} @llvm.dx.resource.load.texture.2d({ty} %{handle}, i32 {idx}, i32 0)",
+                            "  %{dst} = call float @llvm.dx.resource.load.level({ty} %{handle}, {coords}, i32 0, <2 x i32> zeroinitializer)",
                             handle = resource_handle_name(resource),
                         );
-                        let _ =
-                            writeln!(out, "  %{dst} = extractvalue {{ float, i1 }} %{dst}.ld, 0");
                     }
                     _ => {
+                        let idx = render_rawbuffer_index(out, index, dst);
                         let ty = rawbuffer_target_ty(res.class() == crate::mir::ResourceClass::Uav);
                         let _ = writeln!(
                             out,
@@ -2214,26 +2396,31 @@ fn render_lowered_ops(
                 resource,
                 index,
                 value,
+                tex_coords_2d,
             } => {
                 // GRX-009:按 MIR 资源类型分 rawbuffer vs texture store 路径。
                 // rawbuffer 路径保留不变(`@llvm.dx.resource.store.rawbuffer`);
-                // `RWTexture2D<f32>` 走 `@llvm.dx.resource.store.texture.*`(texelStore 等价)。
+                // `RWTexture2D<f32>` 走本地 patch `@llvm.dx.resource.store.texture`
+                // (coords 为 `<2 x i32>`,value 为标量 float;降为 dx.op.textureStore(67),
+                // mask=15 标量 splat 4 份,见 DXILOpLowering::lowerTextureStore)。
                 let res = plan
                     .resource(resource)
                     .map(|(_, r, ..)| *r)
                     .unwrap_or(crate::mir::MirResourceType::StructuredBuffer { read_only: false });
-                let idx = render_rawbuffer_index(out, index, ptr);
                 match res {
                     crate::mir::MirResourceType::RWTexture2D(_) => {
                         let ty = texture_target_ty(true);
+                        let coords =
+                            render_texture_coords(out, &texture_coords(index, tex_coords_2d), ptr);
                         let _ = writeln!(
                             out,
-                            "  call void @llvm.dx.resource.store.texture.2d({ty} %{handle}, i32 {idx}, i32 0, float {})",
+                            "  call void @llvm.dx.resource.store.texture({ty} %{handle}, {coords}, float {})",
                             render_lowered_value(value),
                             handle = resource_handle_name(resource),
                         );
                     }
                     _ => {
+                        let idx = render_rawbuffer_index(out, index, ptr);
                         let ty = rawbuffer_target_ty(res.class() == crate::mir::ResourceClass::Uav);
                         let _ = writeln!(
                             out,
@@ -3455,9 +3642,10 @@ mod tests {
 
     /// GRX-009:texture-capable kernel artifact round —— `Texture2D<f32>` /
     /// `RWTexture2D<f32>` 入参产出 DXIL/RTS0/layout 三件套,layout 中 `binding_kind`
-    /// 为 `texture2d`/`rwtexture2d`、`class` 为 `t`/`u`,DXIL IR 含
-    /// `target("dx.Texture2D<float>", 0, 0)` / `target("dx.RWTexture2D<float>", 0, 0)`
-    /// 与 `@llvm.dx.resource.load.texture.2d` / `@llvm.dx.resource.store.texture.2d`。
+    /// 为 `texture2d`/`rwtexture2d`、`class` 为 `t`/`u`,DXIL IR 含**上游** target ext
+    /// 拼写 `target("dx.Texture", float, 0, 0, 0, 2)`(SRV)/
+    /// `target("dx.Texture", float, 1, 0, 0, 2)`(UAV)与上游/本地 patch intrinsic
+    /// `@llvm.dx.resource.load.level` / `@llvm.dx.resource.store.texture`。
     //@ spec: GRX-009 Texture-Capable DXIL Lowering
     #[test]
     fn kernel_with_texture2d_params_emits_artifacts() {
@@ -3488,25 +3676,25 @@ mod tests {
         assert!(
             artifacts
                 .ir
-                .contains(r#"target("dx.Texture2D<float>", 0, 0)"#),
-            "DXIL IR 缺 Texture2D target ty: {}",
+                .contains(r#"target("dx.Texture", float, 0, 0, 0, 2)"#),
+            "DXIL IR 缺上游 Texture2D SRV target ty: {}",
             artifacts.ir
         );
         assert!(
             artifacts
                 .ir
-                .contains(r#"target("dx.RWTexture2D<float>", 0, 0)"#),
-            "DXIL IR 缺 RWTexture2D target ty: {}",
+                .contains(r#"target("dx.Texture", float, 1, 0, 0, 2)"#),
+            "DXIL IR 缺上游 RWTexture2D UAV target ty: {}",
             artifacts.ir
         );
         assert!(
-            artifacts.ir.contains("@llvm.dx.resource.load.texture.2d"),
-            "DXIL IR 缺 texture load intrinsic: {}",
+            artifacts.ir.contains("@llvm.dx.resource.load.level("),
+            "DXIL IR 缺上游 texture load.level intrinsic: {}",
             artifacts.ir
         );
         assert!(
-            artifacts.ir.contains("@llvm.dx.resource.store.texture.2d"),
-            "DXIL IR 缺 texture store intrinsic: {}",
+            artifacts.ir.contains("@llvm.dx.resource.store.texture("),
+            "DXIL IR 缺 texture store.texture intrinsic: {}",
             artifacts.ir
         );
         // RTS0:非空(SRV+UAV descriptor table 至少一项)。

@@ -231,5 +231,44 @@
     }
   ],
   "repro_command": "py -3 spike/godot-rurix/passes/luminance_reduction/artifacts/toolchain_probe/run_probe.py",
-  "evidence_collected_at_utc": "2026-07-06T14:10:00Z"
+  "evidence_collected_at_utc": "2026-07-06T14:10:00Z",
+  "resolution": {
+    "status": "toolchain_blocker_resolved",
+    "resolved_at_utc": "2026-07-11T00:00:00Z",
+    "summary": "The texture load/store TOOLCHAIN blocker is resolved. The self-invented forms documented above (llvm.dx.resource.load.texture.2d / store.texture.2d + target(\"dx.Texture2D<float>\", 0, 0)) are abandoned; rurixc now emits the UPSTREAM DirectX target-ext + intrinsic spelling, which a locally-patched llc lowers to dx.op.textureLoad(66) / dx.op.textureStore(67) and the DXC validator accepts. This resolves the toolchain gap only; see remaining_blockers_not_toolchain for why the canonical provenance switch is NOT performed.",
+    "achieved_form": {
+      "note": "The achieved form is the UPSTREAM spelling, not the self-invented dx.Texture2D<float> spelling this blocker and texture_artifact_provenance_policy were written against (see the provenance-policy errata).",
+      "target_ext_srv": "target(\"dx.Texture\", float, 0, 0, 0, 2)  (Texture2D<f32> SRV; ElemTy=float, IsWriteable=0, IsROV=0, IsSigned=0, Dim=2)",
+      "target_ext_uav": "target(\"dx.Texture\", float, 1, 0, 0, 2)  (RWTexture2D<f32> UAV; IsWriteable=1)",
+      "load_intrinsic": "float @llvm.dx.resource.load.level(<handle>, <2 x i32> coords, i32 mip, <2 x i32> offsets) -> dx.op.textureLoad(66)",
+      "store_intrinsic": "void @llvm.dx.resource.store.texture(<handle>, <2 x i32> coords, float value) -> dx.op.textureStore(67)"
+    },
+    "load_side": {
+      "status": "upstream_resolved",
+      "detail": "Texture load.level is merged upstream (llvm/llvm-project PR #193343). The clean 23.0.0git build at H:\\llvm-clean-82c5bce5-build\\bin\\llc.exe already contains llvm.dx.resource.load.level and lowers it to dx.op.textureLoad(66)."
+    },
+    "store_side": {
+      "status": "local_patch_resolved",
+      "detail": "Texture store had no upstream intrinsic (tracked by llvm/llvm-project issue #194930). Implemented locally: int_dx_resource_store_texture intrinsic + DXILOp<67, textureStore> + DXILOpLowering::lowerTextureStore (coords -> Coord0..2; value splatted across Val0..3 with write mask 15) + the DXILResourceAccess getpointer/store transform. Additionally folds insertelement-built dynamic coordinates directly into the dx.op scalar args and erases the dead coordinate vector, so dynamic (SV_DispatchThreadID) texel coordinates validate.",
+      "llvm_repo": "H:\\llvm-clean-82c5bce5-src",
+      "llvm_commit": "2afad69a7 [DirectX] Implement dx.op.textureStore (67) lowering for RWTexture",
+      "llc_path": "H:\\llvm-clean-82c5bce5-build\\bin\\llc.exe (LLVM 23.0.0git + local store.texture patch)",
+      "recipe": "spike/dxil-path-probe/dxil_texture_store_patch_recipe.md",
+      "registry_deferral": "registry/deferred.json RD-025"
+    },
+    "evidence": {
+      "stage0_load_probe": "artifacts/toolchain_probe/texture_load_stage0_probe_results.json (case_K.ll: upstream load.level ACCEPT + byte-stable x8; self-invented case_A/case_H still reject_unknown_intrinsic)",
+      "store_probe": "artifacts/toolchain_probe/case_L.ll: load.level + store.texture ACCEPT, byte-stable x8, DXV 'Validation succeeded', dx.op.textureLoad(66)+textureStore(67) present in container",
+      "rurixc_golden": "tests/dxil/cs_texture.rx (1D index form) + tests/dxil/cs_texture_2d.rx (2D method-call form): rurixc emits the upstream form; .dxil-disasm goldens carry dx.op.textureLoad(66)/textureStore(67) after DXV acceptance",
+      "luminance_kernel": "src/lib_texture.rx compiles (cargo run -p rurixc --target dxil, RURIX_LLC + RURIX_DXC_DIR set) to a DXV-validated DXIL container with real 2D dx.op.textureLoad(66)/textureStore(67) coordinates (src.load(sx,sy) / dst.store(x,y,avg))"
+    },
+    "remaining_blockers_not_toolchain": [
+      "math_pyramid_parity: src/lib_texture.rx is a single-level (level-0) reduction. Full Godot luminance parity requires the multi-level pyramid cascade + EMA feedback + previous-luminance double buffering + final-level WRITE_LUMINANCE clamp/min/max gating (all intentionally deferred; see lib_texture.rx header and offline_compile_evidence.json known_gaps). runtime_mappable stays false until math parity is proven.",
+      "runtime_dispatch_proof: runtime_mappable=true (revert condition 2) additionally requires a real D3D12 compute dispatch smoke (probe next_action provide_grx009_luminance_real_d3d12_dispatch_smoke), a separate slice beyond offline compilation."
+    ],
+    "canonical_switch": {
+      "performed": false,
+      "reason": "texture_artifact_provenance_policy.md Revert/Re-cut requires ALL FOUR conditions. Condition 1 (patched llc supports texture load/store intrinsics + target-ext types) is now SATISFIED (via the upstream form). Conditions 2-4 are NOT: runtime_mappable stays false (math parity + D3D12 dispatch not proven), so provenance stays rurix_owned=false, pass_manifest is unchanged, and bridge tracked digests are unchanged. Fail-closed: canonical artifacts remain on the raw-buffer/hlsl_bridge fallback."
+    }
+  }
 }

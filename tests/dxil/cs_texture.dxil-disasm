@@ -1,0 +1,97 @@
+;
+; Input signature:
+;
+; Name                 Index   Mask Register SysValue  Format   Used
+; -------------------- ----- ------ -------- -------- ------- ------
+; no parameters
+;
+; Output signature:
+;
+; Name                 Index   Mask Register SysValue  Format   Used
+; -------------------- ----- ------ -------- -------- ------- ------
+; no parameters
+; shader hash: a6b507ec0dc4fff34bcdf1819e5d8ecb
+;
+; Pipeline Runtime Information: 
+;
+;PSVRuntimeInfo:
+; Compute Shader
+; NumThreads=(1,1,1)
+; MinimumExpectedWaveLaneCount: 0
+; MaximumExpectedWaveLaneCount: 4294967295
+; UsesViewID: false
+; SigInputElements: 0
+; SigOutputElements: 0
+; SigPatchConstOrPrimElements: 0
+; SigInputVectors: 0
+; SigOutputVectors[0]: 0
+; SigOutputVectors[1]: 0
+; SigOutputVectors[2]: 0
+; SigOutputVectors[3]: 0
+; EntryFunctionName: rx_cs_texture_8
+;
+;
+; Buffer Definitions:
+;
+;
+; Resource Bindings:
+;
+; Name                                 Type  Format         Dim      ID      HLSL Bind  Count
+; ------------------------------ ---------- ------- ----------- ------- -------------- ------
+;                                   texture     f32          2d      T0             t0     1
+;                                       UAV     f32          2d      U0             u0     1
+;
+target datalayout = "e-m:e-p:32:32-i1:32-i8:8-i16:16-i32:32-i64:64-f16:16-f32:32-f64:64-n8:16:32:64"
+target triple = "dxil-ms-dx"
+
+%"Texture2D<float>" = type { float }
+%"RWTexture2D<float>" = type { float }
+%dx.types.Handle = type { i8* }
+%dx.types.ResRet.f32 = type { float, float, float, float, i32 }
+
+@0 = external constant %"Texture2D<float>"
+@1 = external constant %"RWTexture2D<float>"
+
+; Function Attrs: noinline nounwind
+define void @rx_cs_texture_8() #0 {
+entry:
+  %rx_h_src2 = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 0, i32 0, i1 false)  ; CreateHandle(resourceClass,rangeId,index,nonUniformIndex)
+  %rx_h_dst1 = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1, i32 0, i32 0, i1 false)  ; CreateHandle(resourceClass,rangeId,index,nonUniformIndex)
+  %v03 = call %dx.types.ResRet.f32 @dx.op.textureLoad.f32(i32 66, %dx.types.Handle %rx_h_src2, i32 0, i32 0, i32 0, i32 undef, i32 undef, i32 undef, i32 undef)  ; TextureLoad(srv,mipLevelOrSampleCount,coord0,coord1,coord2,offset0,offset1,offset2)
+  %0 = extractvalue %dx.types.ResRet.f32 %v03, 0
+  call void @dx.op.textureStore.f32(i32 67, %dx.types.Handle %rx_h_dst1, i32 0, i32 0, i32 undef, float %0, float %0, float %0, float %0, i8 15)  ; TextureStore(srv,coord0,coord1,coord2,value0,value1,value2,value3,mask)
+  ret void
+}
+
+; Function Attrs: nounwind readonly
+declare %dx.types.Handle @dx.op.createHandle(i32, i8, i32, i32, i1) #1
+
+; Function Attrs: nounwind readonly
+declare %dx.types.ResRet.f32 @dx.op.textureLoad.f32(i32, %dx.types.Handle, i32, i32, i32, i32, i32, i32, i32) #1
+
+; Function Attrs: nounwind
+declare void @dx.op.textureStore.f32(i32, %dx.types.Handle, i32, i32, i32, float, float, float, float, i8) #2
+
+attributes #0 = { noinline nounwind }
+attributes #1 = { nounwind readonly }
+attributes #2 = { nounwind }
+
+!dx.valver = !{!0}
+!dx.shaderModel = !{!1}
+!dx.version = !{!2}
+!dx.resources = !{!3}
+!dx.entryPoints = !{!9}
+
+!0 = !{i32 1, i32 8}
+!1 = !{!"cs", i32 6, i32 0}
+!2 = !{i32 1, i32 0}
+!3 = !{!4, !7, null, null}
+!4 = !{!5}
+!5 = !{i32 0, %"Texture2D<float>"* @0, !"", i32 0, i32 0, i32 1, i32 2, i32 0, !6}
+!6 = !{i32 0, i32 9}
+!7 = !{!8}
+!8 = !{i32 0, %"RWTexture2D<float>"* @1, !"", i32 0, i32 0, i32 1, i32 2, i1 false, i1 false, i1 false, !6}
+!9 = !{void ()* @rx_cs_texture_8, !"rx_cs_texture_8", null, !3, !10}
+!10 = !{i32 4, !11}
+!11 = !{i32 1, i32 1, i32 1}
+

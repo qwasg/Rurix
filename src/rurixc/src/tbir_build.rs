@@ -377,6 +377,36 @@ impl Builder<'_> {
                         },
                     };
                 }
+                // GRX-009 compute texel load/store(段 stage 3):`Texture2D<F>.load(x,y)`
+                // / `RWTexture2D<F>.store(x,y,v)`。tbir 仅需**容忍占位**(不报 RX6001)——
+                // 真正 DXIL body lowering 由 dxil_codegen 直接吃 AST 走 2D `<2 x i32>`
+                // coords。load → 纹理 `Index`(占位读)、store → 纹理 `Index` 赋值(占位
+                // 写);均复用 mir_build 既有纹理句柄索引 place 化容忍路径(coords[1] 在占位
+                // 层不落 MIR,坐标语义完整性由 dxil_codegen AST 降级保证)。
+                if self.tcr.texture_load_calls.contains(&e.hir_id) && args.len() == 2 {
+                    let base = Box::new(self.expr(receiver));
+                    let index = Box::new(self.expr(&args[0]));
+                    return tbir::Expr {
+                        ty,
+                        span,
+                        kind: tbir::ExprKind::Index { base, index },
+                    };
+                }
+                if self.tcr.texture_store_calls.contains(&e.hir_id) && args.len() == 3 {
+                    let base = Box::new(self.expr(receiver));
+                    let index = Box::new(self.expr(&args[0]));
+                    let rhs = Box::new(self.expr(&args[2]));
+                    let lhs = Box::new(tbir::Expr {
+                        ty: rhs.ty.clone(),
+                        span,
+                        kind: tbir::ExprKind::Index { base, index },
+                    });
+                    return tbir::Expr {
+                        ty,
+                        span,
+                        kind: tbir::ExprKind::Assign { op: None, lhs, rhs },
+                    };
+                }
                 match self.tcr.call_targets.get(&e.hir_id) {
                     Some((def, gargs)) => {
                         let (def, gargs) = (*def, gargs.clone());

@@ -167,6 +167,11 @@ impl LangItems {
         Some(d) == self.texture2d
     }
 
+    /// `RWTexture2D<F>` UAV 纹理句柄判定(GRX-009;compute texel store 方法识别)。
+    pub fn is_rwtexture2d(&self, d: DefId) -> bool {
+        Some(d) == self.rwtexture2d
+    }
+
     /// `Sampler` 采样器句柄判定(RXS-0156/0174;RFC-0007)。
     pub fn is_sampler(&self, d: DefId) -> bool {
         Some(d) == self.sampler

@@ -1,0 +1,12 @@
+//@ spec: RXS-0157
+// GRX-009 段 stage 3:2D texel 方法调用形态 —— `Texture2D<f32>` 的 `load(x, y)`
+// (SRV texel 读)与 `RWTexture2D<f32>` 的 `store(x, y, v)`(UAV texel 写),坐标为
+// 真实 2D `(x, y)` texel 寻址(与 HLSL bridge `Load(int3(sx,sy,0))` 语义一致),
+// 降为上游 `@llvm.dx.resource.load.level` / 本地 patch `@llvm.dx.resource.store.texture`
+// 的 `<2 x i32>` coords。区别于 1D `tex[idx]` 索引形态(仅 `(idx, 0)`)。
+kernel fn k(src: Texture2D<f32>, dst: RWTexture2D<f32>, t: ThreadCtx<1>) {
+    let x = t.global_id();
+    let y = t.global_id();
+    let v = src.load(x, y);
+    dst.store(x, y, v);
+}

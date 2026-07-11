@@ -1,0 +1,99 @@
+{
+  "status": "complete",
+  "probe_run_at_utc": "2026-07-11T10:55:19Z",
+  "llc_path": "H:\\llvm-clean-82c5bce5-build\\bin\\llc.exe",
+  "llc_version": "LLVM version 23.0.0git",
+  "forward_load_level": {
+    "case": "case_K.ll",
+    "intrinsic": "llvm.dx.resource.load.level",
+    "target_ext_type": "target(\"dx.Texture\", float, 0, 0, 0, 2)",
+    "expected": "ACCEPT",
+    "repeat": 8,
+    "all_exit_zero_and_obj": true,
+    "byte_stable": true,
+    "distinct_sha256": [
+      "33ee79697c0251ac4ce36bf8682fb3395b4b5deaf6e40b154f9954e0956999d2"
+    ],
+    "verdict": "accept_stable",
+    "runs": [
+      {
+        "exit_code": 0,
+        "stderr_excerpt": "",
+        "obj_produced": true,
+        "obj_sha256": "33ee79697c0251ac4ce36bf8682fb3395b4b5deaf6e40b154f9954e0956999d2",
+        "obj_size": 2476
+      },
+      {
+        "exit_code": 0,
+        "stderr_excerpt": "",
+        "obj_produced": true,
+        "obj_sha256": "33ee79697c0251ac4ce36bf8682fb3395b4b5deaf6e40b154f9954e0956999d2",
+        "obj_size": 2476
+      },
+      {
+        "exit_code": 0,
+        "stderr_excerpt": "",
+        "obj_produced": true,
+        "obj_sha256": "33ee79697c0251ac4ce36bf8682fb3395b4b5deaf6e40b154f9954e0956999d2",
+        "obj_size": 2476
+      },
+      {
+        "exit_code": 0,
+        "stderr_excerpt": "",
+        "obj_produced": true,
+        "obj_sha256": "33ee79697c0251ac4ce36bf8682fb3395b4b5deaf6e40b154f9954e0956999d2",
+        "obj_size": 2476
+      },
+      {
+        "exit_code": 0,
+        "stderr_excerpt": "",
+        "obj_produced": true,
+        "obj_sha256": "33ee79697c0251ac4ce36bf8682fb3395b4b5deaf6e40b154f9954e0956999d2",
+        "obj_size": 2476
+      },
+      {
+        "exit_code": 0,
+        "stderr_excerpt": "",
+        "obj_produced": true,
+        "obj_sha256": "33ee79697c0251ac4ce36bf8682fb3395b4b5deaf6e40b154f9954e0956999d2",
+        "obj_size": 2476
+      },
+      {
+        "exit_code": 0,
+        "stderr_excerpt": "",
+        "obj_produced": true,
+        "obj_sha256": "33ee79697c0251ac4ce36bf8682fb3395b4b5deaf6e40b154f9954e0956999d2",
+        "obj_size": 2476
+      },
+      {
+        "exit_code": 0,
+        "stderr_excerpt": "",
+        "obj_produced": true,
+        "obj_sha256": "33ee79697c0251ac4ce36bf8682fb3395b4b5deaf6e40b154f9954e0956999d2",
+        "obj_size": 2476
+      }
+    ]
+  },
+  "reverse_self_invented": [
+    {
+      "case": "case_A.ll",
+      "intrinsic": "llvm.dx.resource.load.texture.2d",
+      "expected": "REJECT",
+      "verdict": "reject_unknown_intrinsic",
+      "exit_code": 1,
+      "obj_produced": false,
+      "stderr_excerpt": "H:\\llvm-clean-82c5bce5-build\\bin\\llc.exe: error: H:\\llvm-clean-82c5bce5-build\\bin\\llc.exe: H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\toolchain_probe\\case_A.ll:24:27: error: unknown intrinsic 'llvm.dx.resource.load.texture.2d'\n  %r = call { float, i1 } @llvm.dx.resource.load.texture.2d(target(\"dx.Texture2D<float>\", 0, 0) %h, i32 0, i32 0)\n                          ^"
+    },
+    {
+      "case": "case_H.ll",
+      "intrinsic": "llvm.dx.resource.store.texture.2d",
+      "expected": "REJECT",
+      "verdict": "reject_unknown_intrinsic",
+      "exit_code": 1,
+      "obj_produced": false,
+      "stderr_excerpt": "H:\\llvm-clean-82c5bce5-build\\bin\\llc.exe: error: H:\\llvm-clean-82c5bce5-build\\bin\\llc.exe: H:\\rurix\\spike\\godot-rurix\\passes\\luminance_reduction\\artifacts\\toolchain_probe\\case_H.ll:25:13: error: unknown intrinsic 'llvm.dx.resource.store.texture.2d'\n  call void @llvm.dx.resource.store.texture.2d(target(\"dx.RWTexture2D<float>\", 0, 0) %h, i32 0, i32 0, float 1.0)\n            ^"
+    }
+  ],
+  "stage0_pass": true,
+  "conclusion": "Upstream texture load.level ACCEPTS and emits a byte-stable DXIL object while the self-invented load.texture.2d / store.texture.2d forms remain rejected by name. Texture LOAD is unblocked on this llc; STORE still needs the local llvm.dx.resource.store.texture patch (segment texture stage 1)."
+}

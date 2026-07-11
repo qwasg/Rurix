@@ -74,8 +74,14 @@ kernel fn luminance_reduce_level_texture(
                         // source max(R,G,B) = R, so direct read is
                         // equivalent. (Do NOT attempt to read RGBA:
                         // `Texture2D<f32>` only exposes one channel.)
-                        let src_index = sy * source_width + sx;
-                        let src_lum = src_luminance[src_index];
+                        //
+                        // Real 2D texel addressing: `src.load(sx, sy)`
+                        // reads texel (sx, sy), byte-for-byte the same
+                        // read as the HLSL bridge's
+                        // `Load(int3(sx, sy, 0))`. (The earlier linear
+                        // `src[sy*width+sx]` form only addressed texel
+                        // (idx, 0) and was not 2D-equivalent.)
+                        let src_lum = src_luminance.load(sx, sy);
                         accum = accum + src_lum;
                         count = count + 1.0;
                     }
@@ -91,7 +97,10 @@ kernel fn luminance_reduce_level_texture(
         // level 0 — per Godot, those ops belong only to the final
         // WRITE_LUMINANCE level, which is out of scope here.
         let avg = if count > 0.0 { accum / count } else { 0.0 };
-        dst_luminance[dst_index] = avg;
+        // Real 2D texel write: `dst.store(x, y, avg)` writes texel
+        // (x, y) — the decomposition of the linear `dst_index` — exactly
+        // the HLSL bridge's `dst_luminance[uint2(x, y)] = avg`.
+        dst_luminance.store(x, y, avg);
     }
 }
 

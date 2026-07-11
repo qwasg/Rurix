@@ -376,8 +376,8 @@ fn accept_corpus_emits_dxil() {
         // texture_param(Texture2D<f32> SRV,空 body):布局推导 + 句柄 emit 不发诊断。
         if stem == "texture_param" {
             assert!(
-                ir.contains(r#"target("dx.Texture2D<float>", 0, 0)"#),
-                "{} DXIL IR 缺 Texture2D target ty",
+                ir.contains(r#"target("dx.Texture", float, 0, 0, 0, 2)"#),
+                "{} DXIL IR 缺上游 Texture2D SRV target ty",
                 f.display()
             );
             assert!(
@@ -387,13 +387,13 @@ fn accept_corpus_emits_dxil() {
             );
         }
         // rwtexture_param(Texture2D<f32> SRV + RWTexture2D<f32> UAV,body lowering):
-        // 走 texture load/store intrinsic,替代 raw-buffer 路径。
+        // 走上游/本地 patch texture load.level/store.texture intrinsic,替代 raw-buffer 路径。
         if stem == "rwtexture_param" {
             for needle in [
-                r#"target("dx.Texture2D<float>", 0, 0)"#,
-                r#"target("dx.RWTexture2D<float>", 0, 0)"#,
-                "@llvm.dx.resource.load.texture.2d",
-                "@llvm.dx.resource.store.texture.2d",
+                r#"target("dx.Texture", float, 0, 0, 0, 2)"#,
+                r#"target("dx.Texture", float, 1, 0, 0, 2)"#,
+                "@llvm.dx.resource.load.level(",
+                "@llvm.dx.resource.store.texture(",
             ] {
                 assert!(
                     ir.contains(needle),

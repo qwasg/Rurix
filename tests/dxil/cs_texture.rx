@@ -1,0 +1,12 @@
+//@ spec: RXS-0157
+// GRX-009 texture-capable compute kernel DXIL golden 语料(SRV Texture2D<f32> →
+// UAV RWTexture2D<f32>,最小 body:读 texel (0,0) 写 texel (0,0))。golden 形态:
+// 1) rurixc 自有 DirectX 三元组 LLVM IR 文本(`.dxil-ll`),含上游纹理拼写
+//    `target("dx.Texture", float, W, 0, 0, 2)` + `@llvm.dx.resource.load.level` /
+//    本地 patch `@llvm.dx.resource.store.texture`;
+// 2) 经 patched llc(LLVM 23.0.0git + 本地 textureStore(67) patch)→ DXIL 容器 +
+//    dxc validator 接受后的文本反汇编(`.dxil-disasm`,含 dx.op.textureLoad(66) /
+//    dx.op.textureStore(67));工具链缺失时 SKIP,真实红绿在带工具链环境。
+kernel fn cs_texture(src: Texture2D<f32>, dst: RWTexture2D<f32>) {
+    dst[0] = src[0];
+}

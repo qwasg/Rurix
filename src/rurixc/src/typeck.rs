@@ -65,6 +65,13 @@ pub struct TypeckResults {
     /// (接收者为 `Texture2D<F>` lang item + 方法 `sample` 时识别;tbir/MIR/codegen
     /// 消费,降为 `Rvalue::ResourceSample` → `OpImageSampleExplicitLod`)。
     pub sample_calls: std::collections::HashSet<HirId>,
+    /// compute texel load 调用点(GRX-009):`Texture2D<F>.load(x, y)` MethodCall 节点。
+    /// tbir_build 据此把方法调用降为容忍占位(纹理 `Index`),真正 DXIL body lowering
+    /// 由 `dxil_codegen` 直接吃 AST(2D `<2 x i32>` coords)。
+    pub texture_load_calls: std::collections::HashSet<HirId>,
+    /// compute texel store 调用点(GRX-009):`RWTexture2D<F>.store(x, y, v)` MethodCall
+    /// 节点。tbir_build 据此降为容忍占位(纹理 `Index` 赋值),DXIL body lowering 同上。
+    pub texture_store_calls: std::collections::HashSet<HirId>,
 }
 
 // ---------------------------------------------------------------------------
@@ -1690,6 +1697,57 @@ impl Tck<'_, '_> {
                 self.results.sample_calls.insert(call_id);
                 // vec4<F> 非真实类型(承 vec2/vec4 名约定结构性);返回容忍区。
                 Ty::Err
+            }
+            // compute texel load(GRX-009):`Texture2D<F>` 接收者的 `load(x, y)` 方法
+            // → texel 读,产元素类型 `F`(首期 `f32`)。原生 lang item 句柄无用户 inherent
+            // impl(无遮蔽);coords 为 `usize`、恰 2 实参(违例 RX2005 arg-count / 类型不符
+            // 由 demand 裁决)。采样(`sample`)走 fragment、纹理 `load` 走 compute:两者
+            // 方法名不同,不冲突。DXIL codegen 直接按 AST 方法调用形态降级(镜像 `global_id`)。
+            Ty::Adt(d, adt_args) if self.res.lang_items.is_texture2d(*d) && method == "load" => {
+                let elem = adt_args
+                    .first()
+                    .cloned()
+                    .unwrap_or_else(|| self.infcx.fresh(None));
+                if args.len() != 2 {
+                    self.err_arg_count(span, 2, args.len());
+                    for a in args {
+                        let _ = self.check_expr(a);
+                    }
+                } else {
+                    for a in args {
+                        let at = self.check_expr(a);
+                        self.demand(a.span, &Ty::Prim(PrimTy::Usize), &at);
+                    }
+                }
+                self.results.texture_load_calls.insert(call_id);
+                elem
+            }
+            // compute texel store(GRX-009):`RWTexture2D<F>` 接收者的 `store(x, y, v)`
+            // 方法 → texel 写,返回 `unit`。coords 为 `usize`、value 为元素类型 `F`(首期
+            // `f32`)、恰 3 实参。DXIL codegen 按 AST 方法调用形态降级。
+            Ty::Adt(d, adt_args) if self.res.lang_items.is_rwtexture2d(*d) && method == "store" => {
+                let elem = adt_args
+                    .first()
+                    .cloned()
+                    .unwrap_or_else(|| self.infcx.fresh(None));
+                if args.len() != 3 {
+                    self.err_arg_count(span, 3, args.len());
+                    for a in args {
+                        let _ = self.check_expr(a);
+                    }
+                } else {
+                    for (i, a) in args.iter().enumerate() {
+                        let at = self.check_expr(a);
+                        let expected = if i < 2 {
+                            Ty::Prim(PrimTy::Usize)
+                        } else {
+                            elem.clone()
+                        };
+                        self.demand(a.span, &expected, &at);
+                    }
+                }
+                self.results.texture_store_calls.insert(call_id);
+                Ty::unit()
             }
             Ty::Adt(d, _adt_args) => {
                 let found = self
