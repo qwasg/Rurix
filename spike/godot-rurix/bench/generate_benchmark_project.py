@@ -43,13 +43,13 @@ SCENE_ROOT_NAMES = {
 }
 
 SCENE_NOTES = {
-    "clustered_lights": "Minimal 3D skeleton with a mesh grid and clustered light placeholders.",
-    "many_mesh_instances": "Minimal 3D skeleton with MultiMesh-based mesh instance placeholders.",
-    "material_variants": "Minimal 3D skeleton with material parameter and texture-slot placeholders.",
-    "post_fx_chain": "Minimal 3D skeleton with WorldEnvironment glow, tonemap, and exposure placeholders.",
-    "volumetric_fog": "Minimal 3D skeleton with volumetric fog environment placeholders.",
-    "particles": "Minimal 3D skeleton with GPUParticles3D placeholders.",
-    "mixed_forward_plus": "Minimal 3D skeleton that mixes lights, materials, particles, and environment nodes.",
+    "clustered_lights": "Forward+ clustered-lighting stress: ~900 overlapping omni/spot lights (ranges sized so many lights share each cluster) over a lit mesh field.",
+    "many_mesh_instances": "CPU cull / draw-list stress: 50k independent MeshInstance3D nodes plus a MultiMesh component (use_indirect reserved for GRX-015/016/018; no such API in the tracked Godot yet).",
+    "material_variants": "PSO / descriptor-switch stress: 2048 distinct StandardMaterial3D variants (varied shader features) across thousands of instances submitted in a deterministic shuffled order.",
+    "post_fx_chain": "Post-processing stress: auto-exposure (luminance reduction) enabled via CameraAttributes, multi-level glow, FILMIC tonemap, and 1.5x supersampled internal resolution over HDR-lit content.",
+    "volumetric_fog": "Volumetric fog stress: dense froxel fog with ~96 light injections over a lit geometry field (no dedicated Rurix pass; the load must be absorbed by lighting/geometry passes).",
+    "particles": "GPU particle stress: ~600k GPU particles spread across 12 emitters.",
+    "mixed_forward_plus": "Mixed Forward+ stress: a proportional blend of clustered lights, mesh instances, material variants, GPU particles, and the post-processing chain.",
 }
 
 
@@ -207,125 +207,265 @@ def build_script_file(scene_spec: dict[str, object], manifest: dict[str, object]
     width, height = resolution
 
     populate_body = {
+        # GRX-004b workload v2: each scene now stresses the subsystem named in
+        # its title (v1 was a minimal skeleton with placeholder nodes). Layouts
+        # are deterministic (fixed per-scene RNG seed) so two runs are
+        # comparable. Counts below are calibration knobs (see
+        # workload_v2_calibration.md); target band is ~30-300 FPS on RTX 4070 Ti
+        # at 1080p so candidate-pass savings are measurable.
         "clustered_lights": """
 func _populate_scene() -> void:
-    add_child(_make_floor(Vector2(26.0, 26.0)))
-    for x in range(-3, 4):
-        for z in range(-3, 4):
-            var box := _make_box(Color(0.18, 0.22, 0.28, 1.0), Vector3(0.6, 0.6, 0.6))
-            box.position = Vector3(float(x) * 2.0, 0.3, float(z) * 2.0)
-            add_child(box)
-    for index in range(8):
+    var rng := _make_rng(1001)
+    add_child(_make_floor(Vector2(64.0, 64.0)))
+    # Lit receiver field so the clustered lights have surfaces to shade.
+    var receiver_mesh := BoxMesh.new()
+    receiver_mesh.size = Vector3(0.9, 0.9, 0.9)
+    var receiver_material := _make_standard_material(Color(0.2, 0.22, 0.26, 1.0))
+    for gx in range(-12, 13):
+        for gz in range(-12, 13):
+            var receiver := MeshInstance3D.new()
+            receiver.mesh = receiver_mesh
+            receiver.material_override = receiver_material
+            receiver.position = Vector3(float(gx) * 2.4, 0.45, float(gz) * 2.4)
+            add_child(receiver)
+    # Overlapping omni lights: ranges are large relative to spacing so many
+    # lights land in each Forward+ cluster (dense cluster-assignment pressure).
+    # Per-type cluster capacity is 512 by default; both counts stay at/under it.
+    var omni_count := 512
+    for index in range(omni_count):
         var omni := OmniLight3D.new()
-        omni.name = "OmniPlaceholder%d" % index
-        omni.light_color = Color(0.5 + float(index % 3) * 0.15, 0.7, 1.0, 1.0)
-        omni.light_energy = 2500.0
-        omni.omni_range = 18.0
-        omni.position = Vector3(-7.0 + float(index) * 2.0, 2.6, 0.0)
+        omni.light_energy = 4.0
+        omni.omni_range = rng.randf_range(9.0, 14.0)
+        omni.light_color = Color(rng.randf_range(0.4, 1.0), rng.randf_range(0.4, 1.0), rng.randf_range(0.5, 1.0), 1.0)
+        omni.position = Vector3(rng.randf_range(-28.0, 28.0), rng.randf_range(1.0, 5.0), rng.randf_range(-28.0, 28.0))
         add_child(omni)
-    for index in range(4):
+    var spot_count := 384
+    for index in range(spot_count):
         var spot := SpotLight3D.new()
-        spot.name = "SpotPlaceholder%d" % index
-        spot.light_energy = 3000.0
-        spot.spot_range = 20.0
-        spot.spot_angle = 35.0
-        spot.position = Vector3(-6.0 + float(index) * 4.0, 6.0, 6.0)
+        spot.light_energy = 6.0
+        spot.spot_range = rng.randf_range(12.0, 20.0)
+        spot.spot_angle = rng.randf_range(25.0, 45.0)
+        spot.position = Vector3(rng.randf_range(-26.0, 26.0), rng.randf_range(5.0, 9.0), rng.randf_range(-26.0, 26.0))
         add_child(spot)
-        spot.look_at(Vector3(-6.0 + float(index) * 4.0, 0.0, 0.0), Vector3.UP)
+        # Aim at a floor point below with a tiny horizontal offset so the
+        # look direction is never parallel to UP (avoids a look_at error).
+        spot.look_at(Vector3(spot.position.x + 0.01, 0.0, spot.position.z + 0.01), Vector3.UP)
 """,
         "many_mesh_instances": """
 func _populate_scene() -> void:
-    add_child(_make_floor(Vector2(30.0, 30.0)))
-    var multimesh_instance: MultiMeshInstance3D = $MultiMeshInstance3D
+    var rng := _make_rng(2002)
+    add_child(_make_floor(Vector2(240.0, 240.0)))
+    # 200k INDEPENDENT MeshInstance3D nodes to stress CPU-side visibility
+    # culling and draw-list construction (the named subsystem). A single mesh
+    # and material are shared so the cost is the per-instance node/cull/draw
+    # bookkeeping, not GPU memory.
+    var instance_count := 200000
+    var shared_mesh := BoxMesh.new()
+    shared_mesh.size = Vector3(0.5, 0.5, 0.5)
+    var shared_material := _make_standard_material(Color(0.4, 0.5, 0.62, 1.0))
+    var side := int(ceil(sqrt(float(instance_count))))
+    for index in range(instance_count):
+        var mesh_instance := MeshInstance3D.new()
+        mesh_instance.mesh = shared_mesh
+        mesh_instance.material_override = shared_material
+        var col := index % side
+        var row := index / side
+        mesh_instance.position = Vector3((float(col) - float(side) * 0.5) * 1.2, 0.4 + rng.randf() * 0.2, (float(row) - float(side) * 0.5) * 1.2)
+        add_child(mesh_instance)
+    # Additional MultiMesh component (one draw call for N instances). This feeds
+    # later indirect-draw work (GRX-015/016/018).
+    # TODO(GRX-015/016/018): switch this component to an indirect MultiMesh draw
+    # once an indirect MultiMesh API is confirmed for this Godot build. The
+    # tracked Godot (scene/resources/multimesh.h) exposes no `use_indirect`
+    # property, so this uses a standard MultiMesh for now.
+    var multimesh_instance: MultiMeshInstance3D = get_node_or_null("MultiMeshInstance3D")
+    if multimesh_instance == null:
+        multimesh_instance = MultiMeshInstance3D.new()
+        multimesh_instance.name = "MultiMeshInstance3D"
+        add_child(multimesh_instance)
     var multimesh := MultiMesh.new()
     multimesh.transform_format = MultiMesh.TRANSFORM_3D
     multimesh.use_colors = true
-    multimesh.mesh = BoxMesh.new()
-    multimesh.instance_count = 256
-    for index in range(multimesh.instance_count):
-        var x := float(index % 16) - 7.5
-        var z := float(index / 16) - 7.5
-        var origin := Vector3(x * 1.1, 0.45, z * 1.1)
-        multimesh.set_instance_transform(index, Transform3D(Basis.IDENTITY, origin))
-        multimesh.set_instance_color(index, Color(0.35 + float(index % 5) * 0.08, 0.55, 0.85, 1.0))
+    multimesh.mesh = shared_mesh
+    var multimesh_count := 60000
+    multimesh.instance_count = multimesh_count
+    for index in range(multimesh_count):
+        var mx := (float(index % 200) - 100.0) * 0.6
+        var mz := (float(index / 200) - 50.0) * 0.6
+        multimesh.set_instance_transform(index, Transform3D(Basis.IDENTITY, Vector3(mx, 6.0, mz)))
+        multimesh.set_instance_color(index, Color(0.5, rng.randf_range(0.4, 0.8), 0.8, 1.0))
     multimesh_instance.multimesh = multimesh
 """,
         "material_variants": """
 func _populate_scene() -> void:
-    add_child(_make_floor(Vector2(24.0, 18.0)))
-    for index in range(5):
-        var mesh_instance := _make_box(Color(0.25 + float(index) * 0.1, 0.35, 0.5 + float(index) * 0.06, 1.0), Vector3(1.2, 1.2, 1.2))
-        mesh_instance.position = Vector3(-6.0 + float(index) * 3.0, 0.8, 0.0)
+    var rng := _make_rng(3003)
+    add_child(_make_floor(Vector2(96.0, 96.0)))
+    # 2048 distinct StandardMaterial3D variants. Shader feature flags are
+    # toggled per variant (not just uniform data) so the variants map to
+    # distinct pipeline states, stressing PSO/descriptor churn.
+    var variant_count := 2048
+    var materials: Array[StandardMaterial3D] = []
+    for index in range(variant_count):
         var material := StandardMaterial3D.new()
-        material.albedo_color = Color(0.25 + float(index) * 0.12, 0.3, 0.4 + float(index) * 0.1, 1.0)
-        material.metallic = float(index) * 0.18
-        material.roughness = max(0.08, 1.0 - float(index) * 0.17)
-        material.emission_enabled = true
-        material.emission = Color(0.05 * float(index), 0.06, 0.1 + float(index) * 0.08, 1.0)
-        material.albedo_texture = _make_solid_texture(Color(0.1 + float(index) * 0.08, 0.2, 0.3, 1.0))
-        material.roughness_texture = _make_solid_texture(Color(0.75 - float(index) * 0.1, 0.75 - float(index) * 0.1, 0.75 - float(index) * 0.1, 1.0))
-        material.emission_texture = _make_solid_texture(Color(0.02, 0.02 + float(index) * 0.1, 0.08 + float(index) * 0.08, 1.0))
-        mesh_instance.material_override = material
+        material.albedo_color = Color(rng.randf(), rng.randf(), rng.randf(), 1.0)
+        material.metallic = rng.randf()
+        material.roughness = rng.randf_range(0.05, 1.0)
+        material.albedo_texture = _make_solid_texture(Color(rng.randf(), rng.randf(), rng.randf(), 1.0))
+        var feature_bits := index
+        material.emission_enabled = (feature_bits & 1) != 0
+        if material.emission_enabled:
+            material.emission = Color(rng.randf(), rng.randf(), rng.randf(), 1.0)
+            material.emission_texture = _make_solid_texture(Color(rng.randf(), rng.randf(), rng.randf(), 1.0))
+        material.rim_enabled = (feature_bits & 2) != 0
+        if material.rim_enabled:
+            material.rim = rng.randf()
+        material.clearcoat_enabled = (feature_bits & 4) != 0
+        material.backlight_enabled = (feature_bits & 8) != 0
+        if (feature_bits & 16) != 0:
+            material.normal_enabled = true
+            material.normal_texture = _make_solid_texture(Color(0.5, 0.5, 1.0, 1.0))
+        materials.append(material)
+    # Thousands of instances assigned materials in a deterministic shuffled
+    # order so variants interleave in submission order. (Godot may re-sort
+    # opaque draws by material; the distinct variant count is the primary
+    # stressor regardless.)
+    var instance_count := 45000
+    var shared_mesh := BoxMesh.new()
+    shared_mesh.size = Vector3(0.8, 0.8, 0.8)
+    var order := _deterministic_shuffle(instance_count, rng)
+    var side := 213
+    for slot in range(instance_count):
+        var index: int = order[slot]
+        var mesh_instance := MeshInstance3D.new()
+        mesh_instance.mesh = shared_mesh
+        mesh_instance.material_override = materials[index % variant_count]
+        var col := index % side
+        var row := index / side
+        mesh_instance.position = Vector3((float(col) - float(side) * 0.5) * 1.1, 0.5, (float(row) - float(side) * 0.5) * 1.1)
         add_child(mesh_instance)
 """,
         "post_fx_chain": """
 func _populate_scene() -> void:
-    add_child(_make_floor(Vector2(24.0, 24.0)))
-    _prepare_world_environment(true, false)
-    for index in range(3):
-        var sphere := _make_sphere(Color(0.8 - float(index) * 0.1, 0.45 + float(index) * 0.15, 0.35, 1.0))
-        sphere.position = Vector3(-3.0 + float(index) * 3.0, 1.2, 0.0)
-        add_child(sphere)
-    var accent := OmniLight3D.new()
-    accent.light_energy = 4200.0
-    accent.omni_range = 16.0
-    accent.light_color = Color(1.0, 0.82, 0.7, 1.0)
-    accent.position = Vector3(0.0, 4.0, 3.0)
-    add_child(accent)
+    var rng := _make_rng(4004)
+    add_child(_make_floor(Vector2(44.0, 44.0)))
+    # Auto exposure (luminance reduction) + multi-level glow + FILMIC tonemap.
+    _prepare_world_environment(true, false, true)
+    # Supersample the internal 3D resolution so the post-processing chain runs
+    # over a larger framebuffer (moderate 1.5x).
+    var viewport := get_viewport()
+    if viewport != null:
+        viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+        viewport.scaling_3d_scale = 2.0
+    # HDR-lit content so auto exposure and glow have bright sources to work on.
+    var sphere_mesh := SphereMesh.new()
+    for index in range(400):
+        var mesh_instance := MeshInstance3D.new()
+        mesh_instance.mesh = sphere_mesh
+        var material := _make_standard_material(Color(rng.randf(), rng.randf(), rng.randf(), 1.0))
+        material.emission_enabled = true
+        material.emission = Color(rng.randf(), rng.randf(), rng.randf(), 1.0)
+        material.emission_energy_multiplier = rng.randf_range(2.0, 6.0)
+        mesh_instance.material_override = material
+        mesh_instance.position = Vector3(rng.randf_range(-16.0, 16.0), rng.randf_range(0.6, 8.0), rng.randf_range(-16.0, 16.0))
+        add_child(mesh_instance)
+    for index in range(48):
+        var omni := OmniLight3D.new()
+        omni.light_energy = 5.0
+        omni.omni_range = 14.0
+        omni.light_color = Color(rng.randf_range(0.6, 1.0), rng.randf_range(0.6, 1.0), rng.randf_range(0.6, 1.0), 1.0)
+        omni.position = Vector3(rng.randf_range(-14.0, 14.0), rng.randf_range(2.0, 7.0), rng.randf_range(-14.0, 14.0))
+        add_child(omni)
 """,
         "volumetric_fog": """
 func _populate_scene() -> void:
-    add_child(_make_floor(Vector2(24.0, 24.0)))
-    _prepare_world_environment(false, true)
-    for index in range(6):
-        var pillar := _make_box(Color(0.32, 0.38, 0.45, 1.0), Vector3(0.7, 2.5, 0.7))
-        pillar.position = Vector3(-7.0 + float(index) * 2.8, 1.25, -2.0 + float(index % 2) * 4.0)
+    var rng := _make_rng(5005)
+    add_child(_make_floor(Vector2(52.0, 52.0)))
+    # Dense volumetric fog (raised density). No auto-exposure/glow here.
+    _prepare_world_environment(false, true, false)
+    # Substantial geometry field: this scene has no dedicated Rurix pass, so its
+    # cost must come from lights + geometry that OTHER passes consume.
+    var pillar_mesh := BoxMesh.new()
+    pillar_mesh.size = Vector3(0.8, 4.0, 0.8)
+    var pillar_material := _make_standard_material(Color(0.3, 0.34, 0.4, 1.0))
+    for index in range(500):
+        var pillar := MeshInstance3D.new()
+        pillar.mesh = pillar_mesh
+        pillar.material_override = pillar_material
+        pillar.position = Vector3(rng.randf_range(-24.0, 24.0), 2.0, rng.randf_range(-24.0, 24.0))
         add_child(pillar)
-    var fog_light := OmniLight3D.new()
-    fog_light.light_energy = 3800.0
-    fog_light.omni_range = 20.0
-    fog_light.light_color = Color(0.65, 0.78, 1.0, 1.0)
-    fog_light.position = Vector3(0.0, 3.0, 0.0)
-    add_child(fog_light)
+    # Many overlapping lights injecting into the fog (per-light froxel scatter);
+    # this is also the light/geometry load that clustered-light and culling
+    # passes are meant to accelerate, since this scene has no dedicated pass.
+    for index in range(400):
+        var omni := OmniLight3D.new()
+        omni.light_energy = 6.0
+        omni.omni_range = rng.randf_range(10.0, 16.0)
+        omni.light_color = Color(rng.randf_range(0.5, 1.0), rng.randf_range(0.6, 1.0), rng.randf_range(0.7, 1.0), 1.0)
+        omni.position = Vector3(rng.randf_range(-20.0, 20.0), rng.randf_range(2.0, 8.0), rng.randf_range(-20.0, 20.0))
+        add_child(omni)
 """,
         "particles": """
 func _populate_scene() -> void:
-    add_child(_make_floor(Vector2(20.0, 20.0)))
-    var particles := _prepare_particles()
-    particles.position = Vector3(0.0, 1.5, 0.0)
-    for index in range(4):
-        var marker := _make_sphere(Color(0.45, 0.55 + float(index) * 0.08, 0.9, 1.0))
-        marker.position = Vector3(-4.0 + float(index) * 2.5, 0.6, -2.0)
-        add_child(marker)
+    var rng := _make_rng(6006)
+    add_child(_make_floor(Vector2(30.0, 30.0)))
+    # ~600k GPU particles spread across 12 emitters (50k each) so the GPU
+    # particle process pass dominates the frame.
+    var emitter_count := 12
+    var per_emitter := 50000
+    var primary := _prepare_particles(per_emitter)
+    primary.position = Vector3(0.0, 2.0, 0.0)
+    for index in range(emitter_count - 1):
+        var emitter := _make_particle_emitter(per_emitter)
+        emitter.position = Vector3(rng.randf_range(-10.0, 10.0), rng.randf_range(1.0, 5.0), rng.randf_range(-10.0, 10.0))
+        add_child(emitter)
 """,
         "mixed_forward_plus": """
 func _populate_scene() -> void:
-    add_child(_make_floor(Vector2(28.0, 28.0)))
-    _prepare_world_environment(true, true)
-    var particles := _prepare_particles()
-    particles.position = Vector3(2.5, 1.8, 1.0)
-    for x in range(-2, 3):
-        for z in range(-2, 3):
-            var box := _make_box(Color(0.22 + float(x + 2) * 0.08, 0.35, 0.4 + float(z + 2) * 0.06, 1.0), Vector3(0.9, 0.9, 0.9))
-            box.position = Vector3(float(x) * 2.4, 0.45, float(z) * 2.4)
-            add_child(box)
-    for index in range(4):
+    var rng := _make_rng(7007)
+    add_child(_make_floor(Vector2(72.0, 72.0)))
+    # Post-processing chain (glow + fog + auto exposure).
+    _prepare_world_environment(true, true, true)
+    # Mesh instances (cull / draw-list share).
+    var shared_mesh := BoxMesh.new()
+    shared_mesh.size = Vector3(0.5, 0.5, 0.5)
+    var shared_material := _make_standard_material(Color(0.4, 0.48, 0.6, 1.0))
+    var mesh_count := 15000
+    var mesh_side := 123
+    for index in range(mesh_count):
+        var mesh_instance := MeshInstance3D.new()
+        mesh_instance.mesh = shared_mesh
+        mesh_instance.material_override = shared_material
+        mesh_instance.position = Vector3((float(index % mesh_side) - float(mesh_side) * 0.5) * 1.0, 0.4, (float(index / mesh_side) - 60.0) * 1.0)
+        add_child(mesh_instance)
+    # Material variants (PSO / descriptor share).
+    var variant_count := 512
+    for index in range(variant_count):
+        var mesh_instance := MeshInstance3D.new()
+        mesh_instance.mesh = shared_mesh
+        var material := StandardMaterial3D.new()
+        material.albedo_color = Color(rng.randf(), rng.randf(), rng.randf(), 1.0)
+        material.metallic = rng.randf()
+        material.roughness = rng.randf_range(0.1, 1.0)
+        material.emission_enabled = (index & 1) != 0
+        material.rim_enabled = (index & 2) != 0
+        mesh_instance.material_override = material
+        mesh_instance.position = Vector3(rng.randf_range(-20.0, 20.0), 0.6, rng.randf_range(-20.0, 20.0))
+        add_child(mesh_instance)
+    # Lights (clustered share).
+    for index in range(160):
         var omni := OmniLight3D.new()
-        omni.light_energy = 2600.0
-        omni.omni_range = 15.0
-        omni.light_color = Color(0.9, 0.6 + float(index) * 0.08, 0.45, 1.0)
-        omni.position = Vector3(-5.0 + float(index) * 3.3, 3.5, 4.0)
+        omni.light_energy = 4.0
+        omni.omni_range = rng.randf_range(8.0, 13.0)
+        omni.light_color = Color(rng.randf_range(0.5, 1.0), rng.randf_range(0.5, 1.0), rng.randf_range(0.6, 1.0), 1.0)
+        omni.position = Vector3(rng.randf_range(-22.0, 22.0), rng.randf_range(1.5, 6.0), rng.randf_range(-22.0, 22.0))
         add_child(omni)
+    # Particles (GPU particle share, ~180k).
+    var primary := _prepare_particles(60000)
+    primary.position = Vector3(0.0, 3.0, 0.0)
+    for index in range(2):
+        var emitter := _make_particle_emitter(60000)
+        emitter.position = Vector3(rng.randf_range(-8.0, 8.0), 3.0, rng.randf_range(-8.0, 8.0))
+        add_child(emitter)
 """,
     }[scene_name].strip()
 
@@ -391,7 +531,24 @@ func _make_solid_texture(color: Color) -> ImageTexture:
     image.fill(color)
     return ImageTexture.create_from_image(image)
 
-func _prepare_world_environment(glow_enabled: bool, volumetric_fog_enabled: bool) -> WorldEnvironment:
+func _make_rng(rng_seed: int) -> RandomNumberGenerator:
+    var rng := RandomNumberGenerator.new()
+    rng.seed = rng_seed
+    return rng
+
+func _deterministic_shuffle(count: int, rng: RandomNumberGenerator) -> Array:
+    var order: Array = []
+    order.resize(count)
+    for i in range(count):
+        order[i] = i
+    for i in range(count - 1, 0, -1):
+        var j := rng.randi_range(0, i)
+        var swap = order[i]
+        order[i] = order[j]
+        order[j] = swap
+    return order
+
+func _prepare_world_environment(glow_enabled: bool, volumetric_fog_enabled: bool, auto_exposure_enabled: bool) -> WorldEnvironment:
     var environment_node: WorldEnvironment = get_node_or_null("WorldEnvironment")
     if environment_node == null:
         environment_node = WorldEnvironment.new()
@@ -401,27 +558,66 @@ func _prepare_world_environment(glow_enabled: bool, volumetric_fog_enabled: bool
     environment.background_mode = Environment.BG_COLOR
     environment.background_color = Color(0.03, 0.04, 0.06, 1.0)
     environment.glow_enabled = glow_enabled
+    if glow_enabled:
+        environment.glow_intensity = 0.8
+        environment.glow_bloom = 0.1
+        for level in range(7):
+            environment.set_glow_level(level, 1.0)
     environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
     environment.tonemap_exposure = 1.1
     environment.volumetric_fog_enabled = volumetric_fog_enabled
     if volumetric_fog_enabled:
-        environment.volumetric_fog_density = 0.03
+        environment.volumetric_fog_density = 0.1
         environment.volumetric_fog_albedo = Color(0.78, 0.82, 0.9, 1.0)
+        environment.volumetric_fog_length = 96.0
     environment_node.environment = environment
+    if auto_exposure_enabled:
+        var attributes := CameraAttributesPractical.new()
+        attributes.auto_exposure_enabled = true
+        environment_node.camera_attributes = attributes
     return environment_node
 
-func _prepare_particles() -> GPUParticles3D:
+func _make_particle_process_material() -> ParticleProcessMaterial:
+    var process := ParticleProcessMaterial.new()
+    process.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+    process.emission_sphere_radius = 5.0
+    process.direction = Vector3(0.0, 1.0, 0.0)
+    process.spread = 45.0
+    process.initial_velocity_min = 1.0
+    process.initial_velocity_max = 3.0
+    process.gravity = Vector3(0.0, -2.0, 0.0)
+    process.scale_min = 0.4
+    process.scale_max = 1.0
+    return process
+
+func _particle_draw_mesh() -> Mesh:
+    var mesh := BoxMesh.new()
+    mesh.size = Vector3(0.06, 0.06, 0.06)
+    return mesh
+
+func _prepare_particles(amount: int) -> GPUParticles3D:
     var particles: GPUParticles3D = get_node_or_null("GPUParticles3D")
     if particles == null:
         particles = GPUParticles3D.new()
         particles.name = "GPUParticles3D"
         add_child(particles)
-    particles.amount = 256
-    particles.lifetime = 1.6
+    particles.amount = amount
+    particles.lifetime = 2.0
     particles.one_shot = false
     particles.emitting = true
-    particles.process_material = ParticleProcessMaterial.new()
+    particles.process_material = _make_particle_process_material()
+    particles.draw_pass_1 = _particle_draw_mesh()
     return particles
+
+func _make_particle_emitter(amount: int) -> GPUParticles3D:
+    var emitter := GPUParticles3D.new()
+    emitter.amount = amount
+    emitter.lifetime = 2.0
+    emitter.one_shot = false
+    emitter.emitting = true
+    emitter.process_material = _make_particle_process_material()
+    emitter.draw_pass_1 = _particle_draw_mesh()
+    return emitter
 
 {populate_body}
 """

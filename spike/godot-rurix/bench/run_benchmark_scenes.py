@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
+import re
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
@@ -33,7 +35,57 @@ TARGET_BACKEND = "Godot 4.7-dev Windows D3D12 Forward+"
 EVIDENCE_LEVEL = "measured_local"
 QUICK_SMOKE_WARMUP_FRAMES = 30
 QUICK_SMOKE_SAMPLE_FRAMES = 60
+ITER_WARMUP_FRAMES = 120
+ITER_SAMPLE_FRAMES = 600
 TIMEOUT_SECONDS = 1800
+
+DLL_PATH = ROOT / "target" / "debug" / "rurix_godot.dll"
+OVERRIDE_CFG_NAME = "override.cfg"
+
+# Full set of override-able rurix_accel project settings, extracted from the
+# GLOBAL_DEF_BASIC keys in spike/godot-rurix/patches/0001..0013. A rurix-leg
+# pass matrix may only set keys from this allowlist (fail-closed on typos so a
+# mis-typed key can never silently disable a pass while claiming it ran).
+VALID_PASS_MATRIX_KEYS = frozenset(
+    {
+        "rendering/rurix_accel/enabled",
+        "rendering/rurix_accel/require_forward_plus",
+        "rendering/rurix_accel/dll_path",
+        "rendering/rurix_accel/passes/luminance_reduction/enabled",
+        "rendering/rurix_accel/passes/luminance_reduction/dispatch_bringup",
+        "rendering/rurix_accel/passes/luminance_reduction/dispatch_recording_smoke",
+        "rendering/rurix_accel/passes/luminance_reduction/dispatch_real_pass",
+        "rendering/rurix_accel/passes/luminance_reduction/real_pass_force_capability_downgrade",
+        "rendering/rurix_accel/passes/tonemap/enabled",
+        "rendering/rurix_accel/passes/tonemap/dispatch_recording_smoke",
+        "rendering/rurix_accel/passes/tonemap/dispatch_real_pass",
+        "rendering/rurix_accel/passes/tonemap/real_pass_force_capability_downgrade",
+    }
+)
+
+# Per-frame or exit-summary pass-engagement markers. The current bridge prints
+# per-frame record/blocked markers; a future "B0" refactor is expected to emit a
+# single exit summary (RXGD_PASS_ENGAGEMENT pass=<name> recorded=<n>
+# fallback=<m>). Both forms are parsed; when neither is present the runner
+# records pass_engagement as null (honest: the tracked Godot exe carries no
+# rurix_accel module, so no markers appear).
+PASS_ENGAGEMENT_SUMMARY_RE = re.compile(
+    r"RXGD_PASS_ENGAGEMENT\s+pass=([A-Za-z0-9_]+)\s+recorded=(\d+)\s+fallback=(\d+)"
+)
+PASS_RECORD_MARKERS = {
+    "luminance_reduction": (
+        "RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS",
+        "RXGD_GODOT_RUNTIME_LUMINANCE_RECORD",
+    ),
+    "tonemap": (
+        "RXGD_GODOT_RUNTIME_TONEMAP_REAL_PASS",
+        "RXGD_GODOT_RUNTIME_TONEMAP_RECORD",
+    ),
+}
+PASS_FALLBACK_MARKERS = {
+    "luminance_reduction": ("RXGD_REAL_PASS_BLOCKED",),
+    "tonemap": ("RXGD_TONEMAP_REAL_PASS_BLOCKED",),
+}
 
 # Godot log failure-marker rules aligned with bench_project_smoke.py. The runner
 # does not pass --verbose, so it only reuses marker detection and the global
@@ -115,12 +167,188 @@ def scan_log_markers(output: str) -> dict[str, list[str]]:
     return {"failure_markers": failure_markers, "warnings": warnings}
 
 
+def sha256_file(path: Path) -> str | None:
+    if not path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def resolve_scene_names(scenes_arg: str | None) -> list[str]:
+    """Resolve an optional --scenes subset, preserving the fixed manifest order."""
+    if not scenes_arg:
+        return EXPECTED_SCENES[:]
+    requested = [name.strip() for name in scenes_arg.split(",") if name.strip()]
+    if not requested:
+        return EXPECTED_SCENES[:]
+    unknown = [name for name in requested if name not in EXPECTED_SCENES]
+    if unknown:
+        raise ValueError(
+            "unknown scene(s): "
+            + ", ".join(unknown)
+            + " (valid: "
+            + ", ".join(EXPECTED_SCENES)
+            + ")"
+        )
+    selected = set(requested)
+    return [name for name in EXPECTED_SCENES if name in selected]
+
+
+def load_pass_matrix(path: Path) -> dict[str, object]:
+    """Load and validate a rurix-leg pass matrix (fail-closed on unknown keys)."""
+    doc = load_json_object(path)
+    raw_settings = doc.get("settings")
+    settings = raw_settings if isinstance(raw_settings, dict) else doc
+    if not isinstance(settings, dict) or not settings:
+        raise ValueError(f"pass matrix {path} must contain a non-empty settings object")
+    normalized: dict[str, object] = {}
+    for key, value in settings.items():
+        if key not in VALID_PASS_MATRIX_KEYS:
+            raise ValueError(f"pass matrix key not in rurix_accel allowlist: {key}")
+        if isinstance(value, bool) or isinstance(value, str):
+            normalized[key] = value
+        else:
+            raise ValueError(f"pass matrix value for {key} must be a bool or string")
+    return normalized
+
+
+def render_override_cfg(settings: dict[str, object]) -> str:
+    lines = [
+        "; Auto-generated by run_benchmark_scenes.py for a rurix leg; deleted",
+        "; after the run. Overrides rurix_accel project settings only.",
+        "",
+        "[rendering]",
+        "",
+    ]
+    for key in sorted(settings):
+        value = settings[key]
+        sub_key = key[len("rendering/"):] if key.startswith("rendering/") else key
+        if isinstance(value, bool):
+            rendered = "true" if value else "false"
+        else:
+            rendered = '"' + str(value).replace('"', '\\"') + '"'
+        lines.append(f"{sub_key}={rendered}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def write_override_cfg(project_dir: Path, settings: dict[str, object]) -> Path:
+    path = project_dir / OVERRIDE_CFG_NAME
+    path.write_text(render_override_cfg(settings), encoding="utf-8", newline="\n")
+    return path
+
+
+def resolve_patch_stack_id(cli_id: str | None) -> tuple[str | None, str | None]:
+    """Best-effort patch-stack identity for the running Godot exe.
+
+    Order: explicit --patch-stack-id, then an optional sidecar next to the exe
+    or under target/grx. Returns (id, note); note is set only when the id could
+    not be resolved so the raw payload can annotate the null.
+    """
+    if cli_id:
+        return cli_id, None
+    candidates = [
+        GODOT_CONSOLE_EXE.parent / "rurix_patch_stack_id.txt",
+        TARGET_GRX_DIR / "godot_patch_stack_id.json",
+    ]
+    for candidate in candidates:
+        if not candidate.is_file():
+            continue
+        try:
+            if candidate.suffix == ".json":
+                data = json.loads(candidate.read_text(encoding="utf-8"))
+                value = data.get("patch_stack_id") if isinstance(data, dict) else None
+            else:
+                value = candidate.read_text(encoding="utf-8").strip()
+            if isinstance(value, str) and value:
+                return value, None
+        except (OSError, json.JSONDecodeError):
+            continue
+    return None, (
+        "patch_stack_id unresolved: no --patch-stack-id and no sidecar "
+        "(rurix_patch_stack_id.txt / godot_patch_stack_id.json); the tracked "
+        "Godot exe carries no machine-readable patch-stack identity"
+    )
+
+
+def parse_pass_engagement(output: str) -> dict[str, dict[str, int]] | None:
+    """Parse per-pass recorded/fallback frame counts from Godot stdout.
+
+    Accepts either the future exit-summary form or the current per-frame marker
+    form; returns None when no engagement markers are present.
+    """
+    summary: dict[str, dict[str, int]] = {}
+    for match in PASS_ENGAGEMENT_SUMMARY_RE.finditer(output):
+        summary[match.group(1)] = {
+            "recorded": int(match.group(2)),
+            "fallback": int(match.group(3)),
+        }
+    if summary:
+        return summary
+    lines = output.splitlines()
+    counts: dict[str, dict[str, int]] = {}
+    for pass_name, markers in PASS_RECORD_MARKERS.items():
+        recorded = sum(1 for line in lines if any(mk in line for mk in markers))
+        fallback = sum(
+            1
+            for line in lines
+            if any(mk in line for mk in PASS_FALLBACK_MARKERS.get(pass_name, ()))
+        )
+        if recorded or fallback:
+            counts[pass_name] = {"recorded": recorded, "fallback": fallback}
+    return counts or None
+
+
+def enrich_raw_payload(
+    path: Path, context: dict[str, object], engagement: dict[str, dict[str, int]] | None
+) -> None:
+    """Inject run-identity/provenance fields the GD runner cannot compute."""
+    payload = load_json_object(path)
+    payload["leg"] = context["leg"]
+    payload["pass_matrix"] = context["pass_matrix"]
+    payload["dll_sha256"] = context["dll_sha256"]
+    payload["godot_exe_sha256"] = context["godot_exe_sha256"]
+    payload["patch_stack_id"] = context["patch_stack_id"]
+    if context["patch_stack_id"] is None:
+        payload["patch_stack_id_note"] = context["patch_stack_id_note"]
+    payload["pass_engagement"] = engagement
+    write_json(path, payload)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST_PATH)
     parser.add_argument("--project-summary", type=Path, default=DEFAULT_PROJECT_SUMMARY_PATH)
     parser.add_argument("--project-dir", type=Path)
     parser.add_argument("--quick-smoke", action="store_true")
+    parser.add_argument(
+        "--scenes",
+        type=str,
+        default=None,
+        help="comma-separated subset of the seven fixed scenes (default: all)",
+    )
+    parser.add_argument(
+        "--profile",
+        choices=("full", "iter"),
+        default="full",
+        help="full = 300/2000 (strict-eligible); iter = 120/600 dev sampling",
+    )
+    parser.add_argument(
+        "--leg",
+        choices=("baseline", "rurix"),
+        default="baseline",
+        help="baseline = unmodified engine; rurix = pass matrix applied via override.cfg",
+    )
+    parser.add_argument(
+        "--pass-matrix",
+        type=Path,
+        default=None,
+        help="rurix-leg pass matrix JSON (required for --leg rurix, forbidden otherwise)",
+    )
+    parser.add_argument("--patch-stack-id", type=str, default=None)
     return parser.parse_args()
 
 
@@ -170,7 +398,9 @@ def resolve_project_dir(
     return Path(str(project_summary["generated_project_dir"]))
 
 
-def determine_run_settings(manifest: dict[str, object], quick_smoke: bool) -> dict[str, object]:
+def determine_run_settings(
+    manifest: dict[str, object], quick_smoke: bool, profile: str
+) -> dict[str, object]:
     resolution = manifest["resolution"]
     assert isinstance(resolution, list)
     if quick_smoke:
@@ -178,6 +408,16 @@ def determine_run_settings(manifest: dict[str, object], quick_smoke: bool) -> di
             "run_mode": "quick_smoke",
             "warmup_frames": QUICK_SMOKE_WARMUP_FRAMES,
             "sample_frames": QUICK_SMOKE_SAMPLE_FRAMES,
+            "vsync": False,
+            "resolution": resolution,
+        }
+    if profile == "iter":
+        # Dev/iteration sampling: run_mode is deliberately not "full" so this
+        # evidence can never satisfy the strict close-out perf gate.
+        return {
+            "run_mode": "iter",
+            "warmup_frames": ITER_WARMUP_FRAMES,
+            "sample_frames": ITER_SAMPLE_FRAMES,
             "vsync": False,
             "resolution": resolution,
         }
@@ -214,6 +454,7 @@ def build_scene_command(
     settings: dict[str, object],
     scene_name: str,
     raw_output_path: Path,
+    context: dict[str, object],
 ) -> list[str]:
     resolution = settings["resolution"]
     warmup_frames = settings["warmup_frames"]
@@ -224,7 +465,7 @@ def build_scene_command(
     assert isinstance(sample_frames, int)
     assert isinstance(run_mode, str)
     width, height = resolution
-    return [
+    command = [
         str(GODOT_CONSOLE_EXE),
         "--path",
         str(project_dir),
@@ -255,7 +496,13 @@ def build_scene_command(
         EVIDENCE_LEVEL,
         "--run-mode",
         run_mode,
+        "--leg",
+        str(context["leg"]),
     ]
+    pass_matrix_path = context.get("pass_matrix_path")
+    if pass_matrix_path is not None:
+        command.extend(["--pass-matrix-path", str(pass_matrix_path)])
+    return command
 
 
 def percentile_95(values: list[float]) -> float:
@@ -324,10 +571,11 @@ def run_scene(
     settings: dict[str, object],
     run_dir: Path,
     scene_name: str,
+    context: dict[str, object],
 ) -> dict[str, object]:
     raw_output_path = run_dir / "raw" / f"{scene_name}.json"
     log_path = run_dir / "logs" / f"{scene_name}.log"
-    command = build_scene_command(project_dir, settings, scene_name, raw_output_path)
+    command = build_scene_command(project_dir, settings, scene_name, raw_output_path, context)
     result: dict[str, object] = {
         "scene_name": scene_name,
         "scene_path": f"res://scenes/{scene_name}.tscn",
@@ -335,11 +583,13 @@ def run_scene(
         "cwd": str(project_dir),
         "raw_json_path": str(raw_output_path),
         "log_path": str(log_path),
+        "leg": context["leg"],
         "exit_code": None,
         "status": "fail",
         "error": None,
         "failure_markers": [],
         "warnings": [],
+        "pass_engagement": None,
     }
 
     try:
@@ -372,10 +622,13 @@ def run_scene(
         if markers["failure_markers"]:
             result["error"] = f"godot log failure markers: {markers['failure_markers'][0]}"
             return result
+        engagement = parse_pass_engagement(output)
+        enrich_raw_payload(raw_output_path, context, engagement)
         result["status"] = "success"
         result["sample_count"] = metrics["sample_count"]
         result["avg_fps"] = metrics["avg_fps"]
         result["p95_frame_time_ms"] = metrics["p95_frame_time_ms"]
+        result["pass_engagement"] = engagement
         return result
     except subprocess.TimeoutExpired as exc:
         partial_output = normalize_output(
@@ -428,6 +681,15 @@ def build_initial_summary(
         "resolution": None,
         "target_backend": TARGET_BACKEND,
         "evidence_level": EVIDENCE_LEVEL,
+        "leg": None,
+        "profile": None,
+        "scene_subset": False,
+        "pass_matrix": {},
+        "pass_matrix_path": None,
+        "dll_sha256": None,
+        "godot_exe_sha256": None,
+        "patch_stack_id": None,
+        "patch_stack_id_note": None,
         "raw_output_dir": None,
         "log_dir": None,
         "per_scene_results": [],
@@ -443,15 +705,51 @@ def main() -> int:
         args.project_summary,
         args.project_dir,
     )
+    override_cfg_path: Path | None = None
     try:
         manifest = load_manifest(args.manifest)
         project_summary = load_project_summary(args.project_summary)
         project_dir = resolve_project_dir(args.project_dir, project_summary)
-        settings = determine_run_settings(manifest, args.quick_smoke)
+        settings = determine_run_settings(manifest, args.quick_smoke, args.profile)
         validate_runner_assets(project_summary, project_dir)
 
         if not GODOT_CONSOLE_EXE.exists():
             raise FileNotFoundError(f"Godot console executable not found: {GODOT_CONSOLE_EXE}")
+
+        scene_names = resolve_scene_names(args.scenes)
+
+        # Leg / pass-matrix resolution. The rurix leg writes a scoped override.cfg
+        # (deleted in the finally below); the baseline leg must run against an
+        # engine with no such override present.
+        leg = args.leg
+        pass_matrix_settings: dict[str, object] = {}
+        pass_matrix_path: Path | None = None
+        if leg == "rurix":
+            if args.pass_matrix is None:
+                raise ValueError("--leg rurix requires --pass-matrix <json path>")
+            pass_matrix_path = args.pass_matrix
+            pass_matrix_settings = load_pass_matrix(pass_matrix_path)
+            override_cfg_path = write_override_cfg(project_dir, pass_matrix_settings)
+        else:
+            if args.pass_matrix is not None:
+                raise ValueError("--leg baseline must not be given a --pass-matrix")
+            existing_override = project_dir / OVERRIDE_CFG_NAME
+            if existing_override.exists():
+                raise ValueError(
+                    "baseline leg requires no override.cfg, but one exists: "
+                    f"{existing_override}"
+                )
+
+        patch_stack_id, patch_stack_id_note = resolve_patch_stack_id(args.patch_stack_id)
+        context: dict[str, object] = {
+            "leg": leg,
+            "pass_matrix": pass_matrix_settings,
+            "pass_matrix_path": pass_matrix_path,
+            "dll_sha256": sha256_file(DLL_PATH),
+            "godot_exe_sha256": sha256_file(GODOT_CONSOLE_EXE),
+            "patch_stack_id": patch_stack_id,
+            "patch_stack_id_note": patch_stack_id_note,
+        }
 
         run_mode = str(settings["run_mode"])
         run_id = make_run_id(run_mode)
@@ -461,11 +759,19 @@ def main() -> int:
         raw_output_dir.mkdir(parents=True, exist_ok=True)
         log_dir.mkdir(parents=True, exist_ok=True)
 
-        scene_names = EXPECTED_SCENES[:]
         summary.update(
             {
                 "run_id": run_id,
                 "run_mode": run_mode,
+                "profile": args.profile,
+                "leg": leg,
+                "scene_subset": scene_names != EXPECTED_SCENES,
+                "pass_matrix": pass_matrix_settings,
+                "pass_matrix_path": str(pass_matrix_path) if pass_matrix_path is not None else None,
+                "dll_sha256": context["dll_sha256"],
+                "godot_exe_sha256": context["godot_exe_sha256"],
+                "patch_stack_id": patch_stack_id,
+                "patch_stack_id_note": patch_stack_id_note,
                 "project_dir": str(project_dir),
                 "scene_count": len(scene_names),
                 "scene_names": scene_names,
@@ -478,7 +784,10 @@ def main() -> int:
             }
         )
 
-        per_scene_results = [run_scene(project_dir, settings, run_dir, scene_name) for scene_name in scene_names]
+        per_scene_results = [
+            run_scene(project_dir, settings, run_dir, scene_name, context)
+            for scene_name in scene_names
+        ]
         failure_count = sum(1 for item in per_scene_results if item.get("status") != "success")
         warning_count = sum(
             len(item["warnings"])
@@ -509,6 +818,14 @@ def main() -> int:
         print(f"[bench-runner] ERROR {summary['error']}")
         print(f"[bench-runner] summary_path: {RUNNER_SUMMARY_PATH}")
         return 1
+    finally:
+        # The rurix-leg override.cfg is a transient run artifact; never leave it
+        # behind (a stray override.cfg would fail the next baseline leg's guard).
+        if override_cfg_path is not None:
+            try:
+                override_cfg_path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 if __name__ == "__main__":

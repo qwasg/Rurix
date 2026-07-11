@@ -10,6 +10,7 @@ const DEFAULT_RESOLUTION := Vector2i(
 )
 const DEFAULT_EVIDENCE_LEVEL := "measured_local"
 const DEFAULT_RUN_MODE := "full"
+const DEFAULT_LEG := "baseline"
 
 @onready var scene_container: Node = $SceneContainer
 
@@ -22,6 +23,9 @@ var vsync_enabled := DEFAULT_VSYNC_ENABLED
 var resolution := DEFAULT_RESOLUTION
 var evidence_level := DEFAULT_EVIDENCE_LEVEL
 var run_mode := DEFAULT_RUN_MODE
+var leg := DEFAULT_LEG
+var pass_matrix_path := ""
+var pass_matrix := {}
 
 var loaded_scene: Node = null
 var frame_times_ms: Array[float] = []
@@ -40,6 +44,9 @@ func _ready() -> void:
     resolution = config.get("resolution", DEFAULT_RESOLUTION)
     evidence_level = str(config.get("evidence_level", DEFAULT_EVIDENCE_LEVEL))
     run_mode = str(config.get("run_mode", DEFAULT_RUN_MODE))
+    leg = str(config.get("leg", DEFAULT_LEG))
+    pass_matrix_path = str(config.get("pass_matrix_path", ""))
+    pass_matrix = _load_pass_matrix(pass_matrix_path)
 
     if scene_name.is_empty() or scene_path.is_empty() or raw_output_path.is_empty():
         _fail_and_quit("missing required runner arguments")
@@ -87,6 +94,8 @@ func _parse_runner_config() -> Dictionary:
         "resolution": DEFAULT_RESOLUTION,
         "evidence_level": DEFAULT_EVIDENCE_LEVEL,
         "run_mode": DEFAULT_RUN_MODE,
+        "leg": DEFAULT_LEG,
+        "pass_matrix_path": "",
     }
 
     var index := 0
@@ -123,8 +132,32 @@ func _parse_runner_config() -> Dictionary:
                 config["evidence_level"] = value
             "--run-mode":
                 config["run_mode"] = value
+            "--leg":
+                config["leg"] = value
+            "--pass-matrix-path":
+                config["pass_matrix_path"] = value
         index += 2
     return config
+
+
+func _load_pass_matrix(path: String) -> Dictionary:
+    # Echo the rurix-leg pass matrix into the raw payload. The Python runner
+    # writes the same matrix into override.cfg; here we only record it.
+    if path.is_empty():
+        return {}
+    if not FileAccess.file_exists(path):
+        return {}
+    var file := FileAccess.open(path, FileAccess.READ)
+    if file == null:
+        return {}
+    var text := file.get_as_text()
+    file.close()
+    var parsed: Variant = JSON.parse_string(text)
+    if typeof(parsed) != TYPE_DICTIONARY:
+        return {}
+    if parsed.has("settings") and typeof(parsed["settings"]) == TYPE_DICTIONARY:
+        return parsed["settings"]
+    return parsed
 
 
 func _parse_bool(value: String) -> bool:
@@ -172,6 +205,8 @@ func _write_success_payload() -> void:
         "gpu_frame_times_ms": null,
         "evidence_level": evidence_level,
         "run_mode": run_mode,
+        "leg": leg,
+        "pass_matrix": pass_matrix,
         "resolution": [resolution.x, resolution.y],
         "vsync": vsync_enabled,
         "target_backend": TARGET_BACKEND,
@@ -199,6 +234,8 @@ func _fail_and_quit(error_message: String) -> void:
         "gpu_frame_times_ms": null,
         "evidence_level": evidence_level,
         "run_mode": run_mode,
+        "leg": leg,
+        "pass_matrix": pass_matrix,
         "resolution": [resolution.x, resolution.y],
         "vsync": vsync_enabled,
         "target_backend": TARGET_BACKEND,
