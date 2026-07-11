@@ -1,0 +1,75 @@
+{
+  "kind": "baseline",
+  "run_mode": "full",
+  "evidence_level": "measured_local",
+  "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
+  "resolution": [
+    1920,
+    1080
+  ],
+  "vsync": false,
+  "warmup_frames": 300,
+  "sample_frames": 2000,
+  "run_id": "20260711T123402Z_full",
+  "runner_summary_path": "C:/Users/\u82cd/AppData/Local/Temp/claude/H--rurix/7deeb0e8-cf68-4506-97eb-c95a50621ce7/scratchpad/runner_summary_run2.json",
+  "aggregator": "spike/godot-rurix/bench/aggregate_baseline_evidence.py",
+  "note": "GRX full baseline evidence aggregated from one measured_local run of the unmodified tracked Godot build (run_id above; raw per-scene JSON artifacts hash-pinned below). BASELINE ONLY: no Rurix configuration was measured, no comparison is recorded, and no performance claim of any kind is made by this document.",
+  "scenes": [
+    {
+      "name": "clustered_lights",
+      "avg_fps": 244.680942168433,
+      "p95_frame_time_ms": 4.16666666666667,
+      "sample_count": 2000,
+      "raw_artifact_path": "target/grx/godot-bench-runs/20260711T123402Z_full/raw/clustered_lights.json",
+      "raw_artifact_sha256": "1f004456afb723e22079322b24305668340abdbe7e8af141b7d860b6ea72ca0f"
+    },
+    {
+      "name": "many_mesh_instances",
+      "avg_fps": 212.148334964398,
+      "p95_frame_time_ms": 5.358,
+      "sample_count": 2000,
+      "raw_artifact_path": "target/grx/godot-bench-runs/20260711T123402Z_full/raw/many_mesh_instances.json",
+      "raw_artifact_sha256": "5220d580347fb55faeff36ac6d6f6e41f5e33eb2a2147bc64e38520041a34a30"
+    },
+    {
+      "name": "material_variants",
+      "avg_fps": 257.255406383149,
+      "p95_frame_time_ms": 4.16666666666667,
+      "sample_count": 2000,
+      "raw_artifact_path": "target/grx/godot-bench-runs/20260711T123402Z_full/raw/material_variants.json",
+      "raw_artifact_sha256": "9c2538d1c8e768b8199e4c225bbc2d1ffa75ed8093645db03f2f74032a86fe7c"
+    },
+    {
+      "name": "post_fx_chain",
+      "avg_fps": 191.125042805373,
+      "p95_frame_time_ms": 5.55555555555555,
+      "sample_count": 2000,
+      "raw_artifact_path": "target/grx/godot-bench-runs/20260711T123402Z_full/raw/post_fx_chain.json",
+      "raw_artifact_sha256": "9b4db427cd04f09fb5f3396b65fa3ab221b2dc7643706edb70f05e9f13d0cad3"
+    },
+    {
+      "name": "volumetric_fog",
+      "avg_fps": 203.041557700027,
+      "p95_frame_time_ms": 5.0,
+      "sample_count": 2000,
+      "raw_artifact_path": "target/grx/godot-bench-runs/20260711T123402Z_full/raw/volumetric_fog.json",
+      "raw_artifact_sha256": "38e59dfadda0d7a19732d5e121a91532fcb35db231689e63da70e6e2324fb4d9"
+    },
+    {
+      "name": "particles",
+      "avg_fps": 211.792790447716,
+      "p95_frame_time_ms": 5.0,
+      "sample_count": 2000,
+      "raw_artifact_path": "target/grx/godot-bench-runs/20260711T123402Z_full/raw/particles.json",
+      "raw_artifact_sha256": "20aa734455db0aac1876640cfb6940cc3b0a79d652f3017d0f83f953327e97bf"
+    },
+    {
+      "name": "mixed_forward_plus",
+      "avg_fps": 229.66624657462,
+      "p95_frame_time_ms": 4.54545454545454,
+      "sample_count": 2000,
+      "raw_artifact_path": "target/grx/godot-bench-runs/20260711T123402Z_full/raw/mixed_forward_plus.json",
+      "raw_artifact_sha256": "59425cf04f532fa41306eaa5e797cbc6c9666da4f0c185f03fb1874e62a67314"
+    }
+  ]
+}
