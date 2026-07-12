@@ -1,0 +1,182 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Sat, 12 Jul 2026 11:00:00 +0800
+Subject: [PATCH] Add the GRX-011 ssao_blur recording-smoke and gated real-pass opt-in
+ arms with result writeback scaffold
+
+Stacked on 0001..0015. This is the GRX-011 bridge-recording / real-pass
+opt-in slice (the GRX-009 0008+0009+0010 layers merged into one patch for
+the ssao_blur pass), mirroring GRX-010 0013. It is a bring-up gate, not a
+default enablement, and it does not change the shipping fallback semantics.
+
+- modules/rurix_accel/register_types.cpp: adds three per-pass opt-in
+  settings that all default to false and are separate from
+  rendering/rurix_accel/passes/ssao_blur/enabled:
+  .../ssao_blur/dispatch_recording_smoke, .../ssao_blur/dispatch_real_pass,
+  and .../ssao_blur/real_pass_force_capability_downgrade.
+- modules/rurix_accel/rurix_accel.h: declares the reserved ssao_blur
+  real-pass arm flag RXGD_CAP_SSAO_BLUR_REAL_PASS (bridge value 1 << 5)
+  carried in RxGdCaps.flags. This reuses the existing flags field: the C
+  ABI struct layout and RXGD_ABI_VERSION are unchanged.
+- modules/rurix_accel/rurix_accel.cpp: try_create_session() sets
+  RXGD_CAP_SSAO_BLUR_REAL_PASS ONLY when the ssao_blur dispatch_real_pass
+  opt-in is enabled, and clears RXGD_CAP_SHADER_INT64 ONLY when the
+  harness-only ssao_blur real_pass_force_capability_downgrade knob is
+  enabled. try_record_ssao_blur() emits RXGD_GODOT_RUNTIME_SSAO_BLUR_REAL_PASS
+  only on the real-pass arm and RXGD_GODOT_RUNTIME_SSAO_BLUR_RECORD only
+  under the harness-only dispatch_recording_smoke opt-in.
+- ss_effects.cpp Edge-Aware Blur loop: when try_record_ssao_blur() returned
+  true on the real-pass arm, the bridge dispatched the SMART blur kernel
+  into the real destination slice ID3D12Resource*, so the one-slice subset
+  result is physically written into the ping-pong destination. The result
+  writeback SCAFFOLD prints RXGD_GODOT_RUNTIME_SSAO_BLUR_REAL_PASS_WRITEBACK,
+  then clears the flag so the FULL native Godot SSAO blur loop still runs as
+  the continuation/backstop (the kernel covers only one SMART pass on one
+  slice; GPU math parity is still pending measurement).
+
+The bridge fails closed on the real-pass arm and returns RXGD_STATUS_FALLBACK
+with a machine-readable RXGD_SSAO_BLUR_REAL_PASS_BLOCKED diagnostic naming
+the FIRST missing prerequisite; the real dispatch is only linked under the
+test-only d3d12-recording-shim bridge feature. This does not change
+RXGD_ABI_VERSION, does not enable the pass by default (all four ssao_blur
+per-pass settings still default to false), does not flip real_gpu_pass to
+true by itself, and makes no visual, measured-telemetry, GPU-timestamp, or
+performance claim by itself.
+---
+diff --git a/modules/rurix_accel/register_types.cpp b/modules/rurix_accel/register_types.cpp
+index bf257b2..9bae03e 100644
+--- a/modules/rurix_accel/register_types.cpp
++++ b/modules/rurix_accel/register_types.cpp
+@@ -96,6 +96,35 @@ void initialize_rurix_accel_module(ModuleInitializationLevel p_level) {
+ 	// RXGD_STATUS_FALLBACK for RXGD_PASS_SSAO_BLUR, so the native SSAO
+ 	// blur keeps rendering in practice and no acceleration is claimed.
+ 	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/ssao_blur/enabled", false);
++	// GRX-011: harness-only Godot-runtime ssao_blur bridge dispatch
++	// recording smoke opt-in (0008-level). Defaults to false so the
++	// shipping build never arms the recording-smoke marker path. It only
++	// gates the module-side RXGD_GODOT_RUNTIME_SSAO_BLUR_RECORD marker; the
++	// bridge record path itself is only linked when the loaded
++	// rurix_godot.dll is built with the test-only d3d12-recording-shim
++	// feature AND the dispatch_real_pass opt-in below armed the fail-closed
++	// real-pass gate.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/ssao_blur/dispatch_recording_smoke", false);
++	// GRX-011: opt-in gated REAL ssao_blur pass bring-up arm (0009-level).
++	// Defaults to false so the shipping build never arms the real-pass
++	// attempt. Even when enabled the bridge runs its runtime binding
++	// preflight, dispatch eligibility, per-slot kernel-binding-kind
++	// conformance, and math-parity checks and keeps returning
++	// RXGD_STATUS_FALLBACK (with a machine-readable
++	// RXGD_SSAO_BLUR_REAL_PASS_BLOCKED diagnostic naming the first missing
++	// prerequisite) unless every check passes AND a runtime-mappable real
++	// dispatch path is linked (d3d12-recording-shim builds only); the
++	// shipping feature-off bridge fails closed with
++	// real_dispatch_path_not_linked, so the native SSAO blur keeps rendering.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/ssao_blur/dispatch_real_pass", false);
++	// GRX-011: harness-only forced-failure knob for the ssao_blur fallback
++	// red/green leg (0009-level template of the luminance
++	// real_pass_force_capability_downgrade). When enabled the module clears
++	// the shader-int64 capability it advertises to the bridge, so the
++	// bridge ssao_blur preflight fails closed with unsupported_device while
++	// the native Godot SSAO blur path keeps rendering. Defaults to false;
++	// never enabled by the shipping build/config.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/ssao_blur/real_pass_force_capability_downgrade", false);
+ 
+ #if defined(D3D12_ENABLED)
+ 	if (GLOBAL_GET("rendering/rurix_accel/enabled")) {
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index 0f6a523..0e6ab18 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -234,6 +234,23 @@ void RurixAccelD3D12Hooks::try_create_session() {
+ 	if (GLOBAL_GET("rendering/rurix_accel/passes/tonemap/real_pass_force_capability_downgrade")) {
+ 		caps.flags &= ~RXGD_CAP_SHADER_INT64;
+ 	}
++	// GRX-011: arm the opt-in gated REAL ssao_blur pass attempt ONLY when
++	// the default-false ssao_blur dispatch_real_pass opt-in is enabled. The
++	// bridge still fails closed (fallback + RXGD_SSAO_BLUR_REAL_PASS_BLOCKED
++	// first missing prerequisite) unless every gate passes AND the
++	// d3d12-recording-shim real dispatch path is linked and completes; this
++	// is a bring-up gate, not a default runtime pass.
++	if (GLOBAL_GET("rendering/rurix_accel/passes/ssao_blur/dispatch_real_pass")) {
++		caps.flags |= RXGD_CAP_SSAO_BLUR_REAL_PASS;
++	}
++	// GRX-011: harness-only ssao_blur forced-failure knob. Clearing the
++	// shader-int64 capability makes the bridge ssao_blur preflight fail
++	// closed with unsupported_device while the native Godot SSAO blur path
++	// keeps rendering; the fallback red/green leg of the GRX-011 real-pass
++	// enablement smoke verifies exactly this.
++	if (GLOBAL_GET("rendering/rurix_accel/passes/ssao_blur/real_pass_force_capability_downgrade")) {
++		caps.flags &= ~RXGD_CAP_SHADER_INT64;
++	}
+ 	if (adapter_luid_valid) {
+ 		memcpy(caps.adapter_luid, &adapter_luid, sizeof(adapter_luid));
+ 	}
+@@ -561,6 +578,19 @@ bool RurixAccelD3D12Hooks::try_record_ssao_blur(uint64_t p_source_native_handle,
+ 		}
+ 		return false;
+ 	}
++	// GRX-011: only reachable when the bridge's opt-in real-pass arm actually
++	// returned RXGD_STATUS_OK after a real recorded dispatch (d3d12-recording-
++	// shim builds only; the shipping feature-off bridge always falls back with
++	// real_dispatch_path_not_linked first). The REAL_PASS marker reports the
++	// real-pass arm; the RECORD marker belongs to the harness-only recording
++	// smoke opt-in so a real-pass success is never misreported as a
++	// recording-smoke run and vice versa.
++	if (GLOBAL_GET("rendering/rurix_accel/passes/ssao_blur/dispatch_real_pass")) {
++		print_line("RXGD_GODOT_RUNTIME_SSAO_BLUR_REAL_PASS: pass=RXGD_PASS_SSAO_BLUR dispatched=1");
++	}
++	if (GLOBAL_GET("rendering/rurix_accel/passes/ssao_blur/dispatch_recording_smoke")) {
++		print_line("RXGD_GODOT_RUNTIME_SSAO_BLUR_RECORD: pass=RXGD_PASS_SSAO_BLUR recorded=1");
++	}
+ 	return true;
+ }
+ 
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index c45f302..84e5f94 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -44,6 +44,16 @@
+ // diagnostic unless every check passes AND the d3d12-recording-shim real
+ // dispatch path is linked and completes.
+ #define RXGD_CAP_TONEMAP_REAL_PASS 16u
++// GRX-011 opt-in ssao_blur real-pass arm carried in RxGdCaps.flags (ABI
++// v1, no struct layout change; bridge value 1 << 5). Set only when the
++// default-false rendering/rurix_accel/passes/ssao_blur/dispatch_real_pass
++// opt-in is enabled. Setting it never on its own makes the bridge return
++// RXGD_STATUS_OK: the fail-closed SsaoBlurGate runs preflight ->
++// eligibility -> binding-kind -> math-parity -> linked-dispatch checks and
++// returns RXGD_STATUS_FALLBACK with an RXGD_SSAO_BLUR_REAL_PASS_BLOCKED
++// diagnostic unless every check passes AND the d3d12-recording-shim real
++// dispatch path is linked and completes.
++#define RXGD_CAP_SSAO_BLUR_REAL_PASS 32u
+ 
+ typedef struct RxGdCaps {
+ 	uint32_t abi_version;
+diff --git a/servers/rendering/renderer_rd/effects/ss_effects.cpp b/servers/rendering/renderer_rd/effects/ss_effects.cpp
+index 8b675df..8b2863b 100644
+--- a/servers/rendering/renderer_rd/effects/ss_effects.cpp
++++ b/servers/rendering/renderer_rd/effects/ss_effects.cpp
+@@ -1397,6 +1397,21 @@ void SSEffects::generate_ssao(Ref<RenderSceneBuffersRD> p_render_buffers, SSAORe
+ 					const uint64_t rurix_ssao_dst_handle = rurix_rd != nullptr ? rurix_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_TEXTURE, rurix_ssao_dst_slice, 0) : 0;
+ 					if (rurix_ssao_src_handle != 0 && rurix_ssao_dst_handle != 0) {
+ 						rurix_recorded_ssao_blur = D3D12Hooks::get_singleton()->try_record_ssao_blur(rurix_ssao_src_handle, (uint32_t)MAX(p_ssao_buffers.buffer_width, 0), (uint32_t)MAX(p_ssao_buffers.buffer_height, 0), rurix_ssao_dst_handle, (uint32_t)MAX(p_ssao_buffers.buffer_width, 0), (uint32_t)MAX(p_ssao_buffers.buffer_height, 0), ssao.blur_push_constant.edge_sharpness, ssao.blur_push_constant.half_screen_pixel_size[0], ssao.blur_push_constant.half_screen_pixel_size[1]);
++						if (rurix_recorded_ssao_blur) {
++							// GRX-011 result writeback SCAFFOLD (0010-level). The Rurix
++							// bridge dispatched the SMART blur kernel into the real
++							// destination slice ID3D12Resource*, so the one-slice edge-
++							// aware blur subset result is physically written into the
++							// ping-pong destination. Record that writeback with a machine-
++							// readable marker, then keep the FULL native Godot SSAO blur
++							// loop as the continuation/backstop: the kernel covers only one
++							// SMART pass on one slice (no 4-slice/ping-pong scheduling, and
++							// GPU math parity is still pending measurement), so the native
++							// loop re-renders every slice and the image can never change
++							// while this scaffold is in place.
++							print_line("RXGD_GODOT_RUNTIME_SSAO_BLUR_REAL_PASS_WRITEBACK: dst=ssao_pong_slice native_continuation=active scaffold=1");
++							rurix_recorded_ssao_blur = false;
++						}
+ 					}
+ 				}
+ #endif
+-- 
+2.50.0

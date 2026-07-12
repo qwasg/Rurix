@@ -102,6 +102,27 @@ PATCH13 = (
     / "patches"
     / "0013-rurix-accel-tonemap-recording-smoke-and-real-pass-optin.patch"
 )
+PATCH14 = (
+    ROOT
+    / "spike"
+    / "godot-rurix"
+    / "patches"
+    / "0014-rurix-accel-ssao-blur-pass-gate-and-callsite.patch"
+)
+PATCH15 = (
+    ROOT
+    / "spike"
+    / "godot-rurix"
+    / "patches"
+    / "0015-rurix-accel-ssao-blur-runtime-resource-binding.patch"
+)
+PATCH16 = (
+    ROOT
+    / "spike"
+    / "godot-rurix"
+    / "patches"
+    / "0016-rurix-accel-ssao-blur-recording-smoke-and-real-pass-optin.patch"
+)
 EXTERNAL_GODOT = ROOT / "external" / "godot-master"
 
 IDE_IGNORE_PROBES = [
@@ -363,6 +384,67 @@ def check_patch_state() -> str:
                 f"details: {details}"
             )
         print("[godot-rurix] patch 0013 stacked applyability: ready")
+        patch14 = evaluate_stacked_patch_applyability(
+            ROOT,
+            EXTERNAL_GODOT,
+            [PATCH4, PATCH5, PATCH6, PATCH7, PATCH8, PATCH9, PATCH10, PATCH11, PATCH12, PATCH13],
+            PATCH14,
+            "0014",
+        )
+        if patch14["ok"] is not True:
+            details = patch14.get("details", {})
+            raise SystemExit(
+                f"{patch14['reason']}; fix "
+                "0014-rurix-accel-ssao-blur-pass-gate-and-callsite.patch "
+                "so it applies after 0004..0013 in a scratch copy.\n"
+                f"details: {details}"
+            )
+        print("[godot-rurix] patch 0014 stacked applyability: ready")
+        patch15 = evaluate_stacked_patch_applyability(
+            ROOT,
+            EXTERNAL_GODOT,
+            [PATCH4, PATCH5, PATCH6, PATCH7, PATCH8, PATCH9, PATCH10, PATCH11, PATCH12, PATCH13, PATCH14],
+            PATCH15,
+            "0015",
+        )
+        if patch15["ok"] is not True:
+            details = patch15.get("details", {})
+            raise SystemExit(
+                f"{patch15['reason']}; fix "
+                "0015-rurix-accel-ssao-blur-runtime-resource-binding.patch "
+                "so it applies after 0004..0014 in a scratch copy.\n"
+                f"details: {details}"
+            )
+        print("[godot-rurix] patch 0015 stacked applyability: ready")
+        patch16 = evaluate_stacked_patch_applyability(
+            ROOT,
+            EXTERNAL_GODOT,
+            [
+                PATCH4,
+                PATCH5,
+                PATCH6,
+                PATCH7,
+                PATCH8,
+                PATCH9,
+                PATCH10,
+                PATCH11,
+                PATCH12,
+                PATCH13,
+                PATCH14,
+                PATCH15,
+            ],
+            PATCH16,
+            "0016",
+        )
+        if patch16["ok"] is not True:
+            details = patch16.get("details", {})
+            raise SystemExit(
+                f"{patch16['reason']}; fix "
+                "0016-rurix-accel-ssao-blur-recording-smoke-and-real-pass-optin.patch "
+                "so it applies after 0004..0015 in a scratch copy.\n"
+                f"details: {details}"
+            )
+        print("[godot-rurix] patch 0016 stacked applyability: ready")
     return state
 
 
@@ -538,6 +620,42 @@ def main() -> int:
             "rendering/rurix_accel/passes/tonemap/real_pass_force_capability_downgrade",
             "RXGD_CAP_TONEMAP_REAL_PASS",
             "RXGD_GODOT_RUNTIME_TONEMAP_RECORD",
+            "d3d12-recording-shim",
+            "RXGD_STATUS_FALLBACK",
+        ],
+    )
+    require_text(
+        PATCH14,
+        [
+            "rendering/rurix_accel/passes/ssao_blur/enabled",
+            "RXGD_PASS_SSAO_BLUR",
+            "try_record_ssao_blur",
+            "compute_list_dispatch_threads",
+            "generate_ssao",
+            "RXGD_STATUS_FALLBACK",
+            "default",
+        ],
+    )
+    require_text(
+        PATCH15,
+        [
+            "RenderingDevice::get_driver_resource",
+            "ID3D12Resource*",
+            "try_record_ssao_blur",
+            "RXGD_PASS_SSAO_BLUR",
+            "edge_sharpness",
+            "half_screen_pixel_size",
+            "RXGD_STATUS_FALLBACK",
+        ],
+    )
+    require_text(
+        PATCH16,
+        [
+            "rendering/rurix_accel/passes/ssao_blur/dispatch_real_pass",
+            "rendering/rurix_accel/passes/ssao_blur/dispatch_recording_smoke",
+            "rendering/rurix_accel/passes/ssao_blur/real_pass_force_capability_downgrade",
+            "RXGD_CAP_SSAO_BLUR_REAL_PASS",
+            "RXGD_GODOT_RUNTIME_SSAO_BLUR_RECORD",
             "d3d12-recording-shim",
             "RXGD_STATUS_FALLBACK",
         ],

@@ -1,98 +1,306 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Rurix Godot Bridge <rurix@example.invalid>
-Date: Wed, 8 Jul 2026 19:50:00 +0800
-Subject: [PATCH] Scaffold the GRX-009 real-pass result writeback for the
- luminance level-0 dispatch
+Date: Sat, 12 Jul 2026 10:00:00 +0800
+Subject: [PATCH] Wire the GRX-009 Wave 2 real multi-level luminance
+ pyramid writeback (hook_contract_v2)
 
-Stacked on 0001-rurix-accel-module-scaffold.patch,
-0002-rurix-accel-luminance-pass-gate.patch,
-0003-rurix-accel-luminance-core-callsite-wiring.patch,
-0004-rurix-accel-luminance-resource-mapping-scaffold.patch,
-0005-rurix-accel-luminance-runtime-binding-preflight.patch,
-0006-rurix-accel-luminance-gated-dispatch-bringup.patch,
-0007-rurix-accel-luminance-native-resource-handle-mapping.patch,
-0008-rurix-accel-luminance-godot-runtime-bridge-recording-smoke.patch, and
-0009-rurix-accel-luminance-real-pass-optin.patch. This stage A5 patch is a
-result writeback SCAFFOLD only: it wires what happens at the Auto Exposure
-call site AFTER the opt-in real-pass arm (dispatch_real_pass) actually
-returned RXGD_STATUS_OK from a real recorded level-0 dispatch.
+Stacked on 0001..0009. Replaces the level-0 result-writeback SCAFFOLD
+with the real multi-level pyramid arm defined by
+spike/godot-rurix/passes/luminance_reduction/hook_contract_v2.md.
 
-- servers/rendering/renderer_rd/renderer_scene_render_rd.cpp Auto Exposure
-  call site: when try_record_luminance_reduction() returned true on the
-  real-pass arm, the Rurix bridge has already dispatched the level-0
-  reduction INTO the real luminance_buffers->reduce[0] ID3D12Resource*
-  resolved in segment 4e, so the level-0 result is physically written back
-  into Godot's own reduce pyramid storage. The scaffold prints a
-  machine-readable RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS_WRITEBACK marker
-  recording that writeback, then deliberately clears
-  rurix_recorded_luminance so the FULL native Godot luminance path still
-  runs as the continuation/backstop: multi-level pyramid, EMA feedback,
-  previous-luminance double buffering, and the final WRITE_LUMINANCE
-  clamp/min/max level are not yet parity-proven on the Rurix side
-  (math_parity_evidence.json is level-0 CPU-proven, pending GPU), so the
-  native path re-renders every level and the rendered image can never
-  change while the scaffold is in place.
+- drivers/d3d12/d3d12_hooks.h: adds a NEW default-false virtual
+  try_record_luminance_pyramid() carrying the ordered native
+  ID3D12Resource* handle array [source, reduce[0..L-1], current, prev]
+  (length num_levels + 2), the level-0 source extent, the b0 root
+  constant scalars, and the first-frame (p_set) flag. The existing
+  9-argument try_record_luminance_reduction() signature (patch
+  0005/0007) is byte-unchanged.
+- modules/rurix_accel: implements the new pyramid override. It marshals
+  the ordered texture array + the 28-byte b0 block into
+  rxgd_record_pass under the default-false dispatch_real_pass opt-in and
+  fails closed (RXGD_STATUS_FALLBACK -> native path) on any missing/
+  non-conforming handle or a non-OK bridge status. The RECORD marker is
+  now gated under dispatch_recording_smoke so a real-pass success is
+  never misreported as a recording-smoke run.
+- servers/rendering/renderer_rd/renderer_scene_render_rd.cpp Auto
+  Exposure call site: under the opt-in it resolves the full pyramid
+  native-handle array and calls the new hook. It maps the hook-contract
+  slots to Godot's native luminance.cpp roles exactly: the final WRITE
+  level's `current` slot (UAV write target) is native reduce[last] and
+  its `prev` slot (SRV read) is native `current`, so the recorded EMA
+  blends against last frame's luminance and writes this frame's into
+  reduce[last]. On a recorded pyramid it mirrors Godot's native
+  SWAP(current, reduce[last]) and SKIPS the native luminance_reduction
+  (real replacement, no native backstop), printing
+  RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS_WRITEBACK with real=1. On the
+  first frame Godot requests an immediate SET (set_immediate == p_set)
+  the pyramid is skipped entirely so the native path performs the plain
+  SET + SWAP (the fixed WRITE_LUMINANCE kernel has no SET branch); the
+  pyramid takes over from the next frame, when prev == current(previous
+  frame) is valid. If the pyramid arm is not taken on a later frame it
+  keeps the segment 4e level-0 recording scaffold with the native path
+  as backstop (native_continuation=active scaffold=1).
 
-- modules/rurix_accel/rurix_accel.cpp: the segment 4d/4f
-  RXGD_GODOT_RUNTIME_LUMINANCE_RECORD marker is now printed only under the
-  harness-only dispatch_recording_smoke opt-in, so a real-pass success on
-  the dispatch_real_pass arm is reported by the
-  RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS marker alone and is never
-  misreported as a recording-smoke run (the segment 4h harness treats the
-  RECORD marker as an integrity failure).
-
-Replacing the native continuation (actually skipping native level 0 and
-running only the remaining native levels off the Rurix-written reduce[0])
-belongs to the multi-level continuation round and requires measured GPU
-math-parity evidence first. This patch does not change RXGD_ABI_VERSION,
-does not enable any per-pass setting by default, does not alter the
-fail-closed bridge semantics, and makes no visual, measured-telemetry,
-GPU-timestamp, or performance claim by itself.
+ONE-FRAME LATENCY is declared in the hook signature comment, the marker
+line (one_frame_latency=1), and the bridge contract, never hidden. The
+real dispatch is linked only under the test-only d3d12-recording-shim
+bridge feature; the shipping feature-off bridge fails closed with
+real_dispatch_path_not_linked. This does not change RXGD_ABI_VERSION,
+does not enable any per-pass setting by default (all luminance per-pass
+settings still default to false), does not flip real_gpu_pass to true,
+and makes no visual, measured-telemetry, GPU-timestamp, or performance
+claim by itself.
 ---
+diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
+index 29864a4..10d4aca 100644
+--- a/drivers/d3d12/d3d12_hooks.h
++++ b/drivers/d3d12/d3d12_hooks.h
+@@ -46,6 +46,18 @@ public:
+ 	virtual void set_device(ID3D12Device *p_device) = 0;
+ 	virtual void set_command_queue(ID3D12CommandQueue *p_queue) = 0;
+ 	virtual void cleanup_device() = 0;
++	// GRX-009 Wave 2 (hook_contract_v2): opt-in multi-resource luminance
++	// pyramid hook. The caller passes the ordered native ID3D12Resource*
++	// handle array [source, reduce[0..L-1], current, prev] (length
++	// num_levels + 2), the level-0 source extent, the b0 root constant
++	// scalars (max/min luminance, exposure_adjust), and the first-frame
++	// (p_set) flag so the bridge can record the full reduce chain plus the
++	// final WRITE_LUMINANCE in one submit. ONE-FRAME LATENCY: hooked from
++	// within a Godot frame, source/prev carry the previous frame's content
++	// (declared, not hidden). The base implementation returns false so any
++	// hooks that do not override this (or the absence of a hooks singleton)
++	// keep the native Godot luminance path.
++	virtual bool try_record_luminance_pyramid(const uint64_t *p_native_handles, uint32_t p_handle_count, uint32_t p_source_width, uint32_t p_source_height, float p_max_luminance, float p_min_luminance, float p_exposure_adjust, bool p_first_frame) { return false; }
+ 	// GRX-009 segment 4e: native resource handle mapping hook for the
+ 	// luminance_reduction pass. The caller now passes the real D3D12
+ 	// ID3D12Resource* native handles (resolved through
 diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
-index 10f99e0..7c41b02 100644
+index 10f99e0..2b22dae 100644
 --- a/modules/rurix_accel/rurix_accel.cpp
 +++ b/modules/rurix_accel/rurix_accel.cpp
-@@ -307,7 +307,13 @@ bool RurixAccelD3D12Hooks::try_record_luminance_reduction(uint64_t p_source_nati
+@@ -307,7 +307,93 @@ bool RurixAccelD3D12Hooks::try_record_luminance_reduction(uint64_t p_source_nati
  	if (GLOBAL_GET("rendering/rurix_accel/passes/luminance_reduction/dispatch_real_pass")) {
  		print_line("RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS: pass=RXGD_PASS_LUMINANCE_REDUCTION dispatched=1");
  	}
 -	print_line("RXGD_GODOT_RUNTIME_LUMINANCE_RECORD: pass=RXGD_PASS_LUMINANCE_REDUCTION recorded=1");
-+	// GRX-009 stage A5: the RECORD marker belongs to the segment 4d/4f
++	// GRX-009 Wave 2: the RECORD marker belongs to the segment 4d/4f
 +	// harness-only recording smoke; print it only under that opt-in so a
 +	// real-pass success on the dispatch_real_pass arm is never misreported
-+	// as a recording-smoke run.
++	// as a recording-smoke run (the segment 4h harness treats a stray
++	// RECORD marker as an integrity failure).
 +	if (GLOBAL_GET("rendering/rurix_accel/passes/luminance_reduction/dispatch_recording_smoke")) {
 +		print_line("RXGD_GODOT_RUNTIME_LUMINANCE_RECORD: pass=RXGD_PASS_LUMINANCE_REDUCTION recorded=1");
 +	}
++	return true;
++}
++
++bool RurixAccelD3D12Hooks::try_record_luminance_pyramid(const uint64_t *p_native_handles, uint32_t p_handle_count, uint32_t p_source_width, uint32_t p_source_height, float p_max_luminance, float p_min_luminance, float p_exposure_adjust, bool p_first_frame) {
++	// GRX-009 Wave 2 real multi-level luminance pyramid arm (hook_contract_v2).
++	// Every early return below keeps the native Godot luminance path. The
++	// opt-in real-pass arm marshals the ordered [source, reduce[0..L-1],
++	// current, prev] native ID3D12Resource* handle array and the b0 root
++	// constants and asks the Rurix bridge to record the full reduce chain
++	// plus the final WRITE_LUMINANCE. The bridge stays fail-closed and only
++	// records a real dispatch under the test-only d3d12-recording-shim
++	// feature; otherwise it returns RXGD_STATUS_FALLBACK and the native path
++	// keeps rendering.
++	// The hook-contract array [source, reduce[0..L-1], current, prev] has
++	// length num_levels + 2 (>= 3 for a single final level) and is capped
++	// for the fixed marshalling buffer. Kept function-local so the shared
++	// rurix_accel.h member-constant block stays byte-stable for the stacked
++	// tonemap/ssao_blur patches.
++	constexpr uint32_t LUMINANCE_PYRAMID_MIN_RESOURCES = 3;
++	constexpr uint32_t LUMINANCE_PYRAMID_MAX_RESOURCES = 16;
++	if (!GLOBAL_GET("rendering/rurix_accel/passes/luminance_reduction/dispatch_real_pass")) {
++		// manual_disabled: the real-pass arm is opt-in and defaults to disabled.
++		return false;
++	}
++	if (session == nullptr || rxgd_record_pass == nullptr) {
++		// No bridge session or record entry point; equivalent to unsupported_device.
++		return false;
++	}
++	if (p_native_handles == nullptr || p_handle_count < LUMINANCE_PYRAMID_MIN_RESOURCES || p_handle_count > LUMINANCE_PYRAMID_MAX_RESOURCES) {
++		// The hook-contract array is [source, reduce[0..L-1], current, prev]
++		// (length num_levels + 2); a malformed length fails the whole pyramid
++		// closed.
++		return false;
++	}
++	// Any zero native handle (a missing Godot buffer) fails the WHOLE pyramid
++	// closed to the native path (hook_contract_v2 s5), never a partial dispatch.
++	for (uint32_t rurix_i = 0; rurix_i < p_handle_count; rurix_i++) {
++		if (p_native_handles[rurix_i] == 0) {
++			return false;
++		}
++	}
++	// Marshal the ordered texture array. Every slot is a single-channel
++	// luminance texture (RXGD_RESOURCE_TEXTURE); native_handle carries the
++	// real D3D12 ID3D12Resource* resolved from get_driver_resource.
++	RxGdResource resources[LUMINANCE_PYRAMID_MAX_RESOURCES] = {};
++	for (uint32_t rurix_i = 0; rurix_i < p_handle_count; rurix_i++) {
++		resources[rurix_i].abi_version = RXGD_ABI_VERSION;
++		resources[rurix_i].struct_size = (uint32_t)sizeof(RxGdResource);
++		resources[rurix_i].resource_type = RXGD_RESOURCE_TEXTURE;
++		resources[rurix_i].depth = 1;
++		resources[rurix_i].mip_levels = 1;
++		resources[rurix_i].native_handle = p_native_handles[rurix_i];
++	}
++	// b0 root constants (28 bytes / 7 DWORDs): source_width and source_height
++	// as 64-bit integers, then max_luminance, min_luminance and
++	// exposure_adjust as 32-bit floats, little-endian like D3D12. The bridge
++	// derives each level's own source extent from the level-0 extent here.
++	uint8_t push_constants[LUMINANCE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES] = {};
++	const uint64_t source_width = p_source_width;
++	const uint64_t source_height = p_source_height;
++	memcpy(&push_constants[0], &source_width, sizeof(source_width));
++	memcpy(&push_constants[8], &source_height, sizeof(source_height));
++	memcpy(&push_constants[16], &p_max_luminance, sizeof(p_max_luminance));
++	memcpy(&push_constants[20], &p_min_luminance, sizeof(p_min_luminance));
++	memcpy(&push_constants[24], &p_exposure_adjust, sizeof(p_exposure_adjust));
++	// first_frame mirrors Godot's p_set: on the first frame the caller
++	// supplies a zero-cleared prev texture, so the fixed WRITE_LUMINANCE EMA
++	// degenerates to cur * exposure_adjust; the flag is consumed by the
++	// caller's prev-buffer selection, not re-encoded here.
++	(void)p_first_frame;
++	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_LUMINANCE_REDUCTION, resources, p_handle_count, push_constants, LUMINANCE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES);
++	if (rc != RXGD_STATUS_OK) {
++		if (!luminance_fallback_logged) {
++			print_verbose(vformat("RurixAccel: luminance pyramid real-pass fallback rc=%d; Godot native luminance path remains active.", rc));
++			luminance_fallback_logged = true;
++		}
++		return false;
++	}
++	print_line("RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS: pass=RXGD_PASS_LUMINANCE_REDUCTION dispatched=1 levels=pyramid");
  	return true;
  }
  
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index 4061d4b..3f1fb9c 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -97,6 +97,14 @@ public:
+ 	void set_command_queue(ID3D12CommandQueue *p_queue) override;
+ 	void cleanup_device() override;
+ 	bool is_ready() const;
++	// GRX-009 Wave 2 (hook_contract_v2): multi-resource luminance pyramid
++	// hook override. Marshals the [source, reduce[0..L-1], current, prev]
++	// native handle array and the b0 root constants into rxgd_record_pass
++	// and returns true only when the bridge recorded the full pyramid. Any
++	// other outcome (real-pass opt-in disabled, missing session/symbol, a
++	// null or non-conforming handle array, or a non-OK bridge status)
++	// returns false and the caller keeps the native Godot luminance path.
++	bool try_record_luminance_pyramid(const uint64_t *p_native_handles, uint32_t p_handle_count, uint32_t p_source_width, uint32_t p_source_height, float p_max_luminance, float p_min_luminance, float p_exposure_adjust, bool p_first_frame) override;
+ 	// GRX-009 segment 4e: native resource handle mapping. Marshals the real
+ 	// D3D12 ID3D12Resource* native handles (not logical Godot RID ids),
+ 	// dimensions, and b0 root constants to the Rurix bridge and returns true
 diff --git a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
-index c393ffe..5b20d17 100644
+index c393ffe..aa47102 100644
 --- a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
 +++ b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
-@@ -589,6 +589,21 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
- 			if (rurix_source_native_handle != 0 && rurix_dest_native_handle != 0) {
- 				rurix_recorded_luminance = D3D12Hooks::get_singleton()->try_record_luminance_reduction(rurix_source_native_handle, (uint32_t)MAX(rurix_source_size.x, 0), (uint32_t)MAX(rurix_source_size.y, 0), rurix_dest_native_handle, (uint32_t)rurix_dest_size.x, (uint32_t)rurix_dest_size.y, auto_exposure_max_sensitivity, auto_exposure_min_sensitivity, (float)step);
- 			}
-+			if (rurix_recorded_luminance) {
-+				// GRX-009 stage A5 result writeback SCAFFOLD. The Rurix bridge
-+				// dispatched the level-0 reduction directly into the real
-+				// luminance_buffers->reduce[0] ID3D12Resource*, so the level-0
-+				// result is already written back into Godot's reduce pyramid
-+				// storage. Record that writeback with a machine-readable
-+				// marker, then keep the FULL native Godot luminance path as
-+				// the continuation/backstop: multi-level pyramid, EMA, prev
-+				// luminance, and the final WRITE_LUMINANCE clamp level are not
-+				// yet parity-proven on the Rurix side, so the native path
-+				// re-renders every level and the image can never change while
-+				// this scaffold is in place.
-+				print_line("RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS_WRITEBACK: level0_dst=reduce[0] native_continuation=active scaffold=1");
-+				rurix_recorded_luminance = false;
+@@ -571,27 +571,88 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+ 		bool rurix_recorded_luminance = false;
+ #ifdef D3D12_ENABLED
+ 		if (D3D12Hooks::get_singleton() != nullptr && !luminance_buffers->reduce.is_empty()) {
+-			// GRX-009 segment 4e native resource handle mapping gate. Resolves
+-			// the real D3D12 ID3D12Resource* native handles (not logical Godot
+-			// RID ids) for the source HDR texture and the level-0 reduce
+-			// destination through RenderingDevice::get_driver_resource, then
+-			// passes them plus the source/destination sizes and the b0 root
+-			// constant scalars so the Rurix bridge can bind real resources.
+-			// When RenderingDevice is unavailable or either native handle
+-			// resolves to 0, the pass falls back to the native Godot luminance
+-			// path. Returns true only when the Rurix module setting is enabled
+-			// AND the bridge session/symbol exist AND rxgd_record_pass returns
+-			// RXGD_STATUS_OK. The bridge still always returns
+-			// RXGD_STATUS_FALLBACK for luminance_reduction (native handle
+-			// mapping preflight only, no real dispatch), so this stays false
+-			// and the native Godot path below runs.
+ 			const Size2i rurix_source_size = rb->get_internal_size();
+ 			const Size2i rurix_dest_size = Size2i(MAX(rurix_source_size.x / 8, 1), MAX(rurix_source_size.y / 8, 1));
+ 			RenderingDevice *rurix_rd = RD::get_singleton();
+ 			const uint64_t rurix_source_native_handle = rurix_rd != nullptr ? rurix_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_TEXTURE, rb->get_internal_texture(), 0) : 0;
+-			const uint64_t rurix_dest_native_handle = rurix_rd != nullptr ? rurix_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_TEXTURE, luminance_buffers->reduce[0], 0) : 0;
+-			if (rurix_source_native_handle != 0 && rurix_dest_native_handle != 0) {
+-				rurix_recorded_luminance = D3D12Hooks::get_singleton()->try_record_luminance_reduction(rurix_source_native_handle, (uint32_t)MAX(rurix_source_size.x, 0), (uint32_t)MAX(rurix_source_size.y, 0), rurix_dest_native_handle, (uint32_t)rurix_dest_size.x, (uint32_t)rurix_dest_size.y, auto_exposure_max_sensitivity, auto_exposure_min_sensitivity, (float)step);
++			// GRX-009 Wave 2 real multi-level pyramid writeback (hook_contract_v2).
++			// Resolve the ordered native handle array [source, reduce[0..L-1],
++			// current, prev] mirroring Godot's native luminance.cpp roles: the
++			// reduce Vector holds the planned reduce chain 1:1, so reduce[0..size-2]
++			// are the intermediate reduce targets. The final WRITE level writes the
++			// LAST native reduce buffer and reads native `current` as the previous
++			// frame's luminance, so the hook-contract `current` slot (final UAV write
++			// target) is native reduce[last] and the `prev` slot (final SRV read) is
++			// native current; SWAP(current, reduce[last]) then double-buffers them,
++			// exactly as native. Any zero handle fails the whole pyramid closed.
++			// ONE-FRAME LATENCY: source/prev carry the previous frame's content
++			// (declared). The first (SET) frame is handed to the native path below.
++			const int rurix_reduce_count = luminance_buffers->reduce.size();
++			uint64_t rurix_pyramid_handles[16];
++			uint32_t rurix_pyramid_count = 0;
++			// GRX-009 Wave 2 first-frame fix: skip the real pyramid whenever Godot
++			// requests an immediate SET (set_immediate == p_set). On that frame the
++			// native luminance_reduction runs the plain REDUCE variant for the final
++			// level (no EMA), writing the raw mean straight into current, then SWAPs.
++			// The fixed WRITE_LUMINANCE kernel has no SET branch (its EMA against a
++			// zero-cleared prev would collapse to cur*exposure_adjust and take many
++			// frames to converge), so we hand the SET frame to the native path and
++			// let the pyramid take over from the next frame, when prev == current
++			// (previous frame) is valid.
++			bool rurix_pyramid_ok = !set_immediate && rurix_rd != nullptr && rurix_source_native_handle != 0 && rurix_reduce_count >= 1 && (uint32_t)(rurix_reduce_count + 2) <= 16;
++			if (rurix_pyramid_ok) {
++				rurix_pyramid_handles[rurix_pyramid_count++] = rurix_source_native_handle;
++				for (int rurix_l = 0; rurix_l + 1 < rurix_reduce_count && rurix_pyramid_ok; rurix_l++) {
++					const uint64_t rurix_reduce_handle = rurix_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_TEXTURE, luminance_buffers->reduce[rurix_l], 0);
++					if (rurix_reduce_handle == 0) {
++						rurix_pyramid_ok = false;
++					} else {
++						rurix_pyramid_handles[rurix_pyramid_count++] = rurix_reduce_handle;
++					}
++				}
 +			}
++			if (rurix_pyramid_ok) {
++				// hook_contract_v2 final-level slot roles (native luminance.cpp: the
++				// WRITE level writes reduce[last] and reads `current` as prev, then
++				// SWAP(current, reduce[last])):
++				//   contract `current` slot (final UAV write target) = native reduce[last];
++				//   contract `prev` slot (final SRV read)           = native current.
++				const uint64_t rurix_write_target_handle = rurix_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_TEXTURE, luminance_buffers->reduce[rurix_reduce_count - 1], 0);
++				const uint64_t rurix_prev_luminance_handle = rurix_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_TEXTURE, luminance_buffers->current, 0);
++				if (rurix_write_target_handle == 0 || rurix_prev_luminance_handle == 0) {
++					rurix_pyramid_ok = false;
++				} else {
++					rurix_pyramid_handles[rurix_pyramid_count++] = rurix_write_target_handle;
++					rurix_pyramid_handles[rurix_pyramid_count++] = rurix_prev_luminance_handle;
++				}
++			}
++			if (rurix_pyramid_ok) {
++				rurix_recorded_luminance = D3D12Hooks::get_singleton()->try_record_luminance_pyramid(rurix_pyramid_handles, rurix_pyramid_count, (uint32_t)MAX(rurix_source_size.x, 0), (uint32_t)MAX(rurix_source_size.y, 0), auto_exposure_max_sensitivity, auto_exposure_min_sensitivity, (float)step, set_immediate);
++			}
++			if (rurix_recorded_luminance) {
++				// The bridge recorded the full reduce chain + final WRITE_LUMINANCE
++				// into current, so mirror Godot's native double buffer (SWAP current
++				// with the last reduce) and SKIP the native luminance_reduction: the
++				// real Rurix pyramid replaces the native pass with no native
++				// backstop. ONE-FRAME LATENCY is declared (hook_contract_v2 s6).
++				SWAP(luminance_buffers->current, luminance_buffers->reduce.write[luminance_buffers->reduce.size() - 1]);
++				print_line("RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS_WRITEBACK: dst=current native_continuation=skipped real=1 one_frame_latency=1");
++			} else if (!set_immediate) {
++				// Real pyramid arm not taken on a non-SET frame (opt-in off, the bridge
++				// fell back, or a missing/oversized handle array). On the SET frame the
++				// whole rurix arm is skipped (this else-if is not entered) so native
++				// performs the clean SET + SWAP. On every other frame keep the GRX-009
++				// segment 4e native-handle-mapping level-0 recording scaffold, which
++				// records a single level-0 dispatch into reduce[0] but is NOT a full-
++				// pyramid replacement, so the native Godot luminance path always
++				// re-renders every level as the backstop and rurix_recorded_luminance
++				// stays false.
++				const uint64_t rurix_dest_native_handle = rurix_rd != nullptr ? rurix_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_TEXTURE, luminance_buffers->reduce[0], 0) : 0;
++				if (rurix_source_native_handle != 0 && rurix_dest_native_handle != 0) {
++					if (D3D12Hooks::get_singleton()->try_record_luminance_reduction(rurix_source_native_handle, (uint32_t)MAX(rurix_source_size.x, 0), (uint32_t)MAX(rurix_source_size.y, 0), rurix_dest_native_handle, (uint32_t)rurix_dest_size.x, (uint32_t)rurix_dest_size.y, auto_exposure_max_sensitivity, auto_exposure_min_sensitivity, (float)step)) {
++						print_line("RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS_WRITEBACK: dst=reduce[0] native_continuation=active scaffold=1");
++					}
++				}
+ 			}
  		}
  #endif
- 		if (!rurix_recorded_luminance) {
 -- 
 2.50.0

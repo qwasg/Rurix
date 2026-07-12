@@ -1,0 +1,223 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Sat, 12 Jul 2026 11:00:00 +0800
+Subject: [PATCH] Wire GRX-011 ssao_blur runtime resource binding with native D3D12
+ resource handle mapping
+
+Stacked on 0001..0014. This is the GRX-011 runtime resource binding slice
+(the GRX-009 0005+0007 layers merged into one patch for the ssao_blur
+pass), mirroring GRX-010 0012: it lets the Godot generate_ssao Edge-Aware
+Blur loop pass the REAL ssao_blur binding to the Rurix bridge so the
+fail-closed SsaoBlurGate can validate it, while the runtime stays
+fallback-first.
+
+- drivers/d3d12/d3d12_hooks.h: try_record_ssao_blur() now carries the
+  ssao_blur binding: real ID3D12Resource* native handles (resolved through
+  RenderingDevice::get_driver_resource) for this iteration's ping-pong
+  source and destination deinterleaved slice, the 1:1 slice dimensions,
+  and the b0 root constant scalars (edge_sharpness, half_screen_pixel_size
+  x/y).
+- ss_effects.cpp: resolves the ping-pong source/destination slice native
+  handles for the current pass parity and passes them plus the
+  deinterleaved slice extent and the SSAOBlurPushConstant scalars. When
+  RenderingDevice is unavailable or either handle resolves to 0 the call
+  site keeps the native SSAO blur dispatch instead of binding a null
+  resource.
+- modules/rurix_accel: the override marshals two RXGD_RESOURCE_TEXTURE
+  records (SRV src_ssao = t0, UAV dst_ssao = u0) and the 28-byte b0 root
+  constant block into rxgd_record_pass, with a zero-native-handle guard
+  that returns false (native Godot fallback).
+
+This is not a real GPU pass: the default record path never returns OK for
+RXGD_PASS_SSAO_BLUR, no D3D12 dispatch is recorded by the shipping
+(feature-off) bridge, the per-pass setting defaults to false, the native
+Godot SSAO blur path stays active, and no visual diff, measured telemetry,
+or performance claim is made.
+---
+diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
+index ef505ac..32b7c9c 100644
+--- a/drivers/d3d12/d3d12_hooks.h
++++ b/drivers/d3d12/d3d12_hooks.h
+@@ -79,9 +79,16 @@ public:
+ 	// returns false so any hooks that do not override this (or the absence
+ 	// of a hooks singleton) keep the native Godot tonemap path.
+ 	virtual bool try_record_tonemap(uint64_t p_source_native_handle, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_native_handle, uint32_t p_dest_width, uint32_t p_dest_height, float p_exposure, float p_white, float p_luminance_multiplier) { return false; }
+-	// GRX-011: opt-in hook for the ssao_blur pass. The base implementation
+-	// returns false so any hooks that do not override this (or the absence of
+-	// a hooks singleton) keep the native Godot SSAO blur path.
+-	virtual bool try_record_ssao_blur() { return false; }
++	// GRX-011 runtime resource binding: native resource handle mapping hook
++	// for the ssao_blur pass (0005/0007-level wiring in one slice). The caller
++	// passes the real D3D12 ID3D12Resource* native handles (resolved through
++	// RenderingDevice::get_driver_resource, not logical Godot RID ids) for the
++	// deinterleaved SSAO source slice and the ping-pong destination slice, the
++	// source/destination dimensions (1:1 at the deinterleaved slice size), and
++	// the b0 root constant scalars (edge_sharpness, half_screen_pixel_size x/y)
++	// so the bridge can validate the binding contract and bind real resources.
++	// The base implementation returns false so any hooks that do not override
++	// this (or the absence of a hooks singleton) keep the native SSAO blur path.
++	virtual bool try_record_ssao_blur(uint64_t p_source_native_handle, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_native_handle, uint32_t p_dest_width, uint32_t p_dest_height, float p_edge_sharpness, float p_half_screen_pixel_size_x, float p_half_screen_pixel_size_y) { return false; }
+ 	static D3D12Hooks *get_singleton() { return singleton; }
+ };
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index 3169e3d..0f6a523 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -495,13 +495,15 @@ bool RurixAccelD3D12Hooks::try_record_tonemap(uint64_t p_source_native_handle, u
+ 	return true;
+ }
+ 
+-bool RurixAccelD3D12Hooks::try_record_ssao_blur() {
+-	// GRX-011 gate: every early return below means the caller must keep the
+-	// native Godot SSAO blur path. This is 0002-level module wiring: the call
+-	// carries no resource bindings (native handle mapping belongs to a later
+-	// slice), and the fail-closed bridge SsaoBlurGate always returns
+-	// RXGD_STATUS_FALLBACK for RXGD_PASS_SSAO_BLUR today, so the native SSAO
+-	// blur keeps rendering in practice.
++bool RurixAccelD3D12Hooks::try_record_ssao_blur(uint64_t p_source_native_handle, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_native_handle, uint32_t p_dest_width, uint32_t p_dest_height, float p_edge_sharpness, float p_half_screen_pixel_size_x, float p_half_screen_pixel_size_y) {
++	// GRX-011 runtime resource binding gate: every early return below means the
++	// caller must keep the native Godot SSAO blur path. This is the 0005/0007-
++	// level wiring in one slice: the call now carries the real ssao_blur binding
++	// (native ID3D12Resource* handles, dimensions, and the b0 root constant
++	// scalars) so the fail-closed bridge SsaoBlurGate can run its runtime
++	// binding preflight. The default record path (no real-pass opt-in) still
++	// always returns RXGD_STATUS_FALLBACK for RXGD_PASS_SSAO_BLUR, so the native
++	// SSAO blur keeps rendering.
+ 	if (!GLOBAL_GET("rendering/rurix_accel/passes/ssao_blur/enabled")) {
+ 		// manual_disabled: the pass is opt-in and defaults to disabled.
+ 		return false;
+@@ -511,10 +513,50 @@ bool RurixAccelD3D12Hooks::try_record_ssao_blur() {
+ 		// unsupported_device for this pass.
+ 		return false;
+ 	}
+-	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_SSAO_BLUR, nullptr, 0, nullptr, 0);
++	if (p_source_native_handle == 0 || p_dest_native_handle == 0) {
++		// A zero native handle means RenderingDevice could not resolve a real
++		// ID3D12Resource*; keep the native Godot SSAO blur path instead of
++		// binding a null resource.
++		return false;
++	}
++	// Marshal the ssao_blur binding for the bridge. native_handle carries the
++	// real D3D12 ID3D12Resource* resolved from
++	// RenderingDevice::get_driver_resource, not a logical Godot RID id. The
++	// deinterleaved slice blur is a 1:1 ping-pong pass (dst extent == src).
++	RxGdResource resources[SSAO_BLUR_RESOURCE_MAPPING_RESOURCE_COUNT] = {};
++	resources[0].abi_version = RXGD_ABI_VERSION;
++	resources[0].struct_size = (uint32_t)sizeof(RxGdResource);
++	resources[0].resource_type = RXGD_RESOURCE_TEXTURE;
++	resources[0].width = p_source_width;
++	resources[0].height = p_source_height;
++	resources[0].depth = 1;
++	resources[0].mip_levels = 1;
++	resources[0].native_handle = p_source_native_handle;
++	resources[1].abi_version = RXGD_ABI_VERSION;
++	resources[1].struct_size = (uint32_t)sizeof(RxGdResource);
++	resources[1].resource_type = RXGD_RESOURCE_TEXTURE;
++	resources[1].width = p_dest_width;
++	resources[1].height = p_dest_height;
++	resources[1].depth = 1;
++	resources[1].mip_levels = 1;
++	resources[1].native_handle = p_dest_native_handle;
++	// b0 root constants (28 bytes / 7 DWORDs): source_width and source_height
++	// as 64-bit integers (the ssao_blur kernel declares the 64-bit integer
++	// shader capability per the GRX-009 canonical template), then
++	// edge_sharpness and the two half_screen_pixel_size floats, little-endian
++	// like D3D12.
++	uint8_t push_constants[SSAO_BLUR_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES] = {};
++	const uint64_t source_width = p_source_width;
++	const uint64_t source_height = p_source_height;
++	memcpy(&push_constants[0], &source_width, sizeof(source_width));
++	memcpy(&push_constants[8], &source_height, sizeof(source_height));
++	memcpy(&push_constants[16], &p_edge_sharpness, sizeof(p_edge_sharpness));
++	memcpy(&push_constants[20], &p_half_screen_pixel_size_x, sizeof(p_half_screen_pixel_size_x));
++	memcpy(&push_constants[24], &p_half_screen_pixel_size_y, sizeof(p_half_screen_pixel_size_y));
++	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_SSAO_BLUR, resources, SSAO_BLUR_RESOURCE_MAPPING_RESOURCE_COUNT, push_constants, SSAO_BLUR_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES);
+ 	if (rc != RXGD_STATUS_OK) {
+ 		if (!ssao_blur_fallback_logged) {
+-			print_verbose(vformat("RurixAccel: ssao_blur fallback rc=%d; Godot native SSAO blur path remains active.", rc));
++			print_verbose(vformat("RurixAccel: ssao_blur native resource handle mapping fallback rc=%d; Godot native SSAO blur path remains active.", rc));
+ 			ssao_blur_fallback_logged = true;
+ 		}
+ 		return false;
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index 55ab7a1..c45f302 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -97,6 +97,13 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
+ 	// exactly two texture resources (src_color = SRV t0, dst_color = UAV u0).
+ 	static constexpr uint32_t TONEMAP_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 28;
+ 	static constexpr uint32_t TONEMAP_RESOURCE_MAPPING_RESOURCE_COUNT = 2;
++	// GRX-011 ssao_blur resource mapping (resource_mapping.md): b0 carries
++	// 7 DWORDs / 28 bytes ([i64 source_width, i64 source_height, f32
++	// edge_sharpness, f32 half_screen_pixel_size_x, f32
++	// half_screen_pixel_size_y]) and the binding is exactly two texture
++	// resources (src_ssao = SRV t0, dst_ssao = UAV u0, 1:1 dst extent).
++	static constexpr uint32_t SSAO_BLUR_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 28;
++	static constexpr uint32_t SSAO_BLUR_RESOURCE_MAPPING_RESOURCE_COUNT = 2;
+ 	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_SCAFFOLD = "resource mapping scaffold";
+ 	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_ROOT_CB = "b0";
+ 	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_SRC = "src_luminance = t0";
+@@ -144,12 +151,16 @@ public:
+ 	// RXGD_STATUS_FALLBACK from the fail-closed TonemapGate) returns false
+ 	// and the caller must keep the native Godot tonemap path.
+ 	bool try_record_tonemap(uint64_t p_source_native_handle, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_native_handle, uint32_t p_dest_width, uint32_t p_dest_height, float p_exposure, float p_white, float p_luminance_multiplier) override;
+-	// GRX-011: returns true only when the Rurix bridge actually recorded the
+-	// ssao_blur pass. Any other outcome (setting disabled, missing
+-	// session/symbol, or a non-OK bridge status such as RXGD_STATUS_FALLBACK
++	// GRX-011 runtime resource binding: native resource handle mapping.
++	// Marshals the real D3D12 ID3D12Resource* native handles (not logical Godot
++	// RID ids), the source/destination dimensions, and the b0 root constants
++	// (edge_sharpness, half_screen_pixel_size x/y) to the Rurix bridge and
++	// returns true only when the bridge actually recorded the ssao_blur pass.
++	// Any other outcome (setting disabled, missing session/symbol, a null
++	// native handle, or a non-OK bridge status such as RXGD_STATUS_FALLBACK
+ 	// from the fail-closed SsaoBlurGate) returns false and the caller must keep
+ 	// the native Godot SSAO blur path.
+-	bool try_record_ssao_blur() override;
++	bool try_record_ssao_blur(uint64_t p_source_native_handle, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_native_handle, uint32_t p_dest_width, uint32_t p_dest_height, float p_edge_sharpness, float p_half_screen_pixel_size_x, float p_half_screen_pixel_size_y) override;
+ };
+ 
+ #endif // D3D12_ENABLED
+diff --git a/servers/rendering/renderer_rd/effects/ss_effects.cpp b/servers/rendering/renderer_rd/effects/ss_effects.cpp
+index f1c42bc..8b675df 100644
+--- a/servers/rendering/renderer_rd/effects/ss_effects.cpp
++++ b/servers/rendering/renderer_rd/effects/ss_effects.cpp
+@@ -1375,13 +1375,29 @@ void SSEffects::generate_ssao(Ref<RenderSceneBuffersRD> p_render_buffers, SSAORe
+ 				bool rurix_recorded_ssao_blur = false;
+ #ifdef D3D12_ENABLED
+ 				if (D3D12Hooks::get_singleton() != nullptr) {
+-					// GRX-011 opt-in gate. Returns true only when the Rurix module
+-					// setting is enabled AND the bridge session/symbol exist AND
+-					// rxgd_record_pass returns RXGD_STATUS_OK. The fail-closed bridge
+-					// SsaoBlurGate always returns RXGD_STATUS_FALLBACK for
+-					// RXGD_PASS_SSAO_BLUR today, so this stays false and the native
+-					// SSAO blur dispatch below runs.
+-					rurix_recorded_ssao_blur = D3D12Hooks::get_singleton()->try_record_ssao_blur();
++					// GRX-011 runtime resource binding gate (0005/0007-level in one
++					// slice). The tracked bridge kernel covers ONE SMART blur pass on
++					// ONE deinterleaved slice: resolve the real D3D12 ID3D12Resource*
++					// native handles (not logical Godot RID ids) for this iteration's
++					// ping-pong source and destination slice through
++					// RenderingDevice::get_driver_resource, then pass them plus the
++					// deinterleaved slice extent (1:1 dst) and the b0 root constant
++					// scalars (edge_sharpness, half_screen_pixel_size x/y). When
++					// RenderingDevice is unavailable or either native handle resolves
++					// to 0 the pass falls back to the native SSAO blur dispatch.
++					// Returns true only when the Rurix module setting is enabled AND
++					// the bridge session/symbol exist AND rxgd_record_pass returns
++					// RXGD_STATUS_OK. The fail-closed bridge SsaoBlurGate still always
++					// returns RXGD_STATUS_FALLBACK for RXGD_PASS_SSAO_BLUR on the
++					// default path, so this stays false and the native dispatch runs.
++					RID rurix_ssao_src_slice = (pass % 2 == 0) ? ao_deinterleaved_slices[i] : ao_pong_slices[i];
++					RID rurix_ssao_dst_slice = (pass % 2 == 0) ? ao_pong_slices[i] : ao_deinterleaved_slices[i];
++					RenderingDevice *rurix_rd = RD::get_singleton();
++					const uint64_t rurix_ssao_src_handle = rurix_rd != nullptr ? rurix_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_TEXTURE, rurix_ssao_src_slice, 0) : 0;
++					const uint64_t rurix_ssao_dst_handle = rurix_rd != nullptr ? rurix_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_TEXTURE, rurix_ssao_dst_slice, 0) : 0;
++					if (rurix_ssao_src_handle != 0 && rurix_ssao_dst_handle != 0) {
++						rurix_recorded_ssao_blur = D3D12Hooks::get_singleton()->try_record_ssao_blur(rurix_ssao_src_handle, (uint32_t)MAX(p_ssao_buffers.buffer_width, 0), (uint32_t)MAX(p_ssao_buffers.buffer_height, 0), rurix_ssao_dst_handle, (uint32_t)MAX(p_ssao_buffers.buffer_width, 0), (uint32_t)MAX(p_ssao_buffers.buffer_height, 0), ssao.blur_push_constant.edge_sharpness, ssao.blur_push_constant.half_screen_pixel_size[0], ssao.blur_push_constant.half_screen_pixel_size[1]);
++					}
+ 				}
+ #endif
+ 				if (!rurix_recorded_ssao_blur) {
+-- 
+2.50.0

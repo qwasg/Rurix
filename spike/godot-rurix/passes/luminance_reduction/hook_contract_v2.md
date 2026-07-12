@@ -48,6 +48,26 @@ level (SRV source → UAV current, + SRV prev).
 All entries are **textures** (`RXGD_RESOURCE_TEXTURE`, R32F single-channel for
 luminance). A buffer resource never conforms and fails closed (see §5).
 
+### 1.1a Native Godot buffer mapping (integration — errata)
+
+The abstract `current`/`prev` slots above map onto Godot's native luminance
+buffers **the way native `luminance.cpp` uses them**, not 1:1 by name. Native's
+final WRITE dispatch (`i == reduce.size()-1 && !p_set`) **writes** `reduce[last]`
+and **reads** `current` as the previous-frame luminance, then swaps
+`SWAP(current, reduce[last])`. Therefore the Godot patch call site fills:
+
+| contract slot | filled with native buffer | native role                     |
+| ------------- | ------------------------- | ------------------------------- |
+| `current` (final UAV write target) | `reduce[reduce.size()-1]` (`reduce[last]`) | the 1×1 buffer the WRITE kernel writes |
+| `prev` (final SRV read)            | `current`                                  | last frame's 1×1 luminance the EMA blends against |
+
+The intermediate `reduce[0..L-1]` slots are native `reduce[0..reduce.size()-2]`
+(every native reduce buffer except the last). After a recorded pyramid the call
+site performs the same `SWAP(current, reduce[last])` as native, so the
+double-buffer advances identically. (Filling `current` with native `current` and
+`prev` with native `reduce[last]` — the mirror image — is the historical Bug 2:
+it makes the WRITE kernel read the wrong prev and write the wrong buffer.)
+
 ### 1.1 Dispatch chain
 
 Dispatch `i` (0-indexed) reads array index `i` and writes array index `i+1`,
@@ -68,30 +88,41 @@ The bridge orchestration derives the indices as: `srv_index = i`,
 ## 2. Level chain (planner)
 
 `plan_luminance_pyramid_levels(source_width, source_height)` mirrors the native
-Godot cascade — reduce by 8×8 tiles until the destination is 1×1 — using the
-**tracked kernel's ceil-div-8** (`(dim > 1) ? (dim + 7) / 8 : 1`, matching
-`src/lib_texture.rx` and `artifacts/hlsl_bridge/luminance_reduce_level.hlsl`):
+Godot cascade **byte-for-byte** — reduce by 8×8 tiles until the destination is
+1×1 — using Godot's own **floor** rule `MAX(dim / 8, 1)` (verbatim from
+`Luminance::LuminanceBuffers::configure` and `Luminance::luminance_reduction` in
+`servers/rendering/renderer_rd/effects/luminance.cpp`):
 
 ```
-(1920,1080) → (240,135) → (30,17) → (4,3) → (1,1)     4 dispatches
+(1920,1080) → (240,135) → (30,16) → (3,2) → (1,1)     4 dispatches
+(256,144)   → (32,18)   → (4,2)   → (1,1)             3 dispatches
 (16,16)     → (2,2)     → (1,1)                        2 dispatches
 (8,8)       → (1,1)                                    1 dispatch  (final only)
 ```
 
-### 2.1 Native-vs-kernel dimension divergence (integration note)
+Because the `reduce[]` slots the patch hands the bridge **are** Godot's native
+luminance buffers (resolved via `get_driver_resource`), the planner must report
+exactly the extents Godot allocated them at — the native floor extents above.
 
-Godot's native luminance buffer sizing is floor-based
-(`240×135 → 30×16 → 3×2 → 1×1`), while the tracked Rurix kernel is ceil-based
-(`240×135 → 30×17 → 4×3 → 1×1`). The bridge planner follows the **kernel** so
-the dispatched thread grid and the `reduce[]` extents stay self-consistent. The
-patch slice must therefore allocate `reduce[]` targets at the **ceil-div-8
-extents this planner reports**, not Godot's native floor extents. Reconciling
-the two (or teaching the kernel Godot's floor rule) is an explicit integration
-item for the patch slice; it is not silently papered over here.
+### 2.1 Floor buffers, ceil dispatch, native edge-drop (errata)
 
-Thread groups per level: `(ceil(dst_width/8), ceil(dst_height/8), 1)` — one
-`[numthreads(8,8,1)]` thread per destination texel, guarded by
-`x < dst_width && y < dst_height`.
+Godot allocates each `reduce[i]` at the **floor** extent `MAX(src/8, 1)` but
+dispatches `ceil(src/8)` thread groups (native `compute_list_dispatch_threads`
+divides the source extent by the 8×8 group with ceil). When `floor != ceil`
+(the source is not a multiple of 8) the trailing partial 8×8 tile's destination
+texel lands **out of bounds** of the floor-sized buffer and its write is dropped
+by the hardware — so native silently discards that edge tile. The tracked reduce
+kernel computes its write extent internally as ceil and guards
+`x < dst_width && y < dst_height`, so writing into the same floor-sized buffer
+drops the same partial texel; the in-bounds result is **bit-exact** with native.
+(Following the kernel's ceil extent for the `reduce[]` chain — the historical
+Bug 3 — over-sizes each buffer and reads past the previous level's floor buffer,
+corrupting every downstream average.)
+
+Thread groups per level: `(ceil(dst_width/8), ceil(dst_height/8), 1)` over the
+floor destination — exactly enough `[numthreads(8,8,1)]` threads (one per dest
+texel) to cover every in-bounds floor texel; the kernel's own ceil guard drops
+the partial edge tile, matching native's ceil-dispatch + floor-buffer edge-drop.
 
 ---
 
@@ -170,24 +201,31 @@ masking language is permitted in that evidence.
 
 ---
 
-## 7. `p_set` first-frame semantics
+## 7. `p_set` first-frame semantics (errata — native-delegated SET)
 
-Mirrors Godot's `p_set` uniform: on the **first** frame there is no previous
-luminance to blend. The fixed WRITE_LUMINANCE kernel has no `p_set` branch, so
-the hook expresses the first frame by supplying a **zero-cleared `prev`
-texture**; the EMA `prev + (cur - prev) * exposure_adjust` then degenerates to
-`cur * exposure_adjust`.
+Godot's `p_set` (the call site's `set_immediate`) marks the frame that must
+**SET** the exposure directly instead of blending: native's
+`luminance_reduction` then uses the plain `LUMINANCE_REDUCE` kernel for the final
+level too (no `WRITE_LUMINANCE`), writing the raw clamp-free mean straight into
+`reduce[last]`, then `SWAP`s it into `current`. The fixed `WRITE_LUMINANCE`
+kernel has **no** SET branch, and expressing SET as a zero-cleared `prev` is
+wrong: the EMA `prev + (cur - prev) * exposure_adjust` with `prev == 0`
+collapses to `cur * exposure_adjust` (≈`cur * 0.008/frame`), which starts near
+zero and needs dozens of frames to converge — a large, visible exposure error
+(historical Bug 1).
 
-Divergence note: Godot's native `p_set == false` path writes `clamp(avg)`
-directly (no exposure factor), whereas the fixed kernel with `prev == 0`
-produces `clamp(avg) * exposure_adjust`. This differs only on the very first
-frame and only when `exposure_adjust != 1`; auto-exposure converges within a
-few frames, so the divergence is bounded and is documented rather than hidden.
-The CPU parity reference (`math_parity_evidence.json → ema_sequence`) models the
-**kernel** behavior (`prev == 0` first frame → `cur * adjust`).
+The contract therefore delegates the SET frame to native: **on any frame where
+`set_immediate == p_set` is true the call site skips the whole pyramid arm** and
+lets the native Godot `luminance_reduction` perform the SET + SWAP. The real
+pyramid engages from the **next** frame onward, when `prev == current(previous
+frame)` is a valid non-zero luminance. No `prev` texture is ever fabricated.
 
-Subsequent frames use `prev == current(previous frame)` (double-buffered by the
-hook: `current` and `prev` swap each frame, mirroring Godot's `SWAP`).
+Subsequent (non-SET) frames use `prev == current(previous frame)`, double-
+buffered by the call site's `SWAP(current, reduce[last])` each frame, mirroring
+Godot's `SWAP`. The CPU parity reference
+(`math_parity_evidence.json → ema_sequence`) models the steady-state kernel EMA;
+the first-frame SET value is produced by the native path in both the reference
+and candidate legs, so it never diverges.
 
 ---
 

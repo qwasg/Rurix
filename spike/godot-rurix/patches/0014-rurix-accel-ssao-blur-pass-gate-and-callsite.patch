@@ -1,0 +1,169 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Sat, 12 Jul 2026 11:00:00 +0800
+Subject: [PATCH] Add default-disabled GRX-011 ssao_blur gate and generate_ssao
+ call-site opt-in wiring
+
+Stacked on 0001..0013. Template copy of the GRX-010 0011 pattern for the
+ssao_blur pass:
+
+- modules/rurix_accel: new default-false per-pass setting
+  rendering/rurix_accel/passes/ssao_blur/enabled and try_record_ssao_blur()
+  (0002-level module gate; the call carries no resource bindings, native
+  handle mapping belongs to a later slice). Adds RXGD_PASS_SSAO_BLUR (2u).
+- drivers/d3d12/d3d12_hooks.h: default-false virtual try_record_ssao_blur()
+  so any hooks implementation that does not override it (or the absence of
+  a hooks singleton) keeps the native Godot SSAO blur path.
+- servers/rendering/renderer_rd/effects/ss_effects.cpp generate_ssao
+  Edge-Aware Blur loop: the opt-in gate runs before the native
+  compute_list_dispatch_threads; only when the gate returns true (module
+  setting enabled AND bridge session/symbol present AND rxgd_record_pass
+  returns RXGD_STATUS_OK) is the native dispatch skipped. The SSIL blur
+  loop is not wired.
+
+The Rurix bridge SsaoBlurGate is fail-closed and always returns
+RXGD_STATUS_FALLBACK for RXGD_PASS_SSAO_BLUR, and the per-pass setting
+defaults to false, so in practice the gate returns false and the native
+Godot SSAO blur runs. No real GPU pass, no acceleration, and no
+performance improvement is claimed.
+---
+diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
+index f00c275..ef505ac 100644
+--- a/drivers/d3d12/d3d12_hooks.h
++++ b/drivers/d3d12/d3d12_hooks.h
+@@ -79,5 +79,9 @@ public:
+ 	// returns false so any hooks that do not override this (or the absence
+ 	// of a hooks singleton) keep the native Godot tonemap path.
+ 	virtual bool try_record_tonemap(uint64_t p_source_native_handle, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_native_handle, uint32_t p_dest_width, uint32_t p_dest_height, float p_exposure, float p_white, float p_luminance_multiplier) { return false; }
++	// GRX-011: opt-in hook for the ssao_blur pass. The base implementation
++	// returns false so any hooks that do not override this (or the absence of
++	// a hooks singleton) keep the native Godot SSAO blur path.
++	virtual bool try_record_ssao_blur() { return false; }
+ 	static D3D12Hooks *get_singleton() { return singleton; }
+ };
+diff --git a/modules/rurix_accel/register_types.cpp b/modules/rurix_accel/register_types.cpp
+index bc394ba..bf257b2 100644
+--- a/modules/rurix_accel/register_types.cpp
++++ b/modules/rurix_accel/register_types.cpp
+@@ -89,6 +89,13 @@ void initialize_rurix_accel_module(ModuleInitializationLevel p_level) {
+ 	// the native Godot tonemap path keeps rendering. Defaults to false;
+ 	// never enabled by the shipping build/config.
+ 	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/tonemap/real_pass_force_capability_downgrade", false);
++	// GRX-011: per-pass opt-in gate for the ssao_blur pass; the pass
++	// stays on the native Godot SSAO blur unless this is explicitly
++	// enabled AND the bridge actually records the pass. Defaults to
++	// false; the bridge SsaoBlurGate is fail-closed and returns
++	// RXGD_STATUS_FALLBACK for RXGD_PASS_SSAO_BLUR, so the native SSAO
++	// blur keeps rendering in practice and no acceleration is claimed.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/ssao_blur/enabled", false);
+ 
+ #if defined(D3D12_ENABLED)
+ 	if (GLOBAL_GET("rendering/rurix_accel/enabled")) {
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index 0554f82..3169e3d 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -495,4 +495,31 @@ bool RurixAccelD3D12Hooks::try_record_tonemap(uint64_t p_source_native_handle, u
+ 	return true;
+ }
+ 
++bool RurixAccelD3D12Hooks::try_record_ssao_blur() {
++	// GRX-011 gate: every early return below means the caller must keep the
++	// native Godot SSAO blur path. This is 0002-level module wiring: the call
++	// carries no resource bindings (native handle mapping belongs to a later
++	// slice), and the fail-closed bridge SsaoBlurGate always returns
++	// RXGD_STATUS_FALLBACK for RXGD_PASS_SSAO_BLUR today, so the native SSAO
++	// blur keeps rendering in practice.
++	if (!GLOBAL_GET("rendering/rurix_accel/passes/ssao_blur/enabled")) {
++		// manual_disabled: the pass is opt-in and defaults to disabled.
++		return false;
++	}
++	if (session == nullptr || rxgd_record_pass == nullptr) {
++		// No bridge session or record entry point; equivalent to
++		// unsupported_device for this pass.
++		return false;
++	}
++	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_SSAO_BLUR, nullptr, 0, nullptr, 0);
++	if (rc != RXGD_STATUS_OK) {
++		if (!ssao_blur_fallback_logged) {
++			print_verbose(vformat("RurixAccel: ssao_blur fallback rc=%d; Godot native SSAO blur path remains active.", rc));
++			ssao_blur_fallback_logged = true;
++		}
++		return false;
++	}
++	return true;
++}
++
+ #endif // D3D12_ENABLED
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index 7c106f5..55ab7a1 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -14,6 +14,7 @@
+ #define RXGD_RESOURCE_TEXTURE 1u
+ #define RXGD_PASS_LUMINANCE_REDUCTION 4u
+ #define RXGD_PASS_TONEMAP 5u
++#define RXGD_PASS_SSAO_BLUR 2u
+ // GRX-009 segment 4b reserved capability flag carried in RxGdCaps.flags
+ // (ABI v1, no struct layout change). Set only when the Godot dispatch
+ // bring-up opt-in setting is enabled.
+@@ -87,6 +88,7 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
+ 	RxGdDestroySession rxgd_destroy_session = nullptr;
+ 	bool luminance_fallback_logged = false;
+ 	bool tonemap_fallback_logged = false;
++	bool ssao_blur_fallback_logged = false;
+ 	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 28;
+ 	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_RESOURCE_COUNT = 2;
+ 	// GRX-010 tonemap resource mapping (resource_mapping.md): b0 carries
+@@ -142,6 +144,12 @@ public:
+ 	// RXGD_STATUS_FALLBACK from the fail-closed TonemapGate) returns false
+ 	// and the caller must keep the native Godot tonemap path.
+ 	bool try_record_tonemap(uint64_t p_source_native_handle, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_native_handle, uint32_t p_dest_width, uint32_t p_dest_height, float p_exposure, float p_white, float p_luminance_multiplier) override;
++	// GRX-011: returns true only when the Rurix bridge actually recorded the
++	// ssao_blur pass. Any other outcome (setting disabled, missing
++	// session/symbol, or a non-OK bridge status such as RXGD_STATUS_FALLBACK
++	// from the fail-closed SsaoBlurGate) returns false and the caller must keep
++	// the native Godot SSAO blur path.
++	bool try_record_ssao_blur() override;
+ };
+ 
+ #endif // D3D12_ENABLED
+diff --git a/servers/rendering/renderer_rd/effects/ss_effects.cpp b/servers/rendering/renderer_rd/effects/ss_effects.cpp
+index b449ea3..f1c42bc 100644
+--- a/servers/rendering/renderer_rd/effects/ss_effects.cpp
++++ b/servers/rendering/renderer_rd/effects/ss_effects.cpp
+@@ -36,6 +36,9 @@
+ #include "servers/rendering/renderer_rd/storage_rd/render_scene_buffers_rd.h"
+ #include "servers/rendering/renderer_rd/uniform_set_cache_rd.h"
+ 
++// GRX-011 segment: opt-in ssao_blur gate lives on the D3D12 hooks.
++#include "drivers/d3d12/d3d12_hooks.h"
++
+ using namespace RendererRD;
+ 
+ SSEffects *SSEffects::singleton = nullptr;
+@@ -1369,7 +1372,21 @@ void SSEffects::generate_ssao(Ref<RenderSceneBuffersRD> p_render_buffers, SSAORe
+ 				}
+ 				RD::get_singleton()->compute_list_set_push_constant(compute_list, &ssao.blur_push_constant, sizeof(SSAOBlurPushConstant));
+ 
+-				RD::get_singleton()->compute_list_dispatch_threads(compute_list, p_ssao_buffers.buffer_width, p_ssao_buffers.buffer_height, 1);
++				bool rurix_recorded_ssao_blur = false;
++#ifdef D3D12_ENABLED
++				if (D3D12Hooks::get_singleton() != nullptr) {
++					// GRX-011 opt-in gate. Returns true only when the Rurix module
++					// setting is enabled AND the bridge session/symbol exist AND
++					// rxgd_record_pass returns RXGD_STATUS_OK. The fail-closed bridge
++					// SsaoBlurGate always returns RXGD_STATUS_FALLBACK for
++					// RXGD_PASS_SSAO_BLUR today, so this stays false and the native
++					// SSAO blur dispatch below runs.
++					rurix_recorded_ssao_blur = D3D12Hooks::get_singleton()->try_record_ssao_blur();
++				}
++#endif
++				if (!rurix_recorded_ssao_blur) {
++					RD::get_singleton()->compute_list_dispatch_threads(compute_list, p_ssao_buffers.buffer_width, p_ssao_buffers.buffer_height, 1);
++				}
+ 			}
+ 
+ 			RD::get_singleton()->compute_list_add_barrier(compute_list);
+-- 
+2.50.0
