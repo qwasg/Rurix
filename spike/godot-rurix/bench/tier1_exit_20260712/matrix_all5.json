@@ -1,0 +1,14 @@
+{
+ "rendering/rurix_accel/enabled": true,
+ "rendering/rurix_accel/dll_path": "H:/rurix/target/debug/rurix_godot.dll",
+ "rendering/rurix_accel/passes/luminance_reduction/enabled": true,
+ "rendering/rurix_accel/passes/luminance_reduction/dispatch_real_pass": true,
+ "rendering/rurix_accel/passes/tonemap/enabled": true,
+ "rendering/rurix_accel/passes/tonemap/dispatch_real_pass": true,
+ "rendering/rurix_accel/passes/ssao_blur/enabled": true,
+ "rendering/rurix_accel/passes/ssao_blur/dispatch_real_pass": true,
+ "rendering/rurix_accel/passes/taa_resolve/enabled": true,
+ "rendering/rurix_accel/passes/taa_resolve/dispatch_real_pass": true,
+ "rendering/rurix_accel/passes/particles_copy/enabled": true,
+ "rendering/rurix_accel/passes/particles_copy/dispatch_real_pass": true
+}

@@ -1,0 +1,6 @@
+{
+ "rendering/rurix_accel/enabled": true,
+ "rendering/rurix_accel/dll_path": "H:/rurix/target/debug/rurix_godot.dll",
+ "rendering/rurix_accel/passes/ssao_blur/enabled": true,
+ "rendering/rurix_accel/passes/ssao_blur/dispatch_real_pass": true
+}

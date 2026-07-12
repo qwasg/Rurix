@@ -1,0 +1,6 @@
+{
+ "rendering/rurix_accel/enabled": true,
+ "rendering/rurix_accel/dll_path": "H:/rurix/target/debug/rurix_godot.dll",
+ "rendering/rurix_accel/passes/taa_resolve/enabled": true,
+ "rendering/rurix_accel/passes/taa_resolve/dispatch_real_pass": true
+}

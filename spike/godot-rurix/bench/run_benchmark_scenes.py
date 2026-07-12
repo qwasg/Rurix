@@ -273,7 +273,12 @@ def render_override_cfg(settings: dict[str, object]) -> str:
         if isinstance(value, bool):
             rendered = "true" if value else "false"
         else:
-            rendered = '"' + str(value).replace('"', '\\"') + '"'
+            # Godot config strings treat backslashes as escape sequences
+            # (a Windows path like H:\rurix\target\... would be mangled into
+            # CR/TAB bytes and can poison the whole override.cfg parse), so
+            # escape them explicitly alongside double quotes.
+            text = str(value).replace("\\", "\\\\").replace('"', '\\"')
+            rendered = '"' + text + '"'
         lines.append(f"{sub_key}={rendered}")
     lines.append("")
     return "\n".join(lines)
