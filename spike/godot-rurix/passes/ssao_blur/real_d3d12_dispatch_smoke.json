@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "subject": "grx011_ssao_blur_real_d3d12_dispatch_smoke",
+  "pass_id": "ssao_blur",
+  "segment": "standalone_dispatch_smoke",
+  "runtime_state": "fallback_only",
+  "real_gpu_pass": false,
+  "real_d3d12_dispatch_recorded": true,
+  "cpu_reference_match": true,
+  "artifacts": {
+    "dxil": {
+      "path": "spike/godot-rurix/passes/ssao_blur/artifacts/ssao_blur.dxil",
+      "sha256": "0a730561d08a2b37d26a8bc3f29df893febedb32d55e2e5b5c3d7a84b369ce32"
+    },
+    "root_signature": {
+      "path": "spike/godot-rurix/passes/ssao_blur/artifacts/ssao_blur.rts0.bin",
+      "sha256": "f08794f9886e1ebc4c905e3006732e572ec913a75255c5b488cf4877a1391f03"
+    },
+    "descriptor_layout": {
+      "path": "spike/godot-rurix/passes/ssao_blur/artifacts/ssao_blur_descriptor_layout.json",
+      "sha256": "ba09771d5cc65511972eaa6f5810b9f614756a4ab323cc3d9ea2afdf7b525e2c"
+    }
+  },
+  "offline_evidence": {
+    "path": "spike/godot-rurix/passes/ssao_blur/offline_compile_evidence.json",
+    "dxil_sha256": "0a730561d08a2b37d26a8bc3f29df893febedb32d55e2e5b5c3d7a84b369ce32",
+    "root_signature_sha256": "f08794f9886e1ebc4c905e3006732e572ec913a75255c5b488cf4877a1391f03",
+    "descriptor_layout_sha256": "ba09771d5cc65511972eaa6f5810b9f614756a4ab323cc3d9ea2afdf7b525e2c"
+  },
+  "artifact_hashes_match_offline_evidence": true,
+  "note": "GRX-011 standalone real D3D12 dispatch smoke evidence only. A success flips real_d3d12_dispatch_recorded/cpu_reference_match true (the fields the GRX-011 gate reads) but keeps runtime_state=fallback_only and real_gpu_pass=false; it is not a Godot runtime pass, visual, perf, or measured-telemetry claim.",
+  "status": "success",
+  "timestamp": "2026-07-12T09:52:06+08:00",
+  "run_url": "local interactive runner",
+  "device": {
+    "adapter": "NVIDIA GeForce RTX 4070 Ti",
+    "experimental_shader_models": "off",
+    "dxil_signed_for_load": "yes",
+    "dxil_validator": "H:/dxc-round7/extracted/bin/x64/dxil.dll"
+  },
+  "dispatch": {
+    "dimensions": "1,1,1",
+    "fence_completed_value": "1",
+    "dst_shape": "8x8",
+    "dst_first_value": "0.060988",
+    "readback_checksum": "0x288fc2d6"
+  },
+  "cpu_reference": {
+    "formula": "edges = clamp(unpack_edges(center.y) + edge_sharpness, 0, 1); sum = 0.5*center.x + edges.L*L + edges.R*R + edges.T*T + edges.B*B; w = 0.5 + edges.L + edges.R + edges.T + edges.B; dst = (sum/w, center.y, 0, 0) (MODE_SMART single-pass single-slice)",
+    "reference_impl": "spike/godot-rurix/passes/ssao_blur/generate_math_parity_evidence.py blur_texel (imported and re-verified in Python)",
+    "fixture": {
+      "width": 8,
+      "height": 8,
+      "edge_sharpness": 0.02,
+      "value_pattern": "f32((x*29 + y*13) % 101) / 100",
+      "edges_pattern": "f32((x*7 + y*3 + 11) % 256) / 255",
+      "math_parity_case": "ssao_blur_8x8_sharp02"
+    },
+    "value_tolerance": 0.002,
+    "max_abs_diff": "1.19209e-07",
+    "mismatched_texels": "0",
+    "match": "1",
+    "python_cross_check": [
+      {
+        "x": 0,
+        "y": 0,
+        "observed": [
+          0.060988,
+          0.0431373,
+          0.0,
+          0.0
+        ],
+        "python_reference": [
+          0.06098802015185356,
+          0.04313725605607033,
+          0.0,
+          0.0
+        ],
+        "max_abs_diff": 4.394392967566052e-08,
+        "within_tolerance": true
+      },
+      {
+        "x": 4,
+        "y": 4,
+        "observed": [
+          0.832047,
+          0.2,
+          0.0,
+          0.0
+        ],
+        "python_reference": [
+          0.8320472240447998,
+          0.20000000298023224,
+          0.0,
+          0.0
+        ],
+        "max_abs_diff": 2.2404479982363057e-07,
+        "within_tolerance": true
+      },
+      {
+        "x": 7,
+        "y": 7,
+        "observed": [
+          0.853502,
+          0.317647,
+          0.0,
+          0.0
+        ],
+        "python_reference": [
+          0.853502094745636,
+          0.3176470696926117,
+          0.0,
+          0.0
+        ],
+        "max_abs_diff": 9.474563600342378e-08,
+        "within_tolerance": true
+      }
+    ]
+  },
+  "checks": {
+    "artifact_hashes_match_offline_evidence": true,
+    "descriptor_layout_matches_resource_mapping": true,
+    "root_signature_create_from_rurix_rts0": true,
+    "compute_pso_from_rurix_dxil": true,
+    "srv_uav_root_constants_bound_from_layout": true,
+    "dispatch_executed": true,
+    "fence_completed": true,
+    "dst_uav_readback": true,
+    "all_dst_texels_match_cpu_reference": true,
+    "python_reference_cross_check": true
+  },
+  "stdout": "RXGD_DISPATCH: experimental_shader_models=off\nRXGD_DISPATCH: dxil_signed_for_load=yes\nRXGD_DISPATCH: adapter=\"NVIDIA GeForce RTX 4070 Ti\"\nRXGD_DISPATCH: sample x=0 y=0 obs=0.060988,0.0431373,0,0\nRXGD_DISPATCH: sample x=4 y=4 obs=0.832047,0.2,0,0\nRXGD_DISPATCH: sample x=7 y=7 obs=0.853502,0.317647,0,0\nRXGD_DISPATCH: cpu_reference edge_sharpness=0.02 tol_value=0.002 max_abs_diff=1.19209e-07 mismatched=0 match=1\nRXGD_DISPATCH: ok adapter=\"NVIDIA GeForce RTX 4070 Ti\" dispatch=1,1,1 fence=1 dst=8x8 dst_first=0.060988 checksum=0x288fc2d6"
+}

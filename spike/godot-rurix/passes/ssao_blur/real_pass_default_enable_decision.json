@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "pass_id": "ssao_blur",
+  "segment": "grx011_real_pass_default_enable_decision",
+  "status": "success",
+  "decision_ready": true,
+  "default_enable_decision": "keep_default_disabled",
+  "generated_at_utc": "2026-07-12T00:00:00Z",
+  "owner_decision": {
+    "approved_by": "owner",
+    "approved_at_utc": "2026-07-12T00:00:00Z",
+    "decision": "keep_default_disabled",
+    "machine_role": "local_test_machine"
+  },
+  "decision_document": "spike/godot-rurix/passes/ssao_blur/real_pass_default_enable_decision.md",
+  "default_enable_state": "disabled",
+  "performance_claim": "none",
+  "decision_rationale": [
+    "no_per_pass_fps_evidence: the GRX contract requires a per-pass FPS >= 0.95x baseline measured_local comparison before any default enablement (GRX_PLAN GRX.4 exit criteria / GRX_CONTRACT G-GRX-5 single_scene_fps_ratio_min=0.95), and no full baseline or per-pass benchmark comparison for ssao_blur exists yet",
+    "patch_0016_writeback_is_scaffold: the MODE_SMART result writeback is dispatched into the real Godot deinterleaved ping-pong slice while the native Godot SSAO blur continuation still re-renders the full blur_passes x 4-slice ping-pong chain every frame as the backstop, so the candidate image cannot change (LDR visual gate max_abs=0/mean_abs=0) and the opt-in Rurix dispatch yields no measured net benefit yet",
+    "mode_smart_single_pass_single_slice_subset: math parity covers only the MODE_SMART single-blur-pass single-deinterleaved-slice edge-aware cross subset (math_parity_evidence.json status=pending_gpu_dispatch); MODE_WIDE, MODE_NON_SMART, the multi-pass ping-pong chain, the 4-slice deinterleaved loop, SSIL blur (RXGD_PASS_SSIL_BLUR), mirror-sampler border addressing, and rg8 unorm storage quantization are recorded gaps"
+  ],
+  "reevaluate_when": [
+    "full_baseline_benchmark_evidence_available",
+    "per_pass_fps_ratio_measured_at_or_above_0_95x_baseline",
+    "broader_ssao_blur_mode_coverage_proven_beyond_mode_smart_single_slice_single_pass",
+    "raster_compute_ping_pong_seam_designed_or_native_continuation_retired_or_net_benefit_measured"
+  ],
+  "prerequisite_evidence": {
+    "real_pass_enablement_success": "spike/godot-rurix/passes/ssao_blur/real_pass_enablement_success_evidence.json",
+    "real_pass_enablement_telemetry": "spike/godot-rurix/passes/ssao_blur/real_pass_enablement_telemetry.json",
+    "standalone_d3d12_dispatch_smoke": "spike/godot-rurix/passes/ssao_blur/real_d3d12_dispatch_smoke.json",
+    "texture_artifact_provenance_policy": "spike/godot-rurix/passes/luminance_reduction/texture_artifact_provenance_policy.json"
+  },
+  "does_not_imply": [
+    "default pass enablement",
+    "performance claim",
+    "FPS, p95, or GPU-timestamp claim",
+    "broader ssao_blur mode / multi-pass / multi-slice / SSIL coverage beyond the MODE_SMART single-pass single-slice subset",
+    "net-benefit Rurix dispatch (patch 0016 result writeback is a scaffold; the native Godot SSAO blur ping-pong chain re-renders every frame)"
+  ],
+  "next_action_if_ready": "start_grx012_taa_resolve_pass_contract"
+}

@@ -1,7 +1,7 @@
 {
   "pass_id": "ssao_blur",
-  "status": "segment_a_contract_offline_kernel_bridge_gate_default_disabled",
-  "implemented": false,
+  "status": "grx011_real_pass_measured_success_default_disabled",
+  "implemented": true,
   "default_enable_state": "disabled",
   "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
   "target_scenes": [
@@ -11,7 +11,7 @@
   "bridge_pass_id": "RXGD_PASS_SSAO_BLUR (2)",
   "ssil_bridge_pass_id_reserved": "RXGD_PASS_SSIL_BLUR (3) is NOT wired in this slice (keeps its historical placeholder path)",
   "godot_hook_investigation": {
-    "note": "Investigation only; external/godot-master is NOT modified. Paths and functions are recorded for the patch 0012 call-site gate and later native-handle mapping.",
+    "note": "Investigation only; external/godot-master is NOT modified. Paths and functions are recorded for the patch 0014 call-site gate and the patch 0015 native-handle mapping.",
     "effect_class": {
       "header": "servers/rendering/renderer_rd/effects/ss_effects.h",
       "source": "servers/rendering/renderer_rd/effects/ss_effects.cpp",
@@ -35,7 +35,7 @@
           1320,
           1378
         ],
-        "note": "patch 0012 gates the whole blur loop; the SSIL Edge Aware Blur block (L929-996) is not wired."
+        "note": "patch 0014 gates the whole blur loop; the SSIL Edge Aware Blur block (L929-996) is not wired."
       }
     ],
     "source_resource": "ao_deinterleaved_slices[i] / ao_pong_slices[i] ping-pong (RB_SCOPE_SSAO RB_DEINTERLEAVED / RB_DEINTERLEAVED_PONG, R8G8_UNORM, x=ssao value y=packed edges; ss_effects.cpp L1123-1124, L1340-1369)",
@@ -120,22 +120,22 @@
     }
   ],
   "implementation_status": {
-    "segment": "a",
-    "segment_detail": "contract_offline_kernel_bridge_gate_patch_0012_standalone_dispatch_smoke",
-    "runtime_state": "fallback_only",
-    "runtime_state_note": "The bridge SsaoBlurGate is fail-closed: rxgd_record_pass returns RXGD_STATUS_FALLBACK for RXGD_PASS_SSAO_BLUR on the default path (no RXGD_CAP_SSAO_BLUR_REAL_PASS opt-in), and the shipping feature-off bridge fails closed with real_dispatch_path_not_linked even when every software gate passes. The previous placeholder estimated-timing path for RXGD_PASS_SSAO_BLUR was removed; no estimated ssao_blur GPU time is attributed any more. RXGD_PASS_SSIL_BLUR keeps its historical placeholder path (not wired in this slice).",
+    "segment": "close_out",
+    "segment_detail": "grx011_real_pass_measured_success_default_disabled",
+    "runtime_state": "fallback_only_by_default_real_pass_optin_measured",
+    "runtime_state_note": "The DEFAULT runtime path stays fallback-only: with all per-pass settings at their false defaults the bridge still returns RXGD_STATUS_FALLBACK for RXGD_PASS_SSAO_BLUR and the native Godot SSAO blur ping-pong chain renders. real_gpu_pass=true / real_d3d12_dispatch_recorded=true record the strict MEASURED success of the opt-in real-pass arm (dispatch_real_pass under a d3d12-recording-shim bridge on the 0001..0016 scratch build); it is not a default enablement and carries no performance claim. The shipping feature-off bridge still fails closed with real_dispatch_path_not_linked, and the patch 0016 result writeback is a SCAFFOLD (native Godot SSAO blur stays the continuation/backstop and re-renders the full blur_passes x 4-slice ping-pong chain every frame, so the candidate image cannot change and no net benefit exists yet). No estimated ssao_blur GPU time is attributed; RXGD_PASS_SSIL_BLUR keeps its historical placeholder path (not wired in this slice).",
     "bridge_gate": "src/rurix-godot SsaoBlurGate: preflight (int64 cap, 2 texture resources, 28-byte b0, dims match, 1:1 dst shape) -> dispatch eligibility (RXGD_CAP_SSAO_BLUR_REAL_PASS opt-in, non-null native handles, SsaoBlurDispatchPackage layout/digest match vs offline evidence) -> per-slot kernel-binding-kind conformance ([texture2d, rwtexture2d]) -> math-parity gate (smart_blur_cpu_reference_proven_pending_gpu_dispatch) -> real dispatch only under the d3d12-recording-shim feature; every failure records a fallback reason and prints the once-per-session RXGD_SSAO_BLUR_REAL_PASS_BLOCKED diagnostic",
-    "godot_module_patch": "spike/godot-rurix/patches/0012-rurix-accel-ssao-blur-pass-gate-and-callsite.patch (stacked on 0001..0011; default-false rendering/rurix_accel/passes/ssao_blur/enabled setting, try_record_ssao_blur() module gate, default-false virtual D3D12Hooks::try_record_ssao_blur(), and the Edge-Aware Blur call-site opt-in gate in ss_effects.cpp generate_ssao; the native SSAO blur loop is always preserved as fallback)",
+    "godot_module_patch": "spike/godot-rurix/patches/0014-rurix-accel-ssao-blur-pass-gate-and-callsite.patch (stacked on 0001..0013; default-false rendering/rurix_accel/passes/ssao_blur/enabled setting, try_record_ssao_blur() module gate, default-false virtual D3D12Hooks::try_record_ssao_blur(), and the Edge-Aware Blur call-site opt-in gate in ss_effects.cpp generate_ssao; the native SSAO blur loop is always preserved as fallback). The runtime native-handle binding is patch 0015-rurix-accel-ssao-blur-runtime-resource-binding.patch and the recording-smoke + real-pass opt-in arms are patch 0016-rurix-accel-ssao-blur-recording-smoke-and-real-pass-optin.patch",
     "godot_core_call_site_wired": true,
     "wired_call_sites": [
       {
         "file": "servers/rendering/renderer_rd/effects/ss_effects.cpp",
         "region": "Edge-Aware Blur",
-        "note": "opt-in gate calls D3D12Hooks::try_record_ssao_blur() before the native blur loop in generate_ssao (patch 0012; applyability verified via git apply --check on a scratch copy). The SSIL blur block is not wired."
+        "note": "opt-in gate calls D3D12Hooks::try_record_ssao_blur() before the native blur loop in generate_ssao (patch 0014; applyability verified via git apply --check on a scratch copy). The SSIL blur block is not wired."
       }
     ],
-    "real_gpu_pass": false,
-    "real_d3d12_dispatch_recorded": false,
+    "real_gpu_pass": true,
+    "real_d3d12_dispatch_recorded": true,
     "godot_runtime_ssao_blur_path_enabled": false,
     "standalone_d3d12_dispatch_smoke": {
       "harness": "ci/grx011_ssao_blur_d3d12_dispatch_smoke.py",
@@ -150,18 +150,34 @@
         "any visual diff, measured fallback telemetry, temporal stability, or performance claim"
       ]
     },
+    "real_pass_measured_success": {
+      "status": "success",
+      "strict_success": true,
+      "evidence": "spike/godot-rurix/passes/ssao_blur/real_pass_enablement_success_evidence.json",
+      "telemetry": "spike/godot-rurix/passes/ssao_blur/real_pass_enablement_telemetry.json",
+      "default_enable_decision": "spike/godot-rurix/passes/ssao_blur/real_pass_default_enable_decision.json",
+      "default_enable_decision_document": "spike/godot-rurix/passes/ssao_blur/real_pass_default_enable_decision.md",
+      "decision": "keep_default_disabled",
+      "real_gpu_pass_scope": "opt_in_only: the measured real dispatch requires the default-false dispatch_real_pass arm plus a d3d12-recording-shim bridge DLL; the default runtime path stays fallback-only and the shipping feature-off bridge fails closed with real_dispatch_path_not_linked",
+      "patch_stack": "0001..0016",
+      "pass_enable_matrix": "three legs measured: disabled_default (reference) / enabled_real_pass_optin (candidate, real_pass_marker + writeback_marker observed) / forced_capability_downgrade (RXGD_SSAO_BLUR_REAL_PASS_BLOCKED first_missing_prerequisite=runtime_binding_preflight_failed fallback_reason=unsupported_device)",
+      "ldr_visual_gate": "max_abs=0 / mean_abs=0 (candidate is bit-exact to the reference because the writeback is a scaffold and the native ping-pong continuation still renders)",
+      "writeback": "patch 0016 result writeback scaffold: the MODE_SMART single-pass single-slice edge-aware blur result is dispatched into the real Godot deinterleaved ping-pong slice while the native Godot SSAO blur still runs the full blur_passes x 4-slice ping-pong chain as continuation/backstop, so the image cannot change (1:1 MODE_SMART single-slice subset of the native chain) and no net benefit exists yet",
+      "performance_claim": "none",
+      "next_action_when_ready": "start_grx012_taa_resolve_pass_contract"
+    },
     "remaining_segments": [
-      "Godot runtime resource binding wiring (0005/0007-level: hook parameters + native ID3D12Resource* mapping; includes the 4-slice/ping-pong scheduling design)",
-      "Godot runtime bridge dispatch recording smoke (4f-level; needs a full patch-stack scratch rebuild)",
-      "in-engine real visual diff + measured fallback telemetry gate (4g-level; includes temporal/noise stability per the GRX-011 plan note)",
-      "gated real-pass enablement gate with measured success (4h-level)",
-      "MODE_WIDE / MODE_NON_SMART variants, multi-pass ping-pong chain, 4-slice loop, SSIL blur (RXGD_PASS_SSIL_BLUR), mirror-sampler border, rg8 unorm quantization",
+      "MODE_WIDE / MODE_NON_SMART variants beyond MODE_SMART single-pass single-slice",
+      "multi-pass ping-pong chain (ssao_blur_passes default 2) and the 4-slice deinterleaved loop scheduling",
+      "SSIL blur (RXGD_PASS_SSIL_BLUR: rgba16 value image + separate r8 edges image) wiring",
+      "mirror-sampler border addressing and rg8 unorm storage quantization parity",
+      "raster/compute ping-pong output seam design (native runs the full 4-slice chain; this kernel writes a single slice per dispatch) or native-continuation retirement",
       "per-pass FPS baseline comparison (contract requires >= 0.95x baseline before any default-enable discussion)"
     ]
   },
   "evidence_requirements": {
-    "visual": "in-engine diff + temporal stability (GRX-009 segment 4g template + GRX-011 plan note) in a later slice; this slice's measured ceiling is the standalone dispatch smoke + CPU parity",
+    "visual": "in-engine LDR absolute diff (GRX-009 segment 4g template) recorded by the real-pass enablement smoke: reference (disabled) vs candidate (opt-in real pass) vs forced-fallback frames, all within the pinned thresholds (max_abs<=2, mean_abs<=0.25); measured max_abs=0/mean_abs=0 because the writeback is a scaffold and the native continuation renders",
     "perf": "reuse GRX-006 baseline/perf gate; no perf improvement claimed"
   },
-  "disclaimer": "GRX-011 segment A delivers the ssao_blur pass contract, the DXC/DXV/RTS0 offline kernel package (hlsl_bridge_workaround provenance, runtime-mappable per the owner-approved GRX-009 texture artifact provenance policy), the fail-closed bridge SsaoBlurGate (default RXGD_STATUS_FALLBACK; opt-in RXGD_CAP_SSAO_BLUR_REAL_PASS arm fails closed with real_dispatch_path_not_linked on the shipping feature-off bridge), Godot patch 0012 (per-pass setting default false + call-site opt-in gate; native SSAO blur path always preserved), and the standalone real D3D12 dispatch smoke. It does NOT enable the pass by default, does NOT complete a Godot runtime SSAO blur pass, does NOT wire RXGD_PASS_SSIL_BLUR, records no bridge dispatch on the default path, and makes no visual, temporal-stability, GPU-timestamp, FPS, or performance claim."
+  "disclaimer": "GRX-011 ssao_blur is closed out at the stage-A5-equivalent level (mirroring GRX-010 tonemap): the ssao_blur pass contract, the DXC/DXV/RTS0 offline kernel package (hlsl_bridge_workaround provenance, runtime-mappable per the owner-approved GRX-009 texture artifact provenance policy), the fail-closed bridge SsaoBlurGate (default RXGD_STATUS_FALLBACK; opt-in RXGD_CAP_SSAO_BLUR_REAL_PASS arm), the Godot patch stack 0001..0016 (patches 0014-0016: per-pass settings default false + call-site opt-in gate + runtime native-handle binding + recording-smoke/real-pass opt-in; native SSAO blur ping-pong chain always preserved), the standalone real D3D12 dispatch smoke, and the gated real-pass enablement gate that recorded a strict MEASURED success (real_pass_enablement_success_evidence.json, strict_success=true). implemented=true / real_gpu_pass=true / real_d3d12_dispatch_recorded=true record the MEASURED opt-in real-pass arm only. The DEFAULT path stays fallback-only, default_enable_state stays disabled per the owner decision (real_pass_default_enable_decision.json, keep_default_disabled), the shipping feature-off bridge still fails closed with real_dispatch_path_not_linked, RXGD_PASS_SSIL_BLUR stays unwired, the patch 0016 writeback is a SCAFFOLD (native Godot SSAO blur continuation/backstop; candidate image bit-exact), and NO visual-superiority, temporal-stability, GPU-timestamp, FPS, or performance improvement is claimed."
 }
