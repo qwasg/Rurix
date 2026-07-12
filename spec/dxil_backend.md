@@ -18,7 +18,7 @@
 
 DXIL 后端语义维持 **D-131 = 混合 compute=A / 图形=B**:compute 经 LLVM DirectX 后端直接 emit DXIL,与 NVPTX 后端同构并维持 D-205 LLVM 单栈;图形经内部 MIR→SPIR-V→SPIRV-Cross→HLSL→dxc→DXIL 链(RFC-0004),SPIR-V 仅为图形 B 路内部中间表示,不构成对外通用多后端承诺。**🔒 纹理/采样器内存模型映射**(06 §4.2 禁区:tex proxy / 采样 opcode / 描述符编码 / 缓存一致性 / UB)、**内建变量/根参数/常量缓冲二进制 ABI 布局**(RFC-0003 §4.6 / RFC-0004 §4.6 FFI ABI 禁区)、**绑定布局推导实现**(G2.3,P-11)均**不在本文件**;DXIL golden 取**文本反汇编形态** + 经 dxc validator 验证后入 golden(RFC-0003 §9 Q-Golden / RFC-0004 §9 Q-Golden-B)。target 不支持 / 降级失败 / 非法 I/O 映射以 **编译期 6xxx codegen 诊断(P-01 strict-only)**定义,**不以 UB 表述**。
 
-**编号区间**:本文件条款自 **RXS-0157** 起续号(全 spec 唯一、分配制递增、永不复用,见 [README.md](README.md) §1;最高现存 RXS-0156 @ [shader_stages.md](shader_stages.md))。区间裁决:**RFC-0004 §9 Q-Range-B 锁定** RXS-0159 保号按 B 重构 + RXS-0160~0162 新增面。**已落带编号条款体**:RXS-0157(target 分发)/ **RXS-0158**(着色阶段 → 着色器类型,PR-D2)/ **RXS-0159**(阶段 I/O 签名,按 B)/ **RXS-0160**(阶段间接口 → 阶段链接一致性核对,按 B)/ **RXS-0161**(MIR→SPIR-V 降级面)/ **RXS-0162**(B 转译链确定性 + validator gate + 供应链 pin)/ **RXS-0171**(RD-013 body I/O 数据流降级最小切片)/ **RXS-0172**(输出 / fragment 输入 varying 用户语义名保名,RD-017,选项① HLSL 边界改写)/ **RXS-0173**(fragment 输出 → `SV_Target#` 渲染目标系统值映射,RD-017 片元输出 MRT 边界,G2.4)。**RXS-0160** 的 vertex out↔fragment in 链接核对 vertex+fragment 多阶段联编点接缝(`link_graphics_stages`)+ 链接核对入口(`check_stage_link`)已落,承 RXS-0159 语义名等价基件;**错链错误码 = RX6014**(agent 裁定方案 B 新开码,不复用 RX6011,见 §2 RXS-0160 IR3),G2.3 PR-E2b-2 已落码。**D-131 v1.4 裁定混合 compute=A / 图形=B**(13 §D-131;RFC-0004 owner Approved 2026-06-25):图形 I/O 签名降级(RXS-0159)由 A 路类型面 stub 改 **B 路**(MIR→SPIR-V→SPIRV-Cross→HLSL→dxc→DXIL)重写,A 路签名产物 ISG1/OSG1 `elemcount=0` 不可达(上游 #90504/#57928,RFC-0004 §4.5),**#97 的 A 路 RXS-0159 不入 main,由 PR-D2 统一按 B 重写**。条款体与每条 ≥1 测试锚定随实现 PR 同落(条款 PR 先于实现 PR,trace_matrix 全锚定,RXS-0173 入后 **173/173**)。区间登记于 [README.md](README.md) §4 文件清单。
+**编号区间**:本文件条款自 **RXS-0157** 起续号(全 spec 唯一、分配制递增、永不复用,见 [README.md](README.md) §1;最高现存 RXS-0156 @ [shader_stages.md](shader_stages.md))。区间裁决:**RFC-0004 §9 Q-Range-B 锁定** RXS-0159 保号按 B 重构 + RXS-0160~0162 新增面。**已落带编号条款体**:RXS-0157(target 分发)/ **RXS-0158**(着色阶段 → 着色器类型,PR-D2)/ **RXS-0159**(阶段 I/O 签名,按 B)/ **RXS-0160**(阶段间接口 → 阶段链接一致性核对,按 B)/ **RXS-0161**(MIR→SPIR-V 降级面)/ **RXS-0162**(B 转译链确定性 + validator gate + 供应链 pin)/ **RXS-0171**(RD-013 body I/O 数据流降级最小切片)/ **RXS-0172**(输出 / fragment 输入 varying 用户语义名保名,RD-017,选项① HLSL 边界改写)/ **RXS-0173**(fragment 输出 → `SV_Target#` 渲染目标系统值映射,RD-017 片元输出 MRT 边界,G2.4)。**RXS-0160** 的 vertex out↔fragment in 链接核对 vertex+fragment 多阶段联编点接缝(`link_graphics_stages`)+ 链接核对入口(`check_stage_link`)已落,承 RXS-0159 语义名等价基件;**错链错误码 = RX6014**(agent 裁定方案 B 新开码,不复用 RX6011,见 §2 RXS-0160 IR3),G2.3 PR-E2b-2 已落码。**D-131 v1.4 裁定混合 compute=A / 图形=B**(13 §D-131;RFC-0004 owner Approved 2026-06-25):图形 I/O 签名降级(RXS-0159)由 A 路类型面 stub 改 **B 路**(MIR→SPIR-V→SPIRV-Cross→HLSL→dxc→DXIL)重写,A 路签名产物 ISG1/OSG1 `elemcount=0` 不可达(上游 #90504/#57928,RFC-0004 §4.5),**#97 的 A 路 RXS-0159 不入 main,由 PR-D2 统一按 B 重写**。条款体与每条 ≥1 测试锚定随实现 PR 同落(条款 PR 先于实现 PR,trace_matrix 全锚定,RXS-0173 入后 **173/173**)。**MR-0006/MR-0007(agent Approved 2026-07-12)续落 RXS-0181~0184**(区间承 edition.md RXS-0180 之后续号):**RXS-0181**(整型 raw buffer 视图元素 u32/i32)/ **RXS-0182**(整型位运算 DXIL 降级与移位量取模)/ **RXS-0183**(位扫描/位计数 intrinsic 集 find_lsb/find_msb/popcount,NVPTX+DXIL 双后端)/ **RXS-0184**(DeviceMathFn f32 首期 sqrt/rsqrt/sin/cos DXIL 降级)。区间登记于 [README.md](README.md) §4 文件清单。
 
 ## 2. 条款
 
@@ -334,6 +334,104 @@ B 全链为编译期确定性变换,本条无运行期语言语义(着色器在 
 - IR2(数据流严格判据):device 须证明 lighting final = f(几何 pass 写入并被采样的 G-buffer 值)——篡改几何 pass FS 写入常量 → final 像素随之改变(红),复原绿(`ci/dxil_uc04_device_smoke.py`)。仅「多 pass + 写 G-buffer」不充分;final 不依赖采样值即视为未达严格面。
 - IR3(测试锚定):≥1 `//@ spec: RXS-0176` 覆盖 device 数据流红绿(采样值依赖证明)+ clamp 越界 well-defined 断言。
 
+### RXS-0181 DXIL compute 整型 raw buffer 视图元素(`View/ViewMut<global, u32|i32>`,MR-0006)
+
+DXIL compute body lowering(D-131 compute=A)的 raw buffer 视图形参元素类型集由 f32 扩为 **`{f32, u32, i32}`**:`View<global, T>` / `ViewMut<global, T>`(`T ∈ {f32, u32, i32}`)为 compute 入口可接受元素集。语言类型面 **0-byte**(元素类型泛化/合一/可变性/地址空间规则全部承 device.md RXS-0066/0067/0071);本条只定义 DXIL 后端降级覆盖(拒绝面收窄 = 纯追加)。承 [MR-0006](../rfcs/mini-0006-dxil-compute-integer-capability.md)(agent Approved 2026-07-12)。
+
+#### Syntax
+
+本条不新增语法:`View<global, u32>` 等本就是合法类型拼写(RXS-0067 元素类型泛化);着色源码不因 DXIL 降级改写。
+
+#### Legality
+
+- L1(元素集):compute 入口 raw buffer 视图元素 `T ∈ {f32, u32, i32}`(4 字节天然对齐标量,**无任何新布局规则**);子集外元素(f64/bool/聚合等)维持 **RX6007** strict 拒绝(RXS-0157 L2 边界收窄,不新造码;聚合元素类型必触显式字节布局,属 Full RFC 专属面,不得借本条夹带)。
+- L2(地址空间):视图地址空间维持 `global` strict(其他地址空间 → RX6007,承既有)。
+- L3(符号性):u32 与 i32 在 LLVM IR 层同为 `i32`,**有/无符号语义由运算指令侧承载**(u32 → udiv/urem/lshr/无符号 icmp 谓词;i32 → sdiv/srem/ashr/有符号谓词;RXS-0182)。
+- L4(load/store 值域):load 自 `View<global, T>` 的结果类型 = `T`;store 到 `ViewMut<global, T>` 的值类型须为 `T`(无后缀整型字面量随元素类型收窄,越界常量 strict 拒;RXS-0071 口径,元素类型换 `T` 不换规则)。
+
+#### Dynamic Semantics
+
+视图索引 load/store 的运行期语义承 RXS-0071/0078(元素类型换 `T` 不换规则):`src[i]` 读取第 i 个 `T` 元素、`dst[i] = v` 写入第 i 个 `T` 元素。本条无新增运行期语义面;降级为编译期确定性变换(同输入产出字节一致)。
+
+#### Implementation Requirements
+
+- IR1(intrinsic 元素类型重载):沿现行 A 路生产拼写 `@llvm.dx.resource.handlefrombinding` 建句柄 + `@llvm.dx.resource.load.rawbuffer` / `@llvm.dx.resource.store.rawbuffer` 按元素类型重载——f32 → `target("dx.RawBuffer", float, …)` / `{ float, i1 }`;u32/i32 → `target("dx.RawBuffer", i32, …)` / `{ i32, i1 }`。下游 DXIL op 为元素类型重载 op(pinned 环境 SM6.0 实测归 `bufferLoad.i32(68)` / `bufferStore.i32(69)`;MR-0006 草案预期的 rawBufferLoad(139)/rawBufferStore(140) 为 SM6.2+ 形,元素类型重载轴一致——golden 锚定实测形)。
+- IR2(上游支持面,probe 实测 2026-07-12):pinned llc(RD-011 env 定位)对 i32 rawbuffer 重载与混合 f32+i32 模块 `-filetype=obj` emit ×8 字节稳定 + dxv `Validation succeeded`(MR-0006 §2.A 义务项达成;`tests/dxil/bless_log.md` 2026-07-12 行)。
+- IR3(handlefrombinding index 形):`handlefrombinding` 第 4 实参 = range 内**相对 index**(单资源 range 恒 0)——probe 实测 llc 以 `lowerBound + index` 计算 createHandle 绝对 register index,register>0 资源若传 register 会越 range 被 dxv `Constant values must be in-range` 拒;register 0 资源两种拼写字节一致(既有 golden **0-byte**)。
+- IR4(绑定布局 0-byte):u32/i32 视图与 f32 视图同种类轴(SRV `t#` / UAV `u#`)、同 register/space 分配、同 RTS0 形态(RXS-0163~0166 **0-byte**;不增资源数、不变 descriptor 编码,与 RD-018 bindless 正交)。
+- IR5(测试锚定):≥1 `//@ spec: RXS-0181` —— accept `conformance/dxil/accept/view_param_u32.rx` / `view_param_i32.rx` + reject `view_param_f64.rx`(RX6007)+ golden `tests/dxil/cs_bitops`。
+
+### RXS-0182 整型位运算 DXIL 降级与移位量取模(`& | ^ << >>`,MR-0006)
+
+语言语义 **0-byte**(types.md「算术与位运算」条款:位运算仅整数、同型、结果同型,违例 RX2006);本条补 DXIL compute body lowering 的二元运算白名单映射,并定义 device 后端**移位量取模语义**(判档 O-2)。承 [MR-0006](../rfcs/mini-0006-dxil-compute-integer-capability.md)。
+
+#### Syntax
+
+本条不新增语法(types.md 既有运算符产生式)。
+
+#### Legality
+
+- L1(映射面):`& | ^` 对 u32/i32 与 slice 3a I64 归并域(usize/u64/i64 同底)均可降级;`<< >>` 首期仅 u32/i32——I64 归并域的 `>>` 符号性(lshr/ashr)在该归并下不可判,子集外维持 strict **RX6007** 拒绝(拒绝优于错码,P-01)。
+- L2(类型违例):位运算浮点操作数 → **RX2006**(types.md 既有规则,typeck 层拦截);混宽操作数经类型合一失败 → **RX2001**(类型不匹配段;MR-0006 §6 计划 RX2006 经实测修正为 RX2001,批准记录留痕)。
+- L3(移位量取模,判档 O-2):移位量按左操作数位宽取模(`amount & (width-1)`,32 位 → `& 31`),**两个 device 后端(DXIL/NVPTX)均 emit 显式掩码**,消除 LLVM 移位越界 poison(PTX 原生钳制被掩码前置统一);全定义,无 UB 表述(P-01,10 §7.5)。const 语境(consteval)越界移位维持既有 checked overflow **编译期拒绝**(与算术 overflow checked 语义同款先例,const 语境先行拒绝,不构成运行期分歧语义);host 运行期位移语义条款不在本条(本条为 device 语义面,host 编译面 0-byte)。
+
+#### Dynamic Semantics
+
+`a << b` / `a >> b`(u32/i32)= 按 `b & 31` 取模后位移;u32 `>>` 为逻辑右移、i32 `>>` 为算术右移。`& | ^` 为按位逻辑,总函数。全定义,无 UB 节。
+
+#### Implementation Requirements
+
+- IR1(映射表):BitAnd→`and` / BitOr→`or` / BitXor→`xor` / Shl→`shl` / Shr(u32)→`lshr` / Shr(i32)→`ashr`,全为平凡 LLVM 指令、不经任何 dx intrinsic(probe 实测 2026-07-12:pinned llc emit ×8 字节稳定 + dxv 接受,位模式指令原样存活到 DXIL)。
+- IR2(掩码 emit):DXIL 路 [`dxil_codegen`](../src/rurixc/src/dxil_codegen.rs) 与 NVPTX 路 [`device_codegen`](../src/rurixc/src/device_codegen.rs) 均在移位前 emit `and <ty> amount, width-1`(常量移位量同样显式 emit,常量折叠留给后端;确定性)。
+- IR3(测试锚定):≥1 `//@ spec: RXS-0182` —— accept `bitops_word_manipulation.rx` / `shift_amount_masked.rx` + reject `bitops_on_f32.rx`(RX2006)/ `shl_mixed_width.rx`(RX2001)+ NVPTX 侧掩码单测(`libdevice_link_mapping.rs`)+ golden `cs_bitops`。
+
+### RXS-0183 device 位扫描/位计数 intrinsic 集(`find_lsb`/`find_msb`/`popcount`,双后端,MR-0006)
+
+镜像 RXS-0081「device 上下文可调用的编译器已知函数集」形态的整数位域扩展:`find_lsb` / `find_msb` / `popcount`,签名契约 **`u32 -> u32`**(首期仅 u32 元素),纯值运算、总函数、零输入显式定义、**无内存/并发/跨线程可见性面**(实现期若须定义任何内存序/wave/subgroup 语义 → 停手升 Full,MR-0006 §3 升档触发②)。调用形态沿 RXS-0081 实现先例取**方法形**(`w.find_lsb()`;RXS-0081「具体调用形态的语法绑定为实现 WP 细化项」同款,本条即语言面定义,device.md 0-byte 交叉引用承此)。承 [MR-0006](../rfcs/mini-0006-dxil-compute-integer-capability.md)。
+
+#### Syntax
+
+方法调用产生式(receiver 为 `u32` 值,零实参);无新文法产生式。
+
+#### Legality
+
+- L1(签名契约):receiver `u32`、零实参、结果 `u32`。元数违例 → RX2003;receiver 类型不符(浮点等)→ unknown-method **RX2004**(既有类型裁决段;MR-0006 §6 计划 RX2001 经实测修正——方法接收者不符走 unknown-method,实参侧不符才走 RX2001,批准记录留痕);非 device/kernel 上下文 → **RX6006**(镜像 RXS-0081 上下文约束)。
+- L2(语义,LSB=0 位序):`find_lsb(x)` = 最低置位位下标;`find_msb(x)` = 最高置位位下标;`popcount(x)` = 置位位计数。
+- L3(零输入,判档 O-1):`find_lsb(0) == 0xFFFF_FFFF`、`find_msb(0) == 0xFFFF_FFFF`(**HLSL 形**,DXIL 目标 + dxc golden 锚;与 GLSL findLSB/findMSB 的 `-1`(i32)约定同位模式、不同类型视角,本语言以 `u32` 闭合免符号扩展歧义);`popcount(0) == 0`(自然)。
+
+#### Dynamic Semantics
+
+纯值运算总函数,无内存/原子/可见性语义;双后端(NVPTX/DXIL)语义一致(零输入 HLSL 形 + LSB=0 位序)。数值 parity 证据归 GRX pass 侧 harness(math parity 纪律),不入语言 golden。
+
+#### Implementation Requirements
+
+- IR1(DXIL lowering,probe 实测 2026-07-12):find_lsb → `@llvm.dx.firstbitlow`(dx.op `FirstbitLo(32)` 直发,op 零输入即 -1 = HLSL 形);find_msb → `@llvm.dx.firstbituhigh`(`FirstbitHi(33)`)+ **dxc 同款正规化** `select(raw == -1, -1, 31 - raw)`(判档 O-7:正规化形态仅 golden 锚定——与 pinned dxc 对 HLSL `firstbithigh` 产物逐形对照,不写死为语言 opcode 组合承诺);popcount → `@llvm.ctpop.i32`(`Countbits(31)`)。`llvm.cttz/ctlz.i32` 被 pinned llc DXILBitcodeWriter 拒(probe 实测「Unsupported intrinsic … for DXIL lowering」)→ **不采用**;所需拼写全部上游在位,上游覆盖缺口未触发(判档 O-6 的 RD-025 patch 纪律无需启用,零新 RD)。
+- IR2(NVPTX lowering):libdevice 符号组合(RXS-0082 链接流程复用,零新链接面):find_lsb = `__nv_ffs(x) - 1`;find_msb = `31 - __nv_clz(x)`;popcount = `__nv_popc(x)`(u32 回绕使零输入自然为 `0xFFFF_FFFF`,与 DXIL 路语义一致;libdevice 链接 + ptxas 干验证真跑覆盖)。
+- IR3(测试锚定):≥1 `//@ spec: RXS-0183` —— accept `find_lsb_scan.rx` / `popcount_reduce.rx` + reject `find_lsb_on_f32.rx`(RX2004)+ NVPTX libdevice 单测与链接门(`libdevice_link_mapping.rs`)+ golden `cs_bitops`。
+
+### RXS-0184 DeviceMathFn 的 DXIL 第二后端降级(`sqrt`/`rsqrt`/`sin`/`cos`,f32 首期,MR-0007)
+
+RXS-0081 device 数学函数 intrinsic 集(签名契约/元数/求值语义/RX6006 保守拒绝全部既有 **0-byte**)在 DXIL compute=A 路的 lowering 覆盖:**f32 首期四函数** `sqrt`/`rsqrt`/`sin`/`cos`。NVPTX 路径(RXS-0082 libdevice)、host 路径全部 0-byte;本条为纯第二后端覆盖扩展。承 [MR-0007](../rfcs/mini-0007-dxil-compute-math-intrinsics.md)(agent Approved 2026-07-12)。
+
+#### Syntax
+
+本条不新增语法(RXS-0081 方法形 0-byte:`x.sqrt()` 等在 `--target dxil` 下不再被拒)。
+
+#### Legality
+
+- L1(首期覆盖):f32 的 `sqrt`/`rsqrt`/`sin`/`cos` 可降级;首期覆盖外(f64 任意、`pow`/`fma`/`exp`/`log` 等其余 RXS-0081 集合成员在 DXIL 路)→ **RX6006**(RXS-0081「不支持的元素类型组合/超覆盖」既有语义精确适用,零新码),不静默近似、不 fallback(P-01)。后续函数按需以本条追加覆盖(拒绝面纯收窄)。
+- L2(类型违例):非浮点接收者 → unknown-method **RX2004**(既有类型裁决段;MR-0007 §6 计划 RX2001 经实测修正,批准记录留痕);实参类型不符 → **RX2001**(RXS-0081 既有裁决段)。
+
+#### Dynamic Semantics
+
+求值语义承 RXS-0081(纯值浮点函数,无内存面)。精度为实现要求表述、不发明数值语义:DXIL 侧精度界引 D3D 功能规范对相应 op(Sqrt/Rsqrt/Sin/Cos)的 ULP 界;**不承诺** NVPTX(libdevice)与 DXIL 两路 bit-exact——两路各自对 host 参考的 parity 以 GRX math parity 证据 harness 锚定;golden 只锁 IR/DXIL 文本形态,不锁数值。
+
+#### Implementation Requirements
+
+- IR1(映射,probe 实测 2026-07-12,每函数 llc emit ×8 字节稳定 + dxv `Validation succeeded`):`sqrt` → `llvm.sqrt.f32`(dx.op.unary `Sqrt(24)`)/ `rsqrt` → `llvm.dx.rsqrt.f32`(`Rsqrt(25)`,**上游直达 intrinsic**,无须 `1.0/sqrt` 组合——MR-0007 §3 升档触发③ 未触发)/ `sin` → `llvm.sin.f32`(`Sin(13)`)/ `cos` → `llvm.cos.f32`(`Cos(12)`)。
+- IR2(strict 边界):f64 首期外在 DXIL 路显式 RX6006(f64 形参在 compute 入口分类即 RX6007;f64 字面量接收者在数学 intrinsic 降级点 RX6006);NVPTX 路 f64 数学不受影响(0-byte)。
+- IR3(测试锚定):≥1 `//@ spec: RXS-0184` —— accept `math_sqrt_rsqrt.rx` / `math_sin_cos.rx` / `math_normalize_scalar_form.rx` + reject `math_f64_dxil.rx` / `math_pow_dxil.rx`(RX6006)/ `math_on_u32.rx`(RX2004)+ golden `tests/dxil/cs_math`。
+
 ## 3. 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
@@ -351,3 +449,4 @@ B 全链为编译期确定性变换,本条无运行期语言语义(着色器在 
 | v2.0 | 2026-06-29 | **RD-017 保名机制 agent 裁决落库 + RXS-0172 条款体落地(spec-first,先于实现 PR)**。owner 代表本工作会话裁定:采**选项①**(spirv-cross 产 HLSL 后于 HLSL 边界做受限、可验证的语义名 token 改写),**否决选项③**(不放宽 `signature_gate`、不以 location 等价冒充保名);#114 维持现状不拆 RD-013,RD-017 自 `af4ee25` 开 stacked 分支(base `feat/g2.4-uc04-pr-f2-impl`)。新增 `### RXS-0172`(输出 varying / fragment 输入 varying 用户语义名保名):关闭 RXS-0159 IR1(b) 缺口——`dir==Out` varying 与 fragment `dir==In` varying 用户语义名经 B 链端到端保真;provenance 由 `io_sig` 导出(与 `vertex_input_semantic_flags` 同源)、改写点在 `run_b_chain` 的 spirv-cross→dxc 之间;**只动 HLSL semantic token**,不冻结 register/mask/packing/byte layout/稳定 Location,semantic_index 后缀随保名自然变化非物理 ABI(校验门不比对);**不放宽 RX6011**(Property 5),fail-closed(provenance 不一致即退化名经门拒);不新增错误码(backstop = RXS-0159 RX6011)。机制取证 `evidence/rd017_varying_semantic_spike_20260629.json`(隔离 spike measured_local:改写后 dxc 接受 + 校验门不放宽也过 + 物理 ABI 不变 + 确定性;dxc 1.8.0.4739 / spirv-cross 1.3.290,签名 validator/golden/device 留 agent pin 环境)。**条款先于实现**(硬规则 7):RXS-0172 测试锚定与实现随本分支实现 commit 同落。RD-017 status 翻转 / golden bless / device 真跑归 agent(G-G2-4),本条不签收口。🔒 签名二进制 ABI 布局(RFC-0004 §4.6(a))/ 纹理内存模型(06 §4.2)/ DXIL·SPIR-V UB 边界不触及。档位 **Full RFC**(RFC-0004),无体例变更 | **Full RFC**（RFC-0004） |
 | v2.1 | 2026-06-29 | **RD-017 片元输出 MRT 边界收口 + RXS-0173 条款体落地(spec-first,G2.4 选项 B)**。承 G2.4 RD-021 停手分支次发现(几何 pass FS 写 G-buffer MRT 经 full B 链被签名门 strict-only 拒:spirv-cross 把 fragment 输出降为 `SV_Target#` 渲染目标语义,而 RXS-0172 改写器只匹配 `TEXCOORD`)。新增 `### RXS-0173`(fragment 着色阶段输出 → `SV_Target#` 渲染目标系统值映射):fragment 输出 I/O 字段按声明序 `n` 忠实映射 OSG1 `SV_Target<n>` 渲染目标系统值(等价 `position→SV_Position` 系统值类匹配),**因 D3D12 像素输出按渲染目标索引绑定、无用户语义名通道** → 签名门以系统值类忠实匹配 fragment 输出而非要求用户名(`albedo`/`normal`/`depth`)出现于 OSG1。**机制取舍说明**:不采用"把 HLSL 里 `SV_Target#` 改名为用户名"(会破坏 D3D12 渲染目标按索引绑定、device draw 必坏),改为签名门系统值类识别(忠实于 D3D12 ABI,**非放宽门、非以 location/等价冒充保名**);RXS-0172 否决的"location 冒充"是把退化通用名当保名,本条是把渲染目标系统值忠实建模——二者不同。**不放宽 RXS-0159 校验门**(fragment 输出仍须真实存活于 OSG1,缺失/数目不符 → RX6011),**不新增错误码**(backstop = RX6011)。条款按 FLS 分 Syntax / Legality(L1 渲染目标映射 / L2 不放宽门 / L3 声明序即渲染目标序 / L4 方向限定)/ Dynamic Semantics / Implementation Requirements(IR1 `builtin_sv_tokens` 增 `target→SV_TARGET` + `check` 引入阶段上下文 / IR2 声明序绑定 / IR3 门不旁路 / IR4 RX6011 backstop / IR5 ABI 中立 / IR6 测试锚定),**严禁 UB 节**。`vertex` 输出维持 RXS-0172 用户名保名、fragment 输入维持 RXS-0172、vertex 输入维持 RXS-0159 IR1(a)、`#[builtin]`(含 `SV_Depth`)维持 RXS-0159 映射,均不受本条影响。`ci/trace_matrix.py --check` 全锚定 RXS-0173 入后 173/173(RXS-0173 ≥1 `//@ spec` 锚定)。🔒 register/mask/packing/byte layout(§4.6(a))/ 纹理采样内存模型(06 §4.2,RD-021 仍 defer)/ DXIL·SPIR-V UB 不触及。`Assisted-by: cursor:claude-opus-4.8`。档位 **Full RFC**(RFC-0004 / RFC-0006 G2.4),无体例变更 | **Full RFC**（RFC-0004 / RFC-0006 G2.4） |
 | v2.2 | 2026-06-30 | **RFC-0007 采样语义本体落库 + RXS-0175/RXS-0176 条款体(spec-first,G2.4 严格面)**。承 RFC-0007(agent 2026-06-30 自主批准,废止 G2_CONTRACT §8.5 选项 B「不采样」折中、关闭 RD-021)。新增 `### RXS-0175`(图形=B 资源采样 rvalue 降级):扩展 RXS-0171 body 白名单,新增 `Rvalue::ResourceSample { texture, sampler, coord }` 降级——`OpLoad` 纹理/采样器 + `OpSampledImage`(组合 `OpTypeSampledImage`)+ `OpImageSampleExplicitLod`(结果 vec4<F>,ImageOperands Lod 0)→ spirv-cross HLSL `SampleLevel(samp,uv,0.0)` → dxc DXIL `dx.op.sampleLevel`;首期收敛子集(Texture2D<f32> + Sampler + 显式 LOD 0 + coord vec2<f32> + fragment 阶段),子集外 → **RX6023** `codegen.dxil_sample_unsupported`(strict-only,区别于 RX6013 通用不可映射);RXS-0171 L4「资源/纹理/采样 → RX6013」对采样表达式不再拒;句柄非值(承 RXS-0156);ABI 中立(不冻结 descriptor/采样 opcode 布局/register)。新增 `### RXS-0176` 🔒(纹理采样内存模型映射,06 §4.2 纹理路径首期收敛):采样 opcode 语义(LOD 0 显式,非隐式导数)/ 坐标归一化 [0,1]² / LOD 导数(无隐式依赖)/ 寻址过滤(sampler clamp+线性默认)/ 越界(clamp 吸收 well-defined 非 UB)/ 缓存可见性·memory-order(只读 SRV 无 memory-order,跨 pass 写后读由 RT→SRV barrier 保证,假定 RXS-0169 编排就位);数据流严格判据 IR2(篡改几何 FS → final 改变红 / 复原绿)。规避子能力登记 deferred **RD-022~RD-024**(隐式 LOD/导数·mip·可配置 sampler / texel fetch·gather·比较采样 / 非 fragment 阶段·多分量纹理)。错误码 `registry/error_codes.json` 只追加 **RX6023** + en/zh message-key(`shader-stages`/`dxil-backend` feature gate 复用,不新增 feature)。**严禁 UB 节**(越界 clamp well-defined,P-01)。`ci/trace_matrix.py --check` RXS-0175/0176 各 ≥1 `//@ spec` 锚定(173→175)。🔒 descriptor/采样 opcode 二进制布局(RFC-0003 §4.6 / RFC-0005 §4.5)不冻结。`Assisted-by: kiro:claude-opus-4.8`。档位 **Full RFC**（RFC-0007 / RFC-0006 G2.4 严格面） | **Full RFC**（RFC-0007 / RFC-0006 G2.4 严格面） |
+| v2.3 | 2026-07-12 | **MR-0006/MR-0007 批准落档 + 条款体 `### RXS-0181 ~ ### RXS-0184`(DXIL compute 整型能力包 + DeviceMathFn f32 首期)**。承 [MR-0006](../rfcs/mini-0006-dxil-compute-integer-capability.md) / [MR-0007](../rfcs/mini-0007-dxil-compute-math-intrinsics.md)(agent 依「agent 完全自主化」治理基线自主批准 2026-07-12,判档 O-1~O-7 裁决落 RFC §7/§8 批准段;判档意见书 `spike/dxil-path-probe/dxil_compute_capability_gaps_adjudication_20260712.md`)。**RXS-0181**(整型 raw buffer 视图元素 u32/i32):元素类型集 f32→{f32,u32,i32},语言类型面 0-byte(RXS-0066/0067/0071),rawbuffer intrinsic 元素类型重载(`target("dx.RawBuffer", i32, …)` + `{ i32, i1 }`;SM6.0 实测归 bufferLoad.i32(68)/bufferStore.i32(69));probe 前置实测(pinned llc ×8 字节稳定 + dxv 接受,含混合 f32+i32 模块);**handlefrombinding 第 4 实参修正为 range 相对 index 0**(probe 实测 register>0 传 register 被 dxv 拒;register 0 拼写字节一致,既有 golden 0-byte)。**RXS-0182**(整型位运算 + 移位量取模,判档 O-2):and/or/xor(u32/i32/I64 归并域)+ shl/lshr/ashr(首期仅 u32/i32,I64 归并域符号性不可判 strict 拒);**双 device 后端 emit 显式掩码 `& 31`**(dxil_codegen + device_codegen;consteval 越界移位维持 checked 编译期拒,host 编译面 0-byte);混宽移位实测 RX2001(计划 RX2006 修正留痕)。**RXS-0183**(位扫描/位计数 intrinsic 集,判档 O-1/O-7):find_lsb/find_msb/popcount 方法形 `u32 -> u32`,零输入 HLSL 形 0xFFFF_FFFF;DXIL 路 `llvm.dx.firstbitlow`/`firstbituhigh`(+dxc 同款正规化 select(raw==-1,-1,31-raw))/`llvm.ctpop.i32` → FirstbitLo(32)/FirstbitHi(33)/Countbits(31)(`llvm.cttz/ctlz` 被 pinned llc 拒,probe 实测弃用;O-6 RD-025 纪律未触发,零新 RD);NVPTX 路 libdevice 组合 `__nv_ffs-1`/`31-__nv_clz`/`__nv_popc`(RXS-0082 复用,链接+ptxas 干验证真跑)。**RXS-0184**(DeviceMathFn f32 首期,MR-0007):sqrt/rsqrt/sin/cos → `llvm.sqrt/sin/cos.f32` + `llvm.dx.rsqrt.f32` → dx.op.unary Sqrt(24)/Rsqrt(25)/Sin(13)/Cos(12)(rsqrt 上游直达,升档触发③ 未触发);首期外 → RX6006(RXS-0081 既有语义,`dxil_codegen` 结构化携码 emit);非浮点接收者实测 RX2004(计划 RX2001 修正留痕)。**零新 RX 码 / 零新 RD / registry 0-byte**。配套:conformance accept 9 + reject 7(各带 `//@ spec` 锚 + expect-error)、golden `cs_bitops`/`cs_math` 两层 bless(bless_log 2026-07-12 行,既有 golden 0-byte)、9 个 accept 语料各经 `rurixc --target dxil` 全链 llc→dxv 实测 accepted、NVPTX 侧 libdevice 单测+链接门真跑。各条按 FLS 分 Syntax / Legality / Dynamic Semantics / Implementation Requirements,**严禁 UB 节**(移位取模/零输入全定义,P-01)。🔒 不触:纹理内存模型(06 §4.2)/ FFI ABI 二进制布局 / 显式布局(聚合元素维持 Full RFC 专属)/ 绑定布局条款(RXS-0163~0166 0-byte)。`Assisted-by: claude-code:claude-fable-5`。档位 **Mini-RFC**(MR-0006/MR-0007) | **Mini-RFC**（MR-0006/MR-0007） |

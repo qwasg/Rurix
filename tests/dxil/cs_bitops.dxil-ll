@@ -1,0 +1,47 @@
+; ModuleID = 'cs_bitops'
+source_filename = "cs_bitops"
+target datalayout = "e-m:e-p:32:32-i1:32-i8:8-i16:16-i32:32-i64:64-f16:16-f32:32-f64:64-n8:16:32:64"
+target triple = "dxil-unknown-shadermodel6.0-compute"
+
+define void @rx_cs_bitops_8() #0 {
+entry:
+  %rx_h_words = call target("dx.RawBuffer", i32, 0, 0) @llvm.dx.resource.handlefrombinding(i32 0, i32 0, i32 1, i32 0, ptr null)
+  %rx_h_shifts = call target("dx.RawBuffer", i32, 0, 0) @llvm.dx.resource.handlefrombinding(i32 0, i32 1, i32 1, i32 0, ptr null)
+  %rx_h_dst = call target("dx.RawBuffer", i32, 1, 0) @llvm.dx.resource.handlefrombinding(i32 0, i32 0, i32 1, i32 0, ptr null)
+  %v0.u32 = call i32 @llvm.dx.thread.id(i32 0)
+  %v0 = zext i32 %v0.u32 to i64
+  %v1.idx = trunc i64 %v0 to i32
+  %v1.ld = call { i32, i1 } @llvm.dx.resource.load.rawbuffer(target("dx.RawBuffer", i32, 0, 0) %rx_h_words, i32 %v1.idx, i32 0)
+  %v1 = extractvalue { i32, i1 } %v1.ld, 0
+  %v2.idx = trunc i64 %v0 to i32
+  %v2.ld = call { i32, i1 } @llvm.dx.resource.load.rawbuffer(target("dx.RawBuffer", i32, 0, 0) %rx_h_shifts, i32 %v2.idx, i32 0)
+  %v2 = extractvalue { i32, i1 } %v2.ld, 0
+  %v3.shamt = and i32 8, 31
+  %v3 = lshr i32 %v1, %v3.shamt
+  %v4 = and i32 %v3, 255
+  %v5 = xor i32 %v4, 42405
+  %v6.shamt = and i32 1, 31
+  %v6 = shl i32 %v1, %v6.shamt
+  %v7 = or i32 %v5, %v6
+  %v8 = call i32 @llvm.dx.firstbitlow(i32 %v1)
+  %v9.raw = call i32 @llvm.dx.firstbituhigh(i32 %v1)
+  %v9.norm = sub i32 31, %v9.raw
+  %v9.isz = icmp eq i32 %v9.raw, -1
+  %v9 = select i1 %v9.isz, i32 -1, i32 %v9.norm
+  %v10 = add i32 %v8, %v9
+  %v11 = call i32 @llvm.ctpop.i32(i32 %v1)
+  %v12 = add i32 %v10, %v11
+  %v13 = and i32 %v2, 7
+  %v14.shamt = and i32 %v13, 31
+  %v14 = lshr i32 %v7, %v14.shamt
+  %v15 = add i32 %v14, %v12
+  %v16.idx = trunc i64 %v0 to i32
+  call void @llvm.dx.resource.store.rawbuffer(target("dx.RawBuffer", i32, 1, 0) %rx_h_dst, i32 %v16.idx, i32 0, i32 %v15)
+  ret void
+}
+
+attributes #0 = { noinline nounwind "hlsl.numthreads"="1,1,1" "hlsl.shader"="compute" }
+
+!dx.valver = !{!0}
+
+!0 = !{i32 1, i32 8}

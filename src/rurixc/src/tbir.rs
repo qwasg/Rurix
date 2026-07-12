@@ -116,6 +116,13 @@ pub enum ExprKind {
         is_f32: bool,
         args: Vec<Expr>,
     },
+    /// device 位扫描/位计数 intrinsic(MR-0006,RXS-0183;`u32` 方法 → NVPTX 侧
+    /// libdevice `__nv_ffs`/`__nv_clz`/`__nv_popc` 组合下译)。`args[0]` 为
+    /// receiver(元数 1,无额外实参)。
+    DeviceBitCall {
+        op: crate::hir::DeviceBitFn,
+        args: Vec<Expr>,
+    },
     /// 纹理采样(G2.4,RXS-0174/0175;RFC-0007;`tex.sample(samp, coord)` →
     /// 采样表达式,产 `vec4<F>`)。`texture`/`sampler` 为资源句柄形参引用
     /// (MIR lowering 取其 local 下标);`coord` 为 `vec2<f32>` 值。

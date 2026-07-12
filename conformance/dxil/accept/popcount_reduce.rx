@@ -1,0 +1,11 @@
+//@ spec: RXS-0183
+// MR-0006 B2:popcount 置位计数 + while 归约(mutable u32 local,alloca i32)。
+kernel fn popcount_reduce(words: View<global, u32>, dst: ViewMut<global, u32>) {
+    let mut i = 0;
+    let mut total = 0u32;
+    while i < 4 {
+        total = total + words[i].popcount();
+        i = i + 1;
+    }
+    dst[0] = total;
+}

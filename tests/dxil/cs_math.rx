@@ -1,0 +1,9 @@
+//@ spec: RXS-0184
+// MR-0007 数学 intrinsic golden:f32 首期四函数 → llvm.sqrt/sin/cos.f32 +
+// llvm.dx.rsqrt.f32(dx.op.unary Sqrt(24)/Rsqrt(25)/Sin(13)/Cos(12);probe
+// 实测 2026-07-12 pinned llc ×8 字节稳定 + dxv 接受)。
+kernel fn cs_math(src: View<global, f32>, dst: ViewMut<global, f32>, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    let x = src[i];
+    dst[i] = x.sqrt() + x.rsqrt() * x.sin() - x.cos();
+}

@@ -35,11 +35,16 @@ use crate::query::QueryCtx;
 use crate::span::Span;
 use crate::toolchain::{self, DxilSignatures};
 
-/// DXIL codegen 失败(RX6007;目标不可用 / 子集外构造 / 降级失败,RXS-0157 L1~L3)。
+/// DXIL codegen 失败(默认 RX6007:目标不可用 / 子集外构造 / 降级失败,RXS-0157
+/// L1~L3;数学 intrinsic 首期覆盖外取 RX6006——RXS-0081 既有语义精确适用,RXS-0184)。
 #[derive(Debug, Clone)]
 pub struct DxilCodegenError {
     pub span: Span,
     pub detail: String,
+    /// 诊断码(默认 6007;RXS-0184 首期覆盖外数学 intrinsic → 6006)。
+    pub code: u16,
+    /// 诊断 message-key(与 `code` 配对;默认 `codegen.dxil_unsupported`)。
+    pub message_key: &'static str,
 }
 
 impl DxilCodegenError {
@@ -47,6 +52,19 @@ impl DxilCodegenError {
         DxilCodegenError {
             span,
             detail: detail.into(),
+            code: 6007,
+            message_key: "codegen.dxil_unsupported",
+        }
+    }
+
+    /// 数学 intrinsic 首期覆盖外(RXS-0184;RX6006 = RXS-0081「不支持的元素类型
+    /// 组合 / 超覆盖」既有语义,零新码)。
+    fn math_unsupported(span: Span, detail: impl Into<String>) -> Self {
+        DxilCodegenError {
+            span,
+            detail: detail.into(),
+            code: 6006,
+            message_key: "codegen.device_math_unsupported",
         }
     }
 }
@@ -146,37 +164,36 @@ fn build_dxil_compute(cx: &QueryCtx<'_>, module_name: &str) -> Option<BuiltDxilC
     let layout = match derive_compute_bindings(cx, entry) {
         Ok(layout) => layout,
         Err(e) => {
-            cx.diag()
-                .struct_error(ErrorCode(6007), "codegen.dxil_unsupported")
-                .arg("detail", e.detail.clone())
-                .span_label(e.span, "in DXIL compute entry")
-                .emit();
+            emit_dxil_codegen_error(cx, &e);
             return None;
         }
     };
     let lowered_body = match lower_compute_body_slice1(cx, entry, kernel_fn) {
         Ok(lowered_body) => lowered_body,
         Err(e) => {
-            cx.diag()
-                .struct_error(ErrorCode(6007), "codegen.dxil_unsupported")
-                .arg("detail", e.detail.clone())
-                .span_label(e.span, "in DXIL compute entry")
-                .emit();
+            emit_dxil_codegen_error(cx, &e);
             return None;
         }
     };
     let ir = match emit_dxil_ir_with_body(entry, module_name, &lowered_body) {
         Ok(ir) => ir,
         Err(e) => {
-            cx.diag()
-                .struct_error(ErrorCode(6007), "codegen.dxil_unsupported")
-                .arg("detail", e.detail.clone())
-                .span_label(e.span, "in DXIL compute entry")
-                .emit();
+            emit_dxil_codegen_error(cx, &e);
             return None;
         }
     };
     Some(BuiltDxilCompute { ir, layout })
+}
+
+/// 结构化 emit [`DxilCodegenError`](按错误携带的码 / message-key;默认 RX6007
+/// `codegen.dxil_unsupported`,RXS-0184 首期覆盖外数学 intrinsic → RX6006
+/// `codegen.device_math_unsupported`)。
+fn emit_dxil_codegen_error(cx: &QueryCtx<'_>, e: &DxilCodegenError) {
+    cx.diag()
+        .struct_error(ErrorCode(e.code), e.message_key)
+        .arg("detail", e.detail.clone())
+        .span_label(e.span, "in DXIL compute entry")
+        .emit();
 }
 
 /// GRX-009 segment 3a.1:从 compute kernel 的 **AST 形参**推导离线绑定布局
@@ -302,29 +319,40 @@ fn collect_compute_param_sigs(
         let sig = match head {
             "View" => {
                 if matches!(mode, ComputeParamMode::Body) {
-                    require_texture_or_view_global_f32(ty)?;
+                    require_texture_or_view_global_elem(ty)?;
                 }
+                // MR-0006(RXS-0181):元素类型扩到 f32|u32|i32(Body 模式已经
+                // require 校验;Entry 模式沿既有容忍——布局推导元素类型无关,
+                // 子集外元素在 body lowering 收口 strict RX6007)。
                 ComputeParamSig::Resource {
                     name,
                     res: crate::mir::MirResourceType::StructuredBuffer { read_only: true },
-                    kind: ComputeParamKind::ViewF32,
+                    kind: match view_elem_head(ty) {
+                        Some("u32") => ComputeParamKind::ViewU32,
+                        Some("i32") => ComputeParamKind::ViewI32,
+                        _ => ComputeParamKind::ViewF32,
+                    },
                     span: ty.span,
                 }
             }
             "ViewMut" => {
                 if matches!(mode, ComputeParamMode::Body) {
-                    require_texture_or_view_global_f32(ty)?;
+                    require_texture_or_view_global_elem(ty)?;
                 }
                 ComputeParamSig::Resource {
                     name,
                     res: crate::mir::MirResourceType::StructuredBuffer { read_only: false },
-                    kind: ComputeParamKind::ViewMutF32,
+                    kind: match view_elem_head(ty) {
+                        Some("u32") => ComputeParamKind::ViewMutU32,
+                        Some("i32") => ComputeParamKind::ViewMutI32,
+                        _ => ComputeParamKind::ViewMutF32,
+                    },
                     span: ty.span,
                 }
             }
             "Texture2D" => {
                 if matches!(mode, ComputeParamMode::Body) {
-                    require_texture_or_view_global_f32(ty)?;
+                    require_texture_or_view_global_elem(ty)?;
                 }
                 ComputeParamSig::Resource {
                     name,
@@ -335,7 +363,7 @@ fn collect_compute_param_sigs(
             }
             "RWTexture2D" => {
                 if matches!(mode, ComputeParamMode::Body) {
-                    require_texture_or_view_global_f32(ty)?;
+                    require_texture_or_view_global_elem(ty)?;
                 }
                 ComputeParamSig::Resource {
                     name,
@@ -475,9 +503,11 @@ fn ast_pat_binding_mutability(pat: &crate::ast::Pat) -> Option<bool> {
 fn ast_scalar_ty(ty: &crate::ast::Ty) -> Option<LoweredScalarTy> {
     match ast_ty_head_name(ty)? {
         "f32" => Some(LoweredScalarTy::F32),
-        "usize" | "u32" | "i32" | "u64" | "i64" | "u16" | "i16" | "u8" | "i8" => {
-            Some(LoweredScalarTy::I64)
-        }
+        // MR-0006(RXS-0181/0182):u32/i32 local 注解定型为 32 位整型(位运算
+        // 工作集与整型视图元素同域);usize/i64 族维持 slice 3a I64。
+        "u32" => Some(LoweredScalarTy::U32),
+        "i32" => Some(LoweredScalarTy::I32),
+        "usize" | "u64" | "i64" | "u16" | "i16" | "u8" | "i8" => Some(LoweredScalarTy::I64),
         "bool" => Some(LoweredScalarTy::Bool),
         _ => None,
     }
@@ -637,6 +667,9 @@ struct LoweredComputeResource {
     /// 资源 MIR 类型(GRX-009:区分 raw-buffer StructuredBuffer 与 Texture2D/RWTexture2D
     /// 三种;mutable 由 `res.class() == ResourceClass::Uav` 派生)。
     res: crate::mir::MirResourceType,
+    /// 元素标量类型(MR-0006/RXS-0181:raw-buffer 视图 f32|u32|i32,按元素类型
+    /// 选 rawbuffer intrinsic 重载;纹理路径恒 F32)。
+    elem: LoweredScalarTy,
 }
 
 #[derive(Debug, Clone)]
@@ -713,6 +746,29 @@ enum LoweredComputeOp {
         then_value: LoweredValue,
         else_value: LoweredValue,
     },
+    /// 位扫描/位计数 intrinsic(MR-0006,RXS-0183):`u32` 值 → `u32`。
+    /// DXIL 侧拼写(probe 实测 2026-07-12,pinned llc ×8 字节稳定 + dxv 接受):
+    /// find_lsb → `@llvm.dx.firstbitlow`(dx.op FirstbitLo(32),零输入 -1 = HLSL 形);
+    /// find_msb → `@llvm.dx.firstbituhigh`(FirstbitHi(33))+ dxc 同款正规化
+    /// `select(raw == -1, -1, 31 - raw)`(O-7 golden 锚,LSB=0 位序 + 零输入 HLSL 形);
+    /// popcount → `@llvm.ctpop.i32`(Countbits(31))。
+    /// `llvm.cttz/ctlz.i32` 被 pinned llc DXILBitcodeWriter 拒(「Unsupported
+    /// intrinsic … for DXIL lowering」),不采用。
+    BitScan {
+        dst: String,
+        op: crate::hir::DeviceBitFn,
+        value: LoweredValue,
+    },
+    /// device 数学 intrinsic f32 首期四函数(MR-0007,RXS-0184):
+    /// sqrt → `@llvm.sqrt.f32`(dx.op.unary Sqrt(24))/ rsqrt → `@llvm.dx.rsqrt.f32`
+    /// (Rsqrt(25),上游直达 intrinsic,无须 1/sqrt 组合)/ sin → `@llvm.sin.f32`
+    /// (Sin(13))/ cos → `@llvm.cos.f32`(Cos(12))。probe 实测 2026-07-12:四者
+    /// pinned llc emit ×8 字节稳定 + dxv `Validation succeeded`。
+    MathUnary {
+        dst: String,
+        op: crate::hir::DeviceMathFn,
+        value: LoweredValue,
+    },
     /// 最小 no-else statement if(GRX-009 segment 3a):`br i1 cond` 分叉到
     /// `if.then.{id}` / `if.end.{id}` 两 label(`id` 经 [`ComputeLowerCx::block_id`]
     /// 单调分配,deterministic 且全 body 唯一)。then_ops 复用同一 temp 计数器,
@@ -751,20 +807,62 @@ enum LoweredValueRepr {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LoweredScalarTy {
     F32,
+    /// 整型 raw buffer 视图元素 / 位运算工作集(MR-0006,RXS-0181;LLVM IR 层
+    /// `i32`,无符号语义由运算指令侧承载:udiv/urem/lshr/无符号 icmp)。
+    U32,
+    /// 有符号 32 位整型视图元素(MR-0006,RXS-0181;`i32`,ashr/sdiv/srem)。
+    I32,
     I64,
     Bool,
+}
+
+impl LoweredScalarTy {
+    /// 32 位整型元素(u32/i32;raw buffer i32 重载 + 位运算/移位掩码域)。
+    fn is_int32(self) -> bool {
+        matches!(self, LoweredScalarTy::U32 | LoweredScalarTy::I32)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ComputeParamKind {
     ViewF32,
     ViewMutF32,
+    /// MR-0006(RXS-0181):`View<global, u32>`(SRV,i32 rawbuffer 重载)。
+    ViewU32,
+    /// MR-0006(RXS-0181):`ViewMut<global, u32>`(UAV,i32 rawbuffer 重载)。
+    ViewMutU32,
+    /// MR-0006(RXS-0181):`View<global, i32>`(SRV)。
+    ViewI32,
+    /// MR-0006(RXS-0181):`ViewMut<global, i32>`(UAV)。
+    ViewMutI32,
     /// GRX-009:compute-kernel SRV 纹理(`Texture2D<f32>` → texelLoad 路径)。
     Texture2DF32,
     /// GRX-009:compute-kernel UAV 纹理(`RWTexture2D<f32>` → texelStore 路径)。
     RWTexture2DF32,
     Scalar,
     ThreadCtx,
+}
+
+impl ComputeParamKind {
+    /// 只读视图(load 源)的元素类型;非只读视图 → None。
+    fn view_elem(self) -> Option<LoweredScalarTy> {
+        match self {
+            ComputeParamKind::ViewF32 => Some(LoweredScalarTy::F32),
+            ComputeParamKind::ViewU32 => Some(LoweredScalarTy::U32),
+            ComputeParamKind::ViewI32 => Some(LoweredScalarTy::I32),
+            _ => None,
+        }
+    }
+
+    /// 可写视图(store 目标)的元素类型;非可写视图 → None。
+    fn view_mut_elem(self) -> Option<LoweredScalarTy> {
+        match self {
+            ComputeParamKind::ViewMutF32 => Some(LoweredScalarTy::F32),
+            ComputeParamKind::ViewMutU32 => Some(LoweredScalarTy::U32),
+            ComputeParamKind::ViewMutI32 => Some(LoweredScalarTy::I32),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -827,6 +925,10 @@ impl ComputeLowerCx {
                     resources.push(LoweredComputeResource {
                         name: name.clone(),
                         res,
+                        elem: kind
+                            .view_elem()
+                            .or_else(|| kind.view_mut_elem())
+                            .unwrap_or(LoweredScalarTy::F32),
                     });
                     params.insert(
                         name,
@@ -942,21 +1044,25 @@ fn lower_compute_stmt_slice1(
                     "DXIL compute body lowering slice 1 要求 let 带初始化表达式",
                 ));
             };
-            let value = lower_scalar_expr_slice3a(cx, lcx, init)?;
+            let mut value = lower_scalar_expr_slice3a(cx, lcx, init)?;
             if let Some(ty) = let_stmt.ty.as_ref().and_then(ast_scalar_ty) {
-                if value.ty != ty
-                    && !(ty == LoweredScalarTy::F32
-                        && matches!(value.repr, LoweredValueRepr::Const(_)))
-                {
-                    return Err(DxilCodegenError::unsupported(
-                        let_stmt.ty.as_ref().unwrap().span,
+                // 注解定型:类型一致 / F32 常量收窄 / u32|i32 整型常量收窄(MR-0006)
+                // 之外 → strict 拒绝。
+                value = coerce_scalar_value(
+                    value,
+                    ty,
+                    let_stmt.ty.as_ref().expect("guard 已确保注解存在").span,
+                )
+                .map_err(|e| {
+                    DxilCodegenError::unsupported(
+                        e.span,
                         "DXIL compute body lowering slice 3a let 标量类型与初始化表达式不一致",
-                    ));
-                }
+                    )
+                })?;
             } else if let Some(ty) = &let_stmt.ty {
                 return Err(DxilCodegenError::unsupported(
                     ty.span,
-                    "DXIL compute body lowering slice 3a 仅支持 f32/i64/bool 标量 local",
+                    "DXIL compute body lowering slice 3a 仅支持 f32/u32/i32/i64/bool 标量 local",
                 ));
             }
             if mutable {
@@ -1089,13 +1195,17 @@ fn lower_store_slice1(
     rhs: &crate::ast::Expr,
 ) -> Result<(), DxilCodegenError> {
     let (resource, index) = lower_index_lvalue_slice1(cx, lcx, lhs)?;
-    match lcx.params.get(&resource) {
-        Some(info) if info.kind == ComputeParamKind::ViewMutF32 => {}
-        Some(info) if info.kind == ComputeParamKind::RWTexture2DF32 => {}
+    // store 目标:可写视图(f32|u32|i32 元素,MR-0006/RXS-0181)或 UAV 纹理;
+    // store 值类型 = 视图元素类型(整型常量随目标收窄,越界/异型 strict 拒)。
+    let elem = match lcx.params.get(&resource) {
+        Some(info) if info.kind.view_mut_elem().is_some() => {
+            info.kind.view_mut_elem().expect("guard 已确保可写视图")
+        }
+        Some(info) if info.kind == ComputeParamKind::RWTexture2DF32 => LoweredScalarTy::F32,
         Some(info) => {
             return Err(DxilCodegenError::unsupported(
                 info.span,
-                "DXIL compute body lowering slice 1 store 目标必须是 ViewMut<global, f32> 或 RWTexture2D<f32>(GRX-009)",
+                "DXIL compute body lowering store 目标必须是 ViewMut<global, f32|u32|i32> 或 RWTexture2D<f32>(RXS-0181/GRX-009)",
             ));
         }
         None => {
@@ -1104,8 +1214,14 @@ fn lower_store_slice1(
                 "DXIL compute body lowering slice 1 store 目标必须是资源形参",
             ));
         }
-    }
-    let value = lower_f32_expr_slice1(cx, lcx, rhs)?;
+    };
+    let value = lower_scalar_expr_slice3a(cx, lcx, rhs)?;
+    let value = coerce_scalar_value(value, elem, rhs.span).map_err(|_| {
+        DxilCodegenError::unsupported(
+            rhs.span,
+            "DXIL compute body lowering store 值类型须与视图元素类型一致(RXS-0181)",
+        )
+    })?;
     // ptr temp 在 rhs 之后分配,保持 IR 文本内 temp 编号单调。
     let ptr = lcx.temp();
     lcx.ops.push(LoweredComputeOp::Store {
@@ -1146,10 +1262,23 @@ fn lower_scalar_expr_slice3a(
             LoweredScalarTy::F32,
             parse_f32_lit_text(cx, lit)?,
         )),
-        ExprKind::Lit(lit) if lit.kind == LitKind::Int => Ok(LoweredValue::constant(
-            LoweredScalarTy::I64,
-            parse_i64_lit_text(cx, lit)?.to_string(),
-        )),
+        // 整数字面量:`u32`/`i32` 后缀直接定型为对应 32 位常量(MR-0006 位运算
+        // 掩码常量域;越界 strict 拒);其余(无后缀 / i64 族)沿 slice 3a I64。
+        ExprKind::Lit(lit) if lit.kind == LitKind::Int => {
+            let v = parse_int_lit_value(cx, lit)?;
+            let (ty, lo, hi) = match lit.suffix {
+                Some(LitSuffix::U32) => (LoweredScalarTy::U32, 0, u32::MAX as i128),
+                Some(LitSuffix::I32) => (LoweredScalarTy::I32, i32::MIN as i128, i32::MAX as i128),
+                _ => (LoweredScalarTy::I64, i64::MIN as i128, i64::MAX as i128),
+            };
+            if v < lo || v > hi {
+                return Err(DxilCodegenError::unsupported(
+                    lit.span,
+                    "DXIL compute body lowering 整数常量超出目标类型范围(strict-only)",
+                ));
+            }
+            Ok(LoweredValue::constant(ty, v.to_string()))
+        }
         ExprKind::Lit(lit) => match lit.kind {
             LitKind::Bool(value) => Ok(LoweredValue::constant(
                 LoweredScalarTy::Bool,
@@ -1258,6 +1387,84 @@ fn lower_scalar_expr_slice3a(
             });
             Ok(LoweredValue::temp(LoweredScalarTy::F32, dst))
         }
+        // 位扫描/位计数 intrinsic(MR-0006,RXS-0183):`w.find_lsb()` /
+        // `w.find_msb()` / `w.popcount()`,u32 接收者(typeck 已按 RXS-0183 签名
+        // 契约裁决;此处按 AST 方法调用形态降级,镜像 `global_id`/`tex.load`)。
+        ExprKind::MethodCall {
+            receiver,
+            method,
+            generic_args,
+            args,
+        } if crate::hir::DeviceBitFn::from_method(&method.name).is_some()
+            && generic_args.is_none()
+            && args.is_empty() =>
+        {
+            let op = crate::hir::DeviceBitFn::from_method(&method.name)
+                .expect("guard 已确保位 intrinsic 存在");
+            let value = lower_scalar_expr_slice3a(cx, lcx, receiver)?;
+            if value.ty != LoweredScalarTy::U32 {
+                return Err(DxilCodegenError::unsupported(
+                    expr.span,
+                    "DXIL compute body lowering 位扫描/位计数 intrinsic 首期仅支持 u32 接收者(RXS-0183)",
+                ));
+            }
+            let dst = lcx.temp();
+            lcx.ops.push(LoweredComputeOp::BitScan {
+                dst: dst.clone(),
+                op,
+                value,
+            });
+            Ok(LoweredValue::temp(LoweredScalarTy::U32, dst))
+        }
+        // device 数学 intrinsic(MR-0007,RXS-0184):f32 首期四函数
+        // sqrt/rsqrt/sin/cos;首期覆盖外(f64 任意 / 其余 RXS-0081 集合成员)→
+        // RX6006(RXS-0081「不支持的元素类型组合/超覆盖」既有语义,strict-only
+        // 不静默近似、不 fallback,P-01)。
+        ExprKind::MethodCall {
+            receiver,
+            method,
+            generic_args,
+            args,
+        } if crate::hir::DeviceMathFn::from_method(&method.name).is_some()
+            && generic_args.is_none() =>
+        {
+            let op = crate::hir::DeviceMathFn::from_method(&method.name)
+                .expect("guard 已确保数学 intrinsic 存在");
+            // f64 首期外:f64 后缀浮点字面量接收者显式 RX6006(其余 f64 值源在
+            // 本路结构上不可达——f64 形参在 compute 入口分类即 RX6007)。
+            if float_lit_suffix_is_f64(receiver) {
+                return Err(DxilCodegenError::math_unsupported(
+                    expr.span,
+                    "DXIL 路 device 数学 intrinsic 首期仅覆盖 f32(RXS-0184);f64 维持 strict 拒绝",
+                ));
+            }
+            let value = lower_scalar_expr_slice3a(cx, lcx, receiver)?;
+            if value.ty != LoweredScalarTy::F32 {
+                return Err(DxilCodegenError::math_unsupported(
+                    expr.span,
+                    "DXIL 路 device 数学 intrinsic 首期仅覆盖 f32 接收者(RXS-0184)",
+                ));
+            }
+            {
+                use crate::hir::DeviceMathFn as MF;
+                if !matches!(op, MF::Sqrt | MF::Rsqrt | MF::Sin | MF::Cos) || !args.is_empty() {
+                    return Err(DxilCodegenError::math_unsupported(
+                        expr.span,
+                        format!(
+                            "DXIL 路 device 数学 intrinsic 首期仅覆盖 f32 sqrt/rsqrt/sin/cos(RXS-0184);`{}` 超出首期覆盖,strict-only 无静默近似",
+                            method.name
+                        ),
+                    ));
+                }
+            }
+            let dst = lcx.temp();
+            lcx.ops.push(LoweredComputeOp::MathUnary {
+                dst: dst.clone(),
+                op,
+                value,
+            });
+            Ok(LoweredValue::temp(LoweredScalarTy::F32, dst))
+        }
         ExprKind::Binary { op, lhs, rhs } => {
             if matches!(
                 op,
@@ -1279,13 +1486,18 @@ fn lower_scalar_expr_slice3a(
                 });
                 return Ok(LoweredValue::temp(LoweredScalarTy::Bool, dst));
             }
+            let is_bitop = matches!(
+                op,
+                BinOp::BitAnd | BinOp::BitOr | BinOp::BitXor | BinOp::Shl | BinOp::Shr
+            );
             if !matches!(
                 op,
                 BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div | BinOp::Rem
-            ) {
+            ) && !is_bitop
+            {
                 return Err(DxilCodegenError::unsupported(
                     expr.span,
-                    "DXIL compute body lowering slice 3a 仅支持标量 + - * / 与简单比较",
+                    "DXIL compute body lowering 仅支持标量 + - * / %、位运算 & | ^ << >> 与简单比较",
                 ));
             }
             let (lhs, rhs) = lower_compatible_binary_operands(cx, lcx, lhs, rhs)?;
@@ -1295,7 +1507,32 @@ fn lower_scalar_expr_slice3a(
                     "DXIL compute body lowering slice 3a 不支持 bool 算术",
                 ));
             }
-            if *op == BinOp::Rem && lhs.ty != LoweredScalarTy::I64 {
+            if is_bitop {
+                // 位运算仅整数(types.md 位运算条款,浮点违例在 typeck 落 RX2006;
+                // 此处 strict 防御)。移位首期仅 u32/i32(RXS-0182):slice 3a 的
+                // I64 lowering 把 usize/u64/i64 归并同底,`>>` 的 lshr/ashr 符号性
+                // 不可判 → 子集外 strict 拒绝优于错码(P-01)。
+                if !matches!(
+                    lhs.ty,
+                    LoweredScalarTy::U32 | LoweredScalarTy::I32 | LoweredScalarTy::I64
+                ) {
+                    return Err(DxilCodegenError::unsupported(
+                        expr.span,
+                        "DXIL compute body lowering 位运算仅支持整数操作数(RXS-0182)",
+                    ));
+                }
+                if matches!(op, BinOp::Shl | BinOp::Shr) && !lhs.ty.is_int32() {
+                    return Err(DxilCodegenError::unsupported(
+                        expr.span,
+                        "DXIL compute body lowering 移位首期仅支持 u32/i32 操作数(RXS-0182;i64/usize 移位子集外 strict 拒绝)",
+                    ));
+                }
+            } else if *op == BinOp::Rem
+                && !matches!(
+                    lhs.ty,
+                    LoweredScalarTy::I64 | LoweredScalarTy::U32 | LoweredScalarTy::I32
+                )
+            {
                 return Err(DxilCodegenError::unsupported(
                     expr.span,
                     "DXIL compute body lowering slice 3a 仅支持整数 `%` 取模(modulo)",
@@ -1332,6 +1569,24 @@ fn lower_scalar_expr_slice3a(
     }
 }
 
+/// 无后缀整型常量(I64 typed const)→ U32/I32 目标类型收窄(MR-0006:掩码/
+/// 字面量常量域;越界不收窄 → None,上层落 strict 拒绝)。
+fn retag_int_const(value: &LoweredValue, ty: LoweredScalarTy) -> Option<LoweredValue> {
+    if !ty.is_int32() || value.ty != LoweredScalarTy::I64 {
+        return None;
+    }
+    let LoweredValueRepr::Const(text) = &value.repr else {
+        return None;
+    };
+    let v: i128 = text.parse().ok()?;
+    let in_range = match ty {
+        LoweredScalarTy::U32 => (0..=u32::MAX as i128).contains(&v),
+        LoweredScalarTy::I32 => ((i32::MIN as i128)..=(i32::MAX as i128)).contains(&v),
+        _ => false,
+    };
+    in_range.then(|| value.clone().with_ty(ty))
+}
+
 fn coerce_scalar_value(
     value: LoweredValue,
     ty: LoweredScalarTy,
@@ -1342,6 +1597,9 @@ fn coerce_scalar_value(
     }
     if ty == LoweredScalarTy::F32 && matches!(value.repr, LoweredValueRepr::Const(_)) {
         return Ok(value.with_ty(LoweredScalarTy::F32));
+    }
+    if let Some(v) = retag_int_const(&value, ty) {
+        return Ok(v);
     }
     Err(DxilCodegenError::unsupported(
         span,
@@ -1390,6 +1648,14 @@ fn coerce_binary_values(
     }
     if rhs.ty == LoweredScalarTy::F32 && matches!(lhs.repr, LoweredValueRepr::Const(_)) {
         return Ok((lhs.with_ty(LoweredScalarTy::F32), rhs));
+    }
+    // MR-0006:无后缀整型常量随另一操作数收窄到 u32/i32(镜像 F32 常量收窄;
+    // 越界常量不收窄 → strict 拒绝)。
+    if let Some(rhs2) = retag_int_const(&rhs, lhs.ty) {
+        return Ok((lhs, rhs2));
+    }
+    if let Some(lhs2) = retag_int_const(&lhs, rhs.ty) {
+        return Ok((lhs2, rhs));
     }
     Err(DxilCodegenError::unsupported(
         span,
@@ -1602,9 +1868,13 @@ fn lower_load_slice1(
     let Some(resource) = path_expr_name(base) else {
         return Err(unsupported_expr(base, "资源索引基址"));
     };
-    match lcx.params.get(resource) {
-        Some(info) if info.kind == ComputeParamKind::ViewF32 => {}
-        Some(info) if info.kind == ComputeParamKind::Texture2DF32 => {}
+    // load 源:只读视图(f32|u32|i32 元素,MR-0006/RXS-0181)或 SRV 纹理;
+    // 结果标量类型 = 视图元素类型。
+    let elem = match lcx.params.get(resource) {
+        Some(info) if info.kind.view_elem().is_some() => {
+            info.kind.view_elem().expect("guard 已确保只读视图")
+        }
+        Some(info) if info.kind == ComputeParamKind::Texture2DF32 => LoweredScalarTy::F32,
         Some(info) if info.kind == ComputeParamKind::ThreadCtx => {
             return Err(DxilCodegenError::unsupported(
                 info.span,
@@ -1614,7 +1884,7 @@ fn lower_load_slice1(
         Some(info) => {
             return Err(DxilCodegenError::unsupported(
                 info.span,
-                "DXIL compute body lowering slice 1 load 源必须是 View<global, f32> 或 Texture2D<f32>(GRX-009)",
+                "DXIL compute body lowering load 源必须是 View<global, f32|u32|i32> 或 Texture2D<f32>(RXS-0181/GRX-009)",
             ));
         }
         None => {
@@ -1623,7 +1893,7 @@ fn lower_load_slice1(
                 "DXIL compute body lowering slice 1 load 源必须是资源形参",
             ));
         }
-    }
+    };
     let index = lower_resource_index_slice1(cx, lcx, index)?;
     let dst = lcx.temp();
     lcx.ops.push(LoweredComputeOp::Load {
@@ -1632,7 +1902,7 @@ fn lower_load_slice1(
         index,
         tex_coords_2d: None,
     });
-    Ok(LoweredValue::temp(LoweredScalarTy::F32, dst))
+    Ok(LoweredValue::temp(elem, dst))
 }
 
 fn lower_index_lvalue_slice1(
@@ -1738,31 +2008,50 @@ fn lower_usize_const_slice1(
     }
 }
 
-fn require_view_global_f32(ty: &crate::ast::Ty) -> Result<(), DxilCodegenError> {
+/// View/ViewMut 第二类型实参(元素类型)头名(`View<space, T>` 的 `T`)。
+fn view_elem_head(ty: &crate::ast::Ty) -> Option<&str> {
+    let args = ast_ty_path_args(ty)?;
+    if args.len() != 2 {
+        return None;
+    }
+    match &args[1] {
+        crate::ast::GenericArg::Type(t) => ast_ty_head_name(t),
+        _ => None,
+    }
+}
+
+/// MR-0006(RXS-0181):View/ViewMut 元素类型集扩到 `{f32, u32, i32}`(4 字节
+/// 天然对齐标量,同 rawbuffer intrinsic 元素类型重载;probe 实测 2026-07-12
+/// pinned llc i32 重载 emit ×8 字节稳定 + dxv `Validation succeeded`)。地址空间
+/// 维持 `global` strict;子集外元素(f64/bool/聚合等)维持 RX6007 strict 拒绝
+/// (RXS-0157 L2 边界收窄,不新造码)。
+fn require_view_global_elem(ty: &crate::ast::Ty) -> Result<(), DxilCodegenError> {
     let Some(args) = ast_ty_path_args(ty) else {
         return Err(DxilCodegenError::unsupported(
             ty.span,
-            "DXIL compute body lowering slice 1 要求 View/ViewMut 带 <global, f32>",
+            "DXIL compute body lowering 要求 View/ViewMut 带 <global, f32|u32|i32>(RXS-0181)",
         ));
     };
     if args.len() != 2
         || !generic_arg_is_type_path(&args[0], "global")
-        || !generic_arg_is_type_path(&args[1], "f32")
+        || !(generic_arg_is_type_path(&args[1], "f32")
+            || generic_arg_is_type_path(&args[1], "u32")
+            || generic_arg_is_type_path(&args[1], "i32"))
     {
         return Err(DxilCodegenError::unsupported(
             ty.span,
-            "DXIL compute body lowering slice 1 仅支持 View<global, f32> / ViewMut<global, f32>",
+            "DXIL compute body lowering 仅支持 View/ViewMut<global, f32|u32|i32>(RXS-0181;子集外元素类型 strict 拒绝)",
         ));
     }
     Ok(())
 }
 
-/// GRX-009 texture-capable kernel artifact:放宽 strict-only 形约束,同时接受
+/// GRX-009 texture-capable kernel artifact + MR-0006 整型视图:同时接受
 /// `Texture2D<f32>`/`RWTexture2D<f32>`(compute-kernel SRV/UAV 纹理)与
-/// `View<global, f32>`/`ViewMut<global, f32>`(raw-buffer 路径,保留 strict 形)。
-/// strict-only f32:非 f32 元素类型 → 拒绝(`Texture2D<i32>` 不进 descriptor layout)。
-/// strict-only global address space:View/ViewMut 仍要求 `global`(其他地址空间不接受)。
-fn require_texture_or_view_global_f32(ty: &crate::ast::Ty) -> Result<(), DxilCodegenError> {
+/// `View/ViewMut<global, f32|u32|i32>`(raw-buffer 路径,RXS-0181)。
+/// strict-only:纹理仍仅 f32 元素(`Texture2D<i32>` 不进 descriptor layout);
+/// View/ViewMut 仍要求 `global` 地址空间(其他地址空间不接受)。
+fn require_texture_or_view_global_elem(ty: &crate::ast::Ty) -> Result<(), DxilCodegenError> {
     let head = ast_ty_head_name(ty).unwrap_or("");
     match head {
         "Texture2D" | "RWTexture2D" => {
@@ -1780,10 +2069,10 @@ fn require_texture_or_view_global_f32(ty: &crate::ast::Ty) -> Result<(), DxilCod
             }
             Ok(())
         }
-        "View" | "ViewMut" => require_view_global_f32(ty),
+        "View" | "ViewMut" => require_view_global_elem(ty),
         _ => Err(DxilCodegenError::unsupported(
             ty.span,
-            "DXIL compute body lowering GRX-009 仅接受 View<global, f32>/ViewMut<global, f32>/Texture2D<f32>/RWTexture2D<f32>",
+            "DXIL compute body lowering 仅接受 View/ViewMut<global, f32|u32|i32>/Texture2D<f32>/RWTexture2D<f32>",
         )),
     }
 }
@@ -1858,18 +2147,44 @@ fn expr_int_lit(expr: &crate::ast::Expr) -> Option<&crate::ast::Lit> {
 fn parse_usize_lit_text(cx: &QueryCtx<'_>, lit: &crate::ast::Lit) -> Result<u64, DxilCodegenError> {
     let text = lit_text(cx, lit.span).replace('_', "");
     let digits = strip_int_suffix(&text);
-    digits.parse::<u64>().map_err(|_| {
-        DxilCodegenError::unsupported(
-            lit.span,
-            "DXIL compute body lowering slice 1 无法解析 usize 常量",
-        )
-    })
+    parse_int_digits(digits)
+        .and_then(|v| u64::try_from(v).ok())
+        .ok_or_else(|| {
+            DxilCodegenError::unsupported(
+                lit.span,
+                "DXIL compute body lowering slice 1 无法解析 usize 常量",
+            )
+        })
 }
 
-fn parse_i64_lit_text(cx: &QueryCtx<'_>, lit: &crate::ast::Lit) -> Result<i64, DxilCodegenError> {
+/// 整数字面量数字体 → i128(radix 感知:`0x`/`0o`/`0b` 前缀,MR-0006 位运算
+/// 语料的十六进制掩码常量域;下划线与后缀须已剥)。
+fn parse_int_digits(digits: &str) -> Option<i128> {
+    let (radix, body) = if let Some(hex) = digits
+        .strip_prefix("0x")
+        .or_else(|| digits.strip_prefix("0X"))
+    {
+        (16, hex)
+    } else if let Some(oct) = digits
+        .strip_prefix("0o")
+        .or_else(|| digits.strip_prefix("0O"))
+    {
+        (8, oct)
+    } else if let Some(bin) = digits
+        .strip_prefix("0b")
+        .or_else(|| digits.strip_prefix("0B"))
+    {
+        (2, bin)
+    } else {
+        (10, digits)
+    };
+    i128::from_str_radix(body, radix).ok()
+}
+
+fn parse_int_lit_value(cx: &QueryCtx<'_>, lit: &crate::ast::Lit) -> Result<i128, DxilCodegenError> {
     let text = lit_text(cx, lit.span).replace('_', "");
     let digits = strip_int_suffix(&text);
-    digits.parse::<i64>().map_err(|_| {
+    parse_int_digits(digits).ok_or_else(|| {
         DxilCodegenError::unsupported(
             lit.span,
             "DXIL compute body lowering slice 3a 无法解析整数常量",
@@ -1943,6 +2258,17 @@ fn path_expr_name(expr: &crate::ast::Expr) -> Option<&str> {
     }
 }
 
+/// 浮点字面量(剥括号)是否带 `f64` 后缀(RXS-0184 f64 首期外显式拒的判据)。
+fn float_lit_suffix_is_f64(expr: &crate::ast::Expr) -> bool {
+    match &expr.kind {
+        crate::ast::ExprKind::Paren(inner) => float_lit_suffix_is_f64(inner),
+        crate::ast::ExprKind::Lit(lit) => {
+            lit.kind == LitKind::Float && lit.suffix == Some(LitSuffix::F64)
+        }
+        _ => false,
+    }
+}
+
 fn sanitize_local_name(name: &str) -> String {
     let mut out = String::new();
     for ch in name.chars() {
@@ -2007,16 +2333,33 @@ fn emit_dxil_ir_with_body(
 /// 与 descriptor layout JSON 同源([`binding_layout::infer_register_assignments`] /
 /// [`binding_layout::pack_root_constants`]),防 IR 与离线 artifact 漂移。
 struct DxilBindingPlan {
-    /// 资源名 → (res, register, space);声明序与 `lowered_body.resources` 一致。
-    /// `res` 为 MIR 资源类型(GRX-009:区分 raw-buffer StructuredBuffer 与
-    /// Texture2D/RWTexture2D;mutable 由 `res.class() == Uav` 派生)。
-    resources: Vec<(String, crate::mir::MirResourceType, u32, u32)>,
+    /// 资源名 → (res, 元素类型, register, space);声明序与 `lowered_body.resources`
+    /// 一致。`res` 为 MIR 资源类型(GRX-009:区分 raw-buffer StructuredBuffer 与
+    /// Texture2D/RWTexture2D;mutable 由 `res.class() == Uav` 派生);元素类型
+    /// (MR-0006/RXS-0181)选 rawbuffer intrinsic 重载(f32|i32)。
+    resources: Vec<(
+        String,
+        crate::mir::MirResourceType,
+        LoweredScalarTy,
+        u32,
+        u32,
+    )>,
     /// root constant 名 → (类型, cbuffer 字节偏移 = dword_offset×4)。
     scalars: Vec<(String, LoweredScalarTy, u32)>,
 }
 
 impl DxilBindingPlan {
-    fn resource(&self, name: &str) -> Option<&(String, crate::mir::MirResourceType, u32, u32)> {
+    #[allow(clippy::type_complexity)]
+    fn resource(
+        &self,
+        name: &str,
+    ) -> Option<&(
+        String,
+        crate::mir::MirResourceType,
+        LoweredScalarTy,
+        u32,
+        u32,
+    )> {
         self.resources.iter().find(|(n, ..)| n == name)
     }
 
@@ -2040,7 +2383,7 @@ fn plan_dxil_bindings(
         .resources
         .iter()
         .zip(assignments.iter())
-        .map(|(r, a)| (r.name.clone(), r.res, a.register, a.space))
+        .map(|(r, a)| (r.name.clone(), r.res, r.elem, a.register, a.space))
         .collect();
 
     // root constant → cbuffer 字节偏移(密排 dword × 4;与 pack_root_constants 同源)。
@@ -2053,7 +2396,11 @@ fn plan_dxil_bindings(
             .map(|s| {
                 let ty = match s.ty {
                     LoweredScalarTy::F32 => binding_layout::RootConstantType::F32,
-                    LoweredScalarTy::I64 => binding_layout::RootConstantType::I64,
+                    // 标量形参分类不产 U32/I32(整型 root constant 维持 I64 打包);
+                    // 防御性归 I64。
+                    LoweredScalarTy::U32 | LoweredScalarTy::I32 | LoweredScalarTy::I64 => {
+                        binding_layout::RootConstantType::I64
+                    }
                     LoweredScalarTy::Bool => binding_layout::RootConstantType::Bool,
                 };
                 (s.name.clone(), ty)
@@ -2081,13 +2428,29 @@ fn resource_handle_name(name: &str) -> String {
     format!("rx_h_{name}")
 }
 
-/// `target("dx.RawBuffer", float, is_uav, 0)` 目标类型文本(StructuredBuffer 忠实形,
-/// 对齐 MIR `StructuredBuffer{read_only}` 与 RTS0 root descriptor 可绑定性)。
-fn rawbuffer_target_ty(mutable: bool) -> String {
+/// `target("dx.RawBuffer", <elem>, is_uav, 0)` 目标类型文本(StructuredBuffer 忠实
+/// 形,对齐 MIR `StructuredBuffer{read_only}` 与 RTS0 root descriptor 可绑定性)。
+/// 元素类型按 MR-0006/RXS-0181 元素类型重载:f32 → `float`;u32/i32 → `i32`
+/// (LLVM IR 层同为 `i32`,有/无符号语义由运算指令侧承载;probe 实测 2026-07-12
+/// pinned llc i32 重载 + 混合 f32/i32 模块均 emit ×8 字节稳定 + dxv 接受)。
+fn rawbuffer_target_ty(mutable: bool, elem: LoweredScalarTy) -> String {
+    let elem_ty = match elem {
+        LoweredScalarTy::U32 | LoweredScalarTy::I32 => "i32",
+        _ => "float",
+    };
     format!(
-        "target(\"dx.RawBuffer\", float, {}, 0)",
+        "target(\"dx.RawBuffer\", {elem_ty}, {}, 0)",
         if mutable { 1 } else { 0 }
     )
+}
+
+/// rawbuffer 元素的 LLVM IR 类型文本(intrinsic 重载轴:f32 → `float`,
+/// u32/i32 → `i32`;MR-0006/RXS-0181)。
+fn rawbuffer_elem_ir_ty(elem: LoweredScalarTy) -> &'static str {
+    match elem {
+        LoweredScalarTy::U32 | LoweredScalarTy::I32 => "i32",
+        _ => "float",
+    }
 }
 
 /// GRX-009 texture-capable kernel artifact:纹理目标类型文本(**上游 DirectX target
@@ -2109,14 +2472,15 @@ fn texture_target_ty(mutable: bool) -> String {
 
 /// GRX-009:按 MIR 资源类型选 `rawbuffer_target_ty` vs `texture_target_ty`,
 /// 并返回 (target_ty 文本, is_texture 标志)。raw-buffer 路径(`View`/`ViewMut`)
-/// 沿用 `rawbuffer_target_ty`;`Texture2D`/`RWTexture2D` 走 `texture_target_ty`。
-fn resource_target_ty(res: crate::mir::MirResourceType) -> (String, bool) {
+/// 沿用 `rawbuffer_target_ty`(元素类型重载,MR-0006/RXS-0181);
+/// `Texture2D`/`RWTexture2D` 走 `texture_target_ty`。
+fn resource_target_ty(res: crate::mir::MirResourceType, elem: LoweredScalarTy) -> (String, bool) {
     match res {
         crate::mir::MirResourceType::Texture2D(_) => (texture_target_ty(false), true),
         crate::mir::MirResourceType::RWTexture2D(_) => (texture_target_ty(true), true),
         _ => {
             let mutable = res.class() == crate::mir::ResourceClass::Uav;
-            (rawbuffer_target_ty(mutable), false)
+            (rawbuffer_target_ty(mutable, elem), false)
         }
     }
 }
@@ -2131,6 +2495,9 @@ fn cblayout_type_name(module_name: &str) -> String {
 fn cbuffer_field_ty(ty: LoweredScalarTy) -> &'static str {
     match ty {
         LoweredScalarTy::F32 => "float",
+        // 标量形参分类不产 U32/I32(整型 root constant 维持 I64 打包,布局 0-byte);
+        // 防御性映射到 i32。
+        LoweredScalarTy::U32 | LoweredScalarTy::I32 => "i32",
         LoweredScalarTy::I64 => "i64",
         LoweredScalarTy::Bool => "i32",
     }
@@ -2181,13 +2548,18 @@ fn render_dxil_module(
             "  %rx_cb = call target(\"dx.CBuffer\", {cblayout}) @llvm.dx.resource.handlefrombinding(i32 0, i32 0, i32 1, i32 0, ptr null)"
         );
     }
-    for (name, res, register, space) in &plan.resources {
+    for (name, res, elem, register, space) in &plan.resources {
         // GRX-009:按 MIR 资源类型选 rawbuffer vs texture target ty。`handlefrombinding`
         // 调用形态保持一致(spec ADDDED Requirements「Texture-Capable DXIL Lowering」)。
-        let (target_ty, _is_texture) = resource_target_ty(*res);
+        // 第 4 实参 = **range 内相对 index**(单资源 range 恒 0)——MR-0006 probe 实测
+        // (2026-07-12,pinned llc):llc 以 `lowerBound + index` 计算 createHandle 的
+        // 绝对 register index,旧拼写传 register(register>0 时 `2×register` 越 range)
+        // → dxv `Constant values must be in-range for operation` 拒;相对 0 → 接受。
+        // register 0 资源(既有全部 golden/语料)两种拼写字节一致,0-byte。
+        let (target_ty, _is_texture) = resource_target_ty(*res, *elem);
         let _ = writeln!(
             out,
-            "  %{handle} = call {ty} @llvm.dx.resource.handlefrombinding(i32 {space}, i32 {register}, i32 1, i32 {register}, ptr null)",
+            "  %{handle} = call {ty} @llvm.dx.resource.handlefrombinding(i32 {space}, i32 {register}, i32 1, i32 0, ptr null)",
             handle = resource_handle_name(name),
             ty = target_ty,
         );
@@ -2360,13 +2732,17 @@ fn render_lowered_ops(
                 tex_coords_2d,
             } => {
                 // GRX-009:按 MIR 资源类型分 rawbuffer vs texture load 路径。
-                // rawbuffer 路径保留不变(`@llvm.dx.resource.load.rawbuffer`);
-                // `Texture2D<f32>` 走上游 `@llvm.dx.resource.load.level`(返回元素类型本身,
-                // 无 `{float,i1}`;coords 为 `<2 x i32>`,mip=0、offsets=zeroinitializer)。
-                let res = plan
+                // rawbuffer 路径按元素类型选 intrinsic 重载(MR-0006/RXS-0181:
+                // f32 → `{float,i1}`,u32/i32 → `{i32,i1}`);`Texture2D<f32>` 走上游
+                // `@llvm.dx.resource.load.level`(返回元素类型本身,无 `{float,i1}`;
+                // coords 为 `<2 x i32>`,mip=0、offsets=zeroinitializer)。
+                let (res, elem) = plan
                     .resource(resource)
-                    .map(|(_, r, ..)| *r)
-                    .unwrap_or(crate::mir::MirResourceType::StructuredBuffer { read_only: true });
+                    .map(|(_, r, e, ..)| (*r, *e))
+                    .unwrap_or((
+                        crate::mir::MirResourceType::StructuredBuffer { read_only: true },
+                        LoweredScalarTy::F32,
+                    ));
                 match res {
                     crate::mir::MirResourceType::Texture2D(_) => {
                         let ty = texture_target_ty(false);
@@ -2380,14 +2756,18 @@ fn render_lowered_ops(
                     }
                     _ => {
                         let idx = render_rawbuffer_index(out, index, dst);
-                        let ty = rawbuffer_target_ty(res.class() == crate::mir::ResourceClass::Uav);
+                        let ty = rawbuffer_target_ty(
+                            res.class() == crate::mir::ResourceClass::Uav,
+                            elem,
+                        );
+                        let ret = rawbuffer_elem_ir_ty(elem);
                         let _ = writeln!(
                             out,
-                            "  %{dst}.ld = call {{ float, i1 }} @llvm.dx.resource.load.rawbuffer({ty} %{handle}, i32 {idx}, i32 0)",
+                            "  %{dst}.ld = call {{ {ret}, i1 }} @llvm.dx.resource.load.rawbuffer({ty} %{handle}, i32 {idx}, i32 0)",
                             handle = resource_handle_name(resource),
                         );
                         let _ =
-                            writeln!(out, "  %{dst} = extractvalue {{ float, i1 }} %{dst}.ld, 0");
+                            writeln!(out, "  %{dst} = extractvalue {{ {ret}, i1 }} %{dst}.ld, 0");
                     }
                 }
             }
@@ -2399,14 +2779,17 @@ fn render_lowered_ops(
                 tex_coords_2d,
             } => {
                 // GRX-009:按 MIR 资源类型分 rawbuffer vs texture store 路径。
-                // rawbuffer 路径保留不变(`@llvm.dx.resource.store.rawbuffer`);
+                // rawbuffer 路径按元素类型选 intrinsic 重载(MR-0006/RXS-0181);
                 // `RWTexture2D<f32>` 走本地 patch `@llvm.dx.resource.store.texture`
                 // (coords 为 `<2 x i32>`,value 为标量 float;降为 dx.op.textureStore(67),
                 // mask=15 标量 splat 4 份,见 DXILOpLowering::lowerTextureStore)。
-                let res = plan
+                let (res, elem) = plan
                     .resource(resource)
-                    .map(|(_, r, ..)| *r)
-                    .unwrap_or(crate::mir::MirResourceType::StructuredBuffer { read_only: false });
+                    .map(|(_, r, e, ..)| (*r, *e))
+                    .unwrap_or((
+                        crate::mir::MirResourceType::StructuredBuffer { read_only: false },
+                        LoweredScalarTy::F32,
+                    ));
                 match res {
                     crate::mir::MirResourceType::RWTexture2D(_) => {
                         let ty = texture_target_ty(true);
@@ -2421,10 +2804,14 @@ fn render_lowered_ops(
                     }
                     _ => {
                         let idx = render_rawbuffer_index(out, index, ptr);
-                        let ty = rawbuffer_target_ty(res.class() == crate::mir::ResourceClass::Uav);
+                        let ty = rawbuffer_target_ty(
+                            res.class() == crate::mir::ResourceClass::Uav,
+                            elem,
+                        );
+                        let vt = rawbuffer_elem_ir_ty(elem);
                         let _ = writeln!(
                             out,
-                            "  call void @llvm.dx.resource.store.rawbuffer({ty} %{handle}, i32 {idx}, i32 0, float {})",
+                            "  call void @llvm.dx.resource.store.rawbuffer({ty} %{handle}, i32 {idx}, i32 0, {vt} {})",
                             render_lowered_value(value),
                             handle = resource_handle_name(resource),
                         );
@@ -2448,16 +2835,63 @@ fn render_lowered_ops(
                 );
             }
             LoweredComputeOp::Binary { dst, op, lhs, rhs } => {
+                // 移位:移位量按位宽取模(MR-0006 判档 O-2/RXS-0182)——emit 显式
+                // 掩码 `and i32 amount, 31`(消除 LLVM 移位越界 poison;u32 → lshr,
+                // i32 → ashr;首期仅 32 位,lowering 侧已 strict 收口)。
+                if matches!(op, BinOp::Shl | BinOp::Shr) {
+                    let inst = match (*op, lhs.ty) {
+                        (BinOp::Shl, _) => "shl",
+                        (BinOp::Shr, LoweredScalarTy::U32) => "lshr",
+                        (BinOp::Shr, _) => "ashr",
+                        _ => unreachable!("外层已限定 Shl/Shr"),
+                    };
+                    let _ = writeln!(
+                        out,
+                        "  %{dst}.shamt = and i32 {}, 31",
+                        render_lowered_value(rhs)
+                    );
+                    let _ = writeln!(
+                        out,
+                        "  %{dst} = {inst} i32 {}, %{dst}.shamt",
+                        render_lowered_value(lhs)
+                    );
+                    continue;
+                }
                 let opcode = match (lhs.ty, *op) {
                     (LoweredScalarTy::F32, BinOp::Add) => "fadd",
                     (LoweredScalarTy::F32, BinOp::Sub) => "fsub",
                     (LoweredScalarTy::F32, BinOp::Mul) => "fmul",
                     (LoweredScalarTy::F32, BinOp::Div) => "fdiv",
-                    (LoweredScalarTy::I64, BinOp::Add) => "add",
-                    (LoweredScalarTy::I64, BinOp::Sub) => "sub",
-                    (LoweredScalarTy::I64, BinOp::Mul) => "mul",
-                    (LoweredScalarTy::I64, BinOp::Div) => "sdiv",
-                    (LoweredScalarTy::I64, BinOp::Rem) => "srem",
+                    (
+                        LoweredScalarTy::I64 | LoweredScalarTy::U32 | LoweredScalarTy::I32,
+                        BinOp::Add,
+                    ) => "add",
+                    (
+                        LoweredScalarTy::I64 | LoweredScalarTy::U32 | LoweredScalarTy::I32,
+                        BinOp::Sub,
+                    ) => "sub",
+                    (
+                        LoweredScalarTy::I64 | LoweredScalarTy::U32 | LoweredScalarTy::I32,
+                        BinOp::Mul,
+                    ) => "mul",
+                    // 有/无符号语义由指令侧承载(RXS-0181):u32 → udiv/urem。
+                    (LoweredScalarTy::U32, BinOp::Div) => "udiv",
+                    (LoweredScalarTy::U32, BinOp::Rem) => "urem",
+                    (LoweredScalarTy::I64 | LoweredScalarTy::I32, BinOp::Div) => "sdiv",
+                    (LoweredScalarTy::I64 | LoweredScalarTy::I32, BinOp::Rem) => "srem",
+                    // 位运算(RXS-0182):按位与/或/异或为符号无关平凡指令。
+                    (
+                        LoweredScalarTy::I64 | LoweredScalarTy::U32 | LoweredScalarTy::I32,
+                        BinOp::BitAnd,
+                    ) => "and",
+                    (
+                        LoweredScalarTy::I64 | LoweredScalarTy::U32 | LoweredScalarTy::I32,
+                        BinOp::BitOr,
+                    ) => "or",
+                    (
+                        LoweredScalarTy::I64 | LoweredScalarTy::U32 | LoweredScalarTy::I32,
+                        BinOp::BitXor,
+                    ) => "xor",
                     _ => unreachable!(),
                 };
                 let _ = writeln!(
@@ -2525,6 +2959,48 @@ fn render_lowered_ops(
                     ty = render_scalar_ty(then_value.ty)
                 );
             }
+            LoweredComputeOp::BitScan { dst, op, value } => {
+                let v = render_lowered_value(value);
+                match op {
+                    // find_lsb → FirstbitLo(32):op 本身即 HLSL 形(零输入 -1),
+                    // 与 dxc `firstbitlow` 产物同形(直发,无正规化;probe 锚)。
+                    crate::hir::DeviceBitFn::FindLsb => {
+                        let _ = writeln!(out, "  %{dst} = call i32 @llvm.dx.firstbitlow(i32 {v})");
+                    }
+                    // find_msb → FirstbitHi(33) + dxc 同款正规化(O-7 golden 锚):
+                    // `select(raw == -1, -1, 31 - raw)` → LSB=0 位序 + 零输入 HLSL 形。
+                    crate::hir::DeviceBitFn::FindMsb => {
+                        let _ = writeln!(
+                            out,
+                            "  %{dst}.raw = call i32 @llvm.dx.firstbituhigh(i32 {v})"
+                        );
+                        let _ = writeln!(out, "  %{dst}.norm = sub i32 31, %{dst}.raw");
+                        let _ = writeln!(out, "  %{dst}.isz = icmp eq i32 %{dst}.raw, -1");
+                        let _ = writeln!(
+                            out,
+                            "  %{dst} = select i1 %{dst}.isz, i32 -1, i32 %{dst}.norm"
+                        );
+                    }
+                    crate::hir::DeviceBitFn::Popcount => {
+                        let _ = writeln!(out, "  %{dst} = call i32 @llvm.ctpop.i32(i32 {v})");
+                    }
+                }
+            }
+            LoweredComputeOp::MathUnary { dst, op, value } => {
+                let intr = match op {
+                    crate::hir::DeviceMathFn::Sqrt => "llvm.sqrt.f32",
+                    crate::hir::DeviceMathFn::Rsqrt => "llvm.dx.rsqrt.f32",
+                    crate::hir::DeviceMathFn::Sin => "llvm.sin.f32",
+                    crate::hir::DeviceMathFn::Cos => "llvm.cos.f32",
+                    // 首期覆盖外在 lowering 侧已 RX6006 strict 收口(RXS-0184)。
+                    _ => unreachable!("RXS-0184 首期覆盖外不产 MathUnary"),
+                };
+                let _ = writeln!(
+                    out,
+                    "  %{dst} = call float @{intr}(float {})",
+                    render_lowered_value(value)
+                );
+            }
             LoweredComputeOp::If { id, cond, then_ops } => {
                 let _ = writeln!(
                     out,
@@ -2563,7 +3039,10 @@ fn render_lowered_value(value: &LoweredValue) -> String {
     match &value.repr {
         LoweredValueRepr::Const(v) => match value.ty {
             LoweredScalarTy::F32 => format_f32_const(v.parse::<f32>().unwrap_or(0.0)),
-            LoweredScalarTy::I64 | LoweredScalarTy::Bool => v.clone(),
+            LoweredScalarTy::U32
+            | LoweredScalarTy::I32
+            | LoweredScalarTy::I64
+            | LoweredScalarTy::Bool => v.clone(),
         },
         LoweredValueRepr::Temp(v) => format!("%{v}"),
     }
@@ -2572,6 +3051,7 @@ fn render_lowered_value(value: &LoweredValue) -> String {
 fn render_scalar_ty(ty: LoweredScalarTy) -> &'static str {
     match ty {
         LoweredScalarTy::F32 => "float",
+        LoweredScalarTy::U32 | LoweredScalarTy::I32 => "i32",
         LoweredScalarTy::I64 => "i64",
         LoweredScalarTy::Bool => "i1",
     }
@@ -2585,12 +3065,19 @@ fn render_compare_predicate(ty: LoweredScalarTy, op: BinOp) -> &'static str {
         (LoweredScalarTy::F32, BinOp::Gt) => "ogt",
         (LoweredScalarTy::F32, BinOp::Le) => "ole",
         (LoweredScalarTy::F32, BinOp::Ge) => "oge",
-        (LoweredScalarTy::I64, BinOp::Eq) => "eq",
-        (LoweredScalarTy::I64, BinOp::Ne) => "ne",
-        (LoweredScalarTy::I64, BinOp::Lt) => "slt",
-        (LoweredScalarTy::I64, BinOp::Gt) => "sgt",
-        (LoweredScalarTy::I64, BinOp::Le) => "sle",
-        (LoweredScalarTy::I64, BinOp::Ge) => "sge",
+        // u32 无符号比较谓词(MR-0006/RXS-0181:无符号语义由指令侧承载)。
+        (LoweredScalarTy::U32, BinOp::Eq) => "eq",
+        (LoweredScalarTy::U32, BinOp::Ne) => "ne",
+        (LoweredScalarTy::U32, BinOp::Lt) => "ult",
+        (LoweredScalarTy::U32, BinOp::Gt) => "ugt",
+        (LoweredScalarTy::U32, BinOp::Le) => "ule",
+        (LoweredScalarTy::U32, BinOp::Ge) => "uge",
+        (LoweredScalarTy::I32 | LoweredScalarTy::I64, BinOp::Eq) => "eq",
+        (LoweredScalarTy::I32 | LoweredScalarTy::I64, BinOp::Ne) => "ne",
+        (LoweredScalarTy::I32 | LoweredScalarTy::I64, BinOp::Lt) => "slt",
+        (LoweredScalarTy::I32 | LoweredScalarTy::I64, BinOp::Gt) => "sgt",
+        (LoweredScalarTy::I32 | LoweredScalarTy::I64, BinOp::Le) => "sle",
+        (LoweredScalarTy::I32 | LoweredScalarTy::I64, BinOp::Ge) => "sge",
         _ => unreachable!(),
     }
 }
@@ -3454,7 +3941,7 @@ pub fn dispatch_and_emit(diag: &DiagCtxt, body: &Body, module_name: &str) -> Dis
         StageRoute::PathA => match emit_dxil_ir(body, module_name) {
             Ok(ir) => DispatchOutcome::PathAIr(ir),
             Err(e) => {
-                diag.struct_error(ErrorCode(6007), "codegen.dxil_unsupported")
+                diag.struct_error(ErrorCode(e.code), e.message_key)
                     .arg("detail", e.detail.clone())
                     .span_label(e.span, "in DXIL compute entry")
                     .emit();

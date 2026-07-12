@@ -1,0 +1,8 @@
+//@ spec: RXS-0183
+//@ expect-error: RX2004
+// intrinsic 接收者类型违例:f32 无 find_lsb(RXS-0183 首期仅 u32 接收者)——
+// unknown-method RX2004(既有类型裁决段;MR-0006 §6 计划 RX2001 经实测修正为
+// RX2004:方法接收者不符走 unknown-method,实参不符才走 RX2001,批准记录留痕)。
+kernel fn k(dst: ViewMut<global, u32>, x: f32) {
+    dst[0] = x.find_lsb();
+}

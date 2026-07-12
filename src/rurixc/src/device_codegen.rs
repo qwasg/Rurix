@@ -157,6 +157,18 @@ pub fn emit_nvptx_ir(
     Ok(out)
 }
 
+/// 移位掩码常量(`width - 1`;MR-0006 判档 O-2 / RXS-0182 移位量取模语义)。
+/// LLVM 整型文本 → 掩码;非整型 / 不支持宽度 → None(strict-only 拒绝)。
+fn int_shift_mask(ll: &str) -> Option<u32> {
+    match ll {
+        "i8" => Some(7),
+        "i16" => Some(15),
+        "i32" => Some(31),
+        "i64" => Some(63),
+        _ => None,
+    }
+}
+
 fn isqrt_u64(n: u64) -> Option<u64> {
     if n == 0 {
         return Some(0);
@@ -618,9 +630,25 @@ impl Cg<'_> {
                         let _ = writeln!(self.fns, "  {t} = {inst} {lla} {va}, {vc}");
                         (t.clone(), false)
                     }
-                    BinOp::BitAnd | BinOp::BitOr | BinOp::BitXor | BinOp::Shl | BinOp::Shr => {
+                    BinOp::BitAnd | BinOp::BitOr | BinOp::BitXor => {
                         let inst = bit_inst(*op, signed);
                         let _ = writeln!(self.fns, "  {t} = {inst} {lla} {va}, {vc}");
+                        (t.clone(), false)
+                    }
+                    // 移位量按位宽取模(MR-0006 判档 O-2 / RXS-0182):device 后端
+                    // emit 显式掩码 `amount & (width-1)`,消除 LLVM 移位越界 poison,
+                    // 与 DXIL 路掩码语义一致(PTX 原生钳制被掩码前置统一)。
+                    BinOp::Shl | BinOp::Shr => {
+                        let inst = bit_inst(*op, signed);
+                        let Some(mask) = int_shift_mask(&lla) else {
+                            return Err(DeviceCodegenError::constraint(
+                                b.span,
+                                "shift on unsupported integer width in device code",
+                            ));
+                        };
+                        let tm = self.fresh();
+                        let _ = writeln!(self.fns, "  {tm} = and {lla} {vc}, {mask}");
+                        let _ = writeln!(self.fns, "  {t} = {inst} {lla} {va}, {tm}");
                         (t.clone(), false)
                     }
                     BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Gt | BinOp::Le | BinOp::Ge => {

@@ -5,7 +5,7 @@
 | Mini-RFC 标识 | **MR-0006**（Mini-RFC 序列；独立于 Full-RFC 的 `RFC-####` 命名空间，不复用 RFC 编号，10 §9.5。Mini-RFC = 单页提案 + 失败测试先行，10 §3。编号经实读核对取下一未用：rfcs/ 目录最高 mini-0005 + 全仓 grep 无 MR-0006 + G2_CONTEXT「mini-0006+」；`rfcs/README.md` §5 台账滞后于 MR-0005，批准 PR 一并补台账） |
 | 标题 | DXIL compute 路径整型能力包：`View/ViewMut<global, u32\|i32>` 元素视图降级 + 整型位运算（`& \| ^ << >>`）DXIL 降级 + 位扫描/位计数 intrinsic（`find_lsb`/`find_msb`/`popcount`，双后端）+（O-4 待裁）`bitcast` 位重解释 |
 | 档位 | **Mini-RFC**（10 §3：语言类型面/位运算语义**既有 0-byte**（View 元素类型泛化 RXS-0066/0067/0071；位运算 types.md 条款 + RX2006；AST/MIR 已建模）+ DXIL 后端降级覆盖扩展 + RXS-0081 镜像式 intrinsic 集扩充；**不触** UB / 内存模型映射（06 §4.2）/ FFI ABI 二进制布局（RFC-0003 §4.6）/ 显式布局（RXS-0171 升档触发）/ 安全包络禁区——见 §3。判档意见书：`spike/dxil-path-probe/dxil_compute_capability_gaps_adjudication_20260712.md`） |
-| 状态 | **Draft — 2026-07-12**（判档材料随附草案；**未批准**——批准/合入/台账回填归 agent 批准流程，批准前不推进任何实现 PR） |
+| 状态 | **Approved — 2026-07-12**（agent 完全自主批准，承 owner 已签署的 agent 完全自主化治理基线（b17fd67）与 g2.6 Mini-RFC 自主签署先例；判档 O-1~O-7 裁决落档 + 执行期实测修正留痕见 §7；`rfcs/README.md` §5 台账回填待后续 PR——台账文件不在本轮改动面） |
 | 承接里程碑 | GRX（GRX-014 cluster_store 原生化直接前置；GRX-015/016/018 GPU-driven 三件套原生化前置；验收随各 pass gate + 本 MR §5/§6 红绿） |
 | 关联条款 | 拟落 spec **RXS-0181~0183**（`spec/dxil_backend.md` 续号，A/B1 落该文件；RXS-0183 intrinsic 集语言面同步在 `spec/device.md` 以镜像 RXS-0081 形态扩节或交叉引用——落点随条款 PR 定，编号经实读核对：现存最高 RXS-0180 @ edition.md） |
 | 依据决策 | **D-131**（混合 compute=A，13 §D-131 v1.4）· **RFC-0003**（MIR→DXIL 第二后端 + RXS-0157 L2 子集边界/RX6007 strict）· types.md 位运算既有条款（RX2006）· device.md RXS-0066/0067/0071（View 元素类型泛化）/ RXS-0081（device intrinsic 集先例形态）· **RD-025**（上游 intrinsic 缺口的受控本地 llc patch 纪律先例）· 先例 **MR-0005**（Mini 携新 RXS 条款 + 升档触发条件） |
@@ -182,6 +182,24 @@ i32 重载 + `FirstbitLo(32)`/`FirstbitHi(33)`/`Countbits(31)` 文本）；**既
 
 ## 7. Agent 批准
 
-> **Draft — 未批准**。本节留批准流程填写（镜像 MR-0005 §7 形态：批准日期 +
-> §2 形态 + §3 判档 + §4 错误码 + §6 范围确认 + O-1/O-2/O-3/O-4/O-6/O-7 裁决
-> 落点记录；批准后方可推进条款 PR → 实现 PR，条款先于实现，硬规则 7）。
+> **Approved — 2026-07-12**。agent（完全自主，承 owner 已签署的 agent 完全自主化治理基线（b17fd67 在 origin/main）与 g2.6 Mini-RFC 自主签署先例）批准本 Mini-RFC 全文；判档裁决点（判档意见书 §7）落档如下：
+>
+> - **O-1** 位扫描零输入语义 = **HLSL 形 `0xFFFF_FFFF`**（u32→u32 闭合，免符号扩展歧义；DXIL 目标 + dxc golden 锚；条款（RXS-0183 L3）注明与 GLSL findLSB/findMSB 的 `-1`（i32）约定同位模式、不同类型视角）。
+> - **O-2** 移位越界 = **按位宽取模**（`amount & (width-1)`），**双 device 后端 emit 显式掩码**（DXIL `dxil_codegen` + NVPTX `device_codegen` 均落地）。实现期核对结论：consteval 越界移位维持既有 checked overflow **编译期拒绝**（与算术 overflow checked 语义同款先例，const 语境先行拒绝，非运行期分歧语义）；host 编译面 0-byte（§4 承诺维持）。四面无 per-target 分歧语义引入，升档触发③ 未触发。
+> - **O-3** rurixc u32 视图维持 rawbuffer intrinsic 形态；shim/pass 侧描述符种类对齐属 GRX 集成项，不进语言绑定模型（维持草案预设，本 MR 不阻塞）。
+> - **O-4** `bitcast` 位重解释**不随本 MR 入册**（§2.B2 表中 O-4 行不落条款、不落实现；C2 过渡路径受限如实接受）。
+> - **O-5** C2 聚合元素 Full RFC 立项时机 defer（RD-026 正式登记随 C2 立项/实现 PR；本 MR registry 0-byte）。
+> - **O-6** 上游覆盖缺口授权走 RD-025 patch 纪律——**实测未触发**：probe（2026-07-12，pinned llc `H:\llvm-clean-82c5bce5-build\bin\llc.exe`）实测 `llvm.cttz/ctlz.i32` 被 DXILBitcodeWriter 拒（「Unsupported intrinsic … for DXIL lowering」），但 `llvm.dx.firstbitlow` / `llvm.dx.firstbituhigh` / `llvm.ctpop.i32` 全部上游在位（各 `-filetype=obj` ×8 sha256 单值 + dxv `Validation succeeded`）→ 零本地 patch、零新 RD。
+> - **O-7** findMSB 正规化**仅 golden 锚定**：emit dxc 同款 `select(raw == -1, -1, 31 - raw)` 形，与 pinned dxc 对 HLSL `firstbithigh` 产物逐形对照锚定，不写死为语言 opcode 组合承诺（RXS-0183 IR1）。
+>
+> **§2 形态确认**：A（RXS-0181）/ B1（RXS-0182）/ B2（RXS-0183）条款体落 `spec/dxil_backend.md`；**RXS-0183 语言面即落该文件、device.md 0-byte**（落点由本批准依「关联条款」栏授权裁定，交叉引用形态）。§2.A/§2.B2 probe 义务已**前置达成**（i32 rawbuffer 重载 + 混合 f32+i32 模块 ×8 字节稳定 + dxv `Validation succeeded`；`tests/dxil/bless_log.md` 2026-07-12 行）。**执行期实测修正三项（如实留痕，语义面不变）**：① 下游 DXIL op 在 SM6.0 实测归 `bufferLoad.i32(68)` / `bufferStore.i32(69)`（§2.A 预期的 rawBufferLoad(139)/rawBufferStore(140) 为 SM6.2+ 形；元素类型重载轴一致，golden 锚实测形）；② `handlefrombinding` 第 4 实参修正为 **range 内相对 index 0**（probe 实测 llc 以 lowerBound+index 计算 createHandle 绝对 register，register>0 传 register 越 range 被 dxv 拒；register 0 两种拼写字节一致 → 既有 golden 0-byte）；③ 移位首期收窄为 **u32/i32**（slice 3a I64 lowering 把 usize/u64/i64 归并同底，`>>` 的 lshr/ashr 符号性不可判 → strict RX6007 拒绝优于错码，P-01；`& | ^` 对 I64 归并域照常降级——§2.B1 表 i64 移位行按此收窄）。
+> **§4 错误码确认**：零新 RX 码（RX6007/RX2006 如案）。§6 反例码两处实测修正留痕：`shl_mixed_width` 实测落 **RX2001**（混宽经类型合一失败，先于运算数裁决，计划 RX2006 修正）；`find_lsb_on_f32` 实测落 **RX2004**（方法接收者不符走 unknown-method 段，实参不符才走 RX2001，计划 RX2001 修正）。拦截均仍有意义（strict 边界不变）。
+> **§5 失败测试先行确认**：三件 RED 语料（view_param_u32 / bitops_word_manipulation / find_lsb_scan）落地后转绿；accept 共 6 件 + reject 4 件（本 MR 侧）全链留痕，golden `cs_bitops` 两层 bless（`.dxil-ll` + llc→dxv→dumpbin `.dxil-disasm`），新 accept 语料各经 `rurixc --target dxil` 全链（llc→DXIL 容器→dxv）实测 accepted。**§3 升档触发确认**：①（显式布局/descriptor/FFI 面）②（跨线程/内存序/wave）③（移位四面分歧）④（聚合元素夹带）全部未触发。
+> 批准与落档由 agent 完全自主签署；provenance `Assisted-by: claude-code:claude-fable-5`（D-406）。
+
+## 8. 修订记录
+
+| 版本 | 日期 | 变更 | 档位 |
+|---|---|---|---|
+| v1.0 | 2026-07-12 | 初版 Mini-RFC Draft（判档任务产出，随判档意见书 `spike/dxil-path-probe/dxil_compute_capability_gaps_adjudication_20260712.md`） | Mini-RFC（MR-0006） |
+| v1.1 | 2026-07-12 | agent 完全自主批准（§7 批准段：O-1~O-7 裁决落档 + probe 实测矩阵 + 执行期实测修正三项留痕 + 反例码两处修正留痕）；状态 Draft → Approved；条款 RXS-0181~0183 + 实现（dxil_codegen/device_codegen/typeck/hir/tbir/mir_build）+ conformance/golden 同轮落地 | Mini-RFC（MR-0006） |

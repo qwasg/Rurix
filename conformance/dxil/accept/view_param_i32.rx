@@ -1,0 +1,7 @@
+//@ spec: RXS-0181
+// MR-0006:i32 元素视图 + 算术右移(ashr)路径——有/无符号语义由指令侧承载。
+kernel fn view_param_i32(src: View<global, i32>, dst: ViewMut<global, i32>, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    let v: i32 = src[i];
+    dst[i] = v >> 1;
+}

@@ -1,0 +1,7 @@
+//@ spec: RXS-0181
+// MR-0006:u32 元素 raw buffer 视图(i32 rawbuffer intrinsic 重载)——曾为
+// require_view_global_f32 的 RX6007 拒绝面(失败测试先行,落地后转绿)。
+kernel fn view_param_u32(src: View<global, u32>, dst: ViewMut<global, u32>, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    dst[i] = src[i];
+}

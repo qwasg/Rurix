@@ -1,0 +1,7 @@
+//@ spec: RXS-0184
+// MR-0007:Rodrigues 型 sin/cos 组合(Sin(13)/Cos(12))可降级。
+kernel fn math_sin_cos(angles: View<global, f32>, dst: ViewMut<global, f32>, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    let a = angles[i];
+    dst[i] = a.sin() * a.sin() + a.cos() * a.cos();
+}

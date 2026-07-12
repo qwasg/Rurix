@@ -5,8 +5,7 @@ fn main() -> std::process::ExitCode {
     };
     use rurixc::mir::{MirResourceType, ResourceBinding, ResourceCount};
 
-    const USAGE: &str =
-        "usage: emit_grx016_instance_compaction_rts0 <scan_local|scan_groups|scatter> <descriptor_layout.json> <out.bin>";
+    const USAGE: &str = "usage: emit_grx016_instance_compaction_rts0 <scan_local|scan_groups|scatter> <descriptor_layout.json> <out.bin>";
 
     let mut args = std::env::args().skip(1);
     let variant = match args.next() {
@@ -133,14 +132,14 @@ fn main() -> std::process::ExitCode {
     // and dword offsets are normative (see resource_mapping.md).
     let f = RootConstantType::F32;
     let constants = pack_root_constants(vec![
-        ("total_instances".to_owned(), f), // dword 0 (u32): N
-        ("bitmask_words".to_owned(), f),   // dword 1 (u32): ceil(N/32)
-        ("num_groups".to_owned(), f),      // dword 2 (u32): ceil(N/256), <= 256
+        ("total_instances".to_owned(), f),       // dword 0 (u32): N
+        ("bitmask_words".to_owned(), f),         // dword 1 (u32): ceil(N/32)
+        ("num_groups".to_owned(), f),            // dword 2 (u32): ceil(N/256), <= 256
         ("transform_stride_vec4".to_owned(), f), // dword 3 (u32): 3 in scope
-        ("pad0".to_owned(), f),            // dword 4 (u32)
-        ("pad1".to_owned(), f),            // dword 5 (u32)
-        ("pad2".to_owned(), f),            // dword 6 (u32)
-        ("pad3".to_owned(), f),            // dword 7 (u32)
+        ("pad0".to_owned(), f),                  // dword 4 (u32)
+        ("pad1".to_owned(), f),                  // dword 5 (u32)
+        ("pad2".to_owned(), f),                  // dword 6 (u32)
+        ("pad3".to_owned(), f),                  // dword 7 (u32)
     ]);
     rs.parameters
         .insert(0, RootParameter::RootConstants { constants });

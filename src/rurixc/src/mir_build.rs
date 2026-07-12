@@ -1053,6 +1053,7 @@ impl Builder<'_, '_> {
             tbir::ExprKind::DeviceMathCall { op, is_f32, args } => {
                 self.lower_device_math_call(e, *op, *is_f32, args)
             }
+            tbir::ExprKind::DeviceBitCall { op, args } => self.lower_device_bit_call(e, *op, args),
             tbir::ExprKind::ResourceSample {
                 texture,
                 sampler,
@@ -1329,6 +1330,57 @@ impl Builder<'_, '_> {
         );
         self.switch_to(next);
         self.consume(Place::local(dest), &ret_ty)
+    }
+
+    /// device 位扫描/位计数 intrinsic(MR-0006,RXS-0183):NVPTX 路经 libdevice
+    /// 符号组合下译(RXS-0082 链接流程复用;语义与 DXIL 路 HLSL 形一致,判档 O-1):
+    /// - `popcount(x)` = `__nv_popc(x)`;
+    /// - `find_lsb(x)` = `__nv_ffs(x) - 1`(`__nv_ffs` 零输入 0 → 0-1 回绕 =
+    ///   `0xFFFF_FFFF`,非零输入 1+LSB下标 → LSB=0 位序);
+    /// - `find_msb(x)` = `31 - __nv_clz(x)`(零输入 clz=32 → 31-32 回绕 =
+    ///   `0xFFFF_FFFF`;LSB=0 位序)。
+    fn lower_device_bit_call(
+        &mut self,
+        e: &tbir::Expr,
+        op: crate::hir::DeviceBitFn,
+        args: &[tbir::Expr],
+    ) -> Operand {
+        use crate::hir::DeviceBitFn;
+        let symbol = match op {
+            DeviceBitFn::FindLsb => "__nv_ffs",
+            DeviceBitFn::FindMsb => "__nv_clz",
+            DeviceBitFn::Popcount => "__nv_popc",
+        };
+        let ops: Vec<Operand> = args.iter().map(|a| self.op_of(a)).collect();
+        let ret_ty = self.ty_of(e);
+        let dest = self.temp(ret_ty.clone(), e.span);
+        let next = self.new_block();
+        self.terminate(
+            TerminatorKind::Call {
+                target: CallTarget::Libdevice {
+                    symbol: symbol.to_owned(),
+                },
+                args: ops,
+                dest: Place::local(dest),
+                next,
+            },
+            e.span,
+        );
+        self.switch_to(next);
+        let raw = self.consume(Place::local(dest), &ret_ty);
+        match op {
+            DeviceBitFn::Popcount => raw,
+            DeviceBitFn::FindLsb => self.rvalue_to_op(
+                Rvalue::BinaryOp(BinOp::Sub, raw, Operand::Const(Const::Int(1, PrimTy::U32))),
+                ret_ty,
+                e.span,
+            ),
+            DeviceBitFn::FindMsb => self.rvalue_to_op(
+                Rvalue::BinaryOp(BinOp::Sub, Operand::Const(Const::Int(31, PrimTy::U32)), raw),
+                ret_ty,
+                e.span,
+            ),
+        }
     }
 
     /// struct / 元组结构体 / enum 变体构造(TBIR 已按定义序重排齐全)。

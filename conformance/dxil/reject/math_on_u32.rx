@@ -1,0 +1,9 @@
+//@ spec: RXS-0184
+//@ expect-error: RX2004
+// RXS-0081 类型裁决语料化:u32 接收者无数学 intrinsic —— unknown-method RX2004
+// (MR-0007 §6 计划 RX2001 经实测修正为 RX2004:接收者不符走 unknown-method,
+// 批准记录留痕)。
+kernel fn k(words: View<global, u32>, dst: ViewMut<global, u32>, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    dst[i] = words[i].sqrt();
+}

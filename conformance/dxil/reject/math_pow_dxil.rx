@@ -1,0 +1,8 @@
+//@ spec: RXS-0184
+//@ expect-error: RX6006
+// MR-0007:首期集合外函数(pow)——DXIL 路 RX6006(strict-only 无静默近似;
+// 后续函数按 RXS-0184 同条款追加覆盖 = 拒绝面纯收窄)。
+kernel fn k(src: View<global, f32>, dst: ViewMut<global, f32>, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    dst[i] = src[i].pow(2.0);
+}

@@ -931,8 +931,11 @@
       "conformance/dxil/accept/dynamic_store_index.rx",
       "conformance/dxil/accept/if_statement_store.rx",
       "conformance/dxil/accept/if_then_more_stores.rx",
+      "conformance/dxil/accept/rwtexture_load_store_2d.rx",
+      "conformance/dxil/accept/rwtexture_param.rx",
       "conformance/dxil/accept/scalar_gain.rx",
       "conformance/dxil/accept/scalar_select.rx",
+      "conformance/dxil/accept/texture_param.rx",
       "conformance/dxil/accept/threadctx_global_id.rx",
       "conformance/dxil/accept/threadctx_global_id_modulo.rx",
       "conformance/dxil/accept/two_stores.rx",
@@ -947,6 +950,7 @@
       "conformance/dxil/reject/if_nested_while.rx",
       "conformance/dxil/reject/nontrivial_body.rx",
       "conformance/dxil/reject/nonzero_index.rx",
+      "conformance/dxil/reject/texture_wrong_elem_type.rx",
       "conformance/dxil/reject/threadctx_global_id_dim2.rx",
       "conformance/dxil/reject/threadctx_global_id_x_method.rx",
       "conformance/dxil/reject/unsupported_param.rx",
@@ -1065,6 +1069,32 @@
     ],
     "RXS-0180": [
       "src/rurix-pkg/src/manifest.rs"
+    ],
+    "RXS-0181": [
+      "conformance/dxil/accept/view_param_i32.rx",
+      "conformance/dxil/accept/view_param_u32.rx",
+      "conformance/dxil/reject/view_param_f64.rx"
+    ],
+    "RXS-0182": [
+      "conformance/dxil/accept/bitops_word_manipulation.rx",
+      "conformance/dxil/accept/shift_amount_masked.rx",
+      "conformance/dxil/reject/bitops_on_f32.rx",
+      "conformance/dxil/reject/shl_mixed_width.rx",
+      "src/rurixc/tests/libdevice_link_mapping.rs"
+    ],
+    "RXS-0183": [
+      "conformance/dxil/accept/find_lsb_scan.rx",
+      "conformance/dxil/accept/popcount_reduce.rx",
+      "conformance/dxil/reject/find_lsb_on_f32.rx",
+      "src/rurixc/tests/libdevice_link_mapping.rs"
+    ],
+    "RXS-0184": [
+      "conformance/dxil/accept/math_normalize_scalar_form.rx",
+      "conformance/dxil/accept/math_sin_cos.rx",
+      "conformance/dxil/accept/math_sqrt_rsqrt.rx",
+      "conformance/dxil/reject/math_f64_dxil.rx",
+      "conformance/dxil/reject/math_on_u32.rx",
+      "conformance/dxil/reject/math_pow_dxil.rx"
     ]
   }
 }

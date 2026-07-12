@@ -1,0 +1,5 @@
+//@ spec: RXS-0181
+//@ expect-error: RX6007
+// MR-0006:子集外元素类型(f64)维持 strict RX6007(RXS-0157 L2 边界收窄后
+// 拒绝面仍有意义,不静默降级)。
+kernel fn k(src: View<global, f64>, dst: ViewMut<global, f64>) {}

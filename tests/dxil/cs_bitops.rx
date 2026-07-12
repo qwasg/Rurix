@@ -1,0 +1,14 @@
+//@ spec: RXS-0181, RXS-0182, RXS-0183
+// MR-0006 整型能力包 golden:u32 视图(i32 rawbuffer intrinsic 重载)+ 位运算
+// (& | ^ << >>,移位量显式掩码 & 31)+ 位扫描/位计数(FirstbitLo 直发 /
+// FirstbitHi dxc 同款正规化 / Countbits)。三资源(t0/t1/u0)覆盖 register>0
+// 的 handlefrombinding 相对 index 形(probe 实测修正)。
+kernel fn cs_bitops(words: View<global, u32>, shifts: View<global, u32>, dst: ViewMut<global, u32>, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    let w = words[i];
+    let s = shifts[i];
+    let masked = (w >> 8u32) & 0xFFu32;
+    let mixed = (masked ^ 0xA5A5u32) | (w << 1u32);
+    let scan = w.find_lsb() + w.find_msb() + w.popcount();
+    dst[i] = (mixed >> (s & 7u32)) + scan;
+}

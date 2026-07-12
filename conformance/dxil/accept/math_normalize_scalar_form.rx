@@ -1,0 +1,10 @@
+//@ spec: RXS-0184
+// MR-0007:normalize 标量分解形(v * rsqrt(dot))——billboard 子集代表;
+// 两 SRV + 一 UAV 覆盖 register>0 的资源句柄绑定形。
+kernel fn math_normalize_scalar_form(vx: View<global, f32>, vy: View<global, f32>, out_x: ViewMut<global, f32>, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    let x = vx[i];
+    let y = vy[i];
+    let inv_len = (x * x + y * y).rsqrt();
+    out_x[i] = x * inv_len;
+}

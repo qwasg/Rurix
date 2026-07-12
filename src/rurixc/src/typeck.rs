@@ -61,6 +61,11 @@ pub struct TypeckResults {
     /// (数学函数, 元素类型 f32/f64);接收者为 `f32`/`f64` 时识别,tbir/MIR/
     /// codegen 消费(下译为 libdevice `__nv_*` 外部符号)。
     pub device_math_calls: HashMap<HirId, (crate::hir::DeviceMathFn, PrimTy)>,
+    /// device 位扫描/位计数 intrinsic 调用点(MR-0006,RXS-0183):MethodCall 节点 →
+    /// 位 intrinsic(接收者为 `u32` 时识别,镜像 RXS-0081 device 数学 intrinsic 集
+    /// 形态);tbir/MIR/codegen 消费(NVPTX 下译 libdevice `__nv_ffs`/`__nv_clz`/
+    /// `__nv_popc` 组合;DXIL 由 `dxil_codegen` 按 AST 方法调用形态降级)。
+    pub device_bit_calls: HashMap<HirId, crate::hir::DeviceBitFn>,
     /// 纹理采样调用点(G2.4,RXS-0174;RFC-0007):MethodCall 节点 → 采样标记
     /// (接收者为 `Texture2D<F>` lang item + 方法 `sample` 时识别;tbir/MIR/codegen
     /// 消费,降为 `Rvalue::ResourceSample` → `OpImageSampleExplicitLod`)。
@@ -1660,6 +1665,33 @@ impl Tck<'_, '_> {
                 }
                 self.results.device_math_calls.insert(call_id, (op, elem));
                 Ty::Prim(elem)
+            }
+            // device 位扫描/位计数 intrinsic(MR-0006,RXS-0183):`u32` 接收者的
+            // `find_lsb`/`find_msb`/`popcount` 方法(镜像 RXS-0081 数学 intrinsic 集
+            // 形态;原生类型无用户 inherent impl,无遮蔽问题)。纯值运算总函数,
+            // `u32 -> u32`,零输入取 HLSL 形 0xFFFF_FFFF(O-1);device-only(host
+            // 位扫描走后续标准库评估,本识别面由 device codegen 消费)。首期仅 `u32`
+            // 元素类型(其余接收者自然落 unknown-method RX2004,类型裁决既有段)。
+            Ty::Prim(PrimTy::U32) if crate::hir::DeviceBitFn::from_method(method).is_some() => {
+                let op = crate::hir::DeviceBitFn::from_method(method)
+                    .expect("guard 已确保位 intrinsic 存在");
+                if !self.is_device_ctx() {
+                    self.err_device_math_unsupported(
+                        span,
+                        "device bit-scan intrinsics require device or kernel context (RXS-0183)",
+                    );
+                    return Ty::Prim(PrimTy::U32);
+                }
+                // 元数 = arity-1 = 0(仅接收者;RXS-0183 签名契约 `u32 -> u32`)。
+                for a in args {
+                    let at = self.check_expr(a);
+                    self.demand(a.span, &Ty::Prim(PrimTy::U32), &at);
+                }
+                if args.len() + 1 != op.arity() {
+                    self.err_arg_count(span, op.arity() - 1, args.len());
+                }
+                self.results.device_bit_calls.insert(call_id, op);
+                Ty::Prim(PrimTy::U32)
             }
             // 纹理采样 intrinsic(G2.4,RXS-0174;RFC-0007):`Texture2D<F>` 接收者的
             // `sample(samp, coord)` 方法 → 采样表达式,产 vec4<F>。原生 lang item

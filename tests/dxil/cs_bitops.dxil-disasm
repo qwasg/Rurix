@@ -1,0 +1,159 @@
+;
+; Note: shader requires additional functionality:
+;       64-Bit integer
+;
+;
+; Input signature:
+;
+; Name                 Index   Mask Register SysValue  Format   Used
+; -------------------- ----- ------ -------- -------- ------- ------
+; no parameters
+;
+; Output signature:
+;
+; Name                 Index   Mask Register SysValue  Format   Used
+; -------------------- ----- ------ -------- -------- ------- ------
+; no parameters
+; shader hash: e6bf6068f5a0c6ec72e2e4eabe8efec9
+;
+; Pipeline Runtime Information: 
+;
+;PSVRuntimeInfo:
+; Compute Shader
+; NumThreads=(1,1,1)
+; MinimumExpectedWaveLaneCount: 0
+; MaximumExpectedWaveLaneCount: 4294967295
+; UsesViewID: false
+; SigInputElements: 0
+; SigOutputElements: 0
+; SigPatchConstOrPrimElements: 0
+; SigInputVectors: 0
+; SigOutputVectors[0]: 0
+; SigOutputVectors[1]: 0
+; SigOutputVectors[2]: 0
+; SigOutputVectors[3]: 0
+; EntryFunctionName: rx_cs_bitops_8
+;
+;
+; Buffer Definitions:
+;
+; Resource bind info for 
+; {
+;
+;   [4 x i8] (type annotation not present)
+;
+; }
+;
+; Resource bind info for 
+; {
+;
+;   [4 x i8] (type annotation not present)
+;
+; }
+;
+; Resource bind info for 
+; {
+;
+;   [4 x i8] (type annotation not present)
+;
+; }
+;
+;
+; Resource Bindings:
+;
+; Name                                 Type  Format         Dim      ID      HLSL Bind  Count
+; ------------------------------ ---------- ------- ----------- ------- -------------- ------
+;                                   texture  struct         r/o      T0             t0     1
+;                                   texture  struct         r/o      T1             t1     1
+;                                       UAV  struct         r/w      U0             u0     1
+;
+target datalayout = "e-m:e-p:32:32-i1:32-i8:8-i16:16-i32:32-i64:64-f16:16-f32:32-f64:64-n8:16:32:64"
+target triple = "dxil-ms-dx"
+
+%"StructuredBuffer<int32_t>" = type { i32 }
+%"RWStructuredBuffer<int32_t>" = type { i32 }
+%dx.types.Handle = type { i8* }
+%dx.types.ResRet.i32 = type { i32, i32, i32, i32, i32 }
+
+@0 = external constant %"StructuredBuffer<int32_t>"
+@1 = external constant %"StructuredBuffer<int32_t>"
+@2 = external constant %"RWStructuredBuffer<int32_t>"
+
+; Function Attrs: noinline nounwind
+define void @rx_cs_bitops_8() #0 {
+entry:
+  %rx_h_words5 = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 0, i32 0, i1 false)  ; CreateHandle(resourceClass,rangeId,index,nonUniformIndex)
+  %rx_h_shifts6 = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 1, i32 1, i1 false)  ; CreateHandle(resourceClass,rangeId,index,nonUniformIndex)
+  %rx_h_dst4 = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1, i32 0, i32 0, i1 false)  ; CreateHandle(resourceClass,rangeId,index,nonUniformIndex)
+  %v0.u329 = call i32 @dx.op.threadId.i32(i32 93, i32 0)  ; ThreadId(component)
+  %v0 = zext i32 %v0.u329 to i64
+  %v1.idx = trunc i64 %v0 to i32
+  %v1.ld7 = call %dx.types.ResRet.i32 @dx.op.bufferLoad.i32(i32 68, %dx.types.Handle %rx_h_words5, i32 %v1.idx, i32 0)  ; BufferLoad(srv,index,wot)
+  %0 = extractvalue %dx.types.ResRet.i32 %v1.ld7, 0
+  %v2.idx = trunc i64 %v0 to i32
+  %v2.ld8 = call %dx.types.ResRet.i32 @dx.op.bufferLoad.i32(i32 68, %dx.types.Handle %rx_h_shifts6, i32 %v2.idx, i32 0)  ; BufferLoad(srv,index,wot)
+  %1 = extractvalue %dx.types.ResRet.i32 %v2.ld8, 0
+  %v3.shamt = and i32 8, 31
+  %v3 = lshr i32 %0, %v3.shamt
+  %v4 = and i32 %v3, 255
+  %v5 = xor i32 %v4, 42405
+  %v6.shamt = and i32 1, 31
+  %v6 = shl i32 %0, %v6.shamt
+  %v7 = or i32 %v5, %v6
+  %v82 = call i32 @dx.op.unaryBits.i32(i32 32, i32 %0)  ; FirstbitLo(value)
+  %v9.raw3 = call i32 @dx.op.unaryBits.i32(i32 33, i32 %0)  ; FirstbitHi(value)
+  %v9.norm = sub i32 31, %v9.raw3
+  %v9.isz = icmp eq i32 %v9.raw3, -1
+  %v9 = select i1 %v9.isz, i32 -1, i32 %v9.norm
+  %v10 = add i32 %v82, %v9
+  %v111 = call i32 @dx.op.unaryBits.i32(i32 31, i32 %0)  ; Countbits(value)
+  %v12 = add i32 %v10, %v111
+  %v13 = and i32 %1, 7
+  %v14.shamt = and i32 %v13, 31
+  %v14 = lshr i32 %v7, %v14.shamt
+  %v15 = add i32 %v14, %v12
+  %v16.idx = trunc i64 %v0 to i32
+  call void @dx.op.bufferStore.i32(i32 69, %dx.types.Handle %rx_h_dst4, i32 %v16.idx, i32 0, i32 %v15, i32 undef, i32 undef, i32 undef, i8 1)  ; BufferStore(uav,coord0,coord1,value0,value1,value2,value3,mask)
+  ret void
+}
+
+; Function Attrs: nounwind readnone
+declare i32 @dx.op.unaryBits.i32(i32, i32) #1
+
+; Function Attrs: nounwind readonly
+declare %dx.types.Handle @dx.op.createHandle(i32, i8, i32, i32, i1) #2
+
+; Function Attrs: nounwind readonly
+declare %dx.types.ResRet.i32 @dx.op.bufferLoad.i32(i32, %dx.types.Handle, i32, i32) #2
+
+; Function Attrs: nounwind
+declare void @dx.op.bufferStore.i32(i32, %dx.types.Handle, i32, i32, i32, i32, i32, i32, i8) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @dx.op.threadId.i32(i32, i32) #1
+
+attributes #0 = { noinline nounwind }
+attributes #1 = { nounwind readnone }
+attributes #2 = { nounwind readonly }
+attributes #3 = { nounwind }
+
+!dx.valver = !{!0}
+!dx.shaderModel = !{!1}
+!dx.version = !{!2}
+!dx.resources = !{!3}
+!dx.entryPoints = !{!10}
+
+!0 = !{i32 1, i32 8}
+!1 = !{!"cs", i32 6, i32 0}
+!2 = !{i32 1, i32 0}
+!3 = !{!4, !8, null, null}
+!4 = !{!5, !7}
+!5 = !{i32 0, %"StructuredBuffer<int32_t>"* @0, !"", i32 0, i32 0, i32 1, i32 12, i32 0, !6}
+!6 = !{i32 1, i32 4}
+!7 = !{i32 1, %"StructuredBuffer<int32_t>"* @1, !"", i32 0, i32 1, i32 1, i32 12, i32 0, !6}
+!8 = !{!9}
+!9 = !{i32 0, %"RWStructuredBuffer<int32_t>"* @2, !"", i32 0, i32 0, i32 1, i32 12, i1 false, i1 false, i1 false, !6}
+!10 = !{void ()* @rx_cs_bitops_8, !"rx_cs_bitops_8", null, !3, !11}
+!11 = !{i32 0, i64 1048592, i32 4, !12}
+!12 = !{i32 1, i32 1, i32 1}
+

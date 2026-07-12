@@ -10,14 +10,18 @@ fn main() -> std::process::ExitCode {
     let descriptor = match args.next() {
         Some(p) => p,
         None => {
-            eprintln!("usage: emit_grx019_fused_post_chain_rts0 <descriptor_layout.json> <out.bin>");
+            eprintln!(
+                "usage: emit_grx019_fused_post_chain_rts0 <descriptor_layout.json> <out.bin>"
+            );
             return std::process::ExitCode::from(2);
         }
     };
     let out = match args.next() {
         Some(p) => p,
         None => {
-            eprintln!("usage: emit_grx019_fused_post_chain_rts0 <descriptor_layout.json> <out.bin>");
+            eprintln!(
+                "usage: emit_grx019_fused_post_chain_rts0 <descriptor_layout.json> <out.bin>"
+            );
             return std::process::ExitCode::from(2);
         }
     };

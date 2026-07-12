@@ -1,0 +1,8 @@
+//@ spec: RXS-0182
+//@ expect-error: RX2001
+// 混宽移位:位运算两操作数须同一整数类型(types.md)——`u32 << u64` 经类型
+// 合一失败落 RX2001(类型不匹配段;MR-0006 §6 计划 RX2006 经实测修正为 RX2001,
+// 批准记录留痕)。
+kernel fn k(dst: ViewMut<global, u32>, w: u32, s: u64) {
+    dst[0] = w << s;
+}

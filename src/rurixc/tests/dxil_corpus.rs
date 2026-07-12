@@ -443,6 +443,125 @@ fn accept_corpus_emits_dxil() {
                 f.display()
             );
         }
+        // MR-0006(RXS-0181):u32 视图 → i32 rawbuffer intrinsic 重载。
+        if stem == "view_param_u32" {
+            for needle in [
+                r#"target("dx.RawBuffer", i32, 0, 0)"#,
+                r#"target("dx.RawBuffer", i32, 1, 0)"#,
+                "{ i32, i1 } @llvm.dx.resource.load.rawbuffer",
+                "@llvm.dx.resource.store.rawbuffer",
+            ] {
+                assert!(
+                    ir.contains(needle),
+                    "{} DXIL IR 缺 RXS-0181 i32 rawbuffer 重载证据 {needle}",
+                    f.display()
+                );
+            }
+            assert!(
+                ir.lines().any(|line| {
+                    line.contains("@llvm.dx.resource.store.rawbuffer")
+                        && line.contains("i32 0, i32 %")
+                }),
+                "{} store 值应为 i32 重载形(`…, i32 0, i32 %值`)",
+                f.display()
+            );
+        }
+        // MR-0006(RXS-0181):i32 视图 + ashr(有符号右移)。
+        if stem == "view_param_i32" {
+            for needle in ["ashr i32", ".shamt = and i32"] {
+                assert!(
+                    ir.contains(needle),
+                    "{} DXIL IR 缺 RXS-0181 i32 ashr 证据 {needle}",
+                    f.display()
+                );
+            }
+        }
+        // MR-0006(RXS-0182):位运算白名单 lowering。
+        if stem == "bitops_word_manipulation" {
+            for needle in [
+                "lshr i32",
+                "and i32",
+                "xor i32",
+                "or i32",
+                "shl i32",
+                ".shamt = and i32",
+            ] {
+                assert!(
+                    ir.contains(needle),
+                    "{} DXIL IR 缺 RXS-0182 位运算证据 {needle}",
+                    f.display()
+                );
+            }
+        }
+        // MR-0006(RXS-0182 / 判档 O-2):动态移位量显式掩码 `amount & 31` +
+        // register>0 资源的 handlefrombinding 相对 index 形(probe 实测修正)。
+        if stem == "shift_amount_masked" {
+            for needle in [
+                ".shamt = and i32",
+                "shl i32",
+                "lshr i32",
+                "%rx_h_amounts = call target(\"dx.RawBuffer\", i32, 0, 0) @llvm.dx.resource.handlefrombinding(i32 0, i32 1, i32 1, i32 0, ptr null)",
+            ] {
+                assert!(
+                    ir.contains(needle),
+                    "{} DXIL IR 缺 RXS-0182 移位掩码证据 {needle}",
+                    f.display()
+                );
+            }
+            assert_eq!(
+                ir.matches(", 31").count(),
+                2,
+                "{} 两次移位应各 emit 一次 `& 31` 掩码",
+                f.display()
+            );
+        }
+        // MR-0006(RXS-0183):位扫描 intrinsic(FirstbitLo 直发 + FirstbitHi
+        // dxc 同款正规化,判档 O-1/O-7)。
+        if stem == "find_lsb_scan" {
+            for needle in [
+                "@llvm.dx.firstbitlow(i32 ",
+                "@llvm.dx.firstbituhigh(i32 ",
+                "sub i32 31, ",
+                "icmp eq i32 ",
+                "select i1 ",
+            ] {
+                assert!(
+                    ir.contains(needle),
+                    "{} DXIL IR 缺 RXS-0183 位扫描证据 {needle}",
+                    f.display()
+                );
+            }
+        }
+        // MR-0006(RXS-0183):popcount(ctpop → Countbits(31))。
+        if stem == "popcount_reduce" {
+            for needle in ["@llvm.ctpop.i32(i32 ", "alloca i32"] {
+                assert!(
+                    ir.contains(needle),
+                    "{} DXIL IR 缺 RXS-0183 popcount 证据 {needle}",
+                    f.display()
+                );
+            }
+        }
+        // MR-0007(RXS-0184):f32 数学 intrinsic 首期(sqrt/rsqrt)。
+        if stem == "math_sqrt_rsqrt" {
+            for needle in ["@llvm.sqrt.f32(float ", "@llvm.dx.rsqrt.f32(float "] {
+                assert!(
+                    ir.contains(needle),
+                    "{} DXIL IR 缺 RXS-0184 数学 intrinsic 证据 {needle}",
+                    f.display()
+                );
+            }
+        }
+        // MR-0007(RXS-0184):sin/cos。
+        if stem == "math_sin_cos" {
+            for needle in ["@llvm.sin.f32(float ", "@llvm.cos.f32(float "] {
+                assert!(
+                    ir.contains(needle),
+                    "{} DXIL IR 缺 RXS-0184 数学 intrinsic 证据 {needle}",
+                    f.display()
+                );
+            }
+        }
         if stem == "while_nested" {
             for needle in [
                 "while.cond.0:",

@@ -1,0 +1,6 @@
+//@ spec: RXS-0182
+//@ expect-error: RX2006
+// types.md「位运算仅整数」——浮点操作数违例 RX2006(既有规则的 DXIL 语料化)。
+kernel fn k(dst: ViewMut<global, f32>, a: f32, b: f32) {
+    dst[0] = a & b;
+}

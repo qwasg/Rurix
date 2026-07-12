@@ -5,7 +5,7 @@
 | Mini-RFC 标识 | **MR-0007**（Mini-RFC 序列；独立于 Full-RFC 的 `RFC-####` 命名空间，不复用 RFC 编号，10 §9.5。Mini-RFC = 单页提案 + 失败测试先行，10 §3。编号承 MR-0006（本轮同批草案），实读核对无占用） |
 | 标题 | device 数学函数 intrinsic 集（RXS-0081 既有语义面）在 DXIL compute=A 路的 lowering 覆盖：`sqrt`/`rsqrt`/`sin`/`cos`（f32 首期）→ LLVM float intrinsic → dx.op.unary |
 | 档位 | **Mini-RFC**（10 §3：语言语义**既有 0-byte**——RXS-0081 已定 intrinsic 集签名契约/元数/求值语义 + RXS-0082 链接流程 + RX6006 保守拒绝；本件纯第二后端 lowering 覆盖扩展，**不触** UB / 内存模型映射（06 §4.2）/ FFI ABI（RFC-0003 §4.6）/ 显式布局（RXS-0171 升档触发）/ 安全包络禁区——见 §3。判档意见书：`spike/dxil-path-probe/dxil_compute_capability_gaps_adjudication_20260712.md`） |
-| 状态 | **Draft — 2026-07-12**（判档材料随附草案；**未批准**——批准/合入/台账回填归 agent 批准流程，批准前不推进任何实现 PR） |
+| 状态 | **Approved — 2026-07-12**（agent 完全自主批准，承 owner 已签署的 agent 完全自主化治理基线（b17fd67）与 g2.6 Mini-RFC 自主签署先例；rsqrt 拼写实测裁决 + 升档触发③ 未触发见 §7；`rfcs/README.md` §5 台账回填待后续 PR——台账文件不在本轮改动面） |
 | 承接里程碑 | GRX（GRX-013 particles_copy `ALIGN_BILLBOARD` 子集原生化前置之一——Rodrigues 需 sin/cos、normalize/cross-normalize 需 sqrt/rsqrt，PASS_CONTRACT §5.3 第 2 条；聚合元素另卡 RD-026 预览/候选 RFC-0009，本 MR 不解） |
 | 关联条款 | 拟落 spec **RXS-0184**（`spec/dxil_backend.md` 续号；编号承 MR-0006 拟占 RXS-0181~0183，现存最高 RXS-0180 @ edition.md 实读核对） |
 | 依据决策 | **D-131**（混合 compute=A）· **RFC-0003**（RXS-0157 L2 子集边界/RX6007）· device.md **RXS-0081**（device 数学函数 intrinsic 集与求值语义——签名契约/元数/RX6006）+ **RXS-0082**（libdevice 链接流程,NVPTX 侧 0-byte 对照面）· **RD-025**（上游缺口受控本地 patch 纪律先例）· 先例 **MR-0005/MR-0006**（Mini 携新 RXS + 升档触发） |
@@ -117,7 +117,20 @@ dxv 接受 → dumpbin，锁 `dx.op.unary.f32` 的 `Sqrt(24)/Rsqrt(25)/Sin(13)/C
 
 ## 7. Agent 批准
 
-> **Draft — 未批准**。本节留批准流程填写（镜像 MR-0005 §7 形态：批准日期 +
-> §2 首期集合/精度表述 + §3 判档 + §4 错误码 + §6 范围确认 + rsqrt 拼写/
-> 升档触发③ 裁决落点记录；批准后方可推进条款 PR → 实现 PR，条款先于实现，
-> 硬规则 7）。
+> **Approved — 2026-07-12**。agent（完全自主，承 owner 已签署的 agent 完全自主化治理基线（b17fd67 在 origin/main）与 g2.6 Mini-RFC 自主签署先例）批准本 Mini-RFC 全文：
+>
+> - **§2 首期集合/精度表述确认**：f32 四函数 `sqrt`/`rsqrt`/`sin`/`cos` 如案；精度以 Implementation Requirements 引 D3D 功能规范 ULP 界表述、golden 只锁 IR/DXIL 文本形态不锁数值、两路（NVPTX/DXIL）各自对 host 参考的 parity 归 GRX math parity 证据 harness（§2 如案,不发明数值语义）。
+> - **rsqrt 拼写裁决（§2 留点 / 升档触发③）**：probe 实测（2026-07-12，pinned llc `H:\llvm-clean-82c5bce5-build\bin\llc.exe` + dxv `H:\dxc-round7\extracted\bin\x64`）`llvm.dx.rsqrt.f32` 为**上游直达 intrinsic**——emit `-filetype=obj` ×8 sha256 单值 + dxv `Validation succeeded`，反汇编锁 `dx.op.unary.f32(i32 25, …) ; Rsqrt(value)` → **直发,无须 `1.0/sqrt` 组合**,升档触发③ 未触发,首期集合不收窄。
+> - **probe 义务达成（§2 上游支持面）**：`llvm.sqrt.f32` / `llvm.sin.f32` / `llvm.cos.f32` 各 ×8 字节稳定 + dxv 接受,反汇编锁 `Sqrt(24)` / `Sin(13)` / `Cos(12)`（golden `tests/dxil/cs_math` 两层 bless,bless_log 2026-07-12 行）。
+> - **§4 错误码确认**：零新 RX 码。首期覆盖外（f64 任意 / `pow` 等集合成员）实发 **RX6006**（`dxil_codegen` 结构化携码 emit,message-key `codegen.device_math_unsupported` 复用 RXS-0081 既有语义）；DXIL 目标级子集外维持 RX6007。§6 反例码一处实测修正留痕：`math_on_u32` 实测落 **RX2004**（方法接收者不符走 unknown-method 段,实参不符才走 RX2001,计划 RX2001 修正）,拦截仍有意义。
+> - **§5 失败测试先行确认**：math_sqrt_rsqrt / math_sin_cos RED → GREEN + `math_normalize_scalar_form` 补齐（accept 3 件）+ reject 3 件（math_f64_dxil / math_pow_dxil → RX6006;math_on_u32 → RX2004）;新 accept 语料各经 `rurixc --target dxil` 全链（llc→DXIL 容器→dxv）实测 accepted。
+> - **§3 升档触发确认**：①（改变可观测数值语义的近似）②（内存模型面）③（rsqrt 组合 emit 精度界,经直达 intrinsic 消解）④（f64 夹带）全部未触发。条款 **RXS-0184** 落 `spec/dxil_backend.md`;NVPTX/libdevice 路径与既有 conformance/golden 全部 0-byte。
+>
+> 批准与落档由 agent 完全自主签署;provenance `Assisted-by: claude-code:claude-fable-5`（D-406）。
+
+## 8. 修订记录
+
+| 版本 | 日期 | 变更 | 档位 |
+|---|---|---|---|
+| v1.0 | 2026-07-12 | 初版 Mini-RFC Draft（判档任务产出，随判档意见书 `spike/dxil-path-probe/dxil_compute_capability_gaps_adjudication_20260712.md`） | Mini-RFC（MR-0007） |
+| v1.1 | 2026-07-12 | agent 完全自主批准（§7 批准段：rsqrt 直达 intrinsic 实测裁决 + probe 矩阵 + 反例码一处修正留痕 + 升档触发全未触发）；状态 Draft → Approved；条款 RXS-0184 + 实现（dxil_codegen MathUnary lowering + RX6006 结构化携码）+ conformance/golden 同轮落地 | Mini-RFC（MR-0007） |

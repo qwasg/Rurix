@@ -147,3 +147,112 @@ fn device_math_f64_lowers_to_nv_sqrt() {
 fn device_math_libdevice_clauses_anchored() {
     // 锚定占位:RXS-0081/0082 由本文件上方真跑测试覆盖(traceability)。
 }
+
+/// 位扫描/位计数 intrinsic 正例(MR-0006,RXS-0183;NVPTX 双后端同落面)。
+const BIT_KERNEL: &str = r#"
+kernel fn bit_scan(t: ThreadCtx<1>, words: View<global, u32>, dst: ViewMut<global, u32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        let w = words[i];
+        dst[i] = w.find_lsb() + w.find_msb() + w.popcount();
+    }
+}
+fn main() {}
+"#;
+
+/// MR-0006(RXS-0183):位扫描/位计数 intrinsic NVPTX 下译 = libdevice 符号组合
+/// (`__nv_ffs - 1` / `31 - __nv_clz` / `__nv_popc`;零输入回绕即 HLSL 形
+/// 0xFFFF_FFFF,与 DXIL 路 FirstbitLo/FirstbitHi 正规化语义一致,判档 O-1)。
+//@ spec: RXS-0183
+#[test]
+fn device_bit_intrinsics_lower_to_nv_symbols() {
+    let ir = nvptx_ir(BIT_KERNEL, "libdevice_bits");
+    for sym in ["@__nv_ffs(", "@__nv_clz(", "@__nv_popc("] {
+        assert!(
+            ir.contains(&format!("declare i32 {sym}")),
+            "位 intrinsic 应保留外部 declare `{sym}`(RXS-0183),IR:\n{ir}"
+        );
+        assert!(
+            ir.contains(&format!("call i32 {sym}")),
+            "位 intrinsic 应 call `{sym}`(RXS-0183)"
+        );
+    }
+    // find_lsb = ffs - 1;find_msb = 31 - clz(组合 sub 存在性)。
+    assert!(
+        ir.contains("sub i32 31,"),
+        "find_msb 应 emit `31 - clz` 组合(RXS-0183),IR:\n{ir}"
+    );
+}
+
+/// MR-0006(RXS-0183):位 intrinsic libdevice 链接 + ptxas 干验证真跑
+/// (`__nv_ffs`/`__nv_clz`/`__nv_popc` 经 libdevice.bc 解析;缺工具链 → SKIP,
+/// 对齐 RXS-0082 开发环境降级纪律)。
+//@ spec: RXS-0183
+#[test]
+fn device_bit_intrinsics_link_and_ptxas_gate() {
+    let ir = nvptx_ir(BIT_KERNEL, "libdevice_bits");
+    if rurixc::toolchain::locate_clang().is_err() {
+        eprintln!("SKIP: clang 22.1.x 未就位(位 intrinsic libdevice 链接真跑延到带工具链 runner)");
+        return;
+    }
+    if matches!(
+        rurixc::toolchain::libdevice_link_for(&ir),
+        rurixc::toolchain::LibdeviceLink::MissingSkip
+    ) {
+        eprintln!("SKIP: libdevice.10.bc 未就位(无 CUDA 工具链)");
+        return;
+    }
+    let ptx_out: PathBuf = std::env::temp_dir().join("rurix_libdevice_bits_test.ptx");
+    let ptx = rurixc::toolchain::ir_to_ptx(&ir, &ptx_out)
+        .expect("位 intrinsic libdevice 链接 + IR→PTX 应成功(RXS-0183/0082)");
+    for sym in ["__nv_ffs", "__nv_clz", "__nv_popc"] {
+        assert!(
+            !ptx.contains(sym),
+            "libdevice 链接后不应残留未解析的外部 {sym} 调用"
+        );
+    }
+    assert!(
+        ptx.contains("popc.b32"),
+        "popcount 链接产物应含 PTX popc.b32(RXS-0183),PTX 片段缺失"
+    );
+    match rurixc::ptxas::dry_gate(&ptx, "libdevice_bits") {
+        rurixc::ptxas::PtxasOutcome::Pass => {}
+        rurixc::ptxas::PtxasOutcome::Skipped => {
+            eprintln!("SKIP: ptxas 未就位(位 intrinsic ptxas 干验证延到带 CUDA runner)");
+        }
+        rurixc::ptxas::PtxasOutcome::Rejected(r) => {
+            panic!("位 intrinsic 链接产物被 ptxas 拒绝(RXS-0073/0183):{r}")
+        }
+        rurixc::ptxas::PtxasOutcome::Toolchain(e) => {
+            eprintln!("SKIP: ptxas 工具链问题:{e}");
+        }
+    }
+    let _ = std::fs::remove_file(&ptx_out);
+}
+
+/// 移位量取模掩码 kernel(MR-0006,RXS-0182 / 判档 O-2 双后端显式掩码)。
+const SHIFT_KERNEL: &str = r#"
+kernel fn shift_mask(t: ThreadCtx<1>, words: View<global, u32>, dst: ViewMut<global, u32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        let w = words[i];
+        dst[i] = (w << 3u32) >> 1u32;
+    }
+}
+fn main() {}
+"#;
+
+/// MR-0006(RXS-0182):NVPTX 侧移位量按位宽取模——device codegen emit 显式
+/// 掩码 `and i32 amount, 31`(消除 LLVM 越界 poison;u32 右移取 lshr)。
+//@ spec: RXS-0182
+#[test]
+fn device_shift_amount_masked_on_nvptx() {
+    let ir = nvptx_ir(SHIFT_KERNEL, "nvptx_shift_mask");
+    assert!(
+        ir.contains("and i32 3, 31") || ir.matches("and i32").count() >= 2,
+        "移位量应 emit 显式 `& 31` 掩码(RXS-0182/O-2),IR:\n{ir}"
+    );
+    for inst in ["shl i32", "lshr i32"] {
+        assert!(ir.contains(inst), "u32 移位应产 {inst}(RXS-0182),IR:\n{ir}");
+    }
+}

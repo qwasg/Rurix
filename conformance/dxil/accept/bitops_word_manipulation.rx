@@ -1,0 +1,10 @@
+//@ spec: RXS-0182
+// MR-0006 B1:word 位模式运算(& | ^ << >>)——曾为二元白名单(仅 + - * / %)
+// 的 RX6007 拒绝面(失败测试先行,落地后转绿)。
+kernel fn bitops_word_manipulation(src: View<global, u32>, dst: ViewMut<global, u32>, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    let w = src[i];
+    let z_range = (w >> 8u32) & 0xFFu32;
+    let flags = (w ^ 0xA5A5_A5A5u32) | (z_range << 24u32);
+    dst[i] = flags;
+}

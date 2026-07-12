@@ -1,0 +1,9 @@
+//@ spec: RXS-0184
+// MR-0007:DeviceMathFn f32 首期 DXIL lowering(sqrt/rsqrt → dx.op.unary
+// Sqrt(24)/Rsqrt(25))——曾为 dxil_codegen 对 DeviceMathFn 零处理的 RX6007
+// 拒绝面(失败测试先行,落地后转绿)。
+kernel fn math_sqrt_rsqrt(src: View<global, f32>, dst: ViewMut<global, f32>, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    let x = src[i];
+    dst[i] = x.sqrt() + x.rsqrt();
+}

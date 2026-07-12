@@ -1,0 +1,31 @@
+; ModuleID = 'cs_math'
+source_filename = "cs_math"
+target datalayout = "e-m:e-p:32:32-i1:32-i8:8-i16:16-i32:32-i64:64-f16:16-f32:32-f64:64-n8:16:32:64"
+target triple = "dxil-unknown-shadermodel6.0-compute"
+
+define void @rx_cs_math_8() #0 {
+entry:
+  %rx_h_src = call target("dx.RawBuffer", float, 0, 0) @llvm.dx.resource.handlefrombinding(i32 0, i32 0, i32 1, i32 0, ptr null)
+  %rx_h_dst = call target("dx.RawBuffer", float, 1, 0) @llvm.dx.resource.handlefrombinding(i32 0, i32 0, i32 1, i32 0, ptr null)
+  %v0.u32 = call i32 @llvm.dx.thread.id(i32 0)
+  %v0 = zext i32 %v0.u32 to i64
+  %v1.idx = trunc i64 %v0 to i32
+  %v1.ld = call { float, i1 } @llvm.dx.resource.load.rawbuffer(target("dx.RawBuffer", float, 0, 0) %rx_h_src, i32 %v1.idx, i32 0)
+  %v1 = extractvalue { float, i1 } %v1.ld, 0
+  %v2 = call float @llvm.sqrt.f32(float %v1)
+  %v3 = call float @llvm.dx.rsqrt.f32(float %v1)
+  %v4 = call float @llvm.sin.f32(float %v1)
+  %v5 = fmul float %v3, %v4
+  %v6 = fadd float %v2, %v5
+  %v7 = call float @llvm.cos.f32(float %v1)
+  %v8 = fsub float %v6, %v7
+  %v9.idx = trunc i64 %v0 to i32
+  call void @llvm.dx.resource.store.rawbuffer(target("dx.RawBuffer", float, 1, 0) %rx_h_dst, i32 %v9.idx, i32 0, float %v8)
+  ret void
+}
+
+attributes #0 = { noinline nounwind "hlsl.numthreads"="1,1,1" "hlsl.shader"="compute" }
+
+!dx.valver = !{!0}
+
+!0 = !{i32 1, i32 8}

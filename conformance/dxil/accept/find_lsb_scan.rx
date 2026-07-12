@@ -1,0 +1,14 @@
+//@ spec: RXS-0183
+// MR-0006 B2:位扫描 intrinsic(find_lsb/find_msb)——cluster_store 型 z_range
+// 解码 word-scan(曾为名称决议失败面,失败测试先行,落地后转绿)。
+// 零输入语义为 HLSL 形 0xFFFF_FFFF(判档 O-1);LSB=0 位序。
+kernel fn find_lsb_scan(cluster_render: View<global, u32>, cluster_out: ViewMut<global, u32>, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    let w = cluster_render[i];
+    let z_range = (w >> 8u32) & 0xFFu32;
+    if z_range != 0u32 {
+        let from_z = z_range.find_lsb();
+        let to_z = z_range.find_msb() + 1u32;
+        cluster_out[i] = w | (from_z << 24u32) | (to_z << 16u32);
+    }
+}

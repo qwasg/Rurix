@@ -1,0 +1,8 @@
+//@ spec: RXS-0184
+//@ expect-error: RX6006
+// MR-0007:f64 首期外——DXIL 路维持 RX6006 strict 拒绝(RXS-0081「不支持的
+// 元素类型组合/超覆盖」既有语义;NVPTX 路 f64 数学不受影响)。
+kernel fn k(dst: ViewMut<global, f32>) {
+    let y = (2.0f64).sqrt();
+    dst[0] = 1.0;
+}

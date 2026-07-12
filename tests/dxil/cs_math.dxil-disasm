@@ -1,0 +1,134 @@
+;
+; Note: shader requires additional functionality:
+;       64-Bit integer
+;
+;
+; Input signature:
+;
+; Name                 Index   Mask Register SysValue  Format   Used
+; -------------------- ----- ------ -------- -------- ------- ------
+; no parameters
+;
+; Output signature:
+;
+; Name                 Index   Mask Register SysValue  Format   Used
+; -------------------- ----- ------ -------- -------- ------- ------
+; no parameters
+; shader hash: a115217f5cb868f373af83eace1a28d0
+;
+; Pipeline Runtime Information: 
+;
+;PSVRuntimeInfo:
+; Compute Shader
+; NumThreads=(1,1,1)
+; MinimumExpectedWaveLaneCount: 0
+; MaximumExpectedWaveLaneCount: 4294967295
+; UsesViewID: false
+; SigInputElements: 0
+; SigOutputElements: 0
+; SigPatchConstOrPrimElements: 0
+; SigInputVectors: 0
+; SigOutputVectors[0]: 0
+; SigOutputVectors[1]: 0
+; SigOutputVectors[2]: 0
+; SigOutputVectors[3]: 0
+; EntryFunctionName: rx_cs_math_8
+;
+;
+; Buffer Definitions:
+;
+; Resource bind info for 
+; {
+;
+;   [4 x i8] (type annotation not present)
+;
+; }
+;
+; Resource bind info for 
+; {
+;
+;   [4 x i8] (type annotation not present)
+;
+; }
+;
+;
+; Resource Bindings:
+;
+; Name                                 Type  Format         Dim      ID      HLSL Bind  Count
+; ------------------------------ ---------- ------- ----------- ------- -------------- ------
+;                                   texture  struct         r/o      T0             t0     1
+;                                       UAV  struct         r/w      U0             u0     1
+;
+target datalayout = "e-m:e-p:32:32-i1:32-i8:8-i16:16-i32:32-i64:64-f16:16-f32:32-f64:64-n8:16:32:64"
+target triple = "dxil-ms-dx"
+
+%"StructuredBuffer<float>" = type { float }
+%"RWStructuredBuffer<float>" = type { float }
+%dx.types.Handle = type { i8* }
+%dx.types.ResRet.f32 = type { float, float, float, float, i32 }
+
+@0 = external constant %"StructuredBuffer<float>"
+@1 = external constant %"RWStructuredBuffer<float>"
+
+; Function Attrs: noinline nounwind
+define void @rx_cs_math_8() #0 {
+entry:
+  %rx_h_src3 = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 0, i32 0, i32 0, i1 false)  ; CreateHandle(resourceClass,rangeId,index,nonUniformIndex)
+  %rx_h_dst2 = call %dx.types.Handle @dx.op.createHandle(i32 57, i8 1, i32 0, i32 0, i1 false)  ; CreateHandle(resourceClass,rangeId,index,nonUniformIndex)
+  %v0.u326 = call i32 @dx.op.threadId.i32(i32 93, i32 0)  ; ThreadId(component)
+  %v0 = zext i32 %v0.u326 to i64
+  %v1.idx = trunc i64 %v0 to i32
+  %v1.ld4 = call %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32 68, %dx.types.Handle %rx_h_src3, i32 %v1.idx, i32 0)  ; BufferLoad(srv,index,wot)
+  %0 = extractvalue %dx.types.ResRet.f32 %v1.ld4, 0
+  %v28 = call float @dx.op.unary.f32(i32 24, float %0), !dx.precise !12  ; Sqrt(value)
+  %v35 = call float @dx.op.unary.f32(i32 25, float %0), !dx.precise !12  ; Rsqrt(value)
+  %v47 = call float @dx.op.unary.f32(i32 13, float %0), !dx.precise !12  ; Sin(value)
+  %v5 = fmul float %v35, %v47
+  %v6 = fadd float %v28, %v5
+  %v71 = call float @dx.op.unary.f32(i32 12, float %0), !dx.precise !12  ; Cos(value)
+  %v8 = fsub float %v6, %v71
+  %v9.idx = trunc i64 %v0 to i32
+  call void @dx.op.bufferStore.f32(i32 69, %dx.types.Handle %rx_h_dst2, i32 %v9.idx, i32 0, float %v8, float undef, float undef, float undef, i8 1)  ; BufferStore(uav,coord0,coord1,value0,value1,value2,value3,mask)
+  ret void
+}
+
+; Function Attrs: nounwind readnone
+declare float @dx.op.unary.f32(i32, float) #1
+
+; Function Attrs: nounwind readonly
+declare %dx.types.Handle @dx.op.createHandle(i32, i8, i32, i32, i1) #2
+
+; Function Attrs: nounwind readonly
+declare %dx.types.ResRet.f32 @dx.op.bufferLoad.f32(i32, %dx.types.Handle, i32, i32) #2
+
+; Function Attrs: nounwind
+declare void @dx.op.bufferStore.f32(i32, %dx.types.Handle, i32, i32, float, float, float, float, i8) #3
+
+; Function Attrs: nounwind readnone
+declare i32 @dx.op.threadId.i32(i32, i32) #1
+
+attributes #0 = { noinline nounwind }
+attributes #1 = { nounwind readnone }
+attributes #2 = { nounwind readonly }
+attributes #3 = { nounwind }
+
+!dx.valver = !{!0}
+!dx.shaderModel = !{!1}
+!dx.version = !{!2}
+!dx.resources = !{!3}
+!dx.entryPoints = !{!9}
+
+!0 = !{i32 1, i32 8}
+!1 = !{!"cs", i32 6, i32 0}
+!2 = !{i32 1, i32 0}
+!3 = !{!4, !7, null, null}
+!4 = !{!5}
+!5 = !{i32 0, %"StructuredBuffer<float>"* @0, !"", i32 0, i32 0, i32 1, i32 12, i32 0, !6}
+!6 = !{i32 1, i32 4}
+!7 = !{!8}
+!8 = !{i32 0, %"RWStructuredBuffer<float>"* @1, !"", i32 0, i32 0, i32 1, i32 12, i1 false, i1 false, i1 false, !6}
+!9 = !{void ()* @rx_cs_math_8, !"rx_cs_math_8", null, !3, !10}
+!10 = !{i32 0, i64 1048592, i32 4, !11}
+!11 = !{i32 1, i32 1, i32 1}
+!12 = !{i32 1}
+

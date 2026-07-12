@@ -282,6 +282,48 @@ impl DeviceMathFn {
     }
 }
 
+/// device 位扫描/位计数 intrinsic(MR-0006,RXS-0183;镜像 RXS-0081 device 数学
+/// intrinsic 集形态——`u32` 接收者的编译器已知方法,纯值运算总函数,LSB=0 位序,
+/// 零输入取 HLSL 形 `0xFFFF_FFFF`(find_lsb/find_msb;判档 O-1;popcount 自然为 0)。
+/// NVPTX 侧经 libdevice 符号组合下译(`__nv_ffs`/`__nv_clz`/`__nv_popc`,RXS-0082
+/// 链接流程复用);DXIL 侧经上游 `llvm.dx.firstbitlow`/`llvm.dx.firstbituhigh`/
+/// `llvm.ctpop.i32`(probe 实测 2026-07-12:pinned llc 接受,`llvm.cttz/ctlz` 被
+/// DXILBitcodeWriter 拒)→ dx.op FirstbitLo(32)/FirstbitHi(33)/Countbits(31)。
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum DeviceBitFn {
+    /// `find_lsb()`:最低置位位下标;`find_lsb(0) == 0xFFFF_FFFF`(HLSL 形,O-1)。
+    FindLsb,
+    /// `find_msb()`:最高置位位下标;`find_msb(0) == 0xFFFF_FFFF`(HLSL 形,O-1)。
+    FindMsb,
+    /// `popcount()`:置位位计数;`popcount(0) == 0`。
+    Popcount,
+}
+
+impl DeviceBitFn {
+    /// `u32` 方法名 → 位扫描/位计数 intrinsic(RXS-0183;非命中返回 None)。
+    pub fn from_method(name: &str) -> Option<Self> {
+        Some(match name {
+            "find_lsb" => DeviceBitFn::FindLsb,
+            "find_msb" => DeviceBitFn::FindMsb,
+            "popcount" => DeviceBitFn::Popcount,
+            _ => return None,
+        })
+    }
+
+    /// 方法元数(**含 receiver**):三者均一元(仅接收者,无额外实参)。
+    pub fn arity(self) -> usize {
+        1
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            DeviceBitFn::FindLsb => "find_lsb",
+            DeviceBitFn::FindMsb => "find_msb",
+            DeviceBitFn::Popcount => "popcount",
+        }
+    }
+}
+
 /// device views 算子(M5.1,RXS-0078;`View`/`ViewMut` 族子 view 划分方法)。
 /// typeck 在接收者为 `View`/`ViewMut` lang item 时识别返回类型,views 不相交
 /// device 借用扩展 pass([`crate::views_check`])消费同一识别面判定不相交性。

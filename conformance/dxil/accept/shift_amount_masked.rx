@@ -1,0 +1,8 @@
+//@ spec: RXS-0182
+// MR-0006 B1:动态移位量按位宽取模(编译器 emit 显式掩码 `amount & 31`,判档
+// O-2)——可编译锚点;掩码形态由 golden cs_bitops 与语料断言锁定。
+kernel fn shift_amount_masked(src: View<global, u32>, amounts: View<global, u32>, dst: ViewMut<global, u32>, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    let s = amounts[i];
+    dst[i] = (src[i] << s) >> s;
+}

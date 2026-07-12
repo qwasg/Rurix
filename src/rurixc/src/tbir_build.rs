@@ -359,6 +359,17 @@ impl Builder<'_> {
                         },
                     };
                 }
+                // device 位扫描/位计数 intrinsic(MR-0006,RXS-0183):receiver 作
+                // args[0](元数 1,无额外实参)→ NVPTX libdevice 组合下译。
+                if let Some(op) = self.tcr.device_bit_calls.get(&e.hir_id) {
+                    let mut all = vec![self.expr(receiver)];
+                    all.extend(args.iter().map(|a| self.expr(a)));
+                    return tbir::Expr {
+                        ty,
+                        span,
+                        kind: tbir::ExprKind::DeviceBitCall { op: *op, args: all },
+                    };
+                }
                 // 纹理采样(G2.4,RXS-0174/0175;RFC-0007):`tex.sample(samp, coord)`
                 // → 采样表达式。typeck 已核对 receiver=Texture2D / args=(Sampler, coord)
                 // / fragment 阶段(违例 RX3014);此处仅当恰 2 实参时产采样节点,否则容忍
@@ -685,7 +696,9 @@ impl ExhaustCx<'_> {
                 self.walk_expr(lhs);
                 self.walk_expr(rhs);
             }
-            tbir::ExprKind::Call { args, .. } | tbir::ExprKind::DeviceMathCall { args, .. } => {
+            tbir::ExprKind::Call { args, .. }
+            | tbir::ExprKind::DeviceMathCall { args, .. }
+            | tbir::ExprKind::DeviceBitCall { args, .. } => {
                 for a in args {
                     self.walk_expr(a);
                 }
