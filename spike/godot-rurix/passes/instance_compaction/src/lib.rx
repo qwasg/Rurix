@@ -1,0 +1,104 @@
+// GRX-016 instance_compaction kernel Rurix math source (forward-looking; NOT
+// yet compilable to a runtime-mappable DXIL container).
+//
+// Unlike GRX-009..014 there is NO native Godot compaction shader to mirror:
+// Godot's only per-MultiMesh visibility lever is the CPU-side "draw the first
+// N instances" contract (MeshStorage::multimesh_get_instances_to_draw,
+// external/godot-master/servers/rendering/renderer_rd/storage_rd/
+// mesh_storage.h L721-728). GRX-016 is an ADDITIVE Rurix pass that makes that
+// contract usable with GPU culling: it consumes the GRX-015 gpu_culling
+// per-instance visibility bitmask (u32[ceil(N/32)]) plus the original
+// MultiMesh 3D transform-only buffer (stride 12 floats per instance,
+// mesh_storage.cpp _multimesh_allocate_data L1577-1580 /
+// _multimesh_instance_set_transform L1895-1912) and produces
+//   * a compacted staging buffer with the surviving instances moved to the
+//     buffer FRONT in stable index order, and
+//   * the survivor count (the value for the "draw first N" contract).
+//
+// Three-dispatch chain (one kernel per dispatch; see PASS_CONTRACT.md sec 5.1
+// and resource_mapping.md for the barrier contract):
+//   D1 scan_local  (ceil(N/256),1,1): thread p reads visibility bit p; a
+//      groupshared Hillis-Steele inclusive scan over the group's 256 bits
+//      yields local_prefix[p] (exclusive, within-group) and
+//      group_totals[gid] (survivors in group gid).
+//   D2 scan_groups (1,1,1): a single group scans group_totals into
+//      group_offsets (exclusive) and survivor_count[0] (grand total).
+//      Requires num_groups <= 256, i.e. N <= 65536 (capacity contract).
+//   D3 scatter     (ceil(N/256),1,1): surviving instance p moves its
+//      transform payload (3 x uint4, bit-preserving) to
+//      rank = group_offsets[p/256] + local_prefix[p].
+// All rank math is u32 addition on exact values: the CPU reference is
+// integer-exact / byte-exact with ZERO tolerance.
+//
+// ROUTE CHOICE — why the canonical package is the hlsl_bridge workaround
+// instead of a rurixc-owned raw-buffer compile (instance_compaction is an all
+// raw-buffer / SSBO pass, so the GRX-009 texture-intrinsic llc blocker does
+// NOT apply here; the blockers below are different):
+//   1. No u32 buffer views on the DXIL path. The DXIL compute-body lowering
+//      accepts only `View<global, f32>` / `ViewMut<global, f32>` (and
+//      Texture2D/RWTexture2D f32) resource parameters
+//      (src/rurixc/src/dxil_codegen.rs L1754/L1786). The visibility bitmask,
+//      local_prefix, group_totals/offsets and survivor_count buffers are all
+//      u32 words whose bit patterns an f32 view cannot carry bit-faithfully.
+//   2. Integer bit operations are not wired on the DXIL path. Decoding the
+//      bitmask needs `>>` and `&`; MIR carries BinOp::BitAnd/Shl/Shr
+//      (src/rurixc/src/mir.rs L643-647) but the DXIL backend has no lowering
+//      for any of them.
+//   3. No groupshared scan on the DXIL path. The Rurix lang subset DOES have
+//      `shared let` (addrspace(3), M5.3/RXS-0079) and `barrier()`
+//      (DeviceIntrinsic::Barrier -> llvm.nvvm.barrier0) — but both lower ONLY
+//      on the NVPTX device path; the DXIL compute-body lowering explicitly
+//      rejects `shared let` ("DXIL compute body lowering slice 1 不支持
+//      shared let", src/rurixc/src/dxil_codegen.rs L921-924) and has no
+//      barrier lowering, so the per-group prefix scan cannot be expressed.
+// The RTS0 root signature is still Rurix-owned (rurixc::binding_layout),
+// mirroring the GRX-013/014 buffer-pass precedent (itself mirroring
+// ../luminance_reduction/texture_artifact_provenance_policy.json).
+//
+// The sketch below records the ONLY lane of the chain that is in principle
+// expressible today: the D3 per-survivor transform move, given a
+// PRECOMPUTED rank (the transform payload is genuinely f32 data, so f32
+// views can carry it; no arithmetic touches it). The rank computation
+// (bitmask decode + two-level prefix scan) is intentionally omitted — it
+// needs the u32 views, bit ops and groupshared scan in blockers (1)-(3).
+// All three executable kernels live in artifacts/hlsl_bridge/.
+
+// The MultiMesh source buffer modelled as a flat f32 lane array (12 f32
+// lanes per instance: 3 rows x (basis row, origin component), see
+// mesh_storage.cpp L1900-1911) and the compacted staging buffer likewise.
+// `rank` stands for group_offsets[p/256] + local_prefix[p], which cannot be
+// computed on the DXIL path today (blockers 1-3 above). This documents the
+// scatter lane math only; it is NOT the final binding shape (the runtime
+// binds StructuredBuffer<uint4> / RWStructuredBuffer<uint4> for a
+// bit-preserving move).
+kernel fn instance_compaction_scatter_move_lane(
+    src_transforms: View<f32>,
+    dst_transforms: ViewMut<f32>,
+    total_instances: usize,
+    rank_times_stride: usize, // = rank * 12, precomputed (inexpressible here)
+    t: ThreadCtx<1>,
+) {
+    let p = t.global_id();
+
+    if p < total_instances {
+        let src_base = p * 12;
+        let dst_base = rank_times_stride;
+
+        // 12-lane transform payload move (row 0: basis row 0 + origin.x,
+        // row 1: basis row 1 + origin.y, row 2: basis row 2 + origin.z).
+        dst_transforms[dst_base + 0] = src_transforms[src_base + 0];
+        dst_transforms[dst_base + 1] = src_transforms[src_base + 1];
+        dst_transforms[dst_base + 2] = src_transforms[src_base + 2];
+        dst_transforms[dst_base + 3] = src_transforms[src_base + 3];
+        dst_transforms[dst_base + 4] = src_transforms[src_base + 4];
+        dst_transforms[dst_base + 5] = src_transforms[src_base + 5];
+        dst_transforms[dst_base + 6] = src_transforms[src_base + 6];
+        dst_transforms[dst_base + 7] = src_transforms[src_base + 7];
+        dst_transforms[dst_base + 8] = src_transforms[src_base + 8];
+        dst_transforms[dst_base + 9] = src_transforms[src_base + 9];
+        dst_transforms[dst_base + 10] = src_transforms[src_base + 10];
+        dst_transforms[dst_base + 11] = src_transforms[src_base + 11];
+    }
+}
+
+fn main() {}

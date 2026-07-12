@@ -1,0 +1,226 @@
+{
+  "module": "instance_compaction",
+  "pass_id": "instance_compaction",
+  "artifact_kind": "hlsl_bridge_descriptor_layout",
+  "provenance": "hlsl_bridge_workaround",
+  "rurix_owned": false,
+  "entry_point": "main",
+  "target_profile": "cs_6_0",
+  "root_constants": 8,
+  "root_constant_layout": [
+    {
+      "name": "total_instances",
+      "type": "u32",
+      "order": 0,
+      "root_parameter_index": 0,
+      "dword_offset": 0,
+      "dword_size": 1
+    },
+    {
+      "name": "bitmask_words",
+      "type": "u32",
+      "order": 1,
+      "root_parameter_index": 0,
+      "dword_offset": 1,
+      "dword_size": 1
+    },
+    {
+      "name": "num_groups",
+      "type": "u32",
+      "order": 2,
+      "root_parameter_index": 0,
+      "dword_offset": 2,
+      "dword_size": 1
+    },
+    {
+      "name": "transform_stride_vec4",
+      "type": "u32",
+      "order": 3,
+      "root_parameter_index": 0,
+      "dword_offset": 3,
+      "dword_size": 1
+    },
+    {
+      "name": "pad0",
+      "type": "u32",
+      "order": 4,
+      "root_parameter_index": 0,
+      "dword_offset": 4,
+      "dword_size": 1
+    },
+    {
+      "name": "pad1",
+      "type": "u32",
+      "order": 5,
+      "root_parameter_index": 0,
+      "dword_offset": 5,
+      "dword_size": 1
+    },
+    {
+      "name": "pad2",
+      "type": "u32",
+      "order": 6,
+      "root_parameter_index": 0,
+      "dword_offset": 6,
+      "dword_size": 1
+    },
+    {
+      "name": "pad3",
+      "type": "u32",
+      "order": 7,
+      "root_parameter_index": 0,
+      "dword_offset": 7,
+      "dword_size": 1
+    }
+  ],
+  "push_constant_note": "Rurix-defined 32-byte / 8-dword CompactionParams block, shared byte-identical by all three variants at root_parameter_index 0. There is NO native Godot push constant to mirror: Godot has no native compaction pass; the pass plugs into the CPU-side 'draw the first N instances' contract (mesh_storage.h multimesh_get_instances_to_draw L721-728). No i64 fields, so SHADER_INT64 is NOT part of this pass's preflight.",
+  "group_size": 256,
+  "max_instances": 65536,
+  "dispatch_chain": [
+    "D1 scan_local (ceil(N/256),1,1)",
+    "UAV barrier: local_prefix + group_totals",
+    "D2 scan_groups (1,1,1)  [gate: num_groups <= 256]",
+    "UAV barrier: group_offsets + survivor_count",
+    "D3 scatter (ceil(N/256),1,1)",
+    "transition: dst_transforms -> draw read; survivor_count -> readback/indirect consumer"
+  ],
+  "variants": [
+    {
+      "variant": "scan_local",
+      "hlsl": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/instance_compaction_scan_local.hlsl",
+      "dispatch": "(ceil(N/256), 1, 1)",
+      "resources": [
+        {
+          "name": "visibility_mask",
+          "class": "t",
+          "register": 0,
+          "space": 0,
+          "count": 1,
+          "hlsl_type": "StructuredBuffer<uint>",
+          "binding_kind": "structured_buffer"
+        },
+        {
+          "name": "local_prefix",
+          "class": "u",
+          "register": 0,
+          "space": 0,
+          "count": 1,
+          "hlsl_type": "RWStructuredBuffer<uint>",
+          "binding_kind": "rwstructured_buffer"
+        },
+        {
+          "name": "group_totals",
+          "class": "u",
+          "register": 1,
+          "space": 0,
+          "count": 1,
+          "hlsl_type": "RWStructuredBuffer<uint>",
+          "binding_kind": "rwstructured_buffer"
+        }
+      ],
+      "root_signature_parameters": 2
+    },
+    {
+      "variant": "scan_groups",
+      "hlsl": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/instance_compaction_scan_groups.hlsl",
+      "dispatch": "(1, 1, 1)  [requires num_groups <= 256, i.e. N <= 65536]",
+      "resources": [
+        {
+          "name": "group_totals",
+          "class": "t",
+          "register": 0,
+          "space": 0,
+          "count": 1,
+          "hlsl_type": "StructuredBuffer<uint>",
+          "binding_kind": "structured_buffer"
+        },
+        {
+          "name": "group_offsets",
+          "class": "u",
+          "register": 0,
+          "space": 0,
+          "count": 1,
+          "hlsl_type": "RWStructuredBuffer<uint>",
+          "binding_kind": "rwstructured_buffer"
+        },
+        {
+          "name": "survivor_count",
+          "class": "u",
+          "register": 1,
+          "space": 0,
+          "count": 1,
+          "hlsl_type": "RWStructuredBuffer<uint>",
+          "binding_kind": "rwstructured_buffer"
+        }
+      ],
+      "root_signature_parameters": 2
+    },
+    {
+      "variant": "scatter",
+      "hlsl": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/instance_compaction_scatter.hlsl",
+      "dispatch": "(ceil(N/256), 1, 1)",
+      "resources": [
+        {
+          "name": "visibility_mask",
+          "class": "t",
+          "register": 0,
+          "space": 0,
+          "count": 1,
+          "hlsl_type": "StructuredBuffer<uint>",
+          "binding_kind": "structured_buffer"
+        },
+        {
+          "name": "src_transforms",
+          "class": "t",
+          "register": 1,
+          "space": 0,
+          "count": 1,
+          "hlsl_type": "StructuredBuffer<uint4>",
+          "binding_kind": "structured_buffer"
+        },
+        {
+          "name": "local_prefix",
+          "class": "t",
+          "register": 2,
+          "space": 0,
+          "count": 1,
+          "hlsl_type": "StructuredBuffer<uint>",
+          "binding_kind": "structured_buffer"
+        },
+        {
+          "name": "group_offsets",
+          "class": "t",
+          "register": 3,
+          "space": 0,
+          "count": 1,
+          "hlsl_type": "StructuredBuffer<uint>",
+          "binding_kind": "structured_buffer"
+        },
+        {
+          "name": "dst_transforms",
+          "class": "u",
+          "register": 0,
+          "space": 0,
+          "count": 1,
+          "hlsl_type": "RWStructuredBuffer<uint4>",
+          "binding_kind": "rwstructured_buffer"
+        }
+      ],
+      "root_signature_parameters": 2
+    }
+  ],
+  "grx016_mapping": {
+    "status": "offline_compile_package",
+    "requires_64bit_integer_shader_capability": false,
+    "requires_64bit_integer_shader_capability_note": "instance_compaction carries no i64 push-constant fields (CompactionParams is all u32), so the SHADER_INT64 device capability is NOT part of its preflight (same as GRX-013/014).",
+    "runtime_state": "fallback_only",
+    "real_gpu_pass": false,
+    "root_constant_bytes": 32,
+    "root_constant_dwords": 8,
+    "transform_stride_floats": 12,
+    "transform_stride_vec4": 3,
+    "transform_stride_note": "3D transform-only MultiMesh stride: 3 float4 rows of (basis row, origin component); mesh_storage.cpp _multimesh_allocate_data L1577-1580 / _multimesh_instance_set_transform L1900-1911",
+    "grx015_dependency": "visibility_mask is the GRX-015 gpu_culling output (u32[ceil(N/32)], bit p = word p>>5 bit p&31, 1 = survives; tail bits beyond N-1 are don't-care)",
+    "ordering_contract": "stable compaction (rank = exclusive prefix by index); opaque-only; alpha-blended and absolute-instance-index-keyed consumers out of scope (PASS_CONTRACT.md sec 5.2)"
+  }
+}

@@ -1,0 +1,1 @@
+emit_grx016_instance_compaction_rts0: wrote 152 bytes to spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_scan_groups.rts0.bin (variant scan_groups)

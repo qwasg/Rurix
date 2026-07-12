@@ -1,0 +1,749 @@
+{
+  "pass_id": "instance_compaction",
+  "subject": "grx016_instance_compaction_math_parity",
+  "status": "pending_gpu_dispatch",
+  "generated_at_utc": "2026-07-12T12:09:46Z",
+  "math_status": "instance_compaction_cpu_reference_proven_pending_gpu_dispatch",
+  "cpu_reference": {
+    "formula": "bit(p) = (mask[p>>5] >> (p&31)) & 1 guarded by p < total_instances; D1 scan_local: local_prefix[p] = exclusive prefix of bit within its 256-thread group, group_totals[g] = survivors in group g; D2 scan_groups (single group, num_groups <= 256): group_offsets = exclusive prefix over group_totals, survivor_count = grand total; D3 scatter: surviving p moves its 12-float (3 x float4) payload bit-preserving to rank = group_offsets[p/256] + local_prefix[p]; non-survivors write nothing (zero-initialized dst tail stays zero). All integer math; STABLE compaction (rank monotone in p).",
+    "hlsl_kernels": {
+      "scan_local": {
+        "path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/instance_compaction_scan_local.hlsl",
+        "sha256": "0f3d0205506b42ee453618c1f3e2ee0468c5c3aa9337e8abe3c84de7fdeeb8ba"
+      },
+      "scan_groups": {
+        "path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/instance_compaction_scan_groups.hlsl",
+        "sha256": "5a51c47d9bd0c10487ebf3e8cd026751c9ef2e809f66a7d7d574bd4fd251e451"
+      },
+      "scatter": {
+        "path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/instance_compaction_scatter.hlsl",
+        "sha256": "d3f1fa82ace8e63b28da0d1d6884b423df842f5d1951c7a0b69d23541d81a010"
+      }
+    },
+    "dxil": {
+      "scan_local": {
+        "path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/instance_compaction_scan_local.dxil",
+        "sha256": "e6ee54320c71e5939cc2b852452a1c02698b072e80b4d0b72c0ccfdac803b77a"
+      },
+      "scan_groups": {
+        "path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/instance_compaction_scan_groups.dxil",
+        "sha256": "43e47e4c44fea11244845efa16b8a706d007f64c3ec0c643c8e02687faca6234"
+      },
+      "scatter": {
+        "path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/instance_compaction_scatter.dxil",
+        "sha256": "940202d93ffcbbb3b46f36ff877f0ccd498c751595429005457e9a2d26ee2537"
+      }
+    },
+    "rurix_math_source": "spike/godot-rurix/passes/instance_compaction/src/lib.rx",
+    "godot_math_source": "NONE \u2014 Godot has no native compaction kernel. The consumption contract is mesh_storage.h multimesh_get_instances_to_draw L721-728 ('draw the first N instances'); the transform layout is mesh_storage.cpp L1900-1911 (12 floats = 3 float4 rows)."
+  },
+  "group_size": 256,
+  "max_instances": 65536,
+  "transform_stride_floats": 12,
+  "input_pattern": {
+    "visibility_mask": "per-case deterministic bit rule (see each case's survive_rule); packed LSB-first into u32 words (bit p = word p>>5, bit p&31)",
+    "mask_tail": "bits of the last word beyond total_instances-1 are set to GARBAGE (all ones) in the tail-coverage case and MUST be ignored",
+    "transform_lane": "src_transforms lane value = f32((p * 12 + lane) * 0.03125 - 100.0), exactly representable in binary32 for the fixture ranges (0.03125 = 2^-5); the payload is moved bit-preserving, never computed on",
+    "note": "the transform payload layout mirrors mesh_storage.cpp L1900-1911: 3 rows of (basis row, origin component) = 3 float4 per instance"
+  },
+  "max_abs_error_tolerance": 0,
+  "tolerance_note": "ZERO tolerance everywhere: the two prefix scans are u32 addition on exact values (element-wise integer equality required) and the scatter is a bit-preserving uint4 move (whole-buffer byte equality required, including the untouched zero tail). No float arithmetic exists anywhere in the chain.",
+  "fixture_coverage": {
+    "multi_group_sparse_cases": 2,
+    "all_survive_cases": 1,
+    "zero_survive_cases": 1,
+    "garbage_tail_word_cases": 1,
+    "empty_leading_group_cases": 1,
+    "non_word_multiple_n_cases": 4,
+    "non_group_multiple_n_cases": 5
+  },
+  "gpu_dispatch_kind": null,
+  "cases": [
+    {
+      "case_id": "sparse_survival_multi_group",
+      "note": "sparse survivors spanning 3 groups (600 = 2*256 + 88); exercises nonzero group_offsets and stable rank order",
+      "total_instances": 600,
+      "bitmask_words": 19,
+      "num_groups": 3,
+      "constants": {
+        "total_instances": 600,
+        "bitmask_words": 19,
+        "num_groups": 3,
+        "transform_stride_vec4": 3,
+        "pad0": 0,
+        "pad1": 0,
+        "pad2": 0,
+        "pad3": 0
+      },
+      "dispatch_chain": {
+        "scan_local": [
+          3,
+          1,
+          1
+        ],
+        "scan_groups": [
+          1,
+          1,
+          1
+        ],
+        "scatter": [
+          3,
+          1,
+          1
+        ]
+      },
+      "survive_rule": "((p * 1103515245 + 12345) >> 16) % 4 == 0  (~25%)",
+      "mask_tail_garbage": false,
+      "visibility_mask_u32": [
+        338182789,
+        676364554,
+        1352745476,
+        558007560,
+        1082460692,
+        2701268008,
+        1115957328,
+        2232029345,
+        169091138,
+        338186369,
+        139501890,
+        270615173,
+        675317002,
+        1352729108,
+        2705490984,
+        1116014608,
+        2164921376,
+        1108617296,
+        544929
+      ],
+      "survivor_count": 150,
+      "cpu_expected": {
+        "local_prefix_u32_le_sha256": "c264a3fcb4eeb981c5ad6a75733774b67477cbf4d5f1f0d9a29acd70c2108c41",
+        "group_totals_u32": [
+          66,
+          63,
+          21
+        ],
+        "group_offsets_u32": [
+          0,
+          66,
+          129
+        ],
+        "survivor_count_u32": 150,
+        "src_transforms_f32_le_sha256": "ab1ab2ffa8f62382d7ec88a319b7a5f480bee3c04741a66ace11f2f762026868",
+        "dst_transforms_f32_le_sha256": "cb7105ba00bee1a2ae1221ca961cb076a984aa2c79eedf7f2a342be2eda643ae",
+        "dst_compare": "WHOLE buffer byte-exact (survivor region + zero tail); dst zero-initialized before the chain",
+        "local_prefix_samples": [
+          {
+            "instance": 0,
+            "local_prefix": 0
+          },
+          {
+            "instance": 300,
+            "local_prefix": 9
+          },
+          {
+            "instance": 599,
+            "local_prefix": 21
+          }
+        ],
+        "dst_boundary_samples": [
+          {
+            "rank": 0,
+            "source_instance": 0,
+            "dst_lanes_f32": [
+              -100.0,
+              -99.96875,
+              -99.9375,
+              -99.90625,
+              -99.875,
+              -99.84375,
+              -99.8125,
+              -99.78125,
+              -99.75,
+              -99.71875,
+              -99.6875,
+              -99.65625
+            ]
+          },
+          {
+            "rank": 75,
+            "source_instance": 300,
+            "dst_lanes_f32": [
+              12.5,
+              12.53125,
+              12.5625,
+              12.59375,
+              12.625,
+              12.65625,
+              12.6875,
+              12.71875,
+              12.75,
+              12.78125,
+              12.8125,
+              12.84375
+            ]
+          },
+          {
+            "rank": 149,
+            "source_instance": 595,
+            "dst_lanes_f32": [
+              123.125,
+              123.15625,
+              123.1875,
+              123.21875,
+              123.25,
+              123.28125,
+              123.3125,
+              123.34375,
+              123.375,
+              123.40625,
+              123.4375,
+              123.46875
+            ]
+          }
+        ],
+        "dst_first_tail_element": {
+          "rank": 150,
+          "expect": "all 12 lanes zero (untouched; dst zero-initialized, non-survivors write nothing)",
+          "dst_lanes_f32": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "gpu_observed": null
+    },
+    {
+      "case_id": "all_survive",
+      "note": "compaction degenerates to the identity move; 513 crosses both the word (513 = 16*32+1) and group (2*256+1) boundaries",
+      "total_instances": 513,
+      "bitmask_words": 17,
+      "num_groups": 3,
+      "constants": {
+        "total_instances": 513,
+        "bitmask_words": 17,
+        "num_groups": 3,
+        "transform_stride_vec4": 3,
+        "pad0": 0,
+        "pad1": 0,
+        "pad2": 0,
+        "pad3": 0
+      },
+      "dispatch_chain": {
+        "scan_local": [
+          3,
+          1,
+          1
+        ],
+        "scan_groups": [
+          1,
+          1,
+          1
+        ],
+        "scatter": [
+          3,
+          1,
+          1
+        ]
+      },
+      "survive_rule": "every instance survives",
+      "mask_tail_garbage": false,
+      "visibility_mask_u32": [
+        4294967295,
+        4294967295,
+        4294967295,
+        4294967295,
+        4294967295,
+        4294967295,
+        4294967295,
+        4294967295,
+        4294967295,
+        4294967295,
+        4294967295,
+        4294967295,
+        4294967295,
+        4294967295,
+        4294967295,
+        4294967295,
+        1
+      ],
+      "survivor_count": 513,
+      "cpu_expected": {
+        "local_prefix_u32_le_sha256": "eb28704a98d0d5e7070b114c24db34f71154f51af1a1c2e3cfecff85c6bf9972",
+        "group_totals_u32": [
+          256,
+          256,
+          1
+        ],
+        "group_offsets_u32": [
+          0,
+          256,
+          512
+        ],
+        "survivor_count_u32": 513,
+        "src_transforms_f32_le_sha256": "6837cff4d05c981dd5af6bf146b51ea7d808df524a8a0d0bd77f8956761ef047",
+        "dst_transforms_f32_le_sha256": "6837cff4d05c981dd5af6bf146b51ea7d808df524a8a0d0bd77f8956761ef047",
+        "dst_compare": "WHOLE buffer byte-exact (survivor region + zero tail); dst zero-initialized before the chain",
+        "local_prefix_samples": [
+          {
+            "instance": 0,
+            "local_prefix": 0
+          },
+          {
+            "instance": 256,
+            "local_prefix": 0
+          },
+          {
+            "instance": 512,
+            "local_prefix": 0
+          }
+        ],
+        "dst_boundary_samples": [
+          {
+            "rank": 0,
+            "source_instance": 0,
+            "dst_lanes_f32": [
+              -100.0,
+              -99.96875,
+              -99.9375,
+              -99.90625,
+              -99.875,
+              -99.84375,
+              -99.8125,
+              -99.78125,
+              -99.75,
+              -99.71875,
+              -99.6875,
+              -99.65625
+            ]
+          },
+          {
+            "rank": 256,
+            "source_instance": 256,
+            "dst_lanes_f32": [
+              -4.0,
+              -3.96875,
+              -3.9375,
+              -3.90625,
+              -3.875,
+              -3.84375,
+              -3.8125,
+              -3.78125,
+              -3.75,
+              -3.71875,
+              -3.6875,
+              -3.65625
+            ]
+          },
+          {
+            "rank": 512,
+            "source_instance": 512,
+            "dst_lanes_f32": [
+              92.0,
+              92.03125,
+              92.0625,
+              92.09375,
+              92.125,
+              92.15625,
+              92.1875,
+              92.21875,
+              92.25,
+              92.28125,
+              92.3125,
+              92.34375
+            ]
+          }
+        ],
+        "dst_first_tail_element": null
+      },
+      "gpu_observed": null
+    },
+    {
+      "case_id": "zero_survive",
+      "note": "survivor_count == 0; dst stays all-zero; prefix arrays all zero",
+      "total_instances": 384,
+      "bitmask_words": 12,
+      "num_groups": 2,
+      "constants": {
+        "total_instances": 384,
+        "bitmask_words": 12,
+        "num_groups": 2,
+        "transform_stride_vec4": 3,
+        "pad0": 0,
+        "pad1": 0,
+        "pad2": 0,
+        "pad3": 0
+      },
+      "dispatch_chain": {
+        "scan_local": [
+          2,
+          1,
+          1
+        ],
+        "scan_groups": [
+          1,
+          1,
+          1
+        ],
+        "scatter": [
+          2,
+          1,
+          1
+        ]
+      },
+      "survive_rule": "no instance survives",
+      "mask_tail_garbage": false,
+      "visibility_mask_u32": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "survivor_count": 0,
+      "cpu_expected": {
+        "local_prefix_u32_le_sha256": "80422bc3d307b4a25bdafcc84ac7fb01cb55a09810e8b0f37bb12e0edb5c48ca",
+        "group_totals_u32": [
+          0,
+          0
+        ],
+        "group_offsets_u32": [
+          0,
+          0
+        ],
+        "survivor_count_u32": 0,
+        "src_transforms_f32_le_sha256": "2f1feccfc3e56070178d951f617126a48d42ad0a9961c8e7bafddd0f2e4d4876",
+        "dst_transforms_f32_le_sha256": "f7b586904e3678145aa47e4232587c913139cef0102d6d8e9276fc80c35cbad3",
+        "dst_compare": "WHOLE buffer byte-exact (survivor region + zero tail); dst zero-initialized before the chain",
+        "local_prefix_samples": [
+          {
+            "instance": 0,
+            "local_prefix": 0
+          },
+          {
+            "instance": 192,
+            "local_prefix": 0
+          },
+          {
+            "instance": 383,
+            "local_prefix": 0
+          }
+        ],
+        "dst_boundary_samples": [],
+        "dst_first_tail_element": {
+          "rank": 0,
+          "expect": "all 12 lanes zero (untouched; dst zero-initialized, non-survivors write nothing)",
+          "dst_lanes_f32": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "gpu_observed": null
+    },
+    {
+      "case_id": "mask_tail_garbage_bits_ignored",
+      "note": "proves the p < total_instances bound: garbage tail bits in word 2 (bits 70..95) must not create survivors (GRX-015 need not zero-pad)",
+      "total_instances": 70,
+      "bitmask_words": 3,
+      "num_groups": 1,
+      "constants": {
+        "total_instances": 70,
+        "bitmask_words": 3,
+        "num_groups": 1,
+        "transform_stride_vec4": 3,
+        "pad0": 0,
+        "pad1": 0,
+        "pad2": 0,
+        "pad3": 0
+      },
+      "dispatch_chain": {
+        "scan_local": [
+          1,
+          1,
+          1
+        ],
+        "scan_groups": [
+          1,
+          1,
+          1
+        ],
+        "scatter": [
+          1,
+          1,
+          1
+        ]
+      },
+      "survive_rule": "p % 5 == 0, PLUS all bits of the last mask word beyond p=69 forced to 1",
+      "mask_tail_garbage": true,
+      "visibility_mask_u32": [
+        1108378657,
+        277094664,
+        4294967234
+      ],
+      "survivor_count": 14,
+      "cpu_expected": {
+        "local_prefix_u32_le_sha256": "ce11dfde52e20913a418f2688ea69361a026a4252a66f65e371d2514d4f19ff3",
+        "group_totals_u32": [
+          14
+        ],
+        "group_offsets_u32": [
+          0
+        ],
+        "survivor_count_u32": 14,
+        "src_transforms_f32_le_sha256": "36bcf6f2a29d23b27c978f531efa3082e8b6b1c09d2861eb8d2c13500728c624",
+        "dst_transforms_f32_le_sha256": "267da1ac8cf7ae29f290d7cb02c7d3ca59234e466488f8054c988a67210349ee",
+        "dst_compare": "WHOLE buffer byte-exact (survivor region + zero tail); dst zero-initialized before the chain",
+        "local_prefix_samples": [
+          {
+            "instance": 0,
+            "local_prefix": 0
+          },
+          {
+            "instance": 35,
+            "local_prefix": 7
+          },
+          {
+            "instance": 69,
+            "local_prefix": 14
+          }
+        ],
+        "dst_boundary_samples": [
+          {
+            "rank": 0,
+            "source_instance": 0,
+            "dst_lanes_f32": [
+              -100.0,
+              -99.96875,
+              -99.9375,
+              -99.90625,
+              -99.875,
+              -99.84375,
+              -99.8125,
+              -99.78125,
+              -99.75,
+              -99.71875,
+              -99.6875,
+              -99.65625
+            ]
+          },
+          {
+            "rank": 7,
+            "source_instance": 35,
+            "dst_lanes_f32": [
+              -86.875,
+              -86.84375,
+              -86.8125,
+              -86.78125,
+              -86.75,
+              -86.71875,
+              -86.6875,
+              -86.65625,
+              -86.625,
+              -86.59375,
+              -86.5625,
+              -86.53125
+            ]
+          },
+          {
+            "rank": 13,
+            "source_instance": 65,
+            "dst_lanes_f32": [
+              -75.625,
+              -75.59375,
+              -75.5625,
+              -75.53125,
+              -75.5,
+              -75.46875,
+              -75.4375,
+              -75.40625,
+              -75.375,
+              -75.34375,
+              -75.3125,
+              -75.28125
+            ]
+          }
+        ],
+        "dst_first_tail_element": {
+          "rank": 14,
+          "expect": "all 12 lanes zero (untouched; dst zero-initialized, non-survivors write nothing)",
+          "dst_lanes_f32": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "gpu_observed": null
+    },
+    {
+      "case_id": "single_survivor_last_instance_empty_leading_group",
+      "note": "group 0 is entirely empty while group 1 holds the sole survivor: rank 0 comes from group_offsets[1]=0 + local_prefix[299]=0 with group_totals=[0,1]",
+      "total_instances": 300,
+      "bitmask_words": 10,
+      "num_groups": 2,
+      "constants": {
+        "total_instances": 300,
+        "bitmask_words": 10,
+        "num_groups": 2,
+        "transform_stride_vec4": 3,
+        "pad0": 0,
+        "pad1": 0,
+        "pad2": 0,
+        "pad3": 0
+      },
+      "dispatch_chain": {
+        "scan_local": [
+          2,
+          1,
+          1
+        ],
+        "scan_groups": [
+          1,
+          1,
+          1
+        ],
+        "scatter": [
+          2,
+          1,
+          1
+        ]
+      },
+      "survive_rule": "only p == 299 survives",
+      "mask_tail_garbage": false,
+      "visibility_mask_u32": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        2048
+      ],
+      "survivor_count": 1,
+      "cpu_expected": {
+        "local_prefix_u32_le_sha256": "655a3ef0465a9f30fddf25f4dde0c19a05c6f9069b83961800c1944165955273",
+        "group_totals_u32": [
+          0,
+          1
+        ],
+        "group_offsets_u32": [
+          0,
+          0
+        ],
+        "survivor_count_u32": 1,
+        "src_transforms_f32_le_sha256": "9ced8d0e8fca60e682088efdeb672374358049ddccd589eb2f5e230e34d5f6c4",
+        "dst_transforms_f32_le_sha256": "7d2ac9a1ac623bab62dacab307e3d9e9b4a09916b1a10e9b1dbbb30ecdaa5131",
+        "dst_compare": "WHOLE buffer byte-exact (survivor region + zero tail); dst zero-initialized before the chain",
+        "local_prefix_samples": [
+          {
+            "instance": 0,
+            "local_prefix": 0
+          },
+          {
+            "instance": 150,
+            "local_prefix": 0
+          },
+          {
+            "instance": 299,
+            "local_prefix": 0
+          }
+        ],
+        "dst_boundary_samples": [
+          {
+            "rank": 0,
+            "source_instance": 299,
+            "dst_lanes_f32": [
+              12.125,
+              12.15625,
+              12.1875,
+              12.21875,
+              12.25,
+              12.28125,
+              12.3125,
+              12.34375,
+              12.375,
+              12.40625,
+              12.4375,
+              12.46875
+            ]
+          }
+        ],
+        "dst_first_tail_element": {
+          "rank": 1,
+          "expect": "all 12 lanes zero (untouched; dst zero-initialized, non-survivors write nothing)",
+          "dst_lanes_f32": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "gpu_observed": null
+    }
+  ],
+  "notes": [
+    "GPU-observed values are pending a real three-dispatch chain; the later standalone smoke (S6, host-exclusive) must execute D1 -> UAV barrier -> D2 -> UAV barrier -> D3 (PASS_CONTRACT.md sec 5.1) and verify every measured word/byte against this CPU formula with zero tolerance.",
+    "The visibility mask is the GRX-015 gpu_culling interface declared in PASS_CONTRACT.md sec 5.3 (u32[ceil(N/32)], bit p = word p>>5 bit p&31); tail bits beyond total_instances-1 are don't-care and one case proves they are ignored.",
+    "Ordering contract: compaction is STABLE (rank = exclusive prefix by index) but absolute instance indices change; opaque-only applicability (PASS_CONTRACT.md sec 5.2).",
+    "The capacity contract num_groups <= 256 (total_instances <= 65536) is asserted per fixture case and enforced fail-closed by the later S4 gate."
+  ],
+  "does_not_imply": [
+    "Godot runtime instance_compaction pass completion",
+    "real_gpu_pass=true",
+    "real_d3d12_dispatch_recorded=true",
+    "visual success",
+    "temporal stability success",
+    "GPU timestamp success",
+    "performance claim",
+    "default pass enablement"
+  ]
+}

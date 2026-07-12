@@ -1,0 +1,345 @@
+{
+  "pass_id": "instance_compaction",
+  "segment": "offline_compile",
+  "status": "success",
+  "runtime_state": "fallback_only",
+  "attempted_at_utc": "2026-07-12T12:09:29Z",
+  "provenance": "hlsl_bridge_workaround",
+  "rurix_owned": false,
+  "rurix_owned_rts0": true,
+  "canonical_switch_exception": "owner_approved_hlsl_bridge_workaround",
+  "provenance_policy_precedent": "spike/godot-rurix/passes/luminance_reduction/texture_artifact_provenance_policy.json",
+  "provenance_blocker_note": "instance_compaction is an all raw-buffer / SSBO pass, so the texture-intrinsic llc blocker in the precedent policy does NOT apply. The workaround is used for three different blockers: (1) the DXIL compute-body lowering has f32-only buffer views (dxil_codegen.rs L1754/L1786) while the bitmask/prefix buffers are u32 words; (2) the integer bit ops the bitmask decode needs (BinOp::BitAnd/Shl/Shr, mir.rs L643-647) have no DXIL lowering; (3) the DXIL compute-body lowering rejects `shared let` (dxil_codegen.rs L921-924) and has no barrier lowering, so the groupshared prefix scan is NVPTX-only.",
+  "math_parity_evidence": "spike/godot-rurix/passes/instance_compaction/math_parity_evidence.json",
+  "math_parity_status": "instance_compaction_cpu_reference_proven_pending_gpu_dispatch",
+  "inputs": {
+    "package_manifest": "spike/godot-rurix/passes/instance_compaction/rurix.toml",
+    "entry_files": [
+      "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/instance_compaction_scan_local.hlsl",
+      "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/instance_compaction_scan_groups.hlsl",
+      "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/instance_compaction_scatter.hlsl"
+    ],
+    "rurix_math_source": "spike/godot-rurix/passes/instance_compaction/src/lib.rx",
+    "godot_reference_files": [
+      "external/godot-master/servers/rendering/renderer_rd/storage_rd/mesh_storage.cpp",
+      "external/godot-master/servers/rendering/renderer_rd/storage_rd/mesh_storage.h",
+      "external/godot-master/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp"
+    ],
+    "godot_reference_note": "no native Godot compaction shader exists; the references pin the MultiMesh 12-float stride, the 3-float4-row transform layout, and the 'draw the first N instances' consumption contract this pass plugs into"
+  },
+  "tools": {
+    "dxc": {
+      "found": true,
+      "path": "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+      "version_output": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)"
+    },
+    "dxv": {
+      "found": true,
+      "path": "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe"
+    }
+  },
+  "commands": [
+    {
+      "label": "dxc_compile_scan_local",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+        "-T",
+        "cs_6_0",
+        "-E",
+        "main",
+        "-Qstrip_debug",
+        "-Fo",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\instance_compaction\\artifacts\\hlsl_bridge\\instance_compaction_scan_local.dxil",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\instance_compaction\\artifacts\\hlsl_bridge\\instance_compaction_scan_local.hlsl"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/dxc_stdout_scan_local.txt",
+      "stderr_path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/dxc_stderr_scan_local.txt"
+    },
+    {
+      "label": "dxv_validate_scan_local",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\instance_compaction\\artifacts\\hlsl_bridge\\instance_compaction_scan_local.dxil"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/dxv_stdout_scan_local.txt",
+      "stderr_path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/dxv_stderr_scan_local.txt"
+    },
+    {
+      "label": "dxc_compile_scan_groups",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+        "-T",
+        "cs_6_0",
+        "-E",
+        "main",
+        "-Qstrip_debug",
+        "-Fo",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\instance_compaction\\artifacts\\hlsl_bridge\\instance_compaction_scan_groups.dxil",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\instance_compaction\\artifacts\\hlsl_bridge\\instance_compaction_scan_groups.hlsl"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/dxc_stdout_scan_groups.txt",
+      "stderr_path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/dxc_stderr_scan_groups.txt"
+    },
+    {
+      "label": "dxv_validate_scan_groups",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\instance_compaction\\artifacts\\hlsl_bridge\\instance_compaction_scan_groups.dxil"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/dxv_stdout_scan_groups.txt",
+      "stderr_path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/dxv_stderr_scan_groups.txt"
+    },
+    {
+      "label": "dxc_compile_scatter",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+        "-T",
+        "cs_6_0",
+        "-E",
+        "main",
+        "-Qstrip_debug",
+        "-Fo",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\instance_compaction\\artifacts\\hlsl_bridge\\instance_compaction_scatter.dxil",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\instance_compaction\\artifacts\\hlsl_bridge\\instance_compaction_scatter.hlsl"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/dxc_stdout_scatter.txt",
+      "stderr_path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/dxc_stderr_scatter.txt"
+    },
+    {
+      "label": "dxv_validate_scatter",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\instance_compaction\\artifacts\\hlsl_bridge\\instance_compaction_scatter.dxil"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/dxv_stdout_scatter.txt",
+      "stderr_path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/dxv_stderr_scatter.txt"
+    },
+    {
+      "label": "emit_grx016_instance_compaction_rts0_scan_local",
+      "argv": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "rurixc",
+        "--features",
+        "dxil-backend shader-stages",
+        "--example",
+        "emit_grx016_instance_compaction_rts0",
+        "--",
+        "scan_local",
+        "spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_descriptor_layout.json",
+        "spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_scan_local.rts0.bin"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/emit_rts0_stdout_scan_local.txt",
+      "stderr_path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/emit_rts0_stderr_scan_local.txt"
+    },
+    {
+      "label": "emit_grx016_instance_compaction_rts0_scan_groups",
+      "argv": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "rurixc",
+        "--features",
+        "dxil-backend shader-stages",
+        "--example",
+        "emit_grx016_instance_compaction_rts0",
+        "--",
+        "scan_groups",
+        "spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_descriptor_layout.json",
+        "spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_scan_groups.rts0.bin"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/emit_rts0_stdout_scan_groups.txt",
+      "stderr_path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/emit_rts0_stderr_scan_groups.txt"
+    },
+    {
+      "label": "emit_grx016_instance_compaction_rts0_scatter",
+      "argv": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "rurixc",
+        "--features",
+        "dxil-backend shader-stages",
+        "--example",
+        "emit_grx016_instance_compaction_rts0",
+        "--",
+        "scatter",
+        "spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_descriptor_layout.json",
+        "spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_scatter.rts0.bin"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/emit_rts0_stdout_scatter.txt",
+      "stderr_path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/emit_rts0_stderr_scatter.txt"
+    }
+  ],
+  "variants": [
+    {
+      "variant": "scan_local",
+      "hlsl": {
+        "path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/instance_compaction_scan_local.hlsl",
+        "sha256": "0f3d0205506b42ee453618c1f3e2ee0468c5c3aa9337e8abe3c84de7fdeeb8ba"
+      },
+      "dxil_provenance": {
+        "produced_by": "dxc",
+        "compiler_version": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)",
+        "target_profile": "cs_6_0",
+        "entry_point": "main",
+        "validation": {
+          "tool": "dxv.exe",
+          "status": "pass",
+          "exit_code": 0
+        }
+      }
+    },
+    {
+      "variant": "scan_groups",
+      "hlsl": {
+        "path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/instance_compaction_scan_groups.hlsl",
+        "sha256": "5a51c47d9bd0c10487ebf3e8cd026751c9ef2e809f66a7d7d574bd4fd251e451"
+      },
+      "dxil_provenance": {
+        "produced_by": "dxc",
+        "compiler_version": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)",
+        "target_profile": "cs_6_0",
+        "entry_point": "main",
+        "validation": {
+          "tool": "dxv.exe",
+          "status": "pass",
+          "exit_code": 0
+        }
+      }
+    },
+    {
+      "variant": "scatter",
+      "hlsl": {
+        "path": "spike/godot-rurix/passes/instance_compaction/artifacts/hlsl_bridge/instance_compaction_scatter.hlsl",
+        "sha256": "d3f1fa82ace8e63b28da0d1d6884b423df842f5d1951c7a0b69d23541d81a010"
+      },
+      "dxil_provenance": {
+        "produced_by": "dxc",
+        "compiler_version": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)",
+        "target_profile": "cs_6_0",
+        "entry_point": "main",
+        "validation": {
+          "tool": "dxv.exe",
+          "status": "pass",
+          "exit_code": 0
+        }
+      }
+    }
+  ],
+  "attempted_binding_kinds": [
+    "structured_buffer",
+    "rwstructured_buffer"
+  ],
+  "runtime_mappable": true,
+  "known_gaps": [
+    "3D transform-only MultiMesh layout (stride 12 floats = 3 float4 per instance); colors/custom_data channels (stride 16/20) and the 2D layout (stride 8) unsupported",
+    "motion-vector double-buffer MultiMesh layout unsupported (current/previous halves would compact to different ranks)",
+    "opaque-only ordering contract: alpha-blended / transparent materials and absolute-instance-index-keyed consumers are out of scope (PASS_CONTRACT.md sec 5.2)",
+    "capacity bound total_instances <= 65536 (single-level group hierarchy: num_groups <= 256); larger N needs a third scan level",
+    "depends on the GRX-015 gpu_culling visibility bitmask (u32[ceil(N/32)]); GRX-015 had not landed its pass package when this slice was authored \u2014 the later S4 gate must re-verify the declared interface (PASS_CONTRACT.md sec 5.3)",
+    "survivor-count consumption wiring (CPU readback multimesh_set_visible_instances vs GRX-018 indirect args) is a later-slice / owner decision",
+    "runtime hook / native-handle binding not wired (patches 0030-0032, later serial slices; patch 0030 additionally blocked on GRX-015 patches 0027-0029)",
+    "GPU-side math parity observation pending a real three-dispatch chain (math_parity_evidence.json)"
+  ],
+  "does_not_imply": [
+    "Godot runtime instance_compaction pass completion",
+    "real_gpu_pass=true",
+    "real_d3d12_dispatch_recorded=true",
+    "visual success",
+    "temporal stability success",
+    "GPU timestamp success",
+    "performance claim",
+    "default pass enablement",
+    "math parity proven (see math_parity_evidence.json)"
+  ],
+  "root_signature_generator": {
+    "kind": "rurixc_binding_layout_example",
+    "example": "emit_grx016_instance_compaction_rts0 <variant> <descriptor_layout.json> <out.bin>",
+    "source_api": "rurixc::binding_layout::{infer_root_signature, pack_root_constants, serialize_rts0}",
+    "root_constants": "32_bytes_8_dwords_at_root_parameter_index_0_shared_by_all_variants"
+  },
+  "artifacts": {
+    "dxil_scan_local": {
+      "path": "spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_scan_local.dxil",
+      "exists": true,
+      "size_bytes": 4640,
+      "sha256": "e6ee54320c71e5939cc2b852452a1c02698b072e80b4d0b72c0ccfdac803b77a",
+      "artifact_kind": "dxil_container",
+      "produced_by_current_run": true,
+      "semantic_status": "lowered_compute_body"
+    },
+    "root_signature_scan_local": {
+      "path": "spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_scan_local.rts0.bin",
+      "exists": true,
+      "size_bytes": 152,
+      "sha256": "f39179c393cdff43f8757930450d980d9179f37192328eeaa54616cbfa852fd4",
+      "artifact_kind": "rurix_owned_rts0_root_signature",
+      "produced_by_current_run": true
+    },
+    "dxil_scan_groups": {
+      "path": "spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_scan_groups.dxil",
+      "exists": true,
+      "size_bytes": 4464,
+      "sha256": "43e47e4c44fea11244845efa16b8a706d007f64c3ec0c643c8e02687faca6234",
+      "artifact_kind": "dxil_container",
+      "produced_by_current_run": true,
+      "semantic_status": "lowered_compute_body"
+    },
+    "root_signature_scan_groups": {
+      "path": "spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_scan_groups.rts0.bin",
+      "exists": true,
+      "size_bytes": 152,
+      "sha256": "f39179c393cdff43f8757930450d980d9179f37192328eeaa54616cbfa852fd4",
+      "artifact_kind": "rurix_owned_rts0_root_signature",
+      "produced_by_current_run": true
+    },
+    "dxil_scatter": {
+      "path": "spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_scatter.dxil",
+      "exists": true,
+      "size_bytes": 4584,
+      "sha256": "940202d93ffcbbb3b46f36ff877f0ccd498c751595429005457e9a2d26ee2537",
+      "artifact_kind": "dxil_container",
+      "produced_by_current_run": true,
+      "semantic_status": "lowered_compute_body"
+    },
+    "root_signature_scatter": {
+      "path": "spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_scatter.rts0.bin",
+      "exists": true,
+      "size_bytes": 152,
+      "sha256": "edb7d0f3558d9b393deff507aa59ff457d4a9dc73b7867fb6b7a93a30a30ee8e",
+      "artifact_kind": "rurix_owned_rts0_root_signature",
+      "produced_by_current_run": true
+    },
+    "descriptor_layout": {
+      "path": "spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_descriptor_layout.json",
+      "exists": true,
+      "size_bytes": 7123,
+      "sha256": "a78a833955e384495e0c15e160b113657d865ebad3b4baee427514a5e9914a47",
+      "artifact_kind": "descriptor_layout_json",
+      "produced_by_current_run": true
+    }
+  },
+  "notes": [
+    "Runtime remains fallback_only: the real dispatch path (a later patch/bridge slice) is opt-in only and armed by RXGD_CAP_INSTANCE_COMPACTION_REAL_PASS (1u<<10); the shipping feature-off bridge fails closed.",
+    "The canonical artifacts/ paths carry the raw-buffer hlsl_bridge workaround package for the THREE-dispatch chain: per variant a DXC cs_6_0 DXIL container (validated by dxv) and a Rurix-owned RTS0 root signature serialized by rurixc::binding_layout::serialize_rts0 (shared 32-byte / 8-dword CompactionParams root constants + the per-variant structured-buffer SRV/UAV surface), plus ONE descriptor layout JSON with the three variants and the dispatch/barrier chain.",
+    "hlsl_bridge_workaround provenance (buffer-pass variant): NOT rurix_owned. Blockers: (1) f32-only DXIL buffer views (u32 bitmask/prefix words cannot round-trip bit-faithfully); (2) integer bit ops have no DXIL-backend lowering; (3) `shared let`/`barrier()` lower only on NVPTX \u2014 the DXIL compute-body lowering rejects `shared let`, so the groupshared scan cannot be expressed. The texture-intrinsic llc blocker does NOT apply to this raw-buffer pass.",
+    "Unlike GRX-009..014 there is no native Godot kernel being mirrored: Godot has no GPU compaction pass. The chain implements stable stream compaction against the CPU reference in generate_math_parity_evidence.py, and plugs into Godot's 'draw the first N instances' contract (mesh_storage.h multimesh_get_instances_to_draw L721-728); see known_gaps.",
+    "GRX-015 dependency: visibility_mask is the gpu_culling output (u32[ceil(N/32)]); the interface is declared in PASS_CONTRACT.md sec 5.3 and must be re-verified by the later S4 gate once GRX-015 lands."
+  ],
+  "blocker_category": null,
+  "blocker_summary": null
+}

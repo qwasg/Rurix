@@ -1,0 +1,230 @@
+{
+  "pass_id": "instance_compaction",
+  "status": "grx016_offline_kernel_and_math_parity_default_disabled",
+  "implemented": false,
+  "default_enable_state": "disabled",
+  "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
+  "target_scenes": [
+    "many_mesh_instances",
+    "mixed_forward_plus"
+  ],
+  "bridge_pass_id": "RXGD_PASS_INSTANCE_COMPACTION (11) — NEW id to be allocated in the RXGD_PASS_* enum in src/rurix-godot/src/lib.rs by the later S4 slice (enum currently ends at RXGD_PASS_FUSED_POST_CHAIN = 10; this S1-S3 slice touches no lib.rs and only records the planned value)",
+  "real_pass_cap_bit": "RXGD_CAP_INSTANCE_COMPACTION_REAL_PASS (1u << 10), reserved in PATCH_ALLOCATION.md section 3 (bit 10)",
+  "reserved_patches": "0030-0032 (PATCH_ALLOCATION.md section 2: 0030 gate+callsite / 0031 runtime binding / 0032 recording+real-pass opt-in); patch 0030 additionally blocked on the GRX-015 patches 0027-0029 landing first",
+  "grx015_dependency": {
+    "declared_interface": "visibility_mask = GRX-015 gpu_culling per-instance visibility bitmask, u32[ceil(N/32)], bit p = word p>>5 bit p&31, 1 = survives; tail bits beyond N-1 are don't-care (this pass bound-checks; GRX-015 need not zero-pad)",
+    "status_when_authored": "GRX-015 had NOT landed its pass package (spike/godot-rurix/passes has no gpu_culling dir); the later S4 gate must re-verify this interface against the landed GRX-015 contract before any dispatch (mismatch = fail-closed fallback)",
+    "disabled_path_correctness": "when GRX-016 is disabled (the default), GRX-015 must degrade to count-only (telemetry only, no buffer mutation, no visible_instances change), which keeps the native path trivially correct; GRX-016 without GRX-015 has no input and falls back",
+    "pr_boundary": "per GRX_PLAN.md GRX-016 接续说明 the two milestones are never merged into one PR"
+  },
+  "godot_hook_investigation": {
+    "note": "Investigation only; external/godot-master is NOT modified. Paths and functions are recorded for the later patch 0030 call-site gate and the patch 0031 native-handle mapping. This S1-S3 slice delivers the OFFLINE face only (contract trio + three-variant offline kernel chain + zero-tolerance math parity); the hook/patch, bridge gate and dispatch smoke are later slices. Unlike GRX-009..014 there is NO native compute pass being replaced: the pass is ADDITIVE and plugs into the MultiMesh 'draw the first N instances' contract.",
+    "storage_class": {
+      "source": "servers/rendering/renderer_rd/storage_rd/mesh_storage.cpp",
+      "header": "servers/rendering/renderer_rd/storage_rd/mesh_storage.h",
+      "functions": [
+        "RendererRD::MeshStorage::_multimesh_allocate_data",
+        "RendererRD::MeshStorage::_multimesh_instance_set_transform",
+        "RendererRD::MeshStorage::_multimesh_set_visible_instances",
+        "RendererRD::MeshStorage::multimesh_get_instances_to_draw"
+      ],
+      "stride": "3D transform-only stride_cache = 12 floats per instance (color_offset_cache = 12 for 3D, mesh_storage.cpp L1577-1580); GPU buffer = storage_buffer_create(instances * stride_cache * sizeof(float)) (L1596-1599)",
+      "transform_layout": "12 floats = 3 rows of (basis.rows[i][0..2], origin[i]) = 3 float4 rows (mesh_storage.cpp L1900-1911)",
+      "native_pass_shape": "NONE — no native compaction kernel exists. The native visibility lever is the CPU-set visible_instances (mesh_storage.cpp L2187-2216); the renderer draws the FIRST N instances of the buffer (multimesh_get_instances_to_draw, mesh_storage.h L721-728). The compaction strategy exploits exactly this contract: survivors moved to the buffer front + survivor count = first-N draw of survivors only, no draw-shader gather indirection."
+    },
+    "shaders": [],
+    "shader_note": "no native Godot compaction shader; the math target is the CPU stable-stream-compaction reference in generate_math_parity_evidence.py (integer-exact / byte-exact, zero tolerance) and the b0 block is Rurix-defined (no native push constant to mirror)",
+    "call_sites": [
+      {
+        "file": "servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp",
+        "function": "_geometry_instance_update (INSTANCE_MULTIMESH case)",
+        "region": "draw-count consumption",
+        "lines": [
+          4297,
+          4297
+        ],
+        "note": "ginstance->instance_count = multimesh_get_instances_to_draw(...); the DEPENDENCY_CHANGED_MULTIMESH_VISIBLE_INSTANCES handler at L4783-4787 re-reads it when visible_instances changes. The GRX-016 runtime injection point (later patch 0030) is on the compute timeline after the GRX-015 culling dispatch, with survivor-count consumption candidates (a) CPU readback -> multimesh_set_visible_instances (one-frame latency, to be measured) or (b) the GPU-side indirect command-buffer count write (mesh_storage.cpp L2206-2213, GRX-018 territory); the design is deferred to the later serial patch slice."
+      }
+    ],
+    "source_resources": [
+      "GRX-015 gpu_culling visibility bitmask (u32[ceil(N/32)]; a Rurix-pass output, not a Godot resource; declared interface, PASS_CONTRACT.md section 5.3)",
+      "multimesh->buffer (Godot MultiMesh SSBO, mesh_storage.cpp L1598; 12 floats = 3 float4 per instance in the in-scope 3D transform-only layout; never mutated by this pass)"
+    ],
+    "dest_resource": "dst_transforms compacted staging buffer (Rurix-owned, 3 float4 per instance, sized for the full N worst case; survivors packed at the front in stable index order; tail untouched = don't-care under first-N draw) + survivor_count u32[1]"
+  },
+  "resource_mapping": "spike/godot-rurix/passes/instance_compaction/resource_mapping.md",
+  "descriptor_mapping": {
+    "root_cbuffer_binding": "b0 space0",
+    "root_constants": "Rurix-defined 32-byte / 8-dword CompactionParams (total_instances, bitmask_words, num_groups, transform_stride_vec4, 4 pads), shared byte-identical by all three variants; NO native push constant exists to mirror (see resource_mapping.md and artifacts/instance_compaction_descriptor_layout.json)",
+    "root_constant_bytes": 32,
+    "root_constant_dwords": 8,
+    "variants": [
+      {
+        "variant": "scan_local",
+        "dispatch": "(ceil(N/256), 1, 1)",
+        "resources": [
+          {
+            "name": "visibility_mask",
+            "binding": "t0 space0",
+            "kind": "SRV",
+            "binding_kind": "structured_buffer"
+          },
+          {
+            "name": "local_prefix",
+            "binding": "u0 space0",
+            "kind": "UAV",
+            "binding_kind": "rwstructured_buffer"
+          },
+          {
+            "name": "group_totals",
+            "binding": "u1 space0",
+            "kind": "UAV",
+            "binding_kind": "rwstructured_buffer"
+          }
+        ]
+      },
+      {
+        "variant": "scan_groups",
+        "dispatch": "(1, 1, 1) [requires num_groups <= 256, i.e. N <= 65536]",
+        "resources": [
+          {
+            "name": "group_totals",
+            "binding": "t0 space0",
+            "kind": "SRV",
+            "binding_kind": "structured_buffer"
+          },
+          {
+            "name": "group_offsets",
+            "binding": "u0 space0",
+            "kind": "UAV",
+            "binding_kind": "rwstructured_buffer"
+          },
+          {
+            "name": "survivor_count",
+            "binding": "u1 space0",
+            "kind": "UAV",
+            "binding_kind": "rwstructured_buffer"
+          }
+        ]
+      },
+      {
+        "variant": "scatter",
+        "dispatch": "(ceil(N/256), 1, 1)",
+        "resources": [
+          {
+            "name": "visibility_mask",
+            "binding": "t0 space0",
+            "kind": "SRV",
+            "binding_kind": "structured_buffer"
+          },
+          {
+            "name": "src_transforms",
+            "binding": "t1 space0",
+            "kind": "SRV",
+            "binding_kind": "structured_buffer"
+          },
+          {
+            "name": "local_prefix",
+            "binding": "t2 space0",
+            "kind": "SRV",
+            "binding_kind": "structured_buffer"
+          },
+          {
+            "name": "group_offsets",
+            "binding": "t3 space0",
+            "kind": "SRV",
+            "binding_kind": "structured_buffer"
+          },
+          {
+            "name": "dst_transforms",
+            "binding": "u0 space0",
+            "kind": "UAV",
+            "binding_kind": "rwstructured_buffer"
+          }
+        ]
+      }
+    ],
+    "dispatch_chain_barriers": "D1 scan_local -> UAV barrier (local_prefix + group_totals) -> D2 scan_groups -> UAV barrier (group_offsets + survivor_count) -> D3 scatter -> transition dst_transforms/survivor_count for consumption; all-or-nothing (no partial chain)",
+    "requires_64bit_integer_shader_capability": false,
+    "requires_64bit_integer_shader_capability_note": "instance_compaction carries no i64 push-constant fields (CompactionParams is all u32), so SHADER_INT64 is NOT part of its binding preflight (same as GRX-013/014; contrast with the GRX-009/010/011/012 texture passes)",
+    "on_missing_resource_or_cap_or_descriptor_mismatch": "RXGD_STATUS_FALLBACK"
+  },
+  "supported_math_subset": {
+    "variant": "stable stream compaction of a 3D transform-only MultiMesh buffer (stride 12 floats = 3 float4), three-dispatch chain, GROUP_SIZE = 256",
+    "scan_local": "thread p reads bit p of the GRX-015 mask (word p>>5, bit p&31, guarded by p < total_instances); groupshared Hillis-Steele inclusive scan (8 fixed steps, two GroupMemoryBarrierWithGroupSync per step); local_prefix[p] = inclusive - own bit; group_totals[gid] = last lane's inclusive total",
+    "scan_groups": "single 256-thread group scans group_totals into exclusive group_offsets and survivor_count[0] = grand total; requires num_groups <= 256 (N <= 65536)",
+    "scatter": "surviving p moves its 3 x uint4 payload bit-preserving to rank = group_offsets[p/256] + local_prefix[p]; non-survivors write nothing (dst tail untouched, don't-care under first-N draw)",
+    "ordering_contract": "STABLE (rank monotone in p: survivors keep relative index order) but absolute instance indices change; OPAQUE-ONLY — alpha-blended materials and absolute-instance-index-keyed consumers are out of scope (PASS_CONTRACT.md section 5.2)",
+    "determinism": "no float arithmetic anywhere: u32 adds + bit-preserving moves; CPU reference matches with ZERO tolerance (element-wise integer equality for prefixes, whole-buffer byte equality for dst)",
+    "parameterization": "all sizes come from the shared 8-dword b0 (total_instances / bitmask_words / num_groups / transform_stride_vec4); nothing is hardcoded except GROUP_SIZE = 256 (a kernel-structural constant baked into all three variants and the capacity bound)"
+  },
+  "known_gaps": [
+    "3D transform-only MultiMesh layout (stride 12 floats = 3 float4 per instance); colors/custom_data channels (stride 16/20) and the 2D layout (stride 8) unsupported",
+    "motion-vector double-buffer MultiMesh layout unsupported (current/previous halves would compact to different ranks)",
+    "opaque-only ordering contract: alpha-blended / transparent materials and absolute-instance-index-keyed consumers are out of scope (PASS_CONTRACT.md section 5.2)",
+    "capacity bound total_instances <= 65536 (single-level group hierarchy: num_groups <= 256); larger N needs a third scan level",
+    "depends on the GRX-015 gpu_culling visibility bitmask; GRX-015 had not landed its pass package when this slice was authored — the later S4 gate must re-verify the declared interface (PASS_CONTRACT.md section 5.3)",
+    "survivor-count consumption wiring (CPU readback multimesh_set_visible_instances vs GRX-018 indirect args) is a later-slice / owner decision",
+    "runtime hook / native-handle binding not wired (patches 0030-0032, later serial slices; patch 0030 additionally blocked on GRX-015 patches 0027-0029)",
+    "GPU-side math parity observation pending a real three-dispatch chain (math_parity_evidence.json)"
+  ],
+  "fallback": {
+    "reasons": [
+      "compile_failed",
+      "validation_failed",
+      "unsupported_device",
+      "visual_diff_failed",
+      "manual_disabled"
+    ],
+    "on_any_failure": "godot_native_multimesh_draw"
+  },
+  "offline_compile_status": "success",
+  "offline_compile_provenance": "hlsl_bridge_workaround",
+  "offline_compile_runtime_mappable": true,
+  "offline_compile_evidence": "spike/godot-rurix/passes/instance_compaction/offline_compile_evidence.json",
+  "offline_compile_artifacts": {
+    "dxil_scan_local": "spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_scan_local.dxil",
+    "dxil_scan_groups": "spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_scan_groups.dxil",
+    "dxil_scatter": "spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_scatter.dxil",
+    "root_signature_scan_local": "spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_scan_local.rts0.bin",
+    "root_signature_scan_groups": "spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_scan_groups.rts0.bin",
+    "root_signature_scatter": "spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_scatter.rts0.bin",
+    "descriptor_layout": "spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_descriptor_layout.json"
+  },
+  "math_parity_evidence": "spike/godot-rurix/passes/instance_compaction/math_parity_evidence.json",
+  "math_parity_status": "instance_compaction_cpu_reference_proven_pending_gpu_dispatch",
+  "compile_blockers": [
+    {
+      "category": "provenance_workaround_active",
+      "summary": "the canonical instance_compaction package is the owner-approved hlsl_bridge_workaround artifact set (three DXC cs_6_0 containers validated by dxv, per-slot structured_buffer/rwstructured_buffer binding kinds, Rurix-owned RTS0 per variant). instance_compaction is an all raw-buffer / SSBO pass, so the GRX-009 texture-intrinsic llc blocker does NOT apply; the workaround is used because of three rurixc blockers: (1) the DXIL compute-body lowering accepts only View<global, f32>/ViewMut<global, f32> buffer views (src/rurixc/src/dxil_codegen.rs L1754/L1786) while the bitmask/prefix/totals/offsets/count buffers are u32 words whose bit patterns an f32 view cannot carry bit-faithfully; (2) the integer bit ops the bitmask decode needs exist in MIR (BinOp::BitAnd/Shl/Shr, src/rurixc/src/mir.rs L643-647) but have no DXIL-backend lowering; (3) the lang subset HAS shared let (addrspace(3), M5.3/RXS-0079) and barrier() (DeviceIntrinsic::Barrier) but both lower ONLY on the NVPTX path — the DXIL compute-body lowering explicitly rejects shared let (src/rurixc/src/dxil_codegen.rs L921-924) and has no barrier lowering, so the groupshared prefix scan cannot be expressed"
+    }
+  ],
+  "implementation_status": {
+    "segment": "s1_s3_contract_offline_kernel_math_parity",
+    "segment_detail": "grx016_offline_kernel_and_math_parity_default_disabled",
+    "runtime_state": "fallback_only",
+    "runtime_state_note": "The runtime path is fallback-only and NOTHING is wired: no bridge gate exists yet (S4), no RXGD_PASS_INSTANCE_COMPACTION id has been allocated in lib.rs, no Godot patch exists (0030-0032 reserved), and no dispatch has ever run. real_gpu_pass=false and real_d3d12_dispatch_recorded=false are the honest fail-closed values; this manifest never advances on offline evidence alone.",
+    "bridge_gate": "NOT authored in this slice. The later S4 InstanceCompactionGate mirrors the GRX-014 ClusterStoreGate template extended to the three-variant chain: preflight (per-variant resource counts/orders, shared 32-byte b0, nonzero total_instances, bitmask_words == ceil(N/32), num_groups == ceil(N/256) <= 256, transform_stride_vec4 == 3, buffer sizes consistent; NO int64 cap check) -> dispatch eligibility (RXGD_CAP_INSTANCE_COMPACTION_REAL_PASS (1u << 10) opt-in + non-null handles + per-variant package layout/digest match vs the S2 offline evidence, all SEVEN canonical digests baked) -> per-slot binding-kind conformance -> math-parity gate (instance_compaction_cpu_reference_proven_pending_gpu_dispatch) -> real three-dispatch chain with the PASS_CONTRACT section 5.1 barrier contract, all-or-nothing, only under a recording-shim feature (shipping feature-off fails closed with real_dispatch_path_not_linked).",
+    "godot_module_patch": "NOT authored in this slice. PATCH_ALLOCATION.md section 2 reserves 0030-0032 for instance_compaction (0030-rurix-accel-instance-compaction-pass-gate-and-callsite.patch / 0031 runtime binding / 0032 recording+real-pass opt-in); patch authoring is a later serial slice under the stack-lock, and 0030 is additionally blocked on the GRX-015 patches 0027-0029 landing first.",
+    "godot_core_call_site_wired": false,
+    "real_gpu_pass": false,
+    "real_d3d12_dispatch_recorded": false,
+    "godot_runtime_instance_compaction_path_enabled": false,
+    "remaining_segments": [
+      "S4 bridge gate (InstanceCompactionGate, three dispatch packages + RXGD_PASS_INSTANCE_COMPACTION = 11 id allocation in lib.rs)",
+      "S5 patch 0030 (gate + call-site opt-in; blocked on GRX-015 patches 0027-0029) and S7 patches 0031/0032 — serial slices under the PATCH_ALLOCATION stack-lock",
+      "S6 standalone three-dispatch D3D12 smoke (chain execution with the section 5.1 barrier contract + zero-tolerance readback vs the S3 reference)",
+      "S8 scratch rebuild + gated real-pass enablement smoke; S9 close-out (manifest flip + owner default-enable decision + grx016 gate-module readiness)",
+      "survivor-count consumption design (CPU readback visible_instances vs GRX-018 indirect args) — owner decision",
+      "per-pass FPS baseline comparison (contract requires >= 0.95x baseline before any default-enable discussion)"
+    ]
+  },
+  "evidence_requirements": {
+    "offline_compile": "offline_compile_evidence.json (measured): per-variant DXC cs_6_0 compile + DXV validation pass + Rurix-owned RTS0; SEVEN canonical artifacts (3 DXIL + 3 RTS0 + 1 descriptor JSON) with SHA-256 recomputable on disk",
+    "math_parity": "math_parity_evidence.json: deterministic synthetic bitmask + transform fixtures with an integer-exact / byte-exact CPU reference (ZERO tolerance) covering sparse-multi-group / all-survive / zero-survive / garbage-tail-word / empty-leading-group cases (generator fails if any coverage counter is zero); status=pending_gpu_dispatch",
+    "standalone_dispatch": "later slice (S6): real three-dispatch chain with UAV barriers, every measured word/byte compared exactly (zero tolerance) against the tracked CPU reference",
+    "visual": "later enablement slice (S8); this slice claims none",
+    "perf": "reuse GRX-006 baseline/perf gate; no perf improvement claimed; GRX_PLAN.md GRX-016 verification = visibility correctness first"
+  },
+  "disclaimer": "GRX-016 instance_compaction is at the S1-S3 level only: the pass contract trio, the three-variant DXC/DXV/RTS0 offline kernel chain (hlsl_bridge_workaround provenance, Rurix-owned RTS0 per variant), and the integer-exact / byte-exact CPU math-parity reference (zero tolerance). implemented=false, runtime_state=fallback_only, real_gpu_pass=false, real_d3d12_dispatch_recorded=false are the honest fail-closed values: no bridge gate exists, no RXGD_PASS id is allocated, no Godot patch exists (0030-0032 reserved; 0030 blocked on GRX-015 patches 0027-0029), no GPU dispatch has ever run, the GRX-015 visibility-bitmask interface is a declared dependency pending re-verification when GRX-015 lands, the pass is opaque-only by its ordering contract, and NO visual-superiority, GPU-timestamp, FPS, or performance improvement is claimed."
+}
