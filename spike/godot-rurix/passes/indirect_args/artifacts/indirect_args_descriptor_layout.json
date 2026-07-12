@@ -1,0 +1,426 @@
+{
+  "module": "indirect_args",
+  "pass_id": "indirect_args",
+  "artifact_kind": "hlsl_bridge_descriptor_layout",
+  "provenance": "hlsl_bridge_workaround",
+  "rurix_owned": false,
+  "entry_point": "main",
+  "target_profile": "cs_6_0",
+  "root_constants": 44,
+  "root_constant_layout": [
+    {
+      "name": "surface_count",
+      "type": "u32",
+      "order": 0,
+      "root_parameter_index": 0,
+      "dword_offset": 0,
+      "dword_size": 1
+    },
+    {
+      "name": "max_instance_count",
+      "type": "u32",
+      "order": 1,
+      "root_parameter_index": 0,
+      "dword_offset": 1,
+      "dword_size": 1
+    },
+    {
+      "name": "survivor_count_word_offset",
+      "type": "u32",
+      "order": 2,
+      "root_parameter_index": 0,
+      "dword_offset": 2,
+      "dword_size": 1
+    },
+    {
+      "name": "pad0",
+      "type": "u32",
+      "order": 3,
+      "root_parameter_index": 0,
+      "dword_offset": 3,
+      "dword_size": 1
+    },
+    {
+      "name": "surface0_index_count",
+      "type": "u32",
+      "order": 4,
+      "root_parameter_index": 0,
+      "dword_offset": 4,
+      "dword_size": 1
+    },
+    {
+      "name": "surface0_instance_count_reserved",
+      "type": "u32",
+      "order": 5,
+      "root_parameter_index": 0,
+      "dword_offset": 5,
+      "dword_size": 1
+    },
+    {
+      "name": "surface0_first_index",
+      "type": "u32",
+      "order": 6,
+      "root_parameter_index": 0,
+      "dword_offset": 6,
+      "dword_size": 1
+    },
+    {
+      "name": "surface0_vertex_offset",
+      "type": "u32",
+      "order": 7,
+      "root_parameter_index": 0,
+      "dword_offset": 7,
+      "dword_size": 1
+    },
+    {
+      "name": "surface0_first_instance",
+      "type": "u32",
+      "order": 8,
+      "root_parameter_index": 0,
+      "dword_offset": 8,
+      "dword_size": 1
+    },
+    {
+      "name": "surface1_index_count",
+      "type": "u32",
+      "order": 9,
+      "root_parameter_index": 0,
+      "dword_offset": 9,
+      "dword_size": 1
+    },
+    {
+      "name": "surface1_instance_count_reserved",
+      "type": "u32",
+      "order": 10,
+      "root_parameter_index": 0,
+      "dword_offset": 10,
+      "dword_size": 1
+    },
+    {
+      "name": "surface1_first_index",
+      "type": "u32",
+      "order": 11,
+      "root_parameter_index": 0,
+      "dword_offset": 11,
+      "dword_size": 1
+    },
+    {
+      "name": "surface1_vertex_offset",
+      "type": "u32",
+      "order": 12,
+      "root_parameter_index": 0,
+      "dword_offset": 12,
+      "dword_size": 1
+    },
+    {
+      "name": "surface1_first_instance",
+      "type": "u32",
+      "order": 13,
+      "root_parameter_index": 0,
+      "dword_offset": 13,
+      "dword_size": 1
+    },
+    {
+      "name": "surface2_index_count",
+      "type": "u32",
+      "order": 14,
+      "root_parameter_index": 0,
+      "dword_offset": 14,
+      "dword_size": 1
+    },
+    {
+      "name": "surface2_instance_count_reserved",
+      "type": "u32",
+      "order": 15,
+      "root_parameter_index": 0,
+      "dword_offset": 15,
+      "dword_size": 1
+    },
+    {
+      "name": "surface2_first_index",
+      "type": "u32",
+      "order": 16,
+      "root_parameter_index": 0,
+      "dword_offset": 16,
+      "dword_size": 1
+    },
+    {
+      "name": "surface2_vertex_offset",
+      "type": "u32",
+      "order": 17,
+      "root_parameter_index": 0,
+      "dword_offset": 17,
+      "dword_size": 1
+    },
+    {
+      "name": "surface2_first_instance",
+      "type": "u32",
+      "order": 18,
+      "root_parameter_index": 0,
+      "dword_offset": 18,
+      "dword_size": 1
+    },
+    {
+      "name": "surface3_index_count",
+      "type": "u32",
+      "order": 19,
+      "root_parameter_index": 0,
+      "dword_offset": 19,
+      "dword_size": 1
+    },
+    {
+      "name": "surface3_instance_count_reserved",
+      "type": "u32",
+      "order": 20,
+      "root_parameter_index": 0,
+      "dword_offset": 20,
+      "dword_size": 1
+    },
+    {
+      "name": "surface3_first_index",
+      "type": "u32",
+      "order": 21,
+      "root_parameter_index": 0,
+      "dword_offset": 21,
+      "dword_size": 1
+    },
+    {
+      "name": "surface3_vertex_offset",
+      "type": "u32",
+      "order": 22,
+      "root_parameter_index": 0,
+      "dword_offset": 22,
+      "dword_size": 1
+    },
+    {
+      "name": "surface3_first_instance",
+      "type": "u32",
+      "order": 23,
+      "root_parameter_index": 0,
+      "dword_offset": 23,
+      "dword_size": 1
+    },
+    {
+      "name": "surface4_index_count",
+      "type": "u32",
+      "order": 24,
+      "root_parameter_index": 0,
+      "dword_offset": 24,
+      "dword_size": 1
+    },
+    {
+      "name": "surface4_instance_count_reserved",
+      "type": "u32",
+      "order": 25,
+      "root_parameter_index": 0,
+      "dword_offset": 25,
+      "dword_size": 1
+    },
+    {
+      "name": "surface4_first_index",
+      "type": "u32",
+      "order": 26,
+      "root_parameter_index": 0,
+      "dword_offset": 26,
+      "dword_size": 1
+    },
+    {
+      "name": "surface4_vertex_offset",
+      "type": "u32",
+      "order": 27,
+      "root_parameter_index": 0,
+      "dword_offset": 27,
+      "dword_size": 1
+    },
+    {
+      "name": "surface4_first_instance",
+      "type": "u32",
+      "order": 28,
+      "root_parameter_index": 0,
+      "dword_offset": 28,
+      "dword_size": 1
+    },
+    {
+      "name": "surface5_index_count",
+      "type": "u32",
+      "order": 29,
+      "root_parameter_index": 0,
+      "dword_offset": 29,
+      "dword_size": 1
+    },
+    {
+      "name": "surface5_instance_count_reserved",
+      "type": "u32",
+      "order": 30,
+      "root_parameter_index": 0,
+      "dword_offset": 30,
+      "dword_size": 1
+    },
+    {
+      "name": "surface5_first_index",
+      "type": "u32",
+      "order": 31,
+      "root_parameter_index": 0,
+      "dword_offset": 31,
+      "dword_size": 1
+    },
+    {
+      "name": "surface5_vertex_offset",
+      "type": "u32",
+      "order": 32,
+      "root_parameter_index": 0,
+      "dword_offset": 32,
+      "dword_size": 1
+    },
+    {
+      "name": "surface5_first_instance",
+      "type": "u32",
+      "order": 33,
+      "root_parameter_index": 0,
+      "dword_offset": 33,
+      "dword_size": 1
+    },
+    {
+      "name": "surface6_index_count",
+      "type": "u32",
+      "order": 34,
+      "root_parameter_index": 0,
+      "dword_offset": 34,
+      "dword_size": 1
+    },
+    {
+      "name": "surface6_instance_count_reserved",
+      "type": "u32",
+      "order": 35,
+      "root_parameter_index": 0,
+      "dword_offset": 35,
+      "dword_size": 1
+    },
+    {
+      "name": "surface6_first_index",
+      "type": "u32",
+      "order": 36,
+      "root_parameter_index": 0,
+      "dword_offset": 36,
+      "dword_size": 1
+    },
+    {
+      "name": "surface6_vertex_offset",
+      "type": "u32",
+      "order": 37,
+      "root_parameter_index": 0,
+      "dword_offset": 37,
+      "dword_size": 1
+    },
+    {
+      "name": "surface6_first_instance",
+      "type": "u32",
+      "order": 38,
+      "root_parameter_index": 0,
+      "dword_offset": 38,
+      "dword_size": 1
+    },
+    {
+      "name": "surface7_index_count",
+      "type": "u32",
+      "order": 39,
+      "root_parameter_index": 0,
+      "dword_offset": 39,
+      "dword_size": 1
+    },
+    {
+      "name": "surface7_instance_count_reserved",
+      "type": "u32",
+      "order": 40,
+      "root_parameter_index": 0,
+      "dword_offset": 40,
+      "dword_size": 1
+    },
+    {
+      "name": "surface7_first_index",
+      "type": "u32",
+      "order": 41,
+      "root_parameter_index": 0,
+      "dword_offset": 41,
+      "dword_size": 1
+    },
+    {
+      "name": "surface7_vertex_offset",
+      "type": "u32",
+      "order": 42,
+      "root_parameter_index": 0,
+      "dword_offset": 42,
+      "dword_size": 1
+    },
+    {
+      "name": "surface7_first_instance",
+      "type": "u32",
+      "order": 43,
+      "root_parameter_index": 0,
+      "dword_offset": 43,
+      "dword_size": 1
+    }
+  ],
+  "push_constant_note": "176-byte / 44-dword Rurix-owned parameter block (NO native push constant exists: the native producer is CPU buffer_update code in mesh_storage.cpp, not a dispatch): surface_count / max_instance_count / survivor_count_word_offset / pad0 + 8 per-surface 5-dword command templates. The template array is carried as uint4[10] in the HLSL cbuffer so the 40 template dwords stay tightly packed. surface{s}_instance_count_reserved MUST be 0 (dword 1 is the GPU-dynamic instance_count).",
+  "resources": [
+    {
+      "name": "src_survivor_counts",
+      "class": "t",
+      "register": 0,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "StructuredBuffer<uint>",
+      "binding_kind": "structured_buffer"
+    },
+    {
+      "name": "dst_command_buffer",
+      "class": "u",
+      "register": 0,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "RWStructuredBuffer<uint>",
+      "binding_kind": "rwstructured_buffer"
+    },
+    {
+      "name": "dst_validation",
+      "class": "u",
+      "register": 1,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "RWStructuredBuffer<uint>",
+      "binding_kind": "rwstructured_buffer"
+    }
+  ],
+  "root_signature_parameters": 2,
+  "kernels": {
+    "write": {
+      "hlsl": "spike/godot-rurix/passes/indirect_args/artifacts/hlsl_bridge/indirect_args_write.hlsl",
+      "canonical_dxil": "spike/godot-rurix/passes/indirect_args/artifacts/indirect_args.dxil",
+      "entry_point": "main",
+      "role": "generate the complete 5-dword command block per surface (dword 1 = min(survivors, max_instance_count); dwords 0/2/3/4 = b0 template backfill)",
+      "references_dst_validation": false
+    },
+    "validate": {
+      "hlsl": "spike/godot-rurix/passes/indirect_args/artifacts/hlsl_bridge/indirect_args_validate.hlsl",
+      "canonical_dxil": "spike/godot-rurix/passes/indirect_args/artifacts/indirect_args_validate.dxil",
+      "entry_point": "main",
+      "role": "RESIDENT red leg (GRX_PLAN GRX-018): dword-by-dword compare vs b0 template + recomputed expected instance_count; per-surface bitmask + InterlockedAdd mismatch/clamp counters; any nonzero counter -> immediate fallback",
+      "references_dst_validation": true
+    }
+  },
+  "shared_root_signature_note": "both kernels declare the identical binding surface (t0/u0/u1/b0), so ONE Rurix-owned RTS0 serves both PSOs; the write kernel never references u1 (a root-signature superset is legal).",
+  "grx018_mapping": {
+    "status": "offline_compile_package",
+    "requires_64bit_integer_shader_capability": false,
+    "requires_64bit_integer_shader_capability_note": "indirect_args carries no i64 b0 fields (all u32), so the SHADER_INT64 device capability is NOT part of its preflight (GRX-013/014 buffer-pass precedent).",
+    "runtime_state": "fallback_only",
+    "real_gpu_pass": false,
+    "root_constant_bytes": 176,
+    "root_constant_dwords": 44,
+    "max_surfaces": 8,
+    "command_block_stride_dwords": 5,
+    "command_block_stride_note": "Godot INDIRECT_MULTIMESH_COMMAND_STRIDE = 5 u32 dwords per surface (mesh_storage.h L62-64); dword layout in resource_mapping.md (indexed naming; non-indexed reading is value-equivalent because dwords 2-4 are natively zero).",
+    "validation_buffer_layout": "word 0 = mismatch_count, word 1 = clamp_trigger_count, word 2+s = per-surface bitmask (bits 0-4 dword mismatch, bit 5 in-buffer clamp violation, bit 6 producer clamp trigger); buffer zeroed before the validate dispatch.",
+    "dispatch_shape": "(1, 1, 1) groups, local 64x1x1; write -> UAV barrier -> validate -> readback"
+  }
+}

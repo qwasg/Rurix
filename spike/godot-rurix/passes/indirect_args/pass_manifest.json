@@ -1,0 +1,154 @@
+{
+  "pass_id": "indirect_args",
+  "status": "grx018_offline_kernel_and_math_parity_default_disabled",
+  "implemented": false,
+  "default_enable_state": "disabled",
+  "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
+  "target_scenes": [
+    "many_mesh_instances",
+    "mixed_forward_plus"
+  ],
+  "bridge_pass_id": "RXGD_PASS_INDIRECT_ARGS (9)",
+  "real_pass_cap_bit": "RXGD_CAP_INDIRECT_ARGS_REAL_PASS (1u << 12), reserved in PATCH_ALLOCATION.md section 3 (bit 12)",
+  "godot_hook_investigation": {
+    "note": "Investigation only; external/godot-master is NOT modified. Paths and functions are recorded for the later patch 0033 call-site gate and the patch 0034 native-handle mapping. This S1-S3 slice delivers the OFFLINE face only (contract trio + offline kernel pair + math parity); the hook/patch, bridge gate, and dispatch smoke are later slices.",
+    "storage_class": {
+      "source": "servers/rendering/renderer_rd/storage_rd/mesh_storage.cpp",
+      "header": "servers/rendering/renderer_rd/storage_rd/mesh_storage.h",
+      "functions": [
+        "MeshStorage::_multimesh_allocate_data (use_indirect flag, L1547/L1583-1584)",
+        "MeshStorage::_multimesh_set_mesh (indirect command-buffer creation + dword-0 static fill, L1674-1696)",
+        "MeshStorage::_multimesh_set_visible_instances (per-update CPU dword-1 buffer_update, L2206-2213; the elimination target at L2210)"
+      ],
+      "command_stride": "INDIRECT_MULTIMESH_COMMAND_STRIDE = 5 u32 dwords per surface (mesh_storage.h L62-64)",
+      "static_dword0_source": "mesh_surface_get_vertices_drawn_count (mesh_storage.h L460-463: index_count ? index_count : vertex_count)",
+      "native_pass_shape": "NO native compute pass exists: dword 0 is CPU-filled at set_mesh, dword 1 is CPU buffer_update per visible-instances change (per frame under a CPU culling loop), dwords 2-4 stay zero-initialized; GRX-018 replaces the dword-1 CPU write with a GPU kernel and backfills the statics from b0"
+    },
+    "shaders": [],
+    "call_sites": [
+      {
+        "file": "servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp",
+        "function": "_render_list_template (indirect draw consumer)",
+        "region": "draw_list_draw_indirect over multimesh command_buffer",
+        "lines": [
+          602,
+          610
+        ],
+        "note": "consumer only: INSTANCE_DATA_FLAG_MULTIMESH_INDIRECT gate at L602 (flag set at L4356), draw_list_draw_indirect(index_array_rd.is_valid(), command_buffer, surface_index * 20, 1, 0) at L610. The GPU write injection point must land after the GRX-015/016 producer dispatch and before this consumer; it is deferred to patch 0033 because neither producer pass has landed its runtime hook (PASS_CONTRACT.md section 3.3)."
+      }
+    ],
+    "hook_note": "The runtime hook/binding design is deferred to the later patch slice (0033 gate+callsite / 0034 runtime binding / 0035 recording+real-pass opt-in) and additionally depends on the GRX-015/016 runtime survivor-count interface; this slice does not wire it.",
+    "source_resource": "GRX-015 gpu_culling count-only survivor count OR GRX-016 instance_compaction compacted count (declared producer interface, PASS_CONTRACT.md section 4.1; neither landed yet -> fail-closed dependency)",
+    "dest_resource": "multimesh->command_buffer (uint[] storage buffer, 5 dwords per surface, STORAGE_BUFFER_USAGE_DISPATCH_INDIRECT; mesh_storage.cpp L1693)"
+  },
+  "resource_mapping": "spike/godot-rurix/passes/indirect_args/resource_mapping.md",
+  "descriptor_mapping": {
+    "root_cbuffer_binding": "b0 space0",
+    "root_constants": "176-byte / 44-dword Rurix-owned parameter block: surface_count, max_instance_count, survivor_count_word_offset, pad0, then MAX_SURFACES=8 per-surface 5-dword command templates (see resource_mapping.md and artifacts/indirect_args_descriptor_layout.json)",
+    "root_constant_bytes": 176,
+    "root_constant_dwords": 44,
+    "resources": [
+      {
+        "name": "src_survivor_counts",
+        "binding": "t0 space0",
+        "kind": "SRV",
+        "binding_kind": "structured_buffer"
+      },
+      {
+        "name": "dst_command_buffer",
+        "binding": "u0 space0",
+        "kind": "UAV",
+        "binding_kind": "rwstructured_buffer"
+      },
+      {
+        "name": "dst_validation",
+        "binding": "u1 space0",
+        "kind": "UAV",
+        "binding_kind": "rwstructured_buffer"
+      }
+    ],
+    "command_block_stride": "5 u32 dwords per surface (INDIRECT_MULTIMESH_COMMAND_STRIDE); dword 1 (instance_count) is the only GPU-dynamic field, dwords 0/2/3/4 are b0 template backfill",
+    "requires_64bit_integer_shader_capability": false,
+    "requires_64bit_integer_shader_capability_note": "indirect_args carries no i64 b0 fields (all u32), so SHADER_INT64 is NOT part of its preflight (GRX-013/014 buffer-pass precedent)",
+    "on_missing_resource_or_cap_or_descriptor_mismatch": "RXGD_STATUS_FALLBACK"
+  },
+  "supported_math_subset": {
+    "variant": "single multimesh per dispatch; surface_count in [1, 8]; one thread per surface (numthreads 64x1x1, dispatch 1x1x1)",
+    "write_kernel": "survivors = src_survivor_counts[survivor_count_word_offset]; clamped = min(survivors, max_instance_count); block[s] = {template[s].index_count, clamped, template[s].first_index, template[s].vertex_offset, template[s].first_instance}; all five dwords written every dispatch",
+    "validation_kernel": "RESIDENT red leg (GRX_PLAN: any validation mismatch -> immediate fallback): recompute expected_instance_count = min(survivors, max_instance_count); per-surface bitmask (bits 0-4 dword mismatch vs template/expected, bit 5 in-buffer instance_count > max, bit 6 survivors > max i.e. clamp fired); InterlockedAdd counters mismatch_count (bits 0-5) and clamp_trigger_count (bit 6) into dst_validation words 0/1",
+    "runtime_policy": "write into Rurix-owned staging -> UAV barrier -> validate -> readback -> copy over multimesh->command_buffer ONLY when mismatch_count == 0 and clamp_trigger_count == 0; otherwise fallback_reason = validation_failed and native CPU contents stay live (bad args never reach draw_list_draw_indirect)",
+    "arithmetic": "pure u32 word math (min, compare, copy, bitmask, atomic add); CPU parity reference is integer-exact with ZERO tolerance"
+  },
+  "known_gaps": [
+    "surface_count > 8 (MAX_SURFACES) unsupported -> fallback",
+    "one multimesh per dispatch only; no cross-multimesh batching; no draw_count > 1 multi-draw blocks",
+    "visible_instances == -1 all-visible sentinel not modeled (producer counts are absolute u32 in [0, max_instance_count])",
+    "per-surface distinct survivor counts unsupported (native path shares one count across surfaces; kernel mirrors that)",
+    "nonzero first_index/vertex_offset/first_instance never occur natively (CPU fill zero-inits dwords 2-4); template fidelity for nonzero statics is proven offline only",
+    "GRX-015/016 producer interface declared but not landed (PASS_CONTRACT.md section 4.1); offline slices use synthetic survivor buffers; the runtime gate cannot arm until a real producer buffer exists",
+    "render_forward_mobile indirect call-site twin out of scope",
+    "runtime hook / patches 0033-0035 not authored (patch 0033 additionally blocked on the GRX-015/016 runtime hook)",
+    "same-frame validation readback cost unmeasured (correctness-first design; deferred-validation variant only with owner sign-off)",
+    "GPU-side math parity observation pending a real dispatch (math_parity_evidence.json)"
+  ],
+  "fallback": {
+    "reasons": [
+      "compile_failed",
+      "validation_failed",
+      "unsupported_device",
+      "visual_diff_failed",
+      "manual_disabled"
+    ],
+    "on_any_failure": "godot_native_indirect_command_buffer",
+    "on_validation_mismatch": "immediate fallback (GRX_PLAN GRX-018 mandate): staging copy skipped, native _multimesh_set_mesh fill + _multimesh_set_visible_instances CPU path remain authoritative"
+  },
+  "offline_compile_status": "success",
+  "offline_compile_provenance": "hlsl_bridge_workaround",
+  "offline_compile_runtime_mappable": true,
+  "offline_compile_evidence": "spike/godot-rurix/passes/indirect_args/offline_compile_evidence.json",
+  "offline_compile_artifacts": {
+    "dxil": "spike/godot-rurix/passes/indirect_args/artifacts/indirect_args.dxil",
+    "dxil_validate": "spike/godot-rurix/passes/indirect_args/artifacts/indirect_args_validate.dxil",
+    "root_signature": "spike/godot-rurix/passes/indirect_args/artifacts/indirect_args.rts0.bin",
+    "descriptor_layout": "spike/godot-rurix/passes/indirect_args/artifacts/indirect_args_descriptor_layout.json"
+  },
+  "math_parity_evidence": "spike/godot-rurix/passes/indirect_args/math_parity_evidence.json",
+  "math_parity_status": "indirect_args_cpu_reference_proven_pending_gpu_dispatch",
+  "compile_blockers": [
+    {
+      "category": "provenance_workaround_active",
+      "summary": "the canonical indirect_args package is the owner-approved hlsl_bridge_workaround artifact set (two DXC cs_6_0 containers validated by dxv, per-slot structured_buffer/rwstructured_buffer binding kinds, one shared Rurix-owned RTS0). indirect_args is an all raw-buffer / SSBO pass, so the GRX-009 texture-intrinsic llc blocker does NOT apply; the workaround is used because (1) the DXIL compute-body lowering has no u32 buffer views (View/ViewMut are f32-only, dxil_codegen.rs L1754/L1786; f32 views cannot carry arbitrary u32 payloads bit-faithfully), (2) integer bit ops (|, <<, &) are not lowered on the DXIL path (MIR carries them, mir.rs L643-647), and (3) the lang subset has no atomic intrinsic (the validation counters need InterlockedAdd)"
+    }
+  ],
+  "implementation_status": {
+    "segment": "offline_kernel_and_math_parity",
+    "segment_detail": "grx018_s1_s3_contract_trio_offline_kernel_pair_math_parity",
+    "runtime_state": "fallback_only",
+    "runtime_state_note": "The runtime path is fallback-only: no bridge gate, no Godot patch, no runtime resource binding, and no dispatch exist in this slice. The bridge continues to return RXGD_STATUS_FALLBACK for RXGD_PASS_INDIRECT_ARGS under every configuration. The offline artifacts (write + validate DXIL, shared RTS0, descriptor layout) and the CPU integer-exact parity reference are the only measured claims.",
+    "bridge_gate": "not authored (later S4 slice): IndirectArgsGate will mirror the GRX-014 ClusterStoreGate template with a 3-buffer binding surface ([structured_buffer, rwstructured_buffer, rwstructured_buffer]), the 176-byte b0 block, surface_count in [1,8] preflight, FOUR baked offline digests (write DXIL / validate DXIL / RTS0 / descriptor layout), the RXGD_CAP_INDIRECT_ARGS_REAL_PASS (1u << 12) opt-in, and the write -> barrier -> validate -> readback -> copy-if-clean real-dispatch chain of PASS_CONTRACT.md section 5.4",
+    "godot_module_patch": "not authored (later S5/S7 slices): PATCH_ALLOCATION.md section 2 reserves 0033 (gate+callsite; additionally blocked on the GRX-015/016 runtime hook) / 0034 (runtime binding) / 0035 (recording+real-pass opt-in)",
+    "godot_core_call_site_wired": false,
+    "wired_call_sites": [],
+    "real_gpu_pass": false,
+    "real_d3d12_dispatch_recorded": false,
+    "godot_runtime_indirect_args_path_enabled": false,
+    "remaining_segments": [
+      "S4 bridge gate + shim 3-buffer record entry",
+      "S5 patch 0033 (blocked on GRX-015/016 runtime hook)",
+      "S6 standalone D3D12 dispatch smoke (write + validate + corrupted-staging red leg)",
+      "S7 patches 0034/0035",
+      "S8 scratch rebuild + gated real-pass enablement smoke",
+      "S9 close-out (gate module + probe registration + manifest flip + owner default-enable decision)",
+      "GRX-015/016 producer integration (real survivor buffer + frame-graph ordering + barriers)",
+      "per-pass FPS baseline comparison (contract requires >= 0.95x baseline before any default-enable discussion)"
+    ]
+  },
+  "evidence_requirements": {
+    "offline_compile": "offline_compile_evidence.json (measured): DXC cs_6_0 compile + DXV validation pass for BOTH kernels + shared Rurix-owned RTS0 + descriptor layout; four artifact SHA-256 recomputable on disk",
+    "math_parity": "math_parity_evidence.json: deterministic synthetic survivor/template fixtures with an integer-exact (zero tolerance) CPU reference including the corrupted-buffer validation red case; status=pending_gpu_dispatch",
+    "standalone_dispatch": "later S6: real_d3d12_dispatch_smoke.json with real_d3d12_dispatch_recorded=true, cpu_reference_match=true (word-exact), and the corrupted-staging validation red leg measuring nonzero counters",
+    "visual": "later S8: in-engine LDR absolute diff recorded by the real-pass enablement smoke within pinned thresholds",
+    "perf": "reuse GRX-006 baseline/perf gate; no perf improvement claimed; the same-frame validation readback cost must be measured before any enable discussion"
+  },
+  "disclaimer": "GRX-018 indirect_args is at the S1-S3 offline stage only. implemented=false, runtime_state=fallback_only, real_gpu_pass=false, real_d3d12_dispatch_recorded=false are the honest fail-closed values: no bridge gate, no Godot patch, no runtime binding, no GPU dispatch, no visual evidence, no telemetry, and no performance claim exist. The offline artifacts are hlsl_bridge_workaround provenance (NOT rurix_owned; the RTS0 IS Rurix-owned), the validation kernel is a RESIDENT red leg mandated by GRX_PLAN (any mismatch -> immediate fallback), and the GRX-015/016 survivor-count producer interface is a declared fail-closed dependency that has not landed."
+}

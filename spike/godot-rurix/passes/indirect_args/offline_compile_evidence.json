@@ -1,0 +1,257 @@
+{
+  "pass_id": "indirect_args",
+  "segment": "offline_compile",
+  "status": "success",
+  "runtime_state": "fallback_only",
+  "attempted_at_utc": "2026-07-12T12:08:03Z",
+  "provenance": "hlsl_bridge_workaround",
+  "rurix_owned": false,
+  "rurix_owned_rts0": true,
+  "canonical_switch_exception": "owner_approved_hlsl_bridge_workaround",
+  "provenance_policy_precedent": "spike/godot-rurix/passes/luminance_reduction/texture_artifact_provenance_policy.json",
+  "provenance_blocker_note": "indirect_args is an all raw-buffer / SSBO pass, so the texture-intrinsic llc blocker in the precedent policy does NOT apply. The workaround is used for three different blockers: (1) the DXIL compute-body lowering has no u32 buffer views (View/ViewMut are f32-only, dxil_codegen.rs L1754/L1786); (2) integer bit ops are not lowered on the DXIL path (MIR carries BinOp::BitAnd/BitOr/Shl/Shr, mir.rs L643-647); (3) the lang subset has no atomic intrinsic (the resident validation kernel's counters need InterlockedAdd).",
+  "math_parity_evidence": "spike/godot-rurix/passes/indirect_args/math_parity_evidence.json",
+  "math_parity_status": "indirect_args_cpu_reference_proven_pending_gpu_dispatch",
+  "inputs": {
+    "package_manifest": "spike/godot-rurix/passes/indirect_args/rurix.toml",
+    "entry_files": [
+      "spike/godot-rurix/passes/indirect_args/artifacts/hlsl_bridge/indirect_args_write.hlsl",
+      "spike/godot-rurix/passes/indirect_args/artifacts/hlsl_bridge/indirect_args_validate.hlsl"
+    ],
+    "rurix_math_source": "spike/godot-rurix/passes/indirect_args/src/lib.rx",
+    "godot_reference_files": [
+      "external/godot-master/servers/rendering/renderer_rd/storage_rd/mesh_storage.cpp",
+      "external/godot-master/servers/rendering/renderer_rd/storage_rd/mesh_storage.h",
+      "external/godot-master/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp"
+    ],
+    "godot_reference_note": "NO native compute shader exists for this pass: the math target is the CPU command-block producer (_multimesh_set_mesh L1674-1696 static fill + _multimesh_set_visible_instances L2210 dword-1 buffer_update) and the draw_list_draw_indirect consumer contract (render_forward_clustered.cpp L602/L610)."
+  },
+  "tools": {
+    "dxc": {
+      "found": true,
+      "path": "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+      "version_output": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)"
+    },
+    "dxv": {
+      "found": true,
+      "path": "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe"
+    }
+  },
+  "hlsl": {
+    "write": {
+      "path": "spike/godot-rurix/passes/indirect_args/artifacts/hlsl_bridge/indirect_args_write.hlsl",
+      "entry_point": "main",
+      "target_profile": "cs_6_0",
+      "sha256": "a49e67676fcb2e8e58dd21c7fc719148baabe017af91950c070d43cf94db111d"
+    },
+    "validate": {
+      "path": "spike/godot-rurix/passes/indirect_args/artifacts/hlsl_bridge/indirect_args_validate.hlsl",
+      "entry_point": "main",
+      "target_profile": "cs_6_0",
+      "sha256": "e9f5e7d85fce3a44b6546a80adafdce7ab7fc4c1a7b684df4630e570e49f73b1"
+    }
+  },
+  "commands": [
+    {
+      "label": "dxc_compile_write",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+        "-T",
+        "cs_6_0",
+        "-E",
+        "main",
+        "-Qstrip_debug",
+        "-Fo",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\indirect_args\\artifacts\\hlsl_bridge\\indirect_args_write.dxil",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\indirect_args\\artifacts\\hlsl_bridge\\indirect_args_write.hlsl"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/indirect_args/artifacts/hlsl_bridge/dxc_write_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/indirect_args/artifacts/hlsl_bridge/dxc_write_stderr.txt"
+    },
+    {
+      "label": "dxv_validate_write",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\indirect_args\\artifacts\\hlsl_bridge\\indirect_args_write.dxil"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/indirect_args/artifacts/hlsl_bridge/dxv_write_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/indirect_args/artifacts/hlsl_bridge/dxv_write_stderr.txt"
+    },
+    {
+      "label": "dxc_compile_validate",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+        "-T",
+        "cs_6_0",
+        "-E",
+        "main",
+        "-Qstrip_debug",
+        "-Fo",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\indirect_args\\artifacts\\hlsl_bridge\\indirect_args_validate.dxil",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\indirect_args\\artifacts\\hlsl_bridge\\indirect_args_validate.hlsl"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/indirect_args/artifacts/hlsl_bridge/dxc_validate_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/indirect_args/artifacts/hlsl_bridge/dxc_validate_stderr.txt"
+    },
+    {
+      "label": "dxv_validate_validate",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\indirect_args\\artifacts\\hlsl_bridge\\indirect_args_validate.dxil"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/indirect_args/artifacts/hlsl_bridge/dxv_validate_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/indirect_args/artifacts/hlsl_bridge/dxv_validate_stderr.txt"
+    },
+    {
+      "label": "emit_grx018_indirect_args_rts0",
+      "argv": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "rurixc",
+        "--features",
+        "dxil-backend shader-stages",
+        "--example",
+        "emit_grx018_indirect_args_rts0",
+        "--",
+        "spike/godot-rurix/passes/indirect_args/artifacts/indirect_args_descriptor_layout.json",
+        "spike/godot-rurix/passes/indirect_args/artifacts/indirect_args.rts0.bin"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/indirect_args/artifacts/hlsl_bridge/emit_rts0_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/indirect_args/artifacts/hlsl_bridge/emit_rts0_stderr.txt"
+    }
+  ],
+  "attempted_binding_kinds": [
+    "structured_buffer",
+    "rwstructured_buffer",
+    "rwstructured_buffer"
+  ],
+  "runtime_mappable": true,
+  "known_gaps": [
+    "surface_count > 8 (MAX_SURFACES) unsupported -> fallback",
+    "one multimesh per dispatch only; no cross-multimesh batching; no draw_count > 1 multi-draw blocks",
+    "visible_instances == -1 all-visible sentinel not modeled (producer counts are absolute u32 in [0, max_instance_count])",
+    "per-surface distinct survivor counts unsupported (native path shares one count across surfaces; kernel mirrors that)",
+    "nonzero first_index/vertex_offset/first_instance never occur natively (CPU fill zero-inits dwords 2-4); template fidelity for nonzero statics is proven offline only",
+    "GRX-015/016 producer interface declared but not landed (PASS_CONTRACT.md section 4.1); offline slices use synthetic survivor buffers",
+    "render_forward_mobile indirect call-site twin out of scope",
+    "the runtime hook (patches 0033-0035) is a later serial slice; this slice is the offline face only",
+    "same-frame validation readback cost unmeasured (correctness-first design)",
+    "GPU-side math parity observation pending a real dispatch (math_parity_evidence.json)"
+  ],
+  "does_not_imply": [
+    "Godot runtime indirect_args pass completion",
+    "real_gpu_pass=true",
+    "real_d3d12_dispatch_recorded=true",
+    "visual success",
+    "temporal stability success",
+    "GPU timestamp success",
+    "performance claim",
+    "default pass enablement",
+    "math parity proven (see math_parity_evidence.json)"
+  ],
+  "dxil_provenance": {
+    "write": {
+      "produced_by": "dxc",
+      "compiler_version": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)",
+      "target_profile": "cs_6_0",
+      "entry_point": "main",
+      "hlsl_source": {
+        "path": "spike/godot-rurix/passes/indirect_args/artifacts/hlsl_bridge/indirect_args_write.hlsl",
+        "sha256": "a49e67676fcb2e8e58dd21c7fc719148baabe017af91950c070d43cf94db111d"
+      },
+      "validation": {
+        "tool": "dxv.exe",
+        "status": "pass",
+        "exit_code": 0
+      }
+    },
+    "validate": {
+      "produced_by": "dxc",
+      "compiler_version": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)",
+      "target_profile": "cs_6_0",
+      "entry_point": "main",
+      "hlsl_source": {
+        "path": "spike/godot-rurix/passes/indirect_args/artifacts/hlsl_bridge/indirect_args_validate.hlsl",
+        "sha256": "e9f5e7d85fce3a44b6546a80adafdce7ab7fc4c1a7b684df4630e570e49f73b1"
+      },
+      "validation": {
+        "tool": "dxv.exe",
+        "status": "pass",
+        "exit_code": 0
+      }
+    }
+  },
+  "root_signature_generator": {
+    "kind": "rurixc_binding_layout_example",
+    "command": [
+      "cargo",
+      "run",
+      "-q",
+      "-p",
+      "rurixc",
+      "--features",
+      "dxil-backend shader-stages",
+      "--example",
+      "emit_grx018_indirect_args_rts0",
+      "--",
+      "spike/godot-rurix/passes/indirect_args/artifacts/indirect_args_descriptor_layout.json",
+      "spike/godot-rurix/passes/indirect_args/artifacts/indirect_args.rts0.bin"
+    ],
+    "source_api": "rurixc::binding_layout::{infer_root_signature, pack_root_constants, serialize_rts0}",
+    "root_constants": "176_bytes_44_dwords_at_root_parameter_index_0",
+    "shared_by_both_kernels": true
+  },
+  "artifacts": {
+    "dxil": {
+      "path": "spike/godot-rurix/passes/indirect_args/artifacts/indirect_args.dxil",
+      "exists": true,
+      "size_bytes": 4596,
+      "sha256": "3dcc1c53f4ff7432c41178a0a45fd02538d79b454580c63875d9bbe504d9c168",
+      "artifact_kind": "dxil_container",
+      "produced_by_current_run": true,
+      "semantic_status": "lowered_compute_body",
+      "kernel": "write"
+    },
+    "dxil_validate": {
+      "path": "spike/godot-rurix/passes/indirect_args/artifacts/indirect_args_validate.dxil",
+      "exists": true,
+      "size_bytes": 4964,
+      "sha256": "7e67ab0395a0833a7618cc1a5d4faa334d86800ee398057ba94f0cab5a5726e8",
+      "artifact_kind": "dxil_container",
+      "produced_by_current_run": true,
+      "semantic_status": "lowered_compute_body",
+      "kernel": "validate"
+    },
+    "root_signature": {
+      "path": "spike/godot-rurix/passes/indirect_args/artifacts/indirect_args.rts0.bin",
+      "exists": true,
+      "size_bytes": 152,
+      "sha256": "1cc282d7744b7fa470056e4dad24e096f2ce3724ed364b9f16a26e90531f843c",
+      "artifact_kind": "rurix_owned_rts0_root_signature",
+      "produced_by_current_run": true
+    },
+    "descriptor_layout": {
+      "path": "spike/godot-rurix/passes/indirect_args/artifacts/indirect_args_descriptor_layout.json",
+      "exists": true,
+      "size_bytes": 11525,
+      "sha256": "3bece3ccb100f80cefd7bedc3b22b9f74f2647e2afe4b001268c05ae1b91aee5",
+      "artifact_kind": "descriptor_layout_json",
+      "produced_by_current_run": true
+    }
+  },
+  "notes": [
+    "Runtime remains fallback_only: the real dispatch path (a later patch/bridge slice) is opt-in only and armed by RXGD_CAP_INDIRECT_ARGS_REAL_PASS (1u<<12); the shipping feature-off bridge fails closed.",
+    "The canonical artifacts/ paths carry the raw-buffer hlsl_bridge workaround package: TWO DXC cs_6_0 DXIL containers (write kernel + RESIDENT validation red-leg kernel, both validated by dxv), ONE shared Rurix-owned RTS0 root signature serialized by rurixc::binding_layout::serialize_rts0 (176-byte / 44-dword parameter block + SRV t0 + UAV u0 + UAV u1 structured buffers), and the descriptor layout with per-slot binding kinds. The (later) S4 bridge gate bakes FOUR digests.",
+    "hlsl_bridge_workaround provenance (buffer-pass variant): NOT rurix_owned. Blockers: (1) no u32 buffer views on the DXIL path; (2) integer bit ops not lowered; (3) no atomic intrinsic. The texture-intrinsic llc blocker does NOT apply to this raw-buffer pass.",
+    "The validation kernel is a RESIDENT red leg per GRX_PLAN GRX-018 (any validation mismatch -> immediate fallback); the runtime chain is write -> UAV barrier -> validate -> readback -> copy-if-clean (PASS_CONTRACT.md section 5.4)."
+  ],
+  "blocker_category": null,
+  "blocker_summary": null
+}

@@ -1,0 +1,736 @@
+{
+  "pass_id": "indirect_args",
+  "subject": "grx018_indirect_args_math_parity",
+  "status": "pending_gpu_dispatch",
+  "generated_at_utc": "2026-07-12T12:08:19Z",
+  "math_status": "indirect_args_cpu_reference_proven_pending_gpu_dispatch",
+  "cpu_reference": {
+    "write_formula": "survivors = src_survivor_counts[survivor_count_word_offset]; clamped = min(survivors, max_instance_count); per surface s: block[s] = {template[s].index_count, clamped, template[s].first_index, template[s].vertex_offset, template[s].first_instance}; all five dwords written every dispatch; pure u32 (no floats)",
+    "validate_formula": "expected1 = min(survivors, max_instance_count); per surface s: bitmask bits 0-4 = generated dword c != expected dword c; bit 5 = in-buffer instance_count > max_instance_count; bit 6 = survivors > max_instance_count (clamp fired); dst_validation = [mismatch_count(bits0-5), clamp_trigger_count(bit6), mask_0..mask_{n-1}] with the counters accumulated via InterlockedAdd over a zeroed buffer",
+    "write_hlsl_kernel": {
+      "path": "spike/godot-rurix/passes/indirect_args/artifacts/hlsl_bridge/indirect_args_write.hlsl",
+      "sha256": "a49e67676fcb2e8e58dd21c7fc719148baabe017af91950c070d43cf94db111d"
+    },
+    "validate_hlsl_kernel": {
+      "path": "spike/godot-rurix/passes/indirect_args/artifacts/hlsl_bridge/indirect_args_validate.hlsl",
+      "sha256": "e9f5e7d85fce3a44b6546a80adafdce7ab7fc4c1a7b684df4630e570e49f73b1"
+    },
+    "write_dxil": {
+      "path": "spike/godot-rurix/passes/indirect_args/artifacts/hlsl_bridge/indirect_args_write.dxil",
+      "sha256": "3dcc1c53f4ff7432c41178a0a45fd02538d79b454580c63875d9bbe504d9c168"
+    },
+    "validate_dxil": {
+      "path": "spike/godot-rurix/passes/indirect_args/artifacts/hlsl_bridge/indirect_args_validate.dxil",
+      "sha256": "7e67ab0395a0833a7618cc1a5d4faa334d86800ee398057ba94f0cab5a5726e8"
+    },
+    "rurix_math_source": "spike/godot-rurix/passes/indirect_args/src/lib.rx",
+    "godot_math_source": "external/godot-master/servers/rendering/renderer_rd/storage_rd/mesh_storage.cpp (CPU producer: _multimesh_set_mesh L1674-1696 static fill + _multimesh_set_visible_instances L2210 dword-1 buffer_update; INDIRECT_MULTIMESH_COMMAND_STRIDE=5, mesh_storage.h L62-64) \u2014 NO native compute shader exists"
+  },
+  "max_abs_error_tolerance": 0,
+  "tolerance_note": "ZERO tolerance: the pass is pure u32 word math (min, compare, copy, bitmask, atomic count); a GPU dispatch must reproduce every command-buffer and validation word exactly.",
+  "command_stride_dwords": 5,
+  "max_surfaces": 8,
+  "validation_bitmask_legend": {
+    "bit0": "index_count mismatch",
+    "bit1": "instance_count mismatch",
+    "bit2": "first_index mismatch",
+    "bit3": "vertex_offset mismatch",
+    "bit4": "first_instance mismatch",
+    "bit5": "in-buffer instance_count > max_instance_count (unclamped writer)",
+    "bit6": "survivors > max_instance_count (producer violation; clamp fired)",
+    "mismatch_count": "surfaces with any of bits 0-5 (dst_validation word 0)",
+    "clamp_trigger_count": "surfaces with bit 6 (dst_validation word 1)",
+    "runtime_policy": "any nonzero counter -> staging copy skipped, fallback_reason=validation_failed (GRX_PLAN GRX-018: any validation mismatch -> immediate fallback)"
+  },
+  "coverage": {
+    "single_surface_cases": 1,
+    "multi_surface_cases": 5,
+    "max_surfaces_boundary_cases": 1,
+    "clamp_triggered_cases": 1,
+    "zero_survivor_cases": 1,
+    "nonzero_word_offset_cases": 1,
+    "nonzero_static_template_cases": 1,
+    "corruption_red_cases": 1,
+    "clean_validation_cases": 5,
+    "red_validation_cases_with_nonzero_mismatch": 1,
+    "cases_with_index_count_above_2pow24": 1
+  },
+  "gpu_dispatch_kind": null,
+  "cases": [
+    {
+      "case_id": "single_surface_basic",
+      "constants": {
+        "surface_count": 1,
+        "max_instance_count": 64,
+        "survivor_count_word_offset": 0,
+        "pad0": 0,
+        "templates": [
+          {
+            "index_count": 3000,
+            "instance_count_reserved": 0,
+            "first_index": 0,
+            "vertex_offset": 0,
+            "first_instance": 0
+          }
+        ]
+      },
+      "survivor_buffer": [
+        17
+      ],
+      "survivors_read": 17,
+      "expected_instance_count": 17,
+      "clamp_triggered": false,
+      "cpu_expected_command_buffer": [
+        3000,
+        17,
+        0,
+        0,
+        0
+      ],
+      "cpu_expected_command_buffer_u32_le_sha256": "f7cc85f5ef370f96f24125ec040645eb20ee656a9cd46602420b19418cf18266",
+      "validation_input_command_buffer": [
+        3000,
+        17,
+        0,
+        0,
+        0
+      ],
+      "validation_input_is_corrupted": false,
+      "corrupted_words": [],
+      "cpu_expected_validation": {
+        "mismatch_count": 0,
+        "clamp_trigger_count": 0,
+        "per_surface_masks": [
+          0
+        ],
+        "words": [
+          0,
+          0,
+          0
+        ],
+        "words_u32_le_sha256": "15ec7bf0b50732b49f8228e07d24365338f9e3ab994b00af08e5a3bffe55fd8b"
+      },
+      "gpu_observed": null,
+      "note": "single 5-dword block; dword 1 = survivors (17), below the clamp ceiling"
+    },
+    {
+      "case_id": "multi_surface_shared_count",
+      "constants": {
+        "surface_count": 4,
+        "max_instance_count": 64,
+        "survivor_count_word_offset": 0,
+        "pad0": 0,
+        "templates": [
+          {
+            "index_count": 300,
+            "instance_count_reserved": 0,
+            "first_index": 0,
+            "vertex_offset": 0,
+            "first_instance": 0
+          },
+          {
+            "index_count": 4500,
+            "instance_count_reserved": 0,
+            "first_index": 0,
+            "vertex_offset": 0,
+            "first_instance": 0
+          },
+          {
+            "index_count": 36,
+            "instance_count_reserved": 0,
+            "first_index": 0,
+            "vertex_offset": 0,
+            "first_instance": 0
+          },
+          {
+            "index_count": 123456,
+            "instance_count_reserved": 0,
+            "first_index": 0,
+            "vertex_offset": 0,
+            "first_instance": 0
+          }
+        ]
+      },
+      "survivor_buffer": [
+        9
+      ],
+      "survivors_read": 9,
+      "expected_instance_count": 9,
+      "clamp_triggered": false,
+      "cpu_expected_command_buffer": [
+        300,
+        9,
+        0,
+        0,
+        0,
+        4500,
+        9,
+        0,
+        0,
+        0,
+        36,
+        9,
+        0,
+        0,
+        0,
+        123456,
+        9,
+        0,
+        0,
+        0
+      ],
+      "cpu_expected_command_buffer_u32_le_sha256": "bc04c7c0b00ec3a767dfafa0479c6a7cfb3bbe4e65c1e9dd98eb5aab8bc5ff60",
+      "validation_input_command_buffer": [
+        300,
+        9,
+        0,
+        0,
+        0,
+        4500,
+        9,
+        0,
+        0,
+        0,
+        36,
+        9,
+        0,
+        0,
+        0,
+        123456,
+        9,
+        0,
+        0,
+        0
+      ],
+      "validation_input_is_corrupted": false,
+      "corrupted_words": [],
+      "cpu_expected_validation": {
+        "mismatch_count": 0,
+        "clamp_trigger_count": 0,
+        "per_surface_masks": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "words": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "words_u32_le_sha256": "9d908ecfb6b256def8b49a7c504e6c889c4b0e41fe6ce3e01863dd7b61a20aa0"
+      },
+      "gpu_observed": null,
+      "note": "4 blocks, distinct index_count per surface, shared instance_count"
+    },
+    {
+      "case_id": "clamp_triggered_producer_violation",
+      "constants": {
+        "surface_count": 2,
+        "max_instance_count": 64,
+        "survivor_count_word_offset": 0,
+        "pad0": 0,
+        "templates": [
+          {
+            "index_count": 600,
+            "instance_count_reserved": 0,
+            "first_index": 0,
+            "vertex_offset": 0,
+            "first_instance": 0
+          },
+          {
+            "index_count": 900,
+            "instance_count_reserved": 0,
+            "first_index": 0,
+            "vertex_offset": 0,
+            "first_instance": 0
+          }
+        ]
+      },
+      "survivor_buffer": [
+        100
+      ],
+      "survivors_read": 100,
+      "expected_instance_count": 64,
+      "clamp_triggered": true,
+      "cpu_expected_command_buffer": [
+        600,
+        64,
+        0,
+        0,
+        0,
+        900,
+        64,
+        0,
+        0,
+        0
+      ],
+      "cpu_expected_command_buffer_u32_le_sha256": "61680853e2cecca92a5e3915e679249f392d13d6c62adcb6fb84a1751cdd0905",
+      "validation_input_command_buffer": [
+        600,
+        64,
+        0,
+        0,
+        0,
+        900,
+        64,
+        0,
+        0,
+        0
+      ],
+      "validation_input_is_corrupted": false,
+      "corrupted_words": [],
+      "cpu_expected_validation": {
+        "mismatch_count": 0,
+        "clamp_trigger_count": 2,
+        "per_surface_masks": [
+          64,
+          64
+        ],
+        "words": [
+          0,
+          2,
+          64,
+          64
+        ],
+        "words_u32_le_sha256": "0b1a7a2cf2963747fc28917c810edbdae47f75375200cb2c98ea37e73a38559a"
+      },
+      "gpu_observed": null,
+      "note": "producer-interface violation lane: clamp fires, validation red-flags bit 6 per surface; runtime policy = fallback"
+    },
+    {
+      "case_id": "zero_survivors",
+      "constants": {
+        "surface_count": 3,
+        "max_instance_count": 128,
+        "survivor_count_word_offset": 0,
+        "pad0": 0,
+        "templates": [
+          {
+            "index_count": 60,
+            "instance_count_reserved": 0,
+            "first_index": 0,
+            "vertex_offset": 0,
+            "first_instance": 0
+          },
+          {
+            "index_count": 90,
+            "instance_count_reserved": 0,
+            "first_index": 0,
+            "vertex_offset": 0,
+            "first_instance": 0
+          },
+          {
+            "index_count": 120,
+            "instance_count_reserved": 0,
+            "first_index": 0,
+            "vertex_offset": 0,
+            "first_instance": 0
+          }
+        ]
+      },
+      "survivor_buffer": [
+        0
+      ],
+      "survivors_read": 0,
+      "expected_instance_count": 0,
+      "clamp_triggered": false,
+      "cpu_expected_command_buffer": [
+        60,
+        0,
+        0,
+        0,
+        0,
+        90,
+        0,
+        0,
+        0,
+        0,
+        120,
+        0,
+        0,
+        0,
+        0
+      ],
+      "cpu_expected_command_buffer_u32_le_sha256": "9974980c3a075096372f169d5a9f2fcd340f2a4b5c6858e471f198dd35662eda",
+      "validation_input_command_buffer": [
+        60,
+        0,
+        0,
+        0,
+        0,
+        90,
+        0,
+        0,
+        0,
+        0,
+        120,
+        0,
+        0,
+        0,
+        0
+      ],
+      "validation_input_is_corrupted": false,
+      "corrupted_words": [],
+      "cpu_expected_validation": {
+        "mismatch_count": 0,
+        "clamp_trigger_count": 0,
+        "per_surface_masks": [
+          0,
+          0,
+          0
+        ],
+        "words": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "words_u32_le_sha256": "de47c9b27eb8d300dbb5f2c353e632c393262cf06340c4fa7f1b40c4cbd36f90"
+      },
+      "gpu_observed": null,
+      "note": "all blocks get instance_count=0; draw becomes a no-op, never invalid"
+    },
+    {
+      "case_id": "max_surfaces_nonzero_statics_and_offset",
+      "constants": {
+        "surface_count": 8,
+        "max_instance_count": 4096,
+        "survivor_count_word_offset": 3,
+        "pad0": 0,
+        "templates": [
+          {
+            "index_count": 16777216,
+            "instance_count_reserved": 0,
+            "first_index": 10,
+            "vertex_offset": 20,
+            "first_instance": 30
+          },
+          {
+            "index_count": 16777223,
+            "instance_count_reserved": 0,
+            "first_index": 11,
+            "vertex_offset": 21,
+            "first_instance": 31
+          },
+          {
+            "index_count": 16777230,
+            "instance_count_reserved": 0,
+            "first_index": 12,
+            "vertex_offset": 22,
+            "first_instance": 32
+          },
+          {
+            "index_count": 16777237,
+            "instance_count_reserved": 0,
+            "first_index": 13,
+            "vertex_offset": 23,
+            "first_instance": 33
+          },
+          {
+            "index_count": 16777244,
+            "instance_count_reserved": 0,
+            "first_index": 14,
+            "vertex_offset": 24,
+            "first_instance": 34
+          },
+          {
+            "index_count": 16777251,
+            "instance_count_reserved": 0,
+            "first_index": 15,
+            "vertex_offset": 25,
+            "first_instance": 35
+          },
+          {
+            "index_count": 16777258,
+            "instance_count_reserved": 0,
+            "first_index": 16,
+            "vertex_offset": 26,
+            "first_instance": 36
+          },
+          {
+            "index_count": 16777265,
+            "instance_count_reserved": 0,
+            "first_index": 17,
+            "vertex_offset": 27,
+            "first_instance": 37
+          }
+        ]
+      },
+      "survivor_buffer": [
+        111,
+        222,
+        333,
+        2048,
+        555
+      ],
+      "survivors_read": 2048,
+      "expected_instance_count": 2048,
+      "clamp_triggered": false,
+      "cpu_expected_command_buffer": [
+        16777216,
+        2048,
+        10,
+        20,
+        30,
+        16777223,
+        2048,
+        11,
+        21,
+        31,
+        16777230,
+        2048,
+        12,
+        22,
+        32,
+        16777237,
+        2048,
+        13,
+        23,
+        33,
+        16777244,
+        2048,
+        14,
+        24,
+        34,
+        16777251,
+        2048,
+        15,
+        25,
+        35,
+        16777258,
+        2048,
+        16,
+        26,
+        36,
+        16777265,
+        2048,
+        17,
+        27,
+        37
+      ],
+      "cpu_expected_command_buffer_u32_le_sha256": "c4f236ac40c08f7aafafaba722b264b9ae611da0ecd3a7081eed7a99af097df4",
+      "validation_input_command_buffer": [
+        16777216,
+        2048,
+        10,
+        20,
+        30,
+        16777223,
+        2048,
+        11,
+        21,
+        31,
+        16777230,
+        2048,
+        12,
+        22,
+        32,
+        16777237,
+        2048,
+        13,
+        23,
+        33,
+        16777244,
+        2048,
+        14,
+        24,
+        34,
+        16777251,
+        2048,
+        15,
+        25,
+        35,
+        16777258,
+        2048,
+        16,
+        26,
+        36,
+        16777265,
+        2048,
+        17,
+        27,
+        37
+      ],
+      "validation_input_is_corrupted": false,
+      "corrupted_words": [],
+      "cpu_expected_validation": {
+        "mismatch_count": 0,
+        "clamp_trigger_count": 0,
+        "per_surface_masks": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "words": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "words_u32_le_sha256": "2c34ce1df23b838c5abf2a7f6437cca3d3067ed509ff25f11df6b11b582b51eb"
+      },
+      "gpu_observed": null,
+      "note": "surface_count=8 boundary; survivor count read from word 3 (2048); index_count above 2^24 proves u32 (not f32) carriage; nonzero statics prove template backfill copies rather than hardcoding zero"
+    },
+    {
+      "case_id": "validation_detects_corruption",
+      "constants": {
+        "surface_count": 4,
+        "max_instance_count": 64,
+        "survivor_count_word_offset": 0,
+        "pad0": 0,
+        "templates": [
+          {
+            "index_count": 300,
+            "instance_count_reserved": 0,
+            "first_index": 0,
+            "vertex_offset": 0,
+            "first_instance": 0
+          },
+          {
+            "index_count": 4500,
+            "instance_count_reserved": 0,
+            "first_index": 0,
+            "vertex_offset": 0,
+            "first_instance": 0
+          },
+          {
+            "index_count": 36,
+            "instance_count_reserved": 0,
+            "first_index": 0,
+            "vertex_offset": 0,
+            "first_instance": 0
+          },
+          {
+            "index_count": 123456,
+            "instance_count_reserved": 0,
+            "first_index": 0,
+            "vertex_offset": 0,
+            "first_instance": 0
+          }
+        ]
+      },
+      "survivor_buffer": [
+        9
+      ],
+      "survivors_read": 9,
+      "expected_instance_count": 9,
+      "clamp_triggered": false,
+      "cpu_expected_command_buffer": [
+        300,
+        9,
+        0,
+        0,
+        0,
+        4500,
+        9,
+        0,
+        0,
+        0,
+        36,
+        9,
+        0,
+        0,
+        0,
+        123456,
+        9,
+        0,
+        0,
+        0
+      ],
+      "cpu_expected_command_buffer_u32_le_sha256": "bc04c7c0b00ec3a767dfafa0479c6a7cfb3bbe4e65c1e9dd98eb5aab8bc5ff60",
+      "validation_input_command_buffer": [
+        300,
+        9,
+        0,
+        0,
+        0,
+        4501,
+        9,
+        0,
+        0,
+        0,
+        36,
+        999,
+        0,
+        0,
+        0,
+        123456,
+        9,
+        0,
+        0,
+        0
+      ],
+      "validation_input_is_corrupted": true,
+      "corrupted_words": [
+        {
+          "word_index": 5,
+          "surface": 1,
+          "dword_in_block": 0,
+          "original_value": 4500,
+          "corrupted_value": 4501
+        },
+        {
+          "word_index": 11,
+          "surface": 2,
+          "dword_in_block": 1,
+          "original_value": 9,
+          "corrupted_value": 999
+        }
+      ],
+      "cpu_expected_validation": {
+        "mismatch_count": 2,
+        "clamp_trigger_count": 0,
+        "per_surface_masks": [
+          0,
+          1,
+          34,
+          0
+        ],
+        "words": [
+          2,
+          0,
+          0,
+          1,
+          34,
+          0
+        ],
+        "words_u32_le_sha256": "6cb208af0d9e1f20c90cc9affc93e890eb502624756a5986b43d93fdcf3ae4ae"
+      },
+      "gpu_observed": null,
+      "note": "resident red leg proof: surface 1 -> bit 0 (index_count), surface 2 -> bits 1+5 (instance_count mismatch + in-buffer clamp violation); mismatch_count=2 -> runtime policy = immediate fallback (GRX_PLAN GRX-018)"
+    }
+  ],
+  "notes": [
+    "GPU-observed values are pending a real dispatch; the standalone smoke (S6, later, host-exclusive) will import these fixtures and verify every measured word exactly (write kernel output AND validation kernel output, including a corrupted-staging red leg).",
+    "The survivor buffer is synthetic: the GRX-015/016 producer interface is declared in PASS_CONTRACT.md section 4.1 but neither producer pass has landed; parity here binds the consumer side of that interface.",
+    "Template slots at s >= surface_count are carried zeros; surface{s}_instance_count_reserved is carried 0 (dword 1 is the GPU-dynamic instance_count and is never sourced from b0).",
+    "The corrupted-case validation input is NOT what the write kernel produces; it models a foreign/buggy writer so the resident red leg has a proven nonzero expectation (a clean report on it would be a broken red leg and fails the coverage gate)."
+  ],
+  "does_not_imply": [
+    "Godot runtime indirect_args pass completion",
+    "real_gpu_pass=true",
+    "real_d3d12_dispatch_recorded=true",
+    "visual success",
+    "temporal stability success",
+    "GPU timestamp success",
+    "performance claim",
+    "default pass enablement"
+  ]
+}

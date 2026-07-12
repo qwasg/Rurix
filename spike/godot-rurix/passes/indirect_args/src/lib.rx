@@ -1,0 +1,89 @@
+// GRX-018 indirect_args kernel Rurix math source (forward-looking; NOT yet
+// compilable to a runtime-mappable DXIL container).
+//
+// This documents the math of the GRX-018 pass pair — the WRITE kernel that
+// generates the complete 5-dword indirect draw command block per surface of
+// an indirect MultiMesh (Godot INDIRECT_MULTIMESH_COMMAND_STRIDE = 5,
+// mesh_storage.h L62-64), and the RESIDENT VALIDATION red-leg kernel mandated
+// by GRX_PLAN GRX-018 ("any validation mismatch -> immediate fallback") — and
+// is the math target the DXC-compiled bridge kernels
+// `artifacts/hlsl_bridge/indirect_args_write.hlsl` and
+// `artifacts/hlsl_bridge/indirect_args_validate.hlsl` must stay equivalent to.
+//
+// Native CPU behaviour being replaced (mesh_storage.cpp):
+//   * dword 0 (index_count) is filled at _multimesh_set_mesh from
+//     mesh_surface_get_vertices_drawn_count (L1674-1696); dwords 2-4 stay 0.
+//   * dword 1 (instance_count) is a CPU buffer_update at
+//     _multimesh_set_visible_instances L2210 — per frame under a CPU culling
+//     loop. GRX-018 moves that write onto the GPU, fed by the GRX-015/016
+//     survivor count, and backfills dwords 0/2/3/4 from b0 template constants
+//     that the runtime filler derives from the same native sources.
+//
+// ROUTE CHOICE — why the canonical package is the hlsl_bridge workaround
+// instead of a rurixc-owned raw-buffer compile (indirect_args is an all
+// raw-buffer / SSBO pass, so the GRX-009 texture-intrinsic llc blocker does
+// NOT apply here; the blockers below are different):
+//   1. No u32 buffer views. The DXIL compute-body lowering accepts only
+//      `View<global, f32>` / `ViewMut<global, f32>` buffer views (and the
+//      f32 texture views) — see src/rurixc/src/dxil_codegen.rs L1754/L1786.
+//      Every buffer here (survivor counts, command blocks, validation words)
+//      is u32 payload; an f32 view cannot carry arbitrary u32 payloads
+//      bit-faithfully (an index_count above 2^24 would round, and the
+//      validation bitmasks are bit patterns, not numbers).
+//   2. Integer bit operations are not wired on the DXIL path. The validation
+//      kernel builds per-surface mismatch bitmasks from `|`, `<<`, `&`. MIR
+//      carries BinOp::BitAnd/BitOr/BitXor/Shl/Shr (src/rurixc/src/mir.rs
+//      L643-647), but the DXIL backend (src/rurixc/src/dxil_codegen.rs) has
+//      no lowering for any of them.
+//   3. No atomics. The validation kernel's global mismatch_count /
+//      clamp_trigger_count accumulation needs InterlockedAdd; the Rurix lang
+//      subset has no atomic intrinsic on any backend.
+// The RTS0 root signature is still Rurix-owned (rurixc::binding_layout),
+// mirroring the GRX-013/014 buffer-pass precedent. Blockers (1) and (2)/(3)
+// split across the pair: the WRITE kernel alone is blocked by (1) (min/copy
+// over u32 words); the VALIDATION kernel adds (2) and (3). Because the
+// validation red leg is resident (contract section 5.4), the pass ships as a
+// pair and the pseudocode below is documentation only, NOT compilable Rurix
+// source; the executable math lives in the HLSL bridge kernels.
+//
+// Shared b0 (176 bytes / 44 dwords; resource_mapping.md):
+//   surface_count, max_instance_count, survivor_count_word_offset, pad0,
+//   surface_template[8][5] = {index_count, instance_count_reserved(0),
+//                             first_index, vertex_offset, first_instance}
+//
+// WRITE kernel (one thread per surface; numthreads 64x1x1, dispatch 1x1x1):
+//
+//   s = global_id.x; if s >= surface_count: return
+//   survivors = src_survivor_counts[survivor_count_word_offset]   // u32
+//   clamped   = min(survivors, max_instance_count)                // clamp
+//   base = s * 5
+//   dst_command_buffer[base + 0] = template[s].index_count        // backfill
+//   dst_command_buffer[base + 1] = clamped                        // dynamic
+//   dst_command_buffer[base + 2] = template[s].first_index        // backfill
+//   dst_command_buffer[base + 3] = template[s].vertex_offset      // backfill
+//   dst_command_buffer[base + 4] = template[s].first_instance     // backfill
+//
+// VALIDATION kernel (same shape; runs after a UAV barrier on the write):
+//
+//   s = global_id.x; if s >= surface_count: return
+//   survivors = src_survivor_counts[survivor_count_word_offset]
+//   expected1 = min(survivors, max_instance_count)
+//   base = s * 5; mask = 0
+//   if dst_command_buffer[base+0] != template[s].index_count:    mask |= 1<<0
+//   if dst_command_buffer[base+1] != expected1:                  mask |= 1<<1
+//   if dst_command_buffer[base+2] != template[s].first_index:    mask |= 1<<2
+//   if dst_command_buffer[base+3] != template[s].vertex_offset:  mask |= 1<<3
+//   if dst_command_buffer[base+4] != template[s].first_instance: mask |= 1<<4
+//   if dst_command_buffer[base+1] > max_instance_count:          mask |= 1<<5
+//   if survivors > max_instance_count:                           mask |= 1<<6
+//   dst_validation[2 + s] = mask
+//   if (mask & 0x3F) != 0: InterlockedAdd(dst_validation[0], 1)  // mismatch
+//   if (mask & 0x40) != 0: InterlockedAdd(dst_validation[1], 1)  // clamp red
+//
+// Runtime policy (contract section 5.4): write into a Rurix-owned STAGING
+// buffer -> validate -> readback; copy over multimesh->command_buffer ONLY
+// when both counters are zero, otherwise fallback_reason = validation_failed
+// and the native CPU contents stay live — bad args never reach
+// draw_list_draw_indirect.
+
+fn main() {}
