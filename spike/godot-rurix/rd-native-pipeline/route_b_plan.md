@@ -121,6 +121,9 @@ var out := rd.texture_get_data(dst, 0)
 
 - **Q1**: `RenderingServer.create_local_rendering_device()` 在 d3d12 driver 下返回
   有效实例吗？（Vulkan 下常用；D3D12 分支需实证。）→ S2 第一步；失败即切主 RD 方案。
+  **已实证（2026-07-12，见 §5）：是。** `--rendering-driver d3d12` 下返回有效
+  `RenderingDevice`（RTX 4070 Ti），本地 RD 走完 shader→pipeline→dispatch→readback
+  全链路，主 RD + `call_on_render_thread` 备选无需启用。
 - **Q2**: 主 RD 帧内注入时，`compute_list_begin` 与渲染帧图的 compute list 复用/嵌套
   约束（draw graph 重排序对注入 pass 的调度影响）→ S3 需读
   `rendering_device_graph.*` 后定注入 API 面（`compute_list_*` vs 直接 draw graph 节点）。
@@ -141,3 +144,83 @@ var out := rd.texture_get_data(dst, 0)
 | S4 | RID 化转换面 + uniform set 缓存 | 无 | 有 | host 冒烟 |
 | S5 | 三态开关 + fail-closed 回落 + bench 工装 | 有 | 有 | 三态切换红绿 |
 | S6 | TAA/tonemap 真替代收口 | 有 | 有 | 多帧 enablement 冒烟 |
+
+## 5. S2 实测补充（本切片执行结果，append 于 2026-07-12）
+
+状态: **S2 已执行并 PASS**（真 GPU，RTX 4070 Ti，零 patch）。以下为对 §S2 设计的
+勘误/补充，覆盖 Q1、探针实测流程与结果、以及对 S3+ 的更新建议。
+
+### 5.1 Q1 定论 — local RD 在 D3D12 下可用
+
+`RenderingServer.create_local_rendering_device()` 在 `--rendering-driver d3d12`
+下返回**有效** `RenderingDevice`（`get_device_name()="NVIDIA GeForce RTX 4070 Ti"`,
+vendor NVIDIA）。§S2 的主 RD + `call_on_render_thread` 风险回退（R3）**无需启用**：
+本地 RD 路线全程可达，且能 `submit()`/`sync()` 后 `texture_get_data` 同步回读——
+这是主 RD 脚本路线拿不到的显式提交点，故 S2 一律走本地 RD。
+
+引擎用的是 tracked 模板构建 `external/godot-master/bin/godot.windows.template_debug.x86_64.console.exe`
+（仅带 patch 0001+0002+0003，均不触及 RenderingDevice 公共 API）。探针以 `--path`
+方式运行一个静态工程，无任何引擎改动 → **零 patch 得证**。
+
+### 5.2 探针工程与实测流程
+
+产物：
+- `probe_project/`（静态 GDScript 工程：`project.godot` / `main.tscn` / `rd_native_probe.gd`）。
+  探针读 `--manifest <abs json>`，对每个 case 走：
+  容器字节 → `shader_create_from_bytecode`（→ `shader_create_from_container`）→
+  `compute_pipeline_create`（→ 驱动 `CreateRootSignature` + PSO，字节取自容器 footer 的
+  RTS0 与 shader 条目的 DXIL）→ 以已知图案 seed 源 `Texture2D`（RGBA32F，SAMPLING，t0 SRV）
+  + 分配 `RWTexture2D`（RGBA32F，STORAGE+CAN_COPY_FROM，u0 UAV）→
+  `uniform_set_create([t0, u0], shader, 0)` → `compute_list` 绑管线/集/28B b0 push
+  constant → `dispatch(ceil(w/8), ceil(h/8), 1)` → `submit()`/`sync()` →
+  `texture_get_data(dst)` 回读 → 写原始 RGBA32F 输出文件。全程 fail-closed（任何无效
+  RID / I/O 失败即打 `RD_NATIVE_PROBE_RESULT status=fail` 并非零退出）。
+- `ci/grx_rd_native_probe_smoke.py`：驱动上述 exe + 工程，拥有 CPU 参照（逐 op binary32
+  舍入的 `linear_to_srgb(src * luminance_multiplier * exposure)`，与
+  `passes/tonemap/generate_math_parity_evidence.py` **同公式同容差 2e-3**），逐 texel 对照
+  GPU 回读，写 `rd_native_probe_evidence.json`。
+
+数值分工：探针只跑 GPU + 回读；Python 侧独占参照与逐 texel 比对（可审计，且与既有
+math-parity 证据字节同源）。输入图案 = `((x*29 + y*13 + c*7) % 101) / 50`（HDR [0,2]）。
+
+### 5.3 结果原文
+
+4 个 case（与 math-parity 证据同集，含非 8 整除维度以验证 dispatch 边界）：
+
+| case | 维度 | exposure / white / lum | groups | out bytes | max_abs_diff |
+|------|------|------------------------|--------|-----------|--------------|
+| tonemap_8x8_exposure1      | 8×8  | 1.0 / 1.0 / 1.0   | 1×1 | 1024 | 2.384e-07 |
+| tonemap_8x8_exposure_half  | 8×8  | 0.5 / 1.0 / 1.0   | 1×1 | 1024 | 1.192e-07 |
+| tonemap_16x9_lum_mult2     | 16×9 | 1.0 / 4.0 / 2.0   | 2×2 | 2304 | 2.384e-07 |
+| tonemap_9x7_partial_tiles  | 9×7  | 1.25 / 1.0 / 0.75 | 2×1 | 1008 | 2.384e-07 |
+
+**overall max_abs_diff = 2.384e-07**（≪ 容差 2e-3；近 1 ULP，本质位精确）。
+`status=success`，evidence 记录 adapter / container sha / dxil sha / rts0 sha /
+逐 case sha 与最差 texel。fail-closed 反向自验：以垃圾字节冒充容器 → 探针如实报
+`shader_create_from_bytecode_invalid` 且退出码 2（设备在位但探针失败 → 冒烟判 FAIL 而非 SKIP）。
+
+### 5.4 容器格式：消费端无新问题
+
+容器在引擎内被驱动真实消费（`shader_create_from_bytecode` +
+`compute_pipeline_create` + `uniform_set_create` 全部返回有效 RID，dispatch 出正确
+像素）→ §4 消费端核对表 1/3/4/5/6/7/10/11/12/14/15/16/17 全部在**真机**得证。
+S1 自检覆盖不到的消费端行为**未暴露任何格式问题**：`generate_rd_container.py` 未改动，
+`verify_container.py` 仍 49/49 绿。因此本切片**无生成器迭代轮次**（0 轮）。
+
+### 5.5 对 S3+ 的更新建议
+
+- **S3（同帧注入 patch）**：S2 已证「本地 RD + 容器字节 + `compute_list`」链路正确，
+  故 S3 patch 只需把注入点持有的 render-buffer RID 喂给**同样的**
+  `uniform_set_create` + `compute_list_*` 序列，无需再验证格式/管线创建正确性。patch
+  仍限「调用点 + RID 转发 + 开关」。注意 S2 用本地 RD 的 `submit()`/`sync()`；S3 在主 RD
+  帧图内**不可**调 `submit/sync`（那是本地 RD 专属），改用主 RD 的 `compute_list_*` 并让
+  draw graph 调度（见 Q2）——两条路的 API 面在此分叉，S3 需实测主 RD 的 `compute_list_begin`
+  嵌套/复用约束。
+- **push constant 打包器**：S2 的 28B 打包（i64 维度低 dword + 高 dword=0，exposure/white/lum
+  f32）已在真机验证正确，可原样平移进 S4 转换面。
+- **usage bits（Q3/R? 对齐）**：S2 里 src 需 `SAMPLING_BIT`、dst 需 `STORAGE_BIT`+
+  `CAN_COPY_FROM_BIT`（回读用）。S3/S4 注入端复用 Godot 内部纹理时须核对其 usage flags
+  是否含 `STORAGE_BIT`（TAA history 尤需确认，Q3）；不含则需中转纹理 + copy。
+- **纹理格式**：S2 用 `R32G32B32A32_SFLOAT` 双向；真实 tonemap 输入为 HDR 内部纹理格式、
+  输出为 LDR framebuffer，S3 注入需按实际 RID 格式绑定（driver 的 SRV/UAV 视图选择由
+  容器反射的 type/writable 驱动，格式来自 RID 本身）。

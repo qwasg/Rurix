@@ -1,0 +1,123 @@
+{
+  "subject": "grx_rd_native_probe",
+  "slice": "route_b_s2_zero_patch_in_engine_probe",
+  "generated_at": "2026-07-12T21:39:15+08:00",
+  "run_url": "local interactive runner",
+  "tolerance": 0.002,
+  "container": {
+    "path": "spike\\godot-rurix\\rd-native-pipeline\\out\\tonemap.rd_container.bin",
+    "sha256": "ef8668e7330a7bfabb59a80b318c132058baee014a279a7e8ffdba8dec5fa8db"
+  },
+  "dxil": {
+    "path": "spike\\godot-rurix\\passes\\tonemap\\artifacts\\tonemap.dxil",
+    "sha256": "4b3d60118523b746622ba3ec01f192f820b9c67b8644a71992a490a13e8aa392"
+  },
+  "rts0": {
+    "path": "spike\\godot-rurix\\passes\\tonemap\\artifacts\\tonemap.rts0.bin",
+    "sha256": "f08794f9886e1ebc4c905e3006732e572ec913a75255c5b488cf4877a1391f03"
+  },
+  "does_not_imply": [
+    "same-frame injection (that is S3+, requires a patch)",
+    "default pass enablement",
+    "real_gpu_pass=true",
+    "Godot runtime tonemap pass completion",
+    "visual diff success",
+    "GPU timestamp / performance claim"
+  ],
+  "status": "success",
+  "godot_exe": "H:\\rurix\\external\\godot-master\\bin\\godot.windows.template_debug.x86_64.console.exe",
+  "godot_exe_sha256": "3d9a87fc330d0cfd0b49887d67c7b14e286e142ac9e2cb7d42cb0c14d9f69d51",
+  "container_source": "tracked_fixture",
+  "adapter": "NVIDIA GeForce RTX 4070 Ti",
+  "vendor": "NVIDIA",
+  "local_rendering_device": true,
+  "exit_code": 0,
+  "probe_log": "target\\grx_rd_native_probe\\probe_stdout.log",
+  "q1_result": "create_local_rendering_device() returns a valid RenderingDevice under --rendering-driver d3d12; the zero-patch local-RD route is viable (main-RD + call_on_render_thread fallback not needed)",
+  "pipeline_path": [
+    "shader_create_from_bytecode (-> shader_create_from_container)",
+    "compute_pipeline_create (-> CreateRootSignature + PSO from container bytes)",
+    "uniform_set_create([t0 SRV, u0 UAV], shader, 0)",
+    "compute_list dispatch + submit + sync",
+    "texture_get_data readback"
+  ],
+  "max_abs_diff": 2.384185791015625e-07,
+  "cases": [
+    {
+      "case_id": "tonemap_8x8_exposure1",
+      "width": 8,
+      "height": 8,
+      "constants": {
+        "exposure": 1.0,
+        "white": 1.0,
+        "luminance_multiplier": 1.0
+      },
+      "output_bytes": 1024,
+      "output_sha256": "9c2b67dd934d289e6839d831a5913e6683a5e17002e38f1ae6fadcf67be0d086",
+      "max_abs_diff": 2.384185791015625e-07,
+      "within_tolerance": true,
+      "worst_texel": {
+        "index": 9,
+        "gpu": 1.121870756149292,
+        "cpu": 1.121870994567871
+      }
+    },
+    {
+      "case_id": "tonemap_8x8_exposure_half",
+      "width": 8,
+      "height": 8,
+      "constants": {
+        "exposure": 0.5,
+        "white": 1.0,
+        "luminance_multiplier": 1.0
+      },
+      "output_bytes": 1024,
+      "output_sha256": "1529d33e88f494883c2d5702eb0630fb3dbace199a2eff3d6e68cda59bbdf243",
+      "max_abs_diff": 1.1920928955078125e-07,
+      "within_tolerance": true,
+      "worst_texel": {
+        "index": 48,
+        "gpu": 0.565728485584259,
+        "cpu": 0.5657283663749695
+      }
+    },
+    {
+      "case_id": "tonemap_16x9_lum_mult2",
+      "width": 16,
+      "height": 9,
+      "constants": {
+        "exposure": 1.0,
+        "white": 4.0,
+        "luminance_multiplier": 2.0
+      },
+      "output_bytes": 2304,
+      "output_sha256": "3611f79490ff36574c1e212c9a6cc1462a28cc17d68e8f3fb122846fefcf2b0a",
+      "max_abs_diff": 2.384185791015625e-07,
+      "within_tolerance": true,
+      "worst_texel": {
+        "index": 70,
+        "gpu": 1.4213491678237915,
+        "cpu": 1.4213494062423706
+      }
+    },
+    {
+      "case_id": "tonemap_9x7_partial_tiles",
+      "width": 9,
+      "height": 7,
+      "constants": {
+        "exposure": 1.25,
+        "white": 1.0,
+        "luminance_multiplier": 0.75
+      },
+      "output_bytes": 1008,
+      "output_sha256": "64166e73de1b5e64d9785cb38c241860b3143bb1a957541ea8cad29611843357",
+      "max_abs_diff": 2.384185791015625e-07,
+      "within_tolerance": true,
+      "worst_texel": {
+        "index": 182,
+        "gpu": 1.1876463890075684,
+        "cpu": 1.1876466274261475
+      }
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+; Route B S2 — zero-patch in-engine RD-native probe project.
+;
+; Loads a RenderingShaderContainerD3D12 container built by
+; ../generate_rd_container.py (Rurix .dxil + .rts0.bin, verbatim GPU bytes),
+; drives it through RenderingDevice.shader_create_from_bytecode ->
+; compute_pipeline_create -> uniform_set_create -> compute_list dispatch on a
+; *local* rendering device, and reads back the result for the CI smoke to
+; compare against a CPU reference. No engine patch is involved: the container
+; enters the driver through the public RenderingDevice ClassDB surface.
+;
+; Run headless-capable via the tracked template build, e.g.:
+;   godot.windows.template_debug.x86_64.console.exe \
+;     --path <this dir> --rendering-driver d3d12 --rendering-method forward_plus \
+;     -- --manifest <abs path to probe manifest json>
+
+config_version=5
+
+[application]
+
+config/name="rd_native_probe"
+run/main_scene="res://main.tscn"
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
