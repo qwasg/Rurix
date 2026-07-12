@@ -1,0 +1,174 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Sat, 12 Jul 2026 11:00:00 +0800
+Subject: [PATCH] Add default-disabled GRX-013 particles_copy gate and
+ particles_set_view_axis call-site opt-in wiring
+
+Stacked on 0001..0019. Template copy of the GRX-011 0014 / GRX-012 0017
+pattern for the particles_copy pass, hooked at the cull-stage driver
+(particles_set_view_axis), not a post-process effect:
+
+- modules/rurix_accel: new default-false per-pass setting
+  rendering/rurix_accel/passes/particles_copy/enabled and
+  try_record_particles_copy() (0002-level module gate; the call carries no
+  resource bindings, native handle mapping belongs to a later slice). Adds
+  RXGD_PASS_PARTICLES_COPY (7u).
+- drivers/d3d12/d3d12_hooks.h: default-false virtual try_record_particles_copy()
+  so any hooks implementation that does not override it (or the absence of
+  a hooks singleton) keeps the native Godot particles copy path.
+- servers/rendering/renderer_rd/storage_rd/particles_storage.cpp
+  particles_set_view_axis: the opt-in gate runs before the native
+  COPY_MODE_FILL_INSTANCES compute_list_dispatch_threads; only when the gate
+  returns true (module setting enabled AND bridge session/symbol present AND
+  rxgd_record_pass returns RXGD_STATUS_OK) is the native dispatch skipped. Only
+  the plain fill-instances subset (!do_sort) is wired; the
+  COPY_MODE_FILL_INSTANCES_WITH_SORT_BUFFER (VIEW_DEPTH sort) and
+  FILL_SORT_BUFFER paths are out of scope.
+
+The Rurix bridge ParticlesCopyGate is fail-closed and always returns
+RXGD_STATUS_FALLBACK for RXGD_PASS_PARTICLES_COPY, and the per-pass setting
+defaults to false, so in practice the gate returns false and the native
+Godot particles copy runs. No real GPU pass, no acceleration, and no
+performance improvement is claimed.
+---
+diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
+index ede924f..8abf628 100644
+--- a/drivers/d3d12/d3d12_hooks.h
++++ b/drivers/d3d12/d3d12_hooks.h
+@@ -101,5 +101,9 @@ public:
+ 	// false so any hooks that do not override this (or the absence of a hooks
+ 	// singleton) keep the native Godot TAA resolve path.
+ 	virtual bool try_record_taa_resolve(uint64_t p_color_native_handle, uint64_t p_depth_native_handle, uint64_t p_velocity_native_handle, uint64_t p_last_velocity_native_handle, uint64_t p_history_native_handle, uint64_t p_output_native_handle, uint32_t p_width, uint32_t p_height, float p_disocclusion_threshold, float p_variance_dynamic) { return false; }
++	// GRX-013: opt-in hook for the particles_copy pass. The base implementation
++	// returns false so any hooks that do not override this (or the absence of
++	// a hooks singleton) keep the native Godot particles copy path.
++	virtual bool try_record_particles_copy() { return false; }
+ 	static D3D12Hooks *get_singleton() { return singleton; }
+ };
+diff --git a/modules/rurix_accel/register_types.cpp b/modules/rurix_accel/register_types.cpp
+index 299f2ca..55c4ab5 100644
+--- a/modules/rurix_accel/register_types.cpp
++++ b/modules/rurix_accel/register_types.cpp
+@@ -161,6 +161,13 @@ void initialize_rurix_accel_module(ModuleInitializationLevel p_level) {
+ 	// the native Godot TAA resolve path keeps rendering. Defaults to false;
+ 	// never enabled by the shipping build/config.
+ 	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/taa_resolve/real_pass_force_capability_downgrade", false);
++	// GRX-013: per-pass opt-in gate for the particles_copy pass; the pass
++	// stays on the native Godot particles copy unless this is explicitly
++	// enabled AND the bridge actually records the pass. Defaults to
++	// false; the bridge ParticlesCopyGate is fail-closed and returns
++	// RXGD_STATUS_FALLBACK for RXGD_PASS_PARTICLES_COPY, so the native
++	// particles copy keeps rendering in practice and no acceleration is claimed.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/particles_copy/enabled", false);
+ 
+ #if defined(D3D12_ENABLED)
+ 	if (GLOBAL_GET("rendering/rurix_accel/enabled")) {
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index 3ac55e0..5bc4e8d 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -696,4 +696,31 @@ bool RurixAccelD3D12Hooks::try_record_taa_resolve(uint64_t p_color_native_handle
+ 	return true;
+ }
+ 
++bool RurixAccelD3D12Hooks::try_record_particles_copy() {
++	// GRX-013 gate: every early return below means the caller must keep the
++	// native Godot particles copy path. This is 0002-level module wiring: the
++	// call carries no resource bindings (native handle mapping belongs to a later
++	// slice), and the fail-closed bridge ParticlesCopyGate always returns
++	// RXGD_STATUS_FALLBACK for RXGD_PASS_PARTICLES_COPY today, so the native
++	// particles copy keeps rendering in practice.
++	if (!GLOBAL_GET("rendering/rurix_accel/passes/particles_copy/enabled")) {
++		// manual_disabled: the pass is opt-in and defaults to disabled.
++		return false;
++	}
++	if (session == nullptr || rxgd_record_pass == nullptr) {
++		// No bridge session or record entry point; equivalent to
++		// unsupported_device for this pass.
++		return false;
++	}
++	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_PARTICLES_COPY, nullptr, 0, nullptr, 0);
++	if (rc != RXGD_STATUS_OK) {
++		if (!particles_copy_fallback_logged) {
++			print_verbose(vformat("RurixAccel: particles_copy fallback rc=%d; Godot native particles copy path remains active.", rc));
++			particles_copy_fallback_logged = true;
++		}
++		return false;
++	}
++	return true;
++}
++
+ #endif // D3D12_ENABLED
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index b338d01..9e9c330 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -16,6 +16,7 @@
+ #define RXGD_PASS_TONEMAP 5u
+ #define RXGD_PASS_SSAO_BLUR 2u
+ #define RXGD_PASS_TAA_RESOLVE 6u
++#define RXGD_PASS_PARTICLES_COPY 7u
+ // GRX-009 segment 4b reserved capability flag carried in RxGdCaps.flags
+ // (ABI v1, no struct layout change). Set only when the Godot dispatch
+ // bring-up opt-in setting is enabled.
+@@ -111,6 +112,7 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
+ 	bool tonemap_fallback_logged = false;
+ 	bool ssao_blur_fallback_logged = false;
+ 	bool taa_resolve_fallback_logged = false;
++	bool particles_copy_fallback_logged = false;
+ 	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 28;
+ 	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_RESOURCE_COUNT = 2;
+ 	// GRX-010 tonemap resource mapping (resource_mapping.md): b0 carries
+@@ -200,6 +202,12 @@ public:
+ 	// TaaResolveGate) returns false and the caller must keep the native Godot TAA
+ 	// resolve path.
+ 	bool try_record_taa_resolve(uint64_t p_color_native_handle, uint64_t p_depth_native_handle, uint64_t p_velocity_native_handle, uint64_t p_last_velocity_native_handle, uint64_t p_history_native_handle, uint64_t p_output_native_handle, uint32_t p_width, uint32_t p_height, float p_disocclusion_threshold, float p_variance_dynamic) override;
++	// GRX-013: returns true only when the Rurix bridge actually recorded the
++	// particles_copy pass. Any other outcome (setting disabled, missing
++	// session/symbol, or a non-OK bridge status such as RXGD_STATUS_FALLBACK
++	// from the fail-closed ParticlesCopyGate) returns false and the caller must
++	// keep the native Godot particles copy path.
++	bool try_record_particles_copy() override;
+ };
+ 
+ #endif // D3D12_ENABLED
+diff --git a/servers/rendering/renderer_rd/storage_rd/particles_storage.cpp b/servers/rendering/renderer_rd/storage_rd/particles_storage.cpp
+index 19a58cb..cb461dd 100644
+--- a/servers/rendering/renderer_rd/storage_rd/particles_storage.cpp
++++ b/servers/rendering/renderer_rd/storage_rd/particles_storage.cpp
+@@ -36,6 +36,9 @@
+ #include "servers/rendering/renderer_viewport.h"
+ #include "servers/rendering/rendering_server_globals.h"
+ 
++// GRX-013 segment: opt-in particles_copy gate lives on the D3D12 hooks.
++#include "drivers/d3d12/d3d12_hooks.h"
++
+ using namespace RendererRD;
+ 
+ ParticlesStorage *ParticlesStorage::singleton = nullptr;
+@@ -1346,7 +1349,22 @@ void ParticlesStorage::particles_set_view_axis(RID p_particles, const Vector3 &p
+ 
+ 	RD::get_singleton()->compute_list_set_push_constant(compute_list, &copy_push_constant, sizeof(ParticlesShader::CopyPushConstant));
+ 
+-	RD::get_singleton()->compute_list_dispatch_threads(compute_list, copy_push_constant.total_particles, 1, 1);
++	bool rurix_recorded_particles_copy = false;
++#ifdef D3D12_ENABLED
++	if (!do_sort && D3D12Hooks::get_singleton() != nullptr) {
++		// GRX-013 opt-in gate. Only the plain COPY_MODE_FILL_INSTANCES subset
++		// (no sort buffer, so !do_sort) is in scope. Returns true only when the
++		// Rurix module setting is enabled AND the bridge session/symbol exist AND
++		// rxgd_record_pass returns RXGD_STATUS_OK. The fail-closed bridge
++		// ParticlesCopyGate always returns RXGD_STATUS_FALLBACK for
++		// RXGD_PASS_PARTICLES_COPY today, so this stays false and the native
++		// particles copy dispatch below runs.
++		rurix_recorded_particles_copy = D3D12Hooks::get_singleton()->try_record_particles_copy();
++	}
++#endif
++	if (!rurix_recorded_particles_copy) {
++		RD::get_singleton()->compute_list_dispatch_threads(compute_list, copy_push_constant.total_particles, 1, 1);
++	}
+ 
+ 	RD::get_singleton()->compute_list_end();
+ }
+-- 
+2.50.0

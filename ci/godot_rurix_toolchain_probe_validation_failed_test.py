@@ -3900,15 +3900,16 @@ def run_grx010_tonemap_close_out_cases() -> None:
 def run_grx_gate_sequence_cases() -> None:
     """GRX gate sequence (table-driven per-pass registration) regression.
 
-    (1) The gate sequence registers grx011 (ssao_blur) then grx012
-        (taa_resolve). An empty walk is still a pure no-op. Walking the REAL
-        registered sequence: grx011 is fully ready (close-out landed) so it
-        advances ``next_action`` to its gate-provided value
+    (1) The gate sequence registers grx011 (ssao_blur), grx012 (taa_resolve),
+        then grx013 (particles_copy). An empty walk is still a pure no-op.
+        Walking the REAL registered sequence: grx011 is fully ready (close-out
+        landed) so it advances ``next_action`` to its gate-provided value
         (``start_grx012_taa_resolve_pass_contract``); grx012 is honestly
-        fail-closed (its Godot patches 0017-0019 / real-pass enablement / owner
-        default-enable decision are deferred to a later serial slice), so the
-        walk records a readiness ``grx_gate_module_error`` at grx012, STOPS, and
-        keeps grx011's advanced ``next_action``.
+        fail-closed (its Godot patches 0017-0019 landed but its real-pass
+        enablement / owner default-enable decision are deferred to a later serial
+        slice), so the walk records a readiness ``grx_gate_module_error`` at
+        grx012, STOPS, and keeps grx011's advanced ``next_action`` (grx013 is
+        never reached while grx012 is not-ready).
     (2) A broken gate module injected into a temporary sequence is reported as a
         ``grx_gate_module_error`` and MUST NOT rewrite ``next_action``: covers a
         syntax-error module, a module without ``evaluate``, an ``evaluate`` that
@@ -3924,16 +3925,18 @@ def run_grx_gate_sequence_cases() -> None:
 
     base = probe.GRX011_NEXT_ACTION
 
-    # (1) The gate sequence registers grx011 (ssao_blur) then grx012
-    # (taa_resolve), in that order, and nothing else.
+    # (1) The gate sequence registers grx011 (ssao_blur), grx012 (taa_resolve),
+    # then grx013 (particles_copy), in that order, and nothing else.
     expected_sequence = [
         {"gate_id": "grx011", "module": "grx011_ssao_blur"},
         {"gate_id": "grx012", "module": "grx012_taa_resolve"},
+        {"gate_id": "grx013", "module": "grx013_particles_copy"},
     ]
     if list(probe.GRX_GATE_SEQUENCE) != expected_sequence:
         raise AssertionError(
-            "GRX_GATE_SEQUENCE must register exactly the grx011 ssao_blur and "
-            f"grx012 taa_resolve gates, got {probe.GRX_GATE_SEQUENCE!r}"
+            "GRX_GATE_SEQUENCE must register exactly the grx011 ssao_blur, "
+            "grx012 taa_resolve and grx013 particles_copy gates, got "
+            f"{probe.GRX_GATE_SEQUENCE!r}"
         )
 
     # (1a) An empty walk is still a pure no-op: base preserved, nothing recorded.
@@ -3948,16 +3951,18 @@ def run_grx_gate_sequence_cases() -> None:
     # (1b) Walking the REAL registered sequence: grx011 is fully ready (close-out
     # landed) so it advances next_action to its gate-provided value
     # (start_grx012_taa_resolve_pass_contract). grx012 is honestly fail-closed
-    # (patches 0017-0019 / real-pass enablement / owner default-enable decision
-    # are deferred to a later serial slice), so the walk records exactly one
-    # readiness grx_gate_module_error at grx012, STOPS, and keeps grx011's
-    # advanced next_action unchanged (the fail-closed stop-walk semantics).
+    # (its patches 0017-0019 landed but its real-pass enablement / owner
+    # default-enable decision are deferred to a later serial slice), so the walk
+    # records exactly one readiness grx_gate_module_error at grx012, STOPS, and
+    # keeps grx011's advanced next_action unchanged (the fail-closed stop-walk
+    # semantics). grx013 (particles_copy) is registered third but is never
+    # reached while grx012 is not-ready.
     grx011_next_action = "start_grx012_taa_resolve_pass_contract"
     real_walk = probe.walk_grx_gate_sequence(list(probe.GRX_GATE_SEQUENCE), base)
     if len(real_walk["evaluations"]) != 2:
         raise AssertionError(
-            "the real gate walk must evaluate grx011 then grx012 (2 records); "
-            f"got {real_walk['evaluations']!r}"
+            "the real gate walk must evaluate grx011 then grx012 and STOP (2 "
+            f"records; grx013 unreached while grx012 is not-ready); got {real_walk['evaluations']!r}"
         )
     grx011_record, grx012_record = real_walk["evaluations"]
     if grx011_record.get("gate_id") != "grx011" or grx011_record.get("all_ready") is not True:
@@ -3967,7 +3972,8 @@ def run_grx_gate_sequence_cases() -> None:
     if grx012_record.get("gate_id") != "grx012" or grx012_record.get("all_ready") is True:
         raise AssertionError(
             "the second real gate record must be a NOT-ready grx012 (patches "
-            f"0017-0019 / enablement / decision deferred): {grx012_record!r}"
+            "0017-0019 landed; enablement / decision deferred): "
+            f"{grx012_record!r}"
         )
     if [e.get("gate_id") for e in real_walk["module_errors"]] != ["grx012"]:
         raise AssertionError(
@@ -4087,10 +4093,16 @@ def run_grx_gate_sequence_cases() -> None:
             )
 
     # The real gate package directory carries the shared helpers plus the
-    # grx011 and grx012 gate modules; these cases never mutate it.
+    # grx011, grx012 and grx013 gate modules; these cases never mutate it.
     real_gates_dir = ROOT / "ci" / "grx_gates"
     tracked = sorted(path.name for path in real_gates_dir.glob("*.py"))
-    if tracked != ["__init__.py", "_common.py", "grx011_ssao_blur.py", "grx012_taa_resolve.py"]:
+    if tracked != [
+        "__init__.py",
+        "_common.py",
+        "grx011_ssao_blur.py",
+        "grx012_taa_resolve.py",
+        "grx013_particles_copy.py",
+    ]:
         raise AssertionError(f"unexpected files in ci/grx_gates/: {tracked}")
     print("grx gate sequence table-driven cases passed")
 

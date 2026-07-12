@@ -1,0 +1,244 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Sat, 12 Jul 2026 11:00:00 +0800
+Subject: [PATCH] Wire GRX-012 taa_resolve runtime resource binding with native
+ D3D12 resource handle mapping
+
+Stacked on 0001..0017. This is the GRX-012 runtime resource binding slice
+(the GRX-009 0005+0007 layers merged into one patch for the taa_resolve
+pass), mirroring GRX-011 0015 but with SIX texture resources: it lets the
+Godot render_forward_clustered TAA branch pass the REAL taa_resolve binding
+to the Rurix bridge so the fail-closed TaaResolveGate can validate it, while
+the runtime stays fallback-first.
+
+- drivers/d3d12/d3d12_hooks.h: try_record_taa_resolve() now carries the
+  taa_resolve binding: the six real ID3D12Resource* native handles (resolved
+  through RenderingDevice::get_driver_resource) for the 1:1 full-resolution
+  color/depth/velocity/last_velocity/history/output textures, the shared
+  internal resolution, and the b0 root constant scalars (disocclusion_threshold,
+  variance_dynamic).
+- render_forward_clustered.cpp: resolves the six native handles for view 0
+  through get_driver_resource and passes them plus the internal resolution and
+  the resolve b0 scalars. The taa history/temp/prev_velocity slices only exist
+  after taa->process has allocated them once, so has_texture(taa, history)
+  guards the first-frame just_allocated case; when RenderingDevice is
+  unavailable or any handle resolves to 0 the call site keeps the native
+  taa->process instead of binding a null resource.
+- modules/rurix_accel: the override marshals six RXGD_RESOURCE_TEXTURE records
+  (SRV color/depth/velocity/last_velocity/history = t0..t4, UAV output = u0) and
+  the 28-byte b0 root constant block into rxgd_record_pass, with a
+  zero-native-handle guard that returns false (native Godot fallback).
+
+This is not a real GPU pass: the default record path never returns OK for
+RXGD_PASS_TAA_RESOLVE, no D3D12 dispatch is recorded by the shipping
+(feature-off) bridge, the per-pass setting defaults to false, the native
+Godot TAA resolve path stays active, and no visual diff, measured telemetry,
+or performance claim is made.
+---
+diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
+index 2d84405..ede924f 100644
+--- a/drivers/d3d12/d3d12_hooks.h
++++ b/drivers/d3d12/d3d12_hooks.h
+@@ -90,9 +90,16 @@ public:
+ 	// The base implementation returns false so any hooks that do not override
+ 	// this (or the absence of a hooks singleton) keep the native SSAO blur path.
+ 	virtual bool try_record_ssao_blur(uint64_t p_source_native_handle, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_native_handle, uint32_t p_dest_width, uint32_t p_dest_height, float p_edge_sharpness, float p_half_screen_pixel_size_x, float p_half_screen_pixel_size_y) { return false; }
+-	// GRX-012: opt-in hook for the taa_resolve pass. The base implementation
+-	// returns false so any hooks that do not override this (or the absence of
+-	// a hooks singleton) keep the native Godot TAA resolve path.
+-	virtual bool try_record_taa_resolve() { return false; }
++	// GRX-012 runtime resource binding: native resource handle mapping hook for
++	// the taa_resolve pass. The caller passes the real D3D12 ID3D12Resource*
++	// native handles (resolved through RenderingDevice::get_driver_resource, not
++	// logical Godot RID ids) for the six 1:1 full-resolution resolve textures in
++	// color/depth/velocity/last_velocity/history/output order, the shared
++	// internal resolution, and the b0 root-constant scalars
++	// (disocclusion_threshold, variance_dynamic) so the bridge can validate the
++	// binding contract and bind real resources. The base implementation returns
++	// false so any hooks that do not override this (or the absence of a hooks
++	// singleton) keep the native Godot TAA resolve path.
++	virtual bool try_record_taa_resolve(uint64_t p_color_native_handle, uint64_t p_depth_native_handle, uint64_t p_velocity_native_handle, uint64_t p_last_velocity_native_handle, uint64_t p_history_native_handle, uint64_t p_output_native_handle, uint32_t p_width, uint32_t p_height, float p_disocclusion_threshold, float p_variance_dynamic) { return false; }
+ 	static D3D12Hooks *get_singleton() { return singleton; }
+ };
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index a6f91f2..3c74e59 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -594,13 +594,15 @@ bool RurixAccelD3D12Hooks::try_record_ssao_blur(uint64_t p_source_native_handle,
+ 	return true;
+ }
+ 
+-bool RurixAccelD3D12Hooks::try_record_taa_resolve() {
+-	// GRX-012 gate: every early return below means the caller must keep the
+-	// native Godot TAA resolve path. This is 0002-level module wiring: the call
+-	// carries no resource bindings (native handle mapping belongs to a later
+-	// slice), and the fail-closed bridge TaaResolveGate always returns
+-	// RXGD_STATUS_FALLBACK for RXGD_PASS_TAA_RESOLVE today, so the native TAA
+-	// resolve keeps rendering in practice.
++bool RurixAccelD3D12Hooks::try_record_taa_resolve(uint64_t p_color_native_handle, uint64_t p_depth_native_handle, uint64_t p_velocity_native_handle, uint64_t p_last_velocity_native_handle, uint64_t p_history_native_handle, uint64_t p_output_native_handle, uint32_t p_width, uint32_t p_height, float p_disocclusion_threshold, float p_variance_dynamic) {
++	// GRX-012 runtime resource binding gate: every early return below means the
++	// caller must keep the native Godot TAA resolve path. This is the 0005/0007-
++	// level wiring in one slice: the call now carries the real taa_resolve
++	// binding (six native ID3D12Resource* handles, the shared 1:1 resolution, and
++	// the b0 root constant scalars) so the fail-closed bridge TaaResolveGate can
++	// run its runtime binding preflight. The default record path (no real-pass
++	// opt-in) still always returns RXGD_STATUS_FALLBACK for RXGD_PASS_TAA_RESOLVE,
++	// so the native TAA resolve keeps rendering.
+ 	if (!GLOBAL_GET("rendering/rurix_accel/passes/taa_resolve/enabled")) {
+ 		// manual_disabled: the pass is opt-in and defaults to disabled.
+ 		return false;
+@@ -610,10 +612,53 @@ bool RurixAccelD3D12Hooks::try_record_taa_resolve() {
+ 		// unsupported_device for this pass.
+ 		return false;
+ 	}
+-	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_TAA_RESOLVE, nullptr, 0, nullptr, 0);
++	if (p_color_native_handle == 0 || p_depth_native_handle == 0 || p_velocity_native_handle == 0 || p_last_velocity_native_handle == 0 || p_history_native_handle == 0 || p_output_native_handle == 0) {
++		// A zero native handle means RenderingDevice could not resolve a real
++		// ID3D12Resource*; keep the native Godot TAA resolve path instead of
++		// binding a null resource.
++		return false;
++	}
++	// Marshal the taa_resolve binding for the bridge. native_handle carries the
++	// real D3D12 ID3D12Resource* resolved from
++	// RenderingDevice::get_driver_resource, not a logical Godot RID id. The
++	// resolve is a 1:1 full-resolution pass, so all six textures share the
++	// internal resolution.
++	const uint64_t handles[TAA_RESOLVE_RESOURCE_MAPPING_RESOURCE_COUNT] = {
++		p_color_native_handle,
++		p_depth_native_handle,
++		p_velocity_native_handle,
++		p_last_velocity_native_handle,
++		p_history_native_handle,
++		p_output_native_handle,
++	};
++	RxGdResource resources[TAA_RESOLVE_RESOURCE_MAPPING_RESOURCE_COUNT] = {};
++	for (uint32_t i = 0; i < TAA_RESOLVE_RESOURCE_MAPPING_RESOURCE_COUNT; i++) {
++		resources[i].abi_version = RXGD_ABI_VERSION;
++		resources[i].struct_size = (uint32_t)sizeof(RxGdResource);
++		resources[i].resource_type = RXGD_RESOURCE_TEXTURE;
++		resources[i].width = p_width;
++		resources[i].height = p_height;
++		resources[i].depth = 1;
++		resources[i].mip_levels = 1;
++		resources[i].native_handle = handles[i];
++	}
++	// b0 root constants (28 bytes / 7 DWORDs): source_width and source_height as
++	// 64-bit integers (the taa_resolve kernel declares the 64-bit integer shader
++	// capability per the GRX-009 canonical template), then disocclusion_threshold,
++	// variance_dynamic, and a reserved0 float, little-endian like D3D12.
++	uint8_t push_constants[TAA_RESOLVE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES] = {};
++	const uint64_t source_width = p_width;
++	const uint64_t source_height = p_height;
++	const float reserved0 = 0.0f;
++	memcpy(&push_constants[0], &source_width, sizeof(source_width));
++	memcpy(&push_constants[8], &source_height, sizeof(source_height));
++	memcpy(&push_constants[16], &p_disocclusion_threshold, sizeof(p_disocclusion_threshold));
++	memcpy(&push_constants[20], &p_variance_dynamic, sizeof(p_variance_dynamic));
++	memcpy(&push_constants[24], &reserved0, sizeof(reserved0));
++	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_TAA_RESOLVE, resources, TAA_RESOLVE_RESOURCE_MAPPING_RESOURCE_COUNT, push_constants, TAA_RESOLVE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES);
+ 	if (rc != RXGD_STATUS_OK) {
+ 		if (!taa_resolve_fallback_logged) {
+-			print_verbose(vformat("RurixAccel: taa_resolve fallback rc=%d; Godot native TAA resolve path remains active.", rc));
++			print_verbose(vformat("RurixAccel: taa_resolve native resource handle mapping fallback rc=%d; Godot native TAA resolve path remains active.", rc));
+ 			taa_resolve_fallback_logged = true;
+ 		}
+ 		return false;
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index a88acef..ccb3cd0 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -116,6 +116,13 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
+ 	// resources (src_ssao = SRV t0, dst_ssao = UAV u0, 1:1 dst extent).
+ 	static constexpr uint32_t SSAO_BLUR_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 28;
+ 	static constexpr uint32_t SSAO_BLUR_RESOURCE_MAPPING_RESOURCE_COUNT = 2;
++	// GRX-012 taa_resolve resource mapping (resource_mapping.md): b0 carries
++	// 7 DWORDs / 28 bytes ([i64 source_width, i64 source_height, f32
++	// disocclusion_threshold, f32 variance_dynamic, f32 reserved0]) and the
++	// binding is exactly SIX texture resources (color/depth/velocity/
++	// last_velocity/history = SRV t0..t4, output = UAV u0, all 1:1 full-res).
++	static constexpr uint32_t TAA_RESOLVE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 28;
++	static constexpr uint32_t TAA_RESOLVE_RESOURCE_MAPPING_RESOURCE_COUNT = 6;
+ 	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_SCAFFOLD = "resource mapping scaffold";
+ 	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_ROOT_CB = "b0";
+ 	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_SRC = "src_luminance = t0";
+@@ -173,12 +180,16 @@ public:
+ 	// from the fail-closed SsaoBlurGate) returns false and the caller must keep
+ 	// the native Godot SSAO blur path.
+ 	bool try_record_ssao_blur(uint64_t p_source_native_handle, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_native_handle, uint32_t p_dest_width, uint32_t p_dest_height, float p_edge_sharpness, float p_half_screen_pixel_size_x, float p_half_screen_pixel_size_y) override;
+-	// GRX-012: returns true only when the Rurix bridge actually recorded the
+-	// taa_resolve pass. Any other outcome (setting disabled, missing
+-	// session/symbol, or a non-OK bridge status such as RXGD_STATUS_FALLBACK
+-	// from the fail-closed TaaResolveGate) returns false and the caller must
+-	// keep the native Godot TAA resolve path.
+-	bool try_record_taa_resolve() override;
++	// GRX-012 runtime resource binding: native resource handle mapping.
++	// Marshals the six real D3D12 ID3D12Resource* native handles (not logical
++	// Godot RID ids), the shared 1:1 resolution, and the b0 root constants
++	// (disocclusion_threshold, variance_dynamic) to the Rurix bridge and returns
++	// true only when the bridge actually recorded the taa_resolve pass. Any other
++	// outcome (setting disabled, missing session/symbol, a null native handle, or
++	// a non-OK bridge status such as RXGD_STATUS_FALLBACK from the fail-closed
++	// TaaResolveGate) returns false and the caller must keep the native Godot TAA
++	// resolve path.
++	bool try_record_taa_resolve(uint64_t p_color_native_handle, uint64_t p_depth_native_handle, uint64_t p_velocity_native_handle, uint64_t p_last_velocity_native_handle, uint64_t p_history_native_handle, uint64_t p_output_native_handle, uint32_t p_width, uint32_t p_height, float p_disocclusion_threshold, float p_variance_dynamic) override;
+ };
+ 
+ #endif // D3D12_ENABLED
+diff --git a/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp b/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
+index d829239..363a047 100644
+--- a/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
++++ b/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
+@@ -2514,14 +2514,44 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
+ 			RENDER_TIMESTAMP("TAA");
+ 			bool rurix_recorded_taa_resolve = false;
+ #ifdef D3D12_ENABLED
+-			if (D3D12Hooks::get_singleton() != nullptr) {
+-				// GRX-012 opt-in gate. Returns true only when the Rurix module
+-				// setting is enabled AND the bridge session/symbol exist AND
++			if (D3D12Hooks::get_singleton() != nullptr && rb->has_texture(SNAME("taa"), SNAME("history"))) {
++				// GRX-012 runtime resource binding gate (0005/0007-level in one
++				// slice). The tracked bridge kernel is the single full-resolution
++				// TAA resolve on view 0: resolve the real D3D12 ID3D12Resource*
++				// native handles (not logical Godot RID ids) for color/depth/
++				// velocity/prev_velocity/history/temp through
++				// RenderingDevice::get_driver_resource, then pass them plus the
++				// internal resolution and the b0 root-constant scalars
++				// (disocclusion_threshold, variance_dynamic). The taa
++				// history/temp/prev_velocity slices only exist after taa->process
++				// has allocated them once, so has_texture(taa, history) guards the
++				// first-frame just_allocated case. When RenderingDevice is
++				// unavailable or any native handle resolves to 0 the pass falls
++				// back to the native taa->process. Returns true only when the Rurix
++				// module setting is enabled AND the bridge session/symbol exist AND
+ 				// rxgd_record_pass returns RXGD_STATUS_OK. The fail-closed bridge
+-				// TaaResolveGate always returns RXGD_STATUS_FALLBACK for
+-				// RXGD_PASS_TAA_RESOLVE today, so this stays false and the native
+-				// taa->process below runs.
+-				rurix_recorded_taa_resolve = D3D12Hooks::get_singleton()->try_record_taa_resolve();
++				// TaaResolveGate still always returns RXGD_STATUS_FALLBACK for
++				// RXGD_PASS_TAA_RESOLVE on the default path, so this stays false and
++				// the native taa->process runs.
++				RenderingDevice *rurix_taa_rd = RD::get_singleton();
++				const Size2i rurix_taa_size = rb->get_internal_size();
++				const RID rurix_taa_color = rb->get_internal_texture(0);
++				const RID rurix_taa_depth = rb->get_depth_texture(0);
++				const RID rurix_taa_velocity = rb->get_velocity_buffer(false, 0);
++				const RID rurix_taa_prev_velocity = rb->get_texture_slice(SNAME("taa"), SNAME("prev_velocity"), 0, 0);
++				const RID rurix_taa_history = rb->get_texture_slice(SNAME("taa"), SNAME("history"), 0, 0);
++				const RID rurix_taa_temp = rb->get_texture_slice(SNAME("taa"), SNAME("temp"), 0, 0);
++				const uint64_t rurix_taa_color_handle = rurix_taa_rd != nullptr ? rurix_taa_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_TEXTURE, rurix_taa_color, 0) : 0;
++				const uint64_t rurix_taa_depth_handle = rurix_taa_rd != nullptr ? rurix_taa_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_TEXTURE, rurix_taa_depth, 0) : 0;
++				const uint64_t rurix_taa_velocity_handle = rurix_taa_rd != nullptr ? rurix_taa_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_TEXTURE, rurix_taa_velocity, 0) : 0;
++				const uint64_t rurix_taa_prev_velocity_handle = rurix_taa_rd != nullptr ? rurix_taa_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_TEXTURE, rurix_taa_prev_velocity, 0) : 0;
++				const uint64_t rurix_taa_history_handle = rurix_taa_rd != nullptr ? rurix_taa_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_TEXTURE, rurix_taa_history, 0) : 0;
++				const uint64_t rurix_taa_temp_handle = rurix_taa_rd != nullptr ? rurix_taa_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_TEXTURE, rurix_taa_temp, 0) : 0;
++				if (rurix_taa_color_handle != 0 && rurix_taa_depth_handle != 0 && rurix_taa_velocity_handle != 0 && rurix_taa_prev_velocity_handle != 0 && rurix_taa_history_handle != 0 && rurix_taa_temp_handle != 0) {
++					const float rurix_taa_disocclusion = 2.5f;
++					const float rurix_taa_variance = CLAMP(1.1f * (1080.0f / (float)MAX(rurix_taa_size.y, 1)), 0.75f, 1.0f);
++					rurix_recorded_taa_resolve = D3D12Hooks::get_singleton()->try_record_taa_resolve(rurix_taa_color_handle, rurix_taa_depth_handle, rurix_taa_velocity_handle, rurix_taa_prev_velocity_handle, rurix_taa_history_handle, rurix_taa_temp_handle, (uint32_t)MAX(rurix_taa_size.x, 0), (uint32_t)MAX(rurix_taa_size.y, 0), rurix_taa_disocclusion, rurix_taa_variance);
++				}
+ 			}
+ #endif
+ 			if (!rurix_recorded_taa_resolve) {
+-- 
+2.50.0

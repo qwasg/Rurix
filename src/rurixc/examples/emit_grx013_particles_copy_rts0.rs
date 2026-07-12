@@ -80,38 +80,38 @@ fn main() -> std::process::ExitCode {
     // struct byte layout exactly (see resource_mapping.md).
     let f = RootConstantType::F32;
     let constants = pack_root_constants(vec![
-        ("sort_direction_x".to_owned(), f),          // dword 0
-        ("sort_direction_y".to_owned(), f),          // dword 1
-        ("sort_direction_z".to_owned(), f),          // dword 2
-        ("total_particles".to_owned(), f),           // dword 3  (u32)
-        ("trail_size".to_owned(), f),                // dword 4  (u32)
-        ("trail_total".to_owned(), f),               // dword 5  (u32)
-        ("frame_delta".to_owned(), f),               // dword 6
-        ("frame_remainder".to_owned(), f),           // dword 7
-        ("align_up_x".to_owned(), f),                // dword 8
-        ("align_up_y".to_owned(), f),                // dword 9
-        ("align_up_z".to_owned(), f),                // dword 10
-        ("align_mode".to_owned(), f),                // dword 11 (u32)
-        ("lifetime_split".to_owned(), f),            // dword 12 (u32)
-        ("lifetime_reverse".to_owned(), f),          // dword 13 (u32)
+        ("sort_direction_x".to_owned(), f),              // dword 0
+        ("sort_direction_y".to_owned(), f),              // dword 1
+        ("sort_direction_z".to_owned(), f),              // dword 2
+        ("total_particles".to_owned(), f),               // dword 3  (u32)
+        ("trail_size".to_owned(), f),                    // dword 4  (u32)
+        ("trail_total".to_owned(), f),                   // dword 5  (u32)
+        ("frame_delta".to_owned(), f),                   // dword 6
+        ("frame_remainder".to_owned(), f),               // dword 7
+        ("align_up_x".to_owned(), f),                    // dword 8
+        ("align_up_y".to_owned(), f),                    // dword 9
+        ("align_up_z".to_owned(), f),                    // dword 10
+        ("align_mode".to_owned(), f),                    // dword 11 (u32)
+        ("lifetime_split".to_owned(), f),                // dword 12 (u32)
+        ("lifetime_reverse".to_owned(), f),              // dword 13 (u32)
         ("motion_vectors_current_offset".to_owned(), f), // dword 14 (u32)
-        ("flags_bits".to_owned(), f),                // dword 15 (u32)
-        ("inv_emission_transform_0".to_owned(), f),  // dword 16
-        ("inv_emission_transform_1".to_owned(), f),  // dword 17
-        ("inv_emission_transform_2".to_owned(), f),  // dword 18
-        ("inv_emission_transform_3".to_owned(), f),  // dword 19
-        ("inv_emission_transform_4".to_owned(), f),  // dword 20
-        ("inv_emission_transform_5".to_owned(), f),  // dword 21
-        ("inv_emission_transform_6".to_owned(), f),  // dword 22
-        ("inv_emission_transform_7".to_owned(), f),  // dword 23
-        ("inv_emission_transform_8".to_owned(), f),  // dword 24
-        ("inv_emission_transform_9".to_owned(), f),  // dword 25
-        ("inv_emission_transform_10".to_owned(), f), // dword 26
-        ("inv_emission_transform_11".to_owned(), f), // dword 27
-        ("align_channel_filter".to_owned(), f),      // dword 28 (u32)
-        ("align_axis".to_owned(), f),                // dword 29 (u32)
-        ("pad1".to_owned(), f),                      // dword 30 (u32)
-        ("pad2".to_owned(), f),                      // dword 31 (u32)
+        ("flags_bits".to_owned(), f),                    // dword 15 (u32)
+        ("inv_emission_transform_0".to_owned(), f),      // dword 16
+        ("inv_emission_transform_1".to_owned(), f),      // dword 17
+        ("inv_emission_transform_2".to_owned(), f),      // dword 18
+        ("inv_emission_transform_3".to_owned(), f),      // dword 19
+        ("inv_emission_transform_4".to_owned(), f),      // dword 20
+        ("inv_emission_transform_5".to_owned(), f),      // dword 21
+        ("inv_emission_transform_6".to_owned(), f),      // dword 22
+        ("inv_emission_transform_7".to_owned(), f),      // dword 23
+        ("inv_emission_transform_8".to_owned(), f),      // dword 24
+        ("inv_emission_transform_9".to_owned(), f),      // dword 25
+        ("inv_emission_transform_10".to_owned(), f),     // dword 26
+        ("inv_emission_transform_11".to_owned(), f),     // dword 27
+        ("align_channel_filter".to_owned(), f),          // dword 28 (u32)
+        ("align_axis".to_owned(), f),                    // dword 29 (u32)
+        ("pad1".to_owned(), f),                          // dword 30 (u32)
+        ("pad2".to_owned(), f),                          // dword 31 (u32)
     ]);
     rs.parameters
         .insert(0, RootParameter::RootConstants { constants });

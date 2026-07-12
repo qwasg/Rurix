@@ -1,0 +1,235 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Sat, 12 Jul 2026 11:00:00 +0800
+Subject: [PATCH] Wire GRX-013 particles_copy runtime resource binding with native
+ D3D12 structured-buffer handle mapping
+
+Stacked on 0001..0020. This is the GRX-013 runtime resource binding slice
+(the GRX-009 0005+0007 layers merged into one patch for the particles_copy
+pass), mirroring GRX-012 0018 but with TWO structured-buffer resources (not
+textures): it lets the Godot particles_set_view_axis COPY_MODE_FILL_INSTANCES
+dispatch pass the REAL particles_copy binding to the Rurix bridge so the
+fail-closed ParticlesCopyGate can validate it, while the runtime stays
+fallback-first.
+
+- drivers/d3d12/d3d12_hooks.h: try_record_particles_copy() now carries the
+  particles_copy binding: the two real ID3D12Resource* structured-buffer native
+  handles (resolved through RenderingDevice::get_driver_resource with
+  DRIVER_RESOURCE_BUFFER) for the Particles SSBO source and the Transforms SSBO
+  destination, their byte sizes, and the 128-byte CopyPushConstant b0 mirror.
+- particles_storage.cpp: resolves the two buffer native handles through
+  get_driver_resource(DRIVER_RESOURCE_BUFFER, ...) and passes them plus the
+  computed source/destination byte sizes (ParticleData stride 112, 3D instance
+  stride 80) and the raw CopyPushConstant. When RenderingDevice is unavailable,
+  a buffer RID is null, or a handle resolves to 0 the call site keeps the native
+  particles copy dispatch instead of binding a null resource.
+- modules/rurix_accel: the override marshals two RXGD_RESOURCE_BUFFER records
+  (src_particles = structured buffer t0, dst_instances = rwstructured buffer u0)
+  and the 128-byte b0 root constant block into rxgd_record_pass, with a
+  zero-native-handle / wrong-b0-size guard that returns false (native Godot
+  fallback). Adds RXGD_RESOURCE_BUFFER (2u).
+
+This is not a real GPU pass: the default record path never returns OK for
+RXGD_PASS_PARTICLES_COPY, no D3D12 dispatch is recorded by the shipping
+(feature-off) bridge, the per-pass setting defaults to false, the native
+Godot particles copy path stays active, and no visual diff, measured telemetry,
+or performance claim is made.
+---
+diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
+index 8abf628..1942e3e 100644
+--- a/drivers/d3d12/d3d12_hooks.h
++++ b/drivers/d3d12/d3d12_hooks.h
+@@ -101,9 +101,15 @@ public:
+ 	// false so any hooks that do not override this (or the absence of a hooks
+ 	// singleton) keep the native Godot TAA resolve path.
+ 	virtual bool try_record_taa_resolve(uint64_t p_color_native_handle, uint64_t p_depth_native_handle, uint64_t p_velocity_native_handle, uint64_t p_last_velocity_native_handle, uint64_t p_history_native_handle, uint64_t p_output_native_handle, uint32_t p_width, uint32_t p_height, float p_disocclusion_threshold, float p_variance_dynamic) { return false; }
+-	// GRX-013: opt-in hook for the particles_copy pass. The base implementation
+-	// returns false so any hooks that do not override this (or the absence of
+-	// a hooks singleton) keep the native Godot particles copy path.
+-	virtual bool try_record_particles_copy() { return false; }
++	// GRX-013 runtime resource binding: native resource handle mapping hook for
++	// the particles_copy pass. The caller passes the real D3D12 ID3D12Resource*
++	// native handles (resolved through RenderingDevice::get_driver_resource with
++	// DRIVER_RESOURCE_BUFFER, not logical Godot RID ids) for the Particles SSBO
++	// source and the Transforms SSBO destination, their byte sizes, and the
++	// 128-byte CopyPushConstant b0 mirror so the bridge can validate the binding
++	// contract and bind the real structured buffers. The base implementation
++	// returns false so any hooks that do not override this (or the absence of a
++	// hooks singleton) keep the native Godot particles copy path.
++	virtual bool try_record_particles_copy(uint64_t p_src_particles_native_handle, uint64_t p_dst_instances_native_handle, uint32_t p_src_size_bytes, uint32_t p_dst_size_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) { return false; }
+ 	static D3D12Hooks *get_singleton() { return singleton; }
+ };
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index 5bc4e8d..c315c07 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -696,13 +696,15 @@ bool RurixAccelD3D12Hooks::try_record_taa_resolve(uint64_t p_color_native_handle
+ 	return true;
+ }
+ 
+-bool RurixAccelD3D12Hooks::try_record_particles_copy() {
+-	// GRX-013 gate: every early return below means the caller must keep the
+-	// native Godot particles copy path. This is 0002-level module wiring: the
+-	// call carries no resource bindings (native handle mapping belongs to a later
+-	// slice), and the fail-closed bridge ParticlesCopyGate always returns
+-	// RXGD_STATUS_FALLBACK for RXGD_PASS_PARTICLES_COPY today, so the native
+-	// particles copy keeps rendering in practice.
++bool RurixAccelD3D12Hooks::try_record_particles_copy(uint64_t p_src_particles_native_handle, uint64_t p_dst_instances_native_handle, uint32_t p_src_size_bytes, uint32_t p_dst_size_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) {
++	// GRX-013 runtime resource binding gate: every early return below means the
++	// caller must keep the native Godot particles copy path. This is the 0005/
++	// 0007-level wiring in one slice: the call now carries the real particles_copy
++	// binding (two structured-buffer ID3D12Resource* handles, their byte sizes,
++	// and the 128-byte CopyPushConstant b0 mirror) so the fail-closed bridge
++	// ParticlesCopyGate can run its runtime binding preflight. The default record
++	// path (no real-pass opt-in) still always returns RXGD_STATUS_FALLBACK for
++	// RXGD_PASS_PARTICLES_COPY, so the native particles copy keeps rendering.
+ 	if (!GLOBAL_GET("rendering/rurix_accel/passes/particles_copy/enabled")) {
+ 		// manual_disabled: the pass is opt-in and defaults to disabled.
+ 		return false;
+@@ -712,10 +714,47 @@ bool RurixAccelD3D12Hooks::try_record_particles_copy() {
+ 		// unsupported_device for this pass.
+ 		return false;
+ 	}
+-	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_PARTICLES_COPY, nullptr, 0, nullptr, 0);
++	if (p_src_particles_native_handle == 0 || p_dst_instances_native_handle == 0) {
++		// A zero native handle means RenderingDevice could not resolve a real
++		// ID3D12Resource*; keep the native Godot particles copy path instead of
++		// binding a null resource.
++		return false;
++	}
++	if (p_push_constants == nullptr || p_push_constant_bytes != PARTICLES_COPY_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES) {
++		// The b0 mirror must be the exact 128-byte CopyPushConstant block.
++		return false;
++	}
++	// Marshal the particles_copy binding for the bridge. native_handle carries
++	// the real D3D12 ID3D12Resource* resolved from
++	// RenderingDevice::get_driver_resource (DRIVER_RESOURCE_BUFFER), not a logical
++	// Godot RID id. Both slots are structured buffers (src = SRV t0, dst = UAV u0);
++	// width carries the buffer byte size.
++	RxGdResource resources[PARTICLES_COPY_RESOURCE_MAPPING_RESOURCE_COUNT] = {};
++	resources[0].abi_version = RXGD_ABI_VERSION;
++	resources[0].struct_size = (uint32_t)sizeof(RxGdResource);
++	resources[0].resource_type = RXGD_RESOURCE_BUFFER;
++	resources[0].width = p_src_size_bytes;
++	resources[0].height = 1;
++	resources[0].depth = 1;
++	resources[0].mip_levels = 1;
++	resources[0].native_handle = p_src_particles_native_handle;
++	resources[1].abi_version = RXGD_ABI_VERSION;
++	resources[1].struct_size = (uint32_t)sizeof(RxGdResource);
++	resources[1].resource_type = RXGD_RESOURCE_BUFFER;
++	resources[1].width = p_dst_size_bytes;
++	resources[1].height = 1;
++	resources[1].depth = 1;
++	resources[1].mip_levels = 1;
++	resources[1].native_handle = p_dst_instances_native_handle;
++	// b0 root constants (128 bytes / 32 DWORDs): the raw ParticlesShader::
++	// CopyPushConstant mirror is passed through verbatim so the bridge can bind
++	// Godot's push constant directly.
++	uint8_t push_constants[PARTICLES_COPY_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES] = {};
++	memcpy(push_constants, p_push_constants, PARTICLES_COPY_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES);
++	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_PARTICLES_COPY, resources, PARTICLES_COPY_RESOURCE_MAPPING_RESOURCE_COUNT, push_constants, PARTICLES_COPY_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES);
+ 	if (rc != RXGD_STATUS_OK) {
+ 		if (!particles_copy_fallback_logged) {
+-			print_verbose(vformat("RurixAccel: particles_copy fallback rc=%d; Godot native particles copy path remains active.", rc));
++			print_verbose(vformat("RurixAccel: particles_copy native resource handle mapping fallback rc=%d; Godot native particles copy path remains active.", rc));
+ 			particles_copy_fallback_logged = true;
+ 		}
+ 		return false;
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index 9e9c330..e2c1af4 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -12,6 +12,7 @@
+ #define RXGD_BACKEND_D3D12 1u
+ #define RXGD_RENDER_METHOD_FORWARD_PLUS 1u
+ #define RXGD_RESOURCE_TEXTURE 1u
++#define RXGD_RESOURCE_BUFFER 2u
+ #define RXGD_PASS_LUMINANCE_REDUCTION 4u
+ #define RXGD_PASS_TONEMAP 5u
+ #define RXGD_PASS_SSAO_BLUR 2u
+@@ -135,6 +136,14 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
+ 	// last_velocity/history = SRV t0..t4, output = UAV u0, all 1:1 full-res).
+ 	static constexpr uint32_t TAA_RESOLVE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 28;
+ 	static constexpr uint32_t TAA_RESOLVE_RESOURCE_MAPPING_RESOURCE_COUNT = 6;
++	// GRX-013 particles_copy resource mapping (resource_mapping.md): b0 carries
++	// 32 DWORDs / 128 bytes (the ParticlesShader::CopyPushConstant mirror) and
++	// the binding is exactly TWO structured-buffer resources (src_particles =
++	// SRV t0 structured_buffer, dst_instances = UAV u0 rwstructured_buffer).
++	// Unlike the texture passes, particles_copy carries no i64 push-constant
++	// fields, so the SHADER_INT64 capability is NOT part of its binding preflight.
++	static constexpr uint32_t PARTICLES_COPY_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 128;
++	static constexpr uint32_t PARTICLES_COPY_RESOURCE_MAPPING_RESOURCE_COUNT = 2;
+ 	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_SCAFFOLD = "resource mapping scaffold";
+ 	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_ROOT_CB = "b0";
+ 	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_SRC = "src_luminance = t0";
+@@ -202,12 +211,16 @@ public:
+ 	// TaaResolveGate) returns false and the caller must keep the native Godot TAA
+ 	// resolve path.
+ 	bool try_record_taa_resolve(uint64_t p_color_native_handle, uint64_t p_depth_native_handle, uint64_t p_velocity_native_handle, uint64_t p_last_velocity_native_handle, uint64_t p_history_native_handle, uint64_t p_output_native_handle, uint32_t p_width, uint32_t p_height, float p_disocclusion_threshold, float p_variance_dynamic) override;
+-	// GRX-013: returns true only when the Rurix bridge actually recorded the
+-	// particles_copy pass. Any other outcome (setting disabled, missing
+-	// session/symbol, or a non-OK bridge status such as RXGD_STATUS_FALLBACK
+-	// from the fail-closed ParticlesCopyGate) returns false and the caller must
+-	// keep the native Godot particles copy path.
+-	bool try_record_particles_copy() override;
++	// GRX-013 runtime resource binding: native resource handle mapping. Marshals
++	// the two real D3D12 ID3D12Resource* structured-buffer native handles (not
++	// logical Godot RID ids), their byte sizes, and the 128-byte CopyPushConstant
++	// b0 mirror to the Rurix bridge and returns true only when the bridge actually
++	// recorded the particles_copy pass. Any other outcome (setting disabled,
++	// missing session/symbol, a null native handle or push-constant, or a non-OK
++	// bridge status such as RXGD_STATUS_FALLBACK from the fail-closed
++	// ParticlesCopyGate) returns false and the caller must keep the native Godot
++	// particles copy path.
++	bool try_record_particles_copy(uint64_t p_src_particles_native_handle, uint64_t p_dst_instances_native_handle, uint32_t p_src_size_bytes, uint32_t p_dst_size_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) override;
+ };
+ 
+ #endif // D3D12_ENABLED
+diff --git a/servers/rendering/renderer_rd/storage_rd/particles_storage.cpp b/servers/rendering/renderer_rd/storage_rd/particles_storage.cpp
+index cb461dd..9179e29 100644
+--- a/servers/rendering/renderer_rd/storage_rd/particles_storage.cpp
++++ b/servers/rendering/renderer_rd/storage_rd/particles_storage.cpp
+@@ -1352,14 +1352,32 @@ void ParticlesStorage::particles_set_view_axis(RID p_particles, const Vector3 &p
+ 	bool rurix_recorded_particles_copy = false;
+ #ifdef D3D12_ENABLED
+ 	if (!do_sort && D3D12Hooks::get_singleton() != nullptr) {
+-		// GRX-013 opt-in gate. Only the plain COPY_MODE_FILL_INSTANCES subset
+-		// (no sort buffer, so !do_sort) is in scope. Returns true only when the
+-		// Rurix module setting is enabled AND the bridge session/symbol exist AND
+-		// rxgd_record_pass returns RXGD_STATUS_OK. The fail-closed bridge
+-		// ParticlesCopyGate always returns RXGD_STATUS_FALLBACK for
+-		// RXGD_PASS_PARTICLES_COPY today, so this stays false and the native
+-		// particles copy dispatch below runs.
+-		rurix_recorded_particles_copy = D3D12Hooks::get_singleton()->try_record_particles_copy();
++		// GRX-013 runtime resource binding gate (0005/0007-level in one slice).
++		// Only the plain COPY_MODE_FILL_INSTANCES subset (no sort buffer, so
++		// !do_sort) is in scope. Resolve the real D3D12 ID3D12Resource* native
++		// handles (not logical Godot RID ids) for the Particles SSBO source and
++		// the Transforms SSBO destination through
++		// RenderingDevice::get_driver_resource (DRIVER_RESOURCE_BUFFER), then pass
++		// them plus their byte sizes and the 128-byte CopyPushConstant b0 mirror.
++		// When RenderingDevice is unavailable, a buffer RID is null, or a handle
++		// resolves to 0 the pass falls back to the native particles copy dispatch.
++		// Returns true only when the Rurix module setting is enabled AND the
++		// bridge session/symbol exist AND rxgd_record_pass returns
++		// RXGD_STATUS_OK. The fail-closed bridge ParticlesCopyGate still always
++		// returns RXGD_STATUS_FALLBACK for RXGD_PASS_PARTICLES_COPY on the default
++		// path, so this stays false and the native dispatch runs.
++		RenderingDevice *rurix_particles_rd = RD::get_singleton();
++		const uint32_t rurix_particles_count = copy_push_constant.total_particles;
++		const uint64_t rurix_src_handle = (rurix_particles_rd != nullptr && particles->particle_buffer.is_valid()) ? rurix_particles_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_BUFFER, particles->particle_buffer, 0) : 0;
++		const uint64_t rurix_dst_handle = (rurix_particles_rd != nullptr && particles->particle_instance_buffer.is_valid()) ? rurix_particles_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_BUFFER, particles->particle_instance_buffer, 0) : 0;
++		if (rurix_src_handle != 0 && rurix_dst_handle != 0 && rurix_particles_count > 0) {
++			// ParticleData stride = 112 bytes; 3D instance stride = 5 vec4 = 80
++			// bytes. These byte sizes travel as the structured-buffer resource
++			// widths (nonzero is all the bridge front door requires).
++			const uint32_t rurix_src_bytes = rurix_particles_count * 112u;
++			const uint32_t rurix_dst_bytes = rurix_particles_count * 80u;
++			rurix_recorded_particles_copy = D3D12Hooks::get_singleton()->try_record_particles_copy(rurix_src_handle, rurix_dst_handle, rurix_src_bytes, rurix_dst_bytes, (const uint8_t *)&copy_push_constant, (uint32_t)sizeof(ParticlesShader::CopyPushConstant));
++		}
+ 	}
+ #endif
+ 	if (!rurix_recorded_particles_copy) {
+-- 
+2.50.0

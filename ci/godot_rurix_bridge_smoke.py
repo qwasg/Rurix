@@ -123,6 +123,48 @@ PATCH16 = (
     / "patches"
     / "0016-rurix-accel-ssao-blur-recording-smoke-and-real-pass-optin.patch"
 )
+PATCH17 = (
+    ROOT
+    / "spike"
+    / "godot-rurix"
+    / "patches"
+    / "0017-rurix-accel-taa-resolve-pass-gate-and-callsite.patch"
+)
+PATCH18 = (
+    ROOT
+    / "spike"
+    / "godot-rurix"
+    / "patches"
+    / "0018-rurix-accel-taa-resolve-runtime-resource-binding.patch"
+)
+PATCH19 = (
+    ROOT
+    / "spike"
+    / "godot-rurix"
+    / "patches"
+    / "0019-rurix-accel-taa-resolve-recording-smoke-and-real-pass-optin.patch"
+)
+PATCH20 = (
+    ROOT
+    / "spike"
+    / "godot-rurix"
+    / "patches"
+    / "0020-rurix-accel-particles-copy-pass-gate-and-callsite.patch"
+)
+PATCH21 = (
+    ROOT
+    / "spike"
+    / "godot-rurix"
+    / "patches"
+    / "0021-rurix-accel-particles-copy-runtime-resource-binding.patch"
+)
+PATCH22 = (
+    ROOT
+    / "spike"
+    / "godot-rurix"
+    / "patches"
+    / "0022-rurix-accel-particles-copy-recording-smoke-and-real-pass-optin.patch"
+)
 EXTERNAL_GODOT = ROOT / "external" / "godot-master"
 
 IDE_IGNORE_PROBES = [
@@ -445,6 +487,34 @@ def check_patch_state() -> str:
                 f"details: {details}"
             )
         print("[godot-rurix] patch 0016 stacked applyability: ready")
+        # GRX-012 taa_resolve (0017-0019) + GRX-013 particles_copy (0020-0022):
+        # each patch must apply on top of every prior patch (0004..N-1) in a
+        # throwaway scratch copy; the ignored snapshot is never mutated.
+        stacked_tail = [
+            ("0017", PATCH17),
+            ("0018", PATCH18),
+            ("0019", PATCH19),
+            ("0020", PATCH20),
+            ("0021", PATCH21),
+            ("0022", PATCH22),
+        ]
+        prior = [
+            PATCH4, PATCH5, PATCH6, PATCH7, PATCH8, PATCH9, PATCH10, PATCH11,
+            PATCH12, PATCH13, PATCH14, PATCH15, PATCH16,
+        ]
+        for ordinal, patch in stacked_tail:
+            result = evaluate_stacked_patch_applyability(
+                ROOT, EXTERNAL_GODOT, list(prior), patch, ordinal
+            )
+            if result["ok"] is not True:
+                details = result.get("details", {})
+                raise SystemExit(
+                    f"{result['reason']}; fix {patch.name} so it applies after "
+                    f"0004..{int(ordinal) - 1:04d} in a scratch copy.\n"
+                    f"details: {details}"
+                )
+            print(f"[godot-rurix] patch {ordinal} stacked applyability: ready")
+            prior.append(patch)
     return state
 
 

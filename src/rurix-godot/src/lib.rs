@@ -321,6 +321,66 @@ const TAA_RESOLVE_OFFLINE_DESCRIPTOR_LAYOUT_SHA256: &str =
 const TAA_RESOLVE_RESOURCE_COUNT: u64 = 6;
 const TAA_RESOLVE_ROOT_CONSTANT_BYTES: u64 = 28;
 
+/// GRX-013 stage S4: the per-slot resource binding kinds the tracked
+/// particles_copy kernel declares. Unlike the GRX-009/010/011/012 texture
+/// passes, particles_copy is an all raw-buffer / SSBO pass: it binds
+/// `src_particles` as `StructuredBuffer<ParticleData>` (SRV t0, slot 0 →
+/// `"structured_buffer"`) and `dst_instances` as `RWStructuredBuffer<float4>`
+/// (UAV u0, slot 1 → `"rwstructured_buffer"`), matching the Particles/Transforms
+/// SSBO `ID3D12Resource*` handles the Godot runtime provides. A texture resource
+/// never conforms at any slot.
+pub const PARTICLES_COPY_KERNEL_RESOURCE_BINDING_KINDS: [&str; 2] =
+    ["structured_buffer", "rwstructured_buffer"];
+
+/// GRX-013: the binding kind of the particles_copy kernel's slot-0 SRV
+/// (`src_particles = StructuredBuffer<ParticleData>` at t0); retained for the
+/// `RXGD_PARTICLES_COPY_REAL_PASS_BLOCKED` diagnostic line and external probes.
+pub const PARTICLES_COPY_KERNEL_RESOURCE_BINDING_KIND: &str = "structured_buffer";
+
+/// GRX-013: math-parity status of the tracked hlsl_bridge particles_copy kernel.
+/// The COPY_MODE_FILL_INSTANCES 3D subset (ALIGN_DISABLED + ALIGN_BILLBOARD, no
+/// trail/sort/lifetime/2D/userdata) is proven equivalent to the CPU reference in
+/// the pass `math_parity_evidence.json` (`status=pending_gpu_dispatch`: every
+/// case has a CPU-expected instance grid; the GPU-observed side is measured by a
+/// real dispatch). Anything other than this exact status fails the real-pass
+/// math gate closed.
+pub const PARTICLES_COPY_KERNEL_MATH_PARITY_STATUS: &str =
+    "fill_instances_cpu_reference_proven_pending_gpu_dispatch";
+
+/// SHA-256 digests of the GRX-013 canonical offline particles_copy package
+/// (`spike/godot-rurix/passes/particles_copy/offline_compile_evidence.json`).
+/// The dispatch eligibility check matches the compiled package identity against
+/// these baked evidence digests; a mismatch means the runtime binding does not
+/// correspond to the compiled package and must fall back.
+const PARTICLES_COPY_OFFLINE_DXIL_SHA256: &str =
+    "cf144c2880bc4ff9b20ec94f1246fc882ab63f4d0d876837bad428a2469cec37";
+const PARTICLES_COPY_OFFLINE_ROOT_SIGNATURE_SHA256: &str =
+    "76dda2ffc6d210f77974f4984e645bc0b3f62b796508f7f4b0c6c5a49a89678f";
+const PARTICLES_COPY_OFFLINE_DESCRIPTOR_LAYOUT_SHA256: &str =
+    "487569fe8c7f1d520cc80367ea119a55ed7be4c2244326584e7d006180791a03";
+const PARTICLES_COPY_RESOURCE_COUNT: u64 = 2;
+const PARTICLES_COPY_ROOT_CONSTANT_BYTES: u64 = 128;
+/// Byte offset of the `total_particles` u32 in the 128-byte CopyPushConstant b0
+/// mirror (dword 3, after the `float sort_direction[3]`).
+const PARTICLES_COPY_TOTAL_PARTICLES_OFFSET: usize = 12;
+
+/// GRX-013 opt-in "real pass" capability flag for the particles_copy pass,
+/// carried in `RxGdCaps.flags` (ABI v1, no struct layout change; bridge value
+/// `1 << 7`). The Godot side sets it only when the default-false per-pass
+/// `rendering/rurix_accel/passes/particles_copy/dispatch_real_pass` opt-in is
+/// enabled (patch 0022); the default Godot config never sets it. It arms the
+/// gated REAL particles_copy pass attempt: the bridge runs the full runtime
+/// binding preflight, the dispatch eligibility gate, the per-slot
+/// kernel-binding-kind conformance check, and the math-parity check, in that
+/// order, and returns `RXGD_STATUS_FALLBACK` with a recorded fallback reason
+/// (plus a once-per-session machine-readable
+/// `RXGD_PARTICLES_COPY_REAL_PASS_BLOCKED` diagnostic naming the FIRST missing
+/// prerequisite) unless every check passes AND a runtime-mappable real dispatch
+/// path is linked. The real dispatch itself is only linked under the
+/// `d3d12-recording-shim` feature — the shipping feature-off bridge always fails
+/// closed with `real_dispatch_path_not_linked`.
+pub const RXGD_CAP_PARTICLES_COPY_REAL_PASS: u32 = 1 << 7;
+
 /// Fallback reasons for gated passes, mirroring the five-value enum used by
 /// the GRX-008 fallback telemetry schema.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -2265,6 +2325,379 @@ impl Default for TaaResolveGate {
     }
 }
 
+/// Identity of the GRX-013 compiled particles_copy package (DXIL container, root
+/// signature, descriptor layout) as seen by the bridge. Template copy of
+/// [`SsaoBlurDispatchPackage`] with the constants and digests pointing at the
+/// particles_copy artifacts (owner-approved `hlsl_bridge_workaround` provenance,
+/// Rurix-owned RTS0). Unlike the texture passes, particles_copy binds TWO
+/// structured-buffer resources (SRV t0 + UAV u0) and requires NO 64-bit integer
+/// shader capability in its binding preflight (its b0 carries no i64 fields).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ParticlesCopyDispatchPackage {
+    pub available: bool,
+    pub resource_count: u64,
+    pub root_constant_bytes: u64,
+    pub srv_count: u32,
+    pub uav_register: u32,
+    /// particles_copy carries no i64 push-constant fields, so the compiled
+    /// package does NOT require the 64-bit integer shader capability (contrast
+    /// with the texture passes).
+    pub requires_shader_int64: bool,
+    pub dxil_sha256: &'static str,
+    pub root_signature_sha256: &'static str,
+    pub descriptor_layout_sha256: &'static str,
+}
+
+impl ParticlesCopyDispatchPackage {
+    /// The compiled package identity that matches the tracked GRX-013 offline
+    /// compile evidence.
+    pub fn verified_offline_package() -> ParticlesCopyDispatchPackage {
+        ParticlesCopyDispatchPackage {
+            available: true,
+            resource_count: PARTICLES_COPY_RESOURCE_COUNT,
+            root_constant_bytes: PARTICLES_COPY_ROOT_CONSTANT_BYTES,
+            srv_count: 1,
+            uav_register: 0,
+            requires_shader_int64: false,
+            dxil_sha256: PARTICLES_COPY_OFFLINE_DXIL_SHA256,
+            root_signature_sha256: PARTICLES_COPY_OFFLINE_ROOT_SIGNATURE_SHA256,
+            descriptor_layout_sha256: PARTICLES_COPY_OFFLINE_DESCRIPTOR_LAYOUT_SHA256,
+        }
+    }
+
+    /// Verifies the compiled package is present and that its descriptor layout
+    /// and artifact digests match the tracked offline compile evidence. An
+    /// unavailable package maps to `compile_failed`; any layout or digest
+    /// mismatch maps to `validation_failed`.
+    fn verify_matches_offline_evidence(&self) -> Result<(), FallbackReason> {
+        if !self.available {
+            return Err(FallbackReason::CompileFailed);
+        }
+        if self.resource_count != PARTICLES_COPY_RESOURCE_COUNT
+            || self.root_constant_bytes != PARTICLES_COPY_ROOT_CONSTANT_BYTES
+            || self.srv_count != 1
+            || self.uav_register != 0
+            || self.requires_shader_int64
+        {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        if self.dxil_sha256 != PARTICLES_COPY_OFFLINE_DXIL_SHA256
+            || self.root_signature_sha256 != PARTICLES_COPY_OFFLINE_ROOT_SIGNATURE_SHA256
+            || self.descriptor_layout_sha256 != PARTICLES_COPY_OFFLINE_DESCRIPTOR_LAYOUT_SHA256
+        {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        Ok(())
+    }
+}
+
+/// GRX-013 gate for the `particles_copy` pass. Template copy of the GRX-011
+/// [`SsaoBlurGate`] preflight → eligibility → binding-kind → math-parity →
+/// linked-dispatch chain, with every constant and digest pointing at the
+/// particles_copy package and a TWO-structured-buffer binding surface (SRV t0 +
+/// UAV u0). Unlike the texture passes, the KERNEL binding preflight does NOT
+/// require the 64-bit integer shader capability (particles_copy's b0 carries no
+/// i64 fields — see `math_parity_evidence.json` / the descriptor layout), so the
+/// int64 capability is checked only in the DISPATCH ELIGIBILITY gate (a device/
+/// recording-harness capability, distinct from the kernel's push-constant use).
+///
+/// The gate starts disabled and stays disabled: the default record path (no
+/// [`RXGD_CAP_PARTICLES_COPY_REAL_PASS`] arm) always returns
+/// `RXGD_STATUS_FALLBACK`, and the opt-in real-pass arm fails closed with
+/// `real_dispatch_path_not_linked` on the shipping feature-off bridge. No
+/// estimated GPU/CPU time is ever attributed to this pass while the gate is
+/// closed. Note this REMOVES the historical placeholder behaviour where
+/// `RXGD_PASS_PARTICLES_COPY` was recorded with estimated timings.
+#[derive(Debug)]
+pub struct ParticlesCopyGate {
+    enabled: bool,
+    last_fallback_reason: Option<FallbackReason>,
+    dispatch_package: ParticlesCopyDispatchPackage,
+    /// The FIRST missing real-pass prerequisite recorded by the last opt-in
+    /// real-pass attempt (the identity carried by the
+    /// `RXGD_PARTICLES_COPY_REAL_PASS_BLOCKED` diagnostic), if any.
+    last_real_pass_blocked: Option<&'static str>,
+    /// The diagnostic is printed once per session: the particles copy call site
+    /// runs every frame and one machine-readable line is enough.
+    real_pass_blocked_emitted: bool,
+    #[cfg(feature = "d3d12-recording-shim")]
+    last_dispatch_record: Option<DispatchRecord>,
+}
+
+impl ParticlesCopyGate {
+    pub fn new() -> ParticlesCopyGate {
+        ParticlesCopyGate {
+            enabled: false,
+            last_fallback_reason: None,
+            dispatch_package: ParticlesCopyDispatchPackage::verified_offline_package(),
+            last_real_pass_blocked: None,
+            real_pass_blocked_emitted: false,
+            #[cfg(feature = "d3d12-recording-shim")]
+            last_dispatch_record: None,
+        }
+    }
+
+    /// Take the last measured dispatch record (if any). Only available under
+    /// the `d3d12-recording-shim` feature.
+    #[cfg(feature = "d3d12-recording-shim")]
+    pub fn take_last_dispatch_record(&mut self) -> Option<DispatchRecord> {
+        self.last_dispatch_record.take()
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    pub fn last_fallback_reason(&self) -> Option<FallbackReason> {
+        self.last_fallback_reason
+    }
+
+    /// The FIRST missing prerequisite recorded by the last opt-in real-pass
+    /// attempt, or None when no real-pass attempt was made (or a future attempt
+    /// actually dispatched).
+    pub fn last_real_pass_blocked(&self) -> Option<&'static str> {
+        self.last_real_pass_blocked
+    }
+
+    /// Pure runtime binding preflight: validates the particles_copy binding
+    /// contract and returns the fallback reason on the first failure.
+    ///
+    /// Exactly two structured-buffer resources in src/dst order, the 128-byte b0
+    /// CopyPushConstant block, a nonzero `total_particles` field (dword 3), and
+    /// nonzero source/destination buffer byte sizes. The 64-bit integer shader
+    /// capability is deliberately NOT checked here: particles_copy's b0 carries
+    /// no i64 fields (contrast with the texture passes), matching the tracked
+    /// descriptor layout `requires_64bit_integer_shader_capability=false`.
+    fn check_runtime_binding_preflight(
+        resources: &[RxGdResource],
+        push_constants: &[u8],
+    ) -> Result<(), FallbackReason> {
+        if resources.len() as u64 != PARTICLES_COPY_RESOURCE_COUNT {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        if push_constants.len() as u64 != PARTICLES_COPY_ROOT_CONSTANT_BYTES {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        // Both slots (SRV t0 + UAV u0) bind structured buffers; a texture never
+        // conforms.
+        if resources
+            .iter()
+            .any(|resource| resource.resource_type != RXGD_RESOURCE_BUFFER)
+        {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        // Nonzero source/destination buffer byte sizes (carried in `width`).
+        if resources[0].width == 0 || resources[1].width == 0 {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        // b0 CopyPushConstant mirror: total_particles (dword 3) must be nonzero.
+        let total_particles = le_u32(
+            &push_constants
+                [PARTICLES_COPY_TOTAL_PARTICLES_OFFSET..PARTICLES_COPY_TOTAL_PARTICLES_OFFSET + 4],
+        );
+        if total_particles == 0 {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        Ok(())
+    }
+
+    /// GRX-013 dispatch eligibility gate: the caller must arm the particles_copy
+    /// real-pass opt-in flag, the device must advertise the 64-bit integer
+    /// capability (a device/recording-harness capability, NOT a kernel binding
+    /// requirement — the harness-only force-capability-downgrade knob clears it
+    /// to exercise this red leg), the native D3D12 device/queue handles and both
+    /// structured-buffer resource handles must be non-null, and the compiled
+    /// package layout/digests must still match the offline compile evidence.
+    fn check_dispatch_eligibility(
+        &self,
+        caps: RxGdCaps,
+        resources: &[RxGdResource],
+        device: usize,
+        queue: usize,
+    ) -> Result<(), FallbackReason> {
+        if caps.flags & RXGD_CAP_PARTICLES_COPY_REAL_PASS == 0 {
+            return Err(FallbackReason::ManualDisabled);
+        }
+        if caps.flags & RXGD_CAP_SHADER_INT64 == 0 {
+            return Err(FallbackReason::UnsupportedDevice);
+        }
+        if device == 0 || queue == 0 {
+            return Err(FallbackReason::UnsupportedDevice);
+        }
+        if resources.iter().any(|resource| resource.native_handle == 0) {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        self.dispatch_package.verify_matches_offline_evidence()
+    }
+
+    /// GRX-013 kernel-binding-kind conformance check (per slot). The tracked
+    /// particles_copy kernel declares [`PARTICLES_COPY_KERNEL_RESOURCE_BINDING_KINDS`]
+    /// = `["structured_buffer", "rwstructured_buffer"]`; slot 0 binds an SRV
+    /// structured buffer and slot 1 a UAV structured buffer. A texture
+    /// (`texture2d`/`rwtexture2d`) fails closed at any slot.
+    fn check_real_pass_binding_kind(resources: &[RxGdResource]) -> Result<(), FallbackReason> {
+        if resources.len() != PARTICLES_COPY_KERNEL_RESOURCE_BINDING_KINDS.len() {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        for (slot, resource) in resources.iter().enumerate() {
+            // A structured buffer provides the kind its slot declares
+            // (structured_buffer for the SRV slot t0, rwstructured_buffer for the
+            // UAV slot u0); a texture provides a texture2d kind and never
+            // conforms.
+            let provided = match resource.resource_type {
+                RXGD_RESOURCE_BUFFER => PARTICLES_COPY_KERNEL_RESOURCE_BINDING_KINDS[slot],
+                _ => "texture2d",
+            };
+            if provided != PARTICLES_COPY_KERNEL_RESOURCE_BINDING_KINDS[slot] {
+                return Err(FallbackReason::ValidationFailed);
+            }
+        }
+        Ok(())
+    }
+
+    /// GRX-013 math-parity check. The tracked hlsl_bridge particles_copy kernel's
+    /// COPY_MODE_FILL_INSTANCES 3D subset is CPU-proven equivalent to the
+    /// reference implementation in the pass `math_parity_evidence.json` (GPU
+    /// observation pending a real dispatch); any other status fails closed.
+    fn check_real_pass_math_parity() -> Result<(), FallbackReason> {
+        if PARTICLES_COPY_KERNEL_MATH_PARITY_STATUS
+            == "fill_instances_cpu_reference_proven_pending_gpu_dispatch"
+        {
+            return Ok(());
+        }
+        Err(FallbackReason::ValidationFailed)
+    }
+
+    /// Default record path (no real-pass arm): runs the runtime binding preflight
+    /// for an honest fallback reason and then keeps the gate closed with
+    /// `manual_disabled`. Never returns OK and never attributes estimated GPU/CPU
+    /// time. The patch 0020 module gate calls the bridge without resource
+    /// bindings (0002-level wiring), so in practice this records
+    /// `validation_failed` from the preflight.
+    fn record_default_fallback(
+        &mut self,
+        resources: &[RxGdResource],
+        push_constants: &[u8],
+    ) -> i32 {
+        if let Err(reason) = Self::check_runtime_binding_preflight(resources, push_constants) {
+            self.last_fallback_reason = Some(reason);
+            return RXGD_STATUS_FALLBACK;
+        }
+        self.enabled = false;
+        self.last_fallback_reason = Some(FallbackReason::ManualDisabled);
+        RXGD_STATUS_FALLBACK
+    }
+
+    /// GRX-013 opt-in gated REAL particles_copy pass attempt. Order: runtime
+    /// binding preflight → dispatch eligibility → per-slot kernel-binding-kind
+    /// conformance → math parity → linked real dispatch path. Every failure
+    /// returns `RXGD_STATUS_FALLBACK` with a recorded fallback reason and a
+    /// once-per-session machine-readable `RXGD_PARTICLES_COPY_REAL_PASS_BLOCKED
+    /// first_missing_prerequisite=...` diagnostic. The real dispatch invocation
+    /// is linked only under the `d3d12-recording-shim` feature; the shipping
+    /// feature-off bridge fails closed with `real_dispatch_path_not_linked`.
+    fn record_real_pass_attempt(
+        &mut self,
+        caps: RxGdCaps,
+        resources: &[RxGdResource],
+        push_constants: &[u8],
+        device: usize,
+        queue: usize,
+    ) -> i32 {
+        if let Err(reason) = Self::check_runtime_binding_preflight(resources, push_constants) {
+            return self.real_pass_blocked("runtime_binding_preflight_failed", reason);
+        }
+        if let Err(reason) = self.check_dispatch_eligibility(caps, resources, device, queue) {
+            return self.real_pass_blocked("dispatch_eligibility_failed", reason);
+        }
+        if let Err(reason) = Self::check_real_pass_binding_kind(resources) {
+            return self.real_pass_blocked("kernel_binding_kind_mismatch", reason);
+        }
+        if let Err(reason) = Self::check_real_pass_math_parity() {
+            return self.real_pass_blocked("math_parity_not_proven", reason);
+        }
+        #[cfg(feature = "d3d12-recording-shim")]
+        {
+            return match self.attempt_real_dispatch_recording(
+                resources,
+                push_constants,
+                device,
+                queue,
+            ) {
+                Ok(()) => {
+                    self.last_real_pass_blocked = None;
+                    // Printed ONLY after a real recorded dispatch completed.
+                    // Deliberately NOT an `ERROR:` line and NOT an `RXGD_DIAG`
+                    // line, so runtime log audits stay clean.
+                    println!("RXGD_GODOT_RUNTIME_PARTICLES_COPY_REAL_PASS recorded=1");
+                    RXGD_STATUS_OK
+                }
+                Err(reason) => self.real_pass_blocked("real_dispatch_recording_failed", reason),
+            };
+        }
+        #[cfg(not(feature = "d3d12-recording-shim"))]
+        self.real_pass_blocked(
+            "real_dispatch_path_not_linked",
+            FallbackReason::CompileFailed,
+        )
+    }
+
+    /// Record one real D3D12 particles_copy dispatch through the linked recording
+    /// shim's structured-buffer entry (SRV t0 + UAV u0 + 128-byte b0 +
+    /// `ceil(total_particles / 64)` dispatch shape).
+    #[cfg(feature = "d3d12-recording-shim")]
+    fn attempt_real_dispatch_recording(
+        &mut self,
+        resources: &[RxGdResource],
+        push_constants: &[u8],
+        device: usize,
+        queue: usize,
+    ) -> Result<(), FallbackReason> {
+        let src = resources[0];
+        let dst = resources[1];
+        let record = d3d12_recording_shim::record_particles_copy_dispatch(
+            device,
+            queue,
+            src.native_handle as usize,
+            dst.native_handle as usize,
+            push_constants,
+            src.width,
+            dst.width,
+        )?;
+        self.enabled = true;
+        self.last_dispatch_record = Some(record);
+        Ok(())
+    }
+
+    /// Records one blocked real-pass attempt: fallback status, reason, the
+    /// first-missing-prerequisite identity, and (once per session) the
+    /// machine-readable diagnostic line.
+    fn real_pass_blocked(&mut self, prerequisite: &'static str, reason: FallbackReason) -> i32 {
+        self.enabled = false;
+        self.last_fallback_reason = Some(reason);
+        self.last_real_pass_blocked = Some(prerequisite);
+        if !self.real_pass_blocked_emitted {
+            self.real_pass_blocked_emitted = true;
+            // Deliberately NOT an `ERROR:` line and NOT an `RXGD_DIAG` line —
+            // either would fail the runtime log audits.
+            println!(
+                "RXGD_PARTICLES_COPY_REAL_PASS_BLOCKED first_missing_prerequisite={} \
+                 fallback_reason={} kernel_binding={} default_enable_state=disabled",
+                prerequisite,
+                reason.as_str(),
+                PARTICLES_COPY_KERNEL_RESOURCE_BINDING_KIND,
+            );
+        }
+        RXGD_STATUS_FALLBACK
+    }
+}
+
+impl Default for ParticlesCopyGate {
+    fn default() -> ParticlesCopyGate {
+        ParticlesCopyGate::new()
+    }
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RxGdCaps {
@@ -2323,6 +2756,24 @@ impl RxGdResource {
             native_handle,
         }
     }
+
+    /// A structured/raw buffer resource: `width` carries the buffer byte size
+    /// (the front door and the GRX-013 particles_copy preflight require it to be
+    /// nonzero); `height`/`depth`/`mip_levels` are 1.
+    pub fn buffer(native_handle: u64, size_bytes: u32) -> RxGdResource {
+        RxGdResource {
+            abi_version: RXGD_ABI_VERSION,
+            struct_size: size_of::<RxGdResource>() as u32,
+            resource_type: RXGD_RESOURCE_BUFFER,
+            format: 0,
+            width: size_bytes,
+            height: 1,
+            depth: 1,
+            mip_levels: 1,
+            usage_flags: 0,
+            native_handle,
+        }
+    }
 }
 
 #[repr(C)]
@@ -2375,6 +2826,7 @@ struct SessionInner {
     tonemap_gate: TonemapGate,
     ssao_blur_gate: SsaoBlurGate,
     taa_resolve_gate: TaaResolveGate,
+    particles_copy_gate: ParticlesCopyGate,
 }
 
 impl SessionInner {
@@ -2393,6 +2845,7 @@ impl SessionInner {
             tonemap_gate: TonemapGate::new(),
             ssao_blur_gate: SsaoBlurGate::new(),
             taa_resolve_gate: TaaResolveGate::new(),
+            particles_copy_gate: ParticlesCopyGate::new(),
         }
     }
 }
@@ -2726,6 +3179,49 @@ pub extern "C" fn rxgd_record_pass(
             return rc;
         }
 
+        if pass_id == RXGD_PASS_PARTICLES_COPY {
+            let caps = inner.caps;
+            let device = inner.device;
+            let queue = inner.queue;
+            // GRX-013: the opt-in real-pass arm routes through the gated
+            // real-pass attempt (fail-closed; see
+            // RXGD_CAP_PARTICLES_COPY_REAL_PASS). Every other call keeps the
+            // default fail-closed fallback path. This replaces the historical
+            // placeholder estimated-timing path for RXGD_PASS_PARTICLES_COPY: no
+            // estimated particles_copy GPU time is attributed any more.
+            let rc = if caps.flags & RXGD_CAP_PARTICLES_COPY_REAL_PASS != 0 {
+                inner.particles_copy_gate.record_real_pass_attempt(
+                    caps,
+                    resource_slice,
+                    push_constant_slice,
+                    device,
+                    queue,
+                )
+            } else {
+                inner
+                    .particles_copy_gate
+                    .record_default_fallback(resource_slice, push_constant_slice)
+            };
+            if rc == RXGD_STATUS_OK {
+                // A real bridge dispatch was recorded through the recording
+                // shim (only reachable under the `d3d12-recording-shim`
+                // feature). Attribute measured CPU record time; no GPU
+                // timestamp is implemented (gpu_timestamp_status=not_yet).
+                inner.recorded_passes += 1;
+                #[cfg(feature = "d3d12-recording-shim")]
+                {
+                    if let Some(record) = inner.particles_copy_gate.take_last_dispatch_record() {
+                        inner.estimated_cpu_record_ns += record.cpu_record_ns;
+                    }
+                }
+                inner.last_error = RXGD_STATUS_OK;
+                return RXGD_STATUS_OK;
+            }
+            inner.fallback_passes += 1;
+            inner.last_error = rc;
+            return rc;
+        }
+
         inner.recorded_passes += 1;
         inner.estimated_cpu_record_ns += 25_000 + resource_count * 1_000;
         inner.estimated_gpu_time_ns += estimated_pass_gpu_time(pass_id);
@@ -2851,6 +3347,14 @@ fn le_u64(bytes: &[u8]) -> u64 {
     u64::from_le_bytes(buf)
 }
 
+/// Reads a little-endian `u32` from an exactly 4-byte slice; callers must
+/// have validated the surrounding block length first.
+fn le_u32(bytes: &[u8]) -> u32 {
+    let mut buf = [0u8; 4];
+    buf.copy_from_slice(bytes);
+    u32::from_le_bytes(buf)
+}
+
 /// Reads a little-endian `f32` from an exactly 4-byte slice; callers must
 /// have validated the surrounding block length first.
 fn le_f32(bytes: &[u8]) -> f32 {
@@ -2910,9 +3414,9 @@ fn estimated_pass_gpu_time(pass_id: u32) -> u64 {
         RXGD_PASS_SSIL_BLUR => 120_000,
         // RXGD_PASS_LUMINANCE_REDUCTION is gated (GRX-009),
         // RXGD_PASS_TONEMAP is gated (GRX-010), RXGD_PASS_SSAO_BLUR is gated
-        // (GRX-011), and RXGD_PASS_TAA_RESOLVE is gated (GRX-012); none of them
-        // reaches the estimated-timing path while its gate is closed.
-        RXGD_PASS_PARTICLES_COPY => 55_000,
+        // (GRX-011), RXGD_PASS_TAA_RESOLVE is gated (GRX-012), and
+        // RXGD_PASS_PARTICLES_COPY is gated (GRX-013); none of them reaches the
+        // estimated-timing path while its gate is closed.
         RXGD_PASS_GPU_CULLING => 140_000,
         RXGD_PASS_INDIRECT_ARGS => 60_000,
         RXGD_PASS_FUSED_POST_CHAIN => 180_000,
@@ -2945,8 +3449,9 @@ where
 mod d3d12_recording_shim {
     use super::{
         DispatchRecord, FallbackReason, LUMINANCE_OFFLINE_DXIL_SHA256,
-        LUMINANCE_OFFLINE_ROOT_SIGNATURE_SHA256, PyramidLevel, RXGD_PASS_LUMINANCE_REDUCTION,
-        RXGD_PASS_SSAO_BLUR, RXGD_PASS_TAA_RESOLVE, RXGD_PASS_TONEMAP,
+        LUMINANCE_OFFLINE_ROOT_SIGNATURE_SHA256, PARTICLES_COPY_OFFLINE_DXIL_SHA256,
+        PARTICLES_COPY_OFFLINE_ROOT_SIGNATURE_SHA256, PyramidLevel, RXGD_PASS_LUMINANCE_REDUCTION,
+        RXGD_PASS_PARTICLES_COPY, RXGD_PASS_SSAO_BLUR, RXGD_PASS_TAA_RESOLVE, RXGD_PASS_TONEMAP,
         SSAO_BLUR_OFFLINE_DXIL_SHA256, SSAO_BLUR_OFFLINE_ROOT_SIGNATURE_SHA256,
         TAA_RESOLVE_OFFLINE_DXIL_SHA256, TAA_RESOLVE_OFFLINE_ROOT_SIGNATURE_SHA256,
         TONEMAP_OFFLINE_DXIL_SHA256, TONEMAP_OFFLINE_ROOT_SIGNATURE_SHA256,
@@ -3011,6 +3516,16 @@ mod d3d12_recording_shim {
         include_bytes!("../../../spike/godot-rurix/passes/taa_resolve/artifacts/taa_resolve.dxil");
     const TAA_RESOLVE_RTS0: &[u8] = include_bytes!(
         "../../../spike/godot-rurix/passes/taa_resolve/artifacts/taa_resolve.rts0.bin"
+    );
+
+    /// Tracked offline particles_copy artifacts (GRX-013, raw-buffer hlsl_bridge
+    /// workaround package; StructuredBuffer SRV t0 + RWStructuredBuffer UAV u0).
+    /// Same embedding + digest discipline as the texture-pass artifacts.
+    const PARTICLES_COPY_DXIL: &[u8] = include_bytes!(
+        "../../../spike/godot-rurix/passes/particles_copy/artifacts/particles_copy.dxil"
+    );
+    const PARTICLES_COPY_RTS0: &[u8] = include_bytes!(
+        "../../../spike/godot-rurix/passes/particles_copy/artifacts/particles_copy.rts0.bin"
     );
 
     #[repr(C)]
@@ -3133,6 +3648,31 @@ mod d3d12_recording_shim {
             push_constant_len: usize,
             width: u32,
             height: u32,
+            out: *mut RxgdRecordResult,
+        ) -> i32;
+
+        // GRX-013: StructuredBuffer SRV (t0) + RWStructuredBuffer UAV (u0)
+        // single-dispatch entry for the particles_copy kernel (test-only readback
+        // mode). Additive; the existing texture entries are unchanged. `src_bytes`
+        // / `dst_bytes` are the buffer byte sizes; the dispatch is
+        // `ceil(total_particles / 64)` where total_particles is read from the b0
+        // CopyPushConstant mirror.
+        #[allow(clippy::too_many_arguments)]
+        fn rxgd_particles_copy_record_dispatch(
+            abi_version: u32,
+            pass_id: u32,
+            device: *mut c_void,
+            queue: *mut c_void,
+            dxil: *const u8,
+            dxil_len: usize,
+            rts0: *const u8,
+            rts0_len: usize,
+            src_particles: *mut c_void,
+            dst_instances: *mut c_void,
+            push_constants: *const u8,
+            push_constant_len: usize,
+            src_bytes: u32,
+            dst_bytes: u32,
             out: *mut RxgdRecordResult,
         ) -> i32;
     }
@@ -3354,6 +3894,105 @@ mod d3d12_recording_shim {
             let detail = String::from_utf8_lossy(&out.error_detail[..detail_len]);
             eprintln!(
                 "RXGD_SHIM_DIAG rxgd_taa_resolve_record_dispatch rc={rc} dxil_signed={} detail=\"{detail}\"",
+                out.dxil_signed
+            );
+            return Err(FallbackReason::ValidationFailed);
+        }
+        Ok(DispatchRecord {
+            fence_completed_value: out.fence_completed_value,
+            dispatch: (out.dispatch_x, out.dispatch_y, out.dispatch_z),
+            dst_width: out.dst_width,
+            dst_height: out.dst_height,
+            readback_checksum: out.readback_checksum,
+            dst_first_value: out.dst_first_value,
+            dxil_signed: out.dxil_signed != 0,
+            cpu_record_ns,
+        })
+    }
+
+    /// GRX-013: record one real particles_copy compute dispatch through the
+    /// shim's structured-buffer entry (SRV t0 + UAV u0). Verifies the embedded
+    /// particles_copy artifact digests against the baked offline evidence, then
+    /// hands the two real `ID3D12Resource*` structured-buffer handles + their byte
+    /// sizes + the pass's DXIL/RTS0 bytes to the shim. Returns the measured
+    /// [`DispatchRecord`] on success, or a fallback reason if the embedded
+    /// artifacts do not hash to the offline digests, the shim ABI does not match,
+    /// or the shim reports a D3D12 failure.
+    #[allow(clippy::too_many_arguments)]
+    pub fn record_particles_copy_dispatch(
+        device: usize,
+        queue: usize,
+        src_particles: usize,
+        dst_instances: usize,
+        push_constants: &[u8],
+        src_bytes: u32,
+        dst_bytes: u32,
+    ) -> Result<DispatchRecord, FallbackReason> {
+        // Artifact integrity: the embedded bytes must hash to the baked offline
+        // compile evidence digests, or the runtime binding does not correspond
+        // to the tracked compiled package and must not drive a real dispatch.
+        if sha256_hex(PARTICLES_COPY_DXIL) != PARTICLES_COPY_OFFLINE_DXIL_SHA256
+            || sha256_hex(PARTICLES_COPY_RTS0) != PARTICLES_COPY_OFFLINE_ROOT_SIGNATURE_SHA256
+        {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        // SAFETY: the shim ABI query takes no arguments and only returns a
+        // compile-time constant; it dereferences no pointer.
+        let shim_abi = unsafe { rxgd_luminance_record_shim_abi_version() };
+        if shim_abi != SHIM_ABI_VERSION {
+            return Err(FallbackReason::ValidationFailed);
+        }
+
+        let mut out = RxgdRecordResult {
+            fence_completed_value: 0,
+            dispatch_x: 0,
+            dispatch_y: 0,
+            dispatch_z: 0,
+            dst_width: 0,
+            dst_height: 0,
+            readback_checksum: 0,
+            dst_first_value: 0.0,
+            dxil_signed: 0,
+            error_detail: [0u8; 256],
+        };
+        let start = std::time::Instant::now();
+        // SAFETY: the DXIL/RTS0 slices are embedded read-only data with their
+        // true `len()`, `push_constants` is a caller-owned read-only slice with
+        // its true `len()`, and `out` is an exclusive local. The
+        // device/queue/resource pointer values were validated non-null by the
+        // dispatch eligibility gate and originate from real D3D12 objects. The
+        // shim honours the versioned ABI (first arg checked against
+        // `SHIM_ABI_VERSION`), only reads the byte inputs, records one dispatch,
+        // writes `out`, and retains no pointer past the call.
+        let rc = unsafe {
+            rxgd_particles_copy_record_dispatch(
+                SHIM_ABI_VERSION,
+                RXGD_PASS_PARTICLES_COPY,
+                device as *mut c_void,
+                queue as *mut c_void,
+                PARTICLES_COPY_DXIL.as_ptr(),
+                PARTICLES_COPY_DXIL.len(),
+                PARTICLES_COPY_RTS0.as_ptr(),
+                PARTICLES_COPY_RTS0.len(),
+                src_particles as *mut c_void,
+                dst_instances as *mut c_void,
+                push_constants.as_ptr(),
+                push_constants.len(),
+                src_bytes,
+                dst_bytes,
+                &mut out,
+            )
+        };
+        let cpu_record_ns = start.elapsed().as_nanos() as u64;
+        if rc != 0 {
+            let detail_len = out
+                .error_detail
+                .iter()
+                .position(|&b| b == 0)
+                .unwrap_or(out.error_detail.len());
+            let detail = String::from_utf8_lossy(&out.error_detail[..detail_len]);
+            eprintln!(
+                "RXGD_SHIM_DIAG rxgd_particles_copy_record_dispatch rc={rc} dxil_signed={} detail=\"{detail}\"",
                 out.dxil_signed
             );
             return Err(FallbackReason::ValidationFailed);
@@ -5806,6 +6445,333 @@ mod tests {
                 "texture2d",
                 "rwtexture2d"
             ]
+        );
+    }
+
+    // ---- GRX-013 particles_copy gate (structured-buffer pass) ----
+
+    fn particles_copy_real_pass_optin_caps() -> RxGdCaps {
+        let mut caps = RxGdCaps::d3d12_forward_plus();
+        caps.flags = RXGD_CAP_SHADER_INT64 | RXGD_CAP_PARTICLES_COPY_REAL_PASS;
+        caps
+    }
+
+    fn particles_copy_push_constants(
+        total_particles: u32,
+    ) -> [u8; PARTICLES_COPY_ROOT_CONSTANT_BYTES as usize] {
+        // 128-byte CopyPushConstant mirror; only total_particles (dword 3, byte
+        // offset 12) participates in the binding preflight. The remaining fields
+        // are carried for byte-exact shape parity and left zero here.
+        let mut bytes = [0u8; PARTICLES_COPY_ROOT_CONSTANT_BYTES as usize];
+        bytes[PARTICLES_COPY_TOTAL_PARTICLES_OFFSET..PARTICLES_COPY_TOTAL_PARTICLES_OFFSET + 4]
+            .copy_from_slice(&total_particles.to_le_bytes());
+        bytes
+    }
+
+    /// A fully valid particles_copy binding: two structured-buffer resources
+    /// (src_particles SSBO + dst_instances SSBO) with non-null native handles and
+    /// nonzero byte sizes, plus a 128-byte b0 with a nonzero total_particles.
+    fn valid_particles_copy_binding() -> (
+        [RxGdResource; 2],
+        [u8; PARTICLES_COPY_ROOT_CONSTANT_BYTES as usize],
+    ) {
+        let resources = [
+            RxGdResource::buffer(701, 1024 * 112), // src_particles (SRV t0)
+            RxGdResource::buffer(702, 1024 * 80),  // dst_instances (UAV u0)
+        ];
+        let push_constants = particles_copy_push_constants(1024);
+        (resources, push_constants)
+    }
+
+    #[test]
+    fn particles_copy_cap_flag_is_reserved_bit_seven() {
+        assert_eq!(RXGD_CAP_PARTICLES_COPY_REAL_PASS, 1 << 7);
+        // ABI stays v1: the flag reuses the existing RxGdCaps.flags field.
+        assert_eq!(rxgd_abi_version(), RXGD_ABI_VERSION);
+    }
+
+    #[test]
+    fn particles_copy_defaults_disabled_and_falls_back() {
+        // GRX-013: the default path (no opt-in flag) must fall back and must not
+        // attribute the historical placeholder estimated GPU time.
+        let session = create_session();
+        let resource = RxGdResource::buffer(721, 1024 * 112);
+        assert_eq!(rxgd_register_buffer(session, resource), RXGD_STATUS_OK);
+        assert_eq!(
+            rxgd_record_pass(
+                session,
+                RXGD_PASS_PARTICLES_COPY,
+                &resource,
+                1,
+                core::ptr::null(),
+                0
+            ),
+            RXGD_STATUS_FALLBACK
+        );
+        let mut stats = zeroed_stats();
+        assert_eq!(
+            rxgd_collect_timestamps(session, 60, &mut stats),
+            RXGD_STATUS_OK
+        );
+        assert_eq!(stats.recorded_passes, 0);
+        assert_eq!(stats.fallback_passes, 1);
+        assert_eq!(stats.gpu_time_ns, 0);
+        assert_eq!(stats.cpu_record_ns, 0);
+        assert_eq!(stats.last_error, RXGD_STATUS_FALLBACK);
+        rxgd_destroy_session(session);
+    }
+
+    #[test]
+    fn particles_copy_valid_default_binding_still_falls_back_manual_disabled() {
+        let (resources, push_constants) = valid_particles_copy_binding();
+        let mut gate = ParticlesCopyGate::new();
+        assert_eq!(
+            gate.record_default_fallback(&resources, &push_constants),
+            RXGD_STATUS_FALLBACK
+        );
+        assert!(!gate.is_enabled());
+        assert_eq!(
+            gate.last_fallback_reason(),
+            Some(FallbackReason::ManualDisabled)
+        );
+        assert_eq!(gate.last_real_pass_blocked(), None);
+    }
+
+    /// GRX-013: a fully valid, fully opted-in real-pass attempt passes every
+    /// software gate and reaches the linked-dispatch boundary. In the shipping
+    /// feature-off build no dispatch path is compiled in, so the attempt fails
+    /// closed with `real_dispatch_path_not_linked`.
+    #[cfg(not(feature = "d3d12-recording-shim"))]
+    #[test]
+    fn particles_copy_real_pass_optin_blocks_on_missing_dispatch_path() {
+        let (resources, push_constants) = valid_particles_copy_binding();
+        let session = create_session_with_caps(particles_copy_real_pass_optin_caps());
+        assert_eq!(
+            rxgd_record_pass(
+                session,
+                RXGD_PASS_PARTICLES_COPY,
+                resources.as_ptr(),
+                resources.len() as u64,
+                push_constants.as_ptr(),
+                push_constants.len() as u64,
+            ),
+            RXGD_STATUS_FALLBACK
+        );
+        let mut stats = zeroed_stats();
+        assert_eq!(
+            rxgd_collect_timestamps(session, 61, &mut stats),
+            RXGD_STATUS_OK
+        );
+        assert_eq!(stats.recorded_passes, 0);
+        assert_eq!(stats.fallback_passes, 1);
+        assert_eq!(stats.gpu_time_ns, 0);
+        assert_eq!(stats.cpu_record_ns, 0);
+        rxgd_destroy_session(session);
+
+        let mut gate = ParticlesCopyGate::new();
+        let rc = gate.record_real_pass_attempt(
+            particles_copy_real_pass_optin_caps(),
+            &resources,
+            &push_constants,
+            1,
+            2,
+        );
+        assert_eq!(rc, RXGD_STATUS_FALLBACK);
+        assert!(!gate.is_enabled());
+        assert_eq!(
+            gate.last_fallback_reason(),
+            Some(FallbackReason::CompileFailed)
+        );
+        assert_eq!(
+            gate.last_real_pass_blocked(),
+            Some("real_dispatch_path_not_linked")
+        );
+    }
+
+    #[test]
+    fn particles_copy_real_pass_capability_downgrade_is_unsupported_device() {
+        // particles_copy carries no i64 push-constant fields, so int64 is NOT part
+        // of its binding preflight; clearing it fails the DISPATCH ELIGIBILITY
+        // gate (not the preflight) with unsupported_device.
+        let (resources, push_constants) = valid_particles_copy_binding();
+        let mut caps = particles_copy_real_pass_optin_caps();
+        caps.flags &= !RXGD_CAP_SHADER_INT64;
+        let mut gate = ParticlesCopyGate::new();
+        let rc = gate.record_real_pass_attempt(caps, &resources, &push_constants, 1, 2);
+        assert_eq!(rc, RXGD_STATUS_FALLBACK);
+        assert!(!gate.is_enabled());
+        assert_eq!(
+            gate.last_fallback_reason(),
+            Some(FallbackReason::UnsupportedDevice)
+        );
+        assert_eq!(
+            gate.last_real_pass_blocked(),
+            Some("dispatch_eligibility_failed")
+        );
+    }
+
+    #[test]
+    fn particles_copy_real_pass_null_resource_handle_is_validation_failed() {
+        let (mut resources, push_constants) = valid_particles_copy_binding();
+        resources[1].native_handle = 0;
+        let mut gate = ParticlesCopyGate::new();
+        let rc = gate.record_real_pass_attempt(
+            particles_copy_real_pass_optin_caps(),
+            &resources,
+            &push_constants,
+            1,
+            2,
+        );
+        assert_eq!(rc, RXGD_STATUS_FALLBACK);
+        assert_eq!(
+            gate.last_fallback_reason(),
+            Some(FallbackReason::ValidationFailed)
+        );
+        assert_eq!(
+            gate.last_real_pass_blocked(),
+            Some("dispatch_eligibility_failed")
+        );
+    }
+
+    #[test]
+    fn particles_copy_preflight_rejects_shape_and_field_mismatches() {
+        // Wrong resource count fails.
+        let (resources, push_constants) = valid_particles_copy_binding();
+        assert_eq!(
+            ParticlesCopyGate::check_runtime_binding_preflight(&resources[..1], &push_constants),
+            Err(FallbackReason::ValidationFailed)
+        );
+
+        // Wrong b0 size fails.
+        let short = [0u8; 64];
+        assert_eq!(
+            ParticlesCopyGate::check_runtime_binding_preflight(&resources, &short),
+            Err(FallbackReason::ValidationFailed)
+        );
+
+        // A texture at any slot fails (particles_copy is an all-buffer pass).
+        let mut with_texture = resources;
+        with_texture[0] = RxGdResource::texture(701, 32, 32, 2);
+        assert_eq!(
+            ParticlesCopyGate::check_runtime_binding_preflight(&with_texture, &push_constants),
+            Err(FallbackReason::ValidationFailed)
+        );
+
+        // Zero total_particles fails.
+        let zero_particles = particles_copy_push_constants(0);
+        assert_eq!(
+            ParticlesCopyGate::check_runtime_binding_preflight(&resources, &zero_particles),
+            Err(FallbackReason::ValidationFailed)
+        );
+
+        // Zero destination byte size fails.
+        let mut zero_dst = resources;
+        zero_dst[1].width = 0;
+        assert_eq!(
+            ParticlesCopyGate::check_runtime_binding_preflight(&zero_dst, &push_constants),
+            Err(FallbackReason::ValidationFailed)
+        );
+
+        // A coherent 2-buffer binding passes the pure preflight.
+        assert_eq!(
+            ParticlesCopyGate::check_runtime_binding_preflight(&resources, &push_constants),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn particles_copy_real_pass_binding_kind_check_accepts_buffer_slots_only() {
+        let (resources, _) = valid_particles_copy_binding();
+        assert_eq!(
+            ParticlesCopyGate::check_real_pass_binding_kind(&resources),
+            Ok(())
+        );
+        // Too few resources fails.
+        assert_eq!(
+            ParticlesCopyGate::check_real_pass_binding_kind(&resources[..1]),
+            Err(FallbackReason::ValidationFailed)
+        );
+        // A texture at the SRV slot fails closed (texture2d never conforms to a
+        // structured_buffer slot).
+        let mut texture_srv = resources;
+        texture_srv[0] = RxGdResource::texture(701, 32, 32, 2);
+        assert_eq!(
+            ParticlesCopyGate::check_real_pass_binding_kind(&texture_srv),
+            Err(FallbackReason::ValidationFailed)
+        );
+        // A texture at the UAV slot fails closed too.
+        let mut texture_uav = resources;
+        texture_uav[1] = RxGdResource::texture(702, 32, 32, 2);
+        assert_eq!(
+            ParticlesCopyGate::check_real_pass_binding_kind(&texture_uav),
+            Err(FallbackReason::ValidationFailed)
+        );
+    }
+
+    #[test]
+    fn particles_copy_dispatch_package_matches_offline_evidence() {
+        let package = ParticlesCopyDispatchPackage::verified_offline_package();
+        assert!(package.verify_matches_offline_evidence().is_ok());
+        assert_eq!(package.resource_count, 2);
+        assert_eq!(package.srv_count, 1);
+        assert!(!package.requires_shader_int64);
+
+        let mut tampered = package;
+        tampered.available = false;
+        assert_eq!(
+            tampered.verify_matches_offline_evidence(),
+            Err(FallbackReason::CompileFailed)
+        );
+
+        let mut tampered = package;
+        tampered.dxil_sha256 = "0000000000000000000000000000000000000000000000000000000000000000";
+        assert_eq!(
+            tampered.verify_matches_offline_evidence(),
+            Err(FallbackReason::ValidationFailed)
+        );
+
+        let mut tampered = package;
+        tampered.requires_shader_int64 = true;
+        assert_eq!(
+            tampered.verify_matches_offline_evidence(),
+            Err(FallbackReason::ValidationFailed)
+        );
+    }
+
+    #[test]
+    fn particles_copy_real_pass_hash_mismatch_blocks_on_validation() {
+        let (resources, push_constants) = valid_particles_copy_binding();
+        let mut gate = ParticlesCopyGate::new();
+        gate.dispatch_package.dxil_sha256 =
+            "0000000000000000000000000000000000000000000000000000000000000000";
+        let rc = gate.record_real_pass_attempt(
+            particles_copy_real_pass_optin_caps(),
+            &resources,
+            &push_constants,
+            1,
+            2,
+        );
+        assert_eq!(rc, RXGD_STATUS_FALLBACK);
+        assert_eq!(
+            gate.last_fallback_reason(),
+            Some(FallbackReason::ValidationFailed)
+        );
+        assert_eq!(
+            gate.last_real_pass_blocked(),
+            Some("dispatch_eligibility_failed")
+        );
+    }
+
+    #[test]
+    fn particles_copy_math_parity_gate_allows_cpu_proven_fill_instances() {
+        assert_eq!(
+            PARTICLES_COPY_KERNEL_MATH_PARITY_STATUS,
+            "fill_instances_cpu_reference_proven_pending_gpu_dispatch"
+        );
+        assert_eq!(ParticlesCopyGate::check_real_pass_math_parity(), Ok(()));
+        assert_eq!(
+            PARTICLES_COPY_KERNEL_RESOURCE_BINDING_KINDS,
+            ["structured_buffer", "rwstructured_buffer"]
         );
     }
 

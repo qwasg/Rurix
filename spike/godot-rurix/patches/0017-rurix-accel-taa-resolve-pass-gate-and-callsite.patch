@@ -1,0 +1,168 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Sat, 12 Jul 2026 11:00:00 +0800
+Subject: [PATCH] Add default-disabled GRX-012 taa_resolve gate and TAA
+ render_forward_clustered call-site opt-in wiring
+
+Stacked on 0001..0016. Template copy of the GRX-011 0014 pattern for the
+taa_resolve pass:
+
+- modules/rurix_accel: new default-false per-pass setting
+  rendering/rurix_accel/passes/taa_resolve/enabled and try_record_taa_resolve()
+  (0002-level module gate; the call carries no resource bindings, native
+  handle mapping belongs to a later slice). Adds RXGD_PASS_TAA_RESOLVE (6u).
+- drivers/d3d12/d3d12_hooks.h: default-false virtual try_record_taa_resolve()
+  so any hooks implementation that does not override it (or the absence of
+  a hooks singleton) keeps the native Godot TAA resolve path.
+- servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
+  TAA branch: the opt-in gate runs before the native taa->process; only when
+  the gate returns true (module setting enabled AND bridge session/symbol
+  present AND rxgd_record_pass returns RXGD_STATUS_OK) is the native
+  taa->process skipped. No other temporal-upscale path (FSR2/MetalFX) is wired.
+
+The Rurix bridge TaaResolveGate is fail-closed and always returns
+RXGD_STATUS_FALLBACK for RXGD_PASS_TAA_RESOLVE, and the per-pass setting
+defaults to false, so in practice the gate returns false and the native
+Godot TAA resolve runs. No real GPU pass, no acceleration, and no
+performance improvement is claimed.
+---
+diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
+index 32b7c9c..2d84405 100644
+--- a/drivers/d3d12/d3d12_hooks.h
++++ b/drivers/d3d12/d3d12_hooks.h
+@@ -90,5 +90,9 @@ public:
+ 	// The base implementation returns false so any hooks that do not override
+ 	// this (or the absence of a hooks singleton) keep the native SSAO blur path.
+ 	virtual bool try_record_ssao_blur(uint64_t p_source_native_handle, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_native_handle, uint32_t p_dest_width, uint32_t p_dest_height, float p_edge_sharpness, float p_half_screen_pixel_size_x, float p_half_screen_pixel_size_y) { return false; }
++	// GRX-012: opt-in hook for the taa_resolve pass. The base implementation
++	// returns false so any hooks that do not override this (or the absence of
++	// a hooks singleton) keep the native Godot TAA resolve path.
++	virtual bool try_record_taa_resolve() { return false; }
+ 	static D3D12Hooks *get_singleton() { return singleton; }
+ };
+diff --git a/modules/rurix_accel/register_types.cpp b/modules/rurix_accel/register_types.cpp
+index 9bae03e..15de768 100644
+--- a/modules/rurix_accel/register_types.cpp
++++ b/modules/rurix_accel/register_types.cpp
+@@ -125,6 +125,13 @@ void initialize_rurix_accel_module(ModuleInitializationLevel p_level) {
+ 	// the native Godot SSAO blur path keeps rendering. Defaults to false;
+ 	// never enabled by the shipping build/config.
+ 	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/ssao_blur/real_pass_force_capability_downgrade", false);
++	// GRX-012: per-pass opt-in gate for the taa_resolve pass; the pass
++	// stays on the native Godot TAA resolve unless this is explicitly
++	// enabled AND the bridge actually records the pass. Defaults to
++	// false; the bridge TaaResolveGate is fail-closed and returns
++	// RXGD_STATUS_FALLBACK for RXGD_PASS_TAA_RESOLVE, so the native TAA
++	// resolve keeps rendering in practice and no acceleration is claimed.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/taa_resolve/enabled", false);
+ 
+ #if defined(D3D12_ENABLED)
+ 	if (GLOBAL_GET("rendering/rurix_accel/enabled")) {
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index 0e6ab18..a6f91f2 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -594,4 +594,31 @@ bool RurixAccelD3D12Hooks::try_record_ssao_blur(uint64_t p_source_native_handle,
+ 	return true;
+ }
+ 
++bool RurixAccelD3D12Hooks::try_record_taa_resolve() {
++	// GRX-012 gate: every early return below means the caller must keep the
++	// native Godot TAA resolve path. This is 0002-level module wiring: the call
++	// carries no resource bindings (native handle mapping belongs to a later
++	// slice), and the fail-closed bridge TaaResolveGate always returns
++	// RXGD_STATUS_FALLBACK for RXGD_PASS_TAA_RESOLVE today, so the native TAA
++	// resolve keeps rendering in practice.
++	if (!GLOBAL_GET("rendering/rurix_accel/passes/taa_resolve/enabled")) {
++		// manual_disabled: the pass is opt-in and defaults to disabled.
++		return false;
++	}
++	if (session == nullptr || rxgd_record_pass == nullptr) {
++		// No bridge session or record entry point; equivalent to
++		// unsupported_device for this pass.
++		return false;
++	}
++	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_TAA_RESOLVE, nullptr, 0, nullptr, 0);
++	if (rc != RXGD_STATUS_OK) {
++		if (!taa_resolve_fallback_logged) {
++			print_verbose(vformat("RurixAccel: taa_resolve fallback rc=%d; Godot native TAA resolve path remains active.", rc));
++			taa_resolve_fallback_logged = true;
++		}
++		return false;
++	}
++	return true;
++}
++
+ #endif // D3D12_ENABLED
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index 84e5f94..a88acef 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -15,6 +15,7 @@
+ #define RXGD_PASS_LUMINANCE_REDUCTION 4u
+ #define RXGD_PASS_TONEMAP 5u
+ #define RXGD_PASS_SSAO_BLUR 2u
++#define RXGD_PASS_TAA_RESOLVE 6u
+ // GRX-009 segment 4b reserved capability flag carried in RxGdCaps.flags
+ // (ABI v1, no struct layout change). Set only when the Godot dispatch
+ // bring-up opt-in setting is enabled.
+@@ -99,6 +100,7 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
+ 	bool luminance_fallback_logged = false;
+ 	bool tonemap_fallback_logged = false;
+ 	bool ssao_blur_fallback_logged = false;
++	bool taa_resolve_fallback_logged = false;
+ 	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 28;
+ 	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_RESOURCE_COUNT = 2;
+ 	// GRX-010 tonemap resource mapping (resource_mapping.md): b0 carries
+@@ -171,6 +173,12 @@ public:
+ 	// from the fail-closed SsaoBlurGate) returns false and the caller must keep
+ 	// the native Godot SSAO blur path.
+ 	bool try_record_ssao_blur(uint64_t p_source_native_handle, uint32_t p_source_width, uint32_t p_source_height, uint64_t p_dest_native_handle, uint32_t p_dest_width, uint32_t p_dest_height, float p_edge_sharpness, float p_half_screen_pixel_size_x, float p_half_screen_pixel_size_y) override;
++	// GRX-012: returns true only when the Rurix bridge actually recorded the
++	// taa_resolve pass. Any other outcome (setting disabled, missing
++	// session/symbol, or a non-OK bridge status such as RXGD_STATUS_FALLBACK
++	// from the fail-closed TaaResolveGate) returns false and the caller must
++	// keep the native Godot TAA resolve path.
++	bool try_record_taa_resolve() override;
+ };
+ 
+ #endif // D3D12_ENABLED
+diff --git a/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp b/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
+index 678fdc4..d829239 100644
+--- a/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
++++ b/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
+@@ -41,6 +41,9 @@
+ #include "servers/rendering/rendering_device.h"
+ #include "servers/rendering/rendering_server_default.h"
+ 
++// GRX-012 segment: opt-in taa_resolve gate lives on the D3D12 hooks.
++#include "drivers/d3d12/d3d12_hooks.h"
++
+ using namespace RendererSceneRenderImplementation;
+ 
+ #define PRELOAD_PIPELINES_ON_SURFACE_CACHE_CONSTRUCTION 1
+@@ -2509,7 +2512,21 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
+ 		} else if (using_taa) {
+ 			RD::get_singleton()->draw_command_begin_label("TAA");
+ 			RENDER_TIMESTAMP("TAA");
+-			taa->process(rb, rb->get_base_data_format(), p_render_data->scene_data->z_near, p_render_data->scene_data->z_far);
++			bool rurix_recorded_taa_resolve = false;
++#ifdef D3D12_ENABLED
++			if (D3D12Hooks::get_singleton() != nullptr) {
++				// GRX-012 opt-in gate. Returns true only when the Rurix module
++				// setting is enabled AND the bridge session/symbol exist AND
++				// rxgd_record_pass returns RXGD_STATUS_OK. The fail-closed bridge
++				// TaaResolveGate always returns RXGD_STATUS_FALLBACK for
++				// RXGD_PASS_TAA_RESOLVE today, so this stays false and the native
++				// taa->process below runs.
++				rurix_recorded_taa_resolve = D3D12Hooks::get_singleton()->try_record_taa_resolve();
++			}
++#endif
++			if (!rurix_recorded_taa_resolve) {
++				taa->process(rb, rb->get_base_data_format(), p_render_data->scene_data->z_near, p_render_data->scene_data->z_far);
++			}
+ 			RD::get_singleton()->draw_command_end_label();
+ 		}
+ 	}
+-- 
+2.50.0

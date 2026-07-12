@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "subject": "grx013_particles_copy_real_d3d12_dispatch_smoke",
+  "pass_id": "particles_copy",
+  "segment": "standalone_dispatch_smoke",
+  "runtime_state": "fallback_only",
+  "real_gpu_pass": false,
+  "real_d3d12_dispatch_recorded": true,
+  "cpu_reference_match": true,
+  "artifacts": {
+    "dxil": {
+      "path": "spike/godot-rurix/passes/particles_copy/artifacts/particles_copy.dxil",
+      "sha256": "cf144c2880bc4ff9b20ec94f1246fc882ab63f4d0d876837bad428a2469cec37"
+    },
+    "root_signature": {
+      "path": "spike/godot-rurix/passes/particles_copy/artifacts/particles_copy.rts0.bin",
+      "sha256": "76dda2ffc6d210f77974f4984e645bc0b3f62b796508f7f4b0c6c5a49a89678f"
+    },
+    "descriptor_layout": {
+      "path": "spike/godot-rurix/passes/particles_copy/artifacts/particles_copy_descriptor_layout.json",
+      "sha256": "487569fe8c7f1d520cc80367ea119a55ed7be4c2244326584e7d006180791a03"
+    }
+  },
+  "offline_evidence": {
+    "path": "spike/godot-rurix/passes/particles_copy/offline_compile_evidence.json",
+    "dxil_sha256": "cf144c2880bc4ff9b20ec94f1246fc882ab63f4d0d876837bad428a2469cec37",
+    "root_signature_sha256": "76dda2ffc6d210f77974f4984e645bc0b3f62b796508f7f4b0c6c5a49a89678f",
+    "descriptor_layout_sha256": "487569fe8c7f1d520cc80367ea119a55ed7be4c2244326584e7d006180791a03"
+  },
+  "artifact_hashes_match_offline_evidence": true,
+  "note": "GRX-013 standalone real D3D12 structured-buffer dispatch smoke evidence only. A success flips real_d3d12_dispatch_recorded/cpu_reference_match true (the fields the GRX-013 gate reads) but keeps runtime_state=fallback_only and real_gpu_pass=false; it is not a Godot runtime pass, visual, perf, or measured-telemetry claim.",
+  "status": "success",
+  "timestamp": "2026-07-12T14:50:06+08:00",
+  "run_url": "local interactive runner",
+  "device": {
+    "adapter": "NVIDIA GeForce RTX 4070 Ti",
+    "experimental_shader_models": "off",
+    "dxil_signed_for_load": "yes",
+    "dxil_validator": "H:/dxc-round7/extracted/bin/x64/dxil.dll"
+  },
+  "cpu_reference": {
+    "reference_impl": "spike/godot-rurix/passes/particles_copy/generate_math_parity_evidence.py transform_instance (imported; every instance compared over 5 vec4 in Python)",
+    "value_tolerance": 0.0003,
+    "cases": [
+      {
+        "case_id": "fill_instances_align_disabled",
+        "particle_count": 8,
+        "align_mode": 0,
+        "align_channel_filter": 0,
+        "dispatch": "1,1,1",
+        "fence_completed_value": "1",
+        "readback_checksum": "0xe4d27b5e",
+        "comparison": {
+          "match": true,
+          "max_abs_diff": 0.0,
+          "mismatched_components": 0,
+          "total_instances": 8,
+          "value_tolerance": 0.0003,
+          "worst": null
+        }
+      },
+      {
+        "case_id": "fill_instances_billboard_channel_x",
+        "particle_count": 8,
+        "align_mode": 1,
+        "align_channel_filter": 1,
+        "dispatch": "1,1,1",
+        "fence_completed_value": "1",
+        "readback_checksum": "0xf2616c8f",
+        "comparison": {
+          "match": true,
+          "max_abs_diff": 4.470348358154297e-07,
+          "mismatched_components": 0,
+          "total_instances": 8,
+          "value_tolerance": 0.0003,
+          "worst": {
+            "instance": 7,
+            "vec4": 1,
+            "comp": 1,
+            "observed": 0.3797712028026581,
+            "reference": 0.3797716498374939
+          }
+        }
+      },
+      {
+        "case_id": "fill_instances_billboard_channel_w",
+        "particle_count": 6,
+        "align_mode": 1,
+        "align_channel_filter": 4,
+        "dispatch": "1,1,1",
+        "fence_completed_value": "1",
+        "readback_checksum": "0xb39b1756",
+        "comparison": {
+          "match": true,
+          "max_abs_diff": 1.1920928955078125e-07,
+          "mismatched_components": 0,
+          "total_instances": 6,
+          "value_tolerance": 0.0003,
+          "worst": {
+            "instance": 1,
+            "vec4": 2,
+            "comp": 0,
+            "observed": -0.605396568775177,
+            "reference": -0.6053964495658875
+          }
+        }
+      },
+      {
+        "case_id": "fill_instances_billboard_channel_none",
+        "particle_count": 5,
+        "align_mode": 1,
+        "align_channel_filter": 0,
+        "dispatch": "1,1,1",
+        "fence_completed_value": "1",
+        "readback_checksum": "0x34e15e9a",
+        "comparison": {
+          "match": true,
+          "max_abs_diff": 1.1920928955078125e-07,
+          "mismatched_components": 0,
+          "total_instances": 5,
+          "value_tolerance": 0.0003,
+          "worst": {
+            "instance": 0,
+            "vec4": 0,
+            "comp": 0,
+            "observed": 0.7999998927116394,
+            "reference": 0.800000011920929
+          }
+        }
+      }
+    ]
+  },
+  "checks": {
+    "artifact_hashes_match_offline_evidence": true,
+    "descriptor_layout_matches_resource_mapping": true,
+    "root_signature_create_from_rurix_rts0": true,
+    "compute_pso_from_rurix_dxil": true,
+    "two_structured_buffers_bound_from_layout": true,
+    "dispatch_executed": true,
+    "fence_completed": true,
+    "output_uav_readback": true,
+    "all_output_instances_match_cpu_reference": true
+  }
+}

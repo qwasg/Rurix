@@ -1060,6 +1060,159 @@ struct ShimSession {
         std::fflush(stdout);
         return 0;
     }
+
+    // GRX-013 particles_copy: StructuredBuffer SRV (t0) + RWStructuredBuffer UAV
+    // (u0) + 128-byte (32-dword) CopyPushConstant b0 root constants, dispatch
+    // ceil(total_particles / 64). Test-only readback of the destination
+    // structured buffer via CopyBufferRegion. `src_bytes`/`dst_bytes` are the
+    // buffer byte sizes; the ParticleData stride is 112 (source) and the
+    // instance stride is 16 (float4, destination).
+    int record_particles_copy(uint32_t pass_id,
+                              const uint8_t* dxil, size_t dxil_len,
+                              const uint8_t* rts0, size_t rts0_len,
+                              ID3D12Resource* src_particles, ID3D12Resource* dst_instances,
+                              const uint8_t* push_constants,
+                              uint32_t src_bytes, uint32_t dst_bytes,
+                              RxgdRecordResult* out) {
+        (void)pass_id;
+        if (!ensure_initialized(out)) return -31;
+        CachedKernel* k = get_or_create_kernel(dxil, dxil_len, rts0, rts0_len, out);
+        if (!k) return -32;
+        if (!src_particles || !dst_instances) {
+            set_detail_msg(out, "null particles_copy buffer handle");
+            return -41;
+        }
+
+        // ParticleData stride = 112 bytes (source); float4 instance stride = 16
+        // bytes (destination). NumElements is clamped to at least 1.
+        const UINT src_stride = 112u;
+        const UINT dst_stride = 16u;
+        const UINT src_elements = std::max<UINT>(src_bytes / src_stride, 1u);
+        const UINT dst_elements = std::max<UINT>(dst_bytes / dst_stride, 1u);
+
+        ID3D12CommandAllocator* alloc = acquire_allocator();
+        HRESULT hr = cmd->Reset(alloc, nullptr);
+        if (FAILED(hr)) { set_detail(out, "command list Reset", hr); return -33; }
+        ID3D12DescriptorHeap* heaps[] = {heap.Get()};
+        cmd->SetDescriptorHeaps(1, heaps);
+
+        // Descriptor table: SRV range (t0) then UAV range (u0), contiguous.
+        UINT base = reserve_descriptors(2);
+        UINT slot = base;
+        {
+            D3D12_SHADER_RESOURCE_VIEW_DESC srv = {};
+            srv.Format = DXGI_FORMAT_UNKNOWN; // structured buffer
+            srv.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+            srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+            srv.Buffer.FirstElement = 0;
+            srv.Buffer.NumElements = src_elements;
+            srv.Buffer.StructureByteStride = src_stride;
+            srv.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+            device->CreateShaderResourceView(src_particles, &srv, cpu_handle(slot++));
+        }
+        {
+            D3D12_UNORDERED_ACCESS_VIEW_DESC uavd = {};
+            uavd.Format = DXGI_FORMAT_UNKNOWN; // rwstructured buffer
+            uavd.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+            uavd.Buffer.FirstElement = 0;
+            uavd.Buffer.NumElements = dst_elements;
+            uavd.Buffer.StructureByteStride = dst_stride;
+            uavd.Buffer.CounterOffsetInBytes = 0;
+            uavd.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+            device->CreateUnorderedAccessView(dst_instances, nullptr, &uavd, cpu_handle(slot++));
+        }
+
+        cmd->SetComputeRootSignature(k->root.Get());
+        cmd->SetPipelineState(k->pso.Get());
+        uint32_t rc[32];
+        std::memcpy(rc, push_constants, 128);
+        cmd->SetComputeRoot32BitConstants(0, 32, rc, 0);
+        cmd->SetComputeRootDescriptorTable(1, gpu_handle(base));
+        const uint32_t total_particles = rc[3]; // CopyPushConstant dword 3
+        const UINT gx = std::max<UINT>((total_particles + 63u) / 64u, 1u);
+        cmd->Dispatch(gx, 1, 1);
+
+        // Test-only readback of the destination structured buffer.
+        const UINT64 rb_bytes = (UINT64)dst_elements * dst_stride;
+        auto rbheap = heap_props(D3D12_HEAP_TYPE_READBACK);
+        auto rb_desc = buffer_desc(rb_bytes);
+        ComPtr<ID3D12Resource> readback_buf;
+        hr = device->CreateCommittedResource(&rbheap, D3D12_HEAP_FLAG_NONE, &rb_desc,
+                                             D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
+                                             IID_PPV_ARGS(&readback_buf));
+        if (FAILED(hr)) { set_detail(out, "CreateCommittedResource(readback)", hr); return -34; }
+
+        D3D12_RESOURCE_BARRIER tb = {};
+        tb.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        tb.Transition.pResource = dst_instances;
+        tb.Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+        tb.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
+        tb.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        cmd->ResourceBarrier(1, &tb);
+        cmd->CopyBufferRegion(readback_buf.Get(), 0, dst_instances, 0, rb_bytes);
+        D3D12_RESOURCE_BARRIER tb2 = tb;
+        tb2.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
+        tb2.Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+        cmd->ResourceBarrier(1, &tb2);
+
+        hr = cmd->Close();
+        if (FAILED(hr)) { set_detail(out, "Close command list", hr); return -35; }
+        ID3D12CommandList* lists[] = {cmd.Get()};
+        queue->ExecuteCommandLists(1, lists);
+        UINT64 submit_value = ++next_fence_value;
+        if (FAILED(queue->Signal(fence.Get(), submit_value))) {
+            set_detail_msg(out, "Signal fence");
+            return -36;
+        }
+        allocators[(alloc_cursor + allocators.size() - 1) % allocators.size()].fence_value =
+            submit_value;
+
+        if (fence->GetCompletedValue() < submit_value) {
+            if (FAILED(fence->SetEventOnCompletion(submit_value, fence_event))) {
+                set_detail_msg(out, "SetEventOnCompletion");
+                return -37;
+            }
+            WaitForSingleObject(fence_event, INFINITE);
+        }
+        out->fence_completed_value = fence->GetCompletedValue();
+        if (out->fence_completed_value < submit_value) {
+            set_detail_msg(out, "fence did not reach completion");
+            return -38;
+        }
+
+        uint8_t* mapped = nullptr;
+        D3D12_RANGE rng = {0, (SIZE_T)rb_bytes};
+        if (FAILED(readback_buf->Map(0, &rng, reinterpret_cast<void**>(&mapped)))) {
+            set_detail_msg(out, "Map readback");
+            return -39;
+        }
+        uint32_t checksum = 2166136261u;
+        float first = 0.0f;
+        if (rb_bytes >= sizeof(float)) {
+            std::memcpy(&first, mapped, sizeof(float));
+        }
+        for (UINT64 i = 0; i < rb_bytes; ++i) {
+            checksum ^= mapped[i];
+            checksum *= 16777619u;
+        }
+        readback_buf->Unmap(0, nullptr);
+
+        out->dispatch_x = gx;
+        out->dispatch_y = 1;
+        out->dispatch_z = 1;
+        out->dst_width = dst_bytes;
+        out->dst_height = 1;
+        out->readback_checksum = checksum;
+        out->dst_first_value = first;
+        out->dxil_signed = k->dxil_signed ? 1 : 0;
+        std::snprintf(out->error_detail, sizeof(out->error_detail), "ok");
+        std::printf("RXGD_BRIDGE_REC: dispatch=%u,1,1 fence=%llu dst_bytes=%u dst_first=%g "
+                    "checksum=0x%08x dxil_signed=%s\n",
+                    gx, (unsigned long long)out->fence_completed_value, dst_bytes,
+                    first, checksum, out->dxil_signed ? "yes" : "no");
+        std::fflush(stdout);
+        return 0;
+    }
 };
 
 // Per-(device,queue) session registry. The test-only recording feature drives
@@ -1308,6 +1461,52 @@ extern "C" __declspec(dllexport) int32_t rxgd_taa_resolve_record_dispatch(
 
     int rc = session->record_taa(pass_id, dxil_bytes, dxil_len, rts0_bytes, rts0_len,
                                  srvs, uav, push_constants, width, height, out);
+    session->note(pass_id, rc == 0);
+    return rc;
+}
+
+extern "C" __declspec(dllexport) int32_t rxgd_particles_copy_record_dispatch(
+    uint32_t abi_version,
+    uint32_t pass_id,
+    void* device_ptr,
+    void* queue_ptr,
+    const uint8_t* dxil_bytes,
+    size_t dxil_len,
+    const uint8_t* rts0_bytes,
+    size_t rts0_len,
+    void* src_particles_ptr,
+    void* dst_instances_ptr,
+    const uint8_t* push_constants,
+    size_t push_constant_len,
+    uint32_t src_bytes,
+    uint32_t dst_bytes,
+    RxgdRecordResult* out) {
+    if (!out) return -1;
+    std::memset(out, 0, sizeof(*out));
+
+    if (abi_version != kShimAbiVersion) {
+        set_detail_msg(out, "shim abi version mismatch");
+        return -2;
+    }
+    if (!device_ptr || !queue_ptr || !src_particles_ptr || !dst_instances_ptr) {
+        set_detail_msg(out, "null device/queue/resource handle");
+        return -3;
+    }
+    if (!dxil_bytes || dxil_len == 0 || !rts0_bytes || rts0_len == 0) {
+        set_detail_msg(out, "empty dxil/rts0 bytes");
+        return -4;
+    }
+    if (!push_constants || push_constant_len != 128) {
+        set_detail_msg(out, "push constant block is not 128 bytes");
+        return -5;
+    }
+
+    ShimSession* session = get_or_create_session(device_ptr, queue_ptr);
+    int rc = session->record_particles_copy(
+        pass_id, dxil_bytes, dxil_len, rts0_bytes, rts0_len,
+        reinterpret_cast<ID3D12Resource*>(src_particles_ptr),
+        reinterpret_cast<ID3D12Resource*>(dst_instances_ptr),
+        push_constants, src_bytes, dst_bytes, out);
     session->note(pass_id, rc == 0);
     return rc;
 }
