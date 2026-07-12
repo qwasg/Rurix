@@ -1,0 +1,111 @@
+// GRX-019 fused_post_chain kernel Rurix math source (forward-looking; NOT yet
+// compilable to a runtime-mappable DXIL container).
+//
+// This mirrors the supported math subset of the ONE fused full-resolution
+// dispatch that combines the two fusion members:
+//   Segment A - the final WRITE_LUMINANCE luminance-reduction level
+//               (tile mean -> clamp -> EMA -> 1x1 current), member kernel
+//               ../../luminance_reduction/artifacts/hlsl_bridge/
+//               luminance_reduce_level.hlsl (-D RX_WRITE_LUMINANCE);
+//   Segment B - the tonemap TONEMAPPER_LINEAR + linear_to_srgb subset,
+//               member kernel ../../tonemap/artifacts/hlsl_bridge/
+//               tonemap_apply.hlsl, with the exposure input upgraded to the
+//               segment-A register-carried luminance current per the native
+//               auto-exposure formula (tonemap.glsl L866-868):
+//                 exposure_effective = exposure
+//                     * (1.0 / (lum_current * luminance_multiplier
+//                               / auto_exposure_scale))
+// and is the math target the DXC-compiled bridge kernel
+// `artifacts/hlsl_bridge/fused_post_chain.hlsl` must stay equivalent to. The
+// authoritative, byte-for-byte operation order lives in that HLSL and in
+// `generate_math_parity_evidence.py` (the CPU reference); this file documents
+// the per-texel math and the Rurix binding shape.
+//
+// Toolchain blockers (why the canonical package is the hlsl_bridge workaround
+// instead of a rurixc-owned compile):
+//   1. The patched llc lacks `llvm.dx.resource.load.texture.2d` /
+//      `store.texture.2d` support (GRX-009
+//      texture_intrinsic_toolchain_blocker.json applies unchanged; the
+//      cross-toolchain confirmation extends it to upstream llc builds).
+//   2. The Rurix `Texture2D<F>` / `RWTexture2D<F>` lang items currently lower
+//      single-channel f32 element types only; fused_post_chain binds float4
+//      color in/out.
+//   3. groupshared LDS broadcast (the segment-A per-group luminance value) is
+//      not yet a lowerable Rurix lang item; the math below expresses segment A
+//      as a direct per-thread recompute (mathematically equivalent to the HLSL
+//      groupshared-broadcast path, which only deduplicates the computation).
+//
+// Per-texel math (see PASS_CONTRACT.md section 5, resource_mapping.md, and the
+// HLSL):
+//   // segment A (identical for every thread; <= 8x8 lum_source subset)
+//   avg         = partial_tile_mean(lum_source, lum_source_width,
+//                                   lum_source_height)   // member-A order
+//   cur         = clamp(avg, min_luminance, max_luminance)
+//   ema         = prev_luminance[0,0] + (cur - prev_luminance[0,0])
+//                     * exposure_adjust
+//   lum_current = first_frame != 0 ? cur : ema
+//   dst_luminance[0,0] = lum_current                     // written once
+//   // segment B (per output texel)
+//   c           = src_color[x, y]
+//   c.rgb      *= luminance_multiplier                   // tonemap.glsl L860
+//   e           = exposure * (1.0 / (lum_current * luminance_multiplier
+//                                    / auto_exposure_scale))  // L866-868
+//   c.rgb      *= e                                      // L870
+//   // TONEMAPPER_LINEAR identity (L893); white unused
+//   c.rgb       = linear_to_srgb(c.rgb)                  // L942-943, L230-233
+//   dst_color[x, y] = c                                  // alpha passthrough
+
+kernel fn fused_post_chain(
+    src_color: Texture2D<f32>,
+    lum_source: Texture2D<f32>,
+    prev_luminance: Texture2D<f32>,
+    dst_color: RWTexture2D<f32>,
+    dst_luminance: RWTexture2D<f32>,
+    source_width: usize,
+    source_height: usize,
+    lum_source_width: usize,
+    lum_source_height: usize,
+    max_luminance: f32,
+    min_luminance: f32,
+    exposure_adjust: f32,
+    exposure: f32,
+    white: f32,
+    luminance_multiplier: f32,
+    first_frame: f32,
+    auto_exposure_scale: f32,
+    t: ThreadCtx<2>,
+) {
+    let _ = white; // TONEMAPPER_LINEAR does not consume white (shape parity).
+
+    let gid = t.global_id_2d();
+    let x = gid.x;
+    let y = gid.y;
+
+    if x < source_width && y < source_height {
+        // The full fused math (segment-A partial-tile mean + clamp + EMA +
+        // first_frame select, segment-B luminance_multiplier / auto-exposure
+        // effective exposure / linear_to_srgb) is the authoritative port in
+        // artifacts/hlsl_bridge/fused_post_chain.hlsl and the CPU reference in
+        // generate_math_parity_evidence.py. This forward-looking Rurix source
+        // documents the binding shape and the per-texel contract; the
+        // arithmetic is intentionally elided here because the texture / LDS /
+        // multi-channel lang items required to lower it faithfully are not yet
+        // available (see toolchain blockers above).
+        let _ = lum_source_width;
+        let _ = lum_source_height;
+        let _ = max_luminance;
+        let _ = min_luminance;
+        let _ = exposure_adjust;
+        let _ = exposure;
+        let _ = luminance_multiplier;
+        let _ = first_frame;
+        let _ = auto_exposure_scale;
+        let _ = src_color;
+        let _ = lum_source;
+        let _ = prev_luminance;
+        let _ = dst_color;
+        let _ = dst_luminance;
+    }
+}
+
+fn main() {}

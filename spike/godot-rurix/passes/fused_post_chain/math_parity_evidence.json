@@ -1,0 +1,2017 @@
+{
+  "pass_id": "fused_post_chain",
+  "subject": "grx019_fused_post_chain_math_parity",
+  "status": "pending_gpu_dispatch",
+  "generated_at_utc": "2026-07-12T12:11:30Z",
+  "math_status": "fused_post_chain_cpu_reference_proven_pending_gpu_dispatch",
+  "cpu_reference": {
+    "formula": "ONE fused dispatch: segment A (luminance final WRITE_LUMINANCE level, member-kernel order) avg = partial-tile mean(lum_source <= 8x8); cur = clamp(avg, min_luminance, max_luminance); lum = first_frame ? cur : prev + (cur - prev) * exposure_adjust; segment B (tonemap LINEAR+sRGB) exposure_effective = exposure * (1 / (lum * luminance_multiplier / auto_exposure_scale)) per tonemap.glsl L866-868; rgb = linear_to_srgb(rgb * luminance_multiplier * exposure_effective); alpha passthrough; every operation rounded to binary32",
+    "hlsl_kernel": {
+      "path": "spike/godot-rurix/passes/fused_post_chain/artifacts/hlsl_bridge/fused_post_chain.hlsl",
+      "sha256": "4a824fb7d38b10a1b4992060d5a41335773b7bc969be56c0fee61e83e71eca69"
+    },
+    "dxil": {
+      "path": "spike/godot-rurix/passes/fused_post_chain/artifacts/fused_post_chain.dxil",
+      "sha256": "824bcee388360ed99dc610621da67465a3174e15a9defca53031d0cdcedd7e0e"
+    },
+    "rurix_math_source": "spike/godot-rurix/passes/fused_post_chain/src/lib.rx",
+    "member_kernels": {
+      "luminance_reduction": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/luminance_reduce_level.hlsl (-D RX_WRITE_LUMINANCE)",
+      "tonemap": "spike/godot-rurix/passes/tonemap/artifacts/hlsl_bridge/tonemap_apply.hlsl"
+    },
+    "godot_math_sources": [
+      "external/godot-master/servers/rendering/renderer_rd/shaders/effects/luminance_reduce.glsl (WRITE_LUMINANCE L76-79)",
+      "external/godot-master/servers/rendering/renderer_rd/shaders/effects/tonemap.glsl (L860, L864-870, L866-868, L893, L230-233, L942-943)"
+    ]
+  },
+  "max_abs_error_tolerance": 0.003,
+  "gpu_dispatch_kind": null,
+  "time_series_cases": [
+    {
+      "case_id": "static_scene_ema_convergence",
+      "description": "static color scene + static lum_source, prev starts away from the clamped current: the EMA converges toward clamp(avg) over the frame sequence (convergence_trend decreases toward 0) and the LDR output tracks the exposure_effective trajectory",
+      "width": 8,
+      "height": 6,
+      "lum_source_width": 5,
+      "lum_source_height": 3,
+      "frames": 8,
+      "constants": {
+        "max_luminance": 1.2,
+        "min_luminance": 0.05,
+        "exposure_adjust": 0.4,
+        "exposure": 1.0,
+        "white": 1.0,
+        "luminance_multiplier": 1.0,
+        "auto_exposure_scale": 0.5
+      },
+      "prev_luminance_frame0": 0.8500000238418579,
+      "lum_output_trend": [
+        0.8221738934516907,
+        0.8054782152175903,
+        0.7954608201980591,
+        0.7894503474235535,
+        0.785844087600708,
+        0.7836803197860718,
+        0.782382071018219,
+        0.7816030979156494
+      ],
+      "convergence_trend_abs_lum_minus_current": [
+        0.04173922538757324,
+        0.0250435471534729,
+        0.01502615213394165,
+        0.009015679359436035,
+        0.005409419536590576,
+        0.0032456517219543457,
+        0.0019474029541015625,
+        0.0011684298515319824
+      ],
+      "per_frame": [
+        {
+          "frame": 0,
+          "first_frame": false,
+          "lum_source_scale": 1.0,
+          "prev_luminance": 0.8500000238418579,
+          "lum_avg": 0.7804346680641174,
+          "lum_clamped_current": 0.7804346680641174,
+          "lum_output": 0.8221738934516907,
+          "exposure_effective": 0.6081438660621643,
+          "abs_lum_output_minus_clamped_current": 0.04173922538757324,
+          "ldr_output_sha256": "82768f2c2a55c1378f5649790fe85be20ca760f4a92fbebab9b7d2572945a28c",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.32298544049263,
+                0.4495500326156616,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.8304858803749084,
+                0.8766190409660339,
+                0.9197568297386169,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.9077072143554688,
+                0.9490039944648743,
+                0.9880498051643372,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                0.9934627413749695,
+                1.0303056240081787,
+                1.0654757022857666,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 1,
+          "first_frame": false,
+          "lum_source_scale": 1.0,
+          "prev_luminance": 0.8221738934516907,
+          "lum_avg": 0.7804346680641174,
+          "lum_clamped_current": 0.7804346680641174,
+          "lum_output": 0.8054782152175903,
+          "exposure_effective": 0.6207492351531982,
+          "abs_lum_output_minus_clamped_current": 0.0250435471534729,
+          "ldr_output_sha256": "26ba3cb2b92816d0b6b218d219d1ef5bb59c1ad947b475725e7a835678f4823e",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.32623040676116943,
+                0.45388156175613403,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.8380876779556274,
+                0.8846167922019958,
+                0.9281249642372131,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.9159719347953796,
+                0.9576231837272644,
+                0.9970043301582336,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                1.002463698387146,
+                1.0396227836608887,
+                1.0750946998596191,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 2,
+          "first_frame": false,
+          "lum_source_scale": 1.0,
+          "prev_luminance": 0.8054782152175903,
+          "lum_avg": 0.7804346680641174,
+          "lum_clamped_current": 0.7804346680641174,
+          "lum_output": 0.7954608201980591,
+          "exposure_effective": 0.6285664439201355,
+          "abs_lum_output_minus_clamped_current": 0.01502615213394165,
+          "ldr_output_sha256": "b76fa17212186a03742492c33134e4207adb9ca82c533c09ed3f77a9c19b50f3",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.32822349667549133,
+                0.4565419554710388,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.8427567481994629,
+                0.8895291686058044,
+                0.9332647919654846,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.9210481643676758,
+                0.962917149066925,
+                1.0025042295455933,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                1.007992148399353,
+                1.0453455448150635,
+                1.081002950668335,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 3,
+          "first_frame": false,
+          "lum_source_scale": 1.0,
+          "prev_luminance": 0.7954608201980591,
+          "lum_avg": 0.7804346680641174,
+          "lum_clamped_current": 0.7804346680641174,
+          "lum_output": 0.7894503474235535,
+          "exposure_effective": 0.6333520412445068,
+          "abs_lum_output_minus_clamped_current": 0.009015679359436035,
+          "ldr_output_sha256": "b7ccdb7bd3fffe59fd92fc185b84d1b982a216051bb315f3f22d83485cd9b77a",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.3294365108013153,
+                0.4581611752510071,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.8455983996391296,
+                0.8925188779830933,
+                0.9363929033279419,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.9241376519203186,
+                0.9661392569541931,
+                1.0058515071868896,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                1.0113568305969238,
+                1.0488284826278687,
+                1.0845987796783447,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 4,
+          "first_frame": false,
+          "lum_source_scale": 1.0,
+          "prev_luminance": 0.7894503474235535,
+          "lum_avg": 0.7804346680641174,
+          "lum_clamped_current": 0.7804346680641174,
+          "lum_output": 0.785844087600708,
+          "exposure_effective": 0.6362585425376892,
+          "abs_lum_output_minus_clamped_current": 0.005409419536590576,
+          "ldr_output_sha256": "961fbeb14763021829dae3396ac5e4571e34eae8d9a29396d0b98b3b49f4f2f7",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.330170601606369,
+                0.4591410756111145,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.8473181128501892,
+                0.8943281769752502,
+                0.9382860660552979,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.9260073304176331,
+                0.9680891633033752,
+                1.0078773498535156,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                1.0133930444717407,
+                1.0509361028671265,
+                1.0867748260498047,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 5,
+          "first_frame": false,
+          "lum_source_scale": 1.0,
+          "prev_luminance": 0.785844087600708,
+          "lum_avg": 0.7804346680641174,
+          "lum_clamped_current": 0.7804346680641174,
+          "lum_output": 0.7836803197860718,
+          "exposure_effective": 0.6380152702331543,
+          "abs_lum_output_minus_clamped_current": 0.0032456517219543457,
+          "ldr_output_sha256": "14d9f89fb71fd4ca8f7395d7ac90865cea7c50586a842fb92f4a39f21f324eed",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.3306133449077606,
+                0.4597320556640625,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.8483553528785706,
+                0.8954194784164429,
+                0.9394277930259705,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.9271349906921387,
+                0.9692651629447937,
+                1.009099006652832,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                1.0146211385726929,
+                1.0522074699401855,
+                1.0880873203277588,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 6,
+          "first_frame": false,
+          "lum_source_scale": 1.0,
+          "prev_luminance": 0.7836803197860718,
+          "lum_avg": 0.7804346680641174,
+          "lum_clamped_current": 0.7804346680641174,
+          "lum_output": 0.782382071018219,
+          "exposure_effective": 0.6390739679336548,
+          "abs_lum_output_minus_clamped_current": 0.0019474029541015625,
+          "ldr_output_sha256": "93b4cbbf1331e5feb7ed4b59ac79eaa6c0d382b92d4f9e25b989340c8db009b1",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.3308798670768738,
+                0.46008777618408203,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.8489795923233032,
+                0.8960762619972229,
+                0.9401150345802307,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.9278137683868408,
+                0.9699730277061462,
+                1.0098345279693604,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                1.0153602361679077,
+                1.052972674369812,
+                1.0888773202896118,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 7,
+          "first_frame": false,
+          "lum_source_scale": 1.0,
+          "prev_luminance": 0.782382071018219,
+          "lum_avg": 0.7804346680641174,
+          "lum_clamped_current": 0.7804346680641174,
+          "lum_output": 0.7816030979156494,
+          "exposure_effective": 0.6397108435630798,
+          "abs_lum_output_minus_clamped_current": 0.0011684298515319824,
+          "ldr_output_sha256": "dc755eba60d05c27895ab8ae366a0a400c0c7cd0b4363b9ce609e791c277f7c0",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.33104002475738525,
+                0.46030157804489136,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.8493549227714539,
+                0.8964710235595703,
+                0.940528154373169,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.9282217025756836,
+                0.970398485660553,
+                1.010276436805725,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                1.015804648399353,
+                1.053432583808899,
+                1.089352011680603,
+                0.019999999552965164
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "brightness_step_adaptation",
+      "description": "lum_source scales x4 from frame 4 (scene brightens): the EMA adapts upward over the remaining frames and exposure_effective drops accordingly (auto-exposure dimming), all visible in the chained LDR sequence",
+      "width": 8,
+      "height": 6,
+      "lum_source_width": 5,
+      "lum_source_height": 3,
+      "frames": 8,
+      "constants": {
+        "max_luminance": 1.2,
+        "min_luminance": 0.05,
+        "exposure_adjust": 0.4,
+        "exposure": 1.0,
+        "white": 1.0,
+        "luminance_multiplier": 1.0,
+        "auto_exposure_scale": 0.5
+      },
+      "prev_luminance_frame0": 0.5,
+      "lum_output_trend": [
+        0.612173855304718,
+        0.6794781684875488,
+        0.7198607921600342,
+        0.7440903186798096,
+        0.9264541864395142,
+        1.0358725786209106,
+        1.101523518562317,
+        1.1409140825271606
+      ],
+      "convergence_trend_abs_lum_minus_current": [
+        0.16826081275939941,
+        0.1009564995765686,
+        0.06057387590408325,
+        0.03634434938430786,
+        0.27354586124420166,
+        0.16412746906280518,
+        0.09847652912139893,
+        0.059085965156555176
+      ],
+      "per_frame": [
+        {
+          "frame": 0,
+          "first_frame": false,
+          "lum_source_scale": 1.0,
+          "prev_luminance": 0.5,
+          "lum_avg": 0.7804346680641174,
+          "lum_clamped_current": 0.7804346680641174,
+          "lum_output": 0.612173855304718,
+          "exposure_effective": 0.8167614340782166,
+          "abs_lum_output_minus_clamped_current": 0.16826081275939941,
+          "ldr_output_sha256": "175e8d96305332feba6fd4eacd8cdea0108e2b251d7c7a936fcb9573ffbb08dc",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.37241077423095703,
+                0.5155249238014221,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.9462718367576599,
+                0.9984373450279236,
+                1.0472160577774048,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                1.0335906744003296,
+                1.0802873373031616,
+                1.124439001083374,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                1.1305595636367798,
+                1.1722198724746704,
+                1.2119888067245483,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 1,
+          "first_frame": false,
+          "lum_source_scale": 1.0,
+          "prev_luminance": 0.612173855304718,
+          "lum_avg": 0.7804346680641174,
+          "lum_clamped_current": 0.7804346680641174,
+          "lum_output": 0.6794781684875488,
+          "exposure_effective": 0.7358587980270386,
+          "abs_lum_output_minus_clamped_current": 0.1009564995765686,
+          "ldr_output_sha256": "4c901c8eb358b226fc2bcef2f5eb63fd6d0d7f2a6456dc39e80123e1947161ca",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.354232519865036,
+                0.4912598729133606,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.9036867618560791,
+                0.9536336064338684,
+                1.0003376007080078,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.9872916340827942,
+                1.032002329826355,
+                1.074276089668274,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                1.0801364183425903,
+                1.1200249195098877,
+                1.1581023931503296,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 2,
+          "first_frame": false,
+          "lum_source_scale": 1.0,
+          "prev_luminance": 0.6794781684875488,
+          "lum_avg": 0.7804346680641174,
+          "lum_clamped_current": 0.7804346680641174,
+          "lum_output": 0.7198607921600342,
+          "exposure_effective": 0.6945787668228149,
+          "abs_lum_output_minus_clamped_current": 0.06057387590408325,
+          "ldr_output_sha256": "2d339b3ae505b91d212c3dea71e0107145699a80889d5ad5750ff69deabb5c5e",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.34450578689575195,
+                0.47827625274658203,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.8809003829956055,
+                0.9296600818634033,
+                0.9752538800239563,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.9625182747840881,
+                1.0061663389205933,
+                1.0474351644515991,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                1.0531562566757202,
+                1.0920966863632202,
+                1.1292691230773926,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 3,
+          "first_frame": false,
+          "lum_source_scale": 1.0,
+          "prev_luminance": 0.7198607921600342,
+          "lum_avg": 0.7804346680641174,
+          "lum_clamped_current": 0.7804346680641174,
+          "lum_output": 0.7440903186798096,
+          "exposure_effective": 0.6719614267349243,
+          "abs_lum_output_minus_clamped_current": 0.03634434938430786,
+          "ldr_output_sha256": "d8d7f1094f9257c9021f6b1e858b92d5f18c8d0e461b0979e7dbdcfc361414c7",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.33903300762176514,
+                0.4709709882736206,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.8680796027183533,
+                0.9161713123321533,
+                0.9611405730247498,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.9485793709754944,
+                0.991629421710968,
+                1.0323331356048584,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                1.037975788116455,
+                1.0763827562332153,
+                1.1130459308624268,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 4,
+          "first_frame": false,
+          "lum_source_scale": 4.0,
+          "prev_luminance": 0.7440903186798096,
+          "lum_avg": 3.1217386722564697,
+          "lum_clamped_current": 1.2000000476837158,
+          "lum_output": 0.9264541864395142,
+          "exposure_effective": 0.5396921038627625,
+          "abs_lum_output_minus_clamped_current": 0.27354586124420166,
+          "ldr_output_sha256": "828dc287fb94b2e89e1d1d22f96b04c5e2e39dcb1fa03d02975c6474a944633a",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.30463889241218567,
+                0.42506033182144165,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.7875063419342041,
+                0.8314003348350525,
+                0.8724443316459656,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.8609794974327087,
+                0.9002718925476074,
+                0.937422513961792,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                0.9425727128982544,
+                0.9776272177696228,
+                1.0110902786254883,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 5,
+          "first_frame": false,
+          "lum_source_scale": 4.0,
+          "prev_luminance": 0.9264541864395142,
+          "lum_avg": 3.1217386722564697,
+          "lum_clamped_current": 1.2000000476837158,
+          "lum_output": 1.0358725786209106,
+          "exposure_effective": 0.482684850692749,
+          "abs_lum_output_minus_clamped_current": 0.16412746906280518,
+          "ldr_output_sha256": "544913798eea9ba35e831d5a3452c6417a5c7c506c3089005a2a4ca44e3bd84d",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.2882935404777527,
+                0.403241902589798,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.7492150664329529,
+                0.7911140322685242,
+                0.8302926421165466,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.819348931312561,
+                0.8568554520606995,
+                0.8923176527023315,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                0.8972336649894714,
+                0.9306950569152832,
+                0.9626372456550598,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 6,
+          "first_frame": false,
+          "lum_source_scale": 4.0,
+          "prev_luminance": 1.0358725786209106,
+          "lum_avg": 3.1217386722564697,
+          "lum_clamped_current": 1.2000000476837158,
+          "lum_output": 1.101523518562317,
+          "exposure_effective": 0.4539167582988739,
+          "abs_lum_output_minus_clamped_current": 0.09847652912139893,
+          "ldr_output_sha256": "83a0abd7fc34b36a70e7bf1d4edb29a19aebf8c11a5246d6e1f63af46e2ac9b4",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.2796153724193573,
+                0.3916579484939575,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.7288851141929626,
+                0.76972496509552,
+                0.8079131245613098,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.7972460389137268,
+                0.8338044881820679,
+                0.8683701753616333,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                0.8731619715690613,
+                0.9057774543762207,
+                0.9369121193885803,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 7,
+          "first_frame": false,
+          "lum_source_scale": 4.0,
+          "prev_luminance": 1.101523518562317,
+          "lum_avg": 3.1217386722564697,
+          "lum_clamped_current": 1.2000000476837158,
+          "lum_output": 1.1409140825271606,
+          "exposure_effective": 0.43824508786201477,
+          "abs_lum_output_minus_clamped_current": 0.059085965156555176,
+          "ldr_output_sha256": "88de8e2be6e004c2582e260f7b7029dfd852c985c2612f4eca6b0d33c860b478",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.27475234866142273,
+                0.38516655564308167,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.7174928188323975,
+                0.7577391266822815,
+                0.7953722476959229,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.7848602533340454,
+                0.8208873271942139,
+                0.8549507260322571,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                0.8596728444099426,
+                0.8918142914772034,
+                0.922496497631073,
+                0.019999999552965164
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "clamp_boundary_both_ends",
+      "description": "frames 0-3 drive the raw tile mean far above max_luminance (clamp pins cur at the max), frames 4-7 far below min_luminance (clamp pins cur at the min): the EMA walks between the two clamp boundaries and the LDR output follows",
+      "width": 8,
+      "height": 6,
+      "lum_source_width": 5,
+      "lum_source_height": 3,
+      "frames": 8,
+      "constants": {
+        "max_luminance": 1.2,
+        "min_luminance": 0.05,
+        "exposure_adjust": 0.4,
+        "exposure": 1.0,
+        "white": 1.0,
+        "luminance_multiplier": 1.0,
+        "auto_exposure_scale": 0.5
+      },
+      "prev_luminance_frame0": 0.6000000238418579,
+      "lum_output_trend": [
+        0.8400000333786011,
+        0.984000027179718,
+        1.0703999996185303,
+        1.1222400665283203,
+        0.693343997001648,
+        0.4360063970088959,
+        0.2816038429737091,
+        0.18896231055259705
+      ],
+      "convergence_trend_abs_lum_minus_current": [
+        0.36000001430511475,
+        0.2160000205039978,
+        0.12960004806518555,
+        0.07775998115539551,
+        0.643343985080719,
+        0.3860063850879669,
+        0.23160384595394135,
+        0.13896231353282928
+      ],
+      "per_frame": [
+        {
+          "frame": 0,
+          "first_frame": false,
+          "lum_source_scale": 8.0,
+          "prev_luminance": 0.6000000238418579,
+          "lum_avg": 6.2434773445129395,
+          "lum_clamped_current": 1.2000000476837158,
+          "lum_output": 0.8400000333786011,
+          "exposure_effective": 0.5952380895614624,
+          "abs_lum_output_minus_clamped_current": 0.36000001430511475,
+          "ldr_output_sha256": "2b5b06447db467240a14cd9601e1decdfa272dcb1275d8592a6d2394f6eea00b",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.319622278213501,
+                0.44506072998046875,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.8226071000099182,
+                0.8683297634124756,
+                0.9110837578773499,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.8991413712501526,
+                0.940070629119873,
+                0.9787691235542297,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                0.984133780002594,
+                1.0206488370895386,
+                1.0555059909820557,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 1,
+          "first_frame": false,
+          "lum_source_scale": 8.0,
+          "prev_luminance": 0.8400000333786011,
+          "lum_avg": 6.2434773445129395,
+          "lum_clamped_current": 1.2000000476837158,
+          "lum_output": 0.984000027179718,
+          "exposure_effective": 0.5081300735473633,
+          "abs_lum_output_minus_clamped_current": 0.2160000205039978,
+          "ldr_output_sha256": "4b281e58dff4d1941c00b267f5281168512ccca84d41a404c70bf3e29b275803",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.295721173286438,
+                0.4131566286087036,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.7666153311729431,
+                0.8094208836555481,
+                0.8494471311569214,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.8382666110992432,
+                0.8765847086906433,
+                0.912814199924469,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                0.917836606502533,
+                0.9520218968391418,
+                0.9846550822257996,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 2,
+          "first_frame": false,
+          "lum_source_scale": 8.0,
+          "prev_luminance": 0.984000027179718,
+          "lum_avg": 6.2434773445129395,
+          "lum_clamped_current": 1.2000000476837158,
+          "lum_output": 1.0703999996185303,
+          "exposure_effective": 0.4671151041984558,
+          "abs_lum_output_minus_clamped_current": 0.12960004806518555,
+          "ldr_output_sha256": "7d4b80e7eb98e41ae6b82b81e65662c53a59031e9588d3e4071771f22c600384",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.2836354672908783,
+                0.39702409505844116,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.7383027672767639,
+                0.7796332240104675,
+                0.8182801604270935,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.807485044002533,
+                0.8444826006889343,
+                0.8794636130332947,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                0.8843129277229309,
+                0.9173202514648438,
+                0.9488289952278137,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 3,
+          "first_frame": false,
+          "lum_source_scale": 8.0,
+          "prev_luminance": 1.0703999996185303,
+          "lum_avg": 6.2434773445129395,
+          "lum_clamped_current": 1.2000000476837158,
+          "lum_output": 1.1222400665283203,
+          "exposure_effective": 0.4455374777317047,
+          "abs_lum_output_minus_clamped_current": 0.07775998115539551,
+          "ldr_output_sha256": "92341b9bb0da1a45ba2c7c1c7d475a555a85b02d332e0a66fdd9854cced827e7",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.2770276367664337,
+                0.3882037103176117,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.7228230237960815,
+                0.7633469700813293,
+                0.8012397885322571,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.790655255317688,
+                0.8269309401512146,
+                0.8612293601036072,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                0.8659840822219849,
+                0.8983472585678101,
+                0.9292412400245667,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 4,
+          "first_frame": false,
+          "lum_source_scale": 0.01,
+          "prev_luminance": 1.1222400665283203,
+          "lum_avg": 0.007804347667843103,
+          "lum_clamped_current": 0.05000000074505806,
+          "lum_output": 0.693343997001648,
+          "exposure_effective": 0.7211427688598633,
+          "abs_lum_output_minus_clamped_current": 0.643343985080719,
+          "ldr_output_sha256": "655367fdc86051c12d04a86e567dffedcfc9c4929ada0399f36532dab0f21274",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.3508024215698242,
+                0.4866812825202942,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.8956511616706848,
+                0.9451794028282166,
+                0.9914918541908264,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.9785553812980652,
+                1.0228914022445679,
+                1.0648107528686523,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                1.0706219673156738,
+                1.1101760864257812,
+                1.1479344367980957,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 5,
+          "first_frame": false,
+          "lum_source_scale": 0.01,
+          "prev_luminance": 0.693343997001648,
+          "lum_avg": 0.007804347667843103,
+          "lum_clamped_current": 0.05000000074505806,
+          "lum_output": 0.4360063970088959,
+          "exposure_effective": 1.1467721462249756,
+          "abs_lum_output_minus_clamped_current": 0.3860063850879669,
+          "ldr_output_sha256": "e6b4da9d139f9e33aec216cbd0c2dca641c9116792ff82518e5ac8f2ed63d285",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.4373280704021454,
+                0.6021791696548462,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                1.098350167274475,
+                1.1584386825561523,
+                1.2146259546279907,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                1.198931336402893,
+                1.252720594406128,
+                1.3035780191421509,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                1.3106282949447632,
+                1.3586162328720093,
+                1.4044253826141357,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 6,
+          "first_frame": false,
+          "lum_source_scale": 0.01,
+          "prev_luminance": 0.4360063970088959,
+          "lum_avg": 0.007804347667843103,
+          "lum_clamped_current": 0.05000000074505806,
+          "lum_output": 0.2816038429737091,
+          "exposure_effective": 1.7755439281463623,
+          "abs_lum_output_minus_clamped_current": 0.23160384595394135,
+          "ldr_output_sha256": "0e46eb26ed9996a5e8661e35b811ba87aff8fc6028512ac8e1b4d83091625b45",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.5356912612915039,
+                0.7334782481193542,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                1.328780174255371,
+                1.4008740186691284,
+                1.4682869911193848,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                1.4494566917419434,
+                1.5139925479888916,
+                1.5750110149383545,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                1.5834698677062988,
+                1.6410454511642456,
+                1.6960070133209229,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 7,
+          "first_frame": false,
+          "lum_source_scale": 0.01,
+          "prev_luminance": 0.2816038429737091,
+          "lum_avg": 0.007804347667843103,
+          "lum_clamped_current": 0.05000000074505806,
+          "lum_output": 0.18896231055259705,
+          "exposure_effective": 2.6460301876068115,
+          "abs_lum_output_minus_clamped_current": 0.13896231353282928,
+          "ldr_output_sha256": "692f30e320a8783e0ae6a2b6d06a739c70a4dc7fca44bfbdac01ff9622994d5d",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.6425151228904724,
+                0.8760709762573242,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                1.5790306329727173,
+                1.664162278175354,
+                1.7437665462493896,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                1.721530795097351,
+                1.7977378368377686,
+                1.869791030883789,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                1.8797798156738281,
+                1.9477676153182983,
+                2.0126683712005615,
+                0.019999999552965164
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case_id": "first_frame_reset",
+      "description": "frame 0 runs with first_frame=1: segment A outputs cur = clamp(avg) directly and the (deliberately nonsensical) prev value is ignored; frames 1-7 chain normally with first_frame=0 (abs_lum_output_minus_clamped_current is exactly 0 at frame 0)",
+      "width": 8,
+      "height": 6,
+      "lum_source_width": 5,
+      "lum_source_height": 3,
+      "frames": 8,
+      "constants": {
+        "max_luminance": 1.2,
+        "min_luminance": 0.05,
+        "exposure_adjust": 0.4,
+        "exposure": 1.0,
+        "white": 1.0,
+        "luminance_multiplier": 1.0,
+        "auto_exposure_scale": 0.5
+      },
+      "prev_luminance_frame0": 7.5,
+      "lum_output_trend": [
+        0.7804346680641174,
+        0.7804346680641174,
+        0.7804346680641174,
+        0.7804346680641174,
+        0.7804346680641174,
+        0.7804346680641174,
+        0.7804346680641174,
+        0.7804346680641174
+      ],
+      "convergence_trend_abs_lum_minus_current": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "per_frame": [
+        {
+          "frame": 0,
+          "first_frame": true,
+          "lum_source_scale": 1.0,
+          "prev_luminance": 7.5,
+          "lum_avg": 0.7804346680641174,
+          "lum_clamped_current": 0.7804346680641174,
+          "lum_output": 0.7804346680641174,
+          "exposure_effective": 0.6406686305999756,
+          "abs_lum_output_minus_clamped_current": 0.0,
+          "ldr_output_sha256": "5838f982f6808cd9dd9f3b9545cf18024410d98d08fb47e5c12d7434869a2b16",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.33128073811531067,
+                0.4606229066848755,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.849918782711029,
+                0.8970643281936646,
+                0.9411488771438599,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.9288347959518433,
+                0.9710379242897034,
+                1.0109407901763916,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                1.0164724588394165,
+                1.0541237592697144,
+                1.0900657176971436,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 1,
+          "first_frame": false,
+          "lum_source_scale": 1.0,
+          "prev_luminance": 0.7804346680641174,
+          "lum_avg": 0.7804346680641174,
+          "lum_clamped_current": 0.7804346680641174,
+          "lum_output": 0.7804346680641174,
+          "exposure_effective": 0.6406686305999756,
+          "abs_lum_output_minus_clamped_current": 0.0,
+          "ldr_output_sha256": "5838f982f6808cd9dd9f3b9545cf18024410d98d08fb47e5c12d7434869a2b16",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.33128073811531067,
+                0.4606229066848755,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.849918782711029,
+                0.8970643281936646,
+                0.9411488771438599,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.9288347959518433,
+                0.9710379242897034,
+                1.0109407901763916,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                1.0164724588394165,
+                1.0541237592697144,
+                1.0900657176971436,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 2,
+          "first_frame": false,
+          "lum_source_scale": 1.0,
+          "prev_luminance": 0.7804346680641174,
+          "lum_avg": 0.7804346680641174,
+          "lum_clamped_current": 0.7804346680641174,
+          "lum_output": 0.7804346680641174,
+          "exposure_effective": 0.6406686305999756,
+          "abs_lum_output_minus_clamped_current": 0.0,
+          "ldr_output_sha256": "5838f982f6808cd9dd9f3b9545cf18024410d98d08fb47e5c12d7434869a2b16",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.33128073811531067,
+                0.4606229066848755,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.849918782711029,
+                0.8970643281936646,
+                0.9411488771438599,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.9288347959518433,
+                0.9710379242897034,
+                1.0109407901763916,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                1.0164724588394165,
+                1.0541237592697144,
+                1.0900657176971436,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 3,
+          "first_frame": false,
+          "lum_source_scale": 1.0,
+          "prev_luminance": 0.7804346680641174,
+          "lum_avg": 0.7804346680641174,
+          "lum_clamped_current": 0.7804346680641174,
+          "lum_output": 0.7804346680641174,
+          "exposure_effective": 0.6406686305999756,
+          "abs_lum_output_minus_clamped_current": 0.0,
+          "ldr_output_sha256": "5838f982f6808cd9dd9f3b9545cf18024410d98d08fb47e5c12d7434869a2b16",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.33128073811531067,
+                0.4606229066848755,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.849918782711029,
+                0.8970643281936646,
+                0.9411488771438599,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.9288347959518433,
+                0.9710379242897034,
+                1.0109407901763916,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                1.0164724588394165,
+                1.0541237592697144,
+                1.0900657176971436,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 4,
+          "first_frame": false,
+          "lum_source_scale": 1.0,
+          "prev_luminance": 0.7804346680641174,
+          "lum_avg": 0.7804346680641174,
+          "lum_clamped_current": 0.7804346680641174,
+          "lum_output": 0.7804346680641174,
+          "exposure_effective": 0.6406686305999756,
+          "abs_lum_output_minus_clamped_current": 0.0,
+          "ldr_output_sha256": "5838f982f6808cd9dd9f3b9545cf18024410d98d08fb47e5c12d7434869a2b16",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.33128073811531067,
+                0.4606229066848755,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.849918782711029,
+                0.8970643281936646,
+                0.9411488771438599,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.9288347959518433,
+                0.9710379242897034,
+                1.0109407901763916,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                1.0164724588394165,
+                1.0541237592697144,
+                1.0900657176971436,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 5,
+          "first_frame": false,
+          "lum_source_scale": 1.0,
+          "prev_luminance": 0.7804346680641174,
+          "lum_avg": 0.7804346680641174,
+          "lum_clamped_current": 0.7804346680641174,
+          "lum_output": 0.7804346680641174,
+          "exposure_effective": 0.6406686305999756,
+          "abs_lum_output_minus_clamped_current": 0.0,
+          "ldr_output_sha256": "5838f982f6808cd9dd9f3b9545cf18024410d98d08fb47e5c12d7434869a2b16",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.33128073811531067,
+                0.4606229066848755,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.849918782711029,
+                0.8970643281936646,
+                0.9411488771438599,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.9288347959518433,
+                0.9710379242897034,
+                1.0109407901763916,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                1.0164724588394165,
+                1.0541237592697144,
+                1.0900657176971436,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 6,
+          "first_frame": false,
+          "lum_source_scale": 1.0,
+          "prev_luminance": 0.7804346680641174,
+          "lum_avg": 0.7804346680641174,
+          "lum_clamped_current": 0.7804346680641174,
+          "lum_output": 0.7804346680641174,
+          "exposure_effective": 0.6406686305999756,
+          "abs_lum_output_minus_clamped_current": 0.0,
+          "ldr_output_sha256": "5838f982f6808cd9dd9f3b9545cf18024410d98d08fb47e5c12d7434869a2b16",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.33128073811531067,
+                0.4606229066848755,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.849918782711029,
+                0.8970643281936646,
+                0.9411488771438599,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.9288347959518433,
+                0.9710379242897034,
+                1.0109407901763916,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                1.0164724588394165,
+                1.0541237592697144,
+                1.0900657176971436,
+                0.019999999552965164
+              ]
+            }
+          ]
+        },
+        {
+          "frame": 7,
+          "first_frame": false,
+          "lum_source_scale": 1.0,
+          "prev_luminance": 0.7804346680641174,
+          "lum_avg": 0.7804346680641174,
+          "lum_clamped_current": 0.7804346680641174,
+          "lum_output": 0.7804346680641174,
+          "exposure_effective": 0.6406686305999756,
+          "abs_lum_output_minus_clamped_current": 0.0,
+          "ldr_output_sha256": "5838f982f6808cd9dd9f3b9545cf18024410d98d08fb47e5c12d7434869a2b16",
+          "ldr_sample_texels": [
+            {
+              "x": 0,
+              "y": 0,
+              "rgba": [
+                0.0,
+                0.33128073811531067,
+                0.4606229066848755,
+                0.41999998688697815
+              ]
+            },
+            {
+              "x": 4,
+              "y": 3,
+              "rgba": [
+                0.849918782711029,
+                0.8970643281936646,
+                0.9411488771438599,
+                1.5
+              ]
+            },
+            {
+              "x": 7,
+              "y": 5,
+              "rgba": [
+                0.9288347959518433,
+                0.9710379242897034,
+                1.0109407901763916,
+                1.7400000095367432
+              ]
+            },
+            {
+              "x": 1,
+              "y": 4,
+              "rgba": [
+                1.0164724588394165,
+                1.0541237592697144,
+                1.0900657176971436,
+                0.019999999552965164
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "dispatch_fixture": {
+    "case_id": "fused_post_chain_dispatch_fixture_16x16",
+    "description": "single-frame fused dispatch fixture the (deferred S6) standalone D3D12 smoke re-verifies on a real GPU",
+    "width": 16,
+    "height": 16,
+    "constants": {
+      "source_width": 16,
+      "source_height": 16,
+      "lum_source_width": 5,
+      "lum_source_height": 3,
+      "max_luminance": 1.2,
+      "min_luminance": 0.05,
+      "exposure_adjust": 0.4,
+      "exposure": 1.0,
+      "white": 1.0,
+      "luminance_multiplier": 1.0,
+      "auto_exposure_scale": 0.5,
+      "first_frame": 0.0
+    },
+    "input_patterns": {
+      "color": "c(x,y,ch) = ((x*29 + y*13 + ch*7) % 101) / 50  (HDR [0,2], GRX-010 member pattern)",
+      "lum_source": "l(x,y) = 0.05 + (((x*7 + y*11) % 23) / 23) * 1.5",
+      "prev_luminance": "0.6 (single texel)"
+    },
+    "cpu_expected_lum_avg": 0.7804346680641174,
+    "cpu_expected_lum_clamped_current": 0.7804346680641174,
+    "cpu_expected_lum_output": 0.6721738576889038,
+    "cpu_expected_exposure_effective": 0.7438551783561707,
+    "cpu_expected_rgba_f32_le_sha256": "c3f3533bc3ca8caa79c9b1cab211fdde709037837d64ba4a76e9b17d86bba2e9",
+    "cpu_expected_sample_texels": [
+      {
+        "x": 0,
+        "y": 0,
+        "rgba": [
+          0.0,
+          0.3560796082019806,
+          0.4937254786491394,
+          0.41999998688697815
+        ]
+      },
+      {
+        "x": 8,
+        "y": 8,
+        "rgba": [
+          0.7293608784675598,
+          0.7948196530342102,
+          0.8538855314254761,
+          1.0800000429153442
+        ]
+      },
+      {
+        "x": 15,
+        "y": 15,
+        "rgba": [
+          0.6318941116333008,
+          0.7091920375823975,
+          0.7768498063087463,
+          0.8999999761581421
+        ]
+      },
+      {
+        "x": 1,
+        "y": 14,
+        "rgba": [
+          0.40146008133888245,
+          0.525120735168457,
+          0.6198206543922424,
+          0.6000000238418579
+        ]
+      }
+    ],
+    "composition_check": {
+      "description": "fused segment-B LDR output vs the GRX-010 member tonemap reference fed with the fused effective exposure",
+      "max_abs_diff": 0.0,
+      "equal": true
+    },
+    "gpu_observed": null
+  },
+  "notes": [
+    "GPU-observed values are pending a real dispatch; the standalone smoke (deferred S6, ci/grx019_fused_post_chain_d3d12_dispatch_smoke.py) will independently verify every measured GPU output texel plus the 1x1 dst_luminance against fused_frame on the dispatch fixture.",
+    "The four time-series cases are CPU-only demonstrations of the EMA time series x tonemap composite (>= 8 frames each, the segment-A output of frame k chained as the prev_luminance of frame k+1, mirroring the native double-buffer SWAP); only the single-frame dispatch fixture is reserved for GPU verification in a later slice.",
+    "Segment A mirrors the tracked GRX-009 member kernel (clamp then EMA); the native WRITE_LUMINANCE order (EMA inside the clamp) and the native p_set raw-avg first frame are recorded known gaps, as is the lum_current == 0 divide (all fixtures use min_luminance > 0).",
+    "The composition cross-check on the dispatch fixture verifies texel for texel that the fused segment-B output equals the GRX-010 member tonemap reference fed with the fused effective exposure."
+  ],
+  "does_not_imply": [
+    "Godot runtime fused post-chain pass completion",
+    "real_gpu_pass=true",
+    "real_d3d12_dispatch_recorded=true",
+    "visual success",
+    "GPU timestamp success",
+    "dispatch/barrier/VRAM traffic reduction",
+    "performance claim",
+    "default pass enablement"
+  ]
+}

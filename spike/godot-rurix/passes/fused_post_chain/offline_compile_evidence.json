@@ -1,0 +1,202 @@
+{
+  "pass_id": "fused_post_chain",
+  "segment": "offline_compile",
+  "status": "success",
+  "runtime_state": "fallback_only",
+  "attempted_at_utc": "2026-07-12T12:11:01Z",
+  "provenance": "hlsl_bridge_workaround",
+  "rurix_owned": false,
+  "rurix_owned_rts0": true,
+  "canonical_switch_exception": "owner_approved_hlsl_bridge_workaround",
+  "provenance_policy": "spike/godot-rurix/passes/luminance_reduction/texture_artifact_provenance_policy.json",
+  "math_parity_evidence": "spike/godot-rurix/passes/fused_post_chain/math_parity_evidence.json",
+  "math_parity_status": "fused_post_chain_cpu_reference_proven_pending_gpu_dispatch",
+  "fusion_members": {
+    "member_a_kernel": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/luminance_reduce_level.hlsl (-D RX_WRITE_LUMINANCE)",
+    "member_b_kernel": "spike/godot-rurix/passes/tonemap/artifacts/hlsl_bridge/tonemap_apply.hlsl",
+    "key_gap_fixed": "the native tonemap reads luminance current via the exposure_texture sampler (renderer_scene_render_rd.cpp:697) while patch 0012 forwards only scalar exposure/white/luminance_multiplier; the fused kernel makes the register-carried luminance current the tonemap exposure input (tonemap.glsl L866-868 formula)"
+  },
+  "inputs": {
+    "package_manifest": "spike/godot-rurix/passes/fused_post_chain/rurix.toml",
+    "entry_file": "spike/godot-rurix/passes/fused_post_chain/artifacts/hlsl_bridge/fused_post_chain.hlsl",
+    "rurix_math_source": "spike/godot-rurix/passes/fused_post_chain/src/lib.rx",
+    "godot_reference_files": [
+      "external/godot-master/servers/rendering/renderer_rd/effects/luminance.cpp",
+      "external/godot-master/servers/rendering/renderer_rd/shaders/effects/luminance_reduce.glsl",
+      "external/godot-master/servers/rendering/renderer_rd/effects/tone_mapper.cpp",
+      "external/godot-master/servers/rendering/renderer_rd/shaders/effects/tonemap.glsl",
+      "external/godot-master/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp"
+    ]
+  },
+  "tools": {
+    "dxc": {
+      "found": true,
+      "path": "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+      "version_output": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)"
+    },
+    "dxv": {
+      "found": true,
+      "path": "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe"
+    }
+  },
+  "hlsl": {
+    "path": "spike/godot-rurix/passes/fused_post_chain/artifacts/hlsl_bridge/fused_post_chain.hlsl",
+    "entry_point": "main",
+    "target_profile": "cs_6_0",
+    "sha256": "4a824fb7d38b10a1b4992060d5a41335773b7bc969be56c0fee61e83e71eca69"
+  },
+  "commands": [
+    {
+      "label": "dxc_compile",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+        "-T",
+        "cs_6_0",
+        "-E",
+        "main",
+        "-Qstrip_debug",
+        "-Fo",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\fused_post_chain\\artifacts\\hlsl_bridge\\fused_post_chain.dxil",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\fused_post_chain\\artifacts\\hlsl_bridge\\fused_post_chain.hlsl"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/fused_post_chain/artifacts/hlsl_bridge/dxc_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/fused_post_chain/artifacts/hlsl_bridge/dxc_stderr.txt"
+    },
+    {
+      "label": "dxv_validate",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\fused_post_chain\\artifacts\\hlsl_bridge\\fused_post_chain.dxil"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/fused_post_chain/artifacts/hlsl_bridge/dxv_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/fused_post_chain/artifacts/hlsl_bridge/dxv_stderr.txt"
+    },
+    {
+      "label": "emit_grx019_fused_post_chain_rts0",
+      "argv": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "rurixc",
+        "--features",
+        "dxil-backend shader-stages",
+        "--example",
+        "emit_grx019_fused_post_chain_rts0",
+        "--",
+        "spike/godot-rurix/passes/fused_post_chain/artifacts/fused_post_chain_descriptor_layout.json",
+        "spike/godot-rurix/passes/fused_post_chain/artifacts/fused_post_chain.rts0.bin"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/fused_post_chain/artifacts/hlsl_bridge/emit_rts0_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/fused_post_chain/artifacts/hlsl_bridge/emit_rts0_stderr.txt"
+    }
+  ],
+  "attempted_binding_kinds": [
+    "texture2d",
+    "texture2d",
+    "texture2d",
+    "rwtexture2d",
+    "rwtexture2d"
+  ],
+  "runtime_mappable": true,
+  "known_gaps": [
+    "glow composite not covered (all modes; gaussian_glow's own luminance consumption stays outside the fusion) - glow-on scenes fail the fusion precondition",
+    "tonemapper modes other than LINEAR (Reinhard/FILMIC/ACES/AgX) unsupported",
+    "auto-exposure texture chain elsewhere not covered (upper luminance reduce pyramid levels stay native; only the tonemap-side exposure_texture read is fused)",
+    "inherited member clamp-order divergence: segment A is clamp-then-EMA (member kernel); native WRITE_LUMINANCE is EMA inside the clamp",
+    "first_frame=1 outputs cur = clamp(avg); the native p_set plain reduce writes the raw avg (clamp-bounded documented divergence)",
+    "lum_current == 0 divides exposure_effective to inf per native GLSL semantics (no extra guard; parity fixtures use min_luminance > 0)",
+    "rgba16f / r32f storage quantization not modelled (kernel computes float32)",
+    "one-frame latency: the tonemap segment natively consumes the CURRENT frame's color; a true replacement needs draw_graph route B (deferred)",
+    "sRGB output not clamped to [0,1] (inherited from the tonemap member)",
+    "raster-vs-compute output seam (native tonemap is a fullscreen fragment pass; this kernel writes a full-res UAV)",
+    "lum_source extent > 8x8 unsupported (single-tile subset; deferred S4 gate must fail closed)",
+    "no FXAA / BCS / color correction / debanding / multiview / HDR output",
+    "GPU-side math parity observation pending a real dispatch (math_parity_evidence.json)"
+  ],
+  "does_not_imply": [
+    "Godot runtime fused post-chain pass completion",
+    "real_gpu_pass=true",
+    "real_d3d12_dispatch_recorded=true",
+    "visual success",
+    "GPU timestamp success",
+    "dispatch/barrier/VRAM traffic reduction",
+    "performance claim",
+    "default pass enablement",
+    "math parity proven (see math_parity_evidence.json)"
+  ],
+  "dxil_provenance": {
+    "produced_by": "dxc",
+    "compiler_version": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)",
+    "target_profile": "cs_6_0",
+    "entry_point": "main",
+    "hlsl_source": {
+      "path": "spike/godot-rurix/passes/fused_post_chain/artifacts/hlsl_bridge/fused_post_chain.hlsl",
+      "sha256": "4a824fb7d38b10a1b4992060d5a41335773b7bc969be56c0fee61e83e71eca69"
+    },
+    "validation": {
+      "tool": "dxv.exe",
+      "status": "pass",
+      "exit_code": 0
+    }
+  },
+  "root_signature_generator": {
+    "kind": "rurixc_binding_layout_example",
+    "command": [
+      "cargo",
+      "run",
+      "-q",
+      "-p",
+      "rurixc",
+      "--features",
+      "dxil-backend shader-stages",
+      "--example",
+      "emit_grx019_fused_post_chain_rts0",
+      "--",
+      "spike/godot-rurix/passes/fused_post_chain/artifacts/fused_post_chain_descriptor_layout.json",
+      "spike/godot-rurix/passes/fused_post_chain/artifacts/fused_post_chain.rts0.bin"
+    ],
+    "source_api": "rurixc::binding_layout::{infer_root_signature, pack_root_constants, serialize_rts0}",
+    "root_constants": "64_bytes_at_root_parameter_index_0",
+    "descriptor_table": "SRV range t0..t2 (3 descriptors) precedes UAV range u0..u1 (2 descriptors)"
+  },
+  "artifacts": {
+    "dxil": {
+      "path": "spike/godot-rurix/passes/fused_post_chain/artifacts/fused_post_chain.dxil",
+      "exists": true,
+      "size_bytes": 6180,
+      "sha256": "824bcee388360ed99dc610621da67465a3174e15a9defca53031d0cdcedd7e0e",
+      "artifact_kind": "dxil_container",
+      "produced_by_current_run": true,
+      "semantic_status": "lowered_compute_body"
+    },
+    "root_signature": {
+      "path": "spike/godot-rurix/passes/fused_post_chain/artifacts/fused_post_chain.rts0.bin",
+      "exists": true,
+      "size_bytes": 152,
+      "sha256": "5841c82a86580f3b9eeb5ee9b8932e65ed419124ac6d1068008000ade02953f1",
+      "artifact_kind": "rurix_owned_rts0_root_signature",
+      "produced_by_current_run": true
+    },
+    "descriptor_layout": {
+      "path": "spike/godot-rurix/passes/fused_post_chain/artifacts/fused_post_chain_descriptor_layout.json",
+      "exists": true,
+      "size_bytes": 4209,
+      "sha256": "b95c864319363d04ec9c73cb4b29a740a515980899d99e7883df0b7e12387dc9",
+      "artifact_kind": "descriptor_layout_json",
+      "produced_by_current_run": true
+    }
+  },
+  "notes": [
+    "Runtime remains fallback_only: no bridge gate, Godot patch, dispatch smoke, or enablement exists for this pass yet (S1-S3 slice); the bridge returns RXGD_STATUS_FALLBACK for RXGD_PASS_FUSED_POST_CHAIN on every call.",
+    "The canonical artifacts/ paths carry the texture-capable hlsl_bridge workaround package: a DXC cs_6_0 DXIL container (validated by dxv), the Rurix-owned RTS0 root signature serialized by rurixc::binding_layout::serialize_rts0 (64-byte root constants + SRV range t0..t2 + UAV range u0..u1), and the descriptor layout with per-slot texture2d/rwtexture2d binding kinds.",
+    "This canonical package uses the owner-approved hlsl_bridge_workaround provenance exception (GRX-009 texture_artifact_provenance_policy.json, which applies to every texture compute pass): the artifact is runtime-mappable but NOT rurix_owned; a rurixc-owned fused_post_chain compile still requires a patched llc with texture intrinsics plus multi-channel texture element and groupshared lang-item support.",
+    "The kernel math is the composition of the two tracked member kernels: segment A is binary32-identical to luminance_reduce_level.hlsl (-D RX_WRITE_LUMINANCE) at destination texel (0,0) for lum_source extents <= 8x8 (first_frame=0), and segment B mirrors tonemap_apply.hlsl with the exposure input replaced by the native auto-exposure formula fed by the segment-A register value (see known_gaps).",
+    "The 64-byte b0 intentionally departs from the members' canonical 28-byte shape (merged member constants + fusion controls); the deferred S4 gate must validate 64 bytes."
+  ],
+  "blocker_category": null,
+  "blocker_summary": null
+}

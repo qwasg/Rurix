@@ -1,0 +1,173 @@
+{
+  "module": "fused_post_chain",
+  "pass_id": "fused_post_chain",
+  "artifact_kind": "hlsl_bridge_descriptor_layout",
+  "provenance": "hlsl_bridge_workaround",
+  "rurix_owned": false,
+  "entry_point": "main",
+  "target_profile": "cs_6_0",
+  "root_constants": 12,
+  "root_constant_layout": [
+    {
+      "name": "source_width",
+      "type": "i64",
+      "order": 0,
+      "root_parameter_index": 0,
+      "dword_offset": 0,
+      "dword_size": 2
+    },
+    {
+      "name": "source_height",
+      "type": "i64",
+      "order": 1,
+      "root_parameter_index": 0,
+      "dword_offset": 2,
+      "dword_size": 2
+    },
+    {
+      "name": "lum_source_width",
+      "type": "i64",
+      "order": 2,
+      "root_parameter_index": 0,
+      "dword_offset": 4,
+      "dword_size": 2
+    },
+    {
+      "name": "lum_source_height",
+      "type": "i64",
+      "order": 3,
+      "root_parameter_index": 0,
+      "dword_offset": 6,
+      "dword_size": 2
+    },
+    {
+      "name": "max_luminance",
+      "type": "f32",
+      "order": 4,
+      "root_parameter_index": 0,
+      "dword_offset": 8,
+      "dword_size": 1
+    },
+    {
+      "name": "min_luminance",
+      "type": "f32",
+      "order": 5,
+      "root_parameter_index": 0,
+      "dword_offset": 9,
+      "dword_size": 1
+    },
+    {
+      "name": "exposure_adjust",
+      "type": "f32",
+      "order": 6,
+      "root_parameter_index": 0,
+      "dword_offset": 10,
+      "dword_size": 1
+    },
+    {
+      "name": "exposure",
+      "type": "f32",
+      "order": 7,
+      "root_parameter_index": 0,
+      "dword_offset": 11,
+      "dword_size": 1
+    },
+    {
+      "name": "white",
+      "type": "f32",
+      "order": 8,
+      "root_parameter_index": 0,
+      "dword_offset": 12,
+      "dword_size": 1
+    },
+    {
+      "name": "luminance_multiplier",
+      "type": "f32",
+      "order": 9,
+      "root_parameter_index": 0,
+      "dword_offset": 13,
+      "dword_size": 1
+    },
+    {
+      "name": "first_frame",
+      "type": "f32",
+      "order": 10,
+      "root_parameter_index": 0,
+      "dword_offset": 14,
+      "dword_size": 1
+    },
+    {
+      "name": "auto_exposure_scale",
+      "type": "f32",
+      "order": 11,
+      "root_parameter_index": 0,
+      "dword_offset": 15,
+      "dword_size": 1
+    }
+  ],
+  "i64_dims_note": "source_width/source_height/lum_source_width/lum_source_height are carried as uint2 (low, high dword) in the HLSL cbuffer to keep plain cs_6_0 without the optional Int64 capability; only the low dword is consumed and the runtime must write 0 to the high dwords.",
+  "resources": [
+    {
+      "name": "src_color",
+      "class": "t",
+      "register": 0,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "Texture2D<float4>",
+      "binding_kind": "texture2d"
+    },
+    {
+      "name": "lum_source",
+      "class": "t",
+      "register": 1,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "Texture2D<float>",
+      "binding_kind": "texture2d"
+    },
+    {
+      "name": "prev_luminance",
+      "class": "t",
+      "register": 2,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "Texture2D<float>",
+      "binding_kind": "texture2d"
+    },
+    {
+      "name": "dst_color",
+      "class": "u",
+      "register": 0,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "RWTexture2D<float4>",
+      "binding_kind": "rwtexture2d"
+    },
+    {
+      "name": "dst_luminance",
+      "class": "u",
+      "register": 1,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "RWTexture2D<float>",
+      "binding_kind": "rwtexture2d"
+    }
+  ],
+  "root_signature_parameters": 2,
+  "grx019_mapping": {
+    "status": "offline_compile_package",
+    "requires_64bit_integer_shader_capability": true,
+    "runtime_state": "fallback_only",
+    "real_gpu_pass": false,
+    "resource_count": 5,
+    "srv_count": 3,
+    "uav_count": 2,
+    "root_constant_bytes": 64,
+    "root_constant_dwords": 16,
+    "dst_shape": "dst_color extent == src_color extent (1:1 full-resolution); dst_luminance and prev_luminance extents == 1x1 (different resources); lum_source extent <= 8x8 (single tile)",
+    "fusion_members": [
+      "luminance_reduction (final WRITE_LUMINANCE level)",
+      "tonemap (LINEAR + sRGB subset)"
+    ]
+  }
+}

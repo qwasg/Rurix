@@ -1,0 +1,163 @@
+{
+  "pass_id": "fused_post_chain",
+  "status": "grx019_s1_s3_contract_offline_kernel_math_parity_fallback_only",
+  "implemented": false,
+  "default_enable_state": "disabled",
+  "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
+  "target_scenes": [
+    "mixed_forward_plus",
+    "clustered_lights"
+  ],
+  "bridge_pass_id": "RXGD_PASS_FUSED_POST_CHAIN (10)",
+  "cap_bit": "RXGD_CAP_FUSED_POST_CHAIN_REAL_PASS (1 << 13) (PATCH_ALLOCATION.md section 3 reservation; NOT wired in this slice)",
+  "fusion_members": {
+    "note": "Both fusion members recorded strict MEASURED opt-in real-pass success in their own slices (the fusion precondition); referencing them makes NO new claim for this pass.",
+    "member_a": {
+      "pass_id": "luminance_reduction",
+      "fused_scope": "final WRITE_LUMINANCE level only (tile mean -> clamp -> EMA -> 1x1 current); upper pyramid levels stay native",
+      "member_kernel": "spike/godot-rurix/passes/luminance_reduction/artifacts/hlsl_bridge/luminance_reduce_level.hlsl (-D RX_WRITE_LUMINANCE)",
+      "member_evidence": "spike/godot-rurix/passes/luminance_reduction/real_pass_enablement_success_evidence.json"
+    },
+    "member_b": {
+      "pass_id": "tonemap",
+      "fused_scope": "TONEMAPPER_LINEAR + linear_to_srgb subset (existing member kernel math), with the exposure input upgraded to the fused in-kernel luminance current per tonemap.glsl L866-868",
+      "member_kernel": "spike/godot-rurix/passes/tonemap/artifacts/hlsl_bridge/tonemap_apply.hlsl",
+      "member_evidence": "spike/godot-rurix/passes/tonemap/real_pass_enablement_success_evidence.json"
+    },
+    "key_gap_fixed_by_fusion": "the native tonemap reads the luminance current value through the exposure_texture sampler (renderer_scene_render_rd.cpp:697), but patch 0012 forwards only scalar exposure/white/luminance_multiplier with no exposure_texture handle, so the existing Rurix tonemap pass is semantically correct only with auto exposure OFF; the fused kernel makes the register-carried luminance current the tonemap exposure input (native L866-868 formula), covering the auto-exposure-ON scenario"
+  },
+  "godot_hook_investigation": {
+    "note": "Investigation only; external/godot-master is NOT modified. Paths and functions are recorded for the deferred patch 0036 call-site gate and the patch 0037 native-handle mapping.",
+    "call_sites": [
+      {
+        "file": "servers/rendering/renderer_rd/renderer_scene_render_rd.cpp",
+        "function": "_render_buffers_post_process_and_tonemap",
+        "region": "auto-exposure luminance_reduction (L555-588 region, set_immediate/step) followed by the tonemap block (exposure_texture = get_current_luminance_buffer at L697, use_auto_exposure/auto_exposure_scale L698-700, DEFAULT_RD_TEXTURE_WHITE fallback L702)",
+        "note": "deferred patch 0036 would gate this seam; the native luminance_reduction + tonemap chain is always preserved as fallback/continuation (two-level fallback contract)."
+      }
+    ],
+    "member_functions": [
+      "RendererRD::Luminance::luminance_reduction (luminance.cpp L159-256; final WRITE_LUMINANCE level L228-231; SWAP(current, reduce[last]) L255)",
+      "RendererRD::ToneMapper::tonemapper (tone_mapper.cpp; u_exposure_texture set 1 binding 0 L183-187; TONEMAP_FLAG_USE_AUTO_EXPOSURE / auto_exposure_scale L155/L158)"
+    ],
+    "shaders": [
+      "servers/rendering/renderer_rd/shaders/effects/luminance_reduce.glsl (WRITE_LUMINANCE L76-79: avg = clamp(prev + (avg - prev) * exposure_adjust, min, max) - EMA inside the clamp)",
+      "servers/rendering/renderer_rd/shaders/effects/tonemap.glsl (L860 luminance_multiplier, L864-870 exposure with the auto-exposure leg L866-868, L893 apply_tonemapping LINEAR, L942-943 linear_to_srgb)"
+    ],
+    "native_pass_shape": "two native passes fused into ONE full-resolution compute dispatch design: the luminance final level (source <= 8x8 after the native reduce chain, 1x1 output) rides as a per-thread-group register prologue; the tonemap segment defines the full-res thread grid. The native chain between them (gaussian_glow) is NOT fused and glow-on scenes fail the fusion precondition."
+  },
+  "resource_mapping": "spike/godot-rurix/passes/fused_post_chain/resource_mapping.md",
+  "descriptor_mapping": {
+    "root_cbuffer_binding": "b0 space0",
+    "root_constants": [
+      "source_width",
+      "source_height",
+      "lum_source_width",
+      "lum_source_height",
+      "max_luminance",
+      "min_luminance",
+      "exposure_adjust",
+      "exposure",
+      "white",
+      "luminance_multiplier",
+      "first_frame",
+      "auto_exposure_scale"
+    ],
+    "root_constant_bytes": 64,
+    "root_constant_dwords": 16,
+    "root_constant_shape_note": "merged member b0s + fusion controls; [i64 x4, f32 x8] keeps the canonical dims-first packing discipline but intentionally departs from the members' 28-byte shape - the deferred S4 gate must validate 64 bytes",
+    "resources": [
+      { "name": "src_color", "binding": "t0 space0", "kind": "SRV", "binding_kind": "texture2d" },
+      { "name": "lum_source", "binding": "t1 space0", "kind": "SRV", "binding_kind": "texture2d" },
+      { "name": "prev_luminance", "binding": "t2 space0", "kind": "SRV", "binding_kind": "texture2d" },
+      { "name": "dst_color", "binding": "u0 space0", "kind": "UAV", "binding_kind": "rwtexture2d" },
+      { "name": "dst_luminance", "binding": "u1 space0", "kind": "UAV", "binding_kind": "rwtexture2d" }
+    ],
+    "dst_shape": "dst_color extent == src_color extent (1:1 full-resolution); dst_luminance and prev_luminance extents == 1x1 (different resources, double-buffered mirroring the native SWAP); lum_source extent <= 8x8 (single tile)",
+    "requires_64bit_integer_shader_capability": true,
+    "on_missing_resource_or_cap_or_descriptor_mismatch": "RXGD_STATUS_FALLBACK"
+  },
+  "supported_math_subset": {
+    "variant": "single fused full-resolution dispatch: luminance final WRITE_LUMINANCE level (segment A, per-group register prologue) + tonemap TONEMAPPER_LINEAR/linear_to_srgb (segment B)",
+    "segment_a": "partial-tile-correct mean over lum_source (<= 8x8, member-kernel accumulation order at destination texel (0,0)); cur = clamp(avg, min_luminance, max_luminance); ema = prev + (cur - prev) * exposure_adjust; first_frame != 0 selects cur; redundant per-group recompute + groupshared broadcast; dispatch group (0,0) thread 0 writes dst_luminance[0,0]",
+    "segment_b": "color.rgb *= luminance_multiplier; exposure_effective = exposure * (1.0 / (lum_current * luminance_multiplier / auto_exposure_scale)) with lum_current register-carried from segment A (tonemap.glsl L866-868 operation order); color.rgb *= exposure_effective; LINEAR identity; linear_to_srgb (tonemap.glsl L230-233); alpha passthrough",
+    "precision": "float32 kernel; parity uses float32 with per-op binary32 rounding"
+  },
+  "known_gaps": [
+    "glow composite not covered (pre/post/softlight/mix modes, glow map, bicubic upscale; gaussian_glow's own luminance_texture + auto_exposure_scale consumption stays outside the fusion) - glow-on scenes fail the fusion precondition",
+    "tonemapper modes other than LINEAR (Reinhard/FILMIC/ACES/AgX) unsupported",
+    "auto-exposure texture chain elsewhere not covered: only the tonemap-side exposure_texture read is fused; the upper luminance reduce pyramid levels (READ_TEXTURE level 0 + intermediates) must still be produced by the native chain, and other exposure_texture consumers stay native",
+    "inherited member clamp-order divergence: segment A mirrors the GRX-009 tracked kernel (clamp then EMA); native WRITE_LUMINANCE is clamp(prev + (avg - prev) * adjust) (EMA inside the clamp) - bounded transient divergence, steady state agrees",
+    "first_frame=1 semantics: this kernel outputs cur = clamp(avg); the native p_set final level runs a plain reduce writing the RAW avg (no clamp, no EMA) - divergence bounded by the clamp, documented (differs from the member's zero-prev cur*exposure_adjust degeneration)",
+    "lum_current == 0 (min_luminance = 0 on an all-black scene) makes exposure_effective divide to inf - reproduced faithfully per native GLSL divide semantics, no extra guard; parity fixtures use min_luminance > 0",
+    "rgba16f / r32f storage quantization not modelled (kernel and parity compute float32; the native color buffer is half)",
+    "one-frame latency: the luminance segment's EMA feedback is engineering-defensible with previous-frame inputs (GRX-009 declaration reused); the tonemap segment natively consumes the CURRENT frame's internal texture, so a self-queue fused dispatch cannot substitute the frame's real tonemap output - a true replacement needs draw_graph route B (RenderingShaderContainerD3D12 nativization is the recorded long-term direction); this slice stops at offline+parity",
+    "sRGB output is not clamped to [0,1] (inherited from the tonemap member; native path relies on framebuffer quantization)",
+    "raster-vs-compute output seam: Godot writes the LDR result via a fullscreen fragment pass; this kernel writes a full-res UAV (inherited from the tonemap member)",
+    "lum_source extent > 8x8 unsupported (single-tile constraint mirroring the native final-level 1x1-dst shape); the deferred S4 gate must fail closed",
+    "no FXAA, no BCS, no color correction, no debanding, no multiview, no HDR output (convert_to_srgb=false) (inherited from the tonemap member)",
+    "GPU-side math parity observation pending a real dispatch (math_parity_evidence.json)"
+  ],
+  "fallback": {
+    "reasons": [
+      "compile_failed",
+      "validation_failed",
+      "unsupported_device",
+      "visual_diff_failed",
+      "manual_disabled"
+    ],
+    "two_level_contract": {
+      "level_1": "fusion gate failure -> per-member single-pass gated paths (existing LuminanceReductionGate / TonemapGate opt-in arms, themselves fallback by default); fusion-level marker must be distinguishable from member-level markers (patch slice 0036-0038, deferred)",
+      "level_2": "member gate failure -> native Godot luminance_reduction + tonemap"
+    },
+    "on_any_failure": "godot_native_luminance_reduction_and_tonemap"
+  },
+  "offline_compile_status": "success",
+  "offline_compile_provenance": "hlsl_bridge_workaround",
+  "offline_compile_runtime_mappable": true,
+  "offline_compile_evidence": "spike/godot-rurix/passes/fused_post_chain/offline_compile_evidence.json",
+  "offline_compile_artifacts": {
+    "dxil": "spike/godot-rurix/passes/fused_post_chain/artifacts/fused_post_chain.dxil",
+    "root_signature": "spike/godot-rurix/passes/fused_post_chain/artifacts/fused_post_chain.rts0.bin",
+    "descriptor_layout": "spike/godot-rurix/passes/fused_post_chain/artifacts/fused_post_chain_descriptor_layout.json"
+  },
+  "math_parity_evidence": "spike/godot-rurix/passes/fused_post_chain/math_parity_evidence.json",
+  "math_parity_status": "fused_post_chain_cpu_reference_proven_pending_gpu_dispatch",
+  "compile_blockers": [
+    {
+      "category": "provenance_workaround_active",
+      "summary": "the canonical fused_post_chain package is the owner-approved hlsl_bridge_workaround artifact (DXC cs_6_0 container validated by dxv, per-slot texture2d/rwtexture2d binding kinds, Rurix-owned RTS0; the GRX-009 texture_artifact_provenance_policy.json applies to every texture compute pass); a rurixc-owned fused_post_chain compile still requires a patched llc that supports texture intrinsics plus multi-channel texture element support and groupshared lang items in the Rurix toolchain"
+    }
+  ],
+  "implementation_status": {
+    "segment": "s1_s3",
+    "segment_detail": "grx019_s1_s3_contract_offline_kernel_math_parity_fallback_only",
+    "runtime_state": "fallback_only",
+    "runtime_state_note": "No bridge gate, no Godot patch, no dispatch smoke, and no enablement exist for this pass yet (S1-S3 only). The bridge returns RXGD_STATUS_FALLBACK for RXGD_PASS_FUSED_POST_CHAIN on every call and the native Godot luminance_reduction + tonemap chain renders. The two-level fallback contract (fusion -> members -> native) is contractual planning for the deferred patch slice 0036-0038.",
+    "bridge_gate": "NOT wired in this slice (deferred S4). Planned FusedPostChainGate chain per PASS_CONTRACT.md section 7: preflight (int64 cap, 5 texture resources, 64-byte b0, dims match, 1:1 dst_color shape, 1x1 luminance shapes, lum_source <= 8x8, prev/dst anti-aliasing) -> dispatch eligibility (RXGD_CAP_FUSED_POST_CHAIN_REAL_PASS (1 << 13) opt-in, non-null native handles, package digest match) -> per-slot kernel-binding-kind conformance ([texture2d x3, rwtexture2d x2]) -> math-parity gate (fused_post_chain_cpu_reference_proven_pending_gpu_dispatch) -> real dispatch only under the d3d12-recording-shim feature",
+    "godot_module_patch": "NOT authored in this slice. patches/PATCH_ALLOCATION.md section 2 reserves 0036-0038 for fused_post_chain (0036 gate+callsite / 0037 runtime binding / 0038 recording+real-pass opt-in); the two-level fallback markers land there.",
+    "godot_core_call_site_wired": false,
+    "real_gpu_pass": false,
+    "real_d3d12_dispatch_recorded": false,
+    "godot_runtime_fused_post_chain_path_enabled": false,
+    "standalone_d3d12_dispatch_smoke": {
+      "harness": "ci/grx019_fused_post_chain_d3d12_dispatch_smoke.py (NOT authored in this slice; deferred S6)",
+      "evidence": null,
+      "note": "the math_parity_evidence.json dispatch fixture is reserved for the S6 smoke to re-verify on a real device"
+    },
+    "remaining_segments": [
+      "S4 bridge FusedPostChainGate (fail-closed chain + unit tests)",
+      "S5/S7 Godot patches 0036-0038 (gate+callsite / runtime binding / recording+real-pass opt-in; two-level fallback markers; fusion preconditions: auto-exposure on, glow off, LINEAR, SDR)",
+      "S6 standalone real D3D12 dispatch smoke (fills the GPU side of math_parity_evidence.json)",
+      "S8 scratch rebuild + gated real-pass enablement strict evidence",
+      "S9 gate module + probe registration + manifest flip + owner default-enable decision",
+      "draw_graph route B true replacement for the tonemap segment's same-frame correctness (RenderingShaderContainerD3D12 nativization long-term direction)",
+      "full baseline / per-pass FPS / dispatch-barrier-VRAM traffic proxy comparison; any performance claim"
+    ]
+  },
+  "evidence_requirements": {
+    "visual": "in-engine LDR absolute diff (GRX-009 segment 4g template) is a later slice; not produced here",
+    "perf": "reuse GRX-006 baseline/perf gate; no dispatch/barrier/VRAM-traffic or perf improvement claimed"
+  },
+  "disclaimer": "GRX-019 fused_post_chain is at the S1-S3 stage only: pass contract trio, the DXC/DXV/RTS0 offline fused kernel package (hlsl_bridge_workaround provenance, runtime-mappable per the owner-approved GRX-009 texture artifact provenance policy), and the CPU float32 math parity reference (EMA time series x tonemap composite, pending_gpu_dispatch). implemented=false, real_gpu_pass=false, real_d3d12_dispatch_recorded=false, runtime_state=fallback_only, default_enable_state=disabled. No bridge gate, no Godot patch, no dispatch smoke, no enablement, no visual diff, no telemetry, and NO dispatch/barrier/VRAM-traffic, FPS, or performance improvement claim exists for this pass. The one-dispatch fusion motivation is a structural design statement, not a measured result."
+}
