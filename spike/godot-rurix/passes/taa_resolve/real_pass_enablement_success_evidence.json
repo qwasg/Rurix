@@ -48,9 +48,9 @@
   "note": "GRX-012 taa_resolve gated real-pass enablement gate evidence. The opt-in real-pass arm (dispatch_real_pass, default false) runs against the texture-capable hlsl_bridge workaround canonical package (six 1:1 full-res resolve textures, per-slot texture2d/rwtexture2d binding kinds, owner-approved hlsl_bridge_workaround provenance, single-resolve math parity CPU-proven pending GPU) and a d3d12-recording-shim bridge DLL, so every software gate can pass and a real recorded dispatch may return RXGD_STATUS_OK; when the dispatch cannot complete the gate reports first_missing_prerequisite=real_dispatch_recording_failed instead of claiming success. The patch 0019 result writeback is a SCAFFOLD (native Godot TAA resolve stays the continuation/backstop), default_enable_state stays disabled, and no performance, FPS, or GPU-timestamp claim is made.",
   "dll_fingerprint": {
     "dll_path_at_run": "target/debug/rurix_godot.dll",
-    "dll_sha256": "285d6b41cd8364b6286b6e14e64db37f468c785cd816729b6a0f5136ebb65203",
-    "dll_size_bytes": 381440,
-    "dll_mtime_utc": "2026-07-12T07:35:58+00:00",
+    "dll_sha256": "63b05b6ad9e6828fd40b109f546dee93269e0083731198d0560826ba1ff4482a",
+    "dll_size_bytes": 418816,
+    "dll_mtime_utc": "2026-07-12T12:25:07+00:00",
     "build_profile": "debug",
     "features": [
       "d3d12-recording-shim"
@@ -58,10 +58,10 @@
     "feature_note": "Bridge built WITH the d3d12-recording-shim feature: the taa_resolve real-pass arm routes through the linked recording shim, so arming RXGD_CAP_TAA_RESOLVE_REAL_PASS can make rxgd_record_pass return RXGD_STATUS_OK only after a real recorded dispatch. The shipping feature-off bridge still fails closed with real_dispatch_path_not_linked. target/debug/rurix_godot.dll is a mutable build artifact."
   },
   "godot_exe_fingerprint": {
-    "exe_path_at_run": "H:\\rurix\\target\\grx\\godot-scratch-0022\\bin\\godot.windows.template_debug.x86_64.console.exe",
-    "exe_sha256": "0befc098117ad270b307e8888bc5157c9aa2af4f73c81a613760e8fa6f33e249",
+    "exe_path_at_run": "H:\\rurix\\target\\grx\\godot-scratch-0022b\\bin\\godot.windows.template_debug.x86_64.console.exe",
+    "exe_sha256": "636d0ab0731f88d615ae2c08781900fa250717d0677d616b17d24b69d8a88dfd",
     "exe_size_bytes": 300544,
-    "exe_mtime_utc": "2026-07-12T07:14:41+00:00",
+    "exe_mtime_utc": "2026-07-12T12:33:08+00:00",
     "committed": false,
     "scratch_build_note": "Scratch Godot build binaries are NOT committed to the repo. This console exe is a local, gitignored artifact rebuilt from the ignored external/godot-master snapshot with the full 0001..0022 patch stack applied (module_rurix_accel_enabled=yes d3d12=yes). Only its fingerprint is recorded here so the measured evidence stays auditable; re-point RURIX_GRX012_TAA_RESOLVE_GODOT_EXE at an equivalent rebuild to reproduce it."
   },
@@ -120,14 +120,14 @@
       {
         "patch": "0009-rurix-accel-luminance-real-pass-optin.patch",
         "path": "spike/godot-rurix/patches/0009-rurix-accel-luminance-real-pass-optin.patch",
-        "sha256": "9052e84ce8aa95f3a8a35516c0833fac9d7abda91b706ca00370d1578982c996",
-        "size_bytes": 8207
+        "sha256": "0501f8eca6fc50a6194110eb45d13e6ed9953010ab02a42936bf7c425d1bb503",
+        "size_bytes": 9059
       },
       {
         "patch": "0010-rurix-accel-luminance-real-pass-result-writeback.patch",
         "path": "spike/godot-rurix/patches/0010-rurix-accel-luminance-real-pass-result-writeback.patch",
-        "sha256": "16d2811a75e3d7f040f1a5d7102035d6c6bb4157194d14fffb5930e386fbe246",
-        "size_bytes": 20170
+        "sha256": "123e2207295684cba6147ab1a3b43ceb02bf33b06cf187f6b261982ac599562e",
+        "size_bytes": 21994
       },
       {
         "patch": "0011-rurix-accel-tonemap-pass-gate-and-callsite.patch",
@@ -144,8 +144,8 @@
       {
         "patch": "0013-rurix-accel-tonemap-recording-smoke-and-real-pass-optin.patch",
         "path": "spike/godot-rurix/patches/0013-rurix-accel-tonemap-recording-smoke-and-real-pass-optin.patch",
-        "sha256": "92f5fd4995a9c063b20683ca37709fa9056ec07f066ab70a9e3a6758bb340fd7",
-        "size_bytes": 12146
+        "sha256": "a6956159bbd20e87241570de808ed5ac38ab196ef3be7577d2575574a1e03c5d",
+        "size_bytes": 13206
       },
       {
         "patch": "0014-rurix-accel-ssao-blur-pass-gate-and-callsite.patch",
@@ -162,8 +162,8 @@
       {
         "patch": "0016-rurix-accel-ssao-blur-recording-smoke-and-real-pass-optin.patch",
         "path": "spike/godot-rurix/patches/0016-rurix-accel-ssao-blur-recording-smoke-and-real-pass-optin.patch",
-        "sha256": "695297688ba1cc9f175f83e78cb291ea4df6e88326798e6066767d00c088a652",
-        "size_bytes": 11111
+        "sha256": "361576406fc856923b183d0c8e3642e5a897ac7bd5d041eaa6b62913672eb33f",
+        "size_bytes": 12275
       },
       {
         "patch": "0017-rurix-accel-taa-resolve-pass-gate-and-callsite.patch",
@@ -180,8 +180,8 @@
       {
         "patch": "0019-rurix-accel-taa-resolve-recording-smoke-and-real-pass-optin.patch",
         "path": "spike/godot-rurix/patches/0019-rurix-accel-taa-resolve-recording-smoke-and-real-pass-optin.patch",
-        "sha256": "13abd53ec2f19dca4ebe5e73be676aa2a4d9609e8593f3446363ba8b5c1de006",
-        "size_bytes": 11179
+        "sha256": "1cdbe5b97808d33eee34f6cb3de63f5ae5589d17055039eedf9c2351ad6296aa",
+        "size_bytes": 12344
       },
       {
         "patch": "0020-rurix-accel-particles-copy-pass-gate-and-callsite.patch",
@@ -198,20 +198,20 @@
       {
         "patch": "0022-rurix-accel-particles-copy-recording-smoke-and-real-pass-optin.patch",
         "path": "spike/godot-rurix/patches/0022-rurix-accel-particles-copy-recording-smoke-and-real-pass-optin.patch",
-        "sha256": "a422dd78c462fdd1c765868c49496161789a78bd5d4eb760367f88a6a426dc09",
-        "size_bytes": 11898
+        "sha256": "3e0e1cc240f8639c2a16a99c6e881b7778d05890c8e2923059d64fa8b03d33f4",
+        "size_bytes": 13512
       }
     ]
   },
   "scratch_source_provenance": {
     "base_snapshot": "external/godot-master",
-    "source_root_at_run": "H:\\rurix\\target\\grx\\godot-scratch-0022",
+    "source_root_at_run": "H:\\rurix\\target\\grx\\godot-scratch-0022b",
     "source_clean": true,
     "source_status": [],
     "tracked_patch_stack_only": true,
     "source_audit_supported": true,
     "source_audit_errors": [],
-    "source_provenance_sidecar_path": "H:\\rurix\\target\\grx\\godot-scratch-0022.source_provenance.json",
+    "source_provenance_sidecar_path": "H:\\rurix\\target\\grx\\godot-scratch-0022b.source_provenance.json",
     "applied_patch_stack": {
       "patches_dir": "spike/godot-rurix/patches",
       "stack": "0001..0022",
@@ -267,14 +267,14 @@
         {
           "patch": "0009-rurix-accel-luminance-real-pass-optin.patch",
           "path": "spike/godot-rurix/patches/0009-rurix-accel-luminance-real-pass-optin.patch",
-          "sha256": "9052e84ce8aa95f3a8a35516c0833fac9d7abda91b706ca00370d1578982c996",
-          "size_bytes": 8207
+          "sha256": "0501f8eca6fc50a6194110eb45d13e6ed9953010ab02a42936bf7c425d1bb503",
+          "size_bytes": 9059
         },
         {
           "patch": "0010-rurix-accel-luminance-real-pass-result-writeback.patch",
           "path": "spike/godot-rurix/patches/0010-rurix-accel-luminance-real-pass-result-writeback.patch",
-          "sha256": "16d2811a75e3d7f040f1a5d7102035d6c6bb4157194d14fffb5930e386fbe246",
-          "size_bytes": 20170
+          "sha256": "123e2207295684cba6147ab1a3b43ceb02bf33b06cf187f6b261982ac599562e",
+          "size_bytes": 21994
         },
         {
           "patch": "0011-rurix-accel-tonemap-pass-gate-and-callsite.patch",
@@ -291,8 +291,8 @@
         {
           "patch": "0013-rurix-accel-tonemap-recording-smoke-and-real-pass-optin.patch",
           "path": "spike/godot-rurix/patches/0013-rurix-accel-tonemap-recording-smoke-and-real-pass-optin.patch",
-          "sha256": "92f5fd4995a9c063b20683ca37709fa9056ec07f066ab70a9e3a6758bb340fd7",
-          "size_bytes": 12146
+          "sha256": "a6956159bbd20e87241570de808ed5ac38ab196ef3be7577d2575574a1e03c5d",
+          "size_bytes": 13206
         },
         {
           "patch": "0014-rurix-accel-ssao-blur-pass-gate-and-callsite.patch",
@@ -309,8 +309,8 @@
         {
           "patch": "0016-rurix-accel-ssao-blur-recording-smoke-and-real-pass-optin.patch",
           "path": "spike/godot-rurix/patches/0016-rurix-accel-ssao-blur-recording-smoke-and-real-pass-optin.patch",
-          "sha256": "695297688ba1cc9f175f83e78cb291ea4df6e88326798e6066767d00c088a652",
-          "size_bytes": 11111
+          "sha256": "361576406fc856923b183d0c8e3642e5a897ac7bd5d041eaa6b62913672eb33f",
+          "size_bytes": 12275
         },
         {
           "patch": "0017-rurix-accel-taa-resolve-pass-gate-and-callsite.patch",
@@ -327,8 +327,8 @@
         {
           "patch": "0019-rurix-accel-taa-resolve-recording-smoke-and-real-pass-optin.patch",
           "path": "spike/godot-rurix/patches/0019-rurix-accel-taa-resolve-recording-smoke-and-real-pass-optin.patch",
-          "sha256": "13abd53ec2f19dca4ebe5e73be676aa2a4d9609e8593f3446363ba8b5c1de006",
-          "size_bytes": 11179
+          "sha256": "1cdbe5b97808d33eee34f6cb3de63f5ae5589d17055039eedf9c2351ad6296aa",
+          "size_bytes": 12344
         },
         {
           "patch": "0020-rurix-accel-particles-copy-pass-gate-and-callsite.patch",
@@ -345,28 +345,28 @@
         {
           "patch": "0022-rurix-accel-particles-copy-recording-smoke-and-real-pass-optin.patch",
           "path": "spike/godot-rurix/patches/0022-rurix-accel-particles-copy-recording-smoke-and-real-pass-optin.patch",
-          "sha256": "a422dd78c462fdd1c765868c49496161789a78bd5d4eb760367f88a6a426dc09",
-          "size_bytes": 11898
+          "sha256": "3e0e1cc240f8639c2a16a99c6e881b7778d05890c8e2923059d64fa8b03d33f4",
+          "size_bytes": 13512
         }
       ]
     },
     "godot_exe": {
-      "path_at_run": "H:\\rurix\\target\\grx\\godot-scratch-0022\\bin\\godot.windows.template_debug.x86_64.console.exe",
-      "sha256": "0befc098117ad270b307e8888bc5157c9aa2af4f73c81a613760e8fa6f33e249",
+      "path_at_run": "H:\\rurix\\target\\grx\\godot-scratch-0022b\\bin\\godot.windows.template_debug.x86_64.console.exe",
+      "sha256": "636d0ab0731f88d615ae2c08781900fa250717d0677d616b17d24b69d8a88dfd",
       "size_bytes": 300544,
-      "mtime_utc": "2026-07-12T07:14:41+00:00"
+      "mtime_utc": "2026-07-12T12:33:08+00:00"
     },
     "build": {
-      "available": false,
-      "command": null,
-      "log_path": null
+      "available": true,
+      "command": "H:\\rurix\\target\\grx\\scons-venv\\Scripts\\python.exe -m SCons platform=windows target=template_debug d3d12=yes module_rurix_accel_enabled=yes disable_path_overrides=no num_jobs=1 verbose=yes angle=no silence_msvc=no",
+      "log_path": "H:\\rurix\\target\\grx\\godot-scratch-0022b.scons_build.log"
     },
-    "base_commit": "f1675728712abe349c6a6a4b069dfa5127054b8c",
+    "base_commit": "b5e9b93094a671e8816e50bfeef5b87f819414c3",
     "base_tree": "6afb1013d67159858bc04b5a613db339bb7823a8",
-    "final_head": "486a0d0fe770550ae46af4af8986e22cc836010b",
-    "final_tree": "d48437d8e1d1e54370a9a5d2f17bd4bebab1d7d1",
-    "actual_head": "0ba5ce13e9db239ec980270fb929cc9734f7f2de",
-    "actual_tree": "d48437d8e1d1e54370a9a5d2f17bd4bebab1d7d1",
+    "final_head": "2d6b9b1fd2c0e73a17dcadb85948fea827955591",
+    "final_tree": "e81ef32d5b4dd0fd86f65c11ef438767bb6c17d7",
+    "actual_head": "17d02b41f61065bb12f76f40a74e537e7bcea57c",
+    "actual_tree": "e81ef32d5b4dd0fd86f65c11ef438767bb6c17d7",
     "patch_application_audit": [
       {
         "order": 1,
@@ -374,7 +374,7 @@
         "path": "spike/godot-rurix/patches/0001-rurix-accel-module-scaffold.patch",
         "sha256": "6cbfdbfc3dd6506e2280f16849d6369132ef207dbc5d871f81043664657dad20",
         "size_bytes": 11609,
-        "commit": "3e9f22316655864f0151a877bfc851da88496884",
+        "commit": "153d0386a90ecd47589364d62c5c8e8d9dae63d8",
         "tree": "c329422d07988a603e8d04958c6ba3e0f5852b8f"
       },
       {
@@ -383,7 +383,7 @@
         "path": "spike/godot-rurix/patches/0002-rurix-accel-luminance-pass-gate.patch",
         "sha256": "7b39b73a15a20989fa633b8284b22dbff12fb01155cfc2678d9f2a3de3a65aba",
         "size_bytes": 8272,
-        "commit": "6d28e914e108b17237ad7c757de8a537b68ceacc",
+        "commit": "beae4e6755063cbf270e15a43138f87b76329e5d",
         "tree": "f5a6e90f7e4b889785d2b7aa7771d62f49e8f0f0"
       },
       {
@@ -392,7 +392,7 @@
         "path": "spike/godot-rurix/patches/0003-rurix-accel-luminance-core-callsite-wiring.patch",
         "sha256": "6ce221e709f732e0192fe976bcc3a9bbb8c7400ec057b3b48fe7f73dc6f09d0a",
         "size_bytes": 5320,
-        "commit": "4704cd43d3032568bd471c167a1064e239370e64",
+        "commit": "91bf4100a7470712dd982e71cb4531b1a9a315d0",
         "tree": "2faaaba207deabd22dce8017dde8881742831d3c"
       },
       {
@@ -401,7 +401,7 @@
         "path": "spike/godot-rurix/patches/0004-rurix-accel-luminance-resource-mapping-scaffold.patch",
         "sha256": "2d84d98212ecacd0bce18b1369b1dc7e4f54b43b562979c62c8ad84e11093321",
         "size_bytes": 3489,
-        "commit": "3ac1d1c1a61cc63297505ec05c1a08b2a47135b2",
+        "commit": "91ccd0e9427400d0fa3a243ad330fe19cdf2e5c9",
         "tree": "a402290da2a9a94b1b247b642d5588bb6dc93f2e"
       },
       {
@@ -410,7 +410,7 @@
         "path": "spike/godot-rurix/patches/0005-rurix-accel-luminance-runtime-binding-preflight.patch",
         "sha256": "8e924527b4ff3fc825d75f1d5f06489c1a3e24761b7d2e1af65f7dfe6f970f79",
         "size_bytes": 12044,
-        "commit": "1229e5b83cde6e636a6b8e6499e990ae3f0a6e18",
+        "commit": "07a05676b09ac5268cf417117d44808089a953ec",
         "tree": "790a49fcdfc83f51bf0e5c63c1138833870c75ab"
       },
       {
@@ -419,7 +419,7 @@
         "path": "spike/godot-rurix/patches/0006-rurix-accel-luminance-gated-dispatch-bringup.patch",
         "sha256": "a902b5b66e7ede84f9a254661bd8f4a76c6de5695dc1715632ee95cbe92eeeae",
         "size_bytes": 4413,
-        "commit": "427bfc871a250bc41f8e96452991ab02b5765b91",
+        "commit": "62aa178953701ed7678ae9db477ac4958d7637f9",
         "tree": "320de8d47541871ecca77705f6ae7dc30039bd60"
       },
       {
@@ -428,7 +428,7 @@
         "path": "spike/godot-rurix/patches/0007-rurix-accel-luminance-native-resource-handle-mapping.patch",
         "sha256": "e36fca8b3082451e9bafe16f9b735a0f7e9bea0bb65b0828129741d30df077a1",
         "size_bytes": 14031,
-        "commit": "8a5d30c4a52e7a5e13612ba31199b2a65ef8bd04",
+        "commit": "8f1d1dac801ca7809713bb6611e624395030062e",
         "tree": "4b749abdd6a0fce0da22b12115c16c46e831b7eb"
       },
       {
@@ -437,26 +437,26 @@
         "path": "spike/godot-rurix/patches/0008-rurix-accel-luminance-godot-runtime-bridge-recording-smoke.patch",
         "sha256": "e245ab5a2c5030a66901fece1abbf3127331d0e01a788917794cf5925c235a08",
         "size_bytes": 6887,
-        "commit": "456589d4595808ca8fb806f167882aa8de376918",
+        "commit": "1ee18691acd514565c0c52687cbdb769a88ce5ab",
         "tree": "40ccccc18931b200d1957aea7934734f39403767"
       },
       {
         "order": 9,
         "patch": "0009-rurix-accel-luminance-real-pass-optin.patch",
         "path": "spike/godot-rurix/patches/0009-rurix-accel-luminance-real-pass-optin.patch",
-        "sha256": "9052e84ce8aa95f3a8a35516c0833fac9d7abda91b706ca00370d1578982c996",
-        "size_bytes": 8207,
-        "commit": "5c7d6fc49c3cdec71b943ed7ceb062c156777d1e",
-        "tree": "05e56425c642a7f24d057a3877622ffa243a6726"
+        "sha256": "0501f8eca6fc50a6194110eb45d13e6ed9953010ab02a42936bf7c425d1bb503",
+        "size_bytes": 9059,
+        "commit": "22b0fe8a060c56ea872c41a9d2a0ee33a8d2099d",
+        "tree": "433146a735b7a762576f5e53d9ccad56c2b0839a"
       },
       {
         "order": 10,
         "patch": "0010-rurix-accel-luminance-real-pass-result-writeback.patch",
         "path": "spike/godot-rurix/patches/0010-rurix-accel-luminance-real-pass-result-writeback.patch",
-        "sha256": "16d2811a75e3d7f040f1a5d7102035d6c6bb4157194d14fffb5930e386fbe246",
-        "size_bytes": 20170,
-        "commit": "8bd1a7307d74fd55a1c2f81ede3c926a59473324",
-        "tree": "241f7e7c91a07fe2cb5e3fa9e4f1ee3d38678f42"
+        "sha256": "123e2207295684cba6147ab1a3b43ceb02bf33b06cf187f6b261982ac599562e",
+        "size_bytes": 21994,
+        "commit": "3ba3c0e92fc44b8386d1f81c90cbbb55c0c6514a",
+        "tree": "0602ca5c28cdbdf9ac7c823a200695970cce1466"
       },
       {
         "order": 11,
@@ -464,8 +464,8 @@
         "path": "spike/godot-rurix/patches/0011-rurix-accel-tonemap-pass-gate-and-callsite.patch",
         "sha256": "bea01e99f8c5d3109a2332105021094a11469b72b094ba4183e92ceb3d0bc949",
         "size_bytes": 8222,
-        "commit": "97d03acce158494cb1506863a9a1ced79ea596a4",
-        "tree": "e43fb22197074b21e50646b553268015592c9bf3"
+        "commit": "d7451ed6898f936bf863420323c60e89170995da",
+        "tree": "6d28a0525016c411044a53444dc4a3f26f8c6c0f"
       },
       {
         "order": 12,
@@ -473,17 +473,17 @@
         "path": "spike/godot-rurix/patches/0012-rurix-accel-tonemap-runtime-resource-binding.patch",
         "sha256": "6b07467c67811a993a0e0af740bd4511d549ac22c7f7c95ecc5b4b72d4d56eb7",
         "size_bytes": 17612,
-        "commit": "c5e8b5ecafb900924a3a7e7eac48a78c0ba024e5",
-        "tree": "cff36607127e7480e4b786146ed06cb6c67817c0"
+        "commit": "ec29c81ccb1a86bfcb2fcd7ccce35166ad78c8ba",
+        "tree": "db9bef0a0117badf4615c053d3bad00fa58c4ed0"
       },
       {
         "order": 13,
         "patch": "0013-rurix-accel-tonemap-recording-smoke-and-real-pass-optin.patch",
         "path": "spike/godot-rurix/patches/0013-rurix-accel-tonemap-recording-smoke-and-real-pass-optin.patch",
-        "sha256": "92f5fd4995a9c063b20683ca37709fa9056ec07f066ab70a9e3a6758bb340fd7",
-        "size_bytes": 12146,
-        "commit": "b7fc9beaaf0267ff7171c675cac3c59f3173a1a3",
-        "tree": "528f10392e1f470a03fc61fe9814f2c4b6f2d6d1"
+        "sha256": "a6956159bbd20e87241570de808ed5ac38ab196ef3be7577d2575574a1e03c5d",
+        "size_bytes": 13206,
+        "commit": "43db1c6162904f24a3b586408055cf4e7573d2e5",
+        "tree": "5ee61a095f3db99ee5ee940e6536400db3bd8a8f"
       },
       {
         "order": 14,
@@ -491,8 +491,8 @@
         "path": "spike/godot-rurix/patches/0014-rurix-accel-ssao-blur-pass-gate-and-callsite.patch",
         "sha256": "19e495cf00df33200eecd7c40637275b3e8a0da9ca67762ed38d4095a12b30d1",
         "size_bytes": 8773,
-        "commit": "e641c67a906ad296659feb7d2e0cfb43953788ec",
-        "tree": "aef67abb7ade04e250eb09c1f54c4f5ce2b84c57"
+        "commit": "843f9b27d34e58352b661a193a22e10369a98c24",
+        "tree": "17913221b0a559bd896421090c91e1ae803c53d8"
       },
       {
         "order": 15,
@@ -500,17 +500,17 @@
         "path": "spike/godot-rurix/patches/0015-rurix-accel-ssao-blur-runtime-resource-binding.patch",
         "sha256": "ffd9182e890b40ff8239bc8e660f46ed97943740a731c9dc8ed65c3b1be8bcae",
         "size_bytes": 14919,
-        "commit": "487da665bd8bda6ea16c2825813419d3fdaef7eb",
-        "tree": "510a48a3cc8863b592d86d9637381e3998ad0b6d"
+        "commit": "7ea9d404657ae98048e11d468a9381c26aa2f165",
+        "tree": "ebdba28ae0a6358d8018b883f0587b2e9f95798c"
       },
       {
         "order": 16,
         "patch": "0016-rurix-accel-ssao-blur-recording-smoke-and-real-pass-optin.patch",
         "path": "spike/godot-rurix/patches/0016-rurix-accel-ssao-blur-recording-smoke-and-real-pass-optin.patch",
-        "sha256": "695297688ba1cc9f175f83e78cb291ea4df6e88326798e6066767d00c088a652",
-        "size_bytes": 11111,
-        "commit": "1675146b9ae725e3538d59967f0f00073aff72b0",
-        "tree": "0e52f571ca0aec463b410cb56188cf26163a7626"
+        "sha256": "361576406fc856923b183d0c8e3642e5a897ac7bd5d041eaa6b62913672eb33f",
+        "size_bytes": 12275,
+        "commit": "988c93b6a9433e14689e679d8d2b10fcdbc6cb8e",
+        "tree": "03d3516bbadb37caef7bb22212c9e2e6fbe635ad"
       },
       {
         "order": 17,
@@ -518,8 +518,8 @@
         "path": "spike/godot-rurix/patches/0017-rurix-accel-taa-resolve-pass-gate-and-callsite.patch",
         "sha256": "d4272b83d6da878f315709cdc701913f25d28dbde92d67801e30924fc163ce66",
         "size_bytes": 8954,
-        "commit": "a909279c2d3afe14b68b5a31bbad13f8cf1c2822",
-        "tree": "0626deee6e512c454e8463ccf50c03db58cc3aa6"
+        "commit": "0813bf20aeb0029997764cd8b4b80770d627afd1",
+        "tree": "ef0c8ce8a77db911d29d525a2e07f9bfecd0dfbd"
       },
       {
         "order": 18,
@@ -527,17 +527,17 @@
         "path": "spike/godot-rurix/patches/0018-rurix-accel-taa-resolve-runtime-resource-binding.patch",
         "sha256": "cc5fdb1c47946d30f97d0870c99c9d29f2e8aa1dd5bf49180679a5eb938d0d81",
         "size_bytes": 17246,
-        "commit": "bfd9898101dcb63b2415be849af77cf504c2b6eb",
-        "tree": "ba25095c70a605d1c4066a836457d3d2089df341"
+        "commit": "23742653931d7a732ae2c824ea60db9d365af8ac",
+        "tree": "66db6905502cf241aaec923c6cfa90059984151c"
       },
       {
         "order": 19,
         "patch": "0019-rurix-accel-taa-resolve-recording-smoke-and-real-pass-optin.patch",
         "path": "spike/godot-rurix/patches/0019-rurix-accel-taa-resolve-recording-smoke-and-real-pass-optin.patch",
-        "sha256": "13abd53ec2f19dca4ebe5e73be676aa2a4d9609e8593f3446363ba8b5c1de006",
-        "size_bytes": 11179,
-        "commit": "3e3710431b61abcf68f02c04842b5f46d9373514",
-        "tree": "bab9494bbbec519c2e3c7fc569c0d458566d4e63"
+        "sha256": "1cdbe5b97808d33eee34f6cb3de63f5ae5589d17055039eedf9c2351ad6296aa",
+        "size_bytes": 12344,
+        "commit": "f023f15805d9185f16a80d6dc60c9f177fe6f683",
+        "tree": "1938713ba3d07dc4ff5a062b11083c5d73d9ad49"
       },
       {
         "order": 20,
@@ -545,8 +545,8 @@
         "path": "spike/godot-rurix/patches/0020-rurix-accel-particles-copy-pass-gate-and-callsite.patch",
         "sha256": "9e925105de3abbbd3b83c22d544785d2c3814da60fb90beef18838d3397c9cb2",
         "size_bytes": 9402,
-        "commit": "95c1c593b4c61e57537b52e14a311bb215f8cb1b",
-        "tree": "c7bccdc1963b4dc7b5b7a705e902b42a9aa4464e"
+        "commit": "e359291ace9f291a4d559e1ad0d5230aa67da07d",
+        "tree": "e33be7963f16fe72d511c77f01d7e15f465bb4c5"
       },
       {
         "order": 21,
@@ -554,23 +554,23 @@
         "path": "spike/godot-rurix/patches/0021-rurix-accel-particles-copy-runtime-resource-binding.patch",
         "sha256": "49fa5c1c7bb349963b3facdfc936ca174b21f45594acb538b1841e765f9c62bf",
         "size_bytes": 15879,
-        "commit": "25fca915eff4e7544e7e0bfe7398043f487efd93",
-        "tree": "000e1d34997a363442f11fecaa843da01e4e7eb4"
+        "commit": "fd7c0878476615b58d089d96e126a168c54bc16c",
+        "tree": "44bbf088fc37bf45a3e20dc836c49b4fff6d168e"
       },
       {
         "order": 22,
         "patch": "0022-rurix-accel-particles-copy-recording-smoke-and-real-pass-optin.patch",
         "path": "spike/godot-rurix/patches/0022-rurix-accel-particles-copy-recording-smoke-and-real-pass-optin.patch",
-        "sha256": "a422dd78c462fdd1c765868c49496161789a78bd5d4eb760367f88a6a426dc09",
-        "size_bytes": 11898,
-        "commit": "486a0d0fe770550ae46af4af8986e22cc836010b",
-        "tree": "d48437d8e1d1e54370a9a5d2f17bd4bebab1d7d1"
+        "sha256": "3e0e1cc240f8639c2a16a99c6e881b7778d05890c8e2923059d64fa8b03d33f4",
+        "size_bytes": 13512,
+        "commit": "2d6b9b1fd2c0e73a17dcadb85948fea827955591",
+        "tree": "e81ef32d5b4dd0fd86f65c11ef438767bb6c17d7"
       }
     ],
     "expected_stack_ok": true
   },
   "status": "success",
-  "timestamp": "2026-07-12T15:36:02+08:00",
+  "timestamp": "2026-07-12T20:35:46+08:00",
   "run_url": "local interactive runner",
   "pass_enable_matrix": {
     "disabled_default": {
@@ -606,7 +606,7 @@
       "role": "enabled_real_pass_optin",
       "project_settings": {
         "rendering/rurix_accel/passes/taa_resolve/enabled": true,
-        "rendering/rurix_accel/passes/taa_resolve/dispatch_recording_smoke": false,
+        "rendering/rurix_accel/passes/taa_resolve/dispatch_recording_smoke": true,
         "rendering/rurix_accel/passes/taa_resolve/dispatch_real_pass": true,
         "rendering/rurix_accel/passes/taa_resolve/real_pass_force_capability_downgrade": false
       },
@@ -618,7 +618,7 @@
       "real_pass_blocked_marker_line": null,
       "real_pass_marker_observed": true,
       "writeback_marker_observed": true,
-      "record_marker_observed": false,
+      "record_marker_observed": true,
       "captured_frame_indices": [
         16,
         17,
@@ -635,7 +635,7 @@
       "role": "forced_capability_downgrade",
       "project_settings": {
         "rendering/rurix_accel/passes/taa_resolve/enabled": true,
-        "rendering/rurix_accel/passes/taa_resolve/dispatch_recording_smoke": false,
+        "rendering/rurix_accel/passes/taa_resolve/dispatch_recording_smoke": true,
         "rendering/rurix_accel/passes/taa_resolve/dispatch_real_pass": true,
         "rendering/rurix_accel/passes/taa_resolve/real_pass_force_capability_downgrade": true
       },
@@ -661,8 +661,8 @@
       "capture_error": null
     }
   },
-  "stdout_reference": "or shader SceneForwardClusteredShaderRD, variant 1\nLoading cache for shader SceneForwardClusteredShaderRD, variant 2\nLoading cache for shader SceneForwardClusteredShaderRD, variant 3\nLoading cache for shader SceneForwardClusteredShaderRD, variant 4\nLoading cache for shader SceneForwardClusteredShaderRD, variant 5\nLoading cache for shader SceneForwardClusteredShaderRD, variant 6\nLoading cache for shader SceneForwardClusteredShaderRD, variant 7\nLoading cache for shader SceneForwardClusteredShaderRD, variant 8\nLoading cache for shader SceneForwardClusteredShaderRD, variant 9\nLoading cache for shader SceneForwardClusteredShaderRD, variant 10\nLoading cache for shader SceneForwardClusteredShaderRD, variant 11\nLoading cache for shader SceneForwardClusteredShaderRD, variant 12\nLoading cache for shader SceneForwardClusteredShaderRD, variant 13\nLoading cache for shader SceneForwardClusteredShaderRD, variant 14\nLoading cache for shader SceneForwardClusteredShaderRD, variant 15\nLoading cache for shader SceneForwardClusteredShaderRD, variant 16\nLoading cache for shader SceneForwardClusteredShaderRD, variant 17\nLoading cache for shader SceneForwardClusteredShaderRD, variant 18\nLoading cache for shader SceneForwardClusteredShaderRD, variant 19\nLoading cache for shader SceneForwardClusteredShaderRD, variant 0\nLoading cache for shader SceneForwardClusteredShaderRD, variant 1\nLoading cache for shader SceneForwardClusteredShaderRD, variant 2\nLoading cache for shader SceneForwardClusteredShaderRD, variant 3\nLoading cache for shader SceneForwardClusteredShaderRD, variant 4\nLoading cache for shader SceneForwardClusteredShaderRD, variant 5\nLoading cache for shader SceneForwardClusteredShaderRD, variant 6\nLoading cache for shader SceneForwardClusteredShaderRD, variant 7\nLoading cache for shader SceneForwardClusteredShaderRD, variant 8\nLoading cache for shader SceneForwardClusteredShaderRD, variant 9\nLoading cache for shader SceneForwardClusteredShaderRD, variant 10\nLoading cache for shader SceneForwardClusteredShaderRD, variant 11\nLoading cache for shader SceneForwardClusteredShaderRD, variant 12\nLoading cache for shader SceneForwardClusteredShaderRD, variant 13\nLoading cache for shader SceneForwardClusteredShaderRD, variant 14\nLoading cache for shader SceneForwardClusteredShaderRD, variant 15\nLoading cache for shader SceneForwardClusteredShaderRD, variant 16\nLoading cache for shader SceneForwardClusteredShaderRD, variant 17\nLoading cache for shader SceneForwardClusteredShaderRD, variant 18\nLoading cache for shader SceneForwardClusteredShaderRD, variant 19\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nGRX012TaaResolve: captured 8 frames start=16\nXR: Clearing primary interface\nXR: Removed interface \"Native mobile\"\nXR: Removed interface \"OpenXR\"\nFreeing Default Tex_Blit Shader\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_MOTION' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_ALPHA' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_SECONDARY' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'CANVAS_INSTANCE_DATA' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nAccessibility: window 0 adapter destroyed.\n\nERROR: Could not load global script cache.\n   at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)",
-  "stdout_candidate": "0xc26d4252 dxil_signed=yes\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS recorded=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS: pass=RXGD_PASS_TAA_RESOLVE dispatched=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS_WRITEBACK: dst=taa_temp native_continuation=active scaffold=1\nRXGD_BRIDGE_REC: dispatch=32,18,1 fence=17 dst=256x144 dst_first=9.51216e-11 checksum=0x297c040d dxil_signed=yes\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS recorded=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS: pass=RXGD_PASS_TAA_RESOLVE dispatched=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS_WRITEBACK: dst=taa_temp native_continuation=active scaffold=1\nRXGD_BRIDGE_REC: dispatch=32,18,1 fence=18 dst=256x144 dst_first=9.51216e-11 checksum=0x13543d3f dxil_signed=yes\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS recorded=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS: pass=RXGD_PASS_TAA_RESOLVE dispatched=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS_WRITEBACK: dst=taa_temp native_continuation=active scaffold=1\nRXGD_BRIDGE_REC: dispatch=32,18,1 fence=19 dst=256x144 dst_first=9.51216e-11 checksum=0x8201d01f dxil_signed=yes\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS recorded=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS: pass=RXGD_PASS_TAA_RESOLVE dispatched=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS_WRITEBACK: dst=taa_temp native_continuation=active scaffold=1\nRXGD_BRIDGE_REC: dispatch=32,18,1 fence=20 dst=256x144 dst_first=9.51216e-11 checksum=0x5978c6b6 dxil_signed=yes\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS recorded=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS: pass=RXGD_PASS_TAA_RESOLVE dispatched=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS_WRITEBACK: dst=taa_temp native_continuation=active scaffold=1\nRXGD_BRIDGE_REC: dispatch=32,18,1 fence=21 dst=256x144 dst_first=9.51216e-11 checksum=0x30a03cda dxil_signed=yes\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS recorded=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS: pass=RXGD_PASS_TAA_RESOLVE dispatched=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS_WRITEBACK: dst=taa_temp native_continuation=active scaffold=1\nRXGD_BRIDGE_REC: dispatch=32,18,1 fence=22 dst=256x144 dst_first=9.51216e-11 checksum=0x15e47438 dxil_signed=yes\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS recorded=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS: pass=RXGD_PASS_TAA_RESOLVE dispatched=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS_WRITEBACK: dst=taa_temp native_continuation=active scaffold=1\nGRX012TaaResolve: captured 8 frames start=16\nRXGD_BRIDGE_REC: dispatch=32,18,1 fence=23 dst=256x144 dst_first=9.51216e-11 checksum=0xf5129325 dxil_signed=yes\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS recorded=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS: pass=RXGD_PASS_TAA_RESOLVE dispatched=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS_WRITEBACK: dst=taa_temp native_continuation=active scaffold=1\nRXGD_SUMMARY pass=6 recorded=23 fallback=0\nXR: Clearing primary interface\nXR: Removed interface \"Native mobile\"\nXR: Removed interface \"OpenXR\"\nFreeing Default Tex_Blit Shader\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_MOTION' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_ALPHA' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_SECONDARY' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'CANVAS_INSTANCE_DATA' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nAccessibility: window 0 adapter destroyed.\n\nERROR: Could not load global script cache.\n   at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)",
+  "stdout_reference": ": e2dafe5d23f5fa0fdecd397a278658cf4c04ca3dd8271db8d106e60f927a7d1a\nShader cache miss for TonemapShaderRD/e2dafe5d23f5fa0fdecd397a278658cf4c04ca3dd8271db8d106e60f927a7d1a/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nShader 'VrsShaderRD' (group 0) SHA256: 4a54c23cf4804054e648a5722169b96d9d4558cf5c376ab84bc985145f8cd636\nShader cache miss for VrsShaderRD/4a54c23cf4804054e648a5722169b96d9d4558cf5c376ab84bc985145f8cd636/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nShader 'FsrUpscaleShaderRD' (group 0) SHA256: 7f5cc2fe13b921a427d7402bc9ea492817f4dfa5265ddfab12ac30ba11d7eb50\nShader cache miss for FsrUpscaleShaderRD/7f5cc2fe13b921a427d7402bc9ea492817f4dfa5265ddfab12ac30ba11d7eb50/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nShader 'ResolveShaderRD' (group 0) SHA256: 468b2d9bf7115857599c0003ad110f057ff1e669a3ac746e82843222f27495a2\nShader cache miss for ResolveShaderRD/468b2d9bf7115857599c0003ad110f057ff1e669a3ac746e82843222f27495a2/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nShader 'BlitShaderRD' (group 0) SHA256: a5b0ef2c6f212ed2ca7eb2716fb116f1c642039c0b3953b37c8db236d50eeead\nWASAPI: Activated output_device using IAudioClient3 interface\nWASAPI: wFormatTag = 65534\nWASAPI: nChannels = 2\nWASAPI: nSamplesPerSec = 48000\nWASAPI: nAvgBytesPerSec = 384000\nWASAPI: nBlockAlign = 8\nWASAPI: wBitsPerSample = 32\nWASAPI: cbSize = 22\nWASAPI: mix_rate = 48000\nWASAPI: fundamental_period_frames = 480\nWASAPI: min_period_frames = 480\nWASAPI: max_period_frames = 480\nWASAPI: selected a period frame size of 480\nWASAPI: detected 2 channels\nWASAPI: audio buffer frames: 480 calculated latency: 10ms\n\nShader cache miss for BlitShaderRD/a5b0ef2c6f212ed2ca7eb2716fb116f1c642039c0b3953b37c8db236d50eeead/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nTextServer: Primary interface set to: \"ICU / HarfBuzz / Graphite (Built-in)\".\nCORE API HASH: 415917037\nEDITOR API HASH: 1463541022\nSceneTreeFTI: traversal method DEFAULT\nMbedTLS: Some X509 certificates could not be parsed (1 certificates skipped).\nLoaded system CA certificates\nLoading resource: res://main.tscn\nLoading resource: res://main.gd\nGRX012TaaResolve: scene ready use_taa=true\nShader cache miss for SceneForwardClusteredShaderRD/d163fa581b2f47a8df8c05548d64cbfd7b3c92e66fff0e243074faef256da86b/b600e18e20b53d8932999d48838b29553c586934\nShader cache miss for SceneForwardClusteredShaderRD/d163fa581b2f47a8df8c05548d64cbfd7b3c92e66fff0e243074faef256da86b/347259af253e6bbec7ad5c69332af5ca731015aa\nShader cache miss for SceneForwardClusteredShaderRD/d163fa581b2f47a8df8c05548d64cbfd7b3c92e66fff0e243074faef256da86b/a784797763b72ce058effad41b273eb697df9814\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nGRX012TaaResolve: captured 8 frames start=16\nXR: Clearing primary interface\nXR: Removed interface \"Native mobile\"\nXR: Removed interface \"OpenXR\"\nFreeing Default Tex_Blit Shader\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_MOTION' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_ALPHA' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_SECONDARY' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'CANVAS_INSTANCE_DATA' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nAccessibility: window 0 adapter destroyed.\n\nERROR: Could not load global script cache.\n   at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)",
+  "stdout_candidate": "VE_RECORD: pass=RXGD_PASS_TAA_RESOLVE recorded=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS_WRITEBACK: dst=taa_temp native_continuation=active scaffold=1\nRXGD_BRIDGE_REC: dispatch=32,18,1 fence=18 dst=256x144 dst_first=9.51216e-11 checksum=0x13543d3f dxil_signed=yes\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS recorded=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS: pass=RXGD_PASS_TAA_RESOLVE dispatched=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_RECORD: pass=RXGD_PASS_TAA_RESOLVE recorded=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS_WRITEBACK: dst=taa_temp native_continuation=active scaffold=1\nRXGD_BRIDGE_REC: dispatch=32,18,1 fence=19 dst=256x144 dst_first=9.51216e-11 checksum=0x8201d01f dxil_signed=yes\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS recorded=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS: pass=RXGD_PASS_TAA_RESOLVE dispatched=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_RECORD: pass=RXGD_PASS_TAA_RESOLVE recorded=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS_WRITEBACK: dst=taa_temp native_continuation=active scaffold=1\nRXGD_BRIDGE_REC: dispatch=32,18,1 fence=20 dst=256x144 dst_first=9.51216e-11 checksum=0x5978c6b6 dxil_signed=yes\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS recorded=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS: pass=RXGD_PASS_TAA_RESOLVE dispatched=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_RECORD: pass=RXGD_PASS_TAA_RESOLVE recorded=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS_WRITEBACK: dst=taa_temp native_continuation=active scaffold=1\nRXGD_BRIDGE_REC: dispatch=32,18,1 fence=21 dst=256x144 dst_first=9.51216e-11 checksum=0x30a03cda dxil_signed=yes\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS recorded=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS: pass=RXGD_PASS_TAA_RESOLVE dispatched=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_RECORD: pass=RXGD_PASS_TAA_RESOLVE recorded=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS_WRITEBACK: dst=taa_temp native_continuation=active scaffold=1\nRXGD_BRIDGE_REC: dispatch=32,18,1 fence=22 dst=256x144 dst_first=9.51216e-11 checksum=0x15e47438 dxil_signed=yes\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS recorded=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS: pass=RXGD_PASS_TAA_RESOLVE dispatched=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_RECORD: pass=RXGD_PASS_TAA_RESOLVE recorded=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS_WRITEBACK: dst=taa_temp native_continuation=active scaffold=1\nGRX012TaaResolve: captured 8 frames start=16\nRXGD_BRIDGE_REC: dispatch=32,18,1 fence=23 dst=256x144 dst_first=9.51216e-11 checksum=0xf5129325 dxil_signed=yes\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS recorded=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS: pass=RXGD_PASS_TAA_RESOLVE dispatched=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_RECORD: pass=RXGD_PASS_TAA_RESOLVE recorded=1\nRXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS_WRITEBACK: dst=taa_temp native_continuation=active scaffold=1\nRXGD_SUMMARY pass=6 recorded=23 fallback=0\nXR: Clearing primary interface\nXR: Removed interface \"Native mobile\"\nXR: Removed interface \"OpenXR\"\nFreeing Default Tex_Blit Shader\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_MOTION' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_ALPHA' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_SECONDARY' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'CANVAS_INSTANCE_DATA' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nAccessibility: window 0 adapter destroyed.\n\nERROR: Could not load global script cache.\n   at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)",
   "stdout_forced_fallback": "edShaderRD, variant 5\nLoading cache for shader SceneForwardClusteredShaderRD, variant 6\nLoading cache for shader SceneForwardClusteredShaderRD, variant 7\nLoading cache for shader SceneForwardClusteredShaderRD, variant 8\nLoading cache for shader SceneForwardClusteredShaderRD, variant 9\nLoading cache for shader SceneForwardClusteredShaderRD, variant 10\nLoading cache for shader SceneForwardClusteredShaderRD, variant 11\nLoading cache for shader SceneForwardClusteredShaderRD, variant 12\nLoading cache for shader SceneForwardClusteredShaderRD, variant 13\nLoading cache for shader SceneForwardClusteredShaderRD, variant 14\nLoading cache for shader SceneForwardClusteredShaderRD, variant 15\nLoading cache for shader SceneForwardClusteredShaderRD, variant 16\nLoading cache for shader SceneForwardClusteredShaderRD, variant 17\nLoading cache for shader SceneForwardClusteredShaderRD, variant 18\nLoading cache for shader SceneForwardClusteredShaderRD, variant 19\nLoading cache for shader SceneForwardClusteredShaderRD, variant 0\nLoading cache for shader SceneForwardClusteredShaderRD, variant 1\nLoading cache for shader SceneForwardClusteredShaderRD, variant 2\nLoading cache for shader SceneForwardClusteredShaderRD, variant 3\nLoading cache for shader SceneForwardClusteredShaderRD, variant 4\nLoading cache for shader SceneForwardClusteredShaderRD, variant 5\nLoading cache for shader SceneForwardClusteredShaderRD, variant 6\nLoading cache for shader SceneForwardClusteredShaderRD, variant 7\nLoading cache for shader SceneForwardClusteredShaderRD, variant 8\nLoading cache for shader SceneForwardClusteredShaderRD, variant 9\nLoading cache for shader SceneForwardClusteredShaderRD, variant 10\nLoading cache for shader SceneForwardClusteredShaderRD, variant 11\nLoading cache for shader SceneForwardClusteredShaderRD, variant 12\nLoading cache for shader SceneForwardClusteredShaderRD, variant 13\nLoading cache for shader SceneForwardClusteredShaderRD, variant 14\nLoading cache for shader SceneForwardClusteredShaderRD, variant 15\nLoading cache for shader SceneForwardClusteredShaderRD, variant 16\nLoading cache for shader SceneForwardClusteredShaderRD, variant 17\nLoading cache for shader SceneForwardClusteredShaderRD, variant 18\nLoading cache for shader SceneForwardClusteredShaderRD, variant 19\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nRXGD_TAA_REAL_PASS_BLOCKED first_missing_prerequisite=runtime_binding_preflight_failed fallback_reason=unsupported_device kernel_binding=texture2d default_enable_state=disabled\nRurixAccel: taa_resolve native resource handle mapping fallback rc=1; Godot native TAA resolve path remains active.\nGRX012TaaResolve: captured 8 frames start=16\nXR: Clearing primary interface\nXR: Removed interface \"Native mobile\"\nXR: Removed interface \"OpenXR\"\nFreeing Default Tex_Blit Shader\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_MOTION' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_ALPHA' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_SECONDARY' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'CANVAS_INSTANCE_DATA' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nAccessibility: window 0 adapter destroyed.\n\nERROR: Could not load global script cache.\n   at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)",
   "runtime_log_audit": {
     "reference": {
@@ -962,7 +962,7 @@
     "forced_blocked_marker_line": "RXGD_TAA_REAL_PASS_BLOCKED first_missing_prerequisite=runtime_binding_preflight_failed fallback_reason=unsupported_device kernel_binding=texture2d default_enable_state=disabled",
     "telemetry_document": {
       "path": "spike/godot-rurix/passes/taa_resolve/real_pass_enablement_telemetry.json",
-      "sha256": "85f0d473ec082ee5cc2fca9de72c8a877e4de50e88002592f943c7e997e38576",
+      "sha256": "606422d5cc55aa1ca2a768627486661caf1daaf4dfa52579cef74d1af8985582",
       "size_bytes": 1101
     },
     "no_fps_claim": true
@@ -978,7 +978,8 @@
     "fallback_marker_observed_forced_fallback": true,
     "real_pass_blocked_marker_observed_candidate": false,
     "real_pass_blocked_marker_observed_forced_fallback": true,
-    "record_marker_absent_all_runs": true,
+    "record_marker_absent_reference_and_forced": true,
+    "record_marker_matches_real_pass_candidate": true,
     "temporal_sequence_captured": true,
     "temporal_min_frames_met": true,
     "temporal_motion_present_reference": true,

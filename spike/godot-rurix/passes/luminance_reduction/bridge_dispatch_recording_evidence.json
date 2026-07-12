@@ -41,20 +41,20 @@
   "note": "GRX-009 segment 4d bridge real D3D12 dispatch recording smoke evidence only. Even a success here keeps runtime_state=fallback_only, real_gpu_pass=false, godot_runtime_luminance_path_enabled=false, and default_enable_state=disabled: the recording path is compiled only under the test-only d3d12-recording-shim feature and armed only by this harness. It is not a Godot runtime pass, and makes no visual, perf, GPU-timestamp, or measured-fallback-telemetry claim.",
   "dll_fingerprint": {
     "dll_path_at_run": "target/debug/rurix_godot.dll",
-    "dll_sha256": "023a4ef2522ba129c8c3ac5aa6fa3976c760359ac574e5451621d761812942ee",
-    "dll_size_bytes": 222208,
-    "dll_mtime_utc": "2026-07-08T13:04:13+00:00",
+    "dll_sha256": "3664e11e222a8e6d4f2cc0c6bfc3b6cd0b51bf223ecec74a77501426f45b50b7",
+    "dll_size_bytes": 418816,
+    "dll_mtime_utc": "2026-07-12T12:42:21+00:00",
     "build_profile": "debug",
     "features": [
       "d3d12-recording-shim"
     ],
     "mutable_artifact_note": "target/debug/rurix_godot.dll is a mutable build artifact; a later feature-off `cargo build -p rurix-godot` can overwrite it in place. Rerun ci/grx009_luminance_bridge_recording_smoke.py to refresh this fingerprint and reproduce the exact feature-built DLL.",
     "snapshot_dll_path": "target/grx009_bridge_recording_smoke/rurix_godot_d3d12_recording_shim.dll",
-    "snapshot_dll_sha256": "023a4ef2522ba129c8c3ac5aa6fa3976c760359ac574e5451621d761812942ee"
+    "snapshot_dll_sha256": "3664e11e222a8e6d4f2cc0c6bfc3b6cd0b51bf223ecec74a77501426f45b50b7"
   },
   "status": "success",
   "bridge_recorded_d3d12_dispatch": true,
-  "timestamp": "2026-07-08T21:04:17+08:00",
+  "timestamp": "2026-07-12T21:02:46+08:00",
   "run_url": "local interactive runner",
   "device": {
     "adapter": "NVIDIA GeForce RTX 4070 Ti",
@@ -74,7 +74,7 @@
     "fallback_passes": "0",
     "registered_resources": "2",
     "gpu_time_ns": "0",
-    "cpu_record_ns": "36921700",
+    "cpu_record_ns": "20790600",
     "last_error": "0"
   },
   "checks": {
@@ -91,5 +91,5 @@
     "fence_completed": true,
     "dst_uav_readback": true
   },
-  "stdout": "RXGD_BRIDGE_HARNESS: adapter=\"NVIDIA GeForce RTX 4070 Ti\"\nRXGD_BRIDGE_HARNESS: int64_shader_ops=1\nRXGD_BRIDGE_HARNESS: abi_version=1\nRXGD_BRIDGE_HARNESS: shim_available=1\nRXGD_BRIDGE_HARNESS: record_pass_status=0\nRXGD_BRIDGE_HARNESS: collect_status=0\nRXGD_BRIDGE_HARNESS: stats recorded=1 fallback=0 registered=2 gpu_ns=0 cpu_ns=36921700 last_error=0\nRXGD_BRIDGE_HARNESS: ok adapter=\"NVIDIA GeForce RTX 4070 Ti\"\nRXGD_BRIDGE_REC: dispatch=1,1,1 fence=1 dst=1x1 dst_first=1 checksum=0x1b587698 dxil_signed=yes"
+  "stdout": "RXGD_BRIDGE_REC: dispatch=1,1,1 fence=1 dst=1x1 dst_first=1 checksum=0x1b587698 dxil_signed=yes\nRXGD_SUMMARY pass=4 recorded=1 fallback=0\nRXGD_BRIDGE_HARNESS: adapter=\"NVIDIA GeForce RTX 4070 Ti\"\nRXGD_BRIDGE_HARNESS: int64_shader_ops=1\nRXGD_BRIDGE_HARNESS: abi_version=1\nRXGD_BRIDGE_HARNESS: shim_available=1\nRXGD_BRIDGE_HARNESS: record_pass_status=0\nRXGD_BRIDGE_HARNESS: collect_status=0\nRXGD_BRIDGE_HARNESS: stats recorded=1 fallback=0 registered=2 gpu_ns=0 cpu_ns=20790600 last_error=0\nRXGD_BRIDGE_HARNESS: ok adapter=\"NVIDIA GeForce RTX 4070 Ti\""
 }

@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "subject": "grx017_material_sorting_telemetry_sample",
+  "pass_id": "material_sorting",
+  "segment": "grx017_telemetry_only_slice",
+  "evidence_kind": "measured_sample",
+  "evidence_kind_note": "Measured sampling telemetry collected once from the GRX-005 bench project material_variants scene. This is NOT an evidence-gate document: it feeds no CI gate, flips no manifest field, and makes no FPS/p95/GPU-timestamp/performance claim. GRX-017 stays telemetry-only (GRX_PLAN: telemetry first).",
+  "generated_at": "2026-07-12T20:45:26+08:00",
+  "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
+  "scene": "material_variants",
+  "project": "target/grx/godot-bench-project (generate_benchmark_project.py output; local, gitignored)",
+  "godot_exe": {
+    "path_at_run": "H:\\rurix\\target\\grx\\godot-scratch-0026\\bin\\godot.windows.template_debug.x86_64.console.exe",
+    "sha256": "a2069d9d6b1c2a16a0c33a6362c53eb6638412cba0156966d7640b84e00a91aa",
+    "patch_stack": "0001..0026 (patch 0026 material_sorting telemetry slice)",
+    "note": "Scratch Godot build binaries are NOT committed; the sidecar target/grx/godot-scratch-0026.source_provenance.json (local) audited tracked_patch_stack_only=true at build time."
+  },
+  "settings": {
+    "rendering/rurix_accel/telemetry/material_sorting/enabled": true,
+    "enabled_via": "override.cfg (default false; the shipping config never enables it)",
+    "verbose": true,
+    "warmup_frames": 30,
+    "sample_frames": 120,
+    "resolution": [
+      1280,
+      720
+    ],
+    "run_mode": "quick_smoke"
+  },
+  "marker": "RXGD_MATERIAL_SORTING_TELEMETRY (verbose channel, one line per 30 frames)",
+  "field_semantics": {
+    "frame": "telemetry frame counter at emission (counts frames with the OPAQUE list sort)",
+    "sort_usec": "wall time of THIS frames render_list[RENDER_LIST_OPAQUE].sort_by_key() (OS::get_ticks_usec delta)",
+    "element_count": "THIS frames opaque render list length at sort time",
+    "pso_switches_interval": "draw_list_bind_render_pipeline rebinds counted in the PASS_MODE_COLOR _render_list_template branches, accumulated across the 30-frame interval window (trailing skew up to one frame, declared)",
+    "material_uniform_set_switches_interval": "material_uniform_set switch branch count, same window/caliber as pso_switches_interval"
+  },
+  "samples": [
+    {
+      "frame": 30,
+      "sort_usec": 1005,
+      "element_count": 17049,
+      "pso_switches_interval": 928,
+      "material_uniform_set_switches_interval": 59421,
+      "interval_frames": 30
+    },
+    {
+      "frame": 60,
+      "sort_usec": 1062,
+      "element_count": 17049,
+      "pso_switches_interval": 960,
+      "material_uniform_set_switches_interval": 61470,
+      "interval_frames": 30
+    },
+    {
+      "frame": 90,
+      "sort_usec": 1025,
+      "element_count": 17049,
+      "pso_switches_interval": 960,
+      "material_uniform_set_switches_interval": 61470,
+      "interval_frames": 30
+    },
+    {
+      "frame": 120,
+      "sort_usec": 975,
+      "element_count": 17049,
+      "pso_switches_interval": 960,
+      "material_uniform_set_switches_interval": 61470,
+      "interval_frames": 30
+    },
+    {
+      "frame": 150,
+      "sort_usec": 961,
+      "element_count": 17049,
+      "pso_switches_interval": 960,
+      "material_uniform_set_switches_interval": 61470,
+      "interval_frames": 30
+    }
+  ],
+  "derived": {
+    "sample_count": 5,
+    "sort_usec_min": 961,
+    "sort_usec_mean": 1005.6,
+    "sort_usec_max": 1062,
+    "element_count": 17049,
+    "pso_switches_per_frame_mean": 31.78666666666667,
+    "material_uniform_set_switches_per_frame_mean": 2035.34,
+    "interval_frames": 30
+  },
+  "performance_claim": "none",
+  "default_enable_state": "disabled",
+  "raw_log": "target/grx/grx017_material_sorting_sample/godot_verbose.log (local, gitignored)"
+}

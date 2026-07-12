@@ -14,7 +14,7 @@
   "artifacts": {
     "dxil": {
       "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/luminance_reduction.dxil",
-      "sha256": "c77a54ded13417a8d27400abdad38a95454cb4de269cf2d4c9633011967abb9b"
+      "sha256": "14761af20456557a019086d51185cdc5375acf89bf9ac208927e703d265c3d2e"
     },
     "root_signature": {
       "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/luminance_reduction.rts0.bin",
@@ -22,22 +22,22 @@
     },
     "descriptor_layout": {
       "path": "spike/godot-rurix/passes/luminance_reduction/artifacts/luminance_reduction_descriptor_layout.json",
-      "sha256": "673da613157ada7a264019d4b2071feb7995b8a47206e0bae807ac885f07269b"
+      "sha256": "0067fcb119fe1c364263839e529112965af300a45583152225502391f9512749"
     }
   },
   "offline_evidence": {
     "path": "spike/godot-rurix/passes/luminance_reduction/offline_compile_evidence.json",
-    "dxil_sha256": "c77a54ded13417a8d27400abdad38a95454cb4de269cf2d4c9633011967abb9b",
+    "dxil_sha256": "14761af20456557a019086d51185cdc5375acf89bf9ac208927e703d265c3d2e",
     "root_signature_sha256": "f08794f9886e1ebc4c905e3006732e572ec913a75255c5b488cf4877a1391f03",
-    "descriptor_layout_sha256": "673da613157ada7a264019d4b2071feb7995b8a47206e0bae807ac885f07269b"
+    "descriptor_layout_sha256": "0067fcb119fe1c364263839e529112965af300a45583152225502391f9512749"
   },
   "artifact_hashes_match_offline_evidence": true,
   "note": "GRX-009 segment 4g visual/fallback gate evidence only. The visual diff compares the tracked Godot build's native luminance output with the pass disabled (reference) vs enabled-but-falling-back (candidate): the shipping feature-off bridge returns RXGD_STATUS_FALLBACK, so the native Godot path renders both frames and enabling the pass must not change the image. This is NOT visual verification of a Rurix GPU pass (no such pass runs), keeps runtime_state=fallback_only, real_gpu_pass=false, real_d3d12_dispatch_recorded=false, godot_runtime_luminance_path_enabled=false, and default_enable_state=disabled, and makes no performance, FPS, or GPU-timestamp claim.",
   "dll_fingerprint": {
     "dll_path_at_run": "target/debug/rurix_godot.dll",
-    "dll_sha256": "8075e3881b1a67897527be87a1de01fcc788736a38dc93e4286d4a031314d64a",
-    "dll_size_bytes": 147456,
-    "dll_mtime_utc": "2026-07-06T11:39:01+00:00",
+    "dll_sha256": "46fac0b4643634875ae9c074dd62105931cd2d5d0b38043eff7d08337f82bb16",
+    "dll_size_bytes": 190976,
+    "dll_mtime_utc": "2026-07-12T12:38:33+00:00",
     "build_profile": "debug",
     "features": [],
     "feature_note": "Shipping (feature-OFF) bridge build: the d3d12-recording-shim feature is NOT enabled, so rxgd_record_pass always returns RXGD_STATUS_FALLBACK for RXGD_PASS_LUMINANCE_REDUCTION. target/debug/rurix_godot.dll is a mutable build artifact."
@@ -51,7 +51,7 @@
     "build_note": "Tracked external/godot-master build (ignored snapshot, patch stack 0001+0002+0003, module_rurix_accel_enabled=yes d3d12=yes). The exe binary is a local, gitignored artifact; only its fingerprint is recorded here."
   },
   "status": "success",
-  "timestamp": "2026-07-07T13:20:29+08:00",
+  "timestamp": "2026-07-12T20:38:36+08:00",
   "run_url": "local interactive runner",
   "visual": {
     "measured_local": true,
@@ -135,7 +135,7 @@
     },
     "telemetry_document": {
       "path": "spike/godot-rurix/passes/luminance_reduction/measured_fallback_telemetry.json",
-      "sha256": "ad7fe9cb90902d28e8e6f35d0300b36af1d1bb18a1c9ed07c2be43bab3a84600",
+      "sha256": "3c0814945510590468649b693228868b32fa97b304ae9da681170fa00767561f",
       "size_bytes": 974
     },
     "no_fps_claim": true

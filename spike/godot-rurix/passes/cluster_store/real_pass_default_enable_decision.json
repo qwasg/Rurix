@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "pass_id": "cluster_store",
+  "segment": "grx014_real_pass_default_enable_decision",
+  "status": "success",
+  "decision_ready": true,
+  "default_enable_decision": "keep_default_disabled",
+  "generated_at_utc": "2026-07-12T00:00:00Z",
+  "owner_decision": {
+    "approved_by": "owner",
+    "approved_at_utc": "2026-07-12T00:00:00Z",
+    "decision": "keep_default_disabled",
+    "machine_role": "local_test_machine"
+  },
+  "decision_document": "spike/godot-rurix/passes/cluster_store/real_pass_default_enable_decision.md",
+  "default_enable_state": "disabled",
+  "performance_claim": "none",
+  "decision_rationale": [
+    "no_per_pass_fps_evidence: the GRX contract requires a per-pass FPS >= 0.95x baseline measured_local comparison before any default enablement (GRX_PLAN GRX.4/GRX.5 exit criteria / GRX_CONTRACT G-GRX-5 single_scene_fps_ratio_min=0.95), and no full baseline or per-pass benchmark comparison for cluster_store exists yet",
+    "patch_0025_writeback_is_scaffold: the cluster_store merge result is dispatched into the real Godot cluster_buffer destination while the native Godot cluster store dispatch still re-packs the whole cluster table every frame as the continuation/backstop (the shim submit also executes outside Godot's frame command order, before the frame's buffer_clear), so the candidate image cannot change (LDR visual gate max_abs=0/mean_abs=0) and the opt-in Rurix dispatch yields no measured net benefit yet",
+    "compute_merge_segment_only: the pass covers only the compute merge (store) segment of ClusterBuilderRD::bake_cluster; the cluster_render rasterization segment, the buffer clears, and the render_element_count == 0 early-out stay native permanently, GPU math parity is CPU-proven integer-exact but pending in-engine observation (math_parity_evidence.json status=pending_gpu_dispatch), and in-frame command-order integration (recording into Godot's own compute list instead of the shim's out-of-band submit) is not designed"
+  ],
+  "reevaluate_when": [
+    "full_baseline_benchmark_evidence_available",
+    "per_pass_fps_ratio_measured_at_or_above_0_95x_baseline",
+    "native_continuation_retired_or_net_benefit_measured",
+    "in_frame_command_order_integration_designed"
+  ],
+  "prerequisite_evidence": {
+    "real_pass_enablement_success": "spike/godot-rurix/passes/cluster_store/real_pass_enablement_success_evidence.json",
+    "real_pass_enablement_telemetry": "spike/godot-rurix/passes/cluster_store/real_pass_enablement_telemetry.json",
+    "standalone_d3d12_dispatch_smoke": "spike/godot-rurix/passes/cluster_store/real_d3d12_dispatch_smoke.json"
+  },
+  "does_not_imply": [
+    "default pass enablement",
+    "performance claim",
+    "FPS, p95, or GPU-timestamp claim",
+    "replacement of the cluster_render rasterization segment, the buffer clears, or the render_element_count == 0 early-out (native permanently)",
+    "net-benefit Rurix dispatch (patch 0025 result writeback is a scaffold; the native Godot cluster store re-packs the whole cluster table every frame)"
+  ],
+  "next_action_if_ready": "start_grx015_gpu_culling_pass_contract"
+}

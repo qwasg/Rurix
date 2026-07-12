@@ -364,3 +364,82 @@ stack-lock.
 - Raster/compute seam design (the rasterization segment stays native
   permanently; any net-benefit measurement must account for the seam).
 - full baseline / per-pass FPS comparison; any performance claim.
+
+## 12. Close-out (GRX-013 stage-A5 equivalent)
+
+> Close-out addendum (GRX Wave 4). Sections 1-11 (investigation / contract /
+> gate) stay unchanged (pass_id = cluster_store, `RXGD_PASS_CLUSTER_STORE`,
+> `RXGD_CAP_CLUSTER_STORE_REAL_PASS`, the compute merge (store) segment scope,
+> etc.); the §11 remaining items and known gaps are preserved except where a
+> delivered slice supersedes them. This section only records what has landed.
+> The S5/S7/S8/S9 items in §11 (patches 0023-0025, scratch rebuild +
+> enablement, close-out) are now DELIVERED; §10's fail-closed manifest values
+> are superseded by the honest measured flip recorded below.
+
+GRX-014 cluster_store is closed out (reusing the GRX-009/010/011/012/013
+template). The delivered chain:
+
+- **Patches 0023-0025** — `0023` (per-pass `enabled` setting default false +
+  `try_record_cluster_store()` module gate + the `bake_cluster()` store-segment
+  call-site opt-in gate; only the compute merge segment is wired — the
+  cluster_render raster segment, the buffer clears, and the
+  `render_element_count == 0` early-out stay native permanently), `0024`
+  (runtime native structured-buffer handle binding via
+  `get_driver_resource(DRIVER_RESOURCE_BUFFER, ...)` for the THREE buffers in
+  Rurix slot order cluster_render/render_elements/cluster_store + the 32-byte
+  b0 mirror; fallback marker `RurixAccel: cluster_store native resource handle
+  mapping fallback rc=`), `0025` (recording-smoke + real-pass opt-in arms +
+  writeback SCAFFOLD; authored under the GRX Wave 4 print-gating discipline:
+  every per-dispatch stdout marker — REAL_PASS / RECORD / WRITEBACK — is gated
+  under the harness-only `dispatch_recording_smoke` opt-in, so the production
+  `dispatch_real_pass` path emits zero per-dispatch stdout and pass engagement
+  is read from the shim engagement counter file / `RXGD_SUMMARY`).
+
+**Enablement measured success**: `ci/grx014_cluster_store_real_pass_enablement_smoke.py`
+on the 0001..0026 scratch Godot (Windows D3D12 Forward+, NVIDIA GeForce RTX
+4070 Ti) recorded a strict MEASURED success
+(`real_pass_enablement_success_evidence.json`, `status=success`,
+`strict_success=true`): the candidate leg observed
+`real_pass_marker_observed=true` + `writeback_marker_observed=true` +
+`record_marker_observed=true` (`RXGD_GODOT_RUNTIME_CLUSTER_STORE_REAL_PASS
+recorded=1`; the candidate/forced legs arm `dispatch_recording_smoke` because
+Wave 4 print gating moved the per-dispatch instrumentation markers under it),
+the `forced_capability_downgrade` red leg measured
+`first_missing_prerequisite=dispatch_eligibility_failed`/`fallback_reason=unsupported_device`
+(`RXGD_CLUSTER_STORE_REAL_PASS_BLOCKED`; cluster_store's b0 is all u32 with no
+i64 fields, so int64 is not in the preflight and the forced downgrade is
+caught at the dispatch-eligibility gate — the GRX-013 precedent), the LDR
+visual gate held at `max_abs=0`/`mean_abs=0`, the measured_local telemetry
+passed GRX-008 validation, and the `0001..0026` patch-stack /
+source-provenance / log audits were all green. The scene is a deterministic
+clustered-lights scene (5x5 static lit box grid + nine static shadowless
+`OmniLight3D`, so `render_element_count > 0` every frame and
+`ClusterBuilderRD::bake_cluster()` drives the store dispatch each frame). The
+standalone dispatch smoke (`real_d3d12_dispatch_smoke.json`) has
+`real_d3d12_dispatch_recorded=true`, `cpu_reference_match=true` (integer-exact,
+zero tolerance). The manifest top-level honestly flips `implemented=true`,
+`real_gpu_pass=true` (opt-in measured scope), `real_d3d12_dispatch_recorded=true`,
+`runtime_state=fallback_only_by_default_real_pass_optin_measured`;
+`default_enable_state` stays `disabled` and a `real_pass_measured_success`
+block is added.
+
+**Owner default-enable decision**: `real_pass_default_enable_decision.json` /
+`.md` record `keep_default_disabled` — (1) no per-pass FPS evidence; (2) the
+patch 0025 writeback is a scaffold (the shim submit lands outside Godot's
+frame command order, before the frame's `buffer_clear`, and the native
+cluster store dispatch re-packs the whole table every frame; candidate image
+bit-exact; no net benefit); (3) compute-merge-segment-only coverage with
+in-engine GPU parity observation still pending and no in-frame command-order
+integration design. Re-evaluated by the owner after a full baseline + per-pass
+benchmark.
+
+**Fail-closed invariants**: under the default Godot config the bridge still
+returns `RXGD_STATUS_FALLBACK` for `RXGD_PASS_CLUSTER_STORE` and the native
+cluster store takes over; the shipping feature-off bridge still fails closed
+with `real_dispatch_path_not_linked`. Once the gate module
+`ci/grx_gates/grx014_cluster_store.py` reports contract + patch applyability +
+dispatch smoke + enablement + decision all ready, the probe advances
+`next_action=start_grx015_gpu_culling_pass_contract`; any missing/tampered
+artifact fails closed (`grx_gate_module_error`) and keeps `next_action`
+unchanged. All §11 remaining items / known gaps not superseded above are
+preserved. No FPS, p95, GPU-timestamp, or performance improvement is claimed.

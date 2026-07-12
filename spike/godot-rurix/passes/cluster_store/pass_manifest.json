@@ -1,7 +1,7 @@
 {
   "pass_id": "cluster_store",
-  "status": "grx014_offline_kernel_gate_and_dispatch_smoke_default_disabled",
-  "implemented": false,
+  "status": "grx014_real_pass_measured_success_default_disabled",
+  "implemented": true,
   "default_enable_state": "disabled",
   "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
   "target_scenes": [
@@ -11,7 +11,7 @@
   "bridge_pass_id": "RXGD_PASS_CLUSTER_STORE (1)",
   "real_pass_cap_bit": "RXGD_CAP_CLUSTER_STORE_REAL_PASS (1u << 8), reserved in PATCH_ALLOCATION.md section 3 (bit 8)",
   "godot_hook_investigation": {
-    "note": "Investigation only; external/godot-master is NOT modified. Paths and functions are recorded for the later patch 0023 call-site gate and the patch 0024 native-handle mapping. This S1-S4+S6 slice delivers the offline face (contract trio + offline kernel + math parity), the fail-closed bridge gate, and the standalone dispatch smoke; the Godot patches and the enablement smoke are later serial slices.",
+    "note": "Investigation record; external/godot-master is NOT modified (the Godot side is only ever changed through the tracked patch stack). The patch 0023 call-site gate, the patch 0024 native-handle mapping, and the patch 0025 recording-smoke/real-pass opt-in arms have since landed on top of these recorded paths/functions, and the gated real-pass enablement smoke measured a strict success on the 0001..0026 scratch build (see implementation_status.real_pass_measured_success).",
     "builder_class": {
       "source": "servers/rendering/renderer_rd/cluster_builder_rd.cpp",
       "header": "servers/rendering/renderer_rd/cluster_builder_rd.h",
@@ -87,7 +87,7 @@
     "the bake_cluster rasterization segment (cluster_render.glsl proxy-mesh draw over sphere/cone/box geometry, incl. MSAA/attachment pipeline variants) is NOT replaced: it is a graphics pipeline that produces this kernel's cluster_render_buffer input and stays native permanently",
     "the native buffer_clear of cluster_buffer / cluster_render_buffer stays native; the kernel assumes a zeroed destination exactly like the native shader",
     "the render_element_count == 0 early-out stays native (no store dispatch happens in that frame)",
-    "runtime hook / native-handle binding not wired (patches 0023-0025, later serial slices under the PATCH_ALLOCATION stack-lock)",
+    "the patch 0025 result writeback is a SCAFFOLD: the shim submit executes outside Godot's frame command order (before the frame's buffer_clear) and the native Godot cluster store dispatch re-packs the whole cluster table every frame as the continuation/backstop, so the opt-in Rurix dispatch has no measured net benefit yet (in-frame command-order integration is not designed)",
     "synthetic parity fixtures use small cluster grids and 32-aligned element capacities; the Godot default max_clustered_elements = 512 deployment scale is a documented assumption, not exercised at full scale offline",
     "GPU-observed math parity beyond the standalone S6 dispatch smoke (in-engine observation is the later enablement slice)"
   ],
@@ -119,16 +119,33 @@
     }
   ],
   "implementation_status": {
-    "segment": "s1_s4_s6_offline_gate_and_dispatch_smoke",
-    "segment_detail": "grx014_offline_kernel_gate_and_dispatch_smoke_default_disabled",
-    "runtime_state": "fallback_only",
-    "runtime_state_note": "The runtime path is fallback-only: the bridge returns RXGD_STATUS_FALLBACK for RXGD_PASS_CLUSTER_STORE on every call (manual_disabled on a valid default binding; the opt-in real-pass arm exists but fails closed with real_dispatch_path_not_linked on the shipping feature-off bridge, and no Godot patch sets RXGD_CAP_CLUSTER_STORE_REAL_PASS yet). real_gpu_pass stays false; the standalone S6 dispatch smoke records its measured success in real_d3d12_dispatch_smoke.json without flipping this manifest. Adding the gate REMOVES the historical placeholder estimated-timing path for RXGD_PASS_CLUSTER_STORE: no estimated cluster_store GPU time is attributed any more.",
+    "segment": "close_out",
+    "segment_detail": "grx014_real_pass_measured_success_default_disabled",
+    "runtime_state": "fallback_only_by_default_real_pass_optin_measured",
+    "runtime_state_note": "The DEFAULT runtime path stays fallback-only: under the default Godot config the bridge returns RXGD_STATUS_FALLBACK for RXGD_PASS_CLUSTER_STORE on every call (manual_disabled on a valid default binding) and the native cluster store renders. real_gpu_pass=true records the OPT-IN MEASURED arm only: with the default-false dispatch_real_pass opt-in explicitly enabled AND a d3d12-recording-shim bridge DLL, the gated real cluster_store dispatch executed and completed on real hardware (real_pass_enablement_success_evidence.json strict_success=true). The shipping feature-off bridge still fails closed with real_dispatch_path_not_linked. The gate also REMOVES the historical placeholder estimated-timing path for RXGD_PASS_CLUSTER_STORE: no estimated cluster_store GPU time is attributed any more.",
     "bridge_gate": "src/rurix-godot ClusterStoreGate: preflight (3 structured-buffer resources in cluster_render/render_elements/cluster_store order, 32-byte b0 ClusterStore::PushConstant mirror, nonzero cluster_screen_size dwords 2-3 and nonzero render_element_count_div_32 dword 4, nonzero buffer byte sizes; NO int64 cap check because cluster_store's b0 carries no i64 fields) -> dispatch eligibility (RXGD_CAP_CLUSTER_STORE_REAL_PASS opt-in, the int64 device/recording-harness capability, non-null native handles, ClusterStoreDispatchPackage layout/digest match vs offline evidence) -> per-slot kernel-binding-kind conformance ([structured_buffer, structured_buffer, rwstructured_buffer]) -> math-parity gate (cluster_store_cpu_reference_proven_pending_gpu_dispatch) -> real dispatch only under the d3d12-recording-shim feature via the additive 3-buffer shim entry rxgd_cluster_store_record_dispatch (Wave 4 production/instrumented readback selector + engagement note() counters); every failure records a fallback reason and prints the once-per-session RXGD_CLUSTER_STORE_REAL_PASS_BLOCKED diagnostic. Because int64 is NOT in the preflight, a forced capability downgrade fails closed at dispatch_eligibility_failed (the GRX-013 precedent).",
-    "godot_module_patch": "NOT authored in this slice. PATCH_ALLOCATION.md section 2 reserves 0023-0025 for cluster_store (0023-rurix-accel-cluster-store-pass-gate-and-callsite.patch / 0024 runtime binding / 0025 recording+real-pass opt-in); patch authoring is a later serial slice under the stack-lock.",
-    "godot_core_call_site_wired": false,
-    "real_gpu_pass": false,
-    "real_d3d12_dispatch_recorded": false,
+    "godot_module_patch": "spike/godot-rurix/patches/0023-rurix-accel-cluster-store-pass-gate-and-callsite.patch (stacked on 0001..0022; default-false rendering/rurix_accel/passes/cluster_store/enabled setting, try_record_cluster_store() module gate, default-false virtual D3D12Hooks::try_record_cluster_store(), and the bake_cluster store-segment call-site opt-in gate in cluster_builder_rd.cpp; the native store dispatch is always preserved as fallback/continuation). The runtime native-handle binding is patch 0024-rurix-accel-cluster-store-runtime-resource-binding.patch (three structured buffers via get_driver_resource(DRIVER_RESOURCE_BUFFER, ...), Rurix slot order cluster_render/render_elements/cluster_store, 32-byte b0 mirror) and the recording-smoke + real-pass opt-in arms are patch 0025-rurix-accel-cluster-store-recording-smoke-and-real-pass-optin.patch (authored under the GRX Wave 4 print-gating discipline: every per-dispatch stdout marker is gated under the harness-only dispatch_recording_smoke opt-in, so the production dispatch_real_pass path emits zero per-dispatch stdout). PATCH_ALLOCATION.md section 1 records 0023-0025 in use.",
+    "godot_core_call_site_wired": true,
+    "real_gpu_pass": true,
+    "real_d3d12_dispatch_recorded": true,
     "godot_runtime_cluster_store_path_enabled": false,
+    "real_pass_measured_success": {
+      "status": "success",
+      "strict_success": true,
+      "evidence": "spike/godot-rurix/passes/cluster_store/real_pass_enablement_success_evidence.json",
+      "telemetry": "spike/godot-rurix/passes/cluster_store/real_pass_enablement_telemetry.json",
+      "default_enable_decision": "spike/godot-rurix/passes/cluster_store/real_pass_default_enable_decision.json",
+      "default_enable_decision_document": "spike/godot-rurix/passes/cluster_store/real_pass_default_enable_decision.md",
+      "decision": "keep_default_disabled",
+      "harness": "ci/grx014_cluster_store_real_pass_enablement_smoke.py",
+      "real_gpu_pass_scope": "opt_in_only: the measured real dispatch requires the default-false dispatch_real_pass arm plus a d3d12-recording-shim bridge DLL; the default runtime path stays fallback-only and the shipping feature-off bridge fails closed with real_dispatch_path_not_linked",
+      "patch_stack": "0001..0026",
+      "pass_enable_matrix": "three legs measured on the 0001..0026 scratch build: disabled_default (reference) / enabled_real_pass_optin (candidate, real_pass_marker + writeback_marker + record_marker observed under the Wave 4 recording-smoke instrumentation arm) / forced_capability_downgrade (RXGD_CLUSTER_STORE_REAL_PASS_BLOCKED first_missing_prerequisite=dispatch_eligibility_failed fallback_reason=unsupported_device)",
+      "scene": "deterministic clustered-lights scene (5x5 static lit box grid + nine static shadowless OmniLight3D so render_element_count > 0 every frame; ClusterBuilderRD::bake_cluster() drives the store compute merge dispatch each frame; three structured buffers cluster_render SRV t0 + render_elements SRV t1 + cluster_store UAV u0 with the 32-byte ClusterStore::PushConstant b0 mirror)",
+      "ldr_visual_gate": "max_abs=0 / mean_abs=0 (candidate is bit-exact to the reference because the writeback is a scaffold: the shim submit lands before the frame's buffer_clear and the native cluster store dispatch re-packs the whole table)",
+      "performance_claim": "none",
+      "next_action_when_ready": "start_grx015_gpu_culling_pass_contract"
+    },
     "standalone_d3d12_dispatch_smoke": {
       "harness": "ci/grx014_cluster_store_d3d12_dispatch_smoke.py",
       "evidence": "spike/godot-rurix/passes/cluster_store/real_d3d12_dispatch_smoke.json",
@@ -143,8 +160,8 @@
       ]
     },
     "remaining_segments": [
-      "S5 patch 0023 (gate + bake_cluster call-site opt-in) and S7 patches 0024/0025 (runtime native-handle binding; recording-smoke + real-pass opt-in) — serial slices under the PATCH_ALLOCATION stack-lock",
-      "S8 scratch rebuild + gated real-pass enablement smoke; S9 close-out (manifest flip + owner default-enable decision + grx014 gate-module full readiness)",
+      "native-continuation retirement / net-benefit measurement (the patch 0025 writeback is a scaffold; in-frame command-order integration into Godot's own compute list is not designed)",
+      "in-engine GPU math parity observation beyond the standalone S6 dispatch smoke (math_parity_evidence.json stays status=pending_gpu_dispatch)",
       "per-pass FPS baseline comparison (contract requires >= 0.95x baseline before any default-enable discussion)"
     ]
   },
@@ -155,5 +172,5 @@
     "visual": "later enablement slice (in-engine LDR absolute diff on the pinned thresholds); this slice claims none",
     "perf": "reuse GRX-006 baseline/perf gate; no perf improvement claimed"
   },
-  "disclaimer": "GRX-014 cluster_store is at the S1-S4+S6 level only: the pass contract trio, the DXC/DXV/RTS0 offline kernel package (hlsl_bridge_workaround provenance, Rurix-owned RTS0), the integer-exact CPU math-parity reference, the fail-closed bridge ClusterStoreGate (default RXGD_STATUS_FALLBACK; opt-in RXGD_CAP_CLUSTER_STORE_REAL_PASS arm fails closed with real_dispatch_path_not_linked on the shipping feature-off bridge), and the standalone real D3D12 dispatch smoke. implemented=false, runtime_state=fallback_only, real_gpu_pass=false are the honest current values: no Godot patch exists (0023-0025 reserved, later serial slices), no runtime hook is wired, the rasterization segment stays native permanently, and NO visual-superiority, GPU-timestamp, FPS, or performance improvement is claimed."
+  "disclaimer": "GRX-014 cluster_store is closed out at the GRX-013 stage-A5-equivalent level: contract trio + DXC/DXV/RTS0 offline kernel package (hlsl_bridge_workaround provenance, Rurix-owned RTS0) + integer-exact CPU math-parity reference + fail-closed bridge ClusterStoreGate + Godot patches 0023-0025 + standalone real D3D12 dispatch smoke + gated real-pass enablement strict MEASURED success + owner keep_default_disabled decision. real_gpu_pass=true / real_d3d12_dispatch_recorded=true record the OPT-IN MEASURED arm only: default_enable_state stays disabled, the default runtime path stays fallback-only (the shipping feature-off bridge fails closed with real_dispatch_path_not_linked), the patch 0025 writeback is a scaffold with the native cluster store as continuation/backstop, the rasterization segment stays native permanently, and NO visual-superiority, GPU-timestamp, FPS, or performance improvement is claimed."
 }
