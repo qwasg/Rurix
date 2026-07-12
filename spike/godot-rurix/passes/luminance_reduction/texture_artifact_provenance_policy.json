@@ -59,5 +59,20 @@
     "canonical_switch_performed": false,
     "reason": "Not all four revert conditions are true (condition 2 unmet: single-level kernel, math parity + D3D12 dispatch pending). Fail-closed preserved. See texture_intrinsic_toolchain_blocker.json resolution.",
     "cross_reference": "texture_intrinsic_toolchain_blocker.json resolution / spike/dxil-path-probe/dxil_texture_store_patch_recipe.md"
+  },
+  "reverification_2026_07_12": {
+    "date": "2026-07-12",
+    "context": "Recompute pass re-ran the revert conditions before attempting the hlsl_bridge_workaround -> rurix_owned switch. Pure offline (rurixc -> llc -> dxv), outputs to an out-of-repo scratch dir; no canonical artifact / pass_manifest / src file overwritten.",
+    "evidence": "spike/godot-rurix/passes/luminance_reduction/rurix_owned_switch_recompute_evidence.json",
+    "condition_1_recheck": "SATISFIED — lib_texture.rx and lib.rx both compile exit-0 and DXV-accept on every run.",
+    "new_blocker_llc_dxil_nondeterminism": {
+      "measured": "Byte-identical input IR (.ll stable x10, b7cd1539...) fed to llc yields TWO distinct DXIL containers at random (llc-direct on fixed .ll x12 -> 2 hashes 8:4; same two states via rurixc). Differ in 3 bytes of bitcode (offset ~516) + the 16-byte downstream module hash.",
+      "lib_texture_rx_states": ["4dcc65e2344cd28e4a900b546b4b9194128dc109485d47fa0e7087d99542679f", "47fb0b0090e371e54dc8debb276dd8742b4b814fe7fb6069c0d3e3eebec27040"],
+      "lib_rx_states": ["d0aff0d4873309b62ecc43b6026ff52c4859e8e35f67d95f385e0f40f2733569", "966f10a07bb01d27c40917c29bffa0eac8075a9a91e0b4a044daec00f07c0239"],
+      "consequence": "A digest-pinned canonical (src include_bytes! + LUMINANCE_OFFLINE_DXIL_SHA256) cannot be satisfied — no single reproducible SHA-256. Independently fails the switch's reproducibility bar, on top of still-unmet conditions 2-4. The DXC hlsl_bridge canonical IS deterministic and stays pin-able.",
+      "prior_evidence_gap": "The earlier 'byte-stable x8' claim (texture_intrinsic_toolchain_blocker.json resolution.evidence) was measured on minimal probe cases (case_K.ll/case_L.ll), not the full luminance kernel container. The single-shot pass_direct_compile_evidence.json recorded only one of the two lib.rx states (966f10a0...)."
+    },
+    "canonical_switch_performed": false,
+    "reason": "New reproducibility blocker (llc DXIL non-determinism) + still-unmet conditions 2-4. Fail-closed preserved; canonical artifacts, pass_manifest, src digests, and registry/deferred.json unchanged by this slice."
   }
 }
