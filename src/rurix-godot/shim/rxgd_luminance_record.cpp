@@ -72,6 +72,7 @@
 #include <cstring>
 #include <map>
 #include <mutex>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -84,7 +85,13 @@ using Microsoft::WRL::ComPtr;
 // Shim <-> Rust ABI version (kept in sync with the Rust d3d12_shim module).
 // Bumped 1 -> 2 for the Wave 2 v2 execution model (session cache + rings +
 // multi-level record entry + summary + explicit session close).
-static const uint32_t kShimAbiVersion = 2u;
+// Bumped 2 -> 3 for the Wave 4 production-dispatch split: the single-dispatch
+// record entries (2-resource / taa / particles) now take an explicit `readback`
+// selector so the shipping/bench real-pass path can run with ZERO per-dispatch
+// readback / fence-wait / checksum / stdout marker (production mode), while the
+// test/recording arms opt in to the instrumented readback + RXGD_BRIDGE_REC
+// marker by passing readback=1.
+static const uint32_t kShimAbiVersion = 3u;
 
 // Command-allocator ring depth. >= 3 so several frames of dispatches can be in
 // flight while older allocators are recycled by fence completion.
@@ -403,6 +410,67 @@ static bool sign_dxil_in_place(std::vector<uint8_t>&) {
 }
 #endif
 
+// ── Wave 4 engagement counter file (production-safe telemetry) ─────────────
+// The production real-pass path prints NO per-dispatch stdout, so the bench
+// runner can no longer scrape per-frame markers for pass engagement, and the
+// RXGD_SUMMARY stdout line only appears when the session is closed cleanly
+// (which a Godot force-quit can skip). To make engagement reporting reliable
+// the session mirrors its per-pass recorded/fallback counters to a JSON file
+// both periodically (every kEngagementFlushInterval notes) and at session
+// close. The path comes from the RXGD_ENGAGEMENT_OUTPUT environment variable
+// (injected by the runner / harness). Writing is best-effort: any failure is
+// swallowed so it never perturbs rendering. Format:
+//   {"<pass_id>": {"recorded": n, "fallback": m}, ...}
+// with numeric pass_id keys (the runner maps them to pass names).
+static const uint64_t kEngagementFlushInterval = 256u;
+
+// Resolve the engagement output path from the environment exactly once. Returns
+// an empty string when RXGD_ENGAGEMENT_OUTPUT is unset (engagement file
+// disabled — the historical stdout RXGD_SUMMARY path is unaffected).
+static const std::string& engagement_output_path() {
+    static const std::string path = []() -> std::string {
+        char buf[1024];
+        DWORD n = GetEnvironmentVariableA("RXGD_ENGAGEMENT_OUTPUT", buf,
+                                          (DWORD)sizeof(buf));
+        if (n == 0 || n >= sizeof(buf)) return std::string();
+        return std::string(buf, n);
+    }();
+    return path;
+}
+
+// Atomically replace `path` with `content`: write a sibling .tmp file then
+// MoveFileExA(REPLACE_EXISTING). Best-effort — every failure is ignored so a
+// read-only directory / locked file never disturbs rendering.
+static void atomic_write_engagement(const std::string& path, const std::string& content) {
+    if (path.empty()) return;
+    std::string tmp = path + ".tmp";
+    HANDLE h = CreateFileA(tmp.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS,
+                           FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (h == INVALID_HANDLE_VALUE) return;
+    const char* data = content.data();
+    size_t remaining = content.size();
+    bool ok = true;
+    while (remaining > 0) {
+        DWORD chunk = (DWORD)std::min<size_t>(remaining, 1u << 20);
+        DWORD written = 0;
+        if (!WriteFile(h, data, chunk, &written, nullptr) || written == 0) {
+            ok = false;
+            break;
+        }
+        data += written;
+        remaining -= written;
+    }
+    CloseHandle(h);
+    if (!ok) {
+        DeleteFileA(tmp.c_str());
+        return;
+    }
+    if (!MoveFileExA(tmp.c_str(), path.c_str(),
+                     MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        DeleteFileA(tmp.c_str());
+    }
+}
+
 // ── Session-cached kernel / allocator ring / descriptor heap ───────────────
 
 struct CachedKernel {
@@ -437,6 +505,7 @@ struct ShimSession {
     HANDLE fence_event = nullptr;
     bool initialized = false;
     std::map<uint32_t, PassCounters> counters;
+    uint64_t note_count = 0;  // total note() calls, drives periodic engagement flush
 
     ShimSession(ID3D12Device* d, ID3D12CommandQueue* q) : device(d), queue(q) {}
     ~ShimSession() {
@@ -562,9 +631,37 @@ struct ShimSession {
     void note(uint32_t pass_id, bool recorded) {
         PassCounters& c = counters[pass_id];
         if (recorded) c.recorded += 1; else c.fallback += 1;
+        // Periodic engagement flush so a force-quit (session never closed) still
+        // leaves a recent on-disk count. Best-effort; no-op without the env var.
+        if (++note_count % kEngagementFlushInterval == 0) {
+            flush_engagement();
+        }
     }
 
-    // Print one machine-readable summary line per pass touched this session.
+    // Serialize the per-pass recorded/fallback counters to the engagement JSON
+    // file (RXGD_ENGAGEMENT_OUTPUT). Best-effort and a no-op when the env var is
+    // unset. Format: {"<pass_id>":{"recorded":n,"fallback":m}, ...}.
+    void flush_engagement() const {
+        const std::string& path = engagement_output_path();
+        if (path.empty()) return;
+        std::string json = "{";
+        bool first = true;
+        for (const auto& kv : counters) {
+            if (!first) json += ",";
+            first = false;
+            char entry[128];
+            std::snprintf(entry, sizeof(entry),
+                          "\"%u\":{\"recorded\":%llu,\"fallback\":%llu}",
+                          kv.first, (unsigned long long)kv.second.recorded,
+                          (unsigned long long)kv.second.fallback);
+            json += entry;
+        }
+        json += "}\n";
+        atomic_write_engagement(path, json);
+    }
+
+    // Print one machine-readable summary line per pass touched this session, and
+    // write the final engagement file. Called at session close.
     void print_summary() {
         for (const auto& kv : counters) {
             std::printf("RXGD_SUMMARY pass=%u recorded=%llu fallback=%llu\n",
@@ -572,6 +669,7 @@ struct ShimSession {
                         (unsigned long long)kv.second.fallback);
         }
         std::fflush(stdout);
+        flush_engagement();
     }
 
     // Core multi-level record. `kernels`/`resources`/`levels` are borrowed. On
@@ -888,17 +986,18 @@ struct ShimSession {
     // ── GRX-012: 5-SRV (t0..t4) + 1-UAV (u0) single-dispatch record ──────────
     // The taa_resolve kernel binds five Texture2D SRVs and one RWTexture2D UAV,
     // which the srv/prev/uav RxgdShimLevel record path cannot express. This
-    // dedicated method records one dispatch (test-only readback mode: fence
-    // wait + checksum + RXGD_BRIDGE_REC marker), reusing the session kernel
-    // cache / allocator ring / descriptor heap / fence. The luminance / tonemap
-    // / ssao_blur record paths are untouched.
+    // dedicated method records one dispatch; `readback` selects the test/
+    // recording instrumented mode (fence wait + checksum + RXGD_BRIDGE_REC
+    // marker) vs the production mode (submit only, no readback / marker),
+    // reusing the session kernel cache / allocator ring / descriptor heap /
+    // fence. The luminance / tonemap / ssao_blur record paths are untouched.
     int record_taa(uint32_t pass_id,
                    const uint8_t* dxil, size_t dxil_len,
                    const uint8_t* rts0, size_t rts0_len,
                    ID3D12Resource* const srvs[5], ID3D12Resource* uav,
                    const uint8_t* push_constants,
                    uint32_t width, uint32_t height,
-                   RxgdRecordResult* out) {
+                   bool readback, RxgdRecordResult* out) {
         (void)pass_id;
         if (!ensure_initialized(out)) return -31;
         CachedKernel* k = get_or_create_kernel(dxil, dxil_len, rts0, rts0_len, out);
@@ -951,6 +1050,33 @@ struct ShimSession {
         const UINT gx = std::max<UINT>((width + 7) / 8, 1u);
         const UINT gy = std::max<UINT>((height + 7) / 8, 1u);
         cmd->Dispatch(gx, gy, 1);
+
+        if (!readback) {
+            // Production path: submit the dispatch and track the fence value for
+            // allocator recycling; NO copy / fence-wait / map / checksum / marker.
+            hr = cmd->Close();
+            if (FAILED(hr)) { set_detail(out, "Close command list", hr); return -35; }
+            ID3D12CommandList* plists[] = {cmd.Get()};
+            queue->ExecuteCommandLists(1, plists);
+            UINT64 pval = ++next_fence_value;
+            if (FAILED(queue->Signal(fence.Get(), pval))) {
+                set_detail_msg(out, "Signal fence");
+                return -36;
+            }
+            allocators[(alloc_cursor + allocators.size() - 1) % allocators.size()]
+                .fence_value = pval;
+            out->fence_completed_value = pval;
+            out->dispatch_x = gx;
+            out->dispatch_y = gy;
+            out->dispatch_z = 1;
+            out->dst_width = width;
+            out->dst_height = height;
+            out->readback_checksum = 0;
+            out->dst_first_value = 0.0f;
+            out->dxil_signed = k->dxil_signed ? 1 : 0;
+            std::snprintf(out->error_detail, sizeof(out->error_detail), "ok");
+            return 0;
+        }
 
         // Test-only readback of the output UAV.
         D3D12_RESOURCE_DESC uav_desc = uav->GetDesc();
@@ -1089,7 +1215,7 @@ struct ShimSession {
                               ID3D12Resource* src_particles, ID3D12Resource* dst_instances,
                               const uint8_t* push_constants,
                               uint32_t src_bytes, uint32_t dst_bytes,
-                              RxgdRecordResult* out) {
+                              bool readback, RxgdRecordResult* out) {
         (void)pass_id;
         if (!ensure_initialized(out)) return -31;
         CachedKernel* k = get_or_create_kernel(dxil, dxil_len, rts0, rts0_len, out);
@@ -1147,6 +1273,33 @@ struct ShimSession {
         const uint32_t total_particles = rc[3]; // CopyPushConstant dword 3
         const UINT gx = std::max<UINT>((total_particles + 63u) / 64u, 1u);
         cmd->Dispatch(gx, 1, 1);
+
+        if (!readback) {
+            // Production path: submit + track the fence value; NO copy /
+            // fence-wait / map / checksum / marker.
+            hr = cmd->Close();
+            if (FAILED(hr)) { set_detail(out, "Close command list", hr); return -35; }
+            ID3D12CommandList* plists[] = {cmd.Get()};
+            queue->ExecuteCommandLists(1, plists);
+            UINT64 pval = ++next_fence_value;
+            if (FAILED(queue->Signal(fence.Get(), pval))) {
+                set_detail_msg(out, "Signal fence");
+                return -36;
+            }
+            allocators[(alloc_cursor + allocators.size() - 1) % allocators.size()]
+                .fence_value = pval;
+            out->fence_completed_value = pval;
+            out->dispatch_x = gx;
+            out->dispatch_y = 1;
+            out->dispatch_z = 1;
+            out->dst_width = dst_bytes;
+            out->dst_height = 1;
+            out->readback_checksum = 0;
+            out->dst_first_value = 0.0f;
+            out->dxil_signed = k->dxil_signed ? 1 : 0;
+            std::snprintf(out->error_detail, sizeof(out->error_detail), "ok");
+            return 0;
+        }
 
         // Test-only readback of the destination structured buffer.
         const UINT64 rb_bytes = (UINT64)dst_elements * dst_stride;
@@ -1276,8 +1429,11 @@ extern "C" __declspec(dllexport) void rxgd_luminance_record_shim_session_close(
 }
 
 // Historical single-level 2-resource (SRV t0 src, UAV u0 dst) recording entry.
-// Always test-only readback mode. Returns 0 on success, negative on failure.
-// Never accepts null handles and never fakes a dispatch.
+// `readback` selects the test/recording instrumented mode (readback + fence
+// wait + checksum + RXGD_BRIDGE_REC marker, readback != 0) vs the production
+// mode (submit only; zero readback / fence-wait / checksum / stdout marker,
+// readback == 0). Returns 0 on success, negative on failure. Never accepts null
+// handles and never fakes a dispatch.
 extern "C" __declspec(dllexport) int32_t rxgd_luminance_record_dispatch(
     uint32_t abi_version,
     uint32_t pass_id,
@@ -1295,6 +1451,7 @@ extern "C" __declspec(dllexport) int32_t rxgd_luminance_record_dispatch(
     uint32_t src_h,
     uint32_t dst_w,
     uint32_t dst_h,
+    uint32_t readback,
     RxgdRecordResult* out) {
     if (!out) return -1;
     std::memset(out, 0, sizeof(*out));
@@ -1342,7 +1499,7 @@ extern "C" __declspec(dllexport) int32_t rxgd_luminance_record_dispatch(
     std::memcpy(level.push_constants, push_constants, 28);
 
     int rc = session->record_levels(pass_id, &kernel, 1, resources, 2, &level, 1,
-                                    /*readback=*/true, out);
+                                    /*readback=*/readback != 0, out);
     session->note(pass_id, rc == 0);
     return rc;
 }
@@ -1421,9 +1578,11 @@ extern "C" __declspec(dllexport) int32_t rxgd_luminance_record_levels(
 }
 
 // GRX-012: 5-SRV (t0..t4) + 1-UAV (u0) single-dispatch recording entry for the
-// taa_resolve kernel. Always test-only readback mode. Returns 0 on success,
-// negative on failure. Never accepts null handles and never fakes a dispatch.
-// Additive; the existing 2-resource / multi-level entries are untouched.
+// taa_resolve kernel. `readback` selects the test/recording instrumented mode
+// (readback + fence wait + checksum + RXGD_BRIDGE_REC marker) vs the production
+// mode (submit only). Returns 0 on success, negative on failure. Never accepts
+// null handles and never fakes a dispatch. Additive; the existing 2-resource /
+// multi-level entries are untouched.
 extern "C" __declspec(dllexport) int32_t rxgd_taa_resolve_record_dispatch(
     uint32_t abi_version,
     uint32_t pass_id,
@@ -1443,6 +1602,7 @@ extern "C" __declspec(dllexport) int32_t rxgd_taa_resolve_record_dispatch(
     size_t push_constant_len,
     uint32_t width,
     uint32_t height,
+    uint32_t readback,
     RxgdRecordResult* out) {
     if (!out) return -1;
     std::memset(out, 0, sizeof(*out));
@@ -1476,7 +1636,8 @@ extern "C" __declspec(dllexport) int32_t rxgd_taa_resolve_record_dispatch(
     ID3D12Resource* uav = reinterpret_cast<ID3D12Resource*>(output_ptr);
 
     int rc = session->record_taa(pass_id, dxil_bytes, dxil_len, rts0_bytes, rts0_len,
-                                 srvs, uav, push_constants, width, height, out);
+                                 srvs, uav, push_constants, width, height,
+                                 readback != 0, out);
     session->note(pass_id, rc == 0);
     return rc;
 }
@@ -1496,6 +1657,7 @@ extern "C" __declspec(dllexport) int32_t rxgd_particles_copy_record_dispatch(
     size_t push_constant_len,
     uint32_t src_bytes,
     uint32_t dst_bytes,
+    uint32_t readback,
     RxgdRecordResult* out) {
     if (!out) return -1;
     std::memset(out, 0, sizeof(*out));
@@ -1522,7 +1684,7 @@ extern "C" __declspec(dllexport) int32_t rxgd_particles_copy_record_dispatch(
         pass_id, dxil_bytes, dxil_len, rts0_bytes, rts0_len,
         reinterpret_cast<ID3D12Resource*>(src_particles_ptr),
         reinterpret_cast<ID3D12Resource*>(dst_instances_ptr),
-        push_constants, src_bytes, dst_bytes, out);
+        push_constants, src_bytes, dst_bytes, readback != 0, out);
     session->note(pass_id, rc == 0);
     return rc;
 }

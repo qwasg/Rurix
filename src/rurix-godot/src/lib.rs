@@ -777,11 +777,16 @@ impl LuminanceReductionGate {
         #[cfg(feature = "d3d12-recording-shim")]
         {
             if caps.flags & RXGD_CAP_LUMINANCE_DISPATCH_RECORD != 0 {
+                // GRX-009 segment 4d recording-smoke arm: always instrumented
+                // (per-dispatch readback + RXGD_BRIDGE_REC marker) — the bridge
+                // recording smoke harness parses that marker. Independent of the
+                // RXGD_DISPATCH_INSTRUMENTED env used by the real-pass arm.
                 return match self.attempt_real_dispatch_recording(
                     resources,
                     push_constants,
                     device,
                     queue,
+                    /*readback=*/ true,
                 ) {
                     Ok(()) => RXGD_STATUS_OK,
                     Err(reason) => {
@@ -821,6 +826,7 @@ impl LuminanceReductionGate {
         push_constants: &[u8],
         device: usize,
         queue: usize,
+        readback: bool,
     ) -> Result<(), FallbackReason> {
         let src = resources[0];
         let dst = resources[1];
@@ -834,6 +840,7 @@ impl LuminanceReductionGate {
             src.height,
             dst.width,
             dst.height,
+            readback,
         )?;
         self.enabled = true;
         self.last_dispatch_record = Some(record);
@@ -937,20 +944,26 @@ impl LuminanceReductionGate {
         // attempt fails closed.
         #[cfg(feature = "d3d12-recording-shim")]
         {
+            let instrumented = dispatch_instrumented();
             return match self.attempt_real_dispatch_recording(
                 resources,
                 push_constants,
                 device,
                 queue,
+                instrumented,
             ) {
                 Ok(()) => {
                     self.last_real_pass_blocked = None;
                     // GRX-009 stage A5 real-pass marker (patch 0009 harness
                     // contract): printed ONLY after a real recorded dispatch
-                    // completed. Deliberately NOT an `ERROR:` line and NOT an
-                    // `RXGD_DIAG` line, so the segment 4g/4h runtime log
-                    // audits stay clean.
-                    println!("RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS recorded=1");
+                    // completed, and ONLY in the instrumented test/recording mode
+                    // (RXGD_DISPATCH_INSTRUMENTED) so the production bench path
+                    // emits zero per-dispatch stdout. Deliberately NOT an
+                    // `ERROR:` line and NOT an `RXGD_DIAG` line, so the segment
+                    // 4g/4h runtime log audits stay clean.
+                    if instrumented {
+                        println!("RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS recorded=1");
+                    }
                     RXGD_STATUS_OK
                 }
                 Err(reason) => self.real_pass_blocked("real_dispatch_recording_failed", reason),
@@ -1487,18 +1500,24 @@ impl TonemapGate {
         }
         #[cfg(feature = "d3d12-recording-shim")]
         {
+            let instrumented = dispatch_instrumented();
             return match self.attempt_real_dispatch_recording(
                 resources,
                 push_constants,
                 device,
                 queue,
+                instrumented,
             ) {
                 Ok(()) => {
                     self.last_real_pass_blocked = None;
-                    // Printed ONLY after a real recorded dispatch completed.
-                    // Deliberately NOT an `ERROR:` line and NOT an
-                    // `RXGD_DIAG` line, so runtime log audits stay clean.
-                    println!("RXGD_GODOT_RUNTIME_TONEMAP_REAL_PASS recorded=1");
+                    // Printed ONLY after a real recorded dispatch completed, and
+                    // ONLY in the instrumented mode (RXGD_DISPATCH_INSTRUMENTED)
+                    // so the production bench path emits zero per-dispatch stdout.
+                    // Deliberately NOT an `ERROR:` line and NOT an `RXGD_DIAG`
+                    // line, so runtime log audits stay clean.
+                    if instrumented {
+                        println!("RXGD_GODOT_RUNTIME_TONEMAP_REAL_PASS recorded=1");
+                    }
                     RXGD_STATUS_OK
                 }
                 Err(reason) => self.real_pass_blocked("real_dispatch_recording_failed", reason),
@@ -1523,6 +1542,7 @@ impl TonemapGate {
         push_constants: &[u8],
         device: usize,
         queue: usize,
+        readback: bool,
     ) -> Result<(), FallbackReason> {
         let src = resources[0];
         let dst = resources[1];
@@ -1536,6 +1556,7 @@ impl TonemapGate {
             src.height,
             dst.width,
             dst.height,
+            readback,
         )?;
         self.enabled = true;
         self.last_dispatch_record = Some(record);
@@ -1862,18 +1883,24 @@ impl SsaoBlurGate {
         }
         #[cfg(feature = "d3d12-recording-shim")]
         {
+            let instrumented = dispatch_instrumented();
             return match self.attempt_real_dispatch_recording(
                 resources,
                 push_constants,
                 device,
                 queue,
+                instrumented,
             ) {
                 Ok(()) => {
                     self.last_real_pass_blocked = None;
-                    // Printed ONLY after a real recorded dispatch completed.
-                    // Deliberately NOT an `ERROR:` line and NOT an
-                    // `RXGD_DIAG` line, so runtime log audits stay clean.
-                    println!("RXGD_GODOT_RUNTIME_SSAO_BLUR_REAL_PASS recorded=1");
+                    // Printed ONLY after a real recorded dispatch completed, and
+                    // ONLY in the instrumented mode (RXGD_DISPATCH_INSTRUMENTED)
+                    // so the production bench path emits zero per-dispatch stdout.
+                    // Deliberately NOT an `ERROR:` line and NOT an `RXGD_DIAG`
+                    // line, so runtime log audits stay clean.
+                    if instrumented {
+                        println!("RXGD_GODOT_RUNTIME_SSAO_BLUR_REAL_PASS recorded=1");
+                    }
                     RXGD_STATUS_OK
                 }
                 Err(reason) => self.real_pass_blocked("real_dispatch_recording_failed", reason),
@@ -1899,6 +1926,7 @@ impl SsaoBlurGate {
         push_constants: &[u8],
         device: usize,
         queue: usize,
+        readback: bool,
     ) -> Result<(), FallbackReason> {
         let src = resources[0];
         let dst = resources[1];
@@ -1912,6 +1940,7 @@ impl SsaoBlurGate {
             src.height,
             dst.width,
             dst.height,
+            readback,
         )?;
         self.enabled = true;
         self.last_dispatch_record = Some(record);
@@ -2241,18 +2270,24 @@ impl TaaResolveGate {
         }
         #[cfg(feature = "d3d12-recording-shim")]
         {
+            let instrumented = dispatch_instrumented();
             return match self.attempt_real_dispatch_recording(
                 resources,
                 push_constants,
                 device,
                 queue,
+                instrumented,
             ) {
                 Ok(()) => {
                     self.last_real_pass_blocked = None;
-                    // Printed ONLY after a real recorded dispatch completed.
+                    // Printed ONLY after a real recorded dispatch completed, and
+                    // ONLY in the instrumented mode (RXGD_DISPATCH_INSTRUMENTED)
+                    // so the production bench path emits zero per-dispatch stdout.
                     // Deliberately NOT an `ERROR:` line and NOT an `RXGD_DIAG`
                     // line, so runtime log audits stay clean.
-                    println!("RXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS recorded=1");
+                    if instrumented {
+                        println!("RXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS recorded=1");
+                    }
                     RXGD_STATUS_OK
                 }
                 Err(reason) => self.real_pass_blocked("real_dispatch_recording_failed", reason),
@@ -2276,6 +2311,7 @@ impl TaaResolveGate {
         push_constants: &[u8],
         device: usize,
         queue: usize,
+        readback: bool,
     ) -> Result<(), FallbackReason> {
         let color = resources[0];
         let record = d3d12_recording_shim::record_taa_resolve_dispatch(
@@ -2290,6 +2326,7 @@ impl TaaResolveGate {
             push_constants,
             color.width,
             color.height,
+            readback,
         )?;
         self.enabled = true;
         self.last_dispatch_record = Some(record);
@@ -2618,18 +2655,24 @@ impl ParticlesCopyGate {
         }
         #[cfg(feature = "d3d12-recording-shim")]
         {
+            let instrumented = dispatch_instrumented();
             return match self.attempt_real_dispatch_recording(
                 resources,
                 push_constants,
                 device,
                 queue,
+                instrumented,
             ) {
                 Ok(()) => {
                     self.last_real_pass_blocked = None;
-                    // Printed ONLY after a real recorded dispatch completed.
+                    // Printed ONLY after a real recorded dispatch completed, and
+                    // ONLY in the instrumented mode (RXGD_DISPATCH_INSTRUMENTED)
+                    // so the production bench path emits zero per-dispatch stdout.
                     // Deliberately NOT an `ERROR:` line and NOT an `RXGD_DIAG`
                     // line, so runtime log audits stay clean.
-                    println!("RXGD_GODOT_RUNTIME_PARTICLES_COPY_REAL_PASS recorded=1");
+                    if instrumented {
+                        println!("RXGD_GODOT_RUNTIME_PARTICLES_COPY_REAL_PASS recorded=1");
+                    }
                     RXGD_STATUS_OK
                 }
                 Err(reason) => self.real_pass_blocked("real_dispatch_recording_failed", reason),
@@ -2652,6 +2695,7 @@ impl ParticlesCopyGate {
         push_constants: &[u8],
         device: usize,
         queue: usize,
+        readback: bool,
     ) -> Result<(), FallbackReason> {
         let src = resources[0];
         let dst = resources[1];
@@ -2663,6 +2707,7 @@ impl ParticlesCopyGate {
             push_constants,
             src.width,
             dst.width,
+            readback,
         )?;
         self.enabled = true;
         self.last_dispatch_record = Some(record);
@@ -3439,6 +3484,27 @@ where
     f(inner)
 }
 
+/// GRX Wave 4: whether the real-pass dispatch path runs in the instrumented
+/// test/recording mode (per-dispatch readback + fence wait + checksum +
+/// `RXGD_GODOT_RUNTIME_*_REAL_PASS` stdout markers) or the default production
+/// mode (submit only; zero per-dispatch readback / stdout). Controlled by the
+/// `RXGD_DISPATCH_INSTRUMENTED` environment variable (`1`/`true`), read once and
+/// cached. The bench runner leaves it unset (production, so the FPS measurement
+/// is not dominated by readback/stdout); the enablement/recording smokes set it
+/// so their strict-success marker + evidence semantics are preserved. The
+/// luminance `dispatch_recording_smoke` RECORD-cap arm forces instrumented
+/// independently of this flag, and the pyramid arm is always production.
+#[cfg(feature = "d3d12-recording-shim")]
+fn dispatch_instrumented() -> bool {
+    use std::sync::OnceLock;
+    static INSTRUMENTED: OnceLock<bool> = OnceLock::new();
+    *INSTRUMENTED.get_or_init(|| {
+        std::env::var("RXGD_DISPATCH_INSTRUMENTED")
+            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false)
+    })
+}
+
 /// GRX-009 segment 4d bridge D3D12 dispatch recording shim FFI (Windows-only,
 /// `d3d12-recording-shim` feature). The tracked offline luminance DXIL container
 /// and RTS0 root signature are embedded here and their SHA-256 digests are
@@ -3461,7 +3527,11 @@ mod d3d12_recording_shim {
     /// Shim <-> Rust ABI version (kept in sync with `rxgd_luminance_record.cpp`).
     /// Bumped 1 -> 2 for the Wave 2 v2 execution model (session cache + ring
     /// allocators + descriptor-heap ring + multi-level record entry + summary).
-    pub(super) const SHIM_ABI_VERSION: u32 = 2;
+    /// Bumped 2 -> 3 for the Wave 4 production-dispatch split: the single-dispatch
+    /// record entries take an explicit `readback` selector so the bench/shipping
+    /// real-pass path runs with zero per-dispatch readback / fence-wait /
+    /// checksum / stdout marker.
+    pub(super) const SHIM_ABI_VERSION: u32 = 3;
 
     /// Tracked offline luminance artifacts (segment 4i, texture-capable).
     /// Embedded so the bridge never reads them from disk at runtime; their
@@ -3606,6 +3676,7 @@ mod d3d12_recording_shim {
             src_h: u32,
             dst_w: u32,
             dst_h: u32,
+            readback: u32,
             out: *mut RxgdRecordResult,
         ) -> i32;
 
@@ -3648,6 +3719,7 @@ mod d3d12_recording_shim {
             push_constant_len: usize,
             width: u32,
             height: u32,
+            readback: u32,
             out: *mut RxgdRecordResult,
         ) -> i32;
 
@@ -3673,6 +3745,7 @@ mod d3d12_recording_shim {
             push_constant_len: usize,
             src_bytes: u32,
             dst_bytes: u32,
+            readback: u32,
             out: *mut RxgdRecordResult,
         ) -> i32;
     }
@@ -3712,6 +3785,7 @@ mod d3d12_recording_shim {
         src_h: u32,
         dst_w: u32,
         dst_h: u32,
+        readback: bool,
     ) -> Result<DispatchRecord, FallbackReason> {
         record_texture_pass_dispatch(
             RXGD_PASS_LUMINANCE_REDUCTION,
@@ -3728,6 +3802,7 @@ mod d3d12_recording_shim {
             src_h,
             dst_w,
             dst_h,
+            readback,
         )
     }
 
@@ -3748,6 +3823,7 @@ mod d3d12_recording_shim {
         src_h: u32,
         dst_w: u32,
         dst_h: u32,
+        readback: bool,
     ) -> Result<DispatchRecord, FallbackReason> {
         record_texture_pass_dispatch(
             RXGD_PASS_TONEMAP,
@@ -3764,6 +3840,7 @@ mod d3d12_recording_shim {
             src_h,
             dst_w,
             dst_h,
+            readback,
         )
     }
 
@@ -3784,6 +3861,7 @@ mod d3d12_recording_shim {
         src_h: u32,
         dst_w: u32,
         dst_h: u32,
+        readback: bool,
     ) -> Result<DispatchRecord, FallbackReason> {
         record_texture_pass_dispatch(
             RXGD_PASS_SSAO_BLUR,
@@ -3800,6 +3878,7 @@ mod d3d12_recording_shim {
             src_h,
             dst_w,
             dst_h,
+            readback,
         )
     }
 
@@ -3824,6 +3903,7 @@ mod d3d12_recording_shim {
         push_constants: &[u8],
         width: u32,
         height: u32,
+        readback: bool,
     ) -> Result<DispatchRecord, FallbackReason> {
         // Artifact integrity: the embedded bytes must hash to the baked offline
         // compile evidence digests, or the runtime binding does not correspond
@@ -3881,6 +3961,7 @@ mod d3d12_recording_shim {
                 push_constants.len(),
                 width,
                 height,
+                if readback { 1 } else { 0 },
                 &mut out,
             )
         };
@@ -3927,6 +4008,7 @@ mod d3d12_recording_shim {
         push_constants: &[u8],
         src_bytes: u32,
         dst_bytes: u32,
+        readback: bool,
     ) -> Result<DispatchRecord, FallbackReason> {
         // Artifact integrity: the embedded bytes must hash to the baked offline
         // compile evidence digests, or the runtime binding does not correspond
@@ -3980,6 +4062,7 @@ mod d3d12_recording_shim {
                 push_constants.len(),
                 src_bytes,
                 dst_bytes,
+                if readback { 1 } else { 0 },
                 &mut out,
             )
         };
@@ -4211,6 +4294,7 @@ mod d3d12_recording_shim {
         src_h: u32,
         dst_w: u32,
         dst_h: u32,
+        readback: bool,
     ) -> Result<DispatchRecord, FallbackReason> {
         // Artifact integrity: the embedded bytes must hash to the baked offline
         // compile evidence digests, or the runtime binding does not correspond
@@ -4268,6 +4352,7 @@ mod d3d12_recording_shim {
                 src_h,
                 dst_w,
                 dst_h,
+                if readback { 1 } else { 0 },
                 &mut out,
             )
         };

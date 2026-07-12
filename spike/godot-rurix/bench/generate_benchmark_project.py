@@ -48,8 +48,8 @@ SCENE_NOTES = {
     "material_variants": "PSO / descriptor-switch stress: 2048 distinct StandardMaterial3D variants (varied shader features) across thousands of instances submitted in a deterministic shuffled order.",
     "post_fx_chain": "Post-processing stress: auto-exposure (luminance reduction) enabled via CameraAttributes, multi-level glow, FILMIC tonemap, screen-space ambient occlusion (Environment.ssao_enabled, the ssao_blur GRX-011 target), and supersampled internal resolution over HDR-lit content.",
     "volumetric_fog": "Volumetric fog stress: dense froxel fog with ~96 light injections over a lit geometry field (no dedicated Rurix pass; the load must be absorbed by lighting/geometry passes).",
-    "particles": "GPU particle stress: ~600k GPU particles spread across 12 emitters. One emitter uses view-depth draw order (GPUParticles3D.DRAW_ORDER_VIEW_DEPTH) so the GPU particle depth-sort path (particles_copy GRX-013 target) is exercised.",
-    "mixed_forward_plus": "Mixed Forward+ stress: a proportional blend of clustered lights, mesh instances, material variants, GPU particles, and the post-processing chain, with screen-space ambient occlusion (ssao_blur GRX-011 target) and temporal AA (taa_resolve GRX-012 target) both enabled.",
+    "particles": "GPU particle stress: ~600k GPU particles spread across 12 emitters. 11 emitters use a Z_BILLBOARD transform-align with the default draw order so the particle-instance copy (particles_copy GRX-013 target) stays in the FILL_INSTANCES subset and engages every frame; the 12th uses view-depth draw order (GPUParticles3D.DRAW_ORDER_VIEW_DEPTH) to exercise the separate, subset-excluded depth-sort (do_sort) path.",
+    "mixed_forward_plus": "Mixed Forward+ stress: a proportional blend of clustered lights, mesh instances, material variants, GPU particles, and the post-processing chain, with screen-space ambient occlusion (ssao_blur GRX-011 target) and temporal AA (taa_resolve GRX-012 target) both enabled. All three particle emitters use a Z_BILLBOARD transform-align with the default draw order so the particle-instance copy (particles_copy GRX-013 target) engages every frame.",
 }
 
 
@@ -417,9 +417,12 @@ func _populate_scene() -> void:
     var per_emitter := 50000
     var primary := _prepare_particles(per_emitter)
     primary.position = Vector3(0.0, 2.0, 0.0)
-    # One emitter sorts by view depth so the GPU particle depth-sort path
-    # (particles_copy GRX-013 target) runs every frame; the other 11 keep the
-    # default index order. Scene semantic, on for both legs.
+    # One emitter sorts by view depth so the GPU particle depth-sort (do_sort)
+    # path runs every frame; that path is a separate, subset-excluded case. The
+    # other 11 emitters use a non-DISABLED Z_BILLBOARD transform-align with the
+    # default draw order (see _make_particle_emitter), so they stay in the
+    # FILL_INSTANCES subset the particles_copy (GRX-013) kernel actually copies
+    # and the pass engages every frame. Scene semantic, on for both legs.
     primary.draw_order = GPUParticles3D.DRAW_ORDER_VIEW_DEPTH
     for index in range(emitter_count - 1):
         var emitter := _make_particle_emitter(per_emitter)
@@ -468,9 +471,13 @@ func _populate_scene() -> void:
         omni.light_color = Color(rng.randf_range(0.5, 1.0), rng.randf_range(0.5, 1.0), rng.randf_range(0.6, 1.0), 1.0)
         omni.position = Vector3(rng.randf_range(-22.0, 22.0), rng.randf_range(1.5, 6.0), rng.randf_range(-22.0, 22.0))
         add_child(omni)
-    # Particles (GPU particle share, ~180k).
+    # Particles (GPU particle share, ~180k). All three emitters use a
+    # non-DISABLED Z_BILLBOARD transform-align with the default (non-view-depth)
+    # draw order so the particle-instance copy (particles_copy GRX-013 target)
+    # stays in the FILL_INSTANCES subset and engages every frame on both legs.
     var primary := _prepare_particles(60000)
     primary.position = Vector3(0.0, 3.0, 0.0)
+    primary.transform_align = GPUParticles3D.TRANSFORM_ALIGN_Z_BILLBOARD
     for index in range(2):
         var emitter := _make_particle_emitter(60000)
         emitter.position = Vector3(rng.randf_range(-8.0, 8.0), 3.0, rng.randf_range(-8.0, 8.0))
@@ -640,6 +647,13 @@ func _make_particle_emitter(amount: int) -> GPUParticles3D:
     emitter.emitting = true
     emitter.process_material = _make_particle_process_material()
     emitter.draw_pass_1 = _particle_draw_mesh()
+    # GRX-013: a non-DISABLED transform-align keeps the particle-instance copy
+    # hook engaged (transform_align == DISABLED makes the hook early-return), and
+    # Z_BILLBOARD keeps the default (non-view-depth) draw order so the copy stays
+    # in the FILL_INSTANCES subset the particles_copy kernel handles (the
+    # view-depth sort path is a separate, subset-excluded do_sort). Scene
+    # semantic, applied identically on both legs.
+    emitter.transform_align = GPUParticles3D.TRANSFORM_ALIGN_Z_BILLBOARD
     return emitter
 
 {populate_body}

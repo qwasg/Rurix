@@ -50,6 +50,25 @@
   五个 real_pass_default_enable_decision 全部维持 keep_default_disabled。
   luminance 0.9769 最接近，但受 instrumentation 污染，须在生产 dispatch 路径
   （无打印/无 readback）落地后重测方可复评。
+## 勘误（2026-07-12，W4-P0 根因复查后追加；上文原文保留不改）
+
+- 「测量效度声明」第 2 条**表述更正**：ssao/taa 腿的 RXGD_SUMMARY **实际打印了**
+  （ssao 腿 post_fx/mixed 各 pass=2 recorded=18400=8 dispatch/帧；taa 腿
+  many_mesh/mixed 各 pass=6 recorded=2299）——缺口在 runner 只解析名字型
+  RXGD_PASS_ENGAGEMENT 与 luminance/tonemap 两个 marker 表项，数字型
+  `RXGD_SUMMARY pass=<id>` 无解析路径。session 销毁路径（cleanup_device）
+  正常退出可靠。engagement=NONE 的判定仍成立（当时无有效解析源），
+  但根因归属修正为 runner 解析缺口。
+- 「结论与决策输入」第 4 条（计数口径）**已核实**：6900 = 每次 dispatch 最多
+  3 行共享同一 marker 子串（bridge recorded=1 + 模块 REAL_PASS + WRITEBACK）
+  的子串计数三重复；真实口径 = RXGD_SUMMARY pass=5 recorded=2300（1/帧）。
+  luminance 4598 = 2 行/帧×2299 同理。
+- W4-P0 已落地：生产路径（默认零 per-dispatch stdout/readback/checksum）+
+  engagement 计数器文件（RXGD_ENGAGEMENT_OUTPUT，周期+关闭原子写）+
+  runner 四级解析（文件优先）。生产模式 iter 抽测（非 evidence）：
+  clustered_lights tonemap 腿 ratio 0.323→0.980。残留污染项 = patch 模块侧
+  per-dispatch print_line（0009/0010/0013/0016/0019/0022，归下一次 patch 修订）。
+
 - Wave 4 前置工作清单（由本轮实测产生）：
   1. **生产 real-dispatch 路径**：shipping 形态的 real-pass（无 per-dispatch
      stdout/readback、engagement 走计数器落文件而非依赖 stdout+session 干净关闭）。

@@ -789,6 +789,12 @@ def run_godot(godot_exe: Path, project_dir: Path, capture_prefix: Path, log_name
     ]
     env = dict(os.environ)
     env[CAPTURE_PREFIX_ENV] = str(capture_prefix)
+    # GRX Wave 4: keep this enablement gate on the INSTRUMENTED real-pass path
+    # (per-dispatch readback + RXGD_GODOT_RUNTIME_*_REAL_PASS stdout marker) so
+    # the strict-success marker/evidence semantics are preserved. The bench
+    # runner leaves this unset, so its measured real-pass path stays production
+    # (zero per-dispatch readback/stdout).
+    env["RXGD_DISPATCH_INSTRUMENTED"] = "1"
     try:
         proc = subprocess.run(
             command,

@@ -113,6 +113,16 @@ VALID_PASS_MATRIX_KEYS = frozenset(
 # fallback=<m>). Both forms are parsed; when neither is present the runner
 # records pass_engagement as null (honest: the tracked Godot exe carries no
 # rurix_accel module, so no markers appear).
+#
+# COUNTING-CALIBER WARNING (Tier1 exit 20260712 "recorded=6900 vs 2300 frames"
+# root cause): substring marker counting OVER-COUNTS, because up to THREE
+# stdout lines per real dispatch share the same marker substring (the bridge
+# "..._REAL_PASS recorded=1" line, the Godot module "..._REAL_PASS: pass=..."
+# line, and the Godot "..._REAL_PASS_WRITEBACK: ..." line). The true dispatch
+# count is the shim note() counter (one per record call), reported by the
+# engagement file / RXGD_SUMMARY, which is why those two sources are preferred
+# below; marker counting is kept only as the last-resort legacy fallback and
+# must never be used for engagement-count comparisons.
 PASS_ENGAGEMENT_SUMMARY_RE = re.compile(
     r"RXGD_PASS_ENGAGEMENT\s+pass=([A-Za-z0-9_]+)\s+recorded=(\d+)\s+fallback=(\d+)"
 )
@@ -130,6 +140,34 @@ PASS_FALLBACK_MARKERS = {
     "luminance_reduction": ("RXGD_REAL_PASS_BLOCKED",),
     "tonemap": ("RXGD_TONEMAP_REAL_PASS_BLOCKED",),
 }
+
+# GRX Wave 4: the production real-pass dispatch path emits NO per-frame stdout
+# markers (so the FPS measurement is not dominated by stdout/readback). Pass
+# engagement is therefore read, in preference order, from:
+#   1. the shim engagement counter FILE (RXGD_ENGAGEMENT_OUTPUT, written
+#      periodically + at session close; survives a force-quit that skips the
+#      RXGD_SUMMARY stdout line),
+#   2. the shim session-close RXGD_SUMMARY stdout line (numeric pass_id),
+#   3. the historical stdout markers (RXGD_PASS_ENGAGEMENT / per-frame markers).
+# The counter file uses numeric pass_id keys; map them to the pass names the
+# rest of the pipeline uses. Kept in sync with the RXGD_PASS_* constants in
+# src/rurix-godot/src/lib.rs.
+ENGAGEMENT_ENV = "RXGD_ENGAGEMENT_OUTPUT"
+PASS_ID_TO_NAME = {
+    1: "cluster_store",
+    2: "ssao_blur",
+    3: "ssil_blur",
+    4: "luminance_reduction",
+    5: "tonemap",
+    6: "taa_resolve",
+    7: "particles_copy",
+    8: "gpu_culling",
+    9: "indirect_args",
+    10: "fused_post_chain",
+}
+PASS_SUMMARY_RE = re.compile(
+    r"RXGD_SUMMARY\s+pass=(\d+)\s+recorded=(\d+)\s+fallback=(\d+)"
+)
 
 # Godot log failure-marker rules aligned with bench_project_smoke.py. The runner
 # does not pass --verbose, so it only reuses marker detection and the global
@@ -341,12 +379,62 @@ def resolve_patch_stack_id(cli_id: str | None, godot_exe: Path) -> tuple[str | N
     )
 
 
-def parse_pass_engagement(output: str) -> dict[str, dict[str, int]] | None:
-    """Parse per-pass recorded/fallback frame counts from Godot stdout.
+def read_engagement_file(path: Path | None) -> dict[str, dict[str, int]] | None:
+    """Read the shim engagement counter file (numeric pass_id keys) and map it to
+    per-pass-name recorded/fallback counts. Returns None when the file is absent,
+    unreadable, or empty."""
+    if path is None or not path.is_file():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, ValueError):
+        return None
+    if not isinstance(payload, dict) or not payload:
+        return None
+    counts: dict[str, dict[str, int]] = {}
+    for key, value in payload.items():
+        if not isinstance(value, dict):
+            continue
+        try:
+            pass_id = int(key)
+        except (TypeError, ValueError):
+            continue
+        recorded = value.get("recorded")
+        fallback = value.get("fallback")
+        if not isinstance(recorded, int) or not isinstance(fallback, int):
+            continue
+        name = PASS_ID_TO_NAME.get(pass_id, f"pass_{pass_id}")
+        counts[name] = {"recorded": recorded, "fallback": fallback}
+    return counts or None
 
-    Accepts either the future exit-summary form or the current per-frame marker
-    form; returns None when no engagement markers are present.
+
+def parse_pass_engagement(
+    output: str, engagement_file: Path | None = None
+) -> tuple[dict[str, dict[str, int]] | None, str | None]:
+    """Resolve per-pass recorded/fallback counts, preferring the engagement file.
+
+    Preference order: the shim engagement counter file (production path), then
+    the shim session-close RXGD_SUMMARY stdout line, then the historical
+    exit-summary / per-frame marker forms. Returns (counts, source); both are
+    None when no engagement signal is present.
     """
+    # 1) Preferred: the shim engagement counter file.
+    file_engagement = read_engagement_file(engagement_file)
+    if file_engagement:
+        return file_engagement, "engagement_file"
+    # 2) Fallback: the shim session-close RXGD_SUMMARY stdout line (numeric
+    # pass_id). Only appears when the session closed cleanly.
+    summary_stdout: dict[str, dict[str, int]] = {}
+    for match in PASS_SUMMARY_RE.finditer(output):
+        pass_id = int(match.group(1))
+        name = PASS_ID_TO_NAME.get(pass_id, f"pass_{pass_id}")
+        summary_stdout[name] = {
+            "recorded": int(match.group(2)),
+            "fallback": int(match.group(3)),
+        }
+    if summary_stdout:
+        return summary_stdout, "stdout_summary"
+    # 3) Historical fallback: the future exit-summary form.
     summary: dict[str, dict[str, int]] = {}
     for match in PASS_ENGAGEMENT_SUMMARY_RE.finditer(output):
         summary[match.group(1)] = {
@@ -354,7 +442,8 @@ def parse_pass_engagement(output: str) -> dict[str, dict[str, int]] | None:
             "fallback": int(match.group(3)),
         }
     if summary:
-        return summary
+        return summary, "stdout_pass_engagement"
+    # 4) Historical fallback: per-frame record/blocked markers.
     lines = output.splitlines()
     counts: dict[str, dict[str, int]] = {}
     for pass_name, markers in PASS_RECORD_MARKERS.items():
@@ -366,11 +455,16 @@ def parse_pass_engagement(output: str) -> dict[str, dict[str, int]] | None:
         )
         if recorded or fallback:
             counts[pass_name] = {"recorded": recorded, "fallback": fallback}
-    return counts or None
+    if counts:
+        return counts, "stdout_record_markers"
+    return None, None
 
 
 def enrich_raw_payload(
-    path: Path, context: dict[str, object], engagement: dict[str, dict[str, int]] | None
+    path: Path,
+    context: dict[str, object],
+    engagement: dict[str, dict[str, int]] | None,
+    engagement_source: str | None = None,
 ) -> None:
     """Inject run-identity/provenance fields the GD runner cannot compute."""
     payload = load_json_object(path)
@@ -382,6 +476,7 @@ def enrich_raw_payload(
     if context["patch_stack_id"] is None:
         payload["patch_stack_id_note"] = context["patch_stack_id_note"]
     payload["pass_engagement"] = engagement
+    payload["pass_engagement_source"] = engagement_source
     write_json(path, payload)
 
 
@@ -652,6 +747,12 @@ def run_scene(
 ) -> dict[str, object]:
     raw_output_path = run_dir / "raw" / f"{scene_name}.json"
     log_path = run_dir / "logs" / f"{scene_name}.log"
+    # GRX Wave 4: the shim mirrors per-pass engagement counters to this file
+    # (RXGD_ENGAGEMENT_OUTPUT), the preferred production engagement source. A
+    # fresh path per scene; removed first so a stale file can never be misread.
+    engagement_file = run_dir / "engagement" / f"{scene_name}.json"
+    engagement_file.parent.mkdir(parents=True, exist_ok=True)
+    engagement_file.unlink(missing_ok=True)
     command = build_scene_command(project_dir, settings, scene_name, raw_output_path, context)
     result: dict[str, object] = {
         "scene_name": scene_name,
@@ -660,6 +761,7 @@ def run_scene(
         "cwd": str(project_dir),
         "raw_json_path": str(raw_output_path),
         "log_path": str(log_path),
+        "engagement_file_path": str(engagement_file),
         "leg": context["leg"],
         "exit_code": None,
         "status": "fail",
@@ -667,8 +769,11 @@ def run_scene(
         "failure_markers": [],
         "warnings": [],
         "pass_engagement": None,
+        "pass_engagement_source": None,
     }
 
+    run_env = dict(os.environ)
+    run_env[ENGAGEMENT_ENV] = str(engagement_file)
     try:
         completed = subprocess.run(
             command,
@@ -677,6 +782,7 @@ def run_scene(
             text=True,
             timeout=TIMEOUT_SECONDS,
             check=False,
+            env=run_env,
         )
         output = normalize_output(combined_output(completed))
         log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -699,13 +805,14 @@ def run_scene(
         if markers["failure_markers"]:
             result["error"] = f"godot log failure markers: {markers['failure_markers'][0]}"
             return result
-        engagement = parse_pass_engagement(output)
-        enrich_raw_payload(raw_output_path, context, engagement)
+        engagement, engagement_source = parse_pass_engagement(output, engagement_file)
+        enrich_raw_payload(raw_output_path, context, engagement, engagement_source)
         result["status"] = "success"
         result["sample_count"] = metrics["sample_count"]
         result["avg_fps"] = metrics["avg_fps"]
         result["p95_frame_time_ms"] = metrics["p95_frame_time_ms"]
         result["pass_engagement"] = engagement
+        result["pass_engagement_source"] = engagement_source
         return result
     except subprocess.TimeoutExpired as exc:
         partial_output = normalize_output(
