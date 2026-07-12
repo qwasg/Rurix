@@ -349,16 +349,26 @@ impl LuminanceDispatchPackage {
     }
 }
 
-/// Ceil-divide by 8 with the Godot / `lib_texture.rx` degenerate rule: a
-/// dimension of 1 stays 1 (a 1×1 level is already final). Mirrors the HLSL
-/// `(dim > 1) ? ((dim + 7) / 8) : 1` used by the reduce kernel.
-fn ceil_div8(dim: u32) -> u32 {
-    if dim > 1 { (dim + 7) / 8 } else { 1 }
+/// Floor-divide by 8 with Godot's `MAX(dim / 8, 1)` degenerate rule: any
+/// dimension below 8 floors to 0 and clamps back to 1. Mirrors Godot's native
+/// luminance cascade verbatim (`w = MAX(w / 8, 1)` in both
+/// `Luminance::LuminanceBuffers::configure` and `Luminance::luminance_reduction`,
+/// `servers/rendering/renderer_rd/effects/luminance.cpp`), so the planned
+/// `reduce[]` extents are byte-identical to the native Godot luminance buffers
+/// this pyramid rebinds. Native's own edge-drop is preserved: `dispatch_threads`
+/// launches `ceil(source/8)` groups (one dest texel each) but the destination
+/// buffer is only `floor(source/8)`, so the trailing partial 8×8 tile writes out
+/// of bounds and is discarded by the hardware. The tracked reduce kernel's
+/// internal `ceil`-based write guard drops that same partial texel against the
+/// floor-sized buffer, so the in-bounds result stays bit-exact with native.
+fn floor_div8(dim: u32) -> u32 {
+    (dim / 8).max(1)
 }
 
 /// GRX-009 Wave 2: one dispatch level of the luminance reduction pyramid — the
-/// source extent it reduces and the destination (`ceil(src/8)`) extent it
-/// writes. `is_final` marks the 1×1 WRITE_LUMINANCE level (clamp + EMA).
+/// source extent it reduces and the destination (`MAX(src/8, 1)`, native floor)
+/// extent it writes. `is_final` marks the 1×1 WRITE_LUMINANCE level (clamp +
+/// EMA).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyramidLevel {
     pub src_width: u32,
@@ -369,17 +379,20 @@ pub struct PyramidLevel {
 }
 
 /// GRX-009 Wave 2: plan the luminance reduction pyramid for a source extent,
-/// mirroring the native Godot cascade — each level reduces by 8×8 tiles
-/// (`ceil(dim/8)`, a 1-dimension staying 1) until the destination is 1×1; the
-/// last level is the final WRITE_LUMINANCE level. Always returns at least one
-/// level (a source already ≤ 8×8 yields a single final level). The chain
-/// strictly shrinks each step, so it always terminates.
+/// mirroring the native Godot cascade byte-for-byte — each level reduces by 8×8
+/// tiles (`MAX(dim/8, 1)`, native floor) until the destination is 1×1; the last
+/// level is the final WRITE_LUMINANCE level. Each level's source equals the
+/// previous level's floor destination, so `reduce[]` extents match Godot's
+/// native luminance buffers exactly (e.g. 256×144 → 32×18 → 4×2 → 1×1, three
+/// dispatches). Always returns at least one level (a source already ≤ 8×8 yields
+/// a single final level). Every step strictly shrinks (or clamps to 1), so it
+/// always terminates.
 pub fn plan_luminance_pyramid_levels(source_width: u32, source_height: u32) -> Vec<PyramidLevel> {
     let mut levels = Vec::new();
     let (mut w, mut h) = (source_width.max(1), source_height.max(1));
     loop {
-        let dst_width = ceil_div8(w);
-        let dst_height = ceil_div8(h);
+        let dst_width = floor_div8(w);
+        let dst_height = floor_div8(h);
         let is_final = dst_width == 1 && dst_height == 1;
         levels.push(PyramidLevel {
             src_width: w,
@@ -931,11 +944,11 @@ impl LuminanceReductionGate {
     ///
     /// The real dispatch is linked only under the `d3d12-recording-shim`
     /// feature; the shipping feature-off bridge fails closed with
-    /// `real_dispatch_path_not_linked`. This method is NOT wired into
-    /// `rxgd_record_pass` in this slice: the multi-resource hook that supplies
-    /// `reduce[]`/`current`/`prev` is a later patch slice (see
-    /// `hook_contract_v2.md`); the method + tests define the bridge-side
-    /// contract for it.
+    /// `real_dispatch_path_not_linked`. `rxgd_record_pass` routes the
+    /// multi-resource luminance array (resource_count >= 3) here through
+    /// [`Self::record_pyramid_from_push_constants`], which parses the b0 root
+    /// constants first (hook_contract_v2 §3); the two-resource level-0 arm is
+    /// unchanged.
     ///
     /// `first_frame` mirrors the native `p_set`: on the first frame there is no
     /// previous luminance, so the caller supplies a zero-cleared `prev` (the EMA
@@ -943,7 +956,6 @@ impl LuminanceReductionGate {
     /// a `prev`; it records exactly the binding it is handed. ONE-FRAME LATENCY:
     /// hooked from a Godot frame, `source`/`prev` carry the previous frame's
     /// content — documented, not hidden.
-    #[cfg_attr(not(test), allow(dead_code))]
     #[allow(clippy::too_many_arguments)]
     fn record_pyramid_attempt(
         &mut self,
@@ -1011,6 +1023,46 @@ impl LuminanceReductionGate {
                 FallbackReason::CompileFailed,
             )
         }
+    }
+
+    /// GRX-009 Wave 2: `rxgd_record_pass` entry for the multi-resource
+    /// luminance pyramid arm (hook_contract_v2). Parses the 28-byte b0 root
+    /// constant block (§3: `source_width`/`source_height` as little-endian i64
+    /// followed by `max`/`min`/`exposure_adjust` f32), failing the whole
+    /// pyramid closed with `pyramid_push_constants_invalid` on any length
+    /// mismatch or out-of-range dimension, then routes into
+    /// [`Self::record_pyramid_attempt`]. `first_frame` (the native `p_set`) is
+    /// caller-owned prev-buffer selection and is NOT carried on the wire (the
+    /// 28-byte block has no slot for it, matching Godot patch 0010), so it is
+    /// recorded as `false` here; the bridge never fabricates a `prev`.
+    fn record_pyramid_from_push_constants(
+        &mut self,
+        caps: RxGdCaps,
+        resources: &[RxGdResource],
+        push_constants: &[u8],
+        device: usize,
+        queue: usize,
+    ) -> i32 {
+        let Some((source_width, source_height, max_luminance, min_luminance, exposure_adjust)) =
+            parse_luminance_root_constants(push_constants)
+        else {
+            return self.real_pass_blocked(
+                "pyramid_push_constants_invalid",
+                FallbackReason::ValidationFailed,
+            );
+        };
+        self.record_pyramid_attempt(
+            caps,
+            resources,
+            source_width,
+            source_height,
+            max_luminance,
+            min_luminance,
+            exposure_adjust,
+            /*first_frame=*/ false,
+            device,
+            queue,
+        )
     }
 }
 
@@ -1991,8 +2043,24 @@ pub extern "C" fn rxgd_record_pass(
             // SAFETY: Pointer/count were validated above. We only read the
             // fixed-size records for ABI validation and never retain pointers.
             resource_slice = unsafe { slice::from_raw_parts(resources, resource_count as usize) };
+            // GRX-009 Wave 2 (hook_contract_v2 §1): the luminance pyramid arm
+            // (RXGD_PASS_LUMINANCE_REDUCTION with resource_count >= 3) hands the
+            // bridge a handle-only `[source, reduce[0..L-1], current, prev]`
+            // texture array. Each level's extent is derived from the b0 source
+            // dimensions by the planner, not carried per-resource, so those
+            // entries legitimately have zero width/height. Validate them with
+            // the ABI-header contract only; the pyramid binding check
+            // (`check_pyramid_resource_binding`) fails the whole pyramid closed
+            // (FALLBACK) on any zero handle or non-texture slot. Every other
+            // pass keeps the strict width/height-bearing front-door check.
+            let is_luminance_pyramid =
+                pass_id == RXGD_PASS_LUMINANCE_REDUCTION && resource_count >= 3;
             for resource in resource_slice {
-                let rc = validate_resource(*resource);
+                let rc = if is_luminance_pyramid {
+                    validate_pyramid_resource(*resource)
+                } else {
+                    validate_resource(*resource)
+                };
                 if rc != RXGD_STATUS_OK {
                     inner.last_error = rc;
                     return rc;
@@ -2019,11 +2087,26 @@ pub extern "C" fn rxgd_record_pass(
             let caps = inner.caps;
             let device = inner.device;
             let queue = inner.queue;
-            // GRX-009 segment 4h: the opt-in real-pass arm routes through the
-            // gated real-pass attempt (fail-closed; see
-            // RXGD_CAP_LUMINANCE_REAL_PASS). Every other call keeps the
-            // segment 4b gated dispatch bring-up path unchanged.
-            let rc = if caps.flags & RXGD_CAP_LUMINANCE_REAL_PASS != 0 {
+            // GRX-009 Wave 2 (hook_contract_v2): a multi-resource array
+            // (resource_count >= 3) is the luminance reduction pyramid
+            // `[source, reduce[0..L-1], current, prev]` (length num_levels + 2);
+            // it routes into the fail-closed pyramid attempt, which parses the
+            // b0 root constants and records the full reduce chain + final
+            // WRITE_LUMINANCE in one submit under the recording-shim feature.
+            // Exactly two resources keep the segment 4e/4h level-0 arm: the
+            // opt-in real-pass flag routes to the gated real-pass attempt and
+            // every other call keeps the segment 4b gated dispatch bring-up
+            // path, so the 4d recording smoke and level-0 semantics are
+            // unchanged.
+            let rc = if resource_count >= 3 {
+                inner.luminance_gate.record_pyramid_from_push_constants(
+                    caps,
+                    resource_slice,
+                    push_constant_slice,
+                    device,
+                    queue,
+                )
+            } else if caps.flags & RXGD_CAP_LUMINANCE_REAL_PASS != 0 {
                 inner.luminance_gate.record_real_pass_attempt(
                     caps,
                     resource_slice,
@@ -2233,6 +2316,25 @@ fn validate_resource(resource: RxGdResource) -> i32 {
     }
 }
 
+/// GRX-009 Wave 2 front-door validation for a luminance pyramid resource
+/// (hook_contract_v2 §1). The pyramid array carries handle-only textures —
+/// each level's extent is derived from the b0 source dimensions by the
+/// planner, not carried per-resource — so the width/height/depth extents are
+/// intentionally absent (zero). Only the ABI header (`abi_version`,
+/// `struct_size`) is enforced at the front door; the pyramid binding contract
+/// [`LuminanceReductionGate::check_pyramid_resource_binding`] re-checks the
+/// non-null native handle and the texture resource type per slot and fails the
+/// WHOLE pyramid closed (FALLBACK) — never a hard `RXGD_E_INVALID_ARGUMENT` —
+/// on any zero handle or non-texture slot.
+fn validate_pyramid_resource(resource: RxGdResource) -> i32 {
+    if resource.abi_version != RXGD_ABI_VERSION
+        || resource.struct_size != size_of::<RxGdResource>() as u32
+    {
+        return RXGD_E_INVALID_ARGUMENT;
+    }
+    RXGD_STATUS_OK
+}
+
 /// GRX-009 stage A3: the binding kind a runtime `RxGdResource` provides to
 /// the shader at a given kernel slot, for the per-slot kernel-binding-kind
 /// conformance check. Texture resources map to the SRV kind (`"texture2d"`)
@@ -2257,6 +2359,43 @@ fn le_u64(bytes: &[u8]) -> u64 {
     let mut buf = [0u8; 8];
     buf.copy_from_slice(bytes);
     u64::from_le_bytes(buf)
+}
+
+/// Reads a little-endian `f32` from an exactly 4-byte slice; callers must
+/// have validated the surrounding block length first.
+fn le_f32(bytes: &[u8]) -> f32 {
+    let mut buf = [0u8; 4];
+    buf.copy_from_slice(bytes);
+    f32::from_le_bytes(buf)
+}
+
+/// Parse the 28-byte luminance b0 root constant block shared by the level-0
+/// and pyramid arms (hook_contract_v2 §3, matching Godot patch 0010's
+/// marshalling): `source_width`/`source_height` as little-endian i64 (low
+/// dword then high dword; the high dword must be 0 because Godot passes the
+/// extent as `uint32_t`) followed by `max_luminance`/`min_luminance`/
+/// `exposure_adjust` as little-endian f32. Returns `None` on any length
+/// mismatch or an out-of-`u32`-range dimension so the caller can fail the
+/// whole pyramid closed.
+fn parse_luminance_root_constants(push_constants: &[u8]) -> Option<(u32, u32, f32, f32, f32)> {
+    if push_constants.len() as u64 != LUMINANCE_ROOT_CONSTANT_BYTES {
+        return None;
+    }
+    let source_width = le_u64(&push_constants[0..8]);
+    let source_height = le_u64(&push_constants[8..16]);
+    if source_width > u64::from(u32::MAX) || source_height > u64::from(u32::MAX) {
+        return None;
+    }
+    let max_luminance = le_f32(&push_constants[16..20]);
+    let min_luminance = le_f32(&push_constants[20..24]);
+    let exposure_adjust = le_f32(&push_constants[24..28]);
+    Some((
+        source_width as u32,
+        source_height as u32,
+        max_luminance,
+        min_luminance,
+        exposure_adjust,
+    ))
 }
 
 fn pass_supported(pass_id: u32) -> bool {
@@ -2691,7 +2830,12 @@ mod d3d12_recording_shim {
             };
             let prev_index = (num_levels + 1) as u32;
             // [numthreads(8,8,1)], one thread per dest texel: dispatch
-            // ceil(dst / 8) thread groups.
+            // ceil(dst / 8) thread groups over the native floor-sized
+            // destination (`dst = MAX(src/8, 1)`). This launches exactly enough
+            // threads to cover every in-bounds floor texel; the kernel's own
+            // ceil-based write guard drops the trailing partial tile against the
+            // floor buffer, matching native's `dispatch_threads(source)` +
+            // floor-buffer edge-drop bit-for-bit.
             let dispatch_x = ((lvl.dst_width + 7) / 8).max(1);
             let dispatch_y = ((lvl.dst_height + 7) / 8).max(1);
             let mut pc = [0u8; 28];
@@ -4770,13 +4914,19 @@ mod tests {
     }
 
     /// A 1920×1080 source cascades in four dispatches down to 1×1. Dims follow
-    /// the tracked kernel's ceil-div-8 (240×135 → 30×17 → 4×3 → 1×1); each
-    /// level's source equals the previous level's destination.
+    /// Godot's native floor cascade (`MAX(dim/8, 1)`): 240×135 → 30×16 → 3×2 →
+    /// 1×1; each level's source equals the previous level's floor destination,
+    /// so the reduce[] extents are byte-identical to Godot's native luminance
+    /// buffers.
     #[test]
     fn pyramid_plan_1080p_four_levels_chain_is_contiguous() {
         let levels = plan_luminance_pyramid_levels(1920, 1080);
         assert_eq!(levels.len(), 4);
+        // Native floor chain, level by level.
+        assert_eq!((levels[0].src_width, levels[0].src_height), (1920, 1080));
         assert_eq!((levels[0].dst_width, levels[0].dst_height), (240, 135));
+        assert_eq!((levels[1].dst_width, levels[1].dst_height), (30, 16));
+        assert_eq!((levels[2].dst_width, levels[2].dst_height), (3, 2));
         assert!(levels.last().unwrap().is_final);
         assert_eq!(
             (
@@ -4793,6 +4943,51 @@ mod tests {
                 (pair[1].src_width, pair[1].src_height)
             );
         }
+    }
+
+    /// The GRX-009 segment 4h smoke viewport (256×144) cascades in exactly three
+    /// dispatches following Godot's native floor chain: 256×144 → 32×18 → 4×2 →
+    /// 1×1. Locks the reduce[] extents to the native luminance buffers this
+    /// pyramid rebinds (`Luminance::LuminanceBuffers::configure`), including the
+    /// floor edge-drop at the 18→2 level (native `ceil(18/8)=3` groups write
+    /// into a floor `18/8=2` buffer; the trailing partial tile is discarded).
+    #[test]
+    fn pyramid_plan_256x144_matches_native_floor_chain() {
+        let levels = plan_luminance_pyramid_levels(256, 144);
+        assert_eq!(levels.len(), 3);
+        assert_eq!(
+            levels[0],
+            PyramidLevel {
+                src_width: 256,
+                src_height: 144,
+                dst_width: 32,
+                dst_height: 18,
+                is_final: false
+            }
+        );
+        assert_eq!(
+            levels[1],
+            PyramidLevel {
+                src_width: 32,
+                src_height: 18,
+                dst_width: 4,
+                dst_height: 2,
+                is_final: false
+            }
+        );
+        assert_eq!(
+            levels[2],
+            PyramidLevel {
+                src_width: 4,
+                src_height: 2,
+                dst_width: 1,
+                dst_height: 1,
+                is_final: true
+            }
+        );
+        // Array length the patch marshals: [source, reduce[0..L-1], current,
+        // prev] = num_levels + 2 = 5 for the smoke viewport.
+        assert_eq!(levels.len() + 2, 5);
     }
 
     /// Hook-contract resource array `[source, reduce[0..L-1], current, prev]` is
@@ -4920,5 +5115,233 @@ mod tests {
             gate.last_real_pass_blocked(),
             Some("real_dispatch_path_not_linked")
         );
+    }
+
+    /// GRX-009 Wave 2: a handle-only luminance pyramid resource array exactly as
+    /// Godot patch 0010 marshals it — every slot is an `RXGD_RESOURCE_TEXTURE`
+    /// with the ABI header + a non-null native handle set but zero width/height
+    /// (each level's extent comes from the b0 planner, not the resource struct).
+    fn pyramid_handle_only_resources(count: usize) -> Vec<RxGdResource> {
+        (0..count)
+            .map(|i| RxGdResource {
+                abi_version: RXGD_ABI_VERSION,
+                struct_size: size_of::<RxGdResource>() as u32,
+                resource_type: RXGD_RESOURCE_TEXTURE,
+                format: 0,
+                width: 0,
+                height: 0,
+                depth: 1,
+                mip_levels: 1,
+                usage_flags: 0,
+                native_handle: (i as u64) + 100,
+            })
+            .collect()
+    }
+
+    /// Push-constant parse (hook_contract_v2 §3): the shared 28-byte b0 block
+    /// round-trips through `parse_luminance_root_constants`, and any length
+    /// other than exactly 28 bytes — or an out-of-`u32`-range dimension — is
+    /// rejected (`None`) so the caller fails the whole pyramid closed.
+    #[test]
+    fn parse_luminance_root_constants_roundtrips_and_rejects_bad_input() {
+        let pc = luminance_push_constants(1920, 1080, 8.0, 0.05, 0.5);
+        assert_eq!(
+            parse_luminance_root_constants(&pc),
+            Some((1920u32, 1080u32, 8.0f32, 0.05f32, 0.5f32))
+        );
+        // A source ≤ 8×8 (single final level) round-trips just the same.
+        let pc_small = luminance_push_constants(8, 8, 4.0, 0.1, 1.0);
+        assert_eq!(
+            parse_luminance_root_constants(&pc_small),
+            Some((8u32, 8u32, 4.0f32, 0.1f32, 1.0f32))
+        );
+        // Any length != 28 is rejected.
+        for bad_len in [0usize, 16, 24, 27, 29, 32] {
+            let bytes = vec![0u8; bad_len];
+            assert_eq!(
+                parse_luminance_root_constants(&bytes),
+                None,
+                "push-constant length {bad_len} must be rejected"
+            );
+        }
+        // A source dimension whose high i64 dword is set overflows u32 → None.
+        let mut overflow = pc;
+        overflow[4..8].copy_from_slice(&1u32.to_le_bytes());
+        assert_eq!(parse_luminance_root_constants(&overflow), None);
+    }
+
+    /// `record_pyramid_from_push_constants` fails the whole pyramid closed with
+    /// `pyramid_push_constants_invalid` when the b0 block is not exactly 28
+    /// bytes — before any eligibility or dispatch — under both feature legs.
+    #[test]
+    fn pyramid_from_push_constants_bad_length_fails_closed() {
+        let caps = luminance_real_pass_optin_caps();
+        let resources = pyramid_handle_only_resources(6);
+        let mut gate = LuminanceReductionGate::new();
+        let rc = gate.record_pyramid_from_push_constants(caps, &resources, &[0u8; 16], 1, 2);
+        assert_eq!(rc, RXGD_STATUS_FALLBACK);
+        assert!(!gate.is_enabled());
+        assert_eq!(
+            gate.last_real_pass_blocked(),
+            Some("pyramid_push_constants_invalid")
+        );
+        assert_eq!(
+            gate.last_fallback_reason(),
+            Some(FallbackReason::ValidationFailed)
+        );
+    }
+
+    /// `record_pyramid_from_push_constants` parses the b0 dims and routes into
+    /// the pyramid attempt: a resource array whose length does not match the
+    /// planned `level_count + 2` fails closed with `pyramid_binding_invalid`
+    /// (both feature legs, before any dispatch).
+    #[test]
+    fn pyramid_from_push_constants_shape_mismatch_fails_closed() {
+        let caps = luminance_real_pass_optin_caps();
+        // 1920×1080 plans four levels -> needs 6 resources; supply only 3.
+        let resources = pyramid_handle_only_resources(3);
+        let pc = luminance_push_constants(1920, 1080, 8.0, 0.05, 0.5);
+        let mut gate = LuminanceReductionGate::new();
+        let rc = gate.record_pyramid_from_push_constants(caps, &resources, &pc, 1, 2);
+        assert_eq!(rc, RXGD_STATUS_FALLBACK);
+        assert!(!gate.is_enabled());
+        assert_eq!(
+            gate.last_real_pass_blocked(),
+            Some("pyramid_binding_invalid")
+        );
+    }
+
+    /// Feature-off shipping bridge: a fully valid handle-only pyramid array with
+    /// a correct 28-byte b0 block parses, routes through every software gate
+    /// (eligibility, binding, package identity) and fails closed only at the
+    /// linked-dispatch boundary with `real_dispatch_path_not_linked`.
+    #[cfg(not(feature = "d3d12-recording-shim"))]
+    #[test]
+    fn pyramid_from_push_constants_feature_off_reaches_dispatch_boundary() {
+        let caps = luminance_real_pass_optin_caps();
+        let resources = pyramid_handle_only_resources(6); // 1920×1080 -> 4 levels -> 6
+        let pc = luminance_push_constants(1920, 1080, 8.0, 0.05, 0.5);
+        let mut gate = LuminanceReductionGate::new();
+        let rc = gate.record_pyramid_from_push_constants(caps, &resources, &pc, 1, 2);
+        assert_eq!(rc, RXGD_STATUS_FALLBACK);
+        assert!(!gate.is_enabled());
+        assert_eq!(
+            gate.last_real_pass_blocked(),
+            Some("real_dispatch_path_not_linked")
+        );
+    }
+
+    /// FFI routing: exactly two resources keep the level-0 arm (backward
+    /// compatible) and fall back gracefully — never mis-routed to the pyramid
+    /// arm and never a hard argument error. Both feature legs.
+    #[test]
+    fn rxgd_record_pass_two_resources_keep_level0_arm() {
+        let (resources, push_constants) = valid_luminance_binding();
+        // Default caps (no bring-up / real-pass opt-in): the level-0 arm's
+        // preflight fails closed on the missing 64-bit integer capability.
+        let session = create_session();
+        let rc = rxgd_record_pass(
+            session,
+            RXGD_PASS_LUMINANCE_REDUCTION,
+            resources.as_ptr(),
+            resources.len() as u64,
+            push_constants.as_ptr(),
+            push_constants.len() as u64,
+        );
+        assert_eq!(rc, RXGD_STATUS_FALLBACK);
+        let mut stats = zeroed_stats();
+        assert_eq!(
+            rxgd_collect_timestamps(session, 1, &mut stats),
+            RXGD_STATUS_OK
+        );
+        assert_eq!(stats.recorded_passes, 0);
+        assert_eq!(stats.fallback_passes, 1);
+        assert_eq!(stats.last_error, RXGD_STATUS_FALLBACK);
+        rxgd_destroy_session(session);
+    }
+
+    /// FFI routing: the front door accepts the handle-only pyramid array (zero
+    /// width/height, as Godot patch 0010 marshals it) — it is NOT rejected as
+    /// an invalid argument — and routes it into the pyramid arm, which fails
+    /// closed with FALLBACK on the feature-off shipping bridge.
+    #[cfg(not(feature = "d3d12-recording-shim"))]
+    #[test]
+    fn rxgd_record_pass_pyramid_front_door_accepts_handle_only_array() {
+        let resources = pyramid_handle_only_resources(6);
+        let pc = luminance_push_constants(1920, 1080, 8.0, 0.05, 0.5);
+        let session = create_session_with_caps(luminance_real_pass_optin_caps());
+        let rc = rxgd_record_pass(
+            session,
+            RXGD_PASS_LUMINANCE_REDUCTION,
+            resources.as_ptr(),
+            resources.len() as u64,
+            pc.as_ptr(),
+            pc.len() as u64,
+        );
+        // Not RXGD_E_INVALID_ARGUMENT (the strict width/height front door would
+        // have rejected the zero-extent textures) — a graceful fail-closed.
+        assert_eq!(rc, RXGD_STATUS_FALLBACK);
+        let mut stats = zeroed_stats();
+        assert_eq!(
+            rxgd_collect_timestamps(session, 2, &mut stats),
+            RXGD_STATUS_OK
+        );
+        assert_eq!(stats.recorded_passes, 0);
+        assert_eq!(stats.fallback_passes, 1);
+        assert_eq!(stats.last_error, RXGD_STATUS_FALLBACK);
+        rxgd_destroy_session(session);
+    }
+
+    /// FFI routing: a multi-resource array (resource_count >= 3) whose length
+    /// does not match the planned pyramid falls back gracefully (not an argument
+    /// error) under both feature legs — it never reaches a dispatch.
+    #[test]
+    fn rxgd_record_pass_pyramid_shape_mismatch_falls_back() {
+        let resources = pyramid_handle_only_resources(3); // 1920×1080 needs 6
+        let pc = luminance_push_constants(1920, 1080, 8.0, 0.05, 0.5);
+        let session = create_session_with_caps(luminance_real_pass_optin_caps());
+        let rc = rxgd_record_pass(
+            session,
+            RXGD_PASS_LUMINANCE_REDUCTION,
+            resources.as_ptr(),
+            resources.len() as u64,
+            pc.as_ptr(),
+            pc.len() as u64,
+        );
+        assert_eq!(rc, RXGD_STATUS_FALLBACK);
+        let mut stats = zeroed_stats();
+        assert_eq!(
+            rxgd_collect_timestamps(session, 3, &mut stats),
+            RXGD_STATUS_OK
+        );
+        assert_eq!(stats.recorded_passes, 0);
+        assert_eq!(stats.fallback_passes, 1);
+        rxgd_destroy_session(session);
+    }
+
+    /// FFI routing: a multi-resource pyramid array with a b0 block that is not
+    /// exactly 28 bytes falls back gracefully under both feature legs.
+    #[test]
+    fn rxgd_record_pass_pyramid_bad_push_constants_falls_back() {
+        let resources = pyramid_handle_only_resources(6);
+        let pc = [0u8; 16];
+        let session = create_session_with_caps(luminance_real_pass_optin_caps());
+        let rc = rxgd_record_pass(
+            session,
+            RXGD_PASS_LUMINANCE_REDUCTION,
+            resources.as_ptr(),
+            resources.len() as u64,
+            pc.as_ptr(),
+            pc.len() as u64,
+        );
+        assert_eq!(rc, RXGD_STATUS_FALLBACK);
+        let mut stats = zeroed_stats();
+        assert_eq!(
+            rxgd_collect_timestamps(session, 4, &mut stats),
+            RXGD_STATUS_OK
+        );
+        assert_eq!(stats.recorded_passes, 0);
+        assert_eq!(stats.fallback_passes, 1);
+        rxgd_destroy_session(session);
     }
 }

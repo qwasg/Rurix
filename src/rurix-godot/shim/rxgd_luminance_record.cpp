@@ -175,22 +175,132 @@ static D3D12_HEAP_PROPERTIES heap_props(D3D12_HEAP_TYPE type) {
 // member and passes already-typed formats through unchanged.
 static DXGI_FORMAT typed_view_format(DXGI_FORMAT resource_format) {
     switch (resource_format) {
-        case DXGI_FORMAT_R32_TYPELESS:
-            return DXGI_FORMAT_R32_FLOAT;
-        case DXGI_FORMAT_R16G16B16A16_TYPELESS:
-            return DXGI_FORMAT_R16G16B16A16_FLOAT;
         case DXGI_FORMAT_R32G32B32A32_TYPELESS:
             return DXGI_FORMAT_R32G32B32A32_FLOAT;
-        case DXGI_FORMAT_R16_TYPELESS:
-            return DXGI_FORMAT_R16_FLOAT;
+        case DXGI_FORMAT_R32G32B32_TYPELESS:
+            return DXGI_FORMAT_R32G32B32_FLOAT;
+        case DXGI_FORMAT_R16G16B16A16_TYPELESS:
+            return DXGI_FORMAT_R16G16B16A16_FLOAT;
+        case DXGI_FORMAT_R32G32_TYPELESS:
+            return DXGI_FORMAT_R32G32_FLOAT;
+        case DXGI_FORMAT_R10G10B10A2_TYPELESS:
+            return DXGI_FORMAT_R10G10B10A2_UNORM;
         case DXGI_FORMAT_R8G8B8A8_TYPELESS:
             return DXGI_FORMAT_R8G8B8A8_UNORM;
+        case DXGI_FORMAT_R16G16_TYPELESS:
+            return DXGI_FORMAT_R16G16_FLOAT;
+        case DXGI_FORMAT_R32_TYPELESS:
+            return DXGI_FORMAT_R32_FLOAT;
+        // GRX-011: the Godot SSAO deinterleaved AO buffers are created with the
+        // R8G8 typeless family (RD::DATA_FORMAT_R8G8_UNORM lowers to an
+        // R8G8_TYPELESS ID3D12Resource); the old shim left this UNMAPPED, so it
+        // created a view with a *typeless* format — an invalid D3D12 call that
+        // removes the device with DXGI_ERROR_INVALID_CALL. Map it (and the other
+        // narrow families) to their UNORM/FLOAT typed member.
+        case DXGI_FORMAT_R8G8_TYPELESS:
+            return DXGI_FORMAT_R8G8_UNORM;
+        case DXGI_FORMAT_R16_TYPELESS:
+            return DXGI_FORMAT_R16_FLOAT;
+        case DXGI_FORMAT_R8_TYPELESS:
+            return DXGI_FORMAT_R8_UNORM;
+        case DXGI_FORMAT_B8G8R8A8_TYPELESS:
+            return DXGI_FORMAT_B8G8R8A8_UNORM;
+        case DXGI_FORMAT_B8G8R8X8_TYPELESS:
+            return DXGI_FORMAT_B8G8R8X8_UNORM;
         case DXGI_FORMAT_UNKNOWN:
             return DXGI_FORMAT_R32_FLOAT;
         default:
             // Already a typed format: use it as-is so the view matches the
             // resource exactly.
             return resource_format;
+    }
+}
+
+// Fail-closed guard: creating an SRV/UAV with a *typeless* format is an invalid
+// D3D12 call that removes the device. If a resource carries a typeless family
+// this shim does not yet map to a typed member, `typed_view_format` returns the
+// typeless format unchanged; the caller must detect that and fall back cleanly
+// (return an error) instead of issuing the device-removing invalid call.
+static bool format_is_typeless(DXGI_FORMAT f) {
+    switch (f) {
+        case DXGI_FORMAT_R32G32B32A32_TYPELESS:
+        case DXGI_FORMAT_R32G32B32_TYPELESS:
+        case DXGI_FORMAT_R16G16B16A16_TYPELESS:
+        case DXGI_FORMAT_R32G32_TYPELESS:
+        case DXGI_FORMAT_R32G8X24_TYPELESS:
+        case DXGI_FORMAT_R10G10B10A2_TYPELESS:
+        case DXGI_FORMAT_R8G8B8A8_TYPELESS:
+        case DXGI_FORMAT_R16G16_TYPELESS:
+        case DXGI_FORMAT_R32_TYPELESS:
+        case DXGI_FORMAT_R24G8_TYPELESS:
+        case DXGI_FORMAT_R8G8_TYPELESS:
+        case DXGI_FORMAT_R16_TYPELESS:
+        case DXGI_FORMAT_R8_TYPELESS:
+        case DXGI_FORMAT_BC1_TYPELESS:
+        case DXGI_FORMAT_BC2_TYPELESS:
+        case DXGI_FORMAT_BC3_TYPELESS:
+        case DXGI_FORMAT_BC4_TYPELESS:
+        case DXGI_FORMAT_BC5_TYPELESS:
+        case DXGI_FORMAT_B8G8R8A8_TYPELESS:
+        case DXGI_FORMAT_B8G8R8X8_TYPELESS:
+        case DXGI_FORMAT_BC6H_TYPELESS:
+        case DXGI_FORMAT_BC7_TYPELESS:
+            return true;
+        default:
+            return false;
+    }
+}
+
+// Bytes per pixel of a typed (non-block, non-planar) DXGI format. Used to size
+// the test-only readback iteration so it never reads past the actual per-pixel
+// footprint (the old shim assumed a fixed 4-byte RGBA/R32 stride, which
+// overran a 2-byte R8G8 readback buffer on the SSAO path). Returns 0 for
+// formats this helper does not size, so the caller can clamp defensively.
+static UINT dxgi_format_bytes(DXGI_FORMAT f) {
+    switch (f) {
+        case DXGI_FORMAT_R32G32B32A32_FLOAT:
+        case DXGI_FORMAT_R32G32B32A32_UINT:
+        case DXGI_FORMAT_R32G32B32A32_SINT:
+            return 16;
+        case DXGI_FORMAT_R32G32B32_FLOAT:
+            return 12;
+        case DXGI_FORMAT_R16G16B16A16_FLOAT:
+        case DXGI_FORMAT_R16G16B16A16_UNORM:
+        case DXGI_FORMAT_R16G16B16A16_UINT:
+        case DXGI_FORMAT_R16G16B16A16_SNORM:
+        case DXGI_FORMAT_R16G16B16A16_SINT:
+        case DXGI_FORMAT_R32G32_FLOAT:
+        case DXGI_FORMAT_R32G32_UINT:
+            return 8;
+        case DXGI_FORMAT_R8G8B8A8_UNORM:
+        case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
+        case DXGI_FORMAT_R8G8B8A8_UINT:
+        case DXGI_FORMAT_B8G8R8A8_UNORM:
+        case DXGI_FORMAT_B8G8R8X8_UNORM:
+        case DXGI_FORMAT_R10G10B10A2_UNORM:
+        case DXGI_FORMAT_R11G11B10_FLOAT:
+        case DXGI_FORMAT_R16G16_FLOAT:
+        case DXGI_FORMAT_R16G16_UNORM:
+        case DXGI_FORMAT_R32_FLOAT:
+        case DXGI_FORMAT_R32_UINT:
+        case DXGI_FORMAT_R32_SINT:
+        case DXGI_FORMAT_D32_FLOAT:
+            return 4;
+        case DXGI_FORMAT_R8G8_UNORM:
+        case DXGI_FORMAT_R8G8_UINT:
+        case DXGI_FORMAT_R8G8_SNORM:
+        case DXGI_FORMAT_R16_FLOAT:
+        case DXGI_FORMAT_R16_UNORM:
+        case DXGI_FORMAT_R16_UINT:
+        case DXGI_FORMAT_D16_UNORM:
+            return 2;
+        case DXGI_FORMAT_R8_UNORM:
+        case DXGI_FORMAT_R8_UINT:
+        case DXGI_FORMAT_R8_SNORM:
+        case DXGI_FORMAT_A8_UNORM:
+            return 1;
+        default:
+            return 0;
     }
 }
 
@@ -542,6 +652,17 @@ struct ShimSession {
                     ? reinterpret_cast<ID3D12Resource*>(resources[lv.prev_index].resource)
                     : nullptr;
 
+            // Fail-closed BEFORE issuing any view: if a bound resource's typeless
+            // family is not one this shim maps to a typed member, creating the
+            // view would be an invalid D3D12 call that removes the device. Refuse
+            // and let the bridge fall back to the native Godot path instead.
+            if (format_is_typeless(typed_view_format(src->GetDesc().Format)) ||
+                format_is_typeless(typed_view_format(dst->GetDesc().Format)) ||
+                (prev && format_is_typeless(typed_view_format(prev->GetDesc().Format)))) {
+                set_detail_msg(out, "bound resource carries an unmapped typeless format");
+                return -40;
+            }
+
             // Ensure inputs/outputs are in the right state for this level.
             transition(lv.srv_index, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
             if (prev)
@@ -597,6 +718,7 @@ struct ShimSession {
         ComPtr<ID3D12Resource> readback_buf;
         D3D12_PLACED_SUBRESOURCE_FOOTPRINT dfp = {};
         UINT64 dtotal = 0;
+        DXGI_FORMAT rb_format = DXGI_FORMAT_UNKNOWN;
         if (readback) {
             ID3D12Resource* dst = reinterpret_cast<ID3D12Resource*>(
                 resources[last_uav_index].resource);
@@ -612,6 +734,7 @@ struct ShimSession {
             footprint_desc.DepthOrArraySize = 1;
             footprint_desc.MipLevels = 1;
             footprint_desc.Format = typed_view_format(dst_desc.Format);
+            rb_format = footprint_desc.Format;
             footprint_desc.SampleDesc.Count = 1;
             footprint_desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
             footprint_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
@@ -701,18 +824,36 @@ struct ShimSession {
             set_detail_msg(out, "Map readback");
             return -39;
         }
+        // Checksum the copied dst rows. The per-pixel stride MUST follow the real
+        // format's bytes-per-pixel: the old shim assumed a fixed 4-byte stride,
+        // which reads past the actual per-row footprint (and past the mapped
+        // buffer's last row) for narrow formats such as the SSAO R8G8 (2 bytes)
+        // AO buffers, an out-of-bounds read that access-violates. `bpp==0` means
+        // a format this shim does not size, so fall back to a defensive 1-byte
+        // walk. Every read is additionally clamped to the mapped buffer end.
+        UINT bpp = dxgi_format_bytes(rb_format);
+        if (bpp == 0) bpp = 1;
+        const UINT row_pitch = dfp.Footprint.RowPitch;
+        const UINT cols_in_pitch = row_pitch / bpp;  // pixels that actually fit
+        const UINT rows = std::min<UINT>(last_dst_h, dfp.Footprint.Height);
+        const UINT cols = std::min<UINT>(last_dst_w, cols_in_pitch);
+        const uint8_t* const map_end = mapped + (SIZE_T)dtotal;
+        const UINT sample_bytes = std::min<UINT>(bpp, 4u);
         uint32_t checksum = 2166136261u;  // FNV-1a over the dst rows
         float first = 0.0f;
         bool got_first = false;
-        for (UINT y = 0; y < last_dst_h; ++y) {
-            const uint8_t* rowp = mapped + dfp.Offset + (SIZE_T)y * dfp.Footprint.RowPitch;
-            for (UINT x = 0; x < last_dst_w; ++x) {
-                const uint8_t* px = rowp + (SIZE_T)x * 4;
+        for (UINT y = 0; y < rows; ++y) {
+            const uint8_t* rowp = mapped + dfp.Offset + (SIZE_T)y * row_pitch;
+            for (UINT x = 0; x < cols; ++x) {
+                const uint8_t* px = rowp + (SIZE_T)x * bpp;
+                if (px + sample_bytes > map_end) {
+                    break;  // never read past the mapped readback buffer
+                }
                 if (!got_first) {
-                    std::memcpy(&first, px, 4);
+                    std::memcpy(&first, px, sample_bytes);
                     got_first = true;
                 }
-                for (int b = 0; b < 4; ++b) {
+                for (UINT b = 0; b < sample_bytes; ++b) {
                     checksum ^= px[b];
                     checksum *= 16777619u;
                 }
