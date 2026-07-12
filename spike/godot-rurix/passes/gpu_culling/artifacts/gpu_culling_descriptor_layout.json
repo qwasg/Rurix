@@ -1,0 +1,347 @@
+{
+  "module": "gpu_culling",
+  "pass_id": "gpu_culling",
+  "artifact_kind": "hlsl_bridge_descriptor_layout",
+  "provenance": "hlsl_bridge_workaround",
+  "rurix_owned": false,
+  "entry_point": "main",
+  "target_profile": "cs_6_0",
+  "root_constants": 36,
+  "root_constant_layout": [
+    {
+      "name": "frustum_plane_0_nx",
+      "type": "f32",
+      "order": 0,
+      "root_parameter_index": 0,
+      "dword_offset": 0,
+      "dword_size": 1
+    },
+    {
+      "name": "frustum_plane_0_ny",
+      "type": "f32",
+      "order": 1,
+      "root_parameter_index": 0,
+      "dword_offset": 1,
+      "dword_size": 1
+    },
+    {
+      "name": "frustum_plane_0_nz",
+      "type": "f32",
+      "order": 2,
+      "root_parameter_index": 0,
+      "dword_offset": 2,
+      "dword_size": 1
+    },
+    {
+      "name": "frustum_plane_0_d",
+      "type": "f32",
+      "order": 3,
+      "root_parameter_index": 0,
+      "dword_offset": 3,
+      "dword_size": 1
+    },
+    {
+      "name": "frustum_plane_1_nx",
+      "type": "f32",
+      "order": 4,
+      "root_parameter_index": 0,
+      "dword_offset": 4,
+      "dword_size": 1
+    },
+    {
+      "name": "frustum_plane_1_ny",
+      "type": "f32",
+      "order": 5,
+      "root_parameter_index": 0,
+      "dword_offset": 5,
+      "dword_size": 1
+    },
+    {
+      "name": "frustum_plane_1_nz",
+      "type": "f32",
+      "order": 6,
+      "root_parameter_index": 0,
+      "dword_offset": 6,
+      "dword_size": 1
+    },
+    {
+      "name": "frustum_plane_1_d",
+      "type": "f32",
+      "order": 7,
+      "root_parameter_index": 0,
+      "dword_offset": 7,
+      "dword_size": 1
+    },
+    {
+      "name": "frustum_plane_2_nx",
+      "type": "f32",
+      "order": 8,
+      "root_parameter_index": 0,
+      "dword_offset": 8,
+      "dword_size": 1
+    },
+    {
+      "name": "frustum_plane_2_ny",
+      "type": "f32",
+      "order": 9,
+      "root_parameter_index": 0,
+      "dword_offset": 9,
+      "dword_size": 1
+    },
+    {
+      "name": "frustum_plane_2_nz",
+      "type": "f32",
+      "order": 10,
+      "root_parameter_index": 0,
+      "dword_offset": 10,
+      "dword_size": 1
+    },
+    {
+      "name": "frustum_plane_2_d",
+      "type": "f32",
+      "order": 11,
+      "root_parameter_index": 0,
+      "dword_offset": 11,
+      "dword_size": 1
+    },
+    {
+      "name": "frustum_plane_3_nx",
+      "type": "f32",
+      "order": 12,
+      "root_parameter_index": 0,
+      "dword_offset": 12,
+      "dword_size": 1
+    },
+    {
+      "name": "frustum_plane_3_ny",
+      "type": "f32",
+      "order": 13,
+      "root_parameter_index": 0,
+      "dword_offset": 13,
+      "dword_size": 1
+    },
+    {
+      "name": "frustum_plane_3_nz",
+      "type": "f32",
+      "order": 14,
+      "root_parameter_index": 0,
+      "dword_offset": 14,
+      "dword_size": 1
+    },
+    {
+      "name": "frustum_plane_3_d",
+      "type": "f32",
+      "order": 15,
+      "root_parameter_index": 0,
+      "dword_offset": 15,
+      "dword_size": 1
+    },
+    {
+      "name": "frustum_plane_4_nx",
+      "type": "f32",
+      "order": 16,
+      "root_parameter_index": 0,
+      "dword_offset": 16,
+      "dword_size": 1
+    },
+    {
+      "name": "frustum_plane_4_ny",
+      "type": "f32",
+      "order": 17,
+      "root_parameter_index": 0,
+      "dword_offset": 17,
+      "dword_size": 1
+    },
+    {
+      "name": "frustum_plane_4_nz",
+      "type": "f32",
+      "order": 18,
+      "root_parameter_index": 0,
+      "dword_offset": 18,
+      "dword_size": 1
+    },
+    {
+      "name": "frustum_plane_4_d",
+      "type": "f32",
+      "order": 19,
+      "root_parameter_index": 0,
+      "dword_offset": 19,
+      "dword_size": 1
+    },
+    {
+      "name": "frustum_plane_5_nx",
+      "type": "f32",
+      "order": 20,
+      "root_parameter_index": 0,
+      "dword_offset": 20,
+      "dword_size": 1
+    },
+    {
+      "name": "frustum_plane_5_ny",
+      "type": "f32",
+      "order": 21,
+      "root_parameter_index": 0,
+      "dword_offset": 21,
+      "dword_size": 1
+    },
+    {
+      "name": "frustum_plane_5_nz",
+      "type": "f32",
+      "order": 22,
+      "root_parameter_index": 0,
+      "dword_offset": 22,
+      "dword_size": 1
+    },
+    {
+      "name": "frustum_plane_5_d",
+      "type": "f32",
+      "order": 23,
+      "root_parameter_index": 0,
+      "dword_offset": 23,
+      "dword_size": 1
+    },
+    {
+      "name": "instance_count",
+      "type": "u32",
+      "order": 24,
+      "root_parameter_index": 0,
+      "dword_offset": 24,
+      "dword_size": 1
+    },
+    {
+      "name": "motion_vectors_current_offset",
+      "type": "u32",
+      "order": 25,
+      "root_parameter_index": 0,
+      "dword_offset": 25,
+      "dword_size": 1
+    },
+    {
+      "name": "transform_stride_floats",
+      "type": "u32",
+      "order": 26,
+      "root_parameter_index": 0,
+      "dword_offset": 26,
+      "dword_size": 1
+    },
+    {
+      "name": "surface_count",
+      "type": "u32",
+      "order": 27,
+      "root_parameter_index": 0,
+      "dword_offset": 27,
+      "dword_size": 1
+    },
+    {
+      "name": "command_stride_dwords",
+      "type": "u32",
+      "order": 28,
+      "root_parameter_index": 0,
+      "dword_offset": 28,
+      "dword_size": 1
+    },
+    {
+      "name": "instance_count_dword_index",
+      "type": "u32",
+      "order": 29,
+      "root_parameter_index": 0,
+      "dword_offset": 29,
+      "dword_size": 1
+    },
+    {
+      "name": "mesh_bound_center_local_x",
+      "type": "f32",
+      "order": 30,
+      "root_parameter_index": 0,
+      "dword_offset": 30,
+      "dword_size": 1
+    },
+    {
+      "name": "mesh_bound_center_local_y",
+      "type": "f32",
+      "order": 31,
+      "root_parameter_index": 0,
+      "dword_offset": 31,
+      "dword_size": 1
+    },
+    {
+      "name": "mesh_bound_center_local_z",
+      "type": "f32",
+      "order": 32,
+      "root_parameter_index": 0,
+      "dword_offset": 32,
+      "dword_size": 1
+    },
+    {
+      "name": "mesh_bound_radius_local",
+      "type": "f32",
+      "order": 33,
+      "root_parameter_index": 0,
+      "dword_offset": 33,
+      "dword_size": 1
+    },
+    {
+      "name": "pad1",
+      "type": "u32",
+      "order": 34,
+      "root_parameter_index": 0,
+      "dword_offset": 34,
+      "dword_size": 1
+    },
+    {
+      "name": "pad2",
+      "type": "u32",
+      "order": 35,
+      "root_parameter_index": 0,
+      "dword_offset": 35,
+      "dword_size": 1
+    }
+  ],
+  "push_constant_note": "144-byte / 36-dword RURIX-DEFINED layout: gpu_culling is an additive pass with no native Godot compute shader, so no Godot push-constant struct exists to mirror (contrast with GRX-013 CopyPushConstant / GRX-014 ClusterStore::PushConstant). Six normalized inward-facing frustum planes (nx, ny, nz, d), the instance/stride/surface/command parameters, and the local bounding sphere (mesh local AABB center + half-diagonal radius). command_stride_dwords == 5 mirrors INDIRECT_MULTIMESH_COMMAND_STRIDE (mesh_storage.h L63) and instance_count_dword_index == 1 mirrors the +sizeof(uint32_t) byte offset of the CPU count write (mesh_storage.cpp L2210); both are carried as parameters, not hardcoded.",
+  "resources": [
+    {
+      "name": "src_transforms",
+      "class": "t",
+      "register": 0,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "StructuredBuffer<float>",
+      "binding_kind": "structured_buffer"
+    },
+    {
+      "name": "dst_commands",
+      "class": "u",
+      "register": 0,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "RWStructuredBuffer<uint>",
+      "binding_kind": "rwstructured_buffer"
+    },
+    {
+      "name": "dst_visibility",
+      "class": "u",
+      "register": 1,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "RWStructuredBuffer<uint>",
+      "binding_kind": "rwstructured_buffer"
+    }
+  ],
+  "root_signature_parameters": 2,
+  "grx015_mapping": {
+    "status": "offline_compile_package",
+    "requires_64bit_integer_shader_capability": false,
+    "requires_64bit_integer_shader_capability_note": "gpu_culling carries no i64 push-constant fields (planes/sphere are f32, parameters are u32), so the SHADER_INT64 device capability is NOT part of its binding preflight (same as GRX-013/014).",
+    "runtime_state": "fallback_only",
+    "real_gpu_pass": false,
+    "root_constant_bytes": 144,
+    "root_constant_dwords": 36,
+    "transform_stride_floats_in_scope": 12,
+    "transform_layout_note": "row-major 3x4 float lanes per 3D instance (mesh_storage.cpp _multimesh_instance_set_transform L1880-1915): lanes 0-3 = (basis.rows[0], origin.x), 4-7 = (rows[1], origin.y), 8-11 = (rows[2], origin.z)",
+    "command_stride_dwords": 5,
+    "instance_count_dword_index": 1,
+    "command_write_note": "count-only: InterlockedAdd(+1) per visible instance into EACH surface's instance-count dword (the dword the CPU writes at mesh_storage.cpp L2210); all other command dwords untouched; count dwords assumed zeroed pre-dispatch",
+    "visibility_bitmask_note": "u32[ceil(instance_count/32)], bit (i & 31) of word (i >> 5) = instance i visible, InterlockedOr writes, zeroed pre-dispatch; the GRX-016/018 shared input interface",
+    "dispatch_note": "one thread per instance; local 64x1x1; dispatch (ceil(instance_count / 64), 1, 1)"
+  }
+}

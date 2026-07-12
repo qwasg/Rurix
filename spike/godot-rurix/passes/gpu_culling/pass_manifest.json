@@ -1,0 +1,162 @@
+{
+  "pass_id": "gpu_culling",
+  "status": "grx015_offline_kernel_and_math_parity_default_disabled",
+  "implemented": false,
+  "default_enable_state": "disabled",
+  "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
+  "target_scenes": [
+    "many_mesh_instances",
+    "mixed_forward_plus"
+  ],
+  "bridge_pass_id": "RXGD_PASS_GPU_CULLING (8)",
+  "real_pass_cap_bit": "RXGD_CAP_GPU_CULLING_REAL_PASS (1u << 9), reserved in PATCH_ALLOCATION.md section 3 (bit 9)",
+  "godot_hook_investigation": {
+    "note": "Investigation only; external/godot-master is NOT modified. Paths and functions are recorded for the later patch 0027 gate+callsite and the patch 0028 native-handle mapping. This S1-S3 slice delivers the OFFLINE face only (contract trio + offline kernel + math parity); the bridge gate, patches, dispatch smoke and enablement are later slices. STRUCTURAL NOTE: gpu_culling is an ADDITIVE pass — no native Godot compute shader is replaced; the native path is the CPU-driven indirect-MultiMesh command buffer.",
+    "indirect_infrastructure": {
+      "source": "servers/rendering/renderer_rd/storage_rd/mesh_storage.cpp",
+      "header": "servers/rendering/renderer_rd/storage_rd/mesh_storage.h",
+      "functions": [
+        "MeshStorage::_multimesh_allocate_data",
+        "MeshStorage::_multimesh_set_mesh",
+        "MeshStorage::_multimesh_set_visible_instances",
+        "MeshStorage::_multimesh_get_command_buffer_rd_rid",
+        "MeshStorage::_multimesh_instance_set_transform"
+      ],
+      "command_buffer": "created in _multimesh_set_mesh (L1676-1696) when multimesh->indirect: INDIRECT_MULTIMESH_COMMAND_STRIDE = 5 u32 per surface (mesh_storage.h L63), dword 0 = mesh_surface_get_vertices_drawn_count, remaining dwords zero-initialized, STORAGE_BUFFER_USAGE_DISPATCH_INDIRECT (L1693)",
+      "cpu_count_write_point": "_multimesh_set_visible_instances (L2187): buffer_update(command_buffer, (i * sizeof(uint32_t) * INDIRECT_MULTIMESH_COMMAND_STRIDE) + sizeof(uint32_t), sizeof(uint32_t), &p_visible) at L2210 — the second dword of every surface command block, byte offset (surface_index*5+1)*4. THIS is the dword the GRX-015 kernel atomically accumulates.",
+      "transform_buffer": "multimesh->buffer created in _multimesh_allocate_data (L1596-1598), instances * stride_cache * sizeof(float); 3D layout packed by _multimesh_instance_set_transform (L1880-1915): 12 floats row-major 3x4 (lanes 0-3 = basis.rows[0] + origin.x, 4-7 = rows[1] + origin.y, 8-11 = rows[2] + origin.z); stride_cache = 12 (+4 colors, +4 custom)",
+      "initial_state_quirk": "the only tracked writers of the instance-count dword are the creation zeroing and _multimesh_set_visible_instances; a fresh indirect MultiMesh draws 0 instances until the first visible-instances write (runtime-hook design input for the later patch slices)"
+    },
+    "draw_side": {
+      "file": "servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp",
+      "region": "L602-613 (_render_list_template)",
+      "note": "indirect = base_flags & INSTANCE_DATA_FLAG_MULTIMESH_INDIRECT (L602, derived from multimesh_uses_indirect at L4355-4357); L610 draw_list_draw_indirect(draw_list, indexed, command_buffer_rid, surface_index * sizeof(uint32_t) * INDIRECT_MULTIMESH_COMMAND_STRIDE, 1, 0). D3D12 backend executes via ExecuteIndirect with prebuilt device-level command signatures (drivers/d3d12/rendering_device_driver_d3d12.cpp L4909/L4918; indexed variant L4892)."
+    },
+    "zero_caller_status": "the entire indirect path exists end-to-end but has ZERO tracked callers: scene/resources/multimesh.h (Resource layer) exposes no use_indirect property. The server API RS::multimesh_allocate_data(rid, instances, format, colors, custom, use_indirect) (rendering_server_default.h L429) is the later patch-side bypass; Resource-layer plumbing is out of GRX-015 scope.",
+    "call_sites": [
+      {
+        "file": "servers/rendering/renderer_rd/storage_rd/mesh_storage.cpp",
+        "function": "_multimesh_set_visible_instances",
+        "region": "command-buffer instance-count dword write",
+        "lines": [
+          2187,
+          2216
+        ],
+        "note": "the CPU write point (L2210) the GPU pass aligns with; the later patch 0027 injection is a per-frame opt-in gate dispatching the culling kernel before the frame's draw lists consume the command buffer (zero latency, zero readback on the render path); the concrete hook design is deferred to the patch slices"
+      }
+    ],
+    "cpu_cull_boundary": "RendererSceneCull::_scene_cull (renderer_scene_cull.cpp L2823; IN_FRUSTUM macro L2853, applied L2860) treats a whole MultiMesh as ONE InstanceData: this pass does NOT touch the CPU cull O(N) over independent MeshInstance3D populations (the ~200k-instance part of many_mesh_instances); the benefit surface is the GPU draw side only (frustum-outside sub-instances of indirect MultiMeshes stop generating vertex/pixel work)",
+    "source_resource": "multimesh->buffer (Transforms SSBO, float[]; 12-float row-major 3x4 lanes per 3D instance at (motion_vectors_current_offset + i) * stride_cache)",
+    "dest_resources": [
+      "multimesh->command_buffer (u32 SSBO, 5 dwords per surface; ONLY the instance-count dword is atomically accumulated)",
+      "visibility bitmask (NEW, Rurix-allocated in a later slice; u32[ceil(N/32)]; the GRX-016/018 shared input interface)"
+    ]
+  },
+  "resource_mapping": "spike/godot-rurix/passes/gpu_culling/resource_mapping.md",
+  "descriptor_mapping": {
+    "root_cbuffer_binding": "b0 space0",
+    "root_constants": "144-byte / 36-dword RURIX-DEFINED layout (no Godot push constant exists to mirror — additive pass; see resource_mapping.md and artifacts/gpu_culling_descriptor_layout.json)",
+    "root_constant_bytes": 144,
+    "root_constant_dwords": 36,
+    "resources": [
+      {
+        "name": "src_transforms",
+        "binding": "t0 space0",
+        "kind": "SRV",
+        "binding_kind": "structured_buffer"
+      },
+      {
+        "name": "dst_commands",
+        "binding": "u0 space0",
+        "kind": "UAV",
+        "binding_kind": "rwstructured_buffer"
+      },
+      {
+        "name": "dst_visibility",
+        "binding": "u1 space0",
+        "kind": "UAV",
+        "binding_kind": "rwstructured_buffer"
+      }
+    ],
+    "requires_64bit_integer_shader_capability": false,
+    "requires_64bit_integer_shader_capability_note": "gpu_culling carries no i64 push-constant fields (planes/sphere are f32, parameters are u32), so SHADER_INT64 is NOT part of its binding preflight (same as GRX-013/014; contrast with the GRX-009..012 texture passes)",
+    "on_missing_resource_or_cap_or_descriptor_mismatch": "RXGD_STATUS_FALLBACK"
+  },
+  "supported_math_subset": {
+    "variant": "count-only conservative frustum cull, one thread per instance (numthreads 64x1x1; dispatch ceil(N/64) x 1 x 1)",
+    "bound": "conservative bounding sphere: local sphere (mesh local AABB center + half-diagonal radius, host precompute, carried in b0) transformed by the instance basis; world_center = rows * (center_local, 1); world_radius = radius_local * frobenius_norm(basis) — Frobenius >= spectral norm, so the test may keep truly-invisible instances visible but can never cull a visible one",
+    "plane_test": "6 normalized inward-facing planes (nx, ny, nz, d); dist = dot(n, world_center) + d; culled iff ANY plane has dist < -world_radius",
+    "visible_writes": "InterlockedOr bit (i & 31) into visibility word (i >> 5) + InterlockedAdd(+1) into EACH surface's instance-count dword (s * command_stride_dwords + instance_count_dword_index — the dword the CPU writes at mesh_storage.cpp L2210); count dwords and bitmask assumed zeroed pre-dispatch; all other command dwords untouched",
+    "shared_interface": "contract-fixed GRX-016/018 interface: 12-float row-major 3x4 transform lanes + 36-dword b0 in; visibility bitmask u32[ceil(N/32)] (bit i = instance i visible) + per-surface count dword semantics out; changing it requires re-adjudicating all three contracts",
+    "parameterization": "everything flows through b0 (transform_stride_floats, surface_count, command_stride_dwords = 5 mirroring INDIRECT_MULTIMESH_COMMAND_STRIDE, instance_count_dword_index = 1 mirroring the L2210 byte offset); nothing is hardcoded"
+  },
+  "known_gaps": [
+    "conservative bounding-sphere test only (local AABB -> sphere, Frobenius-norm radius bound): may keep truly-invisible instances visible, never over-culls; precise OBB / transformed-AABB test out of scope",
+    "occlusion culling, LOD selection, hierarchical/two-phase culling unsupported",
+    "2D transform format (MULTIMESH_TRANSFORM_2D, 8-float stride) unsupported; color/custom stride variants carried via transform_stride_floats in b0 but exercised at 12 (bare 3D) only",
+    "motion_vectors_current_offset carried in b0 but exercised at 0 (motion-vector double-buffer offset is a runtime concern)",
+    "per-surface differing visibility unsupported (every surface command block receives the same count, matching the native CPU write loop)",
+    "visible-instance compaction / transform remap is GRX-016; indirect-args generation beyond the instance-count dword is GRX-018 (separate milestones, separate PRs per GRX_PLAN)",
+    "Resource-layer use_indirect plumbing out of scope (scene/resources/multimesh.h has no such property); the later patch slices use the RS::multimesh_allocate_data(..., use_indirect=true) server-API bypass",
+    "the CPU _scene_cull path is untouched: a MultiMesh occupies ONE InstanceData in the CPU cull, so this pass does not reduce the CPU cull O(N) over independent MeshInstance3D populations; the benefit surface is GPU draw-side only and is unmeasured",
+    "the instance-count dwords and the visibility bitmask are assumed zeroed before dispatch (runtime responsibility of the later patch slices); pre-dispatch zeroing is not wired here",
+    "runtime hook / native-handle binding not wired (patches 0027-0029, later serial slices under the PATCH_ALLOCATION stack-lock)",
+    "GPU-observed math parity pending the standalone S6 dispatch smoke (math_parity_evidence.json stays pending_gpu_dispatch)"
+  ],
+  "fallback": {
+    "reasons": [
+      "compile_failed",
+      "validation_failed",
+      "unsupported_device",
+      "visual_diff_failed",
+      "manual_disabled"
+    ],
+    "on_any_failure": "godot_native_cpu_driven_command_buffer",
+    "cpu_fallback_red_line": "GRX_PLAN section 6 GRX-015 row mandates CPU fallback retention; no slice of this pass may remove or bypass the native CPU-driven arm",
+    "readback_validation_red_leg": "design input recorded for S6/S8 (not implemented here): gpu_count == cpu_count at tolerance 0 and word-exact bitmask; any mismatch is an immediate fallback + hard FAIL of the verification leg"
+  },
+  "offline_compile_status": "success",
+  "offline_compile_provenance": "hlsl_bridge_workaround",
+  "offline_compile_runtime_mappable": true,
+  "offline_compile_evidence": "spike/godot-rurix/passes/gpu_culling/offline_compile_evidence.json",
+  "offline_compile_artifacts": {
+    "dxil": "spike/godot-rurix/passes/gpu_culling/artifacts/gpu_culling.dxil",
+    "root_signature": "spike/godot-rurix/passes/gpu_culling/artifacts/gpu_culling.rts0.bin",
+    "descriptor_layout": "spike/godot-rurix/passes/gpu_culling/artifacts/gpu_culling_descriptor_layout.json"
+  },
+  "math_parity_evidence": "spike/godot-rurix/passes/gpu_culling/math_parity_evidence.json",
+  "math_parity_status": "gpu_culling_cpu_reference_proven_pending_gpu_dispatch",
+  "compile_blockers": [
+    {
+      "category": "provenance_workaround_active",
+      "summary": "the canonical gpu_culling package is the owner-approved hlsl_bridge_workaround artifact (DXC cs_6_0 container validated by dxv, per-slot structured_buffer/rwstructured_buffer/rwstructured_buffer binding kinds, Rurix-owned RTS0). gpu_culling is an all raw-buffer / SSBO pass, so the GRX-009 texture-intrinsic llc blocker does NOT apply; the workaround is used because of four rurixc blockers: (1) the DXIL compute-body lowering accepts only View<global, f32>/ViewMut<global, f32> buffer views (src/rurixc/src/dxil_codegen.rs ~L1750-1790) while both outputs (command dwords, visibility bitmask words) are u32-word SSBOs whose bit patterns an f32 view cannot carry bit-faithfully; (2) the Rurix lang subset has NO atomic intrinsic (InterlockedAdd/InterlockedOr) on any backend and the kernel's only writes are atomics — precisely the operation class the bridge route exists for; (3) the integer bit operations the bitmask write needs (<<, &, >>) exist in MIR (BinOp::BitAnd/BitOr/BitXor/Shl/Shr, src/rurixc/src/mir.rs L643-647) but have no DXIL-backend lowering (the GRX-014 cluster_store blocker); (4) the conservative-radius sqrt has no DXIL lowering (DeviceMathFn is NVPTX-libdevice-only; the GRX-013 particles_copy blocker)"
+    }
+  ],
+  "implementation_status": {
+    "segment": "s1_s3_offline_face",
+    "segment_detail": "grx015_offline_kernel_and_math_parity_default_disabled",
+    "runtime_state": "fallback_only",
+    "runtime_state_note": "The runtime path is fallback-only: no bridge gate exists yet for RXGD_PASS_GPU_CULLING (S4, later slice), no Godot patch exists (0027-0029 reserved, later serial slices), and no runtime hook is wired. real_gpu_pass stays false and real_d3d12_dispatch_recorded stays false (fail-closed initial values). The native CPU-driven command-buffer path (and the non-indirect draw arm) is the active path unconditionally.",
+    "bridge_gate": "NOT authored in this slice. The later S4 GpuCullingGate in src/rurix-godot/src/lib.rs mirrors the GRX-014 ClusterStoreGate template: preflight (3 buffer resources in src_transforms/dst_commands/dst_visibility order, 144-byte / 36-dword b0, nonzero instance_count and surface_count, nonzero buffer byte sizes; NO int64 cap check) -> dispatch eligibility (RXGD_CAP_GPU_CULLING_REAL_PASS (1u << 9) opt-in, recording-harness capability, non-null native handles, GpuCullingDispatchPackage layout/digest match vs the S2 offline evidence) -> per-slot kernel-binding-kind conformance ([structured_buffer, rwstructured_buffer, rwstructured_buffer]) -> math-parity gate (gpu_culling_cpu_reference_proven_pending_gpu_dispatch) -> real dispatch only under the d3d12-recording-shim feature; once-per-session RXGD_GPU_CULLING_REAL_PASS_BLOCKED diagnostic.",
+    "godot_module_patch": "NOT authored in this slice. PATCH_ALLOCATION.md section 2 reserves 0027-0029 for gpu_culling (0027 gate+callsite / 0028 runtime binding / 0029 recording+real-pass opt-in); patch authoring is a later serial slice under the stack-lock. The 0027-0029 scope must include the RS::multimesh_allocate_data(..., use_indirect=true) bypass, the pre-dispatch zeroing of the count dwords + bitmask, and the readback-validation red leg.",
+    "godot_core_call_site_wired": false,
+    "real_gpu_pass": false,
+    "real_d3d12_dispatch_recorded": false,
+    "godot_runtime_gpu_culling_path_enabled": false,
+    "remaining_segments": [
+      "S4 bridge gate (GpuCullingGate + dispatch package digests + gate unit tests)",
+      "S5 patch 0027 (gate + callsite opt-in) and S7 patches 0028/0029 (runtime native-handle binding; recording-smoke + real-pass opt-in) — serial slices under the PATCH_ALLOCATION stack-lock",
+      "S6 standalone D3D12 dispatch smoke (fills the GPU-observed parity side; zero-tolerance u32 comparison)",
+      "S8 scratch rebuild + gated real-pass enablement smoke (incl. forced-downgrade red leg); S9 close-out (gate module + probe registration + manifest flip + owner default-enable decision)",
+      "per-pass FPS + draw/dispatch-count baseline comparison (GRX_PLAN metric; contract requires >= 0.95x baseline before any default-enable discussion)"
+    ]
+  },
+  "evidence_requirements": {
+    "offline_compile": "offline_compile_evidence.json (measured): DXC cs_6_0 compile + DXV validation pass + Rurix-owned RTS0 + descriptor layout; three artifact SHA-256 recomputable on disk",
+    "math_parity": "math_parity_evidence.json: deterministic synthetic transform/command/frustum fixtures; CPU reference mirrors the HLSL binary32 per op; u32 outputs (bitmask + counts + untouched command dwords) compared at ZERO tolerance, made honest by an asserted classification-margin floor (|dist + world_radius| >= 1e-3 for every instance x plane); covers all-visible / all-culled / boundary-mixed plus tail bitmask word, multi-group dispatch, multi-surface blocks, all-6-planes cull coverage, rotated + non-uniform bases; status=pending_gpu_dispatch",
+    "standalone_dispatch": "later slice (S6): real_d3d12_dispatch_smoke.json with real_d3d12_dispatch_recorded=true, cpu_reference_match=true (exact word equality)",
+    "visual": "later enablement slice; this slice claims none",
+    "perf": "reuse GRX-006 baseline/perf gate + the GRX_PLAN many_mesh_instances draw/dispatch-count metric; no perf improvement claimed"
+  },
+  "disclaimer": "GRX-015 gpu_culling is at the S1-S3 level only: the pass contract trio, the DXC/DXV/RTS0 offline kernel package (hlsl_bridge_workaround provenance, Rurix-owned RTS0), and the CPU math-parity reference (zero-tolerance u32 outputs with an asserted classification-margin floor, pending_gpu_dispatch). implemented=false, runtime_state=fallback_only, real_gpu_pass=false, real_d3d12_dispatch_recorded=false are the honest current values: no bridge gate exists, no Godot patch exists (0027-0029 reserved), no runtime hook is wired, the CPU cull path is untouched, the pass is an additive GPU-draw-side cull whose benefit is UNMEASURED, and NO visual-superiority, GPU-timestamp, FPS, draw/dispatch-count, or performance improvement is claimed."
+}

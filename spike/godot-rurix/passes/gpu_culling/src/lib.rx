@@ -1,0 +1,78 @@
+// GRX-015 gpu_culling kernel Rurix math source (forward-looking; NOT yet
+// compilable to a runtime-mappable DXIL container).
+//
+// This documents the math of the GRX-015 count-only conservative frustum-cull
+// kernel — an ADDITIVE pass (no native Godot compute shader is replaced; the
+// native path is the CPU-driven indirect-MultiMesh command buffer written by
+// mesh_storage.cpp _multimesh_set_visible_instances L2210) — and is the math
+// target the DXC-compiled bridge kernel
+// `artifacts/hlsl_bridge/gpu_culling_frustum_count.hlsl` must stay equivalent
+// to.
+//
+// ROUTE CHOICE — why the canonical package is the hlsl_bridge workaround
+// instead of a rurixc-owned raw-buffer compile (gpu_culling is an all
+// raw-buffer / SSBO pass, so the GRX-009 texture-intrinsic llc blocker does
+// NOT apply here; the blockers below are different):
+//   1. No u32 buffer views. The DXIL compute-body lowering accepts only
+//      `View<global, f32>` / `ViewMut<global, f32>` buffer views (and the f32
+//      texture views) — see src/rurixc/src/dxil_codegen.rs
+//      require_view_global_f32 / require_texture_or_view_global_f32
+//      (~L1750-1790). Both outputs (the 5-dword-stride command blocks and the
+//      visibility bitmask) are u32-word SSBOs; an f32 view cannot carry
+//      arbitrary u32 payloads bit-faithfully.
+//   2. No atomic intrinsics on any backend. The kernel's only writes are
+//      InterlockedAdd (visible-count accumulation across threads and thread
+//      groups) and InterlockedOr (bitmask bits; 32 instances share each
+//      word). The Rurix lang subset has no atomic intrinsic on any backend
+//      (zero Atomic/Interlocked lowering in src/rurixc/src/dxil_codegen.rs /
+//      mir.rs). This is exactly the operation class the bridge route exists
+//      for — atomics and bit operations are first-class in HLSL.
+//   3. Integer bit operations are not wired on the DXIL path. The bitmask
+//      write needs `<<`, `&`, `>>`. MIR carries BinOp::BitAnd/BitOr/BitXor/
+//      Shl/Shr (src/rurixc/src/mir.rs L643-647), but the DXIL backend has no
+//      lowering for any of them (the GRX-014 cluster_store blocker).
+//   4. sqrt on the DXIL path. The conservative world radius needs
+//      sqrt(frobenius^2). Rurix's DeviceMathFn lowers ONLY on the NVPTX
+//      libdevice path (src/rurixc/src/device_codegen.rs / tbir_build.rs); the
+//      DXIL backend has no lowering (the GRX-013 particles_copy blocker).
+// The RTS0 root signature is still Rurix-owned (rurixc::binding_layout),
+// mirroring the GRX-013/014 buffer-pass precedent.
+//
+// The float distance math below (world-center transform, Frobenius norm,
+// plane distances) is in principle expressible over View<f32> lanes, but no
+// complete lane of this kernel is expressible because every OUTPUT is a u32
+// atomic write — so, like GRX-014, the pseudocode below is documentation
+// only (u32/atomic semantics annotated), NOT compilable Rurix source; the
+// executable math lives in the HLSL bridge kernel.
+//
+// Per-instance math (see PASS_CONTRACT.md sec 5 and resource_mapping.md):
+//
+//   i = global_id.x; if i >= instance_count: return
+//   base = (motion_vectors_current_offset + i) * transform_stride_floats
+//   // row-major 3x4 lanes (mesh_storage.cpp _multimesh_instance_set_transform):
+//   r0 = transforms[base + 0 .. base + 3]   // (b00, b01, b02, origin.x)
+//   r1 = transforms[base + 4 .. base + 7]   // (b10, b11, b12, origin.y)
+//   r2 = transforms[base + 8 .. base + 11]  // (b20, b21, b22, origin.z)
+//   c  = mesh_bound_center_local
+//   wx = ((r0.x*c.x + r0.y*c.y) + r0.z*c.z) + r0.w   // world center
+//   wy = ((r1.x*c.x + r1.y*c.y) + r1.z*c.z) + r1.w
+//   wz = ((r2.x*c.x + r2.y*c.y) + r2.z*c.z) + r2.w
+//   fro2 = sum of the 9 squared basis entries (left-to-right accumulation)
+//   world_radius = mesh_bound_radius_local * sqrt(fro2)
+//     // Frobenius norm >= spectral norm: conservative, never over-culls
+//   visible = true
+//   for p in 0..6:
+//       dist = ((n_p.x*wx + n_p.y*wy) + n_p.z*wz) + d_p
+//       if dist < -world_radius: visible = false   // fully outside plane p
+//   if visible:
+//       atomic_or(dst_visibility[i >> 5], 1 << (i & 31))          // u32
+//       for s in 0..surface_count:
+//           atomic_add(dst_commands[s * command_stride_dwords
+//                                   + instance_count_dword_index], 1)  // u32
+//
+// The instance-count dwords and the bitmask are assumed zeroed before the
+// dispatch (runtime responsibility, mirroring the GRX-014 zeroed-destination
+// convention); every other command dword is left untouched, so the CPU-
+// initialized dword 0 (vertices-drawn count) and the zero tails survive.
+
+fn main() {}

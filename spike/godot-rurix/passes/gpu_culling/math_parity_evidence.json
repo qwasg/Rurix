@@ -1,0 +1,528 @@
+{
+  "pass_id": "gpu_culling",
+  "subject": "grx015_gpu_culling_math_parity",
+  "status": "pending_gpu_dispatch",
+  "generated_at_utc": "2026-07-12T12:11:32Z",
+  "math_status": "gpu_culling_cpu_reference_proven_pending_gpu_dispatch",
+  "cpu_reference": {
+    "formula": "per instance i: base = (motion_vectors_current_offset + i) * transform_stride_floats; rows r0/r1/r2 = 12 row-major 3x4 f32 lanes; world_center = rows * (mesh_bound_center_local, 1); world_radius = mesh_bound_radius_local * sqrt(sum of 9 squared basis entries) (Frobenius >= spectral norm: conservative, never over-culls); for each of 6 normalized inward-facing planes: dist = dot(n, world_center) + d; culled iff any dist < -world_radius; visible -> set bit (i & 31) of visibility word (i >> 5) (InterlockedOr) and add +1 to EACH surface's command dword s * command_stride_dwords + instance_count_dword_index (InterlockedAdd; the dword the CPU writes at mesh_storage.cpp L2210); count dwords and bitmask assumed zeroed pre-dispatch; all other command dwords untouched. Float math binary32 per op; u32 outputs compared exactly",
+    "hlsl_kernel": {
+      "path": "spike/godot-rurix/passes/gpu_culling/artifacts/hlsl_bridge/gpu_culling_frustum_count.hlsl",
+      "sha256": "71aa0f53286163e60889228622523375c783fab3a0082dfd3a74953047dcfcfa"
+    },
+    "dxil": {
+      "path": "spike/godot-rurix/passes/gpu_culling/artifacts/hlsl_bridge/gpu_culling_frustum_count.dxil",
+      "sha256": "e3b322390a004c9f1b54cf3633733245f821204248fd924f8bb2996c60761279"
+    },
+    "rurix_math_source": "spike/godot-rurix/passes/gpu_culling/src/lib.rx",
+    "godot_math_source": "none \u2014 ADDITIVE pass (no native Godot compute shader); the aligned native behavior is the CPU instance-count write at external/godot-master/servers/rendering/renderer_rd/storage_rd/mesh_storage.cpp L2210 and the untouched remaining command dwords"
+  },
+  "value_tolerance": 0,
+  "margin_floor": 0.001,
+  "tolerance_note": "the kernel's outputs are pure u32 (bitmask words + counts + untouched command dwords), so the GPU output must match the CPU reference EXACTLY, word for word (zero tolerance). The float intermediates feed only comparisons; every instance x plane comparison in these fixtures sits at least margin_floor away from the dist == -world_radius threshold (asserted at generation), so ULP-level GPU reassociation / FMA / sqrt differences (~1e-7 relative) cannot flip any classification",
+  "gpu_dispatch_kind": null,
+  "cases": [
+    {
+      "case_id": "cull_all_visible_n40",
+      "note": "all instances well inside a [-100,100]^3 box frustum; N=40 exercises a tail bitmask word (word 1 uses 8 bits)",
+      "constants": {
+        "instance_count": 40,
+        "motion_vectors_current_offset": 0,
+        "transform_stride_floats": 12,
+        "surface_count": 1,
+        "command_stride_dwords": 5,
+        "instance_count_dword_index": 1,
+        "frustum_planes": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            100.0
+          ],
+          [
+            -1.0,
+            0.0,
+            0.0,
+            100.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0,
+            100.0
+          ],
+          [
+            0.0,
+            -1.0,
+            0.0,
+            100.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            100.0
+          ],
+          [
+            0.0,
+            0.0,
+            -1.0,
+            100.0
+          ]
+        ],
+        "mesh_bound_center_local": [
+          0.25,
+          -0.5,
+          0.125
+        ],
+        "mesh_bound_radius_local": 0.75
+      },
+      "dispatch": [
+        1,
+        1,
+        1
+      ],
+      "input_transforms_f32_le_sha256": "1d8aaa35de801450288613e2733daa8728ee8e12a3bf92a48401583f68a36dc0",
+      "input_initial_command_words": [
+        36,
+        0,
+        1000,
+        2000,
+        3000
+      ],
+      "input_initial_commands_u32_le_sha256": "327555f056eb769358b71055f515509ee7fcb8ffb2a0f2c83fbeaa3e70c637c0",
+      "b0_sha256": "47e75d629b099ced675171ede8cbda0909ea59c73167c838dc00ad0656bbad10",
+      "visibility_word_count": 2,
+      "cpu_expected_visible_count": 40,
+      "cpu_expected_bitmask_words_hex": [
+        "0xFFFFFFFF",
+        "0x000000FF"
+      ],
+      "cpu_expected_bitmask_u32_le_sha256": "52ebaeb54c3dec39cb571057e5ab3989515df62f9f36fcf76b74ae0302e38245",
+      "cpu_expected_command_words": [
+        36,
+        40,
+        1000,
+        2000,
+        3000
+      ],
+      "cpu_expected_commands_u32_le_sha256": "27470310a9e40941b9375302fd8cd2b1b7a3b17549216c34991fa303adf567d3",
+      "min_classification_margin": 71.5490380525589,
+      "branch_coverage": {
+        "fully_inside_instances": 40,
+        "crossing_instances": 0,
+        "culled_instances": 0,
+        "identity_basis_instances": 14,
+        "rotated_basis_instances": 13,
+        "nonuniform_scale_instances": 26,
+        "culled_by_plane_0": 0,
+        "culled_by_plane_1": 0,
+        "culled_by_plane_2": 0,
+        "culled_by_plane_3": 0,
+        "culled_by_plane_4": 0,
+        "culled_by_plane_5": 0
+      },
+      "cpu_expected_sample_instances": [
+        {
+          "instance": 0,
+          "basis_kind": "identity",
+          "intent": "inside",
+          "world_center": [
+            -29.75,
+            9.5,
+            -11.875
+          ],
+          "world_radius": 1.299038052558899,
+          "min_dist": 70.25,
+          "min_margin": 71.5490380525589,
+          "visible": true
+        },
+        {
+          "instance": 20,
+          "basis_kind": "diag_scaled",
+          "intent": "inside",
+          "world_center": [
+            0.5,
+            -5.125,
+            -1.9375
+          ],
+          "world_radius": 1.5574918985366821,
+          "min_dist": 94.875,
+          "min_margin": 96.43249189853668,
+          "visible": true
+        },
+        {
+          "instance": 39,
+          "basis_kind": "identity",
+          "intent": "inside",
+          "world_center": [
+            28.75,
+            -19.75,
+            7.625
+          ],
+          "world_radius": 1.299038052558899,
+          "min_dist": 71.25,
+          "min_margin": 72.5490380525589,
+          "visible": true
+        }
+      ],
+      "gpu_observed": null
+    },
+    {
+      "case_id": "cull_all_culled_n33",
+      "note": "every instance fully beyond one of the six faces (face = i % 6, all 6 planes cull); counts must stay 0 and every non-count command dword (incl. sentinels) must survive untouched",
+      "constants": {
+        "instance_count": 33,
+        "motion_vectors_current_offset": 0,
+        "transform_stride_floats": 12,
+        "surface_count": 2,
+        "command_stride_dwords": 5,
+        "instance_count_dword_index": 1,
+        "frustum_planes": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            10.0
+          ],
+          [
+            -1.0,
+            0.0,
+            0.0,
+            10.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0,
+            10.0
+          ],
+          [
+            0.0,
+            -1.0,
+            0.0,
+            10.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            10.0
+          ],
+          [
+            0.0,
+            0.0,
+            -1.0,
+            10.0
+          ]
+        ],
+        "mesh_bound_center_local": [
+          0.25,
+          -0.5,
+          0.125
+        ],
+        "mesh_bound_radius_local": 0.75
+      },
+      "dispatch": [
+        1,
+        1,
+        1
+      ],
+      "input_transforms_f32_le_sha256": "be648f7c2c5494d717736e2ecf3bb27a46ee66848c9202a2fbd1581b3a0c52f4",
+      "input_initial_command_words": [
+        36,
+        0,
+        1000,
+        2000,
+        3000,
+        72,
+        0,
+        1001,
+        2001,
+        3001
+      ],
+      "input_initial_commands_u32_le_sha256": "9d5fce21d722916fe59f10f857034a9a0f235db4b4ef27dd3d7f5f6eb4006951",
+      "b0_sha256": "6e3a5869391883ded7af44c475cb0a569603be506acacef4714d4cc920a021c8",
+      "visibility_word_count": 2,
+      "cpu_expected_visible_count": 0,
+      "cpu_expected_bitmask_words_hex": [
+        "0x00000000",
+        "0x00000000"
+      ],
+      "cpu_expected_bitmask_u32_le_sha256": "af5570f5a1810b7af78caf4bc70a660f0df51e42baf91d4de5b2328de0e83dfc",
+      "cpu_expected_command_words": [
+        36,
+        0,
+        1000,
+        2000,
+        3000,
+        72,
+        0,
+        1001,
+        2001,
+        3001
+      ],
+      "cpu_expected_commands_u32_le_sha256": "9d5fce21d722916fe59f10f857034a9a0f235db4b4ef27dd3d7f5f6eb4006951",
+      "min_classification_margin": 8.299038052558899,
+      "branch_coverage": {
+        "fully_inside_instances": 0,
+        "crossing_instances": 0,
+        "culled_instances": 33,
+        "identity_basis_instances": 11,
+        "rotated_basis_instances": 11,
+        "nonuniform_scale_instances": 22,
+        "culled_by_plane_0": 6,
+        "culled_by_plane_1": 6,
+        "culled_by_plane_2": 6,
+        "culled_by_plane_3": 5,
+        "culled_by_plane_4": 5,
+        "culled_by_plane_5": 5
+      },
+      "cpu_expected_sample_instances": [
+        {
+          "instance": 0,
+          "basis_kind": "identity",
+          "intent": "culled_face_0",
+          "world_center": [
+            -39.75,
+            -3.0,
+            -1.875
+          ],
+          "world_radius": 1.299038052558899,
+          "min_dist": -29.75,
+          "min_margin": 8.299038052558899,
+          "visible": false
+        },
+        {
+          "instance": 16,
+          "basis_kind": "roty_scaled",
+          "intent": "culled_face_4",
+          "world_center": [
+            -1.3250000476837158,
+            -1.399999976158142,
+            -40.025001525878906
+          ],
+          "world_radius": 1.7184659242630005,
+          "min_dist": -30.025001525878906,
+          "min_margin": 10.318466305732727,
+          "visible": false
+        },
+        {
+          "instance": 32,
+          "basis_kind": "diag_scaled",
+          "intent": "culled_face_2",
+          "world_center": [
+            0.0,
+            -40.125,
+            1.2625000476837158
+          ],
+          "world_radius": 1.5574918985366821,
+          "min_dist": -30.125,
+          "min_margin": 10.294992089271545,
+          "visible": false
+        }
+      ],
+      "gpu_observed": null
+    },
+    {
+      "case_id": "cull_boundary_mixed_n96",
+      "note": "mixed inside / plane-crossing (visible) / fully-culled; N=96 needs 2 thread groups (ceil(96/64)); 3 surfaces exercise the per-surface count replication",
+      "constants": {
+        "instance_count": 96,
+        "motion_vectors_current_offset": 0,
+        "transform_stride_floats": 12,
+        "surface_count": 3,
+        "command_stride_dwords": 5,
+        "instance_count_dword_index": 1,
+        "frustum_planes": [
+          [
+            1.0,
+            0.0,
+            0.0,
+            20.0
+          ],
+          [
+            -1.0,
+            0.0,
+            0.0,
+            20.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0,
+            20.0
+          ],
+          [
+            0.0,
+            -1.0,
+            0.0,
+            20.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0,
+            20.0
+          ],
+          [
+            0.0,
+            0.0,
+            -1.0,
+            20.0
+          ]
+        ],
+        "mesh_bound_center_local": [
+          0.25,
+          -0.5,
+          0.125
+        ],
+        "mesh_bound_radius_local": 0.75
+      },
+      "dispatch": [
+        2,
+        1,
+        1
+      ],
+      "input_transforms_f32_le_sha256": "81a6aa7e962de550f6af262f918fb7ad9e7e1be32bd7d83c322f277fb87e6145",
+      "input_initial_command_words": [
+        36,
+        0,
+        1000,
+        2000,
+        3000,
+        72,
+        0,
+        1001,
+        2001,
+        3001,
+        108,
+        0,
+        1002,
+        2002,
+        3002
+      ],
+      "input_initial_commands_u32_le_sha256": "aedbd839d865424a38dbb396286cfb9ed0a1902272506cf8392930b53b352e38",
+      "b0_sha256": "ab736d2ad6dcba8e2f0ac4605147fbb55ea1e29a369b7614465ccec7ffc136ff",
+      "visibility_word_count": 3,
+      "cpu_expected_visible_count": 72,
+      "cpu_expected_bitmask_words_hex": [
+        "0xBBBBBBBB",
+        "0xBBBBBBBB",
+        "0xBBBBBBBB"
+      ],
+      "cpu_expected_bitmask_u32_le_sha256": "1949d333fcbc7702d72357de7f56ba6a5e963abf8734651417c6954b88b671d6",
+      "cpu_expected_command_words": [
+        36,
+        72,
+        1000,
+        2000,
+        3000,
+        72,
+        72,
+        1001,
+        2001,
+        3001,
+        108,
+        72,
+        1002,
+        2002,
+        3002
+      ],
+      "cpu_expected_commands_u32_le_sha256": "4deed4c1c34e63263694f5fe68706bc755665f30fb34c918afa38dc036ccb44f",
+      "min_classification_margin": 0.5490380525588989,
+      "branch_coverage": {
+        "fully_inside_instances": 24,
+        "crossing_instances": 48,
+        "culled_instances": 24,
+        "identity_basis_instances": 40,
+        "rotated_basis_instances": 40,
+        "nonuniform_scale_instances": 56,
+        "culled_by_plane_0": 4,
+        "culled_by_plane_1": 4,
+        "culled_by_plane_2": 4,
+        "culled_by_plane_3": 4,
+        "culled_by_plane_4": 4,
+        "culled_by_plane_5": 4
+      },
+      "cpu_expected_sample_instances": [
+        {
+          "instance": 0,
+          "basis_kind": "identity",
+          "intent": "inside",
+          "world_center": [
+            -7.75,
+            -7.5,
+            -5.875
+          ],
+          "world_radius": 1.299038052558899,
+          "min_dist": 12.25,
+          "min_margin": 13.549038052558899,
+          "visible": true
+        },
+        {
+          "instance": 48,
+          "basis_kind": "identity",
+          "intent": "inside",
+          "world_center": [
+            -5.75,
+            1.5,
+            2.125
+          ],
+          "world_radius": 1.299038052558899,
+          "min_dist": 14.25,
+          "min_margin": 15.549038052558899,
+          "visible": true
+        },
+        {
+          "instance": 95,
+          "basis_kind": "roty_scaled",
+          "intent": "crossing_plane_4",
+          "world_center": [
+            -2.825000047683716,
+            0.7999999523162842,
+            -20.625
+          ],
+          "world_radius": 1.7184659242630005,
+          "min_dist": -0.625,
+          "min_margin": 1.0934659242630005,
+          "visible": true
+        }
+      ],
+      "gpu_observed": null
+    }
+  ],
+  "coverage_totals": {
+    "fully_inside_instances": 64,
+    "crossing_instances": 48,
+    "culled_instances": 57,
+    "identity_basis_instances": 65,
+    "rotated_basis_instances": 64,
+    "nonuniform_scale_instances": 104,
+    "culled_by_plane_0": 10,
+    "culled_by_plane_1": 10,
+    "culled_by_plane_2": 10,
+    "culled_by_plane_3": 9,
+    "culled_by_plane_4": 9,
+    "culled_by_plane_5": 9
+  },
+  "min_classification_margin": 0.5490380525588989,
+  "notes": [
+    "GPU-observed values are pending a real dispatch; the standalone S6 smoke (a later slice) imports this module's fixtures + reference and verifies every measured output word exactly.",
+    "The instance-count dwords and the visibility bitmask are assumed zeroed before the dispatch (the runtime patch slices own that zeroing); the harness must upload the initial command words and explicit bitmask zeros.",
+    "Non-count command dwords carry nonzero sentinels (dword 0 mirrors the native vertices-drawn init; dwords 2-4 are zero in native Godot) so a kernel that clobbers any non-count dword fails the exact comparison.",
+    "Fixtures carry every parameter through the 36-dword b0 (stride 12, command stride 5, count dword index 1 are parameters, not hardcoded); distinct instance counts / surface counts / frustums per case mean a kernel with any hardcoded size cannot pass all three cases.",
+    "The conservative sphere test may keep truly-invisible instances visible (Frobenius radius upper bound) but can never cull a visible one; crossing-sphere fixtures pin the visible side of that behavior."
+  ],
+  "does_not_imply": [
+    "Godot runtime gpu_culling pass completion",
+    "real_gpu_pass=true",
+    "manifest real_d3d12_dispatch_recorded=true",
+    "visual success",
+    "temporal stability success",
+    "GPU timestamp success",
+    "draw/dispatch-count reduction claim",
+    "performance claim",
+    "default pass enablement"
+  ]
+}

@@ -1,0 +1,1 @@
+emit_grx015_gpu_culling_rts0: wrote 152 bytes to spike/godot-rurix/passes/gpu_culling/artifacts/gpu_culling.rts0.bin

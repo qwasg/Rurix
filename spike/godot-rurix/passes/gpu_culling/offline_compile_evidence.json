@@ -1,0 +1,192 @@
+{
+  "pass_id": "gpu_culling",
+  "segment": "offline_compile",
+  "status": "success",
+  "runtime_state": "fallback_only",
+  "attempted_at_utc": "2026-07-12T12:10:36Z",
+  "provenance": "hlsl_bridge_workaround",
+  "rurix_owned": false,
+  "rurix_owned_rts0": true,
+  "canonical_switch_exception": "owner_approved_hlsl_bridge_workaround",
+  "provenance_policy_precedent": "spike/godot-rurix/passes/luminance_reduction/texture_artifact_provenance_policy.json",
+  "provenance_blocker_note": "gpu_culling is an all raw-buffer / SSBO pass, so the texture-intrinsic llc blocker in the precedent policy does NOT apply. The workaround is used for four different blockers: (1) the DXIL compute-body lowering accepts only View<global, f32>/ViewMut<global, f32> buffer views while both outputs (command dwords, visibility bitmask words) are u32-word SSBOs whose bit patterns an f32 view cannot carry bit-faithfully; (2) the Rurix lang subset has NO atomic intrinsic (InterlockedAdd/InterlockedOr) on any backend and the kernel's only writes are atomics; (3) the integer bit operations the bitmask write needs (<<, &, >>) exist in MIR but have no DXIL-backend lowering; (4) the conservative-radius sqrt has no DXIL lowering (DeviceMathFn is NVPTX-libdevice-only).",
+  "math_parity_evidence": "spike/godot-rurix/passes/gpu_culling/math_parity_evidence.json",
+  "math_parity_status": "gpu_culling_cpu_reference_proven_pending_gpu_dispatch",
+  "inputs": {
+    "package_manifest": "spike/godot-rurix/passes/gpu_culling/rurix.toml",
+    "entry_file": "spike/godot-rurix/passes/gpu_culling/artifacts/hlsl_bridge/gpu_culling_frustum_count.hlsl",
+    "rurix_math_source": "spike/godot-rurix/passes/gpu_culling/src/lib.rx",
+    "godot_reference_files": [
+      "external/godot-master/servers/rendering/renderer_rd/storage_rd/mesh_storage.cpp",
+      "external/godot-master/servers/rendering/renderer_rd/storage_rd/mesh_storage.h",
+      "external/godot-master/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp"
+    ],
+    "godot_reference_note": "ADDITIVE pass: no native Godot compute shader exists for this math (the references document the indirect-MultiMesh command-buffer infrastructure and the CPU count write point the kernel aligns with, not a shader to port)"
+  },
+  "tools": {
+    "dxc": {
+      "found": true,
+      "path": "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+      "version_output": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)"
+    },
+    "dxv": {
+      "found": true,
+      "path": "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe"
+    }
+  },
+  "hlsl": {
+    "path": "spike/godot-rurix/passes/gpu_culling/artifacts/hlsl_bridge/gpu_culling_frustum_count.hlsl",
+    "entry_point": "main",
+    "target_profile": "cs_6_0",
+    "sha256": "71aa0f53286163e60889228622523375c783fab3a0082dfd3a74953047dcfcfa"
+  },
+  "commands": [
+    {
+      "label": "dxc_compile",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+        "-T",
+        "cs_6_0",
+        "-E",
+        "main",
+        "-Qstrip_debug",
+        "-Fo",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\gpu_culling\\artifacts\\hlsl_bridge\\gpu_culling_frustum_count.dxil",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\gpu_culling\\artifacts\\hlsl_bridge\\gpu_culling_frustum_count.hlsl"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/gpu_culling/artifacts/hlsl_bridge/dxc_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/gpu_culling/artifacts/hlsl_bridge/dxc_stderr.txt"
+    },
+    {
+      "label": "dxv_validate",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\gpu_culling\\artifacts\\hlsl_bridge\\gpu_culling_frustum_count.dxil"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/gpu_culling/artifacts/hlsl_bridge/dxv_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/gpu_culling/artifacts/hlsl_bridge/dxv_stderr.txt"
+    },
+    {
+      "label": "emit_grx015_gpu_culling_rts0",
+      "argv": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "rurixc",
+        "--features",
+        "dxil-backend shader-stages",
+        "--example",
+        "emit_grx015_gpu_culling_rts0",
+        "--",
+        "spike/godot-rurix/passes/gpu_culling/artifacts/gpu_culling_descriptor_layout.json",
+        "spike/godot-rurix/passes/gpu_culling/artifacts/gpu_culling.rts0.bin"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/gpu_culling/artifacts/hlsl_bridge/emit_rts0_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/gpu_culling/artifacts/hlsl_bridge/emit_rts0_stderr.txt"
+    }
+  ],
+  "attempted_binding_kinds": [
+    "structured_buffer",
+    "rwstructured_buffer",
+    "rwstructured_buffer"
+  ],
+  "runtime_mappable": true,
+  "known_gaps": [
+    "conservative bounding-sphere test only (local AABB -> sphere, Frobenius-norm radius bound): may keep truly-invisible instances visible, never over-culls; precise OBB / transformed-AABB test out of scope",
+    "occlusion culling, LOD selection, hierarchical/two-phase culling unsupported",
+    "2D transform format (MULTIMESH_TRANSFORM_2D, 8-float stride) unsupported; color/custom stride variants carried via transform_stride_floats in b0 but exercised at 12 (bare 3D) only",
+    "motion_vectors_current_offset carried in b0 but exercised at 0 (motion-vector double-buffer offset is a runtime concern)",
+    "per-surface differing visibility unsupported (every surface command block receives the same count, matching the native CPU write loop)",
+    "visible-instance compaction / transform remap is GRX-016; indirect-args generation beyond the instance-count dword is GRX-018 (separate milestones, separate PRs)",
+    "Resource-layer use_indirect plumbing out of scope (scene/resources/multimesh.h has no such property); the later patch slices use the RS::multimesh_allocate_data(..., use_indirect=true) server-API bypass",
+    "the CPU _scene_cull path is untouched: a MultiMesh occupies ONE InstanceData in the CPU cull, so this pass does not reduce the CPU cull O(N) over independent MeshInstance3D populations; the benefit surface is GPU draw-side only",
+    "the instance-count dwords and the visibility bitmask are assumed zeroed before dispatch (runtime responsibility of the later patch slices); pre-dispatch zeroing is not wired here",
+    "runtime hook / native-handle binding not wired (patches 0027-0029, later serial slices)",
+    "GPU-observed math parity pending the standalone S6 dispatch smoke (math_parity_evidence.json stays pending_gpu_dispatch)"
+  ],
+  "does_not_imply": [
+    "Godot runtime gpu_culling pass completion",
+    "real_gpu_pass=true",
+    "real_d3d12_dispatch_recorded=true",
+    "visual success",
+    "temporal stability success",
+    "GPU timestamp success",
+    "draw/dispatch-count reduction claim",
+    "performance claim",
+    "default pass enablement",
+    "math parity proven (see math_parity_evidence.json)"
+  ],
+  "dxil_provenance": {
+    "produced_by": "dxc",
+    "compiler_version": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)",
+    "target_profile": "cs_6_0",
+    "entry_point": "main",
+    "hlsl_source": {
+      "path": "spike/godot-rurix/passes/gpu_culling/artifacts/hlsl_bridge/gpu_culling_frustum_count.hlsl",
+      "sha256": "71aa0f53286163e60889228622523375c783fab3a0082dfd3a74953047dcfcfa"
+    },
+    "validation": {
+      "tool": "dxv.exe",
+      "status": "pass",
+      "exit_code": 0
+    }
+  },
+  "root_signature_generator": {
+    "kind": "rurixc_binding_layout_example",
+    "command": [
+      "cargo",
+      "run",
+      "-q",
+      "-p",
+      "rurixc",
+      "--features",
+      "dxil-backend shader-stages",
+      "--example",
+      "emit_grx015_gpu_culling_rts0",
+      "--",
+      "spike/godot-rurix/passes/gpu_culling/artifacts/gpu_culling_descriptor_layout.json",
+      "spike/godot-rurix/passes/gpu_culling/artifacts/gpu_culling.rts0.bin"
+    ],
+    "source_api": "rurixc::binding_layout::{infer_root_signature, pack_root_constants, serialize_rts0}",
+    "root_constants": "144_bytes_36_dwords_at_root_parameter_index_0"
+  },
+  "artifacts": {
+    "dxil": {
+      "path": "spike/godot-rurix/passes/gpu_culling/artifacts/gpu_culling.dxil",
+      "exists": true,
+      "size_bytes": 5460,
+      "sha256": "e3b322390a004c9f1b54cf3633733245f821204248fd924f8bb2996c60761279",
+      "artifact_kind": "dxil_container",
+      "produced_by_current_run": true,
+      "semantic_status": "lowered_compute_body"
+    },
+    "root_signature": {
+      "path": "spike/godot-rurix/passes/gpu_culling/artifacts/gpu_culling.rts0.bin",
+      "exists": true,
+      "size_bytes": 152,
+      "sha256": "7575283e94d8f359eff2200df75e8161ebe88839f5954b57c5fc961382ae2560",
+      "artifact_kind": "rurix_owned_rts0_root_signature",
+      "produced_by_current_run": true
+    },
+    "descriptor_layout": {
+      "path": "spike/godot-rurix/passes/gpu_culling/artifacts/gpu_culling_descriptor_layout.json",
+      "exists": true,
+      "size_bytes": 9206,
+      "sha256": "4ef6fd8e088555edb8cc8ea3adc0f39837097c212aae98b4d1bc347bff6969b4",
+      "artifact_kind": "descriptor_layout_json",
+      "produced_by_current_run": true
+    }
+  },
+  "notes": [
+    "Runtime remains fallback_only: the real dispatch path (a later patch/bridge slice) is opt-in only and armed by RXGD_CAP_GPU_CULLING_REAL_PASS (1u<<9); the shipping feature-off bridge fails closed.",
+    "The canonical artifacts/ paths carry the raw-buffer hlsl_bridge workaround package: a DXC cs_6_0 DXIL container (validated by dxv), the Rurix-owned RTS0 root signature serialized by rurixc::binding_layout::serialize_rts0 (144-byte / 36-dword Rurix-defined root constants + SRV t0 structured buffer + UAV u0/u1 structured buffers), and the descriptor layout with per-slot structured_buffer/rwstructured_buffer/rwstructured_buffer binding kinds.",
+    "hlsl_bridge_workaround provenance (buffer-pass variant): NOT rurix_owned. Blockers differ from the texture passes: (1) no u32 buffer views in the DXIL compute-body lowering; (2) no atomic intrinsics in the lang subset on any backend; (3) no DXIL-backend lowering for the integer bit operations; (4) no DXIL sqrt lowering. The texture-intrinsic llc blocker does NOT apply to this raw-buffer pass.",
+    "The kernel math is Rurix-defined (additive pass, count-only conservative sphere cull): no native Godot compute shader is replaced; the aligned native behavior is the CPU count write at mesh_storage.cpp L2210 and the untouched remaining command dwords. See known_gaps."
+  ],
+  "blocker_category": null,
+  "blocker_summary": null
+}
