@@ -3903,14 +3903,13 @@ def run_grx_gate_sequence_cases() -> None:
     (1) The gate sequence registers grx011 (ssao_blur), grx012 (taa_resolve),
         grx013 (particles_copy), then grx014 (cluster_store). An empty walk is
         still a pure no-op. Walking the REAL registered sequence: grx011,
-        grx012 and grx013 are fully closed out (contract + patch + dispatch
-        smoke + real-pass enablement + owner default-enable decision all
-        green) and advance ``next_action`` to grx013's gate-provided value
-        (``start_grx014_cluster_store_pass_contract``); grx014 is at the
-        S1-S4+S6 level only (contract + dispatch smoke green; patches
-        0023-0025 / enablement / decision are later serial slices), so the
-        walk records ONE honest ``grx_gate_module_error`` for grx014 and stops
-        WITHOUT rewriting ``next_action`` past it (fail-closed).
+        grx012, grx013 AND grx014 are all fully closed out (contract + patch
+        applyability + standalone dispatch smoke + real-pass enablement strict
+        success + owner default-enable decision all green — grx014 closed out
+        in GRX Wave 4 with patches 0023-0025 and the 0001..0026 enablement
+        smoke), so the walk records ZERO module errors and advances
+        ``next_action`` to grx014's gate-provided value
+        (``start_grx015_gpu_culling_pass_contract``).
     (2) A broken gate module injected into a temporary sequence is reported as a
         ``grx_gate_module_error`` and MUST NOT rewrite ``next_action``: covers a
         syntax-error module, a module without ``evaluate``, an ``evaluate`` that
@@ -3951,58 +3950,48 @@ def run_grx_gate_sequence_cases() -> None:
     if empty_walk["module_errors"] or empty_walk["evaluations"]:
         raise AssertionError("empty gate walk must record no evaluations or errors")
 
-    # (1b) Walking the REAL registered sequence: grx011, grx012 and grx013 are
-    # all fully closed out (contract + patch applyability + standalone dispatch
-    # smoke + real-pass enablement strict success + owner default-enable decision
-    # all green), so the walk advances next_action to grx013's gate-provided
-    # value (start_grx014_cluster_store_pass_contract). grx014 (cluster_store)
-    # is at the S1-S4+S6 level only: contract_ready and dispatch_smoke_ready are
-    # green but patches 0023-0025 / enablement / decision are LATER SERIAL
-    # SLICES, so the walk records exactly ONE honest grx_gate_module_error for
-    # grx014 and STOPS there without rewriting next_action past grx013's value
-    # (fail-closed). Every gate keeps default_enable_state=disabled; a green
-    # gate records the opt-in MEASURED real-pass arm only, never a default
-    # enablement or performance claim.
-    grx013_next_action = "start_grx014_cluster_store_pass_contract"
+    # (1b) Walking the REAL registered sequence: grx011, grx012, grx013 AND
+    # grx014 are all fully closed out (contract + patch applyability +
+    # standalone dispatch smoke + real-pass enablement strict success + owner
+    # default-enable decision all green; grx014 closed out in GRX Wave 4 with
+    # patches 0023-0025 and the 0001..0026 enablement smoke), so the walk
+    # records ZERO grx_gate_module_errors and advances next_action to grx014's
+    # gate-provided value (start_grx015_gpu_culling_pass_contract). Every gate
+    # keeps default_enable_state=disabled; a green gate records the opt-in
+    # MEASURED real-pass arm only, never a default enablement or performance
+    # claim.
+    grx014_next_action = "start_grx015_gpu_culling_pass_contract"
     real_walk = probe.walk_grx_gate_sequence(list(probe.GRX_GATE_SEQUENCE), base)
     if len(real_walk["evaluations"]) != 4:
         raise AssertionError(
-            "the real gate walk must evaluate grx011, grx012, grx013 (closed "
-            "out) and grx014 (honestly not ready, walk stops there); got "
-            f"{real_walk['evaluations']!r}"
+            "the real gate walk must evaluate grx011, grx012, grx013 and "
+            f"grx014 (all closed out); got {real_walk['evaluations']!r}"
         )
     grx011_record, grx012_record, grx013_record, grx014_record = real_walk["evaluations"]
     for record, gate_id in (
         (grx011_record, "grx011"),
         (grx012_record, "grx012"),
         (grx013_record, "grx013"),
+        (grx014_record, "grx014"),
     ):
         if record.get("gate_id") != gate_id or record.get("all_ready") is not True:
             raise AssertionError(
                 f"the real gate record for {gate_id} must be fully-ready: {record!r}"
             )
-    if grx014_record.get("gate_id") != "grx014" or grx014_record.get("all_ready") is True:
+        if record.get("module_error"):
+            raise AssertionError(
+                f"the fully-ready {gate_id} gate must carry no module_error: {record!r}"
+            )
+    if real_walk["module_errors"]:
         raise AssertionError(
-            "the real gate record for grx014 must be honestly NOT fully-ready "
-            f"(patches 0023-0025 / enablement / decision pending): {grx014_record!r}"
+            "the fully closed-out gate walk must record ZERO "
+            f"grx_gate_module_errors; got {real_walk['module_errors']!r}"
         )
-    if not grx014_record.get("module_error"):
+    if real_walk["next_action"] != grx014_next_action:
         raise AssertionError(
-            "the not-ready grx014 gate must carry a module_error (fail-closed "
-            f"stop): {grx014_record!r}"
-        )
-    if len(real_walk["module_errors"]) != 1 or real_walk["module_errors"][0].get(
-        "gate_id"
-    ) != "grx014":
-        raise AssertionError(
-            "the real gate walk must record exactly ONE grx_gate_module_error "
-            f"(for grx014); got {real_walk['module_errors']!r}"
-        )
-    if real_walk["next_action"] != grx013_next_action:
-        raise AssertionError(
-            "the grx011->grx012->grx013 ready walk must advance next_action to "
-            f"{grx013_next_action!r} and the not-ready grx014 must NOT rewrite "
-            f"it; got {real_walk['next_action']!r}"
+            "the grx011->grx012->grx013->grx014 ready walk must advance "
+            f"next_action to {grx014_next_action!r}; got "
+            f"{real_walk['next_action']!r}"
         )
     if real_walk["next_action"] == base:
         raise AssertionError(

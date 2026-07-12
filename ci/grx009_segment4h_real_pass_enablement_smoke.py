@@ -19,7 +19,12 @@ bridge still fails closed with ``real_dispatch_path_not_linked``):
   * **Pass enable matrix (three legs)**: a *reference* leg (all per-pass
     settings at their ``false`` defaults; native Godot luminance path), an
     *enabled_real_pass_optin* candidate leg (``enabled=true`` +
-    ``dispatch_bringup=true`` + ``dispatch_real_pass=true``), and a
+    ``dispatch_bringup=true`` + ``dispatch_real_pass=true`` +
+    ``dispatch_recording_smoke=true`` — GRX Wave 4 print gating moved the
+    per-dispatch module REAL_PASS / call-site WRITEBACK instrumentation
+    markers under the harness-only ``dispatch_recording_smoke`` opt-in, so
+    the harness legs that must observe those markers arm it; the production
+    ``dispatch_real_pass`` path emits zero per-dispatch stdout), and a
     *forced_capability_downgrade* red leg (candidate settings plus the
     harness-only ``real_pass_force_capability_downgrade=true`` knob, which
     clears the shader-int64 capability so the bridge preflight must fail
@@ -166,8 +171,13 @@ REAL_PASS_BLOCKED_MARKER = "RXGD_REAL_PASS_BLOCKED"
 # Module-side marker printed ONLY when a future runtime-mappable real dispatch
 # actually returned RXGD_STATUS_OK on the real-pass arm.
 REAL_PASS_MARKER = "RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS"
-# Segment 4d/4f recording marker: must never appear here (the recording smoke
-# opt-in is not enabled by this harness).
+# Segment 4d/4f recording marker. GRX Wave 4: the candidate/forced legs arm
+# dispatch_recording_smoke (it now gates the per-dispatch REAL_PASS/WRITEBACK
+# instrumentation markers), so this marker is no longer categorically
+# forbidden there — but it only ever prints after the LEVEL-0 2-resource arm
+# returned OK, so it must still never appear in the reference leg, never in
+# the fail-closed forced leg, and never in a candidate leg without a real
+# pass (a stray RECORD marker without real_pass_success remains a FAIL).
 RECORD_MARKER = "RXGD_GODOT_RUNTIME_LUMINANCE_RECORD"
 
 # The predicted first missing prerequisite when the opt-in real dispatch
@@ -634,12 +644,16 @@ def write_smoke_project(
     dll_path: Path,
     pass_enabled: bool,
     dispatch_bringup: bool,
+    dispatch_recording_smoke: bool,
     dispatch_real_pass: bool,
     force_capability_downgrade: bool,
 ) -> None:
     """Generate a minimal deterministic Godot project. Only the tracked
     per-pass opt-in settings differ between legs; everything else is
-    byte-identical so the opt-in matrix is the only delta."""
+    byte-identical so the opt-in matrix is the only delta. GRX Wave 4: the
+    armed legs set dispatch_recording_smoke=true because it now gates the
+    per-dispatch REAL_PASS/WRITEBACK instrumentation markers this harness
+    asserts on."""
     project_dir.mkdir(parents=True, exist_ok=True)
 
     def flag(value: bool) -> str:
@@ -668,6 +682,7 @@ rurix_accel/require_forward_plus=true
 rurix_accel/dll_path="{dll_path.as_posix()}"
 rurix_accel/passes/luminance_reduction/enabled={flag(pass_enabled)}
 rurix_accel/passes/luminance_reduction/dispatch_bringup={flag(dispatch_bringup)}
+rurix_accel/passes/luminance_reduction/dispatch_recording_smoke={flag(dispatch_recording_smoke)}
 rurix_accel/passes/luminance_reduction/dispatch_real_pass={flag(dispatch_real_pass)}
 rurix_accel/passes/luminance_reduction/real_pass_force_capability_downgrade={flag(force_capability_downgrade)}
 """
@@ -818,18 +833,21 @@ LEG_SETTINGS = {
     "reference": {
         "pass_enabled": False,
         "dispatch_bringup": False,
+        "dispatch_recording_smoke": False,
         "dispatch_real_pass": False,
         "force_capability_downgrade": False,
     },
     "candidate": {
         "pass_enabled": True,
         "dispatch_bringup": True,
+        "dispatch_recording_smoke": True,
         "dispatch_real_pass": True,
         "force_capability_downgrade": False,
     },
     "forced_fallback": {
         "pass_enabled": True,
         "dispatch_bringup": True,
+        "dispatch_recording_smoke": True,
         "dispatch_real_pass": True,
         "force_capability_downgrade": True,
     },
@@ -867,6 +885,9 @@ def run_matrix_leg(godot_exe: Path, *, leg: str, dll_path: Path) -> dict:
         "project_settings": {
             f"{PASS_SETTING_PREFIX}/enabled": settings["pass_enabled"],
             f"{PASS_SETTING_PREFIX}/dispatch_bringup": settings["dispatch_bringup"],
+            f"{PASS_SETTING_PREFIX}/dispatch_recording_smoke": settings[
+                "dispatch_recording_smoke"
+            ],
             f"{PASS_SETTING_PREFIX}/dispatch_real_pass": settings["dispatch_real_pass"],
             f"{PASS_SETTING_PREFIX}/real_pass_force_capability_downgrade": settings[
                 "force_capability_downgrade"
@@ -1117,11 +1138,16 @@ def main() -> int:
                 f"{audit.get('unexpected_lines_tail')}",
                 extra=runs_extra,
             )
-        if leg["record_marker_observed"]:
+        if leg["record_marker_observed"] and name != "candidate":
+            # GRX Wave 4: the candidate/forced legs arm dispatch_recording_smoke
+            # (it gates the per-dispatch instrumentation markers), but RECORD
+            # only prints after a level-0 OK — the reference leg (all defaults)
+            # and the fail-closed forced leg must still never print it. The
+            # candidate leg's RECORD/real-pass coupling is asserted below.
             return fail(
                 f"{name} run printed the segment 4d/4f recording marker "
-                f"'{RECORD_MARKER}'; the recording smoke opt-in must stay off "
-                "in the segment 4h matrix",
+                f"'{RECORD_MARKER}'; the {name} leg must never record a "
+                "level-0 dispatch",
                 extra=runs_extra,
             )
         if leg["capture_error"] is not None or leg["frame_bytes"] is None:
@@ -1184,6 +1210,13 @@ def main() -> int:
     candidate_tokens = parse_blocked_marker(
         candidate["real_pass_blocked_marker_line"] or ""
     )
+    if candidate["record_marker_observed"] and not real_pass_success:
+        return fail(
+            f"candidate run printed the recording marker '{RECORD_MARKER}' "
+            "without a real pass; a level-0 record without the real-pass "
+            "marker is contradictory",
+            extra=runs_extra,
+        )
     if real_pass_success:
         if candidate["real_pass_blocked_marker_observed"]:
             return fail(
@@ -1409,7 +1442,11 @@ def main() -> int:
             "real_pass_blocked_marker_observed"
         ],
         "real_pass_blocked_marker_observed_forced_fallback": True,
-        "record_marker_absent_all_runs": True,
+        # GRX Wave 4: candidate/forced arm dispatch_recording_smoke (it gates
+        # the per-dispatch instrumentation markers); RECORD stays forbidden in
+        # the reference/forced legs and candidate RECORD requires a real pass.
+        "record_marker_absent_reference_and_forced": True,
+        "record_marker_requires_real_pass_candidate": True,
         "frames_captured": True,
         "dimensions_match": True,
         "capture_frame_indices_match": True,

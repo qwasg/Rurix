@@ -352,7 +352,13 @@ GRX010_REQUIRED_TRUE_CHECKS = (
     "markers_absent_reference",
     "fallback_marker_observed_forced_fallback",
     "real_pass_blocked_marker_observed_forced_fallback",
-    "record_marker_absent_all_runs",
+    # GRX Wave 4 print gating: the harness candidate/forced legs arm
+    # dispatch_recording_smoke (it gates the per-dispatch instrumentation
+    # markers), so the old record_marker_absent_all_runs check split into a
+    # reference/forced absence check plus a candidate RECORD<->real-pass
+    # coupling check.
+    "record_marker_absent_reference_and_forced",
+    "record_marker_matches_real_pass_candidate",
     "frames_captured",
     "dimensions_match",
     "capture_frame_indices_match",
@@ -4895,7 +4901,14 @@ GRX009_SEGMENT4H_REQUIRED_CHECKS = (
     "markers_absent_reference",
     "fallback_marker_observed_forced_fallback",
     "real_pass_blocked_marker_observed_forced_fallback",
-    "record_marker_absent_all_runs",
+    # GRX Wave 4 print gating: the 4h harness candidate/forced legs arm
+    # dispatch_recording_smoke (it gates the per-dispatch instrumentation
+    # markers), so the old record_marker_absent_all_runs check split into a
+    # reference/forced absence check plus a candidate RECORD-requires-real-
+    # pass check (the pyramid success path never prints the level-0 RECORD
+    # marker, so candidate RECORD stays False on a normal 4h success).
+    "record_marker_absent_reference_and_forced",
+    "record_marker_requires_real_pass_candidate",
     "frames_captured",
     "dimensions_match",
     "capture_frame_indices_match",
@@ -5095,7 +5108,13 @@ def grx009_segment4h_real_pass_enablement_issue(
             return f"pass_enable_matrix {name} leg did not exit 0"
         if leg.get("session_ready") is not True:
             return f"pass_enable_matrix {name} leg did not observe a ready session"
-        if leg.get("record_marker_observed") is not False:
+        # GRX Wave 4: the candidate leg arms dispatch_recording_smoke (it
+        # gates the per-dispatch instrumentation markers), so the RECORD
+        # absence requirement is scoped to the reference and forced legs; a
+        # candidate RECORD is only legal alongside a real pass (the harness
+        # enforces the coupling and this auditor only accepts real-pass
+        # success evidence).
+        if name != "enabled_real_pass_optin" and leg.get("record_marker_observed") is not False:
             return f"pass_enable_matrix {name} leg observed the recording marker"
     for marker_key in (
         "bridge_fallback_marker_observed",
@@ -5737,7 +5756,12 @@ def grx010_real_pass_enablement_issue(
             return f"pass_enable_matrix {name} leg did not exit 0"
         if leg.get("session_ready") is not True:
             return f"pass_enable_matrix {name} leg did not observe a ready session"
-        if leg.get("record_marker_observed") is not False:
+        # GRX Wave 4: the candidate leg arms dispatch_recording_smoke (it
+        # gates the per-dispatch instrumentation markers), so the RECORD
+        # absence requirement is scoped to the reference and forced legs; the
+        # candidate leg's RECORD marker must instead MATCH the real-pass
+        # outcome (asserted below).
+        if name != "enabled_real_pass_optin" and leg.get("record_marker_observed") is not False:
             return f"pass_enable_matrix {name} leg observed the recording marker"
     for marker_key in (
         "bridge_fallback_marker_observed",
@@ -5752,6 +5776,12 @@ def grx010_real_pass_enablement_issue(
             )
     if candidate_leg.get("real_pass_marker_observed") is not True:
         return "enabled_real_pass_optin leg did not observe the real-pass marker"
+    if candidate_leg.get("record_marker_observed") is not True:
+        return (
+            "enabled_real_pass_optin leg did not observe the recording-smoke "
+            "marker; with the recording-smoke opt-in armed the RECORD marker "
+            "must print on the real-pass OK path"
+        )
     if candidate_leg.get("writeback_marker_observed") is not True:
         return (
             "enabled_real_pass_optin leg did not observe the patch 0013 "

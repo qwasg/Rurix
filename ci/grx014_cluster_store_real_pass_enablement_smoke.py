@@ -1,59 +1,60 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""GRX-013: gated real particles_copy pass enablement smoke.
+"""GRX-014: gated real cluster_store pass enablement smoke.
 
-This harness drives the opt-in real-pass enablement gate for the GRX-013
-particles_copy path. It is a strict, fail-closed bring-up gate, NOT a default
-enablement: ``rendering/rurix_accel/passes/particles_copy/enabled`` stays
-``false`` by default, the ``.../particles_copy/dispatch_real_pass`` opt-in also
+This harness drives the opt-in real-pass enablement gate for the GRX-014
+cluster_store path. It is a strict, fail-closed bring-up gate, NOT a default
+enablement: ``rendering/rurix_accel/passes/cluster_store/enabled`` stays
+``false`` by default, the ``.../cluster_store/dispatch_real_pass`` opt-in also
 defaults to ``false``, and NO FPS, GPU-timestamp, or performance claim is
 made anywhere in this gate. Template copy of
-``ci/grx011_ssao_blur_real_pass_enablement_smoke.py`` pointed at the
-particles_copy pass and the 0001..0022 patch stack.
+``ci/grx014_cluster_store_real_pass_enablement_smoke.py`` pointed at the
+cluster_store pass and the 0001..0026 patch stack.
 
-Unlike the texture passes, particles_copy is a cull-stage driver hook
-(``ParticlesStorage::particles_set_view_axis`` COPY_MODE_FILL_INSTANCES
-dispatch), so the scene is a deterministic GPU-particles system (fixed seed +
-``fixed_fps``, thousands of visible 3D particles, the default ``DRAW_ORDER_INDEX``
-so ``!do_sort`` selects the in-scope plain fill-instances subset). The bridge
-binds TWO structured buffers (Particles SSBO source = SRV t0, Transforms SSBO
-destination = UAV u0), NOT textures.
+Like cluster_store, cluster_store is not a post-process effect: it is the
+compute merge (store) segment of ``ClusterBuilderRD::bake_cluster()``, so the
+scene is a deterministic clustered-lights scene (a static grid of lit boxes
+plus many static ``OmniLight3D`` sources, no shadows) that keeps
+``render_element_count > 0`` every frame so the bake_cluster store dispatch
+(the patch 0023 call site) actually runs. The bridge binds THREE structured
+buffers (cluster_render SRV t0 + render_elements SRV t1 inputs, cluster_store
+UAV u0 output), NOT textures.
 
 What it measures, honestly, against the scratch Godot console exe rebuilt with
-the full 0001..0022 patch stack (``RURIX_GRX013_PARTICLES_COPY_GODOT_EXE``) and
+the full 0001..0026 patch stack (``RURIX_GRX014_CLUSTER_STORE_GODOT_EXE``) and
 a ``rurix_godot.dll`` built WITH the ``d3d12-recording-shim`` feature (the
 real-pass arm routes through the linked recording shim, so a real dispatch can
 only be attempted when the shim is compiled in; the shipping feature-off bridge
 still fails closed with ``real_dispatch_path_not_linked``):
 
-  * **Pass enable matrix (three legs)**: a *reference* leg (all particles_copy
-    per-pass settings at their ``false`` defaults; native Godot particles copy
+  * **Pass enable matrix (three legs)**: a *reference* leg (all cluster_store
+    per-pass settings at their ``false`` defaults; native Godot cluster store
     path), an *enabled_real_pass_optin* candidate leg (``enabled=true`` +
     ``dispatch_real_pass=true``), and a *forced_capability_downgrade* red leg
     (candidate settings plus the harness-only
     ``real_pass_force_capability_downgrade=true`` knob, which clears the
-    shader-int64 capability so the bridge particles_copy dispatch eligibility
-    must fail closed with ``unsupported_device``). NOTE: particles_copy's b0
+    shader-int64 capability so the bridge cluster_store dispatch eligibility
+    must fail closed with ``unsupported_device``). NOTE: cluster_store's b0
     carries no i64 fields, so int64 is NOT part of its runtime binding
     preflight; the forced knob is therefore caught one level later at the
     dispatch-eligibility gate (``dispatch_eligibility_failed``), not the
     preflight gate the texture passes catch it at.
-  * **Gated real-pass attempt**: the canonical particles_copy artifact paths
+  * **Gated real-pass attempt**: the canonical cluster_store artifact paths
     carry the owner-approved hlsl_bridge workaround package (DXC ``cs_6_0``
     container validated by ``dxv``, per-slot
     ``structured_buffer``/``rwstructured_buffer`` binding kinds, Rurix-owned
-    RTS0), and the COPY_MODE_FILL_INSTANCES 3D subset math is CPU-proven
-    (``math_parity_evidence.json``), so every software gate can pass and the
-    candidate leg may print the ``RXGD_GODOT_RUNTIME_PARTICLES_COPY_REAL_PASS``
-    marker (plus the patch 0022 result writeback scaffold marker) after a real
+    RTS0), and the complete store-segment math is CPU-proven with an
+    INTEGER-EXACT reference (``math_parity_evidence.json``), so every software gate can pass and the
+    candidate leg may print the ``RXGD_GODOT_RUNTIME_CLUSTER_STORE_REAL_PASS``
+    marker (plus the patch 0025 result writeback scaffold marker) after a real
     recorded dispatch. If the real dispatch cannot complete in this environment
     the candidate leg must instead print the tracked fallback marker AND the
-    bridge's machine-readable ``RXGD_PARTICLES_COPY_REAL_PASS_BLOCKED``
+    bridge's machine-readable ``RXGD_CLUSTER_STORE_REAL_PASS_BLOCKED``
     diagnostic naming the FIRST missing prerequisite
     (``real_dispatch_recording_failed``).
   * **Fallback red/green + visual stability**: all three legs must render via
-    the native Godot particles copy and exit 0 (the patch 0022 writeback
-    scaffold deliberately keeps the native fill-instances dispatch as the
+    the native Godot cluster store and exit 0 (the patch 0025 writeback
+    scaffold deliberately keeps the native cluster store dispatch as the
     continuation/backstop, so the rendered image can never change); the
     candidate and forced-failure frames must match the reference frame within
     the pinned LDR absolute-diff thresholds, and a GRX-008-format
@@ -89,8 +90,9 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 # Reuse the tracked GRX-009 scratch-provenance and log-audit helpers with the
-# full 0001..0022 stack (imported from the GRX-012 taa_resolve smoke, which owns
-# the extended stack tuple; the scratch-0022 build carries all 22 patches).
+# full 0001..0026 stack (extending the GRX-014 cluster_store smoke's stack
+# tuple with the cluster_store 0023..0025 triple and the 0026 material_sorting
+# telemetry slice; the scratch-0026 build carries all 26 patches).
 from ci.grx009_godot_runtime_bridge_recording_smoke import (
     find_git_root,
     patch_stack_identity,
@@ -98,21 +100,21 @@ from ci.grx009_godot_runtime_bridge_recording_smoke import (
     source_status_clean,
     verify_source_provenance_sidecar,
 )
-from ci.grx012_taa_resolve_real_pass_enablement_smoke import PATCH_STACK_GRX012
+from ci.grx013_particles_copy_real_pass_enablement_smoke import PATCH_STACK_GRX013
 
-PASS_DIR = ROOT / "spike" / "godot-rurix" / "passes" / "particles_copy"
+PASS_DIR = ROOT / "spike" / "godot-rurix" / "passes" / "cluster_store"
 ARTIFACTS = PASS_DIR / "artifacts"
 VISUAL_DIR = ARTIFACTS / "visual"
-DXIL = ARTIFACTS / "particles_copy.dxil"
-RTS0 = ARTIFACTS / "particles_copy.rts0.bin"
-DESCRIPTOR_LAYOUT = ARTIFACTS / "particles_copy_descriptor_layout.json"
+DXIL = ARTIFACTS / "cluster_store.dxil"
+RTS0 = ARTIFACTS / "cluster_store.rts0.bin"
+DESCRIPTOR_LAYOUT = ARTIFACTS / "cluster_store_descriptor_layout.json"
 OFFLINE_EVIDENCE = PASS_DIR / "offline_compile_evidence.json"
 # The *latest* run evidence: rewritten on every run; reproducible-default SKIP
 # without the scratch exe. Never advances the gate on its own.
 EVIDENCE_OUT = PASS_DIR / "real_pass_enablement_evidence.json"
 # The *historical measured success* artifact: written ONLY on a strict
 # status=success run and never overwritten by a later SKIP/FAIL run. The
-# GRX-013 readiness gate advances off THIS file (it reads strict_success=true).
+# GRX-014 readiness gate advances off THIS file (it reads strict_success=true).
 SUCCESS_EVIDENCE_OUT = PASS_DIR / "real_pass_enablement_success_evidence.json"
 # GRX-008-format measured_local telemetry for this gate.
 TELEMETRY_OUT = PASS_DIR / "real_pass_enablement_telemetry.json"
@@ -121,15 +123,15 @@ FALLBACK_TELEMETRY_SCRIPT = (
 )
 
 # Tracked frame artifacts, committed ONLY on a strict status=success run.
-REFERENCE_FRAME = VISUAL_DIR / "particles_copy_real_pass_reference.rgb8"
-CANDIDATE_FRAME = VISUAL_DIR / "particles_copy_real_pass_candidate.rgb8"
-DIFF_ARTIFACT = VISUAL_DIR / "particles_copy_real_pass_diff.rgb8"
+REFERENCE_FRAME = VISUAL_DIR / "cluster_store_real_pass_reference.rgb8"
+CANDIDATE_FRAME = VISUAL_DIR / "cluster_store_real_pass_candidate.rgb8"
+DIFF_ARTIFACT = VISUAL_DIR / "cluster_store_real_pass_diff.rgb8"
 
 RURIX_GODOT_DLL = ROOT / "target" / "debug" / "rurix_godot.dll"
-WORK = ROOT / "target" / "grx013_particles_copy_real_pass_enablement_smoke"
+WORK = ROOT / "target" / "grx014_cluster_store_real_pass_enablement_smoke"
 LOG_DIR = WORK / "logs"
 
-SUBJECT = "grx013_particles_copy_real_pass_enablement_smoke"
+SUBJECT = "grx014_cluster_store_real_pass_enablement_smoke"
 
 # Visual gate pins (same caliber as GRX-009 4h / GRX-010 / GRX-011).
 METRIC_KIND = "ldr_absolute_diff"
@@ -142,37 +144,37 @@ VIEWPORT_WIDTH = 256
 VIEWPORT_HEIGHT = 144
 ALLOWED_GODOT_ERROR = "Could not load global script cache"
 
-# Markers in the full 0001..0022 build. The fallback marker carries the patch
-# 0021 native-resource-handle-mapping wording (NOT the 0020 gate-level wording).
+# Markers in the full 0001..0026 build. The fallback marker carries the patch
+# 0024 native-resource-handle-mapping wording (NOT the 0023 gate-level wording).
 FALLBACK_MARKER = (
-    "RurixAccel: particles_copy native resource handle mapping fallback rc="
+    "RurixAccel: cluster_store native resource handle mapping fallback rc="
 )
 SESSION_READY_MARKER = "RurixAccel: D3D12 Forward+ bridge session ready."
 # Bridge-side machine-readable first-missing-prerequisite diagnostic (printed
-# once per session by the fail-closed ParticlesCopyGate in
+# once per session by the fail-closed ClusterStoreGate in
 # src/rurix-godot/src/lib.rs).
-REAL_PASS_BLOCKED_MARKER = "RXGD_PARTICLES_COPY_REAL_PASS_BLOCKED"
+REAL_PASS_BLOCKED_MARKER = "RXGD_CLUSTER_STORE_REAL_PASS_BLOCKED"
 # Real-pass markers: the bridge prints
-# "RXGD_GODOT_RUNTIME_PARTICLES_COPY_REAL_PASS recorded=1" and the patch 0022
+# "RXGD_GODOT_RUNTIME_CLUSTER_STORE_REAL_PASS recorded=1" and the patch 0025
 # module gate prints its own dispatched/writeback lines ONLY after
 # rxgd_record_pass actually returned RXGD_STATUS_OK on the real-pass arm.
-REAL_PASS_MARKER = "RXGD_GODOT_RUNTIME_PARTICLES_COPY_REAL_PASS"
-# Patch 0022 result writeback scaffold marker: the native particles copy stays
+REAL_PASS_MARKER = "RXGD_GODOT_RUNTIME_CLUSTER_STORE_REAL_PASS"
+# Patch 0025 result writeback scaffold marker: the native cluster store stays
 # the continuation/backstop after a real dispatch, so the image never changes.
-WRITEBACK_MARKER = "RXGD_GODOT_RUNTIME_PARTICLES_COPY_REAL_PASS_WRITEBACK"
+WRITEBACK_MARKER = "RXGD_GODOT_RUNTIME_CLUSTER_STORE_REAL_PASS_WRITEBACK"
 # Recording-smoke marker. GRX Wave 4: the candidate/forced legs arm the
-# particles_copy dispatch_recording_smoke opt-in (it now gates the per-dispatch
+# cluster_store dispatch_recording_smoke opt-in (it now gates the per-dispatch
 # REAL_PASS/WRITEBACK instrumentation markers), and RECORD prints only on
 # the real-pass OK path — so it must appear in the candidate leg IFF the
 # real pass succeeded, and never in the reference/forced legs.
-RECORD_MARKER = "RXGD_GODOT_RUNTIME_PARTICLES_COPY_RECORD"
+RECORD_MARKER = "RXGD_GODOT_RUNTIME_CLUSTER_STORE_RECORD"
 
 # The predicted first missing prerequisite when the opt-in real dispatch cannot
 # complete in this environment. Pinned so a drift in the gate chain is a loud
 # FAIL, not a silent re-labelling.
 EXPECTED_FIRST_MISSING_PREREQUISITE = "real_dispatch_recording_failed"
 EXPECTED_BLOCKED_FALLBACK_REASON = "validation_failed"
-# particles_copy's runtime binding preflight does NOT check the int64 capability
+# cluster_store's runtime binding preflight does NOT check the int64 capability
 # (its b0 carries no i64 fields), so the forced capability downgrade is caught
 # one level later at the dispatch-eligibility gate — NOT the preflight gate the
 # texture passes (luminance/tonemap/ssao_blur/taa_resolve) catch it at.
@@ -181,27 +183,27 @@ EXPECTED_FORCED_FALLBACK_REASON = "unsupported_device"
 
 KNOWN_GAPS = [
     (
-        "math parity is CPU-proven for the COPY_MODE_FILL_INSTANCES 3D subset "
-        "only (ALIGN_DISABLED/ALIGN_BILLBOARD) and still pending GPU "
+        "math parity is CPU-proven with an integer-exact reference for the "
+        "complete store-segment math and still pending in-engine GPU "
         "observation (math_parity_evidence.json status=pending_gpu_dispatch); "
-        "align modes 2/3/4, 2D copy mode, the sort/lifetime reindex, trail "
-        "interpolation, and userdata channels are recorded gaps"
+        "the cluster_render raster segment, the buffer clears, and the "
+        "render_element_count == 0 early-out stay native permanently "
+        "(resource_mapping.md scope)"
     ),
     (
         "canonical artifact provenance is hlsl_bridge_workaround "
-        "(owner-approved): particles_copy is an all raw-buffer / SSBO pass, so "
-        "the GRX-009 texture-intrinsic llc blocker does NOT apply; the "
-        "workaround is used because the Rurix lang subset has no aggregate "
-        "SSBO element types and the DXIL backend does not lower the "
-        "sin/cos/sqrt device-math intrinsics ALIGN_BILLBOARD needs"
+        "(owner-approved): cluster_store is an all structured-buffer / SSBO "
+        "pass, so the GRX-009 texture-intrinsic llc blocker does NOT apply; "
+        "the workaround is used because the Rurix lang subset has no "
+        "aggregate SSBO element types"
     ),
     (
         "the real dispatch path is linked only under the d3d12-recording-"
         "shim feature; the shipping feature-off bridge still fails closed "
-        "with real_dispatch_path_not_linked, and the patch 0022 result "
-        "writeback is a SCAFFOLD: the native Godot particles copy re-fills "
-        "every instance every frame as the continuation/backstop (2D/sort/"
-        "lifetime/trail/userdata subsets are later rounds)"
+        "with real_dispatch_path_not_linked, and the patch 0025 result "
+        "writeback is a SCAFFOLD: the shim submit executes outside Godot's "
+        "frame command order and the native Godot cluster store re-packs "
+        "the whole cluster table every frame as the continuation/backstop"
     ),
 ]
 
@@ -209,21 +211,28 @@ GODOT_TIMEOUT_SECONDS = 200
 REQUESTED_RENDERER = "d3d12"
 REQUESTED_RENDERING_METHOD = "forward_plus"
 
-GODOT_EXE_ENV = "RURIX_GRX013_PARTICLES_COPY_GODOT_EXE"
-SCRATCH_SOURCE_ENV = "RURIX_GRX013_PARTICLES_COPY_GODOT_SOURCE"
-SCRATCH_SOURCE_PROVENANCE_ENV = "RURIX_GRX013_PARTICLES_COPY_GODOT_SOURCE_PROVENANCE"
-SCRATCH_BUILD_COMMAND_ENV = "RURIX_GRX013_PARTICLES_COPY_GODOT_BUILD_COMMAND"
-SCRATCH_BUILD_LOG_ENV = "RURIX_GRX013_PARTICLES_COPY_GODOT_BUILD_LOG"
-CAPTURE_PREFIX_ENV = "RURIX_GRX013_PARTICLES_COPY_CAPTURE_PREFIX"
+GODOT_EXE_ENV = "RURIX_GRX014_CLUSTER_STORE_GODOT_EXE"
+SCRATCH_SOURCE_ENV = "RURIX_GRX014_CLUSTER_STORE_GODOT_SOURCE"
+SCRATCH_SOURCE_PROVENANCE_ENV = "RURIX_GRX014_CLUSTER_STORE_GODOT_SOURCE_PROVENANCE"
+SCRATCH_BUILD_COMMAND_ENV = "RURIX_GRX014_CLUSTER_STORE_GODOT_BUILD_COMMAND"
+SCRATCH_BUILD_LOG_ENV = "RURIX_GRX014_CLUSTER_STORE_GODOT_BUILD_LOG"
+CAPTURE_PREFIX_ENV = "RURIX_GRX014_CLUSTER_STORE_CAPTURE_PREFIX"
 
 TARGET_BACKEND = "Godot 4.7-dev Windows D3D12 Forward+"
-PASS_SETTING_PREFIX = "rendering/rurix_accel/passes/particles_copy"
+PASS_SETTING_PREFIX = "rendering/rurix_accel/passes/cluster_store"
 
-PATCH_STACK_ID = "0001..0022"
-# The scratch-0022 exe carries the FULL 0001..0022 stack (particles_copy owns
-# 0020..0022; it shares the taa_resolve 0017..0019 tail), so the
+PATCH_STACK_ID = "0001..0026"
+# The scratch-0026 exe carries the FULL 0001..0026 stack (cluster_store owns
+# 0023..0025 and the build also carries the 0026 material_sorting telemetry
+# slice, which is default-off and prints nothing without --verbose), so the
 # source-provenance audit is against the whole stack.
-PATCH_STACK_GRX013 = PATCH_STACK_GRX012
+PATCH_STACK_GRX014 = (
+    *PATCH_STACK_GRX013,
+    "0023-rurix-accel-cluster-store-pass-gate-and-callsite.patch",
+    "0024-rurix-accel-cluster-store-runtime-resource-binding.patch",
+    "0025-rurix-accel-cluster-store-recording-smoke-and-real-pass-optin.patch",
+    "0026-rurix-accel-material-sorting-telemetry.patch",
+)
 
 
 def sha256_file(path: Path) -> str | None:
@@ -331,8 +340,8 @@ def dll_fingerprint(path: Path) -> dict:
         "features": ["d3d12-recording-shim"],
         "feature_note": (
             "Bridge built WITH the d3d12-recording-shim feature: the "
-            "particles_copy real-pass arm routes through the linked recording "
-            "shim, so arming RXGD_CAP_PARTICLES_COPY_REAL_PASS can make "
+            "cluster_store real-pass arm routes through the linked recording "
+            "shim, so arming RXGD_CAP_CLUSTER_STORE_REAL_PASS can make "
             "rxgd_record_pass return RXGD_STATUS_OK only after a real "
             "recorded dispatch. The shipping feature-off bridge still fails "
             "closed with real_dispatch_path_not_linked. "
@@ -395,7 +404,7 @@ def compute_ldr_abs_diff(reference: bytes, candidate: bytes) -> tuple[int, float
 
 
 def parse_blocked_marker(line: str) -> dict[str, str]:
-    """Parse the key=value tokens of an RXGD_PARTICLES_COPY_REAL_PASS_BLOCKED line."""
+    """Parse the key=value tokens of an RXGD_CLUSTER_STORE_REAL_PASS_BLOCKED line."""
     tokens: dict[str, str] = {}
     for part in line.split():
         if "=" in part:
@@ -420,19 +429,19 @@ def write_evidence(status: str, *, reason: str | None = None, extra: dict | None
 
     _write_json(EVIDENCE_OUT, doc)
     print(
-        f"[grx013-particles-copy-real-pass-smoke] wrote {rel(EVIDENCE_OUT)} status={status}"
+        f"[grx014-cluster-store-real-pass-smoke] wrote {rel(EVIDENCE_OUT)} status={status}"
     )
 
     if status == "success":
         success_doc = dict(doc)
         success_doc["evidence_kind"] = "historical_measured_success"
-        # The field the GRX-013 gate (ci/grx_gates/grx013_particles_copy.py
+        # The field the GRX-014 gate (ci/grx_gates/grx014_cluster_store.py
         # _enablement_ready) reads. Only ever written on a strict success.
         success_doc["strict_success"] = True
         success_doc["latest_evidence_path"] = rel(EVIDENCE_OUT)
         success_doc["success_evidence_note"] = (
-            "Historical measured success artifact for the GRX-013 "
-            "particles_copy real-pass enablement gate. It is written ONLY on a "
+            "Historical measured success artifact for the GRX-014 "
+            "cluster_store real-pass enablement gate. It is written ONLY on a "
             "strict status=success run (opt-in real dispatch executed AND "
             "completed AND the LDR visual gate stayed within thresholds AND "
             "every audit passed) and is never deleted or overwritten by a "
@@ -441,13 +450,13 @@ def write_evidence(status: str, *, reason: str | None = None, extra: dict | None
         )
         _write_json(SUCCESS_EVIDENCE_OUT, success_doc)
         print(
-            "[grx013-particles-copy-real-pass-smoke] wrote "
+            "[grx014-cluster-store-real-pass-smoke] wrote "
             f"{rel(SUCCESS_EVIDENCE_OUT)} status=success (historical measured success)"
         )
 
 
 def fail(msg: str, extra: dict | None = None) -> int:
-    print(f"[grx013-particles-copy-real-pass-smoke] FAIL {msg}", file=sys.stderr)
+    print(f"[grx014-cluster-store-real-pass-smoke] FAIL {msg}", file=sys.stderr)
     write_evidence("fail", reason=msg, extra=extra or {})
     return 1
 
@@ -458,7 +467,7 @@ def skip_environment(msg: str, extra: dict | None = None) -> int:
     evidence artifact."""
     if os.environ.get("RURIX_REQUIRE_REAL") == "1":
         return fail(f"(RURIX_REQUIRE_REAL) {msg}", extra=extra)
-    print(f"[grx013-particles-copy-real-pass-smoke] SKIP {msg}(降级 SKIP,退出 0)")
+    print(f"[grx014-cluster-store-real-pass-smoke] SKIP {msg}(降级 SKIP,退出 0)")
     payload = dict(extra or {})
     payload["skip_kind"] = "environment"
     write_evidence("skip", reason=msg, extra=payload)
@@ -472,7 +481,7 @@ def skip_measured_prerequisite(prerequisite: str, msg: str, extra: dict) -> int:
     upgrade it to FAIL; it still never advances the readiness gate and never
     writes/overwrites the success evidence artifact."""
     print(
-        "[grx013-particles-copy-real-pass-smoke] SKIP (measured) first missing "
+        "[grx014-cluster-store-real-pass-smoke] SKIP (measured) first missing "
         f"prerequisite: {prerequisite} — {msg}"
     )
     payload = dict(extra)
@@ -486,7 +495,7 @@ def locate_godot_exe() -> tuple[Path | None, str | None]:
     override = os.environ.get(GODOT_EXE_ENV)
     if not override:
         return None, (
-            f"{GODOT_EXE_ENV} is not set; the GRX-013 particles_copy enablement "
+            f"{GODOT_EXE_ENV} is not set; the GRX-014 cluster_store enablement "
             "smoke needs a scratch Godot console exe rebuilt from the ignored "
             "external/godot-master snapshot with the full "
             f"{PATCH_STACK_ID} patch stack applied "
@@ -502,7 +511,7 @@ def locate_godot_exe() -> tuple[Path | None, str | None]:
 
 def build_bridge_dll() -> tuple[bool, str]:
     """Build rurix_godot.dll WITH the d3d12-recording-shim feature (the
-    particles_copy real-pass arm can only attempt a real dispatch when the
+    cluster_store real-pass arm can only attempt a real dispatch when the
     recording shim is linked)."""
     p = subprocess.run(
         ["cargo", "build", "-p", "rurix-godot", "--features", "d3d12-recording-shim"],
@@ -533,7 +542,7 @@ def load_sidecar(path: Path | None) -> tuple[dict | None, str | None]:
 
 def scratch_source_provenance(godot_exe: Path) -> dict:
     """Audit the scratch Godot source worktree the exe was built from against
-    the tracked 0001..0022 patch stack (GRX-009 machinery, GRX-013 stack)."""
+    the tracked 0001..0026 patch stack (GRX-009 machinery, GRX-014 stack)."""
     override = os.environ.get(SCRATCH_SOURCE_ENV)
     source_root = None
     source_error = None
@@ -565,7 +574,7 @@ def scratch_source_provenance(godot_exe: Path) -> dict:
         "source_audit_supported": False,
         "source_audit_errors": [],
         "source_provenance_sidecar_path": None,
-        "applied_patch_stack": patch_stack_identity(PATCH_STACK_GRX013, PATCH_STACK_ID),
+        "applied_patch_stack": patch_stack_identity(PATCH_STACK_GRX014, PATCH_STACK_ID),
         "godot_exe": {
             "path_at_run": exe_fp.get("exe_path_at_run"),
             "sha256": exe_fp.get("exe_sha256"),
@@ -591,7 +600,7 @@ def scratch_source_provenance(godot_exe: Path) -> dict:
     ok, errors, audit = verify_source_provenance_sidecar(
         sidecar,
         source_root,
-        stack_names=PATCH_STACK_GRX013,
+        stack_names=PATCH_STACK_GRX014,
         stack_id=PATCH_STACK_ID,
         sidecar_path=sidecar_path,
     )
@@ -614,11 +623,11 @@ def write_smoke_project(
     force_capability_downgrade: bool,
 ) -> None:
     """Generate a minimal deterministic Godot project. Only the tracked
-    particles_copy per-pass opt-in settings differ between legs; everything else
-    (including the fixed-seed GPUParticles3D system that drives the
-    particles_set_view_axis COPY_MODE_FILL_INSTANCES dispatch every frame) is
+    cluster_store per-pass opt-in settings differ between legs; everything else
+    (including the static box grid + OmniLight3D set that keeps the
+    Forward+ cluster builder's render_element_count nonzero every frame) is
     byte-identical so the opt-in matrix is the only delta. GRX Wave 4 print gating:
-    the candidate/forced legs arm the particles_copy
+    the candidate/forced legs arm the cluster_store
     dispatch_recording_smoke opt-in because it now gates the per-dispatch
     REAL_PASS/WRITEBACK instrumentation markers this harness asserts on
     (the production dispatch_real_pass path emits zero per-dispatch
@@ -632,13 +641,13 @@ def write_smoke_project(
 
     project_text = f"""\
 ; Engine configuration file.
-; Auto-generated by ci/grx013_particles_copy_real_pass_enablement_smoke.py
+; Auto-generated by ci/grx014_cluster_store_real_pass_enablement_smoke.py
 
 config_version=5
 
 [application]
 
-config/name="GRX-013 particles_copy real-pass enablement smoke"
+config/name="GRX-014 cluster_store real-pass enablement smoke"
 run/main_scene="res://main.tscn"
 
 [display]
@@ -651,17 +660,17 @@ window/size/viewport_height={VIEWPORT_HEIGHT}
 rurix_accel/enabled=true
 rurix_accel/require_forward_plus=true
 rurix_accel/dll_path="{dll_path.as_posix()}"
-rurix_accel/passes/particles_copy/enabled={flag(pass_enabled)}
-rurix_accel/passes/particles_copy/dispatch_recording_smoke={flag(dispatch_recording_smoke)}
-rurix_accel/passes/particles_copy/dispatch_real_pass={flag(dispatch_real_pass)}
-rurix_accel/passes/particles_copy/real_pass_force_capability_downgrade={flag(force_capability_downgrade)}
+rurix_accel/passes/cluster_store/enabled={flag(pass_enabled)}
+rurix_accel/passes/cluster_store/dispatch_recording_smoke={flag(dispatch_recording_smoke)}
+rurix_accel/passes/cluster_store/dispatch_real_pass={flag(dispatch_real_pass)}
+rurix_accel/passes/cluster_store/real_pass_force_capability_downgrade={flag(force_capability_downgrade)}
 """
     scene_text = """\
 [gd_scene load_steps=2 format=3]
 
 [ext_resource type="Script" path="res://main.gd" id="1"]
 
-[node name="GRX013ParticlesCopyRoot" type="Node3D"]
+[node name="GRX014ClusterStoreRoot" type="Node3D"]
 script = ExtResource("1")
 
 [node name="Camera3D" type="Camera3D" parent="."]
@@ -670,12 +679,12 @@ script = ExtResource("1")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 """
-    # Deterministic scene with a fixed-seed GPUParticles3D system: this drives
-    # the native COPY_MODE_FILL_INSTANCES compute dispatch (the
-    # particles_set_view_axis call site) every frame. The default
-    # DRAW_ORDER_INDEX keeps do_sort=false so the in-scope plain fill-instances
-    # subset is selected; use_fixed_seed + fixed_fps make the simulation
-    # deterministic across runs and legs, so a fixed-frame capture is byte-exact.
+    # Deterministic clustered-lights scene: a static grid of lit boxes plus
+    # nine static OmniLight3D sources keeps render_element_count > 0 every
+    # frame, so ClusterBuilderRD::bake_cluster() runs the cluster_store
+    # compute merge dispatch (the patch 0023 call site) every frame; the
+    # scene is fully static, so a fixed-frame capture is byte-exact across
+    # runs and legs.
     script_text = f"""\
 extends Node3D
 
@@ -690,6 +699,7 @@ func _ready() -> void:
 
     var light: DirectionalLight3D = $DirectionalLight3D
     light.rotation_degrees = Vector3(-55.0, -35.0, 0.0)
+    light.shadow_enabled = false
 
     var env := Environment.new()
     env.background_mode = Environment.BG_COLOR
@@ -700,53 +710,44 @@ func _ready() -> void:
     env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
     $WorldEnvironment.environment = env
 
-    # A deterministic GPU particle system: thousands of visible 3D particles,
-    # a fixed seed, a fixed process FPS, and the default DRAW_ORDER_INDEX so the
-    # cull stage calls particles_set_view_axis with do_sort=false and drives the
-    # plain COPY_MODE_FILL_INSTANCES dispatch (the particles_copy call site).
-    var particles := GPUParticles3D.new()
-    particles.amount = 4096
-    particles.lifetime = 4.0
-    particles.preprocess = 1.5
-    particles.explosiveness = 0.0
-    particles.randomness = 0.0
-    particles.fixed_fps = 60
-    particles.interpolate = false
-    particles.use_fixed_seed = true
-    particles.seed = 987654321
-    particles.draw_order = GPUParticles3D.DRAW_ORDER_INDEX
-    # Z_BILLBOARD transform align is what makes the cull stage call
-    # particles_set_view_axis (it returns early for ALIGN_DISABLED). Combined
-    # with the non-VIEW_DEPTH draw order this selects the in-scope plain
-    # COPY_MODE_FILL_INSTANCES subset (do_sort=false), the exact path patch
-    # 0020-0022 wire and the ParticlesCopyGate ALIGN_BILLBOARD kernel supports.
-    particles.transform_align = GPUParticles3D.TRANSFORM_ALIGN_Z_BILLBOARD
-    particles.local_coords = false
-
-    var pm := ParticleProcessMaterial.new()
-    pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-    pm.emission_sphere_radius = 1.0
-    pm.direction = Vector3(0.0, 1.0, 0.0)
-    pm.spread = 45.0
-    pm.initial_velocity_min = 3.0
-    pm.initial_velocity_max = 5.0
-    pm.gravity = Vector3(0.0, -4.0, 0.0)
-    pm.scale_min = 0.4
-    pm.scale_max = 0.6
-    particles.process_material = pm
-
+    # A deterministic clustered-lights scene: a static grid of lit boxes plus
+    # MANY static OmniLight3D sources (no shadows, fixed placement) so the
+    # Forward+ cluster builder carries a nonzero render_element_count every
+    # frame and ClusterBuilderRD::bake_cluster() drives the cluster_store
+    # compute merge dispatch (the patch 0023 call site) every frame.
+    # Everything is static, so a fixed-frame capture is byte-exact across
+    # legs.
     var box := BoxMesh.new()
-    box.size = Vector3(0.18, 0.18, 0.18)
+    box.size = Vector3(1.6, 1.6, 1.6)
     var mat := StandardMaterial3D.new()
-    mat.albedo_color = Color(0.9, 0.7, 0.3)
+    mat.albedo_color = Color(0.7, 0.7, 0.75)
     box.material = mat
-    particles.draw_pass_1 = box
+    for x in range(-2, 3):
+        for z in range(-2, 3):
+            var mesh := MeshInstance3D.new()
+            mesh.mesh = box
+            mesh.position = Vector3(x * 2.4, 0.8, z * 2.4 - 2.0)
+            add_child(mesh)
 
-    particles.position = Vector3(0.0, 0.0, 0.0)
-    add_child(particles)
-    particles.restart()
+    var light_colors := [
+        Color(1.0, 0.55, 0.3),
+        Color(0.3, 0.7, 1.0),
+        Color(0.5, 1.0, 0.5),
+        Color(1.0, 0.4, 0.8),
+    ]
+    var light_index := 0
+    for x in range(-1, 2):
+        for z in range(-1, 2):
+            var omni := OmniLight3D.new()
+            omni.position = Vector3(x * 3.2, 2.4, z * 3.2 - 2.0)
+            omni.omni_range = 5.0
+            omni.light_energy = 1.4
+            omni.light_color = light_colors[light_index % light_colors.size()]
+            omni.shadow_enabled = false
+            light_index += 1
+            add_child(omni)
 
-    print("GRX013ParticlesCopy: scene ready amount=%d draw_order=%d" % [particles.amount, particles.draw_order])
+    print("GRX014ClusterStore: scene ready omni_lights=%d boxes=25" % light_index)
 
 func _process(_delta: float) -> void:
     _frames += 1
@@ -760,7 +761,7 @@ func _capture() -> void:
     img.convert(Image.FORMAT_RGB8)
     var prefix := OS.get_environment("{CAPTURE_PREFIX_ENV}")
     if prefix.is_empty():
-        printerr("GRX013ParticlesCopy: capture prefix env var missing")
+        printerr("GRX014ClusterStore: capture prefix env var missing")
         get_tree().quit(3)
         return
     var raw := FileAccess.open(prefix + ".rgb8", FileAccess.WRITE)
@@ -775,7 +776,7 @@ func _capture() -> void:
         "capture_frame_index": _frames,
     }}))
     meta.close()
-    print("GRX013ParticlesCopy: captured frame=%d width=%d height=%d" % [_frames, img.get_width(), img.get_height()])
+    print("GRX014ClusterStore: captured frame=%d width=%d height=%d" % [_frames, img.get_width(), img.get_height()])
     get_tree().quit()
 """
     (project_dir / "project.godot").write_text(project_text, encoding="utf-8", newline="\n")
@@ -937,7 +938,7 @@ def run_matrix_leg(godot_exe: Path, *, leg: str, dll_path: Path) -> dict:
         "capture_error": capture_error,
         "capture_prefix": capture_prefix,
         "frame_bytes": data,
-        "runtime_log_audit": runtime_log_audit(output, PATCH_STACK_GRX013),
+        "runtime_log_audit": runtime_log_audit(output, PATCH_STACK_GRX014),
         "stdout_tail": output[-4000:],
     }
 
@@ -963,13 +964,13 @@ def leg_public(leg: dict) -> dict:
 def telemetry_entries_issue(
     doc: dict, capture_frame_index: int, *, expect_candidate_fallback: bool = True
 ) -> str | None:
-    """First incoherence in the generated GRX-013 telemetry entries, or None."""
+    """First incoherence in the generated GRX-014 telemetry entries, or None."""
     passes = doc.get("passes")
     expected_count = 2 if expect_candidate_fallback else 1
     if not isinstance(passes, list) or len(passes) != expected_count:
         return (
             f"telemetry document must carry exactly {expected_count} "
-            "particles_copy fallback entries"
+            "cluster_store fallback entries"
         )
     by_leg = {
         entry.get("leg"): entry for entry in passes if isinstance(entry, dict)
@@ -988,8 +989,8 @@ def telemetry_entries_issue(
         entry = by_leg.get(leg_name)
         if entry is None:
             return f"telemetry document has no {leg_name} entry"
-        if entry.get("pass_id") != "particles_copy":
-            return f"{leg_name} entry pass_id is not particles_copy"
+        if entry.get("pass_id") != "cluster_store":
+            return f"{leg_name} entry pass_id is not cluster_store"
         if entry.get("enable_state") != "enabled":
             return f"{leg_name} entry enable_state is not 'enabled'"
         if entry.get("fallback_reason") != expected_reason:
@@ -1032,12 +1033,12 @@ def main() -> int:
     _EVIDENCE_BASE = {
         "schema_version": 1,
         "subject": SUBJECT,
-        "pass_id": "particles_copy",
+        "pass_id": "cluster_store",
         "segment": "grx013_real_pass_enablement",
         "runtime_state": "fallback_only",
         "real_gpu_pass": False,
         "real_d3d12_dispatch_recorded": False,
-        "godot_runtime_particles_copy_path_enabled": False,
+        "godot_runtime_cluster_store_path_enabled": False,
         "default_enable_state": "disabled",
         "gpu_timestamp_status": "not_yet",
         "performance_claim": "none",
@@ -1061,21 +1062,21 @@ def main() -> int:
             and layout_sha == offline_digests["descriptor_layout"]
         ),
         "note": (
-            "GRX-013 particles_copy gated real-pass enablement gate evidence. "
+            "GRX-014 cluster_store gated real-pass enablement gate evidence. "
             "The opt-in real-pass arm (dispatch_real_pass, default false) runs "
             "against the owner-approved hlsl_bridge workaround canonical "
-            "package (two structured buffers: Particles SSBO source = SRV t0, "
-            "Transforms SSBO destination = UAV u0; per-slot "
-            "structured_buffer/rwstructured_buffer binding kinds; "
-            "COPY_MODE_FILL_INSTANCES 3D subset math parity CPU-proven pending "
-            "GPU) and a d3d12-recording-shim bridge DLL, so every software gate "
-            "can pass and a real recorded dispatch may return RXGD_STATUS_OK; "
-            "when the dispatch cannot complete the gate reports "
-            "first_missing_prerequisite=real_dispatch_recording_failed instead "
-            "of claiming success. The patch 0022 result writeback is a SCAFFOLD "
-            "(native Godot particles copy stays the continuation/backstop), "
-            "default_enable_state stays disabled, and no performance, FPS, or "
-            "GPU-timestamp claim is made."
+            "package (three structured buffers: cluster_render SRV t0 + "
+            "render_elements SRV t1 inputs, cluster_store UAV u0 output; "
+            "per-slot structured_buffer/structured_buffer/rwstructured_buffer "
+            "binding kinds; complete store-segment math parity CPU-proven "
+            "integer-exact pending GPU) and a d3d12-recording-shim bridge DLL, "
+            "so every software gate can pass and a real recorded dispatch may "
+            "return RXGD_STATUS_OK; when the dispatch cannot complete the gate "
+            "reports first_missing_prerequisite=real_dispatch_recording_failed "
+            "instead of claiming success. The patch 0025 result writeback is a "
+            "SCAFFOLD (native Godot cluster store stays the "
+            "continuation/backstop), default_enable_state stays disabled, and "
+            "no performance, FPS, or GPU-timestamp claim is made."
         ),
     }
 
@@ -1089,7 +1090,7 @@ def main() -> int:
 
     godot_exe, godot_reason = locate_godot_exe()
     if godot_exe is None:
-        return skip_environment(godot_reason or "GRX-013 particles_copy Godot exe unavailable")
+        return skip_environment(godot_reason or "GRX-014 cluster_store Godot exe unavailable")
 
     built_dll, dll_log = build_bridge_dll()
     if not built_dll:
@@ -1101,7 +1102,7 @@ def main() -> int:
     _EVIDENCE_BASE["dll_fingerprint"] = dll_fingerprint(RURIX_GODOT_DLL)
     _EVIDENCE_BASE["godot_exe_fingerprint"] = godot_exe_fingerprint(godot_exe)
     _EVIDENCE_BASE["patch_stack_identity"] = patch_stack_identity(
-        PATCH_STACK_GRX013, PATCH_STACK_ID
+        PATCH_STACK_GRX014, PATCH_STACK_ID
     )
 
     provenance = scratch_source_provenance(godot_exe)
@@ -1176,7 +1177,7 @@ def main() -> int:
             # fail-closed forced leg must never print it; the candidate
             # leg's RECORD/real-pass coupling is asserted below.
             return fail(
-                f"{name} run printed the particles_copy recording-smoke marker "
+                f"{name} run printed the cluster_store recording-smoke marker "
                 f"'{RECORD_MARKER}'; the {name} leg must never reach the "
                 "real-pass OK path",
                 extra=runs_extra,
@@ -1196,7 +1197,7 @@ def main() -> int:
     ):
         if reference[marker_key]:
             return fail(
-                "reference run (all particles_copy per-pass settings at their "
+                "reference run (all cluster_store per-pass settings at their "
                 f"false defaults) unexpectedly printed '{marker_name}'; the "
                 "disabled pass must never invoke the bridge",
                 extra=runs_extra,
@@ -1357,7 +1358,7 @@ def main() -> int:
         }
         diff_bytes_by_leg[name] = diff_bytes
         print(
-            f"[grx013-particles-copy-real-pass-smoke] LDR absolute diff ({name} vs "
+            f"[grx014-cluster-store-real-pass-smoke] LDR absolute diff ({name} vs "
             f"reference) max_abs={max_abs} mean_abs={mean_abs:.6f} "
             f"(thresholds max<={LDR_MAX_ABS_DIFF_THRESHOLD} "
             f"mean<={LDR_MEAN_ABS_DIFF_THRESHOLD})"
@@ -1398,25 +1399,25 @@ def main() -> int:
         "evidence_level": "measured_local",
         "target_backend": TARGET_BACKEND,
         "note": (
-            "GRX-013 measured particles_copy real-pass enablement telemetry: "
+            "GRX-014 measured cluster_store real-pass enablement telemetry: "
             "with the default-false dispatch_real_pass opt-in explicitly "
-            "enabled, the tracked Godot particles_set_view_axis "
-            "COPY_MODE_FILL_INSTANCES call site invoked the Rurix bridge "
-            "through the patch 0021 native structured-buffer handle binding; "
-            "every fallback entry records the fail-closed gate outcome "
-            "(validation_failed when the linked real dispatch cannot complete; "
-            "unsupported_device under the forced capability downgrade) while "
-            "the native Godot particles copy rendered every frame. The patch "
-            "0022 writeback is a scaffold (native continuation active), "
-            "runtime_state stays fallback_only for the default path, and no "
-            "performance or FPS claim is made."
+            "enabled, the tracked Godot ClusterBuilderRD::bake_cluster() store "
+            "segment invoked the Rurix bridge through the patch 0024 native "
+            "structured-buffer handle binding; every fallback entry records "
+            "the fail-closed gate outcome (validation_failed when the linked "
+            "real dispatch cannot complete; unsupported_device under the "
+            "forced capability downgrade) while the native Godot cluster "
+            "store rendered every frame. The patch 0025 writeback is a "
+            "scaffold (native continuation active), runtime_state stays "
+            "fallback_only for the default path, and no performance or FPS "
+            "claim is made."
         ),
         "passes": (
             []
             if real_pass_success
             else [
                 {
-                    "pass_id": "particles_copy",
+                    "pass_id": "cluster_store",
                     "leg": "enabled_real_pass_optin",
                     "enable_state": "enabled",
                     "fallback_reason": EXPECTED_BLOCKED_FALLBACK_REASON,
@@ -1428,7 +1429,7 @@ def main() -> int:
         )
         + [
             {
-                "pass_id": "particles_copy",
+                "pass_id": "cluster_store",
                 "leg": "forced_capability_downgrade",
                 "enable_state": "enabled",
                 "fallback_reason": EXPECTED_FORCED_FALLBACK_REASON,
@@ -1538,7 +1539,7 @@ def main() -> int:
         success_extra["real_pass_marker_line"] = candidate["real_pass_marker_line"]
         write_evidence("success", extra=success_extra)
         print(
-            "[grx013-particles-copy-real-pass-smoke] PASS measured opt-in real "
+            "[grx014-cluster-store-real-pass-smoke] PASS measured opt-in real "
             "pass + LDR visual gate within threshold (default enablement "
             "unchanged; no performance claim)"
         )
@@ -1550,7 +1551,7 @@ def main() -> int:
         ),
         "the opt-in real-pass gate measured the predicted fail-closed shape on "
         "real hardware: every software gate passed against the owner-approved "
-        "hlsl_bridge canonical particles_copy package, but the linked real "
+        "hlsl_bridge canonical cluster_store package, but the linked real "
         "dispatch recording did not complete in this environment (e.g. no "
         "signed DXC dxil.dll or a D3D12 recording failure), so the gate "
         "honestly reports real_dispatch_recording_failed instead of claiming "

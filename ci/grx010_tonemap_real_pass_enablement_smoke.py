@@ -171,8 +171,11 @@ REAL_PASS_MARKER = "RXGD_GODOT_RUNTIME_TONEMAP_REAL_PASS"
 # the continuation/backstop after a real dispatch, so the image never
 # changes.
 WRITEBACK_MARKER = "RXGD_GODOT_RUNTIME_TONEMAP_REAL_PASS_WRITEBACK"
-# Recording-smoke marker: must never appear here (the tonemap
-# dispatch_recording_smoke opt-in is not enabled by this harness).
+# Recording-smoke marker. GRX Wave 4: the candidate/forced legs arm the
+# tonemap dispatch_recording_smoke opt-in (it now gates the per-dispatch
+# REAL_PASS/WRITEBACK instrumentation markers), and RECORD prints only on
+# the real-pass OK path — so it must appear in the candidate leg IFF the
+# real pass succeeded, and never in the reference/forced legs.
 RECORD_MARKER = "RXGD_GODOT_RUNTIME_TONEMAP_RECORD"
 
 # The predicted first missing prerequisite when the opt-in real dispatch
@@ -621,14 +624,19 @@ def write_smoke_project(
     *,
     dll_path: Path,
     pass_enabled: bool,
+    dispatch_recording_smoke: bool,
     dispatch_real_pass: bool,
     force_capability_downgrade: bool,
 ) -> None:
     """Generate a minimal deterministic Godot project. Only the tracked
     tonemap per-pass opt-in settings differ between legs; everything else is
-    byte-identical so the opt-in matrix is the only delta. The tonemap
-    dispatch_recording_smoke opt-in stays false in EVERY leg (the RECORD
-    marker must never appear)."""
+    byte-identical so the opt-in matrix is the only delta. GRX Wave 4 print
+    gating: the candidate/forced legs arm the tonemap
+    dispatch_recording_smoke opt-in because it now gates the per-dispatch
+    REAL_PASS/WRITEBACK instrumentation markers this harness asserts on (the
+    production dispatch_real_pass path emits zero per-dispatch stdout); the
+    RECORD marker only prints on the real-pass OK path, so it must appear in
+    the candidate leg IFF the real pass succeeded and never elsewhere."""
     project_dir.mkdir(parents=True, exist_ok=True)
 
     def flag(value: bool) -> str:
@@ -656,7 +664,7 @@ rurix_accel/enabled=true
 rurix_accel/require_forward_plus=true
 rurix_accel/dll_path="{dll_path.as_posix()}"
 rurix_accel/passes/tonemap/enabled={flag(pass_enabled)}
-rurix_accel/passes/tonemap/dispatch_recording_smoke=false
+rurix_accel/passes/tonemap/dispatch_recording_smoke={flag(dispatch_recording_smoke)}
 rurix_accel/passes/tonemap/dispatch_real_pass={flag(dispatch_real_pass)}
 rurix_accel/passes/tonemap/real_pass_force_capability_downgrade={flag(force_capability_downgrade)}
 """
@@ -803,16 +811,19 @@ def load_capture(capture_prefix: Path) -> tuple[dict | None, bytes | None, str |
 LEG_SETTINGS = {
     "reference": {
         "pass_enabled": False,
+        "dispatch_recording_smoke": False,
         "dispatch_real_pass": False,
         "force_capability_downgrade": False,
     },
     "candidate": {
         "pass_enabled": True,
+        "dispatch_recording_smoke": True,
         "dispatch_real_pass": True,
         "force_capability_downgrade": False,
     },
     "forced_fallback": {
         "pass_enabled": True,
+        "dispatch_recording_smoke": True,
         "dispatch_real_pass": True,
         "force_capability_downgrade": True,
     },
@@ -857,7 +868,9 @@ def run_matrix_leg(godot_exe: Path, *, leg: str, dll_path: Path) -> dict:
         "role": LEG_ROLES[leg],
         "project_settings": {
             f"{PASS_SETTING_PREFIX}/enabled": settings["pass_enabled"],
-            f"{PASS_SETTING_PREFIX}/dispatch_recording_smoke": False,
+            f"{PASS_SETTING_PREFIX}/dispatch_recording_smoke": settings[
+                "dispatch_recording_smoke"
+            ],
             f"{PASS_SETTING_PREFIX}/dispatch_real_pass": settings["dispatch_real_pass"],
             f"{PASS_SETTING_PREFIX}/real_pass_force_capability_downgrade": settings[
                 "force_capability_downgrade"
@@ -1113,11 +1126,17 @@ def main() -> int:
                 f"{audit.get('unexpected_lines_tail')}",
                 extra=runs_extra,
             )
-        if leg["record_marker_observed"]:
+        if leg["record_marker_observed"] and name != "candidate":
+            # GRX Wave 4: the candidate/forced legs arm
+            # dispatch_recording_smoke (it gates the per-dispatch
+            # instrumentation markers), but RECORD only prints on the
+            # real-pass OK path — the reference leg (all defaults) and the
+            # fail-closed forced leg must never print it; the candidate
+            # leg's RECORD/real-pass coupling is asserted below.
             return fail(
                 f"{name} run printed the tonemap recording-smoke marker "
-                f"'{RECORD_MARKER}'; the dispatch_recording_smoke opt-in must "
-                "stay off in the GRX-010 enablement matrix",
+                f"'{RECORD_MARKER}'; the {name} leg must never reach the "
+                "real-pass OK path",
                 extra=runs_extra,
             )
         if leg["capture_error"] is not None or leg["frame_bytes"] is None:
@@ -1181,6 +1200,14 @@ def main() -> int:
     candidate_tokens = parse_blocked_marker(
         candidate["real_pass_blocked_marker_line"] or ""
     )
+    if candidate["record_marker_observed"] != real_pass_success:
+        return fail(
+            "candidate run RECORD marker presence "
+            f"({candidate['record_marker_observed']}) does not match the "
+            "real-pass outcome; with the recording-smoke opt-in armed the "
+            "RECORD marker must print IFF the real-pass arm returned OK",
+            extra=runs_extra,
+        )
     if real_pass_success:
         if candidate["real_pass_blocked_marker_observed"]:
             return fail(
@@ -1420,7 +1447,12 @@ def main() -> int:
             "real_pass_blocked_marker_observed"
         ],
         "real_pass_blocked_marker_observed_forced_fallback": True,
-        "record_marker_absent_all_runs": True,
+        # GRX Wave 4: candidate/forced arm dispatch_recording_smoke (it
+        # gates the per-dispatch instrumentation markers); RECORD stays
+        # forbidden in the reference/forced legs and the candidate RECORD
+        # marker must match the real-pass outcome.
+        "record_marker_absent_reference_and_forced": True,
+        "record_marker_matches_real_pass_candidate": True,
         "frames_captured": True,
         "dimensions_match": True,
         "capture_frame_indices_match": True,

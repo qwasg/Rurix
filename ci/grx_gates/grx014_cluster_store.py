@@ -9,22 +9,23 @@ off this gate once it is fully ready (contract + patch applyability +
 standalone dispatch smoke + real-pass enablement + owner default-enable
 decision all green).
 
-GRX-014 cluster_store is at the S1-S4+S6 level: the contract trio, the offline
-kernel package, the integer-exact CPU math-parity reference, the fail-closed
-``ClusterStoreGate``, and the standalone dispatch smoke are present — so
-``contract_ready`` and ``dispatch_smoke_ready`` report ``True`` — but the
-Godot patches 0023-0025, the real-pass enablement smoke, and the owner
-default-enable decision are LATER SERIAL SLICES, so ``patch_applyability``,
-``enablement_ready`` and ``decision_ready`` honestly report ``False``. The
-walk therefore records a ``grx_gate_module_error`` for this gate and keeps the
-base ``next_action`` (``start_grx014_cluster_store_pass_contract``) UNCHANGED
-— the fail-closed stop the probe contract requires. Only when every level is
-green will the probe advance to ``start_grx015_gpu_culling_pass_contract``.
+GRX-014 cluster_store is CLOSED OUT (GRX Wave 4): the contract trio, the
+offline kernel package, the integer-exact CPU math-parity reference, the
+fail-closed ``ClusterStoreGate``, the standalone dispatch smoke, the Godot
+patches 0023-0025, the gated real-pass enablement strict MEASURED success
+(``real_pass_enablement_success_evidence.json`` ``strict_success=true`` on the
+0001..0026 scratch build), and the owner ``keep_default_disabled`` decision
+are all present, so every level below reports ``True`` and the probe advances
+``next_action`` to ``start_grx015_gpu_culling_pass_contract``. Any
+missing/tampered artifact flips the corresponding level back to ``False``,
+records a ``grx_gate_module_error``, and keeps the walk's ``next_action``
+unchanged — the fail-closed stop the probe contract requires.
 
 Every level below reports its readiness HONESTLY. The pass ships default
-disabled and fallback-only; a green level (including the measured standalone
-dispatch smoke) never implies default enablement, a real Godot runtime pass on
-the default path, or any performance claim.
+disabled and fallback-only (``default_enable_state=disabled``;
+``real_gpu_pass=true`` records the opt-in MEASURED arm only); a green level
+never implies default enablement, a real Godot runtime pass on the default
+path, or any performance claim.
 """
 from __future__ import annotations
 
@@ -33,9 +34,9 @@ import pathlib
 import _common
 
 GATE_ID = "grx014"
-# The action the probe advances to once THIS gate is fully ready: the next
+# The action the probe advances to now that THIS gate is fully ready: the next
 # pass's contract start (gpu_culling, GRX-015 in the PATCH_ALLOCATION milestone
-# order). Never applied in this slice — the gate is not fully ready.
+# order).
 NEXT_ACTION = "start_grx015_gpu_culling_pass_contract"
 
 ROOT = _common.ROOT
@@ -46,17 +47,18 @@ EXTERNAL_GODOT = ROOT / "external" / "godot-master"
 # S1 pass-contract trio.
 CONTRACT_TRIO = ("PASS_CONTRACT.md", "pass_manifest.json", "resource_mapping.md")
 
-# The three cluster_store patches this pass owns (PATCH_ALLOCATION.md
-# 0023-0025); a LATER serial slice — none of them exists yet, so
-# patch_applyability stays honestly False.
+# The three cluster_store patches this pass owns (PATCH_ALLOCATION.md §1
+# 0023-0025, in use: 0023 gate+callsite / 0024 runtime binding / 0025
+# recording-smoke + real-pass opt-in).
 CLUSTER_STORE_PATCH_ORDINALS = ("0023", "0024", "0025")
 # Godot snapshot carries 0001..0003; stacked applyability prereqs run from 0004
 # up to the patch under test.
 PREREQ_ORDINALS = tuple(f"{n:04d}" for n in range(4, 25))  # 0004..0024
 
-# Standalone dispatch smoke evidence (S6, produced this slice) + real-pass
-# enablement (S8) + owner default-enable decision (S9). Until the downstream
-# smokes land green this gate stays honestly not-ready and fail-closed.
+# Standalone dispatch smoke evidence (S6) + real-pass enablement strict
+# success (S8, ci/grx014_cluster_store_real_pass_enablement_smoke.py) + owner
+# default-enable decision (S9). All landed; if any goes missing or loses its
+# required fields the gate honestly reverts to not-ready and fails closed.
 DISPATCH_SMOKE_EVIDENCE = PASS_DIR / "real_d3d12_dispatch_smoke.json"
 ENABLEMENT_SUCCESS_EVIDENCE = PASS_DIR / "real_pass_enablement_success_evidence.json"
 DEFAULT_ENABLE_DECISION = PASS_DIR / "real_pass_default_enable_decision.json"
@@ -96,7 +98,8 @@ def _patch_applyability() -> tuple[bool, str | None]:
         if _patch_file(ordinal) is None:
             return False, (
                 f"cluster_store patch {ordinal} not found in {PATCHES_DIR} "
-                "(patches 0023-0025 are a later serial slice)"
+                "(patches 0023-0025 landed in GRX Wave 4; a missing file is a "
+                "tampered stack)"
             )
     prereqs = []
     for ordinal in PREREQ_ORDINALS:
@@ -133,8 +136,9 @@ def _enablement_ready() -> tuple[bool, str | None]:
     if doc is None:
         return False, (
             "real-pass enablement strict-success evidence not present "
-            f"({ENABLEMENT_SUCCESS_EVIDENCE.name}); the enablement smoke is a "
-            "later serial slice (requires a scratch rebuild with 0001..0025)"
+            f"({ENABLEMENT_SUCCESS_EVIDENCE.name}); rerun "
+            "ci/grx014_cluster_store_real_pass_enablement_smoke.py against a "
+            "0001..0026 scratch rebuild"
         )
     if doc.get("strict_success") is not True:
         return False, "enablement evidence strict_success is not true"
