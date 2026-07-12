@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "subject": "grx020_descriptor_cache_hardening",
+  "slice": "GRX-020",
+  "kind": "shim_internal_hardening",
+  "is_render_pass": false,
+  "has_kernel": false,
+  "has_bridge_pass_id": false,
+  "has_gate_module": false,
+  "default_enable_state": "keep_disabled",
+  "default_enable_decision": null,
+  "creates_owner_default_enable_decision": false,
+  "rationale": "The descriptor-heap ring fence hardening is an internal reliability upgrade of the D3D12 recording shim (segmented fence-value reclaim replacing a blind cursor reset). It is not a Godot render pass, so there is nothing to default-enable; it ships always-on inside the d3d12-recording-shim feature and is a no-op for the shipping feature-off bridge.",
+  "telemetry": {
+    "marker": "RXGD_DESCRIPTOR_RING",
+    "fields": ["wraps", "waits", "capacity"],
+    "emitted_at": "session_close_print_summary",
+    "sidecar_json": false
+  },
+  "red_leg": {
+    "kind": "rust_unit_tests",
+    "model": "src/rurix-godot/src/lib.rs::tests::DescriptorFenceRing",
+    "tests": [
+      "descriptor_ring_waits_before_reusing_a_live_range",
+      "descriptor_ring_never_waits_when_completion_keeps_up"
+    ],
+    "note": "Pure-Rust executable spec mirroring the C++ reserve_descriptors / wait_for_descriptor_range algorithm; proves high-pressure wrap-around never reuses a live descriptor range without a fence wait."
+  },
+  "godot_patch_required": false,
+  "does_not_imply": [
+    "no FPS / p95 / GPU-timestamp / performance claim",
+    "no Godot runtime pass enablement",
+    "no default-enable of any pass"
+  ]
+}

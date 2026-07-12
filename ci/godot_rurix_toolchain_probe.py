@@ -413,6 +413,16 @@ GRX_GATE_SEQUENCE: list[dict[str, object]] = [
     {"gate_id": "grx012", "module": "grx012_taa_resolve"},
     {"gate_id": "grx013", "module": "grx013_particles_copy"},
     {"gate_id": "grx014", "module": "grx014_cluster_store"},
+    # GRX Wave 4 bridge slice: grx015..grx019 ship the S4 gate + S6 dispatch
+    # smoke only. Their Godot patches / real-pass enablement / owner
+    # default-enable decision are DEFERRED to the next serial patch slice, so
+    # each reports not-ready and the walk fail-closed stops at grx015 (the
+    # frontier) with a recorded grx_gate_module_error, leaving next_action at
+    # grx014's advance (start_grx015_gpu_culling_pass_contract).
+    {"gate_id": "grx015", "module": "grx015_gpu_culling"},
+    {"gate_id": "grx016", "module": "grx016_instance_compaction"},
+    {"gate_id": "grx018", "module": "grx018_indirect_args"},
+    {"gate_id": "grx019", "module": "grx019_fused_post_chain"},
 ]
 GRX_GATE_REQUIRED_KEYS = (
     "gate_id",

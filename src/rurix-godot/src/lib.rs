@@ -3532,8 +3532,7 @@ impl GpuCullingGate {
                 [GPU_CULLING_INSTANCE_COUNT_OFFSET..GPU_CULLING_INSTANCE_COUNT_OFFSET + 4],
         );
         let surface_count = le_u32(
-            &push_constants
-                [GPU_CULLING_SURFACE_COUNT_OFFSET..GPU_CULLING_SURFACE_COUNT_OFFSET + 4],
+            &push_constants[GPU_CULLING_SURFACE_COUNT_OFFSET..GPU_CULLING_SURFACE_COUNT_OFFSET + 4],
         );
         if instance_count == 0 || surface_count == 0 {
             return Err(FallbackReason::ValidationFailed);
@@ -3643,7 +3642,10 @@ impl GpuCullingGate {
             };
         }
         #[cfg(not(feature = "d3d12-recording-shim"))]
-        self.real_pass_blocked("real_dispatch_path_not_linked", FallbackReason::CompileFailed)
+        self.real_pass_blocked(
+            "real_dispatch_path_not_linked",
+            FallbackReason::CompileFailed,
+        )
     }
 
     /// Record one real D3D12 gpu_culling dispatch through the linked recording
@@ -3962,7 +3964,10 @@ impl InstanceCompactionGate {
             };
         }
         #[cfg(not(feature = "d3d12-recording-shim"))]
-        self.real_pass_blocked("real_dispatch_path_not_linked", FallbackReason::CompileFailed)
+        self.real_pass_blocked(
+            "real_dispatch_path_not_linked",
+            FallbackReason::CompileFailed,
+        )
     }
 
     /// Record one real D3D12 instance_compaction chain (scan_local → scan_groups
@@ -4275,7 +4280,10 @@ impl IndirectArgsGate {
             };
         }
         #[cfg(not(feature = "d3d12-recording-shim"))]
-        self.real_pass_blocked("real_dispatch_path_not_linked", FallbackReason::CompileFailed)
+        self.real_pass_blocked(
+            "real_dispatch_path_not_linked",
+            FallbackReason::CompileFailed,
+        )
     }
 
     /// Record one real D3D12 indirect_args write + validate pair (write → UAV
@@ -4583,7 +4591,10 @@ impl FusedPostChainGate {
             };
         }
         #[cfg(not(feature = "d3d12-recording-shim"))]
-        self.real_pass_blocked("real_dispatch_path_not_linked", FallbackReason::CompileFailed)
+        self.real_pass_blocked(
+            "real_dispatch_path_not_linked",
+            FallbackReason::CompileFailed,
+        )
     }
 
     /// Record one real D3D12 fused_post_chain dispatch through the linked
@@ -4837,6 +4848,33 @@ pub extern "C" fn rxgd_create_d3d12_session(
     }
     if !caps_supported(caps) {
         return RXGD_E_UNSUPPORTED;
+    }
+
+    // GRX-021: prewarm every embedded kernel's root signature + PSO for this
+    // (device, queue) so the first real dispatch of any pass does not pay the
+    // lazy create cost. Best-effort and NON-FATAL by contract (the red line):
+    // a device without the signed DXC validator / experimental shader models
+    // simply builds each kernel lazily on first use, so the session is created
+    // regardless of the prewarm outcome. Only linked under the recording-shim
+    // feature; the shipping feature-off bridge does no prewarm and is unchanged.
+    //
+    // Auto-prewarm is compiled out of `cargo test` builds (`not(test)`): the
+    // unit tests construct sessions with SENTINEL device/queue handles (e.g.
+    // 1/2) that are NOT real `ID3D12Device*` objects, and prewarm would
+    // dereference them to build PSOs. The shipping cdylib the Godot runtime and
+    // the enablement smokes load is a non-test build, so it prewarms with the
+    // real handles; the `rxgd_prewarm_kernels` entry's non-fatal degrade is
+    // exercised directly by `prewarm_null_handles_degrades_gracefully`.
+    #[cfg(all(feature = "d3d12-recording-shim", not(test)))]
+    {
+        let (warmed, total) =
+            d3d12_recording_shim::prewarm_session_kernels(device as usize, queue as usize);
+        if warmed < total as i32 {
+            eprintln!(
+                "RXGD_PREWARM_DIAG warmed={warmed}/{total} \
+                 (non-fatal; the lazy path builds the rest on first use)"
+            );
+        }
     }
 
     let boxed = Box::new(SessionInner::new(device, queue, caps));
@@ -5287,8 +5325,7 @@ pub extern "C" fn rxgd_record_pass(
                 inner.recorded_passes += 1;
                 #[cfg(feature = "d3d12-recording-shim")]
                 {
-                    if let Some(record) =
-                        inner.instance_compaction_gate.take_last_dispatch_record()
+                    if let Some(record) = inner.instance_compaction_gate.take_last_dispatch_record()
                     {
                         inner.estimated_cpu_record_ns += record.cpu_record_ns;
                     }
@@ -5558,6 +5595,7 @@ fn pass_supported(pass_id: u32) -> bool {
             | RXGD_PASS_GPU_CULLING
             | RXGD_PASS_INDIRECT_ARGS
             | RXGD_PASS_FUSED_POST_CHAIN
+            | RXGD_PASS_INSTANCE_COMPACTION
     )
 }
 
@@ -5567,12 +5605,12 @@ fn estimated_pass_gpu_time(pass_id: u32) -> u64 {
         // RXGD_PASS_LUMINANCE_REDUCTION is gated (GRX-009),
         // RXGD_PASS_TONEMAP is gated (GRX-010), RXGD_PASS_SSAO_BLUR is gated
         // (GRX-011), RXGD_PASS_TAA_RESOLVE is gated (GRX-012),
-        // RXGD_PASS_PARTICLES_COPY is gated (GRX-013), and
-        // RXGD_PASS_CLUSTER_STORE is gated (GRX-014); none of them reaches the
-        // estimated-timing path while its gate is closed.
-        RXGD_PASS_GPU_CULLING => 140_000,
-        RXGD_PASS_INDIRECT_ARGS => 60_000,
-        RXGD_PASS_FUSED_POST_CHAIN => 180_000,
+        // RXGD_PASS_PARTICLES_COPY is gated (GRX-013),
+        // RXGD_PASS_CLUSTER_STORE is gated (GRX-014), and the Wave 4 bridge
+        // passes RXGD_PASS_GPU_CULLING (GRX-015), RXGD_PASS_INSTANCE_COMPACTION
+        // (GRX-016), RXGD_PASS_INDIRECT_ARGS (GRX-018) and
+        // RXGD_PASS_FUSED_POST_CHAIN (GRX-019) are gated; none of them reaches
+        // the estimated-timing path while its gate is closed.
         _ => 0,
     }
 }
@@ -5623,14 +5661,24 @@ fn dispatch_instrumented() -> bool {
 mod d3d12_recording_shim {
     use super::{
         CLUSTER_STORE_OFFLINE_DXIL_SHA256, CLUSTER_STORE_OFFLINE_ROOT_SIGNATURE_SHA256,
-        DispatchRecord, FallbackReason, LUMINANCE_OFFLINE_DXIL_SHA256,
+        DispatchRecord, FUSED_POST_CHAIN_OFFLINE_DXIL_SHA256,
+        FUSED_POST_CHAIN_OFFLINE_ROOT_SIGNATURE_SHA256, FallbackReason,
+        GPU_CULLING_OFFLINE_DXIL_SHA256, GPU_CULLING_OFFLINE_ROOT_SIGNATURE_SHA256,
+        INDIRECT_ARGS_OFFLINE_DXIL_SHA256, INDIRECT_ARGS_OFFLINE_ROOT_SIGNATURE_SHA256,
+        INDIRECT_ARGS_OFFLINE_VALIDATE_DXIL_SHA256,
+        INSTANCE_COMPACTION_OFFLINE_SCAN_GROUPS_DXIL_SHA256,
+        INSTANCE_COMPACTION_OFFLINE_SCAN_LOCAL_DXIL_SHA256,
+        INSTANCE_COMPACTION_OFFLINE_SCAN_RTS0_SHA256,
+        INSTANCE_COMPACTION_OFFLINE_SCATTER_DXIL_SHA256,
+        INSTANCE_COMPACTION_OFFLINE_SCATTER_RTS0_SHA256, LUMINANCE_OFFLINE_DXIL_SHA256,
         LUMINANCE_OFFLINE_ROOT_SIGNATURE_SHA256, PARTICLES_COPY_OFFLINE_DXIL_SHA256,
         PARTICLES_COPY_OFFLINE_ROOT_SIGNATURE_SHA256, PyramidLevel, RXGD_PASS_CLUSTER_STORE,
-        RXGD_PASS_LUMINANCE_REDUCTION, RXGD_PASS_PARTICLES_COPY, RXGD_PASS_SSAO_BLUR,
-        RXGD_PASS_TAA_RESOLVE, RXGD_PASS_TONEMAP, SSAO_BLUR_OFFLINE_DXIL_SHA256,
-        SSAO_BLUR_OFFLINE_ROOT_SIGNATURE_SHA256, TAA_RESOLVE_OFFLINE_DXIL_SHA256,
-        TAA_RESOLVE_OFFLINE_ROOT_SIGNATURE_SHA256, TONEMAP_OFFLINE_DXIL_SHA256,
-        TONEMAP_OFFLINE_ROOT_SIGNATURE_SHA256,
+        RXGD_PASS_FUSED_POST_CHAIN, RXGD_PASS_GPU_CULLING, RXGD_PASS_INDIRECT_ARGS,
+        RXGD_PASS_INSTANCE_COMPACTION, RXGD_PASS_LUMINANCE_REDUCTION, RXGD_PASS_PARTICLES_COPY,
+        RXGD_PASS_SSAO_BLUR, RXGD_PASS_TAA_RESOLVE, RXGD_PASS_TONEMAP,
+        SSAO_BLUR_OFFLINE_DXIL_SHA256, SSAO_BLUR_OFFLINE_ROOT_SIGNATURE_SHA256,
+        TAA_RESOLVE_OFFLINE_DXIL_SHA256, TAA_RESOLVE_OFFLINE_ROOT_SIGNATURE_SHA256,
+        TONEMAP_OFFLINE_DXIL_SHA256, TONEMAP_OFFLINE_ROOT_SIGNATURE_SHA256,
     };
     use core::ffi::c_void;
 
@@ -5717,6 +5765,53 @@ mod d3d12_recording_shim {
     );
     const CLUSTER_STORE_RTS0: &[u8] = include_bytes!(
         "../../../spike/godot-rurix/passes/cluster_store/artifacts/cluster_store.rts0.bin"
+    );
+
+    /// Tracked offline gpu_culling artifacts (GRX-015; StructuredBuffer SRV t0 +
+    /// two RWStructuredBuffer UAVs). Same embedding + digest discipline.
+    const GPU_CULLING_DXIL: &[u8] =
+        include_bytes!("../../../spike/godot-rurix/passes/gpu_culling/artifacts/gpu_culling.dxil");
+    const GPU_CULLING_RTS0: &[u8] = include_bytes!(
+        "../../../spike/godot-rurix/passes/gpu_culling/artifacts/gpu_culling.rts0.bin"
+    );
+
+    /// Tracked offline instance_compaction artifacts (GRX-016; three kernels
+    /// scan_local/scan_groups/scatter, two distinct root signatures).
+    const INSTANCE_COMPACTION_SCAN_LOCAL_DXIL: &[u8] = include_bytes!(
+        "../../../spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_scan_local.dxil"
+    );
+    const INSTANCE_COMPACTION_SCAN_LOCAL_RTS0: &[u8] = include_bytes!(
+        "../../../spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_scan_local.rts0.bin"
+    );
+    const INSTANCE_COMPACTION_SCAN_GROUPS_DXIL: &[u8] = include_bytes!(
+        "../../../spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_scan_groups.dxil"
+    );
+    const INSTANCE_COMPACTION_SCATTER_DXIL: &[u8] = include_bytes!(
+        "../../../spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_scatter.dxil"
+    );
+    const INSTANCE_COMPACTION_SCATTER_RTS0: &[u8] = include_bytes!(
+        "../../../spike/godot-rurix/passes/instance_compaction/artifacts/instance_compaction_scatter.rts0.bin"
+    );
+
+    /// Tracked offline indirect_args artifacts (GRX-018; write + validate
+    /// kernels sharing one root signature).
+    const INDIRECT_ARGS_DXIL: &[u8] = include_bytes!(
+        "../../../spike/godot-rurix/passes/indirect_args/artifacts/indirect_args.dxil"
+    );
+    const INDIRECT_ARGS_VALIDATE_DXIL: &[u8] = include_bytes!(
+        "../../../spike/godot-rurix/passes/indirect_args/artifacts/indirect_args_validate.dxil"
+    );
+    const INDIRECT_ARGS_RTS0: &[u8] = include_bytes!(
+        "../../../spike/godot-rurix/passes/indirect_args/artifacts/indirect_args.rts0.bin"
+    );
+
+    /// Tracked offline fused_post_chain artifacts (GRX-019; 3 Texture2D SRVs + 2
+    /// RWTexture2D UAVs).
+    const FUSED_POST_CHAIN_DXIL: &[u8] = include_bytes!(
+        "../../../spike/godot-rurix/passes/fused_post_chain/artifacts/fused_post_chain.dxil"
+    );
+    const FUSED_POST_CHAIN_RTS0: &[u8] = include_bytes!(
+        "../../../spike/godot-rurix/passes/fused_post_chain/artifacts/fused_post_chain.rts0.bin"
     );
 
     #[repr(C)]
@@ -5897,6 +5992,118 @@ mod d3d12_recording_shim {
             cluster_store_bytes: u32,
             readback: u32,
             out: *mut RxgdRecordResult,
+        ) -> i32;
+
+        // GRX-015: gpu_culling 1-SRV + 2-UAV structured-buffer entry (144-byte
+        // b0). Additive.
+        #[allow(clippy::too_many_arguments)]
+        fn rxgd_gpu_culling_record_dispatch(
+            abi_version: u32,
+            pass_id: u32,
+            device: *mut c_void,
+            queue: *mut c_void,
+            dxil: *const u8,
+            dxil_len: usize,
+            rts0: *const u8,
+            rts0_len: usize,
+            transforms: *mut c_void,
+            commands: *mut c_void,
+            visibility: *mut c_void,
+            push_constants: *const u8,
+            push_constant_len: usize,
+            transforms_bytes: u32,
+            commands_bytes: u32,
+            visibility_bytes: u32,
+            readback: u32,
+            out: *mut RxgdRecordResult,
+        ) -> i32;
+
+        // GRX-018: indirect_args paired write + validate entry (176-byte b0).
+        #[allow(clippy::too_many_arguments)]
+        fn rxgd_indirect_args_record_dispatch(
+            abi_version: u32,
+            pass_id: u32,
+            device: *mut c_void,
+            queue: *mut c_void,
+            write_dxil: *const u8,
+            write_dxil_len: usize,
+            validate_dxil: *const u8,
+            validate_dxil_len: usize,
+            rts0: *const u8,
+            rts0_len: usize,
+            survivor_counts: *mut c_void,
+            command_buffer: *mut c_void,
+            validation: *mut c_void,
+            push_constants: *const u8,
+            push_constant_len: usize,
+            survivor_bytes: u32,
+            command_bytes: u32,
+            validation_bytes: u32,
+            readback: u32,
+            out: *mut RxgdRecordResult,
+        ) -> i32;
+
+        // GRX-016: instance_compaction 3-kernel chain entry. `resources`/
+        // `resource_bytes` are 7-element arrays. 32-byte b0. Additive.
+        #[allow(clippy::too_many_arguments)]
+        fn rxgd_instance_compaction_record_dispatch(
+            abi_version: u32,
+            pass_id: u32,
+            device: *mut c_void,
+            queue: *mut c_void,
+            scan_local_dxil: *const u8,
+            scan_local_len: usize,
+            scan_groups_dxil: *const u8,
+            scan_groups_len: usize,
+            scatter_dxil: *const u8,
+            scatter_len: usize,
+            scan_rts0: *const u8,
+            scan_rts0_len: usize,
+            scatter_rts0: *const u8,
+            scatter_rts0_len: usize,
+            resources: *const *mut c_void,
+            resource_count: u32,
+            resource_bytes: *const u32,
+            push_constants: *const u8,
+            push_constant_len: usize,
+            readback: u32,
+            out: *mut RxgdRecordResult,
+        ) -> i32;
+
+        // GRX-019: fused_post_chain 3-SRV + 2-UAV texture entry (64-byte b0).
+        // Additive.
+        #[allow(clippy::too_many_arguments)]
+        fn rxgd_fused_post_chain_record_dispatch(
+            abi_version: u32,
+            pass_id: u32,
+            device: *mut c_void,
+            queue: *mut c_void,
+            dxil: *const u8,
+            dxil_len: usize,
+            rts0: *const u8,
+            rts0_len: usize,
+            src_color: *mut c_void,
+            lum_source: *mut c_void,
+            prev_luminance: *mut c_void,
+            dst_color: *mut c_void,
+            dst_luminance: *mut c_void,
+            push_constants: *const u8,
+            push_constant_len: usize,
+            width: u32,
+            height: u32,
+            readback: u32,
+            out: *mut RxgdRecordResult,
+        ) -> i32;
+
+        // GRX-021: prewarm a batch of kernel identities (root signature + PSO)
+        // for the (device, queue) session. Returns the count warmed (>= 0) or a
+        // negative status; best-effort, never fatal.
+        fn rxgd_prewarm_kernels(
+            abi_version: u32,
+            device: *mut c_void,
+            queue: *mut c_void,
+            kernels: *const RxgdShimKernel,
+            kernel_count: u32,
         ) -> i32;
     }
 
@@ -6347,6 +6554,378 @@ mod d3d12_recording_shim {
             dxil_signed: out.dxil_signed != 0,
             cpu_record_ns,
         })
+    }
+
+    /// Build a zeroed [`RxgdRecordResult`] out-parameter.
+    fn empty_record_result() -> RxgdRecordResult {
+        RxgdRecordResult {
+            fence_completed_value: 0,
+            dispatch_x: 0,
+            dispatch_y: 0,
+            dispatch_z: 0,
+            dst_width: 0,
+            dst_height: 0,
+            readback_checksum: 0,
+            dst_first_value: 0.0,
+            dxil_signed: 0,
+            error_detail: [0u8; 256],
+        }
+    }
+
+    /// Map a shim [`RxgdRecordResult`] + return code into a [`DispatchRecord`],
+    /// surfacing the shim's failure detail on stderr (mirrors the per-pass
+    /// wrappers). `entry` names the shim entry for the diagnostic line.
+    fn finish_record(
+        entry: &str,
+        rc: i32,
+        out: &RxgdRecordResult,
+        cpu_record_ns: u64,
+    ) -> Result<DispatchRecord, FallbackReason> {
+        if rc != 0 {
+            let detail_len = out
+                .error_detail
+                .iter()
+                .position(|&b| b == 0)
+                .unwrap_or(out.error_detail.len());
+            let detail = String::from_utf8_lossy(&out.error_detail[..detail_len]);
+            eprintln!(
+                "RXGD_SHIM_DIAG {entry} rc={rc} dxil_signed={} detail=\"{detail}\"",
+                out.dxil_signed
+            );
+            return Err(FallbackReason::ValidationFailed);
+        }
+        Ok(DispatchRecord {
+            fence_completed_value: out.fence_completed_value,
+            dispatch: (out.dispatch_x, out.dispatch_y, out.dispatch_z),
+            dst_width: out.dst_width,
+            dst_height: out.dst_height,
+            readback_checksum: out.readback_checksum,
+            dst_first_value: out.dst_first_value,
+            dxil_signed: out.dxil_signed != 0,
+            cpu_record_ns,
+        })
+    }
+
+    /// GRX-015: record one real gpu_culling compute dispatch (SRV t0
+    /// src_transforms + UAV u0 dst_commands + UAV u1 dst_visibility + 144-byte
+    /// b0) through the shim's gpu_culling entry.
+    #[allow(clippy::too_many_arguments)]
+    pub fn record_gpu_culling_dispatch(
+        device: usize,
+        queue: usize,
+        transforms: usize,
+        commands: usize,
+        visibility: usize,
+        push_constants: &[u8],
+        transforms_bytes: u32,
+        commands_bytes: u32,
+        visibility_bytes: u32,
+        readback: bool,
+    ) -> Result<DispatchRecord, FallbackReason> {
+        if sha256_hex(GPU_CULLING_DXIL) != GPU_CULLING_OFFLINE_DXIL_SHA256
+            || sha256_hex(GPU_CULLING_RTS0) != GPU_CULLING_OFFLINE_ROOT_SIGNATURE_SHA256
+        {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        // SAFETY: ABI query returns a constant; dereferences nothing.
+        if unsafe { rxgd_luminance_record_shim_abi_version() } != SHIM_ABI_VERSION {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        let mut out = empty_record_result();
+        let start = std::time::Instant::now();
+        // SAFETY: embedded read-only DXIL/RTS0 slices + caller-owned
+        // `push_constants` slice with true lengths; the handle values were
+        // validated non-null by the dispatch eligibility gate; `out` is an
+        // exclusive local. The shim honours the versioned ABI and retains no
+        // pointer past the call.
+        let rc = unsafe {
+            rxgd_gpu_culling_record_dispatch(
+                SHIM_ABI_VERSION,
+                RXGD_PASS_GPU_CULLING,
+                device as *mut c_void,
+                queue as *mut c_void,
+                GPU_CULLING_DXIL.as_ptr(),
+                GPU_CULLING_DXIL.len(),
+                GPU_CULLING_RTS0.as_ptr(),
+                GPU_CULLING_RTS0.len(),
+                transforms as *mut c_void,
+                commands as *mut c_void,
+                visibility as *mut c_void,
+                push_constants.as_ptr(),
+                push_constants.len(),
+                transforms_bytes,
+                commands_bytes,
+                visibility_bytes,
+                if readback { 1 } else { 0 },
+                &mut out,
+            )
+        };
+        let cpu_record_ns = start.elapsed().as_nanos() as u64;
+        finish_record("rxgd_gpu_culling_record_dispatch", rc, &out, cpu_record_ns)
+    }
+
+    /// GRX-018: record one real indirect_args write + validate pair (176-byte
+    /// b0) through the shim's paired-kernel entry.
+    #[allow(clippy::too_many_arguments)]
+    pub fn record_indirect_args_dispatch(
+        device: usize,
+        queue: usize,
+        survivor_counts: usize,
+        command_buffer: usize,
+        validation: usize,
+        push_constants: &[u8],
+        survivor_bytes: u32,
+        command_bytes: u32,
+        validation_bytes: u32,
+        readback: bool,
+    ) -> Result<DispatchRecord, FallbackReason> {
+        if sha256_hex(INDIRECT_ARGS_DXIL) != INDIRECT_ARGS_OFFLINE_DXIL_SHA256
+            || sha256_hex(INDIRECT_ARGS_VALIDATE_DXIL) != INDIRECT_ARGS_OFFLINE_VALIDATE_DXIL_SHA256
+            || sha256_hex(INDIRECT_ARGS_RTS0) != INDIRECT_ARGS_OFFLINE_ROOT_SIGNATURE_SHA256
+        {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        // SAFETY: ABI query returns a constant; dereferences nothing.
+        if unsafe { rxgd_luminance_record_shim_abi_version() } != SHIM_ABI_VERSION {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        let mut out = empty_record_result();
+        let start = std::time::Instant::now();
+        // SAFETY: as `record_gpu_culling_dispatch`.
+        let rc = unsafe {
+            rxgd_indirect_args_record_dispatch(
+                SHIM_ABI_VERSION,
+                RXGD_PASS_INDIRECT_ARGS,
+                device as *mut c_void,
+                queue as *mut c_void,
+                INDIRECT_ARGS_DXIL.as_ptr(),
+                INDIRECT_ARGS_DXIL.len(),
+                INDIRECT_ARGS_VALIDATE_DXIL.as_ptr(),
+                INDIRECT_ARGS_VALIDATE_DXIL.len(),
+                INDIRECT_ARGS_RTS0.as_ptr(),
+                INDIRECT_ARGS_RTS0.len(),
+                survivor_counts as *mut c_void,
+                command_buffer as *mut c_void,
+                validation as *mut c_void,
+                push_constants.as_ptr(),
+                push_constants.len(),
+                survivor_bytes,
+                command_bytes,
+                validation_bytes,
+                if readback { 1 } else { 0 },
+                &mut out,
+            )
+        };
+        let cpu_record_ns = start.elapsed().as_nanos() as u64;
+        finish_record(
+            "rxgd_indirect_args_record_dispatch",
+            rc,
+            &out,
+            cpu_record_ns,
+        )
+    }
+
+    /// GRX-016: record one real instance_compaction chain (scan_local →
+    /// scan_groups → scatter, 32-byte b0) through the shim's 3-kernel entry.
+    /// `handles`/`byte_sizes` are the 7-buffer flat surface in order
+    /// [visibility_mask, src_transforms, local_prefix, group_totals,
+    /// group_offsets, survivor_count, dst_transforms].
+    pub fn record_instance_compaction_dispatch(
+        device: usize,
+        queue: usize,
+        handles: &[usize; 7],
+        push_constants: &[u8],
+        byte_sizes: &[u32; 7],
+        readback: bool,
+    ) -> Result<DispatchRecord, FallbackReason> {
+        if sha256_hex(INSTANCE_COMPACTION_SCAN_LOCAL_DXIL)
+            != INSTANCE_COMPACTION_OFFLINE_SCAN_LOCAL_DXIL_SHA256
+            || sha256_hex(INSTANCE_COMPACTION_SCAN_GROUPS_DXIL)
+                != INSTANCE_COMPACTION_OFFLINE_SCAN_GROUPS_DXIL_SHA256
+            || sha256_hex(INSTANCE_COMPACTION_SCATTER_DXIL)
+                != INSTANCE_COMPACTION_OFFLINE_SCATTER_DXIL_SHA256
+            || sha256_hex(INSTANCE_COMPACTION_SCAN_LOCAL_RTS0)
+                != INSTANCE_COMPACTION_OFFLINE_SCAN_RTS0_SHA256
+            || sha256_hex(INSTANCE_COMPACTION_SCATTER_RTS0)
+                != INSTANCE_COMPACTION_OFFLINE_SCATTER_RTS0_SHA256
+        {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        // SAFETY: ABI query returns a constant; dereferences nothing.
+        if unsafe { rxgd_luminance_record_shim_abi_version() } != SHIM_ABI_VERSION {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        let resources: [*mut c_void; 7] = [
+            handles[0] as *mut c_void,
+            handles[1] as *mut c_void,
+            handles[2] as *mut c_void,
+            handles[3] as *mut c_void,
+            handles[4] as *mut c_void,
+            handles[5] as *mut c_void,
+            handles[6] as *mut c_void,
+        ];
+        let mut out = empty_record_result();
+        let start = std::time::Instant::now();
+        // SAFETY: `resources`/`byte_sizes` are 7-element local arrays; the DXIL/
+        // RTS0 slices are embedded read-only data with true lengths; handles were
+        // validated non-null by the eligibility gate. The shim reads only the
+        // inputs, records the chain, and retains no pointer past the call.
+        let rc = unsafe {
+            rxgd_instance_compaction_record_dispatch(
+                SHIM_ABI_VERSION,
+                RXGD_PASS_INSTANCE_COMPACTION,
+                device as *mut c_void,
+                queue as *mut c_void,
+                INSTANCE_COMPACTION_SCAN_LOCAL_DXIL.as_ptr(),
+                INSTANCE_COMPACTION_SCAN_LOCAL_DXIL.len(),
+                INSTANCE_COMPACTION_SCAN_GROUPS_DXIL.as_ptr(),
+                INSTANCE_COMPACTION_SCAN_GROUPS_DXIL.len(),
+                INSTANCE_COMPACTION_SCATTER_DXIL.as_ptr(),
+                INSTANCE_COMPACTION_SCATTER_DXIL.len(),
+                INSTANCE_COMPACTION_SCAN_LOCAL_RTS0.as_ptr(),
+                INSTANCE_COMPACTION_SCAN_LOCAL_RTS0.len(),
+                INSTANCE_COMPACTION_SCATTER_RTS0.as_ptr(),
+                INSTANCE_COMPACTION_SCATTER_RTS0.len(),
+                resources.as_ptr(),
+                resources.len() as u32,
+                byte_sizes.as_ptr(),
+                push_constants.as_ptr(),
+                push_constants.len(),
+                if readback { 1 } else { 0 },
+                &mut out,
+            )
+        };
+        let cpu_record_ns = start.elapsed().as_nanos() as u64;
+        finish_record(
+            "rxgd_instance_compaction_record_dispatch",
+            rc,
+            &out,
+            cpu_record_ns,
+        )
+    }
+
+    /// GRX-019: record one real fused_post_chain compute dispatch (3 Texture2D
+    /// SRVs + 2 RWTexture2D UAVs + 64-byte b0) through the shim's fused entry.
+    #[allow(clippy::too_many_arguments)]
+    pub fn record_fused_post_chain_dispatch(
+        device: usize,
+        queue: usize,
+        src_color: usize,
+        lum_source: usize,
+        prev_luminance: usize,
+        dst_color: usize,
+        dst_luminance: usize,
+        push_constants: &[u8],
+        width: u32,
+        height: u32,
+        readback: bool,
+    ) -> Result<DispatchRecord, FallbackReason> {
+        if sha256_hex(FUSED_POST_CHAIN_DXIL) != FUSED_POST_CHAIN_OFFLINE_DXIL_SHA256
+            || sha256_hex(FUSED_POST_CHAIN_RTS0) != FUSED_POST_CHAIN_OFFLINE_ROOT_SIGNATURE_SHA256
+        {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        // SAFETY: ABI query returns a constant; dereferences nothing.
+        if unsafe { rxgd_luminance_record_shim_abi_version() } != SHIM_ABI_VERSION {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        let mut out = empty_record_result();
+        let start = std::time::Instant::now();
+        // SAFETY: as `record_gpu_culling_dispatch`.
+        let rc = unsafe {
+            rxgd_fused_post_chain_record_dispatch(
+                SHIM_ABI_VERSION,
+                RXGD_PASS_FUSED_POST_CHAIN,
+                device as *mut c_void,
+                queue as *mut c_void,
+                FUSED_POST_CHAIN_DXIL.as_ptr(),
+                FUSED_POST_CHAIN_DXIL.len(),
+                FUSED_POST_CHAIN_RTS0.as_ptr(),
+                FUSED_POST_CHAIN_RTS0.len(),
+                src_color as *mut c_void,
+                lum_source as *mut c_void,
+                prev_luminance as *mut c_void,
+                dst_color as *mut c_void,
+                dst_luminance as *mut c_void,
+                push_constants.as_ptr(),
+                push_constants.len(),
+                width,
+                height,
+                if readback { 1 } else { 0 },
+                &mut out,
+            )
+        };
+        let cpu_record_ns = start.elapsed().as_nanos() as u64;
+        finish_record(
+            "rxgd_fused_post_chain_record_dispatch",
+            rc,
+            &out,
+            cpu_record_ns,
+        )
+    }
+
+    /// GRX-021: prewarm every embedded kernel's root signature + PSO for the
+    /// (device, queue) session so the first real dispatch of any pass does not
+    /// pay the lazy create cost. Returns `(warmed, total)`. Best-effort by
+    /// contract: the caller MUST NOT fail the session on a low/zero `warmed`
+    /// count — a device without the signed DXC validator / experimental shader
+    /// models simply builds each kernel lazily on first use, exactly as before.
+    pub fn prewarm_session_kernels(device: usize, queue: usize) -> (i32, u32) {
+        // SAFETY: ABI query returns a constant; dereferences nothing.
+        if unsafe { rxgd_luminance_record_shim_abi_version() } != SHIM_ABI_VERSION {
+            return (-2, 0);
+        }
+        let mk = |dxil: &'static [u8], rts0: &'static [u8], binding_count: u32| RxgdShimKernel {
+            dxil: dxil.as_ptr(),
+            dxil_len: dxil.len(),
+            rts0: rts0.as_ptr(),
+            rts0_len: rts0.len(),
+            binding_count,
+            reserved0: 0,
+        };
+        let kernels = [
+            mk(LUMINANCE_DXIL, LUMINANCE_RTS0, 2),
+            mk(LUMINANCE_WRITE_DXIL, LUMINANCE_WRITE_RTS0, 3),
+            mk(TONEMAP_DXIL, TONEMAP_RTS0, 2),
+            mk(SSAO_BLUR_DXIL, SSAO_BLUR_RTS0, 2),
+            mk(TAA_RESOLVE_DXIL, TAA_RESOLVE_RTS0, 6),
+            mk(PARTICLES_COPY_DXIL, PARTICLES_COPY_RTS0, 2),
+            mk(CLUSTER_STORE_DXIL, CLUSTER_STORE_RTS0, 3),
+            mk(GPU_CULLING_DXIL, GPU_CULLING_RTS0, 3),
+            mk(
+                INSTANCE_COMPACTION_SCAN_LOCAL_DXIL,
+                INSTANCE_COMPACTION_SCAN_LOCAL_RTS0,
+                3,
+            ),
+            mk(
+                INSTANCE_COMPACTION_SCAN_GROUPS_DXIL,
+                INSTANCE_COMPACTION_SCAN_LOCAL_RTS0,
+                3,
+            ),
+            mk(
+                INSTANCE_COMPACTION_SCATTER_DXIL,
+                INSTANCE_COMPACTION_SCATTER_RTS0,
+                5,
+            ),
+            mk(INDIRECT_ARGS_DXIL, INDIRECT_ARGS_RTS0, 3),
+            mk(INDIRECT_ARGS_VALIDATE_DXIL, INDIRECT_ARGS_RTS0, 3),
+            mk(FUSED_POST_CHAIN_DXIL, FUSED_POST_CHAIN_RTS0, 5),
+        ];
+        // SAFETY: `kernels` is a local array of embedded read-only byte pointers
+        // with true lengths; `device`/`queue` were validated non-null by the
+        // caller (`rxgd_create_d3d12_session`). The shim only builds + caches
+        // root signatures/PSOs for the (device, queue) session and retains no
+        // pointer past the call.
+        let warmed = unsafe {
+            rxgd_prewarm_kernels(
+                SHIM_ABI_VERSION,
+                device as *mut c_void,
+                queue as *mut c_void,
+                kernels.as_ptr(),
+                kernels.len() as u32,
+            )
+        };
+        (warmed, kernels.len() as u32)
     }
 
     /// Wave 2 multi-level pyramid: record the full reduce chain + final
@@ -10016,5 +10595,719 @@ mod tests {
         assert_eq!(stats.recorded_passes, 0);
         assert_eq!(stats.fallback_passes, 1);
         rxgd_destroy_session(session);
+    }
+
+    // ── GRX-015 gpu_culling gate tests ──────────────────────────────────────
+
+    fn gpu_culling_optin_caps() -> RxGdCaps {
+        let mut caps = RxGdCaps::d3d12_forward_plus();
+        caps.flags = RXGD_CAP_SHADER_INT64 | RXGD_CAP_GPU_CULLING_REAL_PASS;
+        caps
+    }
+
+    fn gpu_culling_push_constants(
+        instance_count: u32,
+        surface_count: u32,
+    ) -> [u8; GPU_CULLING_ROOT_CONSTANT_BYTES as usize] {
+        let mut bytes = [0u8; GPU_CULLING_ROOT_CONSTANT_BYTES as usize];
+        bytes[GPU_CULLING_INSTANCE_COUNT_OFFSET..GPU_CULLING_INSTANCE_COUNT_OFFSET + 4]
+            .copy_from_slice(&instance_count.to_le_bytes());
+        bytes[GPU_CULLING_SURFACE_COUNT_OFFSET..GPU_CULLING_SURFACE_COUNT_OFFSET + 4]
+            .copy_from_slice(&surface_count.to_le_bytes());
+        bytes
+    }
+
+    fn valid_gpu_culling_binding() -> (
+        [RxGdResource; 3],
+        [u8; GPU_CULLING_ROOT_CONSTANT_BYTES as usize],
+    ) {
+        let resources = [
+            RxGdResource::buffer(901, 40 * 12 * 4), // src_transforms (SRV t0)
+            RxGdResource::buffer(902, 5),           // dst_commands (UAV u0)
+            RxGdResource::buffer(903, 8),           // dst_visibility (UAV u1)
+        ];
+        (resources, gpu_culling_push_constants(40, 1))
+    }
+
+    #[test]
+    fn gpu_culling_cap_flag_is_reserved_bit_nine() {
+        assert_eq!(RXGD_CAP_GPU_CULLING_REAL_PASS, 1 << 9);
+        assert_eq!(rxgd_abi_version(), RXGD_ABI_VERSION);
+    }
+
+    #[test]
+    fn gpu_culling_valid_default_binding_falls_back_manual_disabled() {
+        let (resources, pc) = valid_gpu_culling_binding();
+        let mut gate = GpuCullingGate::new();
+        assert_eq!(
+            gate.record_default_fallback(&resources, &pc),
+            RXGD_STATUS_FALLBACK
+        );
+        assert!(!gate.is_enabled());
+        assert_eq!(
+            gate.last_fallback_reason(),
+            Some(FallbackReason::ManualDisabled)
+        );
+    }
+
+    #[test]
+    fn gpu_culling_preflight_rejects_shape_and_zero_fields() {
+        // Wrong resource count.
+        let two = [RxGdResource::buffer(1, 4), RxGdResource::buffer(2, 4)];
+        assert_eq!(
+            GpuCullingGate::check_runtime_binding_preflight(
+                &two,
+                &gpu_culling_push_constants(40, 1)
+            ),
+            Err(FallbackReason::ValidationFailed)
+        );
+        // A texture never conforms in a buffer pass.
+        let (mut resources, pc) = valid_gpu_culling_binding();
+        resources[0] = RxGdResource::texture(1, 8, 8, 0);
+        assert_eq!(
+            GpuCullingGate::check_runtime_binding_preflight(&resources, &pc),
+            Err(FallbackReason::ValidationFailed)
+        );
+        // Zero instance_count / surface_count.
+        let (resources, _) = valid_gpu_culling_binding();
+        assert_eq!(
+            GpuCullingGate::check_runtime_binding_preflight(
+                &resources,
+                &gpu_culling_push_constants(0, 1)
+            ),
+            Err(FallbackReason::ValidationFailed)
+        );
+        assert_eq!(
+            GpuCullingGate::check_runtime_binding_preflight(
+                &resources,
+                &gpu_culling_push_constants(40, 0)
+            ),
+            Err(FallbackReason::ValidationFailed)
+        );
+    }
+
+    #[test]
+    fn gpu_culling_binding_kind_accepts_buffer_slots_only() {
+        let (resources, _) = valid_gpu_culling_binding();
+        assert_eq!(
+            GpuCullingGate::check_real_pass_binding_kind(&resources),
+            Ok(())
+        );
+        let mut tex = resources;
+        tex[1] = RxGdResource::texture(2, 8, 8, 0);
+        assert_eq!(
+            GpuCullingGate::check_real_pass_binding_kind(&tex),
+            Err(FallbackReason::ValidationFailed)
+        );
+    }
+
+    #[test]
+    fn gpu_culling_dispatch_package_matches_offline_evidence() {
+        let pkg = GpuCullingDispatchPackage::verified_offline_package();
+        assert_eq!(pkg.verify_matches_offline_evidence(), Ok(()));
+        assert!(!pkg.requires_shader_int64);
+        assert_eq!(pkg.resource_count, GPU_CULLING_RESOURCE_COUNT);
+        assert_eq!(pkg.root_constant_bytes, 144);
+    }
+
+    #[cfg(not(feature = "d3d12-recording-shim"))]
+    #[test]
+    fn gpu_culling_real_pass_optin_blocks_on_missing_dispatch_path() {
+        let (resources, pc) = valid_gpu_culling_binding();
+        let session = create_session_with_caps(gpu_culling_optin_caps());
+        assert_eq!(
+            rxgd_record_pass(
+                session,
+                RXGD_PASS_GPU_CULLING,
+                resources.as_ptr(),
+                resources.len() as u64,
+                pc.as_ptr(),
+                pc.len() as u64,
+            ),
+            RXGD_STATUS_FALLBACK
+        );
+        let mut stats = zeroed_stats();
+        assert_eq!(
+            rxgd_collect_timestamps(session, 1, &mut stats),
+            RXGD_STATUS_OK
+        );
+        assert_eq!(stats.recorded_passes, 0);
+        assert_eq!(stats.fallback_passes, 1);
+        assert_eq!(stats.gpu_time_ns, 0);
+        rxgd_destroy_session(session);
+    }
+
+    #[test]
+    fn gpu_culling_capability_downgrade_is_unsupported_device() {
+        let (resources, pc) = valid_gpu_culling_binding();
+        let mut caps = gpu_culling_optin_caps();
+        caps.flags &= !RXGD_CAP_SHADER_INT64;
+        let mut gate = GpuCullingGate::new();
+        assert_eq!(
+            gate.record_real_pass_attempt(caps, &resources, &pc, 1, 2),
+            RXGD_STATUS_FALLBACK
+        );
+        assert_eq!(
+            gate.last_fallback_reason(),
+            Some(FallbackReason::UnsupportedDevice)
+        );
+        assert_eq!(
+            gate.last_real_pass_blocked(),
+            Some("dispatch_eligibility_failed")
+        );
+    }
+
+    // ── GRX-016 instance_compaction gate tests ──────────────────────────────
+
+    fn instance_compaction_optin_caps() -> RxGdCaps {
+        let mut caps = RxGdCaps::d3d12_forward_plus();
+        caps.flags = RXGD_CAP_SHADER_INT64 | RXGD_CAP_INSTANCE_COMPACTION_REAL_PASS;
+        caps
+    }
+
+    fn instance_compaction_push_constants(
+        total_instances: u32,
+        num_groups: u32,
+    ) -> [u8; INSTANCE_COMPACTION_ROOT_CONSTANT_BYTES as usize] {
+        let mut bytes = [0u8; INSTANCE_COMPACTION_ROOT_CONSTANT_BYTES as usize];
+        bytes[INSTANCE_COMPACTION_TOTAL_INSTANCES_OFFSET
+            ..INSTANCE_COMPACTION_TOTAL_INSTANCES_OFFSET + 4]
+            .copy_from_slice(&total_instances.to_le_bytes());
+        bytes[4..8].copy_from_slice(&total_instances.div_ceil(32).to_le_bytes()); // bitmask_words
+        bytes[INSTANCE_COMPACTION_NUM_GROUPS_OFFSET..INSTANCE_COMPACTION_NUM_GROUPS_OFFSET + 4]
+            .copy_from_slice(&num_groups.to_le_bytes());
+        bytes[12..16].copy_from_slice(&3u32.to_le_bytes()); // transform_stride_vec4
+        bytes
+    }
+
+    fn valid_instance_compaction_binding() -> (
+        [RxGdResource; 7],
+        [u8; INSTANCE_COMPACTION_ROOT_CONSTANT_BYTES as usize],
+    ) {
+        let n = 600u32;
+        let resources = [
+            RxGdResource::buffer(910, n.div_ceil(32) * 4), // visibility_mask
+            RxGdResource::buffer(911, n * 48),             // src_transforms
+            RxGdResource::buffer(912, n * 4),              // local_prefix
+            RxGdResource::buffer(913, 3 * 4),              // group_totals
+            RxGdResource::buffer(914, 3 * 4),              // group_offsets
+            RxGdResource::buffer(915, 4),                  // survivor_count
+            RxGdResource::buffer(916, n * 48),             // dst_transforms
+        ];
+        (resources, instance_compaction_push_constants(n, 3))
+    }
+
+    #[test]
+    fn instance_compaction_cap_and_pass_ids() {
+        assert_eq!(RXGD_CAP_INSTANCE_COMPACTION_REAL_PASS, 1 << 10);
+        assert_eq!(RXGD_PASS_INSTANCE_COMPACTION, 11);
+        assert!(pass_supported(RXGD_PASS_INSTANCE_COMPACTION));
+    }
+
+    #[test]
+    fn instance_compaction_default_falls_back_manual_disabled() {
+        let (resources, pc) = valid_instance_compaction_binding();
+        let mut gate = InstanceCompactionGate::new();
+        assert_eq!(
+            gate.record_default_fallback(&resources, &pc),
+            RXGD_STATUS_FALLBACK
+        );
+        assert_eq!(
+            gate.last_fallback_reason(),
+            Some(FallbackReason::ManualDisabled)
+        );
+    }
+
+    #[test]
+    fn instance_compaction_capacity_fails_closed() {
+        let (resources, _) = valid_instance_compaction_binding();
+        // An in-capacity total but a b0 that declares num_groups > 256 (the
+        // single-group scan_groups bound) -> UnsupportedDevice fails closed
+        // before the third scan level would be needed.
+        let over_groups = instance_compaction_push_constants(600, 300);
+        assert_eq!(
+            InstanceCompactionGate::check_runtime_binding_preflight(&resources, &over_groups),
+            Err(FallbackReason::UnsupportedDevice)
+        );
+        // total_instances > 65536 -> ValidationFailed.
+        let too_many = instance_compaction_push_constants(65537, 65537u32.div_ceil(256));
+        assert_eq!(
+            InstanceCompactionGate::check_runtime_binding_preflight(&resources, &too_many),
+            Err(FallbackReason::ValidationFailed)
+        );
+        // num_groups inconsistent with ceil(total/256) -> ValidationFailed.
+        let inconsistent = instance_compaction_push_constants(600, 4);
+        assert_eq!(
+            InstanceCompactionGate::check_runtime_binding_preflight(&resources, &inconsistent),
+            Err(FallbackReason::ValidationFailed)
+        );
+        // A valid within-capacity binding passes.
+        let (resources, pc) = valid_instance_compaction_binding();
+        assert_eq!(
+            InstanceCompactionGate::check_runtime_binding_preflight(&resources, &pc),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn instance_compaction_dispatch_package_has_seven_digests() {
+        let pkg = InstanceCompactionDispatchPackage::verified_offline_package();
+        assert_eq!(pkg.verify_matches_offline_evidence(), Ok(()));
+        assert_eq!(pkg.kernel_count, 3);
+        // The two scan kernels share a root signature; scatter carries its own.
+        assert_eq!(
+            pkg.scan_rts0_sha256,
+            INSTANCE_COMPACTION_OFFLINE_SCAN_RTS0_SHA256
+        );
+        assert_ne!(pkg.scan_rts0_sha256, pkg.scatter_rts0_sha256);
+    }
+
+    #[cfg(not(feature = "d3d12-recording-shim"))]
+    #[test]
+    fn instance_compaction_real_pass_optin_blocks_on_missing_dispatch_path() {
+        let (resources, pc) = valid_instance_compaction_binding();
+        let session = create_session_with_caps(instance_compaction_optin_caps());
+        assert_eq!(
+            rxgd_record_pass(
+                session,
+                RXGD_PASS_INSTANCE_COMPACTION,
+                resources.as_ptr(),
+                resources.len() as u64,
+                pc.as_ptr(),
+                pc.len() as u64,
+            ),
+            RXGD_STATUS_FALLBACK
+        );
+        let mut stats = zeroed_stats();
+        assert_eq!(
+            rxgd_collect_timestamps(session, 1, &mut stats),
+            RXGD_STATUS_OK
+        );
+        assert_eq!(stats.recorded_passes, 0);
+        assert_eq!(stats.fallback_passes, 1);
+        rxgd_destroy_session(session);
+    }
+
+    // ── GRX-018 indirect_args gate tests ────────────────────────────────────
+
+    fn indirect_args_optin_caps() -> RxGdCaps {
+        let mut caps = RxGdCaps::d3d12_forward_plus();
+        caps.flags = RXGD_CAP_SHADER_INT64 | RXGD_CAP_INDIRECT_ARGS_REAL_PASS;
+        caps
+    }
+
+    fn indirect_args_push_constants(
+        surface_count: u32,
+        max_instance_count: u32,
+    ) -> [u8; INDIRECT_ARGS_ROOT_CONSTANT_BYTES as usize] {
+        let mut bytes = [0u8; INDIRECT_ARGS_ROOT_CONSTANT_BYTES as usize];
+        bytes[INDIRECT_ARGS_SURFACE_COUNT_OFFSET..INDIRECT_ARGS_SURFACE_COUNT_OFFSET + 4]
+            .copy_from_slice(&surface_count.to_le_bytes());
+        bytes[INDIRECT_ARGS_MAX_INSTANCE_COUNT_OFFSET..INDIRECT_ARGS_MAX_INSTANCE_COUNT_OFFSET + 4]
+            .copy_from_slice(&max_instance_count.to_le_bytes());
+        bytes
+    }
+
+    fn valid_indirect_args_binding() -> (
+        [RxGdResource; 3],
+        [u8; INDIRECT_ARGS_ROOT_CONSTANT_BYTES as usize],
+    ) {
+        let resources = [
+            RxGdResource::buffer(920, 4),      // src_survivor_counts (SRV t0)
+            RxGdResource::buffer(921, 2 * 20), // dst_command_buffer (UAV u0)
+            RxGdResource::buffer(922, 4 * 4),  // dst_validation (UAV u1)
+        ];
+        (resources, indirect_args_push_constants(2, 64))
+    }
+
+    #[test]
+    fn indirect_args_cap_flag_is_reserved_bit_twelve() {
+        assert_eq!(RXGD_CAP_INDIRECT_ARGS_REAL_PASS, 1 << 12);
+    }
+
+    #[test]
+    fn indirect_args_preflight_rejects_zero_and_oversized_surface_count() {
+        let (resources, _) = valid_indirect_args_binding();
+        // survivor_count_word_offset (dword 2) may legitimately be zero: a valid
+        // binding with a zero offset still passes.
+        assert_eq!(
+            IndirectArgsGate::check_runtime_binding_preflight(
+                &resources,
+                &indirect_args_push_constants(2, 64)
+            ),
+            Ok(())
+        );
+        assert_eq!(
+            IndirectArgsGate::check_runtime_binding_preflight(
+                &resources,
+                &indirect_args_push_constants(0, 64)
+            ),
+            Err(FallbackReason::ValidationFailed)
+        );
+        assert_eq!(
+            IndirectArgsGate::check_runtime_binding_preflight(
+                &resources,
+                &indirect_args_push_constants(9, 64)
+            ),
+            Err(FallbackReason::ValidationFailed)
+        );
+        assert_eq!(
+            IndirectArgsGate::check_runtime_binding_preflight(
+                &resources,
+                &indirect_args_push_constants(2, 0)
+            ),
+            Err(FallbackReason::ValidationFailed)
+        );
+    }
+
+    #[test]
+    fn indirect_args_dispatch_package_bakes_both_kernels() {
+        let pkg = IndirectArgsDispatchPackage::verified_offline_package();
+        assert_eq!(pkg.verify_matches_offline_evidence(), Ok(()));
+        assert_ne!(pkg.dxil_sha256, pkg.validate_dxil_sha256);
+        assert_eq!(pkg.root_constant_bytes, 176);
+    }
+
+    #[cfg(not(feature = "d3d12-recording-shim"))]
+    #[test]
+    fn indirect_args_real_pass_optin_blocks_on_missing_dispatch_path() {
+        let (resources, pc) = valid_indirect_args_binding();
+        let session = create_session_with_caps(indirect_args_optin_caps());
+        assert_eq!(
+            rxgd_record_pass(
+                session,
+                RXGD_PASS_INDIRECT_ARGS,
+                resources.as_ptr(),
+                resources.len() as u64,
+                pc.as_ptr(),
+                pc.len() as u64,
+            ),
+            RXGD_STATUS_FALLBACK
+        );
+        let mut stats = zeroed_stats();
+        assert_eq!(
+            rxgd_collect_timestamps(session, 1, &mut stats),
+            RXGD_STATUS_OK
+        );
+        assert_eq!(stats.recorded_passes, 0);
+        assert_eq!(stats.gpu_time_ns, 0);
+        rxgd_destroy_session(session);
+    }
+
+    // ── GRX-019 fused_post_chain gate tests ─────────────────────────────────
+
+    fn fused_post_chain_optin_caps() -> RxGdCaps {
+        let mut caps = RxGdCaps::d3d12_forward_plus();
+        caps.flags = RXGD_CAP_SHADER_INT64 | RXGD_CAP_FUSED_POST_CHAIN_REAL_PASS;
+        caps
+    }
+
+    fn fused_post_chain_push_constants(
+        source_width: u32,
+        source_height: u32,
+    ) -> [u8; FUSED_POST_CHAIN_ROOT_CONSTANT_BYTES as usize] {
+        // uint2 i64 pairs: low dword carries the value, high dword is zero.
+        let mut bytes = [0u8; FUSED_POST_CHAIN_ROOT_CONSTANT_BYTES as usize];
+        bytes[FUSED_POST_CHAIN_SOURCE_WIDTH_OFFSET..FUSED_POST_CHAIN_SOURCE_WIDTH_OFFSET + 4]
+            .copy_from_slice(&source_width.to_le_bytes());
+        bytes[FUSED_POST_CHAIN_SOURCE_HEIGHT_OFFSET..FUSED_POST_CHAIN_SOURCE_HEIGHT_OFFSET + 4]
+            .copy_from_slice(&source_height.to_le_bytes());
+        bytes
+    }
+
+    fn valid_fused_post_chain_binding() -> (
+        [RxGdResource; 5],
+        [u8; FUSED_POST_CHAIN_ROOT_CONSTANT_BYTES as usize],
+    ) {
+        let resources = [
+            RxGdResource::texture(930, 16, 16, 0), // src_color (SRV t0)
+            RxGdResource::texture(931, 5, 3, 0),   // lum_source (SRV t1)
+            RxGdResource::texture(932, 1, 1, 0),   // prev_luminance (SRV t2)
+            RxGdResource::texture(933, 16, 16, 0), // dst_color (UAV u0)
+            RxGdResource::texture(934, 1, 1, 0),   // dst_luminance (UAV u1)
+        ];
+        (resources, fused_post_chain_push_constants(16, 16))
+    }
+
+    #[test]
+    fn fused_post_chain_cap_flag_is_reserved_bit_thirteen() {
+        assert_eq!(RXGD_CAP_FUSED_POST_CHAIN_REAL_PASS, 1 << 13);
+    }
+
+    #[test]
+    fn fused_post_chain_preflight_requires_textures_and_nonzero_dims() {
+        let (resources, pc) = valid_fused_post_chain_binding();
+        assert_eq!(
+            FusedPostChainGate::check_runtime_binding_preflight(&resources, &pc),
+            Ok(())
+        );
+        // A buffer never conforms in a texture pass.
+        let mut buf = resources;
+        buf[0] = RxGdResource::buffer(1, 64);
+        assert_eq!(
+            FusedPostChainGate::check_runtime_binding_preflight(&buf, &pc),
+            Err(FallbackReason::ValidationFailed)
+        );
+        // Zero source dims fail closed.
+        assert_eq!(
+            FusedPostChainGate::check_runtime_binding_preflight(
+                &resources,
+                &fused_post_chain_push_constants(0, 16)
+            ),
+            Err(FallbackReason::ValidationFailed)
+        );
+    }
+
+    #[test]
+    fn fused_post_chain_binding_kind_accepts_texture_slots_only() {
+        let (resources, _) = valid_fused_post_chain_binding();
+        assert_eq!(
+            FusedPostChainGate::check_real_pass_binding_kind(&resources),
+            Ok(())
+        );
+        let mut buf = resources;
+        buf[3] = RxGdResource::buffer(9, 64);
+        assert_eq!(
+            FusedPostChainGate::check_real_pass_binding_kind(&buf),
+            Err(FallbackReason::ValidationFailed)
+        );
+    }
+
+    #[test]
+    fn fused_post_chain_package_requires_shader_int64() {
+        let pkg = FusedPostChainDispatchPackage::verified_offline_package();
+        assert_eq!(pkg.verify_matches_offline_evidence(), Ok(()));
+        // Unlike the buffer passes, the fused kernel's b0 carries uint2 i64
+        // dimension pairs, so its package genuinely requires the capability.
+        assert!(pkg.requires_shader_int64);
+        assert_eq!(pkg.srv_count, 3);
+        assert_eq!(pkg.uav_count, 2);
+    }
+
+    #[cfg(not(feature = "d3d12-recording-shim"))]
+    #[test]
+    fn fused_post_chain_real_pass_optin_blocks_on_missing_dispatch_path() {
+        let (resources, pc) = valid_fused_post_chain_binding();
+        let session = create_session_with_caps(fused_post_chain_optin_caps());
+        assert_eq!(
+            rxgd_record_pass(
+                session,
+                RXGD_PASS_FUSED_POST_CHAIN,
+                resources.as_ptr(),
+                resources.len() as u64,
+                pc.as_ptr(),
+                pc.len() as u64,
+            ),
+            RXGD_STATUS_FALLBACK
+        );
+        let mut stats = zeroed_stats();
+        assert_eq!(
+            rxgd_collect_timestamps(session, 1, &mut stats),
+            RXGD_STATUS_OK
+        );
+        assert_eq!(stats.recorded_passes, 0);
+        assert_eq!(stats.gpu_time_ns, 0);
+        rxgd_destroy_session(session);
+    }
+
+    #[test]
+    fn fused_post_chain_math_parity_gate_allows_cpu_proven_status() {
+        assert_eq!(FusedPostChainGate::check_real_pass_math_parity(), Ok(()));
+    }
+
+    // ── GRX-020 descriptor-heap ring fence model ────────────────────────────
+    //
+    // A pure-Rust executable spec for the C++ shim's `reserve_descriptors` /
+    // `wait_for_descriptor_range` (rxgd_luminance_record.cpp). It mirrors the
+    // exact algorithm (predict-the-pending-submit-fence + overlap wait on wrap +
+    // in-flight-only pruning) so a high-pressure wrap-around can be proven not to
+    // hand out a descriptor range still referenced by an unfinished submit. The
+    // model advances `completed` deterministically when a wait fires (standing in
+    // for GPU completion) and `complete()` simulates asynchronous finishes.
+
+    #[derive(Clone, Copy)]
+    struct RingSegment {
+        begin: u32,
+        end: u32,
+        fence_value: u64,
+    }
+
+    struct DescriptorFenceRing {
+        capacity: u32,
+        cursor: u32,
+        next_fence_value: u64,
+        completed: u64,
+        segments: Vec<RingSegment>,
+        wraps: u64,
+        waits: u64,
+    }
+
+    impl DescriptorFenceRing {
+        fn new(capacity: u32) -> DescriptorFenceRing {
+            DescriptorFenceRing {
+                capacity,
+                cursor: 0,
+                next_fence_value: 0,
+                completed: 0,
+                segments: Vec::new(),
+                wraps: 0,
+                waits: 0,
+            }
+        }
+
+        /// Mirror of the C++ `reserve_descriptors`: returns (base, waited).
+        fn reserve(&mut self, count: u32) -> (u32, bool) {
+            let count = count.min(self.capacity);
+            if self.cursor + count > self.capacity {
+                self.cursor = 0;
+                self.wraps += 1;
+            }
+            let base = self.cursor;
+            let end = base + count;
+            let waited = self.wait_for_range(base, end);
+            self.cursor = end;
+            self.segments.push(RingSegment {
+                begin: base,
+                end,
+                fence_value: self.next_fence_value + 1,
+            });
+            (base, waited)
+        }
+
+        fn wait_for_range(&mut self, begin: u32, end: u32) -> bool {
+            let signaled = self.next_fence_value;
+            let completed = self.completed;
+            let mut wait_value = 0u64;
+            let mut keep: Vec<RingSegment> = Vec::with_capacity(self.segments.len());
+            for seg in &self.segments {
+                let overlaps = seg.begin < end && begin < seg.end;
+                if !overlaps {
+                    if seg.fence_value > completed && seg.fence_value <= signaled {
+                        keep.push(*seg);
+                    }
+                    continue;
+                }
+                if seg.fence_value <= signaled && seg.fence_value > completed {
+                    wait_value = wait_value.max(seg.fence_value);
+                }
+            }
+            if wait_value != 0 {
+                // Waiting drains the GPU up to `wait_value`.
+                self.completed = self.completed.max(wait_value);
+                self.waits += 1;
+            }
+            self.segments = keep;
+            wait_value != 0
+        }
+
+        /// Simulate submitting the work that used the reservations since the last
+        /// submit; returns the fence value it will signal.
+        fn submit(&mut self) -> u64 {
+            self.next_fence_value += 1;
+            self.next_fence_value
+        }
+
+        /// Simulate the GPU finishing everything up to and including `value`.
+        fn complete(&mut self, value: u64) {
+            self.completed = self.completed.max(value);
+        }
+
+        /// Invariant: no committed segment other than the reservations of the
+        /// still-open (unsubmitted) record references a descriptor index that is
+        /// currently in flight (fence signaled but not completed) AND overlaps
+        /// the just-handed-out range. Checked by the stress test after each
+        /// reserve.
+        fn live_ranges(&self) -> Vec<(u32, u32)> {
+            self.segments
+                .iter()
+                .filter(|s| {
+                    s.fence_value <= self.next_fence_value && s.fence_value > self.completed
+                })
+                .map(|s| (s.begin, s.end))
+                .collect()
+        }
+    }
+
+    #[test]
+    fn descriptor_ring_waits_before_reusing_a_live_range() {
+        // A tiny heap (8 slots) with 3-descriptor records forces frequent wraps.
+        // Two submits are kept in flight at a time (completion lags by 2), so a
+        // wrap-around genuinely collides with a not-yet-finished submit and MUST
+        // wait rather than stomp the live descriptors.
+        let mut ring = DescriptorFenceRing::new(8);
+        let mut total_waits = 0u64;
+        let mut in_flight: Vec<u64> = Vec::new();
+        for record in 0..64u64 {
+            // Reserve the descriptors this record needs, then verify the range it
+            // was handed does not overlap any range still in flight.
+            let (base, _waited) = ring.reserve(3);
+            let end = base + 3;
+            for (lo, hi) in ring.live_ranges() {
+                // The only "live" segment allowed to overlap is THIS record's own
+                // reservation (fence == next_fence_value + 1), which the model
+                // tags but has not yet submitted; every previously-submitted live
+                // range must have been waited-out before reuse.
+                let is_current = lo == base && hi == end;
+                let overlaps = lo < end && base < hi;
+                assert!(
+                    !overlaps || is_current,
+                    "record {record}: handed-out range [{base},{end}) overlaps an \
+                     in-flight submitted range [{lo},{hi}) without waiting"
+                );
+            }
+            let fence = ring.submit();
+            in_flight.push(fence);
+            // Let completion lag by two submits (two frames in flight).
+            if in_flight.len() > 2 {
+                let done = in_flight.remove(0);
+                ring.complete(done);
+            }
+        }
+        // Drain.
+        for f in in_flight {
+            ring.complete(f);
+        }
+        total_waits += ring.waits;
+        assert!(
+            ring.wraps >= 20,
+            "the pressure test must wrap many times: {}",
+            ring.wraps
+        );
+        assert!(
+            total_waits >= 1,
+            "high-pressure wrap-around must have forced at least one fence wait"
+        );
+    }
+
+    #[test]
+    fn descriptor_ring_never_waits_when_completion_keeps_up() {
+        // When every submit completes before the next reservation, wrap-around is
+        // always safe and never blocks (the green/no-contention path).
+        let mut ring = DescriptorFenceRing::new(8);
+        for _ in 0..64 {
+            let (_base, waited) = ring.reserve(3);
+            assert!(!waited, "no wait should be needed when completion keeps up");
+            let fence = ring.submit();
+            ring.complete(fence);
+        }
+        assert!(ring.wraps >= 20);
+        assert_eq!(ring.waits, 0);
+    }
+
+    // ── GRX-021 prewarm ─────────────────────────────────────────────────────
+
+    #[cfg(feature = "d3d12-recording-shim")]
+    #[test]
+    fn prewarm_null_handles_degrades_gracefully() {
+        // GRX-021 contract red line: prewarm never panics and never fails the
+        // session on a bad/null (device, queue). The shim entry's null guard
+        // returns a negative status; the total embedded-kernel count is still
+        // reported. Non-fatal — the session-creation path ignores this outcome.
+        let (warmed, total) = crate::d3d12_recording_shim::prewarm_session_kernels(0, 0);
+        assert!(
+            warmed < 0,
+            "null handles must not report a positive warmed count: {warmed}"
+        );
+        assert_eq!(total, 14, "prewarm should enumerate all embedded kernels");
     }
 }

@@ -1,0 +1,364 @@
+{
+  "schema_version": 1,
+  "subject": "grx018_indirect_args_real_d3d12_dispatch_smoke",
+  "pass_id": "indirect_args",
+  "segment": "standalone_dispatch_smoke",
+  "runtime_state": "fallback_only",
+  "real_gpu_pass": false,
+  "real_d3d12_dispatch_recorded": true,
+  "cpu_reference_match": true,
+  "artifacts": {
+    "dxil": {
+      "sha256": "3dcc1c53f4ff7432c41178a0a45fd02538d79b454580c63875d9bbe504d9c168"
+    },
+    "dxil_validate": {
+      "sha256": "7e67ab0395a0833a7618cc1a5d4faa334d86800ee398057ba94f0cab5a5726e8"
+    },
+    "root_signature": {
+      "sha256": "1cc282d7744b7fa470056e4dad24e096f2ce3724ed364b9f16a26e90531f843c"
+    },
+    "descriptor_layout": {
+      "sha256": "3bece3ccb100f80cefd7bedc3b22b9f74f2647e2afe4b001268c05ae1b91aee5"
+    }
+  },
+  "offline_evidence": {
+    "path": "spike/godot-rurix/passes/indirect_args/offline_compile_evidence.json",
+    "digests": {
+      "dxil": "3dcc1c53f4ff7432c41178a0a45fd02538d79b454580c63875d9bbe504d9c168",
+      "dxil_validate": "7e67ab0395a0833a7618cc1a5d4faa334d86800ee398057ba94f0cab5a5726e8",
+      "root_signature": "1cc282d7744b7fa470056e4dad24e096f2ce3724ed364b9f16a26e90531f843c",
+      "descriptor_layout": "3bece3ccb100f80cefd7bedc3b22b9f74f2647e2afe4b001268c05ae1b91aee5"
+    }
+  },
+  "artifact_hashes_match_offline_evidence": true,
+  "note": "GRX-018 standalone real D3D12 indirect_args write+validate dispatch smoke evidence only. Includes the mandatory corrupted-staging RED leg (validate must report a NON-ZERO mismatch count over a corrupted command buffer). A success flips real_d3d12_dispatch_recorded/cpu_reference_match true but keeps runtime_state=fallback_only and real_gpu_pass=false.",
+  "status": "success",
+  "timestamp": "2026-07-12T22:31:27+08:00",
+  "run_url": "local interactive runner",
+  "corrupted_staging_red_leg_confirmed": true,
+  "device": {
+    "adapter": "NVIDIA GeForce RTX 4070 Ti",
+    "experimental_shader_models": "off",
+    "dxil_signed_for_load": "yes",
+    "dxil_validator": "H:/dxc-round7/extracted/bin/x64/dxil.dll"
+  },
+  "cpu_reference": {
+    "reference_impl": "spike/godot-rurix/passes/indirect_args/generate_math_parity_evidence.py write_kernel_reference + validate_kernel_reference (imported; command + validation u32 words compared exactly)",
+    "value_tolerance": 0,
+    "cases": [
+      {
+        "case_id": "single_surface_basic",
+        "mode": 0,
+        "surface_count": 1,
+        "expected_mismatch_count": 0,
+        "expected_clamp_trigger_count": 0,
+        "observed_mismatch_count": 0,
+        "observed_clamp_trigger_count": 0,
+        "comparison": {
+          "match": true,
+          "command_match": true,
+          "validation_match": true,
+          "observed_validation": [
+            0,
+            0,
+            0
+          ],
+          "expected_validation": [
+            0,
+            0,
+            0
+          ],
+          "observed_command": [
+            36,
+            17,
+            0,
+            0,
+            0
+          ],
+          "value_tolerance": 0
+        }
+      },
+      {
+        "case_id": "multi_surface_shared_count",
+        "mode": 0,
+        "surface_count": 4,
+        "expected_mismatch_count": 0,
+        "expected_clamp_trigger_count": 0,
+        "observed_mismatch_count": 0,
+        "observed_clamp_trigger_count": 0,
+        "comparison": {
+          "match": true,
+          "command_match": true,
+          "validation_match": true,
+          "observed_validation": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "expected_validation": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "observed_command": [
+            36,
+            9,
+            0,
+            0,
+            0,
+            72,
+            9,
+            6,
+            10,
+            0,
+            108,
+            9,
+            12,
+            20,
+            0,
+            144,
+            9,
+            18,
+            30,
+            0
+          ],
+          "value_tolerance": 0
+        }
+      },
+      {
+        "case_id": "clamp_triggered_producer_violation",
+        "mode": 0,
+        "surface_count": 2,
+        "expected_mismatch_count": 0,
+        "expected_clamp_trigger_count": 2,
+        "observed_mismatch_count": 0,
+        "observed_clamp_trigger_count": 2,
+        "comparison": {
+          "match": true,
+          "command_match": true,
+          "validation_match": true,
+          "observed_validation": [
+            0,
+            2,
+            64,
+            64
+          ],
+          "expected_validation": [
+            0,
+            2,
+            64,
+            64
+          ],
+          "observed_command": [
+            36,
+            64,
+            0,
+            0,
+            0,
+            72,
+            64,
+            6,
+            10,
+            0
+          ],
+          "value_tolerance": 0
+        }
+      },
+      {
+        "case_id": "zero_survivors",
+        "mode": 0,
+        "surface_count": 3,
+        "expected_mismatch_count": 0,
+        "expected_clamp_trigger_count": 0,
+        "observed_mismatch_count": 0,
+        "observed_clamp_trigger_count": 0,
+        "comparison": {
+          "match": true,
+          "command_match": true,
+          "validation_match": true,
+          "observed_validation": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "expected_validation": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "observed_command": [
+            36,
+            0,
+            0,
+            0,
+            0,
+            72,
+            0,
+            6,
+            10,
+            0,
+            108,
+            0,
+            12,
+            20,
+            0
+          ],
+          "value_tolerance": 0
+        }
+      },
+      {
+        "case_id": "max_surfaces_nonzero_statics_and_offset",
+        "mode": 0,
+        "surface_count": 8,
+        "expected_mismatch_count": 0,
+        "expected_clamp_trigger_count": 0,
+        "observed_mismatch_count": 0,
+        "observed_clamp_trigger_count": 0,
+        "comparison": {
+          "match": true,
+          "command_match": true,
+          "validation_match": true,
+          "observed_validation": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "expected_validation": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "observed_command": [
+            16777216,
+            2048,
+            0,
+            0,
+            0,
+            16777223,
+            2048,
+            3,
+            5,
+            2,
+            16777230,
+            2048,
+            6,
+            10,
+            4,
+            16777237,
+            2048,
+            9,
+            15,
+            6,
+            16777244,
+            2048,
+            12,
+            20,
+            8,
+            16777251,
+            2048,
+            15,
+            25,
+            10,
+            16777258,
+            2048,
+            18,
+            30,
+            12,
+            16777265,
+            2048,
+            21,
+            35,
+            14
+          ],
+          "value_tolerance": 0
+        }
+      },
+      {
+        "case_id": "validation_detects_corruption",
+        "mode": 1,
+        "surface_count": 4,
+        "expected_mismatch_count": 2,
+        "expected_clamp_trigger_count": 0,
+        "observed_mismatch_count": 2,
+        "observed_clamp_trigger_count": 0,
+        "comparison": {
+          "match": true,
+          "command_match": true,
+          "validation_match": true,
+          "observed_validation": [
+            2,
+            0,
+            0,
+            1,
+            34,
+            0
+          ],
+          "expected_validation": [
+            2,
+            0,
+            0,
+            1,
+            34,
+            0
+          ],
+          "observed_command": [
+            36,
+            9,
+            0,
+            0,
+            0,
+            4501,
+            9,
+            6,
+            10,
+            0,
+            108,
+            999,
+            12,
+            20,
+            0,
+            144,
+            9,
+            18,
+            30,
+            0
+          ],
+          "value_tolerance": 0
+        }
+      }
+    ]
+  },
+  "checks": {
+    "four_artifact_hashes_match_offline_evidence": true,
+    "descriptor_layout_matches_resource_mapping": true,
+    "write_then_uav_barrier_then_validate": true,
+    "clean_legs_command_and_validation_exact": true,
+    "corrupted_staging_red_leg_nonzero_mismatch": true,
+    "dispatch_executed": true,
+    "fence_completed": true
+  }
+}

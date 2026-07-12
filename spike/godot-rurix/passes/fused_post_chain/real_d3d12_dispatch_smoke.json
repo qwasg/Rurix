@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "subject": "grx019_fused_post_chain_real_d3d12_dispatch_smoke",
+  "pass_id": "fused_post_chain",
+  "segment": "standalone_dispatch_smoke",
+  "runtime_state": "fallback_only",
+  "real_gpu_pass": false,
+  "real_d3d12_dispatch_recorded": true,
+  "cpu_reference_match": true,
+  "artifacts": {
+    "dxil": {
+      "path": "spike/godot-rurix/passes/fused_post_chain/artifacts/fused_post_chain.dxil",
+      "sha256": "824bcee388360ed99dc610621da67465a3174e15a9defca53031d0cdcedd7e0e"
+    },
+    "root_signature": {
+      "path": "spike/godot-rurix/passes/fused_post_chain/artifacts/fused_post_chain.rts0.bin",
+      "sha256": "5841c82a86580f3b9eeb5ee9b8932e65ed419124ac6d1068008000ade02953f1"
+    },
+    "descriptor_layout": {
+      "path": "spike/godot-rurix/passes/fused_post_chain/artifacts/fused_post_chain_descriptor_layout.json",
+      "sha256": "b95c864319363d04ec9c73cb4b29a740a515980899d99e7883df0b7e12387dc9"
+    }
+  },
+  "offline_evidence": {
+    "path": "spike/godot-rurix/passes/fused_post_chain/offline_compile_evidence.json",
+    "dxil_sha256": "824bcee388360ed99dc610621da67465a3174e15a9defca53031d0cdcedd7e0e",
+    "root_signature_sha256": "5841c82a86580f3b9eeb5ee9b8932e65ed419124ac6d1068008000ade02953f1",
+    "descriptor_layout_sha256": "b95c864319363d04ec9c73cb4b29a740a515980899d99e7883df0b7e12387dc9"
+  },
+  "artifact_hashes_match_offline_evidence": true,
+  "note": "GRX-019 standalone real D3D12 fused_post_chain dispatch smoke evidence only (3 Texture2D SRVs + 2 RWTexture2D UAVs). Float comparison within the pass's documented absolute tolerance. A success flips real_d3d12_dispatch_recorded/cpu_reference_match true but keeps runtime_state=fallback_only and real_gpu_pass=false.",
+  "status": "success",
+  "timestamp": "2026-07-12T22:35:55+08:00",
+  "run_url": "local interactive runner",
+  "device": {
+    "adapter": "NVIDIA GeForce RTX 4070 Ti",
+    "experimental_shader_models": "off",
+    "dxil_signed_for_load": "yes",
+    "dxil_validator": "H:/dxc-round7/extracted/bin/x64/dxil.dll"
+  },
+  "cpu_reference": {
+    "reference_impl": "spike/godot-rurix/passes/fused_post_chain/generate_math_parity_evidence.py fused_frame (imported; dst_color RGB + dst_luminance within MAX_ABS_ERROR_TOLERANCE, alpha near-exact)",
+    "tolerance": 0.003,
+    "alpha_tolerance": 1e-06,
+    "case": {
+      "case_id": "dispatch_fixture",
+      "extent": [
+        16,
+        16
+      ],
+      "lum_source_extent": [
+        5,
+        3
+      ],
+      "dispatch": "2,2,1",
+      "fence_completed_value": "1",
+      "comparison": {
+        "match": true,
+        "max_rgb_abs_error": 2.384185791015625e-07,
+        "max_alpha_abs_error": 0.0,
+        "dst_luminance_observed": 0.6721739172935486,
+        "dst_luminance_expected": 0.6721738576889038,
+        "dst_luminance_abs_error": 5.960464477539063e-08,
+        "tolerance": 0.003,
+        "alpha_tolerance": 1e-06,
+        "worst": null
+      }
+    }
+  },
+  "checks": {
+    "three_artifact_hashes_match_offline_evidence": true,
+    "descriptor_layout_matches_resource_mapping": true,
+    "three_srv_two_uav_textures_bound_from_layout": true,
+    "i64_uint2_dimension_pairs_low_dword_carried": true,
+    "dispatch_executed": true,
+    "fence_completed": true,
+    "both_uav_texture_readback": true,
+    "outputs_within_absolute_tolerance": true
+  }
+}

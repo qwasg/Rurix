@@ -88,7 +88,7 @@ reserved numbers become holes (monotonic, holes allowed — §4).
 | 0030-0032 | instance_compaction | GRX-016 | 0030 gate+callsite / 0031 runtime binding / 0032 recording+real-pass opt-in |
 | 0033-0035 | indirect_args | GRX-018 | 0033 gate+callsite / 0034 runtime binding / 0035 recording+real-pass opt-in |
 | 0036-0038 | fused_post_chain | GRX-019 | 0036 gate+callsite / 0037 runtime binding / 0038 recording+real-pass opt-in |
-| 0039 | pso_prewarm | GRX-021 | OPTIONAL single slice (may not need a Godot patch at all) |
+| 0039 | pso_prewarm | GRX-021 | NOT NEEDED — permanent hole. GRX-021 auto-triggers the kernel prewarm from `rxgd_create_d3d12_session` (the bridge session-creation path patch 0001 already routes through), so no Godot-side call site is required. See `spike/godot-rurix/passes/pso_prewarm/pso_prewarm_decision.json` (`patch_0039_status=not_needed`). A future slice may claim 0039 for a Godot-visible prewarm toggle/telemetry surface. |
 | 0040+ | bindless | GRX-022 | reserve pool start; allocate concrete numbers only AFTER the bindless RFC is adjudicated |
 
 > Milestone ordering note: the patch blocks are grouped by pass, not strictly by

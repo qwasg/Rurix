@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "subject": "grx016_instance_compaction_real_d3d12_dispatch_smoke",
+  "pass_id": "instance_compaction",
+  "segment": "standalone_dispatch_smoke",
+  "runtime_state": "fallback_only",
+  "real_gpu_pass": false,
+  "real_d3d12_dispatch_recorded": true,
+  "cpu_reference_match": true,
+  "artifacts": {
+    "dxil_scan_local": {
+      "sha256": "e6ee54320c71e5939cc2b852452a1c02698b072e80b4d0b72c0ccfdac803b77a"
+    },
+    "root_signature_scan_local": {
+      "sha256": "f39179c393cdff43f8757930450d980d9179f37192328eeaa54616cbfa852fd4"
+    },
+    "dxil_scan_groups": {
+      "sha256": "43e47e4c44fea11244845efa16b8a706d007f64c3ec0c643c8e02687faca6234"
+    },
+    "root_signature_scan_groups": {
+      "sha256": "f39179c393cdff43f8757930450d980d9179f37192328eeaa54616cbfa852fd4"
+    },
+    "dxil_scatter": {
+      "sha256": "940202d93ffcbbb3b46f36ff877f0ccd498c751595429005457e9a2d26ee2537"
+    },
+    "root_signature_scatter": {
+      "sha256": "edb7d0f3558d9b393deff507aa59ff457d4a9dc73b7867fb6b7a93a30a30ee8e"
+    },
+    "descriptor_layout": {
+      "sha256": "a78a833955e384495e0c15e160b113657d865ebad3b4baee427514a5e9914a47"
+    }
+  },
+  "offline_evidence": {
+    "path": "spike/godot-rurix/passes/instance_compaction/offline_compile_evidence.json",
+    "digests": {
+      "dxil_scan_local": "e6ee54320c71e5939cc2b852452a1c02698b072e80b4d0b72c0ccfdac803b77a",
+      "root_signature_scan_local": "f39179c393cdff43f8757930450d980d9179f37192328eeaa54616cbfa852fd4",
+      "dxil_scan_groups": "43e47e4c44fea11244845efa16b8a706d007f64c3ec0c643c8e02687faca6234",
+      "root_signature_scan_groups": "f39179c393cdff43f8757930450d980d9179f37192328eeaa54616cbfa852fd4",
+      "dxil_scatter": "940202d93ffcbbb3b46f36ff877f0ccd498c751595429005457e9a2d26ee2537",
+      "root_signature_scatter": "edb7d0f3558d9b393deff507aa59ff457d4a9dc73b7867fb6b7a93a30a30ee8e",
+      "descriptor_layout": "a78a833955e384495e0c15e160b113657d865ebad3b4baee427514a5e9914a47"
+    }
+  },
+  "artifact_hashes_match_offline_evidence": true,
+  "note": "GRX-016 standalone real D3D12 instance_compaction three-kernel-chain dispatch smoke evidence only (scan_local -> scan_groups -> scatter). A success flips real_d3d12_dispatch_recorded/cpu_reference_match true but keeps runtime_state=fallback_only and real_gpu_pass=false.",
+  "status": "success",
+  "timestamp": "2026-07-12T22:26:48+08:00",
+  "run_url": "local interactive runner",
+  "device": {
+    "adapter": "NVIDIA GeForce RTX 4070 Ti",
+    "experimental_shader_models": "off",
+    "dxil_signed_for_load": "yes",
+    "dxil_validator": "H:/dxc-round7/extracted/bin/x64/dxil.dll"
+  },
+  "cpu_reference": {
+    "reference_impl": "spike/godot-rurix/passes/instance_compaction/generate_math_parity_evidence.py reference_chain (imported; dst + local_prefix + group_totals + group_offsets + survivor_count compared byte-exact)",
+    "value_tolerance": 0,
+    "cases": [
+      {
+        "case_id": "sparse_survival_multi_group",
+        "total_instances": 600,
+        "num_groups": 3,
+        "survivor_count": 150,
+        "readback_checksum": "0x6829392c",
+        "comparison": {
+          "match": true,
+          "mismatched_buffers": {},
+          "value_tolerance": 0,
+          "worst": null
+        }
+      },
+      {
+        "case_id": "all_survive",
+        "total_instances": 513,
+        "num_groups": 3,
+        "survivor_count": 513,
+        "readback_checksum": "0x0e311c04",
+        "comparison": {
+          "match": true,
+          "mismatched_buffers": {},
+          "value_tolerance": 0,
+          "worst": null
+        }
+      },
+      {
+        "case_id": "zero_survive",
+        "total_instances": 384,
+        "num_groups": 2,
+        "survivor_count": 0,
+        "readback_checksum": "0x0c103c55",
+        "comparison": {
+          "match": true,
+          "mismatched_buffers": {},
+          "value_tolerance": 0,
+          "worst": null
+        }
+      },
+      {
+        "case_id": "mask_tail_garbage_bits_ignored",
+        "total_instances": 70,
+        "num_groups": 1,
+        "survivor_count": 14,
+        "readback_checksum": "0x267f0f31",
+        "comparison": {
+          "match": true,
+          "mismatched_buffers": {},
+          "value_tolerance": 0,
+          "worst": null
+        }
+      },
+      {
+        "case_id": "single_survivor_last_instance_empty_leading_group",
+        "total_instances": 300,
+        "num_groups": 2,
+        "survivor_count": 1,
+        "readback_checksum": "0x60413d11",
+        "comparison": {
+          "match": true,
+          "mismatched_buffers": {},
+          "value_tolerance": 0,
+          "worst": null
+        }
+      }
+    ]
+  },
+  "checks": {
+    "seven_artifact_hashes_match_offline_evidence": true,
+    "descriptor_layout_matches_resource_mapping": true,
+    "three_kernel_chain_scan_local_scan_groups_scatter": true,
+    "inter_dispatch_uav_and_state_barriers": true,
+    "capacity_fail_closed_at_65536": true,
+    "dispatch_executed": true,
+    "fence_completed": true,
+    "all_output_words_match_cpu_reference_exactly": true
+  }
+}

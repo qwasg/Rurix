@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "subject": "grx015_gpu_culling_real_d3d12_dispatch_smoke",
+  "pass_id": "gpu_culling",
+  "segment": "standalone_dispatch_smoke",
+  "runtime_state": "fallback_only",
+  "real_gpu_pass": false,
+  "real_d3d12_dispatch_recorded": true,
+  "cpu_reference_match": true,
+  "artifacts": {
+    "dxil": {
+      "path": "spike/godot-rurix/passes/gpu_culling/artifacts/gpu_culling.dxil",
+      "sha256": "e3b322390a004c9f1b54cf3633733245f821204248fd924f8bb2996c60761279"
+    },
+    "root_signature": {
+      "path": "spike/godot-rurix/passes/gpu_culling/artifacts/gpu_culling.rts0.bin",
+      "sha256": "7575283e94d8f359eff2200df75e8161ebe88839f5954b57c5fc961382ae2560"
+    },
+    "descriptor_layout": {
+      "path": "spike/godot-rurix/passes/gpu_culling/artifacts/gpu_culling_descriptor_layout.json",
+      "sha256": "4ef6fd8e088555edb8cc8ea3adc0f39837097c212aae98b4d1bc347bff6969b4"
+    }
+  },
+  "offline_evidence": {
+    "path": "spike/godot-rurix/passes/gpu_culling/offline_compile_evidence.json",
+    "dxil_sha256": "e3b322390a004c9f1b54cf3633733245f821204248fd924f8bb2996c60761279",
+    "root_signature_sha256": "7575283e94d8f359eff2200df75e8161ebe88839f5954b57c5fc961382ae2560",
+    "descriptor_layout_sha256": "4ef6fd8e088555edb8cc8ea3adc0f39837097c212aae98b4d1bc347bff6969b4"
+  },
+  "artifact_hashes_match_offline_evidence": true,
+  "note": "GRX-015 standalone real D3D12 gpu_culling dispatch smoke evidence only (1 SRV + 2 UAV structured buffers). A success flips real_d3d12_dispatch_recorded/cpu_reference_match true but keeps runtime_state=fallback_only and real_gpu_pass=false; it is not a Godot runtime pass, visual, perf, or measured-telemetry claim.",
+  "status": "success",
+  "timestamp": "2026-07-12T22:22:09+08:00",
+  "run_url": "local interactive runner",
+  "device": {
+    "adapter": "NVIDIA GeForce RTX 4070 Ti",
+    "experimental_shader_models": "off",
+    "dxil_signed_for_load": "yes",
+    "dxil_validator": "H:/dxc-round7/extracted/bin/x64/dxil.dll"
+  },
+  "cpu_reference": {
+    "reference_impl": "spike/godot-rurix/passes/gpu_culling/generate_math_parity_evidence.py gpu_culling_reference (imported; every command + visibility u32 word compared exactly)",
+    "value_tolerance": 0,
+    "cases": [
+      {
+        "case_id": "cull_all_visible_n40",
+        "instance_count": 40,
+        "surface_count": 1,
+        "visible_count": 40,
+        "dispatch": "1,1,1",
+        "fence_completed_value": "1",
+        "readback_checksum": "0xe7977827",
+        "comparison": {
+          "match": true,
+          "mismatched_command_words": 0,
+          "mismatched_visibility_words": 0,
+          "total_command_words": 5,
+          "total_visibility_words": 2,
+          "value_tolerance": 0,
+          "worst": null
+        }
+      },
+      {
+        "case_id": "cull_all_culled_n33",
+        "instance_count": 33,
+        "surface_count": 2,
+        "visible_count": 0,
+        "dispatch": "1,1,1",
+        "fence_completed_value": "1",
+        "readback_checksum": "0xd192da28",
+        "comparison": {
+          "match": true,
+          "mismatched_command_words": 0,
+          "mismatched_visibility_words": 0,
+          "total_command_words": 10,
+          "total_visibility_words": 2,
+          "value_tolerance": 0,
+          "worst": null
+        }
+      },
+      {
+        "case_id": "cull_boundary_mixed_n96",
+        "instance_count": 96,
+        "surface_count": 3,
+        "visible_count": 72,
+        "dispatch": "2,1,1",
+        "fence_completed_value": "1",
+        "readback_checksum": "0xea8c13f7",
+        "comparison": {
+          "match": true,
+          "mismatched_command_words": 0,
+          "mismatched_visibility_words": 0,
+          "total_command_words": 15,
+          "total_visibility_words": 3,
+          "value_tolerance": 0,
+          "worst": null
+        }
+      }
+    ]
+  },
+  "checks": {
+    "artifact_hashes_match_offline_evidence": true,
+    "descriptor_layout_matches_resource_mapping": true,
+    "root_signature_create_from_rurix_rts0": true,
+    "compute_pso_from_rurix_dxil": true,
+    "one_srv_two_uav_bound_from_layout": true,
+    "dst_commands_seeded_dst_visibility_zeroed": true,
+    "dispatch_executed": true,
+    "fence_completed": true,
+    "both_uav_readback": true,
+    "all_output_words_match_cpu_reference_exactly": true
+  }
+}

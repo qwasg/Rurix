@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "subject": "grx021_pso_prewarm",
+  "slice": "GRX-021",
+  "kind": "bridge_internal_warmup",
+  "is_render_pass": false,
+  "has_kernel": false,
+  "has_bridge_pass_id": false,
+  "has_gate_module": false,
+  "enable_by_default_in_bridge": true,
+  "auto_triggered_at": "rxgd_create_d3d12_session",
+  "compiled_out_of_test_builds": true,
+  "non_fatal_on_failure": true,
+  "red_line": "prewarm failure NEVER fails the session; it degrades to the lazy per-dispatch kernel build (rxgd_create_d3d12_session ignores the prewarm outcome).",
+  "shim_entry": "rxgd_prewarm_kernels",
+  "bridge_entry": "d3d12_recording_shim::prewarm_session_kernels",
+  "embedded_kernel_count": 14,
+  "rationale": "Prewarm is a bridge-internal warm-up (it eagerly builds the SAME per-kernel PSOs the passes would build lazily). It is not a Godot render pass, so the default-disabled-pending-owner rule does not apply and no RxGdCaps opt-in bit governs it; it is safe to run unconditionally at session creation and its failure degrades to lazy. It is a startup-cost redistribution, not a measured speedup, so no performance claim is made.",
+  "godot_patch_required": false,
+  "patch_0039_status": "not_needed",
+  "patch_0039_note": "The bridge auto-triggers prewarm from rxgd_create_d3d12_session (patch 0001's try_create_session already routes through it), so no Godot-side call site is required. Patch 0039 is left as a permanent hole in PATCH_ALLOCATION.md; a future slice may claim it for a Godot-visible toggle/telemetry surface.",
+  "red_leg": {
+    "kind": "rust_unit_test",
+    "test": "prewarm_null_handles_degrades_gracefully",
+    "feature": "d3d12-recording-shim",
+    "note": "Asserts rxgd_prewarm_kernels with a null (device, queue) returns a negative status and never panics; total embedded-kernel count still reported."
+  },
+  "does_not_imply": [
+    "no FPS / p95 / GPU-timestamp / performance claim",
+    "no Godot runtime pass enablement",
+    "prewarm is a rendering pass"
+  ]
+}
