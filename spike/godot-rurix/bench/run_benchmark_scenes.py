@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import math
+import os
 import re
 import subprocess
 from datetime import UTC, datetime
@@ -19,8 +20,23 @@ TARGET_GRX_DIR = ROOT / "target" / "grx"
 DEFAULT_PROJECT_SUMMARY_PATH = TARGET_GRX_DIR / "godot_bench_project_summary.json"
 RUNNER_SUMMARY_PATH = TARGET_GRX_DIR / "godot_bench_runner_summary.json"
 RUNS_DIR = TARGET_GRX_DIR / "godot-bench-runs"
-GODOT_CONSOLE_EXE = (
+# Environment fallback for the Godot console exe (below the explicit --godot-exe
+# flag, above the tracked default). Lets both legs of a run point at the same
+# fuller patch-stack build without repeating a long path on the command line.
+ENV_GODOT_EXE = "RURIX_BENCH_GODOT_EXE"
+# Tracked default: the scratch build committed under external/godot-master. It
+# carries only patches 0001+0002+0003 (module scaffold + luminance pass-gate +
+# core call-site wiring) and NO real-pass dispatch hook, so a rurix leg run
+# against it can never engage a real pass (it always falls back). Point
+# --godot-exe / RURIX_BENCH_GODOT_EXE at a fuller patch-stack build (and pass the
+# matching --patch-stack-id) to exercise real passes.
+DEFAULT_GODOT_CONSOLE_EXE = (
     ROOT / "external" / "godot-master" / "bin" / "godot.windows.template_debug.x86_64.console.exe"
+)
+DEFAULT_GODOT_EXE_NOTE = (
+    "using tracked default Godot exe (external/godot-master scratch build, "
+    "patches 0001+0002+0003 only, no real-pass hook); pass --godot-exe or set "
+    "RURIX_BENCH_GODOT_EXE to a fuller patch-stack build for real passes"
 )
 EXPECTED_SCENES = [
     "clustered_lights",
@@ -43,23 +59,51 @@ DLL_PATH = ROOT / "target" / "debug" / "rurix_godot.dll"
 OVERRIDE_CFG_NAME = "override.cfg"
 
 # Full set of override-able rurix_accel project settings, extracted from the
-# GLOBAL_DEF_BASIC keys in spike/godot-rurix/patches/0001..0013. A rurix-leg
-# pass matrix may only set keys from this allowlist (fail-closed on typos so a
-# mis-typed key can never silently disable a pass while claiming it ran).
+# GLOBAL_DEF_BASIC keys in the landed patch stack
+# (spike/godot-rurix/patches/0001..0016) plus the reserved (not-yet-landed)
+# taa_resolve / particles_copy blocks. A rurix-leg pass matrix may only set keys
+# from this allowlist (fail-closed on typos so a mis-typed key can never silently
+# disable a pass while claiming it ran).
 VALID_PASS_MATRIX_KEYS = frozenset(
     {
+        # Top-level gate (patch 0001 module scaffold).
         "rendering/rurix_accel/enabled",
         "rendering/rurix_accel/require_forward_plus",
         "rendering/rurix_accel/dll_path",
+        # luminance_reduction (GRX-009, patches 0001..0010, landed).
         "rendering/rurix_accel/passes/luminance_reduction/enabled",
         "rendering/rurix_accel/passes/luminance_reduction/dispatch_bringup",
         "rendering/rurix_accel/passes/luminance_reduction/dispatch_recording_smoke",
         "rendering/rurix_accel/passes/luminance_reduction/dispatch_real_pass",
         "rendering/rurix_accel/passes/luminance_reduction/real_pass_force_capability_downgrade",
+        # tonemap (GRX-010, patches 0011..0013, landed).
         "rendering/rurix_accel/passes/tonemap/enabled",
         "rendering/rurix_accel/passes/tonemap/dispatch_recording_smoke",
         "rendering/rurix_accel/passes/tonemap/dispatch_real_pass",
         "rendering/rurix_accel/passes/tonemap/real_pass_force_capability_downgrade",
+        # ssao_blur (GRX-011, patches 0014..0016, landed). Key names verified
+        # against GLOBAL_DEF_BASIC in patch 0014 (enabled) and patch 0016
+        # (dispatch_recording_smoke / dispatch_real_pass /
+        # real_pass_force_capability_downgrade).
+        "rendering/rurix_accel/passes/ssao_blur/enabled",
+        "rendering/rurix_accel/passes/ssao_blur/dispatch_recording_smoke",
+        "rendering/rurix_accel/passes/ssao_blur/dispatch_real_pass",
+        "rendering/rurix_accel/passes/ssao_blur/real_pass_force_capability_downgrade",
+        # taa_resolve (GRX-012, patches 0017..0019 NOT yet landed). Reserved:
+        # key names inferred from the per-pass template (isomorphic to
+        # tonemap / ssao_blur); RE-VERIFY against GLOBAL_DEF_BASIC when the
+        # patches land.
+        "rendering/rurix_accel/passes/taa_resolve/enabled",
+        "rendering/rurix_accel/passes/taa_resolve/dispatch_recording_smoke",
+        "rendering/rurix_accel/passes/taa_resolve/dispatch_real_pass",
+        "rendering/rurix_accel/passes/taa_resolve/real_pass_force_capability_downgrade",
+        # particles_copy (GRX-013, patches 0020..0022 NOT yet landed). Reserved:
+        # key names inferred from the per-pass template; RE-VERIFY against
+        # GLOBAL_DEF_BASIC when the patches land.
+        "rendering/rurix_accel/passes/particles_copy/enabled",
+        "rendering/rurix_accel/passes/particles_copy/dispatch_recording_smoke",
+        "rendering/rurix_accel/passes/particles_copy/dispatch_real_pass",
+        "rendering/rurix_accel/passes/particles_copy/real_pass_force_capability_downgrade",
     }
 )
 
@@ -241,7 +285,25 @@ def write_override_cfg(project_dir: Path, settings: dict[str, object]) -> Path:
     return path
 
 
-def resolve_patch_stack_id(cli_id: str | None) -> tuple[str | None, str | None]:
+def resolve_godot_exe(cli_exe: Path | None) -> tuple[Path, str, str | None]:
+    """Resolve the Godot console exe both legs run against.
+
+    Priority: explicit --godot-exe, then the RURIX_BENCH_GODOT_EXE environment
+    variable, then the tracked default scratch build. Returns (path, source,
+    note); note is set only for the tracked default so the run summary can flag
+    its known (real-pass-less) patch state. Both the baseline and rurix legs of a
+    comparison must be driven against the SAME resolved exe; the summary records
+    godot_exe + godot_exe_sha256 so a cross-leg mismatch is auditable.
+    """
+    if cli_exe is not None:
+        return cli_exe, "cli", None
+    env_value = os.environ.get(ENV_GODOT_EXE)
+    if env_value:
+        return Path(env_value), "env", None
+    return DEFAULT_GODOT_CONSOLE_EXE, "tracked_default", DEFAULT_GODOT_EXE_NOTE
+
+
+def resolve_patch_stack_id(cli_id: str | None, godot_exe: Path) -> tuple[str | None, str | None]:
     """Best-effort patch-stack identity for the running Godot exe.
 
     Order: explicit --patch-stack-id, then an optional sidecar next to the exe
@@ -251,7 +313,7 @@ def resolve_patch_stack_id(cli_id: str | None) -> tuple[str | None, str | None]:
     if cli_id:
         return cli_id, None
     candidates = [
-        GODOT_CONSOLE_EXE.parent / "rurix_patch_stack_id.txt",
+        godot_exe.parent / "rurix_patch_stack_id.txt",
         TARGET_GRX_DIR / "godot_patch_stack_id.json",
     ]
     for candidate in candidates:
@@ -347,6 +409,16 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help="rurix-leg pass matrix JSON (required for --leg rurix, forbidden otherwise)",
+    )
+    parser.add_argument(
+        "--godot-exe",
+        type=Path,
+        default=None,
+        help=(
+            "Godot console exe both legs run against (default: RURIX_BENCH_GODOT_EXE "
+            "env, else the tracked external/godot-master scratch build). Pair with "
+            "--patch-stack-id to record which patch stack the exe was built from."
+        ),
     )
     parser.add_argument("--patch-stack-id", type=str, default=None)
     return parser.parse_args()
@@ -466,7 +538,7 @@ def build_scene_command(
     assert isinstance(run_mode, str)
     width, height = resolution
     command = [
-        str(GODOT_CONSOLE_EXE),
+        str(context["godot_exe"]),
         "--path",
         str(project_dir),
         "--rendering-driver",
@@ -687,6 +759,9 @@ def build_initial_summary(
         "pass_matrix": {},
         "pass_matrix_path": None,
         "dll_sha256": None,
+        "godot_exe": None,
+        "godot_exe_source": None,
+        "godot_exe_note": None,
         "godot_exe_sha256": None,
         "patch_stack_id": None,
         "patch_stack_id_note": None,
@@ -713,8 +788,11 @@ def main() -> int:
         settings = determine_run_settings(manifest, args.quick_smoke, args.profile)
         validate_runner_assets(project_summary, project_dir)
 
-        if not GODOT_CONSOLE_EXE.exists():
-            raise FileNotFoundError(f"Godot console executable not found: {GODOT_CONSOLE_EXE}")
+        godot_exe, godot_exe_source, godot_exe_note = resolve_godot_exe(args.godot_exe)
+        if not godot_exe.exists():
+            raise FileNotFoundError(f"Godot console executable not found: {godot_exe}")
+        if godot_exe_note is not None:
+            print(f"[bench-runner] NOTE {godot_exe_note}")
 
         scene_names = resolve_scene_names(args.scenes)
 
@@ -740,13 +818,16 @@ def main() -> int:
                     f"{existing_override}"
                 )
 
-        patch_stack_id, patch_stack_id_note = resolve_patch_stack_id(args.patch_stack_id)
+        patch_stack_id, patch_stack_id_note = resolve_patch_stack_id(
+            args.patch_stack_id, godot_exe
+        )
         context: dict[str, object] = {
             "leg": leg,
             "pass_matrix": pass_matrix_settings,
             "pass_matrix_path": pass_matrix_path,
             "dll_sha256": sha256_file(DLL_PATH),
-            "godot_exe_sha256": sha256_file(GODOT_CONSOLE_EXE),
+            "godot_exe": godot_exe,
+            "godot_exe_sha256": sha256_file(godot_exe),
             "patch_stack_id": patch_stack_id,
             "patch_stack_id_note": patch_stack_id_note,
         }
@@ -769,6 +850,9 @@ def main() -> int:
                 "pass_matrix": pass_matrix_settings,
                 "pass_matrix_path": str(pass_matrix_path) if pass_matrix_path is not None else None,
                 "dll_sha256": context["dll_sha256"],
+                "godot_exe": str(godot_exe),
+                "godot_exe_source": godot_exe_source,
+                "godot_exe_note": godot_exe_note,
                 "godot_exe_sha256": context["godot_exe_sha256"],
                 "patch_stack_id": patch_stack_id,
                 "patch_stack_id_note": patch_stack_id_note,

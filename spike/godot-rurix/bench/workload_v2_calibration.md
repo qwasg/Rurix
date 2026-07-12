@@ -86,3 +86,49 @@ Godot build (`external/godot-master/scene/resources/multimesh.h`) exposes **no**
 `use_indirect` property, so the indirect variant is **not** implemented; a
 `TODO(GRX-015/016/018)` marks where to switch it once an indirect MultiMesh API
 is confirmed for this build.
+
+## v2.1 recalibration — scene-consumer FX added (NOT EVIDENCE)
+
+The v2 scenes exercised each named subsystem but gave several candidate passes no
+in-scene consumer. v2.1 adds those consumers as **scene semantics** (enabled for
+both legs, not a rurix pass opt-in), so the perf gate can attribute savings:
+
+- `post_fx_chain` and `mixed_forward_plus`: SSAO (`Environment.ssao_enabled`) —
+  the `ssao_blur` (GRX-011) consumer.
+- `mixed_forward_plus` and `many_mesh_instances`: temporal AA
+  (`Viewport.use_taa`) — the `taa_resolve` (GRX-012) consumer.
+- `particles`: one of the twelve emitters uses
+  `GPUParticles3D.DRAW_ORDER_VIEW_DEPTH` — the `particles_copy` (GRX-013) depth
+  -sort consumer.
+
+The perf gate math is unchanged (same seven scenes, same 300/2000 sampling,
+same-scene baseline-vs-rurix comparison, same 1.5/0.3/0.95 thresholds). Because
+the per-scene workload changed, the evidence-grade `--profile full` baseline must
+be re-recorded (that re-record is out of scope for this file / belongs to the
+main session); the v2.20 table above is retained as the pre-FX v2 reference.
+
+### Machine state during v2.1 recalibration
+
+- GPU: NVIDIA GeForce RTX 4070 Ti; 1920x1080; D3D12 Forward+; vsync off.
+- At capture time `nvidia-smi` reported ~3% GPU utilization / ~1.25 GiB used
+  (desktop/overlay only); no Godot / dxc / llc / ninja / cargo build was running.
+  Other agents on this machine may run dispatch smokes; none overlapped this
+  short iter capture, but treat any single-run number as directional only.
+
+### v2.1 landing table (iter profile, warm cache)
+
+Target band: ~30–300 FPS. All four re-measured scenes stay inside it; SSAO/TAA
+move FPS in the expected (lower) direction versus the v2.20 pre-FX numbers,
+confirming the added effects actually run rather than being no-ops.
+
+| scene | v2.1 FX added | avg FPS | frame ms | p95 ms | v2.20 avg FPS |
+|---|---|---|---|---|---|
+| post_fx_chain | + SSAO (`Environment.ssao_enabled`) | 180.8 | 5.53 | 5.689 | 193.3 |
+| many_mesh_instances | + TAA (`Viewport.use_taa`) | 218.5 | 4.58 | 4.762 | 223.2 |
+| particles | + one emitter `DRAW_ORDER_VIEW_DEPTH` | 226.0 | 4.43 | 4.545 | 219.0 |
+| mixed_forward_plus | + SSAO + TAA | 225.8 | 4.43 | 4.545 | 239.6 |
+
+(iter run_id `20260712T050832Z_iter`; artifacts under
+`target/grx/godot-bench-runs/`, gitignored. The other three scenes
+—`clustered_lights`, `material_variants`, `volumetric_fog`— are unchanged in
+v2.1 and keep their v2.20 numbers.)

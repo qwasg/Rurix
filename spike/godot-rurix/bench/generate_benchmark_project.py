@@ -44,12 +44,12 @@ SCENE_ROOT_NAMES = {
 
 SCENE_NOTES = {
     "clustered_lights": "Forward+ clustered-lighting stress: ~900 overlapping omni/spot lights (ranges sized so many lights share each cluster) over a lit mesh field.",
-    "many_mesh_instances": "CPU cull / draw-list stress: 50k independent MeshInstance3D nodes plus a MultiMesh component (use_indirect reserved for GRX-015/016/018; no such API in the tracked Godot yet).",
+    "many_mesh_instances": "CPU cull / draw-list stress: 50k independent MeshInstance3D nodes plus a MultiMesh component (use_indirect reserved for GRX-015/016/018; no such API in the tracked Godot yet). Temporal AA (Viewport.use_taa) is enabled so the taa_resolve pass (GRX-012 target) has a consumer on top of the cull/draw-list load.",
     "material_variants": "PSO / descriptor-switch stress: 2048 distinct StandardMaterial3D variants (varied shader features) across thousands of instances submitted in a deterministic shuffled order.",
-    "post_fx_chain": "Post-processing stress: auto-exposure (luminance reduction) enabled via CameraAttributes, multi-level glow, FILMIC tonemap, and 1.5x supersampled internal resolution over HDR-lit content.",
+    "post_fx_chain": "Post-processing stress: auto-exposure (luminance reduction) enabled via CameraAttributes, multi-level glow, FILMIC tonemap, screen-space ambient occlusion (Environment.ssao_enabled, the ssao_blur GRX-011 target), and supersampled internal resolution over HDR-lit content.",
     "volumetric_fog": "Volumetric fog stress: dense froxel fog with ~96 light injections over a lit geometry field (no dedicated Rurix pass; the load must be absorbed by lighting/geometry passes).",
-    "particles": "GPU particle stress: ~600k GPU particles spread across 12 emitters.",
-    "mixed_forward_plus": "Mixed Forward+ stress: a proportional blend of clustered lights, mesh instances, material variants, GPU particles, and the post-processing chain.",
+    "particles": "GPU particle stress: ~600k GPU particles spread across 12 emitters. One emitter uses view-depth draw order (GPUParticles3D.DRAW_ORDER_VIEW_DEPTH) so the GPU particle depth-sort path (particles_copy GRX-013 target) is exercised.",
+    "mixed_forward_plus": "Mixed Forward+ stress: a proportional blend of clustered lights, mesh instances, material variants, GPU particles, and the post-processing chain, with screen-space ambient occlusion (ssao_blur GRX-011 target) and temporal AA (taa_resolve GRX-012 target) both enabled.",
 }
 
 
@@ -255,6 +255,9 @@ func _populate_scene() -> void:
 func _populate_scene() -> void:
     var rng := _make_rng(2002)
     add_child(_make_floor(Vector2(240.0, 240.0)))
+    # Temporal AA adds a full-frame temporal resolve on top of the cull/draw-list
+    # load (taa_resolve GRX-012 consumer). Scene semantic, on for both legs.
+    _enable_taa()
     # 200k INDEPENDENT MeshInstance3D nodes to stress CPU-side visibility
     # culling and draw-list construction (the named subsystem). A single mesh
     # and material are shared so the cost is the per-instance node/cull/draw
@@ -348,8 +351,8 @@ func _populate_scene() -> void:
 func _populate_scene() -> void:
     var rng := _make_rng(4004)
     add_child(_make_floor(Vector2(44.0, 44.0)))
-    # Auto exposure (luminance reduction) + multi-level glow + FILMIC tonemap.
-    _prepare_world_environment(true, false, true)
+    # Auto exposure (luminance reduction) + multi-level glow + FILMIC tonemap + SSAO.
+    _prepare_world_environment(true, false, true, true)
     # Supersample the internal 3D resolution so the post-processing chain runs
     # over a larger framebuffer (moderate 1.5x).
     var viewport := get_viewport()
@@ -380,8 +383,8 @@ func _populate_scene() -> void:
 func _populate_scene() -> void:
     var rng := _make_rng(5005)
     add_child(_make_floor(Vector2(52.0, 52.0)))
-    # Dense volumetric fog (raised density). No auto-exposure/glow here.
-    _prepare_world_environment(false, true, false)
+    # Dense volumetric fog (raised density). No auto-exposure/glow/SSAO here.
+    _prepare_world_environment(false, true, false, false)
     # Substantial geometry field: this scene has no dedicated Rurix pass, so its
     # cost must come from lights + geometry that OTHER passes consume.
     var pillar_mesh := BoxMesh.new()
@@ -414,6 +417,10 @@ func _populate_scene() -> void:
     var per_emitter := 50000
     var primary := _prepare_particles(per_emitter)
     primary.position = Vector3(0.0, 2.0, 0.0)
+    # One emitter sorts by view depth so the GPU particle depth-sort path
+    # (particles_copy GRX-013 target) runs every frame; the other 11 keep the
+    # default index order. Scene semantic, on for both legs.
+    primary.draw_order = GPUParticles3D.DRAW_ORDER_VIEW_DEPTH
     for index in range(emitter_count - 1):
         var emitter := _make_particle_emitter(per_emitter)
         emitter.position = Vector3(rng.randf_range(-10.0, 10.0), rng.randf_range(1.0, 5.0), rng.randf_range(-10.0, 10.0))
@@ -423,8 +430,10 @@ func _populate_scene() -> void:
 func _populate_scene() -> void:
     var rng := _make_rng(7007)
     add_child(_make_floor(Vector2(72.0, 72.0)))
-    # Post-processing chain (glow + fog + auto exposure).
-    _prepare_world_environment(true, true, true)
+    # Post-processing chain (glow + fog + auto exposure + SSAO).
+    _prepare_world_environment(true, true, true, true)
+    # Temporal AA on top of the blended load (taa_resolve GRX-012 consumer).
+    _enable_taa()
     # Mesh instances (cull / draw-list share).
     var shared_mesh := BoxMesh.new()
     shared_mesh.size = Vector3(0.5, 0.5, 0.5)
@@ -548,7 +557,7 @@ func _deterministic_shuffle(count: int, rng: RandomNumberGenerator) -> Array:
         order[j] = swap
     return order
 
-func _prepare_world_environment(glow_enabled: bool, volumetric_fog_enabled: bool, auto_exposure_enabled: bool) -> WorldEnvironment:
+func _prepare_world_environment(glow_enabled: bool, volumetric_fog_enabled: bool, auto_exposure_enabled: bool, ssao_enabled: bool) -> WorldEnvironment:
     var environment_node: WorldEnvironment = get_node_or_null("WorldEnvironment")
     if environment_node == null:
         environment_node = WorldEnvironment.new()
@@ -570,12 +579,26 @@ func _prepare_world_environment(glow_enabled: bool, volumetric_fog_enabled: bool
         environment.volumetric_fog_density = 0.1
         environment.volumetric_fog_albedo = Color(0.78, 0.82, 0.9, 1.0)
         environment.volumetric_fog_length = 96.0
+    # Screen-space ambient occlusion (the ssao_blur GRX-011 target consumer). A
+    # scene semantic enabled for both legs, not a rurix pass opt-in.
+    environment.ssao_enabled = ssao_enabled
+    if ssao_enabled:
+        environment.ssao_radius = 2.0
+        environment.ssao_intensity = 2.0
     environment_node.environment = environment
     if auto_exposure_enabled:
         var attributes := CameraAttributesPractical.new()
         attributes.auto_exposure_enabled = true
         environment_node.camera_attributes = attributes
     return environment_node
+
+func _enable_taa() -> void:
+    # Temporal antialiasing (the taa_resolve GRX-012 target consumer). Enabled at
+    # the viewport level so it is scoped to the scenes that opt in (not a global
+    # project setting), and applies to both legs as a scene semantic.
+    var viewport := get_viewport()
+    if viewport != null:
+        viewport.use_taa = true
 
 func _make_particle_process_material() -> ParticleProcessMaterial:
     var process := ParticleProcessMaterial.new()
