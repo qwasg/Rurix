@@ -1,0 +1,185 @@
+{
+  "pass_id": "cluster_store",
+  "segment": "offline_compile",
+  "status": "success",
+  "runtime_state": "fallback_only",
+  "attempted_at_utc": "2026-07-12T10:43:00Z",
+  "provenance": "hlsl_bridge_workaround",
+  "rurix_owned": false,
+  "rurix_owned_rts0": true,
+  "canonical_switch_exception": "owner_approved_hlsl_bridge_workaround",
+  "provenance_policy_precedent": "spike/godot-rurix/passes/luminance_reduction/texture_artifact_provenance_policy.json",
+  "provenance_blocker_note": "cluster_store is an all raw-buffer / SSBO pass, so the texture-intrinsic llc blocker in the precedent policy does NOT apply. The workaround is used for three different blockers: (1) the DXIL compute-body lowering accepts only View<global, f32>/ViewMut<global, f32> buffer views while all three cluster_store buffers are u32-word SSBOs whose bit patterns an f32 view cannot carry bit-faithfully; (2) the integer bit operations the kernel is built from (&, |, ~, <<, >>) exist in MIR but have no DXIL-backend lowering; (3) the Rurix lang subset has no findLSB/findMSB (firstbitlow/firstbithigh) intrinsic on any backend.",
+  "math_parity_evidence": "spike/godot-rurix/passes/cluster_store/math_parity_evidence.json",
+  "math_parity_status": "cluster_store_cpu_reference_proven_pending_gpu_dispatch",
+  "inputs": {
+    "package_manifest": "spike/godot-rurix/passes/cluster_store/rurix.toml",
+    "entry_file": "spike/godot-rurix/passes/cluster_store/artifacts/hlsl_bridge/cluster_store_pack.hlsl",
+    "rurix_math_source": "spike/godot-rurix/passes/cluster_store/src/lib.rx",
+    "godot_reference_files": [
+      "external/godot-master/servers/rendering/renderer_rd/shaders/cluster_store.glsl",
+      "external/godot-master/servers/rendering/renderer_rd/cluster_builder_rd.cpp",
+      "external/godot-master/servers/rendering/renderer_rd/cluster_builder_rd.h"
+    ]
+  },
+  "tools": {
+    "dxc": {
+      "found": true,
+      "path": "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+      "version_output": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)"
+    },
+    "dxv": {
+      "found": true,
+      "path": "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe"
+    }
+  },
+  "hlsl": {
+    "path": "spike/godot-rurix/passes/cluster_store/artifacts/hlsl_bridge/cluster_store_pack.hlsl",
+    "entry_point": "main",
+    "target_profile": "cs_6_0",
+    "sha256": "060542dce8a4c548b72fdcce4a927a7ce6243d837e3c94f3510f4a6d34c318da"
+  },
+  "commands": [
+    {
+      "label": "dxc_compile",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxc.exe",
+        "-T",
+        "cs_6_0",
+        "-E",
+        "main",
+        "-Qstrip_debug",
+        "-Fo",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\cluster_store\\artifacts\\hlsl_bridge\\cluster_store_pack.dxil",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\cluster_store\\artifacts\\hlsl_bridge\\cluster_store_pack.hlsl"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/cluster_store/artifacts/hlsl_bridge/dxc_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/cluster_store/artifacts/hlsl_bridge/dxc_stderr.txt"
+    },
+    {
+      "label": "dxv_validate",
+      "argv": [
+        "H:\\dxc-round7\\extracted\\bin\\x64\\dxv.exe",
+        "H:\\rurix\\spike\\godot-rurix\\passes\\cluster_store\\artifacts\\hlsl_bridge\\cluster_store_pack.dxil"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/cluster_store/artifacts/hlsl_bridge/dxv_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/cluster_store/artifacts/hlsl_bridge/dxv_stderr.txt"
+    },
+    {
+      "label": "emit_grx014_cluster_store_rts0",
+      "argv": [
+        "cargo",
+        "run",
+        "-q",
+        "-p",
+        "rurixc",
+        "--features",
+        "dxil-backend shader-stages",
+        "--example",
+        "emit_grx014_cluster_store_rts0",
+        "--",
+        "spike/godot-rurix/passes/cluster_store/artifacts/cluster_store_descriptor_layout.json",
+        "spike/godot-rurix/passes/cluster_store/artifacts/cluster_store.rts0.bin"
+      ],
+      "exit_code": 0,
+      "stdout_path": "spike/godot-rurix/passes/cluster_store/artifacts/hlsl_bridge/emit_rts0_stdout.txt",
+      "stderr_path": "spike/godot-rurix/passes/cluster_store/artifacts/hlsl_bridge/emit_rts0_stderr.txt"
+    }
+  ],
+  "attempted_binding_kinds": [
+    "structured_buffer",
+    "structured_buffer",
+    "rwstructured_buffer"
+  ],
+  "runtime_mappable": true,
+  "known_gaps": [
+    "the bake_cluster rasterization segment (cluster_render.glsl proxy-mesh draw) that produces the cluster_render input is NOT replaced (graphics pipeline; native permanently)",
+    "the native buffer_clear of cluster_buffer / cluster_render_buffer stays native; the kernel assumes a zeroed destination exactly like the native shader",
+    "the render_element_count == 0 early-out stays native (no store dispatch happens in that frame)",
+    "runtime hook / native-handle binding not wired (patches 0023-0025, later serial slices)",
+    "synthetic parity fixtures use small cluster grids and 32-aligned element capacities; the Godot default max_clustered_elements = 512 deployment scale is a documented assumption, not exercised at full scale offline",
+    "GPU-side math parity observation beyond the standalone S6 dispatch smoke (math_parity_evidence.json stays pending_gpu_dispatch until the smoke fills the GPU-observed side)"
+  ],
+  "does_not_imply": [
+    "Godot runtime cluster_store pass completion",
+    "real_gpu_pass=true",
+    "real_d3d12_dispatch_recorded=true",
+    "visual success",
+    "temporal stability success",
+    "GPU timestamp success",
+    "performance claim",
+    "default pass enablement",
+    "math parity proven (see math_parity_evidence.json)"
+  ],
+  "dxil_provenance": {
+    "produced_by": "dxc",
+    "compiler_version": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)",
+    "target_profile": "cs_6_0",
+    "entry_point": "main",
+    "hlsl_source": {
+      "path": "spike/godot-rurix/passes/cluster_store/artifacts/hlsl_bridge/cluster_store_pack.hlsl",
+      "sha256": "060542dce8a4c548b72fdcce4a927a7ce6243d837e3c94f3510f4a6d34c318da"
+    },
+    "validation": {
+      "tool": "dxv.exe",
+      "status": "pass",
+      "exit_code": 0
+    }
+  },
+  "root_signature_generator": {
+    "kind": "rurixc_binding_layout_example",
+    "command": [
+      "cargo",
+      "run",
+      "-q",
+      "-p",
+      "rurixc",
+      "--features",
+      "dxil-backend shader-stages",
+      "--example",
+      "emit_grx014_cluster_store_rts0",
+      "--",
+      "spike/godot-rurix/passes/cluster_store/artifacts/cluster_store_descriptor_layout.json",
+      "spike/godot-rurix/passes/cluster_store/artifacts/cluster_store.rts0.bin"
+    ],
+    "source_api": "rurixc::binding_layout::{infer_root_signature, pack_root_constants, serialize_rts0}",
+    "root_constants": "32_bytes_8_dwords_at_root_parameter_index_0"
+  },
+  "artifacts": {
+    "dxil": {
+      "path": "spike/godot-rurix/passes/cluster_store/artifacts/cluster_store.dxil",
+      "exists": true,
+      "size_bytes": 5280,
+      "sha256": "e34c9059829134a56a2fae41e87f42dba778ef5813cd9dd28690b57ae4a32b7d",
+      "artifact_kind": "dxil_container",
+      "produced_by_current_run": true,
+      "semantic_status": "lowered_compute_body"
+    },
+    "root_signature": {
+      "path": "spike/godot-rurix/passes/cluster_store/artifacts/cluster_store.rts0.bin",
+      "exists": true,
+      "size_bytes": 152,
+      "sha256": "24b8b80117e470de23e626d8a8353756bfec4b8f335d79470afca7b9a2eb0be2",
+      "artifact_kind": "rurix_owned_rts0_root_signature",
+      "produced_by_current_run": true
+    },
+    "descriptor_layout": {
+      "path": "spike/godot-rurix/passes/cluster_store/artifacts/cluster_store_descriptor_layout.json",
+      "exists": true,
+      "size_bytes": 3437,
+      "sha256": "749d67966e6407ed2fa1567c1b048397fc741cb7b1144e31cc83465732206c43",
+      "artifact_kind": "descriptor_layout_json",
+      "produced_by_current_run": true
+    }
+  },
+  "notes": [
+    "Runtime remains fallback_only: the real dispatch path (a later patch/bridge slice) is opt-in only and armed by RXGD_CAP_CLUSTER_STORE_REAL_PASS (1u<<8); the shipping feature-off bridge fails closed.",
+    "The canonical artifacts/ paths carry the raw-buffer hlsl_bridge workaround package: a DXC cs_6_0 DXIL container (validated by dxv), the Rurix-owned RTS0 root signature serialized by rurixc::binding_layout::serialize_rts0 (32-byte / 8-dword ClusterStore::PushConstant root constants + SRV t0 structured buffer + SRV t1 structured buffer + UAV u0 structured buffer), and the descriptor layout with per-slot structured_buffer/structured_buffer/rwstructured_buffer binding kinds.",
+    "hlsl_bridge_workaround provenance (buffer-pass variant): NOT rurix_owned. Blockers differ from the texture passes: (1) no u32 buffer views in the DXIL compute-body lowering; (2) no DXIL-backend lowering for the integer bit operations; (3) no findLSB/findMSB intrinsic in the lang subset. The texture-intrinsic llc blocker does NOT apply to this raw-buffer pass.",
+    "The kernel math mirrors the complete cluster_store.glsl store segment (single kernel, no mode switches, so no subset cut); the rasterization segment that produces the input stays native. See known_gaps."
+  ],
+  "blocker_category": null,
+  "blocker_summary": null
+}

@@ -1,0 +1,159 @@
+{
+  "pass_id": "cluster_store",
+  "status": "grx014_offline_kernel_gate_and_dispatch_smoke_default_disabled",
+  "implemented": false,
+  "default_enable_state": "disabled",
+  "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
+  "target_scenes": [
+    "clustered_lights",
+    "mixed_forward_plus"
+  ],
+  "bridge_pass_id": "RXGD_PASS_CLUSTER_STORE (1)",
+  "real_pass_cap_bit": "RXGD_CAP_CLUSTER_STORE_REAL_PASS (1u << 8), reserved in PATCH_ALLOCATION.md section 3 (bit 8)",
+  "godot_hook_investigation": {
+    "note": "Investigation only; external/godot-master is NOT modified. Paths and functions are recorded for the later patch 0023 call-site gate and the patch 0024 native-handle mapping. This S1-S4+S6 slice delivers the offline face (contract trio + offline kernel + math parity), the fail-closed bridge gate, and the standalone dispatch smoke; the Godot patches and the enablement smoke are later serial slices.",
+    "builder_class": {
+      "source": "servers/rendering/renderer_rd/cluster_builder_rd.cpp",
+      "header": "servers/rendering/renderer_rd/cluster_builder_rd.h",
+      "functions": [
+        "ClusterBuilderRD::bake_cluster",
+        "ClusterBuilderRD::setup"
+      ],
+      "push_constant": "ClusterBuilderSharedDataRD::ClusterStore::PushConstant (cluster_builder_rd.h L91-100, 32 bytes / 8 dwords, all u32)",
+      "native_pass_shape": "compute merge segment of bake_cluster (\"Pack 3D Cluster Elements\"): one thread per cluster (local_size 8x8), reads cluster_render_buffer (set0 binding1) + element_buffer (set0 binding3), writes cluster_buffer (set0 binding2); preceded by the NON-replaceable rasterization segment (cluster_render.glsl proxy-mesh draw) that produces cluster_render_buffer, and by native buffer_clear of both output buffers; dispatch only when render_element_count > 0"
+    },
+    "shaders": [
+      "servers/rendering/renderer_rd/shaders/cluster_store.glsl"
+    ],
+    "shader_note": "cluster_data_inc.glsl declares three layout macros that are zero-reference historical leftovers; they do not describe the cluster_buffer layout and are not used by this pass.",
+    "call_sites": [
+      {
+        "file": "servers/rendering/renderer_rd/cluster_builder_rd.cpp",
+        "function": "bake_cluster",
+        "region": "cluster_store compute dispatch",
+        "lines": [
+          517,
+          538
+        ],
+        "note": "push constants assembled L522-531; compute_list_dispatch_threads(cluster_screen_size.x, cluster_screen_size.y, 1) at L535. Driven per-frame by render_forward_clustered.cpp L1650 (current_cluster_builder->bake_cluster()); builder configured at render_forward_clustered.cpp L158 via ClusterBuilderRD::setup (max elements default 512 from rendering/limits/cluster_builder/max_clustered_elements, 32-aligned)."
+      }
+    ],
+    "source_resources": [
+      "cluster_render_buffer (uint[] SSBO, set0 binding1; per cluster: usage bitmap words then per-element z_range words; produced by the raster segment; cluster_builder_rd.cpp setup L307)",
+      "element_buffer (RenderElementData[] SSBO, 80 bytes/element, set0 binding3; store segment reads only type/touches_near/touches_far/original_index; cluster_builder_rd.cpp setup L313)"
+    ],
+    "dest_resource": "cluster_buffer (uint[] SSBO, set0 binding2; per (cluster,type) block = [existence bitmap max_cluster_element_count_div_32 words][32 Z-slice (min u16 | (max+1) u16) words]; zero-cleared natively each frame; cluster_builder_rd.cpp setup L308)"
+  },
+  "resource_mapping": "spike/godot-rurix/passes/cluster_store/resource_mapping.md",
+  "descriptor_mapping": {
+    "root_cbuffer_binding": "b0 space0",
+    "root_constants": "32-byte / 8-dword mirror of ClusterBuilderSharedDataRD::ClusterStore::PushConstant (see resource_mapping.md and artifacts/cluster_store_descriptor_layout.json)",
+    "root_constant_bytes": 32,
+    "root_constant_dwords": 8,
+    "resources": [
+      {
+        "name": "cluster_render",
+        "binding": "t0 space0",
+        "kind": "SRV",
+        "binding_kind": "structured_buffer"
+      },
+      {
+        "name": "render_elements",
+        "binding": "t1 space0",
+        "kind": "SRV",
+        "binding_kind": "structured_buffer"
+      },
+      {
+        "name": "cluster_store",
+        "binding": "u0 space0",
+        "kind": "UAV",
+        "binding_kind": "rwstructured_buffer"
+      }
+    ],
+    "requires_64bit_integer_shader_capability": false,
+    "requires_64bit_integer_shader_capability_note": "cluster_store carries no i64 push-constant fields (all 8 dwords are u32), so SHADER_INT64 is NOT part of its binding preflight (same as GRX-013 particles_copy; contrast with the GRX-009/010/011/012 texture passes)",
+    "on_missing_resource_or_cap_or_descriptor_mismatch": "RXGD_STATUS_FALLBACK"
+  },
+  "supported_math_subset": {
+    "variant": "the complete cluster_store.glsl store-segment math; single kernel, no mode/variant switches, so no subset cut",
+    "scan": "outer while over render_element_count_div_32 usage words; inner findLSB (firstbitlow) per-bit iteration with bits &= ~(1 << index_bit)",
+    "z_range": "from_z = findLSB(z_range), to_z = findMSB(z_range) + 1; touches_near -> from_z = 0; touches_far -> to_z = 32; z_range == 0 guard skips the element",
+    "slice_write": "per slice: minmax = dst[slice_ofs]; if 0 -> 0xFFFF; elem_min = min(orig_index, minmax & 0xFFFF); elem_max = max(orig_index + 1, minmax >> 16); dst[slice_ofs] = elem_min | (elem_max << 16)",
+    "existence_bitmap": "dst[dst_offset + (orig_index >> 5)] |= 1 << (orig_index & 0x1F)",
+    "threading": "one thread per cluster; every write lands in the owning cluster's (cluster,type) blocks, so no atomics are needed (mirrors the native shader)",
+    "parameterization": "all sizes/counts come from the 8-dword b0; nothing is hardcoded (the Godot default max_clustered_elements = 512 is a deployment default only, documented as a known assumption)"
+  },
+  "known_gaps": [
+    "the bake_cluster rasterization segment (cluster_render.glsl proxy-mesh draw over sphere/cone/box geometry, incl. MSAA/attachment pipeline variants) is NOT replaced: it is a graphics pipeline that produces this kernel's cluster_render_buffer input and stays native permanently",
+    "the native buffer_clear of cluster_buffer / cluster_render_buffer stays native; the kernel assumes a zeroed destination exactly like the native shader",
+    "the render_element_count == 0 early-out stays native (no store dispatch happens in that frame)",
+    "runtime hook / native-handle binding not wired (patches 0023-0025, later serial slices under the PATCH_ALLOCATION stack-lock)",
+    "synthetic parity fixtures use small cluster grids and 32-aligned element capacities; the Godot default max_clustered_elements = 512 deployment scale is a documented assumption, not exercised at full scale offline",
+    "GPU-observed math parity beyond the standalone S6 dispatch smoke (in-engine observation is the later enablement slice)"
+  ],
+  "fallback": {
+    "reasons": [
+      "compile_failed",
+      "validation_failed",
+      "unsupported_device",
+      "visual_diff_failed",
+      "manual_disabled"
+    ],
+    "on_any_failure": "godot_native_cluster_store"
+  },
+  "offline_compile_status": "success",
+  "offline_compile_provenance": "hlsl_bridge_workaround",
+  "offline_compile_runtime_mappable": true,
+  "offline_compile_evidence": "spike/godot-rurix/passes/cluster_store/offline_compile_evidence.json",
+  "offline_compile_artifacts": {
+    "dxil": "spike/godot-rurix/passes/cluster_store/artifacts/cluster_store.dxil",
+    "root_signature": "spike/godot-rurix/passes/cluster_store/artifacts/cluster_store.rts0.bin",
+    "descriptor_layout": "spike/godot-rurix/passes/cluster_store/artifacts/cluster_store_descriptor_layout.json"
+  },
+  "math_parity_evidence": "spike/godot-rurix/passes/cluster_store/math_parity_evidence.json",
+  "math_parity_status": "cluster_store_cpu_reference_proven_pending_gpu_dispatch",
+  "compile_blockers": [
+    {
+      "category": "provenance_workaround_active",
+      "summary": "the canonical cluster_store package is the owner-approved hlsl_bridge_workaround artifact (DXC cs_6_0 container validated by dxv, per-slot structured_buffer/structured_buffer/rwstructured_buffer binding kinds, Rurix-owned RTS0). cluster_store is an all raw-buffer / SSBO pass, so the GRX-009 texture-intrinsic llc blocker does NOT apply; the workaround is used because of three rurixc blockers: (1) the DXIL compute-body lowering accepts only View<global, f32>/ViewMut<global, f32> buffer views (src/rurixc/src/dxil_codegen.rs L1754/L1786) while all three cluster_store buffers are u32-word SSBOs whose bit patterns an f32 view cannot carry bit-faithfully; (2) the integer bit operations the kernel is built from (&, |, ~, <<, >>) exist in MIR (BinOp::BitAnd/BitOr/BitXor/Shl/Shr, src/rurixc/src/mir.rs L643-647) but have no DXIL-backend lowering; (3) the Rurix lang subset has no findLSB/findMSB (firstbitlow/firstbithigh) intrinsic on any backend"
+    }
+  ],
+  "implementation_status": {
+    "segment": "s1_s4_s6_offline_gate_and_dispatch_smoke",
+    "segment_detail": "grx014_offline_kernel_gate_and_dispatch_smoke_default_disabled",
+    "runtime_state": "fallback_only",
+    "runtime_state_note": "The runtime path is fallback-only: the bridge returns RXGD_STATUS_FALLBACK for RXGD_PASS_CLUSTER_STORE on every call (manual_disabled on a valid default binding; the opt-in real-pass arm exists but fails closed with real_dispatch_path_not_linked on the shipping feature-off bridge, and no Godot patch sets RXGD_CAP_CLUSTER_STORE_REAL_PASS yet). real_gpu_pass stays false; the standalone S6 dispatch smoke records its measured success in real_d3d12_dispatch_smoke.json without flipping this manifest. Adding the gate REMOVES the historical placeholder estimated-timing path for RXGD_PASS_CLUSTER_STORE: no estimated cluster_store GPU time is attributed any more.",
+    "bridge_gate": "src/rurix-godot ClusterStoreGate: preflight (3 structured-buffer resources in cluster_render/render_elements/cluster_store order, 32-byte b0 ClusterStore::PushConstant mirror, nonzero cluster_screen_size dwords 2-3 and nonzero render_element_count_div_32 dword 4, nonzero buffer byte sizes; NO int64 cap check because cluster_store's b0 carries no i64 fields) -> dispatch eligibility (RXGD_CAP_CLUSTER_STORE_REAL_PASS opt-in, the int64 device/recording-harness capability, non-null native handles, ClusterStoreDispatchPackage layout/digest match vs offline evidence) -> per-slot kernel-binding-kind conformance ([structured_buffer, structured_buffer, rwstructured_buffer]) -> math-parity gate (cluster_store_cpu_reference_proven_pending_gpu_dispatch) -> real dispatch only under the d3d12-recording-shim feature via the additive 3-buffer shim entry rxgd_cluster_store_record_dispatch (Wave 4 production/instrumented readback selector + engagement note() counters); every failure records a fallback reason and prints the once-per-session RXGD_CLUSTER_STORE_REAL_PASS_BLOCKED diagnostic. Because int64 is NOT in the preflight, a forced capability downgrade fails closed at dispatch_eligibility_failed (the GRX-013 precedent).",
+    "godot_module_patch": "NOT authored in this slice. PATCH_ALLOCATION.md section 2 reserves 0023-0025 for cluster_store (0023-rurix-accel-cluster-store-pass-gate-and-callsite.patch / 0024 runtime binding / 0025 recording+real-pass opt-in); patch authoring is a later serial slice under the stack-lock.",
+    "godot_core_call_site_wired": false,
+    "real_gpu_pass": false,
+    "real_d3d12_dispatch_recorded": false,
+    "godot_runtime_cluster_store_path_enabled": false,
+    "standalone_d3d12_dispatch_smoke": {
+      "harness": "ci/grx014_cluster_store_d3d12_dispatch_smoke.py",
+      "evidence": "spike/godot-rurix/passes/cluster_store/real_d3d12_dispatch_smoke.json",
+      "run_command": "$env:RURIX_DXC_DIR='H:\\dxc-round7\\extracted\\bin\\x64'; py -3 ci\\grx014_cluster_store_d3d12_dispatch_smoke.py",
+      "purpose": "Prove the tracked offline cluster_store DXIL container + RTS0 root signature + descriptor layout can complete one minimal compute dispatch on a real D3D12 device/command queue with three structured buffers (SRV t0 + SRV t1 + UAV u0) AND that every measured GPU output word matches the CPU integer reference exactly (zero tolerance) on the deterministic synthetic cluster_render/element fixtures. Standalone measured evidence only; the bridge records no dispatch and returns no OK.",
+      "does_not_imply": [
+        "Godot runtime cluster_store pass completion",
+        "bridge rxgd_record_pass returning RXGD_STATUS_OK",
+        "real_gpu_pass = true",
+        "manifest real_d3d12_dispatch_recorded = true",
+        "any visual diff, measured fallback telemetry, or performance claim"
+      ]
+    },
+    "remaining_segments": [
+      "S5 patch 0023 (gate + bake_cluster call-site opt-in) and S7 patches 0024/0025 (runtime native-handle binding; recording-smoke + real-pass opt-in) — serial slices under the PATCH_ALLOCATION stack-lock",
+      "S8 scratch rebuild + gated real-pass enablement smoke; S9 close-out (manifest flip + owner default-enable decision + grx014 gate-module full readiness)",
+      "per-pass FPS baseline comparison (contract requires >= 0.95x baseline before any default-enable discussion)"
+    ]
+  },
+  "evidence_requirements": {
+    "offline_compile": "offline_compile_evidence.json (measured): DXC cs_6_0 compile + DXV validation pass + Rurix-owned RTS0 + descriptor layout; three artifact SHA-256 recomputable on disk",
+    "math_parity": "math_parity_evidence.json: deterministic synthetic cluster_render/element fixtures with an integer-exact CPU reference (pure u32 word math, no float tolerance) covering touches_near/touches_far, single- and multi-slice z ranges, the minmax==0 -> 0xFFFF initialization branch, same-slice min/max merging, the z_range==0 guard, empty clusters, and the existence bitmap; status=pending_gpu_dispatch",
+    "standalone_dispatch": "real_d3d12_dispatch_smoke.json (measured): real_d3d12_dispatch_recorded=true, cpu_reference_match=true (exact word equality)",
+    "visual": "later enablement slice (in-engine LDR absolute diff on the pinned thresholds); this slice claims none",
+    "perf": "reuse GRX-006 baseline/perf gate; no perf improvement claimed"
+  },
+  "disclaimer": "GRX-014 cluster_store is at the S1-S4+S6 level only: the pass contract trio, the DXC/DXV/RTS0 offline kernel package (hlsl_bridge_workaround provenance, Rurix-owned RTS0), the integer-exact CPU math-parity reference, the fail-closed bridge ClusterStoreGate (default RXGD_STATUS_FALLBACK; opt-in RXGD_CAP_CLUSTER_STORE_REAL_PASS arm fails closed with real_dispatch_path_not_linked on the shipping feature-off bridge), and the standalone real D3D12 dispatch smoke. implemented=false, runtime_state=fallback_only, real_gpu_pass=false are the honest current values: no Godot patch exists (0023-0025 reserved, later serial slices), no runtime hook is wired, the rasterization segment stays native permanently, and NO visual-superiority, GPU-timestamp, FPS, or performance improvement is claimed."
+}

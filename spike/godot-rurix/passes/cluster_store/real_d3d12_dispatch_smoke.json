@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "subject": "grx014_cluster_store_real_d3d12_dispatch_smoke",
+  "pass_id": "cluster_store",
+  "segment": "standalone_dispatch_smoke",
+  "runtime_state": "fallback_only",
+  "real_gpu_pass": false,
+  "real_d3d12_dispatch_recorded": true,
+  "cpu_reference_match": true,
+  "artifacts": {
+    "dxil": {
+      "path": "spike/godot-rurix/passes/cluster_store/artifacts/cluster_store.dxil",
+      "sha256": "e34c9059829134a56a2fae41e87f42dba778ef5813cd9dd28690b57ae4a32b7d"
+    },
+    "root_signature": {
+      "path": "spike/godot-rurix/passes/cluster_store/artifacts/cluster_store.rts0.bin",
+      "sha256": "24b8b80117e470de23e626d8a8353756bfec4b8f335d79470afca7b9a2eb0be2"
+    },
+    "descriptor_layout": {
+      "path": "spike/godot-rurix/passes/cluster_store/artifacts/cluster_store_descriptor_layout.json",
+      "sha256": "749d67966e6407ed2fa1567c1b048397fc741cb7b1144e31cc83465732206c43"
+    }
+  },
+  "offline_evidence": {
+    "path": "spike/godot-rurix/passes/cluster_store/offline_compile_evidence.json",
+    "dxil_sha256": "e34c9059829134a56a2fae41e87f42dba778ef5813cd9dd28690b57ae4a32b7d",
+    "root_signature_sha256": "24b8b80117e470de23e626d8a8353756bfec4b8f335d79470afca7b9a2eb0be2",
+    "descriptor_layout_sha256": "749d67966e6407ed2fa1567c1b048397fc741cb7b1144e31cc83465732206c43"
+  },
+  "artifact_hashes_match_offline_evidence": true,
+  "note": "GRX-014 standalone real D3D12 3-structured-buffer dispatch smoke evidence only. A success flips real_d3d12_dispatch_recorded/cpu_reference_match true (the fields the GRX-014 gate reads) but keeps runtime_state=fallback_only and real_gpu_pass=false; it is not a Godot runtime pass, visual, perf, or measured-telemetry claim.",
+  "status": "success",
+  "timestamp": "2026-07-12T18:56:51+08:00",
+  "run_url": "local interactive runner",
+  "device": {
+    "adapter": "NVIDIA GeForce RTX 4070 Ti",
+    "experimental_shader_models": "off",
+    "dxil_signed_for_load": "yes",
+    "dxil_validator": "H:/dxc-round7/extracted/bin/x64/dxil.dll"
+  },
+  "cpu_reference": {
+    "reference_impl": "spike/godot-rurix/passes/cluster_store/generate_math_parity_evidence.py cluster_store_reference (imported; every output u32 word compared exactly in Python)",
+    "value_tolerance": 0,
+    "cases": [
+      {
+        "case_id": "store_pack_grid_4x3_e64",
+        "cluster_screen_size": [
+          4,
+          3
+        ],
+        "render_element_count": 40,
+        "max_cluster_element_count_div_32": 2,
+        "dst_bytes": 6528,
+        "dispatch": "1,1,1",
+        "fence_completed_value": "1",
+        "readback_checksum": "0x36d3b169",
+        "comparison": {
+          "match": true,
+          "mismatched_words": 0,
+          "total_words": 1632,
+          "nonzero_reference_words": 1086,
+          "value_tolerance": 0,
+          "worst": null
+        }
+      },
+      {
+        "case_id": "store_pack_grid_2x2_minmax_merge",
+        "cluster_screen_size": [
+          2,
+          2
+        ],
+        "render_element_count": 16,
+        "max_cluster_element_count_div_32": 1,
+        "dst_bytes": 2112,
+        "dispatch": "1,1,1",
+        "fence_completed_value": "1",
+        "readback_checksum": "0x434f15a5",
+        "comparison": {
+          "match": true,
+          "mismatched_words": 0,
+          "total_words": 528,
+          "nonzero_reference_words": 84,
+          "value_tolerance": 0,
+          "worst": null
+        }
+      },
+      {
+        "case_id": "store_pack_grid_3x1_touch_overrides",
+        "cluster_screen_size": [
+          3,
+          1
+        ],
+        "render_element_count": 12,
+        "max_cluster_element_count_div_32": 1,
+        "dst_bytes": 1584,
+        "dispatch": "1,1,1",
+        "fence_completed_value": "1",
+        "readback_checksum": "0x5e9fe906",
+        "comparison": {
+          "match": true,
+          "mismatched_words": 0,
+          "total_words": 396,
+          "nonzero_reference_words": 132,
+          "value_tolerance": 0,
+          "worst": null
+        }
+      }
+    ]
+  },
+  "checks": {
+    "artifact_hashes_match_offline_evidence": true,
+    "descriptor_layout_matches_resource_mapping": true,
+    "root_signature_create_from_rurix_rts0": true,
+    "compute_pso_from_rurix_dxil": true,
+    "three_structured_buffers_bound_from_layout": true,
+    "destination_zero_uploaded_before_dispatch": true,
+    "dispatch_executed": true,
+    "fence_completed": true,
+    "output_uav_readback": true,
+    "all_output_words_match_cpu_reference_exactly": true
+  }
+}

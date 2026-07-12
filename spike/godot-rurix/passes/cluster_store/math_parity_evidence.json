@@ -1,0 +1,278 @@
+{
+  "pass_id": "cluster_store",
+  "subject": "grx014_cluster_store_math_parity",
+  "status": "pending_gpu_dispatch",
+  "generated_at_utc": "2026-07-12T10:45:39Z",
+  "math_status": "cluster_store_cpu_reference_proven_pending_gpu_dispatch",
+  "cpu_reference": {
+    "formula": "per cluster: src_offset = base_offset * cluster_render_data_size; scan render_element_count_div_32 usage words; per set bit (findLSB, cleared with bits &= ~(1 << bit)): read type + z_range word at src_offset + max_render_element_count_div_32 + index; if z_range != 0: from_z = findLSB(z_range), to_z = findMSB(z_range) + 1, touches_near -> from_z = 0, touches_far -> to_z = 32; dst_offset = (base_offset + type * (w * h)) * (max_cluster_element_count_div_32 + 32); per slice: minmax == 0 -> 0xFFFF, elem_min = min(orig, minmax & 0xFFFF), elem_max = max(orig + 1, minmax >> 16), store elem_min | (elem_max << 16); then dst[dst_offset + (orig >> 5)] |= 1 << (orig & 0x1F). Pure u32 word math over a zeroed destination; bit-exact, zero tolerance",
+    "hlsl_kernel": {
+      "path": "spike/godot-rurix/passes/cluster_store/artifacts/hlsl_bridge/cluster_store_pack.hlsl",
+      "sha256": "060542dce8a4c548b72fdcce4a927a7ce6243d837e3c94f3510f4a6d34c318da"
+    },
+    "dxil": {
+      "path": "spike/godot-rurix/passes/cluster_store/artifacts/hlsl_bridge/cluster_store_pack.dxil",
+      "sha256": "e34c9059829134a56a2fae41e87f42dba778ef5813cd9dd28690b57ae4a32b7d"
+    },
+    "rurix_math_source": "spike/godot-rurix/passes/cluster_store/src/lib.rx",
+    "godot_math_source": "external/godot-master/servers/rendering/renderer_rd/shaders/cluster_store.glsl (main, L46-119)"
+  },
+  "value_tolerance": 0,
+  "tolerance_note": "the kernel is pure u32 integer word math (no floats), so the GPU output must match the CPU reference EXACTLY, word for word",
+  "gpu_dispatch_kind": null,
+  "cases": [
+    {
+      "case_id": "store_pack_grid_4x3_e64",
+      "note": "formula-driven usage/z_range grid with an empty cluster (c=7) and z_range==0 injections",
+      "constants": {
+        "cluster_render_data_size": 264,
+        "max_render_element_count_div_32": 8,
+        "cluster_screen_size": [
+          4,
+          3
+        ],
+        "render_element_count_div_32": 2,
+        "max_cluster_element_count_div_32": 2,
+        "render_element_count": 40,
+        "render_element_max": 256
+      },
+      "dispatch": [
+        1,
+        1,
+        1
+      ],
+      "input_cluster_render_word_count": 3168,
+      "input_cluster_render_u32_le_sha256": "288fc3076084d34b2780b30ac7282968dc598c0cc33a63cbbf24f0460bdb2fbf",
+      "input_elements_80b_le_sha256": "08403e82c240187f0cdfdcd1b66254caeb8794d3f969c99347b8396e3e3788e4",
+      "b0_sha256": "6ad082f660c249985b0bb14b1aca842eca1efecc651f8c9d52004f8d636093b5",
+      "expected_dst_word_count": 1632,
+      "expected_dst_nonzero_words": 1086,
+      "cpu_expected_dst_u32_le_sha256": "a59d80418559391d43f5f5ba933e04ebcd401fab9574f7dc50cfd3c8cf40d662",
+      "cpu_expected_sample_words": [
+        {
+          "word_index": 0,
+          "value_hex": "0x00800008"
+        },
+        {
+          "word_index": 1,
+          "value_hex": "0x80000800"
+        },
+        {
+          "word_index": 2,
+          "value_hex": "0x00400003"
+        },
+        {
+          "word_index": 3,
+          "value_hex": "0x0040003F"
+        },
+        {
+          "word_index": 4,
+          "value_hex": "0x0040003F"
+        },
+        {
+          "word_index": 5,
+          "value_hex": "0x0040003F"
+        },
+        {
+          "word_index": 6,
+          "value_hex": "0x0040003F"
+        },
+        {
+          "word_index": 14,
+          "value_hex": "0x00180017"
+        }
+      ],
+      "branch_coverage": {
+        "near_overrides": 25,
+        "far_overrides": 20,
+        "zero_z_range_skips": 11,
+        "minmax_init_writes": 999,
+        "minmax_merge_writes": 276,
+        "single_slice_elements": 20,
+        "multi_slice_elements": 116,
+        "bitmap_bits_set": 136,
+        "empty_clusters": 1,
+        "elements_visited": 147
+      },
+      "gpu_observed": null
+    },
+    {
+      "case_id": "store_pack_grid_2x2_minmax_merge",
+      "note": "shared z slices with descending/ascending original_index to force min- and max-side merges",
+      "constants": {
+        "cluster_render_data_size": 132,
+        "max_render_element_count_div_32": 4,
+        "cluster_screen_size": [
+          2,
+          2
+        ],
+        "render_element_count_div_32": 1,
+        "max_cluster_element_count_div_32": 1,
+        "render_element_count": 16,
+        "render_element_max": 128
+      },
+      "dispatch": [
+        1,
+        1,
+        1
+      ],
+      "input_cluster_render_word_count": 528,
+      "input_cluster_render_u32_le_sha256": "5d4d6219b03029c602617758627222581845796f9138e0477db05306fdcfeb9e",
+      "input_elements_80b_le_sha256": "e8b25403c1380240a38cb22f93d61a0101becdb91c8c7019c708e0f82d29624b",
+      "b0_sha256": "8b10b382187903613ca31695f9bb41ba03ef475d30f975330d0df7dd8f9e9f32",
+      "expected_dst_word_count": 528,
+      "expected_dst_nonzero_words": 84,
+      "cpu_expected_dst_u32_le_sha256": "f29756b047a62a15987db0eb8efdc8dbfb79384adff04412119e220a0b19b53c",
+      "cpu_expected_sample_words": [
+        {
+          "word_index": 0,
+          "value_hex": "0xAAAA0000"
+        },
+        {
+          "word_index": 1,
+          "value_hex": "0x001E0011"
+        },
+        {
+          "word_index": 2,
+          "value_hex": "0x001E0011"
+        },
+        {
+          "word_index": 3,
+          "value_hex": "0x001E0011"
+        },
+        {
+          "word_index": 4,
+          "value_hex": "0x001E0011"
+        },
+        {
+          "word_index": 5,
+          "value_hex": "0x001E0011"
+        },
+        {
+          "word_index": 6,
+          "value_hex": "0x001E0011"
+        },
+        {
+          "word_index": 7,
+          "value_hex": "0x001E0011"
+        }
+      ],
+      "branch_coverage": {
+        "near_overrides": 8,
+        "far_overrides": 4,
+        "zero_z_range_skips": 0,
+        "minmax_init_writes": 80,
+        "minmax_merge_writes": 304,
+        "single_slice_elements": 0,
+        "multi_slice_elements": 32,
+        "bitmap_bits_set": 32,
+        "empty_clusters": 0,
+        "elements_visited": 32
+      },
+      "gpu_observed": null
+    },
+    {
+      "case_id": "store_pack_grid_3x1_touch_overrides",
+      "note": "explicit table: all near/far combos, single-bit + full-range + zero z_range, all 4 element types, empty cluster (c=2)",
+      "constants": {
+        "cluster_render_data_size": 132,
+        "max_render_element_count_div_32": 4,
+        "cluster_screen_size": [
+          3,
+          1
+        ],
+        "render_element_count_div_32": 1,
+        "max_cluster_element_count_div_32": 1,
+        "render_element_count": 12,
+        "render_element_max": 128
+      },
+      "dispatch": [
+        1,
+        1,
+        1
+      ],
+      "input_cluster_render_word_count": 396,
+      "input_cluster_render_u32_le_sha256": "d556ab346c9ec61037dec782037a04a7bf30db0662a99f6cf376056c978cc6cd",
+      "input_elements_80b_le_sha256": "2cd4efbaa6c0d6f23b56ca7810e8b0edcf144da0ca44ba1b50475762fdac53a0",
+      "b0_sha256": "f92550c77c8dcb3528047c8c8a2f64f2172b8bf786b0303f5a3d8199835a9a11",
+      "expected_dst_word_count": 396,
+      "expected_dst_nonzero_words": 132,
+      "cpu_expected_dst_u32_le_sha256": "3c8a0ad6b1ec6909f7dd6ba605b34ebf4d29f079dfb165d014c952f23c94644e",
+      "cpu_expected_sample_words": [
+        {
+          "word_index": 0,
+          "value_hex": "0x00000820"
+        },
+        {
+          "word_index": 1,
+          "value_hex": "0x000C0005"
+        },
+        {
+          "word_index": 2,
+          "value_hex": "0x000C000B"
+        },
+        {
+          "word_index": 3,
+          "value_hex": "0x000C000B"
+        },
+        {
+          "word_index": 4,
+          "value_hex": "0x000C000B"
+        },
+        {
+          "word_index": 5,
+          "value_hex": "0x000C000B"
+        },
+        {
+          "word_index": 6,
+          "value_hex": "0x000C000B"
+        },
+        {
+          "word_index": 7,
+          "value_hex": "0x000C000B"
+        }
+      ],
+      "branch_coverage": {
+        "near_overrides": 4,
+        "far_overrides": 4,
+        "zero_z_range_skips": 2,
+        "minmax_init_writes": 128,
+        "minmax_merge_writes": 68,
+        "single_slice_elements": 1,
+        "multi_slice_elements": 9,
+        "bitmap_bits_set": 8,
+        "empty_clusters": 1,
+        "elements_visited": 12
+      },
+      "gpu_observed": null
+    }
+  ],
+  "coverage_totals": {
+    "near_overrides": 37,
+    "far_overrides": 28,
+    "zero_z_range_skips": 13,
+    "minmax_init_writes": 1207,
+    "minmax_merge_writes": 648,
+    "single_slice_elements": 21,
+    "multi_slice_elements": 157,
+    "bitmap_bits_set": 176,
+    "empty_clusters": 2,
+    "elements_visited": 191
+  },
+  "notes": [
+    "GPU-observed values are pending a real dispatch; the standalone S6 smoke (ci/grx014_cluster_store_d3d12_dispatch_smoke.py) imports this module's fixtures + reference and verifies every measured output word exactly.",
+    "The destination is assumed zero-cleared (the native bake_cluster buffer_clear); the harness must upload explicit zeros before the dispatch.",
+    "Fixtures carry every size/count through the 8-dword b0; the Godot default max_clustered_elements = 512 is a deployment assumption only (fixtures use smaller 32-aligned capacities), so a kernel with a hardcoded size cannot pass all three cases.",
+    "The element buffer's carry payload (transform_inv/scale/pad) is nonzero garbage the store kernel must ignore; slots past render_element_count are zeroed like an unwritten native buffer region."
+  ],
+  "does_not_imply": [
+    "Godot runtime cluster_store pass completion",
+    "real_gpu_pass=true",
+    "manifest real_d3d12_dispatch_recorded=true",
+    "visual success",
+    "temporal stability success",
+    "GPU timestamp success",
+    "performance claim",
+    "default pass enablement"
+  ]
+}

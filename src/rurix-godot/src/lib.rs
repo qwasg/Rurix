@@ -381,6 +381,73 @@ const PARTICLES_COPY_TOTAL_PARTICLES_OFFSET: usize = 12;
 /// closed with `real_dispatch_path_not_linked`.
 pub const RXGD_CAP_PARTICLES_COPY_REAL_PASS: u32 = 1 << 7;
 
+/// GRX-014: the per-slot binding kinds the tracked cluster_store kernel
+/// declares (`artifacts/cluster_store_descriptor_layout.json`): slot 0 =
+/// `cluster_render` SRV t0 (`StructuredBuffer<uint>`), slot 1 =
+/// `render_elements` SRV t1 (`StructuredBuffer<RenderElementData>`, 80-byte
+/// stride), slot 2 = `cluster_store` UAV u0 (`RWStructuredBuffer<uint>`).
+/// These map the Godot cluster builder SSBO `ID3D12Resource*` handles; a
+/// texture resource never conforms at any slot.
+pub const CLUSTER_STORE_KERNEL_RESOURCE_BINDING_KINDS: [&str; 3] = [
+    "structured_buffer",
+    "structured_buffer",
+    "rwstructured_buffer",
+];
+
+/// GRX-014: the binding kind of the cluster_store kernel's slot-0 SRV
+/// (`cluster_render = StructuredBuffer<uint>` at t0); retained for the
+/// `RXGD_CLUSTER_STORE_REAL_PASS_BLOCKED` diagnostic line and external probes.
+pub const CLUSTER_STORE_KERNEL_RESOURCE_BINDING_KIND: &str = "structured_buffer";
+
+/// GRX-014: math-parity status of the tracked hlsl_bridge cluster_store
+/// kernel. The complete store-segment math (a single kernel, no subset cut) is
+/// CPU-proven with an INTEGER-EXACT reference in the pass
+/// `math_parity_evidence.json` (`status=pending_gpu_dispatch`: every case has a
+/// bit-exact expected word grid; the GPU-observed side is measured by a real
+/// dispatch). Anything other than this exact status fails the real-pass math
+/// gate closed.
+pub const CLUSTER_STORE_KERNEL_MATH_PARITY_STATUS: &str =
+    "cluster_store_cpu_reference_proven_pending_gpu_dispatch";
+
+/// SHA-256 digests of the GRX-014 canonical offline cluster_store package
+/// (`spike/godot-rurix/passes/cluster_store/offline_compile_evidence.json`).
+/// The dispatch eligibility check matches the compiled package identity against
+/// these baked evidence digests; a mismatch means the runtime binding does not
+/// correspond to the compiled package and must fall back.
+const CLUSTER_STORE_OFFLINE_DXIL_SHA256: &str =
+    "e34c9059829134a56a2fae41e87f42dba778ef5813cd9dd28690b57ae4a32b7d";
+const CLUSTER_STORE_OFFLINE_ROOT_SIGNATURE_SHA256: &str =
+    "24b8b80117e470de23e626d8a8353756bfec4b8f335d79470afca7b9a2eb0be2";
+const CLUSTER_STORE_OFFLINE_DESCRIPTOR_LAYOUT_SHA256: &str =
+    "749d67966e6407ed2fa1567c1b048397fc741cb7b1144e31cc83465732206c43";
+const CLUSTER_STORE_RESOURCE_COUNT: u64 = 3;
+const CLUSTER_STORE_ROOT_CONSTANT_BYTES: u64 = 32;
+/// Byte offset of the `cluster_screen_size[2]` u32 pair in the 32-byte
+/// ClusterStore::PushConstant b0 mirror (dwords 2-3).
+const CLUSTER_STORE_CLUSTER_SCREEN_SIZE_OFFSET: usize = 8;
+/// Byte offset of the `render_element_count_div_32` u32 (dword 4). The native
+/// call site only dispatches the store segment when `render_element_count > 0`
+/// (`bake_cluster()` L446), so a zero count never reaches the bridge.
+const CLUSTER_STORE_RENDER_ELEMENT_COUNT_DIV_32_OFFSET: usize = 16;
+
+/// GRX-014 opt-in "real pass" capability flag for the cluster_store pass,
+/// carried in `RxGdCaps.flags` (ABI v1, no struct layout change; bridge value
+/// `1 << 8`, reserved in `PATCH_ALLOCATION.md` §3 bit 8). The Godot side sets
+/// it only when the default-false per-pass
+/// `rendering/rurix_accel/passes/cluster_store/dispatch_real_pass` opt-in is
+/// enabled (the later patch 0025); the default Godot config never sets it. It
+/// arms the gated REAL cluster_store pass attempt: the bridge runs the full
+/// runtime binding preflight, the dispatch eligibility gate, the per-slot
+/// kernel-binding-kind conformance check, and the math-parity check, in that
+/// order, and returns `RXGD_STATUS_FALLBACK` with a recorded fallback reason
+/// (plus a once-per-session machine-readable
+/// `RXGD_CLUSTER_STORE_REAL_PASS_BLOCKED` diagnostic naming the FIRST missing
+/// prerequisite) unless every check passes AND a runtime-mappable real dispatch
+/// path is linked. The real dispatch itself is only linked under the
+/// `d3d12-recording-shim` feature — the shipping feature-off bridge always
+/// fails closed with `real_dispatch_path_not_linked`.
+pub const RXGD_CAP_CLUSTER_STORE_REAL_PASS: u32 = 1 << 8;
+
 /// Fallback reasons for gated passes, mirroring the five-value enum used by
 /// the GRX-008 fallback telemetry schema.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -2743,6 +2810,407 @@ impl Default for ParticlesCopyGate {
     }
 }
 
+/// Identity of the GRX-014 compiled cluster_store package (DXIL container, root
+/// signature, descriptor layout) as seen by the bridge. Template copy of
+/// [`ParticlesCopyDispatchPackage`] with the constants and digests pointing at
+/// the cluster_store artifacts (owner-approved `hlsl_bridge_workaround`
+/// provenance, Rurix-owned RTS0). cluster_store binds THREE structured-buffer
+/// resources (SRV t0 cluster_render + SRV t1 render_elements + UAV u0
+/// cluster_store) and — like particles_copy — requires NO 64-bit integer
+/// shader capability in its binding preflight (its b0 carries no i64 fields).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ClusterStoreDispatchPackage {
+    pub available: bool,
+    pub resource_count: u64,
+    pub root_constant_bytes: u64,
+    pub srv_count: u32,
+    pub uav_register: u32,
+    /// cluster_store carries no i64 push-constant fields (all 8 dwords are
+    /// u32), so the compiled package does NOT require the 64-bit integer
+    /// shader capability (contrast with the texture passes).
+    pub requires_shader_int64: bool,
+    pub dxil_sha256: &'static str,
+    pub root_signature_sha256: &'static str,
+    pub descriptor_layout_sha256: &'static str,
+}
+
+impl ClusterStoreDispatchPackage {
+    /// The compiled package identity that matches the tracked GRX-014 offline
+    /// compile evidence.
+    pub fn verified_offline_package() -> ClusterStoreDispatchPackage {
+        ClusterStoreDispatchPackage {
+            available: true,
+            resource_count: CLUSTER_STORE_RESOURCE_COUNT,
+            root_constant_bytes: CLUSTER_STORE_ROOT_CONSTANT_BYTES,
+            srv_count: 2,
+            uav_register: 0,
+            requires_shader_int64: false,
+            dxil_sha256: CLUSTER_STORE_OFFLINE_DXIL_SHA256,
+            root_signature_sha256: CLUSTER_STORE_OFFLINE_ROOT_SIGNATURE_SHA256,
+            descriptor_layout_sha256: CLUSTER_STORE_OFFLINE_DESCRIPTOR_LAYOUT_SHA256,
+        }
+    }
+
+    /// Verifies the compiled package is present and that its descriptor layout
+    /// and artifact digests match the tracked offline compile evidence. An
+    /// unavailable package maps to `compile_failed`; any layout or digest
+    /// mismatch maps to `validation_failed`.
+    fn verify_matches_offline_evidence(&self) -> Result<(), FallbackReason> {
+        if !self.available {
+            return Err(FallbackReason::CompileFailed);
+        }
+        if self.resource_count != CLUSTER_STORE_RESOURCE_COUNT
+            || self.root_constant_bytes != CLUSTER_STORE_ROOT_CONSTANT_BYTES
+            || self.srv_count != 2
+            || self.uav_register != 0
+            || self.requires_shader_int64
+        {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        if self.dxil_sha256 != CLUSTER_STORE_OFFLINE_DXIL_SHA256
+            || self.root_signature_sha256 != CLUSTER_STORE_OFFLINE_ROOT_SIGNATURE_SHA256
+            || self.descriptor_layout_sha256 != CLUSTER_STORE_OFFLINE_DESCRIPTOR_LAYOUT_SHA256
+        {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        Ok(())
+    }
+}
+
+/// GRX-014 gate for the `cluster_store` pass. Template copy of the GRX-013
+/// [`ParticlesCopyGate`] preflight → eligibility → binding-kind → math-parity
+/// → linked-dispatch chain, with every constant and digest pointing at the
+/// cluster_store package and a THREE-structured-buffer binding surface (SRV t0
+/// cluster_render + SRV t1 render_elements + UAV u0 cluster_store). Like
+/// particles_copy, the KERNEL binding preflight does NOT require the 64-bit
+/// integer shader capability (cluster_store's b0 carries no i64 fields — see
+/// the descriptor layout), so the int64 capability is checked only in the
+/// DISPATCH ELIGIBILITY gate (a device/recording-harness capability, distinct
+/// from the kernel's push-constant use).
+///
+/// The gate starts disabled and stays disabled: the default record path (no
+/// [`RXGD_CAP_CLUSTER_STORE_REAL_PASS`] arm) always returns
+/// `RXGD_STATUS_FALLBACK`, and the opt-in real-pass arm fails closed with
+/// `real_dispatch_path_not_linked` on the shipping feature-off bridge. No
+/// estimated GPU/CPU time is ever attributed to this pass while the gate is
+/// closed. Note this REMOVES the historical placeholder behaviour where
+/// `RXGD_PASS_CLUSTER_STORE` was recorded with estimated timings.
+#[derive(Debug)]
+pub struct ClusterStoreGate {
+    enabled: bool,
+    last_fallback_reason: Option<FallbackReason>,
+    dispatch_package: ClusterStoreDispatchPackage,
+    /// The FIRST missing real-pass prerequisite recorded by the last opt-in
+    /// real-pass attempt (the identity carried by the
+    /// `RXGD_CLUSTER_STORE_REAL_PASS_BLOCKED` diagnostic), if any.
+    last_real_pass_blocked: Option<&'static str>,
+    /// The diagnostic is printed once per session: bake_cluster runs every
+    /// frame and one machine-readable line is enough.
+    real_pass_blocked_emitted: bool,
+    #[cfg(feature = "d3d12-recording-shim")]
+    last_dispatch_record: Option<DispatchRecord>,
+}
+
+impl ClusterStoreGate {
+    pub fn new() -> ClusterStoreGate {
+        ClusterStoreGate {
+            enabled: false,
+            last_fallback_reason: None,
+            dispatch_package: ClusterStoreDispatchPackage::verified_offline_package(),
+            last_real_pass_blocked: None,
+            real_pass_blocked_emitted: false,
+            #[cfg(feature = "d3d12-recording-shim")]
+            last_dispatch_record: None,
+        }
+    }
+
+    /// Take the last measured dispatch record (if any). Only available under
+    /// the `d3d12-recording-shim` feature.
+    #[cfg(feature = "d3d12-recording-shim")]
+    pub fn take_last_dispatch_record(&mut self) -> Option<DispatchRecord> {
+        self.last_dispatch_record.take()
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    pub fn last_fallback_reason(&self) -> Option<FallbackReason> {
+        self.last_fallback_reason
+    }
+
+    /// The FIRST missing prerequisite recorded by the last opt-in real-pass
+    /// attempt, or None when no real-pass attempt was made (or a future attempt
+    /// actually dispatched).
+    pub fn last_real_pass_blocked(&self) -> Option<&'static str> {
+        self.last_real_pass_blocked
+    }
+
+    /// Pure runtime binding preflight: validates the cluster_store binding
+    /// contract and returns the fallback reason on the first failure.
+    ///
+    /// Exactly three structured-buffer resources in cluster_render /
+    /// render_elements / cluster_store order, the 32-byte b0
+    /// ClusterStore::PushConstant block, nonzero `cluster_screen_size[0..1]`
+    /// (dwords 2-3), a nonzero `render_element_count_div_32` (dword 4; the
+    /// native call site only dispatches when `render_element_count > 0`), and
+    /// nonzero buffer byte sizes. The 64-bit integer shader capability is
+    /// deliberately NOT checked here: cluster_store's b0 carries no i64 fields
+    /// (matching the tracked descriptor layout
+    /// `requires_64bit_integer_shader_capability=false`).
+    fn check_runtime_binding_preflight(
+        resources: &[RxGdResource],
+        push_constants: &[u8],
+    ) -> Result<(), FallbackReason> {
+        if resources.len() as u64 != CLUSTER_STORE_RESOURCE_COUNT {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        if push_constants.len() as u64 != CLUSTER_STORE_ROOT_CONSTANT_BYTES {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        // All slots (SRV t0 + SRV t1 + UAV u0) bind structured buffers; a
+        // texture never conforms.
+        if resources
+            .iter()
+            .any(|resource| resource.resource_type != RXGD_RESOURCE_BUFFER)
+        {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        // Nonzero buffer byte sizes (carried in `width`).
+        if resources.iter().any(|resource| resource.width == 0) {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        // b0 ClusterStore::PushConstant mirror: cluster_screen_size (dwords
+        // 2-3) and render_element_count_div_32 (dword 4) must be nonzero.
+        let screen_x = le_u32(
+            &push_constants[CLUSTER_STORE_CLUSTER_SCREEN_SIZE_OFFSET
+                ..CLUSTER_STORE_CLUSTER_SCREEN_SIZE_OFFSET + 4],
+        );
+        let screen_y = le_u32(
+            &push_constants[CLUSTER_STORE_CLUSTER_SCREEN_SIZE_OFFSET + 4
+                ..CLUSTER_STORE_CLUSTER_SCREEN_SIZE_OFFSET + 8],
+        );
+        if screen_x == 0 || screen_y == 0 {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        let count_div_32 = le_u32(
+            &push_constants[CLUSTER_STORE_RENDER_ELEMENT_COUNT_DIV_32_OFFSET
+                ..CLUSTER_STORE_RENDER_ELEMENT_COUNT_DIV_32_OFFSET + 4],
+        );
+        if count_div_32 == 0 {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        Ok(())
+    }
+
+    /// GRX-014 dispatch eligibility gate: the caller must arm the cluster_store
+    /// real-pass opt-in flag, the device must advertise the 64-bit integer
+    /// capability (a device/recording-harness capability, NOT a kernel binding
+    /// requirement — the harness-only force-capability-downgrade knob clears it
+    /// to exercise this red leg), the native D3D12 device/queue handles and all
+    /// three structured-buffer resource handles must be non-null, and the
+    /// compiled package layout/digests must still match the offline compile
+    /// evidence.
+    fn check_dispatch_eligibility(
+        &self,
+        caps: RxGdCaps,
+        resources: &[RxGdResource],
+        device: usize,
+        queue: usize,
+    ) -> Result<(), FallbackReason> {
+        if caps.flags & RXGD_CAP_CLUSTER_STORE_REAL_PASS == 0 {
+            return Err(FallbackReason::ManualDisabled);
+        }
+        if caps.flags & RXGD_CAP_SHADER_INT64 == 0 {
+            return Err(FallbackReason::UnsupportedDevice);
+        }
+        if device == 0 || queue == 0 {
+            return Err(FallbackReason::UnsupportedDevice);
+        }
+        if resources.iter().any(|resource| resource.native_handle == 0) {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        self.dispatch_package.verify_matches_offline_evidence()
+    }
+
+    /// GRX-014 kernel-binding-kind conformance check (per slot). The tracked
+    /// cluster_store kernel declares [`CLUSTER_STORE_KERNEL_RESOURCE_BINDING_KINDS`]
+    /// = `["structured_buffer", "structured_buffer", "rwstructured_buffer"]`;
+    /// slots 0-1 bind SRV structured buffers and slot 2 a UAV structured
+    /// buffer. A texture (`texture2d`/`rwtexture2d`) fails closed at any slot.
+    fn check_real_pass_binding_kind(resources: &[RxGdResource]) -> Result<(), FallbackReason> {
+        if resources.len() != CLUSTER_STORE_KERNEL_RESOURCE_BINDING_KINDS.len() {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        for (slot, resource) in resources.iter().enumerate() {
+            // A structured buffer provides the kind its slot declares
+            // (structured_buffer for the SRV slots t0/t1, rwstructured_buffer
+            // for the UAV slot u0); a texture provides a texture2d kind and
+            // never conforms.
+            let provided = match resource.resource_type {
+                RXGD_RESOURCE_BUFFER => CLUSTER_STORE_KERNEL_RESOURCE_BINDING_KINDS[slot],
+                _ => "texture2d",
+            };
+            if provided != CLUSTER_STORE_KERNEL_RESOURCE_BINDING_KINDS[slot] {
+                return Err(FallbackReason::ValidationFailed);
+            }
+        }
+        Ok(())
+    }
+
+    /// GRX-014 math-parity check. The tracked hlsl_bridge cluster_store
+    /// kernel's complete store-segment math is CPU-proven with an INTEGER-EXACT
+    /// reference in the pass `math_parity_evidence.json` (GPU observation
+    /// pending a real dispatch); any other status fails closed.
+    fn check_real_pass_math_parity() -> Result<(), FallbackReason> {
+        if CLUSTER_STORE_KERNEL_MATH_PARITY_STATUS
+            == "cluster_store_cpu_reference_proven_pending_gpu_dispatch"
+        {
+            return Ok(());
+        }
+        Err(FallbackReason::ValidationFailed)
+    }
+
+    /// Default record path (no real-pass arm): runs the runtime binding
+    /// preflight for an honest fallback reason and then keeps the gate closed
+    /// with `manual_disabled`. Never returns OK and never attributes estimated
+    /// GPU/CPU time.
+    fn record_default_fallback(
+        &mut self,
+        resources: &[RxGdResource],
+        push_constants: &[u8],
+    ) -> i32 {
+        if let Err(reason) = Self::check_runtime_binding_preflight(resources, push_constants) {
+            self.last_fallback_reason = Some(reason);
+            return RXGD_STATUS_FALLBACK;
+        }
+        self.enabled = false;
+        self.last_fallback_reason = Some(FallbackReason::ManualDisabled);
+        RXGD_STATUS_FALLBACK
+    }
+
+    /// GRX-014 opt-in gated REAL cluster_store pass attempt. Order: runtime
+    /// binding preflight → dispatch eligibility → per-slot kernel-binding-kind
+    /// conformance → math parity → linked real dispatch path. Every failure
+    /// returns `RXGD_STATUS_FALLBACK` with a recorded fallback reason and a
+    /// once-per-session machine-readable `RXGD_CLUSTER_STORE_REAL_PASS_BLOCKED
+    /// first_missing_prerequisite=...` diagnostic. The real dispatch invocation
+    /// is linked only under the `d3d12-recording-shim` feature; the shipping
+    /// feature-off bridge fails closed with `real_dispatch_path_not_linked`.
+    fn record_real_pass_attempt(
+        &mut self,
+        caps: RxGdCaps,
+        resources: &[RxGdResource],
+        push_constants: &[u8],
+        device: usize,
+        queue: usize,
+    ) -> i32 {
+        if let Err(reason) = Self::check_runtime_binding_preflight(resources, push_constants) {
+            return self.real_pass_blocked("runtime_binding_preflight_failed", reason);
+        }
+        if let Err(reason) = self.check_dispatch_eligibility(caps, resources, device, queue) {
+            return self.real_pass_blocked("dispatch_eligibility_failed", reason);
+        }
+        if let Err(reason) = Self::check_real_pass_binding_kind(resources) {
+            return self.real_pass_blocked("kernel_binding_kind_mismatch", reason);
+        }
+        if let Err(reason) = Self::check_real_pass_math_parity() {
+            return self.real_pass_blocked("math_parity_not_proven", reason);
+        }
+        #[cfg(feature = "d3d12-recording-shim")]
+        {
+            let instrumented = dispatch_instrumented();
+            return match self.attempt_real_dispatch_recording(
+                resources,
+                push_constants,
+                device,
+                queue,
+                instrumented,
+            ) {
+                Ok(()) => {
+                    self.last_real_pass_blocked = None;
+                    // Printed ONLY after a real recorded dispatch completed, and
+                    // ONLY in the instrumented mode (RXGD_DISPATCH_INSTRUMENTED)
+                    // so the production bench path emits zero per-dispatch stdout.
+                    // Deliberately NOT an `ERROR:` line and NOT an `RXGD_DIAG`
+                    // line, so runtime log audits stay clean.
+                    if instrumented {
+                        println!("RXGD_GODOT_RUNTIME_CLUSTER_STORE_REAL_PASS recorded=1");
+                    }
+                    RXGD_STATUS_OK
+                }
+                Err(reason) => self.real_pass_blocked("real_dispatch_recording_failed", reason),
+            };
+        }
+        #[cfg(not(feature = "d3d12-recording-shim"))]
+        self.real_pass_blocked(
+            "real_dispatch_path_not_linked",
+            FallbackReason::CompileFailed,
+        )
+    }
+
+    /// Record one real D3D12 cluster_store dispatch through the linked
+    /// recording shim's 3-structured-buffer entry (SRV t0 cluster_render + SRV
+    /// t1 render_elements + UAV u0 cluster_store + 32-byte b0 +
+    /// `ceil(cluster_screen_size / 8)²` dispatch shape).
+    #[cfg(feature = "d3d12-recording-shim")]
+    fn attempt_real_dispatch_recording(
+        &mut self,
+        resources: &[RxGdResource],
+        push_constants: &[u8],
+        device: usize,
+        queue: usize,
+        readback: bool,
+    ) -> Result<(), FallbackReason> {
+        let cluster_render = resources[0];
+        let render_elements = resources[1];
+        let cluster_store = resources[2];
+        let record = d3d12_recording_shim::record_cluster_store_dispatch(
+            device,
+            queue,
+            cluster_render.native_handle as usize,
+            render_elements.native_handle as usize,
+            cluster_store.native_handle as usize,
+            push_constants,
+            cluster_render.width,
+            render_elements.width,
+            cluster_store.width,
+            readback,
+        )?;
+        self.enabled = true;
+        self.last_dispatch_record = Some(record);
+        Ok(())
+    }
+
+    /// Records one blocked real-pass attempt: fallback status, reason, the
+    /// first-missing-prerequisite identity, and (once per session) the
+    /// machine-readable diagnostic line.
+    fn real_pass_blocked(&mut self, prerequisite: &'static str, reason: FallbackReason) -> i32 {
+        self.enabled = false;
+        self.last_fallback_reason = Some(reason);
+        self.last_real_pass_blocked = Some(prerequisite);
+        if !self.real_pass_blocked_emitted {
+            self.real_pass_blocked_emitted = true;
+            // Deliberately NOT an `ERROR:` line and NOT an `RXGD_DIAG` line —
+            // either would fail the runtime log audits.
+            println!(
+                "RXGD_CLUSTER_STORE_REAL_PASS_BLOCKED first_missing_prerequisite={} \
+                 fallback_reason={} kernel_binding={} default_enable_state=disabled",
+                prerequisite,
+                reason.as_str(),
+                CLUSTER_STORE_KERNEL_RESOURCE_BINDING_KIND,
+            );
+        }
+        RXGD_STATUS_FALLBACK
+    }
+}
+
+impl Default for ClusterStoreGate {
+    fn default() -> ClusterStoreGate {
+        ClusterStoreGate::new()
+    }
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RxGdCaps {
@@ -2872,6 +3340,7 @@ struct SessionInner {
     ssao_blur_gate: SsaoBlurGate,
     taa_resolve_gate: TaaResolveGate,
     particles_copy_gate: ParticlesCopyGate,
+    cluster_store_gate: ClusterStoreGate,
 }
 
 impl SessionInner {
@@ -2891,6 +3360,7 @@ impl SessionInner {
             ssao_blur_gate: SsaoBlurGate::new(),
             taa_resolve_gate: TaaResolveGate::new(),
             particles_copy_gate: ParticlesCopyGate::new(),
+            cluster_store_gate: ClusterStoreGate::new(),
         }
     }
 }
@@ -3267,6 +3737,49 @@ pub extern "C" fn rxgd_record_pass(
             return rc;
         }
 
+        if pass_id == RXGD_PASS_CLUSTER_STORE {
+            let caps = inner.caps;
+            let device = inner.device;
+            let queue = inner.queue;
+            // GRX-014: the opt-in real-pass arm routes through the gated
+            // real-pass attempt (fail-closed; see
+            // RXGD_CAP_CLUSTER_STORE_REAL_PASS). Every other call keeps the
+            // default fail-closed fallback path. This replaces the historical
+            // placeholder estimated-timing path for RXGD_PASS_CLUSTER_STORE: no
+            // estimated cluster_store GPU time is attributed any more.
+            let rc = if caps.flags & RXGD_CAP_CLUSTER_STORE_REAL_PASS != 0 {
+                inner.cluster_store_gate.record_real_pass_attempt(
+                    caps,
+                    resource_slice,
+                    push_constant_slice,
+                    device,
+                    queue,
+                )
+            } else {
+                inner
+                    .cluster_store_gate
+                    .record_default_fallback(resource_slice, push_constant_slice)
+            };
+            if rc == RXGD_STATUS_OK {
+                // A real bridge dispatch was recorded through the recording
+                // shim (only reachable under the `d3d12-recording-shim`
+                // feature). Attribute measured CPU record time; no GPU
+                // timestamp is implemented (gpu_timestamp_status=not_yet).
+                inner.recorded_passes += 1;
+                #[cfg(feature = "d3d12-recording-shim")]
+                {
+                    if let Some(record) = inner.cluster_store_gate.take_last_dispatch_record() {
+                        inner.estimated_cpu_record_ns += record.cpu_record_ns;
+                    }
+                }
+                inner.last_error = RXGD_STATUS_OK;
+                return RXGD_STATUS_OK;
+            }
+            inner.fallback_passes += 1;
+            inner.last_error = rc;
+            return rc;
+        }
+
         inner.recorded_passes += 1;
         inner.estimated_cpu_record_ns += 25_000 + resource_count * 1_000;
         inner.estimated_gpu_time_ns += estimated_pass_gpu_time(pass_id);
@@ -3455,12 +3968,12 @@ fn pass_supported(pass_id: u32) -> bool {
 
 fn estimated_pass_gpu_time(pass_id: u32) -> u64 {
     match pass_id {
-        RXGD_PASS_CLUSTER_STORE => 80_000,
         RXGD_PASS_SSIL_BLUR => 120_000,
         // RXGD_PASS_LUMINANCE_REDUCTION is gated (GRX-009),
         // RXGD_PASS_TONEMAP is gated (GRX-010), RXGD_PASS_SSAO_BLUR is gated
-        // (GRX-011), RXGD_PASS_TAA_RESOLVE is gated (GRX-012), and
-        // RXGD_PASS_PARTICLES_COPY is gated (GRX-013); none of them reaches the
+        // (GRX-011), RXGD_PASS_TAA_RESOLVE is gated (GRX-012),
+        // RXGD_PASS_PARTICLES_COPY is gated (GRX-013), and
+        // RXGD_PASS_CLUSTER_STORE is gated (GRX-014); none of them reaches the
         // estimated-timing path while its gate is closed.
         RXGD_PASS_GPU_CULLING => 140_000,
         RXGD_PASS_INDIRECT_ARGS => 60_000,
@@ -3514,13 +4027,15 @@ fn dispatch_instrumented() -> bool {
 #[cfg(feature = "d3d12-recording-shim")]
 mod d3d12_recording_shim {
     use super::{
+        CLUSTER_STORE_OFFLINE_DXIL_SHA256, CLUSTER_STORE_OFFLINE_ROOT_SIGNATURE_SHA256,
         DispatchRecord, FallbackReason, LUMINANCE_OFFLINE_DXIL_SHA256,
         LUMINANCE_OFFLINE_ROOT_SIGNATURE_SHA256, PARTICLES_COPY_OFFLINE_DXIL_SHA256,
-        PARTICLES_COPY_OFFLINE_ROOT_SIGNATURE_SHA256, PyramidLevel, RXGD_PASS_LUMINANCE_REDUCTION,
-        RXGD_PASS_PARTICLES_COPY, RXGD_PASS_SSAO_BLUR, RXGD_PASS_TAA_RESOLVE, RXGD_PASS_TONEMAP,
-        SSAO_BLUR_OFFLINE_DXIL_SHA256, SSAO_BLUR_OFFLINE_ROOT_SIGNATURE_SHA256,
-        TAA_RESOLVE_OFFLINE_DXIL_SHA256, TAA_RESOLVE_OFFLINE_ROOT_SIGNATURE_SHA256,
-        TONEMAP_OFFLINE_DXIL_SHA256, TONEMAP_OFFLINE_ROOT_SIGNATURE_SHA256,
+        PARTICLES_COPY_OFFLINE_ROOT_SIGNATURE_SHA256, PyramidLevel, RXGD_PASS_CLUSTER_STORE,
+        RXGD_PASS_LUMINANCE_REDUCTION, RXGD_PASS_PARTICLES_COPY, RXGD_PASS_SSAO_BLUR,
+        RXGD_PASS_TAA_RESOLVE, RXGD_PASS_TONEMAP, SSAO_BLUR_OFFLINE_DXIL_SHA256,
+        SSAO_BLUR_OFFLINE_ROOT_SIGNATURE_SHA256, TAA_RESOLVE_OFFLINE_DXIL_SHA256,
+        TAA_RESOLVE_OFFLINE_ROOT_SIGNATURE_SHA256, TONEMAP_OFFLINE_DXIL_SHA256,
+        TONEMAP_OFFLINE_ROOT_SIGNATURE_SHA256,
     };
     use core::ffi::c_void;
 
@@ -3596,6 +4111,17 @@ mod d3d12_recording_shim {
     );
     const PARTICLES_COPY_RTS0: &[u8] = include_bytes!(
         "../../../spike/godot-rurix/passes/particles_copy/artifacts/particles_copy.rts0.bin"
+    );
+
+    /// Tracked offline cluster_store artifacts (GRX-014, raw-buffer hlsl_bridge
+    /// workaround package; StructuredBuffer SRV t0 cluster_render + SRV t1
+    /// render_elements + RWStructuredBuffer UAV u0 cluster_store). Same
+    /// embedding + digest discipline as the other pass artifacts.
+    const CLUSTER_STORE_DXIL: &[u8] = include_bytes!(
+        "../../../spike/godot-rurix/passes/cluster_store/artifacts/cluster_store.dxil"
+    );
+    const CLUSTER_STORE_RTS0: &[u8] = include_bytes!(
+        "../../../spike/godot-rurix/passes/cluster_store/artifacts/cluster_store.rts0.bin"
     );
 
     #[repr(C)]
@@ -3745,6 +4271,35 @@ mod d3d12_recording_shim {
             push_constant_len: usize,
             src_bytes: u32,
             dst_bytes: u32,
+            readback: u32,
+            out: *mut RxgdRecordResult,
+        ) -> i32;
+
+        // GRX-014: 2-SRV (t0 cluster_render uint words, t1 render_elements
+        // 80-byte structs) + 1-UAV (u0 cluster_store uint words) single-dispatch
+        // entry for the cluster_store kernel. Additive; the existing 2-resource
+        // / taa / particles entries are unchanged. `*_bytes` are the buffer byte
+        // sizes; the dispatch is `ceil(cluster_screen_size / 8)²` where
+        // cluster_screen_size is read from the b0 ClusterStore::PushConstant
+        // mirror (dwords 2-3).
+        #[allow(clippy::too_many_arguments)]
+        fn rxgd_cluster_store_record_dispatch(
+            abi_version: u32,
+            pass_id: u32,
+            device: *mut c_void,
+            queue: *mut c_void,
+            dxil: *const u8,
+            dxil_len: usize,
+            rts0: *const u8,
+            rts0_len: usize,
+            cluster_render: *mut c_void,
+            render_elements: *mut c_void,
+            cluster_store: *mut c_void,
+            push_constants: *const u8,
+            push_constant_len: usize,
+            cluster_render_bytes: u32,
+            render_elements_bytes: u32,
+            cluster_store_bytes: u32,
             readback: u32,
             out: *mut RxgdRecordResult,
         ) -> i32;
@@ -4076,6 +4631,113 @@ mod d3d12_recording_shim {
             let detail = String::from_utf8_lossy(&out.error_detail[..detail_len]);
             eprintln!(
                 "RXGD_SHIM_DIAG rxgd_particles_copy_record_dispatch rc={rc} dxil_signed={} detail=\"{detail}\"",
+                out.dxil_signed
+            );
+            return Err(FallbackReason::ValidationFailed);
+        }
+        Ok(DispatchRecord {
+            fence_completed_value: out.fence_completed_value,
+            dispatch: (out.dispatch_x, out.dispatch_y, out.dispatch_z),
+            dst_width: out.dst_width,
+            dst_height: out.dst_height,
+            readback_checksum: out.readback_checksum,
+            dst_first_value: out.dst_first_value,
+            dxil_signed: out.dxil_signed != 0,
+            cpu_record_ns,
+        })
+    }
+
+    /// GRX-014: record one real cluster_store compute dispatch through the
+    /// shim's 3-structured-buffer entry (SRV t0 cluster_render + SRV t1
+    /// render_elements + UAV u0 cluster_store). Verifies the embedded
+    /// cluster_store artifact digests against the baked offline evidence, then
+    /// hands the three real `ID3D12Resource*` structured-buffer handles + their
+    /// byte sizes + the pass's DXIL/RTS0 bytes to the shim (which derives the
+    /// `ceil(cluster_screen_size / 8)²` dispatch from the 32-byte b0). Returns
+    /// the measured [`DispatchRecord`] on success, or a fallback reason if the
+    /// embedded artifacts do not hash to the offline digests, the shim ABI does
+    /// not match, or the shim reports a D3D12 failure.
+    #[allow(clippy::too_many_arguments)]
+    pub fn record_cluster_store_dispatch(
+        device: usize,
+        queue: usize,
+        cluster_render: usize,
+        render_elements: usize,
+        cluster_store: usize,
+        push_constants: &[u8],
+        cluster_render_bytes: u32,
+        render_elements_bytes: u32,
+        cluster_store_bytes: u32,
+        readback: bool,
+    ) -> Result<DispatchRecord, FallbackReason> {
+        // Artifact integrity: the embedded bytes must hash to the baked offline
+        // compile evidence digests, or the runtime binding does not correspond
+        // to the tracked compiled package and must not drive a real dispatch.
+        if sha256_hex(CLUSTER_STORE_DXIL) != CLUSTER_STORE_OFFLINE_DXIL_SHA256
+            || sha256_hex(CLUSTER_STORE_RTS0) != CLUSTER_STORE_OFFLINE_ROOT_SIGNATURE_SHA256
+        {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        // SAFETY: the shim ABI query takes no arguments and only returns a
+        // compile-time constant; it dereferences no pointer.
+        let shim_abi = unsafe { rxgd_luminance_record_shim_abi_version() };
+        if shim_abi != SHIM_ABI_VERSION {
+            return Err(FallbackReason::ValidationFailed);
+        }
+
+        let mut out = RxgdRecordResult {
+            fence_completed_value: 0,
+            dispatch_x: 0,
+            dispatch_y: 0,
+            dispatch_z: 0,
+            dst_width: 0,
+            dst_height: 0,
+            readback_checksum: 0,
+            dst_first_value: 0.0,
+            dxil_signed: 0,
+            error_detail: [0u8; 256],
+        };
+        let start = std::time::Instant::now();
+        // SAFETY: the DXIL/RTS0 slices are embedded read-only data with their
+        // true `len()`, `push_constants` is a caller-owned read-only slice with
+        // its true `len()`, and `out` is an exclusive local. The
+        // device/queue/resource pointer values were validated non-null by the
+        // dispatch eligibility gate and originate from real D3D12 objects. The
+        // shim honours the versioned ABI (first arg checked against
+        // `SHIM_ABI_VERSION`), only reads the byte inputs, records one dispatch,
+        // writes `out`, and retains no pointer past the call.
+        let rc = unsafe {
+            rxgd_cluster_store_record_dispatch(
+                SHIM_ABI_VERSION,
+                RXGD_PASS_CLUSTER_STORE,
+                device as *mut c_void,
+                queue as *mut c_void,
+                CLUSTER_STORE_DXIL.as_ptr(),
+                CLUSTER_STORE_DXIL.len(),
+                CLUSTER_STORE_RTS0.as_ptr(),
+                CLUSTER_STORE_RTS0.len(),
+                cluster_render as *mut c_void,
+                render_elements as *mut c_void,
+                cluster_store as *mut c_void,
+                push_constants.as_ptr(),
+                push_constants.len(),
+                cluster_render_bytes,
+                render_elements_bytes,
+                cluster_store_bytes,
+                if readback { 1 } else { 0 },
+                &mut out,
+            )
+        };
+        let cpu_record_ns = start.elapsed().as_nanos() as u64;
+        if rc != 0 {
+            let detail_len = out
+                .error_detail
+                .iter()
+                .position(|&b| b == 0)
+                .unwrap_or(out.error_detail.len());
+            let detail = String::from_utf8_lossy(&out.error_detail[..detail_len]);
+            eprintln!(
+                "RXGD_SHIM_DIAG rxgd_cluster_store_record_dispatch rc={rc} dxil_signed={} detail=\"{detail}\"",
                 out.dxil_signed
             );
             return Err(FallbackReason::ValidationFailed);
@@ -6857,6 +7519,368 @@ mod tests {
         assert_eq!(
             PARTICLES_COPY_KERNEL_RESOURCE_BINDING_KINDS,
             ["structured_buffer", "rwstructured_buffer"]
+        );
+    }
+
+    // ---- GRX-014 cluster_store gate (3-structured-buffer pass) ----
+
+    fn cluster_store_real_pass_optin_caps() -> RxGdCaps {
+        let mut caps = RxGdCaps::d3d12_forward_plus();
+        caps.flags = RXGD_CAP_SHADER_INT64 | RXGD_CAP_CLUSTER_STORE_REAL_PASS;
+        caps
+    }
+
+    fn cluster_store_push_constants(
+        cluster_screen: (u32, u32),
+        render_element_count_div_32: u32,
+    ) -> [u8; CLUSTER_STORE_ROOT_CONSTANT_BYTES as usize] {
+        // 32-byte ClusterStore::PushConstant mirror. The preflight consumes
+        // cluster_screen_size (dwords 2-3) and render_element_count_div_32
+        // (dword 4); the remaining derived-size fields are filled with the
+        // coherent 4x3 / 64-elements-per-type fixture values.
+        let mut bytes = [0u8; CLUSTER_STORE_ROOT_CONSTANT_BYTES as usize];
+        bytes[0..4].copy_from_slice(&264u32.to_le_bytes()); // cluster_render_data_size
+        bytes[4..8].copy_from_slice(&8u32.to_le_bytes()); // max_render_element_count_div_32
+        bytes[CLUSTER_STORE_CLUSTER_SCREEN_SIZE_OFFSET
+            ..CLUSTER_STORE_CLUSTER_SCREEN_SIZE_OFFSET + 4]
+            .copy_from_slice(&cluster_screen.0.to_le_bytes());
+        bytes[CLUSTER_STORE_CLUSTER_SCREEN_SIZE_OFFSET + 4
+            ..CLUSTER_STORE_CLUSTER_SCREEN_SIZE_OFFSET + 8]
+            .copy_from_slice(&cluster_screen.1.to_le_bytes());
+        bytes[CLUSTER_STORE_RENDER_ELEMENT_COUNT_DIV_32_OFFSET
+            ..CLUSTER_STORE_RENDER_ELEMENT_COUNT_DIV_32_OFFSET + 4]
+            .copy_from_slice(&render_element_count_div_32.to_le_bytes());
+        bytes[20..24].copy_from_slice(&2u32.to_le_bytes()); // max_cluster_element_count_div_32
+        bytes
+    }
+
+    /// A fully valid cluster_store binding: three structured-buffer resources
+    /// (cluster_render + render_elements + cluster_store) with non-null native
+    /// handles and nonzero byte sizes, plus a 32-byte b0 with nonzero
+    /// cluster_screen_size and render_element_count_div_32.
+    fn valid_cluster_store_binding() -> (
+        [RxGdResource; 3],
+        [u8; CLUSTER_STORE_ROOT_CONSTANT_BYTES as usize],
+    ) {
+        let resources = [
+            RxGdResource::buffer(801, 12 * 264 * 4), // cluster_render (SRV t0)
+            RxGdResource::buffer(802, 256 * 80),     // render_elements (SRV t1)
+            RxGdResource::buffer(803, 12 * 4 * 34 * 4), // cluster_store (UAV u0)
+        ];
+        let push_constants = cluster_store_push_constants((4, 3), 2);
+        (resources, push_constants)
+    }
+
+    #[test]
+    fn cluster_store_cap_flag_is_reserved_bit_eight() {
+        assert_eq!(RXGD_CAP_CLUSTER_STORE_REAL_PASS, 1 << 8);
+        // ABI stays v1: the flag reuses the existing RxGdCaps.flags field.
+        assert_eq!(rxgd_abi_version(), RXGD_ABI_VERSION);
+    }
+
+    #[test]
+    fn cluster_store_defaults_disabled_and_falls_back() {
+        // GRX-014: the default path (no opt-in flag) must fall back and must
+        // not attribute the historical placeholder estimated GPU time
+        // (RXGD_PASS_CLUSTER_STORE used to be an estimated-timing pass).
+        let session = create_session();
+        let resource = RxGdResource::buffer(821, 12 * 264 * 4);
+        assert_eq!(rxgd_register_buffer(session, resource), RXGD_STATUS_OK);
+        assert_eq!(
+            rxgd_record_pass(
+                session,
+                RXGD_PASS_CLUSTER_STORE,
+                &resource,
+                1,
+                core::ptr::null(),
+                0
+            ),
+            RXGD_STATUS_FALLBACK
+        );
+        let mut stats = zeroed_stats();
+        assert_eq!(
+            rxgd_collect_timestamps(session, 70, &mut stats),
+            RXGD_STATUS_OK
+        );
+        assert_eq!(stats.recorded_passes, 0);
+        assert_eq!(stats.fallback_passes, 1);
+        assert_eq!(stats.gpu_time_ns, 0);
+        assert_eq!(stats.cpu_record_ns, 0);
+        assert_eq!(stats.last_error, RXGD_STATUS_FALLBACK);
+        rxgd_destroy_session(session);
+    }
+
+    #[test]
+    fn cluster_store_valid_default_binding_still_falls_back_manual_disabled() {
+        let (resources, push_constants) = valid_cluster_store_binding();
+        let mut gate = ClusterStoreGate::new();
+        assert_eq!(
+            gate.record_default_fallback(&resources, &push_constants),
+            RXGD_STATUS_FALLBACK
+        );
+        assert!(!gate.is_enabled());
+        assert_eq!(
+            gate.last_fallback_reason(),
+            Some(FallbackReason::ManualDisabled)
+        );
+        assert_eq!(gate.last_real_pass_blocked(), None);
+    }
+
+    /// GRX-014: a fully valid, fully opted-in real-pass attempt passes every
+    /// software gate and reaches the linked-dispatch boundary. In the shipping
+    /// feature-off build no dispatch path is compiled in, so the attempt fails
+    /// closed with `real_dispatch_path_not_linked`.
+    #[cfg(not(feature = "d3d12-recording-shim"))]
+    #[test]
+    fn cluster_store_real_pass_optin_blocks_on_missing_dispatch_path() {
+        let (resources, push_constants) = valid_cluster_store_binding();
+        let session = create_session_with_caps(cluster_store_real_pass_optin_caps());
+        assert_eq!(
+            rxgd_record_pass(
+                session,
+                RXGD_PASS_CLUSTER_STORE,
+                resources.as_ptr(),
+                resources.len() as u64,
+                push_constants.as_ptr(),
+                push_constants.len() as u64,
+            ),
+            RXGD_STATUS_FALLBACK
+        );
+        let mut stats = zeroed_stats();
+        assert_eq!(
+            rxgd_collect_timestamps(session, 71, &mut stats),
+            RXGD_STATUS_OK
+        );
+        assert_eq!(stats.recorded_passes, 0);
+        assert_eq!(stats.fallback_passes, 1);
+        assert_eq!(stats.gpu_time_ns, 0);
+        assert_eq!(stats.cpu_record_ns, 0);
+        rxgd_destroy_session(session);
+
+        let mut gate = ClusterStoreGate::new();
+        let rc = gate.record_real_pass_attempt(
+            cluster_store_real_pass_optin_caps(),
+            &resources,
+            &push_constants,
+            1,
+            2,
+        );
+        assert_eq!(rc, RXGD_STATUS_FALLBACK);
+        assert!(!gate.is_enabled());
+        assert_eq!(
+            gate.last_fallback_reason(),
+            Some(FallbackReason::CompileFailed)
+        );
+        assert_eq!(
+            gate.last_real_pass_blocked(),
+            Some("real_dispatch_path_not_linked")
+        );
+    }
+
+    #[test]
+    fn cluster_store_real_pass_capability_downgrade_is_unsupported_device() {
+        // cluster_store carries no i64 push-constant fields, so int64 is NOT
+        // part of its binding preflight; clearing it fails the DISPATCH
+        // ELIGIBILITY gate (not the preflight) with unsupported_device (the
+        // GRX-013 precedent).
+        let (resources, push_constants) = valid_cluster_store_binding();
+        let mut caps = cluster_store_real_pass_optin_caps();
+        caps.flags &= !RXGD_CAP_SHADER_INT64;
+        let mut gate = ClusterStoreGate::new();
+        let rc = gate.record_real_pass_attempt(caps, &resources, &push_constants, 1, 2);
+        assert_eq!(rc, RXGD_STATUS_FALLBACK);
+        assert!(!gate.is_enabled());
+        assert_eq!(
+            gate.last_fallback_reason(),
+            Some(FallbackReason::UnsupportedDevice)
+        );
+        assert_eq!(
+            gate.last_real_pass_blocked(),
+            Some("dispatch_eligibility_failed")
+        );
+    }
+
+    #[test]
+    fn cluster_store_real_pass_null_resource_handle_is_validation_failed() {
+        let (mut resources, push_constants) = valid_cluster_store_binding();
+        resources[2].native_handle = 0;
+        let mut gate = ClusterStoreGate::new();
+        let rc = gate.record_real_pass_attempt(
+            cluster_store_real_pass_optin_caps(),
+            &resources,
+            &push_constants,
+            1,
+            2,
+        );
+        assert_eq!(rc, RXGD_STATUS_FALLBACK);
+        assert_eq!(
+            gate.last_fallback_reason(),
+            Some(FallbackReason::ValidationFailed)
+        );
+        assert_eq!(
+            gate.last_real_pass_blocked(),
+            Some("dispatch_eligibility_failed")
+        );
+    }
+
+    #[test]
+    fn cluster_store_preflight_rejects_shape_and_field_mismatches() {
+        // Wrong resource count fails.
+        let (resources, push_constants) = valid_cluster_store_binding();
+        assert_eq!(
+            ClusterStoreGate::check_runtime_binding_preflight(&resources[..2], &push_constants),
+            Err(FallbackReason::ValidationFailed)
+        );
+
+        // Wrong b0 size fails.
+        let short = [0u8; 16];
+        assert_eq!(
+            ClusterStoreGate::check_runtime_binding_preflight(&resources, &short),
+            Err(FallbackReason::ValidationFailed)
+        );
+
+        // A texture at any slot fails (cluster_store is an all-buffer pass).
+        let mut with_texture = resources;
+        with_texture[1] = RxGdResource::texture(802, 32, 32, 2);
+        assert_eq!(
+            ClusterStoreGate::check_runtime_binding_preflight(&with_texture, &push_constants),
+            Err(FallbackReason::ValidationFailed)
+        );
+
+        // Zero cluster_screen_size dims fail.
+        let zero_width = cluster_store_push_constants((0, 3), 2);
+        assert_eq!(
+            ClusterStoreGate::check_runtime_binding_preflight(&resources, &zero_width),
+            Err(FallbackReason::ValidationFailed)
+        );
+        let zero_height = cluster_store_push_constants((4, 0), 2);
+        assert_eq!(
+            ClusterStoreGate::check_runtime_binding_preflight(&resources, &zero_height),
+            Err(FallbackReason::ValidationFailed)
+        );
+
+        // Zero render_element_count_div_32 fails (the native call site only
+        // dispatches when render_element_count > 0).
+        let zero_count = cluster_store_push_constants((4, 3), 0);
+        assert_eq!(
+            ClusterStoreGate::check_runtime_binding_preflight(&resources, &zero_count),
+            Err(FallbackReason::ValidationFailed)
+        );
+
+        // Zero destination byte size fails.
+        let mut zero_dst = resources;
+        zero_dst[2].width = 0;
+        assert_eq!(
+            ClusterStoreGate::check_runtime_binding_preflight(&zero_dst, &push_constants),
+            Err(FallbackReason::ValidationFailed)
+        );
+
+        // A coherent 3-buffer binding passes the pure preflight.
+        assert_eq!(
+            ClusterStoreGate::check_runtime_binding_preflight(&resources, &push_constants),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn cluster_store_real_pass_binding_kind_check_accepts_buffer_slots_only() {
+        let (resources, _) = valid_cluster_store_binding();
+        assert_eq!(
+            ClusterStoreGate::check_real_pass_binding_kind(&resources),
+            Ok(())
+        );
+        // Too few resources fails.
+        assert_eq!(
+            ClusterStoreGate::check_real_pass_binding_kind(&resources[..2]),
+            Err(FallbackReason::ValidationFailed)
+        );
+        // A texture at either SRV slot fails closed (texture2d never conforms
+        // to a structured_buffer slot).
+        for srv_slot in [0usize, 1usize] {
+            let mut texture_srv = resources;
+            texture_srv[srv_slot] = RxGdResource::texture(801, 32, 32, 2);
+            assert_eq!(
+                ClusterStoreGate::check_real_pass_binding_kind(&texture_srv),
+                Err(FallbackReason::ValidationFailed)
+            );
+        }
+        // A texture at the UAV slot fails closed too.
+        let mut texture_uav = resources;
+        texture_uav[2] = RxGdResource::texture(803, 32, 32, 2);
+        assert_eq!(
+            ClusterStoreGate::check_real_pass_binding_kind(&texture_uav),
+            Err(FallbackReason::ValidationFailed)
+        );
+    }
+
+    #[test]
+    fn cluster_store_dispatch_package_matches_offline_evidence() {
+        let package = ClusterStoreDispatchPackage::verified_offline_package();
+        assert!(package.verify_matches_offline_evidence().is_ok());
+        assert_eq!(package.resource_count, 3);
+        assert_eq!(package.srv_count, 2);
+        assert!(!package.requires_shader_int64);
+
+        let mut tampered = package;
+        tampered.available = false;
+        assert_eq!(
+            tampered.verify_matches_offline_evidence(),
+            Err(FallbackReason::CompileFailed)
+        );
+
+        let mut tampered = package;
+        tampered.dxil_sha256 = "0000000000000000000000000000000000000000000000000000000000000000";
+        assert_eq!(
+            tampered.verify_matches_offline_evidence(),
+            Err(FallbackReason::ValidationFailed)
+        );
+
+        let mut tampered = package;
+        tampered.requires_shader_int64 = true;
+        assert_eq!(
+            tampered.verify_matches_offline_evidence(),
+            Err(FallbackReason::ValidationFailed)
+        );
+    }
+
+    #[test]
+    fn cluster_store_real_pass_hash_mismatch_blocks_on_validation() {
+        let (resources, push_constants) = valid_cluster_store_binding();
+        let mut gate = ClusterStoreGate::new();
+        gate.dispatch_package.dxil_sha256 =
+            "0000000000000000000000000000000000000000000000000000000000000000";
+        let rc = gate.record_real_pass_attempt(
+            cluster_store_real_pass_optin_caps(),
+            &resources,
+            &push_constants,
+            1,
+            2,
+        );
+        assert_eq!(rc, RXGD_STATUS_FALLBACK);
+        assert_eq!(
+            gate.last_fallback_reason(),
+            Some(FallbackReason::ValidationFailed)
+        );
+        assert_eq!(
+            gate.last_real_pass_blocked(),
+            Some("dispatch_eligibility_failed")
+        );
+    }
+
+    #[test]
+    fn cluster_store_math_parity_gate_allows_cpu_proven_store() {
+        assert_eq!(
+            CLUSTER_STORE_KERNEL_MATH_PARITY_STATUS,
+            "cluster_store_cpu_reference_proven_pending_gpu_dispatch"
+        );
+        assert_eq!(ClusterStoreGate::check_real_pass_math_parity(), Ok(()));
+        assert_eq!(
+            CLUSTER_STORE_KERNEL_RESOURCE_BINDING_KINDS,
+            [
+                "structured_buffer",
+                "structured_buffer",
+                "rwstructured_buffer"
+            ]
         );
     }
 

@@ -1,0 +1,82 @@
+// GRX-014 cluster_store kernel Rurix math source (forward-looking; NOT yet
+// compilable to a runtime-mappable DXIL container).
+//
+// This documents the math of Godot's cluster_store.glsl — the compute merge
+// segment of ClusterBuilderRD::bake_cluster() ("Pack 3D Cluster Elements"),
+// which packs the raster-segment per-cluster usage/depth bitfields into the
+// renderer-facing cluster buffer — and is the math target the DXC-compiled
+// bridge kernel `artifacts/hlsl_bridge/cluster_store_pack.hlsl` must stay
+// equivalent to. The pass is a single kernel with no mode switches, so the
+// in-scope math is the COMPLETE store segment (the rasterization segment that
+// produces the input is a graphics pipeline and stays native).
+//
+// ROUTE CHOICE — why the canonical package is the hlsl_bridge workaround
+// instead of a rurixc-owned raw-buffer compile (cluster_store is an all
+// raw-buffer / SSBO pass, so the GRX-009 texture-intrinsic llc blocker does
+// NOT apply here; the blockers below are different):
+//   1. No u32 buffer views. The DXIL compute-body lowering accepts only
+//      `View<global, f32>` / `ViewMut<global, f32>` buffer views (and the
+//      f32 texture views) — see src/rurixc/src/dxil_codegen.rs L1754/L1786.
+//      All three cluster_store buffers are u32-word SSBOs (`uint data[]` /
+//      four leading u32 fields of RenderElementData), and every operation is
+//      bit-pattern math on u32 words; an f32 view cannot carry arbitrary u32
+//      payloads bit-faithfully (NaN payloads / denormal flushing), so the
+//      kernel cannot be expressed over the available view types at all.
+//   2. Integer bit operations are not wired on the DXIL path. The kernel is
+//      built from `&`, `|`, `~`, `<<`, `>>` word manipulation. MIR carries
+//      BinOp::BitAnd/BitOr/BitXor/Shl/Shr (src/rurixc/src/mir.rs L643-647),
+//      but the DXIL backend (src/rurixc/src/dxil_codegen.rs) has no lowering
+//      for any of them.
+//   3. No findLSB/findMSB intrinsics. The usage-word scan loop and the
+//      z-range decode need findLSB/findMSB (HLSL firstbitlow/firstbithigh);
+//      the Rurix lang subset has no such intrinsic on any backend (the
+//      NVPTX DeviceMathFn set is transcendental/sqrt-only).
+// The RTS0 root signature is still Rurix-owned (rurixc::binding_layout),
+// mirroring the GRX-013 particles_copy buffer-pass precedent.
+//
+// Because ALL THREE blockers sit on the load/store and operator layer (not on
+// a branch of the math), no lane of this kernel is expressible in the current
+// Rurix lang subset — unlike GRX-013, where the ALIGN_DISABLED float lane
+// could be sketched as View<f32> math. The pseudocode below is therefore
+// documentation only (u32 semantics annotated), NOT compilable Rurix source;
+// the executable math lives in the HLSL bridge kernel.
+//
+// Per-cluster math (see PASS_CONTRACT.md sec 5 and resource_mapping.md):
+//
+//   pos = global_id.xy; if pos >= cluster_screen_size: return
+//   base_offset = pos.x + cluster_screen_size.x * pos.y
+//   src_offset  = base_offset * cluster_render_data_size
+//   for render_element_offset in 0..render_element_count_div_32:
+//       bits = cluster_render[src_offset + render_element_offset]   // u32
+//       while bits != 0:
+//           index_bit = findLSB(bits)
+//           index     = render_element_offset * 32 + index_bit
+//           type      = render_elements[index].type                 // u32 0-3
+//           z_range   = cluster_render[src_offset
+//                         + max_render_element_count_div_32 + index]
+//           if z_range != 0:                        // "should always be > 0"
+//               from_z = findLSB(z_range)
+//               to_z   = findMSB(z_range) + 1
+//               if render_elements[index].touches_near: from_z = 0
+//               if render_elements[index].touches_far:  to_z   = 32
+//               dst_offset = (base_offset
+//                             + type * (cluster_screen_size.x
+//                                       * cluster_screen_size.y))
+//                            * (max_cluster_element_count_div_32 + 32)
+//               orig = render_elements[index].original_index
+//               for i in from_z..to_z:
+//                   slice_ofs = dst_offset
+//                               + max_cluster_element_count_div_32 + i
+//                   minmax = cluster_store[slice_ofs]
+//                   if minmax == 0: minmax = 0xFFFF   // min 0xFFFF, max 0
+//                   elem_min = min(orig, minmax & 0xFFFF)
+//                   elem_max = max(orig + 1, minmax >> 16)  // store plus one
+//                   cluster_store[slice_ofs] = elem_min | (elem_max << 16)
+//               cluster_store[dst_offset + (orig >> 5)] |= 1 << (orig & 0x1F)
+//           bits &= ~(1 << index_bit)
+//
+// No atomics: each thread owns one cluster (base_offset) and all of its
+// writes land in that cluster's own (cluster, type) blocks, so threads never
+// contend — the bridge kernel preserves this property verbatim.
+
+fn main() {}

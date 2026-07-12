@@ -1382,6 +1382,210 @@ struct ShimSession {
         std::fflush(stdout);
         return 0;
     }
+
+    // GRX-014 cluster_store: StructuredBuffer SRV t0 (cluster_render, uint
+    // words) + StructuredBuffer SRV t1 (render_elements, 80-byte
+    // RenderElementData) + RWStructuredBuffer UAV u0 (cluster_store, uint
+    // words) + 32-byte (8-dword) ClusterStore::PushConstant b0 root constants,
+    // dispatch ceil(cluster_screen_size.x / 8) x ceil(cluster_screen_size.y
+    // / 8) where cluster_screen_size is b0 dwords 2-3. Test-only readback of
+    // the destination structured buffer via CopyBufferRegion; the production
+    // path (readback=false) submits without any copy / fence-wait / map /
+    // checksum / marker. `*_bytes` are the buffer byte sizes.
+    int record_cluster_store(uint32_t pass_id,
+                             const uint8_t* dxil, size_t dxil_len,
+                             const uint8_t* rts0, size_t rts0_len,
+                             ID3D12Resource* cluster_render_buf,
+                             ID3D12Resource* render_elements_buf,
+                             ID3D12Resource* cluster_store_buf,
+                             const uint8_t* push_constants,
+                             uint32_t cluster_render_bytes,
+                             uint32_t render_elements_bytes,
+                             uint32_t cluster_store_bytes,
+                             bool readback, RxgdRecordResult* out) {
+        (void)pass_id;
+        if (!ensure_initialized(out)) return -31;
+        CachedKernel* k = get_or_create_kernel(dxil, dxil_len, rts0, rts0_len, out);
+        if (!k) return -32;
+        if (!cluster_render_buf || !render_elements_buf || !cluster_store_buf) {
+            set_detail_msg(out, "null cluster_store buffer handle");
+            return -41;
+        }
+
+        // uint word stride = 4 bytes (cluster_render / cluster_store);
+        // RenderElementData stride = 80 bytes (render_elements). NumElements is
+        // clamped to at least 1.
+        const UINT word_stride = 4u;
+        const UINT element_stride = 80u;
+        const UINT render_words = std::max<UINT>(cluster_render_bytes / word_stride, 1u);
+        const UINT element_count = std::max<UINT>(render_elements_bytes / element_stride, 1u);
+        const UINT store_words = std::max<UINT>(cluster_store_bytes / word_stride, 1u);
+
+        ID3D12CommandAllocator* alloc = acquire_allocator();
+        HRESULT hr = cmd->Reset(alloc, nullptr);
+        if (FAILED(hr)) { set_detail(out, "command list Reset", hr); return -33; }
+        ID3D12DescriptorHeap* heaps[] = {heap.Get()};
+        cmd->SetDescriptorHeaps(1, heaps);
+
+        // Descriptor table: SRV range (t0, t1) then UAV range (u0), contiguous.
+        UINT base = reserve_descriptors(3);
+        UINT slot = base;
+        {
+            D3D12_SHADER_RESOURCE_VIEW_DESC srv = {};
+            srv.Format = DXGI_FORMAT_UNKNOWN; // structured buffer
+            srv.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+            srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+            srv.Buffer.FirstElement = 0;
+            srv.Buffer.NumElements = render_words;
+            srv.Buffer.StructureByteStride = word_stride;
+            srv.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+            device->CreateShaderResourceView(cluster_render_buf, &srv, cpu_handle(slot++));
+        }
+        {
+            D3D12_SHADER_RESOURCE_VIEW_DESC srv = {};
+            srv.Format = DXGI_FORMAT_UNKNOWN; // structured buffer
+            srv.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+            srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+            srv.Buffer.FirstElement = 0;
+            srv.Buffer.NumElements = element_count;
+            srv.Buffer.StructureByteStride = element_stride;
+            srv.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+            device->CreateShaderResourceView(render_elements_buf, &srv, cpu_handle(slot++));
+        }
+        {
+            D3D12_UNORDERED_ACCESS_VIEW_DESC uavd = {};
+            uavd.Format = DXGI_FORMAT_UNKNOWN; // rwstructured buffer
+            uavd.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+            uavd.Buffer.FirstElement = 0;
+            uavd.Buffer.NumElements = store_words;
+            uavd.Buffer.StructureByteStride = word_stride;
+            uavd.Buffer.CounterOffsetInBytes = 0;
+            uavd.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+            device->CreateUnorderedAccessView(cluster_store_buf, nullptr, &uavd,
+                                              cpu_handle(slot++));
+        }
+
+        cmd->SetComputeRootSignature(k->root.Get());
+        cmd->SetPipelineState(k->pso.Get());
+        uint32_t rc[8];
+        std::memcpy(rc, push_constants, 32);
+        cmd->SetComputeRoot32BitConstants(0, 8, rc, 0);
+        cmd->SetComputeRootDescriptorTable(1, gpu_handle(base));
+        const uint32_t screen_x = rc[2]; // ClusterStore::PushConstant dword 2
+        const uint32_t screen_y = rc[3]; // ClusterStore::PushConstant dword 3
+        const UINT gx = std::max<UINT>((screen_x + 7u) / 8u, 1u);
+        const UINT gy = std::max<UINT>((screen_y + 7u) / 8u, 1u);
+        cmd->Dispatch(gx, gy, 1);
+
+        if (!readback) {
+            // Production path: submit + track the fence value; NO copy /
+            // fence-wait / map / checksum / marker.
+            hr = cmd->Close();
+            if (FAILED(hr)) { set_detail(out, "Close command list", hr); return -35; }
+            ID3D12CommandList* plists[] = {cmd.Get()};
+            queue->ExecuteCommandLists(1, plists);
+            UINT64 pval = ++next_fence_value;
+            if (FAILED(queue->Signal(fence.Get(), pval))) {
+                set_detail_msg(out, "Signal fence");
+                return -36;
+            }
+            allocators[(alloc_cursor + allocators.size() - 1) % allocators.size()]
+                .fence_value = pval;
+            out->fence_completed_value = pval;
+            out->dispatch_x = gx;
+            out->dispatch_y = gy;
+            out->dispatch_z = 1;
+            out->dst_width = cluster_store_bytes;
+            out->dst_height = 1;
+            out->readback_checksum = 0;
+            out->dst_first_value = 0.0f;
+            out->dxil_signed = k->dxil_signed ? 1 : 0;
+            std::snprintf(out->error_detail, sizeof(out->error_detail), "ok");
+            return 0;
+        }
+
+        // Test-only readback of the destination structured buffer.
+        const UINT64 rb_bytes = (UINT64)store_words * word_stride;
+        auto rbheap = heap_props(D3D12_HEAP_TYPE_READBACK);
+        auto rb_desc = buffer_desc(rb_bytes);
+        ComPtr<ID3D12Resource> readback_buf;
+        hr = device->CreateCommittedResource(&rbheap, D3D12_HEAP_FLAG_NONE, &rb_desc,
+                                             D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
+                                             IID_PPV_ARGS(&readback_buf));
+        if (FAILED(hr)) { set_detail(out, "CreateCommittedResource(readback)", hr); return -34; }
+
+        D3D12_RESOURCE_BARRIER tb = {};
+        tb.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        tb.Transition.pResource = cluster_store_buf;
+        tb.Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+        tb.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
+        tb.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        cmd->ResourceBarrier(1, &tb);
+        cmd->CopyBufferRegion(readback_buf.Get(), 0, cluster_store_buf, 0, rb_bytes);
+        D3D12_RESOURCE_BARRIER tb2 = tb;
+        tb2.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
+        tb2.Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+        cmd->ResourceBarrier(1, &tb2);
+
+        hr = cmd->Close();
+        if (FAILED(hr)) { set_detail(out, "Close command list", hr); return -35; }
+        ID3D12CommandList* lists[] = {cmd.Get()};
+        queue->ExecuteCommandLists(1, lists);
+        UINT64 submit_value = ++next_fence_value;
+        if (FAILED(queue->Signal(fence.Get(), submit_value))) {
+            set_detail_msg(out, "Signal fence");
+            return -36;
+        }
+        allocators[(alloc_cursor + allocators.size() - 1) % allocators.size()].fence_value =
+            submit_value;
+
+        if (fence->GetCompletedValue() < submit_value) {
+            if (FAILED(fence->SetEventOnCompletion(submit_value, fence_event))) {
+                set_detail_msg(out, "SetEventOnCompletion");
+                return -37;
+            }
+            WaitForSingleObject(fence_event, INFINITE);
+        }
+        out->fence_completed_value = fence->GetCompletedValue();
+        if (out->fence_completed_value < submit_value) {
+            set_detail_msg(out, "fence did not reach completion");
+            return -38;
+        }
+
+        uint8_t* mapped = nullptr;
+        D3D12_RANGE rng = {0, (SIZE_T)rb_bytes};
+        if (FAILED(readback_buf->Map(0, &rng, reinterpret_cast<void**>(&mapped)))) {
+            set_detail_msg(out, "Map readback");
+            return -39;
+        }
+        uint32_t checksum = 2166136261u;
+        float first = 0.0f;
+        if (rb_bytes >= sizeof(float)) {
+            std::memcpy(&first, mapped, sizeof(float));
+        }
+        for (UINT64 i = 0; i < rb_bytes; ++i) {
+            checksum ^= mapped[i];
+            checksum *= 16777619u;
+        }
+        readback_buf->Unmap(0, nullptr);
+
+        out->dispatch_x = gx;
+        out->dispatch_y = gy;
+        out->dispatch_z = 1;
+        out->dst_width = cluster_store_bytes;
+        out->dst_height = 1;
+        out->readback_checksum = checksum;
+        out->dst_first_value = first;
+        out->dxil_signed = k->dxil_signed ? 1 : 0;
+        std::snprintf(out->error_detail, sizeof(out->error_detail), "ok");
+        std::printf("RXGD_BRIDGE_REC: dispatch=%u,%u,1 fence=%llu dst_bytes=%u dst_first=%g "
+                    "checksum=0x%08x dxil_signed=%s\n",
+                    gx, gy, (unsigned long long)out->fence_completed_value,
+                    cluster_store_bytes, first, checksum,
+                    out->dxil_signed ? "yes" : "no");
+        std::fflush(stdout);
+        return 0;
+    }
 };
 
 // Per-(device,queue) session registry. The test-only recording feature drives
@@ -1685,6 +1889,67 @@ extern "C" __declspec(dllexport) int32_t rxgd_particles_copy_record_dispatch(
         reinterpret_cast<ID3D12Resource*>(src_particles_ptr),
         reinterpret_cast<ID3D12Resource*>(dst_instances_ptr),
         push_constants, src_bytes, dst_bytes, readback != 0, out);
+    session->note(pass_id, rc == 0);
+    return rc;
+}
+
+// GRX-014: 2-SRV (t0 cluster_render uint words, t1 render_elements 80-byte
+// RenderElementData) + 1-UAV (u0 cluster_store uint words) single-dispatch
+// recording entry for the cluster_store kernel. `readback` selects the
+// test/recording instrumented mode (readback + fence wait + checksum +
+// RXGD_BRIDGE_REC marker) vs the production mode (submit only). The dispatch
+// is ceil(cluster_screen_size / 8)² with cluster_screen_size read from the b0
+// dwords 2-3. Returns 0 on success, negative on failure. Never accepts null
+// handles and never fakes a dispatch. Additive; the existing 2-resource / taa
+// / particles / multi-level entries are untouched.
+extern "C" __declspec(dllexport) int32_t rxgd_cluster_store_record_dispatch(
+    uint32_t abi_version,
+    uint32_t pass_id,
+    void* device_ptr,
+    void* queue_ptr,
+    const uint8_t* dxil_bytes,
+    size_t dxil_len,
+    const uint8_t* rts0_bytes,
+    size_t rts0_len,
+    void* cluster_render_ptr,
+    void* render_elements_ptr,
+    void* cluster_store_ptr,
+    const uint8_t* push_constants,
+    size_t push_constant_len,
+    uint32_t cluster_render_bytes,
+    uint32_t render_elements_bytes,
+    uint32_t cluster_store_bytes,
+    uint32_t readback,
+    RxgdRecordResult* out) {
+    if (!out) return -1;
+    std::memset(out, 0, sizeof(*out));
+
+    if (abi_version != kShimAbiVersion) {
+        set_detail_msg(out, "shim abi version mismatch");
+        return -2;
+    }
+    if (!device_ptr || !queue_ptr || !cluster_render_ptr || !render_elements_ptr ||
+        !cluster_store_ptr) {
+        set_detail_msg(out, "null device/queue/resource handle");
+        return -3;
+    }
+    if (!dxil_bytes || dxil_len == 0 || !rts0_bytes || rts0_len == 0) {
+        set_detail_msg(out, "empty dxil/rts0 bytes");
+        return -4;
+    }
+    if (!push_constants || push_constant_len != 32) {
+        set_detail_msg(out, "push constant block is not 32 bytes");
+        return -5;
+    }
+
+    ShimSession* session = get_or_create_session(device_ptr, queue_ptr);
+    int rc = session->record_cluster_store(
+        pass_id, dxil_bytes, dxil_len, rts0_bytes, rts0_len,
+        reinterpret_cast<ID3D12Resource*>(cluster_render_ptr),
+        reinterpret_cast<ID3D12Resource*>(render_elements_ptr),
+        reinterpret_cast<ID3D12Resource*>(cluster_store_ptr),
+        push_constants, cluster_render_bytes, render_elements_bytes,
+        cluster_store_bytes, readback != 0, out);
     session->note(pass_id, rc == 0);
     return rc;
 }

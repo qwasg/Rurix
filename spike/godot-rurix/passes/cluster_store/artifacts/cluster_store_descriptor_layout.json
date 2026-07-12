@@ -1,0 +1,120 @@
+{
+  "module": "cluster_store",
+  "pass_id": "cluster_store",
+  "artifact_kind": "hlsl_bridge_descriptor_layout",
+  "provenance": "hlsl_bridge_workaround",
+  "rurix_owned": false,
+  "entry_point": "main",
+  "target_profile": "cs_6_0",
+  "root_constants": 8,
+  "root_constant_layout": [
+    {
+      "name": "cluster_render_data_size",
+      "type": "u32",
+      "order": 0,
+      "root_parameter_index": 0,
+      "dword_offset": 0,
+      "dword_size": 1
+    },
+    {
+      "name": "max_render_element_count_div_32",
+      "type": "u32",
+      "order": 1,
+      "root_parameter_index": 0,
+      "dword_offset": 1,
+      "dword_size": 1
+    },
+    {
+      "name": "cluster_screen_size_x",
+      "type": "u32",
+      "order": 2,
+      "root_parameter_index": 0,
+      "dword_offset": 2,
+      "dword_size": 1
+    },
+    {
+      "name": "cluster_screen_size_y",
+      "type": "u32",
+      "order": 3,
+      "root_parameter_index": 0,
+      "dword_offset": 3,
+      "dword_size": 1
+    },
+    {
+      "name": "render_element_count_div_32",
+      "type": "u32",
+      "order": 4,
+      "root_parameter_index": 0,
+      "dword_offset": 4,
+      "dword_size": 1
+    },
+    {
+      "name": "max_cluster_element_count_div_32",
+      "type": "u32",
+      "order": 5,
+      "root_parameter_index": 0,
+      "dword_offset": 5,
+      "dword_size": 1
+    },
+    {
+      "name": "pad1",
+      "type": "u32",
+      "order": 6,
+      "root_parameter_index": 0,
+      "dword_offset": 6,
+      "dword_size": 1
+    },
+    {
+      "name": "pad2",
+      "type": "u32",
+      "order": 7,
+      "root_parameter_index": 0,
+      "dword_offset": 7,
+      "dword_size": 1
+    }
+  ],
+  "push_constant_note": "32-byte / 8-dword mirror of Godot's ClusterBuilderSharedDataRD::ClusterStore::PushConstant (servers/rendering/renderer_rd/cluster_builder_rd.h L91-100); all eight fields are u32 and every non-pad field is consumed by the kernel.",
+  "resources": [
+    {
+      "name": "cluster_render",
+      "class": "t",
+      "register": 0,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "StructuredBuffer<uint>",
+      "binding_kind": "structured_buffer"
+    },
+    {
+      "name": "render_elements",
+      "class": "t",
+      "register": 1,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "StructuredBuffer<RenderElementData>",
+      "binding_kind": "structured_buffer"
+    },
+    {
+      "name": "cluster_store",
+      "class": "u",
+      "register": 0,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "RWStructuredBuffer<uint>",
+      "binding_kind": "rwstructured_buffer"
+    }
+  ],
+  "root_signature_parameters": 2,
+  "grx014_mapping": {
+    "status": "offline_compile_package",
+    "requires_64bit_integer_shader_capability": false,
+    "requires_64bit_integer_shader_capability_note": "cluster_store carries no i64 push-constant fields (all 8 dwords are u32), so the SHADER_INT64 device capability is NOT part of its binding preflight (same as GRX-013 particles_copy).",
+    "runtime_state": "fallback_only",
+    "real_gpu_pass": false,
+    "root_constant_bytes": 32,
+    "root_constant_dwords": 8,
+    "cluster_render_word_stride_bytes": 4,
+    "render_element_stride_bytes": 80,
+    "cluster_store_word_stride_bytes": 4,
+    "dispatch_note": "one thread per cluster; local 8x8x1; dispatch (ceil(cluster_screen_size.x / 8), ceil(cluster_screen_size.y / 8), 1); the store dispatch only runs when render_element_count > 0 (native guard)"
+  }
+}
