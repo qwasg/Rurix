@@ -404,6 +404,7 @@ GRX_GATES_DIR = ROOT / "ci" / "grx_gates"
 # silent advance).
 GRX_GATE_SEQUENCE: list[dict[str, object]] = [
     {"gate_id": "grx011", "module": "grx011_ssao_blur"},
+    {"gate_id": "grx012", "module": "grx012_taa_resolve"},
 ]
 GRX_GATE_REQUIRED_KEYS = (
     "gate_id",

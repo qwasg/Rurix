@@ -1,0 +1,80 @@
+// GRX-012 taa_resolve kernel Rurix math source (forward-looking; NOT yet
+// compilable to a runtime-mappable DXIL container).
+//
+// This mirrors the supported math subset of Godot's taa_resolve.glsl (single
+// full-resolution TAA resolve; Spartan-derived) and is the math target the
+// DXC-compiled bridge kernel `artifacts/hlsl_bridge/taa_resolve.hlsl` must
+// stay equivalent to. The authoritative, byte-for-byte operation order lives
+// in that HLSL and in `generate_math_parity_evidence.py` (the CPU reference);
+// this file documents the per-texel math and the Rurix binding shape.
+//
+// Toolchain blockers (why the canonical package is the hlsl_bridge workaround
+// instead of a rurixc-owned compile):
+//   1. The patched llc lacks `llvm.dx.resource.load.texture.2d` /
+//      `store.texture.2d` support (GRX-009
+//      texture_intrinsic_toolchain_blocker.json applies unchanged).
+//   2. The Rurix `Texture2D<F>` / `RWTexture2D<F>` lang items currently lower
+//      single-channel f32 element types only; taa_resolve binds float4 color /
+//      history and float2 velocity. This kernel models each texel as
+//      consecutive f32 lanes of a linear index space, which documents the
+//      per-channel math but is NOT the final binding shape.
+//   3. groupshared LDS tiles and the Catmull-Rom bilinear sampler are not yet
+//      lowerable Rurix lang items; the LDS tile is a faithful cache of clamped
+//      color/depth loads, so the math below is expressed as direct clamped
+//      loads (mathematically equivalent to the HLSL LDS path).
+//
+// Per-texel math (see PASS_CONTRACT.md §5, resource_mapping.md, and the HLSL):
+//   velocity        = velocity_buffer[pos_screen]
+//   uv              = (pos_screen + 0.5) / resolution
+//   uv_reprojected  = uv + velocity
+//   color_input     = color_buffer[pos_screen]              (clamped-load center)
+//   color_history   = catmull_rom_9(history_buffer, uv_reprojected, resolution)
+//   velocity_closest= velocity of the 3x3 min-depth neighbour (Spartan quirk)
+//   color_history   = clip_history_3x3(color_input 3x3, color_history, velocity_closest)
+//   blend           = clamp(1/16 + out_of_screen + disocclusion, 0, 1)
+//   blend           = mix(0, blend, flicker_suppression(color_input, color_history))
+//   resolved        = reinhard_inverse(mix(reinhard(color_history),
+//                                          reinhard(color_input), blend))
+//   output          = (resolved.rgb, 1.0)
+
+kernel fn taa_resolve(
+    color_buffer: Texture2D<f32>,
+    depth_buffer: Texture2D<f32>,
+    velocity_buffer: Texture2D<f32>,
+    last_velocity_buffer: Texture2D<f32>,
+    history_buffer: Texture2D<f32>,
+    output_buffer: RWTexture2D<f32>,
+    source_width: usize,
+    source_height: usize,
+    disocclusion_threshold: f32,
+    variance_dynamic: f32,
+    reserved0: f32,
+    t: ThreadCtx<2>,
+) {
+    let _ = reserved0; // canonical 7-dword shape parity only
+
+    let gid = t.global_id_2d();
+    let x = gid.x;
+    let y = gid.y;
+
+    if x < source_width && y < source_height {
+        // The full resolve math (groupshared tile, Catmull-Rom bilinear,
+        // clip_aabb variance clipping, Reinhard blend) is the authoritative
+        // port in artifacts/hlsl_bridge/taa_resolve.hlsl and the CPU reference
+        // in generate_math_parity_evidence.py. This forward-looking Rurix
+        // source documents the binding shape and the per-texel contract; the
+        // arithmetic is intentionally elided here because the texture / LDS /
+        // bilinear lang items required to lower it faithfully are not yet
+        // available (see toolchain blockers above).
+        let _ = disocclusion_threshold;
+        let _ = variance_dynamic;
+        let _ = color_buffer;
+        let _ = depth_buffer;
+        let _ = velocity_buffer;
+        let _ = last_velocity_buffer;
+        let _ = history_buffer;
+        let _ = output_buffer;
+    }
+}
+
+fn main() {}

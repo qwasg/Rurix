@@ -114,6 +114,21 @@ pub const RXGD_CAP_TONEMAP_REAL_PASS: u32 = 1 << 4;
 /// the `d3d12-recording-shim` feature — the shipping feature-off bridge
 /// always fails closed with `real_dispatch_path_not_linked`.
 pub const RXGD_CAP_SSAO_BLUR_REAL_PASS: u32 = 1 << 5;
+/// GRX-012 opt-in "real pass" capability flag for the TAA resolve pass,
+/// carried in `RxGdCaps.flags` (ABI v1, no struct layout change). The Godot
+/// side would set it only when a default-false per-pass taa_resolve real-pass
+/// opt-in setting is enabled (deferred patch 0019); the default Godot config
+/// never sets it. It arms the gated REAL TAA resolve pass attempt: the bridge
+/// runs the full runtime binding preflight, the dispatch eligibility gate, the
+/// per-slot kernel-binding-kind conformance check, and the math-parity check,
+/// in that order, and returns `RXGD_STATUS_FALLBACK` with a recorded fallback
+/// reason (plus a once-per-session machine-readable
+/// `RXGD_TAA_REAL_PASS_BLOCKED` diagnostic naming the FIRST missing
+/// prerequisite) unless every check passes AND a runtime-mappable real dispatch
+/// path is linked. The real dispatch itself is only linked under the
+/// `d3d12-recording-shim` feature — the shipping feature-off bridge always
+/// fails closed with `real_dispatch_path_not_linked`.
+pub const RXGD_CAP_TAA_RESOLVE_REAL_PASS: u32 = 1 << 6;
 const LUMINANCE_RESOURCE_COUNT: u64 = 2;
 const LUMINANCE_ROOT_CONSTANT_BYTES: u64 = 28;
 /// GRX-009 stage A3: the per-slot resource binding kinds the tracked
@@ -255,6 +270,56 @@ const SSAO_BLUR_OFFLINE_DESCRIPTOR_LAYOUT_SHA256: &str =
     "ba09771d5cc65511972eaa6f5810b9f614756a4ab323cc3d9ea2afdf7b525e2c";
 const SSAO_BLUR_RESOURCE_COUNT: u64 = 2;
 const SSAO_BLUR_ROOT_CONSTANT_BYTES: u64 = 28;
+
+/// GRX-012: the per-slot resource binding kinds the tracked taa_resolve kernel
+/// declares. The tracked canonical package is the texture-capable hlsl_bridge
+/// workaround artifact
+/// (`spike/godot-rurix/passes/taa_resolve/artifacts/hlsl_bridge/taa_resolve.hlsl`
+/// compiled by DXC `cs_6_0` and validated by `dxv`, published to the canonical
+/// `artifacts/taa_resolve.{dxil,rts0.bin}` / `taa_resolve_descriptor_layout.json`
+/// paths under the owner-approved `hlsl_bridge_workaround` provenance policy).
+/// The kernel binds `color_buffer`/`depth_buffer`/`velocity_buffer`/
+/// `last_velocity_buffer`/`history_buffer` as `Texture2D` SRVs (t0..t4, each
+/// slot → `"texture2d"`) and `output_buffer` as `RWTexture2D<float4>` (UAV u0,
+/// slot 5 → `"rwtexture2d"`).
+pub const TAA_RESOLVE_KERNEL_RESOURCE_BINDING_KINDS: [&str; 6] = [
+    "texture2d",
+    "texture2d",
+    "texture2d",
+    "texture2d",
+    "texture2d",
+    "rwtexture2d",
+];
+
+/// GRX-012: the binding kind of the taa_resolve kernel's slot-0 SRV
+/// (`color_buffer = Texture2D<float4>` at t0); retained for the
+/// `RXGD_TAA_REAL_PASS_BLOCKED` diagnostic line and external probes.
+pub const TAA_RESOLVE_KERNEL_RESOURCE_BINDING_KIND: &str = "texture2d";
+
+/// GRX-012: math-parity status of the tracked hlsl_bridge taa_resolve kernel.
+/// The single full-resolution TAA resolve (Spartan-derived; groupshared tile,
+/// 3x3 closest-depth velocity, 9-tap Catmull-Rom history, clip_aabb variance
+/// clipping, Reinhard-domain blend) is proven equivalent to the CPU reference
+/// in the pass `math_parity_evidence.json` (`status=pending_gpu_dispatch`:
+/// every case has a CPU-expected grid; the GPU-observed side is measured by a
+/// real dispatch). Anything other than this exact status fails the real-pass
+/// math gate closed.
+pub const TAA_RESOLVE_KERNEL_MATH_PARITY_STATUS: &str =
+    "taa_resolve_cpu_reference_proven_pending_gpu_dispatch";
+
+/// SHA-256 digests of the GRX-012 canonical offline taa_resolve package
+/// (`spike/godot-rurix/passes/taa_resolve/offline_compile_evidence.json`). The
+/// dispatch eligibility check matches the compiled package identity against
+/// these baked evidence digests; a mismatch means the runtime binding does not
+/// correspond to the compiled package and must fall back.
+const TAA_RESOLVE_OFFLINE_DXIL_SHA256: &str =
+    "1081b3362153746bd3e6f7407a4093ef13d1e65bc26ad9add55bec465720b5df";
+const TAA_RESOLVE_OFFLINE_ROOT_SIGNATURE_SHA256: &str =
+    "18fb877cf7a9880adcd23fab2ca78f107b6a16ec63d30a818976473e1ef4a301";
+const TAA_RESOLVE_OFFLINE_DESCRIPTOR_LAYOUT_SHA256: &str =
+    "8959d2996331655a63697efd55f3361420e177cbd8b6094129b54805b72c4c1d";
+const TAA_RESOLVE_RESOURCE_COUNT: u64 = 6;
+const TAA_RESOLVE_ROOT_CONSTANT_BYTES: u64 = 28;
 
 /// Fallback reasons for gated passes, mirroring the five-value enum used by
 /// the GRX-008 fallback telemetry schema.
@@ -1822,6 +1887,384 @@ impl Default for SsaoBlurGate {
     }
 }
 
+/// Identity of the GRX-012 compiled taa_resolve package (DXIL container, root
+/// signature, descriptor layout) as seen by the bridge. Template copy of
+/// [`SsaoBlurDispatchPackage`] with the constants and digests pointing at the
+/// taa_resolve artifacts (texture-capable hlsl_bridge workaround package,
+/// owner-approved `hlsl_bridge_workaround` provenance). Unlike the 2-resource
+/// passes, taa_resolve binds SIX texture resources (5 SRVs t0..t4 + 1 UAV u0).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TaaResolveDispatchPackage {
+    pub available: bool,
+    pub resource_count: u64,
+    pub root_constant_bytes: u64,
+    pub srv_count: u32,
+    pub uav_register: u32,
+    pub requires_shader_int64: bool,
+    pub dxil_sha256: &'static str,
+    pub root_signature_sha256: &'static str,
+    pub descriptor_layout_sha256: &'static str,
+}
+
+impl TaaResolveDispatchPackage {
+    /// The compiled package identity that matches the tracked GRX-012 offline
+    /// compile evidence.
+    pub fn verified_offline_package() -> TaaResolveDispatchPackage {
+        TaaResolveDispatchPackage {
+            available: true,
+            resource_count: TAA_RESOLVE_RESOURCE_COUNT,
+            root_constant_bytes: TAA_RESOLVE_ROOT_CONSTANT_BYTES,
+            srv_count: 5,
+            uav_register: 0,
+            requires_shader_int64: true,
+            dxil_sha256: TAA_RESOLVE_OFFLINE_DXIL_SHA256,
+            root_signature_sha256: TAA_RESOLVE_OFFLINE_ROOT_SIGNATURE_SHA256,
+            descriptor_layout_sha256: TAA_RESOLVE_OFFLINE_DESCRIPTOR_LAYOUT_SHA256,
+        }
+    }
+
+    /// Verifies the compiled package is present and that its descriptor layout
+    /// and artifact digests match the tracked offline compile evidence. An
+    /// unavailable package maps to `compile_failed`; any layout or digest
+    /// mismatch maps to `validation_failed`.
+    fn verify_matches_offline_evidence(&self) -> Result<(), FallbackReason> {
+        if !self.available {
+            return Err(FallbackReason::CompileFailed);
+        }
+        if self.resource_count != TAA_RESOLVE_RESOURCE_COUNT
+            || self.root_constant_bytes != TAA_RESOLVE_ROOT_CONSTANT_BYTES
+            || self.srv_count != 5
+            || self.uav_register != 0
+            || !self.requires_shader_int64
+        {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        if self.dxil_sha256 != TAA_RESOLVE_OFFLINE_DXIL_SHA256
+            || self.root_signature_sha256 != TAA_RESOLVE_OFFLINE_ROOT_SIGNATURE_SHA256
+            || self.descriptor_layout_sha256 != TAA_RESOLVE_OFFLINE_DESCRIPTOR_LAYOUT_SHA256
+        {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        Ok(())
+    }
+}
+
+/// GRX-012 gate for the `taa_resolve` pass. Template copy of the GRX-011
+/// [`SsaoBlurGate`] preflight → eligibility → binding-kind → math-parity →
+/// linked-dispatch chain, with every constant and digest pointing at the
+/// taa_resolve package and a SIX-resource binding surface (5 SRVs + 1 UAV).
+///
+/// The gate starts disabled and stays disabled: the default record path (no
+/// [`RXGD_CAP_TAA_RESOLVE_REAL_PASS`] arm) always returns
+/// `RXGD_STATUS_FALLBACK`, and the opt-in real-pass arm fails closed with
+/// `real_dispatch_path_not_linked` on the shipping feature-off bridge. No
+/// estimated GPU/CPU time is ever attributed to this pass while the gate is
+/// closed. Note this REMOVES the historical placeholder behaviour where
+/// `RXGD_PASS_TAA_RESOLVE` was recorded with estimated timings.
+#[derive(Debug)]
+pub struct TaaResolveGate {
+    enabled: bool,
+    last_fallback_reason: Option<FallbackReason>,
+    dispatch_package: TaaResolveDispatchPackage,
+    /// The FIRST missing real-pass prerequisite recorded by the last opt-in
+    /// real-pass attempt (the identity carried by the
+    /// `RXGD_TAA_REAL_PASS_BLOCKED` diagnostic), if any.
+    last_real_pass_blocked: Option<&'static str>,
+    /// The diagnostic is printed once per session: the TAA resolve call site
+    /// runs every frame and one machine-readable line is enough.
+    real_pass_blocked_emitted: bool,
+    #[cfg(feature = "d3d12-recording-shim")]
+    last_dispatch_record: Option<DispatchRecord>,
+}
+
+impl TaaResolveGate {
+    pub fn new() -> TaaResolveGate {
+        TaaResolveGate {
+            enabled: false,
+            last_fallback_reason: None,
+            dispatch_package: TaaResolveDispatchPackage::verified_offline_package(),
+            last_real_pass_blocked: None,
+            real_pass_blocked_emitted: false,
+            #[cfg(feature = "d3d12-recording-shim")]
+            last_dispatch_record: None,
+        }
+    }
+
+    /// Take the last measured dispatch record (if any). Only available under
+    /// the `d3d12-recording-shim` feature.
+    #[cfg(feature = "d3d12-recording-shim")]
+    pub fn take_last_dispatch_record(&mut self) -> Option<DispatchRecord> {
+        self.last_dispatch_record.take()
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    pub fn last_fallback_reason(&self) -> Option<FallbackReason> {
+        self.last_fallback_reason
+    }
+
+    /// The FIRST missing prerequisite recorded by the last opt-in real-pass
+    /// attempt, or None when no real-pass attempt was made (or a future attempt
+    /// actually dispatched).
+    pub fn last_real_pass_blocked(&self) -> Option<&'static str> {
+        self.last_real_pass_blocked
+    }
+
+    /// Pure runtime binding preflight: validates the taa_resolve binding
+    /// contract and returns the fallback reason on the first failure.
+    ///
+    /// The 64-bit integer shader capability (the b0 block carries i64 dims per
+    /// the canonical template), exactly six texture resources in
+    /// color/depth/velocity/last_velocity/history/output order, the 28-byte b0
+    /// root constant block, nonzero source dimensions matching the bound
+    /// `color_buffer` resource, and an `output_buffer` extent equal to the
+    /// color extent (the resolve is a 1:1 full-resolution pass).
+    fn check_runtime_binding_preflight(
+        caps: RxGdCaps,
+        resources: &[RxGdResource],
+        push_constants: &[u8],
+    ) -> Result<(), FallbackReason> {
+        if caps.flags & RXGD_CAP_SHADER_INT64 == 0 {
+            return Err(FallbackReason::UnsupportedDevice);
+        }
+        if resources.len() as u64 != TAA_RESOLVE_RESOURCE_COUNT {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        if push_constants.len() as u64 != TAA_RESOLVE_ROOT_CONSTANT_BYTES {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        // All six slots (5 SRVs + 1 UAV) bind textures; a buffer never conforms.
+        if resources
+            .iter()
+            .any(|resource| resource.resource_type != RXGD_RESOURCE_TEXTURE)
+        {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        // b0 root constants: source_width/source_height are lowered as i64
+        // (2 DWORDs each) followed by disocclusion_threshold/variance_dynamic/
+        // reserved0; only the dimensions participate in binding preflight.
+        let source_width = le_u64(&push_constants[0..8]);
+        let source_height = le_u64(&push_constants[8..16]);
+        if source_width == 0 || source_height == 0 {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        // color_buffer (slot 0) is the resolution reference.
+        if source_width != u64::from(resources[0].width)
+            || source_height != u64::from(resources[0].height)
+        {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        // output_buffer (slot 5) extent == color extent (1:1 full-res resolve).
+        if u64::from(resources[5].width) != source_width
+            || u64::from(resources[5].height) != source_height
+        {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        Ok(())
+    }
+
+    /// GRX-012 dispatch eligibility gate: the caller must arm the taa_resolve
+    /// real-pass opt-in flag, the device must advertise the 64-bit integer
+    /// capability, the native D3D12 device/queue handles and all six resource
+    /// handles must be non-null, and the compiled package layout/digests must
+    /// still match the offline compile evidence.
+    fn check_dispatch_eligibility(
+        &self,
+        caps: RxGdCaps,
+        resources: &[RxGdResource],
+        device: usize,
+        queue: usize,
+    ) -> Result<(), FallbackReason> {
+        if caps.flags & RXGD_CAP_TAA_RESOLVE_REAL_PASS == 0 {
+            return Err(FallbackReason::ManualDisabled);
+        }
+        if caps.flags & RXGD_CAP_SHADER_INT64 == 0 {
+            return Err(FallbackReason::UnsupportedDevice);
+        }
+        if device == 0 || queue == 0 {
+            return Err(FallbackReason::UnsupportedDevice);
+        }
+        if resources.iter().any(|resource| resource.native_handle == 0) {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        self.dispatch_package.verify_matches_offline_evidence()
+    }
+
+    /// GRX-012 kernel-binding-kind conformance check (per slot). The tracked
+    /// taa_resolve kernel declares [`TAA_RESOLVE_KERNEL_RESOURCE_BINDING_KINDS`]
+    /// = `["texture2d" x5, "rwtexture2d"]`; every slot binds a texture (SRV or
+    /// UAV) and a buffer (`raw_buffer_view`) fails closed at any slot.
+    fn check_real_pass_binding_kind(resources: &[RxGdResource]) -> Result<(), FallbackReason> {
+        if resources.len() != TAA_RESOLVE_KERNEL_RESOURCE_BINDING_KINDS.len() {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        for (slot, resource) in resources.iter().enumerate() {
+            // A texture provides the kind its slot declares (texture2d for the
+            // SRV slots t0..t4, rwtexture2d for the UAV slot u0); a buffer
+            // provides "raw_buffer_view" and never conforms.
+            let provided = match resource.resource_type {
+                RXGD_RESOURCE_TEXTURE => TAA_RESOLVE_KERNEL_RESOURCE_BINDING_KINDS[slot],
+                _ => "raw_buffer_view",
+            };
+            if provided != TAA_RESOLVE_KERNEL_RESOURCE_BINDING_KINDS[slot] {
+                return Err(FallbackReason::ValidationFailed);
+            }
+        }
+        Ok(())
+    }
+
+    /// GRX-012 math-parity check. The tracked hlsl_bridge taa_resolve kernel's
+    /// single full-resolution resolve subset is CPU-proven equivalent to the
+    /// reference implementation in the pass `math_parity_evidence.json` (GPU
+    /// observation pending a real dispatch); any other status fails closed.
+    fn check_real_pass_math_parity() -> Result<(), FallbackReason> {
+        if TAA_RESOLVE_KERNEL_MATH_PARITY_STATUS
+            == "taa_resolve_cpu_reference_proven_pending_gpu_dispatch"
+        {
+            return Ok(());
+        }
+        Err(FallbackReason::ValidationFailed)
+    }
+
+    /// Default record path (no real-pass arm): runs the runtime binding
+    /// preflight for an honest fallback reason and then keeps the gate closed
+    /// with `manual_disabled`. Never returns OK and never attributes estimated
+    /// GPU/CPU time. A future patch 0017 module gate calls the bridge without
+    /// resource bindings (0002-level wiring), so in practice this records
+    /// `validation_failed` from the preflight.
+    fn record_default_fallback(
+        &mut self,
+        caps: RxGdCaps,
+        resources: &[RxGdResource],
+        push_constants: &[u8],
+    ) -> i32 {
+        if let Err(reason) = Self::check_runtime_binding_preflight(caps, resources, push_constants)
+        {
+            self.last_fallback_reason = Some(reason);
+            return RXGD_STATUS_FALLBACK;
+        }
+        self.enabled = false;
+        self.last_fallback_reason = Some(FallbackReason::ManualDisabled);
+        RXGD_STATUS_FALLBACK
+    }
+
+    /// GRX-012 opt-in gated REAL TAA resolve pass attempt. Order: runtime
+    /// binding preflight → dispatch eligibility → per-slot kernel-binding-kind
+    /// conformance → math parity → linked real dispatch path. Every failure
+    /// returns `RXGD_STATUS_FALLBACK` with a recorded fallback reason and a
+    /// once-per-session machine-readable `RXGD_TAA_REAL_PASS_BLOCKED
+    /// first_missing_prerequisite=...` diagnostic. The real dispatch invocation
+    /// is linked only under the `d3d12-recording-shim` feature; the shipping
+    /// feature-off bridge fails closed with `real_dispatch_path_not_linked`.
+    fn record_real_pass_attempt(
+        &mut self,
+        caps: RxGdCaps,
+        resources: &[RxGdResource],
+        push_constants: &[u8],
+        device: usize,
+        queue: usize,
+    ) -> i32 {
+        if let Err(reason) = Self::check_runtime_binding_preflight(caps, resources, push_constants)
+        {
+            return self.real_pass_blocked("runtime_binding_preflight_failed", reason);
+        }
+        if let Err(reason) = self.check_dispatch_eligibility(caps, resources, device, queue) {
+            return self.real_pass_blocked("dispatch_eligibility_failed", reason);
+        }
+        if let Err(reason) = Self::check_real_pass_binding_kind(resources) {
+            return self.real_pass_blocked("kernel_binding_kind_mismatch", reason);
+        }
+        if let Err(reason) = Self::check_real_pass_math_parity() {
+            return self.real_pass_blocked("math_parity_not_proven", reason);
+        }
+        #[cfg(feature = "d3d12-recording-shim")]
+        {
+            return match self.attempt_real_dispatch_recording(
+                resources,
+                push_constants,
+                device,
+                queue,
+            ) {
+                Ok(()) => {
+                    self.last_real_pass_blocked = None;
+                    // Printed ONLY after a real recorded dispatch completed.
+                    // Deliberately NOT an `ERROR:` line and NOT an `RXGD_DIAG`
+                    // line, so runtime log audits stay clean.
+                    println!("RXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS recorded=1");
+                    RXGD_STATUS_OK
+                }
+                Err(reason) => self.real_pass_blocked("real_dispatch_recording_failed", reason),
+            };
+        }
+        #[cfg(not(feature = "d3d12-recording-shim"))]
+        self.real_pass_blocked(
+            "real_dispatch_path_not_linked",
+            FallbackReason::CompileFailed,
+        )
+    }
+
+    /// Record one real D3D12 TAA resolve dispatch through the linked recording
+    /// shim's 6-resource entry (5 SRVs t0..t4 + UAV u0 + 28-byte b0 +
+    /// `ceil(dims / 8)` dispatch shape; the view formats are derived from the
+    /// real resource formats).
+    #[cfg(feature = "d3d12-recording-shim")]
+    fn attempt_real_dispatch_recording(
+        &mut self,
+        resources: &[RxGdResource],
+        push_constants: &[u8],
+        device: usize,
+        queue: usize,
+    ) -> Result<(), FallbackReason> {
+        let color = resources[0];
+        let record = d3d12_recording_shim::record_taa_resolve_dispatch(
+            device,
+            queue,
+            resources[0].native_handle as usize, // color_buffer   (t0)
+            resources[1].native_handle as usize, // depth_buffer   (t1)
+            resources[2].native_handle as usize, // velocity       (t2)
+            resources[3].native_handle as usize, // last_velocity  (t3)
+            resources[4].native_handle as usize, // history        (t4)
+            resources[5].native_handle as usize, // output         (u0)
+            push_constants,
+            color.width,
+            color.height,
+        )?;
+        self.enabled = true;
+        self.last_dispatch_record = Some(record);
+        Ok(())
+    }
+
+    /// Records one blocked real-pass attempt: fallback status, reason, the
+    /// first-missing-prerequisite identity, and (once per session) the
+    /// machine-readable diagnostic line.
+    fn real_pass_blocked(&mut self, prerequisite: &'static str, reason: FallbackReason) -> i32 {
+        self.enabled = false;
+        self.last_fallback_reason = Some(reason);
+        self.last_real_pass_blocked = Some(prerequisite);
+        if !self.real_pass_blocked_emitted {
+            self.real_pass_blocked_emitted = true;
+            // Deliberately NOT an `ERROR:` line and NOT an `RXGD_DIAG` line —
+            // either would fail the runtime log audits.
+            println!(
+                "RXGD_TAA_REAL_PASS_BLOCKED first_missing_prerequisite={} \
+                 fallback_reason={} kernel_binding={} default_enable_state=disabled",
+                prerequisite,
+                reason.as_str(),
+                TAA_RESOLVE_KERNEL_RESOURCE_BINDING_KIND,
+            );
+        }
+        RXGD_STATUS_FALLBACK
+    }
+}
+
+impl Default for TaaResolveGate {
+    fn default() -> TaaResolveGate {
+        TaaResolveGate::new()
+    }
+}
+
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RxGdCaps {
@@ -1931,6 +2374,7 @@ struct SessionInner {
     luminance_gate: LuminanceReductionGate,
     tonemap_gate: TonemapGate,
     ssao_blur_gate: SsaoBlurGate,
+    taa_resolve_gate: TaaResolveGate,
 }
 
 impl SessionInner {
@@ -1948,6 +2392,7 @@ impl SessionInner {
             luminance_gate: LuminanceReductionGate::new(),
             tonemap_gate: TonemapGate::new(),
             ssao_blur_gate: SsaoBlurGate::new(),
+            taa_resolve_gate: TaaResolveGate::new(),
         }
     }
 }
@@ -2236,6 +2681,51 @@ pub extern "C" fn rxgd_record_pass(
             return rc;
         }
 
+        if pass_id == RXGD_PASS_TAA_RESOLVE {
+            let caps = inner.caps;
+            let device = inner.device;
+            let queue = inner.queue;
+            // GRX-012: the opt-in real-pass arm routes through the gated
+            // real-pass attempt (fail-closed; see
+            // RXGD_CAP_TAA_RESOLVE_REAL_PASS). Every other call keeps the
+            // default fail-closed fallback path. This replaces the historical
+            // placeholder estimated-timing path for RXGD_PASS_TAA_RESOLVE: no
+            // estimated taa_resolve GPU time is attributed any more.
+            let rc = if caps.flags & RXGD_CAP_TAA_RESOLVE_REAL_PASS != 0 {
+                inner.taa_resolve_gate.record_real_pass_attempt(
+                    caps,
+                    resource_slice,
+                    push_constant_slice,
+                    device,
+                    queue,
+                )
+            } else {
+                inner.taa_resolve_gate.record_default_fallback(
+                    caps,
+                    resource_slice,
+                    push_constant_slice,
+                )
+            };
+            if rc == RXGD_STATUS_OK {
+                // A real bridge dispatch was recorded through the recording
+                // shim (only reachable under the `d3d12-recording-shim`
+                // feature). Attribute measured CPU record time; no GPU
+                // timestamp is implemented (gpu_timestamp_status=not_yet).
+                inner.recorded_passes += 1;
+                #[cfg(feature = "d3d12-recording-shim")]
+                {
+                    if let Some(record) = inner.taa_resolve_gate.take_last_dispatch_record() {
+                        inner.estimated_cpu_record_ns += record.cpu_record_ns;
+                    }
+                }
+                inner.last_error = RXGD_STATUS_OK;
+                return RXGD_STATUS_OK;
+            }
+            inner.fallback_passes += 1;
+            inner.last_error = rc;
+            return rc;
+        }
+
         inner.recorded_passes += 1;
         inner.estimated_cpu_record_ns += 25_000 + resource_count * 1_000;
         inner.estimated_gpu_time_ns += estimated_pass_gpu_time(pass_id);
@@ -2419,10 +2909,9 @@ fn estimated_pass_gpu_time(pass_id: u32) -> u64 {
         RXGD_PASS_CLUSTER_STORE => 80_000,
         RXGD_PASS_SSIL_BLUR => 120_000,
         // RXGD_PASS_LUMINANCE_REDUCTION is gated (GRX-009),
-        // RXGD_PASS_TONEMAP is gated (GRX-010), and RXGD_PASS_SSAO_BLUR is
-        // gated (GRX-011); none of them reaches the estimated-timing path
-        // while its gate is closed.
-        RXGD_PASS_TAA_RESOLVE => 160_000,
+        // RXGD_PASS_TONEMAP is gated (GRX-010), RXGD_PASS_SSAO_BLUR is gated
+        // (GRX-011), and RXGD_PASS_TAA_RESOLVE is gated (GRX-012); none of them
+        // reaches the estimated-timing path while its gate is closed.
         RXGD_PASS_PARTICLES_COPY => 55_000,
         RXGD_PASS_GPU_CULLING => 140_000,
         RXGD_PASS_INDIRECT_ARGS => 60_000,
@@ -2457,9 +2946,10 @@ mod d3d12_recording_shim {
     use super::{
         DispatchRecord, FallbackReason, LUMINANCE_OFFLINE_DXIL_SHA256,
         LUMINANCE_OFFLINE_ROOT_SIGNATURE_SHA256, PyramidLevel, RXGD_PASS_LUMINANCE_REDUCTION,
-        RXGD_PASS_SSAO_BLUR, RXGD_PASS_TONEMAP, SSAO_BLUR_OFFLINE_DXIL_SHA256,
-        SSAO_BLUR_OFFLINE_ROOT_SIGNATURE_SHA256, TONEMAP_OFFLINE_DXIL_SHA256,
-        TONEMAP_OFFLINE_ROOT_SIGNATURE_SHA256,
+        RXGD_PASS_SSAO_BLUR, RXGD_PASS_TAA_RESOLVE, RXGD_PASS_TONEMAP,
+        SSAO_BLUR_OFFLINE_DXIL_SHA256, SSAO_BLUR_OFFLINE_ROOT_SIGNATURE_SHA256,
+        TAA_RESOLVE_OFFLINE_DXIL_SHA256, TAA_RESOLVE_OFFLINE_ROOT_SIGNATURE_SHA256,
+        TONEMAP_OFFLINE_DXIL_SHA256, TONEMAP_OFFLINE_ROOT_SIGNATURE_SHA256,
     };
     use core::ffi::c_void;
 
@@ -2513,6 +3003,15 @@ mod d3d12_recording_shim {
         include_bytes!("../../../spike/godot-rurix/passes/ssao_blur/artifacts/ssao_blur.dxil");
     const SSAO_BLUR_RTS0: &[u8] =
         include_bytes!("../../../spike/godot-rurix/passes/ssao_blur/artifacts/ssao_blur.rts0.bin");
+
+    /// Tracked offline taa_resolve artifacts (GRX-012, texture-capable
+    /// hlsl_bridge workaround package; 5 SRVs t0..t4 + UAV u0). Same embedding +
+    /// digest discipline as the luminance/tonemap/ssao_blur artifacts.
+    const TAA_RESOLVE_DXIL: &[u8] =
+        include_bytes!("../../../spike/godot-rurix/passes/taa_resolve/artifacts/taa_resolve.dxil");
+    const TAA_RESOLVE_RTS0: &[u8] = include_bytes!(
+        "../../../spike/godot-rurix/passes/taa_resolve/artifacts/taa_resolve.rts0.bin"
+    );
 
     #[repr(C)]
     struct RxgdRecordResult {
@@ -2608,6 +3107,32 @@ mod d3d12_recording_shim {
             levels: *const RxgdShimLevel,
             level_count: u32,
             readback: u32,
+            out: *mut RxgdRecordResult,
+        ) -> i32;
+
+        // GRX-012: 5-SRV (t0..t4) + 1-UAV (u0) single-dispatch entry for the
+        // taa_resolve kernel (test-only readback mode). Additive; the existing
+        // 2-resource / multi-level entries are unchanged.
+        #[allow(clippy::too_many_arguments)]
+        fn rxgd_taa_resolve_record_dispatch(
+            abi_version: u32,
+            pass_id: u32,
+            device: *mut c_void,
+            queue: *mut c_void,
+            dxil: *const u8,
+            dxil_len: usize,
+            rts0: *const u8,
+            rts0_len: usize,
+            color: *mut c_void,
+            depth: *mut c_void,
+            velocity: *mut c_void,
+            last_velocity: *mut c_void,
+            history: *mut c_void,
+            output: *mut c_void,
+            push_constants: *const u8,
+            push_constant_len: usize,
+            width: u32,
+            height: u32,
             out: *mut RxgdRecordResult,
         ) -> i32;
     }
@@ -2736,6 +3261,113 @@ mod d3d12_recording_shim {
             dst_w,
             dst_h,
         )
+    }
+
+    /// GRX-012: record one real TAA resolve compute dispatch through the shim's
+    /// 6-resource entry (5 SRVs t0..t4 + UAV u0). Verifies the embedded
+    /// taa_resolve artifact digests against the baked offline evidence, then
+    /// hands the six real `ID3D12Resource*` handles + the pass's DXIL/RTS0 bytes
+    /// to the shim. Returns the measured [`DispatchRecord`] on success, or a
+    /// fallback reason if the embedded artifacts do not hash to the offline
+    /// digests, the shim ABI does not match, or the shim reports a D3D12
+    /// failure.
+    #[allow(clippy::too_many_arguments)]
+    pub fn record_taa_resolve_dispatch(
+        device: usize,
+        queue: usize,
+        color: usize,
+        depth: usize,
+        velocity: usize,
+        last_velocity: usize,
+        history: usize,
+        output: usize,
+        push_constants: &[u8],
+        width: u32,
+        height: u32,
+    ) -> Result<DispatchRecord, FallbackReason> {
+        // Artifact integrity: the embedded bytes must hash to the baked offline
+        // compile evidence digests, or the runtime binding does not correspond
+        // to the tracked compiled package and must not drive a real dispatch.
+        if sha256_hex(TAA_RESOLVE_DXIL) != TAA_RESOLVE_OFFLINE_DXIL_SHA256
+            || sha256_hex(TAA_RESOLVE_RTS0) != TAA_RESOLVE_OFFLINE_ROOT_SIGNATURE_SHA256
+        {
+            return Err(FallbackReason::ValidationFailed);
+        }
+        // SAFETY: the shim ABI query takes no arguments and only returns a
+        // compile-time constant; it dereferences no pointer.
+        let shim_abi = unsafe { rxgd_luminance_record_shim_abi_version() };
+        if shim_abi != SHIM_ABI_VERSION {
+            return Err(FallbackReason::ValidationFailed);
+        }
+
+        let mut out = RxgdRecordResult {
+            fence_completed_value: 0,
+            dispatch_x: 0,
+            dispatch_y: 0,
+            dispatch_z: 0,
+            dst_width: 0,
+            dst_height: 0,
+            readback_checksum: 0,
+            dst_first_value: 0.0,
+            dxil_signed: 0,
+            error_detail: [0u8; 256],
+        };
+        let start = std::time::Instant::now();
+        // SAFETY: the DXIL/RTS0 slices are embedded read-only data with their
+        // true `len()`, `push_constants` is a caller-owned read-only slice with
+        // its true `len()`, and `out` is an exclusive local. The
+        // device/queue/resource pointer values were validated non-null by the
+        // dispatch eligibility gate and originate from real D3D12 objects. The
+        // shim honours the versioned ABI (first arg checked against
+        // `SHIM_ABI_VERSION`), only reads the byte inputs, records one dispatch,
+        // writes `out`, and retains no pointer past the call.
+        let rc = unsafe {
+            rxgd_taa_resolve_record_dispatch(
+                SHIM_ABI_VERSION,
+                RXGD_PASS_TAA_RESOLVE,
+                device as *mut c_void,
+                queue as *mut c_void,
+                TAA_RESOLVE_DXIL.as_ptr(),
+                TAA_RESOLVE_DXIL.len(),
+                TAA_RESOLVE_RTS0.as_ptr(),
+                TAA_RESOLVE_RTS0.len(),
+                color as *mut c_void,
+                depth as *mut c_void,
+                velocity as *mut c_void,
+                last_velocity as *mut c_void,
+                history as *mut c_void,
+                output as *mut c_void,
+                push_constants.as_ptr(),
+                push_constants.len(),
+                width,
+                height,
+                &mut out,
+            )
+        };
+        let cpu_record_ns = start.elapsed().as_nanos() as u64;
+        if rc != 0 {
+            let detail_len = out
+                .error_detail
+                .iter()
+                .position(|&b| b == 0)
+                .unwrap_or(out.error_detail.len());
+            let detail = String::from_utf8_lossy(&out.error_detail[..detail_len]);
+            eprintln!(
+                "RXGD_SHIM_DIAG rxgd_taa_resolve_record_dispatch rc={rc} dxil_signed={} detail=\"{detail}\"",
+                out.dxil_signed
+            );
+            return Err(FallbackReason::ValidationFailed);
+        }
+        Ok(DispatchRecord {
+            fence_completed_value: out.fence_completed_value,
+            dispatch: (out.dispatch_x, out.dispatch_y, out.dispatch_z),
+            dst_width: out.dst_width,
+            dst_height: out.dst_height,
+            readback_checksum: out.readback_checksum,
+            dst_first_value: out.dst_first_value,
+            dxil_signed: out.dxil_signed != 0,
+            cpu_record_ns,
+        })
     }
 
     /// Wave 2 multi-level pyramid: record the full reduce chain + final
@@ -3147,6 +3779,35 @@ mod d3d12_recording_shim {
             assert_eq!(
                 sha256_hex(TONEMAP_RTS0),
                 TONEMAP_OFFLINE_ROOT_SIGNATURE_SHA256
+            );
+        }
+
+        #[test]
+        fn embedded_ssao_blur_artifacts_match_offline_digests() {
+            use super::super::{
+                SSAO_BLUR_OFFLINE_DXIL_SHA256, SSAO_BLUR_OFFLINE_ROOT_SIGNATURE_SHA256,
+            };
+            use super::{SSAO_BLUR_DXIL, SSAO_BLUR_RTS0};
+            assert_eq!(sha256_hex(SSAO_BLUR_DXIL), SSAO_BLUR_OFFLINE_DXIL_SHA256);
+            assert_eq!(
+                sha256_hex(SSAO_BLUR_RTS0),
+                SSAO_BLUR_OFFLINE_ROOT_SIGNATURE_SHA256
+            );
+        }
+
+        #[test]
+        fn embedded_taa_resolve_artifacts_match_offline_digests() {
+            use super::super::{
+                TAA_RESOLVE_OFFLINE_DXIL_SHA256, TAA_RESOLVE_OFFLINE_ROOT_SIGNATURE_SHA256,
+            };
+            use super::{TAA_RESOLVE_DXIL, TAA_RESOLVE_RTS0};
+            assert_eq!(
+                sha256_hex(TAA_RESOLVE_DXIL),
+                TAA_RESOLVE_OFFLINE_DXIL_SHA256
+            );
+            assert_eq!(
+                sha256_hex(TAA_RESOLVE_RTS0),
+                TAA_RESOLVE_OFFLINE_ROOT_SIGNATURE_SHA256
             );
         }
 
@@ -4804,6 +5465,348 @@ mod tests {
             "smart_blur_cpu_reference_proven_pending_gpu_dispatch"
         );
         assert_eq!(SsaoBlurGate::check_real_pass_math_parity(), Ok(()));
+    }
+
+    // ── GRX-012 taa_resolve gate tests ───────────────────────────────────────
+
+    /// Caps arming the GRX-012 taa_resolve real-pass opt-in (plus the 64-bit
+    /// integer capability the canonical b0 template requires).
+    fn taa_resolve_real_pass_optin_caps() -> RxGdCaps {
+        let mut caps = RxGdCaps::d3d12_forward_plus();
+        caps.flags = RXGD_CAP_SHADER_INT64 | RXGD_CAP_TAA_RESOLVE_REAL_PASS;
+        caps
+    }
+
+    fn taa_resolve_push_constants(
+        source_width: u64,
+        source_height: u64,
+        disocclusion_threshold: f32,
+        variance_dynamic: f32,
+        reserved0: f32,
+    ) -> [u8; TAA_RESOLVE_ROOT_CONSTANT_BYTES as usize] {
+        let mut bytes = [0u8; TAA_RESOLVE_ROOT_CONSTANT_BYTES as usize];
+        bytes[0..8].copy_from_slice(&source_width.to_le_bytes());
+        bytes[8..16].copy_from_slice(&source_height.to_le_bytes());
+        bytes[16..20].copy_from_slice(&disocclusion_threshold.to_le_bytes());
+        bytes[20..24].copy_from_slice(&variance_dynamic.to_le_bytes());
+        bytes[24..28].copy_from_slice(&reserved0.to_le_bytes());
+        bytes
+    }
+
+    /// A fully valid taa_resolve binding: six full-resolution texture resources
+    /// (color/depth/velocity/last_velocity/history/output) with non-null native
+    /// handles plus coherent b0 constants.
+    fn valid_taa_resolve_binding() -> (
+        [RxGdResource; 6],
+        [u8; TAA_RESOLVE_ROOT_CONSTANT_BYTES as usize],
+    ) {
+        let resources = [
+            RxGdResource::texture(201, 960, 540, 2), // color_buffer   (t0)
+            RxGdResource::texture(202, 960, 540, 35), // depth_buffer   (t1)
+            RxGdResource::texture(203, 960, 540, 34), // velocity       (t2)
+            RxGdResource::texture(204, 960, 540, 34), // last_velocity  (t3)
+            RxGdResource::texture(205, 960, 540, 2), // history        (t4)
+            RxGdResource::texture(206, 960, 540, 2), // output         (u0)
+        ];
+        let push_constants = taa_resolve_push_constants(960, 540, 0.1 / 960.0, 1.0, 0.0);
+        (resources, push_constants)
+    }
+
+    #[test]
+    fn taa_resolve_cap_flag_is_reserved_bit_six() {
+        assert_eq!(RXGD_CAP_TAA_RESOLVE_REAL_PASS, 1 << 6);
+        // ABI stays v1: the flag reuses the existing RxGdCaps.flags field.
+        assert_eq!(rxgd_abi_version(), RXGD_ABI_VERSION);
+    }
+
+    #[test]
+    fn taa_resolve_defaults_disabled_and_falls_back() {
+        // GRX-012: the default path (no opt-in flag) must fall back and must
+        // not attribute the historical placeholder estimated GPU time.
+        let session = create_session();
+        let resource = RxGdResource::texture(721, 960, 540, 2);
+        assert_eq!(rxgd_register_texture(session, resource), RXGD_STATUS_OK);
+        assert_eq!(
+            rxgd_record_pass(
+                session,
+                RXGD_PASS_TAA_RESOLVE,
+                &resource,
+                1,
+                core::ptr::null(),
+                0
+            ),
+            RXGD_STATUS_FALLBACK
+        );
+        let mut stats = zeroed_stats();
+        assert_eq!(
+            rxgd_collect_timestamps(session, 60, &mut stats),
+            RXGD_STATUS_OK
+        );
+        assert_eq!(stats.recorded_passes, 0);
+        assert_eq!(stats.fallback_passes, 1);
+        assert_eq!(stats.gpu_time_ns, 0);
+        assert_eq!(stats.cpu_record_ns, 0);
+        assert_eq!(stats.last_error, RXGD_STATUS_FALLBACK);
+        rxgd_destroy_session(session);
+    }
+
+    #[test]
+    fn taa_resolve_valid_default_binding_still_falls_back_manual_disabled() {
+        let (resources, push_constants) = valid_taa_resolve_binding();
+        let mut caps = RxGdCaps::d3d12_forward_plus();
+        caps.flags = RXGD_CAP_SHADER_INT64;
+        let mut gate = TaaResolveGate::new();
+        assert_eq!(
+            gate.record_default_fallback(caps, &resources, &push_constants),
+            RXGD_STATUS_FALLBACK
+        );
+        assert!(!gate.is_enabled());
+        assert_eq!(
+            gate.last_fallback_reason(),
+            Some(FallbackReason::ManualDisabled)
+        );
+        assert_eq!(gate.last_real_pass_blocked(), None);
+    }
+
+    /// GRX-012: a fully valid, fully opted-in real-pass attempt passes every
+    /// software gate and reaches the linked-dispatch boundary. In the shipping
+    /// feature-off build no dispatch path is compiled in, so the attempt fails
+    /// closed with `real_dispatch_path_not_linked`.
+    #[cfg(not(feature = "d3d12-recording-shim"))]
+    #[test]
+    fn taa_resolve_real_pass_optin_blocks_on_missing_dispatch_path() {
+        let (resources, push_constants) = valid_taa_resolve_binding();
+        let session = create_session_with_caps(taa_resolve_real_pass_optin_caps());
+        assert_eq!(
+            rxgd_record_pass(
+                session,
+                RXGD_PASS_TAA_RESOLVE,
+                resources.as_ptr(),
+                resources.len() as u64,
+                push_constants.as_ptr(),
+                push_constants.len() as u64,
+            ),
+            RXGD_STATUS_FALLBACK
+        );
+        let mut stats = zeroed_stats();
+        assert_eq!(
+            rxgd_collect_timestamps(session, 61, &mut stats),
+            RXGD_STATUS_OK
+        );
+        assert_eq!(stats.recorded_passes, 0);
+        assert_eq!(stats.fallback_passes, 1);
+        assert_eq!(stats.gpu_time_ns, 0);
+        assert_eq!(stats.cpu_record_ns, 0);
+        rxgd_destroy_session(session);
+
+        let mut gate = TaaResolveGate::new();
+        let rc = gate.record_real_pass_attempt(
+            taa_resolve_real_pass_optin_caps(),
+            &resources,
+            &push_constants,
+            1,
+            2,
+        );
+        assert_eq!(rc, RXGD_STATUS_FALLBACK);
+        assert!(!gate.is_enabled());
+        assert_eq!(
+            gate.last_fallback_reason(),
+            Some(FallbackReason::CompileFailed)
+        );
+        assert_eq!(
+            gate.last_real_pass_blocked(),
+            Some("real_dispatch_path_not_linked")
+        );
+    }
+
+    #[test]
+    fn taa_resolve_real_pass_capability_downgrade_is_unsupported_device() {
+        let (resources, push_constants) = valid_taa_resolve_binding();
+        let mut caps = taa_resolve_real_pass_optin_caps();
+        caps.flags &= !RXGD_CAP_SHADER_INT64;
+        let mut gate = TaaResolveGate::new();
+        let rc = gate.record_real_pass_attempt(caps, &resources, &push_constants, 1, 2);
+        assert_eq!(rc, RXGD_STATUS_FALLBACK);
+        assert!(!gate.is_enabled());
+        assert_eq!(
+            gate.last_fallback_reason(),
+            Some(FallbackReason::UnsupportedDevice)
+        );
+        assert_eq!(
+            gate.last_real_pass_blocked(),
+            Some("runtime_binding_preflight_failed")
+        );
+    }
+
+    #[test]
+    fn taa_resolve_real_pass_null_resource_handle_is_validation_failed() {
+        let (mut resources, push_constants) = valid_taa_resolve_binding();
+        resources[5].native_handle = 0;
+        let mut gate = TaaResolveGate::new();
+        let rc = gate.record_real_pass_attempt(
+            taa_resolve_real_pass_optin_caps(),
+            &resources,
+            &push_constants,
+            1,
+            2,
+        );
+        assert_eq!(rc, RXGD_STATUS_FALLBACK);
+        assert_eq!(
+            gate.last_fallback_reason(),
+            Some(FallbackReason::ValidationFailed)
+        );
+        assert_eq!(
+            gate.last_real_pass_blocked(),
+            Some("dispatch_eligibility_failed")
+        );
+    }
+
+    #[test]
+    fn taa_resolve_preflight_rejects_shape_and_dimension_mismatches() {
+        let caps = taa_resolve_real_pass_optin_caps();
+
+        // output extent must equal color extent (1:1 full-res resolve).
+        let mut resources = valid_taa_resolve_binding().0;
+        resources[5] = RxGdResource::texture(206, 480, 270, 2);
+        let push_constants = taa_resolve_push_constants(960, 540, 0.1 / 960.0, 1.0, 0.0);
+        assert_eq!(
+            TaaResolveGate::check_runtime_binding_preflight(caps, &resources, &push_constants),
+            Err(FallbackReason::ValidationFailed)
+        );
+
+        // b0 dims must match the bound color resource.
+        let resources = valid_taa_resolve_binding().0;
+        let bad_dims = taa_resolve_push_constants(640, 360, 0.1 / 640.0, 1.0, 0.0);
+        assert_eq!(
+            TaaResolveGate::check_runtime_binding_preflight(caps, &resources, &bad_dims),
+            Err(FallbackReason::ValidationFailed)
+        );
+
+        // Wrong resource count fails.
+        let five: [RxGdResource; 5] = [
+            resources[0],
+            resources[1],
+            resources[2],
+            resources[3],
+            resources[4],
+        ];
+        assert_eq!(
+            TaaResolveGate::check_runtime_binding_preflight(caps, &five, &push_constants),
+            Err(FallbackReason::ValidationFailed)
+        );
+
+        // A coherent 6-resource binding passes the pure preflight.
+        let (resources, push_constants) = valid_taa_resolve_binding();
+        assert_eq!(
+            TaaResolveGate::check_runtime_binding_preflight(caps, &resources, &push_constants),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn taa_resolve_real_pass_binding_kind_check_accepts_texture_slots_only() {
+        let (resources, _) = valid_taa_resolve_binding();
+        assert_eq!(
+            TaaResolveGate::check_real_pass_binding_kind(&resources),
+            Ok(())
+        );
+        // Too few resources fails.
+        assert_eq!(
+            TaaResolveGate::check_real_pass_binding_kind(&resources[..5]),
+            Err(FallbackReason::ValidationFailed)
+        );
+        // A buffer at any slot fails closed (raw_buffer_view never conforms).
+        let mut with_buffer = resources;
+        with_buffer[2] = RxGdResource {
+            resource_type: RXGD_RESOURCE_BUFFER,
+            ..with_buffer[2]
+        };
+        assert_eq!(
+            TaaResolveGate::check_real_pass_binding_kind(&with_buffer),
+            Err(FallbackReason::ValidationFailed)
+        );
+        let mut buffer_uav = resources;
+        buffer_uav[5] = RxGdResource {
+            resource_type: RXGD_RESOURCE_BUFFER,
+            ..buffer_uav[5]
+        };
+        assert_eq!(
+            TaaResolveGate::check_real_pass_binding_kind(&buffer_uav),
+            Err(FallbackReason::ValidationFailed)
+        );
+    }
+
+    #[test]
+    fn taa_resolve_dispatch_package_matches_offline_evidence() {
+        let package = TaaResolveDispatchPackage::verified_offline_package();
+        assert!(package.verify_matches_offline_evidence().is_ok());
+        assert_eq!(package.resource_count, 6);
+        assert_eq!(package.srv_count, 5);
+
+        let mut tampered = package;
+        tampered.available = false;
+        assert_eq!(
+            tampered.verify_matches_offline_evidence(),
+            Err(FallbackReason::CompileFailed)
+        );
+
+        let mut tampered = package;
+        tampered.dxil_sha256 = "0000000000000000000000000000000000000000000000000000000000000000";
+        assert_eq!(
+            tampered.verify_matches_offline_evidence(),
+            Err(FallbackReason::ValidationFailed)
+        );
+
+        let mut tampered = package;
+        tampered.srv_count = 4;
+        assert_eq!(
+            tampered.verify_matches_offline_evidence(),
+            Err(FallbackReason::ValidationFailed)
+        );
+    }
+
+    #[test]
+    fn taa_resolve_real_pass_hash_mismatch_blocks_on_validation() {
+        let (resources, push_constants) = valid_taa_resolve_binding();
+        let mut gate = TaaResolveGate::new();
+        gate.dispatch_package.dxil_sha256 =
+            "0000000000000000000000000000000000000000000000000000000000000000";
+        let rc = gate.record_real_pass_attempt(
+            taa_resolve_real_pass_optin_caps(),
+            &resources,
+            &push_constants,
+            1,
+            2,
+        );
+        assert_eq!(rc, RXGD_STATUS_FALLBACK);
+        assert_eq!(
+            gate.last_fallback_reason(),
+            Some(FallbackReason::ValidationFailed)
+        );
+        assert_eq!(
+            gate.last_real_pass_blocked(),
+            Some("dispatch_eligibility_failed")
+        );
+    }
+
+    #[test]
+    fn taa_resolve_math_parity_gate_allows_cpu_proven_resolve() {
+        assert_eq!(
+            TAA_RESOLVE_KERNEL_MATH_PARITY_STATUS,
+            "taa_resolve_cpu_reference_proven_pending_gpu_dispatch"
+        );
+        assert_eq!(TaaResolveGate::check_real_pass_math_parity(), Ok(()));
+        assert_eq!(
+            TAA_RESOLVE_KERNEL_RESOURCE_BINDING_KINDS,
+            [
+                "texture2d",
+                "texture2d",
+                "texture2d",
+                "texture2d",
+                "texture2d",
+                "rwtexture2d"
+            ]
+        );
     }
 
     #[test]

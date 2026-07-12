@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "subject": "grx012_taa_resolve_real_d3d12_dispatch_smoke",
+  "pass_id": "taa_resolve",
+  "segment": "standalone_dispatch_smoke",
+  "runtime_state": "fallback_only",
+  "real_gpu_pass": false,
+  "real_d3d12_dispatch_recorded": true,
+  "cpu_reference_match": true,
+  "artifacts": {
+    "dxil": {
+      "path": "spike/godot-rurix/passes/taa_resolve/artifacts/taa_resolve.dxil",
+      "sha256": "1081b3362153746bd3e6f7407a4093ef13d1e65bc26ad9add55bec465720b5df"
+    },
+    "root_signature": {
+      "path": "spike/godot-rurix/passes/taa_resolve/artifacts/taa_resolve.rts0.bin",
+      "sha256": "18fb877cf7a9880adcd23fab2ca78f107b6a16ec63d30a818976473e1ef4a301"
+    },
+    "descriptor_layout": {
+      "path": "spike/godot-rurix/passes/taa_resolve/artifacts/taa_resolve_descriptor_layout.json",
+      "sha256": "8959d2996331655a63697efd55f3361420e177cbd8b6094129b54805b72c4c1d"
+    }
+  },
+  "offline_evidence": {
+    "path": "spike/godot-rurix/passes/taa_resolve/offline_compile_evidence.json",
+    "dxil_sha256": "1081b3362153746bd3e6f7407a4093ef13d1e65bc26ad9add55bec465720b5df",
+    "root_signature_sha256": "18fb877cf7a9880adcd23fab2ca78f107b6a16ec63d30a818976473e1ef4a301",
+    "descriptor_layout_sha256": "8959d2996331655a63697efd55f3361420e177cbd8b6094129b54805b72c4c1d"
+  },
+  "artifact_hashes_match_offline_evidence": true,
+  "note": "GRX-012 standalone real D3D12 dispatch smoke evidence only. A success flips real_d3d12_dispatch_recorded/cpu_reference_match true (the fields the GRX-012 gate reads) but keeps runtime_state=fallback_only and real_gpu_pass=false; it is not a Godot runtime pass, visual, perf, or measured-telemetry claim.",
+  "status": "success",
+  "timestamp": "2026-07-12T13:24:33+08:00",
+  "run_url": "local interactive runner",
+  "device": {
+    "adapter": "NVIDIA GeForce RTX 4070 Ti",
+    "experimental_shader_models": "off",
+    "dxil_signed_for_load": "yes",
+    "dxil_validator": "H:/dxc-round7/extracted/bin/x64/dxil.dll"
+  },
+  "dispatch": {
+    "dimensions": "2,2,1",
+    "fence_completed_value": "1",
+    "dst_shape": "16x16",
+    "readback_checksum": "0x0ef02291",
+    "samples": [
+      {
+        "x": "0",
+        "y": "0",
+        "obs": "9.36679e-09,9.36679e-09,9.36679e-09,1"
+      },
+      {
+        "x": "8",
+        "y": "8",
+        "obs": "0.678941,0.356989,0.652012,1"
+      },
+      {
+        "x": "15",
+        "y": "15",
+        "obs": "0.323765,0.697048,0.46924,1"
+      },
+      {
+        "x": "1",
+        "y": "14",
+        "obs": "0.476407,0.712542,0.521699,1"
+      }
+    ]
+  },
+  "cpu_reference": {
+    "reference_impl": "spike/godot-rurix/passes/taa_resolve/generate_math_parity_evidence.py taa_resolve_frame (imported and compared over every texel in Python)",
+    "fixture": {
+      "width": 16,
+      "height": 16,
+      "variance_dynamic": 1.0,
+      "math_parity_case": "taa_resolve_dispatch_fixture_16x16"
+    },
+    "comparison": {
+      "match": true,
+      "max_abs_diff": 5.960464477539062e-07,
+      "mismatched_texels": 0,
+      "total_texels": 256,
+      "value_tolerance": 0.003,
+      "alpha_tolerance": 1e-06,
+      "worst_texel": {
+        "x": 15,
+        "y": 15,
+        "observed": [
+          0.32376497983932495,
+          0.6970482468605042,
+          0.4692400097846985,
+          1.0
+        ],
+        "reference": [
+          0.3237650990486145,
+          0.6970478892326355,
+          0.46924060583114624,
+          1.0
+        ]
+      }
+    }
+  },
+  "checks": {
+    "artifact_hashes_match_offline_evidence": true,
+    "descriptor_layout_matches_resource_mapping": true,
+    "root_signature_create_from_rurix_rts0": true,
+    "compute_pso_from_rurix_dxil": true,
+    "six_resources_bound_from_layout": true,
+    "dispatch_executed": true,
+    "fence_completed": true,
+    "output_uav_readback": true,
+    "all_output_texels_match_cpu_reference": true
+  },
+  "stdout": "RXGD_DISPATCH: experimental_shader_models=off\nRXGD_DISPATCH: dxil_signed_for_load=yes\nRXGD_DISPATCH: adapter=\"NVIDIA GeForce RTX 4070 Ti\"\nRXGD_DISPATCH: sample x=0 y=0 obs=9.36679e-09,9.36679e-09,9.36679e-09,1\nRXGD_DISPATCH: sample x=8 y=8 obs=0.678941,0.356989,0.652012,1\nRXGD_DISPATCH: sample x=15 y=15 obs=0.323765,0.697048,0.46924,1\nRXGD_DISPATCH: sample x=1 y=14 obs=0.476407,0.712542,0.521699,1\nRXGD_DISPATCH: ok adapter=\"NVIDIA GeForce RTX 4070 Ti\" dispatch=2,2,1 fence=1 dst=16x16 checksum=0x0ef02291"
+}

@@ -1,0 +1,156 @@
+{
+  "pass_id": "taa_resolve",
+  "status": "grx012_segment_a_contract_offline_kernel_bridge_gate_dispatch_smoke",
+  "implemented": false,
+  "default_enable_state": "disabled",
+  "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
+  "target_scenes": [
+    "mixed_forward_plus",
+    "clustered_lights"
+  ],
+  "bridge_pass_id": "RXGD_PASS_TAA_RESOLVE (6)",
+  "cap_bit": "RXGD_CAP_TAA_RESOLVE_REAL_PASS (1 << 6)",
+  "godot_hook_investigation": {
+    "note": "Investigation only; external/godot-master is NOT modified. Paths and functions are recorded for the deferred patch 0017 call-site gate and the patch 0018 native-handle mapping.",
+    "effect_class": {
+      "header": "servers/rendering/renderer_rd/effects/taa.h",
+      "source": "servers/rendering/renderer_rd/effects/taa.cpp",
+      "functions": [
+        "RendererRD::TAA::resolve",
+        "RendererRD::TAA::process"
+      ],
+      "native_pass_shape": "single compute resolve dispatch (local_size 8x8x1, compute_list_dispatch_threads(resolution.x, resolution.y, 1)); history maintained by three physical copy_to_rect calls (resolve->temp->internal->history, velocity->prev_velocity) outside the resolve dispatch"
+    },
+    "shaders": [
+      "servers/rendering/renderer_rd/shaders/effects/taa_resolve.glsl"
+    ],
+    "call_sites": [
+      {
+        "file": "servers/rendering/renderer_rd/effects/taa.cpp",
+        "function": "resolve",
+        "region": "compute resolve dispatch",
+        "lines": [
+          51,
+          88
+        ],
+        "note": "deferred patch 0017 would gate the resolve dispatch; the native resolve + history copy chain is always preserved as fallback/continuation."
+      }
+    ],
+    "resource_bindings": [
+      "color_buffer (rgba16f image r, set0 binding0)",
+      "depth_buffer (sampler2D, set0 binding1)",
+      "velocity_buffer (rg16f image r, set0 binding2)",
+      "last_velocity_buffer (rg16f image r, set0 binding3)",
+      "history_buffer (sampler2D, set0 binding4)",
+      "output_buffer (rgba16f image w, set0 binding5)"
+    ]
+  },
+  "resource_mapping": "spike/godot-rurix/passes/taa_resolve/resource_mapping.md",
+  "descriptor_mapping": {
+    "root_cbuffer_binding": "b0 space0",
+    "root_constants": [
+      "source_width",
+      "source_height",
+      "disocclusion_threshold",
+      "variance_dynamic",
+      "reserved0"
+    ],
+    "root_constant_bytes": 28,
+    "root_constant_dwords": 7,
+    "resources": [
+      { "name": "color_buffer", "binding": "t0 space0", "kind": "SRV", "binding_kind": "texture2d" },
+      { "name": "depth_buffer", "binding": "t1 space0", "kind": "SRV", "binding_kind": "texture2d" },
+      { "name": "velocity_buffer", "binding": "t2 space0", "kind": "SRV", "binding_kind": "texture2d" },
+      { "name": "last_velocity_buffer", "binding": "t3 space0", "kind": "SRV", "binding_kind": "texture2d" },
+      { "name": "history_buffer", "binding": "t4 space0", "kind": "SRV", "binding_kind": "texture2d" },
+      { "name": "output_buffer", "binding": "u0 space0", "kind": "UAV", "binding_kind": "rwtexture2d" }
+    ],
+    "dst_shape": "output extent == color extent (1:1 full-resolution resolve pass; same rule as GRX-010 tonemap)",
+    "requires_64bit_integer_shader_capability": true,
+    "on_missing_resource_or_cap_or_descriptor_mismatch": "RXGD_STATUS_FALLBACK"
+  },
+  "supported_math_subset": {
+    "variant": "single full-resolution TAA resolve (taa_resolve.glsl, Spartan-derived)",
+    "group_shared_tile": "10x10 tile (8x8 group + 1 border) caching clamped color+depth loads",
+    "velocity": "get_closest_pixel_velocity_3x3 (3x3 min-depth velocity poll, with the native border-offset quirk reproduced)",
+    "history_sampling": "9-tap Catmull-Rom; hardware bilinear textureLod reproduced as explicit float 4-tap Load bilinear with clamp addressing",
+    "history_clipping": "variance clip box (clip_aabb + adaptive box_size from velocity length + variance_dynamic)",
+    "blend": "Reinhard domain lerp (base 1/16 + out-of-screen reset + disocclusion boost + luminance-diff flicker suppression) then inverse Reinhard",
+    "precision": "float32 kernel; parity and dispatch smoke use float32 textures"
+  },
+  "known_gaps": [
+    "hardware bilinear (textureLod with a linear+clamp sampler) reproduced as explicit float 4-tap Load bilinear; interior UVs are texel-exact, real-sampler sub-texel fixed-point rounding is a recorded gap",
+    "rgba16f / rg16f half storage quantization not modelled (kernel computes float32; native buffers are half)",
+    "history physical maintenance chain (resolve->temp->internal->history via three copy_to_rect) not wired (single resolve dispatch only; native continuation maintains history every frame)",
+    "one-frame latency (a self-queue dispatch reads the previous frame's color/velocity); a true replacement needs draw_graph integration (deferred), so this slice only scaffolds the writeback",
+    "get_closest_pixel_velocity_3x3 border-offset quirk (velocity fetched at group_top_left+min_pos = pos_screen-1+offset) reproduced faithfully",
+    "imageLoad out-of-bounds returns 0 (native Vulkan semantics) reproduced by Load OOB=0",
+    "no multiview",
+    "no temporal/noise stability evidence (GRX-012 plan note; 4g-level, later slice)",
+    "GPU-side math parity observation pending a real dispatch (math_parity_evidence.json)"
+  ],
+  "fallback": {
+    "reasons": [
+      "compile_failed",
+      "validation_failed",
+      "unsupported_device",
+      "visual_diff_failed",
+      "manual_disabled"
+    ],
+    "on_any_failure": "godot_native_taa_resolve"
+  },
+  "offline_compile_status": "success",
+  "offline_compile_provenance": "hlsl_bridge_workaround",
+  "offline_compile_runtime_mappable": true,
+  "offline_compile_evidence": "spike/godot-rurix/passes/taa_resolve/offline_compile_evidence.json",
+  "offline_compile_artifacts": {
+    "dxil": "spike/godot-rurix/passes/taa_resolve/artifacts/taa_resolve.dxil",
+    "root_signature": "spike/godot-rurix/passes/taa_resolve/artifacts/taa_resolve.rts0.bin",
+    "descriptor_layout": "spike/godot-rurix/passes/taa_resolve/artifacts/taa_resolve_descriptor_layout.json"
+  },
+  "math_parity_evidence": "spike/godot-rurix/passes/taa_resolve/math_parity_evidence.json",
+  "math_parity_status": "taa_resolve_cpu_reference_proven_pending_gpu_dispatch",
+  "compile_blockers": [
+    {
+      "category": "provenance_workaround_active",
+      "summary": "the canonical taa_resolve package is the owner-approved hlsl_bridge_workaround artifact (DXC cs_6_0 container validated by dxv, per-slot texture2d/rwtexture2d binding kinds, Rurix-owned RTS0; GRX-009 texture_artifact_provenance_policy.json applies to every texture compute pass); a rurixc-owned taa_resolve compile still requires a patched llc that supports texture intrinsics plus multi-channel texture element support in the Rurix Texture2D<F>/RWTexture2D<F> lang items"
+    }
+  ],
+  "implementation_status": {
+    "segment": "segment_a_contract_offline_kernel_bridge_gate_dispatch_smoke",
+    "runtime_state": "fallback_only",
+    "runtime_state_note": "The DEFAULT runtime path stays fallback-only: with all per-pass settings at their false defaults the bridge returns RXGD_STATUS_FALLBACK for RXGD_PASS_TAA_RESOLVE and the native Godot TAA resolve renders. This slice delivers PASS_TEMPLATE S1-S4 + S6 only (contract, offline kernel, math parity, fail-closed TaaResolveGate, standalone dispatch smoke). NO Godot patch (0017-0019 are deferred to a later serial slice), NO enablement, NO close-out. real_gpu_pass=false / real_d3d12_dispatch_recorded=false. The shipping feature-off bridge fails closed with real_dispatch_path_not_linked.",
+    "bridge_gate": "src/rurix-godot TaaResolveGate: preflight (int64 cap, 6 texture resources, 28-byte b0, dims match, 1:1 output shape) -> dispatch eligibility (RXGD_CAP_TAA_RESOLVE_REAL_PASS opt-in, non-null native handles, TaaResolveDispatchPackage layout/digest match vs offline evidence) -> per-slot kernel-binding-kind conformance ([texture2d x5, rwtexture2d]) -> math-parity gate (taa_resolve_cpu_reference_proven_pending_gpu_dispatch) -> real dispatch only under the d3d12-recording-shim feature; every failure records a fallback reason and prints the once-per-session RXGD_TAA_REAL_PASS_BLOCKED diagnostic",
+    "godot_module_patch": "deferred: patches 0017-0019 (pass-gate + call-site / runtime native-handle binding / recording-smoke + real-pass opt-in) are reserved in PATCH_ALLOCATION.md and belong to a later serial (stack-locked) slice; this slice produces no patch",
+    "godot_core_call_site_wired": false,
+    "real_gpu_pass": false,
+    "real_d3d12_dispatch_recorded": false,
+    "godot_runtime_taa_resolve_path_enabled": false,
+    "standalone_d3d12_dispatch_smoke": {
+      "harness": "ci/grx012_taa_resolve_d3d12_dispatch_smoke.py",
+      "evidence": "spike/godot-rurix/passes/taa_resolve/real_d3d12_dispatch_smoke.json",
+      "run_command": "$env:RURIX_DXC_DIR='H:\\dxc-round7\\extracted\\bin\\x64'; py -3 ci\\grx012_taa_resolve_d3d12_dispatch_smoke.py",
+      "purpose": "Prove the tracked offline taa_resolve DXIL container + RTS0 root signature + descriptor layout can complete one minimal compute dispatch on a real D3D12 device/command queue with 5 SRVs (t0..t4) + 1 UAV (u0) AND that every measured GPU output texel matches the CPU reference (single-frame TAA resolve on a deterministic synthetic fixture) within tolerance. Standalone measured evidence only; the bridge records no dispatch and returns no OK.",
+      "does_not_imply": [
+        "Godot runtime TAA resolve pass completion",
+        "bridge rxgd_record_pass returning RXGD_STATUS_OK",
+        "real_gpu_pass = true",
+        "real_d3d12_dispatch_recorded = true",
+        "any visual diff, measured fallback telemetry, temporal stability, or performance claim"
+      ]
+    },
+    "remaining_segments": [
+      "Godot patch 0017-0019 (pass-gate/call-site, runtime native-handle binding, recording-smoke + real-pass opt-in; history physical maintenance chain and draw_graph true replacement design)",
+      "Godot runtime bridge dispatch recording smoke (4f-level, needs a full patch-stack scratch rebuild)",
+      "in-engine real visual diff + measured fallback telemetry gate (4g-level; temporal/noise stability evidence)",
+      "gated real-pass enablement gate and measured success (4h-level)",
+      "hardware-sampler true replacement, half storage quantization parity, draw_graph one-frame-latency true replacement",
+      "per-pass FPS baseline comparison (contract requires >= 0.95x baseline before any default-enable discussion)"
+    ]
+  },
+  "evidence_requirements": {
+    "visual": "in-engine LDR absolute diff (GRX-009 segment 4g template) is a later slice; not produced here",
+    "perf": "reuse GRX-006 baseline/perf gate; no perf improvement claimed"
+  },
+  "disclaimer": "GRX-012 taa_resolve is at the segment-A level (PASS_TEMPLATE S1-S4 + S6): the taa_resolve pass contract, the DXC/DXV/RTS0 offline kernel package (hlsl_bridge_workaround provenance, runtime-mappable per the owner-approved GRX-009 texture artifact provenance policy), the CPU-proven math parity, the fail-closed bridge TaaResolveGate (default RXGD_STATUS_FALLBACK; opt-in RXGD_CAP_TAA_RESOLVE_REAL_PASS arm linked only under the d3d12-recording-shim feature), and the standalone real D3D12 dispatch smoke. implemented=false / real_gpu_pass=false / real_d3d12_dispatch_recorded=false: no Godot patch, no enablement, no close-out in this slice. The DEFAULT path stays fallback-only, default_enable_state stays disabled, the shipping feature-off bridge fails closed with real_dispatch_path_not_linked, and NO visual-superiority, temporal-stability, GPU-timestamp, FPS, or performance improvement is claimed."
+}

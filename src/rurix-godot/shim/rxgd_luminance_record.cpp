@@ -872,6 +872,194 @@ struct ShimSession {
         std::fflush(stdout);
         return 0;
     }
+
+    // ── GRX-012: 5-SRV (t0..t4) + 1-UAV (u0) single-dispatch record ──────────
+    // The taa_resolve kernel binds five Texture2D SRVs and one RWTexture2D UAV,
+    // which the srv/prev/uav RxgdShimLevel record path cannot express. This
+    // dedicated method records one dispatch (test-only readback mode: fence
+    // wait + checksum + RXGD_BRIDGE_REC marker), reusing the session kernel
+    // cache / allocator ring / descriptor heap / fence. The luminance / tonemap
+    // / ssao_blur record paths are untouched.
+    int record_taa(uint32_t pass_id,
+                   const uint8_t* dxil, size_t dxil_len,
+                   const uint8_t* rts0, size_t rts0_len,
+                   ID3D12Resource* const srvs[5], ID3D12Resource* uav,
+                   const uint8_t* push_constants,
+                   uint32_t width, uint32_t height,
+                   RxgdRecordResult* out) {
+        (void)pass_id;
+        if (!ensure_initialized(out)) return -31;
+        CachedKernel* k = get_or_create_kernel(dxil, dxil_len, rts0, rts0_len, out);
+        if (!k) return -32;
+
+        // Fail-closed typeless guard on all six bound resources: creating a view
+        // with an unmapped typeless format is an invalid D3D12 call that removes
+        // the device; refuse and let the bridge fall back.
+        ID3D12Resource* all[6] = {srvs[0], srvs[1], srvs[2], srvs[3], srvs[4], uav};
+        for (int i = 0; i < 6; ++i) {
+            if (!all[i]) { set_detail_msg(out, "null taa resource handle"); return -41; }
+            if (format_is_typeless(typed_view_format(all[i]->GetDesc().Format))) {
+                set_detail_msg(out, "bound resource carries an unmapped typeless format");
+                return -40;
+            }
+        }
+
+        ID3D12CommandAllocator* alloc = acquire_allocator();
+        HRESULT hr = cmd->Reset(alloc, nullptr);
+        if (FAILED(hr)) { set_detail(out, "command list Reset", hr); return -33; }
+        ID3D12DescriptorHeap* heaps[] = {heap.Get()};
+        cmd->SetDescriptorHeaps(1, heaps);
+
+        // Descriptor table: SRV range (t0..t4) then UAV range (u0), contiguous.
+        UINT base = reserve_descriptors(6);
+        UINT slot = base;
+        for (int i = 0; i < 5; ++i) {
+            D3D12_SHADER_RESOURCE_VIEW_DESC srv = {};
+            srv.Format = typed_view_format(srvs[i]->GetDesc().Format);
+            srv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+            srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+            srv.Texture2D.MipLevels = 1;
+            device->CreateShaderResourceView(srvs[i], &srv, cpu_handle(slot++));
+        }
+        D3D12_UNORDERED_ACCESS_VIEW_DESC uavd = {};
+        uavd.Format = typed_view_format(uav->GetDesc().Format);
+        uavd.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+        device->CreateUnorderedAccessView(uav, nullptr, &uavd, cpu_handle(slot++));
+
+        cmd->SetComputeRootSignature(k->root.Get());
+        cmd->SetPipelineState(k->pso.Get());
+        uint32_t rc[7];
+        std::memcpy(rc, push_constants, 28);
+        cmd->SetComputeRoot32BitConstants(0, 7, rc, 0);
+        cmd->SetComputeRootDescriptorTable(1, gpu_handle(base));
+        const UINT gx = std::max<UINT>((width + 7) / 8, 1u);
+        const UINT gy = std::max<UINT>((height + 7) / 8, 1u);
+        cmd->Dispatch(gx, gy, 1);
+
+        // Test-only readback of the output UAV.
+        D3D12_RESOURCE_DESC uav_desc = uav->GetDesc();
+        D3D12_RESOURCE_DESC footprint_desc = {};
+        footprint_desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+        footprint_desc.Width = uav_desc.Width;
+        footprint_desc.Height = uav_desc.Height;
+        footprint_desc.DepthOrArraySize = 1;
+        footprint_desc.MipLevels = 1;
+        footprint_desc.Format = typed_view_format(uav_desc.Format);
+        footprint_desc.SampleDesc.Count = 1;
+        footprint_desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+        DXGI_FORMAT rb_format = footprint_desc.Format;
+        D3D12_PLACED_SUBRESOURCE_FOOTPRINT dfp = {};
+        UINT drows = 0;
+        UINT64 drow_size = 0, dtotal = 0;
+        device->GetCopyableFootprints(&footprint_desc, 0, 1, 0, &dfp, &drows, &drow_size, &dtotal);
+        if (dtotal == 0 || dtotal == UINT64_MAX) {
+            set_detail_msg(out, "GetCopyableFootprints returned an invalid total size");
+            return -34;
+        }
+        auto rbheap = heap_props(D3D12_HEAP_TYPE_READBACK);
+        auto rb_desc = buffer_desc(dtotal);
+        ComPtr<ID3D12Resource> readback_buf;
+        hr = device->CreateCommittedResource(&rbheap, D3D12_HEAP_FLAG_NONE, &rb_desc,
+                                             D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
+                                             IID_PPV_ARGS(&readback_buf));
+        if (FAILED(hr)) { set_detail(out, "CreateCommittedResource(readback)", hr); return -34; }
+
+        D3D12_RESOURCE_BARRIER tb = {};
+        tb.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        tb.Transition.pResource = uav;
+        tb.Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+        tb.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
+        tb.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        cmd->ResourceBarrier(1, &tb);
+        D3D12_TEXTURE_COPY_LOCATION cdst = {};
+        cdst.pResource = readback_buf.Get();
+        cdst.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+        cdst.PlacedFootprint = dfp;
+        D3D12_TEXTURE_COPY_LOCATION csrc = {};
+        csrc.pResource = uav;
+        csrc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+        csrc.SubresourceIndex = 0;
+        cmd->CopyTextureRegion(&cdst, 0, 0, 0, &csrc, nullptr);
+        D3D12_RESOURCE_BARRIER tb2 = tb;
+        tb2.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
+        tb2.Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+        cmd->ResourceBarrier(1, &tb2);
+
+        hr = cmd->Close();
+        if (FAILED(hr)) { set_detail(out, "Close command list", hr); return -35; }
+        ID3D12CommandList* lists[] = {cmd.Get()};
+        queue->ExecuteCommandLists(1, lists);
+        UINT64 submit_value = ++next_fence_value;
+        if (FAILED(queue->Signal(fence.Get(), submit_value))) {
+            set_detail_msg(out, "Signal fence");
+            return -36;
+        }
+        allocators[(alloc_cursor + allocators.size() - 1) % allocators.size()].fence_value =
+            submit_value;
+
+        if (fence->GetCompletedValue() < submit_value) {
+            if (FAILED(fence->SetEventOnCompletion(submit_value, fence_event))) {
+                set_detail_msg(out, "SetEventOnCompletion");
+                return -37;
+            }
+            WaitForSingleObject(fence_event, INFINITE);
+        }
+        out->fence_completed_value = fence->GetCompletedValue();
+        if (out->fence_completed_value < submit_value) {
+            set_detail_msg(out, "fence did not reach completion");
+            return -38;
+        }
+
+        uint8_t* mapped = nullptr;
+        D3D12_RANGE rng = {0, (SIZE_T)dtotal};
+        if (FAILED(readback_buf->Map(0, &rng, reinterpret_cast<void**>(&mapped)))) {
+            set_detail_msg(out, "Map readback");
+            return -39;
+        }
+        UINT bpp = dxgi_format_bytes(rb_format);
+        if (bpp == 0) bpp = 1;
+        const UINT row_pitch = dfp.Footprint.RowPitch;
+        const UINT cols_in_pitch = row_pitch / bpp;
+        const UINT rows = std::min<UINT>(height, dfp.Footprint.Height);
+        const UINT cols = std::min<UINT>(width, cols_in_pitch);
+        const uint8_t* const map_end = mapped + (SIZE_T)dtotal;
+        const UINT sample_bytes = std::min<UINT>(bpp, 4u);
+        uint32_t checksum = 2166136261u;
+        float first = 0.0f;
+        bool got_first = false;
+        for (UINT y = 0; y < rows; ++y) {
+            const uint8_t* rowp = mapped + dfp.Offset + (SIZE_T)y * row_pitch;
+            for (UINT x = 0; x < cols; ++x) {
+                const uint8_t* px = rowp + (SIZE_T)x * bpp;
+                if (px + sample_bytes > map_end) break;
+                if (!got_first) {
+                    std::memcpy(&first, px, sample_bytes);
+                    got_first = true;
+                }
+                for (UINT b = 0; b < sample_bytes; ++b) {
+                    checksum ^= px[b];
+                    checksum *= 16777619u;
+                }
+            }
+        }
+        readback_buf->Unmap(0, nullptr);
+
+        out->dispatch_x = gx;
+        out->dispatch_y = gy;
+        out->dispatch_z = 1;
+        out->dst_width = width;
+        out->dst_height = height;
+        out->readback_checksum = checksum;
+        out->dst_first_value = first;
+        out->dxil_signed = k->dxil_signed ? 1 : 0;
+        std::snprintf(out->error_detail, sizeof(out->error_detail), "ok");
+        std::printf("RXGD_BRIDGE_REC: dispatch=%u,%u,%u fence=%llu dst=%ux%u dst_first=%g "
+                    "checksum=0x%08x dxil_signed=%s\n",
+                    gx, gy, 1u, (unsigned long long)out->fence_completed_value, width, height,
+                    first, checksum, out->dxil_signed ? "yes" : "no");
+        std::fflush(stdout);
+        return 0;
+    }
 };
 
 // Per-(device,queue) session registry. The test-only recording feature drives
@@ -1059,6 +1247,67 @@ extern "C" __declspec(dllexport) int32_t rxgd_luminance_record_levels(
     int rc = session->record_levels(pass_id, kernels, kernel_count, resources,
                                     resource_count, levels, level_count,
                                     readback != 0, out);
+    session->note(pass_id, rc == 0);
+    return rc;
+}
+
+// GRX-012: 5-SRV (t0..t4) + 1-UAV (u0) single-dispatch recording entry for the
+// taa_resolve kernel. Always test-only readback mode. Returns 0 on success,
+// negative on failure. Never accepts null handles and never fakes a dispatch.
+// Additive; the existing 2-resource / multi-level entries are untouched.
+extern "C" __declspec(dllexport) int32_t rxgd_taa_resolve_record_dispatch(
+    uint32_t abi_version,
+    uint32_t pass_id,
+    void* device_ptr,
+    void* queue_ptr,
+    const uint8_t* dxil_bytes,
+    size_t dxil_len,
+    const uint8_t* rts0_bytes,
+    size_t rts0_len,
+    void* color_ptr,
+    void* depth_ptr,
+    void* velocity_ptr,
+    void* last_velocity_ptr,
+    void* history_ptr,
+    void* output_ptr,
+    const uint8_t* push_constants,
+    size_t push_constant_len,
+    uint32_t width,
+    uint32_t height,
+    RxgdRecordResult* out) {
+    if (!out) return -1;
+    std::memset(out, 0, sizeof(*out));
+
+    if (abi_version != kShimAbiVersion) {
+        set_detail_msg(out, "shim abi version mismatch");
+        return -2;
+    }
+    if (!device_ptr || !queue_ptr || !color_ptr || !depth_ptr || !velocity_ptr ||
+        !last_velocity_ptr || !history_ptr || !output_ptr) {
+        set_detail_msg(out, "null device/queue/resource handle");
+        return -3;
+    }
+    if (!dxil_bytes || dxil_len == 0 || !rts0_bytes || rts0_len == 0) {
+        set_detail_msg(out, "empty dxil/rts0 bytes");
+        return -4;
+    }
+    if (!push_constants || push_constant_len != 28) {
+        set_detail_msg(out, "push constant block is not 28 bytes");
+        return -5;
+    }
+
+    ShimSession* session = get_or_create_session(device_ptr, queue_ptr);
+    ID3D12Resource* srvs[5] = {
+        reinterpret_cast<ID3D12Resource*>(color_ptr),
+        reinterpret_cast<ID3D12Resource*>(depth_ptr),
+        reinterpret_cast<ID3D12Resource*>(velocity_ptr),
+        reinterpret_cast<ID3D12Resource*>(last_velocity_ptr),
+        reinterpret_cast<ID3D12Resource*>(history_ptr),
+    };
+    ID3D12Resource* uav = reinterpret_cast<ID3D12Resource*>(output_ptr);
+
+    int rc = session->record_taa(pass_id, dxil_bytes, dxil_len, rts0_bytes, rts0_len,
+                                 srvs, uav, push_constants, width, height, out);
     session->note(pass_id, rc == 0);
     return rc;
 }
