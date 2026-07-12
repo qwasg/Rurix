@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "pass_id": "fused_post_chain",
+  "segment": "grx019_real_pass_default_enable_decision",
+  "status": "success",
+  "decision_ready": true,
+  "default_enable_decision": "keep_default_disabled",
+  "generated_at_utc": "2026-07-12T00:00:00Z",
+  "owner_decision": {
+    "approved_by": "owner",
+    "approved_at_utc": "2026-07-12T00:00:00Z",
+    "decision": "keep_default_disabled",
+    "machine_role": "local_test_machine"
+  },
+  "decision_document": "spike/godot-rurix/passes/fused_post_chain/real_pass_default_enable_decision.md",
+  "default_enable_state": "disabled",
+  "performance_claim": "none",
+  "decision_rationale": [
+    "no_per_pass_fps_evidence: the GRX contract requires a per-pass FPS >= 0.95x baseline measured_local comparison before any default enablement (GRX_PLAN GRX.4 exit criteria / GRX_CONTRACT G-GRX-5 single_scene_fps_ratio_min=0.95), and no full baseline or per-pass benchmark comparison for fused_post_chain exists yet",
+    "patch_0038_writeback_is_scaffold: the fused kernel is dispatched into the LDR tonemap destination (dst_color) and the scaffold dst_luminance (also the LDR dest, fully overwritten) while the native Godot luminance_reduction + tonemap chain continuation re-renders every frame as the backstop, so the candidate image cannot change (LDR visual gate max_abs=0/mean_abs=0) and the opt-in Rurix dispatch yields no measured net benefit yet",
+    "scaffold_fused_binding: the fused luminance segment's distinct <=8x8 reduce level and double-buffered 1x1 prev/dst luminance targets are NOT exposed by the public Luminance API at the tonemap call site, so patch 0037 aliases the single public 1x1 current luminance buffer to lum_source and prev_luminance (read-only) and the LDR tonemap destination to dst_color and dst_luminance; the strict success asserts ONLY that a real D3D12 fused dispatch was recorded and the native-continuation visual gate stayed bit-stable, NOT that the fused output is correct or a net win. A distinct, correct fused binding (with the auto-exposure-on, glow-off, LINEAR, SDR fusion precondition truly satisfied) needs the deferred Luminance-API extension / draw_graph route B (PASS_CONTRACT.md 3.4/5)",
+    "linear_sdr_subset_only: math parity covers only the fused EMA-x-tonemap (TONEMAPPER_LINEAR + linear_to_srgb) subset (math_parity_evidence.json status=pending_gpu_dispatch); glow, tonemapper modes other than LINEAR (Reinhard/FILMIC/ACES/AgX), the rest of the auto-exposure consumer chain, and the same-frame tonemap replacement (one-frame latency) are recorded gaps"
+  ],
+  "reevaluate_when": [
+    "full_baseline_benchmark_evidence_available",
+    "per_pass_fps_ratio_measured_at_or_above_0_95x_baseline",
+    "distinct_correct_fused_binding_available_via_luminance_api_extension_or_draw_graph_route_b",
+    "native_continuation_retired_or_net_benefit_measured",
+    "broader_fused_post_chain_coverage_proven_beyond_linear_sdr_auto_exposure_subset"
+  ],
+  "prerequisite_evidence": {
+    "real_pass_enablement_success": "spike/godot-rurix/passes/fused_post_chain/real_pass_enablement_success_evidence.json",
+    "real_pass_enablement_telemetry": "spike/godot-rurix/passes/fused_post_chain/real_pass_enablement_telemetry.json",
+    "standalone_d3d12_dispatch_smoke": "spike/godot-rurix/passes/fused_post_chain/real_d3d12_dispatch_smoke.json"
+  },
+  "does_not_imply": [
+    "default pass enablement",
+    "performance claim",
+    "FPS, p95, or GPU-timestamp claim",
+    "math-correctness of the fused output (the lum_source/prev/dst bindings are a scaffold; the strict success asserts only that a real dispatch was recorded and the native-continuation visual gate stayed bit-stable)",
+    "broader fused_post_chain coverage (glow, non-LINEAR tonemappers, the rest of the auto-exposure consumer chain, same-frame tonemap replacement) beyond the LINEAR + linear_to_srgb + auto-exposure subset",
+    "net-benefit Rurix dispatch (patch 0038 result writeback is a scaffold; the native Godot luminance_reduction + tonemap chain re-renders every frame)"
+  ],
+  "next_action_if_ready": "start_grx020_descriptor_cache_hardening"
+}

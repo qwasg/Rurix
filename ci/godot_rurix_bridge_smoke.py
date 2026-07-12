@@ -193,6 +193,31 @@ PATCH26 = (
     / "patches"
     / "0026-rurix-accel-material-sorting-telemetry.patch"
 )
+# GRX-019 fused_post_chain (0036-0038). This pass block stacks on the 0026 tip;
+# 0027-0035 are reserved for GRX-015/016/018 and are authored in their own
+# serial slices, so 0036 stacks directly on 0026 (a monotonic hole, allowed by
+# PATCH_ALLOCATION.md section 4 rule 2).
+PATCH36 = (
+    ROOT
+    / "spike"
+    / "godot-rurix"
+    / "patches"
+    / "0036-rurix-accel-fused-post-chain-pass-gate-and-callsite.patch"
+)
+PATCH37 = (
+    ROOT
+    / "spike"
+    / "godot-rurix"
+    / "patches"
+    / "0037-rurix-accel-fused-post-chain-runtime-resource-binding.patch"
+)
+PATCH38 = (
+    ROOT
+    / "spike"
+    / "godot-rurix"
+    / "patches"
+    / "0038-rurix-accel-fused-post-chain-recording-smoke-and-real-pass-optin.patch"
+)
 EXTERNAL_GODOT = ROOT / "external" / "godot-master"
 
 IDE_IGNORE_PROBES = [
@@ -531,6 +556,13 @@ def check_patch_state() -> str:
             ("0024", PATCH24),
             ("0025", PATCH25),
             ("0026", PATCH26),
+            # GRX-019 fused_post_chain: 0036-0038 stack on the 0026 tip
+            # (0027-0035 reserved for GRX-015/016/018, a monotonic hole), so the
+            # prior stack when these apply is 0004..0026 (+0036 +0037), NOT a
+            # contiguous 0004..0037.
+            ("0036", PATCH36),
+            ("0037", PATCH37),
+            ("0038", PATCH38),
         ]
         prior = [
             PATCH4, PATCH5, PATCH6, PATCH7, PATCH8, PATCH9, PATCH10, PATCH11,
@@ -543,8 +575,9 @@ def check_patch_state() -> str:
             if result["ok"] is not True:
                 details = result.get("details", {})
                 raise SystemExit(
-                    f"{result['reason']}; fix {patch.name} so it applies after "
-                    f"0004..{int(ordinal) - 1:04d} in a scratch copy.\n"
+                    f"{result['reason']}; fix {patch.name} so it applies on top "
+                    f"of its prior stack ({len(prior)} patches, tip "
+                    f"{prior[-1].name}) in a scratch copy.\n"
                     f"details: {details}"
                 )
             print(f"[godot-rurix] patch {ordinal} stacked applyability: ready")
@@ -814,6 +847,44 @@ def main() -> int:
             "sort_by_key",
             "print_verbose",
             "no FPS",
+        ],
+    )
+    require_text(
+        PATCH36,
+        [
+            "rendering/rurix_accel/passes/fused_post_chain/enabled",
+            "RXGD_PASS_FUSED_POST_CHAIN",
+            "try_record_fused_post_chain",
+            "renderer_scene_render_rd.cpp",
+            "fusion -> member -> native",
+            "RXGD_STATUS_FALLBACK",
+        ],
+    )
+    require_text(
+        PATCH37,
+        [
+            "RenderingDevice::get_driver_resource",
+            "DRIVER_RESOURCE_TEXTURE",
+            "ID3D12Resource*",
+            "try_record_fused_post_chain",
+            "RXGD_PASS_FUSED_POST_CHAIN",
+            "src_color",
+            "dst_luminance",
+            "SCAFFOLD",
+            "RXGD_STATUS_FALLBACK",
+        ],
+    )
+    require_text(
+        PATCH38,
+        [
+            "rendering/rurix_accel/passes/fused_post_chain/dispatch_real_pass",
+            "rendering/rurix_accel/passes/fused_post_chain/dispatch_recording_smoke",
+            "rendering/rurix_accel/passes/fused_post_chain/real_pass_force_capability_downgrade",
+            "RXGD_CAP_FUSED_POST_CHAIN_REAL_PASS",
+            "RXGD_GODOT_RUNTIME_FUSED_POST_CHAIN_REAL_PASS",
+            "RXGD_FUSED_POST_CHAIN_REAL_PASS_BLOCKED",
+            "d3d12-recording-shim",
+            "RXGD_STATUS_FALLBACK",
         ],
     )
     check_external_ignored()

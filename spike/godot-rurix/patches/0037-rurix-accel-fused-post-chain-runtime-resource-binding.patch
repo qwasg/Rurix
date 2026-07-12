@@ -1,0 +1,244 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Sat, 12 Jul 2026 23:20:00 +0800
+Subject: [PATCH] Wire GRX-019 fused_post_chain runtime resource binding with native
+ D3D12 resource handle mapping
+
+Stacked on 0001..0026 + 0036. This is the GRX-019 runtime resource binding
+slice (the GRX-009 0005+0007 layers merged into one patch for the
+fused_post_chain pass): it lets the Godot fusion-first call site pass the REAL
+fused binding to the Rurix bridge so the fail-closed FusedPostChainGate can
+validate it, while the runtime stays fallback-first.
+
+- drivers/d3d12/d3d12_hooks.h: D3D12Hooks::try_record_fused_post_chain() now
+  carries the fused binding: five real D3D12 ID3D12Resource* native handles
+  (resolved through RenderingDevice::get_driver_resource, not logical Godot RID
+  ids) for src_color/lum_source/prev_luminance/dst_color/dst_luminance, the
+  source and lum-source dimensions, and the eight b0 root-constant f32 scalars.
+- renderer_scene_render_rd.cpp fusion-first block: resolves the HDR internal
+  color texture (src_color) and the LDR tonemap destination (dst_color) native
+  handles. The fused luminance segment's distinct <=8x8 reduce level and
+  double-buffered 1x1 prev/dst luminance targets are NOT exposed by the public
+  Luminance API at this call site, so as a SCAFFOLD the single publicly
+  available 1x1 current luminance buffer is bound to lum_source and
+  prev_luminance (read-only) and the LDR tonemap destination (fully overwritten
+  by the native tonemapper continuation) is bound to dst_color and dst_luminance.
+  A distinct, correct fused binding needs the deferred Luminance-API extension /
+  draw_graph route B (PASS_CONTRACT.md 3.4/5). When RenderingDevice is
+  unavailable or any handle resolves to 0 the call site keeps the native chain.
+- modules/rurix_accel: the RurixAccelD3D12Hooks override marshals five
+  RXGD_RESOURCE_TEXTURE records (SRV t0..t2 then UAV u0..u1) and the 64-byte b0
+  root constant block ([i64 source_width, i64 source_height, i64 lum_source_width,
+  i64 lum_source_height, then eight f32 scalars]) into rxgd_record_pass, with a
+  zero-native-handle guard that returns false (native fallback).
+
+This is not a real GPU pass: the default record path never returns OK for
+RXGD_PASS_FUSED_POST_CHAIN, no D3D12 dispatch is recorded by the shipping
+(feature-off) bridge, the per-pass setting defaults to false, the native Godot
+luminance_reduction + tonemap chain stays active, and no visual diff, measured
+telemetry, or performance claim is made.
+---
+diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
+index 36dbcc1..fc1b44c 100644
+--- a/drivers/d3d12/d3d12_hooks.h
++++ b/drivers/d3d12/d3d12_hooks.h
+@@ -124,10 +124,16 @@ public:
+ 	// this (or the absence of a hooks singleton) keep the native Godot cluster
+ 	// store path.
+ 	virtual bool try_record_cluster_store(uint64_t p_cluster_render_native_handle, uint64_t p_render_elements_native_handle, uint64_t p_cluster_store_native_handle, uint32_t p_cluster_render_size_bytes, uint32_t p_render_elements_size_bytes, uint32_t p_cluster_store_size_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) { return false; }
+-	// GRX-019: opt-in hook for the fused_post_chain pass (fused luminance
+-	// final level + tonemap). The base implementation returns false so any
+-	// hooks that do not override this (or the absence of a hooks singleton)
+-	// keep the native Godot luminance_reduction + tonemap chain.
+-	virtual bool try_record_fused_post_chain() { return false; }
++	// GRX-019 runtime resource binding: native resource handle mapping hook
++	// for the fused_post_chain pass (0005/0007-level wiring in one slice). The
++	// caller passes the real D3D12 ID3D12Resource* native handles (resolved
++	// through RenderingDevice::get_driver_resource, not logical Godot RID ids)
++	// for the five fused textures (src_color SRV t0, lum_source SRV t1,
++	// prev_luminance SRV t2, dst_color UAV u0, dst_luminance UAV u1), the
++	// source/lum-source dimensions, and the 64-byte b0 root constant scalars
++	// so the bridge can validate the binding contract and bind real resources.
++	// The base implementation returns false so any hooks that do not override
++	// this (or the absence of a hooks singleton) keep the native Godot chain.
++	virtual bool try_record_fused_post_chain(uint64_t p_src_color_native_handle, uint64_t p_lum_source_native_handle, uint64_t p_prev_luminance_native_handle, uint64_t p_dst_color_native_handle, uint64_t p_dst_luminance_native_handle, uint32_t p_source_width, uint32_t p_source_height, uint32_t p_lum_source_width, uint32_t p_lum_source_height, float p_max_luminance, float p_min_luminance, float p_exposure_adjust, float p_exposure, float p_white, float p_luminance_multiplier, float p_first_frame, float p_auto_exposure_scale) { return false; }
+ 	static D3D12Hooks *get_singleton() { return singleton; }
+ };
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index 53aba6a..4c73603 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -931,13 +931,16 @@ bool RurixAccelD3D12Hooks::try_record_cluster_store(uint64_t p_cluster_render_na
+ 	return true;
+ }
+ 
+-bool RurixAccelD3D12Hooks::try_record_fused_post_chain() {
+-	// GRX-019 gate: every early return below means the caller must keep the
+-	// native Godot luminance_reduction + tonemap chain. This is 0002-level
+-	// module wiring: the call carries no resource bindings (native handle
+-	// mapping belongs to patch 0037), and the fail-closed bridge
+-	// FusedPostChainGate always returns RXGD_STATUS_FALLBACK for
+-	// RXGD_PASS_FUSED_POST_CHAIN today, so the native chain keeps rendering.
++bool RurixAccelD3D12Hooks::try_record_fused_post_chain(uint64_t p_src_color_native_handle, uint64_t p_lum_source_native_handle, uint64_t p_prev_luminance_native_handle, uint64_t p_dst_color_native_handle, uint64_t p_dst_luminance_native_handle, uint32_t p_source_width, uint32_t p_source_height, uint32_t p_lum_source_width, uint32_t p_lum_source_height, float p_max_luminance, float p_min_luminance, float p_exposure_adjust, float p_exposure, float p_white, float p_luminance_multiplier, float p_first_frame, float p_auto_exposure_scale) {
++	// GRX-019 runtime resource binding gate: every early return below means
++	// the caller must keep the native Godot luminance_reduction + tonemap
++	// chain. This is the 0005/0007-level wiring in one slice: the call now
++	// carries the real fused binding (native ID3D12Resource* handles,
++	// dimensions, and the 64-byte b0 root constants) so the fail-closed bridge
++	// FusedPostChainGate can run its runtime binding preflight. The default
++	// record path (no real-pass opt-in) still always returns
++	// RXGD_STATUS_FALLBACK for RXGD_PASS_FUSED_POST_CHAIN, so the native chain
++	// keeps rendering.
+ 	if (!GLOBAL_GET("rendering/rurix_accel/passes/fused_post_chain/enabled")) {
+ 		// manual_disabled: the pass is opt-in and defaults to disabled.
+ 		return false;
+@@ -947,10 +950,58 @@ bool RurixAccelD3D12Hooks::try_record_fused_post_chain() {
+ 		// unsupported_device for this pass.
+ 		return false;
+ 	}
+-	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_FUSED_POST_CHAIN, nullptr, 0, nullptr, 0);
++	if (p_src_color_native_handle == 0 || p_lum_source_native_handle == 0 || p_prev_luminance_native_handle == 0 || p_dst_color_native_handle == 0 || p_dst_luminance_native_handle == 0) {
++		// A zero native handle means RenderingDevice could not resolve a real
++		// ID3D12Resource*; keep the native Godot chain instead of binding a
++		// null resource.
++		return false;
++	}
++	// Marshal the fused binding for the bridge. native_handle carries the real
++	// D3D12 ID3D12Resource* resolved from RenderingDevice::get_driver_resource,
++	// not a logical Godot RID id. Slot order: src_color (SRV t0), lum_source
++	// (SRV t1), prev_luminance (SRV t2), dst_color (UAV u0), dst_luminance (UAV
++	// u1).
++	RxGdResource resources[FUSED_POST_CHAIN_RESOURCE_MAPPING_RESOURCE_COUNT] = {};
++	const uint64_t handles[FUSED_POST_CHAIN_RESOURCE_MAPPING_RESOURCE_COUNT] = { p_src_color_native_handle, p_lum_source_native_handle, p_prev_luminance_native_handle, p_dst_color_native_handle, p_dst_luminance_native_handle };
++	const uint32_t widths[FUSED_POST_CHAIN_RESOURCE_MAPPING_RESOURCE_COUNT] = { p_source_width, p_lum_source_width, 1u, p_source_width, 1u };
++	const uint32_t heights[FUSED_POST_CHAIN_RESOURCE_MAPPING_RESOURCE_COUNT] = { p_source_height, p_lum_source_height, 1u, p_source_height, 1u };
++	for (uint32_t i = 0; i < FUSED_POST_CHAIN_RESOURCE_MAPPING_RESOURCE_COUNT; i++) {
++		resources[i].abi_version = RXGD_ABI_VERSION;
++		resources[i].struct_size = (uint32_t)sizeof(RxGdResource);
++		resources[i].resource_type = RXGD_RESOURCE_TEXTURE;
++		resources[i].width = widths[i];
++		resources[i].height = heights[i];
++		resources[i].depth = 1;
++		resources[i].mip_levels = 1;
++		resources[i].native_handle = handles[i];
++	}
++	// b0 root constants (64 bytes / 16 DWORDs): source_width, source_height,
++	// lum_source_width, lum_source_height as 64-bit integers (the fused kernel
++	// declares the 64-bit integer shader capability), then max_luminance,
++	// min_luminance, exposure_adjust, exposure, white, luminance_multiplier,
++	// first_frame, auto_exposure_scale as 32-bit floats, little-endian like
++	// D3D12.
++	uint8_t push_constants[FUSED_POST_CHAIN_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES] = {};
++	const uint64_t source_width = p_source_width;
++	const uint64_t source_height = p_source_height;
++	const uint64_t lum_source_width = p_lum_source_width;
++	const uint64_t lum_source_height = p_lum_source_height;
++	memcpy(&push_constants[0], &source_width, sizeof(source_width));
++	memcpy(&push_constants[8], &source_height, sizeof(source_height));
++	memcpy(&push_constants[16], &lum_source_width, sizeof(lum_source_width));
++	memcpy(&push_constants[24], &lum_source_height, sizeof(lum_source_height));
++	memcpy(&push_constants[32], &p_max_luminance, sizeof(p_max_luminance));
++	memcpy(&push_constants[36], &p_min_luminance, sizeof(p_min_luminance));
++	memcpy(&push_constants[40], &p_exposure_adjust, sizeof(p_exposure_adjust));
++	memcpy(&push_constants[44], &p_exposure, sizeof(p_exposure));
++	memcpy(&push_constants[48], &p_white, sizeof(p_white));
++	memcpy(&push_constants[52], &p_luminance_multiplier, sizeof(p_luminance_multiplier));
++	memcpy(&push_constants[56], &p_first_frame, sizeof(p_first_frame));
++	memcpy(&push_constants[60], &p_auto_exposure_scale, sizeof(p_auto_exposure_scale));
++	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_FUSED_POST_CHAIN, resources, FUSED_POST_CHAIN_RESOURCE_MAPPING_RESOURCE_COUNT, push_constants, FUSED_POST_CHAIN_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES);
+ 	if (rc != RXGD_STATUS_OK) {
+ 		if (!fused_post_chain_fallback_logged) {
+-			print_verbose(vformat("RurixAccel: fused_post_chain fallback rc=%d; Godot native luminance_reduction + tonemap chain remains active.", rc));
++			print_verbose(vformat("RurixAccel: fused_post_chain native resource handle mapping fallback rc=%d; Godot native luminance_reduction + tonemap chain remains active.", rc));
+ 			fused_post_chain_fallback_logged = true;
+ 		}
+ 		return false;
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index a13f8c6..6e834c7 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -179,6 +179,18 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
+ 	// binding preflight.
+ 	static constexpr uint32_t CLUSTER_STORE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 32;
+ 	static constexpr uint32_t CLUSTER_STORE_RESOURCE_MAPPING_RESOURCE_COUNT = 3;
++	// GRX-019 fused_post_chain resource mapping (resource_mapping.md): b0
++	// carries 16 DWORDs / 64 bytes ([i64 source_width, i64 source_height, i64
++	// lum_source_width, i64 lum_source_height, f32 max_luminance, f32
++	// min_luminance, f32 exposure_adjust, f32 exposure, f32 white, f32
++	// luminance_multiplier, f32 first_frame, f32 auto_exposure_scale]) and the
++	// binding is exactly FIVE texture resources (src_color = SRV t0, lum_source
++	// = SRV t1, prev_luminance = SRV t2, dst_color = UAV u0, dst_luminance =
++	// UAV u1). Its b0 carries i64 dimension pairs, so the SHADER_INT64
++	// capability IS required by the bridge dispatch eligibility (but not by
++	// the runtime binding preflight).
++	static constexpr uint32_t FUSED_POST_CHAIN_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 64;
++	static constexpr uint32_t FUSED_POST_CHAIN_RESOURCE_MAPPING_RESOURCE_COUNT = 5;
+ 	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_SCAFFOLD = "resource mapping scaffold";
+ 	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_ROOT_CB = "b0";
+ 	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_SRC = "src_luminance = t0";
+@@ -267,12 +279,16 @@ public:
+ 	// ClusterStoreGate) returns false and the caller must keep the native Godot
+ 	// cluster store path.
+ 	bool try_record_cluster_store(uint64_t p_cluster_render_native_handle, uint64_t p_render_elements_native_handle, uint64_t p_cluster_store_native_handle, uint32_t p_cluster_render_size_bytes, uint32_t p_render_elements_size_bytes, uint32_t p_cluster_store_size_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) override;
+-	// GRX-019: returns true only when the Rurix bridge actually recorded the
+-	// fused_post_chain pass. Any other outcome (setting disabled, missing
+-	// session/symbol, or a non-OK bridge status such as RXGD_STATUS_FALLBACK
+-	// from the fail-closed FusedPostChainGate) returns false and the caller
+-	// must keep the native Godot luminance_reduction + tonemap chain.
+-	bool try_record_fused_post_chain() override;
++	// GRX-019 runtime resource binding: native resource handle mapping.
++	// Marshals the real D3D12 ID3D12Resource* native handles (not logical
++	// Godot RID ids), the source/lum-source dimensions, and the 64-byte b0
++	// root constants to the Rurix bridge and returns true only when the bridge
++	// actually recorded the fused_post_chain pass. Any other outcome (setting
++	// disabled, missing session/symbol, a null native handle, or a non-OK
++	// bridge status such as RXGD_STATUS_FALLBACK from the fail-closed
++	// FusedPostChainGate) returns false and the caller must keep the native
++	// Godot luminance_reduction + tonemap chain.
++	bool try_record_fused_post_chain(uint64_t p_src_color_native_handle, uint64_t p_lum_source_native_handle, uint64_t p_prev_luminance_native_handle, uint64_t p_dst_color_native_handle, uint64_t p_dst_luminance_native_handle, uint32_t p_source_width, uint32_t p_source_height, uint32_t p_lum_source_width, uint32_t p_lum_source_height, float p_max_luminance, float p_min_luminance, float p_exposure_adjust, float p_exposure, float p_white, float p_luminance_multiplier, float p_first_frame, float p_auto_exposure_scale) override;
+ };
+ 
+ #endif // D3D12_ENABLED
+diff --git a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
+index ea1f285..d88c0fc 100644
+--- a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
++++ b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
+@@ -936,8 +936,34 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+ 			// native tonemapper skipped. The fail-closed FusedPostChainGate
+ 			// always returns RXGD_STATUS_FALLBACK today, so this stays false and
+ 			// the native Godot luminance_reduction + tonemap chain renders.
+-			if (D3D12Hooks::get_singleton() != nullptr) {
+-				rurix_recorded_fused_post_chain = D3D12Hooks::get_singleton()->try_record_fused_post_chain();
++			if (D3D12Hooks::get_singleton() != nullptr && rurix_tonemap_dest_texture.is_valid()) {
++				// GRX-019 runtime resource binding. Resolves the real D3D12
++				// ID3D12Resource* native handles (not logical Godot RID ids) for the
++				// fused binding. src_color = HDR internal color texture, dst_color =
++				// LDR tonemap destination. The luminance segment's distinct <=8x8
++				// reduce level and double-buffered 1x1 prev/dst targets are NOT
++				// exposed by the public Luminance API here, so as a SCAFFOLD the
++				// single publicly-available 1x1 current luminance buffer is bound to
++				// lum_source and prev_luminance (read-only) and the LDR tonemap
++				// destination (fully overwritten by the native tonemapper
++				// continuation below) is bound to dst_color and dst_luminance. A
++				// distinct, correct fused binding needs the deferred Luminance-API
++				// extension / draw_graph route B (PASS_CONTRACT.md 3.4/5); no
++				// math-correctness claim is made and the native chain always renders.
++				RID rurix_fused_lum_texture = luminance->get_current_luminance_buffer(rb);
++				RenderingDevice *rurix_fused_rd = RD::get_singleton();
++				const uint64_t rurix_fused_src_color = rurix_fused_rd != nullptr ? rurix_fused_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_TEXTURE, color_texture, 0) : 0;
++				const uint64_t rurix_fused_dst_color = rurix_fused_rd != nullptr ? rurix_fused_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_TEXTURE, rurix_tonemap_dest_texture, 0) : 0;
++				const uint64_t rurix_fused_lum = (rurix_fused_rd != nullptr && rurix_fused_lum_texture.is_valid()) ? rurix_fused_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_TEXTURE, rurix_fused_lum_texture, 0) : 0;
++				if (rurix_fused_src_color != 0 && rurix_fused_dst_color != 0 && rurix_fused_lum != 0) {
++					// b0 luminance-segment sensitivity scalars (max/min_luminance,
++					// exposure_adjust, first_frame) are not in scope at the tonemap
++					// block; scaffold placeholders are passed (the fused luminance
++					// output is discarded, the native luminance_reduction already
++					// computed the real current). The gate only requires nonzero
++					// source dims.
++					rurix_recorded_fused_post_chain = D3D12Hooks::get_singleton()->try_record_fused_post_chain(rurix_fused_src_color, rurix_fused_lum, rurix_fused_lum, rurix_fused_dst_color, rurix_fused_dst_color, (uint32_t)MAX(color_size.x, 0), (uint32_t)MAX(color_size.y, 0), 1u, 1u, 1.0f, 0.0f, 1.0f, tonemap.exposure, tonemap.white, tonemap.luminance_multiplier, 0.0f, tonemap.auto_exposure_scale);
++				}
+ 			}
+ 			if (!rurix_recorded_fused_post_chain && D3D12Hooks::get_singleton() != nullptr && rurix_tonemap_dest_texture.is_valid()) {
+ 				// GRX-010 runtime resource binding gate (0005/0007-level in
+-- 
+2.50.0

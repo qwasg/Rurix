@@ -1,0 +1,207 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Sat, 12 Jul 2026 23:30:00 +0800
+Subject: [PATCH] Add the GRX-019 fused_post_chain recording-smoke and gated real-pass
+ opt-in arms with result writeback scaffold
+
+Stacked on 0001..0026 + 0036 + 0037. This is the GRX-019 bridge-recording /
+real-pass opt-in slice (the GRX-009 0008+0009+0010 layers merged into one patch
+for the fused_post_chain pass). It is a bring-up gate, not a default enablement,
+and it does not change the shipping fallback semantics.
+
+- modules/rurix_accel/register_types.cpp: adds three per-pass opt-in settings
+  that all default to false and are separate from
+  rendering/rurix_accel/passes/fused_post_chain/enabled:
+  .../fused_post_chain/dispatch_recording_smoke (harness-only recording-smoke
+  marker arm), .../fused_post_chain/dispatch_real_pass (the gated REAL fused
+  pass arm), and .../fused_post_chain/real_pass_force_capability_downgrade (a
+  harness-only forced-failure knob for the fallback red/green leg).
+- modules/rurix_accel/rurix_accel.h: declares the reserved fused real-pass arm
+  flag RXGD_CAP_FUSED_POST_CHAIN_REAL_PASS (bridge value 1 << 13) carried in
+  RxGdCaps.flags. This reuses the existing flags field: the C ABI struct layout
+  and RXGD_ABI_VERSION are unchanged.
+- modules/rurix_accel/rurix_accel.cpp: try_create_session() sets
+  RXGD_CAP_FUSED_POST_CHAIN_REAL_PASS ONLY when the fused dispatch_real_pass
+  opt-in is enabled, and clears RXGD_CAP_SHADER_INT64 ONLY when the harness-only
+  fused real_pass_force_capability_downgrade knob is enabled. Because the fused
+  runtime binding preflight does NOT check int64 (only the bridge dispatch
+  eligibility does), the forced knob is caught one level later than the texture
+  passes, at dispatch eligibility (unsupported_device).
+  try_record_fused_post_chain() emits the distinctive
+  RXGD_GODOT_RUNTIME_FUSED_POST_CHAIN_REAL_PASS and _RECORD markers only when
+  rxgd_record_pass returned RXGD_STATUS_OK, both gated under the harness-only
+  dispatch_recording_smoke opt-in (GRX Wave 4 print gating).
+- renderer_scene_render_rd.cpp fusion-first block: when
+  try_record_fused_post_chain() returned true on the real-pass arm, the Rurix
+  bridge has already dispatched the fused kernel INTO the LDR destination
+  ID3D12Resource* resolved in patch 0037 (dst_color and the scaffold
+  dst_luminance both point at the LDR dest). The result writeback SCAFFOLD prints
+  a machine-readable RXGD_GODOT_RUNTIME_FUSED_POST_CHAIN_REAL_PASS_WRITEBACK
+  marker, then deliberately clears rurix_recorded_fused_post_chain so the FULL
+  native Godot luminance_reduction + tonemap chain still runs as the
+  continuation/backstop: the fused kernel covers only the LINEAR + linear_to_srgb
+  tonemap subset with the luminance final level, the luminance/dst bindings are a
+  scaffold (PASS_CONTRACT.md 3.4/5), and GPU math parity is still pending, so the
+  native raster tonemap re-renders the frame and the rendered image can never
+  change while the scaffold is in place.
+
+The bridge fails closed on the real-pass arm: it runs the runtime binding
+preflight, the dispatch eligibility gate, the per-slot kernel-binding-kind
+conformance check, and the math-parity gate, and returns RXGD_STATUS_FALLBACK
+with a machine-readable RXGD_FUSED_POST_CHAIN_REAL_PASS_BLOCKED diagnostic naming
+the FIRST missing prerequisite; the real dispatch is only linked under the
+test-only d3d12-recording-shim bridge feature, so the shipping feature-off bridge
+fails closed with real_dispatch_path_not_linked even when every software gate
+passes. This does not change RXGD_ABI_VERSION, does not enable the pass by
+default (all four fused_post_chain per-pass settings still default to false),
+does not flip real_gpu_pass to true by itself, and makes no visual,
+measured-telemetry, GPU-timestamp, or performance claim by itself.
+---
+diff --git a/modules/rurix_accel/register_types.cpp b/modules/rurix_accel/register_types.cpp
+index dec0fc6..8acc87b 100644
+--- a/modules/rurix_accel/register_types.cpp
++++ b/modules/rurix_accel/register_types.cpp
+@@ -251,6 +251,37 @@ void initialize_rurix_accel_module(ModuleInitializationLevel p_level) {
+ 	// RXGD_PASS_FUSED_POST_CHAIN, so the native chain keeps rendering in
+ 	// practice and no acceleration is claimed.
+ 	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/fused_post_chain/enabled", false);
++	// GRX-019: harness-only Godot-runtime fused_post_chain bridge dispatch
++	// recording smoke opt-in (0008-level). Defaults to false; it only gates
++	// the module-side per-dispatch RXGD_GODOT_RUNTIME_FUSED_POST_CHAIN_*
++	// markers. The bridge record path itself is only linked when the loaded
++	// rurix_godot.dll is built with the test-only d3d12-recording-shim feature
++	// AND the dispatch_real_pass opt-in below armed the fail-closed real-pass
++	// gate. The default build/config never enables it and the shipping
++	// (feature-off) bridge still returns RXGD_STATUS_FALLBACK for
++	// RXGD_PASS_FUSED_POST_CHAIN.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/fused_post_chain/dispatch_recording_smoke", false);
++	// GRX-019: opt-in gated REAL fused_post_chain pass bring-up arm
++	// (0009-level). Defaults to false. Even when enabled the bridge runs its
++	// runtime binding preflight, dispatch eligibility, per-slot
++	// kernel-binding-kind conformance, and math-parity checks and keeps
++	// returning RXGD_STATUS_FALLBACK (with a machine-readable
++	// RXGD_FUSED_POST_CHAIN_REAL_PASS_BLOCKED diagnostic naming the first
++	// missing prerequisite) unless every check passes AND a runtime-mappable
++	// real dispatch path is linked (d3d12-recording-shim builds only); the
++	// shipping feature-off bridge fails closed with
++	// real_dispatch_path_not_linked, so the native Godot chain keeps rendering.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/fused_post_chain/dispatch_real_pass", false);
++	// GRX-019: harness-only forced-failure knob for the fused_post_chain
++	// fallback red/green leg. The fused b0 carries i64 dimension pairs so int64
++	// IS required, but the fused runtime binding preflight does NOT check it
++	// (only the bridge dispatch eligibility does); when enabled the module
++	// clears the shader-int64 capability it advertises to the bridge, so the
++	// bridge fused_post_chain dispatch eligibility fails closed with
++	// unsupported_device (one level later than the texture passes catch it)
++	// while the native Godot chain keeps rendering. Defaults to false; never
++	// enabled by the shipping build/config.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/fused_post_chain/real_pass_force_capability_downgrade", false);
+ 	// GRX-017 material_sorting telemetry (patch 0026, telemetry-only slice):
+ 	// default-false opt-in for the verbose-only per-interval
+ 	// RXGD_MATERIAL_SORTING_TELEMETRY line emitted by the Forward+ renderer
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index 4c73603..ddbabb9 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -306,6 +306,27 @@ void RurixAccelD3D12Hooks::try_create_session() {
+ 	if (GLOBAL_GET("rendering/rurix_accel/passes/cluster_store/real_pass_force_capability_downgrade")) {
+ 		caps.flags &= ~RXGD_CAP_SHADER_INT64;
+ 	}
++	// GRX-019: arm the opt-in gated REAL fused_post_chain pass attempt ONLY
++	// when the default-false fused_post_chain dispatch_real_pass opt-in is
++	// enabled. The bridge still fails closed (fallback +
++	// RXGD_FUSED_POST_CHAIN_REAL_PASS_BLOCKED first missing prerequisite)
++	// unless every gate passes AND the d3d12-recording-shim real dispatch path
++	// is linked and completes; this is a bring-up gate, not a default runtime
++	// pass.
++	if (GLOBAL_GET("rendering/rurix_accel/passes/fused_post_chain/dispatch_real_pass")) {
++		caps.flags |= RXGD_CAP_FUSED_POST_CHAIN_REAL_PASS;
++	}
++	// GRX-019: harness-only fused_post_chain forced-failure knob. The fused b0
++	// carries i64 dimension pairs so int64 IS required, but the fused runtime
++	// binding preflight does NOT check it (only the bridge dispatch eligibility
++	// does); clearing the shader-int64 capability therefore makes the bridge
++	// fused_post_chain dispatch eligibility fail closed with unsupported_device
++	// (one level later than the texture passes catch it) while the native Godot
++	// chain keeps rendering. The fallback red/green leg of the GRX-019
++	// real-pass enablement smoke verifies exactly this.
++	if (GLOBAL_GET("rendering/rurix_accel/passes/fused_post_chain/real_pass_force_capability_downgrade")) {
++		caps.flags &= ~RXGD_CAP_SHADER_INT64;
++	}
+ 	if (adapter_luid_valid) {
+ 		memcpy(caps.adapter_luid, &adapter_luid, sizeof(adapter_luid));
+ 	}
+@@ -1006,6 +1027,19 @@ bool RurixAccelD3D12Hooks::try_record_fused_post_chain(uint64_t p_src_color_nati
+ 		}
+ 		return false;
+ 	}
++	// GRX-019: only reachable when the bridge's opt-in real-pass arm actually
++	// returned RXGD_STATUS_OK after a real recorded dispatch
++	// (d3d12-recording-shim builds only; the shipping feature-off bridge always
++	// falls back with real_dispatch_path_not_linked first). GRX Wave 4 print
++	// gating: both per-dispatch stdout markers are harness instrumentation and
++	// are gated under the harness-only dispatch_recording_smoke opt-in — the
++	// production dispatch_real_pass path emits zero per-dispatch stdout.
++	if (GLOBAL_GET("rendering/rurix_accel/passes/fused_post_chain/dispatch_recording_smoke")) {
++		print_line("RXGD_GODOT_RUNTIME_FUSED_POST_CHAIN_REAL_PASS: pass=RXGD_PASS_FUSED_POST_CHAIN dispatched=1");
++	}
++	if (GLOBAL_GET("rendering/rurix_accel/passes/fused_post_chain/dispatch_recording_smoke")) {
++		print_line("RXGD_GODOT_RUNTIME_FUSED_POST_CHAIN_RECORD: pass=RXGD_PASS_FUSED_POST_CHAIN recorded=1");
++	}
+ 	return true;
+ }
+ 
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index 6e834c7..4f10772 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -90,6 +90,17 @@
+ // diagnostic unless every check passes AND the d3d12-recording-shim real
+ // dispatch path is linked and completes.
+ #define RXGD_CAP_CLUSTER_STORE_REAL_PASS 256u
++// GRX-019 opt-in fused_post_chain real-pass arm carried in RxGdCaps.flags
++// (ABI v1, no struct layout change; bridge value 1 << 13). Set only when the
++// default-false rendering/rurix_accel/passes/fused_post_chain/dispatch_real_pass
++// opt-in is enabled. Setting it never on its own makes the bridge return
++// RXGD_STATUS_OK: the fail-closed FusedPostChainGate runs preflight ->
++// eligibility -> binding-kind (texture2d x3 / rwtexture2d x2) -> math-parity
++// -> linked-dispatch checks and returns RXGD_STATUS_FALLBACK with an
++// RXGD_FUSED_POST_CHAIN_REAL_PASS_BLOCKED diagnostic unless every check
++// passes AND the d3d12-recording-shim real dispatch path is linked and
++// completes.
++#define RXGD_CAP_FUSED_POST_CHAIN_REAL_PASS 8192u
+ 
+ typedef struct RxGdCaps {
+ 	uint32_t abi_version;
+diff --git a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
+index d88c0fc..26eac79 100644
+--- a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
++++ b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
+@@ -963,6 +963,25 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+ 					// computed the real current). The gate only requires nonzero
+ 					// source dims.
+ 					rurix_recorded_fused_post_chain = D3D12Hooks::get_singleton()->try_record_fused_post_chain(rurix_fused_src_color, rurix_fused_lum, rurix_fused_lum, rurix_fused_dst_color, rurix_fused_dst_color, (uint32_t)MAX(color_size.x, 0), (uint32_t)MAX(color_size.y, 0), 1u, 1u, 1.0f, 0.0f, 1.0f, tonemap.exposure, tonemap.white, tonemap.luminance_multiplier, 0.0f, tonemap.auto_exposure_scale);
++					if (rurix_recorded_fused_post_chain) {
++						// GRX-019 result writeback SCAFFOLD. The Rurix bridge dispatched
++						// the fused kernel into the real LDR destination (dst_color) and
++						// the scaffold dst_luminance (also the LDR dest, fully overwritten
++						// below). Record that writeback with a machine-readable marker,
++						// then keep the FULL native Godot luminance_reduction + tonemap
++						// chain as the continuation/backstop: the fused kernel covers only
++						// the LINEAR + linear_to_srgb tonemap subset with the luminance
++						// final level, GPU math parity is still pending, and the
++						// luminance/dst bindings are a scaffold (3.4/5), so the native
++						// raster tonemap re-renders the frame and the image can never
++						// change while this scaffold is in place. GRX Wave 4 print gating:
++						// harness instrumentation only (dispatch_recording_smoke opt-in);
++						// zero per-dispatch stdout on the production path.
++						if (GLOBAL_GET("rendering/rurix_accel/passes/fused_post_chain/dispatch_recording_smoke")) {
++							print_line("RXGD_GODOT_RUNTIME_FUSED_POST_CHAIN_REAL_PASS_WRITEBACK: dst=tonemap_destination native_continuation=active scaffold=1");
++						}
++						rurix_recorded_fused_post_chain = false;
++					}
+ 				}
+ 			}
+ 			if (!rurix_recorded_fused_post_chain && D3D12Hooks::get_singleton() != nullptr && rurix_tonemap_dest_texture.is_valid()) {
+-- 
+2.50.0

@@ -44,6 +44,9 @@ ownership; keep it in sync (see §4 rules).
 | 0024 | `0024-rurix-accel-cluster-store-runtime-resource-binding.patch` | cluster_store — runtime resource binding |
 | 0025 | `0025-rurix-accel-cluster-store-recording-smoke-and-real-pass-optin.patch` | cluster_store — recording smoke + real-pass opt-in |
 | 0026 | `0026-rurix-accel-material-sorting-telemetry.patch` | material_sorting (GRX-017) — single telemetry-only slice (no D3D12Hooks virtual, no bridge call, no kernel) |
+| 0036 | `0036-rurix-accel-fused-post-chain-pass-gate-and-callsite.patch` | fused_post_chain (GRX-019) — pass gate + fusion-first call-site (stacks on the 0026 tip; 0027-0035 reserved for GRX-015/016/018) |
+| 0037 | `0037-rurix-accel-fused-post-chain-runtime-resource-binding.patch` | fused_post_chain — runtime resource binding (5 texture native handles + 64-byte b0) |
+| 0038 | `0038-rurix-accel-fused-post-chain-recording-smoke-and-real-pass-optin.patch` | fused_post_chain — recording smoke + real-pass opt-in |
 
 > **Wave 4 print-gating revision note (0009/0010/0013/0016/0019/0022 revised
 > in place, no number change — §4 rule 2).** The per-dispatch module-side
@@ -73,9 +76,12 @@ ownership; keep it in sync (see §4 rules).
 ## 2. Pre-allocated patches (0027-0040+, reserved)
 
 > ssao_blur (GRX-011) 0014-0016, taa_resolve (GRX-012) 0017-0019,
-> particles_copy (GRX-013) 0020-0022, cluster_store (GRX-014) 0023-0025 and
-> the material_sorting (GRX-017) telemetry slice 0026 have landed and moved
-> to §1 (in use).
+> particles_copy (GRX-013) 0020-0022, cluster_store (GRX-014) 0023-0025, the
+> material_sorting (GRX-017) telemetry slice 0026 and fused_post_chain
+> (GRX-019) 0036-0038 have landed and moved to §1 (in use). fused_post_chain
+> stacks directly on the 0026 tip: its reserved block 0036-0038 is authored
+> ahead of the 0027-0035 blocks (gpu_culling / instance_compaction /
+> indirect_args, still reserved), which is a legal monotonic hole (§4 rule 2).
 
 Each pass reserves a small contiguous block (typically three: gate+callsite →
 runtime binding → recording+real-pass, mirroring the GRX-010 0011/0012/0013
@@ -87,7 +93,6 @@ reserved numbers become holes (monotonic, holes allowed — §4).
 | 0027-0029 | gpu_culling | GRX-015 | 0027 gate+callsite / 0028 runtime binding / 0029 recording+real-pass opt-in |
 | 0030-0032 | instance_compaction | GRX-016 | 0030 gate+callsite / 0031 runtime binding / 0032 recording+real-pass opt-in |
 | 0033-0035 | indirect_args | GRX-018 | 0033 gate+callsite / 0034 runtime binding / 0035 recording+real-pass opt-in |
-| 0036-0038 | fused_post_chain | GRX-019 | 0036 gate+callsite / 0037 runtime binding / 0038 recording+real-pass opt-in |
 | 0039 | pso_prewarm | GRX-021 | NOT NEEDED — permanent hole. GRX-021 auto-triggers the kernel prewarm from `rxgd_create_d3d12_session` (the bridge session-creation path patch 0001 already routes through), so no Godot-side call site is required. See `spike/godot-rurix/passes/pso_prewarm/pso_prewarm_decision.json` (`patch_0039_status=not_needed`). A future slice may claim 0039 for a Godot-visible prewarm toggle/telemetry surface. |
 | 0040+ | bindless | GRX-022 | reserve pool start; allocate concrete numbers only AFTER the bindless RFC is adjudicated |
 
@@ -122,7 +127,7 @@ of these, and setting a bit never by itself makes the bridge return
 | 10 | `1 << 10` | `INSTANCE_COMPACTION_REAL_PASS` | instance_compaction (GRX-016) | reserved |
 | 11 | `1 << 11` | `MATERIAL_SORTING_REAL_PASS` | material_sorting (GRX-017) | reserved |
 | 12 | `1 << 12` | `INDIRECT_ARGS_REAL_PASS` | indirect_args (GRX-018) | reserved |
-| 13 | `1 << 13` | `FUSED_POST_CHAIN_REAL_PASS` | fused_post_chain (GRX-019) | reserved |
+| 13 | `1 << 13` | `FUSED_POST_CHAIN_REAL_PASS` | fused_post_chain (GRX-019) | defined |
 | 14 | `1 << 14` | `PSO_PREWARM_REAL_PASS` | pso_prewarm (GRX-021) | reserved |
 | 15+ | `1 << 15`+ | (reserve pool) | bindless (GRX-022) / future | reserve pool |
 

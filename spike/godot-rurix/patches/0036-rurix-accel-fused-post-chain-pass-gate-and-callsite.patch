@@ -1,0 +1,179 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Sat, 12 Jul 2026 23:10:00 +0800
+Subject: [PATCH] Add default-disabled GRX-019 fused_post_chain gate and fusion-first
+ call-site opt-in wiring
+
+Stacked on 0001..0026 (fused_post_chain 0036-0038 stack on the 0026
+material_sorting tip; 0027-0035 are reserved for GRX-015/016/018 and are
+authored in their own serial slices, so this pass block starts at 0036).
+Template copy of the GRX-010 0011 tonemap gate pattern for the fused
+luminance-final + tonemap pass:
+
+- modules/rurix_accel: new default-false per-pass setting
+  rendering/rurix_accel/passes/fused_post_chain/enabled and
+  try_record_fused_post_chain() (0002-level module gate; the call carries no
+  resource bindings, native handle mapping belongs to patch 0037).
+- drivers/d3d12/d3d12_hooks.h: default-false virtual try_record_fused_post_chain()
+  so any hooks implementation that does not override it (or the absence of a
+  hooks singleton) keeps the native Godot luminance_reduction + tonemap chain.
+- renderer_scene_render_rd.cpp _render_buffers_post_process_and_tonemap tonemap
+  block (can_use_storage leg): the FUSION-FIRST opt-in gate runs BEFORE the
+  per-member single-pass tonemap gate (patch 0013). This wires the two-level
+  fallback contract (PASS_CONTRACT.md section 6): fusion gate -> member-level
+  single-pass tonemap gate -> native Godot chain. Only when the fusion gate
+  returns true (module setting enabled AND bridge session/symbol present AND
+  rxgd_record_pass returns RXGD_STATUS_OK) are the member tonemap gate and the
+  native tonemapper skipped.
+
+The Rurix bridge FusedPostChainGate is fail-closed and always returns
+RXGD_STATUS_FALLBACK for RXGD_PASS_FUSED_POST_CHAIN (the shipping feature-off
+bridge fails closed with real_dispatch_path_not_linked even on the opt-in
+real-pass arm), and the per-pass setting defaults to false, so in practice the
+gate returns false and the native Godot luminance_reduction + tonemap chain
+runs. No real GPU pass, no acceleration, and no performance improvement is
+claimed.
+---
+diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
+index 9ddd2b5..36dbcc1 100644
+--- a/drivers/d3d12/d3d12_hooks.h
++++ b/drivers/d3d12/d3d12_hooks.h
+@@ -124,5 +124,10 @@ public:
+ 	// this (or the absence of a hooks singleton) keep the native Godot cluster
+ 	// store path.
+ 	virtual bool try_record_cluster_store(uint64_t p_cluster_render_native_handle, uint64_t p_render_elements_native_handle, uint64_t p_cluster_store_native_handle, uint32_t p_cluster_render_size_bytes, uint32_t p_render_elements_size_bytes, uint32_t p_cluster_store_size_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) { return false; }
++	// GRX-019: opt-in hook for the fused_post_chain pass (fused luminance
++	// final level + tonemap). The base implementation returns false so any
++	// hooks that do not override this (or the absence of a hooks singleton)
++	// keep the native Godot luminance_reduction + tonemap chain.
++	virtual bool try_record_fused_post_chain() { return false; }
+ 	static D3D12Hooks *get_singleton() { return singleton; }
+ };
+diff --git a/modules/rurix_accel/register_types.cpp b/modules/rurix_accel/register_types.cpp
+index ce4e6d8..dec0fc6 100644
+--- a/modules/rurix_accel/register_types.cpp
++++ b/modules/rurix_accel/register_types.cpp
+@@ -243,6 +243,14 @@ void initialize_rurix_accel_module(ModuleInitializationLevel p_level) {
+ 	// path keeps rendering. Defaults to false; never enabled by the shipping
+ 	// build/config.
+ 	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/cluster_store/real_pass_force_capability_downgrade", false);
++	// GRX-019: per-pass opt-in gate for the fused_post_chain pass (fused
++	// luminance final level + tonemap). The pass stays on the native Godot
++	// luminance_reduction + tonemap chain unless this is explicitly enabled
++	// AND the bridge actually records the pass. Defaults to false; the bridge
++	// FusedPostChainGate is fail-closed and returns RXGD_STATUS_FALLBACK for
++	// RXGD_PASS_FUSED_POST_CHAIN, so the native chain keeps rendering in
++	// practice and no acceleration is claimed.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/fused_post_chain/enabled", false);
+ 	// GRX-017 material_sorting telemetry (patch 0026, telemetry-only slice):
+ 	// default-false opt-in for the verbose-only per-interval
+ 	// RXGD_MATERIAL_SORTING_TELEMETRY line emitted by the Forward+ renderer
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index 1346ff9..53aba6a 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -931,4 +931,31 @@ bool RurixAccelD3D12Hooks::try_record_cluster_store(uint64_t p_cluster_render_na
+ 	return true;
+ }
+ 
++bool RurixAccelD3D12Hooks::try_record_fused_post_chain() {
++	// GRX-019 gate: every early return below means the caller must keep the
++	// native Godot luminance_reduction + tonemap chain. This is 0002-level
++	// module wiring: the call carries no resource bindings (native handle
++	// mapping belongs to patch 0037), and the fail-closed bridge
++	// FusedPostChainGate always returns RXGD_STATUS_FALLBACK for
++	// RXGD_PASS_FUSED_POST_CHAIN today, so the native chain keeps rendering.
++	if (!GLOBAL_GET("rendering/rurix_accel/passes/fused_post_chain/enabled")) {
++		// manual_disabled: the pass is opt-in and defaults to disabled.
++		return false;
++	}
++	if (session == nullptr || rxgd_record_pass == nullptr) {
++		// No bridge session or record entry point; equivalent to
++		// unsupported_device for this pass.
++		return false;
++	}
++	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_FUSED_POST_CHAIN, nullptr, 0, nullptr, 0);
++	if (rc != RXGD_STATUS_OK) {
++		if (!fused_post_chain_fallback_logged) {
++			print_verbose(vformat("RurixAccel: fused_post_chain fallback rc=%d; Godot native luminance_reduction + tonemap chain remains active.", rc));
++			fused_post_chain_fallback_logged = true;
++		}
++		return false;
++	}
++	return true;
++}
++
+ #endif // D3D12_ENABLED
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index 8843502..a13f8c6 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -19,6 +19,7 @@
+ #define RXGD_PASS_TAA_RESOLVE 6u
+ #define RXGD_PASS_PARTICLES_COPY 7u
+ #define RXGD_PASS_CLUSTER_STORE 1u
++#define RXGD_PASS_FUSED_POST_CHAIN 10u
+ // GRX-009 segment 4b reserved capability flag carried in RxGdCaps.flags
+ // (ABI v1, no struct layout change). Set only when the Godot dispatch
+ // bring-up opt-in setting is enabled.
+@@ -137,6 +138,7 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
+ 	bool taa_resolve_fallback_logged = false;
+ 	bool particles_copy_fallback_logged = false;
+ 	bool cluster_store_fallback_logged = false;
++	bool fused_post_chain_fallback_logged = false;
+ 	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 28;
+ 	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_RESOURCE_COUNT = 2;
+ 	// GRX-010 tonemap resource mapping (resource_mapping.md): b0 carries
+@@ -265,6 +267,12 @@ public:
+ 	// ClusterStoreGate) returns false and the caller must keep the native Godot
+ 	// cluster store path.
+ 	bool try_record_cluster_store(uint64_t p_cluster_render_native_handle, uint64_t p_render_elements_native_handle, uint64_t p_cluster_store_native_handle, uint32_t p_cluster_render_size_bytes, uint32_t p_render_elements_size_bytes, uint32_t p_cluster_store_size_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) override;
++	// GRX-019: returns true only when the Rurix bridge actually recorded the
++	// fused_post_chain pass. Any other outcome (setting disabled, missing
++	// session/symbol, or a non-OK bridge status such as RXGD_STATUS_FALLBACK
++	// from the fail-closed FusedPostChainGate) returns false and the caller
++	// must keep the native Godot luminance_reduction + tonemap chain.
++	bool try_record_fused_post_chain() override;
+ };
+ 
+ #endif // D3D12_ENABLED
+diff --git a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
+index dd7917b..ea1f285 100644
+--- a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
++++ b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
+@@ -923,8 +923,23 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+ 
+ 		if (can_use_storage) {
+ 			bool rurix_recorded_tonemap = false;
++			bool rurix_recorded_fused_post_chain = false;
+ #ifdef D3D12_ENABLED
+-			if (D3D12Hooks::get_singleton() != nullptr && rurix_tonemap_dest_texture.is_valid()) {
++			// GRX-019 fused_post_chain fusion-first gate (0002-level module
++			// wiring; the call carries no resource bindings yet, native handle
++			// mapping belongs to patch 0037). Runs BEFORE the per-member
++			// single-pass tonemap gate below so the two-level fallback resolves
++			// fusion -> member -> native: only when this returns true (module
++			// setting enabled AND bridge session/symbol present AND
++			// rxgd_record_pass returns RXGD_STATUS_OK for
++			// RXGD_PASS_FUSED_POST_CHAIN) are the member tonemap gate and the
++			// native tonemapper skipped. The fail-closed FusedPostChainGate
++			// always returns RXGD_STATUS_FALLBACK today, so this stays false and
++			// the native Godot luminance_reduction + tonemap chain renders.
++			if (D3D12Hooks::get_singleton() != nullptr) {
++				rurix_recorded_fused_post_chain = D3D12Hooks::get_singleton()->try_record_fused_post_chain();
++			}
++			if (!rurix_recorded_fused_post_chain && D3D12Hooks::get_singleton() != nullptr && rurix_tonemap_dest_texture.is_valid()) {
+ 				// GRX-010 runtime resource binding gate (0005/0007-level in
+ 				// one slice). Resolves the real D3D12 ID3D12Resource* native
+ 				// handles (not logical Godot RID ids) for the HDR source
+@@ -974,7 +989,7 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+ 				}
+ 			}
+ #endif
+-			if (!rurix_recorded_tonemap) {
++			if (!rurix_recorded_tonemap && !rurix_recorded_fused_post_chain) {
+ 				tone_mapper->tonemapper(color_texture, dest_fb, tonemap);
+ 			}
+ 		} else {
+-- 
+2.50.0

@@ -1,7 +1,7 @@
 {
   "pass_id": "fused_post_chain",
-  "status": "grx019_s1_s3_contract_offline_kernel_math_parity_fallback_only",
-  "implemented": false,
+  "status": "grx019_real_pass_measured_success_default_disabled",
+  "implemented": true,
   "default_enable_state": "disabled",
   "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
   "target_scenes": [
@@ -130,34 +130,62 @@
     }
   ],
   "implementation_status": {
-    "segment": "s1_s3",
-    "segment_detail": "grx019_s1_s3_contract_offline_kernel_math_parity_fallback_only",
-    "runtime_state": "fallback_only",
-    "runtime_state_note": "No bridge gate, no Godot patch, no dispatch smoke, and no enablement exist for this pass yet (S1-S3 only). The bridge returns RXGD_STATUS_FALLBACK for RXGD_PASS_FUSED_POST_CHAIN on every call and the native Godot luminance_reduction + tonemap chain renders. The two-level fallback contract (fusion -> members -> native) is contractual planning for the deferred patch slice 0036-0038.",
-    "bridge_gate": "NOT wired in this slice (deferred S4). Planned FusedPostChainGate chain per PASS_CONTRACT.md section 7: preflight (int64 cap, 5 texture resources, 64-byte b0, dims match, 1:1 dst_color shape, 1x1 luminance shapes, lum_source <= 8x8, prev/dst anti-aliasing) -> dispatch eligibility (RXGD_CAP_FUSED_POST_CHAIN_REAL_PASS (1 << 13) opt-in, non-null native handles, package digest match) -> per-slot kernel-binding-kind conformance ([texture2d x3, rwtexture2d x2]) -> math-parity gate (fused_post_chain_cpu_reference_proven_pending_gpu_dispatch) -> real dispatch only under the d3d12-recording-shim feature",
-    "godot_module_patch": "NOT authored in this slice. patches/PATCH_ALLOCATION.md section 2 reserves 0036-0038 for fused_post_chain (0036 gate+callsite / 0037 runtime binding / 0038 recording+real-pass opt-in); the two-level fallback markers land there.",
-    "godot_core_call_site_wired": false,
-    "real_gpu_pass": false,
-    "real_d3d12_dispatch_recorded": false,
+    "segment": "close_out",
+    "segment_detail": "grx019_real_pass_measured_success_default_disabled",
+    "runtime_state": "fallback_only_by_default_real_pass_optin_measured",
+    "runtime_state_note": "The DEFAULT runtime path stays fallback-only: with all per-pass settings at their false defaults the bridge still returns RXGD_STATUS_FALLBACK for RXGD_PASS_FUSED_POST_CHAIN and the native Godot luminance_reduction + tonemap chain renders. real_gpu_pass=true / real_d3d12_dispatch_recorded=true record the strict MEASURED success of the opt-in real-pass arm (dispatch_real_pass under a d3d12-recording-shim bridge on the 0001..0026 + 0036..0038 scratch build); it is not a default enablement and carries no performance claim. The shipping feature-off bridge still fails closed with real_dispatch_path_not_linked, and the patch 0038 result writeback is a SCAFFOLD (native Godot luminance_reduction + tonemap chain stays the continuation/backstop and re-renders every frame, so the candidate image cannot change and no net benefit exists yet). The fused binding itself is a scaffold (lum_source/prev_luminance alias the single public 1x1 current luminance buffer; dst_color/dst_luminance target the LDR tonemap destination the native tonemapper fully overwrites), so the strict success asserts ONLY that a real D3D12 fused dispatch was recorded and the native-continuation visual gate stayed bit-stable, NOT fused-output correctness. No estimated fused_post_chain GPU time is attributed.",
+    "bridge_gate": "src/rurix-godot FusedPostChainGate (already in lib.rs): runtime binding preflight (exactly 5 texture resources src_color/lum_source/prev_luminance/dst_color/dst_luminance, 64-byte b0, nonzero source dims and texture extents; NOTE the implemented preflight does NOT check int64) -> dispatch eligibility (RXGD_CAP_FUSED_POST_CHAIN_REAL_PASS (1 << 13) opt-in, RXGD_CAP_SHADER_INT64, non-null D3D12 device/queue, non-null native handles, FusedPostChainDispatchPackage layout/digest match vs offline evidence) -> per-slot kernel-binding-kind conformance ([texture2d x3, rwtexture2d x2]) -> math-parity gate (fused_post_chain_cpu_reference_proven_pending_gpu_dispatch) -> real dispatch only under the d3d12-recording-shim feature; every failure records a fallback reason and prints the once-per-session RXGD_FUSED_POST_CHAIN_REAL_PASS_BLOCKED diagnostic. Because int64 is NOT in the preflight, the forced capability downgrade fails closed one level later at dispatch_eligibility_failed/unsupported_device (not runtime_binding_preflight_failed like the other texture passes), measured in the enablement smoke forced leg.",
+    "godot_module_patch": "spike/godot-rurix/patches/0036-rurix-accel-fused-post-chain-pass-gate-and-callsite.patch (stacked on 0001..0026; default-false rendering/rurix_accel/passes/fused_post_chain/enabled setting, try_record_fused_post_chain() module gate, default-false virtual D3D12Hooks::try_record_fused_post_chain(), and the FUSION-FIRST call-site opt-in gate in renderer_scene_render_rd.cpp _render_buffers_post_process_and_tonemap that runs BEFORE the per-member single-pass tonemap gate so the two-level fallback resolves fusion -> member -> native; the native luminance_reduction + tonemap chain is always preserved as fallback/continuation). The runtime native-handle binding is patch 0037-rurix-accel-fused-post-chain-runtime-resource-binding.patch and the recording-smoke + real-pass opt-in arms are patch 0038-rurix-accel-fused-post-chain-recording-smoke-and-real-pass-optin.patch. fused_post_chain 0036-0038 stack on the 0026 tip; 0027-0035 are reserved for GRX-015/016/018 (a legal monotonic hole, PATCH_ALLOCATION.md section 4 rule 2).",
+    "godot_core_call_site_wired": true,
+    "wired_call_sites": [
+      {
+        "file": "servers/rendering/renderer_rd/renderer_scene_render_rd.cpp",
+        "region": "_render_buffers_post_process_and_tonemap tonemap block (can_use_storage leg)",
+        "note": "the FUSION-FIRST opt-in gate calls D3D12Hooks::try_record_fused_post_chain() before the per-member single-pass tonemap gate (patch 0013) and before the native tonemapper, wiring the two-level fallback (fusion -> member -> native). Handles: src_color = HDR internal color texture, dst_color = LDR tonemap destination (both real, resolved via RenderingDevice::get_driver_resource), lum_source = prev_luminance = the public 1x1 current luminance buffer (read-only), dst_luminance = the LDR tonemap destination (scaffold, native overwrites). A distinct, correct fused binding needs the deferred Luminance-API extension / draw_graph route B (PASS_CONTRACT.md 3.4/5). applyability verified via git apply --check on a scratch copy; the 0001..0026 + 0036..0038 scratch Godot compiled clean."
+      }
+    ],
+    "real_gpu_pass": true,
+    "real_d3d12_dispatch_recorded": true,
     "godot_runtime_fused_post_chain_path_enabled": false,
     "standalone_d3d12_dispatch_smoke": {
-      "harness": "ci/grx019_fused_post_chain_d3d12_dispatch_smoke.py (NOT authored in this slice; deferred S6)",
-      "evidence": null,
-      "note": "the math_parity_evidence.json dispatch fixture is reserved for the S6 smoke to re-verify on a real device"
+      "harness": "ci/grx019_fused_post_chain_d3d12_dispatch_smoke.py",
+      "evidence": "spike/godot-rurix/passes/fused_post_chain/real_d3d12_dispatch_smoke.json",
+      "run_command": "$env:RURIX_DXC_DIR='H:\\dxc-round7\\extracted\\bin\\x64'; py -3 ci\\grx019_fused_post_chain_d3d12_dispatch_smoke.py",
+      "purpose": "Prove the tracked offline fused_post_chain DXIL container + RTS0 root signature + descriptor layout can complete one minimal compute dispatch on a real D3D12 device/command queue with five textures (SRV t0..t2 + UAV u0..u1) AND that the measured GPU output matches the CPU reference within tolerance. Standalone measured evidence only; the bridge records no dispatch and returns no OK.",
+      "does_not_imply": [
+        "Godot runtime fused_post_chain pass completion",
+        "bridge rxgd_record_pass returning RXGD_STATUS_OK",
+        "any visual diff, measured fallback telemetry, or performance claim"
+      ]
+    },
+    "real_pass_measured_success": {
+      "status": "success",
+      "strict_success": true,
+      "evidence": "spike/godot-rurix/passes/fused_post_chain/real_pass_enablement_success_evidence.json",
+      "telemetry": "spike/godot-rurix/passes/fused_post_chain/real_pass_enablement_telemetry.json",
+      "default_enable_decision": "spike/godot-rurix/passes/fused_post_chain/real_pass_default_enable_decision.json",
+      "default_enable_decision_document": "spike/godot-rurix/passes/fused_post_chain/real_pass_default_enable_decision.md",
+      "decision": "keep_default_disabled",
+      "harness": "ci/grx019_fused_post_chain_real_pass_enablement_smoke.py",
+      "real_gpu_pass_scope": "opt_in_only: the measured real dispatch requires the default-false dispatch_real_pass arm plus a d3d12-recording-shim bridge DLL; the default runtime path stays fallback-only and the shipping feature-off bridge fails closed with real_dispatch_path_not_linked",
+      "patch_stack": "0001..0026 + 0036..0038 (0027-0035 reserved hole for GRX-015/016/018)",
+      "pass_enable_matrix": "three legs measured on the 0001..0026 + 0036..0038 scratch build: disabled_default (reference, zero markers) / enabled_real_pass_optin (candidate, real_pass_marker + writeback_marker + record_marker observed, RXGD_GODOT_RUNTIME_FUSED_POST_CHAIN_REAL_PASS recorded=1) / forced_capability_downgrade (RXGD_FUSED_POST_CHAIN_REAL_PASS_BLOCKED first_missing_prerequisite=dispatch_eligibility_failed fallback_reason=unsupported_device)",
+      "scene": "deterministic 3D scene with CameraAttributesPractical.auto_exposure_enabled=true (drives the native luminance_reduction so the 1x1 current luminance buffer is valid, the fusion call site's luminance input) + FILMIC tonemapper; fixed_fps makes the auto-exposure temporal EMA converge deterministically across legs; capture frame 40 at 256x144",
+      "ldr_visual_gate": "max_abs=0 / mean_abs=0 (candidate is bit-exact to the reference because the writeback is a scaffold and the native luminance_reduction + tonemap continuation re-renders every frame; the fused dispatch writes only the LDR destination the native tonemapper overwrites and never the live luminance buffer)",
+      "performance_claim": "none",
+      "does_not_imply_math_correctness": "the strict success asserts only that a real D3D12 fused dispatch was recorded and the native-continuation visual gate stayed bit-stable; the lum_source/prev/dst bindings are a scaffold (PASS_CONTRACT.md 3.4/5) and no fused-output correctness or net-benefit claim is made",
+      "next_action_when_ready": "start_grx020_descriptor_cache_hardening"
     },
     "remaining_segments": [
-      "S4 bridge FusedPostChainGate (fail-closed chain + unit tests)",
-      "S5/S7 Godot patches 0036-0038 (gate+callsite / runtime binding / recording+real-pass opt-in; two-level fallback markers; fusion preconditions: auto-exposure on, glow off, LINEAR, SDR)",
-      "S6 standalone real D3D12 dispatch smoke (fills the GPU side of math_parity_evidence.json)",
-      "S8 scratch rebuild + gated real-pass enablement strict evidence",
-      "S9 gate module + probe registration + manifest flip + owner default-enable decision",
-      "draw_graph route B true replacement for the tonemap segment's same-frame correctness (RenderingShaderContainerD3D12 nativization long-term direction)",
-      "full baseline / per-pass FPS / dispatch-barrier-VRAM traffic proxy comparison; any performance claim"
+      "distinct/correct fused binding via a Luminance-API extension (exposing the <=8x8 reduce level and the double-buffered 1x1 prev/dst luminance targets) OR draw_graph route B (RenderingShaderContainerD3D12 nativization) so the tonemap segment's same-frame output can truly be replaced",
+      "glow, tonemapper modes other than LINEAR (Reinhard/FILMIC/ACES/AgX), and the rest of the auto-exposure consumer chain",
+      "native-continuation retirement (net-benefit measurement)",
+      "per-pass FPS baseline comparison (contract requires >= 0.95x baseline before any default-enable discussion)"
     ]
   },
   "evidence_requirements": {
     "visual": "in-engine LDR absolute diff (GRX-009 segment 4g template) is a later slice; not produced here",
     "perf": "reuse GRX-006 baseline/perf gate; no dispatch/barrier/VRAM-traffic or perf improvement claimed"
   },
-  "disclaimer": "GRX-019 fused_post_chain is at the S1-S3 stage only: pass contract trio, the DXC/DXV/RTS0 offline fused kernel package (hlsl_bridge_workaround provenance, runtime-mappable per the owner-approved GRX-009 texture artifact provenance policy), and the CPU float32 math parity reference (EMA time series x tonemap composite, pending_gpu_dispatch). implemented=false, real_gpu_pass=false, real_d3d12_dispatch_recorded=false, runtime_state=fallback_only, default_enable_state=disabled. No bridge gate, no Godot patch, no dispatch smoke, no enablement, no visual diff, no telemetry, and NO dispatch/barrier/VRAM-traffic, FPS, or performance improvement claim exists for this pass. The one-dispatch fusion motivation is a structural design statement, not a measured result."
+  "disclaimer": "GRX-019 fused_post_chain is closed out at the stage-A5-equivalent level (mirroring GRX-010/013): the pass contract trio, the DXC/DXV/RTS0 offline fused kernel package (hlsl_bridge_workaround provenance, runtime-mappable per the owner-approved GRX-009 texture artifact provenance policy), the CPU float32 math parity reference (EMA time series x tonemap composite, pending_gpu_dispatch), the fail-closed bridge FusedPostChainGate (default RXGD_STATUS_FALLBACK; opt-in RXGD_CAP_FUSED_POST_CHAIN_REAL_PASS arm), the Godot patch stack 0001..0026 + 0036..0038 (patches 0036-0038: per-pass settings default false + FUSION-FIRST call-site opt-in gate + runtime native-handle binding + recording-smoke/real-pass opt-in; native luminance_reduction + tonemap chain always preserved as the two-level fallback), the standalone real D3D12 dispatch smoke, and the gated real-pass enablement gate that recorded a strict MEASURED success (real_pass_enablement_success_evidence.json, strict_success=true). implemented=true / real_gpu_pass=true / real_d3d12_dispatch_recorded=true record the MEASURED opt-in real-pass arm only. The DEFAULT path stays fallback-only, default_enable_state stays disabled per the owner decision (real_pass_default_enable_decision.json, keep_default_disabled), the shipping feature-off bridge still fails closed with real_dispatch_path_not_linked, the patch 0038 writeback is a SCAFFOLD (native Godot luminance_reduction + tonemap continuation/backstop re-renders every frame; candidate image bit-exact, max_abs=0/mean_abs=0), and the fused binding itself is a SCAFFOLD (lum_source/prev_luminance alias the single public 1x1 current luminance buffer, dst_color/dst_luminance target the LDR tonemap destination the native tonemapper overwrites), so the strict success asserts ONLY that a real D3D12 fused dispatch was recorded and the native-continuation visual gate stayed bit-stable. NO fused-output correctness, visual-superiority, GPU-timestamp, FPS, or performance improvement is claimed; a distinct/correct fused binding needs the deferred Luminance-API extension / draw_graph route B. The one-dispatch fusion motivation is a structural design statement, not a measured result."
 }

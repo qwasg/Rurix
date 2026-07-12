@@ -40,7 +40,13 @@ CONTRACT_TRIO = ("PASS_CONTRACT.md", "pass_manifest.json", "resource_mapping.md"
 # DEFERRED to the next serial patch slice; a missing file here is the expected,
 # honest not-ready state (not a tampered stack).
 FUSED_POST_CHAIN_PATCH_ORDINALS = ("0036", "0037", "0038")
-PREREQ_ORDINALS = tuple(f"{n:04d}" for n in range(4, 37))  # 0004..0036
+# fused_post_chain 0036-0038 stack on the 0026 material_sorting tip: 0027-0035
+# are reserved for GRX-015/016/018 and are authored in their own serial slices,
+# so this pass block's prerequisite stack is 0004..0026 + 0036 + 0037 (the Godot
+# snapshot carries 0001..0003), NOT a contiguous 0004..0037. The 0027-0035 hole
+# is expected (PATCH_ALLOCATION.md section 2); the stacked applyability copies
+# only the files the stack touches, so the hole is tree-neutral.
+PREREQ_ORDINALS = tuple(f"{n:04d}" for n in range(4, 27)) + ("0036", "0037")  # 0004..0026 + 0036 + 0037
 
 DISPATCH_SMOKE_EVIDENCE = PASS_DIR / "real_d3d12_dispatch_smoke.json"
 ENABLEMENT_SUCCESS_EVIDENCE = PASS_DIR / "real_pass_enablement_success_evidence.json"

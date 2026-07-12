@@ -118,6 +118,15 @@ VALID_PASS_MATRIX_KEYS = frozenset(
         # this through a pass matrix only takes effect on harnesses that run
         # Godot with --verbose.
         "rendering/rurix_accel/telemetry/material_sorting/enabled",
+        # fused_post_chain (GRX-019, patches 0036..0038, landed; stacks on the
+        # 0026 tip, 0027-0035 reserved for GRX-015/016/018). Key names verified
+        # against GLOBAL_DEF_BASIC in patch 0036 (enabled) and patch 0038
+        # (dispatch_recording_smoke / dispatch_real_pass /
+        # real_pass_force_capability_downgrade).
+        "rendering/rurix_accel/passes/fused_post_chain/enabled",
+        "rendering/rurix_accel/passes/fused_post_chain/dispatch_recording_smoke",
+        "rendering/rurix_accel/passes/fused_post_chain/dispatch_real_pass",
+        "rendering/rurix_accel/passes/fused_post_chain/real_pass_force_capability_downgrade",
     }
 )
 
