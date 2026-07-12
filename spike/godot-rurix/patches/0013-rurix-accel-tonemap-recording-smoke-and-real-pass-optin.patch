@@ -2,6 +2,7 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Rurix Godot Bridge <rurix@example.invalid>
 Date: Fri, 10 Jul 2026 22:50:00 +0800
 Subject: [PATCH] Add the GRX-010 tonemap recording-smoke and gated real-pass
+
  opt-in arms with result writeback scaffold
 
 Stacked on 0001..0012. This is the GRX-010 bridge-recording / real-pass
@@ -26,11 +27,11 @@ does not change the shipping fallback semantics.
   harness-only tonemap real_pass_force_capability_downgrade knob is enabled
   (making the bridge tonemap preflight fail closed with
   unsupported_device for the forced-failure leg). try_record_tonemap()
-  emits a distinctive RXGD_GODOT_RUNTIME_TONEMAP_REAL_PASS marker only when
-  rxgd_record_pass actually returned RXGD_STATUS_OK on the real-pass arm,
-  and the RXGD_GODOT_RUNTIME_TONEMAP_RECORD marker only under the
-  harness-only dispatch_recording_smoke opt-in, so a real-pass success is
-  never misreported as a recording-smoke run and vice versa.
+  emits the distinctive RXGD_GODOT_RUNTIME_TONEMAP_REAL_PASS marker only
+  when rxgd_record_pass actually returned RXGD_STATUS_OK on the real-pass
+  arm, and the RXGD_GODOT_RUNTIME_TONEMAP_RECORD marker on the same OK
+  path; both markers are gated under the harness-only
+  dispatch_recording_smoke opt-in (GRX Wave 4 print gating below).
 - renderer_scene_render_rd.cpp Tonemap call site: when try_record_tonemap()
   returned true on the real-pass arm, the Rurix bridge has already
   dispatched the tonemap kernel INTO the real LDR destination
@@ -45,6 +46,15 @@ does not change the shipping fallback semantics.
   tonemap modes; GPU math parity is still pending measurement), so the
   native raster pass re-renders the frame and the rendered image can never
   change while the scaffold is in place.
+
+GRX Wave 4 print-gating revision (patch number unchanged, PATCH_ALLOCATION.md
+section 4 rule 2): the per-dispatch RXGD_GODOT_RUNTIME_TONEMAP_REAL_PASS
+module marker and the call-site RXGD_GODOT_RUNTIME_TONEMAP_REAL_PASS_WRITEBACK
+scaffold marker are harness instrumentation and are now printed ONLY under
+the harness-only dispatch_recording_smoke opt-in, so the production
+dispatch_real_pass opt-in path emits zero per-dispatch stdout (pass
+engagement is read from the shim engagement counter file / RXGD_SUMMARY
+instead). Semantics are otherwise unchanged.
 
 The bridge fails closed on the real-pass arm: it runs the runtime binding
 preflight, the dispatch eligibility gate, the per-slot kernel-binding-kind
@@ -104,7 +114,7 @@ index 27aa305..bc394ba 100644
  #if defined(D3D12_ENABLED)
  	if (GLOBAL_GET("rendering/rurix_accel/enabled")) {
 diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
-index dcbc15a..897a2e5 100644
+index 9baf3cf..0c7f6fd 100644
 --- a/modules/rurix_accel/rurix_accel.cpp
 +++ b/modules/rurix_accel/rurix_accel.cpp
 @@ -217,6 +217,23 @@ void RurixAccelD3D12Hooks::try_create_session() {
@@ -131,18 +141,22 @@ index dcbc15a..897a2e5 100644
  	if (adapter_luid_valid) {
  		memcpy(caps.adapter_luid, &adapter_luid, sizeof(adapter_luid));
  	}
-@@ -382,6 +399,19 @@ bool RurixAccelD3D12Hooks::try_record_tonemap(uint64_t p_source_native_handle, u
+@@ -474,6 +491,23 @@ bool RurixAccelD3D12Hooks::try_record_tonemap(uint64_t p_source_native_handle, u
  		}
  		return false;
  	}
 +	// GRX-010: only reachable when the bridge's opt-in real-pass arm
 +	// actually returned RXGD_STATUS_OK after a real recorded dispatch
 +	// (d3d12-recording-shim builds only; the shipping feature-off bridge
-+	// always falls back with real_dispatch_path_not_linked first). The
-+	// REAL_PASS marker reports the real-pass arm; the RECORD marker belongs
-+	// to the harness-only recording smoke opt-in so a real-pass success is
-+	// never misreported as a recording-smoke run and vice versa.
-+	if (GLOBAL_GET("rendering/rurix_accel/passes/tonemap/dispatch_real_pass")) {
++	// always falls back with real_dispatch_path_not_linked first). GRX
++	// Wave 4 print gating: both per-dispatch stdout markers are harness
++	// instrumentation and are gated under the harness-only
++	// dispatch_recording_smoke opt-in — the production dispatch_real_pass
++	// path emits zero per-dispatch stdout (pass engagement is read from the
++	// shim engagement counter file / RXGD_SUMMARY instead). The REAL_PASS
++	// marker still reports the real-pass arm; the RECORD marker remains the
++	// recording-smoke marker.
++	if (GLOBAL_GET("rendering/rurix_accel/passes/tonemap/dispatch_recording_smoke")) {
 +		print_line("RXGD_GODOT_RUNTIME_TONEMAP_REAL_PASS: pass=RXGD_PASS_TONEMAP dispatched=1");
 +	}
 +	if (GLOBAL_GET("rendering/rurix_accel/passes/tonemap/dispatch_recording_smoke")) {
@@ -152,7 +166,7 @@ index dcbc15a..897a2e5 100644
  }
  
 diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
-index 39e76fc..98efe05 100644
+index d888ed9..7c106f5 100644
 --- a/modules/rurix_accel/rurix_accel.h
 +++ b/modules/rurix_accel/rurix_accel.h
 @@ -33,6 +33,16 @@
@@ -173,10 +187,10 @@ index 39e76fc..98efe05 100644
  typedef struct RxGdCaps {
  	uint32_t abi_version;
 diff --git a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
-index e98b098..247b1af 100644
+index f0e0901..dd7917b 100644
 --- a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
 +++ b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
-@@ -890,6 +890,24 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+@@ -949,6 +949,29 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
  				if (rurix_source_native_handle != 0 && rurix_dest_native_handle != 0) {
  					rurix_recorded_tonemap = D3D12Hooks::get_singleton()->try_record_tonemap(rurix_source_native_handle, (uint32_t)MAX(color_size.x, 0), (uint32_t)MAX(color_size.y, 0), rurix_dest_native_handle, (uint32_t)MAX(tonemap.dest_texture_size.x, 0), (uint32_t)MAX(tonemap.dest_texture_size.y, 0), tonemap.exposure, tonemap.white, tonemap.luminance_multiplier);
  				}
@@ -195,7 +209,12 @@ index e98b098..247b1af 100644
 +					// still pending measurement), so the native raster pass
 +					// re-renders the frame and the image can never change
 +					// while this scaffold is in place.
-+					print_line("RXGD_GODOT_RUNTIME_TONEMAP_REAL_PASS_WRITEBACK: dst=tonemap_destination native_continuation=active scaffold=1");
++					// GRX Wave 4 print gating: harness instrumentation only
++					// (dispatch_recording_smoke opt-in); zero per-dispatch
++					// stdout on the production path.
++					if (GLOBAL_GET("rendering/rurix_accel/passes/tonemap/dispatch_recording_smoke")) {
++						print_line("RXGD_GODOT_RUNTIME_TONEMAP_REAL_PASS_WRITEBACK: dst=tonemap_destination native_continuation=active scaffold=1");
++					}
 +					rurix_recorded_tonemap = false;
 +				}
  			}

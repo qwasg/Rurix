@@ -1,0 +1,258 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Sat, 12 Jul 2026 20:00:00 +0800
+Subject: [PATCH] Wire GRX-014 cluster_store runtime resource binding with native
+
+ D3D12 structured-buffer handle mapping
+
+Stacked on 0001..0023. This is the GRX-014 runtime resource binding slice
+(the GRX-009 0005+0007 layers merged into one patch for the cluster_store
+pass), mirroring GRX-013 0021 but with THREE structured-buffer resources:
+it lets the Godot ClusterBuilderRD::bake_cluster() compute merge (store)
+dispatch pass the REAL cluster_store binding to the Rurix bridge so the
+fail-closed ClusterStoreGate can validate it, while the runtime stays
+fallback-first.
+
+- drivers/d3d12/d3d12_hooks.h: try_record_cluster_store() now carries the
+  cluster_store binding: the three real ID3D12Resource* structured-buffer
+  native handles (resolved through RenderingDevice::get_driver_resource with
+  DRIVER_RESOURCE_BUFFER) for cluster_render (SRV t0), render_elements
+  (SRV t1) and cluster_store (UAV u0), their byte sizes, and the 32-byte
+  ClusterStore::PushConstant b0 mirror.
+- cluster_builder_rd.cpp: resolves the three buffer native handles through
+  get_driver_resource(DRIVER_RESOURCE_BUFFER, ...) and passes them plus the
+  setup()-computed byte sizes (cluster_render_buffer_size /
+  sizeof(RenderElementData) * render_element_max / cluster_buffer_size) and
+  the raw ClusterStore::PushConstant, in Rurix slot order (Godot's set-0
+  binding numbers 1/3/2 are a different order; resource_mapping.md pins the
+  Rurix order t0 cluster_render, t1 render_elements, u0 cluster_store). When
+  RenderingDevice is unavailable, a buffer RID is null, or a handle resolves
+  to 0 the call site keeps the native cluster store dispatch instead of
+  binding a null resource.
+- modules/rurix_accel: the override marshals three RXGD_RESOURCE_BUFFER
+  records (cluster_render = structured buffer t0, render_elements =
+  structured buffer t1, cluster_store = rwstructured buffer u0) and the
+  32-byte b0 root constant block into rxgd_record_pass, with a
+  zero-native-handle / wrong-b0-size guard that returns false (native Godot
+  fallback).
+
+This is not a real GPU pass: the default record path never returns OK for
+RXGD_PASS_CLUSTER_STORE, no D3D12 dispatch is recorded by the shipping
+(feature-off) bridge, the per-pass setting defaults to false, the native
+Godot cluster store path stays active, and no visual diff, measured telemetry,
+or performance claim is made.
+---
+diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
+index 9c822a6..9ddd2b5 100644
+--- a/drivers/d3d12/d3d12_hooks.h
++++ b/drivers/d3d12/d3d12_hooks.h
+@@ -111,9 +111,18 @@ public:
+ 	// returns false so any hooks that do not override this (or the absence of a
+ 	// hooks singleton) keep the native Godot particles copy path.
+ 	virtual bool try_record_particles_copy(uint64_t p_src_particles_native_handle, uint64_t p_dst_instances_native_handle, uint32_t p_src_size_bytes, uint32_t p_dst_size_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) { return false; }
+-	// GRX-014: opt-in hook for the cluster_store pass. The base implementation
+-	// returns false so any hooks that do not override this (or the absence of
+-	// a hooks singleton) keep the native Godot cluster store path.
+-	virtual bool try_record_cluster_store() { return false; }
++	// GRX-014 runtime resource binding: native resource handle mapping hook for
++	// the cluster_store pass. The caller passes the real D3D12 ID3D12Resource*
++	// native handles (resolved through RenderingDevice::get_driver_resource with
++	// DRIVER_RESOURCE_BUFFER, not logical Godot RID ids) for the THREE
++	// structured buffers in Rurix slot order — cluster_render (SRV t0, raster
++	// segment output), render_elements (SRV t1, element table) and
++	// cluster_store (UAV u0, packed cluster table destination) — their byte
++	// sizes, and the 32-byte ClusterStore::PushConstant b0 mirror so the bridge
++	// can validate the binding contract and bind the real structured buffers.
++	// The base implementation returns false so any hooks that do not override
++	// this (or the absence of a hooks singleton) keep the native Godot cluster
++	// store path.
++	virtual bool try_record_cluster_store(uint64_t p_cluster_render_native_handle, uint64_t p_render_elements_native_handle, uint64_t p_cluster_store_native_handle, uint32_t p_cluster_render_size_bytes, uint32_t p_render_elements_size_bytes, uint32_t p_cluster_store_size_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) { return false; }
+ 	static D3D12Hooks *get_singleton() { return singleton; }
+ };
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index 6c0c3e7..c146e60 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -819,13 +819,16 @@ bool RurixAccelD3D12Hooks::try_record_particles_copy(uint64_t p_src_particles_na
+ 	return true;
+ }
+ 
+-bool RurixAccelD3D12Hooks::try_record_cluster_store() {
+-	// GRX-014 gate: every early return below means the caller must keep the
+-	// native Godot cluster store path. This is 0002-level module wiring: the
+-	// call carries no resource bindings (native handle mapping belongs to a later
+-	// slice), and the fail-closed bridge ClusterStoreGate always returns
+-	// RXGD_STATUS_FALLBACK for RXGD_PASS_CLUSTER_STORE today, so the native
+-	// cluster store keeps rendering in practice.
++bool RurixAccelD3D12Hooks::try_record_cluster_store(uint64_t p_cluster_render_native_handle, uint64_t p_render_elements_native_handle, uint64_t p_cluster_store_native_handle, uint32_t p_cluster_render_size_bytes, uint32_t p_render_elements_size_bytes, uint32_t p_cluster_store_size_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) {
++	// GRX-014 runtime resource binding gate: every early return below means the
++	// caller must keep the native Godot cluster store path. This is the 0005/
++	// 0007-level wiring in one slice: the call now carries the real cluster_store
++	// binding (three structured-buffer ID3D12Resource* handles in Rurix slot
++	// order, their byte sizes, and the 32-byte ClusterStore::PushConstant b0
++	// mirror) so the fail-closed bridge ClusterStoreGate can run its runtime
++	// binding preflight. The default record path (no real-pass opt-in) still
++	// always returns RXGD_STATUS_FALLBACK for RXGD_PASS_CLUSTER_STORE, so the
++	// native cluster store keeps rendering.
+ 	if (!GLOBAL_GET("rendering/rurix_accel/passes/cluster_store/enabled")) {
+ 		// manual_disabled: the pass is opt-in and defaults to disabled.
+ 		return false;
+@@ -835,10 +838,57 @@ bool RurixAccelD3D12Hooks::try_record_cluster_store() {
+ 		// unsupported_device for this pass.
+ 		return false;
+ 	}
+-	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_CLUSTER_STORE, nullptr, 0, nullptr, 0);
++	if (p_cluster_render_native_handle == 0 || p_render_elements_native_handle == 0 || p_cluster_store_native_handle == 0) {
++		// A zero native handle means RenderingDevice could not resolve a real
++		// ID3D12Resource*; keep the native Godot cluster store path instead of
++		// binding a null resource.
++		return false;
++	}
++	if (p_push_constants == nullptr || p_push_constant_bytes != CLUSTER_STORE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES) {
++		// The b0 mirror must be the exact 32-byte ClusterStore::PushConstant block.
++		return false;
++	}
++	// Marshal the cluster_store binding for the bridge. native_handle carries
++	// the real D3D12 ID3D12Resource* resolved from
++	// RenderingDevice::get_driver_resource (DRIVER_RESOURCE_BUFFER), not a logical
++	// Godot RID id. All three slots are structured buffers in Rurix slot order
++	// (cluster_render = SRV t0, render_elements = SRV t1, cluster_store = UAV u0;
++	// note Godot's set-0 binding numbers use a different order); width carries
++	// the buffer byte size.
++	RxGdResource resources[CLUSTER_STORE_RESOURCE_MAPPING_RESOURCE_COUNT] = {};
++	resources[0].abi_version = RXGD_ABI_VERSION;
++	resources[0].struct_size = (uint32_t)sizeof(RxGdResource);
++	resources[0].resource_type = RXGD_RESOURCE_BUFFER;
++	resources[0].width = p_cluster_render_size_bytes;
++	resources[0].height = 1;
++	resources[0].depth = 1;
++	resources[0].mip_levels = 1;
++	resources[0].native_handle = p_cluster_render_native_handle;
++	resources[1].abi_version = RXGD_ABI_VERSION;
++	resources[1].struct_size = (uint32_t)sizeof(RxGdResource);
++	resources[1].resource_type = RXGD_RESOURCE_BUFFER;
++	resources[1].width = p_render_elements_size_bytes;
++	resources[1].height = 1;
++	resources[1].depth = 1;
++	resources[1].mip_levels = 1;
++	resources[1].native_handle = p_render_elements_native_handle;
++	resources[2].abi_version = RXGD_ABI_VERSION;
++	resources[2].struct_size = (uint32_t)sizeof(RxGdResource);
++	resources[2].resource_type = RXGD_RESOURCE_BUFFER;
++	resources[2].width = p_cluster_store_size_bytes;
++	resources[2].height = 1;
++	resources[2].depth = 1;
++	resources[2].mip_levels = 1;
++	resources[2].native_handle = p_cluster_store_native_handle;
++	// b0 root constants (32 bytes / 8 DWORDs): the raw ClusterBuilderSharedDataRD
++	// ::ClusterStore::PushConstant mirror is passed through verbatim so the
++	// bridge can bind Godot's push constant directly.
++	uint8_t push_constants[CLUSTER_STORE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES] = {};
++	memcpy(push_constants, p_push_constants, CLUSTER_STORE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES);
++	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_CLUSTER_STORE, resources, CLUSTER_STORE_RESOURCE_MAPPING_RESOURCE_COUNT, push_constants, CLUSTER_STORE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES);
+ 	if (rc != RXGD_STATUS_OK) {
+ 		if (!cluster_store_fallback_logged) {
+-			print_verbose(vformat("RurixAccel: cluster_store fallback rc=%d; Godot native cluster store path remains active.", rc));
++			print_verbose(vformat("RurixAccel: cluster_store native resource handle mapping fallback rc=%d; Godot native cluster store path remains active.", rc));
+ 			cluster_store_fallback_logged = true;
+ 		}
+ 		return false;
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index 9a89fe5..8590d2d 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -156,6 +156,16 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
+ 	// fields, so the SHADER_INT64 capability is NOT part of its binding preflight.
+ 	static constexpr uint32_t PARTICLES_COPY_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 128;
+ 	static constexpr uint32_t PARTICLES_COPY_RESOURCE_MAPPING_RESOURCE_COUNT = 2;
++	// GRX-014 cluster_store resource mapping (resource_mapping.md): b0 carries
++	// 8 DWORDs / 32 bytes (the ClusterBuilderSharedDataRD::ClusterStore::
++	// PushConstant mirror) and the binding is exactly THREE structured-buffer
++	// resources in Rurix slot order (cluster_render = SRV t0 structured_buffer,
++	// render_elements = SRV t1 structured_buffer, cluster_store = UAV u0
++	// rwstructured_buffer). Like particles_copy, cluster_store carries no i64
++	// push-constant fields, so the SHADER_INT64 capability is NOT part of its
++	// binding preflight.
++	static constexpr uint32_t CLUSTER_STORE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 32;
++	static constexpr uint32_t CLUSTER_STORE_RESOURCE_MAPPING_RESOURCE_COUNT = 3;
+ 	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_SCAFFOLD = "resource mapping scaffold";
+ 	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_ROOT_CB = "b0";
+ 	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_SRC = "src_luminance = t0";
+@@ -233,12 +243,17 @@ public:
+ 	// ParticlesCopyGate) returns false and the caller must keep the native Godot
+ 	// particles copy path.
+ 	bool try_record_particles_copy(uint64_t p_src_particles_native_handle, uint64_t p_dst_instances_native_handle, uint32_t p_src_size_bytes, uint32_t p_dst_size_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) override;
+-	// GRX-014: returns true only when the Rurix bridge actually recorded the
+-	// cluster_store pass. Any other outcome (setting disabled, missing
+-	// session/symbol, or a non-OK bridge status such as RXGD_STATUS_FALLBACK
+-	// from the fail-closed ClusterStoreGate) returns false and the caller must
+-	// keep the native Godot cluster store path.
+-	bool try_record_cluster_store() override;
++	// GRX-014 runtime resource binding: native resource handle mapping. Marshals
++	// the three real D3D12 ID3D12Resource* structured-buffer native handles (not
++	// logical Godot RID ids) in Rurix slot order (cluster_render / render_elements
++	// / cluster_store), their byte sizes, and the 32-byte ClusterStore::
++	// PushConstant b0 mirror to the Rurix bridge and returns true only when the
++	// bridge actually recorded the cluster_store pass. Any other outcome (setting
++	// disabled, missing session/symbol, a null native handle or push-constant, or
++	// a non-OK bridge status such as RXGD_STATUS_FALLBACK from the fail-closed
++	// ClusterStoreGate) returns false and the caller must keep the native Godot
++	// cluster store path.
++	bool try_record_cluster_store(uint64_t p_cluster_render_native_handle, uint64_t p_render_elements_native_handle, uint64_t p_cluster_store_native_handle, uint32_t p_cluster_render_size_bytes, uint32_t p_render_elements_size_bytes, uint32_t p_cluster_store_size_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) override;
+ };
+ 
+ #endif // D3D12_ENABLED
+diff --git a/servers/rendering/renderer_rd/cluster_builder_rd.cpp b/servers/rendering/renderer_rd/cluster_builder_rd.cpp
+index 95bf591..09dc94a 100644
+--- a/servers/rendering/renderer_rd/cluster_builder_rd.cpp
++++ b/servers/rendering/renderer_rd/cluster_builder_rd.cpp
+@@ -538,16 +538,38 @@ void ClusterBuilderRD::bake_cluster() {
+ 			bool rurix_recorded_cluster_store = false;
+ #ifdef D3D12_ENABLED
+ 			if (D3D12Hooks::get_singleton() != nullptr) {
+-				// GRX-014 opt-in gate. Only the compute merge (store) segment is
+-				// in scope: the preceding cluster_render raster segment, the
+-				// buffer clears, and the render_element_count == 0 early-out stay
+-				// native permanently. Returns true only when the Rurix module
+-				// setting is enabled AND the bridge session/symbol exist AND
++				// GRX-014 runtime resource binding gate (0005/0007-level in one
++				// slice). Only the compute merge (store) segment is in scope: the
++				// preceding cluster_render raster segment, the buffer clears, and
++				// the render_element_count == 0 early-out stay native permanently.
++				// Resolve the real D3D12 ID3D12Resource* native handles (not
++				// logical Godot RID ids) for the three structured buffers through
++				// RenderingDevice::get_driver_resource (DRIVER_RESOURCE_BUFFER),
++				// then pass them plus their byte sizes and the 32-byte
++				// ClusterStore::PushConstant b0 mirror in Rurix slot order
++				// (cluster_render / render_elements / cluster_store; Godot's set-0
++				// binding numbers 1/3/2 are a different order). When
++				// RenderingDevice is unavailable, a buffer RID is null, or a
++				// handle resolves to 0 the pass falls back to the native cluster
++				// store dispatch. Returns true only when the Rurix module setting
++				// is enabled AND the bridge session/symbol exist AND
+ 				// rxgd_record_pass returns RXGD_STATUS_OK. The fail-closed bridge
+-				// ClusterStoreGate always returns RXGD_STATUS_FALLBACK for
+-				// RXGD_PASS_CLUSTER_STORE today, so this stays false and the
+-				// native cluster store dispatch below runs.
+-				rurix_recorded_cluster_store = D3D12Hooks::get_singleton()->try_record_cluster_store();
++				// ClusterStoreGate still always returns RXGD_STATUS_FALLBACK for
++				// RXGD_PASS_CLUSTER_STORE on the default path, so this stays false
++				// and the native dispatch runs.
++				RenderingDevice *rurix_cluster_rd = RD::get_singleton();
++				const uint64_t rurix_cluster_render_handle = (rurix_cluster_rd != nullptr && cluster_render_buffer.is_valid()) ? rurix_cluster_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_BUFFER, cluster_render_buffer, 0) : 0;
++				const uint64_t rurix_render_elements_handle = (rurix_cluster_rd != nullptr && element_buffer.is_valid()) ? rurix_cluster_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_BUFFER, element_buffer, 0) : 0;
++				const uint64_t rurix_cluster_store_handle = (rurix_cluster_rd != nullptr && cluster_buffer.is_valid()) ? rurix_cluster_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_BUFFER, cluster_buffer, 0) : 0;
++				if (rurix_cluster_render_handle != 0 && rurix_render_elements_handle != 0 && rurix_cluster_store_handle != 0) {
++					// Byte sizes travel as the structured-buffer resource widths
++					// (nonzero is what the bridge front door requires):
++					// cluster_render_buffer_size / cluster_buffer_size are the
++					// setup()-computed sizes and the element table is
++					// RenderElementData (80 bytes) x render_element_max.
++					const uint32_t rurix_render_elements_bytes = (uint32_t)(sizeof(RenderElementData) * render_element_max);
++					rurix_recorded_cluster_store = D3D12Hooks::get_singleton()->try_record_cluster_store(rurix_cluster_render_handle, rurix_render_elements_handle, rurix_cluster_store_handle, cluster_render_buffer_size, rurix_render_elements_bytes, cluster_buffer_size, (const uint8_t *)&push_constant, (uint32_t)sizeof(ClusterBuilderSharedDataRD::ClusterStore::PushConstant));
++				}
+ 			}
+ #endif
+ 			if (!rurix_recorded_cluster_store) {
+-- 
+2.50.0

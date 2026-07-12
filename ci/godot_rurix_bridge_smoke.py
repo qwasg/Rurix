@@ -165,6 +165,34 @@ PATCH22 = (
     / "patches"
     / "0022-rurix-accel-particles-copy-recording-smoke-and-real-pass-optin.patch"
 )
+PATCH23 = (
+    ROOT
+    / "spike"
+    / "godot-rurix"
+    / "patches"
+    / "0023-rurix-accel-cluster-store-pass-gate-and-callsite.patch"
+)
+PATCH24 = (
+    ROOT
+    / "spike"
+    / "godot-rurix"
+    / "patches"
+    / "0024-rurix-accel-cluster-store-runtime-resource-binding.patch"
+)
+PATCH25 = (
+    ROOT
+    / "spike"
+    / "godot-rurix"
+    / "patches"
+    / "0025-rurix-accel-cluster-store-recording-smoke-and-real-pass-optin.patch"
+)
+PATCH26 = (
+    ROOT
+    / "spike"
+    / "godot-rurix"
+    / "patches"
+    / "0026-rurix-accel-material-sorting-telemetry.patch"
+)
 EXTERNAL_GODOT = ROOT / "external" / "godot-master"
 
 IDE_IGNORE_PROBES = [
@@ -487,9 +515,11 @@ def check_patch_state() -> str:
                 f"details: {details}"
             )
         print("[godot-rurix] patch 0016 stacked applyability: ready")
-        # GRX-012 taa_resolve (0017-0019) + GRX-013 particles_copy (0020-0022):
-        # each patch must apply on top of every prior patch (0004..N-1) in a
-        # throwaway scratch copy; the ignored snapshot is never mutated.
+        # GRX-012 taa_resolve (0017-0019) + GRX-013 particles_copy (0020-0022)
+        # + GRX-014 cluster_store (0023-0025) + GRX-017 material_sorting
+        # telemetry (0026): each patch must apply on top of every prior patch
+        # (0004..N-1) in a throwaway scratch copy; the ignored snapshot is
+        # never mutated.
         stacked_tail = [
             ("0017", PATCH17),
             ("0018", PATCH18),
@@ -497,6 +527,10 @@ def check_patch_state() -> str:
             ("0020", PATCH20),
             ("0021", PATCH21),
             ("0022", PATCH22),
+            ("0023", PATCH23),
+            ("0024", PATCH24),
+            ("0025", PATCH25),
+            ("0026", PATCH26),
         ]
         prior = [
             PATCH4, PATCH5, PATCH6, PATCH7, PATCH8, PATCH9, PATCH10, PATCH11,
@@ -550,6 +584,10 @@ def main() -> int:
             "TonemapDispatchPackage",
             "RXGD_CAP_TONEMAP_REAL_PASS",
             "RXGD_TONEMAP_REAL_PASS_BLOCKED",
+            "ClusterStoreGate",
+            "ClusterStoreDispatchPackage",
+            "RXGD_CAP_CLUSTER_STORE_REAL_PASS",
+            "RXGD_CLUSTER_STORE_REAL_PASS_BLOCKED",
         ],
     )
     require_text(
@@ -728,6 +766,54 @@ def main() -> int:
             "RXGD_GODOT_RUNTIME_SSAO_BLUR_RECORD",
             "d3d12-recording-shim",
             "RXGD_STATUS_FALLBACK",
+        ],
+    )
+    require_text(
+        PATCH23,
+        [
+            "rendering/rurix_accel/passes/cluster_store/enabled",
+            "RXGD_PASS_CLUSTER_STORE",
+            "try_record_cluster_store",
+            "cluster_builder_rd.cpp",
+            "compute_list_dispatch_threads",
+            "RXGD_STATUS_FALLBACK",
+            "default",
+        ],
+    )
+    require_text(
+        PATCH24,
+        [
+            "RenderingDevice::get_driver_resource",
+            "DRIVER_RESOURCE_BUFFER",
+            "ID3D12Resource*",
+            "try_record_cluster_store",
+            "RXGD_PASS_CLUSTER_STORE",
+            "cluster_render",
+            "render_elements",
+            "cluster_store",
+            "RXGD_STATUS_FALLBACK",
+        ],
+    )
+    require_text(
+        PATCH25,
+        [
+            "rendering/rurix_accel/passes/cluster_store/dispatch_real_pass",
+            "rendering/rurix_accel/passes/cluster_store/dispatch_recording_smoke",
+            "rendering/rurix_accel/passes/cluster_store/real_pass_force_capability_downgrade",
+            "RXGD_CAP_CLUSTER_STORE_REAL_PASS",
+            "RXGD_GODOT_RUNTIME_CLUSTER_STORE_RECORD",
+            "d3d12-recording-shim",
+            "RXGD_STATUS_FALLBACK",
+        ],
+    )
+    require_text(
+        PATCH26,
+        [
+            "rendering/rurix_accel/telemetry/material_sorting/enabled",
+            "RXGD_MATERIAL_SORTING_TELEMETRY",
+            "sort_by_key",
+            "print_verbose",
+            "no FPS",
         ],
     )
     check_external_ignored()

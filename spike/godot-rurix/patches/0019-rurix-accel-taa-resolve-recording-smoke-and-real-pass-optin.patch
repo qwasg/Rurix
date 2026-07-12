@@ -2,6 +2,7 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Rurix Godot Bridge <rurix@example.invalid>
 Date: Sat, 12 Jul 2026 11:00:00 +0800
 Subject: [PATCH] Add the GRX-012 taa_resolve recording-smoke and gated real-pass
+
  opt-in arms with result writeback scaffold
 
 Stacked on 0001..0018. This is the GRX-012 bridge-recording / real-pass
@@ -23,8 +24,9 @@ default enablement, and it does not change the shipping fallback semantics.
   opt-in is enabled, and clears RXGD_CAP_SHADER_INT64 ONLY when the
   harness-only taa_resolve real_pass_force_capability_downgrade knob is
   enabled. try_record_taa_resolve() emits RXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS
-  only on the real-pass arm and RXGD_GODOT_RUNTIME_TAA_RESOLVE_RECORD only
-  under the harness-only dispatch_recording_smoke opt-in.
+  only on the real-pass arm OK path and RXGD_GODOT_RUNTIME_TAA_RESOLVE_RECORD
+  on the same OK path; both markers are gated under the harness-only
+  dispatch_recording_smoke opt-in (GRX Wave 4 print gating below).
 - render_forward_clustered.cpp TAA branch: when try_record_taa_resolve()
   returned true on the real-pass arm, the bridge dispatched the resolve kernel
   into the real taa/temp destination ID3D12Resource*, so the single-view
@@ -33,6 +35,16 @@ default enablement, and it does not change the shipping fallback semantics.
   then clears the flag so the FULL native Godot taa->process still runs as the
   continuation/backstop (the kernel covers only one view with no history
   double-buffer copy-back; GPU math parity is still pending measurement).
+
+GRX Wave 4 print-gating revision (patch number unchanged, PATCH_ALLOCATION.md
+section 4 rule 2): the per-dispatch RXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS
+module marker and the call-site
+RXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS_WRITEBACK scaffold marker are
+harness instrumentation and are now printed ONLY under the harness-only
+dispatch_recording_smoke opt-in, so the production dispatch_real_pass opt-in
+path emits zero per-dispatch stdout (pass engagement is read from the shim
+engagement counter file / RXGD_SUMMARY instead). Semantics are otherwise
+unchanged.
 
 The bridge fails closed on the real-pass arm and returns RXGD_STATUS_FALLBACK
 with a machine-readable RXGD_TAA_REAL_PASS_BLOCKED diagnostic naming the
@@ -84,7 +96,7 @@ index 15de768..299f2ca 100644
  #if defined(D3D12_ENABLED)
  	if (GLOBAL_GET("rendering/rurix_accel/enabled")) {
 diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
-index 3c74e59..3ac55e0 100644
+index e07469c..8b7fa51 100644
 --- a/modules/rurix_accel/rurix_accel.cpp
 +++ b/modules/rurix_accel/rurix_accel.cpp
 @@ -251,6 +251,23 @@ void RurixAccelD3D12Hooks::try_create_session() {
@@ -111,18 +123,21 @@ index 3c74e59..3ac55e0 100644
  	if (adapter_luid_valid) {
  		memcpy(caps.adapter_luid, &adapter_luid, sizeof(adapter_luid));
  	}
-@@ -663,6 +680,19 @@ bool RurixAccelD3D12Hooks::try_record_taa_resolve(uint64_t p_color_native_handle
+@@ -682,6 +699,22 @@ bool RurixAccelD3D12Hooks::try_record_taa_resolve(uint64_t p_color_native_handle
  		}
  		return false;
  	}
 +	// GRX-012: only reachable when the bridge's opt-in real-pass arm actually
 +	// returned RXGD_STATUS_OK after a real recorded dispatch (d3d12-recording-
 +	// shim builds only; the shipping feature-off bridge always falls back with
-+	// real_dispatch_path_not_linked first). The REAL_PASS marker reports the
-+	// real-pass arm; the RECORD marker belongs to the harness-only recording
-+	// smoke opt-in so a real-pass success is never misreported as a
-+	// recording-smoke run and vice versa.
-+	if (GLOBAL_GET("rendering/rurix_accel/passes/taa_resolve/dispatch_real_pass")) {
++	// real_dispatch_path_not_linked first). GRX Wave 4 print gating: both
++	// per-dispatch stdout markers are harness instrumentation and are gated
++	// under the harness-only dispatch_recording_smoke opt-in — the production
++	// dispatch_real_pass path emits zero per-dispatch stdout (pass engagement
++	// is read from the shim engagement counter file / RXGD_SUMMARY instead).
++	// The REAL_PASS marker still reports the real-pass arm; the RECORD marker
++	// remains the recording-smoke marker.
++	if (GLOBAL_GET("rendering/rurix_accel/passes/taa_resolve/dispatch_recording_smoke")) {
 +		print_line("RXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS: pass=RXGD_PASS_TAA_RESOLVE dispatched=1");
 +	}
 +	if (GLOBAL_GET("rendering/rurix_accel/passes/taa_resolve/dispatch_recording_smoke")) {
@@ -153,10 +168,10 @@ index ccb3cd0..b338d01 100644
  typedef struct RxGdCaps {
  	uint32_t abi_version;
 diff --git a/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp b/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
-index 363a047..4bc2c78 100644
+index 363a047..a109970 100644
 --- a/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
 +++ b/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
-@@ -2551,6 +2551,22 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
+@@ -2551,6 +2551,27 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
  					const float rurix_taa_disocclusion = 2.5f;
  					const float rurix_taa_variance = CLAMP(1.1f * (1080.0f / (float)MAX(rurix_taa_size.y, 1)), 0.75f, 1.0f);
  					rurix_recorded_taa_resolve = D3D12Hooks::get_singleton()->try_record_taa_resolve(rurix_taa_color_handle, rurix_taa_depth_handle, rurix_taa_velocity_handle, rurix_taa_prev_velocity_handle, rurix_taa_history_handle, rurix_taa_temp_handle, (uint32_t)MAX(rurix_taa_size.x, 0), (uint32_t)MAX(rurix_taa_size.y, 0), rurix_taa_disocclusion, rurix_taa_variance);
@@ -173,7 +188,12 @@ index 363a047..4bc2c78 100644
 +						// parity is still pending measurement, so the native
 +						// taa->process re-resolves every view and the image can never
 +						// change while this scaffold is in place.
-+						print_line("RXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS_WRITEBACK: dst=taa_temp native_continuation=active scaffold=1");
++						// GRX Wave 4 print gating: harness instrumentation only
++						// (dispatch_recording_smoke opt-in); zero per-dispatch
++						// stdout on the production path.
++						if (GLOBAL_GET("rendering/rurix_accel/passes/taa_resolve/dispatch_recording_smoke")) {
++							print_line("RXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS_WRITEBACK: dst=taa_temp native_continuation=active scaffold=1");
++						}
 +						rurix_recorded_taa_resolve = false;
 +					}
  				}

@@ -2,6 +2,7 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Rurix Godot Bridge <rurix@example.invalid>
 Date: Mon, 6 Jul 2026 12:00:00 +0800
 Subject: [PATCH] Add the GRX-009 segment 4h opt-in gated real luminance pass
+
  arm
 
 Stacked on 0001-rurix-accel-module-scaffold.patch,
@@ -35,6 +36,14 @@ change the shipping fallback semantics.
   try_record_luminance_reduction() emits a distinctive
   RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS marker only when rxgd_record_pass
   actually returned RXGD_STATUS_OK on the real-pass arm.
+
+GRX Wave 4 print-gating revision (patch number unchanged, PATCH_ALLOCATION.md
+section 4 rule 2): the per-dispatch RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS
+module marker is harness instrumentation and is now printed ONLY under the
+harness-only dispatch_recording_smoke opt-in, so the production
+dispatch_real_pass opt-in path emits zero per-dispatch stdout (pass
+engagement is read from the shim engagement counter file / RXGD_SUMMARY
+instead). Semantics are otherwise unchanged.
 
 The bridge fails closed on the real-pass arm: it runs the runtime binding
 preflight, the dispatch eligibility gate, and the segment 4h
@@ -79,7 +88,7 @@ index e7c2efd..bee3d93 100644
  #if defined(D3D12_ENABLED)
  	if (GLOBAL_GET("rendering/rurix_accel/enabled")) {
 diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
-index da137ec..10f99e0 100644
+index da137ec..a47f837 100644
 --- a/modules/rurix_accel/rurix_accel.cpp
 +++ b/modules/rurix_accel/rurix_accel.cpp
 @@ -200,6 +200,23 @@ void RurixAccelD3D12Hooks::try_create_session() {
@@ -106,15 +115,20 @@ index da137ec..10f99e0 100644
  	if (adapter_luid_valid) {
  		memcpy(caps.adapter_luid, &adapter_luid, sizeof(adapter_luid));
  	}
-@@ -283,6 +300,13 @@ bool RurixAccelD3D12Hooks::try_record_luminance_reduction(uint64_t p_source_nati
+@@ -283,6 +300,18 @@ bool RurixAccelD3D12Hooks::try_record_luminance_reduction(uint64_t p_source_nati
  	// bridge dispatch recording smoke can observe the recording. This line is
  	// only reachable under the test-only dispatch_recording_smoke opt-in plus a
  	// d3d12-recording-shim rurix_godot.dll; the default build never prints it.
 +	// GRX-009 segment 4h: only reachable when a future runtime-mappable real
 +	// dispatch path actually returned RXGD_STATUS_OK on the real-pass arm;
 +	// with the tracked segment 3a artifact the bridge always falls back
-+	// first, so this marker is never printed today.
-+	if (GLOBAL_GET("rendering/rurix_accel/passes/luminance_reduction/dispatch_real_pass")) {
++	// first, so this marker is never printed today. GRX Wave 4 print gating:
++	// this per-dispatch stdout marker is harness instrumentation, so it is
++	// gated under the harness-only dispatch_recording_smoke opt-in (NOT the
++	// production real-pass opt-in) — the production dispatch_real_pass path
++	// emits zero per-dispatch stdout and pass engagement is read from the
++	// shim engagement counter file instead.
++	if (GLOBAL_GET("rendering/rurix_accel/passes/luminance_reduction/dispatch_recording_smoke")) {
 +		print_line("RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS: pass=RXGD_PASS_LUMINANCE_REDUCTION dispatched=1");
 +	}
  	print_line("RXGD_GODOT_RUNTIME_LUMINANCE_RECORD: pass=RXGD_PASS_LUMINANCE_REDUCTION recorded=1");

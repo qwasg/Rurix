@@ -2,6 +2,7 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Rurix Godot Bridge <rurix@example.invalid>
 Date: Sat, 12 Jul 2026 10:00:00 +0800
 Subject: [PATCH] Wire the GRX-009 Wave 2 real multi-level luminance
+
  pyramid writeback (hook_contract_v2)
 
 Stacked on 0001..0009. Replaces the level-0 result-writeback SCAFFOLD
@@ -41,6 +42,17 @@ spike/godot-rurix/passes/luminance_reduction/hook_contract_v2.md.
   keeps the segment 4e level-0 recording scaffold with the native path
   as backstop (native_continuation=active scaffold=1).
 
+GRX Wave 4 print-gating revision (patch number unchanged, PATCH_ALLOCATION.md
+section 4 rule 2): the per-dispatch pyramid
+RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS module marker and both call-site
+RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS_WRITEBACK markers (real=1 pyramid and
+scaffold level-0) are harness instrumentation and are now printed ONLY under
+the harness-only dispatch_recording_smoke opt-in, so the production
+dispatch_real_pass opt-in path emits zero per-dispatch stdout (pass
+engagement is read from the shim engagement counter file / RXGD_SUMMARY
+instead). The real SWAP writeback itself is NOT gated; semantics are
+otherwise unchanged.
+
 ONE-FRAME LATENCY is declared in the hook signature comment, the marker
 line (one_frame_latency=1), and the bridge contract, never hidden. The
 real dispatch is linked only under the test-only d3d12-recording-shim
@@ -75,11 +87,11 @@ index 29864a4..10d4aca 100644
  	// luminance_reduction pass. The caller now passes the real D3D12
  	// ID3D12Resource* native handles (resolved through
 diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
-index 10f99e0..2b22dae 100644
+index a47f837..e376ceb 100644
 --- a/modules/rurix_accel/rurix_accel.cpp
 +++ b/modules/rurix_accel/rurix_accel.cpp
-@@ -307,7 +307,93 @@ bool RurixAccelD3D12Hooks::try_record_luminance_reduction(uint64_t p_source_nati
- 	if (GLOBAL_GET("rendering/rurix_accel/passes/luminance_reduction/dispatch_real_pass")) {
+@@ -312,7 +312,100 @@ bool RurixAccelD3D12Hooks::try_record_luminance_reduction(uint64_t p_source_nati
+ 	if (GLOBAL_GET("rendering/rurix_accel/passes/luminance_reduction/dispatch_recording_smoke")) {
  		print_line("RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS: pass=RXGD_PASS_LUMINANCE_REDUCTION dispatched=1");
  	}
 -	print_line("RXGD_GODOT_RUNTIME_LUMINANCE_RECORD: pass=RXGD_PASS_LUMINANCE_REDUCTION recorded=1");
@@ -169,7 +181,14 @@ index 10f99e0..2b22dae 100644
 +		}
 +		return false;
 +	}
-+	print_line("RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS: pass=RXGD_PASS_LUMINANCE_REDUCTION dispatched=1 levels=pyramid");
++	// GRX Wave 4 print gating: the per-dispatch pyramid REAL_PASS stdout
++	// marker is harness instrumentation, gated under the harness-only
++	// dispatch_recording_smoke opt-in. The production dispatch_real_pass
++	// path emits zero per-dispatch stdout; pass engagement is read from the
++	// shim engagement counter file / RXGD_SUMMARY instead.
++	if (GLOBAL_GET("rendering/rurix_accel/passes/luminance_reduction/dispatch_recording_smoke")) {
++		print_line("RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS: pass=RXGD_PASS_LUMINANCE_REDUCTION dispatched=1 levels=pyramid");
++	}
  	return true;
  }
  
@@ -193,10 +212,10 @@ index 4061d4b..3f1fb9c 100644
  	// D3D12 ID3D12Resource* native handles (not logical Godot RID ids),
  	// dimensions, and b0 root constants to the Rurix bridge and returns true
 diff --git a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
-index c393ffe..aa47102 100644
+index c393ffe..986ee70 100644
 --- a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
 +++ b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
-@@ -571,27 +571,88 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+@@ -571,27 +571,101 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
  		bool rurix_recorded_luminance = false;
  #ifdef D3D12_ENABLED
  		if (D3D12Hooks::get_singleton() != nullptr && !luminance_buffers->reduce.is_empty()) {
@@ -282,7 +301,15 @@ index c393ffe..aa47102 100644
 +				// real Rurix pyramid replaces the native pass with no native
 +				// backstop. ONE-FRAME LATENCY is declared (hook_contract_v2 s6).
 +				SWAP(luminance_buffers->current, luminance_buffers->reduce.write[luminance_buffers->reduce.size() - 1]);
-+				print_line("RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS_WRITEBACK: dst=current native_continuation=skipped real=1 one_frame_latency=1");
++				// GRX Wave 4 print gating: the per-dispatch WRITEBACK stdout
++				// marker is harness instrumentation, gated under the
++				// harness-only dispatch_recording_smoke opt-in so the
++				// production dispatch_real_pass path emits zero per-dispatch
++				// stdout. The SWAP above is the real writeback and is NOT
++				// gated.
++				if (GLOBAL_GET("rendering/rurix_accel/passes/luminance_reduction/dispatch_recording_smoke")) {
++					print_line("RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS_WRITEBACK: dst=current native_continuation=skipped real=1 one_frame_latency=1");
++				}
 +			} else if (!set_immediate) {
 +				// Real pyramid arm not taken on a non-SET frame (opt-in off, the bridge
 +				// fell back, or a missing/oversized handle array). On the SET frame the
@@ -296,7 +323,12 @@ index c393ffe..aa47102 100644
 +				const uint64_t rurix_dest_native_handle = rurix_rd != nullptr ? rurix_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_TEXTURE, luminance_buffers->reduce[0], 0) : 0;
 +				if (rurix_source_native_handle != 0 && rurix_dest_native_handle != 0) {
 +					if (D3D12Hooks::get_singleton()->try_record_luminance_reduction(rurix_source_native_handle, (uint32_t)MAX(rurix_source_size.x, 0), (uint32_t)MAX(rurix_source_size.y, 0), rurix_dest_native_handle, (uint32_t)rurix_dest_size.x, (uint32_t)rurix_dest_size.y, auto_exposure_max_sensitivity, auto_exposure_min_sensitivity, (float)step)) {
-+						print_line("RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS_WRITEBACK: dst=reduce[0] native_continuation=active scaffold=1");
++						// GRX Wave 4 print gating: harness instrumentation
++						// only (dispatch_recording_smoke opt-in); zero
++						// per-dispatch stdout on the production path.
++						if (GLOBAL_GET("rendering/rurix_accel/passes/luminance_reduction/dispatch_recording_smoke")) {
++							print_line("RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS_WRITEBACK: dst=reduce[0] native_continuation=active scaffold=1");
++						}
 +					}
 +				}
  			}

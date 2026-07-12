@@ -1,0 +1,174 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Sat, 12 Jul 2026 20:00:00 +0800
+Subject: [PATCH] Add the GRX-017 material_sorting telemetry-only slice
+
+ (opaque sort timing + PSO/material switch counters)
+
+Stacked on 0001..0025. This is the GRX-017 material variant sorting FIRST
+slice per GRX_PLAN ("若 telemetry 不足,先补 telemetry"): pure measured
+sampling telemetry, no D3D12Hooks virtual, no bridge call, no kernel, no
+pass gate, and no real-pass triple. It observes how well the existing Godot
+opaque-list material/shader key sort amortizes PSO and material switches so
+a later GRX-017 slice (if any) has a measured baseline.
+
+- modules/rurix_accel/register_types.cpp: new default-false setting
+  rendering/rurix_accel/telemetry/material_sorting/enabled. The shipping
+  build/config never enables it.
+- servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.h:
+  telemetry counters (frames, pso_switches, material_uniform_set_switches),
+  the 30-frame emission interval constant, and a lazy tri-state cache of the
+  setting so the per-frame sort site performs one GLOBAL_GET total.
+- render_forward_clustered.cpp:
+  * _render_scene RENDER_LIST_OPAQUE sort_by_key(): timed with
+    OS::get_ticks_usec behind the setting; the sort itself is byte-identical
+    either way.
+  * _render_list_template: O(1) increments on the EXISTING PSO-rebind branch
+    (draw_list_bind_render_pipeline under shader/pipeline-hash change) and
+    the EXISTING material_uniform_set switch branch, compile-time gated to
+    PASS_MODE_COLOR only (if constexpr) so depth/shadow/SDF passes carry no
+    counting and no new traversal is added anywhere.
+  * Every 30 frames one verbose-only line is printed and the switch counters
+    reset:
+    RXGD_MATERIAL_SORTING_TELEMETRY frame=N sort_usec=U element_count=E
+    pso_switches=P material_uniform_set_switches=M interval_frames=30.
+    sort_usec/element_count are the current frame's values; the switch
+    counts accumulate across the interval window of COLOR render lists that
+    follow each sort (up to one frame of trailing skew — declared, not
+    hidden). Deliberately NOT an `ERROR:` line and NOT an `RXGD_DIAG` line,
+    so runtime log audits stay clean; print_verbose keeps it off unless
+    --verbose.
+
+This is measured sampling telemetry, NOT an evidence gate: it makes no
+visual, FPS, p95, GPU-timestamp, cache-miss, or performance claim, records
+no pass engagement, changes no rendering behaviour, defaults to off in every
+leg of every tracked smoke, and does not touch RXGD_ABI_VERSION or the
+bridge C ABI.
+---
+diff --git a/modules/rurix_accel/register_types.cpp b/modules/rurix_accel/register_types.cpp
+index 6c6d0b3..ce4e6d8 100644
+--- a/modules/rurix_accel/register_types.cpp
++++ b/modules/rurix_accel/register_types.cpp
+@@ -243,6 +243,13 @@ void initialize_rurix_accel_module(ModuleInitializationLevel p_level) {
+ 	// path keeps rendering. Defaults to false; never enabled by the shipping
+ 	// build/config.
+ 	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/cluster_store/real_pass_force_capability_downgrade", false);
++	// GRX-017 material_sorting telemetry (patch 0026, telemetry-only slice):
++	// default-false opt-in for the verbose-only per-interval
++	// RXGD_MATERIAL_SORTING_TELEMETRY line emitted by the Forward+ renderer
++	// (opaque-list sort_by_key timing + PSO / material-uniform-set switch
++	// counts). No D3D12 hook, no bridge call, no kernel, no real pass, and no
++	// FPS/p95/performance claim; the shipping build/config never enables it.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/telemetry/material_sorting/enabled", false);
+ 
+ #if defined(D3D12_ENABLED)
+ 	if (GLOBAL_GET("rendering/rurix_accel/enabled")) {
+diff --git a/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp b/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
+index a109970..a15460e 100644
+--- a/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
++++ b/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
+@@ -31,6 +31,9 @@
+ #include "render_forward_clustered.h"
+ 
+ #include "core/config/project_settings.h"
++// GRX-017 material_sorting telemetry (patch 0026): OS::get_ticks_usec times
++// the opaque-list sort behind the default-false telemetry setting.
++#include "core/os/os.h"
+ #include "servers/rendering/renderer_rd/environment/fog.h"
+ #include "servers/rendering/renderer_rd/framebuffer_cache_rd.h"
+ #include "servers/rendering/renderer_rd/storage_rd/light_storage.h"
+@@ -560,6 +563,14 @@ void RenderForwardClustered::_render_list_template(RenderingDevice::DrawListID p
+ 
+ 			if (!pipeline_rd.is_null()) {
+ 				RD::get_singleton()->draw_list_bind_render_pipeline(draw_list, pipeline_rd);
++				if constexpr (p_pass_mode == PASS_MODE_COLOR) {
++					// GRX-017 material_sorting telemetry (patch 0026): O(1)
++					// count on the existing PSO-rebind branch (COLOR passes
++					// only, compile-time gated; no new traversal). Consumed by
++					// the default-off verbose telemetry line at the
++					// RENDER_LIST_OPAQUE sort site.
++					rurix_mat_sort_pso_switches++;
++				}
+ 			}
+ 
+ 			if (xforms_uniform_set.is_valid() && prev_xforms_uniform_set != xforms_uniform_set) {
+@@ -572,6 +583,13 @@ void RenderForwardClustered::_render_list_template(RenderingDevice::DrawListID p
+ 				if (material_uniform_set.is_valid() && RD::get_singleton()->uniform_set_is_valid(material_uniform_set)) { // Material may not have a uniform set.
+ 					RD::get_singleton()->draw_list_bind_uniform_set(draw_list, material_uniform_set, MATERIAL_UNIFORM_SET);
+ 				}
++				if constexpr (p_pass_mode == PASS_MODE_COLOR) {
++					// GRX-017 material_sorting telemetry (patch 0026): O(1)
++					// count on the existing material-uniform-set-switch branch
++					// (COLOR passes only, compile-time gated; no new
++					// traversal).
++					rurix_mat_sort_material_uniform_set_switches++;
++				}
+ 
+ 				prev_material_uniform_set = material_uniform_set;
+ 			}
+@@ -1890,7 +1908,32 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
+ 	_update_render_base_uniform_set();
+ 
+ 	_fill_render_list(RENDER_LIST_OPAQUE, p_render_data, PASS_MODE_COLOR, using_sdfgi, using_sdfgi || using_voxelgi, using_motion_pass);
++	// GRX-017 material_sorting telemetry (patch 0026, telemetry-only slice):
++	// time the opaque-list material/shader key sort behind the default-false
++	// rendering/rurix_accel/telemetry/material_sorting/enabled setting and,
++	// every RURIX_MATERIAL_SORTING_TELEMETRY_INTERVAL_FRAMES frames, print one
++	// verbose-only line carrying this frame's sort_usec/element_count plus the
++	// PSO / material-uniform-set switch counts accumulated across the interval
++	// window (the counters accumulate during the COLOR render lists that follow
++	// each sort, so the window trails the sort by up to one frame — declared,
++	// not hidden). Deliberately NOT an `ERROR:` line and NOT an `RXGD_DIAG`
++	// line, so runtime log audits stay clean; measured sampling only, no
++	// FPS/p95/performance claim, and the sort itself is byte-identical either
++	// way.
++	if (rurix_mat_sort_telemetry_enabled < 0) {
++		rurix_mat_sort_telemetry_enabled = GLOBAL_GET("rendering/rurix_accel/telemetry/material_sorting/enabled") ? 1 : 0;
++	}
++	const uint64_t rurix_mat_sort_begin_usec = rurix_mat_sort_telemetry_enabled == 1 ? OS::get_singleton()->get_ticks_usec() : 0;
+ 	render_list[RENDER_LIST_OPAQUE].sort_by_key();
++	if (rurix_mat_sort_telemetry_enabled == 1) {
++		const uint64_t rurix_mat_sort_usec = OS::get_singleton()->get_ticks_usec() - rurix_mat_sort_begin_usec;
++		rurix_mat_sort_telemetry_frames++;
++		if (rurix_mat_sort_telemetry_frames % RURIX_MATERIAL_SORTING_TELEMETRY_INTERVAL_FRAMES == 0) {
++			print_verbose(vformat("RXGD_MATERIAL_SORTING_TELEMETRY frame=%d sort_usec=%d element_count=%d pso_switches=%d material_uniform_set_switches=%d interval_frames=%d", (int64_t)rurix_mat_sort_telemetry_frames, (int64_t)rurix_mat_sort_usec, (int64_t)render_list[RENDER_LIST_OPAQUE].elements.size(), (int64_t)rurix_mat_sort_pso_switches, (int64_t)rurix_mat_sort_material_uniform_set_switches, (int64_t)RURIX_MATERIAL_SORTING_TELEMETRY_INTERVAL_FRAMES));
++			rurix_mat_sort_pso_switches = 0;
++			rurix_mat_sort_material_uniform_set_switches = 0;
++		}
++	}
+ 	render_list[RENDER_LIST_MOTION].sort_by_key();
+ 	render_list[RENDER_LIST_ALPHA].sort_by_reverse_depth_and_priority();
+ 
+diff --git a/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.h b/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.h
+index 941450b..58b0f77 100644
+--- a/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.h
++++ b/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.h
+@@ -67,6 +67,26 @@ class RenderForwardClustered : public RendererSceneRenderRD {
+ 		MATERIAL_UNIFORM_SET = 3,
+ 	};
+ 
++	// GRX-017 material_sorting telemetry (patch 0026, telemetry-only slice).
++	// Behind the default-false rendering/rurix_accel/telemetry/material_sorting/
++	// enabled setting: the RENDER_LIST_OPAQUE sort_by_key() is timed once per
++	// frame and the existing PSO-rebind / material-uniform-set-switch branches
++	// of _render_list_template are counted O(1) per switch (COLOR passes only,
++	// compile-time gated; no new traversal). Every
++	// RURIX_MATERIAL_SORTING_TELEMETRY_INTERVAL_FRAMES frames one verbose-only
++	// RXGD_MATERIAL_SORTING_TELEMETRY line is printed and the switch counters
++	// reset, so the printed switch counts cover the interval window. This is
++	// measured sampling telemetry, NOT an evidence gate, NOT a real pass, and
++	// carries no FPS/p95/performance claim.
++	static constexpr uint64_t RURIX_MATERIAL_SORTING_TELEMETRY_INTERVAL_FRAMES = 30;
++	uint64_t rurix_mat_sort_telemetry_frames = 0;
++	uint64_t rurix_mat_sort_pso_switches = 0;
++	uint64_t rurix_mat_sort_material_uniform_set_switches = 0;
++	// Lazy tri-state cache of the telemetry setting (-1 unresolved / 0 off /
++	// 1 on) so the per-frame sort site does one GLOBAL_GET total, not one per
++	// frame.
++	int rurix_mat_sort_telemetry_enabled = -1;
++
+ 	enum {
+ 		SDFGI_MAX_CASCADES = 8,
+ 		MAX_VOXEL_GI_INSTANCESS = 8,
+-- 
+2.50.0

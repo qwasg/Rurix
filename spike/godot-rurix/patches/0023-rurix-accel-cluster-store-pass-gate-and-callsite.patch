@@ -1,0 +1,178 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Sat, 12 Jul 2026 20:00:00 +0800
+Subject: [PATCH] Add default-disabled GRX-014 cluster_store gate and
+
+ bake_cluster call-site opt-in wiring
+
+Stacked on 0001..0022. Template copy of the GRX-012 0017 / GRX-013 0020
+pattern for the cluster_store pass, hooked at the compute merge (store)
+segment of ClusterBuilderRD::bake_cluster():
+
+- modules/rurix_accel: new default-false per-pass setting
+  rendering/rurix_accel/passes/cluster_store/enabled and
+  try_record_cluster_store() (0002-level module gate; the call carries no
+  resource bindings, native handle mapping belongs to a later slice). Adds
+  RXGD_PASS_CLUSTER_STORE (1u).
+- drivers/d3d12/d3d12_hooks.h: default-false virtual try_record_cluster_store()
+  so any hooks implementation that does not override it (or the absence of
+  a hooks singleton) keeps the native Godot cluster store path.
+- servers/rendering/renderer_rd/cluster_builder_rd.cpp bake_cluster: the
+  opt-in gate runs before the native cluster_store
+  compute_list_dispatch_threads; only when the gate returns true (module
+  setting enabled AND bridge session/symbol present AND rxgd_record_pass
+  returns RXGD_STATUS_OK) is the native store dispatch skipped. Only the
+  compute merge segment is wired; the preceding cluster_render raster
+  segment, the buffer clears, and the render_element_count == 0 early-out
+  stay native permanently (resource_mapping.md scope).
+
+The Rurix bridge ClusterStoreGate is fail-closed and always returns
+RXGD_STATUS_FALLBACK for RXGD_PASS_CLUSTER_STORE, and the per-pass setting
+defaults to false, so in practice the gate returns false and the native
+Godot cluster store runs. No real GPU pass, no acceleration, and no
+performance improvement is claimed.
+---
+diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
+index 1942e3e..9c822a6 100644
+--- a/drivers/d3d12/d3d12_hooks.h
++++ b/drivers/d3d12/d3d12_hooks.h
+@@ -111,5 +111,9 @@ public:
+ 	// returns false so any hooks that do not override this (or the absence of a
+ 	// hooks singleton) keep the native Godot particles copy path.
+ 	virtual bool try_record_particles_copy(uint64_t p_src_particles_native_handle, uint64_t p_dst_instances_native_handle, uint32_t p_src_size_bytes, uint32_t p_dst_size_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) { return false; }
++	// GRX-014: opt-in hook for the cluster_store pass. The base implementation
++	// returns false so any hooks that do not override this (or the absence of
++	// a hooks singleton) keep the native Godot cluster store path.
++	virtual bool try_record_cluster_store() { return false; }
+ 	static D3D12Hooks *get_singleton() { return singleton; }
+ };
+diff --git a/modules/rurix_accel/register_types.cpp b/modules/rurix_accel/register_types.cpp
+index 12a19be..3f5bdf9 100644
+--- a/modules/rurix_accel/register_types.cpp
++++ b/modules/rurix_accel/register_types.cpp
+@@ -200,6 +200,14 @@ void initialize_rurix_accel_module(ModuleInitializationLevel p_level) {
+ 	// unsupported_device while the native Godot particles copy path keeps
+ 	// rendering. Defaults to false; never enabled by the shipping build/config.
+ 	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/particles_copy/real_pass_force_capability_downgrade", false);
++	// GRX-014: per-pass opt-in gate for the cluster_store pass; the pass
++	// stays on the native Godot cluster store (the compute merge segment of
++	// ClusterBuilderRD::bake_cluster) unless this is explicitly enabled AND
++	// the bridge actually records the pass. Defaults to false; the bridge
++	// ClusterStoreGate is fail-closed and returns RXGD_STATUS_FALLBACK for
++	// RXGD_PASS_CLUSTER_STORE, so the native cluster store keeps rendering
++	// in practice and no acceleration is claimed.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/cluster_store/enabled", false);
+ 
+ #if defined(D3D12_ENABLED)
+ 	if (GLOBAL_GET("rendering/rurix_accel/enabled")) {
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index 0809041..6c0c3e7 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -819,4 +819,31 @@ bool RurixAccelD3D12Hooks::try_record_particles_copy(uint64_t p_src_particles_na
+ 	return true;
+ }
+ 
++bool RurixAccelD3D12Hooks::try_record_cluster_store() {
++	// GRX-014 gate: every early return below means the caller must keep the
++	// native Godot cluster store path. This is 0002-level module wiring: the
++	// call carries no resource bindings (native handle mapping belongs to a later
++	// slice), and the fail-closed bridge ClusterStoreGate always returns
++	// RXGD_STATUS_FALLBACK for RXGD_PASS_CLUSTER_STORE today, so the native
++	// cluster store keeps rendering in practice.
++	if (!GLOBAL_GET("rendering/rurix_accel/passes/cluster_store/enabled")) {
++		// manual_disabled: the pass is opt-in and defaults to disabled.
++		return false;
++	}
++	if (session == nullptr || rxgd_record_pass == nullptr) {
++		// No bridge session or record entry point; equivalent to
++		// unsupported_device for this pass.
++		return false;
++	}
++	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_CLUSTER_STORE, nullptr, 0, nullptr, 0);
++	if (rc != RXGD_STATUS_OK) {
++		if (!cluster_store_fallback_logged) {
++			print_verbose(vformat("RurixAccel: cluster_store fallback rc=%d; Godot native cluster store path remains active.", rc));
++			cluster_store_fallback_logged = true;
++		}
++		return false;
++	}
++	return true;
++}
++
+ #endif // D3D12_ENABLED
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index d5f9e21..9a89fe5 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -18,6 +18,7 @@
+ #define RXGD_PASS_SSAO_BLUR 2u
+ #define RXGD_PASS_TAA_RESOLVE 6u
+ #define RXGD_PASS_PARTICLES_COPY 7u
++#define RXGD_PASS_CLUSTER_STORE 1u
+ // GRX-009 segment 4b reserved capability flag carried in RxGdCaps.flags
+ // (ABI v1, no struct layout change). Set only when the Godot dispatch
+ // bring-up opt-in setting is enabled.
+@@ -124,6 +125,7 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
+ 	bool ssao_blur_fallback_logged = false;
+ 	bool taa_resolve_fallback_logged = false;
+ 	bool particles_copy_fallback_logged = false;
++	bool cluster_store_fallback_logged = false;
+ 	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 28;
+ 	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_RESOURCE_COUNT = 2;
+ 	// GRX-010 tonemap resource mapping (resource_mapping.md): b0 carries
+@@ -231,6 +233,12 @@ public:
+ 	// ParticlesCopyGate) returns false and the caller must keep the native Godot
+ 	// particles copy path.
+ 	bool try_record_particles_copy(uint64_t p_src_particles_native_handle, uint64_t p_dst_instances_native_handle, uint32_t p_src_size_bytes, uint32_t p_dst_size_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) override;
++	// GRX-014: returns true only when the Rurix bridge actually recorded the
++	// cluster_store pass. Any other outcome (setting disabled, missing
++	// session/symbol, or a non-OK bridge status such as RXGD_STATUS_FALLBACK
++	// from the fail-closed ClusterStoreGate) returns false and the caller must
++	// keep the native Godot cluster store path.
++	bool try_record_cluster_store() override;
+ };
+ 
+ #endif // D3D12_ENABLED
+diff --git a/servers/rendering/renderer_rd/cluster_builder_rd.cpp b/servers/rendering/renderer_rd/cluster_builder_rd.cpp
+index ff94a38..95bf591 100644
+--- a/servers/rendering/renderer_rd/cluster_builder_rd.cpp
++++ b/servers/rendering/renderer_rd/cluster_builder_rd.cpp
+@@ -33,6 +33,9 @@
+ #include "servers/rendering/rendering_device.h"
+ #include "servers/rendering/rendering_server_globals.h" // IWYU pragma: keep. RENDER_TIMESTAMP macro uses RSG.
+ 
++// GRX-014 segment: opt-in cluster_store gate lives on the D3D12 hooks.
++#include "drivers/d3d12/d3d12_hooks.h"
++
+ ClusterBuilderSharedDataRD::ClusterBuilderSharedDataRD() {
+ 	RD::VertexFormatID vertex_format;
+ 
+@@ -532,7 +535,24 @@ void ClusterBuilderRD::bake_cluster() {
+ 
+ 			RD::get_singleton()->compute_list_set_push_constant(compute_list, &push_constant, sizeof(ClusterBuilderSharedDataRD::ClusterStore::PushConstant));
+ 
+-			RD::get_singleton()->compute_list_dispatch_threads(compute_list, cluster_screen_size.x, cluster_screen_size.y, 1);
++			bool rurix_recorded_cluster_store = false;
++#ifdef D3D12_ENABLED
++			if (D3D12Hooks::get_singleton() != nullptr) {
++				// GRX-014 opt-in gate. Only the compute merge (store) segment is
++				// in scope: the preceding cluster_render raster segment, the
++				// buffer clears, and the render_element_count == 0 early-out stay
++				// native permanently. Returns true only when the Rurix module
++				// setting is enabled AND the bridge session/symbol exist AND
++				// rxgd_record_pass returns RXGD_STATUS_OK. The fail-closed bridge
++				// ClusterStoreGate always returns RXGD_STATUS_FALLBACK for
++				// RXGD_PASS_CLUSTER_STORE today, so this stays false and the
++				// native cluster store dispatch below runs.
++				rurix_recorded_cluster_store = D3D12Hooks::get_singleton()->try_record_cluster_store();
++			}
++#endif
++			if (!rurix_recorded_cluster_store) {
++				RD::get_singleton()->compute_list_dispatch_threads(compute_list, cluster_screen_size.x, cluster_screen_size.y, 1);
++			}
+ 
+ 			RD::get_singleton()->compute_list_end();
+ 		}
+-- 
+2.50.0

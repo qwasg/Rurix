@@ -60,10 +60,9 @@ OVERRIDE_CFG_NAME = "override.cfg"
 
 # Full set of override-able rurix_accel project settings, extracted from the
 # GLOBAL_DEF_BASIC keys in the landed patch stack
-# (spike/godot-rurix/patches/0001..0016) plus the reserved (not-yet-landed)
-# taa_resolve / particles_copy blocks. A rurix-leg pass matrix may only set keys
-# from this allowlist (fail-closed on typos so a mis-typed key can never silently
-# disable a pass while claiming it ran).
+# (spike/godot-rurix/patches/0001..0026). A rurix-leg pass matrix may only set
+# keys from this allowlist (fail-closed on typos so a mis-typed key can never
+# silently disable a pass while claiming it ran).
 VALID_PASS_MATRIX_KEYS = frozenset(
     {
         # Top-level gate (patch 0001 module scaffold).
@@ -89,21 +88,36 @@ VALID_PASS_MATRIX_KEYS = frozenset(
         "rendering/rurix_accel/passes/ssao_blur/dispatch_recording_smoke",
         "rendering/rurix_accel/passes/ssao_blur/dispatch_real_pass",
         "rendering/rurix_accel/passes/ssao_blur/real_pass_force_capability_downgrade",
-        # taa_resolve (GRX-012, patches 0017..0019 NOT yet landed). Reserved:
-        # key names inferred from the per-pass template (isomorphic to
-        # tonemap / ssao_blur); RE-VERIFY against GLOBAL_DEF_BASIC when the
-        # patches land.
+        # taa_resolve (GRX-012, patches 0017..0019, landed). Key names verified
+        # against GLOBAL_DEF_BASIC in patch 0017 (enabled) and patch 0019
+        # (dispatch_recording_smoke / dispatch_real_pass /
+        # real_pass_force_capability_downgrade).
         "rendering/rurix_accel/passes/taa_resolve/enabled",
         "rendering/rurix_accel/passes/taa_resolve/dispatch_recording_smoke",
         "rendering/rurix_accel/passes/taa_resolve/dispatch_real_pass",
         "rendering/rurix_accel/passes/taa_resolve/real_pass_force_capability_downgrade",
-        # particles_copy (GRX-013, patches 0020..0022 NOT yet landed). Reserved:
-        # key names inferred from the per-pass template; RE-VERIFY against
-        # GLOBAL_DEF_BASIC when the patches land.
+        # particles_copy (GRX-013, patches 0020..0022, landed). Key names
+        # verified against GLOBAL_DEF_BASIC in patch 0020 (enabled) and patch
+        # 0022 (dispatch_recording_smoke / dispatch_real_pass /
+        # real_pass_force_capability_downgrade).
         "rendering/rurix_accel/passes/particles_copy/enabled",
         "rendering/rurix_accel/passes/particles_copy/dispatch_recording_smoke",
         "rendering/rurix_accel/passes/particles_copy/dispatch_real_pass",
         "rendering/rurix_accel/passes/particles_copy/real_pass_force_capability_downgrade",
+        # cluster_store (GRX-014, patches 0023..0025, landed). Key names
+        # verified against GLOBAL_DEF_BASIC in patch 0023 (enabled) and patch
+        # 0025 (dispatch_recording_smoke / dispatch_real_pass /
+        # real_pass_force_capability_downgrade).
+        "rendering/rurix_accel/passes/cluster_store/enabled",
+        "rendering/rurix_accel/passes/cluster_store/dispatch_recording_smoke",
+        "rendering/rurix_accel/passes/cluster_store/dispatch_real_pass",
+        "rendering/rurix_accel/passes/cluster_store/real_pass_force_capability_downgrade",
+        # material_sorting telemetry (GRX-017, patch 0026, landed;
+        # telemetry-only slice). Key name verified against GLOBAL_DEF_BASIC in
+        # patch 0026. The runner itself does not pass --verbose, so enabling
+        # this through a pass matrix only takes effect on harnesses that run
+        # Godot with --verbose.
+        "rendering/rurix_accel/telemetry/material_sorting/enabled",
     }
 )
 

@@ -2,6 +2,7 @@ From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Rurix Godot Bridge <rurix@example.invalid>
 Date: Sat, 12 Jul 2026 11:00:00 +0800
 Subject: [PATCH] Add the GRX-013 particles_copy recording-smoke and gated
+
  real-pass opt-in arms with result writeback scaffold
 
 Stacked on 0001..0021. This is the GRX-013 bridge-recording / real-pass
@@ -26,9 +27,10 @@ a default enablement, and it does not change the shipping fallback semantics.
   is enabled (particles_copy's kernel carries no i64 push-constant fields, so
   int64 is not part of its binding preflight, but the bridge's dispatch
   eligibility requires it for the recording harness). try_record_particles_copy()
-  emits RXGD_GODOT_RUNTIME_PARTICLES_COPY_REAL_PASS only on the real-pass arm and
-  RXGD_GODOT_RUNTIME_PARTICLES_COPY_RECORD only under the harness-only
-  dispatch_recording_smoke opt-in.
+  emits RXGD_GODOT_RUNTIME_PARTICLES_COPY_REAL_PASS and
+  RXGD_GODOT_RUNTIME_PARTICLES_COPY_RECORD only on the real-pass arm OK path;
+  both markers are gated under the harness-only dispatch_recording_smoke
+  opt-in (GRX Wave 4 print gating below).
 - particles_storage.cpp COPY_MODE_FILL_INSTANCES dispatch: when
   try_record_particles_copy() returned true on the real-pass arm, the bridge
   dispatched the fill-instances kernel into the real Transforms SSBO destination
@@ -38,6 +40,17 @@ a default enablement, and it does not change the shipping fallback semantics.
   the FULL native Godot particles copy dispatch still runs as the continuation/
   backstop (the kernel covers only the ALIGN_DISABLED/ALIGN_BILLBOARD 3D subset;
   GPU math parity is still pending measurement).
+
+GRX Wave 4 print-gating revision (patch number unchanged, PATCH_ALLOCATION.md
+section 4 rule 2): the per-dispatch
+RXGD_GODOT_RUNTIME_PARTICLES_COPY_REAL_PASS module marker and the call-site
+RXGD_GODOT_RUNTIME_PARTICLES_COPY_REAL_PASS_WRITEBACK scaffold marker are
+harness instrumentation and are now printed ONLY under the harness-only
+dispatch_recording_smoke opt-in, so the production dispatch_real_pass opt-in
+path emits zero per-dispatch stdout (pass engagement is read from the shim
+engagement counter file / RXGD_SUMMARY instead). particles_storage.cpp gains
+the core/config/project_settings.h include for the call-site GLOBAL_GET.
+Semantics are otherwise unchanged.
 
 The bridge fails closed on the real-pass arm and returns RXGD_STATUS_FALLBACK
 with a machine-readable RXGD_PARTICLES_COPY_REAL_PASS_BLOCKED diagnostic naming
@@ -92,7 +105,7 @@ index 55c4ab5..12a19be 100644
  #if defined(D3D12_ENABLED)
  	if (GLOBAL_GET("rendering/rurix_accel/enabled")) {
 diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
-index c315c07..3720d0d 100644
+index c812b7a..0809041 100644
 --- a/modules/rurix_accel/rurix_accel.cpp
 +++ b/modules/rurix_accel/rurix_accel.cpp
 @@ -268,6 +268,25 @@ void RurixAccelD3D12Hooks::try_create_session() {
@@ -121,18 +134,21 @@ index c315c07..3720d0d 100644
  	if (adapter_luid_valid) {
  		memcpy(caps.adapter_luid, &adapter_luid, sizeof(adapter_luid));
  	}
-@@ -759,6 +778,19 @@ bool RurixAccelD3D12Hooks::try_record_particles_copy(uint64_t p_src_particles_na
+@@ -781,6 +800,22 @@ bool RurixAccelD3D12Hooks::try_record_particles_copy(uint64_t p_src_particles_na
  		}
  		return false;
  	}
 +	// GRX-013: only reachable when the bridge's opt-in real-pass arm actually
 +	// returned RXGD_STATUS_OK after a real recorded dispatch (d3d12-recording-
 +	// shim builds only; the shipping feature-off bridge always falls back with
-+	// real_dispatch_path_not_linked first). The REAL_PASS marker reports the
-+	// real-pass arm; the RECORD marker belongs to the harness-only recording
-+	// smoke opt-in so a real-pass success is never misreported as a
-+	// recording-smoke run and vice versa.
-+	if (GLOBAL_GET("rendering/rurix_accel/passes/particles_copy/dispatch_real_pass")) {
++	// real_dispatch_path_not_linked first). GRX Wave 4 print gating: both
++	// per-dispatch stdout markers are harness instrumentation and are gated
++	// under the harness-only dispatch_recording_smoke opt-in — the production
++	// dispatch_real_pass path emits zero per-dispatch stdout (pass engagement
++	// is read from the shim engagement counter file / RXGD_SUMMARY instead).
++	// The REAL_PASS marker still reports the real-pass arm; the RECORD marker
++	// remains the recording-smoke marker.
++	if (GLOBAL_GET("rendering/rurix_accel/passes/particles_copy/dispatch_recording_smoke")) {
 +		print_line("RXGD_GODOT_RUNTIME_PARTICLES_COPY_REAL_PASS: pass=RXGD_PASS_PARTICLES_COPY dispatched=1");
 +	}
 +	if (GLOBAL_GET("rendering/rurix_accel/passes/particles_copy/dispatch_recording_smoke")) {
@@ -163,10 +179,20 @@ index e2c1af4..d5f9e21 100644
  typedef struct RxGdCaps {
  	uint32_t abi_version;
 diff --git a/servers/rendering/renderer_rd/storage_rd/particles_storage.cpp b/servers/rendering/renderer_rd/storage_rd/particles_storage.cpp
-index 9179e29..325d00e 100644
+index 9179e29..f09a57a 100644
 --- a/servers/rendering/renderer_rd/storage_rd/particles_storage.cpp
 +++ b/servers/rendering/renderer_rd/storage_rd/particles_storage.cpp
-@@ -1377,6 +1377,21 @@ void ParticlesStorage::particles_set_view_axis(RID p_particles, const Vector3 &p
+@@ -37,6 +37,9 @@
+ #include "servers/rendering/rendering_server_globals.h"
+ 
+ // GRX-013 segment: opt-in particles_copy gate lives on the D3D12 hooks.
++// GRX Wave 4 print gating: GLOBAL_GET gates the harness-only per-dispatch
++// writeback marker below.
++#include "core/config/project_settings.h"
+ #include "drivers/d3d12/d3d12_hooks.h"
+ 
+ using namespace RendererRD;
+@@ -1377,6 +1380,26 @@ void ParticlesStorage::particles_set_view_axis(RID p_particles, const Vector3 &p
  			const uint32_t rurix_src_bytes = rurix_particles_count * 112u;
  			const uint32_t rurix_dst_bytes = rurix_particles_count * 80u;
  			rurix_recorded_particles_copy = D3D12Hooks::get_singleton()->try_record_particles_copy(rurix_src_handle, rurix_dst_handle, rurix_src_bytes, rurix_dst_bytes, (const uint8_t *)&copy_push_constant, (uint32_t)sizeof(ParticlesShader::CopyPushConstant));
@@ -182,7 +208,12 @@ index 9179e29..325d00e 100644
 +				// GPU math parity is still pending measurement, so the native
 +				// dispatch re-fills every instance and the render can never change
 +				// while this scaffold is in place.
-+				print_line("RXGD_GODOT_RUNTIME_PARTICLES_COPY_REAL_PASS_WRITEBACK: dst=particle_instance_buffer native_continuation=active scaffold=1");
++				// GRX Wave 4 print gating: harness instrumentation only
++				// (dispatch_recording_smoke opt-in); zero per-dispatch stdout
++				// on the production path.
++				if (GLOBAL_GET("rendering/rurix_accel/passes/particles_copy/dispatch_recording_smoke")) {
++					print_line("RXGD_GODOT_RUNTIME_PARTICLES_COPY_REAL_PASS_WRITEBACK: dst=particle_instance_buffer native_continuation=active scaffold=1");
++				}
 +				rurix_recorded_particles_copy = false;
 +			}
  		}
