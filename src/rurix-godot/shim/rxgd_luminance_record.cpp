@@ -191,6 +191,18 @@ static DXGI_FORMAT typed_view_format(DXGI_FORMAT resource_format) {
             return DXGI_FORMAT_R16G16_FLOAT;
         case DXGI_FORMAT_R32_TYPELESS:
             return DXGI_FORMAT_R32_FLOAT;
+        // GRX-012: the Godot depth buffer bound by the TAA resolve (t1,
+        // sampler2D depth_buffer) is a combined depth-stencil resource created
+        // with a typeless family (R32G8X24 = 32-bit float depth + 8-bit
+        // stencil, or R24G8 = 24-bit unorm depth + 8-bit stencil). A compute
+        // SRV reads the DEPTH PLANE through the corresponding *_X8X24 /
+        // X8_TYPELESS depth-read format; leaving these unmapped left the view
+        // format typeless (an invalid, device-removing D3D12 call), so the old
+        // shim fail-closed with "unmapped typeless format" on every TAA frame.
+        case DXGI_FORMAT_R32G8X24_TYPELESS:
+            return DXGI_FORMAT_R32_FLOAT_X8X24_TYPELESS;
+        case DXGI_FORMAT_R24G8_TYPELESS:
+            return DXGI_FORMAT_R24_UNORM_X8_TYPELESS;
         // GRX-011: the Godot SSAO deinterleaved AO buffers are created with the
         // R8G8 typeless family (RD::DATA_FORMAT_R8G8_UNORM lowers to an
         // R8G8_TYPELESS ID3D12Resource); the old shim left this UNMAPPED, so it
@@ -898,8 +910,12 @@ struct ShimSession {
         ID3D12Resource* all[6] = {srvs[0], srvs[1], srvs[2], srvs[3], srvs[4], uav};
         for (int i = 0; i < 6; ++i) {
             if (!all[i]) { set_detail_msg(out, "null taa resource handle"); return -41; }
-            if (format_is_typeless(typed_view_format(all[i]->GetDesc().Format))) {
-                set_detail_msg(out, "bound resource carries an unmapped typeless format");
+            const DXGI_FORMAT res_fmt = all[i]->GetDesc().Format;
+            if (format_is_typeless(typed_view_format(res_fmt))) {
+                std::snprintf(out->error_detail, sizeof(out->error_detail),
+                              "bound resource carries an unmapped typeless format "
+                              "(slot=%d resource_format=%d typed_view=%d)",
+                              i, (int)res_fmt, (int)typed_view_format(res_fmt));
                 return -40;
             }
         }

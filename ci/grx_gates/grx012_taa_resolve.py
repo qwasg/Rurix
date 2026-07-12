@@ -8,18 +8,20 @@ it fail-closed: the probe only advances ``next_action`` off this gate once it is
 fully ready (contract + patch applyability + standalone dispatch smoke +
 real-pass enablement + owner default-enable decision all green).
 
-This slice delivers PASS_TEMPLATE S1-S4 + S6 only (contract trio, offline
-kernel, math parity, fail-closed TaaResolveGate, standalone dispatch smoke).
-The Godot patches 0017-0019, the real-pass enablement, and the owner
-default-enable decision are DEFERRED to later serial slices, so this gate is
-honestly NOT ready: ``patch_applyability`` / ``enablement_ready`` /
-``decision_ready`` report ``False``, ``first_issue`` names the first missing
-level, and the probe records a ``grx_gate_module_error`` and keeps the base
-``next_action`` (``start_grx012_taa_resolve_pass_contract``, set by grx011).
+GRX-012 taa_resolve is CLOSED OUT (mirroring GRX-011 ssao_blur): the contract
+trio, the offline kernel, the fail-closed TaaResolveGate, the Godot patches
+0017-0019, the standalone dispatch smoke, the gated real-pass enablement
+(strict measured success with the GRX_PLAN temporal DoD), and the owner
+default-enable decision (keep_default_disabled) are all present, so every
+level reports ``True`` and the probe advances ``next_action`` to
+``start_grx013_particles_copy_pass_contract``. Any missing/tampered artifact
+flips the corresponding level ``False``, records a ``grx_gate_module_error``,
+and keeps the base ``next_action`` unchanged (fail-closed).
 
 Every level below reports its readiness HONESTLY. The pass ships default
-disabled and fallback-only; a green level never implies ``real_gpu_pass=true``,
-a real Godot runtime pass, or any performance claim.
+disabled and fallback-only by default; a green level (including the measured
+real-pass success) never implies default enablement, a real Godot runtime pass
+on the default path, or any performance claim.
 """
 from __future__ import annotations
 
@@ -70,24 +72,19 @@ def _contract_ready() -> tuple[bool, str | None]:
         return False, "pass_manifest.json is missing or not a JSON object"
     if manifest.get("pass_id") != "taa_resolve":
         return False, "pass_manifest.json pass_id is not taa_resolve"
-    # Fail-closed coherence: this slice ships implemented=false / fallback-only.
-    if manifest.get("implemented") is not False:
-        return False, "pass_manifest.json implemented must be false for this segment-A slice"
+    # Fail-closed invariant: even after the real-pass close-out (implemented=true
+    # / real_gpu_pass=true record the opt-in MEASURED arm only) the pass MUST
+    # ship default disabled.
     if manifest.get("default_enable_state") != "disabled":
         return False, "pass_manifest.json default_enable_state must be disabled"
-    status = manifest.get("implementation_status")
-    if not isinstance(status, dict) or status.get("runtime_state") != "fallback_only":
-        return False, "pass_manifest.json implementation_status.runtime_state must be fallback_only"
-    if status.get("real_gpu_pass") is not False or status.get("real_d3d12_dispatch_recorded") is not False:
-        return False, "pass_manifest.json must keep real_gpu_pass / real_d3d12_dispatch_recorded false"
     if manifest.get("math_parity_status") != "taa_resolve_cpu_reference_proven_pending_gpu_dispatch":
         return False, "pass_manifest.json math_parity_status does not match the taa_resolve contract"
     text = (PASS_DIR / "pass_manifest.json").read_text(encoding="utf-8")
     if "RXGD_PASS_TAA_RESOLVE" not in text:
         return False, "pass_manifest.json does not reference RXGD_PASS_TAA_RESOLVE"
-    # The deferred patch plan (0017-0019) must be documented as future work.
-    if "0017" not in text:
-        return False, "pass_manifest.json does not document the deferred patch 0017-0019 plan"
+    # The manifest must reference the taa_resolve 0017-0019 patch allocation.
+    if "0017-rurix-accel-taa-resolve-pass-gate-and-callsite.patch" not in text:
+        return False, "pass_manifest.json does not reference the taa_resolve 0017 gate patch"
     return True, None
 
 

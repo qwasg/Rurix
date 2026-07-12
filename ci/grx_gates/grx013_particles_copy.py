@@ -8,19 +8,20 @@ and walks it fail-closed: the probe only advances ``next_action`` off this gate
 once it is fully ready (contract + patch applyability + standalone dispatch
 smoke + real-pass enablement + owner default-enable decision all green).
 
-This slice delivers PASS_TEMPLATE S1-S4 + S6 + the Godot patches 0020-0022
-(contract trio, offline kernel, math parity, fail-closed ParticlesCopyGate,
-standalone dispatch smoke, and the gate/callsite/binding/opt-in patch triple).
-The real-pass enablement (S8, needs a scratch rebuild) and the owner
-default-enable decision (S9) are DEFERRED to later serial slices, so this gate is
-honestly NOT ready: ``enablement_ready`` / ``decision_ready`` report ``False``,
-``first_issue`` names the first missing level, and the probe records a
-``grx_gate_module_error`` and keeps the base ``next_action``
-(``start_grx013_particles_copy_pass_contract``, set by grx012).
+GRX-013 particles_copy is CLOSED OUT (mirroring GRX-011 ssao_blur): the
+contract trio, the offline kernel, the fail-closed ParticlesCopyGate, the Godot
+patches 0020-0022, the standalone dispatch smoke, the gated real-pass
+enablement (strict measured success), and the owner default-enable decision
+(keep_default_disabled) are all present, so every level reports ``True`` and
+the probe advances ``next_action`` to
+``start_grx014_cluster_store_pass_contract``. Any missing/tampered artifact
+flips the corresponding level ``False``, records a ``grx_gate_module_error``,
+and keeps the base ``next_action`` unchanged (fail-closed).
 
 Every level below reports its readiness HONESTLY. The pass ships default
-disabled and fallback-only; a green level never implies ``real_gpu_pass=true``,
-a real Godot runtime pass, or any performance claim.
+disabled and fallback-only by default; a green level (including the measured
+real-pass success) never implies default enablement, a real Godot runtime pass
+on the default path, or any performance claim.
 """
 from __future__ import annotations
 
@@ -71,24 +72,19 @@ def _contract_ready() -> tuple[bool, str | None]:
         return False, "pass_manifest.json is missing or not a JSON object"
     if manifest.get("pass_id") != "particles_copy":
         return False, "pass_manifest.json pass_id is not particles_copy"
-    # Fail-closed coherence: this slice ships implemented=false / fallback-only.
-    if manifest.get("implemented") is not False:
-        return False, "pass_manifest.json implemented must be false for this segment-A slice"
+    # Fail-closed invariant: even after the real-pass close-out (implemented=true
+    # / real_gpu_pass=true record the opt-in MEASURED arm only) the pass MUST
+    # ship default disabled.
     if manifest.get("default_enable_state") != "disabled":
         return False, "pass_manifest.json default_enable_state must be disabled"
-    status = manifest.get("implementation_status")
-    if not isinstance(status, dict) or status.get("runtime_state") != "fallback_only":
-        return False, "pass_manifest.json implementation_status.runtime_state must be fallback_only"
-    if status.get("real_gpu_pass") is not False or status.get("real_d3d12_dispatch_recorded") is not False:
-        return False, "pass_manifest.json must keep real_gpu_pass / real_d3d12_dispatch_recorded false"
     if manifest.get("math_parity_status") != "fill_instances_cpu_reference_proven_pending_gpu_dispatch":
         return False, "pass_manifest.json math_parity_status does not match the particles_copy contract"
     text = (PASS_DIR / "pass_manifest.json").read_text(encoding="utf-8")
     if "RXGD_PASS_PARTICLES_COPY" not in text:
         return False, "pass_manifest.json does not reference RXGD_PASS_PARTICLES_COPY"
-    # The patch plan (0020-0022) must be documented.
-    if "0020" not in text:
-        return False, "pass_manifest.json does not document the patch 0020-0022 plan"
+    # The manifest must reference the particles_copy 0020-0022 patch allocation.
+    if "0020-rurix-accel-particles-copy-pass-gate-and-callsite.patch" not in text:
+        return False, "pass_manifest.json does not reference the particles_copy 0020 gate patch"
     return True, None
 
 
