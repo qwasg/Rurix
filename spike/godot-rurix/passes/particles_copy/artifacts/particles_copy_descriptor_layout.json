@@ -1,0 +1,302 @@
+{
+  "module": "particles_copy",
+  "pass_id": "particles_copy",
+  "artifact_kind": "hlsl_bridge_descriptor_layout",
+  "provenance": "hlsl_bridge_workaround",
+  "rurix_owned": false,
+  "entry_point": "main",
+  "target_profile": "cs_6_0",
+  "root_constants": 32,
+  "root_constant_layout": [
+    {
+      "name": "sort_direction_x",
+      "type": "f32",
+      "order": 0,
+      "root_parameter_index": 0,
+      "dword_offset": 0,
+      "dword_size": 1
+    },
+    {
+      "name": "sort_direction_y",
+      "type": "f32",
+      "order": 1,
+      "root_parameter_index": 0,
+      "dword_offset": 1,
+      "dword_size": 1
+    },
+    {
+      "name": "sort_direction_z",
+      "type": "f32",
+      "order": 2,
+      "root_parameter_index": 0,
+      "dword_offset": 2,
+      "dword_size": 1
+    },
+    {
+      "name": "total_particles",
+      "type": "u32",
+      "order": 3,
+      "root_parameter_index": 0,
+      "dword_offset": 3,
+      "dword_size": 1
+    },
+    {
+      "name": "trail_size",
+      "type": "u32",
+      "order": 4,
+      "root_parameter_index": 0,
+      "dword_offset": 4,
+      "dword_size": 1
+    },
+    {
+      "name": "trail_total",
+      "type": "u32",
+      "order": 5,
+      "root_parameter_index": 0,
+      "dword_offset": 5,
+      "dword_size": 1
+    },
+    {
+      "name": "frame_delta",
+      "type": "f32",
+      "order": 6,
+      "root_parameter_index": 0,
+      "dword_offset": 6,
+      "dword_size": 1
+    },
+    {
+      "name": "frame_remainder",
+      "type": "f32",
+      "order": 7,
+      "root_parameter_index": 0,
+      "dword_offset": 7,
+      "dword_size": 1
+    },
+    {
+      "name": "align_up_x",
+      "type": "f32",
+      "order": 8,
+      "root_parameter_index": 0,
+      "dword_offset": 8,
+      "dword_size": 1
+    },
+    {
+      "name": "align_up_y",
+      "type": "f32",
+      "order": 9,
+      "root_parameter_index": 0,
+      "dword_offset": 9,
+      "dword_size": 1
+    },
+    {
+      "name": "align_up_z",
+      "type": "f32",
+      "order": 10,
+      "root_parameter_index": 0,
+      "dword_offset": 10,
+      "dword_size": 1
+    },
+    {
+      "name": "align_mode",
+      "type": "u32",
+      "order": 11,
+      "root_parameter_index": 0,
+      "dword_offset": 11,
+      "dword_size": 1
+    },
+    {
+      "name": "lifetime_split",
+      "type": "u32",
+      "order": 12,
+      "root_parameter_index": 0,
+      "dword_offset": 12,
+      "dword_size": 1
+    },
+    {
+      "name": "lifetime_reverse",
+      "type": "u32",
+      "order": 13,
+      "root_parameter_index": 0,
+      "dword_offset": 13,
+      "dword_size": 1
+    },
+    {
+      "name": "motion_vectors_current_offset",
+      "type": "u32",
+      "order": 14,
+      "root_parameter_index": 0,
+      "dword_offset": 14,
+      "dword_size": 1
+    },
+    {
+      "name": "flags_bits",
+      "type": "u32",
+      "order": 15,
+      "root_parameter_index": 0,
+      "dword_offset": 15,
+      "dword_size": 1
+    },
+    {
+      "name": "inv_emission_transform_0",
+      "type": "f32",
+      "order": 16,
+      "root_parameter_index": 0,
+      "dword_offset": 16,
+      "dword_size": 1
+    },
+    {
+      "name": "inv_emission_transform_1",
+      "type": "f32",
+      "order": 17,
+      "root_parameter_index": 0,
+      "dword_offset": 17,
+      "dword_size": 1
+    },
+    {
+      "name": "inv_emission_transform_2",
+      "type": "f32",
+      "order": 18,
+      "root_parameter_index": 0,
+      "dword_offset": 18,
+      "dword_size": 1
+    },
+    {
+      "name": "inv_emission_transform_3",
+      "type": "f32",
+      "order": 19,
+      "root_parameter_index": 0,
+      "dword_offset": 19,
+      "dword_size": 1
+    },
+    {
+      "name": "inv_emission_transform_4",
+      "type": "f32",
+      "order": 20,
+      "root_parameter_index": 0,
+      "dword_offset": 20,
+      "dword_size": 1
+    },
+    {
+      "name": "inv_emission_transform_5",
+      "type": "f32",
+      "order": 21,
+      "root_parameter_index": 0,
+      "dword_offset": 21,
+      "dword_size": 1
+    },
+    {
+      "name": "inv_emission_transform_6",
+      "type": "f32",
+      "order": 22,
+      "root_parameter_index": 0,
+      "dword_offset": 22,
+      "dword_size": 1
+    },
+    {
+      "name": "inv_emission_transform_7",
+      "type": "f32",
+      "order": 23,
+      "root_parameter_index": 0,
+      "dword_offset": 23,
+      "dword_size": 1
+    },
+    {
+      "name": "inv_emission_transform_8",
+      "type": "f32",
+      "order": 24,
+      "root_parameter_index": 0,
+      "dword_offset": 24,
+      "dword_size": 1
+    },
+    {
+      "name": "inv_emission_transform_9",
+      "type": "f32",
+      "order": 25,
+      "root_parameter_index": 0,
+      "dword_offset": 25,
+      "dword_size": 1
+    },
+    {
+      "name": "inv_emission_transform_10",
+      "type": "f32",
+      "order": 26,
+      "root_parameter_index": 0,
+      "dword_offset": 26,
+      "dword_size": 1
+    },
+    {
+      "name": "inv_emission_transform_11",
+      "type": "f32",
+      "order": 27,
+      "root_parameter_index": 0,
+      "dword_offset": 27,
+      "dword_size": 1
+    },
+    {
+      "name": "align_channel_filter",
+      "type": "u32",
+      "order": 28,
+      "root_parameter_index": 0,
+      "dword_offset": 28,
+      "dword_size": 1
+    },
+    {
+      "name": "align_axis",
+      "type": "u32",
+      "order": 29,
+      "root_parameter_index": 0,
+      "dword_offset": 29,
+      "dword_size": 1
+    },
+    {
+      "name": "pad1",
+      "type": "u32",
+      "order": 30,
+      "root_parameter_index": 0,
+      "dword_offset": 30,
+      "dword_size": 1
+    },
+    {
+      "name": "pad2",
+      "type": "u32",
+      "order": 31,
+      "root_parameter_index": 0,
+      "dword_offset": 31,
+      "dword_size": 1
+    }
+  ],
+  "push_constant_note": "128-byte / 32-dword mirror of Godot's ParticlesShader::CopyPushConstant (servers/rendering/renderer_rd/storage_rd/particles_storage.h L303-329); fields for out-of-scope features (inv_emission_transform, trail_*, lifetime_*, align_axis) are carried for byte-exact push-constant shape parity and are unused by the in-scope kernel.",
+  "resources": [
+    {
+      "name": "src_particles",
+      "class": "t",
+      "register": 0,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "StructuredBuffer<ParticleData>",
+      "binding_kind": "structured_buffer"
+    },
+    {
+      "name": "dst_instances",
+      "class": "u",
+      "register": 0,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "RWStructuredBuffer<float4>",
+      "binding_kind": "rwstructured_buffer"
+    }
+  ],
+  "root_signature_parameters": 2,
+  "grx013_mapping": {
+    "status": "offline_compile_package",
+    "requires_64bit_integer_shader_capability": false,
+    "requires_64bit_integer_shader_capability_note": "Unlike the GRX-009/010/011 texture passes, particles_copy carries no i64 push-constant fields (CopyPushConstant is all f32/u32), so the SHADER_INT64 device capability is NOT part of its preflight.",
+    "runtime_state": "fallback_only",
+    "real_gpu_pass": false,
+    "root_constant_bytes": 128,
+    "root_constant_dwords": 32,
+    "particle_data_stride_bytes": 112,
+    "instance_stride_vec4": 5,
+    "instance_stride_note": "3D: 3 transposed xform rows + color + custom = 5 vec4 per instance"
+  }
+}

@@ -1,0 +1,118 @@
+// GRX-013 particles_copy kernel Rurix math source (forward-looking; NOT yet
+// compilable to a runtime-mappable DXIL container).
+//
+// This mirrors the SUPPORTED math subset of Godot's particles_copy.glsl
+// COPY_MODE_FILL_INSTANCES variant (the "simulation result -> render instance
+// buffer" compute transform, NOT a resource copy):
+//   * 3D mode only (no PARAMS_FLAG_COPY_MODE_2D)
+//   * align_mode in {ALIGN_DISABLED, ALIGN_BILLBOARD} only
+//   * no trail (trail_size == 1), no sort (no USE_SORT_BUFFER), no userdata
+// and is the math target the DXC-compiled bridge kernel
+// `artifacts/hlsl_bridge/particles_copy_fill_instances.hlsl` must stay
+// equivalent to.
+//
+// ROUTE CHOICE — why the canonical package is the hlsl_bridge workaround
+// instead of a rurixc-owned raw-buffer compile (particles_copy is an all
+// raw-buffer / SSBO pass, so the GRX-009 texture-intrinsic llc blocker does
+// NOT apply here; the blockers below are different):
+//   1. Aggregate SSBO element types. The source `ParticleData` SSBO element is
+//      `{ mat4 xform; vec3 velocity; uint flags; vec4 color; vec4 custom; }`
+//      and the destination `Transforms` SSBO element is `vec4 data[]`. Rurix's
+//      current lang subset for compute kernels models raw buffers as scalar
+//      `View<f32>` / `ViewMut<f32>` with dynamic indexing (no `struct` /
+//      `vec4` / `mat4` aggregate element types), so the ParticleData layout and
+//      the mat4 column algebra cannot be expressed as first-class aggregates.
+//   2. Transcendental / sqrt math on the DXIL path. The ALIGN_BILLBOARD subset
+//      needs sin/cos (Rodrigues rotation) and sqrt/rsqrt (normalize / cross-
+//      normalize). Rurix's `DeviceMathFn` (sqrt/rsqrt/sin/cos/...) lowers ONLY
+//      on the NVPTX device path (libdevice `__nv_*` external symbols resolved by
+//      `-mlink-builtin-bitcode`, see src/rurixc/src/device_codegen.rs /
+//      tbir_build.rs); the DXIL backend (src/rurixc/src/dxil_codegen.rs) has no
+//      lowering for these intrinsics. So a rurixc-owned rx -> DXIL compile of
+//      the in-scope subset (which INCLUDES ALIGN_BILLBOARD) is infeasible today.
+// The RTS0 root signature is still Rurix-owned (rurixc::binding_layout), mirroring
+// the GRX-009/010/011 hlsl_bridge_workaround precedent.
+//
+// The block below only sketches the ALIGN_DISABLED lane math in the scalar
+// raw-buffer form that IS in principle expressible; the ALIGN_BILLBOARD path is
+// intentionally omitted because it needs the transcendentals in (2) that the
+// DXIL backend cannot lower. Both live in the HLSL bridge kernel instead.
+//
+// Per-instance math (see PASS_CONTRACT.md sec 5 and resource_mapping.md):
+//   active = (flags & ACTIVE) != 0 || (flags & TRAILED) != 0
+//   ALIGN_DISABLED: txform = xform; txform[3].xyz += velocity * frame_remainder
+//   ALIGN_BILLBOARD: (HLSL bridge only) rotate the basis about
+//     normalize(sort_direction) by the selected custom channel angle, then
+//     local = mat3(normalize(cross(new_up, sort_direction)), new_up,
+//     sort_direction) * mat3(txform); txform[3].xyz += velocity*frame_remainder
+//   inactive: txform = mat4(0,0,0, (-inf,-inf,-inf,0))
+//   write (3D, transposed rows): instances[i*5 + 0..2] = transpose(txform) rows
+//     0..2; instances[i*5 + 3] = color; instances[i*5 + 4] = custom
+
+// The ParticleData source SSBO modelled as a flat f32 lane array
+// (28 f32 lanes per particle: 16 mat4 + 3 velocity + 1 flags-as-f32-bits +
+// 4 color + 4 custom) and the Transforms destination SSBO as a flat f32 lane
+// array (20 f32 lanes per 3D instance = 5 vec4). This documents the
+// ALIGN_DISABLED per-channel math; it is NOT the final binding shape (the
+// runtime binds StructuredBuffer<ParticleData> / RWStructuredBuffer<float4>).
+kernel fn particles_copy_fill_instances_align_disabled(
+    particles: View<f32>,
+    instances: ViewMut<f32>,
+    total_particles: usize,
+    frame_remainder: f32,
+    motion_vectors_current_offset: usize,
+    t: ThreadCtx<1>,
+) {
+    let particle = t.global_id();
+
+    if particle < total_particles {
+        let base = particle * 28;
+
+        // mat4 columns c0..c3 (each 4 f32 lanes); translation is c3.xyz.
+        let c3x = particles[base + 12];
+        let c3y = particles[base + 13];
+        let c3z = particles[base + 14];
+        // velocity lanes are 16,17,18; flags-bits lane is 19.
+        let vel_x = particles[base + 16];
+        let vel_y = particles[base + 17];
+        let vel_z = particles[base + 18];
+
+        // ALIGN_DISABLED: basis columns unchanged; only translation integrates
+        // velocity by the interpolation remainder.
+        let t3x = c3x + vel_x * frame_remainder;
+        let t3y = c3y + vel_y * frame_remainder;
+        let t3z = c3z + vel_z * frame_remainder;
+
+        // transpose(txform) rows 0..2 written as 3 vec4; here only the
+        // translation column of the transpose (last component of each row) is
+        // shown for the ALIGN_DISABLED lane math (basis stays the identity of
+        // the source columns).
+        let out = (particle + motion_vectors_current_offset) * 20;
+        // row 0 = (c0.x, c1.x, c2.x, t3x)
+        instances[out + 0] = particles[base + 0];
+        instances[out + 1] = particles[base + 4];
+        instances[out + 2] = particles[base + 8];
+        instances[out + 3] = t3x;
+        // row 1 = (c0.y, c1.y, c2.y, t3y)
+        instances[out + 4] = particles[base + 1];
+        instances[out + 5] = particles[base + 5];
+        instances[out + 6] = particles[base + 9];
+        instances[out + 7] = t3y;
+        // row 2 = (c0.z, c1.z, c2.z, t3z)
+        instances[out + 8] = particles[base + 2];
+        instances[out + 9] = particles[base + 6];
+        instances[out + 10] = particles[base + 10];
+        instances[out + 11] = t3z;
+        // color (lanes 20..23) and custom (lanes 24..27) pass through.
+        instances[out + 12] = particles[base + 20];
+        instances[out + 13] = particles[base + 21];
+        instances[out + 14] = particles[base + 22];
+        instances[out + 15] = particles[base + 23];
+        instances[out + 16] = particles[base + 24];
+        instances[out + 17] = particles[base + 25];
+        instances[out + 18] = particles[base + 26];
+        instances[out + 19] = particles[base + 27];
+    }
+}
+
+fn main() {}

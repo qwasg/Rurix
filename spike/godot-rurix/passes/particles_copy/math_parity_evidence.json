@@ -1,0 +1,603 @@
+{
+  "pass_id": "particles_copy",
+  "subject": "grx013_particles_copy_math_parity",
+  "status": "pending_gpu_dispatch",
+  "generated_at_utc": "2026-07-12T05:15:20Z",
+  "math_status": "fill_instances_cpu_reference_proven_pending_gpu_dispatch",
+  "cpu_reference": {
+    "formula": "active = (flags & ACTIVE) || (flags & TRAILED); ALIGN_DISABLED: txform = xform; ALIGN_BILLBOARD: axis=normalize(sort_direction), rotated=Rodrigues(axis, custom[channel]); new_up=rotated*align_up; local=mat3(normalize(cross(new_up, sort_direction)), new_up, sort_direction)*mat3(txform); then txform[3].xyz += velocity*frame_remainder. inactive: txform basis=0, translation column=(-inf,-inf,-inf,0). write (3D, transposed): instances[i*5+0..2]=transpose(txform) rows 0..2; [i*5+3]=color; [i*5+4]=custom; column-major mat algebra, every operation rounded to binary32",
+    "hlsl_kernel": {
+      "path": "spike/godot-rurix/passes/particles_copy/artifacts/hlsl_bridge/particles_copy_fill_instances.hlsl",
+      "sha256": "4a785f01f72f63ab732b1e51317ce959934dcd48849ac7639133f2812d6868c1"
+    },
+    "dxil": {
+      "path": "spike/godot-rurix/passes/particles_copy/artifacts/hlsl_bridge/particles_copy_fill_instances.dxil",
+      "sha256": null
+    },
+    "rurix_math_source": "spike/godot-rurix/passes/particles_copy/src/lib.rx",
+    "godot_math_source": "external/godot-master/servers/rendering/renderer_rd/shaders/particles_copy.glsl (L109-347, MODE_FILL_INSTANCES)"
+  },
+  "input_pattern": {
+    "xform_c0": "[1.0 + 0.01*p, 0.02*p, 0.0, 0.0]",
+    "xform_c1": "[0.03*p, 1.0 - 0.01*p, 0.01*p, 0.0]",
+    "xform_c2": "[0.0, 0.02*p, 1.0, 0.0]",
+    "xform_c3": "[2.0*p, -1.0*p, 0.5*p, 1.0]  (translation column)",
+    "velocity": "[0.5 - 0.1*p, 0.2*p, -0.3*p]",
+    "flags": "PARTICLE_FLAG_ACTIVE(1) if p % 3 != 2 else 0 (inactive)",
+    "color": "[0.125*p, 1.0 - 0.125*p, 0.25, 1.0]",
+    "custom": "[0.7*p, 0.1*p, -0.2*p, 0.05*p]  (billboard angle channel source)",
+    "note": "every value rounded to binary32; c*.w of the basis columns never reaches the 3D output (row 3 is not written)"
+  },
+  "max_abs_error_tolerance": 0.0003,
+  "tolerance_note": "ALIGN_DISABLED instances are near-exact (add/mul only, ~1 ULP). ALIGN_BILLBOARD instances carry sin/cos and normalize (rsqrt), whose GPU approximations differ from libm; the tolerance covers that.",
+  "gpu_dispatch_kind": null,
+  "cases": [
+    {
+      "case_id": "fill_instances_align_disabled",
+      "particle_count": 8,
+      "instance_count": 8,
+      "instance_stride_vec4": 5,
+      "constants": {
+        "total_particles": 8,
+        "align_mode": 0,
+        "align_mode_name": "ALIGN_DISABLED",
+        "align_channel_filter": 0,
+        "sort_direction": [
+          0.6000000238418579,
+          0.0,
+          0.800000011920929
+        ],
+        "align_up": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "frame_remainder": 0.5,
+        "trail_size": 1,
+        "motion_vectors_current_offset": 0,
+        "flags_bits": 0
+      },
+      "cpu_expected_instances_f32_le_sha256": "6481aaa80dd3ac10c6c337893ccabb0b4534d2b5bd9ee39840e305c300f04236",
+      "cpu_expected_sample_instances": [
+        {
+          "instance": 0,
+          "active": true,
+          "rows_xform": [
+            [
+              1.0,
+              0.0,
+              0.0,
+              0.25
+            ],
+            [
+              0.0,
+              1.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              1.0,
+              0.0
+            ]
+          ],
+          "color": [
+            0.0,
+            1.0,
+            0.25,
+            1.0
+          ],
+          "custom": [
+            0.0,
+            0.0,
+            -0.0,
+            0.0
+          ]
+        },
+        {
+          "instance": 4,
+          "active": true,
+          "rows_xform": [
+            [
+              1.0399999618530273,
+              0.11999999731779099,
+              0.0,
+              8.050000190734863
+            ],
+            [
+              0.07999999821186066,
+              0.9599999785423279,
+              0.07999999821186066,
+              -3.5999999046325684
+            ],
+            [
+              0.0,
+              0.03999999910593033,
+              1.0,
+              1.399999976158142
+            ]
+          ],
+          "color": [
+            0.5,
+            0.5,
+            0.25,
+            1.0
+          ],
+          "custom": [
+            2.799999952316284,
+            0.4000000059604645,
+            -0.800000011920929,
+            0.20000000298023224
+          ]
+        },
+        {
+          "instance": 7,
+          "active": true,
+          "rows_xform": [
+            [
+              1.0700000524520874,
+              0.20999999344348907,
+              0.0,
+              13.899999618530273
+            ],
+            [
+              0.14000000059604645,
+              0.9300000071525574,
+              0.14000000059604645,
+              -6.300000190734863
+            ],
+            [
+              0.0,
+              0.07000000029802322,
+              1.0,
+              2.450000047683716
+            ]
+          ],
+          "color": [
+            0.875,
+            0.125,
+            0.25,
+            1.0
+          ],
+          "custom": [
+            4.900000095367432,
+            0.699999988079071,
+            -1.399999976158142,
+            0.3499999940395355
+          ]
+        }
+      ],
+      "gpu_observed": null
+    },
+    {
+      "case_id": "fill_instances_billboard_channel_x",
+      "particle_count": 8,
+      "instance_count": 8,
+      "instance_stride_vec4": 5,
+      "constants": {
+        "total_particles": 8,
+        "align_mode": 1,
+        "align_mode_name": "ALIGN_BILLBOARD",
+        "align_channel_filter": 1,
+        "sort_direction": [
+          0.6000000238418579,
+          0.0,
+          0.800000011920929
+        ],
+        "align_up": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "frame_remainder": 0.0,
+        "trail_size": 1,
+        "motion_vectors_current_offset": 0,
+        "flags_bits": 0
+      },
+      "cpu_expected_instances_f32_le_sha256": "2f7b610a5d55c977600dc4736d513a1c996cb7b8eaa63056ca86c0c0988fca43",
+      "cpu_expected_sample_instances": [
+        {
+          "instance": 0,
+          "active": true,
+          "rows_xform": [
+            [
+              0.800000011920929,
+              0.0,
+              0.6000000238418579,
+              0.0
+            ],
+            [
+              0.0,
+              1.0,
+              0.0,
+              0.0
+            ],
+            [
+              -0.6000000238418579,
+              0.0,
+              0.800000011920929,
+              0.0
+            ]
+          ],
+          "color": [
+            0.0,
+            1.0,
+            0.25,
+            1.0
+          ],
+          "custom": [
+            0.0,
+            0.0,
+            -0.0,
+            0.0
+          ]
+        },
+        {
+          "instance": 4,
+          "active": true,
+          "rows_xform": [
+            [
+              -0.7624896764755249,
+              0.19081759452819824,
+              0.6214392781257629,
+              8.0
+            ],
+            [
+              -0.42376551032066345,
+              -0.9447319507598877,
+              -0.07537778466939926,
+              -4.0
+            ],
+            [
+              0.5718672871589661,
+              -0.09311318397521973,
+              0.7839205861091614,
+              2.0
+            ]
+          ],
+          "color": [
+            0.5,
+            0.5,
+            0.25,
+            1.0
+          ],
+          "custom": [
+            2.799999952316284,
+            0.4000000059604645,
+            -0.800000011920929,
+            0.20000000298023224
+          ]
+        },
+        {
+          "instance": 7,
+          "active": true,
+          "rows_xform": [
+            [
+              0.04961998760700226,
+              -0.6576105952262878,
+              0.4899653196334839,
+              14.0
+            ],
+            [
+              1.077336072921753,
+              0.3797716498374939,
+              0.026111746206879616,
+              -7.0
+            ],
+            [
+              -0.03721500188112259,
+              0.5807080268859863,
+              0.8825260400772095,
+              3.5
+            ]
+          ],
+          "color": [
+            0.875,
+            0.125,
+            0.25,
+            1.0
+          ],
+          "custom": [
+            4.900000095367432,
+            0.699999988079071,
+            -1.399999976158142,
+            0.3499999940395355
+          ]
+        }
+      ],
+      "gpu_observed": null
+    },
+    {
+      "case_id": "fill_instances_billboard_channel_w",
+      "particle_count": 6,
+      "instance_count": 6,
+      "instance_stride_vec4": 5,
+      "constants": {
+        "total_particles": 6,
+        "align_mode": 1,
+        "align_mode_name": "ALIGN_BILLBOARD",
+        "align_channel_filter": 4,
+        "sort_direction": [
+          0.47999998927116394,
+          0.6399999856948853,
+          0.6000000238418579
+        ],
+        "align_up": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "frame_remainder": 0.25,
+        "trail_size": 1,
+        "motion_vectors_current_offset": 0,
+        "flags_bits": 0
+      },
+      "cpu_expected_instances_f32_le_sha256": "6cac5e349f0c8ff8ae468a1e389d7b8e5dabd29cb6f482168964a0278e94e830",
+      "cpu_expected_sample_instances": [
+        {
+          "instance": 0,
+          "active": true,
+          "rows_xform": [
+            [
+              0.7808688282966614,
+              0.0,
+              0.47999998927116394,
+              0.125
+            ],
+            [
+              0.0,
+              1.0,
+              0.6399999856948853,
+              0.0
+            ],
+            [
+              -0.6246950030326843,
+              0.0,
+              0.6000000238418579,
+              0.0
+            ]
+          ],
+          "color": [
+            0.0,
+            1.0,
+            0.25,
+            1.0
+          ],
+          "custom": [
+            0.0,
+            0.0,
+            -0.0,
+            0.0
+          ]
+        },
+        {
+          "instance": 3,
+          "active": true,
+          "rows_xform": [
+            [
+              0.8623887300491333,
+              0.17958524823188782,
+              0.4855867326259613,
+              6.050000190734863
+            ],
+            [
+              -0.05866701528429985,
+              0.9724352359771729,
+              0.6996021866798401,
+              -2.8499999046325684
+            ],
+            [
+              -0.563332736492157,
+              -0.09626565128564835,
+              0.5959548950195312,
+              1.274999976158142
+            ]
+          ],
+          "color": [
+            0.375,
+            0.625,
+            0.25,
+            1.0
+          ],
+          "custom": [
+            2.0999999046325684,
+            0.30000001192092896,
+            -0.6000000238418579,
+            0.15000000596046448
+          ]
+        },
+        {
+          "instance": 5,
+          "active": false,
+          "rows_xform": [
+            [
+              0.0,
+              0.0,
+              0.0,
+              -Infinity
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              -Infinity
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              -Infinity
+            ]
+          ],
+          "color": [
+            0.625,
+            0.375,
+            0.25,
+            1.0
+          ],
+          "custom": [
+            3.5,
+            0.5,
+            -1.0,
+            0.25
+          ]
+        }
+      ],
+      "gpu_observed": null
+    },
+    {
+      "case_id": "fill_instances_billboard_channel_none",
+      "particle_count": 5,
+      "instance_count": 5,
+      "instance_stride_vec4": 5,
+      "constants": {
+        "total_particles": 5,
+        "align_mode": 1,
+        "align_mode_name": "ALIGN_BILLBOARD",
+        "align_channel_filter": 0,
+        "sort_direction": [
+          0.6000000238418579,
+          0.0,
+          0.800000011920929
+        ],
+        "align_up": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "frame_remainder": 0.0,
+        "trail_size": 1,
+        "motion_vectors_current_offset": 0,
+        "flags_bits": 0
+      },
+      "cpu_expected_instances_f32_le_sha256": "1fdb62e8ffd80e9f8df905d373cf28179361190d305f10473a18160e090e26b6",
+      "cpu_expected_sample_instances": [
+        {
+          "instance": 0,
+          "active": true,
+          "rows_xform": [
+            [
+              0.800000011920929,
+              0.0,
+              0.6000000238418579,
+              0.0
+            ],
+            [
+              0.0,
+              1.0,
+              0.0,
+              0.0
+            ],
+            [
+              -0.6000000238418579,
+              0.0,
+              0.800000011920929,
+              0.0
+            ]
+          ],
+          "color": [
+            0.0,
+            1.0,
+            0.25,
+            1.0
+          ],
+          "custom": [
+            0.0,
+            0.0,
+            -0.0,
+            0.0
+          ]
+        },
+        {
+          "instance": 2,
+          "active": false,
+          "rows_xform": [
+            [
+              0.0,
+              0.0,
+              0.0,
+              -Infinity
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              -Infinity
+            ],
+            [
+              0.0,
+              0.0,
+              0.0,
+              -Infinity
+            ]
+          ],
+          "color": [
+            0.25,
+            0.75,
+            0.25,
+            1.0
+          ],
+          "custom": [
+            1.399999976158142,
+            0.20000000298023224,
+            -0.4000000059604645,
+            0.10000000149011612
+          ]
+        },
+        {
+          "instance": 4,
+          "active": true,
+          "rows_xform": [
+            [
+              0.8319999575614929,
+              0.12000000476837158,
+              0.6000000238418579,
+              8.0
+            ],
+            [
+              0.07999999821186066,
+              0.9599999785423279,
+              0.07999999821186066,
+              -4.0
+            ],
+            [
+              -0.6240000128746033,
+              -0.04000000283122063,
+              0.800000011920929,
+              2.0
+            ]
+          ],
+          "color": [
+            0.5,
+            0.5,
+            0.25,
+            1.0
+          ],
+          "custom": [
+            2.799999952316284,
+            0.4000000059604645,
+            -0.800000011920929,
+            0.20000000298023224
+          ]
+        }
+      ],
+      "gpu_observed": null
+    }
+  ],
+  "notes": [
+    "GPU-observed values are pending a real dispatch; a later standalone smoke (S6, host-exclusive) will verify every measured instance against this CPU formula.",
+    "Out-of-scope push-constant fields (inv_emission_transform, trail_*, lifetime_*, align_axis) are carried for CopyPushConstant shape parity and set to their neutral values (trail_size=1, motion_vectors_current_offset=0, flags_bits=0).",
+    "The mat4 is column-major (Godot txform[i] = column i); all matrix algebra mirrors the GLSL column-major order, and the 3D output writes only transpose rows 0..2, so the basis columns' .w never reaches the output."
+  ],
+  "does_not_imply": [
+    "Godot runtime particles_copy pass completion",
+    "real_gpu_pass=true",
+    "real_d3d12_dispatch_recorded=true",
+    "visual success",
+    "temporal stability success",
+    "GPU timestamp success",
+    "performance claim",
+    "default pass enablement"
+  ]
+}

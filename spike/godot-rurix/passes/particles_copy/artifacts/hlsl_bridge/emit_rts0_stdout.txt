@@ -1,0 +1,1 @@
+emit_grx013_particles_copy_rts0: wrote 152 bytes to spike/godot-rurix/passes/particles_copy/artifacts/particles_copy.rts0.bin
