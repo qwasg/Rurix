@@ -396,7 +396,15 @@ GRX011_NEXT_ACTION = "start_grx011_ssao_blur_godot_patch_0014"
 #   {"gate_id": "grx011", "module": "grx011_ssao_blur"}    # ci/grx_gates/<module>.py
 #   {"gate_id": "grx011", "module_path": "/abs/path.py"}   # explicit path (tests)
 GRX_GATES_DIR = ROOT / "ci" / "grx_gates"
-GRX_GATE_SEQUENCE: list[dict[str, object]] = []
+# Wave 2 registers the first downstream gate (grx011 ssao_blur). The gate is
+# consulted fail-closed by walk_grx_gate_sequence: until its contract + patch
+# applyability + standalone dispatch smoke + real-pass enablement + owner
+# default-enable decision are all green it reports not-ready and the probe
+# leaves next_action UNCHANGED (a recorded grx_gate_module_error, never a
+# silent advance).
+GRX_GATE_SEQUENCE: list[dict[str, object]] = [
+    {"gate_id": "grx011", "module": "grx011_ssao_blur"},
+]
 GRX_GATE_REQUIRED_KEYS = (
     "gate_id",
     "contract_ready",
@@ -588,7 +596,7 @@ GRX009_SEGMENT4G_ALLOWED_GODOT_ERROR = "Could not load global script cache"
 # are shared with segment 4g above.
 GRX009_SEGMENT4H_EXPECTED_FIRST_MISSING_PREREQUISITE = "real_dispatch_recording_failed"
 GRX009_SEGMENT4H_FALLBACK_MARKER = (
-    "RurixAccel: luminance_reduction native resource handle mapping fallback rc="
+    "RurixAccel: luminance pyramid real-pass fallback rc="
 )
 GRX009_SEGMENT4H_BLOCKED_MARKER = "RXGD_REAL_PASS_BLOCKED"
 GRX009_SEGMENT4H_REAL_PASS_MARKER = "RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS"

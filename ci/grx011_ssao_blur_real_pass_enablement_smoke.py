@@ -1,80 +1,86 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""GRX-009 segment 4h: gated real luminance pass enablement smoke.
+"""GRX-011: gated real ssao_blur pass enablement smoke.
 
-This harness drives the FIRST opt-in real-pass enablement gate for the
-GRX-009 luminance_reduction path. It is a strict, fail-closed bring-up gate,
-NOT a default enablement: ``rendering/rurix_accel/passes/luminance_reduction/
-enabled`` stays ``false`` by default, the new ``.../dispatch_real_pass``
-opt-in also defaults to ``false``, and NO FPS, GPU-timestamp, or performance
-claim is made anywhere in this gate.
+This harness drives the opt-in real-pass enablement gate for the GRX-011
+ssao_blur path. It is a strict, fail-closed bring-up gate, NOT a default
+enablement: ``rendering/rurix_accel/passes/ssao_blur/enabled`` stays
+``false`` by default, the ``.../ssao_blur/dispatch_real_pass`` opt-in also
+defaults to ``false``, and NO FPS, GPU-timestamp, or performance claim is
+made anywhere in this gate. Template copy of
+``ci/grx010_tonemap_real_pass_enablement_smoke.py`` pointed at the ssao_blur
+pass and the 0001..0016 patch stack.
 
 What it measures, honestly, against a scratch Godot console exe rebuilt with
-the full 0001..0010 patch stack (``RURIX_GRX009_SEGMENT4H_GODOT_EXE``) and a
-``rurix_godot.dll`` built WITH the ``d3d12-recording-shim`` feature (stage A5:
-the real-pass arm routes through the linked recording shim, so a real dispatch
+the full 0001..0016 patch stack (``RURIX_GRX011_SSAO_BLUR_GODOT_EXE``) and a
+``rurix_godot.dll`` built WITH the ``d3d12-recording-shim`` feature (the
+real-pass arm routes through the linked recording shim, so a real dispatch
 can only be attempted when the shim is compiled in; the shipping feature-off
 bridge still fails closed with ``real_dispatch_path_not_linked``):
 
-  * **Pass enable matrix (three legs)**: a *reference* leg (all per-pass
-    settings at their ``false`` defaults; native Godot luminance path), an
-    *enabled_real_pass_optin* candidate leg (``enabled=true`` +
-    ``dispatch_bringup=true`` + ``dispatch_real_pass=true``), and a
-    *forced_capability_downgrade* red leg (candidate settings plus the
-    harness-only ``real_pass_force_capability_downgrade=true`` knob, which
-    clears the shader-int64 capability so the bridge preflight must fail
+  * **Pass enable matrix (three legs)**: a *reference* leg (all ssao_blur
+    per-pass settings at their ``false`` defaults; native Godot SSAO blur
+    path), an *enabled_real_pass_optin* candidate leg (``enabled=true`` +
+    ``dispatch_real_pass=true``), and a *forced_capability_downgrade* red
+    leg (candidate settings plus the harness-only
+    ``real_pass_force_capability_downgrade=true`` knob, which clears the
+    shader-int64 capability so the bridge ssao_blur preflight must fail
     closed with ``unsupported_device``).
-  * **Gated real-pass attempt**: the canonical artifact paths now carry the
-    texture-capable hlsl_bridge workaround package (DXC ``cs_6_0`` container
-    validated by ``dxv``, per-slot ``texture2d``/``rwtexture2d`` binding
-    kinds, owner-approved ``hlsl_bridge_workaround`` provenance), and level-0
-    math parity is CPU-proven (``math_parity_evidence.json``), so every
-    software gate can pass and the candidate leg may print the
-    ``RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS`` marker after a real recorded
-    dispatch. If the real dispatch cannot complete in this environment the
-    candidate leg must instead print the tracked fallback marker AND the
-    bridge's machine-readable ``RXGD_REAL_PASS_BLOCKED`` diagnostic naming
-    the FIRST missing prerequisite (``real_dispatch_recording_failed``).
-  * **Fallback red/green + visual stability**: all three legs must render via
-    the native Godot path and exit 0; the candidate and forced-failure frames
-    must match the reference frame within the pinned LDR absolute-diff
-    thresholds (arming the fail-closed real-pass gate must not change the
-    image), and a GRX-008-format ``evidence_level=measured_local`` telemetry
-    document must record both fallback entries
-    (``validation_failed`` / ``unsupported_device``) with
-    ``godot_fallback_active=true`` and ``telemetry_frame`` equal to the
-    measured capture frame index.
+  * **Gated real-pass attempt**: the canonical ssao_blur artifact paths
+    carry the texture-capable hlsl_bridge workaround package (DXC ``cs_6_0``
+    container validated by ``dxv``, per-slot ``texture2d``/``rwtexture2d``
+    binding kinds, owner-approved ``hlsl_bridge_workaround`` provenance), and
+    the MODE_SMART edge-aware blur math subset is CPU-proven
+    (``math_parity_evidence.json``), so every software gate can pass and the
+    candidate leg may print the ``RXGD_GODOT_RUNTIME_SSAO_BLUR_REAL_PASS``
+    marker (plus the patch 0016 result writeback scaffold marker) after a
+    real recorded dispatch. If the real dispatch cannot complete in this
+    environment the candidate leg must instead print the tracked fallback
+    marker AND the bridge's machine-readable
+    ``RXGD_SSAO_BLUR_REAL_PASS_BLOCKED`` diagnostic naming the FIRST missing
+    prerequisite (``real_dispatch_recording_failed``).
+  * **Fallback red/green + visual stability**: all three legs must render
+    via the native Godot SSAO blur and exit 0 (the patch 0016 writeback
+    scaffold deliberately keeps the native raster/compute continuation as
+    the backstop, so the rendered image can never change); the candidate and
+    forced-failure frames must match the reference frame within the pinned
+    LDR absolute-diff thresholds, and a GRX-008-format
+    ``evidence_level=measured_local`` telemetry document must record the
+    fallback entries with ``godot_fallback_active=true`` and
+    ``telemetry_frame`` equal to the measured capture frame index.
   * **Runtime log audit**: the FULL merged stdout+stderr of every leg is
-    audited (segment 4f/4g policy): only the known ``Could not load global
-    script cache`` warning is tolerated; any other ``ERROR:`` line is an
-    integrity FAIL.
+    audited (GRX-009 policy): only the known ``Could not load global script
+    cache`` warning is tolerated; any other ``ERROR:`` line is an integrity
+    FAIL.
 
-Outcome semantics (``real_pass_enablement_evidence.json``, the *latest* run
-evidence rewritten on EVERY run):
+Outcome semantics (``real_pass_enablement_evidence.json`` under the
+ssao_blur pass dir, the *latest* run evidence rewritten on EVERY run):
 
   * ``status=skip`` with ``skip_kind=environment``: a precondition (scratch
     exe, auditable source provenance sidecar, ready bridge session) is
-    unavailable. ``RURIX_REQUIRE_REAL=1`` upgrades THIS kind of skip to a hard
-    FAIL.
+    unavailable. ``RURIX_REQUIRE_REAL=1`` upgrades THIS kind of skip to a
+    hard FAIL. **This is the current state: the 0001..0016 scratch Godot
+    console exe is still being built (hours), so with no
+    ``RURIX_GRX011_SSAO_BLUR_GODOT_EXE`` the harness honestly SKIPs without
+    writing or overwriting any success evidence.**
   * ``status=skip`` with ``skip_kind=measured_prerequisite_blocked``: every
     leg ran and measured EXACTLY the predicted fail-closed shape; the gate
-    honestly reports ``first_missing_prerequisite`` (today:
-    ``real_dispatch_recording_failed`` when the real dispatch cannot complete
-    in this environment) instead of claiming success. This is a real measured
-    run, so it is NOT upgraded to FAIL by RURIX_REQUIRE_REAL, and it never
-    advances the readiness gate.
+    honestly reports ``first_missing_prerequisite`` instead of claiming
+    success. Not upgraded to FAIL by RURIX_REQUIRE_REAL; never advances the
+    readiness gate.
   * ``status=fail``: any integrity violation (unexpected markers, marker in
     the wrong leg, over-threshold visual diff, invalid telemetry, unexpected
     ERROR lines, non-zero exits, tampered artifacts).
-  * ``status=success`` (strict): the opt-in
-    real dispatch actually executed and completed
-    (``RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS`` observed, no blocked marker),
-    the visual diff stayed within thresholds, and every audit passed. ONLY
-    then is ``real_gpu_pass=true`` recorded and the *historical measured
-    success* artifact ``real_pass_enablement_success_evidence.json`` written
-    (never overwritten by a later SKIP/FAIL run); the readiness gate advances
-    off THAT file alone. Even a success keeps
-    ``default_enable_state=disabled`` and ``performance_claim=none``.
+  * ``status=success`` (strict): the opt-in real dispatch actually executed
+    and completed (``RXGD_GODOT_RUNTIME_SSAO_BLUR_REAL_PASS`` observed, no
+    blocked marker), the visual diff stayed within thresholds, and every
+    audit passed. ONLY then is ``real_gpu_pass=true`` recorded and the
+    *historical measured success* artifact
+    ``real_pass_enablement_success_evidence.json`` written (carrying
+    ``strict_success=true``, the field the GRX-011 gate reads; never
+    overwritten by a later SKIP/FAIL run). The readiness gate advances off
+    THAT file alone. Even a success keeps ``default_enable_state=disabled``
+    and ``performance_claim=none``.
 """
 from __future__ import annotations
 
@@ -92,8 +98,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-# Reuse the tracked segment 4f scratch-provenance and log-audit helpers with
-# the segment 4h 0001..0009 stack; defaults keep segment 4f behaviour intact.
+# Reuse the tracked GRX-009 scratch-provenance and log-audit helpers with the
+# GRX-011 0001..0016 stack.
 from ci.grx009_godot_runtime_bridge_recording_smoke import (
     PATCH_STACK as PATCH_STACK_4F,
     find_git_root,
@@ -103,22 +109,20 @@ from ci.grx009_godot_runtime_bridge_recording_smoke import (
     verify_source_provenance_sidecar,
 )
 
-PASS_DIR = ROOT / "spike" / "godot-rurix" / "passes" / "luminance_reduction"
+PASS_DIR = ROOT / "spike" / "godot-rurix" / "passes" / "ssao_blur"
 ARTIFACTS = PASS_DIR / "artifacts"
 VISUAL_DIR = ARTIFACTS / "visual"
-DXIL = ARTIFACTS / "luminance_reduction.dxil"
-RTS0 = ARTIFACTS / "luminance_reduction.rts0.bin"
-DESCRIPTOR_LAYOUT = ARTIFACTS / "luminance_reduction_descriptor_layout.json"
+DXIL = ARTIFACTS / "ssao_blur.dxil"
+RTS0 = ARTIFACTS / "ssao_blur.rts0.bin"
+DESCRIPTOR_LAYOUT = ARTIFACTS / "ssao_blur_descriptor_layout.json"
 OFFLINE_EVIDENCE = PASS_DIR / "offline_compile_evidence.json"
-SCHEMA = PASS_DIR / "real_pass_enablement_evidence.schema.json"
 # The *latest* run evidence: rewritten on every run; reproducible-default SKIP
 # without the scratch exe. Never advances the gate on its own.
 EVIDENCE_OUT = PASS_DIR / "real_pass_enablement_evidence.json"
 # The *historical measured success* artifact: written ONLY on a strict
 # status=success run (real dispatch executed AND completed AND visual gate
-# green) and never overwritten by a later SKIP/FAIL run. The segment 4h
-# readiness gate advances off THIS file. Unreachable with the tracked segment
-# 3a artifact, by design.
+# green) and never overwritten by a later SKIP/FAIL run. The GRX-011
+# readiness gate advances off THIS file (it reads strict_success=true).
 SUCCESS_EVIDENCE_OUT = PASS_DIR / "real_pass_enablement_success_evidence.json"
 # GRX-008-format measured_local telemetry for this gate (candidate + forced
 # fallback entries); written on every completed measured run.
@@ -128,18 +132,17 @@ FALLBACK_TELEMETRY_SCRIPT = (
 )
 
 # Tracked frame artifacts, committed ONLY on a strict status=success run.
-REFERENCE_FRAME = VISUAL_DIR / "luminance_real_pass_reference.rgb8"
-CANDIDATE_FRAME = VISUAL_DIR / "luminance_real_pass_candidate.rgb8"
-DIFF_ARTIFACT = VISUAL_DIR / "luminance_real_pass_diff.rgb8"
+REFERENCE_FRAME = VISUAL_DIR / "ssao_blur_real_pass_reference.rgb8"
+CANDIDATE_FRAME = VISUAL_DIR / "ssao_blur_real_pass_candidate.rgb8"
+DIFF_ARTIFACT = VISUAL_DIR / "ssao_blur_real_pass_diff.rgb8"
 
 RURIX_GODOT_DLL = ROOT / "target" / "debug" / "rurix_godot.dll"
-WORK = ROOT / "target" / "grx009_segment4h_real_pass_enablement_smoke"
+WORK = ROOT / "target" / "grx011_ssao_blur_real_pass_enablement_smoke"
 LOG_DIR = WORK / "logs"
 
-SUBJECT = "grx009_segment4h_luminance_real_pass_enablement_smoke"
+SUBJECT = "grx011_ssao_blur_real_pass_enablement_smoke"
 
-# Visual gate pins. These MUST stay in sync with the probe's pinned values
-# (ci/godot_rurix_toolchain_probe.py); the regression test asserts equality.
+# Visual gate pins (same caliber as GRX-009 4h / GRX-010).
 METRIC_KIND = "ldr_absolute_diff"
 FRAME_FORMAT = "R8G8B8_raw"
 LDR_MAX_ABS_DIFF_THRESHOLD = 2
@@ -150,85 +153,69 @@ VIEWPORT_WIDTH = 256
 VIEWPORT_HEIGHT = 144
 ALLOWED_GODOT_ERROR = "Could not load global script cache"
 
-# Markers in the full 0001..0010 build. The revised patch 0010 routes the
-# real-pass opt-in through the multi-resource pyramid hook first; when the
-# bridge rejects it (e.g. forced capability downgrade) the module prints the
-# pyramid fallback marker below (once per session, verbose channel) and the
-# shared once-guard suppresses the older 0007-level native-handle-mapping
-# wording. The forced leg therefore measures THIS marker as proof that the
-# native luminance path remained active.
-FALLBACK_MARKER = "RurixAccel: luminance pyramid real-pass fallback rc="
+# Markers in the full 0001..0016 build. The fallback marker carries the
+# patch 0015 native-resource-handle-mapping wording (NOT the 0014 gate-level
+# wording).
+FALLBACK_MARKER = (
+    "RurixAccel: ssao_blur native resource handle mapping fallback rc="
+)
 SESSION_READY_MARKER = "RurixAccel: D3D12 Forward+ bridge session ready."
-# Bridge-side machine-readable first-missing-prerequisite diagnostic
-# (printed once per session by the fail-closed real-pass gate in
+# Bridge-side machine-readable first-missing-prerequisite diagnostic (printed
+# once per session by the fail-closed SsaoBlurGate in
 # src/rurix-godot/src/lib.rs).
-REAL_PASS_BLOCKED_MARKER = "RXGD_REAL_PASS_BLOCKED"
-# Module-side marker printed ONLY when a future runtime-mappable real dispatch
+REAL_PASS_BLOCKED_MARKER = "RXGD_SSAO_BLUR_REAL_PASS_BLOCKED"
+# Real-pass markers: the bridge prints
+# "RXGD_GODOT_RUNTIME_SSAO_BLUR_REAL_PASS recorded=1" and the patch 0016
+# module gate prints its own writeback line ONLY after rxgd_record_pass
 # actually returned RXGD_STATUS_OK on the real-pass arm.
-REAL_PASS_MARKER = "RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS"
-# Segment 4d/4f recording marker: must never appear here (the recording smoke
-# opt-in is not enabled by this harness).
-RECORD_MARKER = "RXGD_GODOT_RUNTIME_LUMINANCE_RECORD"
+REAL_PASS_MARKER = "RXGD_GODOT_RUNTIME_SSAO_BLUR_REAL_PASS"
+# Patch 0016 result writeback scaffold marker: the native SSAO blur stays the
+# continuation/backstop after a real dispatch, so the image never changes.
+WRITEBACK_MARKER = "RXGD_GODOT_RUNTIME_SSAO_BLUR_REAL_PASS_WRITEBACK"
+# Recording-smoke marker: must never appear here (the ssao_blur
+# dispatch_recording_smoke opt-in is not enabled by this harness).
+RECORD_MARKER = "RXGD_GODOT_RUNTIME_SSAO_BLUR_RECORD"
 
 # The predicted first missing prerequisite when the opt-in real dispatch
-# cannot complete in this environment. The canonical artifact paths now
-# carry the texture-capable hlsl_bridge workaround package (per-slot
-# texture2d/rwtexture2d binding kinds matching the Texture2D
-# ID3D12Resource* handles the Godot runtime provides), level-0 math parity
-# is CPU-proven (math_parity_evidence.json), and the bridge DLL is built
-# with the d3d12-recording-shim feature, so every software gate can pass;
-# the only remaining blocker is the linked real dispatch itself failing
-# (e.g. no signed DXC dxil.dll, PSO/root-signature/D3D12 failure). Pinned
-# so a drift in the gate chain is a loud FAIL, not a silent re-labelling.
+# cannot complete in this environment. The canonical ssao_blur package is
+# texture-capable (per-slot texture2d/rwtexture2d binding kinds matching the
+# Texture2D ID3D12Resource* handles the Godot runtime provides), the
+# MODE_SMART blur math subset is CPU-proven (math_parity_evidence.json), and
+# the bridge DLL is built with the d3d12-recording-shim feature, so every
+# software gate can pass; the only remaining blocker is the linked real
+# dispatch itself failing. Pinned so a drift in the gate chain is a loud
+# FAIL, not a silent re-labelling.
 EXPECTED_FIRST_MISSING_PREREQUISITE = "real_dispatch_recording_failed"
 EXPECTED_BLOCKED_FALLBACK_REASON = "validation_failed"
-# The revised patch 0010 attempts the multi-resource pyramid hook FIRST, so
-# the once-per-session blocked diagnostic in the forced leg comes from the
-# pyramid gate: the resource-array preflight passes (all handles valid), and
-# the forced capability downgrade is then caught at the dispatch-eligibility
-# (capability) check — not at runtime binding preflight as in the old
-# 2-resource-first flow.
-EXPECTED_FORCED_PREREQUISITE = "dispatch_eligibility_failed"
+EXPECTED_FORCED_PREREQUISITE = "runtime_binding_preflight_failed"
 EXPECTED_FORCED_FALLBACK_REASON = "unsupported_device"
 
 KNOWN_GAPS = [
     (
-        "math parity is CPU-proven for level 0 only and still pending GPU "
-        "observation (math_parity_evidence.json status=pending_gpu_dispatch); "
-        "full pyramid/EMA/WRITE_LUMINANCE parity is gated on measured GPU "
-        "results and the multi-level continuation round"
+        "math parity is CPU-proven for the MODE_SMART single-pass "
+        "single-slice edge-aware cross blur subset only and still pending "
+        "GPU observation (math_parity_evidence.json "
+        "status=pending_gpu_dispatch); MODE_WIDE, MODE_NON_SMART, the "
+        "multi-pass ping-pong chain, the 4-slice deinterleaved loop, SSIL "
+        "blur, mirror-sampler border addressing, and rg8 unorm storage "
+        "quantization are recorded gaps"
     ),
     (
         "canonical artifact provenance is hlsl_bridge_workaround "
-        "(owner-approved temporary policy, texture_artifact_provenance_policy"
-        ".json): the DXIL container is DXC-compiled from "
-        "artifacts/hlsl_bridge/luminance_reduce_level.hlsl, not rurixc-owned; "
-        "a rurixc-owned texture-capable compile still requires a patched llc "
-        "that supports llvm.dx.resource.load.texture.2d"
+        "(owner-approved GRX-009 texture artifact provenance policy): the "
+        "DXIL container is DXC-compiled from "
+        "artifacts/hlsl_bridge/ssao_blur_smart.hlsl, not rurixc-owned; a "
+        "rurixc-owned texture-capable compile still requires a patched llc "
+        "that supports texture intrinsics plus multi-channel texture element "
+        "support"
     ),
     (
-        "the real dispatch path is linked only under the d3d12-recording-shim "
-        "feature; the shipping feature-off bridge still fails closed with "
-        "real_dispatch_path_not_linked. Patch 0010 (GRX-009 Wave 2) now adds the "
-        "multi-level luminance pyramid hook (hook_contract_v2: [source, "
-        "reduce[0..L-1], current, prev]) with the real SWAP(current, reduce[last]) "
-        "+ skip-native writeback, but the real replacement engages only once the "
-        "bridge routes the multi-resource array to record_pyramid_attempt; until "
-        "then the candidate leg still exercises the level-0 scaffold arm with the "
-        "native luminance path as the backstop "
-        "(RXGD_GODOT_RUNTIME_LUMINANCE_REAL_PASS_WRITEBACK "
-        "native_continuation=active scaffold=1), so this harness's REAL_PASS "
-        "marker + LDR visual-stability audit stay valid"
-    ),
-    (
-        "one-frame latency of the self-queue pyramid dispatch (hook_contract_v2 "
-        "s6) is declared_not_measured by this harness: it does not fingerprint "
-        "the dispatch input across frames (that needs the test-only shim readback "
-        "path), so the 1-frame ordering is documented in patch 0010, the marker "
-        "line (one_frame_latency=1) and the bridge contract, not measured here; "
-        "the fixed-frame LDR capture is taken after auto-exposure EMA convergence "
-        "so a future real pyramid replacement's 1-frame delay cannot perturb the "
-        "pinned visual thresholds"
+        "the real dispatch path is linked only under the d3d12-recording-"
+        "shim feature; the shipping feature-off bridge still fails closed "
+        "with real_dispatch_path_not_linked, and the patch 0016 result "
+        "writeback is a SCAFFOLD: the native Godot SSAO blur re-renders every "
+        "frame as the continuation/backstop (raster/compute output seam and "
+        "full-mode parity are later rounds)"
     ),
 ]
 
@@ -236,21 +223,27 @@ GODOT_TIMEOUT_SECONDS = 180
 REQUESTED_RENDERER = "d3d12"
 REQUESTED_RENDERING_METHOD = "forward_plus"
 
-GODOT_EXE_ENV = "RURIX_GRX009_SEGMENT4H_GODOT_EXE"
-SCRATCH_SOURCE_ENV = "RURIX_GRX009_SEGMENT4H_GODOT_SOURCE"
-SCRATCH_SOURCE_PROVENANCE_ENV = "RURIX_GRX009_SEGMENT4H_GODOT_SOURCE_PROVENANCE"
-SCRATCH_BUILD_COMMAND_ENV = "RURIX_GRX009_SEGMENT4H_GODOT_BUILD_COMMAND"
-SCRATCH_BUILD_LOG_ENV = "RURIX_GRX009_SEGMENT4H_GODOT_BUILD_LOG"
-CAPTURE_PREFIX_ENV = "RURIX_GRX009_SEGMENT4H_CAPTURE_PREFIX"
+GODOT_EXE_ENV = "RURIX_GRX011_SSAO_BLUR_GODOT_EXE"
+SCRATCH_SOURCE_ENV = "RURIX_GRX011_SSAO_BLUR_GODOT_SOURCE"
+SCRATCH_SOURCE_PROVENANCE_ENV = "RURIX_GRX011_SSAO_BLUR_GODOT_SOURCE_PROVENANCE"
+SCRATCH_BUILD_COMMAND_ENV = "RURIX_GRX011_SSAO_BLUR_GODOT_BUILD_COMMAND"
+SCRATCH_BUILD_LOG_ENV = "RURIX_GRX011_SSAO_BLUR_GODOT_BUILD_LOG"
+CAPTURE_PREFIX_ENV = "RURIX_GRX011_SSAO_BLUR_CAPTURE_PREFIX"
 
 TARGET_BACKEND = "Godot 4.7-dev Windows D3D12 Forward+"
-PASS_SETTING_PREFIX = "rendering/rurix_accel/passes/luminance_reduction"
+PASS_SETTING_PREFIX = "rendering/rurix_accel/passes/ssao_blur"
 
-PATCH_STACK_ID = "0001..0010"
-PATCH_STACK_4H = (
+PATCH_STACK_ID = "0001..0016"
+PATCH_STACK_GRX011 = (
     *PATCH_STACK_4F,
     "0009-rurix-accel-luminance-real-pass-optin.patch",
     "0010-rurix-accel-luminance-real-pass-result-writeback.patch",
+    "0011-rurix-accel-tonemap-pass-gate-and-callsite.patch",
+    "0012-rurix-accel-tonemap-runtime-resource-binding.patch",
+    "0013-rurix-accel-tonemap-recording-smoke-and-real-pass-optin.patch",
+    "0014-rurix-accel-ssao-blur-pass-gate-and-callsite.patch",
+    "0015-rurix-accel-ssao-blur-runtime-resource-binding.patch",
+    "0016-rurix-accel-ssao-blur-recording-smoke-and-real-pass-optin.patch",
 )
 
 
@@ -299,9 +292,6 @@ def offline_artifact_digests(evidence: dict) -> dict[str, str | None]:
         "descriptor_layout": None,
     }
     if isinstance(artifacts, dict):
-        fallback_artifacts = artifacts.get("bridge_tracked_fallback")
-        if isinstance(fallback_artifacts, dict):
-            artifacts = fallback_artifacts
         for key in out:
             entry = artifacts.get(key)
             if isinstance(entry, dict):
@@ -334,7 +324,7 @@ def godot_exe_fingerprint(path: Path) -> dict:
             "Scratch Godot build binaries are NOT committed to the repo. This "
             "console exe is a local, gitignored artifact rebuilt from the "
             f"ignored external/godot-master snapshot with the full {PATCH_STACK_ID} "
-            "segment 4h patch stack applied (module_rurix_accel_enabled=yes "
+            "GRX-011 patch stack applied (module_rurix_accel_enabled=yes "
             "d3d12=yes). Only its fingerprint is recorded here so the measured "
             f"evidence stays auditable; re-point {GODOT_EXE_ENV} at an "
             "equivalent rebuild to reproduce it."
@@ -361,13 +351,13 @@ def dll_fingerprint(path: Path) -> dict:
         "build_profile": "debug",
         "features": ["d3d12-recording-shim"],
         "feature_note": (
-            "Bridge built WITH the d3d12-recording-shim feature (stage A5): "
-            "the real-pass arm routes through the linked recording shim, so "
-            "arming RXGD_CAP_LUMINANCE_REAL_PASS can make rxgd_record_pass "
-            "return RXGD_STATUS_OK only after a real recorded dispatch. The "
-            "shipping feature-off bridge still fails closed with "
-            "real_dispatch_path_not_linked. target/debug/rurix_godot.dll is "
-            "a mutable build artifact."
+            "Bridge built WITH the d3d12-recording-shim feature: the "
+            "ssao_blur real-pass arm routes through the linked recording "
+            "shim, so arming RXGD_CAP_SSAO_BLUR_REAL_PASS can make "
+            "rxgd_record_pass return RXGD_STATUS_OK only after a real "
+            "recorded dispatch. The shipping feature-off bridge still fails "
+            "closed with real_dispatch_path_not_linked. "
+            "target/debug/rurix_godot.dll is a mutable build artifact."
         ),
     }
     if not path.is_file():
@@ -426,7 +416,7 @@ def compute_ldr_abs_diff(reference: bytes, candidate: bytes) -> tuple[int, float
 
 
 def parse_blocked_marker(line: str) -> dict[str, str]:
-    """Parse the key=value tokens of an RXGD_REAL_PASS_BLOCKED line."""
+    """Parse the key=value tokens of an RXGD_SSAO_BLUR_REAL_PASS_BLOCKED line."""
     tokens: dict[str, str] = {}
     for part in line.split():
         if "=" in part:
@@ -451,40 +441,45 @@ def write_evidence(status: str, *, reason: str | None = None, extra: dict | None
 
     _write_json(EVIDENCE_OUT, doc)
     print(
-        f"[grx009-segment4h-real-pass-smoke] wrote {rel(EVIDENCE_OUT)} status={status}"
+        f"[grx011-ssao-blur-real-pass-smoke] wrote {rel(EVIDENCE_OUT)} status={status}"
     )
 
     if status == "success":
         success_doc = dict(doc)
         success_doc["evidence_kind"] = "historical_measured_success"
+        # The field the GRX-011 gate (ci/grx_gates/grx011_ssao_blur.py
+        # _enablement_ready) reads. Only ever written on a strict success.
+        success_doc["strict_success"] = True
         success_doc["latest_evidence_path"] = rel(EVIDENCE_OUT)
         success_doc["success_evidence_note"] = (
-            "Historical measured success artifact for GRX-009 segment 4h. It "
-            "is written ONLY on a strict status=success run (opt-in real "
-            "dispatch executed AND completed AND the LDR visual gate stayed "
-            "within thresholds AND every audit passed) and is never deleted "
-            "or overwritten by a later SKIP/FAIL run. Even this success keeps "
-            "default_enable_state=disabled and performance_claim=none."
+            "Historical measured success artifact for the GRX-011 ssao_blur "
+            "real-pass enablement gate. It is written ONLY on a strict "
+            "status=success run (opt-in real dispatch executed AND completed "
+            "AND the LDR visual gate stayed within thresholds AND every audit "
+            "passed) and is never deleted or overwritten by a later SKIP/FAIL "
+            "run. Even this success keeps default_enable_state=disabled and "
+            "performance_claim=none."
         )
         _write_json(SUCCESS_EVIDENCE_OUT, success_doc)
         print(
-            "[grx009-segment4h-real-pass-smoke] wrote "
+            "[grx011-ssao-blur-real-pass-smoke] wrote "
             f"{rel(SUCCESS_EVIDENCE_OUT)} status=success (historical measured success)"
         )
 
 
 def fail(msg: str, extra: dict | None = None) -> int:
-    print(f"[grx009-segment4h-real-pass-smoke] FAIL {msg}", file=sys.stderr)
+    print(f"[grx011-ssao-blur-real-pass-smoke] FAIL {msg}", file=sys.stderr)
     write_evidence("fail", reason=msg, extra=extra or {})
     return 1
 
 
 def skip_environment(msg: str, extra: dict | None = None) -> int:
     """Environment-level SKIP: a precondition is unavailable. Upgraded to a
-    hard FAIL under RURIX_REQUIRE_REAL=1."""
+    hard FAIL under RURIX_REQUIRE_REAL=1. Never writes/overwrites the success
+    evidence artifact."""
     if os.environ.get("RURIX_REQUIRE_REAL") == "1":
         return fail(f"(RURIX_REQUIRE_REAL) {msg}", extra=extra)
-    print(f"[grx009-segment4h-real-pass-smoke] SKIP {msg}(降级 SKIP,退出 0)")
+    print(f"[grx011-ssao-blur-real-pass-smoke] SKIP {msg}(降级 SKIP,退出 0)")
     payload = dict(extra or {})
     payload["skip_kind"] = "environment"
     write_evidence("skip", reason=msg, extra=payload)
@@ -495,9 +490,10 @@ def skip_measured_prerequisite(prerequisite: str, msg: str, extra: dict) -> int:
     """Measured prerequisite-blocked SKIP: every leg ran on real hardware and
     the fail-closed gate reported exactly the predicted first missing
     prerequisite. This is a real measured run, so RURIX_REQUIRE_REAL does NOT
-    upgrade it to FAIL; it still never advances the readiness gate."""
+    upgrade it to FAIL; it still never advances the readiness gate and never
+    writes/overwrites the success evidence artifact."""
     print(
-        "[grx009-segment4h-real-pass-smoke] SKIP (measured) first missing "
+        "[grx011-ssao-blur-real-pass-smoke] SKIP (measured) first missing "
         f"prerequisite: {prerequisite} — {msg}"
     )
     payload = dict(extra)
@@ -511,12 +507,15 @@ def locate_godot_exe() -> tuple[Path | None, str | None]:
     override = os.environ.get(GODOT_EXE_ENV)
     if not override:
         return None, (
-            f"{GODOT_EXE_ENV} is not set; the segment 4h smoke needs a scratch "
-            "Godot console exe rebuilt from the ignored external/godot-master "
-            f"snapshot with the full {PATCH_STACK_ID} patch stack applied "
+            f"{GODOT_EXE_ENV} is not set; the GRX-011 ssao_blur enablement "
+            "smoke needs a scratch Godot console exe rebuilt from the ignored "
+            "external/godot-master snapshot with the full "
+            f"{PATCH_STACK_ID} patch stack applied "
             "(module_rurix_accel_enabled=yes d3d12=yes). The tracked "
             "external/godot-master build only has 0001+0002+0003 and must NOT "
-            "be reused here"
+            "be reused here. NOTE: the 0001..0016 scratch exe is still being "
+            "built; this SKIP is the expected reproducible-default state until "
+            "it lands"
         )
     p = Path(override)
     if not p.is_file():
@@ -525,9 +524,9 @@ def locate_godot_exe() -> tuple[Path | None, str | None]:
 
 
 def build_bridge_dll() -> tuple[bool, str]:
-    """Build rurix_godot.dll WITH the d3d12-recording-shim feature (stage A5:
-    the real-pass arm can only attempt a real dispatch when the recording
-    shim is linked)."""
+    """Build rurix_godot.dll WITH the d3d12-recording-shim feature (the
+    ssao_blur real-pass arm can only attempt a real dispatch when the
+    recording shim is linked)."""
     p = subprocess.run(
         ["cargo", "build", "-p", "rurix-godot", "--features", "d3d12-recording-shim"],
         cwd=ROOT,
@@ -557,7 +556,7 @@ def load_sidecar(path: Path | None) -> tuple[dict | None, str | None]:
 
 def scratch_source_provenance(godot_exe: Path) -> dict:
     """Audit the scratch Godot source worktree the exe was built from against
-    the tracked 0001..0009 patch stack (segment 4f machinery, 4h stack)."""
+    the tracked 0001..0016 patch stack (GRX-009 machinery, GRX-011 stack)."""
     override = os.environ.get(SCRATCH_SOURCE_ENV)
     source_root = None
     source_error = None
@@ -589,7 +588,7 @@ def scratch_source_provenance(godot_exe: Path) -> dict:
         "source_audit_supported": False,
         "source_audit_errors": [],
         "source_provenance_sidecar_path": None,
-        "applied_patch_stack": patch_stack_identity(PATCH_STACK_4H, PATCH_STACK_ID),
+        "applied_patch_stack": patch_stack_identity(PATCH_STACK_GRX011, PATCH_STACK_ID),
         "godot_exe": {
             "path_at_run": exe_fp.get("exe_path_at_run"),
             "sha256": exe_fp.get("exe_sha256"),
@@ -615,7 +614,7 @@ def scratch_source_provenance(godot_exe: Path) -> dict:
     ok, errors, audit = verify_source_provenance_sidecar(
         sidecar,
         source_root,
-        stack_names=PATCH_STACK_4H,
+        stack_names=PATCH_STACK_GRX011,
         stack_id=PATCH_STACK_ID,
         sidecar_path=sidecar_path,
     )
@@ -633,13 +632,15 @@ def write_smoke_project(
     *,
     dll_path: Path,
     pass_enabled: bool,
-    dispatch_bringup: bool,
     dispatch_real_pass: bool,
     force_capability_downgrade: bool,
 ) -> None:
     """Generate a minimal deterministic Godot project. Only the tracked
-    per-pass opt-in settings differ between legs; everything else is
-    byte-identical so the opt-in matrix is the only delta."""
+    ssao_blur per-pass opt-in settings differ between legs; everything else
+    (including WorldEnvironment ssao_enabled=true and the fixed geometry that
+    keeps the depth/normal buffers active) is byte-identical so the opt-in
+    matrix is the only delta. The ssao_blur dispatch_recording_smoke opt-in
+    stays false in EVERY leg (the RECORD marker must never appear)."""
     project_dir.mkdir(parents=True, exist_ok=True)
 
     def flag(value: bool) -> str:
@@ -647,13 +648,13 @@ def write_smoke_project(
 
     project_text = f"""\
 ; Engine configuration file.
-; Auto-generated by ci/grx009_segment4h_real_pass_enablement_smoke.py
+; Auto-generated by ci/grx011_ssao_blur_real_pass_enablement_smoke.py
 
 config_version=5
 
 [application]
 
-config/name="GRX-009 segment 4h luminance real-pass enablement smoke"
+config/name="GRX-011 ssao_blur real-pass enablement smoke"
 run/main_scene="res://main.tscn"
 
 [display]
@@ -666,27 +667,30 @@ window/size/viewport_height={VIEWPORT_HEIGHT}
 rurix_accel/enabled=true
 rurix_accel/require_forward_plus=true
 rurix_accel/dll_path="{dll_path.as_posix()}"
-rurix_accel/passes/luminance_reduction/enabled={flag(pass_enabled)}
-rurix_accel/passes/luminance_reduction/dispatch_bringup={flag(dispatch_bringup)}
-rurix_accel/passes/luminance_reduction/dispatch_real_pass={flag(dispatch_real_pass)}
-rurix_accel/passes/luminance_reduction/real_pass_force_capability_downgrade={flag(force_capability_downgrade)}
+rurix_accel/passes/ssao_blur/enabled={flag(pass_enabled)}
+rurix_accel/passes/ssao_blur/dispatch_recording_smoke=false
+rurix_accel/passes/ssao_blur/dispatch_real_pass={flag(dispatch_real_pass)}
+rurix_accel/passes/ssao_blur/real_pass_force_capability_downgrade={flag(force_capability_downgrade)}
 """
     scene_text = """\
 [gd_scene load_steps=2 format=3]
 
 [ext_resource type="Script" path="res://main.gd" id="1"]
 
-[node name="GRX009Segment4hRoot" type="Node3D"]
+[node name="GRX011SsaoBlurRoot" type="Node3D"]
 script = ExtResource("1")
 
 [node name="Camera3D" type="Camera3D" parent="."]
 
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 """
-    # Deterministic flat-color scene with tonemap + auto exposure enabled so
-    # the Auto Exposure luminance_reduction call site actually runs, then a
-    # frame capture at a fixed frame index (with --fixed-fps the exposure
-    # adaptation state at that frame is deterministic across runs).
+    # Deterministic scene with SSAO enabled and fixed opaque geometry so the
+    # depth/normal prepass and the SSAO + SSAO-blur compute chain run every
+    # frame, then a frame capture at a fixed frame index (with --fixed-fps the
+    # state at that frame is deterministic across runs). No RNG is used; all
+    # transforms are fixed constants.
     script_text = f"""\
 extends Node3D
 
@@ -695,17 +699,53 @@ var _captured := false
 
 func _ready() -> void:
     var cam: Camera3D = $Camera3D
+    cam.position = Vector3(0.0, 2.5, 6.0)
+    cam.rotation_degrees = Vector3(-20.0, 0.0, 0.0)
     cam.make_current()
-    var attributes := CameraAttributesPractical.new()
-    attributes.auto_exposure_enabled = true
-    cam.attributes = attributes
 
+    var light: DirectionalLight3D = $DirectionalLight3D
+    light.rotation_degrees = Vector3(-55.0, -35.0, 0.0)
+
+    # WorldEnvironment with SSAO enabled: this drives the native SSAO +
+    # edge-aware SSAO blur compute chain (the ssao_blur call site) every frame.
     var env := Environment.new()
     env.background_mode = Environment.BG_COLOR
-    env.background_color = Color(0.6, 0.45, 0.3)
+    env.background_color = Color(0.35, 0.4, 0.5)
+    env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+    env.ambient_light_color = Color(0.5, 0.5, 0.5)
+    env.ambient_light_energy = 1.0
+    env.ssao_enabled = true
+    env.ssao_radius = 1.0
+    env.ssao_intensity = 2.0
     env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
     $WorldEnvironment.environment = env
-    print("GRX009Segment4h: scene ready")
+
+    # A ground plane plus a fixed grid of boxes: crease/contact regions give
+    # the SSAO blur non-trivial edge-aware work while staying deterministic.
+    var ground := MeshInstance3D.new()
+    var plane := PlaneMesh.new()
+    plane.size = Vector2(20.0, 20.0)
+    ground.mesh = plane
+    ground.position = Vector3(0.0, 0.0, 0.0)
+    add_child(ground)
+
+    var box := BoxMesh.new()
+    box.size = Vector3(1.0, 1.0, 1.0)
+    var positions := [
+        Vector3(-2.0, 0.5, -1.0),
+        Vector3(0.0, 0.5, -2.0),
+        Vector3(2.0, 0.5, -1.0),
+        Vector3(-1.0, 0.5, 1.0),
+        Vector3(1.0, 0.5, 1.0),
+        Vector3(0.0, 1.5, -2.0),
+    ]
+    for i in range(positions.size()):
+        var mi := MeshInstance3D.new()
+        mi.mesh = box
+        mi.position = positions[i]
+        add_child(mi)
+
+    print("GRX011SsaoBlur: scene ready ssao_enabled=%s" % str(env.ssao_enabled))
 
 func _process(_delta: float) -> void:
     _frames += 1
@@ -719,7 +759,7 @@ func _capture() -> void:
     img.convert(Image.FORMAT_RGB8)
     var prefix := OS.get_environment("{CAPTURE_PREFIX_ENV}")
     if prefix.is_empty():
-        printerr("GRX009Segment4h: capture prefix env var missing")
+        printerr("GRX011SsaoBlur: capture prefix env var missing")
         get_tree().quit(3)
         return
     var raw := FileAccess.open(prefix + ".rgb8", FileAccess.WRITE)
@@ -734,7 +774,7 @@ func _capture() -> void:
         "capture_frame_index": _frames,
     }}))
     meta.close()
-    print("GRX009Segment4h: captured frame=%d width=%d height=%d" % [_frames, img.get_width(), img.get_height()])
+    print("GRX011SsaoBlur: captured frame=%d width=%d height=%d" % [_frames, img.get_width(), img.get_height()])
     get_tree().quit()
 """
     (project_dir / "project.godot").write_text(project_text, encoding="utf-8", newline="\n")
@@ -811,19 +851,16 @@ def load_capture(capture_prefix: Path) -> tuple[dict | None, bytes | None, str |
 LEG_SETTINGS = {
     "reference": {
         "pass_enabled": False,
-        "dispatch_bringup": False,
         "dispatch_real_pass": False,
         "force_capability_downgrade": False,
     },
     "candidate": {
         "pass_enabled": True,
-        "dispatch_bringup": True,
         "dispatch_real_pass": True,
         "force_capability_downgrade": False,
     },
     "forced_fallback": {
         "pass_enabled": True,
-        "dispatch_bringup": True,
         "dispatch_real_pass": True,
         "force_capability_downgrade": True,
     },
@@ -854,13 +891,21 @@ def run_matrix_leg(godot_exe: Path, *, leg: str, dll_path: Path) -> dict:
         for line in output.splitlines()
         if REAL_PASS_BLOCKED_MARKER in line
     ]
+    # The real-pass marker prints once per dispatched frame; pin the first
+    # line from the FULL output (the writeback scaffold marker contains the
+    # real-pass marker as a prefix, so it is excluded here).
+    real_pass_lines = [
+        line.strip()
+        for line in output.splitlines()
+        if REAL_PASS_MARKER in line and WRITEBACK_MARKER not in line
+    ]
     meta, data, capture_error = load_capture(capture_prefix)
     return {
         "leg": leg,
         "role": LEG_ROLES[leg],
         "project_settings": {
             f"{PASS_SETTING_PREFIX}/enabled": settings["pass_enabled"],
-            f"{PASS_SETTING_PREFIX}/dispatch_bringup": settings["dispatch_bringup"],
+            f"{PASS_SETTING_PREFIX}/dispatch_recording_smoke": False,
             f"{PASS_SETTING_PREFIX}/dispatch_real_pass": settings["dispatch_real_pass"],
             f"{PASS_SETTING_PREFIX}/real_pass_force_capability_downgrade": settings[
                 "force_capability_downgrade"
@@ -873,12 +918,14 @@ def run_matrix_leg(godot_exe: Path, *, leg: str, dll_path: Path) -> dict:
         "real_pass_blocked_marker_observed": bool(blocked_lines),
         "real_pass_blocked_marker_line": blocked_lines[0] if blocked_lines else None,
         "real_pass_marker_observed": REAL_PASS_MARKER in output,
+        "real_pass_marker_line": real_pass_lines[0] if real_pass_lines else None,
+        "writeback_marker_observed": WRITEBACK_MARKER in output,
         "record_marker_observed": RECORD_MARKER in output,
         "capture_meta": meta,
         "capture_error": capture_error,
         "capture_prefix": capture_prefix,
         "frame_bytes": data,
-        "runtime_log_audit": runtime_log_audit(output, PATCH_STACK_4H),
+        "runtime_log_audit": runtime_log_audit(output, PATCH_STACK_GRX011),
         "stdout_tail": output[-4000:],
     }
 
@@ -894,6 +941,7 @@ def leg_public(leg: dict) -> dict:
         "real_pass_blocked_marker_observed": leg["real_pass_blocked_marker_observed"],
         "real_pass_blocked_marker_line": leg["real_pass_blocked_marker_line"],
         "real_pass_marker_observed": leg["real_pass_marker_observed"],
+        "writeback_marker_observed": leg["writeback_marker_observed"],
         "record_marker_observed": leg["record_marker_observed"],
         "capture_meta": leg["capture_meta"],
         "capture_error": leg["capture_error"],
@@ -903,19 +951,19 @@ def leg_public(leg: dict) -> dict:
 def telemetry_entries_issue(
     doc: dict, capture_frame_index: int, *, expect_candidate_fallback: bool = True
 ) -> str | None:
-    """First incoherence in the generated 4h telemetry entries, or None.
+    """First incoherence in the generated GRX-011 telemetry entries, or None.
 
     The GRX-008 format records FALLBACK telemetry: on the measured
     prerequisite-blocked outcome both armed legs fell back (candidate entry
     ``validation_failed`` + forced entry ``unsupported_device``); on a strict
-    (future) real-pass success only the forced leg falls back, so the
-    document must NOT carry a candidate fallback entry."""
+    real-pass success only the forced leg falls back, so the document must NOT
+    carry a candidate fallback entry."""
     passes = doc.get("passes")
     expected_count = 2 if expect_candidate_fallback else 1
     if not isinstance(passes, list) or len(passes) != expected_count:
         return (
             f"telemetry document must carry exactly {expected_count} "
-            "luminance fallback entries"
+            "ssao_blur fallback entries"
         )
     by_leg = {
         entry.get("leg"): entry for entry in passes if isinstance(entry, dict)
@@ -934,8 +982,8 @@ def telemetry_entries_issue(
         entry = by_leg.get(leg_name)
         if entry is None:
             return f"telemetry document has no {leg_name} entry"
-        if entry.get("pass_id") != "luminance_reduction":
-            return f"{leg_name} entry pass_id is not luminance_reduction"
+        if entry.get("pass_id") != "ssao_blur":
+            return f"{leg_name} entry pass_id is not ssao_blur"
         if entry.get("enable_state") != "enabled":
             return f"{leg_name} entry enable_state is not 'enabled'"
         if entry.get("fallback_reason") != expected_reason:
@@ -978,12 +1026,12 @@ def main() -> int:
     _EVIDENCE_BASE = {
         "schema_version": 1,
         "subject": SUBJECT,
-        "pass_id": "luminance_reduction",
-        "segment": "4h",
+        "pass_id": "ssao_blur",
+        "segment": "grx011_real_pass_enablement",
         "runtime_state": "fallback_only",
         "real_gpu_pass": False,
         "real_d3d12_dispatch_recorded": False,
-        "godot_runtime_luminance_path_enabled": False,
+        "godot_runtime_ssao_blur_path_enabled": False,
         "default_enable_state": "disabled",
         "gpu_timestamp_status": "not_yet",
         "performance_claim": "none",
@@ -1007,18 +1055,20 @@ def main() -> int:
             and layout_sha == offline_digests["descriptor_layout"]
         ),
         "note": (
-            "GRX-009 segment 4h gated real-pass enablement gate evidence. The "
-            "opt-in real-pass arm (dispatch_real_pass, default false) now runs "
+            "GRX-011 ssao_blur gated real-pass enablement gate evidence. The "
+            "opt-in real-pass arm (dispatch_real_pass, default false) runs "
             "against the texture-capable hlsl_bridge workaround canonical "
             "package (per-slot texture2d/rwtexture2d binding kinds, "
-            "owner-approved hlsl_bridge_workaround provenance, level-0 math "
-            "parity CPU-proven pending GPU) and a d3d12-recording-shim bridge "
-            "DLL, so every software gate can pass and a real recorded dispatch "
-            "may return RXGD_STATUS_OK; when the dispatch cannot complete the "
-            "gate reports first_missing_prerequisite="
-            "real_dispatch_recording_failed instead of claiming success. "
-            "default_enable_state stays disabled and no performance, FPS, or "
-            "GPU-timestamp claim is made."
+            "owner-approved hlsl_bridge_workaround provenance, MODE_SMART "
+            "edge-aware blur math parity CPU-proven pending GPU) and a "
+            "d3d12-recording-shim bridge DLL, so every software gate can pass "
+            "and a real recorded dispatch may return RXGD_STATUS_OK; when the "
+            "dispatch cannot complete the gate reports "
+            "first_missing_prerequisite=real_dispatch_recording_failed "
+            "instead of claiming success. The patch 0016 result writeback is "
+            "a SCAFFOLD (native Godot SSAO blur stays the continuation/"
+            "backstop), default_enable_state stays disabled, and no "
+            "performance, FPS, or GPU-timestamp claim is made."
         ),
     }
 
@@ -1032,7 +1082,7 @@ def main() -> int:
 
     godot_exe, godot_reason = locate_godot_exe()
     if godot_exe is None:
-        return skip_environment(godot_reason or "segment 4h Godot exe unavailable")
+        return skip_environment(godot_reason or "GRX-011 ssao_blur Godot exe unavailable")
 
     built_dll, dll_log = build_bridge_dll()
     if not built_dll:
@@ -1044,7 +1094,7 @@ def main() -> int:
     _EVIDENCE_BASE["dll_fingerprint"] = dll_fingerprint(RURIX_GODOT_DLL)
     _EVIDENCE_BASE["godot_exe_fingerprint"] = godot_exe_fingerprint(godot_exe)
     _EVIDENCE_BASE["patch_stack_identity"] = patch_stack_identity(
-        PATCH_STACK_4H, PATCH_STACK_ID
+        PATCH_STACK_GRX011, PATCH_STACK_ID
     )
 
     provenance = scratch_source_provenance(godot_exe)
@@ -1113,9 +1163,9 @@ def main() -> int:
             )
         if leg["record_marker_observed"]:
             return fail(
-                f"{name} run printed the segment 4d/4f recording marker "
-                f"'{RECORD_MARKER}'; the recording smoke opt-in must stay off "
-                "in the segment 4h matrix",
+                f"{name} run printed the ssao_blur recording-smoke marker "
+                f"'{RECORD_MARKER}'; the dispatch_recording_smoke opt-in must "
+                "stay off in the GRX-011 enablement matrix",
                 extra=runs_extra,
             )
         if leg["capture_error"] is not None or leg["frame_bytes"] is None:
@@ -1129,21 +1179,22 @@ def main() -> int:
         ("bridge_fallback_marker_observed", FALLBACK_MARKER),
         ("real_pass_blocked_marker_observed", REAL_PASS_BLOCKED_MARKER),
         ("real_pass_marker_observed", REAL_PASS_MARKER),
+        ("writeback_marker_observed", WRITEBACK_MARKER),
     ):
         if reference[marker_key]:
             return fail(
-                "reference run (all per-pass settings at their false defaults) "
-                f"unexpectedly printed '{marker_name}'; the disabled pass must "
-                "never invoke the bridge",
+                "reference run (all ssao_blur per-pass settings at their false "
+                f"defaults) unexpectedly printed '{marker_name}'; the disabled "
+                "pass must never invoke the bridge",
                 extra=runs_extra,
             )
 
     # Forced-failure red leg: fallback + blocked marker with the forced
-    # capability-downgrade shape; never a real pass.
-    if forced["real_pass_marker_observed"]:
+    # capability-downgrade shape; never a real pass or a writeback.
+    if forced["real_pass_marker_observed"] or forced["writeback_marker_observed"]:
         return fail(
-            "forced_capability_downgrade run printed the real-pass marker; the "
-            "downgraded device capability must fail closed",
+            "forced_capability_downgrade run printed a real-pass/writeback "
+            "marker; the downgraded device capability must fail closed",
             extra=runs_extra,
         )
     if not forced["bridge_fallback_marker_observed"]:
@@ -1172,8 +1223,8 @@ def main() -> int:
             extra=runs_extra,
         )
 
-    # Candidate leg: either the strict (future) real-pass success shape, or
-    # the predicted fail-closed blocked shape. Anything else is a FAIL.
+    # Candidate leg: either the strict real-pass success shape, or the
+    # predicted fail-closed blocked shape. Anything else is a FAIL.
     real_pass_success = candidate["real_pass_marker_observed"]
     candidate_tokens = parse_blocked_marker(
         candidate["real_pass_blocked_marker_line"] or ""
@@ -1191,7 +1242,20 @@ def main() -> int:
                 "fallback marker; the gate outcome is ambiguous",
                 extra=runs_extra,
             )
+        if not candidate["writeback_marker_observed"]:
+            return fail(
+                "candidate run printed the real-pass marker but not the "
+                f"'{WRITEBACK_MARKER}' scaffold marker; the native "
+                "continuation/backstop was not recorded",
+                extra=runs_extra,
+            )
     else:
+        if candidate["writeback_marker_observed"]:
+            return fail(
+                "candidate run printed the writeback scaffold marker without a "
+                "real pass; the gate outcome is contradictory",
+                extra=runs_extra,
+            )
         if not candidate["bridge_fallback_marker_observed"]:
             return fail(
                 "candidate run (real-pass opt-in armed) did not print the "
@@ -1272,7 +1336,7 @@ def main() -> int:
         }
         diff_bytes_by_leg[name] = diff_bytes
         print(
-            f"[grx009-segment4h-real-pass-smoke] LDR absolute diff ({name} vs "
+            f"[grx011-ssao-blur-real-pass-smoke] LDR absolute diff ({name} vs "
             f"reference) max_abs={max_abs} mean_abs={mean_abs:.6f} "
             f"(thresholds max<={LDR_MAX_ABS_DIFF_THRESHOLD} "
             f"mean<={LDR_MEAN_ABS_DIFF_THRESHOLD})"
@@ -1294,8 +1358,8 @@ def main() -> int:
         "diffs": diffs,
         "frame_artifact_note": (
             "Frame artifacts live in the local work dir and are hash-pinned "
-            "here; they are committed under artifacts/visual/ ONLY on a "
-            "strict status=success run."
+            "here; they are committed under artifacts/visual/ ONLY on a strict "
+            "status=success run."
         ),
     }
     runs_extra["visual"] = visual
@@ -1313,15 +1377,16 @@ def main() -> int:
         "evidence_level": "measured_local",
         "target_backend": TARGET_BACKEND,
         "note": (
-            "GRX-009 segment 4h measured real-pass enablement telemetry: with "
+            "GRX-011 measured ssao_blur real-pass enablement telemetry: with "
             "the default-false dispatch_real_pass opt-in explicitly enabled, "
-            "the tracked Godot Auto Exposure call site invoked the shipping "
-            "(feature-off) Rurix bridge; the fail-closed real-pass gate "
-            "returned RXGD_STATUS_FALLBACK (validation_failed via the kernel-"
-            "binding-kind conformance check; unsupported_device under the "
-            "forced capability downgrade) and the native Godot luminance path "
-            "rendered every frame. No pass is wired up as a real GPU pass, "
-            "runtime_state stays fallback_only, real_gpu_pass=false, and no "
+            "the tracked Godot SSAO blur call site invoked the Rurix bridge "
+            "through the patch 0015 native resource handle binding; every "
+            "fallback entry records the fail-closed gate outcome "
+            "(validation_failed when the linked real dispatch cannot complete; "
+            "unsupported_device under the forced capability downgrade) while "
+            "the native Godot SSAO blur rendered every frame. The patch 0016 "
+            "writeback is a scaffold (native continuation active), "
+            "runtime_state stays fallback_only for the default path, and no "
             "performance or FPS claim is made."
         ),
         "passes": (
@@ -1329,7 +1394,7 @@ def main() -> int:
             if real_pass_success
             else [
                 {
-                    "pass_id": "luminance_reduction",
+                    "pass_id": "ssao_blur",
                     "leg": "enabled_real_pass_optin",
                     "enable_state": "enabled",
                     "fallback_reason": EXPECTED_BLOCKED_FALLBACK_REASON,
@@ -1341,7 +1406,7 @@ def main() -> int:
         )
         + [
             {
-                "pass_id": "luminance_reduction",
+                "pass_id": "ssao_blur",
                 "leg": "forced_capability_downgrade",
                 "enable_state": "enabled",
                 "fallback_reason": EXPECTED_FORCED_FALLBACK_REASON,
@@ -1415,6 +1480,7 @@ def main() -> int:
         "telemetry_document_valid": True,
         "telemetry_entries_coherent": True,
         "scratch_source_provenance_ok": True,
+        "native_continuation_writeback_scaffold": candidate["writeback_marker_observed"],
         "real_pass_dispatched_and_completed": real_pass_success,
     }
     measured_extra = {
@@ -1424,10 +1490,10 @@ def main() -> int:
     }
 
     if real_pass_success:
-        # Strict (future) success: the opt-in real dispatch executed and
-        # completed AND the visual gate stayed green. Publish the tracked
-        # frame artifacts and flip real_gpu_pass=true in THIS evidence only;
-        # default_enable_state stays disabled and no performance claim exists.
+        # Strict success: the opt-in real dispatch executed and completed AND
+        # the visual gate stayed green. Publish the tracked frame artifacts and
+        # flip real_gpu_pass=true in THIS evidence only; default_enable_state
+        # stays disabled and no performance claim exists.
         VISUAL_DIR.mkdir(parents=True, exist_ok=True)
         REFERENCE_FRAME.write_bytes(reference["frame_bytes"])
         CANDIDATE_FRAME.write_bytes(candidate["frame_bytes"])
@@ -1442,17 +1508,10 @@ def main() -> int:
         success_extra["visual"] = visual
         success_extra["real_gpu_pass"] = True
         success_extra["real_d3d12_dispatch_recorded"] = True
-        success_extra["real_pass_marker_line"] = next(
-            (
-                line.strip()
-                for line in candidate["stdout_tail"].splitlines()
-                if REAL_PASS_MARKER in line
-            ),
-            None,
-        )
+        success_extra["real_pass_marker_line"] = candidate["real_pass_marker_line"]
         write_evidence("success", extra=success_extra)
         print(
-            "[grx009-segment4h-real-pass-smoke] PASS measured opt-in real pass "
+            "[grx011-ssao-blur-real-pass-smoke] PASS measured opt-in real pass "
             "+ LDR visual gate within threshold (default enablement unchanged; "
             "no performance claim)"
         )
@@ -1464,9 +1523,9 @@ def main() -> int:
         ),
         "the opt-in real-pass gate measured the predicted fail-closed shape on "
         "real hardware: every software gate passed against the texture-capable "
-        "hlsl_bridge canonical package, but the linked real dispatch recording "
-        "did not complete in this environment (e.g. no signed DXC dxil.dll or "
-        "a D3D12 recording failure), so the gate honestly reports "
+        "hlsl_bridge canonical ssao_blur package, but the linked real dispatch "
+        "recording did not complete in this environment (e.g. no signed DXC "
+        "dxil.dll or a D3D12 recording failure), so the gate honestly reports "
         "real_dispatch_recording_failed instead of claiming success",
         measured_extra,
     )
