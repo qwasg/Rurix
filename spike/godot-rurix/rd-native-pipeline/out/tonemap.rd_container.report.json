@@ -1,0 +1,63 @@
+{
+  "inputs": {
+    "dxil": "H:\\rurix\\spike\\godot-rurix\\passes\\tonemap\\artifacts\\tonemap.dxil",
+    "dxil_size": 4436,
+    "dxil_parts": [
+      "SFI0",
+      "ISG1",
+      "OSG1",
+      "PSV0",
+      "STAT",
+      "HASH",
+      "DXIL"
+    ],
+    "rts0": "H:\\rurix\\spike\\godot-rurix\\passes\\tonemap\\artifacts\\tonemap.rts0.bin",
+    "rts0_size": 152,
+    "rts0_version": 1,
+    "layout": "H:\\rurix\\spike\\godot-rurix\\passes\\tonemap\\artifacts\\tonemap_descriptor_layout.json"
+  },
+  "container": {
+    "path": "H:\\rurix\\spike\\godot-rurix\\rd-native-pipeline\\out\\tonemap.rd_container.bin",
+    "size": 4836,
+    "shader_name": "rurix_tonemap",
+    "format": "0x43443344",
+    "format_version": 1,
+    "pipeline_type": "compute",
+    "compute_local_size": [
+      8,
+      8,
+      1
+    ],
+    "push_constant_size": 28,
+    "root_signature_crc": "0x69B7B890"
+  },
+  "set0": {
+    "resource_root_param_idx": 1,
+    "resource_descriptor_count": 2,
+    "sampler_root_param_idx": "UINT32_MAX",
+    "uniforms": [
+      {
+        "name": "src_color",
+        "binding": 0,
+        "type": 2,
+        "stages": 16,
+        "length": 1,
+        "writable": 0,
+        "res_class": 2,
+        "resource_descriptor_offset": 0,
+        "register": "t0"
+      },
+      {
+        "name": "dst_color",
+        "binding": 1,
+        "type": 3,
+        "stages": 16,
+        "length": 1,
+        "writable": 1,
+        "res_class": 3,
+        "resource_descriptor_offset": 1,
+        "register": "u0"
+      }
+    ]
+  }
+}
