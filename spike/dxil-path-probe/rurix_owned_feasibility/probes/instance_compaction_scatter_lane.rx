@@ -1,0 +1,33 @@
+//@ spec: RXS-0181
+// GRX rurix_owned feasibility probe: instance_compaction D3 scatter lane —
+// the ONLY lane the pass doc marks in-principle expressible (bit-preserving
+// transform move given a PRECOMPUTED rank; no arithmetic on the payload).
+// Only change from src/lib.rx is View<f32> -> View<global, f32>. The rank
+// (bitmask decode + two-level groupshared prefix scan) is NOT expressible
+// (u32 views + casts + groupshared/barrier), so rank arrives as a scalar.
+kernel fn instance_compaction_scatter_move_lane(
+    src_transforms: View<global, f32>,
+    dst_transforms: ViewMut<global, f32>,
+    total_instances: usize,
+    rank_times_stride: usize,
+    t: ThreadCtx<1>,
+) {
+    let p = t.global_id();
+    if p < total_instances {
+        let src_base = p * 12;
+        let dst_base = rank_times_stride;
+        dst_transforms[dst_base + 0] = src_transforms[src_base + 0];
+        dst_transforms[dst_base + 1] = src_transforms[src_base + 1];
+        dst_transforms[dst_base + 2] = src_transforms[src_base + 2];
+        dst_transforms[dst_base + 3] = src_transforms[src_base + 3];
+        dst_transforms[dst_base + 4] = src_transforms[src_base + 4];
+        dst_transforms[dst_base + 5] = src_transforms[src_base + 5];
+        dst_transforms[dst_base + 6] = src_transforms[src_base + 6];
+        dst_transforms[dst_base + 7] = src_transforms[src_base + 7];
+        dst_transforms[dst_base + 8] = src_transforms[src_base + 8];
+        dst_transforms[dst_base + 9] = src_transforms[src_base + 9];
+        dst_transforms[dst_base + 10] = src_transforms[src_base + 10];
+        dst_transforms[dst_base + 11] = src_transforms[src_base + 11];
+    }
+}
+fn main() {}

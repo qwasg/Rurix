@@ -1,0 +1,54 @@
+//@ spec: RXS-0181
+// GRX rurix_owned feasibility probe: particles_copy COPY_MODE_FILL_INSTANCES
+// ALIGN_DISABLED lane, scalar-decomposed over View<global,f32> (28 f32 lanes
+// per ParticleData, 20 f32 lanes per 3D instance). This is the ONLY lane the
+// pass doc sketches as in-principle expressible; it needs no sin/cos/sqrt
+// (that is the ALIGN_BILLBOARD lane) and no aggregates once decomposed.
+// Only change from spike/godot-rurix/passes/particles_copy/src/lib.rx is
+// View<f32> -> View<global, f32> (the pass source omitted the address space).
+kernel fn particles_copy_fill_instances_align_disabled(
+    particles: View<global, f32>,
+    instances: ViewMut<global, f32>,
+    total_particles: usize,
+    frame_remainder: f32,
+    motion_vectors_current_offset: usize,
+    t: ThreadCtx<1>,
+) {
+    let particle = t.global_id();
+
+    if particle < total_particles {
+        let base = particle * 28;
+        let c3x = particles[base + 12];
+        let c3y = particles[base + 13];
+        let c3z = particles[base + 14];
+        let vel_x = particles[base + 16];
+        let vel_y = particles[base + 17];
+        let vel_z = particles[base + 18];
+        let t3x = c3x + vel_x * frame_remainder;
+        let t3y = c3y + vel_y * frame_remainder;
+        let t3z = c3z + vel_z * frame_remainder;
+        let out = (particle + motion_vectors_current_offset) * 20;
+        instances[out + 0] = particles[base + 0];
+        instances[out + 1] = particles[base + 4];
+        instances[out + 2] = particles[base + 8];
+        instances[out + 3] = t3x;
+        instances[out + 4] = particles[base + 1];
+        instances[out + 5] = particles[base + 5];
+        instances[out + 6] = particles[base + 9];
+        instances[out + 7] = t3y;
+        instances[out + 8] = particles[base + 2];
+        instances[out + 9] = particles[base + 6];
+        instances[out + 10] = particles[base + 10];
+        instances[out + 11] = t3z;
+        instances[out + 12] = particles[base + 20];
+        instances[out + 13] = particles[base + 21];
+        instances[out + 14] = particles[base + 22];
+        instances[out + 15] = particles[base + 23];
+        instances[out + 16] = particles[base + 24];
+        instances[out + 17] = particles[base + 25];
+        instances[out + 18] = particles[base + 26];
+        instances[out + 19] = particles[base + 27];
+    }
+}
+
+fn main() {}

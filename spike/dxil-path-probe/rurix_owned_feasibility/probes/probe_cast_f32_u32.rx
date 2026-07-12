@@ -1,0 +1,14 @@
+//@ spec: RXS-0157 RXS-0182
+// Capability-boundary probe: are f32<->u32 `as` casts lowered on the DXIL
+// path? ssao_blur needs `(packed_edges * 255.5) as u32` (unpack edges) and
+// `((packed >> 6) & 3) as f32 / 3.0`. If casts reject, the texture passes'
+// integer-bitfield-over-float lanes are inexpressible even ignoring the
+// texture-sample gap.
+kernel fn k(src: View<global, f32>, dst: ViewMut<global, f32>, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    let packed = (src[i] * 255.5) as u32;
+    let field = (packed >> 6u32) & 3u32;
+    dst[i] = (field as f32) / 3.0;
+}
+
+fn main() {}

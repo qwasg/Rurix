@@ -1,0 +1,17 @@
+//@ spec: RXS-0079
+// Capability-boundary probe: does the DXIL compute-body slice accept
+// `shared let` + block.sync()? (instance_compaction D1/D2 prefix-scan
+// blocker.) Expected: RX6007 reject (dxil_codegen L1024-1026 rejects
+// `shared let`; no barrier lowering on the DXIL path). Faithful to
+// conformance/shared/accept/shared_barrier_consistent.rx.
+kernel fn shared_scan(t: ThreadCtx<1>, src: View<global, u32>, dst: ViewMut<global, u32>) {
+    shared let tile: [u32; 256];
+    let i = t.thread_index();
+    tile[i] = src[i];
+    block.sync();
+    if i == 0 {
+        dst[0] = tile[1];
+    }
+}
+
+fn main() {}

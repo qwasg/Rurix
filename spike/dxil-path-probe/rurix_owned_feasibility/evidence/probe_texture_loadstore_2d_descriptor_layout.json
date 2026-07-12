@@ -1,0 +1,10 @@
+{
+  "module": "probe_texture_loadstore_2d",
+  "root_constants": 0,
+  "root_constant_layout": [],
+  "resources": [
+    { "name": "src", "class": "t", "register": 0, "space": 0, "count": 1, "binding_kind": "texture2d" },
+    { "name": "dst", "class": "u", "register": 0, "space": 0, "count": 1, "binding_kind": "rwtexture2d" }
+  ],
+  "root_signature_parameters": 1
+}

@@ -1,0 +1,42 @@
+//@ spec: RXS-0181 RXS-0182
+// GRX rurix_owned feasibility probe: indirect_args WRITE kernel (one thread
+// per surface). Fills the 5-dword indirect draw command block: dword1 =
+// min(survivors, max) [dynamic], dwords 0/2/3/4 = template backfill. u32
+// views (survivor_counts, template) + u32 ViewMut (command buffer) + value-if
+// min. Write-only (no RMW), no scan-derived index, no atomic — this is the
+// half of the GRX-018 pair that is NOT blocked by (2)/(3). The VALIDATION
+// kernel of the pair still needs atomics + ViewMut-read (probe_atomic /
+// probe_viewmut_read_rmw). Expected: dxv PASS.
+//
+// MEASURED ADAPTATION: the clamp `min(survivors, max_instance_count)` must
+// read max_instance_count from a u32 View, NOT from a u32 scalar param — a
+// value-if that compares a view-loaded u32 against a *scalar-param* u32
+// rejects ("slice 3a 不支持类型不一致的标量表达式"; scalar u32 root-constants
+// load as i32 and mismatch the view's u32). Comparing two view-u32 loads is
+// clean. So `caps[0]` carries max_instance_count and survivor_count_word_offset
+// stays a usize scalar (used only as an index, no comparison).
+kernel fn indirect_args_write(
+    src_survivor_counts: View<global, u32>,
+    surface_template: View<global, u32>,
+    caps: View<global, u32>,
+    dst_command_buffer: ViewMut<global, u32>,
+    surface_count: usize,
+    survivor_count_word_offset: usize,
+    t: ThreadCtx<1>,
+) {
+    let s = t.global_id();
+    if s < surface_count {
+        let survivors = src_survivor_counts[survivor_count_word_offset];
+        let max_instance_count = caps[0];
+        let clamped = if survivors < max_instance_count { survivors } else { max_instance_count };
+        let base = s * 5;
+        let tbase = s * 5;
+        dst_command_buffer[base + 0] = surface_template[tbase + 0];
+        dst_command_buffer[base + 1] = clamped;
+        dst_command_buffer[base + 2] = surface_template[tbase + 2];
+        dst_command_buffer[base + 3] = surface_template[tbase + 3];
+        dst_command_buffer[base + 4] = surface_template[tbase + 4];
+    }
+}
+
+fn main() {}

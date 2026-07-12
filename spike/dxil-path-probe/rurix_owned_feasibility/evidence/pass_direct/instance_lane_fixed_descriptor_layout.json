@@ -1,0 +1,13 @@
+{
+  "module": "instance_compaction_scatter_lane",
+  "root_constants": 2,
+  "root_constant_layout": [
+    { "name": "total_instances", "type": "i64", "order": 0, "root_parameter_index": 0, "dword_offset": 0, "dword_size": 2 },
+    { "name": "rank_times_stride", "type": "i64", "order": 1, "root_parameter_index": 0, "dword_offset": 2, "dword_size": 2 }
+  ],
+  "resources": [
+    { "name": "src_transforms", "class": "t", "register": 0, "space": 0, "count": 1, "binding_kind": "raw_buffer_view" },
+    { "name": "dst_transforms", "class": "u", "register": 0, "space": 0, "count": 1, "binding_kind": "raw_buffer_view" }
+  ],
+  "root_signature_parameters": 2
+}

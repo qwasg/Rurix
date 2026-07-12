@@ -1,0 +1,5 @@
+error[RX6007]: DXIL codegen target unavailable or unsupported: DXIL compute body lowering load 源必须是 View<global, f32|u32|i32> 或 Texture2D<f32>(RXS-0181/GRX-009)
+ --> probe_viewmut_read_rmw.rx:8:18
+  |
+8 | kernel fn k(dst: ViewMut<global, u32>, t: ThreadCtx<1>) {
+  |                  ^^^^^^^^^^^^^^^^^^^^ in DXIL compute entry

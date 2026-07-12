@@ -1,0 +1,14 @@
+{
+  "module": "reorder_particles",
+  "root_constants": 3,
+  "root_constant_layout": [
+    { "name": "total_particles", "type": "i64", "order": 0, "root_parameter_index": 0, "dword_offset": 0, "dword_size": 2 },
+    { "name": "motion_vectors_current_offset", "type": "i64", "order": 1, "root_parameter_index": 0, "dword_offset": 2, "dword_size": 2 },
+    { "name": "frame_remainder", "type": "f32", "order": 2, "root_parameter_index": 0, "dword_offset": 4, "dword_size": 1 }
+  ],
+  "resources": [
+    { "name": "particles", "class": "t", "register": 0, "space": 0, "count": 1, "binding_kind": "raw_buffer_view" },
+    { "name": "instances", "class": "u", "register": 0, "space": 0, "count": 1, "binding_kind": "raw_buffer_view" }
+  ],
+  "root_signature_parameters": 2
+}

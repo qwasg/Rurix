@@ -1,0 +1,5 @@
+error[RX6007]: DXIL codegen target unavailable or unsupported: root constant `motion_vectors_current_offset`(i64)落在奇数 dword 偏移 3,与 cbuffer 行对齐规则不相容(strict-only)
+ --> particles_copy_align_disabled_lane.rx:9:11
+  |
+9 | kernel fn particles_copy_fill_instances_align_disabled(
+  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ in DXIL compute entry

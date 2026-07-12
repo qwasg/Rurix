@@ -1,0 +1,5 @@
+error[RX6007]: DXIL codegen target unavailable or unsupported: DXIL compute body lowering slice 1 不支持f32 表达式
+  --> probe_unary_not.rx:10:19
+   |
+10 |     dst[i] = w & (!7u32);
+   |                   ^^^^^ in DXIL compute entry

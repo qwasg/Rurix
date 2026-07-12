@@ -1,0 +1,13 @@
+//@ spec: RXS-0182
+// Capability-boundary probe: is unary bitwise NOT `~x` lowered on the DXIL
+// path? cluster_store's native form uses `bits &= ~(1<<bit)`. dxil_codegen
+// has no ExprKind::Unary(BitNot) handler visible, so this is expected to
+// reject; if so, the XOR workaround in probe_xor_clear_bit.rx is the
+// mechanical substitute (verified separately).
+kernel fn k(src: View<global, u32>, dst: ViewMut<global, u32>, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    let w = src[i];
+    dst[i] = w & (!7u32);
+}
+
+fn main() {}

@@ -1,0 +1,31 @@
+; ModuleID = 'probe_texture_loadstore_2d'
+source_filename = "probe_texture_loadstore_2d"
+target datalayout = "e-m:e-p:32:32-i1:32-i8:8-i16:16-i32:32-i64:64-f16:16-f32:32-f64:64-n8:16:32:64"
+target triple = "dxil-unknown-shadermodel6.0-compute"
+
+define void @rx_k_8() #0 {
+entry:
+  %rx_h_src = call target("dx.Texture", float, 0, 0, 0, 2) @llvm.dx.resource.handlefrombinding(i32 0, i32 0, i32 1, i32 0, ptr null)
+  %rx_h_dst = call target("dx.Texture", float, 1, 0, 0, 2) @llvm.dx.resource.handlefrombinding(i32 0, i32 0, i32 1, i32 0, ptr null)
+  %v0.u32 = call i32 @llvm.dx.thread.id(i32 0)
+  %v0 = zext i32 %v0.u32 to i64
+  %v1.u32 = call i32 @llvm.dx.thread.id(i32 0)
+  %v1 = zext i32 %v1.u32 to i64
+  %v2.x = trunc i64 %v0 to i32
+  %v2.y = trunc i64 %v1 to i32
+  %v2.c0 = insertelement <2 x i32> poison, i32 %v2.x, i32 0
+  %v2.coords = insertelement <2 x i32> %v2.c0, i32 %v2.y, i32 1
+  %v2 = call float @llvm.dx.resource.load.level(target("dx.Texture", float, 0, 0, 0, 2) %rx_h_src, <2 x i32> %v2.coords, i32 0, <2 x i32> zeroinitializer)
+  %v3.x = trunc i64 %v0 to i32
+  %v3.y = trunc i64 %v1 to i32
+  %v3.c0 = insertelement <2 x i32> poison, i32 %v3.x, i32 0
+  %v3.coords = insertelement <2 x i32> %v3.c0, i32 %v3.y, i32 1
+  call void @llvm.dx.resource.store.texture(target("dx.Texture", float, 1, 0, 0, 2) %rx_h_dst, <2 x i32> %v3.coords, float %v2)
+  ret void
+}
+
+attributes #0 = { noinline nounwind "hlsl.numthreads"="1,1,1" "hlsl.shader"="compute" }
+
+!dx.valver = !{!0}
+
+!0 = !{i32 1, i32 8}

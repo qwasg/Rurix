@@ -1,0 +1,1 @@
+rurixc: --target dxil: DXIL container emitted + dxc validator accepted (H:\rurix\spike\dxil-path-probe\rurix_owned_feasibility\evidence\cluster_store_arith_core.dxil)

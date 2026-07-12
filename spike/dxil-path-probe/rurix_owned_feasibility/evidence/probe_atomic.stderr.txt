@@ -1,0 +1,5 @@
+error[RX6001]: erroneous expression is not supported by codegen yet (M2.3 host subset)
+  --> probe_atomic.rx:11:5
+   |
+11 |     counters.fetch_add(bucket, 1, Scope::Block);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not supported by MIR lowering yet (M3.1 host subset)

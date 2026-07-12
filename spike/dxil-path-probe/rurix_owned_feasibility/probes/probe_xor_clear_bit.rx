@@ -1,0 +1,18 @@
+//@ spec: RXS-0182 RXS-0183
+// Capability-boundary probe: the mechanical substitute for `bits &= ~(1<<bit)`
+// when unary NOT is unavailable — clear the single findLSB-selected bit with
+// XOR inside a `while bits != 0` scan. This is the exact inner-loop shape of
+// cluster_store / instance_compaction bitmask walks. Expected: dxv PASS.
+kernel fn k(src: View<global, u32>, dst: ViewMut<global, u32>, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    let mut bits = src[i];
+    let mut count = 0u32;
+    while bits != 0u32 {
+        let bit = bits.find_lsb();
+        count = count + 1u32;
+        bits = bits ^ (1u32 << bit);
+    }
+    dst[i] = count;
+}
+
+fn main() {}

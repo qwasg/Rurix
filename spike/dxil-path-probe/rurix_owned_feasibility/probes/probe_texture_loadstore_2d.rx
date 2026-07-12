@@ -1,0 +1,17 @@
+//@ spec: RXS-0157
+// Capability-boundary probe: does the FULL chain (rurixc -> llc -> dxv)
+// accept Texture2D.load / RWTexture2D.store 2D texel access? The IR-emit
+// stage accepts it (conformance/dxil/accept/rwtexture_load_store_2d.rx), but
+// GRX-009 texture_intrinsic_toolchain_blocker.json claims the patched llc
+// lacks llvm.dx.resource.load.texture.2d / store.texture.2d. This settles
+// whether the texture passes (luminance/tonemap/ssao/taa/fused) are blocked
+// at the operator layer or only at the toolchain layer. Byte-identical to the
+// accept fixture body.
+kernel fn k(src: Texture2D<f32>, dst: RWTexture2D<f32>, t: ThreadCtx<1>) {
+    let x = t.global_id();
+    let y = t.global_id();
+    let v = src.load(x, y);
+    dst.store(x, y, v);
+}
+
+fn main() {}

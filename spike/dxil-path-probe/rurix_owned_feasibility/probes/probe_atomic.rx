@@ -1,0 +1,14 @@
+//@ spec: RXS-0080
+// Capability-boundary probe: does the DXIL compute-body slice accept an
+// AtomicView + fetch_add? (gpu_culling InterlockedAdd/Or + indirect_args
+// validation-count blocker.) Expected: reject — either at the entry
+// param-type gate (DXIL entry supports only View/ViewMut/Texture2D/
+// RWTexture2D/scalar/ThreadCtx, so AtomicView is an unsupported param) or in
+// the body. Faithful to conformance/atomics/accept/scoped_atomics_ok.rx.
+kernel fn atomic_count(t: ThreadCtx<1>, data: View<global, u32>, counters: AtomicView<global, u32, (16,)>) {
+    let i = t.thread_index();
+    let bucket = data[i] % 16;
+    counters.fetch_add(bucket, 1, Scope::Block);
+}
+
+fn main() {}

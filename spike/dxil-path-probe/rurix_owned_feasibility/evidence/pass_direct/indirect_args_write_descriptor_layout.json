@@ -1,0 +1,15 @@
+{
+  "module": "indirect_args_write_kernel",
+  "root_constants": 2,
+  "root_constant_layout": [
+    { "name": "surface_count", "type": "i64", "order": 0, "root_parameter_index": 0, "dword_offset": 0, "dword_size": 2 },
+    { "name": "survivor_count_word_offset", "type": "i64", "order": 1, "root_parameter_index": 0, "dword_offset": 2, "dword_size": 2 }
+  ],
+  "resources": [
+    { "name": "src_survivor_counts", "class": "t", "register": 0, "space": 0, "count": 1, "binding_kind": "raw_buffer_view" },
+    { "name": "surface_template", "class": "t", "register": 1, "space": 0, "count": 1, "binding_kind": "raw_buffer_view" },
+    { "name": "caps", "class": "t", "register": 2, "space": 0, "count": 1, "binding_kind": "raw_buffer_view" },
+    { "name": "dst_command_buffer", "class": "u", "register": 0, "space": 0, "count": 1, "binding_kind": "raw_buffer_view" }
+  ],
+  "root_signature_parameters": 2
+}

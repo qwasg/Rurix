@@ -1,0 +1,32 @@
+//@ spec: RXS-0181 RXS-0182 RXS-0183
+// Capability-boundary probe: the NON-atomic, non-groupshared u32 core shared
+// by gpu_culling (visibility bitmask read-back) and instance_compaction
+// (bitmask decode). One word of the visibility bitmask is scanned; per set
+// bit the instance's transform-count word is bumped in a per-thread-private
+// output slot (NO cross-thread atomic — this is the "each thread owns a slot"
+// redesign the feasibility note evaluates). Exercises u32 views + >> + & + <<
+// + find_lsb + XOR-clear + while, all MR-0006 surface. Expected: dxv PASS.
+kernel fn k(
+    visibility: View<global, u32>,
+    counts_out: ViewMut<global, u32>,
+    word_count: usize,
+    t: ThreadCtx<1>,
+) {
+    let w = t.global_id();
+    if w < word_count {
+        let mut bits = visibility[w];
+        let mut popcnt = 0u32;
+        while bits != 0u32 {
+            let bit = bits.find_lsb();
+            let instance = (w as u32) * 32u32 + bit;
+            let word = instance >> 5u32;
+            let lane = instance & 0x1Fu32;
+            let masked = 1u32 << lane;
+            popcnt = popcnt + (masked >> lane);
+            bits = bits ^ (1u32 << bit);
+        }
+        counts_out[w] = popcnt;
+    }
+}
+
+fn main() {}

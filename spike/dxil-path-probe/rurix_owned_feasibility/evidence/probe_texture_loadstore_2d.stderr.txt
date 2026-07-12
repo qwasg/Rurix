@@ -1,0 +1,1 @@
+rurixc: --target dxil: DXIL container emitted + dxc validator accepted (H:\rurix\spike\dxil-path-probe\rurix_owned_feasibility\evidence\probe_texture_loadstore_2d.dxil)

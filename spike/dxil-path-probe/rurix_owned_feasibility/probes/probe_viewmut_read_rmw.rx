@@ -1,0 +1,14 @@
+//@ spec: RXS-0181
+// Capability-boundary probe: can a ViewMut (UAV) be READ (read-modify-write)?
+// cluster_store merges min/max into cluster_store[slice_ofs], gpu_culling
+// InterlockedOr reads the bitmask word, indirect_args/fused all RMW the
+// output. Expected: RX6007 reject — "load 源必须是 View<...> 或 Texture2D"
+// (the DXIL body load path accepts only read-only View / Texture2D, not
+// ViewMut). This is orthogonal to atomics: even a non-atomic RMW is blocked.
+kernel fn k(dst: ViewMut<global, u32>, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    let prev = dst[i];
+    dst[i] = prev + 1u32;
+}
+
+fn main() {}

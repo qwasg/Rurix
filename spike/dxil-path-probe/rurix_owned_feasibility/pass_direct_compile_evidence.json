@@ -1,0 +1,101 @@
+{
+  "generated_utc": "2026-07-12T15:12:22Z",
+  "toolchain": {
+    "rurixc": "H:\\rurix\\target\\release\\rurixc.exe",
+    "llc": "H:/llvm-clean-82c5bce5-build/bin/llc.exe",
+    "dxc_dir": "H:/dxc-round7/extracted/bin/x64"
+  },
+  "note": "Direct compile of each pass's UNMODIFIED src/lib.rx. Documentation-only lib.rx (cluster_store/gpu_culling/indirect_args) carry no kernel fn.",
+  "passes": [
+    {
+      "pass": "luminance_reduction",
+      "src": "spike/godot-rurix/passes/luminance_reduction/src/lib.rx",
+      "measured_class": "dxv_pass",
+      "exit_code": 0,
+      "first_signal": "rurixc: --target dxil: DXIL container emitted + dxc validator accepted (H:\\rurix\\spike\\dxil-path-probe\\rurix_owned_feasibility\\evidence\\pass_direct\\luminance_reduction.dxil)",
+      "dxil_container_sha256": "966f10a07bb01d27c40917c29bffa0eac8075a9a91e0b4a044daec00f07c0239",
+      "dxil_container_bytes": 3984
+    },
+    {
+      "pass": "tonemap",
+      "src": "spike/godot-rurix/passes/tonemap/src/lib.rx",
+      "measured_class": "rurixc_reject_RX1001",
+      "exit_code": 1,
+      "first_signal": "error[RX1001]: unresolved name `powf`",
+      "dxil_container_sha256": null,
+      "dxil_container_bytes": null
+    },
+    {
+      "pass": "ssao_blur",
+      "src": "spike/godot-rurix/passes/ssao_blur/src/lib.rx",
+      "measured_class": "rurixc_reject_RX6007",
+      "exit_code": 1,
+      "first_signal": "error[RX6007]: DXIL codegen target unavailable or unsupported: DXIL compute body lowering slice 1 不支持f32 表达式",
+      "dxil_container_sha256": null,
+      "dxil_container_bytes": null
+    },
+    {
+      "pass": "taa_resolve",
+      "src": "spike/godot-rurix/passes/taa_resolve/src/lib.rx",
+      "measured_class": "rurixc_reject_RX2004",
+      "exit_code": 1,
+      "first_signal": "error[RX2004]: no method named `global_id_2d` found on type `ThreadCtx<2>`",
+      "dxil_container_sha256": null,
+      "dxil_container_bytes": null
+    },
+    {
+      "pass": "particles_copy",
+      "src": "spike/godot-rurix/passes/particles_copy/src/lib.rx",
+      "measured_class": "rurixc_reject_RX6007",
+      "exit_code": 1,
+      "first_signal": "error[RX6007]: DXIL codegen target unavailable or unsupported: DXIL compute body lowering 仅支持 View/ViewMut<global, f32|u32|i32>(RXS-0181;子集外元素类型 strict 拒绝)",
+      "dxil_container_sha256": null,
+      "dxil_container_bytes": null
+    },
+    {
+      "pass": "cluster_store",
+      "src": "spike/godot-rurix/passes/cluster_store/src/lib.rx",
+      "measured_class": "no_kernel_documentation_only",
+      "exit_code": 2,
+      "first_signal": "no compute kernel fn (documentation-only lib.rx)",
+      "dxil_container_sha256": null,
+      "dxil_container_bytes": null
+    },
+    {
+      "pass": "gpu_culling",
+      "src": "spike/godot-rurix/passes/gpu_culling/src/lib.rx",
+      "measured_class": "no_kernel_documentation_only",
+      "exit_code": 2,
+      "first_signal": "no compute kernel fn (documentation-only lib.rx)",
+      "dxil_container_sha256": null,
+      "dxil_container_bytes": null
+    },
+    {
+      "pass": "instance_compaction",
+      "src": "spike/godot-rurix/passes/instance_compaction/src/lib.rx",
+      "measured_class": "rurixc_reject_RX6007",
+      "exit_code": 1,
+      "first_signal": "error[RX6007]: DXIL codegen target unavailable or unsupported: DXIL compute body lowering 仅支持 View/ViewMut<global, f32|u32|i32>(RXS-0181;子集外元素类型 strict 拒绝)",
+      "dxil_container_sha256": null,
+      "dxil_container_bytes": null
+    },
+    {
+      "pass": "indirect_args",
+      "src": "spike/godot-rurix/passes/indirect_args/src/lib.rx",
+      "measured_class": "no_kernel_documentation_only",
+      "exit_code": 2,
+      "first_signal": "no compute kernel fn (documentation-only lib.rx)",
+      "dxil_container_sha256": null,
+      "dxil_container_bytes": null
+    },
+    {
+      "pass": "fused_post_chain",
+      "src": "spike/godot-rurix/passes/fused_post_chain/src/lib.rx",
+      "measured_class": "rurixc_reject_RX2004",
+      "exit_code": 1,
+      "first_signal": "error[RX2004]: no method named `global_id_2d` found on type `ThreadCtx<2>`",
+      "dxil_container_sha256": null,
+      "dxil_container_bytes": null
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "module": "cs_norw",
+  "root_constants": 0,
+  "root_constant_layout": [],
+  "resources": [
+    { "name": "cluster_render", "class": "t", "register": 0, "space": 0, "count": 1, "binding_kind": "raw_buffer_view" },
+    { "name": "cluster_out", "class": "u", "register": 0, "space": 0, "count": 1, "binding_kind": "raw_buffer_view" }
+  ],
+  "root_signature_parameters": 1
+}

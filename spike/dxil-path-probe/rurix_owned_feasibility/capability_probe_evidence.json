@@ -1,0 +1,132 @@
+{
+  "generated_utc": "2026-07-12T15:11:47Z",
+  "toolchain": {
+    "rurixc": "H:\\rurix\\target\\release\\rurixc.exe",
+    "llc": "H:/llvm-clean-82c5bce5-build/bin/llc.exe",
+    "dxc_dir": "H:/dxc-round7/extracted/bin/x64",
+    "features": "dxil-backend shader-stages"
+  },
+  "note": "Real rurixc->llc->dxv chain. measured_class is authoritative; expected is the pre-run hypothesis.",
+  "probes": [
+    {
+      "probe": "cluster_store_arith_core.rx",
+      "expected": "dxv_pass|cluster_store z-decode+min/max pack, output at own index (cast-free)",
+      "measured_class": "dxv_pass",
+      "exit_code": 0,
+      "rx_code": null,
+      "dxil_container_sha256": "8553c20b27d5b4706a92ec129f33df64fce06dc26dd41b39c982e8b90afe612b",
+      "dxil_container_bytes": 3092,
+      "stderr_tail": "rurixc: --target dxil: DXIL container emitted + dxc validator accepted (H:\\rurix\\spike\\dxil-path-probe\\rurix_owned_feasibility\\evidence\\cluster_store_arith_core.dxil)"
+    },
+    {
+      "probe": "cluster_store_native_probe.rx",
+      "expected": "reject_cast|full pack needs u32->usize cast for scan-derived index",
+      "measured_class": "rurixc_reject",
+      "exit_code": 1,
+      "rx_code": "RX6007",
+      "dxil_container_sha256": null,
+      "dxil_container_bytes": null,
+      "stderr_tail": "error[RX6007]: DXIL codegen target unavailable or unsupported: DXIL compute body lowering slice 1 不支持f32 表达式\n  --> cluster_store_native_probe.rx:43:59\n   |\n43 |                 let index = render_element_offset * 32 + (index_bit as usize);\n   |                                                           ^^^^^^^^^^^^^^^^^^ in DXIL compute entry"
+    },
+    {
+      "probe": "instance_compaction_scatter_lane.rx",
+      "expected": "dxv_pass|D3 bit-preserving transform move given precomputed rank",
+      "measured_class": "dxv_pass",
+      "exit_code": 0,
+      "rx_code": null,
+      "dxil_container_sha256": "4359f736419184d3d0ce3c263da94cb2d9b6d0cbeb7995a6f488f8e8378c86c6",
+      "dxil_container_bytes": 3892,
+      "stderr_tail": "rurixc: --target dxil: DXIL container emitted + dxc validator accepted (H:\\rurix\\spike\\dxil-path-probe\\rurix_owned_feasibility\\evidence\\instance_compaction_scatter_lane.dxil)"
+    },
+    {
+      "probe": "particles_copy_align_disabled_lane.rx",
+      "expected": "reject_alignment|ALIGN_DISABLED f32 lane; i64 root-const odd-dword alignment",
+      "measured_class": "rurixc_reject",
+      "exit_code": 1,
+      "rx_code": "RX6007",
+      "dxil_container_sha256": null,
+      "dxil_container_bytes": null,
+      "stderr_tail": "error[RX6007]: DXIL codegen target unavailable or unsupported: root constant `motion_vectors_current_offset`(i64)落在奇数 dword 偏移 3,与 cbuffer 行对齐规则不相容(strict-only)\n --> particles_copy_align_disabled_lane.rx:9:11\n  |\n9 | kernel fn particles_copy_fill_instances_align_disabled(\n  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ in DXIL compute entry"
+    },
+    {
+      "probe": "probe_atomic.rx",
+      "expected": "reject|AtomicView + fetch_add (culling/indirect_args counts)",
+      "measured_class": "rurixc_reject",
+      "exit_code": 1,
+      "rx_code": "RX6001",
+      "dxil_container_sha256": null,
+      "dxil_container_bytes": null,
+      "stderr_tail": "error[RX6001]: erroneous expression is not supported by codegen yet (M2.3 host subset)\n  --> probe_atomic.rx:11:5\n   |\n11 |     counters.fetch_add(bucket, 1, Scope::Block);\n   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not supported by MIR lowering yet (M3.1 host subset)"
+    },
+    {
+      "probe": "probe_cast_f32_u32.rx",
+      "expected": "reject_cast|ssao edge-unpack (f32->u32->f32) casts",
+      "measured_class": "rurixc_reject",
+      "exit_code": 1,
+      "rx_code": "RX6007",
+      "dxil_container_sha256": null,
+      "dxil_container_bytes": null,
+      "stderr_tail": "error[RX6007]: DXIL codegen target unavailable or unsupported: DXIL compute body lowering slice 1 不支持f32 表达式\n --> probe_cast_f32_u32.rx:9:18\n  |\n9 |     let packed = (src[i] * 255.5) as u32;\n  |                  ^^^^^^^^^^^^^^^^^^^^^^^ in DXIL compute entry"
+    },
+    {
+      "probe": "probe_groupshared_barrier.rx",
+      "expected": "reject|shared let + block.sync() (compaction prefix-scan)",
+      "measured_class": "rurixc_reject",
+      "exit_code": 1,
+      "rx_code": "RX6007",
+      "dxil_container_sha256": null,
+      "dxil_container_bytes": null,
+      "stderr_tail": "error[RX6007]: DXIL codegen target unavailable or unsupported: DXIL compute body lowering slice 1 不支持 shared let\n --> probe_groupshared_barrier.rx:8:5\n  |\n8 |     shared let tile: [u32; 256];\n  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ in DXIL compute entry"
+    },
+    {
+      "probe": "probe_texture_loadstore_2d.rx",
+      "expected": "dxv_pass|SETTLES GRX-009 llc texture blocker (single-channel f32 texel load/store)",
+      "measured_class": "dxv_pass",
+      "exit_code": 0,
+      "rx_code": null,
+      "dxil_container_sha256": "08a18691a373ad70f79e59daacc747107342022d9d7bfc35d7cdfa5dc9d838d3",
+      "dxil_container_bytes": 2604,
+      "stderr_tail": "rurixc: --target dxil: DXIL container emitted + dxc validator accepted (H:\\rurix\\spike\\dxil-path-probe\\rurix_owned_feasibility\\evidence\\probe_texture_loadstore_2d.dxil)"
+    },
+    {
+      "probe": "probe_u32_bitmask_decode.rx",
+      "expected": "reject_cast|instance index = word*32+bit needs u32->usize cast",
+      "measured_class": "rurixc_reject",
+      "exit_code": 1,
+      "rx_code": "RX6007",
+      "dxil_container_sha256": null,
+      "dxil_container_bytes": null,
+      "stderr_tail": "error[RX6007]: DXIL codegen target unavailable or unsupported: DXIL compute body lowering slice 1 不支持f32 表达式\n  --> probe_u32_bitmask_decode.rx:21:29\n   |\n21 |             let instance = (w as u32) * 32u32 + bit;\n   |                             ^^^^^^^^ in DXIL compute entry"
+    },
+    {
+      "probe": "probe_unary_not.rx",
+      "expected": "reject|unary bitwise NOT not lowered on DXIL path",
+      "measured_class": "rurixc_reject",
+      "exit_code": 1,
+      "rx_code": "RX6007",
+      "dxil_container_sha256": null,
+      "dxil_container_bytes": null,
+      "stderr_tail": "error[RX6007]: DXIL codegen target unavailable or unsupported: DXIL compute body lowering slice 1 不支持f32 表达式\n  --> probe_unary_not.rx:10:19\n   |\n10 |     dst[i] = w & (!7u32);\n   |                   ^^^^^ in DXIL compute entry"
+    },
+    {
+      "probe": "probe_viewmut_read_rmw.rx",
+      "expected": "reject|read-modify-write on ViewMut/UAV (cluster_store/culling merges)",
+      "measured_class": "rurixc_reject",
+      "exit_code": 1,
+      "rx_code": "RX6007",
+      "dxil_container_sha256": null,
+      "dxil_container_bytes": null,
+      "stderr_tail": "error[RX6007]: DXIL codegen target unavailable or unsupported: DXIL compute body lowering load 源必须是 View<global, f32|u32|i32> 或 Texture2D<f32>(RXS-0181/GRX-009)\n --> probe_viewmut_read_rmw.rx:8:18\n  |\n8 | kernel fn k(dst: ViewMut<global, u32>, t: ThreadCtx<1>) {\n  |                  ^^^^^^^^^^^^^^^^^^^^ in DXIL compute entry"
+    },
+    {
+      "probe": "probe_xor_clear_bit.rx",
+      "expected": "dxv_pass|findLSB bit-walk cleared by XOR (unary-NOT substitute)",
+      "measured_class": "dxv_pass",
+      "exit_code": 0,
+      "rx_code": null,
+      "dxil_container_sha256": "b144d894fc49c56099e2975764a6362a4d96782ff26ba2f88ba6ca91ec08c32b",
+      "dxil_container_bytes": 2808,
+      "stderr_tail": "rurixc: --target dxil: DXIL container emitted + dxc validator accepted (H:\\rurix\\spike\\dxil-path-probe\\rurix_owned_feasibility\\evidence\\probe_xor_clear_bit.dxil)"
+    }
+  ]
+}

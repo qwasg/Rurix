@@ -1,0 +1,92 @@
+//@ spec: RXS-0181 RXS-0182 RXS-0183
+// GRX rurix_owned feasibility probe (post MR-0006/0007): cluster_store
+// "Pack 3D Cluster Elements" store segment, expressed natively in the DXIL
+// compute-body slice. Faithful to cluster_store_pack.hlsl (the bridge kernel)
+// modulo the mechanical slice rewrites required today:
+//   * render_elements 80B RenderElementData struct -> flat View<global,u32>
+//     with stride 20 words; the kernel reads only the 4 leading u32 fields
+//     (element_type@+0, touches_near@+1, touches_far@+2, original_index@+3),
+//     so the aggregate C2 gap is sidestepped by scalar decomposition.
+//   * 2D SV_DispatchThreadID -> 1D global_id() (one thread per cluster); the
+//     caller dispatches cluster_screen_w*cluster_screen_h linear threads.
+//   * `for i in from_z..to_z` -> `while`.
+//   * `min(a,b)` / `max(a,b)` -> value-if scalar select.
+//   * `bits &= ~(1<<bit)` -> `bits = bits ^ (1u32 << bit)` (XOR clears the
+//     single set bit that findLSB just selected; equivalent to AND-NOT here).
+//   * `x |= y` -> `x = x | y`.
+// All operators used (u32 views, & | ^ << >>, find_lsb/find_msb) are the
+// exact surface MR-0006 unlocked; no atomics (threads own disjoint clusters).
+kernel fn cluster_store_pack_core(
+    cluster_render: View<global, u32>,
+    render_elements: View<global, u32>,
+    cluster_store: ViewMut<global, u32>,
+    cluster_screen_w: usize,
+    cluster_screen_h: usize,
+    cluster_render_data_size: usize,
+    max_render_element_count_div_32: usize,
+    render_element_count_div_32: usize,
+    max_cluster_element_count_div_32: usize,
+    t: ThreadCtx<1>,
+) {
+    let cluster = t.global_id();
+    let cluster_count = cluster_screen_w * cluster_screen_h;
+
+    if cluster < cluster_count {
+        let base_offset = cluster;
+        let src_offset = base_offset * cluster_render_data_size;
+
+        let mut render_element_offset = 0;
+        while render_element_offset < render_element_count_div_32 {
+            let mut bits = cluster_render[src_offset + render_element_offset];
+            while bits != 0u32 {
+                let index_bit = bits.find_lsb();
+                let index = render_element_offset * 32 + (index_bit as usize);
+                let rebase = index * 20;
+
+                let z_range_offset = src_offset + max_render_element_count_div_32 + index;
+                let z_range = cluster_render[z_range_offset];
+
+                if z_range != 0u32 {
+                    let raw_from = z_range.find_lsb();
+                    let raw_to = z_range.find_msb() + 1u32;
+                    let touches_near = render_elements[rebase + 1];
+                    let touches_far = render_elements[rebase + 2];
+                    let from_z = if touches_near != 0u32 { 0u32 } else { raw_from };
+                    let to_z = if touches_far != 0u32 { 32u32 } else { raw_to };
+
+                    let element_type = render_elements[rebase + 0] as usize;
+                    let dst_offset =
+                        (base_offset + element_type * cluster_count)
+                        * (max_cluster_element_count_div_32 + 32);
+
+                    let orig_index = render_elements[rebase + 3];
+
+                    let mut i = from_z;
+                    while i < to_z {
+                        let slice_ofs = dst_offset + max_cluster_element_count_div_32 + (i as usize);
+                        let cur = cluster_store[slice_ofs];
+                        let minmax = if cur == 0u32 { 0xFFFFu32 } else { cur };
+                        let lo = minmax & 0xFFFFu32;
+                        let hi = minmax >> 16u32;
+                        let elem_min = if orig_index < lo { orig_index } else { lo };
+                        let plus_one = orig_index + 1u32;
+                        let elem_max = if plus_one > hi { plus_one } else { hi };
+                        cluster_store[slice_ofs] = elem_min | (elem_max << 16u32);
+                        i = i + 1u32;
+                    }
+
+                    let store_word = orig_index >> 5u32;
+                    let store_bit = orig_index & 0x1Fu32;
+                    let bitmap_ofs = dst_offset + (store_word as usize);
+                    let existing = cluster_store[bitmap_ofs];
+                    cluster_store[bitmap_ofs] = existing | (1u32 << store_bit);
+                }
+
+                bits = bits ^ (1u32 << index_bit);
+            }
+            render_element_offset = render_element_offset + 1;
+        }
+    }
+}
+
+fn main() {}
