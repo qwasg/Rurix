@@ -252,3 +252,80 @@ scratch copy with all prior patches applied, verified by
   module + probe registration + manifest flip + owner default-enable decision).
 - align modes 2/3/4, 2D copy mode, sort/lifetime reindex, trail, userdata.
 - full baseline / per-pass FPS comparison; any performance claim.
+
+## 12. Close-out (GRX-011 stage-A5 equivalent)
+
+> Close-out addendum. Sections 1-11 (investigation / contract / markers) stay
+> unchanged (pass_id = particles_copy, `RXGD_PASS_PARTICLES_COPY`,
+> `RXGD_CAP_PARTICLES_COPY_REAL_PASS`, the COPY_MODE_FILL_INSTANCES 3D subset,
+> etc.); the §11 remaining items and known gaps are preserved. This section only
+> records what has landed. The S4-S9 items in §11 (bridge gate, patches
+> 0020-0022, dispatch smoke, enablement, close-out) are now DELIVERED.
+
+GRX-013 particles_copy is closed out (reusing the GRX-009/010/011 template). The
+S4-S9 chain landed:
+
+- **Bridge gate (S4)** — the fail-closed `ParticlesCopyGate` in
+  `src/rurix-godot/src/lib.rs`: preflight (2 structured buffers, 128-byte b0
+  CopyPushConstant mirror, nonzero `total_particles`; NO int64 cap check) ->
+  dispatch eligibility (`RXGD_CAP_PARTICLES_COPY_REAL_PASS` opt-in, the int64
+  device/recording-harness capability, non-null handles, package layout/digest
+  match) -> per-slot binding kinds (`[structured_buffer, rwstructured_buffer]`)
+  -> math parity -> real dispatch under the `d3d12-recording-shim` feature. Every
+  failure prints the once-per-session `RXGD_PARTICLES_COPY_REAL_PASS_BLOCKED`
+  diagnostic. Because int64 is NOT in the preflight, the forced capability
+  downgrade fails closed one level later at `dispatch_eligibility_failed` (not
+  `runtime_binding_preflight_failed` like the texture passes).
+- **Patches 0020-0022** — `0020` (per-pass `enabled` setting default false +
+  `try_record_particles_copy()` module gate + `particles_set_view_axis`
+  COPY_MODE_FILL_INSTANCES call-site opt-in gate guarded by `!do_sort`), `0021`
+  (runtime native structured-buffer handle binding via
+  `get_driver_resource(DRIVER_RESOURCE_BUFFER, ...)`; fallback marker
+  `RurixAccel: particles_copy native resource handle mapping fallback rc=`),
+  `0022` (recording-smoke + real-pass opt-in arms +
+  `RXGD_GODOT_RUNTIME_PARTICLES_COPY_REAL_PASS` marker + writeback SCAFFOLD; the
+  native particles copy re-fills every instance every frame as the
+  continuation/backstop).
+
+**Enablement measured success**: `ci/grx013_particles_copy_real_pass_enablement_smoke.py`
+on the 0001..0022 scratch Godot (Windows D3D12 Forward+, NVIDIA GeForce RTX 4070
+Ti) recorded a strict MEASURED success (`real_pass_enablement_success_evidence.json`,
+`status=success`, `strict_success=true`): the candidate leg observed
+`real_pass_marker_observed=true` + `writeback_marker_observed=true`
+(`RXGD_GODOT_RUNTIME_PARTICLES_COPY_REAL_PASS recorded=1`), the
+`forced_capability_downgrade` red leg measured
+`first_missing_prerequisite=dispatch_eligibility_failed`/`fallback_reason=unsupported_device`
+(`RXGD_PARTICLES_COPY_REAL_PASS_BLOCKED`), the LDR visual gate held at
+`max_abs=0`/`mean_abs=0`, the measured_local telemetry passed GRX-008 validation,
+and the `0001..0022` patch-stack / source-provenance / log audits were all green.
+The scene is a deterministic `GPUParticles3D` (fixed seed + `fixed_fps`, 4096
+particles, `TRANSFORM_ALIGN_Z_BILLBOARD` so the cull stage drives
+`particles_set_view_axis`, default `DRAW_ORDER_INDEX` so `do_sort=false` selects
+the in-scope plain COPY_MODE_FILL_INSTANCES subset; `dispatch=64x1x1`=ceil(4096/64),
+`dst_bytes=327680`=4096*80). The standalone dispatch smoke
+(`real_d3d12_dispatch_smoke.json`) has `real_d3d12_dispatch_recorded=true`,
+`cpu_reference_match=true`. The manifest top-level honestly flips
+`implemented=true`, `real_gpu_pass=true` (opt-in measured scope),
+`real_d3d12_dispatch_recorded=true`,
+`runtime_state=fallback_only_by_default_real_pass_optin_measured`;
+`default_enable_state` stays `disabled` and a `real_pass_measured_success` block
+is added.
+
+**Owner default-enable decision**: `real_pass_default_enable_decision.json` / `.md`
+record `keep_default_disabled` — (1) no per-pass FPS evidence; (2) the patch 0022
+writeback is a scaffold (the native continuation re-fills every instance every
+frame; candidate image bit-exact; no net benefit); (3) only the
+COPY_MODE_FILL_INSTANCES 3D ALIGN_DISABLED/ALIGN_BILLBOARD subset (2D copy,
+VIEW_DEPTH sort, lifetime reindex, trail, userdata, align modes 2/3/4 uncovered).
+Re-evaluated by the owner after a full baseline + per-pass benchmark.
+
+**Fail-closed invariants**: under the default Godot config the bridge still
+returns `RXGD_STATUS_FALLBACK` for `RXGD_PASS_PARTICLES_COPY` and the native
+particles copy takes over; the shipping feature-off bridge still fails closed with
+`real_dispatch_path_not_linked`. Once the gate module
+`ci/grx_gates/grx013_particles_copy.py` reports decision + enablement ready
+(top-level `default_enable_decision` non-empty + `strict_success=true`), the probe
+advances `next_action=start_grx014_cluster_store_pass_contract`; any
+missing/tampered artifact fails closed (`grx_gate_module_error`) and keeps
+`next_action` unchanged. All §11 remaining items / known gaps are preserved. No
+FPS, p95, GPU-timestamp, or performance improvement is claimed.

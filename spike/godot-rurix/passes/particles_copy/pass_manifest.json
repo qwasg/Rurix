@@ -1,7 +1,7 @@
 {
   "pass_id": "particles_copy",
-  "status": "grx013_contract_and_offline_kernel_slice_s1_s3",
-  "implemented": false,
+  "status": "grx013_real_pass_measured_success_default_disabled",
+  "implemented": true,
   "default_enable_state": "disabled",
   "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
   "target_scenes": [
@@ -115,36 +115,65 @@
     }
   ],
   "implementation_status": {
-    "segment": "s1_s3_offline_face",
-    "segment_detail": "grx013_contract_trio_plus_offline_kernel_plus_math_parity",
-    "runtime_state": "fallback_only",
-    "runtime_state_note": "This slice delivers the OFFLINE face only: the pass contract, the DXC/DXV/RTS0 offline kernel package (hlsl_bridge_workaround provenance, Rurix-owned RTS0), and the CPU math-parity reference. There is NO bridge gate, NO Godot patch, NO runtime binding, and NO GPU dispatch yet. The pass ships default disabled; the native Godot particles_copy path is always the fallback. implemented=false / real_gpu_pass=false / real_d3d12_dispatch_recorded=false are the fail-closed initial values.",
-    "bridge_gate": "NOT wired in this slice (S4 later): a fail-closed ParticlesCopyGate mirroring the GRX-010/011 template (preflight -> dispatch eligibility with RXGD_CAP_PARTICLES_COPY_REAL_PASS opt-in -> per-slot structured_buffer/rwstructured_buffer binding-kind conformance -> math-parity gate -> real dispatch under a recording-shim feature) is a later slice",
-    "godot_module_patch": "NOT authored in this slice (S5/S7 later): patches 0020-0022 (0020 gate+callsite / 0021 runtime binding / 0022 recording+real-pass opt-in) are reserved in PATCH_ALLOCATION.md section 2 and not yet generated",
-    "godot_core_call_site_wired": false,
-    "real_gpu_pass": false,
-    "real_d3d12_dispatch_recorded": false,
+    "segment": "close_out",
+    "segment_detail": "grx013_real_pass_measured_success_default_disabled",
+    "runtime_state": "fallback_only_by_default_real_pass_optin_measured",
+    "runtime_state_note": "The DEFAULT runtime path stays fallback-only: with all per-pass settings at their false defaults the bridge still returns RXGD_STATUS_FALLBACK for RXGD_PASS_PARTICLES_COPY and the native Godot particles copy renders. real_gpu_pass=true / real_d3d12_dispatch_recorded=true record the strict MEASURED success of the opt-in real-pass arm (dispatch_real_pass under a d3d12-recording-shim bridge on the 0001..0022 scratch build); it is not a default enablement and carries no performance claim. The shipping feature-off bridge still fails closed with real_dispatch_path_not_linked, and the patch 0022 result writeback is a SCAFFOLD (native Godot particles copy stays the continuation/backstop and re-fills every instance every frame, so the candidate image cannot change and no net benefit exists yet). No estimated particles_copy GPU time is attributed.",
+    "bridge_gate": "src/rurix-godot ParticlesCopyGate: preflight (2 structured-buffer resources, 128-byte b0 CopyPushConstant mirror, nonzero total_particles; NO int64 cap check because particles_copy's b0 carries no i64 fields) -> dispatch eligibility (RXGD_CAP_PARTICLES_COPY_REAL_PASS opt-in, the int64 device/recording-harness capability, non-null native handles, ParticlesCopyDispatchPackage layout/digest match vs offline evidence) -> per-slot kernel-binding-kind conformance ([structured_buffer, rwstructured_buffer]) -> math-parity gate (fill_instances_cpu_reference_proven_pending_gpu_dispatch) -> real dispatch only under the d3d12-recording-shim feature; every failure records a fallback reason and prints the once-per-session RXGD_PARTICLES_COPY_REAL_PASS_BLOCKED diagnostic. Because int64 is NOT in the preflight, the forced capability downgrade fails closed one level later at dispatch_eligibility_failed (not runtime_binding_preflight_failed like the texture passes).",
+    "godot_module_patch": "spike/godot-rurix/patches/0020-rurix-accel-particles-copy-pass-gate-and-callsite.patch (stacked on 0001..0019; default-false rendering/rurix_accel/passes/particles_copy/enabled setting, try_record_particles_copy() module gate, default-false virtual D3D12Hooks::try_record_particles_copy(), and the particles_set_view_axis COPY_MODE_FILL_INSTANCES call-site opt-in gate in particles_storage.cpp guarded by !do_sort; the native fill-instances dispatch is always preserved as fallback/continuation). The runtime native-handle binding is patch 0021-rurix-accel-particles-copy-runtime-resource-binding.patch and the recording-smoke + real-pass opt-in arms are patch 0022-rurix-accel-particles-copy-recording-smoke-and-real-pass-optin.patch",
+    "godot_core_call_site_wired": true,
+    "wired_call_sites": [
+      {
+        "file": "servers/rendering/renderer_rd/storage_rd/particles_storage.cpp",
+        "region": "particles_set_view_axis COPY_MODE_FILL_INSTANCES dispatch",
+        "note": "opt-in gate calls D3D12Hooks::try_record_particles_copy() before the native fill-instances dispatch, guarded by !do_sort so only the plain COPY_MODE_FILL_INSTANCES subset is in scope (patch 0020/0021; applyability verified via git apply --check on a scratch copy). The cull stage only calls particles_set_view_axis for billboard transform_align, so the enablement smoke uses TRANSFORM_ALIGN_Z_BILLBOARD with the default DRAW_ORDER_INDEX."
+      }
+    ],
+    "real_gpu_pass": true,
+    "real_d3d12_dispatch_recorded": true,
     "godot_runtime_particles_copy_path_enabled": false,
     "standalone_d3d12_dispatch_smoke": {
-      "status": "not_run_this_slice",
-      "note": "S6 (host-exclusive GPU + signed DXC + MSVC) is a later slice; this slice records CPU-reference math parity with status=pending_gpu_dispatch only"
+      "harness": "ci/grx013_particles_copy_d3d12_dispatch_smoke.py",
+      "evidence": "spike/godot-rurix/passes/particles_copy/real_d3d12_dispatch_smoke.json",
+      "run_command": "$env:RURIX_DXC_DIR='H:\\dxc-round7\\extracted\\bin\\x64'; py -3 ci\\grx013_particles_copy_d3d12_dispatch_smoke.py",
+      "purpose": "Prove the tracked offline particles_copy DXIL container + RTS0 root signature + descriptor layout can complete one minimal compute dispatch on a real D3D12 device/command queue with two structured buffers (SRV t0 + UAV u0) AND that every measured GPU output element matches the CPU reference (COPY_MODE_FILL_INSTANCES 3D subset on a deterministic synthetic ParticleData fixture) within tolerance. Standalone measured evidence only; the bridge records no dispatch and returns no OK.",
+      "does_not_imply": [
+        "Godot runtime particles copy pass completion",
+        "bridge rxgd_record_pass returning RXGD_STATUS_OK",
+        "real_gpu_pass = true",
+        "real_d3d12_dispatch_recorded = true",
+        "any visual diff, measured fallback telemetry, or performance claim"
+      ]
+    },
+    "real_pass_measured_success": {
+      "status": "success",
+      "strict_success": true,
+      "evidence": "spike/godot-rurix/passes/particles_copy/real_pass_enablement_success_evidence.json",
+      "telemetry": "spike/godot-rurix/passes/particles_copy/real_pass_enablement_telemetry.json",
+      "default_enable_decision": "spike/godot-rurix/passes/particles_copy/real_pass_default_enable_decision.json",
+      "default_enable_decision_document": "spike/godot-rurix/passes/particles_copy/real_pass_default_enable_decision.md",
+      "decision": "keep_default_disabled",
+      "harness": "ci/grx013_particles_copy_real_pass_enablement_smoke.py",
+      "real_gpu_pass_scope": "opt_in_only: the measured real dispatch requires the default-false dispatch_real_pass arm plus a d3d12-recording-shim bridge DLL; the default runtime path stays fallback-only and the shipping feature-off bridge fails closed with real_dispatch_path_not_linked",
+      "patch_stack": "0001..0022",
+      "pass_enable_matrix": "three legs measured on the 0001..0022 scratch build: disabled_default (reference) / enabled_real_pass_optin (candidate, real_pass_marker + writeback_marker observed) / forced_capability_downgrade (RXGD_PARTICLES_COPY_REAL_PASS_BLOCKED first_missing_prerequisite=dispatch_eligibility_failed fallback_reason=unsupported_device)",
+      "scene": "deterministic GPUParticles3D (fixed seed + fixed_fps, 4096 particles, TRANSFORM_ALIGN_Z_BILLBOARD so the cull stage drives particles_set_view_axis, default DRAW_ORDER_INDEX so do_sort=false selects the in-scope plain COPY_MODE_FILL_INSTANCES subset; dispatch=64x1x1=ceil(4096/64), dst_bytes=327680=4096*80)",
+      "ldr_visual_gate": "max_abs=0 / mean_abs=0 (candidate is bit-exact to the reference because the writeback is a scaffold and the native particles copy continuation still re-fills every instance)",
+      "performance_claim": "none",
+      "next_action_when_ready": "start_grx014_cluster_store_pass_contract"
     },
     "remaining_segments": [
-      "S4 fail-closed bridge gate (ParticlesCopyGate) in src/rurix-godot/src/lib.rs with RXGD_CAP_PARTICLES_COPY_REAL_PASS (1u<<7) and the RXGD_PASS_PARTICLES_COPY (7) pass id",
-      "S5 patch 0020 (per-pass setting default false + call-site opt-in gate at particles_set_view_axis)",
-      "S6 standalone real D3D12 dispatch smoke (fills the GPU-observed side of math_parity_evidence.json)",
-      "S7 patches 0021/0022 (runtime native-handle binding + recording-smoke/real-pass opt-in)",
-      "S8 scratch rebuild + gated real-pass enablement measured success",
-      "S9 close-out (gate module + probe registration + manifest flip + owner default-enable decision)",
-      "align mode 2/3/4, 2D copy mode, sort/lifetime reindex, trail, and userdata subsets"
+      "align mode 2/3/4, 2D copy mode, COPY_MODE_FILL_INSTANCES_WITH_SORT_BUFFER (VIEW_DEPTH sort) and FILL_SORT_BUFFER, ORDER_BY_LIFETIME/REVERSE_LIFETIME reindex, trail interpolation, and userdata channels",
+      "raster/compute seam design or native-continuation retirement (net-benefit measurement)",
+      "per-pass FPS baseline comparison (contract requires >= 0.95x baseline before any default-enable discussion)"
     ]
   },
   "evidence_requirements": {
-    "offline_compile": "offline_compile_evidence.json (this slice, measured): DXC cs_6_0 compile + DXV validation pass + Rurix-owned RTS0 + descriptor layout; three artifact SHA-256 recomputable on disk",
-    "math_parity": "math_parity_evidence.json (this slice): deterministic synthetic ParticleData CPU float32 reference (binary32 per op) with status=pending_gpu_dispatch",
-    "standalone_dispatch": "later slice (S6)",
-    "visual": "later slice (S8); no in-engine visual diff produced here",
+    "offline_compile": "offline_compile_evidence.json (measured): DXC cs_6_0 compile + DXV validation pass + Rurix-owned RTS0 + descriptor layout; three artifact SHA-256 recomputable on disk",
+    "math_parity": "math_parity_evidence.json: deterministic synthetic ParticleData CPU float32 reference (binary32 per op) with status=pending_gpu_dispatch",
+    "standalone_dispatch": "real_d3d12_dispatch_smoke.json (measured): real_d3d12_dispatch_recorded=true, cpu_reference_match=true",
+    "visual": "in-engine LDR absolute diff recorded by the real-pass enablement smoke: reference (disabled) vs candidate (opt-in real pass) vs forced-fallback frames, all within the pinned thresholds (max_abs<=2, mean_abs<=0.25); measured max_abs=0/mean_abs=0 because the writeback is a scaffold and the native continuation renders",
     "perf": "reuse GRX-006 baseline/perf gate; no perf improvement claimed"
   },
-  "disclaimer": "GRX-013 particles_copy is at the S1-S3 offline-face slice ONLY: the pass contract trio, the DXC/DXV/RTS0 offline kernel package (hlsl_bridge_workaround provenance, Rurix-owned RTS0), and the CPU math-parity reference. There is NO bridge gate, NO Godot patch, NO runtime binding, and NO GPU dispatch. implemented=false / real_gpu_pass=false / real_d3d12_dispatch_recorded=false are the fail-closed initial values; default_enable_state stays disabled; the native Godot particles_copy path is always the fallback. NO visual, temporal-stability, GPU-timestamp, FPS, or performance claim is made."
+  "disclaimer": "GRX-013 particles_copy is closed out at the stage-A5-equivalent level (mirroring GRX-011 ssao_blur): the pass contract trio, the DXC/DXV/RTS0 offline kernel package (hlsl_bridge_workaround provenance, Rurix-owned RTS0), the fail-closed bridge ParticlesCopyGate (default RXGD_STATUS_FALLBACK; opt-in RXGD_CAP_PARTICLES_COPY_REAL_PASS arm), the Godot patch stack 0001..0022 (patches 0020-0022: per-pass settings default false + call-site opt-in gate + runtime native-handle binding + recording-smoke/real-pass opt-in; native particles copy always preserved), the standalone real D3D12 dispatch smoke, and the gated real-pass enablement gate that recorded a strict MEASURED success (real_pass_enablement_success_evidence.json, strict_success=true). implemented=true / real_gpu_pass=true / real_d3d12_dispatch_recorded=true record the MEASURED opt-in real-pass arm only. The DEFAULT path stays fallback-only, default_enable_state stays disabled per the owner decision (real_pass_default_enable_decision.json, keep_default_disabled), the shipping feature-off bridge still fails closed with real_dispatch_path_not_linked, the patch 0022 writeback is a SCAFFOLD (native Godot particles copy continuation/backstop re-fills every instance every frame; candidate image bit-exact), and NO visual-superiority, GPU-timestamp, FPS, or performance improvement is claimed."
 }

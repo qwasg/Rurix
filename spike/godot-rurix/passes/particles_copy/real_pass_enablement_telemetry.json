@@ -1,0 +1,17 @@
+{
+  "run_mode": "full",
+  "evidence_level": "measured_local",
+  "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
+  "note": "GRX-013 measured particles_copy real-pass enablement telemetry: with the default-false dispatch_real_pass opt-in explicitly enabled, the tracked Godot particles_set_view_axis COPY_MODE_FILL_INSTANCES call site invoked the Rurix bridge through the patch 0021 native structured-buffer handle binding; every fallback entry records the fail-closed gate outcome (validation_failed when the linked real dispatch cannot complete; unsupported_device under the forced capability downgrade) while the native Godot particles copy rendered every frame. The patch 0022 writeback is a scaffold (native continuation active), runtime_state stays fallback_only for the default path, and no performance or FPS claim is made.",
+  "passes": [
+    {
+      "pass_id": "particles_copy",
+      "leg": "forced_capability_downgrade",
+      "enable_state": "enabled",
+      "fallback_reason": "unsupported_device",
+      "godot_fallback_active": true,
+      "telemetry_timestamp": "2026-07-12T15:44:34+08:00",
+      "telemetry_frame": 36
+    }
+  ]
+}

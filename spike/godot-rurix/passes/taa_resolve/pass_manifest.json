@@ -1,7 +1,7 @@
 {
   "pass_id": "taa_resolve",
-  "status": "grx012_segment_a_contract_offline_kernel_bridge_gate_dispatch_smoke",
-  "implemented": false,
+  "status": "grx012_real_pass_measured_success_default_disabled",
+  "implemented": true,
   "default_enable_state": "disabled",
   "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
   "target_scenes": [
@@ -117,14 +117,22 @@
     }
   ],
   "implementation_status": {
-    "segment": "segment_a_contract_offline_kernel_bridge_gate_dispatch_smoke",
-    "runtime_state": "fallback_only",
-    "runtime_state_note": "The DEFAULT runtime path stays fallback-only: with all per-pass settings at their false defaults the bridge returns RXGD_STATUS_FALLBACK for RXGD_PASS_TAA_RESOLVE and the native Godot TAA resolve renders. This slice delivers PASS_TEMPLATE S1-S4 + S6 only (contract, offline kernel, math parity, fail-closed TaaResolveGate, standalone dispatch smoke). NO Godot patch (0017-0019 are deferred to a later serial slice), NO enablement, NO close-out. real_gpu_pass=false / real_d3d12_dispatch_recorded=false. The shipping feature-off bridge fails closed with real_dispatch_path_not_linked.",
+    "segment": "close_out",
+    "segment_detail": "grx012_real_pass_measured_success_default_disabled",
+    "runtime_state": "fallback_only_by_default_real_pass_optin_measured",
+    "runtime_state_note": "The DEFAULT runtime path stays fallback-only: with all per-pass settings at their false defaults the bridge still returns RXGD_STATUS_FALLBACK for RXGD_PASS_TAA_RESOLVE and the native Godot TAA resolve renders. real_gpu_pass=true / real_d3d12_dispatch_recorded=true record the strict MEASURED success of the opt-in real-pass arm (dispatch_real_pass under a d3d12-recording-shim bridge on the 0001..0022 scratch build); it is not a default enablement and carries no performance claim. The shipping feature-off bridge still fails closed with real_dispatch_path_not_linked, and the patch 0019 result writeback is a SCAFFOLD (native Godot TAA resolve stays the continuation/backstop and re-resolves every view plus maintains the resolve->temp->internal->history physical copy chain every frame, so the candidate temporal sequence cannot change and no net benefit exists yet). No estimated taa_resolve GPU time is attributed.",
     "bridge_gate": "src/rurix-godot TaaResolveGate: preflight (int64 cap, 6 texture resources, 28-byte b0, dims match, 1:1 output shape) -> dispatch eligibility (RXGD_CAP_TAA_RESOLVE_REAL_PASS opt-in, non-null native handles, TaaResolveDispatchPackage layout/digest match vs offline evidence) -> per-slot kernel-binding-kind conformance ([texture2d x5, rwtexture2d]) -> math-parity gate (taa_resolve_cpu_reference_proven_pending_gpu_dispatch) -> real dispatch only under the d3d12-recording-shim feature; every failure records a fallback reason and prints the once-per-session RXGD_TAA_REAL_PASS_BLOCKED diagnostic",
-    "godot_module_patch": "deferred: patches 0017-0019 (pass-gate + call-site / runtime native-handle binding / recording-smoke + real-pass opt-in) are reserved in PATCH_ALLOCATION.md and belong to a later serial (stack-locked) slice; this slice produces no patch",
-    "godot_core_call_site_wired": false,
-    "real_gpu_pass": false,
-    "real_d3d12_dispatch_recorded": false,
+    "godot_module_patch": "spike/godot-rurix/patches/0017-rurix-accel-taa-resolve-pass-gate-and-callsite.patch (stacked on 0001..0016; default-false rendering/rurix_accel/passes/taa_resolve/enabled setting, try_record_taa_resolve() module gate, default-false virtual D3D12Hooks::try_record_taa_resolve(), and the TAA branch call-site opt-in gate in render_forward_clustered.cpp; the native taa->process is always preserved as fallback/continuation). The runtime native-handle binding is patch 0018-rurix-accel-taa-resolve-runtime-resource-binding.patch and the recording-smoke + real-pass opt-in arms are patch 0019-rurix-accel-taa-resolve-recording-smoke-and-real-pass-optin.patch",
+    "godot_core_call_site_wired": true,
+    "wired_call_sites": [
+      {
+        "file": "servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp",
+        "region": "TAA branch (using_taa)",
+        "note": "opt-in gate calls D3D12Hooks::try_record_taa_resolve() before the native taa->process, guarded by rb->has_texture(taa, history) so the history slice is allocated (patch 0017/0018; applyability verified via git apply --check on a scratch copy)"
+      }
+    ],
+    "real_gpu_pass": true,
+    "real_d3d12_dispatch_recorded": true,
     "godot_runtime_taa_resolve_path_enabled": false,
     "standalone_d3d12_dispatch_smoke": {
       "harness": "ci/grx012_taa_resolve_d3d12_dispatch_smoke.py",
@@ -139,12 +147,28 @@
         "any visual diff, measured fallback telemetry, temporal stability, or performance claim"
       ]
     },
+    "real_pass_measured_success": {
+      "status": "success",
+      "strict_success": true,
+      "evidence": "spike/godot-rurix/passes/taa_resolve/real_pass_enablement_success_evidence.json",
+      "telemetry": "spike/godot-rurix/passes/taa_resolve/real_pass_enablement_telemetry.json",
+      "default_enable_decision": "spike/godot-rurix/passes/taa_resolve/real_pass_default_enable_decision.json",
+      "default_enable_decision_document": "spike/godot-rurix/passes/taa_resolve/real_pass_default_enable_decision.md",
+      "decision": "keep_default_disabled",
+      "harness": "ci/grx012_taa_resolve_real_pass_enablement_smoke.py",
+      "real_gpu_pass_scope": "opt_in_only: the measured real dispatch requires the default-false dispatch_real_pass arm plus a d3d12-recording-shim bridge DLL; the default runtime path stays fallback-only and the shipping feature-off bridge fails closed with real_dispatch_path_not_linked",
+      "patch_stack": "0001..0022",
+      "pass_enable_matrix": "three legs measured on the 0001..0022 scratch build: disabled_default (reference) / enabled_real_pass_optin (candidate, real_pass_marker + writeback_marker observed) / forced_capability_downgrade (RXGD_TAA_REAL_PASS_BLOCKED first_missing_prerequisite=runtime_binding_preflight_failed fallback_reason=unsupported_device)",
+      "temporal_evidence": "GRX_PLAN temporal DoD: a contiguous 8-frame sequence (never a single screenshot) captured per leg; the candidate/forced sequences are frame-for-frame bit-exact to the reference sequence (temporal LDR max_abs=0/mean_abs=0 at every captured frame) because the writeback is a scaffold and the native continuation renders, while the reference sequence carries real inter-frame motion (nonzero_delta_pairs=7/7) so the temporal evidence is meaningful",
+      "ldr_visual_gate": "max_abs=0 / mean_abs=0 at every captured frame (candidate is bit-exact to the reference sequence because the writeback is a scaffold and the native taa->process continuation still renders and maintains history)",
+      "shim_note": "the d3d12-recording-shim typed_view_format mapping was extended to resolve the Godot TAA depth buffer's combined depth-stencil typeless families (R32G8X24_TYPELESS / R24G8_TYPELESS) to their depth-plane SRV read formats so the six-resource TAA record dispatch completes instead of fail-closing on the depth SRV",
+      "performance_claim": "none",
+      "next_action_when_ready": "start_grx013_particles_copy_pass_contract"
+    },
     "remaining_segments": [
-      "Godot patch 0017-0019 (pass-gate/call-site, runtime native-handle binding, recording-smoke + real-pass opt-in; history physical maintenance chain and draw_graph true replacement design)",
-      "Godot runtime bridge dispatch recording smoke (4f-level, needs a full patch-stack scratch rebuild)",
-      "in-engine real visual diff + measured fallback telemetry gate (4g-level; temporal/noise stability evidence)",
-      "gated real-pass enablement gate and measured success (4h-level)",
-      "hardware-sampler true replacement, half storage quantization parity, draw_graph one-frame-latency true replacement",
+      "history double-buffer copy-back / prev_velocity bookkeeping and the draw_graph one-frame-latency true replacement (the writeback is a single-view resolve scaffold; the native taa->process maintains history)",
+      "hardware-sampler sub-texel rounding true replacement, rgba16f/rg16f half storage quantization parity, multiview",
+      "raster/compute resolve seam design or native-continuation retirement (net-benefit measurement)",
       "per-pass FPS baseline comparison (contract requires >= 0.95x baseline before any default-enable discussion)"
     ]
   },
@@ -152,5 +176,5 @@
     "visual": "in-engine LDR absolute diff (GRX-009 segment 4g template) is a later slice; not produced here",
     "perf": "reuse GRX-006 baseline/perf gate; no perf improvement claimed"
   },
-  "disclaimer": "GRX-012 taa_resolve is at the segment-A level (PASS_TEMPLATE S1-S4 + S6): the taa_resolve pass contract, the DXC/DXV/RTS0 offline kernel package (hlsl_bridge_workaround provenance, runtime-mappable per the owner-approved GRX-009 texture artifact provenance policy), the CPU-proven math parity, the fail-closed bridge TaaResolveGate (default RXGD_STATUS_FALLBACK; opt-in RXGD_CAP_TAA_RESOLVE_REAL_PASS arm linked only under the d3d12-recording-shim feature), and the standalone real D3D12 dispatch smoke. implemented=false / real_gpu_pass=false / real_d3d12_dispatch_recorded=false: no Godot patch, no enablement, no close-out in this slice. The DEFAULT path stays fallback-only, default_enable_state stays disabled, the shipping feature-off bridge fails closed with real_dispatch_path_not_linked, and NO visual-superiority, temporal-stability, GPU-timestamp, FPS, or performance improvement is claimed."
+  "disclaimer": "GRX-012 taa_resolve is closed out at the stage-A5-equivalent level (mirroring GRX-011 ssao_blur): the taa_resolve pass contract, the DXC/DXV/RTS0 offline kernel package (hlsl_bridge_workaround provenance, runtime-mappable per the owner-approved GRX-009 texture artifact provenance policy), the fail-closed bridge TaaResolveGate (default RXGD_STATUS_FALLBACK; opt-in RXGD_CAP_TAA_RESOLVE_REAL_PASS arm), the Godot patch stack 0001..0022 (patches 0017-0019: per-pass settings default false + call-site opt-in gate + runtime native-handle binding + recording-smoke/real-pass opt-in; native taa->process always preserved), the standalone real D3D12 dispatch smoke, and the gated real-pass enablement gate that recorded a strict MEASURED success with the GRX_PLAN temporal DoD (real_pass_enablement_success_evidence.json, strict_success=true; a contiguous 8-frame sequence captured per leg, candidate frame-for-frame bit-exact to the reference sequence). implemented=true / real_gpu_pass=true / real_d3d12_dispatch_recorded=true record the MEASURED opt-in real-pass arm only. The DEFAULT path stays fallback-only, default_enable_state stays disabled per the owner decision (real_pass_default_enable_decision.json, keep_default_disabled), the shipping feature-off bridge still fails closed with real_dispatch_path_not_linked, the patch 0019 writeback is a SCAFFOLD (native Godot TAA resolve continuation/backstop re-resolves and maintains history every frame; candidate sequence bit-exact), and NO visual-superiority, temporal-stability, GPU-timestamp, FPS, or performance improvement is claimed."
 }
