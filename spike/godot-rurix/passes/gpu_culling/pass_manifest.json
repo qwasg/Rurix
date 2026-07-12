@@ -1,8 +1,23 @@
 {
   "pass_id": "gpu_culling",
-  "status": "grx015_offline_kernel_and_math_parity_default_disabled",
+  "status": "grx015_patches_landed_live_path_enablement_measured_blocked_device_removal",
   "implemented": false,
   "default_enable_state": "disabled",
+  "grx015_s7_s8_findings": {
+    "patches": [
+      "0027-rurix-accel-gpu-culling-pass-gate-and-callsite.patch",
+      "0028-rurix-accel-gpu-culling-runtime-resource-binding.patch",
+      "0029-rurix-accel-gpu-culling-recording-smoke-and-real-pass-optin.patch"
+    ],
+    "build": "scratch 0001-0029 compiles clean (target/grx/godot-scratch-0029) after the RendererRD::MeshStorage namespace fix; console exe produced",
+    "enablement_evidence": "real_pass_enablement_success_evidence.json (status=measured_blocked, strict_success=false)",
+    "hook_engages": true,
+    "dispatch_records_in_isolation": "candidate leg: RXGD_GODOT_RUNTIME_GPU_CULLING_RECORD + RXGD_BRIDGE_REC dispatch=2,1,1 checksum=0xb9fee455 dxil_signed=yes (the shim recorded a real D3D12 culling dispatch over the real Godot MultiMesh transform SSBO + indirect command buffer)",
+    "fallback_verified": "forced-capability-downgrade leg: RXGD_GPU_CULLING_REAL_PASS_BLOCKED first_missing_prerequisite=dispatch_eligibility_failed fallback_reason=unsupported_device, no RECORD marker",
+    "binding_is_safe": "collect_only leg (pass enabled, real-pass OFF: collect + get_driver_resource native handles + storage_buffer_create bitmask + mesh_get_aabb b0 + default-fallback hook, NO buffer_clear, NO shim dispatch) exits cleanly (rc=0)",
+    "blocker": "MEASURED-BLOCKED: enabling the real-pass arm removes the D3D12 device (0x887a0005 DXGI_ERROR_DEVICE_REMOVED) on the LIVE render path. Both the candidate (real shim dispatch) and the forced (fallback, NO shim dispatch) legs crash, while reference (disabled) and collect_only (binding only) are clean -> the trigger is the dispatch_real_pass GPU operations, specifically the pre-dispatch RenderingDevice::buffer_clear of the live indirect command buffer at the mid-frame render_forward_clustered injection point. Godot's indirect-MultiMesh command buffer (STORAGE_BUFFER_USAGE_DISPATCH_INDIRECT) is consumed by ExecuteIndirect in the SAME frame; clearing it out-of-band mid-frame (and, for the candidate, a cross-queue shim dispatch that transitions it outside Godot's RenderingDeviceGraph state tracking) corrupts GPU state -> device removal. This is the flagged never-battle-tested dead indirect draw path exposing a real-machine integration problem.",
+    "honest_conclusion": "The gpu_culling kernel + bridge + binding are correct (S6 dispatch smoke green; isolated in-engine dispatch records with a valid signed DXIL container). The zero-latency same-frame produce-and-consume design is NOT achievable through the current shim architecture (separate queue + RD::buffer_clear); it requires the clear + culling dispatch to run on GODOT'S own command list with RenderingDeviceGraph-tracked barriers around the indirect command buffer. That is a bridge/renderer-integration redesign, not a patch tweak. GRX-015 stays default disabled / fallback_only; 016/018 depend on a green 015 and are NOT started."
+  },
   "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
   "target_scenes": [
     "many_mesh_instances",

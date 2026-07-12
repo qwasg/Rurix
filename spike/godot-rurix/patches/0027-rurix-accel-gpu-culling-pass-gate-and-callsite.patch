@@ -1,0 +1,177 @@
+From cb8d671ad404a9449e17f9e492cfe379a065dc0f Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Mon, 13 Jul 2026 09:00:00 +0800
+Subject: [PATCH] Add default-disabled GRX-015 gpu_culling gate and additive
+ collect call-site
+
+---
+ drivers/d3d12/d3d12_hooks.h                   |  7 ++++
+ modules/rurix_accel/register_types.cpp        |  8 ++++
+ modules/rurix_accel/rurix_accel.cpp           | 28 +++++++++++++
+ modules/rurix_accel/rurix_accel.h             | 10 +++++
+ .../render_forward_clustered.cpp              | 41 +++++++++++++++++++
+ 5 files changed, 94 insertions(+)
+
+diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
+index 9ddd2b5..c376722 100644
+--- a/drivers/d3d12/d3d12_hooks.h
++++ b/drivers/d3d12/d3d12_hooks.h
+@@ -124,5 +124,12 @@ public:
+ 	// this (or the absence of a hooks singleton) keep the native Godot cluster
+ 	// store path.
+ 	virtual bool try_record_cluster_store(uint64_t p_cluster_render_native_handle, uint64_t p_render_elements_native_handle, uint64_t p_cluster_store_native_handle, uint32_t p_cluster_render_size_bytes, uint32_t p_render_elements_size_bytes, uint32_t p_cluster_store_size_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) { return false; }
++	// GRX-015: opt-in hook for the gpu_culling pass (additive GPU frustum cull
++	// over an indirect MultiMesh's transform buffer). This is the 0002-level
++	// module gate scaffold: the call carries no resource bindings yet (native
++	// handle mapping belongs to patch 0028). The base implementation returns
++	// false so any hooks that do not override this (or the absence of a hooks
++	// singleton) keep the native Godot CPU-driven command-buffer path.
++	virtual bool try_record_gpu_culling() { return false; }
+ 	static D3D12Hooks *get_singleton() { return singleton; }
+ };
+diff --git a/modules/rurix_accel/register_types.cpp b/modules/rurix_accel/register_types.cpp
+index ce4e6d8..c97b63b 100644
+--- a/modules/rurix_accel/register_types.cpp
++++ b/modules/rurix_accel/register_types.cpp
+@@ -243,6 +243,14 @@ void initialize_rurix_accel_module(ModuleInitializationLevel p_level) {
+ 	// path keeps rendering. Defaults to false; never enabled by the shipping
+ 	// build/config.
+ 	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/cluster_store/real_pass_force_capability_downgrade", false);
++	// GRX-015: per-pass opt-in gate for the gpu_culling pass (additive GPU
++	// frustum cull over an indirect MultiMesh's transform buffer). The pass
++	// stays on the native Godot CPU-driven command-buffer path unless this is
++	// explicitly enabled AND the bridge actually records the pass. Defaults to
++	// false; the bridge GpuCullingGate is fail-closed and returns
++	// RXGD_STATUS_FALLBACK for RXGD_PASS_GPU_CULLING, so the native path keeps
++	// rendering in practice and no acceleration is claimed.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/gpu_culling/enabled", false);
+ 	// GRX-017 material_sorting telemetry (patch 0026, telemetry-only slice):
+ 	// default-false opt-in for the verbose-only per-interval
+ 	// RXGD_MATERIAL_SORTING_TELEMETRY line emitted by the Forward+ renderer
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index 1346ff9..8b1c67d 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -931,4 +931,32 @@ bool RurixAccelD3D12Hooks::try_record_cluster_store(uint64_t p_cluster_render_na
+ 	return true;
+ }
+ 
++bool RurixAccelD3D12Hooks::try_record_gpu_culling() {
++	// GRX-015 gate scaffold: every early return below means the caller must keep
++	// the native Godot CPU-driven command-buffer path. This is 0002-level module
++	// wiring: the call carries no resource bindings (native handle mapping,
++	// frustum b0 build, and the visibility bitmask belong to patch 0028), and
++	// the fail-closed bridge GpuCullingGate always returns RXGD_STATUS_FALLBACK
++	// for RXGD_PASS_GPU_CULLING today, so the native CPU-written command buffer
++	// keeps driving the indirect draw.
++	if (!GLOBAL_GET("rendering/rurix_accel/passes/gpu_culling/enabled")) {
++		// manual_disabled: the pass is opt-in and defaults to disabled.
++		return false;
++	}
++	if (session == nullptr || rxgd_record_pass == nullptr) {
++		// No bridge session or record entry point; equivalent to
++		// unsupported_device for this pass.
++		return false;
++	}
++	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_GPU_CULLING, nullptr, 0, nullptr, 0);
++	if (rc != RXGD_STATUS_OK) {
++		if (!gpu_culling_fallback_logged) {
++			print_verbose(vformat("RurixAccel: gpu_culling fallback rc=%d; Godot native CPU-driven command-buffer path remains active.", rc));
++			gpu_culling_fallback_logged = true;
++		}
++		return false;
++	}
++	return true;
++}
++
+ #endif // D3D12_ENABLED
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index 8843502..9725150 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -19,6 +19,7 @@
+ #define RXGD_PASS_TAA_RESOLVE 6u
+ #define RXGD_PASS_PARTICLES_COPY 7u
+ #define RXGD_PASS_CLUSTER_STORE 1u
++#define RXGD_PASS_GPU_CULLING 8u
+ // GRX-009 segment 4b reserved capability flag carried in RxGdCaps.flags
+ // (ABI v1, no struct layout change). Set only when the Godot dispatch
+ // bring-up opt-in setting is enabled.
+@@ -137,6 +138,7 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
+ 	bool taa_resolve_fallback_logged = false;
+ 	bool particles_copy_fallback_logged = false;
+ 	bool cluster_store_fallback_logged = false;
++	bool gpu_culling_fallback_logged = false;
+ 	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 28;
+ 	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_RESOURCE_COUNT = 2;
+ 	// GRX-010 tonemap resource mapping (resource_mapping.md): b0 carries
+@@ -265,6 +267,14 @@ public:
+ 	// ClusterStoreGate) returns false and the caller must keep the native Godot
+ 	// cluster store path.
+ 	bool try_record_cluster_store(uint64_t p_cluster_render_native_handle, uint64_t p_render_elements_native_handle, uint64_t p_cluster_store_native_handle, uint32_t p_cluster_render_size_bytes, uint32_t p_render_elements_size_bytes, uint32_t p_cluster_store_size_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) override;
++	// GRX-015 gate scaffold (0002-level): returns true only when the Rurix
++	// bridge actually recorded the gpu_culling pass. This scaffold call carries
++	// no resource bindings yet (native handle mapping belongs to patch 0028), so
++	// with the fail-closed GpuCullingGate it returns false and the caller keeps
++	// the native Godot CPU-driven command-buffer path. Any other outcome (setting
++	// disabled, missing session/symbol, or a non-OK bridge status such as
++	// RXGD_STATUS_FALLBACK) also returns false.
++	bool try_record_gpu_culling() override;
+ };
+ 
+ #endif // D3D12_ENABLED
+diff --git a/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp b/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
+index a15460e..1c72ee5 100644
+--- a/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
++++ b/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
+@@ -1942,6 +1942,47 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
+ 	_fill_instance_data(RENDER_LIST_MOTION, render_info);
+ 	_fill_instance_data(RENDER_LIST_ALPHA, render_info);
+ 
++#ifdef D3D12_ENABLED
++	// GRX-015 gpu_culling additive call-site (0002-level scaffold; the collect
++	// loop below gathers the indirect MultiMeshes this frame's opaque list draws,
++	// but native handle binding + frustum b0 build belong to patch 0028). Only
++	// runs when the Rurix hooks singleton is present AND the opt-in setting is
++	// enabled, so the default build pays nothing here. gpu_culling is ADDITIVE:
++	// there is no native Godot compute pass to replace — the "native path" is the
++	// CPU-driven command-buffer contents (mesh_storage.cpp
++	// _multimesh_set_visible_instances) plus the non-indirect draw arm, both left
++	// untouched when the gate returns false.
++	if (D3D12Hooks::get_singleton() != nullptr && GLOBAL_GET("rendering/rurix_accel/passes/gpu_culling/enabled")) {
++		// Collect the unique indirect MultiMesh bases referenced by this frame's
++		// OPAQUE render list (INSTANCE_DATA_FLAG_MULTIMESH_INDIRECT is set from
++		// multimesh_uses_indirect at geometry-instance pairing time).
++		LocalVector<RID> rurix_cull_indirect_multimeshes;
++		const uint32_t rurix_cull_opaque_count = render_list[RENDER_LIST_OPAQUE].elements.size();
++		for (uint32_t rurix_cull_i = 0; rurix_cull_i < rurix_cull_opaque_count; rurix_cull_i++) {
++			GeometryInstanceForwardClustered *rurix_cull_owner = render_list[RENDER_LIST_OPAQUE].elements[rurix_cull_i]->owner;
++			if (rurix_cull_owner == nullptr || !(rurix_cull_owner->base_flags & INSTANCE_DATA_FLAG_MULTIMESH_INDIRECT) || rurix_cull_owner->data == nullptr) {
++				continue;
++			}
++			const RID rurix_cull_base = rurix_cull_owner->data->base;
++			if (!rurix_cull_base.is_valid()) {
++				continue;
++			}
++			if (rurix_cull_indirect_multimeshes.find(rurix_cull_base) == -1) {
++				rurix_cull_indirect_multimeshes.push_back(rurix_cull_base);
++			}
++		}
++		// Scaffold: with at least one indirect MultiMesh in flight, offer the pass
++		// to the bridge once. The 0-arg gate carries no binding yet and the
++		// fail-closed GpuCullingGate returns RXGD_STATUS_FALLBACK, so this returns
++		// false and every collected MultiMesh keeps its CPU-driven command buffer
++		// (native path). Patch 0028 replaces this with a per-MultiMesh native
++		// binding + real record attempt.
++		if (!rurix_cull_indirect_multimeshes.is_empty()) {
++			(void)D3D12Hooks::get_singleton()->try_record_gpu_culling();
++		}
++	}
++#endif
++
+ 	RD::get_singleton()->draw_command_end_label();
+ 
+ 	if (!is_reflection_probe) {
+-- 
+2.46.0.windows.1
+

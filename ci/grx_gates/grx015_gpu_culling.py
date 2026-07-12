@@ -40,7 +40,7 @@ CONTRACT_TRIO = ("PASS_CONTRACT.md", "pass_manifest.json", "resource_mapping.md"
 # DEFERRED to the next serial patch slice; a missing file here is the expected,
 # honest not-ready state (not a tampered stack).
 GPU_CULLING_PATCH_ORDINALS = ("0027", "0028", "0029")
-PREREQ_ORDINALS = tuple(f"{n:04d}" for n in range(4, 28))  # 0004..0027
+PREREQ_ORDINALS = tuple(f"{n:04d}" for n in range(4, 29))  # 0004..0028
 
 DISPATCH_SMOKE_EVIDENCE = PASS_DIR / "real_d3d12_dispatch_smoke.json"
 ENABLEMENT_SUCCESS_EVIDENCE = PASS_DIR / "real_pass_enablement_success_evidence.json"

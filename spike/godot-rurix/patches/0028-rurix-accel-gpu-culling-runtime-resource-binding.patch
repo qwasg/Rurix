@@ -1,0 +1,332 @@
+From aff12861b3234e040e194160fdeeb34e2dea4f8f Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Mon, 13 Jul 2026 10:00:00 +0800
+Subject: [PATCH] Wire GRX-015 gpu_culling runtime resource binding with native
+ D3D12 structured-buffer handle mapping
+
+---
+ drivers/d3d12/d3d12_hooks.h                   |  22 ++--
+ modules/rurix_accel/rurix_accel.cpp           |  69 +++++++++--
+ modules/rurix_accel/rurix_accel.h             |  29 +++--
+ .../render_forward_clustered.cpp              | 111 ++++++++++++++++--
+ .../render_forward_clustered.h                |   6 +
+ 5 files changed, 200 insertions(+), 37 deletions(-)
+
+diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
+index c376722..9e0e306 100644
+--- a/drivers/d3d12/d3d12_hooks.h
++++ b/drivers/d3d12/d3d12_hooks.h
+@@ -124,12 +124,20 @@ public:
+ 	// this (or the absence of a hooks singleton) keep the native Godot cluster
+ 	// store path.
+ 	virtual bool try_record_cluster_store(uint64_t p_cluster_render_native_handle, uint64_t p_render_elements_native_handle, uint64_t p_cluster_store_native_handle, uint32_t p_cluster_render_size_bytes, uint32_t p_render_elements_size_bytes, uint32_t p_cluster_store_size_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) { return false; }
+-	// GRX-015: opt-in hook for the gpu_culling pass (additive GPU frustum cull
+-	// over an indirect MultiMesh's transform buffer). This is the 0002-level
+-	// module gate scaffold: the call carries no resource bindings yet (native
+-	// handle mapping belongs to patch 0028). The base implementation returns
+-	// false so any hooks that do not override this (or the absence of a hooks
+-	// singleton) keep the native Godot CPU-driven command-buffer path.
+-	virtual bool try_record_gpu_culling() { return false; }
++	// GRX-015 runtime resource binding: native resource handle mapping hook for
++	// the gpu_culling pass (additive GPU frustum cull over an indirect MultiMesh).
++	// The caller passes the real D3D12 ID3D12Resource* native handles (resolved
++	// through RenderingDevice::get_driver_resource with DRIVER_RESOURCE_BUFFER,
++	// not logical Godot RID ids) for the THREE structured buffers in Rurix slot
++	// order — src_transforms (SRV t0, the MultiMesh transform SSBO), dst_commands
++	// (UAV u0, the MultiMesh indirect command buffer; only the instance-count
++	// dword of each 5-dword surface block is accumulated) and dst_visibility
++	// (UAV u1, the Rurix-allocated visibility bitmask) — their byte sizes, and
++	// the 144-byte / 36-dword Rurix-defined b0 (6 frustum planes + params + mesh
++	// bound sphere) so the bridge can validate the binding contract and bind the
++	// real structured buffers. The base implementation returns false so any hooks
++	// that do not override this (or the absence of a hooks singleton) keep the
++	// native Godot CPU-driven command-buffer path.
++	virtual bool try_record_gpu_culling(uint64_t p_transforms_native_handle, uint64_t p_commands_native_handle, uint64_t p_visibility_native_handle, uint32_t p_transforms_size_bytes, uint32_t p_commands_size_bytes, uint32_t p_visibility_size_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) { return false; }
+ 	static D3D12Hooks *get_singleton() { return singleton; }
+ };
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index 8b1c67d..e670690 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -931,14 +931,17 @@ bool RurixAccelD3D12Hooks::try_record_cluster_store(uint64_t p_cluster_render_na
+ 	return true;
+ }
+ 
+-bool RurixAccelD3D12Hooks::try_record_gpu_culling() {
+-	// GRX-015 gate scaffold: every early return below means the caller must keep
+-	// the native Godot CPU-driven command-buffer path. This is 0002-level module
+-	// wiring: the call carries no resource bindings (native handle mapping,
+-	// frustum b0 build, and the visibility bitmask belong to patch 0028), and
+-	// the fail-closed bridge GpuCullingGate always returns RXGD_STATUS_FALLBACK
+-	// for RXGD_PASS_GPU_CULLING today, so the native CPU-written command buffer
+-	// keeps driving the indirect draw.
++bool RurixAccelD3D12Hooks::try_record_gpu_culling(uint64_t p_transforms_native_handle, uint64_t p_commands_native_handle, uint64_t p_visibility_native_handle, uint32_t p_transforms_size_bytes, uint32_t p_commands_size_bytes, uint32_t p_visibility_size_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) {
++	// GRX-015 runtime resource binding gate: every early return below means the
++	// caller must keep the native Godot CPU-driven command-buffer path. This is
++	// the 0005/0007-level wiring in one slice: the call now carries the real
++	// gpu_culling binding (three structured-buffer ID3D12Resource* handles in
++	// Rurix slot order — src_transforms / dst_commands / dst_visibility — their
++	// byte sizes, and the 144-byte Rurix-defined b0) so the fail-closed bridge
++	// GpuCullingGate can run its runtime binding preflight. The default record
++	// path (no real-pass opt-in) still always returns RXGD_STATUS_FALLBACK for
++	// RXGD_PASS_GPU_CULLING, so the native CPU-written command buffer keeps
++	// driving the indirect draw.
+ 	if (!GLOBAL_GET("rendering/rurix_accel/passes/gpu_culling/enabled")) {
+ 		// manual_disabled: the pass is opt-in and defaults to disabled.
+ 		return false;
+@@ -948,10 +951,56 @@ bool RurixAccelD3D12Hooks::try_record_gpu_culling() {
+ 		// unsupported_device for this pass.
+ 		return false;
+ 	}
+-	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_GPU_CULLING, nullptr, 0, nullptr, 0);
++	if (p_transforms_native_handle == 0 || p_commands_native_handle == 0 || p_visibility_native_handle == 0) {
++		// A zero native handle means RenderingDevice could not resolve a real
++		// ID3D12Resource*; keep the native Godot command-buffer path instead of
++		// binding a null resource.
++		return false;
++	}
++	if (p_push_constants == nullptr || p_push_constant_bytes != GPU_CULLING_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES) {
++		// The b0 must be the exact 144-byte Rurix-defined block.
++		return false;
++	}
++	// Marshal the gpu_culling binding for the bridge. native_handle carries the
++	// real D3D12 ID3D12Resource* resolved from RenderingDevice::get_driver_resource
++	// (DRIVER_RESOURCE_BUFFER), not a logical Godot RID id. All three slots are
++	// structured buffers in Rurix slot order (src_transforms = SRV t0,
++	// dst_commands = UAV u0, dst_visibility = UAV u1); width carries the buffer
++	// byte size (nonzero is what the bridge front door requires).
++	RxGdResource resources[GPU_CULLING_RESOURCE_MAPPING_RESOURCE_COUNT] = {};
++	resources[0].abi_version = RXGD_ABI_VERSION;
++	resources[0].struct_size = (uint32_t)sizeof(RxGdResource);
++	resources[0].resource_type = RXGD_RESOURCE_BUFFER;
++	resources[0].width = p_transforms_size_bytes;
++	resources[0].height = 1;
++	resources[0].depth = 1;
++	resources[0].mip_levels = 1;
++	resources[0].native_handle = p_transforms_native_handle;
++	resources[1].abi_version = RXGD_ABI_VERSION;
++	resources[1].struct_size = (uint32_t)sizeof(RxGdResource);
++	resources[1].resource_type = RXGD_RESOURCE_BUFFER;
++	resources[1].width = p_commands_size_bytes;
++	resources[1].height = 1;
++	resources[1].depth = 1;
++	resources[1].mip_levels = 1;
++	resources[1].native_handle = p_commands_native_handle;
++	resources[2].abi_version = RXGD_ABI_VERSION;
++	resources[2].struct_size = (uint32_t)sizeof(RxGdResource);
++	resources[2].resource_type = RXGD_RESOURCE_BUFFER;
++	resources[2].width = p_visibility_size_bytes;
++	resources[2].height = 1;
++	resources[2].depth = 1;
++	resources[2].mip_levels = 1;
++	resources[2].native_handle = p_visibility_native_handle;
++	// b0 root constants (144 bytes / 36 DWORDs): the Rurix-defined layout (6
++	// frustum planes with inward-facing normals + params + mesh bound sphere)
++	// built by the call site is passed through verbatim.
++	uint8_t push_constants[GPU_CULLING_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES] = {};
++	memcpy(push_constants, p_push_constants, GPU_CULLING_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES);
++	const int32_t rc = rxgd_record_pass(session, RXGD_PASS_GPU_CULLING, resources, GPU_CULLING_RESOURCE_MAPPING_RESOURCE_COUNT, push_constants, GPU_CULLING_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES);
+ 	if (rc != RXGD_STATUS_OK) {
+ 		if (!gpu_culling_fallback_logged) {
+-			print_verbose(vformat("RurixAccel: gpu_culling fallback rc=%d; Godot native CPU-driven command-buffer path remains active.", rc));
++			print_verbose(vformat("RurixAccel: gpu_culling native resource handle mapping fallback rc=%d; Godot native CPU-driven command-buffer path remains active.", rc));
+ 			gpu_culling_fallback_logged = true;
+ 		}
+ 		return false;
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index 9725150..c796702 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -179,6 +179,16 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
+ 	// binding preflight.
+ 	static constexpr uint32_t CLUSTER_STORE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 32;
+ 	static constexpr uint32_t CLUSTER_STORE_RESOURCE_MAPPING_RESOURCE_COUNT = 3;
++	// GRX-015 gpu_culling resource mapping (resource_mapping.md): b0 carries
++	// 36 DWORDs / 144 bytes (Rurix-defined — no Godot push constant exists to
++	// mirror; 6 frustum planes + params + mesh bound sphere) and the binding is
++	// exactly THREE structured-buffer resources in Rurix slot order
++	// (src_transforms = SRV t0 structured_buffer, dst_commands = UAV u0
++	// rwstructured_buffer, dst_visibility = UAV u1 rwstructured_buffer). Like
++	// cluster_store, gpu_culling carries no i64 push-constant fields, so the
++	// SHADER_INT64 capability is NOT part of its binding preflight.
++	static constexpr uint32_t GPU_CULLING_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 144;
++	static constexpr uint32_t GPU_CULLING_RESOURCE_MAPPING_RESOURCE_COUNT = 3;
+ 	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_SCAFFOLD = "resource mapping scaffold";
+ 	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_ROOT_CB = "b0";
+ 	static constexpr const char *LUMINANCE_RESOURCE_MAPPING_SRC = "src_luminance = t0";
+@@ -267,14 +277,17 @@ public:
+ 	// ClusterStoreGate) returns false and the caller must keep the native Godot
+ 	// cluster store path.
+ 	bool try_record_cluster_store(uint64_t p_cluster_render_native_handle, uint64_t p_render_elements_native_handle, uint64_t p_cluster_store_native_handle, uint32_t p_cluster_render_size_bytes, uint32_t p_render_elements_size_bytes, uint32_t p_cluster_store_size_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) override;
+-	// GRX-015 gate scaffold (0002-level): returns true only when the Rurix
+-	// bridge actually recorded the gpu_culling pass. This scaffold call carries
+-	// no resource bindings yet (native handle mapping belongs to patch 0028), so
+-	// with the fail-closed GpuCullingGate it returns false and the caller keeps
+-	// the native Godot CPU-driven command-buffer path. Any other outcome (setting
+-	// disabled, missing session/symbol, or a non-OK bridge status such as
+-	// RXGD_STATUS_FALLBACK) also returns false.
+-	bool try_record_gpu_culling() override;
++	// GRX-015 runtime resource binding: native resource handle mapping. Marshals
++	// the three real D3D12 ID3D12Resource* structured-buffer native handles (not
++	// logical Godot RID ids) in Rurix slot order (src_transforms / dst_commands /
++	// dst_visibility), their byte sizes, and the 144-byte Rurix-defined b0 (6
++	// frustum planes + params + mesh bound sphere) to the Rurix bridge and
++	// returns true only when the bridge actually recorded the gpu_culling pass.
++	// Any other outcome (setting disabled, missing session/symbol, a null native
++	// handle or push-constant, or a non-OK bridge status such as
++	// RXGD_STATUS_FALLBACK from the fail-closed GpuCullingGate) returns false and
++	// the caller must keep the native Godot CPU-driven command-buffer path.
++	bool try_record_gpu_culling(uint64_t p_transforms_native_handle, uint64_t p_commands_native_handle, uint64_t p_visibility_native_handle, uint32_t p_transforms_size_bytes, uint32_t p_commands_size_bytes, uint32_t p_visibility_size_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) override;
+ };
+ 
+ #endif // D3D12_ENABLED
+diff --git a/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp b/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
+index 1c72ee5..3e8137b 100644
+--- a/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
++++ b/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
+@@ -1943,11 +1943,11 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
+ 	_fill_instance_data(RENDER_LIST_ALPHA, render_info);
+ 
+ #ifdef D3D12_ENABLED
+-	// GRX-015 gpu_culling additive call-site (0002-level scaffold; the collect
+-	// loop below gathers the indirect MultiMeshes this frame's opaque list draws,
+-	// but native handle binding + frustum b0 build belong to patch 0028). Only
+-	// runs when the Rurix hooks singleton is present AND the opt-in setting is
+-	// enabled, so the default build pays nothing here. gpu_culling is ADDITIVE:
++	// GRX-015 gpu_culling additive call-site (patch 0028 runtime binding; the
++	// collect loop gathers the indirect MultiMeshes this frame's opaque list
++	// draws, then each is bound to the bridge below). Only runs when the Rurix
++	// hooks singleton is present AND the opt-in setting is enabled, so the default
++	// build pays nothing here. gpu_culling is ADDITIVE:
+ 	// there is no native Godot compute pass to replace — the "native path" is the
+ 	// CPU-driven command-buffer contents (mesh_storage.cpp
+ 	// _multimesh_set_visible_instances) plus the non-indirect draw arm, both left
+@@ -1971,14 +1971,101 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
+ 				rurix_cull_indirect_multimeshes.push_back(rurix_cull_base);
+ 			}
+ 		}
+-		// Scaffold: with at least one indirect MultiMesh in flight, offer the pass
+-		// to the bridge once. The 0-arg gate carries no binding yet and the
+-		// fail-closed GpuCullingGate returns RXGD_STATUS_FALLBACK, so this returns
+-		// false and every collected MultiMesh keeps its CPU-driven command buffer
+-		// (native path). Patch 0028 replaces this with a per-MultiMesh native
+-		// binding + real record attempt.
++		// GRX-015 runtime resource binding (patch 0028): for each unique indirect
++		// MultiMesh, resolve the real D3D12 ID3D12Resource* native handles for the
++		// transform SSBO (SRV t0) and the indirect command buffer (UAV u0) through
++		// RenderingDevice::get_driver_resource (DRIVER_RESOURCE_BUFFER), lazily
++		// allocate + cache the Rurix-owned visibility bitmask SSBO (UAV u1,
++		// u32[ceil(N/32)]), build the 144-byte Rurix-defined b0 (6 frustum planes
++		// with inward-facing normals + params + mesh bound sphere), and offer the
++		// binding to the bridge. The fail-closed GpuCullingGate returns
++		// RXGD_STATUS_FALLBACK on the default path, so this stays false and every
++		// MultiMesh keeps its CPU-driven command buffer. The pre-dispatch zeroing
++		// of the count dwords + bitmask is patch 0029.
+ 		if (!rurix_cull_indirect_multimeshes.is_empty()) {
+-			(void)D3D12Hooks::get_singleton()->try_record_gpu_culling();
++			RendererRD::MeshStorage *rurix_cull_mesh_storage = RendererRD::MeshStorage::get_singleton();
++			RenderingDevice *rurix_cull_rd = RD::get_singleton();
++			// Frustum planes from the render camera. Godot's Plane obeys
++			// distance_to(p) = dot(normal, p) - d with the frustum interior on the
++			// NEGATIVE side; the gpu_culling kernel wants inward-facing planes with
++			// visible <=> dot(n, p) + d >= 0. The exact conversion (hard red line;
++			// a sign error flips the whole cull) is n_rurix = -normal, d_rurix = d.
++			const Vector<Plane> rurix_cull_planes = p_render_data->scene_data->cam_projection.get_projection_planes(p_render_data->scene_data->cam_transform);
++			if (rurix_cull_mesh_storage != nullptr && rurix_cull_rd != nullptr && rurix_cull_planes.size() >= 6) {
++				for (uint32_t rurix_cull_m = 0; rurix_cull_m < rurix_cull_indirect_multimeshes.size(); rurix_cull_m++) {
++					const RID rurix_cull_mm = rurix_cull_indirect_multimeshes[rurix_cull_m];
++					const int rurix_cull_instances = rurix_cull_mesh_storage->_multimesh_get_instance_count(rurix_cull_mm);
++					const RID rurix_cull_mesh = rurix_cull_mesh_storage->_multimesh_get_mesh(rurix_cull_mm);
++					if (rurix_cull_instances <= 0 || !rurix_cull_mesh.is_valid()) {
++						continue;
++					}
++					const int rurix_cull_surfaces = rurix_cull_mesh_storage->mesh_get_surface_count(rurix_cull_mesh);
++					if (rurix_cull_surfaces <= 0) {
++						continue;
++					}
++					const RID rurix_cull_transforms_rid = rurix_cull_mesh_storage->_multimesh_get_buffer_rd_rid(rurix_cull_mm);
++					const RID rurix_cull_commands_rid = rurix_cull_mesh_storage->_multimesh_get_command_buffer_rd_rid(rurix_cull_mm);
++					if (!rurix_cull_transforms_rid.is_valid() || !rurix_cull_commands_rid.is_valid()) {
++						continue;
++					}
++					// Lazily create + cache the visibility bitmask SSBO keyed by the
++					// MultiMesh base RID (Rurix-owned; not in Godot MeshStorage).
++					const uint32_t rurix_cull_bitmask_words = ((uint32_t)rurix_cull_instances + 31u) / 32u;
++					const uint32_t rurix_cull_bitmask_bytes = rurix_cull_bitmask_words * (uint32_t)sizeof(uint32_t);
++					RID rurix_cull_visibility_rid;
++					if (HashMap<RID, RID>::Iterator rurix_cull_it = rurix_gpu_culling_visibility_buffers.find(rurix_cull_mm)) {
++						rurix_cull_visibility_rid = rurix_cull_it->value;
++					}
++					if (!rurix_cull_visibility_rid.is_valid()) {
++						rurix_cull_visibility_rid = rurix_cull_rd->storage_buffer_create(rurix_cull_bitmask_bytes);
++						if (rurix_cull_visibility_rid.is_valid()) {
++							rurix_gpu_culling_visibility_buffers[rurix_cull_mm] = rurix_cull_visibility_rid;
++						}
++					}
++					if (!rurix_cull_visibility_rid.is_valid()) {
++						continue;
++					}
++					const uint64_t rurix_cull_transforms_handle = rurix_cull_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_BUFFER, rurix_cull_transforms_rid, 0);
++					const uint64_t rurix_cull_commands_handle = rurix_cull_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_BUFFER, rurix_cull_commands_rid, 0);
++					const uint64_t rurix_cull_visibility_handle = rurix_cull_rd->get_driver_resource(RenderingDevice::DRIVER_RESOURCE_BUFFER, rurix_cull_visibility_rid, 0);
++					if (rurix_cull_transforms_handle == 0 || rurix_cull_commands_handle == 0 || rurix_cull_visibility_handle == 0) {
++						continue;
++					}
++					// Byte sizes for the bridge front door (nonzero widths). This
++					// slice's fixtures/enablement scene exercise bare 3D MultiMeshes
++					// (MULTIMESH_TRANSFORM_3D, no colors/custom): stride = 12 floats.
++					const uint32_t rurix_cull_transform_stride_floats = 12u;
++					const uint32_t rurix_cull_command_stride_dwords = 5u;
++					const uint32_t rurix_cull_transforms_bytes = (uint32_t)rurix_cull_instances * rurix_cull_transform_stride_floats * (uint32_t)sizeof(float);
++					const uint32_t rurix_cull_commands_bytes = (uint32_t)rurix_cull_surfaces * rurix_cull_command_stride_dwords * (uint32_t)sizeof(uint32_t);
++					// Build the 144-byte / 36-dword Rurix-defined b0. float[36] is
++					// exactly 144 bytes; the uint32 params alias the same block.
++					float rurix_cull_b0f[36] = {};
++					uint32_t *rurix_cull_b0u = reinterpret_cast<uint32_t *>(rurix_cull_b0f);
++					for (int rurix_cull_pi = 0; rurix_cull_pi < 6; rurix_cull_pi++) {
++						const Plane &rurix_cull_pl = rurix_cull_planes[rurix_cull_pi];
++						rurix_cull_b0f[rurix_cull_pi * 4 + 0] = (float)(-rurix_cull_pl.normal.x);
++						rurix_cull_b0f[rurix_cull_pi * 4 + 1] = (float)(-rurix_cull_pl.normal.y);
++						rurix_cull_b0f[rurix_cull_pi * 4 + 2] = (float)(-rurix_cull_pl.normal.z);
++						rurix_cull_b0f[rurix_cull_pi * 4 + 3] = (float)(rurix_cull_pl.d);
++					}
++					rurix_cull_b0u[24] = (uint32_t)rurix_cull_instances;
++					rurix_cull_b0u[25] = 0u; // motion_vectors_current_offset (exercised at 0)
++					rurix_cull_b0u[26] = rurix_cull_transform_stride_floats;
++					rurix_cull_b0u[27] = (uint32_t)rurix_cull_surfaces;
++					rurix_cull_b0u[28] = rurix_cull_command_stride_dwords;
++					rurix_cull_b0u[29] = 1u; // instance_count_dword_index (mesh_storage.cpp:2210 +4)
++					const AABB rurix_cull_aabb = rurix_cull_mesh_storage->mesh_get_aabb(rurix_cull_mesh);
++					const Vector3 rurix_cull_center = rurix_cull_aabb.get_center();
++					rurix_cull_b0f[30] = (float)rurix_cull_center.x;
++					rurix_cull_b0f[31] = (float)rurix_cull_center.y;
++					rurix_cull_b0f[32] = (float)rurix_cull_center.z;
++					rurix_cull_b0f[33] = (float)(rurix_cull_aabb.size.length() * 0.5);
++					rurix_cull_b0u[34] = 0u; // pad1
++					rurix_cull_b0u[35] = 0u; // pad2
++					(void)D3D12Hooks::get_singleton()->try_record_gpu_culling(rurix_cull_transforms_handle, rurix_cull_commands_handle, rurix_cull_visibility_handle, rurix_cull_transforms_bytes, rurix_cull_commands_bytes, rurix_cull_bitmask_bytes, (const uint8_t *)rurix_cull_b0f, (uint32_t)sizeof(rurix_cull_b0f));
++				}
++			}
+ 		}
+ 	}
+ #endif
+diff --git a/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.h b/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.h
+index 58b0f77..f40dfd7 100644
+--- a/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.h
++++ b/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.h
+@@ -86,6 +86,12 @@ class RenderForwardClustered : public RendererSceneRenderRD {
+ 	// 1 on) so the per-frame sort site does one GLOBAL_GET total, not one per
+ 	// frame.
+ 	int rurix_mat_sort_telemetry_enabled = -1;
++	// GRX-015 gpu_culling (patch 0028): per-indirect-MultiMesh visibility bitmask
++	// SSBO cache (u32[ceil(N/32)], the dst_visibility UAV u1). Rurix-owned and
++	// keyed by the MultiMesh base RID — deliberately NOT stored in Godot's
++	// MeshStorage. Lazily created on first use for each indirect MultiMesh the
++	// gpu_culling gate binds; only touched when the opt-in setting is enabled.
++	HashMap<RID, RID> rurix_gpu_culling_visibility_buffers;
+ 
+ 	enum {
+ 		SDFGI_MAX_CASCADES = 8,
+-- 
+2.46.0.windows.1
+

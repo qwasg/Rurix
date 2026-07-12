@@ -1,0 +1,145 @@
+From 292492b6a6948568e6aac948bd14ea7175cfa083 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Mon, 13 Jul 2026 11:00:00 +0800
+Subject: [PATCH] Add GRX-015 gpu_culling recording smoke, pre-dispatch zeroing
+ and real-pass opt-in
+
+---
+ modules/rurix_accel/register_types.cpp        | 27 +++++++++++++++++++
+ modules/rurix_accel/rurix_accel.cpp           | 22 +++++++++++++++
+ modules/rurix_accel/rurix_accel.h             | 10 +++++++
+ .../render_forward_clustered.cpp              | 19 +++++++++++++
+ 4 files changed, 78 insertions(+)
+
+diff --git a/modules/rurix_accel/register_types.cpp b/modules/rurix_accel/register_types.cpp
+index c97b63b..93d5c1f 100644
+--- a/modules/rurix_accel/register_types.cpp
++++ b/modules/rurix_accel/register_types.cpp
+@@ -251,6 +251,33 @@ void initialize_rurix_accel_module(ModuleInitializationLevel p_level) {
+ 	// RXGD_STATUS_FALLBACK for RXGD_PASS_GPU_CULLING, so the native path keeps
+ 	// rendering in practice and no acceleration is claimed.
+ 	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/gpu_culling/enabled", false);
++	// GRX-015: harness-only Godot-runtime gpu_culling bridge dispatch recording
++	// smoke opt-in (0008-level). Defaults to false so the shipping build never
++	// arms the recording-smoke marker path. It only gates the module-side
++	// RXGD_GODOT_RUNTIME_GPU_CULLING_RECORD marker; the bridge record path itself
++	// is only linked when the loaded rurix_godot.dll is built with the test-only
++	// d3d12-recording-shim feature AND the dispatch_real_pass opt-in below armed
++	// the fail-closed real-pass gate.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/gpu_culling/dispatch_recording_smoke", false);
++	// GRX-015: opt-in gated REAL gpu_culling pass bring-up arm (0009-level).
++	// Defaults to false so the shipping build never arms the real-pass attempt.
++	// Even when enabled the bridge runs its runtime binding preflight, dispatch
++	// eligibility, per-slot kernel-binding-kind conformance, and math-parity
++	// checks and keeps returning RXGD_STATUS_FALLBACK (with a machine-readable
++	// RXGD_GPU_CULLING_REAL_PASS_BLOCKED diagnostic naming the first missing
++	// prerequisite) unless every check passes AND a runtime-mappable real dispatch
++	// path is linked (d3d12-recording-shim builds only); the shipping feature-off
++	// bridge fails closed with real_dispatch_path_not_linked, so the native Godot
++	// CPU-driven command-buffer path keeps rendering.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/gpu_culling/dispatch_real_pass", false);
++	// GRX-015: harness-only forced-failure knob for the gpu_culling fallback
++	// red/green leg (0009-level template of the cluster_store
++	// real_pass_force_capability_downgrade). When enabled the module clears the
++	// shader-int64 capability it advertises to the bridge, so the bridge
++	// gpu_culling preflight fails closed with unsupported_device while the native
++	// Godot CPU-driven command-buffer path keeps rendering. Defaults to false;
++	// never enabled by the shipping build/config.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/gpu_culling/real_pass_force_capability_downgrade", false);
+ 	// GRX-017 material_sorting telemetry (patch 0026, telemetry-only slice):
+ 	// default-false opt-in for the verbose-only per-interval
+ 	// RXGD_MATERIAL_SORTING_TELEMETRY line emitted by the Forward+ renderer
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index e670690..64f973f 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -306,6 +306,25 @@ void RurixAccelD3D12Hooks::try_create_session() {
+ 	if (GLOBAL_GET("rendering/rurix_accel/passes/cluster_store/real_pass_force_capability_downgrade")) {
+ 		caps.flags &= ~RXGD_CAP_SHADER_INT64;
+ 	}
++	// GRX-015: arm the opt-in gated REAL gpu_culling pass attempt ONLY when the
++	// default-false gpu_culling dispatch_real_pass opt-in is enabled. The bridge
++	// still fails closed (fallback + RXGD_GPU_CULLING_REAL_PASS_BLOCKED first
++	// missing prerequisite) unless every gate passes AND the d3d12-recording-shim
++	// real dispatch path is linked and completes; this is a bring-up gate, not a
++	// default runtime pass.
++	if (GLOBAL_GET("rendering/rurix_accel/passes/gpu_culling/dispatch_real_pass")) {
++		caps.flags |= RXGD_CAP_GPU_CULLING_REAL_PASS;
++	}
++	// GRX-015: harness-only gpu_culling forced-failure knob. gpu_culling carries
++	// no i64 push-constant fields so int64 is not part of its binding preflight,
++	// but the bridge's gpu_culling dispatch eligibility still requires the int64
++	// device capability for the recording harness; clearing it makes the
++	// real-pass arm fail closed with unsupported_device while the native Godot
++	// CPU-driven command-buffer path keeps rendering. The fallback red/green leg
++	// of the GRX-015 real-pass enablement smoke verifies exactly this.
++	if (GLOBAL_GET("rendering/rurix_accel/passes/gpu_culling/real_pass_force_capability_downgrade")) {
++		caps.flags &= ~RXGD_CAP_SHADER_INT64;
++	}
+ 	if (adapter_luid_valid) {
+ 		memcpy(caps.adapter_luid, &adapter_luid, sizeof(adapter_luid));
+ 	}
+@@ -1005,6 +1024,9 @@ bool RurixAccelD3D12Hooks::try_record_gpu_culling(uint64_t p_transforms_native_h
+ 		}
+ 		return false;
+ 	}
++	if (GLOBAL_GET("rendering/rurix_accel/passes/gpu_culling/dispatch_recording_smoke")) {
++		print_line("RXGD_GODOT_RUNTIME_GPU_CULLING_RECORD: pass=RXGD_PASS_GPU_CULLING recorded=1");
++	}
+ 	return true;
+ }
+ 
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index c796702..a927c13 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -90,6 +90,16 @@
+ // diagnostic unless every check passes AND the d3d12-recording-shim real
+ // dispatch path is linked and completes.
+ #define RXGD_CAP_CLUSTER_STORE_REAL_PASS 256u
++// GRX-015 opt-in gpu_culling real-pass arm carried in RxGdCaps.flags (ABI v1,
++// no struct layout change; bridge value 1 << 9). Set only when the default-false
++// rendering/rurix_accel/passes/gpu_culling/dispatch_real_pass opt-in is enabled.
++// Setting it never on its own makes the bridge return RXGD_STATUS_OK: the
++// fail-closed GpuCullingGate runs preflight -> eligibility -> binding-kind
++// (structured_buffer/rwstructured_buffer/rwstructured_buffer) -> math-parity ->
++// linked-dispatch checks and returns RXGD_STATUS_FALLBACK with an
++// RXGD_GPU_CULLING_REAL_PASS_BLOCKED diagnostic unless every check passes AND the
++// d3d12-recording-shim real dispatch path is linked and completes.
++#define RXGD_CAP_GPU_CULLING_REAL_PASS 512u
+ 
+ typedef struct RxGdCaps {
+ 	uint32_t abi_version;
+diff --git a/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp b/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
+index 3e8137b..4235e40 100644
+--- a/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
++++ b/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
+@@ -2063,6 +2063,25 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
+ 					rurix_cull_b0f[33] = (float)(rurix_cull_aabb.size.length() * 0.5);
+ 					rurix_cull_b0u[34] = 0u; // pad1
+ 					rurix_cull_b0u[35] = 0u; // pad2
++					// GRX-015 pre-dispatch zeroing (patch 0029): the kernel
++					// InterlockedAdd-accumulates into pre-zeroed count dwords and
++					// InterlockedOr's into a pre-zeroed bitmask. Zero ONLY the
++					// instance-count dword of each 5-dword surface block (byte offset
++					// (s*5+1)*4; mirrors the CPU write at mesh_storage.cpp:2210) and
++					// the whole bitmask; every other command dword (dword 0 =
++					// vertices-drawn count) is preserved untouched. Gated on the
++					// harness-only dispatch_real_pass opt-in so the default/shipping
++					// path never zeroes a count the CPU still owns: the opt-in is only
++					// ever armed in the d3d12-recording-shim enablement build where the
++					// GPU dispatch fills the count in the same frame (the clear ->
++					// dispatch -> indirect-draw ordering on the live render path is the
++					// integration surface the GRX-015 enablement smoke validates).
++					if (GLOBAL_GET("rendering/rurix_accel/passes/gpu_culling/dispatch_real_pass")) {
++						for (int rurix_cull_s = 0; rurix_cull_s < rurix_cull_surfaces; rurix_cull_s++) {
++							rurix_cull_rd->buffer_clear(rurix_cull_commands_rid, ((uint32_t)rurix_cull_s * rurix_cull_command_stride_dwords + 1u) * (uint32_t)sizeof(uint32_t), (uint32_t)sizeof(uint32_t));
++						}
++						rurix_cull_rd->buffer_clear(rurix_cull_visibility_rid, 0, rurix_cull_bitmask_bytes);
++					}
+ 					(void)D3D12Hooks::get_singleton()->try_record_gpu_culling(rurix_cull_transforms_handle, rurix_cull_commands_handle, rurix_cull_visibility_handle, rurix_cull_transforms_bytes, rurix_cull_commands_bytes, rurix_cull_bitmask_bytes, (const uint8_t *)rurix_cull_b0f, (uint32_t)sizeof(rurix_cull_b0f));
+ 				}
+ 			}
+-- 
+2.46.0.windows.1
+

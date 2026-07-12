@@ -1,0 +1,65 @@
+{
+  "blocked_marker": "RXGD_GPU_CULLING_REAL_PASS_BLOCKED",
+  "bridge_marker": "RXGD_BRIDGE_REC",
+  "dll_sha256": "fd83e353331149a54b0c2ad84c3d7b90d15cc338f403745270c30d1639208196",
+  "expected_dispatch_x": 2,
+  "instance_count": 96,
+  "legs": {
+    "candidate": {
+      "blocked": null,
+      "bridge_recs": [
+        {
+          "checksum": "b9fee455",
+          "dispatch": [
+            2,
+            1,
+            1
+          ]
+        }
+      ],
+      "captured": false,
+      "clean_exit": false,
+      "device_removed_or_crash": true,
+      "record_marker": true,
+      "returncode": 3221225477,
+      "scene_ready": true
+    },
+    "collect_only": {
+      "blocked": null,
+      "bridge_recs": [],
+      "captured": true,
+      "clean_exit": true,
+      "device_removed_or_crash": false,
+      "record_marker": false,
+      "returncode": 0,
+      "scene_ready": true
+    },
+    "forced": {
+      "blocked": "RXGD_GPU_CULLING_REAL_PASS_BLOCKED first_missing_prerequisite=dispatch_eligibility_failed fallback_reason=unsupported_device kernel_binding=structured_buffer default_enable_state=disabled",
+      "bridge_recs": [],
+      "captured": false,
+      "clean_exit": false,
+      "device_removed_or_crash": true,
+      "record_marker": false,
+      "returncode": 3221225477,
+      "scene_ready": true
+    },
+    "reference": {
+      "blocked": null,
+      "bridge_recs": [],
+      "captured": true,
+      "clean_exit": true,
+      "device_removed_or_crash": false,
+      "record_marker": false,
+      "returncode": 0,
+      "scene_ready": true
+    }
+  },
+  "reason": "enabling gpu_culling removed the D3D12 device / crashed on the live render path (leg=candidate, 0x887a0005 DXGI_ERROR_DEVICE_REMOVED). The pass records a real culling dispatch in isolation (candidate RXGD_BRIDGE_REC present) but the never-battle-tested indirect draw path does not integrate cleanly into Godot's live frame. See diagnosis in this evidence.",
+  "record_marker": "RXGD_GODOT_RUNTIME_GPU_CULLING_RECORD",
+  "schema_version": 1,
+  "status": "measured_blocked",
+  "strict_success": false,
+  "subject": "grx015_gpu_culling_real_pass_enablement_smoke",
+  "timestamp": "2026-07-13T01:38:02+08:00"
+}

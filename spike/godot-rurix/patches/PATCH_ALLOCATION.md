@@ -44,7 +44,10 @@ ownership; keep it in sync (see §4 rules).
 | 0024 | `0024-rurix-accel-cluster-store-runtime-resource-binding.patch` | cluster_store — runtime resource binding |
 | 0025 | `0025-rurix-accel-cluster-store-recording-smoke-and-real-pass-optin.patch` | cluster_store — recording smoke + real-pass opt-in |
 | 0026 | `0026-rurix-accel-material-sorting-telemetry.patch` | material_sorting (GRX-017) — single telemetry-only slice (no D3D12Hooks virtual, no bridge call, no kernel) |
-| 0036 | `0036-rurix-accel-fused-post-chain-pass-gate-and-callsite.patch` | fused_post_chain (GRX-019) — pass gate + fusion-first call-site (stacks on the 0026 tip; 0027-0035 reserved for GRX-015/016/018) |
+| 0027 | `0027-rurix-accel-gpu-culling-pass-gate-and-callsite.patch` | gpu_culling (GRX-015) — pass gate + additive collect call-site (no native dispatch to wrap; collects `INSTANCE_DATA_FLAG_MULTIMESH_INDIRECT` bases in `render_forward_clustered.cpp` after `_fill_instance_data(RENDER_LIST_ALPHA)`) |
+| 0028 | `0028-rurix-accel-gpu-culling-runtime-resource-binding.patch` | gpu_culling — runtime resource binding (3 structured buffers src_transforms/dst_commands/dst_visibility + 144-byte Rurix b0 with frustum planes normal-negated `n_rurix=-n_godot, d_rurix=plane.d`; Rurix-owned visibility bitmask cache) |
+| 0029 | `0029-rurix-accel-gpu-culling-recording-smoke-and-real-pass-optin.patch` | gpu_culling — recording smoke + pre-dispatch zeroing (count dwords `(s*5+1)*4` + bitmask) + real-pass opt-in (cap bit 9) |
+| 0036 | `0036-rurix-accel-fused-post-chain-pass-gate-and-callsite.patch` | fused_post_chain (GRX-019) — pass gate + fusion-first call-site (stacks on the 0026 tip; 0030-0035 reserved for GRX-016/018) |
 | 0037 | `0037-rurix-accel-fused-post-chain-runtime-resource-binding.patch` | fused_post_chain — runtime resource binding (5 texture native handles + 64-byte b0) |
 | 0038 | `0038-rurix-accel-fused-post-chain-recording-smoke-and-real-pass-optin.patch` | fused_post_chain — recording smoke + real-pass opt-in |
 
