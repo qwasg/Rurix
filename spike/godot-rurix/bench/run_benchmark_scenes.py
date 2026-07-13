@@ -127,8 +127,62 @@ VALID_PASS_MATRIX_KEYS = frozenset(
         "rendering/rurix_accel/passes/fused_post_chain/dispatch_recording_smoke",
         "rendering/rurix_accel/passes/fused_post_chain/dispatch_real_pass",
         "rendering/rurix_accel/passes/fused_post_chain/real_pass_force_capability_downgrade",
+        # GRX Route B rd_native in-frame REAL-replacement selectors (patches
+        # 0040..0045, landed on the 0001-0029 tail). Each pass gains a three-state
+        # `backend` int selector (0=disabled / 1=shim / 2=rd_native; fused_post_chain
+        # documents 1 as reserved) and an absolute `rd_container_path` string. These
+        # are INDEPENDENT of the four shim opt-in bools above: backend==2 drives the
+        # Rurix kernel as a first-class in-frame RenderingDevice compute pass and, on
+        # success, genuinely SKIPS the native pass (a real replacement, not the shim
+        # scaffold's write-back-then-re-render). Key names verified byte-for-byte
+        # against the GLOBAL_DEF_BASIC calls in register_types.cpp of patches
+        # 0040 (tonemap) / 0041 (ssao_blur) / 0042 (taa_resolve) / 0043
+        # (particles_copy) / 0044 (cluster_store) / 0045 (fused_post_chain).
+        "rendering/rurix_accel/passes/tonemap/backend",
+        "rendering/rurix_accel/passes/tonemap/rd_container_path",
+        "rendering/rurix_accel/passes/ssao_blur/backend",
+        "rendering/rurix_accel/passes/ssao_blur/rd_container_path",
+        "rendering/rurix_accel/passes/taa_resolve/backend",
+        "rendering/rurix_accel/passes/taa_resolve/rd_container_path",
+        "rendering/rurix_accel/passes/particles_copy/backend",
+        "rendering/rurix_accel/passes/particles_copy/rd_container_path",
+        "rendering/rurix_accel/passes/cluster_store/backend",
+        "rendering/rurix_accel/passes/cluster_store/rd_container_path",
+        "rendering/rurix_accel/passes/fused_post_chain/backend",
+        "rendering/rurix_accel/passes/fused_post_chain/rd_container_path",
     }
 )
+
+# GRX Route B rd_native engagement markers. rd_native is BRIDGE-INDEPENDENT: it
+# does NOT route through the rxgd shim session/record_pass path, writes NO shim
+# engagement counter file, and emits NO RXGD_SUMMARY line — so none of the four
+# shim engagement sources in parse_pass_engagement() below fire for an rd_native
+# leg. Its ONLY engagement signal is a ONE-SHOT module-side print_verbose marker
+# emitted the first time the compute pipeline is built for that pass (not
+# per-frame). The marker is therefore visible only under Godot `--verbose`, which
+# the runner adds automatically for an rd_native leg (see rd_native_pass_set()).
+# A present marker == the pass engaged and the native pass was skipped for at
+# least one frame; an absent marker == rd_native never engaged this scene (it
+# failed closed to the native pass, e.g. a subset boundary such as
+# particles_copy userdata_count>0, cluster_store render_element_count==0, or the
+# ssao_blur non-SMART pipeline). Marker substrings verified against the
+# print_verbose calls in patches 0040..0045 and the ACTIVE_MARKER constants in
+# the ci/grx_rb_*_rd_native_enablement_smoke.py gates.
+RD_NATIVE_BACKEND_SUFFIX = "/backend"
+RD_NATIVE_BACKEND_RD_NATIVE = 2
+RD_NATIVE_ACTIVE_MARKERS = {
+    "tonemap": "RXGD_RD_NATIVE_TONEMAP active",
+    "ssao_blur": "RXGD_RD_NATIVE_SSAO_BLUR active",
+    "taa_resolve": "RXGD_RD_NATIVE_TAA_RESOLVE active",
+    "particles_copy": "RXGD_RD_NATIVE_PARTICLES_COPY active",
+    "cluster_store": "RXGD_RD_NATIVE_CLUSTER_STORE active",
+    "fused_post_chain": "RXGD_RD_NATIVE_FUSED_POST_CHAIN active",
+}
+# The signed DXC dxil.dll must be discoverable at runtime so the D3D12 driver can
+# load the container's DXIL when an rd_native pipeline is built. Points at the
+# same directory the S2 probe / rd_native enablement smokes used
+# (RURIX_DXC_DIR); prepended to PATH for rd_native legs only.
+DXC_DIR_ENV = "RURIX_DXC_DIR"
 
 # Per-frame or exit-summary pass-engagement markers. The current bridge prints
 # per-frame record/blocked markers; a future "B0" refactor is expected to emit a
@@ -313,11 +367,54 @@ def load_pass_matrix(path: Path) -> dict[str, object]:
     for key, value in settings.items():
         if key not in VALID_PASS_MATRIX_KEYS:
             raise ValueError(f"pass matrix key not in rurix_accel allowlist: {key}")
-        if isinstance(value, bool) or isinstance(value, str):
+        # The GRX Route B `backend` selectors are ints (0/1/2); every other
+        # rurix_accel setting is a bool or a string. Note bool is an int subclass
+        # in Python, so the checks below are ordered bool -> int -> str and a
+        # non-`/backend` key may not carry a bare int (fail-closed: a mistyped
+        # int for a bool/string setting is rejected rather than silently coerced).
+        if isinstance(value, bool):
+            normalized[key] = value
+        elif isinstance(value, int):
+            if not key.endswith(RD_NATIVE_BACKEND_SUFFIX):
+                raise ValueError(
+                    f"pass matrix value for {key} must be a bool or string "
+                    "(only the .../backend selectors accept an int)"
+                )
+            if value not in (0, 1, 2):
+                raise ValueError(
+                    f"pass matrix backend selector {key}={value} must be 0 "
+                    "(disabled), 1 (shim), or 2 (rd_native)"
+                )
+            normalized[key] = value
+        elif isinstance(value, str):
             normalized[key] = value
         else:
-            raise ValueError(f"pass matrix value for {key} must be a bool or string")
+            raise ValueError(f"pass matrix value for {key} must be a bool, int, or string")
     return normalized
+
+
+def rd_native_pass_set(settings: dict[str, object]) -> set[str]:
+    """Pass names whose `backend` selector is 2 (rd_native) in this matrix.
+
+    Used to decide, fail-closed, whether a rurix leg is an rd_native leg: only a
+    `.../<pass>/backend` key set to exactly 2 counts. Drives the `--verbose`
+    engagement marker capture and the RURIX_DXC_DIR PATH injection for the leg.
+    """
+    passes: set[str] = set()
+    prefix = "rendering/rurix_accel/passes/"
+    for key, value in settings.items():
+        if not key.endswith(RD_NATIVE_BACKEND_SUFFIX):
+            continue
+        if isinstance(value, bool) or not isinstance(value, int):
+            continue
+        if value != RD_NATIVE_BACKEND_RD_NATIVE:
+            continue
+        if not key.startswith(prefix):
+            continue
+        pass_name = key[len(prefix):-len(RD_NATIVE_BACKEND_SUFFIX)]
+        if pass_name in RD_NATIVE_ACTIVE_MARKERS:
+            passes.add(pass_name)
+    return passes
 
 
 def render_override_cfg(settings: dict[str, object]) -> str:
@@ -333,6 +430,13 @@ def render_override_cfg(settings: dict[str, object]) -> str:
         sub_key = key[len("rendering/"):] if key.startswith("rendering/") else key
         if isinstance(value, bool):
             rendered = "true" if value else "false"
+        elif isinstance(value, int):
+            # GRX Route B `backend` int selector: emitted as a bare number so
+            # Godot parses it as an int (a quoted "2" would be a string and the
+            # ((int)GLOBAL_GET(...)) == 2 gate in the renderer would never match).
+            # bool is handled above (bool is an int subclass), so this is a true
+            # int only.
+            rendered = str(value)
         else:
             # Godot config strings treat backslashes as escape sequences
             # (a Windows path like H:\rurix\target\... would be mangled into
@@ -481,6 +585,28 @@ def parse_pass_engagement(
     if counts:
         return counts, "stdout_record_markers"
     return None, None
+
+
+def parse_rd_native_engagement(
+    output: str, rd_native_passes: set[str]
+) -> dict[str, dict[str, object]]:
+    """Per-pass rd_native engagement from the one-shot RXGD_RD_NATIVE_<pass>
+    active marker (present under --verbose only). For each rd_native-armed pass,
+    record whether its marker appeared this scene run. `rd_native_active=True`
+    means the Rurix kernel engaged and the native pass was skipped for >=1 frame;
+    `False` means rd_native failed closed to the native pass (a subset boundary,
+    a missing/invalid container, or a pipeline/usage-bits preflight failure) — an
+    HONEST engagement=false, not a runner error. This is intentionally NOT a
+    recorded/fallback count (rd_native has no per-dispatch counter); it is a
+    boolean engagement fact keyed the same way as the shim engagement dict."""
+    engagement: dict[str, dict[str, object]] = {}
+    for pass_name in sorted(rd_native_passes):
+        marker = RD_NATIVE_ACTIVE_MARKERS.get(pass_name)
+        engagement[pass_name] = {
+            "rd_native_active": bool(marker is not None and marker in output),
+            "mechanism": "one_shot_active_marker",
+        }
+    return engagement
 
 
 def enrich_raw_payload(
@@ -668,6 +794,19 @@ def build_scene_command(
         "d3d12",
         "--rendering-method",
         "forward_plus",
+    ]
+    # GRX Route B: an rd_native leg needs Godot `--verbose` so the module's
+    # ONE-SHOT RXGD_RD_NATIVE_<pass> active marker (print_verbose) is captured as
+    # the leg's engagement signal — rd_native emits no shim counter file / no
+    # RXGD_SUMMARY line. The rd_native hot path is itself stdout-clean (the marker
+    # fires once at pipeline build, not per frame), and Godot --verbose output is
+    # concentrated at init/shutdown rather than in the steady render loop, so the
+    # frame-time sample window is not dominated by stdout (this is verified
+    # against a no-verbose control before the numbers are trusted). Only the
+    # rd_native leg gets --verbose; baseline and shim legs are byte-unchanged.
+    if context.get("rd_native_passes"):
+        command.append("--verbose")
+    command += [
         "--scene",
         "res://scenes/benchmark_runner.tscn",
         "--",
@@ -797,6 +936,15 @@ def run_scene(
 
     run_env = dict(os.environ)
     run_env[ENGAGEMENT_ENV] = str(engagement_file)
+    # GRX Route B: an rd_native leg loads the pass container's DXIL through the
+    # D3D12 driver at runtime, which needs the signed DXC dxil.dll discoverable
+    # on PATH (same environment the S2 probe / rd_native enablement smokes used).
+    # Prepended for the rd_native leg only; inert for baseline/shim legs (they
+    # never build an rd_native pipeline), so it does not perturb their timing.
+    if context.get("rd_native_passes"):
+        dxc_dir = os.environ.get(DXC_DIR_ENV)
+        if dxc_dir and Path(dxc_dir).is_dir():
+            run_env["PATH"] = dxc_dir + os.pathsep + run_env.get("PATH", "")
     try:
         completed = subprocess.run(
             command,
@@ -829,6 +977,24 @@ def run_scene(
             result["error"] = f"godot log failure markers: {markers['failure_markers'][0]}"
             return result
         engagement, engagement_source = parse_pass_engagement(output, engagement_file)
+        # GRX Route B: merge the rd_native one-shot-marker engagement for any
+        # rd_native-armed pass. The shim sources above return None for a pure
+        # rd_native leg, so this becomes the leg's sole engagement signal; if a
+        # matrix mixes shim and rd_native passes both are recorded and the source
+        # is composed so the origin of each pass's signal stays auditable.
+        rd_native_passes = context.get("rd_native_passes") or set()
+        if rd_native_passes:
+            rd_engagement = parse_rd_native_engagement(output, rd_native_passes)
+            if engagement is None:
+                engagement = rd_engagement
+                engagement_source = "rd_native_active_marker"
+            else:
+                engagement = {**engagement, **rd_engagement}
+                engagement_source = (
+                    f"{engagement_source}+rd_native_active_marker"
+                    if engagement_source
+                    else "rd_native_active_marker"
+                )
         enrich_raw_payload(raw_output_path, context, engagement, engagement_source)
         result["status"] = "success"
         result["sample_count"] = metrics["sample_count"]
@@ -893,6 +1059,7 @@ def build_initial_summary(
         "scene_subset": False,
         "pass_matrix": {},
         "pass_matrix_path": None,
+        "rd_native_passes": [],
         "dll_sha256": None,
         "godot_exe": None,
         "godot_exe_source": None,
@@ -956,6 +1123,7 @@ def main() -> int:
         patch_stack_id, patch_stack_id_note = resolve_patch_stack_id(
             args.patch_stack_id, godot_exe
         )
+        rd_native_passes = rd_native_pass_set(pass_matrix_settings)
         context: dict[str, object] = {
             "leg": leg,
             "pass_matrix": pass_matrix_settings,
@@ -965,7 +1133,16 @@ def main() -> int:
             "godot_exe_sha256": sha256_file(godot_exe),
             "patch_stack_id": patch_stack_id,
             "patch_stack_id_note": patch_stack_id_note,
+            "rd_native_passes": rd_native_passes,
         }
+        if rd_native_passes:
+            dxc_dir = os.environ.get(DXC_DIR_ENV)
+            print(
+                "[bench-runner] rd_native leg: passes="
+                + ",".join(sorted(rd_native_passes))
+                + f"; --verbose engagement markers ON; {DXC_DIR_ENV}="
+                + (dxc_dir if dxc_dir else "<unset>")
+            )
 
         run_mode = str(settings["run_mode"])
         run_id = make_run_id(run_mode)
@@ -984,6 +1161,7 @@ def main() -> int:
                 "scene_subset": scene_names != EXPECTED_SCENES,
                 "pass_matrix": pass_matrix_settings,
                 "pass_matrix_path": str(pass_matrix_path) if pass_matrix_path is not None else None,
+                "rd_native_passes": sorted(rd_native_passes),
                 "dll_sha256": context["dll_sha256"],
                 "godot_exe": str(godot_exe),
                 "godot_exe_source": godot_exe_source,
