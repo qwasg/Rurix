@@ -241,3 +241,34 @@ and `passes/fused_post_chain/fused_ae_parameter_pipeline_design.md`. All
 experiment artifacts (diagnostic projects, no-op DXIL/containers, `--gpu-validation`
 logs) live under the session scratchpad, not the repo. The rb3 exe and the patch
 stack were not modified.
+
+## §6 Terminal verdict — R3 (2026-07-13, rb4)
+
+R1 was implemented in full (patch 0046 revision: Rurix-owned scratch indirect
+buffer, `buffer_copy` live->scratch as the only touch on the live buffer,
+clear/dispatch confined to the scratch, `draw_list_draw_indirect` retargeted to
+the scratch via a per-frame map) and put to its pre-registered final arbiter:
+`ci/grx_rb_gpu_culling_rd_native_enablement_smoke.py` on the rb4 exe
+(0001-0029+0040-0048).
+
+**Verdict: candidate leg still device-removes (`0x887A0005`).** Per the
+pre-registered decision tree this convicts the GENERAL hypothesis: on this
+Godot D3D12 backend the pattern *compute-written `DISPATCH_INDIRECT` buffer
+consumed by a same-frame indirect draw* removes the device irrespective of
+which buffer is involved, what the kernel writes (empty kernel reproduces), or
+the instance count (1 reproduces). The debug layer and GPU-Based Validation are
+both silent, i.e. the CPU-visible barrier/state chain validates clean and the
+fault is on the GPU timeline.
+
+R2 (apply last frame's cull results via a frame-boundary copy) is rejected:
+1-frame-stale visibility violates the pass's conservative picture-preservation
+invariant under camera motion — the visual gate would only pass on static
+scenes, which would be dishonest coverage.
+
+**R3 close-out**: `pass_manifest.json` flipped to
+`grx015_rd_native_r1_final_verdict_mechanism_blocked_rdg_gap`; GRX-015/016/018
+remain blocked on this engine/driver combination; default stays disabled; no
+performance claim. This is an upstream Godot bug-report candidate (RDG /
+D3D12 driver: missing GPU-timeline sync for UAV->INDIRECT_ARGUMENT within one
+frame graph submission); the report recipe is this note plus the three-stage
+evidence chain (shim / in-graph live / in-graph scratch).

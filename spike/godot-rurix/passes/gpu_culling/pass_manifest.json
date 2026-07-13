@@ -1,6 +1,6 @@
 {
   "pass_id": "gpu_culling",
-  "status": "grx015_patches_landed_live_path_enablement_measured_blocked_device_removal",
+  "status": "grx015_rd_native_r1_final_verdict_mechanism_blocked_rdg_gap",
   "implemented": false,
   "default_enable_state": "disabled",
   "grx015_s7_s8_findings": {
@@ -173,5 +173,22 @@
     "visual": "later enablement slice; this slice claims none",
     "perf": "reuse GRX-006 baseline/perf gate + the GRX_PLAN many_mesh_instances draw/dispatch-count metric; no perf improvement claimed"
   },
-  "disclaimer": "GRX-015 gpu_culling is at the S1-S3 level only: the pass contract trio, the DXC/DXV/RTS0 offline kernel package (hlsl_bridge_workaround provenance, Rurix-owned RTS0), and the CPU math-parity reference (zero-tolerance u32 outputs with an asserted classification-margin floor, pending_gpu_dispatch). implemented=false, runtime_state=fallback_only, real_gpu_pass=false, real_d3d12_dispatch_recorded=false are the honest current values: no bridge gate exists, no Godot patch exists (0027-0029 reserved), no runtime hook is wired, the CPU cull path is untouched, the pass is an additive GPU-draw-side cull whose benefit is UNMEASURED, and NO visual-superiority, GPU-timestamp, FPS, draw/dispatch-count, or performance improvement is claimed."
+  "disclaimer": "GRX-015 gpu_culling is at the S1-S3 level only: the pass contract trio, the DXC/DXV/RTS0 offline kernel package (hlsl_bridge_workaround provenance, Rurix-owned RTS0), and the CPU math-parity reference (zero-tolerance u32 outputs with an asserted classification-margin floor, pending_gpu_dispatch). implemented=false, runtime_state=fallback_only, real_gpu_pass=false, real_d3d12_dispatch_recorded=false are the honest current values: no bridge gate exists, no Godot patch exists (0027-0029 reserved), no runtime hook is wired, the CPU cull path is untouched, the pass is an additive GPU-draw-side cull whose benefit is UNMEASURED, and NO visual-superiority, GPU-timestamp, FPS, draw/dispatch-count, or performance improvement is claimed.",
+  "rd_native_r3_closeout": {
+    "date": "2026-07-13",
+    "verdict": "mechanism_blocked_general_rdg_gap",
+    "evidence_chain": [
+      "shim side-channel dispatch: 0x887A0005 (322c1f10 era)",
+      "rd_native in-graph dispatch on live command buffer: 0x887A0005 (rb3, empty-kernel/1-instance invariant)",
+      "rd_native R1 scratch indirect buffer (live buffer read-only via buffer_copy, draw retargeted): 0x887A0005 (rb4 final verdict)",
+      "debug layer + GPU-Based Validation both silent: asynchronous GPU-side execution fault"
+    ],
+    "conclusion": "On this Godot D3D12 backend, the pattern compute-write -> DISPATCH_INDIRECT buffer -> same-frame draw_list_draw_indirect consumption removes the device regardless of which buffer is used or what the kernel writes. RD::barrier() is a deprecated no-op, so no manual synchronization path exists. R2 (1-frame-stale apply) rejected: breaks the conservative picture-preservation invariant under motion.",
+    "downstream_impact": "GRX-015/016/018 (GPU-driven trio) remain blocked on this engine/driver combination",
+    "upstream_report_candidate": true,
+    "diagnosis_note": "spike/godot-rurix/passes/gpu_culling/rd_native_device_removal_diagnosis.md",
+    "final_evidence": "spike/godot-rurix/passes/gpu_culling/rd_native_enablement_evidence.json",
+    "performance_claim": "none",
+    "default_enable_state": "disabled"
+  }
 }
