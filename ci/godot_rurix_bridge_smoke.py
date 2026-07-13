@@ -218,6 +218,40 @@ PATCH38 = (
     / "patches"
     / "0038-rurix-accel-fused-post-chain-recording-smoke-and-real-pass-optin.patch"
 )
+# GRX-015 gpu_culling (0027-0029). This "culling tail" ALSO stacks on the 0026
+# tip and is MUTUALLY EXCLUSIVE with the fused tail (0036-0038): both were
+# authored against the 0026 tip and insert at the same module anchors, so under
+# strict `git apply` neither `0001-0029,0036-0038` nor the reverse assembles.
+PATCH27 = (
+    ROOT
+    / "spike"
+    / "godot-rurix"
+    / "patches"
+    / "0027-rurix-accel-gpu-culling-pass-gate-and-callsite.patch"
+)
+PATCH28 = (
+    ROOT
+    / "spike"
+    / "godot-rurix"
+    / "patches"
+    / "0028-rurix-accel-gpu-culling-runtime-resource-binding.patch"
+)
+PATCH29 = (
+    ROOT
+    / "spike"
+    / "godot-rurix"
+    / "patches"
+    / "0029-rurix-accel-gpu-culling-recording-smoke-and-real-pass-optin.patch"
+)
+# GRX Route B rd_native tonemap (0040). First non-scaffold real replacement;
+# stacks on the branch-HEAD culling tail (0001-0029), NOT combined with fused.
+PATCH40 = (
+    ROOT
+    / "spike"
+    / "godot-rurix"
+    / "patches"
+    / "0040-rurix-accel-tonemap-rd-native-inframe-replacement.patch"
+)
 EXTERNAL_GODOT = ROOT / "external" / "godot-master"
 
 IDE_IGNORE_PROBES = [
@@ -582,6 +616,37 @@ def check_patch_state() -> str:
                 )
             print(f"[godot-rurix] patch {ordinal} stacked applyability: ready")
             prior.append(patch)
+        # GRX Route B rd_native (0040) applyability on the CULLING tail. The
+        # culling tail (0027-0029) and the fused tail (0036-0038) both stack on
+        # the 0026 tip and are MUTUALLY EXCLUSIVE under strict git apply (they
+        # were authored against the same 0026 tip and insert at the same module
+        # anchors), so 0040 is validated on the culling tail (0004-0026 +
+        # 0027-0029), NOT on the combined 0001-0029+0036-0038 stack — that
+        # combination is not applyable with the frozen patches. See the Route B
+        # double-tail note in PATCH_ALLOCATION.md.
+        culling_prior = [p for p in prior if p not in (PATCH36, PATCH37, PATCH38)]
+        for ordinal, patch in (
+            ("0027", PATCH27),
+            ("0028", PATCH28),
+            ("0029", PATCH29),
+            ("0040", PATCH40),
+        ):
+            result = evaluate_stacked_patch_applyability(
+                ROOT, EXTERNAL_GODOT, list(culling_prior), patch, ordinal
+            )
+            if result["ok"] is not True:
+                details = result.get("details", {})
+                raise SystemExit(
+                    f"{result['reason']}; fix {patch.name} so it applies on top "
+                    f"of its culling-tail prior stack ({len(culling_prior)} "
+                    f"patches, tip {culling_prior[-1].name}) in a scratch copy.\n"
+                    f"details: {details}"
+                )
+            print(
+                f"[godot-rurix] patch {ordinal} (culling tail) stacked "
+                "applyability: ready"
+            )
+            culling_prior.append(patch)
     return state
 
 

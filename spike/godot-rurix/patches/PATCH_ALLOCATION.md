@@ -50,6 +50,22 @@ ownership; keep it in sync (see §4 rules).
 | 0036 | `0036-rurix-accel-fused-post-chain-pass-gate-and-callsite.patch` | fused_post_chain (GRX-019) — pass gate + fusion-first call-site (stacks on the 0026 tip; 0030-0035 reserved for GRX-016/018) |
 | 0037 | `0037-rurix-accel-fused-post-chain-runtime-resource-binding.patch` | fused_post_chain — runtime resource binding (5 texture native handles + 64-byte b0) |
 | 0038 | `0038-rurix-accel-fused-post-chain-recording-smoke-and-real-pass-optin.patch` | fused_post_chain — recording smoke + real-pass opt-in |
+| 0040 | `0040-rurix-accel-tonemap-rd-native-inframe-replacement.patch` | tonemap **Route B rd_native** (first non-scaffold real replacement) — single slice: new `try_record_tonemap_rd_native(RID,RID,Size2i,Size2i,f32,f32,f32)` virtual + three-state `passes/tonemap/backend` selector (0=disabled/1=shim/2=rd_native) + `passes/tonemap/rd_container_path` + module RD-native pipeline (lazy `shader_create_from_bytecode`→`compute_pipeline_create`, `UniformSetCacheRD` bind, 28-byte b0, in-frame `compute_list` dispatch). Bridge-independent (no rxgd session, no `RxGdCaps.flags` bit). Stacks on the **culling tail 0001-0029** (branch HEAD). |
+
+> **Route B rd_native lineage / double-tail note (0040).** Patch 0040 opens the
+> Route B rd_native series. It stacks on the **gpu_culling culling tail
+> (0001-0029)**, the branch-HEAD lineage. The two existing tails —
+> gpu_culling (0027-0029) and fused_post_chain (0036-0038) — were BOTH authored
+> against the 0026 tip and insert at the SAME module anchors
+> (`d3d12_hooks.h` virtual list, `register_types.cpp` settings block,
+> `rurix_accel.{h,cpp}` pass-id/member/method decls), so they are **mutually
+> exclusive under strict `git apply`**: neither `0001-0029,0036-0038` nor
+> `0001-0026,0036-0038,0027-0029` assembles (whichever tail is second fails on
+> the shared anchors). This is a pre-existing condition, not introduced by 0040.
+> The combined stack `0001-0029+0036-0038+0040` the plan targeted is therefore
+> **not applyable with the frozen patches**; 0040 is validated on the maximal
+> FEASIBLE stack `0001-0029+0040` (culling tail). 0040 does not apply on the
+> fused tail either, as its hunks anchor on culling-tail (gpu_culling) context.
 
 > **Wave 4 print-gating revision note (0009/0010/0013/0016/0019/0022 revised
 > in place, no number change — §4 rule 2).** The per-dispatch module-side
@@ -97,7 +113,8 @@ reserved numbers become holes (monotonic, holes allowed — §4).
 | 0030-0032 | instance_compaction | GRX-016 | 0030 gate+callsite / 0031 runtime binding / 0032 recording+real-pass opt-in |
 | 0033-0035 | indirect_args | GRX-018 | 0033 gate+callsite / 0034 runtime binding / 0035 recording+real-pass opt-in |
 | 0039 | pso_prewarm | GRX-021 | NOT NEEDED — permanent hole. GRX-021 auto-triggers the kernel prewarm from `rxgd_create_d3d12_session` (the bridge session-creation path patch 0001 already routes through), so no Godot-side call site is required. See `spike/godot-rurix/passes/pso_prewarm/pso_prewarm_decision.json` (`patch_0039_status=not_needed`). A future slice may claim 0039 for a Godot-visible prewarm toggle/telemetry surface. |
-| 0040+ | bindless | GRX-022 | reserve pool start; allocate concrete numbers only AFTER the bindless RFC is adjudicated |
+| 0040-0049 | Route B rd_native | GRX Route B | RD-native in-frame compute replacement series. tonemap rd_native = **0040** (landed, §1; first non-scaffold real replacement). Later rd_native slices (taa/ssao/particles/etc.) take 0041-0049 as they land. Claimed atomically with the consuming patch per §4 rule 3; this reservation lands with patch 0040. |
+| 0050+ | bindless | GRX-022 | reserve pool start (**BUMPED from 0040+** so Route B rd_native can own 0040-0049; bindless is not started). Allocate concrete numbers only AFTER the bindless RFC is adjudicated. |
 
 > Milestone ordering note: the patch blocks are grouped by pass, not strictly by
 > GRX number (GRX-017 `material_sorting` is the single 0026 telemetry slice
@@ -140,6 +157,15 @@ of these, and setting a bit never by itself makes the bridge return
 > `GPU_CULLING=8`, `INDIRECT_ARGS=9`, `FUSED_POST_CHAIN=10`, ...). Do not confuse
 > a pass id with its cap bit; allocate any new `RXGD_PASS_*` id in that enum, not
 > here.
+
+> **Route B rd_native consumes no cap bit.** The rd_native series (0040+) drives
+> the main `RenderingDevice` directly (`shader_create_from_bytecode` →
+> `compute_pipeline_create` → `compute_list_*`) and does NOT go through the rxgd
+> bridge (`rxgd_create_d3d12_session` / `rxgd_record_pass`). It therefore neither
+> reads nor sets any `RxGdCaps.flags` bit and allocates nothing from §3. The
+> existing `RXGD_CAP_TONEMAP_REAL_PASS` (bit 4) remains the SHIM-path tonemap
+> arm; rd_native (backend == 2) is a parallel, bridge-independent path selected
+> by the `passes/tonemap/backend` project setting. `RXGD_ABI_VERSION` stays `1`.
 
 ## 4. Rules (normative)
 

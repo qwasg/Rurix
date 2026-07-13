@@ -139,3 +139,24 @@ GRX-010 tonemap 已 close-out(复用 GRX-009 4a..4h 成熟模板)。在 §8 patc
 **Owner default-enable decision 引用**:`real_pass_default_enable_decision.json` / `real_pass_default_enable_decision.md` 记 `keep_default_disabled`,理由:无 per-pass FPS 证据(契约要求 per-pass FPS >= 0.95x baseline)、仅 `TONEMAPPER_LINEAR` + sRGB 子集、patch 0013 writeback 仍 scaffold + raster-vs-compute output seam 未设计;full baseline + per-pass benchmark 后由 owner 复评。
 
 **Fail-closed 不变**:默认 Godot config 下 bridge 对 `RXGD_PASS_TONEMAP` 仍返回 `RXGD_STATUS_FALLBACK`、native tonemapper 接管;shipping feature-off bridge 仍 fail closed 为 `real_dispatch_path_not_linked`。probe manifest 检查 fail-closed 放宽:仅当 strict success 存在且全量审计通过(`grx010_real_pass_measured_success_active`)才接受翻转后的新值,placeholder/篡改 success 文档报 `grx010_real_pass_success_evidence_conflict` 回落旧值。**§11 known gaps 全部保留不变**(其余 tonemapper 模式 / auto exposure / glow / HDR / raster-vs-compute seam / per-pass FPS 门)。probe enablement + 决策双 ready 后 `next_action=start_grx011_ssao_blur_godot_patch_0014`。无 FPS、p95、GPU timestamp 或任何性能提升宣称。
+
+## 13. 路线 B(Route B rd_native)close-out —— 第一个非 scaffold 真替代
+
+> 本节为 close-out 追加段;§1–§12 的调查/契约/marker/shim-path close-out 保持不变(pass_id=tonemap、RXGD_PASS_TONEMAP、RXGD_CAP_TONEMAP_REAL_PASS、§11 known gaps 等契约字面不动)。路线 B rd_native 是与 §1–§12 记述的 shim/rxgd 路径**并列且独立**的另一条路径,不改任何 shim-path 字段(`godot_runtime_tonemap_path_enabled` 仍 false;shim 的 `RXGD_CAP_TONEMAP_REAL_PASS` bit 4 与之无关)。
+
+**真替代事实(S3)**:与 patch 0013 shim writeback **scaffold**(印 writeback marker 后仍让 native tonemapper 每帧重渲染,画面不可能改变)本质不同——路线 B rd_native 让 Rurix tonemap kernel 作为主 `RenderingDevice` 帧内 `compute_list` 一等 pass 运行,成功 record 时**真正跳过** native Godot tonemapper(调用点 `if (!rurix_recorded_tonemap && !rurix_recorded_tonemap_rd_native)` 守卫,rd_native 无 scaffold 清空动作),captured 画面即 kernel 的 UAV 输出。
+
+**bridge-independent**:rd_native 不走 rxgd session / `rxgd_record_pass`,不占任何 `RxGdCaps.flags` cap bit,`RXGD_ABI_VERSION` 保持 1;仅需 `RurixAccelD3D12Hooks` 单例存在(故 `bridge_preflight()` 仍需 `rurix_godot.dll`,但不用 `d3d12-recording-shim` feature)。
+
+**patch**:单片 `0040-rurix-accel-tonemap-rd-native-inframe-replacement.patch`(叠 branch-HEAD culling 尾栈 `0001-0029`)。新增默认 false 虚函数 `D3D12Hooks::try_record_tonemap_rd_native(RID,RID,Size2i,Size2i,f32,f32,f32)`(`d3d12_hooks.h` 加 `core/templates/rid.h`+`core/math/vector2i.h`);三态设置 `rendering/rurix_accel/passes/tonemap/backend`(int,0 disabled/1 shim/2 rd_native,默认 0)+ `rendering/rurix_accel/passes/tonemap/rd_container_path`(string,默认空)——**独立于既有 shim 四设置,不动它们**;module 惰性建管线(`FileAccess`→`shader_create_from_bytecode`→`compute_pipeline_create`,失败 latch `rd_native_tonemap_load_failed` 不每帧重试)+ usage-bits 前置校验(src `SAMPLING_BIT`/dst `STORAGE_BIT`)+ `UniformSetCacheRD`(t0 SRV / u0 UAV,随纹理释放自动失效)+ 28B b0([i64 source_width, i64 source_height, f32 exposure, f32 white, f32 luminance_multiplier])+ `compute_list` dispatch `ceil(dest/8)`;draw graph 的 ResourceTracker 自动插 barrier,不发 `submit()`/`sync()`(local-RD 专属)。全链 fail-closed 回落 native。
+
+**LINEAR 子集边界(如实标注)**:kernel 仅覆盖 `TONEMAPPER_LINEAR` + SDR `linear_to_srgb` 子集;enablement 场景 `tonemap_mode` 锁 `LINEAR` 以对齐 kernel。Reinhard/Filmic/ACES/AgX、auto exposure、glow、FXAA、BCS、color correction、debanding、multiview、HDR 输出**不在** rd_native 子集内,走 native 路径。§11 known gaps 全部保留。
+
+**Enablement strict MEASURED success**:`ci/grx_rb_tonemap_rd_native_enablement_smoke.py` 在 `0001-0029+0040` scratch Godot(Windows D3D12 Forward+,RTX 4070 Ti)记 strict MEASURED success(`rd_native_enablement_success_evidence.json`,`real_gpu_pass=true`/`real_replacement=true`/`native_tonemapper_skipped=true`):
+- **candidate 腿**(backend=2 + S2 已证容器)印一次性 `RXGD_RD_NATIVE_TONEMAP active`(rd_native 引擎接管、native 按构造跳过),captured 帧与 native LINEAR reference **逐字节一致**——LDR `max_abs=0`/`mean_abs=0`(**第一次真替代的画面证据**);
+- **fail_closed 红腿**(backend=2 + 垃圾容器路径)实测 RD 拒容器(`Incorrect magic number in shader container` / `Failed to parse shader container from binary`)→ latch load_failed → 回落 native,画面与 reference 逐字节一致;
+- 三腿各连捕 3 帧全逐字节稳定(帧序调度无竞态);所用容器 sha256 `ef8668e7…` 与 S2 probe(`rd_native_probe_evidence.json`,~1 ULP)证据逐字节一致;`0001-0029+0040` 溯源(`tracked_patch_stack_only=true`,30 patch)/日志审计全绿。
+
+**双尾发现(applyability)**:culling 尾(0027-0029)与 fused 尾(0036-0038)均对 0026 tip 同锚点插入(`d3d12_hooks.h` 虚函数表、`register_types.cpp` 设置块、`rurix_accel.{h,cpp}` pass-id/成员/方法声明),strict `git apply` 下**互斥不可合栈**——组合栈 `0001-0029+0036-0038+0040` 不可装配(既有冻结 patch 的先决条件,非 0040 引入)。0040 落 culling 尾(branch HEAD);PATCH_ALLOCATION 登记 `0040-0049`=Route B rd_native,bindless 预留由 `0040+` 顺延至 `0050+`。
+
+**Fail-closed / 零性能宣称不变**:默认 backend=0(且 rd_container_path 空)时 rd_native 从不 engage,native tonemapper 渲染;`default_enable_state` 保持 `disabled`;无 FPS、p95、GPU timestamp 或任何性能提升宣称;raster-vs-compute 输出接缝 / 多色阶全帧表征 / 其余 tonemapper 模式 / per-pass FPS 门留后续轮次;不改 `external/godot-master`。

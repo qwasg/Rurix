@@ -1,0 +1,349 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Mon, 13 Jul 2026 09:00:00 +0800
+Subject: [PATCH] Add default-disabled GRX Route B rd_native tonemap in-frame
+ compute replacement
+
+Stacked on 0001..0029 (the branch-HEAD gpu_culling tip). This is the first
+non-scaffold REAL replacement pass: Route B drives the Rurix tonemap kernel as
+a first-class in-frame RenderingDevice compute pass instead of the out-of-frame
+rxgd shim bridge, and when it records, the native Godot tonemapper is genuinely
+skipped (no scaffold clear, unlike patch 0013).
+
+- drivers/d3d12/d3d12_hooks.h: new default-false virtual
+  try_record_tonemap_rd_native(RID source, RID dest, Size2i src_size,
+  Size2i dest_size, float exposure, float white, float luminance_multiplier).
+  It takes Godot RID handles (not native ID3D12Resource* handles like the
+  shim-path try_record_tonemap) so the module can build an RD uniform set and
+  compute pipeline directly. Adds core/templates/rid.h + core/math/vector2i.h
+  includes for the RID / Size2i parameter types. Base returns false, so hooks
+  that do not override it (or the absence of a hooks singleton) keep the native
+  Godot tonemap path.
+- modules/rurix_accel/register_types.cpp: two new default-safe settings,
+  independent of the four existing tonemap shim settings (which are untouched):
+  rendering/rurix_accel/passes/tonemap/backend (int, default 0; 0=disabled /
+  1=shim / 2=rd_native) and rendering/rurix_accel/passes/tonemap/rd_container_path
+  (string, default ""). Defaults keep the RD-native path disabled.
+- modules/rurix_accel/rurix_accel.{h,cpp}: try_record_tonemap_rd_native
+  override. Lazily builds the compute pipeline once (FileAccess reads the Rurix
+  container -> shader_create_from_bytecode -> compute_pipeline_create, latching
+  rd_native_tonemap_load_failed on any failure so it is not retried per frame),
+  runs a usage-bits preflight (source SAMPLING_BIT, dest STORAGE_BIT), binds
+  t0=source (SRV/UNIFORM_TYPE_TEXTURE) and u0=dest (UAV/UNIFORM_TYPE_IMAGE) via
+  UniformSetCacheRD (auto-invalidated on resize), packs the 28-byte b0 push
+  constants ([i64 source_width, i64 source_height, f32 exposure, f32 white,
+  f32 luminance_multiplier]), and dispatches ceil(dest/8) groups with
+  compute_list_* on the main RenderingDevice. The draw graph's ResourceTracker
+  inserts the barriers; there is no submit()/sync() (a local-RD-only concept).
+  The one-shot RXGD_RD_NATIVE_TONEMAP active marker is emitted via print_verbose
+  when the pipeline is first built (not per-frame).
+- servers/rendering/renderer_rd/renderer_scene_render_rd.cpp: in the tonemap
+  can_use_storage leg, backend == 2 runs the rd_native gate BEFORE the shim
+  gate; a successful record skips both the shim gate and the native tonemapper.
+  backend != 2 leaves the pre-existing shim/native chain byte-for-byte unchanged.
+
+Fail-closed everywhere: with the default backend == 0 (and empty container
+path), rd_native is never engaged and the native Godot tonemapper renders. The
+kernel covers only the LINEAR tonemapper with the SDR convert_to_srgb leg (no
+auto exposure, glow, FXAA, BCS, color correction, debanding, or other tonemap
+modes), so the candidate scene must use tonemap_mode LINEAR to align with the
+kernel subset. RXGD_ABI_VERSION is unchanged (this path does not touch the C
+ABI struct layout and sets no RxGdCaps.flags bit; rd_native is bridge-
+independent). No performance claim is made.
+---
+ drivers/d3d12/d3d12_hooks.h                   |  18 +++
+ modules/rurix_accel/register_types.cpp        |  18 +++
+ modules/rurix_accel/rurix_accel.cpp           | 120 ++++++++++++++++++
+ modules/rurix_accel/rurix_accel.h             |  25 ++++
+ .../renderer_rd/renderer_scene_render_rd.cpp  |  23 +++-
+ 5 files changed, 202 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
+index 9e0e306..605965f 100644
+--- a/drivers/d3d12/d3d12_hooks.h
++++ b/drivers/d3d12/d3d12_hooks.h
+@@ -32,6 +32,9 @@
+ 
+ #include <drivers/d3d12/godot_d3dx12.h>
+ 
++#include "core/math/vector2i.h"
++#include "core/templates/rid.h"
++
+ #include <stdint.h>
+ 
+ class D3D12Hooks {
+@@ -139,5 +142,20 @@ public:
+ 	// that do not override this (or the absence of a hooks singleton) keep the
+ 	// native Godot CPU-driven command-buffer path.
+ 	virtual bool try_record_gpu_culling(uint64_t p_transforms_native_handle, uint64_t p_commands_native_handle, uint64_t p_visibility_native_handle, uint32_t p_transforms_size_bytes, uint32_t p_commands_size_bytes, uint32_t p_visibility_size_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) { return false; }
++	// GRX Route B rd_native tonemap: opt-in in-frame RD-native compute
++	// replacement hook. Unlike the shim-path try_record_tonemap() above (which
++	// takes native ID3D12Resource* handles for an out-of-frame bridge dispatch),
++	// this hook takes Godot RID handles for the HDR source color texture and the
++	// LDR destination texture plus their sizes and the tonemap b0 scalars, so the
++	// module can build an RD compute pipeline from a Rurix shader container and
++	// dispatch it as a first-class in-frame pass on the main RenderingDevice
++	// (compute_list within _render_buffers_post_process_and_tonemap; the draw
++	// graph's ResourceTracker inserts the barriers). Returning true means the
++	// module has recorded the real in-frame replacement and the native Godot
++	// tonemapper MUST be skipped (this is a real replacement, not a scaffold).
++	// The base implementation returns false so any hooks that do not override
++	// this (or the absence of a hooks singleton) keep the native Godot tonemap
++	// path.
++	virtual bool try_record_tonemap_rd_native(RID p_source_color, RID p_dest_color, Size2i p_source_size, Size2i p_dest_size, float p_exposure, float p_white, float p_luminance_multiplier) { return false; }
+ 	static D3D12Hooks *get_singleton() { return singleton; }
+ };
+diff --git a/modules/rurix_accel/register_types.cpp b/modules/rurix_accel/register_types.cpp
+index 93d5c1f..292ce01 100644
+--- a/modules/rurix_accel/register_types.cpp
++++ b/modules/rurix_accel/register_types.cpp
+@@ -285,6 +285,24 @@ void initialize_rurix_accel_module(ModuleInitializationLevel p_level) {
+ 	// counts). No D3D12 hook, no bridge call, no kernel, no real pass, and no
+ 	// FPS/p95/performance claim; the shipping build/config never enables it.
+ 	GLOBAL_DEF_BASIC("rendering/rurix_accel/telemetry/material_sorting/enabled", false);
++	// GRX Route B rd_native tonemap: three-state backend selector for the
++	// tonemap pass, independent of the four existing shim settings above
++	// (.../passes/tonemap/enabled|dispatch_recording_smoke|dispatch_real_pass|
++	// real_pass_force_capability_downgrade), which are left untouched. Values:
++	// 0 = disabled (default; the pre-existing shim/native chain is unchanged),
++	// 1 = shim (nominal; the existing shim path stays governed by its own four
++	// settings), 2 = rd_native (engage the in-frame RD-native compute
++	// replacement via try_record_tonemap_rd_native). Defaults to 0 so the
++	// shipping build/config never engages the RD-native path.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/tonemap/backend", 0);
++	// GRX Route B rd_native tonemap: absolute filesystem path to the Rurix
++	// RenderingShaderContainerD3D12 tonemap container consumed by
++	// shader_create_from_bytecode when backend == 2. Defaults to empty, which
++	// keeps the RD-native path fail-closed (no container -> native tonemap path
++	// remains active). The container path is injected here rather than hardcoded
++	// to a res:// resource so the smoke/bench harnesses can point at an absolute
++	// staging path.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/tonemap/rd_container_path", "");
+ 
+ #if defined(D3D12_ENABLED)
+ 	if (GLOBAL_GET("rendering/rurix_accel/enabled")) {
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index 64f973f..5ff8256 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -3,8 +3,12 @@
+ #if defined(D3D12_ENABLED)
+ 
+ #include "core/config/project_settings.h"
++#include "core/io/file_access.h"
+ #include "core/string/print_string.h"
+ 
++#include "servers/rendering/renderer_rd/uniform_set_cache_rd.h"
++#include "servers/rendering/rendering_device.h"
++
+ #include <dxgi1_6.h>
+ #include <string.h>
+ #include <windows.h>
+@@ -1030,4 +1034,120 @@ bool RurixAccelD3D12Hooks::try_record_gpu_culling(uint64_t p_transforms_native_h
+ 	return true;
+ }
+ 
++bool RurixAccelD3D12Hooks::try_record_tonemap_rd_native(RID p_source_color, RID p_dest_color, Size2i p_source_size, Size2i p_dest_size, float p_exposure, float p_white, float p_luminance_multiplier) {
++	// GRX Route B rd_native tonemap: an in-frame RD-native compute replacement.
++	// This does NOT go through the Rurix rxgd bridge/shim (session/record_pass);
++	// it drives the main RenderingDevice directly so the Rurix tonemap kernel
++	// runs as a first-class pass inside the frame graph. Every early return below
++	// keeps the native Godot tonemapper (fail-closed). The caller only reaches
++	// here when the backend selector is 2 (rd_native).
++	RenderingDevice *rd = RenderingDevice::get_singleton();
++	if (rd == nullptr) {
++		return false;
++	}
++	if (rd_native_tonemap_load_failed) {
++		// A prior container load / pipeline compile failed; do not retry every
++		// frame (and do not spam diagnostics). The native tonemap path renders.
++		return false;
++	}
++	if (!p_source_color.is_valid() || !p_dest_color.is_valid()) {
++		return false;
++	}
++	if (p_dest_size.x <= 0 || p_dest_size.y <= 0) {
++		return false;
++	}
++	// Usage-bits preflight: the source must be sampleable (SRV t0) and the
++	// destination must be storage-writable (UAV u0). Both tonemap destination
++	// legs already carry STORAGE_BIT today; this preflight guards against a
++	// future Godot snapshot changing those flags, and fails closed rather than
++	// letting uniform_set_create assert mid-frame.
++	const RenderingDevice::TextureFormat src_format = rd->texture_get_format(p_source_color);
++	const RenderingDevice::TextureFormat dst_format = rd->texture_get_format(p_dest_color);
++	if ((src_format.usage_bits & RenderingDevice::TEXTURE_USAGE_SAMPLING_BIT) == 0) {
++		return false;
++	}
++	if ((dst_format.usage_bits & RenderingDevice::TEXTURE_USAGE_STORAGE_BIT) == 0) {
++		return false;
++	}
++	// Lazily build the compute pipeline the first time backend == 2 is
++	// exercised: read the Rurix container bytes, hand them to
++	// shader_create_from_bytecode (-> shader_create_from_container in the D3D12
++	// driver; the driver consumes the container's DXIL + RTS0 verbatim), and
++	// create the compute pipeline (-> CreateRootSignature + PSO). Any failure
++	// latches rd_native_tonemap_load_failed so it is not retried per frame.
++	if (!rd_native_tonemap_shader.is_valid() || !rd_native_tonemap_pipeline.is_valid()) {
++		const String container_path = GLOBAL_GET("rendering/rurix_accel/passes/tonemap/rd_container_path");
++		if (container_path.is_empty()) {
++			// No container configured: keep rd_native fail-closed (disabled).
++			rd_native_tonemap_load_failed = true;
++			return false;
++		}
++		const Vector<uint8_t> container_bytes = FileAccess::get_file_as_bytes(container_path);
++		if (container_bytes.is_empty()) {
++			rd_native_tonemap_load_failed = true;
++			print_verbose(vformat("RurixAccel: rd_native tonemap container '%s' missing or empty; native tonemap path remains active.", container_path));
++			return false;
++		}
++		const RID shader = rd->shader_create_from_bytecode(container_bytes);
++		if (!shader.is_valid()) {
++			rd_native_tonemap_load_failed = true;
++			print_verbose("RurixAccel: rd_native tonemap shader_create_from_bytecode failed; native tonemap path remains active.");
++			return false;
++		}
++		const RID pipeline = rd->compute_pipeline_create(shader);
++		if (!pipeline.is_valid()) {
++			rd->free_rid(shader);
++			rd_native_tonemap_load_failed = true;
++			print_verbose("RurixAccel: rd_native tonemap compute_pipeline_create failed; native tonemap path remains active.");
++			return false;
++		}
++		rd_native_tonemap_shader = shader;
++		rd_native_tonemap_pipeline = pipeline;
++		if (!rd_native_tonemap_active_logged) {
++			// One-shot marker (NOT per-frame): the RD-native tonemap replacement
++			// is engaged and the native Godot tonemapper is being skipped.
++			print_verbose("RXGD_RD_NATIVE_TONEMAP active: backend=rd_native, in-frame compute replacement engaged (native Godot tonemapper skipped).");
++			rd_native_tonemap_active_logged = true;
++		}
++	}
++	// Bind t0 = source color (SRV, UNIFORM_TYPE_TEXTURE) and u0 = destination
++	// (UAV, UNIFORM_TYPE_IMAGE). UniformSetCacheRD keys on the RID set and
++	// auto-invalidates the cached set when either texture is freed (resize), so
++	// no manual lifetime handling is needed.
++	const RID uniform_set = UniformSetCacheRD::get_singleton()->get_cache(
++			rd_native_tonemap_shader, 0,
++			RenderingDevice::Uniform(RenderingDevice::UNIFORM_TYPE_TEXTURE, 0, p_source_color),
++			RenderingDevice::Uniform(RenderingDevice::UNIFORM_TYPE_IMAGE, 1, p_dest_color));
++	if (!uniform_set.is_valid()) {
++		return false;
++	}
++	// b0 root constants (28 bytes / 7 DWORDs): source_width and source_height as
++	// 64-bit integers (the tonemap kernel declares the 64-bit integer shader
++	// capability), then exposure, white and luminance_multiplier as 32-bit
++	// floats, little-endian like D3D12. This mirrors the shim path's tonemap
++	// packing (patch 0012) and the S2 probe's validated layout.
++	uint8_t push_constants[TONEMAP_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES] = {};
++	const uint64_t source_width = (uint64_t)MAX(p_source_size.x, 0);
++	const uint64_t source_height = (uint64_t)MAX(p_source_size.y, 0);
++	memcpy(&push_constants[0], &source_width, sizeof(source_width));
++	memcpy(&push_constants[8], &source_height, sizeof(source_height));
++	memcpy(&push_constants[16], &p_exposure, sizeof(p_exposure));
++	memcpy(&push_constants[20], &p_white, sizeof(p_white));
++	memcpy(&push_constants[24], &p_luminance_multiplier, sizeof(p_luminance_multiplier));
++	// Record the in-frame compute dispatch. This runs inside
++	// _render_buffers_post_process_and_tonemap between the native sub-passes;
++	// the main-RD draw graph tracks the uniform_set_create resources as
++	// first-class citizens and inserts the required barriers automatically (no
++	// manual barrier, and no submit()/sync() — that is a local-RD-only concept).
++	const RenderingDevice::ComputeListID compute_list = rd->compute_list_begin();
++	rd->compute_list_bind_compute_pipeline(compute_list, rd_native_tonemap_pipeline);
++	rd->compute_list_bind_uniform_set(compute_list, uniform_set, 0);
++	rd->compute_list_set_push_constant(compute_list, push_constants, TONEMAP_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES);
++	const uint32_t groups_x = (uint32_t)((MAX(p_dest_size.x, 0) + 7) / 8);
++	const uint32_t groups_y = (uint32_t)((MAX(p_dest_size.y, 0) + 7) / 8);
++	rd->compute_list_dispatch(compute_list, groups_x, groups_y, 1);
++	rd->compute_list_end();
++	return true;
++}
++
+ #endif // D3D12_ENABLED
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index a927c13..0bfe719 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -149,6 +149,19 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
+ 	bool particles_copy_fallback_logged = false;
+ 	bool cluster_store_fallback_logged = false;
+ 	bool gpu_culling_fallback_logged = false;
++	// GRX Route B rd_native tonemap: lazily-built RD compute pipeline for the
++	// in-frame tonemap replacement. The shader/pipeline are created once from
++	// the Rurix container the first time backend == 2 is exercised and cached
++	// for the process lifetime (size-independent compute pipeline); the
++	// per-frame uniform set is cached by UniformSetCacheRD and auto-invalidated
++	// when the bound textures are freed (e.g. on resize). rd_native_tonemap_load_failed
++	// latches a load/compile failure so it is not retried every frame, and
++	// rd_native_tonemap_active_logged gates the one-shot RXGD_RD_NATIVE_TONEMAP
++	// active marker (not per-frame).
++	RID rd_native_tonemap_shader;
++	RID rd_native_tonemap_pipeline;
++	bool rd_native_tonemap_load_failed = false;
++	bool rd_native_tonemap_active_logged = false;
+ 	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 28;
+ 	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_RESOURCE_COUNT = 2;
+ 	// GRX-010 tonemap resource mapping (resource_mapping.md): b0 carries
+@@ -298,6 +311,18 @@ public:
+ 	// RXGD_STATUS_FALLBACK from the fail-closed GpuCullingGate) returns false and
+ 	// the caller must keep the native Godot CPU-driven command-buffer path.
+ 	bool try_record_gpu_culling(uint64_t p_transforms_native_handle, uint64_t p_commands_native_handle, uint64_t p_visibility_native_handle, uint32_t p_transforms_size_bytes, uint32_t p_commands_size_bytes, uint32_t p_visibility_size_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) override;
++	// GRX Route B rd_native tonemap: in-frame RD-native compute replacement.
++	// Lazily builds the RD compute pipeline from the Rurix container named by
++	// rendering/rurix_accel/passes/tonemap/rd_container_path, binds the HDR
++	// source color (SRV t0) and LDR destination (UAV u0) texture RIDs plus the
++	// 28-byte b0 push constants, and dispatches ceil(dest/8) compute groups on
++	// the main RenderingDevice's active frame. Returns true only when the pass
++	// was actually recorded (real replacement — the caller then SKIPS the native
++	// Godot tonemapper). Any failure (RD unavailable, latched load failure,
++	// invalid RID, missing usage bits, empty/invalid container, pipeline or
++	// uniform-set creation failure) returns false and the caller keeps the
++	// native Godot tonemap path (fail-closed).
++	bool try_record_tonemap_rd_native(RID p_source_color, RID p_dest_color, Size2i p_source_size, Size2i p_dest_size, float p_exposure, float p_white, float p_luminance_multiplier) override;
+ };
+ 
+ #endif // D3D12_ENABLED
+diff --git a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
+index dd7917b..4802e21 100644
+--- a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
++++ b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
+@@ -923,8 +923,27 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+ 
+ 		if (can_use_storage) {
+ 			bool rurix_recorded_tonemap = false;
++			bool rurix_recorded_tonemap_rd_native = false;
+ #ifdef D3D12_ENABLED
+-			if (D3D12Hooks::get_singleton() != nullptr && rurix_tonemap_dest_texture.is_valid()) {
++			// GRX Route B rd_native tonemap (patch 0040): backend selector == 2
++			// engages the in-frame RD-native compute replacement BEFORE the
++			// shim-path gate below. Unlike the shim path (patch 0013, which
++			// prints a writeback marker and then deliberately clears its flag so
++			// the native tonemapper still re-renders the frame), a successful
++			// rd_native record does NOT clear its flag: the Rurix tonemap
++			// kernel's output IS the final tonemapped image written into the LDR
++			// destination texture, so the native Godot tonemapper is genuinely
++			// skipped (a real replacement, not a scaffold). The module builds an
++			// RD compute pipeline from the configured Rurix container and
++			// dispatches it on the main RenderingDevice's active frame; when the
++			// backend selector is not 2, or when rd_native fails closed (no
++			// container, missing usage bits, pipeline/uniform-set failure, etc.),
++			// this stays false and the shim gate and native tonemapper below run
++			// exactly as before.
++			if (D3D12Hooks::get_singleton() != nullptr && rurix_tonemap_dest_texture.is_valid() && ((int)GLOBAL_GET("rendering/rurix_accel/passes/tonemap/backend")) == 2) {
++				rurix_recorded_tonemap_rd_native = D3D12Hooks::get_singleton()->try_record_tonemap_rd_native(color_texture, rurix_tonemap_dest_texture, color_size, tonemap.dest_texture_size, tonemap.exposure, tonemap.white, tonemap.luminance_multiplier);
++			}
++			if (!rurix_recorded_tonemap_rd_native && D3D12Hooks::get_singleton() != nullptr && rurix_tonemap_dest_texture.is_valid()) {
+ 				// GRX-010 runtime resource binding gate (0005/0007-level in
+ 				// one slice). Resolves the real D3D12 ID3D12Resource* native
+ 				// handles (not logical Godot RID ids) for the HDR source
+@@ -974,7 +993,7 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+ 				}
+ 			}
+ #endif
+-			if (!rurix_recorded_tonemap) {
++			if (!rurix_recorded_tonemap && !rurix_recorded_tonemap_rd_native) {
+ 				tone_mapper->tonemapper(color_texture, dest_fb, tonemap);
+ 			}
+ 		} else {
+-- 
+2.50.0

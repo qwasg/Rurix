@@ -171,6 +171,50 @@
       "per-pass FPS baseline comparison (contract requires >= 0.95x baseline before any default-enable discussion)"
     ]
   },
+  "rd_native": {
+    "provenance": "rd_native_route_b",
+    "summary": "GRX Route B tonemap rd_native is a SEPARATE, bridge-independent in-frame real-replacement path from the shim/rxgd path documented above. It drives the main RenderingDevice directly (shader_create_from_bytecode -> compute_pipeline_create -> compute_list) so the Rurix tonemap kernel runs as a first-class in-frame compute pass; when it records, the native Godot tonemapper is GENUINELY SKIPPED (not a scaffold). It uses no rxgd session, sets no RxGdCaps.flags bit, and does not change any shim-path field of this manifest (godot_runtime_tonemap_path_enabled stays false; the shim RXGD_CAP_TONEMAP_REAL_PASS bit 4 is unrelated).",
+    "backend_selector": "rendering/rurix_accel/passes/tonemap/backend",
+    "backend_states": {
+      "0": "disabled (default; pre-existing shim/native chain unchanged)",
+      "1": "shim (nominal; existing shim path governed by its own four settings)",
+      "2": "rd_native (engage the in-frame RD-native compute replacement)"
+    },
+    "container_path_setting": "rendering/rurix_accel/passes/tonemap/rd_container_path",
+    "default_backend": 0,
+    "default_enable_state": "disabled",
+    "bridge_independent": true,
+    "cap_bit_consumed": null,
+    "rxgd_abi_version_unchanged": true,
+    "godot_patch": "spike/godot-rurix/patches/0040-rurix-accel-tonemap-rd-native-inframe-replacement.patch",
+    "patch_stack": "0001-0029 + 0040 (branch-HEAD gpu_culling culling tail; the culling 0027-0029 and fused 0036-0038 tails are mutually exclusive under strict git apply, so the combined 0001-0029+0036-0038+0040 stack is not applyable with the frozen patches)",
+    "hook_virtual": "D3D12Hooks::try_record_tonemap_rd_native(RID p_source_color, RID p_dest_color, Size2i p_source_size, Size2i p_dest_size, float p_exposure, float p_white, float p_luminance_multiplier)",
+    "descriptor_mapping": "same as the shim path: t0 SRV src_color (UNIFORM_TYPE_TEXTURE), u0 UAV dst_color (UNIFORM_TYPE_IMAGE), 28-byte b0 [i64 source_width, i64 source_height, f32 exposure, f32 white, f32 luminance_multiplier], dispatch ceil(dest/8)",
+    "kernel_subset": "linear + linear_to_srgb (tonemap_mode LINEAR); the candidate scene is pinned to LINEAR to align with this subset boundary. Reinhard/Filmic/ACES/AgX, auto exposure, glow, FXAA, BCS, color correction, debanding, multiview, and HDR output are OUT of the rd_native subset and route to the native path.",
+    "container": {
+      "path_relative_note": "injected via an absolute rd_container_path (staged copy of spike/godot-rurix/rd-native-pipeline/out/tonemap.rd_container.bin); byte-identical to the container proven at ~1 ULP in the S2 probe (rd_native_probe_evidence.json)",
+      "sha256": "ef8668e7330a7bfabb59a80b318c132058baee014a279a7e8ffdba8dec5fa8db"
+    },
+    "enablement": {
+      "harness": "ci/grx_rb_tonemap_rd_native_enablement_smoke.py",
+      "evidence": "spike/godot-rurix/passes/tonemap/rd_native_enablement_evidence.json",
+      "success_evidence": "spike/godot-rurix/passes/tonemap/rd_native_enablement_success_evidence.json",
+      "status": "success",
+      "real_gpu_pass": true,
+      "real_replacement": true,
+      "native_tonemapper_skipped": true,
+      "candidate_ldr_max_abs_diff": 0,
+      "candidate_ldr_mean_abs_diff": 0.0,
+      "measured_note": "On the 0001-0029+0040 scratch Godot (Windows D3D12 Forward+, RTX 4070 Ti): the candidate leg (backend=2 + S2-proven container) printed RXGD_RD_NATIVE_TONEMAP active (rd_native engaged; native tonemapper skipped by construction) and its captured frame is BYTE-IDENTICAL to the native LINEAR reference (LDR max_abs=0/mean_abs=0) = the first real-replacement picture evidence. The fail_closed leg (backend=2 + garbage container) measured RenderingDevice rejecting the container and fell back to the native tonemapper byte-identically to the reference. Three consecutive captured frames per leg were byte-stable.",
+      "performance_claim": "none"
+    },
+    "remaining_rounds": [
+      "raster-vs-compute output-seam / multi-tone (non-flat) full-frame parity characterization",
+      "additional tonemapper modes + exposure/glow/HDR beyond the LINEAR subset",
+      "rd_native for the other post passes (taa/ssao/particles) as 0041+ slices",
+      "per-pass FPS baseline (contract requires >= 0.95x baseline before any default-enable discussion)"
+    ]
+  },
   "evidence_requirements": {
     "visual": "in-engine LDR absolute diff (GRX-009 segment 4g template) recorded by the real-pass enablement smoke: reference (disabled) vs candidate (opt-in real pass) vs forced-fallback frames, all within the pinned thresholds (max_abs<=2, mean_abs<=0.25)",
     "perf": "reuse GRX-006 baseline/perf gate; no perf improvement claimed"
