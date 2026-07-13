@@ -44,11 +44,11 @@ SCENE_ROOT_NAMES = {
 
 SCENE_NOTES = {
     "clustered_lights": "Forward+ clustered-lighting stress: ~900 overlapping omni/spot lights (ranges sized so many lights share each cluster) over a lit mesh field.",
-    "many_mesh_instances": "CPU cull / draw-list stress: 50k independent MeshInstance3D nodes plus a MultiMesh component (use_indirect reserved for GRX-015/016/018; no such API in the tracked Godot yet). Temporal AA (Viewport.use_taa) is enabled so the taa_resolve pass (GRX-012 target) has a consumer on top of the cull/draw-list load.",
+    "many_mesh_instances": "CPU cull / draw-list stress: 200k independent MeshInstance3D nodes plus a standard MultiMesh component and (workload v2.3) a RID-direct INDIRECT MultiMesh variant (use_indirect=true via RenderingServer.multimesh_allocate_data), giving the future gpu_culling rd_native pass a real engage target; the two MultiMesh variants coexist as the engage / fail-closed pair. Temporal AA (Viewport.use_taa) is enabled so the taa_resolve pass (GRX-012 target) has a consumer on top of the cull/draw-list load.",
     "material_variants": "PSO / descriptor-switch stress: 2048 distinct StandardMaterial3D variants (varied shader features) across thousands of instances submitted in a deterministic shuffled order.",
     "post_fx_chain": "Post-processing stress: auto-exposure (luminance reduction) enabled via CameraAttributes, multi-level glow, FILMIC tonemap, screen-space ambient occlusion (Environment.ssao_enabled, the ssao_blur GRX-011 target), and supersampled internal resolution over HDR-lit content.",
     "volumetric_fog": "Volumetric fog stress: dense froxel fog with ~96 light injections over a lit geometry field (no dedicated Rurix pass; the load must be absorbed by lighting/geometry passes).",
-    "particles": "GPU particle stress: ~600k GPU particles spread across 12 emitters. 11 emitters use a Z_BILLBOARD transform-align with the default draw order so the particle-instance copy (particles_copy GRX-013 target) stays in the FILL_INSTANCES subset and engages every frame; the 12th uses view-depth draw order (GPUParticles3D.DRAW_ORDER_VIEW_DEPTH) to exercise the separate, subset-excluded depth-sort (do_sort) path.",
+    "particles": "GPU particle stress: ~750k GPU particles. 12 standard-material emitters (~600k): 11 use a Z_BILLBOARD transform-align with the default draw order so the particle-instance copy (particles_copy GRX-013 target) stays in the FILL_INSTANCES subset and engages every frame; the 12th uses view-depth draw order (GPUParticles3D.DRAW_ORDER_VIEW_DEPTH) to exercise the separate, subset-excluded depth-sort (do_sort) path. A further 3 emitters (~150k, workload v2.3) use a no-userdata custom process shader (userdata_count == 0, stride 112) so the particles_copy rd_native no-userdata subset has a real engage target, coexisting with the standard emitters as the fail-closed subset.",
     "mixed_forward_plus": "Mixed Forward+ stress: a proportional blend of clustered lights, mesh instances, material variants, GPU particles, and the post-processing chain, with screen-space ambient occlusion (ssao_blur GRX-011 target) and temporal AA (taa_resolve GRX-012 target) both enabled. All three particle emitters use a Z_BILLBOARD transform-align with the default draw order so the particle-instance copy (particles_copy GRX-013 target) engages every frame.",
 }
 
@@ -275,12 +275,11 @@ func _populate_scene() -> void:
         var row := index / side
         mesh_instance.position = Vector3((float(col) - float(side) * 0.5) * 1.2, 0.4 + rng.randf() * 0.2, (float(row) - float(side) * 0.5) * 1.2)
         add_child(mesh_instance)
-    # Additional MultiMesh component (one draw call for N instances). This feeds
-    # later indirect-draw work (GRX-015/016/018).
-    # TODO(GRX-015/016/018): switch this component to an indirect MultiMesh draw
-    # once an indirect MultiMesh API is confirmed for this Godot build. The
-    # tracked Godot (scene/resources/multimesh.h) exposes no `use_indirect`
-    # property, so this uses a standard MultiMesh for now.
+    # Additional standard (resource-based) MultiMesh component (one draw call for
+    # N instances). The MultiMesh RESOURCE exposes no use_indirect property, so
+    # this stays a standard draw and serves as the fail-closed counterpart to the
+    # RID-direct INDIRECT MultiMesh added below (workload v2.3), which sets
+    # use_indirect=true through RenderingServer.multimesh_allocate_data.
     var multimesh_instance: MultiMeshInstance3D = get_node_or_null("MultiMeshInstance3D")
     if multimesh_instance == null:
         multimesh_instance = MultiMeshInstance3D.new()
@@ -298,6 +297,12 @@ func _populate_scene() -> void:
         multimesh.set_instance_transform(index, Transform3D(Basis.IDENTITY, Vector3(mx, 6.0, mz)))
         multimesh.set_instance_color(index, Color(0.5, rng.randf_range(0.4, 0.8), 0.8, 1.0))
     multimesh_instance.multimesh = multimesh
+    # GRX bench workload v2.3: an additional RID-direct INDIRECT MultiMesh (the
+    # scene/resource MultiMesh above has no use_indirect knob). This gives the
+    # future gpu_culling rd_native pass a real engage target; it coexists with the
+    # standard MultiMesh so the scene exercises both draw paths. This changes the
+    # scene load, so the pre-v2.3 baseline is retired and a new one is re-recorded.
+    _add_indirect_multimesh(shared_mesh, 40000, rng)
 """,
         "material_variants": """
 func _populate_scene() -> void:
@@ -428,6 +433,19 @@ func _populate_scene() -> void:
         var emitter := _make_particle_emitter(per_emitter)
         emitter.position = Vector3(rng.randf_range(-10.0, 10.0), rng.randf_range(1.0, 5.0), rng.randf_range(-10.0, 10.0))
         add_child(emitter)
+    # GRX bench workload v2.3: a no-userdata custom-process group. The standard
+    # ParticleProcessMaterial emitters above always use USERDATA1 (stride 128),
+    # which is OUT of the particles_copy rd_native no-userdata subset
+    # (userdata_count == 0). This group's custom process shader uses no USERDATA
+    # channel (stride 112) so particles_copy rd_native has a real engage target,
+    # while the standard emitters stay the fail-closed subset -> both coexist in
+    # one scene. This changes the scene load, so the pre-v2.3 baseline is retired
+    # and a new one is re-recorded.
+    var no_userdata_count := 3
+    for index in range(no_userdata_count):
+        var nu_emitter := _make_no_userdata_particle_emitter(per_emitter)
+        nu_emitter.position = Vector3(rng.randf_range(-9.0, 9.0), rng.randf_range(2.0, 6.0), rng.randf_range(-9.0, 9.0))
+        add_child(nu_emitter)
 """,
         "mixed_forward_plus": """
 func _populate_scene() -> void:
@@ -485,6 +503,25 @@ func _populate_scene() -> void:
 """,
     }[scene_name].strip()
 
+    # A GDScript double-quoted string LITERAL (json.dumps emits the same \n / \t
+    # / \" / \\ escapes GDScript uses) for the no-userdata particles process
+    # shader. Built in plain Python so the GLSL braces never collide with the
+    # f-string below; interpolated as `sh.code = {no_userdata_shader_literal}`.
+    no_userdata_shader_literal = json.dumps(
+        "shader_type particles;\n"
+        "void process() {\n"
+        "\tfloat fi = float(INDEX);\n"
+        "\tvec3 p = vec3(\n"
+        "\t\t\tfract(sin(fi * 12.9898) * 43758.5453) * 8.0 - 4.0,\n"
+        "\t\t\tfract(sin(fi * 78.2330) * 12543.1230) * 5.0 + 1.0,\n"
+        "\t\t\tfract(sin(fi * 39.4250) * 31415.9260) * 8.0 - 4.0);\n"
+        "\tTRANSFORM = mat4(vec4(1.0, 0.0, 0.0, 0.0), vec4(0.0, 1.0, 0.0, 0.0), "
+        "vec4(0.0, 0.0, 1.0, 0.0), vec4(p, 1.0));\n"
+        "\tVELOCITY = vec3(0.0);\n"
+        "\tCOLOR = vec4(0.7, 0.8, 1.0, 1.0);\n"
+        "}\n"
+    )
+
     return (
         f"""extends Node3D
 
@@ -497,10 +534,39 @@ const VSYNC_ENABLED := {bool_literal(vsync)}
 
 @onready var camera: Camera3D = $Camera3D
 
+# GRX bench workload v2.3: server-side RIDs created by the RID-direct indirect
+# MultiMesh setup (only many_mesh_instances calls it; these stay empty elsewhere).
+# Freed in _exit_tree so no server RID or RenderingDevice buffer is leaked at
+# shutdown.
+var _indirect_rids: Array[RID] = []
+var _indirect_multimesh: RID = RID()
+var _indirect_mesh_ref: Mesh = null
+
 func _ready() -> void:
     _configure_camera()
     _configure_sun()
     _populate_scene()
+
+func _exit_tree() -> void:
+    # Reclaim the indirect MultiMesh's internal RenderingDevice command buffer
+    # BEFORE freeing the multimesh: Godot's _multimesh_free reallocates to a
+    # non-indirect 0-instance multimesh and frees only the transform buffer, so
+    # the indirect command_buffer StorageBuffer would otherwise leak (a shutdown
+    # WARNING). No double-free: the multimesh free path never touches it.
+    if _indirect_multimesh.is_valid():
+        var rd := RenderingServer.get_rendering_device()
+        if rd != null:
+            var cmd_buf := RenderingServer.multimesh_get_command_buffer_rd_rid(_indirect_multimesh)
+            if cmd_buf.is_valid():
+                rd.free_rid(cmd_buf)
+    # Free the instance before the multimesh it draws; both are server-side RIDs
+    # that are NOT auto-freed with the node. The loop is a no-op in scenes that
+    # never called _add_indirect_multimesh.
+    for rid in _indirect_rids:
+        if rid.is_valid():
+            RenderingServer.free_rid(rid)
+    _indirect_rids.clear()
+    _indirect_multimesh = RID()
 
 func _configure_camera() -> void:
     camera.current = true
@@ -653,6 +719,77 @@ func _make_particle_emitter(amount: int) -> GPUParticles3D:
     # in the FILL_INSTANCES subset the particles_copy kernel handles (the
     # view-depth sort path is a separate, subset-excluded do_sort). Scene
     # semantic, applied identically on both legs.
+    emitter.transform_align = GPUParticles3D.TRANSFORM_ALIGN_Z_BILLBOARD
+    return emitter
+
+func _add_indirect_multimesh(mesh: Mesh, count: int, rng: RandomNumberGenerator) -> void:
+    # GRX bench workload v2.3: a RID-direct INDIRECT MultiMesh. The scene/resource
+    # MultiMesh exposes no use_indirect knob, so this talks to RenderingServer
+    # directly: multimesh_allocate_data(..., use_indirect=true) sets the same
+    # INSTANCE_DATA_FLAG_MULTIMESH_INDIRECT path a standard MultiMesh uses, giving
+    # the future gpu_culling rd_native pass a real engage target with zero engine
+    # patch. It coexists with the standard MultiMesh so the scene exercises both
+    # the indirect (engage) and standard (fail-closed) draw paths.
+    _indirect_mesh_ref = mesh
+    var mm_rid := RenderingServer.multimesh_create()
+    RenderingServer.multimesh_allocate_data(mm_rid, count, RenderingServer.MULTIMESH_TRANSFORM_3D, false, false, true)
+    RenderingServer.multimesh_set_mesh(mm_rid, mesh.get_rid())
+    # 12 floats/instance for TRANSFORM_3D (3 basis rows + origin), no color/custom.
+    var buffer := PackedFloat32Array()
+    buffer.resize(count * 12)
+    for i in range(count):
+        var base := i * 12
+        var mx := (float(i % 220) - 110.0) * 0.55
+        var mz := (float(i / 220) - 40.0) * 0.55 - 30.0
+        buffer[base + 0] = 1.0
+        buffer[base + 1] = 0.0
+        buffer[base + 2] = 0.0
+        buffer[base + 3] = mx
+        buffer[base + 4] = 0.0
+        buffer[base + 5] = 1.0
+        buffer[base + 6] = 0.0
+        buffer[base + 7] = 7.5 + rng.randf() * 0.5
+        buffer[base + 8] = 0.0
+        buffer[base + 9] = 0.0
+        buffer[base + 10] = 1.0
+        buffer[base + 11] = mz
+    RenderingServer.multimesh_set_buffer(mm_rid, buffer)
+    var scenario := get_world_3d().get_scenario()
+    var inst := RenderingServer.instance_create()
+    RenderingServer.instance_set_base(inst, mm_rid)
+    RenderingServer.instance_set_scenario(inst, scenario)
+    RenderingServer.instance_set_transform(inst, Transform3D.IDENTITY)
+    # Free instance first, then the multimesh it draws (see _exit_tree, which also
+    # reclaims the indirect command buffer this multimesh owns).
+    _indirect_multimesh = mm_rid
+    _indirect_rids.append(inst)
+    _indirect_rids.append(mm_rid)
+
+func _no_userdata_particle_shader() -> Shader:
+    # GRX bench workload v2.3: a custom particles process shader that uses NO
+    # USERDATA channel, so userdata_count == 0 and the ParticleData stride stays
+    # 112 bytes -- the no-userdata subset the particles_copy rd_native gate
+    # requires (the standard ParticleProcessMaterial always uses USERDATA1 ->
+    # stride 128 -> out of subset). Deterministic static cloud from INDEX only.
+    var sh := Shader.new()
+    sh.code = {no_userdata_shader_literal}
+    return sh
+
+func _make_no_userdata_particle_emitter(amount: int) -> GPUParticles3D:
+    var emitter := GPUParticles3D.new()
+    emitter.amount = amount
+    emitter.lifetime = 2.0
+    emitter.one_shot = false
+    emitter.emitting = true
+    var mat := ShaderMaterial.new()
+    mat.shader = _no_userdata_particle_shader()
+    emitter.process_material = mat
+    emitter.draw_pass_1 = _particle_draw_mesh()
+    # A non-DISABLED transform_align keeps the particle-instance copy hook engaged
+    # and Z_BILLBOARD keeps the default (non-view-depth) draw order, so this group
+    # lands in the FILL_INSTANCES subset the particles_copy kernel copies; the
+    # no-userdata process shader keeps userdata_count == 0 so it also satisfies the
+    # rd_native no-userdata subset gate. Scene semantic, applied on both legs.
     emitter.transform_align = GPUParticles3D.TRANSFORM_ALIGN_Z_BILLBOARD
     return emitter
 

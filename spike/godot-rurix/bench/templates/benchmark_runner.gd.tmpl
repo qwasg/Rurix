@@ -11,6 +11,16 @@ const DEFAULT_RESOLUTION := Vector2i(
 const DEFAULT_EVIDENCE_LEVEL := "measured_local"
 const DEFAULT_RUN_MODE := "full"
 const DEFAULT_LEG := "baseline"
+const DEFAULT_GPU_TIMESTAMPS := false
+# Reserved bucket key for the synthetic whole-frame GPU duration (first-to-last
+# captured marker delta). The "__" prefix can never collide with a real Godot
+# RENDER_TIMESTAMP marker name.
+const GPU_FRAME_TOTAL_BUCKET := "__frame_total__"
+# A single captured GPU bucket delta above this (microseconds) is treated as
+# garbage and discarded. A real per-pass or whole-frame GPU cost is at most a few
+# milliseconds even on a heavily loaded frame, so 5 s is an unreachable sanity
+# ceiling that only trips on a zero/overflowed timestamp_frequency mapping.
+const GPU_SAMPLE_MAX_US := 5000000.0
 
 @onready var scene_container: Node = $SceneContainer
 
@@ -26,11 +36,27 @@ var run_mode := DEFAULT_RUN_MODE
 var leg := DEFAULT_LEG
 var pass_matrix_path := ""
 var pass_matrix := {}
+var gpu_timestamps_enabled := DEFAULT_GPU_TIMESTAMPS
 
 var loaded_scene: Node = null
 var frame_times_ms: Array[float] = []
 var processed_frames := 0
 var sampling_complete := false
+
+# GPU timestamp capture state (only used when --gpu-timestamps is passed, which
+# is also what makes the Python runner add Godot's --gpu-profile so the
+# RenderingDevice actually captures timestamps). The RD getters assert
+# ERR_RENDER_THREAD_GUARD, so they must be called from the render thread; with
+# the default rendering/driver/threads/thread_model (RENDER_THREAD_SAFE, which
+# the generated project.godot leaves unset) the render thread IS the main thread
+# that runs _process, so the direct calls below are valid. A separate render
+# thread would require RenderingServer.call_on_render_thread() instead.
+var _rd: RenderingDevice = null
+var _gpu_bucket_samples := {}
+var _gpu_frames_sampled := 0
+var _gpu_discarded_samples := 0
+var _gpu_last_captured_frame := -1
+var _gpu_frame_queue_size := 0
 
 
 func _ready() -> void:
@@ -47,6 +73,7 @@ func _ready() -> void:
     leg = str(config.get("leg", DEFAULT_LEG))
     pass_matrix_path = str(config.get("pass_matrix_path", ""))
     pass_matrix = _load_pass_matrix(pass_matrix_path)
+    gpu_timestamps_enabled = bool(config.get("gpu_timestamps", DEFAULT_GPU_TIMESTAMPS))
 
     if scene_name.is_empty() or scene_path.is_empty() or raw_output_path.is_empty():
         _fail_and_quit("missing required runner arguments")
@@ -58,6 +85,9 @@ func _ready() -> void:
     _apply_display_configuration()
     if not _load_target_scene():
         return
+
+    if gpu_timestamps_enabled:
+        _init_gpu_timestamp_capture()
 
     print("[benchmark-runner] scene_name=%s" % scene_name)
     print("[benchmark-runner] scene_path=%s" % scene_path)
@@ -79,6 +109,11 @@ func _process(delta: float) -> void:
         return
 
     frame_times_ms.append(frame_time_ms)
+    # Sample GPU timestamps in the SAME post-warmup window as the frame times
+    # (captured results lag by frame_queue_size frames; that inherent ~2-frame
+    # offset at the window edges is accepted rather than corrected).
+    if gpu_timestamps_enabled:
+        _collect_gpu_timestamps()
     if frame_times_ms.size() >= sample_frames:
         sampling_complete = true
         _write_success_payload()
@@ -96,6 +131,7 @@ func _parse_runner_config() -> Dictionary:
         "run_mode": DEFAULT_RUN_MODE,
         "leg": DEFAULT_LEG,
         "pass_matrix_path": "",
+        "gpu_timestamps": DEFAULT_GPU_TIMESTAMPS,
     }
 
     var index := 0
@@ -136,6 +172,8 @@ func _parse_runner_config() -> Dictionary:
                 config["leg"] = value
             "--pass-matrix-path":
                 config["pass_matrix_path"] = value
+            "--gpu-timestamps":
+                config["gpu_timestamps"] = _parse_bool(value)
         index += 2
     return config
 
@@ -192,6 +230,11 @@ func _load_target_scene() -> bool:
 
 func _write_success_payload() -> void:
     var avg_frame_time_ms := _mean(frame_times_ms)
+    # Empty {} when no GPU timestamps were captured (e.g. --gpu-timestamps not
+    # passed, or a headless/dummy RenderingDevice). Never emit fabricated values:
+    # gpu_timestamps_available reflects real data and the gpu_timestamps key is
+    # omitted entirely when absent.
+    var gpu_ts: Dictionary = _gpu_timestamps_payload()
     var payload := {
         "status": "success",
         "scene_name": scene_name,
@@ -201,7 +244,7 @@ func _write_success_payload() -> void:
         "frame_times_ms": frame_times_ms,
         "avg_fps": 1000.0 / avg_frame_time_ms,
         "p95_frame_time_ms": _compute_p95(frame_times_ms),
-        "gpu_timestamps_available": false,
+        "gpu_timestamps_available": not gpu_ts.is_empty(),
         "gpu_frame_times_ms": null,
         "evidence_level": evidence_level,
         "run_mode": run_mode,
@@ -212,6 +255,8 @@ func _write_success_payload() -> void:
         "target_backend": TARGET_BACKEND,
         "sample_count": frame_times_ms.size(),
     }
+    if not gpu_ts.is_empty():
+        payload["gpu_timestamps"] = gpu_ts
     _write_payload(payload)
     print(
         "[benchmark-runner] completed scene=%s samples=%d avg_fps=%.3f p95_ms=%.3f"
@@ -274,3 +319,118 @@ func _compute_p95(values: Array[float]) -> float:
     var index := int(ceil(float(sorted_values.size()) * 0.95)) - 1
     index = min(max(index, 0), sorted_values.size() - 1)
     return sorted_values[index]
+
+
+func _median(values: Array[float]) -> float:
+    var sorted_values := values.duplicate()
+    sorted_values.sort()
+    var n := sorted_values.size()
+    if n == 0:
+        return 0.0
+    if n % 2 == 1:
+        return sorted_values[n / 2]
+    return (sorted_values[n / 2 - 1] + sorted_values[n / 2]) * 0.5
+
+
+func _gpu_sample_valid(dur_us: float) -> bool:
+    # Guard against a zero/overflowed device timestamp_frequency producing an
+    # inf/nan or negative/absurd delta (a documented failure mode of the driver
+    # tick-to-time mapping); such a sample is dropped and counted, never stored.
+    return is_finite(dur_us) and dur_us >= 0.0 and dur_us < GPU_SAMPLE_MAX_US
+
+
+func _init_gpu_timestamp_capture() -> void:
+    _rd = RenderingServer.get_rendering_device()
+    if _rd == null:
+        push_warning(
+            "gpu timestamps requested but RenderingServer.get_rendering_device() "
+            + "returned null; no gpu_timestamps will be recorded"
+        )
+        return
+    # Informational only: captured results lag by frame_queue_size frames.
+    var fq: Variant = ProjectSettings.get_setting(
+        "rendering/rendering_device/vsync/frame_queue_size", 2
+    )
+    _gpu_frame_queue_size = int(fq) if fq != null else 0
+    print(
+        "[benchmark-runner] gpu_timestamps capture armed (frame_queue_size=%d)"
+        % _gpu_frame_queue_size
+    )
+
+
+func _collect_gpu_timestamps() -> void:
+    if _rd == null:
+        return
+    var frame_index := int(_rd.get_captured_timestamps_frame())
+    # Captured results lag by frame_queue_size frames and the same batch can be
+    # observed by more than one _process tick; dedup on the captured frame index
+    # so each rendered frame contributes at most one sample per bucket.
+    if frame_index == _gpu_last_captured_frame:
+        return
+    var count := int(_rd.get_captured_timestamps_count())
+    if count < 2:
+        # Need at least two markers to form a single [i, i+1] delta.
+        _gpu_last_captured_frame = frame_index
+        return
+    var names := []
+    var gpu_times := []
+    names.resize(count)
+    gpu_times.resize(count)
+    for i in range(count):
+        names[i] = _rd.get_captured_timestamp_name(i)
+        gpu_times[i] = _rd.get_captured_timestamp_gpu_time(i)
+    # Per-frame per-name aggregation mirroring RenderingServerDefault's own GPU
+    # profiler: the bucket duration of marker i is gpu_time[i+1]-gpu_time[i]
+    # (nanoseconds; /1000.0 -> microseconds), markers sharing a name within a
+    # frame are summed into that frame's single sample, and scope markers whose
+    # name begins with "<" or ">" are skipped exactly as the engine does.
+    var frame_bucket := {}
+    for i in range(count - 1):
+        var marker_name: String = names[i]
+        if marker_name.is_empty() or marker_name.begins_with("<") or marker_name.begins_with(">"):
+            continue
+        var dur_us := float(gpu_times[i + 1] - gpu_times[i]) / 1000.0
+        if not _gpu_sample_valid(dur_us):
+            _gpu_discarded_samples += 1
+            continue
+        frame_bucket[marker_name] = float(frame_bucket.get(marker_name, 0.0)) + dur_us
+    # Whole-frame GPU total = first-to-last captured marker delta.
+    var total_us := float(gpu_times[count - 1] - gpu_times[0]) / 1000.0
+    if _gpu_sample_valid(total_us):
+        frame_bucket[GPU_FRAME_TOTAL_BUCKET] = total_us
+    else:
+        _gpu_discarded_samples += 1
+    for bucket_name in frame_bucket:
+        if not _gpu_bucket_samples.has(bucket_name):
+            _gpu_bucket_samples[bucket_name] = []
+        _gpu_bucket_samples[bucket_name].append(frame_bucket[bucket_name])
+    _gpu_frames_sampled += 1
+    _gpu_last_captured_frame = frame_index
+
+
+func _gpu_timestamps_payload() -> Dictionary:
+    if _gpu_frames_sampled <= 0 or _gpu_bucket_samples.is_empty():
+        return {}
+    var buckets := {}
+    for bucket_name in _gpu_bucket_samples:
+        var raw_samples: Array = _gpu_bucket_samples[bucket_name]
+        if raw_samples.is_empty():
+            continue
+        var typed: Array[float] = []
+        for value in raw_samples:
+            typed.append(float(value))
+        buckets[bucket_name] = {
+            "count": typed.size(),
+            "mean_us": _mean(typed),
+            "median_us": _median(typed),
+            "p95_us": _compute_p95(typed),
+        }
+    if buckets.is_empty():
+        return {}
+    return {
+        "unit": "microseconds",
+        "frames_sampled": _gpu_frames_sampled,
+        "discarded_samples": _gpu_discarded_samples,
+        "frame_queue_size": _gpu_frame_queue_size,
+        "buckets": buckets,
+    }

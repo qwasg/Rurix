@@ -670,6 +670,17 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument("--patch-stack-id", type=str, default=None)
+    parser.add_argument(
+        "--gpu-timestamps",
+        action="store_true",
+        help=(
+            "capture per-pass GPU timestamps: adds Godot's --gpu-profile (which "
+            "enables RenderingDevice timestamp capture) and tells the benchmark "
+            "autoload to aggregate per-bucket GPU times into the raw payload's "
+            "gpu_timestamps field. Off by default; applied identically to both "
+            "the baseline and rurix legs."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -806,6 +817,13 @@ def build_scene_command(
     # rd_native leg gets --verbose; baseline and shim legs are byte-unchanged.
     if context.get("rd_native_passes"):
         command.append("--verbose")
+    # GRX bench workload v2.3: --gpu-profile enables RenderingDevice timestamp
+    # capture (RSG::utilities->capturing_timestamps); the autoload then reads the
+    # captured markers each sampled frame. It also enables Godot's own once-per-
+    # second GPU-profile stdout print, which carries no failure markers and does
+    # not dominate the frame-time sample window. Added for both legs identically.
+    if settings.get("gpu_timestamps"):
+        command.append("--gpu-profile")
     command += [
         "--scene",
         "res://scenes/benchmark_runner.tscn",
@@ -836,6 +854,8 @@ def build_scene_command(
     pass_matrix_path = context.get("pass_matrix_path")
     if pass_matrix_path is not None:
         command.extend(["--pass-matrix-path", str(pass_matrix_path)])
+    if settings.get("gpu_timestamps"):
+        command.extend(["--gpu-timestamps", "true"])
     return command
 
 
@@ -843,6 +863,77 @@ def percentile_95(values: list[float]) -> float:
     ordered = sorted(values)
     index = max(math.ceil(len(ordered) * 0.95) - 1, 0)
     return ordered[index]
+
+
+def validate_gpu_timestamps(
+    payload: dict[str, object],
+    scene_name: str,
+    settings: dict[str, object],
+) -> dict[str, object] | None:
+    """Validate the raw payload's GPU-timestamp fields, fail-closed on both sides.
+
+    When --gpu-timestamps is OFF the payload must report no timestamp data (the
+    switch is the only thing that arms capture, so any data here would be a
+    contract violation). When it is ON, gpu_timestamps_available is an honest
+    bool: True requires a structurally valid gpu_timestamps object (per-bucket
+    count/mean/median/p95 in microseconds); False (e.g. a headless RD produced no
+    captures) is tolerated and the gpu_timestamps key must be absent. Returns the
+    validated gpu_timestamps dict, or None when no data was recorded.
+    """
+    available = payload.get("gpu_timestamps_available")
+    has_block = "gpu_timestamps" in payload
+    if not settings.get("gpu_timestamps"):
+        if available is not False:
+            raise ValueError(
+                f"{scene_name}: gpu_timestamps_available must be false when "
+                "--gpu-timestamps is not set"
+            )
+        if has_block:
+            raise ValueError(
+                f"{scene_name}: gpu_timestamps must be absent when "
+                "--gpu-timestamps is not set"
+            )
+        return None
+    if not isinstance(available, bool):
+        raise ValueError(f"{scene_name}: gpu_timestamps_available must be a bool")
+    if not available:
+        # Honest no-data (e.g. dummy/headless RenderingDevice): the key must be
+        # omitted rather than carry fabricated values.
+        if has_block:
+            raise ValueError(
+                f"{scene_name}: gpu_timestamps_available is false but a "
+                "gpu_timestamps block is present"
+            )
+        return None
+    block = payload.get("gpu_timestamps")
+    if not isinstance(block, dict):
+        raise ValueError(
+            f"{scene_name}: gpu_timestamps_available is true but gpu_timestamps "
+            "is not an object"
+        )
+    buckets = block.get("buckets")
+    if not isinstance(buckets, dict) or not buckets:
+        raise ValueError(f"{scene_name}: gpu_timestamps.buckets must be a non-empty object")
+    for bucket_name, stats in buckets.items():
+        if not isinstance(stats, dict):
+            raise ValueError(f"{scene_name}: gpu_timestamps bucket {bucket_name} must be an object")
+        count = stats.get("count")
+        if not isinstance(count, int) or isinstance(count, bool) or count <= 0:
+            raise ValueError(
+                f"{scene_name}: gpu_timestamps bucket {bucket_name} count must be a positive int"
+            )
+        for stat_key in ("mean_us", "median_us", "p95_us"):
+            value = stats.get(stat_key)
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise ValueError(
+                    f"{scene_name}: gpu_timestamps bucket {bucket_name} {stat_key} must be numeric"
+                )
+            if float(value) < 0.0 or not math.isfinite(float(value)):
+                raise ValueError(
+                    f"{scene_name}: gpu_timestamps bucket {bucket_name} {stat_key} "
+                    "must be a finite non-negative microsecond value"
+                )
+    return block
 
 
 def validate_raw_payload(
@@ -865,8 +956,7 @@ def validate_raw_payload(
         raise ValueError(f"{scene_name}: raw payload warmup_frames mismatch")
     if payload.get("sample_frames") != sample_frames:
         raise ValueError(f"{scene_name}: raw payload sample_frames mismatch")
-    if payload.get("gpu_timestamps_available") is not False:
-        raise ValueError(f"{scene_name}: gpu_timestamps_available must be false")
+    gpu_timestamps = validate_gpu_timestamps(payload, scene_name, settings)
     if payload.get("evidence_level") != EVIDENCE_LEVEL:
         raise ValueError(f"{scene_name}: evidence_level mismatch")
     if payload.get("run_mode") != run_mode:
@@ -897,6 +987,8 @@ def validate_raw_payload(
         "sample_count": len(numeric_frame_times),
         "avg_fps": float(avg_fps),
         "p95_frame_time_ms": float(p95_frame_time_ms),
+        "gpu_timestamps_available": bool(payload.get("gpu_timestamps_available")),
+        "gpu_timestamps": gpu_timestamps,
     }
 
 
@@ -932,6 +1024,8 @@ def run_scene(
         "warnings": [],
         "pass_engagement": None,
         "pass_engagement_source": None,
+        "gpu_timestamps_available": None,
+        "gpu_timestamps": None,
     }
 
     run_env = dict(os.environ)
@@ -1002,6 +1096,8 @@ def run_scene(
         result["p95_frame_time_ms"] = metrics["p95_frame_time_ms"]
         result["pass_engagement"] = engagement
         result["pass_engagement_source"] = engagement_source
+        result["gpu_timestamps_available"] = metrics["gpu_timestamps_available"]
+        result["gpu_timestamps"] = metrics["gpu_timestamps"]
         return result
     except subprocess.TimeoutExpired as exc:
         partial_output = normalize_output(
@@ -1056,6 +1152,7 @@ def build_initial_summary(
         "evidence_level": EVIDENCE_LEVEL,
         "leg": None,
         "profile": None,
+        "gpu_timestamps": False,
         "scene_subset": False,
         "pass_matrix": {},
         "pass_matrix_path": None,
@@ -1088,6 +1185,9 @@ def main() -> int:
         project_summary = load_project_summary(args.project_summary)
         project_dir = resolve_project_dir(args.project_dir, project_summary)
         settings = determine_run_settings(manifest, args.quick_smoke, args.profile)
+        # Both legs share the same GPU-timestamp switch (single source of truth
+        # for the command builder and the raw-payload validator).
+        settings["gpu_timestamps"] = args.gpu_timestamps
         validate_runner_assets(project_summary, project_dir)
 
         godot_exe, godot_exe_source, godot_exe_note = resolve_godot_exe(args.godot_exe)
@@ -1158,6 +1258,7 @@ def main() -> int:
                 "run_mode": run_mode,
                 "profile": args.profile,
                 "leg": leg,
+                "gpu_timestamps": args.gpu_timestamps,
                 "scene_subset": scene_names != EXPECTED_SCENES,
                 "pass_matrix": pass_matrix_settings,
                 "pass_matrix_path": str(pass_matrix_path) if pass_matrix_path is not None else None,
