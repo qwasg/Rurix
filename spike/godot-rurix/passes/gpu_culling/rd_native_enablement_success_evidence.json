@@ -542,7 +542,7 @@
     "build": {
       "available": true,
       "command": "H:\\rurix\\target\\grx\\scons-venv\\Scripts\\python.exe -m SCons platform=windows target=template_debug d3d12=yes module_rurix_accel_enabled=yes disable_path_overrides=no num_jobs=1 verbose=yes angle=no silence_msvc=no",
-      "log_path": "H:/rurix/target/grx/godot-scratch-rb5.scons_build.log"
+      "log_path": "H:\\rurix\\target\\grx\\godot-scratch-rb5.scons_build.log"
     },
     "base_commit": "d4864033a44af193dd700d470d38344ce3138bae",
     "base_tree": "6afb1013d67159858bc04b5a613db339bb7823a8",
@@ -897,7 +897,7 @@
     "expected_stack_ok": true
   },
   "status": "success",
-  "timestamp": "2026-07-13T20:49:33+08:00",
+  "timestamp": "2026-07-13T20:58:21+08:00",
   "run_url": "local interactive runner",
   "pass_enable_matrix": {
     "reference": {
