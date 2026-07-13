@@ -1,6 +1,6 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Rurix Godot Bridge <rurix@example.invalid>
-Date: Mon, 13 Jul 2026 10:56:04 +0800
+Date: Mon, 13 Jul 2026 18:30:00 +0800
 Subject: [PATCH] Add default-disabled GRX Route B rd_native fused_post_chain
  in-frame fusion-first replacement
 
@@ -15,7 +15,7 @@ fused tail and is NOT in this stack).
 - drivers/d3d12/d3d12_hooks.h: new default-false virtual
   try_record_fused_post_chain_rd_native(RID src_color, RID lum_source,
   RID prev_luminance, RID dst_color, RID dst_luminance, Size2i, Size2i, f32, f32,
-  f32). Base returns false.
+  f32, f32, f32, f32, f32, f32). Base returns false.
 - modules/rurix_accel/register_types.cpp: two new default-safe settings
   (.../passes/fused_post_chain/backend int default 0 and .../rd_container_path).
 - modules/rurix_accel/rurix_accel.{h,cpp}: try_record_fused_post_chain_rd_native
@@ -23,7 +23,7 @@ fused tail and is NOT in this stack).
 - servers/rendering/renderer_rd/renderer_scene_render_rd.cpp: the fusion-first
   gate runs before the patch 0040 tonemap rd_native gate.
 
-In-place revision (Design 1 shadow-recompute, unlocked by the patch 0048
+In-place revision #1 (Design 1 shadow-recompute, unlocked by the patch 0048
 Luminance-API getters; no number change): the call site now supplies THREE
 DISTINCT luminance buffers via luminance->get_current_luminance_buffer /
 get_previous_luminance_buffer / get_luminance_reduce_penultimate_buffer
@@ -36,6 +36,22 @@ feedback; writing penultimate would corrupt next frame's reduction source). The
 gate is ALSO ANDed with the shared rurix_tonemap_linear_subset_compatible
 predicate from patch 0040 (LINEAR + convert_to_srgb + no color effects; auto
 exposure is allowed here because the fused kernel folds the luminance step in).
+
+In-place revision #2 (GRX-019 real auto-exposure parameter pipeline; no number
+change): the fused hook signature is extended with FIVE trailing floats
+(p_min_luminance, p_max_luminance, p_exposure_adjust, p_first_frame,
+p_auto_exposure_scale) and the module packs the REAL per-frame values into b0
+dwords 8-15, replacing the earlier placeholder scalars (max=1/min=0/adjust=1/
+first_frame=0/scale=1) that caused the measured max_abs=85/mean_abs=66 rd_native
+parity gap. The values are the exact arguments the native luminance_reduction +
+tonemap consume: auto_exposure_max/min_sensitivity, the adjust step, the
+set_immediate (first-frame) flag, and camera_attributes_get_auto_exposure_scale.
+The call site hoists function-scope copies of the four reduce parameters (next to
+the existing function-scope auto_exposure_scale) and assigns them inside the
+auto-exposure block; safe defaults are used when auto-exposure is inactive (they
+never reach the kernel because the distinct-luminance guard fails closed). NO b0
+layout / DXIL / RTS0 / container change — dwords 8-15 already carried these
+fields; only the packed runtime values change.
 
 HONEST BOUNDARY (recorded in the manifest / PASS_CONTRACT): this is a
 shadow-recompute — the native luminance_reduction still runs in FULL, the net
@@ -50,15 +66,15 @@ Fail-closed everywhere: default backend == 0 keeps the tonemap rd_native /
 native chain. RXGD_ABI_VERSION unchanged (no C ABI struct change, no
 RxGdCaps.flags bit; bridge-independent). No performance claim is made.
 ---
- drivers/d3d12/d3d12_hooks.h                        |  21 +++
- modules/rurix_accel/register_types.cpp             |  19 +++
- modules/rurix_accel/rurix_accel.cpp                | 183 +++++++++++++++++++++
- modules/rurix_accel/rurix_accel.h                  |  62 +++++++
- .../renderer_rd/renderer_scene_render_rd.cpp       |  44 ++++-
- 5 files changed, 326 insertions(+), 3 deletions(-)
+ drivers/d3d12/d3d12_hooks.h                   |  21 ++
+ modules/rurix_accel/register_types.cpp        |  19 ++
+ modules/rurix_accel/rurix_accel.cpp           | 183 ++++++++++++++++++
+ modules/rurix_accel/rurix_accel.h             |  62 ++++++
+ .../renderer_rd/renderer_scene_render_rd.cpp  |  71 ++++++-
+ 5 files changed, 353 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
-index fa65fc8..0bddfe0 100644
+index fa65fc8..dd40ad0 100644
 --- a/drivers/d3d12/d3d12_hooks.h
 +++ b/drivers/d3d12/d3d12_hooks.h
 @@ -231,5 +231,26 @@ public:
@@ -85,7 +101,7 @@ index fa65fc8..0bddfe0 100644
 +	// luminance-final + tonemap end MUST be skipped. The base implementation returns
 +	// false so any hooks that do not override this (or the absence of a hooks
 +	// singleton) keep the native Godot luminance_reduction + tonemap chain.
-+	virtual bool try_record_fused_post_chain_rd_native(RID p_src_color, RID p_lum_source, RID p_prev_luminance, RID p_dst_color, RID p_dst_luminance, Size2i p_source_size, Size2i p_dest_size, float p_exposure, float p_white, float p_luminance_multiplier) { return false; }
++	virtual bool try_record_fused_post_chain_rd_native(RID p_src_color, RID p_lum_source, RID p_prev_luminance, RID p_dst_color, RID p_dst_luminance, Size2i p_source_size, Size2i p_dest_size, float p_exposure, float p_white, float p_luminance_multiplier, float p_min_luminance, float p_max_luminance, float p_exposure_adjust, float p_first_frame, float p_auto_exposure_scale) { return false; }
  	static D3D12Hooks *get_singleton() { return singleton; }
  };
 diff --git a/modules/rurix_accel/register_types.cpp b/modules/rurix_accel/register_types.cpp
@@ -119,14 +135,14 @@ index 16e92a3..23a0f0a 100644
  #if defined(D3D12_ENABLED)
  	if (GLOBAL_GET("rendering/rurix_accel/enabled")) {
 diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
-index e1d1679..7c14f3a 100644
+index e1d1679..f5ef657 100644
 --- a/modules/rurix_accel/rurix_accel.cpp
 +++ b/modules/rurix_accel/rurix_accel.cpp
 @@ -1618,4 +1618,187 @@ bool RurixAccelD3D12Hooks::try_record_cluster_store_rd_native(int64_t p_compute_
  	return true;
  }
  
-+bool RurixAccelD3D12Hooks::try_record_fused_post_chain_rd_native(RID p_src_color, RID p_lum_source, RID p_prev_luminance, RID p_dst_color, RID p_dst_luminance, Size2i p_source_size, Size2i p_dest_size, float p_exposure, float p_white, float p_luminance_multiplier) {
++bool RurixAccelD3D12Hooks::try_record_fused_post_chain_rd_native(RID p_src_color, RID p_lum_source, RID p_prev_luminance, RID p_dst_color, RID p_dst_luminance, Size2i p_source_size, Size2i p_dest_size, float p_exposure, float p_white, float p_luminance_multiplier, float p_min_luminance, float p_max_luminance, float p_exposure_adjust, float p_first_frame, float p_auto_exposure_scale) {
 +	// GRX Route B rd_native fused_post_chain: an in-frame RD-native compute
 +	// replacement for the fused luminance-final + tonemap pass. Like the other
 +	// rd_native paths this does NOT go through the Rurix rxgd bridge/shim; it drives
@@ -269,31 +285,31 @@ index e1d1679..7c14f3a 100644
 +	// declares the 64-bit integer shader capability), then max_luminance,
 +	// min_luminance, exposure_adjust, exposure, white, luminance_multiplier,
 +	// first_frame and auto_exposure_scale as 32-bit floats, little-endian like
-+	// D3D12. The luminance-segment sensitivity scalars are best-effort placeholders
-+	// until the Luminance-API extension supplies the real fused parameters.
++	// D3D12. GRX-019 real AE parameter pipeline (patch 0045 revision #2): the five
++	// luminance-segment scalars (max/min sensitivity, adjust step, first_frame,
++	// auto_exposure_scale) are now the REAL per-frame values forwarded from the
++	// call site (mirroring the native luminance_reduction + tonemap arguments),
++	// replacing the earlier placeholder 1.0/0.0 constants that caused the measured
++	// max_abs=85/mean_abs=66 rd_native parity gap. b0 layout is UNCHANGED (dwords
++	// 8-15 already carry these fields); only the packed values change.
 +	uint8_t push_constants[RD_NATIVE_FUSED_POST_CHAIN_ROOT_CONSTANT_BYTES] = {};
 +	const RenderingDevice::TextureFormat lum_fmt = rd->texture_get_format(p_lum_source);
 +	const uint64_t source_width = (uint64_t)MAX(p_source_size.x, 0);
 +	const uint64_t source_height = (uint64_t)MAX(p_source_size.y, 0);
 +	const uint64_t lum_source_width = (uint64_t)lum_fmt.width;
 +	const uint64_t lum_source_height = (uint64_t)lum_fmt.height;
-+	const float max_luminance = 1.0f;
-+	const float min_luminance = 0.0f;
-+	const float exposure_adjust = 1.0f;
-+	const float first_frame = 0.0f;
-+	const float auto_exposure_scale = 1.0f;
 +	memcpy(&push_constants[0], &source_width, sizeof(source_width));
 +	memcpy(&push_constants[8], &source_height, sizeof(source_height));
 +	memcpy(&push_constants[16], &lum_source_width, sizeof(lum_source_width));
 +	memcpy(&push_constants[24], &lum_source_height, sizeof(lum_source_height));
-+	memcpy(&push_constants[32], &max_luminance, sizeof(max_luminance));
-+	memcpy(&push_constants[36], &min_luminance, sizeof(min_luminance));
-+	memcpy(&push_constants[40], &exposure_adjust, sizeof(exposure_adjust));
++	memcpy(&push_constants[32], &p_max_luminance, sizeof(p_max_luminance));
++	memcpy(&push_constants[36], &p_min_luminance, sizeof(p_min_luminance));
++	memcpy(&push_constants[40], &p_exposure_adjust, sizeof(p_exposure_adjust));
 +	memcpy(&push_constants[44], &p_exposure, sizeof(p_exposure));
 +	memcpy(&push_constants[48], &p_white, sizeof(p_white));
 +	memcpy(&push_constants[52], &p_luminance_multiplier, sizeof(p_luminance_multiplier));
-+	memcpy(&push_constants[56], &first_frame, sizeof(first_frame));
-+	memcpy(&push_constants[60], &auto_exposure_scale, sizeof(auto_exposure_scale));
++	memcpy(&push_constants[56], &p_first_frame, sizeof(p_first_frame));
++	memcpy(&push_constants[60], &p_auto_exposure_scale, sizeof(p_auto_exposure_scale));
 +	// Record the in-frame fused compute dispatch. fused_post_chain is a standalone
 +	// compute list, so this opens and closes its own list (no submit()/sync() —
 +	// that is a local-RD-only concept); the main-RD draw graph tracks the
@@ -311,7 +327,7 @@ index e1d1679..7c14f3a 100644
 +
  #endif // D3D12_ENABLED
 diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
-index b14afe6..e15f56e 100644
+index b14afe6..462c201 100644
 --- a/modules/rurix_accel/rurix_accel.h
 +++ b/modules/rurix_accel/rurix_accel.h
 @@ -216,6 +216,46 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
@@ -386,15 +402,56 @@ index b14afe6..e15f56e 100644
 +	// recorded (the caller then SKIPS the native luminance-final + tonemap end). Any
 +	// failure returns false and the caller keeps the tonemap rd_native / native chain
 +	// (fail-closed).
-+	bool try_record_fused_post_chain_rd_native(RID p_src_color, RID p_lum_source, RID p_prev_luminance, RID p_dst_color, RID p_dst_luminance, Size2i p_source_size, Size2i p_dest_size, float p_exposure, float p_white, float p_luminance_multiplier) override;
++	bool try_record_fused_post_chain_rd_native(RID p_src_color, RID p_lum_source, RID p_prev_luminance, RID p_dst_color, RID p_dst_luminance, Size2i p_source_size, Size2i p_dest_size, float p_exposure, float p_white, float p_luminance_multiplier, float p_min_luminance, float p_max_luminance, float p_exposure_adjust, float p_first_frame, float p_auto_exposure_scale) override;
  };
  
  #endif // D3D12_ENABLED
 diff --git a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
-index 963f599..44c4127 100644
+index 963f599..0ff1f99 100644
 --- a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
 +++ b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
-@@ -924,6 +924,7 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+@@ -553,6 +553,23 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+ 	}
+ 
+ 	float auto_exposure_scale = 1.0;
++	// GRX-019 fused_post_chain real auto-exposure parameter pipeline (patch 0045
++	// revision #2): hoist copies of the four auto-exposure reduce parameters to
++	// function scope so the fused rd_native hook below (invoked in the tonemap
++	// block, well after the auto-exposure block closes) can pass the REAL per-frame
++	// values instead of the earlier placeholder b0 scalars (max=1/min=0/adjust=1/
++	// first_frame=0, which caused the measured max_abs=85/mean_abs=66 rd_native
++	// parity gap). These mirror the exact arguments the native
++	// luminance->luminance_reduction consumes (min/max sensitivity, adjust step,
++	// set_immediate). Safe defaults when auto-exposure is not active this frame
++	// (min=0 no floor, max=65504 max-half no spurious lum clamp, step=1.0 identity
++	// EMA rate, first_frame=0 not a reset); those defaults never reach the kernel
++	// because the fused gate's distinct-luminance guard fails closed without
++	// auto-exposure. auto_exposure_scale is already function-scope (assigned below).
++	float rurix_fused_ae_min_sensitivity = 0.0f;
++	float rurix_fused_ae_max_sensitivity = 65504.0f;
++	float rurix_fused_ae_adjust_step = 1.0f;
++	float rurix_fused_ae_first_frame = 0.0f;
+ 
+ 	if (can_use_effects && RSG::camera_attributes->camera_attributes_uses_auto_exposure(p_render_data->camera_attributes)) {
+ 		RENDER_TIMESTAMP("Auto exposure");
+@@ -568,6 +585,16 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+ 		double step = RSG::camera_attributes->camera_attributes_get_auto_exposure_adjust_speed(p_render_data->camera_attributes) * time_step;
+ 		float auto_exposure_min_sensitivity = RSG::camera_attributes->camera_attributes_get_auto_exposure_min_sensitivity(p_render_data->camera_attributes);
+ 		float auto_exposure_max_sensitivity = RSG::camera_attributes->camera_attributes_get_auto_exposure_max_sensitivity(p_render_data->camera_attributes);
++		// GRX-019 fused_post_chain real AE parameter pipeline (patch 0045 revision
++		// #2): capture the real reduce parameters for the fused rd_native hook below.
++		// These are the same values handed to the native luminance_reduction (L673),
++		// so mirroring them into the fused b0 makes Segment A follow the native
++		// reduce and Segment B follow the native tonemap (auto_exposure_scale is
++		// captured at L678 into the function-scope var).
++		rurix_fused_ae_min_sensitivity = auto_exposure_min_sensitivity;
++		rurix_fused_ae_max_sensitivity = auto_exposure_max_sensitivity;
++		rurix_fused_ae_adjust_step = (float)step;
++		rurix_fused_ae_first_frame = set_immediate ? 1.0f : 0.0f;
+ 		bool rurix_recorded_luminance = false;
+ #ifdef D3D12_ENABLED
+ 		if (D3D12Hooks::get_singleton() != nullptr && !luminance_buffers->reduce.is_empty()) {
+@@ -924,6 +951,7 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
  		if (can_use_storage) {
  			bool rurix_recorded_tonemap = false;
  			bool rurix_recorded_tonemap_rd_native = false;
@@ -402,7 +459,7 @@ index 963f599..44c4127 100644
  #ifdef D3D12_ENABLED
  			// GRX Route B rd_native LINEAR-tonemap subset guard (patch 0040
  			// in-place revision): the Rurix tonemap / fused kernels implement ONLY
-@@ -952,6 +953,43 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+@@ -952,6 +980,43 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
  					!tonemap.use_1d_color_correction &&
  					tonemap.debanding_mode == RendererRD::ToneMapper::TonemapSettings::DebandingMode::DEBANDING_MODE_DISABLED &&
  					tonemap.view_count == 1;
@@ -441,12 +498,12 @@ index 963f599..44c4127 100644
 +				const RID rurix_fused_lum_current = luminance->get_current_luminance_buffer(rb);
 +				const RID rurix_fused_lum_prev = luminance->get_previous_luminance_buffer(rb);
 +				const RID rurix_fused_lum_penultimate = luminance->get_luminance_reduce_penultimate_buffer(rb);
-+				rurix_recorded_fused_post_chain_rd_native = D3D12Hooks::get_singleton()->try_record_fused_post_chain_rd_native(color_texture, rurix_fused_lum_current, rurix_fused_lum_prev, rurix_tonemap_dest_texture, rurix_fused_lum_penultimate, color_size, tonemap.dest_texture_size, tonemap.exposure, tonemap.white, tonemap.luminance_multiplier);
++				rurix_recorded_fused_post_chain_rd_native = D3D12Hooks::get_singleton()->try_record_fused_post_chain_rd_native(color_texture, rurix_fused_lum_current, rurix_fused_lum_prev, rurix_tonemap_dest_texture, rurix_fused_lum_penultimate, color_size, tonemap.dest_texture_size, tonemap.exposure, tonemap.white, tonemap.luminance_multiplier, rurix_fused_ae_min_sensitivity, rurix_fused_ae_max_sensitivity, rurix_fused_ae_adjust_step, rurix_fused_ae_first_frame, auto_exposure_scale);
 +			}
  			// GRX Route B rd_native tonemap (patch 0040): backend selector == 2
  			// engages the in-frame RD-native compute replacement BEFORE the
  			// shim-path gate below. Unlike the shim path (patch 0013, which
-@@ -970,10 +1008,10 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+@@ -970,10 +1035,10 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
  			// shim gate and native tonemapper below run exactly as before. The
  			// standalone tonemap kernel cannot apply auto exposure, so it is gated
  			// off here (the fused kernel in patch 0045 is what folds it in).
@@ -459,7 +516,7 @@ index 963f599..44c4127 100644
  				// GRX-010 runtime resource binding gate (0005/0007-level in
  				// one slice). Resolves the real D3D12 ID3D12Resource* native
  				// handles (not logical Godot RID ids) for the HDR source
-@@ -1023,7 +1061,7 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+@@ -1023,7 +1088,7 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
  				}
  			}
  #endif
@@ -470,3 +527,4 @@ index 963f599..44c4127 100644
  		} else {
 -- 
 2.50.0
+
