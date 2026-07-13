@@ -184,12 +184,12 @@
     "cap_bit_consumed": null,
     "rxgd_abi_version_unchanged": true,
     "godot_patch": "spike/godot-rurix/patches/0043-rurix-accel-particles-copy-rd-native-inframe-replacement.patch",
-    "godot_patch_sha256": "cc160b15d7a266dfcc1aebf580627ceff0e9e6b52cedee7c07b0f03a3b202072",
+    "godot_patch_sha256": "fcb74373bfbaffb9fee5396d7079071664d80f75d91d3b0788994334bef0d1ca",
     "patch_stack": "0001-0029 + 0040 + 0041 + 0042 + 0043 (branch-HEAD culling tail + rd_native series)",
     "same_list_injection": true,
     "hook_virtual": "D3D12Hooks::try_record_particles_copy_rd_native(int64_t p_compute_list, RID p_src_particles, RID p_dst_instances, uint32_t p_total_particles, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes)",
     "descriptor_mapping": "two STRUCTURED buffers bound as UNIFORM_TYPE_STORAGE_BUFFER (RAW==structured proven zero-tolerance in rd_buffer_probe_evidence.json): src_particles=t0 SRV, dst_instances=u0 UAV, 128-byte CopyPushConstant b0 (no i64 fields), compute_list_dispatch_threads(total_particles,1,1) over the container 64x1x1 local size. No usage-bits preflight (buffers have no texture_get_format).",
-    "kernel_subset": "COPY_MODE_FILL_INSTANCES 3D ALIGN_DISABLED/ALIGN_Z_BILLBOARD subset only (gated !do_sort && copy_mode_2d==0); VIEW_DEPTH sort, 2D, lifetime reindex, trail and userdata route to the native path.",
+    "kernel_subset": "COPY_MODE_FILL_INSTANCES 3D ALIGN_DISABLED/ALIGN_Z_BILLBOARD subset only (gated !do_sort && copy_mode_2d==0 && userdata_count==0); VIEW_DEPTH sort, 2D, lifetime reindex, trail, and ANY userdata-carrying process material (including every standard ParticleProcessMaterial, which always uses USERDATA1 -> stride 128 != the kernel's 112) route to the native path.",
     "container": {
       "staged_path": "target/grx/rd_containers/particles_copy.rd_container.bin",
       "source": "spike/godot-rurix/rd-native-pipeline/out/particles_copy.rd_container.bin",
@@ -199,16 +199,22 @@
     "enablement": {
       "harness": "ci/grx_rb_particles_copy_rd_native_enablement_smoke.py",
       "evidence": "spike/godot-rurix/passes/particles_copy/rd_native_enablement_evidence.json",
-      "status": "pending_scratch_build",
-      "status_note": "The 0043 patch is authored, LF-clean, and stacked-applyable on 0001-0029+0040-0045 (ci/godot_rurix_scratch_build.py --check-only PASS). The strict-success-vs-measured-blocked outcome is determined by the enablement smoke on the freshly-built 0001-0029+0040-0045 scratch Godot (D3D12 Forward+, RTX 4070 Ti); that scratch build + GPU run is the remaining step. No real_gpu_pass is claimed until that measured run lands its success evidence.",
-      "real_gpu_pass": false,
+      "success_evidence": "spike/godot-rurix/passes/particles_copy/rd_native_enablement_success_evidence.json",
+      "status": "success",
+      "real_gpu_pass": true,
+      "real_replacement": true,
+      "native_fill_instances_dispatch_skipped": true,
+      "candidate_ldr_max_abs_diff": 0,
+      "candidate_ldr_mean_abs_diff": 0.0,
+      "measured_note": "On the 0001-0029+0040-0045 scratch Godot (Windows D3D12 Forward+, RTX 4070 Ti): the candidate leg (backend=2 + staged container) printed RXGD_RD_NATIVE_PARTICLES_COPY active (rd_native recorded onto the already-open particles_set_view_axis compute list; native COPY_MODE_FILL_INSTANCES dispatch skipped by construction) and its captured frame is BYTE-IDENTICAL to the native reference (LDR max_abs=0/mean_abs=0; 3511 bright particle pixels, 4096-particle no-userdata custom-shader scene, frozen sim, 3 byte-stable frames per leg). The fail_closed leg (backend=2 + garbage container) measured RenderingDevice rejecting the container and fell back byte-identically. First strict success round was preceded by an honest measured finding: the initial ParticleProcessMaterial scene exposed the userdata stride boundary (max_abs=191 thinned image), diagnosed via local-RD probes (kernel+RAW binding exonerated at 0/1280; stride misread model matched GPU byte-exactly) and fixed by the 0043 gate revision + in-subset scene.",
       "performance_claim": "none"
     },
     "remaining_rounds": [
-      "run the enablement smoke on the built scratch exe (particle scene; downstream visible-frame LDR diff)",
-      "GPU math parity characterization of the fill-instances subset vs native",
-      "align/2D/sort/trail subset extension"
-    ]
+      "userdata_count>=1 kernel variant (stride 112+16u) so standard ParticleProcessMaterial systems can enter the subset",
+      "align/2D/sort/trail subset extension",
+      "per-pass FPS baseline (contract requires >= 0.95x baseline before any default-enable discussion)"
+    ],
+    "godot_patch_revision_note": "Patch 0043 revised in place (same number, PATCH_ALLOCATION.md section 4 rule 2) during the enablement bring-up: the call-site gate now also requires particles->userdata_count == 0. Root cause measured on real hardware: the kernel's declared 'no userdata' gap is a STRIDE boundary (userdata_count > 0 grows the ParticleData stride from 112 to 112+16*userdata_count bytes) and a standard ParticleProcessMaterial ALWAYS uses USERDATA1 (stride 128), so the engaged kernel read byte-shifted particles and produced an exact-subset thinned image (only every 8th instance, where 112*i is 128-aligned, read a whole valid particle). A local-RD stride probe reproduced the GPU output byte-exactly from a CPU misread model (0/1280 mismatches). The gate now fails closed for any userdata-carrying system; only no-userdata particles shaders are in the rd_native subset."
   },
   "evidence_requirements": {
     "offline_compile": "offline_compile_evidence.json (measured): DXC cs_6_0 compile + DXV validation pass + Rurix-owned RTS0 + descriptor layout; three artifact SHA-256 recomputable on disk",

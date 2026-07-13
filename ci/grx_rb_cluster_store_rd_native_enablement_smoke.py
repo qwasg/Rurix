@@ -2,13 +2,15 @@
 # -*- coding: utf-8 -*-
 """GRX Route B: cluster_store rd_native in-frame REAL-replacement enablement smoke (generated from the tonemap template).
 
-This is the first NON-SCAFFOLD real replacement gate in the GRX Godot line. It
-drives patch 0040's ``rendering/rurix_accel/passes/cluster_store/backend == 2``
-(rd_native) path, in which the Rurix tonemap kernel runs as a first-class
-in-frame ``RenderingDevice`` compute pass and the native Godot tonemapper is
-GENUINELY SKIPPED (unlike the patch 0013 shim scaffold, which prints a writeback
-marker and then keeps the native tonemapper as the continuation/backstop so the
-image can never change). Here the candidate frame IS the Rurix kernel's output.
+This is the gate that turns GRX-014 from the patch 0025 SCAFFOLD into a real
+replacement. It drives patch 0044's
+``rendering/rurix_accel/passes/cluster_store/backend == 2`` (rd_native) path,
+in which the Rurix cluster_store kernel runs as a first-class in-frame
+``RenderingDevice`` compute dispatch RECORDED ONTO THE ALREADY-OPEN
+bake_cluster store compute list, and the native cluster_store (pack) dispatch
+is GENUINELY SKIPPED (unlike the patch 0025 shim scaffold). The clustered
+OmniLight scene's lit image is the downstream visible consumer of the packed
+cluster table.
 
 rd_native is BRIDGE-INDEPENDENT: it does not go through the rxgd session /
 ``rxgd_record_pass`` path and sets no ``RxGdCaps.flags`` bit. It only needs the
@@ -116,7 +118,7 @@ EVIDENCE_OUT = PASS_DIR / "rd_native_enablement_evidence.json"
 SUCCESS_EVIDENCE_OUT = PASS_DIR / "rd_native_enablement_success_evidence.json"
 
 RURIX_GODOT_DLL = ROOT / "target" / "debug" / "rurix_godot.dll"
-WORK = ROOT / "target" / "grx_rb_tonemap_rd_native_enablement_smoke"
+WORK = ROOT / "target" / "grx_rb_cluster_store_rd_native_enablement_smoke"
 LOG_DIR = WORK / "logs"
 
 SUBJECT = "grx_rb_cluster_store_rd_native_enablement_smoke"

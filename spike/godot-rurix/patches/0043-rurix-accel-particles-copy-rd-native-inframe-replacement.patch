@@ -1,5 +1,5 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
-From: Rurix Godot Bridge <rurix@example.invalid>
+From: GRX009 Provenance <grx009-provenance@example.invalid>
 Date: Mon, 13 Jul 2026 10:46:49 +0800
 Subject: [PATCH] Add default-disabled GRX Route B rd_native particles_copy
  in-frame fill-instances replacement
@@ -57,13 +57,28 @@ subset routes through rd_native and the rest stay native. RXGD_ABI_VERSION is
 unchanged (this path does not touch the C ABI struct layout and sets no
 RxGdCaps.flags bit; rd_native is bridge-independent). No performance claim is
 made.
+
+Revision note (same patch number, PATCH_ALLOCATION.md section 4 rule 2): the
+call-site gate now additionally requires particles->userdata_count == 0. The
+kernel's declared "no userdata" gap is a STRIDE boundary: userdata_count > 0
+grows the ParticleData SSBO stride from 112 to 112 + 16*userdata_count bytes,
+and the kernel (compiled for the no-userdata 112-byte layout) reads
+byte-shifted particles. This was measured on real hardware during the Route B
+enablement bring-up: with a standard ParticleProcessMaterial (which ALWAYS
+uses USERDATA1 to accumulate velocities, so userdata_count == 1 / stride 128),
+the engaged kernel produced an exact-subset thinned image (only every 8th
+instance, where 112*i lands 128-aligned, read a whole valid particle), and a
+local-RD stride probe reproduced the GPU output byte-exactly from a CPU
+misread model (0/1280 mismatches). The gate therefore fails closed for any
+userdata-carrying system (standard ParticleProcessMaterial systems stay
+native); only no-userdata particles shaders are in the rd_native subset.
 ---
  drivers/d3d12/d3d12_hooks.h                   |  19 ++++
  modules/rurix_accel/register_types.cpp        |  18 +++
  modules/rurix_accel/rurix_accel.cpp           | 107 ++++++++++++++++++
  modules/rurix_accel/rurix_accel.h             |  27 +++++
- .../storage_rd/particles_storage.cpp          |  26 ++++-
- 5 files changed, 195 insertions(+), 2 deletions(-)
+ .../storage_rd/particles_storage.cpp          |  34 +++++-
+ 5 files changed, 203 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
 index b6a53cb..9bd28a1 100644
@@ -285,10 +300,10 @@ index caa590b..51db342 100644
  
  #endif // D3D12_ENABLED
 diff --git a/servers/rendering/renderer_rd/storage_rd/particles_storage.cpp b/servers/rendering/renderer_rd/storage_rd/particles_storage.cpp
-index f09a57a..d495308 100644
+index f09a57a..512a9ee 100644
 --- a/servers/rendering/renderer_rd/storage_rd/particles_storage.cpp
 +++ b/servers/rendering/renderer_rd/storage_rd/particles_storage.cpp
-@@ -1353,8 +1353,30 @@ void ParticlesStorage::particles_set_view_axis(RID p_particles, const Vector3 &p
+@@ -1353,8 +1353,38 @@ void ParticlesStorage::particles_set_view_axis(RID p_particles, const Vector3 &p
  	RD::get_singleton()->compute_list_set_push_constant(compute_list, &copy_push_constant, sizeof(ParticlesShader::CopyPushConstant));
  
  	bool rurix_recorded_particles_copy = false;
@@ -300,8 +315,16 @@ index f09a57a..d495308 100644
 +	// the shim-path gate below. It only engages for the plain 3D fill-instances
 +	// subset (!do_sort AND copy_mode_2d == 0) because the Rurix particles_copy
 +	// kernel covers the ALIGN_DISABLED/ALIGN_Z_BILLBOARD 3D fill-instances subset;
-+	// the sort (VIEW_DEPTH) and 2D paths are out of subset and stay native. Unlike
-+	// the shim path (patch 0022, which prints a writeback marker and then
++	// the sort (VIEW_DEPTH) and 2D paths are out of subset and stay native. The
++	// kernel's declared "no userdata" gap is a STRIDE boundary, so it is enforced
++	// structurally here: userdata_count > 0 changes the ParticleData SSBO stride
++	// from 112 to 112 + 16*userdata_count bytes, and the kernel (compiled for the
++	// no-userdata 112-byte layout) would read byte-shifted particles — measured on
++	// real hardware as a ~1-in-8 aligned-read thinning (see the GRX Route B
++	// stride probe). A standard ParticleProcessMaterial always uses USERDATA1 to
++	// accumulate velocities, so its systems have userdata_count == 1 and stay
++	// native; only no-userdata particles shaders are in the rd_native subset.
++	// Unlike the shim path (patch 0022, which prints a writeback marker and then
 +	// deliberately clears its flag so the native copy still re-fills every
 +	// instance), a successful rd_native record does NOT clear its flag: the Rurix
 +	// kernel's output IS the filled Transforms SSBO, so the native
@@ -309,18 +332,18 @@ index f09a57a..d495308 100644
 +	// one fewer native dispatch — not a scaffold). rd_native records onto the
 +	// ALREADY-OPEN particles_set_view_axis compute list (opened above around the
 +	// copy dispatch, so rd_native reuses compute_list and MUST NOT begin/end its
-+	// own). When the backend selector is not 2, when this is a sort/2D pass, or
-+	// when rd_native fails closed (no container, invalid RID, pipeline/uniform-set
-+	// failure, etc.), this stays false and the shim gate and native dispatch below
-+	// run exactly as before.
-+	if (!do_sort && copy_push_constant.copy_mode_2d == 0 && D3D12Hooks::get_singleton() != nullptr && ((int)GLOBAL_GET("rendering/rurix_accel/passes/particles_copy/backend")) == 2) {
++	// own). When the backend selector is not 2, when this is a sort/2D/userdata
++	// pass, or when rd_native fails closed (no container, invalid RID,
++	// pipeline/uniform-set failure, etc.), this stays false and the shim gate and
++	// native dispatch below run exactly as before.
++	if (!do_sort && copy_push_constant.copy_mode_2d == 0 && particles->userdata_count == 0 && D3D12Hooks::get_singleton() != nullptr && ((int)GLOBAL_GET("rendering/rurix_accel/passes/particles_copy/backend")) == 2) {
 +		rurix_recorded_particles_copy_rd_native = D3D12Hooks::get_singleton()->try_record_particles_copy_rd_native((int64_t)compute_list, particles->particle_buffer, particles->particle_instance_buffer, copy_push_constant.total_particles, (const uint8_t *)&copy_push_constant, (uint32_t)sizeof(ParticlesShader::CopyPushConstant));
 +	}
 +	if (!rurix_recorded_particles_copy_rd_native && !do_sort && D3D12Hooks::get_singleton() != nullptr) {
  		// GRX-013 runtime resource binding gate (0005/0007-level in one slice).
  		// Only the plain COPY_MODE_FILL_INSTANCES subset (no sort buffer, so
  		// !do_sort) is in scope. Resolve the real D3D12 ID3D12Resource* native
-@@ -1403,7 +1425,7 @@ void ParticlesStorage::particles_set_view_axis(RID p_particles, const Vector3 &p
+@@ -1403,7 +1433,7 @@ void ParticlesStorage::particles_set_view_axis(RID p_particles, const Vector3 &p
  		}
  	}
  #endif

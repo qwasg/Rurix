@@ -240,15 +240,19 @@
     "enablement": {
       "harness": "ci/grx_rb_fused_post_chain_rd_native_enablement_smoke.py",
       "evidence": "spike/godot-rurix/passes/fused_post_chain/rd_native_enablement_evidence.json",
-      "status": "measured_blocked_by_design",
+      "status": "measured_prerequisite_blocked",
       "first_missing_prerequisite": "fused_luminance_double_buffer_api_unexposed",
-      "status_note": "The 0045 patch is authored, LF-clean, and stacked-applyable on 0001-0029+0040-0045 (--check-only PASS). By design it FAILS CLOSED at the aliasing guard (lum_source==prev_luminance || dst_color==dst_luminance) because the public Luminance API does not expose the distinct double-buffered luminance-final targets at the tonemap call site (deferred Luminance-API extension / draw_graph route B, PASS_CONTRACT 3.4/5). On the culling tail the fused gate therefore cascades to the patch 0040 tonemap rd_native single-pass fallback today; the RXGD_RD_NATIVE_FUSED_POST_CHAIN active marker only appears once distinct luminance targets are supplied. This is an HONEST measured-blocked boundary, not a failure: the structural path is complete and lifts automatically when the Luminance-API extension lands.",
+      "confirmed_on_hardware": true,
+      "cascade_confirmed": true,
+      "cascade_ldr_max_abs_diff": 0,
+      "cascade_ldr_mean_abs_diff": 0.0,
+      "fused_gate_zero_image_impact": true,
       "real_gpu_pass": false,
+      "measured_note": "Confirmed on the 0001-0029+0040-0045 scratch Godot (Windows D3D12 Forward+, RTX 4070 Ti), 5-leg matrix: (a) with auto exposure ON the current luminance buffer exists (LuminanceReduce shaders loaded; the AE reference visibly differs from the non-AE reference), so the fused gate is genuinely REACHED and fails closed at the ALIASING guard — the fused active marker is absent in every leg and both the candidate and the garbage-container fail_closed legs are BYTE-IDENTICAL to the native reference (zero image impact; the garbage container is never read because the guard fires before the container load). (b) The two-level fallback was MEASURED working: the cascade leg (auto exposure OFF -> fused gate blocks at the invalid-lum-RID check; tonemap backend=2 armed with the proven patch 0040 container) printed RXGD_RD_NATIVE_TONEMAP active in that leg ONLY and its frame is BYTE-IDENTICAL to the non-AE native reference (LDR max_abs=0) — fused rd_native -> tonemap rd_native -> native resolves exactly as designed. This is an honest measured-blocked boundary, not a failure; it lifts automatically once the deferred Luminance-API extension supplies distinct lum_source/prev_luminance/dst_luminance targets.",
       "performance_claim": "none"
     },
     "remaining_rounds": [
-      "Luminance-API extension exposing distinct lum_source/prev_luminance/dst_luminance double-buffer targets (SWAP semantics per patch 0038 precedent) so the fusion-first gate can engage a genuine replacement (deferred, next batch)",
-      "run the enablement smoke to confirm the cascade to tonemap rd_native and the measured-blocked boundary on the built scratch exe"
+      "Luminance-API extension exposing distinct lum_source/prev_luminance/dst_luminance double-buffer targets (SWAP semantics per patch 0038 precedent) so the fusion-first gate can engage a genuine replacement (deferred, next batch)"
     ]
   },
   "evidence_requirements": {

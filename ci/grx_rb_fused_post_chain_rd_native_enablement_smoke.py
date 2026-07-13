@@ -1,63 +1,70 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""GRX Route B: fused_post_chain rd_native in-frame REAL-replacement enablement smoke (generated from the tonemap template).
+"""GRX Route B: fused_post_chain rd_native FUSION-FIRST cascade gate (5 legs).
 
-This is the first NON-SCAFFOLD real replacement gate in the GRX Godot line. It
-drives patch 0040's ``rendering/rurix_accel/passes/fused_post_chain/backend == 2``
-(rd_native) path, in which the Rurix tonemap kernel runs as a first-class
-in-frame ``RenderingDevice`` compute pass and the native Godot tonemapper is
-GENUINELY SKIPPED (unlike the patch 0013 shim scaffold, which prints a writeback
-marker and then keeps the native tonemapper as the continuation/backstop so the
-image can never change). Here the candidate frame IS the Rurix kernel's output.
+Unlike the single-pass rd_native gates (tonemap/ssao/taa/particles/cluster),
+this gate is EXPECTED to record ``measured_prerequisite_blocked`` on the culling
+tail, never strict success: patch 0045's fused gate is SELF-CONTAINED on the
+culling tail (the fused shim scaffold 0036-0038 lives on the mutually-exclusive
+fused tail) and the public Luminance API does not expose the distinct
+double-buffered luminance-final targets at the tonemap call site, so the module
+fails closed at its aliasing guard (``lum_source == prev_luminance || dst_color
+== dst_luminance``) or, without auto exposure, at the invalid-lum-RID check.
+What this gate MEASURES on real hardware is therefore:
+
+  1. the fused gate is genuinely REACHED and fails closed with ZERO image
+     impact (auto-exposure legs, byte-identical to the native reference), and
+  2. the two-level fallback contract works: fused rd_native -> single-pass
+     tonemap rd_native (patch 0040, already in this stack) -> native. The
+     cascade leg arms tonemap backend == 2 and must show the patch 0040
+     replacement engaging behind the blocked fused gate.
 
 rd_native is BRIDGE-INDEPENDENT: it does not go through the rxgd session /
 ``rxgd_record_pass`` path and sets no ``RxGdCaps.flags`` bit. It only needs the
 ``RurixAccelD3D12Hooks`` singleton to exist (so ``rurix_godot.dll`` must load for
 ``bridge_preflight()``), then drives the main ``RenderingDevice`` directly.
 
-Legs (all with scene ``tonemap_mode = LINEAR`` to align with the kernel's LINEAR
-+ linear_to_srgb subset — the contract's declared subset boundary):
+Legs (all with scene ``tonemap_mode = LINEAR``):
 
-  * ``reference`` (backend == 0): the native Godot LINEAR tonemapper renders.
-    rd_native is never engaged; the ``RXGD_RD_NATIVE_TONEMAP active`` marker must
-    be ABSENT.
-  * ``candidate`` (backend == 2 + real staged container): the module lazily
-    builds the RD compute pipeline from the Rurix container and dispatches it,
-    SKIPPING the native tonemapper. The active marker must be PRESENT; the
-    captured frame is the rd_native kernel output.
-  * ``fail_closed`` (backend == 2 + a garbage container path): the container
-    load fails, the module latches the failure and returns false, and the native
-    Godot tonemapper renders as the fail-closed fallback. The active marker must
-    be ABSENT and the frame must byte-match the reference frame.
+  * ``reference`` (fused=0, auto exposure ON): pure native chain with a live
+    luminance buffer.
+  * ``candidate`` (fused=2 + real container, AE ON): the luminance buffer
+    exists, so the fused gate is REACHED and must fail closed at the ALIASING
+    guard; the fused active marker must be ABSENT and the frame must byte-match
+    the reference (zero image impact).
+  * ``fail_closed`` (fused=2 + garbage container, AE ON): the aliasing guard
+    fires BEFORE the container load, so the garbage container is never read (no
+    RenderingDevice container-reject errors expected — recorded, not required);
+    the frame must byte-match the reference.
+  * ``reference_noae`` (fused=0, AE OFF): native reference for the cascade
+    scene family (no luminance buffer).
+  * ``cascade`` (fused=2 + real container, tonemap=2 + the PROVEN patch 0040
+    container, AE OFF): the fused gate blocks at the invalid-lum-RID check and
+    the tonemap rd_native gate takes the pass — the ``RXGD_RD_NATIVE_TONEMAP
+    active`` marker must appear in THIS leg ONLY and the frame must match
+    ``reference_noae`` within the LDR parity thresholds (the measured proof of
+    the fused -> tonemap-rd_native cascade).
 
 Multi-frame stability: each leg captures three consecutive frames and asserts
-they are byte-identical (a static scene at ``--fixed-fps`` is deterministic; a
-graph-scheduling race or resource hazard in the injected pass would show up as a
-non-stable capture).
+they are byte-identical.
 
-Outcome semantics (``real_pass_enablement_evidence.json`` next to this gate,
-rewritten every run):
+Outcome semantics (``rd_native_enablement_evidence.json``, rewritten every run):
 
-  * ``status=skip`` / ``skip_kind=environment``: a precondition is unavailable
-    (scratch exe, ``rurix_godot.dll``, auditable source provenance, staged
-    container, ready session). ``RURIX_REQUIRE_REAL=1`` upgrades this to FAIL.
-  * ``status=skip`` / ``skip_kind=measured_prerequisite_blocked``: every leg ran
-    on real hardware but rd_native did not achieve a clean real replacement —
-    either the active marker did not appear in the candidate leg (rd_native
-    could not engage; usage bits / container / pipeline), or it engaged but the
-    LINEAR kernel output diverged from Godot's native LINEAR tonemapper beyond
-    the parity tolerance (an honest picture-difference finding, with the number).
-    Not upgraded to FAIL by RURIX_REQUIRE_REAL; never advances the gate.
-  * ``status=fail``: an integrity violation (marker in the wrong leg, fail_closed
-    frame not matching reference, non-deterministic capture, non-zero exit,
-    unexpected ERROR line, tampered container).
-  * ``status=success`` (strict): the candidate leg engaged rd_native (active
-    marker observed -> native tonemapper skipped by construction) AND its frame
-    matched the native reference within the LDR parity thresholds AND the
-    fail_closed leg fell back byte-identically AND every audit passed. ONLY then
-    is ``real_gpu_pass=true`` recorded and the historical
-    ``real_pass_enablement_success_evidence.json`` written. Even a success keeps
-    ``default_enable_state=disabled`` and ``performance_claim=none``.
+  * ``status=skip`` / ``skip_kind=environment``: a precondition is unavailable.
+    ``RURIX_REQUIRE_REAL=1`` upgrades this to FAIL.
+  * ``status=skip`` / ``skip_kind=measured_prerequisite_blocked`` with
+    ``first_missing_prerequisite=fused_luminance_double_buffer_api_unexposed``
+    and ``cascade_confirmed=true``: the EXPECTED healthy outcome on this tail —
+    every leg ran on real hardware, the fused gate failed closed with zero
+    image impact, and the cascade leg measured the patch 0040 replacement
+    engaging. Never upgraded to FAIL; never advances the fused gate.
+  * ``status=fail``: an integrity violation (the FUSED marker appearing in ANY
+    leg, the TONEMAP marker outside the cascade leg, candidate/fail_closed not
+    byte-matching the reference, non-deterministic capture, non-zero exit,
+    unexpected ERROR line).
+  * ``status=success`` is NOT reachable on the culling tail by design; it
+    requires the deferred Luminance-API extension (distinct lum_source/
+    prev_luminance/dst_luminance double-buffer targets, PASS_CONTRACT 3.4/5).
 """
 from __future__ import annotations
 
@@ -116,7 +123,7 @@ EVIDENCE_OUT = PASS_DIR / "rd_native_enablement_evidence.json"
 SUCCESS_EVIDENCE_OUT = PASS_DIR / "rd_native_enablement_success_evidence.json"
 
 RURIX_GODOT_DLL = ROOT / "target" / "debug" / "rurix_godot.dll"
-WORK = ROOT / "target" / "grx_rb_tonemap_rd_native_enablement_smoke"
+WORK = ROOT / "target" / "grx_rb_fused_post_chain_rd_native_enablement_smoke"
 LOG_DIR = WORK / "logs"
 
 SUBJECT = "grx_rb_fused_post_chain_rd_native_enablement_smoke"
@@ -502,9 +509,17 @@ def write_smoke_project(
     dll_path: Path,
     backend: int,
     container_path: str,
+    auto_exposure: bool,
+    tonemap_backend: int,
+    tonemap_container_path: str,
 ) -> None:
     """Minimal deterministic Godot project for the fused_post_chain rd_native gate.
-    Only the backend selector and rd_container_path differ between legs."""
+    Per leg: the fused backend selector + rd_container_path, the scene's
+    auto-exposure flag (auto exposure allocates the current luminance buffer, so
+    the fused gate reaches its aliasing guard; without it the gate blocks at the
+    invalid-lum-RID check), and the patch 0040 tonemap rd_native backend +
+    container (armed ONLY in the cascade leg to measure the fused -> tonemap
+    rd_native fallback on real hardware)."""
     project_dir.mkdir(parents=True, exist_ok=True)
 
     project_text = f"""\
@@ -530,6 +545,8 @@ rurix_accel/require_forward_plus=true
 rurix_accel/dll_path="{dll_path.as_posix()}"
 rurix_accel/passes/fused_post_chain/backend={backend}
 rurix_accel/passes/fused_post_chain/rd_container_path="{Path(container_path).as_posix() if container_path else ''}"
+rurix_accel/passes/tonemap/backend={tonemap_backend}
+rurix_accel/passes/tonemap/rd_container_path="{Path(tonemap_container_path).as_posix() if tonemap_container_path else ''}"
 """
     scene_text = """\
 [gd_scene load_steps=2 format=3]
@@ -543,6 +560,7 @@ script = ExtResource("1")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 """
+    auto_exposure_gd = "true" if auto_exposure else "false"
     script_text = f"""\
 extends Node3D
 
@@ -553,18 +571,28 @@ func _ready() -> void:
     var cam: Camera3D = $Camera3D
     cam.make_current()
 
-    # Auto-exposure ON so a current luminance buffer exists and the fusion-first
-    # rd_native gate is REACHED. On the culling tail the distinct double-buffered
-    # luminance-final targets are unexposed, so the module's aliasing guard fails
-    # closed and the gate cascades to tonemap rd_native (patch 0040): the fused
-    # active marker is EXPECTED ABSENT (honest measured_prerequisite_blocked).
+    # auto_exposure legs: AE ON allocates the current luminance buffer, so the
+    # fusion-first rd_native gate is REACHED and blocks at its ALIASING guard
+    # (the distinct double-buffered luminance-final targets are unexposed on the
+    # culling tail); the fused active marker is EXPECTED ABSENT (honest
+    # measured_prerequisite_blocked) and the chain cascades onward. A very high
+    # auto_exposure_speed makes the exposure EMA converge to float precision
+    # well before the capture window (constant-luminance flat scene), keeping
+    # the consecutive captures byte-stable. Non-AE legs: no luminance buffer, so
+    # the fused gate blocks at the invalid-lum-RID check and the cascade leg
+    # measures the fused -> tonemap rd_native (patch 0040) fallback (LINEAR
+    # non-AE is exactly the proven tonemap rd_native subset).
     var env := Environment.new()
     env.background_mode = Environment.BG_COLOR
     env.background_color = Color(0.6, 0.45, 0.3)
     env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
-    env.auto_exposure_enabled = true
+    env.tonemap_exposure = 1.0
+    env.tonemap_white = 1.0
+    if {auto_exposure_gd}:
+        env.auto_exposure_enabled = true
+        env.auto_exposure_speed = 32.0
     $WorldEnvironment.environment = env
-    print("GRXRBFused: scene ready backend={backend}")
+    print("GRXRBFused: scene ready backend={backend} auto_exposure={auto_exposure_gd}")
 
 func _process(_delta: float) -> void:
     _frames += 1
@@ -678,14 +706,31 @@ def load_capture_frames(capture_prefix: Path) -> tuple[dict | None, list[bytes] 
     return meta, frames, None
 
 
+# The one-shot patch 0040 tonemap rd_native marker: the cascade leg arms
+# tonemap backend == 2 so the fused gate's fail-closed cascade lands on the
+# proven single-pass tonemap rd_native replacement (its marker must appear in
+# the cascade leg ONLY).
+TONEMAP_ACTIVE_MARKER = "RXGD_RD_NATIVE_TONEMAP active"
+
+# Five legs. The three AE legs measure the fused gate's aliasing-guard
+# fail-closed boundary (auto exposure allocates the current luminance buffer,
+# so the gate is REACHED and blocks at the aliasing guard); the two non-AE legs
+# measure the fused -> tonemap rd_native cascade (no luminance buffer, so the
+# gate blocks at the invalid-lum-RID check and the armed patch 0040 tonemap
+# rd_native takes the pass). The fused active marker must be ABSENT in EVERY
+# leg on this tail (the distinct double-buffered luminance-final targets are
+# unexposed by the public Luminance API — the deferred Luminance-API
+# extension); its appearance anywhere is an integrity FAIL.
 LEG_SETTINGS = {
-    "reference": {"backend": 0, "role": "native_reference"},
-    "candidate": {"backend": 2, "role": "rd_native_replacement"},
-    "fail_closed": {"backend": 2, "role": "rd_native_garbage_container_fallback"},
+    "reference": {"backend": 0, "role": "native_reference_auto_exposure", "auto_exposure": True, "tonemap_backend": 0},
+    "candidate": {"backend": 2, "role": "fused_rd_native_aliasing_guard_blocked", "auto_exposure": True, "tonemap_backend": 0},
+    "fail_closed": {"backend": 2, "role": "fused_rd_native_garbage_container_fallback", "auto_exposure": True, "tonemap_backend": 0},
+    "reference_noae": {"backend": 0, "role": "native_reference_no_auto_exposure", "auto_exposure": False, "tonemap_backend": 0},
+    "cascade": {"backend": 2, "role": "fused_blocked_cascades_to_tonemap_rd_native", "auto_exposure": False, "tonemap_backend": 2},
 }
 
 
-def run_matrix_leg(godot_exe: Path, *, leg: str, dll_path: Path, container_path: str) -> dict:
+def run_matrix_leg(godot_exe: Path, *, leg: str, dll_path: Path, container_path: str, tonemap_container_path: str = "") -> dict:
     settings = LEG_SETTINGS[leg]
     project_dir = WORK / f"project_{leg}"
     capture_prefix = WORK / f"capture_{leg}"
@@ -696,6 +741,9 @@ def run_matrix_leg(godot_exe: Path, *, leg: str, dll_path: Path, container_path:
         dll_path=dll_path,
         backend=settings["backend"],
         container_path=container_path,
+        auto_exposure=settings["auto_exposure"],
+        tonemap_backend=settings["tonemap_backend"],
+        tonemap_container_path=tonemap_container_path,
     )
     exit_code, output = run_godot(godot_exe, project_dir, capture_prefix, f"godot_{leg}.log")
     meta, frames, capture_error = load_capture_frames(capture_prefix)
@@ -705,10 +753,14 @@ def run_matrix_leg(godot_exe: Path, *, leg: str, dll_path: Path, container_path:
         "project_settings": {
             BACKEND_SETTING: settings["backend"],
             CONTAINER_SETTING: container_path,
+            "rendering/rurix_accel/passes/tonemap/backend": settings["tonemap_backend"],
+            "rendering/rurix_accel/passes/tonemap/rd_container_path": tonemap_container_path,
+            "scene_auto_exposure": settings["auto_exposure"],
         },
         "exit_code": exit_code,
         "session_ready": SESSION_READY_MARKER in output,
         "active_marker_observed": ACTIVE_MARKER in output,
+        "tonemap_active_marker_observed": TONEMAP_ACTIVE_MARKER in output,
         "capture_meta": meta,
         "capture_error": capture_error,
         "capture_prefix": capture_prefix,
@@ -729,6 +781,7 @@ def leg_public(leg: dict) -> dict:
         "exit_code": leg["exit_code"],
         "session_ready": leg["session_ready"],
         "active_marker_observed": leg["active_marker_observed"],
+        "tonemap_active_marker_observed": leg["tonemap_active_marker_observed"],
         "container_reject_errors_observed": leg["container_reject_errors_observed"],
         "capture_meta": leg["capture_meta"],
         "capture_error": leg["capture_error"],
@@ -820,7 +873,22 @@ def main() -> int:
             + "; ".join(str(e) for e in provenance.get("source_audit_errors", []))[:1200]
         )
 
-    # 5) run the three legs.
+    # 5) the cascade leg arms the PROVEN patch 0040 tonemap rd_native container
+    # (first-batch staging) so the fused gate's fail-closed cascade can land on
+    # a real single-pass replacement.
+    tonemap_container = ROOT / "target" / "grx" / "rd_containers" / "tonemap.rd_container.bin"
+    if not tonemap_container.is_file():
+        return skip_environment(
+            f"staged tonemap rd_native container missing at {rel(tonemap_container)}; "
+            "the cascade leg needs the proven patch 0040 container to measure the "
+            "fused -> tonemap rd_native fallback"
+        )
+    _EVIDENCE_BASE["tonemap_cascade_container"] = {
+        "path_at_run": str(tonemap_container),
+        "sha256": sha256_file(tonemap_container),
+    }
+
+    # 6) run the five legs.
     WORK.mkdir(parents=True, exist_ok=True)
     garbage_container = str((WORK / "garbage_not_a_container.bin").resolve())
     (WORK / "garbage_not_a_container.bin").write_bytes(b"NOT_A_RURIX_CONTAINER" * 4)
@@ -828,13 +896,23 @@ def main() -> int:
     reference = run_matrix_leg(godot_exe, leg="reference", dll_path=RURIX_GODOT_DLL, container_path="")
     candidate = run_matrix_leg(godot_exe, leg="candidate", dll_path=RURIX_GODOT_DLL, container_path=container_path)
     fail_closed = run_matrix_leg(godot_exe, leg="fail_closed", dll_path=RURIX_GODOT_DLL, container_path=garbage_container)
-    legs = {"reference": reference, "candidate": candidate, "fail_closed": fail_closed}
+    reference_noae = run_matrix_leg(godot_exe, leg="reference_noae", dll_path=RURIX_GODOT_DLL, container_path="")
+    cascade = run_matrix_leg(godot_exe, leg="cascade", dll_path=RURIX_GODOT_DLL, container_path=container_path, tonemap_container_path=str(tonemap_container))
+    legs = {
+        "reference": reference,
+        "candidate": candidate,
+        "fail_closed": fail_closed,
+        "reference_noae": reference_noae,
+        "cascade": cascade,
+    }
     matrix = {name: leg_public(leg) for name, leg in legs.items()}
     runs_extra = {
         "pass_enable_matrix": matrix,
         "stdout_reference": reference["stdout_tail"],
         "stdout_candidate": candidate["stdout_tail"],
         "stdout_fail_closed": fail_closed["stdout_tail"],
+        "stdout_reference_noae": reference_noae["stdout_tail"],
+        "stdout_cascade": cascade["stdout_tail"],
         "runtime_log_audit": {name: leg["runtime_log_audit"] for name, leg in legs.items()},
     }
 
@@ -858,10 +936,15 @@ def main() -> int:
                 f"Godot {name} run exited with non-zero exit code {leg['exit_code']}",
                 extra=runs_extra,
             )
-        # The fail_closed leg is EXPECTED to emit the container-reject ERROR
-        # lines (RD rejecting the garbage container is the fail-closed evidence);
-        # they are tolerated for that leg only. The reference/candidate legs must
-        # be clean save for the tolerated script-cache warning.
+        # NOTE (fused, culling tail): unlike the single-pass rd_native gates, the
+        # fail_closed leg's garbage container is NEVER READ here — the module's
+        # aliasing guard (lum_source == prev_luminance || dst_color ==
+        # dst_luminance) fails closed BEFORE the container load, so the
+        # RenderingDevice container-reject ERROR lines are expected ABSENT in
+        # every leg. They stay tolerated for fail_closed only as a safety net
+        # (if a future Luminance-API extension exposes distinct targets, the
+        # load path becomes reachable again); their presence/absence is recorded
+        # in container_reject_errors_observed rather than being required.
         extra_allowed = EXPECTED_FAIL_CLOSED_ERRORS if name == "fail_closed" else ()
         unexpected = unexpected_error_lines(leg["full_output"], extra_allowed)
         if unexpected or leg["runtime_log_audit"].get("unexpected_rxgd_diag_count") != 0:
@@ -875,18 +958,7 @@ def main() -> int:
         if leg["capture_error"] is not None or leg["frames"] is None:
             return fail(f"{name} frame capture failed: {leg['capture_error']}", extra=runs_extra)
 
-    # Positively require the fail_closed leg to have shown RD rejecting the
-    # garbage container (proves the fail-closed path was actually exercised, not
-    # silently skipped).
-    if not fail_closed["container_reject_errors_observed"]:
-        return fail(
-            "fail_closed leg (backend=2 + garbage container) did not emit the "
-            "expected RenderingDevice container-reject error; the fail-closed "
-            "container-load path was not exercised",
-            extra=runs_extra,
-        )
-
-    # Multi-frame stability: the three captured frames of every leg must be
+    # Multi-frame stability: the captured frames of every leg must be
     # byte-identical (a graph-scheduling race would break this).
     stability: dict[str, bool] = {}
     for name, leg in legs.items():
@@ -902,26 +974,41 @@ def main() -> int:
             )
     runs_extra["frame_stability"] = stability
 
-    # Marker placement: active marker must appear ONLY in the candidate leg.
-    if reference["active_marker_observed"]:
-        return fail(
-            "reference run (backend=0) printed the rd_native active marker; the "
-            "disabled backend must never engage rd_native",
-            extra=runs_extra,
-        )
-    if fail_closed["active_marker_observed"]:
-        return fail(
-            "fail_closed run (backend=2 + garbage container) printed the rd_native "
-            "active marker; a container load failure must latch and fail closed "
-            "without engaging the pipeline",
-            extra=runs_extra,
-        )
+    # Marker placement. The FUSED active marker must be ABSENT in EVERY leg on
+    # this tail: the public Luminance API does not expose the distinct
+    # double-buffered luminance-final targets at the tonemap call site, so the
+    # module's aliasing guard (AE legs) or the invalid-lum-RID check (non-AE
+    # legs) must fail closed BEFORE the pipeline is ever built. Its appearance
+    # anywhere is an integrity FAIL (it would mean a degenerate/aliased fused
+    # binding was actually dispatched).
+    for name, leg in legs.items():
+        if leg["active_marker_observed"]:
+            return fail(
+                f"{name} run printed the FUSED rd_native active marker; on the "
+                "culling tail the fused gate must fail closed (aliasing guard / "
+                "invalid-lum-RID) without engaging the fused pipeline",
+                extra=runs_extra,
+            )
+    # The TONEMAP rd_native marker must appear in the cascade leg ONLY (it is the
+    # measured proof that the fused gate's fail-closed cascade landed on the
+    # patch 0040 single-pass replacement instead of the native tonemapper).
+    for name, leg in legs.items():
+        if name == "cascade":
+            continue
+        if leg["tonemap_active_marker_observed"]:
+            return fail(
+                f"{name} run printed the TONEMAP rd_native active marker but its "
+                "tonemap backend is 0; the cascade must only engage in the "
+                "cascade leg",
+                extra=runs_extra,
+            )
 
-    # Frame coherence + LDR diffs against the native reference.
+    # Frame coherence + LDR diffs. AE legs diff against the AE reference; the
+    # cascade leg diffs against the non-AE reference (its own scene family).
     ref_meta = reference["capture_meta"]
     width = int(ref_meta["width"])
     height = int(ref_meta["height"])
-    for name in ("candidate", "fail_closed"):
+    for name in ("candidate", "fail_closed", "reference_noae", "cascade"):
         meta = legs[name]["capture_meta"]
         if ref_meta.get("width") != meta.get("width") or ref_meta.get("height") != meta.get("height"):
             return fail(
@@ -932,18 +1019,24 @@ def main() -> int:
             )
 
     ref_frame = reference["frames"][0]
+    ref_noae_frame = reference_noae["frames"][0]
     diffs: dict[str, dict] = {}
-    for name in ("candidate", "fail_closed"):
-        max_abs, mean_abs = compute_ldr_abs_diff(ref_frame, legs[name]["frames"][0])
+    for name, base_frame, base_name in (
+        ("candidate", ref_frame, "reference"),
+        ("fail_closed", ref_frame, "reference"),
+        ("cascade", ref_noae_frame, "reference_noae"),
+    ):
+        max_abs, mean_abs = compute_ldr_abs_diff(base_frame, legs[name]["frames"][0])
         within = max_abs <= LDR_MAX_ABS_DIFF_THRESHOLD and mean_abs <= LDR_MEAN_ABS_DIFF_THRESHOLD
         diffs[name] = {
+            "baseline": base_name,
             "max_abs_diff": max_abs,
             "mean_abs_diff": mean_abs,
             "within_threshold": within,
         }
         print(
             f"[grx-rb-fused-post-chain-rd-native-smoke] LDR absolute diff ({name} vs "
-            f"reference) max_abs={max_abs} mean_abs={mean_abs:.6f} "
+            f"{base_name}) max_abs={max_abs} mean_abs={mean_abs:.6f} "
             f"(thresholds max<={LDR_MAX_ABS_DIFF_THRESHOLD} mean<={LDR_MEAN_ABS_DIFF_THRESHOLD})"
         )
     visual = {
@@ -959,77 +1052,100 @@ def main() -> int:
         "reference_frame": file_fingerprint(Path(str(reference["capture_prefix"]) + ".f0.rgb8")),
         "candidate_frame": file_fingerprint(Path(str(candidate["capture_prefix"]) + ".f0.rgb8")),
         "fail_closed_frame": file_fingerprint(Path(str(fail_closed["capture_prefix"]) + ".f0.rgb8")),
+        "reference_noae_frame": file_fingerprint(Path(str(reference_noae["capture_prefix"]) + ".f0.rgb8")),
+        "cascade_frame": file_fingerprint(Path(str(cascade["capture_prefix"]) + ".f0.rgb8")),
         "diffs": diffs,
     }
     runs_extra["visual"] = visual
 
-    # The fail_closed leg fell back to the native tonemapper; it MUST match the
-    # reference byte-for-byte (both rendered by the identical native path).
+    # The candidate and fail_closed legs' fused gates failed closed, so the
+    # whole chain fell through to the SAME native path as the reference: both
+    # MUST byte-match the AE reference (zero image impact from a blocked gate).
+    if not (candidate["frames"][0] == ref_frame):
+        return fail(
+            "candidate leg frame does not byte-match the reference frame; a "
+            "blocked fused gate must have ZERO image impact "
+            f"(max_abs={diffs['candidate']['max_abs_diff']})",
+            extra=runs_extra,
+        )
     if not (fail_closed["frames"][0] == ref_frame):
         return fail(
             "fail_closed leg frame does not byte-match the reference frame; a "
-            "garbage container must fall back to the SAME native tonemap path as "
-            f"the reference (max_abs={diffs['fail_closed']['max_abs_diff']})",
+            "garbage container behind the blocked fused gate must fall back to "
+            f"the SAME native path (max_abs={diffs['fail_closed']['max_abs_diff']})",
             extra=runs_extra,
         )
 
     checks = {
         "container_matches_s2_probe": bool(container_matches_probe),
-        "reference_run_exit_zero": reference["exit_code"] == 0,
-        "candidate_run_exit_zero": candidate["exit_code"] == 0,
-        "fail_closed_run_exit_zero": fail_closed["exit_code"] == 0,
+        "all_runs_exit_zero": all(leg["exit_code"] == 0 for leg in legs.values()),
         "session_ready_all_runs": True,
-        "active_marker_absent_reference": not reference["active_marker_observed"],
-        "active_marker_present_candidate": candidate["active_marker_observed"],
-        "active_marker_absent_fail_closed": not fail_closed["active_marker_observed"],
+        "fused_active_marker_absent_all_legs": not any(leg["active_marker_observed"] for leg in legs.values()),
+        "tonemap_active_marker_present_cascade": cascade["tonemap_active_marker_observed"],
+        "tonemap_active_marker_absent_other_legs": not any(
+            leg["tonemap_active_marker_observed"] for name, leg in legs.items() if name != "cascade"
+        ),
         "frames_stable_all_legs": all(stability.values()),
-        "fail_closed_matches_reference": True,
+        "candidate_matches_reference_byte_identical": True,
+        "fail_closed_matches_reference_byte_identical": True,
+        "cascade_diff_within_threshold": diffs["cascade"]["within_threshold"],
         "runtime_log_audit_clean": True,
-        "candidate_diff_within_threshold": diffs["candidate"]["within_threshold"],
     }
     measured_extra = {**runs_extra, "checks": checks}
 
-    # Strict success requires BOTH: the candidate engaged rd_native (active
-    # marker -> native tonemapper skipped by construction) AND the replacement
-    # image matched the native reference within the LDR parity thresholds.
-    if not candidate["active_marker_observed"]:
+    # The cascade leg is the measured two-level-fallback proof: fused gate
+    # blocked (no lum buffer) -> patch 0040 tonemap rd_native engaged (marker) ->
+    # its output must match the non-AE native reference within the LDR parity
+    # thresholds (the tonemap rd_native replacement was proven byte-exact for
+    # LINEAR non-AE in the first batch).
+    if not cascade["tonemap_active_marker_observed"]:
         return skip_measured_prerequisite(
-            "rd_native_engage_failed",
-            "backend==2 was armed with the S2-proven container but the candidate "
-            "leg did not print the RXGD_RD_NATIVE_TONEMAP active marker: the "
-            "rd_native pipeline did not engage (e.g. usage-bits preflight, "
-            "container load, shader/pipeline creation, or the tonemap "
-            "can_use_storage leg was not taken). The native tonemapper rendered "
-            "and no real replacement occurred",
+            "cascade_tonemap_rd_native_did_not_engage",
+            "the cascade leg armed tonemap backend==2 with the proven container "
+            "but the TONEMAP rd_native active marker did not appear; the fused "
+            "gate's fail-closed cascade landed on the native tonemapper instead "
+            "of the patch 0040 replacement (container load / usage bits / "
+            "pipeline build failed in this environment)",
             measured_extra,
         )
-    if not diffs["candidate"]["within_threshold"]:
+    if not diffs["cascade"]["within_threshold"]:
         return skip_measured_prerequisite(
-            "rd_native_linear_parity_out_of_tolerance",
-            "the candidate leg engaged rd_native and SKIPPED the native "
-            "tonemapper (real replacement confirmed), but the LINEAR kernel "
-            "output diverged from Godot's native LINEAR tonemapper beyond the "
-            f"parity tolerance (candidate max_abs={diffs['candidate']['max_abs_diff']}, "
-            f"mean_abs={diffs['candidate']['mean_abs_diff']:.6f}). This is an "
-            "honest picture-difference finding for the first real replacement; "
-            "the raster-vs-compute write seam / LINEAR-subset alignment is a "
-            "later round",
+            "cascade_tonemap_parity_out_of_tolerance",
+            "the cascade leg engaged tonemap rd_native behind the blocked fused "
+            "gate, but its output diverged from the non-AE native reference "
+            f"beyond the parity tolerance (max_abs={diffs['cascade']['max_abs_diff']}, "
+            f"mean_abs={diffs['cascade']['mean_abs_diff']:.6f})",
             measured_extra,
         )
 
-    success_extra = dict(measured_extra)
-    success_extra["real_gpu_pass"] = True
-    success_extra["real_replacement"] = True
-    success_extra["native_tonemapper_skipped"] = True
-    success_extra["candidate_ldr_max_abs_diff"] = diffs["candidate"]["max_abs_diff"]
-    success_extra["candidate_ldr_mean_abs_diff"] = diffs["candidate"]["mean_abs_diff"]
-    write_evidence("success", extra=success_extra)
-    print(
-        "[grx-rb-fused-post-chain-rd-native-smoke] PASS measured rd_native REAL replacement "
-        f"(candidate active + native skipped, LDR max_abs={diffs['candidate']['max_abs_diff']} "
-        "within parity threshold; default enablement unchanged; no performance claim)"
+    # HONEST OUTCOME (this tail): every leg ran on real hardware, the fused gate
+    # failed closed with ZERO image impact in all five legs, and the two-level
+    # fallback (fused rd_native -> tonemap rd_native -> native) was MEASURED
+    # working: the cascade leg engaged the patch 0040 replacement and matched
+    # the native reference. The fused pass itself remains measured-blocked by
+    # design until the Luminance-API extension exposes distinct double-buffered
+    # luminance-final targets — so this gate NEVER writes strict success on the
+    # culling tail; the blocked prerequisite is recorded instead.
+    blocked_extra = dict(measured_extra)
+    blocked_extra["cascade_confirmed"] = True
+    blocked_extra["cascade_ldr_max_abs_diff"] = diffs["cascade"]["max_abs_diff"]
+    blocked_extra["cascade_ldr_mean_abs_diff"] = diffs["cascade"]["mean_abs_diff"]
+    blocked_extra["fused_gate_zero_image_impact"] = True
+    return skip_measured_prerequisite(
+        "fused_luminance_double_buffer_api_unexposed",
+        "measured_blocked_by_design CONFIRMED on real hardware: the fused gate "
+        "was reached (auto-exposure legs) and failed closed at the aliasing "
+        "guard with ZERO image impact (candidate and fail_closed byte-identical "
+        "to the native reference), and the two-level fallback was measured "
+        "working — the cascade leg's fused gate blocked (no luminance buffer) "
+        "and the patch 0040 tonemap rd_native replacement engaged "
+        f"(marker observed; LDR max_abs={diffs['cascade']['max_abs_diff']} vs the "
+        "non-AE native reference). The fused pass stays blocked until the "
+        "deferred Luminance-API extension exposes distinct lum_source/"
+        "prev_luminance/dst_luminance double-buffer targets (PASS_CONTRACT "
+        "3.4/5); it lifts automatically once distinct targets are supplied",
+        blocked_extra,
     )
-    return 0
 
 
 if __name__ == "__main__":

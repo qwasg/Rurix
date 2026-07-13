@@ -2,13 +2,17 @@
 # -*- coding: utf-8 -*-
 """GRX Route B: particles_copy rd_native in-frame REAL-replacement enablement smoke (generated from the tonemap template).
 
-This is the first NON-SCAFFOLD real replacement gate in the GRX Godot line. It
-drives patch 0040's ``rendering/rurix_accel/passes/particles_copy/backend == 2``
-(rd_native) path, in which the Rurix tonemap kernel runs as a first-class
-in-frame ``RenderingDevice`` compute pass and the native Godot tonemapper is
-GENUINELY SKIPPED (unlike the patch 0013 shim scaffold, which prints a writeback
-marker and then keeps the native tonemapper as the continuation/backstop so the
-image can never change). Here the candidate frame IS the Rurix kernel's output.
+This is the FIRST BUFFER-PATH real replacement gate in the GRX Godot line. It
+drives patch 0043's ``rendering/rurix_accel/passes/particles_copy/backend == 2``
+(rd_native) path, in which the Rurix particles_copy kernel runs as a
+first-class in-frame ``RenderingDevice`` compute dispatch RECORDED ONTO THE
+ALREADY-OPEN particles_set_view_axis compute list, and the native
+COPY_MODE_FILL_INSTANCES dispatch is GENUINELY SKIPPED (unlike the patch 0022
+shim scaffold). The scene uses a NO-USERDATA custom particles shader: the
+standard ParticleProcessMaterial always uses USERDATA1, which makes the
+ParticleData stride 128 bytes and is OUT of the kernel's 112-byte no-userdata
+subset (the patch 0043 gate enforces userdata_count == 0 — the measured root
+cause of the first enablement round's thinned image).
 
 rd_native is BRIDGE-INDEPENDENT: it does not go through the rxgd session /
 ``rxgd_record_pass`` path and sets no ``RxGdCaps.flags`` bit. It only needs the
@@ -116,7 +120,7 @@ EVIDENCE_OUT = PASS_DIR / "rd_native_enablement_evidence.json"
 SUCCESS_EVIDENCE_OUT = PASS_DIR / "rd_native_enablement_success_evidence.json"
 
 RURIX_GODOT_DLL = ROOT / "target" / "debug" / "rurix_godot.dll"
-WORK = ROOT / "target" / "grx_rb_tonemap_rd_native_enablement_smoke"
+WORK = ROOT / "target" / "grx_rb_particles_copy_rd_native_enablement_smoke"
 LOG_DIR = WORK / "logs"
 
 SUBJECT = "grx_rb_particles_copy_rd_native_enablement_smoke"
@@ -147,6 +151,12 @@ LDR_MEAN_ABS_DIFF_THRESHOLD = 1.0
 MIN_FRAME_DIMENSION = 64
 CAPTURE_FRAME_INDEX = 24
 STABILITY_FRAME_COUNT = 3
+# The particle simulation is frozen (speed_scale = 0) at this frame so the
+# STABILITY_FRAME_COUNT consecutive captures are byte-comparable while the cull
+# stage keeps running particles_set_view_axis (and hence the rd_native gate)
+# every frame. Deterministic across legs: fixed seed + randomness 0 + fixed_fps
+# + --fixed-fps 60 give every leg's separate process the identical frozen state.
+FREEZE_FRAME_INDEX = 12
 VIEWPORT_WIDTH = 256
 VIEWPORT_HEIGHT = 144
 
@@ -548,10 +558,11 @@ extends Node3D
 
 var _frames := 0
 var _captured := 0
+var _particles: GPUParticles3D
 
 func _ready() -> void:
     var cam: Camera3D = $Camera3D
-    cam.position = Vector3(0.0, 0.0, 6.0)
+    cam.position = Vector3(0.0, 0.0, 8.0)
     cam.make_current()
 
     var env := Environment.new()
@@ -560,20 +571,39 @@ func _ready() -> void:
     env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
     $WorldEnvironment.environment = env
 
-    # A deterministic Z_BILLBOARD particle system so particles_set_view_axis runs
-    # the COPY_MODE_FILL_INSTANCES copy (transform_align Z_BILLBOARD, draw_order
-    # not VIEW_DEPTH so !do_sort, 3D so copy_mode_2d==0 -> the rd_native subset).
+    # A deterministic Z_BILLBOARD particle system driven by a NO-USERDATA custom
+    # particles shader. The standard ParticleProcessMaterial ALWAYS uses
+    # USERDATA1 (velocity accumulation), which makes userdata_count == 1 and the
+    # ParticleData SSBO stride 128 bytes — OUT of the rd_native kernel subset
+    # (the kernel is compiled for the no-userdata 112-byte stride; the patch
+    # 0043 call-site gate enforces userdata_count == 0, measured root cause of
+    # the first enablement round's thinned image). This custom shader uses no
+    # USERDATA channel -> userdata_count == 0 -> stride 112 -> in subset. It is
+    # also IDEMPOTENT (a static cloud derived from INDEX only), so every frame's
+    # process output is identical and the {STABILITY_FRAME_COUNT} consecutive
+    # captures are byte-comparable; ACTIVE is patterned (3 of 4) so the
+    # kernel's active AND inactive branches are both exercised in-frame.
+    # transform_align Z_BILLBOARD + draw_order INDEX select the in-subset plain
+    # COPY_MODE_FILL_INSTANCES leg (!do_sort, 3D) of particles_set_view_axis.
     var particles := GPUParticles3D.new()
-    particles.amount = 256
+    _particles = particles
+    particles.amount = 4096
     particles.lifetime = 4.0
-    particles.preprocess = 2.0
+    # Single burst (explosiveness 1): every emission slot starts on the first
+    # simulated frame, so ALL 4096 particles have run the process() shader (and
+    # carry its patterned ACTIVE flag) well before the freeze/capture window;
+    # the engine's gradual phase-gated emission would otherwise leave most
+    # particles never-started at the capture frame.
+    particles.explosiveness = 1.0
     particles.fixed_fps = 60
-    particles.transform_align = GPUParticles3D.TRANSFORM_ALIGN_Z_BILLBOARD
+    particles.interpolate = false
     particles.draw_order = GPUParticles3D.DRAW_ORDER_INDEX
-    var mat := ParticleProcessMaterial.new()
-    mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-    mat.emission_box_extents = Vector3(2.0, 2.0, 0.5)
-    mat.gravity = Vector3.ZERO
+    particles.transform_align = GPUParticles3D.TRANSFORM_ALIGN_Z_BILLBOARD
+    particles.local_coords = false
+    var sh := Shader.new()
+    sh.code = "shader_type particles;\\n\\nvoid process() {{\\n\\t// Deterministic static cloud from INDEX only; no USERDATA usage, so\\n\\t// userdata_count == 0 and the ParticleData stride stays 112 bytes (the\\n\\t// rd_native particles_copy kernel subset). Idempotent every frame.\\n\\tfloat fi = float(INDEX);\\n\\tvec3 p = vec3(\\n\\t\\t\\tfract(sin(fi * 12.9898) * 43758.5453) * 6.0 - 3.0,\\n\\t\\t\\tfract(sin(fi * 78.2330) * 12543.1230) * 4.0 - 2.0,\\n\\t\\t\\tfract(sin(fi * 39.4250) * 31415.9260) * 2.0 - 1.0);\\n\\tTRANSFORM = mat4(vec4(1.0, 0.0, 0.0, 0.0), vec4(0.0, 1.0, 0.0, 0.0), vec4(0.0, 0.0, 1.0, 0.0), vec4(p, 1.0));\\n\\tVELOCITY = vec3(0.0);\\n\\tCOLOR = vec4(0.9, 0.65, 0.35, 1.0);\\n\\tCUSTOM = vec4(0.0);\\n\\tACTIVE = (uint(INDEX) % 4u) != 3u;\\n}}\\n"
+    var mat := ShaderMaterial.new()
+    mat.shader = sh
     particles.process_material = mat
     var mesh := QuadMesh.new()
     mesh.size = Vector2(0.15, 0.15)
@@ -583,11 +613,17 @@ func _ready() -> void:
     mesh.material = draw_mat
     particles.draw_pass_1 = mesh
     add_child(particles)
-    particles.emitting = true
+    particles.restart()
     print("GRXRBParticles: scene ready backend={backend}")
 
 func _process(_delta: float) -> void:
     _frames += 1
+    if _frames == {FREEZE_FRAME_INDEX}:
+        # Freeze the simulation (NOT the renderer): particles_set_view_axis and
+        # its fill-instances copy still run per frame on the frozen particle
+        # buffer, so the captured frames are byte-stable while the rd_native
+        # gate stays exercised.
+        _particles.speed_scale = 0.0
     if _frames >= {CAPTURE_FRAME_INDEX} and _captured < {STABILITY_FRAME_COUNT}:
         _capture(_captured)
         _captured += 1

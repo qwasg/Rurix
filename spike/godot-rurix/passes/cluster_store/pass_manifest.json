@@ -197,14 +197,19 @@
     "enablement": {
       "harness": "ci/grx_rb_cluster_store_rd_native_enablement_smoke.py",
       "evidence": "spike/godot-rurix/passes/cluster_store/rd_native_enablement_evidence.json",
-      "status": "pending_scratch_build",
-      "status_note": "The 0044 patch is authored, LF-clean, and stacked-applyable on 0001-0029+0040-0045 (--check-only PASS). This is the GRX-014 scaffold->real-replacement milestone at the patch level; the strict-success-vs-measured-blocked outcome is determined by the enablement smoke on the freshly-built scratch Godot (clustered-lights scene; downstream visible-frame LDR diff). No real_gpu_pass is claimed until that measured run lands.",
-      "real_gpu_pass": false,
+      "success_evidence": "spike/godot-rurix/passes/cluster_store/rd_native_enablement_success_evidence.json",
+      "status": "success",
+      "real_gpu_pass": true,
+      "real_replacement": true,
+      "native_cluster_store_dispatch_skipped": true,
+      "grx014_scaffold_to_real_confirmed": true,
+      "candidate_ldr_max_abs_diff": 0,
+      "candidate_ldr_mean_abs_diff": 0.0,
+      "measured_note": "On the 0001-0029+0040-0045 scratch Godot (Windows D3D12 Forward+, RTX 4070 Ti): the candidate leg (backend=2 + staged container) printed RXGD_RD_NATIVE_CLUSTER_STORE active (rd_native recorded onto the already-open bake_cluster store compute list; native cluster_store dispatch skipped by construction) and its clustered-lit frame is BYTE-IDENTICAL to the native reference (LDR max_abs=0/mean_abs=0; 5-OmniLight plane scene, 19556/36864 lit pixels with distinct colored regions, 3 byte-stable frames per leg). The fail_closed leg (backend=2 + garbage container) measured RenderingDevice rejecting the container and fell back byte-identically. This is the measured confirmation that GRX-014 moved from the patch 0025 scaffold to a genuine in-frame real replacement (the packed cluster table consumed by the lit image came from the Rurix kernel).",
       "performance_claim": "none"
     },
     "remaining_rounds": [
-      "run the enablement smoke on the built scratch exe (clustered OmniLight scene)",
-      "GPU math parity characterization of the packed cluster table vs native"
+      "per-pass FPS baseline (contract requires >= 0.95x baseline before any default-enable discussion)"
     ]
   },
   "evidence_requirements": {

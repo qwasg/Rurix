@@ -458,6 +458,9 @@ preserved. No FPS, p95, GPU-timestamp, or performance improvement is claimed.
 
 **同 list 替代合法性(如实核实)**:`bake_cluster` store 段自身在 `RD::get_singleton()->compute_list_begin()` 内 dispatch(base 源第 517–538 行),rd_native 在同一 list bind Rurix pipeline + uniform set 直接替代 native dispatch——已读代码核实。
 
-**Enablement 状态(诚实)**:`0044` 已生成、LF 干净、`--check-only` 在全栈 PASS。strict-success vs measured-blocked 由 `ci/grx_rb_cluster_store_rd_native_enablement_smoke.py` 在新建 scratch Godot 上判定(clustered OmniLight 场景,下游可见帧 LDR diff);GPU 实跑为剩余步骤,evidence 落定前**不宣称 real_gpu_pass**。
+**Enablement strict MEASURED success(GRX-014 真替代化真机确认)**:`ci/grx_rb_cluster_store_rd_native_enablement_smoke.py` 在 `0001-0029+0040-0045` scratch Godot(Windows D3D12 Forward+,RTX 4070 Ti)记 strict MEASURED success(`rd_native_enablement_success_evidence.json`,`real_gpu_pass=true`/`real_replacement=true`):
+- **candidate 腿**(backend=2 + staged 容器,5 盏彩色 OmniLight + 平面场景,19556/36864 lit 像素、红/蓝主导区并存=cluster 表真实驱动画面)印一次性 `RXGD_RD_NATIVE_CLUSTER_STORE active`(rd_native 在 bake_cluster 已开 list 内替代 native store dispatch——真省一次 dispatch),clustered-lit 帧与 native reference **逐字节一致**(LDR `max_abs=0`/`mean_abs=0`);
+- **fail_closed 红腿**(backend=2 + 垃圾容器)实测 RD 拒容器 → latch → 回落 native,画面逐字节一致;三腿各连捕 3 帧全稳定。
+- **这是 GRX-014 从 patch 0025 scaffold 兑现为真替代的真机确认**:lit 画面消费的打包 cluster 表来自 Rurix kernel。
 
 **Fail-closed / 零性能宣称**:默认 backend=0 时 rd_native 从不 engage;`default_enable_state` 保持 `disabled`;无任何性能宣称;不改 `external/godot-master`。
