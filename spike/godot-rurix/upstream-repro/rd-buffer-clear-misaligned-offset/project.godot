@@ -1,0 +1,15 @@
+; Minimal reproduction: RenderingDevice.buffer_clear() at a byte offset that is
+; not a multiple of 16 removes the Direct3D 12 device (0x887A0005).
+
+config_version=5
+
+[application]
+
+config/name="rd buffer_clear misaligned offset device-removal"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.7", "Forward Plus")
+
+[rendering]
+
+; The bug is specific to the Direct3D 12 backend. Force it on Windows.
+rendering_device/driver.windows="d3d12"

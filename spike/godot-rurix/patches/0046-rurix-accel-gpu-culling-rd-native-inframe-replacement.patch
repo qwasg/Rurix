@@ -1,136 +1,130 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From f71bdeaeac0e8482de869ff0c1a2fec6bae29841 Mon Sep 17 00:00:00 2001
 From: Rurix Godot Bridge <rurix@example.invalid>
-Date: Mon, 13 Jul 2026 18:45:00 +0800
+Date: Mon, 13 Jul 2026 21:30:00 +0800
 Subject: [PATCH] Add default-disabled GRX-015 Route B rd_native gpu_culling
- in-frame compute cull (R1 Rurix-owned scratch indirect buffer)
+ in-frame compute cull (R1b: aligned count-dword copy fixes misaligned-clear
+ root cause)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
 
 Stacked on 0001..0029 + 0040..0045. First rd_native pass that itself issues an
-RD::buffer_copy + RD::buffer_clear. R1 REVISION of the device-removal root cause
-(passes/gpu_culling/rd_native_device_removal_diagnosis.md): the first-shipped
-0046 buffer_clear'd + compute UAV-wrote Godot's LIVE multimesh->command_buffer
-while the SAME frame's native draw_list_draw_indirect consumed it as a
-DrawIndexedInstanced indirect argument. That same-frame dual role is a GPU-side
-execution fault the D3D12 draw-graph does not synchronize (device removal,
-0x887A0005 — an asynchronous GPU-side fault, NOT a CPU-side validation error;
-confirmed silent under BOTH the plain debug layer and GPU-Based Validation). An
-empty kernel with the identical binding surface and a 1-instance scene both still
-removed the device, so the cause is the buffer's dual role, not the kernel / OOB
-/ b0 layout / RAW-vs-structured binding. RD::barrier/full_barrier are deprecated
-no-ops, so the fix must be structural.
+RD::buffer_copy. R1b REVISION of the device-removal root cause
+(passes/gpu_culling/rd_native_device_removal_diagnosis.md sec 7): the convicted
+cause is a MISALIGNED RenderingDevice::buffer_clear, NOT a same-frame
+compute->indirect draw-graph gap. Clearing each surface's instance-count dword at
+byte offset (s*command_stride_dwords + instance_count_dword_index)*4 = 4/24/44...
+(never a multiple of 16) lowers to RenderingDeviceDriverD3D12::command_clear_buffer,
+which builds a RAW buffer UAV (D3D12_BUFFER_UAV_FLAG_RAW, FirstElement = offset/4)
+and calls ClearUnorderedAccessViewUint; D3D12 requires a RAW buffer UAV byte offset
+to be a multiple of 16 (D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT), so the out-of-spec UAV
+removes the device on frame 1 (0x887A0005 — an asynchronous GPU-side fault, silent
+under both the debug layer and GPU-Based Validation). Two side-by-side minimal
+reproducers isolate it (spike/godot-rurix/upstream-repro/): a bare misaligned
+buffer_clear removes the device frame 1, while a pure compute->draw_indirect on a
+DISPATCH_INDIRECT buffer runs 300 frames clean. The earlier "general RDG gap" /
+live-command-buffer "dual role" attribution is retracted: every prior crashing leg
+(shim era, in-graph live buffer, R1 scratch) shared the SAME misaligned count-dword
+clear at offset (s*5+1)*4, which was the confounding variable.
 
-R1 decouples the dual role onto a RURIX-OWNED scratch indirect-args buffer and
-NEVER touches the live command buffer with compute/clear:
+R1b keeps R1's Rurix-owned scratch indirect-args decoupling AND fixes the clear:
 
-- drivers/d3d12/d3d12_hooks.h: new default-false virtual
-  try_record_gpu_culling_rd_native(RID transforms, RID commands, RID
-  scratch_commands, RID visibility, const uint8_t *frustum_planes, uint32_t
-  planes_bytes, const uint8_t *b0, uint32_t b0_bytes, uint32_t instance_count,
-  uint32_t surface_count, uint32_t command_stride_dwords, uint32_t
-  instance_count_dword_index, uint32_t visibility_bytes, uint32_t command_bytes).
-  Takes Godot RID handles. `commands` is the LIVE buffer (buffer_copy READ source
-  only); `scratch_commands` is the caller-owned scratch the cull writes.
-- modules/rurix_accel/register_types.cpp: two new default-safe settings
-  (.../passes/gpu_culling/backend int default 0 and .../rd_container_path),
-  INDEPENDENT of the four shim gpu_culling settings (0027-0029), untouched.
-- modules/rurix_accel/rurix_accel.{h,cpp}: try_record_gpu_culling_rd_native
-  override + a self-owned 96-byte frustum-planes SSBO (t1). Lazily builds the
-  pipeline from the Rurix container, buffer_update's the planes, then (R1)
-  buffer_copy's the p_command_bytes live command template into the SCRATCH buffer,
-  buffer_clear's ONLY the SCRATCH buffer's per-surface count dword + the bitmask
-  BEFORE opening its own compute list, binds t0=transforms / t1=planes /
-  u0=SCRATCH_commands / u1=visibility, and dispatches ceil(instance_count/64). The
-  live command buffer is never cleared / never UAV-bound.
-- servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.{h,cpp}:
-  a new backend == 2 call-site (sibling of the untouched shim path). Collects the
-  frame's indirect MultiMeshes, builds the normal-negated 96-byte t1 planes
-  payload (n_rurix = -normal, d_rurix = plane.d — the Godot Plane sign red line)
-  and the 48-byte b0, lazily allocates the Rurix visibility bitmask AND (R1) a
-  Rurix-owned scratch indirect-args buffer per base (storage_buffer_create with
-  DISPATCH_INDIRECT usage, sized like the live command buffer), and offers each to
-  the module. On a successful record the base->scratch entry is put in a per-frame
-  map (rurix_cull_rdn_active_scratch, rebuilt every _render_scene), and the
-  indirect draw site (_render_list_template) RETARGETS draw_list_draw_indirect to
-  read the scratch buffer for that base (falling back to the native command buffer
-  for any base not recorded this frame — the is_empty() short-circuit keeps the
-  default path a single branch).
+- modules/rurix_accel/rurix_accel.{h,cpp}: the module still lazily builds the
+  pipeline from the Rurix container, buffer_update's the t1 planes, buffer_copy's
+  the p_command_bytes live command template into the SCRATCH buffer, binds
+  t0=transforms / t1=planes / u0=SCRATCH_commands / u1=visibility, and dispatches
+  ceil(instance_count/64). The ONLY change from R1: each surface's SCRATCH
+  instance-count dword is now zeroed by an ALIGNED RD::buffer_copy FROM a persistent
+  16-byte all-zero SSBO (rd_native_gpu_culling_zero_buffer, created once with
+  zero-filled data and NEVER written), not a misaligned RD::buffer_clear.
+  buffer_copy lowers to CopyBufferRegion (no RAW-UAV alignment constraint), the
+  RD-layer buffer_copy only bounds-checks (a 4-byte offset/size is legal), and it
+  is equally draw-graph tracked (add_buffer_copy); the STEP-2 zero copy is a
+  write-after-write on the scratch tracker ordered after the STEP-1 template copy,
+  so the zero wins over the copied CPU count. The visibility bitmask clear stays a
+  buffer_clear at the 16-aligned offset 0 (which never triggered the bug). The live
+  MultiMesh command buffer is still only ever a buffer_copy READ source.
+- drivers/d3d12/d3d12_hooks.h, modules/rurix_accel/register_types.cpp,
+  servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.{h,cpp}:
+  unchanged control flow; only the diagnostic comments are corrected to the
+  misaligned-clear root cause (the "general RDG gap" wording is removed).
 
 The container line (co-located under passes/gpu_culling/artifacts) is UNCHANGED:
-the HLSL kernel gpu_culling_rd_native.hlsl (frustum planes in a t1
-StructuredBuffer<float4>, 48-byte b0), the Rurix-owned RTS0, the descriptor
-layout, the generate_rd_container.py PASS_REGISTRY entry, and
-out/gpu_culling_rd_native.rd_container.bin (DXC + DXV green, verify_container
-59/59). R1 changes ONLY which RID is bound as u0 and which RID the draw reads —
-NO container / b0 / kernel / RTS0 recompile.
-
-CAVEAT (also in the pass manifest): R1 is a CANDIDATE, not a proven fix. If the
-device-removal is a general RDG limitation for "a draw-indirect buffer written by
-compute and consumed in the same frame" (rather than something specific to
-Godot's out-of-graph command-buffer state management), a fully-Rurix-owned buffer
-will hit the SAME wall. R1 therefore ships only after
-ci/grx_rb_gpu_culling_rd_native_enablement_smoke.py shows NO device removal on
-real hardware; until then real_gpu_pass stays false and the pass stays
-default-disabled.
+the HLSL kernel, the Rurix-owned RTS0, the descriptor layout, the
+generate_rd_container.py PASS_REGISTRY entry, and
+out/gpu_culling_rd_native.rd_container.bin. R1b changes NO container / b0 / kernel /
+RTS0; it only swaps one buffer_clear loop for a buffer_copy loop plus a persistent
+zero SSBO.
 
 Fail-closed everywhere: default backend == 0 (and empty container path, or any
-allocation/copy/bind/pipeline failure incl. a missing scratch buffer) never
-engages the cull; a failed record is a no-op (the native CPU-written command
-buffer keeps driving the draw). Additive pass — no native Godot compute pass is
-replaced. Because the cull is conservative (never culls a visible instance), the
-on-screen image is identical to native; only the GPU draw-side instance count is
-reduced. RXGD_ABI_VERSION unchanged (no C ABI struct change, no RxGdCaps.flags
-bit; bridge-independent). No performance claim is made.
+allocation/copy/bind/pipeline failure incl. a missing scratch or zero-source
+buffer) never engages the cull; a failed record is a no-op (the native CPU-written
+command buffer keeps driving the draw). Additive pass — no native Godot compute
+pass is replaced. Because the cull is conservative (never culls a visible
+instance), the on-screen image is identical to native; only the GPU draw-side
+instance count is reduced. R1b ships only after
+ci/grx_rb_gpu_culling_rd_native_enablement_smoke.py shows NO device removal on real
+hardware; until then real_gpu_pass stays false and the pass stays default-disabled.
+RXGD_ABI_VERSION unchanged (no C ABI struct change, no RxGdCaps.flags bit;
+bridge-independent). No performance claim is made.
+
+Assisted-by: kiro:claude-opus-4-8
 ---
- drivers/d3d12/d3d12_hooks.h                   |  28 +++
- modules/rurix_accel/register_types.cpp        |  20 ++
- modules/rurix_accel/rurix_accel.cpp           | 166 ++++++++++++++++
- modules/rurix_accel/rurix_accel.h             |  40 ++++
- .../render_forward_clustered.cpp              | 178 +++++++++++++++++-
- .../render_forward_clustered.h                |  16 ++
- 6 files changed, 447 insertions(+), 1 deletion(-)
+ drivers/d3d12/d3d12_hooks.h                   |  32 +++
+ modules/rurix_accel/register_types.cpp        |  21 ++
+ modules/rurix_accel/rurix_accel.cpp           | 209 ++++++++++++++++++
+ modules/rurix_accel/rurix_accel.h             |  48 ++++
+ .../render_forward_clustered.cpp              | 186 +++++++++++++++-
+ .../render_forward_clustered.h                |  19 ++
+ 6 files changed, 514 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
-index dd40ad0..c794049 100644
+index dd40ad0..b1ab69a 100644
 --- a/drivers/d3d12/d3d12_hooks.h
 +++ b/drivers/d3d12/d3d12_hooks.h
-@@ -252,5 +252,33 @@ public:
+@@ -252,5 +252,37 @@ public:
  	// false so any hooks that do not override this (or the absence of a hooks
  	// singleton) keep the native Godot luminance_reduction + tonemap chain.
  	virtual bool try_record_fused_post_chain_rd_native(RID p_src_color, RID p_lum_source, RID p_prev_luminance, RID p_dst_color, RID p_dst_luminance, Size2i p_source_size, Size2i p_dest_size, float p_exposure, float p_white, float p_luminance_multiplier, float p_min_luminance, float p_max_luminance, float p_exposure_adjust, float p_first_frame, float p_auto_exposure_scale) { return false; }
-+	// GRX-015 Route B rd_native gpu_culling (patch 0046, R1 revision): opt-in
++	// GRX-015 Route B rd_native gpu_culling (patch 0046, R1b revision): opt-in
 +	// in-frame RD-native compute cull hook that drives a RURIX-OWNED scratch
 +	// indirect-args buffer, NOT Godot's live MultiMesh command buffer. The first
 +	// shipped 0046 wrote the reduced InstanceCount straight into the live
-+	// multimesh->command_buffer via a same-frame compute UAV + buffer_clear; that
-+	// buffer is simultaneously the DrawIndexedInstanced indirect-argument source for
-+	// the native draw in the SAME frame, and the dual role is a GPU-side execution
-+	// hazard the D3D12 draw-graph does not synchronize (device removal, 0x887A0005;
-+	// not a CPU-side validation error — confirmed silent under both the debug layer
-+	// and GPU-Based Validation). This R1 hook NEVER touches the live command buffer
-+	// with compute/clear: p_commands (the live buffer) is ONLY a buffer_copy READ
-+	// source; the module copies the p_command_bytes command template into the
-+	// caller-owned p_scratch_commands buffer (a storage_buffer_create with
-+	// DISPATCH_INDIRECT usage), buffer_clear's ONLY the SCRATCH buffer's count dwords
-+	// + the visibility bitmask, binds t0=transforms / t1=frustum_planes /
-+	// u0=SCRATCH_commands / u1=visibility, and dispatches ceil(instance_count/64).
-+	// The caller then retargets the native indirect draw to read the scratch buffer.
-+	// Returning true means the module recorded the in-frame cull into the scratch
-+	// buffer (the caller reads scratch for this base); false is a fail-closed no-op
-+	// (the native CPU-written command buffer keeps driving the draw). CAVEAT: R1 is a
-+	// CANDIDATE — if the fault is a general RDG gap for "a draw-indirect buffer
-+	// written by compute and consumed the same frame" rather than something specific
-+	// to the live command buffer's out-of-graph state, a fully-Rurix-owned buffer
-+	// hits the same wall; R1 ships only after the enablement smoke shows NO device
-+	// removal on real hardware. The base implementation returns false so hooks that
-+	// do not override this (or the absence of a hooks singleton) keep the native
-+	// CPU-driven command buffer.
++	// multimesh->command_buffer via a same-frame compute UAV + buffer_clear and was
++	// convicted of device removal (0x887A0005; silent under both the debug layer and
++	// GPU-Based Validation). The corrected root cause (2026-07-13; see
++	// passes/gpu_culling/rd_native_device_removal_diagnosis.md sec 7) is a MISALIGNED
++	// buffer_clear: clearing each surface's count dword at byte offset
++	// (s*stride+index)*4 = 4/24/44... (never a multiple of 16) lowers to a RAW buffer
++	// UAV (D3D12_BUFFER_UAV_FLAG_RAW) + ClearUnorderedAccessViewUint whose byte offset
++	// D3D12 requires to be 16-aligned; the out-of-spec UAV removes the device. It is
++	// NOT a general RDG gap for "a draw-indirect buffer written by compute and consumed
++	// the same frame" — a pure compute->draw_indirect reproducer runs 300 frames clean
++	// while a bare misaligned buffer_clear removes the device frame 1 (both under
++	// upstream-repro/). This R1b hook NEVER touches the live command buffer with
++	// compute/clear: p_commands (the live buffer) is ONLY a buffer_copy READ source;
++	// the module copies the p_command_bytes command template into the caller-owned
++	// p_scratch_commands buffer (a storage_buffer_create with DISPATCH_INDIRECT usage),
++	// zeroes ONLY the SCRATCH buffer's count dwords via an ALIGNED buffer_copy from a
++	// persistent zero buffer (the R1b fix — no misaligned clear), buffer_clear's the
++	// visibility bitmask at the 16-aligned offset 0, binds t0=transforms /
++	// t1=frustum_planes / u0=SCRATCH_commands / u1=visibility, and dispatches
++	// ceil(instance_count/64). The caller then retargets the native indirect draw to
++	// read the scratch buffer. Returning true means the module recorded the in-frame
++	// cull into the scratch buffer (the caller reads scratch for this base); false is a
++	// fail-closed no-op (the native CPU-written command buffer keeps driving the draw).
++	// R1b ships only after the enablement smoke shows NO device removal on real
++	// hardware. The base implementation returns false so hooks that do not override
++	// this (or the absence of a hooks singleton) keep the native CPU-driven command
++	// buffer.
 +	virtual bool try_record_gpu_culling_rd_native(RID p_transforms, RID p_commands, RID p_scratch_commands, RID p_visibility, const uint8_t *p_frustum_planes, uint32_t p_frustum_planes_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes, uint32_t p_instance_count, uint32_t p_surface_count, uint32_t p_command_stride_dwords, uint32_t p_instance_count_dword_index, uint32_t p_visibility_bytes, uint32_t p_command_bytes) { return false; }
  	static D3D12Hooks *get_singleton() { return singleton; }
  };
 diff --git a/modules/rurix_accel/register_types.cpp b/modules/rurix_accel/register_types.cpp
-index 23a0f0a..9096fee 100644
+index 23a0f0a..76f1bb2 100644
 --- a/modules/rurix_accel/register_types.cpp
 +++ b/modules/rurix_accel/register_types.cpp
-@@ -394,6 +394,26 @@ void initialize_rurix_accel_module(ModuleInitializationLevel p_level) {
+@@ -394,6 +394,27 @@ void initialize_rurix_accel_module(ModuleInitializationLevel p_level) {
  	// hardcoded to a res:// resource so the smoke/bench harnesses can point at an
  	// absolute staging path.
  	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/fused_post_chain/rd_container_path", "");
@@ -142,7 +136,8 @@ index 23a0f0a..9096fee 100644
 +	// runs here), 1 = shim (nominal; the shim path stays governed by its own
 +	// settings), 2 = rd_native (engage the in-frame RD-native compute cull via
 +	// try_record_gpu_culling_rd_native, which drives the main RenderingDevice's
-+	// buffer_clear -> dispatch -> indirect-draw chain). Defaults to 0 so the
++	// buffer_copy -> dispatch -> indirect-draw chain, R1b: the scratch count dwords
++	// are zeroed by an aligned copy, not a misaligned clear). Defaults to 0 so the
 +	// shipping build/config never engages the RD-native cull.
 +	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/gpu_culling/backend", 0);
 +	// GRX-015 Route B rd_native gpu_culling: absolute filesystem path to the Rurix
@@ -158,34 +153,38 @@ index 23a0f0a..9096fee 100644
  #if defined(D3D12_ENABLED)
  	if (GLOBAL_GET("rendering/rurix_accel/enabled")) {
 diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
-index f5ef657..2309c04 100644
+index f5ef657..f0d676c 100644
 --- a/modules/rurix_accel/rurix_accel.cpp
 +++ b/modules/rurix_accel/rurix_accel.cpp
-@@ -1801,4 +1801,170 @@ bool RurixAccelD3D12Hooks::try_record_fused_post_chain_rd_native(RID p_src_color
+@@ -1801,4 +1801,213 @@ bool RurixAccelD3D12Hooks::try_record_fused_post_chain_rd_native(RID p_src_color
  	return true;
  }
  
 +bool RurixAccelD3D12Hooks::try_record_gpu_culling_rd_native(RID p_transforms, RID p_commands, RID p_scratch_commands, RID p_visibility, const uint8_t *p_frustum_planes, uint32_t p_frustum_planes_bytes, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes, uint32_t p_instance_count, uint32_t p_surface_count, uint32_t p_command_stride_dwords, uint32_t p_instance_count_dword_index, uint32_t p_visibility_bytes, uint32_t p_command_bytes) {
-+	// GRX-015 Route B rd_native gpu_culling (patch 0046, R1 revision): an in-frame
++	// GRX-015 Route B rd_native gpu_culling (patch 0046, R1b revision): an in-frame
 +	// RD-native compute cull that drives a CALLER-OWNED scratch indirect-args buffer
 +	// (p_scratch_commands), NOT Godot's live MultiMesh command buffer (p_commands).
 +	// This does NOT go through the Rurix rxgd bridge/shim; it drives the main
-+	// RenderingDevice directly. The convicted device-removal root cause (see
-+	// passes/gpu_culling/rd_native_device_removal_diagnosis.md) was the LIVE command
-+	// buffer's same-frame DUAL ROLE: the first-shipped 0046 buffer_clear'd + compute
-+	// UAV-wrote it while the same frame's native draw_list_draw_indirect consumed it
-+	// as a DrawIndexedInstanced indirect argument (a GPU-side execution fault the
-+	// D3D12 draw-graph does not synchronize — 0x887A0005, silent under both the debug
-+	// layer and GPU-Based Validation). R1 breaks that dual role: p_commands is ONLY a
-+	// buffer_copy READ source (the command template), and the compute/clear touch the
-+	// caller-owned p_scratch_commands buffer, which the caller then retargets the
-+	// native indirect draw to read. Every early return keeps the native CPU-driven
-+	// command buffer untouched (fail-closed no-op — an additive miss, never a fallback
-+	// dispatch). The caller only reaches here when the gpu_culling backend selector is
-+	// 2 (rd_native). CAVEAT: R1 is a CANDIDATE; if the fault is a general RDG gap for
-+	// any compute-written draw-indirect buffer consumed the same frame, a fully-Rurix-
-+	// owned buffer hits the same wall, so R1's headline evidence is still "no device
-+	// removal" on the enablement smoke, and the pass stays default-disabled until then.
++	// RenderingDevice directly. The convicted device-removal root cause (corrected
++	// 2026-07-13; see passes/gpu_culling/rd_native_device_removal_diagnosis.md sec 7)
++	// was a MISALIGNED RenderingDevice::buffer_clear: clearing each surface's
++	// instance-count dword at byte offset (s*stride + index)*4 = 4/24/44... (never a
++	// multiple of 16) lowers to a RAW buffer UAV (D3D12_BUFFER_UAV_FLAG_RAW) +
++	// ClearUnorderedAccessViewUint whose byte offset D3D12 requires to be 16-aligned;
++	// the out-of-spec UAV removed the device on frame 1 (0x887A0005, silent under both
++	// the debug layer and GPU-Based Validation). It was NOT a general RDG gap for a
++	// same-frame compute-written draw-indirect buffer: a pure compute->draw_indirect
++	// reproducer runs 300 frames clean, while a bare misaligned buffer_clear removes
++	// the device frame 1 (both under upstream-repro/). R1b keeps R1's scratch
++	// decoupling (p_commands is ONLY a buffer_copy READ source; the compute writes the
++	// caller-owned p_scratch_commands, which the caller retargets the native indirect
++	// draw to read) and additionally replaces the misaligned count-dword clear with an
++	// aligned buffer_copy from a persistent zero buffer (STEP 2), removing the actual
++	// root cause. Every early return keeps the native CPU-driven command buffer
++	// untouched (fail-closed no-op — an additive miss, never a fallback dispatch). The
++	// caller only reaches here when the gpu_culling backend selector is 2 (rd_native).
++	// The enablement smoke's no-device-removal + picture-preserving judgement is the
++	// confirmation, and the pass stays default-disabled until then.
 +	RenderingDevice *rd = RenderingDevice::get_singleton();
 +	if (rd == nullptr) {
 +		return false;
@@ -256,7 +255,7 @@ index f5ef657..2309c04 100644
 +		rd_native_gpu_culling_pipeline = pipeline;
 +		if (!rd_native_gpu_culling_active_logged) {
 +			// One-shot marker (NOT per-frame): the RD-native cull is engaged.
-+			print_verbose("RXGD_RD_NATIVE_GPU_CULLING active: backend=rd_native, in-frame compute cull engaged (R1: buffer_copy live->scratch -> buffer_clear scratch count -> dispatch into scratch -> native indirect-draw retargeted to the Rurix scratch buffer; the live MultiMesh command buffer is never compute/clear-touched).");
++			print_verbose("RXGD_RD_NATIVE_GPU_CULLING active: backend=rd_native, in-frame compute cull engaged (R1b: buffer_copy live->scratch -> aligned buffer_copy zero->scratch count dwords -> dispatch into scratch -> native indirect-draw retargeted to the Rurix scratch buffer; the live MultiMesh command buffer is never compute/clear-touched, and the scratch count zero is an aligned copy not a misaligned clear).");
 +			rd_native_gpu_culling_active_logged = true;
 +		}
 +	}
@@ -272,8 +271,25 @@ index f5ef657..2309c04 100644
 +			return false;
 +		}
 +	}
++	// R1b — lazily create the persistent all-zero SSBO used ONLY as the buffer_copy
++	// SOURCE for the per-surface count-dword zeroing in STEP 2. It is created with
++	// zero-filled initial data (resize_initialized zero-fills, and storage_buffer_create
++	// does NOT otherwise zero an empty buffer) and is NEVER written again, so its
++	// 4-byte source region is always 0x00000000. 16 bytes is the RAW-view alignment
++	// quantum and comfortably covers a 4-byte copy. See STEP 2 for why an aligned
++	// buffer_copy replaces the misaligned buffer_clear that was the device-removal
++	// root cause.
++	if (!rd_native_gpu_culling_zero_buffer.is_valid()) {
++		Vector<uint8_t> zero_init;
++		zero_init.resize_initialized(GPU_CULLING_RD_NATIVE_ZERO_BUFFER_BYTES);
++		rd_native_gpu_culling_zero_buffer = rd->storage_buffer_create(GPU_CULLING_RD_NATIVE_ZERO_BUFFER_BYTES, zero_init);
++		if (!rd_native_gpu_culling_zero_buffer.is_valid()) {
++			// Zero-source buffer allocation failed: keep the native path (fail-closed).
++			return false;
++		}
++	}
 +	rd->buffer_update(rd_native_gpu_culling_frustum_planes_buffer, 0, GPU_CULLING_RD_NATIVE_FRUSTUM_PLANES_BYTES, p_frustum_planes);
-+	// R1 STEP 1 — copy the live command template into the caller-owned scratch
++	// R1b STEP 1 — copy the live command template into the caller-owned scratch
 +	// buffer (a READ of p_commands, NOT a compute/clear). This is a graph-tracked
 +	// buffer_copy of the full p_command_bytes (all surfaces' 5-dword blocks: the
 +	// IndexCountPerInstance / StartIndex / BaseVertex / StartInstance dwords the
@@ -283,19 +299,41 @@ index f5ef657..2309c04 100644
 +	// The live MultiMesh command buffer is only ever read here; it is never cleared
 +	// and never UAV-bound — that dual role was the convicted device-removal hazard.
 +	rd->buffer_copy(p_commands, p_scratch_commands, 0, 0, p_command_bytes);
-+	// R1 STEP 2 — pre-dispatch zeroing on the SCRATCH buffer only, BEFORE
-+	// compute_list_begin (buffer_clear is hard-forbidden while a compute list is
++	// R1b STEP 2 — pre-dispatch zeroing on the SCRATCH buffer only, BEFORE
++	// compute_list_begin (transfer ops are forbidden while a compute list is
 +	// active). Zero ONLY each surface's instance-count dword in the SCRATCH buffer
 +	// (byte offset (s*command_stride_dwords + instance_count_dword_index)*4; mirrors
-+	// the CPU write at mesh_storage.cpp:2210) and the whole visibility bitmask, so
-+	// the kernel's InterlockedAdd/InterlockedOr accumulate from 0; every other
-+	// command dword in the scratch (dword 0 = vertices-drawn count, and the
-+	// StartIndex/BaseVertex/StartInstance dwords) survives from the STEP-1 copy. The
-+	// draw graph tracks these clears against the compute dispatch and the retargeted
-+	// indirect draw — all on the fully-Rurix-owned scratch buffer.
++	// the CPU write at mesh_storage.cpp:2210) so the kernel's InterlockedAdd
++	// accumulates from 0; every other command dword in the scratch (dword 0 =
++	// vertices-drawn count, and the StartIndex/BaseVertex/StartInstance dwords)
++	// survives from the STEP-1 copy.
++	//
++	// R1b ROOT-CAUSE FIX (convicted 2026-07-13; see
++	// passes/gpu_culling/rd_native_device_removal_diagnosis.md sec 7): this dword
++	// zero is a graph-tracked buffer_copy FROM the persistent all-zero buffer, NOT a
++	// buffer_clear. buffer_clear lowers to RenderingDeviceDriverD3D12::
++	// command_clear_buffer, which builds a RAW buffer UAV (D3D12_BUFFER_UAV_FLAG_RAW,
++	// FirstElement = p_offset/4) and calls ClearUnorderedAccessViewUint; a RAW buffer
++	// UAV byte offset MUST be a multiple of 16 (D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT). The
++	// count-dword offsets (s*command_stride_dwords + instance_count_dword_index)*4 =
++	// 4/24/44... are NOT 16-aligned, so each misaligned clear produced an out-of-spec
++	// UAV and removed the device on frame 1 (0x887A0005). That misaligned clear — NOT
++	// a general RDG same-frame compute->indirect hazard — was the real root cause
++	// (two side-by-side minimal reproducers under upstream-repro/ isolate it: a bare
++	// misaligned buffer_clear removes the device frame 1, while a pure
++	// compute->draw_indirect runs 300 frames clean). buffer_copy lowers to
++	// command_copy_buffer -> CopyBufferRegion, which has NO RAW-UAV alignment
++	// constraint; the RD-layer buffer_copy only bounds-checks (rendering_device.cpp
++	// buffer_copy) so a 4-byte offset/size is legal, and it is equally draw-graph
++	// tracked (add_buffer_copy). This STEP-2 copy is a write-after-write on the
++	// scratch tracker ordered after the STEP-1 template copy, so the zero wins over
++	// the copied CPU count (the same ordering the STEP-1/clear pair relied on).
 +	for (uint32_t s = 0; s < p_surface_count; s++) {
-+		rd->buffer_clear(p_scratch_commands, (s * p_command_stride_dwords + p_instance_count_dword_index) * (uint32_t)sizeof(uint32_t), (uint32_t)sizeof(uint32_t));
++		rd->buffer_copy(rd_native_gpu_culling_zero_buffer, p_scratch_commands, 0, (s * p_command_stride_dwords + p_instance_count_dword_index) * (uint32_t)sizeof(uint32_t), (uint32_t)sizeof(uint32_t));
 +	}
++	// The visibility bitmask clear stays a buffer_clear: its offset 0 IS 16-aligned,
++	// so it never triggered the driver's misaligned-RAW-UAV bug (and clearing the
++	// whole bitmask from 0 is the natural, aligned form).
 +	rd->buffer_clear(p_visibility, 0, p_visibility_bytes);
 +	// Bind the four structured buffers in the container's binding order: t0 =
 +	// src_transforms, t1 = frustum_planes (SRV), u0 = dst_commands = the SCRATCH
@@ -333,53 +371,61 @@ index f5ef657..2309c04 100644
 +
  #endif // D3D12_ENABLED
 diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
-index 462c201..201a545 100644
+index 462c201..6e00f62 100644
 --- a/modules/rurix_accel/rurix_accel.h
 +++ b/modules/rurix_accel/rurix_accel.h
-@@ -256,6 +256,23 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
+@@ -256,6 +256,29 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
  	// FUSED_POST_CHAIN_RESOURCE_MAPPING_* constants so the two tails never collide.
  	static constexpr uint32_t RD_NATIVE_FUSED_POST_CHAIN_ROOT_CONSTANT_BYTES = 64;
  	static constexpr uint32_t RD_NATIVE_FUSED_POST_CHAIN_RESOURCE_COUNT = 5;
-+	// GRX-015 Route B rd_native gpu_culling (patch 0046): lazily-built RD compute
-+	// pipeline for the in-frame cull, plus a self-owned frustum-planes SSBO (the t1
-+	// StructuredBuffer<float4>, buffer_update'd per frame). Same lifetime discipline
-+	// as the members above; rd_native_gpu_culling_load_failed latches a load/compile
-+	// failure so it is not retried every frame, and rd_native_gpu_culling_active_logged
-+	// gates the one-shot RXGD_RD_NATIVE_GPU_CULLING active marker (not per-frame).
-+	// The 48-byte b0 / 4-resource contract (src_transforms SRV t0, frustum_planes SRV
-+	// t1, dst_commands UAV u0, dst_visibility UAV u1) matches
-+	// gpu_culling_rd_native_descriptor_layout.json.
++	// GRX-015 Route B rd_native gpu_culling (patch 0046, R1b): lazily-built RD compute
++	// pipeline for the in-frame cull, a self-owned frustum-planes SSBO (the t1
++	// StructuredBuffer<float4>, buffer_update'd per frame), and a persistent all-zero
++	// SSBO used ONLY as the buffer_copy source that zeroes each surface's scratch
++	// count dword (R1b: an aligned CopyBufferRegion replaces the misaligned RAW-UAV
++	// buffer_clear that was the convicted device-removal root cause; created once with
++	// zero data, never written again). Same lifetime discipline as the members above;
++	// rd_native_gpu_culling_load_failed latches a load/compile failure so it is not
++	// retried every frame, and rd_native_gpu_culling_active_logged gates the one-shot
++	// RXGD_RD_NATIVE_GPU_CULLING active marker (not per-frame). The 48-byte b0 /
++	// 4-resource contract (src_transforms SRV t0, frustum_planes SRV t1, dst_commands
++	// UAV u0, dst_visibility UAV u1) matches gpu_culling_rd_native_descriptor_layout.json.
 +	RID rd_native_gpu_culling_shader;
 +	RID rd_native_gpu_culling_pipeline;
 +	RID rd_native_gpu_culling_frustum_planes_buffer;
++	RID rd_native_gpu_culling_zero_buffer;
 +	bool rd_native_gpu_culling_load_failed = false;
 +	bool rd_native_gpu_culling_active_logged = false;
 +	static constexpr uint32_t GPU_CULLING_RD_NATIVE_ROOT_CONSTANT_BYTES = 48;
 +	static constexpr uint32_t GPU_CULLING_RD_NATIVE_FRUSTUM_PLANES_BYTES = 96;
++	// R1b: 16-byte persistent all-zero source buffer for the aligned count-dword copy.
++	static constexpr uint32_t GPU_CULLING_RD_NATIVE_ZERO_BUFFER_BYTES = 16;
 +	static constexpr uint32_t GPU_CULLING_RD_NATIVE_RESOURCE_COUNT = 4;
  	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 28;
  	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_RESOURCE_COUNT = 2;
  	// GRX-010 tonemap resource mapping (resource_mapping.md): b0 carries
-@@ -495,6 +512,29 @@ public:
+@@ -495,6 +518,31 @@ public:
  	// failure returns false and the caller keeps the tonemap rd_native / native chain
  	// (fail-closed).
  	bool try_record_fused_post_chain_rd_native(RID p_src_color, RID p_lum_source, RID p_prev_luminance, RID p_dst_color, RID p_dst_luminance, Size2i p_source_size, Size2i p_dest_size, float p_exposure, float p_white, float p_luminance_multiplier, float p_min_luminance, float p_max_luminance, float p_exposure_adjust, float p_first_frame, float p_auto_exposure_scale) override;
 +	// GRX-015 Route B rd_native gpu_culling: in-frame RD-native compute cull (patch
-+	// 0046, R1 revision). Drives a CALLER-OWNED scratch indirect-args buffer
++	// 0046, R1b revision). Drives a CALLER-OWNED scratch indirect-args buffer
 +	// (p_scratch_commands) instead of Godot's live MultiMesh command buffer: lazily
 +	// builds the RD compute pipeline from the Rurix container named by
 +	// rendering/rurix_accel/passes/gpu_culling/rd_container_path, lazily creates +
 +	// per-frame buffer_update's the self-owned 96-byte frustum-planes SSBO (t1),
 +	// buffer_copy's the p_command_bytes live command template from p_commands into
-+	// p_scratch_commands (a READ of the live buffer), RD::buffer_clear's ONLY the
-+	// SCRATCH buffer's per-surface instance-count dword and the whole visibility
-+	// bitmask BEFORE opening its own compute list, binds src_transforms (SRV t0),
++	// p_scratch_commands (a READ of the live buffer), zeroes ONLY the SCRATCH buffer's
++	// per-surface instance-count dword via an ALIGNED buffer_copy from a persistent
++	// zero buffer (R1b: not a misaligned RAW-UAV buffer_clear — that misaligned clear
++	// at offset (s*stride+index)*4 = 4/24/44... was the convicted device-removal root
++	// cause) and buffer_clear's the whole visibility bitmask (offset 0, 16-aligned,
++	// harmless) BEFORE opening its own compute list, binds src_transforms (SRV t0),
 +	// frustum_planes (SRV t1), the SCRATCH commands (UAV u0) and dst_visibility (UAV
 +	// u1), and dispatches ceil(instance_count/64) on the main RenderingDevice. The
-+	// live command buffer is NEVER cleared / NEVER UAV-bound — its dual role (compute
-+	// write + same-frame indirect-draw read) was the convicted device-removal hazard;
-+	// R1 decouples the compute-written buffer (scratch) from what the caller retargets
-+	// the native draw to read. Returns true only when the cull was actually recorded
++	// live command buffer is NEVER cleared / NEVER UAV-bound — R1's scratch decoupling
++	// is retained (the compute-written buffer is decoupled from what the caller
++	// retargets the native draw to read). Returns true only when the cull was actually recorded
 +	// into the scratch buffer; any fail-closed step (RD unavailable, latched load
 +	// failure, invalid RID incl. p_scratch_commands, missing/invalid container,
 +	// pipeline/uniform-set failure, planes-buffer allocation failure, malformed
@@ -391,7 +437,7 @@ index 462c201..201a545 100644
  
  #endif // D3D12_ENABLED
 diff --git a/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp b/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
-index 4235e40..2f522da 100644
+index 4235e40..0172701 100644
 --- a/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
 +++ b/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.cpp
 @@ -628,7 +628,22 @@ void RenderForwardClustered::_render_list_template(RenderingDevice::DrawListID p
@@ -399,7 +445,7 @@ index 4235e40..2f522da 100644
  				RD::get_singleton()->draw_list_draw(draw_list, false, mesh_storage->mesh_surface_get_vertex_count(mesh_surface), instance_count * 6);
  			} else if (indirect) {
 -				RD::get_singleton()->draw_list_draw_indirect(draw_list, index_array_rd.is_valid(), mesh_storage->_multimesh_get_command_buffer_rd_rid(surf->owner->data->base), surf->surface_index * sizeof(uint32_t) * mesh_storage->INDIRECT_MULTIMESH_COMMAND_STRIDE, 1, 0);
-+				// GRX-015 gpu_culling rd_native R1 retarget (patch 0046): when the
++				// GRX-015 gpu_culling rd_native R1b retarget (patch 0046): when the
 +				// backend==2 cull recorded a Rurix-owned scratch indirect-args buffer for
 +				// this MultiMesh base THIS frame, read the SCRATCH buffer (whose per-surface
 +				// count dword the compute cull reduced) instead of the live command buffer.
@@ -418,34 +464,39 @@ index 4235e40..2f522da 100644
  			} else {
  				RD::get_singleton()->draw_list_draw(draw_list, index_array_rd.is_valid(), instance_count);
  			}
-@@ -2087,6 +2102,167 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
+@@ -2087,6 +2102,175 @@ void RenderForwardClustered::_render_scene(RenderDataRD *p_render_data, const Co
  			}
  		}
  	}
-+	// GRX-015 Route B rd_native gpu_culling call-site (patch 0046, R1 revision).
++	// GRX-015 Route B rd_native gpu_culling call-site (patch 0046, R1b revision).
 +	// Independent of the shim path above (gated on .../gpu_culling/enabled, driving
 +	// the out-of-frame rxgd bridge): this path is gated on the
 +	// .../gpu_culling/backend == 2 selector and drives the MAIN RenderingDevice
-+	// directly. R1 root-cause fix (see passes/gpu_culling/rd_native_device_removal_
-+	// diagnosis.md): the first-shipped 0046 buffer_clear'd + compute UAV-wrote the
-+	// LIVE multimesh->command_buffer while the same frame's native
-+	// draw_list_draw_indirect read it as an indirect argument — a GPU-side execution
-+	// fault the draw-graph does not synchronize (device removal, 0x887A0005, silent
-+	// under the debug layer AND GPU-Based Validation). R1 decouples that dual role:
-+	// per indirect MultiMesh base, a Rurix-owned SCRATCH indirect-args buffer
-+	// (rurix_cull_rdn_indirect_args_buffers, storage_buffer_create with
-+	// DISPATCH_INDIRECT usage, sized to the live command buffer) is the compute
-+	// target; the module buffer_copy's the live command template into it (a READ of
-+	// the live buffer), buffer_clear's + dispatches into the SCRATCH, and the native
-+	// indirect draw is RETARGETED (see the draw site, _multimesh_get_command_buffer_
-+	// rd_rid vs rurix_cull_rdn_active_scratch) to read the scratch when a cull was
-+	// recorded this frame. The live command buffer is only ever READ. The default
-+	// backend == 0 pays nothing here; a failed record is a no-op (the native
-+	// CPU-driven command buffer keeps driving the draw, an additive miss, never a
-+	// fallback dispatch). rurix_cull_rdn_active_scratch is rebuilt every frame so a
-+	// mid-stream fail-closed for a base leaves that base on the native path (no stale
-+	// scratch). CAVEAT: R1 is a CANDIDATE — its device-removal enablement smoke on a
-+	// rebuilt exe is the final verdict; the pass stays default-disabled until then.
++	// directly. R1b root-cause fix (see passes/gpu_culling/rd_native_device_removal_
++	// diagnosis.md sec 7): the convicted device-removal cause is a MISALIGNED
++	// RenderingDevice::buffer_clear of the scratch count dword — offset
++	// (s*stride+index)*4 = 4/24/44... is never a multiple of 16, and buffer_clear
++	// lowers to a RAW buffer UAV (D3D12_BUFFER_UAV_FLAG_RAW) whose byte offset D3D12
++	// requires to be 16-aligned, so the out-of-spec UAV removes the device
++	// (0x887A0005, silent under the debug layer AND GPU-Based Validation). It is NOT a
++	// general RDG same-frame compute->indirect gap (a pure compute->draw_indirect
++	// reproducer runs 300 frames clean; a bare misaligned clear removes the device
++	// frame 1 — both under upstream-repro/). R1b keeps R1's scratch decoupling AND
++	// fixes the clear: per indirect MultiMesh base, a Rurix-owned SCRATCH indirect-args
++	// buffer (rurix_cull_rdn_indirect_args_buffers, storage_buffer_create with
++	// DISPATCH_INDIRECT usage, sized to the live command buffer) is the compute target;
++	// the module buffer_copy's the live command template into it (a READ of the live
++	// buffer), zeroes the SCRATCH count dwords via an ALIGNED buffer_copy from a
++	// persistent zero buffer, dispatches into the SCRATCH, and the native indirect draw
++	// is RETARGETED (see the draw site, _multimesh_get_command_buffer_rd_rid vs
++	// rurix_cull_rdn_active_scratch) to read the scratch when a cull was recorded this
++	// frame. The live command buffer is only ever READ. The default backend == 0 pays
++	// nothing here; a failed record is a no-op (the native CPU-driven command buffer
++	// keeps driving the draw, an additive miss, never a fallback dispatch).
++	// rurix_cull_rdn_active_scratch is rebuilt every frame so a mid-stream fail-closed
++	// for a base leaves that base on the native path (no stale scratch). The
++	// device-removal enablement smoke on a rebuilt exe is the final verdict; the pass
++	// stays default-disabled until then.
 +	if (D3D12Hooks::get_singleton() != nullptr && ((int)GLOBAL_GET("rendering/rurix_accel/passes/gpu_culling/backend")) == 2) {
 +		// Rebuild the per-frame base -> scratch map: only bases whose cull is
 +		// recorded THIS frame are retargeted at the draw site (stale bases fall back
@@ -523,17 +574,18 @@ index 4235e40..2f522da 100644
 +					}
 +					const uint32_t rurix_cull_rdn_command_stride_dwords = 5u;
 +					const uint32_t rurix_cull_rdn_instance_count_dword_index = 1u;
-+					// R1 — lazily create + cache the Rurix-owned SCRATCH indirect-args
++					// R1b — lazily create + cache the Rurix-owned SCRATCH indirect-args
 +					// buffer keyed by the MultiMesh base RID, sized EXACTLY like the live
 +					// command buffer (INDIRECT_MULTIMESH_COMMAND_STRIDE * surface_count
 +					// dwords, mesh_storage.cpp) and created with DISPATCH_INDIRECT usage so
 +					// draw_list_draw_indirect can read it. The module buffer_copy's the live
-+					// template into it, buffer_clear's + dispatches into it; the draw is
-+					// retargeted to read it. This is the buffer that carries the "compute
-+					// write + same-frame indirect read" pattern, but it is now FULLY Rurix/
-+					// RDG-owned (no out-of-graph state competing), which is the R1 hypothesis.
-+					// Lifetime mirrors the visibility bitmask cache (bounded to unique bases,
-+					// released with the RenderingDevice at shutdown).
++					// template into it, zeroes its count dwords via an aligned copy, and
++					// dispatches into it; the draw is retargeted to read it. R1's scratch
++					// decoupling is retained (the live command buffer is only ever READ), but
++					// it was NOT what resolved the removal — that was the R1b aligned-copy fix
++					// for the misaligned count-dword clear. Lifetime mirrors the visibility
++					// bitmask cache (bounded to unique bases, released with the
++					// RenderingDevice at shutdown).
 +					const uint32_t rurix_cull_rdn_command_bytes = (uint32_t)rurix_cull_rdn_surfaces * rurix_cull_rdn_command_stride_dwords * (uint32_t)sizeof(uint32_t);
 +					RID rurix_cull_rdn_scratch_rid;
 +					if (HashMap<RID, RID>::Iterator rurix_cull_rdn_sit = rurix_cull_rdn_indirect_args_buffers.find(rurix_cull_rdn_mm)) {
@@ -568,9 +620,11 @@ index 4235e40..2f522da 100644
 +					rurix_cull_rdn_b0u[10] = 0u; // pad1
 +					rurix_cull_rdn_b0u[11] = 0u; // pad2
 +					// The module buffer_copy's the live command template into the SCRATCH
-+					// buffer, buffer_update's the t1 planes buffer, buffer_clear's each
-+					// surface's SCRATCH count dword ((s*stride+index)*4) + the whole
-+					// bitmask (all BEFORE its own compute_list_begin), binds
++					// buffer, buffer_update's the t1 planes buffer, zeroes each surface's
++					// SCRATCH count dword ((s*stride+index)*4) via an ALIGNED buffer_copy
++					// from a persistent zero buffer (R1b: not a misaligned buffer_clear —
++					// the convicted root cause) and buffer_clear's the whole bitmask at the
++					// 16-aligned offset 0 (all BEFORE its own compute_list_begin), binds
 +					// t0/t1/u0=scratch/u1, and dispatches ceil(instance_count/64). The live
 +					// command buffer is passed ONLY as the buffer_copy source (never
 +					// cleared / never UAV-bound). Returns false (no-op) on any fail-closed
@@ -587,22 +641,25 @@ index 4235e40..2f522da 100644
  
  	RD::get_singleton()->draw_command_end_label();
 diff --git a/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.h b/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.h
-index f40dfd7..d7008d4 100644
+index f40dfd7..dd0fb25 100644
 --- a/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.h
 +++ b/servers/rendering/renderer_rd/forward_clustered/render_forward_clustered.h
-@@ -92,6 +92,22 @@ class RenderForwardClustered : public RendererSceneRenderRD {
+@@ -92,6 +92,25 @@ class RenderForwardClustered : public RendererSceneRenderRD {
  	// MeshStorage. Lazily created on first use for each indirect MultiMesh the
  	// gpu_culling gate binds; only touched when the opt-in setting is enabled.
  	HashMap<RID, RID> rurix_gpu_culling_visibility_buffers;
-+	// GRX-015 gpu_culling rd_native (patch 0046, R1 revision): per-indirect-MultiMesh
++	// GRX-015 gpu_culling rd_native (patch 0046, R1b revision): per-indirect-MultiMesh
 +	// Rurix-owned SCRATCH indirect-args buffer cache, keyed by the MultiMesh base RID
 +	// (5-dword-per-surface command block, DISPATCH_INDIRECT usage). The backend==2
-+	// cull buffer_copy's the live command template into it, then buffer_clear's +
-+	// compute-writes the reduced InstanceCount into it — decoupling the compute write
-+	// from Godot's live MultiMesh command buffer (whose same-frame dual role was the
-+	// convicted device-removal cause; see passes/gpu_culling/rd_native_device_removal_
-+	// diagnosis.md). Lifetime mirrors rurix_gpu_culling_visibility_buffers (lazily
-+	// created per unique base, released with the RenderingDevice at shutdown).
++	// cull buffer_copy's the live command template into it, zeroes its count dwords via
++	// an aligned copy, then compute-writes the reduced InstanceCount into it —
++	// decoupling the compute write from Godot's live MultiMesh command buffer. NOTE:
++	// this scratch decoupling (R1) was retained but was NOT what resolved the device
++	// removal; the convicted cause was a MISALIGNED RAW-UAV buffer_clear of the count
++	// dword, fixed in R1b by the aligned count-dword copy (see
++	// passes/gpu_culling/rd_native_device_removal_diagnosis.md sec 7). Lifetime mirrors
++	// rurix_gpu_culling_visibility_buffers (lazily created per unique base, released
++	// with the RenderingDevice at shutdown).
 +	HashMap<RID, RID> rurix_cull_rdn_indirect_args_buffers;
 +	// Per-frame base -> scratch map: populated only for bases whose rd_native cull
 +	// was successfully recorded THIS frame (rebuilt every _render_scene). The
@@ -614,5 +671,5 @@ index f40dfd7..d7008d4 100644
  	enum {
  		SDFGI_MAX_CASCADES = 8,
 -- 
-2.50.0
+2.46.0.windows.1
 

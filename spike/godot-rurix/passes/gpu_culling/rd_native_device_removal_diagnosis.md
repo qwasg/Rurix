@@ -272,3 +272,123 @@ performance claim. This is an upstream Godot bug-report candidate (RDG /
 D3D12 driver: missing GPU-timeline sync for UAV->INDIRECT_ARGUMENT within one
 frame graph submission); the report recipe is this note plus the three-stage
 evidence chain (shim / in-graph live / in-graph scratch).
+
+> **This §6 R3 verdict is RETRACTED by §7 (2026-07-13). The "general RDG gap" /
+> "compute-written DISPATCH_INDIRECT consumed same-frame" attribution was wrong;
+> the confounding variable was a misaligned `buffer_clear`. Read §7.**
+
+## §7 Conviction correction (2026-07-13) — misaligned `buffer_clear` was the confounding variable; R1b
+
+**The §4/§6 conviction is RETRACTED.** The device-removal root cause is NOT a
+same-frame "compute-written `DISPATCH_INDIRECT` buffer consumed by
+`draw_list_draw_indirect`" RDG gap (nor the live command buffer's "dual role").
+It is a **misaligned `RenderingDevice::buffer_clear`**: an out-of-spec RAW-UAV
+clear at a byte offset that is not a multiple of 16.
+
+### The confounding variable
+
+Every crashing leg in §3 and §6 — shim era, in-graph clear of the live command
+buffer, and R1's in-graph clear of the *scratch* command buffer — shared ONE
+operation that the "clean" legs never had: an `RD::buffer_clear` of the
+per-surface instance-count dword at byte offset
+`(surface*command_stride_dwords + instance_count_dword_index)*4` =
+`(s*5 + 1)*4` = **4, 24, 44, …**, none of which is a multiple of 16. That clear
+— not the compute→indirect pattern — was the invariant across all removals. The
+discriminator matrix in §3 mis-read it: the "clears cmd buf?" column was TRUE for
+exactly the crashing legs, but the salient property was the *offset alignment* of
+that clear, not *which* buffer it targeted. (The visibility-bitmask clear that all
+legs also issued is at offset 0, which IS 16-aligned, so it was harmless — another
+reason the offset, not the clear per se, is the cause.)
+
+### Two side-by-side minimal reproducers (real GPU, RTX 4070 Ti, D3D12)
+
+Isolated in `spike/godot-rurix/upstream-repro/` (stock `RenderingDevice`/D3D12,
+no compute or draw needed to reproduce):
+
+| Reproducer | Pattern | Result |
+|---|---|---|
+| `rd-buffer-clear-misaligned-offset/` | a bare `buffer_clear(buf, offset, 4)` on the main device, no compute/draw | offset 0/16/32/48 → **clean**; offset 4/8/12/20/36 → **device removed frame 1**. A perfect `offset % 16` law, zero exceptions. |
+| `upstream_bug_repro/` (FALSIFIED) | pure compute UAV-write of a `DISPATCH_INDIRECT` buffer → same-frame `draw_list_draw_indirect`, NO misaligned clear | **300 frames clean**, no device removal |
+
+The pure compute→indirect pattern that §4 convicted runs clean; the bare
+misaligned clear that §4 dismissed removes the device on frame 1. This inverts
+the §4 conclusion.
+
+### The exact driver mechanism
+
+`RenderingDeviceDriverD3D12::command_clear_buffer`
+(`drivers/d3d12/rendering_device_driver_d3d12.cpp:3826`) implements `buffer_clear`
+by building a RAW buffer UAV and calling `ClearUnorderedAccessViewUint`:
+
+```cpp
+uav_desc.Buffer.FirstElement = p_offset / 4;   // no alignment enforcement
+uav_desc.Buffer.NumElements  = p_size / 4;
+uav_desc.Buffer.Flags        = D3D12_BUFFER_UAV_FLAG_RAW;
+```
+
+D3D12 requires a RAW buffer UAV's byte offset to be a multiple of 16
+(`D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT` = 16). `RenderingDevice::buffer_clear`
+(`rendering_device.cpp:875`) only enforces `p_size % 4 == 0` — it does NOT check
+offset alignment — so a 4-byte-aligned-but-not-16-aligned offset produces an
+out-of-spec UAV, and the clear removes the device asynchronously (0x887A0005,
+silent under the debug layer and GPU-Based Validation — consistent with §3.5,
+which is now re-read as "the misaligned RAW UAV is not a CPU-side-detectable
+state error", not "the compute→indirect barrier is insufficient"). By contrast,
+`buffer_copy` lowers to `command_copy_buffer` → `CopyBufferRegion`
+(`rendering_device_driver_d3d12.cpp:3870`), which has NO RAW-UAV alignment
+constraint; the RD-layer `buffer_copy` (`rendering_device.cpp:667`) only
+bounds-checks a 4-byte offset/size, and is equally draw-graph tracked
+(`add_buffer_copy`). This is a stock-`RenderingDevice`/D3D12 upstream bug (see
+`spike/godot-rurix/upstream-repro/ISSUE_DRAFT.md`, DRAFT for owner review).
+
+### R1b — the fix
+
+R1b (patch 0046 revision) keeps R1's Rurix-owned scratch-indirect decoupling
+(the live MultiMesh command buffer is only ever a `buffer_copy` READ source) but
+replaces the misaligned per-surface count-dword `buffer_clear` with an ALIGNED
+`RD::buffer_copy` from a persistent 16-byte all-zero SSBO
+(`rd_native_gpu_culling_zero_buffer`, created once with zero data, never written).
+The visibility-bitmask clear stays a `buffer_clear` at the 16-aligned offset 0.
+Note R1's scratch decoupling turned out to be unnecessary for the removal (the
+live-buffer dual role was never the cause) but is retained as clean, conservative
+ownership. This is the ONLY code change from R1; no container / b0 / kernel / RTS0
+change.
+
+### R1b terminal verdict (rb5, 0001-0029 + 0040-0048)
+
+R1b was put to the same pre-registered arbiter,
+`ci/grx_rb_gpu_culling_rd_native_enablement_smoke.py`, on the rb5 exe (incremental
+rebuild carrying the R1b 0046, `RURIX_REQUIRE_REAL=1`).
+
+**Verdict: R1b BREAKS the device-removal wall.** The candidate leg (backend==2) is
+the FIRST rd_native leg to survive on real hardware (RTX 4070 Ti): it engages the
+cull (`RXGD_RD_NATIVE_GPU_CULLING active` marker present), dispatches, is
+frame-stable across 3 consecutive frames, and shows **NO device removal in any
+leg** (reference / candidate / fail_closed all exit 0; every leg's
+`device_removal_hits` is empty). This empirically confirms the misaligned-clear
+conviction — swapping the misaligned RAW-UAV count-dword clear for an aligned copy
+is sufficient to eliminate the removal. The §6 R3 "mechanism-blocked" verdict is
+retracted; rd_native is no longer mechanism-blocked.
+
+**A separate downstream finding is now cleanly exposed** (previously masked by the
+removal): the cull is **NOT picture-preserving**. The candidate frame diverges
+from the native reference (LDR **max_abs=155**, mean_abs≈0.0133), i.e. the
+conservative frustum cull drops instances that are actually visible
+(over-culling). Because a conservative cull must never drop a visible instance,
+this is an honest cull-math correctness finding (frustum-plane sign /
+bounding-sphere margin / b0 parameterization in the GRX-015 kernel), NOT a
+device-removal or graph hazard. The gate correctly classifies it as
+`status=skip / measured_prerequisite_blocked / rd_native_cull_not_picture_preserving`
+(not a fail; a measured-prerequisite skip is not upgraded by
+`RURIX_REQUIRE_REAL`). The fail_closed leg byte-matches the reference
+(max_abs=0), confirming the fallback is intact.
+
+`real_gpu_pass` stays false and `default_enable_state` stays disabled (strict
+success requires picture-preservation), and no performance claim is made. Net:
+with the confounding variable removed, the device-removal wall is broken and the
+remaining GRX-015 blocker is a cull picture-preservation (over-culling) bug to be
+resolved separately — a clean, trustworthy result now that the confound is gone.
+`pass_manifest.json` `status` is updated to
+`grx015_rd_native_r1b_device_removal_resolved_cull_picture_preservation_open`, and
+the `rd_native_r3_closeout` block records the retraction alongside a new
+`rd_native_r1b_verdict` block.

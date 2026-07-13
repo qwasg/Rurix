@@ -1,7 +1,28 @@
 extends Node
 
-# Minimal reproduction for a Godot D3D12 backend device-removal (DXGI_ERROR_DEVICE_REMOVED,
-# 0x887A0005).
+# ============================================================================
+# FALSIFIED HYPOTHESIS — do NOT file as an upstream issue. Retained as evidence.
+# ----------------------------------------------------------------------------
+# This project was built to test the hypothesis that a same-frame
+# "compute-written STORAGE_BUFFER_USAGE_DISPATCH_INDIRECT buffer consumed by
+# draw_list_draw_indirect()" removes the D3D12 device. That hypothesis is FALSE:
+# this exact pattern RUNS 300 FRAMES CLEAN on the main RenderingDevice (RTX 4070
+# Ti / Godot 4.7-dev / D3D12) — no device removal.
+#
+# The device removal that motivated this reproducer was actually caused by a
+# MISALIGNED RenderingDevice.buffer_clear (a byte offset that is not a multiple of
+# 16), which the patched engine's module was issuing at count-dword offsets
+# (surface*5 + 1)*4 = 4/24/44... alongside this compute->indirect pattern; the
+# misaligned clear was the confounding variable. The real, fileable bug and its
+# minimal reproducer are documented at:
+#   spike/godot-rurix/upstream-repro/ISSUE_DRAFT.md  (misaligned buffer_clear)
+#   spike/godot-rurix/upstream-repro/rd-buffer-clear-misaligned-offset/
+# Root-cause correction: spike/godot-rurix/passes/gpu_culling/
+#   rd_native_device_removal_diagnosis.md sec 7.
+#
+# This file is kept ONLY as the falsification evidence (the clean 300-frame run
+# that disproves the indirect-draw hazard). Everything below is unchanged.
+# ============================================================================
 #
 # Pattern under test (all on the MAIN RenderingDevice, within one frame):
 #   1. A compute pass writes a storage buffer that was created with
@@ -10,15 +31,13 @@ extends Node
 #      draw-argument source.
 #
 # The RenderingDeviceGraph tracks the buffer as a write (compute) then as
-# RESOURCE_USAGE_INDIRECT_BUFFER_READ (draw). On the D3D12 backend the realized
-# GPU-timeline synchronization between the UAV write and the INDIRECT_ARGUMENT read is
-# insufficient, so the GPU faults asynchronously and the device is removed. The failure
-# surfaces on the NEXT device API call (e.g. CreateCommandAllocator / a pipeline create)
-# as 0x887A0005. The D3D12 debug layer and GPU-Based Validation are both silent.
+# RESOURCE_USAGE_INDIRECT_BUFFER_READ (draw). It was HYPOTHESIZED that the realized
+# GPU-timeline synchronization between the UAV write and the INDIRECT_ARGUMENT read
+# might be insufficient on D3D12 — but see the FALSIFIED banner above: this pattern
+# runs clean, so the graph's UAV->INDIRECT_ARGUMENT barrier is in fact sufficient.
 #
-# Expected on a correct backend: runs indefinitely, no device removal.
-# Observed on D3D12 (NVIDIA RTX 4070 Ti, Windows 11): device removed within 1-2 frames.
-# Not reproducible under the Vulkan backend on the same machine (per the reporter).
+# Observed on D3D12 (NVIDIA RTX 4070 Ti, Windows 11): NO device removal across 300
+# frames (the run quits cleanly at frame 300).
 #
 # Run with:  godot --path <this_dir> --rendering-driver d3d12 --rendering-method forward_plus
 
