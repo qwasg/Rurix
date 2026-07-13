@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "subject": "grx_rb_cluster_store_rd_native_enablement_smoke",
-  "pass_id": "cluster_store",
+  "subject": "grx_rb_fused_post_chain_rd_native_enablement_smoke",
+  "pass_id": "fused_post_chain",
   "provenance": "rd_native_route_b",
-  "backend_selector": "rendering/rurix_accel/passes/cluster_store/backend",
+  "backend_selector": "rendering/rurix_accel/passes/fused_post_chain/backend",
   "backend_states": {
     "disabled": 0,
     "shim": 1,
@@ -16,7 +16,7 @@
   "default_enable_state": "disabled",
   "gpu_timestamp_status": "not_yet",
   "performance_claim": "none",
-  "kernel_subset": "cluster merge (store/pack) segment only",
+  "kernel_subset": "fused luminance-final (Design 1 shadow-recompute; the write is redirected to a self-owned 1x1 scratch UAV that is never read back) + LINEAR + convert_to_srgb tonemap leg (t0 -> u0, the real replacement). Auto exposure via CameraAttributesPractical unlocks distinct current/previous luminance buffers (patch 0048 getters) so backend==2 ENGAGES the fused gate; non-AE legs cascade to tonemap rd_native (patch 0040)",
   "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
   "known_gaps": [
     "the rd_native kernel covers only the LINEAR tonemapper with the SDR convert_to_srgb (linear_to_srgb) leg; the candidate scene is pinned to tonemap_mode LINEAR to align with this subset. Reinhard/Filmic/ACES/AgX, auto exposure, glow, FXAA, BCS, color correction, debanding, multiview, and HDR output are OUT of the rd_native subset and route to the native path",
@@ -24,8 +24,8 @@
     "rd_native drives the main RenderingDevice's draw graph directly; the injected compute_list relies on the graph's ResourceTracker for barriers. No submit()/sync() is issued (that is a local-RD concept)"
   ],
   "container": {
-    "path_at_run": "H:\\rurix\\target\\grx\\rd_containers\\cluster_store.rd_container.bin",
-    "sha256": "6623ce6c5eddc19dbf9e49e2aeacbbb4f3c6a6ae48a203494a103c3e6dda2c47",
+    "path_at_run": "H:\\rurix\\target\\grx\\rd_containers\\fused_post_chain.rd_container.bin",
+    "sha256": "00e6a69d0780975fa1a7a6bbc29b8d9bef5ede20e28807ea0ca7404c002b6ba7",
     "s2_probe_evidence": "spike/godot-rurix/rd-native-pipeline/rd_buffer_probe_evidence.json",
     "s2_probe_container_sha256": null,
     "matches_s2_probe_container": false
@@ -264,7 +264,16 @@
       }
     ]
   },
-  "note": "GRX Route B tonemap rd_native in-frame REAL-replacement gate. backend==2 drives the Rurix tonemap kernel as a first-class RenderingDevice compute pass and SKIPS the native Godot tonemapper (not a scaffold). Bridge-independent (no rxgd session, no RxGdCaps.flags bit). default_enable_state stays disabled and no performance/FPS/GPU-timestamp claim is made.",
+  "note": "GRX Route B fused_post_chain rd_native in-frame REAL-replacement gate (patch 0045 Design 1 shadow-recompute). backend==2 drives the Rurix fused kernel as a first-class RenderingDevice compute pass on the AE legs and SKIPS the native Godot luminance-final + tonemap end (the tonemap leg t0 -> u0 is genuinely replaced). HONEST BOUNDARY: the fused luminance-final WRITE is redirected to a self-owned scratch and never read back, the native luminance_reduction still runs in full, so the net dispatch saving is ZERO and no structural fusion / dispatch saving is claimed (shadow-luminance-write / dispatch-savings-not-claimed). Bridge-independent (no rxgd session, no RxGdCaps.flags bit). default_enable_state stays disabled and no performance/FPS/GPU-timestamp claim is made.",
+  "historical_note": {
+    "prior_result": "measured_prerequisite_blocked / fused_luminance_double_buffer_api_unexposed (fused gate reported 'blocked at the aliasing guard')",
+    "true_mechanism": "MISATTRIBUTED (adjudicated by the main session). The prior scene assigned auto_exposure_enabled on Environment, which this Godot build does not expose, so EVERY run raised a GDScript SCRIPT ERROR and auto exposure NEVER engaged; the current / previous luminance buffers were therefore never allocated, the patch 0048 getters returned RID(), and the module failed closed at the invalid-lum-RID check — NOT the aliasing guard. The runtime audit missed this because it scanned only 'ERROR:' prefixes and ignored 'SCRIPT ERROR' lines. On the earlier rb2 build the two-RID()-returns-alias coincidence happened to satisfy the aliasing guard, which reinforced the misattribution.",
+    "fixes": [
+      "scene now enables auto exposure via CameraAttributesPractical (the correct API, mirroring ci/grx009_segment4h)",
+      "the runtime audit (unexpected_error_lines + the shared runtime_log_audit) now fails on 'SCRIPT ERROR' lines as well as 'ERROR:' lines",
+      "with the patch 0048 Luminance-API getters + the patch 0045 Design 1 revision, the fused gate now genuinely engages on the AE candidate leg (this run re-measures parity honestly)"
+    ]
+  },
   "dll_fingerprint": {
     "dll_path_at_run": "target/debug/rurix_godot.dll",
     "dll_sha256": "47910fe7fc0b9cf6e133da09a090f132f121a6d5f1d7d48dec8ea7d812051426",
@@ -887,22 +896,30 @@
     ],
     "expected_stack_ok": true
   },
+  "tonemap_cascade_container": {
+    "path_at_run": "H:\\rurix\\target\\grx\\rd_containers\\tonemap.rd_container.bin",
+    "sha256": "ef8668e7330a7bfabb59a80b318c132058baee014a279a7e8ffdba8dec5fa8db"
+  },
   "status": "success",
-  "timestamp": "2026-07-13T17:55:57+08:00",
+  "timestamp": "2026-07-13T17:56:04+08:00",
   "run_url": "local interactive runner",
   "pass_enable_matrix": {
     "reference": {
-      "role": "native_reference",
+      "role": "native_reference_auto_exposure",
       "project_settings": {
-        "rendering/rurix_accel/passes/cluster_store/backend": 0,
-        "rendering/rurix_accel/passes/cluster_store/rd_container_path": ""
+        "rendering/rurix_accel/passes/fused_post_chain/backend": 0,
+        "rendering/rurix_accel/passes/fused_post_chain/rd_container_path": "",
+        "rendering/rurix_accel/passes/tonemap/backend": 0,
+        "rendering/rurix_accel/passes/tonemap/rd_container_path": "",
+        "scene_auto_exposure": true
       },
       "exit_code": 0,
       "session_ready": true,
       "active_marker_observed": false,
+      "tonemap_active_marker_observed": false,
       "container_reject_errors_observed": [],
       "capture_meta": {
-        "capture_frame_index": 24,
+        "capture_frame_index": 40,
         "format": "R8G8B8_raw",
         "height": 144,
         "stability_frame_count": 3,
@@ -911,17 +928,21 @@
       "capture_error": null
     },
     "candidate": {
-      "role": "rd_native_replacement",
+      "role": "fused_rd_native_engaged",
       "project_settings": {
-        "rendering/rurix_accel/passes/cluster_store/backend": 2,
-        "rendering/rurix_accel/passes/cluster_store/rd_container_path": "H:\\rurix\\target\\grx\\rd_containers\\cluster_store.rd_container.bin"
+        "rendering/rurix_accel/passes/fused_post_chain/backend": 2,
+        "rendering/rurix_accel/passes/fused_post_chain/rd_container_path": "H:\\rurix\\target\\grx\\rd_containers\\fused_post_chain.rd_container.bin",
+        "rendering/rurix_accel/passes/tonemap/backend": 0,
+        "rendering/rurix_accel/passes/tonemap/rd_container_path": "",
+        "scene_auto_exposure": true
       },
       "exit_code": 0,
       "session_ready": true,
       "active_marker_observed": true,
+      "tonemap_active_marker_observed": false,
       "container_reject_errors_observed": [],
       "capture_meta": {
-        "capture_frame_index": 24,
+        "capture_frame_index": 40,
         "format": "R8G8B8_raw",
         "height": 144,
         "stability_frame_count": 3,
@@ -930,20 +951,70 @@
       "capture_error": null
     },
     "fail_closed": {
-      "role": "rd_native_garbage_container_fallback",
+      "role": "fused_rd_native_garbage_container_fallback",
       "project_settings": {
-        "rendering/rurix_accel/passes/cluster_store/backend": 2,
-        "rendering/rurix_accel/passes/cluster_store/rd_container_path": "H:\\rurix\\target\\grx_rb_cluster_store_rd_native_enablement_smoke\\garbage_not_a_container.bin"
+        "rendering/rurix_accel/passes/fused_post_chain/backend": 2,
+        "rendering/rurix_accel/passes/fused_post_chain/rd_container_path": "H:\\rurix\\target\\grx_rb_fused_post_chain_rd_native_enablement_smoke\\garbage_not_a_container.bin",
+        "rendering/rurix_accel/passes/tonemap/backend": 0,
+        "rendering/rurix_accel/passes/tonemap/rd_container_path": "",
+        "scene_auto_exposure": true
       },
       "exit_code": 0,
       "session_ready": true,
       "active_marker_observed": false,
+      "tonemap_active_marker_observed": false,
       "container_reject_errors_observed": [
         "Incorrect magic number in shader container",
         "Failed to parse shader container from binary"
       ],
       "capture_meta": {
-        "capture_frame_index": 24,
+        "capture_frame_index": 40,
+        "format": "R8G8B8_raw",
+        "height": 144,
+        "stability_frame_count": 3,
+        "width": 256
+      },
+      "capture_error": null
+    },
+    "reference_noae": {
+      "role": "native_reference_no_auto_exposure",
+      "project_settings": {
+        "rendering/rurix_accel/passes/fused_post_chain/backend": 0,
+        "rendering/rurix_accel/passes/fused_post_chain/rd_container_path": "",
+        "rendering/rurix_accel/passes/tonemap/backend": 0,
+        "rendering/rurix_accel/passes/tonemap/rd_container_path": "",
+        "scene_auto_exposure": false
+      },
+      "exit_code": 0,
+      "session_ready": true,
+      "active_marker_observed": false,
+      "tonemap_active_marker_observed": false,
+      "container_reject_errors_observed": [],
+      "capture_meta": {
+        "capture_frame_index": 40,
+        "format": "R8G8B8_raw",
+        "height": 144,
+        "stability_frame_count": 3,
+        "width": 256
+      },
+      "capture_error": null
+    },
+    "cascade": {
+      "role": "fused_blocked_cascades_to_tonemap_rd_native",
+      "project_settings": {
+        "rendering/rurix_accel/passes/fused_post_chain/backend": 2,
+        "rendering/rurix_accel/passes/fused_post_chain/rd_container_path": "H:\\rurix\\target\\grx\\rd_containers\\fused_post_chain.rd_container.bin",
+        "rendering/rurix_accel/passes/tonemap/backend": 2,
+        "rendering/rurix_accel/passes/tonemap/rd_container_path": "H:\\rurix\\target\\grx\\rd_containers\\tonemap.rd_container.bin",
+        "scene_auto_exposure": false
+      },
+      "exit_code": 0,
+      "session_ready": true,
+      "active_marker_observed": false,
+      "tonemap_active_marker_observed": true,
+      "container_reject_errors_observed": [],
+      "capture_meta": {
+        "capture_frame_index": 40,
         "format": "R8G8B8_raw",
         "height": 144,
         "stability_frame_count": 3,
@@ -952,9 +1023,11 @@
       "capture_error": null
     }
   },
-  "stdout_reference": "9a90/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nShader 'SmaaBlendingShaderRD' (group 0) SHA256: a9a31f3d380e1558d8a95544827032e67aee9e4aa22b9153af75629b7e18bd0d\nShader cache miss for SmaaBlendingShaderRD/a9a31f3d380e1558d8a95544827032e67aee9e4aa22b9153af75629b7e18bd0d/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nShader 'TonemapShaderRD' (group 0) SHA256: dea5e256c78bc1973023851d16a8f93b9640609394d083696c62df49765e424d\nShader cache miss for TonemapShaderRD/dea5e256c78bc1973023851d16a8f93b9640609394d083696c62df49765e424d/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nShader 'VrsShaderRD' (group 0) SHA256: 4e9bd0b5b8a47d9df4d29956fa133eae961c652ab87af42dddce608ccae989b3\nShader cache miss for VrsShaderRD/4e9bd0b5b8a47d9df4d29956fa133eae961c652ab87af42dddce608ccae989b3/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nShader 'FsrUpscaleShaderRD' (group 0) SHA256: 0db94a70e8aee22f645504eae6b1fb884169427e3c09ba0238451506027de58c\nShader cache miss for FsrUpscaleShaderRD/0db94a70e8aee22f645504eae6b1fb884169427e3c09ba0238451506027de58c/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nShader 'ResolveShaderRD' (group 0) SHA256: 874cff95560fd55f66861b3efa1f5198c5e1c72412bd86f7364fad3b2e86dae9\nShader cache miss for ResolveShaderRD/874cff95560fd55f66861b3efa1f5198c5e1c72412bd86f7364fad3b2e86dae9/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nShader 'BlitShaderRD' (group 0) SHA256: 05a2c19ede019af3e1a17018df51dcc334ff646b63f38834f57ca1db110c5fd7\nWASAPI: Activated output_device using IAudioClient3 interface\nWASAPI: wFormatTag = 65534\nWASAPI: nChannels = 2\nWASAPI: nSamplesPerSec = 48000\nWASAPI: nAvgBytesPerSec = 384000\nWASAPI: nBlockAlign = 8\nWASAPI: wBitsPerSample = 32\nWASAPI: cbSize = 22\nWASAPI: mix_rate = 48000\nWASAPI: fundamental_period_frames = 480\nWASAPI: min_period_frames = 480\nWASAPI: max_period_frames = 480\nWASAPI: selected a period frame size of 480\nWASAPI: detected 2 channels\nWASAPI: audio buffer frames: 480 calculated latency: 10ms\n\nShader cache miss for BlitShaderRD/05a2c19ede019af3e1a17018df51dcc334ff646b63f38834f57ca1db110c5fd7/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nTextServer: Primary interface set to: \"ICU / HarfBuzz / Graphite (Built-in)\".\nCORE API HASH: 415917037\nEDITOR API HASH: 1463541022\nSceneTreeFTI: traversal method DEFAULT\nMbedTLS: Some X509 certificates could not be parsed (1 certificates skipped).\nLoaded system CA certificates\nLoading resource: res://main.tscn\nLoading resource: res://main.gd\nGRXRBCluster: scene ready backend=0\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nGRXRBCluster: captured idx=0 frame=24 width=256 height=144\nGRXRBCluster: captured idx=1 frame=25 width=256 height=144\nGRXRBCluster: captured idx=2 frame=26 width=256 height=144\nXR: Clearing primary interface\nXR: Removed interface \"Native mobile\"\nXR: Removed interface \"OpenXR\"\nFreeing Default Tex_Blit Shader\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_MOTION' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_ALPHA' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_SECONDARY' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'CANVAS_INSTANCE_DATA' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nAccessibility: window 0 adapter destroyed.\n\nERROR: Could not load global script cache.\n   at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)",
-  "stdout_candidate": "nemapShaderRD, variant 1\nLoading cache for shader TonemapShaderRD, variant 2\nLoading cache for shader TonemapShaderRD, variant 3\nShader 'VrsShaderRD' (group 0) SHA256: 4e9bd0b5b8a47d9df4d29956fa133eae961c652ab87af42dddce608ccae989b3\nLoading cache for shader VrsShaderRD, variant 0\nLoading cache for shader VrsShaderRD, variant 2\nLoading cache for shader VrsShaderRD, variant 3\nShader 'FsrUpscaleShaderRD' (group 0) SHA256: 0db94a70e8aee22f645504eae6b1fb884169427e3c09ba0238451506027de58c\nLoading cache for shader FsrUpscaleShaderRD, variant 0\nLoading cache for shader FsrUpscaleShaderRD, variant 1\nShader 'ResolveShaderRD' (group 0) SHA256: 874cff95560fd55f66861b3efa1f5198c5e1c72412bd86f7364fad3b2e86dae9\nLoading cache for shader ResolveShaderRD, variant 0\nLoading cache for shader ResolveShaderRD, variant 1\nLoading cache for shader ResolveShaderRD, variant 2\nShader 'BlitShaderRD' (group 0) SHA256: 05a2c19ede019af3e1a17018df51dcc334ff646b63f38834f57ca1db110c5fd7\nWASAPI: Activated output_device using IAudioClient3 interface\nWASAPI: wFormatTag = 65534\nWASAPI: nChannels = 2\nWASAPI: nSamplesPerSec = 48000\nWASAPI: nAvgBytesPerSec = 384000\nWASAPI: nBlockAlign = 8\nWASAPI: wBitsPerSample = 32\nWASAPI: cbSize = 22\nWASAPI: mix_rate = 48000\nWASAPI: fundamental_period_frames = 480\nWASAPI: min_period_frames = 480\nWASAPI: max_period_frames = 480\nWASAPI: selected a period frame size of 480\nWASAPI: detected 2 channels\nWASAPI: audio buffer frames: 480 calculated latency: 10ms\n\nLoading cache for shader BlitShaderRD, variant 0\nLoading cache for shader BlitShaderRD, variant 1\nLoading cache for shader BlitShaderRD, variant 2\nLoading cache for shader BlitShaderRD, variant 3\nTextServer: Primary interface set to: \"ICU / HarfBuzz / Graphite (Built-in)\".\nCORE API HASH: 415917037\nEDITOR API HASH: 1463541022\nSceneTreeFTI: traversal method DEFAULT\nMbedTLS: Some X509 certificates could not be parsed (1 certificates skipped).\nLoaded system CA certificates\nLoading resource: res://main.tscn\nLoading resource: res://main.gd\nGRXRBCluster: scene ready backend=2\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nRXGD_RD_NATIVE_CLUSTER_STORE active: backend=rd_native, in-frame cluster store replacement engaged (native Godot cluster_store dispatch skipped).\nGRXRBCluster: captured idx=0 frame=24 width=256 height=144\nGRXRBCluster: captured idx=1 frame=25 width=256 height=144\nGRXRBCluster: captured idx=2 frame=26 width=256 height=144\nXR: Clearing primary interface\nXR: Removed interface \"Native mobile\"\nXR: Removed interface \"OpenXR\"\nFreeing Default Tex_Blit Shader\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_MOTION' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_ALPHA' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_SECONDARY' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'CANVAS_INSTANCE_DATA' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nAccessibility: window 0 adapter destroyed.\n\nERROR: Could not load global script cache.\n   at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)\nWARNING: 1 RID of type \"Compute\" was leaked.\n   at: RenderingDevice::_free_rids (servers\\rendering\\rendering_device.cpp:7953)\nWARNING: 1 RID of type \"Shader\" was leaked.\n   at: RenderingDevice::_free_rids (servers\\rendering\\rendering_device.cpp:7953)",
-  "stdout_fail_closed": " cache for shader TonemapShaderRD, variant 2\nLoading cache for shader TonemapShaderRD, variant 3\nShader 'VrsShaderRD' (group 0) SHA256: 4e9bd0b5b8a47d9df4d29956fa133eae961c652ab87af42dddce608ccae989b3\nLoading cache for shader VrsShaderRD, variant 0\nLoading cache for shader VrsShaderRD, variant 2\nLoading cache for shader VrsShaderRD, variant 3\nShader 'FsrUpscaleShaderRD' (group 0) SHA256: 0db94a70e8aee22f645504eae6b1fb884169427e3c09ba0238451506027de58c\nLoading cache for shader FsrUpscaleShaderRD, variant 0\nLoading cache for shader FsrUpscaleShaderRD, variant 1\nShader 'ResolveShaderRD' (group 0) SHA256: 874cff95560fd55f66861b3efa1f5198c5e1c72412bd86f7364fad3b2e86dae9\nLoading cache for shader ResolveShaderRD, variant 0\nLoading cache for shader ResolveShaderRD, variant 1\nLoading cache for shader ResolveShaderRD, variant 2\nShader 'BlitShaderRD' (group 0) SHA256: 05a2c19ede019af3e1a17018df51dcc334ff646b63f38834f57ca1db110c5fd7\nWASAPI: Activated output_device using IAudioClient3 interface\nWASAPI: wFormatTag = 65534\nWASAPI: nChannels = 2\nWASAPI: nSamplesPerSec = 48000\nWASAPI: nAvgBytesPerSec = 384000\nWASAPI: nBlockAlign = 8\nWASAPI: wBitsPerSample = 32\nWASAPI: cbSize = 22\nWASAPI: mix_rate = 48000\nWASAPI: fundamental_period_frames = 480\nWASAPI: min_period_frames = 480\nWASAPI: max_period_frames = 480\nWASAPI: selected a period frame size of 480\nWASAPI: detected 2 channels\nWASAPI: audio buffer frames: 480 calculated latency: 10ms\n\nLoading cache for shader BlitShaderRD, variant 0\nLoading cache for shader BlitShaderRD, variant 1\nLoading cache for shader BlitShaderRD, variant 2\nLoading cache for shader BlitShaderRD, variant 3\nTextServer: Primary interface set to: \"ICU / HarfBuzz / Graphite (Built-in)\".\nCORE API HASH: 415917037\nEDITOR API HASH: 1463541022\nSceneTreeFTI: traversal method DEFAULT\nMbedTLS: Some X509 certificates could not be parsed (1 certificates skipped).\nLoaded system CA certificates\nLoading resource: res://main.tscn\nLoading resource: res://main.gd\nGRXRBCluster: scene ready backend=2\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nRurixAccel: rd_native cluster_store shader_create_from_bytecode failed; native cluster store path remains active.\nGRXRBCluster: captured idx=0 frame=24 width=256 height=144\nGRXRBCluster: captured idx=1 frame=25 width=256 height=144\nGRXRBCluster: captured idx=2 frame=26 width=256 height=144\nXR: Clearing primary interface\nXR: Removed interface \"Native mobile\"\nXR: Removed interface \"OpenXR\"\nFreeing Default Tex_Blit Shader\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_MOTION' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_ALPHA' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_SECONDARY' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'CANVAS_INSTANCE_DATA' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nAccessibility: window 0 adapter destroyed.\n\nERROR: Could not load global script cache.\n   at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)\nERROR: Incorrect magic number in shader container.\n   at: RenderingShaderContainer::from_bytes (servers\\rendering\\rendering_shader_container.cpp:762)\nERROR: Failed to parse shader container from binary.\n   at: RenderingDevice::shader_create_from_bytecode_with_samplers (servers\\rendering\\rendering_device.cpp:3788)",
+  "stdout_reference": "c175cd239c454f56f2cbb1d7fd9cc7d0389b60bd561ecf41a39a90\nShader cache miss for SmaaWeightCalculationShaderRD/793fa9901cc175cd239c454f56f2cbb1d7fd9cc7d0389b60bd561ecf41a39a90/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nShader 'SmaaBlendingShaderRD' (group 0) SHA256: a9a31f3d380e1558d8a95544827032e67aee9e4aa22b9153af75629b7e18bd0d\nShader cache miss for SmaaBlendingShaderRD/a9a31f3d380e1558d8a95544827032e67aee9e4aa22b9153af75629b7e18bd0d/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nShader 'TonemapShaderRD' (group 0) SHA256: dea5e256c78bc1973023851d16a8f93b9640609394d083696c62df49765e424d\nShader cache miss for TonemapShaderRD/dea5e256c78bc1973023851d16a8f93b9640609394d083696c62df49765e424d/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nShader 'VrsShaderRD' (group 0) SHA256: 4e9bd0b5b8a47d9df4d29956fa133eae961c652ab87af42dddce608ccae989b3\nShader cache miss for VrsShaderRD/4e9bd0b5b8a47d9df4d29956fa133eae961c652ab87af42dddce608ccae989b3/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nShader 'FsrUpscaleShaderRD' (group 0) SHA256: 0db94a70e8aee22f645504eae6b1fb884169427e3c09ba0238451506027de58c\nShader cache miss for FsrUpscaleShaderRD/0db94a70e8aee22f645504eae6b1fb884169427e3c09ba0238451506027de58c/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nShader 'ResolveShaderRD' (group 0) SHA256: 874cff95560fd55f66861b3efa1f5198c5e1c72412bd86f7364fad3b2e86dae9\nShader cache miss for ResolveShaderRD/874cff95560fd55f66861b3efa1f5198c5e1c72412bd86f7364fad3b2e86dae9/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nShader 'BlitShaderRD' (group 0) SHA256: 05a2c19ede019af3e1a17018df51dcc334ff646b63f38834f57ca1db110c5fd7\nWASAPI: Activated output_device using IAudioClient3 interface\nWASAPI: wFormatTag = 65534\nWASAPI: nChannels = 2\nWASAPI: nSamplesPerSec = 48000\nWASAPI: nAvgBytesPerSec = 384000\nWASAPI: nBlockAlign = 8\nWASAPI: wBitsPerSample = 32\nWASAPI: cbSize = 22\nWASAPI: mix_rate = 48000\nWASAPI: fundamental_period_frames = 480\nWASAPI: min_period_frames = 480\nWASAPI: max_period_frames = 480\nWASAPI: selected a period frame size of 480\nWASAPI: detected 2 channels\nWASAPI: audio buffer frames: 480 calculated latency: 10ms\n\nShader cache miss for BlitShaderRD/05a2c19ede019af3e1a17018df51dcc334ff646b63f38834f57ca1db110c5fd7/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nTextServer: Primary interface set to: \"ICU / HarfBuzz / Graphite (Built-in)\".\nCORE API HASH: 415917037\nEDITOR API HASH: 1463541022\nSceneTreeFTI: traversal method DEFAULT\nMbedTLS: Some X509 certificates could not be parsed (1 certificates skipped).\nLoaded system CA certificates\nLoading resource: res://main.tscn\nLoading resource: res://main.gd\nGRXRBFused: scene ready backend=0 auto_exposure=true\nGRXRBFused: captured idx=0 frame=40 width=256 height=144\nGRXRBFused: captured idx=1 frame=41 width=256 height=144\nGRXRBFused: captured idx=2 frame=42 width=256 height=144\nXR: Clearing primary interface\nXR: Removed interface \"Native mobile\"\nXR: Removed interface \"OpenXR\"\nFreeing Default Tex_Blit Shader\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_MOTION' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_ALPHA' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_SECONDARY' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'CANVAS_INSTANCE_DATA' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nAccessibility: window 0 adapter destroyed.\n\nERROR: Could not load global script cache.\n   at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)",
+  "stdout_candidate": "e for shader TonemapShaderRD, variant 1\nLoading cache for shader TonemapShaderRD, variant 2\nLoading cache for shader TonemapShaderRD, variant 3\nShader 'VrsShaderRD' (group 0) SHA256: 4e9bd0b5b8a47d9df4d29956fa133eae961c652ab87af42dddce608ccae989b3\nLoading cache for shader VrsShaderRD, variant 0\nLoading cache for shader VrsShaderRD, variant 2\nLoading cache for shader VrsShaderRD, variant 3\nShader 'FsrUpscaleShaderRD' (group 0) SHA256: 0db94a70e8aee22f645504eae6b1fb884169427e3c09ba0238451506027de58c\nLoading cache for shader FsrUpscaleShaderRD, variant 0\nLoading cache for shader FsrUpscaleShaderRD, variant 1\nShader 'ResolveShaderRD' (group 0) SHA256: 874cff95560fd55f66861b3efa1f5198c5e1c72412bd86f7364fad3b2e86dae9\nLoading cache for shader ResolveShaderRD, variant 0\nLoading cache for shader ResolveShaderRD, variant 1\nLoading cache for shader ResolveShaderRD, variant 2\nShader 'BlitShaderRD' (group 0) SHA256: 05a2c19ede019af3e1a17018df51dcc334ff646b63f38834f57ca1db110c5fd7\nWASAPI: Activated output_device using IAudioClient3 interface\nWASAPI: wFormatTag = 65534\nWASAPI: nChannels = 2\nWASAPI: nSamplesPerSec = 48000\nWASAPI: nAvgBytesPerSec = 384000\nWASAPI: nBlockAlign = 8\nWASAPI: wBitsPerSample = 32\nWASAPI: cbSize = 22\nWASAPI: mix_rate = 48000\nWASAPI: fundamental_period_frames = 480\nWASAPI: min_period_frames = 480\nWASAPI: max_period_frames = 480\nWASAPI: selected a period frame size of 480\nWASAPI: detected 2 channels\nWASAPI: audio buffer frames: 480 calculated latency: 10ms\n\nLoading cache for shader BlitShaderRD, variant 0\nLoading cache for shader BlitShaderRD, variant 1\nLoading cache for shader BlitShaderRD, variant 2\nLoading cache for shader BlitShaderRD, variant 3\nTextServer: Primary interface set to: \"ICU / HarfBuzz / Graphite (Built-in)\".\nCORE API HASH: 415917037\nEDITOR API HASH: 1463541022\nSceneTreeFTI: traversal method DEFAULT\nMbedTLS: Some X509 certificates could not be parsed (1 certificates skipped).\nLoaded system CA certificates\nLoading resource: res://main.tscn\nLoading resource: res://main.gd\nGRXRBFused: scene ready backend=2 auto_exposure=true\nRXGD_RD_NATIVE_FUSED_POST_CHAIN active: backend=rd_native, in-frame fused luminance-final + tonemap replacement engaged (native Godot luminance-final + tonemap end skipped).\nGRXRBFused: captured idx=0 frame=40 width=256 height=144\nGRXRBFused: captured idx=1 frame=41 width=256 height=144\nGRXRBFused: captured idx=2 frame=42 width=256 height=144\nXR: Clearing primary interface\nXR: Removed interface \"Native mobile\"\nXR: Removed interface \"OpenXR\"\nFreeing Default Tex_Blit Shader\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_MOTION' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_ALPHA' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_SECONDARY' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'CANVAS_INSTANCE_DATA' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nAccessibility: window 0 adapter destroyed.\n\nERROR: Could not load global script cache.\n   at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)\nWARNING: 1 RID of type \"Compute\" was leaked.\n   at: RenderingDevice::_free_rids (servers\\rendering\\rendering_device.cpp:7953)\nWARNING: 1 RID of type \"Shader\" was leaked.\n   at: RenderingDevice::_free_rids (servers\\rendering\\rendering_device.cpp:7953)\nWARNING: 1 RID of type \"Texture\" was leaked.\n   at: RenderingDevice::finalize (servers\\rendering\\rendering_device.cpp:8167)",
+  "stdout_fail_closed": "6c78bc1973023851d16a8f93b9640609394d083696c62df49765e424d\nLoading cache for shader TonemapShaderRD, variant 0\nLoading cache for shader TonemapShaderRD, variant 1\nLoading cache for shader TonemapShaderRD, variant 2\nLoading cache for shader TonemapShaderRD, variant 3\nShader 'VrsShaderRD' (group 0) SHA256: 4e9bd0b5b8a47d9df4d29956fa133eae961c652ab87af42dddce608ccae989b3\nLoading cache for shader VrsShaderRD, variant 0\nLoading cache for shader VrsShaderRD, variant 2\nLoading cache for shader VrsShaderRD, variant 3\nShader 'FsrUpscaleShaderRD' (group 0) SHA256: 0db94a70e8aee22f645504eae6b1fb884169427e3c09ba0238451506027de58c\nLoading cache for shader FsrUpscaleShaderRD, variant 0\nLoading cache for shader FsrUpscaleShaderRD, variant 1\nShader 'ResolveShaderRD' (group 0) SHA256: 874cff95560fd55f66861b3efa1f5198c5e1c72412bd86f7364fad3b2e86dae9\nLoading cache for shader ResolveShaderRD, variant 0\nLoading cache for shader ResolveShaderRD, variant 1\nLoading cache for shader ResolveShaderRD, variant 2\nShader 'BlitShaderRD' (group 0) SHA256: 05a2c19ede019af3e1a17018df51dcc334ff646b63f38834f57ca1db110c5fd7\nWASAPI: Activated output_device using IAudioClient3 interface\nWASAPI: wFormatTag = 65534\nWASAPI: nChannels = 2\nWASAPI: nSamplesPerSec = 48000\nWASAPI: nAvgBytesPerSec = 384000\nWASAPI: nBlockAlign = 8\nWASAPI: wBitsPerSample = 32\nWASAPI: cbSize = 22\nWASAPI: mix_rate = 48000\nWASAPI: fundamental_period_frames = 480\nWASAPI: min_period_frames = 480\nWASAPI: max_period_frames = 480\nWASAPI: selected a period frame size of 480\nWASAPI: detected 2 channels\nWASAPI: audio buffer frames: 480 calculated latency: 10ms\n\nLoading cache for shader BlitShaderRD, variant 0\nLoading cache for shader BlitShaderRD, variant 1\nLoading cache for shader BlitShaderRD, variant 2\nLoading cache for shader BlitShaderRD, variant 3\nTextServer: Primary interface set to: \"ICU / HarfBuzz / Graphite (Built-in)\".\nCORE API HASH: 415917037\nEDITOR API HASH: 1463541022\nSceneTreeFTI: traversal method DEFAULT\nMbedTLS: Some X509 certificates could not be parsed (1 certificates skipped).\nLoaded system CA certificates\nLoading resource: res://main.tscn\nLoading resource: res://main.gd\nGRXRBFused: scene ready backend=2 auto_exposure=true\nRurixAccel: rd_native fused_post_chain shader_create_from_bytecode failed; tonemap/native chain remains active.\nGRXRBFused: captured idx=0 frame=40 width=256 height=144\nGRXRBFused: captured idx=1 frame=41 width=256 height=144\nGRXRBFused: captured idx=2 frame=42 width=256 height=144\nXR: Clearing primary interface\nXR: Removed interface \"Native mobile\"\nXR: Removed interface \"OpenXR\"\nFreeing Default Tex_Blit Shader\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_MOTION' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_ALPHA' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_SECONDARY' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'CANVAS_INSTANCE_DATA' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nAccessibility: window 0 adapter destroyed.\n\nERROR: Could not load global script cache.\n   at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)\nERROR: Incorrect magic number in shader container.\n   at: RenderingShaderContainer::from_bytes (servers\\rendering\\rendering_shader_container.cpp:762)\nERROR: Failed to parse shader container from binary.\n   at: RenderingDevice::shader_create_from_bytecode_with_samplers (servers\\rendering\\rendering_device.cpp:3788)",
+  "stdout_reference_noae": "aderRD, variant 0\nShader 'SmaaWeightCalculationShaderRD' (group 0) SHA256: 793fa9901cc175cd239c454f56f2cbb1d7fd9cc7d0389b60bd561ecf41a39a90\nLoading cache for shader SmaaWeightCalculationShaderRD, variant 0\nShader 'SmaaBlendingShaderRD' (group 0) SHA256: a9a31f3d380e1558d8a95544827032e67aee9e4aa22b9153af75629b7e18bd0d\nLoading cache for shader SmaaBlendingShaderRD, variant 0\nShader 'TonemapShaderRD' (group 0) SHA256: dea5e256c78bc1973023851d16a8f93b9640609394d083696c62df49765e424d\nLoading cache for shader TonemapShaderRD, variant 0\nLoading cache for shader TonemapShaderRD, variant 1\nLoading cache for shader TonemapShaderRD, variant 2\nLoading cache for shader TonemapShaderRD, variant 3\nShader 'VrsShaderRD' (group 0) SHA256: 4e9bd0b5b8a47d9df4d29956fa133eae961c652ab87af42dddce608ccae989b3\nLoading cache for shader VrsShaderRD, variant 0\nLoading cache for shader VrsShaderRD, variant 2\nLoading cache for shader VrsShaderRD, variant 3\nShader 'FsrUpscaleShaderRD' (group 0) SHA256: 0db94a70e8aee22f645504eae6b1fb884169427e3c09ba0238451506027de58c\nLoading cache for shader FsrUpscaleShaderRD, variant 0\nLoading cache for shader FsrUpscaleShaderRD, variant 1\nShader 'ResolveShaderRD' (group 0) SHA256: 874cff95560fd55f66861b3efa1f5198c5e1c72412bd86f7364fad3b2e86dae9\nLoading cache for shader ResolveShaderRD, variant 0\nLoading cache for shader ResolveShaderRD, variant 1\nLoading cache for shader ResolveShaderRD, variant 2\nShader 'BlitShaderRD' (group 0) SHA256: 05a2c19ede019af3e1a17018df51dcc334ff646b63f38834f57ca1db110c5fd7\nWASAPI: Activated output_device using IAudioClient3 interface\nWASAPI: wFormatTag = 65534\nWASAPI: nChannels = 2\nWASAPI: nSamplesPerSec = 48000\nWASAPI: nAvgBytesPerSec = 384000\nWASAPI: nBlockAlign = 8\nWASAPI: wBitsPerSample = 32\nWASAPI: cbSize = 22\nWASAPI: mix_rate = 48000\nWASAPI: fundamental_period_frames = 480\nWASAPI: min_period_frames = 480\nWASAPI: max_period_frames = 480\nWASAPI: selected a period frame size of 480\nWASAPI: detected 2 channels\nWASAPI: audio buffer frames: 480 calculated latency: 10ms\n\nLoading cache for shader BlitShaderRD, variant 0\nLoading cache for shader BlitShaderRD, variant 1\nLoading cache for shader BlitShaderRD, variant 2\nLoading cache for shader BlitShaderRD, variant 3\nTextServer: Primary interface set to: \"ICU / HarfBuzz / Graphite (Built-in)\".\nCORE API HASH: 415917037\nEDITOR API HASH: 1463541022\nSceneTreeFTI: traversal method DEFAULT\nMbedTLS: Some X509 certificates could not be parsed (1 certificates skipped).\nLoaded system CA certificates\nLoading resource: res://main.tscn\nLoading resource: res://main.gd\nGRXRBFused: scene ready backend=0 auto_exposure=false\nGRXRBFused: captured idx=0 frame=40 width=256 height=144\nGRXRBFused: captured idx=1 frame=41 width=256 height=144\nGRXRBFused: captured idx=2 frame=42 width=256 height=144\nXR: Clearing primary interface\nXR: Removed interface \"Native mobile\"\nXR: Removed interface \"OpenXR\"\nFreeing Default Tex_Blit Shader\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_MOTION' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_ALPHA' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_SECONDARY' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'CANVAS_INSTANCE_DATA' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nAccessibility: window 0 adapter destroyed.\n\nERROR: Could not load global script cache.\n   at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)",
+  "stdout_cascade": " 0\nShader 'TonemapShaderRD' (group 0) SHA256: dea5e256c78bc1973023851d16a8f93b9640609394d083696c62df49765e424d\nLoading cache for shader TonemapShaderRD, variant 0\nLoading cache for shader TonemapShaderRD, variant 1\nLoading cache for shader TonemapShaderRD, variant 2\nLoading cache for shader TonemapShaderRD, variant 3\nShader 'VrsShaderRD' (group 0) SHA256: 4e9bd0b5b8a47d9df4d29956fa133eae961c652ab87af42dddce608ccae989b3\nLoading cache for shader VrsShaderRD, variant 0\nLoading cache for shader VrsShaderRD, variant 2\nLoading cache for shader VrsShaderRD, variant 3\nShader 'FsrUpscaleShaderRD' (group 0) SHA256: 0db94a70e8aee22f645504eae6b1fb884169427e3c09ba0238451506027de58c\nLoading cache for shader FsrUpscaleShaderRD, variant 0\nLoading cache for shader FsrUpscaleShaderRD, variant 1\nShader 'ResolveShaderRD' (group 0) SHA256: 874cff95560fd55f66861b3efa1f5198c5e1c72412bd86f7364fad3b2e86dae9\nLoading cache for shader ResolveShaderRD, variant 0\nLoading cache for shader ResolveShaderRD, variant 1\nLoading cache for shader ResolveShaderRD, variant 2\nShader 'BlitShaderRD' (group 0) SHA256: 05a2c19ede019af3e1a17018df51dcc334ff646b63f38834f57ca1db110c5fd7\nWASAPI: Activated output_device using IAudioClient3 interface\nWASAPI: wFormatTag = 65534\nWASAPI: nChannels = 2\nWASAPI: nSamplesPerSec = 48000\nWASAPI: nAvgBytesPerSec = 384000\nWASAPI: nBlockAlign = 8\nWASAPI: wBitsPerSample = 32\nWASAPI: cbSize = 22\nWASAPI: mix_rate = 48000\nWASAPI: fundamental_period_frames = 480\nWASAPI: min_period_frames = 480\nWASAPI: max_period_frames = 480\nWASAPI: selected a period frame size of 480\nWASAPI: detected 2 channels\nWASAPI: audio buffer frames: 480 calculated latency: 10ms\n\nLoading cache for shader BlitShaderRD, variant 0\nLoading cache for shader BlitShaderRD, variant 1\nLoading cache for shader BlitShaderRD, variant 2\nLoading cache for shader BlitShaderRD, variant 3\nTextServer: Primary interface set to: \"ICU / HarfBuzz / Graphite (Built-in)\".\nCORE API HASH: 415917037\nEDITOR API HASH: 1463541022\nSceneTreeFTI: traversal method DEFAULT\nMbedTLS: Some X509 certificates could not be parsed (1 certificates skipped).\nLoaded system CA certificates\nLoading resource: res://main.tscn\nLoading resource: res://main.gd\nGRXRBFused: scene ready backend=2 auto_exposure=false\nRXGD_RD_NATIVE_TONEMAP active: backend=rd_native, in-frame compute replacement engaged (native Godot tonemapper skipped).\nGRXRBFused: captured idx=0 frame=40 width=256 height=144\nGRXRBFused: captured idx=1 frame=41 width=256 height=144\nGRXRBFused: captured idx=2 frame=42 width=256 height=144\nXR: Clearing primary interface\nXR: Removed interface \"Native mobile\"\nXR: Removed interface \"OpenXR\"\nFreeing Default Tex_Blit Shader\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_MOTION' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_ALPHA' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_SECONDARY' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'CANVAS_INSTANCE_DATA' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nAccessibility: window 0 adapter destroyed.\n\nERROR: Could not load global script cache.\n   at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)\nWARNING: 1 RID of type \"Compute\" was leaked.\n   at: RenderingDevice::_free_rids (servers\\rendering\\rendering_device.cpp:7953)\nWARNING: 1 RID of type \"Shader\" was leaked.\n   at: RenderingDevice::_free_rids (servers\\rendering\\rendering_device.cpp:7953)",
   "runtime_log_audit": {
     "reference": {
       "unexpected_rxgd_diag_count": 0,
@@ -997,12 +1070,40 @@
         "ERROR: Incorrect magic number in shader container.",
         "ERROR: Failed to parse shader container from binary."
       ]
+    },
+    "reference_noae": {
+      "unexpected_rxgd_diag_count": 0,
+      "rxgd_diag_allowed_by_tracked_patch_queue": true,
+      "unexpected_godot_error_count": 0,
+      "allowed_godot_errors": [
+        {
+          "message": "Could not load global script cache",
+          "observed_count": 1,
+          "rationale": "Tolerated Godot global script cache shutdown/cache warning in the generated minimal smoke project; it does not indicate runtime bridge recording failure when the process exits 0 and recording checks pass."
+        }
+      ],
+      "unexpected_lines_tail": []
+    },
+    "cascade": {
+      "unexpected_rxgd_diag_count": 0,
+      "rxgd_diag_allowed_by_tracked_patch_queue": true,
+      "unexpected_godot_error_count": 0,
+      "allowed_godot_errors": [
+        {
+          "message": "Could not load global script cache",
+          "observed_count": 1,
+          "rationale": "Tolerated Godot global script cache shutdown/cache warning in the generated minimal smoke project; it does not indicate runtime bridge recording failure when the process exits 0 and recording checks pass."
+        }
+      ],
+      "unexpected_lines_tail": []
     }
   },
   "frame_stability": {
     "reference": true,
     "candidate": true,
-    "fail_closed": true
+    "fail_closed": true,
+    "reference_noae": true,
+    "cascade": true
   },
   "visual": {
     "measured_local": true,
@@ -1010,32 +1111,50 @@
     "width": 256,
     "height": 144,
     "format": "R8G8B8_raw",
-    "capture_frame_index": 24,
+    "capture_frame_index": 40,
     "stability_frame_count": 3,
     "max_abs_diff_threshold": 4,
     "mean_abs_diff_threshold": 1.0,
     "reference_frame": {
-      "path": "target/grx_rb_cluster_store_rd_native_enablement_smoke/capture_reference.f0.rgb8",
-      "sha256": "d509f425dc0713eddae25b1a4c0311d7869ba07925c131b4dfc1784bb70b920d",
+      "path": "target/grx_rb_fused_post_chain_rd_native_enablement_smoke/capture_reference.f0.rgb8",
+      "sha256": "8683dc44b74b9067cb578105db07f081625a63e32b017ff3955a829c733943da",
       "size_bytes": 110592
     },
     "candidate_frame": {
-      "path": "target/grx_rb_cluster_store_rd_native_enablement_smoke/capture_candidate.f0.rgb8",
-      "sha256": "d509f425dc0713eddae25b1a4c0311d7869ba07925c131b4dfc1784bb70b920d",
+      "path": "target/grx_rb_fused_post_chain_rd_native_enablement_smoke/capture_candidate.f0.rgb8",
+      "sha256": "8683dc44b74b9067cb578105db07f081625a63e32b017ff3955a829c733943da",
       "size_bytes": 110592
     },
     "fail_closed_frame": {
-      "path": "target/grx_rb_cluster_store_rd_native_enablement_smoke/capture_fail_closed.f0.rgb8",
-      "sha256": "d509f425dc0713eddae25b1a4c0311d7869ba07925c131b4dfc1784bb70b920d",
+      "path": "target/grx_rb_fused_post_chain_rd_native_enablement_smoke/capture_fail_closed.f0.rgb8",
+      "sha256": "8683dc44b74b9067cb578105db07f081625a63e32b017ff3955a829c733943da",
+      "size_bytes": 110592
+    },
+    "reference_noae_frame": {
+      "path": "target/grx_rb_fused_post_chain_rd_native_enablement_smoke/capture_reference_noae.f0.rgb8",
+      "sha256": "a3519c3c0f0685932c2d4d197eae1d33e33210f972884993f52fd2de0f362783",
+      "size_bytes": 110592
+    },
+    "cascade_frame": {
+      "path": "target/grx_rb_fused_post_chain_rd_native_enablement_smoke/capture_cascade.f0.rgb8",
+      "sha256": "a3519c3c0f0685932c2d4d197eae1d33e33210f972884993f52fd2de0f362783",
       "size_bytes": 110592
     },
     "diffs": {
       "candidate": {
+        "baseline": "reference",
         "max_abs_diff": 0,
         "mean_abs_diff": 0.0,
         "within_threshold": true
       },
       "fail_closed": {
+        "baseline": "reference",
+        "max_abs_diff": 0,
+        "mean_abs_diff": 0.0,
+        "within_threshold": true
+      },
+      "cascade": {
+        "baseline": "reference_noae",
         "max_abs_diff": 0,
         "mean_abs_diff": 0.0,
         "within_threshold": true
@@ -1044,20 +1163,35 @@
   },
   "checks": {
     "container_matches_s2_probe": false,
-    "reference_run_exit_zero": true,
-    "candidate_run_exit_zero": true,
-    "fail_closed_run_exit_zero": true,
+    "all_runs_exit_zero": true,
     "session_ready_all_runs": true,
-    "active_marker_absent_reference": true,
-    "active_marker_present_candidate": true,
-    "active_marker_absent_fail_closed": true,
+    "fused_active_marker_present_candidate": true,
+    "fused_active_marker_absent_other_legs": true,
+    "tonemap_active_marker_present_cascade": true,
+    "tonemap_active_marker_absent_other_legs": true,
     "frames_stable_all_legs": true,
-    "fail_closed_matches_reference": true,
-    "runtime_log_audit_clean": true,
-    "candidate_diff_within_threshold": true
+    "candidate_parity_within_threshold": true,
+    "fail_closed_matches_reference_byte_identical": true,
+    "fail_closed_container_reject_observed": true,
+    "cascade_diff_within_threshold": true,
+    "runtime_log_audit_clean": true
   },
-  "real_replacement": true,
-  "native_tonemapper_skipped": true,
+  "real_in_frame_fused_tonemap_leg_replacement": true,
+  "candidate_engaged_fused_rd_native": true,
   "candidate_ldr_max_abs_diff": 0,
-  "candidate_ldr_mean_abs_diff": 0.0
+  "candidate_ldr_mean_abs_diff": 0.0,
+  "cascade_confirmed": true,
+  "cascade_ldr_max_abs_diff": 0,
+  "cascade_ldr_mean_abs_diff": 0.0,
+  "honest_boundary": {
+    "fused_luminance_write": "shadow_recompute_scratch_never_readback",
+    "native_luminance_reduction_still_runs": true,
+    "net_dispatch_delta": 0,
+    "dispatch_savings": "not_claimed",
+    "structural_fusion": "not_claimed",
+    "real_replacement_scope": "LINEAR + convert_to_srgb tonemap leg (t0 -> u0) only; the luminance leg is a shadow recompute"
+  },
+  "evidence_kind": "historical_measured_success",
+  "latest_evidence_path": "spike/godot-rurix/passes/fused_post_chain/rd_native_enablement_evidence.json",
+  "success_evidence_note": "Historical measured success artifact for the GRX Route B fused_post_chain rd_native in-frame real-replacement gate (Design 1 shadow-recompute). Written ONLY on a strict status=success run (candidate ENGAGED the fused rd_native replacement AND the native luminance-final + tonemap end was skipped AND the LDR parity gate vs the native auto-exposure reference stayed within thresholds AND the fail_closed leg fell back byte-identically AND the cascade measured the fused -> tonemap rd_native fallback AND every audit passed) and never overwritten by a later SKIP/FAIL run. The honest boundary is preserved even here: the fused luminance-final write is a shadow recompute (self-owned scratch, never read back), the native luminance_reduction still runs in full, net dispatch delta is 0 and no dispatch saving is claimed. Even this success keeps default_enable_state=disabled and performance_claim=none."
 }
