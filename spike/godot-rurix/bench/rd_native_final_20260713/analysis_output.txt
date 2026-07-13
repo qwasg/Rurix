@@ -1,0 +1,147 @@
+============================================================================================
+1. BASELINE v2.3 (rb4 exe, backend=0, 3 full runs; per-scene MEDIAN)
+============================================================================================
+scene                    med_fps   med_p95   fps_runs
+clustered_lights          239.33    4.1830   [239.33, 245.39, 233.52]
+many_mesh_instances       220.63    4.6044   [221.86, 220.63, 217.15]
+material_variants         249.49    4.2200   [254.86, 249.49, 240.44]
+post_fx_chain             178.10    5.9678   [178.1, 178.49, 177.33]
+volumetric_fog            215.16    4.7619   [215.16, 214.8, 215.36]
+particles                 175.45    6.0606   [176.08, 175.45, 174.28]
+mixed_forward_plus        222.63    4.7619   [222.63, 221.32, 222.84]
+
+per-run geomean(avg_fps): 20260713T100623Z_full=213.66, 20260713T100751Z_full=213.33, 20260713T101545Z_full=210.12
+geomean spread: 210.12..213.66 (1.69%)
+median-geomean run pick: 20260713T100751Z_full (geomean 213.33)
+baseline median-of-3 geomean: 212.74
+
+============================================================================================
+3. rd_native ENGAGEMENT (one-shot active marker) per scene x pass
+   [5 passes: all5 leg; fused_post_chain: all5_fused leg]
+============================================================================================
+scene                         tonemap      ssao_blur    taa_resolve  particles_cop  cluster_store  fused_post_ch
+clustered_lights                 True          False          False          False           True          False
+many_mesh_instances              True          False           True          False          False          False
+material_variants                True          False          False          False          False          False
+post_fx_chain                   False           True          False          False           True          False
+volumetric_fog                  False          False          False          False           True          False
+particles                        True          False          False           True          False          False
+mixed_forward_plus              False           True           True          False           True          False
+
+============================================================================================
+2a. avg_fps ratio (rurix/baseline_median; >1 faster)
+============================================================================================
+scene                             all5      all5_fused
+clustered_lights              1.0155*         1.0130* 
+many_mesh_instances           0.9868*         0.9916* 
+material_variants             0.9850*         0.9859* 
+post_fx_chain                 0.9982*         0.9927* 
+volumetric_fog                0.9921*         0.9943* 
+particles                     0.9927*         0.9928* 
+mixed_forward_plus            0.9893*         0.9800* 
+geomean(ALL 7)                  0.9942          0.9929
+geomean(ENGAGED*)               0.9942          0.9929
+
+============================================================================================
+2b. p95 frametime ratio (rurix/baseline_median; <1 faster)
+============================================================================================
+scene                             all5      all5_fused
+clustered_lights              1.0435*         1.0439* 
+many_mesh_instances           1.0342*         1.0342* 
+material_variants             0.9874*         0.9874* 
+post_fx_chain                 1.0156*         1.0156* 
+volumetric_fog                1.0454*         1.0412* 
+particles                     1.0000*         1.0000* 
+mixed_forward_plus            1.0000*         1.0000* 
+geomean(ALL 7)                  1.0178          1.0172
+geomean(ENGAGED*)               1.0178          1.0172
+
+============================================================================================
+4. PER-PASS GPU BUDGET (median us): baseline_ts (B) vs all5_ts (R); delta=B-R; * engaged
+============================================================================================
+
+-- clustered_lights --
+   bucket                           baseline       all5     delta  eng
+   Tonemap                             17.41      30.72    -13.31  *
+   Process SSAO                            -          -         -  
+   TAA                                     -          -         -  
+   Particles View-Axis Copy                -          -         -  
+   Pack 3D Cluster Elements           110.59     117.76     -7.17  *
+   Auto exposure                           -          -         -
+   __frame_total__                   3978.24    4005.89    -27.65
+
+-- many_mesh_instances --
+   bucket                           baseline       all5     delta  eng
+   Tonemap                             28.67      45.06    -16.38  *
+   Process SSAO                            -          -         -  
+   TAA                                197.63     311.30   -113.66  *
+   Particles View-Axis Copy                -          -         -  
+   Pack 3D Cluster Elements                -          -         -  
+   Auto exposure                           -          -         -
+   __frame_total__                   1511.42    1610.75    -99.33
+
+-- material_variants --
+   bucket                           baseline       all5     delta  eng
+   Tonemap                             34.82      65.54    -30.72  *
+   Process SSAO                            -          -         -  
+   TAA                                     -          -         -  
+   Particles View-Axis Copy                -          -         -  
+   Pack 3D Cluster Elements                -          -         -  
+   Auto exposure                           -          -         -
+   __frame_total__                    818.18     871.42    -53.25
+
+-- post_fx_chain --
+   bucket                           baseline       all5     delta  eng
+   Tonemap                            106.50     106.50      0.00  
+   Process SSAO                       238.59     238.59      0.00  *
+   TAA                                     -          -         -  
+   Particles View-Axis Copy                -          -         -  
+   Pack 3D Cluster Elements            31.74      31.74      0.00  *
+   Auto exposure                      246.78     246.78      0.00
+   __frame_total__                   5468.16    5467.14      1.02
+
+-- volumetric_fog --
+   bucket                           baseline       all5     delta  eng
+   Tonemap                             17.41      17.41      0.00  
+   Process SSAO                            -          -         -  
+   TAA                                     -          -         -  
+   Particles View-Axis Copy                -          -         -  
+   Pack 3D Cluster Elements            97.28     107.52    -10.24  *
+   Auto exposure                           -          -         -
+   __frame_total__                   4489.22    4492.29     -3.07
+
+-- particles --
+   bucket                           baseline       all5     delta  eng
+   Tonemap                             18.43      32.77    -14.34  *
+   Process SSAO                            -          -         -  
+   TAA                                     -          -         -  
+   Particles View-Axis Copy           456.70     457.73     -1.02  *
+   Pack 3D Cluster Elements                -          -         -  
+   Auto exposure                           -          -         -
+   __frame_total__                   5514.24    5530.62    -16.38
+
+-- mixed_forward_plus --
+   bucket                           baseline       all5     delta  eng
+   Tonemap                            105.47     105.47      0.00  
+   Process SSAO                        64.51      64.51      0.00  *
+   TAA                                132.10     231.42    -99.33  *
+   Particles View-Axis Copy           105.47     105.47      0.00  
+   Pack 3D Cluster Elements            35.84      39.94     -4.10  *
+   Auto exposure                       70.66      70.66      0.00
+   __frame_total__                   4578.30    4537.86     40.45
+
+============================================================================================
+5. AMDAHL CEILING (GPU-bound upper bound): engaged replaceable buckets / frame GPU total
+============================================================================================
+scene                   engaged buckets   frameGPU us  repl frac   ceil x   meas all5
+clustered_lights                 128.00       3978.24     0.0322   1.0332      1.0155
+many_mesh_instances              226.30       1511.42     0.1497   1.1761      0.9868
+material_variants                 34.82        818.18     0.0426   1.0444      0.9850
+post_fx_chain                    270.34       5468.16     0.0494   1.0520      0.9982
+volumetric_fog                    97.28       4489.22     0.0217   1.0221      0.9921
+particles                        475.14       5514.24     0.0862   1.0943      0.9927
+mixed_forward_plus               232.45       4578.30     0.0508   1.0535      0.9893
+
+geomean ceiling (x)    1.0669   vs measured all5 avg_fps geomean 0.9942
+
+(measured_local; no performance claim; * = pass engaged rd_native on that scene. fused engages on no scene -> all5_fused == all5 control.)

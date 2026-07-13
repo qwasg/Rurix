@@ -1,0 +1,1953 @@
+{
+  "runner": "spike/godot-rurix/bench/run_benchmark_scenes.py",
+  "status": "success",
+  "manifest_path": "H:\\rurix\\spike\\godot-rurix\\bench\\bench_manifest.json",
+  "project_summary_path": "H:\\rurix\\target\\grx\\godot_bench_project_summary.json",
+  "project_dir": "H:\\rurix\\target\\grx\\godot-bench-project",
+  "run_id": "20260713T102200Z_full",
+  "run_mode": "full",
+  "scene_count": 7,
+  "scene_names": [
+    "clustered_lights",
+    "many_mesh_instances",
+    "material_variants",
+    "post_fx_chain",
+    "volumetric_fog",
+    "particles",
+    "mixed_forward_plus"
+  ],
+  "warmup_frames": 300,
+  "sample_frames": 2000,
+  "vsync": false,
+  "resolution": [
+    1920,
+    1080
+  ],
+  "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
+  "evidence_level": "measured_local",
+  "leg": "rurix",
+  "profile": "full",
+  "gpu_timestamps": true,
+  "scene_subset": false,
+  "pass_matrix": {
+    "rendering/rurix_accel/enabled": true,
+    "rendering/rurix_accel/dll_path": "H:/rurix/target/debug/rurix_godot.dll",
+    "rendering/rurix_accel/passes/tonemap/backend": 2,
+    "rendering/rurix_accel/passes/tonemap/rd_container_path": "H:/rurix/target/grx/rd_containers/tonemap.rd_container.bin",
+    "rendering/rurix_accel/passes/ssao_blur/backend": 2,
+    "rendering/rurix_accel/passes/ssao_blur/rd_container_path": "H:/rurix/target/grx/rd_containers/ssao_blur.rd_container.bin",
+    "rendering/rurix_accel/passes/taa_resolve/backend": 2,
+    "rendering/rurix_accel/passes/taa_resolve/rd_container_path": "H:/rurix/target/grx/rd_containers/taa_resolve.rd_container.bin",
+    "rendering/rurix_accel/passes/particles_copy/backend": 2,
+    "rendering/rurix_accel/passes/particles_copy/rd_container_path": "H:/rurix/target/grx/rd_containers/particles_copy.rd_container.bin",
+    "rendering/rurix_accel/passes/cluster_store/backend": 2,
+    "rendering/rurix_accel/passes/cluster_store/rd_container_path": "H:/rurix/target/grx/rd_containers/cluster_store.rd_container.bin"
+  },
+  "pass_matrix_path": "H:\\rurix\\spike\\godot-rurix\\bench\\rd_native_final_20260713\\matrices\\rd_native_all5.json",
+  "rd_native_passes": [
+    "cluster_store",
+    "particles_copy",
+    "ssao_blur",
+    "taa_resolve",
+    "tonemap"
+  ],
+  "dll_sha256": "47910fe7fc0b9cf6e133da09a090f132f121a6d5f1d7d48dec8ea7d812051426",
+  "godot_exe": "H:\\rurix\\target\\grx\\godot-scratch-rb4\\bin\\godot.windows.template_debug.x86_64.console.exe",
+  "godot_exe_source": "cli",
+  "godot_exe_note": null,
+  "godot_exe_sha256": "fc41853b5a2c501a2a8bbd13458b8cf972d28a7b4b75c9b5c70a81edf95d6aa7",
+  "patch_stack_id": "0001-0029+0040-0048",
+  "patch_stack_id_note": null,
+  "raw_output_dir": "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\raw",
+  "log_dir": "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\logs",
+  "per_scene_results": [
+    {
+      "scene_name": "clustered_lights",
+      "scene_path": "res://scenes/clustered_lights.tscn",
+      "command": [
+        "H:\\rurix\\target\\grx\\godot-scratch-rb4\\bin\\godot.windows.template_debug.x86_64.console.exe",
+        "--path",
+        "H:\\rurix\\target\\grx\\godot-bench-project",
+        "--rendering-driver",
+        "d3d12",
+        "--rendering-method",
+        "forward_plus",
+        "--verbose",
+        "--gpu-profile",
+        "--scene",
+        "res://scenes/benchmark_runner.tscn",
+        "--",
+        "--scene-name",
+        "clustered_lights",
+        "--scene-path",
+        "res://scenes/clustered_lights.tscn",
+        "--raw-output-path",
+        "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\raw\\clustered_lights.json",
+        "--warmup-frames",
+        "300",
+        "--sample-frames",
+        "2000",
+        "--vsync",
+        "false",
+        "--resolution-width",
+        "1920",
+        "--resolution-height",
+        "1080",
+        "--evidence-level",
+        "measured_local",
+        "--run-mode",
+        "full",
+        "--leg",
+        "rurix",
+        "--pass-matrix-path",
+        "H:\\rurix\\spike\\godot-rurix\\bench\\rd_native_final_20260713\\matrices\\rd_native_all5.json",
+        "--gpu-timestamps",
+        "true"
+      ],
+      "cwd": "H:\\rurix\\target\\grx\\godot-bench-project",
+      "raw_json_path": "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\raw\\clustered_lights.json",
+      "log_path": "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\logs\\clustered_lights.log",
+      "engagement_file_path": "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\engagement\\clustered_lights.json",
+      "leg": "rurix",
+      "exit_code": 0,
+      "status": "success",
+      "error": null,
+      "failure_markers": [],
+      "warnings": [
+        "ERROR: Could not load global script cache.",
+        "at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)"
+      ],
+      "pass_engagement": {
+        "cluster_store": {
+          "rd_native_active": true,
+          "mechanism": "one_shot_active_marker"
+        },
+        "particles_copy": {
+          "rd_native_active": false,
+          "mechanism": "one_shot_active_marker"
+        },
+        "ssao_blur": {
+          "rd_native_active": false,
+          "mechanism": "one_shot_active_marker"
+        },
+        "taa_resolve": {
+          "rd_native_active": false,
+          "mechanism": "one_shot_active_marker"
+        },
+        "tonemap": {
+          "rd_native_active": true,
+          "mechanism": "one_shot_active_marker"
+        }
+      },
+      "pass_engagement_source": "rd_native_active_marker",
+      "gpu_timestamps_available": true,
+      "gpu_timestamps": {
+        "buckets": {
+          "Cull 2D Lights": {
+            "count": 2000,
+            "mean_us": 2.59315199999996,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Cull 3D Scene": {
+            "count": 2000,
+            "mean_us": 2.33471999999992,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Cull CanvasItem Tree": {
+            "count": 2000,
+            "mean_us": 2.55628799999996,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Frame Begin": {
+            "count": 2000,
+            "mean_us": 3.04742400000005,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Pack 3D Cluster Elements": {
+            "count": 2000,
+            "mean_us": 118.286336000004,
+            "median_us": 117.76,
+            "p95_us": 119.808
+          },
+          "Pre Opaque Render": {
+            "count": 2000,
+            "mean_us": 11.223424,
+            "median_us": 11.008,
+            "p95_us": 13.056
+          },
+          "Prepare 3D Scene": {
+            "count": 2000,
+            "mean_us": 2.35263999999992,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Prepare Render Frame": {
+            "count": 2000,
+            "mean_us": 2.789376,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Process Post Opaque Compositor Effects": {
+            "count": 2000,
+            "mean_us": 3.89273599999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Process Post Sky Compositor Effects": {
+            "count": 2000,
+            "mean_us": 2.49190399999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Process Post Transparent Compositor Effects": {
+            "count": 2000,
+            "mean_us": 2.54003199999995,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Process Pre Opaque Compositor Effects": {
+            "count": 2000,
+            "mean_us": 2.79449599999999,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Process Pre Transparent Compositor Effects": {
+            "count": 2000,
+            "mean_us": 2.41305599999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Render 3D Cluster Elements": {
+            "count": 2000,
+            "mean_us": 275.220991999997,
+            "median_us": 275.456,
+            "p95_us": 276.48
+          },
+          "Render 3D Scene": {
+            "count": 2000,
+            "mean_us": 2.44582399999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Render 3D Transparent Pass": {
+            "count": 2000,
+            "mean_us": 2.801152,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Render CanvasItems": {
+            "count": 2000,
+            "mean_us": 2.57254399999996,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Render Depth Pre-Pass": {
+            "count": 2000,
+            "mean_us": 13.0647040000004,
+            "median_us": 13.312,
+            "p95_us": 14.336
+          },
+          "Render OmniLight Shadows": {
+            "count": 2000,
+            "mean_us": 2.47961599999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Render Opaque Pass": {
+            "count": 2000,
+            "mean_us": 3465.344512,
+            "median_us": 3450.88,
+            "p95_us": 3462.144
+          },
+          "Resolve": {
+            "count": 2000,
+            "mean_us": 2.46476799999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Setup 3D Scene": {
+            "count": 2000,
+            "mean_us": 2.68697599999998,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Tonemap": {
+            "count": 2000,
+            "mean_us": 31.539712,
+            "median_us": 30.72,
+            "p95_us": 31.744
+          },
+          "Update Occlusion Buffer": {
+            "count": 2000,
+            "mean_us": 2.31628799999992,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Update Visibility Dependencies": {
+            "count": 2000,
+            "mean_us": 2.37721599999993,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Update Volumetric Fog": {
+            "count": 2000,
+            "mean_us": 2.48729599999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "__frame_total__": {
+            "count": 2000,
+            "mean_us": 4023.27039999999,
+            "median_us": 4005.888,
+            "p95_us": 4021.248
+          }
+        },
+        "discarded_samples": 0,
+        "frame_queue_size": 2,
+        "frames_sampled": 2000,
+        "unit": "microseconds"
+      },
+      "sample_count": 2000,
+      "avg_fps": 237.862302939998,
+      "p95_frame_time_ms": 4.482
+    },
+    {
+      "scene_name": "many_mesh_instances",
+      "scene_path": "res://scenes/many_mesh_instances.tscn",
+      "command": [
+        "H:\\rurix\\target\\grx\\godot-scratch-rb4\\bin\\godot.windows.template_debug.x86_64.console.exe",
+        "--path",
+        "H:\\rurix\\target\\grx\\godot-bench-project",
+        "--rendering-driver",
+        "d3d12",
+        "--rendering-method",
+        "forward_plus",
+        "--verbose",
+        "--gpu-profile",
+        "--scene",
+        "res://scenes/benchmark_runner.tscn",
+        "--",
+        "--scene-name",
+        "many_mesh_instances",
+        "--scene-path",
+        "res://scenes/many_mesh_instances.tscn",
+        "--raw-output-path",
+        "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\raw\\many_mesh_instances.json",
+        "--warmup-frames",
+        "300",
+        "--sample-frames",
+        "2000",
+        "--vsync",
+        "false",
+        "--resolution-width",
+        "1920",
+        "--resolution-height",
+        "1080",
+        "--evidence-level",
+        "measured_local",
+        "--run-mode",
+        "full",
+        "--leg",
+        "rurix",
+        "--pass-matrix-path",
+        "H:\\rurix\\spike\\godot-rurix\\bench\\rd_native_final_20260713\\matrices\\rd_native_all5.json",
+        "--gpu-timestamps",
+        "true"
+      ],
+      "cwd": "H:\\rurix\\target\\grx\\godot-bench-project",
+      "raw_json_path": "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\raw\\many_mesh_instances.json",
+      "log_path": "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\logs\\many_mesh_instances.log",
+      "engagement_file_path": "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\engagement\\many_mesh_instances.json",
+      "leg": "rurix",
+      "exit_code": 0,
+      "status": "success",
+      "error": null,
+      "failure_markers": [],
+      "warnings": [
+        "ERROR: Could not load global script cache.",
+        "at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)"
+      ],
+      "pass_engagement": {
+        "cluster_store": {
+          "rd_native_active": false,
+          "mechanism": "one_shot_active_marker"
+        },
+        "particles_copy": {
+          "rd_native_active": false,
+          "mechanism": "one_shot_active_marker"
+        },
+        "ssao_blur": {
+          "rd_native_active": false,
+          "mechanism": "one_shot_active_marker"
+        },
+        "taa_resolve": {
+          "rd_native_active": true,
+          "mechanism": "one_shot_active_marker"
+        },
+        "tonemap": {
+          "rd_native_active": true,
+          "mechanism": "one_shot_active_marker"
+        }
+      },
+      "pass_engagement_source": "rd_native_active_marker",
+      "gpu_timestamps_available": true,
+      "gpu_timestamps": {
+        "buckets": {
+          "Cull 2D Lights": {
+            "count": 2000,
+            "mean_us": 2.91225600000004,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Cull 3D Scene": {
+            "count": 2000,
+            "mean_us": 2.733568,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Cull CanvasItem Tree": {
+            "count": 2000,
+            "mean_us": 2.92812800000004,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Frame Begin": {
+            "count": 2000,
+            "mean_us": 3.40518399999996,
+            "median_us": 3.072,
+            "p95_us": 4.096
+          },
+          "Pre Opaque Render": {
+            "count": 2000,
+            "mean_us": 3.22662400000001,
+            "median_us": 3.072,
+            "p95_us": 4.096
+          },
+          "Prepare 3D Scene": {
+            "count": 2000,
+            "mean_us": 2.75404800000001,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Prepare Render Frame": {
+            "count": 2000,
+            "mean_us": 2.701312,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Process Post Opaque Compositor Effects": {
+            "count": 2000,
+            "mean_us": 3.02796800000004,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Process Post Sky Compositor Effects": {
+            "count": 2000,
+            "mean_us": 3.05664000000003,
+            "median_us": 3.072,
+            "p95_us": 4.096
+          },
+          "Process Post Transparent Compositor Effects": {
+            "count": 2000,
+            "mean_us": 3.04588800000004,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Process Pre Opaque Compositor Effects": {
+            "count": 2000,
+            "mean_us": 3.18822400000002,
+            "median_us": 3.072,
+            "p95_us": 4.096
+          },
+          "Process Pre Transparent Compositor Effects": {
+            "count": 2000,
+            "mean_us": 2.87027200000003,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Render 3D Scene": {
+            "count": 2000,
+            "mean_us": 2.90355200000004,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Render 3D Transparent Pass": {
+            "count": 2000,
+            "mean_us": 3.41094399999996,
+            "median_us": 3.072,
+            "p95_us": 4.096
+          },
+          "Render CanvasItems": {
+            "count": 2000,
+            "mean_us": 3.25888,
+            "median_us": 3.072,
+            "p95_us": 4.096
+          },
+          "Render Depth Pre-Pass": {
+            "count": 2000,
+            "mean_us": 483.361279999994,
+            "median_us": 492.544,
+            "p95_us": 493.568
+          },
+          "Render OmniLight Shadows": {
+            "count": 2000,
+            "mean_us": 2.86310400000003,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Render Opaque Pass": {
+            "count": 2000,
+            "mean_us": 650.778111999995,
+            "median_us": 660.48,
+            "p95_us": 672.768
+          },
+          "Resolve": {
+            "count": 2000,
+            "mean_us": 2.84518400000003,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Setup 3D Scene": {
+            "count": 2000,
+            "mean_us": 3.26195199999999,
+            "median_us": 3.072,
+            "p95_us": 4.096
+          },
+          "TAA": {
+            "count": 2000,
+            "mean_us": 302.534655999999,
+            "median_us": 311.296,
+            "p95_us": 336.896
+          },
+          "Tonemap": {
+            "count": 2000,
+            "mean_us": 43.1841280000007,
+            "median_us": 45.056,
+            "p95_us": 48.128
+          },
+          "Update Occlusion Buffer": {
+            "count": 2000,
+            "mean_us": 2.69209599999999,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Update Visibility Dependencies": {
+            "count": 2000,
+            "mean_us": 2.87334400000004,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Update Volumetric Fog": {
+            "count": 2000,
+            "mean_us": 2.91430400000004,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "__frame_total__": {
+            "count": 2000,
+            "mean_us": 1575.742848,
+            "median_us": 1610.752,
+            "p95_us": 1651.712
+          }
+        },
+        "discarded_samples": 0,
+        "frame_queue_size": 2,
+        "frames_sampled": 2000,
+        "unit": "microseconds"
+      },
+      "sample_count": 2000,
+      "avg_fps": 215.635075977744,
+      "p95_frame_time_ms": 4.76190476190476
+    },
+    {
+      "scene_name": "material_variants",
+      "scene_path": "res://scenes/material_variants.tscn",
+      "command": [
+        "H:\\rurix\\target\\grx\\godot-scratch-rb4\\bin\\godot.windows.template_debug.x86_64.console.exe",
+        "--path",
+        "H:\\rurix\\target\\grx\\godot-bench-project",
+        "--rendering-driver",
+        "d3d12",
+        "--rendering-method",
+        "forward_plus",
+        "--verbose",
+        "--gpu-profile",
+        "--scene",
+        "res://scenes/benchmark_runner.tscn",
+        "--",
+        "--scene-name",
+        "material_variants",
+        "--scene-path",
+        "res://scenes/material_variants.tscn",
+        "--raw-output-path",
+        "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\raw\\material_variants.json",
+        "--warmup-frames",
+        "300",
+        "--sample-frames",
+        "2000",
+        "--vsync",
+        "false",
+        "--resolution-width",
+        "1920",
+        "--resolution-height",
+        "1080",
+        "--evidence-level",
+        "measured_local",
+        "--run-mode",
+        "full",
+        "--leg",
+        "rurix",
+        "--pass-matrix-path",
+        "H:\\rurix\\spike\\godot-rurix\\bench\\rd_native_final_20260713\\matrices\\rd_native_all5.json",
+        "--gpu-timestamps",
+        "true"
+      ],
+      "cwd": "H:\\rurix\\target\\grx\\godot-bench-project",
+      "raw_json_path": "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\raw\\material_variants.json",
+      "log_path": "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\logs\\material_variants.log",
+      "engagement_file_path": "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\engagement\\material_variants.json",
+      "leg": "rurix",
+      "exit_code": 0,
+      "status": "success",
+      "error": null,
+      "failure_markers": [],
+      "warnings": [
+        "ERROR: Could not load global script cache.",
+        "at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)"
+      ],
+      "pass_engagement": {
+        "cluster_store": {
+          "rd_native_active": false,
+          "mechanism": "one_shot_active_marker"
+        },
+        "particles_copy": {
+          "rd_native_active": false,
+          "mechanism": "one_shot_active_marker"
+        },
+        "ssao_blur": {
+          "rd_native_active": false,
+          "mechanism": "one_shot_active_marker"
+        },
+        "taa_resolve": {
+          "rd_native_active": false,
+          "mechanism": "one_shot_active_marker"
+        },
+        "tonemap": {
+          "rd_native_active": true,
+          "mechanism": "one_shot_active_marker"
+        }
+      },
+      "pass_engagement_source": "rd_native_active_marker",
+      "gpu_timestamps_available": true,
+      "gpu_timestamps": {
+        "buckets": {
+          "Cull 2D Lights": {
+            "count": 2000,
+            "mean_us": 4.3100159999999,
+            "median_us": 4.096,
+            "p95_us": 5.12
+          },
+          "Cull 3D Scene": {
+            "count": 2000,
+            "mean_us": 3.38022399999997,
+            "median_us": 3.072,
+            "p95_us": 4.096
+          },
+          "Cull CanvasItem Tree": {
+            "count": 2000,
+            "mean_us": 4.27161599999991,
+            "median_us": 4.096,
+            "p95_us": 5.12
+          },
+          "Frame Begin": {
+            "count": 2000,
+            "mean_us": 4.04275199999988,
+            "median_us": 4.096,
+            "p95_us": 5.12
+          },
+          "Pre Opaque Render": {
+            "count": 2000,
+            "mean_us": 3.86764799999991,
+            "median_us": 4.096,
+            "p95_us": 5.12
+          },
+          "Prepare 3D Scene": {
+            "count": 2000,
+            "mean_us": 3.31622399999997,
+            "median_us": 3.072,
+            "p95_us": 4.096
+          },
+          "Prepare Render Frame": {
+            "count": 2000,
+            "mean_us": 3.39916799999996,
+            "median_us": 3.072,
+            "p95_us": 4.096
+          },
+          "Process Post Opaque Compositor Effects": {
+            "count": 2000,
+            "mean_us": 4.69913599999993,
+            "median_us": 4.096,
+            "p95_us": 4.096
+          },
+          "Process Post Sky Compositor Effects": {
+            "count": 2000,
+            "mean_us": 3.64236799999993,
+            "median_us": 4.096,
+            "p95_us": 4.096
+          },
+          "Process Post Transparent Compositor Effects": {
+            "count": 2000,
+            "mean_us": 3.65465599999993,
+            "median_us": 4.096,
+            "p95_us": 4.096
+          },
+          "Process Pre Opaque Compositor Effects": {
+            "count": 2000,
+            "mean_us": 4.00742399999989,
+            "median_us": 4.096,
+            "p95_us": 5.12
+          },
+          "Process Pre Transparent Compositor Effects": {
+            "count": 2000,
+            "mean_us": 4.99353599999994,
+            "median_us": 3.072,
+            "p95_us": 4.096
+          },
+          "Render 3D Scene": {
+            "count": 2000,
+            "mean_us": 3.52819199999993,
+            "median_us": 4.096,
+            "p95_us": 4.096
+          },
+          "Render 3D Transparent Pass": {
+            "count": 2000,
+            "mean_us": 5.65759999999991,
+            "median_us": 4.096,
+            "p95_us": 5.12
+          },
+          "Render CanvasItems": {
+            "count": 2000,
+            "mean_us": 4.25727999999988,
+            "median_us": 4.096,
+            "p95_us": 5.12
+          },
+          "Render Depth Pre-Pass": {
+            "count": 2000,
+            "mean_us": 108.748288,
+            "median_us": 108.544,
+            "p95_us": 125.952
+          },
+          "Render OmniLight Shadows": {
+            "count": 2000,
+            "mean_us": 3.46265599999995,
+            "median_us": 3.072,
+            "p95_us": 4.096
+          },
+          "Render Opaque Pass": {
+            "count": 2000,
+            "mean_us": 543.809024,
+            "median_us": 574.464,
+            "p95_us": 733.184
+          },
+          "Resolve": {
+            "count": 2000,
+            "mean_us": 3.58297599999994,
+            "median_us": 4.096,
+            "p95_us": 4.096
+          },
+          "Setup 3D Scene": {
+            "count": 2000,
+            "mean_us": 3.9014399999999,
+            "median_us": 4.096,
+            "p95_us": 5.12
+          },
+          "Tonemap": {
+            "count": 2000,
+            "mean_us": 71.5924480000008,
+            "median_us": 65.536,
+            "p95_us": 100.352
+          },
+          "Update Occlusion Buffer": {
+            "count": 2000,
+            "mean_us": 3.34591999999997,
+            "median_us": 3.072,
+            "p95_us": 4.096
+          },
+          "Update Visibility Dependencies": {
+            "count": 2000,
+            "mean_us": 3.55583999999994,
+            "median_us": 4.096,
+            "p95_us": 4.096
+          },
+          "Update Volumetric Fog": {
+            "count": 2000,
+            "mean_us": 3.55942399999994,
+            "median_us": 4.096,
+            "p95_us": 4.096
+          },
+          "__frame_total__": {
+            "count": 2000,
+            "mean_us": 850.215424,
+            "median_us": 871.424,
+            "p95_us": 1191.936
+          }
+        },
+        "discarded_samples": 0,
+        "frame_queue_size": 2,
+        "frames_sampled": 2000,
+        "unit": "microseconds"
+      },
+      "sample_count": 2000,
+      "avg_fps": 240.497502754091,
+      "p95_frame_time_ms": 4.365
+    },
+    {
+      "scene_name": "post_fx_chain",
+      "scene_path": "res://scenes/post_fx_chain.tscn",
+      "command": [
+        "H:\\rurix\\target\\grx\\godot-scratch-rb4\\bin\\godot.windows.template_debug.x86_64.console.exe",
+        "--path",
+        "H:\\rurix\\target\\grx\\godot-bench-project",
+        "--rendering-driver",
+        "d3d12",
+        "--rendering-method",
+        "forward_plus",
+        "--verbose",
+        "--gpu-profile",
+        "--scene",
+        "res://scenes/benchmark_runner.tscn",
+        "--",
+        "--scene-name",
+        "post_fx_chain",
+        "--scene-path",
+        "res://scenes/post_fx_chain.tscn",
+        "--raw-output-path",
+        "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\raw\\post_fx_chain.json",
+        "--warmup-frames",
+        "300",
+        "--sample-frames",
+        "2000",
+        "--vsync",
+        "false",
+        "--resolution-width",
+        "1920",
+        "--resolution-height",
+        "1080",
+        "--evidence-level",
+        "measured_local",
+        "--run-mode",
+        "full",
+        "--leg",
+        "rurix",
+        "--pass-matrix-path",
+        "H:\\rurix\\spike\\godot-rurix\\bench\\rd_native_final_20260713\\matrices\\rd_native_all5.json",
+        "--gpu-timestamps",
+        "true"
+      ],
+      "cwd": "H:\\rurix\\target\\grx\\godot-bench-project",
+      "raw_json_path": "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\raw\\post_fx_chain.json",
+      "log_path": "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\logs\\post_fx_chain.log",
+      "engagement_file_path": "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\engagement\\post_fx_chain.json",
+      "leg": "rurix",
+      "exit_code": 0,
+      "status": "success",
+      "error": null,
+      "failure_markers": [],
+      "warnings": [
+        "ERROR: Could not load global script cache.",
+        "at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)"
+      ],
+      "pass_engagement": {
+        "cluster_store": {
+          "rd_native_active": true,
+          "mechanism": "one_shot_active_marker"
+        },
+        "particles_copy": {
+          "rd_native_active": false,
+          "mechanism": "one_shot_active_marker"
+        },
+        "ssao_blur": {
+          "rd_native_active": true,
+          "mechanism": "one_shot_active_marker"
+        },
+        "taa_resolve": {
+          "rd_native_active": false,
+          "mechanism": "one_shot_active_marker"
+        },
+        "tonemap": {
+          "rd_native_active": false,
+          "mechanism": "one_shot_active_marker"
+        }
+      },
+      "pass_engagement_source": "rd_native_active_marker",
+      "gpu_timestamps_available": true,
+      "gpu_timestamps": {
+        "buckets": {
+          "Auto exposure": {
+            "count": 2000,
+            "mean_us": 247.211008000001,
+            "median_us": 246.784,
+            "p95_us": 247.808
+          },
+          "Cull 2D Lights": {
+            "count": 2000,
+            "mean_us": 2.54054399999995,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Cull 3D Scene": {
+            "count": 2000,
+            "mean_us": 2.33574399999992,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Cull CanvasItem Tree": {
+            "count": 2000,
+            "mean_us": 2.55692799999996,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Frame Begin": {
+            "count": 2000,
+            "mean_us": 3.08838400000005,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Glow": {
+            "count": 2000,
+            "mean_us": 377.664512000014,
+            "median_us": 376.832,
+            "p95_us": 377.856
+          },
+          "Pack 3D Cluster Elements": {
+            "count": 2000,
+            "mean_us": 31.6287999999995,
+            "median_us": 31.744,
+            "p95_us": 32.768
+          },
+          "Pre Opaque Render": {
+            "count": 2000,
+            "mean_us": 3.83027199999987,
+            "median_us": 4.096,
+            "p95_us": 4.096
+          },
+          "Prepare 3D Scene": {
+            "count": 2000,
+            "mean_us": 2.37926399999993,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Prepare Depth for SSAO/SSIL": {
+            "count": 2000,
+            "mean_us": 18.9890559999998,
+            "median_us": 19.456,
+            "p95_us": 19.456
+          },
+          "Prepare Render Frame": {
+            "count": 2000,
+            "mean_us": 2.808832,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Process Post Opaque Compositor Effects": {
+            "count": 2000,
+            "mean_us": 2.84518400000001,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Process Post Sky Compositor Effects": {
+            "count": 2000,
+            "mean_us": 2.52108799999995,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Process Post Transparent Compositor Effects": {
+            "count": 2000,
+            "mean_us": 2.52723199999995,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Process Pre Opaque Compositor Effects": {
+            "count": 2000,
+            "mean_us": 2.71308799999999,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Process Pre Transparent Compositor Effects": {
+            "count": 2000,
+            "mean_us": 2.48063999999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Process SSAO": {
+            "count": 2000,
+            "mean_us": 238.740992000003,
+            "median_us": 238.592,
+            "p95_us": 239.616
+          },
+          "Render 3D Cluster Elements": {
+            "count": 2000,
+            "mean_us": 150.952447999998,
+            "median_us": 150.528,
+            "p95_us": 151.552
+          },
+          "Render 3D Scene": {
+            "count": 2000,
+            "mean_us": 2.50623999999995,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Render 3D Transparent Pass": {
+            "count": 2000,
+            "mean_us": 2.87744000000002,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Render CanvasItems": {
+            "count": 2000,
+            "mean_us": 2.53849599999995,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Render Depth Pre-Pass": {
+            "count": 2000,
+            "mean_us": 233.169919999999,
+            "median_us": 233.472,
+            "p95_us": 235.52
+          },
+          "Render OmniLight Shadows": {
+            "count": 2000,
+            "mean_us": 2.45657599999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Render Opaque Pass": {
+            "count": 2000,
+            "mean_us": 3873.79456000001,
+            "median_us": 3854.336,
+            "p95_us": 3873.792
+          },
+          "Resolve": {
+            "count": 2000,
+            "mean_us": 2.48422399999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Setup 3D Scene": {
+            "count": 2000,
+            "mean_us": 2.74483199999999,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Tonemap": {
+            "count": 2000,
+            "mean_us": 106.386944000002,
+            "median_us": 106.496,
+            "p95_us": 107.52
+          },
+          "Update Occlusion Buffer": {
+            "count": 2000,
+            "mean_us": 2.33625599999992,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Update Visibility Dependencies": {
+            "count": 2000,
+            "mean_us": 2.44633599999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Update Volumetric Fog": {
+            "count": 2000,
+            "mean_us": 2.51494399999995,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "__frame_total__": {
+            "count": 2000,
+            "mean_us": 5487.71225599999,
+            "median_us": 5467.136,
+            "p95_us": 5511.168
+          }
+        },
+        "discarded_samples": 0,
+        "frame_queue_size": 2,
+        "frames_sampled": 2000,
+        "unit": "microseconds"
+      },
+      "sample_count": 2000,
+      "avg_fps": 175.724180826587,
+      "p95_frame_time_ms": 6.037
+    },
+    {
+      "scene_name": "volumetric_fog",
+      "scene_path": "res://scenes/volumetric_fog.tscn",
+      "command": [
+        "H:\\rurix\\target\\grx\\godot-scratch-rb4\\bin\\godot.windows.template_debug.x86_64.console.exe",
+        "--path",
+        "H:\\rurix\\target\\grx\\godot-bench-project",
+        "--rendering-driver",
+        "d3d12",
+        "--rendering-method",
+        "forward_plus",
+        "--verbose",
+        "--gpu-profile",
+        "--scene",
+        "res://scenes/benchmark_runner.tscn",
+        "--",
+        "--scene-name",
+        "volumetric_fog",
+        "--scene-path",
+        "res://scenes/volumetric_fog.tscn",
+        "--raw-output-path",
+        "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\raw\\volumetric_fog.json",
+        "--warmup-frames",
+        "300",
+        "--sample-frames",
+        "2000",
+        "--vsync",
+        "false",
+        "--resolution-width",
+        "1920",
+        "--resolution-height",
+        "1080",
+        "--evidence-level",
+        "measured_local",
+        "--run-mode",
+        "full",
+        "--leg",
+        "rurix",
+        "--pass-matrix-path",
+        "H:\\rurix\\spike\\godot-rurix\\bench\\rd_native_final_20260713\\matrices\\rd_native_all5.json",
+        "--gpu-timestamps",
+        "true"
+      ],
+      "cwd": "H:\\rurix\\target\\grx\\godot-bench-project",
+      "raw_json_path": "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\raw\\volumetric_fog.json",
+      "log_path": "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\logs\\volumetric_fog.log",
+      "engagement_file_path": "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\engagement\\volumetric_fog.json",
+      "leg": "rurix",
+      "exit_code": 0,
+      "status": "success",
+      "error": null,
+      "failure_markers": [],
+      "warnings": [
+        "ERROR: Could not load global script cache.",
+        "at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)"
+      ],
+      "pass_engagement": {
+        "cluster_store": {
+          "rd_native_active": true,
+          "mechanism": "one_shot_active_marker"
+        },
+        "particles_copy": {
+          "rd_native_active": false,
+          "mechanism": "one_shot_active_marker"
+        },
+        "ssao_blur": {
+          "rd_native_active": false,
+          "mechanism": "one_shot_active_marker"
+        },
+        "taa_resolve": {
+          "rd_native_active": false,
+          "mechanism": "one_shot_active_marker"
+        },
+        "tonemap": {
+          "rd_native_active": false,
+          "mechanism": "one_shot_active_marker"
+        }
+      },
+      "pass_engagement_source": "rd_native_active_marker",
+      "gpu_timestamps_available": true,
+      "gpu_timestamps": {
+        "buckets": {
+          "Cull 2D Lights": {
+            "count": 2000,
+            "mean_us": 2.47603199999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Cull 3D Scene": {
+            "count": 2000,
+            "mean_us": 2.34239999999992,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Cull CanvasItem Tree": {
+            "count": 2000,
+            "mean_us": 2.44121599999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Filter Fog": {
+            "count": 2000,
+            "mean_us": 25.7735679999997,
+            "median_us": 25.6,
+            "p95_us": 26.624
+          },
+          "Frame Begin": {
+            "count": 2000,
+            "mean_us": 3.06790400000006,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Integrate Fog": {
+            "count": 2000,
+            "mean_us": 16.3174399999993,
+            "median_us": 16.384,
+            "p95_us": 16.384
+          },
+          "Pack 3D Cluster Elements": {
+            "count": 2000,
+            "mean_us": 107.151359999999,
+            "median_us": 107.52,
+            "p95_us": 107.52
+          },
+          "Pre Opaque Render": {
+            "count": 2000,
+            "mean_us": 7.38355200000008,
+            "median_us": 7.168,
+            "p95_us": 8.704
+          },
+          "Prepare 3D Scene": {
+            "count": 2000,
+            "mean_us": 2.35212799999992,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Prepare Render Frame": {
+            "count": 2000,
+            "mean_us": 2.94348800000003,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Process Post Opaque Compositor Effects": {
+            "count": 2000,
+            "mean_us": 3.43193599999993,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Process Post Sky Compositor Effects": {
+            "count": 2000,
+            "mean_us": 2.44275199999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Process Post Transparent Compositor Effects": {
+            "count": 2000,
+            "mean_us": 2.42329599999993,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Process Pre Opaque Compositor Effects": {
+            "count": 2000,
+            "mean_us": 2.65113599999995,
+            "median_us": 3.072,
+            "p95_us": 4.096
+          },
+          "Process Pre Transparent Compositor Effects": {
+            "count": 2000,
+            "mean_us": 2.52620799999995,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Render 3D Cluster Elements": {
+            "count": 2000,
+            "mean_us": 237.97555200001,
+            "median_us": 237.568,
+            "p95_us": 238.592
+          },
+          "Render 3D Scene": {
+            "count": 2000,
+            "mean_us": 2.43967999999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Render 3D Transparent Pass": {
+            "count": 2000,
+            "mean_us": 2.68902399999998,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Render CanvasItems": {
+            "count": 2000,
+            "mean_us": 2.59737599999997,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Render Depth Pre-Pass": {
+            "count": 2000,
+            "mean_us": 17.7832959999996,
+            "median_us": 17.408,
+            "p95_us": 21.504
+          },
+          "Render Fog": {
+            "count": 2000,
+            "mean_us": 277.575167999999,
+            "median_us": 277.504,
+            "p95_us": 281.6
+          },
+          "Render OmniLight Shadows": {
+            "count": 2000,
+            "mean_us": 2.55334399999995,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Render Opaque Pass": {
+            "count": 2000,
+            "mean_us": 3683.12166400002,
+            "median_us": 3664.896,
+            "p95_us": 3680.256
+          },
+          "Render Sky": {
+            "count": 2000,
+            "mean_us": 10.655744,
+            "median_us": 10.24,
+            "p95_us": 11.264
+          },
+          "Resolve": {
+            "count": 2000,
+            "mean_us": 2.53542399999995,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Setup 3D Scene": {
+            "count": 2000,
+            "mean_us": 2.69670399999998,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Setup Sky": {
+            "count": 2000,
+            "mean_us": 2.41971199999993,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Tonemap": {
+            "count": 2000,
+            "mean_us": 17.3593599999998,
+            "median_us": 17.408,
+            "p95_us": 17.408
+          },
+          "Update Occlusion Buffer": {
+            "count": 2000,
+            "mean_us": 2.33369599999992,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Update Visibility Dependencies": {
+            "count": 2000,
+            "mean_us": 2.41817599999993,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Update Volumetric Fog": {
+            "count": 2000,
+            "mean_us": 2.56204799999996,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "__frame_total__": {
+            "count": 2000,
+            "mean_us": 4512.09574400001,
+            "median_us": 4492.288,
+            "p95_us": 4520.96
+          }
+        },
+        "discarded_samples": 0,
+        "frame_queue_size": 2,
+        "frames_sampled": 2000,
+        "unit": "microseconds"
+      },
+      "sample_count": 2000,
+      "avg_fps": 213.673534752433,
+      "p95_frame_time_ms": 4.90233333333333
+    },
+    {
+      "scene_name": "particles",
+      "scene_path": "res://scenes/particles.tscn",
+      "command": [
+        "H:\\rurix\\target\\grx\\godot-scratch-rb4\\bin\\godot.windows.template_debug.x86_64.console.exe",
+        "--path",
+        "H:\\rurix\\target\\grx\\godot-bench-project",
+        "--rendering-driver",
+        "d3d12",
+        "--rendering-method",
+        "forward_plus",
+        "--verbose",
+        "--gpu-profile",
+        "--scene",
+        "res://scenes/benchmark_runner.tscn",
+        "--",
+        "--scene-name",
+        "particles",
+        "--scene-path",
+        "res://scenes/particles.tscn",
+        "--raw-output-path",
+        "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\raw\\particles.json",
+        "--warmup-frames",
+        "300",
+        "--sample-frames",
+        "2000",
+        "--vsync",
+        "false",
+        "--resolution-width",
+        "1920",
+        "--resolution-height",
+        "1080",
+        "--evidence-level",
+        "measured_local",
+        "--run-mode",
+        "full",
+        "--leg",
+        "rurix",
+        "--pass-matrix-path",
+        "H:\\rurix\\spike\\godot-rurix\\bench\\rd_native_final_20260713\\matrices\\rd_native_all5.json",
+        "--gpu-timestamps",
+        "true"
+      ],
+      "cwd": "H:\\rurix\\target\\grx\\godot-bench-project",
+      "raw_json_path": "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\raw\\particles.json",
+      "log_path": "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\logs\\particles.log",
+      "engagement_file_path": "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\engagement\\particles.json",
+      "leg": "rurix",
+      "exit_code": 0,
+      "status": "success",
+      "error": null,
+      "failure_markers": [],
+      "warnings": [
+        "ERROR: Could not load global script cache.",
+        "at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)"
+      ],
+      "pass_engagement": {
+        "cluster_store": {
+          "rd_native_active": false,
+          "mechanism": "one_shot_active_marker"
+        },
+        "particles_copy": {
+          "rd_native_active": true,
+          "mechanism": "one_shot_active_marker"
+        },
+        "ssao_blur": {
+          "rd_native_active": false,
+          "mechanism": "one_shot_active_marker"
+        },
+        "taa_resolve": {
+          "rd_native_active": false,
+          "mechanism": "one_shot_active_marker"
+        },
+        "tonemap": {
+          "rd_native_active": true,
+          "mechanism": "one_shot_active_marker"
+        }
+      },
+      "pass_engagement_source": "rd_native_active_marker",
+      "gpu_timestamps_available": true,
+      "gpu_timestamps": {
+        "buckets": {
+          "Cull 2D Lights": {
+            "count": 2000,
+            "mean_us": 2.45811199999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Cull 3D Scene": {
+            "count": 2000,
+            "mean_us": 2.49510399999995,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Cull CanvasItem Tree": {
+            "count": 2000,
+            "mean_us": 2.48371199999995,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Frame Begin": {
+            "count": 2000,
+            "mean_us": 3.08070400000005,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Particles View-Axis Copy": {
+            "count": 2000,
+            "mean_us": 451.266944000001,
+            "median_us": 457.728,
+            "p95_us": 462.848
+          },
+          "Pre Opaque Render": {
+            "count": 2000,
+            "mean_us": 2.53695999999996,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Prepare 3D Scene": {
+            "count": 2000,
+            "mean_us": 2.48063999999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Prepare Render Frame": {
+            "count": 2000,
+            "mean_us": 2.778624,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Process Post Opaque Compositor Effects": {
+            "count": 2000,
+            "mean_us": 2.69260799999998,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Process Post Sky Compositor Effects": {
+            "count": 2000,
+            "mean_us": 2.44428799999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Process Post Transparent Compositor Effects": {
+            "count": 2000,
+            "mean_us": 2.41715199999993,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Process Pre Opaque Compositor Effects": {
+            "count": 2000,
+            "mean_us": 2.84467200000001,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Process Pre Transparent Compositor Effects": {
+            "count": 2000,
+            "mean_us": 2.55231999999996,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Render 3D Scene": {
+            "count": 2000,
+            "mean_us": 2.38284799999993,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Render 3D Transparent Pass": {
+            "count": 2000,
+            "mean_us": 2.70591999999998,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Render CanvasItems": {
+            "count": 2000,
+            "mean_us": 2.70028799999998,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Render Depth Pre-Pass": {
+            "count": 2000,
+            "mean_us": 2354.17446399998,
+            "median_us": 2340.864,
+            "p95_us": 2362.368
+          },
+          "Render OmniLight Shadows": {
+            "count": 2000,
+            "mean_us": 2.50009599999995,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Render Opaque Pass": {
+            "count": 2000,
+            "mean_us": 2569.598464,
+            "median_us": 2568.192,
+            "p95_us": 2574.336
+          },
+          "Resolve": {
+            "count": 2000,
+            "mean_us": 2.49958399999995,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Setup 3D Scene": {
+            "count": 2000,
+            "mean_us": 2.62092799999997,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Tonemap": {
+            "count": 2000,
+            "mean_us": 32.7505919999985,
+            "median_us": 32.768,
+            "p95_us": 33.792
+          },
+          "Update GPUParticles": {
+            "count": 2000,
+            "mean_us": 151.226879999995,
+            "median_us": 3.072,
+            "p95_us": 845.824
+          },
+          "Update Occlusion Buffer": {
+            "count": 2000,
+            "mean_us": 2.43507199999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Update Visibility Dependencies": {
+            "count": 2000,
+            "mean_us": 2.35980799999992,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Update Volumetric Fog": {
+            "count": 2000,
+            "mean_us": 2.60198399999997,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "__frame_total__": {
+            "count": 2000,
+            "mean_us": 5685.12665600003,
+            "median_us": 5530.624,
+            "p95_us": 6322.176
+          }
+        },
+        "discarded_samples": 0,
+        "frame_queue_size": 2,
+        "frames_sampled": 2000,
+        "unit": "microseconds"
+      },
+      "sample_count": 2000,
+      "avg_fps": 169.755367871354,
+      "p95_frame_time_ms": 6.06060606060606
+    },
+    {
+      "scene_name": "mixed_forward_plus",
+      "scene_path": "res://scenes/mixed_forward_plus.tscn",
+      "command": [
+        "H:\\rurix\\target\\grx\\godot-scratch-rb4\\bin\\godot.windows.template_debug.x86_64.console.exe",
+        "--path",
+        "H:\\rurix\\target\\grx\\godot-bench-project",
+        "--rendering-driver",
+        "d3d12",
+        "--rendering-method",
+        "forward_plus",
+        "--verbose",
+        "--gpu-profile",
+        "--scene",
+        "res://scenes/benchmark_runner.tscn",
+        "--",
+        "--scene-name",
+        "mixed_forward_plus",
+        "--scene-path",
+        "res://scenes/mixed_forward_plus.tscn",
+        "--raw-output-path",
+        "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\raw\\mixed_forward_plus.json",
+        "--warmup-frames",
+        "300",
+        "--sample-frames",
+        "2000",
+        "--vsync",
+        "false",
+        "--resolution-width",
+        "1920",
+        "--resolution-height",
+        "1080",
+        "--evidence-level",
+        "measured_local",
+        "--run-mode",
+        "full",
+        "--leg",
+        "rurix",
+        "--pass-matrix-path",
+        "H:\\rurix\\spike\\godot-rurix\\bench\\rd_native_final_20260713\\matrices\\rd_native_all5.json",
+        "--gpu-timestamps",
+        "true"
+      ],
+      "cwd": "H:\\rurix\\target\\grx\\godot-bench-project",
+      "raw_json_path": "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\raw\\mixed_forward_plus.json",
+      "log_path": "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\logs\\mixed_forward_plus.log",
+      "engagement_file_path": "H:\\rurix\\target\\grx\\godot-bench-runs\\20260713T102200Z_full\\engagement\\mixed_forward_plus.json",
+      "leg": "rurix",
+      "exit_code": 0,
+      "status": "success",
+      "error": null,
+      "failure_markers": [],
+      "warnings": [
+        "ERROR: Could not load global script cache.",
+        "at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)"
+      ],
+      "pass_engagement": {
+        "cluster_store": {
+          "rd_native_active": true,
+          "mechanism": "one_shot_active_marker"
+        },
+        "particles_copy": {
+          "rd_native_active": false,
+          "mechanism": "one_shot_active_marker"
+        },
+        "ssao_blur": {
+          "rd_native_active": true,
+          "mechanism": "one_shot_active_marker"
+        },
+        "taa_resolve": {
+          "rd_native_active": true,
+          "mechanism": "one_shot_active_marker"
+        },
+        "tonemap": {
+          "rd_native_active": false,
+          "mechanism": "one_shot_active_marker"
+        }
+      },
+      "pass_engagement_source": "rd_native_active_marker",
+      "gpu_timestamps_available": true,
+      "gpu_timestamps": {
+        "buckets": {
+          "Auto exposure": {
+            "count": 2000,
+            "mean_us": 70.4184320000005,
+            "median_us": 70.656,
+            "p95_us": 70.656
+          },
+          "Cull 2D Lights": {
+            "count": 2000,
+            "mean_us": 2.41958399999993,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Cull 3D Scene": {
+            "count": 2000,
+            "mean_us": 2.51596799999995,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Cull CanvasItem Tree": {
+            "count": 2000,
+            "mean_us": 2.45503999999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Filter Fog": {
+            "count": 2000,
+            "mean_us": 26.4284160000007,
+            "median_us": 26.624,
+            "p95_us": 26.624
+          },
+          "Frame Begin": {
+            "count": 2000,
+            "mean_us": 2.51903999999995,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Glow": {
+            "count": 2000,
+            "mean_us": 109.546495999998,
+            "median_us": 109.568,
+            "p95_us": 109.568
+          },
+          "Integrate Fog": {
+            "count": 2000,
+            "mean_us": 16.3281919999992,
+            "median_us": 16.384,
+            "p95_us": 16.384
+          },
+          "Pack 3D Cluster Elements": {
+            "count": 2000,
+            "mean_us": 39.4204160000001,
+            "median_us": 39.936,
+            "p95_us": 39.936
+          },
+          "Particles View-Axis Copy": {
+            "count": 2000,
+            "mean_us": 106.008575999999,
+            "median_us": 105.472,
+            "p95_us": 112.64
+          },
+          "Pre Opaque Render": {
+            "count": 2000,
+            "mean_us": 5.13228800000008,
+            "median_us": 5.12,
+            "p95_us": 5.12
+          },
+          "Prepare 3D Scene": {
+            "count": 2000,
+            "mean_us": 2.53542399999995,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Prepare Depth for SSAO/SSIL": {
+            "count": 2000,
+            "mean_us": 7.74553599999966,
+            "median_us": 8.192,
+            "p95_us": 8.192
+          },
+          "Prepare Render Frame": {
+            "count": 2000,
+            "mean_us": 2.49036799999995,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Process Post Opaque Compositor Effects": {
+            "count": 2000,
+            "mean_us": 4.56652800000006,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Process Post Sky Compositor Effects": {
+            "count": 2000,
+            "mean_us": 2.68505599999996,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Process Post Transparent Compositor Effects": {
+            "count": 2000,
+            "mean_us": 2.55283199999996,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Process Pre Opaque Compositor Effects": {
+            "count": 2000,
+            "mean_us": 2.70899199999999,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Process Pre Transparent Compositor Effects": {
+            "count": 2000,
+            "mean_us": 2.45439999999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Process SSAO": {
+            "count": 2000,
+            "mean_us": 64.4136960000007,
+            "median_us": 64.512,
+            "p95_us": 64.512
+          },
+          "Render 3D Cluster Elements": {
+            "count": 2000,
+            "mean_us": 98.0449280000004,
+            "median_us": 79.872,
+            "p95_us": 356.352
+          },
+          "Render 3D Scene": {
+            "count": 2000,
+            "mean_us": 2.42022399999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Render 3D Transparent Pass": {
+            "count": 2000,
+            "mean_us": 2.770432,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Render CanvasItems": {
+            "count": 2000,
+            "mean_us": 2.68851199999998,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Render Depth Pre-Pass": {
+            "count": 2000,
+            "mean_us": 647.689727999993,
+            "median_us": 643.072,
+            "p95_us": 644.096
+          },
+          "Render Fog": {
+            "count": 2000,
+            "mean_us": 93.3171200000015,
+            "median_us": 93.184,
+            "p95_us": 94.208
+          },
+          "Render OmniLight Shadows": {
+            "count": 2000,
+            "mean_us": 2.42892799999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Render Opaque Pass": {
+            "count": 2000,
+            "mean_us": 2833.135104,
+            "median_us": 2767.872,
+            "p95_us": 3128.32
+          },
+          "Render Sky": {
+            "count": 2000,
+            "mean_us": 11.2931839999996,
+            "median_us": 11.264,
+            "p95_us": 12.288
+          },
+          "Resolve": {
+            "count": 2000,
+            "mean_us": 2.62911999999994,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Setup 3D Scene": {
+            "count": 2000,
+            "mean_us": 2.66751999999998,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Setup Sky": {
+            "count": 2000,
+            "mean_us": 2.59430399999996,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "TAA": {
+            "count": 2000,
+            "mean_us": 258.442751999998,
+            "median_us": 231.424,
+            "p95_us": 502.784
+          },
+          "Tonemap": {
+            "count": 2000,
+            "mean_us": 105.404416000002,
+            "median_us": 105.472,
+            "p95_us": 106.496
+          },
+          "Update GPUParticles": {
+            "count": 2000,
+            "mean_us": 35.2691200000003,
+            "median_us": 2.048,
+            "p95_us": 230.4
+          },
+          "Update Occlusion Buffer": {
+            "count": 2000,
+            "mean_us": 2.57689599999996,
+            "median_us": 3.072,
+            "p95_us": 3.072
+          },
+          "Update Visibility Dependencies": {
+            "count": 2000,
+            "mean_us": 2.33420799999992,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "Update Volumetric Fog": {
+            "count": 2000,
+            "mean_us": 2.49907199999995,
+            "median_us": 2.048,
+            "p95_us": 3.072
+          },
+          "__frame_total__": {
+            "count": 2000,
+            "mean_us": 4646.994944,
+            "median_us": 4537.856,
+            "p95_us": 5008.384
+          }
+        },
+        "discarded_samples": 0,
+        "frame_queue_size": 2,
+        "frames_sampled": 2000,
+        "unit": "microseconds"
+      },
+      "sample_count": 2000,
+      "avg_fps": 206.956980011144,
+      "p95_frame_time_ms": 5.0
+    }
+  ],
+  "failure_count": 0,
+  "warning_count": 14
+}

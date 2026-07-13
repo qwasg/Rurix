@@ -1,0 +1,14 @@
+{
+ "rendering/rurix_accel/enabled": true,
+ "rendering/rurix_accel/dll_path": "H:/rurix/target/debug/rurix_godot.dll",
+ "rendering/rurix_accel/passes/tonemap/backend": 2,
+ "rendering/rurix_accel/passes/tonemap/rd_container_path": "H:/rurix/target/grx/rd_containers/tonemap.rd_container.bin",
+ "rendering/rurix_accel/passes/ssao_blur/backend": 2,
+ "rendering/rurix_accel/passes/ssao_blur/rd_container_path": "H:/rurix/target/grx/rd_containers/ssao_blur.rd_container.bin",
+ "rendering/rurix_accel/passes/taa_resolve/backend": 2,
+ "rendering/rurix_accel/passes/taa_resolve/rd_container_path": "H:/rurix/target/grx/rd_containers/taa_resolve.rd_container.bin",
+ "rendering/rurix_accel/passes/particles_copy/backend": 2,
+ "rendering/rurix_accel/passes/particles_copy/rd_container_path": "H:/rurix/target/grx/rd_containers/particles_copy.rd_container.bin",
+ "rendering/rurix_accel/passes/cluster_store/backend": 2,
+ "rendering/rurix_accel/passes/cluster_store/rd_container_path": "H:/rurix/target/grx/rd_containers/cluster_store.rd_container.bin"
+}

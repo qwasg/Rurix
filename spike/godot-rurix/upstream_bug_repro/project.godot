@@ -1,0 +1,20 @@
+; Minimal reproduction project for a Godot D3D12 device-removal bug.
+; See README.md. Pure GDScript + inline GLSL, no external modules.
+
+config_version=5
+
+[application]
+
+config/name="D3D12 compute->draw_indirect device removal MRP"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.4")
+
+[display]
+
+window/size/viewport_width=256
+window/size/viewport_height=256
+
+[rendering]
+
+renderer/rendering_method="forward_plus"
+rendering_device/driver.windows="d3d12"
