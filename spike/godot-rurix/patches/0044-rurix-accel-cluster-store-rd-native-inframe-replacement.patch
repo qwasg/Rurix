@@ -1,0 +1,335 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Mon, 13 Jul 2026 10:50:15 +0800
+Subject: [PATCH] Add default-disabled GRX Route B rd_native cluster_store
+ in-frame store replacement
+
+Stacked on 0001..0029 + 0040 + 0041 + 0042 + 0043 (the branch-HEAD gpu_culling
+tail plus the tonemap, ssao_blur, taa_resolve and particles_copy rd_native
+slices). This is the fifth Route B REAL replacement pass and turns GRX-014 from
+the patch 0025 SCAFFOLD (native continuation/backstop) into a genuine in-frame
+replacement: Route B drives the Rurix cluster_store kernel as a first-class
+in-frame RenderingDevice compute dispatch for the cluster merge (pack) segment,
+instead of the out-of-frame rxgd shim bridge, and when it records the native
+Godot cluster_store dispatch is genuinely skipped (one fewer native dispatch; no
+scaffold clear, unlike patch 0025).
+
+- drivers/d3d12/d3d12_hooks.h: new default-false virtual
+  try_record_cluster_store_rd_native(int64_t compute_list, RID cluster_render,
+  RID render_elements, RID cluster_store, Size2i screen_size,
+  const uint8_t *push_constants, uint32_t push_constant_bytes). It takes the
+  Godot ComputeListID of the ALREADY-OPEN bake_cluster store compute list
+  (bake_cluster opens one list around the store dispatch, so rd_native must NOT
+  begin/end its own) plus the three Godot structured-buffer RID handles in the
+  container's binding order (cluster_render = SRV t0, render_elements = SRV t1,
+  cluster_store = UAV u0) instead of the native ID3D12Resource* handles the
+  shim-path try_record_cluster_store takes. Base returns false.
+- modules/rurix_accel/register_types.cpp: two new default-safe settings,
+  independent of the four existing cluster_store shim settings (untouched):
+  rendering/rurix_accel/passes/cluster_store/backend (int, default 0;
+  0=disabled / 1=shim / 2=rd_native) and
+  rendering/rurix_accel/passes/cluster_store/rd_container_path (string, default
+  ""). Defaults keep the RD-native path disabled.
+- modules/rurix_accel/rurix_accel.{h,cpp}: try_record_cluster_store_rd_native
+  override. Lazily builds the compute pipeline once (FileAccess reads the Rurix
+  container -> shader_create_from_bytecode -> compute_pipeline_create, latching
+  rd_native_cluster_store_load_failed on any failure so it is not retried per
+  frame), binds t0=cluster_render, t1=render_elements and u0=cluster_store via
+  UniformSetCacheRD all as UNIFORM_TYPE_STORAGE_BUFFER (the buffer probe proved
+  RAW == structured equivalence at zero tolerance), passes the 32-byte
+  ClusterStore::PushConstant b0 mirror verbatim, and records a screen-size
+  dispatch onto the caller's compute list (compute_list_dispatch_threads divides
+  by the container's 8x8 local size). No submit()/sync() (a local-RD-only
+  concept). The one-shot RXGD_RD_NATIVE_CLUSTER_STORE active marker is emitted via
+  print_verbose when the pipeline is first built (not per-frame).
+- servers/rendering/renderer_rd/cluster_builder_rd.cpp bake_cluster: in the store
+  segment, backend == 2 runs the rd_native gate BEFORE the shim gate; a successful
+  record skips both the shim gate and the native cluster_store dispatch. backend
+  != 2 leaves the pre-existing shim/native chain byte-for-byte unchanged.
+
+Fail-closed everywhere: with the default backend == 0 (and empty container path),
+rd_native is never engaged and the native Godot cluster store renders. Only the
+compute merge (store) segment routes through rd_native; the cluster_render raster
+segment, the buffer clears, and the render_element_count == 0 early-out stay
+native permanently. RXGD_ABI_VERSION is unchanged (this path does not touch the C
+ABI struct layout and sets no RxGdCaps.flags bit; rd_native is bridge-
+independent). No performance claim is made.
+---
+ drivers/d3d12/d3d12_hooks.h                   |  19 ++++
+ modules/rurix_accel/register_types.cpp        |  18 +++
+ modules/rurix_accel/rurix_accel.cpp           | 107 ++++++++++++++++++
+ modules/rurix_accel/rurix_accel.h             |  28 +++++
+ .../renderer_rd/cluster_builder_rd.cpp        |  29 ++++-
+ 5 files changed, 199 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
+index 9bd28a1..fa65fc8 100644
+--- a/drivers/d3d12/d3d12_hooks.h
++++ b/drivers/d3d12/d3d12_hooks.h
+@@ -212,5 +212,24 @@ public:
+ 	// override this (or the absence of a hooks singleton) keep the native Godot
+ 	// particles copy path.
+ 	virtual bool try_record_particles_copy_rd_native(int64_t p_compute_list, RID p_src_particles, RID p_dst_instances, uint32_t p_total_particles, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) { return false; }
++	// GRX Route B rd_native cluster_store: opt-in in-frame RD-native compute
++	// replacement hook for the cluster_store compute merge (pack) dispatch. Unlike
++	// the shim-path try_record_cluster_store() above (which takes native
++	// ID3D12Resource* structured-buffer handles for an out-of-frame bridge
++	// dispatch), this hook takes the Godot ComputeListID of the ALREADY-OPEN
++	// bake_cluster store compute list (bake_cluster opens one list around the store
++	// dispatch, so rd_native must NOT begin/end its own) plus the three Godot
++	// structured-buffer RID handles in the container's binding order (cluster_render
++	// = SRV t0, render_elements = SRV t1, cluster_store = UAV u0), the cluster
++	// screen size for the 2D dispatch, and the 32-byte ClusterStore::PushConstant
++	// b0 mirror, so the module can build an RD compute pipeline from a Rurix shader
++	// container and record ONE store dispatch onto the caller's compute list.
++	// Returning true means the module recorded the real replacement and the native
++	// cluster_store dispatch MUST be skipped (this is a real replacement — one fewer
++	// native dispatch — not a scaffold; this is where GRX-014 becomes a real
++	// replacement). The base implementation returns false so any hooks that do not
++	// override this (or the absence of a hooks singleton) keep the native Godot
++	// cluster store path.
++	virtual bool try_record_cluster_store_rd_native(int64_t p_compute_list, RID p_cluster_render, RID p_render_elements, RID p_cluster_store, Size2i p_screen_size, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) { return false; }
+ 	static D3D12Hooks *get_singleton() { return singleton; }
+ };
+diff --git a/modules/rurix_accel/register_types.cpp b/modules/rurix_accel/register_types.cpp
+index aeed3b2..16e92a3 100644
+--- a/modules/rurix_accel/register_types.cpp
++++ b/modules/rurix_accel/register_types.cpp
+@@ -357,6 +357,24 @@ void initialize_rurix_accel_module(ModuleInitializationLevel p_level) {
+ 	// a res:// resource so the smoke/bench harnesses can point at an absolute
+ 	// staging path.
+ 	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/particles_copy/rd_container_path", "");
++	// GRX Route B rd_native cluster_store: three-state backend selector for the
++	// cluster_store pass, independent of the four existing shim settings
++	// (.../passes/cluster_store/enabled|dispatch_recording_smoke|dispatch_real_pass|
++	// real_pass_force_capability_downgrade), which are left untouched. Values:
++	// 0 = disabled (default; the pre-existing shim/native chain is unchanged),
++	// 1 = shim (nominal; the existing shim path stays governed by its own four
++	// settings), 2 = rd_native (engage the in-frame RD-native store compute
++	// replacement via try_record_cluster_store_rd_native). Defaults to 0 so the
++	// shipping build/config never engages the RD-native path.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/cluster_store/backend", 0);
++	// GRX Route B rd_native cluster_store: absolute filesystem path to the Rurix
++	// RenderingShaderContainerD3D12 cluster_store container consumed by
++	// shader_create_from_bytecode when backend == 2. Defaults to empty, which keeps
++	// the RD-native path fail-closed (no container -> native cluster store path
++	// remains active). The container path is injected here rather than hardcoded to
++	// a res:// resource so the smoke/bench harnesses can point at an absolute
++	// staging path.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/cluster_store/rd_container_path", "");
+ 
+ #if defined(D3D12_ENABLED)
+ 	if (GLOBAL_GET("rendering/rurix_accel/enabled")) {
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index e0bdb95..e1d1679 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -1511,4 +1511,111 @@ bool RurixAccelD3D12Hooks::try_record_particles_copy_rd_native(int64_t p_compute
+ 	return true;
+ }
+ 
++bool RurixAccelD3D12Hooks::try_record_cluster_store_rd_native(int64_t p_compute_list, RID p_cluster_render, RID p_render_elements, RID p_cluster_store, Size2i p_screen_size, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) {
++	// GRX Route B rd_native cluster_store: an in-frame RD-native compute
++	// replacement for the cluster_store (pack) dispatch. Like the other rd_native
++	// paths this does NOT go through the Rurix rxgd bridge/shim (session/record_pass);
++	// it drives the main RenderingDevice directly so the Rurix cluster_store kernel
++	// runs as a first-class dispatch inside the frame graph. The three resources are
++	// STRUCTURED BUFFERS (the buffer probe proved UNIFORM_TYPE_STORAGE_BUFFER RAW ==
++	// structured equivalence at zero tolerance). bake_cluster opens ONE compute list
++	// around the store dispatch, so this records onto the caller's already-open list
++	// (p_compute_list) and MUST NOT begin/end its own. Every early return below keeps
++	// the native cluster_store dispatch (fail-closed). The caller only reaches here
++	// when the backend selector is 2 (rd_native).
++	RenderingDevice *rd = RenderingDevice::get_singleton();
++	if (rd == nullptr) {
++		return false;
++	}
++	if (rd_native_cluster_store_load_failed) {
++		// A prior container load / pipeline compile failed; do not retry every
++		// frame (and do not spam diagnostics). The native cluster store renders.
++		return false;
++	}
++	if (!p_cluster_render.is_valid() || !p_render_elements.is_valid() || !p_cluster_store.is_valid()) {
++		return false;
++	}
++	if (p_screen_size.x <= 0 || p_screen_size.y <= 0) {
++		return false;
++	}
++	if (p_push_constants == nullptr || p_push_constant_bytes != CLUSTER_STORE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES) {
++		// The b0 mirror must be the exact 32-byte ClusterStore::PushConstant block.
++		return false;
++	}
++	// Lazily build the compute pipeline the first time backend == 2 is exercised:
++	// read the Rurix container bytes, hand them to shader_create_from_bytecode
++	// (-> shader_create_from_container in the D3D12 driver; the driver consumes the
++	// container's DXIL + RTS0 verbatim), and create the compute pipeline
++	// (-> CreateRootSignature + PSO). Any failure latches
++	// rd_native_cluster_store_load_failed so it is not retried per frame.
++	if (!rd_native_cluster_store_shader.is_valid() || !rd_native_cluster_store_pipeline.is_valid()) {
++		const String container_path = GLOBAL_GET("rendering/rurix_accel/passes/cluster_store/rd_container_path");
++		if (container_path.is_empty()) {
++			// No container configured: keep rd_native fail-closed (disabled).
++			rd_native_cluster_store_load_failed = true;
++			return false;
++		}
++		const Vector<uint8_t> container_bytes = FileAccess::get_file_as_bytes(container_path);
++		if (container_bytes.is_empty()) {
++			rd_native_cluster_store_load_failed = true;
++			print_verbose(vformat("RurixAccel: rd_native cluster_store container '%s' missing or empty; native cluster store path remains active.", container_path));
++			return false;
++		}
++		const RID shader = rd->shader_create_from_bytecode(container_bytes);
++		if (!shader.is_valid()) {
++			rd_native_cluster_store_load_failed = true;
++			print_verbose("RurixAccel: rd_native cluster_store shader_create_from_bytecode failed; native cluster store path remains active.");
++			return false;
++		}
++		const RID pipeline = rd->compute_pipeline_create(shader);
++		if (!pipeline.is_valid()) {
++			rd->free_rid(shader);
++			rd_native_cluster_store_load_failed = true;
++			print_verbose("RurixAccel: rd_native cluster_store compute_pipeline_create failed; native cluster store path remains active.");
++			return false;
++		}
++		rd_native_cluster_store_shader = shader;
++		rd_native_cluster_store_pipeline = pipeline;
++		if (!rd_native_cluster_store_active_logged) {
++			// One-shot marker (NOT per-frame): the RD-native cluster store
++			// replacement is engaged and the native Godot cluster_store dispatch is
++			// being skipped (one fewer native dispatch; GRX-014 becomes a real
++			// replacement here, no longer a scaffold).
++			print_verbose("RXGD_RD_NATIVE_CLUSTER_STORE active: backend=rd_native, in-frame cluster store replacement engaged (native Godot cluster_store dispatch skipped).");
++			rd_native_cluster_store_active_logged = true;
++		}
++	}
++	// Bind t0 = cluster_render_buffer, t1 = element_buffer (both SRV), u0 =
++	// cluster_buffer (UAV), all as UNIFORM_TYPE_STORAGE_BUFFER in the container's
++	// binding order (0, 1, 2). UniformSetCacheRD keys on the RID set and
++	// auto-invalidates the cached set when any buffer is freed, so no manual
++	// lifetime handling is needed.
++	const RID uniform_set = UniformSetCacheRD::get_singleton()->get_cache(
++			rd_native_cluster_store_shader, 0,
++			RenderingDevice::Uniform(RenderingDevice::UNIFORM_TYPE_STORAGE_BUFFER, 0, p_cluster_render),
++			RenderingDevice::Uniform(RenderingDevice::UNIFORM_TYPE_STORAGE_BUFFER, 1, p_render_elements),
++			RenderingDevice::Uniform(RenderingDevice::UNIFORM_TYPE_STORAGE_BUFFER, 2, p_cluster_store));
++	if (!uniform_set.is_valid()) {
++		return false;
++	}
++	// b0 root constants (32 bytes / 8 DWORDs): the raw ClusterStore::PushConstant
++	// mirror is passed through verbatim. cluster_store carries no i64 push-constant
++	// fields.
++	uint8_t push_constants[CLUSTER_STORE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES] = {};
++	memcpy(push_constants, p_push_constants, CLUSTER_STORE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES);
++	// Record the in-frame compute dispatch onto the caller's ALREADY-OPEN
++	// bake_cluster store compute list. No compute_list_begin()/end() here (the list
++	// is opened once around the store dispatch); compute_list_dispatch_threads
++	// divides the screen size by the container's 8x8 local group size, and the
++	// main-RD draw graph tracks the uniform_set_create resources as first-class
++	// citizens and inserts the required barriers automatically (no submit()/sync() —
++	// that is a local-RD-only concept).
++	const RenderingDevice::ComputeListID compute_list = (RenderingDevice::ComputeListID)p_compute_list;
++	rd->compute_list_bind_compute_pipeline(compute_list, rd_native_cluster_store_pipeline);
++	rd->compute_list_bind_uniform_set(compute_list, uniform_set, 0);
++	rd->compute_list_set_push_constant(compute_list, push_constants, CLUSTER_STORE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES);
++	rd->compute_list_dispatch_threads(compute_list, (uint32_t)MAX(p_screen_size.x, 0), (uint32_t)MAX(p_screen_size.y, 0), 1);
++	return true;
++}
++
+ #endif // D3D12_ENABLED
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index 51db342..b14afe6 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -202,6 +202,20 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
+ 	RID rd_native_particles_copy_pipeline;
+ 	bool rd_native_particles_copy_load_failed = false;
+ 	bool rd_native_particles_copy_active_logged = false;
++	// GRX Route B rd_native cluster_store: lazily-built RD compute pipeline for the
++	// in-frame cluster store (pack) replacement. Same lifetime discipline as the
++	// members above: the shader/pipeline are created once from the Rurix container
++	// the first time backend == 2 is exercised and cached for the process lifetime;
++	// the per-frame three-buffer uniform set is cached by UniformSetCacheRD and
++	// auto-invalidated when the bound structured buffers are freed (e.g. on a
++	// cluster screen-size / element-count change). rd_native_cluster_store_load_failed
++	// latches a load/compile failure so it is not retried every frame, and
++	// rd_native_cluster_store_active_logged gates the one-shot
++	// RXGD_RD_NATIVE_CLUSTER_STORE active marker (not per-frame).
++	RID rd_native_cluster_store_shader;
++	RID rd_native_cluster_store_pipeline;
++	bool rd_native_cluster_store_load_failed = false;
++	bool rd_native_cluster_store_active_logged = false;
+ 	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 28;
+ 	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_RESOURCE_COUNT = 2;
+ 	// GRX-010 tonemap resource mapping (resource_mapping.md): b0 carries
+@@ -405,6 +419,20 @@ public:
+ 	// empty/invalid container, pipeline or uniform-set creation failure) returns
+ 	// false and the caller keeps the native Godot particles copy path (fail-closed).
+ 	bool try_record_particles_copy_rd_native(int64_t p_compute_list, RID p_src_particles, RID p_dst_instances, uint32_t p_total_particles, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) override;
++	// GRX Route B rd_native cluster_store: in-frame RD-native compute replacement
++	// for the cluster_store (pack) dispatch. Lazily builds the RD compute pipeline
++	// from the Rurix container named by
++	// rendering/rurix_accel/passes/cluster_store/rd_container_path, binds the three
++	// structured buffers (cluster_render = SRV t0, render_elements = SRV t1,
++	// cluster_store = UAV u0) plus the 32-byte ClusterStore::PushConstant b0, and
++	// records a screen-size dispatch onto the ALREADY-OPEN bake_cluster store
++	// compute list (p_compute_list; it does NOT begin/end its own list). Returns
++	// true only when the dispatch was actually recorded (real replacement — the
++	// caller then SKIPS the native cluster_store dispatch). Any failure (RD
++	// unavailable, latched load failure, invalid RID, empty/invalid container,
++	// pipeline or uniform-set creation failure) returns false and the caller keeps
++	// the native Godot cluster store path (fail-closed).
++	bool try_record_cluster_store_rd_native(int64_t p_compute_list, RID p_cluster_render, RID p_render_elements, RID p_cluster_store, Size2i p_screen_size, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) override;
+ };
+ 
+ #endif // D3D12_ENABLED
+diff --git a/servers/rendering/renderer_rd/cluster_builder_rd.cpp b/servers/rendering/renderer_rd/cluster_builder_rd.cpp
+index 355f814..14b2008 100644
+--- a/servers/rendering/renderer_rd/cluster_builder_rd.cpp
++++ b/servers/rendering/renderer_rd/cluster_builder_rd.cpp
+@@ -539,8 +539,33 @@ void ClusterBuilderRD::bake_cluster() {
+ 			RD::get_singleton()->compute_list_set_push_constant(compute_list, &push_constant, sizeof(ClusterBuilderSharedDataRD::ClusterStore::PushConstant));
+ 
+ 			bool rurix_recorded_cluster_store = false;
++			bool rurix_recorded_cluster_store_rd_native = false;
+ #ifdef D3D12_ENABLED
+-			if (D3D12Hooks::get_singleton() != nullptr) {
++			// GRX Route B rd_native cluster_store (patch 0044): backend selector ==
++			// 2 engages the in-frame RD-native store replacement BEFORE the shim-path
++			// gate below. Only the compute merge (store) segment is in scope: the
++			// preceding cluster_render raster segment, the buffer clears, and the
++			// render_element_count == 0 early-out stay native permanently. Unlike the
++			// shim path (patch 0025, which prints a writeback marker and then
++			// deliberately clears its flag so the native store still re-packs the
++			// table), a successful rd_native record does NOT clear its flag: the Rurix
++			// kernel's output IS the packed cluster table written into cluster_buffer,
++			// so the native cluster_store dispatch is genuinely skipped (a real
++			// replacement — one fewer native dispatch; this is where GRX-014 becomes a
++			// real replacement, no longer a scaffold). rd_native records onto the
++			// ALREADY-OPEN bake_cluster store compute list (opened above around the
++			// store dispatch, so rd_native reuses compute_list and MUST NOT begin/end
++			// its own — cleaner than the standalone-list passes). The three buffers
++			// pass in the Rurix container's binding order (cluster_render_buffer = t0,
++			// element_buffer = t1, cluster_buffer = u0), which differs from Godot's
++			// native set-0 binding numbers 1/3/2. When the backend selector is not 2,
++			// or when rd_native fails closed (no container, invalid RID,
++			// pipeline/uniform-set failure, etc.), this stays false and the shim gate
++			// and native dispatch below run exactly as before.
++			if (D3D12Hooks::get_singleton() != nullptr && ((int)GLOBAL_GET("rendering/rurix_accel/passes/cluster_store/backend")) == 2) {
++				rurix_recorded_cluster_store_rd_native = D3D12Hooks::get_singleton()->try_record_cluster_store_rd_native((int64_t)compute_list, cluster_render_buffer, element_buffer, cluster_buffer, cluster_screen_size, (const uint8_t *)&push_constant, (uint32_t)sizeof(ClusterBuilderSharedDataRD::ClusterStore::PushConstant));
++			}
++			if (!rurix_recorded_cluster_store_rd_native && D3D12Hooks::get_singleton() != nullptr) {
+ 				// GRX-014 runtime resource binding gate (0005/0007-level in one
+ 				// slice). Only the compute merge (store) segment is in scope: the
+ 				// preceding cluster_render raster segment, the buffer clears, and
+@@ -598,7 +623,7 @@ void ClusterBuilderRD::bake_cluster() {
+ 				}
+ 			}
+ #endif
+-			if (!rurix_recorded_cluster_store) {
++			if (!rurix_recorded_cluster_store && !rurix_recorded_cluster_store_rd_native) {
+ 				RD::get_singleton()->compute_list_dispatch_threads(compute_list, cluster_screen_size.x, cluster_screen_size.y, 1);
+ 			}
+ 
+-- 
+2.50.0
+

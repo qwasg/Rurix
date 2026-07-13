@@ -165,6 +165,48 @@
       "per-pass FPS baseline comparison (contract requires >= 0.95x baseline before any default-enable discussion)"
     ]
   },
+  "rd_native": {
+    "provenance": "rd_native_route_b",
+    "summary": "GRX Route B cluster_store rd_native turns GRX-014 from the patch 0025 SCAFFOLD (native continuation/backstop) into a genuine in-frame real replacement. It drives the main RenderingDevice directly, recording the Rurix cluster_store kernel ONTO THE ALREADY-OPEN bake_cluster store compute list (naturally same-list, the cleanest of the batch); when it records, the native cluster_store dispatch is GENUINELY SKIPPED (one fewer native dispatch). Bridge-independent; the shim RXGD_CAP_CLUSTER_STORE_REAL_PASS bit 8 is unrelated.",
+    "backend_selector": "rendering/rurix_accel/passes/cluster_store/backend",
+    "backend_states": {
+      "0": "disabled (default; pre-existing shim/native chain unchanged)",
+      "1": "shim (nominal; existing shim path governed by its own four settings)",
+      "2": "rd_native (engage the in-frame RD-native cluster store replacement)"
+    },
+    "container_path_setting": "rendering/rurix_accel/passes/cluster_store/rd_container_path",
+    "default_backend": 0,
+    "default_enable_state": "disabled",
+    "bridge_independent": true,
+    "cap_bit_consumed": null,
+    "rxgd_abi_version_unchanged": true,
+    "grx014_scaffold_to_real": true,
+    "godot_patch": "spike/godot-rurix/patches/0044-rurix-accel-cluster-store-rd-native-inframe-replacement.patch",
+    "godot_patch_sha256": "a64179539f812f214ac18eb98cfd62e52c6923821fd6ed28c3ea834c98f60c4e",
+    "patch_stack": "0001-0029 + 0040 + 0041 + 0042 + 0043 + 0044 (branch-HEAD culling tail + rd_native series)",
+    "same_list_injection": true,
+    "hook_virtual": "D3D12Hooks::try_record_cluster_store_rd_native(int64_t p_compute_list, RID p_cluster_render, RID p_render_elements, RID p_cluster_store, Size2i p_screen_size, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes)",
+    "descriptor_mapping": "three STRUCTURED buffers bound as UNIFORM_TYPE_STORAGE_BUFFER in the Rurix container binding order (cluster_render=t0 SRV, render_elements=t1 SRV, cluster_store=u0 UAV) mapping Godot members cluster_render_buffer/element_buffer/cluster_buffer (Godot native set-0 binding numbers 1/3/2 are a different order), 32-byte ClusterStore::PushConstant b0, compute_list_dispatch_threads(screen.x,screen.y,1) over the container 8x8 local size.",
+    "kernel_subset": "the compute merge (store/pack) segment only; the preceding cluster_render raster segment, the buffer clears, and the render_element_count==0 early-out stay native permanently.",
+    "container": {
+      "staged_path": "target/grx/rd_containers/cluster_store.rd_container.bin",
+      "source": "spike/godot-rurix/rd-native-pipeline/out/cluster_store.rd_container.bin",
+      "sha256": "6623ce6c5eddc19d",
+      "buffer_equivalence_evidence": "spike/godot-rurix/rd-native-pipeline/rd_buffer_probe_evidence.json"
+    },
+    "enablement": {
+      "harness": "ci/grx_rb_cluster_store_rd_native_enablement_smoke.py",
+      "evidence": "spike/godot-rurix/passes/cluster_store/rd_native_enablement_evidence.json",
+      "status": "pending_scratch_build",
+      "status_note": "The 0044 patch is authored, LF-clean, and stacked-applyable on 0001-0029+0040-0045 (--check-only PASS). This is the GRX-014 scaffold->real-replacement milestone at the patch level; the strict-success-vs-measured-blocked outcome is determined by the enablement smoke on the freshly-built scratch Godot (clustered-lights scene; downstream visible-frame LDR diff). No real_gpu_pass is claimed until that measured run lands.",
+      "real_gpu_pass": false,
+      "performance_claim": "none"
+    },
+    "remaining_rounds": [
+      "run the enablement smoke on the built scratch exe (clustered OmniLight scene)",
+      "GPU math parity characterization of the packed cluster table vs native"
+    ]
+  },
   "evidence_requirements": {
     "offline_compile": "offline_compile_evidence.json (measured): DXC cs_6_0 compile + DXV validation pass + Rurix-owned RTS0 + descriptor layout; three artifact SHA-256 recomputable on disk",
     "math_parity": "math_parity_evidence.json: deterministic synthetic cluster_render/element fixtures with an integer-exact CPU reference (pure u32 word math, no float tolerance) covering touches_near/touches_far, single- and multi-slice z ranges, the minmax==0 -> 0xFFFF initialization branch, same-slice min/max merging, the z_range==0 guard, empty clusters, and the existence bitmap; status=pending_gpu_dispatch",

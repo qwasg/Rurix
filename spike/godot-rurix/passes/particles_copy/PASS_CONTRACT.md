@@ -329,3 +329,21 @@ advances `next_action=start_grx014_cluster_store_pass_contract`; any
 missing/tampered artifact fails closed (`grx_gate_module_error`) and keeps
 `next_action` unchanged. All §11 remaining items / known gaps are preserved. No
 FPS, p95, GPU-timestamp, or performance improvement is claimed.
+
+## 13. 路线 B(Route B rd_native)—— 第一个 buffer-path 真替代
+
+> 本节为追加段;§1–§12 的调查/契约/marker/shim-path 记述保持不变(pass_id=particles_copy、RXGD_PASS_PARTICLES_COPY、RXGD_CAP_PARTICLES_COPY_REAL_PASS bit 7、known gaps 等契约字面不动)。路线 B rd_native 与 shim/rxgd 路径**并列且独立**,不改任何 shim-path 字段。
+
+**真替代事实**:与 patch 0022 shim writeback **scaffold**(印 writeback marker 后清 flag、让 native COPY_MODE_FILL_INSTANCES 每帧重填,画面不可能改变)本质不同——路线 B rd_native 让 Rurix particles_copy kernel 作为帧内 compute dispatch 运行,**record 到 particles_set_view_axis 已开的 compute list 上**(SSAO 同 list 范式,不 begin/end 自己的 list),成功 record 时**真正跳过** native fill-instances dispatch(调用点 `if (!rurix_recorded_particles_copy && !rurix_recorded_particles_copy_rd_native)` 守卫,无 scaffold 清空)——真省一次 native dispatch。**本批首个 buffer-path rd_native**。
+
+**bridge-independent**:不走 rxgd session,不占 cap bit,`RXGD_ABI_VERSION` 保持 1;仅需 `RurixAccelD3D12Hooks` 单例存在。
+
+**patch**:`0043-rurix-accel-particles-copy-rd-native-inframe-replacement.patch`(sha256 `cc160b15…b202072`,叠 `0001-0029+0040+0041+0042`)。新增默认 false 虚函数 `try_record_particles_copy_rd_native(int64_t compute_list,RID,RID,uint32_t,const uint8_t*,uint32_t)`;三态设置 `passes/particles_copy/backend`(0/1/2,默认 0)+ `passes/particles_copy/rd_container_path`(默认空),独立于既有 shim 四设置;module 惰性建管线 + `UniformSetCacheRD`(t0/u0 均 `UNIFORM_TYPE_STORAGE_BUFFER`——RAW≡structured 由 `rd_buffer_probe_evidence.json` 零容差证明)+ 128B CopyPushConstant b0 原样透传 + `compute_list_dispatch_threads(total_particles,1,1)`(按容器 64×1×1 local size 分组)。buffer 无 `texture_get_format`,故无 usage-bits 前置校验,仅 RID 有效性 + b0 尺寸校验。
+
+**子集边界(如实标注)**:仅覆盖 3D `COPY_MODE_FILL_INSTANCES` 的 `ALIGN_DISABLED`/`ALIGN_Z_BILLBOARD` 子集,gate `!do_sort && copy_mode_2d==0`;VIEW_DEPTH 排序、2D、lifetime reindex、trail、userdata 走 native。
+
+**剔除阶段注入合法性(如实核实)**:`particles_set_view_axis` 在渲染线程经 `RD::get_singleton()->compute_list_begin()` 自开 compute list 环绕 copy dispatch(base 源第 1337 行);该点存在活动 compute list,故 rd_native 复用其 list(不能嵌套开新 list),与 SSAO 同 list 范式一致——已读调用上下文核实,非猜测。
+
+**Enablement 状态(诚实)**:`0043` 已生成、LF 干净、`--check-only` 在 `0001-0029+0040-0045` 全栈 stacked-applyable PASS。strict-success vs measured-blocked 由 `ci/grx_rb_particles_copy_rd_native_enablement_smoke.py` 在**新建的 `0001-0029+0040-0045` scratch Godot(D3D12 Forward+,RTX 4070 Ti)**上判定(粒子场景,下游可见帧 LDR diff);该 scratch build + GPU 实跑为剩余步骤,evidence 落定前**不宣称 real_gpu_pass**。
+
+**Fail-closed / 零性能宣称**:默认 backend=0(且容器路径空)时 rd_native 从不 engage,native particles copy 渲染;`default_enable_state` 保持 `disabled`;无任何 FPS/p95/GPU-timestamp/性能提升宣称;不改 `external/godot-master`。

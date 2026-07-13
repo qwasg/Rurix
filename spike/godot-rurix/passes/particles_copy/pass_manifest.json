@@ -168,6 +168,48 @@
       "per-pass FPS baseline comparison (contract requires >= 0.95x baseline before any default-enable discussion)"
     ]
   },
+  "rd_native": {
+    "provenance": "rd_native_route_b",
+    "summary": "GRX Route B particles_copy rd_native is a SEPARATE, bridge-independent in-frame real-replacement path from the shim/rxgd path. It drives the main RenderingDevice directly (shader_create_from_bytecode -> compute_pipeline_create -> compute_list) so the Rurix particles_copy kernel runs as a first-class in-frame compute dispatch RECORDED ONTO THE ALREADY-OPEN particles_set_view_axis compute list; when it records, the native Godot COPY_MODE_FILL_INSTANCES dispatch is GENUINELY SKIPPED (one fewer native dispatch; not a scaffold, unlike patch 0022). It uses no rxgd session and sets no RxGdCaps.flags bit; the shim RXGD_CAP_PARTICLES_COPY_REAL_PASS bit 7 is unrelated. FIRST buffer-path rd_native slice.",
+    "backend_selector": "rendering/rurix_accel/passes/particles_copy/backend",
+    "backend_states": {
+      "0": "disabled (default; pre-existing shim/native chain unchanged)",
+      "1": "shim (nominal; existing shim path governed by its own four settings)",
+      "2": "rd_native (engage the in-frame RD-native fill-instances replacement)"
+    },
+    "container_path_setting": "rendering/rurix_accel/passes/particles_copy/rd_container_path",
+    "default_backend": 0,
+    "default_enable_state": "disabled",
+    "bridge_independent": true,
+    "cap_bit_consumed": null,
+    "rxgd_abi_version_unchanged": true,
+    "godot_patch": "spike/godot-rurix/patches/0043-rurix-accel-particles-copy-rd-native-inframe-replacement.patch",
+    "godot_patch_sha256": "cc160b15d7a266dfcc1aebf580627ceff0e9e6b52cedee7c07b0f03a3b202072",
+    "patch_stack": "0001-0029 + 0040 + 0041 + 0042 + 0043 (branch-HEAD culling tail + rd_native series)",
+    "same_list_injection": true,
+    "hook_virtual": "D3D12Hooks::try_record_particles_copy_rd_native(int64_t p_compute_list, RID p_src_particles, RID p_dst_instances, uint32_t p_total_particles, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes)",
+    "descriptor_mapping": "two STRUCTURED buffers bound as UNIFORM_TYPE_STORAGE_BUFFER (RAW==structured proven zero-tolerance in rd_buffer_probe_evidence.json): src_particles=t0 SRV, dst_instances=u0 UAV, 128-byte CopyPushConstant b0 (no i64 fields), compute_list_dispatch_threads(total_particles,1,1) over the container 64x1x1 local size. No usage-bits preflight (buffers have no texture_get_format).",
+    "kernel_subset": "COPY_MODE_FILL_INSTANCES 3D ALIGN_DISABLED/ALIGN_Z_BILLBOARD subset only (gated !do_sort && copy_mode_2d==0); VIEW_DEPTH sort, 2D, lifetime reindex, trail and userdata route to the native path.",
+    "container": {
+      "staged_path": "target/grx/rd_containers/particles_copy.rd_container.bin",
+      "source": "spike/godot-rurix/rd-native-pipeline/out/particles_copy.rd_container.bin",
+      "sha256": "cf7be95f049af775",
+      "buffer_equivalence_evidence": "spike/godot-rurix/rd-native-pipeline/rd_buffer_probe_evidence.json"
+    },
+    "enablement": {
+      "harness": "ci/grx_rb_particles_copy_rd_native_enablement_smoke.py",
+      "evidence": "spike/godot-rurix/passes/particles_copy/rd_native_enablement_evidence.json",
+      "status": "pending_scratch_build",
+      "status_note": "The 0043 patch is authored, LF-clean, and stacked-applyable on 0001-0029+0040-0045 (ci/godot_rurix_scratch_build.py --check-only PASS). The strict-success-vs-measured-blocked outcome is determined by the enablement smoke on the freshly-built 0001-0029+0040-0045 scratch Godot (D3D12 Forward+, RTX 4070 Ti); that scratch build + GPU run is the remaining step. No real_gpu_pass is claimed until that measured run lands its success evidence.",
+      "real_gpu_pass": false,
+      "performance_claim": "none"
+    },
+    "remaining_rounds": [
+      "run the enablement smoke on the built scratch exe (particle scene; downstream visible-frame LDR diff)",
+      "GPU math parity characterization of the fill-instances subset vs native",
+      "align/2D/sort/trail subset extension"
+    ]
+  },
   "evidence_requirements": {
     "offline_compile": "offline_compile_evidence.json (measured): DXC cs_6_0 compile + DXV validation pass + Rurix-owned RTS0 + descriptor layout; three artifact SHA-256 recomputable on disk",
     "math_parity": "math_parity_evidence.json: deterministic synthetic ParticleData CPU float32 reference (binary32 per op) with status=pending_gpu_dispatch",

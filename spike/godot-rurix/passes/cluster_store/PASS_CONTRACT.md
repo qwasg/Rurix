@@ -443,3 +443,21 @@ dispatch smoke + enablement + decision all ready, the probe advances
 artifact fails closed (`grx_gate_module_error`) and keeps `next_action`
 unchanged. All §11 remaining items / known gaps not superseded above are
 preserved. No FPS, p95, GPU-timestamp, or performance improvement is claimed.
+
+## 13. 路线 B(Route B rd_native)—— GRX-014 scaffold→真替代
+
+> 本节为追加段;§1–§12 的调查/契约/marker/shim-path 记述保持不变(pass_id=cluster_store、RXGD_PASS_CLUSTER_STORE、RXGD_CAP_CLUSTER_STORE_REAL_PASS bit 8、known gaps 等契约字面不动)。路线 B rd_native 与 shim/rxgd 路径**并列且独立**,不改任何 shim-path 字段。
+
+**真替代事实(GRX-014 从 scaffold 变真替代)**:与 patch 0025 shim writeback **scaffold**(印 writeback marker 后清 flag、让 native cluster_store 每帧重打包)本质不同——路线 B rd_native 让 Rurix cluster_store kernel **直接 record 到 bake_cluster store 段已开的 compute list 上**(天然同 list,本批最干净的注入,不 begin/end 自己的 list),成功 record 时**真正跳过** native cluster_store dispatch(调用点 `if (!rurix_recorded_cluster_store && !rurix_recorded_cluster_store_rd_native)` 守卫)——真省一次 native dispatch。**这是 GRX-014 从 scaffold 兑现为真替代的里程碑(patch 层)**。
+
+**bridge-independent**:不走 rxgd session,不占 cap bit,`RXGD_ABI_VERSION` 保持 1。
+
+**patch**:`0044-rurix-accel-cluster-store-rd-native-inframe-replacement.patch`(sha256 `a6417953…c98f60c4e`,叠 `0001-0029+0040..0043`)。新增默认 false 虚函数 `try_record_cluster_store_rd_native(int64_t compute_list,RID cluster_render,RID render_elements,RID cluster_store,Size2i screen_size,const uint8_t*,uint32_t)`;三态设置 `passes/cluster_store/backend` + `passes/cluster_store/rd_container_path`,独立于 shim 四设置;module 惰性建管线 + `UniformSetCacheRD` 三 buffer 按 Rurix 容器绑定序(cluster_render_buffer=t0、element_buffer=t1、cluster_buffer=u0,均 `UNIFORM_TYPE_STORAGE_BUFFER`;Godot native set-0 绑定号 1/3/2 顺序不同)+ 32B ClusterStore::PushConstant b0 原样透传 + `compute_list_dispatch_threads(screen.x,screen.y,1)`(按容器 8×8 local size 分组)。
+
+**子集边界(如实标注)**:仅覆盖 compute merge(store/pack)段;前置 cluster_render 光栅段、buffer clears、`render_element_count==0` early-out 永久走 native。
+
+**同 list 替代合法性(如实核实)**:`bake_cluster` store 段自身在 `RD::get_singleton()->compute_list_begin()` 内 dispatch(base 源第 517–538 行),rd_native 在同一 list bind Rurix pipeline + uniform set 直接替代 native dispatch——已读代码核实。
+
+**Enablement 状态(诚实)**:`0044` 已生成、LF 干净、`--check-only` 在全栈 PASS。strict-success vs measured-blocked 由 `ci/grx_rb_cluster_store_rd_native_enablement_smoke.py` 在新建 scratch Godot 上判定(clustered OmniLight 场景,下游可见帧 LDR diff);GPU 实跑为剩余步骤,evidence 落定前**不宣称 real_gpu_pass**。
+
+**Fail-closed / 零性能宣称**:默认 backend=0 时 rd_native 从不 engage;`default_enable_state` 保持 `disabled`;无任何性能宣称;不改 `external/godot-master`。

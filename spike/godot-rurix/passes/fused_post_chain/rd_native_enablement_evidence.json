@@ -1,0 +1,255 @@
+{
+  "schema_version": 1,
+  "subject": "grx_rb_fused_post_chain_rd_native_enablement_smoke",
+  "pass_id": "fused_post_chain",
+  "provenance": "rd_native_route_b",
+  "backend_selector": "rendering/rurix_accel/passes/fused_post_chain/backend",
+  "backend_states": {
+    "disabled": 0,
+    "shim": 1,
+    "rd_native": 2
+  },
+  "bridge_independent": true,
+  "cap_bit_consumed": null,
+  "runtime_state": "fallback_only",
+  "real_gpu_pass": false,
+  "default_enable_state": "disabled",
+  "gpu_timestamp_status": "not_yet",
+  "performance_claim": "none",
+  "kernel_subset": "fused luminance-final + tonemap (LINEAR) end; culling-tail aliasing guard cascades to tonemap rd_native (measured-blocked by design)",
+  "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
+  "known_gaps": [
+    "the rd_native kernel covers only the LINEAR tonemapper with the SDR convert_to_srgb (linear_to_srgb) leg; the candidate scene is pinned to tonemap_mode LINEAR to align with this subset. Reinhard/Filmic/ACES/AgX, auto exposure, glow, FXAA, BCS, color correction, debanding, multiview, and HDR output are OUT of the rd_native subset and route to the native path",
+    "parity is measured at the scene's flat tone(s); the LDR delta between the compute UAV write and Godot's raster tonemap write is recorded as the first real-replacement picture evidence (not a full-frame or multi-tone characterization)",
+    "rd_native drives the main RenderingDevice's draw graph directly; the injected compute_list relies on the graph's ResourceTracker for barriers. No submit()/sync() is issued (that is a local-RD concept)"
+  ],
+  "container": {
+    "path_at_run": "H:\\rurix\\target\\grx\\rd_containers\\fused_post_chain.rd_container.bin",
+    "sha256": "00e6a69d0780975fa1a7a6bbc29b8d9bef5ede20e28807ea0ca7404c002b6ba7",
+    "s2_probe_evidence": "spike/godot-rurix/rd-native-pipeline/rd_buffer_probe_evidence.json",
+    "s2_probe_container_sha256": null,
+    "matches_s2_probe_container": false
+  },
+  "patch_stack_identity": {
+    "patches_dir": "spike/godot-rurix/patches",
+    "stack": "0001,0002,0003,0004,0005,0006,0007,0008,0009,0010,0011,0012,0013,0014,0015,0016,0017,0018,0019,0020,0021,0022,0023,0024,0025,0026,0027,0028,0029,0040,0041,0042,0043,0044,0045",
+    "patches": [
+      {
+        "patch": "0001-rurix-accel-module-scaffold.patch",
+        "path": "spike/godot-rurix/patches/0001-rurix-accel-module-scaffold.patch",
+        "sha256": "6cbfdbfc3dd6506e2280f16849d6369132ef207dbc5d871f81043664657dad20",
+        "size_bytes": 11609
+      },
+      {
+        "patch": "0002-rurix-accel-luminance-pass-gate.patch",
+        "path": "spike/godot-rurix/patches/0002-rurix-accel-luminance-pass-gate.patch",
+        "sha256": "7b39b73a15a20989fa633b8284b22dbff12fb01155cfc2678d9f2a3de3a65aba",
+        "size_bytes": 8272
+      },
+      {
+        "patch": "0003-rurix-accel-luminance-core-callsite-wiring.patch",
+        "path": "spike/godot-rurix/patches/0003-rurix-accel-luminance-core-callsite-wiring.patch",
+        "sha256": "6ce221e709f732e0192fe976bcc3a9bbb8c7400ec057b3b48fe7f73dc6f09d0a",
+        "size_bytes": 5320
+      },
+      {
+        "patch": "0004-rurix-accel-luminance-resource-mapping-scaffold.patch",
+        "path": "spike/godot-rurix/patches/0004-rurix-accel-luminance-resource-mapping-scaffold.patch",
+        "sha256": "2d84d98212ecacd0bce18b1369b1dc7e4f54b43b562979c62c8ad84e11093321",
+        "size_bytes": 3489
+      },
+      {
+        "patch": "0005-rurix-accel-luminance-runtime-binding-preflight.patch",
+        "path": "spike/godot-rurix/patches/0005-rurix-accel-luminance-runtime-binding-preflight.patch",
+        "sha256": "8e924527b4ff3fc825d75f1d5f06489c1a3e24761b7d2e1af65f7dfe6f970f79",
+        "size_bytes": 12044
+      },
+      {
+        "patch": "0006-rurix-accel-luminance-gated-dispatch-bringup.patch",
+        "path": "spike/godot-rurix/patches/0006-rurix-accel-luminance-gated-dispatch-bringup.patch",
+        "sha256": "a902b5b66e7ede84f9a254661bd8f4a76c6de5695dc1715632ee95cbe92eeeae",
+        "size_bytes": 4413
+      },
+      {
+        "patch": "0007-rurix-accel-luminance-native-resource-handle-mapping.patch",
+        "path": "spike/godot-rurix/patches/0007-rurix-accel-luminance-native-resource-handle-mapping.patch",
+        "sha256": "e36fca8b3082451e9bafe16f9b735a0f7e9bea0bb65b0828129741d30df077a1",
+        "size_bytes": 14031
+      },
+      {
+        "patch": "0008-rurix-accel-luminance-godot-runtime-bridge-recording-smoke.patch",
+        "path": "spike/godot-rurix/patches/0008-rurix-accel-luminance-godot-runtime-bridge-recording-smoke.patch",
+        "sha256": "e245ab5a2c5030a66901fece1abbf3127331d0e01a788917794cf5925c235a08",
+        "size_bytes": 6887
+      },
+      {
+        "patch": "0009-rurix-accel-luminance-real-pass-optin.patch",
+        "path": "spike/godot-rurix/patches/0009-rurix-accel-luminance-real-pass-optin.patch",
+        "sha256": "0501f8eca6fc50a6194110eb45d13e6ed9953010ab02a42936bf7c425d1bb503",
+        "size_bytes": 9059
+      },
+      {
+        "patch": "0010-rurix-accel-luminance-real-pass-result-writeback.patch",
+        "path": "spike/godot-rurix/patches/0010-rurix-accel-luminance-real-pass-result-writeback.patch",
+        "sha256": "123e2207295684cba6147ab1a3b43ceb02bf33b06cf187f6b261982ac599562e",
+        "size_bytes": 21994
+      },
+      {
+        "patch": "0011-rurix-accel-tonemap-pass-gate-and-callsite.patch",
+        "path": "spike/godot-rurix/patches/0011-rurix-accel-tonemap-pass-gate-and-callsite.patch",
+        "sha256": "bea01e99f8c5d3109a2332105021094a11469b72b094ba4183e92ceb3d0bc949",
+        "size_bytes": 8222
+      },
+      {
+        "patch": "0012-rurix-accel-tonemap-runtime-resource-binding.patch",
+        "path": "spike/godot-rurix/patches/0012-rurix-accel-tonemap-runtime-resource-binding.patch",
+        "sha256": "6b07467c67811a993a0e0af740bd4511d549ac22c7f7c95ecc5b4b72d4d56eb7",
+        "size_bytes": 17612
+      },
+      {
+        "patch": "0013-rurix-accel-tonemap-recording-smoke-and-real-pass-optin.patch",
+        "path": "spike/godot-rurix/patches/0013-rurix-accel-tonemap-recording-smoke-and-real-pass-optin.patch",
+        "sha256": "a6956159bbd20e87241570de808ed5ac38ab196ef3be7577d2575574a1e03c5d",
+        "size_bytes": 13206
+      },
+      {
+        "patch": "0014-rurix-accel-ssao-blur-pass-gate-and-callsite.patch",
+        "path": "spike/godot-rurix/patches/0014-rurix-accel-ssao-blur-pass-gate-and-callsite.patch",
+        "sha256": "19e495cf00df33200eecd7c40637275b3e8a0da9ca67762ed38d4095a12b30d1",
+        "size_bytes": 8773
+      },
+      {
+        "patch": "0015-rurix-accel-ssao-blur-runtime-resource-binding.patch",
+        "path": "spike/godot-rurix/patches/0015-rurix-accel-ssao-blur-runtime-resource-binding.patch",
+        "sha256": "ffd9182e890b40ff8239bc8e660f46ed97943740a731c9dc8ed65c3b1be8bcae",
+        "size_bytes": 14919
+      },
+      {
+        "patch": "0016-rurix-accel-ssao-blur-recording-smoke-and-real-pass-optin.patch",
+        "path": "spike/godot-rurix/patches/0016-rurix-accel-ssao-blur-recording-smoke-and-real-pass-optin.patch",
+        "sha256": "361576406fc856923b183d0c8e3642e5a897ac7bd5d041eaa6b62913672eb33f",
+        "size_bytes": 12275
+      },
+      {
+        "patch": "0017-rurix-accel-taa-resolve-pass-gate-and-callsite.patch",
+        "path": "spike/godot-rurix/patches/0017-rurix-accel-taa-resolve-pass-gate-and-callsite.patch",
+        "sha256": "d4272b83d6da878f315709cdc701913f25d28dbde92d67801e30924fc163ce66",
+        "size_bytes": 8954
+      },
+      {
+        "patch": "0018-rurix-accel-taa-resolve-runtime-resource-binding.patch",
+        "path": "spike/godot-rurix/patches/0018-rurix-accel-taa-resolve-runtime-resource-binding.patch",
+        "sha256": "cc5fdb1c47946d30f97d0870c99c9d29f2e8aa1dd5bf49180679a5eb938d0d81",
+        "size_bytes": 17246
+      },
+      {
+        "patch": "0019-rurix-accel-taa-resolve-recording-smoke-and-real-pass-optin.patch",
+        "path": "spike/godot-rurix/patches/0019-rurix-accel-taa-resolve-recording-smoke-and-real-pass-optin.patch",
+        "sha256": "1cdbe5b97808d33eee34f6cb3de63f5ae5589d17055039eedf9c2351ad6296aa",
+        "size_bytes": 12344
+      },
+      {
+        "patch": "0020-rurix-accel-particles-copy-pass-gate-and-callsite.patch",
+        "path": "spike/godot-rurix/patches/0020-rurix-accel-particles-copy-pass-gate-and-callsite.patch",
+        "sha256": "9e925105de3abbbd3b83c22d544785d2c3814da60fb90beef18838d3397c9cb2",
+        "size_bytes": 9402
+      },
+      {
+        "patch": "0021-rurix-accel-particles-copy-runtime-resource-binding.patch",
+        "path": "spike/godot-rurix/patches/0021-rurix-accel-particles-copy-runtime-resource-binding.patch",
+        "sha256": "49fa5c1c7bb349963b3facdfc936ca174b21f45594acb538b1841e765f9c62bf",
+        "size_bytes": 15879
+      },
+      {
+        "patch": "0022-rurix-accel-particles-copy-recording-smoke-and-real-pass-optin.patch",
+        "path": "spike/godot-rurix/patches/0022-rurix-accel-particles-copy-recording-smoke-and-real-pass-optin.patch",
+        "sha256": "3e0e1cc240f8639c2a16a99c6e881b7778d05890c8e2923059d64fa8b03d33f4",
+        "size_bytes": 13512
+      },
+      {
+        "patch": "0023-rurix-accel-cluster-store-pass-gate-and-callsite.patch",
+        "path": "spike/godot-rurix/patches/0023-rurix-accel-cluster-store-pass-gate-and-callsite.patch",
+        "sha256": "2ba04c4b4d45cb22bebd2f39d40b91ff5f0761f9408e78df2c121aeccc1c910c",
+        "size_bytes": 9428
+      },
+      {
+        "patch": "0024-rurix-accel-cluster-store-runtime-resource-binding.patch",
+        "path": "spike/godot-rurix/patches/0024-rurix-accel-cluster-store-runtime-resource-binding.patch",
+        "sha256": "177879a4fef00d3c30d1bf4a8d42a517d9db4fbff9c5535edfff5ca14dcbdfa0",
+        "size_bytes": 17500
+      },
+      {
+        "patch": "0025-rurix-accel-cluster-store-recording-smoke-and-real-pass-optin.patch",
+        "path": "spike/godot-rurix/patches/0025-rurix-accel-cluster-store-recording-smoke-and-real-pass-optin.patch",
+        "sha256": "c66a54860825c3500c8f3fc44e3a2caf907c7aa32c2044a9a80563aa953eb358",
+        "size_bytes": 13710
+      },
+      {
+        "patch": "0026-rurix-accel-material-sorting-telemetry.patch",
+        "path": "spike/godot-rurix/patches/0026-rurix-accel-material-sorting-telemetry.patch",
+        "sha256": "2e7547135378b5a58d179c331854320079bfcfe4313bfd75c47203ac392b0fe6",
+        "size_bytes": 10296
+      },
+      {
+        "patch": "0027-rurix-accel-gpu-culling-pass-gate-and-callsite.patch",
+        "path": "spike/godot-rurix/patches/0027-rurix-accel-gpu-culling-pass-gate-and-callsite.patch",
+        "sha256": "0f96f9cb271237125be40e77469060ce0717074e40e4ca4e1850125cd6445e25",
+        "size_bytes": 9914
+      },
+      {
+        "patch": "0028-rurix-accel-gpu-culling-runtime-resource-binding.patch",
+        "path": "spike/godot-rurix/patches/0028-rurix-accel-gpu-culling-runtime-resource-binding.patch",
+        "sha256": "fdda272882a555889a7b42e0c1500c5c119d023e2d93e9ebf80a622e72380609",
+        "size_bytes": 22396
+      },
+      {
+        "patch": "0029-rurix-accel-gpu-culling-recording-smoke-and-real-pass-optin.patch",
+        "path": "spike/godot-rurix/patches/0029-rurix-accel-gpu-culling-recording-smoke-and-real-pass-optin.patch",
+        "sha256": "22faab11f6762edb24685533de62a25c87643a927a3c3144e6019b8283983b1c",
+        "size_bytes": 8975
+      },
+      {
+        "patch": "0040-rurix-accel-tonemap-rd-native-inframe-replacement.patch",
+        "path": "spike/godot-rurix/patches/0040-rurix-accel-tonemap-rd-native-inframe-replacement.patch",
+        "sha256": "5f135f788b480c89a9ba0adb3aaece5a7eb9f07a0710a529126ce9854b7f6cf5",
+        "size_bytes": 20839
+      },
+      {
+        "patch": "0041-rurix-accel-ssao-blur-rd-native-inframe-replacement.patch",
+        "path": "spike/godot-rurix/patches/0041-rurix-accel-ssao-blur-rd-native-inframe-replacement.patch",
+        "sha256": "a666f6862e60638d1d9f7efae5bf5d244da3bf117e5e6290ae2b068f0d505acc",
+        "size_bytes": 22220
+      },
+      {
+        "patch": "0042-rurix-accel-taa-resolve-rd-native-inframe-replacement.patch",
+        "path": "spike/godot-rurix/patches/0042-rurix-accel-taa-resolve-rd-native-inframe-replacement.patch",
+        "sha256": "45ca5e84933835cca26a897c61dd70b476f6601ab108d148a04433e318a3e9eb",
+        "size_bytes": 23367
+      },
+      {
+        "patch": "0043-rurix-accel-particles-copy-rd-native-inframe-replacement.patch",
+        "path": "spike/godot-rurix/patches/0043-rurix-accel-particles-copy-rd-native-inframe-replacement.patch",
+        "sha256": "cc160b15d7a266dfcc1aebf580627ceff0e9e6b52cedee7c07b0f03a3b202072",
+        "size_bytes": 21792
+      },
+      {
+        "patch": "0044-rurix-accel-cluster-store-rd-native-inframe-replacement.patch",
+        "path": "spike/godot-rurix/patches/0044-rurix-accel-cluster-store-rd-native-inframe-replacement.patch",
+        "sha256": "a64179539f812f214ac18eb98cfd62e52c6923821fd6ed28c3ea834c98f60c4e",
+        "size_bytes": 21730
+      },
+      {
+        "patch": "0045-rurix-accel-fused-post-chain-rd-native-inframe-replacement.patch",
+        "path": "spike/godot-rurix/patches/0045-rurix-accel-fused-post-chain-rd-native-inframe-replacement.patch",
+        "sha256": "418406b2b30bcef1539a413f406115db5def70fe8b173d58b8fdcaf6a3f3f2b9",
+        "size_bytes": 28052
+      }
+    ]
+  },
+  "note": "GRX Route B tonemap rd_native in-frame REAL-replacement gate. backend==2 drives the Rurix tonemap kernel as a first-class RenderingDevice compute pass and SKIPS the native Godot tonemapper (not a scaffold). Bridge-independent (no rxgd session, no RxGdCaps.flags bit). default_enable_state stays disabled and no performance/FPS/GPU-timestamp claim is made.",
+  "status": "skip",
+  "timestamp": "2026-07-13T11:12:08+08:00",
+  "run_url": "local interactive runner",
+  "reason": "RURIX_GRX_RB_FUSED_POST_CHAIN_GODOT_EXE is not set; the rd_native enablement smoke needs a scratch Godot console exe rebuilt with the 0001,0002,0003,0004,0005,0006,0007,0008,0009,0010,0011,0012,0013,0014,0015,0016,0017,0018,0019,0020,0021,0022,0023,0024,0025,0026,0027,0028,0029,0040,0041,0042,0043,0044,0045 patch stack (module_rurix_accel_enabled=yes d3d12=yes). The tracked external/godot-master build only has 0001+0002+0003 and must NOT be reused here",
+  "skip_kind": "environment"
+}

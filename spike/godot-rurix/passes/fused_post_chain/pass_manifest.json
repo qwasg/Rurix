@@ -67,11 +67,36 @@
     "root_constant_dwords": 16,
     "root_constant_shape_note": "merged member b0s + fusion controls; [i64 x4, f32 x8] keeps the canonical dims-first packing discipline but intentionally departs from the members' 28-byte shape - the deferred S4 gate must validate 64 bytes",
     "resources": [
-      { "name": "src_color", "binding": "t0 space0", "kind": "SRV", "binding_kind": "texture2d" },
-      { "name": "lum_source", "binding": "t1 space0", "kind": "SRV", "binding_kind": "texture2d" },
-      { "name": "prev_luminance", "binding": "t2 space0", "kind": "SRV", "binding_kind": "texture2d" },
-      { "name": "dst_color", "binding": "u0 space0", "kind": "UAV", "binding_kind": "rwtexture2d" },
-      { "name": "dst_luminance", "binding": "u1 space0", "kind": "UAV", "binding_kind": "rwtexture2d" }
+      {
+        "name": "src_color",
+        "binding": "t0 space0",
+        "kind": "SRV",
+        "binding_kind": "texture2d"
+      },
+      {
+        "name": "lum_source",
+        "binding": "t1 space0",
+        "kind": "SRV",
+        "binding_kind": "texture2d"
+      },
+      {
+        "name": "prev_luminance",
+        "binding": "t2 space0",
+        "kind": "SRV",
+        "binding_kind": "texture2d"
+      },
+      {
+        "name": "dst_color",
+        "binding": "u0 space0",
+        "kind": "UAV",
+        "binding_kind": "rwtexture2d"
+      },
+      {
+        "name": "dst_luminance",
+        "binding": "u1 space0",
+        "kind": "UAV",
+        "binding_kind": "rwtexture2d"
+      }
     ],
     "dst_shape": "dst_color extent == src_color extent (1:1 full-resolution); dst_luminance and prev_luminance extents == 1x1 (different resources, double-buffered mirroring the native SWAP); lum_source extent <= 8x8 (single tile)",
     "requires_64bit_integer_shader_capability": true,
@@ -181,6 +206,49 @@
       "glow, tonemapper modes other than LINEAR (Reinhard/FILMIC/ACES/AgX), and the rest of the auto-exposure consumer chain",
       "native-continuation retirement (net-benefit measurement)",
       "per-pass FPS baseline comparison (contract requires >= 0.95x baseline before any default-enable discussion)"
+    ]
+  },
+  "rd_native": {
+    "provenance": "rd_native_route_b",
+    "summary": "GRX Route B fused_post_chain rd_native is the FUSION-FIRST leg of the two-level fallback (fused rd_native -> single-pass tonemap rd_native (patch 0040) -> native). It is SELF-CONTAINED on the culling tail: the fused shim scaffold 0036-0038 lives on the mutually-exclusive fused tail and is NOT in this stack, so 0045 adds its own bridge-independent backend selector and cascades into 0040's tonemap rd_native rather than a fused shim gate. It has its own RD_NATIVE_FUSED_POST_CHAIN_* 64-byte/5-resource constants (distinct from the fused-tail FUSED_POST_CHAIN_RESOURCE_MAPPING_* so the tails never collide). Bridge-independent; the shim FUSED_POST_CHAIN_REAL_PASS bit 13 is unrelated.",
+    "backend_selector": "rendering/rurix_accel/passes/fused_post_chain/backend",
+    "backend_states": {
+      "0": "disabled (default; tonemap rd_native / native chain unchanged)",
+      "1": "reserved (no shim path on this tail; behaves as disabled)",
+      "2": "rd_native (engage the fusion-first replacement, cascading to tonemap rd_native)"
+    },
+    "container_path_setting": "rendering/rurix_accel/passes/fused_post_chain/rd_container_path",
+    "default_backend": 0,
+    "default_enable_state": "disabled",
+    "bridge_independent": true,
+    "cap_bit_consumed": null,
+    "rxgd_abi_version_unchanged": true,
+    "self_contained_on_culling_tail": true,
+    "cascades_into": "patch 0040 tonemap rd_native (single-pass fallback)",
+    "godot_patch": "spike/godot-rurix/patches/0045-rurix-accel-fused-post-chain-rd-native-inframe-replacement.patch",
+    "godot_patch_sha256": "418406b2b30bcef1539a413f406115db5def70fe8b173d58b8fdcaf6a3f3f2b9",
+    "patch_stack": "0001-0029 + 0040 + 0041 + 0042 + 0043 + 0044 + 0045 (branch-HEAD culling tail + rd_native series)",
+    "own_compute_list": true,
+    "hook_virtual": "D3D12Hooks::try_record_fused_post_chain_rd_native(RID p_src_color, RID p_lum_source, RID p_prev_luminance, RID p_dst_color, RID p_dst_luminance, Size2i p_source_size, Size2i p_dest_size, float p_exposure, float p_white, float p_luminance_multiplier)",
+    "descriptor_mapping": "five textures: src_color=t0 SRV, lum_source=t1 SRV, prev_luminance=t2 SRV, dst_color=u0 UAV, dst_luminance=u1 UAV; 64-byte b0 [i64 source dims, i64 lum_source dims, f32 max/min_luminance, exposure_adjust, exposure, white, luminance_multiplier, first_frame, auto_exposure_scale]; dispatch ceil(dest/8) over the container 8x8 local size; own compute_list_begin/end.",
+    "kernel_subset": "fused luminance-final + tonemap (LINEAR) end.",
+    "container": {
+      "staged_path": "target/grx/rd_containers/fused_post_chain.rd_container.bin",
+      "source": "spike/godot-rurix/rd-native-pipeline/out/fused_post_chain.rd_container.bin",
+      "sha256": "00e6a69d0780975f"
+    },
+    "enablement": {
+      "harness": "ci/grx_rb_fused_post_chain_rd_native_enablement_smoke.py",
+      "evidence": "spike/godot-rurix/passes/fused_post_chain/rd_native_enablement_evidence.json",
+      "status": "measured_blocked_by_design",
+      "first_missing_prerequisite": "fused_luminance_double_buffer_api_unexposed",
+      "status_note": "The 0045 patch is authored, LF-clean, and stacked-applyable on 0001-0029+0040-0045 (--check-only PASS). By design it FAILS CLOSED at the aliasing guard (lum_source==prev_luminance || dst_color==dst_luminance) because the public Luminance API does not expose the distinct double-buffered luminance-final targets at the tonemap call site (deferred Luminance-API extension / draw_graph route B, PASS_CONTRACT 3.4/5). On the culling tail the fused gate therefore cascades to the patch 0040 tonemap rd_native single-pass fallback today; the RXGD_RD_NATIVE_FUSED_POST_CHAIN active marker only appears once distinct luminance targets are supplied. This is an HONEST measured-blocked boundary, not a failure: the structural path is complete and lifts automatically when the Luminance-API extension lands.",
+      "real_gpu_pass": false,
+      "performance_claim": "none"
+    },
+    "remaining_rounds": [
+      "Luminance-API extension exposing distinct lum_source/prev_luminance/dst_luminance double-buffer targets (SWAP semantics per patch 0038 precedent) so the fusion-first gate can engage a genuine replacement (deferred, next batch)",
+      "run the enablement smoke to confirm the cascade to tonemap rd_native and the measured-blocked boundary on the built scratch exe"
     ]
   },
   "evidence_requirements": {
