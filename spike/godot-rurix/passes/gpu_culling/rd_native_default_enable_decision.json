@@ -4,30 +4,46 @@
   "segment": "grx015_rd_native_default_enable_decision",
   "route": "rd_native_route_b",
   "generated_at_utc": "2026-07-13T00:00:00Z",
-  "decision": "mechanism_blocked",
+  "revised_at_utc": "2026-07-13T21:00:00Z",
+  "decision": "keep_disabled",
   "default_enable_state": "disabled",
   "machine_role": "local_test_machine",
   "performance_claim": "none",
   "decision_document": "spike/godot-rurix/passes/gpu_culling/rd_native_default_enable_decision.md",
-  "manifest_status": "grx015_rd_native_r1_final_verdict_mechanism_blocked_rdg_gap",
-  "rationale": [
-    "r1_final_verdict_device_removal: patch 0046 R1 (Rurix-owned scratch indirect buffer, buffer_copy live->scratch, clear/dispatch confined to scratch, draw_list_draw_indirect retargeted to scratch) still device-removes (0x887A0005) on the rb4 exe; the pre-registered arbiter convicts the GENERAL hypothesis that a compute-written DISPATCH_INDIRECT buffer consumed by a same-frame indirect draw removes the device irrespective of buffer/kernel/instance-count",
-    "debug_layer_and_gbv_silent: the CPU-visible barrier/state chain validates clean; the fault is on the GPU timeline (RDG missing UAV->INDIRECT_ARGUMENT sync within one frame-graph submission)",
-    "r2_rejected: applying last frame's cull results violates the pass's conservative picture-preservation invariant under camera motion (visual gate would only pass on static scenes = dishonest coverage)"
+  "manifest_status": "grx015_rd_native_r1c_picture_preserving_first_strict_success",
+  "rd_native_verdict": "first_strict_success_net_zero_default_disabled",
+  "keep_disabled_rationale": [
+    "strict_success_but_net_zero: R1c rd_native is byte-exact vs the native reference (candidate engages, causes no device removal on any leg, max_abs=0), but on this gate scene the deepest-corner instance (index 4095) is visible so the high-water-mark InstanceCount == the full count (4096); the candidate scratch command buffer is byte-identical to the live one and net draw-count reduction is exactly 0 (a property of the visible-tail scene, not a weakness of the fix)",
+    "no_per_pass_bench_ratio_evidence: gate-met (strict success) is not net benefit; a measurable draw-count reduction requires a scene whose instance-array tail is off-screen or GRX-016 transform compaction, neither of which is delivered in this milestone; default_enable_state stays disabled and performance_claim stays none even on strict success"
   ],
-  "dependent_passes_blocked": [
+  "retraction": {
+    "retracted_decision": "mechanism_blocked",
+    "retracted_manifest_status": "grx015_rd_native_r1_final_verdict_mechanism_blocked_rdg_gap",
+    "retracted_conviction": "a general RDG same-frame compute-written DISPATCH_INDIRECT buffer consumed by a same-frame indirect draw removes the device on this backend",
+    "actual_root_cause": "MISALIGNED RenderingDevice::buffer_clear: clearing each surface's instance-count dword at byte offset (s*5+1)*4 = 4/24/44 (never a multiple of 16) lowers to a RAW buffer UAV whose byte offset violates D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT (16) and removes the device (0x887A0005); NOT an RDG architecture gap",
+    "two_reproducers": {
+      "misaligned_buffer_clear_real_culprit": "spike/godot-rurix/upstream-repro/rd-buffer-clear-misaligned-offset/ (offset 4/8/12/20/36 removes the device frame 1; offset 0/16/32/48 clean; perfect offset % 16 law, no compute/draw involved)",
+      "pure_compute_to_indirect_FALSIFIED": "spike/godot-rurix/upstream_bug_repro/ (compute UAV-write of a DISPATCH_INDIRECT buffer consumed same-frame by draw_list_draw_indirect runs 300 frames clean)"
+    },
+    "fix_chain": {
+      "r1b": "patch 0046 revision: keep the Rurix-owned scratch indirect decoupling and replace the misaligned per-surface count-dword buffer_clear with an aligned buffer_copy from a persistent 16-byte all-zero SSBO (CopyBufferRegion has no RAW-UAV alignment constraint); breaks the device-removal wall (rb5), exposes a downstream over-cull correctness finding",
+      "r1c": "container-only kernel change (no 0046/b0/RTS0/descriptor/exe change): per-surface count write from InterlockedAdd(+1) count-of-visible to high-water-mark InterlockedMax(instance+1) so the prefix draw [0..InstanceCount-1] covers every visible instance and never over-culls"
+    },
+    "note": "The prior 'Rationale — R1 终裁' prose in the .md is retained verbatim for the audit trail and banner-marked SUPERSEDED; this JSON records the retraction machine-readably."
+  },
+  "dependent_passes_unblocked_deferred": [
     "grx016_instance_compaction",
     "grx018_indirect_args"
   ],
   "diagnosis_document": "spike/godot-rurix/passes/gpu_culling/rd_native_device_removal_diagnosis.md",
   "enablement_evidence": "spike/godot-rurix/passes/gpu_culling/rd_native_enablement_evidence.json",
+  "enablement_success_evidence": "spike/godot-rurix/passes/gpu_culling/rd_native_enablement_success_evidence.json",
   "matrix": "spike/godot-rurix/passes/DEFAULT_ENABLE_MATRIX.md",
-  "upstream_bug_report_candidate": "Godot 4.7 D3D12 RDG missing GPU-timeline sync for UAV->INDIRECT_ARGUMENT within one frame-graph submission",
-  "one_five_x_strict_gate": "archived_as_structurally_unreachable_gate_math_unchanged",
+  "upstream_bug_report_candidate": "Godot 4.7 D3D12 driver misaligned RenderingDevice::buffer_clear (RAW buffer UAV byte offset not 16-aligned removes the device); DRAFT spike/godot-rurix/upstream-repro/ISSUE_DRAFT.md (for owner to file)",
+  "one_five_x_strict_gate": "archived_as_structurally_unreachable_gate_math_unchanged_unaffected_by_culling_retraction",
   "does_not_imply": [
-    "default pass enablement",
-    "opt-in availability (the pass device-removes)",
+    "default pass enablement (net-zero on this scene, no per-pass bench ratio evidence)",
     "performance/FPS/p95/GPU-timestamp claim",
-    "1.5x strict close-out gate satisfied"
+    "1.5x strict close-out gate satisfied (Amdahl 1.0669x ceiling unchanged; compaction magnitude assessed single-digit percent on this bench)"
   ]
 }

@@ -3,13 +3,25 @@
   "subject": "grx_milestone_closeout",
   "milestone": "GRX",
   "status": "closed",
-  "decision": "honest_ceiling_close_out",
+  "decision": "honest_ceiling_close_out_culling_reconciled",
   "closed_at_utc": "2026-07-13T00:00:00Z",
+  "revised_at_utc": "2026-07-13T21:00:00Z",
   "performance_claim": "none",
   "next_action_when_closed": "grx_milestone_closed_ceiling_archived",
-  "owner_ruling": "user terminal ruling 2026-07-13 (main-session AskUserQuestion): honest-ceiling close-out. The 1.5x strict gate (G-GRX-5) is archived as structurally unreachable (measured), and GRX-023..026 are closed on that honest basis. Agent-autonomy precedent b17fd67 + g2.6 agent self-signed close-out apply; the formal front-matter status flip and signature line are finalized by the main-session close-out commit.",
+  "owner_ruling": "user terminal ruling 2026-07-13 (main-session AskUserQuestion) = honest-ceiling close-out, then re-adjudicated the same day to a REVISED close-out after the culling retraction: the gpu_culling/016/018 device-removal was reconvicted as a Godot D3D12 driver misaligned buffer_clear (16B RAW-UAV alignment) bug, NOT an RDG architecture gap; R1b+R1c fixes give gpu_culling rd_native a byte-exact strict success (max_abs=0), and GRX-016/018 are unblocked (not implemented). The 1.5x strict gate (G-GRX-5) verdict is UNCHANGED: it stays archived as structurally unreachable (measured) because the strict success is net-zero on this gate scene (high-water-mark full count) and compaction is assessed at single-digit percent on this bench. GRX-023..026 are closed on this revised honest basis. Agent-autonomy precedent b17fd67 + g2.6 agent self-signed close-out apply; the formal front-matter status flip and signature line are finalized by the main-session close-out commit.",
   "signature": "白栀 (via 主会话 close-out commit)",
   "assisted_by": "kiro:claude-opus-4-8",
+  "culling_retraction": {
+    "retracted_verdict": "gpu_culling/016/018 mechanism_blocked (general RDG same-frame compute->DISPATCH_INDIRECT->draw_indirect sync gap)",
+    "actual_root_cause": "Godot D3D12 driver misaligned RenderingDevice::buffer_clear: clearing a per-surface count dword at a byte offset that is not a multiple of 16 lowers to an out-of-spec RAW buffer UAV (D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT) and removes the device (0x887A0005)",
+    "two_reproducers": {
+      "misaligned_buffer_clear_real_culprit": "spike/godot-rurix/upstream-repro/rd-buffer-clear-misaligned-offset/ (offset 4/8/12/20/36 removes device frame 1; 0/16/32/48 clean; offset % 16 law)",
+      "pure_compute_to_indirect_FALSIFIED": "spike/godot-rurix/upstream_bug_repro/ (300 frames clean)"
+    },
+    "upstream_issue_draft": "spike/godot-rurix/upstream-repro/ISSUE_DRAFT.md (DRAFT for owner to file)",
+    "gpu_culling_verdict": "grx015_rd_native_r1c_picture_preserving_first_strict_success (candidate engage + no device removal on any leg + byte-exact vs native reference max_abs=0); default disabled because net-zero on this scene + no per-pass bench ratio evidence",
+    "affects_1_5x_gate": false
+  },
   "one_five_x_strict_gate": {
     "gate": "G-GRX-5",
     "verdict": "not_met_archived_as_structurally_unreachable",
@@ -18,7 +30,8 @@
     "measured_all5_geomean": 0.9942,
     "gate_math_unchanged": true,
     "thresholds_unchanged": [1.5, 0.3, 0.95],
-    "note": "The gate math, the three thresholds (1.5/0.3/0.95), perf_gate.py and its schema are ALL unchanged and NOT relaxed. What is archived is the measured fact that the 1.5x target is unreachable on this workload/GPU/build (1.50 vs a 1.0669x Amdahl zero-cost hard ceiling). This is 'archive-as-unreachable', NOT 'lower the gate'. The GRX-025 >=0.95 is a default-enable COST gate (single-pass engaged scenes), a DIFFERENT gate from the 1.5x geomean close-out gate; the two must not be conflated as 'gate passed'."
+    "unaffected_by_culling_retraction": true,
+    "note": "The gate math, the three thresholds (1.5/0.3/0.95), perf_gate.py and its schema are ALL unchanged and NOT relaxed. What is archived is the measured fact that the 1.5x target is unreachable on this workload/GPU/build (1.50 vs a 1.0669x Amdahl zero-cost hard ceiling). The 2026-07-13 culling retraction (gpu_culling rd_native flipped from mechanism_blocked to strict success) does NOT change this verdict: the strict success is net-zero on this gate scene (high-water-mark == full count, no draw reduction) and compaction (GRX-016) is assessed at single-digit percent on this bench (indirect subset ~40k of ~260k instances, most in-frustum). This is 'archive-as-unreachable', NOT 'lower the gate'. The GRX-025 >=0.95 is a default-enable COST gate (single-pass engaged scenes), a DIFFERENT gate from the 1.5x geomean close-out gate; the two must not be conflated as 'gate passed'."
   },
   "acceptance": {
     "G-GRX-1": "met",
@@ -32,7 +45,10 @@
     "grx024_visual_parity": "spike/godot-rurix/bench/grx024_visual_20260713/grx024_visual_report.md",
     "grx025_gate_report": "spike/godot-rurix/bench/grx025_default_enable_20260713/grx025_default_enable_report.md",
     "grx025_default_enable_matrix": "spike/godot-rurix/passes/DEFAULT_ENABLE_MATRIX.md",
-    "contract_closeout_section": "milestones/grx/GRX_CONTRACT.md"
+    "contract_closeout_section": "milestones/grx/GRX_CONTRACT.md",
+    "gpu_culling_rd_native_strict_success": "spike/godot-rurix/passes/gpu_culling/rd_native_enablement_success_evidence.json",
+    "gpu_culling_device_removal_diagnosis": "spike/godot-rurix/passes/gpu_culling/rd_native_device_removal_diagnosis.md",
+    "gpu_culling_default_enable_decision": "spike/godot-rurix/passes/gpu_culling/rd_native_default_enable_decision.md"
   },
   "per_pass_terminal_state": {
     "tonemap": "rd_native_gate_met_default_disabled_opt_in",
@@ -42,9 +58,9 @@
     "cluster_store": "rd_native_gate_met_default_disabled_opt_in",
     "luminance_reduction": "bridge_stage_a5_default_disabled",
     "fused_post_chain": "engaged_net_zero_parity_out_of_tolerance_keep_disabled",
-    "gpu_culling": "mechanism_blocked_rdg_gap",
-    "instance_compaction": "mechanism_blocked_dependent",
-    "indirect_args": "mechanism_blocked_dependent",
+    "gpu_culling": "rd_native_r1c_strict_success_net_zero_default_disabled",
+    "instance_compaction": "unblocked_deferred",
+    "indirect_args": "unblocked_deferred",
     "material_sorting": "telemetry_only_keep_disabled",
     "descriptor_cache": "not_a_render_pass",
     "pso_prewarm": "not_a_render_pass",
@@ -53,7 +69,7 @@
   "does_not_imply": [
     "1.5x strict close-out gate satisfied",
     "any FPS/p95/GPU-timestamp/performance-improvement claim",
-    "default pass enablement (rd_native passes stay per-project opt-in)"
+    "default pass enablement (rd_native passes stay per-project opt-in; gpu_culling strict success is net-zero on this scene)"
   ],
-  "note": "Machine-readable GRX milestone close-out marker. When present and valid (status=closed, performance_claim=none, decision + owner_ruling + evidence references complete), ci/godot_rurix_toolchain_probe.py advances next_action to grx_milestone_closed_ceiling_archived. If this marker is absent or tampered, the probe fails closed to the honest GRX gate-walk frontier (start_grx015_gpu_culling_pass_contract). This marker records the owner's terminal ruling; the formal contract front-matter status flip and signature are finalized by the main-session close-out commit."
+  "note": "Machine-readable GRX milestone close-out marker (REVISED 2026-07-13 for the culling retraction). When present and valid (status=closed, performance_claim=none, decision + owner_ruling + evidence references complete, next_action_when_closed=grx_milestone_closed_ceiling_archived), ci/godot_rurix_toolchain_probe.py advances next_action to grx_milestone_closed_ceiling_archived. If this marker is absent or tampered, the probe fails closed to the honest GRX gate-walk frontier. This marker records the owner's terminal (then revised) ruling; the formal contract front-matter status flip and signature are finalized by the main-session close-out commit."
 }
