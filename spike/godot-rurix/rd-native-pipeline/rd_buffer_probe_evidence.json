@@ -1,0 +1,300 @@
+{
+  "subject": "grx_rd_buffer_probe",
+  "slice": "route_b_buffer_runtime_equivalence_probe",
+  "generated_at": "2026-07-13T09:39:43+08:00",
+  "run_url": "local interactive runner",
+  "value_tolerance": 0,
+  "binding_semantics_under_test": "Godot's D3D12 driver binds UNIFORM_TYPE_STORAGE_BUFFER as a RAW R32_TYPELESS view (StructureByteStride=0, D3D12_BUFFER_{SRV,UAV}_FLAG_RAW; drivers/d3d12/rendering_device_driver_d3d12.cpp:3547-3563), whereas the offline dispatch harnesses bind STRUCTURED views (real element strides). This probe tests whether the DXC-compiled StructuredBuffer DXIL is runtime-equivalent under the RAW view.",
+  "godot_exe": "H:\\rurix\\external\\godot-master\\bin\\godot.windows.template_debug.x86_64.console.exe",
+  "godot_exe_sha256": "3d9a87fc330d0cfd0b49887d67c7b14e286e142ac9e2cb7d42cb0c14d9f69d51",
+  "does_not_imply": [
+    "same-frame injection (that is S3+, requires a patch)",
+    "default pass enablement",
+    "real_gpu_pass=true",
+    "Godot runtime pass completion",
+    "visual diff success",
+    "GPU timestamp / performance claim"
+  ],
+  "status": "success",
+  "adapter": "NVIDIA GeForce RTX 4070 Ti",
+  "vendor": "NVIDIA",
+  "local_rendering_device": true,
+  "raw_vs_structured_equivalence": "proven_equivalent",
+  "equivalence_conclusion": "Raw-buffer Rurix containers (StructuredBuffer<T> -> UNIFORM_TYPE_STORAGE_BUFFER) bound by Godot's D3D12 driver as RAW R32_TYPELESS views (StructureByteStride=0) produced byte-identical output to the offline structured-view dispatch and the CPU reference (zero tolerance) across two stride-sensitive binding shapes (cluster_store render_elements stride=80; scatter transforms stride=48). The DXC-compiled StructuredBuffer DXIL bakes the element stride into the shader, so RAW and structured views are runtime-equivalent; buffer-type passes are Route-B viable through the same zero-patch local-RD path as the texture passes.",
+  "pipeline_path": [
+    "shader_create_from_bytecode (-> shader_create_from_container)",
+    "compute_pipeline_create (-> CreateRootSignature + PSO from container bytes)",
+    "storage_buffer_create x N (per binding, incl. zeroed destination)",
+    "uniform_set_create([UNIFORM_TYPE_STORAGE_BUFFER ...], shader, 0)",
+    "compute_list dispatch + submit + sync",
+    "buffer_get_data readback (UAV output)"
+  ],
+  "passes": [
+    {
+      "pass_id": "cluster_store",
+      "binding_shape": "2 StructuredBuffer SRV (t0,t1) + 1 RWStructuredBuffer UAV (u0)",
+      "container": {
+        "path": "spike\\godot-rurix\\rd-native-pipeline\\out\\cluster_store.rd_container.bin",
+        "sha256": "6623ce6c5eddc19dbf9e49e2aeacbbb4f3c6a6ae48a203494a103c3e6dda2c47"
+      },
+      "dxil": {
+        "path": "spike\\godot-rurix\\passes\\cluster_store\\artifacts\\cluster_store.dxil",
+        "sha256": "e34c9059829134a56a2fae41e87f42dba778ef5813cd9dd28690b57ae4a32b7d"
+      },
+      "rts0": {
+        "path": "spike\\godot-rurix\\passes\\cluster_store\\artifacts\\cluster_store.rts0.bin",
+        "sha256": "24b8b80117e470de23e626d8a8353756bfec4b8f335d79470afca7b9a2eb0be2"
+      },
+      "offline_structured_view_cross_link": {
+        "path": "spike\\godot-rurix\\passes\\cluster_store\\real_d3d12_dispatch_smoke.json",
+        "status": "success",
+        "cpu_reference_match": true
+      },
+      "adapter": "NVIDIA GeForce RTX 4070 Ti",
+      "vendor": "NVIDIA",
+      "local_rendering_device": true,
+      "exit_code": 0,
+      "probe_log": "target\\grx_rd_buffer_probe\\cluster_store\\buffer_probe_stdout.log",
+      "cases": [
+        {
+          "case_id": "store_pack_grid_4x3_e64",
+          "dispatch": [
+            1,
+            1,
+            1
+          ],
+          "dst_bytes": 6528,
+          "dst_word_count": 1632,
+          "output_sha256": "a59d80418559391d43f5f5ba933e04ebcd401fab9574f7dc50cfd3c8cf40d662",
+          "meta": {
+            "cluster_screen_size": [
+              4,
+              3
+            ],
+            "render_element_count": 40,
+            "stride_sensitive_binding": "render_elements t1 StructuredBuffer<RenderElementData> stride=80"
+          },
+          "comparison": {
+            "match": true,
+            "mismatched_words": 0,
+            "total_words": 1632,
+            "nonzero_reference_words": 1086,
+            "value_tolerance": 0,
+            "first_mismatch": null
+          }
+        },
+        {
+          "case_id": "store_pack_grid_2x2_minmax_merge",
+          "dispatch": [
+            1,
+            1,
+            1
+          ],
+          "dst_bytes": 2112,
+          "dst_word_count": 528,
+          "output_sha256": "f29756b047a62a15987db0eb8efdc8dbfb79384adff04412119e220a0b19b53c",
+          "meta": {
+            "cluster_screen_size": [
+              2,
+              2
+            ],
+            "render_element_count": 16,
+            "stride_sensitive_binding": "render_elements t1 StructuredBuffer<RenderElementData> stride=80"
+          },
+          "comparison": {
+            "match": true,
+            "mismatched_words": 0,
+            "total_words": 528,
+            "nonzero_reference_words": 84,
+            "value_tolerance": 0,
+            "first_mismatch": null
+          }
+        },
+        {
+          "case_id": "store_pack_grid_3x1_touch_overrides",
+          "dispatch": [
+            1,
+            1,
+            1
+          ],
+          "dst_bytes": 1584,
+          "dst_word_count": 396,
+          "output_sha256": "3c8a0ad6b1ec6909f7dd6ba605b34ebf4d29f079dfb165d014c952f23c94644e",
+          "meta": {
+            "cluster_screen_size": [
+              3,
+              1
+            ],
+            "render_element_count": 12,
+            "stride_sensitive_binding": "render_elements t1 StructuredBuffer<RenderElementData> stride=80"
+          },
+          "comparison": {
+            "match": true,
+            "mismatched_words": 0,
+            "total_words": 396,
+            "nonzero_reference_words": 132,
+            "value_tolerance": 0,
+            "first_mismatch": null
+          }
+        }
+      ],
+      "all_words_match_cpu_reference_exactly": true,
+      "phase": "success"
+    },
+    {
+      "pass_id": "instance_compaction_scatter",
+      "binding_shape": "4 StructuredBuffer SRV (t0..t3) + 1 RWStructuredBuffer UAV (u0)",
+      "container": {
+        "path": "spike\\godot-rurix\\rd-native-pipeline\\out\\instance_compaction_scatter.rd_container.bin",
+        "sha256": "15e203d2f5c3af65934a28b654786e5d4deeb5bf298fa52c0fe7424573d1ae70"
+      },
+      "dxil": {
+        "path": "spike\\godot-rurix\\passes\\instance_compaction\\artifacts\\instance_compaction_scatter.dxil",
+        "sha256": "940202d93ffcbbb3b46f36ff877f0ccd498c751595429005457e9a2d26ee2537"
+      },
+      "rts0": {
+        "path": "spike\\godot-rurix\\passes\\instance_compaction\\artifacts\\instance_compaction_scatter.rts0.bin",
+        "sha256": "edb7d0f3558d9b393deff507aa59ff457d4a9dc73b7867fb6b7a93a30a30ee8e"
+      },
+      "offline_structured_view_cross_link": {
+        "path": "spike\\godot-rurix\\passes\\instance_compaction\\real_d3d12_dispatch_smoke.json",
+        "status": "success",
+        "cpu_reference_match": true
+      },
+      "adapter": "NVIDIA GeForce RTX 4070 Ti",
+      "vendor": "NVIDIA",
+      "local_rendering_device": true,
+      "exit_code": 0,
+      "probe_log": "target\\grx_rd_buffer_probe\\instance_compaction_scatter\\buffer_probe_stdout.log",
+      "cases": [
+        {
+          "case_id": "sparse_survival_multi_group",
+          "dispatch": [
+            3,
+            1,
+            1
+          ],
+          "dst_bytes": 28800,
+          "dst_word_count": 7200,
+          "output_sha256": "cb7105ba00bee1a2ae1221ca961cb076a984aa2c79eedf7f2a342be2eda643ae",
+          "meta": {
+            "total_instances": 600,
+            "num_groups": 3,
+            "survivor_count": 150,
+            "stride_sensitive_binding": "src/dst_transforms StructuredBuffer stride=48 (12 floats)"
+          },
+          "comparison": {
+            "match": true,
+            "mismatched_words": 0,
+            "total_words": 7200,
+            "nonzero_reference_words": 1800,
+            "value_tolerance": 0,
+            "first_mismatch": null
+          }
+        },
+        {
+          "case_id": "all_survive",
+          "dispatch": [
+            3,
+            1,
+            1
+          ],
+          "dst_bytes": 24624,
+          "dst_word_count": 6156,
+          "output_sha256": "6837cff4d05c981dd5af6bf146b51ea7d808df524a8a0d0bd77f8956761ef047",
+          "meta": {
+            "total_instances": 513,
+            "num_groups": 3,
+            "survivor_count": 513,
+            "stride_sensitive_binding": "src/dst_transforms StructuredBuffer stride=48 (12 floats)"
+          },
+          "comparison": {
+            "match": true,
+            "mismatched_words": 0,
+            "total_words": 6156,
+            "nonzero_reference_words": 6155,
+            "value_tolerance": 0,
+            "first_mismatch": null
+          }
+        },
+        {
+          "case_id": "zero_survive",
+          "dispatch": [
+            2,
+            1,
+            1
+          ],
+          "dst_bytes": 18432,
+          "dst_word_count": 4608,
+          "output_sha256": "f7b586904e3678145aa47e4232587c913139cef0102d6d8e9276fc80c35cbad3",
+          "meta": {
+            "total_instances": 384,
+            "num_groups": 2,
+            "survivor_count": 0,
+            "stride_sensitive_binding": "src/dst_transforms StructuredBuffer stride=48 (12 floats)"
+          },
+          "comparison": {
+            "match": true,
+            "mismatched_words": 0,
+            "total_words": 4608,
+            "nonzero_reference_words": 0,
+            "value_tolerance": 0,
+            "first_mismatch": null
+          }
+        },
+        {
+          "case_id": "mask_tail_garbage_bits_ignored",
+          "dispatch": [
+            1,
+            1,
+            1
+          ],
+          "dst_bytes": 3360,
+          "dst_word_count": 840,
+          "output_sha256": "267da1ac8cf7ae29f290d7cb02c7d3ca59234e466488f8054c988a67210349ee",
+          "meta": {
+            "total_instances": 70,
+            "num_groups": 1,
+            "survivor_count": 14,
+            "stride_sensitive_binding": "src/dst_transforms StructuredBuffer stride=48 (12 floats)"
+          },
+          "comparison": {
+            "match": true,
+            "mismatched_words": 0,
+            "total_words": 840,
+            "nonzero_reference_words": 168,
+            "value_tolerance": 0,
+            "first_mismatch": null
+          }
+        },
+        {
+          "case_id": "single_survivor_last_instance_empty_leading_group",
+          "dispatch": [
+            2,
+            1,
+            1
+          ],
+          "dst_bytes": 14400,
+          "dst_word_count": 3600,
+          "output_sha256": "7d2ac9a1ac623bab62dacab307e3d9e9b4a09916b1a10e9b1dbbb30ecdaa5131",
+          "meta": {
+            "total_instances": 300,
+            "num_groups": 2,
+            "survivor_count": 1,
+            "stride_sensitive_binding": "src/dst_transforms StructuredBuffer stride=48 (12 floats)"
+          },
+          "comparison": {
+            "match": true,
+            "mismatched_words": 0,
+            "total_words": 3600,
+            "nonzero_reference_words": 12,
+            "value_tolerance": 0,
+            "first_mismatch": null
+          }
+        }
+      ],
+      "all_words_match_cpu_reference_exactly": true,
+      "phase": "success"
+    }
+  ]
+}

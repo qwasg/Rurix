@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://rdbufferprobemain"]
+
+[ext_resource type="Script" path="res://rd_buffer_probe.gd" id="1"]
+
+[node name="BufferProbe" type="Node"]
+script = ExtResource("1")
