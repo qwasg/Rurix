@@ -469,6 +469,12 @@ def build_container(shader_name, dxil, rts0_bytes, refl, local_size):
 #                  its own <pass>_<variant>.dxil / .rts0.bin (instance_compaction).
 #   * kernels   -> distinct .dxil files sharing the top-level resources and one
 #                  RTS0 (indirect_args: a write kernel + a resident validate leg).
+#   * artifacts_pass / layout_name -> a pass whose artifacts + layout live under a
+#                  DIFFERENT pass directory / non-default layout filename. Used by
+#                  gpu_culling_rd_native, whose RD-native 48-byte-b0 variant lives
+#                  co-located under passes/gpu_culling/artifacts (the base
+#                  gpu_culling pass keeps its 144-byte shim variant, which stays
+#                  fail-closed as push_constant_too_large and produces no container).
 PASS_REGISTRY = [
     {"pass_id": "tonemap"},
     {"pass_id": "taa_resolve"},
@@ -477,6 +483,8 @@ PASS_REGISTRY = [
     {"pass_id": "luminance_reduction"},
     {"pass_id": "cluster_store"},
     {"pass_id": "gpu_culling"},
+    {"pass_id": "gpu_culling_rd_native", "artifacts_pass": "gpu_culling",
+     "layout_name": "gpu_culling_rd_native_descriptor_layout.json"},
     {"pass_id": "fused_post_chain"},
     {"pass_id": "instance_compaction", "variants": ["scan_local", "scan_groups", "scatter"]},
     {"pass_id": "indirect_args", "kernels": [
@@ -611,8 +619,8 @@ def generate_all(passes_root, out_dir):
     results = []
     for spec in PASS_REGISTRY:
         pass_id = spec["pass_id"]
-        artifacts_dir = passes_root / pass_id / "artifacts"
-        layout_path = artifacts_dir / ("%s_descriptor_layout.json" % pass_id)
+        artifacts_dir = passes_root / spec.get("artifacts_pass", pass_id) / "artifacts"
+        layout_path = artifacts_dir / spec.get("layout_name", "%s_descriptor_layout.json" % pass_id)
         pass_entry = {"pass_id": pass_id, "kernels": []}
         if not layout_path.is_file():
             pass_entry["kernels"].append({

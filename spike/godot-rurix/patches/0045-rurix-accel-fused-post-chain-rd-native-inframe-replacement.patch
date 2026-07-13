@@ -3,70 +3,59 @@ From: Rurix Godot Bridge <rurix@example.invalid>
 Date: Mon, 13 Jul 2026 10:56:04 +0800
 Subject: [PATCH] Add default-disabled GRX Route B rd_native fused_post_chain
  in-frame fusion-first replacement
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
 
 Stacked on 0001..0029 + 0040 + 0041 + 0042 + 0043 + 0044 (the branch-HEAD
 gpu_culling tail plus the tonemap, ssao_blur, taa_resolve, particles_copy and
-cluster_store rd_native slices). This is the sixth Route B replacement slice and
-the FUSION-FIRST leg of the two-level fallback contract: fused rd_native ->
-single-pass tonemap rd_native (patch 0040, already in this stack) -> native Godot
-tonemap chain. It is SELF-CONTAINED on the culling tail — the fused shim scaffold
-(0036-0038) lives on the mutually-exclusive fused tail (see PATCH_ALLOCATION.md
-double-tail note) and is NOT in this stack, so 0045 adds its own bridge-
-independent backend selector and cascades into 0040's tonemap rd_native rather
-than a fused shim gate.
+cluster_store rd_native slices). Sixth Route B replacement slice and the
+FUSION-FIRST leg of the two-level fallback: fused rd_native -> single-pass
+tonemap rd_native (patch 0040) -> native Godot tonemap chain. SELF-CONTAINED on
+the culling tail (the fused shim scaffold 0036-0038 is on the mutually-exclusive
+fused tail and is NOT in this stack).
 
 - drivers/d3d12/d3d12_hooks.h: new default-false virtual
   try_record_fused_post_chain_rd_native(RID src_color, RID lum_source,
-  RID prev_luminance, RID dst_color, RID dst_luminance, Size2i source_size,
-  Size2i dest_size, float exposure, float white, float luminance_multiplier). It
-  takes the five Godot texture RID handles in the container's binding order
-  (src_color/lum_source/prev_luminance = SRV t0..t2, dst_color/dst_luminance =
-  UAV u0/u1) instead of native ID3D12Resource* handles. Base returns false.
+  RID prev_luminance, RID dst_color, RID dst_luminance, Size2i, Size2i, f32, f32,
+  f32). Base returns false.
 - modules/rurix_accel/register_types.cpp: two new default-safe settings
-  (rendering/rurix_accel/passes/fused_post_chain/backend, int default 0, and
-  .../rd_container_path, string default ""). Defaults keep it disabled.
+  (.../passes/fused_post_chain/backend int default 0 and .../rd_container_path).
 - modules/rurix_accel/rurix_accel.{h,cpp}: try_record_fused_post_chain_rd_native
-  override plus its own 64-byte b0 / 5-resource constants
-  (RD_NATIVE_FUSED_POST_CHAIN_ROOT_CONSTANT_BYTES / _RESOURCE_COUNT), distinct
-  from the fused-tail FUSED_POST_CHAIN_RESOURCE_MAPPING_* so the two tails never
-  collide. Lazily builds the pipeline, runs a usage-bits preflight (three SRV
-  SAMPLING_BIT, two UAV STORAGE_BIT), binds the five textures via UniformSetCacheRD
-  (t0..t2 TEXTURE, u0/u1 IMAGE), packs the 64-byte b0 ([i64 source dims, i64
-  lum_source dims, then max/min_luminance, exposure_adjust, exposure, white,
-  luminance_multiplier, first_frame, auto_exposure_scale]), and dispatches
-  ceil(dest/8) groups on its own compute list. It FAILS CLOSED (honest measured
-  boundary) when lum_source == prev_luminance or dst_color == dst_luminance: the
-  distinct double-buffered luminance-final targets are NOT exposed by the public
-  Luminance API at the tonemap call site, and binding an aliased/degenerate
-  luminance UAV would corrupt the feedback loop or risk a mid-frame
-  uniform_set_create assert, so it cascades to the patch 0040 tonemap rd_native
-  single-pass fallback. The one-shot RXGD_RD_NATIVE_FUSED_POST_CHAIN active marker
-  is emitted only when a genuine distinct-target replacement is recorded.
-- servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
-  _render_buffers_post_process_and_tonemap: in the can_use_storage tonemap block,
-  backend == 2 runs the fusion-first rd_native gate BEFORE the patch 0040 tonemap
-  rd_native gate; a successful record skips the tonemap rd_native gate, the shim
-  gate and the native tonemapper. backend != 2 leaves the pre-existing 0040 +
-  shim + native chain byte-for-byte unchanged.
+  override + its own 64-byte b0 / 5-resource constants.
+- servers/rendering/renderer_rd/renderer_scene_render_rd.cpp: the fusion-first
+  gate runs before the patch 0040 tonemap rd_native gate.
 
-Fail-closed everywhere: with the default backend == 0 (and empty container path),
-the fused gate never engages and the tonemap rd_native / native chain renders. On
-the culling tail the fused luminance-final double-buffer binding is unavailable
-(deferred Luminance-API extension, PASS_CONTRACT 3.4/5), so this gate fails closed
-at the aliasing guard and cascades to tonemap rd_native today; it lifts
-automatically once distinct luminance targets are supplied. RXGD_ABI_VERSION is
-unchanged (no C ABI struct change, no RxGdCaps.flags bit; rd_native is bridge-
-independent). No performance claim is made.
+In-place revision (Design 1 shadow-recompute, unlocked by the patch 0048
+Luminance-API getters; no number change): the call site now supplies THREE
+DISTINCT luminance buffers via luminance->get_current_luminance_buffer /
+get_previous_luminance_buffer / get_luminance_reduce_penultimate_buffer
+(lum_source = current SRV t1, prev_luminance = previous SRV t2, and a valid
+distinct dst_luminance handle = penultimate). The module binds the two distinct
+luminance SRVs but REDIRECTS the fused kernel's dst_luminance UAV (u1) to a
+self-owned 1x1 R32_SFLOAT STORAGE scratch that is NEVER read back, so no real
+luminance buffer is written (writing current would corrupt the auto-exposure
+feedback; writing penultimate would corrupt next frame's reduction source). The
+gate is ALSO ANDed with the shared rurix_tonemap_linear_subset_compatible
+predicate from patch 0040 (LINEAR + convert_to_srgb + no color effects; auto
+exposure is allowed here because the fused kernel folds the luminance step in).
+
+HONEST BOUNDARY (recorded in the manifest / PASS_CONTRACT): this is a
+shadow-recompute — the native luminance_reduction still runs in FULL, the net
+dispatch saving is ZERO, and NO structural fusion / dispatch saving is claimed
+(engaged / shadow-luminance-write / dispatch-savings-not-claimed). Only the
+LINEAR + convert_to_srgb tonemap leg (t0 -> u0) is the real replacement. A true
+fusion (Design 2: glow-off gate + skip the native final level + external SWAP)
+is a later batch. Fails closed (cascades to tonemap rd_native) when auto-exposure
+did not produce distinct current/previous luminance buffers.
+
+Fail-closed everywhere: default backend == 0 keeps the tonemap rd_native /
+native chain. RXGD_ABI_VERSION unchanged (no C ABI struct change, no
+RxGdCaps.flags bit; bridge-independent). No performance claim is made.
 ---
- drivers/d3d12/d3d12_hooks.h                   |  21 +++
- modules/rurix_accel/register_types.cpp        |  19 +++
- modules/rurix_accel/rurix_accel.cpp           | 155 ++++++++++++++++++
- modules/rurix_accel/rurix_accel.h             |  40 +++++
- .../renderer_rd/renderer_scene_render_rd.cpp  |  36 +++-
- 5 files changed, 268 insertions(+), 3 deletions(-)
+ drivers/d3d12/d3d12_hooks.h                        |  21 +++
+ modules/rurix_accel/register_types.cpp             |  19 +++
+ modules/rurix_accel/rurix_accel.cpp                | 183 +++++++++++++++++++++
+ modules/rurix_accel/rurix_accel.h                  |  62 +++++++
+ .../renderer_rd/renderer_scene_render_rd.cpp       |  44 ++++-
+ 5 files changed, 326 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
 index fa65fc8..0bddfe0 100644
@@ -130,10 +119,10 @@ index 16e92a3..23a0f0a 100644
  #if defined(D3D12_ENABLED)
  	if (GLOBAL_GET("rendering/rurix_accel/enabled")) {
 diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
-index e1d1679..38d13d1 100644
+index e1d1679..7c14f3a 100644
 --- a/modules/rurix_accel/rurix_accel.cpp
 +++ b/modules/rurix_accel/rurix_accel.cpp
-@@ -1618,4 +1618,159 @@ bool RurixAccelD3D12Hooks::try_record_cluster_store_rd_native(int64_t p_compute_
+@@ -1618,4 +1618,187 @@ bool RurixAccelD3D12Hooks::try_record_cluster_store_rd_native(int64_t p_compute_
  	return true;
  }
  
@@ -159,27 +148,32 @@ index e1d1679..38d13d1 100644
 +	if (!p_src_color.is_valid() || !p_lum_source.is_valid() || !p_prev_luminance.is_valid() || !p_dst_color.is_valid() || !p_dst_luminance.is_valid()) {
 +		return false;
 +	}
-+	// Deferred Luminance-API guard (honest fail-closed): the distinct
-+	// double-buffered luminance-final targets (a separate lum_source, prev_luminance
-+	// and dst_luminance) are NOT exposed by the public Luminance API at the tonemap
-+	// call site, so the caller aliases lum_source == prev_luminance and dst_color ==
-+	// dst_luminance. A correct fused replacement needs those distinct targets (the
-+	// Luminance-API extension / draw_graph route B — PASS_CONTRACT 3.4/5). Rather
-+	// than bind an aliased/degenerate luminance UAV (which would either corrupt the
-+	// feedback loop or risk a mid-frame uniform_set_create assert on a format
-+	// mismatch), fail closed here so the caller cascades to the patch 0040 tonemap
-+	// rd_native single-pass fallback. This is the honest measured-blocked boundary
-+	// for the fused pass on the culling tail; it lifts automatically once distinct
-+	// luminance targets are supplied.
-+	if (p_lum_source == p_prev_luminance || p_dst_color == p_dst_luminance) {
++	// Distinct-luminance guard (patch 0045 in-place revision — Design 1 fused
++	// shadow-recompute unlocked by the patch 0048 Luminance-API getters). The call
++	// site now supplies DISTINCT current / previous / penultimate luminance buffers
++	// (get_current_luminance_buffer / get_previous_luminance_buffer /
++	// get_luminance_reduce_penultimate_buffer): lum_source = current (this frame's
++	// final), prev_luminance = previous (last frame's final = reduce[size-1] after
++	// SWAP). If they still alias (no auto-exposure this frame, so the Luminance
++	// custom-data / distinct final buffers do not exist), the fused luminance leg
++	// would be degenerate — fail closed so the caller cascades to the patch 0040
++	// tonemap rd_native single-pass fallback. NOTE the p_dst_luminance argument is
++	// used ONLY to keep a valid, distinct handle in the signature (the call site
++	// passes the penultimate reduce level); the fused kernel's dst_luminance WRITE
++	// is redirected below to a self-owned scratch, so no real luminance buffer is
++	// ever written (honest shadow-recompute; the native luminance_reduction still
++	// runs in full, no dispatch saving claimed).
++	if (p_lum_source == p_prev_luminance) {
 +		return false;
 +	}
 +	if (p_dest_size.x <= 0 || p_dest_size.y <= 0) {
 +		return false;
 +	}
-+	// Usage-bits preflight: the three SRV inputs must be sampleable and the two UAV
-+	// outputs must be storage-writable. Fails closed rather than letting
-+	// uniform_set_create assert mid-frame.
++	// Usage-bits preflight: the three SRV inputs must be sampleable and the LDR
++	// destination (u0) must be storage-writable. Fails closed rather than letting
++	// uniform_set_create assert mid-frame. The dst_luminance UAV (u1) is a
++	// self-owned scratch created with STORAGE_BIT below, so it needs no preflight
++	// on p_dst_luminance (which is never bound / written).
 +	const RID srv_inputs[3] = { p_src_color, p_lum_source, p_prev_luminance };
 +	for (uint32_t i = 0; i < 3; i++) {
 +		const RenderingDevice::TextureFormat fmt = rd->texture_get_format(srv_inputs[i]);
@@ -187,9 +181,8 @@ index e1d1679..38d13d1 100644
 +			return false;
 +		}
 +	}
-+	const RID uav_outputs[2] = { p_dst_color, p_dst_luminance };
-+	for (uint32_t i = 0; i < 2; i++) {
-+		const RenderingDevice::TextureFormat fmt = rd->texture_get_format(uav_outputs[i]);
++	{
++		const RenderingDevice::TextureFormat fmt = rd->texture_get_format(p_dst_color);
 +		if ((fmt.usage_bits & RenderingDevice::TEXTURE_USAGE_STORAGE_BIT) == 0) {
 +			return false;
 +		}
@@ -233,17 +226,41 @@ index e1d1679..38d13d1 100644
 +			rd_native_fused_post_chain_active_logged = true;
 +		}
 +	}
++	// Lazily create the self-owned 1x1 R32_SFLOAT STORAGE scratch bound to the
++	// fused kernel's dst_luminance UAV (u1). The fused luminance-final WRITE lands
++	// here and is NEVER read back (honest shadow-recompute): binding a real
++	// luminance buffer to u1 would corrupt the native auto-exposure feedback loop
++	// (current) or next frame's reduction source (penultimate), so the write is
++	// isolated to this scratch. A full-resolution dispatch whose threads address a
++	// 1x1 UAV simply drop their out-of-bounds writes (D3D12 UAV OOB writes are
++	// silently discarded), so the scratch size is irrelevant to correctness.
++	// Precedent: the gpu_culling rurix_gpu_culling_visibility_buffers self-built
++	// resource (patch 0028).
++	if (!rd_native_fused_post_chain_scratch_luminance.is_valid()) {
++		RenderingDevice::TextureFormat scratch_format;
++		scratch_format.format = RenderingDevice::DATA_FORMAT_R32_SFLOAT;
++		scratch_format.width = 1;
++		scratch_format.height = 1;
++		scratch_format.usage_bits = RenderingDevice::TEXTURE_USAGE_STORAGE_BIT;
++		rd_native_fused_post_chain_scratch_luminance = rd->texture_create(scratch_format, RenderingDevice::TextureView());
++		if (!rd_native_fused_post_chain_scratch_luminance.is_valid()) {
++			// Scratch allocation failed: keep the tonemap/native chain (fail-closed).
++			return false;
++		}
++	}
 +	// Bind the five fused textures in the container's binding order: t0=src_color,
-+	// t1=lum_source, t2=prev_luminance (SRV, UNIFORM_TYPE_TEXTURE), u0=dst_color,
-+	// u1=dst_luminance (UAV, UNIFORM_TYPE_IMAGE). UniformSetCacheRD keys on the RID
-+	// set and auto-invalidates the cached set when any texture is freed.
++	// t1=lum_source (current), t2=prev_luminance (previous) (SRV, UNIFORM_TYPE_TEXTURE),
++	// u0=dst_color, u1=scratch (UAV, UNIFORM_TYPE_IMAGE). u1 is the self-owned
++	// write-only scratch — NOT p_dst_luminance — so the shadow luminance-final write
++	// never touches a real luminance buffer. UniformSetCacheRD keys on the RID set
++	// and auto-invalidates the cached set when any texture is freed.
 +	const RID uniform_set = UniformSetCacheRD::get_singleton()->get_cache(
 +			rd_native_fused_post_chain_shader, 0,
 +			RenderingDevice::Uniform(RenderingDevice::UNIFORM_TYPE_TEXTURE, 0, p_src_color),
 +			RenderingDevice::Uniform(RenderingDevice::UNIFORM_TYPE_TEXTURE, 1, p_lum_source),
 +			RenderingDevice::Uniform(RenderingDevice::UNIFORM_TYPE_TEXTURE, 2, p_prev_luminance),
 +			RenderingDevice::Uniform(RenderingDevice::UNIFORM_TYPE_IMAGE, 3, p_dst_color),
-+			RenderingDevice::Uniform(RenderingDevice::UNIFORM_TYPE_IMAGE, 4, p_dst_luminance));
++			RenderingDevice::Uniform(RenderingDevice::UNIFORM_TYPE_IMAGE, 4, rd_native_fused_post_chain_scratch_luminance));
 +	if (!uniform_set.is_valid()) {
 +		return false;
 +	}
@@ -294,10 +311,10 @@ index e1d1679..38d13d1 100644
 +
  #endif // D3D12_ENABLED
 diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
-index b14afe6..f1adac1 100644
+index b14afe6..e15f56e 100644
 --- a/modules/rurix_accel/rurix_accel.h
 +++ b/modules/rurix_accel/rurix_accel.h
-@@ -216,6 +216,30 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
+@@ -216,6 +216,46 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
  	RID rd_native_cluster_store_pipeline;
  	bool rd_native_cluster_store_load_failed = false;
  	bool rd_native_cluster_store_active_logged = false;
@@ -315,6 +332,22 @@ index b14afe6..f1adac1 100644
 +	RID rd_native_fused_post_chain_pipeline;
 +	bool rd_native_fused_post_chain_load_failed = false;
 +	bool rd_native_fused_post_chain_active_logged = false;
++	// GRX Route B rd_native fused_post_chain (patch 0045 in-place revision, Design
++	// 1 shadow-recompute): a self-owned 1x1 R32_SFLOAT STORAGE scratch texture
++	// bound to the fused kernel's dst_luminance UAV (u1). The public Luminance API
++	// (patch 0048 getters) now exposes DISTINCT current / previous / penultimate
++	// luminance buffers, so the fused gate binds real distinct SRV reads
++	// (lum_source = current, prev_luminance = previous) — but the fused
++	// luminance-final WRITE must NOT land on a real luminance buffer: writing the
++	// current buffer would corrupt the native auto-exposure feedback loop, and
++	// writing the penultimate reduce level would corrupt next frame's reduction
++	// source. So u1 is redirected to this write-only scratch whose contents are
++	// NEVER read back (an honest shadow-recompute: the native luminance_reduction
++	// still runs in full and no dispatch saving is claimed; only the LINEAR +
++	// convert_to_srgb tonemap leg (t0 -> u0) is the real replacement). Lazily
++	// created on first genuine engage; precedent = the gpu_culling
++	// rurix_gpu_culling_visibility_buffers self-built resource (patch 0028).
++	RID rd_native_fused_post_chain_scratch_luminance;
 +	// GRX Route B rd_native fused_post_chain b0 (resource_mapping.md): 16 DWORDs /
 +	// 64 bytes ([i64 source_width, i64 source_height, i64 lum_source_width, i64
 +	// lum_source_height, f32 max_luminance, f32 min_luminance, f32 exposure_adjust,
@@ -328,7 +361,7 @@ index b14afe6..f1adac1 100644
  	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 28;
  	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_RESOURCE_COUNT = 2;
  	// GRX-010 tonemap resource mapping (resource_mapping.md): b0 carries
-@@ -433,6 +457,22 @@ public:
+@@ -433,6 +473,28 @@ public:
  	// pipeline or uniform-set creation failure) returns false and the caller keeps
  	// the native Godot cluster store path (fail-closed).
  	bool try_record_cluster_store_rd_native(int64_t p_compute_list, RID p_cluster_render, RID p_render_elements, RID p_cluster_store, Size2i p_screen_size, const uint8_t *p_push_constants, uint32_t p_push_constant_bytes) override;
@@ -336,69 +369,89 @@ index b14afe6..f1adac1 100644
 +	// for the fused luminance-final + tonemap pass. Lazily builds the RD compute
 +	// pipeline from the Rurix container named by
 +	// rendering/rurix_accel/passes/fused_post_chain/rd_container_path, binds the five
-+	// fused textures (src_color/lum_source/prev_luminance = SRV t0..t2,
-+	// dst_color/dst_luminance = UAV u0/u1) plus the 64-byte b0, and dispatches
-+	// ceil(size/8) compute groups on its own compute list. FAILS CLOSED when the
-+	// lum_source/prev_luminance or dst_color/dst_luminance RIDs alias (the distinct
-+	// double-buffered luminance-final targets need the deferred Luminance-API
-+	// extension), so at the current tonemap call site it cascades to the patch 0040
-+	// tonemap rd_native single-pass fallback. Returns true only when the fused
-+	// dispatch was actually recorded with distinct valid targets (real replacement —
-+	// the caller then SKIPS the native luminance-final + tonemap end). Any failure
-+	// returns false and the caller keeps the tonemap rd_native / native chain
++	// fused textures (src_color = SRV t0, lum_source = current luminance SRV t1,
++	// prev_luminance = previous luminance SRV t2, dst_color = UAV u0, and a
++	// self-owned 1x1 write-only scratch = UAV u1) plus the 64-byte b0, and dispatches
++	// ceil(size/8) compute groups on its own compute list. Patch 0045 in-place
++	// revision (Design 1 shadow-recompute, unlocked by the patch 0048 Luminance-API
++	// getters): the call site now supplies distinct current / previous / penultimate
++	// luminance buffers, so the fused kernel reads real distinct luminance SRVs, but
++	// the luminance-final WRITE is redirected to the self-owned scratch (u1) and is
++	// never read back — the native luminance_reduction still runs in full and NO
++	// dispatch saving is claimed; only the LINEAR + convert_to_srgb tonemap leg
++	// (t0 -> u0) is the real replacement. FAILS CLOSED when lum_source and
++	// prev_luminance still alias (no auto-exposure this frame -> degenerate luminance
++	// feedback), so at that call site it cascades to the patch 0040 tonemap rd_native
++	// single-pass fallback. Returns true only when the fused dispatch was actually
++	// recorded (the caller then SKIPS the native luminance-final + tonemap end). Any
++	// failure returns false and the caller keeps the tonemap rd_native / native chain
 +	// (fail-closed).
 +	bool try_record_fused_post_chain_rd_native(RID p_src_color, RID p_lum_source, RID p_prev_luminance, RID p_dst_color, RID p_dst_luminance, Size2i p_source_size, Size2i p_dest_size, float p_exposure, float p_white, float p_luminance_multiplier) override;
  };
  
  #endif // D3D12_ENABLED
 diff --git a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
-index 4802e21..df97f0f 100644
+index 963f599..44c4127 100644
 --- a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
 +++ b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
-@@ -924,7 +924,37 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+@@ -924,6 +924,7 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
  		if (can_use_storage) {
  			bool rurix_recorded_tonemap = false;
  			bool rurix_recorded_tonemap_rd_native = false;
 +			bool rurix_recorded_fused_post_chain_rd_native = false;
  #ifdef D3D12_ENABLED
-+			// GRX Route B rd_native fused_post_chain (patch 0045): the FUSION-FIRST
-+			// rd_native gate runs BEFORE the patch 0040 tonemap rd_native gate below,
-+			// wiring the two-level fallback contract: fused rd_native -> single-pass
-+			// tonemap rd_native (patch 0040, already in this stack) -> native Godot
-+			// tonemap chain. This slice is SELF-CONTAINED on the culling tail: the
-+			// fused shim scaffold (0036-0038) lives on the mutually-exclusive fused
-+			// tail and is NOT in this stack, so 0045 adds its own bridge-independent
-+			// backend selector and cascades into 0040's tonemap rd_native as the
-+			// single-pass fallback rather than the fused shim gate. When the fused
-+			// kernel records, the native Godot luminance-final + tonemap end is
-+			// genuinely replaced by the Rurix fused kernel's output written into the
-+			// LDR destination (a real replacement, not a scaffold). The distinct
-+			// double-buffered luminance-final targets (lum_source/prev_luminance/
-+			// dst_luminance) are NOT exposed by the public Luminance API at this call
-+			// site, so the single publicly-available current luminance buffer is bound
-+			// to lum_source and prev_luminance and the LDR destination is bound to
-+			// dst_color and dst_luminance; a distinct, correct fused luminance binding
-+			// needs the deferred Luminance-API extension (PASS_CONTRACT 3.4/5), so the
-+			// fused luminance-feedback leg stays degenerate until then and this gate
-+			// engages only when a current-luminance buffer exists (auto-exposure
-+			// scenes). When the backend selector is not 2, or when the fused gate
-+			// fails closed (no container, no luminance buffer, invalid RID,
-+			// pipeline/uniform-set failure, etc.), this stays false and the tonemap
-+			// rd_native gate + shim gate + native tonemapper below run exactly as
-+			// before.
-+			if (D3D12Hooks::get_singleton() != nullptr && rurix_tonemap_dest_texture.is_valid() && ((int)GLOBAL_GET("rendering/rurix_accel/passes/fused_post_chain/backend")) == 2) {
-+				RID rurix_fused_lum = luminance->get_current_luminance_buffer(rb);
-+				rurix_recorded_fused_post_chain_rd_native = D3D12Hooks::get_singleton()->try_record_fused_post_chain_rd_native(color_texture, rurix_fused_lum, rurix_fused_lum, rurix_tonemap_dest_texture, rurix_tonemap_dest_texture, color_size, tonemap.dest_texture_size, tonemap.exposure, tonemap.white, tonemap.luminance_multiplier);
+ 			// GRX Route B rd_native LINEAR-tonemap subset guard (patch 0040
+ 			// in-place revision): the Rurix tonemap / fused kernels implement ONLY
+@@ -952,6 +953,43 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+ 					!tonemap.use_1d_color_correction &&
+ 					tonemap.debanding_mode == RendererRD::ToneMapper::TonemapSettings::DebandingMode::DEBANDING_MODE_DISABLED &&
+ 					tonemap.view_count == 1;
++			// GRX Route B rd_native fused_post_chain (patch 0045, Design 1
++			// shadow-recompute unlocked by the patch 0048 Luminance-API getters):
++			// the FUSION-FIRST rd_native gate runs BEFORE the patch 0040 tonemap
++			// rd_native gate below, wiring the two-level fallback contract: fused
++			// rd_native -> single-pass tonemap rd_native (patch 0040, already in
++			// this stack) -> native Godot tonemap chain. This slice is
++			// SELF-CONTAINED on the culling tail (the fused shim scaffold 0036-0038
++			// lives on the mutually-exclusive fused tail and is NOT in this stack),
++			// so 0045 adds its own bridge-independent backend selector and cascades
++			// into 0040's tonemap rd_native as the single-pass fallback. When the
++			// fused kernel records, the native Godot luminance-final + tonemap end
++			// is replaced by the Rurix fused kernel's LINEAR + convert_to_srgb
++			// tonemap output written into the LDR destination (a real replacement of
++			// the tonemap leg). The call site supplies THREE distinct luminance
++			// buffers via the patch 0048 getters: lum_source = current
++			// (get_current_luminance_buffer), prev_luminance = previous
++			// (get_previous_luminance_buffer = reduce[size-1] after SWAP), and a
++			// valid+distinct dst_luminance handle = penultimate
++			// (get_luminance_reduce_penultimate_buffer). HONEST BOUNDARY: this is a
++			// shadow-recompute — the module redirects the fused luminance-final WRITE
++			// to a self-owned scratch (never a real luminance buffer), the native
++			// luminance_reduction still runs in full, so the net dispatch saving is
++			// ZERO and no structural fusion / saving is claimed; only the tonemap leg
++			// is genuinely replaced. The gate engages only when the LINEAR subset is
++			// compatible AND auto-exposure produced distinct current/previous
++			// luminance buffers (the module fails closed on aliased/degenerate
++			// luminance). When the backend selector is not 2, the config is outside
++			// the LINEAR subset, no distinct luminance buffers exist, or the fused
++			// gate fails closed (no container, invalid RID, pipeline/uniform-set
++			// failure, etc.), this stays false and the tonemap rd_native gate + shim
++			// gate + native tonemapper below run exactly as before.
++			if (D3D12Hooks::get_singleton() != nullptr && rurix_tonemap_dest_texture.is_valid() && rurix_tonemap_linear_subset_compatible && ((int)GLOBAL_GET("rendering/rurix_accel/passes/fused_post_chain/backend")) == 2) {
++				const RID rurix_fused_lum_current = luminance->get_current_luminance_buffer(rb);
++				const RID rurix_fused_lum_prev = luminance->get_previous_luminance_buffer(rb);
++				const RID rurix_fused_lum_penultimate = luminance->get_luminance_reduce_penultimate_buffer(rb);
++				rurix_recorded_fused_post_chain_rd_native = D3D12Hooks::get_singleton()->try_record_fused_post_chain_rd_native(color_texture, rurix_fused_lum_current, rurix_fused_lum_prev, rurix_tonemap_dest_texture, rurix_fused_lum_penultimate, color_size, tonemap.dest_texture_size, tonemap.exposure, tonemap.white, tonemap.luminance_multiplier);
 +			}
  			// GRX Route B rd_native tonemap (patch 0040): backend selector == 2
  			// engages the in-frame RD-native compute replacement BEFORE the
  			// shim-path gate below. Unlike the shim path (patch 0013, which
-@@ -940,10 +970,10 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
- 			// container, missing usage bits, pipeline/uniform-set failure, etc.),
- 			// this stays false and the shim gate and native tonemapper below run
- 			// exactly as before.
--			if (D3D12Hooks::get_singleton() != nullptr && rurix_tonemap_dest_texture.is_valid() && ((int)GLOBAL_GET("rendering/rurix_accel/passes/tonemap/backend")) == 2) {
-+			if (!rurix_recorded_fused_post_chain_rd_native && D3D12Hooks::get_singleton() != nullptr && rurix_tonemap_dest_texture.is_valid() && ((int)GLOBAL_GET("rendering/rurix_accel/passes/tonemap/backend")) == 2) {
+@@ -970,10 +1008,10 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+ 			// shim gate and native tonemapper below run exactly as before. The
+ 			// standalone tonemap kernel cannot apply auto exposure, so it is gated
+ 			// off here (the fused kernel in patch 0045 is what folds it in).
+-			if (D3D12Hooks::get_singleton() != nullptr && rurix_tonemap_dest_texture.is_valid() && rurix_tonemap_linear_subset_compatible && !tonemap.use_auto_exposure && ((int)GLOBAL_GET("rendering/rurix_accel/passes/tonemap/backend")) == 2) {
++			if (!rurix_recorded_fused_post_chain_rd_native && D3D12Hooks::get_singleton() != nullptr && rurix_tonemap_dest_texture.is_valid() && rurix_tonemap_linear_subset_compatible && !tonemap.use_auto_exposure && ((int)GLOBAL_GET("rendering/rurix_accel/passes/tonemap/backend")) == 2) {
  				rurix_recorded_tonemap_rd_native = D3D12Hooks::get_singleton()->try_record_tonemap_rd_native(color_texture, rurix_tonemap_dest_texture, color_size, tonemap.dest_texture_size, tonemap.exposure, tonemap.white, tonemap.luminance_multiplier);
  			}
 -			if (!rurix_recorded_tonemap_rd_native && D3D12Hooks::get_singleton() != nullptr && rurix_tonemap_dest_texture.is_valid()) {
@@ -406,7 +459,7 @@ index 4802e21..df97f0f 100644
  				// GRX-010 runtime resource binding gate (0005/0007-level in
  				// one slice). Resolves the real D3D12 ID3D12Resource* native
  				// handles (not logical Godot RID ids) for the HDR source
-@@ -993,7 +1023,7 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+@@ -1023,7 +1061,7 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
  				}
  			}
  #endif
@@ -417,4 +470,3 @@ index 4802e21..df97f0f 100644
  		} else {
 -- 
 2.50.0
-

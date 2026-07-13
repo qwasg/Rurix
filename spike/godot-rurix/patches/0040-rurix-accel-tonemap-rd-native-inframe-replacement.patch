@@ -13,50 +13,41 @@ skipped (no scaffold clear, unlike patch 0013).
 - drivers/d3d12/d3d12_hooks.h: new default-false virtual
   try_record_tonemap_rd_native(RID source, RID dest, Size2i src_size,
   Size2i dest_size, float exposure, float white, float luminance_multiplier).
-  It takes Godot RID handles (not native ID3D12Resource* handles like the
-  shim-path try_record_tonemap) so the module can build an RD uniform set and
-  compute pipeline directly. Adds core/templates/rid.h + core/math/vector2i.h
-  includes for the RID / Size2i parameter types. Base returns false, so hooks
-  that do not override it (or the absence of a hooks singleton) keep the native
-  Godot tonemap path.
-- modules/rurix_accel/register_types.cpp: two new default-safe settings,
-  independent of the four existing tonemap shim settings (which are untouched):
-  rendering/rurix_accel/passes/tonemap/backend (int, default 0; 0=disabled /
-  1=shim / 2=rd_native) and rendering/rurix_accel/passes/tonemap/rd_container_path
-  (string, default ""). Defaults keep the RD-native path disabled.
-- modules/rurix_accel/rurix_accel.{h,cpp}: try_record_tonemap_rd_native
-  override. Lazily builds the compute pipeline once (FileAccess reads the Rurix
-  container -> shader_create_from_bytecode -> compute_pipeline_create, latching
-  rd_native_tonemap_load_failed on any failure so it is not retried per frame),
-  runs a usage-bits preflight (source SAMPLING_BIT, dest STORAGE_BIT), binds
-  t0=source (SRV/UNIFORM_TYPE_TEXTURE) and u0=dest (UAV/UNIFORM_TYPE_IMAGE) via
-  UniformSetCacheRD (auto-invalidated on resize), packs the 28-byte b0 push
-  constants ([i64 source_width, i64 source_height, f32 exposure, f32 white,
-  f32 luminance_multiplier]), and dispatches ceil(dest/8) groups with
-  compute_list_* on the main RenderingDevice. The draw graph's ResourceTracker
-  inserts the barriers; there is no submit()/sync() (a local-RD-only concept).
-  The one-shot RXGD_RD_NATIVE_TONEMAP active marker is emitted via print_verbose
-  when the pipeline is first built (not per-frame).
+- modules/rurix_accel/register_types.cpp: two new default-safe settings
+  (rendering/rurix_accel/passes/tonemap/backend int default 0 and
+  .../rd_container_path string default "").
+- modules/rurix_accel/rurix_accel.{h,cpp}: try_record_tonemap_rd_native override
+  (lazy pipeline build, usage-bits preflight, UniformSetCacheRD bind, 28-byte b0,
+  in-frame compute_list dispatch on the main RenderingDevice).
 - servers/rendering/renderer_rd/renderer_scene_render_rd.cpp: in the tonemap
-  can_use_storage leg, backend == 2 runs the rd_native gate BEFORE the shim
-  gate; a successful record skips both the shim gate and the native tonemapper.
-  backend != 2 leaves the pre-existing shim/native chain byte-for-byte unchanged.
+  can_use_storage leg, backend == 2 runs the rd_native gate before the shim gate.
+
+In-place revision (config-signature fail-closed mode guard, no number change):
+adds the shared rurix_tonemap_linear_subset_compatible predicate, read off the
+fully-assembled `tonemap` settings, that requires the LINEAR tonemapper + SDR
+convert_to_srgb (linear_to_srgb) leg with no glow, FXAA, BCS, color correction,
+debanding, or multiview. This mirrors the bridge-side GRX-010 whitelist
+(src/rurix-godot/src/lib.rs TONEMAP_KERNEL_MATH_PARITY_STATUS = LINEAR +
+linear_to_srgb; the hlsl_bridge kernel EXPLICIT GAPS list). The rd_native
+tonemap gate ANDs this predicate AND !tonemap.use_auto_exposure (the standalone
+kernel cannot apply auto exposure). A FILMIC (or any non-LINEAR / effect-enabled
+/ HDR) scene now fails closed to the native Godot tonemapper instead of writing
+LINEAR pixels — a correctness fix. Auto exposure is intentionally OUTSIDE the
+shared predicate so patch 0045's fused-first gate (which folds the
+luminance/auto-exposure step into the kernel) can reuse the same predicate.
 
 Fail-closed everywhere: with the default backend == 0 (and empty container
-path), rd_native is never engaged and the native Godot tonemapper renders. The
-kernel covers only the LINEAR tonemapper with the SDR convert_to_srgb leg (no
-auto exposure, glow, FXAA, BCS, color correction, debanding, or other tonemap
-modes), so the candidate scene must use tonemap_mode LINEAR to align with the
-kernel subset. RXGD_ABI_VERSION is unchanged (this path does not touch the C
-ABI struct layout and sets no RxGdCaps.flags bit; rd_native is bridge-
-independent). No performance claim is made.
+path), rd_native is never engaged and the native Godot tonemapper renders.
+RXGD_ABI_VERSION is unchanged (this path does not touch the C ABI struct layout
+and sets no RxGdCaps.flags bit; rd_native is bridge-independent). No performance
+claim is made.
 ---
- drivers/d3d12/d3d12_hooks.h                   |  18 +++
- modules/rurix_accel/register_types.cpp        |  18 +++
- modules/rurix_accel/rurix_accel.cpp           | 120 ++++++++++++++++++
- modules/rurix_accel/rurix_accel.h             |  25 ++++
- .../renderer_rd/renderer_scene_render_rd.cpp  |  23 +++-
- 5 files changed, 202 insertions(+), 2 deletions(-)
+ drivers/d3d12/d3d12_hooks.h                        |  18 ++++
+ modules/rurix_accel/register_types.cpp             |  18 ++++
+ modules/rurix_accel/rurix_accel.cpp                | 120 +++++++++++++++++++++
+ modules/rurix_accel/rurix_accel.h                  |  25 +++++
+ .../renderer_rd/renderer_scene_render_rd.cpp       |  53 ++++++++-
+ 5 files changed, 232 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
 index 9e0e306..605965f 100644
@@ -304,16 +295,43 @@ index a927c13..0bfe719 100644
  
  #endif // D3D12_ENABLED
 diff --git a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
-index dd7917b..4802e21 100644
+index dd7917b..963f599 100644
 --- a/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
 +++ b/servers/rendering/renderer_rd/renderer_scene_render_rd.cpp
-@@ -923,8 +923,27 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+@@ -923,8 +923,57 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
  
  		if (can_use_storage) {
  			bool rurix_recorded_tonemap = false;
 +			bool rurix_recorded_tonemap_rd_native = false;
  #ifdef D3D12_ENABLED
 -			if (D3D12Hooks::get_singleton() != nullptr && rurix_tonemap_dest_texture.is_valid()) {
++			// GRX Route B rd_native LINEAR-tonemap subset guard (patch 0040
++			// in-place revision): the Rurix tonemap / fused kernels implement ONLY
++			// the LINEAR tonemapper with the SDR convert_to_srgb (linear_to_srgb)
++			// leg and none of the color effects (no glow, FXAA, BCS, color
++			// correction, debanding, or multiview). This shared predicate mirrors
++			// the bridge-side GRX-010 whitelist subset (src/rurix-godot/src/lib.rs
++			// TONEMAP_KERNEL_MATH_PARITY_STATUS = LINEAR + linear_to_srgb; the
++			// hlsl_bridge kernel's EXPLICIT GAPS list) as a fail-closed precondition
++			// read off the fully-assembled `tonemap` settings here. Any other
++			// tonemapper mode (Reinhard/Filmic/ACES/AgX) or any active color effect
++			// would make the kernel write LINEAR pixels where the native tonemapper
++			// would not. HDR output (convert_to_srgb == false) and view_count > 1
++			// (multiview) are out of subset. Auto exposure is deliberately NOT part
++			// of this predicate: the standalone tonemap kernel (patch 0040) cannot
++			// apply it and gates it off below, while the fused kernel (patch 0045)
++			// folds the luminance/auto-exposure step in and requires it, so each
++			// gate applies its own auto-exposure policy.
++			const bool rurix_tonemap_linear_subset_compatible =
++					tonemap.tonemap_mode == RSE::ENV_TONE_MAPPER_LINEAR &&
++					tonemap.convert_to_srgb &&
++					!tonemap.use_glow &&
++					!tonemap.use_fxaa &&
++					!tonemap.use_bcs &&
++					!tonemap.use_color_correction &&
++					!tonemap.use_1d_color_correction &&
++					tonemap.debanding_mode == RendererRD::ToneMapper::TonemapSettings::DebandingMode::DEBANDING_MODE_DISABLED &&
++					tonemap.view_count == 1;
 +			// GRX Route B rd_native tonemap (patch 0040): backend selector == 2
 +			// engages the in-frame RD-native compute replacement BEFORE the
 +			// shim-path gate below. Unlike the shim path (patch 0013, which
@@ -325,18 +343,21 @@ index dd7917b..4802e21 100644
 +			// skipped (a real replacement, not a scaffold). The module builds an
 +			// RD compute pipeline from the configured Rurix container and
 +			// dispatches it on the main RenderingDevice's active frame; when the
-+			// backend selector is not 2, or when rd_native fails closed (no
-+			// container, missing usage bits, pipeline/uniform-set failure, etc.),
-+			// this stays false and the shim gate and native tonemapper below run
-+			// exactly as before.
-+			if (D3D12Hooks::get_singleton() != nullptr && rurix_tonemap_dest_texture.is_valid() && ((int)GLOBAL_GET("rendering/rurix_accel/passes/tonemap/backend")) == 2) {
++			// backend selector is not 2, when the tonemap config is outside the
++			// standalone kernel's LINEAR + convert_to_srgb + no-auto-exposure
++			// subset, or when rd_native fails closed (no container, missing usage
++			// bits, pipeline/uniform-set failure, etc.), this stays false and the
++			// shim gate and native tonemapper below run exactly as before. The
++			// standalone tonemap kernel cannot apply auto exposure, so it is gated
++			// off here (the fused kernel in patch 0045 is what folds it in).
++			if (D3D12Hooks::get_singleton() != nullptr && rurix_tonemap_dest_texture.is_valid() && rurix_tonemap_linear_subset_compatible && !tonemap.use_auto_exposure && ((int)GLOBAL_GET("rendering/rurix_accel/passes/tonemap/backend")) == 2) {
 +				rurix_recorded_tonemap_rd_native = D3D12Hooks::get_singleton()->try_record_tonemap_rd_native(color_texture, rurix_tonemap_dest_texture, color_size, tonemap.dest_texture_size, tonemap.exposure, tonemap.white, tonemap.luminance_multiplier);
 +			}
 +			if (!rurix_recorded_tonemap_rd_native && D3D12Hooks::get_singleton() != nullptr && rurix_tonemap_dest_texture.is_valid()) {
  				// GRX-010 runtime resource binding gate (0005/0007-level in
  				// one slice). Resolves the real D3D12 ID3D12Resource* native
  				// handles (not logical Godot RID ids) for the HDR source
-@@ -974,7 +993,7 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
+@@ -974,7 +1023,7 @@ void RendererSceneRenderRD::_render_buffers_post_process_and_tonemap(const Rende
  				}
  			}
  #endif

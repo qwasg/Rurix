@@ -1,0 +1,88 @@
+{
+  "inputs": {
+    "dxil": "..\\passes\\gpu_culling\\artifacts\\gpu_culling_rd_native.dxil",
+    "dxil_size": 5692,
+    "dxil_parts": [
+      "SFI0",
+      "ISG1",
+      "OSG1",
+      "PSV0",
+      "STAT",
+      "HASH",
+      "DXIL"
+    ],
+    "rts0": "..\\passes\\gpu_culling\\artifacts\\gpu_culling_rd_native.rts0.bin",
+    "rts0_size": 152,
+    "rts0_version": 1
+  },
+  "container": {
+    "path": "out\\gpu_culling_rd_native.rd_container.bin",
+    "size": 6192,
+    "shader_name": "rurix_gpu_culling_rd_native",
+    "format": "0x43443344",
+    "format_version": 1,
+    "pipeline_type": "compute",
+    "compute_local_size": [
+      64,
+      1,
+      1
+    ],
+    "push_constant_size": 48,
+    "root_signature_crc": "0x664F9F61"
+  },
+  "set0": {
+    "resource_root_param_idx": 1,
+    "resource_descriptor_count": 4,
+    "sampler_root_param_idx": "UINT32_MAX",
+    "uniforms": [
+      {
+        "name": "src_transforms",
+        "binding": 0,
+        "type": 8,
+        "stages": 16,
+        "length": 0,
+        "writable": 0,
+        "res_class": 2,
+        "resource_descriptor_offset": 0,
+        "register": "t0",
+        "binding_kind": "structured_buffer"
+      },
+      {
+        "name": "frustum_planes",
+        "binding": 1,
+        "type": 8,
+        "stages": 16,
+        "length": 0,
+        "writable": 0,
+        "res_class": 2,
+        "resource_descriptor_offset": 1,
+        "register": "t1",
+        "binding_kind": "structured_buffer"
+      },
+      {
+        "name": "dst_commands",
+        "binding": 2,
+        "type": 8,
+        "stages": 16,
+        "length": 0,
+        "writable": 1,
+        "res_class": 3,
+        "resource_descriptor_offset": 2,
+        "register": "u0",
+        "binding_kind": "rwstructured_buffer"
+      },
+      {
+        "name": "dst_visibility",
+        "binding": 3,
+        "type": 8,
+        "stages": 16,
+        "length": 0,
+        "writable": 1,
+        "res_class": 3,
+        "resource_descriptor_offset": 3,
+        "register": "u1",
+        "binding_kind": "rwstructured_buffer"
+      }
+    ]
+  }
+}

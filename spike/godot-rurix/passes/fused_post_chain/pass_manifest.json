@@ -210,7 +210,7 @@
   },
   "rd_native": {
     "provenance": "rd_native_route_b",
-    "summary": "GRX Route B fused_post_chain rd_native is the FUSION-FIRST leg of the two-level fallback (fused rd_native -> single-pass tonemap rd_native (patch 0040) -> native). It is SELF-CONTAINED on the culling tail: the fused shim scaffold 0036-0038 lives on the mutually-exclusive fused tail and is NOT in this stack, so 0045 adds its own bridge-independent backend selector and cascades into 0040's tonemap rd_native rather than a fused shim gate. It has its own RD_NATIVE_FUSED_POST_CHAIN_* 64-byte/5-resource constants (distinct from the fused-tail FUSED_POST_CHAIN_RESOURCE_MAPPING_* so the tails never collide). Bridge-independent; the shim FUSED_POST_CHAIN_REAL_PASS bit 13 is unrelated.",
+    "summary": "GRX Route B fused_post_chain rd_native is the FUSION-FIRST leg of the two-level fallback (fused rd_native -> single-pass tonemap rd_native (patch 0040) -> native). It is SELF-CONTAINED on the culling tail (the fused shim scaffold 0036-0038 is on the mutually-exclusive fused tail and NOT in this stack), with its own RD_NATIVE_FUSED_POST_CHAIN_* 64-byte/5-resource constants. Bridge-independent; the shim FUSED_POST_CHAIN_REAL_PASS bit 13 is unrelated. REVISED IN PLACE (patch 0045, no number change) to the Design 1 shadow-recompute, unlocked by the patch 0048 Luminance-API read-only getters: the call site now supplies DISTINCT current / previous / penultimate luminance buffers, the fused kernel reads two distinct luminance SRVs, and the module REDIRECTS the fused luminance-final WRITE (u1) to a self-owned 1x1 R32F STORAGE scratch that is never read back. The fused gate also ANDs the shared rurix_tonemap_linear_subset_compatible predicate from patch 0040 (LINEAR + convert_to_srgb + no color effects; auto exposure allowed here). It now GENUINELY RECORDS when auto-exposure produced distinct luminance buffers, and still fails closed (cascading to tonemap rd_native) when they alias.",
     "backend_selector": "rendering/rurix_accel/passes/fused_post_chain/backend",
     "backend_states": {
       "0": "disabled (default; tonemap rd_native / native chain unchanged)",
@@ -226,11 +226,11 @@
     "self_contained_on_culling_tail": true,
     "cascades_into": "patch 0040 tonemap rd_native (single-pass fallback)",
     "godot_patch": "spike/godot-rurix/patches/0045-rurix-accel-fused-post-chain-rd-native-inframe-replacement.patch",
-    "godot_patch_sha256": "418406b2b30bcef1539a413f406115db5def70fe8b173d58b8fdcaf6a3f3f2b9",
-    "patch_stack": "0001-0029 + 0040 + 0041 + 0042 + 0043 + 0044 + 0045 (branch-HEAD culling tail + rd_native series)",
+    "godot_patch_sha256": "b78e8813d61d8465290891aa3b923e3568fdcc7c4ada0be325dcff1f12c007b1",
+    "patch_stack": "0001-0029 + 0040..0045 (branch-HEAD culling tail + rd_native series; the build also needs 0046-0048, and 0045 depends on the 0048 Luminance-API getters)",
     "own_compute_list": true,
     "hook_virtual": "D3D12Hooks::try_record_fused_post_chain_rd_native(RID p_src_color, RID p_lum_source, RID p_prev_luminance, RID p_dst_color, RID p_dst_luminance, Size2i p_source_size, Size2i p_dest_size, float p_exposure, float p_white, float p_luminance_multiplier)",
-    "descriptor_mapping": "five textures: src_color=t0 SRV, lum_source=t1 SRV, prev_luminance=t2 SRV, dst_color=u0 UAV, dst_luminance=u1 UAV; 64-byte b0 [i64 source dims, i64 lum_source dims, f32 max/min_luminance, exposure_adjust, exposure, white, luminance_multiplier, first_frame, auto_exposure_scale]; dispatch ceil(dest/8) over the container 8x8 local size; own compute_list_begin/end.",
+    "descriptor_mapping": "five textures: src_color=t0 SRV, lum_source=current-luminance t1 SRV, prev_luminance=previous-luminance t2 SRV, dst_color=u0 UAV, dst_luminance=u1 UAV bound to a SELF-OWNED 1x1 R32F STORAGE scratch (NOT the call site's p_dst_luminance penultimate handle, which is passed only to keep a valid distinct argument); 64-byte b0 [i64 source dims, i64 lum_source dims, f32 max/min_luminance, exposure_adjust, exposure, white, luminance_multiplier, first_frame, auto_exposure_scale]; dispatch ceil(dest/8) over the container 8x8 local size; own compute_list_begin/end.",
     "kernel_subset": "fused luminance-final + tonemap (LINEAR) end.",
     "container": {
       "staged_path": "target/grx/rd_containers/fused_post_chain.rd_container.bin",
@@ -240,20 +240,36 @@
     "enablement": {
       "harness": "ci/grx_rb_fused_post_chain_rd_native_enablement_smoke.py",
       "evidence": "spike/godot-rurix/passes/fused_post_chain/rd_native_enablement_evidence.json",
-      "status": "measured_prerequisite_blocked",
-      "first_missing_prerequisite": "fused_luminance_double_buffer_api_unexposed",
+      "status": "pending_re_sign_after_revision",
+      "first_missing_prerequisite": null,
       "confirmed_on_hardware": true,
       "cascade_confirmed": true,
       "cascade_ldr_max_abs_diff": 0,
       "cascade_ldr_mean_abs_diff": 0.0,
       "fused_gate_zero_image_impact": true,
       "real_gpu_pass": false,
-      "measured_note": "Confirmed on the 0001-0029+0040-0045 scratch Godot (Windows D3D12 Forward+, RTX 4070 Ti), 5-leg matrix: (a) with auto exposure ON the current luminance buffer exists (LuminanceReduce shaders loaded; the AE reference visibly differs from the non-AE reference), so the fused gate is genuinely REACHED and fails closed at the ALIASING guard — the fused active marker is absent in every leg and both the candidate and the garbage-container fail_closed legs are BYTE-IDENTICAL to the native reference (zero image impact; the garbage container is never read because the guard fires before the container load). (b) The two-level fallback was MEASURED working: the cascade leg (auto exposure OFF -> fused gate blocks at the invalid-lum-RID check; tonemap backend=2 armed with the proven patch 0040 container) printed RXGD_RD_NATIVE_TONEMAP active in that leg ONLY and its frame is BYTE-IDENTICAL to the non-AE native reference (LDR max_abs=0) — fused rd_native -> tonemap rd_native -> native resolves exactly as designed. This is an honest measured-blocked boundary, not a failure; it lifts automatically once the deferred Luminance-API extension supplies distinct lum_source/prev_luminance/dst_luminance targets.",
-      "performance_claim": "none"
+      "performance_claim": "none",
+      "superseded_measured_note": "Confirmed on the 0001-0029+0040-0045 scratch Godot (Windows D3D12 Forward+, RTX 4070 Ti), 5-leg matrix: (a) with auto exposure ON the current luminance buffer exists (LuminanceReduce shaders loaded; the AE reference visibly differs from the non-AE reference), so the fused gate is genuinely REACHED and fails closed at the ALIASING guard — the fused active marker is absent in every leg and both the candidate and the garbage-container fail_closed legs are BYTE-IDENTICAL to the native reference (zero image impact; the garbage container is never read because the guard fires before the container load). (b) The two-level fallback was MEASURED working: the cascade leg (auto exposure OFF -> fused gate blocks at the invalid-lum-RID check; tonemap backend=2 armed with the proven patch 0040 container) printed RXGD_RD_NATIVE_TONEMAP active in that leg ONLY and its frame is BYTE-IDENTICAL to the non-AE native reference (LDR max_abs=0) — fused rd_native -> tonemap rd_native -> native resolves exactly as designed. This is an honest measured-blocked boundary, not a failure; it lifts automatically once the deferred Luminance-API extension supplies distinct lum_source/prev_luminance/dst_luminance targets.",
+      "revision_note": "The prior measured_prerequisite_blocked result (aliasing fail-closed, fused_luminance_double_buffer_api_unexposed) is SUPERSEDED by the patch 0045 Design 1 revision + the patch 0048 Luminance-API getters, which now supply distinct luminance buffers so the fused gate genuinely records (with a scratch-redirected luminance write; dispatch-savings-not-claimed). The enablement evidence must be regenerated by the Wave 6 scratch rebuild + strict re-run; this manifest is not claiming a new measured success."
     },
     "remaining_rounds": [
-      "Luminance-API extension exposing distinct lum_source/prev_luminance/dst_luminance double-buffer targets (SWAP semantics per patch 0038 precedent) so the fusion-first gate can engage a genuine replacement (deferred, next batch)"
-    ]
+      "Wave 6 scratch rebuild + grx_rb_fused_post_chain_rd_native strict re-run to re-sign the invalidated success evidence for the Design 1 (shadow-recompute) fused gate.",
+      "Design 2 true fusion (glow-off gate + skip the native final reduce level + external SWAP of the luminance double-buffer) where a structural dispatch saving could be claimed (deferred, later batch)."
+    ],
+    "honest_boundary": {
+      "kind": "shadow_recompute",
+      "status_tokens": [
+        "engaged",
+        "shadow-luminance-write",
+        "dispatch-savings-not-claimed"
+      ],
+      "native_luminance_reduction_still_runs_in_full": true,
+      "net_dispatch_saving": 0,
+      "structural_fusion_claimed": false,
+      "real_replacement_scope": "only the LINEAR + convert_to_srgb tonemap leg (t0 -> u0); the luminance-final leg (t1,t2 -> u1) is a dead-end scratch write, never read",
+      "note": "This is NOT a true fusion. The fused kernel's tonemap output IS the frame (identical to the single-pass tonemap rd_native kernel), but its luminance-final recompute is discarded to scratch and the native luminance_reduction pyramid still runs every frame, so there is NO dispatch or work saving. A genuine fusion (Design 2: glow-off gate + skip the native final reduce level + external SWAP of the luminance double-buffer) is a later batch and is where a structural saving could be claimed."
+    },
+    "godot_patch_sha256_note": "0045 revised in place (Design 1 shadow-recompute); this sha reflects the revised patch file. The frozen rd_native success evidence is invalidated and must be re-signed by a scratch rebuild + strict enablement re-run (Wave 6); success evidence files are NOT hand-edited."
   },
   "evidence_requirements": {
     "visual": "in-engine LDR absolute diff (GRX-009 segment 4g template) is a later slice; not produced here",

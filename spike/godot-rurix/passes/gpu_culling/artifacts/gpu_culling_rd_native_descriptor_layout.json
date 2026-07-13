@@ -1,0 +1,166 @@
+{
+  "module": "gpu_culling",
+  "pass_id": "gpu_culling_rd_native",
+  "artifact_kind": "hlsl_bridge_descriptor_layout",
+  "provenance": "hlsl_bridge_workaround",
+  "rurix_owned": false,
+  "entry_point": "main",
+  "target_profile": "cs_6_0",
+  "root_constants": 12,
+  "root_constant_layout": [
+    {
+      "name": "instance_count",
+      "type": "u32",
+      "order": 0,
+      "root_parameter_index": 0,
+      "dword_offset": 0,
+      "dword_size": 1
+    },
+    {
+      "name": "motion_vectors_current_offset",
+      "type": "u32",
+      "order": 1,
+      "root_parameter_index": 0,
+      "dword_offset": 1,
+      "dword_size": 1
+    },
+    {
+      "name": "transform_stride_floats",
+      "type": "u32",
+      "order": 2,
+      "root_parameter_index": 0,
+      "dword_offset": 2,
+      "dword_size": 1
+    },
+    {
+      "name": "surface_count",
+      "type": "u32",
+      "order": 3,
+      "root_parameter_index": 0,
+      "dword_offset": 3,
+      "dword_size": 1
+    },
+    {
+      "name": "command_stride_dwords",
+      "type": "u32",
+      "order": 4,
+      "root_parameter_index": 0,
+      "dword_offset": 4,
+      "dword_size": 1
+    },
+    {
+      "name": "instance_count_dword_index",
+      "type": "u32",
+      "order": 5,
+      "root_parameter_index": 0,
+      "dword_offset": 5,
+      "dword_size": 1
+    },
+    {
+      "name": "mesh_bound_center_local_x",
+      "type": "f32",
+      "order": 6,
+      "root_parameter_index": 0,
+      "dword_offset": 6,
+      "dword_size": 1
+    },
+    {
+      "name": "mesh_bound_center_local_y",
+      "type": "f32",
+      "order": 7,
+      "root_parameter_index": 0,
+      "dword_offset": 7,
+      "dword_size": 1
+    },
+    {
+      "name": "mesh_bound_center_local_z",
+      "type": "f32",
+      "order": 8,
+      "root_parameter_index": 0,
+      "dword_offset": 8,
+      "dword_size": 1
+    },
+    {
+      "name": "mesh_bound_radius_local",
+      "type": "f32",
+      "order": 9,
+      "root_parameter_index": 0,
+      "dword_offset": 9,
+      "dword_size": 1
+    },
+    {
+      "name": "pad1",
+      "type": "u32",
+      "order": 10,
+      "root_parameter_index": 0,
+      "dword_offset": 10,
+      "dword_size": 1
+    },
+    {
+      "name": "pad2",
+      "type": "u32",
+      "order": 11,
+      "root_parameter_index": 0,
+      "dword_offset": 11,
+      "dword_size": 1
+    }
+  ],
+  "push_constant_note": "48-byte / 12-dword RURIX-DEFINED layout for the RD-native container variant (patch 0046): the 6 frustum planes are NOT root constants here — they moved to the frustum_planes StructuredBuffer<float4> at register t1 so b0 shrinks from 144 bytes (the shim variant, rejected by generate_rd_container.py as push_constant_too_large) to 48 bytes and fits the RD/D3D12 128-byte 32-bit-root-constant window (rendering_device.cpp:6101). command_stride_dwords == 5 mirrors INDIRECT_MULTIMESH_COMMAND_STRIDE (mesh_storage.h L63) and instance_count_dword_index == 1 mirrors the +sizeof(uint32_t) byte offset of the CPU count write (mesh_storage.cpp L2210); both are carried as parameters, not hardcoded.",
+  "resources": [
+    {
+      "name": "src_transforms",
+      "class": "t",
+      "register": 0,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "StructuredBuffer<float>",
+      "binding_kind": "structured_buffer"
+    },
+    {
+      "name": "frustum_planes",
+      "class": "t",
+      "register": 1,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "StructuredBuffer<float4>",
+      "binding_kind": "structured_buffer"
+    },
+    {
+      "name": "dst_commands",
+      "class": "u",
+      "register": 0,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "RWStructuredBuffer<uint>",
+      "binding_kind": "rwstructured_buffer"
+    },
+    {
+      "name": "dst_visibility",
+      "class": "u",
+      "register": 1,
+      "space": 0,
+      "count": 1,
+      "hlsl_type": "RWStructuredBuffer<uint>",
+      "binding_kind": "rwstructured_buffer"
+    }
+  ],
+  "root_signature_parameters": 2,
+  "grx015_mapping": {
+    "status": "offline_compile_package",
+    "variant": "rd_native",
+    "requires_64bit_integer_shader_capability": false,
+    "requires_64bit_integer_shader_capability_note": "gpu_culling carries no i64 push-constant fields (planes are an f32x4 StructuredBuffer, sphere is f32, parameters are u32), so the SHADER_INT64 device capability is NOT part of its binding preflight (same as GRX-013/014).",
+    "runtime_state": "fallback_only",
+    "real_gpu_pass": false,
+    "root_constant_bytes": 48,
+    "root_constant_dwords": 12,
+    "frustum_planes_srv_note": "6 normalized inward-facing planes (nx, ny, nz, d) as a StructuredBuffer<float4> at register t1 (96 bytes); the module buffer_update's it per frame from the render camera BEFORE compute_list_begin (n_rurix = -normal, d_rurix = plane.d — the Godot Plane sign-negation red line).",
+    "transform_stride_floats_in_scope": 12,
+    "transform_layout_note": "row-major 3x4 float lanes per 3D instance (mesh_storage.cpp _multimesh_instance_set_transform L1880-1915): lanes 0-3 = (basis.rows[0], origin.x), 4-7 = (rows[1], origin.y), 8-11 = (rows[2], origin.z)",
+    "command_stride_dwords": 5,
+    "instance_count_dword_index": 1,
+    "command_write_note": "count-only: InterlockedAdd(+1) per visible instance into EACH surface's instance-count dword (the dword the CPU writes at mesh_storage.cpp L2210); all other command dwords untouched; count dwords + visibility bitmask zeroed pre-dispatch via RD::buffer_clear BEFORE compute_list_begin",
+    "visibility_bitmask_note": "u32[ceil(instance_count/32)], bit (i & 31) of word (i >> 5) = instance i visible, InterlockedOr writes, zeroed pre-dispatch; the GRX-016/018 shared input interface",
+    "dispatch_note": "one thread per instance; local 64x1x1; dispatch (ceil(instance_count / 64), 1, 1)"
+  }
+}

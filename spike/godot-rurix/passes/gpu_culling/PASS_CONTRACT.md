@@ -304,6 +304,67 @@ with the raw-buffer blocker rationale above (the texture-intrinsic condition
 does not apply here). `src/lib.rx` documents the kernel structure and the
 four blockers; the executable math lives only in the HLSL bridge kernel.
 
+### 5.4 Frustum-plane sign negation — HARD RED LINE
+
+The call site converts the Godot camera frustum planes to the kernel's
+inward-facing convention with an **exact, non-negotiable** sign rule; a sign
+error silently flips the entire cull (keeping the off-screen half and dropping
+the on-screen half):
+
+- Godot's `Plane` obeys `distance_to(p) = dot(normal, p) - d` with the frustum
+  **interior on the NEGATIVE side**.
+- The gpu_culling kernel wants normalized **inward-facing** planes with
+  `visible ⇔ dot(n, p) + d ≥ 0`.
+- The conversion is therefore **`n_rurix = -plane.normal`, `d_rurix = plane.d`**
+  (negate the normal, keep the distance) applied per plane at
+  `render_forward_clustered.cpp` (both the shim path 0028 and the rd_native path
+  0046 use it identically). This is the single most fragile line in the pass.
+
+### 5.5 Route B rd_native variant (patch 0046)
+
+The `passes/gpu_culling/backend == 2` selector runs the cull as an **in-frame RD
+compute dispatch on the MAIN `RenderingDevice`** (bridge-independent; no rxgd
+session, no cap bit), instead of the out-of-frame rxgd shim (0027-0029, which
+keeps its own `enabled` gate byte-unchanged). Structural details:
+
+- **b0 144B → 48B, off the CBV dead path.** The RD/D3D12 push-constant window is
+  128 bytes (`rendering_device.cpp:6101`), so the shim's 144-byte b0 is rejected
+  by `generate_rd_container.py` as `push_constant_too_large` and CANNOT drive an
+  RD-native container; the CBV escape is also a dead path (the container
+  generator's `parse_rts0` rejects root-descriptor CBVs and `binding_layout`
+  always emits CBVs as root descriptors). The 6 frustum planes therefore move OUT
+  of b0 into a **`StructuredBuffer<float4>` SRV at register t1** (SRV register
+  aggregation with t0 — the taa_resolve 5-SRV precedent), shrinking b0 to the
+  48-byte / 12-dword parameter+sphere block. The RD-native artifacts are
+  co-located under `artifacts/gpu_culling_rd_native.{dxil,rts0.bin}` +
+  `gpu_culling_rd_native_descriptor_layout.json` (HLSL
+  `hlsl_bridge/gpu_culling_rd_native.hlsl`, RTS0 via
+  `src/rurixc/examples/emit_grx015_gpu_culling_rd_native_rts0.rs`, container
+  `rd-native-pipeline/out/gpu_culling_rd_native.rd_container.bin`, verify 59/59).
+- **buffer_clear timing.** `RD::buffer_clear` is draw-graph tracked
+  (`rendering_device.cpp` `draw_graph.add_buffer_clear`) but **hard-forbidden
+  while a compute list is active**, so the module clears each surface's
+  instance-count dword (`(s*command_stride_dwords + instance_count_dword_index)*4`)
+  and the whole visibility bitmask, and `buffer_update`s the 96-byte t1 planes
+  buffer, **all before `compute_list_begin()`**; then binds t0/t1/u0/u1 and
+  dispatches `ceil(instance_count/64)`. Every other command dword (dword 0 =
+  vertices-drawn count) is preserved.
+- **Device-removal root cause (why rd_native is the correct structure).** The
+  shim path's side-channel dispatch is INVISIBLE to the main draw graph, so after
+  the count-dword clear the graph transitions the command buffer to
+  `INDIRECT_ARGUMENT` while the side-channel UAV write is still in flight — a DXGI
+  device-removal hazard. The rd_native path drives the main device's draw graph
+  directly, so its `ResourceTracker` inserts the barriers and the clear → dispatch
+  → `draw_list_draw_indirect` chain is a first-class, hazard-free citizen. The
+  `ci/grx_rb_gpu_culling_rd_native_enablement_smoke.py` gate's headline evidence
+  is precisely the **no-device-removal judgement** of that chain, plus the
+  picture-preservation invariant (a conservative cull only drops off-screen
+  draws, so the candidate frame byte-matches the native reference).
+- **Fail-closed / additive.** Default `backend == 0` (and empty container path)
+  never engages; a failed record is a **no-op** (the CPU-written count survives),
+  never a fallback dispatch. The CPU-driven arm remains the hard red-line fallback
+  (§6).
+
 ## 6. Fallback
 
 - fallback reason enum (aligned with the GRX-008 five): `compile_failed` /

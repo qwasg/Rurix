@@ -1,0 +1,101 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Mon, 13 Jul 2026 12:10:00 +0800
+Subject: [PATCH] Add read-only previous/penultimate Luminance getters for GRX
+ Route B fused Design 1
+
+Stacked on 0001..0029 + 0040..0047. First patch to touch
+servers/rendering/renderer_rd/effects/luminance.{h,cpp}. Two PURE read-only
+accessors mirroring the existing get_current_luminance_buffer, added so the
+fused_post_chain rd_native pass (patch 0045 Design 1 shadow-recompute) can bind
+DISTINCT luminance-final buffers. Zero behavior change: luminance_reduction, the
+SWAP, and configure are untouched; no new dispatch, no new resource.
+
+- get_previous_luminance_buffer returns reduce[size - 1], which after the SWAP
+  at the tail of luminance_reduction holds the PREVIOUS frame's final luminance
+  (the mirror semantics patch 0010 already relies on).
+- get_luminance_reduce_penultimate_buffer returns reduce[size - 2], the
+  second-to-last reduce level (written this frame, reused only next frame -> a
+  safe read window).
+
+Both return RID() when the luminance custom data / the required reduce levels do
+not exist (no auto-exposure this frame), which fails closed at the caller's
+is_valid check. The fused Design 1 gate (patch 0045) requires all three of
+current / previous / penultimate to be distinct valid buffers to engage.
+---
+ .../rendering/renderer_rd/effects/luminance.cpp    | 33 ++++++++++++++++++++++
+ servers/rendering/renderer_rd/effects/luminance.h  | 15 ++++++++++
+ 2 files changed, 48 insertions(+)
+
+diff --git a/servers/rendering/renderer_rd/effects/luminance.cpp b/servers/rendering/renderer_rd/effects/luminance.cpp
+index 7d83aa1..24f4168 100644
+--- a/servers/rendering/renderer_rd/effects/luminance.cpp
++++ b/servers/rendering/renderer_rd/effects/luminance.cpp
+@@ -156,6 +156,39 @@ RID Luminance::get_current_luminance_buffer(Ref<RenderSceneBuffersRD> p_render_b
+ 	return RID();
+ }
+ 
++RID Luminance::get_previous_luminance_buffer(Ref<RenderSceneBuffersRD> p_render_buffers) {
++	// GRX Route B (patch 0048): read-only mirror of get_current_luminance_buffer.
++	// After the SWAP(current, reduce[last]) at the tail of luminance_reduction,
++	// reduce[size - 1] holds the PREVIOUS frame's final luminance (it was
++	// `current` before the swap). Returns RID() when the buffers or the last
++	// reduce level do not exist, which fails closed at the caller's is_valid.
++	if (p_render_buffers->has_custom_data(RB_LUMINANCE_BUFFERS)) {
++		Ref<LuminanceBuffers> buffers = p_render_buffers->get_custom_data(RB_LUMINANCE_BUFFERS);
++		if (buffers->reduce.size() >= 1) {
++			return buffers->reduce[buffers->reduce.size() - 1];
++		}
++	}
++
++	return RID();
++}
++
++RID Luminance::get_luminance_reduce_penultimate_buffer(Ref<RenderSceneBuffersRD> p_render_buffers) {
++	// GRX Route B (patch 0048): read-only accessor for the second-to-last reduce
++	// level (reduce[size - 2]). It is written this frame and only reused as the
++	// next frame's reduction source, so it is a safe read window. Returns RID()
++	// when there are fewer than two reduce levels (the fused Design 1 caller then
++	// fails closed at is_valid, requiring a full distinct current/previous/
++	// penultimate set to engage). Does not touch luminance_reduction / the SWAP.
++	if (p_render_buffers->has_custom_data(RB_LUMINANCE_BUFFERS)) {
++		Ref<LuminanceBuffers> buffers = p_render_buffers->get_custom_data(RB_LUMINANCE_BUFFERS);
++		if (buffers->reduce.size() >= 2) {
++			return buffers->reduce[buffers->reduce.size() - 2];
++		}
++	}
++
++	return RID();
++}
++
+ void Luminance::luminance_reduction(RID p_source_texture, const Size2i p_source_size, Ref<LuminanceBuffers> p_luminance_buffers, float p_min_luminance, float p_max_luminance, float p_adjust, bool p_set) {
+ 	UniformSetCacheRD *uniform_set_cache = UniformSetCacheRD::get_singleton();
+ 	ERR_FAIL_NULL(uniform_set_cache);
+diff --git a/servers/rendering/renderer_rd/effects/luminance.h b/servers/rendering/renderer_rd/effects/luminance.h
+index 31e1fd0..be8145a 100644
+--- a/servers/rendering/renderer_rd/effects/luminance.h
++++ b/servers/rendering/renderer_rd/effects/luminance.h
+@@ -105,6 +105,21 @@ public:
+ 
+ 	Ref<LuminanceBuffers> get_luminance_buffers(Ref<RenderSceneBuffersRD> p_render_buffers);
+ 	RID get_current_luminance_buffer(Ref<RenderSceneBuffersRD> p_render_buffers);
++	// GRX Route B (patch 0048): pure read-only accessors mirroring
++	// get_current_luminance_buffer, added so the fused_post_chain rd_native pass
++	// (patch 0045 Design 1) can bind DISTINCT luminance-final buffers without
++	// touching luminance_reduction / the SWAP / configure (zero behavior change).
++	// get_previous_luminance_buffer returns reduce[size-1] which, after the SWAP
++	// at the tail of luminance_reduction, holds the PREVIOUS frame's final
++	// luminance (the value that was `current` before the swap; the same mirror
++	// semantics patch 0010 already relies on). get_luminance_reduce_penultimate_buffer
++	// returns reduce[size-2], the second-to-last reduce level: it is written this
++	// frame and only reused next frame, so it is a safe read window. Both return
++	// RID() when the luminance custom data / the required reduce levels do not
++	// exist (no auto-exposure this frame), which fails closed at the caller's
++	// is_valid check.
++	RID get_previous_luminance_buffer(Ref<RenderSceneBuffersRD> p_render_buffers);
++	RID get_luminance_reduce_penultimate_buffer(Ref<RenderSceneBuffersRD> p_render_buffers);
+ 	void luminance_reduction(RID p_source_texture, const Size2i p_source_size, Ref<LuminanceBuffers> p_luminance_buffers, float p_min_luminance, float p_max_luminance, float p_adjust, bool p_set = false);
+ 
+ 	Luminance(bool p_prefer_raster_effects);
+-- 
+2.50.0

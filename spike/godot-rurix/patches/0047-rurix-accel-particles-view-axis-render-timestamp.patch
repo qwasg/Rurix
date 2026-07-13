@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Mon, 13 Jul 2026 12:25:00 +0800
+Subject: [PATCH] Add a RENDER_TIMESTAMP bracket around the particles view-axis copy
+
+Stacked on 0001..0029 + 0040..0046. Pure telemetry micro-patch: ParticlesStorage
+::particles_set_view_axis() issues the view-axis fill-instances (and optional
+sort) compute dispatches but, unlike the separate _particles_process "Update
+GPUParticles" call site, had NO RENDER_TIMESTAMP, so that copy work was invisible
+to the GPU profiler / RENDER_TIMESTAMP-driven per-pass timing.
+
+Adds RENDER_TIMESTAMP("Particles View-Axis Copy") right after the two early-out
+checks (wrong draw_order/transform_align, and particles-not-yet-processed) so it
+brackets only frames that do the work, and closes it with the Godot "< "
+region-end convention RENDER_TIMESTAMP("< Particles View-Axis Copy") at the end
+of the function. No control-flow change, no new dispatch, no behavior change.
+---
+ .../renderer_rd/storage_rd/particles_storage.cpp          | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/servers/rendering/renderer_rd/storage_rd/particles_storage.cpp b/servers/rendering/renderer_rd/storage_rd/particles_storage.cpp
+index 512a9ee..c1dd994 100644
+--- a/servers/rendering/renderer_rd/storage_rd/particles_storage.cpp
++++ b/servers/rendering/renderer_rd/storage_rd/particles_storage.cpp
+@@ -1250,6 +1250,16 @@ void ParticlesStorage::particles_set_view_axis(RID p_particles, const Vector3 &p
+ 		return; //particles have not processed yet
+ 	}
+ 
++	// GRX telemetry (patch 0047): bracket the view-axis fill-instances copy work
++	// with a RENDER_TIMESTAMP. Unlike the "Update GPUParticles" process path (a
++	// different call site further down this file), particles_set_view_axis had no
++	// timestamp, so the copy/sort dispatches it issues were invisible to the GPU
++	// profiler / RENDER_TIMESTAMP-driven per-pass timing. Placed after the two
++	// early-out checks (wrong draw_order/transform_align and not-yet-processed) so
++	// it brackets only frames that actually do the work; pure telemetry, no control
++	// flow change.
++	RENDER_TIMESTAMP("Particles View-Axis Copy");
++
+ 	bool do_sort = particles->draw_order == RSE::PARTICLES_DRAW_ORDER_VIEW_DEPTH;
+ 
+ 	//copy to sort buffer
+@@ -1438,6 +1448,11 @@ void ParticlesStorage::particles_set_view_axis(RID p_particles, const Vector3 &p
+ 	}
+ 
+ 	RD::get_singleton()->compute_list_end();
++
++	// GRX telemetry (patch 0047): close the "Particles View-Axis Copy" timestamp
++	// region opened above (the Godot "< " region-end convention, e.g.
++	// cluster_builder_rd.cpp "< Bake 3D Cluster").
++	RENDER_TIMESTAMP("< Particles View-Axis Copy");
+ }
+ 
+ void ParticlesStorage::_particles_update_buffers(Particles *particles) {
+-- 
+2.50.0
