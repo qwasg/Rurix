@@ -2,8 +2,8 @@
 contract: GRX
 title: Godot 4.7-dev D3D12 Forward+ Rurix opt-in 加速
 status: active
-version: v1.28
-date: 2026-07-12
+version: v1.29
+date: 2026-07-13
 timebox: "integration spike -> measured acceleration close-out; task grain = 1-2 days / PR"
 rfc_required: none
 upstream_docs:
@@ -165,9 +165,45 @@ GRX 结束时,Godot 4.7-dev Windows D3D12 Forward+ 可通过 opt-in `modules/rur
 | v1.26 | 2026-07-12 | GRX-011 ssao_blur close-out(Wave 2,stage-A5 对等):ssao_blur gated real-pass enablement 取得 strict MEASURED success(`real_pass_enablement_success_evidence.json`,`strict_success=true`:opt-in real dispatch 在 `0001..0016` scratch Godot(Windows D3D12 Forward+,RTX 4070 Ti)上执行且完成、candidate 腿 `RXGD_GODOT_RUNTIME_SSAO_BLUR_REAL_PASS recorded=1`+writeback scaffold marker 入证、checks 全绿含 `native_continuation_writeback_scaffold`/`real_pass_dispatched_and_completed`、`forced_capability_downgrade` 红腿实测 `runtime_binding_preflight_failed`/`unsupported_device`、LDR visual gate max_abs=0/mean_abs=0、measured_local telemetry 通过、`0001..0016` 溯源/日志审计全绿;standalone dispatch smoke CPU parity ~1 ULP)。栈式 patch `0014`(pass-gate+call-site)+`0015`(runtime 资源绑定 `RenderingDevice::get_driver_resource` 真实 `ID3D12Resource*`)+`0016`(默认 false `dispatch_real_pass`/`dispatch_recording_smoke`/`real_pass_force_capability_downgrade` opt-in + `RXGD_CAP_SSAO_BLUR_REAL_PASS`(1u<<5) + `d3d12-recording-shim` real dispatch path)入栈。owner 决策 `real_pass_default_enable_decision.json`/`.md` 记 `keep_default_disabled`(无 per-pass FPS 证据、patch 0016 writeback scaffold(native ping-pong continuation 全量重跑、candidate bit-exact、无净收益)、仅 `MODE_SMART` 单遍单 slice 子集)。manifest 顶层如实翻转(`status=grx011_real_pass_measured_success_default_disabled`、`implemented=true`、`real_gpu_pass=true` opt-in 实测口径、`real_d3d12_dispatch_recorded=true`、`runtime_state=fallback_only_by_default_real_pass_optin_measured`、`default_enable_state` 保持 `disabled`),新增 `implementation_status.real_pass_measured_success` block;表驱动 gate 模块 `ci/grx_gates/grx011_ssao_blur.py`(contract/patch/dispatch-smoke/enablement/decision 五级 fail-closed)decision+enablement 双 ready 后 probe `next_action` 由 `start_grx011_ssao_blur_godot_patch_0014` 推进到 `start_grx012_taa_resolve_pass_contract`。本 wave 既有 pass 事实收录:GRX-009 luminance patch 0010 原地由 scaffold 改真实多级 pyramid writeback(`hook_contract_v2`,`levels=pyramid`/`native_continuation=skipped`/`one_frame_latency=1` declared_not_measured,4h evidence 经 scratch rebuild 重签、LDR 仍 bit-exact);GRX-010 tonemap 4h evidence 对新 shim-v2 DLL 重签(writeback 仍 scaffold);shim `rxgd_luminance_record.cpp` 升级参数化执行模型 + typeless→typed 视图映射 + `format_is_typeless` fail-closed 守卫;GRX-004b workload v2 evidence 级 baseline(3 次 full 取中位 + 方差留档)随本 wave 落地。默认 Godot config 下 bridge 对 `RXGD_PASS_SSAO_BLUR` 仍 `RXGD_STATUS_FALLBACK`、native 接管;`RXGD_PASS_SSIL_BLUR` 不接线;无 FPS、p95、GPU timestamp 或任何性能提升宣称;luminance/tonemap 证据与 patch 由各自 wave 提交,本条只如实收录;不改 `external/godot-master`。 |
 | v1.27 | 2026-07-12 | GRX-012 taa_resolve + GRX-013 particles_copy 双 close-out(Wave 3,stage-A5 对等):两 pass gated real-pass enablement 均取得 strict MEASURED success(两 `real_pass_enablement_success_evidence.json`,`strict_success=true`:opt-in real dispatch 在 `0001..0022` scratch Godot(Windows D3D12 Forward+,RTX 4070 Ti)上执行且完成)。**GRX-012 taa_resolve**——candidate 腿 `RXGD_GODOT_RUNTIME_TAA_RESOLVE_REAL_PASS recorded=1`+writeback scaffold marker,`forced_capability_downgrade` 红腿实测 `runtime_binding_preflight_failed`/`unsupported_device`;**temporal 硬约束(GRX_PLAN DoD)兑现**:连续 8 帧序列(非单帧截图)逐帧对 reference diff 全 `max_abs=0`(scaffold 逐帧 bit-exact),reference `nonzero_delta_pairs=7/7` 证真实运动;栈式 patch `0017`(pass-gate+call-site,`using_taa`+`rb->has_texture(taa,history)` 守卫)/`0018`(六 native handle)/`0019`(默认 false opt-in 三旋钮 + `RXGD_CAP_TAA_RESOLVE_REAL_PASS`(1u<<6) + `d3d12-recording-shim` real dispatch path)入栈。**GRX-013 particles_copy**——candidate 腿 `RXGD_GODOT_RUNTIME_PARTICLES_COPY_REAL_PASS recorded=1`+writeback scaffold marker(`dispatch=64x1x1`/`dst_bytes=327680`=4096*80),`forced_capability_downgrade` 红腿实测 `dispatch_eligibility_failed`/`unsupported_device`(particles_copy 无 i64 preflight,forced 降级在下一级 dispatch-eligibility 关口 fail-closed,与纹理 pass 不同),LDR visual gate `max_abs=0`;场景 = 确定性 `GPUParticles3D`(fixed seed + fixed_fps,4096 粒子,`TRANSFORM_ALIGN_Z_BILLBOARD` 触发 cull-stage `particles_set_view_axis`,默认 `DRAW_ORDER_INDEX` 保 `do_sort=false`);栈式 patch `0020`/`0021`(两 structured-buffer)/`0022`(+ `RXGD_CAP_PARTICLES_COPY_REAL_PASS`(1u<<7))入栈。shim `rxgd_luminance_record.cpp` 的 `typed_view_format` 扩充组合深度-模板 typeless 家族(`R32G8X24_TYPELESS`→`R32_FLOAT_X8X24_TYPELESS`、`R24G8_TYPELESS`→`R24_UNORM_X8_TYPELESS`)使六资源 TAA record dispatch 完成(W2-G 同类修复)。两 owner 决策 `real_pass_default_enable_decision.json`/`.md` 记 `keep_default_disabled`(无 per-pass FPS 证据、writeback 仍 scaffold 无净收益、仅各自子集覆盖)。两 manifest 顶层如实翻转(`implemented=true`、`real_gpu_pass=true` opt-in 实测口径、`real_d3d12_dispatch_recorded=true`、`runtime_state=fallback_only_by_default_real_pass_optin_measured`、`default_enable_state` 保持 `disabled`),各新增 `implementation_status.real_pass_measured_success` block;gate 模块 `ci/grx_gates/grx012_taa_resolve.py`/`grx013_particles_copy.py` 的 `_contract_ready` 由 segment-A 断言放宽为 close-out 断言,decision+enablement 双 ready 后 probe `next_action` 经 grx011→grx012→grx013 全绿 walk 推进到 `start_grx014_cluster_store_pass_contract`;probe validation `run_grx_gate_sequence_cases` (1b) 更新为三 gate 全 ready。默认 Godot config 下 bridge 对 `RXGD_PASS_TAA_RESOLVE`/`RXGD_PASS_PARTICLES_COPY` 仍 `RXGD_STATUS_FALLBACK`、native 接管;shipping feature-off bridge 仍 fail closed 为 `real_dispatch_path_not_linked`;无 FPS、p95、GPU timestamp、时序稳定性或任何性能提升宣称;不改 `external/godot-master`。 |
 | v1.28 | 2026-07-12 | GRX-014 cluster_store close-out(Wave 4,stage-A5 对等,复用 GRX-013 模板)+ GRX-017 telemetry-only 首切片 + Wave 4 print 门控修订:cluster_store enablement strict MEASURED success(`0001..0026` scratch,candidate real-pass/writeback/RECORD marker 入证,forced 红腿 `dispatch_eligibility_failed`/`unsupported_device`,LDR bit-exact)+ patch 0023/0024/0025 入栈 + manifest 翻转 + owner `keep_default_disabled` 决策 + gate 模块全 ready(probe `next_action=start_grx015_gpu_culling_pass_contract`);GRX-017 patch 0026 telemetry-only 切片 + material_variants 实测采样归档(非 evidence 级);patch 0009/0010/0013/0016/0019/0022 print 门控原地修订(per-dispatch instrumentation marker 挂 `dispatch_recording_smoke`,生产路径零 per-dispatch stdout),五个既有 enablement 冒烟经逐级 scratch rebuild 全部重签 strict success,4d/4g 独立重跑刷新;runner `VALID_PASS_MATRIX_KEYS` 追加 cluster_store 四键 + telemetry 键。零性能宣称;不改 `external/godot-master`。 |
+| v1.29 | 2026-07-13 | GRX 诚实天花板收官 Phase 2(用户终裁 2026-07-13「诚实天花板收官」):新增 §8.1 close-out 签署段草案(status closed + G-GRX-1..5 验收清单逐项对 evidence,G-GRX-5 strict 1.5x 门 **NOT MET,归档为结构性不可达**——Amdahl 零成本 geomean 硬上限 1.0669x,门数学/三阈值/`perf_gate.py` 未改未放宽,非降门;签署行占位由主会话 close-out commit 生效)。GRX-023(`bench/rd_native_final_20260713/`)/024(`bench/grx024_visual_20260713/` + 七 pass strict success)/025(`passes/DEFAULT_ENABLE_MATRIX.md` + `bench/grx025_default_enable_20260713/`)/026 收口证据登记;per-pass 终态(五 rd_native pass 门达成 default disabled·fused engaged 净零 keep_disabled·gpu_culling/016/018 mechanism_blocked·022 frozen)。probe `next_action` 推进 `grx_milestone_closed_ceiling_archived`(close-out marker + validation fixture)。§1-§6 条款 0-byte 未改;全程 `performance_claim=none`;不改 `external/godot-master`。 |
 
 ---
 
 ## 8. Close-out(只追加区 - 开工时为空)
 
 <!-- 追加 Godot build log、benchmark results JSON、visual diff evidence、pass enable matrix、fallback telemetry、perf_gate 输出、strict close-out 判定。上方条款 0-byte 修改。 -->
+
+### 8.1 GRX 诚实天花板收官(close-out,2026-07-13)
+
+> **本段是 close-out 签署段(草案)。签署行占位、front-matter `status:` 由 `active` 翻 `closed` 均由主会话 close-out commit 时生效(g2.6 先例=agent 自主签署 close-out;b17fd67 owner 已签署 agent 完全自主化)。上方 §1-§6 条款 0-byte 未改。**
+
+**收官口径(用户终裁 2026-07-13,主会话 AskUserQuestion「诚实天花板收官」)**:GRX 里程碑以**诚实天花板归档**方式收口。strict close-out 门 G-GRX-5(1.5x)在本 workload/GPU/build 上被量化证明为**结构性不可达**,故里程碑**不以 G-GRX-5 达标收口**,而以「量化天花板 + 五 pass 门达成 + 机制 blocked 如实归档」收口。**全程 `performance_claim=none`,不写「显著提升已达成」。**
+
+**验收清单(逐项对 evidence)**:
+
+| Gate | 判据 | 结论 | Evidence |
+|---|---|---|---|
+| G-GRX-1 | external 保持 ignored;Godot 改动只在 patch;`ci/godot_rurix_bridge_smoke.py` 通过 | **MET** | `git status --porcelain -- external/godot-master` 空;bridge smoke green |
+| G-GRX-2 | `rurix_godot.dll` 由 `src/rurix-godot` 产出,module build/load,缺 DLL/非 D3D12 保 fallback | **MET** | `target/grx/godot_scons_build_summary.json`、load/fallback smoke |
+| G-GRX-3 | 7 场景 measured_local baseline | **MET** | baseline v2.3 `spike/godot-rurix/bench/rd_native_final_20260713/baseline_run{1,2,3}.json`(geomean 212.74) |
+| G-GRX-4 | 每 pass enable/disable + fallback telemetry + visual diff + 真实红绿 | **MET** | 十 pass `passes/*/`(rd_native + bridge enablement strict success/red 腿;`DEFAULT_ENABLE_MATRIX.md` §5 fallback 政策) |
+| G-GRX-5 | strict perf:geomean FPS ≥ 1.5、mean p95 reduction ≥ 0.30、no scene < 0.95 | **NOT MET — 归档为结构性不可达** | `bench/rd_native_final_20260713/` §5:Amdahl 零成本 geomean 硬上限 **1.0669x**(1.50 不可达);measured all5 geomean 0.9942 |
+
+**GRX-023~026 收口证据**:
+
+- GRX-023 全场景 strict benchmark → `spike/godot-rurix/bench/rd_native_final_20260713/rd_native_final_report.md`(rb4 × workload v2.3 × per-pass GPU timestamp,7-leg 串行 full;scene-level baseline/rurix FPS + p95;per-pass µs=taa+100~114/tonemap+13~31/cluster+4~10/ssao·particles≈0)。
+- GRX-024 视觉证据 → `spike/godot-rurix/bench/grx024_visual_20260713/grx024_visual_report.md`(4/7 byte-exact + many_mesh ±1 LSB + mixed/particles temporal/非确定 floor 口径)+ 七 pass strict success `passes/*/rd_native_enablement_success_evidence.json`。
+- GRX-025 默认启用矩阵 → `spike/godot-rurix/passes/DEFAULT_ENABLE_MATRIX.md` + `bench/grx025_default_enable_20260713/`(五 pass engaged-geomean 0.9906~0.9993 全过 ≥0.95 门)。
+- GRX-026 签署材料 → 本段 + probe `next_action=grx_milestone_closed_ceiling_archived`(marker `spike/godot-rurix/passes/GRX_MILESTONE_CLOSEOUT.json`)。
+
+**per-pass 终态**(详 GRX_PLAN §8 收官终态总表):tonemap/ssao_blur/taa_resolve/particles_copy/cluster_store = rd_native 门达成、default disabled(启用=per-project opt-in);luminance = bridge stage-A5、default disabled;fused_post_chain = engaged 但诚实边界(净零 shadow-recompute + AE parity out-of-tolerance)、keep_disabled;gpu_culling/instance_compaction/indirect_args = mechanism_blocked(RDG compute→INDIRECT 同帧 sync 缺口,upstream Godot bug-report 候选);material_sorting = telemetry-only;descriptor_cache/pso_prewarm = 非-render-pass 内部件;**GRX-022 bindless = frozen**(条件未触发、未开工,无 kernel/patch/gate,收官归档)。
+
+**1.5x 门归档措辞(诚实,非降门)**:G-GRX-5 的三阈值(1.5/0.3/0.95)、`perf_gate.py`、schema **一律未改、未放宽**;归档的是「在此 workload/GPU/build 上目标不可达」这一 measured 事实,不是把门降低。GRX-025 用的 ≥0.95 是默认启用**成本**门(单-pass engaged 场景),与 G-GRX-5 的 1.5x geomean **是两个不同的门**,不得混淆为达标。
+
+**签署**:
+
+- status: `closed`(front-matter 翻转由主会话 close-out commit 生效)
+- 里程碑: GRX(Godot 4.7-dev D3D12 Forward+ Rurix opt-in 加速)
+- 收官日期: 2026-07-13
+- 签署行: 白栀(签署 via 主会话 close-out commit) — Assisted-by: kiro:claude-opus-4-8
+- 交付物: D-GRX-1..D-GRX-6 全部收口(D-GRX-6 以诚实天花板归档,strict 1.5x 未达标、如实记录)

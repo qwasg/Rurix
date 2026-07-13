@@ -33,3 +33,16 @@
 ## 不蕴含（does not imply）
 
 本决策与其前置 strict measured success **不**蕴含：默认 pass 启用；性能/FPS/p95/GPU-timestamp 宣称；fused 输出的数学正确性（binding 为 scaffold）；净收益 Rurix dispatch；超出 LINEAR+SDR+auto-exposure 子集的更广覆盖。default_enable_state 保持 `disabled`,shipping feature-off bridge 仍以 `real_dispatch_path_not_linked` fail-closed。
+
+## rd_native（Route B）默认启用追加 — GRX-025 close-out（2026-07-13，append-only）
+
+> 本段是 GRX-025 收官对 **fused_post_chain rd_native（Route B，patch 0045 Design 1 shadow-recompute）** 的默认启用决策追加，**不修改上方 bridge-era 结论**。汇总矩阵：[../DEFAULT_ENABLE_MATRIX.md](../DEFAULT_ENABLE_MATRIX.md) §3。
+
+- rd_native 决策 token：**`keep_disabled`**（双重独立成因，任一足以禁用）。
+- 成因一 — **bench 7 场景从不 engage**：fused gate 需 LINEAR-tonemap 子集 AND auto-exposure 产出的独立 current/previous luminance buffer；7 个 bench 场景两者互斥（4 个 LINEAR 无 AE、2 个 AE 是 FILMIC），交集 ∅。`rd_native_final_20260713` §2 记 fused 0/7 non-engagement，all5_fused leg 仅作 A/A 控制，fused kernel 在 bench 上 perf-unmeasured。
+- 成因二 — **专属 AE 场景上 engage 但两条 honest boundary**（`ci/grx_rb_fused_post_chain_rd_native_enablement_smoke.py` 5-leg 矩阵，CameraAttributesPractical 驱动 AE）：
+  1. **parity out-of-tolerance**：candidate 腿 `RXGD_RD_NATIVE_FUSED_POST_CHAIN active` genuinely engage，但 fused AE/EMA+tonemap 数学对 native auto-exposure 的 LDR 输出发散 `max_abs=85 / mean_abs=66`（阈值 max≤4/mean≤1.0），因 b0 auto-exposure 标量仍是占位、待 Luminance-API 扩展；`pass_manifest.rd_native.enablement.status=measured_engaged_parity_out_of_tolerance`、`real_gpu_pass=false`、`first_missing_prerequisite=fused_tonemap_parity_out_of_tolerance`，**不写 success evidence、不推进 gate**。
+  2. **结构净零**：fused 的 luminance-final 写是 shadow-recompute（自有 scratch UAV，永不读回），native luminance_reduction pyramid 仍每帧全跑，`honest_boundary.net_dispatch_saving=0`、`status_tokens=[engaged, shadow-luminance-write, dispatch-savings-not-claimed]`、`structural_fusion_claimed=false`。真结构收益要 Design 2（glow-off gate + 跳 native final reduce + luminance 双缓冲外部 SWAP），属未来批次。
+  3. cascade 实测：AE-off + tonemap backend=2 腿上 fused gate 在 invalid-lum-RID 关口 fail-closed → `RXGD_RD_NATIVE_TONEMAP active`、帧与非 AE reference 逐字节一致（fused→tonemap→native 两级回退真机打通）。
+- fail-closed 不变式：`performance_claim=none`；default 保持 `disabled`；`RXGD_ABI_VERSION` 不变、bridge-independent。
+- 历史勘误：早前「fused 在 aliasing guard blocked、byte-identical」是误判（专属 smoke 曾设不受支持的 `auto_exposure_enabled` → SCRIPT ERROR、AE 从未 engage）；现 smoke 经 CameraAttributesPractical 驱动 AE 且对 SCRIPT ERROR 失败，上述 parity 是首次诚实 engage+parity 测量（manifest `historical_misattribution_note`）。

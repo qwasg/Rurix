@@ -414,11 +414,17 @@ GRX_GATE_SEQUENCE: list[dict[str, object]] = [
     {"gate_id": "grx013", "module": "grx013_particles_copy"},
     {"gate_id": "grx014", "module": "grx014_cluster_store"},
     # GRX Wave 4 bridge slice: grx015..grx019 ship the S4 gate + S6 dispatch
-    # smoke only. Their Godot patches / real-pass enablement / owner
-    # default-enable decision are DEFERRED to the next serial patch slice, so
-    # each reports not-ready and the walk fail-closed stops at grx015 (the
-    # frontier) with a recorded grx_gate_module_error, leaving next_action at
-    # grx014's advance (start_grx015_gpu_culling_pass_contract).
+    # smoke only. grx015 (gpu_culling) is the honest frontier: its real-pass
+    # enablement is MEASURED-BLOCKED (RDG compute->INDIRECT same-frame sync gap,
+    # rd_native R1 device-removal terminal verdict), so each reports not-ready
+    # and the walk fail-closed stops at grx015 with a recorded
+    # grx_gate_module_error, leaving next_action at grx014's advance
+    # (start_grx015_gpu_culling_pass_contract). This walk stays honest at
+    # close-out. At the honest-ceiling close-out (owner terminal ruling
+    # 2026-07-13) the validated GRX_MILESTONE_CLOSEOUT.json marker supersedes
+    # this frontier next_action with grx_milestone_closed_ceiling_archived via
+    # the post-walk close-out override in evaluate(); the frontier itself is NOT
+    # faked ready (grx015/016/018 are archived as mechanism-blocked, not passed).
     {"gate_id": "grx015", "module": "grx015_gpu_culling"},
     {"gate_id": "grx016", "module": "grx016_instance_compaction"},
     {"gate_id": "grx018", "module": "grx018_indirect_args"},
@@ -441,6 +447,20 @@ GRX_GATE_READINESS_KEYS = (
     "enablement_ready",
     "decision_ready",
 )
+
+# --- GRX milestone close-out marker ------------------------------------------
+# The honest-ceiling close-out (owner terminal ruling 2026-07-13) archives the
+# 1.5x strict gate (G-GRX-5) as structurally unreachable and the mechanism-
+# blocked passes (gpu_culling / instance_compaction / indirect_args) as blocked.
+# When the validated close-out marker is present, the milestone's terminal
+# next_action becomes GRX_MILESTONE_CLOSED_NEXT_ACTION regardless of the GRX
+# gate-walk frontier (grx015 stays honestly not-ready; the milestone closes
+# DESPITE it by the owner ruling that archives it). The marker is validated
+# fail-closed: a missing/tampered marker keeps the honest gate-walk next_action.
+GRX_MILESTONE_CLOSEOUT_MARKER = (
+    BENCH_DIR.parent / "passes" / "GRX_MILESTONE_CLOSEOUT.json"
+)
+GRX_MILESTONE_CLOSED_NEXT_ACTION = "grx_milestone_closed_ceiling_archived"
 
 # Cache for the (expensive) strict tonemap real-pass success audit.
 _GRX010_REAL_PASS_SUCCESS_AUDIT_CACHE: dict[str, bool] = {}
@@ -918,6 +938,56 @@ def walk_grx_gate_sequence(
         "evaluations": evaluations,
         "module_errors": module_errors,
     }
+
+
+def grx_milestone_closeout_ready(
+    path: pathlib.Path = GRX_MILESTONE_CLOSEOUT_MARKER,
+) -> tuple[bool, str | None]:
+    """Fail-closed validator for the GRX milestone close-out marker.
+
+    Returns ``(ready, reason)``. ``ready`` is True only when the marker exists
+    and records an honest close-out: ``status=closed``,
+    ``performance_claim=none``, a non-empty ``decision`` and ``owner_ruling``,
+    ``next_action_when_closed == GRX_MILESTONE_CLOSED_NEXT_ACTION``, and every
+    referenced evidence file present on disk. A missing/tampered marker returns
+    ``(False, reason)`` and the caller keeps the honest gate-walk next_action.
+
+    This is intentionally OUTSIDE ``walk_grx_gate_sequence`` (the per-pass gate
+    walk stays honest and still stops at the mechanism-blocked grx015 frontier);
+    the close-out is an owner-ruling governance override applied after the walk.
+    """
+    if not path.is_file():
+        return False, "grx milestone close-out marker absent"
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return False, f"grx milestone close-out marker unreadable: {exc}"
+    if not isinstance(doc, dict):
+        return False, "grx milestone close-out marker is not a JSON object"
+    if normalize_string(doc.get("status")) != "closed":
+        return False, "grx milestone close-out marker status is not closed"
+    if normalize_string(doc.get("performance_claim")) != "none":
+        return False, "grx milestone close-out marker performance_claim must be none"
+    if not normalize_string(doc.get("decision")):
+        return False, "grx milestone close-out marker has no decision"
+    if not normalize_string(doc.get("owner_ruling")):
+        return False, "grx milestone close-out marker has no owner_ruling"
+    if normalize_string(doc.get("next_action_when_closed")) != (
+        GRX_MILESTONE_CLOSED_NEXT_ACTION
+    ):
+        return False, "grx milestone close-out marker next_action mismatch"
+    evidence = doc.get("evidence")
+    if not isinstance(evidence, dict) or not evidence:
+        return False, "grx milestone close-out marker has no evidence references"
+    for key, rel in evidence.items():
+        rel_s = normalize_string(rel)
+        if not rel_s:
+            return False, f"grx milestone close-out evidence {key} is empty"
+        if not (ROOT / rel_s).exists():
+            return False, (
+                f"grx milestone close-out evidence {key} missing on disk: {rel_s}"
+            )
+    return True, None
 
 
 def infer_vs_installation_root(raw_path: object) -> str | None:
@@ -9164,6 +9234,10 @@ def summarize(results: list[ProbeResult]) -> dict[str, object]:
     ]
     grx_gate_evaluations: list[dict[str, object]] = []
     grx_gate_module_errors: list[dict[str, object]] = []
+    grx_milestone_closeout_ready_flag = False
+    grx_milestone_closeout_reason: str | None = (
+        "not evaluated (GRX gate frontier not reached)"
+    )
     if next_action == GRX011_NEXT_ACTION:
         gate_walk = walk_grx_gate_sequence(
             GRX_GATE_SEQUENCE, next_action, next_action_reason, next_command
@@ -9180,6 +9254,28 @@ def summarize(results: list[ProbeResult]) -> dict[str, object]:
                 + " reason="
                 + str(error.get("reason"))
             )
+        # --- GRX milestone close-out override --------------------------------
+        # Once the legacy grx010 chain has handed off to the GRX gate frontier
+        # (everything upstream is done), a validated honest-ceiling close-out
+        # marker advances next_action to the terminal value REGARDLESS of the
+        # gate-walk frontier. The gate walk itself stays honest (it still stops
+        # at the mechanism-blocked grx015); this is an owner-ruling governance
+        # override applied AFTER the walk. A missing/tampered marker fails
+        # closed and the honest gate-walk next_action is preserved.
+        (
+            grx_milestone_closeout_ready_flag,
+            grx_milestone_closeout_reason,
+        ) = grx_milestone_closeout_ready()
+        if grx_milestone_closeout_ready_flag:
+            next_action = GRX_MILESTONE_CLOSED_NEXT_ACTION
+            next_action_reason = (
+                "GRX milestone close-out marker is valid (honest-ceiling "
+                "close-out, owner terminal ruling 2026-07-13): the 1.5x strict "
+                "gate is archived as structurally unreachable and the "
+                "mechanism-blocked passes are archived; advancing next_action "
+                "to " + GRX_MILESTONE_CLOSED_NEXT_ACTION + "."
+            )
+            next_command = None
 
     return {
         "build_ready": build_ready,
@@ -9566,6 +9662,8 @@ def summarize(results: list[ProbeResult]) -> dict[str, object]:
         "grx_gate_sequence": grx_gate_sequence_ids,
         "grx_gate_evaluations": grx_gate_evaluations,
         "grx_gate_module_errors": grx_gate_module_errors,
+        "grx_milestone_closeout_ready": grx_milestone_closeout_ready_flag,
+        "grx_milestone_closeout_reason": grx_milestone_closeout_reason,
         "blockers": blockers,
         "warnings": warnings,
         "optional_tools_missing": optional_tools_missing,
@@ -10308,6 +10406,12 @@ def main() -> int:
                 + " reason="
                 + str(error.get("reason"))
             )
+    if summary.get("grx_milestone_closeout_ready"):
+        print(
+            "[godot-toolchain] grx_milestone_closeout_ready: true "
+            "(honest-ceiling close-out; 1.5x strict gate archived as "
+            "structurally unreachable, gate math unchanged)"
+        )
     write_report(summary)
 
     if any(result.status == "FAIL" for result in results):

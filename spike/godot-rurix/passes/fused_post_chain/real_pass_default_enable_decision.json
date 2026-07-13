@@ -41,5 +41,30 @@
     "broader fused_post_chain coverage (glow, non-LINEAR tonemappers, the rest of the auto-exposure consumer chain, same-frame tonemap replacement) beyond the LINEAR + linear_to_srgb + auto-exposure subset",
     "net-benefit Rurix dispatch (patch 0038 result writeback is a scaffold; the native Godot luminance_reduction + tonemap chain re-renders every frame)"
   ],
-  "next_action_if_ready": "start_grx020_descriptor_cache_hardening"
+  "next_action_if_ready": "start_grx020_descriptor_cache_hardening",
+  "rd_native_default_enable": {
+    "schema_version": 1,
+    "appended_at_utc": "2026-07-13T00:00:00Z",
+    "route": "rd_native_route_b",
+    "godot_patch": "0045",
+    "decision": "keep_disabled",
+    "default_enable_state": "disabled",
+    "performance_claim": "none",
+    "reasons": [
+      "bench_7_scenes_never_engage: LINEAR-tonemap AND auto-exposure luminance buffers are mutually exclusive across the seven bench scenes (LINEAR∩AE=∅); rd_native_final_20260713 records fused 0/7 non-engagement, all5_fused is an A/A control only",
+      "ae_scene_parity_out_of_tolerance: on the dedicated CameraAttributesPractical AE enablement scene the fused kernel genuinely engages but its LDR output diverges from native auto-exposure by max_abs=85/mean_abs=66 (thresholds max<=4/mean<=1.0) because the b0 auto-exposure scalars are placeholders pending the Luminance-API extension; status=measured_engaged_parity_out_of_tolerance, real_gpu_pass=false, first_missing_prerequisite=fused_tonemap_parity_out_of_tolerance",
+      "structural_net_zero: the luminance-final write is a shadow recompute to a self-owned scratch never read back, the native luminance_reduction pyramid still runs every frame, net_dispatch_saving=0, structural_fusion_claimed=false; a genuine fusion (Design 2) is a later batch"
+    ],
+    "cascade_confirmed": "fused -> tonemap rd_native -> native two-level fallback measured byte-identical on the AE-off cascade leg",
+    "enablement_evidence": "spike/godot-rurix/passes/fused_post_chain/rd_native_enablement_evidence.json",
+    "manifest_enablement_status": "measured_engaged_parity_out_of_tolerance",
+    "matrix": "spike/godot-rurix/passes/DEFAULT_ENABLE_MATRIX.md",
+    "one_five_x_strict_gate": "archived_as_structurally_unreachable_gate_math_unchanged",
+    "does_not_imply": [
+      "default pass enablement",
+      "performance/FPS/p95/GPU-timestamp claim",
+      "structural fusion / dispatch saving",
+      "1.5x strict close-out gate satisfied"
+    ]
+  }
 }

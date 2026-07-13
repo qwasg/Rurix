@@ -39,5 +39,42 @@
     "broader ssao_blur mode / multi-pass / multi-slice / SSIL coverage beyond the MODE_SMART single-pass single-slice subset",
     "net-benefit Rurix dispatch (patch 0016 result writeback is a scaffold; the native Godot SSAO blur ping-pong chain re-renders every frame)"
   ],
-  "next_action_if_ready": "start_grx012_taa_resolve_pass_contract"
+  "next_action_if_ready": "start_grx012_taa_resolve_pass_contract",
+  "rd_native_default_enable": {
+    "schema_version": 1,
+    "appended_at_utc": "2026-07-13T00:00:00Z",
+    "route": "rd_native_route_b",
+    "godot_patch": "0041",
+    "decision": "eligible_for_default_enable_gate_met",
+    "default_enable_state": "disabled",
+    "default_enable_is_per_project_opt_in": true,
+    "opt_in_requirements": [
+      "stage Rurix container at target/grx/rd_containers/ssao_blur.rd_container.bin",
+      "set rendering/rurix_accel/passes/ssao_blur/rd_container_path to that container",
+      "set rendering/rurix_accel/passes/ssao_blur/backend = 2 (missing container fails closed to native)"
+    ],
+    "performance_claim": "none",
+    "grx025_gate": {
+      "engaged_geomean": 0.995,
+      "gate_threshold": 0.95,
+      "gate_met": true,
+      "worst_engaged_scene": "mixed_forward_plus / 0.9904 / noise 0.69%",
+      "engagement_subset": "2/7 SSAO on + MODE_SMART blur 单-slice 子集(post_fx_chain, mixed_forward_plus)",
+      "report": "spike/godot-rurix/bench/grx025_default_enable_20260713/grx025_default_enable_report.md"
+    },
+    "grx024_visual_parity": "GRX-024 byte-exact(post_fx_chain)",
+    "grx024_report": "spike/godot-rurix/bench/grx024_visual_20260713/grx024_visual_report.md",
+    "rd_native_final_per_pass_us": "≈0 delta(替换片是 gather-dominated bucket 内小切片)",
+    "rd_native_final_report": "spike/godot-rurix/bench/rd_native_final_20260713/rd_native_final_report.md",
+    "amdahl_zero_cost_geomean_ceiling_x": 1.0669,
+    "measured_all5_geomean": 0.9942,
+    "matrix": "spike/godot-rurix/passes/DEFAULT_ENABLE_MATRIX.md",
+    "one_five_x_strict_gate": "archived_as_structurally_unreachable_gate_math_unchanged",
+    "enablement_evidence": "spike/godot-rurix/passes/ssao_blur/rd_native_enablement_success_evidence.json",
+    "does_not_imply": [
+      "default pass enablement",
+      "performance/FPS/p95/GPU-timestamp claim",
+      "1.5x strict close-out gate satisfied"
+    ]
+  }
 }

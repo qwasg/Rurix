@@ -4147,6 +4147,123 @@ def run_grx_gate_sequence_cases() -> None:
     print("grx gate sequence table-driven cases passed")
 
 
+def run_grx_milestone_closeout_cases() -> None:
+    """GRX milestone close-out marker (honest-ceiling close-out) regression.
+
+    Lesson applied: the REAL gate state flips with close-out; the NOT-ready
+    (pre-close-out frontier) state is asserted via a FIXTURE.
+
+    (1) The REAL on-disk marker is valid, so ``grx_milestone_closeout_ready()``
+        returns ``(True, None)`` and the marker's ``next_action_when_closed``
+        equals the probe's terminal ``GRX_MILESTONE_CLOSED_NEXT_ACTION``. This
+        is the real, honest close-out state after the owner's terminal ruling.
+    (2) The per-pass gate walk stays honest and UNCHANGED: it still fail-closed
+        STOPS at the mechanism-blocked grx015 frontier (asserted in
+        ``run_grx_gate_sequence_cases`` (1b)). The close-out is an owner-ruling
+        governance override applied AFTER the walk, not a gate readiness flip.
+    (3) Fail-closed fixtures (temp markers): an ABSENT marker, a marker whose
+        ``status`` is not ``closed``, one whose ``performance_claim`` is not
+        ``none``, and one referencing a missing evidence file each return
+        ``(False, reason)`` so a missing/tampered marker keeps the honest
+        gate-walk next_action (the pre-close-out frontier). A well-formed temp
+        marker returns ``(True, None)``.
+
+    The real marker file is never mutated; all negative fixtures are temp files.
+    """
+    sys.path.insert(0, str(ROOT))
+    from ci import godot_rurix_toolchain_probe as probe
+
+    # (1) REAL marker is valid -> ready True (real close-out state).
+    ready, reason = probe.grx_milestone_closeout_ready()
+    if ready is not True or reason is not None:
+        raise AssertionError(
+            "the real GRX milestone close-out marker must be valid "
+            f"(honest-ceiling close-out): got ready={ready!r} reason={reason!r}"
+        )
+    real_marker = json.loads(
+        probe.GRX_MILESTONE_CLOSEOUT_MARKER.read_text(encoding="utf-8")
+    )
+    if real_marker.get("next_action_when_closed") != probe.GRX_MILESTONE_CLOSED_NEXT_ACTION:
+        raise AssertionError(
+            "the real marker's next_action_when_closed must equal the probe "
+            f"terminal next_action {probe.GRX_MILESTONE_CLOSED_NEXT_ACTION!r}"
+        )
+    if probe.GRX_MILESTONE_CLOSED_NEXT_ACTION != "grx_milestone_closed_ceiling_archived":
+        raise AssertionError(
+            "the terminal close-out next_action must be "
+            f"grx_milestone_closed_ceiling_archived, got "
+            f"{probe.GRX_MILESTONE_CLOSED_NEXT_ACTION!r}"
+        )
+
+    # A well-formed temp marker (evidence pointing at an existing repo file).
+    valid_marker = {
+        "status": "closed",
+        "decision": "honest_ceiling_close_out",
+        "owner_ruling": "user terminal ruling 2026-07-13",
+        "performance_claim": "none",
+        "next_action_when_closed": probe.GRX_MILESTONE_CLOSED_NEXT_ACTION,
+        "evidence": {
+            "matrix": "spike/godot-rurix/passes/DEFAULT_ENABLE_MATRIX.md",
+        },
+    }
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_dir = pathlib.Path(tmp)
+
+        # (3a) Absent marker -> not ready (fail closed to the honest frontier).
+        absent = tmp_dir / "missing_closeout.json"
+        ready, reason = probe.grx_milestone_closeout_ready(absent)
+        if ready is not False or not reason or "absent" not in reason:
+            raise AssertionError(
+                f"an absent close-out marker must fail closed: {ready!r}/{reason!r}"
+            )
+
+        # (3b) Well-formed temp marker -> ready True.
+        good = tmp_dir / "good_closeout.json"
+        good.write_text(json.dumps(valid_marker), encoding="utf-8")
+        ready, reason = probe.grx_milestone_closeout_ready(good)
+        if ready is not True or reason is not None:
+            raise AssertionError(
+                f"a well-formed close-out marker must be ready: {ready!r}/{reason!r}"
+            )
+
+        # (3c) status not closed -> not ready.
+        not_closed = dict(valid_marker, status="active")
+        bad = tmp_dir / "not_closed.json"
+        bad.write_text(json.dumps(not_closed), encoding="utf-8")
+        ready, reason = probe.grx_milestone_closeout_ready(bad)
+        if ready is not False or not reason or "status" not in reason:
+            raise AssertionError(
+                f"a non-closed marker must fail closed: {ready!r}/{reason!r}"
+            )
+
+        # (3d) performance_claim not none -> not ready (guards against a
+        # close-out marker sneaking in a performance claim).
+        with_claim = dict(valid_marker, performance_claim="1.5x achieved")
+        claim = tmp_dir / "with_claim.json"
+        claim.write_text(json.dumps(with_claim), encoding="utf-8")
+        ready, reason = probe.grx_milestone_closeout_ready(claim)
+        if ready is not False or not reason or "performance_claim" not in reason:
+            raise AssertionError(
+                f"a marker with a performance_claim must fail closed: {ready!r}/{reason!r}"
+            )
+
+        # (3e) evidence file missing on disk -> not ready.
+        missing_ev = dict(
+            valid_marker,
+            evidence={"ghost": "spike/godot-rurix/passes/__does_not_exist__.md"},
+        )
+        ghost = tmp_dir / "missing_evidence.json"
+        ghost.write_text(json.dumps(missing_ev), encoding="utf-8")
+        ready, reason = probe.grx_milestone_closeout_ready(ghost)
+        if ready is not False or not reason or "missing on disk" not in reason:
+            raise AssertionError(
+                f"a marker with missing evidence must fail closed: {ready!r}/{reason!r}"
+            )
+
+    print("grx milestone close-out marker cases passed")
+
+
 def main() -> int:
     original_manifest_bytes = REAL_MANIFEST_PATH.read_bytes()
     original_evidence_bytes = REAL_EVIDENCE_PATH.read_bytes()
@@ -4186,6 +4303,7 @@ def main() -> int:
     run_grx010_tonemap_gate_cases()
     run_grx010_tonemap_close_out_cases()
     run_grx_gate_sequence_cases()
+    run_grx_milestone_closeout_cases()
     if REAL_MANIFEST_PATH.read_bytes() != original_manifest_bytes:
         raise AssertionError("real pass_manifest.json changed during validation_failed test")
     if REAL_EVIDENCE_PATH.read_bytes() != original_evidence_bytes:

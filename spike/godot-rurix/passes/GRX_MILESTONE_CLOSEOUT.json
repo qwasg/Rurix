@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "subject": "grx_milestone_closeout",
+  "milestone": "GRX",
+  "status": "closed",
+  "decision": "honest_ceiling_close_out",
+  "closed_at_utc": "2026-07-13T00:00:00Z",
+  "performance_claim": "none",
+  "next_action_when_closed": "grx_milestone_closed_ceiling_archived",
+  "owner_ruling": "user terminal ruling 2026-07-13 (main-session AskUserQuestion): honest-ceiling close-out. The 1.5x strict gate (G-GRX-5) is archived as structurally unreachable (measured), and GRX-023..026 are closed on that honest basis. Agent-autonomy precedent b17fd67 + g2.6 agent self-signed close-out apply; the formal front-matter status flip and signature line are finalized by the main-session close-out commit.",
+  "signature": "白栀 (via 主会话 close-out commit)",
+  "assisted_by": "kiro:claude-opus-4-8",
+  "one_five_x_strict_gate": {
+    "gate": "G-GRX-5",
+    "verdict": "not_met_archived_as_structurally_unreachable",
+    "amdahl_zero_cost_geomean_ceiling_x": 1.0669,
+    "target_geomean_x": 1.5,
+    "measured_all5_geomean": 0.9942,
+    "gate_math_unchanged": true,
+    "thresholds_unchanged": [1.5, 0.3, 0.95],
+    "note": "The gate math, the three thresholds (1.5/0.3/0.95), perf_gate.py and its schema are ALL unchanged and NOT relaxed. What is archived is the measured fact that the 1.5x target is unreachable on this workload/GPU/build (1.50 vs a 1.0669x Amdahl zero-cost hard ceiling). This is 'archive-as-unreachable', NOT 'lower the gate'. The GRX-025 >=0.95 is a default-enable COST gate (single-pass engaged scenes), a DIFFERENT gate from the 1.5x geomean close-out gate; the two must not be conflated as 'gate passed'."
+  },
+  "acceptance": {
+    "G-GRX-1": "met",
+    "G-GRX-2": "met",
+    "G-GRX-3": "met",
+    "G-GRX-4": "met",
+    "G-GRX-5": "not_met_archived_as_structurally_unreachable"
+  },
+  "evidence": {
+    "grx023_final_benchmark": "spike/godot-rurix/bench/rd_native_final_20260713/rd_native_final_report.md",
+    "grx024_visual_parity": "spike/godot-rurix/bench/grx024_visual_20260713/grx024_visual_report.md",
+    "grx025_gate_report": "spike/godot-rurix/bench/grx025_default_enable_20260713/grx025_default_enable_report.md",
+    "grx025_default_enable_matrix": "spike/godot-rurix/passes/DEFAULT_ENABLE_MATRIX.md",
+    "contract_closeout_section": "milestones/grx/GRX_CONTRACT.md"
+  },
+  "per_pass_terminal_state": {
+    "tonemap": "rd_native_gate_met_default_disabled_opt_in",
+    "ssao_blur": "rd_native_gate_met_default_disabled_opt_in",
+    "taa_resolve": "rd_native_gate_met_default_disabled_opt_in",
+    "particles_copy": "rd_native_gate_met_default_disabled_opt_in",
+    "cluster_store": "rd_native_gate_met_default_disabled_opt_in",
+    "luminance_reduction": "bridge_stage_a5_default_disabled",
+    "fused_post_chain": "engaged_net_zero_parity_out_of_tolerance_keep_disabled",
+    "gpu_culling": "mechanism_blocked_rdg_gap",
+    "instance_compaction": "mechanism_blocked_dependent",
+    "indirect_args": "mechanism_blocked_dependent",
+    "material_sorting": "telemetry_only_keep_disabled",
+    "descriptor_cache": "not_a_render_pass",
+    "pso_prewarm": "not_a_render_pass",
+    "bindless": "frozen_never_started"
+  },
+  "does_not_imply": [
+    "1.5x strict close-out gate satisfied",
+    "any FPS/p95/GPU-timestamp/performance-improvement claim",
+    "default pass enablement (rd_native passes stay per-project opt-in)"
+  ],
+  "note": "Machine-readable GRX milestone close-out marker. When present and valid (status=closed, performance_claim=none, decision + owner_ruling + evidence references complete), ci/godot_rurix_toolchain_probe.py advances next_action to grx_milestone_closed_ceiling_archived. If this marker is absent or tampered, the probe fails closed to the honest GRX gate-walk frontier (start_grx015_gpu_culling_pass_contract). This marker records the owner's terminal ruling; the formal contract front-matter status flip and signature are finalized by the main-session close-out commit."
+}

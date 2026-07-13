@@ -34,3 +34,16 @@
 - `performance_claim=none`：本决策与 enablement success 均不构成 FPS、p95、GPU timestamp、时序稳定性或任何视觉优越性宣称；candidate 序列逐帧 bit-exact（`max_abs=0`）本身即证明尚无输出替代。
 - 本决策文件存在且校验通过（顶层 `default_enable_decision` 字段非空，`ci/grx_gates/grx012_taa_resolve.py` `_decision_ready` 口径）+ enablement strict success（`strict_success=true`）有效时，probe `next_action` 才可推进到 `start_grx013_particles_copy_pass_contract`；两者任一缺失/被篡改即 fail-closed（`grx_gate_module_error`），`next_action` 保持不变。
 - 只有 strict 校验通过的 `real_pass_enablement_success_evidence.json` 才允许 manifest 记录 `real_gpu_pass=true`（opt-in 口径）；手工编辑的 placeholder 永远不能推进任何 gate。
+
+## rd_native（Route B）默认启用追加 — GRX-025 close-out（2026-07-13，append-only）
+
+> 本段是 GRX-025 收官对 **rd_native（Route B，patch 0042，backend 三态）** 复制阶段的默认启用决策追加，**不修改上方 bridge-era 结论**。汇总矩阵：[../DEFAULT_ENABLE_MATRIX.md](../DEFAULT_ENABLE_MATRIX.md)。
+
+- rd_native 决策 token：**`eligible_for_default_enable_gate_met`**（GRX-025 ≥0.95 门 + GRX-024 视觉 parity 两者实测达成）。
+- 当前 default：**仍 `disabled`**。成因不是门未过，而是 **rd_native 启用天生是 per-project opt-in**：须把 Rurix 容器 staged 到 `target/grx/rd_containers/taa_resolve.rd_container.bin`、设 `rendering/rurix_accel/passes/taa_resolve/rd_container_path` 指向它、把 `passes/taa_resolve/backend` 置 `2`（缺容器则 fail-closed 回落 native）。**无全局默认可翻**，故如实记「门槛条件已全部实测达成，启用为集成方按需 opt-in」。
+- GRX-025 门槛（`spike/godot-rurix/bench/grx025_default_enable_20260713/`）：engaged geomean **0.9906** ≥ 0.95；worst engaged scene = mixed_forward_plus / 0.9890 / noise 0.69%（含场景 noise 后仍过门）。
+- engagement 子集：2/7 use_taa(many_mesh_instances, mixed_forward_plus);单 resolve dispatch 子集,history 维护留 native。
+- 视觉 parity（`spike/godot-rurix/bench/grx024_visual_20260713/`）：GRX-024 ±1 LSB(many_mesh_instances,deterministic floor 0)。
+- per-pass GPU µs 归因（`spike/godot-rurix/bench/rd_native_final_20260713/` §4）：+100~114 µs(~1.6-1.8x native resolve;门内 <1.1% avg_fps)；程序级 Amdahl 零成本 geomean 天花板 **1.0669x**（measured all5 0.9942）。
+- fail-closed 不变式：`performance_claim=none`（本追加不含 FPS/p95/GPU-timestamp/性能提升宣称）；缺容器/preflight 失败/dispatch-eligibility 失败/visual 超阈值一律回落 native；`RXGD_ABI_VERSION` 不变、bridge-independent（不占 cap bit）。
+- 收官口径：1.5x strict 门（GRX_CONTRACT G-GRX-5）在此 workload/GPU/build 上被归档为**结构性不可达**（1.50 vs 1.0669 硬上限），门的数学与阈值不变、未放宽——是「归档不可达」非「降门」。

@@ -38,5 +38,42 @@
     "broader particles_copy coverage (2D copy, VIEW_DEPTH sort, lifetime reindex, trail, userdata, align modes 2/3/4) beyond the COPY_MODE_FILL_INSTANCES 3D ALIGN_DISABLED/ALIGN_BILLBOARD subset",
     "net-benefit Rurix dispatch (patch 0022 result writeback is a scaffold; the native Godot particles copy re-fills every instance every frame)"
   ],
-  "next_action_if_ready": "start_grx014_cluster_store_pass_contract"
+  "next_action_if_ready": "start_grx014_cluster_store_pass_contract",
+  "rd_native_default_enable": {
+    "schema_version": 1,
+    "appended_at_utc": "2026-07-13T00:00:00Z",
+    "route": "rd_native_route_b",
+    "godot_patch": "0043(修订版 userdata_count==0 门)",
+    "decision": "eligible_for_default_enable_gate_met",
+    "default_enable_state": "disabled",
+    "default_enable_is_per_project_opt_in": true,
+    "opt_in_requirements": [
+      "stage Rurix container at target/grx/rd_containers/particles_copy.rd_container.bin",
+      "set rendering/rurix_accel/passes/particles_copy/rd_container_path to that container",
+      "set rendering/rurix_accel/passes/particles_copy/backend = 2 (missing container fails closed to native)"
+    ],
+    "performance_claim": "none",
+    "grx025_gate": {
+      "engaged_geomean": 0.9945,
+      "gate_threshold": 0.95,
+      "gate_met": true,
+      "worst_engaged_scene": "particles / 0.9945 / noise 1.03%",
+      "engagement_subset": "1/7 no-userdata emitter 子集(userdata_count==0 / stride 112);标准 ParticleProcessMaterial(userdata_count==1)出子集",
+      "report": "spike/godot-rurix/bench/grx025_default_enable_20260713/grx025_default_enable_report.md"
+    },
+    "grx024_visual_parity": "GRX-024 floor-limited(粒子非确定,parity==floor)+ 容器 ~1-ULP + GRX-025 leg 交叉印证",
+    "grx024_report": "spike/godot-rurix/bench/grx024_visual_20260713/grx024_visual_report.md",
+    "rd_native_final_per_pass_us": "≈0 delta(bandwidth-bound copy,3/15 emitter 替换)",
+    "rd_native_final_report": "spike/godot-rurix/bench/rd_native_final_20260713/rd_native_final_report.md",
+    "amdahl_zero_cost_geomean_ceiling_x": 1.0669,
+    "measured_all5_geomean": 0.9942,
+    "matrix": "spike/godot-rurix/passes/DEFAULT_ENABLE_MATRIX.md",
+    "one_five_x_strict_gate": "archived_as_structurally_unreachable_gate_math_unchanged",
+    "enablement_evidence": "spike/godot-rurix/passes/particles_copy/rd_native_enablement_success_evidence.json",
+    "does_not_imply": [
+      "default pass enablement",
+      "performance/FPS/p95/GPU-timestamp claim",
+      "1.5x strict close-out gate satisfied"
+    ]
+  }
 }
