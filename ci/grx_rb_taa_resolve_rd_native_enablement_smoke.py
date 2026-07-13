@@ -100,7 +100,7 @@ PATCHES_DIR = ROOT / "spike" / "godot-rurix" / "patches"
 # 0042 (taa_resolve). The 0030-0039 block is a monotonic hole (see
 # PATCH_ALLOCATION.md, the Route B double-tail note). The sidecar records a
 # comma-joined stack id because 0029 -> 0040 is not contiguous.
-PATCH_ORDINALS = [f"{n:04d}" for n in range(1, 30)] + ["0040", "0041", "0042"]
+PATCH_ORDINALS = [f"{n:04d}" for n in range(1, 30)] + ["0040", "0041", "0042", "0043", "0044", "0045", "0046", "0047", "0048"]
 PATCH_STACK_ID = ",".join(PATCH_ORDINALS)
 
 
@@ -320,7 +320,12 @@ def unexpected_error_lines(output: str, extra_allowed: tuple[str, ...] = ()) -> 
     allowed = (ALLOWED_GODOT_ERROR, *extra_allowed)
     out: list[str] = []
     for line in output.splitlines():
-        if not line.strip().startswith("ERROR:"):
+        # Zero-tolerance for BOTH engine "ERROR:" lines and GDScript
+        # "SCRIPT ERROR" lines. The historical fused audit hole let a scene-script
+        # error (e.g. assigning a property the base class does not have) pass
+        # silently because only the "ERROR:" prefix was scanned; a SCRIPT ERROR
+        # must fail the run exactly like an engine ERROR.
+        if not (line.strip().startswith("ERROR:") or line.strip().startswith("SCRIPT ERROR")):
             continue
         if any(token in line for token in allowed):
             continue

@@ -600,7 +600,16 @@ def runtime_log_audit(output: str, stack_names: tuple[str, ...] = PATCH_STACK) -
     rxgd_diag_allowed = patch_queue_contains("RXGD_DIAG", stack_names)
     rxgd_diag_lines = [line for line in output.splitlines() if "RXGD_DIAG" in line]
     allowed_error = "Could not load global script cache"
-    error_lines = [line for line in output.splitlines() if line.strip().startswith("ERROR:")]
+    # Zero-tolerance for engine "ERROR:" lines AND GDScript "SCRIPT ERROR" lines.
+    # Closing the fused audit hole: a scene-script property-assignment error
+    # (assigning a property the base class does not expose) was previously ignored
+    # here because only the "ERROR:" prefix was scanned, so a scene whose auto
+    # exposure never engaged still passed the runtime audit.
+    error_lines = [
+        line
+        for line in output.splitlines()
+        if line.strip().startswith("ERROR:") or line.strip().startswith("SCRIPT ERROR")
+    ]
     unexpected_errors = [line for line in error_lines if allowed_error not in line]
     unexpected_lines = ([] if rxgd_diag_allowed else rxgd_diag_lines) + unexpected_errors
     return {

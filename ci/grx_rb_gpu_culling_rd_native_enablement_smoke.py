@@ -342,14 +342,26 @@ def compute_ldr_abs_diff(reference: bytes, candidate: bytes) -> tuple[int, float
 
 
 def device_removal_hits(output: str) -> list[str]:
-    return [marker for marker in DEVICE_REMOVAL_MARKERS if marker in output]
+    # Case-insensitive: the D3D12/DXGI driver prints the HRESULT hex in lowercase
+    # (e.g. "CreateCommandAllocator failed with error 0x887a0005") while the
+    # marker table lists the canonical uppercase forms, so a substring match must
+    # fold case or a real device removal is MISSED — the exact hazard this gate
+    # exists to detect (a missed removal would be reported only as a generic
+    # non-zero exit, hiding the true cause).
+    lowered = output.lower()
+    return [marker for marker in DEVICE_REMOVAL_MARKERS if marker.lower() in lowered]
 
 
 def unexpected_error_lines(output: str, extra_allowed: tuple[str, ...] = ()) -> list[str]:
     allowed = (ALLOWED_GODOT_ERROR, *extra_allowed)
     out: list[str] = []
     for line in output.splitlines():
-        if not line.strip().startswith("ERROR:"):
+        # Zero-tolerance for BOTH engine "ERROR:" lines and GDScript
+        # "SCRIPT ERROR" lines. The historical fused audit hole let a scene-script
+        # error (e.g. assigning a property the base class does not have) pass
+        # silently because only the "ERROR:" prefix was scanned; a SCRIPT ERROR
+        # must fail the run exactly like an engine ERROR.
+        if not (line.strip().startswith("ERROR:") or line.strip().startswith("SCRIPT ERROR")):
             continue
         if any(token in line for token in allowed):
             continue
@@ -641,6 +653,31 @@ func _ready() -> void:
 
     _mmi_rid = RenderingServer.instance_create2(_mm_rid, get_world_3d().scenario)
     print("GRXRBCull: scene ready backend={backend} instances=%d" % count)
+
+func _exit_tree() -> void:
+    # Reclaim the indirect MultiMesh's internal RenderingDevice command buffer
+    # BEFORE freeing the multimesh: Godot's _multimesh_free reallocates to a
+    # non-indirect 0-instance multimesh and frees only the transform buffer, so
+    # the indirect command_buffer StorageBuffer would otherwise leak. These are
+    # RID-direct server allocations (multimesh_create / instance_create2) that are
+    # NOT auto-freed with the node, so without this the process prints
+    # "ERROR: N RID allocations ... leaked at exit" (MultiMesh / Instance /
+    # GeometryInstance PagedAllocator + StorageBuffer) and the zero-tolerance
+    # ERROR audit trips on every leg. No double-free: the multimesh free path
+    # never touches the command_buffer, and each RID is invalidated after free.
+    if _mm_rid.is_valid():
+        var rd := RenderingServer.get_rendering_device()
+        if rd != null:
+            var cmd_buf := RenderingServer.multimesh_get_command_buffer_rd_rid(_mm_rid)
+            if cmd_buf.is_valid():
+                rd.free_rid(cmd_buf)
+    # Free the instance before the multimesh it draws (both server-side RIDs).
+    if _mmi_rid.is_valid():
+        RenderingServer.free_rid(_mmi_rid)
+        _mmi_rid = RID()
+    if _mm_rid.is_valid():
+        RenderingServer.free_rid(_mm_rid)
+        _mm_rid = RID()
 
 func _process(_delta: float) -> void:
     _frames += 1

@@ -213,8 +213,30 @@ scratch 丢弃,故**净 dispatch 节省 = 0,非真融合、无结构性节省**;
 convert_to_srgb 的 tonemap 段(t0→u0)。真融合(Design 2:glow-off 门 + 跳 native final
 reduce 级 + 外置 luminance 双缓冲 SWAP)是下批可宣称结构性节省之处,本轮不做。
 
-**证据重签(必读)**:0045 修订改变了 patch 字节(sha256 变更),**冻结的 fused
-rd_native strict-success 证据因此失配、须由 rb3 scratch rebuild + strict enablement
-重跑统一重签**;`real_pass_enablement_success_evidence.json` / `rd_native_enablement_*`
-success 文件**不手改**。当前 manifest `rd_native.enablement.status =
-pending_re_sign_after_revision`。
+**证据重签实测(rb3,`RURIX_REQUIRE_REAL=1`)**:0045 修订改变了 patch 字节,冻结的 fused
+rd_native strict-success 证据须由 rb3 scratch(`0001-0029+0040-0048`)+ strict enablement
+重跑重签。**本轮重跑实测**(5 腿矩阵,Windows D3D12 Forward+,RTX 4070 Ti):AE 经
+`CameraAttributesPractical` 正确开启后,candidate 腿(backend=2 + 真容器)**真 ENGAGE**——
+`RXGD_RD_NATIVE_FUSED_POST_CHAIN active` **仅**现于 candidate 腿、native tonemap 被跳过;
+fail_closed(垃圾容器)latch 拒容器并与 native AE reference **逐字节一致**;cascade 腿
+`RXGD_RD_NATIVE_TONEMAP active` 仅现于该腿且与非 AE reference **逐字节一致**(LDR
+`max_abs=0`);五腿各连捕 3 帧全稳定。**诚实 measured 发现**:fused kernel 的 LDR 输出与
+Godot native auto-exposure tonemap **偏差 LDR `max_abs=85 / mean_abs=66`**(阈值
+`max<=4 / mean<=1.0`)——fused AE/EMA + tonemap 数学的**首次真机对拍**。fused kernel 的 b0
+auto-exposure 标量当前是 best-effort 占位(max_luminance=1、min_luminance=0、
+exposure_adjust=1、first_frame=0、auto_exposure_scale=1),待 Luminance-API 扩展供真参数,
+故所施曝光与 native AE 反馈不同。结果记 `measured_prerequisite_blocked` /
+`fused_tonemap_parity_out_of_tolerance`,**非 strict success、不美化、不推进 gate**,
+`rd_native_enablement_success_evidence.json` **不写**;success 文件**不手改**。manifest
+`rd_native.enablement.status = measured_engaged_parity_out_of_tolerance`。
+
+**误归因史实入档(主会话定罪)**:§13 与更早证据所述「fused gate 阻于别名守卫 /
+`fused_luminance_double_buffer_api_unexposed`,fused active marker 五腿全缺席,candidate 与
+reference 逐字节一致」是**误归因**。真实机制:旧冒烟场景把 `auto_exposure_enabled` 赋给
+`Environment`(本版 Godot 的 Environment 无此属性)→ 每腿 `SCRIPT ERROR` → auto exposure
+**从未生效** → luminance buffer 从未分配 → patch 0048 getter 返回 `RID()` → module 阻于
+invalid-lum-RID 关口(**非**别名守卫);冒烟 runtime 审计只扫 `ERROR:` 前缀、漏掉
+`SCRIPT ERROR:` 故未察(旧 rb2 时代 `RID()==RID()` 恰满足别名守卫,强化了误归因)。修法:
+(a) 场景改用 `CameraAttributesPractical` 开 AE(镜像 `ci/grx009_segment4h`);(b) 审计
+(`unexpected_error_lines` + 共享 `runtime_log_audit`)对 `SCRIPT ERROR` 一并零容忍。故本轮
+为首次诚实 engage+parity 实测,evidence `historical_note` 同步入档。

@@ -303,7 +303,12 @@ def robocopy(
         args += ["/XD", name]
     for name in exclude_files:
         args += ["/XF", name]
-    proc = subprocess.run(args, capture_output=True, text=True, check=False)
+    # robocopy emits locale-encoded text (e.g. GBK on zh-CN Windows); decoding it
+    # as strict UTF-8 kills the subprocess reader thread mid-copy, so degrade
+    # undecodable bytes instead of crashing.
+    proc = subprocess.run(
+        args, capture_output=True, text=True, errors="replace", check=False
+    )
     output = ((proc.stdout or "") + (proc.stderr or "")).strip()
     # robocopy: 0-7 == success (bit flags), 8+ == at least one failure.
     return proc.returncode < 8, output
@@ -415,18 +420,51 @@ def prepare_scratch_copy(
                 raise RuntimeError(
                     f"--from-scratch-tree {from_scratch_tree} is not a directory"
                 )
-            info(f"incremental: robocopy /MIR {from_scratch_tree} -> {scratch}")
-            ok, _ = robocopy(
-                from_scratch_tree,
+            # A prior scratch tree carries its patch stack baked into the
+            # sources, and reversing that stack needs the patch bytes as they
+            # were THEN -- an in-place patch revision (0043/0040/0045 precedent)
+            # makes reversal impossible and mirroring the old tree poisons the
+            # base. So sources always come fresh from external/godot-master and
+            # only the SCons build state (bin/ objects + .sconsign content
+            # signatures) is carried over; SCons content signatures then skip
+            # every TU whose input bytes are unchanged.
+            if scratch.exists():
+                info(f"removing stale scratch dir {scratch} for incremental reseed")
+                shutil.rmtree(scratch, ignore_errors=True)
+            info(
+                f"incremental: robocopy /E {EXTERNAL_GODOT} -> {scratch} "
+                "(pristine sources)"
+            )
+            ok, output = robocopy(
+                EXTERNAL_GODOT,
                 scratch,
-                mirror=True,
-                exclude_dirs=(".git",),
-                exclude_files=(),
+                mirror=False,
+                exclude_dirs=COPY_EXCLUDE_DIRS,
+                exclude_files=COPY_EXCLUDE_FILES,
             )
             if not ok:
-                raise RuntimeError("robocopy /MIR from --from-scratch-tree failed")
-            # Drop any copied git metadata; the patch layer is rebuilt fresh.
-            shutil.rmtree(scratch / ".git", ignore_errors=True)
+                raise RuntimeError(
+                    f"robocopy from external/godot-master failed: {output[-400:]}"
+                )
+            prior_bin = from_scratch_tree / "bin"
+            if prior_bin.is_dir():
+                info(
+                    f"incremental: robocopy /E {prior_bin} -> {scratch / 'bin'} "
+                    "(prior SCons objects)"
+                )
+                ok, output = robocopy(
+                    prior_bin,
+                    scratch / "bin",
+                    mirror=False,
+                    exclude_dirs=(),
+                    exclude_files=(),
+                )
+                if not ok:
+                    raise RuntimeError(
+                        f"robocopy of prior bin/ failed: {output[-400:]}"
+                    )
+            for sig in from_scratch_tree.glob(".sconsign*"):
+                shutil.copy2(sig, scratch / sig.name)
             return True, "incremental", None
         except Exception as exc:  # noqa: BLE001 - degrade to full copy
             warn(f"incremental copy failed ({exc}); falling back to a full copy")

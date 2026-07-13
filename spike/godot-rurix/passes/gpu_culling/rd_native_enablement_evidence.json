@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "subject": "grx_rb_taa_resolve_rd_native_enablement_smoke",
-  "pass_id": "taa_resolve",
+  "subject": "grx_rb_gpu_culling_rd_native_enablement_smoke",
+  "pass_id": "gpu_culling",
   "provenance": "rd_native_route_b",
-  "backend_selector": "rendering/rurix_accel/passes/taa_resolve/backend",
+  "backend_selector": "rendering/rurix_accel/passes/gpu_culling/backend",
   "backend_states": {
     "disabled": 0,
     "shim": 1,
@@ -12,31 +12,32 @@
   "bridge_independent": true,
   "cap_bit_consumed": null,
   "runtime_state": "fallback_only",
-  "real_gpu_pass": true,
+  "real_gpu_pass": false,
   "default_enable_state": "disabled",
   "gpu_timestamp_status": "not_yet",
   "performance_claim": "none",
-  "kernel_subset": "single-view full-resolution TAA resolve dispatch (native history copies preserved)",
-  "temporal_dod": {
-    "capture_start_frame": 16,
-    "capture_count": 8,
-    "min_temporal_frames": 8
-  },
+  "kernel_subset": "count-only conservative bounding-sphere frustum cull",
   "target_backend": "Godot 4.7-dev Windows D3D12 Forward+",
   "known_gaps": [
-    "rd_native replaces ONLY the resolve compute dispatch inside TAA::process; the native history-maintenance copies (temp->internal, internal->history, velocity->prev_velocity) still run, so the temporal feedback loop is preserved but the Rurix resolve kernel differs from Godot's, so the accumulated history can diverge over the sequence",
-    "the six resolve resources are bound in the container's binding order (color/depth/velocity/prev_velocity/history = SRV t0..t4, temp output = UAV u0); Godot's native resolve binds a mixed IMAGE/SAMPLER_WITH_TEXTURE layout, so the per-frame LDR delta through the temporal accumulation is recorded as the picture evidence (not a full-frame characterization)",
-    "rd_native opens/closes its own compute list (resolve() is a standalone list); No submit()/sync() is issued (that is a local-RD concept)",
-    "provenance is the S1 structural container smoke (69/69 verify checks), NOT an S2 ~1-ULP in-engine probe (which exists for tonemap only); s2_probe_proven is recorded false"
+    "the rd_native cull is count-only over a conservative bounding sphere (never over-culls); it does not compact/remap transforms (GRX-016) or extend the command block beyond the instance-count dword (GRX-018). The scene exercises bare 3D MultiMeshes (MULTIMESH_TRANSFORM_3D, stride 12); 2D / colored / custom-data strides are out of subset",
+    "the image test proves PICTURE-PRESERVATION (candidate byte-matches reference): the conservative cull only drops draws that are already off-screen, so a reduced draw count is invisible in the final image. A mid-frame readback of the produced command-buffer count (proving the count was actually reduced) is not accessible from GDScript and is a deferred stronger check; the active marker proves the cull dispatched",
+    "rd_native drives the main RenderingDevice's draw graph directly; the clear/dispatch relies on the graph's ResourceTracker for the barriers that make the clear -> dispatch -> indirect-draw chain hazard-free. No submit()/sync() is issued (that is a local-RD concept). The no-device-removal judgement over all legs is the headline evidence"
+  ],
+  "device_removal_markers_watched": [
+    "DXGI_ERROR_DEVICE_REMOVED",
+    "DXGI_ERROR_DEVICE_HUNG",
+    "DXGI_ERROR_DEVICE_RESET",
+    "Device removed",
+    "device removal",
+    "0x887A0006",
+    "0x887A0005"
   ],
   "container": {
-    "path_at_run": "H:\\rurix\\target\\grx\\rd_containers\\taa_resolve.rd_container.bin",
-    "sha256": "42af7d19f41ddb655bb4970bdced9c985010e08193fe4611ac5fd87da464cf5f",
-    "s1_container_smoke_evidence": "spike/godot-rurix/rd-native-pipeline/rd_container_smoke_evidence.json",
-    "s1_container_sha256": "42af7d19f41ddb655bb4970bdced9c985010e08193fe4611ac5fd87da464cf5f",
-    "matches_s1_container_smoke": true,
-    "s2_probe_proven": false,
-    "s2_probe_note": "no S2 ~1-ULP in-engine probe exists for taa_resolve (the S2 probe proved tonemap only); this is a structural S1 container-provenance anchor, not a proven-parity anchor"
+    "path_at_run": "H:\\rurix\\target\\grx\\rd_containers\\gpu_culling_rd_native.rd_container.bin",
+    "sha256": "eeef16a98d0a879563fe435caad1808fdecfaa7a1e4ed5e0838ee61b032b2c96",
+    "pipeline_container": "spike/godot-rurix/rd-native-pipeline/out/gpu_culling_rd_native.rd_container.bin",
+    "pipeline_container_sha256": "eeef16a98d0a879563fe435caad1808fdecfaa7a1e4ed5e0838ee61b032b2c96",
+    "matches_pipeline_container": true
   },
   "patch_stack_identity": {
     "patches_dir": "spike/godot-rurix/patches",
@@ -272,14 +273,14 @@
       }
     ]
   },
-  "note": "GRX Route B taa_resolve rd_native in-frame REAL-replacement gate. backend==2 drives the Rurix taa_resolve kernel as a first-class RenderingDevice compute dispatch replacing the native resolve() dispatch and SKIPS it (the native history-maintenance copies still run). Bridge-independent (no rxgd session, no RxGdCaps.flags bit). default_enable_state stays disabled and no performance/FPS/GPU-timestamp claim is made.",
+  "note": "GRX Route B gpu_culling rd_native in-frame compute-cull gate. backend==2 drives the Rurix gpu_culling kernel as a first-class RenderingDevice compute dispatch on the MAIN device (buffer_clear -> dispatch -> native indirect-draw), the FIRST rd_native pass that itself issues buffer_clear. The headline evidence is the no-device-removal judgement of that chain (the shim path's side-channel dispatch caused a graph hazard); the picture is preserved because the conservative cull only drops off-screen draws. Bridge-independent (no rxgd session, no RxGdCaps.flags bit). default_enable_state stays disabled and no performance/FPS/GPU-timestamp claim is made.",
   "dll_fingerprint": {
     "dll_path_at_run": "target/debug/rurix_godot.dll",
     "dll_sha256": "47910fe7fc0b9cf6e133da09a090f132f121a6d5f1d7d48dec8ea7d812051426",
     "dll_size_bytes": 214528,
     "build_profile": "debug",
     "features": [],
-    "feature_note": "rd_native is bridge-independent: the plain rurix_godot.dll is required only so bridge_preflight() succeeds and the RurixAccelD3D12Hooks singleton (which carries the try_record_taa_resolve_rd_native override) is instantiated. The d3d12-recording-shim feature is NOT needed for rd_native."
+    "feature_note": "rd_native is bridge-independent: the plain rurix_godot.dll is required only so bridge_preflight() succeeds and the RurixAccelD3D12Hooks singleton (which carries the try_record_gpu_culling_rd_native override) is instantiated. The d3d12-recording-shim feature is NOT needed for rd_native."
   },
   "godot_exe_fingerprint": {
     "exe_path_at_run": "H:\\rurix\\target\\grx\\godot-scratch-rb3\\bin\\godot.windows.template_debug.x86_64.console.exe",
@@ -541,7 +542,7 @@
     "build": {
       "available": true,
       "command": "H:\\rurix\\target\\grx\\scons-venv\\Scripts\\python.exe -m SCons platform=windows target=template_debug d3d12=yes module_rurix_accel_enabled=yes disable_path_overrides=no num_jobs=1 verbose=yes angle=no silence_msvc=no",
-      "log_path": "H:\\rurix\\target\\grx\\godot-scratch-rb3.scons_build.log"
+      "log_path": "H:/rurix/target/grx/godot-scratch-rb3.scons_build.log"
     },
     "base_commit": "0b4845e9a524ea30d0b98c4a8e71a4a82fa5c327",
     "base_tree": "6afb1013d67159858bc04b5a613db339bb7823a8",
@@ -895,56 +896,76 @@
     ],
     "expected_stack_ok": true
   },
-  "status": "success",
-  "timestamp": "2026-07-13T15:33:50+08:00",
+  "status": "fail",
+  "timestamp": "2026-07-13T16:08:12+08:00",
   "run_url": "local interactive runner",
+  "reason": "candidate run reported a DXGI device removal ['0x887A0005']; the clear -> dispatch -> indirect-draw chain must never remove the device (the whole point of driving the main RenderingDevice's draw graph)",
   "pass_enable_matrix": {
     "reference": {
-      "role": "native_reference",
+      "role": "native_cpu_command_buffer",
       "project_settings": {
-        "rendering/rurix_accel/passes/taa_resolve/backend": 0,
-        "rendering/rurix_accel/passes/taa_resolve/rd_container_path": ""
+        "rendering/rurix_accel/passes/gpu_culling/backend": 0,
+        "rendering/rurix_accel/passes/gpu_culling/rd_container_path": ""
       },
       "exit_code": 0,
       "session_ready": true,
       "active_marker_observed": false,
+      "device_removal_hits": [],
       "container_reject_errors_observed": [],
-      "captured_frames": 8,
+      "capture_meta": {
+        "capture_frame_index": 24,
+        "format": "R8G8B8_raw",
+        "height": 144,
+        "multimesh_instance_count": 4096,
+        "stability_frame_count": 3,
+        "width": 256
+      },
       "capture_error": null
     },
     "candidate": {
-      "role": "rd_native_replacement",
+      "role": "rd_native_cull",
       "project_settings": {
-        "rendering/rurix_accel/passes/taa_resolve/backend": 2,
-        "rendering/rurix_accel/passes/taa_resolve/rd_container_path": "H:\\rurix\\target\\grx\\rd_containers\\taa_resolve.rd_container.bin"
+        "rendering/rurix_accel/passes/gpu_culling/backend": 2,
+        "rendering/rurix_accel/passes/gpu_culling/rd_container_path": "H:\\rurix\\target\\grx\\rd_containers\\gpu_culling_rd_native.rd_container.bin"
       },
-      "exit_code": 0,
+      "exit_code": 3221225477,
       "session_ready": true,
       "active_marker_observed": true,
+      "device_removal_hits": [
+        "0x887A0005"
+      ],
       "container_reject_errors_observed": [],
-      "captured_frames": 8,
-      "capture_error": null
+      "capture_meta": null,
+      "capture_error": "capture metadata missing/unreadable at H:\\rurix\\target\\grx_rb_gpu_culling_rd_native_enablement_smoke\\capture_candidate.json"
     },
     "fail_closed": {
       "role": "rd_native_garbage_container_fallback",
       "project_settings": {
-        "rendering/rurix_accel/passes/taa_resolve/backend": 2,
-        "rendering/rurix_accel/passes/taa_resolve/rd_container_path": "H:\\rurix\\target\\grx_rb_taa_resolve_rd_native_enablement_smoke\\garbage_not_a_container.bin"
+        "rendering/rurix_accel/passes/gpu_culling/backend": 2,
+        "rendering/rurix_accel/passes/gpu_culling/rd_container_path": "H:\\rurix\\target\\grx_rb_gpu_culling_rd_native_enablement_smoke\\garbage_not_a_container.bin"
       },
       "exit_code": 0,
       "session_ready": true,
       "active_marker_observed": false,
+      "device_removal_hits": [],
       "container_reject_errors_observed": [
         "Incorrect magic number in shader container",
         "Failed to parse shader container from binary"
       ],
-      "captured_frames": 8,
+      "capture_meta": {
+        "capture_frame_index": 24,
+        "format": "R8G8B8_raw",
+        "height": 144,
+        "multimesh_instance_count": 4096,
+        "stability_frame_count": 3,
+        "width": 256
+      },
       "capture_error": null
     }
   },
-  "stdout_reference": "611adbdfbfe842fe5195fb8af621d9460cbf359a14e2a430722b951e73\nShader cache miss for TonemapShaderRD/4a69a2611adbdfbfe842fe5195fb8af621d9460cbf359a14e2a430722b951e73/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nShader 'VrsShaderRD' (group 0) SHA256: 846ea06325e7b7ee7f6fe19e47d3c0412ff7bb50f3cf711d3ecdf9c9266e6f85\nShader cache miss for VrsShaderRD/846ea06325e7b7ee7f6fe19e47d3c0412ff7bb50f3cf711d3ecdf9c9266e6f85/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nShader 'FsrUpscaleShaderRD' (group 0) SHA256: b0ad69248cb1bbff01f5ca239cafc9604d83f7d388d1ba97a926b98d7a9a9589\nShader cache miss for FsrUpscaleShaderRD/b0ad69248cb1bbff01f5ca239cafc9604d83f7d388d1ba97a926b98d7a9a9589/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nShader 'ResolveShaderRD' (group 0) SHA256: 6bdba5d6f14283b46ff53b6ae6315bdce5e822bf66e924e99fdcaf5b101474ca\nShader cache miss for ResolveShaderRD/6bdba5d6f14283b46ff53b6ae6315bdce5e822bf66e924e99fdcaf5b101474ca/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nShader 'BlitShaderRD' (group 0) SHA256: c8a22f47b132fb33f6ed59bb877dc3c2391fd5f87165050e89031629dea6fd81\nWASAPI: Activated output_device using IAudioClient3 interface\nWASAPI: wFormatTag = 65534\nWASAPI: nChannels = 2\nWASAPI: nSamplesPerSec = 48000\nWASAPI: nAvgBytesPerSec = 384000\nWASAPI: nBlockAlign = 8\nWASAPI: wBitsPerSample = 32\nWASAPI: cbSize = 22\nWASAPI: mix_rate = 48000\nWASAPI: fundamental_period_frames = 480\nWASAPI: min_period_frames = 480\nWASAPI: max_period_frames = 480\nWASAPI: selected a period frame size of 480\nWASAPI: detected 2 channels\nWASAPI: audio buffer frames: 480 calculated latency: 10ms\n\nShader cache miss for BlitShaderRD/c8a22f47b132fb33f6ed59bb877dc3c2391fd5f87165050e89031629dea6fd81/8305c75c1294a9f00656f0f14344bb8bedcfe4e7\nTextServer: Primary interface set to: \"ICU / HarfBuzz / Graphite (Built-in)\".\nCORE API HASH: 415917037\nEDITOR API HASH: 1463541022\nSceneTreeFTI: traversal method DEFAULT\nMbedTLS: Some X509 certificates could not be parsed (1 certificates skipped).\nLoaded system CA certificates\nLoading resource: res://main.tscn\nLoading resource: res://main.gd\nGRXRBTaaResolve: scene ready backend=0 use_taa=true\nShader cache miss for SceneForwardClusteredShaderRD/7a4b36772c3f2113753547b3de6e22cc5241ca8a32e9b946707081df26b09a65/b600e18e20b53d8932999d48838b29553c586934\nShader cache miss for SceneForwardClusteredShaderRD/7a4b36772c3f2113753547b3de6e22cc5241ca8a32e9b946707081df26b09a65/347259af253e6bbec7ad5c69332af5ca731015aa\nShader cache miss for SceneForwardClusteredShaderRD/7a4b36772c3f2113753547b3de6e22cc5241ca8a32e9b946707081df26b09a65/a784797763b72ce058effad41b273eb697df9814\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nGRXRBTaaResolve: captured 8 frames start=16\nXR: Clearing primary interface\nXR: Removed interface \"Native mobile\"\nXR: Removed interface \"OpenXR\"\nFreeing Default Tex_Blit Shader\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_MOTION' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_ALPHA' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_SECONDARY' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'CANVAS_INSTANCE_DATA' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nAccessibility: window 0 adapter destroyed.\n\nERROR: Could not load global script cache.\n   at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)",
-  "stdout_candidate": "redShaderRD, variant 7\nLoading cache for shader SceneForwardClusteredShaderRD, variant 8\nLoading cache for shader SceneForwardClusteredShaderRD, variant 9\nLoading cache for shader SceneForwardClusteredShaderRD, variant 10\nLoading cache for shader SceneForwardClusteredShaderRD, variant 11\nLoading cache for shader SceneForwardClusteredShaderRD, variant 12\nLoading cache for shader SceneForwardClusteredShaderRD, variant 13\nLoading cache for shader SceneForwardClusteredShaderRD, variant 14\nLoading cache for shader SceneForwardClusteredShaderRD, variant 15\nLoading cache for shader SceneForwardClusteredShaderRD, variant 16\nLoading cache for shader SceneForwardClusteredShaderRD, variant 17\nLoading cache for shader SceneForwardClusteredShaderRD, variant 18\nLoading cache for shader SceneForwardClusteredShaderRD, variant 19\nLoading cache for shader SceneForwardClusteredShaderRD, variant 0\nLoading cache for shader SceneForwardClusteredShaderRD, variant 1\nLoading cache for shader SceneForwardClusteredShaderRD, variant 2\nLoading cache for shader SceneForwardClusteredShaderRD, variant 3\nLoading cache for shader SceneForwardClusteredShaderRD, variant 4\nLoading cache for shader SceneForwardClusteredShaderRD, variant 5\nLoading cache for shader SceneForwardClusteredShaderRD, variant 6\nLoading cache for shader SceneForwardClusteredShaderRD, variant 7\nLoading cache for shader SceneForwardClusteredShaderRD, variant 8\nLoading cache for shader SceneForwardClusteredShaderRD, variant 9\nLoading cache for shader SceneForwardClusteredShaderRD, variant 10\nLoading cache for shader SceneForwardClusteredShaderRD, variant 11\nLoading cache for shader SceneForwardClusteredShaderRD, variant 12\nLoading cache for shader SceneForwardClusteredShaderRD, variant 13\nLoading cache for shader SceneForwardClusteredShaderRD, variant 14\nLoading cache for shader SceneForwardClusteredShaderRD, variant 15\nLoading cache for shader SceneForwardClusteredShaderRD, variant 16\nLoading cache for shader SceneForwardClusteredShaderRD, variant 17\nLoading cache for shader SceneForwardClusteredShaderRD, variant 18\nLoading cache for shader SceneForwardClusteredShaderRD, variant 19\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nRXGD_RD_NATIVE_TAA_RESOLVE active: backend=rd_native, in-frame resolve dispatch replacement engaged (native Godot resolve dispatch skipped; native history copies preserved).\nGRXRBTaaResolve: captured 8 frames start=16\nXR: Clearing primary interface\nXR: Removed interface \"Native mobile\"\nXR: Removed interface \"OpenXR\"\nFreeing Default Tex_Blit Shader\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_MOTION' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_ALPHA' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_SECONDARY' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'CANVAS_INSTANCE_DATA' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nAccessibility: window 0 adapter destroyed.\n\nERROR: Could not load global script cache.\n   at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)\nWARNING: 1 RID of type \"Compute\" was leaked.\n   at: RenderingDevice::_free_rids (servers\\rendering\\rendering_device.cpp:7953)\nWARNING: 1 RID of type \"Shader\" was leaked.\n   at: RenderingDevice::_free_rids (servers\\rendering\\rendering_device.cpp:7953)",
-  "stdout_fail_closed": "redShaderRD, variant 7\nLoading cache for shader SceneForwardClusteredShaderRD, variant 8\nLoading cache for shader SceneForwardClusteredShaderRD, variant 9\nLoading cache for shader SceneForwardClusteredShaderRD, variant 10\nLoading cache for shader SceneForwardClusteredShaderRD, variant 11\nLoading cache for shader SceneForwardClusteredShaderRD, variant 12\nLoading cache for shader SceneForwardClusteredShaderRD, variant 13\nLoading cache for shader SceneForwardClusteredShaderRD, variant 14\nLoading cache for shader SceneForwardClusteredShaderRD, variant 15\nLoading cache for shader SceneForwardClusteredShaderRD, variant 16\nLoading cache for shader SceneForwardClusteredShaderRD, variant 17\nLoading cache for shader SceneForwardClusteredShaderRD, variant 18\nLoading cache for shader SceneForwardClusteredShaderRD, variant 19\nLoading cache for shader SceneForwardClusteredShaderRD, variant 0\nLoading cache for shader SceneForwardClusteredShaderRD, variant 1\nLoading cache for shader SceneForwardClusteredShaderRD, variant 2\nLoading cache for shader SceneForwardClusteredShaderRD, variant 3\nLoading cache for shader SceneForwardClusteredShaderRD, variant 4\nLoading cache for shader SceneForwardClusteredShaderRD, variant 5\nLoading cache for shader SceneForwardClusteredShaderRD, variant 6\nLoading cache for shader SceneForwardClusteredShaderRD, variant 7\nLoading cache for shader SceneForwardClusteredShaderRD, variant 8\nLoading cache for shader SceneForwardClusteredShaderRD, variant 9\nLoading cache for shader SceneForwardClusteredShaderRD, variant 10\nLoading cache for shader SceneForwardClusteredShaderRD, variant 11\nLoading cache for shader SceneForwardClusteredShaderRD, variant 12\nLoading cache for shader SceneForwardClusteredShaderRD, variant 13\nLoading cache for shader SceneForwardClusteredShaderRD, variant 14\nLoading cache for shader SceneForwardClusteredShaderRD, variant 15\nLoading cache for shader SceneForwardClusteredShaderRD, variant 16\nLoading cache for shader SceneForwardClusteredShaderRD, variant 17\nLoading cache for shader SceneForwardClusteredShaderRD, variant 18\nLoading cache for shader SceneForwardClusteredShaderRD, variant 19\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nRurixAccel: rd_native taa_resolve shader_create_from_bytecode failed; native TAA resolve path remains active.\nGRXRBTaaResolve: captured 8 frames start=16\nXR: Clearing primary interface\nXR: Removed interface \"Native mobile\"\nXR: Removed interface \"OpenXR\"\nFreeing Default Tex_Blit Shader\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_MOTION' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_ALPHA' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_SECONDARY' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'CANVAS_INSTANCE_DATA' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nAccessibility: window 0 adapter destroyed.\n\nERROR: Could not load global script cache.\n   at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)\nERROR: Incorrect magic number in shader container.\n   at: RenderingShaderContainer::from_bytes (servers\\rendering\\rendering_shader_container.cpp:762)\nERROR: Failed to parse shader container from binary.\n   at: RenderingDevice::shader_create_from_bytecode_with_samplers (servers\\rendering\\rendering_device.cpp:3788)",
+  "stdout_reference": "r 'VrsShaderRD' (group 0) SHA256: 846ea06325e7b7ee7f6fe19e47d3c0412ff7bb50f3cf711d3ecdf9c9266e6f85\nLoading cache for shader VrsShaderRD, variant 0\nLoading cache for shader VrsShaderRD, variant 2\nLoading cache for shader VrsShaderRD, variant 3\nShader 'FsrUpscaleShaderRD' (group 0) SHA256: b0ad69248cb1bbff01f5ca239cafc9604d83f7d388d1ba97a926b98d7a9a9589\nLoading cache for shader FsrUpscaleShaderRD, variant 0\nLoading cache for shader FsrUpscaleShaderRD, variant 1\nShader 'ResolveShaderRD' (group 0) SHA256: 6bdba5d6f14283b46ff53b6ae6315bdce5e822bf66e924e99fdcaf5b101474ca\nLoading cache for shader ResolveShaderRD, variant 0\nLoading cache for shader ResolveShaderRD, variant 1\nLoading cache for shader ResolveShaderRD, variant 2\nShader 'BlitShaderRD' (group 0) SHA256: c8a22f47b132fb33f6ed59bb877dc3c2391fd5f87165050e89031629dea6fd81\nWASAPI: Activated output_device using IAudioClient3 interface\nWASAPI: wFormatTag = 65534\nWASAPI: nChannels = 2\nWASAPI: nSamplesPerSec = 48000\nWASAPI: nAvgBytesPerSec = 384000\nWASAPI: nBlockAlign = 8\nWASAPI: wBitsPerSample = 32\nWASAPI: cbSize = 22\nWASAPI: mix_rate = 48000\nWASAPI: fundamental_period_frames = 480\nWASAPI: min_period_frames = 480\nWASAPI: max_period_frames = 480\nWASAPI: selected a period frame size of 480\nWASAPI: detected 2 channels\nWASAPI: audio buffer frames: 480 calculated latency: 10ms\n\nLoading cache for shader BlitShaderRD, variant 0\nLoading cache for shader BlitShaderRD, variant 1\nLoading cache for shader BlitShaderRD, variant 2\nLoading cache for shader BlitShaderRD, variant 3\nTextServer: Primary interface set to: \"ICU / HarfBuzz / Graphite (Built-in)\".\nCORE API HASH: 415917037\nEDITOR API HASH: 1463541022\nSceneTreeFTI: traversal method DEFAULT\nMbedTLS: Some X509 certificates could not be parsed (1 certificates skipped).\nLoaded system CA certificates\nLoading resource: res://main.tscn\nLoading resource: res://main.gd\nLoading cache for shader SceneForwardClusteredShaderRD, variant 0\nLoading cache for shader SceneForwardClusteredShaderRD, variant 1\nLoading cache for shader SceneForwardClusteredShaderRD, variant 2\nLoading cache for shader SceneForwardClusteredShaderRD, variant 3\nLoading cache for shader SceneForwardClusteredShaderRD, variant 4\nLoading cache for shader SceneForwardClusteredShaderRD, variant 5\nLoading cache for shader SceneForwardClusteredShaderRD, variant 6\nLoading cache for shader SceneForwardClusteredShaderRD, variant 7\nGRXRBCull: scene ready backend=0 instances=4096\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nGRXRBCull: captured idx=0 frame=24 width=256 height=144\nGRXRBCull: captured idx=1 frame=25 width=256 height=144\nGRXRBCull: captured idx=2 frame=26 width=256 height=144\nXR: Clearing primary interface\nXR: Removed interface \"Native mobile\"\nXR: Removed interface \"OpenXR\"\nFreeing Default Tex_Blit Shader\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_MOTION' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_ALPHA' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_SECONDARY' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'CANVAS_INSTANCE_DATA' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nAccessibility: window 0 adapter destroyed.\n\nERROR: Could not load global script cache.\n   at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)",
+  "stdout_candidate": "he for shader VrsShaderRD, variant 2\nLoading cache for shader VrsShaderRD, variant 3\nShader 'FsrUpscaleShaderRD' (group 0) SHA256: b0ad69248cb1bbff01f5ca239cafc9604d83f7d388d1ba97a926b98d7a9a9589\nLoading cache for shader FsrUpscaleShaderRD, variant 0\nLoading cache for shader FsrUpscaleShaderRD, variant 1\nShader 'ResolveShaderRD' (group 0) SHA256: 6bdba5d6f14283b46ff53b6ae6315bdce5e822bf66e924e99fdcaf5b101474ca\nLoading cache for shader ResolveShaderRD, variant 0\nLoading cache for shader ResolveShaderRD, variant 1\nLoading cache for shader ResolveShaderRD, variant 2\nShader 'BlitShaderRD' (group 0) SHA256: c8a22f47b132fb33f6ed59bb877dc3c2391fd5f87165050e89031629dea6fd81\nWASAPI: Activated output_device using IAudioClient3 interface\nWASAPI: wFormatTag = 65534\nWASAPI: nChannels = 2\nWASAPI: nSamplesPerSec = 48000\nWASAPI: nAvgBytesPerSec = 384000\nWASAPI: nBlockAlign = 8\nWASAPI: wBitsPerSample = 32\nWASAPI: cbSize = 22\nWASAPI: mix_rate = 48000\nWASAPI: fundamental_period_frames = 480\nWASAPI: min_period_frames = 480\nWASAPI: max_period_frames = 480\nWASAPI: selected a period frame size of 480\nWASAPI: detected 2 channels\nWASAPI: audio buffer frames: 480 calculated latency: 10ms\n\nLoading cache for shader BlitShaderRD, variant 0\nLoading cache for shader BlitShaderRD, variant 1\nLoading cache for shader BlitShaderRD, variant 2\nLoading cache for shader BlitShaderRD, variant 3\nTextServer: Primary interface set to: \"ICU / HarfBuzz / Graphite (Built-in)\".\nCORE API HASH: 415917037\nEDITOR API HASH: 1463541022\nSceneTreeFTI: traversal method DEFAULT\nMbedTLS: Some X509 certificates could not be parsed (1 certificates skipped).\nLoaded system CA certificates\nLoading resource: res://main.tscn\nLoading resource: res://main.gd\nLoading cache for shader SceneForwardClusteredShaderRD, variant 0\nLoading cache for shader SceneForwardClusteredShaderRD, variant 1\nLoading cache for shader SceneForwardClusteredShaderRD, variant 2\nLoading cache for shader SceneForwardClusteredShaderRD, variant 3\nLoading cache for shader SceneForwardClusteredShaderRD, variant 4\nLoading cache for shader SceneForwardClusteredShaderRD, variant 5\nLoading cache for shader SceneForwardClusteredShaderRD, variant 6\nLoading cache for shader SceneForwardClusteredShaderRD, variant 7\nGRXRBCull: scene ready backend=2 instances=4096\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nRXGD_RD_NATIVE_GPU_CULLING active: backend=rd_native, in-frame compute cull engaged (main RenderingDevice buffer_clear -> dispatch -> indirect-draw; native CPU count overwritten in-frame).\n\nERROR: Could not load global script cache.\n   at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)\nERROR: CreateCommandAllocator failed with error 0x887a0005.\n   at: RenderingDeviceDriverD3D12::command_buffer_create (drivers\\d3d12\\rendering_device_driver_d3d12.cpp:2575)\nERROR: Condition \"!(((HRESULT)(res)) >= 0)\" is true. Returning: SemaphoreID()\n   at: RenderingDeviceDriverD3D12::semaphore_create (drivers\\d3d12\\rendering_device_driver_d3d12.cpp:2422)\n\n================================================================\nCrashHandlerException: Program crashed\nEngine version: Godot Engine v4.7.dev.custom_build (bde5b167b2af7cdcaba4ba4c09a8d845d5158737)\nDumping the backtrace. Please include this when reporting the bug to the project developer.\n[0] <couldn't map PC to fn name>\n[1] <couldn't map PC to fn name>\n[2] <couldn't map PC to fn name>\n[3] <couldn't map PC to fn name>\n[4] <couldn't map PC to fn name>\n[5] <couldn't map PC to fn name>\n[6] <couldn't map PC to fn name>\n[7] <couldn't map PC to fn name>\n[8] <couldn't map PC to fn name>\n[9] <couldn't map PC to fn name>\n[10] <couldn't map PC to fn name>\n[11] <couldn't map PC to fn name>\n[12] <couldn't map PC to fn name>\n[13] <couldn't map PC to fn name>\n-- END OF C++ BACKTRACE --\n================================================================",
+  "stdout_fail_closed": "474ca\nLoading cache for shader ResolveShaderRD, variant 0\nLoading cache for shader ResolveShaderRD, variant 1\nLoading cache for shader ResolveShaderRD, variant 2\nShader 'BlitShaderRD' (group 0) SHA256: c8a22f47b132fb33f6ed59bb877dc3c2391fd5f87165050e89031629dea6fd81\nWASAPI: Activated output_device using IAudioClient3 interface\nWASAPI: wFormatTag = 65534\nWASAPI: nChannels = 2\nWASAPI: nSamplesPerSec = 48000\nWASAPI: nAvgBytesPerSec = 384000\nWASAPI: nBlockAlign = 8\nWASAPI: wBitsPerSample = 32\nWASAPI: cbSize = 22\nWASAPI: mix_rate = 48000\nWASAPI: fundamental_period_frames = 480\nWASAPI: min_period_frames = 480\nWASAPI: max_period_frames = 480\nWASAPI: selected a period frame size of 480\nWASAPI: detected 2 channels\nWASAPI: audio buffer frames: 480 calculated latency: 10ms\n\nLoading cache for shader BlitShaderRD, variant 0\nLoading cache for shader BlitShaderRD, variant 1\nLoading cache for shader BlitShaderRD, variant 2\nLoading cache for shader BlitShaderRD, variant 3\nTextServer: Primary interface set to: \"ICU / HarfBuzz / Graphite (Built-in)\".\nCORE API HASH: 415917037\nEDITOR API HASH: 1463541022\nSceneTreeFTI: traversal method DEFAULT\nMbedTLS: Some X509 certificates could not be parsed (1 certificates skipped).\nLoaded system CA certificates\nLoading resource: res://main.tscn\nLoading resource: res://main.gd\nLoading cache for shader SceneForwardClusteredShaderRD, variant 0\nLoading cache for shader SceneForwardClusteredShaderRD, variant 1\nLoading cache for shader SceneForwardClusteredShaderRD, variant 2\nLoading cache for shader SceneForwardClusteredShaderRD, variant 3\nLoading cache for shader SceneForwardClusteredShaderRD, variant 4\nLoading cache for shader SceneForwardClusteredShaderRD, variant 5\nLoading cache for shader SceneForwardClusteredShaderRD, variant 6\nLoading cache for shader SceneForwardClusteredShaderRD, variant 7\nGRXRBCull: scene ready backend=2 instances=4096\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nRurixAccel: rd_native gpu_culling shader_create_from_bytecode failed; native CPU-driven command buffer remains active.\nGRXRBCull: captured idx=0 frame=24 width=256 height=144\nGRXRBCull: captured idx=1 frame=25 width=256 height=144\nGRXRBCull: captured idx=2 frame=26 width=256 height=144\nXR: Clearing primary interface\nXR: Removed interface \"Native mobile\"\nXR: Removed interface \"OpenXR\"\nFreeing Default Tex_Blit Shader\nMultiUmaBuffer 'RENDER_LIST_OPAQUE' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_MOTION' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_ALPHA' used a total of 1 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'RENDER_LIST_SECONDARY' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nMultiUmaBuffer 'CANVAS_INSTANCE_DATA' used a total of 0 buffers. A large number may indicate a waste of VRAM and can be brought down by tweaking MAX_EXTRA_BUFFERS for this buffer.\nAccessibility: window 0 adapter destroyed.\n\nERROR: Could not load global script cache.\n   at: ProjectSettings::get_global_class_list (core\\config\\project_settings.cpp:1458)\nERROR: Incorrect magic number in shader container.\n   at: RenderingShaderContainer::from_bytes (servers\\rendering\\rendering_shader_container.cpp:762)\nERROR: Failed to parse shader container from binary.\n   at: RenderingDevice::shader_create_from_bytecode_with_samplers (servers\\rendering\\rendering_device.cpp:3788)\nWARNING: 1 RID of type \"StorageBuffer\" was leaked.\n   at: RenderingDevice::_free_rids (servers\\rendering\\rendering_device.cpp:7953)",
   "runtime_log_audit": {
     "reference": {
       "unexpected_rxgd_diag_count": 0,
@@ -962,7 +983,7 @@
     "candidate": {
       "unexpected_rxgd_diag_count": 0,
       "rxgd_diag_allowed_by_tracked_patch_queue": true,
-      "unexpected_godot_error_count": 0,
+      "unexpected_godot_error_count": 2,
       "allowed_godot_errors": [
         {
           "message": "Could not load global script cache",
@@ -970,7 +991,10 @@
           "rationale": "Tolerated Godot global script cache shutdown/cache warning in the generated minimal smoke project; it does not indicate runtime bridge recording failure when the process exits 0 and recording checks pass."
         }
       ],
-      "unexpected_lines_tail": []
+      "unexpected_lines_tail": [
+        "ERROR: CreateCommandAllocator failed with error 0x887a0005.",
+        "ERROR: Condition \"!(((HRESULT)(res)) >= 0)\" is true. Returning: SemaphoreID()"
+      ]
     },
     "fail_closed": {
       "unexpected_rxgd_diag_count": 0,
@@ -988,100 +1012,5 @@
         "ERROR: Failed to parse shader container from binary."
       ]
     }
-  },
-  "visual": {
-    "measured_local": true,
-    "metric_kind": "ldr_absolute_diff_temporal",
-    "width": 256,
-    "height": 144,
-    "format": "R8G8B8_raw",
-    "capture_start_frame": 16,
-    "capture_count": 8,
-    "max_abs_diff_threshold": 2,
-    "mean_abs_diff_threshold": 0.25,
-    "candidate_temporal": {
-      "per_frame": [
-        {
-          "frame_index": 16,
-          "max_abs_diff": 1,
-          "mean_abs_diff": 0.028275101273148147,
-          "within_threshold": true
-        },
-        {
-          "frame_index": 17,
-          "max_abs_diff": 1,
-          "mean_abs_diff": 0.028157552083333332,
-          "within_threshold": true
-        },
-        {
-          "frame_index": 18,
-          "max_abs_diff": 1,
-          "mean_abs_diff": 0.029432508680555556,
-          "within_threshold": true
-        },
-        {
-          "frame_index": 19,
-          "max_abs_diff": 1,
-          "mean_abs_diff": 0.03052662037037037,
-          "within_threshold": true
-        },
-        {
-          "frame_index": 20,
-          "max_abs_diff": 1,
-          "mean_abs_diff": 0.028211805555555556,
-          "within_threshold": true
-        },
-        {
-          "frame_index": 21,
-          "max_abs_diff": 1,
-          "mean_abs_diff": 0.02923357928240741,
-          "within_threshold": true
-        },
-        {
-          "frame_index": 22,
-          "max_abs_diff": 1,
-          "mean_abs_diff": 0.026765046296296297,
-          "within_threshold": true
-        },
-        {
-          "frame_index": 23,
-          "max_abs_diff": 1,
-          "mean_abs_diff": 0.028709129050925927,
-          "within_threshold": true
-        }
-      ],
-      "worst_max_abs_diff": 1,
-      "worst_mean_abs_diff": 0.03052662037037037,
-      "within_threshold_all_frames": true
-    },
-    "reference_first_frame": {
-      "path": "target/grx_rb_taa_resolve_rd_native_enablement_smoke/capture_reference.016.rgb8",
-      "sha256": "fef6704a0696c93e9fa1906cc9b2ea4f8c3489f87fb431fb4358ccb64483e7e5",
-      "size_bytes": 110592
-    },
-    "candidate_first_frame": {
-      "path": "target/grx_rb_taa_resolve_rd_native_enablement_smoke/capture_candidate.016.rgb8",
-      "sha256": "ca1a4724564e79dcd2f90bfa573a2d11cb000005067f193078a0540fb93bc413",
-      "size_bytes": 110592
-    }
-  },
-  "checks": {
-    "container_matches_s1_container_smoke": true,
-    "reference_run_exit_zero": true,
-    "candidate_run_exit_zero": true,
-    "fail_closed_run_exit_zero": true,
-    "session_ready_all_runs": true,
-    "active_marker_absent_reference": true,
-    "active_marker_present_candidate": true,
-    "active_marker_absent_fail_closed": true,
-    "temporal_floor_met_all_legs": true,
-    "fail_closed_matches_reference_sequence": true,
-    "runtime_log_audit_clean": true,
-    "candidate_within_threshold_all_frames": true
-  },
-  "real_replacement": true,
-  "native_resolve_skipped": true,
-  "candidate_worst_max_abs_diff": 1,
-  "candidate_worst_mean_abs_diff": 0.03052662037037037,
-  "telemetry_frame": 23
+  }
 }
