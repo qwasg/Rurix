@@ -1,0 +1,6 @@
+{
+ "rendering/rurix_accel/enabled": true,
+ "rendering/rurix_accel/dll_path": "H:/rurix/target/debug/rurix_godot.dll",
+ "rendering/rurix_accel/passes/particles_copy/backend": 2,
+ "rendering/rurix_accel/passes/particles_copy/rd_container_path": "H:/rurix/target/grx/rd_containers/particles_copy.rd_container.bin"
+}

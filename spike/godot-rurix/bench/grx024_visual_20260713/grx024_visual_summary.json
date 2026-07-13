@@ -1,0 +1,763 @@
+{
+  "tool": "grx024_visual_capture.py",
+  "generated_utc": "2026-07-13T10:54:13Z",
+  "evidence_level": "measured_local",
+  "performance_claim": "none",
+  "godot_exe": "H:\\rurix\\target\\grx\\godot-scratch-rb4\\bin\\godot.windows.template_debug.x86_64.console.exe",
+  "godot_exe_sha256": "fc41853b5a2c501a2a8bbd13458b8cf972d28a7b4b75c9b5c70a81edf95d6aa7",
+  "dll_sha256": "47910fe7fc0b9cf6e133da09a090f132f121a6d5f1d7d48dec8ea7d812051426",
+  "capture_resolution": [
+    960,
+    540
+  ],
+  "capture_frame_index": 600,
+  "fixed_fps": 60,
+  "legs": [
+    "baseline_a",
+    "baseline_b(floor)",
+    "all5"
+  ],
+  "scenes": [
+    {
+      "scene": "clustered_lights",
+      "baseline_a": {
+        "scene": "clustered_lights",
+        "leg": "baseline_a",
+        "status": "success",
+        "exit_code": 0,
+        "failure_markers": [],
+        "warning_count": 2,
+        "width": 960,
+        "height": 540,
+        "frame_index": 600,
+        "rgb8_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_a/clustered_lights.rgb8",
+        "rgb8_sha256": "22a76890038d331e842610e0162ae70bb611c6b10c80d80ebe61e7651015b494",
+        "png_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_a/clustered_lights.png"
+      },
+      "baseline_b": {
+        "scene": "clustered_lights",
+        "leg": "baseline_b",
+        "status": "success",
+        "exit_code": 0,
+        "failure_markers": [],
+        "warning_count": 2,
+        "width": 960,
+        "height": 540,
+        "frame_index": 600,
+        "rgb8_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_b/clustered_lights.rgb8",
+        "rgb8_sha256": "22a76890038d331e842610e0162ae70bb611c6b10c80d80ebe61e7651015b494",
+        "png_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_b/clustered_lights.png"
+      },
+      "all5": {
+        "scene": "clustered_lights",
+        "leg": "all5",
+        "status": "success",
+        "exit_code": 0,
+        "failure_markers": [],
+        "warning_count": 2,
+        "engagement": {
+          "tonemap": true,
+          "ssao_blur": false,
+          "taa_resolve": false,
+          "particles_copy": false,
+          "cluster_store": true
+        },
+        "width": 960,
+        "height": 540,
+        "frame_index": 600,
+        "rgb8_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/all5/clustered_lights.rgb8",
+        "rgb8_sha256": "22a76890038d331e842610e0162ae70bb611c6b10c80d80ebe61e7651015b494",
+        "png_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/all5/clustered_lights.png"
+      },
+      "engaged_passes": [
+        "tonemap",
+        "cluster_store"
+      ],
+      "determinism_floor_AA": {
+        "bytes": 1555200,
+        "pixels": 518400,
+        "max_abs": 0,
+        "mean_abs": 0.0,
+        "channel_max_abs": [
+          0,
+          0,
+          0
+        ],
+        "channel_mean_abs": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "pixels_differing": 0,
+        "pct_pixels_differing": 0.0,
+        "abs_diff_histogram_bytes": {
+          "0": 1555200,
+          "1": 0,
+          "2_4": 0,
+          "5_16": 0,
+          "17plus": 0
+        }
+      },
+      "parity_AB": {
+        "bytes": 1555200,
+        "pixels": 518400,
+        "max_abs": 0,
+        "mean_abs": 0.0,
+        "channel_max_abs": [
+          0,
+          0,
+          0
+        ],
+        "channel_mean_abs": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "pixels_differing": 0,
+        "pct_pixels_differing": 0.0,
+        "abs_diff_histogram_bytes": {
+          "0": 1555200,
+          "1": 0,
+          "2_4": 0,
+          "5_16": 0,
+          "17plus": 0
+        }
+      }
+    },
+    {
+      "scene": "many_mesh_instances",
+      "baseline_a": {
+        "scene": "many_mesh_instances",
+        "leg": "baseline_a",
+        "status": "success",
+        "exit_code": 0,
+        "failure_markers": [],
+        "warning_count": 2,
+        "width": 960,
+        "height": 540,
+        "frame_index": 600,
+        "rgb8_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_a/many_mesh_instances.rgb8",
+        "rgb8_sha256": "52aec162b815c76612b6f63f359aed8c1955e12073e41187211cfee3c6d539b0",
+        "png_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_a/many_mesh_instances.png"
+      },
+      "baseline_b": {
+        "scene": "many_mesh_instances",
+        "leg": "baseline_b",
+        "status": "success",
+        "exit_code": 0,
+        "failure_markers": [],
+        "warning_count": 2,
+        "width": 960,
+        "height": 540,
+        "frame_index": 600,
+        "rgb8_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_b/many_mesh_instances.rgb8",
+        "rgb8_sha256": "52aec162b815c76612b6f63f359aed8c1955e12073e41187211cfee3c6d539b0",
+        "png_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_b/many_mesh_instances.png"
+      },
+      "all5": {
+        "scene": "many_mesh_instances",
+        "leg": "all5",
+        "status": "success",
+        "exit_code": 0,
+        "failure_markers": [],
+        "warning_count": 2,
+        "engagement": {
+          "tonemap": true,
+          "ssao_blur": false,
+          "taa_resolve": true,
+          "particles_copy": false,
+          "cluster_store": false
+        },
+        "width": 960,
+        "height": 540,
+        "frame_index": 600,
+        "rgb8_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/all5/many_mesh_instances.rgb8",
+        "rgb8_sha256": "e9d6480b4538854b7e8d19beaa4b8aa84666e316872a9f2f7afc518848bb1949",
+        "png_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/all5/many_mesh_instances.png"
+      },
+      "engaged_passes": [
+        "tonemap",
+        "taa_resolve"
+      ],
+      "determinism_floor_AA": {
+        "bytes": 1555200,
+        "pixels": 518400,
+        "max_abs": 0,
+        "mean_abs": 0.0,
+        "channel_max_abs": [
+          0,
+          0,
+          0
+        ],
+        "channel_mean_abs": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "pixels_differing": 0,
+        "pct_pixels_differing": 0.0,
+        "abs_diff_histogram_bytes": {
+          "0": 1555200,
+          "1": 0,
+          "2_4": 0,
+          "5_16": 0,
+          "17plus": 0
+        }
+      },
+      "parity_AB": {
+        "bytes": 1555200,
+        "pixels": 518400,
+        "max_abs": 1,
+        "mean_abs": 0.00204,
+        "channel_max_abs": [
+          1,
+          1,
+          1
+        ],
+        "channel_mean_abs": [
+          0.00201,
+          0.00177,
+          0.00233
+        ],
+        "pixels_differing": 3057,
+        "pct_pixels_differing": 0.5897,
+        "abs_diff_histogram_bytes": {
+          "0": 1552033,
+          "1": 3167,
+          "2_4": 0,
+          "5_16": 0,
+          "17plus": 0
+        }
+      }
+    },
+    {
+      "scene": "material_variants",
+      "baseline_a": {
+        "scene": "material_variants",
+        "leg": "baseline_a",
+        "status": "success",
+        "exit_code": 0,
+        "failure_markers": [],
+        "warning_count": 2,
+        "width": 960,
+        "height": 540,
+        "frame_index": 600,
+        "rgb8_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_a/material_variants.rgb8",
+        "rgb8_sha256": "296632add914db3826242ca1587c6dbc0cf3237d8c99e37812cda9d03b3ce275",
+        "png_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_a/material_variants.png"
+      },
+      "baseline_b": {
+        "scene": "material_variants",
+        "leg": "baseline_b",
+        "status": "success",
+        "exit_code": 0,
+        "failure_markers": [],
+        "warning_count": 2,
+        "width": 960,
+        "height": 540,
+        "frame_index": 600,
+        "rgb8_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_b/material_variants.rgb8",
+        "rgb8_sha256": "296632add914db3826242ca1587c6dbc0cf3237d8c99e37812cda9d03b3ce275",
+        "png_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_b/material_variants.png"
+      },
+      "all5": {
+        "scene": "material_variants",
+        "leg": "all5",
+        "status": "success",
+        "exit_code": 0,
+        "failure_markers": [],
+        "warning_count": 2,
+        "engagement": {
+          "tonemap": true,
+          "ssao_blur": false,
+          "taa_resolve": false,
+          "particles_copy": false,
+          "cluster_store": false
+        },
+        "width": 960,
+        "height": 540,
+        "frame_index": 600,
+        "rgb8_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/all5/material_variants.rgb8",
+        "rgb8_sha256": "296632add914db3826242ca1587c6dbc0cf3237d8c99e37812cda9d03b3ce275",
+        "png_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/all5/material_variants.png"
+      },
+      "engaged_passes": [
+        "tonemap"
+      ],
+      "determinism_floor_AA": {
+        "bytes": 1555200,
+        "pixels": 518400,
+        "max_abs": 0,
+        "mean_abs": 0.0,
+        "channel_max_abs": [
+          0,
+          0,
+          0
+        ],
+        "channel_mean_abs": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "pixels_differing": 0,
+        "pct_pixels_differing": 0.0,
+        "abs_diff_histogram_bytes": {
+          "0": 1555200,
+          "1": 0,
+          "2_4": 0,
+          "5_16": 0,
+          "17plus": 0
+        }
+      },
+      "parity_AB": {
+        "bytes": 1555200,
+        "pixels": 518400,
+        "max_abs": 0,
+        "mean_abs": 0.0,
+        "channel_max_abs": [
+          0,
+          0,
+          0
+        ],
+        "channel_mean_abs": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "pixels_differing": 0,
+        "pct_pixels_differing": 0.0,
+        "abs_diff_histogram_bytes": {
+          "0": 1555200,
+          "1": 0,
+          "2_4": 0,
+          "5_16": 0,
+          "17plus": 0
+        }
+      }
+    },
+    {
+      "scene": "post_fx_chain",
+      "baseline_a": {
+        "scene": "post_fx_chain",
+        "leg": "baseline_a",
+        "status": "success",
+        "exit_code": 0,
+        "failure_markers": [],
+        "warning_count": 2,
+        "width": 960,
+        "height": 540,
+        "frame_index": 600,
+        "rgb8_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_a/post_fx_chain.rgb8",
+        "rgb8_sha256": "33fead878b90a77239f350bfdcbf79440de3c0ecc7f47617dff40e0c88f950ec",
+        "png_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_a/post_fx_chain.png"
+      },
+      "baseline_b": {
+        "scene": "post_fx_chain",
+        "leg": "baseline_b",
+        "status": "success",
+        "exit_code": 0,
+        "failure_markers": [],
+        "warning_count": 2,
+        "width": 960,
+        "height": 540,
+        "frame_index": 600,
+        "rgb8_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_b/post_fx_chain.rgb8",
+        "rgb8_sha256": "33fead878b90a77239f350bfdcbf79440de3c0ecc7f47617dff40e0c88f950ec",
+        "png_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_b/post_fx_chain.png"
+      },
+      "all5": {
+        "scene": "post_fx_chain",
+        "leg": "all5",
+        "status": "success",
+        "exit_code": 0,
+        "failure_markers": [],
+        "warning_count": 2,
+        "engagement": {
+          "tonemap": false,
+          "ssao_blur": true,
+          "taa_resolve": false,
+          "particles_copy": false,
+          "cluster_store": true
+        },
+        "width": 960,
+        "height": 540,
+        "frame_index": 600,
+        "rgb8_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/all5/post_fx_chain.rgb8",
+        "rgb8_sha256": "33fead878b90a77239f350bfdcbf79440de3c0ecc7f47617dff40e0c88f950ec",
+        "png_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/all5/post_fx_chain.png"
+      },
+      "engaged_passes": [
+        "ssao_blur",
+        "cluster_store"
+      ],
+      "determinism_floor_AA": {
+        "bytes": 1555200,
+        "pixels": 518400,
+        "max_abs": 0,
+        "mean_abs": 0.0,
+        "channel_max_abs": [
+          0,
+          0,
+          0
+        ],
+        "channel_mean_abs": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "pixels_differing": 0,
+        "pct_pixels_differing": 0.0,
+        "abs_diff_histogram_bytes": {
+          "0": 1555200,
+          "1": 0,
+          "2_4": 0,
+          "5_16": 0,
+          "17plus": 0
+        }
+      },
+      "parity_AB": {
+        "bytes": 1555200,
+        "pixels": 518400,
+        "max_abs": 0,
+        "mean_abs": 0.0,
+        "channel_max_abs": [
+          0,
+          0,
+          0
+        ],
+        "channel_mean_abs": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "pixels_differing": 0,
+        "pct_pixels_differing": 0.0,
+        "abs_diff_histogram_bytes": {
+          "0": 1555200,
+          "1": 0,
+          "2_4": 0,
+          "5_16": 0,
+          "17plus": 0
+        }
+      }
+    },
+    {
+      "scene": "volumetric_fog",
+      "baseline_a": {
+        "scene": "volumetric_fog",
+        "leg": "baseline_a",
+        "status": "success",
+        "exit_code": 0,
+        "failure_markers": [],
+        "warning_count": 2,
+        "width": 960,
+        "height": 540,
+        "frame_index": 600,
+        "rgb8_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_a/volumetric_fog.rgb8",
+        "rgb8_sha256": "0b1143d74772541f8227f3c7a0213df70398adb1f8560b3e1bbe08841c0be6d2",
+        "png_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_a/volumetric_fog.png"
+      },
+      "baseline_b": {
+        "scene": "volumetric_fog",
+        "leg": "baseline_b",
+        "status": "success",
+        "exit_code": 0,
+        "failure_markers": [],
+        "warning_count": 2,
+        "width": 960,
+        "height": 540,
+        "frame_index": 600,
+        "rgb8_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_b/volumetric_fog.rgb8",
+        "rgb8_sha256": "0b1143d74772541f8227f3c7a0213df70398adb1f8560b3e1bbe08841c0be6d2",
+        "png_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_b/volumetric_fog.png"
+      },
+      "all5": {
+        "scene": "volumetric_fog",
+        "leg": "all5",
+        "status": "success",
+        "exit_code": 0,
+        "failure_markers": [],
+        "warning_count": 2,
+        "engagement": {
+          "tonemap": false,
+          "ssao_blur": false,
+          "taa_resolve": false,
+          "particles_copy": false,
+          "cluster_store": true
+        },
+        "width": 960,
+        "height": 540,
+        "frame_index": 600,
+        "rgb8_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/all5/volumetric_fog.rgb8",
+        "rgb8_sha256": "0b1143d74772541f8227f3c7a0213df70398adb1f8560b3e1bbe08841c0be6d2",
+        "png_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/all5/volumetric_fog.png"
+      },
+      "engaged_passes": [
+        "cluster_store"
+      ],
+      "determinism_floor_AA": {
+        "bytes": 1555200,
+        "pixels": 518400,
+        "max_abs": 0,
+        "mean_abs": 0.0,
+        "channel_max_abs": [
+          0,
+          0,
+          0
+        ],
+        "channel_mean_abs": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "pixels_differing": 0,
+        "pct_pixels_differing": 0.0,
+        "abs_diff_histogram_bytes": {
+          "0": 1555200,
+          "1": 0,
+          "2_4": 0,
+          "5_16": 0,
+          "17plus": 0
+        }
+      },
+      "parity_AB": {
+        "bytes": 1555200,
+        "pixels": 518400,
+        "max_abs": 0,
+        "mean_abs": 0.0,
+        "channel_max_abs": [
+          0,
+          0,
+          0
+        ],
+        "channel_mean_abs": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "pixels_differing": 0,
+        "pct_pixels_differing": 0.0,
+        "abs_diff_histogram_bytes": {
+          "0": 1555200,
+          "1": 0,
+          "2_4": 0,
+          "5_16": 0,
+          "17plus": 0
+        }
+      }
+    },
+    {
+      "scene": "particles",
+      "baseline_a": {
+        "scene": "particles",
+        "leg": "baseline_a",
+        "status": "success",
+        "exit_code": 0,
+        "failure_markers": [],
+        "warning_count": 2,
+        "width": 960,
+        "height": 540,
+        "frame_index": 600,
+        "rgb8_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_a/particles.rgb8",
+        "rgb8_sha256": "7ddb79a4524e7095a5e08cc60dabb4cdccef97c4a5b1f67be2f662887b63fa0b",
+        "png_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_a/particles.png"
+      },
+      "baseline_b": {
+        "scene": "particles",
+        "leg": "baseline_b",
+        "status": "success",
+        "exit_code": 0,
+        "failure_markers": [],
+        "warning_count": 2,
+        "width": 960,
+        "height": 540,
+        "frame_index": 600,
+        "rgb8_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_b/particles.rgb8",
+        "rgb8_sha256": "358a24aece7dc9d8ddae14977f28beb039e693da1cbd6e7f73f5808a91ee9a30",
+        "png_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_b/particles.png"
+      },
+      "all5": {
+        "scene": "particles",
+        "leg": "all5",
+        "status": "success",
+        "exit_code": 0,
+        "failure_markers": [],
+        "warning_count": 2,
+        "engagement": {
+          "tonemap": true,
+          "ssao_blur": false,
+          "taa_resolve": false,
+          "particles_copy": true,
+          "cluster_store": false
+        },
+        "width": 960,
+        "height": 540,
+        "frame_index": 600,
+        "rgb8_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/all5/particles.rgb8",
+        "rgb8_sha256": "21aaa18a5cfa133f14420fd59565bf78ebb2fd6004e3e3fe52568def5a1ad944",
+        "png_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/all5/particles.png"
+      },
+      "engaged_passes": [
+        "tonemap",
+        "particles_copy"
+      ],
+      "determinism_floor_AA": {
+        "bytes": 1555200,
+        "pixels": 518400,
+        "max_abs": 179,
+        "mean_abs": 45.68113,
+        "channel_max_abs": [
+          179,
+          172,
+          161
+        ],
+        "channel_mean_abs": [
+          48.09073,
+          46.02707,
+          42.92559
+        ],
+        "pixels_differing": 239553,
+        "pct_pixels_differing": 46.2101,
+        "abs_diff_histogram_bytes": {
+          "0": 837488,
+          "1": 2844,
+          "2_4": 17833,
+          "5_16": 19644,
+          "17plus": 677391
+        }
+      },
+      "parity_AB": {
+        "bytes": 1555200,
+        "pixels": 518400,
+        "max_abs": 179,
+        "mean_abs": 45.74654,
+        "channel_max_abs": [
+          179,
+          172,
+          161
+        ],
+        "channel_mean_abs": [
+          48.16167,
+          46.09297,
+          42.98498
+        ],
+        "pixels_differing": 239129,
+        "pct_pixels_differing": 46.1283,
+        "abs_diff_histogram_bytes": {
+          "0": 838755,
+          "1": 2742,
+          "2_4": 17970,
+          "5_16": 19963,
+          "17plus": 675770
+        }
+      }
+    },
+    {
+      "scene": "mixed_forward_plus",
+      "baseline_a": {
+        "scene": "mixed_forward_plus",
+        "leg": "baseline_a",
+        "status": "success",
+        "exit_code": 0,
+        "failure_markers": [],
+        "warning_count": 2,
+        "width": 960,
+        "height": 540,
+        "frame_index": 600,
+        "rgb8_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_a/mixed_forward_plus.rgb8",
+        "rgb8_sha256": "b1b97a0ac52875717ad9deb195a32f18f17663b89b83a33362c535f24c6c8f54",
+        "png_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_a/mixed_forward_plus.png"
+      },
+      "baseline_b": {
+        "scene": "mixed_forward_plus",
+        "leg": "baseline_b",
+        "status": "success",
+        "exit_code": 0,
+        "failure_markers": [],
+        "warning_count": 2,
+        "width": 960,
+        "height": 540,
+        "frame_index": 600,
+        "rgb8_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_b/mixed_forward_plus.rgb8",
+        "rgb8_sha256": "a1d9519d6895ecaf6a9e8aa0aee87afa45db370b78baf65bbe9094cf9c61e00f",
+        "png_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/baseline_b/mixed_forward_plus.png"
+      },
+      "all5": {
+        "scene": "mixed_forward_plus",
+        "leg": "all5",
+        "status": "success",
+        "exit_code": 0,
+        "failure_markers": [],
+        "warning_count": 2,
+        "engagement": {
+          "tonemap": false,
+          "ssao_blur": true,
+          "taa_resolve": true,
+          "particles_copy": false,
+          "cluster_store": true
+        },
+        "width": 960,
+        "height": 540,
+        "frame_index": 600,
+        "rgb8_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/all5/mixed_forward_plus.rgb8",
+        "rgb8_sha256": "793d2d0f4af60c72e4308be5600ada94a461033445f1d44ce17c72115a65be7d",
+        "png_path": "spike/godot-rurix/bench/grx024_visual_20260713/captures/all5/mixed_forward_plus.png"
+      },
+      "engaged_passes": [
+        "ssao_blur",
+        "taa_resolve",
+        "cluster_store"
+      ],
+      "determinism_floor_AA": {
+        "bytes": 1555200,
+        "pixels": 518400,
+        "max_abs": 30,
+        "mean_abs": 0.18943,
+        "channel_max_abs": [
+          27,
+          30,
+          17
+        ],
+        "channel_mean_abs": [
+          0.21219,
+          0.21367,
+          0.14242
+        ],
+        "pixels_differing": 84546,
+        "pct_pixels_differing": 16.309,
+        "abs_diff_histogram_bytes": {
+          "0": 1376139,
+          "1": 117082,
+          "2_4": 55878,
+          "5_16": 6016,
+          "17plus": 85
+        }
+      },
+      "parity_AB": {
+        "bytes": 1555200,
+        "pixels": 518400,
+        "max_abs": 33,
+        "mean_abs": 0.19212,
+        "channel_max_abs": [
+          27,
+          33,
+          19
+        ],
+        "channel_mean_abs": [
+          0.21483,
+          0.217,
+          0.14454
+        ],
+        "pixels_differing": 86994,
+        "pct_pixels_differing": 16.7812,
+        "abs_diff_histogram_bytes": {
+          "0": 1373586,
+          "1": 119697,
+          "2_4": 55570,
+          "5_16": 6224,
+          "17plus": 123
+        }
+      }
+    }
+  ]
+}

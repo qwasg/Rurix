@@ -1,0 +1,101 @@
+================================================================================================
+GRX-025 per-pass DEFAULT-ENABLE bisection (measured_local; NO perf claim)
+baseline = ../rd_native_final_20260713/baseline_run{1,2,3}.json (v2.3, rb4)
+================================================================================================
+
+Baseline v2.3 per-scene median avg_fps + this-round run-to-run spread (noise band):
+  clustered_lights       med=  239.33  runs=[239.33, 245.39, 233.52]  spread= 5.08%  <-- NOISY
+  many_mesh_instances    med=  220.63  runs=[221.86, 220.63, 217.15]  spread= 2.17%  <-- NOISY
+  material_variants      med=  249.49  runs=[254.86, 249.49, 240.44]  spread= 6.00%  <-- NOISY
+  post_fx_chain          med=  178.10  runs=[178.1, 178.49, 177.33]  spread= 0.65%
+  volumetric_fog         med=  215.16  runs=[215.16, 214.8, 215.36]  spread= 0.26%
+  particles              med=  175.45  runs=[176.08, 175.45, 174.28]  spread= 1.03%
+  mixed_forward_plus     med=  222.63  runs=[222.63, 221.32, 222.84]  spread= 0.69%
+  baseline median-of-3 geomean = 212.74
+
+------------------------------------------------------------------------------------------------
+[tonemap]  legs=2  engaged_scenes=['clustered_lights', 'many_mesh_instances', 'material_variants', 'particles']
+------------------------------------------------------------------------------------------------
+  scene                   avg_fps ratio   p95 ratio   noise%  engaged
+  clustered_lights              1.0080*      1.0494    5.08%  ENGAGED
+  many_mesh_instances           0.9888*      1.0210    2.17%  ENGAGED
+  material_variants             0.9912*      0.9874    6.00%  ENGAGED
+  post_fx_chain                 0.9965       1.0087    0.65%  -
+  volumetric_fog                0.9959       1.0078    0.26%  -
+  particles                     0.9958*      1.0000    1.03%  ENGAGED
+  mixed_forward_plus            0.9904       1.0000    0.69%  -
+  --> engaged avg_fps geomean = 0.9959 | engaged p95 geomean = 1.0142
+  --> worst engaged scene = many_mesh_instances @ 0.9888 (scene noise 2.17%)
+  --> >=0.95 VERDICT: pass
+
+------------------------------------------------------------------------------------------------
+[ssao_blur]  legs=1  engaged_scenes=['post_fx_chain', 'mixed_forward_plus']
+------------------------------------------------------------------------------------------------
+  scene                   avg_fps ratio   p95 ratio   noise%  engaged
+  clustered_lights              1.0228       1.0218    5.08%  -
+  many_mesh_instances           0.9912       1.0342    2.17%  -
+  material_variants             0.9791       0.9874    6.00%  -
+  post_fx_chain                 0.9996*      1.0096    0.65%  ENGAGED
+  volumetric_fog                1.0202       1.0000    0.26%  -
+  particles                     0.9978       1.0000    1.03%  -
+  mixed_forward_plus            0.9904*      1.0000    0.69%  ENGAGED
+  --> engaged avg_fps geomean = 0.9950 | engaged p95 geomean = 1.0048
+  --> worst engaged scene = mixed_forward_plus @ 0.9904 (scene noise 0.69%)
+  --> >=0.95 VERDICT: pass
+
+------------------------------------------------------------------------------------------------
+[taa_resolve]  legs=2  engaged_scenes=['many_mesh_instances', 'mixed_forward_plus']
+------------------------------------------------------------------------------------------------
+  scene                   avg_fps ratio   p95 ratio   noise%  engaged
+  clustered_lights              1.0220       1.0111    5.08%  -
+  many_mesh_instances           0.9923*      1.0342    2.17%  ENGAGED
+  material_variants             0.9890       1.0109    6.00%  -
+  post_fx_chain                 0.9966       1.0097    0.65%  -
+  volumetric_fog                0.9967       1.0280    0.26%  -
+  particles                     0.9981       1.0000    1.03%  -
+  mixed_forward_plus            0.9890*      1.0000    0.69%  ENGAGED
+  --> engaged avg_fps geomean = 0.9906 | engaged p95 geomean = 1.0170
+  --> worst engaged scene = mixed_forward_plus @ 0.9890 (scene noise 0.69%)
+  --> >=0.95 VERDICT: pass
+
+------------------------------------------------------------------------------------------------
+[particles_copy]  legs=1  engaged_scenes=['particles']
+------------------------------------------------------------------------------------------------
+  scene                   avg_fps ratio   p95 ratio   noise%  engaged
+  clustered_lights              1.0213       1.0200    5.08%  -
+  many_mesh_instances           0.9877       1.0342    2.17%  -
+  material_variants             0.9741       0.9874    6.00%  -
+  post_fx_chain                 0.9918       1.0156    0.65%  -
+  volumetric_fog                1.0170       1.0000    0.26%  -
+  particles                     0.9945*      1.0000    1.03%  ENGAGED
+  mixed_forward_plus            0.9881       1.0000    0.69%  -
+  --> engaged avg_fps geomean = 0.9945 | engaged p95 geomean = 1.0000
+  --> worst engaged scene = particles @ 0.9945 (scene noise 1.03%)
+  --> >=0.95 VERDICT: pass
+
+------------------------------------------------------------------------------------------------
+[cluster_store]  legs=1  engaged_scenes=['clustered_lights', 'post_fx_chain', 'volumetric_fog', 'mixed_forward_plus']
+------------------------------------------------------------------------------------------------
+  scene                   avg_fps ratio   p95 ratio   noise%  engaged
+  clustered_lights              1.0156*      1.0366    5.08%  ENGAGED
+  many_mesh_instances           0.9858       1.0342    2.17%  -
+  material_variants             1.0136       0.9874    6.00%  -
+  post_fx_chain                 0.9901*      1.0156    0.65%  ENGAGED
+  volumetric_fog                1.0030*      1.0500    0.26%  ENGAGED
+  particles                     0.9953       1.0000    1.03%  -
+  mixed_forward_plus            0.9887*      1.0000    0.69%  ENGAGED
+  --> engaged avg_fps geomean = 0.9993 | engaged p95 geomean = 1.0254
+  --> worst engaged scene = mixed_forward_plus @ 0.9887 (scene noise 0.69%)
+  --> >=0.95 VERDICT: pass
+
+================================================================================================
+GRX-025 DECISION TABLE (>=0.95 engaged-geomean gate; noise-aware)
+================================================================================================
+pass             legs eng#   eng_geo          worst scene    worst   noise  verdict
+tonemap             2    4    0.9959  many_mesh_instances   0.9888   2.17%  pass
+ssao_blur           1    2    0.9950   mixed_forward_plus   0.9904   0.69%  pass
+taa_resolve         2    2    0.9906   mixed_forward_plus   0.9890   0.69%  pass
+particles_copy      1    1    0.9945            particles   0.9945   1.03%  pass
+cluster_store       1    4    0.9993   mixed_forward_plus   0.9887   0.69%  pass
+
+(measured_local; no performance claim; * = pass engaged rd_native on that scene. Gate is a DEFAULT-ENABLE decision input, not a speedup.)
