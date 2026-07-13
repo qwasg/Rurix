@@ -1,0 +1,363 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Mon, 13 Jul 2026 11:00:00 +0800
+Subject: [PATCH] Add default-disabled GRX Route B rd_native taa_resolve
+ in-frame resolve replacement
+
+Stacked on 0001..0029 + 0040 + 0041 (the branch-HEAD gpu_culling tail plus the
+tonemap and ssao_blur rd_native slices). This is the third Route B REAL
+replacement pass: Route B drives the Rurix taa_resolve kernel as a first-class
+in-frame RenderingDevice compute dispatch, replacing ONLY the native resolve()
+compute dispatch inside TAA::process while the native history-maintenance copies
+(temp->internal, internal->history, velocity->prev_velocity) still run, so the
+temporal feedback loop is preserved. When it records, the native Godot resolve
+dispatch is genuinely skipped (no scaffold clear, unlike patch 0019).
+
+- drivers/d3d12/d3d12_hooks.h: new default-false virtual
+  try_record_taa_resolve_rd_native(RID color, RID depth, RID velocity,
+  RID prev_velocity, RID history, RID output_temp, Size2i internal_size,
+  float disocclusion_threshold, float variance_dynamic). It takes the six Godot
+  RID handles in the container's binding order (color/depth/velocity/
+  prev_velocity/history = SRV t0..t4, output temp = UAV u0) instead of the native
+  ID3D12Resource* handles the shim-path try_record_taa_resolve takes, so the
+  module can build an RD uniform set and compute pipeline directly. Base returns
+  false, so hooks that do not override it keep the native path.
+- modules/rurix_accel/register_types.cpp: two new default-safe settings,
+  independent of the four existing taa_resolve shim settings (untouched):
+  rendering/rurix_accel/passes/taa_resolve/backend (int, default 0;
+  0=disabled / 1=shim / 2=rd_native) and
+  rendering/rurix_accel/passes/taa_resolve/rd_container_path (string, default "").
+  Defaults keep the RD-native path disabled.
+- modules/rurix_accel/rurix_accel.{h,cpp}: try_record_taa_resolve_rd_native
+  override. Lazily builds the compute pipeline once (FileAccess reads the Rurix
+  container -> shader_create_from_bytecode -> compute_pipeline_create, latching
+  rd_native_taa_resolve_load_failed on any failure so it is not retried per
+  frame), runs a usage-bits preflight (five SRV inputs SAMPLING_BIT, temp output
+  STORAGE_BIT), binds the six resolve resources via UniformSetCacheRD, packs the
+  28-byte b0 push constants ([i64 resolution_width, i64 resolution_height,
+  f32 disocclusion_threshold, f32 variance_dynamic, f32 reserved0]), and
+  dispatches ceil(size/8) groups with its own compute_list_begin/end (resolve()
+  is a standalone list, unlike the shared SSAO list). No submit()/sync() (a
+  local-RD-only concept). The one-shot RXGD_RD_NATIVE_TAA_RESOLVE active marker
+  is emitted via print_verbose when the pipeline is first built (not per-frame).
+- servers/rendering/renderer_rd/effects/taa.cpp: in TAA::process's !just_allocated
+  branch, backend == 2 runs the rd_native gate in place of resolve(); a successful
+  record skips the native resolve dispatch, and the three history-maintenance
+  copies below still run so the feedback loop is preserved. backend != 2 leaves
+  the pre-existing resolve()+copies chain byte-for-byte unchanged. Adds
+  core/config/project_settings.h + drivers/d3d12/d3d12_hooks.h includes.
+
+Fail-closed everywhere: with the default backend == 0 (and empty container path),
+rd_native is never engaged and the native Godot TAA resolve renders. The rd_native
+path replaces only the resolve compute dispatch and preserves the native history
+copies, so the TAA feedback loop is intact; TAA is temporal, so multi-frame
+convergence evidence is required to characterize the replacement. RXGD_ABI_VERSION
+is unchanged (this path does not touch the C ABI struct layout and sets no
+RxGdCaps.flags bit; rd_native is bridge-independent). No performance claim is made.
+---
+ drivers/d3d12/d3d12_hooks.h                   |  18 +++
+ modules/rurix_accel/register_types.cpp        |  18 +++
+ modules/rurix_accel/rurix_accel.cpp           | 133 ++++++++++++++++++
+ modules/rurix_accel/rurix_accel.h             |  28 ++++
+ servers/rendering/renderer_rd/effects/taa.cpp |  33 ++++-
+ 5 files changed, 229 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
+index 0feab9b..b6a53cb 100644
+--- a/drivers/d3d12/d3d12_hooks.h
++++ b/drivers/d3d12/d3d12_hooks.h
+@@ -175,5 +175,23 @@ public:
+ 	// hooks that do not override this (or the absence of a hooks singleton) keep
+ 	// the native Godot SSAO blur path.
+ 	virtual bool try_record_ssao_blur_rd_native(int64_t p_compute_list, RID p_source_slice, RID p_dest_slice, Size2i p_slice_size, float p_edge_sharpness, float p_half_screen_pixel_size_x, float p_half_screen_pixel_size_y) { return false; }
++	// GRX Route B rd_native taa_resolve: opt-in in-frame RD-native compute
++	// replacement hook for the TAA resolve compute dispatch. Unlike the shim-path
++	// try_record_taa_resolve() above (which takes native ID3D12Resource* handles
++	// for an out-of-frame bridge dispatch), this hook takes the six Godot RID
++	// handles for the resolve inputs/output in the container's binding order
++	// (color/depth/velocity/prev_velocity/history = SRV t0..t4, output temp =
++	// UAV u0) plus the shared internal resolution and the resolve b0 scalars, so
++	// the module can build an RD compute pipeline from a Rurix shader container
++	// and dispatch it as a first-class in-frame pass. It replaces ONLY the resolve
++	// compute dispatch: the caller keeps running the native history-maintenance
++	// copies (temp->internal, internal->history, velocity->prev_velocity) so the
++	// TAA feedback loop is preserved. rd_native opens/closes its own compute list
++	// (resolve() is a standalone list, unlike the shared SSAO list). Returning
++	// true means the module recorded the real resolve replacement and the native
++	// TAA resolve dispatch MUST be skipped (a real replacement, not a scaffold).
++	// The base implementation returns false so any hooks that do not override this
++	// (or the absence of a hooks singleton) keep the native Godot TAA resolve.
++	virtual bool try_record_taa_resolve_rd_native(RID p_color, RID p_depth, RID p_velocity, RID p_prev_velocity, RID p_history, RID p_output_temp, Size2i p_internal_size, float p_disocclusion_threshold, float p_variance_dynamic) { return false; }
+ 	static D3D12Hooks *get_singleton() { return singleton; }
+ };
+diff --git a/modules/rurix_accel/register_types.cpp b/modules/rurix_accel/register_types.cpp
+index 166a030..fc5f444 100644
+--- a/modules/rurix_accel/register_types.cpp
++++ b/modules/rurix_accel/register_types.cpp
+@@ -321,6 +321,24 @@ void initialize_rurix_accel_module(ModuleInitializationLevel p_level) {
+ 	// to a res:// resource so the smoke/bench harnesses can point at an absolute
+ 	// staging path.
+ 	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/ssao_blur/rd_container_path", "");
++	// GRX Route B rd_native taa_resolve: three-state backend selector for the
++	// taa_resolve pass, independent of the four existing shim settings
++	// (.../passes/taa_resolve/enabled|dispatch_recording_smoke|dispatch_real_pass|
++	// real_pass_force_capability_downgrade), which are left untouched. Values:
++	// 0 = disabled (default; the pre-existing shim/native chain is unchanged),
++	// 1 = shim (nominal; the existing shim path stays governed by its own four
++	// settings), 2 = rd_native (engage the in-frame RD-native resolve compute
++	// replacement via try_record_taa_resolve_rd_native). Defaults to 0 so the
++	// shipping build/config never engages the RD-native path.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/taa_resolve/backend", 0);
++	// GRX Route B rd_native taa_resolve: absolute filesystem path to the Rurix
++	// RenderingShaderContainerD3D12 taa_resolve container consumed by
++	// shader_create_from_bytecode when backend == 2. Defaults to empty, which
++	// keeps the RD-native path fail-closed (no container -> native TAA resolve
++	// path remains active). The container path is injected here rather than
++	// hardcoded to a res:// resource so the smoke/bench harnesses can point at an
++	// absolute staging path.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/taa_resolve/rd_container_path", "");
+ 
+ #if defined(D3D12_ENABLED)
+ 	if (GLOBAL_GET("rendering/rurix_accel/enabled")) {
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index f2a80c5..a7c5b43 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -1271,4 +1271,137 @@ bool RurixAccelD3D12Hooks::try_record_ssao_blur_rd_native(int64_t p_compute_list
+ 	return true;
+ }
+ 
++bool RurixAccelD3D12Hooks::try_record_taa_resolve_rd_native(RID p_color, RID p_depth, RID p_velocity, RID p_prev_velocity, RID p_history, RID p_output_temp, Size2i p_internal_size, float p_disocclusion_threshold, float p_variance_dynamic) {
++	// GRX Route B rd_native taa_resolve: an in-frame RD-native compute replacement
++	// for the TAA resolve dispatch. Like the tonemap/ssao_blur rd_native paths this
++	// does NOT go through the Rurix rxgd bridge/shim (session/record_pass); it
++	// drives the main RenderingDevice directly so the Rurix taa_resolve kernel runs
++	// as a first-class dispatch inside the frame graph. It replaces ONLY the
++	// resolve dispatch (temp = f(color, depth, velocity, prev_velocity, history));
++	// the caller keeps the native history-maintenance copies (temp->internal,
++	// internal->history, velocity->prev_velocity), so the TAA feedback loop is
++	// preserved. resolve() is a standalone compute list (unlike the shared SSAO
++	// list), so this opens/closes its own list. Every early return below keeps the
++	// native Godot TAA resolve path (fail-closed). The caller only reaches here
++	// when the backend selector is 2 (rd_native).
++	RenderingDevice *rd = RenderingDevice::get_singleton();
++	if (rd == nullptr) {
++		return false;
++	}
++	if (rd_native_taa_resolve_load_failed) {
++		// A prior container load / pipeline compile failed; do not retry every
++		// frame (and do not spam diagnostics). The native TAA resolve path renders.
++		return false;
++	}
++	if (!p_color.is_valid() || !p_depth.is_valid() || !p_velocity.is_valid() || !p_prev_velocity.is_valid() || !p_history.is_valid() || !p_output_temp.is_valid()) {
++		return false;
++	}
++	if (p_internal_size.x <= 0 || p_internal_size.y <= 0) {
++		return false;
++	}
++	// Usage-bits preflight: the five resolve inputs must be sampleable (SRV
++	// t0..t4) and the temp output must be storage-writable (UAV u0). The taa
++	// history/temp/prev_velocity textures are created with SAMPLING_BIT |
++	// STORAGE_BIT, and the internal/depth/velocity textures carry SAMPLING_BIT;
++	// this preflight guards against a future Godot snapshot changing those flags
++	// and fails closed rather than letting uniform_set_create assert mid-frame.
++	const RID srv_inputs[5] = { p_color, p_depth, p_velocity, p_prev_velocity, p_history };
++	for (uint32_t i = 0; i < 5; i++) {
++		const RenderingDevice::TextureFormat fmt = rd->texture_get_format(srv_inputs[i]);
++		if ((fmt.usage_bits & RenderingDevice::TEXTURE_USAGE_SAMPLING_BIT) == 0) {
++			return false;
++		}
++	}
++	const RenderingDevice::TextureFormat out_format = rd->texture_get_format(p_output_temp);
++	if ((out_format.usage_bits & RenderingDevice::TEXTURE_USAGE_STORAGE_BIT) == 0) {
++		return false;
++	}
++	// Lazily build the compute pipeline the first time backend == 2 is exercised:
++	// read the Rurix container bytes, hand them to shader_create_from_bytecode
++	// (-> shader_create_from_container in the D3D12 driver; the driver consumes the
++	// container's DXIL + RTS0 verbatim), and create the compute pipeline
++	// (-> CreateRootSignature + PSO). Any failure latches
++	// rd_native_taa_resolve_load_failed so it is not retried per frame.
++	if (!rd_native_taa_resolve_shader.is_valid() || !rd_native_taa_resolve_pipeline.is_valid()) {
++		const String container_path = GLOBAL_GET("rendering/rurix_accel/passes/taa_resolve/rd_container_path");
++		if (container_path.is_empty()) {
++			// No container configured: keep rd_native fail-closed (disabled).
++			rd_native_taa_resolve_load_failed = true;
++			return false;
++		}
++		const Vector<uint8_t> container_bytes = FileAccess::get_file_as_bytes(container_path);
++		if (container_bytes.is_empty()) {
++			rd_native_taa_resolve_load_failed = true;
++			print_verbose(vformat("RurixAccel: rd_native taa_resolve container '%s' missing or empty; native TAA resolve path remains active.", container_path));
++			return false;
++		}
++		const RID shader = rd->shader_create_from_bytecode(container_bytes);
++		if (!shader.is_valid()) {
++			rd_native_taa_resolve_load_failed = true;
++			print_verbose("RurixAccel: rd_native taa_resolve shader_create_from_bytecode failed; native TAA resolve path remains active.");
++			return false;
++		}
++		const RID pipeline = rd->compute_pipeline_create(shader);
++		if (!pipeline.is_valid()) {
++			rd->free_rid(shader);
++			rd_native_taa_resolve_load_failed = true;
++			print_verbose("RurixAccel: rd_native taa_resolve compute_pipeline_create failed; native TAA resolve path remains active.");
++			return false;
++		}
++		rd_native_taa_resolve_shader = shader;
++		rd_native_taa_resolve_pipeline = pipeline;
++		if (!rd_native_taa_resolve_active_logged) {
++			// One-shot marker (NOT per-frame): the RD-native TAA resolve
++			// replacement is engaged and the native Godot resolve dispatch is being
++			// skipped (the native history-maintenance copies still run).
++			print_verbose("RXGD_RD_NATIVE_TAA_RESOLVE active: backend=rd_native, in-frame resolve dispatch replacement engaged (native Godot resolve dispatch skipped; native history copies preserved).");
++			rd_native_taa_resolve_active_logged = true;
++		}
++	}
++	// Bind the six resolve resources in the container's binding order: t0=color,
++	// t1=depth, t2=velocity, t3=prev_velocity, t4=history (SRV,
++	// UNIFORM_TYPE_TEXTURE), u0=temp output (UAV, UNIFORM_TYPE_IMAGE, binding 5).
++	// UniformSetCacheRD keys on the RID set and auto-invalidates the cached set
++	// when any texture is freed (resize), so no manual lifetime handling is needed.
++	const RID uniform_set = UniformSetCacheRD::get_singleton()->get_cache(
++			rd_native_taa_resolve_shader, 0,
++			RenderingDevice::Uniform(RenderingDevice::UNIFORM_TYPE_TEXTURE, 0, p_color),
++			RenderingDevice::Uniform(RenderingDevice::UNIFORM_TYPE_TEXTURE, 1, p_depth),
++			RenderingDevice::Uniform(RenderingDevice::UNIFORM_TYPE_TEXTURE, 2, p_velocity),
++			RenderingDevice::Uniform(RenderingDevice::UNIFORM_TYPE_TEXTURE, 3, p_prev_velocity),
++			RenderingDevice::Uniform(RenderingDevice::UNIFORM_TYPE_TEXTURE, 4, p_history),
++			RenderingDevice::Uniform(RenderingDevice::UNIFORM_TYPE_IMAGE, 5, p_output_temp));
++	if (!uniform_set.is_valid()) {
++		return false;
++	}
++	// b0 root constants (28 bytes / 7 DWORDs): resolution_width and
++	// resolution_height as 64-bit integers (the taa_resolve kernel declares the
++	// 64-bit integer shader capability), then disocclusion_threshold,
++	// variance_dynamic and a reserved0 float, little-endian like D3D12. This
++	// mirrors the shim path's taa_resolve packing (patch 0018) and the container's
++	// declared 28-byte push_constant_size.
++	uint8_t push_constants[TAA_RESOLVE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES] = {};
++	const uint64_t resolution_width = (uint64_t)MAX(p_internal_size.x, 0);
++	const uint64_t resolution_height = (uint64_t)MAX(p_internal_size.y, 0);
++	const float reserved0 = 0.0f;
++	memcpy(&push_constants[0], &resolution_width, sizeof(resolution_width));
++	memcpy(&push_constants[8], &resolution_height, sizeof(resolution_height));
++	memcpy(&push_constants[16], &p_disocclusion_threshold, sizeof(p_disocclusion_threshold));
++	memcpy(&push_constants[20], &p_variance_dynamic, sizeof(p_variance_dynamic));
++	memcpy(&push_constants[24], &reserved0, sizeof(reserved0));
++	// Record the in-frame resolve compute dispatch. resolve() is a standalone
++	// compute list, so this opens and closes its own list (no submit()/sync() —
++	// that is a local-RD-only concept); the main-RD draw graph tracks the
++	// uniform_set_create resources and inserts the required barriers automatically.
++	const RenderingDevice::ComputeListID compute_list = rd->compute_list_begin();
++	rd->compute_list_bind_compute_pipeline(compute_list, rd_native_taa_resolve_pipeline);
++	rd->compute_list_bind_uniform_set(compute_list, uniform_set, 0);
++	rd->compute_list_set_push_constant(compute_list, push_constants, TAA_RESOLVE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES);
++	const uint32_t groups_x = (uint32_t)((MAX(p_internal_size.x, 0) + 7) / 8);
++	const uint32_t groups_y = (uint32_t)((MAX(p_internal_size.y, 0) + 7) / 8);
++	rd->compute_list_dispatch(compute_list, groups_x, groups_y, 1);
++	rd->compute_list_end();
++	return true;
++}
++
+ #endif // D3D12_ENABLED
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index 258df50..caa590b 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -175,6 +175,19 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
+ 	RID rd_native_ssao_blur_pipeline;
+ 	bool rd_native_ssao_blur_load_failed = false;
+ 	bool rd_native_ssao_blur_active_logged = false;
++	// GRX Route B rd_native taa_resolve: lazily-built RD compute pipeline for the
++	// in-frame TAA resolve replacement. Same lifetime discipline as the tonemap
++	// and ssao_blur members above: the shader/pipeline are created once from the
++	// Rurix container the first time backend == 2 is exercised and cached for the
++	// process lifetime; the per-frame six-resource uniform set is cached by
++	// UniformSetCacheRD and auto-invalidated when the bound textures are freed
++	// (e.g. on resize). rd_native_taa_resolve_load_failed latches a load/compile
++	// failure so it is not retried every frame, and rd_native_taa_resolve_active_logged
++	// gates the one-shot RXGD_RD_NATIVE_TAA_RESOLVE active marker (not per-frame).
++	RID rd_native_taa_resolve_shader;
++	RID rd_native_taa_resolve_pipeline;
++	bool rd_native_taa_resolve_load_failed = false;
++	bool rd_native_taa_resolve_active_logged = false;
+ 	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 28;
+ 	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_RESOURCE_COUNT = 2;
+ 	// GRX-010 tonemap resource mapping (resource_mapping.md): b0 carries
+@@ -350,6 +363,21 @@ public:
+ 	// returns false and the caller keeps the native Godot SSAO blur path
+ 	// (fail-closed).
+ 	bool try_record_ssao_blur_rd_native(int64_t p_compute_list, RID p_source_slice, RID p_dest_slice, Size2i p_slice_size, float p_edge_sharpness, float p_half_screen_pixel_size_x, float p_half_screen_pixel_size_y) override;
++	// GRX Route B rd_native taa_resolve: in-frame RD-native compute replacement
++	// for the TAA resolve dispatch. Lazily builds the RD compute pipeline from the
++	// Rurix container named by rendering/rurix_accel/passes/taa_resolve/rd_container_path,
++	// binds the six resolve textures (color/depth/velocity/prev_velocity/history =
++	// SRV t0..t4, output temp = UAV u0) plus the 28-byte b0 push constants, and
++	// dispatches ceil(size/8) compute groups on the main RenderingDevice's active
++	// frame (its own compute_list_begin/end, since resolve() is a standalone
++	// list). It replaces ONLY the resolve dispatch; the caller keeps the native
++	// history-maintenance copies. Returns true only when the resolve was actually
++	// recorded (real replacement — the caller then SKIPS the native resolve). Any
++	// failure (RD unavailable, latched load failure, invalid RID, missing usage
++	// bits, empty/invalid container, pipeline or uniform-set creation failure)
++	// returns false and the caller keeps the native Godot TAA resolve path
++	// (fail-closed).
++	bool try_record_taa_resolve_rd_native(RID p_color, RID p_depth, RID p_velocity, RID p_prev_velocity, RID p_history, RID p_output_temp, Size2i p_internal_size, float p_disocclusion_threshold, float p_variance_dynamic) override;
+ };
+ 
+ #endif // D3D12_ENABLED
+diff --git a/servers/rendering/renderer_rd/effects/taa.cpp b/servers/rendering/renderer_rd/effects/taa.cpp
+index 9125301..88d2e81 100644
+--- a/servers/rendering/renderer_rd/effects/taa.cpp
++++ b/servers/rendering/renderer_rd/effects/taa.cpp
+@@ -34,6 +34,12 @@
+ #include "servers/rendering/renderer_rd/storage_rd/material_storage.h"
+ #include "servers/rendering/renderer_rd/uniform_set_cache_rd.h"
+ 
++// GRX Route B rd_native taa_resolve (patch 0042): the opt-in RD-native resolve
++// replacement gate lives on the D3D12 hooks and reads its backend selector from
++// the project settings.
++#include "core/config/project_settings.h"
++#include "drivers/d3d12/d3d12_hooks.h"
++
+ using namespace RendererRD;
+ 
+ TAA::TAA() {
+@@ -118,7 +124,32 @@ void TAA::process(Ref<RenderSceneBuffersRD> p_render_buffers, RD::DataFormat p_f
+ 		if (!just_allocated) {
+ 			RID depth_texture = p_render_buffers->get_depth_texture(v);
+ 			RID taa_temp = p_render_buffers->get_texture_slice(SNAME("taa"), SNAME("temp"), v, 0);
+-			resolve(internal_texture, taa_temp, depth_texture, velocity_buffer, taa_prev_velocity, taa_history, Size2(internal_size.x, internal_size.y), p_z_near, p_z_far);
++			bool rurix_recorded_taa_resolve_rd_native = false;
++#ifdef D3D12_ENABLED
++			// GRX Route B rd_native taa_resolve (patch 0042): backend selector == 2
++			// engages the in-frame RD-native resolve compute replacement in place of
++			// the native resolve() dispatch. It replaces ONLY the resolve dispatch
++			// (taa_temp = Rurix kernel output); the history-maintenance copies below
++			// (temp->internal, internal->history, velocity->prev_velocity) still run
++			// natively, so the TAA feedback loop is preserved. The disocclusion and
++			// variance_dynamic b0 scalars are computed here exactly as resolve()
++			// computes them (base_variance 1.1 scaled by 1080/height, clamped
++			// 0.75..1.0). When the backend selector is not 2, or when rd_native fails
++			// closed (no container, missing usage bits, pipeline/uniform-set failure,
++			// etc.), this stays false and the native resolve() below runs exactly as
++			// before. Note the shim-path taa_resolve gate (patches 0017-0019) lives at
++			// the render_forward_clustered taa->process call site and short-circuits
++			// this whole function when it records; rd_native is a parallel,
++			// bridge-independent path selected here inside process().
++			if (D3D12Hooks::get_singleton() != nullptr && ((int)GLOBAL_GET("rendering/rurix_accel/passes/taa_resolve/backend")) == 2) {
++				const float rurix_taa_disocclusion = 2.5f;
++				const float rurix_taa_variance = CLAMP(1.1f * (1080.0f / (float)MAX(internal_size.y, 1)), 0.75f, 1.0f);
++				rurix_recorded_taa_resolve_rd_native = D3D12Hooks::get_singleton()->try_record_taa_resolve_rd_native(internal_texture, depth_texture, velocity_buffer, taa_prev_velocity, taa_history, taa_temp, Size2i(internal_size.x, internal_size.y), rurix_taa_disocclusion, rurix_taa_variance);
++			}
++#endif
++			if (!rurix_recorded_taa_resolve_rd_native) {
++				resolve(internal_texture, taa_temp, depth_texture, velocity_buffer, taa_prev_velocity, taa_history, Size2(internal_size.x, internal_size.y), p_z_near, p_z_far);
++			}
+ 			copy_effects->copy_to_rect(taa_temp, internal_texture, Rect2(0, 0, internal_size.x, internal_size.y));
+ 		}
+ 
+-- 
+2.50.0
+

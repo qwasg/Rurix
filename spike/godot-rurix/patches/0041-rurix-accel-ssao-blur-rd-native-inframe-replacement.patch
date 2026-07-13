@@ -1,0 +1,349 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Rurix Godot Bridge <rurix@example.invalid>
+Date: Mon, 13 Jul 2026 10:00:00 +0800
+Subject: [PATCH] Add default-disabled GRX Route B rd_native ssao_blur in-frame
+ SMART blur slice replacement
+
+Stacked on 0001..0029 + 0040 (the branch-HEAD gpu_culling tail plus the
+tonemap rd_native slice). This is the second Route B REAL replacement pass:
+Route B drives the Rurix ssao_blur kernel as a first-class in-frame
+RenderingDevice compute dispatch for the SMART edge-aware blur slices,
+instead of the out-of-frame rxgd shim bridge, and when it records the native
+Godot SMART blur dispatch for that slice is genuinely skipped (no scaffold
+clear, unlike patch 0016).
+
+- drivers/d3d12/d3d12_hooks.h: new default-false virtual
+  try_record_ssao_blur_rd_native(int64_t compute_list, RID source_slice,
+  RID dest_slice, Size2i slice_size, float edge_sharpness,
+  float half_screen_pixel_size_x, float half_screen_pixel_size_y). It takes
+  the Godot ComputeListID of the ALREADY-OPEN generate_ssao compute list
+  (SSAO opens one list around the whole gather/blur/interleave chain, so
+  rd_native must NOT begin/end its own) plus Godot RID handles (not native
+  ID3D12Resource* handles like the shim-path try_record_ssao_blur) so the
+  module can build an RD uniform set and record one slice dispatch. Base
+  returns false, so hooks that do not override it keep the native path.
+- modules/rurix_accel/register_types.cpp: two new default-safe settings,
+  independent of the four existing ssao_blur shim settings (untouched):
+  rendering/rurix_accel/passes/ssao_blur/backend (int, default 0;
+  0=disabled / 1=shim / 2=rd_native) and
+  rendering/rurix_accel/passes/ssao_blur/rd_container_path (string, default
+  ""). Defaults keep the RD-native path disabled.
+- modules/rurix_accel/rurix_accel.{h,cpp}: try_record_ssao_blur_rd_native
+  override. Lazily builds the compute pipeline once (FileAccess reads the
+  Rurix container -> shader_create_from_bytecode -> compute_pipeline_create,
+  latching rd_native_ssao_blur_load_failed on any failure so it is not
+  retried per frame), runs a usage-bits preflight (source SAMPLING_BIT, dest
+  STORAGE_BIT), binds t0=source slice (SRV/UNIFORM_TYPE_TEXTURE) and
+  u0=dest slice (UAV/UNIFORM_TYPE_IMAGE) via UniformSetCacheRD, packs the
+  28-byte b0 push constants ([i64 slice_width, i64 slice_height,
+  f32 edge_sharpness, f32 half_screen_pixel_size_x,
+  f32 half_screen_pixel_size_y]), and records a ceil(size/8) dispatch onto
+  the caller's compute list. No submit()/sync() (a local-RD-only concept).
+  The one-shot RXGD_RD_NATIVE_SSAO_BLUR active marker is emitted via
+  print_verbose when the pipeline is first built (not per-frame).
+- servers/rendering/renderer_rd/effects/ss_effects.cpp: in the Edge-Aware
+  Blur loop, backend == 2 runs the rd_native gate BEFORE the shim gate, and
+  ONLY for the SMART blur pipeline (blur_pipeline == SSAO_BLUR_PASS_SMART);
+  a successful record skips both the shim gate and the native SMART blur
+  dispatch for that slice. backend != 2 leaves the pre-existing shim/native
+  chain byte-for-byte unchanged.
+
+Fail-closed everywhere: with the default backend == 0 (and empty container
+path), rd_native is never engaged and the native Godot SSAO blur renders.
+The kernel covers only the MODE_SMART single-slice edge-aware blur subset
+(no very-low/WIDE blur pipelines, no 4-slice fusion, no interleave), so
+only the SMART blur slices route through rd_native and the rest stay native.
+RXGD_ABI_VERSION is unchanged (this path does not touch the C ABI struct
+layout and sets no RxGdCaps.flags bit; rd_native is bridge-independent). No
+performance claim is made.
+---
+ drivers/d3d12/d3d12_hooks.h                   |  18 +++
+ modules/rurix_accel/register_types.cpp        |  18 +++
+ modules/rurix_accel/rurix_accel.cpp           | 121 ++++++++++++++++++
+ modules/rurix_accel/rurix_accel.h             |  27 ++++
+ .../renderer_rd/effects/ss_effects.cpp        |  29 ++++-
+ 5 files changed, 211 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/d3d12/d3d12_hooks.h b/drivers/d3d12/d3d12_hooks.h
+index 605965f..0feab9b 100644
+--- a/drivers/d3d12/d3d12_hooks.h
++++ b/drivers/d3d12/d3d12_hooks.h
+@@ -157,5 +157,23 @@ public:
+ 	// this (or the absence of a hooks singleton) keep the native Godot tonemap
+ 	// path.
+ 	virtual bool try_record_tonemap_rd_native(RID p_source_color, RID p_dest_color, Size2i p_source_size, Size2i p_dest_size, float p_exposure, float p_white, float p_luminance_multiplier) { return false; }
++	// GRX Route B rd_native ssao_blur: opt-in in-frame RD-native compute
++	// replacement hook for one SMART edge-aware blur slice. Unlike the shim-path
++	// try_record_ssao_blur() above (which takes native ID3D12Resource* handles
++	// for an out-of-frame bridge dispatch), this hook takes the Godot
++	// ComputeListID of the ALREADY-OPEN generate_ssao compute list plus the
++	// Godot RID handles for the deinterleaved AO source slice (SRV t0) and the
++	// ping-pong destination slice (UAV u0), the shared 1:1 slice size, and the
++	// ssao_blur b0 scalars, so the module can build an RD compute pipeline from a
++	// Rurix shader container and record ONE slice dispatch onto the shared
++	// generate_ssao compute list (the SSAO compute list is opened once around the
++	// whole gather/blur/interleave chain, so rd_native must NOT begin/end its own
++	// list; it reuses p_compute_list and the loop's per-pass barriers). Returning
++	// true means the module recorded the real replacement for THIS slice and the
++	// native SMART blur dispatch for this slice MUST be skipped (this is a real
++	// replacement, not a scaffold). The base implementation returns false so any
++	// hooks that do not override this (or the absence of a hooks singleton) keep
++	// the native Godot SSAO blur path.
++	virtual bool try_record_ssao_blur_rd_native(int64_t p_compute_list, RID p_source_slice, RID p_dest_slice, Size2i p_slice_size, float p_edge_sharpness, float p_half_screen_pixel_size_x, float p_half_screen_pixel_size_y) { return false; }
+ 	static D3D12Hooks *get_singleton() { return singleton; }
+ };
+diff --git a/modules/rurix_accel/register_types.cpp b/modules/rurix_accel/register_types.cpp
+index 292ce01..166a030 100644
+--- a/modules/rurix_accel/register_types.cpp
++++ b/modules/rurix_accel/register_types.cpp
+@@ -303,6 +303,24 @@ void initialize_rurix_accel_module(ModuleInitializationLevel p_level) {
+ 	// to a res:// resource so the smoke/bench harnesses can point at an absolute
+ 	// staging path.
+ 	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/tonemap/rd_container_path", "");
++	// GRX Route B rd_native ssao_blur: three-state backend selector for the
++	// ssao_blur pass, independent of the four existing shim settings
++	// (.../passes/ssao_blur/enabled|dispatch_recording_smoke|dispatch_real_pass|
++	// real_pass_force_capability_downgrade), which are left untouched. Values:
++	// 0 = disabled (default; the pre-existing shim/native chain is unchanged),
++	// 1 = shim (nominal; the existing shim path stays governed by its own four
++	// settings), 2 = rd_native (engage the in-frame RD-native compute
++	// replacement via try_record_ssao_blur_rd_native for the SMART blur slices).
++	// Defaults to 0 so the shipping build/config never engages the RD-native path.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/ssao_blur/backend", 0);
++	// GRX Route B rd_native ssao_blur: absolute filesystem path to the Rurix
++	// RenderingShaderContainerD3D12 ssao_blur container consumed by
++	// shader_create_from_bytecode when backend == 2. Defaults to empty, which
++	// keeps the RD-native path fail-closed (no container -> native SSAO blur path
++	// remains active). The container path is injected here rather than hardcoded
++	// to a res:// resource so the smoke/bench harnesses can point at an absolute
++	// staging path.
++	GLOBAL_DEF_BASIC("rendering/rurix_accel/passes/ssao_blur/rd_container_path", "");
+ 
+ #if defined(D3D12_ENABLED)
+ 	if (GLOBAL_GET("rendering/rurix_accel/enabled")) {
+diff --git a/modules/rurix_accel/rurix_accel.cpp b/modules/rurix_accel/rurix_accel.cpp
+index 5ff8256..f2a80c5 100644
+--- a/modules/rurix_accel/rurix_accel.cpp
++++ b/modules/rurix_accel/rurix_accel.cpp
+@@ -1150,4 +1150,125 @@ bool RurixAccelD3D12Hooks::try_record_tonemap_rd_native(RID p_source_color, RID
+ 	return true;
+ }
+ 
++bool RurixAccelD3D12Hooks::try_record_ssao_blur_rd_native(int64_t p_compute_list, RID p_source_slice, RID p_dest_slice, Size2i p_slice_size, float p_edge_sharpness, float p_half_screen_pixel_size_x, float p_half_screen_pixel_size_y) {
++	// GRX Route B rd_native ssao_blur: an in-frame RD-native compute replacement
++	// for one SMART edge-aware blur slice. Like the tonemap rd_native path this
++	// does NOT go through the Rurix rxgd bridge/shim (session/record_pass); it
++	// drives the main RenderingDevice directly so the Rurix ssao_blur kernel runs
++	// as a first-class dispatch inside the frame graph. Unlike tonemap, the SSAO
++	// compute list is opened ONCE by generate_ssao around the whole
++	// gather/blur/interleave chain, so this records onto the caller's already-open
++	// list (p_compute_list) and MUST NOT begin/end its own. Every early return
++	// below keeps the native SMART blur dispatch for this slice (fail-closed). The
++	// caller only reaches here when the backend selector is 2 (rd_native).
++	RenderingDevice *rd = RenderingDevice::get_singleton();
++	if (rd == nullptr) {
++		return false;
++	}
++	if (rd_native_ssao_blur_load_failed) {
++		// A prior container load / pipeline compile failed; do not retry every
++		// frame (and do not spam diagnostics). The native SSAO blur path renders.
++		return false;
++	}
++	if (!p_source_slice.is_valid() || !p_dest_slice.is_valid()) {
++		return false;
++	}
++	if (p_slice_size.x <= 0 || p_slice_size.y <= 0) {
++		return false;
++	}
++	// Usage-bits preflight: the deinterleaved source slice must be sampleable
++	// (SRV t0) and the ping-pong destination slice must be storage-writable
++	// (UAV u0). Both SSAO deinterleaved textures carry SAMPLING_BIT | STORAGE_BIT
++	// today (they ping-pong as both sampler-source and image-dest); this preflight
++	// guards against a future Godot snapshot changing those flags and fails closed
++	// rather than letting uniform_set_create assert mid-frame.
++	const RenderingDevice::TextureFormat src_format = rd->texture_get_format(p_source_slice);
++	const RenderingDevice::TextureFormat dst_format = rd->texture_get_format(p_dest_slice);
++	if ((src_format.usage_bits & RenderingDevice::TEXTURE_USAGE_SAMPLING_BIT) == 0) {
++		return false;
++	}
++	if ((dst_format.usage_bits & RenderingDevice::TEXTURE_USAGE_STORAGE_BIT) == 0) {
++		return false;
++	}
++	// Lazily build the compute pipeline the first time backend == 2 is exercised:
++	// read the Rurix container bytes, hand them to shader_create_from_bytecode
++	// (-> shader_create_from_container in the D3D12 driver; the driver consumes the
++	// container's DXIL + RTS0 verbatim), and create the compute pipeline
++	// (-> CreateRootSignature + PSO). Any failure latches rd_native_ssao_blur_load_failed
++	// so it is not retried per frame.
++	if (!rd_native_ssao_blur_shader.is_valid() || !rd_native_ssao_blur_pipeline.is_valid()) {
++		const String container_path = GLOBAL_GET("rendering/rurix_accel/passes/ssao_blur/rd_container_path");
++		if (container_path.is_empty()) {
++			// No container configured: keep rd_native fail-closed (disabled).
++			rd_native_ssao_blur_load_failed = true;
++			return false;
++		}
++		const Vector<uint8_t> container_bytes = FileAccess::get_file_as_bytes(container_path);
++		if (container_bytes.is_empty()) {
++			rd_native_ssao_blur_load_failed = true;
++			print_verbose(vformat("RurixAccel: rd_native ssao_blur container '%s' missing or empty; native SSAO blur path remains active.", container_path));
++			return false;
++		}
++		const RID shader = rd->shader_create_from_bytecode(container_bytes);
++		if (!shader.is_valid()) {
++			rd_native_ssao_blur_load_failed = true;
++			print_verbose("RurixAccel: rd_native ssao_blur shader_create_from_bytecode failed; native SSAO blur path remains active.");
++			return false;
++		}
++		const RID pipeline = rd->compute_pipeline_create(shader);
++		if (!pipeline.is_valid()) {
++			rd->free_rid(shader);
++			rd_native_ssao_blur_load_failed = true;
++			print_verbose("RurixAccel: rd_native ssao_blur compute_pipeline_create failed; native SSAO blur path remains active.");
++			return false;
++		}
++		rd_native_ssao_blur_shader = shader;
++		rd_native_ssao_blur_pipeline = pipeline;
++		if (!rd_native_ssao_blur_active_logged) {
++			// One-shot marker (NOT per-frame): the RD-native SMART blur slice
++			// replacement is engaged and the native Godot SMART blur dispatch is
++			// being skipped for the replaced slices.
++			print_verbose("RXGD_RD_NATIVE_SSAO_BLUR active: backend=rd_native, in-frame SMART blur slice replacement engaged (native Godot SMART blur dispatch skipped for replaced slices).");
++			rd_native_ssao_blur_active_logged = true;
++		}
++	}
++	// Bind t0 = deinterleaved AO source slice (SRV, UNIFORM_TYPE_TEXTURE) and
++	// u0 = ping-pong destination slice (UAV, UNIFORM_TYPE_IMAGE). UniformSetCacheRD
++	// keys on the RID set and auto-invalidates the cached set when either slice is
++	// freed (resize), so no manual lifetime handling is needed.
++	const RID uniform_set = UniformSetCacheRD::get_singleton()->get_cache(
++			rd_native_ssao_blur_shader, 0,
++			RenderingDevice::Uniform(RenderingDevice::UNIFORM_TYPE_TEXTURE, 0, p_source_slice),
++			RenderingDevice::Uniform(RenderingDevice::UNIFORM_TYPE_IMAGE, 1, p_dest_slice));
++	if (!uniform_set.is_valid()) {
++		return false;
++	}
++	// b0 root constants (28 bytes / 7 DWORDs): slice_width and slice_height as
++	// 64-bit integers (the ssao_blur kernel declares the 64-bit integer shader
++	// capability), then edge_sharpness and the two half_screen_pixel_size floats,
++	// little-endian like D3D12. This mirrors the shim path's ssao_blur packing
++	// (patch 0015).
++	uint8_t push_constants[SSAO_BLUR_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES] = {};
++	const uint64_t source_width = (uint64_t)MAX(p_slice_size.x, 0);
++	const uint64_t source_height = (uint64_t)MAX(p_slice_size.y, 0);
++	memcpy(&push_constants[0], &source_width, sizeof(source_width));
++	memcpy(&push_constants[8], &source_height, sizeof(source_height));
++	memcpy(&push_constants[16], &p_edge_sharpness, sizeof(p_edge_sharpness));
++	memcpy(&push_constants[20], &p_half_screen_pixel_size_x, sizeof(p_half_screen_pixel_size_x));
++	memcpy(&push_constants[24], &p_half_screen_pixel_size_y, sizeof(p_half_screen_pixel_size_y));
++	// Record the in-frame compute dispatch onto the caller's ALREADY-OPEN
++	// generate_ssao compute list. No compute_list_begin()/end() here (the SSAO
++	// list is opened once around the whole chain); the loop's per-pass
++	// compute_list_add_barrier handles the write->read hazards, and the main-RD
++	// draw graph tracks the uniform_set_create resources as first-class citizens.
++	const RenderingDevice::ComputeListID compute_list = (RenderingDevice::ComputeListID)p_compute_list;
++	rd->compute_list_bind_compute_pipeline(compute_list, rd_native_ssao_blur_pipeline);
++	rd->compute_list_bind_uniform_set(compute_list, uniform_set, 0);
++	rd->compute_list_set_push_constant(compute_list, push_constants, SSAO_BLUR_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES);
++	const uint32_t groups_x = (uint32_t)((MAX(p_slice_size.x, 0) + 7) / 8);
++	const uint32_t groups_y = (uint32_t)((MAX(p_slice_size.y, 0) + 7) / 8);
++	rd->compute_list_dispatch(compute_list, groups_x, groups_y, 1);
++	return true;
++}
++
+ #endif // D3D12_ENABLED
+diff --git a/modules/rurix_accel/rurix_accel.h b/modules/rurix_accel/rurix_accel.h
+index 0bfe719..258df50 100644
+--- a/modules/rurix_accel/rurix_accel.h
++++ b/modules/rurix_accel/rurix_accel.h
+@@ -162,6 +162,19 @@ class RurixAccelD3D12Hooks : public D3D12Hooks {
+ 	RID rd_native_tonemap_pipeline;
+ 	bool rd_native_tonemap_load_failed = false;
+ 	bool rd_native_tonemap_active_logged = false;
++	// GRX Route B rd_native ssao_blur: lazily-built RD compute pipeline for the
++	// in-frame SMART edge-aware blur replacement. Same lifetime discipline as the
++	// tonemap members above: the shader/pipeline are created once from the Rurix
++	// container the first time backend == 2 is exercised and cached for the
++	// process lifetime; the per-slice uniform set is cached by UniformSetCacheRD
++	// and auto-invalidated when the bound slices are freed (e.g. on resize).
++	// rd_native_ssao_blur_load_failed latches a load/compile failure so it is not
++	// retried every frame, and rd_native_ssao_blur_active_logged gates the
++	// one-shot RXGD_RD_NATIVE_SSAO_BLUR active marker (not per-frame).
++	RID rd_native_ssao_blur_shader;
++	RID rd_native_ssao_blur_pipeline;
++	bool rd_native_ssao_blur_load_failed = false;
++	bool rd_native_ssao_blur_active_logged = false;
+ 	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_ROOT_CONSTANT_BYTES = 28;
+ 	static constexpr uint32_t LUMINANCE_RESOURCE_MAPPING_RESOURCE_COUNT = 2;
+ 	// GRX-010 tonemap resource mapping (resource_mapping.md): b0 carries
+@@ -323,6 +336,20 @@ public:
+ 	// uniform-set creation failure) returns false and the caller keeps the
+ 	// native Godot tonemap path (fail-closed).
+ 	bool try_record_tonemap_rd_native(RID p_source_color, RID p_dest_color, Size2i p_source_size, Size2i p_dest_size, float p_exposure, float p_white, float p_luminance_multiplier) override;
++	// GRX Route B rd_native ssao_blur: in-frame RD-native compute replacement for
++	// one SMART edge-aware blur slice. Lazily builds the RD compute pipeline from
++	// the Rurix container named by rendering/rurix_accel/passes/ssao_blur/rd_container_path,
++	// binds the deinterleaved AO source slice (SRV t0) and the ping-pong
++	// destination slice (UAV u0) RIDs plus the 28-byte b0 push constants, and
++	// records a ceil(size/8) compute dispatch onto the ALREADY-OPEN generate_ssao
++	// compute list (p_compute_list; it does NOT begin/end its own list). Returns
++	// true only when the slice dispatch was actually recorded (real replacement —
++	// the caller then SKIPS the native SMART blur dispatch for this slice). Any
++	// failure (RD unavailable, latched load failure, invalid RID, missing usage
++	// bits, empty/invalid container, pipeline or uniform-set creation failure)
++	// returns false and the caller keeps the native Godot SSAO blur path
++	// (fail-closed).
++	bool try_record_ssao_blur_rd_native(int64_t p_compute_list, RID p_source_slice, RID p_dest_slice, Size2i p_slice_size, float p_edge_sharpness, float p_half_screen_pixel_size_x, float p_half_screen_pixel_size_y) override;
+ };
+ 
+ #endif // D3D12_ENABLED
+diff --git a/servers/rendering/renderer_rd/effects/ss_effects.cpp b/servers/rendering/renderer_rd/effects/ss_effects.cpp
+index 0ede3e7..2b9fac1 100644
+--- a/servers/rendering/renderer_rd/effects/ss_effects.cpp
++++ b/servers/rendering/renderer_rd/effects/ss_effects.cpp
+@@ -1373,8 +1373,33 @@ void SSEffects::generate_ssao(Ref<RenderSceneBuffersRD> p_render_buffers, SSAORe
+ 				RD::get_singleton()->compute_list_set_push_constant(compute_list, &ssao.blur_push_constant, sizeof(SSAOBlurPushConstant));
+ 
+ 				bool rurix_recorded_ssao_blur = false;
++				bool rurix_recorded_ssao_blur_rd_native = false;
+ #ifdef D3D12_ENABLED
+-				if (D3D12Hooks::get_singleton() != nullptr) {
++				// GRX Route B rd_native ssao_blur (patch 0041): backend selector == 2
++				// engages the in-frame RD-native SMART blur slice replacement BEFORE
++				// the shim-path gate below. It only engages for the SMART blur
++				// pipeline (blur_pipeline == SSAO_BLUR_PASS_SMART) because the Rurix
++				// ssao_blur kernel covers the MODE_SMART single-slice edge-aware blur
++				// subset; the very-low and WIDE blur pipelines are out of subset and
++				// stay native. Unlike the shim path (patch 0016, which prints a
++				// writeback marker and then deliberately clears its flag so the native
++				// blur still re-renders the slice), a successful rd_native record does
++				// NOT clear its flag: the Rurix kernel's output IS the blurred slice
++				// written into the ping-pong destination, so the native SMART blur
++				// dispatch for this slice is genuinely skipped (a real replacement, not
++				// a scaffold). rd_native records onto the ALREADY-OPEN generate_ssao
++				// compute list (the SSAO list is opened once around the whole chain, so
++				// rd_native reuses compute_list and MUST NOT begin/end its own). When
++				// the backend selector is not 2, when this is not a SMART pass, or when
++				// rd_native fails closed (no container, missing usage bits,
++				// pipeline/uniform-set failure, etc.), this stays false and the shim
++				// gate and native dispatch below run exactly as before.
++				if (D3D12Hooks::get_singleton() != nullptr && blur_pipeline == SSAO_BLUR_PASS_SMART && ((int)GLOBAL_GET("rendering/rurix_accel/passes/ssao_blur/backend")) == 2) {
++					RID rurix_ssao_rd_native_src = (pass % 2 == 0) ? ao_deinterleaved_slices[i] : ao_pong_slices[i];
++					RID rurix_ssao_rd_native_dst = (pass % 2 == 0) ? ao_pong_slices[i] : ao_deinterleaved_slices[i];
++					rurix_recorded_ssao_blur_rd_native = D3D12Hooks::get_singleton()->try_record_ssao_blur_rd_native((int64_t)compute_list, rurix_ssao_rd_native_src, rurix_ssao_rd_native_dst, Size2i(p_ssao_buffers.buffer_width, p_ssao_buffers.buffer_height), ssao.blur_push_constant.edge_sharpness, ssao.blur_push_constant.half_screen_pixel_size[0], ssao.blur_push_constant.half_screen_pixel_size[1]);
++				}
++				if (!rurix_recorded_ssao_blur_rd_native && D3D12Hooks::get_singleton() != nullptr) {
+ 					// GRX-011 runtime resource binding gate (0005/0007-level in one
+ 					// slice). The tracked bridge kernel covers ONE SMART blur pass on
+ 					// ONE deinterleaved slice: resolve the real D3D12 ID3D12Resource*
+@@ -1420,7 +1445,7 @@ void SSEffects::generate_ssao(Ref<RenderSceneBuffersRD> p_render_buffers, SSAORe
+ 					}
+ 				}
+ #endif
+-				if (!rurix_recorded_ssao_blur) {
++				if (!rurix_recorded_ssao_blur && !rurix_recorded_ssao_blur_rd_native) {
+ 					RD::get_singleton()->compute_list_dispatch_threads(compute_list, p_ssao_buffers.buffer_width, p_ssao_buffers.buffer_height, 1);
+ 				}
+ 			}
+-- 
+2.50.0
+

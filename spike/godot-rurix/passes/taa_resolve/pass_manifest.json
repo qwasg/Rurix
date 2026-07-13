@@ -58,16 +58,97 @@
     "root_constant_bytes": 28,
     "root_constant_dwords": 7,
     "resources": [
-      { "name": "color_buffer", "binding": "t0 space0", "kind": "SRV", "binding_kind": "texture2d" },
-      { "name": "depth_buffer", "binding": "t1 space0", "kind": "SRV", "binding_kind": "texture2d" },
-      { "name": "velocity_buffer", "binding": "t2 space0", "kind": "SRV", "binding_kind": "texture2d" },
-      { "name": "last_velocity_buffer", "binding": "t3 space0", "kind": "SRV", "binding_kind": "texture2d" },
-      { "name": "history_buffer", "binding": "t4 space0", "kind": "SRV", "binding_kind": "texture2d" },
-      { "name": "output_buffer", "binding": "u0 space0", "kind": "UAV", "binding_kind": "rwtexture2d" }
+      {
+        "name": "color_buffer",
+        "binding": "t0 space0",
+        "kind": "SRV",
+        "binding_kind": "texture2d"
+      },
+      {
+        "name": "depth_buffer",
+        "binding": "t1 space0",
+        "kind": "SRV",
+        "binding_kind": "texture2d"
+      },
+      {
+        "name": "velocity_buffer",
+        "binding": "t2 space0",
+        "kind": "SRV",
+        "binding_kind": "texture2d"
+      },
+      {
+        "name": "last_velocity_buffer",
+        "binding": "t3 space0",
+        "kind": "SRV",
+        "binding_kind": "texture2d"
+      },
+      {
+        "name": "history_buffer",
+        "binding": "t4 space0",
+        "kind": "SRV",
+        "binding_kind": "texture2d"
+      },
+      {
+        "name": "output_buffer",
+        "binding": "u0 space0",
+        "kind": "UAV",
+        "binding_kind": "rwtexture2d"
+      }
     ],
     "dst_shape": "output extent == color extent (1:1 full-resolution resolve pass; same rule as GRX-010 tonemap)",
     "requires_64bit_integer_shader_capability": true,
     "on_missing_resource_or_cap_or_descriptor_mismatch": "RXGD_STATUS_FALLBACK"
+  },
+  "rd_native": {
+    "provenance": "rd_native_route_b",
+    "summary": "GRX Route B taa_resolve rd_native is a SEPARATE, bridge-independent in-frame real-replacement path from the shim/rxgd path documented above. It drives the main RenderingDevice directly (shader_create_from_bytecode -> compute_pipeline_create -> compute_list) so the Rurix taa_resolve kernel runs as a first-class in-frame compute dispatch that REPLACES the native resolve() dispatch inside TAA::process; the native history-maintenance copies (temp->internal, internal->history, velocity->prev_velocity) still run, so the temporal feedback loop is preserved. When it records, the native Godot resolve dispatch is GENUINELY SKIPPED (not a scaffold). It uses no rxgd session, sets no RxGdCaps.flags bit, and does not change any shim-path field of this manifest (godot_runtime_taa_resolve_path_enabled stays false; the shim RXGD_CAP_TAA_RESOLVE_REAL_PASS bit 6 is unrelated).",
+    "backend_selector": "rendering/rurix_accel/passes/taa_resolve/backend",
+    "backend_states": {
+      "0": "disabled (default; pre-existing shim/native chain unchanged)",
+      "1": "shim (nominal; existing shim path governed by its own four settings)",
+      "2": "rd_native (engage the in-frame RD-native resolve compute replacement)"
+    },
+    "container_path_setting": "rendering/rurix_accel/passes/taa_resolve/rd_container_path",
+    "default_backend": 0,
+    "default_enable_state": "disabled",
+    "bridge_independent": true,
+    "cap_bit_consumed": null,
+    "rxgd_abi_version_unchanged": true,
+    "godot_patch": "spike/godot-rurix/patches/0042-rurix-accel-taa-resolve-rd-native-inframe-replacement.patch",
+    "patch_stack": "0001-0029 + 0040 + 0041 + 0042 (branch-HEAD gpu_culling culling tail + the tonemap/ssao_blur/taa_resolve rd_native slices; the culling 0027-0029 and fused 0036-0038 tails are mutually exclusive under strict git apply)",
+    "hook_virtual": "D3D12Hooks::try_record_taa_resolve_rd_native(RID p_color, RID p_depth, RID p_velocity, RID p_prev_velocity, RID p_history, RID p_output_temp, Size2i p_internal_size, float p_disocclusion_threshold, float p_variance_dynamic)",
+    "injection_point": "inside TAA::process (servers/rendering/renderer_rd/effects/taa.cpp), replacing ONLY the resolve() compute dispatch in the !just_allocated branch; the three native copy_effects->copy_to_rect history-maintenance copies still run so the TAA feedback loop is preserved. This differs from the shim path (patches 0017-0019), which gates at the render_forward_clustered taa->process call site.",
+    "history_maintenance": "PRESERVED: rd_native writes the resolved output to the taa 'temp' slice (u0), then the native copy_to_rect(temp->internal), copy_to_rect(internal->history) and copy_to_rect(velocity->prev_velocity) run unchanged. No RD copy API is used; the native copy segment runs as-is (design choice recorded honestly).",
+    "descriptor_mapping": "six resources in the container binding order: t0 SRV color (internal_texture), t1 SRV depth, t2 SRV velocity, t3 SRV prev_velocity, t4 SRV history (all UNIFORM_TYPE_TEXTURE), u0/binding5 UAV output temp (UNIFORM_TYPE_IMAGE); 28-byte b0 [i64 resolution_width, i64 resolution_height, f32 disocclusion_threshold, f32 variance_dynamic, f32 reserved0], dispatch ceil(internal/8)",
+    "kernel_subset": "single-view full-resolution TAA resolve dispatch; the native history-maintenance copies are preserved. Multiview and FSR2/MetalFX temporal-upscale paths are OUT of the rd_native subset. TAA is a temporal accumulation, so the enablement captures a contiguous >=8-frame sequence (GRX_PLAN temporal DoD).",
+    "container": {
+      "path_relative_note": "injected via an absolute rd_container_path (staged copy of spike/godot-rurix/rd-native-pipeline/out/taa_resolve.rd_container.bin); byte-identical to the S1 container smoke evidence (rd_container_smoke_evidence.json, kernel taa_resolve, 69/69 verify checks). No S2 ~1-ULP probe exists for taa_resolve (S2 proved tonemap only), so this is a structural container-provenance anchor, s2_probe_proven=false.",
+      "sha256": "42af7d19f41ddb655bb4970bdced9c985010e08193fe4611ac5fd87da464cf5f",
+      "s2_probe_proven": false
+    },
+    "enablement": {
+      "harness": "ci/grx_rb_taa_resolve_rd_native_enablement_smoke.py",
+      "evidence": "spike/godot-rurix/passes/taa_resolve/rd_native_enablement_evidence.json",
+      "success_evidence": "spike/godot-rurix/passes/taa_resolve/rd_native_enablement_success_evidence.json",
+      "status": "success",
+      "real_gpu_pass": true,
+      "real_replacement": true,
+      "native_resolve_skipped": true,
+      "temporal_capture": {
+        "capture_start_frame": 16,
+        "capture_count": 8,
+        "min_temporal_frames": 8
+      },
+      "candidate_worst_max_abs_diff": 1,
+      "candidate_worst_mean_abs_diff": 0.03052662037037037,
+      "measured_note": "On the 0001-0029+0040+0041+0042 shared Route B scratch Godot (Windows D3D12 Forward+, RTX 4070 Ti): the candidate leg (backend=2 + S1-verified container) printed RXGD_RD_NATIVE_TAA_RESOLVE active (rd_native engaged; native resolve dispatch skipped by construction; native history copies preserved) and its captured contiguous 8-frame sequence (frames 16..23 under a fixed-seed use_taa orbit scene) stayed within the LDR parity thresholds (max<=2, mean<=0.25) at EVERY frame; worst-frame max_abs=1, worst mean_abs~0.0305. The fail_closed leg (backend=2 + garbage container) measured RenderingDevice rejecting the container and fell back to the native TAA resolve byte-identically to the reference sequence at every frame. The reference/fail_closed sequences byte-matched frame-for-frame (deterministic integer-driven motion).",
+      "performance_claim": "none"
+    },
+    "remaining_rounds": [
+      "multi-scene / higher-motion temporal characterization and longer convergence windows beyond the 8-frame floor",
+      "multiview + FSR2/MetalFX temporal-upscale paths beyond the single-view resolve subset",
+      "per-pass FPS baseline (contract requires >= 0.95x baseline before any default-enable discussion)"
+    ]
   },
   "supported_math_subset": {
     "variant": "single full-resolution TAA resolve (taa_resolve.glsl, Spartan-derived)",

@@ -224,3 +224,29 @@ S1 自检覆盖不到的消费端行为**未暴露任何格式问题**：`genera
 - **纹理格式**：S2 用 `R32G32B32A32_SFLOAT` 双向；真实 tonemap 输入为 HDR 内部纹理格式、
   输出为 LDR framebuffer，S3 注入需按实际 RID 格式绑定（driver 的 SRV/UAV 视图选择由
   容器反射的 type/writable 驱动，格式来自 RID 本身）。
+
+## 6. Route B rd_native 落地记录(append,2026-07-13)
+
+状态: **tonemap(0040)/ssao_blur(0041)/taa_resolve(0042) 三 pass rd_native 真替代均已落地并取得 enablement strict MEASURED success**(RTX 4070 Ti,Windows D3D12 Forward+)。本节按 §S3–S6 设计登记复制阶段第一批(ssao/taa)的实测结果与偏差。
+
+### 6.1 双尾决策(§1 分段前置)
+
+评估「rebase 0036-0038 到 0029 尾以统一线性栈」与「保持双尾」两方案后:**保持双尾**。rd_native 系列全落 branch-HEAD culling 尾(`0001-0029`),`0040+0041+0042` 依序叠加。理由:rebase fused 会改其 sha 使 `grx019` fused enablement 冻结证据失效、需全 GPU 重跑,代价超出本复制批范围;双尾是既有已文档化状态,非本批引入。最大可行 Route-B 栈 = `0001-0029+0040+0041+0042`(32 patch),`check-only` 全栈 stacked-applyable,自 scratch-0040 树增量 SCons build 链接干净。详见 `patches/PATCH_ALLOCATION.md` 双尾决策段。
+
+### 6.2 ssao_blur rd_native(patch 0041)
+
+- **注入点**:`ss_effects.cpp` `generate_ssao` Edge-Aware Blur 循环。关键偏差(相对 tonemap 范式)——SSAO 的 compute list 由 `generate_ssao` 在整条 gather/blur/interleave 链外**只开一次**,故 rd_native **不能**自开 `compute_list_begin/end`;hook 首参改为 `int64_t p_compute_list`,记到调用方已开的 list,循环每 pass 的 `compute_list_add_barrier` 负责冒险。
+- **子集**:仅 `blur_pipeline == SSAO_BLUR_PASS_SMART` 的 SMART slice 走 rd_native;场景锁 `ssao/blur_passes=1` @ quality>VERY_LOW 使每 pass 皆 SMART。WIDE/very-low/interleave/SSIL 回 native。
+- **usage bits 核实**:deinterleaved AO 纹理(RB_DEINTERLEAVED / _PONG)= `R8G8_UNORM` 且 `SAMPLING_BIT | STORAGE_BIT`(ss_effects.cpp:1123-1124),src SRV / dst UAV 前置校验双备通过。
+- **结果**:candidate 腿印 `RXGD_RD_NATIVE_SSAO_BLUR active`,captured 帧与 native reference **逐字节一致**(LDR `max_abs=0`/`mean_abs=0`);fail_closed 红腿 RD 拒容器→latch→回落 native、逐字节一致;三腿各连捕 3 帧全稳定。SSAO 经 lighting 间接调制,故帧一致性证真替代未在 LDR 容差内扰动可见结果(直接 AO 纹理表征留后续轮)。
+
+### 6.3 taa_resolve rd_native(patch 0042)
+
+- **注入点**:`TAA::process`(taa.cpp)内,替代 `!just_allocated` 分支的 `resolve()` 一次 compute dispatch(**非** shim 的 render_forward_clustered 调用点)。resolve() 本是独立 list,故 rd_native 自开自闭 compute list。
+- **history 维护保留(关键)**:rd_native 只替代 resolve dispatch(写 `temp`/u0),其后三次 native `copy_to_rect`(temp→internal / internal→history / velocity→prev_velocity)**照常运行**——时域反馈环完整。设计取舍:**让 native copy 段照跑**,不用 RD copy API(后者需 CAN_COPY bits,这些纹理只有 SAMPLING+STORAGE)。
+- **六资源**:t0..t4 SRV(color/depth/velocity/prev_velocity/history)+ u0 UAV binding 5(temp);28B b0[i64 w,i64 h,f32 disocclusion,f32 variance,f32 reserved0]。
+- **temporal 证据(GRX_PLAN DoD)**:`use_taa=true` + 定种子 orbit 场景连续捕 8 帧(frame 16..23)。candidate 腿印 `RXGD_RD_NATIVE_TAA_RESOLVE active`,**逐帧**在阈值内(max<=2/mean<=0.25),最差帧 `max_abs=1`/最差 mean≈0.0305;reference/fail_closed 序列逐帧逐字节一致(整数驱动确定性)。
+
+### 6.4 provenance 偏差(如实)
+
+tonemap 有 S2 ~1-ULP in-engine probe(`rd_native_probe_evidence.json`);**ssao_blur/taa_resolve 无 S2 probe**。两 smoke 改锚到 S1 结构级 container smoke(`rd_container_smoke_evidence.json`,ssao 49 / taa 69 结构断言),evidence 记 `s2_probe_proven=false`——结构级容器锚,非已证 parity 锚。

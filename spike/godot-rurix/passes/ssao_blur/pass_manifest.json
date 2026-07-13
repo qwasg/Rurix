@@ -71,6 +71,51 @@
     "requires_64bit_integer_shader_capability": true,
     "on_missing_resource_or_cap_or_descriptor_mismatch": "RXGD_STATUS_FALLBACK"
   },
+  "rd_native": {
+    "provenance": "rd_native_route_b",
+    "summary": "GRX Route B ssao_blur rd_native is a SEPARATE, bridge-independent in-frame real-replacement path from the shim/rxgd path documented above. It drives the main RenderingDevice directly (shader_create_from_bytecode -> compute_pipeline_create -> compute_list) so the Rurix ssao_blur kernel runs as a first-class in-frame compute dispatch for the SMART edge-aware blur slices; when it records, the native Godot SMART blur dispatch for those slices is GENUINELY SKIPPED (not a scaffold). It uses no rxgd session, sets no RxGdCaps.flags bit, and does not change any shim-path field of this manifest (godot_runtime_ssao_blur_path_enabled stays false; the shim RXGD_CAP_SSAO_BLUR_REAL_PASS bit 5 is unrelated).",
+    "backend_selector": "rendering/rurix_accel/passes/ssao_blur/backend",
+    "backend_states": {
+      "0": "disabled (default; pre-existing shim/native chain unchanged)",
+      "1": "shim (nominal; existing shim path governed by its own four settings)",
+      "2": "rd_native (engage the in-frame RD-native SMART blur slice replacement)"
+    },
+    "container_path_setting": "rendering/rurix_accel/passes/ssao_blur/rd_container_path",
+    "default_backend": 0,
+    "default_enable_state": "disabled",
+    "bridge_independent": true,
+    "cap_bit_consumed": null,
+    "rxgd_abi_version_unchanged": true,
+    "godot_patch": "spike/godot-rurix/patches/0041-rurix-accel-ssao-blur-rd-native-inframe-replacement.patch",
+    "patch_stack": "0001-0029 + 0040 + 0041 (branch-HEAD gpu_culling culling tail + the tonemap and ssao_blur rd_native slices; the culling 0027-0029 and fused 0036-0038 tails are mutually exclusive under strict git apply, so the combined 0001-0029+0036-0038+... stack is not applyable with the frozen patches)",
+    "hook_virtual": "D3D12Hooks::try_record_ssao_blur_rd_native(int64_t p_compute_list, RID p_source_slice, RID p_dest_slice, Size2i p_slice_size, float p_edge_sharpness, float p_half_screen_pixel_size_x, float p_half_screen_pixel_size_y)",
+    "shared_compute_list_note": "Unlike tonemap/taa_resolve, the SSAO compute list is opened ONCE by generate_ssao around the whole gather/blur/interleave chain, so rd_native records onto the caller's already-open compute list (p_compute_list) and MUST NOT begin/end its own; the loop's per-pass compute_list_add_barrier handles the write->read hazards.",
+    "descriptor_mapping": "t0 SRV src_ssao (UNIFORM_TYPE_TEXTURE, deinterleaved AO slice R8G8_UNORM), u0 UAV dst_ssao (UNIFORM_TYPE_IMAGE, ping-pong slice), 28-byte b0 [i64 slice_width, i64 slice_height, f32 edge_sharpness, f32 half_screen_pixel_size_x, f32 half_screen_pixel_size_y], dispatch ceil(slice/8)",
+    "kernel_subset": "MODE_SMART single-slice edge-aware blur; the candidate scene pins ssao blur_passes=1 at quality>VERY_LOW so every blur pass is SMART (the subset). The very-low and WIDE blur pipelines, the 4-slice deinterleave/interleave, and the SSIL blur are OUT of the rd_native subset and route to the native path. The Rurix kernel reads the AO slice via a plain SRV Load while Godot's native SMART blur reads via a mirror/linear SAMPLER_WITH_TEXTURE.",
+    "container": {
+      "path_relative_note": "injected via an absolute rd_container_path (staged copy of spike/godot-rurix/rd-native-pipeline/out/ssao_blur.rd_container.bin); byte-identical to the S1 container smoke evidence (rd_container_smoke_evidence.json, kernel ssao_blur, 49/49 verify checks). No S2 ~1-ULP probe exists for ssao_blur (S2 proved tonemap only), so this is a structural container-provenance anchor, s2_probe_proven=false.",
+      "sha256": "6887b3f68ed99f1d1a701f71812bd23de875dcfe893f70c1631e9490cac572cb",
+      "s2_probe_proven": false
+    },
+    "enablement": {
+      "harness": "ci/grx_rb_ssao_blur_rd_native_enablement_smoke.py",
+      "evidence": "spike/godot-rurix/passes/ssao_blur/rd_native_enablement_evidence.json",
+      "success_evidence": "spike/godot-rurix/passes/ssao_blur/rd_native_enablement_success_evidence.json",
+      "status": "success",
+      "real_gpu_pass": true,
+      "real_replacement": true,
+      "native_smart_blur_skipped": true,
+      "candidate_ldr_max_abs_diff": 0,
+      "candidate_ldr_mean_abs_diff": 0.0,
+      "measured_note": "On the 0001-0029+0040+0041+0042 shared Route B scratch Godot (Windows D3D12 Forward+, RTX 4070 Ti; 0042 additive/default-disabled here): the candidate leg (backend=2 + S1-verified container) printed RXGD_RD_NATIVE_SSAO_BLUR active (rd_native engaged; native SMART blur skipped for the replaced slices by construction) and its captured frame is BYTE-IDENTICAL to the native reference (LDR max_abs=0/mean_abs=0). The fail_closed leg (backend=2 + garbage container) measured RenderingDevice rejecting the container and fell back to the native SSAO blur byte-identically to the reference. Three consecutive captured frames per leg were byte-stable. SSAO modulates lighting indirectly, so this frame parity confirms the SMART blur replacement did not perturb the visible result within LDR tolerance (not a direct AO-texture characterization).",
+      "performance_claim": "none"
+    },
+    "remaining_rounds": [
+      "direct AO-texture (deinterleaved slice) parity characterization vs the native sampler-based SMART blur, not only the through-lighting LDR frame",
+      "the WIDE/very-low blur pipelines and the 4-slice deinterleave/interleave beyond the single SMART-slice subset",
+      "per-pass FPS baseline (contract requires >= 0.95x baseline before any default-enable discussion)"
+    ]
+  },
   "supported_math_subset": {
     "variant": "MODE_SMART (SSAO_BLUR_PASS_SMART), single blur pass on a single deinterleaved slice",
     "edge_weights": "unpack_edges (packed byte -> 4x 2-bit LRTB / 3.0) + edge_sharpness, clamped to [0,1]",

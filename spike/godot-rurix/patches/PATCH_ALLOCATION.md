@@ -51,6 +51,8 @@ ownership; keep it in sync (see §4 rules).
 | 0037 | `0037-rurix-accel-fused-post-chain-runtime-resource-binding.patch` | fused_post_chain — runtime resource binding (5 texture native handles + 64-byte b0) |
 | 0038 | `0038-rurix-accel-fused-post-chain-recording-smoke-and-real-pass-optin.patch` | fused_post_chain — recording smoke + real-pass opt-in |
 | 0040 | `0040-rurix-accel-tonemap-rd-native-inframe-replacement.patch` | tonemap **Route B rd_native** (first non-scaffold real replacement) — single slice: new `try_record_tonemap_rd_native(RID,RID,Size2i,Size2i,f32,f32,f32)` virtual + three-state `passes/tonemap/backend` selector (0=disabled/1=shim/2=rd_native) + `passes/tonemap/rd_container_path` + module RD-native pipeline (lazy `shader_create_from_bytecode`→`compute_pipeline_create`, `UniformSetCacheRD` bind, 28-byte b0, in-frame `compute_list` dispatch). Bridge-independent (no rxgd session, no `RxGdCaps.flags` bit). Stacks on the **culling tail 0001-0029** (branch HEAD). |
+| 0041 | `0041-rurix-accel-ssao-blur-rd-native-inframe-replacement.patch` | ssao_blur **Route B rd_native** (second non-scaffold real replacement) — new `try_record_ssao_blur_rd_native(int64_t compute_list,RID,RID,Size2i,f32,f32,f32)` virtual + three-state `passes/ssao_blur/backend` selector + `passes/ssao_blur/rd_container_path` + module RD-native pipeline. Records onto the ALREADY-OPEN `generate_ssao` compute list (does NOT begin/end its own — the SSAO list is opened once around gather/blur/interleave); only the SMART blur pipeline slices route through rd_native (`blur_pipeline == SSAO_BLUR_PASS_SMART`). t0 SRV / u0 UAV, 28-byte b0 [i64 slice_width, i64 slice_height, f32 edge_sharpness, f32 hspx, f32 hspy]. Bridge-independent (no cap bit). Stacks on **0001-0029 + 0040**. Enablement strict MEASURED success (LDR max_abs=0). |
+| 0042 | `0042-rurix-accel-taa-resolve-rd-native-inframe-replacement.patch` | taa_resolve **Route B rd_native** (third non-scaffold real replacement) — new `try_record_taa_resolve_rd_native(RID color,RID depth,RID velocity,RID prev_velocity,RID history,RID temp,Size2i,f32,f32)` virtual + three-state `passes/taa_resolve/backend` selector + `passes/taa_resolve/rd_container_path` + module RD-native pipeline (six resources t0..t4 SRV / u0 UAV binding 5, 28-byte b0). Injects INSIDE `TAA::process` (taa.cpp), replacing ONLY the `resolve()` compute dispatch; the native history-maintenance copies (temp→internal, internal→history, velocity→prev_velocity) still run so the temporal feedback loop is preserved. Own `compute_list` (resolve() is a standalone list). Bridge-independent (no cap bit). Stacks on **0001-0029 + 0040 + 0041**. Enablement strict MEASURED success (8-frame temporal, worst max_abs=1). |
 
 > **Route B rd_native lineage / double-tail note (0040).** Patch 0040 opens the
 > Route B rd_native series. It stacks on the **gpu_culling culling tail
@@ -66,6 +68,26 @@ ownership; keep it in sync (see §4 rules).
 > **not applyable with the frozen patches**; 0040 is validated on the maximal
 > FEASIBLE stack `0001-0029+0040` (culling tail). 0040 does not apply on the
 > fused tail either, as its hunks anchor on culling-tail (gpu_culling) context.
+
+> **Double-tail decision (0041/0042 batch, 2026-07-13): KEEP the double tail;
+> do NOT rebase fused onto the culling tail.** The Route B first-batch task
+> considered unifying to a single linear stack by rebasing 0036-0038 onto the
+> 0029 tail. Decision after evaluation: keep the two tails independent and land
+> the rd_native series (0040/0041/0042) on the branch-HEAD **culling tail
+> (0001-0029)**, which is the maximal feasible Route-B stack. Rationale: (1) the
+> double tail is a pre-existing, already-documented condition, not introduced by
+> this batch; (2) 0040 already validated on the culling tail and 0041/0042
+> extend it additively; (3) rebasing 0036-0038 would change their sha256 and
+> invalidate the frozen fused enablement success evidence (`grx019` pins those
+> shas), forcing a full GPU re-run of the fused enablement — a cost
+> disproportionate to this copy-stage batch and outside its scope; (4) the
+> fused tail's own rd_native/benchmark work can proceed on its tail
+> independently. The single shared Route B scratch build for this batch is
+> `0001-0029 + 0040 + 0041 + 0042` (32 patches; `check-only` stacked-applyable,
+> and a real incremental SCons build linked cleanly). A future full-stack
+> benchmark that needs fused + rd_native in ONE linear stack is the trigger to
+> revisit the rebase (owner-scoped), at which point the fused enablement must be
+> re-signed.
 
 > **Wave 4 print-gating revision note (0009/0010/0013/0016/0019/0022 revised
 > in place, no number change — §4 rule 2).** The per-dispatch module-side
@@ -113,7 +135,7 @@ reserved numbers become holes (monotonic, holes allowed — §4).
 | 0030-0032 | instance_compaction | GRX-016 | 0030 gate+callsite / 0031 runtime binding / 0032 recording+real-pass opt-in |
 | 0033-0035 | indirect_args | GRX-018 | 0033 gate+callsite / 0034 runtime binding / 0035 recording+real-pass opt-in |
 | 0039 | pso_prewarm | GRX-021 | NOT NEEDED — permanent hole. GRX-021 auto-triggers the kernel prewarm from `rxgd_create_d3d12_session` (the bridge session-creation path patch 0001 already routes through), so no Godot-side call site is required. See `spike/godot-rurix/passes/pso_prewarm/pso_prewarm_decision.json` (`patch_0039_status=not_needed`). A future slice may claim 0039 for a Godot-visible prewarm toggle/telemetry surface. |
-| 0040-0049 | Route B rd_native | GRX Route B | RD-native in-frame compute replacement series. tonemap rd_native = **0040** (landed, §1; first non-scaffold real replacement). Later rd_native slices (taa/ssao/particles/etc.) take 0041-0049 as they land. Claimed atomically with the consuming patch per §4 rule 3; this reservation lands with patch 0040. |
+| 0040-0049 | Route B rd_native | GRX Route B | RD-native in-frame compute replacement series. tonemap rd_native = **0040**, ssao_blur rd_native = **0041**, taa_resolve rd_native = **0042** (all landed, §1; non-scaffold real replacements, all strict MEASURED success). Later rd_native slices (particles/etc.) take 0043-0049 as they land. Claimed atomically with the consuming patch per §4 rule 3. |
 | 0050+ | bindless | GRX-022 | reserve pool start (**BUMPED from 0040+** so Route B rd_native can own 0040-0049; bindless is not started). Allocate concrete numbers only AFTER the bindless RFC is adjudicated. |
 
 > Milestone ordering note: the patch blocks are grouped by pass, not strictly by

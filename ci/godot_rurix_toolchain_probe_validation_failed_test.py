@@ -3959,15 +3959,19 @@ def run_grx_gate_sequence_cases() -> None:
     # out (contract + patch applyability + standalone dispatch smoke + real-pass
     # enablement strict success + owner default-enable decision all green), so
     # they advance next_action in turn. grx015 (gpu_culling) is the GRX Wave 4
-    # BRIDGE frontier: its contract + standalone D3D12 dispatch smoke are green
-    # but its Godot patches (0027-0029), real-pass enablement, and owner
-    # default-enable decision are DEFERRED to the next serial patch slice, so it
-    # is NOT all_ready. The walk therefore fail-closed STOPS at grx015 with a
-    # recorded grx_gate_module_error and leaves next_action at grx014's advance
+    # BRIDGE frontier: its contract, patch applyability (the Godot patches
+    # 0027-0029 have LANDED and stack cleanly), and standalone D3D12 dispatch
+    # smoke are green, but its real-pass enablement is MEASURED-BLOCKED (the
+    # enablement evidence exists on disk yet strict_success is not yet true) and
+    # the owner default-enable decision is not recorded, so it is NOT all_ready.
+    # The walk therefore fail-closed STOPS at grx015 with a recorded
+    # grx_gate_module_error and leaves next_action at grx014's advance
     # (start_grx015_gpu_culling_pass_contract); grx016/grx018/grx019 are never
     # consulted. This asserts the REAL, honest gate state, not a fabricated
-    # all-green ((1b) lesson: gate-state assertions track reality). Every gate
-    # keeps default_enable_state=disabled.
+    # all-green ((1b) lesson: gate-state assertions track reality — the earlier
+    # fixture expected the 0027-0029 patch block DEFERRED, but the block has since
+    # landed measured-blocked, so the first blocking issue is now the enablement
+    # strict-success gap). Every gate keeps default_enable_state=disabled.
     grx014_next_action = "start_grx015_gpu_culling_pass_contract"
     real_walk = probe.walk_grx_gate_sequence(list(probe.GRX_GATE_SEQUENCE), base)
     if len(real_walk["evaluations"]) != 5:
@@ -3987,21 +3991,24 @@ def run_grx_gate_sequence_cases() -> None:
                 f"the fully-ready {gate_id} gate must carry no module_error: {record!r}"
             )
     # grx015 is honestly not-ready: it must NOT be all_ready, MUST carry a
-    # module_error, and its first_issue must name the deferred patch block.
+    # module_error, and its first_issue must name the measured-blocked real-pass
+    # enablement gap (the 0027-0029 patch block has LANDED, so the first blocking
+    # issue is no longer the deferred patch block).
     if grx015_record.get("gate_id") != "grx015" or grx015_record.get("all_ready") is True:
         raise AssertionError(
-            f"the grx015 bridge gate must be not-ready (patch/enablement/decision "
-            f"deferred): {grx015_record!r}"
+            f"the grx015 bridge gate must be not-ready (enablement measured-blocked / "
+            f"decision deferred): {grx015_record!r}"
         )
     if not grx015_record.get("module_error"):
         raise AssertionError(
             f"the not-ready grx015 gate must record a grx_gate_module_error: {grx015_record!r}"
         )
     grx015_issue = grx015_record.get("first_issue") or ""
-    if "0027" not in grx015_issue or "DEFERRED" not in grx015_issue:
+    if "enablement" not in grx015_issue or "strict_success" not in grx015_issue:
         raise AssertionError(
-            "the grx015 first_issue must name the deferred gpu_culling patch block "
-            f"(0027-0029, DEFERRED); got {grx015_issue!r}"
+            "the grx015 first_issue must name the measured-blocked real-pass "
+            "enablement strict-success gap (the gpu_culling patch block 0027-0029 "
+            f"has landed measured-blocked); got {grx015_issue!r}"
         )
     if len(real_walk["module_errors"]) != 1 or real_walk["module_errors"][0].get("gate_id") != "grx015":
         raise AssertionError(
