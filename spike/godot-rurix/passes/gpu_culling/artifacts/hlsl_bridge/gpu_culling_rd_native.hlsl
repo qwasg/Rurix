@@ -16,10 +16,20 @@
 //     push_constant_too_large and CANNOT drive an RD-native container. The CBV
 //     route is a dead path here (parse_rts0 rejects root-descriptor CBVs and the
 //     Rurix binding_layout always emits CBVs as root descriptors).
-//   * Everything else — the conservative bounding-sphere test, the 6-plane
-//     inward-facing cull, the InterlockedOr bitmask write, and the per-surface
-//     InterlockedAdd(+1) count write — is byte-for-byte the same math as the
-//     shim kernel (see PASS_CONTRACT.md sec 5.1 and gpu_culling_frustum_count.hlsl).
+//   * The conservative bounding-sphere test, the 6-plane inward-facing cull and
+//     the InterlockedOr bitmask write are byte-for-byte the same math as the shim
+//     kernel (see PASS_CONTRACT.md sec 5.1 and gpu_culling_frustum_count.hlsl).
+//   * The per-surface count write is a HIGH-WATER-MARK
+//     InterlockedMax(count, instance + 1), NOT the shim's InterlockedAdd(+1)
+//     count-of-visible. Rationale (see the count-write block below and
+//     rd_native_device_removal_diagnosis.md sec 8): the native indirect draw
+//     renders instances [0 .. count-1] BY INDEX from the UN-compacted transform
+//     buffer (this count-only subset never remaps/compacts transforms — GRX-016),
+//     so the written count must be a valid PREFIX LENGTH that covers every visible
+//     instance. count-of-visible is only a correct prefix length when the visible
+//     set is exactly [0 .. V-1]; for a scattered visible set it over-culls the
+//     visible instances at index >= V. The high-water-mark is the minimal
+//     picture-preserving count and never over-culls.
 //
 // Runtime binding (matches artifacts/gpu_culling_rd_native_descriptor_layout.json):
 //   t0 space0 : StructuredBuffer<float>   src_transforms (Godot multimesh->buffer;
@@ -35,10 +45,11 @@
 //   b0 space0 : 48-byte / 12-dword Rurix-defined constants (see below)
 //
 // Pre-dispatch runtime responsibility (patch 0046, main RenderingDevice): each
-// surface's instance-count dword and the whole visibility bitmask are zeroed via
-// RD::buffer_clear BEFORE compute_list_begin (buffer_clear is forbidden while a
-// compute list is active), so the InterlockedAdd/InterlockedOr accumulate from 0.
-// All other command dwords (dword 0 = vertices-drawn count) are never touched.
+// surface's instance-count dword and the whole visibility bitmask are zeroed
+// BEFORE compute_list_begin (an aligned buffer_copy from a zero buffer for the
+// count dwords, a buffer_clear for the bitmask; both forbidden while a compute
+// list is active), so the InterlockedMax/InterlockedOr accumulate from 0. All
+// other command dwords (dword 0 = vertices-drawn count) are never touched.
 //
 // Thread mapping: [numthreads(64,1,1)], one thread per instance; dispatch
 // (ceil(instance_count/64), 1, 1).
@@ -116,13 +127,24 @@ void main(uint3 dispatch_id : SV_DispatchThreadID) {
     if (visible) {
         // GRX-016/018 shared interface: bit (i & 31) of word (i >> 5).
         InterlockedOr(dst_visibility[instance >> 5u], 1u << (instance & 31u));
-        // Count-only command write: +1 into EACH surface's instance-count dword
-        // (the same dword the CPU writes at mesh_storage.cpp L2210); assumes the
-        // dword was zeroed before this dispatch.
+        // High-water-mark count write: raise EACH surface's instance-count dword
+        // (the same dword the CPU writes at mesh_storage.cpp L2210) to
+        // (instance + 1). After the dispatch each count == (highest visible
+        // instance index) + 1. The native indirect draw renders instances
+        // [0 .. count-1] BY INDEX from the UN-compacted transform buffer, so the
+        // count must be a PREFIX LENGTH that covers every visible instance — NOT
+        // the count-of-visible (an InterlockedAdd(+1) would write count = number
+        // visible, which drops the visible instances at index >= count whenever
+        // the visible set is not exactly the prefix [0 .. V-1]; that scattered-
+        // visibility over-cull is the GRX-015 picture-preservation bug this
+        // corrects). The high-water-mark never over-culls (the tail
+        // [count .. instance_count-1] it drops is entirely invisible) and still
+        // reduces the draw when the instance-array tail is off-screen. Assumes the
+        // dword was zeroed before this dispatch, so 0 visible -> count stays 0.
         for (uint s = 0u; s < surface_count; s++) {
-            InterlockedAdd(
+            InterlockedMax(
                 dst_commands[s * command_stride_dwords + instance_count_dword_index],
-                1u);
+                instance + 1u);
         }
     }
 }

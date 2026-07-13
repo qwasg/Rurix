@@ -221,10 +221,30 @@ sub-instance. Therefore:
   `dist_p = dot(n_p, world_center) + d_p`; instance culled iff **any** plane
   has `dist_p < -world_radius`; otherwise visible.
 - Visible instance → (a) `InterlockedOr` its bit into the `dst_visibility`
-  bitmask word; (b) `InterlockedAdd(+1)` into **each** surface's
-  instance-count dword of `dst_commands` (mirroring the CPU write loop over
-  `surface_count` at `mesh_storage.cpp:2205-2212`). This is the **count-only**
-  form: transforms are not remapped/compacted (GRX-016 territory).
+  bitmask word; (b) accumulate **each** surface's instance-count dword of
+  `dst_commands` (mirroring the CPU write loop over `surface_count` at
+  `mesh_storage.cpp:2205-2212`). This is the **count-only** form: transforms are
+  not remapped/compacted (GRX-016 territory).
+- **Count-write semantics — picture-preservation refinement (rd_native kernel
+  R1c; container-only, no 0046 patch/b0/RTS0 change).** Because transforms are NOT
+  compacted, the native indirect draw
+  renders instances `[0 .. InstanceCount-1]` **by index** from the un-compacted
+  transform buffer. The written count is therefore a **prefix length**, and it
+  must cover *every* visible instance for the cull to be picture-preserving.
+  `InterlockedAdd(+1)` writes `InstanceCount = count-of-visible`, which is a
+  correct prefix length **only when the visible set is exactly the prefix
+  `[0 .. V-1]`**; for a *scattered* visible set it drops the visible instances at
+  index ≥ V — a picture-breaking over-cull (convicted numerically + on real
+  hardware, `rd_native_device_removal_diagnosis.md` §8). The rd_native kernel
+  therefore uses the **high-water-mark** `InterlockedMax(count, instance + 1)`, so
+  `InstanceCount = (highest visible index) + 1`: it never over-culls (the dropped
+  tail `[count .. N-1]` is entirely invisible) and still reduces the draw when the
+  instance-array *tail* is off-screen. The shim / canonical `frustum_count` kernel
+  (backend==1, a superseded and device-removing side-channel path) still carries
+  the `InterlockedAdd(+1)` count-of-visible and shares this latent prefix
+  limitation; it is not corrected here because that path is not on the enablement
+  track. The math-parity fixtures (§ math_parity) model the shim's count-of-visible
+  and remain valid for the shim.
 - Kernel assumes the instance-count dwords and the bitmask buffer are **zeroed
   before dispatch** (runtime responsibility of the later patch slices,
   mirroring the GRX-014 zeroed-destination convention); all other command

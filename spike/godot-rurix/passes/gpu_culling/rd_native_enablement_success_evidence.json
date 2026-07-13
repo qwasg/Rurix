@@ -1076,5 +1076,8 @@
   "real_in_frame_cull": true,
   "no_device_removal": true,
   "picture_preserving": true,
-  "candidate_ldr_max_abs_diff": 0
+  "candidate_ldr_max_abs_diff": 0,
+  "evidence_kind": "historical_measured_success",
+  "latest_evidence_path": "spike/godot-rurix/passes/gpu_culling/rd_native_enablement_evidence.json",
+  "success_evidence_note": "Historical measured success artifact for the GRX Route B gpu_culling rd_native in-frame compute-cull gate. Written ONLY on a strict status=success run (candidate engaged rd_native AND no leg showed a device removal AND the candidate frame byte-matched the native reference (picture-preserving conservative cull) AND the fail_closed leg fell back byte-identically AND every audit passed) and never overwritten by a later SKIP/FAIL run. Even this success keeps default_enable_state=disabled and performance_claim=none."
 }

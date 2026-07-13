@@ -1,7 +1,7 @@
 {
   "inputs": {
     "dxil": "..\\passes\\gpu_culling\\artifacts\\gpu_culling_rd_native.dxil",
-    "dxil_size": 5692,
+    "dxil_size": 5688,
     "dxil_parts": [
       "SFI0",
       "ISG1",
@@ -17,7 +17,7 @@
   },
   "container": {
     "path": "out\\gpu_culling_rd_native.rd_container.bin",
-    "size": 6192,
+    "size": 6188,
     "shader_name": "rurix_gpu_culling_rd_native",
     "format": "0x43443344",
     "format_version": 1,
