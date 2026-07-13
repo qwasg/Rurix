@@ -1,0 +1,112 @@
+{
+  "inputs": {
+    "dxil": "H:\\rurix\\spike\\godot-rurix\\passes\\taa_resolve\\artifacts\\taa_resolve.dxil",
+    "dxil_size": 12932,
+    "dxil_parts": [
+      "SFI0",
+      "ISG1",
+      "OSG1",
+      "PSV0",
+      "STAT",
+      "HASH",
+      "DXIL"
+    ],
+    "rts0": "H:\\rurix\\spike\\godot-rurix\\passes\\taa_resolve\\artifacts\\taa_resolve.rts0.bin",
+    "rts0_size": 152,
+    "rts0_version": 1
+  },
+  "container": {
+    "path": "H:\\rurix\\spike\\godot-rurix\\rd-native-pipeline\\out\\taa_resolve.rd_container.bin",
+    "size": 13512,
+    "shader_name": "rurix_taa_resolve",
+    "format": "0x43443344",
+    "format_version": 1,
+    "pipeline_type": "compute",
+    "compute_local_size": [
+      8,
+      8,
+      1
+    ],
+    "push_constant_size": 28,
+    "root_signature_crc": "0x51E7E007"
+  },
+  "set0": {
+    "resource_root_param_idx": 1,
+    "resource_descriptor_count": 6,
+    "sampler_root_param_idx": "UINT32_MAX",
+    "uniforms": [
+      {
+        "name": "color_buffer",
+        "binding": 0,
+        "type": 2,
+        "stages": 16,
+        "length": 1,
+        "writable": 0,
+        "res_class": 2,
+        "resource_descriptor_offset": 0,
+        "register": "t0",
+        "binding_kind": "texture2d"
+      },
+      {
+        "name": "depth_buffer",
+        "binding": 1,
+        "type": 2,
+        "stages": 16,
+        "length": 1,
+        "writable": 0,
+        "res_class": 2,
+        "resource_descriptor_offset": 1,
+        "register": "t1",
+        "binding_kind": "texture2d"
+      },
+      {
+        "name": "velocity_buffer",
+        "binding": 2,
+        "type": 2,
+        "stages": 16,
+        "length": 1,
+        "writable": 0,
+        "res_class": 2,
+        "resource_descriptor_offset": 2,
+        "register": "t2",
+        "binding_kind": "texture2d"
+      },
+      {
+        "name": "last_velocity_buffer",
+        "binding": 3,
+        "type": 2,
+        "stages": 16,
+        "length": 1,
+        "writable": 0,
+        "res_class": 2,
+        "resource_descriptor_offset": 3,
+        "register": "t3",
+        "binding_kind": "texture2d"
+      },
+      {
+        "name": "history_buffer",
+        "binding": 4,
+        "type": 2,
+        "stages": 16,
+        "length": 1,
+        "writable": 0,
+        "res_class": 2,
+        "resource_descriptor_offset": 4,
+        "register": "t4",
+        "binding_kind": "texture2d"
+      },
+      {
+        "name": "output_buffer",
+        "binding": 5,
+        "type": 3,
+        "stages": 16,
+        "length": 1,
+        "writable": 1,
+        "res_class": 3,
+        "resource_descriptor_offset": 5,
+        "register": "u0",
+        "binding_kind": "rwtexture2d"
+      }
+    ]
+  }
+}

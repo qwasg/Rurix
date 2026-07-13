@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "subject": "grx_rd_container_smoke",
+  "segment": "route_b_s1_rd_container_pipeline",
+  "status": "pass",
+  "timestamp": "2026-07-13T08:11:27+08:00",
+  "run_url": "local interactive runner",
+  "host_only": true,
+  "gpu_used": false,
+  "real_gpu_pass": false,
+  "note": "Structural-only CI smoke for the route-B RD-native container generator. Batch-builds a RenderingShaderContainerD3D12 container per offline compute pass and independently self-checks each one at the byte level. Layouts that exceed the 128B root-constant window (gpu_culling, indirect_args) are pinned as expected fail-closed. No GPU/engine is touched; runtime consumption is proven separately by the S2 probe (ci/grx_rd_native_probe_smoke.py).",
+  "counts": {
+    "containers_produced": 10,
+    "fail_closed": 3,
+    "verify_checks_total": 555,
+    "kernels_pinned": 13
+  },
+  "kernels": [
+    {
+      "kernel": "cluster_store",
+      "expected_status": "container",
+      "actual_status": "container",
+      "container": "spike/godot-rurix/rd-native-pipeline/out/cluster_store.rd_container.bin",
+      "size_bytes": 5728,
+      "push_constant_size": 32,
+      "resource_descriptor_count": 3,
+      "container_sha256": "6623ce6c5eddc19dbf9e49e2aeacbbb4f3c6a6ae48a203494a103c3e6dda2c47",
+      "verify_checks": 54,
+      "verify_failures": []
+    },
+    {
+      "kernel": "fused_post_chain",
+      "expected_status": "container",
+      "actual_status": "container",
+      "container": "spike/godot-rurix/rd-native-pipeline/out/fused_post_chain.rd_container.bin",
+      "size_bytes": 6720,
+      "push_constant_size": 64,
+      "resource_descriptor_count": 5,
+      "container_sha256": "00e6a69d0780975fa1a7a6bbc29b8d9bef5ede20e28807ea0ca7404c002b6ba7",
+      "verify_checks": 64,
+      "verify_failures": []
+    },
+    {
+      "kernel": "gpu_culling",
+      "expected_status": "fail_closed",
+      "actual_status": "fail_closed",
+      "category": "push_constant_too_large",
+      "reason": "push_constant_size 144B exceeds MAX_PUSH_CONSTANT_SIZE 128B (rendering_device.cpp:6101); this layout must migrate b0 to a CBV before a route-B container can be emitted"
+    },
+    {
+      "kernel": "indirect_args_validate",
+      "expected_status": "fail_closed",
+      "actual_status": "fail_closed",
+      "category": "push_constant_too_large",
+      "reason": "push_constant_size 176B exceeds MAX_PUSH_CONSTANT_SIZE 128B (rendering_device.cpp:6101); this layout must migrate b0 to a CBV before a route-B container can be emitted"
+    },
+    {
+      "kernel": "indirect_args_write",
+      "expected_status": "fail_closed",
+      "actual_status": "fail_closed",
+      "category": "push_constant_too_large",
+      "reason": "push_constant_size 176B exceeds MAX_PUSH_CONSTANT_SIZE 128B (rendering_device.cpp:6101); this layout must migrate b0 to a CBV before a route-B container can be emitted"
+    },
+    {
+      "kernel": "instance_compaction_scan_groups",
+      "expected_status": "container",
+      "actual_status": "container",
+      "container": "spike/godot-rurix/rd-native-pipeline/out/instance_compaction_scan_groups.rd_container.bin",
+      "size_bytes": 4932,
+      "push_constant_size": 32,
+      "resource_descriptor_count": 3,
+      "container_sha256": "47445ff7bf72041df066564055605a62a93b9c126bbfa41eaddde1299e83c2dd",
+      "verify_checks": 54,
+      "verify_failures": []
+    },
+    {
+      "kernel": "instance_compaction_scan_local",
+      "expected_status": "container",
+      "actual_status": "container",
+      "container": "spike/godot-rurix/rd-native-pipeline/out/instance_compaction_scan_local.rd_container.bin",
+      "size_bytes": 5104,
+      "push_constant_size": 32,
+      "resource_descriptor_count": 3,
+      "container_sha256": "c6da87a0feb12546e9baeb09a42f78dcd78fe5d0d3d682d6f32e275a3cb1efb5",
+      "verify_checks": 54,
+      "verify_failures": []
+    },
+    {
+      "kernel": "instance_compaction_scatter",
+      "expected_status": "container",
+      "actual_status": "container",
+      "container": "spike/godot-rurix/rd-native-pipeline/out/instance_compaction_scatter.rd_container.bin",
+      "size_bytes": 5136,
+      "push_constant_size": 32,
+      "resource_descriptor_count": 5,
+      "container_sha256": "15e203d2f5c3af65934a28b654786e5d4deeb5bf298fa52c0fe7424573d1ae70",
+      "verify_checks": 64,
+      "verify_failures": []
+    },
+    {
+      "kernel": "luminance_reduction",
+      "expected_status": "container",
+      "actual_status": "container",
+      "container": "spike/godot-rurix/rd-native-pipeline/out/luminance_reduction.rd_container.bin",
+      "size_bytes": 4436,
+      "push_constant_size": 28,
+      "resource_descriptor_count": 2,
+      "container_sha256": "170cda5d06587712312216d4c4cb688264de1e0dace7e968779d2ed459712f71",
+      "verify_checks": 49,
+      "verify_failures": []
+    },
+    {
+      "kernel": "particles_copy",
+      "expected_status": "container",
+      "actual_status": "container",
+      "container": "spike/godot-rurix/rd-native-pipeline/out/particles_copy.rd_container.bin",
+      "size_bytes": 6564,
+      "push_constant_size": 128,
+      "resource_descriptor_count": 2,
+      "container_sha256": "cf7be95f049af775c6bde9482777bb29cb4541991df4ea68031302237ff176b6",
+      "verify_checks": 49,
+      "verify_failures": []
+    },
+    {
+      "kernel": "ssao_blur",
+      "expected_status": "container",
+      "actual_status": "container",
+      "container": "spike/godot-rurix/rd-native-pipeline/out/ssao_blur.rd_container.bin",
+      "size_bytes": 5072,
+      "push_constant_size": 28,
+      "resource_descriptor_count": 2,
+      "container_sha256": "6887b3f68ed99f1d1a701f71812bd23de875dcfe893f70c1631e9490cac572cb",
+      "verify_checks": 49,
+      "verify_failures": []
+    },
+    {
+      "kernel": "taa_resolve",
+      "expected_status": "container",
+      "actual_status": "container",
+      "container": "spike/godot-rurix/rd-native-pipeline/out/taa_resolve.rd_container.bin",
+      "size_bytes": 13512,
+      "push_constant_size": 28,
+      "resource_descriptor_count": 6,
+      "container_sha256": "42af7d19f41ddb655bb4970bdced9c985010e08193fe4611ac5fd87da464cf5f",
+      "verify_checks": 69,
+      "verify_failures": []
+    },
+    {
+      "kernel": "tonemap",
+      "expected_status": "container",
+      "actual_status": "container",
+      "container": "spike/godot-rurix/rd-native-pipeline/out/tonemap.rd_container.bin",
+      "size_bytes": 4836,
+      "push_constant_size": 28,
+      "resource_descriptor_count": 2,
+      "container_sha256": "ef8668e7330a7bfabb59a80b318c132058baee014a279a7e8ffdba8dec5fa8db",
+      "verify_checks": 49,
+      "verify_failures": []
+    }
+  ],
+  "failures": []
+}

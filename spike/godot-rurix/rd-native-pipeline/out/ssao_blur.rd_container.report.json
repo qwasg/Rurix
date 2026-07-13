@@ -1,7 +1,7 @@
 {
   "inputs": {
-    "dxil": "H:\\rurix\\spike\\godot-rurix\\passes\\tonemap\\artifacts\\tonemap.dxil",
-    "dxil_size": 4436,
+    "dxil": "H:\\rurix\\spike\\godot-rurix\\passes\\ssao_blur\\artifacts\\ssao_blur.dxil",
+    "dxil_size": 4672,
     "dxil_parts": [
       "SFI0",
       "ISG1",
@@ -11,14 +11,14 @@
       "HASH",
       "DXIL"
     ],
-    "rts0": "H:\\rurix\\spike\\godot-rurix\\passes\\tonemap\\artifacts\\tonemap.rts0.bin",
+    "rts0": "H:\\rurix\\spike\\godot-rurix\\passes\\ssao_blur\\artifacts\\ssao_blur.rts0.bin",
     "rts0_size": 152,
     "rts0_version": 1
   },
   "container": {
-    "path": "H:\\rurix\\spike\\godot-rurix\\rd-native-pipeline\\out\\tonemap.rd_container.bin",
-    "size": 4836,
-    "shader_name": "rurix_tonemap",
+    "path": "H:\\rurix\\spike\\godot-rurix\\rd-native-pipeline\\out\\ssao_blur.rd_container.bin",
+    "size": 5072,
+    "shader_name": "rurix_ssao_blur",
     "format": "0x43443344",
     "format_version": 1,
     "pipeline_type": "compute",
@@ -36,7 +36,7 @@
     "sampler_root_param_idx": "UINT32_MAX",
     "uniforms": [
       {
-        "name": "src_color",
+        "name": "src_ssao",
         "binding": 0,
         "type": 2,
         "stages": 16,
@@ -48,7 +48,7 @@
         "binding_kind": "texture2d"
       },
       {
-        "name": "dst_color",
+        "name": "dst_ssao",
         "binding": 1,
         "type": 3,
         "stages": 16,

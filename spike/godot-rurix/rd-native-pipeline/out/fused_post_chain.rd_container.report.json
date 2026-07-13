@@ -1,0 +1,100 @@
+{
+  "inputs": {
+    "dxil": "H:\\rurix\\spike\\godot-rurix\\passes\\fused_post_chain\\artifacts\\fused_post_chain.dxil",
+    "dxil_size": 6180,
+    "dxil_parts": [
+      "SFI0",
+      "ISG1",
+      "OSG1",
+      "PSV0",
+      "STAT",
+      "HASH",
+      "DXIL"
+    ],
+    "rts0": "H:\\rurix\\spike\\godot-rurix\\passes\\fused_post_chain\\artifacts\\fused_post_chain.rts0.bin",
+    "rts0_size": 152,
+    "rts0_version": 1
+  },
+  "container": {
+    "path": "H:\\rurix\\spike\\godot-rurix\\rd-native-pipeline\\out\\fused_post_chain.rd_container.bin",
+    "size": 6720,
+    "shader_name": "rurix_fused_post_chain",
+    "format": "0x43443344",
+    "format_version": 1,
+    "pipeline_type": "compute",
+    "compute_local_size": [
+      8,
+      8,
+      1
+    ],
+    "push_constant_size": 64,
+    "root_signature_crc": "0x5D828EFE"
+  },
+  "set0": {
+    "resource_root_param_idx": 1,
+    "resource_descriptor_count": 5,
+    "sampler_root_param_idx": "UINT32_MAX",
+    "uniforms": [
+      {
+        "name": "src_color",
+        "binding": 0,
+        "type": 2,
+        "stages": 16,
+        "length": 1,
+        "writable": 0,
+        "res_class": 2,
+        "resource_descriptor_offset": 0,
+        "register": "t0",
+        "binding_kind": "texture2d"
+      },
+      {
+        "name": "lum_source",
+        "binding": 1,
+        "type": 2,
+        "stages": 16,
+        "length": 1,
+        "writable": 0,
+        "res_class": 2,
+        "resource_descriptor_offset": 1,
+        "register": "t1",
+        "binding_kind": "texture2d"
+      },
+      {
+        "name": "prev_luminance",
+        "binding": 2,
+        "type": 2,
+        "stages": 16,
+        "length": 1,
+        "writable": 0,
+        "res_class": 2,
+        "resource_descriptor_offset": 2,
+        "register": "t2",
+        "binding_kind": "texture2d"
+      },
+      {
+        "name": "dst_color",
+        "binding": 3,
+        "type": 3,
+        "stages": 16,
+        "length": 1,
+        "writable": 1,
+        "res_class": 3,
+        "resource_descriptor_offset": 3,
+        "register": "u0",
+        "binding_kind": "rwtexture2d"
+      },
+      {
+        "name": "dst_luminance",
+        "binding": 4,
+        "type": 3,
+        "stages": 16,
+        "length": 1,
+        "writable": 1,
+        "res_class": 3,
+        "resource_descriptor_offset": 4,
+        "register": "u1",
+        "binding_kind": "rwtexture2d"
+      }
+    ]
+  }
+}

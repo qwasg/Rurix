@@ -17,6 +17,12 @@ external/godot-master:
      input .rts0.bin, crc == zlib.crc32, reflection offsets == RTS0 table slots,
      compute_local_size == PSV0 numthreads.
 
+Callable API for the S1 batch smoke: ``verify_container_file(container, dxil,
+rts0, resources)`` returns ``(check_count, failures)`` where ``resources`` is the
+effective per-kernel layout resource list (variant kernels pull it from
+``layout["variants"][i]["resources"]``). ``main()`` keeps the single-file CLI
+(default: the tonemap fixture).
+
 No GPU, no engine. Exit 0 = all checks pass.
 """
 
@@ -38,17 +44,18 @@ UINT32_MAX = 0xFFFFFFFF
 RP_DESCRIPTOR_TABLE = 0
 RP_32BIT_CONSTANTS = 1
 
-FAILURES = []
-CHECK_COUNT = 0
+# Per-run check state (reset by verify_container_file). Single-threaded, so
+# module-level state is fine and keeps the source-anchored check() labels intact.
+_STATE = {"failures": [], "count": 0, "quiet": False}
 
 
 def check(cond, label):
-    global CHECK_COUNT
-    CHECK_COUNT += 1
-    status = "ok " if cond else "FAIL"
-    print("  [%s] %s" % (status, label))
+    _STATE["count"] += 1
+    if not _STATE["quiet"] or not cond:
+        status = "ok " if cond else "FAIL"
+        print("  [%s] %s" % (status, label))
     if not cond:
-        FAILURES.append(label)
+        _STATE["failures"].append(label)
 
 
 def align4(n):
@@ -214,27 +221,28 @@ def parse_psv0_numthreads(dxil):
     return None, None
 
 
-# --- main -------------------------------------------------------------------
+# --- reusable verification body --------------------------------------------
 
-def main():
-    here = Path(__file__).resolve().parent
-    default_pass = here.parent / "passes" / "tonemap" / "artifacts"
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--container", type=Path, default=here / "out" / "tonemap.rd_container.bin")
-    ap.add_argument("--dxil", type=Path, default=default_pass / "tonemap.dxil")
-    ap.add_argument("--rts0", type=Path, default=default_pass / "tonemap.rts0.bin")
-    ap.add_argument("--layout", type=Path, default=default_pass / "tonemap_descriptor_layout.json")
-    args = ap.parse_args()
+def verify_container_file(container_path, dxil_path, rts0_path, resources, quiet=False):
+    """Structurally self-check one container against its source artifacts.
 
-    b = args.container.read_bytes()
-    dxil = args.dxil.read_bytes()
-    rts0_bytes = args.rts0.read_bytes()
-    layout = json.loads(args.layout.read_bytes().decode("utf-8"))
+    ``resources`` = the effective per-kernel layout resource list (for variant
+    kernels this is layout["variants"][i]["resources"]). Returns
+    ``(check_count, failures)``; ``failures`` is empty iff every check passed."""
+    _STATE["failures"] = []
+    _STATE["count"] = 0
+    _STATE["quiet"] = quiet
 
-    print("== A. from_bytes replay (%s, %d bytes)" % (args.container.name, len(b)))
+    b = container_path.read_bytes()
+    dxil = dxil_path.read_bytes()
+    rts0_bytes = rts0_path.read_bytes()
+
+    if not quiet:
+        print("== A. from_bytes replay (%s, %d bytes)" % (container_path.name, len(b)))
     m = replay_from_bytes(b)
 
-    print("== B. shader_create_from_container consumer view (:3267-3352)")
+    if not quiet:
+        print("== B. shader_create_from_container consumer view (:3267-3352)")
     check(m["pipeline_type"] == PIPELINE_TYPE_COMPUTE,
           "pipeline_type == COMPUTE (RD gate rendering_device.cpp:4626)")
     check(m["stage_count"] == 1 and m["stages"] == [SHADER_STAGE_COMPUTE],
@@ -271,13 +279,14 @@ def main():
         check(u["root_param_idx"] == UINT32_MAX and u["sampler_descriptor_offset"] == UINT32_MAX,
               "binding %d root descriptor / sampler sentinels" % u["binding"])
 
-    print("== C. cross-artifact consistency")
+    if not quiet:
+        print("== C. cross-artifact consistency")
     check(m["shaders"][0]["flags"] == 0 and m["shaders"][0]["code"] == dxil,
-          "embedded shader code == %s byte-for-byte, uncompressed" % args.dxil.name)
+          "embedded shader code == %s byte-for-byte, uncompressed" % dxil_path.name)
     check(m["shaders"][0]["decompressed_size"] == len(dxil),
           "code_decompressed_size == dxil size (decompress memcpy path :983-990)")
     check(m["root_signature_bytes"] == rts0_bytes,
-          "footer root signature == %s byte-for-byte (CreateRootSignature input :3342)" % args.rts0.name)
+          "footer root signature == %s byte-for-byte (CreateRootSignature input :3342)" % rts0_path.name)
     check(m["root_signature_crc"] == (zlib.crc32(rts0_bytes) & 0xFFFFFFFF),
           "root_signature_crc == zlib.crc32(rts0) (writer d3d12.cpp:761-762)")
 
@@ -292,9 +301,14 @@ def main():
           "reflection resource_root_param_idx=%d points at a descriptor table" % res_rp)
     check(tbl["descriptor_total"] == res_count,
           "RTS0 table descriptor total %d == resource_descriptor_count %d" % (tbl["descriptor_total"], res_count))
-    slot_by_range = {r["slot"]: r for r in tbl["ranges"]}
+    # Expand each RTS0 range slot-by-slot so a collapsed multi-descriptor range
+    # (e.g. taa_resolve SRV x5 = t0..t4) still pairs one slot to one uniform.
+    slot_to_range = {}
+    for r in tbl["ranges"]:
+        for k in range(r["num"]):
+            slot_to_range[r["slot"] + k] = r
     for u in uniforms:
-        r = slot_by_range.get(u["resource_descriptor_offset"])
+        r = slot_to_range.get(u["resource_descriptor_offset"])
         check(r is not None,
               "binding %d offset %d matches an RTS0 range slot" % (u["binding"], u["resource_descriptor_offset"]))
         if r is not None:
@@ -310,26 +324,46 @@ def main():
           % (m["compute_local_size"], numthreads))
     check(dxil[4:20] != b"\x00" * 16, "DXIL container hash nonzero (signed; PSO gate)")
 
-    n_res = len(layout.get("resources", []))
+    n_res = len(resources)
     check(len(uniforms) == n_res, "uniform count %d == layout resources %d" % (len(uniforms), n_res))
 
-    print()
-    print("consumer view (values ShaderInfo would receive):")
-    print("  shader_name=%r local_size=%s push_constant=%dB crc=0x%08X"
-          % (m["shader_name"], m["compute_local_size"], pc, m["root_signature_crc"]))
-    print("  set0: resource_root_param_idx=%d resource_descriptor_count=%d" % (res_rp, res_count))
-    for u in uniforms:
-        print("    binding=%d type=%d writable=%d length=%d res_class=%d desc_offset=%d"
-              % (u["binding"], u["type"], u["writable"], u["length"], u["res_class"],
-                 u["resource_descriptor_offset"]))
+    if not quiet:
+        print()
+        print("consumer view (values ShaderInfo would receive):")
+        print("  shader_name=%r local_size=%s push_constant=%dB crc=0x%08X"
+              % (m["shader_name"], m["compute_local_size"], pc, m["root_signature_crc"]))
+        print("  set0: resource_root_param_idx=%d resource_descriptor_count=%d" % (res_rp, res_count))
+        for u in uniforms:
+            print("    binding=%d type=%d writable=%d length=%d res_class=%d desc_offset=%d"
+                  % (u["binding"], u["type"], u["writable"], u["length"], u["res_class"],
+                     u["resource_descriptor_offset"]))
+
+    return _STATE["count"], list(_STATE["failures"])
+
+
+# --- main -------------------------------------------------------------------
+
+def main():
+    here = Path(__file__).resolve().parent
+    default_pass = here.parent / "passes" / "tonemap" / "artifacts"
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--container", type=Path, default=here / "out" / "tonemap.rd_container.bin")
+    ap.add_argument("--dxil", type=Path, default=default_pass / "tonemap.dxil")
+    ap.add_argument("--rts0", type=Path, default=default_pass / "tonemap.rts0.bin")
+    ap.add_argument("--layout", type=Path, default=default_pass / "tonemap_descriptor_layout.json")
+    args = ap.parse_args()
+
+    layout = json.loads(args.layout.read_bytes().decode("utf-8"))
+    resources = layout.get("resources", [])
+    count, failures = verify_container_file(args.container, args.dxil, args.rts0, resources)
 
     print()
-    if FAILURES:
-        print("[verify_container] FAIL: %d/%d checks failed" % (len(FAILURES), CHECK_COUNT))
-        for f in FAILURES:
+    if failures:
+        print("[verify_container] FAIL: %d/%d checks failed" % (len(failures), count))
+        for f in failures:
             print("  - %s" % f)
         return 1
-    print("[verify_container] PASS: %d/%d checks" % (CHECK_COUNT, CHECK_COUNT))
+    print("[verify_container] PASS: %d/%d checks" % (count, count))
     return 0
 
 

@@ -1,0 +1,100 @@
+{
+  "inputs": {
+    "dxil": "H:\\rurix\\spike\\godot-rurix\\passes\\instance_compaction\\artifacts\\instance_compaction_scatter.dxil",
+    "dxil_size": 4584,
+    "dxil_parts": [
+      "SFI0",
+      "ISG1",
+      "OSG1",
+      "PSV0",
+      "STAT",
+      "HASH",
+      "DXIL"
+    ],
+    "rts0": "H:\\rurix\\spike\\godot-rurix\\passes\\instance_compaction\\artifacts\\instance_compaction_scatter.rts0.bin",
+    "rts0_size": 152,
+    "rts0_version": 1
+  },
+  "container": {
+    "path": "H:\\rurix\\spike\\godot-rurix\\rd-native-pipeline\\out\\instance_compaction_scatter.rd_container.bin",
+    "size": 5136,
+    "shader_name": "rurix_instance_compaction_scatter",
+    "format": "0x43443344",
+    "format_version": 1,
+    "pipeline_type": "compute",
+    "compute_local_size": [
+      256,
+      1,
+      1
+    ],
+    "push_constant_size": 32,
+    "root_signature_crc": "0xFA052A1A"
+  },
+  "set0": {
+    "resource_root_param_idx": 1,
+    "resource_descriptor_count": 5,
+    "sampler_root_param_idx": "UINT32_MAX",
+    "uniforms": [
+      {
+        "name": "visibility_mask",
+        "binding": 0,
+        "type": 8,
+        "stages": 16,
+        "length": 0,
+        "writable": 0,
+        "res_class": 2,
+        "resource_descriptor_offset": 0,
+        "register": "t0",
+        "binding_kind": "structured_buffer"
+      },
+      {
+        "name": "src_transforms",
+        "binding": 1,
+        "type": 8,
+        "stages": 16,
+        "length": 0,
+        "writable": 0,
+        "res_class": 2,
+        "resource_descriptor_offset": 1,
+        "register": "t1",
+        "binding_kind": "structured_buffer"
+      },
+      {
+        "name": "local_prefix",
+        "binding": 2,
+        "type": 8,
+        "stages": 16,
+        "length": 0,
+        "writable": 0,
+        "res_class": 2,
+        "resource_descriptor_offset": 2,
+        "register": "t2",
+        "binding_kind": "structured_buffer"
+      },
+      {
+        "name": "group_offsets",
+        "binding": 3,
+        "type": 8,
+        "stages": 16,
+        "length": 0,
+        "writable": 0,
+        "res_class": 2,
+        "resource_descriptor_offset": 3,
+        "register": "t3",
+        "binding_kind": "structured_buffer"
+      },
+      {
+        "name": "dst_transforms",
+        "binding": 4,
+        "type": 8,
+        "stages": 16,
+        "length": 0,
+        "writable": 1,
+        "res_class": 3,
+        "resource_descriptor_offset": 4,
+        "register": "u0",
+        "binding_kind": "rwstructured_buffer"
+      }
+    ]
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "inputs": {
+    "dxil": "H:\\rurix\\spike\\godot-rurix\\passes\\instance_compaction\\artifacts\\instance_compaction_scan_local.dxil",
+    "dxil_size": 4640,
+    "dxil_parts": [
+      "SFI0",
+      "ISG1",
+      "OSG1",
+      "PSV0",
+      "STAT",
+      "HASH",
+      "DXIL"
+    ],
+    "rts0": "H:\\rurix\\spike\\godot-rurix\\passes\\instance_compaction\\artifacts\\instance_compaction_scan_local.rts0.bin",
+    "rts0_size": 152,
+    "rts0_version": 1
+  },
+  "container": {
+    "path": "H:\\rurix\\spike\\godot-rurix\\rd-native-pipeline\\out\\instance_compaction_scan_local.rd_container.bin",
+    "size": 5104,
+    "shader_name": "rurix_instance_compaction_scan_local",
+    "format": "0x43443344",
+    "format_version": 1,
+    "pipeline_type": "compute",
+    "compute_local_size": [
+      256,
+      1,
+      1
+    ],
+    "push_constant_size": 32,
+    "root_signature_crc": "0x7EED12EA"
+  },
+  "set0": {
+    "resource_root_param_idx": 1,
+    "resource_descriptor_count": 3,
+    "sampler_root_param_idx": "UINT32_MAX",
+    "uniforms": [
+      {
+        "name": "visibility_mask",
+        "binding": 0,
+        "type": 8,
+        "stages": 16,
+        "length": 0,
+        "writable": 0,
+        "res_class": 2,
+        "resource_descriptor_offset": 0,
+        "register": "t0",
+        "binding_kind": "structured_buffer"
+      },
+      {
+        "name": "local_prefix",
+        "binding": 1,
+        "type": 8,
+        "stages": 16,
+        "length": 0,
+        "writable": 1,
+        "res_class": 3,
+        "resource_descriptor_offset": 1,
+        "register": "u0",
+        "binding_kind": "rwstructured_buffer"
+      },
+      {
+        "name": "group_totals",
+        "binding": 2,
+        "type": 8,
+        "stages": 16,
+        "length": 0,
+        "writable": 1,
+        "res_class": 3,
+        "resource_descriptor_offset": 2,
+        "register": "u1",
+        "binding_kind": "rwstructured_buffer"
+      }
+    ]
+  }
+}

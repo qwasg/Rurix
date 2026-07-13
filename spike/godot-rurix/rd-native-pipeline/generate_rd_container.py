@@ -1,24 +1,54 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""generate_rd_container.py — Route B spike: build a Godot RenderingShaderContainerD3D12
-container from existing Rurix offline artifacts (.dxil + .rts0.bin + descriptor_layout.json).
+"""generate_rd_container.py — Route B S1: productionized RD-native container
+generator. Builds a Godot RenderingShaderContainerD3D12 container from existing
+Rurix offline artifacts (.dxil + .rts0.bin + descriptor_layout.json).
+
+Originally a single tonemap fixture prototype; S1 generalizes it to batch-produce
+containers for every offline compute pass via a built-in PASS_REGISTRY:
+
+  tonemap / taa_resolve / ssao_blur / particles_copy / luminance_reduction /
+  cluster_store / gpu_culling / instance_compaction / indirect_args /
+  fused_post_chain
 
 The output is byte-compatible with RenderingShaderContainer::from_bytes() +
 RenderingShaderContainerD3D12 extra-data hooks as reverse-engineered in
 container_format.md (all layout decisions are documented there with source
 line references into external/godot-master).
 
-Fail-closed: any mismatch between the descriptor layout JSON, the RTS0 blob
-and the DXIL container aborts with a nonzero exit code. No GPU work is done.
+Fail-closed, never silent: any mismatch between the descriptor layout JSON, the
+RTS0 blob and the DXIL container raises a FailClosed carrying a machine-readable
+category. Layouts this spike cannot represent (static samplers, root descriptors,
+multi-table / multi-set, sampler bindings, descriptor arrays, or push constants
+larger than the D3D12 driver's 128-byte root-constant window) are rejected with a
+category, NOT silently dropped or coerced. No GPU work is ever done.
 
-Usage (defaults target the tonemap fixture):
+Fail-closed categories (see route_b_plan R1/R4/R7):
+  push_constant_too_large  b0 > MAX_PUSH_CONSTANT_SIZE (128B) -> needs a CBV
+  param0_not_32bit_constants  RTS0 param[0] is not 32-bit root constants (R1)
+  static_samplers          RTS0 carries static samplers
+  root_descriptor          RTS0 has a root CBV/SRV/UAV parameter
+  multi_table              more than one resource descriptor table
+  sampler_range            a sampler descriptor range (needs a sampler heap)
+  unsupported_binding_kind  binding_kind not in BINDING_KIND_MAP
+  descriptor_array         a resource binds count>1 descriptors
+  not_compute              DXIL PSV0 shader kind is not compute
+  missing_input            an artifact file is absent
+  structural               any other three-way self-consistency mismatch
+
+Usage:
+  # single kernel (defaults target the tonemap fixture):
   py -3 generate_rd_container.py [--pass-dir .../passes/tonemap/artifacts]
                                  [--dxil X.dxil] [--rts0 X.rts0.bin]
                                  [--layout X_descriptor_layout.json]
                                  [--name rurix_tonemap] [--out out/tonemap.rd_container.bin]
+
+  # batch over the whole PASS_REGISTRY into out/:
+  py -3 generate_rd_container.py --all [--out-dir out] [--passes-root .../passes]
 """
 
 import argparse
+import copy
 import json
 import struct
 import sys
@@ -54,6 +84,11 @@ RES_CLASS_UAV = 3
 
 UINT32_MAX = 0xFFFFFFFF
 
+# RD layer cap: push constants ride the driver's 32-bit root-constant window and
+# must be <= 128 bytes (rendering_device.cpp:6101). Anything larger has to move
+# to a CBV (layout change + a cbuffer binding), which this spike does not emit.
+MAX_PUSH_CONSTANT_SIZE = 128
+
 # D3D12_ROOT_PARAMETER_TYPE
 RP_DESCRIPTOR_TABLE = 0
 RP_32BIT_CONSTANTS = 1
@@ -72,14 +107,23 @@ RANGE_TYPE_TO_CLASS_CHAR = {RANGE_SRV: "t", RANGE_UAV: "u", RANGE_CBV: "b", RANG
 PSV_SHADER_KIND_COMPUTE = 5
 
 
-def fail(msg):
-    sys.stderr.write("[generate_rd_container] FAIL: %s\n" % msg)
-    sys.exit(1)
+class FailClosed(Exception):
+    """A structured fail-closed rejection. ``category`` is a stable machine key
+    (see the module docstring); ``reason`` is the human message."""
+
+    def __init__(self, reason, category="structural"):
+        super().__init__(reason)
+        self.reason = reason
+        self.category = category
 
 
-def check(cond, msg):
+def fail(msg, category="structural"):
+    raise FailClosed(msg, category)
+
+
+def check(cond, msg, category="structural"):
     if not cond:
-        fail(msg)
+        raise FailClosed(msg, category)
 
 
 def align4(n):
@@ -123,7 +167,8 @@ def parse_rts0(rts0_blob):
     p = base
     ver, num_params, params_off, num_samplers, samplers_off, flags = struct.unpack_from("<6I", rts0_blob, p)
     check(ver in (1, 2), "rts0: unsupported root signature version %d" % ver)
-    check(num_samplers == 0, "rts0: static samplers unsupported by this spike generator")
+    check(num_samplers == 0, "rts0: static samplers unsupported by this spike generator",
+          category="static_samplers")
     params = []
     for i in range(num_params):
         pd = p + params_off + 12 * i
@@ -152,7 +197,8 @@ def parse_rts0(rts0_blob):
         else:
             # Root descriptors (CBV/SRV/UAV): allowed in D3D12 but not used by
             # current Rurix artifacts; reject until a pass actually needs them.
-            fail("rts0: root parameter %d has type %d (root descriptor) — unsupported by this spike" % (i, ptype))
+            fail("rts0: root parameter %d has type %d (root descriptor) — unsupported by this spike" % (i, ptype),
+                 category="root_descriptor")
         params.append(entry)
     check(size >= 24, "rts0: RTS0 payload truncated")
     return {"version": ver, "flags": flags, "params": params}
@@ -187,18 +233,30 @@ BINDING_KIND_MAP = {
     # binding_kind -> (uniform_type, writable, expected_range_type, res_class)
     "texture2d": (UNIFORM_TYPE_TEXTURE, 0, RANGE_SRV, RES_CLASS_SRV),
     "rwtexture2d": (UNIFORM_TYPE_IMAGE, 1, RANGE_UAV, RES_CLASS_UAV),
-    # Raw buffer views (GRX-009 tracked-3a kernel model). The D3D12 driver
-    # creates R32_TYPELESS RAW SRV/UAV buffer views for storage buffers
-    # (rendering_device_driver_d3d12.cpp:3544-3565), matching Rurix raw views.
+    # Raw / structured storage-buffer views (GRX-009 tracked-3a kernel model and
+    # the GRX-013+ buffer passes). The D3D12 driver creates R32_TYPELESS RAW
+    # SRV/UAV buffer views for UNIFORM_TYPE_STORAGE_BUFFER
+    # (rendering_device_driver_d3d12.cpp:3544-3565); the container itself encodes
+    # only UNIFORM_TYPE_STORAGE_BUFFER + res_class, never a stride, so both the
+    # ByteAddressBuffer and StructuredBuffer HLSL bridge spellings map here. (The
+    # RAW-view-vs-structured-view runtime equivalence is a probe/S2 concern, not a
+    # container-structure one — see s1_pipeline_report.md.)
     "byteaddressbuffer": (UNIFORM_TYPE_STORAGE_BUFFER, 0, RANGE_SRV, RES_CLASS_SRV),
     "rwbyteaddressbuffer": (UNIFORM_TYPE_STORAGE_BUFFER, 1, RANGE_UAV, RES_CLASS_UAV),
+    "structured_buffer": (UNIFORM_TYPE_STORAGE_BUFFER, 0, RANGE_SRV, RES_CLASS_SRV),
+    "rwstructured_buffer": (UNIFORM_TYPE_STORAGE_BUFFER, 1, RANGE_UAV, RES_CLASS_UAV),
     "cbuffer": (UNIFORM_TYPE_UNIFORM_BUFFER, 0, RANGE_CBV, RES_CLASS_CBV),
 }
 
 
 def build_reflection(layout, rts0):
     """Cross-check layout JSON against the parsed RTS0 and derive the per-set
-    reflection rows. Single-set model (set 0) — matches all current Rurix passes."""
+    reflection rows. Single-set model (set 0) — matches all current Rurix passes.
+
+    Ranges are expanded register-by-register: a descriptor range with
+    NumDescriptors=N over base register B at table slot S covers registers
+    B..B+N-1 at slots S..S+N-1 (the RTS0 emitter collapses consecutive same-class
+    registers into one range, e.g. taa_resolve ``SRV x5`` = t0..t4)."""
     params = rts0["params"]
     check(len(params) == int(layout.get("root_signature_parameters", len(params))),
           "layout root_signature_parameters=%s != rts0 param count %d"
@@ -221,12 +279,25 @@ def build_reflection(layout, rts0):
             check(int(val["root_constant_dwords"]) == root_constant_dwords,
                   "%s.root_constant_dwords=%s != derived %d" % (key, val["root_constant_dwords"], root_constant_dwords))
     push_constant_size = root_constant_dwords * 4
+
+    # RD layer hard cap: b0 must fit the 128-byte 32-bit-root-constant window.
+    check(push_constant_size <= MAX_PUSH_CONSTANT_SIZE,
+          "push_constant_size %dB exceeds MAX_PUSH_CONSTANT_SIZE %dB "
+          "(rendering_device.cpp:6101); this layout must migrate b0 to a CBV "
+          "before a route-B container can be emitted"
+          % (push_constant_size, MAX_PUSH_CONSTANT_SIZE),
+          category="push_constant_too_large")
+
     param_cursor = 0
     if root_constant_dwords > 0:
         p0 = params[0]
+        # R1 hard invariant: the D3D12 driver hardcodes push constants on root
+        # parameter 0 (rendering_device_driver_d3d12.cpp:4208); a Rurix RTS0
+        # emitter that ever moves it would silently mis-bind.
         check(p0["type"] == RP_32BIT_CONSTANTS,
               "push constants declared but rts0 param[0] is not 32-bit constants; "
-              "driver hardcodes root param 0 for push constants (rendering_device_driver_d3d12.cpp:4208)")
+              "driver hardcodes root param 0 for push constants (rendering_device_driver_d3d12.cpp:4208)",
+              category="param0_not_32bit_constants")
         check(p0["num32"] == root_constant_dwords,
               "rts0 param[0] num32=%d != layout root_constants=%d" % (p0["num32"], root_constant_dwords))
         check(p0["space"] == 0, "root constants must live in space0")
@@ -237,20 +308,32 @@ def build_reflection(layout, rts0):
 
     # --- resource descriptor table ---------------------------------------
     tables = [p for p in params if p["type"] == RP_DESCRIPTOR_TABLE]
-    check(len(tables) == 1, "expected exactly one descriptor table (Rurix single-table model), found %d" % len(tables))
+    check(len(tables) == 1, "expected exactly one descriptor table (Rurix single-table model), found %d" % len(tables),
+          category="multi_table")
     table = tables[0]
     check(table["index"] == param_cursor,
           "descriptor table at rts0 param %d, expected %d (contiguous after root constants)"
           % (table["index"], param_cursor))
     for r in table["ranges"]:
         check(r["type"] in (RANGE_SRV, RANGE_UAV, RANGE_CBV),
-              "sampler ranges are unsupported by this spike generator")
+              "sampler ranges are unsupported by this spike generator",
+              category="sampler_range")
         check(r["space"] == 0, "all Rurix resources must be space0")
 
-    # --- match layout resources to ranges, assign RD bindings ------------
+    # --- match layout resources to expanded range slots ------------------
     resources = layout.get("resources", [])
-    check(len(resources) == len(table["ranges"]),
-          "layout resource count %d != rts0 range count %d" % (len(resources), len(table["ranges"])))
+    # Array bindings (a single resource that binds count>1 descriptors) are not
+    # represented by this spike's one-slot-per-register expansion; reject up front
+    # so the category is precise (not swallowed by the descriptor-total mismatch).
+    for res in resources:
+        count = int(res.get("count", 1))
+        check(count == 1,
+              "resource %s binds count=%d descriptors; descriptor arrays are unsupported by this spike"
+              % (res.get("name"), count),
+              category="descriptor_array")
+    total_descriptors = sum(int(r["num"]) for r in table["ranges"])
+    check(total_descriptors == len(resources),
+          "rts0 descriptor total %d != layout resource count %d" % (total_descriptors, len(resources)))
 
     by_key = {}
     for res in resources:
@@ -259,30 +342,37 @@ def build_reflection(layout, rts0):
         by_key[key] = res
 
     uniforms = []
-    for idx, r in enumerate(table["ranges"]):
+    binding = 0
+    for r in table["ranges"]:
         cls_char = RANGE_TYPE_TO_CLASS_CHAR[r["type"]]
-        key = (cls_char, r["base_reg"], r["space"])
-        check(key in by_key, "rts0 range %d (%s%d space%d) has no matching layout resource" % (idx, cls_char, r["base_reg"], r["space"]))
-        res = by_key[key]
-        kind = res.get("binding_kind")
-        check(kind in BINDING_KIND_MAP, "unsupported binding_kind %r for %s" % (kind, res.get("name")))
-        utype, writable, expect_range, res_class = BINDING_KIND_MAP[kind]
-        check(expect_range == r["type"],
-              "binding_kind %s expects range type %d but rts0 has %d" % (kind, expect_range, r["type"]))
-        count = int(res.get("count", 1))
-        check(count == r["num"], "resource %s count %d != range num %d" % (res.get("name"), count, r["num"]))
-        # RD binding policy: binding index == range order == table slot order.
-        uniforms.append({
-            "name": res.get("name"),
-            "binding": idx,
-            "type": utype,
-            "stages": SHADER_STAGE_COMPUTE_BIT,
-            "length": count if utype in (UNIFORM_TYPE_TEXTURE, UNIFORM_TYPE_IMAGE) else 0,
-            "writable": writable,
-            "res_class": res_class,
-            "resource_descriptor_offset": r["slot"],
-            "register": "%s%d" % (cls_char, r["base_reg"]),
-        })
+        for k in range(int(r["num"])):
+            reg = r["base_reg"] + k
+            slot = r["slot"] + k
+            key = (cls_char, reg, r["space"])
+            check(key in by_key,
+                  "rts0 slot %d (%s%d space%d) has no matching layout resource" % (slot, cls_char, reg, r["space"]))
+            res = by_key.pop(key)
+            kind = res.get("binding_kind")
+            check(kind in BINDING_KIND_MAP, "unsupported binding_kind %r for %s" % (kind, res.get("name")),
+                  category="unsupported_binding_kind")
+            utype, writable, expect_range, res_class = BINDING_KIND_MAP[kind]
+            check(expect_range == r["type"],
+                  "binding_kind %s expects range type %d but rts0 has %d" % (kind, expect_range, r["type"]))
+            # RD binding policy: binding index == expanded slot order.
+            uniforms.append({
+                "name": res.get("name"),
+                "binding": binding,
+                "type": utype,
+                "stages": SHADER_STAGE_COMPUTE_BIT,
+                "length": 1 if utype in (UNIFORM_TYPE_TEXTURE, UNIFORM_TYPE_IMAGE) else 0,
+                "writable": writable,
+                "res_class": res_class,
+                "resource_descriptor_offset": slot,
+                "register": "%s%d" % (cls_char, reg),
+                "binding_kind": kind,
+            })
+            binding += 1
+    check(not by_key, "layout resources not covered by RTS0 ranges: %s" % sorted(by_key))
 
     bindings_sorted = [u["binding"] for u in uniforms]
     check(bindings_sorted == sorted(bindings_sorted), "bindings must be strictly ascending within the set")
@@ -369,45 +459,105 @@ def build_container(shader_name, dxil, rts0_bytes, refl, local_size):
 
 
 # ---------------------------------------------------------------------------
-# main
+# Pass registry + kernel enumeration
 # ---------------------------------------------------------------------------
 
-def main():
-    here = Path(__file__).resolve().parent
-    default_pass = here.parent / "passes" / "tonemap" / "artifacts"
+# The offline compute passes this generator productionizes. Ordinary passes carry
+# a single kernel (<pass>.dxil + <pass>.rts0.bin + top-level layout resources).
+# Multi-kernel passes list their variants/kernels explicitly:
+#   * variants  -> resources live under layout["variants"][i]; each variant has
+#                  its own <pass>_<variant>.dxil / .rts0.bin (instance_compaction).
+#   * kernels   -> distinct .dxil files sharing the top-level resources and one
+#                  RTS0 (indirect_args: a write kernel + a resident validate leg).
+PASS_REGISTRY = [
+    {"pass_id": "tonemap"},
+    {"pass_id": "taa_resolve"},
+    {"pass_id": "ssao_blur"},
+    {"pass_id": "particles_copy"},
+    {"pass_id": "luminance_reduction"},
+    {"pass_id": "cluster_store"},
+    {"pass_id": "gpu_culling"},
+    {"pass_id": "fused_post_chain"},
+    {"pass_id": "instance_compaction", "variants": ["scan_local", "scan_groups", "scatter"]},
+    {"pass_id": "indirect_args", "kernels": [
+        {"name": "write", "dxil": "indirect_args.dxil", "rts0": "indirect_args.rts0.bin"},
+        {"name": "validate", "dxil": "indirect_args_validate.dxil", "rts0": "indirect_args.rts0.bin"},
+    ]},
+]
 
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--pass-dir", type=Path, default=default_pass,
-                    help="pass artifacts dir (default: tonemap fixture)")
-    ap.add_argument("--dxil", type=Path, default=None)
-    ap.add_argument("--rts0", type=Path, default=None)
-    ap.add_argument("--layout", type=Path, default=None)
-    ap.add_argument("--name", default=None, help="shader name stored in the container")
-    ap.add_argument("--out", type=Path, default=None)
-    args = ap.parse_args()
 
-    pass_dir = args.pass_dir
-    stem = pass_dir.parent.name if pass_dir.name == "artifacts" else pass_dir.name
-    dxil_path = args.dxil or (pass_dir / ("%s.dxil" % stem))
-    rts0_path = args.rts0 or (pass_dir / ("%s.rts0.bin" % stem))
-    layout_path = args.layout or (pass_dir / ("%s_descriptor_layout.json" % stem))
-    out_path = args.out or (here / "out" / ("%s.rd_container.bin" % stem))
+def load_layout(layout_path):
+    return json.loads(layout_path.read_bytes().decode("utf-8"))
 
-    for p in (dxil_path, rts0_path, layout_path):
-        check(p.is_file(), "missing input: %s" % p)
+
+def enumerate_kernels(spec, artifacts_dir, layout):
+    """Resolve a registry entry into concrete kernel jobs. Each job is a dict:
+    {pass_id, variant, label, dxil, rts0, layout (effective), out_stem, name}.
+
+    Fail-closed on missing artifact files (category missing_input) so a batch run
+    never silently skips a pass."""
+    pass_id = spec["pass_id"]
+    jobs = []
+
+    if "variants" in spec:
+        variant_map = {v.get("variant"): v for v in layout.get("variants", [])}
+        for vname in spec["variants"]:
+            check(vname in variant_map, "%s: layout has no variant %r" % (pass_id, vname))
+            v = variant_map[vname]
+            eff = copy.copy(layout)
+            eff["resources"] = v["resources"]
+            eff["root_signature_parameters"] = v.get("root_signature_parameters", layout.get("root_signature_parameters"))
+            jobs.append({
+                "pass_id": pass_id, "variant": vname,
+                "label": "%s/%s" % (pass_id, vname),
+                "dxil": artifacts_dir / ("%s_%s.dxil" % (pass_id, vname)),
+                "rts0": artifacts_dir / ("%s_%s.rts0.bin" % (pass_id, vname)),
+                "layout": eff, "out_stem": "%s_%s" % (pass_id, vname),
+                "name": "rurix_%s_%s" % (pass_id, vname),
+            })
+    elif "kernels" in spec:
+        for k in spec["kernels"]:
+            kname = k["name"]
+            jobs.append({
+                "pass_id": pass_id, "variant": kname,
+                "label": "%s/%s" % (pass_id, kname),
+                "dxil": artifacts_dir / k["dxil"],
+                "rts0": artifacts_dir / k["rts0"],
+                "layout": layout, "out_stem": "%s_%s" % (pass_id, kname),
+                "name": "rurix_%s_%s" % (pass_id, kname),
+            })
+    else:
+        jobs.append({
+            "pass_id": pass_id, "variant": None, "label": pass_id,
+            "dxil": artifacts_dir / ("%s.dxil" % pass_id),
+            "rts0": artifacts_dir / ("%s.rts0.bin" % pass_id),
+            "layout": layout, "out_stem": pass_id,
+            "name": "rurix_%s" % pass_id,
+        })
+    return jobs
+
+
+# ---------------------------------------------------------------------------
+# Single-kernel build
+# ---------------------------------------------------------------------------
+
+def build_one(dxil_path, rts0_path, layout, name, out_path):
+    """Parse the three artifacts, cross-check, and write a container + report.
+    Raises FailClosed on any mismatch. Returns an outcome dict on success."""
+    for p in (dxil_path, rts0_path):
+        check(p.is_file(), "missing input: %s" % p, category="missing_input")
 
     dxil = dxil_path.read_bytes()
     rts0_bytes = rts0_path.read_bytes()
-    layout = json.loads(layout_path.read_bytes().decode("utf-8"))
 
     shader_kind, local_size, dxil_parts = parse_dxil_psv0(dxil)
     check(shader_kind == PSV_SHADER_KIND_COMPUTE,
-          "dxil PSV0 shader kind %d != compute(%d)" % (shader_kind, PSV_SHADER_KIND_COMPUTE))
+          "dxil PSV0 shader kind %d != compute(%d)" % (shader_kind, PSV_SHADER_KIND_COMPUTE),
+          category="not_compute")
 
     rts0 = parse_rts0(rts0_bytes)
     refl = build_reflection(layout, rts0)
 
-    name = args.name or ("rurix_%s" % layout.get("pass_id", stem))
     container, crc = build_container(name, dxil, rts0_bytes, refl, local_size)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -418,7 +568,6 @@ def main():
             "dxil": str(dxil_path), "dxil_size": len(dxil), "dxil_parts": dxil_parts,
             "rts0": str(rts0_path), "rts0_size": len(rts0_bytes),
             "rts0_version": rts0["version"],
-            "layout": str(layout_path),
         },
         "container": {
             "path": str(out_path), "size": len(container), "shader_name": name,
@@ -437,13 +586,154 @@ def main():
     report_path = out_path.with_suffix(".report.json")
     report_path.write_bytes((json.dumps(report, indent=2, ensure_ascii=False) + "\n").encode("utf-8"))
 
-    print("[generate_rd_container] OK: %s (%d bytes)" % (out_path, len(container)))
-    print("[generate_rd_container] report: %s" % report_path)
-    for u in refl["uniforms"]:
+    return {
+        "container_path": out_path,
+        "report_path": report_path,
+        "size": len(container),
+        "name": name,
+        "push_constant_size": refl["push_constant_size"],
+        "local_size": list(local_size),
+        "root_signature_crc": "0x%08X" % crc,
+        "resource_descriptor_count": refl["resource_descriptor_count"],
+        "uniforms": refl["uniforms"],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Batch driver
+# ---------------------------------------------------------------------------
+
+def generate_all(passes_root, out_dir):
+    """Batch-produce a container per kernel across PASS_REGISTRY. Returns a
+    structured result; fail-closed kernels are recorded (category + reason), NOT
+    raised, so a single unsupported layout does not abort the whole batch. Only a
+    genuinely unexpected (non-FailClosed) error propagates."""
+    results = []
+    for spec in PASS_REGISTRY:
+        pass_id = spec["pass_id"]
+        artifacts_dir = passes_root / pass_id / "artifacts"
+        layout_path = artifacts_dir / ("%s_descriptor_layout.json" % pass_id)
+        pass_entry = {"pass_id": pass_id, "kernels": []}
+        if not layout_path.is_file():
+            pass_entry["kernels"].append({
+                "label": pass_id, "status": "fail_closed",
+                "category": "missing_input", "reason": "missing layout: %s" % layout_path,
+            })
+            results.append(pass_entry)
+            continue
+        layout = load_layout(layout_path)
+        pass_entry["layout_path"] = str(layout_path)
+        try:
+            jobs = enumerate_kernels(spec, artifacts_dir, layout)
+        except FailClosed as fc:
+            pass_entry["kernels"].append({
+                "label": pass_id, "status": "fail_closed",
+                "category": fc.category, "reason": fc.reason,
+            })
+            results.append(pass_entry)
+            continue
+        for job in jobs:
+            out_path = out_dir / ("%s.rd_container.bin" % job["out_stem"])
+            entry = {"label": job["label"], "variant": job["variant"],
+                     "dxil": str(job["dxil"]), "rts0": str(job["rts0"]),
+                     "out_stem": job["out_stem"]}
+            try:
+                outcome = build_one(job["dxil"], job["rts0"], job["layout"], job["name"], out_path)
+                entry.update({
+                    "status": "container",
+                    "container_path": str(outcome["container_path"]),
+                    "size": outcome["size"],
+                    "name": outcome["name"],
+                    "push_constant_size": outcome["push_constant_size"],
+                    "local_size": outcome["local_size"],
+                    "root_signature_crc": outcome["root_signature_crc"],
+                    "resource_descriptor_count": outcome["resource_descriptor_count"],
+                    "uniforms": [
+                        {"binding": u["binding"], "register": u["register"],
+                         "binding_kind": u["binding_kind"], "type": u["type"],
+                         "writable": u["writable"], "res_class": u["res_class"],
+                         "resource_descriptor_offset": u["resource_descriptor_offset"]}
+                        for u in outcome["uniforms"]
+                    ],
+                })
+            except FailClosed as fc:
+                entry.update({"status": "fail_closed", "category": fc.category, "reason": fc.reason})
+            pass_entry["kernels"].append(entry)
+        results.append(pass_entry)
+    return results
+
+
+# ---------------------------------------------------------------------------
+# main
+# ---------------------------------------------------------------------------
+
+def _run_single(args, here):
+    pass_dir = args.pass_dir
+    stem = pass_dir.parent.name if pass_dir.name == "artifacts" else pass_dir.name
+    dxil_path = args.dxil or (pass_dir / ("%s.dxil" % stem))
+    rts0_path = args.rts0 or (pass_dir / ("%s.rts0.bin" % stem))
+    layout_path = args.layout or (pass_dir / ("%s_descriptor_layout.json" % stem))
+    out_path = args.out or (here / "out" / ("%s.rd_container.bin" % stem))
+
+    check(layout_path.is_file(), "missing input: %s" % layout_path, category="missing_input")
+    layout = load_layout(layout_path)
+    name = args.name or ("rurix_%s" % layout.get("pass_id", stem))
+    outcome = build_one(dxil_path, rts0_path, layout, name, out_path)
+
+    print("[generate_rd_container] OK: %s (%d bytes)" % (outcome["container_path"], outcome["size"]))
+    print("[generate_rd_container] report: %s" % outcome["report_path"])
+    for u in outcome["uniforms"]:
         print("  set0 binding %d <- %s (%s) type=%d writable=%d slot=%d"
               % (u["binding"], u["register"], u["name"], u["type"], u["writable"],
                  u["resource_descriptor_offset"]))
     return 0
+
+
+def _run_all(args, here):
+    passes_root = args.passes_root or (here.parent / "passes")
+    out_dir = args.out_dir or (here / "out")
+    results = generate_all(passes_root, out_dir)
+
+    n_container = n_failclosed = 0
+    print("[generate_rd_container] batch over %s -> %s" % (passes_root, out_dir))
+    for pe in results:
+        for k in pe["kernels"]:
+            if k["status"] == "container":
+                n_container += 1
+                print("  [container ] %-28s %5dB pc=%dB descriptors=%d -> %s"
+                      % (k["label"], k["size"], k["push_constant_size"],
+                         k["resource_descriptor_count"], Path(k["container_path"]).name))
+            else:
+                n_failclosed += 1
+                print("  [fail-closed] %-28s (%s) %s" % (k["label"], k["category"], k["reason"]))
+    print("[generate_rd_container] %d container(s), %d fail-closed" % (n_container, n_failclosed))
+    return 0
+
+
+def main():
+    here = Path(__file__).resolve().parent
+    default_pass = here.parent / "passes" / "tonemap" / "artifacts"
+
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--all", action="store_true", help="batch-produce every pass in PASS_REGISTRY into --out-dir")
+    ap.add_argument("--passes-root", type=Path, default=None, help="passes/ root (batch mode)")
+    ap.add_argument("--out-dir", type=Path, default=None, help="output dir (batch mode)")
+    ap.add_argument("--pass-dir", type=Path, default=default_pass,
+                    help="pass artifacts dir (single mode; default: tonemap fixture)")
+    ap.add_argument("--dxil", type=Path, default=None)
+    ap.add_argument("--rts0", type=Path, default=None)
+    ap.add_argument("--layout", type=Path, default=None)
+    ap.add_argument("--name", default=None, help="shader name stored in the container")
+    ap.add_argument("--out", type=Path, default=None)
+    args = ap.parse_args()
+
+    try:
+        if args.all:
+            return _run_all(args, here)
+        return _run_single(args, here)
+    except FailClosed as fc:
+        sys.stderr.write("[generate_rd_container] FAIL (%s): %s\n" % (fc.category, fc.reason))
+        return 1
 
 
 if __name__ == "__main__":

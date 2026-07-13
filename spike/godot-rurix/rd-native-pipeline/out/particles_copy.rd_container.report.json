@@ -1,7 +1,7 @@
 {
   "inputs": {
-    "dxil": "H:\\rurix\\spike\\godot-rurix\\passes\\tonemap\\artifacts\\tonemap.dxil",
-    "dxil_size": 4436,
+    "dxil": "H:\\rurix\\spike\\godot-rurix\\passes\\particles_copy\\artifacts\\particles_copy.dxil",
+    "dxil_size": 6160,
     "dxil_parts": [
       "SFI0",
       "ISG1",
@@ -11,24 +11,24 @@
       "HASH",
       "DXIL"
     ],
-    "rts0": "H:\\rurix\\spike\\godot-rurix\\passes\\tonemap\\artifacts\\tonemap.rts0.bin",
+    "rts0": "H:\\rurix\\spike\\godot-rurix\\passes\\particles_copy\\artifacts\\particles_copy.rts0.bin",
     "rts0_size": 152,
     "rts0_version": 1
   },
   "container": {
-    "path": "H:\\rurix\\spike\\godot-rurix\\rd-native-pipeline\\out\\tonemap.rd_container.bin",
-    "size": 4836,
-    "shader_name": "rurix_tonemap",
+    "path": "H:\\rurix\\spike\\godot-rurix\\rd-native-pipeline\\out\\particles_copy.rd_container.bin",
+    "size": 6564,
+    "shader_name": "rurix_particles_copy",
     "format": "0x43443344",
     "format_version": 1,
     "pipeline_type": "compute",
     "compute_local_size": [
-      8,
-      8,
+      64,
+      1,
       1
     ],
-    "push_constant_size": 28,
-    "root_signature_crc": "0x69B7B890"
+    "push_constant_size": 128,
+    "root_signature_crc": "0xFB55F5D8"
   },
   "set0": {
     "resource_root_param_idx": 1,
@@ -36,28 +36,28 @@
     "sampler_root_param_idx": "UINT32_MAX",
     "uniforms": [
       {
-        "name": "src_color",
+        "name": "src_particles",
         "binding": 0,
-        "type": 2,
+        "type": 8,
         "stages": 16,
-        "length": 1,
+        "length": 0,
         "writable": 0,
         "res_class": 2,
         "resource_descriptor_offset": 0,
         "register": "t0",
-        "binding_kind": "texture2d"
+        "binding_kind": "structured_buffer"
       },
       {
-        "name": "dst_color",
+        "name": "dst_instances",
         "binding": 1,
-        "type": 3,
+        "type": 8,
         "stages": 16,
-        "length": 1,
+        "length": 0,
         "writable": 1,
         "res_class": 3,
         "resource_descriptor_offset": 1,
         "register": "u0",
-        "binding_kind": "rwtexture2d"
+        "binding_kind": "rwstructured_buffer"
       }
     ]
   }
