@@ -89,6 +89,12 @@ jobs:
         shell: powershell
         run: py -3 ci/channel_manifest_smoke.py
 
+      # rurixup 工具链前端冒烟(MR-0009,RXS-0187~0188):install 消费 stable channel →
+      # 注册/list/default + 幂等 + 篡改 bundle 红 + 未注册版号红 + 复原绿。纯 host。
+      - name: rurixup toolchain frontend smoke (MR-0009, RXS-0187~0188)
+        shell: powershell
+        run: py -3 ci/toolchain_frontend_smoke.py
+
       # 计数核对:m8.counter.release_artifacts_signed >=1(发布链路签名产物)。
       - name: budget eval release counter (strict)
         shell: powershell

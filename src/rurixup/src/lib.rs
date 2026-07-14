@@ -7,6 +7,7 @@
 //! - [`sbom`] SBOM SPDX 构建视图 + CycloneDX 发布视图(RXS-0138)
 //! - [`gate`] Release 层 hard-block 发布门(RXS-0139;RXS-0186 第 8 子门延伸)
 //! - [`channel`] stable channel 最小清单(RXS-0185 ~ RXS-0186,V1.2/MR-0008)
+//! - [`toolchain`] 本地工具链版本注册 + stable channel 消费(RXS-0187 ~ RXS-0188,MR-0009)
 //!
 //! 纪律:**全 safe**(`unsafe_code = "deny"`,继承 workspace lints);**零外部依赖**
 //! (标准库 + `rurix-pkg` 手写 SHA-256 / 内容树),纯函数、确定性——同一发布输入产
@@ -19,6 +20,7 @@ pub mod gate;
 pub mod install;
 pub mod sbom;
 pub mod signing;
+pub mod toolchain;
 
 use bundle::{BundleManifest, RedistributionAudit};
 use channel::ChannelManifest;

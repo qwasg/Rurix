@@ -395,6 +395,15 @@ jobs:
         shell: powershell
         run: py -3 ci/channel_manifest_smoke.py
 
+      # 步骤 51（post-V1/MR-0009,RXS-0187~0188）:rurixup 工具链前端冒烟。
+      # `ci/toolchain_frontend_smoke.py`:release 产 channel_manifest+bundle →
+      # `rurixup install` 消费 stable channel(内容寻址校验)→ 注册 toolchains.json →
+      # `list`/`default`;install 幂等(逐字节一致);red→绿闭合——篡改 bundle → digest
+      # 失配拒 exit 1 / `default` 未注册版号拒 exit 1 / 复原绿。**纯 host,无 device/网络**。
+      - name: rurixup toolchain frontend smoke (MR-0009, RXS-0187~0188)
+        shell: powershell
+        run: py -3 ci/toolchain_frontend_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

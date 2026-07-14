@@ -1050,6 +1050,12 @@
       "src/rurixup/src/channel.rs",
       "src/rurixup/src/gate.rs",
       "src/rurixup/src/lib.rs"
+    ],
+    "RXS-0187": [
+      "src/rurixup/src/toolchain.rs"
+    ],
+    "RXS-0188": [
+      "src/rurixup/src/toolchain.rs"
     ]
   }
 }
