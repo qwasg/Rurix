@@ -8,7 +8,9 @@ name: release
 on:
   push:
     tags:
-      - "v*"
+      # 收窄为 semver 发行 tag(V1.3,契约 §7 ⑪):防 milestone tag(如 v1-closed)
+      # 误触发 release workflow——历史 m*/g*-closed tag 均无 v 前缀,v1-closed 首撞。
+      - "v[0-9]+.[0-9]+.[0-9]+*"
   workflow_dispatch:        # 手动触发(发布演练 / 真实红绿验证)
 
 concurrency:
