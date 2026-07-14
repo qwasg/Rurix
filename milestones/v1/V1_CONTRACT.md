@@ -153,3 +153,13 @@ agent 完全自主签署（AGENTS v3.0 硬规则 1),记录机器事实:
 - **G-V1-1 stabilization report**:[STABILIZATION_REPORT.md](STABILIZATION_REPORT.md) 经 PR [#120](https://github.com/qwasg/Rurix/pull/120) 合入 main（pr-smoke 全量 success [run 29324745826](https://github.com/qwasg/Rurix/actions/runs/29324745826)）;stable 面盘点数字逐项取自本机 `ci/stable_snapshot.py --check` 真实输出（180/88/["2026"]/8,快照 SHA-256 `08e2e264…e91e0` 锚定 `0ceca0d9`）;观察期三段式判定落 §3（G2.6 `f659f57a` + GRX `95d5af43` 两里程碑零 stable 面修订实证 + 残余弱点如实陈述）;机器事实原文归档 [../../evidence/v1.1-stabilization/](../../evidence/v1.1-stabilization/)。证据等级 measured_local。
 - **G-V1-2 FCP-lite 公示**:公开 GitHub Issue **[#121](https://github.com/qwasg/Rurix/issues/121)**（标题 `[FCP-lite] Rurix 语言 1.0 稳定化(edition 2026)`,label `fcp-lite`,2026-07-14 创建）——含 report 链接 + stable 面四元组 + advisory 语义声明（不设截止,通告即推进,§7 ③）+ 已知缺口摘要 + 在途事项预告（MR-0008 / v1.0.0 发行）;**issue 保持开放**,发布不关闭,后续 v1.0.0 tag / GitHub Release 链接以评论回填。
 - 判定:D-V1-1 / D-V1-2 交付闭环,G-V1-1 / G-V1-2 达成;**V1 契约仍 active**,不执行基准切换 / v1-closed tag(归 V1.4 close-out)。
+
+### 8.2 V1.2 验收留痕（2026-07-14,G-V1-3）
+
+agent 完全自主签署(AGENTS v3.0 硬规则 1),记录机器事实:
+
+- **Mini-RFC 前置**:MR-0008(agent Approved 2026-07-14)经 PR [#122](https://github.com/qwasg/Rurix/pull/122) 先行合入 main(pr-smoke success [run 29325620618](https://github.com/qwasg/Rurix/actions/runs/29325620618));失败测试先行兑现(步骤 50 脚本与 channel 模块在提案时点 main 上不存在 = RED)。
+- **条款先行 + 实现**:PR [#123](https://github.com/qwasg/Rurix/pull/123)(5 commit,条款 commit `e82e2923` 先于实现 commit `3b1a46aa`)合入 main——spec/release.md v1.3 RXS-0185/0186 条款体 + `src/rurixup/src/channel.rs`(VALID_CHANNELS=["stable"] / generate / consistent / to_json 确定性)+ gate 第 8 子门 `channel-manifest`(既有 7 门相对顺序 0-byte)+ main CLI `--channel`(缺省 stable)/`--simulate-channel-drift`。零新 RX 码 / 零新 unsafe / 零外部依赖 / 不另立 v1 counter。
+- **stable 快照重 bless**:spec_clauses 180→182(其余三段 0 变化),`tests/stable/bless_log.md` 同 diff 追加(commit `42ed318c`,check_stable_snapshot_bless 守卫过;RXS-0180 L2 加性演进);步骤 49 `ci/edition_smoke.py` 篡改红绿闭合复绿。
+- **CI 步骤 50 真实红绿 + run URL**:`ci/channel_manifest_smoke.py` 接线 pr-smoke.yml + release.yml;PR #123 pr-smoke 全量 success **[run 29326570278](https://github.com/qwasg/Rurix/actions/runs/29326570278)**(步骤 50 在 runner 真跑:green + 确定性两次逐字节一致 + 漂移注入红 exit 2 + 未知 channel 红 exit 1 + 复原绿);trace 182/182(454 测试文件);`cargo test --workspace` 全绿(rurixup 14 passed)。
+- 判定:D-V1-3 交付闭环,G-V1-3 达成;**V1 契约仍 active**。
