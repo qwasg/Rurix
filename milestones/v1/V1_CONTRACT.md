@@ -1,7 +1,7 @@
 ---
 contract: V1
 title: V1 期——语言 1.0 正式发布（稳定化收尾）：stabilization report + FCP-lite 公示 + 最小 stable channel 清单 + v1.0.0 首个 stable 发行 + 首个 GitHub Release
-status: active            # active → closed（V1.4 close-out agent 自主签署;close-out 只追加,上方条款 0-byte;基准 g2-closed→v1-closed 切换 + v1-closed tag 随 close-out 落档）
+status: closed            # active → closed（V1.4 close-out agent 自主签署,2026-07-14;close-out 只追加,上方条款 0-byte;基准 g2-closed→v1-closed 切换 + v1-closed tag 已随 §8.4 落档）
 version: v1.0
 date: 2026-07-14
 timebox: "短期收尾（约 1–2 周,V1.1~V1.4 严格串行见 V1_PLAN.md;周为相对刻度,非日历承诺）"
@@ -163,3 +163,35 @@ agent 完全自主签署(AGENTS v3.0 硬规则 1),记录机器事实:
 - **stable 快照重 bless**:spec_clauses 180→182(其余三段 0 变化),`tests/stable/bless_log.md` 同 diff 追加(commit `42ed318c`,check_stable_snapshot_bless 守卫过;RXS-0180 L2 加性演进);步骤 49 `ci/edition_smoke.py` 篡改红绿闭合复绿。
 - **CI 步骤 50 真实红绿 + run URL**:`ci/channel_manifest_smoke.py` 接线 pr-smoke.yml + release.yml;PR #123 pr-smoke 全量 success **[run 29326570278](https://github.com/qwasg/Rurix/actions/runs/29326570278)**(步骤 50 在 runner 真跑:green + 确定性两次逐字节一致 + 漂移注入红 exit 2 + 未知 channel 红 exit 1 + 复原绿);trace 182/182(454 测试文件);`cargo test --workspace` 全绿(rurixup 14 passed)。
 - 判定:D-V1-3 交付闭环,G-V1-3 达成;**V1 契约仍 active**。
+
+### 8.3 V1.3 验收留痕（2026-07-14,G-V1-4 / G-V1-5）
+
+agent 完全自主签署(AGENTS v3.0 硬规则 1),记录机器事实(原文归档 [../../evidence/v1.3-release/](../../evidence/v1.3-release/)):
+
+- **G-V1-4 v1.0.0 发行**:版号跳变 + 触发器收窄经 PR [#124](https://github.com/qwasg/Rurix/pull/124) 合入(pr-smoke success [run 29327766594](https://github.com/qwasg/Rurix/actions/runs/29327766594));annotated tag **`v1.0.0`**(锚定 merge `316124b5`)推送 → release workflow **[run 29328321309](https://github.com/qwasg/Rurix/actions/runs/29328321309) 全量 success** = 10 §6 / 08 §9 机器发布门兑现(签名验签 RURIXUP_SIGN=1 真实 Authenticode `signed_artifacts=['rurixup.exe','rx.exe']` + SBOM 双视图 + NVIDIA 白名单审计 + budget --strict + conformance/UI golden/cargo test 全绿 + channel 清单冒烟);版号三点一致核验:tag = workspace = bundle `rurix_version` = channel 清单 `rurix_version` = **1.0.0**,channel = **stable**。
+- **G-V1-5 首个 GitHub Release**:`gh release create v1.0.0 --verify-tag` 完成(本机人工链路,workflow 不授写权限)——**<https://github.com/qwasg/Rurix/releases/tag/v1.0.0>**(仓库史上首个 Release);附件 = bundle.json / channel_manifest.json / gate_decision.json / release_pipeline_smoke.json / sbom.spdx+cdx.json / signing_manifest.json / 测试签名二进制 rurixup.exe+rx.exe / SHA256SUMS(逐文件摘要见 evidence);Release body **诚实标注**(自签测试证书 + 生产 Azure 签名 pending 人工门 + SmartScreen 告警提示 + NVIDIA 白名单 pending-human-review)并链接 report 与 FCP-lite;body 定稿归档 evidence/v1.3-release/gh_release_body.md。
+- **FCP-lite 回填**:issue [#121](https://github.com/qwasg/Rurix/issues/121) 已评论回填 tag / Release / run 链接(issuecomment-4968659208),**issue 保持开放**。
+- **11_ROADMAP 勘误**:独立规划文档 PR [#125](https://github.com/qwasg/Rurix/pull/125)(00 §6.3;§5 语言 1.0 行发行标注 + 修订 v1.1)。
+- 判定:D-V1-4 / D-V1-5 交付闭环,G-V1-4 / G-V1-5 达成。
+
+### 8.4 V1 整体 close-out 终审（2026-07-14,agent 完全自主签署）
+
+**验收门终审表**:
+
+| 门 | 状态 | 留痕指针 |
+|---|---|---|
+| G-V1-1 stabilization report | ✅ | §8.1;STABILIZATION_REPORT.md + evidence/v1.1-stabilization/(PR #120,run 29324745826) |
+| G-V1-2 FCP-lite 公示 | ✅ | §8.1;issue #121(label fcp-lite,**保持开放**,发布回填已评论) |
+| G-V1-3 stable channel 清单 | ✅ | §8.2;MR-0008(#122)→ 条款+实现+重 bless(#123,run 29326570278,trace 182/182,快照 182) |
+| G-V1-4 v1.0.0 发行 | ✅ | §8.3;tag v1.0.0 + release run 29328321309 全量 success + 版号三点一致 |
+| G-V1-5 首个 GitHub Release | ✅ | §8.3;releases/tag/v1.0.0 + 诚实签名标注 + SHA256SUMS |
+
+**全量回归冻结(本机真实输出,2026-07-14)**:`cargo test --workspace` **76 套件全 ok,0 failed**;`cargo clippy --workspace --all-targets -- -D warnings` 干净;`cargo fmt --all --check` 干净;`trace_matrix --check` **182/182**(454 测试文件);`budget_eval --strict` **69 pass,0 skip,零 estimated**(v1_budget 全期留空兑现零占位);`stable_snapshot --check` **182/88/["2026"]/8**;`check_schemas` PASS;`check_guardrails g2-closed` PASS;`bilingual_coverage` **88/88**(V1 零新码兑现)。
+
+**deferred 处置(诚实分级,不 force-close)**:RD-007 维持 inherited / RD-009 维持 open——V1 为稳定化收尾/发布里程碑,无 device codegen / FFI ABI 工作,均未触发接通点;post-V1 里程碑未定义,owner_milestone 维持 V1 待后续阶段顺延(deferred.json v1.46)。其余 open RD 维持 G2.x 归属(STABILIZATION_REPORT §4 已诚实列举)。V1 期零新 deferred。
+
+**SG 复评(spike_gating.json v1.4)**:SG-001/002/003/007/008 维持 not_triggered——**D-008 红线 3 明确不解除**(语言 1.0 发行 ≠ NVIDIA 纵深完成,解除属独立 one-at-a-time 决策 10 §9.2,对齐 G2 §8.8.4);registry(D-312)维持休眠;第二 edition 未引入(RFC-0008 §8 维持)。**生态成功判据(≥3 非作者项目)维持 G2 §8.8.5 carve-out,不宣称达成**;**生产 Azure 签名维持人工门,显式非 1.0 阻断项**(§7 ⑤)。
+
+**基准切换 + tag(agent 自主签署兑现)**:YAML `status: active → closed`(上方条款 0-byte,§8 只追加);`ci/check_guardrails.py` `resolve_base()` 无参回退基准 **`g2-closed → v1-closed`**;本 PR 合入 main 后落 **`v1-closed`** annotated tag 锚定 close-out merge(release.yml 触发器已于 PR #124 收窄为 semver-only,v1-closed 不误触发);双基准 advisory 复核(g2-closed PASS + v1-closed PASS)随 tag 后执行留痕。`check_closed_contracts` 的 `*_CONTRACT.md` glob 已泛化,本契约翻 closed 自动纳入字节守卫,无代码改动。
+
+**判定:V1 期正式关闭。**语言 1.0 正式发布(稳定化收尾)全链闭环——11 §5 三要件(G2.5 达成)+ RFC-0008 §6 stabilization 路径(观察期判定 → report → FCP-lite → 进入 stable)+ 最小 stable channel 清单(MR-0008)+ v1.0.0 机器发布门全绿 + 首个 GitHub Release(诚实标注)。1.0 之后 stable 面破坏只能走 edition(10 §6 / RXS-0180 L2)。post-V1 里程碑由后续裁决另立,本契约不预造。
