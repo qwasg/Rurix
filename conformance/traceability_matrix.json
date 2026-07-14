@@ -1042,6 +1042,14 @@
     ],
     "RXS-0180": [
       "src/rurix-pkg/src/manifest.rs"
+    ],
+    "RXS-0185": [
+      "src/rurixup/src/channel.rs"
+    ],
+    "RXS-0186": [
+      "src/rurixup/src/channel.rs",
+      "src/rurixup/src/gate.rs",
+      "src/rurixup/src/lib.rs"
     ]
   }
 }
