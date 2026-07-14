@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "namespace": "v1",
+  "description": "V1 预算(14 §3:entries + ratio_assertions + counter_assertions,命名空间强制前缀)。V1 开工脚手架:entries/ratio_assertions/counter_assertions 全部留空且**全期预期不回填**。entries/ratio_assertions 留空 = 不预欠 estimated 占位(延续零占位纪律,14 §3;V1 为稳定化收尾/发布里程碑,无性能门)。counter_assertions 留空 = V1 验收走既有全局断言与归档——条款锚定走 m1.counter.spec_clause_test_anchoring(RXS-0185 续号随 V1.2 自动纳入全局口径),发行签名证据走 m8.counter.release_artifacts_signed(evidence/release_*.json 既有 evaluator),report/FCP/Release URL 走契约 §8 留痕 + evidence/ 归档;不预造 v1 counter,无 ci/budget_eval.py 新 evaluator 分支(对齐 g2_budget.json 全空先例)。占位规则:evidence=estimated 时 evaluator skip 并输出 skip_reason;占位存活 ≤2 个里程碑。",
+  "source_docs": [
+    "14 §3",
+    "11 §5",
+    "10 §5 §6",
+    "milestones/v1/V1_CONTRACT.md",
+    "milestones/v1/CI_GATES.md"
+  ],
+  "entries": [],
+  "ratio_assertions": [],
+  "counter_assertions": [],
+  "namespace_check": {
+    "rule": "本文件所有 id 必须以 'v1.' 前缀开头;多预算合并加载时冲突即 FAIL(14 §3)。预算自动发现 glob 已于 G1 经 m*_budget.json → *_budget.json 泛化,自动纳入 v1(ci/check_schemas.py / budget_eval.py / check_guardrails.py / tests/test_budget_namespace.py 同一 glob)。",
+    "unit_test_required": true
+  },
+  "revision_log": [
+    {
+      "version": "v1.0",
+      "date": "2026-07-14",
+      "change": "初版模板(V1 开工脚手架):entries/ratio_assertions/counter_assertions 全部留空且全期预期不回填。entries/ratio_assertions 留空(不预欠 estimated 占位;稳定化收尾/发布里程碑无性能门);counter_assertions 留空(条款锚定走全局 m1.counter.spec_clause_test_anchoring、发行签名走 m8.counter.release_artifacts_signed 既有 evaluator、治理产物走契约 §8 留痕 + evidence/ 归档,不预造 v1 counter,无新 evaluator 分支,对齐 g2 全空先例)。预算 glob 已泛化为 *_budget.json,自动纳入 v1,无新 CI 代码改动。"
+    }
+  ]
+}
