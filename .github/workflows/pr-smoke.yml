@@ -383,6 +383,18 @@ jobs:
         shell: powershell
         run: py -3 ci/edition_smoke.py
 
+      # 步骤 50（V1/MR-0008,RXS-0185~0186,G-V1-3）:stable channel 清单冒烟。
+      # `ci/channel_manifest_smoke.py`:① green——rurixup release(缺省 channel=stable)
+      # 产出 channel_manifest.json:channel=stable / rurix_version==workspace 版号 /
+      # bundle_manifest_sha256==bundle.json 字节流 SHA-256(内容寻址引用)/ components
+      # 与 bundle 全集对应;② 确定性——同一输入两次生成逐字节一致(无时间戳);
+      # ③ red→绿闭合——`--simulate-channel-drift` → 第 8 子门 channel-manifest 红 →
+      # 发布阻断 exit 2;`--channel nightly` → 用法错误 exit 1(零新 RX 码);复原绿
+      # (反 YAML-only)。**纯 host/CPU-only,不 SKIP 充绿(除无 cargo 工具链)**。
+      - name: stable channel manifest smoke (V1 CI_GATES §2.50, G-V1-3, MR-0008)
+        shell: powershell
+        run: py -3 ci/channel_manifest_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
