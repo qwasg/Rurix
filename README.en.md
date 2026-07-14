@@ -25,7 +25,7 @@ CUDA-first, Windows-native, single-stack NVIDIA done deep: the backend emits PTX
 
 The full argument lives in [`01_VISION_AND_MISSION.md`](01_VISION_AND_MISSION.md) and [`03_POSITIONING_AND_LANDSCAPE.md`](03_POSITIONING_AND_LANDSCAPE.md) (Chinese).
 
-## Project status: MVP complete (`m8-closed`)
+## Project status: MVP + G1 + G2 complete (`g2-closed`)
 
 The first-layer full acceptance (01 §6) is met. The three flagship use cases run end-to-end on real hardware, performance criteria are satisfied, the resource-lifetime error classes are 100% intercepted at compile time, and every budget threshold is `measured_local` (zero `estimated`):
 
@@ -35,6 +35,8 @@ The first-layer full acceptance (01 §6) is met. The three flagship use cases ru
 - **cublas binding package**: three-layer GEMM/GEMV bindings (raw FFI / safe wrapper / high-level API).
 - **Release pipeline**: rurixup + MSI + winget + Azure Artifact Signing (Authenticode) + SBOM (SPDX/CycloneDX) + NVIDIA redistribution-whitelist audit.
 - **Bilingual diagnostics with full coverage** (Chinese/English) + **documentation site** (`rx doc`).
+
+**Since the MVP, the G1 and G2 phases have both closed.** **G1** (`g1-closed`, PR #77): CUDA–D3D12 interop with real-time windowed present (RFC-0001), stream-ordered `AsyncBuffer` allocation (MR-0001), a first engine integration via a Rurix C-ABI DLL embedded in a C++/D3D12 harness (MR-0002), open-source community infrastructure plus a `geometry` crate (MR-0003/0004), and production fatbin distribution (MR-0005). **G2** (`g2-closed`, PR #117): the shader-stage type surface (RFC-0002, RXS-0153–0156), a DXIL backend (D-131 adjudicated = **hybrid**: compute via direct LLVM-DirectX emit / graphics via SPIR-V→DXIL), binding-layout derivation, a UC-04 deferred renderer + texture sampling (RFC-0006/0007), and a stable API + edition (RFC-0008, RD-008). Separately, an out-of-tree **GRX showcase** — a Godot 4.7-dev D3D12 integration/demo spike (**not a core-roadmap milestone**) — reached gated, opt-in, *measured* real-D3D12-dispatch compute passes with pixel-exact LDR parity (`max_abs = 0`); honest ceiling: **default-disabled / fallback-only, no performance claim, Amdahl 1.0669× hard ceiling**.
 
 > Stable-API snapshot freeze: the MVP close-out keeps it `not_frozen` (the public surface is still converging); the mechanism activates at the first stable release ([`RD-008`](registry/deferred.json)).
 
@@ -75,7 +77,7 @@ The documentation site (`rx doc`) is generated deterministically from a single s
 
 Rurix builds governance in as a product capability from day one (language infrastructure for the AI era; see [`10_GOVERNANCE.md`](10_GOVERNANCE.md)):
 
-- **Spec ↔ test ↔ PR triangle**: every RXS spec clause is anchored by ≥1 test (`ci/trace_matrix.py`, currently 139/139).
+- **Spec ↔ test ↔ PR triangle**: every RXS spec clause is anchored by ≥1 test (`ci/trace_matrix.py`).
 - **measured_local budgets**: all performance/diagnostics baselines are measured on real hardware, with zero `estimated` placeholders (`ci/budget_eval.py --strict`).
 - **Real red-green**: every CI gate is validated by "introduce a defect → red → restore → green" (anti-YAML-only), with run URLs archived in [`evidence/`](evidence/).
 - **Byte-level guardrails**, schema validation, structure validation, all-green conformance, and blessed UI/MIR/PTX goldens.
