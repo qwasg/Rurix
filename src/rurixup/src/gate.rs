@@ -23,6 +23,9 @@ pub struct GateInputs {
     pub ui_golden_green: bool,
     /// L1 基准无 Critical 回归。
     pub l1_no_critical_regression: bool,
+    /// stable channel 清单生成成功且一致性判据成立(RXS-0186,V1.2/MR-0008;
+    /// [`crate::channel::consistent`])。
+    pub channel_manifest_ok: bool,
 }
 
 impl GateInputs {
@@ -36,6 +39,7 @@ impl GateInputs {
             conformance_green: true,
             ui_golden_green: true,
             l1_no_critical_regression: true,
+            channel_manifest_ok: true,
         }
     }
 }
@@ -49,11 +53,13 @@ pub struct ReleaseDecision {
     pub failed_gates: Vec<String>,
 }
 
-/// Release 层 hard-block 决策(RXS-0139):任一子门红 → 不放行上传,并枚举失败门。
+/// Release 层 hard-block 决策(RXS-0139 + RXS-0186 延伸):任一子门红 → 不放行
+/// 上传,并枚举失败门。
 pub fn release_decision(inputs: &GateInputs) -> ReleaseDecision {
     // 子门顺序固定(14 §8 口径:签名 / SBOM / 许可审计 / bench strict /
-    // conformance / UI golden / L1 回归),确定性枚举。
-    let checks: [(&str, bool); 7] = [
+    // conformance / UI golden / L1 回归;RXS-0186 追加末位 channel-manifest,
+    // 既有 7 门相对顺序 0-byte),确定性枚举。
+    let checks: [(&str, bool); 8] = [
         ("signing", inputs.signing_all_valid),
         ("sbom", inputs.sbom_present),
         ("redistribution-audit", inputs.redistribution_audit_pass),
@@ -61,6 +67,7 @@ pub fn release_decision(inputs: &GateInputs) -> ReleaseDecision {
         ("conformance", inputs.conformance_green),
         ("ui-golden", inputs.ui_golden_green),
         ("l1-regression", inputs.l1_no_critical_regression),
+        ("channel-manifest", inputs.channel_manifest_ok),
     ];
     let failed_gates: Vec<String> = checks
         .iter()
@@ -78,8 +85,10 @@ mod tests {
     use super::*;
 
     //@ spec: RXS-0139
+    //@ spec: RXS-0186
     // Release 层 hard-block:全门绿 → 放行上传;任一子门红 → 阻断上传 + 失败门枚举
-    // (签名 / SBOM / 许可审计任一缺失即阻断,反 YAML-only)。
+    // (签名 / SBOM / 许可审计任一缺失即阻断,反 YAML-only;RXS-0186 第 8 子门
+    // channel-manifest 追加末位,既有 7 门相对顺序 0-byte)。
     #[test]
     fn release_gate_hard_blocks_on_any_failure() {
         // 绿:全门通过 → 放行。
@@ -108,7 +117,14 @@ mod tests {
         assert!(!d.allow_upload);
         assert_eq!(d.failed_gates, vec!["redistribution-audit".to_string()]);
 
-        // 多门同红 → 全部枚举(确定性顺序)。
+        // 红 4(RXS-0186 第 8 子门):channel 清单漂移 → 阻断。
+        let mut bad_channel = GateInputs::all_green();
+        bad_channel.channel_manifest_ok = false;
+        let d = release_decision(&bad_channel);
+        assert!(!d.allow_upload);
+        assert_eq!(d.failed_gates, vec!["channel-manifest".to_string()]);
+
+        // 多门同红 → 全部枚举(确定性顺序,channel-manifest 末位)。
         let all_red = GateInputs {
             signing_all_valid: false,
             sbom_present: false,
@@ -117,6 +133,7 @@ mod tests {
             conformance_green: false,
             ui_golden_green: false,
             l1_no_critical_regression: false,
+            channel_manifest_ok: false,
         };
         let d = release_decision(&all_red);
         assert!(!d.allow_upload);
@@ -130,6 +147,7 @@ mod tests {
                 "conformance",
                 "ui-golden",
                 "l1-regression",
+                "channel-manifest",
             ]
         );
     }
