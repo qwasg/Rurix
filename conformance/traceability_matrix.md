@@ -186,3 +186,5 @@
 | RXS-0180 | spec/edition.md | 1 | `src/rurix-pkg/src/manifest.rs` |
 | RXS-0185 | spec/release.md | 1 | `src/rurixup/src/channel.rs` |
 | RXS-0186 | spec/release.md | 3 | `src/rurixup/src/channel.rs`, `src/rurixup/src/gate.rs`, `src/rurixup/src/lib.rs` |
+| RXS-0187 | spec/release.md | 1 | `src/rurixup/src/toolchain.rs` |
+| RXS-0188 | spec/release.md | 1 | `src/rurixup/src/toolchain.rs` |
