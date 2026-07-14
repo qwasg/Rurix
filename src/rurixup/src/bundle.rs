@@ -99,6 +99,48 @@ impl BundleManifest {
             .iter()
             .all(|c| c.version == self.rurix_version)
     }
+
+    /// bundle 清单确定性 JSON 序列化(组件按干名字典序;自 `main.rs` 上移,
+    /// 序列化字节 0-byte 不变):`main.rs` 写出 `bundle.json` 与 channel 清单的
+    /// `bundle_manifest_sha256` 内容寻址引用(RXS-0185)共用同一字节流。
+    pub fn to_json(&self) -> String {
+        let mut comps = self.components.clone();
+        comps.sort_by(|a, b| a.name.cmp(&b.name));
+        let mut s = String::new();
+        s.push_str("{\n");
+        s.push_str(&format!(
+            "  \"rurix_version\": \"{}\",\n",
+            crate::json_escape(&self.rurix_version)
+        ));
+        s.push_str("  \"components\": [\n");
+        for (i, c) in comps.iter().enumerate() {
+            let comma = if i + 1 < comps.len() { "," } else { "" };
+            s.push_str("    {\n");
+            s.push_str(&format!(
+                "      \"name\": \"{}\",\n",
+                crate::json_escape(&c.name)
+            ));
+            s.push_str(&format!(
+                "      \"version\": \"{}\",\n",
+                crate::json_escape(&c.version)
+            ));
+            s.push_str(&format!(
+                "      \"license\": \"{}\",\n",
+                crate::json_escape(&c.license)
+            ));
+            s.push_str(&format!(
+                "      \"partition\": \"{}\",\n",
+                c.partition.label()
+            ));
+            s.push_str(&format!(
+                "      \"sha256\": \"{}\"\n",
+                crate::json_escape(&c.sha256)
+            ));
+            s.push_str(&format!("    }}{comma}\n"));
+        }
+        s.push_str("  ]\n}\n");
+        s
+    }
 }
 
 /// 判定组件干名是否为 NVIDIA libdevice bitcode(`libdevice.<digits>.bc`)。

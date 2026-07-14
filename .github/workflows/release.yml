@@ -81,12 +81,18 @@ jobs:
         shell: powershell
         run: py -3 ci/release_pipeline_smoke.py
 
+      # stable channel 清单冒烟(V1/MR-0008,RXS-0185~0186,步骤 50 同款):green +
+      # 确定性 + 漂移注入红(第 8 子门 channel-manifest)+ 未知 channel 红 + 复原绿。
+      - name: stable channel manifest smoke (V1 CI_GATES §2.50, G-V1-3, MR-0008)
+        shell: powershell
+        run: py -3 ci/channel_manifest_smoke.py
+
       # 计数核对:m8.counter.release_artifacts_signed >=1(发布链路签名产物)。
       - name: budget eval release counter (strict)
         shell: powershell
         run: py -3 ci/budget_eval.py --strict --allow-pending m8.counter.bilingual_diagnostic_coverage
 
-      # 全门绿后方上传发布产物 + SBOM + 签名清单(发布门 allow_upload=true 的兑现)。
+      # 全门绿后方上传发布产物 + SBOM + 签名 / channel 清单(发布门 allow_upload=true 的兑现)。
       - name: upload release artifacts (全门绿后)
         uses: actions/upload-artifact@v4
         with:
@@ -97,4 +103,6 @@ jobs:
             target/rurixup_release_smoke/green/sbom.cdx.json
             target/rurixup_release_smoke/green/signing_manifest.json
             target/rurixup_release_smoke/green/bundle.json
+            target/rurixup_release_smoke/green/channel_manifest.json
+            target/rurixup_release_smoke/green/gate_decision.json
           if-no-files-found: error

@@ -22,6 +22,8 @@
 **编号区间**:本文件条款自 **RXS-0135** 起续号(全 spec 唯一、分配制递增、永不复用,见 [README.md](README.md) §1;最高现存 RXS-0134 @ [pipeline.md](pipeline.md))。本轮计划落地 **RXS-0135 ~ RXS-0139**(见 §2),每条 ≥1 测试锚定(`//@ spec: RXS-####`,`src/rurixup` crate 单测)。区间登记于 [README.md](README.md) §4 文件清单。
 
 > **G1.5 延伸(2026-06-22,Mini-RFC/MR-0005)**:本文件经 agent 裁定续承 **生产分发 fatbin** 语义面(脱离 M8 PTX-only 开发期形态,07 §7 / D-207),续号 **RXS-0150 ~ RXS-0152**(见 §2.5):分发产物变体模型与按架构预编 cubin + 保守 PTX fallback / fatbin 装载协商序 / lockfile `[[artifact]]` 变体 digest 与内容寻址锁定。**复用** M4 `ptxas` 干验证(RXS-0073)+ rurix-rt PTX 装载协商(RXS-0076/0077)+ M6 content-tree SHA-256(RXS-0090/0093),新增仅补分发产物变体缺口;依据 [mini-0005-fatbin-distribution.md](../rfcs/mini-0005-fatbin-distribution.md)(D-207 / D-311,owner 2026-06-22 经 AskUserQuestion 批准)。M8.4 既有条款 RXS-0135 ~ RXS-0139 条款体 **0-byte**。
+>
+> **V1.2 延伸(2026-07-14,Mini-RFC/MR-0008)**:本文件续承 **最小 stable channel 清单** 语义面(语言 1.0 首个 stable 发行的发行渠道身份锚),续号 **RXS-0185 ~ RXS-0186**(见 §2.6;**RXS-0181 ~ RXS-0184 已被 GRX showcase 分支(未合 main)claim,跳号避撞,编号永不复用 10 §9.5**):channel 清单存在性·字段语义·确定性序列化 / channel 与 bundle 同版号一致性判据 + Release 层发布门第 8 子门延伸。**复用** RXS-0093 content SHA-256(内容寻址引用)+ RXS-0138 确定性 JSON 纪律 + RXS-0139 发布门枚举形态(既有 7 门相对顺序 0-byte);依据 [mini-0008-stable-channel-manifest.md](../rfcs/mini-0008-stable-channel-manifest.md)(V1_CONTRACT §7 ④,agent Approved 2026-07-14)。M8.4/G1.5 既有条款 RXS-0135 ~ RXS-0139、RXS-0150 ~ RXS-0152 条款体 **0-byte**。
 
 ## 2. 条款
 
@@ -249,6 +251,64 @@ sha256     = "<64-hex>"          // 变体字节 content-tree SHA-256(RXS-0090/0
 
 > 锚定测试:`src/rurix-pkg`(`lock_artifact_roundtrip_and_content_addressed`:`[[artifact]]` 变体 digest 序列化/解析 round-trip + 字节篡改变 digest;`//@ spec: RXS-0152`)。
 
+## 2.6 V1.2 — 最小 stable channel 清单（RXS-0185 ~ RXS-0186，Mini-RFC/MR-0008）
+
+> 语言 1.0 首个 stable 发行的**发行渠道身份锚**(V1_CONTRACT D-V1-3 / G-V1-3):`rurixup release` 追加产出确定性 `channel_manifest.json`(channel=stable),清单一致性纳入 Release 层 hard-block 门集第 8 子门 `channel-manifest`。**复用** RXS-0093 content SHA-256(内容寻址引用)+ RXS-0138 确定性 JSON 纪律(`crate::json_escape` + 字典序)+ RXS-0139 发布门枚举形态(**既有 7 门相对顺序 0-byte**,追加末位);**不实现** install/update/channel 切换(rustup 式前端,08 §9 后续按档处置),**不建** nightly channel,零网络端点,**不引用新 RX 段位码**(§3),**严禁 UB 节**(10 §7.5)。每条 ≥1 测试锚定。依据 [mini-0008-stable-channel-manifest.md](../rfcs/mini-0008-stable-channel-manifest.md)。
+
+### RXS-0185 stable channel 清单存在性、字段语义与确定性序列化
+
+**Syntax**(channel 清单模型,`src/rurixup`):
+
+```
+VALID_CHANNELS  ::= ["stable"]                                  // channel 合法值集(首版)
+ChannelManifest ::= { channel, rurix_version, bundle_manifest_sha256,
+                      components: [Component] }                 // 发行渠道身份锚
+generate(&bundle, channel, bundle_json) -> Result<ChannelManifest, _>
+ChannelManifest::to_json() -> String                            // 确定性序列化
+```
+
+**Legality**:
+
+- `channel` ∈ **合法值集**(首版仅 `"stable"`);未知 channel 为**工具层用法错误**(`generate` 返回 `Err`,`rurixup` 退出码 1,零新 RX 码,§3)。channel 合法集扩充(如未来 nightly)须随条款修订落笔,不预造。
+- `rurix_version` 拷贝自 bundle `rurix_version`;`components` 拷贝 bundle 组件全集并按**干名字典序**排列(name / version / partition / sha256 四字段)。
+- `bundle_manifest_sha256` = 同目录写出的 `bundle.json` **字节流 SHA-256**(内容寻址引用,复用 `rurix_pkg::sha256::hex_digest`,RXS-0093 口径)——channel 清单锚定的正是该次发布编排的 bundle 清单字节。
+
+**Dynamic Semantics**:
+
+- 序列化**逐字节确定**:同一 bundle 输入两次 `generate` + `to_json` 产逐字节一致字节流;**日期/时间戳不进清单**(发布日期归 Release 元数据与 evidence `timestamp` 字段承载,对齐 RXS-0138 确定性纪律)。
+- `rurixup release` 每次编排在 `--out-dir` 追加写出 `channel_manifest.json`(与 bundle.json / SBOM 双视图 / signing_manifest.json / gate_decision.json 并列;既有 5 类输出字节流 0-byte)。
+
+**Implementation Requirements**:
+
+- 手写确定性 JSON(`crate::json_escape` + 字典序),零外部依赖(供应链可信根);纯 safe(`unsafe_code=deny`,零新 unsafe)。本条款仅锚定清单**存在性 + 字段含义 + 确定性**,不实现 install/update/channel 切换(触及即停手标注「需升档」,MR-0008 §3)。
+
+> 锚定测试:`src/rurixup/src/channel.rs`(`channel_manifest_stable_shape_and_determinism`:字段形态 + digest 内容寻址 + 干名字典序 + 两次生成逐字节一致;`unknown_channel_rejected`:未知 channel → Err;`//@ spec: RXS-0185`)。
+
+### RXS-0186 channel 与 bundle 同版号一致性判据 + Release 层发布门延伸
+
+**Syntax**(一致性判据与门集延伸,`src/rurixup`):
+
+```
+consistent(&bundle, &ChannelManifest) -> bool                   // 一致性判据
+GateInputs ::= { ..RXS-0139 既有 7 门.., channel_manifest_ok }  // 第 8 子门
+```
+
+**Legality**:
+
+- **一致性判据** = channel ∈ 合法值集 **且** 清单 `rurix_version` == bundle `rurix_version`(RXS-0135 语言本体同版号判据延续)**且** 清单 `components` 与 bundle 组件全集**一一对应**(干名 / 版号 / 分区 / digest 逐项一致,字典序比较)。任一不符 → `consistent=false`。
+- **Release 层门集延伸**(RXS-0139):门集追加**末位第 8 子门 `channel-manifest`**(= 清单生成成功 **且** 一致性判据成立);既有 7 门(签名 / SBOM / 许可审计 / bench-strict / conformance / UI golden / L1 回归)**相对顺序 0-byte**。子门红 → `allow_upload=false` + 退出码 2(hard-block 语义不变)。
+
+**Dynamic Semantics**:
+
+- `consistent` 为纯函数(host 可测,确定性);发布编排(`run_release`)以 `consistent(&bundle, &manifest)` 的机器事实回填 `GateInputs.channel_manifest_ok`,`failed_gates` 按固定顺序确定枚举(末位 `channel-manifest`)。
+- **真实红绿**(反 YAML-only):`--simulate-channel-drift` 故障注入(镜像 `--simulate-missing-sbom`)→ 第 8 子门红 → 发布阻断;未知 channel → 用法错误退出码 1;复原转绿(CI 步骤 50 `ci/channel_manifest_smoke.py`,run URL 归档)。
+
+**Implementation Requirements**:
+
+- 失败以**工具层退出码 + `failed_gates` 枚举**表达,零新 RX 码(§3);摘要行追加 `channel=<name> channel_ok=<bool>` token(既有 token 0-byte,纯追加)。`--simulate-channel-drift` 仅供发布门真实红绿自检(正常路径无故障注入)。
+
+> 锚定测试:`src/rurixup/src/channel.rs`(`channel_version_consistency_detected`:版号漂移 / 组件 digest 漂移 / 组件缺失 / 非法 channel → `consistent=false`;`//@ spec: RXS-0186`)+ `src/rurixup/src/gate.rs`(`release_gate_hard_blocks_on_any_failure`:第 8 子门单红阻断 + 8 门全红枚举)+ `src/rurixup/src/lib.rs`(`run_release_end_to_end_green_then_blocked`:漂移注入端到端阻断)。
+
 ## 3. 错误码引用汇总
 
 > **本里程碑不新增 RX 错误码**(零追加)。`rurixup` 为独立发布工具(非编译器前端),其发布门失败诊断(未签名/验签失败 / SBOM 缺失或不全 / 再分发白名单违例 / bundle content-tree 完整性不符)以**工具层错误值 + 退出码 + 失败子门枚举**表达——`InstallError`(`IntegrityMismatch` / `VersionSkew`,RXS-0135)、`SigningManifest::upload_permitted=false`(RXS-0137)、`RedistributionAudit::violations`(RXS-0136)、`ReleaseDecision::failed_gates` + 退出码 2(RXS-0139),**而非编译器侧 `RX####` 段位码**;`registry/error_codes.json` 与 `src/rurixc/src/messages/{en,zh}.messages` **本里程碑不动**(对齐 M8.3 pipeline.md §3「rustc 原生诊断而非 RX 段位码」零追加先例)。
@@ -258,6 +318,8 @@ sha256     = "<64-hex>"          // 变体字节 content-tree SHA-256(RXS-0090/0
 > NVIDIA EULA Attachment A 白名单逐项法律核对的自主签署状态以证据字段 `eula_whitelist_verdict`(`pending-human-review` / `signed-compliant` / `signed-noncompliant`,沿 M5.4 `redistribution_audit_evidence_schema.json` 先例)表达,**非 RX 段位码**;agent 自主签署(§4)。
 >
 > **G1.5(§2.5,RXS-0150 ~ RXS-0152)同样零新增 RX 码**:fatbin 装载协商**降级而非 reject**(cubin 未命中 / 拒绝 → 静默降级既有 PTX 路径,沿用 RXS-0076 装载诊断 + RXS-0077 poisoned 状态机);lockfile `[[artifact]]` digest 失配以 `rurix-pkg` 工具层 Result(content-tree 完整性,RXS-0092)/ rurixup 发布门枚举(RXS-0139)表达。`registry/error_codes.json` 与 `en.messages` G1.5 零追加(对齐 G1.1~G1.3 零新码先例)。若实现期确需编译期 / 运行期诊断段位码,则停手标注「需升档」,按段位 7(`RX70xx` 从 **RX7020** 起)续接,不预造。
+>
+> **V1.2(§2.6,RXS-0185 ~ RXS-0186)同样零新增 RX 码**:未知 channel = 工具层用法错误(`generate` Err → `rurixup` 退出码 1,镜像既有未知参数路径);channel 清单漂移 / 缺失 / 版号不符 = 第 8 子门 `channel-manifest` 红 → `failed_gates` 枚举 + 退出码 2(RXS-0139 hard-block 语义延伸)。`registry/error_codes.json` 与双语 messages V1.2 零追加(bilingual 88/88 不变)。确需段位码则停手标注「需升档」,按段位 7(`RX70xx` 从 **RX7021** 起,RX7020 已用于 edition)续接,不预造。
 
 ## 4. 升档 / 禁区留痕
 
@@ -279,3 +341,4 @@ sha256     = "<64-hex>"          // 变体字节 content-tree SHA-256(RXS-0090/0
 | v1.0 | 2026-06-17 | 新建 spec/release.md(M8.4 发布产物语义面起始文件):登记编号区间 RXS-0135 起续号预留 + 文件级前言 / 范围(原子分发与 content-tree 完整性 / 语言本体与 NVIDIA 再分发组件分离打包 / 签名清单约定与验签发布前置 / SBOM SPDX+CycloneDX 约定 / Release 层 hard-block 发布门;**复用 M6 包管理 content-tree/lock RXS-0090/0092/0094 与 M5.4 NVIDIA 再分发白名单审计,新增仅补发布产物缺口**;PTX-only、完整 Toolkit/驱动/Nsight 永不捆绑 r6、永不 Python 原生嵌入、registry sumdb 维持 not_triggered、发布门以机器事实定义不设 UB)/ 依据与授权(08 §9 D-241 r6 + 14 §8 Release 层 + 10 §6 工具链发布门 + 09 §6/§7 + 01 §6;M8_CONTRACT D-M8-4 / G-M8-4 / G-M8-7 / RD-001 `rfc_required: none` + M8_PLAN §4 + CI_GATES §3 步骤 38)/ 计划条款骨架(§2 预留,非裸条款头:RXS-0135 原子分发与 content-tree 完整性 / RXS-0136 语言本体与 NVIDIA 再分发组件分离打包 / RXS-0137 签名清单约定与验签发布前置 / RXS-0138 SBOM SPDX+CycloneDX 约定 / RXS-0139 Release 层 hard-block 发布门)/ 错误码说明(§3:rurixup 发布门诊断按需段位 7 RX70xx 续接,**脚手架不预造**,最终随实现 PR 按 07 §5 裁定;EULA 白名单 `eula_whitelist_verdict` 自主签署字段非 RX 码)/ 升档·禁区留痕(§4:Azure Artifact Signing of-record agent 裁定 + 生产签名 secret 门控、EULA Attachment A 白名单 pending-human-review agent 自主签署、cubin/fatbin G1·PTX-only、完整 Toolkit/驱动/Nsight 捆绑 r6 红线、Python 原生嵌入红线 1/SG-008、registry sumdb D-312/G2 not_triggered、UB 节禁区)。**沿 README v1.15 toolchain.md / v1.20 stdlib.md / v1.25 interop.md / v1.27 cublas.md / v1.29 pipeline.md 先例:本轮不落带编号裸条款头**——条款体与 ≥1 测试锚定随 M8.4 实现 PR 同落(条款 PR 先于实现 PR,trace_matrix 维持全锚定),无体例变更 | Direct |
 | v1.1 | 2026-06-17 | 落地带编号条款体 RXS-0135 ~ RXS-0139(M8.4 实现 PR,条款体随实现 + 测试锚定同落,§2 计划骨架升格为条款体):RXS-0135 原子分发与 content-tree 完整性(语言本体同一版号单一原子分发单元 + content-tree 规范化 SHA-256 完整性锚 复用 rurix-pkg RXS-0090/0092/0093;原子安装全有或全无、校验失败回滚不留半装)/ RXS-0136 语言本体与 NVIDIA 再分发组件分离打包(LanguageCore ⟂ NvidiaRedist 分区;NVIDIA 仅 Attachment A 白名单最小集 libdevice.<d>.bc + cublas(Lt)?64_<d>.dll,完整 Toolkit/驱动/Nsight 永不捆绑 r6;延续 M5.4 check_redistribution 口径)/ RXS-0137 签名清单约定与验签发布前置(Authenticode + 时间戳;of-record Azure Artifact Signing 生产 secret/人工门控、本地冒烟 SelfSignedTest 自签真实红绿;验签通过=Valid+时间戳为上传前置,未签名/失败/缺时间戳阻断;verified 去重集计入 m8.counter.release_artifacts_signed)/ RXS-0138 SBOM 约定(SPDX-2.3 构建视图 + CycloneDX-1.5 发布视图,组件齐备判据=干名与版次均落两视图,手写确定性 JSON 零依赖)/ RXS-0139 Release 层 hard-block 发布门(签名/SBOM/许可审计/bench-strict/conformance/UI golden/L1 回归任一红 → allow_upload=false 不上传 artifact + failed_gates 确定枚举,退出码 2)。每条 ≥1 锚定(`src/rurixup` 单测:install / bundle / signing / sbom / gate + lib 端到端;trace_matrix 维持全锚定 134→139)。**本里程碑不新增 RX 码**(§3:rurixup 工具层 Result/退出码/失败子门枚举,registry/error_codes.json 与 en.messages 零追加,对齐 M8.3 pipeline.md 先例)。实现裁决:新 crate `src/rurixup` 默认 `unsafe_code=deny`(纯 Rust 无 FFI),复用 rurix-pkg content_tree/sha256;ci/trace_matrix.py 锚定源加入 src/rurixup;PTX-only、不触 cubin/fatbin G1 / 完整 Toolkit r6 / 红线 1 SG-008 / registry sumdb D-312。Azure 为 of-record 签名后端(agent 裁定)、EULA Attachment A 白名单维持 pending-human-review(agent 自主签署),无体例变更 | Direct |
 | v1.2 | 2026-06-22 | G1.5 生产分发 fatbin 语义面延伸(Mini-RFC/MR-0005,owner 2026-06-22 经 AskUserQuestion 裁决档位 + 落点 release.md + `[[artifact]]` 落 rurix.lock + 不立性能门)：§1 续号区间补 RXS-0150 ~ RXS-0152 + §2.5 落条款体——RXS-0150 分发产物变体模型与按架构预编 cubin + 保守 PTX fallback(每 `DeviceArtifactSet` 必含 PTX fallback、cubin 由对应 PTX 经 `ptxas -arch` 预编保留字节、复用 RXS-0073 干验证;cubin 不设字节 golden 改结构核对)/ RXS-0151 fatbin 装载协商序(`select_load_variant` 纯函数:cubin 命中即 `cuModuleLoadData`、未命中 / 拒绝降级既有 PTX 版号梯子 `cuModuleLoadDataEx` 即 RXS-0076/0077 语义 0-byte、降级而非 reject 不 poison、装载边界 unsafe-audit U22)/ RXS-0152 lockfile `[[artifact]]` 变体 digest 与内容寻址锁定(复用 rurix-pkg content-tree SHA-256 RXS-0090/0093、`(package,kind,sm_target)` 字典序确定序列化、`[[artifact]]` 追加既有 `[[package]]` schema 0-byte)。§4 追加 cubin/fatbin 真分发兑现 bullet(不动既有 PTX-only bullet);§3 追加 G1.5 零新 RX 码说明(降级而非 reject、digest 失配走工具层 Result、确需则 RX7020 续接停手不预造)。**M8.4 既有条款 RXS-0135 ~ RXS-0139 条款体 0-byte**;cubin/fatbin = Rurix 自编语言本体(非 NvidiaRedist)经 `check_redistribution` 白名单审计延续(无 `__nv_*` 残留、不打包 libdevice .bc/Toolkit/驱动/Nsight r6);不立装载首启延迟性能门(仅功能冒烟 + nightly 趋势)、真 fatbinary / 多架构矩阵 defer RD-010 不预造。依据 [mini-0005-fatbin-distribution.md](../rfcs/mini-0005-fatbin-distribution.md)(D-207 / D-311)、G1_CONTRACT D-G1-5 / G-G1-5 / G-G1-6 + G1_PLAN §5。agent 自主判档,判档争议向上取严,无体例变更 | Mini-RFC(MR-0005) |
+| v1.3 | 2026-07-14 | V1.2 最小 stable channel 清单语义面延伸(Mini-RFC/MR-0008,agent Approved 2026-07-14;用户同日裁决范围 = 最小清单,V1_CONTRACT §7 ④):§1 续号区间补 RXS-0185 ~ RXS-0186(**RXS-0181~0184 已被 GRX showcase 分支 claim,跳号避撞,编号永不复用 10 §9.5**)+ §2.6 落条款体——RXS-0185 stable channel 清单存在性·字段语义·确定性序列化(channel ∈ {stable} 首版合法集 / rurix 版号拷贝 bundle / `bundle_manifest_sha256` = bundle.json 字节流 SHA-256 内容寻址引用复用 RXS-0093 / 组件干名字典序 / 同一输入两次产逐字节一致、无时间戳;为 rustup 式前端预留锚点,不实现 install/update/channel 切换,nightly 不建)/ RXS-0186 channel 与 bundle 同版号一致性判据 + Release 层发布门延伸(判据 = channel 合法 + 清单版号 == bundle 版号 RXS-0135 判据延续 + 组件全集一一对应;门集追加末位第 8 子门 channel-manifest,清单缺失/漂移/版号不符 → 发布阻断退出码 2;RXS-0139 既有 7 门相对顺序 0-byte;`--simulate-channel-drift` 故障注入真实红绿,CI 步骤 50 `ci/channel_manifest_smoke.py`)。§3 追加 V1.2 零新 RX 码说明(未知 channel 走工具层用法错误退出码 1,确需则 RX7021 续接停手不预造)。**M8.4/G1.5 既有条款 RXS-0135 ~ RXS-0139、RXS-0150 ~ RXS-0152 条款体 0-byte**;stable 快照(RD-008)因条款计数 180→182 同 PR 重 bless + bless_log 追加(RXS-0180 L2 加性演进)。依据 [mini-0008-stable-channel-manifest.md](../rfcs/mini-0008-stable-channel-manifest.md) + V1_CONTRACT D-V1-3 / G-V1-3 + V1_PLAN §2。agent 自主判档,判档争议向上取严,无体例变更 | Mini-RFC(MR-0008) |
