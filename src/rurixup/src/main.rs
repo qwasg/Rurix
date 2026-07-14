@@ -16,24 +16,32 @@ use std::process::ExitCode;
 
 use rurixup::bundle::{BundleManifest, Component, Partition};
 use rurixup::signing::{SignBackend, SignStatus, SignedArtifact, SigningManifest};
+use rurixup::toolchain::ToolchainRegistry;
 use rurixup::{CiFacts, Faults, channel, json_escape, run_release};
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    match args.first().map(String::as_str) {
-        Some("release") => match run(&args[1..]) {
+    let dispatch = |r: Result<ExitCode, String>| -> ExitCode {
+        match r {
             Ok(code) => code,
             Err(msg) => {
                 eprintln!("rurixup: 错误:{msg}");
                 ExitCode::from(1)
             }
-        },
+        }
+    };
+    match args.first().map(String::as_str) {
+        Some("release") => dispatch(run(&args[1..])),
+        // MR-0009 工具链前端(RXS-0187/0188):消费 stable channel + 注册 + 默认切换。
+        Some("install") => dispatch(cmd_install(&args[1..])),
+        Some("list") => dispatch(cmd_list(&args[1..])),
+        Some("default") => dispatch(cmd_default(&args[1..])),
         Some("--help") | Some("-h") | None => {
             print_usage();
             ExitCode::SUCCESS
         }
         Some(other) => {
-            eprintln!("rurixup: 未知子命令 `{other}`(支持:release)");
+            eprintln!("rurixup: 未知子命令 `{other}`(支持:release|install|list|default)");
             print_usage();
             ExitCode::from(1)
         }
@@ -42,15 +50,147 @@ fn main() -> ExitCode {
 
 fn print_usage() {
     eprintln!(
-        "用法: rurixup release \\\n  \
-         --version <ver> \\\n  \
-         --component 'name|version|license|partition|path' (可重复;partition ∈ core|nvidia) \\\n  \
-         --sign 'name|status|timestamped|backend' (可重复;status ∈ Valid|Unsigned|Invalid;timestamped ∈ true|false;backend ∈ azure|selftest) \\\n  \
-         [--bench-strict <true|false>] [--conformance <true|false>] [--ui-golden <true|false>] [--l1-regression-ok <true|false>] \\\n  \
-         [--channel <name>] (缺省 stable;合法集 stable) \\\n  \
-         [--simulate-missing-sbom] [--simulate-channel-drift] \\\n  \
-         --out-dir <dir>"
+        "用法:\n  \
+         rurixup release --version <ver> --component '...' --sign '...' [选项] --out-dir <dir>\n  \
+         rurixup install --channel-manifest <path> --bundle <path> [--registry <path>]\n  \
+         rurixup list [--registry <path>]\n  \
+         rurixup default <version> [--registry <path>]\n\
+         \n\
+         release 详细选项:\n  \
+         --component 'name|version|license|partition|path' (可重复;partition ∈ core|nvidia)\n  \
+         --sign 'name|status|timestamped|backend' (可重复;status ∈ Valid|Unsigned|Invalid;backend ∈ azure|selftest)\n  \
+         [--bench-strict|--conformance|--ui-golden|--l1-regression-ok <true|false>]\n  \
+         [--channel <name>] (缺省 stable) [--simulate-missing-sbom] [--simulate-channel-drift]\n\
+         \n\
+         install/list/default(MR-0009):--registry 缺省 ./toolchains.json"
     );
+}
+
+/// 单值 flag 取参数(缺省值可选)。
+fn opt_arg(args: &[String], flag: &str) -> Option<String> {
+    args.iter()
+        .position(|a| a == flag)
+        .and_then(|i| args.get(i + 1).cloned())
+}
+
+/// `rurixup install`(RXS-0188):读 channel_manifest.json + bundle.json → 内容寻址
+/// 校验(声明 digest == 实测 sha256(bundle_json))+ channel 合法性 → 注册进
+/// `toolchains.json`(幂等)。真实 FS 物化 / 网络拉取 defer RD-025。
+fn cmd_install(args: &[String]) -> Result<ExitCode, String> {
+    let manifest_path = opt_arg(args, "--channel-manifest").ok_or("缺 --channel-manifest")?;
+    let bundle_path = opt_arg(args, "--bundle").ok_or("缺 --bundle")?;
+    let registry_path = opt_arg(args, "--registry").unwrap_or_else(|| "toolchains.json".into());
+
+    let bundle_json =
+        std::fs::read_to_string(&bundle_path).map_err(|e| format!("读 {bundle_path} 失败:{e}"))?;
+    let bundle = BundleManifest::from_json(&bundle_json)?;
+    let manifest_text = std::fs::read_to_string(&manifest_path)
+        .map_err(|e| format!("读 {manifest_path} 失败:{e}"))?;
+    let declared_channel =
+        json_string_field(&manifest_text, "channel").ok_or("channel_manifest.json 缺 channel")?;
+    let declared_digest = json_string_field(&manifest_text, "bundle_manifest_sha256")
+        .ok_or("channel_manifest.json 缺 bundle_manifest_sha256")?;
+
+    // 内容寻址校验:清单声明的 digest 必须指向这份 bundle(篡改/错配即拒,RXS-0135/0187)。
+    let actual = rurix_pkg::sha256::hex_digest(bundle_json.as_bytes());
+    if declared_digest != actual {
+        return Err(format!(
+            "channel 清单 bundle_manifest_sha256 与实测 bundle 不符(声明 {declared_digest} != 实测 {actual});清单未指向此 bundle"
+        ));
+    }
+    // 由 bundle 重生规范 channel 清单(校验 channel ∈ 合法集 + 一致性,RXS-0186)。
+    let manifest = channel::generate(&bundle, &declared_channel, &bundle_json)?;
+
+    let mut registry = if std::path::Path::new(&registry_path).exists() {
+        ToolchainRegistry::from_json(
+            &std::fs::read_to_string(&registry_path)
+                .map_err(|e| format!("读 {registry_path} 失败:{e}"))?,
+        )?
+    } else {
+        ToolchainRegistry::new()
+    };
+    let version = registry
+        .install(&manifest, &bundle, &bundle_json)
+        .map_err(|e| format!("install 校验失败:{e:?}"))?;
+    std::fs::write(&registry_path, registry.to_json())
+        .map_err(|e| format!("写 {registry_path} 失败:{e}"))?;
+
+    println!(
+        "RURIXUP_INSTALL: version={} channel={} default={} registered={}",
+        version,
+        declared_channel,
+        registry.default_version().unwrap_or("-"),
+        registry.list().len()
+    );
+    Ok(ExitCode::SUCCESS)
+}
+
+/// `rurixup list`(RXS-0187):列出已注册版本 + 标注 default。
+fn cmd_list(args: &[String]) -> Result<ExitCode, String> {
+    let registry_path = opt_arg(args, "--registry").unwrap_or_else(|| "toolchains.json".into());
+    let registry = load_registry(&registry_path)?;
+    let default = registry.default_version();
+    println!(
+        "RURIXUP_LIST: count={} default={}",
+        registry.list().len(),
+        default.unwrap_or("-")
+    );
+    for t in registry.list() {
+        let mark = if Some(t.version.as_str()) == default {
+            " (default)"
+        } else {
+            ""
+        };
+        println!("  {}{}  {}", t.version, mark, t.content_digest);
+    }
+    Ok(ExitCode::SUCCESS)
+}
+
+/// `rurixup default <version>`(RXS-0187):设默认版本(须已注册)。
+fn cmd_default(args: &[String]) -> Result<ExitCode, String> {
+    let version = args
+        .iter()
+        .find(|a| !a.starts_with("--"))
+        .cloned()
+        .ok_or("缺 <version>")?;
+    let registry_path = opt_arg(args, "--registry").unwrap_or_else(|| "toolchains.json".into());
+    let mut registry = load_registry(&registry_path)?;
+    registry
+        .set_default(&version)
+        .map_err(|e| format!("set default 失败:{e:?}"))?;
+    std::fs::write(&registry_path, registry.to_json())
+        .map_err(|e| format!("写 {registry_path} 失败:{e}"))?;
+    println!("RURIXUP_DEFAULT: default={version}");
+    Ok(ExitCode::SUCCESS)
+}
+
+fn load_registry(path: &str) -> Result<ToolchainRegistry, String> {
+    if std::path::Path::new(path).exists() {
+        ToolchainRegistry::from_json(
+            &std::fs::read_to_string(path).map_err(|e| format!("读 {path} 失败:{e}"))?,
+        )
+    } else {
+        Err(format!("工具链注册表 {path} 不存在(先 rurixup install)"))
+    }
+}
+
+/// 从本 crate 规范 JSON 抽取一个字符串字段值(`  "key": "value"` 行扫描;
+/// 仅用于 channel_manifest.json 的 channel / bundle_manifest_sha256 标量字段)。
+fn json_string_field(text: &str, key: &str) -> Option<String> {
+    let needle = format!("\"{key}\":");
+    for line in text.lines() {
+        let line = line.trim();
+        if let Some(rest) = line.strip_prefix(&needle) {
+            return Some(
+                rest.trim()
+                    .trim_end_matches(',')
+                    .trim()
+                    .trim_matches('"')
+                    .to_string(),
+            );
+        }
+    }
+    None
 }
 
 fn run(args: &[String]) -> Result<ExitCode, String> {
