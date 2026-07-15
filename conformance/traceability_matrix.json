@@ -1099,6 +1099,12 @@
     ],
     "RXS-0211": [
       "src/rurix-rt/src/vk.rs"
+    ],
+    "RXS-0212": [
+      "src/rurixc/src/toolchain.rs"
+    ],
+    "RXS-0213": [
+      "src/rurix-rt/src/vk.rs"
     ]
   }
 }

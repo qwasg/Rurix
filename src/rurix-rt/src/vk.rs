@@ -2933,4 +2933,131 @@ mod tests {
         let spv = [0x0723_0203u32, 0x0001_0000, 0, 5, 0];
         assert_eq!(entry_point_name(&spv), None); // 无 OpEntryPoint → None,确定性。
     }
+
+    /// 某 crate 名是否作为**依赖声明键**出现于 manifest 文本。捕获两形态:
+    /// ① **内联行** `name = ..` / `name.workspace` / `name = {..}`(行首去空白后 `name` 紧跟
+    ///    ` `/`=`/`.`/tab);
+    /// ② **TOML 表头** `[<..>dependencies.name]`(`[dependencies.name]` / `[build-dependencies.name]`
+    ///    / `[dev-dependencies.name]` / `[target.'cfg(..)'.dependencies.name]`——末段 dotted 路径
+    ///    == `name` 且其前一段以 `dependencies` 结尾)。
+    /// 注释行(`#` 起)不匹配;子串不误判(`ashley` ≠ `ash`;`[dependencies.ashley]` ≠ `ash`),
+    /// 故 doc-comment 内提及 `ash`/`spirv` 不会误判。(FIX 1:补 ② 表头形态,堵外部绑定 crate
+    /// 经 `[dependencies.NAME]` 逃逸 tripwire 的缺口。)
+    fn declares_dep(manifest: &str, name: &str) -> bool {
+        manifest.lines().any(|line| {
+            let t = line.trim_start();
+            // ① 内联依赖行。
+            if t.strip_prefix(name).is_some_and(|rest| {
+                matches!(
+                    rest.chars().next(),
+                    Some(' ') | Some('=') | Some('.') | Some('\t')
+                )
+            }) {
+                return true;
+            }
+            // ② 依赖表头 `[<..>dependencies.name]`。
+            if let Some(inner) = t.strip_prefix('[').and_then(|s| s.strip_suffix(']')) {
+                let suffix = format!(".{name}");
+                if let Some(prefix) = inner.strip_suffix(&suffix) {
+                    // 末段前须为依赖表(dependencies / build-dependencies / dev-dependencies);
+                    // 排除 `[features]` / `[package.metadata.name]` 等非依赖表的同名末段。
+                    return prefix
+                        .rsplit('.')
+                        .next()
+                        .is_some_and(|seg| seg.ends_with("dependencies"));
+                }
+            }
+            false
+        })
+    }
+
+    /// RXS-0213:Vulkan 绑定供应链纪律——运行时 = 手写薄 `vulkan-1`/`libvulkan` FFI loader
+    /// (本模块 U26/U27),codegen = 纯 Rust SPIR-V,**两侧零外部 Vulkan/SPIR-V 绑定 crate**。
+    /// 解析**真** `rurix-rt`(CARGO_MANIFEST_DIR)+ `rurixc` 的 Cargo.toml 依赖清单断言
+    /// 不含 `ash`/`vulkano`/`erupt`/`gpu-alloc`(Vulkan 绑定)与外部 SPIR-V crate,且 `vulkan`
+    /// feature 为空依赖集(`vulkan = []`)——非内联复刻,直接校验真 manifest(若有人加
+    /// `ash = ".."` 到 [dependencies],本测试即红)。
+    //@ spec: RXS-0213
+    #[test]
+    fn binding_supply_chain_no_external_vulkan_crate() {
+        // ── tripwire 自检:declares_dep 须同时捕获内联形态与 TOML 表头形态。 ──
+        // ① 内联形态。
+        assert!(declares_dep("ash = \"0.37\"", "ash"), "内联 `name = ..`");
+        assert!(
+            declares_dep("  vulkano.workspace = true", "vulkano"),
+            "内联 `name.workspace`"
+        );
+        assert!(
+            declares_dep("erupt = { version = \"0.23\" }", "erupt"),
+            "内联 `name = {{..}}`"
+        );
+        // ② TOML 表头形态(FIX 1:此前被漏,外部绑定 crate 可经此逃逸 tripwire)。
+        assert!(
+            declares_dep("[dependencies.ash]", "ash"),
+            "表头 [dependencies.NAME]"
+        );
+        assert!(
+            declares_dep("[build-dependencies.vulkano]", "vulkano"),
+            "表头 [build-dependencies.NAME]"
+        );
+        assert!(
+            declares_dep("[dev-dependencies.erupt]", "erupt"),
+            "表头 [dev-dependencies.NAME]"
+        );
+        assert!(
+            declares_dep("[target.'cfg(unix)'.dependencies.gpu-alloc]", "gpu-alloc"),
+            "表头 [target.'…'.dependencies.NAME]"
+        );
+        // 负例:注释 / 非依赖表 / 子串不误判。
+        assert!(
+            !declares_dep("# ash 是成熟 Vulkan 绑定,但本项目手写 loader 不采", "ash"),
+            "注释行不匹配"
+        );
+        assert!(!declares_dep("[features]", "ash"), "无关表头不匹配");
+        assert!(
+            !declares_dep("ashley = \"1.0\"", "ash"),
+            "crate 名子串不误判(ashley≠ash)"
+        );
+        assert!(
+            !declares_dep("[dependencies.ashley]", "ash"),
+            "表头 crate 名子串不误判"
+        );
+
+        let rt_manifest_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
+        let rt = std::fs::read_to_string(&rt_manifest_path)
+            .expect("读 rurix-rt Cargo.toml(CARGO_MANIFEST_DIR)");
+
+        // 外部 Vulkan 绑定 crate:手写薄 loader 纪律禁引入(RFC-0011 §4.12 / §9 Q-Binding 默认)。
+        for dep in ["ash", "vulkano", "erupt", "gpu-alloc"] {
+            assert!(
+                !declares_dep(&rt, dep),
+                "RXS-0213:rurix-rt 不得声明外部 Vulkan 绑定依赖 `{dep}`(手写薄 vk.rs FFI loader,零外部绑定)"
+            );
+        }
+        // `vulkan` feature 空依赖集:开 feature 不引入任何 dep(loader 手写、无 crate 增量)。
+        assert!(
+            rt.contains("vulkan = []"),
+            "RXS-0213:`vulkan` feature 须为空依赖集(`vulkan = []`,不引入外部绑定 dep)"
+        );
+
+        // codegen 侧 SPIR-V 自包含:rurixc(../rurixc/Cargo.toml)无外部 SPIR-V crate。
+        let rurixc_manifest_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("rurixc")
+            .join("Cargo.toml");
+        let rurixc = std::fs::read_to_string(&rurixc_manifest_path)
+            .expect("读 rurixc Cargo.toml(../rurixc)");
+        for dep in [
+            "rspirv",
+            "spirv-tools",
+            "spirv_headers",
+            "spirv-builder",
+            "spirv-cross",
+        ] {
+            assert!(
+                !declares_dep(&rurixc, dep),
+                "RXS-0213:rurixc codegen 须自包含,不得声明外部 SPIR-V 绑定依赖 `{dep}`(vulkan_codegen.rs 纯 Rust emitter)"
+            );
+        }
+    }
 }
