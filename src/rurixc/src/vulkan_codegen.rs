@@ -45,6 +45,8 @@ const SPIRV_GENERATOR: u32 = 0;
 const SPIRV_SCHEMA: u32 = 0;
 
 // opcodes(SPIR-V core 规范)。
+const OP_EXT_INST_IMPORT: u16 = 11;
+const OP_EXT_INST: u16 = 12;
 const OP_MEMORY_MODEL: u16 = 14;
 const OP_ENTRY_POINT: u16 = 15;
 const OP_EXECUTION_MODE: u16 = 16;
@@ -139,6 +141,27 @@ const SCOPE_WORKGROUP: u32 = 2;
 const MEM_SEM_ACQUIRE_RELEASE: u32 = 0x8;
 const MEM_SEM_WORKGROUP_MEMORY: u32 = 0x100;
 
+// GLSL.std.450 扩展指令集与 ext-inst 编号(RXS-0205:__nv_* 数学 intrinsic → ext-inst)。
+const EXT_GLSL_STD_450: &str = "GLSL.std.450";
+const GLSL_ROUND_EVEN: u32 = 2;
+const GLSL_TRUNC: u32 = 3;
+const GLSL_FABS: u32 = 4;
+const GLSL_FLOOR: u32 = 8;
+const GLSL_CEIL: u32 = 9;
+const GLSL_SIN: u32 = 13;
+const GLSL_COS: u32 = 14;
+const GLSL_TAN: u32 = 15;
+const GLSL_POW: u32 = 26;
+const GLSL_EXP: u32 = 27;
+const GLSL_LOG: u32 = 28;
+const GLSL_EXP2: u32 = 29;
+const GLSL_LOG2: u32 = 30;
+const GLSL_SQRT: u32 = 31;
+const GLSL_INVERSE_SQRT: u32 = 32;
+const GLSL_FMIN: u32 = 37;
+const GLSL_FMAX: u32 = 40;
+const GLSL_FMA: u32 = 50;
+
 /// mb1 Vulkan codegen 目标不可用 / 暂不支持的构造 / 降级失败错误码(6xxx codegen 段;
 /// 跳 RX6024/RX6025 = MS1.2b 在途占用避撞,RFC-0011 §5)。
 const E_VULKAN_UNSUPPORTED: ErrorCode = ErrorCode(6026);
@@ -204,6 +227,8 @@ struct Builder<'a> {
     func_vars: Vec<u32>, // Function-storage OpVariable(须列于 entry block 首)
     func_body: Vec<u32>, // entry 前导 + 各 block
     entry_interface: Vec<u32>, // OpEntryPoint 的 Input/Output 变量 id(SPIR-V 1.0)
+    ext_imports: Vec<u32>, // OpExtInstImport(GLSL.std.450;layout 在 memory-model 前)
+    ext_glsl: Option<u32>, // GLSL.std.450 ext-inst-set id(懒发)
     // 类型 / 常量缓存。
     type_void: Option<u32>,
     type_bool: Option<u32>,
@@ -235,6 +260,8 @@ impl<'a> Builder<'a> {
             func_vars: Vec::new(),
             func_body: Vec::new(),
             entry_interface: Vec::new(),
+            ext_imports: Vec::new(),
+            ext_glsl: None,
             type_void: None,
             type_bool: None,
             type_uint: None,
@@ -255,6 +282,19 @@ impl<'a> Builder<'a> {
     fn fresh(&mut self) -> u32 {
         let id = self.next_id;
         self.next_id += 1;
+        id
+    }
+
+    /// GLSL.std.450 ext-inst-set(懒发 `OpExtInstImport`,RXS-0205)。
+    fn ext_glsl_set(&mut self) -> u32 {
+        if let Some(id) = self.ext_glsl {
+            return id;
+        }
+        let id = self.fresh();
+        let mut operands = vec![id];
+        push_string(&mut operands, EXT_GLSL_STD_450);
+        emit(&mut self.ext_imports, OP_EXT_INST_IMPORT, &operands);
+        self.ext_glsl = Some(id);
         id
     }
 
@@ -1038,11 +1078,42 @@ fn structured_merge(body: &Body, then_i: usize, else_i: usize) -> Option<usize> 
     rt.iter().filter(|x| re.contains(x)).copied().min()
 }
 
+/// libdevice `__nv_*` 数学符号 → (GLSL.std.450 ext-inst 编号, arity)。RXS-0205 首期覆盖
+/// 20 个 `DeviceMathFn` 中的 1:1 可映射项;`cbrt`/`log10`(需 Pow/Log 组合)→ None(后续
+/// 分片)。符号形态:`__nv_<base>` (f64) / `__nv_<base>f` (f32);base 无一以 'f' 结尾,
+/// 故 strip 尾 'f' 唯一恢复 base(ext-inst 按操作数类型分发,f32/f64 同一编号)。
+fn glsl_ext_op(nv_symbol: &str) -> Option<(u32, usize)> {
+    let s = nv_symbol.strip_prefix("__nv_")?;
+    let base = s.strip_suffix('f').unwrap_or(s);
+    let m = match base {
+        "sqrt" => (GLSL_SQRT, 1),
+        "rsqrt" => (GLSL_INVERSE_SQRT, 1),
+        "exp" => (GLSL_EXP, 1),
+        "exp2" => (GLSL_EXP2, 1),
+        "log" => (GLSL_LOG, 1),
+        "log2" => (GLSL_LOG2, 1),
+        "sin" => (GLSL_SIN, 1),
+        "cos" => (GLSL_COS, 1),
+        "tan" => (GLSL_TAN, 1),
+        "floor" => (GLSL_FLOOR, 1),
+        "ceil" => (GLSL_CEIL, 1),
+        "trunc" => (GLSL_TRUNC, 1),
+        "round" => (GLSL_ROUND_EVEN, 1),
+        "fabs" => (GLSL_FABS, 1),
+        "pow" => (GLSL_POW, 2),
+        "fmin" => (GLSL_FMIN, 2),
+        "fmax" => (GLSL_FMAX, 2),
+        "fma" => (GLSL_FMA, 3),
+        _ => return None, // cbrt / log10 需组合 → 后续分片
+    };
+    Some(m)
+}
+
 fn emit_call(
     b: &mut Builder,
     body: &Body,
     target: &CallTarget,
-    _args: &[Operand],
+    args: &[Operand],
     dest: &Place,
     span: Span,
 ) -> Result<(), VulkanCodegenError> {
@@ -1076,10 +1147,45 @@ fn emit_call(
             emit(&mut b.func_body, OP_STORE, &[ptr, elem]);
             Ok(())
         }
-        CallTarget::Libdevice { .. } => Err(VulkanCodegenError::unsupported(
-            span,
-            "Vulkan compute 数学 intrinsic(__nv_* → GLSL.std.450)属 RXS-0205 后续分片",
-        )),
+        CallTarget::Libdevice { symbol } => {
+            // 数学 intrinsic `__nv_*` → GLSL.std.450 ext-inst(RXS-0205)。首期 f32,
+            // 结果类型 = float;操作数经 operand 载入。cbrt/log10 需组合表达 → 后续分片。
+            let Some((glsl_op, arity)) = glsl_ext_op(symbol) else {
+                return Err(VulkanCodegenError::unsupported(
+                    span,
+                    format!(
+                        "Vulkan compute 数学 intrinsic `{symbol}` 未映射(cbrt/log10 需 GLSL.std.450 组合表达,后续分片)"
+                    ),
+                ));
+            };
+            if args.len() != arity {
+                return Err(VulkanCodegenError::unsupported(
+                    span,
+                    format!(
+                        "数学 intrinsic `{symbol}` 期望 {arity} 实参,得 {}",
+                        args.len()
+                    ),
+                ));
+            }
+            let set = b.ext_glsl_set();
+            let float_ty = b.t_float();
+            let result = b.fresh();
+            // OpExtInst = [result_type, result_id, set, instruction, arg0, ...]。
+            let mut operands = vec![float_ty, result, set, glsl_op];
+            for a in args {
+                let Some((v, _, _)) = operand(b, body, a)? else {
+                    return Err(VulkanCodegenError::unsupported(
+                        span,
+                        "数学 intrinsic 零尺寸实参",
+                    ));
+                };
+                operands.push(v);
+            }
+            emit(&mut b.func_body, OP_EXT_INST, &operands);
+            let (ptr, _, _) = place_ptr(b, body, dest)?;
+            emit(&mut b.func_body, OP_STORE, &[ptr, result]);
+            Ok(())
+        }
         CallTarget::Fn { .. } => Err(VulkanCodegenError::unsupported(
             span,
             "Vulkan compute device fn 调用(内联)属后续分片",
@@ -1112,6 +1218,8 @@ fn assemble(b: &mut Builder, entry_name: &str) -> Vec<u32> {
         SPIRV_SCHEMA,
     ];
     emit(&mut m, OP_CAPABILITY, &[CAP_SHADER]);
+    // OpExtInstImport(GLSL.std.450 等)layout 在 memory-model 之前。
+    m.extend_from_slice(&b.ext_imports);
     emit(
         &mut m,
         OP_MEMORY_MODEL,

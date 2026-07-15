@@ -149,6 +149,32 @@ builtin 变量为 `Input` 存储类 `vec3<uint>`,懒发 + `OpDecorate BuiltIn <e
 
 > 锚定测试:conformance/vulkan/accept/vk_saxpy.rx(saxpy 规范 UC)+ conformance/vulkan/accept/vk_fill.rx(存储缓冲最小)。
 
+### RXS-0205 数学 intrinsic → GLSL.std.450 ext-inst 映射
+
+f32 数学方法(`sqrt`/`sin`/`pow`/`fma`/…,MIR `CallTarget::Libdevice{__nv_*}`,承 RXS-0081)降级为 SPIR-V `OpExtInst "GLSL.std.450" <op>`。`CallTarget::Libdevice` 是 NVIDIA 专有 libdevice 外部符号,SPIR-V 无对应——本条建 `__nv_*` → GLSL.std.450 ext-inst 映射。
+
+#### Syntax
+
+无语言文法面(codegen 面;数学方法名与语义承 RXS-0081 device 数学 intrinsic 集)。
+
+#### Legality
+
+- L1(可映射集):20 个 `DeviceMathFn` 中 1:1 可映射项——`sqrt`→`Sqrt` / `rsqrt`→`InverseSqrt` / `exp`→`Exp` / `exp2`→`Exp2` / `ln`(log)→`Log` / `log2`→`Log2` / `sin`/`cos`/`tan` / `floor`/`ceil`/`trunc` / `round`→`RoundEven` / `abs`(fabs)→`FAbs` / `powf`(pow,2 元)→`Pow` / `min`(fmin,2 元)→`FMin` / `max`(fmax,2 元)→`FMax` / `fma`(3 元)→`Fma`。
+- L2(需组合项):`cbrt`(GLSL.std.450 无,需 `Pow(x,1/3)` 组合)、`log10`(需 `Log2·(1/log2 10)` 组合)→ **RX6026**(后续分片)。
+- L3(精度轴):符号形态 `__nv_<base>`(f64)/ `__nv_<base>f`(f32);base 无一以 'f' 结尾,strip 尾 'f' 唯一恢复 base;ext-inst 按操作数类型分发(f32/f64 同一编号)。首期仅 f32(F64 需 Float64 capability,RXS-0203 L1)。
+
+#### Dynamic Semantics
+
+`OpExtInstImport "GLSL.std.450"`(懒发,layout 在 memory-model 之前)得 ext-inst-set id;调用点 `OpExtInst <result_type=float> <result_id> <set> <instruction> <arg0..>`(operand 经 operand 载入),结果存入目标 local。确定性:给定 MIR 字流确定。
+
+#### Implementation Requirements
+
+- IR1(映射表):见 L1;arity 1/2/3 通用处理(operand 逐个载入入 `OpExtInst` 操作数)。
+- IR2(ext-import):单次 `OpExtInstImport "GLSL.std.450"` 懒发 + 缓存 ext-inst-set id。
+- IR3(锚定):≥1 `//@ spec: RXS-0205` 覆盖 sqrt/max → GLSL.std.450 降级 + spirv-val vulkan1.0 accept;未映射(cbrt)→ RX6026(真实红绿)。
+
+> 锚定测试:conformance/vulkan/accept/vk_math.rx(`x[i].sqrt().max(0.0)` → OpExtInst Sqrt/FMax,spirv-val vulkan1.0 accept)。
+
 ## 3. 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
@@ -156,3 +182,4 @@ builtin 变量为 `Input` 存储类 `vec3<uint>`,懒发 + `OpDecorate BuiltIn <e
 | v1.0 | 2026-07-15 | 新建 vulkan_backend.md(mb1 spec 脚手架,承 RFC-0011 Draft):登记文件名 + 文件级语义面说明(MIR→SPIR-V 跨端第三后端,AMD 桌面 + Android,compute+graphics)+ §0 治理闸口(gated on 红线 3 解除 + RFC-0011 批准,owner 裁决)+ §1 范围与 **RXS-0200~0213 预留区间声明** + §2 条款占位(条款体随 mb1 各 Phase 实现 PR 同落)。**沿 README v1.0 dxil_backend.md / v1.51 edition.md 脚手架先例:仅登记文件名 + 预留区间,不落带编号裸条款头**——本文件**零 `### RXS-####` 条款头**,`ci/trace_matrix.py --check` 维持全锚定不变(无新增裸条款头、无悬空锚点、零新 RXS)。条款体(RXS-0200 起)与每条 ≥1 `//@ spec` 测试锚定随各 Phase 实现 PR(RFC-0011 批准 + 红线 3 解除后)同落。禁区声明:🔒 launch marshalling / Backend trait / dlopen FFI ABI 二进制布局(RFC-0011 §4.5/§4.7/§4.10)/ 纹理路径内存模型映射(06 §4.2)/ 通用多后端可移植抽象层承诺(D-008/SG-003)均不在本文件,触及即停手升档。错误码 **6xxx codegen 段**脚手架不预造、不预留,随各 Phase 按真实可达类别只追加(跳 MS1.2b 已占)。档位 **Full RFC**(RFC-0011;触 codegen 第三后端 + 新运行时后端 + FFI ABI + 红线 3,agent 自主判档,判档争议向上取严)。**gated on owner 裁决红线 3 解除 + RFC-0011 批准,未获裁决前不合入 main**,无体例变更 | **Full RFC**（RFC-0011） |
 | v1.1 | 2026-07-15 | **MB1.1 walking skeleton:落带编号条款体 `### RXS-0200` / `### RXS-0201`**(codegen target 分发与 Vulkan 后端分叉 + 最小 compute GLCompute 端到端)+ 配套 rurixc 实现(`vulkan_codegen.rs` MIR→SPIR-V 最小 compute emitter + `driver.rs` `--target vulkan` 分发 + cargo feature `vulkan-backend` + `toolchain::spirv_val_gate` 缺工具 SKIP)。条款体按 FLS 分 Syntax / Legality(L1 后端可用性 / L2 最小子集 / L3 降级失败 → RX6026)/ Dynamic Semantics / Implementation Requirements,**严禁 UB 节**。配套 conformance accept(`conformance/vulkan/accept/vk_noop.rx` 空体 compute → GLCompute SPIR-V,`//@ spec: RXS-0200, RXS-0201`)+ vulkan_codegen 单测(header shape / 小端字节)。错误码新增 **RX6026**(`codegen.vulkan_unsupported`,6xxx 段跳 RX6024/6025=MS1.2b 避撞,只追加 + en/zh message-key)。**真实红绿**(本机 Vulkan SDK 1.3.296.0):`--target vulkan` 产 spirv-val-clean `.spv`(独立 spirv-val 退出码 0 accept);篡改 `.spv` 字节 → spirv-val 拒(退出码 1);子集外体 → RX6026(退出码 1);feature-off → RX6026(退出码 1)。`ci/trace_matrix.py` 全锚定 **184→186**(RXS-0200/0201 各 ≥1 `//@ spec`)。**本片不碰** 🔒 launch marshalling / Backend trait / 纹理内存模型;body lowering / builtins / 存储缓冲 / 控制流 / graphics / 数学 intrinsic 随 RXS-0202~0205 后续分片。档位 **Full RFC**(RFC-0011);**gated on owner 裁决红线 3 解除 + RFC-0011 批准,未获裁决前不合入 main**,无体例变更 | **Full RFC**（RFC-0011） |
 | v1.2 | 2026-07-15 | **MB1.1 compute body lowering:落带编号条款体 `### RXS-0202` / `### RXS-0203`**(compute builtins + 存储缓冲/标量算术/结构化控制流)+ 配套 `vulkan_codegen.rs` 全 body 降级(镜像 NVPTX 内存式 local:Function `OpVariable` + load/store):`View/ViewMut<global,T>`→StorageBuffer 描述符(SSBO;BufferBlock + set0/binding序 + OpAccessChain)/ 标量形参→push constant(Block+Offset)/ `ThreadCtx.global_id`→`GlobalInvocationId` builtin(OpCompositeExtract)/ 算术 fmul·fadd·比较 OpULessThan / 结构化 `if`→OpSelectionMerge+OpBranchConditional(merge=前向可达交集)。条款体按 FLS 分 Syntax/Legality/Dynamic Semantics/Implementation Requirements,**严禁 UB 节**;子集外(BlockDim / device fn / 数学 intrinsic〔RXS-0205〕/ 循环 / 非标量 / F64·I64 / 位运算)→ RX6026。配套 conformance accept:`vk_fill.rx`(RXS-0202:global_id+SSBO+OpAccessChain 写)+ `vk_saxpy.rx`(RXS-0203:saxpy 规范 UC = 多 SSBO+push constant+builtin+算术+结构化 if)。**真实红绿**(本机 Vulkan SDK 1.3.296.0):`fill`/`saxpy` 经 `--target vulkan` 产 SPIR-V,**`spirv-val --target-env vulkan1.0` 严格 Vulkan 校验接受**(exit 0);比较结果 Bool 内存式建模为 u32(OpSelect)。`ci/trace_matrix.py` 全锚定 **186→188**(RXS-0202/0203 各 ≥1 `//@ spec`)。**本片不碰** 🔒 launch marshalling / Backend trait / 纹理内存模型;graphics(RXS-0204)/ 数学 intrinsic→GLSL.std.450(RXS-0205)/ 结构化循环随后续分片。档位 **Full RFC**(RFC-0011);**gated on owner 裁决红线 3 解除 + RFC-0011 批准,未获裁决前不合入 main**,无体例变更 | **Full RFC**（RFC-0011） |
+| v1.3 | 2026-07-15 | **MB1.1 数学 intrinsic:落带编号条款体 `### RXS-0205`**(`__nv_*` → GLSL.std.450 ext-inst 映射)+ 配套 `vulkan_codegen.rs` `emit_call` Libdevice 臂 + `glsl_ext_op` 映射表 + `OpExtInstImport "GLSL.std.450"` 懒发。覆盖 20 `DeviceMathFn` 中 18 个 1:1 项(sqrt/rsqrt/exp/exp2/log/log2/sin/cos/tan/floor/ceil/trunc/round/fabs/pow/fmin/fmax/fma;arity 1/2/3 通用),`cbrt`/`log10`(需组合)→ RX6026 诚实 defer。条款体 FLS,严禁 UB。配套 conformance accept `vk_math.rx`(`x[i].sqrt().max(0.0)`)。**真实红绿**(本机 Vulkan SDK 1.3.296.0):sqrt(1 元 `OpExtInst Sqrt`)/ max(2 元 `FMax`)/ fma(3 元 `Fma`)经 `--target vulkan` → `spirv-val --target-env vulkan1.0` accept(exit 0);cbrt→RX6026(exit 1)。`ci/trace_matrix.py` 全锚定 **188→189**(RXS-0205 ≥1 `//@ spec`)。**本片不碰** 🔒 launch marshalling / Backend trait / 纹理内存模型;graphics(RXS-0204)/ 结构化循环 / cbrt·log10 组合随后续分片。档位 **Full RFC**(RFC-0011);**gated on owner 裁决红线 3 解除 + RFC-0011 批准,未获裁决前不合入 main**,无体例变更 | **Full RFC**（RFC-0011） |

@@ -192,3 +192,4 @@
 | RXS-0201 | spec/vulkan_backend.md | 2 | `conformance/vulkan/accept/vk_noop.rx`, `src/rurixc/src/vulkan_codegen.rs` |
 | RXS-0202 | spec/vulkan_backend.md | 1 | `conformance/vulkan/accept/vk_fill.rx` |
 | RXS-0203 | spec/vulkan_backend.md | 2 | `conformance/vulkan/accept/vk_fill.rx`, `conformance/vulkan/accept/vk_saxpy.rx` |
+| RXS-0205 | spec/vulkan_backend.md | 1 | `conformance/vulkan/accept/vk_math.rx` |
