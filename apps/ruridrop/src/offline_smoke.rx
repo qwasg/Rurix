@@ -1,0 +1,331 @@
+// ruridrop Stage-2 离线渲染入口 — 冒烟档(RFC-0010 §4.3/§4.4:160×120 / 8spp /
+// 2 帧 / N=4096)。单源宿主编排:sim 子步(与 sim_check 逐 launch 同序)→ 帧末
+// 渲染排序 pass(cell_key → 基数排序 → reorder → cell_bounds;复用仿真网格,
+// 渲染读排序后 B 组 + cell 边界表)→ pt_render(spp 分批累加)→ pt_finalize →
+// download → write_ppm(RXS-0199;文件名字面量 if-chain,写 cwd)。
+// 结束打印 RENDER_OK frames=2。常量单一事实源 = params_smoke,全部经标量实参
+// 下发 kernel;相机基底 host 侧经 render_core plain fn 求得(refcpu 逐字同构)。
+
+mod params_smoke;
+mod dmath;
+mod rng;
+mod sim;
+mod render_core;
+mod render_pt;
+
+fn main() -> i32 {
+    // ---- 仿真常量(与 sim_check 同源) ----
+    let n = params_smoke::N;
+    let col_x = params_smoke::COL_X;
+    let col_y = params_smoke::COL_Y;
+    let cells = params_smoke::CELLS;
+    let passes = params_smoke::SORT_PASSES;
+    let substeps = params_smoke::SUBSTEPS;
+    let grid_dim = params_smoke::GRID_DIM;
+    let inv_cell = params_smoke::INV_CELL;
+    let h = params_smoke::SMOOTH_H;
+    let h2 = params_smoke::SMOOTH_H2;
+    let mass = params_smoke::MASS;
+    let rho0 = params_smoke::REST_DENSITY;
+    let stiff = params_smoke::STIFFNESS;
+    let visc = params_smoke::VISCOSITY;
+    let gravity = params_smoke::GRAVITY;
+    let dt = params_smoke::DT;
+    let damp = params_smoke::BOUNDARY_DAMP;
+    let max_speed = params_smoke::MAX_SPEED;
+    let lo = params_smoke::MARGIN;
+    let hi = params_smoke::BOX - params_smoke::MARGIN;
+    let spacing = params_smoke::SPACING;
+    let origin = params_smoke::ORIGIN;
+    let nblocks = n / 256;
+
+    // ---- 渲染常量 ----
+    let rw = params_smoke::REND_W;
+    let rh = params_smoke::REND_H;
+    let spp = params_smoke::SPP;
+    let spp_batch = params_smoke::SPP_BATCH;
+    let rframes = params_smoke::REND_FRAMES;
+    let bounces = params_smoke::PT_BOUNCES;
+    let radius = params_smoke::PART_R;
+    let lx0 = params_smoke::LIGHT_X0;
+    let lx1 = params_smoke::LIGHT_X1;
+    let lz0 = params_smoke::LIGHT_Z0;
+    let lz1 = params_smoke::LIGHT_Z1;
+    let ly = params_smoke::LIGHT_Y;
+    let le = params_smoke::LIGHT_E;
+    let vscale = params_smoke::VEL_COLOR_SCALE;
+    let npix = rw * rh;
+    let nrgb = npix * 3;
+    let rw32 = rw as u32;
+    let rh32 = rh as u32;
+    let gx = (rw + 15) / 16;
+    let gy = (rh + 15) / 16;
+    let batches = spp / spp_batch;
+    let inv_spp = 1.0 / (spp as f32);
+
+    // ---- 相机基底(host 侧,render_core plain fn;refcpu 逐字同构重放) ----
+    let vs = params_smoke::VIEW_SCALE;
+    let ex = params_smoke::CAM_EYE_X;
+    let ey = params_smoke::CAM_EYE_Y;
+    let ez = params_smoke::CAM_EYE_Z;
+    let cdx = params_smoke::CAM_TGT_X - ex;
+    let cdy = params_smoke::CAM_TGT_Y - ey;
+    let cdz = params_smoke::CAM_TGT_Z - ez;
+    let cl = render_core::len3(cdx, cdy, cdz);
+    let cinv = 1.0 / cl;
+    let fwx = cdx * cinv;
+    let fwy = cdy * cinv;
+    let fwz = cdz * cinv;
+    let r0x = render_core::cross_x(fwy, fwz, 1.0, 0.0);
+    let r0y = render_core::cross_y(fwx, fwz, 0.0, 0.0);
+    let r0z = render_core::cross_z(fwx, fwy, 0.0, 1.0);
+    let rl = render_core::len3(r0x, r0y, r0z);
+    let rinv = 1.0 / rl;
+    let rix = r0x * rinv;
+    let riy = r0y * rinv;
+    let riz = r0z * rinv;
+    let upx = render_core::cross_x(riy, riz, fwy, fwz);
+    let upy = render_core::cross_y(rix, riz, fwx, fwz);
+    let upz = render_core::cross_z(rix, riy, fwx, fwy);
+    let inv_w = 1.0 / (rw as f32);
+    let inv_h = 1.0 / (rh as f32);
+    let aspect = (rw as f32) / (rh as f32);
+    let scale_x = vs * aspect;
+    let scale_y = 0.0 - vs;
+
+    let ctx = Context::create();
+    let stream = ctx.stream();
+
+    // ---- 锁页缓冲(每长度域独立:n f32 / n u32 / cells u32 / 块和 / 像素 / RGB) ----
+    let mut hf = ctx.alloc_pinned(n);
+    let mut hu = ctx.alloc_pinned(n);
+    let mut hc = ctx.alloc_pinned(cells);
+    let mut hs = ctx.alloc_pinned(nblocks + 1);
+    let mut hpix = ctx.alloc_pinned(npix);
+    let mut hrgb = ctx.alloc_pinned(nrgb);
+
+    // ---- 设备缓冲(sim 同 sim_check + 渲染 accum / out_rgb) ----
+    let mut pax = ctx.alloc(n);
+    let mut pay = ctx.alloc(n);
+    let mut paz = ctx.alloc(n);
+    let mut vax = ctx.alloc(n);
+    let mut vay = ctx.alloc(n);
+    let mut vaz = ctx.alloc(n);
+    let mut pbx = ctx.alloc(n);
+    let mut pby = ctx.alloc(n);
+    let mut pbz = ctx.alloc(n);
+    let mut vbx = ctx.alloc(n);
+    let mut vby = ctx.alloc(n);
+    let mut vbz = ctx.alloc(n);
+    let mut rho = ctx.alloc(n);
+    let mut pres = ctx.alloc(n);
+    let mut ffx = ctx.alloc(n);
+    let mut ffy = ctx.alloc(n);
+    let mut ffz = ctx.alloc(n);
+    let mut key0 = ctx.alloc(n);
+    let mut key1 = ctx.alloc(n);
+    let mut idx0 = ctx.alloc(n);
+    let mut idx1 = ctx.alloc(n);
+    let mut flag = ctx.alloc(n);
+    let mut bofs = ctx.alloc(n);
+    let mut bsums = ctx.alloc(nblocks + 1);
+    let mut bscan = ctx.alloc(nblocks + 1);
+    let mut cstart = ctx.alloc(cells);
+    let mut cend = ctx.alloc(cells);
+    let mut accr = ctx.alloc(npix);
+    let mut accg = ctx.alloc(npix);
+    let mut accb = ctx.alloc(npix);
+    let mut dout = ctx.alloc(nrgb);
+
+    // ---- 显式初始化(sim 同 sim_check;渲染域零上载) ----
+    let mut i: usize = 0;
+    while i < n {
+        hf.set(i, 0.0f32);
+        i = i + 1;
+    }
+    pbx.upload(&hf);
+    pby.upload(&hf);
+    pbz.upload(&hf);
+    vbx.upload(&hf);
+    vby.upload(&hf);
+    vbz.upload(&hf);
+    rho.upload(&hf);
+    pres.upload(&hf);
+    ffx.upload(&hf);
+    ffy.upload(&hf);
+    ffz.upload(&hf);
+    vax.upload(&hf);
+    vay.upload(&hf);
+    vaz.upload(&hf);
+    i = 0;
+    while i < n {
+        let ix = i % col_x;
+        hf.set(i, origin + (ix as f32) * spacing);
+        i = i + 1;
+    }
+    pax.upload(&hf);
+    i = 0;
+    while i < n {
+        let iy = (i / col_x) % col_y;
+        hf.set(i, origin + (iy as f32) * spacing);
+        i = i + 1;
+    }
+    pay.upload(&hf);
+    i = 0;
+    while i < n {
+        let iz = i / (col_x * col_y);
+        hf.set(i, origin + (iz as f32) * spacing);
+        i = i + 1;
+    }
+    paz.upload(&hf);
+    i = 0;
+    while i < n {
+        hu.set(i, 0u32);
+        i = i + 1;
+    }
+    key0.upload(&hu);
+    key1.upload(&hu);
+    idx0.upload(&hu);
+    idx1.upload(&hu);
+    flag.upload(&hu);
+    bofs.upload(&hu);
+    i = 0;
+    while i < cells {
+        hc.set(i, 0u32);
+        i = i + 1;
+    }
+    cstart.upload(&hc);
+    cend.upload(&hc);
+    i = 0;
+    while i < nblocks + 1 {
+        hs.set(i, 0u32);
+        i = i + 1;
+    }
+    bsums.upload(&hs);
+    bscan.upload(&hs);
+    i = 0;
+    while i < npix {
+        hpix.set(i, 0.0f32);
+        i = i + 1;
+    }
+    accr.upload(&hpix);
+    accg.upload(&hpix);
+    accb.upload(&hpix);
+    i = 0;
+    while i < nrgb {
+        hrgb.set(i, 0.0f32);
+        i = i + 1;
+    }
+    dout.upload(&hrgb);
+
+    // ---- 帧循环:sim 子步(sim_check 同序)→ 渲染排序 → PT → 落盘 ----
+    let mut frame: usize = 0;
+    while frame < rframes {
+        let mut sub: usize = 0;
+        while sub < substeps {
+            stream.launch(sim::sim_cell_key, GridDim(nblocks), BlockDim(256),
+                (pax, pay, paz, key0, idx0, n, grid_dim, inv_cell));
+            let mut pair: usize = 0;
+            while pair < passes / 2 {
+                let bit0 = (pair * 2) as u32;
+                stream.launch(sim::split_flag, GridDim(nblocks), BlockDim(256),
+                    (key0, flag, n, bit0));
+                stream.launch(sim::scan_block_u32, GridDim(nblocks), BlockDim(256),
+                    (flag, bofs, bsums, n));
+                stream.launch(sim::scan_sums_u32, GridDim(1), BlockDim(256),
+                    (bsums, bscan, nblocks));
+                stream.launch(sim::split_scatter, GridDim(nblocks), BlockDim(256),
+                    (key0, idx0, flag, bofs, bscan, key1, idx1, n, nblocks));
+                let bit1 = bit0 + 1u32;
+                stream.launch(sim::split_flag, GridDim(nblocks), BlockDim(256),
+                    (key1, flag, n, bit1));
+                stream.launch(sim::scan_block_u32, GridDim(nblocks), BlockDim(256),
+                    (flag, bofs, bsums, n));
+                stream.launch(sim::scan_sums_u32, GridDim(1), BlockDim(256),
+                    (bsums, bscan, nblocks));
+                stream.launch(sim::split_scatter, GridDim(nblocks), BlockDim(256),
+                    (key1, idx1, flag, bofs, bscan, key0, idx0, n, nblocks));
+                pair = pair + 1;
+            }
+            stream.launch(sim::sim_reorder, GridDim(nblocks), BlockDim(256),
+                (idx0, pax, pay, paz, vax, vay, vaz,
+                 pbx, pby, pbz, vbx, vby, vbz, n));
+            stream.launch(sim::sim_clear_bounds, GridDim(cells / 256), BlockDim(256),
+                (cstart, cend, cells));
+            stream.launch(sim::sim_cell_bounds, GridDim(nblocks), BlockDim(256),
+                (key0, cstart, cend, n));
+            stream.launch(sim::sim_density, GridDim(nblocks), BlockDim(256),
+                (pbx, pby, pbz, cstart, cend, rho, pres,
+                 n, grid_dim, inv_cell, h2, mass, stiff, rho0));
+            stream.launch(sim::sim_forces, GridDim(nblocks), BlockDim(256),
+                (pbx, pby, pbz, vbx, vby, vbz, rho, pres, cstart, cend,
+                 ffx, ffy, ffz, n, grid_dim, inv_cell, h, visc, gravity, rho0));
+            stream.launch(sim::sim_integrate, GridDim(nblocks), BlockDim(256),
+                (pbx, pby, pbz, vbx, vby, vbz, ffx, ffy, ffz,
+                 pax, pay, paz, vax, vay, vaz,
+                 n, dt, max_speed, damp, lo, hi));
+            sub = sub + 1;
+        }
+        // 渲染排序 pass(A 组当前态 → 排序 B 组 + cell 边界表;不回写 sim 态)
+        stream.launch(sim::sim_cell_key, GridDim(nblocks), BlockDim(256),
+            (pax, pay, paz, key0, idx0, n, grid_dim, inv_cell));
+        let mut pair: usize = 0;
+        while pair < passes / 2 {
+            let bit0 = (pair * 2) as u32;
+            stream.launch(sim::split_flag, GridDim(nblocks), BlockDim(256),
+                (key0, flag, n, bit0));
+            stream.launch(sim::scan_block_u32, GridDim(nblocks), BlockDim(256),
+                (flag, bofs, bsums, n));
+            stream.launch(sim::scan_sums_u32, GridDim(1), BlockDim(256),
+                (bsums, bscan, nblocks));
+            stream.launch(sim::split_scatter, GridDim(nblocks), BlockDim(256),
+                (key0, idx0, flag, bofs, bscan, key1, idx1, n, nblocks));
+            let bit1 = bit0 + 1u32;
+            stream.launch(sim::split_flag, GridDim(nblocks), BlockDim(256),
+                (key1, flag, n, bit1));
+            stream.launch(sim::scan_block_u32, GridDim(nblocks), BlockDim(256),
+                (flag, bofs, bsums, n));
+            stream.launch(sim::scan_sums_u32, GridDim(1), BlockDim(256),
+                (bsums, bscan, nblocks));
+            stream.launch(sim::split_scatter, GridDim(nblocks), BlockDim(256),
+                (key1, idx1, flag, bofs, bscan, key0, idx0, n, nblocks));
+            pair = pair + 1;
+        }
+        stream.launch(sim::sim_reorder, GridDim(nblocks), BlockDim(256),
+            (idx0, pax, pay, paz, vax, vay, vaz,
+             pbx, pby, pbz, vbx, vby, vbz, n));
+        stream.launch(sim::sim_clear_bounds, GridDim(cells / 256), BlockDim(256),
+            (cstart, cend, cells));
+        stream.launch(sim::sim_cell_bounds, GridDim(nblocks), BlockDim(256),
+            (key0, cstart, cend, n));
+        // accum 清零(hpix 恒零)→ spp 分批路径追踪 → 收尾量化域
+        accr.upload(&hpix);
+        accg.upload(&hpix);
+        accb.upload(&hpix);
+        let mut sb: usize = 0;
+        while sb < batches {
+            let samp_base = (sb * spp_batch) as u32;
+            stream.launch(render_pt::pt_render, GridDim(gx, gy), BlockDim(16, 16),
+                (pbx, pby, pbz, vbx, vby, vbz, cstart, cend, accr, accg, accb,
+                 rw, rh, frame as u32, samp_base, spp_batch as u32, bounces, grid_dim,
+                 ex, ey, ez, fwx, fwy, fwz, rix, riy, riz, upx, upy, upz,
+                 inv_w, inv_h, scale_x, scale_y, radius,
+                 lx0, lx1, lz0, lz1, ly, le, vscale));
+            sb = sb + 1;
+        }
+        stream.launch(render_pt::pt_finalize, GridDim(npix / 256), BlockDim(256),
+            (accr, accg, accb, dout, npix, inv_spp));
+        stream.sync();
+        dout.download(&mut hrgb);
+        if frame == 0 {
+            write_ppm("frame_0000.ppm", rw32, rh32, &hrgb);
+        } else {
+            write_ppm("frame_0001.ppm", rw32, rh32, &hrgb);
+        }
+        frame = frame + 1;
+    }
+
+    println("RENDER_OK frames=2");
+    ctx.sync();
+    0
+}
