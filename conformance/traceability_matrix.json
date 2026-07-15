@@ -1074,7 +1074,9 @@
       "conformance/host_orch/accept/saxpy_single_source/main.rx"
     ],
     "RXS-0193": [
-      "src/rurix-rt-cabi/src/lib.rs"
+      "src/rurix-rt-cabi/src/imageio.rs",
+      "src/rurix-rt-cabi/src/lib.rs",
+      "src/rurix-rt-cabi/src/present.rs"
     ],
     "RXS-0194": [
       "src/rurix-rt-cabi/src/lib.rs"
@@ -1093,6 +1095,23 @@
       "conformance/host_orch/reject/mod_missing/main.rx",
       "src/rurixc/src/mod_assembly.rs",
       "src/rurixc/src/parser.rs"
+    ],
+    "RXS-0197": [
+      "conformance/host_orch/accept/present_loop/main.rx",
+      "conformance/host_orch/reject/present_in_kernel/main.rx",
+      "conformance/host_orch/reject/present_out_of_order/main.rx",
+      "src/rurix-rt-cabi/src/present.rs",
+      "src/rurix-rt/src/interop.rs"
+    ],
+    "RXS-0198": [
+      "conformance/host_orch/accept/present_loop/main.rx",
+      "src/rurix-rt-cabi/src/lib.rs",
+      "src/rurix-rt-cabi/src/present.rs",
+      "src/rurix-rt/src/interop.rs"
+    ],
+    "RXS-0199": [
+      "conformance/host_orch/accept/imageio_write/main.rx",
+      "src/rurix-rt-cabi/src/imageio.rs"
     ]
   }
 }
