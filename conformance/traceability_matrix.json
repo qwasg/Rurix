@@ -1063,6 +1063,13 @@
     "RXS-0201": [
       "conformance/vulkan/accept/vk_noop.rx",
       "src/rurixc/src/vulkan_codegen.rs"
+    ],
+    "RXS-0202": [
+      "conformance/vulkan/accept/vk_fill.rx"
+    ],
+    "RXS-0203": [
+      "conformance/vulkan/accept/vk_fill.rx",
+      "conformance/vulkan/accept/vk_saxpy.rx"
     ]
   }
 }

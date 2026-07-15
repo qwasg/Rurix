@@ -90,9 +90,69 @@ SPIR-V 模块结构确定:header(magic / version 1.0 / bound)+ `OpCapability Sha
 
 > 锚定测试:conformance/vulkan/accept/vk_noop.rx(`--target vulkan` → spirv-val accept)+ src/rurixc/src/vulkan_codegen.rs 单测(header shape / little-endian)。
 
+### RXS-0202 compute builtins 与 device intrinsic 降级
+
+compute body 内 `ThreadCtx` 方法(`global_id()`/`thread_index()`/`block_index()`,MIR `CallTarget::DeviceIntrinsic`)降级为 SPIR-V builtin 变量读取;`sync()`(Barrier)降级为 `OpControlBarrier`。本条覆盖 compute 线程上下文 intrinsic 的 SPIR-V 映射;数学 intrinsic(`__nv_*` → GLSL.std.450)属 RXS-0205,不在本条。
+
+#### Syntax
+
+无语言文法面(codegen 面;`ThreadCtx` 方法名与语义承 RXS-0072 device intrinsic 集,不因 target 改写)。
+
+#### Legality
+
+- L1(支持集):`global_id`(→ `GlobalInvocationId`)/ `thread_index`(→ `LocalInvocationId`)/ `block_index`(→ `WorkgroupId`)/ `sync`(→ `OpControlBarrier`)。首期不支持 `block_dim`(→ WorkgroupSize/LocalSize,需 launch bounds 降级)→ **RX6026**。
+- L2(轴):`.{x,y,z}` 分量经 `OpCompositeExtract` 取 0/1/2。
+
+#### Dynamic Semantics
+
+builtin 变量为 `Input` 存储类 `vec3<uint>`,懒发 + `OpDecorate BuiltIn <enum>` + 入 `OpEntryPoint` interface(SPIR-V 1.0 仅 Input/Output 变量入 interface)。索引类 intrinsic:`OpLoad v3uint <builtin>` + `OpCompositeExtract uint _ <axis>` → 存入结果 local。`Barrier` → `OpControlBarrier Workgroup Workgroup (AcquireRelease|WorkgroupMemory)`。确定性:给定 MIR 字流确定。
+
+#### Implementation Requirements
+
+- IR1(映射表):`GlobalId{X,Y,Z}`→`GlobalInvocationId`(28)/ `ThreadIndex{X,Y,Z}`→`LocalInvocationId`(27)/ `BlockIndex{X,Y,Z}`→`WorkgroupId`(26);返回值经 `OpCompositeExtract` 取 usize(u32)分量。
+- IR2(barrier):`sync()` → `OpControlBarrier`(Execution/Memory scope = `Workgroup`,semantics = `AcquireRelease | WorkgroupMemory`)。
+- IR3(锚定):≥1 `//@ spec: RXS-0202` 覆盖 global_id → GlobalInvocationId 降级 + spirv-val accept。
+
+> 锚定测试:conformance/vulkan/accept/vk_fill.rx(`out[global_id()] = 1.0` → GlobalInvocationId + StorageBuffer,spirv-val accept)。
+
+### RXS-0203 存储缓冲、标量算术与结构化控制流
+
+`View`/`ViewMut<global,T>` 形参降级为 **StorageBuffer 描述符**;标量形参降级为 **push constant**;compute body 的 local 采**内存式**(Function `OpVariable` + `OpLoad`/`OpStore`,镜像 NVPTX);标量算术/比较与**结构化 `if`** 降级为 SPIR-V 算术/比较/结构化控制流。本条是 compute lowering 的主体(saxpy 规范 UC 端到端)。
+
+#### Syntax
+
+无语言文法面(codegen 面)。
+
+#### Legality
+
+- L1(缓冲/标量元素):StorageBuffer 元素与 push-constant 标量首期 `f32`/`i32`/`u32`/`usize`(`usize` 建模为 32-bit u32);`F64`/`I64`/`U64` 需 `Float64`/`Int64` capability → **RX6026**(后续分片)。
+- L2(控制流):首期支持**结构化 `if`**(SwitchBool,分支收敛于唯一 merge 块);循环、提前 `return`(分支不收敛)→ **RX6026**(结构化循环 `OpLoopMerge` 属后续分片)。
+- L3(子集外):位运算/逻辑运算、非标量 local、`Cast`/`UnaryOp`/`Ref`/`Aggregate`、纹理采样、device fn 调用 → **RX6026**。
+
+#### Dynamic Semantics
+
+- **存储缓冲**(SPIR-V 1.0 SSBO):`OpTypeStruct{OpTypeRuntimeArray T}` 装饰 `BufferBlock`(member 0 `Offset 0`,runtime array `ArrayStride sizeof(T)`),变量 `Uniform` 存储类装饰 `DescriptorSet 0`/`Binding <序>`;`buf[i]` → `OpAccessChain(var, %uint_0, i)`。
+- **push constant**:标量形参聚为单 `OpTypeStruct` 装饰 `Block`(member `Offset`),`PushConstant` 存储类;entry 处 `OpAccessChain`+`OpLoad` 拷入其 Function local。
+- **local 内存式**:非 ZST、非 buffer 形参、非 ret slot 的 local 各建 Function `OpVariable`,读写经 `OpLoad`/`OpStore`(规避 SSA/phi)。
+- **算术/比较**:`+−*/%` → `OpFAdd`/`OpIAdd`/…(浮点/有符号/无符号分派);`<`/`==` 等 → `OpFOrd*`/`OpULessThan`/… 产 `OpTypeBool`,经 `OpSelect` 存回 u32(0/1)。
+- **结构化 if**:`SwitchBool` → 载 discr(u32)`OpINotEqual 0` 得 bool → `OpSelectionMerge <merge> None` + `OpBranchConditional cond <then> <else>`;`merge` = 前向可达(then)∩ 前向可达(else)取最小块。
+
+确定性:给定 MIR,SPIR-V 字流字节确定。
+
+#### Implementation Requirements
+
+- IR1(SSBO 布局):`BufferBlock` + `ArrayStride`/`Offset` + `DescriptorSet 0`/`Binding`(按 buffer 形参序);binding 序即形参内 buffer 出现序。
+- IR2(push constant):单 `Block` push-constant 块,成员按标量形参序 `Offset`(4 字节标量顺排);entry 拷入 Function local 后 body 统一按 local 处理。
+- IR3(merge 计算):结构化 `if` 的 `OpSelectionMerge` merge 块 = 前向可达交集最小块;无收敛(循环/提前 return)→ RX6026(结构化循环属后续)。
+- IR4(校验):`.spv` 经 `spirv-val --target-env vulkan1.0` **严格 Vulkan 校验接受**(saxpy 规范 UC:多 SSBO + push constant + GlobalInvocationId + fmul/fadd + 结构化 if 端到端);篡改字流 → 拒(真实红绿)。
+- IR5(锚定):≥1 `//@ spec: RXS-0203` 覆盖 saxpy 端到端 + spirv-val vulkan1.0 accept。
+
+> 锚定测试:conformance/vulkan/accept/vk_saxpy.rx(saxpy 规范 UC)+ conformance/vulkan/accept/vk_fill.rx(存储缓冲最小)。
+
 ## 3. 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
 | v1.0 | 2026-07-15 | 新建 vulkan_backend.md(mb1 spec 脚手架,承 RFC-0011 Draft):登记文件名 + 文件级语义面说明(MIR→SPIR-V 跨端第三后端,AMD 桌面 + Android,compute+graphics)+ §0 治理闸口(gated on 红线 3 解除 + RFC-0011 批准,owner 裁决)+ §1 范围与 **RXS-0200~0213 预留区间声明** + §2 条款占位(条款体随 mb1 各 Phase 实现 PR 同落)。**沿 README v1.0 dxil_backend.md / v1.51 edition.md 脚手架先例:仅登记文件名 + 预留区间,不落带编号裸条款头**——本文件**零 `### RXS-####` 条款头**,`ci/trace_matrix.py --check` 维持全锚定不变(无新增裸条款头、无悬空锚点、零新 RXS)。条款体(RXS-0200 起)与每条 ≥1 `//@ spec` 测试锚定随各 Phase 实现 PR(RFC-0011 批准 + 红线 3 解除后)同落。禁区声明:🔒 launch marshalling / Backend trait / dlopen FFI ABI 二进制布局(RFC-0011 §4.5/§4.7/§4.10)/ 纹理路径内存模型映射(06 §4.2)/ 通用多后端可移植抽象层承诺(D-008/SG-003)均不在本文件,触及即停手升档。错误码 **6xxx codegen 段**脚手架不预造、不预留,随各 Phase 按真实可达类别只追加(跳 MS1.2b 已占)。档位 **Full RFC**(RFC-0011;触 codegen 第三后端 + 新运行时后端 + FFI ABI + 红线 3,agent 自主判档,判档争议向上取严)。**gated on owner 裁决红线 3 解除 + RFC-0011 批准,未获裁决前不合入 main**,无体例变更 | **Full RFC**（RFC-0011） |
 | v1.1 | 2026-07-15 | **MB1.1 walking skeleton:落带编号条款体 `### RXS-0200` / `### RXS-0201`**(codegen target 分发与 Vulkan 后端分叉 + 最小 compute GLCompute 端到端)+ 配套 rurixc 实现(`vulkan_codegen.rs` MIR→SPIR-V 最小 compute emitter + `driver.rs` `--target vulkan` 分发 + cargo feature `vulkan-backend` + `toolchain::spirv_val_gate` 缺工具 SKIP)。条款体按 FLS 分 Syntax / Legality(L1 后端可用性 / L2 最小子集 / L3 降级失败 → RX6026)/ Dynamic Semantics / Implementation Requirements,**严禁 UB 节**。配套 conformance accept(`conformance/vulkan/accept/vk_noop.rx` 空体 compute → GLCompute SPIR-V,`//@ spec: RXS-0200, RXS-0201`)+ vulkan_codegen 单测(header shape / 小端字节)。错误码新增 **RX6026**(`codegen.vulkan_unsupported`,6xxx 段跳 RX6024/6025=MS1.2b 避撞,只追加 + en/zh message-key)。**真实红绿**(本机 Vulkan SDK 1.3.296.0):`--target vulkan` 产 spirv-val-clean `.spv`(独立 spirv-val 退出码 0 accept);篡改 `.spv` 字节 → spirv-val 拒(退出码 1);子集外体 → RX6026(退出码 1);feature-off → RX6026(退出码 1)。`ci/trace_matrix.py` 全锚定 **184→186**(RXS-0200/0201 各 ≥1 `//@ spec`)。**本片不碰** 🔒 launch marshalling / Backend trait / 纹理内存模型;body lowering / builtins / 存储缓冲 / 控制流 / graphics / 数学 intrinsic 随 RXS-0202~0205 后续分片。档位 **Full RFC**(RFC-0011);**gated on owner 裁决红线 3 解除 + RFC-0011 批准,未获裁决前不合入 main**,无体例变更 | **Full RFC**（RFC-0011） |
+| v1.2 | 2026-07-15 | **MB1.1 compute body lowering:落带编号条款体 `### RXS-0202` / `### RXS-0203`**(compute builtins + 存储缓冲/标量算术/结构化控制流)+ 配套 `vulkan_codegen.rs` 全 body 降级(镜像 NVPTX 内存式 local:Function `OpVariable` + load/store):`View/ViewMut<global,T>`→StorageBuffer 描述符(SSBO;BufferBlock + set0/binding序 + OpAccessChain)/ 标量形参→push constant(Block+Offset)/ `ThreadCtx.global_id`→`GlobalInvocationId` builtin(OpCompositeExtract)/ 算术 fmul·fadd·比较 OpULessThan / 结构化 `if`→OpSelectionMerge+OpBranchConditional(merge=前向可达交集)。条款体按 FLS 分 Syntax/Legality/Dynamic Semantics/Implementation Requirements,**严禁 UB 节**;子集外(BlockDim / device fn / 数学 intrinsic〔RXS-0205〕/ 循环 / 非标量 / F64·I64 / 位运算)→ RX6026。配套 conformance accept:`vk_fill.rx`(RXS-0202:global_id+SSBO+OpAccessChain 写)+ `vk_saxpy.rx`(RXS-0203:saxpy 规范 UC = 多 SSBO+push constant+builtin+算术+结构化 if)。**真实红绿**(本机 Vulkan SDK 1.3.296.0):`fill`/`saxpy` 经 `--target vulkan` 产 SPIR-V,**`spirv-val --target-env vulkan1.0` 严格 Vulkan 校验接受**(exit 0);比较结果 Bool 内存式建模为 u32(OpSelect)。`ci/trace_matrix.py` 全锚定 **186→188**(RXS-0202/0203 各 ≥1 `//@ spec`)。**本片不碰** 🔒 launch marshalling / Backend trait / 纹理内存模型;graphics(RXS-0204)/ 数学 intrinsic→GLSL.std.450(RXS-0205)/ 结构化循环随后续分片。档位 **Full RFC**(RFC-0011);**gated on owner 裁决红线 3 解除 + RFC-0011 批准,未获裁决前不合入 main**,无体例变更 | **Full RFC**（RFC-0011） |
