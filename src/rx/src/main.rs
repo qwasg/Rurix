@@ -142,16 +142,22 @@ fn parse_build_args(args: &[String]) -> Result<BuildArgs, String> {
             "--offline" => b.offline = true,
             "--target" => {
                 i += 1;
-                let t = args.get(i).ok_or("`--target` 缺目标参数(合法:ptx/dxil/vulkan)")?;
+                let t = args
+                    .get(i)
+                    .ok_or("`--target` 缺目标参数(合法:ptx/dxil/vulkan)")?;
                 if t != "ptx" && t != "dxil" && t != "vulkan" {
-                    return Err(format!("无法识别的 --target 目标 `{t}`(合法:ptx/dxil/vulkan)"));
+                    return Err(format!(
+                        "无法识别的 --target 目标 `{t}`(合法:ptx/dxil/vulkan)"
+                    ));
                 }
                 b.target = Some(t.clone());
             }
             s if s.starts_with("--target=") => {
                 let t = s["--target=".len()..].to_owned();
                 if t != "ptx" && t != "dxil" && t != "vulkan" {
-                    return Err(format!("无法识别的 --target 目标 `{t}`(合法:ptx/dxil/vulkan)"));
+                    return Err(format!(
+                        "无法识别的 --target 目标 `{t}`(合法:ptx/dxil/vulkan)"
+                    ));
                 }
                 b.target = Some(t);
             }
