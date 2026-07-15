@@ -1,0 +1,84 @@
+// ruridrop 仿真常量 — 冒烟档(RFC-0010 §4.2:CI 冒烟档 N = 4096,网格 32^3)。
+// 与 params.rx 同名常量不同值,入口二选一 `mod`(RXS-0196):sim_check.rx 用本档。
+// kernel 不引用本模块:全部物理常数经 launch 标量实参下发(RXS-0191 首期子集),
+// 常量单一事实源在入口文件收拢后穿参。
+
+// ---- 规模 ----
+// 粒子数(须为 256 的整数倍:块大小 256,全满块 → scan/scatter 无残块特判)
+pub const N: usize = 4096;
+// 初始水柱粒子排布(COL_X * COL_Y * COL_Z == N)
+pub const COL_X: usize = 16;
+pub const COL_Y: usize = 16;
+pub const COL_Z: usize = 16;
+// 邻居均匀网格轴向格数(cell 边长 = 光滑半径 h;key 位宽 = 15 bit)
+pub const GRID_DIM: u32 = 32;
+// 总 cell 数 = GRID_DIM^3(须为 256 的整数倍:clear_bounds 全满块)
+pub const CELLS: usize = 32 * 32 * 32;
+// 基数排序 bit-split 遍数:>= key 位宽(15)且取偶数 → 终态回到 0 号缓冲
+// (第 16 遍作用于恒 0 的 bit 15,退化为稳定恒等重排)
+pub const SORT_PASSES: usize = 16;
+// 帧数 / 每帧子步数(Stage-1 验收:M = 8 帧不炸)
+pub const FRAMES: usize = 8;
+pub const SUBSTEPS: usize = 4;
+
+// ---- 物理(uc03-demo SPH 常数语义母本,数值按 3D/规模调参) ----
+// cell 边长与倒数(= 光滑半径 h,保证 27 邻域覆盖)
+pub const CELL_SIZE: f32 = 1.0;
+pub const INV_CELL: f32 = 1.0;
+// SPH 光滑核半径 h 与 h^2
+pub const SMOOTH_H: f32 = 1.0;
+pub const SMOOTH_H2: f32 = 1.0;
+// 粒子质量(积分中 1/m 已按 m=1 吸收)
+pub const MASS: f32 = 1.0;
+// 静息密度(未归一化 poly6 在 spacing=0.5 满堆积下的近似值)
+pub const REST_DENSITY: f32 = 5.0;
+// 状态方程刚度 p = k * (rho - rho0)
+pub const STIFFNESS: f32 = 4.0;
+// 黏度系数(拉普拉斯核标量项)
+pub const VISCOSITY: f32 = 0.3;
+// 重力(-y 向,力按 rho 缩放,uc03 语义)
+pub const GRAVITY: f32 = 10.0;
+// 子步步长
+pub const DT: f32 = 0.004;
+// 盒体反弹速度阻尼
+pub const BOUNDARY_DAMP: f32 = 0.4;
+// 速度钳制上限(确定性防发散)
+pub const MAX_SPEED: f32 = 20.0;
+// 盒体内边距(粒子活动域 [MARGIN, BOX - MARGIN])
+pub const MARGIN: f32 = 0.5;
+// 盒体边长 = GRID_DIM * CELL_SIZE
+pub const BOX: f32 = 32.0;
+// 初始排布间距与原点(水柱贴一角)
+pub const SPACING: f32 = 0.5;
+pub const ORIGIN: f32 = 0.5;
+
+// ---- 渲染(Stage-2,RFC-0010 §4.3;冒烟档 160×120 / 8spp / 2 帧) ----
+// 输出分辨率(W、H 均为 16 的整数倍非必需:kernel 内含越界守卫)
+pub const REND_W: usize = 160;
+pub const REND_H: usize = 120;
+// 每像素采样数与单 launch 批量(SPP % SPP_BATCH == 0;冒烟档单批)
+pub const SPP: usize = 8;
+pub const SPP_BATCH: usize = 8;
+// 渲染帧数(offline_smoke 出 frame_0000/0001;refcpu 同档重放)
+pub const REND_FRAMES: usize = 2;
+// 路径追踪最大弹射数(RFC-0010 §4.3:≤4)
+pub const PT_BOUNCES: u32 = 4;
+// 粒子渲染半径(球体图元;<= cell 半边,DDA 邻 cell 溢出裁剪可接受)
+pub const PART_R: f32 = 0.35;
+// 定参 pinhole 相机(眼点 / 注视点 / 视场半宽比例 tan(fov/2) 常数化,无三角函数)
+pub const CAM_EYE_X: f32 = 24.0;
+pub const CAM_EYE_Y: f32 = 14.0;
+pub const CAM_EYE_Z: f32 = 26.0;
+pub const CAM_TGT_X: f32 = 4.5;
+pub const CAM_TGT_Y: f32 = 3.5;
+pub const CAM_TGT_Z: f32 = 4.5;
+pub const VIEW_SCALE: f32 = 0.55;
+// 单矩形面光源(轴对齐,y = LIGHT_Y 朝下;x∈[X0,X1] × z∈[Z0,Z1];白光辐射 E)
+pub const LIGHT_X0: f32 = 9.6;
+pub const LIGHT_X1: f32 = 22.4;
+pub const LIGHT_Z0: f32 = 9.6;
+pub const LIGHT_Z1: f32 = 22.4;
+pub const LIGHT_Y: f32 = 44.8;
+pub const LIGHT_E: f32 = 6.0;
+// 速度→色相映射尺度(uc03 speed_color 语义:t = clamp(|v| / SCALE, 0, 1))
+pub const VEL_COLOR_SCALE: f32 = 8.0;

@@ -1,0 +1,25 @@
+// ruridrop 确定性整数 RNG / 哈希(RFC-0010 §4.3 共享核心:xorshift32 逐像素
+// RNG 流 + wang_hash 种子雪崩)。纯 u32 位运算(移位 / 异或 / wrapping 乘加,
+// host/device 双路逐位同义)。Stage-1 先落:sim_check.rx 用 wang_hash 做
+// 确定性状态哈希聚合;Stage-2 渲染核(pt_render / rt_primary)复用。
+
+// xorshift32:状态穿参(无全局态,确定性由调用方线性穿链保证)。
+// 注意:状态 0 是不动点,调用方须以非零种子起链(先过 wang_hash 即可)。
+pub device fn xorshift32(state: u32) -> u32 {
+    let mut s = state;
+    s = s ^ (s << 13);
+    s = s ^ (s >> 17);
+    s = s ^ (s << 5);
+    s
+}
+
+// Wang hash:u32 → u32 雪崩混合(乘法按 u32 wrapping 语义,两路同义)。
+pub device fn wang_hash(seed: u32) -> u32 {
+    let mut s = seed;
+    s = (s ^ 61u32) ^ (s >> 16);
+    s = s * 9u32;
+    s = s ^ (s >> 4);
+    s = s * 0x27d4eb2du32;
+    s = s ^ (s >> 15);
+    s
+}

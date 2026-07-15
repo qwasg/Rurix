@@ -423,6 +423,26 @@ jobs:
           RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/host_orch_smoke.py
 
+      # 步骤 53（MS1.3,契约 G-MS1-3/G-MS1-4,RFC-0010 §4.1/§4.4）:UC-07 离线 golden 冒烟。
+      # `ci/uc07_offline_golden_smoke.py`:前置审计(主语言判据机器面,host 段总跑)——
+      # apps/ruridrop 文件集仅 .rx + rurix.toml(发现 .rs/.py/.cpp/.c/.h 等任何其他源即红)
+      # + src/*.rx 集合含 kernel fn 定义(kernel 与宿主编排同包)+ offline_smoke/refcpu 两
+      # EXE 均经 `rx build` 产出(产物链路防降级硬门,措辞镜像 G-G2-4)。device 段(runner
+      # 真 GPU,冒烟档 N=4096/160×120/8spp/2 帧):① 确定性硬门——offline_smoke 独立 tmp
+      # 子目录跑两次,逐帧量化 PPM 字节 SHA-256 相等;② 参考容差硬门——GPU 帧 vs refcpu
+      # 入口(同一 .rx device fn host 重放)逐像素 |Δ|≤1 占比 ≥99.5% 且 max ≤2;③ blessed
+      # 哈希软门——逐帧 SHA-256 == tests/uc07/golden_manifest(漂移 → 红 + 重 bless 留痕
+      # 路径提示,bless 纪律 tests/uc07/bless_log.md)。数据流红绿(内建,反 YAML-only):
+      # 篡改 params_smoke.rx 传给 sim_forces 的重力常数经同一 rx build 链重编 → 帧 digest
+      # 变红 → 变体丢弃原树复原绿(镜像步骤 48 先例,仅「跑完了」不接受)。全绿写
+      # evidence/uc07_offline_golden_smoke.json(schema 校验,digest_match 计入
+      # ms1.counter.uc07_offline_golden_frames)。RURIX_REQUIRE_REAL=1 时无 CUDA 即红(不 SKIP 充绿)。
+      - name: UC-07 offline golden smoke (MS1 CI_GATES §2.53, G-MS1-3/G-MS1-4, RFC-0010)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/uc07_offline_golden_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

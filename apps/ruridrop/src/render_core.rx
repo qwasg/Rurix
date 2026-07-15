@@ -1,0 +1,257 @@
+// ruridrop 渲染共享核心(RFC-0010 §4.3:一核两档的 device fn 层)。
+// 全部为可双上下文调用的 plain `device fn`(镜像 dmath 形态:sim.rx kernel 与
+// refcpu host 双侧调用),标量进标量出——host 侧无 View/PinnedBuffer 抽象,
+// 缓冲遍历(DDA cell 步进 / cell 内粒子循环 / 弹射循环)留在调用方(render_pt /
+// render_rt kernel 与 refcpu host 循环)以各自的缓冲访问形态展开,数值全部经
+// 本模块函数计算 → 两侧逐位同义(RFC-0010 §4.4 ②容差门依赖)。
+// 数值纪律:仅 + - * / 、比较、位运算 + dmath::rx_sqrt(refcpu 逐位重放;
+// host 无 f32 方法 intrinsic,pow/exp 一律不用);乘加显式分步(let 拆分)压低
+// FMA 收缩分歧面;f32→整数 cast 前一律 rx_clamp(NaN 安全,RXS-0110 纪律)。
+// RNG 线程化定案:xorshift32 状态由调用方线性穿链(s = rng::xorshift32(s)),
+// 值提取为纯函数 u01(s)——「推进」与「取值」拆两个 fn,无元组返回需求。
+// 场景常数(相机 / 光源 / 半径)经 kernel 标量实参下发(params 只被入口 mod);
+// 本模块内字面量仅为算法常数(天空梯度 / 棋盘反照率 / Fresnel F0 / epsilon)。
+
+mod dmath;
+mod rng;
+
+// ---- RNG 取值(状态推进用 rng::xorshift32,调用方穿链) ----
+
+// u32 状态 → [0, 1) 均匀 f32(取高 24 bit × 2^-24,两路同义)
+pub device fn u01(s: u32) -> f32 {
+    ((s >> 8) as f32) * 0.000000059604644775390625
+}
+
+// 像素 × 采样 × 帧 → 非零 RNG 种子(wang_hash 雪崩;spp 分批不改流:
+// 种子只依赖全局采样序号,与批边界无关)
+pub device fn sample_seed(pix: u32, samp: u32, frame: u32) -> u32 {
+    let a = rng::wang_hash(pix ^ (frame * 2654435769u32));
+    let b = rng::wang_hash(a ^ (samp * 40503u32 + 1u32));
+    if b == 0u32 { 305419896u32 } else { b }
+}
+
+// ---- 标量向量代数(显式分步累加) ----
+
+pub device fn dot3(ax: f32, ay: f32, az: f32, bx: f32, by: f32, bz: f32) -> f32 {
+    let x = ax * bx;
+    let y = ay * by;
+    let z = az * bz;
+    let s = x + y;
+    s + z
+}
+
+pub device fn len3(x: f32, y: f32, z: f32) -> f32 {
+    dmath::rx_sqrt(dot3(x, y, z, x, y, z))
+}
+
+pub device fn min3(a: f32, b: f32, c: f32) -> f32 {
+    dmath::rx_min(dmath::rx_min(a, b), c)
+}
+
+pub device fn lerp(a: f32, b: f32, t: f32) -> f32 {
+    let d = b - a;
+    let m = d * t;
+    a + m
+}
+
+// 叉积单分量(相机基底构造:cross(a, b).x/y/z)
+pub device fn cross_x(ay: f32, az: f32, by: f32, bz: f32) -> f32 {
+    let p = ay * bz;
+    let q = az * by;
+    p - q
+}
+
+pub device fn cross_y(ax: f32, az: f32, bx: f32, bz: f32) -> f32 {
+    let p = az * bx;
+    let q = ax * bz;
+    p - q
+}
+
+pub device fn cross_z(ax: f32, ay: f32, bx: f32, by: f32) -> f32 {
+    let p = ax * by;
+    let q = ay * bx;
+    p - q
+}
+
+// ---- 相机(定参 pinhole;基底向量由入口 host 侧算好经实参下发) ----
+
+// 像素坐标(含抖动)→ 归一化屏幕坐标 × 视场比例(scale 含纵横比与 y 翻转)
+pub device fn screen_coord(p: f32, inv_n: f32, scale: f32) -> f32 {
+    let t = p * inv_n;
+    let c = t * 2.0 - 1.0;
+    c * scale
+}
+
+// 未归一化光线方向分量 = fwd + sx*right + sy*up(逐分量;调用方随后统一归一化)
+pub device fn ray_dir_comp(fwd_c: f32, right_c: f32, up_c: f32, sx: f32, sy: f32) -> f32 {
+    let a = sx * right_c;
+    let b = sy * up_c;
+    let s = fwd_c + a;
+    s + b
+}
+
+// ---- 3D-DDA 均匀网格步进(复用仿真 cell_start/cell_end;cell 边长 = 1) ----
+
+// 光线-轴向 slab 进入 t(|d| 近零:轴内 → -1e30 不约束,轴外 → 1e30 必不相交)
+pub device fn slab_enter(o: f32, d: f32, lo: f32, hi: f32) -> f32 {
+    if dmath::rx_abs(d) < 0.000000001 {
+        if o >= lo && o <= hi { -1.0e30 } else { 1.0e30 }
+    } else {
+        let t0 = (lo - o) / d;
+        let t1 = (hi - o) / d;
+        dmath::rx_min(t0, t1)
+    }
+}
+
+// 光线-轴向 slab 退出 t(与 slab_enter 对偶)
+pub device fn slab_exit(o: f32, d: f32, lo: f32, hi: f32) -> f32 {
+    if dmath::rx_abs(d) < 0.000000001 {
+        if o >= lo && o <= hi { 1.0e30 } else { -1.0e30 }
+    } else {
+        let t0 = (lo - o) / d;
+        let t1 = (hi - o) / d;
+        dmath::rx_max(t0, t1)
+    }
+}
+
+// t0 处光线点的 cell 轴下标(rx_clamp 到 [0, dim-1] 后截断;域内非负 → 截断 == floor)
+pub device fn dda_cell(o: f32, d: f32, t0: f32, dim_f: f32) -> i32 {
+    let m = t0 * d;
+    let p = o + m;
+    let c = dmath::rx_clamp(p, 0.0, dim_f - 1.0);
+    c as i32
+}
+
+// 该轴到下一 cell 边界的绝对 t(cell_f = 当前 cell 下标 as f32;|d| 近零 → 1e30)
+pub device fn dda_tmax(o: f32, d: f32, cell_f: f32) -> f32 {
+    if d > 0.000000001 {
+        let b = cell_f + 1.0;
+        (b - o) / d
+    } else if d < -0.000000001 {
+        (cell_f - o) / d
+    } else {
+        1.0e30
+    }
+}
+
+// 该轴跨一个 cell 的 t 增量(|d| 近零 → 1e30)
+pub device fn dda_tdelta(d: f32) -> f32 {
+    let ad = dmath::rx_abs(d);
+    if ad > 0.000000001 { 1.0 / ad } else { 1.0e30 }
+}
+
+// ---- 求交 ----
+
+// 光线-球(方向已归一化,a = 1):返回进入点 t;判别式 < 0 或 t <= 1e-3 → 1e30(miss)。
+// 判别式显式分步(b*b 与 c 分离),rx_sqrt 仅在判别式非负时调用。
+pub device fn sphere_t(
+    ox: f32, oy: f32, oz: f32,
+    dx: f32, dy: f32, dz: f32,
+    cx: f32, cy: f32, cz: f32,
+    r2: f32,
+) -> f32 {
+    let fx = ox - cx;
+    let fy = oy - cy;
+    let fz = oz - cz;
+    let b = dot3(fx, fy, fz, dx, dy, dz);
+    let c = dot3(fx, fy, fz, fx, fy, fz) - r2;
+    let bb = b * b;
+    let disc = bb - c;
+    if disc < 0.0 {
+        return 1.0e30;
+    }
+    let sq = dmath::rx_sqrt(disc);
+    let t = 0.0 - b - sq;
+    if t > 0.001 { t } else { 1.0e30 }
+}
+
+// 光线-水平面 y = py:t > 1e-3 的正向交点 t,否则 1e30(miss)
+pub device fn plane_t(oy: f32, dy: f32, py: f32) -> f32 {
+    if dmath::rx_abs(dy) < 0.000001 {
+        return 1.0e30;
+    }
+    let t = (py - oy) / dy;
+    if t > 0.001 { t } else { 1.0e30 }
+}
+
+// ---- 着色 ----
+
+// Schlick Fresnel(F0 = 0.02 水面;pow5 手写乘法,免 pow/exp)
+pub device fn schlick(cosi: f32) -> f32 {
+    let m = dmath::rx_clamp(1.0 - cosi, 0.0, 1.0);
+    let m2 = m * m;
+    let m4 = m2 * m2;
+    let m5 = m4 * m;
+    let k = 0.98 * m5;
+    0.02 + k
+}
+
+// 速度 → 色相参数 t(uc03 speed_color 语义:clamp(|v| / vscale, 0, 1))
+pub device fn speed_t(speed: f32, vscale: f32) -> f32 {
+    dmath::rx_clamp(speed / vscale, 0.0, 1.0)
+}
+
+// 速度基色(uc03 speed_color 母本:慢=冷蓝 / 快=暖橙;R ∈ [.10,.45] < B ∈ [.60,.95])
+pub device fn speed_col_r(t: f32) -> f32 {
+    let m = 0.35 * t;
+    0.10 + m
+}
+
+pub device fn speed_col_g(t: f32) -> f32 {
+    let m = 0.50 * t;
+    0.20 + m
+}
+
+pub device fn speed_col_b(t: f32) -> f32 {
+    let m = 0.35 * t;
+    0.95 - m
+}
+
+// 天空梯度(地平 → 天顶;dy < 0 取地平色)
+pub device fn sky_r(dy: f32) -> f32 {
+    lerp(0.75, 0.25, dmath::rx_clamp(dy, 0.0, 1.0))
+}
+
+pub device fn sky_g(dy: f32) -> f32 {
+    lerp(0.82, 0.45, dmath::rx_clamp(dy, 0.0, 1.0))
+}
+
+pub device fn sky_b(dy: f32) -> f32 {
+    lerp(0.90, 0.85, dmath::rx_clamp(dy, 0.0, 1.0))
+}
+
+// 地面棋盘反照率(格边长 4;floor 经「clamp 后整数 cast」实现——值域受控
+// [-1000,1000],+1024 平移保正 → 截断 == floor,奇偶校验取格色)
+pub device fn checker_albedo(x: f32, z: f32) -> f32 {
+    let qx = dmath::rx_clamp(x * 0.25, -1000.0, 1000.0) + 1024.0;
+    let qz = dmath::rx_clamp(z * 0.25, -1000.0, 1000.0) + 1024.0;
+    let ix = qx as i32;
+    let iz = qz as i32;
+    if ((ix + iz) & 1) == 0 { 0.80 } else { 0.35 }
+}
+
+// 面光源几何项(cos_l × area / dist²,clamp ≤ 8 防 firefly;光源朝下,
+// cos_l = 交点→光样点方向的 y 分量)
+pub device fn light_geom(cos_l: f32, area: f32, dist: f32) -> f32 {
+    if cos_l <= 0.0 {
+        return 0.0;
+    }
+    let d2 = dist * dist;
+    let a = cos_l * area;
+    let g = a / d2;
+    dmath::rx_min(g, 8.0)
+}
+
+// 镜面反射分量 = d - 2(d·n)n(逐分量;ddn = dot(d, n) 由调用方算一次)
+pub device fn reflect_c(d_c: f32, ddn: f32, n_c: f32) -> f32 {
+    let a = 2.0 * ddn;
+    let b = a * n_c;
+    d_c - b
+}
+
+// Reinhard 色调映射 + gamma 2.0(x^0.5 = rx_sqrt,gamma 2.2 的诚实近似)→ [0,1]
+pub device fn tone_map(c: f32) -> f32 {
+    let cc = dmath::rx_max(c, 0.0);
+    let m = cc / (1.0 + cc);
+    dmath::rx_sqrt(m)
+}
