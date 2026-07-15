@@ -418,6 +418,17 @@ jobs:
           RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/vulkan_codegen_smoke.py
 
+      # 步骤 55（mb1,契约 G-MB1-3,RFC-0011 / RXS-0207）:Vulkan compute 设备真跑冒烟。
+      # `ci/vulkan_device_smoke.py`:rurixc --target vulkan saxpy → SPIR-V → bin/vk_saxpy 在
+      # 本机 Vulkan 设备真跑 saxpy=a*x+out,数值精确校验 + VK_LAYER_KHRONOS_validation 零报错。
+      # device 门:RURIX_REQUIRE_REAL=1 缺设备翻硬红(GPU runner 有 NVIDIA Vulkan)。第二 ICD
+      # (lavapipe)+ AMD 真卡为 open 尾门。gated on 红线 3 解除 + RFC-0011 批准随 mb1 合入生效。
+      - name: vulkan compute device smoke (MB1 CI_GATES §2.55, G-MB1-3, RFC-0011)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/vulkan_device_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
