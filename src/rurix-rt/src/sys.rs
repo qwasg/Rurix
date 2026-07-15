@@ -47,11 +47,59 @@ pub const CU_STREAM_WAIT_DEFAULT: u32 = 0;
 pub const CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR: i32 = 75;
 pub const CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR: i32 = 76;
 
-// -- Windows 动态加载(kernel32;std 默认链接,无需 toolkit) -----------------
+// -- OS 动态加载缝(跨端;镜像 vk.rs 加载缝纪律,W8/RXS-0211 第二链接期缝) ---------
+// Windows:       nvcuda.dll  / LoadLibraryA + GetProcAddress(Win32 kernel32;std 默认
+//                链接,无需 CUDA Toolkit 导入库)。
+// Android+Linux: libcuda.so  / dlopen(RTLD_NOW) + dlsym(POSIX libc 直接提供,NDK 默认
+//                链接;现代 glibc 亦并入 libc,无需 -ldl)。android 无 NVIDIA CUDA 驱动
+//                → `dlopen("libcuda.so")` 返回 null → `Cuda::load` 返回 `None` → CUDA 运行期
+//                不可用(诚实降级,承既有「缺 nvcuda → CUDA 不可用」路径,08 §2.5)。
+// 此为 vk.rs Vulkan 加载缝之外的**第二** per-OS 链接期缝:两缝(vk.rs vulkan-1/libvulkan
+// loader + 本 sys.rs nvcuda/libcuda loader)均 cfg 分叉,消除 aarch64-android 链接期未定义
+// 符号(`dlopen`/`dlsym` 由 libc 提供;`LoadLibraryA`/`GetProcAddress` 仅 windows)。
+#[cfg(windows)]
+mod loader {
+    use core::ffi::{CStr, c_char, c_void};
+    unsafe extern "system" {
+        fn LoadLibraryA(name: *const c_char) -> *mut c_void;
+        fn GetProcAddress(module: *mut c_void, name: *const c_char) -> *mut c_void;
+    }
+    pub(super) const CUDA_LIB: &CStr = c"nvcuda.dll";
+    /// # Safety
+    /// `name` 为 NUL 结尾字面量。
+    pub(super) unsafe fn open(name: *const c_char) -> *mut c_void {
+        // SAFETY: 调用方保证 `name` NUL 结尾;`LoadLibraryA` 为 Win32 稳定 ABI(kernel32)。
+        unsafe { LoadLibraryA(name) }
+    }
+    /// # Safety
+    /// `lib` 为 `open` 返回的有效模块句柄或 null;`name` NUL 结尾。
+    pub(super) unsafe fn sym(lib: *mut c_void, name: *const c_char) -> *mut c_void {
+        // SAFETY: 调用方保证 `lib` 有效或 null、`name` NUL 结尾;`GetProcAddress` 为 Win32 稳定 ABI。
+        unsafe { GetProcAddress(lib, name) }
+    }
+}
 
-unsafe extern "system" {
-    fn LoadLibraryA(name: *const c_char) -> *mut c_void;
-    fn GetProcAddress(module: *mut c_void, name: *const c_char) -> *mut c_void;
+#[cfg(not(windows))]
+mod loader {
+    use core::ffi::{CStr, c_char, c_void};
+    unsafe extern "C" {
+        fn dlopen(filename: *const c_char, flag: i32) -> *mut c_void;
+        fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
+    }
+    const RTLD_NOW: i32 = 2; // 立即绑定全部符号(POSIX 通用值,Android/glibc/musl 一致)。
+    pub(super) const CUDA_LIB: &CStr = c"libcuda.so";
+    /// # Safety
+    /// `name` 为 NUL 结尾字面量。
+    pub(super) unsafe fn open(name: *const c_char) -> *mut c_void {
+        // SAFETY: 调用方保证 `name` NUL 结尾;`dlopen` 为 POSIX 稳定 ABI(libc)。
+        unsafe { dlopen(name, RTLD_NOW) }
+    }
+    /// # Safety
+    /// `handle` 为 `open` 返回的有效句柄或 null;`name` NUL 结尾。
+    pub(super) unsafe fn sym(handle: *mut c_void, name: *const c_char) -> *mut c_void {
+        // SAFETY: 调用方保证 `handle` 有效或 null、`name` NUL 结尾;`dlsym` 为 POSIX 稳定 ABI。
+        unsafe { dlsym(handle, name) }
+    }
 }
 
 // -- Driver API 函数指针类型(D-113:extern "system",x64 ABI) ----------------
@@ -297,16 +345,19 @@ unsafe fn cast_fn<T: Copy>(raw: *mut c_void) -> Option<T> {
 impl Cuda {
     /// 加载 `nvcuda.dll` 并解析全部所需 Driver API 符号(任一缺失 → None)。
     fn load() -> Option<Cuda> {
-        // SAFETY: `LoadLibraryA`/`GetProcAddress` 为 Win32 稳定 ABI(kernel32);
-        // 入参为 NUL 结尾 C 字符串字面量(`c"..."`);返回的模块/符号地址仅经
-        // `cast_fn` 在 null 校验后转为匹配 ABI 的函数指针(D-113)。每个符号名与
-        // 其上方类型别名签名按 CUDA Driver API(`_v2` ABI 版本)一一对应。
+        // SAFETY: `loader::open`/`sym` 为各 OS 稳定 ABI 加载原语(`#[cfg(windows)]` =
+        // Win32 `LoadLibraryA`/`GetProcAddress`〔kernel32,逐调用等价旧实现、零漂移〕;
+        // `#[cfg(not(windows))]` = POSIX `dlopen(RTLD_NOW)`/`dlsym`〔libc〕);入参为
+        // NUL 结尾 C 字符串字面量(`c"..."` / `loader::CUDA_LIB`);返回的模块/符号地址仅经
+        // `cast_fn` 在 null 校验后转为匹配 ABI 的函数指针(D-113)。每个符号名与其上方类型
+        // 别名签名按 CUDA Driver API(`_v2` ABI 版本)一一对应。android 无 `libcuda.so`
+        // → `open` 返回 null → 早退 `None`(CUDA 运行期不可用,诚实降级)。
         unsafe {
-            let lib = LoadLibraryA(c"nvcuda.dll".as_ptr());
+            let lib = loader::open(loader::CUDA_LIB.as_ptr());
             if lib.is_null() {
                 return None;
             }
-            let sym = |name: &core::ffi::CStr| GetProcAddress(lib, name.as_ptr());
+            let sym = |name: &core::ffi::CStr| loader::sym(lib, name.as_ptr());
             Some(Cuda {
                 cu_init: cast_fn(sym(c"cuInit"))?,
                 cu_device_get: cast_fn(sym(c"cuDeviceGet"))?,

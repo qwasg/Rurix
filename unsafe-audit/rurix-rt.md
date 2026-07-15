@@ -19,7 +19,7 @@
 
 | # | 原语 | 位置 | 验证义务(SAFETY 不变量) |
 |---|---|---|---|
-| U1 | `LoadLibraryA` / `GetProcAddress` 动态加载 | sys.rs `Cuda::load` | 入参为 `c"..."` NUL 结尾字面量;返回地址仅经 `cast_fn` 在 null 校验后转函数指针 |
+| U1 | CUDA Driver 装载器动态加载(per-OS cfg 分叉 `mod loader`:`#[cfg(windows)]` `LoadLibraryA`/`GetProcAddress` + `nvcuda.dll` / `#[cfg(not(windows))]` `dlopen(RTLD_NOW)`/`dlsym` + `libcuda.so`;mb1 W8/RXS-0211 v1.12 扩注,同 nvcuda FFI 边界无新 U 号) | sys.rs `mod loader` + `Cuda::load` | 入参为 `c"..."` NUL 结尾字面量(`loader::CUDA_LIB` per-OS 库名);返回地址仅经 `cast_fn` 在 null 校验后转函数指针;`#[cfg(windows)]` 分支逐调用等价旧实现(`open`=`LoadLibraryA` / `sym`=`GetProcAddress`,字节零漂移,内 `unsafe` 块纯 lint 构造);`#[cfg(not(windows))]` = POSIX `dlopen`/`dlsym`(libc 提供,消除 aarch64-android 链接期未定义符号;android 无 `libcuda.so` → `open` 返回 null → `Cuda::load` 返回 `None` → CUDA 运行期不可用,诚实降级,08 §2.5,非 panic);loader 不 `close`/`FreeLibrary`(进程常驻) |
 | U2 | `transmute_copy::<*mut c_void, FnT>` 符号 → 函数指针 | sys.rs `cast_fn` | `raw` 非 null;符号名 ⇔ 类型别名签名 ⇔ CUDA Driver API(`_v2`)ABI 逐一对应(D-113);指针宽度相等(debug_assert) |
 | U3 | Driver API 函数指针调用(cuInit/cuCtx*/cuMem*/cuModule*/cuLaunchKernel/...) | sys.rs `Cuda::*` 方法 | 句柄(ctx/stream/module/function/deviceptr)有效且未释放,由上层所有权类型(Context/Stream/DeviceBuffer/Module/Kernel)RAII 维持;出参指针有效可写;字节范围在分配内 |
 | U4 | `CStr::from_ptr`(cuGetErrorName/String) | sys.rs `error_name`/`error_string` | 成功返回时驱动写入进程生命期静态 NUL 结尾字符串 |
