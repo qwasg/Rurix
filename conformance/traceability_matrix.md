@@ -196,3 +196,5 @@
 | RXS-0205 | spec/vulkan_backend.md | 1 | `conformance/vulkan/accept/vk_math.rx` |
 | RXS-0206 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/backend.rs` |
 | RXS-0207 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/vk.rs` |
+| RXS-0208 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/vk.rs` |
+| RXS-0209 | spec/vulkan_backend.md | 2 | `src/rurix-pkg/src/lock.rs`, `src/rurix-rt/src/fatbin.rs` |

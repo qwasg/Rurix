@@ -32,9 +32,12 @@ d3d12-interop-real = ["d3d12-interop", "rurix-d3d12/real-shim"]
 # **默认关闭全部**:常驻回归网 `cargo build/test/clippy --workspace` 不触 interop / D3D12 而绿。
 
 # build.rs 经 rurixc 库把 kernels/saxpy.rx 全管线产 PTX 嵌入 EXE(M4.4,D-M4-5);
-# 仅构建期依赖,不进运行时产物(运行时仍零依赖)。
+# 仅构建期依赖,不进运行时产物(运行时仍零依赖)。feature vulkan-backend 额外让 build.rs
+# 经 vulkan_codegen 产 saxpy.spv(纯 Rust MIR→SPIR-V,RXS-0208 marshalling anchor 支撑);
+# 只影响 build-script 那份 rurixc 副本(build-deps 与运行时依赖独立解析),不改 rurixc
+# 默认特性、不进运行时产物。
 [build-dependencies]
-rurixc = { path = "../rurixc" }
+rurixc = { path = "../rurixc", features = ["vulkan-backend"] }
 
 # mb1 Vulkan compute 真跑 demo(RXS-0207):须 feature vulkan(vk 模块)。
 [[bin]]

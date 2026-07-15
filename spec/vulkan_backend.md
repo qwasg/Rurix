@@ -253,6 +253,60 @@ Phase 1 `--target vulkan` 产 SPIR-V 经手写 `vulkan-1`/`libvulkan` FFI 薄 lo
 
 > 锚定测试:src/rurix-rt/src/vk.rs 单测(`entry_point_name` 解析)+ src/rurix-rt/src/bin/vk_saxpy.rs(本机 NVIDIA 真跑 demo,数值精确)。
 
+### RXS-0208 launch marshalling(descriptor-binding;与 RXS-0203 codegen 单一事实源;MS1.2 ABI 前瞻兼容)
+
+运行期把 kernel 实参序位(ordinal)marshalling 为 Vulkan 描述符绑定与 push-constant 布局:`buffers[i]` → `(set 0, binding i)` StorageBuffer;标量按序位 → 单一 push-constant 块的顺排偏移。**序位是唯一分派依据**(无按名绑定、无按类型推断),运行期布局与 codegen 侧(RXS-0203)SPIR-V 描述符装饰**同源于形参出现序**,是同一事实源的两侧,不各自约定。🔒 MS1.2 `rxrt_launch` 扁平 kernelParams ABI 二进制布局属 RFC-0011 §4.7 升档禁区,本条只声明映射义务、不定义其字节本体。
+
+#### Syntax
+
+无语言文法面(运行时 / FFI 面)。
+
+#### Legality
+
+- L1(marshalling 面):运行期把 `buffers[i]` 序位 marshalling 为 `(set = 0, binding = i)` StorageBuffer;标量形参按序位 marshalling 为单一 push-constant 块内的顺排偏移(4 字节对齐)。**序位(ordinal)是唯一分派依据**——无按名绑定、无按类型推断、无隐式重排。
+- L2(单一事实源):运行期 `(set, binding)` 与 push-constant `offset` **必须**与 codegen(RXS-0203)产出的 SPIR-V 描述符装饰一致——`OpDecorate Binding` = buffer 形参出现序、push-constant 成员 `OpMemberDecorate Offset` = 标量形参出现序 × 4。两侧**同源于形参出现序**,非各自约定的两份可漂移拷贝。不一致 → 见 L3。
+- L3(fail-closed):marshalling 与 SPIR-V 装饰不符时,由 Vulkan validation 在运行期**确定性拒绝**(pipeline `pName` 不符 → `VUID-VkPipelineShaderStageCreateInfo-pName-00707`;binding 数 / 类型不符 → descriptor VUID)并返回 `Err`(非 panic、非静默,承 RXS-0207 L2,P-01 strict-only)。**不占 RX 码**(运行期工具层口径,对齐 spec/release.md §3;非编译期 6xxx)。
+
+#### Dynamic Semantics
+
+`run_compute(spv, entry, buffers, push_constants, groups)`(`src/rurix-rt/src/vk.rs`)——`buffers[i]` → `(set 0, binding i)` StorageBuffer(descriptor set layout binding `i` + write descriptor set `dst_binding = i`,in/out 原位回写),`push_constants` 字节整块经 `vkCmdPushConstants`(offset 0)喂入 shader push-constant 块(标量顺排 4 字节对齐,同 RXS-0203)。序位化 marshalling 对相同 `(buffers, push_constants)` 布局确定。
+
+#### Implementation Requirements
+
+- IR1(ordinal 映射):运行时 descriptor set layout binding `i` = buffer 序 `i`,与 codegen `classify_param` 的 `next_binding` 递增(`src/rurixc/src/vulkan_codegen.rs`)**同序**;push-constant 块单块、成员按标量序 `Offset i×4`(codegen `emit_push_constants`)。两侧唯一事实源 = 形参出现序。
+- IR2(🔒 边界声明,不落本体):MS1.2 `rxrt_launch` 的 `slots[u64] + kinds[u8]` 扁平 kernelParams ABI **二进制布局**属 RFC-0011 §4.7 🔒 升档禁区;本条只声明「Vulkan 侧按 ordinal 从 slots 推导 `(set, binding)` / push-constant」的**映射义务**,不定义 `rxrt_launch` 字节布局本体。
+- IR3(前瞻兼容,条件):当 `rxrt_launch` / `rurix-rt-cabi` 合入本分支后,Vulkan backend 消费其序位化 slots 时**必须**保持 CUDA 路 `rxrt_launch` 符号面字节不变(RXS-0194「符号面只追加」口径;主选零 ABI 新增,备选 `rxrt_dispatch_*` 新符号)。**mb1 base 无该符号 → ABI-字节回归测试对象缺席 → honest-defer RD-030**(backfill:MS1.2 rxrt_launch / rurix-rt-cabi 合入本分支)。
+- IR4(锚定):≥1 `//@ spec: RXS-0208`,host 可测,覆盖「ordinal → `(set, binding)` 映射 + 与 RXS-0203 codegen binding / push-constant offset 序一致」——测试消费 `rurixc --target vulkan` 对 saxpy 的**真** `.spv`,解析实际 `OpDecorate Binding` / `OpMemberDecorate Offset` 装饰值核对,非内联复刻绑定规则。
+
+> 锚定测试:src/rurix-rt/src/vk.rs 单测(`marshalling_ordinal_matches_codegen_binding`——解析 build.rs 经 vulkan_codegen 产的真 saxpy `.spv` 的 binding / offset 序,核对 = 运行时 descriptor-binding 构造序);device 真跑沿用 RXS-0207 `bin/vk_saxpy`(错入口名 → VUID 红 / 正确 → 绿)。
+
+### RXS-0209 device 产物泛化(SPIR-V 变体 + ArchKey 三槽 + lock format-generic)
+
+分发产物模型泛化以承 Vulkan:`ArtifactKind` 加 `Spirv`(可移植 device 产物)、架构键 `SmTarget` 泛化为 `ArchKey{Sm/Gfx/SpirvPortable}`(per-arch AOT 键 `sm_89`/`gfx1100` + 可移植槽),`rurix.lock` `[[artifact]]` 天然承 `kind="spirv"` / `sm_target="gfx1100"`(format-generic,零 schema 改)。**NVIDIA cubin/ptx 路径逐字节不变**(加性:`new`/`ptx_fallback`/`from_capability` 签名与语义 0-byte)。
+
+#### Syntax
+
+无语言文法面(host 产物模型类型面)。
+
+#### Legality
+
+- L1(变体类别加性):`ArtifactKind` 加 `Spirv`(`as_str() = "spirv"`),Vulkan 可移植 device 产物(驱动 JIT 装载,占可移植槽);既有 `Ptx`/`Cubin`/`Fatbin` 字面量与语义 0-byte。
+- L2(ArchKey 三槽):架构键 `ArchKey{Sm(String), Gfx(String), SpirvPortable}` prefix-dispatch 解析——`sm_<digits>` → `Sm`(NVIDIA cubin AOT)/ `gfx<alnum>` → `Gfx`(AMD hsaco AOT,G1.5 `SmTarget` 因 `sm_` 硬前缀守卫**误拒**的形态,正是泛化点)/ `""` → `SpirvPortable`(可移植槽,无 per-arch 键)。**`SpirvPortable` 与 `Ptx` 是同一可移植槽的两个厂商实现**(Vulkan SPIR-V / NVIDIA PTX,驱动 JIT);`Sm`/`Gfx` 是 per-arch AOT 槽两厂商实现。
+- L3(lock format-generic,零码改):`rurix.lock` `[[artifact]]` `kind`/`sm_target` 皆自由 `String`,序列化 / 解析 / 排序键 `(package, kind, sm_target)` 对 `"spirv"`/`"gfx1100"` 天然工作——**零 schema、零码改**即锁定 Vulkan 变体;未知前缀 → `ArchKey::parse` 返 `None` → 装载协商降级(非致命,同 RXS-0151),无编译期诊断、不占 RX 码。
+
+#### Dynamic Semantics
+
+`DeviceArtifactSet` 平行加 SPIR-V 可移植槽 `spirv_fallback: Option<Vec<u8>>`(`with_spirv_fallback` builder / `spirv_fallback` accessor),不动 NV `ptx_fallback` 构造签名。装载协商 `select_load_variant`:per-arch AOT 命中 → `Cubin(ArchKey)`;未命中且存在 SPIR-V 槽 → `SpirvPortable`;否则 → `PtxFallback`。**NVIDIA 零回归**:NV-only 集 `spirv_fallback = None` → 未命中恒回 `PtxFallback`(逐字节等价 G1.5)。
+
+#### Implementation Requirements
+
+- IR1(fatbin.rs 加性 + ripple):`src/rurix-rt/src/fatbin.rs` `ArtifactKind::Spirv` + `SmTarget → ArchKey` 泛化 + `CubinVariant`/`with_cubin`/`cubin_for`/`cubin_targets`/`LoadChoice`/`select_load_variant` 键类型 ripple + `DeviceArtifactSet` SPIR-V 槽;`lib.rs`/`bin/fatbin_saxpy.rs` 名替(NVIDIA 运行时路径逻辑 0-byte)。
+- IR2(描述表 v2 blob,honest-defer):device 描述表 v2(`@__rx_gpu_artifacts` blob bump + `@__rx_gpu_spirv` 段 + `emit_gpu_artifact_globals` codegen)在 mb1 base **无对象**(base 无 artifacts blob / emit_gpu_artifact_globals,MS1.2 codegen 面)→ **honest-defer RD-031**(backfill:MS1.2 artifacts blob / codegen 合入本分支);本条只落 host 产物模型泛化,不伪造描述表本体。
+- IR3(lock 诚实登记):`src/rurix-pkg/src/lock.rs` 仅 doc-comment 泛化(`kind` 加 `"spirv"`、`sm_target` 泛化为 per-arch AOT 键 + 可移植槽空),**schema 零码改**;roundtrip 测试加 `kind="spirv"`/`sm_target="gfx1100"` 变体断言。
+- IR4(锚定):≥1 `//@ spec: RXS-0209`,纯 host 类型(回归网不依赖 GPU 而绿),覆盖 `ArtifactKind::Spirv` + `ArchKey` prefix-dispatch(Sm/Gfx/SpirvPortable) + `with_spirv_fallback` roundtrip + lock spirv/gfx 变体 roundtrip。
+
+> 锚定测试:src/rurix-rt/src/fatbin.rs 单测(`artifact_kind_and_archkey_spirv_generalization`)+ src/rurix-pkg/src/lock.rs 单测(`lock_artifact_spirv_and_gfx_key_roundtrip`)。
+
 ## 3. 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
@@ -264,3 +318,4 @@ Phase 1 `--target vulkan` 产 SPIR-V 经手写 `vulkan-1`/`libvulkan` FFI 薄 lo
 | v1.4 | 2026-07-15 | **MB1.1 graphics 编码:落带编号条款体 `### RXS-0204`**(MIR→SPIR-V vertex/fragment,复用 RFC-0004 `dxil_spirv` 种子)+ 配套 `build_and_emit_vulkan` 按 `Body.stage` 路由(graphics→`dxil_spirv::emit_spirv_body` / compute→lower_compute)+ feature gate `dxil_spirv`/`binding_layout`/`attach_graphics_io_sig`/`dxil_io`/`collectable_stage` 由 `dxil-backend` 扩为 **`any(dxil-backend, vulkan-backend)`**。SPIR-V 即 Vulkan 原生终产物(`.spv`→`vkCreateShaderModule`),去 B 路 SPIRV-Cross→HLSL→dxc 转译链。条款体 FLS,严禁 UB;mesh/task/RT → RD-029 defer。配套 conformance accept `vk_vertex.rx`/`vk_fragment.rx`。**真实红绿**(本机 Vulkan SDK 1.3.296.0):vertex(`OpEntryPoint Vertex`)/ fragment(`OpEntryPoint Fragment`+`OriginUpperLeft`)经 `--target vulkan` → `spirv-val --target-env vulkan1.0` accept(exit 0)。**零回归**:dxil-backend 单独启用 test 404 passed、default test 318 passed(`any` 超集,dxil 行为字节不变)。`ci/trace_matrix.py` 全锚定 **189→190**(RXS-0204 ≥1 `//@ spec`)。**本片不碰** 🔒 launch marshalling / Backend trait / 纹理内存模型;present(RXS-0210)/ 多阶段 .spv 分文件输出随后续分片。档位 **Full RFC**(RFC-0011);**gated on owner 裁决红线 3 解除 + RFC-0011 批准,未获裁决前不合入 main**,无体例变更 | **Full RFC**（RFC-0011） |
 | v1.5 | 2026-07-15 | **MB1.2 Vulkan compute 运行时:落带编号条款体 `### RXS-0207`**(Vulkan compute 执行语义)+ 配套 `src/rurix-rt/src/vk.rs`(feature `vulkan` 默认关闭)手写 `vulkan-1` FFI 薄 loader(RFC §9 Q-Binding 默认零外部绑定,镜像 sys.rs;~35 Vulkan 命令 + `#[repr(C)]` 结构逐字节对齐 + 句柄线性生命周期,unsafe-audit **U26**〔跳 U23 空号 / U25=MS1.2b 避撞〕)+ `bin/vk_saxpy` 真跑 demo。instance/device/compute queue → shader module → compute pipeline → descriptor(StorageBuffer)+ push constant → `vkCmdDispatch` → 单 queue 同步。条款体 FLS,严禁 UB。**真实红绿(本机 NVIDIA RTX 4070 Ti,Vulkan 1.4.351)**:`rurixc --target vulkan saxpy.rx` 产 `.spv` → `bin/vk_saxpy` 真跑 saxpy=a*x+out **数值精确 max_err=0**(n=1024,a=2)+ `VK_LAYER_KHRONOS_validation` **零报错**(反证:错入口名触发 VUID-VkPipelineShaderStageCreateInfo-pName-00707,证 layer 生效);缺 Vulkan 驱动 → 确定性 Err 非 panic。**NVIDIA(CUDA)零回归**(feature vulkan 默认关闭,cargo build/test -p rurix-rt 零改动)。`ci/trace_matrix.py` 全锚定 **190→191**(RXS-0207 vk.rs 单测 + bin/vk_saxpy)。**第二 ICD(lavapipe)+ AMD 真卡为 open 尾门**;RXS-0206 Backend trait 抽象(CUDA 收敛)/ RXS-0208 marshalling ABI / RXS-0209 artifact 泛化随后续分片。档位 **Full RFC**(RFC-0011);**gated on owner 裁决红线 3 解除 + RFC-0011 批准,未获裁决前不合入 main**,无体例变更 | **Full RFC**（RFC-0011） |
 | v1.6 | 2026-07-15 | **MB1.2 Backend trait:落带编号条款体 `### RXS-0206`**(Compute 后端抽象,CUDA 收敛为一实现,Vulkan 并列)+ 配套 `src/rurix-rt/src/backend.rs`(**纯 host 薄层,零 unsafe,不新增 U 号**):`trait ComputeBackend{type Session; open; dispatch}` + `ComputeJob`(artifact/entry/buffers/scalars/groups/block)+ `CudaBackend`(组合既有 Context/Module/Stream/DeviceBuffer pub API,**零改其类型 / 零触 sys·pipeline·vk**)+ `VulkanBackend`(1:1 委托 vk::run_compute)+ `parse_backend`/`select_backend`/`run_job`(RURIX_BACKEND 显式选择,**无隐式 fallback** P-01:未知/未编译 → 确定性 Err)。条款体 FLS,严禁 UB。**真实红绿**:saxpy 经 `run_job(BackendKind::Vulkan)` 在本机 NVIDIA RTX 4070 Ti 真跑数值精确 max_err=0(bin/vk_saxpy 改经 backend 抽象,非直调 vk::run_compute)+ `parse_backend` 单测(cuda/未知/未编译 各确定性)。**NVIDIA(CUDA)零回归**:default(无 vulkan)构建 CudaBackend 编译 + rurix-rt lib 16 test 零漂移;clippy 双 feature clean。`ci/trace_matrix.py` 全锚定 **191→192**(RXS-0206 backend.rs 单测 + bin/vk_saxpy)。RXS-0208 marshalling ABI / RXS-0209 artifact 泛化 / lavapipe 第二 ICD 随后续分片。档位 **Full RFC**(RFC-0011)。**红线 3 已 owner 解除(2026-07-15),RFC-0011 Owner Approved**,mb1 下游实现解锁。无体例变更 | **Full RFC**（RFC-0011） |
+| v1.7 | 2026-07-15 | **MB1.2 marshalling + artifact 泛化:落带编号条款体 `### RXS-0208` / `### RXS-0209`**。RXS-0208(launch marshalling):运行期 ordinal → `(set 0, binding i)` StorageBuffer + 标量 push-constant 顺排,与 codegen RXS-0203 描述符装饰**单一事实源**(同源于形参出现序);L3 fail-closed 经 Vulkan validation 拒(不占 RX 码);IR2 🔒 `rxrt_launch` 字节本体 §4.7 禁区不落;IR3 前瞻兼容 **honest-defer RD-030**(mb1 base 无 rxrt_launch → ABI 回归对象缺席)。RXS-0209(artifact 泛化):`ArtifactKind::Spirv` + `SmTarget → ArchKey{Sm/Gfx/SpirvPortable}` prefix-dispatch(泛化 G1.5 硬 `sm_` 守卫误拒 `gfx1100` 的点)+ `DeviceArtifactSet` SPIR-V 可移植槽 + `rurix.lock` format-generic 承 `kind="spirv"`/`sm_target="gfx1100"`(零 schema 改);IR2 描述表 v2 blob **honest-defer RD-031**(mb1 base 无 @__rx_gpu_artifacts blob / emit_gpu_artifact_globals)。配套 `src/rurix-rt/src/fatbin.rs`(ArtifactKind/ArchKey/DeviceArtifactSet 加性 + ripple)/ `lib.rs`·`bin/fatbin_saxpy.rs`(名替)/ `vk.rs`(marshalling 单测)/ `rurix-rt/build.rs`(经 vulkan_codegen 产真 saxpy `.spv` 供锚点解析)/ `src/rurix-pkg/src/lock.rs`(doc-comment + roundtrip 变体,schema 零码改)。条款体按 FLS 分 Syntax/Legality/Dynamic Semantics/Implementation Requirements,**严禁 UB 节**。**真实红绿**:RXS-0208 锚点消费 `rurixc --target vulkan` 对 saxpy 的**真** `.spv`,解析实际 `OpDecorate Binding` = [0,1,2] / `OpMemberDecorate Offset` = [0,4],核对 = 运行时 descriptor-binding 构造序(非内联复刻规则);RXS-0209 纯 host 类型回归网不依赖 GPU 而绿。**NVIDIA 零回归**:`ArchKey::from_capability` 恒产 `Sm`、NV-only 集 `spirv_fallback=None` → 未命中恒 `PtxFallback`(cubin/ptx 路径逐字节不变),`cargo test -p rurixc --features dxil-backend` 404 不变。`ci/trace_matrix.py` 全锚定 **192→194**(RXS-0208 vk.rs 单测 + RXS-0209 fatbin.rs/lock.rs 单测)。**第二 ICD(lavapipe)+ AMD 真卡维持 open 尾门**;RXS-0210 present / RXS-0211 Android 随后续分片。档位 **Full RFC**(RFC-0011)。无体例变更 | **Full RFC**（RFC-0011） |

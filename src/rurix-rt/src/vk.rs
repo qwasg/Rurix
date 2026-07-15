@@ -1187,4 +1187,98 @@ mod tests {
         assert_eq!(entry_point_name(&spv).as_deref(), Some("k"));
         assert_eq!(entry_point_name(&[]), None);
     }
+
+    //@ spec: RXS-0208
+    #[test]
+    fn marshalling_ordinal_matches_codegen_binding() {
+        // build.rs 经 vulkan_codegen(纯 Rust MIR→SPIR-V)对 kernels/saxpy.rx 产**真** .spv
+        // (复现:`rurixc --target vulkan src/rurix-rt/kernels/saxpy.rx`)。本测试解析其
+        // 实际 `OpDecorate Binding` / `OpMemberDecorate Offset` 装饰值,核对 codegen 侧描述符
+        // 布局(RXS-0203)与运行时 `run_compute` 的 descriptor-binding 构造序位是**单一事实
+        // 源**——两侧同源于形参出现序,非各自约定的两份可漂移拷贝。若 codegen 曾产非连续 /
+        // 乱序 binding,`run_compute` 的 `binding: i`(vk.rs 描述符布局)将误绑,本测试即红。
+        const SAXPY_SPV: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/saxpy.spv"));
+
+        if SAXPY_SPV.is_empty() {
+            // 构建期 vulkan_codegen 未产(全静态检查失败/降级)→ dev-env degrade SKIP
+            // (对齐 PTX 降级纪律,非 fake-green;纯 Rust codegen 常态下不触发)。
+            eprintln!("[marshalling] SKIP: build.rs 未产 saxpy.spv (dev-env degrade)");
+            return;
+        }
+
+        // SPIR-V 字节 → u32 字流(小端;RXS-0203 words_to_bytes 逆)。
+        assert_eq!(SAXPY_SPV.len() % 4, 0, "SPIR-V 字节须 4 字节对齐");
+        let words: Vec<u32> = SAXPY_SPV
+            .chunks_exact(4)
+            .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+            .collect();
+        assert!(words.len() > 5, "SPIR-V 应含 header + 指令");
+        assert_eq!(words[0], 0x0723_0203, "SPIR-V magic");
+
+        // SPIR-V 枚举常量(与 vulkan_codegen 同源;此处**只解析真产物**,不复刻绑定规则)。
+        const OP_DECORATE: u16 = 71;
+        const OP_MEMBER_DECORATE: u16 = 72;
+        const DEC_BLOCK: u32 = 2; // push-constant 块(区别于 SSBO 的 BufferBlock=3)
+        const DEC_BINDING: u32 = 33;
+        const DEC_OFFSET: u32 = 35;
+
+        let mut bindings: Vec<u32> = Vec::new(); // buffer var 的 Binding 装饰值
+        let mut block_structs: Vec<u32> = Vec::new(); // push-constant Block 结构 id
+        let mut member_offsets: Vec<(u32, u32, u32)> = Vec::new(); // (struct, member, offset)
+
+        // 指令流迭代(word = (wordCount<<16)|opcode;跳 5-word header)。
+        let mut i = 5usize;
+        while i < words.len() {
+            let wc = (words[i] >> 16) as usize;
+            let op = (words[i] & 0xffff) as u16;
+            if wc == 0 {
+                break;
+            }
+            let end = (i + wc).min(words.len());
+            let ops = &words[i + 1..end];
+            match op {
+                OP_DECORATE if ops.len() >= 3 && ops[1] == DEC_BINDING => bindings.push(ops[2]),
+                OP_DECORATE if ops.len() >= 2 && ops[1] == DEC_BLOCK => block_structs.push(ops[0]),
+                OP_MEMBER_DECORATE if ops.len() >= 4 && ops[2] == DEC_OFFSET => {
+                    member_offsets.push((ops[0], ops[1], ops[3]));
+                }
+                _ => {}
+            }
+            i += wc;
+        }
+
+        // ── 断言 1:buffer binding 序位 = [0,1,..,N-1](连续,从 0)。 ──
+        bindings.sort_unstable();
+        let n_buffers = bindings.len();
+        assert!(
+            n_buffers >= 2,
+            "saxpy 应有多 StorageBuffer(out/x/y),实测 {n_buffers}"
+        );
+        // 运行时 descriptor-binding 构造(vk.rs run_compute:每 buffer i → (set 0, binding i))
+        // 重建其序位;codegen 真产物 binding 序须与之逐一相等(单一事实源)。
+        let runtime_bindings: Vec<u32> = (0..n_buffers as u32).collect();
+        assert_eq!(
+            bindings, runtime_bindings,
+            "codegen (set,binding) 序须 = 运行时 descriptor-binding 构造序 [0..N)"
+        );
+
+        // ── 断言 2:push-constant 成员 Offset 序位 = [0,4,8,..](标量顺排 4 字节)。 ──
+        assert_eq!(block_structs.len(), 1, "saxpy 单 push-constant 块");
+        let pc = block_structs[0];
+        let mut offsets: Vec<(u32, u32)> = member_offsets
+            .iter()
+            .filter(|(s, _, _)| *s == pc)
+            .map(|(_, m, off)| (*m, *off))
+            .collect();
+        offsets.sort_unstable();
+        let n_scalars = offsets.len();
+        assert!(n_scalars >= 1, "saxpy 应有标量形参(a/n)");
+        // 运行时 push_constants 布局 = 单块,标量按序 4 字节顺排(vk.rs vkCmdPushConstants
+        // offset 0);codegen 真产物 member offset 序须与之相等(单一事实源)。
+        let runtime_offsets: Vec<(u32, u32)> = (0..n_scalars as u32).map(|m| (m, m * 4)).collect();
+        assert_eq!(
+            offsets, runtime_offsets,
+            "codegen push-constant offset 序须 = 运行时顺排 4 字节布局 [0,4,8,..]"
+        );
+    }
 }

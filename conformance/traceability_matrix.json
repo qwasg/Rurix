@@ -1083,6 +1083,13 @@
     ],
     "RXS-0207": [
       "src/rurix-rt/src/vk.rs"
+    ],
+    "RXS-0208": [
+      "src/rurix-rt/src/vk.rs"
+    ],
+    "RXS-0209": [
+      "src/rurix-pkg/src/lock.rs",
+      "src/rurix-rt/src/fatbin.rs"
     ]
   }
 }

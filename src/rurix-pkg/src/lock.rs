@@ -30,9 +30,11 @@ pub struct LockPackage {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct LockArtifact {
     pub package: String,
-    /// 变体类别:`"ptx"` | `"cubin"` | `"fatbin"`(对接 `rurix-rt` `ArtifactKind`)。
+    /// 变体类别:`"ptx"` | `"cubin"` | `"fatbin"` | `"spirv"`(对接 `rurix-rt`
+    /// `ArtifactKind`;`"spirv"` = Vulkan 可移植 device 产物,RXS-0209)。
     pub kind: String,
-    /// cubin 预编架构键(`"sm_89"`);ptx fallback 为空 `""`。
+    /// per-arch AOT 预编架构键(`"sm_89"` NVIDIA cubin / `"gfx1100"` AMD hsaco,
+    /// RXS-0209);可移植槽(ptx/spirv fallback)为空 `""`。
     pub sm_target: String,
     /// 变体字节 content-tree SHA-256(64-hex,内容寻址)。
     pub sha256: String,
@@ -326,6 +328,49 @@ mod tests {
         assert_ne!(tampered, LockArtifact::digest_of(cubin_bytes));
 
         // [[artifact]] 非解析图派生:check_consistent(RXS-0092)不受其影响(仍一致)。
+        assert!(lock.check_consistent(&g).is_ok());
+    }
+
+    //@ spec: RXS-0209
+    #[test]
+    fn lock_artifact_spirv_and_gfx_key_roundtrip() {
+        // RXS-0209:lock 格式对 kind/sm_target 皆自由 String,零 schema/零码改即锁定
+        // Vulkan 可移植 device 产物(`kind="spirv"`,可移植槽 sm_target 空)与 AMD per-arch
+        // AOT 键(`sm_target="gfx1100"`)。证 lock 模型天然承 artifact 泛化(fatbin ArchKey)。
+        let g = sample_graph();
+        let mut lock = Lock::from_graph(&g);
+        let spirv_bytes: &[u8] = &[0x03, 0x02, 0x23, 0x07, 0x00, 0x00, 0x01, 0x00]; // SPIR-V magic+ver
+        let hsaco_bytes: &[u8] = &[0x7F, b'E', b'L', b'F']; // AMD hsaco = ELF 容器(占位字节)
+        lock.artifacts = vec![
+            LockArtifact {
+                package: "app".to_owned(),
+                kind: "spirv".to_owned(), // Vulkan 可移植 device 产物
+                sm_target: String::new(), // 可移植槽无 per-arch 键
+                sha256: LockArtifact::digest_of(spirv_bytes),
+            },
+            LockArtifact {
+                package: "app".to_owned(),
+                kind: "cubin".to_owned(),        // per-arch AOT 变体类别
+                sm_target: "gfx1100".to_owned(), // AMD hsaco per-arch AOT 键(G1.5 SmTarget 曾误拒)
+                sha256: LockArtifact::digest_of(hsaco_bytes),
+            },
+        ];
+        lock.artifacts.sort(); // 规范化 (package,kind,sm_target) 字典序
+
+        let text = lock.serialize();
+        assert!(text.contains("kind = \"spirv\""));
+        assert!(text.contains("sm_target = \"gfx1100\""));
+
+        // round-trip 一致 + 二次序列化逐字节稳定(format-generic,枚举值不校验)。
+        let parsed = Lock::parse(&text).unwrap();
+        assert_eq!(lock, parsed);
+        assert_eq!(text, parsed.serialize());
+
+        // 内容寻址:spirv/hsaco 字节各自 digest 稳定且可区分。
+        assert_ne!(
+            LockArtifact::digest_of(spirv_bytes),
+            LockArtifact::digest_of(hsaco_bytes)
+        );
         assert!(lock.check_consistent(&g).is_ok());
     }
 }

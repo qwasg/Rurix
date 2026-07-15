@@ -16,7 +16,7 @@ use core::ffi::c_void;
 use std::process::ExitCode;
 
 use rurix_rt::Context;
-use rurix_rt::fatbin::{DeviceArtifactSet, SmTarget};
+use rurix_rt::fatbin::{ArchKey, DeviceArtifactSet};
 
 // build.rs 双变体产物:PTX fallback(include_str!)+ 按架构预编 cubin(include_bytes!,sm_89)。
 const SAXPY_PTX: &str = include_str!(concat!(env!("OUT_DIR"), "/saxpy.ptx"));
@@ -79,7 +79,7 @@ fn run() -> Result<&'static str, String> {
     // 分发产物变体集:PTX fallback 必存(保守兜底,RXS-0150)+ 按架构预编 cubin(非空时)。
     let mut set = DeviceArtifactSet::new(SAXPY_PTX);
     if !SAXPY_CUBIN.is_empty() {
-        let sm = SmTarget::parse(CUBIN_ARCH).expect("CUBIN_ARCH 为合法 sm_ 架构键");
+        let sm = ArchKey::parse(CUBIN_ARCH).expect("CUBIN_ARCH 为合法 sm_ 架构键");
         set = set.with_cubin(sm, SAXPY_CUBIN.to_vec());
     }
 
