@@ -25,6 +25,12 @@
 //! - unsafe 全部集中于本 crate 的调用方指针契约边界(逐处 `// SAFETY:`),注册见
 //!   `unsafe-audit/rurix-rt-cabi.md`(U25);全仓其余 crate `unsafe_code = deny` 维持。
 //!
+//! MS1.2b 延伸面(RFC-0009 §4.6/§4.7):`rxp_*` present 会话(见 [`present`] 模块,
+//! feature `present`,default 含;RXS-0197/0198)+ `rxio_write_ppm` 宿主图像落盘桥
+//! (见 [`imageio`] 模块,RXS-0199)。present backbuffer 以**借用**形态进设备缓冲
+//! 句柄表([`BufKind::Borrowed`],owned = false):[`rxrt_buf_free`] 对其 no-op,
+//! 设备内存释放责任留呈现会话(RXS-0198)。
+//!
 //! 嵌入产物描述表(`@__rx_gpu_artifacts`)二进制布局见 [`artifacts`] 模块文档。
 
 use core::ffi::c_void;
@@ -36,6 +42,9 @@ use rurix_rt::fatbin::DeviceArtifactSet;
 use rurix_rt::{DeviceBox, PinnedBox, SharedContext, SharedModule, SharedStream};
 
 mod artifacts;
+mod imageio;
+#[cfg(feature = "present")]
+mod present;
 
 /// 运行期失败返回值(RXS-0193:诊断行 + 负值,由调用方裁决终止)。
 const RXRT_FAIL: i32 = -1;
@@ -102,11 +111,33 @@ struct StreamEntry {
     stream: SendStream,
 }
 
-/// 设备缓冲条目(`bytes` = 分配字节数,upload/download 长度须精确匹配)。
+/// 设备缓冲条目(`bytes` = 分配/注册字节数,upload/download 长度须精确匹配)。
 struct BufEntry {
     ctx: u64,
     bytes: u64,
-    buf: DeviceBox<u8>,
+    kind: BufKind,
+}
+
+/// 设备缓冲所有权形态(RXS-0198:present backbuffer 以**借用**句柄进表)。
+enum BufKind {
+    /// [`rxrt_buf_alloc`] 拥有的设备分配([`DeviceBox`] Drop 释放)。
+    Owned(DeviceBox<u8>),
+    /// 借用注册的设备指针(owned = false):[`rxrt_buf_free`] 对其 **no-op**——不触
+    /// CUDA、不落表、不释放,设备内存释放责任留注册方(`rxp_*` 呈现会话的共享
+    /// backbuffer,生命期 = 会话,`rxp_destroy` 清表;RXS-0198)。`sess` = 注册方
+    /// 会话句柄(诊断/清表锚)。
+    #[cfg_attr(not(feature = "present"), allow(dead_code))]
+    Borrowed { dptr: u64, sess: u64 },
+}
+
+impl BufEntry {
+    /// launch 实参物化用设备指针(owned / borrowed 同一口径)。
+    fn device_ptr(&self) -> u64 {
+        match &self.kind {
+            BufKind::Owned(buf) => buf.device_ptr(),
+            BufKind::Borrowed { dptr, .. } => *dptr,
+        }
+    }
 }
 
 /// 锁页主机缓冲条目。
@@ -351,7 +382,14 @@ pub extern "C" fn rxrt_buf_alloc(ctx: u64, bytes: u64) -> u64 {
         }
     };
     let h = t.alloc_handle();
-    t.bufs.insert(h, BufEntry { ctx, bytes, buf });
+    t.bufs.insert(
+        h,
+        BufEntry {
+            ctx,
+            bytes,
+            kind: BufKind::Owned(buf),
+        },
+    );
     h
 }
 
@@ -371,6 +409,12 @@ pub extern "C" fn rxrt_buf_free(b: u64) {
         );
         return;
     };
+    // 借用条目(owned = false,RXS-0198):free = **no-op**——不触 CUDA、不落表,
+    // 设备内存释放责任留注册方(呈现会话共享 backbuffer 生命期 = 会话,rxp_destroy
+    // 清表);条目留表供后续帧 launch 复用同句柄。
+    if matches!(be.kind, BufKind::Borrowed { .. }) {
+        return;
+    }
     match t.ctxs.get_mut(&be.ctx) {
         Some(ce) if !ce.poisoned => {
             if let Err(e) = ce.shared.bind().and_then(|bound| bound.synchronize()) {
@@ -402,6 +446,20 @@ pub extern "C" fn rxrt_buf_upload(b: u64, src: *const u8, bytes: u64) -> i32 {
         diag(OP, format!("unknown buffer handle {b}"));
         return RXRT_FAIL;
     };
+    // 借用 backbuffer(RXS-0198)无 upload 面:内容由 blit kernel 经 launch 写入。
+    let buf = match &mut be.kind {
+        BufKind::Owned(buf) => buf,
+        BufKind::Borrowed { sess, .. } => {
+            diag(
+                OP,
+                format!(
+                    "buffer handle {b} is a borrowed present backbuffer of session {sess} \
+                     (upload unsupported, RXS-0198)"
+                ),
+            );
+            return RXRT_FAIL;
+        }
+    };
     let Some(ce) = t.ctxs.get_mut(&be.ctx) else {
         diag(OP, format!("ctx of buffer {b} already destroyed"));
         return RXRT_FAIL;
@@ -421,7 +479,7 @@ pub extern "C" fn rxrt_buf_upload(b: u64, src: *const u8, bytes: u64) -> i32 {
     // 其指向 `bytes` 字节有效可读主机内存且调用期存活(RFC-0009 §4.3 指针契约);借用不
     // 越出本函数。
     let host = unsafe { core::slice::from_raw_parts(src, bytes as usize) };
-    if let Err(e) = ce.shared.bind().and_then(|_b| be.buf.copy_from_host(host)) {
+    if let Err(e) = ce.shared.bind().and_then(|_b| buf.copy_from_host(host)) {
         ce.poisoned = true;
         diag(OP, e);
         return RXRT_FAIL;
@@ -445,6 +503,20 @@ pub extern "C" fn rxrt_buf_download(b: u64, dst: *mut u8, bytes: u64) -> i32 {
         diag(OP, format!("unknown buffer handle {b}"));
         return RXRT_FAIL;
     };
+    // 借用 backbuffer(RXS-0198)无 download 面(呈现内容回读不在 v1 契约)。
+    let buf = match &be.kind {
+        BufKind::Owned(buf) => buf,
+        BufKind::Borrowed { sess, .. } => {
+            diag(
+                OP,
+                format!(
+                    "buffer handle {b} is a borrowed present backbuffer of session {sess} \
+                     (download unsupported, RXS-0198)"
+                ),
+            );
+            return RXRT_FAIL;
+        }
+    };
     let Some(ce) = t.ctxs.get_mut(&be.ctx) else {
         diag(OP, format!("ctx of buffer {b} already destroyed"));
         return RXRT_FAIL;
@@ -463,7 +535,7 @@ pub extern "C" fn rxrt_buf_download(b: u64, dst: *mut u8, bytes: u64) -> i32 {
     // SAFETY: (U25):`dst` 非 null(上方已检),调用方保证其指向 `bytes` 字节有效可写
     // 主机内存、调用期存活且无别名并发访问(RFC-0009 §4.3 指针契约);借用不越出本函数。
     let host = unsafe { core::slice::from_raw_parts_mut(dst, bytes as usize) };
-    if let Err(e) = ce.shared.bind().and_then(|_b| be.buf.copy_to_host(host)) {
+    if let Err(e) = ce.shared.bind().and_then(|_b| buf.copy_to_host(host)) {
         ce.poisoned = true;
         diag(OP, e);
         return RXRT_FAIL;
@@ -703,7 +775,7 @@ pub extern "C" fn rxrt_launch(
                     );
                     return RXRT_FAIL;
                 }
-                storage[i] = arg.buf.device_ptr();
+                storage[i] = arg.device_ptr();
             }
             1 => {}
             k => {
@@ -755,6 +827,16 @@ pub extern "C" fn rxrt_launch(
 }
 
 // -- tests ----------------------------------------------------------------------------
+
+/// GPU 探测(镜像 rurix-rt `tests/gpu_roundtrip.rs` 降级 SKIP 纪律;无驱动 / 无设备 /
+/// 初始化异常 → 不可用,SKIP 不误判失败)。
+#[cfg(test)]
+pub(crate) fn gpu_available() -> bool {
+    match rurix_rt::Context::device_count() {
+        Ok(n) => n > 0,
+        Err(_) => false,
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -809,15 +891,6 @@ DONE:
 "#;
 
     const NO_CUBIN_KEY: &[u8; 8] = b"\0\0\0\0\0\0\0\0";
-
-    /// GPU 探测(镜像 rurix-rt `tests/gpu_roundtrip.rs` 降级 SKIP 纪律;无驱动 / 无设备 /
-    /// 初始化异常 → 不可用,SKIP 不误判失败)。
-    fn gpu_available() -> bool {
-        match rurix_rt::Context::device_count() {
-            Ok(n) => n > 0,
-            Err(_) => false,
-        }
-    }
 
     //@ spec: RXS-0194
     #[test]
@@ -909,6 +982,47 @@ DONE:
         rxrt_stream_destroy(0);
         rxrt_buf_free(0);
         rxrt_pinned_free(0);
+    }
+
+    //@ spec: RXS-0198
+    #[test]
+    fn borrowed_buffer_free_is_noop_and_rejects_copies() {
+        // host-only:直接进表一个 Borrowed 条目(镜像 rxp_backbuffer 注册形态,owned =
+        // false)——rxrt_buf_free 对其 no-op:条目留表、不触 CUDA、不释放设备内存
+        // (释放责任留呈现会话,RXS-0198)。
+        let h = {
+            let mut t = lock();
+            let h = t.alloc_handle();
+            t.bufs.insert(
+                h,
+                BufEntry {
+                    ctx: 0,
+                    bytes: 48,
+                    kind: BufKind::Borrowed {
+                        dptr: 0xD3D1_2BB0,
+                        sess: 0,
+                    },
+                },
+            );
+            h
+        };
+        rxrt_buf_free(h);
+        {
+            let t = lock();
+            let be = t
+                .bufs
+                .get(&h)
+                .expect("borrowed 条目在 free 后仍在表(no-op)");
+            assert_eq!(be.bytes, 48, "字节数不受 free 影响");
+            assert_eq!(be.device_ptr(), 0xD3D1_2BB0, "设备指针不受 free 影响");
+        }
+        // 借用条目无 upload/download 面(确定性拒绝,不触 CUDA;内容由 launch 写入)。
+        let mut host = [0u8; 48];
+        assert!(rxrt_buf_upload(h, host.as_ptr(), 48) < 0);
+        assert!(rxrt_buf_download(h, host.as_mut_ptr(), 48) < 0);
+        // 清表走注册方路径(镜像 rxp_destroy 直接移除,不走 free)。
+        lock().bufs.remove(&h);
+        assert_eq!(rxrt_buf_len(h), 0, "清表后句柄失效");
     }
 
     //@ spec: RXS-0194

@@ -18,6 +18,12 @@
 //! D3D12/DXGI 经 [`rurix_d3d12`] 薄 C/C++ shim 驱动，不进语言（D-130）。FFI unsafe 注册见
 //! `unsafe-audit/rurix-rt.md`。**类型面（本模块）无需 GPU/D3D12 即可编译并验证三类编译期
 //! 拦截与 fence 协议**；真实设备呈现需 `d3d12-interop-real`（MSVC + Windows SDK + 交互桌面）。
+//!
+//! MS1.2b（RFC-0009 §4.6，RXS-0197/0198）：[`OwnedPresentSession`] 为**非闭包持有形态**——
+//! 与 [`scope`] 共用同一建链逻辑与 fence 助手（单一事实源），把消费式 typestate 降为
+//! 运行期状态机（错序 = 确定性 [`InteropError::InvalidState`]），供 C ABI 边界
+//! （rurix-rt-cabi `rxp_*`）等无法用 `for<'ctx>` 闭包 brand 的宿主消费。stub / 无桌面 /
+//! 无 GPU 时 `create` 返回确定性错误（不假绿），双态纪律与 [`scope`] 一致。
 
 use core::ffi::c_void;
 use core::marker::PhantomData;
@@ -59,6 +65,12 @@ pub enum InteropError {
     DeviceVerificationFailed,
     /// 请求访问的元素数超过共享 buffer 容量。
     BufferTooSmall { requested: usize, available: usize },
+    /// present 会话运行期状态机错序（RXS-0197：[`OwnedPresentSession`] 把编译期
+    /// typestate 拦截降为确定性错误——`op` = 被拒操作，`state` = 当前态名）。
+    InvalidState {
+        op: &'static str,
+        state: &'static str,
+    },
 }
 
 impl From<CudaError> for InteropError {
@@ -311,6 +323,45 @@ impl<'ctx> FrameCore<'ctx> {
     }
 }
 
+// -- 帧机 fence 操作助手（单一事实源：typestate 面与 OwnedPresentSession 共用，
+//    偶/奇值协议复用 acquire_value/cuda_done_value/d3d_done_value；RFC-0009 §4.6） ------
+
+/// 取得第 `core.frame` 帧写权：CUDA `cuWaitExternalSemaphoresAsync(acquire(n)=2n)`
+/// （RFC-0001 §4.3）。
+fn core_wait_acquire(core: &FrameCore<'_>) -> Result<()> {
+    let v = acquire_value(core.frame).ok_or(InteropError::FenceOverflow)?;
+    let cuda = core.cuda()?;
+    // SAFETY: (U18) semaphore 由 import 产出、frame core 独占;stream 私有有效;current context 一致。
+    let rc = unsafe { cuda.wait_external_semaphore(core.semaphore.ext_sem, v, core.stream.raw) }
+        .ok_or(InteropError::ExternalApiUnavailable)?;
+    cu_ext_check("cuWaitExternalSemaphoresAsync", rc)
+}
+
+/// 完成本帧写入：CUDA `cuSignalExternalSemaphoresAsync(cuda_done(n)=2n+1)`（RFC-0001 §4.3）。
+fn core_signal_done(core: &FrameCore<'_>) -> Result<()> {
+    let v = cuda_done_value(core.frame).ok_or(InteropError::FenceOverflow)?;
+    let cuda = core.cuda()?;
+    // SAFETY: (U18) semaphore/stream 同上;signal 排在本 stream 先前 kernel 之后（RFC-0001 §4.3）。
+    let rc = unsafe { cuda.signal_external_semaphore(core.semaphore.ext_sem, v, core.stream.raw) }
+        .ok_or(InteropError::ExternalApiUnavailable)?;
+    cu_ext_check("cuSignalExternalSemaphoresAsync", rc)
+}
+
+/// 提交本帧 D3D12 present（shim queue wait `cuda_done(n)` → present pass → Present →
+/// signal `d3d_done(n)=2n+2`）并推进帧计数 +1（RFC-0001 §4.2.1 / §4.3）。
+fn core_present_submit(core: &mut FrameCore<'_>) -> Result<()> {
+    let cuda_done = cuda_done_value(core.frame).ok_or(InteropError::FenceOverflow)?;
+    let d3d_done = d3d_done_value(core.frame).ok_or(InteropError::FenceOverflow)?;
+    core.presenter
+        .submit(cuda_done, d3d_done)
+        .map_err(InteropError::Shim)?;
+    core.frame = core
+        .frame
+        .checked_add(1)
+        .ok_or(InteropError::FenceOverflow)?;
+    Ok(())
+}
+
 /// 就绪帧（RXS-0142）：可 `wait` 取得本帧写权（CUDA wait `acquire(n)=2n`）。**无可写 buffer 接口**。
 pub struct ReadyFrame<'ctx> {
     core: FrameCore<'ctx>,
@@ -333,14 +384,7 @@ impl<'ctx> ReadyFrame<'ctx> {
     }
     /// 取得本帧写权：CUDA `cuWaitExternalSemaphoresAsync(acquire(n)=2n)`（RFC-0001 §4.3）。
     pub fn wait(self) -> Result<AcquiredFrame<'ctx>> {
-        let v = acquire_value(self.core.frame).ok_or(InteropError::FenceOverflow)?;
-        let cuda = self.core.cuda()?;
-        // SAFETY: (U18) semaphore 由 import 产出、frame 独占;stream 私有有效;current context 一致。
-        let rc = unsafe {
-            cuda.wait_external_semaphore(self.core.semaphore.ext_sem, v, self.core.stream.raw)
-        }
-        .ok_or(InteropError::ExternalApiUnavailable)?;
-        cu_ext_check("cuWaitExternalSemaphoresAsync", rc)?;
+        core_wait_acquire(&self.core)?;
         Ok(AcquiredFrame { core: self.core })
     }
 }
@@ -436,14 +480,7 @@ impl<'ctx> AcquiredFrame<'ctx> {
     }
     /// 完成写入：CUDA `cuSignalExternalSemaphoresAsync(cuda_done(n)=2n+1)`（RFC-0001 §4.3）。
     pub fn signal(self) -> Result<PresentableFrame<'ctx>> {
-        let v = cuda_done_value(self.core.frame).ok_or(InteropError::FenceOverflow)?;
-        let cuda = self.core.cuda()?;
-        // SAFETY: (U18) semaphore/stream 同上;signal 排在本 stream 先前 kernel 之后（RFC-0001 §4.3）。
-        let rc = unsafe {
-            cuda.signal_external_semaphore(self.core.semaphore.ext_sem, v, self.core.stream.raw)
-        }
-        .ok_or(InteropError::ExternalApiUnavailable)?;
-        cu_ext_check("cuSignalExternalSemaphoresAsync", rc)?;
+        core_signal_done(&self.core)?;
         Ok(PresentableFrame { core: self.core })
     }
 }
@@ -455,17 +492,8 @@ impl<'ctx> PresentableFrame<'ctx> {
     /// 提交 D3D12 present：shim queue wait `cuda_done(n)` → present pass → Present → queue
     /// signal `d3d_done(n)=2n+2`;帧计数 +1 回到 [`ReadyFrame`]（RFC-0001 §4.2.1 / §4.3）。
     pub fn present(self) -> Result<ReadyFrame<'ctx>> {
-        let cuda_done = cuda_done_value(self.core.frame).ok_or(InteropError::FenceOverflow)?;
-        let d3d_done = d3d_done_value(self.core.frame).ok_or(InteropError::FenceOverflow)?;
-        self.core
-            .presenter
-            .submit(cuda_done, d3d_done)
-            .map_err(InteropError::Shim)?;
         let mut core = self.core;
-        core.frame = core
-            .frame
-            .checked_add(1)
-            .ok_or(InteropError::FenceOverflow)?;
+        core_present_submit(&mut core)?;
         Ok(ReadyFrame { core })
     }
     /// 抽干窗口消息泵;`Ok(true)` = 收到关闭请求（present 循环退出条件）。
@@ -476,7 +504,8 @@ impl<'ctx> PresentableFrame<'ctx> {
 
 // -- scope:生成式 brand 唯一安全入口（RXS-0140/0141;RFC-0001 §4.4 无 public from_raw_handle）-
 
-/// CUDA–D3D12 互操作呈现作用域（**唯一安全构造入口**，RFC-0001 §4.4）。
+/// CUDA–D3D12 互操作呈现作用域（brand 资源的**唯一安全构造入口**，RFC-0001 §4.4;
+/// 非闭包持有形态见 [`OwnedPresentSession`]——同一建链事实源，不暴露 brand 资源）。
 ///
 /// 以高阶 `for<'ctx>` 闭包生成不可伪造、不可逃逸的新鲜不变 brand `'ctx`：内部完成
 /// `cuDeviceGetLuid` → 同 LUID adapter 上经 shim 建 D3D12 device/swapchain/共享
@@ -493,12 +522,49 @@ pub fn scope<R>(
     window_size: [u32; 2],
     f: impl for<'ctx> FnOnce(InteropContext<'ctx>, ReadyFrame<'ctx>) -> Result<R>,
 ) -> Result<R> {
+    let SessionParts {
+        ctx: _ctx,
+        device,
+        export,
+        core,
+    } = build_session(cuda_ordinal, render_size, window_size)?;
+    let icx = InteropContext {
+        device,
+        export,
+        _brand: PhantomData,
+        _not_send: PhantomData,
+    };
+    let ready = ReadyFrame { core };
+    // 闭包驱动帧循环;返回后 ready/icx/_ctx 依次 Drop（FrameCore 字段序 buffer→semaphore→
+    // stream→presenter,近似 RFC-0001 §4.4;_ctx 最后释放 primary context）。
+    f(icx, ready)
+}
+
+/// 建链产物（[`scope`] 与 [`OwnedPresentSession`] 共用;RFC-0009 §4.6 单一事实源）：
+/// 保留的 primary context + 设备序号 + shim 导出事实 + 帧核心。
+struct SessionParts<'ctx> {
+    /// 保留的 device primary context（Drop 释放;与外部框架共享同一 context）。
+    ctx: Context,
+    device: sys::CuDevice,
+    export: InteropExport,
+    core: FrameCore<'ctx>,
+}
+
+/// 建链（原 [`scope`] 内联逻辑，MS1.2b 提取为私有单一事实源，RXS-0197）：LUID 核对 →
+/// shim presenter 创建 → external memory/semaphore import → 私有 stream → [`FrameCore`]。
+/// brand `'ctx` 由调用侧实例化（[`scope`] 的生成式闭包 brand / owned 形态 `'static`;
+/// brand 为 [`PhantomData`]，本函数不与任何输入生命周期挂钩）。
+fn build_session<'ctx>(
+    cuda_ordinal: i32,
+    render_size: [u32; 2],
+    window_size: [u32; 2],
+) -> Result<SessionParts<'ctx>> {
     let cuda = sys::cuda().ok_or(InteropError::Cuda(CudaError::DriverUnavailable))?;
     if !cuda.has_external_resource_api() {
         return Err(InteropError::ExternalApiUnavailable);
     }
     // 保留并绑定 primary context（Drop 释放;与外部框架共享同一 context）。
-    let _ctx = Context::from_primary(cuda_ordinal)?;
+    let ctx = Context::from_primary(cuda_ordinal)?;
     let (r, dev) = cuda.device_get(cuda_ordinal);
     cu_ext_check("cuDeviceGet", r)?;
     let (r, luid_i8, node_mask) = cuda
@@ -588,13 +654,10 @@ pub fn scope<R>(
         ext_sem,
         _brand: PhantomData,
     };
-    let icx = InteropContext {
+    Ok(SessionParts {
+        ctx,
         device: dev,
         export,
-        _brand: PhantomData,
-        _not_send: PhantomData,
-    };
-    let ready = ReadyFrame {
         core: FrameCore {
             buffer,
             semaphore,
@@ -603,10 +666,154 @@ pub fn scope<R>(
             frame: 0,
             _brand: PhantomData,
         },
-    };
-    // 闭包驱动帧循环;返回后 ready/icx/_ctx 依次 Drop（FrameCore 字段序 buffer→semaphore→
-    // stream→presenter,近似 RFC-0001 §4.4;_ctx 最后释放 primary context）。
-    f(icx, ready)
+    })
+}
+
+// -- OwnedPresentSession：非闭包持有形态的运行期状态机（MS1.2b,RXS-0197/0198） -----------
+
+/// 会话帧机运行期状态（RXS-0197：`Ready → Acquired → Presentable → Ready` 环）。
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum PresentState {
+    Ready,
+    Acquired,
+    Presentable,
+}
+
+impl PresentState {
+    /// 状态名（确定性错序诊断文本）。
+    fn name(self) -> &'static str {
+        match self {
+            PresentState::Ready => "Ready",
+            PresentState::Acquired => "Acquired",
+            PresentState::Presentable => "Presentable",
+        }
+    }
+    /// 状态断言：当前态非 `want` → 确定性 [`InteropError::InvalidState`]（错序即错误,
+    /// 不 panic 不 UB;RXS-0197 运行期镜像 RXS-0142 编译期 typestate）。
+    fn require(self, op: &'static str, want: PresentState) -> Result<()> {
+        if self == want {
+            Ok(())
+        } else {
+            Err(InteropError::InvalidState {
+                op,
+                state: self.name(),
+            })
+        }
+    }
+}
+
+/// 非闭包持有形态的呈现会话（MS1.2b，RFC-0009 §4.6;RXS-0197/0198）。
+///
+/// 收拢 [`scope`] 的建链逻辑（presenter 创建 / LUID 核对 / external memory·semaphore
+/// import / 帧核心）为**自持结构**，供 C ABI 边界（rurix-rt-cabi `rxp_*`）等无法用
+/// `for<'ctx>` 闭包 brand 的宿主消费。帧机语义与 [`scope`] 的 `Ready→Acquired→
+/// Presentable` 消费式 typestate **同一事实源**（私有建链 + fence 助手;偶/奇值协议
+/// 复用 [`acquire_value`]/[`cuda_done_value`]/[`d3d_done_value`]）;编译期 typestate
+/// 拦截在此降为**运行期状态机**：错序调用 → 确定性 [`InteropError::InvalidState`]
+/// （无 UB、无静默降级，RXS-0193 口径）。
+///
+/// - `!Send + !Sync`（持 [`Context`]：current context 线程绑定;shim 窗口/泵对象固定
+///   创建线程，RFC-0001 §4.2.1）。
+/// - stub（无 `d3d12-interop-real`）/ 无 GPU / 非交互桌面：[`OwnedPresentSession::create`]
+///   返回确定性错误（镜像 [`scope`]，不假绿）。
+/// - Drop 序 = 字段声明序：帧核心（buffer → semaphore → stream → presenter）先于
+///   primary context 释放（RFC-0001 §4.4 近似）。
+//@ spec: RXS-0197
+pub struct OwnedPresentSession {
+    /// 帧核心（`'static` brand：owned 形态无闭包 brand;跨 context 混用由本类型**不
+    /// 暴露 brand 资源**保证——backbuffer 仅以裸设备指针 + 字节数导出，RXS-0198）。
+    core: FrameCore<'static>,
+    state: PresentState,
+    /// 保留的 primary context（声明序在 `core` 后 → 后于帧核心 Drop）。
+    _ctx: Context,
+}
+
+impl OwnedPresentSession {
+    /// 建立呈现会话（建链 = [`scope`] 单一事实源;初态 `Ready`，帧 0）。stub / 无 GPU /
+    /// 非交互桌面 → 确定性错误（[`InteropError::Shim`]/[`InteropError::Cuda`]/
+    /// [`InteropError::ExternalApiUnavailable`]/[`InteropError::LuidMismatch`]）。
+    //@ spec: RXS-0197
+    pub fn create(
+        cuda_ordinal: i32,
+        render_size: [u32; 2],
+        window_size: [u32; 2],
+    ) -> Result<OwnedPresentSession> {
+        let SessionParts {
+            ctx,
+            device: _,
+            export: _,
+            core,
+        } = build_session(cuda_ordinal, render_size, window_size)?;
+        Ok(OwnedPresentSession {
+            core,
+            state: PresentState::Ready,
+            _ctx: ctx,
+        })
+    }
+
+    /// 当前帧序号 `n`。
+    pub fn frame_index(&self) -> u64 {
+        self.core.frame
+    }
+
+    /// 当前状态名（边界诊断文本;`"Ready"`/`"Acquired"`/`"Presentable"`）。
+    pub fn state_name(&self) -> &'static str {
+        self.state.name()
+    }
+
+    /// 取得本帧写权（`Ready → Acquired`;CUDA wait `acquire(n)=2n`）。错序 →
+    /// [`InteropError::InvalidState`]。
+    //@ spec: RXS-0197
+    pub fn wait(&mut self) -> Result<()> {
+        self.state.require("wait", PresentState::Ready)?;
+        core_wait_acquire(&self.core)?;
+        self.state = PresentState::Acquired;
+        Ok(())
+    }
+
+    /// 共享 backbuffer 设备指针 + 字节数（**仅 `Acquired` 态可得**，RXS-0198）。借用
+    /// 导出——不移交所有权，设备内存释放责任留本会话（Drop 链销毁）;内容布局对齐
+    /// present pass 读取约定（共享 f32 RGB，RXS-0143/RXS-0121 语义）。
+    //@ spec: RXS-0198
+    pub fn backbuffer(&self) -> Result<(CuDevicePtr, usize)> {
+        self.state.require("backbuffer", PresentState::Acquired)?;
+        Ok((
+            self.core.buffer.device_ptr(),
+            self.core.buffer.len() * size_of::<f32>(),
+        ))
+    }
+
+    /// 完成本帧写入（`Acquired → Presentable`;CUDA signal `cuda_done(n)=2n+1`）。
+    //@ spec: RXS-0197
+    pub fn signal(&mut self) -> Result<()> {
+        self.state.require("signal", PresentState::Acquired)?;
+        core_signal_done(&self.core)?;
+        self.state = PresentState::Presentable;
+        Ok(())
+    }
+
+    /// 抽干窗口消息泵（仅 `Presentable` 态，镜像 [`PresentableFrame::pump`]）;
+    /// `Ok(true)` = 收到关闭请求（present 循环退出条件）。
+    //@ spec: RXS-0197
+    pub fn pump(&self) -> Result<bool> {
+        self.state.require("pump", PresentState::Presentable)?;
+        self.core.presenter.pump().map_err(InteropError::Shim)
+    }
+
+    /// 提交 D3D12 present（`Presentable → Ready`，帧 +1;shim queue wait `cuda_done(n)`
+    /// → 固定 present pass → Present → signal `d3d_done(n)=2n+2`）。
+    //@ spec: RXS-0197
+    pub fn present(&mut self) -> Result<()> {
+        self.state.require("present", PresentState::Presentable)?;
+        core_present_submit(&mut self.core)?;
+        self.state = PresentState::Ready;
+        Ok(())
+    }
+
+    /// 显式销毁（消费 self;Drop 链按字段声明序销毁帧核心——buffer → semaphore →
+    /// stream → presenter——再释放 primary context，RFC-0001 §4.4 近似）。
+    //@ spec: RXS-0197
+    pub fn destroy(self) {}
 }
 
 #[cfg(test)]
@@ -737,6 +944,76 @@ DONE:
             ),
             "stub/非设备环境应返回不可用错误,实得 {r:?}"
         );
+    }
+
+    //@ spec: RXS-0197
+    #[test]
+    fn owned_session_state_machine_rejects_misorder() {
+        // 纯状态断言逻辑（host-only）：错序 = 确定性 InvalidState，携操作名与当前态名
+        //（RXS-0197 运行期镜像 RXS-0142 编译期 typestate;不 panic 不 UB）。
+        use PresentState::{Acquired, Presentable, Ready};
+        assert!(Ready.require("wait", Ready).is_ok());
+        assert!(Acquired.require("backbuffer", Acquired).is_ok());
+        assert!(Presentable.require("present", Presentable).is_ok());
+        for (op, cur, want) in [
+            ("wait", Acquired, Ready),
+            ("wait", Presentable, Ready),
+            ("backbuffer", Ready, Acquired),
+            ("backbuffer", Presentable, Acquired),
+            ("signal", Ready, Acquired),
+            ("signal", Presentable, Acquired),
+            ("pump", Ready, Presentable),
+            ("present", Acquired, Presentable),
+        ] {
+            match cur.require(op, want) {
+                Err(InteropError::InvalidState { op: got_op, state }) => {
+                    assert_eq!(got_op, op);
+                    assert_eq!(state, cur.name());
+                }
+                other => panic!("错序须确定性 InvalidState,实得 {other:?}"),
+            }
+        }
+    }
+
+    //@ spec: RXS-0197
+    #[test]
+    fn owned_session_create_deterministic_by_environment() {
+        // stub / 非设备环境：create 返回确定性错误（不假绿，镜像 scope 纪律）;
+        // real-shim 交互设备：建链成功并驱动一帧 Ready→Acquired→Presentable→Ready。
+        let r = OwnedPresentSession::create(0, [4, 4], [8, 8]);
+        if cfg!(feature = "d3d12-interop-real") {
+            let mut sess = r.map_err(|e| format!("{e:?}")).expect("real-shim 会话建立");
+            assert_eq!(sess.frame_index(), 0);
+            assert_eq!(sess.state_name(), "Ready");
+            // Ready 态无 backbuffer（RXS-0198：仅 Acquired 态可得）。
+            assert!(matches!(
+                sess.backbuffer(),
+                Err(InteropError::InvalidState { .. })
+            ));
+            sess.wait().expect("wait acquire(0)");
+            let (dptr, bytes) = sess.backbuffer().expect("Acquired 态可得 backbuffer");
+            assert!(dptr != 0 && bytes > 0);
+            sess.signal().expect("signal cuda_done(1)");
+            // Presentable 态 wait 错序 = 确定性错误（运行期状态机,RXS-0197）。
+            assert!(matches!(
+                sess.wait(),
+                Err(InteropError::InvalidState { .. })
+            ));
+            let _ = sess.pump().expect("pump");
+            sess.present().expect("present d3d_done(2)");
+            assert_eq!(sess.frame_index(), 1);
+            assert_eq!(sess.state_name(), "Ready");
+            sess.destroy();
+            return;
+        }
+        match r {
+            Err(InteropError::Shim(_))
+            | Err(InteropError::Cuda(_))
+            | Err(InteropError::ExternalApiUnavailable)
+            | Err(InteropError::LuidMismatch) => {}
+            Err(other) => panic!("stub/非设备环境应返回不可用错误,实得 {other:?}"),
+            Ok(_) => panic!("stub/非设备环境 create 不应成功"),
+        }
     }
 
     #[cfg(feature = "d3d12-interop-real")]

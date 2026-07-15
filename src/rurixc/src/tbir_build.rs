@@ -312,14 +312,30 @@ impl Builder<'_> {
             hir::ExprKind::Call { callee, args } => {
                 // 宿主 GPU 上下文构造(MS1.2,RXS-0189):`Context::create()` →
                 // GpuCall(无 receiver;MIR 降级为 rxrt_ctx_create,RXS-0192)。
+                // present 会话构造 / 宿主图像落盘桥(MS1.2b,RXS-0197/0199):
+                // `Present::create(&ctx, ..)` 的 `&ctx`、`write_ppm(.., &pinned)`
+                // 的 `&pinned` 借用实参剥壳为句柄表达式(镜像 upload/download)。
                 if let Some(op) = self.tcr.gpu_calls.get(&e.hir_id).copied() {
+                    let unborrow_at = match op {
+                        crate::hir::GpuHostOp::PresentCreate => Some(0),
+                        crate::hir::GpuHostOp::WritePpm => Some(3),
+                        _ => None,
+                    };
+                    let lowered = args
+                        .iter()
+                        .enumerate()
+                        .map(|(i, a)| {
+                            if unborrow_at == Some(i) {
+                                self.gpu_unborrow(a)
+                            } else {
+                                self.expr(a)
+                            }
+                        })
+                        .collect();
                     return tbir::Expr {
                         ty,
                         span,
-                        kind: tbir::ExprKind::GpuCall {
-                            op,
-                            args: args.iter().map(|a| self.expr(a)).collect(),
-                        },
+                        kind: tbir::ExprKind::GpuCall { op, args: lowered },
                     };
                 }
                 if let Some((def, gargs)) = self.tcr.call_targets.get(&e.hir_id) {

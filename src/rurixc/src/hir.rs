@@ -315,11 +315,13 @@ impl ViewOp {
     }
 }
 
-/// 宿主 GPU 编排已知操作(MS1.2,RXS-0189~0191;RFC-0009 §4.1/§4.2)。typeck
-/// 在接收者为 std::gpu lang item 句柄(`Context`/`Stream`/`Buffer`/`PinnedBuffer`)
-/// 且方法名命中编译器已知签名时识别(用户同名 impl 优先遮蔽);tbir/mir_build 消费,
-/// 降级为 `rxrt_*` 字面符号调用(RXS-0194)。着色合法性:仅 host 上下文合法,
-/// kernel/device 内出现 → RX3015(coloring 层,RXS-0189)。
+/// 宿主 GPU 编排已知操作(MS1.2,RXS-0189~0191;MS1.2b,RXS-0197~0199;
+/// RFC-0009 §4.1/§4.2/§4.6/§4.7)。typeck 在接收者为 std::gpu / present lang item
+/// 句柄(`Context`/`Stream`/`Buffer`/`PinnedBuffer`/`Present`/`Ready`/`Acquired`/
+/// `Presentable`)且方法名命中编译器已知签名时识别(用户同名 impl 优先遮蔽);
+/// tbir/mir_build 消费,降级为 `rxrt_*`/`rxp_*`/`rxio_*` 字面符号调用(RXS-0194)。
+/// 着色合法性:仅 host 上下文合法,kernel/device 内出现 → RX3015(coloring 层,
+/// RXS-0189;present 系与 `write_ppm` 同识别面,RXS-0197/0199)。
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum GpuHostOp {
     /// `Context::create()` → `rxrt_ctx_create(@__rx_gpu_artifacts)`(RXS-0192)。
@@ -349,6 +351,29 @@ pub enum GpuHostOp {
     /// `stream.launch(kernel, GridDim, BlockDim, (args..))` → `rxrt_launch`
     /// (🔒 slot+kinds marshalling,RXS-0191)。
     Launch,
+    /// `Present::create(&ctx, rw, rh, ww, wh)` → `rxp_create`(MS1.2b,RXS-0197)。
+    PresentCreate,
+    /// `sess.ready()` → 纯类型面转移 `Present → Ready`(消费 self,不落运行时
+    /// 符号,RXS-0197)。
+    PresentReady,
+    /// `ready.wait()` → `rxp_wait`(消费 self,`Ready → Acquired`;fence acquire
+    /// 步引用 RXS-0142,RXS-0197)。
+    PresentWait,
+    /// `acq.backbuffer()` → `rxp_backbuffer`(借用句柄 `Buffer<C, f32>`,
+    /// RXS-0198)。
+    PresentBackbuffer,
+    /// `acq.signal()` → `rxp_signal`(消费 self,`Acquired → Presentable`,
+    /// RXS-0197)。
+    PresentSignal,
+    /// `pres.pump()` → `rxp_pump`(非消费;负值 → 终止,0/1 → bool 关闭请求,
+    /// RXS-0197)。
+    PresentPump,
+    /// `pres.present()` → `rxp_present`(消费 self,`Presentable → Ready`,
+    /// RXS-0197)。
+    PresentPresent,
+    /// `write_ppm(path, w, h, &pinned)` → `rxio_write_ppm`(宿主图像落盘桥,
+    /// RXS-0114~0117 语义 0-byte 复用,RXS-0199)。
+    WritePpm,
 }
 
 /// scoped atomics 原子读改写算子(M5.2,RXS-0080;`Atomic`/`AtomicView` 族方法)。

@@ -28,14 +28,18 @@ use rurixc::span::Edition;
 /// reject 预设类别(目录即类别;根文件 = `<类别>/main.rx`,环/辅助文件不作根)。
 /// gpu 语料四类(MS1.2):elem_infer(RX2010,RXS-0190)/ gpu_in_kernel(RX3015,
 /// RXS-0189)/ launch_arg_subset(RX6024,RXS-0191)/ buffer_move(move 后再用,
-/// 既有 RX4001 拦,RXS-0189)。
-const REJECT_CATEGORIES: [&str; 6] = [
+/// 既有 RX4001 拦,RXS-0189)。present 语料两类(MS1.2b):present_out_of_order
+/// (typestate 错序 = move 违例,既有 RX4001 拦,RXS-0197)/ present_in_kernel
+/// (RX3015,RXS-0197)。
+const REJECT_CATEGORIES: [&str; 8] = [
     "mod_missing",
     "mod_cycle",
     "elem_infer",
     "gpu_in_kernel",
     "launch_arg_subset",
     "buffer_move",
+    "present_out_of_order",
+    "present_in_kernel",
 ];
 
 fn host_orch_dir(sub: &str) -> PathBuf {
@@ -247,6 +251,76 @@ fn accept_saxpy_single_source_lowers_to_rxrt() {
 }
 
 // ---------------------------------------------------------------------------
+// present 宿主 typestate 面 + 宿主图像落盘桥(MS1.2b,RXS-0197~0199)
+// ---------------------------------------------------------------------------
+
+/// accept/present_loop:完整帧循环 0 诊断,消费式转移与借用句柄 lowering 落
+/// rxp_* 字面符号 declare(RXS-0197/0198/0194);`ready()` 纯类型面转移不落
+/// 运行时符号;失败终止检查接线 rxrt_trap(RXS-0193)。
+#[test]
+fn accept_present_loop_lowers_to_rxp() {
+    let root = host_orch_dir("accept/present_loop").join("main.rx");
+    let (codes, ir) = run_root(&root);
+    assert!(codes.is_empty(), "accept/present_loop 产生诊断: {codes:?}");
+    for sym in [
+        "rxp_create",
+        "rxp_wait",
+        "rxp_backbuffer",
+        "rxp_signal",
+        "rxp_pump",
+        "rxp_present",
+        "rxrt_trap",
+    ] {
+        assert!(
+            ir.contains(&format!("@{sym}(")),
+            "缺 present 符号 @{sym}(RXS-0197/0198)\nIR:\n{ir}"
+        );
+    }
+    assert!(
+        ir.contains("declare i64 @rxp_create(i64, i32, i32, i32, i32)"),
+        "rxp_create declare 形态(ctx 句柄 + rw/rh/ww/wh u32)\nIR:\n{ir}"
+    );
+    assert!(
+        ir.contains("declare i64 @rxp_backbuffer(i64)"),
+        "rxp_backbuffer declare 形态(借用句柄 u64,RXS-0198)\nIR:\n{ir}"
+    );
+    assert!(
+        ir.contains("declare i32 @rxp_pump(i64)"),
+        "rxp_pump declare 形态(rc → bool,RXS-0197)\nIR:\n{ir}"
+    );
+    assert!(
+        !ir.contains("rxp_ready"),
+        "`ready()` 为纯类型面转移,不得落运行时符号(RXS-0197)"
+    );
+    // backbuffer 借用句柄作 launch 实参(RXS-0198):blit kernel 经 rxrt_launch。
+    assert!(
+        ir.contains("call i32 @rxrt_launch(i64"),
+        "backbuffer 应可作 launch 实参(RXS-0198/0191)\nIR:\n{ir}"
+    );
+}
+
+/// accept/imageio_write:pinned 填充 + write_ppm 0 诊断,lowering 落
+/// rxio_write_ppm 字面符号(路径 NUL 终止字符串 + rxrt_pinned_ptr/len 物化
+/// 指针与元素数,RXS-0199/0194);真跑(退出 0 + PPM 字节)随 cabi 落位由
+/// ci 冒烟 / 手动 `rx build` 全链路见证。
+#[test]
+fn accept_imageio_write_lowers_to_rxio() {
+    let root = host_orch_dir("accept/imageio_write").join("main.rx");
+    let (codes, ir) = run_root(&root);
+    assert!(codes.is_empty(), "accept/imageio_write 产生诊断: {codes:?}");
+    assert!(
+        ir.contains("declare i32 @rxio_write_ppm(ptr, i32, i32, ptr, i64)"),
+        "rxio_write_ppm declare 形态(path ptr + w/h u32 + data ptr + n u64,RXS-0199)\nIR:\n{ir}"
+    );
+    for sym in ["rxrt_pinned_ptr", "rxrt_pinned_len"] {
+        assert!(
+            ir.contains(&format!("@{sym}(")),
+            "缺锁页物化符号 @{sym}(RXS-0199 经 RXS-0191 同机制)\nIR:\n{ir}"
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
 // extern "C" 符号保名 + `#[link]` 接线(RXS-0195)
 // ---------------------------------------------------------------------------
 
@@ -323,7 +397,7 @@ fn corpus_files_carry_spec_anchor() {
             n += 1;
         }
     }
-    assert!(n >= 7, "host_orch 语料过少: {n} 个");
+    assert!(n >= 11, "host_orch 语料过少: {n} 个");
 }
 
 /// reject 覆盖预设类别(目录即类别)。
