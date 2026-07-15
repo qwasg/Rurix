@@ -15,6 +15,11 @@ rurix-d3d12 = { path = "../rurix-d3d12", optional = true }
 
 [features]
 default = []
+# mb1 Vulkan/SPIR-V 跨端后端运行时(RFC-0011 §4.5/§4.6;RXS-0206~0207)。默认关闭——
+# Vulkan compute 后端经手写 `vulkan-1.dll` 薄 FFI loader(RFC §9 Q-Binding 默认:零外部
+# 绑定,对齐 sys.rs 无依赖纪律);运行需 Vulkan 驱动(本机 NVIDIA / AMD 桌面 / Android
+# libvulkan.so)。gated on 红线 3 解除 + RFC-0011 批准。
+vulkan = []
 # d3d12-interop:G1.1 CUDA–D3D12 互操作呈现 Rust 类型面(RXS-0140~0143,RFC-0001):
 # 生成式 brand + ExternalBuffer/ExternalSemaphore + Ready→Acquired→Presentable typestate
 # + CUDA external-resource FFI。依赖 rurix-d3d12 的 **stub**(纯 Rust,无 C++)——故
@@ -30,6 +35,11 @@ d3d12-interop-real = ["d3d12-interop", "rurix-d3d12/real-shim"]
 # 仅构建期依赖,不进运行时产物(运行时仍零依赖)。
 [build-dependencies]
 rurixc = { path = "../rurixc" }
+
+# mb1 Vulkan compute 真跑 demo(RXS-0207):须 feature vulkan(vk 模块)。
+[[bin]]
+name = "vk_saxpy"
+required-features = ["vulkan"]
 
 # unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6):rurix-rt 是首个 unsafe 边界(Driver API
 # FFI)。块级豁免 `unsafe_code`(注册见 unsafe-audit/rurix-rt.md),仍强制每个

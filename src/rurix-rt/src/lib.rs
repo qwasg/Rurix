@@ -19,6 +19,8 @@ pub mod fatbin;
 pub mod interop;
 pub mod pipeline;
 pub mod sys;
+#[cfg(feature = "vulkan")]
+pub mod vk;
 
 use core::ffi::c_void;
 use core::marker::PhantomData;
