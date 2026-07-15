@@ -1332,6 +1332,16 @@ impl Builder<'_, '_> {
         Operand::Copy(p)
     }
 
+    /// present 消费式转移的接收者按值 move 物化(MS1.2b,RXS-0197):receiver
+    /// move 进转移结果 temp(句柄同为单 u64 标量,再定名零开销)——错序重用由
+    /// 既有 move 检查裁决(RX4001;经引用消费 → RX4003,RXS-0054),编译期拦截。
+    fn gpu_consume_receiver(&mut self, e: &tbir::Expr, ret: &Ty, span: Span) -> LocalIdx {
+        let p = self.place_of_or_temp(e);
+        let carried = self.temp(ret.clone(), span);
+        self.assign(Place::local(carried), Rvalue::Use(Operand::Move(p)), span);
+        carried
+    }
+
     /// rxrt_* 调用终结子(RXS-0191/0194:`CallTarget::Rt` 字面符号,不走
     /// `mangle()`);dest 新建 temp 并返回。
     fn emit_rt_call(&mut self, symbol: &str, args: Vec<Operand>, ret: Ty, span: Span) -> LocalIdx {
@@ -1667,6 +1677,113 @@ impl Builder<'_, '_> {
                     self.assign(place, Rvalue::Use(v), span);
                     Operand::Const(Const::Unit)
                 }
+            }
+            // present 宿主 typestate 转移(MS1.2b,RXS-0197):消费式转移的
+            // 接收者按值 move 进转移结果;`ready()` 纯类型面转移(Present →
+            // Ready 同句柄再定名)不落运行时符号。
+            Op::PresentReady => {
+                let ret = self.ty_of(e);
+                let carried = self.gpu_consume_receiver(&args[0], &ret, span);
+                self.consume(Place::local(carried), &ret)
+            }
+            // wait / signal / present → rxp_*(消费式;负值 rc → 终止,
+            // RXS-0193;fence 偶/奇协议单一事实源留 interop 帧机,RXS-0142)。
+            Op::PresentWait | Op::PresentSignal | Op::PresentPresent => {
+                let ret = self.ty_of(e);
+                let carried = self.gpu_consume_receiver(&args[0], &ret, span);
+                let symbol = match op {
+                    Op::PresentWait => "rxp_wait",
+                    Op::PresentSignal => "rxp_signal",
+                    _ => "rxp_present",
+                };
+                let rc = self.emit_rt_call(
+                    symbol,
+                    vec![Operand::Copy(Place::local(carried))],
+                    Ty::Prim(PrimTy::I32),
+                    span,
+                );
+                self.guard_rc_negative(rc, span);
+                self.consume(Place::local(carried), &ret)
+            }
+            // backbuffer 借用句柄(RXS-0198):接收者非消费(借用读取);
+            // 句柄 0 → 终止;产 Buffer<C, f32>(drop 不释放,运行时侧 no-op)。
+            Op::PresentBackbuffer => {
+                let h = self.gpu_handle_op(&args[0]);
+                let ret = self.ty_of(e);
+                let dest = self.emit_rt_call("rxp_backbuffer", vec![h], ret.clone(), span);
+                self.guard_handle_zero(dest, span);
+                self.consume(Place::local(dest), &ret)
+            }
+            // pump(RXS-0197):负值 → 终止;非负 rc != 0 → bool(关闭请求)。
+            Op::PresentPump => {
+                let h = self.gpu_handle_op(&args[0]);
+                let rc = self.emit_rt_call("rxp_pump", vec![h], Ty::Prim(PrimTy::I32), span);
+                self.guard_rc_negative(rc, span);
+                let b = self.temp(Ty::Prim(PrimTy::Bool), span);
+                self.assign(
+                    Place::local(b),
+                    Rvalue::BinaryOp(
+                        BinOp::Ne,
+                        Operand::Copy(Place::local(rc)),
+                        Operand::Const(Const::Int(0, PrimTy::I32)),
+                    ),
+                    span,
+                );
+                self.consume(Place::local(b), &Ty::Prim(PrimTy::Bool))
+            }
+            // present 会话构造(RXS-0197):rxp_create(ctx, rw, rh, ww, wh);
+            // 句柄 0 → 终止(RXS-0193)。
+            Op::PresentCreate => {
+                let ret = self.ty_of(e);
+                let h = self.gpu_handle_op(&args[0]);
+                let mut call_args = vec![h];
+                for a in &args[1..] {
+                    call_args.push(self.op_of(a));
+                }
+                let dest = self.emit_rt_call("rxp_create", call_args, ret.clone(), span);
+                self.guard_handle_zero(dest, span);
+                self.consume(Place::local(dest), &ret)
+            }
+            // 宿主图像落盘桥(RXS-0199):指针/元素数自锁页句柄物化(RXS-0191
+            // 同机制);n ≠ w·h·3 失配 / IO 失败由 cabi 确定性拒(负值 → 终止,
+            // RXS-0193);PPM 序列化语义 = RXS-0114~0117(运行时桥接 image-io)。
+            Op::WritePpm => {
+                let path = self.op_of(&args[0]);
+                let w = self.op_of(&args[1]);
+                let h = self.op_of(&args[2]);
+                let hp = self.gpu_handle_op(&args[3]);
+                let p = self.emit_rt_call(
+                    "rxrt_pinned_ptr",
+                    vec![hp.clone()],
+                    Ty::RawPtr(Box::new(Ty::Prim(PrimTy::U8)), true),
+                    span,
+                );
+                let pb =
+                    self.emit_rt_call("rxrt_pinned_len", vec![hp], Ty::Prim(PrimTy::U64), span);
+                let n = self.temp(Ty::Prim(PrimTy::U64), span);
+                self.assign(
+                    Place::local(n),
+                    Rvalue::BinaryOp(
+                        BinOp::Div,
+                        Operand::Copy(Place::local(pb)),
+                        Operand::Const(Const::Int(4, PrimTy::U64)),
+                    ),
+                    span,
+                );
+                let rc = self.emit_rt_call(
+                    "rxio_write_ppm",
+                    vec![
+                        path,
+                        w,
+                        h,
+                        Operand::Copy(Place::local(p)),
+                        Operand::Copy(Place::local(n)),
+                    ],
+                    Ty::Prim(PrimTy::I32),
+                    span,
+                );
+                self.guard_rc_negative(rc, span);
+                Operand::Const(Const::Unit)
             }
             Op::Launch => unreachable!("launch 走 GpuLaunch 节点(RXS-0191)"),
         }

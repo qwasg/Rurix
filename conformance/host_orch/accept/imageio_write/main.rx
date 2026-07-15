@@ -1,0 +1,34 @@
+//@ spec: RXS-0199
+// 宿主图像落盘桥(RXS-0199):kernel 着色 → download 回锁页 → write_ppm 落盘
+// (RXS-0114~0117 确定性 PPM 序列化 0-byte 复用)。可真跑:host 程序写
+// imageio_write_out.ppm 后退出 0(需 cabi rxio_write_ppm 落位 + 真 GPU)。
+kernel fn shade(out: ViewMut<global, f32>, n: usize, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = 0.75;
+    }
+}
+
+fn main() -> i32 {
+    let ctx = Context::create();
+    let stream = ctx.stream();
+    let w: u32 = 8;
+    let h: u32 = 6;
+    let n: usize = 144; // 8 * 6 * 3(n = w*h*3,失配 = 运行期确定性失败)
+
+    let mut img = ctx.alloc_pinned(n);
+    let mut i: usize = 0;
+    while i < n {
+        img.set(i, 0.0);
+        i = i + 1;
+    }
+    let fb = ctx.alloc(n);
+    fb.upload(&img);
+    stream.launch(shade, GridDim(3), BlockDim(64), (fb, n));
+    stream.sync();
+    fb.download(&mut img);
+
+    write_ppm("imageio_write_out.ppm", w, h, &img);
+    ctx.sync();
+    0
+}

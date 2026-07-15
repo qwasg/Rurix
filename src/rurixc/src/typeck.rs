@@ -340,6 +340,29 @@ fn gpu_host_method(
     if li.is_stream(d) && method == "sync" {
         return Some(Op::StreamSync);
     }
+    // present 宿主 typestate 面(MS1.2b,RXS-0197/0198):帧状态句柄的编译器已知
+    // 方法集;消费式转移(ready/wait/signal/present)接收者按值 move(mir_build),
+    // 错序 = 编译期 move 违例(RXS-0054,零新码)。
+    if Some(d) == li.present && method == "ready" {
+        return Some(Op::PresentReady);
+    }
+    if Some(d) == li.present_ready && method == "wait" {
+        return Some(Op::PresentWait);
+    }
+    if Some(d) == li.present_acquired {
+        return match method {
+            "backbuffer" => Some(Op::PresentBackbuffer),
+            "signal" => Some(Op::PresentSignal),
+            _ => None,
+        };
+    }
+    if Some(d) == li.present_presentable {
+        return match method {
+            "pump" => Some(Op::PresentPump),
+            "present" => Some(Op::PresentPresent),
+            _ => None,
+        };
+    }
     None
 }
 
@@ -1498,6 +1521,69 @@ impl Tck<'_, '_> {
                 .expect("Context lang item 在 resolve 入口注入");
             return Ty::Adt(ctx_def, Vec::new());
         }
+        // present 会话构造(MS1.2b,RXS-0197):`Present::create(&ctx, rw, rh,
+        // ww, wh)` 编译器已知关联函数——首实参 `&Context`(单 brand 方案沿
+        // RXS-0189),四维度实参 u32,产 `Present` 句柄。
+        if let hir::ExprKind::Res(Res::Def(d)) = &callee.kind
+            && Some(*d) == self.res.lang_items.present_create
+        {
+            self.results
+                .gpu_calls
+                .insert(call_id, crate::hir::GpuHostOp::PresentCreate);
+            let ctx_def = self
+                .res
+                .lang_items
+                .context
+                .expect("Context lang item 在 resolve 入口注入");
+            let present_def = self
+                .res
+                .lang_items
+                .present
+                .expect("Present lang item 在 resolve 入口注入");
+            let u32t = Ty::Prim(PrimTy::U32);
+            let expected = [
+                Ty::Ref(Box::new(Ty::Adt(ctx_def, Vec::new())), false),
+                u32t.clone(),
+                u32t.clone(),
+                u32t.clone(),
+                u32t,
+            ];
+            return self.check_args(span, &expected, args, Ty::Adt(present_def, Vec::new()));
+        }
+        // 宿主图像落盘桥(MS1.2b,RXS-0199):`write_ppm(path, w, h, &pinned)`
+        // 编译器已知自由函数;data 形参位为元素类型使用点约束(RXS-0190:
+        // 未定元素在此定型 f32)。
+        if let hir::ExprKind::Res(Res::Def(d)) = &callee.kind
+            && Some(*d) == self.res.lang_items.write_ppm
+        {
+            self.results
+                .gpu_calls
+                .insert(call_id, crate::hir::GpuHostOp::WritePpm);
+            let ctx_def = self
+                .res
+                .lang_items
+                .context
+                .expect("Context lang item 在 resolve 入口注入");
+            let pinned_def = self
+                .res
+                .lang_items
+                .pinned_buffer
+                .expect("PinnedBuffer lang item 在 resolve 入口注入");
+            let u32t = Ty::Prim(PrimTy::U32);
+            let expected = [
+                Ty::Ref(Box::new(Ty::Prim(PrimTy::Str)), false),
+                u32t.clone(),
+                u32t,
+                Ty::Ref(
+                    Box::new(Ty::Adt(
+                        pinned_def,
+                        vec![Ty::Adt(ctx_def, Vec::new()), Ty::Prim(PrimTy::F32)],
+                    )),
+                    false,
+                ),
+            ];
+            return self.check_args(span, &expected, args, Ty::unit());
+        }
         // fn item / 构造器直调(含泛型实例化,RXS-0042/0045)
         if let hir::ExprKind::Res(Res::Def(d)) = &callee.kind {
             let kind = self.res.defs[d.0 as usize].kind;
@@ -1971,8 +2057,52 @@ impl Tck<'_, '_> {
                 let elem = adt_args.get(1).cloned().unwrap_or(Ty::Err);
                 self.check_args(span, &[Ty::Prim(PrimTy::Usize), elem], args, Ty::unit())
             }
-            Op::CtxCreate | Op::Launch => {
-                unreachable!("CtxCreate 走 check_call;launch 走既有 launch 分支")
+            // present 宿主 typestate 转移(MS1.2b,RXS-0197):全部 0 实参;
+            // 消费/借用语义在 mir_build 侧表达(消费式 = 接收者按值 move)。
+            Op::PresentReady | Op::PresentPresent => {
+                let ready = self
+                    .res
+                    .lang_items
+                    .present_ready
+                    .expect("Ready lang item 在 resolve 入口注入");
+                self.check_args(span, &[], args, Ty::Adt(ready, Vec::new()))
+            }
+            Op::PresentWait => {
+                let acquired = self
+                    .res
+                    .lang_items
+                    .present_acquired
+                    .expect("Acquired lang item 在 resolve 入口注入");
+                self.check_args(span, &[], args, Ty::Adt(acquired, Vec::new()))
+            }
+            Op::PresentSignal => {
+                let presentable = self
+                    .res
+                    .lang_items
+                    .present_presentable
+                    .expect("Presentable lang item 在 resolve 入口注入");
+                self.check_args(span, &[], args, Ty::Adt(presentable, Vec::new()))
+            }
+            // backbuffer 借用句柄(RXS-0198):产 `Buffer<C, f32>`(元素定型 f32,
+            // 不经 RXS-0190 推断;单 brand = Context)。
+            Op::PresentBackbuffer => {
+                let buffer = self
+                    .res
+                    .lang_items
+                    .buffer
+                    .expect("Buffer lang item 在 resolve 入口注入");
+                self.check_args(
+                    span,
+                    &[],
+                    args,
+                    Ty::Adt(buffer, vec![brand, Ty::Prim(PrimTy::F32)]),
+                )
+            }
+            Op::PresentPump => self.check_args(span, &[], args, Ty::Prim(PrimTy::Bool)),
+            Op::CtxCreate | Op::Launch | Op::PresentCreate | Op::WritePpm => {
+                unreachable!(
+                    "CtxCreate/PresentCreate/WritePpm 走 check_call;launch 走既有 launch 分支"
+                )
             }
         }
     }

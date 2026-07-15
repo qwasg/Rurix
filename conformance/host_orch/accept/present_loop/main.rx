@@ -1,0 +1,46 @@
+//@ spec: RXS-0197, RXS-0198
+// present 宿主 typestate 帧循环(RFC-0009 §4.6 样例口径,RXS-0197):
+// Present::create → ready → { wait → backbuffer → launch blit → signal →
+// pump → present } 消费式转移;backbuffer 借用句柄作 launch 实参
+// (RXS-0198,ViewMut 位);编译到 IR 断言 declare rxp_*(不要求运行)。
+kernel fn blit_rgb(out: ViewMut<global, f32>, src: View<global, f32>,
+                   n: usize, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = src[i];
+    }
+}
+
+fn main() -> i32 {
+    let ctx = Context::create();
+    let stream = ctx.stream();
+    let n: usize = 230400; // 320 * 240 * 3(行主序紧密 f32 RGB,RXS-0198)
+
+    let mut host = ctx.alloc_pinned(n);
+    let mut i: usize = 0;
+    while i < n {
+        host.set(i, 128.0);
+        i = i + 1;
+    }
+    let fb = ctx.alloc(n);
+    fb.upload(&host);
+
+    let sess = Present::create(&ctx, 320, 240, 320, 240);
+    let mut ready = sess.ready();
+    let mut frames: i32 = 0;
+    while frames < 3 {
+        let acq = ready.wait();
+        let bb = acq.backbuffer();
+        stream.launch(blit_rgb, GridDim(n / 64), BlockDim(64), (bb, fb, n));
+        let pres = acq.signal();
+        let close = pres.pump();
+        ready = pres.present();
+        if close {
+            frames = 2;
+        }
+        frames = frames + 1;
+    }
+    stream.sync();
+    ctx.sync();
+    0
+}
