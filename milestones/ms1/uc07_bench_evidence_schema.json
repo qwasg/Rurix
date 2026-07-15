@@ -1,0 +1,127 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/uc07_bench/v1",
+  "title": "Rurix MS1.4 UC-07 生产档端到端性能证据 JSON(G-MS1-6;RFC-0010 §4.6)",
+  "description": "ci/uc07_bench.py 产出(sph_step / offline_frame / realtime_frame 三项,双层:单 trial ×3 + agg 聚合)。与 m0 evidence_schema 的差异如实声明:计时 = 进程级端到端墙钟(timer=wall_clock_process,非 cuda_event 50×3 内层协议——sph_step 以 72−8 帧差分消 startup/JIT 开销,offline/realtime 含启动/落盘/present 如实入账,方法记 sampling.method);environment 环境画像与 evidence_level 降级规则(未锁频 → unlocked,不得回填)与 m0 schema 同源同构。BENCH_PROTOCOL 三次运行规则:agg = 三次进程级独立运行值的 trimmed mean(0.2),任一 trial 非 measured_local 整组作废。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "evidence_level",
+    "timestamp",
+    "bench",
+    "environment",
+    "sampling",
+    "results"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "evidence_level": {
+      "description": "三级证据(14 §5);unlocked = 真实硬件但未锁频,不得用于预算回填",
+      "enum": ["measured_local", "unlocked", "estimated"]
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "bench": {
+      "type": "object",
+      "required": ["id", "level", "problem_size", "harness_commit"],
+      "properties": {
+        "id": {
+          "enum": ["uc07_sph_step", "uc07_offline_frame", "uc07_realtime_frame"]
+        },
+        "level": { "const": "L4" },
+        "problem_size": { "type": "string" },
+        "harness_commit": { "type": "string", "description": "harness 代码的 git commit" }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "required": [
+        "gpu_name", "compute_capability", "driver_version", "nvml_version",
+        "cuda_driver_version", "driver_model", "hags_enabled", "tdr", "clocks",
+        "os_build", "thermal", "isolation_check"
+      ],
+      "properties": {
+        "gpu_name": { "type": "string" },
+        "compute_capability": { "type": "string" },
+        "driver_version": { "type": "string" },
+        "nvml_version": { "type": "string" },
+        "cuda_driver_version": { "type": "string" },
+        "driver_model": { "enum": ["WDDM", "TCC", "MCDM", "unavailable"] },
+        "hags_enabled": { "enum": [true, false, "unavailable"] },
+        "tdr": {
+          "type": "object",
+          "required": ["tdr_delay", "tdr_level"],
+          "properties": {
+            "tdr_delay": { "type": ["integer", "string"] },
+            "tdr_level": { "type": ["integer", "string"] }
+          }
+        },
+        "clocks": {
+          "type": "object",
+          "required": ["locked", "sm_clock_mhz", "mem_clock_mhz"],
+          "properties": {
+            "locked": { "type": "boolean" },
+            "sm_clock_mhz": { "type": ["number", "string"] },
+            "mem_clock_mhz": { "type": ["number", "string"] },
+            "lock_method": { "type": "string" }
+          }
+        },
+        "os_build": { "type": "string" },
+        "thermal": {
+          "type": "object",
+          "required": ["temp_start_c", "temp_end_c", "steady_state"],
+          "properties": {
+            "temp_start_c": { "type": ["number", "string"] },
+            "temp_end_c": { "type": ["number", "string"] },
+            "steady_state": { "type": "boolean" }
+          }
+        },
+        "isolation_check": {
+          "type": "object",
+          "required": ["other_compute_processes"],
+          "properties": {
+            "other_compute_processes": { "type": "integer" }
+          }
+        }
+      }
+    },
+    "sampling": {
+      "type": "object",
+      "description": "进程级墙钟口径实记(与 m0 内层 50×3 协议的差异见 method 与本 schema description)",
+      "required": ["trials", "trimmed_pct", "timer", "method"],
+      "properties": {
+        "trials": { "type": "integer", "minimum": 1 },
+        "trimmed_pct": { "type": "number" },
+        "timer": { "const": "wall_clock_process" },
+        "method": { "type": "string" }
+      }
+    },
+    "results": {
+      "type": "object",
+      "required": ["metric", "unit", "trimmed_mean"],
+      "properties": {
+        "metric": {
+          "enum": ["sph_step_time", "offline_frame_time", "realtime_frame_time"]
+        },
+        "unit": { "enum": ["ms", "s"] },
+        "trimmed_mean": { "type": "number" },
+        "trial_values": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 3
+        },
+        "cv": { "type": "number" },
+        "ci95": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "raw": { "type": "object" },
+        "correctness_check": { "enum": ["pass", "fail", "n/a"] }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

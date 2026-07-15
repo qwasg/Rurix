@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "evidence_level": "measured_local",
+  "timestamp": "2026-07-15T05:05:56.161154+00:00",
+  "bench": {
+    "id": "uc07_sph_step",
+    "level": "L4",
+    "problem_size": "N=131072 particles, 64^3 grid, 18-bit key radix sort, 4 substeps/frame; differential (72-frame - 8-frame) / 64 frames, sim-only production profile",
+    "harness_commit": "ba37836d"
+  },
+  "environment": {
+    "driver_version": "620.02",
+    "nvml_version": "13.620.02",
+    "gpu_name": "NVIDIA GeForce RTX 4070 Ti",
+    "compute_capability": "8.9",
+    "driver_model": "WDDM",
+    "clocks": {
+      "locked": true,
+      "sm_clock_mhz": 2610,
+      "mem_clock_mhz": 10251,
+      "lock_method": "nvidia-smi -lgc/-lmc (elevated); persistence mode unsupported on Windows"
+    },
+    "thermal": {
+      "temp_start_c": 53,
+      "temp_end_c": 53,
+      "steady_state": true
+    },
+    "isolation_check": {
+      "other_compute_processes": 27
+    },
+    "cuda_driver_version": "13.2",
+    "tdr": {
+      "tdr_delay": "not_set(os_default)",
+      "tdr_level": "not_set(os_default)"
+    },
+    "hags_enabled": true,
+    "os_build": "Windows 10.0.28120"
+  },
+  "sampling": {
+    "trials": 1,
+    "trimmed_pct": 0.0,
+    "timer": "wall_clock_process",
+    "method": "process-level wall-clock differential: (t_long(72f) - t_short(8f)) / 64 frames; startup/PTX-JIT/context overhead cancels in subtraction; per-frame stream sync"
+  },
+  "results": {
+    "metric": "sph_step_time",
+    "unit": "ms",
+    "trimmed_mean": 11.0387,
+    "correctness_check": "pass",
+    "raw": {
+      "t_short_s": 0.208,
+      "t_long_s": 0.9145
+    }
+  },
+  "notes": "sim-only production profile (no rendering): 4 substeps/frame x (cell_key + 18-bit bit-split radix sort + reorder + cell_bounds + density + forces + integrate); NaN/in-box check in both entries (cancels in differential). RFC-0010 §4.6 ms1.bench.uc07_sph_step_ms"
+}

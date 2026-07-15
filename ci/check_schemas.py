@@ -196,6 +196,12 @@ def check_evidence_files() -> None:
     uc07_offline_golden_schema = load(
         ROOT / "milestones/ms1/uc07_offline_golden_evidence_schema.json"
     )
+    uc07_present_schema = load(
+        ROOT / "milestones/ms1/uc07_present_evidence_schema.json"
+    )
+    uc07_bench_schema = load(
+        ROOT / "milestones/ms1/uc07_bench_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -277,6 +283,16 @@ def check_evidence_files() -> None:
     uc07_offline_golden_validator = (
         jsonschema.Draft7Validator(uc07_offline_golden_schema)
         if uc07_offline_golden_schema
+        else None
+    )
+    uc07_present_validator = (
+        jsonschema.Draft7Validator(uc07_present_schema)
+        if uc07_present_schema
+        else None
+    )
+    uc07_bench_validator = (
+        jsonschema.Draft7Validator(uc07_bench_schema)
+        if uc07_bench_schema
         else None
     )
     for f in evidence_files:
@@ -409,6 +425,32 @@ def check_evidence_files() -> None:
             # 数据流红绿;digest_match=true 计入 ms1.counter.uc07_offline_golden_frames,
             # ci/budget_eval.py)
             validator = uc07_offline_golden_validator
+        elif (
+            f.name.startswith("uc07_present_")
+            and uc07_present_validator is not None
+        ):
+            # MS1.4 UC-07 实时 present 取证证据(G-MS1-5;RFC-0010 §4.5)→
+            # milestones/ms1/uc07_present_evidence_schema.json(ci/uc07_bench.py
+            # present 子命令,本机交互桌面人工链路写;realtime 入口经 RXS-0197/0198
+            # present typestate 真窗口 ≥300 帧 + 末帧普通 Buffer download 采样对照
+            # (天空区/水体区)EXE 内自校验;**不进 CI 硬门**,SKIP 不充绿,镜像
+            # realtime_present_smoke 双态先例;不入 budget counter)
+            validator = uc07_present_validator
+        elif (
+            (
+                f.name.startswith("uc07_sph_step_")
+                or f.name.startswith("uc07_offline_frame_")
+                or f.name.startswith("uc07_realtime_frame_")
+            )
+            and uc07_bench_validator is not None
+        ):
+            # MS1.4 UC-07 生产档端到端性能证据(G-MS1-6;RFC-0010 §4.6)→
+            # milestones/ms1/uc07_bench_evidence_schema.json(ci/uc07_bench.py 三项
+            # bench,双层:单 trial ×3 + agg;进程级墙钟 timer=wall_clock_process,
+            # 与 m0 cuda_event 内层协议的差异在 schema description/sampling.method
+            # 如实声明;agg 的 results.trimmed_mean 由 ms1_budget.json entries 经
+            # ci/budget_eval.py eval_entry 数据驱动判读,无新 evaluator 分支)
+            validator = uc07_bench_validator
         elif (
             f.name.startswith("rd017_varying_semantic_spike_")
             and rd017_varying_semantic_spike_validator is not None

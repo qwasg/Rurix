@@ -51,17 +51,20 @@ pub const BOX: f32 = 64.0;
 pub const SPACING: f32 = 0.5;
 pub const ORIGIN: f32 = 0.5;
 
-// ---- 渲染(Stage-2,RFC-0010 §4.3;生产档 1280×720 / 256spp / 8 帧) ----
+// ---- 渲染(Stage-2,RFC-0010 §4.3;生产档 1280×720 / 8 帧) ----
 // 输出分辨率
 pub const REND_W: usize = 1280;
 pub const REND_H: usize = 720;
-// 每像素采样数与单 launch 批量(SPP % SPP_BATCH == 0;256 = 8 批 × 32)
-pub const SPP: usize = 256;
+// 每像素采样数与单 launch 批量(SPP % SPP_BATCH == 0)
+// STUB(RD-027):256spp / 4 弹射完整档在当前工具链触毒径挂起(疑 PTX 发散
+// 重汇聚缺陷,registry/deferred.json RD-027 实录),生产档暂锁已验证可测
+// 切片 32spp / 2 弹射;RD-027 修复后回填 256/4 并按 RFC-0010 §4.4 重测。
+pub const SPP: usize = 32;
 pub const SPP_BATCH: usize = 32;
 // 渲染帧数(offline 出 frame_0000 ~ frame_0007)
 pub const REND_FRAMES: usize = 8;
-// 路径追踪最大弹射数(RFC-0010 §4.3:≤4)
-pub const PT_BOUNCES: u32 = 4;
+// 路径追踪最大弹射数(RFC-0010 §4.3:≤4;RD-027 切片档 = 2)
+pub const PT_BOUNCES: u32 = 2;
 // 粒子渲染半径(球体图元;<= cell 半边,DDA 邻 cell 溢出裁剪可接受)
 pub const PART_R: f32 = 0.35;
 // 定参 pinhole 相机(眼点 / 注视点 / 视场半宽比例 tan(fov/2) 常数化,无三角函数)
