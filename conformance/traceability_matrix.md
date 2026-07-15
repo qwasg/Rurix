@@ -188,3 +188,11 @@
 | RXS-0186 | spec/release.md | 3 | `src/rurixup/src/channel.rs`, `src/rurixup/src/gate.rs`, `src/rurixup/src/lib.rs` |
 | RXS-0187 | spec/release.md | 1 | `src/rurixup/src/toolchain.rs` |
 | RXS-0188 | spec/release.md | 1 | `src/rurixup/src/toolchain.rs` |
+| RXS-0189 | spec/host_orchestration.md | 3 | `conformance/host_orch/accept/saxpy_single_source/main.rx`, `conformance/host_orch/reject/buffer_move/main.rx`, `conformance/host_orch/reject/gpu_in_kernel/main.rx` |
+| RXS-0190 | spec/host_orchestration.md | 2 | `conformance/host_orch/accept/saxpy_single_source/main.rx`, `conformance/host_orch/reject/elem_infer/main.rx` |
+| RXS-0191 | spec/host_orchestration.md | 2 | `conformance/host_orch/accept/saxpy_single_source/main.rx`, `conformance/host_orch/reject/launch_arg_subset/main.rx` |
+| RXS-0192 | spec/host_orchestration.md | 1 | `conformance/host_orch/accept/saxpy_single_source/main.rx` |
+| RXS-0193 | spec/host_orchestration.md | 1 | `src/rurix-rt-cabi/src/lib.rs` |
+| RXS-0194 | spec/host_orchestration.md | 1 | `src/rurix-rt-cabi/src/lib.rs` |
+| RXS-0195 | spec/host_orchestration.md | 3 | `conformance/host_orch/accept/extern_link/main.rx`, `src/rurixc/src/driver.rs`, `src/rurixc/src/mir_build.rs` |
+| RXS-0196 | spec/host_orchestration.md | 8 | `conformance/host_orch/accept/mod_file/main.rx`, `conformance/host_orch/accept/mod_file/util.rx`, `conformance/host_orch/reject/mod_cycle/main.rx` …(+5) |

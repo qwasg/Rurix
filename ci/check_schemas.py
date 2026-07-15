@@ -190,6 +190,9 @@ def check_evidence_files() -> None:
     rd017_varying_semantic_spike_schema = load(
         ROOT / "milestones/g2/rd017_varying_semantic_spike_evidence_schema.json"
     )
+    host_orch_smoke_schema = load(
+        ROOT / "milestones/ms1/host_orch_smoke_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -261,6 +264,11 @@ def check_evidence_files() -> None:
     rd017_varying_semantic_spike_validator = (
         jsonschema.Draft7Validator(rd017_varying_semantic_spike_schema)
         if rd017_varying_semantic_spike_schema
+        else None
+    )
+    host_orch_smoke_validator = (
+        jsonschema.Draft7Validator(host_orch_smoke_schema)
+        if host_orch_smoke_schema
         else None
     )
     for f in evidence_files:
@@ -370,6 +378,17 @@ def check_evidence_files() -> None:
             # milestones/g2/dxil_path_spike_evidence_schema.json(measured-first /
             # blocked-honest,纯取证非性能基准;不入 budget counter,A/B 结论留 owner)
             validator = dxil_path_spike_validator
+        elif (
+            f.name.startswith("host_orch_smoke")
+            and host_orch_smoke_validator is not None
+        ):
+            # MS1.2 single-source 宿主编排冒烟证据(G-MS1-2;RFC-0009 / RXS-0189~0196)→
+            # milestones/ms1/host_orch_smoke_evidence_schema.json(CI 步骤 52
+            # ci/host_orch_smoke.py 仅 device 段真跑时写;host .rx 经 std::gpu 编排 +
+            # 同源 kernel PTX 嵌入单 EXE,device 真跑数值自校验 + 篡改 PTX/桩化写回
+            # 双红绿;single_source=true 且 device_run=true 计入
+            # ms1.counter.host_orch_single_source,ci/budget_eval.py)
+            validator = host_orch_smoke_validator
         elif (
             f.name.startswith("rd017_varying_semantic_spike_")
             and rd017_varying_semantic_spike_validator is not None

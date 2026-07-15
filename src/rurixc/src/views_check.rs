@@ -169,10 +169,8 @@ impl Checker<'_, '_> {
         match &e.kind {
             ExprKind::SynthInt(v) => u64::try_from(*v).ok(),
             ExprKind::Lit(l) if l.kind == LitKind::Int => {
-                let text = self
-                    .cx
-                    .src()
-                    .get(l.span.lo.0 as usize..l.span.hi.0 as usize)?;
+                // 多文件感知切片(RXS-0196):span.file 归属正确源文本
+                let text = self.cx.snippet(l.span)?;
                 parse_uint(text)
             }
             _ => None,

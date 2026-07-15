@@ -1,0 +1,10 @@
+//@ spec: RXS-0196
+//@ expect-error: RX1005
+// out-of-line 模块 reject:ring_a.rx → ring_b.rx → ring_a.rx 循环引用 → RX1005
+// (装配栈检测,RFC-0009 §4.2)。
+
+mod ring_a;
+
+fn main() -> i32 {
+    0
+}

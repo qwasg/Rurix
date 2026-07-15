@@ -1056,6 +1056,43 @@
     ],
     "RXS-0188": [
       "src/rurixup/src/toolchain.rs"
+    ],
+    "RXS-0189": [
+      "conformance/host_orch/accept/saxpy_single_source/main.rx",
+      "conformance/host_orch/reject/buffer_move/main.rx",
+      "conformance/host_orch/reject/gpu_in_kernel/main.rx"
+    ],
+    "RXS-0190": [
+      "conformance/host_orch/accept/saxpy_single_source/main.rx",
+      "conformance/host_orch/reject/elem_infer/main.rx"
+    ],
+    "RXS-0191": [
+      "conformance/host_orch/accept/saxpy_single_source/main.rx",
+      "conformance/host_orch/reject/launch_arg_subset/main.rx"
+    ],
+    "RXS-0192": [
+      "conformance/host_orch/accept/saxpy_single_source/main.rx"
+    ],
+    "RXS-0193": [
+      "src/rurix-rt-cabi/src/lib.rs"
+    ],
+    "RXS-0194": [
+      "src/rurix-rt-cabi/src/lib.rs"
+    ],
+    "RXS-0195": [
+      "conformance/host_orch/accept/extern_link/main.rx",
+      "src/rurixc/src/driver.rs",
+      "src/rurixc/src/mir_build.rs"
+    ],
+    "RXS-0196": [
+      "conformance/host_orch/accept/mod_file/main.rx",
+      "conformance/host_orch/accept/mod_file/util.rx",
+      "conformance/host_orch/reject/mod_cycle/main.rx",
+      "conformance/host_orch/reject/mod_cycle/ring_a.rx",
+      "conformance/host_orch/reject/mod_cycle/ring_b.rx",
+      "conformance/host_orch/reject/mod_missing/main.rx",
+      "src/rurixc/src/mod_assembly.rs",
+      "src/rurixc/src/parser.rs"
     ]
   }
 }

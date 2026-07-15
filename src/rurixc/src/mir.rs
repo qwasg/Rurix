@@ -300,6 +300,9 @@ pub enum Const {
     Str(String),
     Char(char),
     Unit,
+    /// 全局常量地址(MS1.2,RXS-0192:`@__rx_gpu_artifacts` 嵌入描述表指针,
+    /// `Context::create()` 降级"注册即传参";host codegen 落 `ptr @<name>`)。
+    GlobalAddr(String),
 }
 
 #[derive(Debug)]
@@ -386,6 +389,12 @@ pub enum CallTarget {
     /// 保留的 libdevice 外部符号 `__nv_*`,经 libdevice bc 链接解析)。
     /// host codegen 不产出。
     Libdevice {
+        symbol: String,
+    },
+    /// 宿主 GPU 编排运行时符号(MS1.2,RXS-0191/0194:`rxrt_*` / `rxrt_trap`
+    /// 字面名,mir_build 直降不走 `mangle()`;host codegen 发射 declare + call,
+    /// 链接段静态链 rurix-rt-cabi,RXS-0195)。device codegen 不产出。
+    Rt {
         symbol: String,
     },
 }
@@ -553,6 +562,7 @@ fn print_const(c: &Const) -> String {
         Const::Str(s) => format!("const {s:?}"),
         Const::Char(c) => format!("const {c:?}"),
         Const::Unit => "const ()".to_owned(),
+        Const::GlobalAddr(name) => format!("const @{name}"),
     }
 }
 
@@ -611,6 +621,7 @@ fn print_term(t: &TerminatorKind) -> String {
                 CallTarget::Builtin(b) => format!("builtin {}", b.name()),
                 CallTarget::DeviceIntrinsic(d) => format!("device {}", d.name()),
                 CallTarget::Libdevice { symbol } => format!("libdevice {symbol}"),
+                CallTarget::Rt { symbol } => format!("rt {symbol}"),
             };
             let a: Vec<String> = args.iter().map(print_operand).collect();
             format!(

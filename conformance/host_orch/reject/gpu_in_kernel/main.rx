@@ -1,0 +1,11 @@
+//@ spec: RXS-0189
+//@ expect-error: RX3015
+// 宿主 API 着色合法性(RXS-0189):std::gpu 宿主 API 出现在 kernel 体内
+// → RX3015(coloring 层,与 RX3001 同点位)。
+kernel fn bad(t: ThreadCtx<1>) {
+    let c = Context::create();
+}
+
+fn main() -> i32 {
+    0
+}

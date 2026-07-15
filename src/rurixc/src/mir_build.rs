@@ -758,7 +758,9 @@ impl Builder<'_, '_> {
     // -- 字面量取值(源文本切片) ----------------------------------------------
 
     fn lit_text(&self, span: Span) -> &str {
-        &self.cx.src()[span.lo.0 as usize..span.hi.0 as usize]
+        // 多文件感知(RXS-0196):out-of-line 模块文件的字面量按 span.file 归属
+        // 其自身源文本切片;越界退化为空串(经 parse_int 失败走 unsupported)。
+        self.cx.snippet(span).unwrap_or("")
     }
 
     fn const_of_lit(&mut self, ty: &Ty, l: &crate::ast::Lit, span: Span) -> Operand {
@@ -1024,6 +1026,16 @@ impl Builder<'_, '_> {
             tbir::ExprKind::DeviceMathCall { op, is_f32, args } => {
                 self.lower_device_math_call(e, *op, *is_f32, args)
             }
+            // 宿主 GPU 编排(MS1.2,RXS-0191~0193):rxrt_* 字面符号直降 + 失败
+            // 终止检查;launch 走 🔒 slot+kinds marshalling。
+            tbir::ExprKind::GpuCall { op, args } => self.lower_gpu_call(e, *op, args),
+            tbir::ExprKind::GpuLaunch {
+                stream,
+                kernel,
+                grid,
+                block,
+                args,
+            } => self.lower_gpu_launch(e, stream, *kernel, grid, block, args),
             tbir::ExprKind::ResourceSample {
                 texture,
                 sampler,
@@ -1222,7 +1234,15 @@ impl Builder<'_, '_> {
         } else {
             let item = self.krate.item(def);
             let has_body = matches!(&item.kind, hir::ItemKind::Fn(decl) if decl.body.is_some());
-            let symbol = mangle(&item.name, def, &gargs);
+            // extern "C" 无 body fn 符号保名(RXS-0195):以字面名参与 codegen/
+            // 链接,不走 mangle()——字面名与 `rx_` 前缀单态符号天然不撞;`main` 等
+            // CRT 保留名冲突交由链接器报错(不新增诊断,RFC-0009 §4.2)。
+            //@ spec: RXS-0195
+            let symbol = if has_body {
+                mangle(&item.name, def, &gargs)
+            } else {
+                item.name.clone()
+            };
             if has_body {
                 self.callees.push((def, gargs.clone()));
             } else if !gargs.is_empty() {
@@ -1300,6 +1320,460 @@ impl Builder<'_, '_> {
         );
         self.switch_to(next);
         self.consume(Place::local(dest), &ret_ty)
+    }
+
+    // -- 宿主 GPU 编排 lowering(MS1.2,RXS-0191/0192/0193)------------------------
+
+    /// gpu 句柄表达式按**读取**消费(RXS-0189/0191:方法接收者与实参语义 = 调用期
+    /// 短借用,不 move——句柄后续仍可用;move 后再用由既有 move_check 对 Copy 读
+    /// 裁决 RX4001)。
+    fn gpu_handle_op(&mut self, e: &tbir::Expr) -> Operand {
+        let p = self.place_of_or_temp(e);
+        Operand::Copy(p)
+    }
+
+    /// rxrt_* 调用终结子(RXS-0191/0194:`CallTarget::Rt` 字面符号,不走
+    /// `mangle()`);dest 新建 temp 并返回。
+    fn emit_rt_call(&mut self, symbol: &str, args: Vec<Operand>, ret: Ty, span: Span) -> LocalIdx {
+        let dest = self.temp(ret, span);
+        let next = self.new_block();
+        self.terminate(
+            TerminatorKind::Call {
+                target: CallTarget::Rt {
+                    symbol: symbol.to_owned(),
+                },
+                args,
+                dest: Place::local(dest),
+                next,
+            },
+            span,
+        );
+        self.switch_to(next);
+        dest
+    }
+
+    /// 运行期失败终止检查(RXS-0193):`cond` 为真 → 可选诊断行(println)后
+    /// `rxrt_trap()`(确定性诊断已由 cabi 落 stderr,trap 直接 abort);否则续行。
+    fn emit_gpu_guard(&mut self, cond: LocalIdx, msg: Option<&str>, span: Span) {
+        let trap = self.new_block();
+        let cont = self.new_block();
+        self.terminate(
+            TerminatorKind::SwitchBool {
+                discr: Operand::Copy(Place::local(cond)),
+                then: trap,
+                else_: cont,
+            },
+            span,
+        );
+        self.switch_to(trap);
+        if let Some(m) = msg {
+            let pdest = self.temp(Ty::unit(), span);
+            let pnext = self.new_block();
+            self.terminate(
+                TerminatorKind::Call {
+                    target: CallTarget::Builtin(crate::hir::Builtin::Println),
+                    args: vec![Operand::Const(Const::Str(m.to_owned()))],
+                    dest: Place::local(pdest),
+                    next: pnext,
+                },
+                span,
+            );
+            self.switch_to(pnext);
+        }
+        let dest = self.temp(Ty::unit(), span);
+        let dead = self.new_block();
+        self.terminate(
+            TerminatorKind::Call {
+                target: CallTarget::Rt {
+                    symbol: "rxrt_trap".to_owned(),
+                },
+                args: Vec::new(),
+                dest: Place::local(dest),
+                next: dead,
+            },
+            span,
+        );
+        self.switch_to(dead);
+        self.terminate(TerminatorKind::Unreachable, span);
+        self.switch_to(cont);
+    }
+
+    /// 句柄返回值 == 0 → 终止(RXS-0193/0194:句柄 `0` = cabi 失败值)。
+    fn guard_handle_zero(&mut self, h: LocalIdx, span: Span) {
+        let c = self.temp(Ty::Prim(PrimTy::Bool), span);
+        self.assign(
+            Place::local(c),
+            Rvalue::BinaryOp(
+                BinOp::Eq,
+                Operand::Copy(Place::local(h)),
+                Operand::Const(Const::Int(0, PrimTy::U64)),
+            ),
+            span,
+        );
+        self.emit_gpu_guard(c, None, span);
+    }
+
+    /// i32 返回值 < 0 → 终止(RXS-0193:负值 = cabi 失败诊断已落 stderr)。
+    fn guard_rc_negative(&mut self, rc: LocalIdx, span: Span) {
+        let c = self.temp(Ty::Prim(PrimTy::Bool), span);
+        self.assign(
+            Place::local(c),
+            Rvalue::BinaryOp(
+                BinOp::Lt,
+                Operand::Copy(Place::local(rc)),
+                Operand::Const(Const::Int(0, PrimTy::I32)),
+            ),
+            span,
+        );
+        self.emit_gpu_guard(c, None, span);
+    }
+
+    /// gpu 缓冲容器元素字节数(RXS-0190 首期子集 {f32,i32,u32} 恒 4;此点元素已
+    /// 定型——RX2010 未过则编译早停,防御性兜底 4)。
+    fn gpu_elem_size(&self, container: &Ty) -> u64 {
+        match container {
+            Ty::Adt(_, args) => match args.get(1) {
+                Some(Ty::Prim(p)) => u64::from(crate::codegen::prim_width(*p) / 8),
+                _ => 4,
+            },
+            _ => 4,
+        }
+    }
+
+    /// `n(元素数) * sizeof(T)` 字节数物化(u64 temp)。
+    fn gpu_bytes_of(&mut self, n: Operand, elem_size: u64, span: Span) -> LocalIdx {
+        let bytes = self.temp(Ty::Prim(PrimTy::U64), span);
+        self.assign(
+            Place::local(bytes),
+            Rvalue::BinaryOp(
+                BinOp::Mul,
+                n,
+                Operand::Const(Const::Int(elem_size as i128, PrimTy::U64)),
+            ),
+            span,
+        );
+        bytes
+    }
+
+    /// pinned 元素地址物化(RXS-0191:`rxrt_pinned_ptr` + 越界检查 + 指针算术;
+    /// 每次调用取 ptr,正确优先)。返回指向元素的 `*mut T` local(经 Deref 读写)。
+    fn gpu_pinned_elem_ptr(
+        &mut self,
+        hp: Operand,
+        idx: Operand,
+        elem: &Ty,
+        elem_size: u64,
+        span: Span,
+    ) -> LocalIdx {
+        // off = i * sizeof(T)
+        let off = self.gpu_bytes_of(idx, elem_size, span);
+        // 越界 → 诊断行 + 终止(RXS-0193 无 UB:off ≥ bytes 即越界;元素尺寸整除
+        // 分配字节数,off < bytes ⟺ off + sizeof(T) ≤ bytes)。poisoned/未知句柄时
+        // rxrt_pinned_len 诊断 + 返回 0,同样命中本检查。
+        let pb = self.emit_rt_call(
+            "rxrt_pinned_len",
+            vec![hp.clone()],
+            Ty::Prim(PrimTy::U64),
+            span,
+        );
+        let oob = self.temp(Ty::Prim(PrimTy::Bool), span);
+        self.assign(
+            Place::local(oob),
+            Rvalue::BinaryOp(
+                BinOp::Ge,
+                Operand::Copy(Place::local(off)),
+                Operand::Copy(Place::local(pb)),
+            ),
+            span,
+        );
+        self.emit_gpu_guard(
+            oob,
+            Some("RXRT: error op=pinned_index detail=index out of bounds (RXS-0193)"),
+            span,
+        );
+        let p = self.emit_rt_call(
+            "rxrt_pinned_ptr",
+            vec![hp],
+            Ty::RawPtr(Box::new(Ty::Prim(PrimTy::U8)), true),
+            span,
+        );
+        // 元素地址 = (ptr as u64) + off,再回 *mut T(ptrtoint / inttoptr)。
+        let pi = self.temp(Ty::Prim(PrimTy::U64), span);
+        self.assign(
+            Place::local(pi),
+            Rvalue::Cast(Operand::Copy(Place::local(p)), Ty::Prim(PrimTy::U64)),
+            span,
+        );
+        let addr = self.temp(Ty::Prim(PrimTy::U64), span);
+        self.assign(
+            Place::local(addr),
+            Rvalue::BinaryOp(
+                BinOp::Add,
+                Operand::Copy(Place::local(pi)),
+                Operand::Copy(Place::local(off)),
+            ),
+            span,
+        );
+        let ep_ty = Ty::RawPtr(Box::new(elem.clone()), true);
+        let ep = self.temp(ep_ty.clone(), span);
+        self.assign(
+            Place::local(ep),
+            Rvalue::Cast(Operand::Copy(Place::local(addr)), ep_ty),
+            span,
+        );
+        ep
+    }
+
+    /// 宿主 GPU 编排调用 lowering(RXS-0191/0192:gpu 方法 → `rxrt_*` 字面符号 +
+    /// 失败终止检查 RXS-0193)。`args[0]` = receiver 句柄(CtxCreate 无)。
+    fn lower_gpu_call(
+        &mut self,
+        e: &tbir::Expr,
+        op: crate::hir::GpuHostOp,
+        args: &[tbir::Expr],
+    ) -> Operand {
+        use crate::hir::GpuHostOp as Op;
+        let span = e.span;
+        match op {
+            Op::CtxCreate => {
+                // 注册即传参(RXS-0192):@__rx_gpu_artifacts 嵌入描述表地址;
+                // 无 kernel 编译单元 = 哨兵空表,运行期 cabi 解析确定性拒 + 终止。
+                let ret = self.ty_of(e);
+                let dest = self.emit_rt_call(
+                    "rxrt_ctx_create",
+                    vec![Operand::Const(Const::GlobalAddr(
+                        "__rx_gpu_artifacts".to_owned(),
+                    ))],
+                    ret.clone(),
+                    span,
+                );
+                self.guard_handle_zero(dest, span);
+                self.consume(Place::local(dest), &ret)
+            }
+            Op::CtxStream | Op::CtxAlloc | Op::CtxAllocPinned => {
+                let h = self.gpu_handle_op(&args[0]);
+                let ret = self.ty_of(e);
+                let dest = match op {
+                    Op::CtxStream => {
+                        self.emit_rt_call("rxrt_stream_create", vec![h], ret.clone(), span)
+                    }
+                    _ => {
+                        let n = self.op_of(&args[1]);
+                        let esz = self.gpu_elem_size(&ret);
+                        let bytes = self.gpu_bytes_of(n, esz, span);
+                        let symbol = if op == Op::CtxAlloc {
+                            "rxrt_buf_alloc"
+                        } else {
+                            "rxrt_pinned_alloc"
+                        };
+                        self.emit_rt_call(
+                            symbol,
+                            vec![h, Operand::Copy(Place::local(bytes))],
+                            ret.clone(),
+                            span,
+                        )
+                    }
+                };
+                self.guard_handle_zero(dest, span);
+                self.consume(Place::local(dest), &ret)
+            }
+            Op::CtxSync | Op::StreamSync => {
+                let h = self.gpu_handle_op(&args[0]);
+                let symbol = if op == Op::CtxSync {
+                    "rxrt_ctx_sync"
+                } else {
+                    "rxrt_stream_sync"
+                };
+                let rc = self.emit_rt_call(symbol, vec![h], Ty::Prim(PrimTy::I32), span);
+                self.guard_rc_negative(rc, span);
+                Operand::Const(Const::Unit)
+            }
+            Op::BufLen | Op::PinnedLen => {
+                let recv_ty = self.ty_of(&args[0]);
+                let h = self.gpu_handle_op(&args[0]);
+                let symbol = if op == Op::BufLen {
+                    "rxrt_buf_len"
+                } else {
+                    "rxrt_pinned_len"
+                };
+                let bytes = self.emit_rt_call(symbol, vec![h], Ty::Prim(PrimTy::U64), span);
+                let esz = self.gpu_elem_size(&recv_ty);
+                let dest = self.temp(Ty::Prim(PrimTy::Usize), span);
+                self.assign(
+                    Place::local(dest),
+                    Rvalue::BinaryOp(
+                        BinOp::Div,
+                        Operand::Copy(Place::local(bytes)),
+                        Operand::Const(Const::Int(esz as i128, PrimTy::U64)),
+                    ),
+                    span,
+                );
+                self.consume(Place::local(dest), &Ty::Prim(PrimTy::Usize))
+            }
+            Op::BufUpload | Op::BufDownload => {
+                // pinned 侧取指针 + 字节数 = 锁页分配字节(cabi 核对与设备缓冲
+                // 精确一致,不一致 = 确定性诊断 + 负值 → 终止,RXS-0193/0194)。
+                let hb = self.gpu_handle_op(&args[0]);
+                let hp = self.gpu_handle_op(&args[1]);
+                let p = self.emit_rt_call(
+                    "rxrt_pinned_ptr",
+                    vec![hp.clone()],
+                    Ty::RawPtr(Box::new(Ty::Prim(PrimTy::U8)), true),
+                    span,
+                );
+                let pb =
+                    self.emit_rt_call("rxrt_pinned_len", vec![hp], Ty::Prim(PrimTy::U64), span);
+                let symbol = if op == Op::BufUpload {
+                    "rxrt_buf_upload"
+                } else {
+                    "rxrt_buf_download"
+                };
+                let rc = self.emit_rt_call(
+                    symbol,
+                    vec![
+                        hb,
+                        Operand::Copy(Place::local(p)),
+                        Operand::Copy(Place::local(pb)),
+                    ],
+                    Ty::Prim(PrimTy::I32),
+                    span,
+                );
+                self.guard_rc_negative(rc, span);
+                Operand::Const(Const::Unit)
+            }
+            Op::PinnedGet | Op::PinnedSet => {
+                let recv_ty = self.ty_of(&args[0]);
+                let elem = self.ty_of(e);
+                let elem = if op == Op::PinnedSet {
+                    match &recv_ty {
+                        Ty::Adt(_, a) => a.get(1).cloned().unwrap_or(Ty::Err),
+                        _ => Ty::Err,
+                    }
+                } else {
+                    elem
+                };
+                let esz = self.gpu_elem_size(&recv_ty);
+                let hp = self.gpu_handle_op(&args[0]);
+                let idx = self.op_of(&args[1]);
+                let ep = self.gpu_pinned_elem_ptr(hp, idx, &elem, esz, span);
+                let place = Place {
+                    local: ep,
+                    proj: vec![ProjElem::Deref],
+                };
+                if op == Op::PinnedGet {
+                    self.consume(place, &elem)
+                } else {
+                    let v = self.op_of(&args[2]);
+                    self.assign(place, Rvalue::Use(v), span);
+                    Operand::Const(Const::Unit)
+                }
+            }
+            Op::Launch => unreachable!("launch 走 GpuLaunch 节点(RXS-0191)"),
+        }
+    }
+
+    /// launch 宿主 lowering(🔒 RXS-0191 marshalling):实参元组物化为栈上
+    /// `[u64; n]` slot(Tuple[u64;n] 布局 = 连续 8 字节槽)+ `[u8; n]` kinds
+    /// (0 = Buffer 句柄,cabi 换设备指针;1 = 标量按位样式存槽低位——f32/i32
+    /// 直接 store 进槽低 4 字节,LE 下 cuLaunchKernel 按形参尺寸读取);kernel
+    /// 符号 = device MIR 同源 `mangle(name, def, &[])`(单一事实源)的 NUL 终止
+    /// 字符串常量。物化纪律复刻 interop.rs `AcquiredFrame::launch`。
+    fn lower_gpu_launch(
+        &mut self,
+        e: &tbir::Expr,
+        stream: &tbir::Expr,
+        kernel: DefId,
+        grid: &[tbir::Expr],
+        block: &[tbir::Expr],
+        args: &[tbir::Expr],
+    ) -> Operand {
+        let span = e.span;
+        let s = self.gpu_handle_op(stream);
+        let entry = mangle(&self.krate.item(kernel).name, kernel, &[]);
+
+        // 维度分量 → u32(缺轴补 1,RXS-0074 维度契约已裁决 grid/block 同维)。
+        let mut dims: Vec<Operand> = Vec::with_capacity(6);
+        for comps in [grid, block] {
+            for i in 0..3 {
+                dims.push(self.gpu_dim_op(comps, i));
+            }
+        }
+
+        // slot/kinds 物化(空实参仍物化 1 槽哨兵,n_args = 0 时 cabi 不读)。
+        let n = args.len();
+        let slot_count = n.max(1);
+        let mut slot_ops: Vec<Operand> = Vec::with_capacity(slot_count);
+        let mut kind_ops: Vec<Operand> = Vec::with_capacity(slot_count);
+        for a in args {
+            let ty = self.ty_of(a);
+            match &ty {
+                Ty::Adt(d, _) if self.res.lang_items.is_buffer(*d) => {
+                    slot_ops.push(self.gpu_handle_op(a));
+                    kind_ops.push(Operand::Const(Const::Int(0, PrimTy::U8)));
+                }
+                _ => {
+                    slot_ops.push(self.op_of(a));
+                    kind_ops.push(Operand::Const(Const::Int(1, PrimTy::U8)));
+                }
+            }
+        }
+        if n == 0 {
+            slot_ops.push(Operand::Const(Const::Int(0, PrimTy::U64)));
+            kind_ops.push(Operand::Const(Const::Int(0, PrimTy::U8)));
+        }
+        let slots_ty = Ty::Tuple(vec![Ty::Prim(PrimTy::U64); slot_count]);
+        let slots = self.temp(slots_ty.clone(), span);
+        self.assign(
+            Place::local(slots),
+            Rvalue::Aggregate(slots_ty.clone(), slot_ops),
+            span,
+        );
+        let kinds_ty = Ty::Tuple(vec![Ty::Prim(PrimTy::U8); slot_count]);
+        let kinds = self.temp(kinds_ty.clone(), span);
+        self.assign(
+            Place::local(kinds),
+            Rvalue::Aggregate(kinds_ty.clone(), kind_ops),
+            span,
+        );
+        // slot/kinds 地址稳定至 rxrt_launch 返回(cuLaunchKernel 调用内拷贝参数)。
+        let slots_ref = self.temp(Ty::Ref(Box::new(slots_ty), false), span);
+        self.assign(
+            Place::local(slots_ref),
+            Rvalue::Ref(BorrowKind::Shared, Place::local(slots)),
+            span,
+        );
+        let kinds_ref = self.temp(Ty::Ref(Box::new(kinds_ty), false), span);
+        self.assign(
+            Place::local(kinds_ref),
+            Rvalue::Ref(BorrowKind::Shared, Place::local(kinds)),
+            span,
+        );
+
+        let mut call_args = vec![s, Operand::Const(Const::Str(entry))];
+        call_args.extend(dims);
+        call_args.push(Operand::Copy(Place::local(slots_ref)));
+        call_args.push(Operand::Copy(Place::local(kinds_ref)));
+        call_args.push(Operand::Const(Const::Int(n as i128, PrimTy::U64)));
+        let rc = self.emit_rt_call("rxrt_launch", call_args, Ty::Prim(PrimTy::I32), span);
+        self.guard_rc_negative(rc, span);
+        Operand::Const(Const::Unit)
+    }
+
+    /// launch 维度分量 → u32 值(缺轴补常量 1)。
+    fn gpu_dim_op(&mut self, comps: &[tbir::Expr], i: usize) -> Operand {
+        match comps.get(i) {
+            Some(c) => {
+                let o = self.op_of(c);
+                let t = self.temp(Ty::Prim(PrimTy::U32), c.span);
+                self.assign(
+                    Place::local(t),
+                    Rvalue::Cast(o, Ty::Prim(PrimTy::U32)),
+                    c.span,
+                );
+                Operand::Copy(Place::local(t))
+            }
+            None => Operand::Const(Const::Int(1, PrimTy::U32)),
+        }
     }
 
     /// struct / 元组结构体 / enum 变体构造(TBIR 已按定义序重排齐全)。

@@ -1,0 +1,15 @@
+//@ spec: RXS-0189
+//@ expect-error: RX4001
+// affine 句柄 move 后再用(RXS-0189):Buffer 非 Copy,move 违例复用既有
+// RXS-0054 裁决(RX4001,零新借用码)。
+fn main() -> i32 {
+    let ctx = Context::create();
+    let host = ctx.alloc_pinned(4);
+    host.set(0, 1i32);
+    let x = ctx.alloc(4);
+    x.upload(&host);
+    let y = x;
+    x.upload(&host);
+    ctx.sync();
+    0
+}

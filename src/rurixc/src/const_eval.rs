@@ -225,6 +225,13 @@ impl<'a, 'q> Evaluator<'a, 'q> {
                     what: "call to a device math intrinsic".to_owned(),
                 });
             }
+            // 宿主 GPU 编排运行时调用(MS1.2,RXS-0191):const 上下文不可达面。
+            CallTarget::Rt { .. } => {
+                return Err(ConstError::NonConst {
+                    span,
+                    what: "call to a gpu host runtime entry".to_owned(),
+                });
+            }
         };
         let krate = self.cx.hir_crate();
         let item = krate.item(def);
@@ -377,6 +384,9 @@ fn mir_const_to_val(c: &Const) -> ConstVal {
         Const::Str(s) => ConstVal::Str(s.clone()),
         Const::Char(c) => ConstVal::Char(*c),
         Const::Unit => ConstVal::Unit,
+        // 全局常量地址(MS1.2,RXS-0192)仅出现在 gpu 宿主 lowering;const 上下文
+        // 中 gpu 调用先在 eval_call 以 NonConst 拒绝,此处不可达,容忍为 Unit。
+        Const::GlobalAddr(_) => ConstVal::Unit,
     }
 }
 

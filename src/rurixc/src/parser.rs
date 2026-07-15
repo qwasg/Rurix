@@ -935,18 +935,36 @@ impl<'a> Parser<'a> {
 
     fn parse_mod(&mut self) -> ModItem {
         let name = self.expect_ident("a module name");
+        // `mod name;` out-of-line 模块(RXS-0196):items 留空,由 driver 装配
+        // pass([`crate::mod_assembly`])按「当前文件同目录 name.rx」加载回填。
+        //@ spec: RXS-0196
+        if self.eat(Tk::Semi) {
+            return ModItem {
+                name,
+                items: Vec::new(),
+                out_of_line: true,
+            };
+        }
         let open = self.peek().span;
-        self.expect(Tk::OpenBrace, "`{`");
+        self.expect(Tk::OpenBrace, "`{` or `;`");
         let mut items = Vec::new();
         while !self.at(Tk::CloseBrace) {
             if self.at(Tk::Eof) {
                 self.error_unclosed(open, "{");
-                return ModItem { name, items };
+                return ModItem {
+                    name,
+                    items,
+                    out_of_line: false,
+                };
             }
             items.push(self.parse_item());
         }
         self.expect(Tk::CloseBrace, "`}`");
-        ModItem { name, items }
+        ModItem {
+            name,
+            items,
+            out_of_line: false,
+        }
     }
 
     fn parse_use(&mut self) -> UseItem {

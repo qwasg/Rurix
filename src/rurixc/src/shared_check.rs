@@ -159,10 +159,8 @@ impl Checker<'_, '_> {
             ExprKind::Res(Res::Local(l)) => Some(format!("L{}", l.0)),
             ExprKind::SynthInt(v) => Some(format!("#{v}")),
             ExprKind::Lit(l) if l.kind == LitKind::Int => {
-                let text = self
-                    .cx
-                    .src()
-                    .get(l.span.lo.0 as usize..l.span.hi.0 as usize)?;
+                // 多文件感知切片(RXS-0196):span.file 归属正确源文本
+                let text = self.cx.snippet(l.span)?;
                 Some(format!("#{}", text.trim()))
             }
             _ => None,

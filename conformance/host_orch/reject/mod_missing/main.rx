@@ -1,0 +1,9 @@
+//@ spec: RXS-0196
+//@ expect-error: RX1005
+// out-of-line 模块 reject:同目录不存在 missing.rx → RX1005(文件缺失/IO 失败)。
+
+mod missing;
+
+fn main() -> i32 {
+    0
+}

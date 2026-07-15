@@ -1,0 +1,4 @@
+//@ spec: RXS-0196
+// 循环引用语料环节点 a:ring_b.rx 会再引用回本文件(main.rx 为装配根)。
+
+mod ring_b;

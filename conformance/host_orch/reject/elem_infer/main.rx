@@ -1,0 +1,10 @@
+//@ spec: RXS-0190
+//@ expect-error: RX2010
+// 缓冲元素类型不可定型(RXS-0190):`ctx.alloc(16)` 无任何使用点约束元素类型
+// → RX2010(诊断 span 指向 alloc 调用点)。
+fn main() -> i32 {
+    let ctx = Context::create();
+    let buf = ctx.alloc(16);
+    ctx.sync();
+    0
+}

@@ -404,6 +404,25 @@ jobs:
         shell: powershell
         run: py -3 ci/toolchain_frontend_smoke.py
 
+      # 步骤 52（MS1.2,契约 G-MS1-2,RFC-0009 / RXS-0189~0196）:single-source 宿主编排冒烟。
+      # `ci/host_orch_smoke.py`:host 段(总跑,无 GPU 也跑)——conformance/host_orch reject
+      # 语料六类逐个 `rx build` 编译期拦截(mod_missing/mod_cycle → RX1005,RXS-0196;
+      # elem_infer → RX2010,RXS-0190;gpu_in_kernel → RX3015,RXS-0189;launch_arg_subset →
+      # RX6024,RXS-0191;buffer_move → RX4001,RXS-0189)+ accept 语料(mod_file/extern_link/
+      # saxpy_single_source)全绿产 EXE(落 %TEMP%,不留仓库)+ 链接面见证(saxpy 单 EXE
+      # 存在且非空 = kernel PTX 嵌入 + rurix_rt_cabi 链接成功,RXS-0192/0195)。device 段
+      # (runner 真 GPU):运行 saxpy 单 EXE → 真 launch → 数值自校验 exit 0(见证行
+      # `HOST_ORCH: ok single_source=true device_run=true`)。red→绿闭合(内建,防降级硬门,
+      # 反 YAML-only):红① 篡改 EXE 内嵌 PTX 6 字节 → 装载协商拒 `RXRT: error`
+      # (RXS-0192/0193);红② 变体源桩化 kernel 写回经同一 rx build 链重编 → 数值自校验红;
+      # 复原绿。写 evidence/host_orch_smoke.json(schema 校验,single_source/device_run 计入
+      # ms1.counter.host_orch_single_source)。RURIX_REQUIRE_REAL=1 时无 CUDA 即红(不 SKIP 充绿)。
+      - name: single-source host orchestration smoke (MS1 CI_GATES §2.52, G-MS1-2, RFC-0009)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/host_orch_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

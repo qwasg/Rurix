@@ -33,6 +33,20 @@ pub struct CodegenOpts<'a> {
     pub file_name: &'a str,
     /// DIFile directory(绝对路径)。
     pub directory: &'a str,
+    /// 编译器已知项(MS1.2,RXS-0189:gpu 句柄 Adt → 单 u64 标量布局判定)。
+    pub lang_items: crate::resolve::LangItems,
+    /// single-source 嵌入 device 产物(MS1.2,RXS-0192):`Some` = 本单元使用
+    /// gpu 宿主 API 时 driver 传入(空 PTX = 哨兵,运行期装载协商确定性拒);
+    /// `None` 且 MIR 引用描述表 → 同哨兵空表(防御兜底)。
+    pub gpu_artifacts: Option<GpuArtifacts>,
+}
+
+/// single-source 嵌入 device 产物(RXS-0192):PTX 文本(必存;空 = 哨兵)+
+/// 可选 sm_89 预编 cubin 字节。
+#[derive(Debug, Default)]
+pub struct GpuArtifacts {
+    pub ptx: String,
+    pub cubin: Vec<u8>,
 }
 
 /// codegen 入口:全部单态化实例 → 单一 LLVM IR 模块文本。
@@ -45,6 +59,7 @@ pub fn emit_llvm_ir(
     let mut cg = Cg {
         krate,
         sm,
+        lang: opts.lang_items,
         fns: String::new(),
         globals: String::new(),
         strs: HashMap::new(),
@@ -54,6 +69,7 @@ pub fn emit_llvm_ir(
         cur_dbg: None,
         cur_sp: 0,
         need_puts: false,
+        need_gpu_artifacts: false,
         externs: HashMap::new(),
         drop_lbl: 0,
     };
@@ -76,6 +92,11 @@ pub fn emit_llvm_ir(
 
     for b in bodies {
         cg.emit_body(b);
+    }
+    // single-source 嵌入描述表(MS1.2,RXS-0192):MIR 引用 @__rx_gpu_artifacts
+    // 时于常量段发射(逐字节匹配 rurix-rt-cabi artifacts.rs v1 布局)。
+    if cg.need_gpu_artifacts {
+        emit_gpu_artifact_globals(&mut cg.globals, opts.gpu_artifacts.as_ref());
     }
 
     let mut out = String::new();
@@ -107,6 +128,8 @@ pub fn emit_llvm_ir(
 struct Cg<'a> {
     krate: &'a hir::Crate,
     sm: &'a SourceMap,
+    /// 编译器已知项(MS1.2,RXS-0189:gpu 句柄布局判定)。
+    lang: crate::resolve::LangItems,
     fns: String,
     globals: String,
     /// 字符串字面量 → 全局序号(去重)。
@@ -121,6 +144,8 @@ struct Cg<'a> {
     /// 当前函数 DISubprogram 序号。
     cur_sp: usize,
     need_puts: bool,
+    /// MIR 引用了 `@__rx_gpu_artifacts` 描述表(RXS-0192;模块尾部发射常量)。
+    need_gpu_artifacts: bool,
     /// 无 body 的外部 fn:符号 → declare 文本。
     externs: HashMap<String, String>,
     /// drop glue 内部 LLVM 标签计数(enum 变体分支用)。
@@ -138,6 +163,8 @@ impl Cg<'_> {
                 let parts: Vec<String> = v.iter().map(|x| self.llty(x)).collect();
                 format!("{{ {} }}", parts.join(", "))
             }
+            // 宿主 GPU 句柄(MS1.2,RXS-0189):编译器合成布局 = 单 u64 句柄标量。
+            Ty::Adt(d, _) if self.lang.is_gpu_handle(*d) => "i64".to_owned(),
             Ty::Adt(d, args) => match &self.krate.item(*d).kind {
                 // enum 扁平布局(M3.1 取舍,见 mir::enum_variant_layout):
                 // `{ i32 tag, 变体0载荷…, 变体1载荷…, … }`,载荷不重叠
@@ -416,6 +443,17 @@ impl Cg<'_> {
                         "ptr".to_owned(),
                         g,
                         Ty::Ref(Box::new(Ty::Prim(PrimTy::Str)), false),
+                    ))
+                }
+                // 全局常量地址(MS1.2,RXS-0192:嵌入描述表指针)。
+                Const::GlobalAddr(name) => {
+                    if name == "__rx_gpu_artifacts" {
+                        self.need_gpu_artifacts = true;
+                    }
+                    Some((
+                        "ptr".to_owned(),
+                        format!("@{name}"),
+                        Ty::RawPtr(Box::new(Ty::Prim(PrimTy::U8)), false),
                     ))
                 }
             },
@@ -725,6 +763,46 @@ impl Cg<'_> {
                             );
                         }
                     }
+                    // 宿主 GPU 编排运行时符号(MS1.2,RXS-0191/0194):rxrt_* 字面名
+                    // declare + call(签名按调用点实参/返回类型定形;链接段静态链
+                    // rurix-rt-cabi,RXS-0195)。
+                    CallTarget::Rt { symbol } => {
+                        let ll_ret = if dest_zst {
+                            "void".to_owned()
+                        } else {
+                            self.llty(&dest_ty)
+                        };
+                        let param_tys: Vec<String> = arg_vals
+                            .iter()
+                            .map(|a| a.split(' ').next().unwrap_or("i8").to_owned())
+                            .collect();
+                        self.externs.insert(
+                            symbol.clone(),
+                            format!("{ll_ret} @{symbol}({})", param_tys.join(", ")),
+                        );
+                        if dest_zst {
+                            let _ = writeln!(
+                                self.fns,
+                                "  call void @{symbol}({}){}",
+                                arg_vals.join(", "),
+                                self.dbg_suffix()
+                            );
+                        } else {
+                            let t = self.fresh();
+                            let _ = writeln!(
+                                self.fns,
+                                "  {t} = call {ll_ret} @{symbol}({}){}",
+                                arg_vals.join(", "),
+                                self.dbg_suffix()
+                            );
+                            let (ptr, _) = self.place_ptr(b, dest);
+                            let _ = writeln!(
+                                self.fns,
+                                "  store {ll_ret} {t}, ptr {ptr}{}",
+                                self.dbg_suffix()
+                            );
+                        }
+                    }
                     // device intrinsic(RXS-0072)/ libdevice 数学 intrinsic
                     // (RXS-0081)是 device codegen 专属,host 不产出。
                     CallTarget::DeviceIntrinsic(_) => {
@@ -924,6 +1002,76 @@ impl Cg<'_> {
 }
 
 // ---------------------------------------------------------------------------
+// single-source 嵌入描述表(MS1.2,RXS-0192)
+// ---------------------------------------------------------------------------
+
+/// 字节序列 → LLVM `c"..."` 常量体编码(十六进制转义,含 NUL 安全)。
+fn encode_bytes(bytes: &[u8]) -> String {
+    let mut enc = String::with_capacity(bytes.len());
+    for b in bytes {
+        match b {
+            0x20..=0x7e if *b != b'"' && *b != b'\\' => enc.push(*b as char),
+            _ => enc.push_str(&format!("\\{b:02X}")),
+        }
+    }
+    enc
+}
+
+/// 发射 `@__rx_gpu_ptx` / `@__rx_gpu_cubin_sm89` / `@__rx_gpu_artifacts`(RXS-0192)。
+///
+/// 描述表 v1 布局**逐字节匹配** rurix-rt-cabi `artifacts.rs`(48 字节,LE):
+/// `<{ i32 version=1, i32 reserved, ptr ptx, i64 ptx_len, ptr cubin, i64 cubin_len,
+/// [8 x i8] sm_key }>`(packed;i32×2 + ptr/i64×4 + 8 = 48;指针字段为全局常量
+/// 绝对地址,链接期重定位)。PTX 常量带尾 NUL(RFC-0009 §4.4),`ptx_len` 不含
+/// 尾 NUL。哨兵(无 kernel / 工具链缺失 / driver 未传)= 全 null 描述表 →
+/// `rxrt_ctx_create` 解析确定性拒(RXS-0193,无静默降级)。
+fn emit_gpu_artifact_globals(globals: &mut String, gpu: Option<&GpuArtifacts>) {
+    let sentinel = GpuArtifacts::default();
+    let gpu = gpu.unwrap_or(&sentinel);
+    if gpu.ptx.is_empty() {
+        let _ = writeln!(
+            globals,
+            "@__rx_gpu_artifacts = private unnamed_addr constant \
+             <{{ i32, i32, ptr, i64, ptr, i64, [8 x i8] }}> \
+             <{{ i32 1, i32 0, ptr null, i64 0, ptr null, i64 0, [8 x i8] zeroinitializer }}>"
+        );
+        return;
+    }
+    let ptx_bytes = gpu.ptx.as_bytes();
+    let mut ptx_nul = ptx_bytes.to_vec();
+    ptx_nul.push(0);
+    let _ = writeln!(
+        globals,
+        "@__rx_gpu_ptx = private unnamed_addr constant [{} x i8] c\"{}\"",
+        ptx_nul.len(),
+        encode_bytes(&ptx_nul)
+    );
+    let (cubin_ref, cubin_len, sm_key) = if gpu.cubin.is_empty() {
+        ("ptr null".to_owned(), 0usize, "zeroinitializer".to_owned())
+    } else {
+        let _ = writeln!(
+            globals,
+            "@__rx_gpu_cubin_sm89 = private unnamed_addr constant [{} x i8] c\"{}\"",
+            gpu.cubin.len(),
+            encode_bytes(&gpu.cubin)
+        );
+        (
+            "ptr @__rx_gpu_cubin_sm89".to_owned(),
+            gpu.cubin.len(),
+            // "sm_89" + 3 NUL(cabi sm_key 8 字节 NUL 填充口径)
+            "c\"sm_89\\00\\00\\00\"".to_owned(),
+        )
+    };
+    let _ = writeln!(
+        globals,
+        "@__rx_gpu_artifacts = private unnamed_addr constant \
+         <{{ i32, i32, ptr, i64, ptr, i64, [8 x i8] }}> \
+         <{{ i32 1, i32 0, ptr @__rx_gpu_ptx, i64 {}, {cubin_ref}, i64 {cubin_len}, [8 x i8] {sm_key} }}>",
+        ptx_bytes.len()
+    );
+}
+
+// ---------------------------------------------------------------------------
 // 指令选择表
 // ---------------------------------------------------------------------------
 
@@ -1005,7 +1153,15 @@ pub(crate) fn fcmp_cond(op: BinOp) -> &'static str {
 }
 
 /// 数值/bool/char 转换指令(RXS-0046 合法面;同 LLVM 类型在调用方短路)。
+/// 指针 ↔ 整数(MS1.2,RXS-0191:pinned 元素寻址,mir_build gpu lowering 专属
+/// 产出)→ ptrtoint / inttoptr。
 pub(crate) fn cast_inst(from: &Ty, to: &Ty) -> &'static str {
+    if matches!(from, Ty::Ref(..) | Ty::RawPtr(..) | Ty::FnPtr(..)) && to.is_int() {
+        return "ptrtoint";
+    }
+    if from.is_int() && matches!(to, Ty::Ref(..) | Ty::RawPtr(..)) {
+        return "inttoptr";
+    }
     let (Ty::Prim(f), Ty::Prim(t)) = (from, to) else {
         return "bitcast";
     };
@@ -1082,6 +1238,7 @@ mod tests {
         let mir = cx.mir_crate();
         assert!(diag.emitted().is_empty(), "诊断非空: {:?}", diag.emitted());
         let krate = cx.hir_crate();
+        let lang_items = cx.resolutions().lang_items;
         emit_llvm_ir(
             &mir,
             &krate,
@@ -1090,6 +1247,8 @@ mod tests {
                 module_name: "test",
                 file_name: "test.rx",
                 directory: "H:\\tmp",
+                lang_items,
+                gpu_artifacts: None,
             },
         )
     }

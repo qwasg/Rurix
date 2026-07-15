@@ -80,6 +80,12 @@ pub struct LangItems {
     pub stream: Option<DefId>,
     pub grid_dim: Option<DefId>,
     pub block_dim: Option<DefId>,
+    /// 宿主 GPU 编排锁页缓冲 `PinnedBuffer<C, T>`(MS1.2,RXS-0189;类型位置
+    /// 兜底,可被用户遮蔽)。
+    pub pinned_buffer: Option<DefId>,
+    /// `Context::create` 编译器已知关联构造函数(MS1.2,RXS-0189/0190;值路径
+    /// `Context::create()` 的解析锚点,typeck 编译器已知签名分支消费)。
+    pub context_create: Option<DefId>,
     /// device block barrier 上下文(M5.2,RXS-0079):`block.sync()` 的 `block`
     /// 值位置兜底;`.sync()` → block 级 barrier(可被用户遮蔽)。
     pub block_ctx: Option<DefId>,
@@ -121,6 +127,8 @@ impl LangItems {
             "View" => self.view,
             "ViewMut" => self.view_mut,
             "Buffer" | "DeviceBuffer" => self.buffer,
+            // 宿主 GPU 编排锁页缓冲(MS1.2,RXS-0189):类型位置兜底(可被用户遮蔽)。
+            "PinnedBuffer" => self.pinned_buffer,
             "ThreadCtx" => self.thread_ctx,
             "Context" => self.context,
             "Module" => self.module,
@@ -206,6 +214,22 @@ impl LangItems {
     /// `Buffer` 容器判定(RXS-0074;launch 参数 brand 与元素消费)。
     pub fn is_buffer(&self, d: DefId) -> bool {
         Some(d) == self.buffer
+    }
+
+    /// `Context` 句柄判定(MS1.2,RXS-0189;宿主 GPU 方法接收者识别)。
+    pub fn is_context(&self, d: DefId) -> bool {
+        Some(d) == self.context
+    }
+
+    /// `PinnedBuffer` 锁页缓冲判定(MS1.2,RXS-0189)。
+    pub fn is_pinned_buffer(&self, d: DefId) -> bool {
+        Some(d) == self.pinned_buffer
+    }
+
+    /// 宿主 GPU 句柄类型判定(MS1.2,RXS-0189:Context / Stream / Buffer /
+    /// PinnedBuffer;编译器合成布局 = 单 u64 句柄标量,codegen 消费)。
+    pub fn is_gpu_handle(&self, d: DefId) -> bool {
+        self.is_context(d) || self.is_stream(d) || self.is_buffer(d) || self.is_pinned_buffer(d)
     }
 
     /// `GridDim` 构造器判定(RXS-0074;launch 维度契约)。
@@ -340,6 +364,8 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
             stream: None,
             grid_dim: None,
             block_dim: None,
+            pinned_buffer: None,
+            context_create: None,
             block_ctx: None,
             atomic: None,
             atomic_view: None,
@@ -418,6 +444,14 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
         r.out.lang_items.scope_gpu = Some(scope_gpu);
         r.out.lang_items.scope_system = Some(scope_system);
         r.out.lang_items.ordering = Some(ordering);
+        // 宿主 GPU 编排已知项(MS1.2,RXS-0189/0190):PinnedBuffer 锁页缓冲容器 +
+        // `Context::create` 关联构造(值路径解析锚点,签名为 typeck 编译器已知)。
+        // 追加于既有 lang items 之后,不动摇既有 DefId 编号(MIR/PTX golden 符号名
+        // 稳定性);同 View 族兜底纪律(用户同名定义优先遮蔽,不入模块命名空间)。
+        r.out.lang_items.pinned_buffer =
+            Some(r.new_def(DefKind::Struct, "PinnedBuffer", Vis::Pub, span, 0));
+        r.out.lang_items.context_create =
+            Some(r.new_def(DefKind::AssocFn, "create", Vis::Pub, span, 0));
     }
     r.resolve_uses();
     r.resolve_impl_targets();
@@ -1445,6 +1479,10 @@ impl Resolver<'_> {
         } else if let Some(d) = self.out.lang_items.type_by_name(&first.name) {
             // 编译器已知项作路径前缀(RXS-0048:`Option::Some` 等)
             Res::Def(d)
+        } else if let Some(d) = self.out.lang_items.device_type_by_name(&first.name) {
+            // 宿主编排已知类型作路径前缀(MS1.2,RXS-0189:`Context::create`;
+            // 模块 ns 优先 = 用户同名定义遮蔽)
+            Res::Def(d)
         } else {
             return Err(PathFail::Missing(first.name.clone()));
         };
@@ -1520,6 +1558,15 @@ impl Resolver<'_> {
                             return Err(PathFail::Invisible(a));
                         }
                         Res::Def(a)
+                    } else if last
+                        && last_ns == Ns::Value
+                        && Some(prefix_def) == self.out.lang_items.context
+                        && seg.ident.name == "create"
+                        && let Some(create) = self.out.lang_items.context_create
+                    {
+                        // 宿主 GPU 上下文构造(MS1.2,RXS-0189):`Context::create`
+                        // 编译器已知关联函数(用户 inherent impl 优先 = assoc 查找在前)
+                        Res::Def(create)
                     } else {
                         return Err(PathFail::Missing(seg.ident.name.clone()));
                     }
