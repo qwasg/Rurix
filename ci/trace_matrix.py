@@ -123,6 +123,10 @@ def gather_repo() -> tuple[dict[str, str], dict[str, str]]:
     # blocked-honest interim slice;PSO 装配/deferred 编排/barrier 锚点/readback 布局
     # 单测锚定 RXS-0167~0170,纯 host/safe,RFC-0006)
     test_files += sorted((ROOT / "src" / "uc04-demo").glob("**/*.rs"))
+    # MS1.2:rurix-rt-cabi crate(宿主编排 rxrt C ABI 运行时边界:u64 句柄表/嵌入产物
+    # 描述表解析/fatbin 惰性装载缓存/launch marshalling/poisoned 确定性失败 单测锚定
+    # RXS-0193/0194,RFC-0009 §4.3)
+    test_files += sorted((ROOT / "src" / "rurix-rt-cabi").glob("**/*.rs"))
     test_texts = {
         p.relative_to(ROOT).as_posix(): p.read_text(encoding="utf-8") for p in test_files
     }

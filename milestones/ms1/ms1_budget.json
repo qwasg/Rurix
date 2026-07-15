@@ -11,7 +11,14 @@
   ],
   "entries": [],
   "ratio_assertions": [],
-  "counter_assertions": [],
+  "counter_assertions": [
+    {
+      "id": "ms1.counter.host_orch_single_source",
+      "description": "single-source 宿主编排端到端证据数 ≥1(契约 G-MS1-2;host .rx 经 std::gpu 首期收敛子集编排 GPU + 同源 kernel PTX 嵌入单 EXE,rx build 一步出可执行,device 真跑数值自校验 + 篡改嵌入 PTX 装载协商拒/桩化 kernel 写回数值红双红绿闭合,RFC-0009 / RXS-0189~0196);计数源 = evidence/host_orch_smoke*.json 中 single_source=true 且 device_run=true 的报告数。无 CUDA 环境冒烟降级 SKIP 不写证据 → 0 → 建设期 normal SKIP / close-out strict FAIL,对齐 g1.counter.d3d12_interop 先例。",
+      "expect": ">=1",
+      "evidence": "ci_checked"
+    }
+  ],
   "namespace_check": {
     "rule": "本文件所有 id 必须以 'ms1.' 前缀开头;多预算合并加载时冲突即 FAIL(14 §3)。预算自动发现 glob 已泛化为 *_budget.json,自动纳入 ms1(ci/check_schemas.py / budget_eval.py / check_guardrails.py / tests/test_budget_namespace.py 同一 glob),零 CI 代码改动。",
     "unit_test_required": true
@@ -21,6 +28,11 @@
       "version": "v1.0",
       "date": "2026-07-14",
       "change": "初版模板(MS1 开工脚手架):entries/ratio_assertions/counter_assertions 全部留空。counter 不预造(未知 id 强制 FAIL)——ms1.counter.host_orch_single_source 随 MS1.2 实现 PR、ms1.counter.uc07_offline_golden_frames 随 MS1.3 实现 PR,各与 evaluator 分支/schema 同 PR 落;性能 entries 随 MS1.4 以 measured_local 回填(triple_run trimmed mean,阈值实测后定)。条款锚定沿用全局 m1.counter.spec_clause_test_anchoring。预算 glob 已泛化自动纳入,零 CI 代码改动。"
+    },
+    {
+      "version": "v1.1",
+      "date": "2026-07-14",
+      "change": "MS1.2 CI 步骤 52 落地:counter_assertions 追加 ms1.counter.host_orch_single_source(>=1),与 ci/budget_eval.py eval_counter 新分支 + milestones/ms1/host_orch_smoke_evidence_schema.json(ci/check_schemas.py 前缀路由 host_orch_smoke)+ ci/host_orch_smoke.py 同 PR 落(不预造纪律兑现,v1.0 计划行);计数源 = evidence/host_orch_smoke*.json 中 single_source=true 且 device_run=true 的报告数,无 device 真跑时为建设期 normal SKIP 而非红。entries/ratio_assertions 维持留空(随 MS1.4 measured_local 回填);ms1.counter.uc07_offline_golden_frames 仍待 MS1.3 实现 PR。"
     }
   ]
 }
