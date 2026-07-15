@@ -1,0 +1,11 @@
+//@ spec: RXS-0204
+// mb1 MB1.1 graphics 编码(RXS-0204):vertex 着色阶段经 --target vulkan 复用 dxil_spirv
+// SPIR-V 编码器(RFC-0004 种子),产 Vulkan 原生 SPIR-V(OpEntryPoint Vertex + Location/
+// UserSemantic 装饰),spirv-val --target-env vulkan1.0 接受。单 interpolate varying 输出。
+struct VsOut {
+    #[interpolate(perspective)] uv: f32,
+}
+
+vertex fn vs_main() -> VsOut {
+    VsOut { uv: 0.0 }
+}

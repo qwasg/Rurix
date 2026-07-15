@@ -829,7 +829,7 @@ fn compile_vulkan_target(
     match crate::toolchain::spirv_val_gate(&spv_out) {
         crate::toolchain::SpirvValGate::Accepted => {
             eprintln!(
-                "rurixc: --target vulkan: SPIR-V compute module emitted + spirv-val accepted ({})",
+                "rurixc: --target vulkan: SPIR-V module emitted + spirv-val accepted ({})",
                 spv_out.display()
             );
             0

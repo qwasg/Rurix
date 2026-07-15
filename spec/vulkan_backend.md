@@ -149,6 +149,32 @@ builtin 变量为 `Input` 存储类 `vec3<uint>`,懒发 + `OpDecorate BuiltIn <e
 
 > 锚定测试:conformance/vulkan/accept/vk_saxpy.rx(saxpy 规范 UC)+ conformance/vulkan/accept/vk_fill.rx(存储缓冲最小)。
 
+### RXS-0204 MIR→SPIR-V graphics 编码(vertex/fragment,复用 RFC-0004 种子)
+
+vertex/fragment 着色阶段(`Body.stage = Some(Vertex/Fragment)`)经 `--target vulkan` 复用 RFC-0004 的 `dxil_spirv` SPIR-V 编码器(RXS-0161),产 **Vulkan 原生 SPIR-V**(`.spv` 直喂 `vkCreateShaderModule`)——去 B 路 SPIRV-Cross→HLSL→dxc→DXIL 转译链,SPIR-V 即终产物、非中间踏板。graphics io_sig/resources 收集(`attach_graphics_io_sig` / `dxil_io`)与 `dxil_spirv`/`binding_layout` 模块的 feature gate 由 `dxil-backend` 扩为 **`any(dxil-backend, vulkan-backend)`**(NVPTX/DXIL 路零漂移:`any` 含 dxil-backend,dxil 行为不变)。
+
+#### Syntax
+
+无语言文法面(codegen 面;着色阶段语法承 RFC-0002 RXS-0153~0156,不因 target 改写)。
+
+#### Legality
+
+- L1(复用面):vertex/fragment 复用 `dxil_spirv::emit_spirv_body`(execution model `Vertex`/`Fragment` + `OriginUpperLeft`〔fragment〕 + `Location`/`BuiltIn`/`UserSemantic` 装饰 + 采样链);其可映射子集即 RXS-0161 面。
+- L2(阶段边界):mesh/task/RT 着色阶段不在本条 → honest-defer **RD-029**;编码器不可映射构造(承 `dxil_spirv` `DxilError`)→ **RX6026**。
+
+#### Dynamic Semantics
+
+`--target vulkan` 对图形阶段:`build_and_emit_vulkan` 按 `Body.stage` 路由——`Some(Vertex/Fragment)` → `dxil_spirv::emit_spirv_body`;`None`(compute)→ compute lowerer(RXS-0201~0203)。产 `OpEntryPoint Vertex/Fragment` + Location 装饰的 SPIR-V 字流;确定性(同 io_sig ×N 字节全等,承 RXS-0162 host 可达确定性面)。
+
+#### Implementation Requirements
+
+- IR1(复用):图形阶段直调 `dxil_spirv::emit_spirv_body(stage, body)`,不重复实现 vertex/fragment 编码(RFC-0011 §4.3 抽取泛化)。
+- IR2(feature gate):`dxil_spirv`/`binding_layout`/`attach_graphics_io_sig`/`dxil_io`/`collectable_stage` 的 cfg 由 `dxil-backend` 扩为 `any(dxil-backend, vulkan-backend)`;dxil-backend 单独启用时行为字节不变(`any` 超集)。
+- IR3(校验):图形 `.spv` 经 `spirv-val --target-env vulkan1.0` 接受(vertex/fragment 端到端);`SPV_GOOGLE_hlsl_functionality1` + `UserSemantic` 为 dxil_spirv 编码器既有产物,Vulkan 驱动忽略但合规。
+- IR4(锚定):≥1 `//@ spec: RXS-0204` 覆盖 vertex + fragment → SPIR-V + spirv-val vulkan1.0 accept。
+
+> 锚定测试:conformance/vulkan/accept/vk_vertex.rx(vertex)+ conformance/vulkan/accept/vk_fragment.rx(fragment)。
+
 ### RXS-0205 数学 intrinsic → GLSL.std.450 ext-inst 映射
 
 f32 数学方法(`sqrt`/`sin`/`pow`/`fma`/…,MIR `CallTarget::Libdevice{__nv_*}`,承 RXS-0081)降级为 SPIR-V `OpExtInst "GLSL.std.450" <op>`。`CallTarget::Libdevice` 是 NVIDIA 专有 libdevice 外部符号,SPIR-V 无对应——本条建 `__nv_*` → GLSL.std.450 ext-inst 映射。
@@ -183,3 +209,4 @@ f32 数学方法(`sqrt`/`sin`/`pow`/`fma`/…,MIR `CallTarget::Libdevice{__nv_*}
 | v1.1 | 2026-07-15 | **MB1.1 walking skeleton:落带编号条款体 `### RXS-0200` / `### RXS-0201`**(codegen target 分发与 Vulkan 后端分叉 + 最小 compute GLCompute 端到端)+ 配套 rurixc 实现(`vulkan_codegen.rs` MIR→SPIR-V 最小 compute emitter + `driver.rs` `--target vulkan` 分发 + cargo feature `vulkan-backend` + `toolchain::spirv_val_gate` 缺工具 SKIP)。条款体按 FLS 分 Syntax / Legality(L1 后端可用性 / L2 最小子集 / L3 降级失败 → RX6026)/ Dynamic Semantics / Implementation Requirements,**严禁 UB 节**。配套 conformance accept(`conformance/vulkan/accept/vk_noop.rx` 空体 compute → GLCompute SPIR-V,`//@ spec: RXS-0200, RXS-0201`)+ vulkan_codegen 单测(header shape / 小端字节)。错误码新增 **RX6026**(`codegen.vulkan_unsupported`,6xxx 段跳 RX6024/6025=MS1.2b 避撞,只追加 + en/zh message-key)。**真实红绿**(本机 Vulkan SDK 1.3.296.0):`--target vulkan` 产 spirv-val-clean `.spv`(独立 spirv-val 退出码 0 accept);篡改 `.spv` 字节 → spirv-val 拒(退出码 1);子集外体 → RX6026(退出码 1);feature-off → RX6026(退出码 1)。`ci/trace_matrix.py` 全锚定 **184→186**(RXS-0200/0201 各 ≥1 `//@ spec`)。**本片不碰** 🔒 launch marshalling / Backend trait / 纹理内存模型;body lowering / builtins / 存储缓冲 / 控制流 / graphics / 数学 intrinsic 随 RXS-0202~0205 后续分片。档位 **Full RFC**(RFC-0011);**gated on owner 裁决红线 3 解除 + RFC-0011 批准,未获裁决前不合入 main**,无体例变更 | **Full RFC**（RFC-0011） |
 | v1.2 | 2026-07-15 | **MB1.1 compute body lowering:落带编号条款体 `### RXS-0202` / `### RXS-0203`**(compute builtins + 存储缓冲/标量算术/结构化控制流)+ 配套 `vulkan_codegen.rs` 全 body 降级(镜像 NVPTX 内存式 local:Function `OpVariable` + load/store):`View/ViewMut<global,T>`→StorageBuffer 描述符(SSBO;BufferBlock + set0/binding序 + OpAccessChain)/ 标量形参→push constant(Block+Offset)/ `ThreadCtx.global_id`→`GlobalInvocationId` builtin(OpCompositeExtract)/ 算术 fmul·fadd·比较 OpULessThan / 结构化 `if`→OpSelectionMerge+OpBranchConditional(merge=前向可达交集)。条款体按 FLS 分 Syntax/Legality/Dynamic Semantics/Implementation Requirements,**严禁 UB 节**;子集外(BlockDim / device fn / 数学 intrinsic〔RXS-0205〕/ 循环 / 非标量 / F64·I64 / 位运算)→ RX6026。配套 conformance accept:`vk_fill.rx`(RXS-0202:global_id+SSBO+OpAccessChain 写)+ `vk_saxpy.rx`(RXS-0203:saxpy 规范 UC = 多 SSBO+push constant+builtin+算术+结构化 if)。**真实红绿**(本机 Vulkan SDK 1.3.296.0):`fill`/`saxpy` 经 `--target vulkan` 产 SPIR-V,**`spirv-val --target-env vulkan1.0` 严格 Vulkan 校验接受**(exit 0);比较结果 Bool 内存式建模为 u32(OpSelect)。`ci/trace_matrix.py` 全锚定 **186→188**(RXS-0202/0203 各 ≥1 `//@ spec`)。**本片不碰** 🔒 launch marshalling / Backend trait / 纹理内存模型;graphics(RXS-0204)/ 数学 intrinsic→GLSL.std.450(RXS-0205)/ 结构化循环随后续分片。档位 **Full RFC**(RFC-0011);**gated on owner 裁决红线 3 解除 + RFC-0011 批准,未获裁决前不合入 main**,无体例变更 | **Full RFC**（RFC-0011） |
 | v1.3 | 2026-07-15 | **MB1.1 数学 intrinsic:落带编号条款体 `### RXS-0205`**(`__nv_*` → GLSL.std.450 ext-inst 映射)+ 配套 `vulkan_codegen.rs` `emit_call` Libdevice 臂 + `glsl_ext_op` 映射表 + `OpExtInstImport "GLSL.std.450"` 懒发。覆盖 20 `DeviceMathFn` 中 18 个 1:1 项(sqrt/rsqrt/exp/exp2/log/log2/sin/cos/tan/floor/ceil/trunc/round/fabs/pow/fmin/fmax/fma;arity 1/2/3 通用),`cbrt`/`log10`(需组合)→ RX6026 诚实 defer。条款体 FLS,严禁 UB。配套 conformance accept `vk_math.rx`(`x[i].sqrt().max(0.0)`)。**真实红绿**(本机 Vulkan SDK 1.3.296.0):sqrt(1 元 `OpExtInst Sqrt`)/ max(2 元 `FMax`)/ fma(3 元 `Fma`)经 `--target vulkan` → `spirv-val --target-env vulkan1.0` accept(exit 0);cbrt→RX6026(exit 1)。`ci/trace_matrix.py` 全锚定 **188→189**(RXS-0205 ≥1 `//@ spec`)。**本片不碰** 🔒 launch marshalling / Backend trait / 纹理内存模型;graphics(RXS-0204)/ 结构化循环 / cbrt·log10 组合随后续分片。档位 **Full RFC**(RFC-0011);**gated on owner 裁决红线 3 解除 + RFC-0011 批准,未获裁决前不合入 main**,无体例变更 | **Full RFC**（RFC-0011） |
+| v1.4 | 2026-07-15 | **MB1.1 graphics 编码:落带编号条款体 `### RXS-0204`**(MIR→SPIR-V vertex/fragment,复用 RFC-0004 `dxil_spirv` 种子)+ 配套 `build_and_emit_vulkan` 按 `Body.stage` 路由(graphics→`dxil_spirv::emit_spirv_body` / compute→lower_compute)+ feature gate `dxil_spirv`/`binding_layout`/`attach_graphics_io_sig`/`dxil_io`/`collectable_stage` 由 `dxil-backend` 扩为 **`any(dxil-backend, vulkan-backend)`**。SPIR-V 即 Vulkan 原生终产物(`.spv`→`vkCreateShaderModule`),去 B 路 SPIRV-Cross→HLSL→dxc 转译链。条款体 FLS,严禁 UB;mesh/task/RT → RD-029 defer。配套 conformance accept `vk_vertex.rx`/`vk_fragment.rx`。**真实红绿**(本机 Vulkan SDK 1.3.296.0):vertex(`OpEntryPoint Vertex`)/ fragment(`OpEntryPoint Fragment`+`OriginUpperLeft`)经 `--target vulkan` → `spirv-val --target-env vulkan1.0` accept(exit 0)。**零回归**:dxil-backend 单独启用 test 404 passed、default test 318 passed(`any` 超集,dxil 行为字节不变)。`ci/trace_matrix.py` 全锚定 **189→190**(RXS-0204 ≥1 `//@ spec`)。**本片不碰** 🔒 launch marshalling / Backend trait / 纹理内存模型;present(RXS-0210)/ 多阶段 .spv 分文件输出随后续分片。档位 **Full RFC**(RFC-0011);**gated on owner 裁决红线 3 解除 + RFC-0011 批准,未获裁决前不合入 main**,无体例变更 | **Full RFC**（RFC-0011） |

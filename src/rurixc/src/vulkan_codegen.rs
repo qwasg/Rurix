@@ -501,6 +501,22 @@ pub fn build_and_emit_vulkan(cx: &QueryCtx<'_>, _module_name: &str) -> Option<Ve
     }
     let res = cx.resolutions();
     let entry = bodies.iter().find(|b| b.color == FnColor::Kernel)?;
+    // 图形阶段(vertex/fragment,`stage=Some`)→ 复用 dxil_spirv SPIR-V 编码器
+    // (RXS-0204;RFC-0004 种子,Vulkan 原生消费,去 B 路 SPIRV-Cross→HLSL→dxc 转译链)。
+    // compute(`stage=None`,color=Kernel)→ compute lowerer(RXS-0201~0203)。
+    if let Some(stage) = entry.stage {
+        return match crate::dxil_spirv::emit_spirv_body(stage, entry) {
+            Ok(words) => Some(words),
+            Err(e) => {
+                cx.diag()
+                    .struct_error(E_VULKAN_UNSUPPORTED, "codegen.vulkan_unsupported")
+                    .arg("detail", format!("graphics 阶段 MIR→SPIR-V 降级: {e}"))
+                    .span_label(entry.span, "in Vulkan graphics entry")
+                    .emit();
+                None
+            }
+        };
+    }
     match lower_compute(entry, &res) {
         Ok(words) => Some(words),
         Err(e) => {

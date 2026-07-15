@@ -289,7 +289,7 @@ pub fn locate_spirv_cross() -> Option<PathBuf> {
 /// `[[toolchain]]` + SHA256)由 owner 兑现,此处仅本地取证(`dxil_spirv` 编码器
 /// 产物的本机独立验证,RXS-0161 R1.8)。全不可用 → `None`(调用方 SKIP,真实红绿
 /// 在带 SPIRV-Tools 的 dev/owner 环境)。
-#[cfg(feature = "dxil-backend")]
+#[cfg(any(feature = "dxil-backend", feature = "vulkan-backend"))]
 pub fn locate_spirv_val() -> Option<PathBuf> {
     if let Ok(p) = std::env::var("RURIX_SPIRV_VAL") {
         let pb = PathBuf::from(p);

@@ -129,7 +129,7 @@ pub fn build_device_crate(cx: &QueryCtx<'_>) -> Vec<Body> {
 /// device codegen 收集根判定(RXS-0161,R1.2/R1.3/R6.7):默认仅非着色阶段
 /// kernel 根(`stage == None`),vertex/fragment 图形阶段根仅在 `dxil-backend`
 /// feature 下额外收纳(B 路 DXIL 入口)。mesh/task/RT 与 compute 不在此收。
-#[cfg(feature = "dxil-backend")]
+#[cfg(any(feature = "dxil-backend", feature = "vulkan-backend"))]
 fn collectable_stage(stage: Option<crate::ast::ShaderStage>) -> bool {
     use crate::ast::ShaderStage;
     matches!(
@@ -140,7 +140,7 @@ fn collectable_stage(stage: Option<crate::ast::ShaderStage>) -> bool {
 
 /// device codegen 收集根判定(默认 / 非 `dxil-backend`):仅非着色阶段 kernel
 /// 根。图形/RT 着色阶段一律排除 —— PTX 路径行为与既有测试逐一致(零漂移)。
-#[cfg(not(feature = "dxil-backend"))]
+#[cfg(not(any(feature = "dxil-backend", feature = "vulkan-backend")))]
 fn collectable_stage(stage: Option<crate::ast::ShaderStage>) -> bool {
     stage.is_none()
 }
@@ -149,7 +149,7 @@ fn collectable_stage(stage: Option<crate::ast::ShaderStage>) -> bool {
 /// R1.3):`dxil-backend` 下从 AST `shader_stages` 形参/返回位置的 I/O 结构体
 /// 字段标注提取 [`crate::mir::IoSigElem`] 表,置入 `body`。非图形阶段(含全部
 /// device fn callee)为 no-op。
-#[cfg(feature = "dxil-backend")]
+#[cfg(any(feature = "dxil-backend", feature = "vulkan-backend"))]
 fn attach_graphics_io_sig(cx: &QueryCtx<'_>, krate: &hir::Crate, def: DefId, body: &mut Body) {
     use crate::ast::ShaderStage;
     let hir::ItemKind::Fn(decl) = &krate.item(def).kind else {
@@ -168,7 +168,7 @@ fn attach_graphics_io_sig(cx: &QueryCtx<'_>, krate: &hir::Crate, def: DefId, bod
 
 /// 默认 / 非 `dxil-backend`:图形阶段根不收集,`Body` 的 stage/io_sig 维持
 /// build_body 的中立默认(`None`/空),保证 PTX 路径零漂移(R1.2/R6.7)。
-#[cfg(not(feature = "dxil-backend"))]
+#[cfg(not(any(feature = "dxil-backend", feature = "vulkan-backend")))]
 fn attach_graphics_io_sig(_cx: &QueryCtx<'_>, _krate: &hir::Crate, _def: DefId, _body: &mut Body) {}
 
 /// AST → MIR 图形阶段 I/O 意图签名提取(RXS-0161,仅 `dxil-backend`)。
@@ -183,7 +183,7 @@ fn attach_graphics_io_sig(_cx: &QueryCtx<'_>, _krate: &hir::Crate, _def: DefId, 
 /// 进 io_sig(字段名/种类/方向保真),不可映射的 6xxx 拒绝由 B 路编码器
 /// (任务 2/4)裁决。资源句柄(`Texture2D`/`Sampler`)非命名 I/O 结构体,
 /// 自然不入 io_sig(opaque handle 形态,RFC-0004 §4.6(b))。
-#[cfg(feature = "dxil-backend")]
+#[cfg(any(feature = "dxil-backend", feature = "vulkan-backend"))]
 mod dxil_io {
     use std::collections::HashMap;
 
