@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/uc07_offline_golden/v1",
+  "title": "Rurix MS1.3 UC-07 离线 golden 冒烟证据 JSON(G-MS1-3/G-MS1-4;RFC-0010 §4.1/§4.4)",
+  "description": "CI 步骤 53 ci/uc07_offline_golden_smoke.py 产出(**仅 device 段真跑全绿时写**,无 CUDA 降级 SKIP 不写证据)。机器事实:apps/ruridrop 主语言判据审计(零 .rs/.cpp/.c/.py 杂源 + kernel 与宿主编排同包 + offline_smoke/refcpu 两 EXE 均经 rx build 产出,防降级硬门 G-MS1-3)+ 离线 golden 三层(冒烟档 N=4096/160×120/8spp/2 帧:①确定性硬门同机两跑逐帧量化 PPM SHA-256 一致 ②参考容差硬门 GPU 帧 vs refcpu 入口 host 重放 |Δ|≤1 占比 ≥99.5% 且 max ≤2 ③blessed 哈希软门逐帧 SHA-256 == tests/uc07/golden_manifest)+ ④数据流红绿(篡改 sim_forces 重力常数经同一 rx build 链重编 → digest 变红 → 原树复原绿,反 YAML-only)。digest_match=true 计入 ms1.counter.uc07_offline_golden_frames(ci/budget_eval.py)。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "kind",
+    "date",
+    "zero_rs_audit",
+    "frames",
+    "determinism_pass",
+    "tolerance",
+    "digest_match",
+    "dataflow_red",
+    "adapter"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "kind": {
+      "const": "uc07_offline_golden"
+    },
+    "date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "zero_rs_audit": {
+      "type": "boolean"
+    },
+    "frames": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "determinism_pass": {
+      "type": "boolean"
+    },
+    "tolerance": {
+      "type": "object",
+      "required": [
+        "ratio",
+        "max"
+      ],
+      "properties": {
+        "ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "max": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "digest_match": {
+      "type": "boolean"
+    },
+    "dataflow_red": {
+      "type": "boolean"
+    },
+    "adapter": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}
