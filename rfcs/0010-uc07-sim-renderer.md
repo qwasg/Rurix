@@ -144,3 +144,4 @@ realtime 入口经 RFC-0009 §4.6 typestate 帧循环真跑;验收位 = **eviden
 |---|---|---|---|
 | Draft v0.1 | 2026-07-14 | AI 起草初版(MS1.1;应用设计承 Phase-2 勘察:device 能力清单/缺口替代实证 + 排序式确定性方案 + golden 三层先例核查) | Full RFC(Draft) |
 | Agent approval | 2026-07-14 | agent 自主批准全文(含 §9 八项裁决,Q-Criterion 判据操作化)并记录;批准后推进 MS1.3/MS1.4 实现 PR | Full RFC(Agent Approved) |
+| Q-AppScope 切片留痕 | 2026-07-15 | MS1.4 实测:offline 生产档 256spp/4 弹射触工具链毒径挂起(疑 rurixc PTX 发散重汇聚缺陷,registry/deferred.json **RD-027** 实录:bounces≤2 与 32spp 秒级完成、=3/=4 与 256spp 挂起;同数据 rt_primary 600 帧与冒烟档 bounces=4 全绿)→ §9 Q-AppScope 生产档**暂锁已验证切片 32spp/2 弹射**(apps/ruridrop/src/params.rx STUB(RD-027) 标注,offline 入口端到端 8 帧 1.17s 复验绿;分辨率/N/帧数/golden 三层协议/判据四条不变),256/4 随 RD-027 修复回填重测。按修订留痕纪律,不静默放宽 | Full RFC(修订,agent 自主签署) |
