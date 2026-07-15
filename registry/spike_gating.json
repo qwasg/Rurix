@@ -42,12 +42,13 @@
       "direction": "多后端(AMD / Intel / Metal / Vulkan / SPIR-V)",
       "trigger_condition": "G2 完成 且 agent 正式解除红线 3(D-008);解除一次一条(10 §9.2)",
       "permanence": "conditional",
-      "current_verdict": "not_triggered",
+      "current_verdict": "triggered(RFC-0011)",
       "decisions": [
         { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记;死亡路线红线,见 03 §4 / 11 §2" },
         { "date": "2026-06-23", "verdict": "not_triggered", "rationale": "G2 开工复评(agent 裁决):红线 3 多后端(AMD/Intel/Metal/Vulkan/SPIR-V)维持不解除——G2 in_scope 的 DXIL 是 D3D12 原生后端纵深,非通用多后端;D-008 解除条件(G2 完成 且 owner 正式解除红线 3,一次一条 10 §9.2)未满足。trigger_condition 0-byte 不改,维持 not_triggered。G2_CONTRACT.md §2.2 / §7 裁决留痕。" },
         { "date": "2026-06-30", "verdict": "not_triggered", "rationale": "G2 期满 close-out 决策点(agent 完全自主,AGENTS v3.0 硬规则 1):D-008 触发条件之一『G2 完成』现已兑现(G-G2-1~G-G2-6 全闭环),触发条件之二『agent 正式解除红线 3』agent 裁决**不解除**——DXIL 第二后端是 NVIDIA/D3D12 原生纵深(非通用多后端 AMD/Intel/Metal/Vulkan/SPIR-V),『NVIDIA 纵深完成』口径未达成,红线解除属独立 one-at-a-time 主动决策(10 §9.2),不因 G2 close-out 自动触发。维持死亡路线红线 3 不解除,trigger_condition 0-byte 不改,维持 not_triggered;后续如解除须独立 errata + 一次一条。G2_CONTRACT.md §8.8 裁决留痕。" },
-        { "date": "2026-07-14", "verdict": "not_triggered", "rationale": "V1 期满 close-out 决策点(agent 完全自主,AGENTS v3.0 硬规则 1):**语言 1.0 发行 ≠ NVIDIA 纵深完成**,D-008 红线 3 解除条件未达,且解除属独立 one-at-a-time 决策(10 §9.2)非 close-out 自动触发;维持 not_triggered(对齐 G2 §8.8.4 口径,V1_CONTRACT §7 ⑨)" }
+        { "date": "2026-07-14", "verdict": "not_triggered", "rationale": "V1 期满 close-out 决策点(agent 完全自主,AGENTS v3.0 硬规则 1):**语言 1.0 发行 ≠ NVIDIA 纵深完成**,D-008 红线 3 解除条件未达,且解除属独立 one-at-a-time 决策(10 §9.2)非 close-out 自动触发;维持 not_triggered(对齐 G2 §8.8.4 口径,V1_CONTRACT §7 ⑨)" },
+        { "date": "2026-07-15", "verdict": "triggered(RFC-0011)", "rationale": "owner（白栀）本工作会话明确指示「把多端红线解除并继续工作」→ 解除红线 3(D-008 §8 errata v2.1)。触发条件二『正式解除红线 3』由 owner 主动裁决满足(10 §9.2 一次一条);承 RFC-0011 = mb1 单一 Vulkan/SPIR-V 跨端后端(explicit / 单目标 per-build / 无地址空间推断,不做通用可移植抽象层,不犯 WGSL/SYCL 之错——触红线 3 字面非其底层关切)。**诚实留痕**:『NVIDIA 单栈纵深完成』先前(2026-07-14)判未达,本次为 owner 主动裁决解除(其 prerogative),非 agent 宣布前提达成。trigger_condition 0-byte 不改。agent 依 owner 明确授权代录。" }
       ]
     },
     {
@@ -123,6 +124,7 @@
     { "version": "v1.1", "date": "2026-06-14", "change": "M5.3 SG-002 复评追加 decisions(tiled GEMM 自研 kernel 经典 shared tiling 落地,不触 Tensor Core/WGMMA,维持 not_triggered;M5_PLAN §3 任务 4);trigger_condition 0-byte 不改" },
     { "version": "v1.2", "date": "2026-06-16", "change": "M8 开工 SG-007 复评追加 decisions(agent 裁决:D-312 包 registry 方向 MVP 收口期维持 not_triggered,MVP=lockfile+vendor+checksum,真 registry 留 G2 期决策点;M8_CONTRACT §2.2 / §7);trigger_condition 0-byte 不改。SG-001~SG-006/SG-008/SG-009 维持 not_triggered(11 §2 MVP 红线)" },
     { "version": "v1.3", "date": "2026-06-30", "change": "G2 期满 close-out SG 复评(agent 完全自主,AGENTS v3.0 硬规则 1;只追加 decisions,既有 entries trigger_condition/permanence 0-byte,既有 decisions 行 0-byte):SG-001(MLIR kernel island)/ SG-002(Tensor Core/WGMMA/TMA)/ SG-003(多后端,D-008 红线 3)/ SG-007(包 registry,D-312)各追加 2026-06-30 G2 期满复评 decision,全部维持 not_triggered。关键裁决——**SG-003 红线 3 不解除**:D-008 触发条件『G2 完成』已兑现但『agent 正式解除红线 3』agent 裁决不解除(DXIL 是 NVIDIA/D3D12 原生纵深非通用多后端,NVIDIA 纵深完成口径未达,解除属独立 one-at-a-time 10 §9.2);**SG-007 registry D-312** G2 期决策点复评社区规模未达触发阈维持休眠。SG-004/005/008(永久 gating)/ SG-006(声明宏)/ SG-009(自举)维持 not_triggered 不另追加。G2_CONTRACT.md §8.8 裁决留痕" },
-    { "version": "v1.4", "date": "2026-07-14", "change": "V1 期满 close-out SG 复评(agent 完全自主,AGENTS v3.0 硬规则 1;只追加 decisions,既有 entries trigger_condition/permanence 0-byte,既有 decisions 行 0-byte):SG-001(MLIR)/ SG-002(Tensor Core)/ SG-003(多后端,D-008 红线 3——语言 1.0 发行 ≠ NVIDIA 纵深完成,解除条件未达)/ SG-007(registry,D-312——1.0 发行不构成触发)/ SG-008(Python 原生嵌入,永久红线 1)各追加 2026-07-14 not_triggered 决策行。V1 整体 close-out 见 milestones/v1/V1_CONTRACT.md §8.4" }
+    { "version": "v1.4", "date": "2026-07-14", "change": "V1 期满 close-out SG 复评(agent 完全自主,AGENTS v3.0 硬规则 1;只追加 decisions,既有 entries trigger_condition/permanence 0-byte,既有 decisions 行 0-byte):SG-001(MLIR)/ SG-002(Tensor Core)/ SG-003(多后端,D-008 红线 3——语言 1.0 发行 ≠ NVIDIA 纵深完成,解除条件未达)/ SG-007(registry,D-312——1.0 发行不构成触发)/ SG-008(Python 原生嵌入,永久红线 1)各追加 2026-07-14 not_triggered 决策行。V1 整体 close-out 见 milestones/v1/V1_CONTRACT.md §8.4" },
+    { "version": "v1.5", "date": "2026-07-15", "change": "SG-003 多后端 red-line 3 由 not_triggered → **triggered(RFC-0011)**:owner（白栀）本会话明确指示解除红线 3(D-008 §8 errata v2.1,10 §9.2 owner 主动决策一次一条);承 mb1 单一 Vulkan/SPIR-V 跨端后端。只追加 decisions + 翻 current_verdict,trigger_condition/permanence 0-byte;其余 SG 条目不动。agent 依明确授权代录。" }
   ]
 }
