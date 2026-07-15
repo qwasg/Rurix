@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "kind": "uc07_present",
+  "date": "2026-07-15T13:06:55+08:00",
+  "frames": 600,
+  "sample_ok": true,
+  "present_path": "d3d12-interop-real",
+  "run_seconds": 9.096,
+  "run_command": "cargo build -p rurix-rt-cabi --release --features present-real --target-dir target/crt-static-real (RUSTFLAGS=-C target-feature=+crt-static); RURIX_RT_CABI_LIB=target/crt-static-real/release/rurix_rt_cabi.lib rx build apps/ruridrop/src/realtime.rx -o <tmp>; run <tmp> (opens window)",
+  "samples": {
+    "stats": {
+      "min": 49,
+      "max": 202,
+      "mean": 145
+    },
+    "sky": [
+      [
+        159,
+        166,
+        175
+      ],
+      [
+        161,
+        167,
+        175
+      ]
+    ],
+    "water": [
+      [
+        117,
+        137,
+        183
+      ],
+      [
+        105,
+        129,
+        183
+      ]
+    ]
+  },
+  "environment": {
+    "gpu_name": "NVIDIA GeForce RTX 4070 Ti",
+    "driver_version": "620.02",
+    "cuda_driver_version": "13.2",
+    "driver_model": "WDDM",
+    "os_build": "Windows 10.0.28120",
+    "clocks_locked": true,
+    "temp_start_c": 42,
+    "temp_end_c": 53
+  },
+  "notes": "G-MS1-5 realtime present 取证(RFC-0010 §4.5):ruridrop realtime 入口经 RXS-0197/0198 present typestate 帧循环(wait→backbuffer→rt_primary 直写→signal→pump→present,RFC-0001 fence 协议面经 rxp_* C ABI/d3d12-interop-real C++ shim,D-130 0-byte)真窗口跑满 MAX_FRAMES;循环结束后同一末帧排序态 rt_primary 重渲进普通 Buffer(非 backbuffer)download 采样:全域 min/max/mean 粗测 + 天空区顶行两点(确定性天空梯度,蓝>红)+ 水体区两点(初始水柱脚印内世界点投影,速度基色蓝主导)范围核验全过(EXE 内自校验,失败退出非 0)。evidence 面不进 CI 硬门(SKIP 不充绿,双态先例)"
+}

@@ -9,9 +9,53 @@
     "milestones/ms1/MS1_CONTRACT.md",
     "milestones/ms1/CI_GATES.md"
   ],
-  "entries": [],
+  "entries": [
+    {
+      "id": "ms1.bench.uc07_sph_step_ms",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 17.1915,
+      "evidence_file": "evidence/uc07_sph_step_ms_20260715_agg.json",
+      "measured_value": 11.461
+    },
+    {
+      "id": "ms1.bench.uc07_offline_frame_s",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "s",
+      "threshold": 0.1736,
+      "evidence_file": "evidence/uc07_offline_frame_s_20260715_agg.json",
+      "measured_value": 0.1157
+    },
+    {
+      "id": "ms1.bench.uc07_realtime_frame_ms",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 33.3,
+      "evidence_file": "evidence/uc07_realtime_frame_ms_20260715_agg.json",
+      "measured_value": 14.8334
+    }
+  ],
   "ratio_assertions": [],
-  "counter_assertions": [],
+  "counter_assertions": [
+    {
+      "id": "ms1.counter.host_orch_single_source",
+      "description": "single-source 宿主编排端到端证据数 ≥1(契约 G-MS1-2;host .rx 经 std::gpu 首期收敛子集编排 GPU + 同源 kernel PTX 嵌入单 EXE,rx build 一步出可执行,device 真跑数值自校验 + 篡改嵌入 PTX 装载协商拒/桩化 kernel 写回数值红双红绿闭合,RFC-0009 / RXS-0189~0196);计数源 = evidence/host_orch_smoke*.json 中 single_source=true 且 device_run=true 的报告数。无 CUDA 环境冒烟降级 SKIP 不写证据 → 0 → 建设期 normal SKIP / close-out strict FAIL,对齐 g1.counter.d3d12_interop 先例。",
+      "expect": ">=1",
+      "evidence": "ci_checked"
+    },
+    {
+      "id": "ms1.counter.uc07_offline_golden_frames",
+      "description": "UC-07 离线 golden 端到端证据数 ≥1(契约 G-MS1-3/G-MS1-4;apps/ruridrop 主语言判据机器审计:零 .rs/.cpp/.c/.py 杂源 + kernel 与宿主编排同包 + offline_smoke/refcpu 两 EXE 均经 rx build 产出;离线 golden 三层:①同机两跑逐帧量化 PPM SHA-256 一致 ②GPU 帧 vs refcpu 入口 host 重放量化域 |Δ|≤1 占比 ≥99.5% 且 max ≤2 ③逐帧 SHA-256 == tests/uc07/golden_manifest(bless 留痕 tests/uc07/bless_log.md);④篡改 sim_forces 重力常数经同一 rx build 链重编 → digest 变红 → 原树复原绿,RFC-0010 §4.1/§4.4,CI 步骤 53 ci/uc07_offline_golden_smoke.py);计数源 = evidence/uc07_offline_golden*.json 中 digest_match=true 的报告数。无 CUDA 环境冒烟降级 SKIP 不写证据 → 0 → 建设期 normal SKIP / close-out strict FAIL,对齐 ms1.counter.host_orch_single_source 先例。",
+      "expect": ">=1",
+      "evidence": "ci_checked"
+    }
+  ],
   "namespace_check": {
     "rule": "本文件所有 id 必须以 'ms1.' 前缀开头;多预算合并加载时冲突即 FAIL(14 §3)。预算自动发现 glob 已泛化为 *_budget.json,自动纳入 ms1(ci/check_schemas.py / budget_eval.py / check_guardrails.py / tests/test_budget_namespace.py 同一 glob),零 CI 代码改动。",
     "unit_test_required": true
@@ -21,6 +65,21 @@
       "version": "v1.0",
       "date": "2026-07-14",
       "change": "初版模板(MS1 开工脚手架):entries/ratio_assertions/counter_assertions 全部留空。counter 不预造(未知 id 强制 FAIL)——ms1.counter.host_orch_single_source 随 MS1.2 实现 PR、ms1.counter.uc07_offline_golden_frames 随 MS1.3 实现 PR,各与 evaluator 分支/schema 同 PR 落;性能 entries 随 MS1.4 以 measured_local 回填(triple_run trimmed mean,阈值实测后定)。条款锚定沿用全局 m1.counter.spec_clause_test_anchoring。预算 glob 已泛化自动纳入,零 CI 代码改动。"
+    },
+    {
+      "version": "v1.1",
+      "date": "2026-07-14",
+      "change": "MS1.2 CI 步骤 52 落地:counter_assertions 追加 ms1.counter.host_orch_single_source(>=1),与 ci/budget_eval.py eval_counter 新分支 + milestones/ms1/host_orch_smoke_evidence_schema.json(ci/check_schemas.py 前缀路由 host_orch_smoke)+ ci/host_orch_smoke.py 同 PR 落(不预造纪律兑现,v1.0 计划行);计数源 = evidence/host_orch_smoke*.json 中 single_source=true 且 device_run=true 的报告数,无 device 真跑时为建设期 normal SKIP 而非红。entries/ratio_assertions 维持留空(随 MS1.4 measured_local 回填);ms1.counter.uc07_offline_golden_frames 仍待 MS1.3 实现 PR。"
+    },
+    {
+      "version": "v1.2",
+      "date": "2026-07-15",
+      "change": "MS1.3 CI 步骤 53 落地:counter_assertions 追加 ms1.counter.uc07_offline_golden_frames(>=1),与 ci/budget_eval.py eval_counter 新分支 + milestones/ms1/uc07_offline_golden_evidence_schema.json(ci/check_schemas.py 前缀路由 uc07_offline_golden)+ ci/uc07_offline_golden_smoke.py 同 PR 落(不预造纪律兑现,v1.0 计划行);计数源 = evidence/uc07_offline_golden*.json 中 digest_match=true 的报告数(主语言判据审计 + 三层 golden + 数据流红绿全绿方写),无 device 真跑时为建设期 normal SKIP 而非红。entries/ratio_assertions 维持留空(随 MS1.4 measured_local 回填)。"
+    },
+    {
+      "version": "v1.3",
+      "date": "2026-07-15",
+      "change": "MS1.4 性能 entries 回填(契约 G-MS1-6,RFC-0010 §4.6;ci/uc07_bench.py,BENCH_PROTOCOL 三次进程级独立运行 trimmed mean,L0 锁频 -lgc/-lmc 在位 locked=true,evidence 经 milestones/ms1/uc07_bench_evidence_schema.json 校验、路由随本轮接线):① ms1.bench.uc07_sph_step_ms = 11.4610 ms(sim-only 生产档 N=131072,72−8 帧墙钟差分/64 消 startup 开销)→ 阈值 = 实测 ×1.5 = 17.1915 ms;② ms1.bench.uc07_offline_frame_s = 0.1157 s(生产档 1280×720/N=131072/8 帧全序列的 32spp+2 弹射可测切片,全程墙钟/8 含启动与落盘;完整 256spp/4 弹射档在当前工具链下不可测——样本序号/弹射深度相关毒径挂起 pt_render:720p/8spp bounces=3 挂起而 ≤2 秒级完成、bounces=2 下 256spp 挂起而 32spp 秒级完成,同数据同表 rt_primary 600 帧与 160×120 冒烟档 bounces=4 全绿,源内循环全部编译期有界,疑 PTX 发散重汇聚类工具链缺陷,登记 RD-027(deferred v1.50)跟进,不在 MS1.4 修;v1.0 计划名 uc07_pt_frame_ms 按实测口径如实改名 offline_frame_s,单位秒)→ 阈值 = 实测 ×1.5 = 0.1736 s;③ ms1.bench.uc07_realtime_frame_ms = 14.8334 ms(realtime 真窗口 600 帧全程墙钟/600,含 present/泵/启动;实测 ≤22.2 ms)→ 阈值按 30fps 档定 33.3 ms(优于实测 ×1.5,取更严生产判据)。evaluator entries 数据驱动零新分支,budget_eval 71→74 pass。"
     }
   ]
 }

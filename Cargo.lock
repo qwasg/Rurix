@@ -108,6 +108,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "rurix-rt-cabi"
+version = "1.0.0"
+dependencies = [
+ "image-io",
+ "rurix-rt",
+]
+
+[[package]]
 name = "rurixc"
 version = "1.0.0"
 dependencies = [

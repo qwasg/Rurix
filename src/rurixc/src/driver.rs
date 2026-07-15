@@ -31,6 +31,9 @@ use crate::span::Edition;
 
 const E_MISSING_MAIN: ErrorCode = ErrorCode(6002); // RX6002
 const E_TOOLCHAIN: ErrorCode = ErrorCode(7001); // RX7001
+const E_LINK_ATTR: ErrorCode = ErrorCode(7022); // RX7022
+const E_GPU_EMBED: ErrorCode = ErrorCode(6025); // RX6025(RXS-0192)
+const E_RT_CABI: ErrorCode = ErrorCode(7021); // RX7021(RXS-0195)
 
 /// 编译选项(rurixc 驱动 argv 与 rx 子命令分发都构造此结构后调 [`compile`])。
 pub struct CompileOptions {
@@ -100,13 +103,30 @@ pub fn compile(opts: &CompileOptions) -> u8 {
     let t = Instant::now();
     let tokens = lex(&src, id, Edition::Rx0, &diag);
     let n_tokens = tokens.len() as u64;
-    let ast = parse(&src, tokens, id, Edition::Rx0, &diag);
+    let mut ast = parse(&src, tokens, id, Edition::Rx0, &diag);
     prof.record(
         "parse",
         t,
         &[("tokens", n_tokens), ("items", ast.items.len() as u64)],
     );
-    let cx = QueryCtx::from_ast(ast, &src, id, &diag);
+    // out-of-line 模块装配(RXS-0196):parse 后、resolve 前;`mod name;` 按输入
+    // 文件同目录 name.rx 加载 splice 为内联 mod 等价形态(resolve/typeck 零改动;
+    // 缺失/IO/循环 → RX1005,经下方阶段化关卡中止)。
+    let module_srcs = crate::mod_assembly::assemble_out_of_line_mods(
+        &mut ast,
+        &input_path,
+        &mut sm,
+        Edition::Rx0,
+        &diag,
+    );
+    // #[link(name = "x")] 接线(RXS-0195):extern 块属性收集,链接段追加 x.lib;
+    // 属性形态非法 → RX7022(编译期,同经阶段化关卡中止)。
+    let mut link_libs: Vec<String> = Vec::new();
+    collect_link_libs(&ast.items, &sm, &diag, &mut link_libs);
+    let mut cx = QueryCtx::from_ast(ast, &src, id, &diag);
+    for (fid, fsrc) in module_srcs {
+        cx.add_module_src(fid, fsrc);
+    }
 
     // 阶段化:parse/gate → resolve → typeck → mir(前段有错即停)
     check_feature_gates(cx.ast(), &diag);
@@ -416,8 +436,36 @@ pub fn compile(opts: &CompileOptions) -> u8 {
         return 1;
     }
 
+    // 宿主 GPU 编排(MS1.2,RXS-0192/0195):MIR 含 rxrt_* 调用 = 本单元使用 gpu
+    // 宿主 API → device 路产 single-source 嵌入产物(PTX 必存 + 可选 sm_89 cubin;
+    // 工具链缺失/无 kernel 按哨兵纪律)+ 链接段追加 rurix-rt-cabi。host-only 程序
+    // 链接线零漂移。
+    let exe = out
+        .clone()
+        .unwrap_or_else(|| input_path.with_extension("exe"));
+    let uses_gpu = mir_bodies.iter().any(|b| {
+        b.blocks.iter().any(|bb| {
+            matches!(
+                &bb.terminator.kind,
+                mir::TerminatorKind::Call {
+                    target: mir::CallTarget::Rt { .. },
+                    ..
+                }
+            )
+        })
+    });
+    let gpu_artifacts = if uses_gpu {
+        match build_gpu_artifacts(&diag, &sm, &cx, &stem, &exe) {
+            Ok(a) => Some(a),
+            Err(code) => return code,
+        }
+    } else {
+        None
+    };
+
     let t = Instant::now();
     let krate = cx.hir_crate();
+    let lang_items = cx.resolutions().lang_items;
     let ir = codegen::emit_llvm_ir(
         &mir_bodies,
         &krate,
@@ -426,6 +474,8 @@ pub fn compile(opts: &CompileOptions) -> u8 {
             module_name: &stem,
             file_name: &file_name,
             directory: &directory,
+            lang_items,
+            gpu_artifacts,
         },
     );
     if emit.as_deref() == Some("llvm-ir") {
@@ -439,9 +489,6 @@ pub fn compile(opts: &CompileOptions) -> u8 {
     }
 
     // 产物路径:exe 由 -o 指定(默认与输入同目录同名);.ll/.obj 随 exe 落同目录
-    let exe = out
-        .clone()
-        .unwrap_or_else(|| input_path.with_extension("exe"));
     let ll = exe.with_extension("ll");
     let obj = exe.with_extension("obj");
     if let Err(e) = std::fs::write(&ll, &ir) {
@@ -492,6 +539,34 @@ pub fn compile(opts: &CompileOptions) -> u8 {
         .arg("libucrt.lib")
         .arg("libvcruntime.lib")
         .arg("kernel32.lib");
+    // #[link(name = "x")] 追加 x.lib(RXS-0195:最小策略,仅追加参数,定位依赖
+    // /libpath 序;定位失败经下方退出码归因 RX7022)
+    for lib in &link_libs {
+        cmd.arg(format!("{lib}.lib"));
+    }
+    // 宿主 GPU 编排链接接线(RXS-0195):rurix_rt_cabi.lib(crt-static 构建,与
+    // 基础集 libcmt 系一致)+ Rust staticlib 系统库固定集(`cargo rustc --print
+    // native-static-libs` 实测 pin;kernel32 已在基础集)。定位/构建失败 → RX7021。
+    if uses_gpu {
+        match locate_or_build_rt_cabi() {
+            Ok(lib) => {
+                cmd.arg(&lib);
+                for l in ["ntdll.lib", "userenv.lib", "ws2_32.lib", "dbghelp.lib"] {
+                    cmd.arg(l);
+                }
+            }
+            Err(detail) => {
+                diag.struct_error(E_RT_CABI, "link.rt_cabi_failure")
+                    .arg("detail", detail)
+                    .emit();
+                eprint!(
+                    "{}",
+                    render_diagnostics(&diag.emitted(), &sm, diag.messages())
+                );
+                return 1;
+            }
+        }
+    }
     if opts.reproducible {
         cmd.arg("/Brepro");
     } else {
@@ -501,7 +576,27 @@ pub fn compile(opts: &CompileOptions) -> u8 {
         cmd.arg(format!("/libpath:{}", p.display()));
     }
     if let Err(e) = run_tool(&mut cmd, "link.exe") {
-        toolchain_err(&diag, &sm, e);
+        // #[link] 追加库在场时链接失败归因 RX7022(RXS-0195:库定位失败只能事后
+        // 从 link.exe 退出码判,包一层 #[link] 上下文提示);无追加库维持 RX7001。
+        if link_libs.is_empty() {
+            toolchain_err(&diag, &sm, e);
+        } else {
+            let libs = link_libs
+                .iter()
+                .map(|l| format!("{l}.lib"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            diag.struct_error(E_LINK_ATTR, "link.native_lib_failure")
+                .arg(
+                    "detail",
+                    format!("link.exe failed with `#[link]` libraries appended ({libs}): {e}"),
+                )
+                .emit();
+            eprint!(
+                "{}",
+                render_diagnostics(&diag.emitted(), &sm, diag.messages())
+            );
+        }
         return 1;
     }
     let pdb = exe.with_extension("pdb");
@@ -537,6 +632,105 @@ fn finish_profile(
     Ok(())
 }
 
+/// 收集 extern 块上的 `#[link(name = "x")]`(RXS-0195):链接段追加 `x.lib` 参数
+/// (最小策略:仅追加参数,定位交给 link.exe 的 /libpath 序)。属性形态非法
+/// (非 list 形态 / 缺 name / 空名 / 非字符串 / 重复或未知键)→ **RX7022** 编译期
+/// 诊断;库定位失败无法在编译期精确归因,由 [`compile`] 链接段按 link.exe 退出码
+/// 事后归因(同码 RX7022)。挂在非 extern 块 item 上的 `#[link]` 不生效(不收集,
+/// 与其余未知属性同样静默,MVP 属性纪律)。
+//@ spec: RXS-0195
+pub fn collect_link_libs(
+    items: &[crate::ast::Item],
+    sm: &SourceMap,
+    diag: &DiagCtxt,
+    libs: &mut Vec<String>,
+) {
+    use crate::ast::{ItemKind, LitKind, MetaInner, MetaKind};
+    for item in items {
+        match &item.kind {
+            ItemKind::Mod(m) => collect_link_libs(&m.items, sm, diag, libs),
+            ItemKind::ExternBlock(_) => {
+                for attr in &item.attrs {
+                    let is_link = !attr.inner
+                        && attr.meta.path.segments.len() == 1
+                        && attr.meta.path.segments[0].ident.name == "link";
+                    if !is_link {
+                        continue;
+                    }
+                    let bad = |detail: String| {
+                        diag.struct_error(E_LINK_ATTR, "link.native_lib_failure")
+                            .arg("detail", detail)
+                            .span_label(attr.span, "invalid `#[link]` attribute form")
+                            .emit();
+                    };
+                    let MetaKind::List(inner) = &attr.meta.kind else {
+                        bad("expected `#[link(name = \"...\")]`".to_owned());
+                        continue;
+                    };
+                    let mut name: Option<String> = None;
+                    let mut ok = true;
+                    for entry in inner {
+                        let MetaInner::Meta(mi) = entry else {
+                            bad("expected `name = \"...\"` inside `#[link(...)]`".to_owned());
+                            ok = false;
+                            break;
+                        };
+                        let is_name =
+                            mi.path.segments.len() == 1 && mi.path.segments[0].ident.name == "name";
+                        if !is_name {
+                            bad(format!(
+                                "unknown `#[link]` key `{}` (only `name = \"...\"` is supported)",
+                                mi.path
+                                    .segments
+                                    .iter()
+                                    .map(|s| s.ident.name.as_str())
+                                    .collect::<Vec<_>>()
+                                    .join("::")
+                            ));
+                            ok = false;
+                            break;
+                        }
+                        if name.is_some() {
+                            bad("duplicate `name` key in `#[link(...)]`".to_owned());
+                            ok = false;
+                            break;
+                        }
+                        let MetaKind::NameValue(lit) = &mi.kind else {
+                            bad("`#[link]` `name` must be a string literal".to_owned());
+                            ok = false;
+                            break;
+                        };
+                        if lit.kind != LitKind::Str {
+                            bad("`#[link]` `name` must be a string literal".to_owned());
+                            ok = false;
+                            break;
+                        }
+                        let value = sm.snippet(lit.span).trim_matches('"').to_owned();
+                        if value.is_empty() {
+                            bad("`#[link]` `name` must not be empty".to_owned());
+                            ok = false;
+                            break;
+                        }
+                        name = Some(value);
+                    }
+                    if !ok {
+                        continue;
+                    }
+                    match name {
+                        Some(n) => {
+                            if !libs.contains(&n) {
+                                libs.push(n);
+                            }
+                        }
+                        None => bad("missing `name = \"...\"` in `#[link(...)]`".to_owned()),
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 fn toolchain_err(diag: &DiagCtxt, sm: &SourceMap, reason: String) {
     diag.struct_error(E_TOOLCHAIN, "link.toolchain_failure")
         .arg("reason", reason)
@@ -558,6 +752,214 @@ fn run_tool(cmd: &mut Command, name: &str) -> Result<(), String> {
         )),
         Err(e) => Err(format!("cannot spawn {name}: {e}")),
     }
+}
+
+/// single-source 嵌入产物构建(MS1.2,RXS-0192):host 编译单元使用 gpu 宿主 API
+/// 时走 device 路产 PTX(复用 [`emit_ptx_and_gate`] 纪律:ptxas 干验证 RXS-0073 +
+/// libdevice RXS-0082)+ `ptxas` 在位时预编 sm_89 cubin(RXS-0150)。
+///
+/// 哨兵纪律(RXS-0192/0193,不静默降级):
+/// - 无 `kernel fn` 的编译单元 → 哨兵空表(编译不拒;运行期 `rxrt_ctx_create`
+///   解析确定性拒 + 终止);
+/// - 工具链缺失(libdevice SKIP)→ 哨兵空表 + note(对齐既有 SKIP 纪律);
+/// - device 路自身错误 → 既有码(ptxas 拒 RX6004 / libdevice RX7002 / 工具链
+///   RX7001);产物无法安全打包(空 PTX / 含 NUL 字节破坏 NUL 终止嵌入)→ RX6025。
+fn build_gpu_artifacts(
+    diag: &DiagCtxt,
+    sm: &SourceMap,
+    cx: &QueryCtx<'_>,
+    stem: &str,
+    exe: &Path,
+) -> Result<codegen::GpuArtifacts, u8> {
+    let ir = crate::device_codegen::build_and_emit(cx, stem);
+    if diag.has_errors() {
+        eprint!(
+            "{}",
+            render_diagnostics(&diag.emitted(), sm, diag.messages())
+        );
+        return Err(1);
+    }
+    let Some(ir) = ir else {
+        eprintln!(
+            "rurixc: note: no `kernel fn` in this unit; embedding sentinel GPU artifacts \
+             (first gpu op fails deterministically at run time, RXS-0192)"
+        );
+        return Ok(codegen::GpuArtifacts::default());
+    };
+    let ptx_out = exe.with_extension("ptx");
+    let embed = |ptx: String, cubin: Vec<u8>| -> Result<codegen::GpuArtifacts, u8> {
+        if ptx.is_empty() || ptx.contains('\0') {
+            diag.struct_error(E_GPU_EMBED, "codegen.gpu_embed_failure")
+                .arg(
+                    "detail",
+                    if ptx.is_empty() {
+                        "device path produced empty PTX for a unit with `kernel fn`"
+                    } else {
+                        "PTX text contains an interior NUL byte (cannot embed NUL-terminated)"
+                    },
+                )
+                .emit();
+            eprint!(
+                "{}",
+                render_diagnostics(&diag.emitted(), sm, diag.messages())
+            );
+            return Err(1);
+        }
+        Ok(codegen::GpuArtifacts { ptx, cubin })
+    };
+    match emit_ptx_and_gate(&ir, stem, &ptx_out) {
+        Ok(PtxGate::Ok(ptx)) => {
+            // ptxas 在位:预编 sm_89 cubin 一并入描述表(RXS-0150;失败降级仅
+            // PTX fallback,保守兜底)。
+            let cubin = match crate::ptxas::compile_cubin(&ptx, stem, "sm_89") {
+                crate::ptxas::CubinOutcome::Compiled(bytes) => bytes,
+                _ => Vec::new(),
+            };
+            embed(ptx, cubin)
+        }
+        Ok(PtxGate::SkippedNoPtxas(ptx)) => {
+            eprintln!(
+                "rurixc: note: ptxas not found; embedding PTX-only artifacts \
+                 (ptxas dry-gate SKIPPED, RXS-0073)"
+            );
+            embed(ptx, Vec::new())
+        }
+        Ok(PtxGate::SkippedNoLibdevice) => {
+            eprintln!(
+                "rurixc: note: libdevice.10.bc not found; embedding sentinel GPU artifacts \
+                 (first gpu op fails deterministically at run time, RXS-0082/RXS-0192)"
+            );
+            Ok(codegen::GpuArtifacts::default())
+        }
+        Err(PtxError::LibdeviceLink(reason)) => {
+            diag.struct_error(ErrorCode(7002), "link.libdevice_failure")
+                .arg("reason", reason)
+                .emit();
+            eprint!(
+                "{}",
+                render_diagnostics(&diag.emitted(), sm, diag.messages())
+            );
+            Err(1)
+        }
+        Err(PtxError::Rejected { reason }) => {
+            diag.struct_error(ErrorCode(6004), "codegen.ptxas_rejected")
+                .arg("reason", reason)
+                .emit();
+            eprint!(
+                "{}",
+                render_diagnostics(&diag.emitted(), sm, diag.messages())
+            );
+            Err(1)
+        }
+        Err(PtxError::Toolchain(e)) => {
+            toolchain_err(diag, sm, e);
+            Err(1)
+        }
+    }
+}
+
+/// rurix_rt_cabi.lib 定位序(RXS-0195,RX7021):env `RURIX_RT_CABI_LIB` →
+/// rx.exe 旁 `lib/` → workspace `target/crt-static/release/`(缺则编排
+/// `cargo build -p rurix-rt-cabi --release`,先例 rx build_pyd)。
+///
+/// CRT 口径(RFC-0009 §9 Q-Link 实测定案):cabi 以
+/// `RUSTFLAGS=-C target-feature=+crt-static` 构建(静态 CRT = libcmt 系,与
+/// 本 driver 链接基础集 libcmt.lib 一致,避免 /defaultlib:msvcrt 冲突);
+/// `--target-dir target/crt-static` 与普通 target/release 缓存隔离。
+fn locate_or_build_rt_cabi() -> Result<PathBuf, String> {
+    const LIB: &str = "rurix_rt_cabi.lib";
+    if let Ok(p) = std::env::var("RURIX_RT_CABI_LIB") {
+        let pb = PathBuf::from(&p);
+        if pb.is_file() {
+            return Ok(pb);
+        }
+        return Err(format!("RURIX_RT_CABI_LIB points to a missing file: {p}"));
+    }
+    if let Ok(me) = std::env::current_exe()
+        && let Some(dir) = me.parent()
+    {
+        let pb = dir.join("lib").join(LIB);
+        if pb.is_file() {
+            return Ok(pb);
+        }
+    }
+    let Some(root) = find_workspace_with_rt_cabi() else {
+        return Err(format!(
+            "cannot find a workspace containing src/rurix-rt-cabi (searched upward from the \
+             current directory and the compiler executable); set RURIX_RT_CABI_LIB to a \
+             prebuilt {LIB}"
+        ));
+    };
+    let lib = root
+        .join("target")
+        .join("crt-static")
+        .join("release")
+        .join(LIB);
+    if lib.is_file() {
+        return Ok(lib);
+    }
+    eprintln!(
+        "rurixc: building rurix-rt-cabi (cargo --release, crt-static; one-time per workspace)…"
+    );
+    let out = Command::new("cargo")
+        .args([
+            "build",
+            "-p",
+            "rurix-rt-cabi",
+            "--release",
+            "--target-dir",
+            "target/crt-static",
+        ])
+        .env("RUSTFLAGS", "-C target-feature=+crt-static")
+        .current_dir(&root)
+        .output()
+        .map_err(|e| format!("cannot spawn cargo: {e}"))?;
+    if !out.status.success() {
+        return Err(format!(
+            "cargo build -p rurix-rt-cabi exited with {}: {}",
+            out.status,
+            String::from_utf8_lossy(&out.stderr).trim()
+        ));
+    }
+    if lib.is_file() {
+        Ok(lib)
+    } else {
+        Err(format!(
+            "cargo build succeeded but {} is missing",
+            lib.display()
+        ))
+    }
+}
+
+/// 向上查找含 `src/rurix-rt-cabi/Cargo.toml` 的 workspace 根(先当前目录、
+/// 后编译器可执行所在目录;先例 rx `find_workspace_with_pyd`)。
+fn find_workspace_with_rt_cabi() -> Option<PathBuf> {
+    let mut starts: Vec<PathBuf> = Vec::new();
+    if let Ok(cwd) = std::env::current_dir() {
+        starts.push(cwd);
+    }
+    if let Ok(me) = std::env::current_exe()
+        && let Some(dir) = me.parent()
+    {
+        starts.push(dir.to_path_buf());
+    }
+    for start in starts {
+        let mut dir = start;
+        loop {
+            if dir
+                .join("src")
+                .join("rurix-rt-cabi")
+                .join("Cargo.toml")
+                .is_file()
+            {
+                return Some(dir);
+            }
+            if !dir.pop() {
+                break;
+            }
+        }
+    }
+    None
 }
 
 /// ptxas 干验证关卡结果(RXS-0073,G-M4-4)。

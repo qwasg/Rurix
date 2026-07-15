@@ -1,0 +1,255 @@
+// ruridrop sim-only 基准入口(长档,MS1.4;RFC-0010 §4.6
+// ms1.bench.uc07_sph_step_ms)。生产档 N=131072(mod params),仅仿真不渲染:
+// 帧循环{子步 ×4{cell_key → bit-split 基数排序 → reorder → cell_bounds →
+// density → forces → integrate}},与 sim_bench_short 唯一差异 = BENCH_FRAMES
+// (72 vs 8)。指标 =(t_long − t_short)/ 64 帧(进程级墙钟差分,消
+// startup/JIT/ctx 建立开销;计时归 ci/uc07_bench.py 包装)。结束 download
+// 位置域做 NaN/盒内校验(短长两档同量,差分中互消)→ 打印 SIM_BENCH_OK。
+// 结构母本 = sim_check.rx(Stage-1),换 params 生产档、去哈希面。
+
+mod params;
+mod dmath;
+mod rng;
+mod sim;
+
+// 基准帧数(长档;短档 sim_bench_short.rx = 8,差 = 64 帧)
+pub const BENCH_FRAMES: usize = 72;
+
+fn main() -> i32 {
+    // ---- 常量收拢(单一事实源 params 生产档,经标量实参下发 kernel) ----
+    let n = params::N;
+    let col_x = params::COL_X;
+    let col_y = params::COL_Y;
+    let cells = params::CELLS;
+    let passes = params::SORT_PASSES;
+    let frames = BENCH_FRAMES;
+    let substeps = params::SUBSTEPS;
+    let grid_dim = params::GRID_DIM;
+    let inv_cell = params::INV_CELL;
+    let h = params::SMOOTH_H;
+    let h2 = params::SMOOTH_H2;
+    let mass = params::MASS;
+    let rho0 = params::REST_DENSITY;
+    let stiff = params::STIFFNESS;
+    let visc = params::VISCOSITY;
+    let gravity = params::GRAVITY;
+    let dt = params::DT;
+    let damp = params::BOUNDARY_DAMP;
+    let max_speed = params::MAX_SPEED;
+    let lo = params::MARGIN;
+    let hi = params::BOX - params::MARGIN;
+    let spacing = params::SPACING;
+    let origin = params::ORIGIN;
+    let nblocks = n / 256;
+
+    let ctx = Context::create();
+    let stream = ctx.stream();
+
+    // ---- 锁页缓冲(f32 / u32 / cell 域 / 块和域) ----
+    let mut hf = ctx.alloc_pinned(n);
+    let mut hu = ctx.alloc_pinned(n);
+    let mut hc = ctx.alloc_pinned(cells);
+    let mut hs = ctx.alloc_pinned(nblocks + 1);
+
+    // ---- 设备缓冲(SoA 双缓冲 A/B + 排序工作集 + cell 边界表) ----
+    let mut pax = ctx.alloc(n);
+    let mut pay = ctx.alloc(n);
+    let mut paz = ctx.alloc(n);
+    let mut vax = ctx.alloc(n);
+    let mut vay = ctx.alloc(n);
+    let mut vaz = ctx.alloc(n);
+    let mut pbx = ctx.alloc(n);
+    let mut pby = ctx.alloc(n);
+    let mut pbz = ctx.alloc(n);
+    let mut vbx = ctx.alloc(n);
+    let mut vby = ctx.alloc(n);
+    let mut vbz = ctx.alloc(n);
+    let mut rho = ctx.alloc(n);
+    let mut pres = ctx.alloc(n);
+    let mut ffx = ctx.alloc(n);
+    let mut ffy = ctx.alloc(n);
+    let mut ffz = ctx.alloc(n);
+    let mut key0 = ctx.alloc(n);
+    let mut key1 = ctx.alloc(n);
+    let mut idx0 = ctx.alloc(n);
+    let mut idx1 = ctx.alloc(n);
+    let mut flag = ctx.alloc(n);
+    let mut bofs = ctx.alloc(n);
+    let mut bsums = ctx.alloc(nblocks + 1);
+    let mut bscan = ctx.alloc(nblocks + 1);
+    let mut cstart = ctx.alloc(cells);
+    let mut cend = ctx.alloc(cells);
+
+    // ---- 显式初始化(确定性纪律:所有设备缓冲上载已知内容,零未初始化读) ----
+    let mut i: usize = 0;
+    while i < n {
+        hf.set(i, 0.0f32);
+        i = i + 1;
+    }
+    pbx.upload(&hf);
+    pby.upload(&hf);
+    pbz.upload(&hf);
+    vbx.upload(&hf);
+    vby.upload(&hf);
+    vbz.upload(&hf);
+    rho.upload(&hf);
+    pres.upload(&hf);
+    ffx.upload(&hf);
+    ffy.upload(&hf);
+    ffz.upload(&hf);
+    vax.upload(&hf);
+    vay.upload(&hf);
+    vaz.upload(&hf);
+    i = 0;
+    while i < n {
+        let ix = i % col_x;
+        hf.set(i, origin + (ix as f32) * spacing);
+        i = i + 1;
+    }
+    pax.upload(&hf);
+    i = 0;
+    while i < n {
+        let iy = (i / col_x) % col_y;
+        hf.set(i, origin + (iy as f32) * spacing);
+        i = i + 1;
+    }
+    pay.upload(&hf);
+    i = 0;
+    while i < n {
+        let iz = i / (col_x * col_y);
+        hf.set(i, origin + (iz as f32) * spacing);
+        i = i + 1;
+    }
+    paz.upload(&hf);
+    i = 0;
+    while i < n {
+        hu.set(i, 0u32);
+        i = i + 1;
+    }
+    key0.upload(&hu);
+    key1.upload(&hu);
+    idx0.upload(&hu);
+    idx1.upload(&hu);
+    flag.upload(&hu);
+    bofs.upload(&hu);
+    i = 0;
+    while i < cells {
+        hc.set(i, 0u32);
+        i = i + 1;
+    }
+    cstart.upload(&hc);
+    cend.upload(&hc);
+    i = 0;
+    while i < nblocks + 1 {
+        hs.set(i, 0u32);
+        i = i + 1;
+    }
+    bsums.upload(&hs);
+    bscan.upload(&hs);
+
+    // ---- 帧循环(sim_check 同序;每帧 stream.sync 对齐帧节拍) ----
+    let mut frame: usize = 0;
+    while frame < frames {
+        let mut sub: usize = 0;
+        while sub < substeps {
+            stream.launch(sim::sim_cell_key, GridDim(nblocks), BlockDim(256),
+                (pax, pay, paz, key0, idx0, n, grid_dim, inv_cell));
+            let mut pair: usize = 0;
+            while pair < passes / 2 {
+                let bit0 = (pair * 2) as u32;
+                stream.launch(sim::split_flag, GridDim(nblocks), BlockDim(256),
+                    (key0, flag, n, bit0));
+                stream.launch(sim::scan_block_u32, GridDim(nblocks), BlockDim(256),
+                    (flag, bofs, bsums, n));
+                stream.launch(sim::scan_sums_u32, GridDim(1), BlockDim(256),
+                    (bsums, bscan, nblocks));
+                stream.launch(sim::split_scatter, GridDim(nblocks), BlockDim(256),
+                    (key0, idx0, flag, bofs, bscan, key1, idx1, n, nblocks));
+                let bit1 = bit0 + 1u32;
+                stream.launch(sim::split_flag, GridDim(nblocks), BlockDim(256),
+                    (key1, flag, n, bit1));
+                stream.launch(sim::scan_block_u32, GridDim(nblocks), BlockDim(256),
+                    (flag, bofs, bsums, n));
+                stream.launch(sim::scan_sums_u32, GridDim(1), BlockDim(256),
+                    (bsums, bscan, nblocks));
+                stream.launch(sim::split_scatter, GridDim(nblocks), BlockDim(256),
+                    (key1, idx1, flag, bofs, bscan, key0, idx0, n, nblocks));
+                pair = pair + 1;
+            }
+            stream.launch(sim::sim_reorder, GridDim(nblocks), BlockDim(256),
+                (idx0, pax, pay, paz, vax, vay, vaz,
+                 pbx, pby, pbz, vbx, vby, vbz, n));
+            stream.launch(sim::sim_clear_bounds, GridDim(cells / 256), BlockDim(256),
+                (cstart, cend, cells));
+            stream.launch(sim::sim_cell_bounds, GridDim(nblocks), BlockDim(256),
+                (key0, cstart, cend, n));
+            stream.launch(sim::sim_density, GridDim(nblocks), BlockDim(256),
+                (pbx, pby, pbz, cstart, cend, rho, pres,
+                 n, grid_dim, inv_cell, h2, mass, stiff, rho0));
+            stream.launch(sim::sim_forces, GridDim(nblocks), BlockDim(256),
+                (pbx, pby, pbz, vbx, vby, vbz, rho, pres, cstart, cend,
+                 ffx, ffy, ffz, n, grid_dim, inv_cell, h, visc, gravity, rho0));
+            stream.launch(sim::sim_integrate, GridDim(nblocks), BlockDim(256),
+                (pbx, pby, pbz, vbx, vby, vbz, ffx, ffy, ffz,
+                 pax, pay, paz, vax, vay, vaz,
+                 n, dt, max_speed, damp, lo, hi));
+            sub = sub + 1;
+        }
+        stream.sync();
+        frame = frame + 1;
+    }
+
+    // ---- 轻量校验(NaN + 盒内;短长两档同量,差分互消) ----
+    let mut nan: usize = 0;
+    let mut oob: usize = 0;
+    pax.download(&mut hf);
+    i = 0;
+    while i < n {
+        let v = hf.get(i);
+        if v != v {
+            nan = nan + 1;
+        } else {
+            if v < lo - 0.001 || v > hi + 0.001 {
+                oob = oob + 1;
+            }
+        }
+        i = i + 1;
+    }
+    pay.download(&mut hf);
+    i = 0;
+    while i < n {
+        let v = hf.get(i);
+        if v != v {
+            nan = nan + 1;
+        } else {
+            if v < lo - 0.001 || v > hi + 0.001 {
+                oob = oob + 1;
+            }
+        }
+        i = i + 1;
+    }
+    paz.download(&mut hf);
+    i = 0;
+    while i < n {
+        let v = hf.get(i);
+        if v != v {
+            nan = nan + 1;
+        } else {
+            if v < lo - 0.001 || v > hi + 0.001 {
+                oob = oob + 1;
+            }
+        }
+        i = i + 1;
+    }
+    if nan > 0 {
+        println("SIM_BENCH: FAIL NaN");
+        return 2;
+    }
+    if oob > 0 {
+        println("SIM_BENCH: FAIL out-of-box");
+        return 1;
+    }
+    println("SIM_BENCH_OK frames=72");
+    ctx.sync();
+    0
+}

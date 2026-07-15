@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "evidence_level": "measured_local",
+  "timestamp": "2026-07-15T05:07:07.101549+00:00",
+  "bench": {
+    "id": "uc07_offline_frame",
+    "level": "L4",
+    "problem_size": "1280x720, N=131072, full 8-frame production sequence, 32spp (SPP 256->32) and 2 bounces (PT_BOUNCES 4->2) slice patched in a tmp copy of apps/ruridrop/src, same rx build chain; resolution/N/frames/batch width at production values; whole-process wall clock / 8 (includes startup + PTX JIT + sim + PT + tonemap + PPM writes, amortized). Slice rationale: full 256spp/4-bounce profile is unmeasurable on current toolchain - sample-index/bounce-depth dependent poison paths hang pt_render (720p/8spp: bounces<=2 0.6s vs bounces=3 hang >300s; bounces=2: 32spp seconds vs 256spp hang >590s with zero frames; same data/tables fine under rt_primary 600 frames and 160x120 smoke at bounces=4; all kernel loops are compile-time bounded -> suspected toolchain-level divergence/reconvergence issue, RD follow-up)",
+    "harness_commit": "ba37836d"
+  },
+  "environment": {
+    "driver_version": "620.02",
+    "nvml_version": "13.620.02",
+    "gpu_name": "NVIDIA GeForce RTX 4070 Ti",
+    "compute_capability": "8.9",
+    "driver_model": "WDDM",
+    "clocks": {
+      "locked": true,
+      "sm_clock_mhz": 2610,
+      "mem_clock_mhz": 10501,
+      "lock_method": "nvidia-smi -lgc/-lmc (elevated); persistence mode unsupported on Windows"
+    },
+    "thermal": {
+      "temp_start_c": 45,
+      "temp_end_c": 50,
+      "steady_state": false
+    },
+    "isolation_check": {
+      "other_compute_processes": 27
+    },
+    "cuda_driver_version": "13.2",
+    "tdr": {
+      "tdr_delay": "not_set(os_default)",
+      "tdr_level": "not_set(os_default)"
+    },
+    "hags_enabled": true,
+    "os_build": "Windows 10.0.28120"
+  },
+  "sampling": {
+    "trials": 1,
+    "trimmed_pct": 0.0,
+    "timer": "wall_clock_process",
+    "method": "process-level wall clock of one full 8-frame production-sequence run / 8; includes process startup + PTX JIT + sim (4 substeps/frame) + PT (32spp, one 32-wide batch) + tonemap + 8 PPM disk writes (recorded honestly, amortized, not frame-isolated); SPP 256->32 / PT_BOUNCES 4->2 slice patched in tmp source copy, same rx build chain (mirror of step-53 dataflow red/green copytree+patch precedent); slice verified to complete deterministically - full 256spp/4-bounce profile hangs on poison paths (see bench.problem_size)"
+  },
+  "results": {
+    "metric": "offline_frame_time",
+    "unit": "s",
+    "trimmed_mean": 0.1127,
+    "correctness_check": "pass",
+    "raw": {
+      "wall_s": 0.9017,
+      "frames": 8,
+      "spp": 32,
+      "bounces": 2
+    }
+  },
+  "notes": "production offline path tracing 1280x720/N=131072/8 frames (frame_0000..0007.ppm written to trial workdir under %TEMP%), 32spp + 2-bounce measurable slice of the 256spp/4-bounce production profile; wall/8 as honest end-to-end per-frame cost of the offline path (sim + camera-jitter PT DDA + NEE shadow walks + finalize + IO all exercised). RFC-0010 §4.6 ms1.bench.uc07_offline_frame_s"
+}

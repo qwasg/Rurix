@@ -80,6 +80,25 @@ pub struct LangItems {
     pub stream: Option<DefId>,
     pub grid_dim: Option<DefId>,
     pub block_dim: Option<DefId>,
+    /// 宿主 GPU 编排锁页缓冲 `PinnedBuffer<C, T>`(MS1.2,RXS-0189;类型位置
+    /// 兜底,可被用户遮蔽)。
+    pub pinned_buffer: Option<DefId>,
+    /// `Context::create` 编译器已知关联构造函数(MS1.2,RXS-0189/0190;值路径
+    /// `Context::create()` 的解析锚点,typeck 编译器已知签名分支消费)。
+    pub context_create: Option<DefId>,
+    /// present 宿主 typestate 帧状态句柄(MS1.2b,RXS-0197:`Present` / `Ready`
+    /// / `Acquired` / `Presentable`;类型位置兜底,可被用户遮蔽;非 Copy affine,
+    /// 消费式转移错序由 move 检查裁决)。
+    pub present: Option<DefId>,
+    pub present_ready: Option<DefId>,
+    pub present_acquired: Option<DefId>,
+    pub present_presentable: Option<DefId>,
+    /// `Present::create` 编译器已知关联构造函数(MS1.2b,RXS-0197;值路径
+    /// 解析锚点,镜像 `context_create`)。
+    pub present_create: Option<DefId>,
+    /// `write_ppm` 宿主图像落盘桥自由函数(MS1.2b,RXS-0199;值位置兜底,
+    /// 可被用户遮蔽;签名为 typeck 编译器已知)。
+    pub write_ppm: Option<DefId>,
     /// device block barrier 上下文(M5.2,RXS-0079):`block.sync()` 的 `block`
     /// 值位置兜底;`.sync()` → block 级 barrier(可被用户遮蔽)。
     pub block_ctx: Option<DefId>,
@@ -121,6 +140,14 @@ impl LangItems {
             "View" => self.view,
             "ViewMut" => self.view_mut,
             "Buffer" | "DeviceBuffer" => self.buffer,
+            // 宿主 GPU 编排锁页缓冲(MS1.2,RXS-0189):类型位置兜底(可被用户遮蔽)。
+            "PinnedBuffer" => self.pinned_buffer,
+            // present 宿主 typestate 帧状态句柄(MS1.2b,RXS-0197):类型位置兜底
+            // (可被用户遮蔽)。
+            "Present" => self.present,
+            "Ready" => self.present_ready,
+            "Acquired" => self.present_acquired,
+            "Presentable" => self.present_presentable,
             "ThreadCtx" => self.thread_ctx,
             "Context" => self.context,
             "Module" => self.module,
@@ -148,6 +175,9 @@ impl LangItems {
             "BlockDim" => self.block_dim,
             // device block barrier 上下文(RXS-0079):`block.sync()` 的 `block` 值。
             "block" => self.block_ctx,
+            // 宿主图像落盘桥自由函数(MS1.2b,RXS-0199):值位置兜底(模块值 ns
+            // 优先 = 用户同名定义遮蔽);签名为 typeck 编译器已知。
+            "write_ppm" => self.write_ppm,
             _ => None,
         }
     }
@@ -206,6 +236,36 @@ impl LangItems {
     /// `Buffer` 容器判定(RXS-0074;launch 参数 brand 与元素消费)。
     pub fn is_buffer(&self, d: DefId) -> bool {
         Some(d) == self.buffer
+    }
+
+    /// `Context` 句柄判定(MS1.2,RXS-0189;宿主 GPU 方法接收者识别)。
+    pub fn is_context(&self, d: DefId) -> bool {
+        Some(d) == self.context
+    }
+
+    /// `PinnedBuffer` 锁页缓冲判定(MS1.2,RXS-0189)。
+    pub fn is_pinned_buffer(&self, d: DefId) -> bool {
+        Some(d) == self.pinned_buffer
+    }
+
+    /// present 帧状态句柄判定(MS1.2b,RXS-0197:Present / Ready / Acquired /
+    /// Presentable 任一;typeck 已知方法识别与 codegen 布局消费)。
+    pub fn is_present_state(&self, d: DefId) -> bool {
+        Some(d) == self.present
+            || Some(d) == self.present_ready
+            || Some(d) == self.present_acquired
+            || Some(d) == self.present_presentable
+    }
+
+    /// 宿主 GPU 句柄类型判定(MS1.2,RXS-0189:Context / Stream / Buffer /
+    /// PinnedBuffer;MS1.2b,RXS-0197:present 帧状态句柄并入;编译器合成布局 =
+    /// 单 u64 句柄标量,codegen 消费)。
+    pub fn is_gpu_handle(&self, d: DefId) -> bool {
+        self.is_context(d)
+            || self.is_stream(d)
+            || self.is_buffer(d)
+            || self.is_pinned_buffer(d)
+            || self.is_present_state(d)
     }
 
     /// `GridDim` 构造器判定(RXS-0074;launch 维度契约)。
@@ -340,6 +400,14 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
             stream: None,
             grid_dim: None,
             block_dim: None,
+            pinned_buffer: None,
+            context_create: None,
+            present: None,
+            present_ready: None,
+            present_acquired: None,
+            present_presentable: None,
+            present_create: None,
+            write_ppm: None,
             block_ctx: None,
             atomic: None,
             atomic_view: None,
@@ -418,6 +486,29 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
         r.out.lang_items.scope_gpu = Some(scope_gpu);
         r.out.lang_items.scope_system = Some(scope_system);
         r.out.lang_items.ordering = Some(ordering);
+        // 宿主 GPU 编排已知项(MS1.2,RXS-0189/0190):PinnedBuffer 锁页缓冲容器 +
+        // `Context::create` 关联构造(值路径解析锚点,签名为 typeck 编译器已知)。
+        // 追加于既有 lang items 之后,不动摇既有 DefId 编号(MIR/PTX golden 符号名
+        // 稳定性);同 View 族兜底纪律(用户同名定义优先遮蔽,不入模块命名空间)。
+        r.out.lang_items.pinned_buffer =
+            Some(r.new_def(DefKind::Struct, "PinnedBuffer", Vis::Pub, span, 0));
+        r.out.lang_items.context_create =
+            Some(r.new_def(DefKind::AssocFn, "create", Vis::Pub, span, 0));
+        // present 宿主 typestate 面 + 宿主图像落盘桥已知项(MS1.2b,RXS-0197/
+        // 0199):Present/Ready/Acquired/Presentable 帧状态句柄 + `Present::create`
+        // 关联构造 + `write_ppm` 自由函数。追加于既有 lang items 之后,不动摇
+        // 既有 DefId 编号(MIR/PTX golden 符号名稳定性);同 View 族兜底纪律
+        // (用户同名定义优先遮蔽,不入模块命名空间)。
+        r.out.lang_items.present = Some(r.new_def(DefKind::Struct, "Present", Vis::Pub, span, 0));
+        r.out.lang_items.present_ready =
+            Some(r.new_def(DefKind::Struct, "Ready", Vis::Pub, span, 0));
+        r.out.lang_items.present_acquired =
+            Some(r.new_def(DefKind::Struct, "Acquired", Vis::Pub, span, 0));
+        r.out.lang_items.present_presentable =
+            Some(r.new_def(DefKind::Struct, "Presentable", Vis::Pub, span, 0));
+        r.out.lang_items.present_create =
+            Some(r.new_def(DefKind::AssocFn, "create", Vis::Pub, span, 0));
+        r.out.lang_items.write_ppm = Some(r.new_def(DefKind::Fn, "write_ppm", Vis::Pub, span, 0));
     }
     r.resolve_uses();
     r.resolve_impl_targets();
@@ -1445,6 +1536,10 @@ impl Resolver<'_> {
         } else if let Some(d) = self.out.lang_items.type_by_name(&first.name) {
             // 编译器已知项作路径前缀(RXS-0048:`Option::Some` 等)
             Res::Def(d)
+        } else if let Some(d) = self.out.lang_items.device_type_by_name(&first.name) {
+            // 宿主编排已知类型作路径前缀(MS1.2,RXS-0189:`Context::create`;
+            // 模块 ns 优先 = 用户同名定义遮蔽)
+            Res::Def(d)
         } else {
             return Err(PathFail::Missing(first.name.clone()));
         };
@@ -1520,6 +1615,24 @@ impl Resolver<'_> {
                             return Err(PathFail::Invisible(a));
                         }
                         Res::Def(a)
+                    } else if last
+                        && last_ns == Ns::Value
+                        && Some(prefix_def) == self.out.lang_items.context
+                        && seg.ident.name == "create"
+                        && let Some(create) = self.out.lang_items.context_create
+                    {
+                        // 宿主 GPU 上下文构造(MS1.2,RXS-0189):`Context::create`
+                        // 编译器已知关联函数(用户 inherent impl 优先 = assoc 查找在前)
+                        Res::Def(create)
+                    } else if last
+                        && last_ns == Ns::Value
+                        && Some(prefix_def) == self.out.lang_items.present
+                        && seg.ident.name == "create"
+                        && let Some(create) = self.out.lang_items.present_create
+                    {
+                        // present 会话构造(MS1.2b,RXS-0197):`Present::create`
+                        // 编译器已知关联函数(镜像 `Context::create` 解析锚点)
+                        Res::Def(create)
                     } else {
                         return Err(PathFail::Missing(seg.ident.name.clone()));
                     }

@@ -328,6 +328,10 @@ pub enum AssocItemKind {
 pub struct ModItem {
     pub name: Ident,
     pub items: Vec<Item>,
+    /// `mod name;` out-of-line 形态(RXS-0196):parser 阶段 `items` 为空,由
+    /// driver 装配 pass([`crate::mod_assembly`])按「当前文件同目录 `name.rx`」
+    /// 加载后回填为内联 mod 等价形态(缺失/IO/循环 → RX1005)。
+    pub out_of_line: bool,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]

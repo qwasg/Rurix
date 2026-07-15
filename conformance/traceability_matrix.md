@@ -188,6 +188,17 @@
 | RXS-0186 | spec/release.md | 3 | `src/rurixup/src/channel.rs`, `src/rurixup/src/gate.rs`, `src/rurixup/src/lib.rs` |
 | RXS-0187 | spec/release.md | 1 | `src/rurixup/src/toolchain.rs` |
 | RXS-0188 | spec/release.md | 1 | `src/rurixup/src/toolchain.rs` |
+| RXS-0189 | spec/host_orchestration.md | 3 | `conformance/host_orch/accept/saxpy_single_source/main.rx`, `conformance/host_orch/reject/buffer_move/main.rx`, `conformance/host_orch/reject/gpu_in_kernel/main.rx` |
+| RXS-0190 | spec/host_orchestration.md | 2 | `conformance/host_orch/accept/saxpy_single_source/main.rx`, `conformance/host_orch/reject/elem_infer/main.rx` |
+| RXS-0191 | spec/host_orchestration.md | 2 | `conformance/host_orch/accept/saxpy_single_source/main.rx`, `conformance/host_orch/reject/launch_arg_subset/main.rx` |
+| RXS-0192 | spec/host_orchestration.md | 1 | `conformance/host_orch/accept/saxpy_single_source/main.rx` |
+| RXS-0193 | spec/host_orchestration.md | 3 | `src/rurix-rt-cabi/src/imageio.rs`, `src/rurix-rt-cabi/src/lib.rs`, `src/rurix-rt-cabi/src/present.rs` |
+| RXS-0194 | spec/host_orchestration.md | 1 | `src/rurix-rt-cabi/src/lib.rs` |
+| RXS-0195 | spec/host_orchestration.md | 3 | `conformance/host_orch/accept/extern_link/main.rx`, `src/rurixc/src/driver.rs`, `src/rurixc/src/mir_build.rs` |
+| RXS-0196 | spec/host_orchestration.md | 8 | `conformance/host_orch/accept/mod_file/main.rx`, `conformance/host_orch/accept/mod_file/util.rx`, `conformance/host_orch/reject/mod_cycle/main.rx` …(+5) |
+| RXS-0197 | spec/host_orchestration.md | 5 | `conformance/host_orch/accept/present_loop/main.rx`, `conformance/host_orch/reject/present_in_kernel/main.rx`, `conformance/host_orch/reject/present_out_of_order/main.rx` …(+2) |
+| RXS-0198 | spec/host_orchestration.md | 4 | `conformance/host_orch/accept/present_loop/main.rx`, `src/rurix-rt-cabi/src/lib.rs`, `src/rurix-rt-cabi/src/present.rs` …(+1) |
+| RXS-0199 | spec/host_orchestration.md | 2 | `conformance/host_orch/accept/imageio_write/main.rx`, `src/rurix-rt-cabi/src/imageio.rs` |
 | RXS-0200 | spec/vulkan_backend.md | 1 | `conformance/vulkan/accept/vk_noop.rx` |
 | RXS-0201 | spec/vulkan_backend.md | 2 | `conformance/vulkan/accept/vk_noop.rx`, `src/rurixc/src/vulkan_codegen.rs` |
 | RXS-0202 | spec/vulkan_backend.md | 1 | `conformance/vulkan/accept/vk_fill.rx` |

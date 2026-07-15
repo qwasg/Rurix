@@ -1,0 +1,56 @@
+// ruridrop 确定性标量数学(RFC-0010 §4.3 共享核心;软件 sqrt 母本 =
+// conformance/stdlib/host/vec_ops.rx / device/geom_scalar.rx 的 rx_sqrt)。
+// host/device 双路逐位同义纪律:仅用 + - * / 与比较,不触 f32 方法 intrinsic
+// (sqrt 等 device-only,host 路不可用)——refcpu 同义重放(RFC-0010 §4.4 ②)
+// 依赖本模块双路一致。device fn 可从 host 调用(spec/device.md RXS-0066 着色格)。
+
+// 软件平方根(Newton-Raphson 30 轮;v <= 0(含 NaN 比较 false 之外的负零/负值)→ 0;
+// 30 轮覆盖 [1e-12, 1e12] 收敛,两路径同义)
+pub device fn rx_sqrt(v: f32) -> f32 {
+    if v <= 0.0 {
+        return 0.0;
+    }
+    let mut g = v;
+    let mut i = 0;
+    while i < 30 {
+        g = 0.5 * (g + v / g);
+        i += 1;
+    }
+    g
+}
+
+pub device fn rx_min(a: f32, b: f32) -> f32 {
+    if a < b {
+        a
+    } else {
+        b
+    }
+}
+
+pub device fn rx_max(a: f32, b: f32) -> f32 {
+    if a > b {
+        a
+    } else {
+        b
+    }
+}
+
+pub device fn rx_abs(v: f32) -> f32 {
+    if v < 0.0 {
+        -v
+    } else {
+        v
+    }
+}
+
+// NaN 安全钳制:v ∈ [lo, hi] → v;v > hi → hi;其余(含 NaN:比较全 false)→ lo。
+// f32 → 整数转换(cell 坐标 / 哈希量化)前必经本函数,防 fptosi/fptoui poison。
+pub device fn rx_clamp(v: f32, lo: f32, hi: f32) -> f32 {
+    if v >= lo && v <= hi {
+        v
+    } else if v > hi {
+        hi
+    } else {
+        lo
+    }
+}

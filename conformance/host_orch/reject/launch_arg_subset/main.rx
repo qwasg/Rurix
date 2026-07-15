@@ -1,0 +1,21 @@
+//@ spec: RXS-0191
+//@ expect-error: RX6024
+// launch 实参子集(RXS-0191):首期 marshalling 子集 = Buffer + {i32,u32,f32,usize};
+// bool 实参 → RX6024(编译期,镜像 RX6003/6005 子集纪律)。
+kernel fn k(out: ViewMut<global, f32>, flag: bool, n: usize, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    if i < n {
+        if flag {
+            out[i] = 1.0;
+        }
+    }
+}
+
+fn main() -> i32 {
+    let ctx = Context::create();
+    let stream = ctx.stream();
+    let out = ctx.alloc(16);
+    stream.launch(k, GridDim(1), BlockDim(16), (out, true, 16));
+    stream.sync();
+    0
+}

@@ -1057,6 +1057,62 @@
     "RXS-0188": [
       "src/rurixup/src/toolchain.rs"
     ],
+    "RXS-0189": [
+      "conformance/host_orch/accept/saxpy_single_source/main.rx",
+      "conformance/host_orch/reject/buffer_move/main.rx",
+      "conformance/host_orch/reject/gpu_in_kernel/main.rx"
+    ],
+    "RXS-0190": [
+      "conformance/host_orch/accept/saxpy_single_source/main.rx",
+      "conformance/host_orch/reject/elem_infer/main.rx"
+    ],
+    "RXS-0191": [
+      "conformance/host_orch/accept/saxpy_single_source/main.rx",
+      "conformance/host_orch/reject/launch_arg_subset/main.rx"
+    ],
+    "RXS-0192": [
+      "conformance/host_orch/accept/saxpy_single_source/main.rx"
+    ],
+    "RXS-0193": [
+      "src/rurix-rt-cabi/src/imageio.rs",
+      "src/rurix-rt-cabi/src/lib.rs",
+      "src/rurix-rt-cabi/src/present.rs"
+    ],
+    "RXS-0194": [
+      "src/rurix-rt-cabi/src/lib.rs"
+    ],
+    "RXS-0195": [
+      "conformance/host_orch/accept/extern_link/main.rx",
+      "src/rurixc/src/driver.rs",
+      "src/rurixc/src/mir_build.rs"
+    ],
+    "RXS-0196": [
+      "conformance/host_orch/accept/mod_file/main.rx",
+      "conformance/host_orch/accept/mod_file/util.rx",
+      "conformance/host_orch/reject/mod_cycle/main.rx",
+      "conformance/host_orch/reject/mod_cycle/ring_a.rx",
+      "conformance/host_orch/reject/mod_cycle/ring_b.rx",
+      "conformance/host_orch/reject/mod_missing/main.rx",
+      "src/rurixc/src/mod_assembly.rs",
+      "src/rurixc/src/parser.rs"
+    ],
+    "RXS-0197": [
+      "conformance/host_orch/accept/present_loop/main.rx",
+      "conformance/host_orch/reject/present_in_kernel/main.rx",
+      "conformance/host_orch/reject/present_out_of_order/main.rx",
+      "src/rurix-rt-cabi/src/present.rs",
+      "src/rurix-rt/src/interop.rs"
+    ],
+    "RXS-0198": [
+      "conformance/host_orch/accept/present_loop/main.rx",
+      "src/rurix-rt-cabi/src/lib.rs",
+      "src/rurix-rt-cabi/src/present.rs",
+      "src/rurix-rt/src/interop.rs"
+    ],
+    "RXS-0199": [
+      "conformance/host_orch/accept/imageio_write/main.rx",
+      "src/rurix-rt-cabi/src/imageio.rs"
+    ],
     "RXS-0200": [
       "conformance/vulkan/accept/vk_noop.rx"
     ],

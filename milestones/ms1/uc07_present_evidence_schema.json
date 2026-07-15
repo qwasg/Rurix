@@ -1,0 +1,139 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/uc07_present/v1",
+  "title": "Rurix MS1.4 UC-07 实时 present 取证证据 JSON(G-MS1-5;RFC-0010 §4.5)",
+  "description": "ci/uc07_bench.py present 子命令产出(本机交互桌面人工链路,**不进 CI 硬门**——CI 无交互桌面,SKIP 不充绿,镜像 ci/realtime_present_smoke.py 双态先例)。机器事实:ruridrop realtime 入口经 RXS-0197/0198 present typestate 帧循环(d3d12-interop-real 真 shim,D-130 0-byte)真窗口跑 ≥300 帧;循环结束后同一末帧排序态 rt_primary 重渲进普通 Buffer(非 backbuffer)download 采样对照(全域 min/max/mean + 天空区/水体区各采样点范围核验)EXE 内自校验通过(REALTIME_OK frames=<n> sample_ok=true,失败退出非 0)。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "kind",
+    "date",
+    "frames",
+    "sample_ok",
+    "present_path",
+    "run_command",
+    "samples",
+    "environment"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "kind": {
+      "const": "uc07_present"
+    },
+    "date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "frames": {
+      "type": "integer",
+      "minimum": 300
+    },
+    "sample_ok": {
+      "const": true
+    },
+    "present_path": {
+      "const": "d3d12-interop-real"
+    },
+    "run_seconds": {
+      "type": "number"
+    },
+    "run_command": {
+      "type": "string"
+    },
+    "samples": {
+      "type": "object",
+      "required": [
+        "stats",
+        "sky",
+        "water"
+      ],
+      "properties": {
+        "stats": {
+          "type": "object",
+          "required": [
+            "min",
+            "max",
+            "mean"
+          ],
+          "properties": {
+            "min": {
+              "type": "number"
+            },
+            "max": {
+              "type": "number"
+            },
+            "mean": {
+              "type": "number"
+            }
+          }
+        },
+        "sky": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "water": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "required": [
+        "gpu_name",
+        "driver_version",
+        "cuda_driver_version",
+        "driver_model",
+        "os_build",
+        "clocks_locked"
+      ],
+      "properties": {
+        "gpu_name": {
+          "type": "string"
+        },
+        "driver_version": {
+          "type": "string"
+        },
+        "cuda_driver_version": {
+          "type": "string"
+        },
+        "driver_model": {
+          "enum": ["WDDM", "TCC", "MCDM", "unavailable"]
+        },
+        "os_build": {
+          "type": "string"
+        },
+        "clocks_locked": {
+          "type": "boolean"
+        },
+        "temp_start_c": {
+          "type": ["number", "string"]
+        },
+        "temp_end_c": {
+          "type": ["number", "string"]
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

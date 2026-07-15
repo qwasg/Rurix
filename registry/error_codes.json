@@ -140,6 +140,14 @@
       "spec_clauses": ["RXS-0035", "RXS-0038"]
     },
     {
+      "id": "RX1005",
+      "title": "out-of-line 模块加载失败(`mod name;` 同目录 name.rx 文件缺失 / IO 失败 / 循环引用,driver 装配 pass)",
+      "message_key": "resolve.module_load_failure",
+      "status": "active",
+      "introduced_in": "MS1.2",
+      "spec_clauses": ["RXS-0196"]
+    },
+    {
       "id": "RX2001",
       "title": "类型不匹配",
       "message_key": "typeck.mismatched_types",
@@ -210,6 +218,14 @@
       "status": "active",
       "introduced_in": "M3.2",
       "spec_clauses": ["RXS-0055"]
+    },
+    {
+      "id": "RX2010",
+      "title": "宿主 GPU 缓冲元素类型不可定型(alloc/alloc_pinned 的元素类型无使用点约束不可推断,或推断合一结果超出首期子集 {f32,i32,u32};typeck body 收尾裁决,诊断 span 指向 alloc 调用点)",
+      "message_key": "gpu.elem_infer",
+      "status": "active",
+      "introduced_in": "MS1.2",
+      "spec_clauses": ["RXS-0190"]
     },
     {
       "id": "RX3001",
@@ -322,6 +338,14 @@
       "status": "active",
       "introduced_in": "G2.4",
       "spec_clauses": ["RXS-0174"]
+    },
+    {
+      "id": "RX3015",
+      "title": "std::gpu 宿主 API 出现在 kernel/device 体内(宿主编排类型的构造与方法调用仅 host 着色上下文合法;coloring 层,与 RX3001 同点位)",
+      "message_key": "coloring.gpu_host_api_in_device",
+      "status": "active",
+      "introduced_in": "MS1.2",
+      "spec_clauses": ["RXS-0189"]
     },
     {
       "id": "RX4001",
@@ -562,6 +586,22 @@
       "spec_clauses": ["RXS-0175"]
     },
     {
+      "id": "RX6024",
+      "title": "launch 实参超出首期 marshalling 子集(Buffer + {i32,u32,f32,usize} 之外;typeck body 收尾裁决,镜像 RX6003/6005 子集纪律)",
+      "message_key": "gpu.launch_arg_subset",
+      "status": "active",
+      "introduced_in": "MS1.2",
+      "spec_clauses": ["RXS-0191"]
+    },
+    {
+      "id": "RX6025",
+      "title": "single-source device 产物嵌入失败(device 路产物无法安全打包:含 kernel 的单元产空 PTX / PTX 含内嵌 NUL 破坏 NUL 终止嵌入;device 路自身错误维持既有码 RX6004/RX7001/RX7002)",
+      "message_key": "codegen.gpu_embed_failure",
+      "status": "active",
+      "introduced_in": "MS1.2",
+      "spec_clauses": ["RXS-0192"]
+    },
+    {
       "id": "RX6026",
       "title": "Vulkan/SPIR-V codegen 目标不可用 / 暂不支持的构造 / 降级失败(--target vulkan:feature vulkan-backend 未启用 / compute 子集外构造 / SPIR-V emit·spirv-val 降级失败;mb1 RFC-0011,跳 RX6024/6025=MS1.2b 避撞)",
       "message_key": "codegen.vulkan_unsupported",
@@ -727,6 +767,22 @@
       "status": "active",
       "introduced_in": "G2.5",
       "spec_clauses": ["RXS-0179"]
+    },
+    {
+      "id": "RX7021",
+      "title": "rurix-rt-cabi 运行时库定位/构建编排失败(定位序 RURIX_RT_CABI_LIB → 编译器旁 lib/ → workspace target/crt-static 耗尽,或 cargo 构建编排失败)",
+      "message_key": "link.rt_cabi_failure",
+      "status": "active",
+      "introduced_in": "MS1.2",
+      "spec_clauses": ["RXS-0195"]
+    },
+    {
+      "id": "RX7022",
+      "title": "#[link] 原生库失败(属性形态非法:name 缺失/空/非字符串/重复或未知键;或链接段含 #[link] 追加库时 link.exe 退出非零的事后归因)",
+      "message_key": "link.native_lib_failure",
+      "status": "active",
+      "introduced_in": "MS1.2",
+      "spec_clauses": ["RXS-0195"]
     }
   ],
   "revision_log": [
@@ -869,6 +925,16 @@
       "version": "v1.27",
       "date": "2026-06-30",
       "change": "G2.5 分配 RX7020(edition 未知/不匹配诊断,spec/edition.md RXS-0179 配套,RFC-0008 §4.3/§5,实现真实可达类别只追加)。7xxx 工具链/链接段位续接(RX7019 之后):RX7020 edition 未知/不匹配——rurix.toml [package].edition 字符串值不在合法集合 {\"2026\"}(如 \"2099\"/\"2015\"/\"latest\"/空串),Manifest::parse 经 Edition::parse 的 Err(EditionError::Unknown) 映射 PkgError::EditionUnknown(code RX7020),strict-only 拒绝清单解析、无 fallback、不回退缺省 edition(P-01)。**edition 值类型错误(非字符串)复用既有 RX7005**(toolchain.pkg_manifest_invalid 清单类型错误,不新增码)。edition 为编译期/host 工具链声明语义,纯 host/safe,不触 🔒 禁区(无 UB/内存模型映射/FFI ABI/安全包络)。message_key toolchain.edition_unknown 同落 en/zh.messages(双语全量覆盖门 ci/bilingual_coverage.py);段内分配制递增不复用、含义冻结(10 §6)。RX3014/RX6023(G2.4 RFC-0007 采样面)既有 entries 不动"
+    },
+    {
+      "version": "v1.28",
+      "date": "2026-07-14",
+      "change": "MS1.2 分配 RX1005 + RX7022(宿主编排前端机械面诊断,RFC-0009 §4.2/§5,spec/host_orchestration.md RXS-0195/0196 配套,实现真实可达类别只追加)。RX1005 out-of-line 模块加载失败(1xxx 名称/模块段位续接 RX1004):`mod name;` 按「当前文件同目录 name.rx」装配(driver 装配 pass,parse 后 resolve 前 splice 为内联 mod 等价形态,resolve/typeck 零改动),文件缺失 / IO 失败 / 循环引用(装配栈检测)strict-only 编译期拒;嵌套子目录不做(跨包 .rx 依赖编译不在本期,RFC-0009 §8)。RX7022 #[link] 原生库失败(7xxx 链接/工具链段位;**编号裁决**:RFC-0009 §5 预派 RX7021 给 rurix-rt-cabi 定位/构建失败(RXS-0191),归同 PR 的 gpu lowering 实现片按真实可达落码,本片 honor 预派不占号、不预造——段内编号不复用,10 §9.5):双 emit 点同码——(a)属性形态非法(name 缺失/空/非字符串/重复或未知键,driver collect_link_libs 编译期);(b)链接段含 #[link] 追加库时 link.exe 退出非零的事后归因包装(库定位失败无法在编译期精确判定,退出码路径;无追加库维持 RX7001)。extern \"C\" 无 body fn 符号保名(RXS-0195 另一半)不占码——mir_build 对 extern fn 取字面名不走 mangle(),`main` 等 CRT 保留名冲突交由链接器报错。message_key resolve.module_load_failure / link.native_lib_failure 同落 en/zh.messages(双语全量覆盖门 ci/bilingual_coverage.py);段内分配制递增不复用、含义冻结(10 §6)"
+    },
+    {
+      "version": "v1.29",
+      "date": "2026-07-14",
+      "change": "MS1.2 分配 RX2010 + RX3015 + RX6024 + RX6025 + RX7021(std::gpu 宿主 lowering + single-source 嵌入 + rurix-rt-cabi 链接接线诊断,RFC-0009 §4.1/§4.2/§4.4/§5,spec/host_orchestration.md RXS-0189~0192/0195 配套,实现真实可达类别只追加)。RX2010 宿主 GPU 缓冲元素类型不可定型(2xxx 类型段续接 RX2009;typeck body 收尾统一定型裁决:alloc/alloc_pinned 元素无使用点约束不可推断、或推断合一结果超出首期子集 {f32,i32,u32}——同一用户面问题双形态同码,诊断 span 指向 alloc 调用点,Err 容忍不级联)。RX3015 std::gpu 宿主 API 着色违例(3xxx 着色段续接 RX3014;coloring 层与 RX3001 同点位,识别面 = typeck gpu_calls 记录:Context::create 与 Context/Stream/Buffer/PinnedBuffer 已知方法及 launch 出现在 kernel/device 体内即拒)。RX6024 launch 实参超出首期 marshalling 子集(6xxx codegen 段续接 RX6023;子集 = Buffer + {i32,u32,f32,usize},typeck body 收尾裁决——早于 mir_build 的可靠拦截点,镜像 RX6003/6005 子集纪律;子集外扩张归 RD-026)。RX6025 single-source 嵌入失败(6xxx;仅打包自身失败可达:含 kernel 单元产空 PTX / PTX 含内嵌 NUL 破坏 NUL 终止嵌入;device 路自身错误维持既有 RX6004/RX7001/RX7002,工具链缺失按 SKIP 纪律嵌哨兵不占码)。RX7021 rurix-rt-cabi 定位/构建编排失败(7xxx;RFC-0009 §5 预派号本轮兑现,v1.28 编号裁决留痕 honor;定位序 RURIX_RT_CABI_LIB env → 编译器旁 lib/ → workspace target/crt-static/release(缺则 driver 编排 cargo build -p rurix-rt-cabi --release,RUSTFLAGS=+crt-static 与链接基础集 libcmt 系一致)耗尽即拒)。运行期失败不占 RX 码(RXS-0193 确定性诊断 + rxrt_trap 终止,工具层口径)。message_key gpu.elem_infer / coloring.gpu_host_api_in_device / gpu.launch_arg_subset / codegen.gpu_embed_failure / link.rt_cabi_failure 同落 en/zh.messages(双语全量覆盖门 ci/bilingual_coverage.py,90→95);段内分配制递增不复用、含义冻结(10 §6)"
     }
   ]
 }

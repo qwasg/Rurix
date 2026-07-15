@@ -861,6 +861,10 @@ fn operand(
                     "Vulkan compute 首期常量仅标量整数/f32(bool/char/str 属后续分片)",
                 ))
             }
+            Const::GlobalAddr(_) => Err(VulkanCodegenError::unsupported(
+                body.span,
+                "Vulkan device codegen 不含全局常量地址(@__rx_gpu_artifacts 描述表指针属 MS1.2 host 编排 codegen,非 device compute/graphics 作用面)",
+            )),
         },
     }
 }
@@ -1212,6 +1216,10 @@ fn emit_call(
         CallTarget::Builtin(_) => Err(VulkanCodegenError::unsupported(
             span,
             "host builtin 调用不在 device compute codegen 作用面",
+        )),
+        CallTarget::Rt { .. } => Err(VulkanCodegenError::unsupported(
+            span,
+            "宿主 GPU 编排运行时符号 rxrt_* 调用(MS1.2,host-only)不在 device compute/graphics codegen 作用面",
         )),
     }
 }

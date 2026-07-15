@@ -1,0 +1,43 @@
+[package]
+name = "rurix-rt-cabi"
+description = "Rurix 宿主编排 rxrt C ABI 运行时边界(MS1.2,RFC-0009 §4.3:host .rx codegen ↔ rurix-rt 的 staticlib 绑定 — u64 句柄表 + 嵌入产物描述表解析 + fatbin 装载协商惰性缓存 + launch marshalling + poisoned 确定性失败;spec/host_orchestration.md RXS-0193/0194)"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+# staticlib = rx build 链接段静态链进宿主 EXE(RFC-0009 §4.2,link.exe/D-209);
+# rlib = cargo test/workspace 单测消费(先例 rurix-interop)。
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]
+# 包装运行时 ownership 系(SharedContext/DeviceBox/SharedStream,RXS-0130~0133)+
+# fatbin 装载协商(DeviceArtifactSet,RXS-0150/0151);运行时零外部依赖维持
+# (nvcuda.dll 动态加载)。
+rurix-rt = { path = "../rurix-rt" }
+# 宿主图像落盘桥 rxio_write_ppm(MS1.2b,RFC-0009 §4.7,RXS-0199):桥 image-io
+# 既有确定性 PPM 序列化(RXS-0114~0117 语义 0-byte 复用;全 safe、零外部依赖)。
+image-io = { path = "../image-io" }
+
+[features]
+# default 含 present(stub 形态,MS1.2b):rxp_* 符号面常驻 staticlib(RFC-0009 §4.6)。
+# stub 经 rurix-rt/d3d12-interop 只拉 rurix-d3d12 纯 Rust stub——不引入 C++/MSVC 新
+# 失败面,rx build 的 crt-static 编排(RX7021 纪律,driver.rs)零漂移;stub 态
+# rxp_create 确定性失败(诊断 + 0,不假绿)。真实呈现(窗口/交换链)须 present-real。
+default = ["present"]
+present = ["rurix-rt/d3d12-interop"]
+# present-real:在 present 之上经 rurix-rt/d3d12-interop-real 编译真实 D3D12/DXGI
+# C++ shim(需 MSVC + Windows SDK + 交互桌面会话)。仅设备真跑编排启用。
+present-real = ["present", "rurix-rt/d3d12-interop-real"]
+
+# unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6;镜像 rurix-interop FFI 边界例外写法):
+# rurix-rt-cabi 是宿主编排 FFI 边界 crate(RFC-0009 §4.3),经裁决最小开 unsafe
+# (C ABI extern "C" 导出 + 调用方指针契约借用 + !Send 句柄跨线程存表豁免),
+# 注册见 unsafe-audit/rurix-rt-cabi.md(U25)。仍强制每 unsafe 块/impl 携
+# `// SAFETY:`(clippy undocumented_unsafe_blocks = deny)。其余新 crate 维持 deny。
+[lints.rust]
+unsafe_code = "allow"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "deny"

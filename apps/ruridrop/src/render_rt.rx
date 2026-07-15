@@ -1,0 +1,252 @@
+// ruridrop 实时档 kernel(RFC-0010 §4.3:同核退化 1spp——主光线 DDA + 单影子
+// 光线 + 天空/棋盘地面,直写 present 共享 backbuffer)。像素域 = RXS-0143 /
+// RXS-0198 blit 契约:行主序紧密 f32 RGB、分量 0…255(shim present pass 读
+// buffer /255 写 R8G8B8A8_UNORM,src/rurix-d3d12/shim/present.hlsl)——kernel 内
+// tone_map 到 [0,1] 后 ×255 写入。求交/着色全数复用 render_core plain fn 与
+// render_pt::shadow_walk(一核两档);无 RNG(1spp 像素中心光线,确定性)。
+// 场景常数经标量实参下发;无 block.sync → 越界早退合法。
+
+mod dmath;
+mod rng;
+mod render_core;
+mod render_pt;
+
+// 实时主光线 kernel(块 16×16;bb = present backbuffer 借用句柄,RXS-0198)
+pub kernel fn rt_primary(
+    t: ThreadCtx<2>,
+    px: View<global, f32>,
+    py: View<global, f32>,
+    pz: View<global, f32>,
+    vx: View<global, f32>,
+    vy: View<global, f32>,
+    vz: View<global, f32>,
+    cs: View<global, u32>,
+    ce: View<global, u32>,
+    bb: ViewMut<global, f32>,
+    w: usize,
+    h: usize,
+    grid_dim: u32,
+    ex: f32,
+    ey: f32,
+    ez: f32,
+    fwx: f32,
+    fwy: f32,
+    fwz: f32,
+    rix: f32,
+    riy: f32,
+    riz: f32,
+    upx: f32,
+    upy: f32,
+    upz: f32,
+    inv_w: f32,
+    inv_h: f32,
+    scale_x: f32,
+    scale_y: f32,
+    radius: f32,
+    lx0: f32,
+    lx1: f32,
+    lz0: f32,
+    lz1: f32,
+    ly: f32,
+    le: f32,
+    vscale: f32,
+) {
+    let x = t.global_id_x();
+    let y = t.global_id_y();
+    if x >= w || y >= h {
+        return;
+    }
+    let pi = y * w + x;
+    let dim_i = grid_dim as i32;
+    let dim_f = grid_dim as f32;
+    let box_f = dim_f;
+    let r2 = radius * radius;
+    let max_steps = grid_dim * 3u32 + 3u32;
+    // 像素中心主光线(1spp 无抖动)
+    let pxf = (x as f32) + 0.5;
+    let pyf = (y as f32) + 0.5;
+    let sx = render_core::screen_coord(pxf, inv_w, scale_x);
+    let sy = render_core::screen_coord(pyf, inv_h, scale_y);
+    let udx = render_core::ray_dir_comp(fwx, rix, upx, sx, sy);
+    let udy = render_core::ray_dir_comp(fwy, riy, upy, sx, sy);
+    let udz = render_core::ray_dir_comp(fwz, riz, upz, sx, sy);
+    let il = 1.0 / render_core::len3(udx, udy, udz);
+    let dx = udx * il;
+    let dy = udy * il;
+    let dz = udz * il;
+    let t_ground = render_core::plane_t(ey, dy, 0.0);
+    // ---- 主 DDA(与 pt_render 同构) ----
+    let e1 = render_core::slab_enter(ex, dx, 0.0, box_f);
+    let e2 = render_core::slab_enter(ey, dy, 0.0, box_f);
+    let e3 = render_core::slab_enter(ez, dz, 0.0, box_f);
+    let t_ent = dmath::rx_max(dmath::rx_max(e1, e2), e3);
+    let x1 = render_core::slab_exit(ex, dx, 0.0, box_f);
+    let x2 = render_core::slab_exit(ey, dy, 0.0, box_f);
+    let x3 = render_core::slab_exit(ez, dz, 0.0, box_f);
+    let t_ext = render_core::min3(x1, x2, x3);
+    let mut best_t: f32 = 1.0e30;
+    let mut best_j: u32 = 0xFFFFFFFFu32;
+    if t_ent <= t_ext && t_ext > 0.0 {
+        let t0 = dmath::rx_max(t_ent, 0.0);
+        let mut ix = render_core::dda_cell(ex, dx, t0, dim_f);
+        let mut iy = render_core::dda_cell(ey, dy, t0, dim_f);
+        let mut iz = render_core::dda_cell(ez, dz, t0, dim_f);
+        let mut tmx = render_core::dda_tmax(ex, dx, ix as f32);
+        let mut tmy = render_core::dda_tmax(ey, dy, iy as f32);
+        let mut tmz = render_core::dda_tmax(ez, dz, iz as f32);
+        let tdx = render_core::dda_tdelta(dx);
+        let tdy = render_core::dda_tdelta(dy);
+        let tdz = render_core::dda_tdelta(dz);
+        let stx: i32 = if dx > 0.0 { 1 } else { -1 };
+        let sty: i32 = if dy > 0.0 { 1 } else { -1 };
+        let stz: i32 = if dz > 0.0 { 1 } else { -1 };
+        let mut st: u32 = 0;
+        while st < max_steps {
+            let c = ((iz * dim_i + iy) * dim_i + ix) as usize;
+            let c0 = cs[c];
+            if c0 != 0xFFFFFFFFu32 {
+                let mut j = c0 as usize;
+                let je = ce[c] as usize;
+                while j < je {
+                    let tj = render_core::sphere_t(
+                        ex, ey, ez, dx, dy, dz, px[j], py[j], pz[j], r2);
+                    if tj < best_t {
+                        best_t = tj;
+                        best_j = j as u32;
+                    }
+                    j = j + 1;
+                }
+            }
+            let tc = render_core::min3(tmx, tmy, tmz);
+            if best_t <= tc || tc > t_ext || tc > t_ground {
+                break;
+            }
+            if tmx <= tmy && tmx <= tmz {
+                ix = ix + stx;
+                if ix < 0 || ix >= dim_i {
+                    break;
+                }
+                tmx = tmx + tdx;
+            } else if tmy <= tmz {
+                iy = iy + sty;
+                if iy < 0 || iy >= dim_i {
+                    break;
+                }
+                tmy = tmy + tdy;
+            } else {
+                iz = iz + stz;
+                if iz < 0 || iz >= dim_i {
+                    break;
+                }
+                tmz = tmz + tdz;
+            }
+            st = st + 1u32;
+        }
+    }
+    // 光源中心(单影子光线方向)
+    let lcx = (lx0 + lx1) * 0.5;
+    let lcz = (lz0 + lz1) * 0.5;
+    let mut cr: f32;
+    let mut cg: f32;
+    let mut cb: f32;
+    if best_t < t_ground {
+        // 球体:速度基色 × (环境 + Lambert × 影子) + Fresnel × 天空反射色
+        let bj = best_j as usize;
+        let hx = ex + best_t * dx;
+        let hy = ey + best_t * dy;
+        let hz = ez + best_t * dz;
+        let n0x = hx - px[bj];
+        let n0y = hy - py[bj];
+        let n0z = hz - pz[bj];
+        let nl = render_core::len3(n0x, n0y, n0z);
+        let ninv = 1.0 / nl;
+        let mut nx = n0x * ninv;
+        let mut ny = n0y * ninv;
+        let mut nz = n0z * ninv;
+        let mut cosi = 0.0 - render_core::dot3(dx, dy, dz, nx, ny, nz);
+        if cosi < 0.0 {
+            nx = -nx;
+            ny = -ny;
+            nz = -nz;
+            cosi = -cosi;
+        }
+        let fres = render_core::schlick(cosi);
+        let spd = render_core::len3(vx[bj], vy[bj], vz[bj]);
+        let ct = render_core::speed_t(spd, vscale);
+        let alr = render_core::speed_col_r(ct);
+        let alg = render_core::speed_col_g(ct);
+        let alb = render_core::speed_col_b(ct);
+        let sox = hx + nx * 0.001;
+        let soy = hy + ny * 0.001;
+        let soz = hz + nz * 0.001;
+        let w0x = lcx - sox;
+        let w0y = ly - soy;
+        let w0z = lcz - soz;
+        let wd = render_core::len3(w0x, w0y, w0z);
+        let winv = 1.0 / wd;
+        let wxn = w0x * winv;
+        let wyn = w0y * winv;
+        let wzn = w0z * winv;
+        let ndl = render_core::dot3(nx, ny, nz, wxn, wyn, wzn);
+        let mut lit: f32 = 0.0;
+        if ndl > 0.0 {
+            let occl = render_pt::shadow_walk(
+                px, py, pz, cs, ce, sox, soy, soz, wxn, wyn, wzn, wd,
+                r2, dim_i, dim_f, max_steps);
+            if occl == 0u32 {
+                lit = ndl;
+            }
+        }
+        // 反射天空色(Fresnel 权)
+        let ddn = render_core::dot3(dx, dy, dz, nx, ny, nz);
+        let rdy = render_core::reflect_c(dy, ddn, ny);
+        let shade = 0.25 + 0.9 * lit;
+        cr = alr * shade + fres * render_core::sky_r(rdy);
+        cg = alg * shade + fres * render_core::sky_g(rdy);
+        cb = alb * shade + fres * render_core::sky_b(rdy);
+    } else if t_ground < 1.0e29 {
+        // 地面:棋盘 × (环境 + 影子)
+        let hx = ex + t_ground * dx;
+        let hz = ez + t_ground * dz;
+        let alb = render_core::checker_albedo(hx, hz);
+        let w0x = lcx - hx;
+        let w0y = ly - 0.001;
+        let w0z = lcz - hz;
+        let wd = render_core::len3(w0x, w0y, w0z);
+        let winv = 1.0 / wd;
+        let wxn = w0x * winv;
+        let wyn = w0y * winv;
+        let wzn = w0z * winv;
+        let mut lit: f32 = 0.0;
+        if wyn > 0.0 {
+            let occl = render_pt::shadow_walk(
+                px, py, pz, cs, ce, hx, 0.001, hz, wxn, wyn, wzn, wd,
+                r2, dim_i, dim_f, max_steps);
+            if occl == 0u32 {
+                lit = wyn;
+            }
+        }
+        let shade = 0.3 + 0.7 * lit;
+        cr = alb * shade;
+        cg = alb * shade;
+        cb = alb * shade;
+    } else {
+        // 天空(含面光源直视)
+        let tl = render_core::plane_t(ey, dy, ly);
+        let hlx = ex + tl * dx;
+        let hlz = ez + tl * dz;
+        if tl < 1.0e29 && hlx >= lx0 && hlx <= lx1 && hlz >= lz0 && hlz <= lz1 {
+            cr = le;
+            cg = le;
+            cb = le;
+        } else {
+            cr = render_core::sky_r(dy);
+            cg = render_core::sky_g(dy);
+            cb = render_core::sky_b(dy);
+        }
+    }
+    // tone map → [0,1] → ×255(RXS-0143 blit 像素域)
+    bb[pi * 3] = render_core::tone_map(cr) * 255.0;
+    bb[pi * 3 + 1] = render_core::tone_map(cg) * 255.0;
+    bb[pi * 3 + 2] = render_core::tone_map(cb) * 255.0;
+}

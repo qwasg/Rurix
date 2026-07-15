@@ -1,7 +1,7 @@
 ---
 contract: MS1
 title: MS1 期——使命判据落地第一期：single-source 宿主 GPU 编排（std::gpu）+ UC-07 以 Rurix 为主语言的生产级渲染器/仿真二合一应用（ruridrop）
-status: active            # active → closed（close-out 只追加 §8,上方条款 0-byte;基准 v1-closed→ms1-closed 切换 + ms1-closed tag 归 MS1.5,agent 自主签署）
+status: closed            # active → closed（close-out 只追加 §8,上方条款 0-byte;基准 v1-closed→ms1-closed 切换 + ms1-closed tag 归 MS1.5,agent 自主签署）
 version: v1.0
 date: 2026-07-14
 timebox: "中期（约 3–5 周,MS1.1~MS1.5 严格串行见 MS1_PLAN.md;周为相对刻度,非日历承诺）"
@@ -148,3 +148,50 @@ MS1 期结束时项目获得:① host .rx 可经 `std::gpu` 首期收敛子集(C
 ## 8. Close-out(只追加区 — 开工时为空)
 
 <!-- 验收记录、guardrail 核对输出、MS1.1~MS1.4 端到端留痕(双 RFC / 步骤 52/53 run URL / golden bless / present evidence / 性能回填)、RD-007/RD-009/RD-025 处置留痕、SG 复评结论追加于此;上方条款 0-byte 修改。MS1 close-out 关闭判定 / 基准切换(v1-closed→ms1-closed)/ ms1-closed tag / RD·SG 处置由 agent 自主签署兑现。 -->
+
+### 8.1 MS1.1 验收留痕(2026-07-14,D-MS1-1 / G-MS1-1 前置)
+
+agent 完全自主签署(AGENTS v3.0 硬规则 1 / D-406 v2.0),记录机器事实:
+
+- **双 Full RFC 合入先于实现**:RFC-0009(single-source 宿主 GPU 编排 std::gpu,Agent Approved 2026-07-14)经 PR [#130](https://github.com/qwasg/Rurix/pull/130) 合入(pr-smoke [run 29339267711](https://github.com/qwasg/Rurix/actions/runs/29339267711));RFC-0010(UC-07 ruridrop + 主语言判据操作化,Agent Approved 2026-07-14)经 PR [#131](https://github.com/qwasg/Rurix/pull/131) 合入(pr-smoke [run 29341689141](https://github.com/qwasg/Rurix/actions/runs/29341689141))。失败测试先行成立:两 RFC 合入时点,`ci/host_orch_smoke.py` / `ci/uc07_offline_golden_smoke.py` / `src/rurix-rt-cabi` / `apps/ruridrop` 在 main 上均不存在 = RED。
+- 脚手架 PR [#129](https://github.com/qwasg/Rurix/pull/129)(pr-smoke [run 29338179327](https://github.com/qwasg/Rurix/actions/runs/29338179327))先行落契约四件套 + RD-007/009/025 顺延(deferred v1.48)。
+
+### 8.2 MS1.2 / MS1.2b 验收留痕(2026-07-14/15,D-MS1-2 / D-MS1-3;G-MS1-1 / G-MS1-2)
+
+- **G-MS1-1 条款先行**:spec/host_orchestration.md RXS-0189~0196(PR [#132](https://github.com/qwasg/Rurix/pull/132),commit 序条款在前)+ RXS-0197~0199(PR [#133](https://github.com/qwasg/Rurix/pull/133))落体,每条 ≥1 锚定,trace 184→192→**195/195** 全锚定;stable 快照两次同 PR 重 bless(184→192→195,tests/stable/bless_log.md 两行留痕,RXS-0180 L2 加性演进);7 新码 RX1005/RX2010/RX3015/RX6024/RX6025/RX7021/RX7022 en/zh 成对(bilingual 95/95);unsafe-audit **U25**(src/rurix-rt-cabi,FFI 边界例外,逐处 // SAFETY:)。
+- **G-MS1-2 single-source 端到端**:conformance/host_orch/accept/saxpy_single_source(宿主编排 + kernel 同编译单元)经 `rx build` 产单 EXE(PTX + sm_89 cubin 真预编嵌入,DeviceArtifactSet 装载协商复用)→ RTX 4070 Ti 真跑数值自校验 exit 0;防降级硬门兑现:宿主编排全部来自 .rx 源经 rurixc host codegen(CallTarget::Rt 字面符号 → rxrt_* C ABI → rurix-rt);CI 步骤 52 内建双红绿(篡改嵌入 PTX → 装载协商拒 `RXRT: error` / 桩化 kernel 写回 → 数值红 / 复原绿)。PR #132 pr-smoke [run 29381369800](https://github.com/qwasg/Rurix/actions/runs/29381369800)、PR #133 [run 29384566787](https://github.com/qwasg/Rurix/actions/runs/29384566787) 全量 success(runner 真 GPU,RURIX_REQUIRE_REAL=1)。
+- MS1.2b:present 宿主 typestate 面(OwnedPresentSession 下沉 + rxp_* 七符号 + .rx 消费式四态,错序 = 编译期 move 违例;D-130 shim 边界 0-byte,uc03 回归网零漂移)+ 宿主图像落盘桥(rxio_write_ppm,与 image-io 逐字节一致);步骤 52 扩面(八 reject / 五 accept / imageio device 真跑)。RD-026 执行期登记(deferred v1.49)。
+- 附带运维留痕:runner 僵尸 exe(nightly 遗留 async_buffer_pipeline.exe 内核态锁)经用户授权击杀 + Move-Item 隔离区解锁,PR #132 首跑 checkout EPERM 红 → 隔离后 rerun 全绿(run 29381369800 为 rerun)。
+
+### 8.3 MS1.3 验收留痕(2026-07-15,D-MS1-4;G-MS1-3 / G-MS1-4)
+
+- **G-MS1-3 主语言判据(RFC-0010 §4.1 四条,机器审计)**:apps/ruridrop 文件集 = 13 个 .rx + rurix.toml,**零 .rs/.cpp/.c/.py**(步骤 53 前置审计严格白名单);GPU kernel(14 处 kernel fn)与宿主编排/帧循环/落盘同包,`rx build` 单 EXE;链接白名单 = 语言基础设施(rurix-rt / rurix-rt-cabi / rurix-d3d12 shim / image-io 经 RFC-0009 C ABI 面);防降级硬门无替代物。
+- **G-MS1-4 离线 golden 三层(步骤 53,device 真跑)**:① 确定性硬门——冒烟档(160×120/8spp/2 帧/N=4096)同机两跑逐帧 SHA-256 逐字节一致;② 参考容差硬门——GPU 帧 vs refcpu(同一 .rx device fn host 单线程同构重放)**逐字节全等**(|Δ|≤1 占比 100%,max=0;门限 ≥99.5% / ≤2);③ blessed 哈希软门——tests/uc07/golden_manifest(05b59ff2… / e9c2c2c2…)+ bless_log 首次 bless 留痕;④ 数据流红绿——篡改 GRAVITY 10.0→2.5 同链重编 → 双帧 digest ≠ golden → 原树 0-byte 复原绿。PR [#134](https://github.com/qwasg/Rurix/pull/134) pr-smoke [run 29386668923](https://github.com/qwasg/Rurix/actions/runs/29386668923) 全量 success。
+- 仿真确定性由构造保证(bit-split 基数排序 atomics-free + 固定序累加,SIM_HASH 三跑同值);RD-007 评估点兑现:kernel 全标量实参,未用 turbofish const,未触发接通(§6 处置)。
+
+### 8.4 MS1.4 验收留痕(2026-07-15,D-MS1-5;G-MS1-5 / G-MS1-6)
+
+- **G-MS1-5 实时 present 取证(evidence 面,measured_local)**:本机交互桌面真窗口 600 帧(present-real shim,d3d12-interop-real,~68fps),末帧普通 Buffer 采样对照 sample_ok=true(天空区 (159,166,175) 与梯度公式逐点吻合 + 水体区蓝主导核验)→ [evidence/uc07_present_20260715.json](../../evidence/uc07_present_20260715.json)(环境画像 driver 620.02 / CUDA 13.2)。不进 CI 硬门(双态先例,SKIP 不充绿)。
+- **G-MS1-6 性能预算**:三项 ms1.bench.* 以 measured_local 回填(triple_run trimmed mean,锁频 -lgc 2610/-lmc 10501):uc07_sph_step_ms **11.46ms**(≤17.19,N=131072 sim-only 差分法)/ uc07_offline_frame_s **0.116s**(≤0.174,720p×8 帧全序列)/ uc07_realtime_frame_ms **14.83ms**(≤33.3 = 30fps 档)。budget_eval --strict **74 pass 零 estimated**。
+- **诚实发现 RD-027(deferred v1.50)**:生产档 256spp/4 弹射触工具链毒径挂起(疑 rurixc PTX 发散重汇聚缺陷,二分实录);处置 = params.rx 生产档暂锁已验证切片 32spp/2 弹射(STUB(RD-027) 双侧标注,offline 端到端 8 帧 1.17s 复验绿)+ RFC-0010 修订表 Q-AppScope 切片留痕行 + bench 脚本切片容错;修复后回填 256/4 重测,不静默放宽。PR [#135](https://github.com/qwasg/Rurix/pull/135) pr-smoke [run 29391498364](https://github.com/qwasg/Rurix/actions/runs/29391498364) 全量 success。
+
+### 8.5 MS1 整体 close-out 终审(2026-07-15,agent 完全自主签署)
+
+**全量回归冻结(本机真实输出)**:`cargo test --workspace` **79 套件 0 failed**;`trace_matrix --check` **195/195** 全锚定;`stable_snapshot --check` **195/95/["2026"]/8**;`bilingual_coverage` **95/95**;`budget_eval --strict` **74 pass, 0 skip, strict mode**(零 estimated);`check_schemas` PASS;`check_guardrails`(基准 v1-closed)PASS;步骤 49 红绿闭合复绿。
+
+**验收门终审表**:
+
+| 门 | 判据 | 结论 |
+|---|---|---|
+| G-MS1-1 | 双 RFC 前置 + 条款先行 + 全锚定 + 两次同 PR 重 bless | ✅(§8.1/§8.2) |
+| G-MS1-2 | single-source .rx → 单 EXE → device 真跑数值对照 + 防降级硬门 + 双红绿 | ✅(§8.2) |
+| G-MS1-3 | 应用零 .rs 机器审计 + 同包 + 基础设施白名单 | ✅(§8.3) |
+| G-MS1-4 | 离线 golden 三层 + 数据流红绿 | ✅(§8.3,②门以逐字节全等超额达成) |
+| G-MS1-5 | present evidence(measured_local,不进 CI 硬门) | ✅(§8.4) |
+| G-MS1-6 | ≥2 项 ms1.bench.* measured_local + --strict 零 estimated + carve-out 维持 | ✅(§8.4;三项回填) |
+
+**deferred 处置**(registry/deferred.json v1.51,§6 对应):RD-007 维持 inherited(评估点兑现未触发,待后续阶段顺延)/ RD-009、RD-025 维持 open carry-forward / RD-026 维持 open(首期子集全程够用)/ RD-027 维持 open(切片处置闭环,工具链缺陷调查归后续)。**SG 复评**(spike_gating.json v1.5):SG-001~005/007~009 全维持 not_triggered;SG-010 全期未触发留续号;D-008 多后端红线 3 不解除(UC-07 CUDA/PTX 落地 = NVIDIA 纵深推进)。
+
+**使命判据表述(诚实边界,§7 ⑪)**:MS1 达成 =「**首个以 Rurix 为主语言的生产级渲染器/仿真系统(第一方)落地**」——ruridrop:应用层零 .rs、宿主编排/kernel/帧循环/落盘全 .rx、单 EXE、确定性三层 golden、实时 ~68fps@1280×720/131k 粒子、性能 measured_local。01 §6 使命成功层的「外部选择/采纳」维度维持 carve-out,**不宣称使命判据整体达成**;后续外部项目采纳属社会判据,时间驱动。
+
+**签署兑现**:本契约 `status: active → closed`;`ci/check_guardrails.py` 回退基准默认 `v1-closed → ms1-closed`;合入后推 annotated `ms1-closed` tag(不匹配 release.yml 收窄触发器,零误触发);双基准 advisory 复核(v1-closed PASS + ms1-closed PASS)输出随 close-out PR 验证记录。MS1 期正式关闭;post-MS1 里程碑由后续裁决另立,本契约不预造。(可选尾巴:11 §6 落地标注走 00 §6.3 独立勘误 PR,诚实措辞,与执行 PR 分离。)

@@ -429,6 +429,34 @@ def eval_counter(entry: dict, strict: bool) -> None:
             if doc.get("integration_ok") is True:
                 n += 1
         count_or_gate(eid, n, 1, "份首个引擎集成端到端证据", "G1.3 引擎集成落地前为正常状态,契约 G-G1-3", strict)
+    elif eid == "ms1.counter.host_orch_single_source":
+        # single-source 宿主编排端到端证据数 ≥1(契约 G-MS1-2;host .rx 经 std::gpu
+        # 首期收敛子集编排 GPU + 同源 kernel PTX 嵌入单 EXE,rx build 一步出可执行,
+        # device 真跑数值自校验 + 篡改嵌入 PTX 装载协商拒/桩化 kernel 写回数值红双红绿,
+        # RFC-0009 / RXS-0189~0196,CI 步骤 52 ci/host_orch_smoke.py);计数 =
+        # evidence/host_orch_smoke*.json 中 single_source=true 且 device_run=true 的
+        # 报告数。无 CUDA 环境冒烟降级 SKIP 不写证据 → 0 → 建设期 normal SKIP /
+        # close-out strict FAIL,对齐 g1.counter.d3d12_interop 先例。
+        n = 0
+        for f in (ROOT / "evidence").glob("host_orch_smoke*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("single_source") is True and doc.get("device_run") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份 single-source 宿主编排端到端证据", "MS1.2 device 真跑回填前为正常状态,契约 G-MS1-2", strict)
+    elif eid == "ms1.counter.uc07_offline_golden_frames":
+        # UC-07 离线 golden 端到端证据数 ≥1(契约 G-MS1-3/G-MS1-4;apps/ruridrop 零 .rs
+        # 主语言判据审计 + 三层 golden(同机两跑逐帧 SHA-256 一致 / GPU vs refcpu 量化域
+        # 容差 / blessed 哈希 == tests/uc07/golden_manifest)+ 篡改 sim_forces 重力常数经
+        # 同一 rx build 链重编 digest 变红复原绿,RFC-0010 §4.1/§4.4,CI 步骤 53
+        # ci/uc07_offline_golden_smoke.py);计数 = evidence/uc07_offline_golden*.json 中
+        # digest_match=true 的报告数。无 CUDA 环境冒烟降级 SKIP 不写证据 → 0 → 建设期
+        # normal SKIP / close-out strict FAIL,对齐 ms1.counter.host_orch_single_source 先例。
+        n = 0
+        for f in (ROOT / "evidence").glob("uc07_offline_golden*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("digest_match") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份 UC-07 离线 golden 端到端证据", "MS1.3 device 真跑回填前为正常状态,契约 G-MS1-4", strict)
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 
