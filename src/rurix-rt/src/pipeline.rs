@@ -185,6 +185,66 @@ impl Bound<'_> {
         let cuda = self.cuda()?;
         check("cuCtxSynchronize", cuda.ctx_synchronize())
     }
+
+    /// 装载分发产物变体集 + fatbin 装载协商(RXS-0150/0151;MS1.2 / RFC-0009 §4.3,镜像
+    /// [`Context::load_module_artifacts`](crate::Context::load_module_artifacts) 到 shared 族)。
+    ///
+    /// 协商序与 Context 路径一致:查 device compute capability → 命中按架构预编 cubin 即
+    /// `cuModuleLoadData`(首启免 JIT);未命中 / driver 无 cubin 装载 / cubin 被驱动拒绝 →
+    /// **降级**既有 PTX 版号梯子(RXS-0076 语义 0-byte;降级而非 reject,不 poison,D-207)。
+    /// 返回 **`'static` brand**:[`SharedModule`] 自持 `Arc<SharedInner>`(context 不早于
+    /// 模块,Drop 自行重绑 current 后卸载),供 rurix-rt-cabi u64 句柄表跨调用惰性缓存
+    /// (RXS-0194);线程内即用即取的场景仍宜用 [`load_module`](Self::load_module)。
+    pub fn load_module_artifacts(
+        &self,
+        set: &crate::fatbin::DeviceArtifactSet,
+    ) -> Result<SharedModule<'static>> {
+        if let Some(module) = self.try_load_cubin(set) {
+            return Ok(module);
+        }
+        let cuda = self.cuda()?;
+        let (raw, version) = negotiate_load(cuda, set.ptx_fallback())?;
+        Ok(SharedModule {
+            inner: self.arc(),
+            raw,
+            version,
+            _b: PhantomData,
+        })
+    }
+
+    /// 尝试按架构预编 cubin 装载(RXS-0151,镜像 `Context::try_load_cubin` 的 shared 族
+    /// 形态);未命中 / driver 不支持 / cubin 被拒 → `None`(上层降级保守 PTX fallback,
+    /// 不 poison)。
+    fn try_load_cubin(
+        &self,
+        set: &crate::fatbin::DeviceArtifactSet,
+    ) -> Option<SharedModule<'static>> {
+        let cuda = sys::cuda()?;
+        if !cuda.has_cubin_load() || !set.has_cubin() {
+            return None;
+        }
+        let (rc, major, minor) = cuda.device_compute_capability(self.shared.inner.device)?;
+        if rc != sys::CUDA_SUCCESS {
+            return None;
+        }
+        let device_sm = crate::fatbin::SmTarget::from_capability(major, minor);
+        let crate::fatbin::LoadChoice::Cubin(sm) =
+            crate::fatbin::select_load_variant(&device_sm, set)
+        else {
+            return None;
+        };
+        let variant = set.cubin_for(&sm)?;
+        // SAFETY: (U22):`variant.bytes()` 为预编的有效 cubin 二进制(RXS-0150,
+        // `DeviceArtifactSet` 持有保活);cubin 被驱动拒绝(架构不符等)时返回非 SUCCESS →
+        // `None`,上层降级 PTX(保守兜底,不 poison,D-207)。
+        let (r, raw) = unsafe { cuda.module_load_data(variant.bytes().as_ptr().cast::<c_void>())? };
+        (r == sys::CUDA_SUCCESS).then_some(SharedModule {
+            inner: self.arc(),
+            raw,
+            version: sm.as_str().to_owned(),
+            _b: PhantomData,
+        })
+    }
 }
 
 /// 设备内存缓冲(RXS-0130;**`Send`**:持 `Arc<SharedInner>`,可跨线程 `move`,RXS-0133)。

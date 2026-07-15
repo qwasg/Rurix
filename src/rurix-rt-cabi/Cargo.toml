@@ -1,0 +1,29 @@
+[package]
+name = "rurix-rt-cabi"
+description = "Rurix 宿主编排 rxrt C ABI 运行时边界(MS1.2,RFC-0009 §4.3:host .rx codegen ↔ rurix-rt 的 staticlib 绑定 — u64 句柄表 + 嵌入产物描述表解析 + fatbin 装载协商惰性缓存 + launch marshalling + poisoned 确定性失败;spec/host_orchestration.md RXS-0193/0194)"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+# staticlib = rx build 链接段静态链进宿主 EXE(RFC-0009 §4.2,link.exe/D-209);
+# rlib = cargo test/workspace 单测消费(先例 rurix-interop)。
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]
+# 包装运行时 ownership 系(SharedContext/DeviceBox/SharedStream,RXS-0130~0133)+
+# fatbin 装载协商(DeviceArtifactSet,RXS-0150/0151);运行时零外部依赖维持
+# (nvcuda.dll 动态加载)。
+rurix-rt = { path = "../rurix-rt" }
+
+# unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6;镜像 rurix-interop FFI 边界例外写法):
+# rurix-rt-cabi 是宿主编排 FFI 边界 crate(RFC-0009 §4.3),经裁决最小开 unsafe
+# (C ABI extern "C" 导出 + 调用方指针契约借用 + !Send 句柄跨线程存表豁免),
+# 注册见 unsafe-audit/rurix-rt-cabi.md(U25)。仍强制每 unsafe 块/impl 携
+# `// SAFETY:`(clippy undocumented_unsafe_blocks = deny)。其余新 crate 维持 deny。
+[lints.rust]
+unsafe_code = "allow"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "deny"
