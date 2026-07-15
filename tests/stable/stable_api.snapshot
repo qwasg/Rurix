@@ -3,7 +3,7 @@
   "editions": [
     "2026"
   ],
-  "error_code_count": 88,
+  "error_code_count": 95,
   "error_codes": {
     "RX0001": "lex.unexpected_char",
     "RX0002": "lex.unterminated_block_comment",
@@ -20,6 +20,7 @@
     "RX1002": "resolve.duplicate_definition",
     "RX1003": "resolve.visibility_violation",
     "RX1004": "resolve.bad_use_target",
+    "RX1005": "resolve.module_load_failure",
     "RX2001": "typeck.mismatched_types",
     "RX2002": "typeck.bad_field",
     "RX2003": "typeck.arg_count_mismatch",
@@ -29,6 +30,7 @@
     "RX2007": "typeck.non_exhaustive_match",
     "RX2008": "typeck.bad_derive_copy",
     "RX2009": "typeck.bad_drop_impl",
+    "RX2010": "gpu.elem_infer",
     "RX3001": "coloring.cross_color_call",
     "RX3002": "addrspace.mismatch",
     "RX3003": "coloring.barrier_non_uniform",
@@ -43,6 +45,7 @@
     "RX3012": "shader.stage_interface_mismatch",
     "RX3013": "shader.resource_handle_invalid",
     "RX3014": "shader.sample_expr_invalid",
+    "RX3015": "coloring.gpu_host_api_in_device",
     "RX4001": "borrowck.use_after_move",
     "RX4002": "borrowck.use_before_init",
     "RX4003": "borrowck.move_out_of_ref",
@@ -73,6 +76,8 @@
     "RX6021": "runtime.uc04_barrier_plan",
     "RX6022": "runtime.uc04_readback_layout",
     "RX6023": "codegen.dxil_sample_unsupported",
+    "RX6024": "gpu.launch_arg_subset",
+    "RX6025": "codegen.gpu_embed_failure",
     "RX7001": "link.toolchain_failure",
     "RX7002": "link.libdevice_failure",
     "RX7003": "toolchain.rx_cli_usage",
@@ -92,7 +97,9 @@
     "RX7017": "cublas.invalid_device_pointer",
     "RX7018": "cublas.dimension_mismatch",
     "RX7019": "cublas.runtime_failed",
-    "RX7020": "toolchain.edition_unknown"
+    "RX7020": "toolchain.edition_unknown",
+    "RX7021": "link.rt_cabi_failure",
+    "RX7022": "link.native_lib_failure"
   },
   "note": "RD-008 stable 面快照(G2.5 语言 1.0 激活,RFC-0008)。锚定稳定语言面的存在性+含义,非二进制 ABI 保证(RXS-0180 L3)。变更须经 RURIX_BLESS=1 重 bless + tests/stable/bless_log.md 追加。",
   "rx_cli_subcommands": [
@@ -106,7 +113,7 @@
     "vendor"
   ],
   "schema_version": 1,
-  "spec_clause_count": 184,
+  "spec_clause_count": 192,
   "spec_clauses": [
     "RXS-0001",
     "RXS-0002",
@@ -291,7 +298,15 @@
     "RXS-0185",
     "RXS-0186",
     "RXS-0187",
-    "RXS-0188"
+    "RXS-0188",
+    "RXS-0189",
+    "RXS-0190",
+    "RXS-0191",
+    "RXS-0192",
+    "RXS-0193",
+    "RXS-0194",
+    "RXS-0195",
+    "RXS-0196"
   ],
   "subject": "rurix_stable_api_surface"
 }
