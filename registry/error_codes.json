@@ -562,6 +562,14 @@
       "spec_clauses": ["RXS-0175"]
     },
     {
+      "id": "RX6026",
+      "title": "Vulkan/SPIR-V codegen 目标不可用 / 暂不支持的构造 / 降级失败(--target vulkan:feature vulkan-backend 未启用 / compute 子集外构造 / SPIR-V emit·spirv-val 降级失败;mb1 RFC-0011,跳 RX6024/6025=MS1.2b 避撞)",
+      "message_key": "codegen.vulkan_unsupported",
+      "status": "active",
+      "introduced_in": "mb1",
+      "spec_clauses": ["RXS-0200", "RXS-0201"]
+    },
+    {
       "id": "RX7001",
       "title": "外部工具链失败(clang/link.exe 定位失败、版本不符 pin 或退出非零)",
       "message_key": "link.toolchain_failure",

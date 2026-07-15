@@ -97,6 +97,9 @@ link.libdevice_failure = libdevice link failure: {reason}
 # DXIL codegen 诊断(RX6007,spec/dxil_backend.md RXS-0157;G2.2 PR-C2 分片1 分配)
 codegen.dxil_unsupported = DXIL codegen target unavailable or unsupported: {detail}
 #
+# Vulkan/SPIR-V codegen 诊断(RX6026,spec/vulkan_backend.md RXS-0200/0201;mb1 RFC-0011 分配;跳 RX6024/6025=MS1.2b 避撞)
+codegen.vulkan_unsupported = Vulkan/SPIR-V codegen target unavailable or unsupported: {detail}
+#
 # DXIL B 路 strict-only 失败诊断(RX6010 ~ RX6013,spec/dxil_backend.md RXS-0157/0159/0162;G2.2 任务7 分配)
 codegen.dxil_b_transpile_failed = DXIL B-chain transpile failed at {step}: {reason}
 codegen.dxil_sig_mismatch = DXIL signature mismatch: {detail}

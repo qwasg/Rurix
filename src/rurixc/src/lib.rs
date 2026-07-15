@@ -54,3 +54,5 @@ pub mod tooling;
 pub mod ty;
 pub mod typeck;
 pub mod views_check;
+#[cfg(feature = "vulkan-backend")]
+pub mod vulkan_codegen;

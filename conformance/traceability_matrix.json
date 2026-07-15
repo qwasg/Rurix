@@ -1056,6 +1056,13 @@
     ],
     "RXS-0188": [
       "src/rurixup/src/toolchain.rs"
+    ],
+    "RXS-0200": [
+      "conformance/vulkan/accept/vk_noop.rx"
+    ],
+    "RXS-0201": [
+      "conformance/vulkan/accept/vk_noop.rx",
+      "src/rurixc/src/vulkan_codegen.rs"
     ]
   }
 }

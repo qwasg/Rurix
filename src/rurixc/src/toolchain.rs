@@ -832,3 +832,40 @@ define void @main() {\n\
         assert!(sigs.input.is_empty() && sigs.output.is_empty());
     }
 }
+
+// ───────────────────────── Vulkan/SPIR-V 工具链(mb1,RXS-0201) ─────────────────────────
+// gate 于 feature `vulkan-backend`。spirv-val 干验证关卡:退出码判定(非 grep stdout,反
+// Godot 教训);缺工具 → SKIP(dev-env degrade,真实红绿在带 Vulkan SDK 环境,对齐 RXS-0073
+// ptxas 干验证 SKIP 纪律,P-01)。
+
+/// `spirv-val` 验证关卡结果(mb1,RXS-0201;fail-closed:缺工具 SKIP 非 fake pass)。
+#[cfg(feature = "vulkan-backend")]
+#[derive(Debug)]
+pub enum SpirvValGate {
+    /// spirv-val 退出码 0(SPIR-V 合规)。
+    Accepted,
+    /// spirv-val 退出码非 0(SPIR-V 不合规;携 stdout+stderr 原因)。
+    Rejected(String),
+    /// spirv-val 不可用(spawn 失败;开发环境降级 SKIP)。
+    Skipped,
+}
+
+/// `.spv` 过 `spirv-val`。定位序:env `RURIX_SPIRV_VAL`(`.is_file`)→ PATH `spirv-val`。
+/// 退出码 0 = `Accepted`,非 0 = `Rejected(stdout+stderr)`,spawn 失败 = `Skipped`
+/// (工具缺失,dev-env degrade)。**退出码判定,不 grep stdout**(反 Godot 崩溃判定教训)。
+#[cfg(feature = "vulkan-backend")]
+pub fn spirv_val_gate(spv: &Path) -> SpirvValGate {
+    let tool: PathBuf = std::env::var_os("RURIX_SPIRV_VAL")
+        .map(PathBuf::from)
+        .filter(|p| p.is_file())
+        .unwrap_or_else(|| PathBuf::from("spirv-val"));
+    match Command::new(&tool).arg(spv).output() {
+        Ok(o) if o.status.success() => SpirvValGate::Accepted,
+        Ok(o) => {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            let stderr = String::from_utf8_lossy(&o.stderr);
+            SpirvValGate::Rejected(format!("{}{}", stdout.trim(), stderr.trim()))
+        }
+        Err(_) => SpirvValGate::Skipped,
+    }
+}

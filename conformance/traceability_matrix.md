@@ -188,3 +188,5 @@
 | RXS-0186 | spec/release.md | 3 | `src/rurixup/src/channel.rs`, `src/rurixup/src/gate.rs`, `src/rurixup/src/lib.rs` |
 | RXS-0187 | spec/release.md | 1 | `src/rurixup/src/toolchain.rs` |
 | RXS-0188 | spec/release.md | 1 | `src/rurixup/src/toolchain.rs` |
+| RXS-0200 | spec/vulkan_backend.md | 1 | `conformance/vulkan/accept/vk_noop.rx` |
+| RXS-0201 | spec/vulkan_backend.md | 2 | `conformance/vulkan/accept/vk_noop.rx`, `src/rurixc/src/vulkan_codegen.rs` |
