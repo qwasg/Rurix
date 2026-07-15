@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "evidence_level": "measured_local",
+  "timestamp": "2026-07-15T05:06:34.842207+00:00",
+  "bench": {
+    "id": "uc07_realtime_frame",
+    "level": "L4",
+    "problem_size": "1280x720, 1spp ray cast, N=131072, 4 substeps/frame, 600 frames presented to real D3D12 window; whole-process wall clock / 600 (includes present/pump/vsync + startup)",
+    "harness_commit": "ba37836d"
+  },
+  "environment": {
+    "driver_version": "620.02",
+    "nvml_version": "13.620.02",
+    "gpu_name": "NVIDIA GeForce RTX 4070 Ti",
+    "compute_capability": "8.9",
+    "driver_model": "WDDM",
+    "clocks": {
+      "locked": true,
+      "sm_clock_mhz": 2610,
+      "mem_clock_mhz": 10501,
+      "lock_method": "nvidia-smi -lgc/-lmc (elevated); persistence mode unsupported on Windows"
+    },
+    "thermal": {
+      "temp_start_c": 41,
+      "temp_end_c": 43,
+      "steady_state": true
+    },
+    "isolation_check": {
+      "other_compute_processes": 27
+    },
+    "cuda_driver_version": "13.2",
+    "tdr": {
+      "tdr_delay": "not_set(os_default)",
+      "tdr_level": "not_set(os_default)"
+    },
+    "hags_enabled": true,
+    "os_build": "Windows 10.0.28120"
+  },
+  "sampling": {
+    "trials": 3,
+    "trimmed_pct": 0.2,
+    "timer": "wall_clock_process",
+    "method": "process-level wall clock of one 600-frame real-window presented run / 600; includes present typestate loop (wait/signal/pump/present via d3d12-interop-real shim), window pump and any vsync/present pacing + process startup + PTX JIT (recorded honestly, not frame-isolated)"
+  },
+  "results": {
+    "metric": "realtime_frame_time",
+    "unit": "ms",
+    "trimmed_mean": 14.8334,
+    "correctness_check": "pass",
+    "trial_values": [
+      15.0047,
+      14.8141,
+      14.6814
+    ],
+    "cv": 0.010956,
+    "ci95": [
+      14.6814,
+      15.0047
+    ],
+    "min": 14.6814,
+    "max": 15.0047
+  },
+  "notes": "aggregate of 3 process-level independent runs (uc07_realtime_frame_ms_20260715_1..3.json); trial_values = per-run end-to-end wall-clock values. realtime ray-cast production profile presented to a real D3D12 window (RXS-0197/0198 typestate loop); end-of-run sample verification (sky/water regions) passed inside the EXE (REALTIME_OK sample_ok=true). RFC-0010 §4.6 ms1.bench.uc07_realtime_frame_ms"
+}
