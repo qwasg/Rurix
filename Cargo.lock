@@ -111,6 +111,7 @@ dependencies = [
 name = "rurix-rt-cabi"
 version = "1.0.0"
 dependencies = [
+ "image-io",
  "rurix-rt",
 ]
 
