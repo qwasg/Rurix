@@ -142,3 +142,20 @@ MB1 期结束时项目获得:① 一条 `rx build --target vulkan` MIR→SPIR-V 
 ## 8. Close-out(只追加区 — 开工时为空)
 
 <!-- 验收记录、run URL、guardrail 核对输出、device 真实红绿证据、deferred 继承/关闭记录追加于此;上方条款 0-byte 修改。两道硬件尾门(G-MB1-6/7)在获得 AMD 真卡 / Android 设备前维持 open,不在此伪造 device 绿。 -->
+
+### G-MB1-1 治理闸口 — 签署（owner 白栀,2026-07-15）
+
+owner（白栀）于本工作会话**明确指示「把多端红线解除并继续工作」**（10 §9.2 owner 主动决策,非 close-out 自动触发）。三项 owner 裁决前置满足:
+- ① **D-008 红线 3 解除**：[13_DECISION_LOG.md](../../13_DECISION_LOG.md) §7 D-008 行 resolved + §8 errata v2.1。
+- ② **SG-003 → triggered(RFC-0011)**：[registry/spike_gating.json](../../registry/spike_gating.json) current_verdict 翻转 + decisions 追加 + revision_log v1.5（append-only,trigger_condition 0-byte）。
+- ③ **RFC-0011 Owner Approved**：[rfcs/0011-vulkan-spirv-backend.md](../../rfcs/0011-vulkan-spirv-backend.md) 状态 / Agent 批准 / §9 Q-Redline 定案 / 修订记录 Owner approval。
+- **MB1 激活 + 索引登记**：spec/README §4+§5 v1.54 / rfcs/README 台账（RFC-0011 Owner Approved,next-free RFC-0012）。
+
+**诚实留痕**：解除前提『NVIDIA 单栈纵深完成』先前(2026-07-14 SG-003)判定未达,本次为 **owner 主动裁决解除**（其 prerogative,10 §9.2),非 agent 宣布前提达成。agent 依 owner 明确授权代录机器事实,非自签。
+
+### 进度记录（Phase 1 + Phase 2 core,真实红绿）
+
+- **Phase 1 codegen（G-MB1-2）达成**：`rx build --target vulkan` 产 **spirv-val --target-env vulkan1.0 clean** SPIR-V——compute（walking skeleton → saxpy 规范 UC → 数学 intrinsic GLSL.std.450）+ graphics（vertex/fragment 复用 dxil_spirv）；RXS-0200~0205；`ci/vulkan_codegen_smoke.py` 步骤 54（6 语料 6/6）。零回归（dxil 404/default 318/vulkan 351 test pass）。
+- **Phase 2 core 运行时（G-MB1-3 部分）达成**：手写 `vulkan-1` FFI（`src/rurix-rt/src/vk.rs`,feature vulkan 默认关闭,unsafe-audit U26）——**本机 NVIDIA RTX 4070 Ti(Vulkan 1.4.351) 真跑 saxpy = a*x + out 数值精确 max_err=0（n=1024,a=2）+ VK_LAYER_KHRONOS_validation 零报错**（反证:错入口名触发 VUID,证 layer 生效）；RXS-0207；`ci/vulkan_device_smoke.py` 步骤 55；`bin/vk_saxpy` demo。NVIDIA(CUDA) 零回归。
+- **余待**：RXS-0206 Backend trait（CUDA 收敛）/ RXS-0208~0213 / lavapipe 第二 ICD（G-MB1-3 完整）/ Phase 3 graphics+present（G-MB1-4）/ Phase 4 Android 交叉构建（G-MB1-5）。
+- **两道硬件尾门维持 open**：G-MB1-6（AMD 真卡）/ G-MB1-7（Android 真机 on-device）——缺硬件,NVIDIA(+lavapipe) 跑通不充作已验证,不伪造、不签。

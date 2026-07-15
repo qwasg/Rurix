@@ -5,12 +5,12 @@
 | RFC 编号 | RFC-0011（4 位制，编号永不复用，10 §9.5） |
 | 标题 | 单一 Vulkan/SPIR-V 后端：一条 MIR→SPIR-V codegen + 一个 Vulkan 运行时后端，同覆盖 AMD 桌面与 Android，compute 与 graphics(vertex/fragment) 皆支持 |
 | 档位 | **Full RFC**（10 §3：**新 codegen 目标**(MIR→SPIR-V)+ **新运行时后端**(Vulkan Backend trait 抽象)+ **FFI ABI**(descriptor-binding marshalling / dlopen 移植缝)+ **触死亡路线红线 3**(多后端 D-008/SG-003)；AGENTS 硬规则 5，判档争议向上取严 硬规则 8） |
-| 状态 | **Draft（2026-07-15）。本 RFC 依赖 D-008 红线 3 解除 + SG-003 → triggered(RFC-0011)——二者为 owner 裁决闸口(§9 Q-Redline)；未获裁决前 agent 不自签、不推进下游实现 PR 合入 main。** |
+| 状态 | **Owner Approved（2026-07-15）**。owner（白栀）于本工作会话**明确指示解除多后端红线 3（D-008）并继续 Vulkan/SPIR-V 后端工作**（10 §9.2 owner 主动决策，非 close-out 自动触发）；SG-003 → triggered(RFC-0011) 同步(spike_gating errata)、D-008 §8 errata v2.1 记录、MB1 激活;可推进 mb1 下游实现 PR。agent 依明确授权代录机器事实,非自签。 |
 | 承接里程碑 | MB1（milestones/mb1/MB1_CONTRACT.md，验收门 G-MB1-1 ~ G-MB1-6；多后端新纪元，含两道硬件尾门 open） |
 | 关联条款 | 拟落 spec **RXS-0200 ~ RXS-0213**（区间随条款数定，见 §5）；新建 `spec/vulkan_backend.md`。跳号 RXS-0189~0199（MS1.2/MS1.2b 承接，feat/ms1.2b 在途）避撞维持 |
 | 依据决策 | **D-008**（多后端红线 3 解除，触发时机「G2 完成后」已至，默认「维持红线直至 NVIDIA 纵深完成」——本 RFC 为其正式重审载体，待 owner 裁决）· **SG-003**（多后端 gating，conditional/not_triggered，本 RFC 请求 triggered）· **D-002/D-130**（历史否决 Vulkan 路线——本 RFC 正面重审其前提，见 §2/§7）· D-406 v2.0（agent 自主，但红线解除属 10 §9.2 owner 主动决策，carve-out）· RFC-0003（MIR→DXIL 第二后端并列降级先例）· RFC-0004（MIR→SPIR-V 图形编码器先例，本 RFC 抽取泛化其种子）· RFC-0005（绑定布局推导，descriptor/set/binding 复用）· D-113（FFI 战略；本 RFC 为**导入**方向，不触 `#[export(c)]`/RD-009）· D-205（LLVM pin）· 01 §1 §4 / 03 §4 / 11 §2 §5 / 14 §7 |
 | Provenance | `Assisted-by: claude-code:claude-opus-4-8`。agent 起草并把待裁问题摊清；**红线 3 解除与本 RFC 批准绑定为 owner 裁决，agent 不自签** |
-| Agent 批准 | **未批准（Draft）**。与既有 RFC-0002~0010 的「agent 自主批准」不同：本 RFC 触死亡路线红线 3(D-008/SG-003)，解除属独立 one-at-a-time owner 主动决策(10 §9.2)；批准前置 = owner 裁决红线 3 解除。见 §9 Q-Redline |
+| Agent 批准 | **Owner Approved — 2026-07-15**。owner 明确指示解除红线 3 并继续,批准范围含 🔒 §4.5(Backend trait FFI)/ §4.7(launch marshalling)/ §4.10(dlopen 移植缝)+ §9 八项 Q(拟裁转定案);红线 3 解除为 owner 主动决策(10 §9.2,区别于 D-406 常规 RFC agent 自主批准的 carve-out);记录于本文件 + 13_DECISION_LOG §8 errata v2.1 + spike_gating SG-003 triggered + MB1_CONTRACT §8。agent 依明确授权代录,非自签 |
 
 ---
 
@@ -208,7 +208,7 @@ OS 移植缝集中于 loader + 调用约定 + present surface：
 
 | # | 裁决点 | 拟裁（待 owner）|
 |---|---|---|
-| **Q-Redline** | **红线 3(D-008)解除 + SG-003 → triggered** | **owner 主动决策(10 §9.2)。前提『NVIDIA 单栈纵深完成』按 SG-003 现存记录判定为未达（2026-07-14）；agent 不自行宣布达成、不自签。本 RFC 全部技术面可先做完(spike/工程期真实红绿)，但下游实现 PR 合入 main 门控于此裁决。** |
+| **Q-Redline** | **红线 3(D-008)解除 + SG-003 → triggered** | **裁决 = 解除（owner 白栀,2026-07-15）。** owner 于本会话明确指示「把多端红线解除并继续工作」——10 §9.2 owner 主动决策,非 close-out 自动触发。诚实留痕:前提『NVIDIA 单栈纵深完成』先前(2026-07-14)判定未达,本次为 **owner 主动裁决解除**(其 prerogative),非 agent 宣布前提达成。同步 D-008 §8 errata v2.1 + SG-003 → triggered(RFC-0011)。下游 mb1 实现 PR 解锁。agent 依明确授权代录。 |
 | Q-Binding | Vulkan Rust 绑定 | 拟：手写薄 `vulkan-1`/`libvulkan` FFI loader（对齐 sys.rs 无外部绑定 + U26 集中 + Android dlopen 天然适配）。owner 若偏好 ash，pin 后回填 |
 | Q-Marshal | descriptor-binding launch ABI | 拟：保 `rxrt_launch` 签名字节不变，Vulkan 侧 ordinal→(set,binding) + push-constant，绑定布局随产物嵌入（主选）；`rxrt_dispatch_*` 新符号为备选。MS1.2 ABI 兼容硬约束 |
 | Q-ArchKey | arch key 命名 | 拟：`ArchKey{Sm(String),Gfx(String),SpirvPortable}`；lock `kind="spirv"`/`sm_target="gfx1100"`(AMD)/`""`(portable) |
@@ -234,3 +234,4 @@ OS 移植缝集中于 loader + 调用约定 + present surface：
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
 | Draft v0.1 | 2026-07-15 | AI 起草初版(mb1 多后端新纪元；设计承 10 路子系统勘察：driver 分发 / dxil_spirv SPIR-V 种子 / MIR 模型+intrinsic / rurix-rt CUDA 缝 / artifact+cabi / toolchain / spec+RFC+治理+CI 体例)；**status Draft——依赖 owner 裁决红线 3 解除(§9 Q-Redline)，agent 不自签** | Full RFC(Draft) |
+| Owner approval | 2026-07-15 | **owner（白栀）于本工作会话明确指示解除多后端红线 3(D-008)+ SG-003 → triggered(RFC-0011)+ 批准 RFC-0011 全文**(含 🔒 §4.5/§4.7/§4.10 FFI 面与 §9 八项 Q 裁决);批准后推进 mb1 Phase 1~4 实现(Phase 1 codegen + Phase 2 core 运行时已随本轮真实红绿落地)。10 §9.2 owner 主动决策;agent 依明确授权代录机器事实,非自签 | Full RFC(Owner Approved) |
