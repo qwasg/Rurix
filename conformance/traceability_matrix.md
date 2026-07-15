@@ -194,4 +194,5 @@
 | RXS-0203 | spec/vulkan_backend.md | 2 | `conformance/vulkan/accept/vk_fill.rx`, `conformance/vulkan/accept/vk_saxpy.rx` |
 | RXS-0204 | spec/vulkan_backend.md | 2 | `conformance/vulkan/accept/vk_fragment.rx`, `conformance/vulkan/accept/vk_vertex.rx` |
 | RXS-0205 | spec/vulkan_backend.md | 1 | `conformance/vulkan/accept/vk_math.rx` |
+| RXS-0206 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/backend.rs` |
 | RXS-0207 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/vk.rs` |

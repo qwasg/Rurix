@@ -201,6 +201,33 @@ f32 数学方法(`sqrt`/`sin`/`pow`/`fma`/…,MIR `CallTarget::Libdevice{__nv_*}
 
 > 锚定测试:conformance/vulkan/accept/vk_math.rx(`x[i].sqrt().max(0.0)` → OpExtInst Sqrt/FMax,spirv-val vulkan1.0 accept)。
 
+### RXS-0206 Compute 后端抽象（Backend trait；CUDA 收敛为一实现，Vulkan 并列）
+
+运行时引入 `ComputeBackend` trait,把「跑一个 compute:artifact → module → buffers 上传 → launch → 同步 → readback」收敛为单一后端无关抽象;**CUDA 收敛为一实现**(组合既有 `Context`/`Module`/`Stream`/`DeviceBuffer` public API,**零改其类型**)、**Vulkan 并列实现**(委托 `vk::run_compute`,RXS-0207)。后端选择**显式**(`RURIX_BACKEND` = cuda|vulkan),**无隐式 fallback**(P-01)。
+
+#### Syntax
+
+无语言文法面(运行时/库 API 面)。
+
+#### Legality
+
+- L1(抽象面):`trait ComputeBackend { type Session; open() -> Session; dispatch(session, job) }` 覆盖 open→dispatch 最小 orchestration;句柄经**关联类型 `Session`**(CUDA=拥有 `CUcontext` 的 `Context` / Vulkan=一次性 ZST)零成本区分。`ComputeJob{artifact,entry,buffers(in/out 原位回写),scalars,groups,block}` 后端无关。
+- L2(选择,P-01):`RURIX_BACKEND` 未设 = 默认 CUDA(核心后端);显式选定不可用 / 未知取值 / 未编译后端 → **确定性 `Err`**(`NotCompiled`/`Unknown`/`Run`),**绝不自动改跑另一后端**(默认选择 ≠ 运行期 fallback)。
+- L3(零回归):CUDA 实现只调既有 pub 方法,**不改 `Context`/`Stream`/`DeviceBuffer`/`Module` 语义、不触 sys.rs/pipeline.rs/vk.rs**;NVPTX/cubin 路不经 backend.rs(NVIDIA 零回归,硬约束)。
+
+#### Dynamic Semantics
+
+`run_job(kind, job)` 枚举分派:选定后端 `open()` → `dispatch()`——CUDA:PTX `load_module` → `function` → `alloc`+H2D → `Stream::launch(grid,block,params)` → `synchronize` → D2H;Vulkan:SPIR-V 字节→字流 → `vk::run_compute`。`job.buffers` 原位回写。纯 host 薄层,确定性。
+
+#### Implementation Requirements
+
+- IR1(零 unsafe):`src/rurix-rt/src/backend.rs` 纯 host 薄层组合各后端 safe public API + safe 字节转换,**零 unsafe**——不入 unsafe-audit、不新增 U 号;`undocumented_unsafe_blocks=deny` 不触发。
+- IR2(收敛/委托):CUDA `CudaBackend::dispatch` 只组合既有 API(标量 marshalling ABI 装配 = RXS-0208 后续);Vulkan `VulkanBackend::dispatch` 1:1 委托 `vk::run_compute`(签名逐参对齐,vk.rs 零改)。
+- IR3(真跑校验):saxpy 经 `run_job(BackendKind::Vulkan, ..)` 在本机 NVIDIA 真跑数值**精确**(max_err=0)——证 trait 端到端;default(无 vulkan)构建 `CudaBackend` 编译 + 既有 CUDA test 零漂移。
+- IR4(锚定):≥1 `//@ spec: RXS-0206` 覆盖 `parse_backend`(显式选择、无 fallback、未知/未编译确定性 Err)。
+
+> 锚定测试:src/rurix-rt/src/backend.rs 单测(`parse_backend`)+ src/rurix-rt/src/bin/vk_saxpy.rs(经 `run_job(Vulkan)` 真 NVIDIA GPU saxpy 精确)。
+
 ### RXS-0207 Vulkan compute 运行时执行语义
 
 Phase 1 `--target vulkan` 产 SPIR-V 经手写 `vulkan-1`/`libvulkan` FFI 薄 loader(RFC-0011 §9 Q-Binding 默认:零外部绑定,镜像 `sys.rs` nvcuda.dll 纪律)在 Vulkan 设备(NVIDIA / AMD 桌面 / Android)真跑:instance/device/compute queue → `vkCreateShaderModule` → compute `VkPipeline` + `VkPipelineLayout` → descriptor set(StorageBuffer)+ push constant → command buffer `vkCmdDispatch` → 单 queue 同步(`vkQueueWaitIdle`)→ 回读。运行期 marshalling(buffer→(set,binding)、scalar→push constant)与 codegen 侧描述符布局(RXS-0203)**单一事实源一致**。
@@ -236,3 +263,4 @@ Phase 1 `--target vulkan` 产 SPIR-V 经手写 `vulkan-1`/`libvulkan` FFI 薄 lo
 | v1.3 | 2026-07-15 | **MB1.1 数学 intrinsic:落带编号条款体 `### RXS-0205`**(`__nv_*` → GLSL.std.450 ext-inst 映射)+ 配套 `vulkan_codegen.rs` `emit_call` Libdevice 臂 + `glsl_ext_op` 映射表 + `OpExtInstImport "GLSL.std.450"` 懒发。覆盖 20 `DeviceMathFn` 中 18 个 1:1 项(sqrt/rsqrt/exp/exp2/log/log2/sin/cos/tan/floor/ceil/trunc/round/fabs/pow/fmin/fmax/fma;arity 1/2/3 通用),`cbrt`/`log10`(需组合)→ RX6026 诚实 defer。条款体 FLS,严禁 UB。配套 conformance accept `vk_math.rx`(`x[i].sqrt().max(0.0)`)。**真实红绿**(本机 Vulkan SDK 1.3.296.0):sqrt(1 元 `OpExtInst Sqrt`)/ max(2 元 `FMax`)/ fma(3 元 `Fma`)经 `--target vulkan` → `spirv-val --target-env vulkan1.0` accept(exit 0);cbrt→RX6026(exit 1)。`ci/trace_matrix.py` 全锚定 **188→189**(RXS-0205 ≥1 `//@ spec`)。**本片不碰** 🔒 launch marshalling / Backend trait / 纹理内存模型;graphics(RXS-0204)/ 结构化循环 / cbrt·log10 组合随后续分片。档位 **Full RFC**(RFC-0011);**gated on owner 裁决红线 3 解除 + RFC-0011 批准,未获裁决前不合入 main**,无体例变更 | **Full RFC**（RFC-0011） |
 | v1.4 | 2026-07-15 | **MB1.1 graphics 编码:落带编号条款体 `### RXS-0204`**(MIR→SPIR-V vertex/fragment,复用 RFC-0004 `dxil_spirv` 种子)+ 配套 `build_and_emit_vulkan` 按 `Body.stage` 路由(graphics→`dxil_spirv::emit_spirv_body` / compute→lower_compute)+ feature gate `dxil_spirv`/`binding_layout`/`attach_graphics_io_sig`/`dxil_io`/`collectable_stage` 由 `dxil-backend` 扩为 **`any(dxil-backend, vulkan-backend)`**。SPIR-V 即 Vulkan 原生终产物(`.spv`→`vkCreateShaderModule`),去 B 路 SPIRV-Cross→HLSL→dxc 转译链。条款体 FLS,严禁 UB;mesh/task/RT → RD-029 defer。配套 conformance accept `vk_vertex.rx`/`vk_fragment.rx`。**真实红绿**(本机 Vulkan SDK 1.3.296.0):vertex(`OpEntryPoint Vertex`)/ fragment(`OpEntryPoint Fragment`+`OriginUpperLeft`)经 `--target vulkan` → `spirv-val --target-env vulkan1.0` accept(exit 0)。**零回归**:dxil-backend 单独启用 test 404 passed、default test 318 passed(`any` 超集,dxil 行为字节不变)。`ci/trace_matrix.py` 全锚定 **189→190**(RXS-0204 ≥1 `//@ spec`)。**本片不碰** 🔒 launch marshalling / Backend trait / 纹理内存模型;present(RXS-0210)/ 多阶段 .spv 分文件输出随后续分片。档位 **Full RFC**(RFC-0011);**gated on owner 裁决红线 3 解除 + RFC-0011 批准,未获裁决前不合入 main**,无体例变更 | **Full RFC**（RFC-0011） |
 | v1.5 | 2026-07-15 | **MB1.2 Vulkan compute 运行时:落带编号条款体 `### RXS-0207`**(Vulkan compute 执行语义)+ 配套 `src/rurix-rt/src/vk.rs`(feature `vulkan` 默认关闭)手写 `vulkan-1` FFI 薄 loader(RFC §9 Q-Binding 默认零外部绑定,镜像 sys.rs;~35 Vulkan 命令 + `#[repr(C)]` 结构逐字节对齐 + 句柄线性生命周期,unsafe-audit **U26**〔跳 U23 空号 / U25=MS1.2b 避撞〕)+ `bin/vk_saxpy` 真跑 demo。instance/device/compute queue → shader module → compute pipeline → descriptor(StorageBuffer)+ push constant → `vkCmdDispatch` → 单 queue 同步。条款体 FLS,严禁 UB。**真实红绿(本机 NVIDIA RTX 4070 Ti,Vulkan 1.4.351)**:`rurixc --target vulkan saxpy.rx` 产 `.spv` → `bin/vk_saxpy` 真跑 saxpy=a*x+out **数值精确 max_err=0**(n=1024,a=2)+ `VK_LAYER_KHRONOS_validation` **零报错**(反证:错入口名触发 VUID-VkPipelineShaderStageCreateInfo-pName-00707,证 layer 生效);缺 Vulkan 驱动 → 确定性 Err 非 panic。**NVIDIA(CUDA)零回归**(feature vulkan 默认关闭,cargo build/test -p rurix-rt 零改动)。`ci/trace_matrix.py` 全锚定 **190→191**(RXS-0207 vk.rs 单测 + bin/vk_saxpy)。**第二 ICD(lavapipe)+ AMD 真卡为 open 尾门**;RXS-0206 Backend trait 抽象(CUDA 收敛)/ RXS-0208 marshalling ABI / RXS-0209 artifact 泛化随后续分片。档位 **Full RFC**(RFC-0011);**gated on owner 裁决红线 3 解除 + RFC-0011 批准,未获裁决前不合入 main**,无体例变更 | **Full RFC**（RFC-0011） |
+| v1.6 | 2026-07-15 | **MB1.2 Backend trait:落带编号条款体 `### RXS-0206`**(Compute 后端抽象,CUDA 收敛为一实现,Vulkan 并列)+ 配套 `src/rurix-rt/src/backend.rs`(**纯 host 薄层,零 unsafe,不新增 U 号**):`trait ComputeBackend{type Session; open; dispatch}` + `ComputeJob`(artifact/entry/buffers/scalars/groups/block)+ `CudaBackend`(组合既有 Context/Module/Stream/DeviceBuffer pub API,**零改其类型 / 零触 sys·pipeline·vk**)+ `VulkanBackend`(1:1 委托 vk::run_compute)+ `parse_backend`/`select_backend`/`run_job`(RURIX_BACKEND 显式选择,**无隐式 fallback** P-01:未知/未编译 → 确定性 Err)。条款体 FLS,严禁 UB。**真实红绿**:saxpy 经 `run_job(BackendKind::Vulkan)` 在本机 NVIDIA RTX 4070 Ti 真跑数值精确 max_err=0(bin/vk_saxpy 改经 backend 抽象,非直调 vk::run_compute)+ `parse_backend` 单测(cuda/未知/未编译 各确定性)。**NVIDIA(CUDA)零回归**:default(无 vulkan)构建 CudaBackend 编译 + rurix-rt lib 16 test 零漂移;clippy 双 feature clean。`ci/trace_matrix.py` 全锚定 **191→192**(RXS-0206 backend.rs 单测 + bin/vk_saxpy)。RXS-0208 marshalling ABI / RXS-0209 artifact 泛化 / lavapipe 第二 ICD 随后续分片。档位 **Full RFC**(RFC-0011)。**红线 3 已 owner 解除(2026-07-15),RFC-0011 Owner Approved**,mb1 下游实现解锁。无体例变更 | **Full RFC**（RFC-0011） |

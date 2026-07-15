@@ -11,6 +11,7 @@
 //! `DeviceBuffer<'ctx, T>` / `Module<'ctx>` 借用 `&'ctx Context`,跨 context 误用
 //! 与逃逸为借用检查错误;完整 affine 销毁纪律(stream 先同步)随 M5 深化。
 
+pub mod backend;
 mod error;
 /// 生产分发 fatbin:分发产物变体模型 + 装载协商决策（G1.5，RXS-0150/0151；MR-0005）。
 pub mod fatbin;

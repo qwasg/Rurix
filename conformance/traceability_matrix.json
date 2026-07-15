@@ -1078,6 +1078,9 @@
     "RXS-0205": [
       "conformance/vulkan/accept/vk_math.rx"
     ],
+    "RXS-0206": [
+      "src/rurix-rt/src/backend.rs"
+    ],
     "RXS-0207": [
       "src/rurix-rt/src/vk.rs"
     ]

@@ -49,13 +49,25 @@ fn main() {
     pc.extend_from_slice(&a.to_le_bytes());
     pc.extend_from_slice(&n.to_le_bytes());
 
-    match rurix_rt::vk::run_compute(&spv, &entry, &mut buffers, &pc, [n, 1, 1]) {
+    // 经 ComputeBackend 抽象(RXS-0206)选定 Vulkan 后端跑 —— 证明 trait 端到端真跑,
+    // 非直调 vk::run_compute。artifact = 原始 SPIR-V 字节(backend 内转 u32)。
+    use rurix_rt::backend::{BackendKind, ComputeJob, run_job};
+    let mut job = ComputeJob {
+        artifact: &raw,
+        entry: &entry,
+        buffers: &mut buffers,
+        scalars: &pc,
+        groups: [n, 1, 1],
+        block: [1, 1, 1],
+    };
+    match run_job(BackendKind::Vulkan, &mut job) {
         Ok(()) => {}
         Err(e) => {
-            eprintln!("VK_SAXPY: run_compute 失败: {e}");
+            eprintln!("VK_SAXPY: backend dispatch 失败: {e}");
             std::process::exit(1);
         }
     }
+    let _ = &spv; // spv(u32)保留供 entry 解析;dispatch 经 backend 走 raw 字节
 
     let out = to_f32(&buffers[0]);
     let mut max_err = 0.0f32;
