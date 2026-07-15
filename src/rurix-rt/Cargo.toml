@@ -44,6 +44,11 @@ rurixc = { path = "../rurixc", features = ["vulkan-backend"] }
 name = "vk_saxpy"
 required-features = ["vulkan"]
 
+# mb1 Phase 3 Vulkan graphics offscreen 真跑 demo(RXS-0210):须 feature vulkan。
+[[bin]]
+name = "vk_triangle"
+required-features = ["vulkan"]
+
 # unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6):rurix-rt 是首个 unsafe 边界(Driver API
 # FFI)。块级豁免 `unsafe_code`(注册见 unsafe-audit/rurix-rt.md),仍强制每个
 # unsafe 块携 `// SAFETY:` 注释(clippy undocumented_unsafe_blocks = deny)。

@@ -505,7 +505,10 @@ pub fn build_and_emit_vulkan(cx: &QueryCtx<'_>, _module_name: &str) -> Option<Ve
     // (RXS-0204;RFC-0004 种子,Vulkan 原生消费,去 B 路 SPIRV-Cross→HLSL→dxc 转译链)。
     // compute(`stage=None`,color=Kernel)→ compute lowerer(RXS-0201~0203)。
     if let Some(stage) = entry.stage {
-        return match crate::dxil_spirv::emit_spirv_body(stage, entry) {
+        // Vulkan 原生消费入口(RXS-0210 方案 B):去 UserSemantic/SPV_GOOGLE provenance
+        // (保名仅 B 路 HLSL 转译需要)→ `.spv` 免 device 扩展依赖直喂 vkCreateShaderModule
+        // (修 VUID-VkShaderModuleCreateInfo-pCode-08742)。DXIL 路 emit_spirv_body 字节不变。
+        return match crate::dxil_spirv::emit_spirv_body_vulkan(stage, entry) {
             Ok(words) => Some(words),
             Err(e) => {
                 cx.diag()

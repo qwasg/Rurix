@@ -1090,6 +1090,12 @@
     "RXS-0209": [
       "src/rurix-pkg/src/lock.rs",
       "src/rurix-rt/src/fatbin.rs"
+    ],
+    "RXS-0210": [
+      "conformance/vulkan/accept/vk_tri_fs.rx",
+      "conformance/vulkan/accept/vk_tri_vs.rx",
+      "src/rurix-rt/src/vk.rs",
+      "src/rurixc/src/dxil_spirv.rs"
     ]
   }
 }

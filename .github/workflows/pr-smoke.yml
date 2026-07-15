@@ -429,6 +429,21 @@ jobs:
           RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/vulkan_device_smoke.py
 
+      # 步骤 56（mb1 Phase 3,契约 G-MB1-4,RFC-0011 / RXS-0210）:Vulkan graphics offscreen
+      # 真跑冒烟。`ci/vulkan_graphics_smoke.py`:rurixc --target vulkan vk_tri_{vs,fs}.rx →
+      # SPIR-V（方案 B 去 SPV_GOOGLE/UserSemantic）→ spirv-val vulkan1.0 accept + spirv-dis
+      # 无 SPV_GOOGLE 反证 → bin/vk_triangle 在本机 Vulkan 设备 offscreen 出图 → readback 像素
+      # 断言（背景角==clear / 中心覆盖 / covered>0）+ VK_LAYER_KHRONOS_validation 零报错;内建
+      # red_self_test（provenance-带保名 .spv 喂同管线 → vkCreateShaderModule VUID-...-08742 →
+      # 退出码判红,两变体 spirv-val 皆 accept 证「去装饰」非「产非法」）。device 门:
+      # RURIX_REQUIRE_REAL=1 缺设备翻硬红(GPU runner 有 NVIDIA Vulkan)。窗口/swapchain present
+      # 为 open 尾门（RD-032);AMD 真卡 G-MB1-6 open。gated on 红线 3 解除 + RFC-0011 批准随 mb1 合入生效。
+      - name: vulkan graphics offscreen smoke (MB1 CI_GATES §2.56, G-MB1-4, RFC-0011)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/vulkan_graphics_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

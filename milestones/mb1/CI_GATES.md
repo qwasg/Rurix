@@ -21,7 +21,7 @@ mb1 复用既有 host 四门 + trace,零改动即纳入:
 |---|---|---|---|---|
 | §2.54 | `ci/vulkan_codegen_smoke.py` | MB1.1 codegen:`--target vulkan` 产 `.spv` → `spirv-val` clean;篡改红/复原绿;确定性 ×N;数学 intrinsic 映射;缺 glslang/spirv-val → SKIP dev-env degrade | G-MB1-2 | 否(host/CPU,工具在位即真跑) |
 | §2.55 | `ci/vulkan_device_smoke.py` | MB1.2 compute 运行时:本机 NVIDIA-Vulkan compute 端到端数值对照 + **lavapipe 第二 ICD** 跨厂商回归 + `VK_LAYER_KHRONOS_validation` 零报错 + CUDA 零回归探针;缺 Vulkan 运行时 → SKIP | G-MB1-3 | 是(GPU runner 硬红) |
-| §2.56 | `ci/vulkan_present_smoke.py` | MB1.3 graphics+present:本机 NVIDIA 出图 + present 像素对照 + validation 零报错 | G-MB1-4 | 是 |
+| §2.56 | `ci/vulkan_graphics_smoke.py` | MB1 Phase 3 graphics(offscreen-first):本机 NVIDIA offscreen 三角形出图 → `vkCmdCopyImageToBuffer` readback 像素对照(背景角==clear / 中心覆盖非背景 / covered>0)+ `VK_LAYER_KHRONOS_validation` 零报错(messenger fail-closed)+ codegen 去 `SPV_GOOGLE`/`UserSemantic` 反证(spirv-dis grep 0 + spirv-val accept)+ 内建 `red_self_test`(provenance-带保名 `.spv` 喂同管线 → VUID-...-08742 → 退出码判红);窗口/swapchain present → RD-032 尾门;缺 Vulkan 设备 → SKIP dev-env degrade | G-MB1-4 | 是(GPU runner 硬红) |
 | §2.57 | `ci/vulkan_android_build_smoke.py` | MB1.4:aarch64-linux-android + NDK 交叉**构建**绿 + 平台无关单测;NDK 缺失 → SKIP dev-env degrade;**设备运行不在本门** | G-MB1-5 | 否(交叉构建;设备 → G-MB1-7 open) |
 
 ## §3 两道硬件尾门(不设 CI 步骤,open)
