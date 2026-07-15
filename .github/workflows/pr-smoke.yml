@@ -444,6 +444,16 @@ jobs:
           RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/vulkan_graphics_smoke.py
 
+      # 步骤 57（mb1 Phase 4,契约 G-MB1-5,RFC-0011 / RXS-0211）:Android 交叉构建冒烟。
+      # `ci/vulkan_android_build_smoke.py`:NDK + aarch64-linux-android target 在位 →
+      # cross-build rurix-rt --features vulkan(lib+vk_saxpy)链接绿;缺 → SKIP(dev-env
+      # 降级,非 fake)。**不触设备**——on-device saxpy/present = G-MB1-7 open 尾门,
+      # 无 android runner 故不设 RURIX_REQUIRE_REAL;专用 android-build runner 经
+      # RURIX_REQUIRE_ANDROID=1 把缺 NDK 翻硬红。NVIDIA runner 无 NDK → 干净 SKIP。
+      - name: vulkan android cross-build smoke (MB1 CI_GATES §2.57, G-MB1-5, RFC-0011)
+        shell: powershell
+        run: py -3 ci/vulkan_android_build_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

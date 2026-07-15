@@ -1096,6 +1096,9 @@
       "conformance/vulkan/accept/vk_tri_vs.rx",
       "src/rurix-rt/src/vk.rs",
       "src/rurixc/src/dxil_spirv.rs"
+    ],
+    "RXS-0211": [
+      "src/rurix-rt/src/vk.rs"
     ]
   }
 }

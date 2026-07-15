@@ -199,3 +199,4 @@
 | RXS-0208 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/vk.rs` |
 | RXS-0209 | spec/vulkan_backend.md | 2 | `src/rurix-pkg/src/lock.rs`, `src/rurix-rt/src/fatbin.rs` |
 | RXS-0210 | spec/vulkan_backend.md | 4 | `conformance/vulkan/accept/vk_tri_fs.rx`, `conformance/vulkan/accept/vk_tri_vs.rx`, `src/rurix-rt/src/vk.rs` …(+1) |
+| RXS-0211 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/vk.rs` |

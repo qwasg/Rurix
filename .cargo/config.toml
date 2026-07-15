@@ -1,0 +1,9 @@
+# Android aarch64 交叉编译(mb1 Phase 4,RXS-0211)。
+# NDK clang 包装器作 linker + llvm-ar 作 ar;仅 `--target aarch64-linux-android` 命中时读取,
+# 桌面/NVIDIA 构建零影响(其他 target 不触此段)。
+# 包装器名依赖 NDK 的 .../toolchains/llvm/prebuilt/<host>/bin 在 PATH;CI 经环境变量
+# CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER 注入绝对路径覆盖本项(见 ci/vulkan_android_build_smoke.py),
+# 保 hermetic;本文件为本地开发者便利默认。API 26(≥ Vulkan/ANativeWindow 最低 24)。
+[target.aarch64-linux-android]
+linker = "aarch64-linux-android26-clang"
+ar = "llvm-ar"

@@ -920,11 +920,49 @@ type FnCmdCopyImageToBuffer = unsafe extern "system" fn(
     *const VkBufferImageCopy,
 );
 
-// ── Windows 动态加载 ────────────────────────────────────────────────────────
+// ── OS 动态加载缝(跨端;镜像 sys.rs 无外部依赖纪律) ───────────────────────────
+// Windows:      vulkan-1.dll  / LoadLibraryA + GetProcAddress(Win32 kernel32)。
+// Android+Linux: libvulkan.so / dlopen(RTLD_NOW) + dlsym(libc;Android 由 libc 直接
+//                提供 dlopen/dlsym,NDK 默认链接;现代 glibc 亦并入 libc,无需 -ldl)。
+#[cfg(windows)]
+mod loader {
+    use core::ffi::{CStr, c_char, c_void};
+    unsafe extern "system" {
+        fn LoadLibraryA(name: *const c_char) -> *mut c_void;
+        fn GetProcAddress(module: *mut c_void, name: *const c_char) -> *mut c_void;
+    }
+    pub(super) const VULKAN_LIB: &CStr = c"vulkan-1.dll";
+    /// # Safety
+    /// `name` 为 NUL 结尾字面量。
+    pub(super) unsafe fn open(name: *const c_char) -> *mut c_void {
+        LoadLibraryA(name)
+    }
+    /// # Safety
+    /// `lib` 为 `open` 返回的有效模块句柄或 null;`name` NUL 结尾。
+    pub(super) unsafe fn sym(lib: *mut c_void, name: *const c_char) -> *mut c_void {
+        GetProcAddress(lib, name)
+    }
+}
 
-unsafe extern "system" {
-    fn LoadLibraryA(name: *const c_char) -> *mut c_void;
-    fn GetProcAddress(module: *mut c_void, name: *const c_char) -> *mut c_void;
+#[cfg(not(windows))]
+mod loader {
+    use core::ffi::{CStr, c_char, c_void};
+    unsafe extern "C" {
+        fn dlopen(filename: *const c_char, flag: i32) -> *mut c_void;
+        fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
+    }
+    const RTLD_NOW: i32 = 2; // 立即绑定全部符号(POSIX 通用值,Android/glibc/musl 一致)。
+    pub(super) const VULKAN_LIB: &CStr = c"libvulkan.so";
+    /// # Safety
+    /// `name` 为 NUL 结尾字面量。
+    pub(super) unsafe fn open(name: *const c_char) -> *mut c_void {
+        dlopen(name, RTLD_NOW)
+    }
+    /// # Safety
+    /// `handle` 为 `open` 返回的有效句柄或 null;`name` NUL 结尾。
+    pub(super) unsafe fn sym(handle: *mut c_void, name: *const c_char) -> *mut c_void {
+        dlsym(handle, name)
+    }
 }
 
 /// null 校验后转函数指针(镜像 sys::cast_fn)。
@@ -942,13 +980,15 @@ unsafe fn cast_fn<T: Copy>(raw: Option<PfnVoid>) -> Option<T> {
 }
 
 fn load_vulkan_loader() -> Option<FnGetInstanceProcAddr> {
-    // SAFETY: LoadLibraryA/GetProcAddress 为 Win32 稳定 ABI;入参 NUL 结尾字面量。
+    // SAFETY: open/sym 为各 OS 稳定 ABI 加载原语(Win32 LoadLibraryA / POSIX dlopen);
+    // 入参 NUL 结尾字面量;返回地址经 null 校验后 transmute 为已知 ABI 的函数指针。
+    // loader 不 close/FreeLibrary —— 进程生命周期常驻(镜像 sys.rs U1 nvcuda.dll 纪律)。
     unsafe {
-        let lib = LoadLibraryA(c"vulkan-1.dll".as_ptr());
+        let lib = loader::open(loader::VULKAN_LIB.as_ptr());
         if lib.is_null() {
             return None;
         }
-        let p = GetProcAddress(lib, c"vkGetInstanceProcAddr".as_ptr());
+        let p = loader::sym(lib, c"vkGetInstanceProcAddr".as_ptr());
         if p.is_null() {
             return None;
         }
@@ -1005,7 +1045,7 @@ pub fn run_compute(
     push_constants: &[u8],
     groups: [u32; 3],
 ) -> Result<(), String> {
-    let gipa = load_vulkan_loader().ok_or("vulkan-1.dll / vkGetInstanceProcAddr 不可用")?;
+    let gipa = load_vulkan_loader().ok_or("vulkan loader (vulkan-1.dll/libvulkan.so) 不可用")?;
     // SAFETY: 全程手写 Vulkan FFI;句柄生命周期由本函数线性管理,末尾逆序销毁。
     // 每个 create/destroy 配对;结构布局与 Vulkan spec 逐字节对齐(见上 #[repr(C)])。
     unsafe { run_compute_inner(gipa, spv, entry, buffers, push_constants, groups) }
@@ -1753,7 +1793,7 @@ pub fn run_graphics_offscreen(
     height: u32,
     clear: [f32; 4],
 ) -> Result<Vec<u8>, String> {
-    let gipa = load_vulkan_loader().ok_or("vulkan-1.dll / vkGetInstanceProcAddr 不可用")?;
+    let gipa = load_vulkan_loader().ok_or("vulkan loader (vulkan-1.dll/libvulkan.so) 不可用")?;
     // SAFETY: 见 U27 契约(上）;句柄生命周期由内部函数线性管理,末尾逆序销毁。
     unsafe {
         run_graphics_inner(
@@ -2672,6 +2712,66 @@ unsafe fn graphics_body(
     result
 }
 
+// ── Android present 缝(VK_KHR_android_surface;on-device 尾门 G-MB1-7) ────────
+// run_compute 语义与本模块无关(compute 不需 surface);此处仅就位 surface 创建 FFI,
+// 使 android target 编译绿。完整 swapchain acquire→submit→present 循环为 on-device 尾门。
+#[cfg(target_os = "android")]
+pub mod android_present {
+    use core::ffi::c_void;
+
+    /// 由 Android app(NativeActivity / GameActivity)经 JNI/native glue 提供的不透明窗口。
+    #[repr(C)]
+    pub struct ANativeWindow {
+        _private: [u8; 0],
+    }
+
+    type VkInstance = *mut c_void;
+    type VkSurfaceKHR = u64;
+    const ST_ANDROID_SURFACE_CREATE_INFO_KHR: u32 = 1_000_008_000;
+
+    #[repr(C)]
+    struct AndroidSurfaceCreateInfoKHR {
+        s_type: u32,
+        p_next: *const c_void,
+        flags: u32,
+        window: *mut ANativeWindow,
+    }
+
+    type FnCreateAndroidSurfaceKHR = unsafe extern "system" fn(
+        VkInstance,
+        *const AndroidSurfaceCreateInfoKHR,
+        *const c_void,
+        *mut VkSurfaceKHR,
+    ) -> i32;
+
+    /// 从 ANativeWindow* 建 VkSurfaceKHR。要求 instance 已启用扩展
+    /// `VK_KHR_surface` + `VK_KHR_android_surface`(present 路径 vkCreateInstance 时启用;
+    /// compute 路径不启用,故 run_compute 的 InstanceCreateInfo 保持 enabled_extension_count=0)。
+    ///
+    /// # Safety
+    /// `instance` 为有效 VkInstance;`window` 为 Android app 存活期内的有效 ANativeWindow*;
+    /// `create_fn` 为 vkGetInstanceProcAddr(instance,"vkCreateAndroidSurfaceKHR") 解析所得。
+    pub unsafe fn create_android_surface(
+        instance: VkInstance,
+        window: *mut ANativeWindow,
+        create_fn: FnCreateAndroidSurfaceKHR,
+    ) -> Result<VkSurfaceKHR, String> {
+        let ci = AndroidSurfaceCreateInfoKHR {
+            s_type: ST_ANDROID_SURFACE_CREATE_INFO_KHR,
+            p_next: core::ptr::null(),
+            flags: 0,
+            window,
+        };
+        let mut surface: VkSurfaceKHR = 0;
+        // SAFETY: ci 布局与 VkAndroidSurfaceCreateInfoKHR 逐字节对齐;window 由调用方担保有效。
+        let r = create_fn(instance, &ci, core::ptr::null(), &mut surface);
+        if r != 0 {
+            return Err(format!("vkCreateAndroidSurfaceKHR 失败: {r}"));
+        }
+        Ok(surface)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2817,5 +2917,20 @@ mod tests {
             offsets, runtime_offsets,
             "codegen push-constant offset 序须 = 运行时顺排 4 字节布局 [0,4,8,..]"
         );
+    }
+
+    //@ spec: RXS-0211
+    #[test]
+    fn loader_seam_selects_platform_lib() {
+        // OS 加载缝库名 per-OS 唯一(cfg 选择正确);不触设备,纯 host。
+        let expected = if cfg!(windows) {
+            "vulkan-1.dll"
+        } else {
+            "libvulkan.so"
+        };
+        assert_eq!(loader::VULKAN_LIB.to_str().unwrap(), expected);
+        // 平台无关的 entry-name 编排(桌面/Android 共用同一 .spv 消费路径)在两 OS 一致。
+        let spv = [0x0723_0203u32, 0x0001_0000, 0, 5, 0];
+        assert_eq!(entry_point_name(&spv), None); // 无 OpEntryPoint → None,确定性。
     }
 }
