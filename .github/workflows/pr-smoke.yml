@@ -404,6 +404,20 @@ jobs:
         shell: powershell
         run: py -3 ci/toolchain_frontend_smoke.py
 
+      # 步骤 54（mb1,契约 G-MB1-2,RFC-0011 / RXS-0200~0205;跳 52/53=MS1.2/MS1.3 占用避撞）:
+      # Vulkan/SPIR-V codegen 冒烟。`ci/vulkan_codegen_smoke.py`:rurixc（--features
+      # vulkan-backend）build + `rx build --target vulkan` 对 conformance/vulkan/accept/*.rx
+      # （compute saxpy/math + graphics vertex/fragment）产 SPIR-V → `spirv-val --target-env
+      # vulkan1.0` 严格 Vulkan 校验接受;red_self_test（F64 子集外 → RX6026 / 篡改 .spv →
+      # spirv-val 拒）+ 确定性（同源 ×2 字节全等）。**纯 host/CPU-only**（spirv-val 缺失 → 校验
+      # SKIP;RURIX_REQUIRE_REAL=1 缺工具翻硬红,GPU runner 有 Vulkan SDK）。
+      # **gated on owner 裁决红线 3（D-008/SG-003）解除 + RFC-0011 批准**（本步随 mb1 合入生效）。
+      - name: vulkan/spirv codegen smoke (MB1 CI_GATES §2.54, G-MB1-2, RFC-0011)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/vulkan_codegen_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
