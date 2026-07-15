@@ -454,6 +454,22 @@ jobs:
         shell: powershell
         run: py -3 ci/vulkan_android_build_smoke.py
 
+      # 步骤 58（mb1 W6,契约 G-MB1-4,RFC-0011 / RXS-0210 L4 present）:Vulkan win32 swapchain
+      # present 真跑冒烟。`ci/vulkan_present_smoke.py`:rurixc --target vulkan vk_tri_{vs,fs}.rx →
+      # SPIR-V → bin/vk_present 创建隐藏 win32 窗口 + VkSurfaceKHR(VK_KHR_win32_surface)+
+      # VkSwapchainKHR(VK_KHR_swapchain)→ 渲染数帧居中三角形到 swapchain image →
+      # vkCmdCopyImageToBuffer 回读像素断言（背景角==clear / 中心覆盖 / covered>0）→ 转
+      # PRESENT_SRC_KHR → vkQueuePresentKHR 逐帧成功 + VK_LAYER_KHRONOS_validation 零报错;内建
+      # red_self_test（provenance-带保名 .spv 喂同 present 管线 → VUID-...-08742 → 退出码判红,
+      # 证 present 路同样 fail-closed）。device 门:RURIX_REQUIRE_REAL=1 缺设备翻硬红(GPU runner
+      # 有 NVIDIA Vulkan);非 Windows → SKIP（win32 surface 不可用,Android present = G-MB1-7
+      # 尾门）。RD-032 的 code-deferral 由本门 discharge;AMD 真卡 present = G-MB1-6 尾门 open。
+      - name: vulkan win32 present smoke (MB1 CI_GATES §2.58, G-MB1-4, RFC-0011)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/vulkan_present_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
