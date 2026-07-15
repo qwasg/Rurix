@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "kind": "uc07_offline_golden",
+  "date": "2026-07-15T11:25:25+08:00",
+  "zero_rs_audit": true,
+  "frames": 2,
+  "determinism_pass": true,
+  "tolerance": {
+    "ratio": 1.0,
+    "max": 0
+  },
+  "digest_match": true,
+  "dataflow_red": true,
+  "adapter": "NVIDIA GeForce RTX 4070 Ti (driver 620.02)",
+  "notes": "apps/ruridrop 全 .rx 主语言审计(零 .rs/.cpp/.c/.py + kernel 同包 + 两 EXE 经 rx build 产出,G-MS1-3)+ 离线 golden 三层(冒烟档 N=4096/160×120/8spp/2 帧:①同机两跑逐帧 SHA-256 一致 ②GPU vs refcpu 量化域 |Δ|≤1 占比与 max 达标 ③逐帧 SHA-256 == tests/uc07/golden_manifest)+ ④篡改 sim_forces 重力常数经同一 rx build 链重编 digest 变红、原树复原绿(G-MS1-4,RFC-0010 §4.1/§4.4)"
+}

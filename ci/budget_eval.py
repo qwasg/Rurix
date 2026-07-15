@@ -443,6 +443,20 @@ def eval_counter(entry: dict, strict: bool) -> None:
             if doc.get("single_source") is True and doc.get("device_run") is True:
                 n += 1
         count_or_gate(eid, n, 1, "份 single-source 宿主编排端到端证据", "MS1.2 device 真跑回填前为正常状态,契约 G-MS1-2", strict)
+    elif eid == "ms1.counter.uc07_offline_golden_frames":
+        # UC-07 离线 golden 端到端证据数 ≥1(契约 G-MS1-3/G-MS1-4;apps/ruridrop 零 .rs
+        # 主语言判据审计 + 三层 golden(同机两跑逐帧 SHA-256 一致 / GPU vs refcpu 量化域
+        # 容差 / blessed 哈希 == tests/uc07/golden_manifest)+ 篡改 sim_forces 重力常数经
+        # 同一 rx build 链重编 digest 变红复原绿,RFC-0010 §4.1/§4.4,CI 步骤 53
+        # ci/uc07_offline_golden_smoke.py);计数 = evidence/uc07_offline_golden*.json 中
+        # digest_match=true 的报告数。无 CUDA 环境冒烟降级 SKIP 不写证据 → 0 → 建设期
+        # normal SKIP / close-out strict FAIL,对齐 ms1.counter.host_orch_single_source 先例。
+        n = 0
+        for f in (ROOT / "evidence").glob("uc07_offline_golden*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("digest_match") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份 UC-07 离线 golden 端到端证据", "MS1.3 device 真跑回填前为正常状态,契约 G-MS1-4", strict)
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 

@@ -193,6 +193,9 @@ def check_evidence_files() -> None:
     host_orch_smoke_schema = load(
         ROOT / "milestones/ms1/host_orch_smoke_evidence_schema.json"
     )
+    uc07_offline_golden_schema = load(
+        ROOT / "milestones/ms1/uc07_offline_golden_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -269,6 +272,11 @@ def check_evidence_files() -> None:
     host_orch_smoke_validator = (
         jsonschema.Draft7Validator(host_orch_smoke_schema)
         if host_orch_smoke_schema
+        else None
+    )
+    uc07_offline_golden_validator = (
+        jsonschema.Draft7Validator(uc07_offline_golden_schema)
+        if uc07_offline_golden_schema
         else None
     )
     for f in evidence_files:
@@ -389,6 +397,18 @@ def check_evidence_files() -> None:
             # 双红绿;single_source=true 且 device_run=true 计入
             # ms1.counter.host_orch_single_source,ci/budget_eval.py)
             validator = host_orch_smoke_validator
+        elif (
+            f.name.startswith("uc07_offline_golden")
+            and uc07_offline_golden_validator is not None
+        ):
+            # MS1.3 UC-07 离线 golden 冒烟证据(G-MS1-3/G-MS1-4;RFC-0010 §4.1/§4.4)→
+            # milestones/ms1/uc07_offline_golden_evidence_schema.json(CI 步骤 53
+            # ci/uc07_offline_golden_smoke.py 仅 device 段真跑全绿时写;apps/ruridrop
+            # 主语言判据审计(零 .rs + kernel 同包 + rx build 产物链路)+ 三层 golden
+            # (确定性两跑一致 / GPU vs refcpu 容差 / blessed manifest)+ 篡改重力常数
+            # 数据流红绿;digest_match=true 计入 ms1.counter.uc07_offline_golden_frames,
+            # ci/budget_eval.py)
+            validator = uc07_offline_golden_validator
         elif (
             f.name.startswith("rd017_varying_semantic_spike_")
             and rd017_varying_semantic_spike_validator is not None
