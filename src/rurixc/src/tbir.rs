@@ -124,6 +124,24 @@ pub enum ExprKind {
         sampler: Box<Expr>,
         coord: Box<Expr>,
     },
+    /// 宿主 GPU 编排调用(MS1.2,RXS-0189/0191):`args[0]` 为 receiver 句柄
+    /// (`CtxCreate` 无 receiver,args 为空);upload/download 的 `&pinned` 借用
+    /// 实参已剥壳为句柄表达式。MIR lowering 降级为 `rxrt_*` 字面符号调用
+    /// (RXS-0194)+ 失败终止检查(RXS-0193)。
+    GpuCall {
+        op: crate::hir::GpuHostOp,
+        args: Vec<Expr>,
+    },
+    /// launch 宿主 lowering(MS1.2,RXS-0191):kernel 编译期绑定(device MIR
+    /// 同源 mangle 符号)+ 维度分量(缺轴补 1)+ 实参元组(🔒 slot+kinds
+    /// marshalling 由 MIR lowering 物化)。
+    GpuLaunch {
+        stream: Box<Expr>,
+        kernel: DefId,
+        grid: Vec<Expr>,
+        block: Vec<Expr>,
+        args: Vec<Expr>,
+    },
     /// 字段访问(字段名已解析为定义序/元组位置下标)。
     Field {
         base: Box<Expr>,

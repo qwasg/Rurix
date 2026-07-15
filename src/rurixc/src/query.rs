@@ -33,6 +33,9 @@ pub struct QueryCtx<'a> {
     src: String,
     ast: ast::SourceFile,
     src_file: SourceId,
+    /// out-of-line 模块文件源文本(RXS-0196:装配 pass 加载的 SourceId → 源文本;
+    /// span 切片经 [`Self::snippet`] 按 span.file 归属正确源,主文件外为空表)。
+    module_srcs: HashMap<SourceId, String>,
     // ---- memo 存储(进程内,D-203 MVP) ----
     resolutions: OnceCell<Rc<Resolutions>>,
     hir: OnceCell<Rc<hir::Crate>>,
@@ -85,6 +88,7 @@ impl<'a> QueryCtx<'a> {
             src: src.to_owned(),
             ast,
             src_file: file,
+            module_srcs: HashMap::new(),
             resolutions: OnceCell::new(),
             hir: OnceCell::new(),
             fn_sigs: RefCell::new(HashMap::new()),
@@ -120,6 +124,23 @@ impl<'a> QueryCtx<'a> {
 
     pub fn src(&self) -> &str {
         &self.src
+    }
+
+    /// 注册 out-of-line 模块文件源文本(RXS-0196;driver 装配 pass 后、任何 query
+    /// 运行前调用,供 [`Self::snippet`] 多文件 span 切片)。
+    pub fn add_module_src(&mut self, id: SourceId, src: String) {
+        self.module_srcs.insert(id, src);
+    }
+
+    /// span 覆盖的源文本切片(多文件感知,RXS-0196):span.file 归属主文件或
+    /// out-of-line 模块文件各取其源;未注册文件 / 越界返回 None。
+    pub fn snippet(&self, span: crate::span::Span) -> Option<&str> {
+        let src = if span.file == self.src_file {
+            self.src.as_str()
+        } else {
+            self.module_srcs.get(&span.file)?.as_str()
+        };
+        src.get(span.lo.0 as usize..span.hi.0 as usize)
     }
 
     pub fn src_file(&self) -> SourceId {

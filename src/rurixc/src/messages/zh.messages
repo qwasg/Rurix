@@ -147,3 +147,14 @@ runtime.uc04_rts0_pso_mismatch = UC-04 RTS0 ↔ PSO 绑定不一致:{detail}
 runtime.uc04_pass_orchestration = UC-04 deferred pass 编排失败:{detail}
 runtime.uc04_barrier_plan = UC-04 barrier 编排失败:{detail}
 runtime.uc04_readback_layout = UC-04 readback 缓冲布局失配:{detail}
+#
+# 宿主编排前端机械面诊断(RX1005 / RX7022,spec/host_orchestration.md RXS-0195~0196;MS1.2 分配)
+resolve.module_load_failure = 无法加载 out-of-line 模块 {name}:{detail}
+link.native_lib_failure = #[link] 原生库失败:{detail}
+#
+# 宿主 GPU 编排诊断(RX2010 / RX3015 / RX6024 / RX6025 / RX7021,spec/host_orchestration.md RXS-0189~0192/0195;MS1.2 分配)
+gpu.elem_infer = 无法为宿主 GPU 缓冲定出首期合法元素类型:{detail}(元素类型须定型为 f32 / i32 / u32,RXS-0190)
+coloring.gpu_host_api_in_device = std::gpu 宿主编排 API 不可在 `kernel`/`device` 上下文中使用(RXS-0189)
+gpu.launch_arg_subset = launch 实参类型 {ty} 超出首期 marshalling 子集(Buffer 与 i32 / u32 / f32 / usize,RXS-0191)
+codegen.gpu_embed_failure = 无法把 device 产物嵌入宿主产物:{detail}(RXS-0192)
+link.rt_cabi_failure = 无法定位或构建 rurix-rt-cabi 运行时库:{detail}(定位序:RURIX_RT_CABI_LIB、<编译器>/lib/、workspace target;RXS-0195)

@@ -310,6 +310,18 @@ impl Builder<'_> {
                 hi: Box::new(self.expr(hi)),
             },
             hir::ExprKind::Call { callee, args } => {
+                // 宿主 GPU 上下文构造(MS1.2,RXS-0189):`Context::create()` →
+                // GpuCall(无 receiver;MIR 降级为 rxrt_ctx_create,RXS-0192)。
+                if let Some(op) = self.tcr.gpu_calls.get(&e.hir_id).copied() {
+                    return tbir::Expr {
+                        ty,
+                        span,
+                        kind: tbir::ExprKind::GpuCall {
+                            op,
+                            args: args.iter().map(|a| self.expr(a)).collect(),
+                        },
+                    };
+                }
                 if let Some((def, gargs)) = self.tcr.call_targets.get(&e.hir_id) {
                     tbir::ExprKind::Call {
                         def: *def,
@@ -375,6 +387,34 @@ impl Builder<'_> {
                             sampler,
                             coord,
                         },
+                    };
+                }
+                // 宿主 GPU 编排(MS1.2,RXS-0189/0191):launch → GpuLaunch(kernel
+                // 编译期绑定 + 维度分量 + 实参元组);其余已知方法 → GpuCall
+                // (receiver 作 args[0];upload/download 的 `&pinned` 借用剥壳为
+                // 句柄表达式)。形态残缺落 Err(MIR 报 RX6001,既有口径)。
+                if let Some(op) = self.tcr.gpu_calls.get(&e.hir_id).copied() {
+                    if op == crate::hir::GpuHostOp::Launch {
+                        return self.gpu_launch(receiver, args, ty, span);
+                    }
+                    let recv = self.expr(receiver);
+                    let mut all = vec![self.gpu_deref(recv)];
+                    let unborrow = matches!(
+                        op,
+                        crate::hir::GpuHostOp::BufUpload | crate::hir::GpuHostOp::BufDownload
+                    );
+                    for a in args {
+                        let lowered = if unborrow {
+                            self.gpu_unborrow(a)
+                        } else {
+                            self.expr(a)
+                        };
+                        all.push(lowered);
+                    }
+                    return tbir::Expr {
+                        ty,
+                        span,
+                        kind: tbir::ExprKind::GpuCall { op, args: all },
                     };
                 }
                 match self.tcr.call_targets.get(&e.hir_id) {
@@ -493,6 +533,103 @@ impl Builder<'_> {
             }
             _ => e,
         }
+    }
+
+    /// 宿主 GPU 句柄一层 autoderef 显式化(MS1.2,RXS-0189:receiver / 实参可为
+    /// `&Handle` 形态;句柄按引用语义读取,MIR 侧不 move)。
+    fn gpu_deref(&self, e: tbir::Expr) -> tbir::Expr {
+        self.autoderef(e)
+    }
+
+    /// upload/download 实参剥壳(MS1.2,RXS-0191):`&pinned` / `&mut pinned`
+    /// 借用形态取内层句柄表达式;已是引用值的实参落显式 deref。
+    fn gpu_unborrow(&mut self, a: &hir::Expr) -> tbir::Expr {
+        match &a.kind {
+            hir::ExprKind::Borrow { expr, .. } => {
+                let inner = self.expr(expr);
+                self.gpu_deref(inner)
+            }
+            _ => {
+                let e = self.expr(a);
+                self.gpu_deref(e)
+            }
+        }
+    }
+
+    /// launch 结构化提取(MS1.2,RXS-0191):`stream.launch(kernel, GridDim(..),
+    /// BlockDim(..), (args..))` → [`tbir::ExprKind::GpuLaunch`]。kernel 引用须为
+    /// fn item、维度须为 GridDim/BlockDim 构造(≤ 3 轴)、实参须为元组;形态
+    /// 残缺落 Err(MIR 报 RX6001)。
+    fn gpu_launch(
+        &mut self,
+        receiver: &hir::Expr,
+        args: &[hir::Expr],
+        ty: Ty,
+        span: crate::span::Span,
+    ) -> tbir::Expr {
+        let structural = 'form: {
+            if args.len() != 4 {
+                break 'form None;
+            }
+            let hir::ExprKind::Res(Res::Def(kernel)) = &args[0].kind else {
+                break 'form None;
+            };
+            if !matches!(self.krate.item(*kernel).kind, hir::ItemKind::Fn(_)) {
+                break 'form None;
+            }
+            let Some(grid) = self.gpu_dim_components(&args[1], true) else {
+                break 'form None;
+            };
+            let Some(block) = self.gpu_dim_components(&args[2], false) else {
+                break 'form None;
+            };
+            let hir::ExprKind::Tuple(elems) = &args[3].kind else {
+                break 'form None;
+            };
+            Some((*kernel, grid, block, elems))
+        };
+        let Some((kernel, grid, block, elems)) = structural else {
+            return tbir::Expr {
+                ty,
+                span,
+                kind: tbir::ExprKind::Err,
+            };
+        };
+        let stream = {
+            let recv = self.expr(receiver);
+            Box::new(self.gpu_deref(recv))
+        };
+        let grid = grid.iter().map(|c| self.expr(c)).collect();
+        let block = block.iter().map(|c| self.expr(c)).collect();
+        let largs = elems.iter().map(|a| self.expr(a)).collect();
+        tbir::Expr {
+            ty,
+            span,
+            kind: tbir::ExprKind::GpuLaunch {
+                stream,
+                kernel,
+                grid,
+                block,
+                args: largs,
+            },
+        }
+    }
+
+    /// `GridDim(..)` / `BlockDim(..)` 构造的维度分量表达式(≤ 3 轴;非该构造 /
+    /// 超轴 → None,launch 形态残缺口径)。
+    fn gpu_dim_components<'e>(&self, e: &'e hir::Expr, grid: bool) -> Option<&'e [hir::Expr]> {
+        let hir::ExprKind::Call { callee, args } = &e.kind else {
+            return None;
+        };
+        let hir::ExprKind::Res(Res::Def(d)) = &callee.kind else {
+            return None;
+        };
+        let ok = if grid {
+            self.res.lang_items.is_grid_dim(*d)
+        } else {
+            self.res.lang_items.is_block_dim(*d)
+        };
+        (ok && args.len() <= 3).then_some(args.as_slice())
     }
 
     /// 方法接收者按 `self` 形态调整(RXS-0046 方法糖显式化):
@@ -655,9 +792,24 @@ impl ExhaustCx<'_> {
                 self.walk_expr(lhs);
                 self.walk_expr(rhs);
             }
-            tbir::ExprKind::Call { args, .. } | tbir::ExprKind::DeviceMathCall { args, .. } => {
+            tbir::ExprKind::Call { args, .. }
+            | tbir::ExprKind::DeviceMathCall { args, .. }
+            | tbir::ExprKind::GpuCall { args, .. } => {
                 for a in args {
                     self.walk_expr(a);
+                }
+            }
+            // 宿主 GPU launch(MS1.2,RXS-0191):stream/维度/实参子树走查。
+            tbir::ExprKind::GpuLaunch {
+                stream,
+                grid,
+                block,
+                args,
+                ..
+            } => {
+                self.walk_expr(stream);
+                for x in grid.iter().chain(block.iter()).chain(args.iter()) {
+                    self.walk_expr(x);
                 }
             }
             tbir::ExprKind::CallIndirect { callee, args } => {

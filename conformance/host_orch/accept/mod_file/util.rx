@@ -1,0 +1,8 @@
+//@ spec: RXS-0196
+// 被 main.rx 以 `mod util;` 装配的 out-of-line 模块文件(同目录定位)。
+
+pub const BASE: i32 = 40;
+
+pub fn add(x: i32, y: i32) -> i32 {
+    x + y
+}

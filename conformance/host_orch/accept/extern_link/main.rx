@@ -1,0 +1,15 @@
+//@ spec: RXS-0195
+// extern "C" 符号保名 + #[link] 接线 accept(RFC-0009 §4.2):GetSystemMetrics
+// 以字面名参与 codegen/链接(不走 mangle),user32.lib 经 #[link(name = "user32")]
+// 追加——user32 不在 driver 默认链接库集,`rx build` 全链路通过即证明接线真实生效。
+
+#[link(name = "user32")]
+extern "C" {
+    fn GetSystemMetrics(index: i32) -> i32;
+}
+
+fn main() -> i32 {
+    // SM_CXSCREEN = 0:主显示器宽度(只读查询,无副作用)
+    let width = unsafe { GetSystemMetrics(0) };
+    if width >= 0 { 0 } else { 1 }
+}

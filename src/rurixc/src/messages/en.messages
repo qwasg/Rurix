@@ -146,3 +146,14 @@ runtime.uc04_rts0_pso_mismatch = UC-04 RTS0 / PSO binding inconsistency: {detail
 runtime.uc04_pass_orchestration = UC-04 deferred pass orchestration failed: {detail}
 runtime.uc04_barrier_plan = UC-04 barrier orchestration failed: {detail}
 runtime.uc04_readback_layout = UC-04 readback buffer layout mismatch: {detail}
+#
+# 宿主编排前端机械面诊断(RX1005 / RX7022,spec/host_orchestration.md RXS-0195~0196;MS1.2 分配)
+resolve.module_load_failure = cannot load out-of-line module {name}: {detail}
+link.native_lib_failure = #[link] native library failure: {detail}
+#
+# 宿主 GPU 编排诊断(RX2010 / RX3015 / RX6024 / RX6025 / RX7021,spec/host_orchestration.md RXS-0189~0192/0195;MS1.2 分配)
+gpu.elem_infer = cannot determine a first-phase element type for this GPU buffer: {detail} (element type must resolve to f32 / i32 / u32, RXS-0190)
+coloring.gpu_host_api_in_device = std::gpu host orchestration API cannot be used in a `kernel`/`device` context (RXS-0189)
+gpu.launch_arg_subset = launch argument type {ty} is outside the first-phase marshalling subset (Buffer plus i32 / u32 / f32 / usize, RXS-0191)
+codegen.gpu_embed_failure = failed to embed device artifacts into the host image: {detail} (RXS-0192)
+link.rt_cabi_failure = cannot locate or build the rurix-rt-cabi runtime library: {detail} (search order: RURIX_RT_CABI_LIB, <compiler>/lib/, workspace target; RXS-0195)

@@ -1,0 +1,4 @@
+//@ spec: RXS-0196
+// 循环引用语料环节点 b:引用回 ring_a.rx,装配栈判环 → RX1005。
+
+mod ring_a;

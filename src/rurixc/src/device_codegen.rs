@@ -577,6 +577,13 @@ impl Cg<'_> {
                         "string literal in device code",
                     ));
                 }
+                // 宿主 GPU 编排常量(MS1.2,RXS-0192)仅 host lowering 产出。
+                Const::GlobalAddr(_) => {
+                    return Err(DeviceCodegenError::unsupported(
+                        b.span,
+                        "gpu host artifact address in device code",
+                    ));
+                }
             }),
         }
     }
@@ -866,6 +873,12 @@ impl Cg<'_> {
             CallTarget::Builtin(_) => Err(DeviceCodegenError::unsupported(
                 span,
                 "host builtin call in device code",
+            )),
+            // 宿主 GPU 编排运行时调用(MS1.2,RXS-0189/0191):仅 host lowering
+            // 产出;device 上下文使用已由 RX3015 编译期拦截,此为防御拒绝面。
+            CallTarget::Rt { .. } => Err(DeviceCodegenError::unsupported(
+                span,
+                "gpu host runtime call in device code",
             )),
         }
     }

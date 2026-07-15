@@ -315,6 +315,42 @@ impl ViewOp {
     }
 }
 
+/// 宿主 GPU 编排已知操作(MS1.2,RXS-0189~0191;RFC-0009 §4.1/§4.2)。typeck
+/// 在接收者为 std::gpu lang item 句柄(`Context`/`Stream`/`Buffer`/`PinnedBuffer`)
+/// 且方法名命中编译器已知签名时识别(用户同名 impl 优先遮蔽);tbir/mir_build 消费,
+/// 降级为 `rxrt_*` 字面符号调用(RXS-0194)。着色合法性:仅 host 上下文合法,
+/// kernel/device 内出现 → RX3015(coloring 层,RXS-0189)。
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum GpuHostOp {
+    /// `Context::create()` → `rxrt_ctx_create(@__rx_gpu_artifacts)`(RXS-0192)。
+    CtxCreate,
+    /// `ctx.stream()` → `rxrt_stream_create`。
+    CtxStream,
+    /// `ctx.alloc(n)` → `rxrt_buf_alloc(ctx, n * sizeof(T))`。
+    CtxAlloc,
+    /// `ctx.alloc_pinned(n)` → `rxrt_pinned_alloc(ctx, n * sizeof(T))`。
+    CtxAllocPinned,
+    /// `ctx.sync()` → `rxrt_ctx_sync`。
+    CtxSync,
+    /// `buf.upload(&pinned)` → `rxrt_pinned_ptr`/`rxrt_pinned_len` + `rxrt_buf_upload`。
+    BufUpload,
+    /// `buf.download(&mut pinned)` → 同上 + `rxrt_buf_download`。
+    BufDownload,
+    /// `buf.len()` → `rxrt_buf_len / sizeof(T)`。
+    BufLen,
+    /// `pinned.get(i)` → `rxrt_pinned_ptr` + 越界检查 + 元素读(RXS-0191)。
+    PinnedGet,
+    /// `pinned.set(i, v)` → 同上 + 元素写。
+    PinnedSet,
+    /// `pinned.len()` → `rxrt_pinned_len / sizeof(T)`。
+    PinnedLen,
+    /// `stream.sync()` → `rxrt_stream_sync`。
+    StreamSync,
+    /// `stream.launch(kernel, GridDim, BlockDim, (args..))` → `rxrt_launch`
+    /// (🔒 slot+kinds marshalling,RXS-0191)。
+    Launch,
+}
+
 /// scoped atomics 原子读改写算子(M5.2,RXS-0080;`Atomic`/`AtomicView` 族方法)。
 /// typeck 在接收者为 `Atomic`/`AtomicView` lang item 时识别,裁决 scope 类型契约
 /// (RX3010);PTX `atom.{order}.{scope}` 映射为 D-406 / RD-008 高敏面(deferred),
