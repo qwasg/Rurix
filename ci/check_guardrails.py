@@ -55,9 +55,9 @@ def resolve_base() -> str:
     gh_base = os.environ.get("GITHUB_BASE_REF")
     if gh_base:
         return f"origin/{gh_base}"
-    # MS1 close-out 收官起回退基准切至 ms1-closed(MS1 CI_GATES §5 / MS1_CONTRACT §8.5;
-    # 承 V1 close-out v1-closed 先例;切换前双基准核对 v1-closed PASS + ms1-closed PASS,反 YAML-only)
-    return "ms1-closed"
+    # MB1 close-out 收官起回退基准切至 mb1-closed(MB1_CONTRACT §8 整体 close-out 终审;
+    # 承 MS1 close-out ms1-closed 先例;切换前双基准核对 ms1-closed PASS + mb1-closed PASS,反 YAML-only)
+    return "mb1-closed"
 
 
 def changed_paths(base: str) -> list[str]:

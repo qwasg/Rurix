@@ -21,7 +21,8 @@
         { "date": "2026-06-23", "verdict": "not_triggered", "rationale": "G2 开工复评(agent 裁决):G2 原生 D3D12 + DXIL 第二后端不引入中层 MLIR kernel island——DXIL codegen 走 MIR→DXIL 直接后端(D-131 路径本期 defer 待裁),07 §7.1 三触发条件未满足。trigger_condition 0-byte 不改,维持 not_triggered。G2_CONTRACT.md §7 / CI_GATES.md §5 裁决留痕。" },
         { "date": "2026-06-30", "verdict": "not_triggered", "rationale": "G2 期满 close-out 复评(agent 完全自主,AGENTS v3.0):G2.1~G2.5 已闭环(着色阶段 / DXIL 第二后端图形=B链 MIR→SPIR-V→…→DXIL / 绑定推导 / UC-04 真采样 deferred / 语言 1.0 + edition),全程无中层 MLIR kernel island——device codegen 维持既有 NVPTX + DXIL 直接后端,07 §7.1 三触发条件仍未满足。trigger_condition 0-byte 不改,维持 not_triggered。G2_CONTRACT.md §8.8 裁决留痕。" },
         { "date": "2026-07-14", "verdict": "not_triggered", "rationale": "V1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):V1 为语言 1.0 稳定化收尾/发布里程碑(report/FCP-lite/channel 清单/v1.0.0 发行),不触 codegen 架构,MLIR kernel island 触发条件未满足,维持 not_triggered" },
-        { "date": "2026-07-15", "verdict": "not_triggered", "rationale": "MS1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):MS1 = single-source 宿主编排 std::gpu + UC-07 全 .rx 应用,codegen 面为既有 NVPTX 路复用(嵌入/链接为 driver 层),MLIR kernel island 触发条件未满足,维持 not_triggered" }
+        { "date": "2026-07-15", "verdict": "not_triggered", "rationale": "MS1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):MS1 = single-source 宿主编排 std::gpu + UC-07 全 .rx 应用,codegen 面为既有 NVPTX 路复用(嵌入/链接为 driver 层),MLIR kernel island 触发条件未满足,维持 not_triggered" },
+        { "date": "2026-07-16", "verdict": "not_triggered", "rationale": "MB1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):MB1 = 单一 Vulkan/SPIR-V 跨端后端,codegen 走 MIR→SPIR-V 直接后端(泛化 dxil_spirv 种子),无中层 MLIR kernel island,07 §7.1 触发条件未满足,维持 not_triggered" }
       ]
     },
     {
@@ -36,7 +37,8 @@
         { "date": "2026-06-23", "verdict": "not_triggered", "rationale": "G2 开工复评(agent 裁决):G2 范围为图形管线(着色阶段 / DXIL / 绑定推导 / UC-04),非 GEMM 类计算负载;L2 基准证明 GEMM 是真实用户瓶颈 且 中层抽象成熟度复评通过的触发条件未满足,Tensor Core/WGMMA/TMA 维持 11 §2 红线裁剪。trigger_condition 0-byte 不改,维持 not_triggered。G2_CONTRACT.md §7 裁决留痕。" },
         { "date": "2026-06-30", "verdict": "not_triggered", "rationale": "G2 期满 close-out 复评(agent 完全自主,AGENTS v3.0):G2 全期为图形管线纵深(着色阶段 / DXIL / 绑定推导 / UC-04 真采样 deferred / 语言 1.0 + edition),未触 GEMM 类计算负载,无 Tensor Core/WGMMA/TMA intrinsics 需求;触发条件(L2 GEMM 真实瓶颈 + 中层抽象成熟,SG-001 仍 not_triggered)未满足。维持 11 §2 红线裁剪,trigger_condition 0-byte 不改,维持 not_triggered。G2_CONTRACT.md §8.8 裁决留痕。" },
         { "date": "2026-07-14", "verdict": "not_triggered", "rationale": "V1 期满 close-out 复评(agent 完全自主):V1 无 device 内在函数工作,Tensor Core/WGMMA/TMA 触发条件未满足,维持 not_triggered(11 §2 红线)" },
-        { "date": "2026-07-15", "verdict": "not_triggered", "rationale": "MS1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):ruridrop SPH/PT/RT kernel 均为标量/View 面,未引 WGMMA/Tensor Core/协作组,维持 not_triggered" }
+        { "date": "2026-07-15", "verdict": "not_triggered", "rationale": "MS1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):ruridrop SPH/PT/RT kernel 均为标量/View 面,未引 WGMMA/Tensor Core/协作组,维持 not_triggered" },
+        { "date": "2026-07-16", "verdict": "not_triggered", "rationale": "MB1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):MB1 全期为 Vulkan 后端移植面(codegen/compute 运行时/graphics+present/Android 交叉构建),未触 GEMM 类负载与 device 内在函数,维持 not_triggered(11 §2 红线)" }
       ]
     },
     {
@@ -51,7 +53,8 @@
         { "date": "2026-06-30", "verdict": "not_triggered", "rationale": "G2 期满 close-out 决策点(agent 完全自主,AGENTS v3.0 硬规则 1):D-008 触发条件之一『G2 完成』现已兑现(G-G2-1~G-G2-6 全闭环),触发条件之二『agent 正式解除红线 3』agent 裁决**不解除**——DXIL 第二后端是 NVIDIA/D3D12 原生纵深(非通用多后端 AMD/Intel/Metal/Vulkan/SPIR-V),『NVIDIA 纵深完成』口径未达成,红线解除属独立 one-at-a-time 主动决策(10 §9.2),不因 G2 close-out 自动触发。维持死亡路线红线 3 不解除,trigger_condition 0-byte 不改,维持 not_triggered;后续如解除须独立 errata + 一次一条。G2_CONTRACT.md §8.8 裁决留痕。" },
         { "date": "2026-07-14", "verdict": "not_triggered", "rationale": "V1 期满 close-out 决策点(agent 完全自主,AGENTS v3.0 硬规则 1):**语言 1.0 发行 ≠ NVIDIA 纵深完成**,D-008 红线 3 解除条件未达,且解除属独立 one-at-a-time 决策(10 §9.2)非 close-out 自动触发;维持 not_triggered(对齐 G2 §8.8.4 口径,V1_CONTRACT §7 ⑨)" },
         { "date": "2026-07-15", "verdict": "not_triggered", "rationale": "MS1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):CUDA/PTX compute 路线 = NVIDIA 单栈纵深(D-008 红线 3),UC-07 落地不构成多后端触发,解除条件未达,维持 not_triggered" },
-        { "date": "2026-07-15", "verdict": "triggered(RFC-0011)", "rationale": "owner（白栀）本工作会话明确指示「把多端红线解除并继续工作」→ 解除红线 3(D-008 §8 errata v2.1)。触发条件二『正式解除红线 3』由 owner 主动裁决满足(10 §9.2 一次一条);承 RFC-0011 = mb1 单一 Vulkan/SPIR-V 跨端后端(explicit / 单目标 per-build / 无地址空间推断,不做通用可移植抽象层,不犯 WGSL/SYCL 之错——触红线 3 字面非其底层关切)。**诚实留痕**:『NVIDIA 单栈纵深完成』先前(2026-07-14)判未达,本次为 owner 主动裁决解除(其 prerogative),非 agent 宣布前提达成。trigger_condition 0-byte 不改。agent 依 owner 明确授权代录。" }
+        { "date": "2026-07-15", "verdict": "triggered(RFC-0011)", "rationale": "owner（白栀）本工作会话明确指示「把多端红线解除并继续工作」→ 解除红线 3(D-008 §8 errata v2.1)。触发条件二『正式解除红线 3』由 owner 主动裁决满足(10 §9.2 一次一条);承 RFC-0011 = mb1 单一 Vulkan/SPIR-V 跨端后端(explicit / 单目标 per-build / 无地址空间推断,不做通用可移植抽象层,不犯 WGSL/SYCL 之错——触红线 3 字面非其底层关切)。**诚实留痕**:『NVIDIA 单栈纵深完成』先前(2026-07-14)判未达,本次为 owner 主动裁决解除(其 prerogative),非 agent 宣布前提达成。trigger_condition 0-byte 不改。agent 依 owner 明确授权代录。" },
+        { "date": "2026-07-16", "verdict": "triggered(RFC-0011)", "rationale": "MB1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):红线 3 解除(owner 裁决,D-008 §8 errata v2.1,独立勘误 PR #140 收口)+ RFC-0011 批准已于 G-MB1-1 兑现,MB1 落地单一 Vulkan/SPIR-V 跨端后端(explicit / 单目标 per-build / 无地址空间推断,不做通用可移植抽象层)。维持 triggered(RFC-0011) 不回翻;Metal/iOS/D3D12 新路维持范围锁定不触,后续任何新后端方向解除仍一次一条(10 §9.2)。current_verdict/trigger_condition 0-byte 不改" }
       ]
     },
     {
@@ -62,7 +65,8 @@
       "current_verdict": "not_triggered",
       "decisions": [
         { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记;上一项目 M14.12 stub 前科(11 §2)" },
-        { "date": "2026-07-15", "verdict": "not_triggered", "rationale": "MS1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):UC-07 为应用非语言核心扩张,无 autodiff 需求,维持 not_triggered" }
+        { "date": "2026-07-15", "verdict": "not_triggered", "rationale": "MS1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):UC-07 为应用非语言核心扩张,无 autodiff 需求,维持 not_triggered" },
+        { "date": "2026-07-16", "verdict": "not_triggered", "rationale": "MB1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):MB1 为后端移植面,无 autodiff 需求(永久 gating),维持 not_triggered" }
       ]
     },
     {
@@ -73,7 +77,8 @@
       "current_verdict": "not_triggered",
       "decisions": [
         { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记;Taichi 复杂度黑洞前科(11 §2,来源 H06)" },
-        { "date": "2026-07-15", "verdict": "not_triggered", "rationale": "MS1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):UC-07 kernel 手工组织,无 fusion DSL 需求,维持 not_triggered" }
+        { "date": "2026-07-15", "verdict": "not_triggered", "rationale": "MS1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):UC-07 kernel 手工组织,无 fusion DSL 需求,维持 not_triggered" },
+        { "date": "2026-07-16", "verdict": "not_triggered", "rationale": "MB1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):MB1 无 kernel fusion / 稀疏数据结构需求(永久 gating),维持 not_triggered" }
       ]
     },
     {
@@ -100,7 +105,8 @@
         { "date": "2026-06-23", "verdict": "not_triggered", "rationale": "G2 开工复评(agent 裁决):社区规模未达 D-312 触发阈(>50 生态包 / 社区强需求,11 §5);本期维持 lockfile + vendor + checksum,真 registry(sparse index + sumdb 透明日志 + OIDC/Sigstore)留社区规模触发的 owner 决策点。trigger_condition 0-byte 不改,维持 not_triggered。G2_CONTRACT.md §7 裁决留痕。" },
         { "date": "2026-06-30", "verdict": "not_triggered", "rationale": "G2 期满 close-out 决策点(agent 完全自主,AGENTS v3.0):D-312 包 registry 为 G2 期决策点(11 §5),G2 期满复评——社区规模未达触发阈(>50 生态包 / 社区强需求),生态成功判据(≥3 非作者维护项目)亦为时间驱动尚未自然兑现;真 registry(sparse index + sumdb 透明日志 + OIDC/Sigstore)留社区规模触发的后续决策点,MVP+G1+G2 维持 lockfile + vendor + checksum。trigger_condition 0-byte 不改,维持 not_triggered。G2_CONTRACT.md §8.8 裁决留痕。" },
         { "date": "2026-07-14", "verdict": "not_triggered", "rationale": "V1 期满 close-out 复评(agent 完全自主):1.0 发行不构成 D-312 registry 触发(社区规模未达 >50 包/强需求阈;MVP+G1+G2+V1 = lockfile+vendor+checksum+content-tree);维持 not_triggered" },
-        { "date": "2026-07-15", "verdict": "not_triggered", "rationale": "MS1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):MS1 无包生态动作(apps/ruridrop 为仓内应用非分发包),registry/sumdb 维持休眠(D-312),维持 not_triggered" }
+        { "date": "2026-07-15", "verdict": "not_triggered", "rationale": "MS1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):MS1 无包生态动作(apps/ruridrop 为仓内应用非分发包),registry/sumdb 维持休眠(D-312),维持 not_triggered" },
+        { "date": "2026-07-16", "verdict": "not_triggered", "rationale": "MB1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):MB1 无包生态动作(Vulkan 后端为语言基础设施非分发包),registry/sumdb 维持休眠(D-312),维持 not_triggered" }
       ]
     },
     {
@@ -112,7 +118,8 @@
       "decisions": [
         { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记;上一项目终止主因的结构性规避(01 / 03 §4)" },
         { "date": "2026-07-14", "verdict": "not_triggered", "rationale": "V1 期满 close-out 复评(agent 完全自主):V1 发布链路仅分发 C ABI/PYD 产物与语言本体二进制,Python 原生嵌入永久红线 1 维持 not_triggered" },
-        { "date": "2026-07-15", "verdict": "not_triggered", "rationale": "MS1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):MS1 无 Python 嵌入面(永久红线 1),维持 not_triggered" }
+        { "date": "2026-07-15", "verdict": "not_triggered", "rationale": "MS1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):MS1 无 Python 嵌入面(永久红线 1),维持 not_triggered" },
+        { "date": "2026-07-16", "verdict": "not_triggered", "rationale": "MB1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):MB1 无 Python 嵌入面(永久红线 1),维持 not_triggered" }
       ]
     },
     {
@@ -123,7 +130,8 @@
       "current_verdict": "not_triggered",
       "decisions": [
         { "date": "2026-06-11", "verdict": "not_triggered", "rationale": "初始登记" },
-        { "date": "2026-07-15", "verdict": "not_triggered", "rationale": "MS1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):rurixc 仍 Rust 实现,自举评估条件未达(11 §6 立项评估非承诺),维持 not_triggered" }
+        { "date": "2026-07-15", "verdict": "not_triggered", "rationale": "MS1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):rurixc 仍 Rust 实现,自举评估条件未达(11 §6 立项评估非承诺),维持 not_triggered" },
+        { "date": "2026-07-16", "verdict": "not_triggered", "rationale": "MB1 期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):rurixc 仍 Rust 实现,自举评估条件未达(11 §6 立项评估非承诺),维持 not_triggered" }
       ]
     }
   ],
@@ -134,6 +142,7 @@
     { "version": "v1.3", "date": "2026-06-30", "change": "G2 期满 close-out SG 复评(agent 完全自主,AGENTS v3.0 硬规则 1;只追加 decisions,既有 entries trigger_condition/permanence 0-byte,既有 decisions 行 0-byte):SG-001(MLIR kernel island)/ SG-002(Tensor Core/WGMMA/TMA)/ SG-003(多后端,D-008 红线 3)/ SG-007(包 registry,D-312)各追加 2026-06-30 G2 期满复评 decision,全部维持 not_triggered。关键裁决——**SG-003 红线 3 不解除**:D-008 触发条件『G2 完成』已兑现但『agent 正式解除红线 3』agent 裁决不解除(DXIL 是 NVIDIA/D3D12 原生纵深非通用多后端,NVIDIA 纵深完成口径未达,解除属独立 one-at-a-time 10 §9.2);**SG-007 registry D-312** G2 期决策点复评社区规模未达触发阈维持休眠。SG-004/005/008(永久 gating)/ SG-006(声明宏)/ SG-009(自举)维持 not_triggered 不另追加。G2_CONTRACT.md §8.8 裁决留痕" },
     { "version": "v1.4", "date": "2026-07-14", "change": "V1 期满 close-out SG 复评(agent 完全自主,AGENTS v3.0 硬规则 1;只追加 decisions,既有 entries trigger_condition/permanence 0-byte,既有 decisions 行 0-byte):SG-001(MLIR)/ SG-002(Tensor Core)/ SG-003(多后端,D-008 红线 3——语言 1.0 发行 ≠ NVIDIA 纵深完成,解除条件未达)/ SG-007(registry,D-312——1.0 发行不构成触发)/ SG-008(Python 原生嵌入,永久红线 1)各追加 2026-07-14 not_triggered 决策行。V1 整体 close-out 见 milestones/v1/V1_CONTRACT.md §8.4" },
     { "version": "v1.5", "date": "2026-07-15", "change": "MS1 期满 close-out SG 复评(agent 完全自主,AGENTS v3.0 硬规则 1;只追加 decisions,既有 entries trigger_condition/permanence 0-byte,既有 decisions 行 0-byte):SG-001(MLIR)/ SG-002(Tensor Core)/ SG-003(多后端,D-008 红线 3——UC-07 CUDA/PTX 落地 = NVIDIA 纵深推进,非解除触发)/ SG-004(autodiff)/ SG-005(fusion)/ SG-007(registry)/ SG-008(Python 嵌入,永久红线 1)/ SG-009(自举)各追加 2026-07-15 not_triggered 决策行;SG-006 已 closed 不复评;SG-010 全期未触发(「窗口/UI 框架进语言」「通用异步宿主运行时」扩张诱惑未出现——present 面维持 D-130 shim 边界 + typestate 消费式,RD-027 为工具链缺陷非扩张),留续号不登记。MS1 整体 close-out 见 milestones/ms1/MS1_CONTRACT.md §8.5" },
-    { "version": "v1.6", "date": "2026-07-15", "change": "SG-003 多后端 red-line 3 由 not_triggered → **triggered(RFC-0011)**:owner（白栀）本会话明确指示解除红线 3(D-008 §8 errata v2.1,10 §9.2 owner 主动决策一次一条);承 mb1 单一 Vulkan/SPIR-V 跨端后端。只追加 decisions + 翻 current_verdict,trigger_condition/permanence 0-byte;其余 SG 条目不动。agent 依明确授权代录。" }
+    { "version": "v1.6", "date": "2026-07-15", "change": "SG-003 多后端 red-line 3 由 not_triggered → **triggered(RFC-0011)**:owner（白栀）本会话明确指示解除红线 3(D-008 §8 errata v2.1,10 §9.2 owner 主动决策一次一条);承 mb1 单一 Vulkan/SPIR-V 跨端后端。只追加 decisions + 翻 current_verdict,trigger_condition/permanence 0-byte;其余 SG 条目不动。agent 依明确授权代录。" },
+    { "version": "v1.7", "date": "2026-07-16", "change": "MB1 期满 close-out SG 复评(agent 完全自主,AGENTS v3.0 硬规则 1;只追加 decisions,既有 entries trigger_condition/permanence/current_verdict 0-byte,既有 decisions 行 0-byte):SG-001(MLIR——MIR→SPIR-V 直接后端无中层)/ SG-002(Tensor Core——无 device 内在函数工作)/ SG-004(autodiff)/ SG-005(fusion)/ SG-007(registry,D-312)/ SG-008(Python 嵌入,永久红线 1)/ SG-009(自举)各追加 2026-07-16 not_triggered 决策行;**SG-003(多后端)追加 2026-07-16 维持 triggered(RFC-0011) 决策行**——红线 3 解除 + RFC-0011 批准已经 G-MB1-1/PR #140 兑现,MB1 落地即其承接,不回翻;Metal/iOS/D3D12 新路维持范围锁定,后续解除一次一条(10 §9.2)。SG-006 已 closed 不复评;SG-010 全期未触发留续号不登记(win32 隐藏窗口/NativeActivity APK 壳为 present 证据面工件,非「窗口/UI 框架进语言」扩张)。MB1 整体 close-out 见 milestones/mb1/MB1_CONTRACT.md §8" }
   ]
 }

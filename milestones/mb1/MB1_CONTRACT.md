@@ -3,7 +3,7 @@
 # 状态:草案——gated on owner 裁决红线 3(D-008/SG-003)解除 + RFC-0011 批准;未获裁决前不合入 main、不激活。
 contract: MB1
 title: MB1 期——多后端新纪元第一期:单一 Vulkan/SPIR-V 跨端后端(AMD 桌面 + Android;compute + graphics)
-status: active            # active → closed(close-out 只追加 §8,上方条款 0-byte);**激活 gated on 红线 3 解除 + RFC-0011 批准(§0/§7)**
+status: closed            # active → closed(close-out 只追加 §8,上方条款 0-byte);**激活 gated on 红线 3 解除 + RFC-0011 批准(§0/§7)**
 version: v1.0
 date: 2026-07-15
 timebox: "多后端新纪元第一期(约 4–6 周,MB1.0~MB1.4 严格串行见 MB1_PLAN.md;周为相对刻度,非日历承诺)"
@@ -244,3 +244,29 @@ owner 提供 arm64 真机(**HONOR BKQ-AN10,Qualcomm SM8850〔Adreno 系〕,Andro
 ### G-MB1-7 Android 真机 on-device — 签署(owner 明确授权,agent 代录;2026-07-16)
 
 DoD 逐项达成(证据 = 上两条进度记录 + [evidence/mb1-android-ondevice/](../../evidence/mb1-android-ondevice/android_present_smoke_report.md)):arm64 真机装载交叉产物 ✅(HONOR BKQ-AN10,Qualcomm SM8850/Adreno,Android 16/SDK 36;shell 轮 vk_saxpy/vk_triangle + APK 轮 librurix_vk.so,sha256 全程对账)/ compute 数值对照 ✅(saxpy max_err=0,NVIDIA/lavapipe/Adreno 三厂商逐位一致)/ ANativeWindow present 真跑 N 帧 ✅(NativeActivity APK 壳,3 帧 1256×2808 全屏,covered=864256,结构性像素断言 + 截屏实证,两遍字节一致)/ VK_LAYER_KHRONOS_validation 零报错 ✅(RED 门控 pName-00707 真红证 layer 确在拦截 → GREEN 零错方采信;round-1 layer SIGSEGV 已按协议 HALT 留痕)/ logcat + run 证据归档 ✅(三路独立反证全 hold)。**签署主体与授权链:硬件尾门签署权此前保留归 owner(区别于 G-MB1-2~5 agent 自主);owner(白栀)于 2026-07-16 工作会话明确授权「把人工活都结掉」——agent 依该明确授权代录本签署,非自签**(镜像 D-008 红线 3 解除的 owner 授权模式,10 §9.2)。**G-MB1-6(AMD 真卡)不在本签署范围,缺硬件维持 open、不签、不伪造。**
+
+### MB1 整体 close-out 终审(2026-07-16)
+
+**全量回归冻结(合入 main 后基线,真实输出)**:`trace_matrix --check` **209/209** 全锚定;`stable_snapshot --check` **209/96**(合流暴露漂移经 bless_log 追加重 bless 收口,PR #141);`bilingual_coverage` **96/96**;`budget_eval --strict` **74 pass 零 estimated**;`check_schemas` / `check_structure` PASS;`check_guardrails`(基准 ms1-closed)PASS;**vulkan 四 smoke(步骤 54 codegen / 55 device+2nd-ICD / 56 graphics offscreen / 58 win32 present)+ android 交叉构建(步骤 57)真绿**(pr-smoke run 29464178100,PR #141);**dxil 404/0**(`rurixc --features dxil-backend --lib` 404 passed 0 failed,本机真跑复核,NVIDIA 零回归不变量恒定;492 = trace_matrix 扫描测试文件数,非 dxil 套件数)。
+
+**验收门终审表**:
+
+| 门 | 判据 | 结论 |
+|---|---|---|
+| G-MB1-1 | 治理闸口:D-008 红线 3 解除 + SG-003 triggered(RFC-0011)+ RFC-0011 Owner Approved | ✅(owner 白栀 签,2026-07-15;红线 3 解除经独立勘误 PR #140 收口) |
+| G-MB1-2 | MB1.1 SPIR-V codegen spirv-val-clean + golden + red_self_test | ✅(agent 自主,evidence-based,2026-07-15) |
+| G-MB1-3 | MB1.2 Vulkan compute 运行时 NV 真跑 + 第二 ICD(lavapipe measured)+ NVIDIA 零回归 | ✅(agent 自主,evidence-based,2026-07-15) |
+| G-MB1-4 | MB1.3 graphics + present(offscreen + win32 swapchain)像素对照 + validation 零报错 | ✅(agent 自主,evidence-based,2026-07-15) |
+| G-MB1-5 | MB1.4 Android 交叉构建(NDK 真链接绿)+ 平台无关单测绿 | ✅(agent 自主,evidence-based,2026-07-15) |
+| G-MB1-6 | 【OPEN 尾门】AMD 真卡 Vulkan compute + graphics 验收 | **open(唯一存续尾门,越过 close-out 继续存续,见下)** |
+| G-MB1-7 | 【尾门】Android 真机 on-device 四要素(compute/present/validation/证据归档) | ✅(owner 明确授权代录,2026-07-16,四要素全 measured) |
+
+**G-MB1-6 = 唯一存续 open 尾门(越过 close-out 继续存续)**:AMD 真卡验收缺硬件,契约 out_of_scope(amd_realcard_acceptance)+ DoD 已写(YAML acceptance_gates G-MB1-6:gfxNNNN 真卡 compute 数值对照 + graphics 出图/present 像素对照 + validation 零报错 + 环境画像归档;含 Linux `libvulkan.so.1` fallback 探测补注)。**本 close-out 不签、不伪造该门**;获得 AMD 硬件后按 DoD 补证据、由 owner 侧签署,状态翻转不依赖新契约。NVIDIA + lavapipe + Adreno 三家跑通不充作 AMD 已验证。
+
+**关键 PR / run 归档**:PR [#139](https://github.com/qwasg/Rurix/pull/139)(行尾归一,CRLF 例外文件收口)/ PR [#140](https://github.com/qwasg/Rurix/pull/140)(D-008 红线 3 解除独立勘误,00 §6.3)/ PR [#141](https://github.com/qwasg/Rurix/pull/141)(mb1 成果包合入 main,pr-smoke [run 29464178100](https://github.com/qwasg/Rurix/actions/runs/29464178100))/ PR [#142](https://github.com/qwasg/Rurix/pull/142)(G-MB1-7 on-device + 签署,pr-smoke [run 29488399357](https://github.com/qwasg/Rurix/actions/runs/29488399357))。
+
+**deferred 处置**(registry/deferred.json v1.55,§6 对应):RD-029 维持 open(mesh/task/RT 阶段,首期收敛 compute+graphics 全程够用,硬需求未出现)/ RD-030 维持 open(rxrt_launch ABI 字节回归——#141 合流后 rurix-rt-cabi 与 Vulkan 后端已同树,回归测试补齐仍待接通)/ RD-031 维持 open(device 描述表 v2 blob,同前提)/ RD-032 维持 open(win32 present 已 discharge + Android surface present 经 G-MB1-7 measured,余 AMD 真卡 present = G-MB1-6)。**SG 复评**(spike_gating.json v1.7):SG-003 维持 triggered(RFC-0011)不回翻(红线 3 解除已兑现,Metal/iOS/D3D12 新路维持范围锁定,一次一条 10 §9.2);SG-001/002/004/005/007/008/009 维持 not_triggered;SG-006 已 closed 不复评;SG-010 全期未触发留续号。
+
+**工具件 provisioning 注(不入库)**:lavapipe DLL/ICD、Android NDK/platform-tools/adb、validation layer `.so`、debug keystore/APK 均驻 dev 机 scratch/系统,不入库(体积 + 非源);CI runner 需同等 provisioning 方可复现真绿,否则回落 DoD 的 dev-env-degrade SKIP(仍达标非 fake)。交叉构建/present 能力随源走(`vk.rs` cfg-split / `build_apk.ps1` 逐字入 evidence)。
+
+**签署兑现**:本契约 `status: active → closed`(本段生效);`ci/check_guardrails.py` 回退基准默认 `ms1-closed → mb1-closed`;合入后推 annotated `mb1-closed` tag = **owner 侧动作**(不匹配 release.yml 收窄触发器,零误触发);双基准 advisory 复核(ms1-closed PASS + mb1-closed PASS)随 tag 落地后复核。MB1 期正式关闭(软件面全完成;G-MB1-6 AMD 尾门如上存续);post-MB1 里程碑由后续裁决另立,本契约不预造。
