@@ -443,6 +443,72 @@ jobs:
           RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/uc07_offline_golden_smoke.py
 
+      # 步骤 54（mb1,契约 G-MB1-2,RFC-0011 / RXS-0200~0205;跳 52/53=MS1.2/MS1.3 占用避撞）:
+      # Vulkan/SPIR-V codegen 冒烟。`ci/vulkan_codegen_smoke.py`:rurixc（--features
+      # vulkan-backend）build + `rx build --target vulkan` 对 conformance/vulkan/accept/*.rx
+      # （compute saxpy/math + graphics vertex/fragment）产 SPIR-V → `spirv-val --target-env
+      # vulkan1.0` 严格 Vulkan 校验接受;red_self_test（F64 子集外 → RX6026 / 篡改 .spv →
+      # spirv-val 拒）+ 确定性（同源 ×2 字节全等）。**纯 host/CPU-only**（spirv-val 缺失 → 校验
+      # SKIP;RURIX_REQUIRE_REAL=1 缺工具翻硬红,GPU runner 有 Vulkan SDK）。
+      # **gated on owner 裁决红线 3（D-008/SG-003）解除 + RFC-0011 批准**（本步随 mb1 合入生效）。
+      - name: vulkan/spirv codegen smoke (MB1 CI_GATES §2.54, G-MB1-2, RFC-0011)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/vulkan_codegen_smoke.py
+
+      # 步骤 55（mb1,契约 G-MB1-3,RFC-0011 / RXS-0207）:Vulkan compute 设备真跑冒烟。
+      # `ci/vulkan_device_smoke.py`:rurixc --target vulkan saxpy → SPIR-V → bin/vk_saxpy 在
+      # 本机 Vulkan 设备真跑 saxpy=a*x+out,数值精确校验 + VK_LAYER_KHRONOS_validation 零报错。
+      # device 门:RURIX_REQUIRE_REAL=1 缺设备翻硬红(GPU runner 有 NVIDIA Vulkan)。第二 ICD
+      # (lavapipe)+ AMD 真卡为 open 尾门。gated on 红线 3 解除 + RFC-0011 批准随 mb1 合入生效。
+      - name: vulkan compute device smoke (MB1 CI_GATES §2.55, G-MB1-3, RFC-0011)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/vulkan_device_smoke.py
+
+      # 步骤 56（mb1 Phase 3,契约 G-MB1-4,RFC-0011 / RXS-0210）:Vulkan graphics offscreen
+      # 真跑冒烟。`ci/vulkan_graphics_smoke.py`:rurixc --target vulkan vk_tri_{vs,fs}.rx →
+      # SPIR-V（方案 B 去 SPV_GOOGLE/UserSemantic）→ spirv-val vulkan1.0 accept + spirv-dis
+      # 无 SPV_GOOGLE 反证 → bin/vk_triangle 在本机 Vulkan 设备 offscreen 出图 → readback 像素
+      # 断言（背景角==clear / 中心覆盖 / covered>0）+ VK_LAYER_KHRONOS_validation 零报错;内建
+      # red_self_test（provenance-带保名 .spv 喂同管线 → vkCreateShaderModule VUID-...-08742 →
+      # 退出码判红,两变体 spirv-val 皆 accept 证「去装饰」非「产非法」）。device 门:
+      # RURIX_REQUIRE_REAL=1 缺设备翻硬红(GPU runner 有 NVIDIA Vulkan)。窗口/swapchain present
+      # 为 open 尾门（RD-032);AMD 真卡 G-MB1-6 open。gated on 红线 3 解除 + RFC-0011 批准随 mb1 合入生效。
+      - name: vulkan graphics offscreen smoke (MB1 CI_GATES §2.56, G-MB1-4, RFC-0011)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/vulkan_graphics_smoke.py
+
+      # 步骤 57（mb1 Phase 4,契约 G-MB1-5,RFC-0011 / RXS-0211）:Android 交叉构建冒烟。
+      # `ci/vulkan_android_build_smoke.py`:NDK + aarch64-linux-android target 在位 →
+      # cross-build rurix-rt --features vulkan(lib+vk_saxpy)链接绿;缺 → SKIP(dev-env
+      # 降级,非 fake)。**不触设备**——on-device saxpy/present = G-MB1-7 open 尾门,
+      # 无 android runner 故不设 RURIX_REQUIRE_REAL;专用 android-build runner 经
+      # RURIX_REQUIRE_ANDROID=1 把缺 NDK 翻硬红。NVIDIA runner 无 NDK → 干净 SKIP。
+      - name: vulkan android cross-build smoke (MB1 CI_GATES §2.57, G-MB1-5, RFC-0011)
+        shell: powershell
+        run: py -3 ci/vulkan_android_build_smoke.py
+
+      # 步骤 58（mb1 W6,契约 G-MB1-4,RFC-0011 / RXS-0210 L4 present）:Vulkan win32 swapchain
+      # present 真跑冒烟。`ci/vulkan_present_smoke.py`:rurixc --target vulkan vk_tri_{vs,fs}.rx →
+      # SPIR-V → bin/vk_present 创建隐藏 win32 窗口 + VkSurfaceKHR(VK_KHR_win32_surface)+
+      # VkSwapchainKHR(VK_KHR_swapchain)→ 渲染数帧居中三角形到 swapchain image →
+      # vkCmdCopyImageToBuffer 回读像素断言（背景角==clear / 中心覆盖 / covered>0）→ 转
+      # PRESENT_SRC_KHR → vkQueuePresentKHR 逐帧成功 + VK_LAYER_KHRONOS_validation 零报错;内建
+      # red_self_test（provenance-带保名 .spv 喂同 present 管线 → VUID-...-08742 → 退出码判红,
+      # 证 present 路同样 fail-closed）。device 门:RURIX_REQUIRE_REAL=1 缺设备翻硬红(GPU runner
+      # 有 NVIDIA Vulkan);非 Windows → SKIP（win32 surface 不可用,Android present = G-MB1-7
+      # 尾门）。RD-032 的 code-deferral 由本门 discharge;AMD 真卡 present = G-MB1-6 尾门 open。
+      - name: vulkan win32 present smoke (MB1 CI_GATES §2.58, G-MB1-4, RFC-0011)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/vulkan_present_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

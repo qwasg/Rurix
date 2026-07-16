@@ -1,0 +1,8 @@
+//@ spec: RXS-0202, RXS-0203
+// mb1 MB1.1 compute lowering:compute builtin(global_id → GlobalInvocationId)+ 存储
+// 缓冲(ViewMut<global,f32> → StorageBuffer 描述符 set0/binding0)+ OpAccessChain 写。
+// --target vulkan 产 SPIR-V GLCompute:out[global_id()] = 1.0。spirv-val 接受。
+kernel fn fill(out: ViewMut<global, f32>, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    out[i] = 1.0;
+}

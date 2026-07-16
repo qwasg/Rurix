@@ -227,7 +227,7 @@ impl Bound<'_> {
         if rc != sys::CUDA_SUCCESS {
             return None;
         }
-        let device_sm = crate::fatbin::SmTarget::from_capability(major, minor);
+        let device_sm = crate::fatbin::ArchKey::from_capability(major, minor);
         let crate::fatbin::LoadChoice::Cubin(sm) =
             crate::fatbin::select_load_variant(&device_sm, set)
         else {

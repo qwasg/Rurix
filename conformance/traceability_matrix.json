@@ -1112,6 +1112,55 @@
     "RXS-0199": [
       "conformance/host_orch/accept/imageio_write/main.rx",
       "src/rurix-rt-cabi/src/imageio.rs"
+    ],
+    "RXS-0200": [
+      "conformance/vulkan/accept/vk_noop.rx"
+    ],
+    "RXS-0201": [
+      "conformance/vulkan/accept/vk_noop.rx",
+      "src/rurixc/src/vulkan_codegen.rs"
+    ],
+    "RXS-0202": [
+      "conformance/vulkan/accept/vk_fill.rx"
+    ],
+    "RXS-0203": [
+      "conformance/vulkan/accept/vk_fill.rx",
+      "conformance/vulkan/accept/vk_saxpy.rx"
+    ],
+    "RXS-0204": [
+      "conformance/vulkan/accept/vk_fragment.rx",
+      "conformance/vulkan/accept/vk_vertex.rx"
+    ],
+    "RXS-0205": [
+      "conformance/vulkan/accept/vk_math.rx"
+    ],
+    "RXS-0206": [
+      "src/rurix-rt/src/backend.rs"
+    ],
+    "RXS-0207": [
+      "src/rurix-rt/src/vk.rs"
+    ],
+    "RXS-0208": [
+      "src/rurix-rt/src/vk.rs"
+    ],
+    "RXS-0209": [
+      "src/rurix-pkg/src/lock.rs",
+      "src/rurix-rt/src/fatbin.rs"
+    ],
+    "RXS-0210": [
+      "conformance/vulkan/accept/vk_tri_fs.rx",
+      "conformance/vulkan/accept/vk_tri_vs.rx",
+      "src/rurix-rt/src/vk.rs",
+      "src/rurixc/src/dxil_spirv.rs"
+    ],
+    "RXS-0211": [
+      "src/rurix-rt/src/vk.rs"
+    ],
+    "RXS-0212": [
+      "src/rurixc/src/toolchain.rs"
+    ],
+    "RXS-0213": [
+      "src/rurix-rt/src/vk.rs"
     ]
   }
 }

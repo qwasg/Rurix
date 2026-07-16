@@ -199,3 +199,17 @@
 | RXS-0197 | spec/host_orchestration.md | 5 | `conformance/host_orch/accept/present_loop/main.rx`, `conformance/host_orch/reject/present_in_kernel/main.rx`, `conformance/host_orch/reject/present_out_of_order/main.rx` …(+2) |
 | RXS-0198 | spec/host_orchestration.md | 4 | `conformance/host_orch/accept/present_loop/main.rx`, `src/rurix-rt-cabi/src/lib.rs`, `src/rurix-rt-cabi/src/present.rs` …(+1) |
 | RXS-0199 | spec/host_orchestration.md | 2 | `conformance/host_orch/accept/imageio_write/main.rx`, `src/rurix-rt-cabi/src/imageio.rs` |
+| RXS-0200 | spec/vulkan_backend.md | 1 | `conformance/vulkan/accept/vk_noop.rx` |
+| RXS-0201 | spec/vulkan_backend.md | 2 | `conformance/vulkan/accept/vk_noop.rx`, `src/rurixc/src/vulkan_codegen.rs` |
+| RXS-0202 | spec/vulkan_backend.md | 1 | `conformance/vulkan/accept/vk_fill.rx` |
+| RXS-0203 | spec/vulkan_backend.md | 2 | `conformance/vulkan/accept/vk_fill.rx`, `conformance/vulkan/accept/vk_saxpy.rx` |
+| RXS-0204 | spec/vulkan_backend.md | 2 | `conformance/vulkan/accept/vk_fragment.rx`, `conformance/vulkan/accept/vk_vertex.rx` |
+| RXS-0205 | spec/vulkan_backend.md | 1 | `conformance/vulkan/accept/vk_math.rx` |
+| RXS-0206 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/backend.rs` |
+| RXS-0207 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/vk.rs` |
+| RXS-0208 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/vk.rs` |
+| RXS-0209 | spec/vulkan_backend.md | 2 | `src/rurix-pkg/src/lock.rs`, `src/rurix-rt/src/fatbin.rs` |
+| RXS-0210 | spec/vulkan_backend.md | 4 | `conformance/vulkan/accept/vk_tri_fs.rx`, `conformance/vulkan/accept/vk_tri_vs.rx`, `src/rurix-rt/src/vk.rs` …(+1) |
+| RXS-0211 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/vk.rs` |
+| RXS-0212 | spec/vulkan_backend.md | 1 | `src/rurixc/src/toolchain.rs` |
+| RXS-0213 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/vk.rs` |

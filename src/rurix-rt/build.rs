@@ -79,6 +79,46 @@ fn main() {
             }
         }
     }
+
+    // RXS-0208 marshalling anchor 支撑:saxpy 经 vulkan_codegen(MIR→SPIR-V,feature
+    // build-dep `vulkan-backend`)产**真** `.spv`,供 `vk.rs` 单测解析 `OpDecorate Binding`
+    // / `OpMemberDecorate Offset` 装饰值,核对与运行时 descriptor-binding 构造序位**单一
+    // 事实源**一致(codegen RXS-0203 IR ↔ vk.rs 运行时绑定,非各自约定的两份拷贝)。
+    // 复现命令等价:`rurixc --target vulkan src/rurix-rt/kernels/saxpy.rx`。
+    // 纯 Rust codegen(无外部工具)→ 始终产;检查失败/降级 → 空哨兵,vk 测试据空 SKIP。
+    {
+        let saxpy_rx = manifest.join("kernels").join("saxpy.rx");
+        println!("cargo:rerun-if-changed={}", saxpy_rx.display());
+        let spv_out = out_dir.join("saxpy.spv");
+        let bytes = gen_spirv(&saxpy_rx).unwrap_or_default();
+        std::fs::write(&spv_out, &bytes).unwrap_or_else(|e| panic!("write saxpy.spv: {e}"));
+    }
+}
+
+/// `saxpy.rx` → Vulkan SPIR-V 字节(RXS-0208 anchor 支撑;`build_and_emit_vulkan` 纯 Rust
+/// MIR→SPIR-V,无外部工具)。全静态检查失败 / 降级不可用 → `None`(消费侧据空 SKIP,对齐
+/// PTX 降级纪律)。
+fn gen_spirv(kernel_rx: &std::path::Path) -> Option<Vec<u8>> {
+    let src = std::fs::read_to_string(kernel_rx).ok()?;
+    let diag = DiagCtxt::new();
+    let cx = QueryCtx::new(&src, SourceId(0), Edition::Rx0, &diag);
+    cx.check_crate();
+    if diag.has_errors() {
+        return None;
+    }
+    cx.check_coloring();
+    cx.check_launch();
+    cx.check_crate_patterns();
+    cx.check_views();
+    cx.check_shared_barrier();
+    if diag.has_errors() {
+        return None;
+    }
+    let words = rurixc::vulkan_codegen::build_and_emit_vulkan(&cx, "saxpy")?;
+    if diag.has_errors() {
+        return None;
+    }
+    Some(rurixc::vulkan_codegen::words_to_bytes(&words))
 }
 
 /// 按架构预编 cubin 目标(基线 `sm_89`,07 §7 / D-207;多架构矩阵 defer RD-010)。

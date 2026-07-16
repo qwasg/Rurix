@@ -1,0 +1,9 @@
+//@ spec: RXS-0205
+// mb1 MB1.1 数学 intrinsic → GLSL.std.450 ext-inst(RXS-0205)。f32 数学方法
+// (sqrt/max)经 MIR CallTarget::Libdevice(__nv_sqrtf/__nv_fmaxf)降级为
+// OpExtInst "GLSL.std.450" Sqrt / FMax(结果类型 float,operand 按类型分发)。
+// --target vulkan → spirv-val --target-env vulkan1.0 接受。
+kernel fn mathk(out: ViewMut<global, f32>, x: View<global, f32>, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    out[i] = x[i].sqrt().max(0.0);
+}

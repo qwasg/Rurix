@@ -1,0 +1,19 @@
+//@ spec: RXS-0210
+// mb1 Phase 3 graphics offscreen(RXS-0210):三角形 vertex 着色阶段,经 --target vulkan
+// 复用 dxil_spirv Vulkan 原生路(方案 B:去 UserSemantic/SPV_GOOGLE provenance,`.spv` 免
+// device 扩展依赖直喂 vkCreateShaderModule)。顶点位置 + 颜色由 host 顶点缓冲提供(location
+// 0=pos / 1=color,避 vertex_index 算术超 body-lowering 子集),passthrough 至输出:
+// #[builtin(position)] clip = SV_Position,插值 varying color 供 fragment 消费。
+struct TriIn {
+    #[interpolate(perspective)] pos: vec4<f32>,
+    #[interpolate(perspective)] color: vec4<f32>,
+}
+
+struct TriVary {
+    #[builtin(position)] clip: vec4<f32>,
+    #[interpolate(perspective)] color: vec4<f32>,
+}
+
+vertex fn tri_vs(inp: TriIn) -> TriVary {
+    TriVary { clip: inp.pos, color: inp.color }
+}

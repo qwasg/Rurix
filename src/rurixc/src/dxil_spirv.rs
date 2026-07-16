@@ -311,6 +311,11 @@ struct Builder {
     interface: Vec<u32>,
     /// 是否用到 `UserSemantic`(决定是否 emit `SPV_GOOGLE_hlsl_functionality1`)。
     used_user_semantic: bool,
+    /// 是否 emit provenance 装饰(`UserSemantic` → `SPV_GOOGLE_hlsl_functionality1`)。
+    /// DXIL 路 `true`(保名供 B 路 SPIRV-Cross→HLSL→dxc 边界改回用户语义名,字节不变);
+    /// Vulkan 原生路 `false`(SPIR-V 即终产物,保名无消费者,去装饰免 device 扩展
+    /// `VK_GOOGLE_hlsl_functionality1` 依赖 → 跨 ICD `vkCreateShaderModule` 直喂)。RXS-0210。
+    emit_provenance: bool,
     /// 下一个 Input 方向 varying 的 `Location`(按方向各自递增分配)。
     next_in_location: u32,
     /// 下一个 Output 方向 varying 的 `Location`(按方向各自递增分配)。
@@ -334,6 +339,8 @@ impl Builder {
             variables: Vec::new(),
             interface: Vec::new(),
             used_user_semantic: false,
+            // 默认保名(DXIL 路字节不变);Vulkan 路由经 emit_spirv_body_vulkan 置 false。
+            emit_provenance: true,
             next_in_location: 0,
             next_out_location: 0,
             scalar_cache: Vec::new(),
@@ -515,7 +522,9 @@ impl Builder {
         // **RXS-0172** `dxil_codegen::restore_varying_semantics` 在 spirv-cross→dxc 的 HLSL
         // 边界按 location provenance 改回用户名(RD-017,选项①);保名失败仍经校验门 RX6011
         // strict-only 拒(不放宽门,Property 5)。
-        if !elem.field_name.is_empty() {
+        // provenance gate(RXS-0210):Vulkan 原生路(`emit_provenance=false`)不 emit
+        // UserSemantic → `used_user_semantic` 保持 false → `SPV_GOOGLE` 自然不 emit。
+        if self.emit_provenance && !elem.field_name.is_empty() {
             let mut operands = vec![var, DECORATION_USER_SEMANTIC];
             Self::push_string(&mut operands, &elem.field_name);
             Self::emit(&mut self.decorations, OP_DECORATE, &operands);
@@ -606,7 +615,8 @@ impl Builder {
         );
 
         // by-construction 保名:资源句柄亦 emit UserSemantic provenance(源码形参名)。
-        if !res.name.is_empty() {
+        // provenance gate(RXS-0210):Vulkan 原生路不 emit(同 I/O 元素路径)。
+        if self.emit_provenance && !res.name.is_empty() {
             let mut operands = vec![var, DECORATION_USER_SEMANTIC];
             Self::push_string(&mut operands, &res.name);
             Self::emit(&mut self.decorations, OP_DECORATE, &operands);
@@ -1277,7 +1287,7 @@ pub fn emit_spirv(
     io_sig: &[IoSigElem],
     resources: &[ResourceBinding],
 ) -> Result<Vec<u32>, DxilError> {
-    emit_spirv_inner(stage, io_sig, resources, None)
+    emit_spirv_inner(stage, io_sig, resources, None, /*provenance=*/ true)
 }
 
 /// 把完整图形着色阶段 [`Body`] 编码为 SPIR-V。相较 [`emit_spirv`] 的签名-only
@@ -1285,7 +1295,29 @@ pub fn emit_spirv(
 /// f32/i32/u32 常量 → `OpConstant`,白名单算术 → SPIR-V 算术 op,输出 I/O 聚合返回
 /// → 逐 Output 元素 `OpStore`。
 pub fn emit_spirv_body(stage: ShaderStage, body: &Body) -> Result<Vec<u32>, DxilError> {
-    emit_spirv_inner(stage, &body.io_sig, &body.resources, Some(body))
+    emit_spirv_inner(
+        stage,
+        &body.io_sig,
+        &body.resources,
+        Some(body),
+        /*provenance=*/ true,
+    )
+}
+
+/// Vulkan 原生消费入口(RXS-0210):与 [`emit_spirv_body`] 同降级,但 **不 emit**
+/// provenance 装饰(`UserSemantic` → `SPV_GOOGLE_hlsl_functionality1`)。保名仅 B 路
+/// SPIRV-Cross→HLSL→dxc 边界需要(Vulkan 原生按 `Location`/`BuiltIn` 消费,永不需要);
+/// 去装饰后 `.spv` 对所有 Vulkan ICD(NVIDIA/AMD/Android/lavapipe)零扩展依赖直喂
+/// `vkCreateShaderModule`(免 device 扩展 `VK_GOOGLE_hlsl_functionality1`,VUID-...-08742)。
+/// DXIL 路(`emit_spirv_body`,provenance=true)保名字节不变、零回归。
+pub fn emit_spirv_body_vulkan(stage: ShaderStage, body: &Body) -> Result<Vec<u32>, DxilError> {
+    emit_spirv_inner(
+        stage,
+        &body.io_sig,
+        &body.resources,
+        Some(body),
+        /*provenance=*/ false,
+    )
 }
 
 fn emit_spirv_inner(
@@ -1293,6 +1325,7 @@ fn emit_spirv_inner(
     io_sig: &[IoSigElem],
     resources: &[ResourceBinding],
     body: Option<&Body>,
+    provenance: bool,
 ) -> Result<Vec<u32>, DxilError> {
     // 仅 vertex/fragment 走 B 路最小子集;compute 走既有 A 路、mesh/task/RT 为
     // STUB(RD-012),均不在本编码器范围 → 不可映射(strict-only)。
@@ -1308,6 +1341,9 @@ fn emit_spirv_inner(
     };
 
     let mut b = Builder::new();
+    // provenance 路由(RXS-0210):DXIL 路 true(保名字节不变)/ Vulkan 原生路 false
+    // (去 UserSemantic → OpExtension SPV_GOOGLE 自然不 emit)。
+    b.emit_provenance = provenance;
 
     // void 与 fn 类型(`void()`)先于一切(供 OpFunction 引用)。
     let void_id = b.alloc_id();
@@ -2121,6 +2157,93 @@ mod tests {
         assert!(
             matches!(r, Err(DxilError::Unmappable { .. })),
             "unbounded 资源应不可映射(RD-018),实得 {r:?}"
+        );
+    }
+
+    // ── Scheme B（codegen provenance gate，RXS-0210；仅 vulkan-backend 起门，
+    //    dxil-backend 单独启用 test 数不受影响 → 保 404 字节不变基准）──
+
+    /// 便捷构造一个「含具名 Out varying」的最小 fragment body（具名 → 触 UserSemantic
+    /// provenance 路径；DXIL 保名 vs Vulkan 去名的差异全在此）。
+    #[cfg(feature = "vulkan-backend")]
+    fn provenance_probe_body() -> Body {
+        let out_ty = output_adt();
+        body_with(
+            ShaderStage::Fragment,
+            vec![elem(
+                "out_luma",
+                IoSigKind::Varying,
+                MirIoType::Scalar(PrimTy::F32),
+                IoDir::Out,
+            )],
+            vec![local(out_ty.clone()), local(out_ty)],
+            0,
+            vec![
+                assign(
+                    LocalIdx(1),
+                    Rvalue::Aggregate(
+                        output_adt(),
+                        vec![Operand::Const(Const::Float(0.5, PrimTy::F32))],
+                    ),
+                ),
+                assign(
+                    LocalIdx(0),
+                    Rvalue::Use(Operand::Move(Place::local(LocalIdx(1)))),
+                ),
+            ],
+        )
+    }
+
+    /// RXS-0210：Vulkan 原生路（`emit_spirv_body_vulkan`，provenance=false）**不 emit**
+    /// UserSemantic 装饰、**不 emit** `OpExtension SPV_GOOGLE_hlsl_functionality1`
+    /// —— 即修 VUID-...-08742 的方案 B（去装饰而非产非法 SPIR-V）。
+    //@ spec: RXS-0210
+    #[cfg(feature = "vulkan-backend")]
+    #[test]
+    fn vulkan_variant_omits_user_semantic_and_extension() {
+        let body = provenance_probe_body();
+        let m = emit_spirv_body_vulkan(ShaderStage::Fragment, &body)
+            .expect("Vulkan 变体 body lowering 应 Ok");
+        let instrs = instructions(&m);
+        assert!(
+            !instrs.iter().any(
+                |(op, ops)| *op == OP_DECORATE && ops.get(1) == Some(&DECORATION_USER_SEMANTIC)
+            ),
+            "Vulkan 原生路不应 emit UserSemantic 装饰"
+        );
+        assert!(
+            !instrs.iter().any(|(op, _)| *op == OP_EXTENSION),
+            "Vulkan 原生路不应 emit OpExtension（SPV_GOOGLE 靠 used_user_semantic 自然为 false）"
+        );
+        // Location 装饰仍在（Vulkan 按 Location 消费，去的只是 provenance）。
+        assert!(
+            instrs
+                .iter()
+                .any(|(op, ops)| *op == OP_DECORATE && ops.get(1) == Some(&DECORATION_LOCATION)),
+            "Vulkan 原生路仍应保留 Location 装饰"
+        );
+    }
+
+    /// RXS-0210：DXIL 路（`emit_spirv_body`，provenance=true）**保留** UserSemantic +
+    /// `OpExtension SPV_GOOGLE`（保名字节不变，B 路 HLSL 转译边界消费）—— 证方案 B 是
+    /// target-conditional 去装饰，DXIL 路零回归。
+    //@ spec: RXS-0210
+    #[cfg(feature = "vulkan-backend")]
+    #[test]
+    fn dxil_variant_keeps_user_semantic_and_extension() {
+        let body = provenance_probe_body();
+        let m =
+            emit_spirv_body(ShaderStage::Fragment, &body).expect("DXIL 变体 body lowering 应 Ok");
+        let instrs = instructions(&m);
+        assert!(
+            instrs.iter().any(
+                |(op, ops)| *op == OP_DECORATE && ops.get(1) == Some(&DECORATION_USER_SEMANTIC)
+            ),
+            "DXIL 路应保留 UserSemantic provenance 装饰"
+        );
+        assert!(
+            instrs.iter().any(|(op, _)| *op == OP_EXTENSION),
+            "DXIL 路应保留 OpExtension SPV_GOOGLE_hlsl_functionality1"
         );
     }
 }

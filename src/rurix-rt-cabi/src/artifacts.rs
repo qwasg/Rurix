@@ -18,7 +18,7 @@
 //! `@__rx_gpu_cubin_sm89`)的全局常量地址填入,进程生命期有效。解析即拷贝为 owned
 //! (`String` / `Vec<u8>`),不持外部指针越出调用(U25)。
 
-use rurix_rt::fatbin::SmTarget;
+use rurix_rt::fatbin::ArchKey;
 
 /// 描述表总长(v1,字节)。
 pub(crate) const DESC_LEN: usize = 48;
@@ -26,7 +26,7 @@ pub(crate) const DESC_LEN: usize = 48;
 /// 解析结果:PTX fallback(必存)+ 可选按架构预编 cubin。
 pub(crate) struct ParsedArtifacts {
     pub(crate) ptx: String,
-    pub(crate) cubin: Option<(SmTarget, Vec<u8>)>,
+    pub(crate) cubin: Option<(ArchKey, Vec<u8>)>,
 }
 
 /// 固定偏移取 `u32`(little-endian;偏移由本模块布局常量约束,不越界)。
@@ -87,7 +87,7 @@ pub(crate) unsafe fn parse(desc: *const u8) -> Result<ParsedArtifacts, String> {
         let end = sm_raw.iter().position(|b| *b == 0).unwrap_or(sm_raw.len());
         let Some(sm) = core::str::from_utf8(&sm_raw[..end])
             .ok()
-            .and_then(SmTarget::parse)
+            .and_then(ArchKey::parse)
         else {
             return Err(format!(
                 "bad sm key {sm_raw:?} (expected e.g. \"sm_89\" NUL-padded)"

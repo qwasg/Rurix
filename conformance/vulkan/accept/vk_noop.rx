@@ -1,0 +1,6 @@
+//@ spec: RXS-0200, RXS-0201
+// mb1 MB1.1 walking skeleton:合法最小 compute 着色入口(无 ABI 形参、空体 compute
+// kernel,RXS-0153 compute-via-kernel 着色）。`--target vulkan` 经 Vulkan 后端降级为
+// SPIR-V GLCompute 模块(OpEntryPoint GLCompute + OpExecutionMode LocalSize 1,1,1 +
+// void main,SPIR-V 1.0 / Logical / GLSL450),spirv-val 接受。期望 0 诊断、产出 .spv。
+kernel fn vk_noop() {}

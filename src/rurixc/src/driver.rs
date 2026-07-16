@@ -205,10 +205,11 @@ pub fn compile(opts: &CompileOptions) -> u8 {
                         }
                         // device emit 通道(`--emit=nvptx-ir|ptx|pyd`)以 `kernel fn` 为根,
                         // 不要求 host `main`(RXS-0070 / 互操作 PYD RXS-0122);其余缺 main → RX6002。
-                        let device_emit = matches!(
-                            emit.as_deref(),
-                            Some("nvptx-ir") | Some("ptx") | Some("pyd")
-                        ) || target.as_deref() == Some("dxil");
+                        let device_emit =
+                            matches!(
+                                emit.as_deref(),
+                                Some("nvptx-ir") | Some("ptx") | Some("pyd")
+                            ) || matches!(target.as_deref(), Some("dxil") | Some("vulkan"));
                         if m.is_empty() && !device_emit {
                             diag.struct_error(E_MISSING_MAIN, "codegen.missing_main")
                                 .emit();
@@ -269,6 +270,14 @@ pub fn compile(opts: &CompileOptions) -> u8 {
     // (D-207,§4.5)。feature `dxil-backend` 未启用 → RX6007(L1 后端不可用)。
     if target.as_deref() == Some("dxil") {
         return compile_dxil_target(&diag, &sm, &cx, &stem, out.as_deref(), &input_path);
+    }
+
+    // Vulkan/SPIR-V 跨端第三后端 target 分发(mb1,RXS-0200;RFC-0011 §4.1 MIR 之后分叉)。
+    // `--target vulkan`:device MIR(kernel 根)→ MIR→SPIR-V(vulkan_codegen)→ `.spv`
+    // → spirv-val clean。与 NVPTX/DXIL 后端并列、各自从 MIR 独立降级(RFC-0003 §4.5)。
+    // feature `vulkan-backend` 未启用 → RX6026(L1 后端不可用,P-01 strict-only)。
+    if target.as_deref() == Some("vulkan") {
+        return compile_vulkan_target(&diag, &sm, &cx, &stem, out.as_deref(), &input_path);
     }
 
     // device codegen 通道(M4.2,RXS-0070~0073):`--emit=nvptx-ir` / `--emit=ptx`。
@@ -1168,6 +1177,103 @@ fn compile_dxil_target(
         .arg(
             "detail",
             "`--target dxil` 需启用 cargo feature `dxil-backend`(RFC-0003 §9 Q-Gate;未启用时 DXIL 后端不参与编译,PTX 路径不受影响)"
+                .to_owned(),
+        )
+        .emit();
+    eprint!(
+        "{}",
+        render_diagnostics(&diag.emitted(), sm, diag.messages())
+    );
+    1
+}
+
+/// `--target vulkan` 端到端(mb1,RXS-0200/0201;feature `vulkan-backend` 启用)。device
+/// MIR(kernel 根)→ MIR→SPIR-V(`vulkan_codegen`,最小 compute GLCompute)→ `.spv` 落盘
+/// → `spirv-val` accept。无 kernel → 退出码 2;子集外 / 降级失败 → RX6026;spirv-val
+/// 缺失 → SKIP(开发环境降级,真实红绿在带 Vulkan SDK 环境,对齐 RXS-0073 ptxas 干验证
+/// SKIP 纪律;退出码判定非 grep stdout)。
+#[cfg(feature = "vulkan-backend")]
+fn compile_vulkan_target(
+    diag: &DiagCtxt,
+    sm: &SourceMap,
+    cx: &QueryCtx<'_>,
+    stem: &str,
+    out: Option<&Path>,
+    input_path: &Path,
+) -> u8 {
+    let words = crate::vulkan_codegen::build_and_emit_vulkan(cx, stem);
+    if diag.has_errors() {
+        eprint!(
+            "{}",
+            render_diagnostics(&diag.emitted(), sm, diag.messages())
+        );
+        return 1;
+    }
+    let Some(words) = words else {
+        eprintln!("rurixc: no compute `kernel fn` found; nothing to emit for --target vulkan");
+        return 2;
+    };
+    let spv_out = out
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| input_path.with_extension("spv"));
+    let bytes = crate::vulkan_codegen::words_to_bytes(&words);
+    if let Err(e) = std::fs::write(&spv_out, &bytes) {
+        diag.struct_error(ErrorCode(6026), "codegen.vulkan_unsupported")
+            .arg("detail", format!("SPIR-V `.spv` write failed: {e}"))
+            .emit();
+        eprint!(
+            "{}",
+            render_diagnostics(&diag.emitted(), sm, diag.messages())
+        );
+        return 1;
+    }
+    // spirv-val gate:工具在位则验证产物(P-01 fail-closed);缺失 → SKIP(dev-env degrade)。
+    match crate::toolchain::spirv_val_gate(&spv_out) {
+        crate::toolchain::SpirvValGate::Accepted => {
+            eprintln!(
+                "rurixc: --target vulkan: SPIR-V module emitted + spirv-val accepted ({})",
+                spv_out.display()
+            );
+            0
+        }
+        crate::toolchain::SpirvValGate::Rejected(reason) => {
+            diag.struct_error(ErrorCode(6026), "codegen.vulkan_unsupported")
+                .arg(
+                    "detail",
+                    format!("spirv-val rejected emitted SPIR-V: {reason}"),
+                )
+                .emit();
+            eprint!(
+                "{}",
+                render_diagnostics(&diag.emitted(), sm, diag.messages())
+            );
+            1
+        }
+        crate::toolchain::SpirvValGate::Skipped => {
+            eprintln!(
+                "rurixc: note: spirv-val not found (set RURIX_SPIRV_VAL or install Vulkan SDK); SPIR-V emitted at {} but validator gate SKIPPED (RXS-0201)",
+                spv_out.display()
+            );
+            0
+        }
+    }
+}
+
+/// `--target vulkan` 但 feature `vulkan-backend` 未启用(RXS-0200 L1):Vulkan 后端不参与
+/// 编译 → RX6026(P-01 strict-only,不降级 host/PTX/DXIL)。
+#[cfg(not(feature = "vulkan-backend"))]
+fn compile_vulkan_target(
+    diag: &DiagCtxt,
+    sm: &SourceMap,
+    _cx: &QueryCtx<'_>,
+    _stem: &str,
+    _out: Option<&Path>,
+    _input_path: &Path,
+) -> u8 {
+    diag.struct_error(ErrorCode(6026), "codegen.vulkan_unsupported")
+        .arg(
+            "detail",
+            "`--target vulkan` 需启用 cargo feature `vulkan-backend`(RFC-0011 §6;未启用时 Vulkan 后端不参与编译,PTX/DXIL 路径不受影响)"
                 .to_owned(),
         )
         .emit();

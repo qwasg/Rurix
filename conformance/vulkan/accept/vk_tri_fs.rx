@@ -1,0 +1,16 @@
+//@ spec: RXS-0210
+// mb1 Phase 3 graphics offscreen(RXS-0210):三角形 fragment 着色阶段,经 --target vulkan
+// 复用 dxil_spirv Vulkan 原生路(方案 B:去 provenance)。透传插值 varying color(location 0)
+// 到颜色附件输出(location 0 → SV_Target0)。fragment 只消费插值 color,不取 builtin position
+// (对齐 uc04_lighting_fs 先例:fragment 输入仅取所需 varying)。
+struct FsIn {
+    #[interpolate(perspective)] color: vec4<f32>,
+}
+
+struct FsOut {
+    #[interpolate(perspective)] color: vec4<f32>,
+}
+
+fragment fn tri_fs(inp: FsIn) -> FsOut {
+    FsOut { color: inp.color }
+}

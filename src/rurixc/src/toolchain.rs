@@ -289,16 +289,27 @@ pub fn locate_spirv_cross() -> Option<PathBuf> {
 /// `[[toolchain]]` + SHA256)由 owner 兑现,此处仅本地取证(`dxil_spirv` 编码器
 /// 产物的本机独立验证,RXS-0161 R1.8)。全不可用 → `None`(调用方 SKIP,真实红绿
 /// 在带 SPIRV-Tools 的 dev/owner 环境)。
-#[cfg(feature = "dxil-backend")]
+#[cfg(any(feature = "dxil-backend", feature = "vulkan-backend"))]
 pub fn locate_spirv_val() -> Option<PathBuf> {
-    if let Ok(p) = std::env::var("RURIX_SPIRV_VAL") {
+    Some(resolve_spirv_val(
+        std::env::var("RURIX_SPIRV_VAL").ok().as_deref(),
+    ))
+}
+
+/// spirv-val 定位的**纯决策**(RXS-0212;无 process-env 副作用,可两分支单测):
+/// `env_val` = `RURIX_SPIRV_VAL` 当前取值。`Some(绝对路径)` 且 `.is_file()` → 该路径
+/// (env 优先);否则(env 未设 / 非文件)→ PATH-defer `spirv-val`(按名返回,never-None,
+/// 交由 spawn 判定)。抽出纯函数使 env-优先分支与 PATH-defer 分支均可无 process-env
+/// 变更地覆盖(避并行 env 竞态)。
+#[cfg(any(feature = "dxil-backend", feature = "vulkan-backend"))]
+fn resolve_spirv_val(env_val: Option<&str>) -> PathBuf {
+    if let Some(p) = env_val {
         let pb = PathBuf::from(p);
         if pb.is_file() {
-            return Some(pb);
+            return pb;
         }
     }
-    // PATH 候选按名返回,交由 spawn 判定(对齐 locate_spirv_cross 的 PATH 候选纪律)。
-    Some(PathBuf::from("spirv-val"))
+    PathBuf::from("spirv-val")
 }
 
 /// 图形=B 的 dxc 定位(dev/probe override;Q-Supply):`RURIX_DXC` 绝对路径 >
@@ -830,5 +841,169 @@ define void @main() {\n\
     fn parses_empty_when_no_signature() {
         let sigs = parse_dxil_signatures("; ModuleID = 'x'\ndefine void @cs() {\n  ret void\n}\n");
         assert!(sigs.input.is_empty() && sigs.output.is_empty());
+    }
+}
+
+// ───────────────────────── Vulkan/SPIR-V 工具链(mb1,RXS-0201) ─────────────────────────
+// gate 于 feature `vulkan-backend`。spirv-val 干验证关卡:退出码判定(非 grep stdout,反
+// Godot 教训);缺工具 → SKIP(dev-env degrade,真实红绿在带 Vulkan SDK 环境,对齐 RXS-0073
+// ptxas 干验证 SKIP 纪律,P-01)。
+
+/// `spirv-val` 验证关卡结果(mb1,RXS-0201;fail-closed:缺工具 SKIP 非 fake pass)。
+#[cfg(feature = "vulkan-backend")]
+#[derive(Debug)]
+pub enum SpirvValGate {
+    /// spirv-val 退出码 0(SPIR-V 合规)。
+    Accepted,
+    /// spirv-val 退出码非 0(SPIR-V 不合规;携 stdout+stderr 原因)。
+    Rejected(String),
+    /// spirv-val 不可用(spawn 失败;开发环境降级 SKIP)。
+    Skipped,
+}
+
+/// `.spv` 过 `spirv-val`。定位序:env `RURIX_SPIRV_VAL`(`.is_file`)→ PATH `spirv-val`。
+/// 退出码 0 = `Accepted`,非 0 = `Rejected(stdout+stderr)`,spawn 失败 = `Skipped`
+/// (工具缺失,dev-env degrade)。**退出码判定,不 grep stdout**(反 Godot 崩溃判定教训)。
+#[cfg(feature = "vulkan-backend")]
+pub fn spirv_val_gate(spv: &Path) -> SpirvValGate {
+    let tool: PathBuf = std::env::var_os("RURIX_SPIRV_VAL")
+        .map(PathBuf::from)
+        .filter(|p| p.is_file())
+        .unwrap_or_else(|| PathBuf::from("spirv-val"));
+    match Command::new(&tool).arg(spv).output() {
+        Ok(o) if o.status.success() => SpirvValGate::Accepted,
+        Ok(o) => {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            let stderr = String::from_utf8_lossy(&o.stderr);
+            SpirvValGate::Rejected(format!("{}{}", stdout.trim(), stderr.trim()))
+        }
+        Err(_) => SpirvValGate::Skipped,
+    }
+}
+
+#[cfg(all(test, feature = "vulkan-backend"))]
+mod vulkan_toolchain_tests {
+    use super::*;
+
+    /// 唯一临时 `.spv` 路径(纳秒戳,避并行撞名;不落 repo)。
+    fn scratch_spv(tag: &str) -> PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        std::env::temp_dir().join(format!("rurix_rxs0212_{tag}_{nanos}.spv"))
+    }
+
+    /// 最小合法 GLCompute SPIR-V 模块(RXS-0201 结构:header + Shader capability +
+    /// Logical GLSL450 内存模型 + `OpEntryPoint GLCompute %main "main"` + LocalSize 1,1,1
+    /// + void main 单基本块)。小端字节。spirv-val 在位时应 `Accepted`。
+    fn minimal_glcompute_spv() -> Vec<u8> {
+        // 指令编码:首字 = (word_count << 16) | opcode。
+        fn inst(op: u16, ops: &[u32]) -> Vec<u32> {
+            let wc = (ops.len() + 1) as u32;
+            let mut w = vec![(wc << 16) | u32::from(op)];
+            w.extend_from_slice(ops);
+            w
+        }
+        // ids:%main=1 %void=2 %fn=3 %label=4 → bound=5。
+        let name_main = [u32::from_le_bytes([b'm', b'a', b'i', b'n']), 0]; // "main\0" pad→8B
+        let mut words: Vec<u32> = vec![0x0723_0203, 0x0001_0000, 0, 5, 0];
+        words.extend(inst(17, &[1])); // OpCapability Shader
+        words.extend(inst(14, &[0, 1])); // OpMemoryModel Logical GLSL450
+        words.extend(inst(15, &[5, 1, name_main[0], name_main[1]])); // OpEntryPoint GLCompute %1 "main"
+        words.extend(inst(16, &[1, 17, 1, 1, 1])); // OpExecutionMode %1 LocalSize 1 1 1
+        words.extend(inst(19, &[2])); // OpTypeVoid %2
+        words.extend(inst(33, &[3, 2])); // OpTypeFunction %3 = () -> void
+        words.extend(inst(54, &[2, 1, 0, 3])); // OpFunction void %1 None %3
+        words.extend(inst(248, &[4])); // OpLabel %4
+        words.extend(inst(253, &[])); // OpReturn
+        words.extend(inst(56, &[])); // OpFunctionEnd
+        words.iter().flat_map(|w| w.to_le_bytes()).collect()
+    }
+
+    /// RXS-0212:spirv-val 定位顺序(env `RURIX_SPIRV_VAL` 绝对路径 > PATH `spirv-val`,
+    /// never-None PATH-defer)+ `SpirvValGate` 三态语义(Accepted/Rejected/Skipped)+
+    /// **缺工具 → Skipped 非 fake pass**(非法字节恒不 Accepted;退出码判定非 grep,反 Godot
+    /// 教训)。真实红绿:工具在位时对**真** spirv-val 判定,合法模块绿 / 非法字节红。
+    //@ spec: RXS-0212
+    #[test]
+    fn spirv_val_locate_order_and_gate_tristate() {
+        // ── (a) 定位顺序 —— 纯决策两分支覆盖(FIX 2:不改 process env,env-优先分支亦真跑)。──
+        // env Some(存在的绝对路径)→ 该路径(env 优先于 PATH)。
+        let existing = scratch_spv("resolve");
+        std::fs::write(&existing, b"probe").expect("write probe file");
+        let existing_str = existing.to_str().expect("utf8 temp path");
+        assert_eq!(
+            resolve_spirv_val(Some(existing_str)),
+            existing,
+            "env RURIX_SPIRV_VAL 绝对路径(.is_file)→ 该路径(env 优先于 PATH)"
+        );
+        let _ = std::fs::remove_file(&existing);
+        // env Some(不存在文件)→ 回落 PATH-defer(无效 env 不劫持)。
+        assert_eq!(
+            resolve_spirv_val(Some("Z:/no/such/spirv-val-xyz.exe")),
+            PathBuf::from("spirv-val"),
+            "env 指向不存在文件 → 回落 PATH-defer `spirv-val`"
+        );
+        // env None → PATH-defer `spirv-val`(never None)。
+        assert_eq!(
+            resolve_spirv_val(None),
+            PathBuf::from("spirv-val"),
+            "无 env → PATH-defer `spirv-val`(never None,交由 spawn 判定)"
+        );
+
+        // 集成:locate_spirv_val 把真 env 接入 resolve_spirv_val(never-None,落匹配分支)。
+        let located = locate_spirv_val().expect("locate_spirv_val 恒不返回 None(PATH-defer)");
+        match std::env::var_os("RURIX_SPIRV_VAL") {
+            Some(v) if Path::new(&v).is_file() => assert_eq!(
+                located,
+                PathBuf::from(&v),
+                "env RURIX_SPIRV_VAL 绝对路径(.is_file)须优先于 PATH"
+            ),
+            _ => assert_eq!(
+                located,
+                PathBuf::from("spirv-val"),
+                "无有效 env → PATH-defer `spirv-val`(never None,交由 spawn 判定)"
+            ),
+        }
+
+        // gate 与 locate 同一定位(spirv_val_gate 内联同序);探测工具是否真的可 spawn
+        // (退出码语义的前提——reachable 决定 garbage 落 Rejected 还是 Skipped)。
+        let reachable = Command::new(&located).arg("--version").output().is_ok();
+
+        // ── (b)/(c) 三态:非法字节 `.spv`。工具在位 → Rejected(真跑拒绝,真红);
+        //     工具缺失 → Skipped(honest dev-env degrade);**恒不 Accepted**(反 fake pass)。──
+        let bad = scratch_spv("bad");
+        std::fs::write(&bad, b"\x00\x01\x02not-a-valid-spirv-module").expect("write bad .spv");
+        let bad_gate = spirv_val_gate(&bad);
+        let _ = std::fs::remove_file(&bad);
+        match bad_gate {
+            SpirvValGate::Accepted => {
+                panic!("非法字节被 spirv-val Accepted —— fake pass 禁区(退出码判定失效)")
+            }
+            SpirvValGate::Rejected(reason) => {
+                assert!(reachable, "Rejected ⇒ 工具在位并真跑拒绝");
+                assert!(!reason.is_empty(), "Rejected 应携原因(stdout+stderr)");
+            }
+            SpirvValGate::Skipped => assert!(
+                !reachable,
+                "Skipped ⇒ 工具缺失(honest dev-env degrade,非 fake accept)"
+            ),
+        }
+
+        // ── (b) Accepted 臂真绿(工具在位时):最小合法 GLCompute 模块 → spirv-val 接受;
+        //     工具缺失时合法模块亦 Skipped(dev-env degrade);合法模块恒不 Rejected。──
+        let good = scratch_spv("good");
+        std::fs::write(&good, minimal_glcompute_spv()).expect("write good .spv");
+        let good_gate = spirv_val_gate(&good);
+        let _ = std::fs::remove_file(&good);
+        match good_gate {
+            SpirvValGate::Accepted => assert!(reachable, "Accepted ⇒ 工具在位"),
+            SpirvValGate::Skipped => assert!(
+                !reachable,
+                "缺工具时合法模块亦 Skipped(dev-env degrade,非 fake)"
+            ),
+            SpirvValGate::Rejected(r) => panic!("最小合法 GLCompute 模块不应被拒:{r}"),
+        }
     }
 }
