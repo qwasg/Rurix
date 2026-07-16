@@ -63,6 +63,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rurix-android-present"
+version = "1.0.0"
+dependencies = [
+ "rurix-rt",
+]
+
+[[package]]
 name = "rurix-cublas"
 version = "1.0.0"
 dependencies = [

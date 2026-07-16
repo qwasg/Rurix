@@ -1,0 +1,210 @@
+--------- beginning of (HKS)8AC2ACE1E9C740DDEB8C3FE1D79AB540C9A549825BCD70C68827F67CB23F19DE38B5460A9CD2CFD58675ECF4CBDCB3CE38479FF909AF85CF1949B6AAEBCFB4CBE0BCD371E54D70E24BD87C4457AC9A17ABB0B1E3412C49255F59863130AD87EBD4D7DC1C718E911A15AAB87C16B8D473E337EC5993F5BF703EA5731E377FF7C6A268B107C060430E3B1F42D085E00F7D4645896DED99D55F36AAC7B73FA1E9C255B5FACBF587D910A4263DFF4303F2FC8621AA6CE7B1D9886CA083E5B7458E90C0A663D31C69BBAB50F259A0B70784F42A8703FD76E7E470DB21633C9A67083E7EF5372A0AD87177DF4A6FCE3AD6CA782234ED63548BE9A77F5F89CC11A2FA5C(HKE)
+--------- beginning of main
+07-16 17:23:49.179 23919 23919 E LayoutUtil : isNeedUpdateScreenSize, !(deviceResource instanceof InWardDeviceResource)
+07-16 17:23:49.211  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /sys/class/kgsl/kgsl-3d0/touch_wake with value 1
+07-16 17:23:49.211  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: AddAndApply() 159: Failed to apply optimization [10, 13]
+07-16 17:23:49.237  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /sys/class/kgsl/kgsl-3d0/touch_wake with value 0
+07-16 17:23:49.237  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: RemoveAndApply() 292: Failed to reset optimization here [10, 13]
+07-16 17:23:49.467  2622  2692 E hwpged  : fmps_init_record_from_file open /data/system/iaware/fmps/com.rurix.vk/com.rurix.vk fail, errno:2!
+07-16 17:23:49.467  2622  2692 E hwpged  : DoPtePreread fmps_init_record_from_file failed path:/data/system/iaware/fmps/com.rurix.vk/com.rurix.vk
+07-16 17:23:49.469  2622  2691 E AwareLog: iolimit: pid[13991] cgroup 1:blkio:/key-background couldn't iolimit.
+07-16 17:23:49.469  2622  2691 E AwareLog: iolimit: pid[10089] cgroup 1:blkio:/key-background couldn't iolimit.
+07-16 17:23:49.469  2622  2691 E AwareLog: iolimit: pid[23029] cgroup 1:blkio:/key-background couldn't iolimit.
+07-16 17:23:49.469  2622  2691 E AwareLog: iawared: ChangePropertyContent open /dev/blkio/iocontrol/blkio.iolimit.switching fail errno(2)!
+07-16 17:23:49.471  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /sys/class/kgsl/kgsl-3d0/touch_wake with value 1
+07-16 17:23:49.471  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: AddAndApply() 159: Failed to apply optimization [10, 13]
+07-16 17:23:49.478 23919 23919 E RtgSchedManager: endActivityTransaction: margin state not match
+--------- beginning of system
+07-16 17:23:49.491  3370  5980 E SWAP_CgroupV2KernelInf: writeDevMemcg::writeDevMemcg_ERROR:/sys/block/zram0/hyperhold_memcg_main_process content:193,18300, ex:java.io.FileNotFoundException: /sys/block/zram0/hyperhold_memcg_main_process: open failed: EACCES (Permission denied)
+07-16 17:23:49.497  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /sys/class/kgsl/kgsl-3d0/touch_wake with value 0
+07-16 17:23:49.497  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: RemoveAndApply() 292: Failed to reset optimization here [10, 13]
+07-16 17:23:49.504  4474  4892 E RemoteTransitionHandler: pending remote null
+07-16 17:23:49.506  4474  4892 E HnFreeformController: mHnDesktopTasksController is null
+07-16 17:23:49.509 23919 23919 E FixedFlowFrameManager: initAndCheck: configType is 0, skip FixedFlowFrame
+07-16 17:23:49.513 18300 18300 E [VipSchedProxy:]: Vip Success open /proc/vip/ioctl
+07-16 17:23:49.516  2122  2122 E TS_HAL  : honor_tp_run_command: call
+07-16 17:23:49.518 18300 18312 E com.rurix.vk: DoPtePreread non root thread get record failed: ret(-1)!
+07-16 17:23:49.519  2622  2691 E AwareLog: SetThreadToVipGroup:: iawared vipgroup set pid[0] FAILED-NOT-TOP-APP!
+07-16 17:23:49.519  8046  8166 E HSM_BG  : MaliciousDBHelper:list is empty
+07-16 17:23:49.519  8046  8166 E HSM_BG  : SecurityThreatsService:notifyRiskAppWhenStartUp optional is present.
+07-16 17:23:49.520  4500  4831 E SmartcareProc: getInstance, sInstance is null !
+07-16 17:23:49.521  5543 10729 E iconnect:NearbyDevImpl: isAbleConnect is null
+07-16 17:23:49.521  8830 11929 E AWARENESS_AppGeneralCollectAbility: contained in black list : com.hihonor.android.launcher
+07-16 17:23:49.521  4500  4831 E SmartDualCardConfig: isAppInBlackList false,items==null
+07-16 17:23:49.521  4500  4831 E NearMpAptDecisionSystem: isSupportNearMp. mNearMpConfigInfo is null
+07-16 17:23:49.523  3370  3606 E IHwWindowManager: Process Permission error! uid:10285
+07-16 17:23:49.523  3370  3606 E IHwWindowManager: check permission error, current package is com.rurix.vk , it is not systemApp, callers is com.hihonor.android.view.IHwWindowManager$Stub.onTransact:1624 android.os.Binder.execTransactInternal:1459 android.os.Binder.execTransact:1401 <bottom of call stack> <bottom of call stack> <bottom of call stack> <bottom of call stack> <bottom of call stack> <bottom of call stack> <bottom of call stack> 
+07-16 17:23:49.532  4500  4831 E SmartDualCardConfig: isAppInBlackList false,items==null
+07-16 17:23:49.533  3370  4172 E WifiPhyLinkInfoCollect: linkRequestRunnable is not null, remove it
+07-16 17:23:49.534 18300 18323 E AwareLog: AtomicFileUtils: readFileLines file not exist: AtomicFile[/data/user/0/com.rurix.vk/files/hw_cached_resid.list]
+07-16 17:23:49.535  3370  4172 E HnSupplicantStaIfaceHalAidl: getApVendorInfo ServiceSpecificException
+07-16 17:23:49.535  3370  4172 E WifiPhyLinkInfoCollect: mWifiPhyFeatureStatusCallbacks is empty
+07-16 17:23:49.535  4500  4831 E Booster_DataAccelerateManager: Current scene is not supported for data acceleration
+07-16 17:23:49.535  3370  4172 E HnSupplicantStaIfaceHalAidl: getApVendorInfo ServiceSpecificException
+07-16 17:23:49.535  3370  4172 E WifiPhyLinkInfoCollect: mWifiPhyFeatureStatusCallbacks is empty
+07-16 17:23:49.537  2622  2691 E AwareLog: SetThreadToVipGroup:: iawared vipgroup set pid[18300] FAILED-NOT-TOP-APP!
+07-16 17:23:49.537  2189  2294 E ConversionHelperAidl: Function: parseAndSetVendorParameters Line: 117 Failed 
+07-16 17:23:49.538  2189  2294 E ConversionHelperAidl: Function: parseAndSetVendorParameters Line: 117 Failed 
+07-16 17:23:49.538  2189  2294 E ConversionHelperAidl: Function: parseAndSetVendorParameters Line: 117 Failed 
+07-16 17:23:49.538  2189  2294 E ConversionHelperAidl: Function: parseAndSetVendorParameters Line: 117 Failed 
+07-16 17:23:49.538  2189  2294 E ConversionHelperAidl: Function: parseAndSetVendorParameters Line: 117 Failed 
+07-16 17:23:49.538  2189  2294 E ConversionHelperAidl: Function: parseAndSetVendorParameters Line: 117 Failed 
+07-16 17:23:49.538  2189  2294 E ConversionHelperAidl: Function: parseAndSetVendorParameters Line: 117 Failed 
+07-16 17:23:49.538  2189  2294 E ConversionHelperAidl: Function: parseAndSetVendorParameters Line: 117 Failed 
+07-16 17:23:49.539  2189  2294 E ConversionHelperAidl: Function: parseAndSetVendorParameters Line: 117 Failed 
+07-16 17:23:49.539  2189  2294 E ConversionHelperAidl: Function: parseAndSetVendorParameters Line: 117 Failed 
+07-16 17:23:49.539  2189  2294 E ConversionHelperAidl: Function: parseAndSetVendorParameters Line: 117 Failed 
+07-16 17:23:49.539  2189  2294 E ConversionHelperAidl: Function: parseAndSetVendorParameters Line: 117 Failed 
+07-16 17:23:49.541 18300 18300 E ashmem  : Pinning is deprecated since Android Q. Please use trim or other methods.
+07-16 17:23:49.542 18300 18326 E com.rurix.vk: open file error
+07-16 17:23:49.544 18300 18326 E com.rurix.vk: open file error
+07-16 17:23:49.544 18300 18326 E iGraphics: [~]A_pHiechEijbka@ieog_jpBkh_W$Bckh$pi$bkj`$eoup$eijbka$bkh_~]
+07-16 17:23:49.544 18300 18326 E com.rurix.vk: open file error
+07-16 17:23:49.544 18300 18326 E iGraphics: [~]@_ev{tpEijbka\ghW$It_j$bkh_$bckh_`~]
+07-16 17:23:49.547  2160  2160 E qspmHal : GPU profile file NOT found !!
+07-16 17:23:49.554 18300 18300 I RurixVK : onCreate: glue armed (rurix_vk)
+07-16 17:23:49.555 18300 18326 E GamesAware: CheckInSupportList: 'com.rurix.vk' is not a game.
+07-16 17:23:49.558 18300 18300 E uniperf client: vendor.honor.hardware.iawareperf.IUniPerfAidlInterface/default is not Declared
+07-16 17:23:49.558  2536  2969 E power   : Failed to get SystemSuspend service
+07-16 17:23:49.558 18300 18300 E uniperf client: vendor.honor.hardware.iawareperf.IUniPerfAidlInterface/default is not Declared
+07-16 17:23:49.558  2536  2969 E power   : Failed to get SystemSuspend service
+07-16 17:23:49.558  2536 18467 E AGPService: FrameRateManager targetFps 60, settingFps 120 after setFps
+07-16 17:23:49.559  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /proc/sys/walt/walt_rtg_cfs_boost_prio with value 119
+07-16 17:23:49.559  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: AddAndApply() 159: Failed to apply optimization [3, 50]
+07-16 17:23:49.560  2056  2056 E HW_DISPLAY_TEST: get_active_panel: panel index: 0
+07-16 17:23:49.560  2056  2056 E HW_DISPLAY_TEST: get_active_panel: panel index: 0
+07-16 17:23:49.560  3370  3404 E SystemGestures: The HwFoldScreenManagerInternal is null.
+07-16 17:23:49.568 18300 18300 E RtgSchedIpcFile: RtgSchedIpcFile xxx failed to open /proc/18300/rtg
+07-16 17:23:49.568 18300 18300 E RtgSchedIpcFile: RtgSchedIpcFile xxx success to open /proc/rtg_gki/ioctl.
+07-16 17:23:49.568  8830 11929 E AWARENESS_PCIAbility: curActivity already acted
+07-16 17:23:49.579  2622  2691 E AwareLog: SetThreadToVipGroup:: iawared vipgroup set pid[18300] FAILED-NOT-TOP-APP!
+07-16 17:23:49.579  2622  2691 E AwareLog: SetThreadToVipGroup:: iawared vipgroup set pid[18326] FAILED-NOT-TOP-APP!
+07-16 17:23:49.580  3370  3606 E ZrHung.AppEyeFocusWindow: cancel check
+07-16 17:23:49.583 18300 18300 I RurixVK : onNativeWindowCreated
+07-16 17:23:49.584  2160  2160 E qspmHal : GPU profile file NOT found !!
+07-16 17:23:49.592  2622  2691 E AwareLog: iawared: ChangePropertyContent write 16345 0 to /proc/sys/walt/sched_static_vip fail errno(2)!
+07-16 17:23:49.592  2622  2691 E AwareLog: iawared: ChangePropertyContent write 27581 0 to /proc/sys/walt/sched_static_vip fail errno(2)!
+07-16 17:23:49.602  2160  2160 E qspmHal : GPU profile file NOT found !!
+07-16 17:23:49.609 18300 18300 E FixedFlowFrameManager: initAndCheck: renderer is null
+07-16 17:23:49.621 18300 18331 E RurixVK-VVL: vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[0].pName "rurix_red_bogus_entry" entry point not found for stage VK_SHADER_STAGE_VERTEX_BIT. (The only entry point found was "main" for VK_SHADER_STAGE_VERTEX_BIT)
+07-16 17:23:49.621 18300 18331 E RurixVK-VVL: Some shading languages will let you name the main function something else, but when compiled to SPIR-V, it will keep it as 'main' to match defaults found in other shading languages such as GLSL. It is also valid in a single SPIR-V binary to have 'main' for two different stages.
+07-16 17:23:49.621 18300 18331 E RurixVK-VVL: The Vulkan spec states: pName must be the name of an OpEntryPoint in module with an execution model that matches stage (https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkPipelineShaderStageCreateInfo-pName-00707)
+07-16 17:23:49.626 18300 18331 E RurixVK : present err: VK_LAYER_KHRONOS_validation 报 1 条 ERROR 级校验错误(见 logcat RurixVK-VVL;fail-closed)
+07-16 17:23:49.627 18300 18331 I RurixVK : RESULT {"mode":"red","present_ok":false,"frames":0,"ext_w":0,"ext_h":0,"covered":0,"corner_bg":false,"center_covered":false,"validation_errors":1,"max_err":null}
+07-16 17:23:49.681  3370  4249 E DE J BigDataReport: receiveEyeDistance undefine mode: 
+07-16 17:23:49.681  2122  2122 E TS_HAL  : honor_tp_run_command: call
+07-16 17:23:49.681  2558  2600 E DE N Sh1P: getRadiusValue:341: Not find MODE_MARKET_0_25_0: 0
+07-16 17:23:49.681  2536  2969 E power   : Failed to get SystemSuspend service
+07-16 17:23:49.682  2056  2056 E HW_DISPLAY_TEST: get_active_panel: panel index: 0
+07-16 17:23:49.683  4474  4474 E LivelyCapsuleStatusBH: startSvgAnim: topCapsule is null
+07-16 17:23:49.689  4474  4474 E ZZQ     : mGlobalLayoutListener mShowingType = 0
+07-16 17:23:49.699  4500  4824 E LinkLayerUtils: getCurrentCellInfo invalid cellInfo!
+07-16 17:23:49.760  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:23:49.797  4500  4831 E SmartDualCardConfig: isAppInBlackList false,items==null
+07-16 17:23:49.815  3370  3684 E AwareLog: CpuProcessInherit: files null 
+07-16 17:23:49.818  2536  2969 E power   : Failed to get SystemSuspend service
+07-16 17:23:49.818  2536 18467 E AGPService: FrameRateManager targetFps 120, settingFps 60 after setFps
+07-16 17:23:49.818  2536 18467 E AGPService: hivew sceneEnd double set
+07-16 17:23:49.818  2056  2056 E HW_DISPLAY_TEST: get_active_panel: panel index: 0
+07-16 17:23:49.819  3370  3404 E SystemGestures: The HwFoldScreenManagerInternal is null.
+07-16 17:23:50.038  3370  8923 E RMS.HwSysResManagerService: Process Permission error! pid:4641 uid:1001 Process.myPid:3370
+07-16 17:23:50.052  8830 14366 E AWARENESS_LocationHelperAbility: pushData envenType :5
+07-16 17:23:50.523  4500  4831 E HwPacketFilterBypass: sendRequestToKernel ADD_UID [10285]
+07-16 17:23:50.782  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:23:50.819  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /proc/sys/walt/walt_rtg_cfs_boost_prio with value 99
+07-16 17:23:50.819  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: RemoveAndApply() 292: Failed to reset optimization here [3, 50]
+07-16 17:23:51.335  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /sys/class/kgsl/kgsl-3d0/touch_wake with value 1
+07-16 17:23:51.335  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: AddAndApply() 159: Failed to apply optimization [10, 13]
+07-16 17:23:51.361  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /sys/class/kgsl/kgsl-3d0/touch_wake with value 0
+07-16 17:23:51.361  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: RemoveAndApply() 292: Failed to reset optimization here [10, 13]
+07-16 17:23:51.417  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /sys/class/kgsl/kgsl-3d0/touch_wake with value 1
+07-16 17:23:51.417  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: AddAndApply() 159: Failed to apply optimization [10, 13]
+07-16 17:23:51.443  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /sys/class/kgsl/kgsl-3d0/touch_wake with value 0
+07-16 17:23:51.443  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: RemoveAndApply() 292: Failed to reset optimization here [10, 13]
+07-16 17:23:51.808  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:23:52.233  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /sys/class/kgsl/kgsl-3d0/touch_wake with value 1
+07-16 17:23:52.233  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: AddAndApply() 159: Failed to apply optimization [10, 13]
+07-16 17:23:52.259  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /sys/class/kgsl/kgsl-3d0/touch_wake with value 0
+07-16 17:23:52.259  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: RemoveAndApply() 292: Failed to reset optimization here [10, 13]
+07-16 17:23:52.469  2622  2691 E AwareLog: iawared: ChangePropertyContent open /dev/blkio/iocontrol/blkio.iolimit.switching fail errno(2)!
+07-16 17:23:52.469  2622  2691 E AwareLog: iawared: ChangePropertyContent open /dev/blkio/heavyio/blkio.iolimit.switching fail errno(2)!
+07-16 17:23:52.700  4500  4824 E LinkLayerUtils: getCurrentCellInfo invalid cellInfo!
+07-16 17:23:52.702  8830 11589 E AWARENESS_FenceManager: sendMsg a:BIND,package:brain,fence: SubwayBusinessAssembler_SubwayTimeTrigger_TimeFence_1_subwayFactId
+07-16 17:23:52.702  8830  9434 E AWARENESS_FenceManager: connected: true
+07-16 17:23:52.703  8830 11589 E AWARENESS_TM: trigger not reg
+07-16 17:23:52.708  8830 14698 E AWARENESS_ManagedFenceList: unable to find fence by key
+07-16 17:23:52.834  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:23:53.599  3370  3370 E WifiEnhance_DataPlatformServiceWapper: DataPlatformConnection: DataPlatformService returned null binding: ComponentInfo{com.hihonor.android.chr/com.hihonor.dataplatform.service.DataPlatformService}
+07-16 17:23:53.664  9724  9729 E bms_file: file /sys/class/backlight/panel1-backlight/brightness is invalid
+07-16 17:23:53.859  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:23:54.080  3370  4172 E TcpInfoMonitor: obtain valid average rtt failed.
+07-16 17:23:54.536 18300 18300 E com.rurix.vk: No package ID 7f found for resource ID 0x7f080592.
+07-16 17:23:54.613  4500  4833 E IndepBtControlManager: checkSignalStrength rsrq is not legal
+07-16 17:23:54.613  4500  4833 E IndepBtControlManager: checkSignalStrength sinr is not legal
+07-16 17:23:54.700  4500  4824 E LinkLayerUtils: getCurrentCellInfo invalid cellInfo!
+07-16 17:23:54.882  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:23:55.195  3370  3370 E CDM_DevicePresenceProcessor: Package is not bound
+07-16 17:23:55.900  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:23:56.614  4500  4833 E IndepBtControlManager: checkSignalStrength rsrq is not legal
+07-16 17:23:56.614  4500  4833 E IndepBtControlManager: checkSignalStrength sinr is not legal
+07-16 17:23:56.929  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:23:57.703  4500  4824 E LinkLayerUtils: getCurrentCellInfo invalid cellInfo!
+07-16 17:23:57.709  8830 30395 E AWARENESS_TM: trigger not reg
+07-16 17:23:57.709  8830 30395 E AWARENESS_FenceManager: sendMsg a:BIND,package:brain,fence: AppRecoAssembler_PredictSolutionTrigger_TimedAppFence_APP_STARTUP_NONE
+07-16 17:23:57.709  8830  9434 E AWARENESS_FenceManager: connected: true
+07-16 17:23:57.953  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:23:58.082  3370  4172 E TcpInfoMonitor: obtain valid average rtt failed.
+07-16 17:23:58.601  3370  3370 E WifiEnhance_DataPlatformServiceWapper: DataPlatformConnection: DataPlatformService returned null binding: ComponentInfo{com.hihonor.android.chr/com.hihonor.dataplatform.service.DataPlatformService}
+07-16 17:23:58.735  9724  9729 E bms_file: file /sys/class/backlight/panel1-backlight/brightness is invalid
+07-16 17:23:58.980  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:23:58.983  3370  3370 E CDM_CompanionAppBinder: Can not bind companion applications u0/com.huawei.smartaudio: eligible CompanionDeviceService not found.
+07-16 17:23:58.983  3370  3370 E CDM_CompanionAppBinder: A CompanionDeviceService should declare an intent-filter for "android.companion.CompanionDeviceService" action and require "android.permission.BIND_COMPANION_DEVICE_SERVICE" permission.
+07-16 17:23:58.984  3370  3370 E CDM_DevicePresenceProcessor: Package is NOT bound.
+07-16 17:23:58.984  3370  3370 E CDM_DevicePresenceProcessor: Package is not bound.
+07-16 17:23:59.517  4500  4831 E SpeedLimitTestNotifier: mIsTopActivity false
+07-16 17:23:59.700  4500  4824 E LinkLayerUtils: getCurrentCellInfo invalid cellInfo!
+07-16 17:24:00.002  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:24:00.022  4474  4474 E ndroid.systemui: No package ID ff found for resource ID 0xffffffff.
+07-16 17:24:00.022  4474  4474 E ndroid.systemui: No package ID ff found for resource ID 0xffffffff.
+07-16 17:24:00.035  4474  4474 E ZZQ     : mGlobalLayoutListener mShowingType = 0
+07-16 17:24:00.038  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /sys/class/kgsl/kgsl-3d0/touch_wake with value 1
+07-16 17:24:00.039  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: AddAndApply() 159: Failed to apply optimization [10, 13]
+07-16 17:24:00.065  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /sys/class/kgsl/kgsl-3d0/touch_wake with value 0
+07-16 17:24:00.065  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: RemoveAndApply() 292: Failed to reset optimization here [10, 13]
+07-16 17:24:00.619  4500  4833 E IndepBtControlManager: checkSignalStrength rsrq is not legal
+07-16 17:24:00.619  4500  4833 E IndepBtControlManager: checkSignalStrength sinr is not legal
+07-16 17:24:00.779  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /sys/class/kgsl/kgsl-3d0/touch_wake with value 1
+07-16 17:24:00.779  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: AddAndApply() 159: Failed to apply optimization [10, 13]
+07-16 17:24:00.806  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /sys/class/kgsl/kgsl-3d0/touch_wake with value 0
+07-16 17:24:00.806  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: RemoveAndApply() 292: Failed to reset optimization here [10, 13]
+07-16 17:24:00.939  4474  4474 E ZZQ     : mGlobalLayoutListener mShowingType = 0
+07-16 17:24:00.957  4474  4474 E PNP-SystemUI-10.0.29.325-35722946-ReflectClassWrapper: Method not found: getSbn, error: java.lang.NoSuchMethodException: com.android.systemui.statusbar.notification.collection.HnNotificationEntry.getSbn []
+07-16 17:24:00.957  4474  4474 E PNP-SystemUI-10.0.29.325-35722946-ReflectClassWrapper: Field not found: notification, error: java.lang.NoSuchFieldException: notification
+07-16 17:24:00.971  4474  4474 E ZZQ     : mGlobalLayoutListener mShowingType = 0
+07-16 17:24:01.018  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:24:01.689  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /sys/class/kgsl/kgsl-3d0/touch_wake with value 1
+07-16 17:24:01.689  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: AddAndApply() 159: Failed to apply optimization [10, 13]
+07-16 17:24:01.716  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /sys/class/kgsl/kgsl-3d0/touch_wake with value 0
+07-16 17:24:01.716  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: RemoveAndApply() 292: Failed to reset optimization here [10, 13]
+07-16 17:24:02.049  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:24:02.701  4500  4824 E LinkLayerUtils: getCurrentCellInfo invalid cellInfo!
+07-16 17:24:03.072  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:24:03.603  3370  3370 E WifiEnhance_DataPlatformServiceWapper: DataPlatformConnection: DataPlatformService returned null binding: ComponentInfo{com.hihonor.android.chr/com.hihonor.dataplatform.service.DataPlatformService}
+07-16 17:24:03.769  9724  9729 E bms_file: file /sys/class/backlight/panel1-backlight/brightness is invalid
+07-16 17:24:04.091  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:24:04.622  4500  4833 E IndepBtControlManager: checkSignalStrength rsrq is not legal
+07-16 17:24:04.622  4500  4833 E IndepBtControlManager: checkSignalStrength sinr is not legal
+07-16 17:24:04.701  4500  4824 E LinkLayerUtils: getCurrentCellInfo invalid cellInfo!
+07-16 17:24:05.124  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:24:06.134  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:24:06.623  4500  4833 E IndepBtControlManager: checkSignalStrength rsrq is not legal
+07-16 17:24:06.623  4500  4833 E IndepBtControlManager: checkSignalStrength sinr is not legal
+07-16 17:24:07.163  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:24:07.561  5543  6834 E DeviceMonitorPowerKit: not Satify ApplyResource
+07-16 17:24:07.702  4500  4824 E LinkLayerUtils: getCurrentCellInfo invalid cellInfo!
+07-16 17:24:07.772  5543 14385 E nearby  : NearbyPowerKit:not Satify ApplyResource
+07-16 17:24:08.286  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:24:08.606  3370  3370 E WifiEnhance_DataPlatformServiceWapper: DataPlatformConnection: DataPlatformService returned null binding: ComponentInfo{com.hihonor.android.chr/com.hihonor.dataplatform.service.DataPlatformService}
+07-16 17:24:08.818  9724  9729 E bms_file: file /sys/class/backlight/panel1-backlight/brightness is invalid
+07-16 17:24:09.038  3370  8923 E AwareLog: HwMtmBroadcastResourceManager: iawareNeedSkipBroadcastSend param error!
+07-16 17:24:09.207  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
