@@ -93,6 +93,30 @@ fn main() {
         let bytes = gen_spirv(&saxpy_rx).unwrap_or_default();
         std::fs::write(&spv_out, &bytes).unwrap_or_else(|e| panic!("write saxpy.spv: {e}"));
     }
+
+    // mb1 W7 Android present demo:三角形 vertex/fragment 着色阶段经同一 `vulkan_codegen` 纯
+    // Rust MIR→SPIR-V(graphics 阶段走 dxil_spirv::emit_spirv_body_vulkan,方案 B 去 provenance)
+    // 产 `tri_vs.spv`/`tri_fs.spv` 嵌入 EXE/cdylib(`vk::demo_shaders_spv` 消费),复现等价
+    // `rurixc --target vulkan conformance/vulkan/accept/vk_tri_{vs,fs}.rx`。**镜像 saxpy.spv 机制**
+    // (同 gen_spirv 全静态检查 + build_and_emit_vulkan);build.rs 常在 host 跑,交叉构建 android
+    // 时亦然,rurixc 解析与 target 无关(单一事实源)。降级 → 空哨兵,demo 据空 SKIP。
+    let accept = manifest // src/rurix-rt → src → repo root → conformance/vulkan/accept
+        .parent()
+        .and_then(std::path::Path::parent)
+        .expect("repo root(CARGO_MANIFEST_DIR 上二级)")
+        .join("conformance")
+        .join("vulkan")
+        .join("accept");
+    for (rx_name, spv_name) in [
+        ("vk_tri_vs.rx", "tri_vs.spv"),
+        ("vk_tri_fs.rx", "tri_fs.spv"),
+    ] {
+        let rx = accept.join(rx_name);
+        println!("cargo:rerun-if-changed={}", rx.display());
+        let spv_out = out_dir.join(spv_name);
+        let bytes = gen_spirv(&rx).unwrap_or_default();
+        std::fs::write(&spv_out, &bytes).unwrap_or_else(|e| panic!("write {spv_name}: {e}"));
+    }
 }
 
 /// `saxpy.rx` → Vulkan SPIR-V 字节(RXS-0208 anchor 支撑;`build_and_emit_vulkan` 纯 Rust

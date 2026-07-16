@@ -2729,18 +2729,25 @@ type VkBool32 = u32;
 // present sType / enum。
 const ST_SWAPCHAIN_CREATE_INFO_KHR: u32 = 1_000_001_000;
 const ST_PRESENT_INFO_KHR: u32 = 1_000_001_001;
+#[cfg(windows)] // win32 surface 专属(present_vk);android/其他平台不引入。
 const ST_WIN32_SURFACE_CREATE_INFO_KHR: u32 = 1_000_009_000;
 const ST_SEMAPHORE_CREATE_INFO: u32 = 9;
 const IMAGE_LAYOUT_PRESENT_SRC_KHR: u32 = 1_000_001_002;
 const PRESENT_MODE_FIFO_KHR: u32 = 2; // 唯一 spec 保证可用的 present mode。
 const COLOR_SPACE_SRGB_NONLINEAR_KHR: u32 = 0;
 const FORMAT_B8G8R8A8_UNORM: u32 = 44;
+// composite alpha 位（`pick_composite_alpha` 派生用;win32 常 OPAQUE、Android surface 常
+// 仅 INHERIT）。pre_transform 直接取 `caps.current_transform`（无需 IDENTITY 常量兜底——
+// Vulkan 保证 currentTransform 恒为受支持变换,可直接用作 preTransform）。
 const COMPOSITE_ALPHA_OPAQUE_BIT_KHR: u32 = 0x1;
-const SURFACE_TRANSFORM_IDENTITY_BIT_KHR: u32 = 0x1;
+const COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR: u32 = 0x2;
+const COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR: u32 = 0x4;
+const COMPOSITE_ALPHA_INHERIT_BIT_KHR: u32 = 0x8;
 const SUBOPTIMAL_KHR: VkResult = 1_000_001_003;
 const SUBPASS_EXTERNAL: u32 = u32::MAX;
 const PIPELINE_STAGE_BOTTOM_OF_PIPE: u32 = 0x2000;
 
+#[cfg(windows)] // win32 surface 专属(present_vk);android surface 用 android_present 模块。
 #[repr(C)]
 struct Win32SurfaceCreateInfoKHR {
     s_type: u32,
@@ -2823,6 +2830,7 @@ struct SubpassDependency {
 }
 
 // present 函数指针(surface/swapchain/semaphore;经 instance/device proc 解析)。
+#[cfg(windows)] // win32 surface 专属(present_vk);android surface FFI 见 android_present。
 type FnCreateWin32SurfaceKHR = unsafe extern "system" fn(
     VkInstance,
     *const Win32SurfaceCreateInfoKHR,
@@ -2914,6 +2922,29 @@ fn choose_min_image_count(min_count: u32, max_count: u32) -> u32 {
         max_count
     } else {
         desired
+    }
+}
+
+/// 从 surface 支持的 composite alpha 位集择一(host 可测纯函数)。优先级
+/// OPAQUE → INHERIT → PRE_MULTIPLIED → POST_MULTIPLIED,均不支持则退回最低置位。
+/// win32 surface 常报 OPAQUE(数值零回归,swapchain 与旧硬编码等价);Android surface 常
+/// **不支持 OPAQUE**、只报 INHERIT(0x8),硬编码 OPAQUE 会触 VUID → 必须查询派生。
+fn pick_composite_alpha(supported: u32) -> u32 {
+    for bit in [
+        COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        COMPOSITE_ALPHA_INHERIT_BIT_KHR,
+        COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
+        COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
+    ] {
+        if supported & bit != 0 {
+            return bit;
+        }
+    }
+    // 回退:最低置位(Vulkan 保证 supportedCompositeAlpha 至少 1 位置位;0 时仍给 OPAQUE 兜底)。
+    if supported == 0 {
+        COMPOSITE_ALPHA_OPAQUE_BIT_KHR
+    } else {
+        supported & supported.wrapping_neg()
     }
 }
 
@@ -3423,6 +3454,7 @@ unsafe fn present_vk(
         &get_surf_present_modes,
         vs_spv,
         fs_spv,
+        c"main", // win32 present 无 red_selftest → 恒真入口名(桌面 red 在 offscreen VUID-08742 路)。
         vertices,
         vertex_stride,
         attrs,
@@ -3430,7 +3462,10 @@ unsafe fn present_vk(
         height,
         clear,
         frames,
-    );
+    )
+    // win32 wrapper 丢弃真实 extent(win32 客户区固定 == 请求 w/h,签名不变);
+    // 真实 extent 仅 android 全屏 present 需要(`run_graphics_present_android` 保留)。
+    .map(|(pixels, _ext_w, _ext_h)| pixels);
 
     // fail-closed(L3):validation 开 + ERROR 级校验消息 → 覆盖为 Err(退出码判红)。
     if validation && validation_error.load(std::sync::atomic::Ordering::Relaxed) {
@@ -3447,8 +3482,13 @@ unsafe fn present_vk(
     out
 }
 
-/// swapchain + 渲染循环 + 逐帧 present + readback(device 级;句柄逆序销毁)。
-#[cfg(windows)]
+/// swapchain + 渲染循环 + 逐帧 present + readback(device 级;句柄逆序销毁)。平台无关
+/// (仅依赖 `VkSurfaceKHR` + device/surface 符号,无 win32/android 特化)——win32
+/// (`present_vk`)与 android(`run_graphics_present_android`)present 共用本体;故 gate 于
+/// `any(windows, android)`(两处唯一调用方所在平台;避免其他平台编入未用 `unsafe fn`)。
+/// 返回 `(最后一帧紧凑 RGBA8, ext_w, ext_h)`——**全屏 present 的真实 extent 由 surface
+/// `currentExtent` 决定(非入参 w/h)**,调用方须据真实 extent 索引 corner/center 像素。
+#[cfg(any(windows, target_os = "android"))]
 #[allow(clippy::too_many_arguments)]
 unsafe fn present_body(
     gdpa: FnGetDeviceProcAddr,
@@ -3462,6 +3502,9 @@ unsafe fn present_body(
     get_surf_present_modes: &FnGetPhysicalDeviceSurfacePresentModesKHR,
     vs_spv: &[u32],
     fs_spv: &[u32],
+    // vertex stage pipeline `pName`：绿路 = 真入口名 `c"main"`;android red_selftest = 模块内不
+    // 存在的假名(SPIR-V 保持原样合法,仅入口名不匹配 → 干净触 pName VUID,详见调用方)。
+    vs_entry: &std::ffi::CStr,
     vertices: &[u8],
     vertex_stride: u32,
     attrs: &[(u32, u32, u32)],
@@ -3469,7 +3512,7 @@ unsafe fn present_body(
     height: u32,
     clear: [f32; 4],
     frames: u32,
-) -> Result<Vec<u8>, String> {
+) -> Result<(Vec<u8>, u32, u32), String> {
     macro_rules! dp {
         ($name:literal, $ty:ty) => {
             cast_fn::<$ty>(gdpa(device, $name.as_ptr())).ok_or("缺 device 符号")?
@@ -3638,7 +3681,7 @@ unsafe fn present_body(
         Ok((buffer, mem))
     };
 
-    let result: Result<Vec<u8>, String> = 'run: {
+    let result: Result<(Vec<u8>, u32, u32), String> = 'run: {
         // ── swapchain(imageUsage = COLOR_ATTACHMENT | TRANSFER_SRC,可回读)──
         let sci = SwapchainCreateInfoKHR {
             s_type: ST_SWAPCHAIN_CREATE_INFO_KHR,
@@ -3657,8 +3700,11 @@ unsafe fn present_body(
             image_sharing_mode: SHARING_MODE_EXCLUSIVE,
             queue_family_index_count: 0,
             p_queue_family_indices: std::ptr::null(),
-            pre_transform: SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
-            composite_alpha: COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+            // pre_transform / composite_alpha 由 caps 派生(**不硬编码**):win32 得
+            // IDENTITY + OPAQUE(与旧值等价,数值零回归);Android 得设备旋转变换 +
+            // INHERIT(硬编码 OPAQUE 会触 VUID-VkSwapchainCreateInfoKHR-compositeAlpha)。
+            pre_transform: caps.current_transform,
+            composite_alpha: pick_composite_alpha(caps.supported_composite_alpha),
             present_mode: PRESENT_MODE_FIFO_KHR,
             clipped: 1,
             old_swapchain: VK_NULL_HANDLE,
@@ -3846,7 +3892,8 @@ unsafe fn present_body(
                 flags: 0,
                 stage: SHADER_STAGE_VERTEX,
                 module: vs_mod,
-                p_name: c"main".as_ptr(),
+                // 绿路 = `c"main"`;android red_selftest 传入假名 → 干净触 pName-00707 VUID。
+                p_name: vs_entry.as_ptr(),
                 p_specialization_info: std::ptr::null(),
             },
             PipelineShaderStageCreateInfo {
@@ -4216,7 +4263,8 @@ unsafe fn present_body(
         let mut pixels = vec![0u8; readback_len];
         std::ptr::copy_nonoverlapping(ptr.cast::<u8>(), pixels.as_mut_ptr(), readback_len);
         unmap_mem(device, rbuf_mem);
-        Ok(pixels)
+        // 返回真实 present extent(全屏 android 由 currentExtent 决定,≠ 入参 w/h)。
+        Ok((pixels, ext_w, ext_h))
     };
 
     // ── 逆序销毁(非 null 者;swapchain image 归 swapchain 所有,不单独 destroy)──
@@ -4276,9 +4324,445 @@ unsafe fn present_body(
     result
 }
 
-// ── Android present 缝(VK_KHR_android_surface;on-device 尾门 G-MB1-7) ────────
-// run_compute 语义与本模块无关(compute 不需 surface);此处仅就位 surface 创建 FFI,
-// 使 android target 编译绿。完整 swapchain acquire→submit→present 循环为 on-device 尾门。
+// ── demo 着色器 SPIR-V(build.rs 经 vulkan_codegen 产;android glue + desktop 共享) ──
+/// mb1 Android present demo 三着色器 SPIR-V 字节:`(tri_vs, tri_fs, saxpy)`(小端字流,
+/// `len % 4 == 0`;消费侧转 u32)。`build.rs` 经 `vulkan_codegen`(纯 Rust MIR→SPIR-V)对
+/// `conformance/vulkan/accept/vk_tri_{vs,fs}.rx` 与 `kernels/saxpy.rx` 产,复现命令等价
+/// `rurixc --target vulkan <src>.rx`。全绿构建下三者非空;codegen 降级(极少)→ 空切片,
+/// 消费侧据空 SKIP(对齐既有 saxpy.spv 降级纪律)。零外部资源——`include_bytes!` 自 `OUT_DIR`。
+//@ spec: RXS-0210
+pub fn demo_shaders_spv() -> (&'static [u8], &'static [u8], &'static [u8]) {
+    const TRI_VS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/tri_vs.spv"));
+    const TRI_FS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/tri_fs.spv"));
+    const SAXPY: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/saxpy.spv"));
+    (TRI_VS, TRI_FS, SAXPY)
+}
+
+// ── Android on-device present（VK_KHR_android_surface;尾门 G-MB1-7 兑现） ────────
+// libandroid liblog:`__android_log_write`——on-device validation 消息(VUID)直落 logcat
+// (tag `RurixVK-VVL`),证 layer 真加载(桌面 messenger 走 stderr,android 无用故改 logcat)。
+// 符号在最终 cdylib 链接期由 glue crate 的 `-llog` 解析(rlib 不解析,不影响桌面构建)。
+#[cfg(target_os = "android")]
+unsafe extern "C" {
+    fn __android_log_write(
+        prio: core::ffi::c_int,
+        tag: *const c_char,
+        text: *const c_char,
+    ) -> core::ffi::c_int;
+}
+#[cfg(target_os = "android")]
+const ANDROID_LOG_ERROR: core::ffi::c_int = 6;
+
+/// Android debug messenger 回调:ERROR 级校验消息 → `validation_errors`(栈上 `AtomicU32`)
+/// `+= 1` + 消息落 logcat(tag `RurixVK-VVL`,ERROR)。返回 `VK_FALSE`(不中断被回调命令,
+/// 仅记录;fail-closed 在 `run_graphics_present_android` 末尾据计数统一判)。桌面 `debug_messenger_cb`
+/// 保持不变(走 stderr + `AtomicBool`);本 android 变体额外走 logcat 且用 `AtomicU32` 计数。
+#[cfg(target_os = "android")]
+unsafe extern "system" fn debug_messenger_cb_android(
+    severity: u32,
+    _types: u32,
+    data: *const DebugUtilsMessengerCallbackDataEXT,
+    user_data: *mut c_void,
+) -> u32 {
+    if severity & DEBUG_UTILS_SEVERITY_ERROR != 0 {
+        if !user_data.is_null() {
+            // SAFETY: user_data 指向 run_graphics_present_android 栈上 AtomicU32;messenger 生命周期
+            // 严格短于该 AtomicU32(末尾 instance destroy 前销毁)。原子加经共享引用合法,无 &mut 别名。
+            let ctr = &*(user_data as *const std::sync::atomic::AtomicU32);
+            ctr.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        }
+        if !data.is_null() {
+            // SAFETY: 回调契约保证 data 在回调期间有效;p_message 为有效 NUL 结尾 C 串。
+            let d = &*data;
+            if !d.p_message.is_null() {
+                // SAFETY: p_message 为有效 NUL 结尾 C 串;tag 为 NUL 结尾字面量;直接转发 liblog。
+                __android_log_write(ANDROID_LOG_ERROR, c"RurixVK-VVL".as_ptr(), d.p_message);
+            }
+        }
+    }
+    0
+}
+
+/// Android surface present（`VK_KHR_android_surface`;on-device 尾门 G-MB1-7 兑现的出图循环）。
+/// 镜像 win32 `present_vk`——instance 扩展换 `VK_KHR_surface`+`VK_KHR_android_surface`,surface
+/// 由 `ANativeWindow*` 经 `vkCreateAndroidSurfaceKHR`(复用既有 `create_android_surface`)建,其余
+/// 物理设备/queue-family(graphics+present)/`vkCreateDevice([VK_KHR_swapchain])`/平台无关
+/// `present_body`(swapchain acquire→render→copy readback→PRESENT_SRC→present)全复用。返回
+/// `(最后一帧紧凑 RGBA8, ext_w, ext_h)`——**全屏 extent 由 surface `currentExtent` 决定(非入参
+/// w/h)**,调用方据真实 extent 索引 corner/center。
+///
+/// - `validation=true`:装 `VK_LAYER_KHRONOS_validation` + `VK_EXT_debug_utils` messenger,每条
+///   ERROR 级校验消息经 android callback 落 logcat(`RurixVK-VVL`)并计数,末尾 **fail-closed**
+///   翻 `Err`(反假绿:「零报错」仅在 layer 真加载〔RED 见 VUID〕前提下采信)。
+/// - `red_selftest=true`:vertex stage `pName` 用**模块内不存在的假入口名**(SPIR-V 保持原样
+///   合法),使 graphics pipeline 建立干净触 `VUID-VkPipelineShaderStageCreateInfo-pName-00707`
+///   证 layer 真加载 → 期望 messenger 计数 >0 + logcat 见 VUID + 本函数 fail-closed 返回 `Err`
+///   (pipeline create 若直接返回 `VK_ERROR`〔入口名不存在〕亦判红,且 messenger 为 instance 级、
+///   pipeline create 时已活跃,VUID 已先落 logcat)。旧机制喂损坏 `.spv`(pCode-08742)已弃——
+///   某些 layer 解析非法 SPIR-V 自身 SIGSEGV(Adreno/MTE 实测,VUID 未吐出即崩);合法模块 + 假名
+///   不向驱动/layer 喂非法 SPIR-V,不存在该崩溃/UB 风险。
+///
+/// 缺 Vulkan 驱动 / 无 present-capable graphics queue / surface 建失败 → 确定性 `Err`(非 panic,
+/// P-01)。gate feature `vulkan` 默认关闭。
+///
+/// # Safety
+/// `gipa` 为 `load_vulkan_loader()` 解析所得有效 `vkGetInstanceProcAddr`;`window` 为 Android app
+/// 存活期内有效 `ANativeWindow*`(调用方〔渲染线程〕持 `ANativeWindow_acquire` 保活,present 返回
+/// 前不 `release`)。内部句柄(instance/surface/device/messenger/swapchain/imageView×N/framebuffer
+/// ×N/semaphore×2/pipeline/…)线性配对 create/destroy、逆序销毁(swapchain image 归 swapchain,
+/// 不单独 destroy);每个 `#[repr(C)]` VkStruct 逐字节对齐(由 `VK_LAYER_KHRONOS_validation`
+/// on-device 真跑实证);messenger `p_user_data` 指向本函数栈上 `AtomicU32`(生命周期严格长于
+/// messenger)。`red_selftest` 反证路**始终**向 `vkCreateShaderModule` 喂原样合法 SPIR-V(仅
+/// pipeline `pName` 用假入口名),故不存在「向驱动/layer 喂非法 SPIR-V」的解析路径——与 `validation`
+/// 开关无关地内存安全(消解旧「损坏 `.spv` 依赖 validation 兜底否则驱动 UB」的 review advisory)。
+//@ spec: RXS-0210
+//@ spec: RXS-0211
+#[cfg(target_os = "android")]
+#[allow(clippy::too_many_arguments)]
+pub unsafe fn run_graphics_present_android(
+    gipa: FnGetInstanceProcAddr,
+    window: *mut android_present::ANativeWindow,
+    vs_spv: &[u32],
+    fs_spv: &[u32],
+    vertices: &[u8],
+    vertex_stride: u32,
+    attrs: &[(u32, u32, u32)],
+    width: u32,
+    height: u32,
+    clear: [f32; 4],
+    frames: u32,
+    validation: bool,
+    red_selftest: bool,
+) -> Result<(Vec<u8>, u32, u32), String> {
+    let vk_create_instance: FnCreateInstance =
+        cast_fn(gipa(std::ptr::null_mut(), c"vkCreateInstance".as_ptr()))
+            .ok_or("缺 vkCreateInstance")?;
+
+    let layer_name = c"VK_LAYER_KHRONOS_validation";
+    let layers: [*const c_char; 1] = [layer_name.as_ptr()];
+    // instance 扩展:present 恒需 surface + android_surface;validation 追加 debug_utils。
+    let mut exts: Vec<*const c_char> = vec![
+        c"VK_KHR_surface".as_ptr(),
+        c"VK_KHR_android_surface".as_ptr(),
+    ];
+    if validation {
+        exts.push(c"VK_EXT_debug_utils".as_ptr());
+    }
+    let app = ApplicationInfo {
+        s_type: ST_APPLICATION_INFO,
+        p_next: std::ptr::null(),
+        p_application_name: c"rurix-mb1".as_ptr(),
+        application_version: 0,
+        p_engine_name: c"rurix".as_ptr(),
+        engine_version: 0,
+        api_version: API_VERSION_1_1,
+    };
+    let ici = InstanceCreateInfo {
+        s_type: ST_INSTANCE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        p_application_info: &app,
+        enabled_layer_count: if validation { 1 } else { 0 },
+        pp_enabled_layer_names: if validation {
+            layers.as_ptr()
+        } else {
+            std::ptr::null()
+        },
+        enabled_extension_count: exts.len() as u32,
+        pp_enabled_extension_names: exts.as_ptr(),
+    };
+    let mut instance: VkInstance = std::ptr::null_mut();
+    let r = vk_create_instance(&ici, std::ptr::null(), &mut instance);
+    if r != VK_SUCCESS {
+        return Err(format!("vkCreateInstance(android present) 失败: {r}"));
+    }
+
+    // instance 级符号。
+    let vk_destroy_instance: FnDestroyInstance =
+        cast_fn(gipa(instance, c"vkDestroyInstance".as_ptr())).ok_or("缺 vkDestroyInstance")?;
+    let vk_enum_pd: FnEnumeratePhysicalDevices =
+        cast_fn(gipa(instance, c"vkEnumeratePhysicalDevices".as_ptr()))
+            .ok_or("缺 vkEnumeratePhysicalDevices")?;
+    let vk_get_qf: FnGetPhysicalDeviceQueueFamilyProperties = cast_fn(gipa(
+        instance,
+        c"vkGetPhysicalDeviceQueueFamilyProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkGetPhysicalDeviceQueueFamilyProperties")?;
+    let vk_get_mem: FnGetPhysicalDeviceMemoryProperties = cast_fn(gipa(
+        instance,
+        c"vkGetPhysicalDeviceMemoryProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkGetPhysicalDeviceMemoryProperties")?;
+    let vk_create_device: FnCreateDevice =
+        cast_fn(gipa(instance, c"vkCreateDevice".as_ptr())).ok_or("缺 vkCreateDevice")?;
+    let vk_get_device_proc: FnGetDeviceProcAddr =
+        cast_fn(gipa(instance, c"vkGetDeviceProcAddr".as_ptr())).ok_or("缺 vkGetDeviceProcAddr")?;
+    // android surface 级 instance 符号。
+    let create_android_surface_fn: android_present::FnCreateAndroidSurfaceKHR =
+        cast_fn(gipa(instance, c"vkCreateAndroidSurfaceKHR".as_ptr()))
+            .ok_or("缺 vkCreateAndroidSurfaceKHR(未启用 VK_KHR_android_surface?)")?;
+    let destroy_surface: FnDestroySurfaceKHR =
+        cast_fn(gipa(instance, c"vkDestroySurfaceKHR".as_ptr())).ok_or("缺 vkDestroySurfaceKHR")?;
+    let get_surf_support: FnGetPhysicalDeviceSurfaceSupportKHR = cast_fn(gipa(
+        instance,
+        c"vkGetPhysicalDeviceSurfaceSupportKHR".as_ptr(),
+    ))
+    .ok_or("缺 vkGetPhysicalDeviceSurfaceSupportKHR")?;
+    let get_surf_caps: FnGetPhysicalDeviceSurfaceCapabilitiesKHR = cast_fn(gipa(
+        instance,
+        c"vkGetPhysicalDeviceSurfaceCapabilitiesKHR".as_ptr(),
+    ))
+    .ok_or("缺 vkGetPhysicalDeviceSurfaceCapabilitiesKHR")?;
+    let get_surf_formats: FnGetPhysicalDeviceSurfaceFormatsKHR = cast_fn(gipa(
+        instance,
+        c"vkGetPhysicalDeviceSurfaceFormatsKHR".as_ptr(),
+    ))
+    .ok_or("缺 vkGetPhysicalDeviceSurfaceFormatsKHR")?;
+    let get_surf_present_modes: FnGetPhysicalDeviceSurfacePresentModesKHR = cast_fn(gipa(
+        instance,
+        c"vkGetPhysicalDeviceSurfacePresentModesKHR".as_ptr(),
+    ))
+    .ok_or("缺 vkGetPhysicalDeviceSurfacePresentModesKHR")?;
+
+    // fail-closed messenger(android:每条 ERROR 记 logcat RurixVK-VVL + 计数;末尾据计数翻 Err)。
+    // 建于全部 instance-符号 `?` 之后、首个 Vulkan 调用之前 → 创建点与首销毁点间无 `?` 早退。
+    let validation_errors = std::sync::atomic::AtomicU32::new(0);
+    let mut messenger: VkDebugUtilsMessengerEXT = VK_NULL_HANDLE;
+    let destroy_messenger: Option<FnDestroyDebugUtilsMessengerEXT> = if validation {
+        cast_fn(gipa(instance, c"vkDestroyDebugUtilsMessengerEXT".as_ptr()))
+    } else {
+        None
+    };
+    if validation
+        && let Some(create_messenger) = cast_fn::<FnCreateDebugUtilsMessengerEXT>(gipa(
+            instance,
+            c"vkCreateDebugUtilsMessengerEXT".as_ptr(),
+        ))
+    {
+        let dumci = DebugUtilsMessengerCreateInfoEXT {
+            s_type: ST_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+            p_next: std::ptr::null(),
+            flags: 0,
+            message_severity: DEBUG_UTILS_SEVERITY_ERROR,
+            message_type: DEBUG_UTILS_TYPE_GENERAL
+                | DEBUG_UTILS_TYPE_VALIDATION
+                | DEBUG_UTILS_TYPE_PERFORMANCE,
+            pfn_user_callback: debug_messenger_cb_android,
+            p_user_data: &validation_errors as *const std::sync::atomic::AtomicU32 as *mut c_void,
+        };
+        let _ = create_messenger(instance, &dumci, std::ptr::null(), &mut messenger);
+    }
+    macro_rules! destroy_msgr {
+        () => {
+            if let Some(dm) = destroy_messenger {
+                if messenger != VK_NULL_HANDLE {
+                    dm(instance, messenger, std::ptr::null());
+                }
+            }
+        };
+    }
+
+    // ── android surface（vkCreateAndroidSurfaceKHR，复用 create_android_surface）──
+    let surface: VkSurfaceKHR = match android_present::create_android_surface(
+        instance,
+        window,
+        create_android_surface_fn,
+    ) {
+        Ok(s) => s,
+        Err(e) => {
+            destroy_msgr!();
+            vk_destroy_instance(instance, std::ptr::null());
+            return Err(e);
+        }
+    };
+    macro_rules! teardown_surface_instance {
+        () => {{
+            destroy_surface(instance, surface, std::ptr::null());
+            destroy_msgr!();
+            vk_destroy_instance(instance, std::ptr::null());
+        }};
+    }
+
+    // 物理设备。
+    let mut count = 0u32;
+    vk_enum_pd(instance, &mut count, std::ptr::null_mut());
+    if count == 0 {
+        teardown_surface_instance!();
+        return Err("无 Vulkan 物理设备".into());
+    }
+    let mut pds = vec![std::ptr::null_mut::<c_void>(); count as usize];
+    vk_enum_pd(instance, &mut count, pds.as_mut_ptr());
+    let pd = pds[0];
+
+    // graphics + present 兼备的 queue family。
+    let mut qf_count = 0u32;
+    vk_get_qf(pd, &mut qf_count, std::ptr::null_mut());
+    let mut qfs: Vec<QueueFamilyProperties> = (0..qf_count)
+        .map(|_| QueueFamilyProperties {
+            queue_flags: 0,
+            queue_count: 0,
+            timestamp_valid_bits: 0,
+            min_image_transfer_granularity: VkExtent3D {
+                width: 0,
+                height: 0,
+                depth: 0,
+            },
+        })
+        .collect();
+    vk_get_qf(pd, &mut qf_count, qfs.as_mut_ptr());
+    let mut qfi_opt: Option<u32> = None;
+    for (i, q) in qfs.iter().enumerate() {
+        if q.queue_flags & QUEUE_GRAPHICS_BIT == 0 {
+            continue;
+        }
+        let mut supported: VkBool32 = 0;
+        get_surf_support(pd, i as u32, surface, &mut supported);
+        if supported != 0 {
+            qfi_opt = Some(i as u32);
+            break;
+        }
+    }
+    let qfi = match qfi_opt {
+        Some(i) => i,
+        None => {
+            teardown_surface_instance!();
+            return Err("无 present-capable graphics queue family".into());
+        }
+    };
+
+    // device(+ VK_KHR_swapchain)。
+    let prio = [1.0f32];
+    let dqci = DeviceQueueCreateInfo {
+        s_type: ST_DEVICE_QUEUE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        queue_family_index: qfi,
+        queue_count: 1,
+        p_queue_priorities: prio.as_ptr(),
+    };
+    let dev_exts: [*const c_char; 1] = [c"VK_KHR_swapchain".as_ptr()];
+    let dci = DeviceCreateInfo {
+        s_type: ST_DEVICE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        queue_create_info_count: 1,
+        p_queue_create_infos: &dqci,
+        enabled_layer_count: 0,
+        pp_enabled_layer_names: std::ptr::null(),
+        enabled_extension_count: 1,
+        pp_enabled_extension_names: dev_exts.as_ptr(),
+        p_enabled_features: std::ptr::null(),
+    };
+    let mut device: VkDevice = std::ptr::null_mut();
+    let r = vk_create_device(pd, &dci, std::ptr::null(), &mut device);
+    if r != VK_SUCCESS {
+        teardown_surface_instance!();
+        return Err(format!("vkCreateDevice(android present) 失败: {r}"));
+    }
+
+    // red_selftest:vertex stage `pName` 用**模块内不存在的假入口名**(SPIR-V 保持原样合法),使
+    // graphics pipeline 建立干净触 `VUID-VkPipelineShaderStageCreateInfo-pName-00707`(本仓库桌面
+    // compute 冒烟已实证:错入口名触 pName VUID,layer 干净报错不崩)证 layer 真加载。green = 真
+    // 入口名 `c"main"`。旧机制(损坏 vertex `.spv` 字节喂 vkCreateShaderModule 触 pCode-08742)已弃:
+    // 某些 layer 解析非法 SPIR-V 时自身 SIGSEGV(HONOR Adreno/Android16+MTE 实测,layer 错误格式化
+    // 路径内存 bug 被 MTE 抓死,VUID 未吐出即崩)→ RED 取证失败;合法模块 + 假名不向驱动/layer 喂
+    // 非法 SPIR-V,天然消除该崩溃/UB 风险,不依赖 validation 兜底。
+    let vs_entry: &std::ffi::CStr = if red_selftest {
+        c"rurix_red_bogus_entry"
+    } else {
+        c"main"
+    };
+
+    let mut out = present_body(
+        vk_get_device_proc,
+        device,
+        pd,
+        vk_get_mem,
+        qfi,
+        surface,
+        &get_surf_caps,
+        &get_surf_formats,
+        &get_surf_present_modes,
+        vs_spv,
+        fs_spv,
+        vs_entry,
+        vertices,
+        vertex_stride,
+        attrs,
+        width,
+        height,
+        clear,
+        frames,
+    );
+
+    // fail-closed:validation 开 + 出现 ERROR 级校验消息 → 覆盖为 Err(反假绿判据的根)。
+    let verr = validation_errors.load(std::sync::atomic::Ordering::Relaxed);
+    if validation && verr > 0 {
+        out = Err(format!(
+            "VK_LAYER_KHRONOS_validation 报 {verr} 条 ERROR 级校验错误(见 logcat RurixVK-VVL;fail-closed)"
+        ));
+    }
+
+    let vk_destroy_device: Option<FnDestroyDevice> =
+        cast_fn(vk_get_device_proc(device, c"vkDestroyDevice".as_ptr()));
+    if let Some(dd) = vk_destroy_device {
+        dd(device, std::ptr::null());
+    }
+    teardown_surface_instance!();
+    out
+}
+
+/// `run_graphics_present_android` 的 loader-管理入口:装载 loader 后转内层(镜像 win32
+/// `run_graphics_present` 但**保留 `unsafe`**——win32 版自建窗口无指针入参故 safe,本版必须收
+/// 外部 `ANativeWindow*`,其有效性是调用方义务,故按正确性判为 `unsafe fn`(clippy
+/// `not_unsafe_ptr_arg_deref` 亦印证:裸 window 前向至 unsafe 内层不得由 safe fn 承载)。名后缀
+/// `_safe` 指「免调用方自持 gipa」的高层封装,非「内存 safe」。
+///
+/// # Safety
+/// `window` 为 Android app 存活期内有效 `ANativeWindow*`(调用方〔渲染线程〕持
+/// `ANativeWindow_acquire` 保活,本调用返回前不 `release`);其余同
+/// `run_graphics_present_android` 的 `# Safety`(loader/句柄生命周期由内层线性管理)。
+//@ spec: RXS-0210
+//@ spec: RXS-0211
+#[cfg(target_os = "android")]
+#[allow(clippy::too_many_arguments)]
+pub unsafe fn run_graphics_present_android_safe(
+    window: *mut android_present::ANativeWindow,
+    vs_spv: &[u32],
+    fs_spv: &[u32],
+    vertices: &[u8],
+    vertex_stride: u32,
+    attrs: &[(u32, u32, u32)],
+    width: u32,
+    height: u32,
+    clear: [f32; 4],
+    frames: u32,
+    validation: bool,
+    red_selftest: bool,
+) -> Result<(Vec<u8>, u32, u32), String> {
+    let gipa = load_vulkan_loader().ok_or("vulkan loader (libvulkan.so) 不可用")?;
+    // SAFETY(unsafe fn 内,模块 allow(unsafe_op_in_unsafe_fn)):gipa 由 loader 解析;window 有效性
+    // 由调用方(渲染线程持 ANativeWindow_acquire)担保并经本 fn `# Safety` 上传;句柄逆序销毁在内层。
+    run_graphics_present_android(
+        gipa,
+        window,
+        vs_spv,
+        fs_spv,
+        vertices,
+        vertex_stride,
+        attrs,
+        width,
+        height,
+        clear,
+        frames.max(1),
+        validation,
+        red_selftest,
+    )
+}
+
+// ── Android surface 创建 FFI 缝(VK_KHR_android_surface) ──────────────────────
+// `create_android_surface` 由上方 on-device present 编排(`run_graphics_present_android`)复用;
+// compute 语义与本模块无关(compute 不需 surface,`enabled_extension_count=0`)。
 #[cfg(target_os = "android")]
 pub mod android_present {
     use core::ffi::c_void;
@@ -4294,14 +4778,16 @@ pub mod android_present {
     const ST_ANDROID_SURFACE_CREATE_INFO_KHR: u32 = 1_000_008_000;
 
     #[repr(C)]
-    struct AndroidSurfaceCreateInfoKHR {
+    pub struct AndroidSurfaceCreateInfoKHR {
         s_type: u32,
         p_next: *const c_void,
         flags: u32,
         window: *mut ANativeWindow,
     }
 
-    type FnCreateAndroidSurfaceKHR = unsafe extern "system" fn(
+    // pub:`run_graphics_present_android`(vk.rs 主作用域)须 `cast_fn` 解析该 FFI 类型再传入
+    // `create_android_surface`;`AndroidSurfaceCreateInfoKHR` 仍私有(模块内封装)。
+    pub type FnCreateAndroidSurfaceKHR = unsafe extern "system" fn(
         VkInstance,
         *const AndroidSurfaceCreateInfoKHR,
         *const c_void,
@@ -4416,6 +4902,34 @@ mod tests {
         assert_eq!(choose_min_image_count(1, 0), 2); // max=0 无上限
         assert_eq!(choose_min_image_count(2, 8), 3);
         assert_eq!(choose_min_image_count(3, 3), 3); // min+1=4 clamp 到 max 3
+    }
+
+    /// RXS-0210(W7 android present 派生):composite alpha 择位纯函数——win32 得 OPAQUE
+    /// (数值零回归)、android 得 INHERIT;优先级 OPAQUE→INHERIT→PRE→POST→最低置位。无设备。
+    //@ spec: RXS-0210
+    #[test]
+    fn pick_composite_alpha_derivation() {
+        // win32 常态:支持 OPAQUE(0x1)→ OPAQUE(与旧硬编码 COMPOSITE_ALPHA_OPAQUE 等价)。
+        assert_eq!(pick_composite_alpha(0x1), COMPOSITE_ALPHA_OPAQUE_BIT_KHR);
+        // 全支持位集:仍 OPAQUE 优先(win32 常报 0x9 = OPAQUE|INHERIT,取 OPAQUE 数值零回归)。
+        assert_eq!(pick_composite_alpha(0xF), COMPOSITE_ALPHA_OPAQUE_BIT_KHR);
+        assert_eq!(pick_composite_alpha(0x9), COMPOSITE_ALPHA_OPAQUE_BIT_KHR);
+        // Android 常态:不支持 OPAQUE、仅 INHERIT(0x8)→ INHERIT(硬编码 OPAQUE 会触 VUID)。
+        assert_eq!(pick_composite_alpha(0x8), COMPOSITE_ALPHA_INHERIT_BIT_KHR);
+        // OPAQUE/INHERIT 皆缺:PRE(0x2)优先于 POST(0x4)。
+        assert_eq!(
+            pick_composite_alpha(0x2 | 0x4),
+            COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR
+        );
+        assert_eq!(
+            pick_composite_alpha(0x4),
+            COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR
+        );
+        // 四优先级外:退回最低置位(spec 保证 supportedCompositeAlpha ≥1 位置位)。
+        assert_eq!(pick_composite_alpha(0x10), 0x10);
+        assert_eq!(pick_composite_alpha(0x30), 0x10); // 最低置位 = 0x10
+        // 全零(不应发生)→ OPAQUE 兜底(非 panic)。
+        assert_eq!(pick_composite_alpha(0), COMPOSITE_ALPHA_OPAQUE_BIT_KHR);
     }
 
     //@ spec: RXS-0207
