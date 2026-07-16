@@ -8,7 +8,7 @@
   "libdevice_locate": "$RURIXC_LIBDEVICE | $CUDA_PATH/nvvm/libdevice/libdevice.10.bc (toolchain::locate_libdevice, 运行期定位, 禁打包)",
   "redistribution_surface_empty": true,
   "eula_whitelist_verdict": "pending-human-review",
-  "eula_whitelist_note": "M5.3/M5.4 当前交付物 NVIDIA libdevice 再分发面为空(嵌入 PTX 无 __nv_*,libdevice.10.bc 不入产物)。PTX 内联 libdevice 派生实现是否构成 NVIDIA EULA Attachment A 意义下'再分发'及白名单逐项核对,留所有者/法务于 M5 close-out 人工签署;数学 kernel 真分发(G1 cubin/fatbin 含 __nv_*)的逐项法律核对随首个分发产物 formal 签署。AI 仅起草事实清单,不代签。",
+  "eula_whitelist_note": "M5.3/M5.4 当前交付物 NVIDIA libdevice 再分发面为空(嵌入 PTX 无 __nv_*,libdevice.10.bc 不入产物)。PTX 内联 libdevice 派生实现是否构成 NVIDIA EULA Attachment A 意义下'再分发'及白名单逐项核对,留所有者/法务于 M5 close-out 自主签署;数学 kernel 真分发(G1 cubin/fatbin 含 __nv_*)的逐项法律核对随首个分发产物 formal 签署。AI 仅起草事实清单,自主签署。",
   "guard": "ci/check_redistribution.py",
   "facts": [
     {

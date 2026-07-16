@@ -1,0 +1,10 @@
+//@ spec: RXS-0171
+// RXS-0171: vertex body 的输出 I/O 聚合返回值必须机械分解为 Output OpStore。
+// 本例只使用 scalar varying,不触碰 DXIL register/mask/packing/Location 数值承诺。
+struct VsOut {
+    #[interpolate(perspective)] uv: f32,
+}
+
+vertex fn vs_body_output() -> VsOut {
+    VsOut { uv: 0.5 }
+}

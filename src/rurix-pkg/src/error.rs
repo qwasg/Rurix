@@ -20,6 +20,9 @@ pub enum PkgError {
     DigestMismatch(String),
     /// RX7009 — 依赖来源不可达(--offline 需网无缓存 / path 目标缺失)。
     SourceUnreachable(String),
+    /// RX7020 — edition 未知/不匹配(rurix.toml [package].edition 不在合法集合;
+    /// strict-only 拒,无 fallback,P-01;spec/edition.md RXS-0179,RFC-0008)。
+    EditionUnknown(String),
 }
 
 impl PkgError {
@@ -31,6 +34,7 @@ impl PkgError {
             PkgError::LockMismatch(_) => "RX7007",
             PkgError::DigestMismatch(_) => "RX7008",
             PkgError::SourceUnreachable(_) => "RX7009",
+            PkgError::EditionUnknown(_) => "RX7020",
         }
     }
 
@@ -41,7 +45,8 @@ impl PkgError {
             | PkgError::ResolutionConflict(d)
             | PkgError::LockMismatch(d)
             | PkgError::DigestMismatch(d)
-            | PkgError::SourceUnreachable(d) => d,
+            | PkgError::SourceUnreachable(d)
+            | PkgError::EditionUnknown(d) => d,
         }
     }
 }
@@ -69,6 +74,7 @@ mod tests {
         assert_eq!(PkgError::LockMismatch(String::new()).code(), "RX7007");
         assert_eq!(PkgError::DigestMismatch(String::new()).code(), "RX7008");
         assert_eq!(PkgError::SourceUnreachable(String::new()).code(), "RX7009");
+        assert_eq!(PkgError::EditionUnknown(String::new()).code(), "RX7020");
     }
 
     #[test]

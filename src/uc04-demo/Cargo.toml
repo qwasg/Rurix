@@ -1,0 +1,37 @@
+[package]
+name = "uc04-demo"
+description = "Rurix UC-04 deferred 渲染器 demo(G2.4,D-G2-4,契约 G-G2-4,RFC-0006)——host 侧 safe 装配/编排模型:DXIL+RTS0→graphics PSO 装配一致性(RXS-0167)/ deferred 多 pass 编排(RXS-0168)/ 资源状态+barrier 编排锚点(RXS-0169)/ offscreen readback 布局(RXS-0170)。复用 RFC-0005 绑定布局推导 RTS0(P-11 单一事实源),纯 host/safe(unsafe_code=deny,零 FFI 执行)。**PR-F2 blocked-honest interim slice**:device 段(hardware 多 pass deferred draw + offscreen 像素对照)阻塞于 RD-013(图形=B 入口 body 数据流降级未实现),device 执行入口显式 BlockedOnRd013,不以替代物伪造 device 绿(G-G2-4 防降级硬门)"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+# RFC-0005 绑定布局推导(RTS0 / RootSignature / 一致性门)= P-11 单一事实源,经 rurixc
+# 库面复用;binding_layout 模块 gate 于 rurixc feature `dxil-backend`,故此处启用。
+rurixc = { path = "../rurixc", features = ["dxil-backend"] }
+
+[build-dependencies]
+# real-shim 段经 build.rs + cc 编译 D3D12 离屏 deferred C++ shim(shim/uc04_offscreen.cpp)。
+cc = "1"
+
+[features]
+default = []
+# d3d12-runtime:device 执行入口 gate(RFC-0006 §9 Q-Gate;**不**复用 `dxil-backend`)。
+# 承真实 D3D12 PSO 装配 + hardware 多 pass deferred draw + offscreen readback 的 Rust 边界
+# (execute_offscreen / OffscreenRequest)。host 侧装配/编排模型为 always-on(默认),无
+# MSVC/D3D12 SDK 即可编译 + 跑 host accept/reject 单测而绿。
+d3d12-runtime = []
+# real-shim(G2.4 device 真跑):经 build.rs + cc 编译真实 D3D12 离屏 deferred shim 并 FFI
+# 调用(几何 pass 写 G-buffer MRT → lighting/合成 pass 走自身插值输入不采样 → offscreen
+# readback),消费 Rurix 图形=B DXIL + RFC-0005 RTS0。需 MSVC + Windows SDK(D3D12)。
+# **默认关闭**:无 SDK 环境 `cargo build --workspace` 仍编译 device stub 而绿(常驻回归网);
+# 缺 real-shim 时 execute_offscreen 显式返回 ShimUnavailable(非伪造 device 绿,G-G2-4 防降级)。
+real-shim = ["d3d12-runtime"]
+
+# FFI 边界:real-shim 段 device.rs 含 D3D12 shim 的 unsafe extern 调用(每块 // SAFETY: +
+# unsafe-audit/uc04-demo.md 注册,AGENTS 硬规则 9)。维持 workspace lints(含
+# undocumented_unsafe_blocks=deny);unsafe_code=deny 由 device.rs 内 cfg(real-shim) 局部
+# #[allow(unsafe_code)] 在最小范围豁免,host/safe 路径仍 unsafe-free。
+[lints]
+workspace = true

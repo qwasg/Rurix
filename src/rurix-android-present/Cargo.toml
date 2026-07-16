@@ -1,0 +1,28 @@
+[package]
+name = "rurix-android-present"
+description = "Rurix mb1 W7 Android on-device present glue(G-MB1-7 Phase B:零-Java NativeActivity cdylib 壳,复用 rurix-rt/vk.rs 的 VK_KHR_android_surface 出图循环 + VK_LAYER_KHRONOS_validation on-device 校验;桌面编译为空 lib〔#![cfg(target_os=\"android\")]〕,依赖 resolver=2 target-cfg 使 vulkan 依赖不泄漏桌面)"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+# cdylib = APK lib/arm64-v8a/librurix_vk.so(NativeActivity `android.app.lib_name` 指向 rurix_vk);
+# 桌面(非 android)整 crate cfg 空 → 空 cdylib(rurix-engine cdylib 先例)。
+crate-type = ["cdylib"]
+name = "rurix_vk"
+
+# target-cfg 依赖(resolver=2):仅 android target 激活,桌面 `cargo build --workspace` 不引入
+# rurix-rt 的 vulkan feature(零回归、不泄漏)。glue crate 前向 vk.rs 的 android present 编排。
+[target.'cfg(target_os = "android")'.dependencies]
+rurix-rt = { path = "../rurix-rt", features = ["vulkan"] }
+
+# unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6):glue 是独立 unsafe 边界(NativeActivity ABI +
+# ANativeWindow 生命周期 + 跨-FFI panic 边界 + 渲染线程 FFI),注册见 unsafe-audit/rurix-android-present.md
+# (U28)。块级豁免 unsafe_code,仍强制每 unsafe 块携 `// SAFETY:`。**不设 panic="abort"**——保
+# 每个 extern "C" 边界的 catch_unwind 能吞 panic 落结果(abort 杀进程丢结果行)。
+[lints.rust]
+unsafe_code = "allow"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "deny"

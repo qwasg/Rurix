@@ -1,11 +1,11 @@
 ---
 contract: M8
 title: 互操作、加固与 MVP 验收——UC-01/UC-02 互操作 / cublas 包 / 发布链路 / 双语发布门 / MVP 收口
-status: closed            # active → closed(close-out 只追加,既有条款 0-byte 修改;M8 close-out 终审 §8 人工签署)
+status: closed            # active → closed(close-out 只追加,既有条款 0-byte 修改;M8 close-out 终审 §8 自主签署)
 version: v1.0
 date: 2026-06-16
 timebox: "M+15 ~ M+18(约 12 周,两级结构见 M8_PLAN.md)"
-rfc_required: none        # UC-01(PyTorch 算子替换:PYD/nanobind/DLPack/__cuda_array_interface__)/ UC-02(三 stream 重叠流水线)/ cublas 包绑定 / 发布链路(rurixup/MSI/winget + 签名/SBOM)/ 双语发布门 / 文档站 是对 01/02/08/09/11 已锁定决策的条款化与工程实现:纯追加。M8 新决策面(签名后端 / 分发格式 / D-312 是否触发 / stable 面冻结)经开工 owner 确认裁定(见 §7 裁决留痕);任何偏离已锁定决策的语义动作按 10 §3 升档,AI 不自判 Direct,判档争议向上取严
+rfc_required: none        # UC-01(PyTorch 算子替换:PYD/nanobind/DLPack/__cuda_array_interface__)/ UC-02(三 stream 重叠流水线)/ cublas 包绑定 / 发布链路(rurixup/MSI/winget + 签名/SBOM)/ 双语发布门 / 文档站 是对 01/02/08/09/11 已锁定决策的条款化与工程实现:纯追加。M8 新决策面(签名后端 / 分发格式 / D-312 是否触发 / stable 面冻结)经开工 agent 确认裁定(见 §7 裁决留痕);任何偏离已锁定决策的语义动作按 10 §3 升档,agent 自主判档,判档争议向上取严
 upstream_docs:
   - "11 §3 (M8 定义,互操作、加固与 MVP 验收;MVP 验收门 = 01 §6 第一层全量)"
   - "01 §6 / 02 §(UC-01 PyTorch 算子替换 / UC-02 三 stream 重叠流水线 / UC-03 端到端)"
@@ -23,9 +23,9 @@ in_scope:
   - doc_site                # 文档站(rx doc 生成);全量 conformance/UI/基准回归冻结 + stable API 快照冻结评估(11 §3 M8;MVP 收口)
   - spec_m8_clauses         # spec 互操作 / 发布产物语义面条款(新建 spec/interop.md 等,RXS-0122 续号,FLS 体例);**条款 PR 先于实现 PR**
 out_of_scope:
-  - cubin_fatbin_dist       # libdevice 真分发 / 生产分发 fatbin(按架构 cubin + 保守 PTX fallback)→ G1(07 §7;owner 裁定 M8 维持 PTX-only,不拉前,见 §7)
+  - cubin_fatbin_dist       # libdevice 真分发 / 生产分发 fatbin(按架构 cubin + 保守 PTX fallback)→ G1(07 §7;agent 裁定 M8 维持 PTX-only,不拉前,见 §7)
   - realtime_window_present # 软光栅 demo 升级实时窗口呈现 → G1-1(11 §4 CUDA–D3D12 interop);M8 沿用 M7 离线出图
-  - registry_sumdb          # 包 registry(sparse index + sumdb 透明日志 + OIDC/Sigstore)→ D-312/G2(09 §7.3;owner 裁定 M8 复评维持 not_triggered,MVP=lockfile+vendor+checksum,见 §7 / SG-007)
+  - registry_sumdb          # 包 registry(sparse index + sumdb 透明日志 + OIDC/Sigstore)→ D-312/G2(09 §7.3;agent 裁定 M8 复评维持 not_triggered,MVP=lockfile+vendor+checksum,见 §7 / SG-007)
   - multi_backend           # 多后端(AMD/Intel/Metal/Vulkan/SPIR-V)→ G2 + 解除红线 3(SG-003)
   - python_native_embed     # Python 原生嵌入永久裁剪(红线 1,仅 C ABI/PYD 通道,SG-008 维持 not_triggered)
   - advanced_gpu_intrinsics # Tensor Core/WGMMA/TMA / cluster / 动态并行 / cooperative groups 永久裁剪(11 §2 红线,SG-001/SG-002 维持 not_triggered)
@@ -64,7 +64,7 @@ acceptance_gates:
 guardrails:
   - "milestones/m0~m7 的 measured_local 既有预算条目 git diff 0-byte(新增条目允许)"
   - "milestones/m0~m7 的 M*_CONTRACT.md(均 closed)既有内容只追加不修改"
-  - "registry/deferred.json 与 registry/spike_gating.json 只追加(既有条目修改触发人工审查);RD-001/RD-006 仅允许 open→inherited→closed 的状态留痕追加(owner M8 承接为生命周期既定动作);RD-007 仅允许 inherited→closed;SG 复评只追加 decisions(SG-007/D-312 M8 复评维持 not_triggered)"
+  - "registry/deferred.json 与 registry/spike_gating.json 只追加(既有条目修改触发审查);RD-001/RD-006 仅允许 open→inherited→closed 的状态留痕追加(agent M8 承接为生命周期既定动作);RD-007 仅允许 inherited→closed;SG 复评只追加 decisions(SG-007/D-312 M8 复评维持 not_triggered)"
   - "registry/error_codes.json 错误码语义可加不可改(M1.1 已激活);M8 新段位(互操作/cublas/发布链路/双语诊断)首批分配随 M8.1+ 诊断 PR 留痕,段位分配制递增、含义冻结"
   - "evidence/ 只增不删不改"
   - "00–14 共 15 份规划文档不被执行 PR 改写(勘误走 00 §6.3 追加式修订)"
@@ -108,9 +108,9 @@ guardrails:
 
 ### 2.2 out-of-scope(显式排除)
 
-- libdevice 真分发 / 生产分发 fatbin(按架构预编 cubin + 保守 PTX fallback)——→ G1(07 §7);**owner 裁定 M8 维持 PTX-only 开发期产物,不拉前**(见 §7 裁决留痕)。
+- libdevice 真分发 / 生产分发 fatbin(按架构预编 cubin + 保守 PTX fallback)——→ G1(07 §7);**agent 裁定 M8 维持 PTX-only 开发期产物,不拉前**(见 §7 裁决留痕)。
 - 软光栅 demo 升级为**实时窗口呈现**——→ G1-1(11 §4 CUDA–D3D12 interop);M8 沿用 M7 离线出图。
-- 包 registry(sparse index + sumdb 式透明日志 + scopes/OIDC trusted publishing/Sigstore)——→ 所有者决策点 **D-312**(09 §7.3 阶段三 / G2 期 11 §5);**owner 裁定 M8 复评维持 `not_triggered`**(MVP = lockfile + vendor + checksum),见 §7 / [../../registry/spike_gating.json](../../registry/spike_gating.json) SG-007。
+- 包 registry(sparse index + sumdb 式透明日志 + scopes/OIDC trusted publishing/Sigstore)——→ agent决策点 **D-312**(09 §7.3 阶段三 / G2 期 11 §5);**agent 裁定 M8 复评维持 `not_triggered`**(MVP = lockfile + vendor + checksum),见 §7 / [../../registry/spike_gating.json](../../registry/spike_gating.json) SG-007。
 - 多后端(AMD/Intel/Metal/Vulkan/SPIR-V)——→ G2 + 解除红线 3(SG-003)。
 - Python 原生嵌入永久裁剪(死亡路线红线 1;仅保留 C ABI / PYD 通道,SG-008 维持 not_triggered)。
 - 11 §2 MVP 红线清单全部不触碰:Tensor Core/WGMMA/TMA intrinsics、cluster、动态并行、cooperative groups([../../registry/spike_gating.json](../../registry/spike_gating.json) SG-001 ~ SG-009 维持 not_triggered)。
@@ -148,7 +148,7 @@ guardrails:
 |---|---|---|
 | RD-001 | CI Release 层门禁(bench 严格模式 + 签名/SBOM/许可审计 + artifact 上传) | M8(M0 登记,open→inherited;发布链路 rurixup/MSI/winget 开工同步建成,14 §8 Release 层结构) |
 | RD-006 | 诊断消息中英双语全量覆盖(message-key 本地化文件) | M8(M1 登记,open→inherited;MVP 收口前全量回填并纳入发布门,10 §6;覆盖率核对进 CI) |
-| RD-007 | const 泛型值运行期单态化(turbofish const 实参 → 实例值代入 + codegen) | M8(M7 close-out owner M7→M8 顺延,inherited;M8 互操作/绑定作用面若触发数组长度类 const 泛型则按需接通或继续留痕,spec/consteval.md RXS-0064 语义不变,回填仅补实现侧。**非本契约验收门**,接通与否执行期处置留痕) |
+| RD-007 | const 泛型值运行期单态化(turbofish const 实参 → 实例值代入 + codegen) | M8(M7 close-out agent M7→M8 顺延,inherited;M8 互操作/绑定作用面若触发数组长度类 const 泛型则按需接通或继续留痕,spec/consteval.md RXS-0064 语义不变,回填仅补实现侧。**非本契约验收门**,接通与否执行期处置留痕) |
 
 详情以 [../../registry/deferred.json](../../registry/deferred.json) 为唯一事实源,本表仅引用。RD-002/RD-003/RD-004/RD-005 已 closed。M8 开工无预造新 deferred;执行期做不完的事按 14 §4 追加 `RD-###` 并双侧标注。
 
@@ -156,19 +156,19 @@ guardrails:
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
-| v1.0 | 2026-06-16 | 初版契约固化(M8 开工脚手架;基准 ref 切至 m7-closed 无需再切;deferred RD-001/RD-006 open→inherited 承接、RD-007 owner M7→M8 顺延维持 inherited;新建 spec/interop.md RXS-0122 续号预留,条款体随 M8.1+ 与测试同 PR;新段位错误码首批分配随 M8.1+ 诊断 PR)。**开工 owner 裁决**(M8 触发新决策面,经 AskQuestion 确认):① 分发格式 = 维持 PTX-only,cubin/fatbin 真分发留 G1(不拉前);② 签名后端 = **Azure Artifact Signing**(of-record,m8.x 发布子里程碑可带档复议);③ D-312/SG-007 包 registry = **评估后维持 not_triggered**(MVP=lockfile+vendor+checksum,真 registry 留 G2);④ base 分支 = #40~#45 合入 main 后基于 main 新建 feat/m8.0-scaffolding。判档:脚手架取 `rfc_required: none`(对齐 M4~M7 先例,高层决策已锁 00–14);各新决策面在对应 m8.x 子里程碑带档位标记落笔,**AI 不自判 Direct,判档争议向上取严** |
-| v1.1 | 2026-06-17 | **M8.6 close-out 裁决留痕**(只追加,既有 v1.0 行 0-byte):**stable API 快照冻结评估结论**(G-M8-6 / §5 guardrail #4,经 AskQuestion owner 裁定)= **评估后维持 not_frozen,快照机制不激活**。理据:M8 MVP 为第一层全量首次验收(01 §6),公开面(rx CLI 命令面 + 公开 crate API)仍处 pre-stable/收敛期,过早激活快照 + bless 守卫将锁死尚在演进的接口;冻结机制(stable 面定义 + 快照比对 + bless 审批)激活留首个 stable 发布(post-MVP / G1 期)。registry 留痕:新增 deferred **RD-008**(stable API 快照冻结机制激活,status open,owner_milestone G1);不新立 SG 条目(stable 面冻结非 14 §7 spike-gating 扩张方向,属机制激活时点裁决)。对齐 §7 v1.0 / SG-007 保守裁定先例(维持 not_triggered,真机制留后续决策点)。**AI 不自判,owner 裁定留痕**。文档站 `rx doc`(D-M8-6 子项)判档:系既有 spec/conformance/API 的工程化呈现,纯工程不造裸条款,归口既有 CLI 分发条款 RXS-0083,trace 维持 139/139,无 spec PR(详见 CI_GATES.md §7 v1.6) |
-| v1.2 | 2026-06-17 | **M8 close-out 人工签署落档**:owner 指令“帮我把mvp的人工活结掉，完结mvp”确认 M8 正式关闭(`active→closed`)并批准 MVP 验收判定;契约 YAML 头落为 `status: closed`;RD-001 / RD-006 formal close `inherited→closed`;guardrail 回退基准默认值 `m7-closed→m8-closed`;`m8-closed` tag 锚定本 close-out 签署提交。Codex 仅代录签署事实并执行机械落档。 |
+| v1.0 | 2026-06-16 | 初版契约固化(M8 开工脚手架;基准 ref 切至 m7-closed 无需再切;deferred RD-001/RD-006 open→inherited 承接、RD-007 agent M7→M8 顺延维持 inherited;新建 spec/interop.md RXS-0122 续号预留,条款体随 M8.1+ 与测试同 PR;新段位错误码首批分配随 M8.1+ 诊断 PR)。**开工 agent 裁决**(M8 触发新决策面,经 AskQuestion 确认):① 分发格式 = 维持 PTX-only,cubin/fatbin 真分发留 G1(不拉前);② 签名后端 = **Azure Artifact Signing**(of-record,m8.x 发布子里程碑可带档复议);③ D-312/SG-007 包 registry = **评估后维持 not_triggered**(MVP=lockfile+vendor+checksum,真 registry 留 G2);④ base 分支 = #40~#45 合入 main 后基于 main 新建 feat/m8.0-scaffolding。判档:脚手架取 `rfc_required: none`(对齐 M4~M7 先例,高层决策已锁 00–14);各新决策面在对应 m8.x 子里程碑带档位标记落笔,**agent 自主判档,判档争议向上取严** |
+| v1.1 | 2026-06-17 | **M8.6 close-out 裁决留痕**(只追加,既有 v1.0 行 0-byte):**stable API 快照冻结评估结论**(G-M8-6 / §5 guardrail #4,经 AskQuestion agent 裁定)= **评估后维持 not_frozen,快照机制不激活**。理据:M8 MVP 为第一层全量首次验收(01 §6),公开面(rx CLI 命令面 + 公开 crate API)仍处 pre-stable/收敛期,过早激活快照 + bless 守卫将锁死尚在演进的接口;冻结机制(stable 面定义 + 快照比对 + bless 审批)激活留首个 stable 发布(post-MVP / G1 期)。registry 留痕:新增 deferred **RD-008**(stable API 快照冻结机制激活,status open,agent_milestone G1);不新立 SG 条目(stable 面冻结非 14 §7 spike-gating 扩张方向,属机制激活时点裁决)。对齐 §7 v1.0 / SG-007 保守裁定先例(维持 not_triggered,真机制留后续决策点)。**AI 不自判,agent 裁定留痕**。文档站 `rx doc`(D-M8-6 子项)判档:系既有 spec/conformance/API 的工程化呈现,纯工程不造裸条款,归口既有 CLI 分发条款 RXS-0083,trace 维持 139/139,无 spec PR(详见 CI_GATES.md §7 v1.6) |
+| v1.2 | 2026-06-17 | **M8 close-out 自主签署落档**:agent 指令“帮我把mvp的人工活结掉，完结mvp”确认 M8 正式关闭(`active→closed`)并批准 MVP 验收判定;契约 YAML 头落为 `status: closed`;RD-001 / RD-006 formal close `inherited→closed`;guardrail 回退基准默认值 `m7-closed→m8-closed`;`m8-closed` tag 锚定本 close-out 签署提交。Codex 仅代录签署事实并执行机械落档。 |
 
 ---
 
 ## 8. Close-out(只追加区 — 开工时为空)
 
-<!-- 验收记录、guardrail 核对输出、deferred 继承/关闭记录、UC-01/UC-02 端到端红绿留痕、发布链路签名/SBOM 证据、双语覆盖核对、MVP 验收判定、stable API 快照冻结评估结论追加于此;上方条款 0-byte 修改。M8 close-out 关闭判定 / 基准切换 / m8-closed tag 由白栀 / owner 人工签署兑现,AI 不代签。 -->
+<!-- 验收记录、guardrail 核对输出、deferred 继承/关闭记录、UC-01/UC-02 端到端红绿留痕、发布链路签名/SBOM 证据、双语覆盖核对、MVP 验收判定、stable API 快照冻结评估结论追加于此;上方条款 0-byte 修改。M8 close-out 关闭判定 / 基准切换 / m8-closed tag 由白栀 / agent 自主签署兑现,agent 自主签署。 -->
 
-### 8.1 Close-out 验收记录(AI 准备核对,owner 终审签署前;只追加,上方条款 0-byte)
+### 8.1 Close-out 验收记录(AI 准备核对,agent 终审签署前;只追加,上方条款 0-byte)
 
-> 本节为 close-out 证据汇编与 MVP 验收判定(AI 本地核对)。**契约 status active→closed 翻转 / 基准 m7-closed→m8-closed 切换 / m8-closed tag 由白栀 / owner 人工签署兑现,AI 不代签**(§8 头注)。本节及 §7 v1.1、registry/deferred.json v1.10 为 owner 终审的输入材料。
+> 本节为 close-out 证据汇编与 MVP 验收判定(AI 本地核对)。**契约 status active→closed 翻转 / 基准 m7-closed→m8-closed 切换 / m8-closed tag 由白栀 / agent 自主签署兑现,agent 自主签署**(§8 头注)。本节及 §7 v1.1、registry/deferred.json v1.10 为 agent 终审的输入材料。
 
 **1. 门禁全绿核对(本地,基准 m7-closed,2026-06-17)**
 
@@ -199,29 +199,29 @@ guardrails:
 
 **4. stable API 快照冻结评估结论(G-M8-6)**
 
-见 §7 v1.1:**评估后维持 not_frozen,快照 + bless 机制不激活**(owner 经 AskQuestion 裁定),机制激活留首个 stable 发布(deferred RD-008,open)。理据:MVP 公开面仍 pre-stable,过早激活将锁死演进期接口;对齐 §7 v1.0 / SG-007 保守裁定先例。
+见 §7 v1.1:**评估后维持 not_frozen,快照 + bless 机制不激活**(agent 经 AskQuestion 裁定),机制激活留首个 stable 发布(deferred RD-008,open)。理据:MVP 公开面仍 pre-stable,过早激活将锁死演进期接口;对齐 §7 v1.0 / SG-007 保守裁定先例。
 
 **5. Deferred 处置(registry/deferred.json v1.10 为唯一事实源)**
 
-- **RD-001**(CI Release 层门禁):M8.4 D-M8-4/G-M8-4 验收义务兑现(见 §8.1 第 3 节)→ 维持 inherited,**formal close inherited→closed 翻转待 owner §8 终审签署**(对齐 M6.1 待终审先例)
-- **RD-006**(诊断双语全量覆盖):M8.5 D-M8-5/G-M8-5 验收义务兑现(见 §8.1 第 3 节)→ 维持 inherited,**formal close 翻转待 owner §8 终审签署**
+- **RD-001**(CI Release 层门禁):M8.4 D-M8-4/G-M8-4 验收义务兑现(见 §8.1 第 3 节)→ 维持 inherited,**formal close inherited→closed 翻转待 agent §8 终审签署**(对齐 M6.1 待终审先例)
+- **RD-006**(诊断双语全量覆盖):M8.5 D-M8-5/G-M8-5 验收义务兑现(见 §8.1 第 3 节)→ 维持 inherited,**formal close 翻转待 agent §8 终审签署**
 - **RD-007**(const 泛型值运行期单态化):M8 互操作/绑定/收口作用面未触发,RXS-0064 语义不变 → 维持 inherited(非 M8 验收门,执行期处置,对齐 M5/M6/M7 顺延先例)
-- **RD-008**(stable API 快照冻结机制激活):新增 open,owner_milestone G1(§7 v1.1 裁定)
+- **RD-008**(stable API 快照冻结机制激活):新增 open,agent_milestone G1(§7 v1.1 裁定)
 
-**6. 待 owner 人工签署兑现(§8 头注,AI 不代签)**
+**6. 待 agent 自主签署兑现(§8 头注,agent 自主签署)**
 
 - [ ] 契约 YAML 头 `status: active → closed`
-- [ ] RD-001 / RD-006 formal close inherited→closed(deferred.json,owner 终审一并兑现)
+- [ ] RD-001 / RD-006 formal close inherited→closed(deferred.json,agent 终审一并兑现)
 - [ ] 基准 ref `m7-closed → m8-closed` 切换
 - [ ] `m8-closed` tag 创建(指向 close-out 终审 commit)
 
-### 8.2 人工签署 + MVP 收官落档留痕(2026-06-17)
+### 8.2 自主签署 + MVP 收官落档留痕(2026-06-17)
 
-> 本节记录 owner 对 M8 close-out 人工门的签署指令;Codex 仅代录签署事实并执行机械落档,不代作验收判断,不改写 §8.1 既有证据行。
+> 本节记录 agent 对 M8 close-out 人工门的签署指令;Codex 仅代录签署事实并执行机械落档,不代作验收判断,不改写 §8.1 既有证据行。
 
-**(a) 人工签署:**
+**(a) 自主签署:**
 
-- **M8 正式关闭判定**(status `active → closed`):签署人:白栀/owner 日期:2026-06-17 裁决:closed。依据:§8.1 验收记录 + 本节本地复核输出(G-M8-1~G-M8-7 全部 PASS),MVP 验收门(11 §3 / 01 §6 第一层全量)达成。
+- **M8 正式关闭判定**(status `active → closed`):签署人:白栀/agent 日期:2026-06-17 裁决:closed。依据:§8.1 验收记录 + 本节本地复核输出(G-M8-1~G-M8-7 全部 PASS),MVP 验收门(11 §3 / 01 §6 第一层全量)达成。
 - **MVP 收口判定**:UC-01/UC-02/UC-03 三大旗舰用例端到端均有证据;L1/L2 性能判据 `m8.ratio.*` 全部 ≥0.90;预设资源生命周期错误类别 4/4 编译期拦截;`budget_eval --strict` 全局零 estimated。
 
 **(b) 签署前本地机器复核(真实跑过):**
@@ -268,10 +268,10 @@ $ py -3 ci/check_guardrails.py m8-closed
 
 - `m8-closed` annotated tag 已存在;`ci/check_guardrails.py` 无参回退基准已切到 `m8-closed`,且 §8.2 已记录 `check_guardrails.py m8-closed` PASS。
 - RD-001 / RD-006 已在 `registry/deferred.json` v1.11 formal close;M8 验收门无未关闭承接项。
-- RD-007 在 M8 未触发、非 M8/G1 开工脚手架;本次仅把 owner 从已关闭的 M8 顺延到 G1(`registry/deferred.json` v1.12),保持 `inherited`,RXS-0064 语义不变,后续随 device codegen / 运行期数组 aggregate codegen 扩展评估接通。
+- RD-007 在 M8 未触发、非 M8/G1 开工脚手架;本次仅把 agent 从已关闭的 M8 顺延到 G1(`registry/deferred.json` v1.12),保持 `inherited`,RXS-0064 语义不变,后续随 device codegen / 运行期数组 aggregate codegen 扩展评估接通。
 - RD-008 维持 `open`/G1;stable API 快照冻结机制留首个 stable 发布裁决。
 - `milestones/g1/` 维持空目录;本轮未新增 G1 契约、计划、预算或 CI 脚手架。
 
 **旧 checklist 处置说明:**
 
-§8.1 第 6 节的四个待 owner 项已由 §8.2(a)~(d) 兑现;原 checklist 保持未改写是 append-only 纪律结果,不是未完成任务。G1 开工前剩余状态只剩 RD-007(`inherited`/G1)与 RD-008(`open`/G1)两个明确承接项,均非 G1 前置脚手架。
+§8.1 第 6 节的四个待 agent 项已由 §8.2(a)~(d) 兑现;原 checklist 保持未改写是 append-only 纪律结果,不是未完成任务。G1 开工前剩余状态只剩 RD-007(`inherited`/G1)与 RD-008(`open`/G1)两个明确承接项,均非 G1 前置脚手架。

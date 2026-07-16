@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "subject": "fatbin_dist",
+  "distribution_ok": true,
+  "artifact_variants": [
+    {
+      "variant": "ptx",
+      "sm": "",
+      "digest_sha256": "9fd3ccfa60015ddbcd168cad9db09ffcc8b87012fc6e93ed34e6ca9a09a18373"
+    },
+    {
+      "variant": "cubin",
+      "sm": "sm_89",
+      "digest_sha256": "9a9de9f1a4dbeff5c85f418596a08a533725aab327ead8a4a63b1af8bbfd461c"
+    }
+  ],
+  "manifest_lockfile_coverage": true,
+  "release_layer_passed": true,
+  "device_path_run": true,
+  "run_command": "py -3 ci/fatbin_dist_smoke.py;(real)RURIX_REQUIRE_REAL=1 py -3 ci/fatbin_dist_smoke.py",
+  "device": {
+    "gpu": "NVIDIA GeForce RTX 4070 Ti (compute capability 8.9)",
+    "driver": "591.86",
+    "ptxas": "CUDA 13.3 / ptxas V13.3.33",
+    "result_line": "按架构预编 cubin + fatbin 装载协商:variant=cubin(命中即用 / 降级 fallback),SAXPY 设备数值对照 out==a*x+y 通过(n=1048576,sm=sm_89)"
+  },
+  "facts": [
+    {
+      "kind": "redistribution",
+      "name": "red:白名单外 cubin 组件",
+      "note": "守卫检出 3 项违例 → 阻断(应红即红)"
+    },
+    {
+      "kind": "lockfile",
+      "name": "red:缺 [[artifact]] digest",
+      "note": "守卫检出 1 项违例 → 阻断(应红即红)"
+    },
+    {
+      "kind": "negotiation",
+      "name": "red:cubin↔PTX golden 漂移",
+      "note": "守卫检出 1 项违例 → 阻断(应红即红)"
+    },
+    {
+      "kind": "redistribution",
+      "name": "green:healthy_set",
+      "note": "健全分发产物变体集三类守卫全绿"
+    },
+    {
+      "kind": "redistribution",
+      "name": "green:check_redistribution",
+      "note": "ci/check_redistribution.py PASS(无 __nv_* 残留 / 不打包 libdevice .bc·Toolkit·驱动·Nsight,r6;cubin/fatbin 延续)"
+    }
+  ],
+  "redgreen": {
+    "red_command": "注入白名单外 cubin 组件 / 缺 [[artifact]] digest / cubin↔PTX golden 漂移 / 篡改协商 → 守卫红",
+    "red_detected": true,
+    "green_command": "$env:RURIX_REQUIRE_REAL='1'; py -3 ci/fatbin_dist_smoke.py",
+    "green_exit_code": 0,
+    "run_url": "https://github.com/qwasg/Rurix/actions/runs/27946692960"
+  },
+  "timestamp": "2026-06-22T18:22:04+08:00"
+}

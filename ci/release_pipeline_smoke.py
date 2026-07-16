@@ -21,6 +21,7 @@ signed_artifacts 去重集基数计入 m8.counter.release_artifacts_signed(>=1 P
 import datetime
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -30,6 +31,20 @@ TARGET = ROOT / "target" / "debug"
 OUT = ROOT / "target" / "rurixup_release_smoke"
 EVIDENCE = ROOT / "evidence" / "release_pipeline_smoke.json"
 RUN_URL = os.environ.get("RURIXUP_RUN_URL", "")
+
+
+def workspace_version() -> str:
+    """从 Cargo.toml [workspace.package] 解析统一版号(V1.3 参数化:根治此前
+    5 处 "0.1.0" 硬编码漂移——bundle rurix_version 与组件版号同源于 workspace,
+    天然满足 RXS-0135 同版号判据;stdlib-only 无 toml 依赖)。"""
+    text = (ROOT / "Cargo.toml").read_text(encoding="utf-8")
+    m = re.search(r"^\[workspace\.package\]([\s\S]*?)(?=^\[|\Z)", text, re.MULTILINE)
+    if not m:
+        fail("Cargo.toml 未找到 [workspace.package] 段")
+    v = re.search(r'^version\s*=\s*"([^"]+)"', m.group(1), re.MULTILINE)
+    if not v:
+        fail("Cargo.toml [workspace.package] 未找到 version")
+    return v.group(1)
 
 
 def run(cmd, **kw):
@@ -89,7 +104,8 @@ def rurixup_release(exe, version, components, signs, extra=None, out_dir=OUT):
 
 def red_self_tests(exe, art_path):
     """(1) 发布门 hard-block 真实红绿自检:三类子门红场景断言阻断(退出码 2)。"""
-    base_comp = [("rurixup.exe", "0.1.0", "Apache-2.0", "core", str(art_path))]
+    wv = workspace_version()
+    base_comp = [("rurixup.exe", wv, "Apache-2.0", "core", str(art_path))]
     valid_sign = [("rurixup.exe", "Valid", "true", "selftest")]
     cases = [
         ("未签名产物", base_comp, [("rurixup.exe", "Unsigned", "false", "selftest")], [], "signing"),
@@ -104,7 +120,7 @@ def red_self_tests(exe, art_path):
     ]
     facts = []
     for label, comps, signs, extra, expect_gate in cases:
-        code, summary, r = rurixup_release(exe, "0.1.0", comps, signs, extra, OUT / "red")
+        code, summary, r = rurixup_release(exe, wv, comps, signs, extra, OUT / "red")
         blocked = code == 2 and summary.get("allow_upload") == "false"
         gate_hit = expect_gate in summary.get("failed_gates", "")
         facts.append({
@@ -200,7 +216,8 @@ def main():
         skip("本机真实签名/验签不可用(无证书库写权限 / 无 TSA 网络);发布门红绿自检已绿")
 
     # 用真实验签状态跑绿。
-    components = [(n, "0.1.0", "Apache-2.0", "core", str(p)) for n, p in artifacts]
+    wv = workspace_version()
+    components = [(n, wv, "Apache-2.0", "core", str(p)) for n, p in artifacts]
     signs = []
     sign_facts = []
     for n, p in artifacts:
@@ -208,7 +225,7 @@ def main():
         signs.append((n, map_status(status), "true" if ts else "false", "selftest"))
         sign_facts.append({"kind": "sign", "name": n, "status": status, "timestamped": ts,
                            "backend": "self-signed-test"})
-    code, summary, r = rurixup_release(exe, "0.1.0", components, signs, [], OUT / "green")
+    code, summary, r = rurixup_release(exe, wv, components, signs, [], OUT / "green")
     if code != 0 or summary.get("allow_upload") != "true":
         # 真实签名未达 Valid+时间戳(如 TSA 不可达 / 根未信任)→ 环境限制,SKIP。
         skip(f"真实签名绿未达成(allow_upload={summary.get('allow_upload')},exit={code};"
@@ -230,7 +247,7 @@ def main():
         "allow_upload": True,
         "signing_backend": "self-signed-test",
         "eula_whitelist_verdict": "pending-human-review",
-        "bundle": {"rurix_version": "0.1.0", "language_core_count": len(components),
+        "bundle": {"rurix_version": wv, "language_core_count": len(components),
                    "nvidia_redist_count": 0},
         "sbom_views": {"spdx": "target/rurixup_release_smoke/green/sbom.spdx.json",
                        "cyclonedx": "target/rurixup_release_smoke/green/sbom.cdx.json"},

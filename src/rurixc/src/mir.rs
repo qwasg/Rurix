@@ -38,6 +38,22 @@ pub struct Body {
     pub arg_count: usize,
     pub blocks: Vec<BasicBlock>,
     pub span: Span,
+    /// 着色阶段类别(G2.2 图形=B,RXS-0161):`None` = 非着色阶段(host /
+    /// compute / kernel 既有路径,PTX 收集与 codegen 行为零漂移)。仅 cargo
+    /// feature `dxil-backend` 下的图形阶段根收集会置 `Some(Vertex|Fragment)`;
+    /// 默认(PTX)路径恒为 `None`(RFC-0004 §4.1;R1.2/R6.7)。
+    pub stage: Option<crate::ast::ShaderStage>,
+    /// I/O 意图签名(G2.2 图形=B,RXS-0161):源码声明的、跨契约线可观察的
+    /// 着色阶段 I/O 元素表(字段名 / builtin·interpolate·varying 种类 / 类型 /
+    /// in|out 方向),作 B 路 SPIR-V 保名 by-construction 与签名一致性校验门的
+    /// 意图侧依据。非着色阶段(含默认 PTX 路径)恒为空,行为零漂移。
+    pub io_sig: Vec<IoSigElem>,
+    /// 资源句柄绑定声明(G2.3 绑定布局推导,RXS-0163;PR-E2b 生产接线):着色阶段
+    /// 签名里的资源句柄形参(`Texture2D<F>`/`Sampler`)按**声明序**提取,作 host
+    /// 侧绑定布局推导(SPIR-V `DescriptorSet`/`Binding` 装饰 / register-space 分配 /
+    /// root signature 形态 + RTS0 序列化)的确定性输入([`crate::binding_layout`])。
+    /// 非着色阶段(含默认 PTX 路径)恒为空,行为零漂移(R1.2/R6.7)。
+    pub resources: Vec<ResourceBinding>,
 }
 
 impl Body {
@@ -48,6 +64,143 @@ impl Body {
     pub fn ret_ty(&self) -> &Ty {
         &self.locals[0].ty
     }
+}
+
+/// 着色阶段 I/O 元素方向(in|out;RXS-0161 意图签名维度之一)。
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum IoDir {
+    In,
+    Out,
+}
+
+/// 着色阶段 I/O 元素种类(RXS-0161;决定 SPIR-V 装饰策略)。
+///
+/// 与前端 [`crate::shader_stages`] 的字段标注面对齐:`#[builtin(..)]` →
+/// [`IoSigKind::Builtin`](emit `BuiltIn` 装饰)、`#[interpolate(..)]` →
+/// [`IoSigKind::Interpolate`](插值 varying,emit `Location` 装饰)、无标注的
+/// 普通 varying → [`IoSigKind::Varying`](emit `Location` 装饰)。
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub enum IoSigKind {
+    /// `#[builtin(name)]` 系统值(保留源码 builtin 名,如 `position`)。
+    Builtin(String),
+    /// `#[interpolate(mode)]` 插值 varying(保留插值限定名,如 `flat`)。
+    Interpolate(String),
+    /// 无插值标注的 location varying。
+    Varying,
+}
+
+/// 着色阶段 I/O 意图签名元素类型(RXS-0161 已建模子集:标量 / 向量)。
+///
+/// 仅覆盖 [`crate::shader_stages`] RXS-0154 已建模的标量与向量子集;不可映射
+/// 类型在 B 路编码器阶段触发 6xxx(strict-only,R1.9),本层不发明降级。
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum MirIoType {
+    /// 标量(如 `f32`/`i32`/`u32`)。
+    Scalar(PrimTy),
+    /// 向量(分量类型 + 分量数,2..=4;如 `vec4<f32>`)。
+    Vector(PrimTy, u8),
+}
+
+/// 着色阶段 I/O 意图签名元素(RXS-0161)。
+///
+/// 记录源码声明且跨契约线可观察的单个 I/O 元素:`field_name`(保名依据)、
+/// `kind`(builtin / interpolate / varying)、`ty`(已建模类型子集)、`dir`
+/// (in|out 方向)。B 路 SPIR-V 编码器据此 by-construction emit `UserSemantic`/
+/// `Location`/`BuiltIn` 装饰,签名一致性校验门据此比对译后 DXIL ISG1/OSG1。
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct IoSigElem {
+    /// 源码字段名(保名依据;非寄存器号/布局)。
+    pub field_name: String,
+    /// 元素种类(builtin / interpolate / varying)。
+    pub kind: IoSigKind,
+    /// 元素类型(已建模标量/向量子集)。
+    pub ty: MirIoType,
+    /// 方向(in|out)。
+    pub dir: IoDir,
+}
+
+/// 资源种类轴(G2.3 绑定布局推导,RXS-0164;RFC-0005 §9 Q-Space=B 按资源种类分轴)。
+///
+/// 仅**数据建模**:把 RXS-0156 资源句柄类型面归类到 D3D12 的四个寄存器轴
+/// (CBV→`b` / SRV→`t` / UAV→`u` / Sampler→`s`),供 host 侧 register/space 分配
+/// 推导按声明序各轴独立递增。不改既有标量/向量 I/O 路径([`IoSigKind`]/[`MirIoType`])
+/// 语义,不接线生产 emit;具体 register/space 数值物理布局属 🔒 ABI 禁区,不在此冻结。
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ResourceClass {
+    /// constant buffer view → `b` 轴。
+    Cbv,
+    /// shader resource view(只读纹理 / 只读 structured buffer)→ `t` 轴。
+    Srv,
+    /// unordered access view(可写 structured buffer 等)→ `u` 轴。
+    Uav,
+    /// sampler → `s` 轴。
+    Sampler,
+}
+
+/// 资源句柄类型建模(G2.3 绑定布局推导,RXS-0163;承 RXS-0156 资源句柄类型面)。
+///
+/// 仅**数据建模**:把着色阶段签名里的资源句柄(`Texture2D<F>` / `Sampler` /
+/// constant buffer / structured buffer)归约到绑定布局推导所需的最小信息,供
+/// host 侧推导 SPIR-V 资源绑定装饰、register/space 分配与 root signature 形态。
+/// 与 [`MirIoType`](标量/向量 I/O)并列、互不影响;纹理访问语义(采样 opcode /
+/// 描述符编码 / 缓存 / LOD)属 🔒 禁区,在本层结构上不可达、不建模。
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum MirResourceType {
+    /// `Texture2D<F>`(F = 已建模标量分量类型)→ SRV。
+    Texture2D(PrimTy),
+    /// `Sampler` → Sampler(RFC-0005 §9 Q-Sampler=B dynamic sampler)。
+    Sampler,
+    /// constant buffer → CBV。
+    ConstantBuffer,
+    /// structured buffer:`read_only` → SRV,否则 → UAV。
+    StructuredBuffer {
+        /// 只读(SRV)vs 可写(UAV)。
+        read_only: bool,
+    },
+}
+
+impl MirResourceType {
+    /// 资源种类轴归类(RXS-0164;CBV→b / SRV→t / UAV→u / Sampler→s)。
+    pub fn class(&self) -> ResourceClass {
+        match self {
+            MirResourceType::Texture2D(_) => ResourceClass::Srv,
+            MirResourceType::Sampler => ResourceClass::Sampler,
+            MirResourceType::ConstantBuffer => ResourceClass::Cbv,
+            MirResourceType::StructuredBuffer { read_only: true } => ResourceClass::Srv,
+            MirResourceType::StructuredBuffer { read_only: false } => ResourceClass::Uav,
+        }
+    }
+}
+
+/// 资源绑定基数(G2.3 绑定布局推导,RXS-0163;RFC-0005 §9 Q-Bindless=A→RD-018)。
+///
+/// 本期收敛**有界** descriptor 布局:`One` 单 descriptor、`Bounded(n)` 有界数组
+/// (消费 n 个连续寄存器)。`Unbounded` = bindless / unbounded descriptor array,
+/// agent 自主裁决 defer 至 RD-018——本层把它建模为**显式不可映射**输入,推导侧以
+/// strict-only 占位「6xxx」拒绝(无 fallback),不发明 descriptor heap 编码。
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum ResourceCount {
+    /// 单 descriptor。
+    One,
+    /// 有界 descriptor 数组(`n` 个连续寄存器;`n >= 1`)。
+    Bounded(u32),
+    /// unbounded / bindless(RD-018 defer;推导侧 strict-only 拒绝)。
+    Unbounded,
+}
+
+/// 资源绑定声明元素(G2.3 绑定布局推导输入,RXS-0163)。
+///
+/// 记录着色阶段签名里单个资源句柄形参的源码名(保名依据,非寄存器号/布局)、
+/// 资源类型与基数。**声明序即确定性分配序**:host 侧推导按 `Vec<ResourceBinding>`
+/// 的顺序确定性导出 SPIR-V 绑定 / register/space / root signature 形态。
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct ResourceBinding {
+    /// 源码形参名(保名依据;非寄存器号/物理布局)。
+    pub name: String,
+    /// 资源类型(归约到绑定布局推导所需最小信息)。
+    pub res: MirResourceType,
+    /// 资源基数(单 / 有界数组 / unbounded;RD-018)。
+    pub count: ResourceCount,
 }
 
 #[derive(Debug)]
@@ -147,6 +300,9 @@ pub enum Const {
     Str(String),
     Char(char),
     Unit,
+    /// 全局常量地址(MS1.2,RXS-0192:`@__rx_gpu_artifacts` 嵌入描述表指针,
+    /// `Context::create()` 降级"注册即传参";host codegen 落 `ptr @<name>`)。
+    GlobalAddr(String),
 }
 
 #[derive(Debug)]
@@ -169,6 +325,20 @@ pub enum Rvalue {
     },
     /// enum 判别读取(i32;match 降级的测试输入)。
     Discriminant(Place),
+    /// 纹理采样(G2.4,RXS-0175;RFC-0007 §4.4):对 `texture_local` 指向的
+    /// `Texture2D<F>` 句柄、用 `sampler_local` 指向的 `Sampler`、在 `coord`
+    /// (`vec2<f32>`)处采样,产 `vec4<F>`。`texture_local`/`sampler_local` 为
+    /// **资源句柄形参的 local 下标**(句柄非值,不进 `local_values`;codegen 按
+    /// local 名匹配 `resources` 解析 SPIR-V 资源变量)。仅图形=B(`dxil-backend`)
+    /// 着色 body 产出;首期显式 LOD 0(规避隐式导数,RFC-0007 §4.6)。
+    ResourceSample {
+        /// `Texture2D<F>` 句柄形参的 local 下标。
+        texture_local: LocalIdx,
+        /// `Sampler` 句柄形参的 local 下标。
+        sampler_local: LocalIdx,
+        /// 归一化 UV 坐标(`vec2<f32>` 值)。
+        coord: Operand,
+    },
 }
 
 #[derive(Debug)]
@@ -219,6 +389,12 @@ pub enum CallTarget {
     /// 保留的 libdevice 外部符号 `__nv_*`,经 libdevice bc 链接解析)。
     /// host codegen 不产出。
     Libdevice {
+        symbol: String,
+    },
+    /// 宿主 GPU 编排运行时符号(MS1.2,RXS-0191/0194:`rxrt_*` / `rxrt_trap`
+    /// 字面名,mir_build 直降不走 `mangle()`;host codegen 发射 declare + call,
+    /// 链接段静态链 rurix-rt-cabi,RXS-0195)。device codegen 不产出。
+    Rt {
         symbol: String,
     },
 }
@@ -386,6 +562,7 @@ fn print_const(c: &Const) -> String {
         Const::Str(s) => format!("const {s:?}"),
         Const::Char(c) => format!("const {c:?}"),
         Const::Unit => "const ()".to_owned(),
+        Const::GlobalAddr(name) => format!("const @{name}"),
     }
 }
 
@@ -411,6 +588,16 @@ fn print_rvalue(rv: &Rvalue, res: &Resolutions) -> String {
             format!("{}#{tag} {{ {} }}", ty.render_plain(res), parts.join(", "))
         }
         Rvalue::Discriminant(p) => format!("discriminant({})", print_place(p)),
+        Rvalue::ResourceSample {
+            texture_local,
+            sampler_local,
+            coord,
+        } => format!(
+            "sample(_{}, _{}, {})",
+            texture_local.0,
+            sampler_local.0,
+            print_operand(coord)
+        ),
     }
 }
 
@@ -434,6 +621,7 @@ fn print_term(t: &TerminatorKind) -> String {
                 CallTarget::Builtin(b) => format!("builtin {}", b.name()),
                 CallTarget::DeviceIntrinsic(d) => format!("device {}", d.name()),
                 CallTarget::Libdevice { symbol } => format!("libdevice {symbol}"),
+                CallTarget::Rt { symbol } => format!("rt {symbol}"),
             };
             let a: Vec<String> = args.iter().map(print_operand).collect();
             format!(
@@ -479,5 +667,109 @@ fn unop_name(op: UnOp) -> &'static str {
         UnOp::Neg => "Neg",
         UnOp::Not => "Not",
         UnOp::Deref => "Deref",
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 单测:I/O 意图签名携带(RXS-0161,R1.1)与默认路径中立性(R1.2/R6.7)
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ast::{FnColor, ShaderStage};
+    use crate::hir::{DefId, PrimTy};
+    use crate::span::{Edition, SourceId};
+
+    fn dummy_span() -> Span {
+        Span::new(SourceId(0), 0, 0, Edition::Rx0)
+    }
+
+    /// 无 body 内容的最小骨架(仅用于验证 `Body` 携带 stage / io_sig 的字段面)。
+    fn skeleton(stage: Option<ShaderStage>, io_sig: Vec<IoSigElem>) -> Body {
+        Body {
+            def: DefId(0),
+            symbol: "rx_vs_main".to_owned(),
+            color: FnColor::Kernel,
+            generic_args: Vec::new(),
+            locals: Vec::new(),
+            arg_count: 0,
+            blocks: Vec::new(),
+            span: dummy_span(),
+            stage,
+            io_sig,
+            resources: Vec::new(),
+        }
+    }
+
+    /// 图形阶段 `Body` 可携带 stage 与逐元素 I/O 意图签名(字段名 / 种类 / 类型 /
+    /// 方向四维度全保真),为 B 路保名 by-construction 与校验门提供意图侧依据。
+    #[test]
+    fn graphics_stage_body_carries_io_signature() {
+        let io_sig = vec![
+            IoSigElem {
+                field_name: "position".to_owned(),
+                kind: IoSigKind::Builtin("position".to_owned()),
+                ty: MirIoType::Vector(PrimTy::F32, 4),
+                dir: IoDir::Out,
+            },
+            IoSigElem {
+                field_name: "color".to_owned(),
+                kind: IoSigKind::Interpolate("flat".to_owned()),
+                ty: MirIoType::Vector(PrimTy::F32, 4),
+                dir: IoDir::Out,
+            },
+            IoSigElem {
+                field_name: "uv".to_owned(),
+                kind: IoSigKind::Varying,
+                ty: MirIoType::Vector(PrimTy::F32, 2),
+                dir: IoDir::In,
+            },
+        ];
+        let body = skeleton(Some(ShaderStage::Vertex), io_sig.clone());
+
+        assert_eq!(body.stage, Some(ShaderStage::Vertex));
+        assert_eq!(body.io_sig.len(), 3);
+
+        // builtin 保留源码 builtin 名 + out 方向。
+        assert_eq!(body.io_sig[0].field_name, "position");
+        assert_eq!(
+            body.io_sig[0].kind,
+            IoSigKind::Builtin("position".to_owned())
+        );
+        assert_eq!(body.io_sig[0].ty, MirIoType::Vector(PrimTy::F32, 4));
+        assert_eq!(body.io_sig[0].dir, IoDir::Out);
+
+        // interpolate 保留插值限定名。
+        assert_eq!(
+            body.io_sig[1].kind,
+            IoSigKind::Interpolate("flat".to_owned())
+        );
+
+        // 普通 varying + in 方向。
+        assert_eq!(body.io_sig[2].kind, IoSigKind::Varying);
+        assert_eq!(body.io_sig[2].dir, IoDir::In);
+        assert_eq!(body.io_sig[2].ty, MirIoType::Vector(PrimTy::F32, 2));
+    }
+
+    /// 默认(非着色阶段)`Body` 的 stage 为 `None` 且 io_sig 为空——默认 PTX 路径
+    /// 构造行为中立,无任何图形阶段意图携带(R1.2/R6.7 零漂移的字段面保证)。
+    #[test]
+    fn default_path_body_has_neutral_signature_fields() {
+        let body = skeleton(None, Vec::new());
+        assert_eq!(body.stage, None);
+        assert!(body.io_sig.is_empty());
+    }
+
+    /// 标量类型亦在已建模子集内(标量 / 向量两形态均可表示)。
+    #[test]
+    fn io_sig_supports_scalar_and_vector_types() {
+        let scalar = IoSigElem {
+            field_name: "depth".to_owned(),
+            kind: IoSigKind::Builtin("depth".to_owned()),
+            ty: MirIoType::Scalar(PrimTy::F32),
+            dir: IoDir::Out,
+        };
+        assert_eq!(scalar.ty, MirIoType::Scalar(PrimTy::F32));
     }
 }

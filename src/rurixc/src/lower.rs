@@ -445,6 +445,7 @@ impl Lowerer<'_> {
         });
         hir::FnDecl {
             color: f.color,
+            stage: f.stage,
             generic_params,
             params,
             self_kind,

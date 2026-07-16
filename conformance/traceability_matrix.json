@@ -758,19 +758,23 @@
     "RXS-0110": [
       "conformance/stdlib/device/geom_scalar.rx",
       "conformance/stdlib/host/geom_ops.rx",
-      "conformance/stdlib/reject/geom_type_confusion/basic.rx"
+      "conformance/stdlib/reject/geom_type_confusion/basic.rx",
+      "src/rurix-geometry/src/lib.rs"
     ],
     "RXS-0111": [
       "conformance/stdlib/device/geom_scalar.rx",
-      "conformance/stdlib/host/geom_ops.rx"
+      "conformance/stdlib/host/geom_ops.rx",
+      "src/rurix-geometry/src/lib.rs"
     ],
     "RXS-0112": [
       "conformance/stdlib/device/geom_scalar.rx",
-      "conformance/stdlib/host/geom_ops.rx"
+      "conformance/stdlib/host/geom_ops.rx",
+      "src/rurix-geometry/src/lib.rs"
     ],
     "RXS-0113": [
       "conformance/stdlib/device/geom_scalar.rx",
-      "conformance/stdlib/host/geom_ops.rx"
+      "conformance/stdlib/host/geom_ops.rx",
+      "src/rurix-geometry/src/lib.rs"
     ],
     "RXS-0114": [
       "src/image-io/src/lib.rs"
@@ -867,6 +871,296 @@
     ],
     "RXS-0143": [
       "src/rurix-rt/src/interop.rs"
+    ],
+    "RXS-0144": [
+      "src/rurix-rt/src/pipeline.rs"
+    ],
+    "RXS-0145": [
+      "src/rurix-rt/src/pipeline.rs"
+    ],
+    "RXS-0146": [
+      "src/rurix-rt/src/pipeline.rs"
+    ],
+    "RXS-0147": [
+      "src/rurix-rt/src/pipeline.rs"
+    ],
+    "RXS-0148": [
+      "src/rurix-rt/src/pipeline.rs"
+    ],
+    "RXS-0149": [
+      "src/rurix-engine/src/lib.rs"
+    ],
+    "RXS-0150": [
+      "src/rurix-rt/src/fatbin.rs"
+    ],
+    "RXS-0151": [
+      "src/rurix-rt/src/fatbin.rs"
+    ],
+    "RXS-0152": [
+      "src/rurix-pkg/src/lock.rs"
+    ],
+    "RXS-0153": [
+      "conformance/shader/accept/basic_stages.rx",
+      "conformance/shader/reject/stage_misuse/direct_call.rx",
+      "src/rurixc/src/shader_stages.rs",
+      "tests/ui/shader/direct_call.rx"
+    ],
+    "RXS-0154": [
+      "conformance/shader/accept/basic_stages.rx",
+      "conformance/shader/reject/io_annotation/unannotated_field.rx",
+      "src/rurixc/src/shader_stages.rs",
+      "tests/ui/shader/unannotated_field.rx"
+    ],
+    "RXS-0155": [
+      "conformance/shader/accept/basic_stages.rx",
+      "conformance/shader/reject/interface_mismatch/vs_fs_mismatch.rx",
+      "src/rurixc/src/shader_stages.rs",
+      "tests/ui/shader/interface_mismatch.rx"
+    ],
+    "RXS-0156": [
+      "conformance/shader/accept/basic_stages.rx",
+      "conformance/shader/reject/resource_handle/handle_return.rx",
+      "src/rurixc/src/shader_stages.rs",
+      "tests/ui/shader/handle_return.rx"
+    ],
+    "RXS-0157": [
+      "conformance/dxil/accept/cs_noop.rx",
+      "conformance/dxil/reject/nontrivial_body.rx",
+      "conformance/dxil/reject/view_param.rx",
+      "src/rurixc/src/dxil_codegen.rs"
+    ],
+    "RXS-0158": [
+      "conformance/dxil/graphics/accept/fs_passthrough.rx",
+      "conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx",
+      "conformance/dxil/graphics/accept/uc04_lighting_vs.rx",
+      "conformance/dxil/graphics/accept/vs_varying.rx",
+      "src/rurixc/src/dxil_codegen.rs"
+    ],
+    "RXS-0159": [
+      "conformance/dxil/graphics/accept/fs_passthrough.rx",
+      "conformance/dxil/graphics/reject/vs_builtin_scalar_position.rx",
+      "src/rurixc/src/dxil_codegen.rs",
+      "src/rurixc/src/dxil_sig_gate.rs"
+    ],
+    "RXS-0160": [
+      "conformance/dxil/graphics/accept/vs_fs_link.rx",
+      "src/rurixc/src/dxil_codegen.rs",
+      "src/rurixc/src/dxil_sig_gate.rs"
+    ],
+    "RXS-0161": [
+      "conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx",
+      "conformance/dxil/graphics/accept/uc04_lighting_fs.rx",
+      "conformance/dxil/graphics/accept/uc04_lighting_vs.rx",
+      "conformance/dxil/graphics/accept/vs_varying.rx",
+      "conformance/dxil/graphics/reject/vs_builtin_scalar_position.rx",
+      "src/rurixc/src/dxil_codegen.rs",
+      "src/rurixc/src/mir_build.rs"
+    ],
+    "RXS-0162": [
+      "conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx",
+      "conformance/dxil/graphics/accept/uc04_lighting_vs.rx",
+      "conformance/dxil/graphics/accept/vs_varying.rx",
+      "src/rurixc/src/dxil_codegen.rs",
+      "src/rurixc/src/dxil_sig_gate.rs"
+    ],
+    "RXS-0163": [
+      "src/rurixc/src/binding_layout.rs",
+      "src/rurixc/src/dxil_codegen.rs",
+      "src/rurixc/src/mir_build.rs"
+    ],
+    "RXS-0164": [
+      "src/rurixc/src/binding_layout.rs",
+      "src/rurixc/src/dxil_codegen.rs"
+    ],
+    "RXS-0165": [
+      "src/rurixc/src/binding_layout.rs",
+      "src/rurixc/src/dxil_codegen.rs",
+      "src/rurixc/src/mir_build.rs",
+      "src/rurixc/tests/dxil_golden.rs"
+    ],
+    "RXS-0166": [
+      "src/rurixc/src/binding_layout.rs",
+      "src/rurixc/src/dxil_codegen.rs",
+      "src/rurixc/tests/dxil_golden.rs"
+    ],
+    "RXS-0167": [
+      "src/uc04-demo/src/error.rs",
+      "src/uc04-demo/src/pso.rs"
+    ],
+    "RXS-0168": [
+      "conformance/dxil/graphics/accept/uc04_gbuffer_fs.rx",
+      "src/rurixc/tests/dxil_golden.rs",
+      "src/uc04-demo/src/deferred.rs"
+    ],
+    "RXS-0169": [
+      "src/uc04-demo/src/barrier.rs"
+    ],
+    "RXS-0170": [
+      "src/uc04-demo/src/device.rs",
+      "src/uc04-demo/src/readback.rs"
+    ],
+    "RXS-0171": [
+      "conformance/dxil/graphics/accept/fs_body_arith.rx",
+      "conformance/dxil/graphics/accept/uc04_gbuffer_fs.rx",
+      "conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx",
+      "conformance/dxil/graphics/accept/uc04_lighting_vs.rx",
+      "conformance/dxil/graphics/accept/vs_body_output.rx",
+      "src/rurixc/src/dxil_codegen.rs",
+      "src/rurixc/src/dxil_spirv.rs",
+      "src/rurixc/tests/dxil_golden.rs"
+    ],
+    "RXS-0172": [
+      "conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx",
+      "conformance/dxil/graphics/accept/uc04_lighting_vs.rx",
+      "src/rurixc/src/dxil_codegen.rs"
+    ],
+    "RXS-0173": [
+      "conformance/dxil/graphics/accept/uc04_gbuffer_fs.rx",
+      "conformance/dxil/graphics/accept/uc04_lighting_fs.rx",
+      "src/rurixc/src/dxil_sig_gate.rs"
+    ],
+    "RXS-0174": [
+      "conformance/dxil/graphics/accept/uc04_lighting_fs.rx"
+    ],
+    "RXS-0175": [
+      "conformance/dxil/graphics/accept/uc04_lighting_fs.rx"
+    ],
+    "RXS-0176": [
+      "conformance/dxil/graphics/accept/uc04_lighting_fs.rx"
+    ],
+    "RXS-0177": [
+      "src/rurix-pkg/src/manifest.rs",
+      "src/rurix-pkg/tests/edition_corpus.rs"
+    ],
+    "RXS-0178": [
+      "src/rurix-pkg/src/manifest.rs",
+      "src/rurix-pkg/tests/edition_corpus.rs"
+    ],
+    "RXS-0179": [
+      "src/rurix-pkg/src/manifest.rs",
+      "src/rurix-pkg/tests/edition_corpus.rs"
+    ],
+    "RXS-0180": [
+      "src/rurix-pkg/src/manifest.rs"
+    ],
+    "RXS-0185": [
+      "src/rurixup/src/channel.rs"
+    ],
+    "RXS-0186": [
+      "src/rurixup/src/channel.rs",
+      "src/rurixup/src/gate.rs",
+      "src/rurixup/src/lib.rs"
+    ],
+    "RXS-0187": [
+      "src/rurixup/src/toolchain.rs"
+    ],
+    "RXS-0188": [
+      "src/rurixup/src/toolchain.rs"
+    ],
+    "RXS-0189": [
+      "conformance/host_orch/accept/saxpy_single_source/main.rx",
+      "conformance/host_orch/reject/buffer_move/main.rx",
+      "conformance/host_orch/reject/gpu_in_kernel/main.rx"
+    ],
+    "RXS-0190": [
+      "conformance/host_orch/accept/saxpy_single_source/main.rx",
+      "conformance/host_orch/reject/elem_infer/main.rx"
+    ],
+    "RXS-0191": [
+      "conformance/host_orch/accept/saxpy_single_source/main.rx",
+      "conformance/host_orch/reject/launch_arg_subset/main.rx"
+    ],
+    "RXS-0192": [
+      "conformance/host_orch/accept/saxpy_single_source/main.rx"
+    ],
+    "RXS-0193": [
+      "src/rurix-rt-cabi/src/imageio.rs",
+      "src/rurix-rt-cabi/src/lib.rs",
+      "src/rurix-rt-cabi/src/present.rs"
+    ],
+    "RXS-0194": [
+      "src/rurix-rt-cabi/src/lib.rs"
+    ],
+    "RXS-0195": [
+      "conformance/host_orch/accept/extern_link/main.rx",
+      "src/rurixc/src/driver.rs",
+      "src/rurixc/src/mir_build.rs"
+    ],
+    "RXS-0196": [
+      "conformance/host_orch/accept/mod_file/main.rx",
+      "conformance/host_orch/accept/mod_file/util.rx",
+      "conformance/host_orch/reject/mod_cycle/main.rx",
+      "conformance/host_orch/reject/mod_cycle/ring_a.rx",
+      "conformance/host_orch/reject/mod_cycle/ring_b.rx",
+      "conformance/host_orch/reject/mod_missing/main.rx",
+      "src/rurixc/src/mod_assembly.rs",
+      "src/rurixc/src/parser.rs"
+    ],
+    "RXS-0197": [
+      "conformance/host_orch/accept/present_loop/main.rx",
+      "conformance/host_orch/reject/present_in_kernel/main.rx",
+      "conformance/host_orch/reject/present_out_of_order/main.rx",
+      "src/rurix-rt-cabi/src/present.rs",
+      "src/rurix-rt/src/interop.rs"
+    ],
+    "RXS-0198": [
+      "conformance/host_orch/accept/present_loop/main.rx",
+      "src/rurix-rt-cabi/src/lib.rs",
+      "src/rurix-rt-cabi/src/present.rs",
+      "src/rurix-rt/src/interop.rs"
+    ],
+    "RXS-0199": [
+      "conformance/host_orch/accept/imageio_write/main.rx",
+      "src/rurix-rt-cabi/src/imageio.rs"
+    ],
+    "RXS-0200": [
+      "conformance/vulkan/accept/vk_noop.rx"
+    ],
+    "RXS-0201": [
+      "conformance/vulkan/accept/vk_noop.rx",
+      "src/rurixc/src/vulkan_codegen.rs"
+    ],
+    "RXS-0202": [
+      "conformance/vulkan/accept/vk_fill.rx"
+    ],
+    "RXS-0203": [
+      "conformance/vulkan/accept/vk_fill.rx",
+      "conformance/vulkan/accept/vk_saxpy.rx"
+    ],
+    "RXS-0204": [
+      "conformance/vulkan/accept/vk_fragment.rx",
+      "conformance/vulkan/accept/vk_vertex.rx"
+    ],
+    "RXS-0205": [
+      "conformance/vulkan/accept/vk_math.rx"
+    ],
+    "RXS-0206": [
+      "src/rurix-rt/src/backend.rs"
+    ],
+    "RXS-0207": [
+      "src/rurix-rt/src/vk.rs"
+    ],
+    "RXS-0208": [
+      "src/rurix-rt/src/vk.rs"
+    ],
+    "RXS-0209": [
+      "src/rurix-pkg/src/lock.rs",
+      "src/rurix-rt/src/fatbin.rs"
+    ],
+    "RXS-0210": [
+      "conformance/vulkan/accept/vk_tri_fs.rx",
+      "conformance/vulkan/accept/vk_tri_vs.rx",
+      "src/rurix-rt/src/vk.rs",
+      "src/rurixc/src/dxil_spirv.rs"
+    ],
+    "RXS-0211": [
+      "src/rurix-rt/src/vk.rs"
+    ],
+    "RXS-0212": [
+      "src/rurixc/src/toolchain.rs"
+    ],
+    "RXS-0213": [
+      "src/rurix-rt/src/vk.rs"
     ]
   }
 }

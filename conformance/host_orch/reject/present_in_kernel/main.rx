@@ -1,0 +1,12 @@
+//@ spec: RXS-0197
+//@ expect-error: RX3015
+// 宿主 API 着色合法性(RXS-0197):present 系构造与 std::gpu 同识别面——
+// kernel 体内出现 → RX3015(RXS-0189 同点位)。
+kernel fn bad(t: ThreadCtx<1>) {
+    let ctx = Context::create();
+    let sess = Present::create(&ctx, 64, 64, 64, 64);
+}
+
+fn main() -> i32 {
+    0
+}

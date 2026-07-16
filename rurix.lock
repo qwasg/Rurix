@@ -1,0 +1,57 @@
+# rurix.lock — Rurix 仓库级供应链 pin（手工维护；`rx vendor` 生成的是 per-workspace
+# 包锁，与本文件互不影响）。本文件以内容寻址（SHA256）pin 图形=B 路（RFC-0004 §4.2）
+# 外部转译工具链：MIR→SPIR-V 自有降级后，经 SPIRV-Cross→dxc→DXIL 的外部工具须可复现。
+#
+# 体例承既有 `[[artifact]]` digest pin（RXS-0152，内容寻址）/ D-205 LLVM 单栈 pin 纪律：
+# 每条 `[[toolchain]]` 记 name/role/version/file/sha256（SHA256 取自命令真实输出
+# `Get-FileHash -Algorithm SHA256`）。canonical 形态锁本文件；env override
+# （`RURIX_SPIRV_CROSS`/`RURIX_DXC`/`RURIX_DXC_DIR`/`RURIX_SPIRV_VAL`，见
+# src/rurixc/src/toolchain.rs）**仅** dev/probe 取证用，**不**构成 CI/stable path
+# （RFC-0004 §9 Q-Supply；spec/dxil_backend.md RXS-0162 IR4）。
+#
+# 再分发审计随 registry/deferred.json **RD-014**（本文件仅引用，不在此完成法律签署）。
+# 本机实测候选（Vulkan SDK 1.3.296.0；dxc 1.8.0.4739 / SPIRV-Cross
+# vulkan-sdk-1.3.290.0-44-g65d73934 / SPIRV-Tools v2024.4）；签名 validator
+# （dxil.dll / dxv.exe）不随 Vulkan SDK 分发，归 agent pin 环境（device 真跑 / golden
+# bless）。CI 转译链冒烟见 ci/dxil_codegen_smoke.py（CI 步骤 46）。
+lock_version = 1
+
+[[toolchain]]
+name = "dxc"
+role = "hlsl-to-dxil"
+version = "1.8.0.4739"
+provenance = "Vulkan SDK 1.3.296.0 (commit d9a5e97d0)"
+file = "dxc.exe"
+sha256 = "8b1321a448742d967df80994ae05b8654f0ed765af701a3252921ebf6f65d037"
+
+[[toolchain]]
+name = "dxcompiler"
+role = "hlsl-to-dxil-lib"
+version = "1.8.0.4739"
+provenance = "Vulkan SDK 1.3.296.0 (commit d9a5e97d0); dxc.exe 实际编译本体"
+file = "dxcompiler.dll"
+sha256 = "a07881ebae071049b3abe9953cf305eeaaa94ca4610acced80136d9a61cba5f2"
+
+[[toolchain]]
+name = "spirv-cross"
+role = "spirv-to-hlsl"
+version = "vulkan-sdk-1.3.290.0-44-g65d73934"
+provenance = "Vulkan SDK 1.3.296.0 (2024-10-04T13:35:00)"
+file = "spirv-cross.exe"
+sha256 = "7de3489184b050bb55050cde901acd5e550ea72672d8d4c169851bd0db1f8ad5"
+
+[[toolchain]]
+name = "glslang"
+role = "spirv-reference-producer"
+version = "Vulkan SDK 1.3.296.0"
+provenance = "Vulkan SDK 1.3.296.0; B 路 SPIR-V 参考产出 / 冒烟取证"
+file = "glslang.exe"
+sha256 = "77efe47cc0b553658fd480e4bcd6a1bba626a1e22c2867975d6c3c6f91e87e87"
+
+[[toolchain]]
+name = "spirv-val"
+role = "spirv-validator"
+version = "SPIRV-Tools v2024.4 (v2024.4.rc1-0-g6dcc7e35)"
+provenance = "Vulkan SDK 1.3.296.0; dxil_spirv 编码器产物本机独立验证（RXS-0161 R1.8）"
+file = "spirv-val.exe"
+sha256 = "abcb0da88ab02991eba3b7ee5fdd1eb079c48858c2a03a9bbfb36836f44b4641"

@@ -87,10 +87,19 @@ pub fn build_device_crate(cx: &QueryCtx<'_>) -> Vec<Body> {
     let mut out = Vec::new();
     let mut visited: HashSet<String> = HashSet::new();
     let mut worklist: Vec<(DefId, Vec<Ty>)> = Vec::new();
-    // 根 = 全部 `kernel fn`(有 body、无泛型参数;泛型 kernel 随单态化扩展 M4+)
+    // 根 = 全部 `kernel fn`(有 body、无泛型参数;泛型 kernel 随单态化扩展 M4+)。
+    //
+    // 着色阶段根收集口径(RXS-0161,R1.3 / R1.2 / R6.7):
+    // - 默认(非 `dxil-backend`)构建:仅收非着色阶段 kernel 根(`stage == None`),
+    //   图形/RT 着色阶段一律不收 —— PTX 后端行为与既有测试零漂移。
+    // - cargo feature `dxil-backend` 启用:额外收 vertex / fragment 图形阶段根
+    //   (B 路 DXIL codegen 入口),并携 AST 层 I/O 意图签名进 MIR。mesh/task/RT
+    //   不在此收集(deferred,任务 15 stub);compute 阶段沿用排除(走既有 A 路)。
+    // 收集判定见 [`collectable_stage`](feature 门控,零漂移)。
     for item in &krate.items {
         if let hir::ItemKind::Fn(decl) = &item.kind
             && decl.color == crate::ast::FnColor::Kernel
+            && collectable_stage(decl.stage)
             && decl.body.is_some()
             && decl.generic_params.is_empty()
             && visited.insert(mangle(&item.name, item.def_id, &[]))
@@ -102,6 +111,9 @@ pub fn build_device_crate(cx: &QueryCtx<'_>) -> Vec<Body> {
         let (mut body, callees, _const_err) = build_body(cx, def, args);
         crate::drop_elab::elaborate(&mut body);
         let drop_callees = crate::drop_elab::collect_drop_callees(&krate, &body);
+        // 图形阶段根:携 stage 类别 + AST I/O 意图签名进 MIR(仅 `dxil-backend`;
+        // 默认构建为 no-op,`stage`/`io_sig` 维持 build_body 的 None/空,零漂移)。
+        attach_graphics_io_sig(cx, &krate, def, &mut body);
         out.push(body);
         for (d, a) in callees.into_iter().chain(drop_callees) {
             let sym = mangle(&krate.item(d).name, d, &a);
@@ -112,6 +124,320 @@ pub fn build_device_crate(cx: &QueryCtx<'_>) -> Vec<Body> {
     }
     out.sort_by(|a, b| a.symbol.cmp(&b.symbol));
     out
+}
+
+/// device codegen 收集根判定(RXS-0161,R1.2/R1.3/R6.7):默认仅非着色阶段
+/// kernel 根(`stage == None`),vertex/fragment 图形阶段根仅在 `dxil-backend`
+/// feature 下额外收纳(B 路 DXIL 入口)。mesh/task/RT 与 compute 不在此收。
+#[cfg(any(feature = "dxil-backend", feature = "vulkan-backend"))]
+fn collectable_stage(stage: Option<crate::ast::ShaderStage>) -> bool {
+    use crate::ast::ShaderStage;
+    matches!(
+        stage,
+        None | Some(ShaderStage::Vertex | ShaderStage::Fragment)
+    )
+}
+
+/// device codegen 收集根判定(默认 / 非 `dxil-backend`):仅非着色阶段 kernel
+/// 根。图形/RT 着色阶段一律排除 —— PTX 路径行为与既有测试逐一致(零漂移)。
+#[cfg(not(any(feature = "dxil-backend", feature = "vulkan-backend")))]
+fn collectable_stage(stage: Option<crate::ast::ShaderStage>) -> bool {
+    stage.is_none()
+}
+
+/// 为 vertex / fragment 图形阶段根携 stage 类别 + AST I/O 意图签名(RXS-0161,
+/// R1.3):`dxil-backend` 下从 AST `shader_stages` 形参/返回位置的 I/O 结构体
+/// 字段标注提取 [`crate::mir::IoSigElem`] 表,置入 `body`。非图形阶段(含全部
+/// device fn callee)为 no-op。
+#[cfg(any(feature = "dxil-backend", feature = "vulkan-backend"))]
+fn attach_graphics_io_sig(cx: &QueryCtx<'_>, krate: &hir::Crate, def: DefId, body: &mut Body) {
+    use crate::ast::ShaderStage;
+    let hir::ItemKind::Fn(decl) = &krate.item(def).kind else {
+        return;
+    };
+    let Some(stage @ (ShaderStage::Vertex | ShaderStage::Fragment)) = decl.stage else {
+        return;
+    };
+    body.stage = Some(stage);
+    body.io_sig = dxil_io::io_sig_for(cx.ast(), &krate.item(def).name, stage);
+    // PR-E2b 生产接线(RXS-0163):同序提取资源句柄形参绑定声明,作 host 侧
+    // 绑定布局推导(binding_layout)的确定性输入(io_sig 与 resources 互不交叠:
+    // 命名 I/O 结构体 → io_sig;资源句柄形参 → resources)。
+    body.resources = dxil_io::resources_for(cx.ast(), &krate.item(def).name, stage);
+}
+
+/// 默认 / 非 `dxil-backend`:图形阶段根不收集,`Body` 的 stage/io_sig 维持
+/// build_body 的中立默认(`None`/空),保证 PTX 路径零漂移(R1.2/R6.7)。
+#[cfg(not(any(feature = "dxil-backend", feature = "vulkan-backend")))]
+fn attach_graphics_io_sig(_cx: &QueryCtx<'_>, _krate: &hir::Crate, _def: DefId, _body: &mut Body) {}
+
+/// AST → MIR 图形阶段 I/O 意图签名提取(RXS-0161,仅 `dxil-backend`)。
+///
+/// HIR `FieldDef` 不携 `#[builtin(..)]`/`#[interpolate(..)]` 属性(那是 AST 面),
+/// 故 I/O 签名意图须自 AST 提取。本模块**只读** AST(`cx.ast()`),按图形阶段
+/// 函数的形参(`In`)/返回(`Out`)位置可达的 I/O 结构体字段,逐字段携带源码
+/// 字段名 / builtin·interpolate·varying 种类 / 已建模类型 / 方向四维度。
+///
+/// 类型映射(R1.9 边界):标量 prim → [`MirIoType::Scalar`]、向量约定名 →
+/// [`MirIoType::Vector`];超出已建模子集的类型**不在此静默丢弃**——元素仍
+/// 进 io_sig(字段名/种类/方向保真),不可映射的 6xxx 拒绝由 B 路编码器
+/// (任务 2/4)裁决。资源句柄(`Texture2D`/`Sampler`)非命名 I/O 结构体,
+/// 自然不入 io_sig(opaque handle 形态,RFC-0004 §4.6(b))。
+#[cfg(any(feature = "dxil-backend", feature = "vulkan-backend"))]
+mod dxil_io {
+    use std::collections::HashMap;
+
+    use crate::ast::{self, MetaInner, MetaKind, ShaderStage, TyKind};
+    use crate::hir::PrimTy;
+    use crate::mir::{
+        IoDir, IoSigElem, IoSigKind, MirIoType, MirResourceType, ResourceBinding, ResourceCount,
+    };
+
+    /// 提取指定图形阶段函数(名 + 阶段匹配)的 I/O 意图签名表。
+    pub(super) fn io_sig_for(
+        file: &ast::SourceFile,
+        fn_name: &str,
+        stage: ShaderStage,
+    ) -> Vec<IoSigElem> {
+        let mut structs: HashMap<String, &[ast::FieldDef]> = HashMap::new();
+        collect_named_structs(&file.items, &mut structs);
+
+        let mut out = Vec::new();
+        let Some(f) = find_stage_fn(&file.items, fn_name, stage) else {
+            return out;
+        };
+        // 形参 → In 方向(资源句柄等非命名 I/O 结构体自然跳过)。
+        for p in &f.params {
+            if let ast::ParamKind::Typed { ty, .. } = &p.kind
+                && let Some(fields) = io_struct_fields(ty, &structs)
+            {
+                for fld in fields {
+                    out.push(field_to_elem(fld, IoDir::In));
+                }
+            }
+        }
+        // 返回类型 → Out 方向。
+        if let Some(ret) = &f.ret
+            && let Some(fields) = io_struct_fields(ret, &structs)
+        {
+            for fld in fields {
+                out.push(field_to_elem(fld, IoDir::Out));
+            }
+        }
+        out
+    }
+
+    /// 提取指定图形阶段函数的资源句柄形参绑定声明(RXS-0163;PR-E2b 生产接线)。
+    ///
+    /// 按**声明序**扫描阶段函数形参,命中资源句柄类型(RXS-0156 首批:`Texture2D<F>`
+    /// → SRV / `Sampler` → Sampler)者落 [`ResourceBinding`](源码形参名保名 + 资源
+    /// 类型 + 基数)。命名 I/O 结构体形参(varying)与原生类型形参不入(由
+    /// [`io_sig_for`] 各管其责)。首批无数组语法 → 基数恒 [`ResourceCount::One`]。
+    pub(super) fn resources_for(
+        file: &ast::SourceFile,
+        fn_name: &str,
+        stage: ShaderStage,
+    ) -> Vec<ResourceBinding> {
+        let mut out = Vec::new();
+        let Some(f) = find_stage_fn(&file.items, fn_name, stage) else {
+            return out;
+        };
+        for p in &f.params {
+            if let ast::ParamKind::Typed { pat, ty } = &p.kind
+                && let Some(res) = ast_ty_to_resource(ty)
+            {
+                out.push(ResourceBinding {
+                    name: pat_binding_name(pat).unwrap_or_default(),
+                    res,
+                    count: ResourceCount::One,
+                });
+            }
+        }
+        out
+    }
+
+    /// 简单绑定形参名(`name: Ty` → "name");非简单绑定模式 → None。
+    fn pat_binding_name(pat: &ast::Pat) -> Option<String> {
+        match &pat.kind {
+            ast::PatKind::Binding { name, .. } => Some(name.name.clone()),
+            _ => None,
+        }
+    }
+
+    /// AST 类型 → 资源句柄建模(RXS-0156 首批 `Texture2D<F>`/`Sampler`);非资源
+    /// 句柄类型 → None。`Texture2D` 取首个类型实参的头 prim 作分量类型(缺省 `f32`)。
+    fn ast_ty_to_resource(ty: &ast::Ty) -> Option<MirResourceType> {
+        let ty = unwrap_ty(ty);
+        let head = ty_head_name(ty)?;
+        match head {
+            "Texture2D" => {
+                let prim = if let TyKind::Path(p) = &ty.kind {
+                    p.segments
+                        .last()
+                        .and_then(vector_elem_prim)
+                        .unwrap_or(PrimTy::F32)
+                } else {
+                    PrimTy::F32
+                };
+                Some(MirResourceType::Texture2D(prim))
+            }
+            "Sampler" => Some(MirResourceType::Sampler),
+            _ => None,
+        }
+    }
+
+    /// 收集全 crate(含嵌套 mod)命名字段结构体 → 字段切片(按名;同名取首个)。
+    fn collect_named_structs<'a>(
+        items: &'a [ast::Item],
+        out: &mut HashMap<String, &'a [ast::FieldDef]>,
+    ) {
+        for it in items {
+            match &it.kind {
+                ast::ItemKind::Struct(s) => {
+                    if let ast::VariantBody::Named(fields) = &s.body {
+                        out.entry(s.name.name.clone()).or_insert(fields.as_slice());
+                    }
+                }
+                ast::ItemKind::Mod(m) => collect_named_structs(&m.items, out),
+                _ => {}
+            }
+        }
+    }
+
+    /// 按名 + 阶段查找图形阶段函数(含嵌套 mod)。
+    fn find_stage_fn<'a>(
+        items: &'a [ast::Item],
+        name: &str,
+        stage: ShaderStage,
+    ) -> Option<&'a ast::FnItem> {
+        for it in items {
+            match &it.kind {
+                ast::ItemKind::Fn(f) if f.stage == Some(stage) && f.name.name == name => {
+                    return Some(f);
+                }
+                ast::ItemKind::Mod(m) => {
+                    if let Some(found) = find_stage_fn(&m.items, name, stage) {
+                        return Some(found);
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
+    /// 类型若命中命名结构体(I/O varying 结构体)→ 其字段切片;否则 None
+    /// (资源句柄 / 原生类型等非 I/O 结构体)。
+    fn io_struct_fields<'a>(
+        ty: &ast::Ty,
+        structs: &HashMap<String, &'a [ast::FieldDef]>,
+    ) -> Option<&'a [ast::FieldDef]> {
+        let head = ty_head_name(ty)?;
+        structs.get(head).copied()
+    }
+
+    /// 单个 AST I/O 字段 → MIR 意图签名元素(四维度保真)。
+    fn field_to_elem(f: &ast::FieldDef, dir: IoDir) -> IoSigElem {
+        IoSigElem {
+            field_name: f.name.name.clone(),
+            kind: field_anno_kind(f),
+            ty: ast_ty_to_mir_io(&f.ty),
+            dir,
+        }
+    }
+
+    /// 字段标注 → I/O 种类(首个 `#[builtin(..)]`/`#[interpolate(..)]`;无标注
+    /// 落 [`IoSigKind::Varying`])。与 [`crate::shader_stages`] 的 `field_anno`
+    /// 同口径(builtin/interpolate 取列表首个 meta 名)。
+    fn field_anno_kind(f: &ast::FieldDef) -> IoSigKind {
+        for attr in &f.attrs {
+            let [seg] = attr.meta.path.segments.as_slice() else {
+                continue;
+            };
+            let key = seg.ident.name.as_str();
+            if key != "builtin" && key != "interpolate" {
+                continue;
+            }
+            let arg = match &attr.meta.kind {
+                MetaKind::List(inner) => inner.iter().find_map(|mi| match mi {
+                    MetaInner::Meta(m) => m.path.segments.last().map(|s| s.ident.name.clone()),
+                    MetaInner::Lit(_) => None,
+                }),
+                _ => None,
+            }
+            .unwrap_or_default();
+            return if key == "builtin" {
+                IoSigKind::Builtin(arg)
+            } else {
+                IoSigKind::Interpolate(arg)
+            };
+        }
+        IoSigKind::Varying
+    }
+
+    /// AST 类型 → 已建模 MIR I/O 类型(标量 / 向量)。超出子集的类型不在此
+    /// 静默丢弃(元素仍携),保守落 [`MirIoType::Scalar`] 占位 —— 真正的不可
+    /// 映射 6xxx 拒绝由 B 路编码器(任务 2/4)裁决(strict-only,R1.9)。
+    fn ast_ty_to_mir_io(ty: &ast::Ty) -> MirIoType {
+        let ty = unwrap_ty(ty);
+        if let TyKind::Path(p) = &ty.kind
+            && let Some(seg) = p.segments.last()
+        {
+            let name = seg.ident.name.as_str();
+            if let Some(prim) = PrimTy::from_name(name) {
+                return MirIoType::Scalar(prim);
+            }
+            if let Some(n) = vector_arity(name) {
+                let elem = vector_elem_prim(seg).unwrap_or(PrimTy::F32);
+                return MirIoType::Vector(elem, n);
+            }
+        }
+        // 不可映射类型占位:意图侧字段名/种类/方向已保真,类型由编码器复核。
+        MirIoType::Scalar(PrimTy::F32)
+    }
+
+    /// 向量约定名 → 分量数(`vec2/vec3/vec4`,2..=4;非向量名返回 None)。
+    fn vector_arity(name: &str) -> Option<u8> {
+        match name {
+            "vec2" => Some(2),
+            "vec3" => Some(3),
+            "vec4" => Some(4),
+            _ => None,
+        }
+    }
+
+    /// 向量分量 prim(末段 `<elem>` 首个类型实参的头 prim;缺省 None)。
+    fn vector_elem_prim(seg: &ast::PathSegment) -> Option<PrimTy> {
+        let args = seg.args.as_ref()?;
+        for a in &args.args {
+            if let ast::GenericArg::Type(t) = a {
+                return ty_head_name(t).and_then(PrimTy::from_name);
+            }
+        }
+        None
+    }
+
+    /// 类型头名(`Texture2D<f32>` → "Texture2D";`&T`/`*T`/`(T)` 取内层头;
+    /// 非路径类型 → None)。
+    fn ty_head_name(ty: &ast::Ty) -> Option<&str> {
+        match &ty.kind {
+            TyKind::Path(p) => p.segments.last().map(|s| s.ident.name.as_str()),
+            TyKind::Paren(inner) | TyKind::Ref { inner, .. } | TyKind::RawPtr { inner, .. } => {
+                ty_head_name(inner)
+            }
+            _ => None,
+        }
+    }
+
+    /// 剥 `&T`/`*T`/`(T)` 外层,取内层类型(用于类型映射)。
+    fn unwrap_ty(ty: &ast::Ty) -> &ast::Ty {
+        match &ty.kind {
+            TyKind::Paren(inner) | TyKind::Ref { inner, .. } | TyKind::RawPtr { inner, .. } => {
+                unwrap_ty(inner)
+            }
+            _ => ty,
+        }
+    }
 }
 
 /// const 求值专用单实例构建(M3.4,RXS-0062):构建 const item / const fn 的
@@ -235,6 +561,16 @@ fn build_body(cx: &QueryCtx<'_>, def: DefId, generic_args: Vec<Ty>) -> BuildOutp
             arg_count,
             blocks,
             span: item.span,
+            // G2.2 图形=B(RXS-0161):本构建路径为默认(host/compute/kernel,
+            // 含 PTX device 收集)——恒不携着色阶段意图(`stage = None`、`io_sig`
+            // 空),保证默认路径 MIR 构造与既有测试零漂移(R1.2/R6.7)。图形阶段
+            // 根收集与 I/O 签名携带由后续分片在 `dxil-backend` feature 下接线。
+            stage: None,
+            io_sig: Vec::new(),
+            // PR-E2b 生产接线(RXS-0163):资源句柄绑定声明亦由图形阶段根收集
+            // (`attach_graphics_io_sig`)在 `dxil-backend` 下携带;默认路径恒空,
+            // 行为零漂移(R1.2/R6.7)。
+            resources: Vec::new(),
         },
         b.callees,
         b.const_err,
@@ -422,7 +758,9 @@ impl Builder<'_, '_> {
     // -- 字面量取值(源文本切片) ----------------------------------------------
 
     fn lit_text(&self, span: Span) -> &str {
-        &self.cx.src()[span.lo.0 as usize..span.hi.0 as usize]
+        // 多文件感知(RXS-0196):out-of-line 模块文件的字面量按 span.file 归属
+        // 其自身源文本切片;越界退化为空串(经 parse_int 失败走 unsupported)。
+        self.cx.snippet(span).unwrap_or("")
     }
 
     fn const_of_lit(&mut self, ty: &Ty, l: &crate::ast::Lit, span: Span) -> Operand {
@@ -688,6 +1026,49 @@ impl Builder<'_, '_> {
             tbir::ExprKind::DeviceMathCall { op, is_f32, args } => {
                 self.lower_device_math_call(e, *op, *is_f32, args)
             }
+            // 宿主 GPU 编排(MS1.2,RXS-0191~0193):rxrt_* 字面符号直降 + 失败
+            // 终止检查;launch 走 🔒 slot+kinds marshalling。
+            tbir::ExprKind::GpuCall { op, args } => self.lower_gpu_call(e, *op, args),
+            tbir::ExprKind::GpuLaunch {
+                stream,
+                kernel,
+                grid,
+                block,
+                args,
+            } => self.lower_gpu_launch(e, stream, *kernel, grid, block, args),
+            tbir::ExprKind::ResourceSample {
+                texture,
+                sampler,
+                coord,
+            } => {
+                // 纹理采样(G2.4,RXS-0175;RFC-0007):receiver/sampler 须为资源句柄
+                // 形参的裸 local 引用(句柄非值,无投影);coord 为 vec2<f32> 值。
+                let ty = self.ty_of(e);
+                let Some(tex_p) = self.place_of(texture) else {
+                    return self
+                        .unsupported(texture.span, "texture sample receiver must be a handle");
+                };
+                let Some(samp_p) = self.place_of(sampler) else {
+                    return self.unsupported(sampler.span, "sampler argument must be a handle");
+                };
+                if !tex_p.proj.is_empty() || !samp_p.proj.is_empty() {
+                    return self.unsupported(
+                        e.span,
+                        "texture/sampler must be direct resource handle parameter references \
+                         (RXS-0174)",
+                    );
+                }
+                let coord_op = self.op_of(coord);
+                self.rvalue_to_op(
+                    Rvalue::ResourceSample {
+                        texture_local: tex_p.local,
+                        sampler_local: samp_p.local,
+                        coord: coord_op,
+                    },
+                    ty,
+                    e.span,
+                )
+            }
             tbir::ExprKind::Field { .. } => match self.place_of(e) {
                 Some(p) => {
                     let ty = self.ty_of(e);
@@ -853,7 +1234,15 @@ impl Builder<'_, '_> {
         } else {
             let item = self.krate.item(def);
             let has_body = matches!(&item.kind, hir::ItemKind::Fn(decl) if decl.body.is_some());
-            let symbol = mangle(&item.name, def, &gargs);
+            // extern "C" 无 body fn 符号保名(RXS-0195):以字面名参与 codegen/
+            // 链接,不走 mangle()——字面名与 `rx_` 前缀单态符号天然不撞;`main` 等
+            // CRT 保留名冲突交由链接器报错(不新增诊断,RFC-0009 §4.2)。
+            //@ spec: RXS-0195
+            let symbol = if has_body {
+                mangle(&item.name, def, &gargs)
+            } else {
+                item.name.clone()
+            };
             if has_body {
                 self.callees.push((def, gargs.clone()));
             } else if !gargs.is_empty() {
@@ -931,6 +1320,577 @@ impl Builder<'_, '_> {
         );
         self.switch_to(next);
         self.consume(Place::local(dest), &ret_ty)
+    }
+
+    // -- 宿主 GPU 编排 lowering(MS1.2,RXS-0191/0192/0193)------------------------
+
+    /// gpu 句柄表达式按**读取**消费(RXS-0189/0191:方法接收者与实参语义 = 调用期
+    /// 短借用,不 move——句柄后续仍可用;move 后再用由既有 move_check 对 Copy 读
+    /// 裁决 RX4001)。
+    fn gpu_handle_op(&mut self, e: &tbir::Expr) -> Operand {
+        let p = self.place_of_or_temp(e);
+        Operand::Copy(p)
+    }
+
+    /// present 消费式转移的接收者按值 move 物化(MS1.2b,RXS-0197):receiver
+    /// move 进转移结果 temp(句柄同为单 u64 标量,再定名零开销)——错序重用由
+    /// 既有 move 检查裁决(RX4001;经引用消费 → RX4003,RXS-0054),编译期拦截。
+    fn gpu_consume_receiver(&mut self, e: &tbir::Expr, ret: &Ty, span: Span) -> LocalIdx {
+        let p = self.place_of_or_temp(e);
+        let carried = self.temp(ret.clone(), span);
+        self.assign(Place::local(carried), Rvalue::Use(Operand::Move(p)), span);
+        carried
+    }
+
+    /// rxrt_* 调用终结子(RXS-0191/0194:`CallTarget::Rt` 字面符号,不走
+    /// `mangle()`);dest 新建 temp 并返回。
+    fn emit_rt_call(&mut self, symbol: &str, args: Vec<Operand>, ret: Ty, span: Span) -> LocalIdx {
+        let dest = self.temp(ret, span);
+        let next = self.new_block();
+        self.terminate(
+            TerminatorKind::Call {
+                target: CallTarget::Rt {
+                    symbol: symbol.to_owned(),
+                },
+                args,
+                dest: Place::local(dest),
+                next,
+            },
+            span,
+        );
+        self.switch_to(next);
+        dest
+    }
+
+    /// 运行期失败终止检查(RXS-0193):`cond` 为真 → 可选诊断行(println)后
+    /// `rxrt_trap()`(确定性诊断已由 cabi 落 stderr,trap 直接 abort);否则续行。
+    fn emit_gpu_guard(&mut self, cond: LocalIdx, msg: Option<&str>, span: Span) {
+        let trap = self.new_block();
+        let cont = self.new_block();
+        self.terminate(
+            TerminatorKind::SwitchBool {
+                discr: Operand::Copy(Place::local(cond)),
+                then: trap,
+                else_: cont,
+            },
+            span,
+        );
+        self.switch_to(trap);
+        if let Some(m) = msg {
+            let pdest = self.temp(Ty::unit(), span);
+            let pnext = self.new_block();
+            self.terminate(
+                TerminatorKind::Call {
+                    target: CallTarget::Builtin(crate::hir::Builtin::Println),
+                    args: vec![Operand::Const(Const::Str(m.to_owned()))],
+                    dest: Place::local(pdest),
+                    next: pnext,
+                },
+                span,
+            );
+            self.switch_to(pnext);
+        }
+        let dest = self.temp(Ty::unit(), span);
+        let dead = self.new_block();
+        self.terminate(
+            TerminatorKind::Call {
+                target: CallTarget::Rt {
+                    symbol: "rxrt_trap".to_owned(),
+                },
+                args: Vec::new(),
+                dest: Place::local(dest),
+                next: dead,
+            },
+            span,
+        );
+        self.switch_to(dead);
+        self.terminate(TerminatorKind::Unreachable, span);
+        self.switch_to(cont);
+    }
+
+    /// 句柄返回值 == 0 → 终止(RXS-0193/0194:句柄 `0` = cabi 失败值)。
+    fn guard_handle_zero(&mut self, h: LocalIdx, span: Span) {
+        let c = self.temp(Ty::Prim(PrimTy::Bool), span);
+        self.assign(
+            Place::local(c),
+            Rvalue::BinaryOp(
+                BinOp::Eq,
+                Operand::Copy(Place::local(h)),
+                Operand::Const(Const::Int(0, PrimTy::U64)),
+            ),
+            span,
+        );
+        self.emit_gpu_guard(c, None, span);
+    }
+
+    /// i32 返回值 < 0 → 终止(RXS-0193:负值 = cabi 失败诊断已落 stderr)。
+    fn guard_rc_negative(&mut self, rc: LocalIdx, span: Span) {
+        let c = self.temp(Ty::Prim(PrimTy::Bool), span);
+        self.assign(
+            Place::local(c),
+            Rvalue::BinaryOp(
+                BinOp::Lt,
+                Operand::Copy(Place::local(rc)),
+                Operand::Const(Const::Int(0, PrimTy::I32)),
+            ),
+            span,
+        );
+        self.emit_gpu_guard(c, None, span);
+    }
+
+    /// gpu 缓冲容器元素字节数(RXS-0190 首期子集 {f32,i32,u32} 恒 4;此点元素已
+    /// 定型——RX2010 未过则编译早停,防御性兜底 4)。
+    fn gpu_elem_size(&self, container: &Ty) -> u64 {
+        match container {
+            Ty::Adt(_, args) => match args.get(1) {
+                Some(Ty::Prim(p)) => u64::from(crate::codegen::prim_width(*p) / 8),
+                _ => 4,
+            },
+            _ => 4,
+        }
+    }
+
+    /// `n(元素数) * sizeof(T)` 字节数物化(u64 temp)。
+    fn gpu_bytes_of(&mut self, n: Operand, elem_size: u64, span: Span) -> LocalIdx {
+        let bytes = self.temp(Ty::Prim(PrimTy::U64), span);
+        self.assign(
+            Place::local(bytes),
+            Rvalue::BinaryOp(
+                BinOp::Mul,
+                n,
+                Operand::Const(Const::Int(elem_size as i128, PrimTy::U64)),
+            ),
+            span,
+        );
+        bytes
+    }
+
+    /// pinned 元素地址物化(RXS-0191:`rxrt_pinned_ptr` + 越界检查 + 指针算术;
+    /// 每次调用取 ptr,正确优先)。返回指向元素的 `*mut T` local(经 Deref 读写)。
+    fn gpu_pinned_elem_ptr(
+        &mut self,
+        hp: Operand,
+        idx: Operand,
+        elem: &Ty,
+        elem_size: u64,
+        span: Span,
+    ) -> LocalIdx {
+        // off = i * sizeof(T)
+        let off = self.gpu_bytes_of(idx, elem_size, span);
+        // 越界 → 诊断行 + 终止(RXS-0193 无 UB:off ≥ bytes 即越界;元素尺寸整除
+        // 分配字节数,off < bytes ⟺ off + sizeof(T) ≤ bytes)。poisoned/未知句柄时
+        // rxrt_pinned_len 诊断 + 返回 0,同样命中本检查。
+        let pb = self.emit_rt_call(
+            "rxrt_pinned_len",
+            vec![hp.clone()],
+            Ty::Prim(PrimTy::U64),
+            span,
+        );
+        let oob = self.temp(Ty::Prim(PrimTy::Bool), span);
+        self.assign(
+            Place::local(oob),
+            Rvalue::BinaryOp(
+                BinOp::Ge,
+                Operand::Copy(Place::local(off)),
+                Operand::Copy(Place::local(pb)),
+            ),
+            span,
+        );
+        self.emit_gpu_guard(
+            oob,
+            Some("RXRT: error op=pinned_index detail=index out of bounds (RXS-0193)"),
+            span,
+        );
+        let p = self.emit_rt_call(
+            "rxrt_pinned_ptr",
+            vec![hp],
+            Ty::RawPtr(Box::new(Ty::Prim(PrimTy::U8)), true),
+            span,
+        );
+        // 元素地址 = (ptr as u64) + off,再回 *mut T(ptrtoint / inttoptr)。
+        let pi = self.temp(Ty::Prim(PrimTy::U64), span);
+        self.assign(
+            Place::local(pi),
+            Rvalue::Cast(Operand::Copy(Place::local(p)), Ty::Prim(PrimTy::U64)),
+            span,
+        );
+        let addr = self.temp(Ty::Prim(PrimTy::U64), span);
+        self.assign(
+            Place::local(addr),
+            Rvalue::BinaryOp(
+                BinOp::Add,
+                Operand::Copy(Place::local(pi)),
+                Operand::Copy(Place::local(off)),
+            ),
+            span,
+        );
+        let ep_ty = Ty::RawPtr(Box::new(elem.clone()), true);
+        let ep = self.temp(ep_ty.clone(), span);
+        self.assign(
+            Place::local(ep),
+            Rvalue::Cast(Operand::Copy(Place::local(addr)), ep_ty),
+            span,
+        );
+        ep
+    }
+
+    /// 宿主 GPU 编排调用 lowering(RXS-0191/0192:gpu 方法 → `rxrt_*` 字面符号 +
+    /// 失败终止检查 RXS-0193)。`args[0]` = receiver 句柄(CtxCreate 无)。
+    fn lower_gpu_call(
+        &mut self,
+        e: &tbir::Expr,
+        op: crate::hir::GpuHostOp,
+        args: &[tbir::Expr],
+    ) -> Operand {
+        use crate::hir::GpuHostOp as Op;
+        let span = e.span;
+        match op {
+            Op::CtxCreate => {
+                // 注册即传参(RXS-0192):@__rx_gpu_artifacts 嵌入描述表地址;
+                // 无 kernel 编译单元 = 哨兵空表,运行期 cabi 解析确定性拒 + 终止。
+                let ret = self.ty_of(e);
+                let dest = self.emit_rt_call(
+                    "rxrt_ctx_create",
+                    vec![Operand::Const(Const::GlobalAddr(
+                        "__rx_gpu_artifacts".to_owned(),
+                    ))],
+                    ret.clone(),
+                    span,
+                );
+                self.guard_handle_zero(dest, span);
+                self.consume(Place::local(dest), &ret)
+            }
+            Op::CtxStream | Op::CtxAlloc | Op::CtxAllocPinned => {
+                let h = self.gpu_handle_op(&args[0]);
+                let ret = self.ty_of(e);
+                let dest = match op {
+                    Op::CtxStream => {
+                        self.emit_rt_call("rxrt_stream_create", vec![h], ret.clone(), span)
+                    }
+                    _ => {
+                        let n = self.op_of(&args[1]);
+                        let esz = self.gpu_elem_size(&ret);
+                        let bytes = self.gpu_bytes_of(n, esz, span);
+                        let symbol = if op == Op::CtxAlloc {
+                            "rxrt_buf_alloc"
+                        } else {
+                            "rxrt_pinned_alloc"
+                        };
+                        self.emit_rt_call(
+                            symbol,
+                            vec![h, Operand::Copy(Place::local(bytes))],
+                            ret.clone(),
+                            span,
+                        )
+                    }
+                };
+                self.guard_handle_zero(dest, span);
+                self.consume(Place::local(dest), &ret)
+            }
+            Op::CtxSync | Op::StreamSync => {
+                let h = self.gpu_handle_op(&args[0]);
+                let symbol = if op == Op::CtxSync {
+                    "rxrt_ctx_sync"
+                } else {
+                    "rxrt_stream_sync"
+                };
+                let rc = self.emit_rt_call(symbol, vec![h], Ty::Prim(PrimTy::I32), span);
+                self.guard_rc_negative(rc, span);
+                Operand::Const(Const::Unit)
+            }
+            Op::BufLen | Op::PinnedLen => {
+                let recv_ty = self.ty_of(&args[0]);
+                let h = self.gpu_handle_op(&args[0]);
+                let symbol = if op == Op::BufLen {
+                    "rxrt_buf_len"
+                } else {
+                    "rxrt_pinned_len"
+                };
+                let bytes = self.emit_rt_call(symbol, vec![h], Ty::Prim(PrimTy::U64), span);
+                let esz = self.gpu_elem_size(&recv_ty);
+                let dest = self.temp(Ty::Prim(PrimTy::Usize), span);
+                self.assign(
+                    Place::local(dest),
+                    Rvalue::BinaryOp(
+                        BinOp::Div,
+                        Operand::Copy(Place::local(bytes)),
+                        Operand::Const(Const::Int(esz as i128, PrimTy::U64)),
+                    ),
+                    span,
+                );
+                self.consume(Place::local(dest), &Ty::Prim(PrimTy::Usize))
+            }
+            Op::BufUpload | Op::BufDownload => {
+                // pinned 侧取指针 + 字节数 = 锁页分配字节(cabi 核对与设备缓冲
+                // 精确一致,不一致 = 确定性诊断 + 负值 → 终止,RXS-0193/0194)。
+                let hb = self.gpu_handle_op(&args[0]);
+                let hp = self.gpu_handle_op(&args[1]);
+                let p = self.emit_rt_call(
+                    "rxrt_pinned_ptr",
+                    vec![hp.clone()],
+                    Ty::RawPtr(Box::new(Ty::Prim(PrimTy::U8)), true),
+                    span,
+                );
+                let pb =
+                    self.emit_rt_call("rxrt_pinned_len", vec![hp], Ty::Prim(PrimTy::U64), span);
+                let symbol = if op == Op::BufUpload {
+                    "rxrt_buf_upload"
+                } else {
+                    "rxrt_buf_download"
+                };
+                let rc = self.emit_rt_call(
+                    symbol,
+                    vec![
+                        hb,
+                        Operand::Copy(Place::local(p)),
+                        Operand::Copy(Place::local(pb)),
+                    ],
+                    Ty::Prim(PrimTy::I32),
+                    span,
+                );
+                self.guard_rc_negative(rc, span);
+                Operand::Const(Const::Unit)
+            }
+            Op::PinnedGet | Op::PinnedSet => {
+                let recv_ty = self.ty_of(&args[0]);
+                let elem = self.ty_of(e);
+                let elem = if op == Op::PinnedSet {
+                    match &recv_ty {
+                        Ty::Adt(_, a) => a.get(1).cloned().unwrap_or(Ty::Err),
+                        _ => Ty::Err,
+                    }
+                } else {
+                    elem
+                };
+                let esz = self.gpu_elem_size(&recv_ty);
+                let hp = self.gpu_handle_op(&args[0]);
+                let idx = self.op_of(&args[1]);
+                let ep = self.gpu_pinned_elem_ptr(hp, idx, &elem, esz, span);
+                let place = Place {
+                    local: ep,
+                    proj: vec![ProjElem::Deref],
+                };
+                if op == Op::PinnedGet {
+                    self.consume(place, &elem)
+                } else {
+                    let v = self.op_of(&args[2]);
+                    self.assign(place, Rvalue::Use(v), span);
+                    Operand::Const(Const::Unit)
+                }
+            }
+            // present 宿主 typestate 转移(MS1.2b,RXS-0197):消费式转移的
+            // 接收者按值 move 进转移结果;`ready()` 纯类型面转移(Present →
+            // Ready 同句柄再定名)不落运行时符号。
+            Op::PresentReady => {
+                let ret = self.ty_of(e);
+                let carried = self.gpu_consume_receiver(&args[0], &ret, span);
+                self.consume(Place::local(carried), &ret)
+            }
+            // wait / signal / present → rxp_*(消费式;负值 rc → 终止,
+            // RXS-0193;fence 偶/奇协议单一事实源留 interop 帧机,RXS-0142)。
+            Op::PresentWait | Op::PresentSignal | Op::PresentPresent => {
+                let ret = self.ty_of(e);
+                let carried = self.gpu_consume_receiver(&args[0], &ret, span);
+                let symbol = match op {
+                    Op::PresentWait => "rxp_wait",
+                    Op::PresentSignal => "rxp_signal",
+                    _ => "rxp_present",
+                };
+                let rc = self.emit_rt_call(
+                    symbol,
+                    vec![Operand::Copy(Place::local(carried))],
+                    Ty::Prim(PrimTy::I32),
+                    span,
+                );
+                self.guard_rc_negative(rc, span);
+                self.consume(Place::local(carried), &ret)
+            }
+            // backbuffer 借用句柄(RXS-0198):接收者非消费(借用读取);
+            // 句柄 0 → 终止;产 Buffer<C, f32>(drop 不释放,运行时侧 no-op)。
+            Op::PresentBackbuffer => {
+                let h = self.gpu_handle_op(&args[0]);
+                let ret = self.ty_of(e);
+                let dest = self.emit_rt_call("rxp_backbuffer", vec![h], ret.clone(), span);
+                self.guard_handle_zero(dest, span);
+                self.consume(Place::local(dest), &ret)
+            }
+            // pump(RXS-0197):负值 → 终止;非负 rc != 0 → bool(关闭请求)。
+            Op::PresentPump => {
+                let h = self.gpu_handle_op(&args[0]);
+                let rc = self.emit_rt_call("rxp_pump", vec![h], Ty::Prim(PrimTy::I32), span);
+                self.guard_rc_negative(rc, span);
+                let b = self.temp(Ty::Prim(PrimTy::Bool), span);
+                self.assign(
+                    Place::local(b),
+                    Rvalue::BinaryOp(
+                        BinOp::Ne,
+                        Operand::Copy(Place::local(rc)),
+                        Operand::Const(Const::Int(0, PrimTy::I32)),
+                    ),
+                    span,
+                );
+                self.consume(Place::local(b), &Ty::Prim(PrimTy::Bool))
+            }
+            // present 会话构造(RXS-0197):rxp_create(ctx, rw, rh, ww, wh);
+            // 句柄 0 → 终止(RXS-0193)。
+            Op::PresentCreate => {
+                let ret = self.ty_of(e);
+                let h = self.gpu_handle_op(&args[0]);
+                let mut call_args = vec![h];
+                for a in &args[1..] {
+                    call_args.push(self.op_of(a));
+                }
+                let dest = self.emit_rt_call("rxp_create", call_args, ret.clone(), span);
+                self.guard_handle_zero(dest, span);
+                self.consume(Place::local(dest), &ret)
+            }
+            // 宿主图像落盘桥(RXS-0199):指针/元素数自锁页句柄物化(RXS-0191
+            // 同机制);n ≠ w·h·3 失配 / IO 失败由 cabi 确定性拒(负值 → 终止,
+            // RXS-0193);PPM 序列化语义 = RXS-0114~0117(运行时桥接 image-io)。
+            Op::WritePpm => {
+                let path = self.op_of(&args[0]);
+                let w = self.op_of(&args[1]);
+                let h = self.op_of(&args[2]);
+                let hp = self.gpu_handle_op(&args[3]);
+                let p = self.emit_rt_call(
+                    "rxrt_pinned_ptr",
+                    vec![hp.clone()],
+                    Ty::RawPtr(Box::new(Ty::Prim(PrimTy::U8)), true),
+                    span,
+                );
+                let pb =
+                    self.emit_rt_call("rxrt_pinned_len", vec![hp], Ty::Prim(PrimTy::U64), span);
+                let n = self.temp(Ty::Prim(PrimTy::U64), span);
+                self.assign(
+                    Place::local(n),
+                    Rvalue::BinaryOp(
+                        BinOp::Div,
+                        Operand::Copy(Place::local(pb)),
+                        Operand::Const(Const::Int(4, PrimTy::U64)),
+                    ),
+                    span,
+                );
+                let rc = self.emit_rt_call(
+                    "rxio_write_ppm",
+                    vec![
+                        path,
+                        w,
+                        h,
+                        Operand::Copy(Place::local(p)),
+                        Operand::Copy(Place::local(n)),
+                    ],
+                    Ty::Prim(PrimTy::I32),
+                    span,
+                );
+                self.guard_rc_negative(rc, span);
+                Operand::Const(Const::Unit)
+            }
+            Op::Launch => unreachable!("launch 走 GpuLaunch 节点(RXS-0191)"),
+        }
+    }
+
+    /// launch 宿主 lowering(🔒 RXS-0191 marshalling):实参元组物化为栈上
+    /// `[u64; n]` slot(Tuple[u64;n] 布局 = 连续 8 字节槽)+ `[u8; n]` kinds
+    /// (0 = Buffer 句柄,cabi 换设备指针;1 = 标量按位样式存槽低位——f32/i32
+    /// 直接 store 进槽低 4 字节,LE 下 cuLaunchKernel 按形参尺寸读取);kernel
+    /// 符号 = device MIR 同源 `mangle(name, def, &[])`(单一事实源)的 NUL 终止
+    /// 字符串常量。物化纪律复刻 interop.rs `AcquiredFrame::launch`。
+    fn lower_gpu_launch(
+        &mut self,
+        e: &tbir::Expr,
+        stream: &tbir::Expr,
+        kernel: DefId,
+        grid: &[tbir::Expr],
+        block: &[tbir::Expr],
+        args: &[tbir::Expr],
+    ) -> Operand {
+        let span = e.span;
+        let s = self.gpu_handle_op(stream);
+        let entry = mangle(&self.krate.item(kernel).name, kernel, &[]);
+
+        // 维度分量 → u32(缺轴补 1,RXS-0074 维度契约已裁决 grid/block 同维)。
+        let mut dims: Vec<Operand> = Vec::with_capacity(6);
+        for comps in [grid, block] {
+            for i in 0..3 {
+                dims.push(self.gpu_dim_op(comps, i));
+            }
+        }
+
+        // slot/kinds 物化(空实参仍物化 1 槽哨兵,n_args = 0 时 cabi 不读)。
+        let n = args.len();
+        let slot_count = n.max(1);
+        let mut slot_ops: Vec<Operand> = Vec::with_capacity(slot_count);
+        let mut kind_ops: Vec<Operand> = Vec::with_capacity(slot_count);
+        for a in args {
+            let ty = self.ty_of(a);
+            match &ty {
+                Ty::Adt(d, _) if self.res.lang_items.is_buffer(*d) => {
+                    slot_ops.push(self.gpu_handle_op(a));
+                    kind_ops.push(Operand::Const(Const::Int(0, PrimTy::U8)));
+                }
+                _ => {
+                    slot_ops.push(self.op_of(a));
+                    kind_ops.push(Operand::Const(Const::Int(1, PrimTy::U8)));
+                }
+            }
+        }
+        if n == 0 {
+            slot_ops.push(Operand::Const(Const::Int(0, PrimTy::U64)));
+            kind_ops.push(Operand::Const(Const::Int(0, PrimTy::U8)));
+        }
+        let slots_ty = Ty::Tuple(vec![Ty::Prim(PrimTy::U64); slot_count]);
+        let slots = self.temp(slots_ty.clone(), span);
+        self.assign(
+            Place::local(slots),
+            Rvalue::Aggregate(slots_ty.clone(), slot_ops),
+            span,
+        );
+        let kinds_ty = Ty::Tuple(vec![Ty::Prim(PrimTy::U8); slot_count]);
+        let kinds = self.temp(kinds_ty.clone(), span);
+        self.assign(
+            Place::local(kinds),
+            Rvalue::Aggregate(kinds_ty.clone(), kind_ops),
+            span,
+        );
+        // slot/kinds 地址稳定至 rxrt_launch 返回(cuLaunchKernel 调用内拷贝参数)。
+        let slots_ref = self.temp(Ty::Ref(Box::new(slots_ty), false), span);
+        self.assign(
+            Place::local(slots_ref),
+            Rvalue::Ref(BorrowKind::Shared, Place::local(slots)),
+            span,
+        );
+        let kinds_ref = self.temp(Ty::Ref(Box::new(kinds_ty), false), span);
+        self.assign(
+            Place::local(kinds_ref),
+            Rvalue::Ref(BorrowKind::Shared, Place::local(kinds)),
+            span,
+        );
+
+        let mut call_args = vec![s, Operand::Const(Const::Str(entry))];
+        call_args.extend(dims);
+        call_args.push(Operand::Copy(Place::local(slots_ref)));
+        call_args.push(Operand::Copy(Place::local(kinds_ref)));
+        call_args.push(Operand::Const(Const::Int(n as i128, PrimTy::U64)));
+        let rc = self.emit_rt_call("rxrt_launch", call_args, Ty::Prim(PrimTy::I32), span);
+        self.guard_rc_negative(rc, span);
+        Operand::Const(Const::Unit)
+    }
+
+    /// launch 维度分量 → u32 值(缺轴补常量 1)。
+    fn gpu_dim_op(&mut self, comps: &[tbir::Expr], i: usize) -> Operand {
+        match comps.get(i) {
+            Some(c) => {
+                let o = self.op_of(c);
+                let t = self.temp(Ty::Prim(PrimTy::U32), c.span);
+                self.assign(
+                    Place::local(t),
+                    Rvalue::Cast(o, Ty::Prim(PrimTy::U32)),
+                    c.span,
+                );
+                Operand::Copy(Place::local(t))
+            }
+            None => Operand::Const(Const::Int(1, PrimTy::U32)),
+        }
     }
 
     /// struct / 元组结构体 / enum 变体构造(TBIR 已按定义序重排齐全)。
@@ -1539,6 +2499,225 @@ bb1:
         assert_eq!(
             super::unescape("a\\n\\x41\\u{42}"),
             Some("a\nAB".to_owned())
+        );
+    }
+
+    /// 默认路径零漂移(R1.2/R6.7):`build_crate` 产出的每个 `Body` 的图形阶段
+    /// 意图字段恒中立(`stage = None`、`io_sig` 空)——`mir::Body` 扩展不改默认
+    /// (host/PTX)路径 MIR 构造行为(RXS-0161;图形阶段根收集属后续分片)。
+    #[test]
+    fn default_path_bodies_carry_neutral_shader_signature() {
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(
+            "fn pick<T>(a: T, b: T) -> T { a }\n\
+             fn main() {\n    let _i = pick(1i64, 2);\n    let _x = 3 + 4;\n}",
+            SourceId(0),
+            Edition::Rx0,
+            &diag,
+        );
+        cx.check_crate();
+        assert!(diag.emitted().is_empty(), "前置诊断: {:?}", diag.emitted());
+        let mir = cx.mir_crate();
+        assert!(!mir.is_empty(), "应至少收集到 main 实例");
+        for body in mir.iter() {
+            assert_eq!(
+                body.stage, None,
+                "默认路径 body `{}` 不应携着色阶段",
+                body.symbol
+            );
+            assert!(
+                body.io_sig.is_empty(),
+                "默认路径 body `{}` 不应携 I/O 意图签名",
+                body.symbol
+            );
+        }
+    }
+
+    /// `dxil-backend` 下 `build_device_crate` 收 vertex/fragment 图形阶段根,且
+    /// 自 AST `shader_stages` 携 I/O 意图签名进 MIR(RXS-0161,R1.3):图形根
+    /// 进入 device MIR、`stage` 置 `Some(Vertex|Fragment)`、`io_sig` 非空且逐
+    /// 元素四维度(字段名 / builtin·interpolate·varying 种类 / 类型 / in|out
+    /// 方向)保真;资源句柄(`Texture2D`/`Sampler`)非命名 I/O 结构体,不入
+    /// io_sig(opaque handle 形态)。
+    //@ spec: RXS-0161
+    #[cfg(all(feature = "dxil-backend", feature = "shader-stages"))]
+    #[test]
+    fn dxil_backend_collects_graphics_roots_with_io_sig() {
+        use crate::ast::ShaderStage;
+        use crate::hir::PrimTy;
+        use crate::mir::{IoDir, IoSigKind, MirIoType};
+
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(
+            "struct VsOut {\n\
+            \x20   #[builtin(position)] pos: f32,\n\
+            \x20   #[interpolate(perspective)] uv: f32,\n\
+            \x20   #[interpolate(flat)] mat_id: u32,\n\
+             }\n\
+             vertex fn vs_main() -> VsOut {\n\
+            \x20   VsOut { pos: 0.0, uv: 0.0, mat_id: 0 }\n\
+             }\n\
+             fragment fn fs_main(inp: VsOut, tex: Texture2D<f32>, samp: Sampler) -> VsOut {\n\
+            \x20   inp\n\
+             }\n\
+             fn main() {}",
+            SourceId(0),
+            Edition::Rx0,
+            &diag,
+        );
+        let device = cx.device_mir_crate();
+
+        // 图形阶段根入 device MIR(vertex + fragment 各一)。
+        let vs = device
+            .iter()
+            .find(|b| b.stage == Some(ShaderStage::Vertex))
+            .expect("vertex 图形阶段根应进入 device MIR");
+        let fs = device
+            .iter()
+            .find(|b| b.stage == Some(ShaderStage::Fragment))
+            .expect("fragment 图形阶段根应进入 device MIR");
+
+        // vertex:返回 VsOut → 3 个 Out 元素(builtin / interpolate ×2)。
+        assert_eq!(vs.io_sig.len(), 3, "vertex io_sig: {:?}", vs.io_sig);
+        assert!(
+            vs.io_sig.iter().all(|e| e.dir == IoDir::Out),
+            "vertex 返回位置 I/O 应全为 Out 方向"
+        );
+        let pos = &vs.io_sig[0];
+        assert_eq!(pos.field_name, "pos");
+        assert_eq!(pos.kind, IoSigKind::Builtin("position".to_owned()));
+        assert_eq!(pos.ty, MirIoType::Scalar(PrimTy::F32));
+        assert_eq!(
+            vs.io_sig[1].kind,
+            IoSigKind::Interpolate("perspective".to_owned())
+        );
+        assert_eq!(vs.io_sig[2].kind, IoSigKind::Interpolate("flat".to_owned()));
+        assert_eq!(vs.io_sig[2].ty, MirIoType::Scalar(PrimTy::U32));
+
+        // fragment:形参 VsOut(3 个 In)+ 返回 VsOut(3 个 Out);资源句柄不入。
+        assert_eq!(fs.io_sig.len(), 6, "fragment io_sig: {:?}", fs.io_sig);
+        let ins = fs.io_sig.iter().filter(|e| e.dir == IoDir::In).count();
+        let outs = fs.io_sig.iter().filter(|e| e.dir == IoDir::Out).count();
+        assert_eq!((ins, outs), (3, 3), "fragment In/Out 计数");
+        assert!(
+            !fs.io_sig
+                .iter()
+                .any(|e| e.field_name == "tex" || e.field_name == "samp"),
+            "资源句柄不应进入 io_sig"
+        );
+    }
+
+    /// PR-E2b E2b-1 端到端(闭合 assumed-1):着色阶段签名资源句柄形参 →
+    /// `Body.resources` 收集(RXS-0163)→ `emit_spirv` 资源绑定装饰 emit
+    /// (`DescriptorSet`/`Binding` + opaque 资源类型)→ `infer_root_signature` +
+    /// `serialize_rts0` 产 RTS0 容器(RXS-0165)。证明 MIR→SPIR-V 资源绑定不再
+    /// 「结构上不可达」:资源句柄端到端贯通 emit 与 root signature 推导。
+    //@ spec: RXS-0163, RXS-0165
+    #[cfg(all(feature = "dxil-backend", feature = "shader-stages"))]
+    #[test]
+    fn e2b1_resources_flow_into_spirv_and_root_signature() {
+        use crate::ast::ShaderStage;
+        use crate::hir::PrimTy;
+        use crate::mir::{MirResourceType, ResourceClass, ResourceCount};
+
+        // SPIR-V 解码常量(core 规范)。
+        const OP_DECORATE: u16 = 71;
+        const OP_TYPE_IMAGE: u16 = 25;
+        const OP_TYPE_SAMPLER: u16 = 26;
+        const DECORATION_BINDING: u32 = 33;
+        const DECORATION_DESCRIPTOR_SET: u32 = 34;
+
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(
+            "struct FsOut {\n\
+            \x20   color: f32,\n\
+             }\n\
+             fragment fn fs_main(tex: Texture2D<f32>, samp: Sampler) -> FsOut {\n\
+            \x20   FsOut { color: 0.0 }\n\
+             }\n\
+             fn main() {}",
+            SourceId(0),
+            Edition::Rx0,
+            &diag,
+        );
+        assert!(
+            !diag.has_errors(),
+            "资源句柄 fragment 前段应 0 诊断(实得 {:?})",
+            diag.emitted()
+                .iter()
+                .filter_map(|d| d.code)
+                .collect::<Vec<_>>()
+        );
+        let device = cx.device_mir_crate();
+        let fs = device
+            .iter()
+            .find(|b| b.stage == Some(ShaderStage::Fragment))
+            .expect("fragment 图形阶段根应进入 device MIR");
+
+        // 1) 资源句柄形参按声明序进 `Body.resources`(io_sig 与 resources 不交叠)。
+        assert_eq!(fs.resources.len(), 2, "resources: {:?}", fs.resources);
+        assert_eq!(fs.resources[0].name, "tex");
+        assert_eq!(fs.resources[0].res, MirResourceType::Texture2D(PrimTy::F32));
+        assert_eq!(fs.resources[0].res.class(), ResourceClass::Srv);
+        assert_eq!(fs.resources[0].count, ResourceCount::One);
+        assert_eq!(fs.resources[1].name, "samp");
+        assert_eq!(fs.resources[1].res, MirResourceType::Sampler);
+        assert_eq!(fs.resources[1].res.class(), ResourceClass::Sampler);
+
+        // 2) emit_spirv 携资源 → 资源绑定装饰 + opaque 资源类型(闭合 assumed-1)。
+        let spv = crate::dxil_spirv::emit_spirv(ShaderStage::Fragment, &fs.io_sig, &fs.resources)
+            .expect("带资源的 fragment emit 应 Ok");
+        // 手动遍历指令(跳过 5 字 header),统计资源装饰 / opaque 类型。
+        let mut sets = Vec::new();
+        let mut bindings = Vec::new();
+        let mut has_image = false;
+        let mut has_sampler = false;
+        let mut i = 5;
+        while i < spv.len() {
+            let word = spv[i];
+            let wc = (word >> 16) as usize;
+            let op = (word & 0xFFFF) as u16;
+            if wc == 0 || i + wc > spv.len() {
+                break;
+            }
+            let ops = &spv[i + 1..i + wc];
+            match op {
+                OP_DECORATE if ops.get(1) == Some(&DECORATION_DESCRIPTOR_SET) => sets.push(ops[2]),
+                OP_DECORATE if ops.get(1) == Some(&DECORATION_BINDING) => bindings.push(ops[2]),
+                OP_TYPE_IMAGE => has_image = true,
+                OP_TYPE_SAMPLER => has_sampler = true,
+                _ => {}
+            }
+            i += wc;
+        }
+        assert!(has_image, "Texture2D 应 emit OpTypeImage");
+        assert!(has_sampler, "Sampler 应 emit OpTypeSampler");
+        assert_eq!(sets, vec![0, 0], "首期单 set,两资源 DescriptorSet 恒 0");
+        assert_eq!(
+            bindings,
+            vec![0, 0],
+            "Binding 按种类轴 per-class 从 0(tex=SRV t0, samp=Sampler s0;RXS-0164 与 RTS0 同口径)"
+        );
+        // 确定性:同输入二次 emit 字节全等。
+        assert_eq!(
+            spv,
+            crate::dxil_spirv::emit_spirv(ShaderStage::Fragment, &fs.io_sig, &fs.resources)
+                .unwrap()
+        );
+
+        // 3) root signature 形态推导 + RTS0 容器序列化(RXS-0165;确定性)。
+        let rs = crate::binding_layout::infer_root_signature(&fs.resources)
+            .expect("Texture2D/Sampler 应可推导 root signature");
+        let rts0 = crate::binding_layout::serialize_rts0(&rs);
+        assert_eq!(&rts0[0..4], b"DXBC", "RTS0 外层 DXBC 容器 fourcc");
+        assert!(
+            rts0.windows(4).any(|w| w == b"RTS0"),
+            "容器应含 RTS0 part fourcc"
+        );
+        assert_eq!(
+            rts0,
+            crate::binding_layout::serialize_rts0(&rs),
+            "RTS0 序列化应确定性(同输入字节全等)"
         );
     }
 }

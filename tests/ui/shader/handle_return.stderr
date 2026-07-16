@@ -1,0 +1,5 @@
+error[RX3013]: invalid shader resource handle: resource handle `Texture2D` cannot appear in return position (handles are input-only shader stage parameters)
+ --> $DIR/shader/handle_return.rx:2:26
+  |
+2 | fragment fn fs_main() -> Texture2D<f32> { //~ ERROR RX3013
+  |                          ^^^^^^^^^^^^^^ invalid resource handle position

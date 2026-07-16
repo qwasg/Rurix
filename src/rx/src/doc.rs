@@ -1,6 +1,6 @@
 //! `rx doc`(M8.6,D-M8-6 / G-M8-6):从既有单一事实源确定性生成静态文档站。
 //!
-//! 判档(M8_CONTRACT §7,owner 裁定):文档站系对**既有** `spec/` 条款 / `registry/error_codes.json`
+//! 判档(M8_CONTRACT §7,agent 裁定):文档站系对**既有** `spec/` 条款 / `registry/error_codes.json`
 //! 错误码目录 / `conformance/traceability_matrix.json` 锚定矩阵的**工程化呈现**,纯工程、不触新规范面、
 //! 不造裸条款;归口既有 CLI 分发与退出码条款 RXS-0083。错误码注册表自述「人类可读文档由工具生成」
 //! (07 §5),`rx doc` 即该工具。

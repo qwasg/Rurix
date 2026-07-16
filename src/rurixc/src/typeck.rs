@@ -26,6 +26,7 @@ pub const E_BAD_FIELD: ErrorCode = ErrorCode(2002); // RX2002
 pub const E_ARG_COUNT: ErrorCode = ErrorCode(2003); // RX2003
 pub const E_UNKNOWN_METHOD: ErrorCode = ErrorCode(2004); // RX2004
 pub const E_ATOMICS_SCOPE: ErrorCode = ErrorCode(3010); // RX3010(RXS-0080)
+pub const E_SAMPLE_EXPR: ErrorCode = ErrorCode(3014); // RX3014(RXS-0174,RFC-0007)
 pub const E_NOT_CALLABLE: ErrorCode = ErrorCode(2005); // RX2005
 pub const E_BAD_OPERAND: ErrorCode = ErrorCode(2006); // RX2006
 pub const E_BAD_DERIVE_COPY: ErrorCode = ErrorCode(2008); // RX2008
@@ -33,6 +34,8 @@ pub const E_BAD_DROP_IMPL: ErrorCode = ErrorCode(2009); // RX2009
 pub const E_ADDRSPACE_MISMATCH: ErrorCode = ErrorCode(3002); // RX3002(RXS-0067)
 pub const E_DEVICE_MATH_UNSUPPORTED: ErrorCode = ErrorCode(6006); // RX6006(RXS-0081)
 pub const E_DEVICE_CONSTRAINT: ErrorCode = ErrorCode(6005); // RX6005(RXS-0072)
+pub const E_GPU_ELEM_INFER: ErrorCode = ErrorCode(2010); // RX2010(RXS-0190)
+pub const E_GPU_LAUNCH_ARG_SUBSET: ErrorCode = ErrorCode(6024); // RX6024(RXS-0191)
 
 // ---------------------------------------------------------------------------
 // typeck 结果物化(M2.3:MIR lowering 的输入)
@@ -60,6 +63,15 @@ pub struct TypeckResults {
     /// (数学函数, 元素类型 f32/f64);接收者为 `f32`/`f64` 时识别,tbir/MIR/
     /// codegen 消费(下译为 libdevice `__nv_*` 外部符号)。
     pub device_math_calls: HashMap<HirId, (crate::hir::DeviceMathFn, PrimTy)>,
+    /// 纹理采样调用点(G2.4,RXS-0174;RFC-0007):MethodCall 节点 → 采样标记
+    /// (接收者为 `Texture2D<F>` lang item + 方法 `sample` 时识别;tbir/MIR/codegen
+    /// 消费,降为 `Rvalue::ResourceSample` → `OpImageSampleExplicitLod`)。
+    pub sample_calls: std::collections::HashSet<HirId>,
+    /// 宿主 GPU 编排调用点(MS1.2,RXS-0189~0191):Call/MethodCall 节点 → 已知
+    /// 操作(接收者为 std::gpu lang item 句柄时识别;用户同名 impl 优先遮蔽)。
+    /// tbir/mir_build 消费降级为 `rxrt_*` 调用;coloring 消费裁决宿主 API 着色
+    /// 合法性(kernel/device 内出现 → RX3015,RXS-0189)。
+    pub gpu_calls: HashMap<HirId, crate::hir::GpuHostOp>,
 }
 
 // ---------------------------------------------------------------------------
@@ -269,13 +281,8 @@ fn lower_hir_ty_with_cx(
 }
 
 fn parse_const_lit_span(cx: &QueryCtx<'_>, span: Span) -> Option<u64> {
-    let src = cx.src();
-    let lo = span.lo.0 as usize;
-    let hi = span.hi.0 as usize;
-    if lo >= src.len() {
-        return None;
-    }
-    let text = src[lo..hi.min(src.len())].trim().replace('_', "");
+    // 多文件感知切片(RXS-0196):span.file 归属 out-of-line 模块文件时取其源
+    let text = cx.snippet(span)?.trim().replace('_', "");
     text.parse().ok()
 }
 
@@ -295,6 +302,68 @@ pub fn adt_field_tys(krate: &hir::Crate, def: DefId, args: &[Ty]) -> Vec<Ty> {
         .iter()
         .map(|f| lower_hir_ty(&f.ty, &mut sig_infer).subst(args))
         .collect()
+}
+
+/// 宿主 GPU 编排已知方法识别(MS1.2,RXS-0189/0190;`Context::create` 走
+/// check_call、`Stream::launch` 走既有 launch 分支,均不在本表)。
+fn gpu_host_method(
+    li: &crate::resolve::LangItems,
+    d: DefId,
+    method: &str,
+) -> Option<crate::hir::GpuHostOp> {
+    use crate::hir::GpuHostOp as Op;
+    if li.is_context(d) {
+        return match method {
+            "stream" => Some(Op::CtxStream),
+            "alloc" => Some(Op::CtxAlloc),
+            "alloc_pinned" => Some(Op::CtxAllocPinned),
+            "sync" => Some(Op::CtxSync),
+            _ => None,
+        };
+    }
+    if li.is_buffer(d) {
+        return match method {
+            "upload" => Some(Op::BufUpload),
+            "download" => Some(Op::BufDownload),
+            "len" => Some(Op::BufLen),
+            _ => None,
+        };
+    }
+    if li.is_pinned_buffer(d) {
+        return match method {
+            "get" => Some(Op::PinnedGet),
+            "set" => Some(Op::PinnedSet),
+            "len" => Some(Op::PinnedLen),
+            _ => None,
+        };
+    }
+    if li.is_stream(d) && method == "sync" {
+        return Some(Op::StreamSync);
+    }
+    // present 宿主 typestate 面(MS1.2b,RXS-0197/0198):帧状态句柄的编译器已知
+    // 方法集;消费式转移(ready/wait/signal/present)接收者按值 move(mir_build),
+    // 错序 = 编译期 move 违例(RXS-0054,零新码)。
+    if Some(d) == li.present && method == "ready" {
+        return Some(Op::PresentReady);
+    }
+    if Some(d) == li.present_ready && method == "wait" {
+        return Some(Op::PresentWait);
+    }
+    if Some(d) == li.present_acquired {
+        return match method {
+            "backbuffer" => Some(Op::PresentBackbuffer),
+            "signal" => Some(Op::PresentSignal),
+            _ => None,
+        };
+    }
+    if Some(d) == li.present_presentable {
+        return match method {
+            "pump" => Some(Op::PresentPump),
+            "present" => Some(Op::PresentPresent),
+            _ => None,
+        };
+    }
+    None
 }
 
 /// 内建函数签名(M2.3 最小 prelude)。
@@ -505,6 +574,10 @@ pub fn check_body_provider(cx: &QueryCtx<'_>, body_id: BodyId) -> TypeckResults 
         hir::ItemKind::Fn(decl) => decl.color,
         _ => FnColor::Host,
     };
+    let ctx_stage = match &owner.kind {
+        hir::ItemKind::Fn(decl) => decl.stage,
+        _ => None,
+    };
 
     let mut tck = Tck {
         cx,
@@ -515,6 +588,9 @@ pub fn check_body_provider(cx: &QueryCtx<'_>, body_id: BodyId) -> TypeckResults 
         ret_ty: Ty::Err,
         results: TypeckResults::default(),
         ctx_color,
+        ctx_stage,
+        gpu_allocs: Vec::new(),
+        gpu_launch_args: Vec::new(),
     };
 
     // 期望返回类型与参数绑定
@@ -555,6 +631,10 @@ pub fn check_body_provider(cx: &QueryCtx<'_>, body_id: BodyId) -> TypeckResults 
     let found = tck.check_expr(&body.value);
     let ret = tck.ret_ty.clone();
     tck.demand(body.value.span, &ret, &found);
+
+    // 宿主 GPU 编排收尾裁决(MS1.2):元素定型 RX2010(RXS-0190)+ launch 实参
+    // 子集 RX6024(RXS-0191)——body 全部使用点约束收齐后统一定型检查。
+    tck.check_gpu_deferred();
 
     // 物化:全部记录类型经推断引擎 resolve(含数值类默认化),残留推断变量收敛为 Err
     let infcx = tck.infcx;
@@ -611,6 +691,15 @@ struct Tck<'a, 'q> {
     results: TypeckResults,
     /// 当前 body 的上下文着色(RXS-0066/0081;device 数学 intrinsic 门禁)。
     ctx_color: FnColor,
+    /// 当前 body 的着色阶段(RXS-0174;采样表达式阶段可用性门禁,RFC-0007;
+    /// `None` = 普通/非着色阶段函数)。
+    ctx_stage: Option<crate::ast::ShaderStage>,
+    /// 宿主 GPU 缓冲分配点(MS1.2,RXS-0190):`(alloc 调用 span, 元素类型)`;
+    /// body 收尾统一定型检查,不可定型 / 超出首期子集 {f32,i32,u32} → RX2010。
+    gpu_allocs: Vec<(Span, Ty)>,
+    /// launch 实参记录(MS1.2,RXS-0191):`(实参 span, 类型)`;body 收尾统一
+    /// 子集检查,超出 Buffer + {i32,u32,f32,usize} → RX6024。
+    gpu_launch_args: Vec<(Span, Ty)>,
 }
 
 impl Tck<'_, '_> {
@@ -700,6 +789,16 @@ impl Tck<'_, '_> {
             .struct_error(E_DEVICE_CONSTRAINT, "codegen.device_constraint")
             .arg("detail", detail)
             .span_label(span, "device codegen constraint violated")
+            .emit();
+    }
+
+    /// 采样表达式违例(RXS-0174;RFC-0007):非 fragment 阶段 / sampler 实参非
+    /// `Sampler` / 元数不符 → RX3014(strict-only,首期收敛子集外)。
+    fn err_sample_expr(&self, span: Span, detail: &str) {
+        self.diag()
+            .struct_error(E_SAMPLE_EXPR, "shader.sample_expr_invalid")
+            .arg("detail", detail)
+            .span_label(span, "invalid texture sampling expression")
             .emit();
     }
 
@@ -1398,6 +1497,93 @@ impl Tck<'_, '_> {
             }
             return Ty::Adt(*d, Vec::new());
         }
+        // 宿主 GPU 上下文构造(MS1.2,RXS-0189/0190):`Context::create()` 编译器
+        // 已知关联函数——0 实参,产 `Context` 句柄。brand 取单 brand 方案(RFC-0009
+        // §9 Q-Brand 降级路):`Context` 自身即 brand 类型,跨 context 资源误用由
+        // cabi 运行期 ctx-id 校验确定性拦截(RXS-0194);泛型签名 brand 契约
+        // (RX3006,RXS-0074)不受影响。
+        if let hir::ExprKind::Res(Res::Def(d)) = &callee.kind
+            && Some(*d) == self.res.lang_items.context_create
+        {
+            if !args.is_empty() {
+                self.err_arg_count(span, 0, args.len());
+                for a in args {
+                    let _ = self.check_expr(a);
+                }
+            }
+            self.results
+                .gpu_calls
+                .insert(call_id, crate::hir::GpuHostOp::CtxCreate);
+            let ctx_def = self
+                .res
+                .lang_items
+                .context
+                .expect("Context lang item 在 resolve 入口注入");
+            return Ty::Adt(ctx_def, Vec::new());
+        }
+        // present 会话构造(MS1.2b,RXS-0197):`Present::create(&ctx, rw, rh,
+        // ww, wh)` 编译器已知关联函数——首实参 `&Context`(单 brand 方案沿
+        // RXS-0189),四维度实参 u32,产 `Present` 句柄。
+        if let hir::ExprKind::Res(Res::Def(d)) = &callee.kind
+            && Some(*d) == self.res.lang_items.present_create
+        {
+            self.results
+                .gpu_calls
+                .insert(call_id, crate::hir::GpuHostOp::PresentCreate);
+            let ctx_def = self
+                .res
+                .lang_items
+                .context
+                .expect("Context lang item 在 resolve 入口注入");
+            let present_def = self
+                .res
+                .lang_items
+                .present
+                .expect("Present lang item 在 resolve 入口注入");
+            let u32t = Ty::Prim(PrimTy::U32);
+            let expected = [
+                Ty::Ref(Box::new(Ty::Adt(ctx_def, Vec::new())), false),
+                u32t.clone(),
+                u32t.clone(),
+                u32t.clone(),
+                u32t,
+            ];
+            return self.check_args(span, &expected, args, Ty::Adt(present_def, Vec::new()));
+        }
+        // 宿主图像落盘桥(MS1.2b,RXS-0199):`write_ppm(path, w, h, &pinned)`
+        // 编译器已知自由函数;data 形参位为元素类型使用点约束(RXS-0190:
+        // 未定元素在此定型 f32)。
+        if let hir::ExprKind::Res(Res::Def(d)) = &callee.kind
+            && Some(*d) == self.res.lang_items.write_ppm
+        {
+            self.results
+                .gpu_calls
+                .insert(call_id, crate::hir::GpuHostOp::WritePpm);
+            let ctx_def = self
+                .res
+                .lang_items
+                .context
+                .expect("Context lang item 在 resolve 入口注入");
+            let pinned_def = self
+                .res
+                .lang_items
+                .pinned_buffer
+                .expect("PinnedBuffer lang item 在 resolve 入口注入");
+            let u32t = Ty::Prim(PrimTy::U32);
+            let expected = [
+                Ty::Ref(Box::new(Ty::Prim(PrimTy::Str)), false),
+                u32t.clone(),
+                u32t,
+                Ty::Ref(
+                    Box::new(Ty::Adt(
+                        pinned_def,
+                        vec![Ty::Adt(ctx_def, Vec::new()), Ty::Prim(PrimTy::F32)],
+                    )),
+                    false,
+                ),
+            ];
+            return self.check_args(span, &expected, args, Ty::unit());
+        }
         // fn item / 构造器直调(含泛型实例化,RXS-0042/0045)
         if let hir::ExprKind::Res(Res::Def(d)) = &callee.kind {
             let kind = self.res.defs[d.0 as usize].kind;
@@ -1515,6 +1701,23 @@ impl Tck<'_, '_> {
                     Ty::Prim(PrimTy::Usize)
                 }
             }
+            // 宿主 GPU 编排编译器已知签名(MS1.2,RXS-0189/0190):`Context` /
+            // `Buffer` / `PinnedBuffer` / `Stream` 句柄的方法集(先例 ThreadCtx/
+            // Atomic 分支;用户同名 impl 优先遮蔽 = 先查 assoc_items)。launch 类型
+            // 契约维持下方既有分支。
+            Ty::Adt(d, adt_args)
+                if gpu_host_method(&self.res.lang_items, *d, method).is_some()
+                    && self
+                        .res
+                        .assoc_items
+                        .get(d)
+                        .is_none_or(|items| !items.iter().any(|(n, _)| n == method)) =>
+            {
+                let op = gpu_host_method(&self.res.lang_items, *d, method)
+                    .expect("guard 已确保已知 gpu 方法");
+                let adt_args = adt_args.clone();
+                self.check_gpu_method(span, call_id, op, &adt_args, args)
+            }
             // launch 类型契约(M4.3,RXS-0074):`Stream` 接收者的 `launch` 方法
             // 由 launch_check 结构化裁决(着色/维度/参数/brand);typeck 容忍
             // (不报方法未找到),递归核对实参可定型,返回 unit。
@@ -1522,6 +1725,15 @@ impl Tck<'_, '_> {
                 for a in args {
                     let _ = self.check_expr(a);
                 }
+                // 宿主执行语义标记 + 元素推断增强(MS1.2,RXS-0190/0191):launch 为
+                // gpu 宿主 API(kernel/device 内出现 → RX3015,RXS-0189);形态完整时
+                // 把**未定**元素类型的实参与 kernel 形参静默合一(已定型不动——
+                // RX2001 仍由 launch_check 裁决,RXS-0074/0075 零漂移),并记录实参
+                // 供收尾子集检查(RX6024)。
+                self.results
+                    .gpu_calls
+                    .insert(call_id, crate::hir::GpuHostOp::Launch);
+                self.gpu_launch_infer(args);
                 Ty::unit()
             }
             // device block barrier(M5.2,RXS-0079):`block.sync()` 兜底识别为
@@ -1628,6 +1840,43 @@ impl Tck<'_, '_> {
                 self.results.device_math_calls.insert(call_id, (op, elem));
                 Ty::Prim(elem)
             }
+            // 纹理采样 intrinsic(G2.4,RXS-0174;RFC-0007):`Texture2D<F>` 接收者的
+            // `sample(samp, coord)` 方法 → 采样表达式,产 vec4<F>。原生 lang item
+            // 句柄无用户 inherent impl(无遮蔽问题);首期仅 fragment 阶段可采样、
+            // samp 实参须 `Sampler`、恰 2 实参;违例 RX3014(strict-only)。vec4<F>
+            // 非真实类型(承 vec 名约定,结构性 Ty::Err),codegen 层裁决类型/越界。
+            Ty::Adt(d, _) if self.res.lang_items.is_texture2d(*d) && method == "sample" => {
+                let arg_tys: Vec<Ty> = args.iter().map(|a| self.check_expr(a)).collect();
+                // 阶段可用性:首期仅 fragment 可采样(RXS-0174)。
+                if self.ctx_stage != Some(crate::ast::ShaderStage::Fragment) {
+                    self.err_sample_expr(
+                        span,
+                        "texture sampling is only available in `fragment` shader stage \
+                         (RXS-0174; first-phase convergent subset)",
+                    );
+                }
+                // 元数 + sampler 实参类型核对。
+                if arg_tys.len() != 2 {
+                    self.err_sample_expr(
+                        span,
+                        "`sample` expects exactly (sampler, coord) arguments (RXS-0174)",
+                    );
+                } else {
+                    let samp_ty = self.infcx.resolve(&self.autoderef(&arg_tys[0]));
+                    let is_samp =
+                        matches!(&samp_ty, Ty::Adt(sd, _) if self.res.lang_items.is_sampler(*sd));
+                    // coord(arg[1])为 vec2<f32>(结构性 Ty::Err 容忍,codegen 层裁决)。
+                    if !is_samp && !matches!(samp_ty, Ty::Err) {
+                        self.err_sample_expr(
+                            span,
+                            "first argument to `sample` must be a `Sampler` handle (RXS-0174)",
+                        );
+                    }
+                }
+                self.results.sample_calls.insert(call_id);
+                // vec4<F> 非真实类型(承 vec2/vec4 名约定结构性);返回容忍区。
+                Ty::Err
+            }
             Ty::Adt(d, _adt_args) => {
                 let found = self
                     .res
@@ -1730,6 +1979,240 @@ impl Tck<'_, '_> {
                 .span_label(scope_span, "scope exceeds the granted atomic scope")
                 .emit();
         }
+    }
+
+    /// 宿主 GPU 编排已知签名核对与定型(MS1.2,RXS-0190):接收者判定已由调用方
+    /// guard 完成;实参/返回按编译器已知签名经 [`Self::check_args`] 合一(元数不符
+    /// 走既有 RX2003、类型不符走既有 RX2001,不另立新码)。
+    fn check_gpu_method(
+        &mut self,
+        span: Span,
+        call_id: HirId,
+        op: crate::hir::GpuHostOp,
+        adt_args: &[Ty],
+        args: &[hir::Expr],
+    ) -> Ty {
+        use crate::hir::GpuHostOp as Op;
+        self.results.gpu_calls.insert(call_id, op);
+        let ctx_def = self
+            .res
+            .lang_items
+            .context
+            .expect("Context lang item 在 resolve 入口注入");
+        // 单 brand 方案(RFC-0009 §9 Q-Brand):Context 自身即 brand 类型。
+        let brand = Ty::Adt(ctx_def, Vec::new());
+        match op {
+            Op::CtxStream => {
+                let stream = self
+                    .res
+                    .lang_items
+                    .stream
+                    .expect("Stream lang item 在 resolve 入口注入");
+                self.check_args(span, &[], args, Ty::Adt(stream, vec![brand]))
+            }
+            Op::CtxAlloc | Op::CtxAllocPinned => {
+                // 元素类型经使用点推断合一(RXS-0190):此处合成 fresh 变量并登记
+                // 分配点,body 收尾定型检查(不可定型 / 超出子集 → RX2010)。
+                let elem = self.infcx.fresh(None);
+                self.gpu_allocs.push((span, elem.clone()));
+                let container = if matches!(op, Op::CtxAlloc) {
+                    self.res.lang_items.buffer
+                } else {
+                    self.res.lang_items.pinned_buffer
+                }
+                .expect("gpu 缓冲 lang item 在 resolve 入口注入");
+                self.check_args(
+                    span,
+                    &[Ty::Prim(PrimTy::Usize)],
+                    args,
+                    Ty::Adt(container, vec![brand, elem]),
+                )
+            }
+            Op::CtxSync | Op::StreamSync => self.check_args(span, &[], args, Ty::unit()),
+            Op::BufUpload | Op::BufDownload => {
+                // 形参 = `&PinnedBuffer<C, T>` / `&mut PinnedBuffer<C, T>`(brand 与
+                // 元素取接收者实参位,合一即传播推断,RXS-0190)。
+                let pinned = self
+                    .res
+                    .lang_items
+                    .pinned_buffer
+                    .expect("PinnedBuffer lang item 在 resolve 入口注入");
+                let b = adt_args.first().cloned().unwrap_or(brand);
+                let elem = adt_args
+                    .get(1)
+                    .cloned()
+                    .unwrap_or_else(|| self.infcx.fresh(None));
+                let expected = Ty::Ref(
+                    Box::new(Ty::Adt(pinned, vec![b, elem])),
+                    matches!(op, Op::BufDownload),
+                );
+                self.check_args(span, &[expected], args, Ty::unit())
+            }
+            Op::BufLen | Op::PinnedLen => self.check_args(span, &[], args, Ty::Prim(PrimTy::Usize)),
+            Op::PinnedGet => {
+                let elem = adt_args.get(1).cloned().unwrap_or(Ty::Err);
+                self.check_args(span, &[Ty::Prim(PrimTy::Usize)], args, elem)
+            }
+            Op::PinnedSet => {
+                let elem = adt_args.get(1).cloned().unwrap_or(Ty::Err);
+                self.check_args(span, &[Ty::Prim(PrimTy::Usize), elem], args, Ty::unit())
+            }
+            // present 宿主 typestate 转移(MS1.2b,RXS-0197):全部 0 实参;
+            // 消费/借用语义在 mir_build 侧表达(消费式 = 接收者按值 move)。
+            Op::PresentReady | Op::PresentPresent => {
+                let ready = self
+                    .res
+                    .lang_items
+                    .present_ready
+                    .expect("Ready lang item 在 resolve 入口注入");
+                self.check_args(span, &[], args, Ty::Adt(ready, Vec::new()))
+            }
+            Op::PresentWait => {
+                let acquired = self
+                    .res
+                    .lang_items
+                    .present_acquired
+                    .expect("Acquired lang item 在 resolve 入口注入");
+                self.check_args(span, &[], args, Ty::Adt(acquired, Vec::new()))
+            }
+            Op::PresentSignal => {
+                let presentable = self
+                    .res
+                    .lang_items
+                    .present_presentable
+                    .expect("Presentable lang item 在 resolve 入口注入");
+                self.check_args(span, &[], args, Ty::Adt(presentable, Vec::new()))
+            }
+            // backbuffer 借用句柄(RXS-0198):产 `Buffer<C, f32>`(元素定型 f32,
+            // 不经 RXS-0190 推断;单 brand = Context)。
+            Op::PresentBackbuffer => {
+                let buffer = self
+                    .res
+                    .lang_items
+                    .buffer
+                    .expect("Buffer lang item 在 resolve 入口注入");
+                self.check_args(
+                    span,
+                    &[],
+                    args,
+                    Ty::Adt(buffer, vec![brand, Ty::Prim(PrimTy::F32)]),
+                )
+            }
+            Op::PresentPump => self.check_args(span, &[], args, Ty::Prim(PrimTy::Bool)),
+            Op::CtxCreate | Op::Launch | Op::PresentCreate | Op::WritePpm => {
+                unreachable!(
+                    "CtxCreate/PresentCreate/WritePpm 走 check_call;launch 走既有 launch 分支"
+                )
+            }
+        }
+    }
+
+    /// launch 元素推断增强 + 实参记录(MS1.2,RXS-0190/0191)。仅形态完整
+    /// (kernel 引用 + 4 实参 + 元组)时生效:Buffer 实参**未定**元素与 kernel
+    /// `View`/`ViewMut` 形参元素静默合一、未定数值类标量与标量形参静默合一
+    /// (合一失败不发诊断——类型契约裁决权在 launch_check,RXS-0074/0075
+    /// 零漂移);全部元组实参登记供收尾子集检查(RX6024)。
+    fn gpu_launch_infer(&mut self, args: &[hir::Expr]) {
+        if args.len() != 4 {
+            return;
+        }
+        let hir::ExprKind::Tuple(elems) = &args[3].kind else {
+            return;
+        };
+        for el in elems {
+            if let Some(t) = self.results.expr_ty.get(&el.hir_id) {
+                self.gpu_launch_args.push((el.span, t.clone()));
+            }
+        }
+        let hir::ExprKind::Res(Res::Def(k)) = &args[0].kind else {
+            return;
+        };
+        let is_kernel = matches!(&self.krate.item(*k).kind,
+            hir::ItemKind::Fn(decl) if decl.color == FnColor::Kernel);
+        if !is_kernel {
+            return;
+        }
+        let sig = self.cx.fn_sig(*k);
+        // kernel 形参剔除 `ThreadCtx` 句柄形参(RXS-0074 参数契约同口径)。
+        let params: Vec<Ty> = sig
+            .inputs
+            .iter()
+            .filter(|t| !matches!(t, Ty::Adt(d, _) if self.res.lang_items.is_thread_ctx(*d)))
+            .cloned()
+            .collect();
+        for (param, el) in params.iter().zip(elems.iter()) {
+            let Some(arg_ty) = self.results.expr_ty.get(&el.hir_id).cloned() else {
+                continue;
+            };
+            let shallow = self.infcx.shallow(&arg_ty);
+            match (param, &shallow) {
+                (Ty::Adt(pd, pargs), Ty::Adt(ad, aargs))
+                    if self.res.lang_items.view_mutable(*pd).is_some()
+                        && self.res.lang_items.is_buffer(*ad) =>
+                {
+                    if let (Some(pe), Some(ae)) = (pargs.get(1), aargs.get(1))
+                        && matches!(self.infcx.shallow(ae), Ty::Infer(_))
+                    {
+                        let _ = self.infcx.unify(ae, pe);
+                    }
+                }
+                (Ty::Prim(_), Ty::Infer(_)) => {
+                    let _ = self.infcx.unify(&arg_ty, param);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    /// 宿主 GPU 收尾裁决(MS1.2;body 全部使用点约束收齐后统一定型):
+    /// - RX2010(RXS-0190):缓冲元素不可定型 / 定型超出首期子集 {f32,i32,u32};
+    /// - RX6024(RXS-0191):launch 实参超出 Buffer + {i32,u32,f32,usize} 子集。
+    ///
+    /// Err 容忍不级联(RXS-0075 同口径);诊断 span 指向 alloc 调用点 / 违例实参。
+    fn check_gpu_deferred(&mut self) {
+        let allocs = std::mem::take(&mut self.gpu_allocs);
+        for (span, elem) in allocs {
+            let r = self.infcx.resolve(&elem);
+            match &r {
+                Ty::Prim(PrimTy::F32 | PrimTy::I32 | PrimTy::U32) => {}
+                Ty::Err => {} // 容忍区不级联
+                Ty::Infer(_) => {
+                    self.err_gpu_elem_infer(span, "no use site constrains the element type");
+                }
+                other => {
+                    let rendered = other.render(&self.res);
+                    self.err_gpu_elem_infer(span, &format!("element type resolves to {rendered}"));
+                }
+            }
+        }
+        let launch_args = std::mem::take(&mut self.gpu_launch_args);
+        for (span, ty) in launch_args {
+            let r = self.infcx.resolve(&ty);
+            match &r {
+                Ty::Prim(PrimTy::F32 | PrimTy::I32 | PrimTy::U32 | PrimTy::Usize) => {}
+                Ty::Adt(d, _) if self.res.lang_items.is_buffer(*d) => {}
+                Ty::Err | Ty::Infer(_) => {} // 容忍区/未定不级联(定型违例另有归位)
+                _ => self.err_gpu_launch_arg(span, &r),
+            }
+        }
+    }
+
+    /// RX2010(RXS-0190):宿主 GPU 缓冲元素不可定型 / 超出首期子集。
+    fn err_gpu_elem_infer(&self, span: Span, detail: &str) {
+        self.diag()
+            .struct_error(E_GPU_ELEM_INFER, "gpu.elem_infer")
+            .arg("detail", detail)
+            .span_label(span, "cannot type this GPU buffer element")
+            .emit();
+    }
+
+    /// RX6024(RXS-0191):launch 实参超出首期 marshalling 子集。
+    fn err_gpu_launch_arg(&self, span: Span, ty: &Ty) {
+        self.diag()
+            .struct_error(E_GPU_LAUNCH_ARG_SUBSET, "gpu.launch_arg_subset")
+            .arg("ty", ty.render(&self.res))
+            .span_label(span, "launch argument outside the first-phase subset")
+            .emit();
     }
 
     fn check_struct_lit(

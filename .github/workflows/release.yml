@@ -8,7 +8,9 @@ name: release
 on:
   push:
     tags:
-      - "v*"
+      # 收窄为 semver 发行 tag(V1.3,契约 §7 ⑪):防 milestone tag(如 v1-closed)
+      # 误触发 release workflow——历史 m*/g*-closed tag 均无 v 前缀,v1-closed 首撞。
+      - "v[0-9]+.[0-9]+.[0-9]+*"
   workflow_dispatch:        # 手动触发(发布演练 / 真实红绿验证)
 
 concurrency:
@@ -46,7 +48,12 @@ jobs:
         shell: powershell
         run: py -3 ci/trace_matrix.py --check
 
-      - name: NVIDIA redistribution whitelist audit (M5.4 / M8.4, r6)
+      # G1.5(RXS-0150)起延续覆盖 cubin/fatbin 真分发产物:cubin/fatbin = Rurix 自编语言本体
+      # (由 Rurix 自研 PTX 经 ptxas 预编,非 NvidiaRedist),断言无 __nv_* libdevice 派生符号残留 +
+      # 嵌入 cubin/fatbin 为 env!("OUT_DIR") 构建产物(禁打包 NVIDIA 源 cubin/Toolkit)+ 仓库不提交
+      # cubin/fatbin 二进制(r6,完整 Toolkit/驱动/Nsight 永不捆绑)。fatbin 产物经既有 rurixup 发布链路
+      # 作 LanguageCore 组件进 SBOM + content-tree 完整性(RXS-0135~0139 语义 0-byte,泛型吸收)。
+      - name: NVIDIA redistribution whitelist audit (M5.4 / M8.4 / G1.5 cubin·fatbin, r6)
         shell: powershell
         run: py -3 ci/check_redistribution.py
 
@@ -76,12 +83,24 @@ jobs:
         shell: powershell
         run: py -3 ci/release_pipeline_smoke.py
 
+      # stable channel 清单冒烟(V1/MR-0008,RXS-0185~0186,步骤 50 同款):green +
+      # 确定性 + 漂移注入红(第 8 子门 channel-manifest)+ 未知 channel 红 + 复原绿。
+      - name: stable channel manifest smoke (V1 CI_GATES §2.50, G-V1-3, MR-0008)
+        shell: powershell
+        run: py -3 ci/channel_manifest_smoke.py
+
+      # rurixup 工具链前端冒烟(MR-0009,RXS-0187~0188):install 消费 stable channel →
+      # 注册/list/default + 幂等 + 篡改 bundle 红 + 未注册版号红 + 复原绿。纯 host。
+      - name: rurixup toolchain frontend smoke (MR-0009, RXS-0187~0188)
+        shell: powershell
+        run: py -3 ci/toolchain_frontend_smoke.py
+
       # 计数核对:m8.counter.release_artifacts_signed >=1(发布链路签名产物)。
       - name: budget eval release counter (strict)
         shell: powershell
         run: py -3 ci/budget_eval.py --strict --allow-pending m8.counter.bilingual_diagnostic_coverage
 
-      # 全门绿后方上传发布产物 + SBOM + 签名清单(发布门 allow_upload=true 的兑现)。
+      # 全门绿后方上传发布产物 + SBOM + 签名 / channel 清单(发布门 allow_upload=true 的兑现)。
       - name: upload release artifacts (全门绿后)
         uses: actions/upload-artifact@v4
         with:
@@ -92,4 +111,6 @@ jobs:
             target/rurixup_release_smoke/green/sbom.cdx.json
             target/rurixup_release_smoke/green/signing_manifest.json
             target/rurixup_release_smoke/green/bundle.json
+            target/rurixup_release_smoke/green/channel_manifest.json
+            target/rurixup_release_smoke/green/gate_decision.json
           if-no-files-found: error

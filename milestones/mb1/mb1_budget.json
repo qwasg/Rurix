@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "namespace": "mb1",
+  "description": "MB1 预算(14 §3:entries + ratio_assertions + counter_assertions,命名空间强制前缀)。MB1 开工脚手架:entries/ratio_assertions/counter_assertions 全部留空(延续 G2 spec-first 脚手架先例 + MVP 零占位纪律,14 §3)。entries/ratio_assertions 留空 = 不预欠 estimated 占位。counter_assertions 留空 = 首子里程碑 MB1.1(SPIR-V codegen 条款先行)为 spec-first,验收走既有全局 m1.counter.spec_clause_test_anchoring 断言(RXS 条款 ≥1 测试锚定),codegen 面无 device 证据 counter;且全 in_scope 实体 Full-RFC-gated(RFC-0011,Draft,gated on 红线 3 解除),deliverable 形态未定,预造 counter 即预设 Full RFC 应定义的语义,违脚手架不预造 counter 纪律。device 证据 counter(mb1.counter.*,如 vulkan compute NVIDIA+lavapipe 双 ICD 真跑证据数 / graphics present 真跑证据数)随 MB1.2/MB1.3 实现 PR 落地 + 配套 ci/budget_eval.py evaluator 分支(条款先于实现,对齐 MS1.2 host_orch counter 先例)。**两道硬件尾门(AMD 真卡 / Android 真机)不设 counter——缺硬件,evidence pending-hardware,不预造以免伪造达成假象。** 性能门(若有)mb1.bench.*/mb1.ratio.* 随各 MB1.x 实测 measured_local 回填(RFC-0011 §9 Q-Perf 拟不立性能门,首期 correctness)。占位规则:evidence=estimated 时 evaluator skip 并输出 skip_reason;占位存活 ≤2 个里程碑。预算自动发现 glob 已泛化为 *_budget.json,mb1_budget.json 自动纳入,零新 CI 码。",
+  "source_docs": [
+    "14 §3",
+    "11 §5",
+    "milestones/mb1/MB1_CONTRACT.md",
+    "milestones/mb1/CI_GATES.md",
+    "milestones/m0/BENCH_PROTOCOL.md",
+    "rfcs/0011-vulkan-spirv-backend.md"
+  ],
+  "entries": [],
+  "ratio_assertions": [],
+  "counter_assertions": [],
+  "namespace_check": {
+    "rule": "本文件所有 id 必须以 'mb1.' 前缀开头;多预算合并加载时冲突即 FAIL(14 §3)。预算自动发现 glob 为 *_budget.json(ci/check_schemas.py / budget_eval.py / check_guardrails.py / tests/test_budget_namespace.py 同一 glob),mb1 自动纳入无新 CI 码。",
+    "unit_test_required": true
+  },
+  "revision_log": [
+    {
+      "version": "v1.0",
+      "date": "2026-07-15",
+      "change": "初版模板(MB1 开工脚手架,gated on 红线 3 解除 + RFC-0011 批准):entries/ratio_assertions/counter_assertions 全部留空。entries/ratio_assertions 留空(不预欠 estimated 占位);counter_assertions 留空(首子里程碑 MB1.1 SPIR-V codegen 为 spec-first,验收走既有全局 m1.counter.spec_clause_test_anchoring;全 in_scope 实体 Full-RFC-gated,不预造 counter;两道硬件尾门缺硬件不预造 counter 以免伪造达成)。mb1.counter.* / mb1.bench.* / mb1.ratio.* 随各 MB1.x 实现/实测回填 + 配套 ci/budget_eval.py evaluator 分支(条款先于实现)。预算 glob *_budget.json 自动纳入 mb1,无新 CI 代码改动。"
+    }
+  ]
+}

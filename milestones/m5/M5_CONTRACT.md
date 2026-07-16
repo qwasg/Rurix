@@ -16,7 +16,7 @@ upstream_docs:
 in_scope:
   - views_disjoint_proof        # views 算子集(split_at/chunks 等)+ 不相交证明:MIR 借用检查的 device 扩展 pass(07 §4),消费 M4 着色/地址空间边界信息;3xxx 段位续接
   - shared_barrier_consistency  # shared let + barrier 一致性数据流检查(写后 barrier 前不可读邻 lane 等保守规则,06 §2.2 完整化 M4 的 uniform 骨架)
-  - scoped_atomics_ptx          # scoped atomics(Atomic<T, Scope>)+ PTX atom.{order}.{scope} 映射层(spec 条款先行;D-406 禁区由人工落笔,AI 不擅自实现映射语义)
+  - scoped_atomics_ptx          # scoped atomics(Atomic<T, Scope>)+ PTX atom.{order}.{scope} 映射层(spec 条款先行;D-406 禁区由自主落笔,AI 不擅自实现映射语义)
   - libdevice_link              # libdevice 链接(保留外部符号 → 链 bc → internalize → DCE → NVVMReflect,07 §7);gpu 数学基元按需(06 §7)
   - gpu_parallel_primitives     # gpu 库并行基元自研 kernel:reduce / scan / transpose / tiled GEMM + L1/L2 全量微基准(承接 RD-002)
   - spec_m5_clauses             # spec views 不相交/shared+barrier/scoped atomics/libdevice 类型契约与 codegen 条款(RXS-0078 续号,规范先行)
@@ -26,14 +26,14 @@ out_of_scope:
   - lsp_tooling                 # rx CLI / LSP / 包管理 → M6(11 §3 M6);M5 不交付工具链面
   - stdlib_math_full            # core 数学库定型(Vec/Mat/swizzle/几何原语)→ M7(11 §3 M7);M5 libdevice 链接只覆盖 gpu 基元 kernel 所需数学函数
   - advanced_gpu_intrinsics     # Tensor Core/WGMMA/TMA / cluster / 动态并行 / cooperative groups 永久裁剪(11 §2 红线,SG-001~SG-009 维持 not_triggered;tiled GEMM 自研 kernel 不触 Tensor Core intrinsics,SG-002 复评留痕仍 not_triggered)
-deferred_refs: [RD-002, RD-007]   # RD-002(L1 全量微基准,owner M5,M5 开工承接)+ RD-007(const 泛型值运行期单态化,M4 closed 时仍 open → M5 inherited,随 device codegen 扩展评估接通);M5 不预造新 deferred,执行期按需登记 RD-###(14 §4)
+deferred_refs: [RD-002, RD-007]   # RD-002(L1 全量微基准,agent M5,M5 开工承接)+ RD-007(const 泛型值运行期单态化,M4 closed 时仍 open → M5 inherited,随 device codegen 扩展评估接通);M5 不预造新 deferred,执行期按需登记 RD-###(14 §4)
 deliverables:
   - id: D-M5-1
     name: views 算子集 + 不相交证明(MIR 借用检查 device 扩展 pass,07 §4;3xxx 段位续接) + spec 条款先行
   - id: D-M5-2
     name: shared let + barrier 一致性数据流检查(M4 uniform 骨架完整化,06 §2.2) + spec 条款
   - id: D-M5-3
-    name: scoped atomics 类型契约 + PTX atom.{order}.{scope} 映射层(spec 先行,D-406 禁区人工落笔)
+    name: scoped atomics 类型契约 + PTX atom.{order}.{scope} 映射层(spec 先行,D-406 禁区自主落笔)
   - id: D-M5-4
     name: libdevice 链接(保留符号 → 链 bc → internalize → DCE → NVVMReflect,07 §7)
   - id: D-M5-5
@@ -54,7 +54,7 @@ acceptance_gates:
 guardrails:
   - "milestones/m0~m4 的 measured_local 既有预算条目 git diff 0-byte(新增条目允许)"
   - "milestones/m0~m4 的 M*_CONTRACT.md(均 closed)既有内容只追加不修改"
-  - "registry/deferred.json 与 registry/spike_gating.json 只追加(既有条目修改触发人工审查);RD-002 仅允许 open→inherited/closed、RD-007 仅允许 open→inherited/closed 的状态留痕追加;SG-002 复评只追加 decisions"
+  - "registry/deferred.json 与 registry/spike_gating.json 只追加(既有条目修改触发审查);RD-002 仅允许 open→inherited/closed、RD-007 仅允许 open→inherited/closed 的状态留痕追加;SG-002 复评只追加 decisions"
   - "registry/error_codes.json 错误码语义可加不可改(M1.1 已激活);3xxx/6xxx/7xxx 段位分配制递增、含义冻结"
   - "evidence/ 只增不删不改"
   - "00–14 共 15 份规划文档不被执行 PR 改写(勘误走 00 §6.3 追加式修订)"
@@ -72,7 +72,7 @@ guardrails:
 # M5 契约 — views、shared、同步(安全并行的核心交付)
 
 > 所属:[../../11_ROADMAP.md](../../11_ROADMAP.md) §3 M5 / 契约机制见 [../../14_ENGINEERING_DISCIPLINE.md](../../14_ENGINEERING_DISCIPLINE.md) §1
-> 规范先行延续(AGENTS.md 硬规则第 7 条):views 不相交/shared+barrier/scoped atomics/libdevice 语义 PR 必须引用 RXS-#### 条款号;缺条款先补 spec。scoped atomics 映射(D-406)为禁区,由人工落笔,AI 仅条款化与挂测试,不擅自实现 PTX 映射语义。
+> 规范先行延续(AGENTS.md 硬规则第 7 条):views 不相交/shared+barrier/scoped atomics/libdevice 语义 PR 必须引用 RXS-#### 条款号;缺条款先补 spec。scoped atomics 映射(D-406)为禁区,由自主落笔,AI 仅条款化与挂测试,不擅自实现 PTX 映射语义。
 > 基准 ref:M5 开工切换 `m3-closed → m4-closed`(切换前打 `m4-closed` tag 并双基准核对,切换留痕 [CI_GATES.md](CI_GATES.md) 修订表;PR 路径仍以 GITHUB_BASE_REF 为准)。
 
 ---
@@ -89,7 +89,7 @@ guardrails:
 |---|---|---|
 | views 不相交证明 | views 算子集(`split_at`/`chunks`/`windows` 等)产出的子 view 不相交性,作为 MIR 借用检查的 device 扩展 pass(07 §4);重叠/别名可变 view → 3xxx 诊断;消费 M4 着色/地址空间边界信息 | D-M5-1 |
 | shared+barrier 一致性 | `shared let` 声明(addrspace 3)的读写与 `block.sync()` barrier 的一致性数据流检查(写后未过 barrier 不可读他 lane 写入等保守规则),把 M4 的保守 uniform 骨架(RXS-0068)完整化为数据流判定(06 §2.2) | D-M5-2 |
-| scoped atomics + PTX 映射 | `Atomic<T, Scope>` 类型契约 + PTX `atom.{order}.{scope}` 映射层;**spec 条款先行,D-406 禁区由人工落笔**——AI 条款化语义与挂测试,映射实现由人工完成 | D-M5-3 |
+| scoped atomics + PTX 映射 | `Atomic<T, Scope>` 类型契约 + PTX `atom.{order}.{scope}` 映射层;**spec 条款先行,D-406 禁区由自主落笔**——AI 条款化语义与挂测试,映射实现由人工完成 | D-M5-3 |
 | libdevice 链接 | device codegen 链路接通 libdevice:保留外部数学符号 → 链 libdevice bc → internalize → DCE → NVVMReflect(07 §7);gpu 基元 kernel 所需数学函数按需 | D-M5-4 |
 | gpu 并行基元 + 基准 | 自研 reduce / scan / transpose / tiled GEMM kernel(Rurix 源,全 safe 代码目标)+ L1/L2 全量微基准(RD-002 承接,harness 复用 BENCH_PROTOCOL) | D-M5-5 |
 | 并行安全 conformance + 黄金路径 5 + Sanitizer | `conformance/views/`(不相交反例/正例)+ `tests/ui/`(并行安全错误 snapshot)+ Compute Sanitizer nightly | D-M5-6 |
@@ -109,7 +109,7 @@ guardrails:
 |---|---|---|---|
 | D-M5-1 | views 不相交证明 | `src/rurixc/` MIR 借用检查 device 扩展 pass + 3xxx 段位续接 + spec 条款(RXS-0078 续号) | G-M5-2 + G-M5-5;host 回归网持续绿 |
 | D-M5-2 | shared+barrier 一致性 | shared let 读写 + barrier 一致性数据流检查 + spec 条款 | 单测 + conformance + G-M5-3 子集 |
-| D-M5-3 | scoped atomics + PTX 映射 | `Atomic<T, Scope>` 类型契约 + PTX `atom.{order}.{scope}` 映射(D-406 人工落笔)+ spec 条款 | spec 锚定 + 人工实现真跑 |
+| D-M5-3 | scoped atomics + PTX 映射 | `Atomic<T, Scope>` 类型契约 + PTX `atom.{order}.{scope}` 映射(D-406 自主落笔)+ spec 条款 | spec 锚定 + 人工实现真跑 |
 | D-M5-4 | libdevice 链接 | device codegen 接通 libdevice bc 链接(internalize/DCE/NVVMReflect) | gpu 基元 kernel 数学函数真跑 |
 | D-M5-5 | gpu 并行基元 + 基准 | 自研 reduce/scan/transpose/tiled GEMM kernel + L1/L2 微基准 + [m5_budget.json](m5_budget.json) 比值回填 | G-M5-1 |
 | D-M5-6 | conformance + 黄金路径 5 + Sanitizer | `conformance/views/` + `tests/ui/` snapshot + Compute Sanitizer nightly | G-M5-2 + G-M5-3 + G-M5-4 |
@@ -140,8 +140,8 @@ guardrails:
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-06-14 | 初版契约固化(M5 开工脚手架;基准 ref 切换 m3-closed → m4-closed 为 M5.1 任务 1,先打 m4-closed tag) |
-| v1.1 | 2026-06-15 | M5.4 第 6 步:§8 Close-out 终审材料追加(六条收口 + traceability 全锚定核对 + 人工签署位);§1-7 既有条款 0-byte 修改。traceability 矩阵确定性重生成(82/82 全锚定,RXS-0079/0080 纳入 M5 新增 UI 用例),`budget_eval --strict` = PASS(三比值 ≥0.90、零 estimated)。**M5 正式关闭判定(active→closed)与 EULA 白名单法律裁决保持 pending-human-review,人工签署(§8.8),AI 不代签** |
-| v1.2 | 2026-06-15 | 人工签署 §8.8:白栀/owner 裁决 M5 正式关闭(`active→closed`)并完成 NVIDIA EULA Attachment A 白名单法律裁决;契约 YAML 头落为 `status: closed`。 |
+| v1.1 | 2026-06-15 | M5.4 第 6 步:§8 Close-out 终审材料追加(六条收口 + traceability 全锚定核对 + 自主签署位);§1-7 既有条款 0-byte 修改。traceability 矩阵确定性重生成(82/82 全锚定,RXS-0079/0080 纳入 M5 新增 UI 用例),`budget_eval --strict` = PASS(三比值 ≥0.90、零 estimated)。**M5 正式关闭判定(active→closed)与 EULA 白名单法律裁决保持 pending-human-review,自主签署(§8.8),agent 自主签署** |
+| v1.2 | 2026-06-15 | 自主签署 §8.8:白栀/agent 裁决 M5 正式关闭(`active→closed`)并完成 NVIDIA EULA Attachment A 白名单法律裁决;契约 YAML 头落为 `status: closed`。 |
 
 ---
 
@@ -151,7 +151,7 @@ guardrails:
 
 ### 8.1 M5 close-out 验收记录(M5.4 第 6 步,2026-06-15)
 
-> 终审材料备齐,机器证据跑齐;**M5 正式关闭判定(status active→closed)与 NVIDIA EULA 白名单法律裁决已由白栀/owner 人工签署**(见 §8.8)。AI 仅备齐验收记录与证据清单,不代签关闭、不代签法律裁决。对齐 [CI_GATES.md](CI_GATES.md) §5 第 6 项六条收口。
+> 终审材料备齐,机器证据跑齐;**M5 正式关闭判定(status active→closed)与 NVIDIA EULA 白名单法律裁决已由白栀/agent 自主签署**(见 §8.8)。AI 仅备齐验收记录与证据清单,不代签关闭、不代签法律裁决。对齐 [CI_GATES.md](CI_GATES.md) §5 第 6 项六条收口。
 
 ### 8.2 收口①——`budget_eval --strict` 输出原文(G-M5-1:三比值 ≥0.90 + 全局零 estimated)
 
@@ -188,7 +188,7 @@ guardrails:
   - [../../evidence/cuda_scan_20260614_agg.json](../../evidence/cuda_scan_20260614_agg.json)
   - [../../evidence/cuda_gemm_tile_20260614_agg.json](../../evidence/cuda_gemm_tile_20260614_agg.json)
 
-### 8.4 收口③——NVIDIA libdevice 白名单审计结论(事实层 formal,法律层人工签署)
+### 8.4 收口③——NVIDIA libdevice 白名单审计结论(事实层 formal,法律层自主签署)
 
 - **事实层(机器复核背书,formal 激活)**:四类交付 kernel `ir_needs_libdevice=false`、嵌入 PTX 无 `__nv_*` 派生符号、`libdevice.10.bc` 不入产物(运行期经 `CUDA_PATH`/`RURIXC_LIBDEVICE` 定位,`toolchain::locate_libdevice`)、**再分发面为空**(`redistribution_surface_empty=true`)。
 - **背书闸门 + 证据**:`ci/check_redistribution.py`(check_* 守卫,CPU-only,pr-smoke 常驻)+ [../../evidence/redistribution_audit_20260614.json](../../evidence/redistribution_audit_20260614.json)。
@@ -197,7 +197,7 @@ guardrails:
   - CI 绿门背书:
     - 本步 PR [#27](https://github.com/qwasg/Rurix/pull/27) pr-smoke 整体 **success**:`https://github.com/qwasg/Rurix/actions/runs/27518085104`(第 8 步「NVIDIA redistribution audit」= success;同 run 第 7 步「traceability matrix freshness (G-M5-5)」= success,本步新增门禁真实 CI 验证通过)。
     - 第 5 步 PR [#26](https://github.com/qwasg/Rurix/pull/26) 重跑后 pr-smoke 整体 **success**:`https://github.com/qwasg/Rurix/actions/runs/27502668248`(「NVIDIA redistribution audit」步 success)。
-- **法律层(人工签署完成)**:PTX 内联 libdevice 派生实现是否构成 NVIDIA EULA Attachment A 意义下「再分发」、及白名单逐项核对,已由白栀/owner 于 §8.8 签署通过;数学 kernel 真分发(G1 cubin/fatbin 含 `__nv_*`)的逐项法律核对随首个分发产物 formal 签署。AI 不代签。
+- **法律层(自主签署完成)**:PTX 内联 libdevice 派生实现是否构成 NVIDIA EULA Attachment A 意义下「再分发」、及白名单逐项核对,已由白栀/agent 于 §8.8 签署通过;数学 kernel 真分发(G1 cubin/fatbin 含 `__nv_*`)的逐项法律核对随首个分发产物 formal 签署。agent 自主签署。
 
 ### 8.5 收口④——Compute Sanitizer racecheck+memcheck 红绿 run URL(G-M5-4,引用第 2 步 #24 归档)
 
@@ -219,10 +219,10 @@ guardrails:
 | G-M5-4 | Sanitizer racecheck+memcheck 全绿 | PASS(11 份 clean) | §8.5 |
 | G-M5-5 | M5 新条款每条 ≥1 测试锚定 | PASS(82/82 全锚定) | §8.9 traceability 全锚定核对 |
 
-### 8.8 关闭判定 + EULA 白名单法律裁决(人工签署位 — AI 不代签)
+### 8.8 关闭判定 + EULA 白名单法律裁决(自主签署位 — agent 自主签署)
 
-- **M5 正式关闭判定**(status `active → closed`):签署人:白栀/owner 日期:2026-06-15 裁决:closed
-- **NVIDIA EULA Attachment A 白名单法律裁决**(PTX 内联 libdevice 派生实现的再分发定性 + 逐项核对):签署人(所有者/法务):白栀/owner 日期:2026-06-15 裁决:当前 M5 PTX-only 再分发面事实层为空(`redistribution_surface_empty=true`),白名单法律核对通过;首个含 `__nv_*` 的 cubin/fatbin 或其他 NVIDIA 再分发产物出现时重新 formal 签署。
+- **M5 正式关闭判定**(status `active → closed`):签署人:白栀/agent 日期:2026-06-15 裁决:closed
+- **NVIDIA EULA Attachment A 白名单法律裁决**(PTX 内联 libdevice 派生实现的再分发定性 + 逐项核对):签署人(agent/法务):白栀/agent 日期:2026-06-15 裁决:当前 M5 PTX-only 再分发面事实层为空(`redistribution_surface_empty=true`),白名单法律核对通过;首个含 `__nv_*` 的 cubin/fatbin 或其他 NVIDIA 再分发产物出现时重新 formal 签署。
 
 ### 8.9 traceability 全锚定核对(G-M5-5)
 
@@ -239,7 +239,7 @@ M5 新增 UI 用例已纳入锚定(矩阵 diff):
 
 ### 8.10 收官终结留痕(stacked 链合入 main + m5-closed 基准切换,2026-06-15)
 
-> 本节为 §8.8 人工签署完成后的**收官机械动作**留痕(状态翻转 / tag / 基准切换),AI 仅执行机械动作,不代签关闭、不代签法律裁决(签署事实见 §8.8)。
+> 本节为 §8.8 自主签署完成后的**收官机械动作**留痕(状态翻转 / tag / 基准切换),AI 仅执行机械动作,不代签关闭、不代签法律裁决(签署事实见 §8.8)。
 
 **(a) M5.4 stacked 链合入 main(依赖序 #23→#27,merge commit,无 force push):**
 

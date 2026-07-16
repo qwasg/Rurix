@@ -10,5 +10,41 @@ license.workspace = true
 # M1.1 起消息表为自有行格式;M6.4 RD-004 接通 rowan 式无损语法树(07 §9)
 rowan = "0.15.1"
 
+[features]
+# G2.1 着色阶段类型面(RFC-0002 §6;RXS-0153~0156)。默认启用以使标准
+# `cargo build/test -p rurixc` 覆盖着色阶段前端;`--no-default-features` 时着色阶段
+# 语法/类型面不参与编译(parser 不识别 `<stage> fn` 前缀关键字,着色阶段检查与
+# 错误码 RX3011~3013 不可达)。
+default = ["shader-stages"]
+shader-stages = []
+
+# G2.2 DXIL 第二后端(RFC-0003 §6 / §9 Q-Gate;RXS-0157)。默认**不**启用——
+# DXIL 后端为 MIR 之后的第二 codegen 路径,gate 后不参与编译,PTX 路径(D-207)
+# 不受影响(RFC-0003 §4.5)。`cargo build/test -p rurixc --features dxil-backend`
+# 启用 `--target dxil` 分发与 dxil_codegen 模块;patched llc 经 RURIX_LLC dev env
+# 定位(受控临时偏差,RD-011),不写死 / 不改 committed D-205 pin。
+dxil-backend = []
+
+# mb1 Vulkan/SPIR-V 跨端第三后端(RFC-0011 §6;RXS-0200~）。默认**不**启用——Vulkan
+# 后端为 MIR 之后的第三 codegen 路径(与 NVPTX/DXIL 并列),gate 后不参与编译,PTX
+# 路径(D-207)不受影响(RFC-0003 §4.5 口径)。`cargo build/test -p rurixc --features
+# vulkan-backend` 启用 `--target vulkan` 分发与 vulkan_codegen 模块(MIR→SPIR-V,
+# compute 首片空体 GLCompute → spirv-val clean)。**gated on owner 裁决红线 3 解除 +
+# RFC-0011 批准,未获裁决前实现 PR 不合入 main(见 milestones/mb1/OWNER_DECISION_PACKAGE.md)。**
+vulkan-backend = []
+
+# G2.3 PR-E2b-4 device 真跑支撑工具(非生产 codegen):落盘绑定布局 RTS0 容器字节供
+# D3D12 CreateRootSignature 真机核验(ci/dxil_binding_device_smoke.py)。须 dxil-backend。
+[[example]]
+name = "emit_binding_rts0"
+required-features = ["dxil-backend"]
+
+# G2.4 UC-04 device 真跑支撑工具(非生产 codegen):把 UC-04 几何 pass Rurix 着色源经
+# 图形=B DXIL 链落盘 DXIL 容器字节供 D3D12 graphics PSO 真机创建(ci/dxil_uc04_device_smoke.py)。
+# 须 dxil-backend + shader-stages + pin B 工具(spirv-cross / dxc)。
+[[example]]
+name = "emit_uc04_dxil"
+required-features = ["dxil-backend", "shader-stages"]
+
 [lints]
 workspace = true

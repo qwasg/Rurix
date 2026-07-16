@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/async_buffer/v1",
+  "title": "Rurix 流序分配 AsyncBuffer<'stream,T> 端到端冒烟证据 JSON(G1.2,契约 G-G1-2,MR-0001 / RXS-0144~0148)",
+  "description": "三 stream 流序分配(cuMemAllocAsync + CUmemoryPool,D-232)端到端 + 两条跨 stream share_with 时序边 + 往返数值对照通过(pipeline_ok),以及分配未完成访问 / 释放后访问 / 跨 stream 未同步三类流序分配生命周期错误经 src/rurix-rt 类型系统 + compile-fail 样例编译期拦截(rustc 拒绝每个应失败样例,RXS-0145/0146/0147/0148)的机器事实清单。pipeline_ok=true 计入 g1.counter.async_buffer_pipeline(ci/budget_eval.py;>=1 则 PASS,建设期/无 GPU/老驱动无流序分配为 normal SKIP)。机器复核闸门 = ci/async_buffer_smoke.py(放行任一违例 / 数值对照失败即非零退出,反 YAML-only,CI_GATES §6.3)。device 路径并入 Compute Sanitizer racecheck+memcheck nightly(CUDA.jl #780 use-after-free 事故类永久回归项)。",
+  "type": "object",
+  "required": ["schema_version", "subject", "pipeline_ok", "reject_classes_intercepted", "timestamp"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": { "const": "async_buffer" },
+    "pipeline_ok": {
+      "description": "三 stream 流序分配 + 两条 share_with 跨 stream 时序边 + 往返数值对照端到端真跑(有 GPU + cuMemAllocAsync;无 GPU/老驱动则不写证据降级 SKIP)",
+      "type": "boolean"
+    },
+    "reject_classes_intercepted": {
+      "description": "经 compile-fail 样例 100% 编译期拦截的流序分配生命周期错误类别(rustc 拒绝)",
+      "type": "array",
+      "items": {
+        "enum": ["alloc_incomplete", "use_after_free", "cross_stream_unsync"]
+      },
+      "uniqueItems": true
+    },
+    "device_path_run": {
+      "description": "三 stream 流序分配 device 端到端是否实跑(true=有 GPU + cuMemAllocAsync 真跑;false=无 GPU/老驱动降级 SKIP,仅 host compile-fail 拦截)",
+      "type": "boolean"
+    },
+    "run_command": { "type": "string" },
+    "device": {
+      "description": "实测 GPU / 驱动环境画像(D-233)",
+      "type": "object",
+      "properties": {
+        "gpu": { "type": "string" },
+        "driver": { "type": "string" },
+        "result_line": { "type": "string" }
+      }
+    },
+    "facts": {
+      "description": "逐项背书(反 YAML-only)——含端到端往返数值对照(往返 out==input)+ 逐 reject 类别拦截",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": { "enum": ["pipeline", "reject"] },
+          "name": { "type": "string" },
+          "fixture": { "type": "string" },
+          "expected_error": { "type": "string" },
+          "rejected": { "type": "boolean" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "redgreen": {
+      "description": "门禁真实红绿验证留痕(反 YAML-only,CI_GATES §6.3:放行任一流序分配违例(应拦截却编译通过)/ 数值对照失败 → 红;复原 → 绿,run URL 归档)",
+      "type": "object",
+      "properties": {
+        "red_command": { "type": "string" },
+        "red_detected": { "type": "boolean" },
+        "green_command": { "type": "string" },
+        "green_exit_code": { "type": "integer" },
+        "run_url": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "harness_commit": { "type": "string" }
+  }
+}

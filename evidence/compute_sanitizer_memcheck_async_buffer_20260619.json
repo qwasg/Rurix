@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "tool": "memcheck",
+  "kernel": "async_buffer",
+  "clean": true,
+  "exit_code": 0,
+  "errors_count": 0,
+  "hazards_count": 0,
+  "report_summary": "========= ERROR SUMMARY: 0 errors",
+  "sanitizer_version": "NVIDIA (R) Compute Sanitizer",
+  "command": "bench/async_buffer_bench.py --smoke",
+  "timestamp": "2026-06-19T15:19:01.861289+00:00",
+  "harness_commit": "39978c7"
+}

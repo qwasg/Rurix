@@ -84,9 +84,36 @@ shared.barrier_consistency = cannot prove shared write/read is synchronized by a
 # scoped atomics 诊断(RX3010,spec/device.md RXS-0080;M5.2 分配)
 atomics.scope_misuse = scoped atomic scope misuse: {detail}
 #
+# 着色阶段类型面诊断(RX3011 ~ RX3013,spec/shader_stages.md RXS-0154~0156;G2.1 分配)
+shader.stage_io_invalid = invalid shader stage I/O field: {detail}
+shader.stage_interface_mismatch = shader stage interface mismatch: {detail}
+shader.resource_handle_invalid = invalid shader resource handle: {detail}
+shader.sample_expr_invalid = invalid texture sampling expression: {detail}
+#
 # libdevice 链接 / device 数学 intrinsic 诊断(RX6006 / RX7002,spec/device.md RXS-0081~0082;M5.3 分配)
 codegen.device_math_unsupported = {detail} is not a supported device math intrinsic (outside libdevice coverage or unsupported element type)
 link.libdevice_failure = libdevice link failure: {reason}
+#
+# DXIL codegen 诊断(RX6007,spec/dxil_backend.md RXS-0157;G2.2 PR-C2 分片1 分配)
+codegen.dxil_unsupported = DXIL codegen target unavailable or unsupported: {detail}
+#
+# Vulkan/SPIR-V codegen 诊断(RX6026,spec/vulkan_backend.md RXS-0200/0201;mb1 RFC-0011 分配;跳 RX6024/6025=MS1.2b 避撞)
+codegen.vulkan_unsupported = Vulkan/SPIR-V codegen target unavailable or unsupported: {detail}
+#
+# DXIL B 路 strict-only 失败诊断(RX6010 ~ RX6013,spec/dxil_backend.md RXS-0157/0159/0162;G2.2 任务7 分配)
+codegen.dxil_b_transpile_failed = DXIL B-chain transpile failed at {step}: {reason}
+codegen.dxil_sig_mismatch = DXIL signature mismatch: {detail}
+codegen.dxil_sig_dropped_input = DXIL declared input eliminated: {detail}
+codegen.dxil_unmappable = unmappable DXIL construct: {detail}
+#
+# DXIL 绑定布局推导 + 阶段间接口链接 strict-only 失败诊断(RX6014 ~ RX6017,spec/binding_layout.md RXS-0163~0166 + spec/dxil_backend.md RXS-0160;G2.3 PR-E2b-2 分配)
+codegen.dxil_stage_link_mismatch = DXIL stage interface link mismatch: {detail}
+codegen.dxil_register_conflict = DXIL binding register/layout conflict: {detail}
+codegen.dxil_root_signature_too_large = DXIL root signature exceeds DWORD limit: {detail}
+codegen.dxil_psv0_mismatch = DXIL PSV0 reflection mismatch: {detail}
+#
+# DXIL 纹理采样首期收敛子集 strict-only 失败诊断(RX6023,spec/dxil_backend.md RXS-0175;G2.4 RFC-0007 分配)
+codegen.dxil_sample_unsupported = DXIL texture sampling outside first-phase subset: {detail}
 #
 # rx CLI 工具链诊断(RX7003 / RX7004,spec/toolchain.md RXS-0083/0085;M6.1 分配)
 toolchain.rx_cli_usage = rx CLI usage error: {detail}
@@ -103,6 +130,8 @@ toolchain.pkg_source_unreachable = dependency source is unreachable: {detail}
 toolchain.rx_test_discovery = rx test discovery error: {detail}
 toolchain.rx_test_exec_failure = rx test child process failed: {detail}
 toolchain.lsp_rename_invalid = invalid LSP rename target: {detail}
+# edition 诊断(RX7020,spec/edition.md RXS-0179;G2.5 RFC-0008 分配)
+toolchain.edition_unknown = unknown rurix.toml edition: {detail}
 #
 # 互操作诊断(RX7013 ~ RX7015,spec/interop.md RXS-0122~0125;M8.1 分配)
 interop.unsupported_protocol = interop protocol unsupported: {detail}
@@ -114,3 +143,20 @@ cublas.handle_init_failed = cublas handle initialization failed: {detail}
 cublas.invalid_device_pointer = invalid cublas device pointer: {detail}
 cublas.dimension_mismatch = cublas dimension mismatch: {detail}
 cublas.runtime_failed = cublas runtime failure: {detail}
+## UC-04 deferred 渲染器装配/编排诊断(RX6018 ~ RX6022,spec/d3d12_runtime.md RXS-0167~0170;G2.4 PR-F2 分配)
+runtime.uc04_pso_assembly_mismatch = UC-04 graphics PSO assembly inconsistency: {detail}
+runtime.uc04_rts0_pso_mismatch = UC-04 RTS0 / PSO binding inconsistency: {detail}
+runtime.uc04_pass_orchestration = UC-04 deferred pass orchestration failed: {detail}
+runtime.uc04_barrier_plan = UC-04 barrier orchestration failed: {detail}
+runtime.uc04_readback_layout = UC-04 readback buffer layout mismatch: {detail}
+#
+# 宿主编排前端机械面诊断(RX1005 / RX7022,spec/host_orchestration.md RXS-0195~0196;MS1.2 分配)
+resolve.module_load_failure = cannot load out-of-line module {name}: {detail}
+link.native_lib_failure = #[link] native library failure: {detail}
+#
+# 宿主 GPU 编排诊断(RX2010 / RX3015 / RX6024 / RX6025 / RX7021,spec/host_orchestration.md RXS-0189~0192/0195;MS1.2 分配)
+gpu.elem_infer = cannot determine a first-phase element type for this GPU buffer: {detail} (element type must resolve to f32 / i32 / u32, RXS-0190)
+coloring.gpu_host_api_in_device = std::gpu host orchestration API cannot be used in a `kernel`/`device` context (RXS-0189)
+gpu.launch_arg_subset = launch argument type {ty} is outside the first-phase marshalling subset (Buffer plus i32 / u32 / f32 / usize, RXS-0191)
+codegen.gpu_embed_failure = failed to embed device artifacts into the host image: {detail} (RXS-0192)
+link.rt_cabi_failure = cannot locate or build the rurix-rt-cabi runtime library: {detail} (search order: RURIX_RT_CABI_LIB, <compiler>/lib/, workspace target; RXS-0195)

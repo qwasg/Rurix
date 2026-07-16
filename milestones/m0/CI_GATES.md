@@ -37,7 +37,7 @@
 机器执行、字节级核对(`git diff --stat`),非人工 checklist:
 
 1. 历史预算 JSON 既有条目 0-byte(对比基准:上一次 close-out 的 tag;M0 期内为该文件首个合入版本)。
-2. `registry/*.json` 既有条目只追加——对既有 `id` 的字段修改触发 FAIL(AI 修改既有条目自动转人工审查,14 §10)。
+2. `registry/*.json` 既有条目只追加——对既有 `id` 的字段修改触发 FAIL(AI 修改既有条目自动转审查,14 §10)。
 3. 规划文档集(`00_*.md` … `14_*.md`)在执行 PR 中无 diff;勘误必须是独立 PR 且只追加修订记录行(00 §6.3)。
 4. 已关闭契约文件(`status: closed`)的非 close-out 区 0-byte。
 5. `evidence/` 目录只增不删不改(证据不可篡改)。

@@ -22,14 +22,14 @@ in_scope:
   - spec_device_clauses        # spec device codegen/着色/地址空间/launch 类型契约条款(RXS-#### 续号,规范先行)
 out_of_scope:
   - views_disjoint_barrier     # views 不相交证明 / shared let + barrier 一致性 = MIR 借用检查的 device 扩展 pass → M5(07 §4 / 11 §3 M5),本里程碑只保证 host 借用检查 pass 结构可扩展
-  - scoped_atomics_mapping     # scoped atomics + PTX 映射层(D-406 禁区由人工落笔)→ M5(06 §4 / 11 §3 M5)
+  - scoped_atomics_mapping     # scoped atomics + PTX 映射层(D-406 禁区由自主落笔)→ M5(06 §4 / 11 §3 M5)
   - libdevice_link             # libdevice 链接(保留外部符号→链 bc→internalize→DCE→NVVMReflect)→ M5 按需(06 §7 / 07 §7)
   - gpu_parallel_primitives    # reduce/scan/transpose/tiled GEMM 自研 kernel + L1/L2 全量基准 → M5(RD-002)
   - cubin_fatbin_dist          # 生产分发 fatbin(按架构 cubin + PTX fallback)→ G1(07 §7 / RD-001 系)
   - async_buffer_streamorder   # 流序分配 AsyncBuffer<'stream> 类型契约 → G1(D-122,06 §3 §5.4)
   - const_generic_value_mono   # const 泛型值运行期单态化(RD-007,M3.4 遗留)+ 运行期数组 aggregate codegen 按需接通,非本契约验收门
   - advanced_gpu_intrinsics    # Tensor Core/WGMMA/TMA / cluster / 动态并行 / cooperative groups 永久裁剪(11 §2 红线,SG-001~SG-009 维持 not_triggered)
-deferred_refs: [RD-007]        # M3.4 WP3 登记、owner_milestone=M4(const 泛型值单态化随 device codegen / 运行期数组 aggregate codegen 评估接通);M4 不预造新 deferred,执行期按需登记 RD-###(14 §4)
+deferred_refs: [RD-007]        # M3.4 WP3 登记、agent_milestone=M4(const 泛型值单态化随 device codegen / 运行期数组 aggregate codegen 评估接通);M4 不预造新 deferred,执行期按需登记 RD-###(14 §4)
 deliverables:
   - id: D-M4-1
     name: 着色 + 地址空间检查(host/device/kernel 边界 + addrspace 类型一致性,HIR 层;3xxx 错误码首批)
@@ -58,7 +58,7 @@ guardrails:
   - "milestones/m0/m0_budget.json、milestones/m1/m1_budget.json、milestones/m2/m2_budget.json 的 measured_local 既有条目 git diff 0-byte(新增条目允许)"
   - "milestones/m3/m3_budget.json 既有条目 0-byte(新增条目允许)"
   - "milestones/m0~m3 的 M*_CONTRACT.md(均 closed)既有内容只追加不修改"
-  - "registry/deferred.json 与 registry/spike_gating.json 只追加(既有条目修改触发人工审查);RD-007 仅允许 open→inherited/closed 的状态留痕追加"
+  - "registry/deferred.json 与 registry/spike_gating.json 只追加(既有条目修改触发审查);RD-007 仅允许 open→inherited/closed 的状态留痕追加"
   - "registry/error_codes.json 错误码语义可加不可改(M1.1 已激活);3xxx/6xxx/7xxx 段位分配制递增、含义冻结"
   - "evidence/ 只增不删不改"
   - "00–14 共 15 份规划文档不被执行 PR 改写(勘误走 00 §6.3 追加式修订)"
@@ -101,7 +101,7 @@ guardrails:
 ### 2.2 out-of-scope(显式排除)
 
 - views 不相交证明 / `shared let` + barrier 一致性——实现为 MIR 借用检查的 device 扩展 pass(07 §4),→ M5(11 §3 M5);本里程碑只保证 host 借用检查 pass 结构可扩展、着色检查提供 device 边界信息。
-- scoped atomics(`Atomic<T, Scope>`)+ PTX `atom.{order}.{scope}` 映射层——D-406 禁区由人工落笔,→ M5(06 §4)。
+- scoped atomics(`Atomic<T, Scope>`)+ PTX `atom.{order}.{scope}` 映射层——D-406 禁区由自主落笔,→ M5(06 §4)。
 - libdevice 链接(SAXPY 级不需要)——→ M5 按需(06 §7/07 §7)。
 - gpu 库并行基元(reduce/scan/transpose/tiled GEMM 自研 kernel)与 L1/L2 全量微基准——→ M5(RD-002 承接;M4 只交付 SAXPY 一条 measured_local 锚点对照)。
 - 生产分发 fatbin(按架构预编 cubin + 保守 PTX fallback)——→ G1(07 §7);M4 产物 PTX-only。

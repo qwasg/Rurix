@@ -1,0 +1,20 @@
+//@ spec: RXS-0171, RXS-0158, RXS-0161, RXS-0162, RXS-0172
+// UC-04 deferred lighting/合成 pass vertex(严格面 / RFC-0007:lighting pass 真采样 G-buffer)。
+// 与几何 pass 同顶点缓冲布局(pos vec4 / uv vec2 / normal f32),透传 pos→SV_Position +
+// uv(vec2)→插值 varying 供 lighting fragment **真采样 G-buffer albedo SRV**(经 uv 坐标)。
+// body 仅 Use + 单层 Field 投影 + 输出聚合分解 → 逐 Out OpStore(RXS-0171 L4 白名单);
+// pos→#[builtin(position)] vec4 = SV_Position。
+struct VsIn {
+    pos: vec4<f32>,
+    uv: vec2<f32>,
+    normal: f32,
+}
+
+struct LpVary {
+    #[builtin(position)] clip: vec4<f32>,
+    #[interpolate(perspective)] uv: vec2<f32>,
+}
+
+vertex fn uc04_lighting_vs(inp: VsIn) -> LpVary {
+    LpVary { clip: inp.pos, uv: inp.uv }
+}

@@ -1,0 +1,5 @@
+error[RX3011]: invalid shader stage I/O field: field `uv` carries no `#[interpolate(..)]` or `#[builtin(..)]` annotation (shader stage I/O fields must be annotated)
+ --> $DIR/shader/unannotated_field.rx:4:5
+  |
+4 |     uv: f32, //~ ERROR RX3011
+  |     ^^^^^^^ invalid shader stage I/O field

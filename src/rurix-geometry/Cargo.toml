@@ -1,0 +1,13 @@
+[package]
+name = "rurix-geometry"
+description = "Rurix 生态包第二梯队几何库(G1.4,MR-0004,09 §5 网格/BVH 基础;复用 spec/stdlib.md RXS-0104~0113 几何原语/谓词语义 0-byte)——host 纯 safe 确定性:Point3/Vector3/Normal3 语义区分与互转(RXS-0110)+ Aabb/Ray 构造(RXS-0111)+ 几何谓词 contains/distance(RXS-0112)/ Ray–AABB slab 相交(RXS-0113)+ BVH/Triangle mesh 基础编排(纯 orchestration,零新公共语义面);零外部依赖,全 safe(unsafe_code=deny),纯函数·确定性"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+# 零外部依赖(全仓供应链纪律,可信根):标准库 + 复用既有几何原语/谓词语义(RXS-0104~0113)
+
+[lints]
+workspace = true

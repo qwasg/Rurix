@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "namespace": "ea1",
+  "description": "EA1 预算(14 §3:entries + ratio_assertions + counter_assertions,命名空间强制前缀)。EA1 开工脚手架:entries/ratio_assertions/counter_assertions 全部留空(延续 G2/MB1 脚手架先例 + MVP 零占位纪律,14 §3)。entries/ratio_assertions 留空 = 不预欠 estimated 占位;counter_assertions 留空 = 两主线实体面 Full-RFC-gated(RFC-0012,Draft→裁决 A~D 后 Approved),deliverable 形态未定,预造 counter 即预设 Full RFC 应定义的语义。分发红绿 counter(ea1.counter.*,如 dist_redgreen_cases / bundle_asset_closure)随 EA1.1/EA1.2 实现 PR 落地 + 配套 ci/budget_eval.py evaluator 分支(条款先于实现,对齐 MS1.2 host_orch counter 先例)。冷启动性能 entries(ea1.bench.cold_start_vm_rxcheck_s / ea1.bench.cold_start_gpu_first_kernel_s,两段式口径以 OWNER_DECISION_PACKAGE 裁决 C 落地为准)随 e2e 取证以 measured_local 回填,回填前不预欠 estimated。**永不立下载量/用户数类外部采纳条目**(契约 out_of_scope production_adoption_claim,MS1 carve-out 纪律)。占位规则:evidence=estimated 时 evaluator skip 并输出 skip_reason;占位存活 ≤2 个里程碑。预算自动发现 glob 已泛化为 *_budget.json,ea1_budget.json 自动纳入,零新 CI 码。",
+  "source_docs": [
+    "14 §3",
+    "milestones/ea1/EA1_CONTRACT.md",
+    "milestones/ea1/CI_GATES.md",
+    "milestones/ea1/OWNER_DECISION_PACKAGE.md",
+    "milestones/m0/BENCH_PROTOCOL.md",
+    "rfcs/0012-toolchain-real-distribution.md(RFC-0012,EA1.0 序列内紧邻本包落地)"
+  ],
+  "entries": [],
+  "ratio_assertions": [],
+  "counter_assertions": [],
+  "namespace_check": {
+    "rule": "本文件所有 id 必须以 'ea1.' 前缀开头;多预算合并加载时冲突即 FAIL(14 §3)。预算自动发现 glob 为 *_budget.json(ci/check_schemas.py / budget_eval.py / check_guardrails.py / tests/test_budget_namespace.py 同一 glob),ea1 自动纳入无新 CI 码。",
+    "unit_test_required": true
+  },
+  "revision_log": [
+    {
+      "version": "v1.0",
+      "date": "2026-07-16",
+      "change": "初版模板(EA1 开工脚手架):entries/ratio_assertions/counter_assertions 全部留空。entries/ratio_assertions 留空(不预欠 estimated 占位);counter_assertions 留空(两主线实体面 Full-RFC-gated(RFC-0012),不预造 counter)。ea1.counter.* 随 EA1.1/EA1.2 实现 PR 回填 + 配套 ci/budget_eval.py evaluator 分支(条款先于实现);ea1.bench.cold_start_*(两段式口径归裁决 C)随 e2e 取证 measured_local 回填。永不立下载量/用户数类外部采纳条目。预算 glob *_budget.json 自动纳入 ea1,无新 CI 代码改动。"
+    }
+  ]
+}

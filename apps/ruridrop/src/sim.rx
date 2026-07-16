@@ -1,0 +1,526 @@
+// ruridrop 全 GPU SPH 仿真管线(RFC-0010 §4.2:确定性由构造保证)。
+// 排序式邻居搜索 = bit-split 基数排序(atomics-free,scoped atomics 无 PTX
+// codegen 的仓内既成现实规避):split_flag → scan_block_u32 / scan_sums_u32
+// (改造 src/rurix-rt/kernels/scan.rx 母本 f32→u32)→ split_scatter(稳定
+// split)× SORT_PASSES bit → sim_reorder(gather 重排 SoA)→ sim_cell_bounds
+// (边界线程独写)。物理 = sim_density(27 cell 固定枚举序 × cell 内升序,
+// poly6 + EOS)→ sim_forces(spiky 压力 + 黏度 + 重力,寄存器固定序累加)→
+// sim_integrate(半隐式 Euler + 速度钳制 + 盒体反弹阻尼),常数语义母本 =
+// src/uc03-demo/src/lib.rs。确定性论证:零原子、每个可写位置唯一 owner 线程、
+// 累加序 = 固定 cell 枚举序 × 排序后下标升序 → 同机同驱动逐位确定。
+// device 纪律(spec/device.md):无 for-range(全 while)、无 struct 值参
+// (全标量 + View)、shared 数组长度 = 块大小 256、物理常数经标量实参下发
+// (RXS-0191 launch 首期子集 = Buffer + {i32,u32,f32,usize})。
+// 前置约束(入口保证):N 与 CELLS 均为 256 的整数倍(全满块,无残块特判)。
+
+mod dmath;
+
+// ---- 私有 device 辅助 ----
+
+// pos 轴坐标 → cell 轴下标(NaN 安全钳制到 [0, dim-1] 后截断;RXS-0110 纪律:
+// f32 → u32 前必经 rx_clamp,防越域 fptoui poison)
+device fn cell_axis(p: f32, inv_cell: f32, dim: u32) -> u32 {
+    let c = dmath::rx_clamp(p * inv_cell, 0.0, (dim - 1u32) as f32);
+    c as u32
+}
+
+// Poly6 密度核未归一化形状项 (h^2 - r^2)^3(r^2 < h^2,否则 0;uc03 母本:
+// 归一化常数被刚度吸收)
+device fn poly6(r2: f32, h2: f32) -> f32 {
+    if r2 < h2 {
+        let d = h2 - r2;
+        d * d * d
+    } else {
+        0.0
+    }
+}
+
+// Spiky 梯度核标量项 (h - r)^2(0 < r < h,否则 0;压力力用,uc03 母本)
+device fn spiky_grad(r: f32, h: f32) -> f32 {
+    if r > 0.0 && r < h {
+        let d = h - r;
+        d * d
+    } else {
+        0.0
+    }
+}
+
+// 黏度拉普拉斯核标量项 (h - r)(0 < r < h,否则 0;uc03 母本)
+device fn visc_lap(r: f32, h: f32) -> f32 {
+    if r > 0.0 && r < h {
+        h - r
+    } else {
+        0.0
+    }
+}
+
+// ---- kernel 1:pos → cell key + 恒等序 idx(块 256) ----
+// key = (cz * dim + cy) * dim + cx ∈ [0, dim^3),冒烟 15 bit / 生产 18 bit;
+// idx[i] = i(排序种子:上一子步终态序 → 稳定排序保全局序唯一)。
+pub kernel fn sim_cell_key(
+    t: ThreadCtx<1>,
+    px: View<global, f32>,
+    py: View<global, f32>,
+    pz: View<global, f32>,
+    key: ViewMut<global, u32>,
+    idx: ViewMut<global, u32>,
+    n: usize,
+    grid_dim: u32,
+    inv_cell: f32,
+) {
+    let i = t.global_id();
+    if i < n {
+        let cx = cell_axis(px[i], inv_cell, grid_dim);
+        let cy = cell_axis(py[i], inv_cell, grid_dim);
+        let cz = cell_axis(pz[i], inv_cell, grid_dim);
+        key[i] = (cz * grid_dim + cy) * grid_dim + cx;
+        idx[i] = i as u32;
+    }
+}
+
+// ---- kernel 2:bit-split 标志(块 256) ----
+// flag[i] = key[i] 第 bit 位的取反(零位指示子:1 = 该位为 0 → 去前段)。
+pub kernel fn split_flag(
+    t: ThreadCtx<1>,
+    key: View<global, u32>,
+    flag: ViewMut<global, u32>,
+    n: usize,
+    bit: u32,
+) {
+    let i = t.global_id();
+    if i < n {
+        flag[i] = 1u32 - ((key[i] >> bit) & 1u32);
+    }
+}
+
+// ---- kernel 3:块内 exclusive scan + 块和(块 256,scan.rx 母本 f32→u32) ----
+// bofs[i] = flag 在本块内 i 之前的和(exclusive = inclusive - 自身);
+// bsums[block] = 本块 flag 总和(末线程独写)。读后写经寄存器 v 暂存 + 双
+// barrier 隔离(shared read-after-write 竞争规避,母本纪律);无提前 return
+// (全线程一致过 barrier,越界槽以 0 填充)。
+pub kernel fn scan_block_u32(
+    t: ThreadCtx<1>,
+    flag: View<global, u32>,
+    bofs: ViewMut<global, u32>,
+    bsums: ViewMut<global, u32>,
+    n: usize,
+) {
+    shared let buf: [u32; 256];
+    let tid = t.thread_index();
+    let i = t.global_id();
+    let e = if i < n { flag[i] } else { 0u32 };
+    buf[tid] = e;
+    block.sync();
+    let mut offset = 1;
+    while offset < t.block_dim() {
+        let mut v = buf[tid];
+        if tid >= offset {
+            v = v + buf[tid - offset];
+        }
+        block.sync();
+        buf[tid] = v;
+        block.sync();
+        offset = offset * 2;
+    }
+    let incl = buf[tid];
+    if i < n {
+        bofs[i] = incl - e;
+    }
+    if tid == t.block_dim() - 1 {
+        bsums[t.block_index()] = incl;
+    }
+}
+
+// ---- kernel 4:块和折叠 exclusive scan(单块 256 线程 while 处理多元素) ----
+// 三段式:① 线程私有 chunk 串行和(固定升序)→ ② 块内 Hillis-Steele(母本)
+// → ③ chunk 内展开 exclusive 前缀回写。bscan[b] = b 块之前的零位总数;
+// bscan[nblocks] = 全局零位总数(哨位,末线程独写)。要求 nblocks <= 256*chunk
+// (冒烟 16 / 生产 512,chunk 自适应);无提前 return。
+pub kernel fn scan_sums_u32(
+    t: ThreadCtx<1>,
+    bsums: View<global, u32>,
+    bscan: ViewMut<global, u32>,
+    nblocks: usize,
+) {
+    shared let buf: [u32; 256];
+    let tid = t.thread_index();
+    let bdim = t.block_dim();
+    let chunk = (nblocks + bdim - 1) / bdim;
+    let base = tid * chunk;
+    let mut s: u32 = 0;
+    let mut j: usize = 0;
+    while j < chunk {
+        let g = base + j;
+        if g < nblocks {
+            s = s + bsums[g];
+        }
+        j = j + 1;
+    }
+    buf[tid] = s;
+    block.sync();
+    let mut offset = 1;
+    while offset < bdim {
+        let mut v = buf[tid];
+        if tid >= offset {
+            v = v + buf[tid - offset];
+        }
+        block.sync();
+        buf[tid] = v;
+        block.sync();
+        offset = offset * 2;
+    }
+    let incl = buf[tid];
+    let excl = incl - s;
+    let mut run = excl;
+    j = 0;
+    while j < chunk {
+        let g = base + j;
+        if g < nblocks {
+            bscan[g] = run;
+            run = run + bsums[g];
+        }
+        j = j + 1;
+    }
+    if tid == bdim - 1 {
+        bscan[nblocks] = incl;
+    }
+}
+
+// ---- kernel 5:稳定 split 重排 key + idx(块 256) ----
+// 零位去前段(dest = 全局零位序 f),一位去后段(dest = 总零数 + 一位序
+// (i - f));f = 块内 exclusive(bofs)+ 块间前缀(bscan[block])。dest 为
+// 双射 → 每个输出槽唯一 owner 线程,atomics-free 确定性;同位值保持相对序
+// (稳定)→ LSD 逐 bit 迭代成立。
+pub kernel fn split_scatter(
+    t: ThreadCtx<1>,
+    key_in: View<global, u32>,
+    idx_in: View<global, u32>,
+    flag: View<global, u32>,
+    bofs: View<global, u32>,
+    bscan: View<global, u32>,
+    key_out: ViewMut<global, u32>,
+    idx_out: ViewMut<global, u32>,
+    n: usize,
+    nblocks: usize,
+) {
+    let i = t.global_id();
+    if i < n {
+        let e = flag[i];
+        let f = bofs[i] + bscan[t.block_index()];
+        let total = bscan[nblocks];
+        let d = if e == 1u32 { f } else { total + (i as u32) - f };
+        let di = d as usize;
+        key_out[di] = key_in[i];
+        idx_out[di] = idx_in[i];
+    }
+}
+
+// ---- kernel 6:按终态 idx gather 重排 SoA pos/vel(块 256) ----
+// 全部 bit 完成后一次 gather(优化裁量:排序过程只搬 key+idx,pos/vel 不随
+// pass 搬运)。out[i] = in[idx[i]]:每个输出槽唯一 owner 线程。
+pub kernel fn sim_reorder(
+    t: ThreadCtx<1>,
+    idx: View<global, u32>,
+    in_px: View<global, f32>,
+    in_py: View<global, f32>,
+    in_pz: View<global, f32>,
+    in_vx: View<global, f32>,
+    in_vy: View<global, f32>,
+    in_vz: View<global, f32>,
+    out_px: ViewMut<global, f32>,
+    out_py: ViewMut<global, f32>,
+    out_pz: ViewMut<global, f32>,
+    out_vx: ViewMut<global, f32>,
+    out_vy: ViewMut<global, f32>,
+    out_vz: ViewMut<global, f32>,
+    n: usize,
+) {
+    let i = t.global_id();
+    if i < n {
+        let j = idx[i] as usize;
+        out_px[i] = in_px[j];
+        out_py[i] = in_py[j];
+        out_pz[i] = in_pz[j];
+        out_vx[i] = in_vx[j];
+        out_vy[i] = in_vy[j];
+        out_vz[i] = in_vz[j];
+    }
+}
+
+// ---- kernel 7a:cell 边界表清哨兵(块 256) ----
+// 0xFFFFFFFF = 空 cell 哨兵;每子步先清再由 sim_cell_bounds 独写覆盖
+// (显式初始化纪律:消未初始化读的竞争根源)。
+pub kernel fn sim_clear_bounds(
+    t: ThreadCtx<1>,
+    cell_start: ViewMut<global, u32>,
+    cell_end: ViewMut<global, u32>,
+    cells: usize,
+) {
+    let i = t.global_id();
+    if i < cells {
+        cell_start[i] = 0xFFFFFFFFu32;
+        cell_end[i] = 0xFFFFFFFFu32;
+    }
+}
+
+// ---- kernel 7b:排序 key 边界独写 cell_start / cell_end(块 256) ----
+// key 已升序:i 为段首(i == 0 或 key[i-1] != key[i])→ cell_start[key] = i;
+// i 为段尾(i == n-1 或 key[i+1] != key[i])→ cell_end[key] = i + 1。
+// 每 cell 的 start/end 各由唯一线程写(边界线程独写,atomics-free)。
+pub kernel fn sim_cell_bounds(
+    t: ThreadCtx<1>,
+    key: View<global, u32>,
+    cell_start: ViewMut<global, u32>,
+    cell_end: ViewMut<global, u32>,
+    n: usize,
+) {
+    let i = t.global_id();
+    if i < n {
+        let k = key[i] as usize;
+        if i == 0 {
+            cell_start[k] = 0u32;
+        } else if key[i - 1] != key[i] {
+            cell_start[k] = i as u32;
+        }
+        if i == n - 1 {
+            cell_end[k] = (i as u32) + 1u32;
+        } else if key[i + 1] != key[i] {
+            cell_end[k] = (i as u32) + 1u32;
+        }
+    }
+}
+
+// ---- kernel 8:SPH 密度 + EOS 压力(块 256) ----
+// 27 邻 cell 固定枚举序(dz→dy→dx 升序)× cell 内排序下标升序遍历;poly6 核
+// 寄存器固定序累加(含自身 j == i 项,uc03 母本语义);EOS p = k(rho - rho0)。
+pub kernel fn sim_density(
+    t: ThreadCtx<1>,
+    px: View<global, f32>,
+    py: View<global, f32>,
+    pz: View<global, f32>,
+    cell_start: View<global, u32>,
+    cell_end: View<global, u32>,
+    rho: ViewMut<global, f32>,
+    pres: ViewMut<global, f32>,
+    n: usize,
+    grid_dim: u32,
+    inv_cell: f32,
+    h2: f32,
+    mass: f32,
+    stiff: f32,
+    rho0: f32,
+) {
+    let i = t.global_id();
+    if i < n {
+        let xi = px[i];
+        let yi = py[i];
+        let zi = pz[i];
+        let cx = cell_axis(xi, inv_cell, grid_dim) as i32;
+        let cy = cell_axis(yi, inv_cell, grid_dim) as i32;
+        let cz = cell_axis(zi, inv_cell, grid_dim) as i32;
+        let dim = grid_dim as i32;
+        let mut acc: f32 = 0.0;
+        let mut dz: i32 = -1;
+        while dz <= 1 {
+            let mut dy: i32 = -1;
+            while dy <= 1 {
+                let mut dx: i32 = -1;
+                while dx <= 1 {
+                    let nx = cx + dx;
+                    let ny = cy + dy;
+                    let nz = cz + dz;
+                    if nx >= 0 && nx < dim && ny >= 0 && ny < dim && nz >= 0 && nz < dim {
+                        let c = ((nz * dim + ny) * dim + nx) as usize;
+                        let s = cell_start[c];
+                        if s != 0xFFFFFFFFu32 {
+                            let mut j = s as usize;
+                            let je = cell_end[c] as usize;
+                            while j < je {
+                                let ddx = xi - px[j];
+                                let ddy = yi - py[j];
+                                let ddz = zi - pz[j];
+                                let r2 = ddx * ddx + ddy * ddy + ddz * ddz;
+                                acc = acc + mass * poly6(r2, h2);
+                                j = j + 1;
+                            }
+                        }
+                    }
+                    dx = dx + 1;
+                }
+                dy = dy + 1;
+            }
+            dz = dz + 1;
+        }
+        rho[i] = acc;
+        pres[i] = stiff * (acc - rho0);
+    }
+}
+
+// ---- kernel 9:SPH 力(块 256) ----
+// spiky 压力(对称化)+ 黏度(速度差 × 拉普拉斯核)+ 重力(-y,按
+// max(rho, rho0) 缩放,uc03 母本);27 邻域固定枚举序 × 下标升序,线程私有
+// 寄存器固定序累加(RFC-0010 §4.2 确定性论证);r 经软件 rx_sqrt,
+// r > 1e-6 守卫 inv_r(重合粒子对无 0 除)。
+pub kernel fn sim_forces(
+    t: ThreadCtx<1>,
+    px: View<global, f32>,
+    py: View<global, f32>,
+    pz: View<global, f32>,
+    vx: View<global, f32>,
+    vy: View<global, f32>,
+    vz: View<global, f32>,
+    rho: View<global, f32>,
+    pres: View<global, f32>,
+    cell_start: View<global, u32>,
+    cell_end: View<global, u32>,
+    fx: ViewMut<global, f32>,
+    fy: ViewMut<global, f32>,
+    fz: ViewMut<global, f32>,
+    n: usize,
+    grid_dim: u32,
+    inv_cell: f32,
+    h: f32,
+    visc: f32,
+    gravity: f32,
+    rho0: f32,
+) {
+    let i = t.global_id();
+    if i < n {
+        let xi = px[i];
+        let yi = py[i];
+        let zi = pz[i];
+        let vxi = vx[i];
+        let vyi = vy[i];
+        let vzi = vz[i];
+        let pi = pres[i];
+        let cx = cell_axis(xi, inv_cell, grid_dim) as i32;
+        let cy = cell_axis(yi, inv_cell, grid_dim) as i32;
+        let cz = cell_axis(zi, inv_cell, grid_dim) as i32;
+        let dim = grid_dim as i32;
+        let mut ax: f32 = 0.0;
+        let mut ay: f32 = 0.0;
+        let mut az: f32 = 0.0;
+        let mut dz: i32 = -1;
+        while dz <= 1 {
+            let mut dy: i32 = -1;
+            while dy <= 1 {
+                let mut dx: i32 = -1;
+                while dx <= 1 {
+                    let nx = cx + dx;
+                    let ny = cy + dy;
+                    let nz = cz + dz;
+                    if nx >= 0 && nx < dim && ny >= 0 && ny < dim && nz >= 0 && nz < dim {
+                        let c = ((nz * dim + ny) * dim + nx) as usize;
+                        let s = cell_start[c];
+                        if s != 0xFFFFFFFFu32 {
+                            let mut j = s as usize;
+                            let je = cell_end[c] as usize;
+                            while j < je {
+                                if j != i {
+                                    let ddx = xi - px[j];
+                                    let ddy = yi - py[j];
+                                    let ddz = zi - pz[j];
+                                    let r2 = ddx * ddx + ddy * ddy + ddz * ddz;
+                                    let r = dmath::rx_sqrt(r2);
+                                    if r > 0.000001 && r < h {
+                                        let inv_r = 1.0 / r;
+                                        let p_term = (pi + pres[j]) * 0.5 * spiky_grad(r, h);
+                                        ax = ax + p_term * ddx * inv_r;
+                                        ay = ay + p_term * ddy * inv_r;
+                                        az = az + p_term * ddz * inv_r;
+                                        let lap = visc * visc_lap(r, h);
+                                        ax = ax + lap * (vx[j] - vxi);
+                                        ay = ay + lap * (vy[j] - vyi);
+                                        az = az + lap * (vz[j] - vzi);
+                                    }
+                                }
+                                j = j + 1;
+                            }
+                        }
+                    }
+                    dx = dx + 1;
+                }
+                dy = dy + 1;
+            }
+            dz = dz + 1;
+        }
+        ay = ay - gravity * dmath::rx_max(rho[i], rho0);
+        fx[i] = ax;
+        fy[i] = ay;
+        fz[i] = az;
+    }
+}
+
+// ---- kernel 10:半隐式 Euler 积分 + 速度钳制 + 盒体反弹阻尼(块 256) ----
+// v += dt * f(m = 1 吸收);|v| > max_speed → 等比缩到 max_speed;x += dt * v;
+// 越界轴钳回边界 + 该轴速度反弹 × damp(uc03 母本)。读 B 组写 A 组(双缓冲,
+// 无别名);终态位置由构造 ∈ [lo, hi]。
+pub kernel fn sim_integrate(
+    t: ThreadCtx<1>,
+    px: View<global, f32>,
+    py: View<global, f32>,
+    pz: View<global, f32>,
+    vx: View<global, f32>,
+    vy: View<global, f32>,
+    vz: View<global, f32>,
+    fx: View<global, f32>,
+    fy: View<global, f32>,
+    fz: View<global, f32>,
+    out_px: ViewMut<global, f32>,
+    out_py: ViewMut<global, f32>,
+    out_pz: ViewMut<global, f32>,
+    out_vx: ViewMut<global, f32>,
+    out_vy: ViewMut<global, f32>,
+    out_vz: ViewMut<global, f32>,
+    n: usize,
+    dt: f32,
+    max_speed: f32,
+    damp: f32,
+    lo: f32,
+    hi: f32,
+) {
+    let i = t.global_id();
+    if i < n {
+        let mut nvx = vx[i] + dt * fx[i];
+        let mut nvy = vy[i] + dt * fy[i];
+        let mut nvz = vz[i] + dt * fz[i];
+        let sp2 = nvx * nvx + nvy * nvy + nvz * nvz;
+        let max2 = max_speed * max_speed;
+        if sp2 > max2 {
+            let s = max_speed / dmath::rx_sqrt(sp2);
+            nvx = nvx * s;
+            nvy = nvy * s;
+            nvz = nvz * s;
+        }
+        let mut x = px[i] + dt * nvx;
+        let mut y = py[i] + dt * nvy;
+        let mut z = pz[i] + dt * nvz;
+        if x < lo {
+            x = lo;
+            nvx = -nvx * damp;
+        } else if x > hi {
+            x = hi;
+            nvx = -nvx * damp;
+        }
+        if y < lo {
+            y = lo;
+            nvy = -nvy * damp;
+        } else if y > hi {
+            y = hi;
+            nvy = -nvy * damp;
+        }
+        if z < lo {
+            z = lo;
+            nvz = -nvz * damp;
+        } else if z > hi {
+            z = hi;
+            nvz = -nvz * damp;
+        }
+        out_px[i] = x;
+        out_py[i] = y;
+        out_pz[i] = z;
+        out_vx[i] = nvx;
+        out_vy[i] = nvy;
+        out_vz[i] = nvz;
+    }
+}

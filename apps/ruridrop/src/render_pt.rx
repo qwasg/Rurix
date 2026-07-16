@@ -1,0 +1,540 @@
+// ruridrop 离线档路径追踪 kernel(RFC-0010 §4.3:pt_render 每像素 spp_batch 条
+// 路径{相机抖动光线 → 3D-DDA → ≤bounces 弹射{球:Lambert+Fresnel+NEE;地面:
+// 棋盘;未中:天空}}累加 HDR 进 accum;pt_finalize 做 accum/spp → Reinhard →
+// gamma 2.0(rx_sqrt 近似)→ [0,1] 写 out_rgb,RXS-0116 量化域)。
+// 数值全部经 render_core plain fn(refcpu host 循环逐位同构重放,§4.4 ②);
+// 遍历循环(DDA 步进 / cell 粒子循环 / 弹射 / 拒绝采样)在 kernel 体内以 View
+// 访问展开——refcpu 以 PinnedBuffer get 同构展开,分支决策只依赖两侧逐位一致
+// 的比较结果。场景常数(相机基底 / 光源 / 半径 / 弹射数)全部经标量实参下发。
+// 无 block.sync → 越界早退合法;RNG 状态调用方穿链(s = rng::xorshift32(s))。
+
+mod dmath;
+mod rng;
+mod render_core;
+
+// ---- 离线渲染主 kernel(块 16×16;spp 分批:samp_base 起 spp_batch 条) ----
+pub kernel fn pt_render(
+    t: ThreadCtx<2>,
+    px: View<global, f32>,
+    py: View<global, f32>,
+    pz: View<global, f32>,
+    vx: View<global, f32>,
+    vy: View<global, f32>,
+    vz: View<global, f32>,
+    cs: View<global, u32>,
+    ce: View<global, u32>,
+    ar_: ViewMut<global, f32>,
+    ag_: ViewMut<global, f32>,
+    ab_: ViewMut<global, f32>,
+    w: usize,
+    h: usize,
+    frame: u32,
+    samp_base: u32,
+    spp_batch: u32,
+    bounces: u32,
+    grid_dim: u32,
+    ex: f32,
+    ey: f32,
+    ez: f32,
+    fwx: f32,
+    fwy: f32,
+    fwz: f32,
+    rix: f32,
+    riy: f32,
+    riz: f32,
+    upx: f32,
+    upy: f32,
+    upz: f32,
+    inv_w: f32,
+    inv_h: f32,
+    scale_x: f32,
+    scale_y: f32,
+    radius: f32,
+    lx0: f32,
+    lx1: f32,
+    lz0: f32,
+    lz1: f32,
+    ly: f32,
+    le: f32,
+    vscale: f32,
+) {
+    let x = t.global_id_x();
+    let y = t.global_id_y();
+    if x >= w || y >= h {
+        return;
+    }
+    let pi = y * w + x;
+    let dim_i = grid_dim as i32;
+    let dim_f = grid_dim as f32;
+    let box_f = dim_f;
+    let r2 = radius * radius;
+    let law = lx1 - lx0;
+    let lad = lz1 - lz0;
+    let area = law * lad;
+    let max_steps = grid_dim * 3u32 + 3u32;
+    let mut br: f32 = 0.0;
+    let mut bg: f32 = 0.0;
+    let mut bbl: f32 = 0.0;
+    let mut sl: u32 = 0;
+    while sl < spp_batch {
+        let mut s = render_core::sample_seed(pi as u32, samp_base + sl, frame);
+        s = rng::xorshift32(s);
+        let jx = render_core::u01(s);
+        s = rng::xorshift32(s);
+        let jy = render_core::u01(s);
+        let pxf = (x as f32) + jx;
+        let pyf = (y as f32) + jy;
+        let sx = render_core::screen_coord(pxf, inv_w, scale_x);
+        let sy = render_core::screen_coord(pyf, inv_h, scale_y);
+        let udx = render_core::ray_dir_comp(fwx, rix, upx, sx, sy);
+        let udy = render_core::ray_dir_comp(fwy, riy, upy, sx, sy);
+        let udz = render_core::ray_dir_comp(fwz, riz, upz, sx, sy);
+        let il = 1.0 / render_core::len3(udx, udy, udz);
+        let mut dx = udx * il;
+        let mut dy = udy * il;
+        let mut dz = udz * il;
+        let mut ox = ex;
+        let mut oy = ey;
+        let mut oz = ez;
+        let mut tr: f32 = 1.0;
+        let mut tg: f32 = 1.0;
+        let mut tb: f32 = 1.0;
+        let mut lr: f32 = 0.0;
+        let mut lg: f32 = 0.0;
+        let mut lb: f32 = 0.0;
+        let mut b: u32 = 0;
+        while b < bounces {
+            let t_ground = render_core::plane_t(oy, dy, 0.0);
+            // ---- 主 DDA:最近球体 ----
+            let e1 = render_core::slab_enter(ox, dx, 0.0, box_f);
+            let e2 = render_core::slab_enter(oy, dy, 0.0, box_f);
+            let e3 = render_core::slab_enter(oz, dz, 0.0, box_f);
+            let t_ent = dmath::rx_max(dmath::rx_max(e1, e2), e3);
+            let x1 = render_core::slab_exit(ox, dx, 0.0, box_f);
+            let x2 = render_core::slab_exit(oy, dy, 0.0, box_f);
+            let x3 = render_core::slab_exit(oz, dz, 0.0, box_f);
+            let t_ext = render_core::min3(x1, x2, x3);
+            let mut best_t: f32 = 1.0e30;
+            let mut best_j: u32 = 0xFFFFFFFFu32;
+            if t_ent <= t_ext && t_ext > 0.0 {
+                let t0 = dmath::rx_max(t_ent, 0.0);
+                let mut ix = render_core::dda_cell(ox, dx, t0, dim_f);
+                let mut iy = render_core::dda_cell(oy, dy, t0, dim_f);
+                let mut iz = render_core::dda_cell(oz, dz, t0, dim_f);
+                let mut tmx = render_core::dda_tmax(ox, dx, ix as f32);
+                let mut tmy = render_core::dda_tmax(oy, dy, iy as f32);
+                let mut tmz = render_core::dda_tmax(oz, dz, iz as f32);
+                let tdx = render_core::dda_tdelta(dx);
+                let tdy = render_core::dda_tdelta(dy);
+                let tdz = render_core::dda_tdelta(dz);
+                let stx: i32 = if dx > 0.0 { 1 } else { -1 };
+                let sty: i32 = if dy > 0.0 { 1 } else { -1 };
+                let stz: i32 = if dz > 0.0 { 1 } else { -1 };
+                let mut st: u32 = 0;
+                while st < max_steps {
+                    let c = ((iz * dim_i + iy) * dim_i + ix) as usize;
+                    let c0 = cs[c];
+                    if c0 != 0xFFFFFFFFu32 {
+                        let mut j = c0 as usize;
+                        let je = ce[c] as usize;
+                        while j < je {
+                            let tj = render_core::sphere_t(
+                                ox, oy, oz, dx, dy, dz, px[j], py[j], pz[j], r2);
+                            if tj < best_t {
+                                best_t = tj;
+                                best_j = j as u32;
+                            }
+                            j = j + 1;
+                        }
+                    }
+                    let tc = render_core::min3(tmx, tmy, tmz);
+                    if best_t <= tc || tc > t_ext || tc > t_ground {
+                        break;
+                    }
+                    if tmx <= tmy && tmx <= tmz {
+                        ix = ix + stx;
+                        if ix < 0 || ix >= dim_i {
+                            break;
+                        }
+                        tmx = tmx + tdx;
+                    } else if tmy <= tmz {
+                        iy = iy + sty;
+                        if iy < 0 || iy >= dim_i {
+                            break;
+                        }
+                        tmy = tmy + tdy;
+                    } else {
+                        iz = iz + stz;
+                        if iz < 0 || iz >= dim_i {
+                            break;
+                        }
+                        tmz = tmz + tdz;
+                    }
+                    st = st + 1u32;
+                }
+            }
+            // ---- 直接命中面光源(仅 bounce 0,NEE 防双计) ----
+            if b == 0u32 {
+                let tl = render_core::plane_t(oy, dy, ly);
+                if tl < best_t && tl < t_ground {
+                    let m1 = tl * dx;
+                    let hlx = ox + m1;
+                    let m2 = tl * dz;
+                    let hlz = oz + m2;
+                    if hlx >= lx0 && hlx <= lx1 && hlz >= lz0 && hlz <= lz1 {
+                        let er = tr * le;
+                        let eg = tg * le;
+                        let eb = tb * le;
+                        lr = lr + er;
+                        lg = lg + eg;
+                        lb = lb + eb;
+                        break;
+                    }
+                }
+            }
+            if best_t < t_ground {
+                // ---- 球体命中:速度基色 Lambert + Schlick Fresnel + NEE ----
+                let bj = best_j as usize;
+                let m1 = best_t * dx;
+                let hx = ox + m1;
+                let m2 = best_t * dy;
+                let hy = oy + m2;
+                let m3 = best_t * dz;
+                let hz = oz + m3;
+                let n0x = hx - px[bj];
+                let n0y = hy - py[bj];
+                let n0z = hz - pz[bj];
+                let nl = render_core::len3(n0x, n0y, n0z);
+                let ninv = 1.0 / nl;
+                let mut nx = n0x * ninv;
+                let mut ny = n0y * ninv;
+                let mut nz = n0z * ninv;
+                let mut cosi = 0.0 - render_core::dot3(dx, dy, dz, nx, ny, nz);
+                if cosi < 0.0 {
+                    nx = -nx;
+                    ny = -ny;
+                    nz = -nz;
+                    cosi = -cosi;
+                }
+                let fres = render_core::schlick(cosi);
+                let spd = render_core::len3(vx[bj], vy[bj], vz[bj]);
+                let ct = render_core::speed_t(spd, vscale);
+                let alr = render_core::speed_col_r(ct);
+                let alg = render_core::speed_col_g(ct);
+                let alb = render_core::speed_col_b(ct);
+                let ofx = nx * 0.001;
+                let ofy = ny * 0.001;
+                let ofz = nz * 0.001;
+                ox = hx + ofx;
+                oy = hy + ofy;
+                oz = hz + ofz;
+                // NEE(diffuse 叶,权 1-fres)
+                s = rng::xorshift32(s);
+                let u1 = render_core::u01(s);
+                s = rng::xorshift32(s);
+                let u2 = render_core::u01(s);
+                let lpx = render_core::lerp(lx0, lx1, u1);
+                let lpz = render_core::lerp(lz0, lz1, u2);
+                let w0x = lpx - ox;
+                let w0y = ly - oy;
+                let w0z = lpz - oz;
+                let wd = render_core::len3(w0x, w0y, w0z);
+                let winv = 1.0 / wd;
+                let wxn = w0x * winv;
+                let wyn = w0y * winv;
+                let wzn = w0z * winv;
+                let ndl = render_core::dot3(nx, ny, nz, wxn, wyn, wzn);
+                if ndl > 0.0 {
+                    let occl = shadow_walk(
+                        px, py, pz, cs, ce, ox, oy, oz, wxn, wyn, wzn, wd,
+                        r2, dim_i, dim_f, max_steps);
+                    if occl == 0u32 {
+                        let geom = render_core::light_geom(wyn, area, wd);
+                        let w1 = ndl * geom;
+                        let wgt = w1 * (1.0 - fres);
+                        let q1 = tr * alr;
+                        let q2 = q1 * le;
+                        let q3 = q2 * wgt;
+                        lr = lr + q3;
+                        let g1 = tg * alg;
+                        let g2 = g1 * le;
+                        let g3 = g2 * wgt;
+                        lg = lg + g3;
+                        let b1 = tb * alb;
+                        let b2 = b1 * le;
+                        let b3 = b2 * wgt;
+                        lb = lb + b3;
+                    }
+                }
+                // 弹射分支:u < fres → 镜面;否则 diffuse 拒绝采样半球
+                s = rng::xorshift32(s);
+                let pu = render_core::u01(s);
+                if pu < fres {
+                    let ddn = render_core::dot3(dx, dy, dz, nx, ny, nz);
+                    let rdx = render_core::reflect_c(dx, ddn, nx);
+                    let rdy = render_core::reflect_c(dy, ddn, ny);
+                    let rdz = render_core::reflect_c(dz, ddn, nz);
+                    dx = rdx;
+                    dy = rdy;
+                    dz = rdz;
+                } else {
+                    let mut hxs = nx;
+                    let mut hys = ny;
+                    let mut hzs = nz;
+                    let mut try_: u32 = 0;
+                    while try_ < 16u32 {
+                        s = rng::xorshift32(s);
+                        let a1t = render_core::u01(s);
+                        let a1 = a1t * 2.0 - 1.0;
+                        s = rng::xorshift32(s);
+                        let a2t = render_core::u01(s);
+                        let a2 = a2t * 2.0 - 1.0;
+                        s = rng::xorshift32(s);
+                        let a3t = render_core::u01(s);
+                        let a3 = a3t * 2.0 - 1.0;
+                        let q2 = render_core::dot3(a1, a2, a3, a1, a2, a3);
+                        if q2 > 0.0001 && q2 <= 1.0 {
+                            let qinv = 1.0 / dmath::rx_sqrt(q2);
+                            hxs = a1 * qinv;
+                            hys = a2 * qinv;
+                            hzs = a3 * qinv;
+                            break;
+                        }
+                        try_ = try_ + 1u32;
+                    }
+                    let hd = render_core::dot3(hxs, hys, hzs, nx, ny, nz);
+                    if hd < 0.0 {
+                        hxs = -hxs;
+                        hys = -hys;
+                        hzs = -hzs;
+                    }
+                    let ndl2 = dmath::rx_abs(hd);
+                    dx = hxs;
+                    dy = hys;
+                    dz = hzs;
+                    let w2 = 2.0 * ndl2;
+                    let qr = alr * w2;
+                    tr = tr * qr;
+                    let qg = alg * w2;
+                    tg = tg * qg;
+                    let qb = alb * w2;
+                    tb = tb * qb;
+                }
+            } else if t_ground < 1.0e29 {
+                // ---- 地面命中:棋盘 diffuse + NEE ----
+                let m1 = t_ground * dx;
+                let hx = ox + m1;
+                let m2 = t_ground * dz;
+                let hz = oz + m2;
+                let alb = render_core::checker_albedo(hx, hz);
+                ox = hx;
+                oy = 0.001;
+                oz = hz;
+                s = rng::xorshift32(s);
+                let u1 = render_core::u01(s);
+                s = rng::xorshift32(s);
+                let u2 = render_core::u01(s);
+                let lpx = render_core::lerp(lx0, lx1, u1);
+                let lpz = render_core::lerp(lz0, lz1, u2);
+                let w0x = lpx - ox;
+                let w0y = ly - oy;
+                let w0z = lpz - oz;
+                let wd = render_core::len3(w0x, w0y, w0z);
+                let winv = 1.0 / wd;
+                let wxn = w0x * winv;
+                let wyn = w0y * winv;
+                let wzn = w0z * winv;
+                if wyn > 0.0 {
+                    let occl = shadow_walk(
+                        px, py, pz, cs, ce, ox, oy, oz, wxn, wyn, wzn, wd,
+                        r2, dim_i, dim_f, max_steps);
+                    if occl == 0u32 {
+                        let geom = render_core::light_geom(wyn, area, wd);
+                        let wgt = wyn * geom;
+                        let q1 = tr * alb;
+                        let q2 = q1 * le;
+                        let q3 = q2 * wgt;
+                        lr = lr + q3;
+                        let g1 = tg * alb;
+                        let g2 = g1 * le;
+                        let g3 = g2 * wgt;
+                        lg = lg + g3;
+                        let b1 = tb * alb;
+                        let b2 = b1 * le;
+                        let b3 = b2 * wgt;
+                        lb = lb + b3;
+                    }
+                }
+                let mut hxs: f32 = 0.0;
+                let mut hys: f32 = 1.0;
+                let mut hzs: f32 = 0.0;
+                let mut try_: u32 = 0;
+                while try_ < 16u32 {
+                    s = rng::xorshift32(s);
+                    let a1t = render_core::u01(s);
+                    let a1 = a1t * 2.0 - 1.0;
+                    s = rng::xorshift32(s);
+                    let a2t = render_core::u01(s);
+                    let a2 = a2t * 2.0 - 1.0;
+                    s = rng::xorshift32(s);
+                    let a3t = render_core::u01(s);
+                    let a3 = a3t * 2.0 - 1.0;
+                    let q2 = render_core::dot3(a1, a2, a3, a1, a2, a3);
+                    if q2 > 0.0001 && q2 <= 1.0 {
+                        let qinv = 1.0 / dmath::rx_sqrt(q2);
+                        hxs = a1 * qinv;
+                        hys = a2 * qinv;
+                        hzs = a3 * qinv;
+                        break;
+                    }
+                    try_ = try_ + 1u32;
+                }
+                if hys < 0.0 {
+                    hxs = -hxs;
+                    hys = -hys;
+                    hzs = -hzs;
+                }
+                let ndl2 = dmath::rx_abs(hys);
+                dx = hxs;
+                dy = hys;
+                dz = hzs;
+                let w2 = 2.0 * ndl2;
+                let qa = alb * w2;
+                tr = tr * qa;
+                tg = tg * qa;
+                tb = tb * qa;
+            } else {
+                // ---- 天空 ----
+                let skr = render_core::sky_r(dy);
+                let skg = render_core::sky_g(dy);
+                let skb = render_core::sky_b(dy);
+                let q1 = tr * skr;
+                lr = lr + q1;
+                let q2 = tg * skg;
+                lg = lg + q2;
+                let q3 = tb * skb;
+                lb = lb + q3;
+                break;
+            }
+            b = b + 1u32;
+        }
+        br = br + lr;
+        bg = bg + lg;
+        bbl = bbl + lb;
+        sl = sl + 1u32;
+    }
+    ar_[pi] = ar_[pi] + br;
+    ag_[pi] = ag_[pi] + bg;
+    ab_[pi] = ab_[pi] + bbl;
+}
+
+// ---- 影子光线 DDA(any-hit;返回 1 = 被遮挡) ----
+// 与主 DDA 同构(refcpu host 同构重放);光源在盒上方,地面不参与遮挡。
+// pub:render_rt::rt_primary 复用(一核两档)。
+pub device fn shadow_walk(
+    px: View<global, f32>,
+    py: View<global, f32>,
+    pz: View<global, f32>,
+    cs: View<global, u32>,
+    ce: View<global, u32>,
+    ox: f32,
+    oy: f32,
+    oz: f32,
+    dx: f32,
+    dy: f32,
+    dz: f32,
+    wd: f32,
+    r2: f32,
+    dim_i: i32,
+    dim_f: f32,
+    max_steps: u32,
+) -> u32 {
+    let box_f = dim_f;
+    let e1 = render_core::slab_enter(ox, dx, 0.0, box_f);
+    let e2 = render_core::slab_enter(oy, dy, 0.0, box_f);
+    let e3 = render_core::slab_enter(oz, dz, 0.0, box_f);
+    let t_ent = dmath::rx_max(dmath::rx_max(e1, e2), e3);
+    let x1 = render_core::slab_exit(ox, dx, 0.0, box_f);
+    let x2 = render_core::slab_exit(oy, dy, 0.0, box_f);
+    let x3 = render_core::slab_exit(oz, dz, 0.0, box_f);
+    let t_ext = render_core::min3(x1, x2, x3);
+    if t_ent > t_ext || t_ext <= 0.0 {
+        return 0u32;
+    }
+    let t0 = dmath::rx_max(t_ent, 0.0);
+    let mut ix = render_core::dda_cell(ox, dx, t0, dim_f);
+    let mut iy = render_core::dda_cell(oy, dy, t0, dim_f);
+    let mut iz = render_core::dda_cell(oz, dz, t0, dim_f);
+    let mut tmx = render_core::dda_tmax(ox, dx, ix as f32);
+    let mut tmy = render_core::dda_tmax(oy, dy, iy as f32);
+    let mut tmz = render_core::dda_tmax(oz, dz, iz as f32);
+    let tdx = render_core::dda_tdelta(dx);
+    let tdy = render_core::dda_tdelta(dy);
+    let tdz = render_core::dda_tdelta(dz);
+    let stx: i32 = if dx > 0.0 { 1 } else { -1 };
+    let sty: i32 = if dy > 0.0 { 1 } else { -1 };
+    let stz: i32 = if dz > 0.0 { 1 } else { -1 };
+    let mut st: u32 = 0;
+    while st < max_steps {
+        let c = ((iz * dim_i + iy) * dim_i + ix) as usize;
+        let c0 = cs[c];
+        if c0 != 0xFFFFFFFFu32 {
+            let mut j = c0 as usize;
+            let je = ce[c] as usize;
+            while j < je {
+                let tj = render_core::sphere_t(
+                    ox, oy, oz, dx, dy, dz, px[j], py[j], pz[j], r2);
+                if tj < wd {
+                    return 1u32;
+                }
+                j = j + 1;
+            }
+        }
+        let tc = render_core::min3(tmx, tmy, tmz);
+        if tc > t_ext || tc > wd {
+            break;
+        }
+        if tmx <= tmy && tmx <= tmz {
+            ix = ix + stx;
+            if ix < 0 || ix >= dim_i {
+                break;
+            }
+            tmx = tmx + tdx;
+        } else if tmy <= tmz {
+            iy = iy + sty;
+            if iy < 0 || iy >= dim_i {
+                break;
+            }
+            tmy = tmy + tdy;
+        } else {
+            iz = iz + stz;
+            if iz < 0 || iz >= dim_i {
+                break;
+            }
+            tmz = tmz + tdz;
+        }
+        st = st + 1u32;
+    }
+    0u32
+}
+
+// ---- 收尾 kernel:accum/spp → Reinhard → gamma(sqrt)→ [0,1] 写 out_rgb ----
+pub kernel fn pt_finalize(
+    t: ThreadCtx<1>,
+    ar_: View<global, f32>,
+    ag_: View<global, f32>,
+    ab_: View<global, f32>,
+    out: ViewMut<global, f32>,
+    npix: usize,
+    inv_spp: f32,
+) {
+    let i = t.global_id();
+    if i < npix {
+        let cr = ar_[i] * inv_spp;
+        let cg = ag_[i] * inv_spp;
+        let cb = ab_[i] * inv_spp;
+        out[i * 3] = render_core::tone_map(cr);
+        out[i * 3 + 1] = render_core::tone_map(cg);
+        out[i * 3 + 2] = render_core::tone_map(cb);
+    }
+}

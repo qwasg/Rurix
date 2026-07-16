@@ -49,6 +49,16 @@ jobs:
         shell: powershell
         run: py -3 ci/check_redistribution.py
 
+      # —— G1.4 增量(milestones/g1/CI_GATES.md §5 第 8 项;MR-0003,check_* 守卫风格,CPU-only)——
+      # 贡献校验阻断门(兑现 10 §7「开源后 CI 自动阻断缺 provenance/验证/条款号的 PR」,D-406):
+      # 扫 PR 范围(base..HEAD)非 merge commit,三类缺项即红——(1)provenance trailer
+      # (Assisted-by/Co-Authored-By);(2)语义改动(src/*.rs 或 spec/*.md)引用条款号 RXS-####;
+      # (3)src 改动 commit body 含验证标记。内置 red 自检(反 YAML-only)。不分配错误码/不写
+      # evidence/不计 budget。base 默认取 origin/<GITHUB_BASE_REF>(PR)/ origin/main(push)。
+      - name: contribution provenance/clause/verification gate (G1 CI_GATES §5.8, G-G1-4, MR-0003)
+        shell: powershell
+        run: py -3 ci/check_contribution.py
+
       - name: harness unit tests (CI_GATES §3.4)
         shell: powershell
         run: py -3 -m pytest tests/ -q
@@ -146,6 +156,65 @@ jobs:
         shell: powershell
         run: py -3 ci/doc_site_smoke.py
 
+      - name: configure Windows GPU toolchain
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          $vcvarsCandidates = @()
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (Test-Path $vswhere) {
+            $vsInstall = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+            if ($vsInstall) {
+              $vcvarsCandidates += (Join-Path $vsInstall "VC\Auxiliary\Build\vcvars64.bat")
+            }
+          }
+          $vcvarsCandidates += @(
+            "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat",
+            "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
+          )
+          $vcvars = $vcvarsCandidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+          if (-not $vcvars) {
+            throw "vcvars64.bat not found; real GPU CI requires MSVC C++ tools"
+          }
+
+          $vsEnv = @{}
+          & cmd.exe /d /c "call `"$vcvars`" >nul && set" | ForEach-Object {
+            $parts = $_ -split "=", 2
+            if ($parts.Length -eq 2) {
+              $vsEnv[$parts[0]] = $parts[1]
+            }
+          }
+          foreach ($name in @(
+            "INCLUDE", "LIB", "LIBPATH", "UniversalCRTSdkDir", "UCRTVersion",
+            "VCINSTALLDIR", "VCToolsInstallDir", "VSCMD_ARG_HOST_ARCH", "VSCMD_ARG_TGT_ARCH",
+            "VSCMD_VER", "VSINSTALLDIR", "WindowsLibPath", "WindowsSdkBinPath",
+            "WindowsSdkDir", "WindowsSDKLibVersion", "WindowsSDKVersion"
+          )) {
+            if ($vsEnv.ContainsKey($name)) {
+              "$name=$($vsEnv[$name])" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            }
+          }
+          foreach ($entry in (($vsEnv["PATH"] -split ";") | Where-Object { $_ })) {
+            $entry | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          }
+
+          $cudaRoots = @()
+          if ($env:CUDA_PATH) {
+            $cudaRoots += $env:CUDA_PATH
+          }
+          $cudaBase = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA"
+          if (Test-Path $cudaBase) {
+            $cudaRoots += (Get-ChildItem $cudaBase -Directory | Sort-Object LastWriteTime -Descending | ForEach-Object { $_.FullName })
+          }
+          $cuda = $cudaRoots | Where-Object { $_ -and (Test-Path (Join-Path $_ "bin\ptxas.exe")) } | Select-Object -First 1
+          if (-not $cuda) {
+            throw "CUDA Toolkit with ptxas.exe not found; real GPU CI requires CUDA"
+          }
+          "CUDA_PATH=$cuda" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          (Join-Path $cuda "bin") | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          Write-Host "Configured MSVC via $vcvars"
+          Write-Host "Configured CUDA_PATH=$cuda"
+
       # 步骤 40（G-G1-1，RFC-0001 / RXS-0140~0143）：CUDA–D3D12 interop 冒烟。
       # host 段（总跑，无需 GPU/D3D12/MSVC）：--features d3d12-interop 构建（external-resource
       # descriptor + export 的编译期 ABI size const assert 104/88/96/144 + 96，RXS-0143）+ 对
@@ -175,6 +244,270 @@ jobs:
         env:
           RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/realtime_present_smoke.py
+
+      # 步骤 42（G-G1-2，MR-0001 / RXS-0144~0148）：流序分配 AsyncBuffer 冒烟。
+      # host 段（总跑，无需 GPU）：默认构建 rurix-rt（AsyncBuffer<'stream,T> 随 rurix-rt 始终编译，
+      # 无 feature 门控，镜像 InFlight）+ 对 src/rurix-rt/compile-fail/async_buffer_*.rs 三类流序
+      # 分配错误（分配未完成访问 E0599 / 释放后访问 E0382 / 跨 stream 未同步 E0599，RXS-0145~0148）
+      # 逐个断言 rustc 拒绝 + red 自检（反 YAML-only：任一应拦截却编译通过即红）。device 段（GPU +
+      # cuMemAllocAsync 真跑）：三 stream 流序分配 + 两条 share_with 跨 stream 时序边 + 往返数值对照
+      # → pipeline_ok；无 GPU/老驱动无流序分配 → 降级 SKIP(exit 0)。写 evidence/async_buffer_*.json
+      # 的 pipeline_ok 计入 g1.counter.async_buffer_pipeline（建设期未落地 → 0 → normal SKIP 属预期）。
+      # device 路径并入 Compute Sanitizer nightly（CUDA.jl #780 事故类回归）。失败即红。
+      - name: AsyncBuffer stream-ordered allocation smoke (G1 CI_GATES §2.42, G-G1-2, MR-0001)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/async_buffer_smoke.py
+
+      # 步骤 43（G-G1-3，MR-0002 / RXS-0149）：首个引擎集成冒烟。
+      # host 段（总跑，无需 MSVC/GPU）：cargo build -p rurix-engine 产 cdylib（rurix_engine.dll +
+      # import lib，复用 M8.1 既有 extern "C" C ABI RXS-0125 语义 0-byte）+ 校验随附头文件
+      # （include/rurix_engine.h）声明集 == ffi.rs `extern "C"` 导出集 == EXPORTED_C_ABI（头↔ABI
+      # 逐一对应，RXS-0149）+ red 自检（导出集漂移即红）。device 段（交互桌面 + MSVC + Windows
+      # SDK D3D12 + CUDA Toolkit + GPU 真跑）：cl 编译 src/rurix-engine/harness/engine_host.cpp 链接
+      # rurix_engine.dll.lib + cudart + d3d12/dxgi → 自建最小 C++/D3D12 render-graph 上下文（LUID
+      # 匹配 adapter）调 Rurix DLL SAXPY compute pass → 设备数值对照 out==a*x+y → integration_ok；
+      # 无 MSVC/CUDA/GPU → 降级 SKIP(exit 0)。写 evidence/engine_integration_*.json 的 integration_ok
+      # 计入 g1.counter.engine_integration（建设期未落地 → 0 → normal SKIP 属预期）。失败即红。
+      - name: first engine integration smoke (G1 CI_GATES §2.43, G-G1-3, MR-0002)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/engine_integration_smoke.py
+
+      # 步骤 44（G-G1-5，MR-0005 / RXS-0150~0152，**check_* 守卫风格，不写 budget counter**）：
+      # 生产分发 fatbin 冒烟。host 段（总跑）：三类构造缺陷红绿自检（白名单外 cubin 组件 /
+      # 缺 [[artifact]] digest / cubin↔PTX golden 漂移）+ 真实 ci/check_redistribution.py（cubin/fatbin
+      # 延续：无 __nv_* 残留 / 不打包 libdevice .bc·Toolkit·驱动·Nsight，r6）。device 段（ptxas +
+      # CUDA + GPU 真跑）：build.rs 按架构预编 cubin（ptxas -arch=sm_89）→ fatbin_saxpy 经
+      # load_module_artifacts 装载协商（cubin 命中即用 / 未命中降级保守 PTX fallback，RXS-0151，降级
+      # 而非 reject）→ SAXPY 设备数值对照 → distribution_ok；无 ptxas/GPU → 降级 SKIP(exit 0)。
+      # 写 evidence/fatbin_dist_smoke.json。守卫「应红却放行」/ 真实审计红 / device 数值对照失败即红。
+      - name: production fatbin distribution smoke (G1 CI_GATES §2.44, G-G1-5, MR-0005)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/fatbin_dist_smoke.py
+
+      # 步骤 45（G-G2-1，RFC-0002 / RXS-0153~0156，**纯 host/CPU-only，check_* 守卫风格**）：
+      # 着色阶段条款 / 类型面拦截冒烟。经 rurixc 前端(cargo feature `shader-stages`,默认启用)
+      # 用 `rurixc --emit=check` 对临时 .rx 做真实红绿:green = 合法着色阶段声明 + 阶段专属 I/O
+      # 标注(#[interpolate]/#[builtin]) + 共享接口 + Texture2D/Sampler 作 fragment 形参 → 0 诊断;
+      # red = 直接调用着色阶段入口(RX3001 复用)/ 无标注 I/O 字段(RX3011)/ 阶段间接口不匹配
+      # (RX3012)/ 资源句柄违例(RX3013)→ 退出非零且含对应错误码。内置 red 自检(green 样例注入
+      # 无标注字段 → 翻红 RX3011,反 YAML-only)。着色阶段类型面为编译期(无 device/GPU);DXIL
+      # codegen(G2.2)/ 绑定布局推导(G2.3)/ 🔒 纹理内存模型映射(06 §4.2 禁区)不在本 PR。失败即红。
+      - name: shader stage clause / type-face interception smoke (G2 CI_GATES §2.45, G-G2-1, RFC-0002)
+        shell: powershell
+        run: py -3 ci/shader_stages_smoke.py
+
+      # 步骤 46（G-G2-2,RFC-0003/RFC-0004 / RXS-0157/RXS-0162）：DXIL 第二后端 codegen 冒烟。
+      # `cargo test -p rurixc --features dxil-backend`(dxil_codegen 单测 + dxil_corpus
+      # accept/reject + dxil_golden)。IR 层(rurixc 自有 DirectX 三元组 LLVM IR `.dxil-ll`
+      # golden + accept/reject RX6007)**总跑**、无外部工具依赖;`.dxil-disasm` 反汇编关卡需
+      # patched llc(经 `RURIX_LLC`,**RD-011 受控 dev-only 临时工具链偏差**,patch 不入库、
+      # 不改 committed D-205 pin)+ dxc 签名 validator(经 `RURIX_DXC_DIR`),CI runner 未配
+      # 二者时 disasm 关卡 normal SKIP(对齐 RXS-0073 ptxas 干验证 SKIP 纪律,真实红绿在带
+      # 工具链的 dev/runner)。随后 `ci/dxil_codegen_smoke.py` 复核图形=B host 转译链
+      # (SPIRV-Cross→dxc→DXIL + dxv validator + 篡改红绿),`ci/dxil_device_smoke.py`
+      # 编译签名 DXIL 后在真实 D3D12 hardware adapter 上建 graphics PSO、离屏 draw/readback。
+      # 任一 validator/device 红即红;run URL 即 G-G2-2 device 见证入口。
+      - name: DXIL second-backend codegen smoke (G2 CI_GATES §2.46, G-G2-2, RFC-0003, RD-011 dev 偏差)
+        shell: powershell
+        env:
+          RURIX_DXC_DIR: ${{ vars.RURIX_DXC_DIR || 'H:\dxc-round7\extracted\bin\x64' }}
+          RURIX_REQUIRE_REAL: "1"
+        run: |
+          cargo test -p rurixc --features dxil-backend --lib dxil_codegen
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test -p rurixc --features dxil-backend --test dxil_corpus --test dxil_golden
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          py -3 ci/dxil_codegen_smoke.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          py -3 ci/dxil_device_smoke.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      # 步骤 47（G-G2-3,RFC-0005 / RXS-0163~0166）：绑定布局推导产物 device 真跑。
+      # E2b-3 host golden(tests/dxil/binding/fs_tex_samp.binding-golden)已把 SPIR-V 资源绑定
+      # 装饰 + RTS0 容器的确定性 SHA-256 定型为 owner-blessed 回归锚;本步补齐 golden 单测结构上
+      # 无法证明的另一半——推导出的 RTS0 root signature 在真实 D3D12 device 上是否被接受、绑定的
+      # Texture2D/Sampler 是否经该 root signature 在硬件上真正出图。`ci/dxil_binding_device_smoke.py`:
+      # cargo example emit_binding_rts0 经公开 binding_layout API 落盘 RTS0(SHA-256 == blessed
+      # golden 基线,否则红)→ signed dxc 编译 textured VS/PS + dxv 验签 → 真实 D3D12 hardware
+      # CreateRootSignature(rurix RTS0)accept + 篡改 RTS0 reject(device 级红绿)+ 经推导 SRV(t0)/
+      # Sampler(s0)descriptor table 绑定纹理离屏 textured draw/readback 像素对照。signed pin =
+      # RURIX_DXC_DIR(dxc+dxv+dxil.dll;PATH Vulkan dxc 不算签名)。任一 device/validator 红即红;
+      # run URL 即 G-G2-3 device 见证入口。
+      - name: DXIL binding-layout device smoke (G2 CI_GATES §2.47, G-G2-3, RFC-0005)
+        shell: powershell
+        env:
+          RURIX_DXC_DIR: ${{ vars.RURIX_DXC_DIR || 'H:\dxc-round7\extracted\bin\x64' }}
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/dxil_binding_device_smoke.py
+
+      # 步骤 48（G-G2-4,RFC-0006 + RFC-0007 / RXS-0167~0176；严格面:lighting pass 真采样 G-buffer）：
+      # UC-04 deferred 渲染器 device 真跑出图。`ci/dxil_uc04_device_smoke.py`:把 4 个 UC-04 着色器
+      # (几何 pass VS/FS + lighting/合成 pass VS/FS)**Rurix 源**经 rurixc 图形=B DXIL 链(cargo
+      # example emit_uc04_dxil:RXS-0171 body 降级 + RXS-0172/0173 签名保真 + RXS-0175 采样降级 +
+      # 强制 signature_gate)落盘 DXIL 容器(**非手写 HLSL/DXIL**)→ dxv 逐个验签 → cargo build
+      # uc04-demo --features real-shim(cc 编 D3D12 离屏 shim,消费 Rurix DXIL + 每 pass RFC-0005 RTS0,
+      # P-11)→ 真硬件几何 pass 写 G-buffer MRT → albedo RT→SRV barrier(RXS-0176 IR1)→ lighting pass
+      # **经 SRV t0 + Sampler s0 真采样 G-buffer albedo**(RXS-0175/0176,OpImageSampleExplicitLod LOD0)
+      # → final = f(采样值) → offscreen readback albedo+final 中心像素对照(DXIL_UC04: ok 见证行,
+      # final.R 追踪采样到的 gbuffer.R)→ **数据流严格红绿**(变体几何 FS 源 albedo 0.75→0.5 经同一
+      # 图形=B 链 → final 像素随之改变,RXS-0176 IR2)→ DXIL 容器篡改红绿(dxv 拒 + device PSO 拒,
+      # 复原绿)。防降级硬门:VS/FS 全来自 Rurix 源经图形=B DXIL、每 pass RTS0 经 CreateRootSignature
+      # 真机解析进 PSO、真 hardware 多 pass deferred draw + 真采样 + offscreen readback。signed pin =
+      # RURIX_DXC_DIR(dxc+dxv+dxil.dll)+ RURIX_SPIRV_CROSS;RURIX_REQUIRE_REAL=1 缺 validator/D3D12/
+      # MSVC/signed-DXC 即红(不 SKIP 充绿)。run URL 即 G-G2-4 device 见证入口。
+      - name: DXIL UC-04 deferred device smoke (G2 CI_GATES §2.48, G-G2-4, RFC-0006 + RFC-0007)
+        shell: powershell
+        env:
+          RURIX_DXC_DIR: ${{ vars.RURIX_DXC_DIR || 'H:\dxc-round7\extracted\bin\x64' }}
+          RURIX_SPIRV_CROSS: ${{ vars.RURIX_SPIRV_CROSS || 'C:\ti-localappdata\ti-build-cache\vulkan-1.3.296.0\Bin\spirv-cross.exe' }}
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/dxil_uc04_device_smoke.py
+
+      # 步骤 49（G-G2-5,RFC-0008 / RXS-0177~0180 + RD-008）：语言 1.0 + 首个 edition
+      # 冒烟。edition 为编译期/host 工具链面，**无 device**（不得 SKIP 充绿）。
+      # `ci/edition_smoke.py`:① cargo test -p rurix-pkg --test edition_corpus +
+      # manifest::tests::edition——conformance/edition/accept 合法 edition 经
+      # Manifest::parse 接受、reject 未知 edition → RX7020 / 类型错误 → RX7005
+      # strict-only 拒（真实红绿）；② py -3 ci/stable_snapshot.py --check——RD-008
+      # stable API 快照冻结机制激活后 stable 面（spec RXS 条款 ID 全集 + 错误码
+      # ID/含义 + edition 合法值集 + rx CLI 子命令面）与入库 tests/stable/stable_api.snapshot
+      # 一致；③ 篡改 stable 快照 → --check 翻红 → 复原绿（红绿闭合，反 YAML-only）。
+      # 🔒 快照不冻结二进制 ABI（RXS-0180 L3）。任一断言失败即红；纯 host，无 device。
+      - name: language 1.0 + edition smoke (G2 CI_GATES §2.49, G-G2-5, RFC-0008 + RD-008)
+        shell: powershell
+        run: py -3 ci/edition_smoke.py
+
+      # 步骤 50（V1/MR-0008,RXS-0185~0186,G-V1-3）:stable channel 清单冒烟。
+      # `ci/channel_manifest_smoke.py`:① green——rurixup release(缺省 channel=stable)
+      # 产出 channel_manifest.json:channel=stable / rurix_version==workspace 版号 /
+      # bundle_manifest_sha256==bundle.json 字节流 SHA-256(内容寻址引用)/ components
+      # 与 bundle 全集对应;② 确定性——同一输入两次生成逐字节一致(无时间戳);
+      # ③ red→绿闭合——`--simulate-channel-drift` → 第 8 子门 channel-manifest 红 →
+      # 发布阻断 exit 2;`--channel nightly` → 用法错误 exit 1(零新 RX 码);复原绿
+      # (反 YAML-only)。**纯 host/CPU-only,不 SKIP 充绿(除无 cargo 工具链)**。
+      - name: stable channel manifest smoke (V1 CI_GATES §2.50, G-V1-3, MR-0008)
+        shell: powershell
+        run: py -3 ci/channel_manifest_smoke.py
+
+      # 步骤 51（post-V1/MR-0009,RXS-0187~0188）:rurixup 工具链前端冒烟。
+      # `ci/toolchain_frontend_smoke.py`:release 产 channel_manifest+bundle →
+      # `rurixup install` 消费 stable channel(内容寻址校验)→ 注册 toolchains.json →
+      # `list`/`default`;install 幂等(逐字节一致);red→绿闭合——篡改 bundle → digest
+      # 失配拒 exit 1 / `default` 未注册版号拒 exit 1 / 复原绿。**纯 host,无 device/网络**。
+      - name: rurixup toolchain frontend smoke (MR-0009, RXS-0187~0188)
+        shell: powershell
+        run: py -3 ci/toolchain_frontend_smoke.py
+
+      # 步骤 52（MS1.2,契约 G-MS1-2,RFC-0009 / RXS-0189~0196）:single-source 宿主编排冒烟。
+      # `ci/host_orch_smoke.py`:host 段(总跑,无 GPU 也跑)——conformance/host_orch reject
+      # 语料六类逐个 `rx build` 编译期拦截(mod_missing/mod_cycle → RX1005,RXS-0196;
+      # elem_infer → RX2010,RXS-0190;gpu_in_kernel → RX3015,RXS-0189;launch_arg_subset →
+      # RX6024,RXS-0191;buffer_move → RX4001,RXS-0189)+ accept 语料(mod_file/extern_link/
+      # saxpy_single_source)全绿产 EXE(落 %TEMP%,不留仓库)+ 链接面见证(saxpy 单 EXE
+      # 存在且非空 = kernel PTX 嵌入 + rurix_rt_cabi 链接成功,RXS-0192/0195)。device 段
+      # (runner 真 GPU):运行 saxpy 单 EXE → 真 launch → 数值自校验 exit 0(见证行
+      # `HOST_ORCH: ok single_source=true device_run=true`)。red→绿闭合(内建,防降级硬门,
+      # 反 YAML-only):红① 篡改 EXE 内嵌 PTX 6 字节 → 装载协商拒 `RXRT: error`
+      # (RXS-0192/0193);红② 变体源桩化 kernel 写回经同一 rx build 链重编 → 数值自校验红;
+      # 复原绿。写 evidence/host_orch_smoke.json(schema 校验,single_source/device_run 计入
+      # ms1.counter.host_orch_single_source)。RURIX_REQUIRE_REAL=1 时无 CUDA 即红(不 SKIP 充绿)。
+      - name: single-source host orchestration smoke (MS1 CI_GATES §2.52, G-MS1-2, RFC-0009)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/host_orch_smoke.py
+
+      # 步骤 53（MS1.3,契约 G-MS1-3/G-MS1-4,RFC-0010 §4.1/§4.4）:UC-07 离线 golden 冒烟。
+      # `ci/uc07_offline_golden_smoke.py`:前置审计(主语言判据机器面,host 段总跑)——
+      # apps/ruridrop 文件集仅 .rx + rurix.toml(发现 .rs/.py/.cpp/.c/.h 等任何其他源即红)
+      # + src/*.rx 集合含 kernel fn 定义(kernel 与宿主编排同包)+ offline_smoke/refcpu 两
+      # EXE 均经 `rx build` 产出(产物链路防降级硬门,措辞镜像 G-G2-4)。device 段(runner
+      # 真 GPU,冒烟档 N=4096/160×120/8spp/2 帧):① 确定性硬门——offline_smoke 独立 tmp
+      # 子目录跑两次,逐帧量化 PPM 字节 SHA-256 相等;② 参考容差硬门——GPU 帧 vs refcpu
+      # 入口(同一 .rx device fn host 重放)逐像素 |Δ|≤1 占比 ≥99.5% 且 max ≤2;③ blessed
+      # 哈希软门——逐帧 SHA-256 == tests/uc07/golden_manifest(漂移 → 红 + 重 bless 留痕
+      # 路径提示,bless 纪律 tests/uc07/bless_log.md)。数据流红绿(内建,反 YAML-only):
+      # 篡改 params_smoke.rx 传给 sim_forces 的重力常数经同一 rx build 链重编 → 帧 digest
+      # 变红 → 变体丢弃原树复原绿(镜像步骤 48 先例,仅「跑完了」不接受)。全绿写
+      # evidence/uc07_offline_golden_smoke.json(schema 校验,digest_match 计入
+      # ms1.counter.uc07_offline_golden_frames)。RURIX_REQUIRE_REAL=1 时无 CUDA 即红(不 SKIP 充绿)。
+      - name: UC-07 offline golden smoke (MS1 CI_GATES §2.53, G-MS1-3/G-MS1-4, RFC-0010)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/uc07_offline_golden_smoke.py
+
+      # 步骤 54（mb1,契约 G-MB1-2,RFC-0011 / RXS-0200~0205;跳 52/53=MS1.2/MS1.3 占用避撞）:
+      # Vulkan/SPIR-V codegen 冒烟。`ci/vulkan_codegen_smoke.py`:rurixc（--features
+      # vulkan-backend）build + `rx build --target vulkan` 对 conformance/vulkan/accept/*.rx
+      # （compute saxpy/math + graphics vertex/fragment）产 SPIR-V → `spirv-val --target-env
+      # vulkan1.0` 严格 Vulkan 校验接受;red_self_test（F64 子集外 → RX6026 / 篡改 .spv →
+      # spirv-val 拒）+ 确定性（同源 ×2 字节全等）。**纯 host/CPU-only**（spirv-val 缺失 → 校验
+      # SKIP;RURIX_REQUIRE_REAL=1 缺工具翻硬红,GPU runner 有 Vulkan SDK）。
+      # **gated on owner 裁决红线 3（D-008/SG-003）解除 + RFC-0011 批准**（本步随 mb1 合入生效）。
+      - name: vulkan/spirv codegen smoke (MB1 CI_GATES §2.54, G-MB1-2, RFC-0011)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/vulkan_codegen_smoke.py
+
+      # 步骤 55（mb1,契约 G-MB1-3,RFC-0011 / RXS-0207）:Vulkan compute 设备真跑冒烟。
+      # `ci/vulkan_device_smoke.py`:rurixc --target vulkan saxpy → SPIR-V → bin/vk_saxpy 在
+      # 本机 Vulkan 设备真跑 saxpy=a*x+out,数值精确校验 + VK_LAYER_KHRONOS_validation 零报错。
+      # device 门:RURIX_REQUIRE_REAL=1 缺设备翻硬红(GPU runner 有 NVIDIA Vulkan)。第二 ICD
+      # (lavapipe)+ AMD 真卡为 open 尾门。gated on 红线 3 解除 + RFC-0011 批准随 mb1 合入生效。
+      - name: vulkan compute device smoke (MB1 CI_GATES §2.55, G-MB1-3, RFC-0011)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/vulkan_device_smoke.py
+
+      # 步骤 56（mb1 Phase 3,契约 G-MB1-4,RFC-0011 / RXS-0210）:Vulkan graphics offscreen
+      # 真跑冒烟。`ci/vulkan_graphics_smoke.py`:rurixc --target vulkan vk_tri_{vs,fs}.rx →
+      # SPIR-V（方案 B 去 SPV_GOOGLE/UserSemantic）→ spirv-val vulkan1.0 accept + spirv-dis
+      # 无 SPV_GOOGLE 反证 → bin/vk_triangle 在本机 Vulkan 设备 offscreen 出图 → readback 像素
+      # 断言（背景角==clear / 中心覆盖 / covered>0）+ VK_LAYER_KHRONOS_validation 零报错;内建
+      # red_self_test（provenance-带保名 .spv 喂同管线 → vkCreateShaderModule VUID-...-08742 →
+      # 退出码判红,两变体 spirv-val 皆 accept 证「去装饰」非「产非法」）。device 门:
+      # RURIX_REQUIRE_REAL=1 缺设备翻硬红(GPU runner 有 NVIDIA Vulkan)。窗口/swapchain present
+      # 为 open 尾门（RD-032);AMD 真卡 G-MB1-6 open。gated on 红线 3 解除 + RFC-0011 批准随 mb1 合入生效。
+      - name: vulkan graphics offscreen smoke (MB1 CI_GATES §2.56, G-MB1-4, RFC-0011)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/vulkan_graphics_smoke.py
+
+      # 步骤 57（mb1 Phase 4,契约 G-MB1-5,RFC-0011 / RXS-0211）:Android 交叉构建冒烟。
+      # `ci/vulkan_android_build_smoke.py`:NDK + aarch64-linux-android target 在位 →
+      # cross-build rurix-rt --features vulkan(lib+vk_saxpy)链接绿;缺 → SKIP(dev-env
+      # 降级,非 fake)。**不触设备**——on-device saxpy/present = G-MB1-7 open 尾门,
+      # 无 android runner 故不设 RURIX_REQUIRE_REAL;专用 android-build runner 经
+      # RURIX_REQUIRE_ANDROID=1 把缺 NDK 翻硬红。NVIDIA runner 无 NDK → 干净 SKIP。
+      - name: vulkan android cross-build smoke (MB1 CI_GATES §2.57, G-MB1-5, RFC-0011)
+        shell: powershell
+        run: py -3 ci/vulkan_android_build_smoke.py
+
+      # 步骤 58（mb1 W6,契约 G-MB1-4,RFC-0011 / RXS-0210 L4 present）:Vulkan win32 swapchain
+      # present 真跑冒烟。`ci/vulkan_present_smoke.py`:rurixc --target vulkan vk_tri_{vs,fs}.rx →
+      # SPIR-V → bin/vk_present 创建隐藏 win32 窗口 + VkSurfaceKHR(VK_KHR_win32_surface)+
+      # VkSwapchainKHR(VK_KHR_swapchain)→ 渲染数帧居中三角形到 swapchain image →
+      # vkCmdCopyImageToBuffer 回读像素断言（背景角==clear / 中心覆盖 / covered>0）→ 转
+      # PRESENT_SRC_KHR → vkQueuePresentKHR 逐帧成功 + VK_LAYER_KHRONOS_validation 零报错;内建
+      # red_self_test（provenance-带保名 .spv 喂同 present 管线 → VUID-...-08742 → 退出码判红,
+      # 证 present 路同样 fail-closed）。device 门:RURIX_REQUIRE_REAL=1 缺设备翻硬红(GPU runner
+      # 有 NVIDIA Vulkan);非 Windows → SKIP（win32 surface 不可用,Android present = G-MB1-7
+      # 尾门）。RD-032 的 code-deferral 由本门 discharge;AMD 真卡 present = G-MB1-6 尾门 open。
+      - name: vulkan win32 present smoke (MB1 CI_GATES §2.58, G-MB1-4, RFC-0011)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/vulkan_present_smoke.py
 
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell

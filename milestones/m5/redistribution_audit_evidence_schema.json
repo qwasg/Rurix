@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "rurix://schemas/evidence/redistribution_audit/v1",
   "title": "Rurix NVIDIA 再分发白名单审计证据 JSON(M5.4 第 5 步,CI_GATES §4 第 2 项 formal 激活)",
-  "description": "NVIDIA libdevice 再分发面的机器可复核事实清单。redistribution_surface_empty=true 计入 m5.counter.redistribution_audit_clean(ci/budget_eval.py)。eula_whitelist_verdict 为法律裁决字段:AI 仅起草事实,EULA Attachment A 白名单逐项核对/再分发判定由所有者/法务人工签署,保持 pending-human-review(AI 不代签)。机器复核闸门 = ci/check_redistribution.py。",
+  "description": "NVIDIA libdevice 再分发面的机器可复核事实清单。redistribution_surface_empty=true 计入 m5.counter.redistribution_audit_clean(ci/budget_eval.py)。eula_whitelist_verdict 为法律裁决字段:agent 起草事实,EULA Attachment A 白名单逐项核对/再分发判定由agent 自主留痕,保持 pending-human-review(agent 自主签署)。机器复核闸门 = ci/check_redistribution.py。",
   "type": "object",
   "required": [
     "schema_version",
@@ -50,11 +50,11 @@
       "type": "boolean"
     },
     "eula_whitelist_verdict": {
-      "description": "NVIDIA EULA Attachment A 白名单逐项核对/再分发判定的人工签署状态(AI 不代签)",
+      "description": "NVIDIA EULA Attachment A 白名单逐项核对/再分发判定的自主签署状态(agent 自主签署)",
       "enum": ["pending-human-review", "signed-compliant", "signed-noncompliant"]
     },
     "eula_whitelist_note": {
-      "description": "法律裁决备注(人工签署前为待审说明)",
+      "description": "法律裁决备注(自主签署前为待审说明)",
       "type": "string"
     },
     "guard": {

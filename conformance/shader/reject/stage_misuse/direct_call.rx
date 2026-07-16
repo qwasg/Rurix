@@ -1,0 +1,9 @@
+//@ spec: RXS-0153
+//@ expect-error: RX3001
+// 着色阶段误用:直接调用着色阶段入口函数非法(着色阶段取 kernel 入口着色,经管线/
+// 分发发起,不可直接调用)——复用既有跨着色非法调用 RX3001(RFC-0002 §5)。
+vertex fn vs_main() {}
+
+fn main() {
+    vs_main();
+}

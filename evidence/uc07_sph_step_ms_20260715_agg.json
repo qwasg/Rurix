@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "evidence_level": "measured_local",
+  "timestamp": "2026-07-15T05:05:57.482830+00:00",
+  "bench": {
+    "id": "uc07_sph_step",
+    "level": "L4",
+    "problem_size": "N=131072 particles, 64^3 grid, 18-bit key radix sort, 4 substeps/frame; differential (72-frame - 8-frame) / 64 frames, sim-only production profile",
+    "harness_commit": "ba37836d"
+  },
+  "environment": {
+    "driver_version": "620.02",
+    "nvml_version": "13.620.02",
+    "gpu_name": "NVIDIA GeForce RTX 4070 Ti",
+    "compute_capability": "8.9",
+    "driver_model": "WDDM",
+    "clocks": {
+      "locked": true,
+      "sm_clock_mhz": 2610,
+      "mem_clock_mhz": 10501,
+      "lock_method": "nvidia-smi -lgc/-lmc (elevated); persistence mode unsupported on Windows"
+    },
+    "thermal": {
+      "temp_start_c": 41,
+      "temp_end_c": 53,
+      "steady_state": false
+    },
+    "isolation_check": {
+      "other_compute_processes": 27
+    },
+    "cuda_driver_version": "13.2",
+    "tdr": {
+      "tdr_delay": "not_set(os_default)",
+      "tdr_level": "not_set(os_default)"
+    },
+    "hags_enabled": true,
+    "os_build": "Windows 10.0.28120"
+  },
+  "sampling": {
+    "trials": 3,
+    "trimmed_pct": 0.2,
+    "timer": "wall_clock_process",
+    "method": "process-level wall-clock differential: (t_long(72f) - t_short(8f)) / 64 frames; startup/PTX-JIT/context overhead cancels in subtraction; per-frame stream sync"
+  },
+  "results": {
+    "metric": "sph_step_time",
+    "unit": "ms",
+    "trimmed_mean": 11.461,
+    "correctness_check": "pass",
+    "trial_values": [
+      12.0413,
+      11.0387,
+      11.303
+    ],
+    "cv": 0.04534,
+    "ci95": [
+      11.0387,
+      12.0413
+    ],
+    "min": 11.0387,
+    "max": 12.0413
+  },
+  "notes": "aggregate of 3 process-level independent runs (uc07_sph_step_ms_20260715_1..3.json); trial_values = per-run end-to-end wall-clock values. sim-only production profile (no rendering): 4 substeps/frame x (cell_key + 18-bit bit-split radix sort + reorder + cell_bounds + density + forces + integrate); NaN/in-box check in both entries (cancels in differential). RFC-0010 §4.6 ms1.bench.uc07_sph_step_ms"
+}

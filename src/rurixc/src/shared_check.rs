@@ -21,7 +21,7 @@
 //! (承担 P-03 验证义务,对齐 [`crate::views_check`] / [`crate::coloring`] 骨架豁免)。
 //! MVP 作用面 = 下标化 `shared` 数组访问(`tile[idx]`);裸标量 `shared` 跨 lane 判定
 //! 随真实 kernel 需求扩展(经 conformance 类别留痕)。scoped atomics 类型契约见
-//! RXS-0080([`crate::typeck`]);PTX 映射为 D-406 禁区(人工落笔)。
+//! RXS-0080([`crate::typeck`]);PTX 映射为 D-406 / RD-008 高敏面(deferred,agent 可落笔、agent 自主落地)。
 
 use std::collections::{HashMap, HashSet};
 
@@ -159,10 +159,8 @@ impl Checker<'_, '_> {
             ExprKind::Res(Res::Local(l)) => Some(format!("L{}", l.0)),
             ExprKind::SynthInt(v) => Some(format!("#{v}")),
             ExprKind::Lit(l) if l.kind == LitKind::Int => {
-                let text = self
-                    .cx
-                    .src()
-                    .get(l.span.lo.0 as usize..l.span.hi.0 as usize)?;
+                // 多文件感知切片(RXS-0196):span.file 归属正确源文本
+                let text = self.cx.snippet(l.span)?;
                 Some(format!("#{}", text.trim()))
             }
             _ => None,

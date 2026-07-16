@@ -42,11 +42,64 @@ pub const CU_EVENT_DEFAULT: u32 = 0;
 /// `cuStreamWaitEvent` 标志(0 = 默认;M8.3 流序依赖,RXS-0131)。
 pub const CU_STREAM_WAIT_DEFAULT: u32 = 0;
 
-// -- Windows 动态加载(kernel32;std 默认链接,无需 toolkit) -----------------
+/// `CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR`(75)/ `..._MINOR`(76):查 device sm 架构键
+/// 供 fatbin 装载协商(G1.5,RXS-0151;`select_load_variant`)。
+pub const CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR: i32 = 75;
+pub const CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR: i32 = 76;
 
-unsafe extern "system" {
-    fn LoadLibraryA(name: *const c_char) -> *mut c_void;
-    fn GetProcAddress(module: *mut c_void, name: *const c_char) -> *mut c_void;
+// -- OS 动态加载缝(跨端;镜像 vk.rs 加载缝纪律,W8/RXS-0211 第二链接期缝) ---------
+// Windows:       nvcuda.dll  / LoadLibraryA + GetProcAddress(Win32 kernel32;std 默认
+//                链接,无需 CUDA Toolkit 导入库)。
+// Android+Linux: libcuda.so  / dlopen(RTLD_NOW) + dlsym(POSIX libc 直接提供,NDK 默认
+//                链接;现代 glibc 亦并入 libc,无需 -ldl)。android 无 NVIDIA CUDA 驱动
+//                → `dlopen("libcuda.so")` 返回 null → `Cuda::load` 返回 `None` → CUDA 运行期
+//                不可用(诚实降级,承既有「缺 nvcuda → CUDA 不可用」路径,08 §2.5)。
+// 此为 vk.rs Vulkan 加载缝之外的**第二** per-OS 链接期缝:两缝(vk.rs vulkan-1/libvulkan
+// loader + 本 sys.rs nvcuda/libcuda loader)均 cfg 分叉,消除 aarch64-android 链接期未定义
+// 符号(`dlopen`/`dlsym` 由 libc 提供;`LoadLibraryA`/`GetProcAddress` 仅 windows)。
+#[cfg(windows)]
+mod loader {
+    use core::ffi::{CStr, c_char, c_void};
+    unsafe extern "system" {
+        fn LoadLibraryA(name: *const c_char) -> *mut c_void;
+        fn GetProcAddress(module: *mut c_void, name: *const c_char) -> *mut c_void;
+    }
+    pub(super) const CUDA_LIB: &CStr = c"nvcuda.dll";
+    /// # Safety
+    /// `name` 为 NUL 结尾字面量。
+    pub(super) unsafe fn open(name: *const c_char) -> *mut c_void {
+        // SAFETY: 调用方保证 `name` NUL 结尾;`LoadLibraryA` 为 Win32 稳定 ABI(kernel32)。
+        unsafe { LoadLibraryA(name) }
+    }
+    /// # Safety
+    /// `lib` 为 `open` 返回的有效模块句柄或 null;`name` NUL 结尾。
+    pub(super) unsafe fn sym(lib: *mut c_void, name: *const c_char) -> *mut c_void {
+        // SAFETY: 调用方保证 `lib` 有效或 null、`name` NUL 结尾;`GetProcAddress` 为 Win32 稳定 ABI。
+        unsafe { GetProcAddress(lib, name) }
+    }
+}
+
+#[cfg(not(windows))]
+mod loader {
+    use core::ffi::{CStr, c_char, c_void};
+    unsafe extern "C" {
+        fn dlopen(filename: *const c_char, flag: i32) -> *mut c_void;
+        fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
+    }
+    const RTLD_NOW: i32 = 2; // 立即绑定全部符号(POSIX 通用值,Android/glibc/musl 一致)。
+    pub(super) const CUDA_LIB: &CStr = c"libcuda.so";
+    /// # Safety
+    /// `name` 为 NUL 结尾字面量。
+    pub(super) unsafe fn open(name: *const c_char) -> *mut c_void {
+        // SAFETY: 调用方保证 `name` NUL 结尾;`dlopen` 为 POSIX 稳定 ABI(libc)。
+        unsafe { dlopen(name, RTLD_NOW) }
+    }
+    /// # Safety
+    /// `handle` 为 `open` 返回的有效句柄或 null;`name` NUL 结尾。
+    pub(super) unsafe fn sym(handle: *mut c_void, name: *const c_char) -> *mut c_void {
+        // SAFETY: 调用方保证 `handle` 有效或 null、`name` NUL 结尾;`dlsym` 为 POSIX 稳定 ABI。
+        unsafe { dlsym(handle, name) }
+    }
 }
 
 // -- Driver API 函数指针类型(D-113:extern "system",x64 ABI) ----------------
@@ -103,6 +156,17 @@ type FnMemcpyHtoDAsync =
     unsafe extern "system" fn(CuDevicePtr, *const c_void, usize, CuPtr) -> CuResult;
 type FnMemcpyDtoHAsync =
     unsafe extern "system" fn(*mut c_void, CuDevicePtr, usize, CuPtr) -> CuResult;
+// -- G1.2 流序分配:stream-ordered allocator(`cuMemAllocAsync` + `CUmemoryPool`,D-232;RXS-0144) --
+// 非 `_v2`(CUDA 11.2+ 引入);作为 **Option 字段非致命解析**(老驱动缺失 → 上层报运行期
+// 不可用,核心 CUDA 不受影响,对齐 G1.1 external-resource 先例)。分配/释放都携 stream 句柄
+// (流序),分配自该 stream 当前 memory pool(默认 = 设备默认池)。
+type FnMemAllocAsync = unsafe extern "system" fn(*mut CuDevicePtr, usize, CuPtr) -> CuResult;
+type FnMemFreeAsync = unsafe extern "system" fn(CuDevicePtr, CuPtr) -> CuResult;
+// -- G1.5 生产分发 fatbin:按架构预编 cubin 装载 + compute capability 查询(RXS-0150/0151,D-207) --
+// `cuModuleLoadData`(cubin 二进制装载,首启免 JIT)+ `cuDeviceGetAttribute`(sm 查询)。作为
+// **Option 字段非致命解析**(缺失 → 装载协商降级保守 PTX fallback,核心 PTX 路径不受影响,U22)。
+type FnModuleLoadData = unsafe extern "system" fn(*mut CuPtr, *const c_void) -> CuResult;
+type FnDeviceGetAttribute = unsafe extern "system" fn(*mut i32, i32, CuDevice) -> CuResult;
 // -- G1.1 CUDA–D3D12 互操作:external memory/semaphore import(RXS-0140/0143;RFC-0001 §4.2.3) --
 // `CUexternalMemory`/`CUexternalSemaphore` 为不透明句柄(= CuPtr)。下列符号无 `_v2`
 // 后缀(RFC-0001 §4.2.3);作为 **Option 字段非致命解析**(缺失不禁用核心 CUDA)。
@@ -238,6 +302,9 @@ pub struct Cuda {
     cu_stream_wait_event: FnStreamWaitEvent,
     cu_memcpy_htod_async: FnMemcpyHtoDAsync,
     cu_memcpy_dtoh_async: FnMemcpyDtoHAsync,
+    // G1.2 流序分配(Option:缺失不禁用核心 CUDA,D-232;RXS-0144)。
+    cu_mem_alloc_async: Option<FnMemAllocAsync>,
+    cu_mem_free_async: Option<FnMemFreeAsync>,
     // G1.1 external resource interop(Option:缺失不禁用核心 CUDA,RFC-0001 §4.2.3)。
     cu_device_get_luid: Option<FnDeviceGetLuid>,
     cu_import_external_memory: Option<FnImportExternalMemory>,
@@ -247,6 +314,9 @@ pub struct Cuda {
     cu_signal_external_semaphores_async: Option<FnSignalExternalSemaphoresAsync>,
     cu_wait_external_semaphores_async: Option<FnWaitExternalSemaphoresAsync>,
     cu_destroy_external_semaphore: Option<FnDestroyExternalSemaphore>,
+    // G1.5 生产分发 fatbin:cubin 装载 + sm 查询(Option:缺失 → 装载协商降级 PTX fallback,D-207;U22)。
+    cu_module_load_data: Option<FnModuleLoadData>,
+    cu_device_get_attribute: Option<FnDeviceGetAttribute>,
 }
 
 static CUDA: OnceLock<Option<Cuda>> = OnceLock::new();
@@ -275,16 +345,19 @@ unsafe fn cast_fn<T: Copy>(raw: *mut c_void) -> Option<T> {
 impl Cuda {
     /// 加载 `nvcuda.dll` 并解析全部所需 Driver API 符号(任一缺失 → None)。
     fn load() -> Option<Cuda> {
-        // SAFETY: `LoadLibraryA`/`GetProcAddress` 为 Win32 稳定 ABI(kernel32);
-        // 入参为 NUL 结尾 C 字符串字面量(`c"..."`);返回的模块/符号地址仅经
-        // `cast_fn` 在 null 校验后转为匹配 ABI 的函数指针(D-113)。每个符号名与
-        // 其上方类型别名签名按 CUDA Driver API(`_v2` ABI 版本)一一对应。
+        // SAFETY: `loader::open`/`sym` 为各 OS 稳定 ABI 加载原语(`#[cfg(windows)]` =
+        // Win32 `LoadLibraryA`/`GetProcAddress`〔kernel32,逐调用等价旧实现、零漂移〕;
+        // `#[cfg(not(windows))]` = POSIX `dlopen(RTLD_NOW)`/`dlsym`〔libc〕);入参为
+        // NUL 结尾 C 字符串字面量(`c"..."` / `loader::CUDA_LIB`);返回的模块/符号地址仅经
+        // `cast_fn` 在 null 校验后转为匹配 ABI 的函数指针(D-113)。每个符号名与其上方类型
+        // 别名签名按 CUDA Driver API(`_v2` ABI 版本)一一对应。android 无 `libcuda.so`
+        // → `open` 返回 null → 早退 `None`(CUDA 运行期不可用,诚实降级)。
         unsafe {
-            let lib = LoadLibraryA(c"nvcuda.dll".as_ptr());
+            let lib = loader::open(loader::CUDA_LIB.as_ptr());
             if lib.is_null() {
                 return None;
             }
-            let sym = |name: &core::ffi::CStr| GetProcAddress(lib, name.as_ptr());
+            let sym = |name: &core::ffi::CStr| loader::sym(lib, name.as_ptr());
             Some(Cuda {
                 cu_init: cast_fn(sym(c"cuInit"))?,
                 cu_device_get: cast_fn(sym(c"cuDeviceGet"))?,
@@ -317,6 +390,10 @@ impl Cuda {
                 cu_stream_wait_event: cast_fn(sym(c"cuStreamWaitEvent"))?,
                 cu_memcpy_htod_async: cast_fn(sym(c"cuMemcpyHtoDAsync_v2"))?,
                 cu_memcpy_dtoh_async: cast_fn(sym(c"cuMemcpyDtoHAsync_v2"))?,
+                // G1.2 流序分配:非致命解析(无 `?`;老驱动缺失 → None → 上层报运行期不可用,
+                // 核心 CUDA 不受影响,D-232 / RXS-0144)。
+                cu_mem_alloc_async: cast_fn(sym(c"cuMemAllocAsync")),
+                cu_mem_free_async: cast_fn(sym(c"cuMemFreeAsync")),
                 // G1.1 external resource interop:非致命解析(无 `?`;缺失 → None →
                 // 上层 interop 报运行期不可用,核心 CUDA 不受影响,RFC-0001 §4.2.3)。
                 cu_device_get_luid: cast_fn(sym(c"cuDeviceGetLuid")),
@@ -331,6 +408,10 @@ impl Cuda {
                 )),
                 cu_wait_external_semaphores_async: cast_fn(sym(c"cuWaitExternalSemaphoresAsync")),
                 cu_destroy_external_semaphore: cast_fn(sym(c"cuDestroyExternalSemaphore")),
+                // G1.5 fatbin:非致命解析(无 `?`;缺失 → 装载协商降级保守 PTX fallback,
+                // 核心 PTX 装载 cuModuleLoadDataEx 不受影响,D-207 / RXS-0151 / U22)。
+                cu_module_load_data: cast_fn(sym(c"cuModuleLoadData")),
+                cu_device_get_attribute: cast_fn(sym(c"cuDeviceGetAttribute")),
             })
         }
     }
@@ -630,6 +711,39 @@ impl Cuda {
         unsafe { (self.cu_memcpy_dtoh_async)(dst, src, bytes, stream) }
     }
 
+    // -- G1.2 流序分配:stream-ordered allocator(`cuMemAllocAsync` + `CUmemoryPool`,RXS-0144) ----
+    // 符号缺失时返回 None(老驱动无流序分配);上层 AsyncBuffer 映射运行期不可用。
+
+    /// driver 是否导出流序分配符号(`cuMemAllocAsync`/`cuMemFreeAsync`;CUDA 11.2+,U19)。
+    pub fn has_stream_ordered_alloc(&self) -> bool {
+        self.cu_mem_alloc_async.is_some() && self.cu_mem_free_async.is_some()
+    }
+
+    /// 流序分配 `bytes` 字节到 `stream` 的 ordered memory pool(`cuMemAllocAsync`;默认池;
+    /// 分配在 `stream` 上排队,同 stream 后续操作经 stream 序排在其后,RXS-0144/0145)。
+    /// # Safety
+    /// `stream` 必须是有效 stream 句柄(或 null = default);current context 一致。
+    pub unsafe fn mem_alloc_async(
+        &self,
+        bytes: usize,
+        stream: CuPtr,
+    ) -> Option<(CuResult, CuDevicePtr)> {
+        let f = self.cu_mem_alloc_async?;
+        let mut ptr: CuDevicePtr = 0;
+        // SAFETY: (U19):出参 `ptr` 有效可写;调用方保证 `stream` 有效且 current context 一致(见 fn 文档)。
+        let r = unsafe { f(&mut ptr, bytes, stream) };
+        Some((r, ptr))
+    }
+
+    /// 流序释放 `ptr`(`cuMemFreeAsync`;入 `stream` 序释放回 pool,RXS-0144)。
+    /// # Safety
+    /// `ptr` 必须是 `mem_alloc_async` 返回且未释放的设备地址;`stream` 有效(或 null);current context 一致。
+    pub unsafe fn mem_free_async(&self, ptr: CuDevicePtr, stream: CuPtr) -> Option<CuResult> {
+        let f = self.cu_mem_free_async?;
+        // SAFETY: (U19):调用方保证 `ptr` 有效未释放、`stream` 有效且 current context 一致(见 fn 文档)。
+        Some(unsafe { f(ptr, stream) })
+    }
+
     // -- G1.1 CUDA–D3D12 互操作:external memory/semaphore(RXS-0140/0142/0143;RFC-0001 §4.2/§4.3) --
     // 全部入口在符号缺失时返回 None(driver 不支持 external resource interop);上层
     // interop 映射运行期诊断。signal/wait 单信号量(numExtSems=1)。
@@ -758,5 +872,56 @@ impl Cuda {
         let f = self.cu_destroy_external_semaphore?;
         // SAFETY: 调用方保证 `ext_sem` 有效未销毁且无在途操作(见 fn 文档)。
         Some(unsafe { f(ext_sem) })
+    }
+
+    // -- G1.5 生产分发 fatbin:按架构预编 cubin 装载 + compute capability 查询(RXS-0150/0151;U22) --
+    // 符号缺失时返回 None / has_cubin_load=false → 上层装载协商降级保守 PTX fallback(D-207)。
+
+    /// driver 是否导出 cubin 装载 + sm 查询符号(`cuModuleLoadData`/`cuDeviceGetAttribute`;U22)。
+    /// 否 → 装载协商降级保守 PTX fallback(D-207,RXS-0151;核心 PTX 路径不受影响)。
+    pub fn has_cubin_load(&self) -> bool {
+        self.cu_module_load_data.is_some() && self.cu_device_get_attribute.is_some()
+    }
+
+    /// 查询 device compute capability `(major, minor)`(`cuDeviceGetAttribute`;构造 sm 架构键供
+    /// 装载协商 `select_load_variant`,RXS-0151)。符号缺失 → `None`(降级 PTX fallback)。
+    pub fn device_compute_capability(&self, dev: CuDevice) -> Option<(CuResult, u32, u32)> {
+        let f = self.cu_device_get_attribute?;
+        let mut major: i32 = 0;
+        let mut minor: i32 = 0;
+        // SAFETY: (U22):出参 `major` 有效可写;attrib 为合法 `CUdevice_attribute` 常量;
+        // `dev` 来自 device_get;ABI 匹配(`fn(*mut i32, i32, CUdevice) -> CUresult`)。
+        let r1 = unsafe {
+            f(
+                &mut major,
+                CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR,
+                dev,
+            )
+        };
+        if r1 != CUDA_SUCCESS {
+            return Some((r1, 0, 0));
+        }
+        // SAFETY: (U22):同上,查 minor。
+        let r2 = unsafe {
+            f(
+                &mut minor,
+                CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR,
+                dev,
+            )
+        };
+        Some((r2, major.max(0) as u32, minor.max(0) as u32))
+    }
+
+    /// 装载按架构预编 cubin 二进制(`cuModuleLoadData`;首启免 JIT,RXS-0151)。符号缺失 →
+    /// `None`(装载协商降级保守 PTX fallback,D-207)。
+    /// # Safety
+    /// (U22):`image` 指向有效的 cubin 二进制(`ptxas -arch=sm_xx` 预编产物,宜与 device 架构
+    /// 匹配);cubin 被驱动拒绝(架构不符等)时由调用方降级 PTX 重试(保守兜底,**不 poison**)。
+    pub unsafe fn module_load_data(&self, image: *const c_void) -> Option<(CuResult, CuPtr)> {
+        let f = self.cu_module_load_data?;
+        let mut m: CuPtr = std::ptr::null_mut();
+        // SAFETY: (U22):出参 `m` 有效可写;调用方保证 `image` 指向有效 cubin 二进制(见 fn 文档)。
+        let r = unsafe { f(&mut m, image) };
+        Some((r, m))
     }
 }

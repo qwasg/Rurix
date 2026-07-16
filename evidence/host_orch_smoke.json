@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "kind": "host_orch_smoke",
+  "date": "2026-07-15T09:54:45+08:00",
+  "single_source": true,
+  "device_run": true,
+  "adapter": "NVIDIA GeForce RTX 4070 Ti (driver 620.02)",
+  "checks": {
+    "accept_pass": true,
+    "reject_pass": true,
+    "tamper_red": true,
+    "stub_red": true
+  },
+  "notes": "host .rx 经 std::gpu 编排 + 同源 kernel PTX 嵌入单 EXE(rx build 一步出可执行),device 真跑数值自校验 exit 0 + write_ppm 落盘(RXS-0199);reject 八类编译期拦截(RX1005/RX2010/RX3015/RX6024/RX4001,含 present 错序/present 进 device)+ 篡改内嵌 PTX 装载协商拒 + 桩化写回数值红 + 复原绿(G-MS1-2,RFC-0009 / RXS-0189~0199)"
+}

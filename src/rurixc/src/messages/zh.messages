@@ -85,9 +85,36 @@ shared.barrier_consistency = 无法证明 shared 读写已由 block barrier 同�
 # scoped atomics 诊断(RX3010,spec/device.md RXS-0080;M5.2 分配)
 atomics.scope_misuse = scoped atomic 的 scope 误用:{detail}
 #
+# 着色阶段类型面诊断(RX3011 ~ RX3013,spec/shader_stages.md RXS-0154~0156;G2.1 分配)
+shader.stage_io_invalid = 非法的着色阶段 I/O 字段:{detail}
+shader.stage_interface_mismatch = 阶段间接口不匹配:{detail}
+shader.resource_handle_invalid = 非法的着色资源句柄:{detail}
+shader.sample_expr_invalid = 非法的纹理采样表达式:{detail}
+#
 # libdevice 链接 / device 数学 intrinsic 诊断(RX6006 / RX7002,spec/device.md RXS-0081~0082;M5.3 分配)
 codegen.device_math_unsupported = {detail} 不是受支持的 device 数学 intrinsic(超出 libdevice 覆盖范围或元素类型不受支持)
 link.libdevice_failure = libdevice 链接失败:{reason}
+#
+# DXIL codegen 诊断(RX6007,spec/dxil_backend.md RXS-0157;G2.2 PR-C2 分片1 分配)
+codegen.dxil_unsupported = DXIL codegen 目标不可用或暂不支持:{detail}
+#
+# Vulkan/SPIR-V codegen 诊断(RX6026,spec/vulkan_backend.md RXS-0200/0201;mb1 RFC-0011 分配;跳 RX6024/6025=MS1.2b 避撞)
+codegen.vulkan_unsupported = Vulkan/SPIR-V codegen 目标不可用或暂不支持:{detail}
+#
+# DXIL B 路 strict-only 失败诊断(RX6010 ~ RX6013,spec/dxil_backend.md RXS-0157/0159/0162;G2.2 任务7 分配)
+codegen.dxil_b_transpile_failed = DXIL B 链在 {step} 转译失败:{reason}
+codegen.dxil_sig_mismatch = DXIL 签名不一致:{detail}
+codegen.dxil_sig_dropped_input = DXIL 声明输入被消除:{detail}
+codegen.dxil_unmappable = 不可映射的 DXIL 构造:{detail}
+#
+# DXIL 绑定布局推导 + 阶段间接口链接 strict-only 失败诊断(RX6014 ~ RX6017,spec/binding_layout.md RXS-0163~0166 + spec/dxil_backend.md RXS-0160;G2.3 PR-E2b-2 分配)
+codegen.dxil_stage_link_mismatch = DXIL 阶段间接口错链:{detail}
+codegen.dxil_register_conflict = DXIL 绑定 register/layout 冲突:{detail}
+codegen.dxil_root_signature_too_large = DXIL root signature 推导超 DWORD 上限:{detail}
+codegen.dxil_psv0_mismatch = DXIL PSV0 反射与推导意图不一致:{detail}
+#
+# DXIL 纹理采样首期收敛子集 strict-only 失败诊断(RX6023,spec/dxil_backend.md RXS-0175;G2.4 RFC-0007 分配)
+codegen.dxil_sample_unsupported = DXIL 纹理采样越出首期收敛子集:{detail}
 #
 # rx CLI 工具链诊断(RX7003 / RX7004,spec/toolchain.md RXS-0083/0085;M6.1 分配)
 toolchain.rx_cli_usage = rx CLI 用法错误:{detail}
@@ -104,6 +131,8 @@ toolchain.pkg_source_unreachable = 依赖源不可达:{detail}
 toolchain.rx_test_discovery = rx test 发现错误:{detail}
 toolchain.rx_test_exec_failure = rx test 子进程失败:{detail}
 toolchain.lsp_rename_invalid = 非法的 LSP rename 目标:{detail}
+# edition 诊断(RX7020,spec/edition.md RXS-0179;G2.5 RFC-0008 分配)
+toolchain.edition_unknown = 未知的 rurix.toml edition:{detail}
 #
 # 互操作诊断(RX7013 ~ RX7015,spec/interop.md RXS-0122~0125;M8.1 分配)
 interop.unsupported_protocol = 互操作协议不支持:{detail}
@@ -115,3 +144,20 @@ cublas.handle_init_failed = cublas 句柄初始化失败:{detail}
 cublas.invalid_device_pointer = 非法的 cublas device 指针:{detail}
 cublas.dimension_mismatch = cublas 维度不匹配:{detail}
 cublas.runtime_failed = cublas 运行时失败:{detail}
+## UC-04 deferred 渲染器装配/编排诊断(RX6018 ~ RX6022,spec/d3d12_runtime.md RXS-0167~0170;G2.4 PR-F2 分配)
+runtime.uc04_pso_assembly_mismatch = UC-04 graphics PSO 装配不一致:{detail}
+runtime.uc04_rts0_pso_mismatch = UC-04 RTS0 ↔ PSO 绑定不一致:{detail}
+runtime.uc04_pass_orchestration = UC-04 deferred pass 编排失败:{detail}
+runtime.uc04_barrier_plan = UC-04 barrier 编排失败:{detail}
+runtime.uc04_readback_layout = UC-04 readback 缓冲布局失配:{detail}
+#
+# 宿主编排前端机械面诊断(RX1005 / RX7022,spec/host_orchestration.md RXS-0195~0196;MS1.2 分配)
+resolve.module_load_failure = 无法加载 out-of-line 模块 {name}:{detail}
+link.native_lib_failure = #[link] 原生库失败:{detail}
+#
+# 宿主 GPU 编排诊断(RX2010 / RX3015 / RX6024 / RX6025 / RX7021,spec/host_orchestration.md RXS-0189~0192/0195;MS1.2 分配)
+gpu.elem_infer = 无法为宿主 GPU 缓冲定出首期合法元素类型:{detail}(元素类型须定型为 f32 / i32 / u32,RXS-0190)
+coloring.gpu_host_api_in_device = std::gpu 宿主编排 API 不可在 `kernel`/`device` 上下文中使用(RXS-0189)
+gpu.launch_arg_subset = launch 实参类型 {ty} 超出首期 marshalling 子集(Buffer 与 i32 / u32 / f32 / usize,RXS-0191)
+codegen.gpu_embed_failure = 无法把 device 产物嵌入宿主产物:{detail}(RXS-0192)
+link.rt_cabi_failure = 无法定位或构建 rurix-rt-cabi 运行时库:{detail}(定位序:RURIX_RT_CABI_LIB、<编译器>/lib/、workspace target;RXS-0195)

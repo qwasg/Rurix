@@ -22,11 +22,38 @@ pub struct LockPackage {
     pub deps: Vec<String>,
 }
 
+/// lock 中的一个 GPU 产物变体(RXS-0152;生产分发 fatbin,G1.5/MR-0005)。
+///
+/// 每分发产物变体(ptx fallback / 按架构预编 cubin / fatbin)在 rurix.lock 记一条
+/// `[[artifact]]`,digest = 变体字节 **content-tree 规范化 SHA-256**(复用 RXS-0090/0093,
+/// **内容寻址锁定**,D-311)。`sm_target` 为 cubin 预编架构键(`sm_89`);ptx fallback 无架构键(空)。
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct LockArtifact {
+    pub package: String,
+    /// 变体类别:`"ptx"` | `"cubin"` | `"fatbin"` | `"spirv"`(对接 `rurix-rt`
+    /// `ArtifactKind`;`"spirv"` = Vulkan 可移植 device 产物,RXS-0209)。
+    pub kind: String,
+    /// per-arch AOT 预编架构键(`"sm_89"` NVIDIA cubin / `"gfx1100"` AMD hsaco,
+    /// RXS-0209);可移植槽(ptx/spirv fallback)为空 `""`。
+    pub sm_target: String,
+    /// 变体字节 content-tree SHA-256(64-hex,内容寻址)。
+    pub sha256: String,
+}
+
+impl LockArtifact {
+    /// 由变体字节计算内容寻址 digest(复用 RXS-0093 SHA-256;内容寻址锁定,D-311)。
+    pub fn digest_of(bytes: &[u8]) -> String {
+        crate::sha256::hex_digest(bytes)
+    }
+}
+
 /// rurix.lock 文档(确定性)。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Lock {
     pub root: String,
     pub packages: Vec<LockPackage>,
+    /// GPU 产物变体锁定(RXS-0152;非解析图派生,经 device codegen / 发布链路填充)。
+    pub artifacts: Vec<LockArtifact>,
 }
 
 impl Lock {
@@ -54,6 +81,8 @@ impl Lock {
         Lock {
             root: graph.root.clone(),
             packages,
+            // GPU 产物变体非解析图派生(经 device codegen / 发布链路填充,RXS-0152)。
+            artifacts: Vec::new(),
         }
     }
 
@@ -75,6 +104,17 @@ impl Lock {
             ));
             s.push_str(&format!("features = {}\n", str_array(&pkg.features)));
             s.push_str(&format!("deps = {}\n", str_array(&pkg.deps)));
+        }
+        // GPU 产物变体(RXS-0152):按 (package, kind, sm_target) 字典序确定序列化。
+        let mut artifacts = self.artifacts.clone();
+        artifacts.sort();
+        for a in &artifacts {
+            s.push('\n');
+            s.push_str("[[artifact]]\n");
+            s.push_str(&format!("package = {}\n", quote(&a.package)));
+            s.push_str(&format!("kind = {}\n", quote(&a.kind)));
+            s.push_str(&format!("sm_target = {}\n", quote(&a.sm_target)));
+            s.push_str(&format!("sha256 = {}\n", quote(&a.sha256)));
         }
         s
     }
@@ -127,14 +167,43 @@ impl Lock {
             }
         }
         packages.sort_by(|a, b| a.name.cmp(&b.name));
-        Ok(Lock { root, packages })
+        // GPU 产物变体 [[artifact]](RXS-0152;absent → 空,兼容 M6 无 fatbin 既有 lock)。
+        let mut artifacts = Vec::new();
+        if let Some(arr) = root_tbl.get("artifact").and_then(Value::as_array) {
+            for item in arr {
+                let t = item
+                    .as_table()
+                    .ok_or_else(|| PkgError::LockMismatch("[[artifact]] 非表".to_owned()))?;
+                let get = |k: &str| -> PkgResult<String> {
+                    t.get(k)
+                        .and_then(Value::as_str)
+                        .map(str::to_owned)
+                        .ok_or_else(|| PkgError::LockMismatch(format!("[[artifact]] 缺 {k}")))
+                };
+                artifacts.push(LockArtifact {
+                    package: get("package")?,
+                    kind: get("kind")?,
+                    sm_target: get("sm_target")?,
+                    sha256: get("sha256")?,
+                });
+            }
+        }
+        artifacts.sort();
+        Ok(Lock {
+            root,
+            packages,
+            artifacts,
+        })
     }
 
     /// `--locked` 一致性核对(RXS-0092):本 lock 须与由当前清单重解析得到的图
     /// 完全一致,否则 RX7007。
     pub fn check_consistent(&self, graph: &ResolveGraph) -> PkgResult<()> {
         let fresh = Lock::from_graph(graph);
-        if *self != fresh {
+        // 解析图一致性核对 root + packages(RXS-0092);GPU 产物变体 [[artifact]] 非解析图派生
+        // (经 device codegen / 发布链路填充),其内容寻址完整性由变体 digest 单独核对(RXS-0152),
+        // 不参与 --locked 重解析比对。
+        if self.root != fresh.root || self.packages != fresh.packages {
             return Err(PkgError::LockMismatch(
                 "入库 rurix.lock 与当前清单重解析图不一致(--locked 不重写;请重新 `rx vendor`)"
                     .to_owned(),
@@ -218,5 +287,90 @@ mod tests {
         g2.nodes.get_mut("foo").unwrap().content_sha256 = "0".repeat(64);
         let err = lock.check_consistent(&g2).unwrap_err();
         assert_eq!(err.code(), "RX7007");
+    }
+
+    //@ spec: RXS-0152
+    #[test]
+    fn lock_artifact_roundtrip_and_content_addressed() {
+        let g = sample_graph();
+        let mut lock = Lock::from_graph(&g);
+        let ptx_bytes: &[u8] = b".version 8.0\n.target sm_89\n";
+        let cubin_bytes: &[u8] = &[0xDE, 0xAD, 0xBE, 0xEF];
+        // 每变体一条 [[artifact]];digest = 变体字节内容寻址(RXS-0152;复用 RXS-0093 SHA-256)。
+        lock.artifacts = vec![
+            LockArtifact {
+                package: "app".to_owned(),
+                kind: "cubin".to_owned(),
+                sm_target: "sm_89".to_owned(),
+                sha256: LockArtifact::digest_of(cubin_bytes),
+            },
+            LockArtifact {
+                package: "app".to_owned(),
+                kind: "ptx".to_owned(),
+                sm_target: String::new(), // ptx fallback 无架构键
+                sha256: LockArtifact::digest_of(ptx_bytes),
+            },
+        ];
+        lock.artifacts.sort(); // 规范化 (package,kind,sm_target) 字典序
+
+        let text = lock.serialize();
+        assert!(text.contains("[[artifact]]"));
+        assert!(text.contains("kind = \"cubin\""));
+        assert!(text.contains("sm_target = \"sm_89\""));
+
+        // round-trip 一致 + 二次序列化逐字节稳定。
+        let parsed = Lock::parse(&text).unwrap();
+        assert_eq!(lock, parsed);
+        assert_eq!(text, parsed.serialize());
+
+        // 内容寻址锁定:篡改任一字节 → digest 变(完整性破坏可检出)。
+        let tampered = LockArtifact::digest_of(&[0xDE, 0xAD, 0xBE, 0x00]);
+        assert_ne!(tampered, LockArtifact::digest_of(cubin_bytes));
+
+        // [[artifact]] 非解析图派生:check_consistent(RXS-0092)不受其影响(仍一致)。
+        assert!(lock.check_consistent(&g).is_ok());
+    }
+
+    //@ spec: RXS-0209
+    #[test]
+    fn lock_artifact_spirv_and_gfx_key_roundtrip() {
+        // RXS-0209:lock 格式对 kind/sm_target 皆自由 String,零 schema/零码改即锁定
+        // Vulkan 可移植 device 产物(`kind="spirv"`,可移植槽 sm_target 空)与 AMD per-arch
+        // AOT 键(`sm_target="gfx1100"`)。证 lock 模型天然承 artifact 泛化(fatbin ArchKey)。
+        let g = sample_graph();
+        let mut lock = Lock::from_graph(&g);
+        let spirv_bytes: &[u8] = &[0x03, 0x02, 0x23, 0x07, 0x00, 0x00, 0x01, 0x00]; // SPIR-V magic+ver
+        let hsaco_bytes: &[u8] = &[0x7F, b'E', b'L', b'F']; // AMD hsaco = ELF 容器(占位字节)
+        lock.artifacts = vec![
+            LockArtifact {
+                package: "app".to_owned(),
+                kind: "spirv".to_owned(), // Vulkan 可移植 device 产物
+                sm_target: String::new(), // 可移植槽无 per-arch 键
+                sha256: LockArtifact::digest_of(spirv_bytes),
+            },
+            LockArtifact {
+                package: "app".to_owned(),
+                kind: "cubin".to_owned(),        // per-arch AOT 变体类别
+                sm_target: "gfx1100".to_owned(), // AMD hsaco per-arch AOT 键(G1.5 SmTarget 曾误拒)
+                sha256: LockArtifact::digest_of(hsaco_bytes),
+            },
+        ];
+        lock.artifacts.sort(); // 规范化 (package,kind,sm_target) 字典序
+
+        let text = lock.serialize();
+        assert!(text.contains("kind = \"spirv\""));
+        assert!(text.contains("sm_target = \"gfx1100\""));
+
+        // round-trip 一致 + 二次序列化逐字节稳定(format-generic,枚举值不校验)。
+        let parsed = Lock::parse(&text).unwrap();
+        assert_eq!(lock, parsed);
+        assert_eq!(text, parsed.serialize());
+
+        // 内容寻址:spirv/hsaco 字节各自 digest 稳定且可区分。
+        assert_ne!(
+            LockArtifact::digest_of(spirv_bytes),
+            LockArtifact::digest_of(hsaco_bytes)
+        );
+        assert!(lock.check_consistent(&g).is_ok());
     }
 }

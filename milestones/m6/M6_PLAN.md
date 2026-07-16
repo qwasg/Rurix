@@ -81,7 +81,7 @@ flowchart LR
 | 3 | **LSP 10k 行交互延迟预算实测(G-M6-2)**:10k 行样例工程上 completion/publishDiagnostics(保存后)/definition 延迟,BENCH_PROTOCOL 协议化采样;`m6.bench.lsp_interaction_latency_ms` estimated → measured_local 回填,阈值裁定(参照 07 §6 增量 check < 5s 行业线) | `py -3 ci/budget_eval.py --strict` 通过 |
 | 4 | M6 close-out 草拟:验收记录 + guardrail 输出 + 离线重建复现红绿 + LSP 延迟 measured_local 证据 + RD-003/RD-004/RD-005 收编/处置 close 留痕(追加契约 §8) | G-M6-1~G-M6-5 + guardrail 全过 |
 
-**出口判据**:契约 G-M6-1 / G-M6-2 达成(三包离线重建逐字节可复现 + LSP 10k 行延迟 measured_local),close-out 终审完成(M6_CONTRACT §8;关闭判定由白栀/owner 人工签署)。
+**出口判据**:契约 G-M6-1 / G-M6-2 达成(三包离线重建逐字节可复现 + LSP 10k 行延迟 measured_local),close-out 终审完成(M6_CONTRACT §8;关闭判定由白栀/agent 自主签署)。
 
 ## 6. 风险提示(引用,不另建登记)
 

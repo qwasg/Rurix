@@ -1,0 +1,10 @@
+//@ spec: RXS-0196
+// out-of-line 模块装配 accept(RFC-0009 §4.2):`mod util;` 按同目录 util.rx
+// 加载 splice 为内联 mod 等价形态;跨文件路径调用 + 字面量取值多文件感知。
+
+mod util;
+
+fn main() -> i32 {
+    let total = util::add(util::BASE, 2);
+    total - 42
+}

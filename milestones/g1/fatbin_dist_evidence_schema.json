@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/fatbin_dist/v1",
+  "title": "Rurix 生产分发 fatbin 端到端冒烟证据 JSON(G1.5,契约 G-G1-5,Mini-RFC/MR-0005 / RXS-0150~0152)",
+  "description": "按架构预编 cubin(ptxas -arch=sm_89,RXS-0073 干验证产 cubin 后保留字节)+ 保守 PTX fallback 装载协商(select_load_variant 纯函数:cubin 命中即 cuModuleLoadData、未命中 / 拒绝降级既有 PTX 版号梯子 cuModuleLoadDataEx,RXS-0076/0077 语义 0-byte,降级而非 reject)的端到端机器事实清单:(a) 分发产物变体集 artifact_variants(ptx/cubin/fatbin + sm + content-tree SHA-256 digest,RXS-0150);(b) lockfile [[artifact]] 变体 digest 覆盖 manifest_lockfile_coverage(每变体记一条 [[artifact]],内容寻址锁定,RXS-0152);(c) rurixup 发布链路 + Release 层覆盖 release_layer_passed(cubin/fatbin ∈ LanguageCore 进 SBOM + content-tree 完整性 + NVIDIA 白名单审计延续,无 __nv_* 残留、不打包 libdevice .bc/Toolkit/驱动/Nsight r6);(d) device 段宿主真跑 distribution_ok(有 ptxas+CUDA+GPU:cubin 预编 + fatbin 装载命中 + 篡改强制 PTX fallback 协商 + 数值往返对照;否则降级 SKIP distribution_ok=false)。步骤 44 为 check_* 守卫风格(不写 budget counter,agent 裁不立性能门)。机器复核闸门 = ci/fatbin_dist_smoke.py(白名单外 cubin 组件 / 缺 [[artifact]] digest / cubin↔PTX golden 漂移 / 篡改协商即非零退出,反 YAML-only,CI_GATES §6.5)。",
+  "type": "object",
+  "required": ["schema_version", "subject", "distribution_ok", "artifact_variants", "timestamp"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": { "const": "fatbin_dist" },
+    "distribution_ok": {
+      "description": "device 端到端真跑:cubin 预编 + fatbin 装载命中 + 篡改强制 PTX fallback 协商 + 数值往返对照(有 ptxas+CUDA+GPU;否则不达标降级 SKIP false)",
+      "type": "boolean"
+    },
+    "artifact_variants": {
+      "description": "分发产物变体集(RXS-0150:每集必含 PTX fallback;cubin 按 sm 架构键)",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["variant", "sm", "digest_sha256"],
+        "properties": {
+          "variant": { "enum": ["ptx", "cubin", "fatbin"] },
+          "sm": {
+            "description": "cubin 预编架构键(sm_89 基线;ptx fallback 为空)",
+            "type": "string"
+          },
+          "digest_sha256": {
+            "description": "变体字节 content-tree 规范化 SHA-256(64-hex,RXS-0090/0093,内容寻址)",
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    "manifest_lockfile_coverage": {
+      "description": "lockfile rurix.lock [[artifact]] 覆盖全部变体 digest(RXS-0152:每变体一条 [[artifact]],(package,kind,sm_target) 字典序确定)",
+      "type": "boolean"
+    },
+    "release_layer_passed": {
+      "description": "rurixup 发布链路 + Release 层覆盖 fatbin(cubin/fatbin ∈ LanguageCore 进 SBOM + content-tree 完整性 + NVIDIA 白名单审计延续,RXS-0136/0138/0139)",
+      "type": "boolean"
+    },
+    "device_path_run": {
+      "description": "device 端到端是否实跑(true=有 ptxas+CUDA+GPU,cubin 预编 + fatbin 装载 + PTX fallback 协商 + 数值往返;false=降级 SKIP,仅 host 段守卫红绿自检)",
+      "type": "boolean"
+    },
+    "run_command": { "type": "string" },
+    "device": {
+      "description": "实测 GPU / 驱动 / ptxas 环境画像(D-233)",
+      "type": "object",
+      "properties": {
+        "gpu": { "type": "string" },
+        "driver": { "type": "string" },
+        "ptxas": { "type": "string" },
+        "result_line": { "type": "string" }
+      }
+    },
+    "facts": {
+      "description": "逐项背书(反 YAML-only)——变体集 / lockfile 覆盖 / 装载协商 / 白名单审计延续",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": { "enum": ["variant", "lockfile", "negotiation", "redistribution", "release_layer"] },
+          "name": { "type": "string" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "redgreen": {
+      "description": "门禁真实红绿验证留痕(反 YAML-only,CI_GATES §6.5:白名单外 cubin 组件 / 缺 [[artifact]] digest / cubin↔PTX golden 漂移 / 篡改协商 → 红;复原 → 绿,run URL 归档)",
+      "type": "object",
+      "properties": {
+        "red_command": { "type": "string" },
+        "red_detected": { "type": "boolean" },
+        "green_command": { "type": "string" },
+        "green_exit_code": { "type": "integer" },
+        "run_url": { "type": "string" }
+      }
+    },
+    "timestamp": { "type": "string", "format": "date-time" }
+  }
+}

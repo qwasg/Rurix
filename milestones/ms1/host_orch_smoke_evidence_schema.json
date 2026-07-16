@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/host_orch_smoke/v1",
+  "title": "Rurix MS1.2 single-source 宿主编排冒烟证据 JSON(G-MS1-2;RFC-0009 / RXS-0189~0196)",
+  "description": "CI 步骤 52 ci/host_orch_smoke.py 产出(**仅 device 段真跑时写**,无 CUDA 降级 SKIP 不写证据)。机器事实:host .rx 经 std::gpu 首期收敛子集编排 GPU + 同源 kernel PTX 嵌入单 EXE(rx build 一步出可执行,防降级硬门:宿主编排必须来自 .rx 源经 rurixc host codegen),device 真跑数值自校验;checks 四见证 = accept 语料全绿 / reject 语料六类编译期拦截(RX1005/RX2010/RX3015/RX6024/RX4001)/ 篡改内嵌 PTX 装载协商拒(RXS-0192/0193)/ 桩化 kernel 写回数值自校验红(反 YAML-only,红绿闭合)。single_source=true 且 device_run=true 计入 ms1.counter.host_orch_single_source(ci/budget_eval.py)。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "kind",
+    "date",
+    "single_source",
+    "device_run",
+    "adapter",
+    "checks"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "kind": {
+      "const": "host_orch_smoke"
+    },
+    "date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "single_source": {
+      "type": "boolean"
+    },
+    "device_run": {
+      "type": "boolean"
+    },
+    "adapter": {
+      "type": "string"
+    },
+    "checks": {
+      "type": "object",
+      "required": [
+        "accept_pass",
+        "reject_pass",
+        "tamper_red",
+        "stub_red"
+      ],
+      "properties": {
+        "accept_pass": {
+          "type": "boolean"
+        },
+        "reject_pass": {
+          "type": "boolean"
+        },
+        "tamper_red": {
+          "type": "boolean"
+        },
+        "stub_red": {
+          "type": "boolean"
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

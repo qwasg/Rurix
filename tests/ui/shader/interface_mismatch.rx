@@ -1,0 +1,19 @@
+//@ spec: RXS-0155
+struct VsOut {
+    #[builtin(position)] pos: f32,
+    #[interpolate(perspective)] uv: f32,
+}
+
+struct FsIn {
+    #[interpolate(perspective)] color: f32,
+}
+
+vertex fn vs_main() -> VsOut {
+    VsOut { pos: 0.0, uv: 0.0 }
+}
+
+fragment fn fs_main(inp: FsIn) -> VsOut { //~ ERROR RX3012
+    VsOut { pos: 0.0, uv: 0.0 }
+}
+
+fn main() {}

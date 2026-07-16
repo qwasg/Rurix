@@ -1,0 +1,19 @@
+//@ spec: RXS-0160
+// RXS-0160 阶段间接口 → 阶段链接一致性核对(B 路):vertex 输出 varying 与 fragment
+// 输入 varying 经**语义名等价链接键**核实语义名 / 类型 / 插值一致性。本例 vertex 输出
+// `VsOut.uv`(interpolate perspective, f32)↔ fragment 输入 `VsOut.uv` 链接一致(builtin
+// 系统值不参与链接核对,location 编号不比对 ABI 中立)。host 侧确定性:
+// link_graphics_stages 收集两阶段 io_sig → check_stage_link → Linked(见
+// dxil_corpus::accept_graphics_link_consistent)。错链错误码归类待 agent 裁
+// (RX6011 复用 / RX6014 新开,spec §2 RXS-0160 IR3);本例为 accept 不涉错误码。
+struct VsOut {
+    #[interpolate(perspective)] uv: f32,
+}
+
+vertex fn vs_main() -> VsOut {
+    VsOut { uv: 0.0 }
+}
+
+fragment fn fs_main(inp: VsOut) -> VsOut {
+    inp
+}

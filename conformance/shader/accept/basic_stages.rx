@@ -1,0 +1,21 @@
+//@ spec: RXS-0153, RXS-0154, RXS-0155, RXS-0156
+// 合法着色阶段声明:vertex/fragment/compute 前缀式着色 + 阶段专属 I/O 标注
+// (#[builtin]/#[interpolate])+ 共享接口结构体(vertex out → fragment in 同型兼容)
+// + Texture2D<F>/Sampler 资源句柄作 fragment 签名形参。期望 0 诊断。
+struct VsOut {
+    #[builtin(position)] pos: f32,
+    #[interpolate(perspective)] uv: f32,
+    #[interpolate(flat)] mat_id: u32,
+}
+
+vertex fn vs_main() -> VsOut {
+    VsOut { pos: 0.0, uv: 0.0, mat_id: 0 }
+}
+
+fragment fn fs_main(inp: VsOut, tex: Texture2D<f32>, samp: Sampler) -> VsOut {
+    inp
+}
+
+compute fn cs_main() {}
+
+fn main() {}

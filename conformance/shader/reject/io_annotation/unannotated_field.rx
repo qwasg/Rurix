@@ -1,0 +1,14 @@
+//@ spec: RXS-0154
+//@ expect-error: RX3011
+// 阶段专属 I/O 语义类型:着色阶段 I/O 聚合类型的字段必须携带 #[interpolate(..)] 或
+// #[builtin(..)] 标注;无标注字段编译期拒绝(P-01 strict-only,不默认插值)→ RX3011。
+struct VsOut {
+    #[builtin(position)] pos: f32,
+    uv: f32,
+}
+
+vertex fn vs_main() -> VsOut {
+    VsOut { pos: 0.0, uv: 0.0 }
+}
+
+fn main() {}

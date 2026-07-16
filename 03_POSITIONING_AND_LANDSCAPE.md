@@ -64,7 +64,7 @@
 
 ## 4. 死亡路线红线（正式登记）
 
-以下六条写入 spike gating 永久候选清单（[14](14_ENGINEERING_DISCIPLINE.md) §7），任何里程碑提议触碰必须走 Full RFC + 所有者批准：
+以下六条写入 spike gating 永久候选清单（[14](14_ENGINEERING_DISCIPLINE.md) §7），任何里程碑提议触碰必须走 Full RFC + agent 批准：
 
 1. **不做 Python 宿主 DSL**——任何"为了易用性内嵌到 Python"的提案。互操作只走 DLPack/C ABI 通道。
 2. **不做自动并行/自动调优黑盒**——调度永远显式。允许的上限是显式标注的调度提示（远期）。

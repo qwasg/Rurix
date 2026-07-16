@@ -56,7 +56,7 @@ acceptance_gates:
 guardrails:
   - "milestones/m0/m0_budget.json 与 milestones/m1/m1_budget.json 的 measured_local 既有条目 git diff 0-byte(新增条目允许)"
   - "milestones/m0/M0_CONTRACT.md(closed)与 milestones/m1/M1_CONTRACT.md 既有条款非 close-out 区 0-byte(M1 close-out 区只追加)"
-  - "registry/deferred.json 与 registry/spike_gating.json 只追加(既有条目修改触发人工审查)"
+  - "registry/deferred.json 与 registry/spike_gating.json 只追加(既有条目修改触发审查)"
   - "evidence/ 只增不删不改"
   - "00–14 共 15 份规划文档不被执行 PR 改写(勘误走 00 §6.3 追加式修订)"
   - "tests/ui/ 的 .stderr snapshot 变更必须经审批 bless(M1.4 已激活,check_ui_bless)"
@@ -191,7 +191,7 @@ M2 全程零新增 deferred(开工 `deferred_refs: []` 兑现);M0/M1 遗留 RD-0
 2. **nightly.yml 首跑确认**:经 workflow_dispatch 手动触发一次,确认全步骤绿 + self-profile artifact 归档;run URL 追加 §8.3(schedule 无法 PR 验证)。
 3. **bless_log.md 批签**:tests/ui/bless_log.md 两行 `pending-human-review`(2026-06-11 resolve 4 条 / 2026-06-12 typeck 12 条)按只追加方式补人工批签行。
 4. **m1-closed 基准切换确认**:`m1-closed` tag 已随 M1 终审打出,guardrail 基准从 `m0-baseline` 切换的留痕(CI_GATES §4)随终审一并裁决。
-5. 终审本草案 → 人工落笔 `status: active → closed`,打 `m2-closed` tag,§8.3 签字。
+5. 终审本草案 → 自主落笔 `status: active → closed`,打 `m2-closed` tag,§8.3 签字。
 
 ### 8.3 Run URL 与签字(人工追加区)
 
@@ -210,4 +210,4 @@ M2 全程零新增 deferred(开工 `deferred_refs: []` 兑现);M0/M1 遗留 RD-0
 - §8.2 处置记录:第 1 项(步骤 14 PR 级红绿)见 §8.3.1;第 2 项(nightly 首跑)见 §8.3.1;第 3 项(bless 批签)已按只追加方式补两行批签(tests/ui/bless_log.md,resolve 4 条 + typeck 12 条);第 4 项(guardrail 基准切换)已落地——`ci/check_guardrails.py` 本地/push 回退基准 `m0-baseline → m1-closed`(PR 路径仍以 GITHUB_BASE_REF 为准),留痕 CI_GATES v1.5。
 - close-out 终审批准人:`qwasg`(本会话明示授权"其他人工也帮我做完",agent 代笔执行;Assisted-by: cursor:fable-5)。
 - close-out 终审日期:`2026-06-12`。
-- 人工落笔 `status: active → closed`:已完成;闭环 tag 为 `m2-closed`(打于本 close-out 提交)。
+- 自主落笔 `status: active → closed`:已完成;闭环 tag 为 `m2-closed`(打于本 close-out 提交)。

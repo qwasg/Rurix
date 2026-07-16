@@ -315,10 +315,71 @@ impl ViewOp {
     }
 }
 
+/// 宿主 GPU 编排已知操作(MS1.2,RXS-0189~0191;MS1.2b,RXS-0197~0199;
+/// RFC-0009 §4.1/§4.2/§4.6/§4.7)。typeck 在接收者为 std::gpu / present lang item
+/// 句柄(`Context`/`Stream`/`Buffer`/`PinnedBuffer`/`Present`/`Ready`/`Acquired`/
+/// `Presentable`)且方法名命中编译器已知签名时识别(用户同名 impl 优先遮蔽);
+/// tbir/mir_build 消费,降级为 `rxrt_*`/`rxp_*`/`rxio_*` 字面符号调用(RXS-0194)。
+/// 着色合法性:仅 host 上下文合法,kernel/device 内出现 → RX3015(coloring 层,
+/// RXS-0189;present 系与 `write_ppm` 同识别面,RXS-0197/0199)。
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum GpuHostOp {
+    /// `Context::create()` → `rxrt_ctx_create(@__rx_gpu_artifacts)`(RXS-0192)。
+    CtxCreate,
+    /// `ctx.stream()` → `rxrt_stream_create`。
+    CtxStream,
+    /// `ctx.alloc(n)` → `rxrt_buf_alloc(ctx, n * sizeof(T))`。
+    CtxAlloc,
+    /// `ctx.alloc_pinned(n)` → `rxrt_pinned_alloc(ctx, n * sizeof(T))`。
+    CtxAllocPinned,
+    /// `ctx.sync()` → `rxrt_ctx_sync`。
+    CtxSync,
+    /// `buf.upload(&pinned)` → `rxrt_pinned_ptr`/`rxrt_pinned_len` + `rxrt_buf_upload`。
+    BufUpload,
+    /// `buf.download(&mut pinned)` → 同上 + `rxrt_buf_download`。
+    BufDownload,
+    /// `buf.len()` → `rxrt_buf_len / sizeof(T)`。
+    BufLen,
+    /// `pinned.get(i)` → `rxrt_pinned_ptr` + 越界检查 + 元素读(RXS-0191)。
+    PinnedGet,
+    /// `pinned.set(i, v)` → 同上 + 元素写。
+    PinnedSet,
+    /// `pinned.len()` → `rxrt_pinned_len / sizeof(T)`。
+    PinnedLen,
+    /// `stream.sync()` → `rxrt_stream_sync`。
+    StreamSync,
+    /// `stream.launch(kernel, GridDim, BlockDim, (args..))` → `rxrt_launch`
+    /// (🔒 slot+kinds marshalling,RXS-0191)。
+    Launch,
+    /// `Present::create(&ctx, rw, rh, ww, wh)` → `rxp_create`(MS1.2b,RXS-0197)。
+    PresentCreate,
+    /// `sess.ready()` → 纯类型面转移 `Present → Ready`(消费 self,不落运行时
+    /// 符号,RXS-0197)。
+    PresentReady,
+    /// `ready.wait()` → `rxp_wait`(消费 self,`Ready → Acquired`;fence acquire
+    /// 步引用 RXS-0142,RXS-0197)。
+    PresentWait,
+    /// `acq.backbuffer()` → `rxp_backbuffer`(借用句柄 `Buffer<C, f32>`,
+    /// RXS-0198)。
+    PresentBackbuffer,
+    /// `acq.signal()` → `rxp_signal`(消费 self,`Acquired → Presentable`,
+    /// RXS-0197)。
+    PresentSignal,
+    /// `pres.pump()` → `rxp_pump`(非消费;负值 → 终止,0/1 → bool 关闭请求,
+    /// RXS-0197)。
+    PresentPump,
+    /// `pres.present()` → `rxp_present`(消费 self,`Presentable → Ready`,
+    /// RXS-0197)。
+    PresentPresent,
+    /// `write_ppm(path, w, h, &pinned)` → `rxio_write_ppm`(宿主图像落盘桥,
+    /// RXS-0114~0117 语义 0-byte 复用,RXS-0199)。
+    WritePpm,
+}
+
 /// scoped atomics 原子读改写算子(M5.2,RXS-0080;`Atomic`/`AtomicView` 族方法)。
 /// typeck 在接收者为 `Atomic`/`AtomicView` lang item 时识别,裁决 scope 类型契约
-/// (RX3010);PTX `atom.{order}.{scope}` 映射为 D-406 禁区,由人工落笔(本枚举仅
-/// 服务类型契约识别面,不承载映射语义)。
+/// (RX3010);PTX `atom.{order}.{scope}` 映射为 D-406 / RD-008 高敏面(deferred),
+/// agent 可落笔、agent 自主落地(本枚举仅服务类型契约识别面,不承载映射语义)。
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum AtomicOp {
     FetchAdd,
@@ -527,6 +588,10 @@ pub struct SelfKind {
 #[derive(Debug)]
 pub struct FnDecl {
     pub color: FnColor,
+    /// 着色阶段标记(RXS-0153);`None` = 普通函数。着色阶段函数 `color` 取
+    /// [`FnColor::Kernel`],`stage` 记录阶段类别——device codegen 收集排除着色阶段
+    /// 根(本 PR 仅类型面),着色阶段类型面检查在 AST 层(crate::shader_stages)。
+    pub stage: Option<crate::ast::ShaderStage>,
     /// 泛型参数名(序号即 `Res::GenericParam` 索引)。
     pub generic_params: Vec<String>,
     pub params: Vec<Param>,

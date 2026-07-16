@@ -33,6 +33,9 @@ pub struct QueryCtx<'a> {
     src: String,
     ast: ast::SourceFile,
     src_file: SourceId,
+    /// out-of-line 模块文件源文本(RXS-0196:装配 pass 加载的 SourceId → 源文本;
+    /// span 切片经 [`Self::snippet`] 按 span.file 归属正确源,主文件外为空表)。
+    module_srcs: HashMap<SourceId, String>,
     // ---- memo 存储(进程内,D-203 MVP) ----
     resolutions: OnceCell<Rc<Resolutions>>,
     hir: OnceCell<Rc<hir::Crate>>,
@@ -85,6 +88,7 @@ impl<'a> QueryCtx<'a> {
             src: src.to_owned(),
             ast,
             src_file: file,
+            module_srcs: HashMap::new(),
             resolutions: OnceCell::new(),
             hir: OnceCell::new(),
             fn_sigs: RefCell::new(HashMap::new()),
@@ -120,6 +124,23 @@ impl<'a> QueryCtx<'a> {
 
     pub fn src(&self) -> &str {
         &self.src
+    }
+
+    /// 注册 out-of-line 模块文件源文本(RXS-0196;driver 装配 pass 后、任何 query
+    /// 运行前调用,供 [`Self::snippet`] 多文件 span 切片)。
+    pub fn add_module_src(&mut self, id: SourceId, src: String) {
+        self.module_srcs.insert(id, src);
+    }
+
+    /// span 覆盖的源文本切片(多文件感知,RXS-0196):span.file 归属主文件或
+    /// out-of-line 模块文件各取其源;未注册文件 / 越界返回 None。
+    pub fn snippet(&self, span: crate::span::Span) -> Option<&str> {
+        let src = if span.file == self.src_file {
+            self.src.as_str()
+        } else {
+            self.module_srcs.get(&span.file)?.as_str()
+        };
+        src.get(span.lo.0 as usize..span.hi.0 as usize)
     }
 
     pub fn src_file(&self) -> SourceId {
@@ -272,6 +293,16 @@ impl<'a> QueryCtx<'a> {
         }
         self.miss();
         crate::launch_check::check_crate(self);
+    }
+
+    /// 着色阶段类型面检查(RXS-0153~0156;AST 层,cargo feature `shader-stages`;
+    /// provider:[`crate::shader_stages::check`])。着色阶段误用 / 阶段间接口不匹配 /
+    /// 资源句柄违例 100% 编译期拦截(RX3011~3013;直接调用着色阶段入口复用 RX3001,
+    /// 经 [`Self::check_coloring`])。feature 未启用时为 no-op(着色阶段语法/类型面
+    /// 不参与编译,RFC-0002 §6)。
+    pub fn check_shader_stages(&self) {
+        #[cfg(feature = "shader-stages")]
+        crate::shader_stages::check(self.ast(), self.diag);
     }
 
     /// views 不相交检查(RXS-0078;device 借用扩展 pass,HIR 层,host 借用检查

@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "subject": "dxil_path_spike",
+  "status": "measured_local",
+  "rd_ref": "RD-010",
+  "decision_ref": "RFC-0003 §9 Q-D131=C / 13 §D-131",
+  "timestamp": "2026-06-24T21:30:00+08:00",
+  "host_env": {
+    "os": "nt / win32",
+    "clang_source": "n/a(round-8 用隔离 fork worktree 自编 llc:H:\\llvm-clean-82c5bce5-src@82c5bce5 + PoC patch,build H:\\llvm-clean-82c5bce5-build;未动 D-205 pin C:\\Program Files\\LLVM / toolchain.rs / src/)"
+  },
+  "tool_versions": {
+    "clang": "n/a(round-8 不用 clang;直接 llc emit official_cs.ll)",
+    "llc": "23.0.0git / Optimized build with assertions(H:\\llvm-clean-82c5bce5-src@82c5bce5 + SPIKE(RD-010) PoC patch;post-patch llc.exe sha256=9e57c24c65db0ebc31cd70eb11411fe8ec43399a98f4d1fc453ca037d4a15d1d)",
+    "dxc": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)",
+    "dxv": "dxil validator(独立 dxv.exe 1.9.2602.24,sha256=f26242efb0197ffefa51eb5cb14603207d1d81fa547394020a5767bf65979f61)",
+    "spirv_to_dxil": "n/a(B 路 round-2 结转)",
+    "spirv_cross": "n/a(B 路 round-2 结转)",
+    "spirv_producer": "n/a(B 路 round-2 结转)"
+  },
+  "path_a": {
+    "status": "measured_local",
+    "target_available": true,
+    "probe_command": "py -3 H:\\dxil-round8\\r8_probe.py <container>(IDxcValidator ×25,复用 spike/dxil-path-probe/dxil_validator.py + dxil_container.py)+ dxv.exe <container>(独立签名 validator CLI)",
+    "target_list_excerpt": "post-patch llc.exe --version: LLVM version 23.0.0git / Optimized build with assertions / dxil - DirectX Intermediate Language(target 在位);增量重建仅 3 步(编译 DXContainerGlobals.cpp.obj + 链 LLVMDirectXCodeGen.lib + 链 llc.exe)",
+    "dxil_emit_ok": "pass",
+    "validator_pass": "pass",
+    "shader_model_coverage": "cs_6_0 / DXIL 1.0(official_cs.ll,SHA256 8FA89702...;valver 缺失=PSV v0 / 加 dx.valver 1.8=PSV v3 两子例)",
+    "validator_compat": "Bug 2 PoC patch 后 A 路 validator 互操作 gap 由 reject 转 accept:同一 2026 签名 validator(dxcompiler.dll+dxil.dll 1.9.2602.24 + dxv.exe)对 patched llc 容器 IDxcValidator 25/25 accept(0x0)+ dxv.exe Validation succeeded(ec=0);root cause = LLVM DirectX 后端写出侧硬选最高 PSV 版本(v3=52B)而 validator 从模块 dx.valver 推期望版本(缺 valver→v0=24B)→ 0x80aa0013 PSVRuntimeInfoSize 52 vs 24 不一致。PoC=14 行单函数单文件,不动共享 PSV 基础设施(DXContainerPSVInfo.cpp / DXContainer.h 未改)→ Bug 2=浅修",
+    "facts": [
+      {
+        "kind": "root_cause_localization",
+        "name": "psv_version_write_vs_module_expectation",
+        "note": "写出侧(established 函数/行):llvm/lib/Target/DirectX/DXContainerGlobals.cpp:388-389 addPipelineStateValidationInfo() 调 PSV.finalize(MMI.ShaderProfile) / PSV.write(OS) 均不传 Version → 取默认 std::numeric_limits<uint32_t>::max()(DXContainerPSVInfo.h:78/82)→ DXContainerPSVInfo.cpp:73-90 write() switch 命中 default(case 3)→ InfoSize=sizeof(dxbc::PSV::v3::RuntimeInfo)=52(DXContainer.h v0=24/v1=36/v2=48/v3=52)。期望侧:validator 从模块 dx.valver 推 PSV 版本;official_cs.ll 无 dx.valver,DXILMetadataAnalysis.cpp:43-50 留 ValidatorVersion 空 → DXILTranslateMetadata.cpp:291-293 emitValidatorVersionMD 提前 return 不写 dx.valver → validator 据缺失推 valver 0.0 → 期望 PSV v0=24。故写 52 / 期望 24 不一致 = 0x80aa0013 根因"
+      },
+      {
+        "kind": "poc_patch",
+        "name": "derive_psv_version_from_valver",
+        "note": "最小 PoC(隔离 H:\\dxil-round8\\dxil_psv_version_round8.patch,sha256=8c170aa763ee9dc6cc395e41976206018e3ba8c40e06b7b611ec6372054f7f53,2620B,16 +行;仅改 DXContainerGlobals.cpp:388-389 一函数,不入 Rurix 仓库、不入 llvm-project):写出侧按 MMI.ValidatorVersion 派生 PSV 版本(空/<1.1→v0,<1.6→v1,<1.8→v2,否则 v3),PSV.finalize/write 传该版本,与 validator 推导对齐。不动共享 PSV 基础设施(DXContainerPSVInfo.cpp/DXContainer.h 未改)"
+      },
+      {
+        "kind": "validator_before_after",
+        "name": "official_cs_no_valver",
+        "note": "official_cs.ll(无 dx.valver)patch 前后对照(IDxcValidator ×25 + dxv.exe ×5):PRE pre_official_cs.obj 1936B sha256=76a3d75a...(= round-7 llc23 字节一致),PSV0 RuntimeInfoSize=52,IDxcValidator 0/25 accept status 直方图 {0x80aa0013:25} err='DXIL container mismatch for PSVRuntimeInfoSize between PSV0 part:(52) and DXIL module:(24)',dxv.exe 5/5 reject(ec=1 同 err)。POST post_official_cs.obj 1892B sha256=019e3a51...,PSV0 RuntimeInfoSize=24(v0),IDxcValidator 25/25 accept {0x0:25},dxv.exe 5/5 'Validation succeeded.'(ec=0)→ reject 0x80aa0013 转 accept 0x0"
+      },
+      {
+        "kind": "bidirectional_alignment",
+        "name": "official_cs_valver18",
+        "note": "对照子例(双向对齐证):official_cs_valver18.ll(加 !dx.valver=!{i32 1,i32 8})经 patched llc → post_valver18.obj 1960B sha256=62c49fcd...,PSV0 RuntimeInfoSize=52(v3,含 NumThreads),IDxcValidator 25/25 accept {0x0:25} + dxv.exe 5/5 'Validation succeeded.'(ec=0)。证 patch 后写出版本随模块 valver 双向对齐:缺 valver→v0(24)accept、valver 1.8→v3(52)accept,均自洽且被同一 2026 签名 validator 接受"
+      },
+      {
+        "kind": "depth_judgment",
+        "name": "shallow_fix",
+        "note": "判深浅=浅修(SHALLOW):PoC 14 行、单函数(DXContainerGlobals::addPipelineStateValidationInfo)、单文件,未触动共享 PSV 基础设施(PSVRuntimeInfo::write/finalize 的 API 与版本-size 表 DXContainerPSVInfo.cpp + DXContainer.h 结构均不改,只改调用方传入的 Version 实参),validator 由 0/25 reject 转 25/25 accept(IDxcValidator + dxv.exe 双签名 validator 一致)。→ A 路 validator 互操作 gap 可被已知小补丁闭合(工具链层)。诚实边界:缺 valver 时写 v0(24)丢 compute NumThreads,属最小公约数对齐(更完整修法=确保模块带 dx.valver 使 v3 全量 RuntimeInfo,见 valver18 子例);A 工具链 validator 可行性 ≠ Rurix MIR→DXIL 实现 ≠ 签名 ≠ device 真跑 golden,G-G2-2 仍 open"
+      },
+      {
+        "kind": "localization_honesty",
+        "name": "method_and_limits",
+        "note": "定位法=源码级(assertions+PDB build 在位,但 Bug 2 非崩溃,无 cdb 栈;定位经 LLVM 源码读 + emit 前后 PSV0 size 52→24 实测 + valver 双向对照三证)。已 established 写出侧函数/行(DXContainerGlobals.cpp:388-389 + DXContainerPSVInfo.cpp:73-90 + DXContainer.h v0..v3 + DXILTranslateMetadata.cpp:291 + DXILMetadataAnalysis.cpp:43)。未做:未反汇编 dxil.dll validator 内部期望-size 计算源码(交叉读 DXC 规范/round-7 线索推得 valver→PSV 版本映射,未逐字节确认 DXC 源)、未向 llvm-project 公开提交"
+      }
+    ],
+    "repro": [
+      "1. 复用隔离 fork worktree H:\\llvm-clean-82c5bce5-src(82c5bce5,干净)+ build H:\\llvm-clean-82c5bce5-build(RelWithDebInfo+Assertions+PDB,llc.exe 在位);若不在按 round-6 阶段4 recipe 重建。",
+      "2. 打 PoC patch:DXContainerGlobals.cpp:388-389 按 MMI.ValidatorVersion 派生 PSV 版本传 finalize/write(diff 见 H:\\dxil-round8\\dxil_psv_version_round8.patch);增量 ninja -j6 llc(vcvars64 VS2022 14.44,3 步分钟级)。",
+      "3. emit:llc official_cs.ll -filetype=obj -o post_official_cs.obj(应 1892B,PSV0 InfoSize 24);加 dx.valver 1.8 的 official_cs_valver18.ll → post_valver18.obj(1960B,PSV0 52)。",
+      "4. 验:RURIX_DXC_NEW_DIR/dxcompiler.dll+dxil.dll 1.9.2602.24,py -3 H:\\dxil-round8\\r8_probe.py <obj>(IDxcValidator ×25)+ dxv.exe <obj>(独立 CLI);对照 PRE pre_official_cs.obj(未 patch llc,1936B,reject 0x80aa0013)。"
+    ],
+    "round8_detail": {
+      "validator_binaries": {
+        "dxcompiler.dll": { "sha256": "9b5e10ed756c461b4ec2c83a99f1d6ace20e97826e9c0b0e966b7b1cd6f2aec6", "size": 17987384 },
+        "dxil.dll": { "sha256": "cbcfe883a09fd0ca1f98abdf3a9553b560895e3283a136da82a8381253a169df", "size": 1503072 },
+        "dxv.exe": { "sha256": "f26242efb0197ffefa51eb5cb14603207d1d81fa547394020a5767bf65979f61", "size": 295224 }
+      },
+      "llc_post_patch": { "sha256": "9e57c24c65db0ebc31cd70eb11411fe8ec43399a98f4d1fc453ca037d4a15d1d", "size": 84364288, "version": "23.0.0git Optimized build with assertions" },
+      "patch": { "path": "H:\\dxil-round8\\dxil_psv_version_round8.patch", "sha256": "8c170aa763ee9dc6cc395e41976206018e3ba8c40e06b7b611ec6372054f7f53", "size": 2620, "added_lines": 16, "file": "llvm/lib/Target/DirectX/DXContainerGlobals.cpp", "function": "addPipelineStateValidationInfo", "in_repo": false },
+      "psv_struct_sizes": { "v0": 24, "v1": 36, "v2": 48, "v3": 52 },
+      "pre_patch": {
+        "container": { "path": "H:\\dxil-round8\\pre_official_cs.obj", "size": 1936, "sha256": "76a3d75abd2368c05c37848b78566f19a8c457d35052d754d34907a917d7aad0" },
+        "psv0_runtime_info_size": 52,
+        "idxc": { "n": 25, "accepts": 0, "status_histogram": { "0x80aa0013": 25 }, "sample_error": "error: DXIL container mismatch for 'PSVRuntimeInfoSize' between 'PSV0' part:('52') and DXIL module:('24')\nValidation failed." },
+        "dxv_cli": { "n": 5, "accept": 0, "reject": 5, "sample": "error: DXIL container mismatch for 'PSVRuntimeInfoSize' between 'PSV0' part:('52') and DXIL module:('24')\nValidation failed." }
+      },
+      "post_patch_no_valver": {
+        "container": { "path": "H:\\dxil-round8\\post_official_cs.obj", "size": 1892, "sha256": "019e3a51192f0b7031f2b216e9c987410f437bbe7eeba5662818985359061b07" },
+        "psv0_runtime_info_size": 24,
+        "idxc": { "n": 25, "accepts": 25, "status_histogram": { "0x0": 25 }, "sample_error": "" },
+        "dxv_cli": { "n": 5, "accept": 5, "reject": 0, "sample": "Validation succeeded." }
+      },
+      "post_patch_valver18": {
+        "container": { "path": "H:\\dxil-round8\\post_valver18.obj", "size": 1960, "sha256": "62c49fcdc4ccb4a372405c100d060b672bffbc0c1fe5dc4f649c431846a81fba" },
+        "psv0_runtime_info_size": 52,
+        "idxc": { "n": 25, "accepts": 25, "status_histogram": { "0x0": 25 }, "sample_error": "" },
+        "dxv_cli": { "n": 5, "accept": 5, "reject": 0, "sample": "Validation succeeded." }
+      },
+      "input": { "path": "H:\\llvm-audit-round6\\official_cs.ll", "size": 289, "sha256": "8fa89702d57840be106c1bbaa56c5e6c9fdde71208d3abf2648aa9eb4e695a1a" }
+    }
+  },
+  "path_b": {
+    "status": "measured_local",
+    "translators_available": true,
+    "probe_command": "(round-8 未重跑 B 路)",
+    "dxil_emit_ok": "pass",
+    "validator_pass": "pass",
+    "supply_chain": "round-2 结转引用:SPIRV-Cross + dxc 1.8.0.4739 + glslang;端到端 4/4 pass(见 evidence/dxil_path_spike_20260624.json)",
+    "determinism_notes": "round-2 measured 4/4 deterministic;round-8 未重测",
+    "facts": [
+      {
+        "kind": "carry_forward",
+        "name": "b_path_not_rerun",
+        "note": "round-8 聚焦 A 路 Bug 2 源码定位 + PoC patch 验证,未重跑 B 路;B 路 round-2 已 measured_local,见 evidence/dxil_path_spike_report_round2.md"
+      }
+    ],
+    "repro": []
+  },
+  "comparison_criteria": [
+    "bug2_root_cause_localized(A:DXContainerGlobals.cpp:388-389 默认 PSV 版本=max(v3,52B) vs validator 从模块 dx.valver 推期望版本)",
+    "poc_patch_size(14 行 / 单函数 / 单文件 / 不动共享 PSV 基础设施)",
+    "validator_before_after(reject 0/25 0x80aa0013 → accept 25/25 0x0,IDxcValidator + dxv.exe 双签名一致)",
+    "depth_judgment(shallow:A validator 互操作 gap 可被已知小补丁闭合)"
+  ],
+  "run_command": "py -3 H:\\dxil-round8\\r8_probe.py H:\\dxil-round8\\post_official_cs.obj",
+  "owner_decision": "A/B 最终路径裁决权属 owner(RFC-0003 §9 Q-D131 / 13 §D-131 / 硬规则 1);本 spike 仅产证据,agent 自主裁决。round-8 结论仅到『Bug 2 root cause established 到 LLVM 源码函数/行(DXContainerGlobals.cpp:388-389 PSV 版本未按模块 valver 派生)+ 浅修(14 行 PoC 使 validator reject→accept)+ A 工具链 validator 互操作 gap 可被已知小补丁闭合』,不替 agent 裁 A/B、不把 Rurix 切到 fork LLVM(D-205 决策属 owner+独立勘误)、不签 G-G2-2,D-131 维持 C。",
+  "notes": "纯取证 spike round-8;LLVM fork worktree + PoC patch + 重建 llc 全隔离于仓库外 H:\\llvm-clean-82c5bce5-* / H:\\dxil-round8,不入库(patch diff 全文抄进 report,digest 见 round8_detail)。未动 D-205 pin(C:\\Program Files\\LLVM)/toolchain.rs/src/。measured-first:数字来自命令真实输出(IDxcValidator ×25 + dxv.exe + emit size + git diff)。round-1~7 既有 evidence/ 文件 byte-unchanged,本证据为新增。未向 llvm-project 公开提交任何内容;禁区(DXIL UB/纹理内存模型/FFI ABI)未碰——PSV 是容器元数据结构非禁区。"
+}

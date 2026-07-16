@@ -1,0 +1,173 @@
+--------- beginning of (HKS)2EE4AA00E4890B4C50D1023C03DE082A1DF4F6F1A9EC6944A02734D01C4D3F5CF84798ABCFD05936014E5F2BC17048A67696294D94D023FDD26131766758C3B1F56C8E298C80CB5B43BC21DDEEE92462E7EB16B3C9FAF0E6EF05F2DC2C9176C723CEE9F5DE59D7F1D825AF914F0DC06C5AA0AB68FD4634E818865A7E1849B7B55EA553A5650E434C8A495FF85B9120562E0519CA81215CDC4D1C644AEFF63606EE3691486CC59521C77789D3D708FD3B4B07CE3097534A948B24A31340BD433086FE820602CA894BF60648D84609063458DB9407127EB08DBB5FD314755DCADB22EA66B27F53CE5B18DCD538A23E8764FAA67579AF5596BD2555D0A1039B1E89(HKE)
+--------- beginning of main
+07-16 17:24:33.654  2536  2969 E power   : Failed to get SystemSuspend service
+--------- beginning of system
+07-16 17:24:33.654  3370  4249 E DE J BigDataReport: receiveEyeDistance undefine mode: 
+07-16 17:24:33.654  2056  2056 E HW_DISPLAY_TEST: get_active_panel: panel index: 0
+07-16 17:24:33.654  2558  2600 E DE N Sh1P: getRadiusValue:341: Not find MODE_MARKET_0_25_0: 0
+07-16 17:24:33.786  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:24:33.876  2622  2691 E AwareLog: iolimit: pid[10089] cgroup 1:blkio:/key-background couldn't iolimit.
+07-16 17:24:33.876  2622  2691 E AwareLog: iolimit: pid[13991] cgroup 1:blkio:/key-background couldn't iolimit.
+07-16 17:24:33.876  2622  2691 E AwareLog: iolimit: pid[23029] cgroup 1:blkio:/key-background couldn't iolimit.
+07-16 17:24:33.876  2622  2691 E AwareLog: iawared: ChangePropertyContent open /dev/blkio/iocontrol/blkio.iolimit.switching fail errno(2)!
+07-16 17:24:33.887 23919 23919 E Launcher : pauseMagicCubeMode press home twice quickly  time =327
+07-16 17:24:33.899 23919 23919 E FixedFlowFrameManager: initAndCheck: configType is 0, skip FixedFlowFrame
+07-16 17:24:33.902  2536  2969 E power   : Failed to get SystemSuspend service
+07-16 17:24:33.903  2056  2056 E HW_DISPLAY_TEST: get_active_panel: panel index: 0
+07-16 17:24:33.903  3370 10959 E WMTransition: finishTransition when pull back, TransitionRecord{3ab3816 id=20015 type=CLOSE flags=0x0 c=[
+07-16 17:24:33.903  3370 10959 E WMTransition:    ChangeInfo{955bd22 container=ActivityRecord{19159024 u0 com.rurix.vk/android.app.NativeActivity t3065 f} isExiting flags=0x0}
+07-16 17:24:33.903  3370 10959 E WMTransition:    ChangeInfo{36e13b3 container=Task{3d05d59 #2738 type=home} flags=0x30}
+07-16 17:24:33.903  3370 10959 E WMTransition:    ChangeInfo{f511d70 container=DefaultTaskDisplayArea@66645808 flags=0x0}
+07-16 17:24:33.903  3370 10959 E WMTransition:    ChangeInfo{121d8e9 container=OneHanded:0:14@73196615 flags=0x0}
+07-16 17:24:33.903  3370 10959 E WMTransition:    ChangeInfo{8b6896e container=ActivityRecord{98854354 u0 com.hihonor.android.launcher/.unihome.UniHomeLauncher t2739} flags=0x0}
+07-16 17:24:33.903  3370 10959 E WMTransition:    ChangeInfo{cac380f container=WallpaperWindowToken{5f2fee4 showWhenLocked=false} flags=0x0}
+07-16 17:24:33.903  3370 10959 E WMTransition:    ChangeInfo{902a09c container=Task{67a948f #3065 type=standard A=10285:com.rurix.vk} flags=0x0}
+07-16 17:24:33.903  3370 10959 E WMTransition:    ChangeInfo{7b61aa5 container=Task{7ff0d1e #2739 type=home A=10122:com.hihonor.android.launcher} flags=0x30}
+07-16 17:24:33.903  3370 10959 E WMTransition:    ChangeInfo{545ce7a container=WallpaperWindowToken{833e59a showWhenLocked=true} flags=0x0}
+07-16 17:24:33.903  3370 10959 E WMTransition:    ChangeInfo{ffe462b container=Display{#0 state=ON size=1256x2808 ROTATION_0} flags=0x0}
+07-16 17:24:33.903  3370 10959 E WMTransition: ]
+07-16 17:24:33.903  3370 10959 E WMTransition: }
+07-16 17:24:33.903  3370 10959 E IPCThreadState: Binder transaction failure. id: 794795319, BR_*: 29189, error: -22 (Invalid argument)
+07-16 17:24:33.905 23919 23919 E LevelAnimationMgr: updateBlurAnimator fraction=0.0, currentRadiu=0, lastRadiu=0, isIn=false, view size=5
+07-16 17:24:33.905 23919 23919 E DeskVisibleListenMgr: onVisible
+07-16 17:24:33.906 23919 23919 E LevelAnimationMgr: updateBlurAnimator fraction=0.0, currentRadiu=0, lastRadiu=0, isIn=false, view size=5
+07-16 17:24:33.906 23919 23919 E LayoutUtil : isNeedUpdateScreenSize, !(deviceResource instanceof InWardDeviceResource)
+07-16 17:24:33.908  4474  4892 E HnFreeformController: mHnDesktopTasksController is null
+07-16 17:24:33.910 23919 23919 E LevelAnimationMgr: updateBlurAnimator fraction=0.0, currentRadiu=0, lastRadiu=0, isIn=false, view size=5
+07-16 17:24:33.911  3370  5980 E SWAP_CgroupV2KernelInf: writeDevMemcg::writeDevMemcg_ERROR:/sys/block/zram0/hyperhold_memcg_main_process content:193,18571, ex:java.io.FileNotFoundException: /sys/block/zram0/hyperhold_memcg_main_process: open failed: EACCES (Permission denied)
+07-16 17:24:33.914 23919 23919 E LayoutUtil : isNeedUpdateScreenSize, !(deviceResource instanceof InWardDeviceResource)
+07-16 17:24:33.917 23919 23919 E BLASTBufferQueue: [VRI[UniHomeLauncher]#899](f:0,a:1) Applying pending transactions on dtor 1
+07-16 17:24:33.921 23919 23919 E LevelAnimationMgr: updateBlurAnimator fraction=0.0, currentRadiu=0, lastRadiu=0, isIn=false, view size=5
+07-16 17:24:33.921 23919 23919 E LayoutUtil : isNeedUpdateScreenSize, !(deviceResource instanceof InWardDeviceResource)
+07-16 17:24:33.932  2536  2969 E power   : Failed to get SystemSuspend service
+07-16 17:24:33.932  2536 18467 E AGPService: FrameRateManager targetFps 120, settingFps 60 after setFps
+07-16 17:24:33.933  3370  3404 E SystemGestures: The HwFoldScreenManagerInternal is null.
+07-16 17:24:33.933  2056  2056 E HW_DISPLAY_TEST: get_active_panel: panel index: 0
+07-16 17:24:33.937 18571 18571 E [VipSchedProxy:]: Vip Success open /proc/vip/ioctl
+07-16 17:24:33.946  4500  4831 E SmartcareProc: getInstance, sInstance is null !
+07-16 17:24:33.946  8830  9295 E AWARENESS_AppGeneralCollectAbility: contained in black list : com.hihonor.android.launcher
+07-16 17:24:33.946  2622  2691 E AwareLog: SetThreadToVipGroup:: iawared vipgroup set pid[0] FAILED-NOT-TOP-APP!
+07-16 17:24:33.949  5543 10729 E iconnect:NearbyDevImpl: isAbleConnect is null
+07-16 17:24:33.949  3370 10961 E IHwWindowManager: Process Permission error! uid:10285
+07-16 17:24:33.949  3370 10961 E IHwWindowManager: check permission error, current package is com.rurix.vk , it is not systemApp, callers is com.hihonor.android.view.IHwWindowManager$Stub.onTransact:1624 android.os.Binder.execTransactInternal:1459 android.os.Binder.execTransact:1401 <bottom of call stack> <bottom of call stack> <bottom of call stack> <bottom of call stack> <bottom of call stack> <bottom of call stack> <bottom of call stack> 
+07-16 17:24:33.950  2122  2122 E TS_HAL  : honor_tp_run_command: call
+07-16 17:24:33.951  4500  4831 E SmartDualCardConfig: isAppInBlackList false,items==null
+07-16 17:24:33.952  4500  4831 E NearMpAptDecisionSystem: isSupportNearMp. mNearMpConfigInfo is null
+07-16 17:24:33.953  8046  8166 E HSM_BG  : MaliciousDBHelper:list is empty
+07-16 17:24:33.953  8046  8166 E HSM_BG  : SecurityThreatsService:notifyRiskAppWhenStartUp optional is present.
+07-16 17:24:33.957 29104 29136 E Brain_CardArrangement: cardInfoList is empty
+07-16 17:24:33.957 29104 29136 E Brain_CardArrangement: cardInfoList is empty
+07-16 17:24:33.957  4500  4831 E SmartDualCardConfig: isAppInBlackList false,items==null
+07-16 17:24:33.959  4500  4831 E SmartDualCardConfig: isAppInBlackList false,items==null
+07-16 17:24:33.960  4500  4831 E SmartDualCardConfig: isAppInBlackList false,items==null
+07-16 17:24:33.960  4500  4833 E IndepBtChrManager: onUserSceneChanged: invalid sceneId: 0
+07-16 17:24:33.967  4500  4831 E Booster_DataAccelerateManager: Current scene is not supported for data acceleration
+07-16 17:24:33.969 18571 18571 E RtgSchedIpcFile: RtgSchedIpcFile xxx failed to open /proc/18571/rtg
+07-16 17:24:33.969 18571 18571 E RtgSchedIpcFile: RtgSchedIpcFile xxx success to open /proc/rtg_gki/ioctl.
+07-16 17:24:33.969 18571 18593 E AwareLog: AtomicFileUtils: readFileLines file not exist: AtomicFile[/data/user/0/com.rurix.vk/files/hw_cached_resid.list]
+07-16 17:24:33.973 23919 23919 E HnAppRec_15.5.0.339 YOYOStackViewHelper: removeCurrentItem
+07-16 17:24:33.973 23919 23919 E HnAppRec_15.5.0.339 YOYOCardAnimHelper: not anim list execute
+07-16 17:24:33.975  2622  2691 E AwareLog: SetThreadToVipGroup:: iawared vipgroup set pid[18571] FAILED-NOT-TOP-APP!
+07-16 17:24:33.980 18571 18571 E ashmem  : Pinning is deprecated since Android Q. Please use trim or other methods.
+07-16 17:24:33.980 18571 18595 E com.rurix.vk: open file error
+07-16 17:24:33.982 18571 18595 E com.rurix.vk: open file error
+07-16 17:24:33.982 18571 18595 E iGraphics: [~]A_pHiechEijbka@ieog_jpBkh_W$Bckh$pi$bkj`$eoup$eijbka$bkh_~]
+07-16 17:24:33.982 18571 18595 E com.rurix.vk: open file error
+07-16 17:24:33.982 18571 18595 E iGraphics: [~]@_ev{tpEijbka\ghW$It_j$bkh_$bckh_`~]
+07-16 17:24:33.985 29104 29138 E Brain_uniRequestHelper: not push and is currentTime requested
+07-16 17:24:33.988  2160  2160 E qspmHal : GPU profile file NOT found !!
+07-16 17:24:33.995 18571 18595 E GamesAware: CheckInSupportList: 'com.rurix.vk' is not a game.
+07-16 17:24:34.001 18571 18571 I RurixVK : onCreate: glue armed (rurix_vk)
+07-16 17:24:34.004  9724  9729 E bms_file: file /sys/class/backlight/panel1-backlight/brightness is invalid
+07-16 17:24:34.006 18571 18571 E uniperf client: vendor.honor.hardware.iawareperf.IUniPerfAidlInterface/default is not Declared
+07-16 17:24:34.006 18571 18571 E uniperf client: vendor.honor.hardware.iawareperf.IUniPerfAidlInterface/default is not Declared
+07-16 17:24:34.020  8830  8852 E AWARENESS_PCIAbility: curActivity already acted
+07-16 17:24:34.026  3370  4249 E DE J BigDataReport: receiveEyeDistance undefine mode: 
+07-16 17:24:34.026  2558  2600 E DE N Sh1P: getRadiusValue:341: Not find MODE_MARKET_0_25_0: 0
+07-16 17:24:34.032  2622  2691 E AwareLog: SetThreadToVipGroup:: iawared vipgroup set pid[18571] FAILED-NOT-TOP-APP!
+07-16 17:24:34.032  2622  2691 E AwareLog: SetThreadToVipGroup:: iawared vipgroup set pid[18595] FAILED-NOT-TOP-APP!
+07-16 17:24:34.033  3370 10961 E ZrHung.AppEyeFocusWindow: cancel check
+07-16 17:24:34.036  3370 10961 E RMS.HwSysResManagerService: Process Permission error! pid:4641 uid:1001 Process.myPid:3370
+07-16 17:24:34.036 18571 18571 I RurixVK : onNativeWindowCreated
+07-16 17:24:34.041  2160  2160 E qspmHal : GPU profile file NOT found !!
+07-16 17:24:34.045  8830 14366 E AWARENESS_LocationHelperAbility: pushData envenType :5
+07-16 17:24:34.056  2160  2160 E qspmHal : GPU profile file NOT found !!
+07-16 17:24:34.059  2622  2691 E AwareLog: iawared: ChangePropertyContent write 16345 0 to /proc/sys/walt/sched_static_vip fail errno(2)!
+07-16 17:24:34.059  2622  2691 E AwareLog: iawared: ChangePropertyContent write 27581 0 to /proc/sys/walt/sched_static_vip fail errno(2)!
+07-16 17:24:34.059  3370  3684 E AwareLog: CpuProcessInherit: files null 
+07-16 17:24:34.062  4500  4831 E SmartDualCardConfig: isAppInBlackList false,items==null
+07-16 17:24:34.072 18571 18571 E FixedFlowFrameManager: initAndCheck: renderer is null
+07-16 17:24:34.084  4474  4474 E LivelyCapsuleStatusBH: startSvgAnim: topCapsule is null
+07-16 17:24:34.086  4474  4474 E ZZQ     : mGlobalLayoutListener mShowingType = 0
+07-16 17:24:34.096 18571 18600 I RurixVK : RESULT {"mode":"green","present_ok":true,"frames":3,"ext_w":1256,"ext_h":2808,"covered":864256,"corner_bg":true,"center_covered":true,"validation_errors":0,"max_err":null}
+07-16 17:24:34.133  3370  4249 E DE J BigDataReport: receiveEyeDistance undefine mode: 
+07-16 17:24:34.134  2122  2122 E TS_HAL  : honor_tp_run_command: call
+07-16 17:24:34.134  2558  2598 E DE N Sh1P: getRadiusValue:341: Not find MODE_MARKET_0_25_0: 0
+07-16 17:24:34.134  2536  2969 E power   : Failed to get SystemSuspend service
+07-16 17:24:34.134  2536  2969 E power   : Failed to get SystemSuspend service
+07-16 17:24:34.135  2536 18467 E AGPService: FrameRateManager targetFps 60, settingFps 120 after setFps
+07-16 17:24:34.136  2056  2056 E HW_DISPLAY_TEST: get_active_panel: panel index: 0
+07-16 17:24:34.136  3370  3404 E SystemGestures: The HwFoldScreenManagerInternal is null.
+07-16 17:24:34.136  2056  2056 E HW_DISPLAY_TEST: get_active_panel: panel index: 0
+07-16 17:24:34.168  2536  2969 E power   : Failed to get SystemSuspend service
+07-16 17:24:34.169  2056  2056 E HW_DISPLAY_TEST: get_active_panel: panel index: 0
+07-16 17:24:34.185 29104 18613 E HianalyticsSDK-1.0.8.300-HaDnsManager: [HaSdk-com.hihonor.brain:29104:1013-N SourceFile:46 E] getOrCreateDnsHandler getHnDnsKey null,appId=com.hihonor.brain
+07-16 17:24:34.313  2536  2969 E power   : Failed to get SystemSuspend service
+07-16 17:24:34.313  2056  2056 E HW_DISPLAY_TEST: get_active_panel: panel index: 0
+07-16 17:24:34.447  8830 14366 E AWARENESS_LocationHelperAbility: cellTime is not valid
+07-16 17:24:34.447  8830 14366 E AWARENESS_LocationHelperAbility: pushData envenType :5
+07-16 17:24:34.618  4584  6366 E CHR_ProtocolFlowCacheManager: report level or causeId not allowed: 15,100053
+07-16 17:24:34.620  4584  7896 E GnssDftHandler: notifyGnssEvent eventID is: 104 List is [{"freeze_pkg":"com.hihonor.android.totemweather","freeze_uid":10058,"proxy":0,"is_front":1,"freeze_time":1784193874620}]
+07-16 17:24:34.635  2536  2969 E power   : Failed to get SystemSuspend service
+07-16 17:24:34.635  2536 18467 E AGPService: FrameRateManager targetFps 120, settingFps 60 after setFps
+07-16 17:24:34.636  2056  2056 E HW_DISPLAY_TEST: get_active_panel: panel index: 0
+07-16 17:24:34.637  3370  3404 E SystemGestures: The HwFoldScreenManagerInternal is null.
+07-16 17:24:34.703  4500  4824 E LinkLayerUtils: getCurrentCellInfo invalid cellInfo!
+07-16 17:24:34.818  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:24:34.953  4500  4831 E HwPacketFilterBypass: sendRequestToKernel ADD_UID [10285]
+07-16 17:24:35.636  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /proc/sys/walt/walt_rtg_cfs_boost_prio with value 99
+07-16 17:24:35.636  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: RemoveAndApply() 292: Failed to reset optimization here [3, 50]
+07-16 17:24:35.807  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /sys/class/kgsl/kgsl-3d0/touch_wake with value 1
+07-16 17:24:35.807  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: AddAndApply() 159: Failed to apply optimization [10, 13]
+07-16 17:24:35.833  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /sys/class/kgsl/kgsl-3d0/touch_wake with value 0
+07-16 17:24:35.833  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: RemoveAndApply() 292: Failed to reset optimization here [10, 13]
+07-16 17:24:35.842  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:24:35.888  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /sys/class/kgsl/kgsl-3d0/touch_wake with value 1
+07-16 17:24:35.888  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: AddAndApply() 159: Failed to apply optimization [10, 13]
+07-16 17:24:35.914  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /sys/class/kgsl/kgsl-3d0/touch_wake with value 0
+07-16 17:24:35.914  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: RemoveAndApply() 292: Failed to reset optimization here [10, 13]
+07-16 17:24:35.923  3370  3684 E AwareLog: AwareMem_MemTrimUtil: trim Memory illegal arg exception, proc:18300 level:40,error: java.lang.IllegalArgumentException: Unknown process: 18300
+07-16 17:24:36.702  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /sys/class/kgsl/kgsl-3d0/touch_wake with value 1
+07-16 17:24:36.702  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: AddAndApply() 159: Failed to apply optimization [10, 13]
+07-16 17:24:36.729  2149  2193 E PERFHAL-UTIL: PERFHAL-UTIL: change_node_val() 204: Failed to update node /sys/class/kgsl/kgsl-3d0/touch_wake with value 0
+07-16 17:24:36.729  2149  2193 E PERFHAL-RESOURCEQS: PERFHAL-RESOURCEQS: RemoveAndApply() 292: Failed to reset optimization here [10, 13]
+07-16 17:24:36.865  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:24:36.876  2622  2691 E AwareLog: iawared: ChangePropertyContent open /dev/blkio/iocontrol/blkio.iolimit.switching fail errno(2)!
+07-16 17:24:36.876  2622  2691 E AwareLog: iawared: ChangePropertyContent open /dev/blkio/heavyio/blkio.iolimit.switching fail errno(2)!
+07-16 17:24:37.626  4584  6366 E CHR_ProtocolFlowCacheManager: report level or causeId not allowed: 15,100053
+07-16 17:24:37.627  4584  7896 E GnssDftHandler: notifyGnssEvent eventID is: 104 List is [{"freeze_pkg":"com.hihonor.android.totemweather","freeze_uid":10058,"proxy":1,"is_front":1,"freeze_time":1784193877627}]
+07-16 17:24:37.704  4500  4824 E LinkLayerUtils: getCurrentCellInfo invalid cellInfo!
+07-16 17:24:37.891  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:24:38.617  3370  3370 E WifiEnhance_DataPlatformServiceWapper: DataPlatformConnection: DataPlatformService returned null binding: ComponentInfo{com.hihonor.android.chr/com.hihonor.dataplatform.service.DataPlatformService}
+07-16 17:24:38.639  4500  4833 E IndepBtControlManager: checkSignalStrength rsrq is not legal
+07-16 17:24:38.640  4500  4833 E IndepBtControlManager: checkSignalStrength sinr is not legal
+07-16 17:24:38.912  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:24:38.957  8830 30436 E AWARENESS_TM: trigger not reg
+07-16 17:24:38.957  8830 30436 E AWARENESS_FenceManager: sendMsg a:BIND,package:brain,fence: AppRecoAssembler_PredictSolutionTrigger_TimedAppFence_APP_STARTUP_NONE
+07-16 17:24:38.957  8830  9434 E AWARENESS_FenceManager: connected: true
+07-16 17:24:38.970 18571 18571 E com.rurix.vk: No package ID 7f found for resource ID 0x7f080592.
+07-16 17:24:39.057  9724  9729 E bms_file: file /sys/class/backlight/panel1-backlight/brightness is invalid
+07-16 17:24:39.703  4500  4824 E LinkLayerUtils: getCurrentCellInfo invalid cellInfo!
+07-16 17:24:39.937  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:24:40.961  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:24:41.985  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:24:42.704  4500  4824 E LinkLayerUtils: getCurrentCellInfo invalid cellInfo!
+07-16 17:24:43.010  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:24:43.520  4500  4831 E SpeedLimitTestNotifier: mIsTopActivity false
+07-16 17:24:43.619  3370  3370 E WifiEnhance_DataPlatformServiceWapper: DataPlatformConnection: DataPlatformService returned null binding: ComponentInfo{com.hihonor.android.chr/com.hihonor.dataplatform.service.DataPlatformService}
+07-16 17:24:43.946  4500  4831 E SpeedLimitTestNotifier: mIsTopActivity false
+07-16 17:24:43.946  4500  4831 E SpeedLimitTestNotifier: mIsTopActivity false
+07-16 17:24:44.032  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device
+07-16 17:24:44.089  9724  9729 E bms_file: file /sys/class/backlight/panel1-backlight/brightness is invalid
+07-16 17:24:44.703  4500  4824 E LinkLayerUtils: getCurrentCellInfo invalid cellInfo!
+07-16 17:24:45.055  3370  6946 E WifiLinkMonitor: linkDpInfo or phyInfo is null or not mlo device

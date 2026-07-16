@@ -113,10 +113,10 @@
 | RXS-0107 | spec/stdlib.md | 2 | `conformance/stdlib/device/vec_scalar.rx`, `conformance/stdlib/host/vec_ops.rx` |
 | RXS-0108 | spec/stdlib.md | 2 | `conformance/stdlib/device/mat_scalar.rx`, `conformance/stdlib/host/mat_ops.rx` |
 | RXS-0109 | spec/stdlib.md | 2 | `conformance/stdlib/device/mat_scalar.rx`, `conformance/stdlib/host/mat_ops.rx` |
-| RXS-0110 | spec/stdlib.md | 3 | `conformance/stdlib/device/geom_scalar.rx`, `conformance/stdlib/host/geom_ops.rx`, `conformance/stdlib/reject/geom_type_confusion/basic.rx` |
-| RXS-0111 | spec/stdlib.md | 2 | `conformance/stdlib/device/geom_scalar.rx`, `conformance/stdlib/host/geom_ops.rx` |
-| RXS-0112 | spec/stdlib.md | 2 | `conformance/stdlib/device/geom_scalar.rx`, `conformance/stdlib/host/geom_ops.rx` |
-| RXS-0113 | spec/stdlib.md | 2 | `conformance/stdlib/device/geom_scalar.rx`, `conformance/stdlib/host/geom_ops.rx` |
+| RXS-0110 | spec/stdlib.md | 4 | `conformance/stdlib/device/geom_scalar.rx`, `conformance/stdlib/host/geom_ops.rx`, `conformance/stdlib/reject/geom_type_confusion/basic.rx` …(+1) |
+| RXS-0111 | spec/stdlib.md | 3 | `conformance/stdlib/device/geom_scalar.rx`, `conformance/stdlib/host/geom_ops.rx`, `src/rurix-geometry/src/lib.rs` |
+| RXS-0112 | spec/stdlib.md | 3 | `conformance/stdlib/device/geom_scalar.rx`, `conformance/stdlib/host/geom_ops.rx`, `src/rurix-geometry/src/lib.rs` |
+| RXS-0113 | spec/stdlib.md | 3 | `conformance/stdlib/device/geom_scalar.rx`, `conformance/stdlib/host/geom_ops.rx`, `src/rurix-geometry/src/lib.rs` |
 | RXS-0114 | spec/imageio.md | 1 | `src/image-io/src/lib.rs` |
 | RXS-0115 | spec/imageio.md | 1 | `src/image-io/src/lib.rs` |
 | RXS-0116 | spec/imageio.md | 1 | `src/image-io/src/lib.rs` |
@@ -147,3 +147,69 @@
 | RXS-0141 | spec/interop_d3d12.md | 1 | `src/rurix-rt/src/interop.rs` |
 | RXS-0142 | spec/interop_d3d12.md | 1 | `src/rurix-rt/src/interop.rs` |
 | RXS-0143 | spec/interop_d3d12.md | 1 | `src/rurix-rt/src/interop.rs` |
+| RXS-0144 | spec/async_buffer.md | 1 | `src/rurix-rt/src/pipeline.rs` |
+| RXS-0145 | spec/async_buffer.md | 1 | `src/rurix-rt/src/pipeline.rs` |
+| RXS-0146 | spec/async_buffer.md | 1 | `src/rurix-rt/src/pipeline.rs` |
+| RXS-0147 | spec/async_buffer.md | 1 | `src/rurix-rt/src/pipeline.rs` |
+| RXS-0148 | spec/async_buffer.md | 1 | `src/rurix-rt/src/pipeline.rs` |
+| RXS-0149 | spec/engine_integration.md | 1 | `src/rurix-engine/src/lib.rs` |
+| RXS-0150 | spec/release.md | 1 | `src/rurix-rt/src/fatbin.rs` |
+| RXS-0151 | spec/release.md | 1 | `src/rurix-rt/src/fatbin.rs` |
+| RXS-0152 | spec/release.md | 1 | `src/rurix-pkg/src/lock.rs` |
+| RXS-0153 | spec/shader_stages.md | 4 | `conformance/shader/accept/basic_stages.rx`, `conformance/shader/reject/stage_misuse/direct_call.rx`, `src/rurixc/src/shader_stages.rs` …(+1) |
+| RXS-0154 | spec/shader_stages.md | 4 | `conformance/shader/accept/basic_stages.rx`, `conformance/shader/reject/io_annotation/unannotated_field.rx`, `src/rurixc/src/shader_stages.rs` …(+1) |
+| RXS-0155 | spec/shader_stages.md | 4 | `conformance/shader/accept/basic_stages.rx`, `conformance/shader/reject/interface_mismatch/vs_fs_mismatch.rx`, `src/rurixc/src/shader_stages.rs` …(+1) |
+| RXS-0156 | spec/shader_stages.md | 4 | `conformance/shader/accept/basic_stages.rx`, `conformance/shader/reject/resource_handle/handle_return.rx`, `src/rurixc/src/shader_stages.rs` …(+1) |
+| RXS-0157 | spec/dxil_backend.md | 4 | `conformance/dxil/accept/cs_noop.rx`, `conformance/dxil/reject/nontrivial_body.rx`, `conformance/dxil/reject/view_param.rx` …(+1) |
+| RXS-0158 | spec/dxil_backend.md | 5 | `conformance/dxil/graphics/accept/fs_passthrough.rx`, `conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx`, `conformance/dxil/graphics/accept/uc04_lighting_vs.rx` …(+2) |
+| RXS-0159 | spec/dxil_backend.md | 4 | `conformance/dxil/graphics/accept/fs_passthrough.rx`, `conformance/dxil/graphics/reject/vs_builtin_scalar_position.rx`, `src/rurixc/src/dxil_codegen.rs` …(+1) |
+| RXS-0160 | spec/dxil_backend.md | 3 | `conformance/dxil/graphics/accept/vs_fs_link.rx`, `src/rurixc/src/dxil_codegen.rs`, `src/rurixc/src/dxil_sig_gate.rs` |
+| RXS-0161 | spec/dxil_backend.md | 7 | `conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx`, `conformance/dxil/graphics/accept/uc04_lighting_fs.rx`, `conformance/dxil/graphics/accept/uc04_lighting_vs.rx` …(+4) |
+| RXS-0162 | spec/dxil_backend.md | 5 | `conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx`, `conformance/dxil/graphics/accept/uc04_lighting_vs.rx`, `conformance/dxil/graphics/accept/vs_varying.rx` …(+2) |
+| RXS-0163 | spec/binding_layout.md | 3 | `src/rurixc/src/binding_layout.rs`, `src/rurixc/src/dxil_codegen.rs`, `src/rurixc/src/mir_build.rs` |
+| RXS-0164 | spec/binding_layout.md | 2 | `src/rurixc/src/binding_layout.rs`, `src/rurixc/src/dxil_codegen.rs` |
+| RXS-0165 | spec/binding_layout.md | 4 | `src/rurixc/src/binding_layout.rs`, `src/rurixc/src/dxil_codegen.rs`, `src/rurixc/src/mir_build.rs` …(+1) |
+| RXS-0166 | spec/binding_layout.md | 3 | `src/rurixc/src/binding_layout.rs`, `src/rurixc/src/dxil_codegen.rs`, `src/rurixc/tests/dxil_golden.rs` |
+| RXS-0167 | spec/d3d12_runtime.md | 2 | `src/uc04-demo/src/error.rs`, `src/uc04-demo/src/pso.rs` |
+| RXS-0168 | spec/d3d12_runtime.md | 3 | `conformance/dxil/graphics/accept/uc04_gbuffer_fs.rx`, `src/rurixc/tests/dxil_golden.rs`, `src/uc04-demo/src/deferred.rs` |
+| RXS-0169 | spec/d3d12_runtime.md | 1 | `src/uc04-demo/src/barrier.rs` |
+| RXS-0170 | spec/d3d12_runtime.md | 2 | `src/uc04-demo/src/device.rs`, `src/uc04-demo/src/readback.rs` |
+| RXS-0171 | spec/dxil_backend.md | 8 | `conformance/dxil/graphics/accept/fs_body_arith.rx`, `conformance/dxil/graphics/accept/uc04_gbuffer_fs.rx`, `conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx` …(+5) |
+| RXS-0172 | spec/dxil_backend.md | 3 | `conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx`, `conformance/dxil/graphics/accept/uc04_lighting_vs.rx`, `src/rurixc/src/dxil_codegen.rs` |
+| RXS-0173 | spec/dxil_backend.md | 3 | `conformance/dxil/graphics/accept/uc04_gbuffer_fs.rx`, `conformance/dxil/graphics/accept/uc04_lighting_fs.rx`, `src/rurixc/src/dxil_sig_gate.rs` |
+| RXS-0174 | spec/shader_stages.md | 1 | `conformance/dxil/graphics/accept/uc04_lighting_fs.rx` |
+| RXS-0175 | spec/dxil_backend.md | 1 | `conformance/dxil/graphics/accept/uc04_lighting_fs.rx` |
+| RXS-0176 | spec/dxil_backend.md | 1 | `conformance/dxil/graphics/accept/uc04_lighting_fs.rx` |
+| RXS-0177 | spec/edition.md | 2 | `src/rurix-pkg/src/manifest.rs`, `src/rurix-pkg/tests/edition_corpus.rs` |
+| RXS-0178 | spec/edition.md | 2 | `src/rurix-pkg/src/manifest.rs`, `src/rurix-pkg/tests/edition_corpus.rs` |
+| RXS-0179 | spec/edition.md | 2 | `src/rurix-pkg/src/manifest.rs`, `src/rurix-pkg/tests/edition_corpus.rs` |
+| RXS-0180 | spec/edition.md | 1 | `src/rurix-pkg/src/manifest.rs` |
+| RXS-0185 | spec/release.md | 1 | `src/rurixup/src/channel.rs` |
+| RXS-0186 | spec/release.md | 3 | `src/rurixup/src/channel.rs`, `src/rurixup/src/gate.rs`, `src/rurixup/src/lib.rs` |
+| RXS-0187 | spec/release.md | 1 | `src/rurixup/src/toolchain.rs` |
+| RXS-0188 | spec/release.md | 1 | `src/rurixup/src/toolchain.rs` |
+| RXS-0189 | spec/host_orchestration.md | 3 | `conformance/host_orch/accept/saxpy_single_source/main.rx`, `conformance/host_orch/reject/buffer_move/main.rx`, `conformance/host_orch/reject/gpu_in_kernel/main.rx` |
+| RXS-0190 | spec/host_orchestration.md | 2 | `conformance/host_orch/accept/saxpy_single_source/main.rx`, `conformance/host_orch/reject/elem_infer/main.rx` |
+| RXS-0191 | spec/host_orchestration.md | 2 | `conformance/host_orch/accept/saxpy_single_source/main.rx`, `conformance/host_orch/reject/launch_arg_subset/main.rx` |
+| RXS-0192 | spec/host_orchestration.md | 1 | `conformance/host_orch/accept/saxpy_single_source/main.rx` |
+| RXS-0193 | spec/host_orchestration.md | 3 | `src/rurix-rt-cabi/src/imageio.rs`, `src/rurix-rt-cabi/src/lib.rs`, `src/rurix-rt-cabi/src/present.rs` |
+| RXS-0194 | spec/host_orchestration.md | 1 | `src/rurix-rt-cabi/src/lib.rs` |
+| RXS-0195 | spec/host_orchestration.md | 3 | `conformance/host_orch/accept/extern_link/main.rx`, `src/rurixc/src/driver.rs`, `src/rurixc/src/mir_build.rs` |
+| RXS-0196 | spec/host_orchestration.md | 8 | `conformance/host_orch/accept/mod_file/main.rx`, `conformance/host_orch/accept/mod_file/util.rx`, `conformance/host_orch/reject/mod_cycle/main.rx` …(+5) |
+| RXS-0197 | spec/host_orchestration.md | 5 | `conformance/host_orch/accept/present_loop/main.rx`, `conformance/host_orch/reject/present_in_kernel/main.rx`, `conformance/host_orch/reject/present_out_of_order/main.rx` …(+2) |
+| RXS-0198 | spec/host_orchestration.md | 4 | `conformance/host_orch/accept/present_loop/main.rx`, `src/rurix-rt-cabi/src/lib.rs`, `src/rurix-rt-cabi/src/present.rs` …(+1) |
+| RXS-0199 | spec/host_orchestration.md | 2 | `conformance/host_orch/accept/imageio_write/main.rx`, `src/rurix-rt-cabi/src/imageio.rs` |
+| RXS-0200 | spec/vulkan_backend.md | 1 | `conformance/vulkan/accept/vk_noop.rx` |
+| RXS-0201 | spec/vulkan_backend.md | 2 | `conformance/vulkan/accept/vk_noop.rx`, `src/rurixc/src/vulkan_codegen.rs` |
+| RXS-0202 | spec/vulkan_backend.md | 1 | `conformance/vulkan/accept/vk_fill.rx` |
+| RXS-0203 | spec/vulkan_backend.md | 2 | `conformance/vulkan/accept/vk_fill.rx`, `conformance/vulkan/accept/vk_saxpy.rx` |
+| RXS-0204 | spec/vulkan_backend.md | 2 | `conformance/vulkan/accept/vk_fragment.rx`, `conformance/vulkan/accept/vk_vertex.rx` |
+| RXS-0205 | spec/vulkan_backend.md | 1 | `conformance/vulkan/accept/vk_math.rx` |
+| RXS-0206 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/backend.rs` |
+| RXS-0207 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/vk.rs` |
+| RXS-0208 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/vk.rs` |
+| RXS-0209 | spec/vulkan_backend.md | 2 | `src/rurix-pkg/src/lock.rs`, `src/rurix-rt/src/fatbin.rs` |
+| RXS-0210 | spec/vulkan_backend.md | 4 | `conformance/vulkan/accept/vk_tri_fs.rx`, `conformance/vulkan/accept/vk_tri_vs.rx`, `src/rurix-rt/src/vk.rs` …(+1) |
+| RXS-0211 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/vk.rs` |
+| RXS-0212 | spec/vulkan_backend.md | 1 | `src/rurixc/src/toolchain.rs` |
+| RXS-0213 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/vk.rs` |

@@ -1,0 +1,7 @@
+//@ spec: RXS-0157
+//@ expect-error: RX6007
+// 子集外(RXS-0157 L2):非平凡 compute 体(本地语句)。DXIL 最小分片仅支持空体
+// 入口;真实语句降级随后续分片 → RX6007(strict-only,不降级)。
+kernel fn k() {
+    let x: i32 = 1;
+}

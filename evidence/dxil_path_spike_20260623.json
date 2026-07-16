@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "subject": "dxil_path_spike",
+  "status": "blocked",
+  "rd_ref": "RD-010",
+  "decision_ref": "RFC-0003 §9 Q-D131=C / 13 §D-131",
+  "timestamp": "2026-06-23T23:24:55+08:00",
+  "host_env": {
+    "os": "nt / win32",
+    "clang_source": "default_llvm_path"
+  },
+  "tool_versions": {
+    "clang": "clang version 22.1.7 (https://github.com/llvm/llvm-project a255c1ed36a1d06f79bd2633ba9f8d900153007c)",
+    "llc": "unavailable",
+    "dxc": "dxcompiler.dll: 1.8 - 1.8.0.4739 (d9a5e97d0)",
+    "dxv": "unavailable",
+    "spirv_to_dxil": "unavailable",
+    "spirv_cross": "Git commit: vulkan-sdk-1.3.290.0-44-g65d73934 Timestamp: 2024-10-04T13:35:00",
+    "spirv_producer": "Glslang Version: 11:15.0.0"
+  },
+  "path_a": {
+    "status": "blocked",
+    "target_available": false,
+    "probe_command": "C:\\Program Files\\LLVM\\bin\\clang.exe --print-targets",
+    "target_list_excerpt": "clang --print-targets match: (no directx/dxil target listed)",
+    "dxil_emit_ok": "blocked",
+    "validator_pass": "blocked",
+    "shader_model_coverage": "blocked(无 DirectX target,未能 emit)",
+    "validator_compat": "dxc=dxcompiler.dll: 1.8 - 1.8.0.4739 (d9a5e97d0) dxv=unavailable",
+    "facts": [
+      {
+        "kind": "target_probe",
+        "name": "directx_target",
+        "note": "本环境 pin clang/llc 未编入 DirectX/dxil target(LLVM 官方:experimental,不随 release 二进制 ship,须本地 LLVM_EXPERIMENTAL_TARGETS_TO_BUILD=DirectX 编译)"
+      }
+    ],
+    "repro": [
+      "1. 取得编入 DirectX 后端的 LLVM:从源码编译 cmake -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=DirectX(LLVM 官方 DirectXUsage.rst:experimental,不随 release 二进制 ship)。",
+      "2. 确认 llc --version 的 Registered Targets 含 'directx - DirectX' / 'dxil';clang --print-targets 同。",
+      "3. 安装 DXIL validator:dxc/dxv(DirectX Shader Compiler;含 dxil.dll 签名/验证)。",
+      "4. 设 RURIX_DXC / RURIX_DXV 指向 dxc/dxv,或置于 PATH;重跑 probe_a_llvm_directx.py。",
+      "5. 仍须核实:从任意 LLVM IR(非 HLSL→clang 路径)emit 合规 DXIL 的成熟度 + dxc validator 接受率 + shader model 覆盖。"
+    ]
+  },
+  "path_b": {
+    "status": "measured_local",
+    "translators_available": true,
+    "probe_command": "which spirv-to-dxil ; which spirv-cross ; which dxc ; which dxv ; which glslangValidator",
+    "translator_list_excerpt": "present=['SPIRV-Cross', 'dxc', 'glslang(SPIR-V producer)']; direct_chain=False; combo_chain=True",
+    "dxil_emit_ok": "blocked",
+    "validator_pass": "blocked",
+    "supply_chain": "引入第二中间表示 SPIR-V + 外部转译依赖。本环境探到:SPIRV-Cross, dxc, glslang(SPIR-V producer)。供应链长尾:Mesa(spirv-to-dxil)/ Khronos(SPIRV-Cross)/ Microsoft(dxc) 三独立来源,各自版本/许可/合规性需独立 pin 与审计(对齐 D-205 LLVM 单栈 pin 纪律的对照成本)。",
+    "determinism_notes": "工具在位;确定性与 strict-only 保真须以真实语料实测(转译层是否引入非确定性/静默降级未验,blocked-honest 不预判)",
+    "facts": [
+      {
+        "kind": "translator_chain",
+        "name": "spirv-cross→dxc(combo)",
+        "note": "转译链工具已就位;端到端转译合规率/确定性须以真实 SPIR-V 语料实测(留实现 PR,本 spike 不杜撰)"
+      }
+    ],
+    "repro": [
+      "工具链已就位,完成端到端实测还需:",
+      "1. 准备代表性 SPIR-V 语料(经 dxc -spirv / glslangValidator 从 HLSL/GLSL 产)。",
+      "2. 跑 spirv-cross→dxc(combo) 转译为 DXIL。",
+      "3. dxc/dxv 验证 DXIL 合规性,记录通过率 + shader model 覆盖。",
+      "4. 评估转译层确定性(同输入同输出)与 strict-only(P-01)保真:无静默降级/回退。"
+    ]
+  },
+  "comparison_criteria": [
+    "target_or_translator_available",
+    "dxil_emit_ok",
+    "validator_pass(dxc/dxv)",
+    "shader_model_coverage",
+    "supply_chain_cost",
+    "determinism_strict_only_fidelity",
+    "fit_with_D-205_single_llvm_stack"
+  ],
+  "run_command": "py -3 spike/dxil-path-probe/run_spike.py",
+  "owner_decision": "A/B 最终路径裁决权属 owner(RFC-0003 §9 Q-D131 / 13 §D-131 / AGENTS 硬规则 1);本 spike 仅产证据基底,agent 自主裁决。agent 裁定后回填 RFC-0003 §9 + 13 §D-131(经勘误 PR)+ close RD-010,再进 PR-C1 spec 脚手架。",
+  "notes": "纯取证 spike,非性能基准、非常驻 CI 门。探针隔离于 spike/dxil-path-probe/ 标 // SPIKE(RD-010),不入 src/ 生产路径、不随产品编译、spike 结束可弃。measured-first / blocked-honest:工具/target 探到记实测,探不到如实 blocked + repro,绝不杜撰(AGENTS 硬规则 3/4)。"
+}

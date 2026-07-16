@@ -1,0 +1,11 @@
+//@ spec: RXS-0204
+// mb1 MB1.1 graphics 编码(RXS-0204):fragment 着色阶段经 --target vulkan 复用 dxil_spirv
+// SPIR-V 编码器,产 Vulkan 原生 SPIR-V(OpEntryPoint Fragment + OriginUpperLeft 执行模式
+// + Location 装饰),spirv-val --target-env vulkan1.0 接受。透传 varying。
+struct VsOut {
+    #[interpolate(perspective)] uv: f32,
+}
+
+fragment fn fs_main(inp: VsOut) -> VsOut {
+    inp
+}

@@ -42,7 +42,7 @@
       "enum": ["self-signed-test", "azure-artifact-signing"]
     },
     "eula_whitelist_verdict": {
-      "description": "NVIDIA EULA Attachment A 白名单逐项法律核对人工签署状态(AI 不代签,沿 M5.4 redistribution_audit 先例)",
+      "description": "NVIDIA EULA Attachment A 白名单逐项法律核对自主签署状态(agent 自主签署,沿 M5.4 redistribution_audit 先例)",
       "enum": ["pending-human-review", "signed-compliant", "signed-noncompliant"]
     },
     "bundle": {

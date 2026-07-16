@@ -22,6 +22,7 @@ use crate::typeck::TypeckResults;
 pub const E_CROSS_COLOR_CALL: ErrorCode = ErrorCode(3001); // RX3001(RXS-0066)
 pub const E_BARRIER_NON_UNIFORM: ErrorCode = ErrorCode(3003); // RX3003(RXS-0068)
 pub const E_DEVICE_MATH_UNSUPPORTED: ErrorCode = ErrorCode(6006); // RX6006(RXS-0081)
+pub const E_GPU_HOST_API_IN_DEVICE: ErrorCode = ErrorCode(3015); // RX3015(RXS-0189)
 
 /// 线程索引类方法名(barrier 骨架的 thread-id 依赖判定,RXS-0068 保守上界)。
 const THREAD_ID_METHODS: &[&str] = &[
@@ -124,6 +125,21 @@ impl Walker<'_> {
         }
     }
 
+    /// 宿主 API 着色合法性(MS1.2,RXS-0189,`RX3015`):std::gpu 宿主类型的
+    /// 构造与方法调用仅 host 着色上下文合法;kernel/device 体内出现即违例
+    /// (与 RX3001 同点位;识别面 = typeck `gpu_calls`)。
+    fn check_gpu_host_api(&self, e: &Expr) {
+        if is_device_ctx(self.ctx) && self.tcr.gpu_calls.contains_key(&e.hir_id) {
+            self.diag
+                .struct_error(E_GPU_HOST_API_IN_DEVICE, "coloring.gpu_host_api_in_device")
+                .span_label(
+                    e.span,
+                    "std::gpu host API cannot be used in a device context",
+                )
+                .emit();
+        }
+    }
+
     /// barrier 骨架违例(RXS-0068):device 上下文 + thread-id 依赖分支 + 非 unsafe。
     fn check_barrier(&self, span: crate::span::Span, in_tid_branch: bool, in_unsafe: bool) {
         if is_device_ctx(self.ctx) && in_tid_branch && !in_unsafe {
@@ -138,6 +154,7 @@ impl Walker<'_> {
         match &e.kind {
             ExprKind::Call { callee, args } => {
                 self.check_call_target(e.hir_id, e.span);
+                self.check_gpu_host_api(e);
                 self.walk_expr(callee, in_tid_branch, in_unsafe);
                 for a in args {
                     self.walk_expr(a, in_tid_branch, in_unsafe);
@@ -149,6 +166,7 @@ impl Walker<'_> {
                 args,
             } => {
                 self.check_call_target(e.hir_id, e.span);
+                self.check_gpu_host_api(e);
                 if self.tcr.device_math_calls.contains_key(&e.hir_id) && !is_device_ctx(self.ctx) {
                     self.diag
                         .struct_error(E_DEVICE_MATH_UNSUPPORTED, "codegen.device_math_unsupported")

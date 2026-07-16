@@ -10,5 +10,10 @@ license.workspace = true
 rurixc = { path = "../rurixc" }
 rurix-pkg = { path = "../rurix-pkg" }
 
+[features]
+# G2.2 DXIL 第二后端透传(RXS-0157):`cargo build -p rx --features dxil-backend`
+# 启用 rurixc 的 `--target dxil` codegen 后端。默认不启用(PTX 路径 D-207 不受影响)。
+dxil-backend = ["rurixc/dxil-backend"]
+
 [lints]
 workspace = true

@@ -96,7 +96,7 @@ lockfile `[[artifact]]` 记录每个 GPU 产物变体（ptx/cubin/fatbin）与 d
 ### 7.3 演进路线
 
 - 阶段二：受限 runner + SBOM precursor JSON。
-- 阶段三（registry，**所有者决策点 D-312**）：sparse index + lockfile 内容哈希 + **sumdb 式透明日志**（registry 不是唯一信任根，Go 模型优于 Cargo index-only，r8）；scopes/OIDC trusted publishing/Sigstore；typosquat 防御上线首日设计。
+- 阶段三（registry，**agent决策点 D-312**）：sparse index + lockfile 内容哈希 + **sumdb 式透明日志**（registry 不是唯一信任根，Go 模型优于 Cargo index-only，r8）；scopes/OIDC trusted publishing/Sigstore；typosquat 防御上线首日设计。
 
 ## 8. NVIDIA 再分发合规（D-313）
 

@@ -106,6 +106,9 @@ struct BuildArgs {
     /// `--emit=<target>`(透传 rurixc:check/mir/llvm-ir/nvptx-ir/ptx;`pyd` = M8.1
     /// 互操作 PYD 产出,RXS-0122)。None = 默认 host EXE。
     emit: Option<String>,
+    /// `--target <ptx|dxil>`(RXS-0157,RFC-0003 §9 Q-CLI):`dxil` 选 DXIL 第二
+    /// 后端(gate `dxil-backend`);None/`ptx` 维持现状默认通道。
+    target: Option<String>,
 }
 
 /// `rx build --emit` 透传给 rurixc 的合法目标(host/device codegen 通道)。
@@ -120,6 +123,7 @@ fn parse_build_args(args: &[String]) -> Result<BuildArgs, String> {
         locked: false,
         offline: false,
         emit: None,
+        target: None,
     };
     let mut i = 0;
     while i < args.len() {
@@ -136,6 +140,27 @@ fn parse_build_args(args: &[String]) -> Result<BuildArgs, String> {
             }
             "--locked" => b.locked = true,
             "--offline" => b.offline = true,
+            "--target" => {
+                i += 1;
+                let t = args
+                    .get(i)
+                    .ok_or("`--target` 缺目标参数(合法:ptx/dxil/vulkan)")?;
+                if t != "ptx" && t != "dxil" && t != "vulkan" {
+                    return Err(format!(
+                        "无法识别的 --target 目标 `{t}`(合法:ptx/dxil/vulkan)"
+                    ));
+                }
+                b.target = Some(t.clone());
+            }
+            s if s.starts_with("--target=") => {
+                let t = s["--target=".len()..].to_owned();
+                if t != "ptx" && t != "dxil" && t != "vulkan" {
+                    return Err(format!(
+                        "无法识别的 --target 目标 `{t}`(合法:ptx/dxil/vulkan)"
+                    ));
+                }
+                b.target = Some(t);
+            }
             s if s.starts_with("--emit=") => {
                 let target = s["--emit=".len()..].to_owned();
                 if target != "pyd" && !RURIXC_EMIT_TARGETS.contains(&target.as_str()) {
@@ -194,6 +219,7 @@ fn cmd_build(args: &[String]) -> ExitCode {
             profile_out: None,
             reproducible: b.locked && b.offline,
             error_format: None,
+            target: b.target.clone(),
         }));
     }
 
@@ -213,6 +239,7 @@ fn cmd_build(args: &[String]) -> ExitCode {
         profile_out: None,
         reproducible: false,
         error_format: None,
+        target: b.target.clone(),
     }))
 }
 
@@ -256,6 +283,7 @@ fn build_pyd(b: &BuildArgs) -> ExitCode {
         profile_out: None,
         reproducible: false,
         error_format: None,
+        target: None,
     });
     if rc != 0 {
         return ExitCode::from(rc);
@@ -590,6 +618,7 @@ fn cmd_test(args: &[String]) -> ExitCode {
             profile_out: None,
             reproducible: false,
             error_format: None,
+            target: None,
         });
         if compile_code != 0 {
             report_rx_test_exec_failure(&format!(
@@ -677,6 +706,7 @@ fn cmd_check(args: &[String]) -> ExitCode {
         profile_out: None,
         reproducible: false,
         error_format: None,
+        target: None,
     }))
 }
 
@@ -698,6 +728,7 @@ fn cmd_run(args: &[String]) -> ExitCode {
         profile_out: None,
         reproducible: false,
         error_format: None,
+        target: None,
     });
     if build_code != 0 {
         return ExitCode::from(build_code);

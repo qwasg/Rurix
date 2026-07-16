@@ -68,7 +68,7 @@ flowchart LR
 | 1 | spec 条款:`spec/consteval.md`(const fn 子集边界/const 泛型求值规则/求值失败语义) | 同 M3.1 第 2 项 |
 | 2 | const eval MIR 解释器(算术/分支/循环/数组构造,05 §9);5xxx 错误码首批(求值溢出/越界/非 const 操作)+ `tests/ui/consteval/` snapshot | 单测 + UI snapshot |
 | 3 | const 泛型接入:类型系统(数组长度/const 参数)+ 单态化收集;`conformance/consteval/` 真跑程序;CI 步骤 16 = const eval 冒烟接入,红绿真跑 | G-M3-4 + CI run 输出 |
-| 4 | 预算实测回填(G-M3-3):冷编译 hello-world / 全量 check 延迟各三次进程级独立运行(trimmed mean,bench/stats.py),证据 JSON 入 evidence/;[../m2/m2_budget.json](../m2/m2_budget.json) estimated → measured_local(阈值数值经人工批准),revision_log 追加 | `py -3 ci/budget_eval.py --strict` 零 estimated 残留 |
+| 4 | 预算实测回填(G-M3-3):冷编译 hello-world / 全量 check 延迟各三次进程级独立运行(trimmed mean,bench/stats.py),证据 JSON 入 evidence/;[../m2/m2_budget.json](../m2/m2_budget.json) estimated → measured_local(阈值数值经自主批准),revision_log 追加 | `py -3 ci/budget_eval.py --strict` 零 estimated 残留 |
 | 5 | traceability 矩阵再生成(`ci/trace_matrix.py`,含 borrow/consteval 新条款)+ 全锚定核对 | G-M3-5 |
 | 6 | M3 close-out 草拟(验收记录 + guardrail 输出 + 红绿 run URL 追加契约 §8;关闭判定人工) | guardrail 全过 |
 
@@ -79,7 +79,7 @@ flowchart LR
 - **lang-item 范围蔓延**:desugar 只需要 Iterator/Result 的最小内建识别面;凡"顺手做泛型 trait 求解完整化/用户自定义 lang-item"的诉求一律走 M4+ 或 RFC(M2_PLAN v1.2 的最小化口径延续),不临时扩 trait 系统。
 - **region 推断复杂度**:NLL 是 M3 最大的算法风险点。对策:保守先行(07 §4"先正确性后诊断";精度不足产生的误报登记为已知限制,不阻塞关闭)+ 逐 pass 中间产物快照单测(防黑盒化);Polonius 方向被 D-204 永久 gating,不要提案。
 - **MIR 形态变动的回归面**:TBIR 重排与 drop elaboration 会动 M2 已交付的 codegen 输入。hello-world 冒烟(CI 步骤 12/13/14)是常驻回归网,每个 M3.x PR 必须保持绿;MIR golden guardrail 激活后(M3.3)形态变更显式化。
-- **预算回填的测量噪声**:编译耗时受 Windows 文件系统/杀软扫描影响大;沿用 BENCH_PROTOCOL 的环境画像纪律,三次进程级独立运行 + trimmed mean,阈值设定留余量并经人工批准;回填是 14 §3 硬约束(占位 ≤2 里程碑到期),M3.4 内必须完成,不得顺延。
+- **预算回填的测量噪声**:编译耗时受 Windows 文件系统/杀软扫描影响大;沿用 BENCH_PROTOCOL 的环境画像纪律,三次进程级独立运行 + trimmed mean,阈值设定留余量并经自主批准;回填是 14 §3 硬约束(占位 ≤2 里程碑到期),M3.4 内必须完成,不得顺延。
 - **错误码段位纪律**:4xxx/5xxx 分配制递增、含义冻结(10 §6);模式穷尽性错误的段位归属(2xxx vs 4xxx)在分配 PR 中留痕裁决。
 
 ## 6. 修订记录

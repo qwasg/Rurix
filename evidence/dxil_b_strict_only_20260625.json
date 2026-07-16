@@ -1,0 +1,1230 @@
+{
+  "schema_version": 1,
+  "subject": "dxil_b_strict_only",
+  "rd_ref": "RD-014",
+  "decision_ref": "RFC-0004 §4.4 / 04 P-01 / P-13",
+  "host_env": {
+    "os": "win32"
+  },
+  "tool_versions": {
+    "dxc_spirv_producer": "dxcompiler.dll: 1.8 - 1.8.0.4739 (d9a5e97d0)",
+    "spirv_cross": "Git commit: vulkan-sdk-1.3.290.0-44-g65d73934 Timestamp: 2024-10-04T13:35:00",
+    "spirv_val": "SPIRV-Tools v2024.4 v2024.4.rc1-0-g6dcc7e35",
+    "dxc_validator": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)"
+  },
+  "validator": {
+    "dir": "H:\\dxc-round7\\extracted\\bin\\x64",
+    "n": 25,
+    "dxv_present": true
+  },
+  "keep_mechanism": "dxc -spirv -fspv-reflect(携 UserSemantic)+ spirv-cross --set-hlsl-named-vertex-input-semantic(经 spirv_reflect 自动导出);varying(vs-out/ps-in)语义 spirv-cross 硬绑 TEXCOORD#,无输出语义保名 flag。",
+  "owner_decision": "P-01 strict-only 规范线 + ②③契约线归属裁断权属 owner(硬规则 1/P-13);本探针只产名保真机器事实,不代决、自主签署。",
+  "samples": [
+    {
+      "name": "vs_sig",
+      "stage": "vs",
+      "profile": "vs_6_0",
+      "b_chain_default": {
+        "keep_names": false,
+        "spirv_emit": "pass",
+        "spirv_val": "pass",
+        "spirv_cross": "pass",
+        "spirv_cross_stderr_len": 0,
+        "dxil_emit": "pass",
+        "dxc_stderr_len": 0
+      },
+      "b_chain_keep": {
+        "keep_names": true,
+        "spirv_emit": "pass",
+        "spirv_val": "pass",
+        "exec_model": "Vertex",
+        "keep_flags": [
+          "--set-hlsl-named-vertex-input-semantic",
+          "in.var.POSITION",
+          "POSITION",
+          "--set-hlsl-named-vertex-input-semantic",
+          "in.var.NORMAL",
+          "NORMAL",
+          "--set-hlsl-named-vertex-input-semantic",
+          "in.var.TEXCOORD0",
+          "TEXCOORD0"
+        ],
+        "spirv_cross": "pass",
+        "spirv_cross_stderr_len": 0,
+        "dxil_emit": "pass",
+        "dxc_stderr_len": 0
+      },
+      "direct_baseline": {
+        "dxil_emit": "pass"
+      },
+      "signature": {
+        "direct": {
+          "ok": true,
+          "is_signed": true,
+          "ISG1": {
+            "elemcount": 4,
+            "elements": [
+              {
+                "name": "SV_VertexID0",
+                "system_value": "SV_VertexID",
+                "register": 0,
+                "mask": 1,
+                "comp_type": "uint32"
+              },
+              {
+                "name": "POSITION0",
+                "system_value": "NONE",
+                "register": 1,
+                "mask": 7,
+                "comp_type": "float32"
+              },
+              {
+                "name": "NORMAL0",
+                "system_value": "NONE",
+                "register": 2,
+                "mask": 7,
+                "comp_type": "float32"
+              },
+              {
+                "name": "TEXCOORD0",
+                "system_value": "NONE",
+                "register": 3,
+                "mask": 3,
+                "comp_type": "float32"
+              }
+            ]
+          },
+          "OSG1": {
+            "elemcount": 4,
+            "elements": [
+              {
+                "name": "SV_Position0",
+                "system_value": "SV_Position",
+                "register": 0,
+                "mask": 15,
+                "comp_type": "float32"
+              },
+              {
+                "name": "NORMAL0",
+                "system_value": "NONE",
+                "register": 1,
+                "mask": 7,
+                "comp_type": "float32"
+              },
+              {
+                "name": "TEXCOORD0",
+                "system_value": "NONE",
+                "register": 2,
+                "mask": 3,
+                "comp_type": "float32"
+              },
+              {
+                "name": "COLOR0",
+                "system_value": "NONE",
+                "register": 3,
+                "mask": 15,
+                "comp_type": "float32"
+              }
+            ]
+          }
+        },
+        "b_default": {
+          "ok": true,
+          "is_signed": true,
+          "ISG1": {
+            "elemcount": 4,
+            "elements": [
+              {
+                "name": "TEXCOORD0",
+                "system_value": "NONE",
+                "register": 0,
+                "mask": 7,
+                "comp_type": "float32"
+              },
+              {
+                "name": "TEXCOORD1",
+                "system_value": "NONE",
+                "register": 1,
+                "mask": 7,
+                "comp_type": "float32"
+              },
+              {
+                "name": "TEXCOORD2",
+                "system_value": "NONE",
+                "register": 2,
+                "mask": 3,
+                "comp_type": "float32"
+              },
+              {
+                "name": "SV_VertexID0",
+                "system_value": "SV_VertexID",
+                "register": 3,
+                "mask": 1,
+                "comp_type": "uint32"
+              }
+            ]
+          },
+          "OSG1": {
+            "elemcount": 4,
+            "elements": [
+              {
+                "name": "TEXCOORD0",
+                "system_value": "NONE",
+                "register": 0,
+                "mask": 7,
+                "comp_type": "float32"
+              },
+              {
+                "name": "TEXCOORD1",
+                "system_value": "NONE",
+                "register": 1,
+                "mask": 3,
+                "comp_type": "float32"
+              },
+              {
+                "name": "TEXCOORD2",
+                "system_value": "NONE",
+                "register": 2,
+                "mask": 15,
+                "comp_type": "float32"
+              },
+              {
+                "name": "SV_Position0",
+                "system_value": "SV_Position",
+                "register": 3,
+                "mask": 15,
+                "comp_type": "float32"
+              }
+            ]
+          }
+        },
+        "b_keep": {
+          "ok": true,
+          "is_signed": true,
+          "ISG1": {
+            "elemcount": 4,
+            "elements": [
+              {
+                "name": "POSITION0",
+                "system_value": "NONE",
+                "register": 0,
+                "mask": 7,
+                "comp_type": "float32"
+              },
+              {
+                "name": "NORMAL0",
+                "system_value": "NONE",
+                "register": 1,
+                "mask": 7,
+                "comp_type": "float32"
+              },
+              {
+                "name": "TEXCOORD0",
+                "system_value": "NONE",
+                "register": 2,
+                "mask": 3,
+                "comp_type": "float32"
+              },
+              {
+                "name": "SV_VertexID0",
+                "system_value": "SV_VertexID",
+                "register": 3,
+                "mask": 1,
+                "comp_type": "uint32"
+              }
+            ]
+          },
+          "OSG1": {
+            "elemcount": 4,
+            "elements": [
+              {
+                "name": "TEXCOORD0",
+                "system_value": "NONE",
+                "register": 0,
+                "mask": 7,
+                "comp_type": "float32"
+              },
+              {
+                "name": "TEXCOORD1",
+                "system_value": "NONE",
+                "register": 1,
+                "mask": 3,
+                "comp_type": "float32"
+              },
+              {
+                "name": "TEXCOORD2",
+                "system_value": "NONE",
+                "register": 2,
+                "mask": 15,
+                "comp_type": "float32"
+              },
+              {
+                "name": "SV_Position0",
+                "system_value": "SV_Position",
+                "register": 3,
+                "mask": 15,
+                "comp_type": "float32"
+              }
+            ]
+          }
+        }
+      },
+      "fidelity_default": {
+        "ISG1": {
+          "elemcount_direct": 4,
+          "elemcount_b": 4,
+          "elemcount_match": true,
+          "sv_direct": [
+            "SV_VertexID"
+          ],
+          "sv_b": [
+            "SV_VertexID"
+          ],
+          "sv_preserved": true,
+          "sv_dropped": [],
+          "user_names_direct": [
+            "SV_VertexID0",
+            "POSITION0",
+            "NORMAL0",
+            "TEXCOORD0"
+          ],
+          "user_names_b": [
+            "TEXCOORD0",
+            "TEXCOORD1",
+            "TEXCOORD2",
+            "SV_VertexID0"
+          ],
+          "user_names_preserved": false
+        },
+        "OSG1": {
+          "elemcount_direct": 4,
+          "elemcount_b": 4,
+          "elemcount_match": true,
+          "sv_direct": [
+            "SV_Position"
+          ],
+          "sv_b": [
+            "SV_Position"
+          ],
+          "sv_preserved": true,
+          "sv_dropped": [],
+          "user_names_direct": [
+            "SV_Position0",
+            "NORMAL0",
+            "TEXCOORD0",
+            "COLOR0"
+          ],
+          "user_names_b": [
+            "TEXCOORD0",
+            "TEXCOORD1",
+            "TEXCOORD2",
+            "SV_Position0"
+          ],
+          "user_names_preserved": false
+        }
+      },
+      "fidelity_keep": {
+        "ISG1": {
+          "elemcount_direct": 4,
+          "elemcount_b": 4,
+          "elemcount_match": true,
+          "sv_direct": [
+            "SV_VertexID"
+          ],
+          "sv_b": [
+            "SV_VertexID"
+          ],
+          "sv_preserved": true,
+          "sv_dropped": [],
+          "user_names_direct": [
+            "SV_VertexID0",
+            "POSITION0",
+            "NORMAL0",
+            "TEXCOORD0"
+          ],
+          "user_names_b": [
+            "POSITION0",
+            "NORMAL0",
+            "TEXCOORD0",
+            "SV_VertexID0"
+          ],
+          "user_names_preserved": false
+        },
+        "OSG1": {
+          "elemcount_direct": 4,
+          "elemcount_b": 4,
+          "elemcount_match": true,
+          "sv_direct": [
+            "SV_Position"
+          ],
+          "sv_b": [
+            "SV_Position"
+          ],
+          "sv_preserved": true,
+          "sv_dropped": [],
+          "user_names_direct": [
+            "SV_Position0",
+            "NORMAL0",
+            "TEXCOORD0",
+            "COLOR0"
+          ],
+          "user_names_b": [
+            "TEXCOORD0",
+            "TEXCOORD1",
+            "TEXCOORD2",
+            "SV_Position0"
+          ],
+          "user_names_preserved": false
+        }
+      },
+      "validation": {
+        "direct": {
+          "idxc_accept": "25/25",
+          "idxc_status_hist": {
+            "0x0": 25
+          },
+          "dxv_accept": "25/25",
+          "dxv_last_reject": ""
+        },
+        "b_keep": {
+          "idxc_accept": "25/25",
+          "idxc_status_hist": {
+            "0x0": 25
+          },
+          "dxv_accept": "25/25",
+          "dxv_last_reject": ""
+        }
+      },
+      "determinism_keep": {
+        "n": 25,
+        "unique_sha256": [
+          "677c680af0deba96126d489f72f8677bb949e279a90e88e2b55e4e966f81898e"
+        ],
+        "consistent": true,
+        "sha256": "677c680af0deba96126d489f72f8677bb949e279a90e88e2b55e4e966f81898e"
+      }
+    },
+    {
+      "name": "ps_sig",
+      "stage": "ps",
+      "profile": "ps_6_0",
+      "b_chain_default": {
+        "keep_names": false,
+        "spirv_emit": "pass",
+        "spirv_val": "pass",
+        "spirv_cross": "pass",
+        "spirv_cross_stderr_len": 0,
+        "dxil_emit": "pass",
+        "dxc_stderr_len": 0
+      },
+      "b_chain_keep": {
+        "keep_names": true,
+        "spirv_emit": "pass",
+        "spirv_val": "pass",
+        "exec_model": "Fragment",
+        "keep_flags": [],
+        "spirv_cross": "pass",
+        "spirv_cross_stderr_len": 0,
+        "dxil_emit": "pass",
+        "dxc_stderr_len": 0
+      },
+      "direct_baseline": {
+        "dxil_emit": "pass"
+      },
+      "signature": {
+        "direct": {
+          "ok": true,
+          "is_signed": true,
+          "ISG1": {
+            "elemcount": 4,
+            "elements": [
+              {
+                "name": "SV_Position0",
+                "system_value": "SV_Position",
+                "register": 0,
+                "mask": 15,
+                "comp_type": "float32"
+              },
+              {
+                "name": "NORMAL0",
+                "system_value": "NONE",
+                "register": 1,
+                "mask": 7,
+                "comp_type": "float32"
+              },
+              {
+                "name": "TEXCOORD0",
+                "system_value": "NONE",
+                "register": 2,
+                "mask": 3,
+                "comp_type": "float32"
+              },
+              {
+                "name": "SV_IsFrontFace0",
+                "system_value": "SV_IsFrontFace",
+                "register": 3,
+                "mask": 1,
+                "comp_type": "uint32"
+              }
+            ]
+          },
+          "OSG1": {
+            "elemcount": 2,
+            "elements": [
+              {
+                "name": "SV_Target0",
+                "system_value": "SV_Target",
+                "register": 0,
+                "mask": 15,
+                "comp_type": "float32"
+              },
+              {
+                "name": "SV_Target1",
+                "system_value": "SV_Target",
+                "register": 1,
+                "mask": 15,
+                "comp_type": "float32"
+              }
+            ]
+          }
+        },
+        "b_default": {
+          "ok": true,
+          "is_signed": true,
+          "ISG1": {
+            "elemcount": 3,
+            "elements": [
+              {
+                "name": "TEXCOORD0",
+                "system_value": "NONE",
+                "register": 0,
+                "mask": 7,
+                "comp_type": "float32"
+              },
+              {
+                "name": "TEXCOORD1",
+                "system_value": "NONE",
+                "register": 1,
+                "mask": 3,
+                "comp_type": "float32"
+              },
+              {
+                "name": "SV_IsFrontFace0",
+                "system_value": "SV_IsFrontFace",
+                "register": 2,
+                "mask": 1,
+                "comp_type": "uint32"
+              }
+            ]
+          },
+          "OSG1": {
+            "elemcount": 2,
+            "elements": [
+              {
+                "name": "SV_Target0",
+                "system_value": "SV_Target",
+                "register": 0,
+                "mask": 15,
+                "comp_type": "float32"
+              },
+              {
+                "name": "SV_Target1",
+                "system_value": "SV_Target",
+                "register": 1,
+                "mask": 15,
+                "comp_type": "float32"
+              }
+            ]
+          }
+        },
+        "b_keep": {
+          "ok": true,
+          "is_signed": true,
+          "ISG1": {
+            "elemcount": 3,
+            "elements": [
+              {
+                "name": "TEXCOORD0",
+                "system_value": "NONE",
+                "register": 0,
+                "mask": 7,
+                "comp_type": "float32"
+              },
+              {
+                "name": "TEXCOORD1",
+                "system_value": "NONE",
+                "register": 1,
+                "mask": 3,
+                "comp_type": "float32"
+              },
+              {
+                "name": "SV_IsFrontFace0",
+                "system_value": "SV_IsFrontFace",
+                "register": 2,
+                "mask": 1,
+                "comp_type": "uint32"
+              }
+            ]
+          },
+          "OSG1": {
+            "elemcount": 2,
+            "elements": [
+              {
+                "name": "SV_Target0",
+                "system_value": "SV_Target",
+                "register": 0,
+                "mask": 15,
+                "comp_type": "float32"
+              },
+              {
+                "name": "SV_Target1",
+                "system_value": "SV_Target",
+                "register": 1,
+                "mask": 15,
+                "comp_type": "float32"
+              }
+            ]
+          }
+        }
+      },
+      "fidelity_default": {
+        "ISG1": {
+          "elemcount_direct": 4,
+          "elemcount_b": 3,
+          "elemcount_match": false,
+          "sv_direct": [
+            "SV_IsFrontFace",
+            "SV_Position"
+          ],
+          "sv_b": [
+            "SV_IsFrontFace"
+          ],
+          "sv_preserved": false,
+          "sv_dropped": [
+            "SV_Position"
+          ],
+          "user_names_direct": [
+            "SV_Position0",
+            "NORMAL0",
+            "TEXCOORD0",
+            "SV_IsFrontFace0"
+          ],
+          "user_names_b": [
+            "TEXCOORD0",
+            "TEXCOORD1",
+            "SV_IsFrontFace0"
+          ],
+          "user_names_preserved": false
+        },
+        "OSG1": {
+          "elemcount_direct": 2,
+          "elemcount_b": 2,
+          "elemcount_match": true,
+          "sv_direct": [
+            "SV_Target"
+          ],
+          "sv_b": [
+            "SV_Target"
+          ],
+          "sv_preserved": true,
+          "sv_dropped": [],
+          "user_names_direct": [
+            "SV_Target0",
+            "SV_Target1"
+          ],
+          "user_names_b": [
+            "SV_Target0",
+            "SV_Target1"
+          ],
+          "user_names_preserved": true
+        }
+      },
+      "fidelity_keep": {
+        "ISG1": {
+          "elemcount_direct": 4,
+          "elemcount_b": 3,
+          "elemcount_match": false,
+          "sv_direct": [
+            "SV_IsFrontFace",
+            "SV_Position"
+          ],
+          "sv_b": [
+            "SV_IsFrontFace"
+          ],
+          "sv_preserved": false,
+          "sv_dropped": [
+            "SV_Position"
+          ],
+          "user_names_direct": [
+            "SV_Position0",
+            "NORMAL0",
+            "TEXCOORD0",
+            "SV_IsFrontFace0"
+          ],
+          "user_names_b": [
+            "TEXCOORD0",
+            "TEXCOORD1",
+            "SV_IsFrontFace0"
+          ],
+          "user_names_preserved": false
+        },
+        "OSG1": {
+          "elemcount_direct": 2,
+          "elemcount_b": 2,
+          "elemcount_match": true,
+          "sv_direct": [
+            "SV_Target"
+          ],
+          "sv_b": [
+            "SV_Target"
+          ],
+          "sv_preserved": true,
+          "sv_dropped": [],
+          "user_names_direct": [
+            "SV_Target0",
+            "SV_Target1"
+          ],
+          "user_names_b": [
+            "SV_Target0",
+            "SV_Target1"
+          ],
+          "user_names_preserved": true
+        }
+      },
+      "validation": {
+        "direct": {
+          "idxc_accept": "25/25",
+          "idxc_status_hist": {
+            "0x0": 25
+          },
+          "dxv_accept": "25/25",
+          "dxv_last_reject": ""
+        },
+        "b_keep": {
+          "idxc_accept": "25/25",
+          "idxc_status_hist": {
+            "0x0": 25
+          },
+          "dxv_accept": "25/25",
+          "dxv_last_reject": ""
+        }
+      },
+      "determinism_keep": {
+        "n": 25,
+        "unique_sha256": [
+          "82188d09b9c3887d2f710463c72cec3d8e2783a8d56983f59d2a5d69a780f041"
+        ],
+        "consistent": true,
+        "sha256": "82188d09b9c3887d2f710463c72cec3d8e2783a8d56983f59d2a5d69a780f041"
+      }
+    },
+    {
+      "name": "vs_passthrough",
+      "stage": "vs",
+      "profile": "vs_6_0",
+      "b_chain_default": {
+        "keep_names": false,
+        "spirv_emit": "pass",
+        "spirv_val": "pass",
+        "spirv_cross": "pass",
+        "spirv_cross_stderr_len": 0,
+        "dxil_emit": "pass",
+        "dxc_stderr_len": 0
+      },
+      "b_chain_keep": {
+        "keep_names": true,
+        "spirv_emit": "pass",
+        "spirv_val": "pass",
+        "exec_model": "Vertex",
+        "keep_flags": [
+          "--set-hlsl-named-vertex-input-semantic",
+          "in.var.POSITION",
+          "POSITION",
+          "--set-hlsl-named-vertex-input-semantic",
+          "in.var.TEXCOORD0",
+          "TEXCOORD0"
+        ],
+        "spirv_cross": "pass",
+        "spirv_cross_stderr_len": 0,
+        "dxil_emit": "pass",
+        "dxc_stderr_len": 0
+      },
+      "direct_baseline": {
+        "dxil_emit": "pass"
+      },
+      "signature": {
+        "direct": {
+          "ok": true,
+          "is_signed": true,
+          "ISG1": {
+            "elemcount": 2,
+            "elements": [
+              {
+                "name": "POSITION0",
+                "system_value": "NONE",
+                "register": 0,
+                "mask": 7,
+                "comp_type": "float32"
+              },
+              {
+                "name": "TEXCOORD0",
+                "system_value": "NONE",
+                "register": 1,
+                "mask": 3,
+                "comp_type": "float32"
+              }
+            ]
+          },
+          "OSG1": {
+            "elemcount": 2,
+            "elements": [
+              {
+                "name": "SV_Position0",
+                "system_value": "SV_Position",
+                "register": 0,
+                "mask": 15,
+                "comp_type": "float32"
+              },
+              {
+                "name": "TEXCOORD0",
+                "system_value": "NONE",
+                "register": 1,
+                "mask": 3,
+                "comp_type": "float32"
+              }
+            ]
+          }
+        },
+        "b_default": {
+          "ok": true,
+          "is_signed": true,
+          "ISG1": {
+            "elemcount": 2,
+            "elements": [
+              {
+                "name": "TEXCOORD0",
+                "system_value": "NONE",
+                "register": 0,
+                "mask": 7,
+                "comp_type": "float32"
+              },
+              {
+                "name": "TEXCOORD1",
+                "system_value": "NONE",
+                "register": 1,
+                "mask": 3,
+                "comp_type": "float32"
+              }
+            ]
+          },
+          "OSG1": {
+            "elemcount": 2,
+            "elements": [
+              {
+                "name": "TEXCOORD0",
+                "system_value": "NONE",
+                "register": 0,
+                "mask": 3,
+                "comp_type": "float32"
+              },
+              {
+                "name": "SV_Position0",
+                "system_value": "SV_Position",
+                "register": 1,
+                "mask": 15,
+                "comp_type": "float32"
+              }
+            ]
+          }
+        },
+        "b_keep": {
+          "ok": true,
+          "is_signed": true,
+          "ISG1": {
+            "elemcount": 2,
+            "elements": [
+              {
+                "name": "POSITION0",
+                "system_value": "NONE",
+                "register": 0,
+                "mask": 7,
+                "comp_type": "float32"
+              },
+              {
+                "name": "TEXCOORD0",
+                "system_value": "NONE",
+                "register": 1,
+                "mask": 3,
+                "comp_type": "float32"
+              }
+            ]
+          },
+          "OSG1": {
+            "elemcount": 2,
+            "elements": [
+              {
+                "name": "TEXCOORD0",
+                "system_value": "NONE",
+                "register": 0,
+                "mask": 3,
+                "comp_type": "float32"
+              },
+              {
+                "name": "SV_Position0",
+                "system_value": "SV_Position",
+                "register": 1,
+                "mask": 15,
+                "comp_type": "float32"
+              }
+            ]
+          }
+        }
+      },
+      "fidelity_default": {
+        "ISG1": {
+          "elemcount_direct": 2,
+          "elemcount_b": 2,
+          "elemcount_match": true,
+          "sv_direct": [],
+          "sv_b": [],
+          "sv_preserved": true,
+          "sv_dropped": [],
+          "user_names_direct": [
+            "POSITION0",
+            "TEXCOORD0"
+          ],
+          "user_names_b": [
+            "TEXCOORD0",
+            "TEXCOORD1"
+          ],
+          "user_names_preserved": false
+        },
+        "OSG1": {
+          "elemcount_direct": 2,
+          "elemcount_b": 2,
+          "elemcount_match": true,
+          "sv_direct": [
+            "SV_Position"
+          ],
+          "sv_b": [
+            "SV_Position"
+          ],
+          "sv_preserved": true,
+          "sv_dropped": [],
+          "user_names_direct": [
+            "SV_Position0",
+            "TEXCOORD0"
+          ],
+          "user_names_b": [
+            "TEXCOORD0",
+            "SV_Position0"
+          ],
+          "user_names_preserved": false
+        }
+      },
+      "fidelity_keep": {
+        "ISG1": {
+          "elemcount_direct": 2,
+          "elemcount_b": 2,
+          "elemcount_match": true,
+          "sv_direct": [],
+          "sv_b": [],
+          "sv_preserved": true,
+          "sv_dropped": [],
+          "user_names_direct": [
+            "POSITION0",
+            "TEXCOORD0"
+          ],
+          "user_names_b": [
+            "POSITION0",
+            "TEXCOORD0"
+          ],
+          "user_names_preserved": true
+        },
+        "OSG1": {
+          "elemcount_direct": 2,
+          "elemcount_b": 2,
+          "elemcount_match": true,
+          "sv_direct": [
+            "SV_Position"
+          ],
+          "sv_b": [
+            "SV_Position"
+          ],
+          "sv_preserved": true,
+          "sv_dropped": [],
+          "user_names_direct": [
+            "SV_Position0",
+            "TEXCOORD0"
+          ],
+          "user_names_b": [
+            "TEXCOORD0",
+            "SV_Position0"
+          ],
+          "user_names_preserved": false
+        }
+      },
+      "validation": {
+        "direct": {
+          "idxc_accept": "25/25",
+          "idxc_status_hist": {
+            "0x0": 25
+          },
+          "dxv_accept": "25/25",
+          "dxv_last_reject": ""
+        },
+        "b_keep": {
+          "idxc_accept": "25/25",
+          "idxc_status_hist": {
+            "0x0": 25
+          },
+          "dxv_accept": "25/25",
+          "dxv_last_reject": ""
+        }
+      },
+      "determinism_keep": {
+        "n": 25,
+        "unique_sha256": [
+          "a92dd5b3d303a49beb9d5321abaee4a5de19e15bc7cc398c375cfca34749bbe9"
+        ],
+        "consistent": true,
+        "sha256": "a92dd5b3d303a49beb9d5321abaee4a5de19e15bc7cc398c375cfca34749bbe9"
+      }
+    },
+    {
+      "name": "ps_texture",
+      "stage": "ps",
+      "profile": "ps_6_0",
+      "b_chain_default": {
+        "keep_names": false,
+        "spirv_emit": "pass",
+        "spirv_val": "pass",
+        "spirv_cross": "pass",
+        "spirv_cross_stderr_len": 0,
+        "dxil_emit": "pass",
+        "dxc_stderr_len": 0
+      },
+      "b_chain_keep": {
+        "keep_names": true,
+        "spirv_emit": "pass",
+        "spirv_val": "pass",
+        "exec_model": "Fragment",
+        "keep_flags": [],
+        "spirv_cross": "pass",
+        "spirv_cross_stderr_len": 0,
+        "dxil_emit": "pass",
+        "dxc_stderr_len": 0
+      },
+      "direct_baseline": {
+        "dxil_emit": "pass"
+      },
+      "signature": {
+        "direct": {
+          "ok": true,
+          "is_signed": true,
+          "ISG1": {
+            "elemcount": 2,
+            "elements": [
+              {
+                "name": "SV_Position0",
+                "system_value": "SV_Position",
+                "register": 0,
+                "mask": 15,
+                "comp_type": "float32"
+              },
+              {
+                "name": "TEXCOORD0",
+                "system_value": "NONE",
+                "register": 1,
+                "mask": 3,
+                "comp_type": "float32"
+              }
+            ]
+          },
+          "OSG1": {
+            "elemcount": 1,
+            "elements": [
+              {
+                "name": "SV_Target0",
+                "system_value": "SV_Target",
+                "register": 0,
+                "mask": 15,
+                "comp_type": "float32"
+              }
+            ]
+          }
+        },
+        "b_default": {
+          "ok": true,
+          "is_signed": true,
+          "ISG1": {
+            "elemcount": 1,
+            "elements": [
+              {
+                "name": "TEXCOORD0",
+                "system_value": "NONE",
+                "register": 0,
+                "mask": 3,
+                "comp_type": "float32"
+              }
+            ]
+          },
+          "OSG1": {
+            "elemcount": 1,
+            "elements": [
+              {
+                "name": "SV_Target0",
+                "system_value": "SV_Target",
+                "register": 0,
+                "mask": 15,
+                "comp_type": "float32"
+              }
+            ]
+          }
+        },
+        "b_keep": {
+          "ok": true,
+          "is_signed": true,
+          "ISG1": {
+            "elemcount": 1,
+            "elements": [
+              {
+                "name": "TEXCOORD0",
+                "system_value": "NONE",
+                "register": 0,
+                "mask": 3,
+                "comp_type": "float32"
+              }
+            ]
+          },
+          "OSG1": {
+            "elemcount": 1,
+            "elements": [
+              {
+                "name": "SV_Target0",
+                "system_value": "SV_Target",
+                "register": 0,
+                "mask": 15,
+                "comp_type": "float32"
+              }
+            ]
+          }
+        }
+      },
+      "fidelity_default": {
+        "ISG1": {
+          "elemcount_direct": 2,
+          "elemcount_b": 1,
+          "elemcount_match": false,
+          "sv_direct": [
+            "SV_Position"
+          ],
+          "sv_b": [],
+          "sv_preserved": false,
+          "sv_dropped": [
+            "SV_Position"
+          ],
+          "user_names_direct": [
+            "SV_Position0",
+            "TEXCOORD0"
+          ],
+          "user_names_b": [
+            "TEXCOORD0"
+          ],
+          "user_names_preserved": false
+        },
+        "OSG1": {
+          "elemcount_direct": 1,
+          "elemcount_b": 1,
+          "elemcount_match": true,
+          "sv_direct": [
+            "SV_Target"
+          ],
+          "sv_b": [
+            "SV_Target"
+          ],
+          "sv_preserved": true,
+          "sv_dropped": [],
+          "user_names_direct": [
+            "SV_Target0"
+          ],
+          "user_names_b": [
+            "SV_Target0"
+          ],
+          "user_names_preserved": true
+        }
+      },
+      "fidelity_keep": {
+        "ISG1": {
+          "elemcount_direct": 2,
+          "elemcount_b": 1,
+          "elemcount_match": false,
+          "sv_direct": [
+            "SV_Position"
+          ],
+          "sv_b": [],
+          "sv_preserved": false,
+          "sv_dropped": [
+            "SV_Position"
+          ],
+          "user_names_direct": [
+            "SV_Position0",
+            "TEXCOORD0"
+          ],
+          "user_names_b": [
+            "TEXCOORD0"
+          ],
+          "user_names_preserved": false
+        },
+        "OSG1": {
+          "elemcount_direct": 1,
+          "elemcount_b": 1,
+          "elemcount_match": true,
+          "sv_direct": [
+            "SV_Target"
+          ],
+          "sv_b": [
+            "SV_Target"
+          ],
+          "sv_preserved": true,
+          "sv_dropped": [],
+          "user_names_direct": [
+            "SV_Target0"
+          ],
+          "user_names_b": [
+            "SV_Target0"
+          ],
+          "user_names_preserved": true
+        }
+      },
+      "validation": {
+        "direct": {
+          "idxc_accept": "25/25",
+          "idxc_status_hist": {
+            "0x0": 25
+          },
+          "dxv_accept": "25/25",
+          "dxv_last_reject": ""
+        },
+        "b_keep": {
+          "idxc_accept": "25/25",
+          "idxc_status_hist": {
+            "0x0": 25
+          },
+          "dxv_accept": "25/25",
+          "dxv_last_reject": ""
+        }
+      },
+      "determinism_keep": {
+        "n": 25,
+        "unique_sha256": [
+          "785db9989ef3bcec11d94198aac6878f045f779990900e51342aa8c4f6a5f517"
+        ],
+        "consistent": true,
+        "sha256": "785db9989ef3bcec11d94198aac6878f045f779990900e51342aa8c4f6a5f517"
+      }
+    }
+  ],
+  "status": "measured_local",
+  "timestamp": "2026-06-25T08:15:36.563895+00:00"
+}

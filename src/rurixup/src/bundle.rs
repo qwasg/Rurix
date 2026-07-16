@@ -99,6 +99,108 @@ impl BundleManifest {
             .iter()
             .all(|c| c.version == self.rurix_version)
     }
+
+    /// bundle 清单确定性 JSON 序列化(组件按干名字典序;自 `main.rs` 上移,
+    /// 序列化字节 0-byte 不变):`main.rs` 写出 `bundle.json` 与 channel 清单的
+    /// `bundle_manifest_sha256` 内容寻址引用(RXS-0185)共用同一字节流。
+    pub fn to_json(&self) -> String {
+        let mut comps = self.components.clone();
+        comps.sort_by(|a, b| a.name.cmp(&b.name));
+        let mut s = String::new();
+        s.push_str("{\n");
+        s.push_str(&format!(
+            "  \"rurix_version\": \"{}\",\n",
+            crate::json_escape(&self.rurix_version)
+        ));
+        s.push_str("  \"components\": [\n");
+        for (i, c) in comps.iter().enumerate() {
+            let comma = if i + 1 < comps.len() { "," } else { "" };
+            s.push_str("    {\n");
+            s.push_str(&format!(
+                "      \"name\": \"{}\",\n",
+                crate::json_escape(&c.name)
+            ));
+            s.push_str(&format!(
+                "      \"version\": \"{}\",\n",
+                crate::json_escape(&c.version)
+            ));
+            s.push_str(&format!(
+                "      \"license\": \"{}\",\n",
+                crate::json_escape(&c.license)
+            ));
+            s.push_str(&format!(
+                "      \"partition\": \"{}\",\n",
+                c.partition.label()
+            ));
+            s.push_str(&format!(
+                "      \"sha256\": \"{}\"\n",
+                crate::json_escape(&c.sha256)
+            ));
+            s.push_str(&format!("    }}{comma}\n"));
+        }
+        s.push_str("  ]\n}\n");
+        s
+    }
+
+    /// 从 `bundle.json` 解析(MR-0009:工具链前端 install 消费已发布 bundle;
+    /// 确定性 round-trip `from_json(to_json(b)) == b`,组件字典序)。手写极简解析
+    /// (零外部依赖,仅识别本 crate `to_json` 产出的规范形态)。
+    pub fn from_json(text: &str) -> Result<BundleManifest, String> {
+        let field = |line: &str, key: &str| -> Option<String> {
+            line.trim()
+                .strip_prefix(&format!("\"{key}\":"))
+                .map(|r| r.trim().trim_end_matches(',').trim_matches('"').to_string())
+        };
+        let mut rurix_version: Option<String> = None;
+        let mut components: Vec<Component> = Vec::new();
+        let mut name = None;
+        let mut version = None;
+        let mut license = None;
+        let mut partition = None;
+        for line in text.lines() {
+            if rurix_version.is_none()
+                && let Some(v) = field(line, "rurix_version")
+            {
+                rurix_version = Some(v);
+                continue;
+            }
+            if let Some(v) = field(line, "name") {
+                name = Some(v);
+            } else if let Some(v) = field(line, "version") {
+                version = Some(v);
+            } else if let Some(v) = field(line, "license") {
+                license = Some(v);
+            } else if let Some(v) = field(line, "partition") {
+                partition = Some(v);
+            } else if let Some(v) = field(line, "sha256") {
+                let (n, ver, lic, part) = (
+                    name.take().ok_or("组件缺 name")?,
+                    version.take().ok_or("组件缺 version")?,
+                    license.take().ok_or("组件缺 license")?,
+                    partition.take().ok_or("组件缺 partition")?,
+                );
+                let partition = match part.as_str() {
+                    "language-core" => Partition::LanguageCore,
+                    "nvidia-redist" => Partition::NvidiaRedist,
+                    other => return Err(format!("未知分区 `{other}`")),
+                };
+                components.push(Component {
+                    name: n,
+                    version: ver,
+                    license: lic,
+                    partition,
+                    sha256: v,
+                });
+            }
+        }
+        let rurix_version = rurix_version.ok_or("bundle.json 缺 rurix_version")?;
+        let mut bundle = BundleManifest {
+            rurix_version,
+            components,
+        };
+        bundle.components.sort_by(|a, b| a.name.cmp(&b.name));
+        Ok(bundle)
+    }
 }
 
 /// 判定组件干名是否为 NVIDIA libdevice bitcode(`libdevice.<digits>.bc`)。
@@ -237,5 +339,20 @@ mod tests {
         b.push(comp("rurixc.exe", "0.1.0", Partition::LanguageCore));
         b.push(comp("rx.exe", "0.0.9", Partition::LanguageCore)); // 版号偏移
         assert!(!b.language_core_versions_uniform());
+    }
+
+    //@ spec: RXS-0135
+    // bundle.json 序列化/解析 round-trip 保真(MR-0009 工具链前端 install 消费依赖)。
+    #[test]
+    fn bundle_json_roundtrip() {
+        let mut b = BundleManifest::new("1.0.0");
+        b.push(comp("rurixup.exe", "1.0.0", Partition::LanguageCore));
+        b.push(comp("libdevice.10.bc", "12.3", Partition::NvidiaRedist));
+        let parsed = BundleManifest::from_json(&b.to_json()).expect("round-trip");
+        let mut expected = b.clone();
+        expected.components.sort_by(|a, c| a.name.cmp(&c.name));
+        assert_eq!(parsed, expected);
+        // 再序列化逐字节一致(确定性)。
+        assert_eq!(parsed.to_json(), b.to_json());
     }
 }

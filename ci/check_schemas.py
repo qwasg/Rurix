@@ -178,6 +178,30 @@ def check_evidence_files() -> None:
     doc_site_schema = load(ROOT / "milestones/m8/doc_site_smoke_evidence_schema.json")
     d3d12_interop_schema = load(ROOT / "milestones/g1/d3d12_interop_evidence_schema.json")
     realtime_present_schema = load(ROOT / "milestones/g1/realtime_present_evidence_schema.json")
+    async_buffer_schema = load(ROOT / "milestones/g1/async_buffer_evidence_schema.json")
+    engine_integration_schema = load(ROOT / "milestones/g1/engine_integration_evidence_schema.json")
+    fatbin_dist_schema = load(ROOT / "milestones/g1/fatbin_dist_evidence_schema.json")
+    dxil_path_spike_schema = load(ROOT / "milestones/g2/dxil_path_spike_evidence_schema.json")
+    dxil_b_graphics_sig_schema = load(ROOT / "milestones/g2/dxil_b_graphics_sig_evidence_schema.json")
+    dxil_b_strict_only_schema = load(ROOT / "milestones/g2/dxil_b_strict_only_evidence_schema.json")
+    dxil_a_graphics_sig_effort_schema = load(
+        ROOT / "milestones/g2/dxil_a_graphics_sig_effort_evidence_schema.json"
+    )
+    rd017_varying_semantic_spike_schema = load(
+        ROOT / "milestones/g2/rd017_varying_semantic_spike_evidence_schema.json"
+    )
+    host_orch_smoke_schema = load(
+        ROOT / "milestones/ms1/host_orch_smoke_evidence_schema.json"
+    )
+    uc07_offline_golden_schema = load(
+        ROOT / "milestones/ms1/uc07_offline_golden_evidence_schema.json"
+    )
+    uc07_present_schema = load(
+        ROOT / "milestones/ms1/uc07_present_evidence_schema.json"
+    )
+    uc07_bench_schema = load(
+        ROOT / "milestones/ms1/uc07_bench_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -217,6 +241,60 @@ def check_evidence_files() -> None:
     doc_site_validator = jsonschema.Draft7Validator(doc_site_schema)
     d3d12_interop_validator = jsonschema.Draft7Validator(d3d12_interop_schema)
     realtime_present_validator = jsonschema.Draft7Validator(realtime_present_schema)
+    async_buffer_validator = (
+        jsonschema.Draft7Validator(async_buffer_schema) if async_buffer_schema else None
+    )
+    engine_integration_validator = (
+        jsonschema.Draft7Validator(engine_integration_schema)
+        if engine_integration_schema
+        else None
+    )
+    fatbin_dist_validator = (
+        jsonschema.Draft7Validator(fatbin_dist_schema) if fatbin_dist_schema else None
+    )
+    dxil_path_spike_validator = (
+        jsonschema.Draft7Validator(dxil_path_spike_schema) if dxil_path_spike_schema else None
+    )
+    dxil_b_graphics_sig_validator = (
+        jsonschema.Draft7Validator(dxil_b_graphics_sig_schema)
+        if dxil_b_graphics_sig_schema
+        else None
+    )
+    dxil_b_strict_only_validator = (
+        jsonschema.Draft7Validator(dxil_b_strict_only_schema)
+        if dxil_b_strict_only_schema
+        else None
+    )
+    dxil_a_graphics_sig_effort_validator = (
+        jsonschema.Draft7Validator(dxil_a_graphics_sig_effort_schema)
+        if dxil_a_graphics_sig_effort_schema
+        else None
+    )
+    rd017_varying_semantic_spike_validator = (
+        jsonschema.Draft7Validator(rd017_varying_semantic_spike_schema)
+        if rd017_varying_semantic_spike_schema
+        else None
+    )
+    host_orch_smoke_validator = (
+        jsonschema.Draft7Validator(host_orch_smoke_schema)
+        if host_orch_smoke_schema
+        else None
+    )
+    uc07_offline_golden_validator = (
+        jsonschema.Draft7Validator(uc07_offline_golden_schema)
+        if uc07_offline_golden_schema
+        else None
+    )
+    uc07_present_validator = (
+        jsonschema.Draft7Validator(uc07_present_schema)
+        if uc07_present_schema
+        else None
+    )
+    uc07_bench_validator = (
+        jsonschema.Draft7Validator(uc07_bench_schema)
+        if uc07_bench_schema
+        else None
+    )
     for f in evidence_files:
         doc = load(f)
         if doc is None:
@@ -275,6 +353,114 @@ def check_evidence_files() -> None:
             validator = d3d12_interop_validator
         elif f.name.startswith("realtime_present_"):
             validator = realtime_present_validator
+        elif f.name.startswith("async_buffer_") and async_buffer_validator is not None:
+            validator = async_buffer_validator
+        elif (
+            f.name.startswith("engine_integration_")
+            and engine_integration_validator is not None
+        ):
+            validator = engine_integration_validator
+        elif (
+            f.name.startswith("fatbin_dist_")
+            and fatbin_dist_validator is not None
+        ):
+            validator = fatbin_dist_validator
+        elif (
+            f.name.startswith("dxil_a_graphics_sig_effort_")
+            and dxil_a_graphics_sig_effort_validator is not None
+        ):
+            # G2.2 A 路图形签名工作量评估 spike 证据(RD-010;RFC-0003 §9 Q-D131=A /
+            # issue #90504 / #57928)→ milestones/g2/dxil_a_graphics_sig_effort_evidence_schema.json
+            # (measured-first / blocked-honest,纯评估 spike 非性能基准;源码勘察 + 上游状态 +
+            # 禁区vs conformance 裁断 + 分档工作量 estimated + carry-patch + PoC 锚定;
+            # 不入 budget counter,A/B/混合架构结论留 owner)
+            validator = dxil_a_graphics_sig_effort_validator
+        elif (
+            f.name.startswith("dxil_b_strict_only_")
+            and dxil_b_strict_only_validator is not None
+        ):
+            # G2.2 B 路 strict-only 达标取证证据(RD-014;RFC-0004 §4.4 / 04 P-01 / P-13)→
+            # milestones/g2/dxil_b_strict_only_evidence_schema.json(measured-first /
+            # blocked-honest,纯取证非性能基准;语义名保持配置 b_keep vs 默认 b_default vs direct
+            # 三链签名 part dump 对照,证语言层零静默降级能否不靠 P-01 例外达标;不入 budget
+            # counter,P-01 规范线 / A/B / ②③契约线归属裁断留 owner)
+            validator = dxil_b_strict_only_validator
+        elif (
+            f.name.startswith("dxil_b_graphics_sig_")
+            and dxil_b_graphics_sig_validator is not None
+        ):
+            # G2.2 B 路图形签名能力取证证据(RD-010;RFC-0003 §9 Q-D131 / §7 B 路)→
+            # milestones/g2/dxil_b_graphics_sig_evidence_schema.json(measured-first /
+            # blocked-honest,纯取证非性能基准;ISG1/OSG1 签名 part dump 对照 A elemcount=0,
+            # 不入 budget counter,A/B/混合架构结论留 owner)
+            validator = dxil_b_graphics_sig_validator
+        elif (
+            f.name.startswith("dxil_path_spike_")
+            and dxil_path_spike_validator is not None
+        ):
+            # G2.2 Q-D131=C 双路 DXIL spike 取证证据(RD-010;RFC-0003 §9 Q-D131)→
+            # milestones/g2/dxil_path_spike_evidence_schema.json(measured-first /
+            # blocked-honest,纯取证非性能基准;不入 budget counter,A/B 结论留 owner)
+            validator = dxil_path_spike_validator
+        elif (
+            f.name.startswith("host_orch_smoke")
+            and host_orch_smoke_validator is not None
+        ):
+            # MS1.2 single-source 宿主编排冒烟证据(G-MS1-2;RFC-0009 / RXS-0189~0196)→
+            # milestones/ms1/host_orch_smoke_evidence_schema.json(CI 步骤 52
+            # ci/host_orch_smoke.py 仅 device 段真跑时写;host .rx 经 std::gpu 编排 +
+            # 同源 kernel PTX 嵌入单 EXE,device 真跑数值自校验 + 篡改 PTX/桩化写回
+            # 双红绿;single_source=true 且 device_run=true 计入
+            # ms1.counter.host_orch_single_source,ci/budget_eval.py)
+            validator = host_orch_smoke_validator
+        elif (
+            f.name.startswith("uc07_offline_golden")
+            and uc07_offline_golden_validator is not None
+        ):
+            # MS1.3 UC-07 离线 golden 冒烟证据(G-MS1-3/G-MS1-4;RFC-0010 §4.1/§4.4)→
+            # milestones/ms1/uc07_offline_golden_evidence_schema.json(CI 步骤 53
+            # ci/uc07_offline_golden_smoke.py 仅 device 段真跑全绿时写;apps/ruridrop
+            # 主语言判据审计(零 .rs + kernel 同包 + rx build 产物链路)+ 三层 golden
+            # (确定性两跑一致 / GPU vs refcpu 容差 / blessed manifest)+ 篡改重力常数
+            # 数据流红绿;digest_match=true 计入 ms1.counter.uc07_offline_golden_frames,
+            # ci/budget_eval.py)
+            validator = uc07_offline_golden_validator
+        elif (
+            f.name.startswith("uc07_present_")
+            and uc07_present_validator is not None
+        ):
+            # MS1.4 UC-07 实时 present 取证证据(G-MS1-5;RFC-0010 §4.5)→
+            # milestones/ms1/uc07_present_evidence_schema.json(ci/uc07_bench.py
+            # present 子命令,本机交互桌面人工链路写;realtime 入口经 RXS-0197/0198
+            # present typestate 真窗口 ≥300 帧 + 末帧普通 Buffer download 采样对照
+            # (天空区/水体区)EXE 内自校验;**不进 CI 硬门**,SKIP 不充绿,镜像
+            # realtime_present_smoke 双态先例;不入 budget counter)
+            validator = uc07_present_validator
+        elif (
+            (
+                f.name.startswith("uc07_sph_step_")
+                or f.name.startswith("uc07_offline_frame_")
+                or f.name.startswith("uc07_realtime_frame_")
+            )
+            and uc07_bench_validator is not None
+        ):
+            # MS1.4 UC-07 生产档端到端性能证据(G-MS1-6;RFC-0010 §4.6)→
+            # milestones/ms1/uc07_bench_evidence_schema.json(ci/uc07_bench.py 三项
+            # bench,双层:单 trial ×3 + agg;进程级墙钟 timer=wall_clock_process,
+            # 与 m0 cuda_event 内层协议的差异在 schema description/sampling.method
+            # 如实声明;agg 的 results.trimmed_mean 由 ms1_budget.json entries 经
+            # ci/budget_eval.py eval_entry 数据驱动判读,无新 evaluator 分支)
+            validator = uc07_bench_validator
+        elif (
+            f.name.startswith("rd017_varying_semantic_spike_")
+            and rd017_varying_semantic_spike_validator is not None
+        ):
+            # G2.4 RD-017 varying 语义名保名机制 spike 证据(owner ruling 选项① HLSL 边界
+            # 改写 / 否决③)→ milestones/g2/rd017_varying_semantic_spike_evidence_schema.json
+            # (measured-first / blocked-honest,纯取证非性能基准;输出/片元输入 varying 用户名
+            # 经 HLSL 边界改写后 dxc 接受 + signature_gate 不放宽也过 + 物理 ABI 不变 + 确定性,
+            # 不入 budget counter;golden bless / device 真跑 / RD-017 状态翻转留 owner,G-G2-4)
+            validator = rd017_varying_semantic_spike_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):

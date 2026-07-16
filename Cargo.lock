@@ -38,7 +38,7 @@ checksum = "e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1"
 
 [[package]]
 name = "image-io"
-version = "0.1.0"
+version = "1.0.0"
 
 [[package]]
 name = "memoffset"
@@ -63,22 +63,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "rurix-android-present"
+version = "1.0.0"
+dependencies = [
+ "rurix-rt",
+]
+
+[[package]]
 name = "rurix-cublas"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "rurix-rt",
 ]
 
 [[package]]
 name = "rurix-d3d12"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "cc",
 ]
 
 [[package]]
+name = "rurix-engine"
+version = "1.0.0"
+dependencies = [
+ "rurix-interop",
+]
+
+[[package]]
+name = "rurix-geometry"
+version = "1.0.0"
+
+[[package]]
 name = "rurix-interop"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "rurix-rt",
  "rurixc",
@@ -86,26 +104,34 @@ dependencies = [
 
 [[package]]
 name = "rurix-pkg"
-version = "0.1.0"
+version = "1.0.0"
 
 [[package]]
 name = "rurix-rt"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "rurix-d3d12",
  "rurixc",
 ]
 
 [[package]]
+name = "rurix-rt-cabi"
+version = "1.0.0"
+dependencies = [
+ "image-io",
+ "rurix-rt",
+]
+
+[[package]]
 name = "rurixc"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "rowan",
 ]
 
 [[package]]
 name = "rurixup"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "rurix-pkg",
 ]
@@ -118,7 +144,7 @@ checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
 name = "rx"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "rurix-pkg",
  "rurixc",
@@ -132,7 +158,7 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "soft-raster"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "image-io",
 ]
@@ -145,16 +171,24 @@ checksum = "f18aa187839b2bdb1ad2fa35ead8c4c2976b64e4363c386d45ac0f7ee85c9233"
 
 [[package]]
 name = "uc02-demo"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "rurix-rt",
 ]
 
 [[package]]
 name = "uc03-demo"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "image-io",
  "rurix-rt",
  "soft-raster",
+]
+
+[[package]]
+name = "uc04-demo"
+version = "1.0.0"
+dependencies = [
+ "cc",
+ "rurixc",
 ]

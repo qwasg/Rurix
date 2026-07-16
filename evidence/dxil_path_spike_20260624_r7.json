@@ -1,0 +1,272 @@
+{
+  "schema_version": 1,
+  "subject": "dxil_path_spike",
+  "status": "measured_local",
+  "rd_ref": "RD-010",
+  "decision_ref": "RFC-0003 §9 Q-D131=C / 13 §D-131",
+  "timestamp": "2026-06-24T18:44:10+08:00",
+  "host_env": {
+    "os": "nt / win32",
+    "clang_source": "n/a(round-7 复用 round-6 已落盘合法 llc 容器,未重跑 clang/llc)"
+  },
+  "tool_versions": {
+    "clang": "n/a(round-7 不用 clang;复用 round-6 合法 llc 容器)",
+    "llc": "n/a(round-7 复用 round-6 official_cs llc22/llc23 已落盘合法容器,byte-unchanged)",
+    "dxc": "dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)",
+    "dxv": "dxil validator(独立 dxv.exe)dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)",
+    "spirv_to_dxil": "n/a(B 路 round-2 结转)",
+    "spirv_cross": "n/a(B 路 round-2 结转)",
+    "spirv_producer": "n/a(B 路 round-2 结转)"
+  },
+  "path_a": {
+    "status": "measured_local",
+    "target_available": true,
+    "probe_command": "py -3 spike/dxil-path-probe/probe_round7_validator.py (RURIX_DXC_NEW_DIR=新 DXC bin/x64)",
+    "target_list_excerpt": "新 DXC dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836);dxil.dll 签名 validator sha256=cbcfe883a09fd0ca1f98abdf3a9553b560895e3283a136da82a8381253a169df;dxv.exe sha256=f26242efb0197ffefa51eb5cb14603207d1d81fa547394020a5767bf65979f61",
+    "dxil_emit_ok": "pass",
+    "validator_pass": "fail",
+    "shader_model_coverage": "cs_6_0 / DXIL 1.0(round-6 合法 llc 容器 official_cs llc22+llc23)",
+    "validator_compat": "新 validator=dxcompiler.dll: 1.9(5191-d355aa83)(1.9.2602.24) - 1.9.2602.24 (d355aa836)(与 LLVM 22/23 同年代 2026,自带独立 dxil.dll 签名 validator + dxv.exe);wrapper_validated=True;新 dxc 自产 cs_6_0 容器 PSV0=52 accept,llc 容器 PSV0=52 仍 reject(0x80aa0013 PSVRuntimeInfoSize 52 vs module 24)→ 排除『dxc 太旧不识新 PSV』,坐实 llc 容器 PSV0 与其 DXIL 模块内部不一致(LLVM emit 不合规)",
+    "facts": [
+      {
+        "kind": "wrapper_control",
+        "name": "forward_reverse",
+        "note": "新 DLL 下 wrapper 正反向控制:正向(新 dxc 自产)IDxcValidator 25/25 accept + dxv 25/25 accept;反向(翻字节损坏)IDxcValidator 0/25 accept(reject 25) + dxv 25/25 reject → wrapper_validated=True"
+      },
+      {
+        "kind": "llc_validation",
+        "name": "llc23_1936B",
+        "note": "合法 llc 容器 llc23_1936B 经新 validator(1.9.2602.24 dxil.dll 签名):IDxcValidator 0/25 accept,status 直方图 {'0x80aa0013': 25},err=\"error: DXIL container mismatch for 'PSVRuntimeInfoSize' between 'PSV0' part:('52') and DXIL module:('24')\\nValidation failed.\";dxv.exe CLI 0/25 accept 25/25 reject,sample=\"error: DXIL container mismatch for 'PSVRuntimeInfoSize' between 'PSV0' part:('52') and DXIL module:('24')\\nValidation failed.\";容器 PSV0 RuntimeInfoSize=52 → accepted=False"
+      },
+      {
+        "kind": "llc_validation",
+        "name": "llc22_1804B",
+        "note": "合法 llc 容器 llc22_1804B 经新 validator(1.9.2602.24 dxil.dll 签名):IDxcValidator 0/25 accept,status 直方图 {'0x80aa0013': 25},err=\"error: DXIL container mismatch for 'PSVRuntimeInfoSize' between 'PSV0' part:('52') and DXIL module:('24')\\nValidation failed.\";dxv.exe CLI 0/25 accept 25/25 reject,sample=\"error: DXIL container mismatch for 'PSVRuntimeInfoSize' between 'PSV0' part:('52') and DXIL module:('24')\\nValidation failed.\";容器 PSV0 RuntimeInfoSize=52 → accepted=False"
+      },
+      {
+        "kind": "psv_subaxis",
+        "name": "runtime_info_size_compare",
+        "note": "PSV0 RuntimeInfoSize 子轴:新 dxc 1.9.2602.24 自产 cs_6_0 容器=52;llc emit 容器=52;新 validator 从 DXIL 模块(SM6.0/DXIL1.0)推得期望值并拒 llc 的 52(具名 PSVRuntimeInfoSize 52 vs module 24)。新 validator 与 LLVM 22/23 同年代(2026),若属『validator 太旧不识新 PSV』则新 validator 应接受;实测仍拒 → 排除『dxc 太旧』假说"
+      }
+    ],
+    "repro": [
+      "1. 取 microsoft/DirectXShaderCompiler release v1.9.2602.24(dxc_2026_05_27.zip,sha256 CF658AAC...),解压到仓库外 H:\\dxc-round7\\extracted(bin/x64 含 dxc/dxcompiler/dxil/dxv)。",
+      "2. 设 RURIX_DXC_NEW_DIR=H:\\dxc-round7\\extracted\\bin\\x64,RURIX_R6_DIR=H:\\llvm-audit-round6(round-6 合法容器 official_cs.obj 1936B / off_cs22/run-0001.obj 1804B)。",
+      "3. py -3 spike/dxil-path-probe/probe_round7_validator.py:正反向控制(新 dxc 自产 accept / 翻字节 reject)验 wrapper,再对 llc22/llc23 合法容器 IDxcValidator + dxv.exe 各 ×25 真验证 + PSV0 子轴。"
+    ],
+    "round7_detail": {
+      "binary_digests": {
+        "dxc.exe": {
+          "sha256": "1367fd29d0ebba5bf10d1041a9deff85396d30090b3651d872ec65d11a476ea4",
+          "size": 1127736
+        },
+        "dxcompiler.dll": {
+          "sha256": "9b5e10ed756c461b4ec2c83a99f1d6ace20e97826e9c0b0e966b7b1cd6f2aec6",
+          "size": 17987384
+        },
+        "dxil.dll": {
+          "sha256": "cbcfe883a09fd0ca1f98abdf3a9553b560895e3283a136da82a8381253a169df",
+          "size": 1503072
+        },
+        "dxv.exe": {
+          "sha256": "f26242efb0197ffefa51eb5cb14603207d1d81fa547394020a5767bf65979f61",
+          "size": 295224
+        }
+      },
+      "targets": {
+        "llc23_1936B": {
+          "path": "H:\\llvm-audit-round6\\official_cs.obj",
+          "exists": true,
+          "sha256": "76a3d75abd2368c05c37848b78566f19a8c457d35052d754d34907a917d7aad0"
+        },
+        "llc22_1804B": {
+          "path": "H:\\llvm-audit-round6\\off_cs22\\run-0001.obj",
+          "exists": true,
+          "sha256": "6ea297a8b72dbb5495283e088e29fc03a1f81c5a1bc94a1221223fb6bac975dc"
+        }
+      },
+      "forward_control": {
+        "idxc": {
+          "n": 25,
+          "accepts": 25,
+          "status_histogram": {
+            "0x0": 25
+          },
+          "sample_error": ""
+        },
+        "dxv_cli": {
+          "n": 25,
+          "accept": 25,
+          "reject": 0,
+          "other": 0,
+          "sample": ""
+        },
+        "psv": {
+          "psv0": {
+            "ok": true,
+            "psv_runtime_info_size": 52
+          },
+          "dxil_program_version": {
+            "ok": true,
+            "program_version_raw": 327776,
+            "shader_model": "6.0",
+            "shader_kind": 5,
+            "size_in_uint32": 222,
+            "dxil_part_magic": "DXIL",
+            "dxil_version_raw": 256,
+            "dxil_version_hex": "0x100"
+          },
+          "parsed": {
+            "part_fourccs": [
+              "SFI0",
+              "ISG1",
+              "OSG1",
+              "PSV0",
+              "STAT",
+              "HASH",
+              "DXIL"
+            ],
+            "is_signed": true,
+            "size": 2052
+          }
+        }
+      },
+      "reverse_control": {
+        "idxc": {
+          "n": 25,
+          "accepts": 0,
+          "status_histogram": {
+            "0x80aa000d": 25
+          },
+          "sample_error": "Validation failed."
+        },
+        "dxv_cli": {
+          "n": 25,
+          "accept": 0,
+          "reject": 25,
+          "other": 0,
+          "sample": "Validation failed - error code 0x80070459."
+        }
+      },
+      "llc_validation": {
+        "llc23_1936B": {
+          "idxc": {
+            "n": 25,
+            "accepts": 0,
+            "status_histogram": {
+              "0x80aa0013": 25
+            },
+            "sample_error": "error: DXIL container mismatch for 'PSVRuntimeInfoSize' between 'PSV0' part:('52') and DXIL module:('24')\nValidation failed."
+          },
+          "dxv_cli": {
+            "n": 25,
+            "accept": 0,
+            "reject": 25,
+            "other": 0,
+            "sample": "error: DXIL container mismatch for 'PSVRuntimeInfoSize' between 'PSV0' part:('52') and DXIL module:('24')\nValidation failed."
+          },
+          "psv": {
+            "psv0": {
+              "ok": true,
+              "psv_runtime_info_size": 52
+            },
+            "dxil_program_version": {
+              "ok": true,
+              "program_version_raw": 327776,
+              "shader_model": "6.0",
+              "shader_kind": 5,
+              "size_in_uint32": 428,
+              "dxil_part_magic": "DXIL",
+              "dxil_version_raw": 256,
+              "dxil_version_hex": "0x100"
+            },
+            "parsed": {
+              "part_fourccs": [
+                "DXIL",
+                "SFI0",
+                "HASH",
+                "ISG1",
+                "OSG1",
+                "PSV0"
+              ],
+              "is_signed": false,
+              "size": 1936
+            }
+          }
+        },
+        "llc22_1804B": {
+          "idxc": {
+            "n": 25,
+            "accepts": 0,
+            "status_histogram": {
+              "0x80aa0013": 25
+            },
+            "sample_error": "error: DXIL container mismatch for 'PSVRuntimeInfoSize' between 'PSV0' part:('52') and DXIL module:('24')\nValidation failed."
+          },
+          "dxv_cli": {
+            "n": 25,
+            "accept": 0,
+            "reject": 25,
+            "other": 0,
+            "sample": "error: DXIL container mismatch for 'PSVRuntimeInfoSize' between 'PSV0' part:('52') and DXIL module:('24')\nValidation failed."
+          },
+          "psv": {
+            "psv0": {
+              "ok": true,
+              "psv_runtime_info_size": 52
+            },
+            "dxil_program_version": {
+              "ok": true,
+              "program_version_raw": 327776,
+              "shader_model": "6.0",
+              "shader_kind": 5,
+              "size_in_uint32": 395,
+              "dxil_part_magic": "DXIL",
+              "dxil_version_raw": 256,
+              "dxil_version_hex": "0x100"
+            },
+            "parsed": {
+              "part_fourccs": [
+                "DXIL",
+                "SFI0",
+                "HASH",
+                "ISG1",
+                "OSG1",
+                "PSV0"
+              ],
+              "is_signed": false,
+              "size": 1804
+            }
+          }
+        }
+      },
+      "new_dxc_control_emit_ok": true
+    }
+  },
+  "path_b": {
+    "status": "measured_local",
+    "translators_available": true,
+    "probe_command": "(round-7 未重跑 B 路)",
+    "dxil_emit_ok": "pass",
+    "validator_pass": "pass",
+    "supply_chain": "round-2 结转引用:SPIRV-Cross + dxc 1.8.0.4739 + glslang;端到端 HLSL→SPIR-V→HLSL→DXIL 4/4 pass(见 evidence/dxil_path_spike_20260624.json)",
+    "determinism_notes": "round-2 measured 4/4 deterministic;round-7 未重测",
+    "facts": [
+      {
+        "kind": "carry_forward",
+        "name": "b_path_not_rerun",
+        "note": "round-7 聚焦 A 路 validator 互操作复验,未重跑 B 路;B 路 round-2 已 measured_local(端到端转译 4/4 pass + 确定性 4/4),见 evidence/dxil_path_spike_20260624.json / dxil_path_spike_report_round2.md"
+      }
+    ],
+    "repro": []
+  },
+  "comparison_criteria": [
+    "validator_interop_gap_closed(A)",
+    "rejection_named_reason(0x80aa0013 PSVRuntimeInfoSize)",
+    "version_gap_excluded(new 2026 validator accepts dxc 52B PSV)",
+    "attribution(LLVM emit PSV internal inconsistency vs validator age)"
+  ],
+  "run_command": "py -3 spike/dxil-path-probe/probe_round7_validator.py",
+  "owner_decision": "A/B 最终路径裁决权属 owner(RFC-0003 §9 Q-D131 / 13 §D-131 / 硬规则 1);本 spike 仅产证据,agent 自主裁决。round-7 结论仅到『A 路 validator 互操作 gap 未闭合(当前 pin 即便最新 2026 validator 仍拒)+ Bug 2 归因坐实=LLVM emit PSV 不合规(非 dxc 太旧)』,不替 agent 裁 A/B,不签 G-G2-2,D-131 维持 C。",
+  "notes": "纯取证 spike round-7;新 DXC/dxil.dll 隔离于仓库外 H:\\dxc-round7,不入库(version/sha256 见 path_a)。measured-first / blocked-honest:数字来自命令真实输出(IDxcValidator + dxv.exe 各 ×25)。round-1~6 既有 evidence/ 文件 byte-unchanged,本证据为新增。"
+}

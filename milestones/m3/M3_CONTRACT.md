@@ -57,7 +57,7 @@ guardrails:
   - "milestones/m0/m0_budget.json 与 milestones/m1/m1_budget.json 的 measured_local 既有条目 git diff 0-byte(新增条目允许)"
   - "milestones/m2/m2_budget.json 既有 estimated 条目仅允许回填为 measured_local(G-M3-3 通道,check_guardrails 既有机制)+ revision_log 追加;其余既有条目 0-byte"
   - "milestones/m0/M0_CONTRACT.md、milestones/m1/M1_CONTRACT.md、milestones/m2/M2_CONTRACT.md(均 closed)既有内容只追加不修改"
-  - "registry/deferred.json 与 registry/spike_gating.json 只追加(既有条目修改触发人工审查)"
+  - "registry/deferred.json 与 registry/spike_gating.json 只追加(既有条目修改触发审查)"
   - "evidence/ 只增不删不改"
   - "00–14 共 15 份规划文档不被执行 PR 改写(勘误走 00 §6.3 追加式修订)"
   - "tests/ui/ 的 .stderr snapshot 变更必须经审批 bless(M1.4 已激活,check_ui_bless)"
@@ -121,12 +121,12 @@ guardrails:
    2. `use_before_init` — 使用未初始化/可能未初始化的局部;
    3. `double_mut_borrow` — 两个 `&mut` 借用同时存活;
    4. `shared_mut_conflict` — `&` 与 `&mut` 借用冲突;
-   5. `move_while_borrowed` — 借用存活期间 move 所有者;
+   5. `move_while_borrowed` — 借用存活期间 move agent;
    6. `assign_while_borrowed` — 借用存活期间写入被借用位置;
    7. `dangling_reference` — 引用活过其指代物(返回局部引用/借用活过作用域)。
    类别数为 `estimated` 性质工程选择(对齐 G-M1-1/G-M2-3 先例),增删类别经 Direct PR 留痕。
 2. **G-M3-2(黄金路径 3)**:`tests/ui/borrowck/` 借用错误 snapshot ≥10 条(`m3.counter.ui_golden_path3_snapshots`),走 M1.4 已激活的 bless 审批 guardrail;诊断措辞允许保守粗糙(§2.2 诊断打磨排除项),snapshot 的作用是锁行为底线。
-3. **G-M3-3(预算实测回填)**:[../m2/m2_budget.json](../m2/m2_budget.json) 两条 `m2.bench.*` 占位转 `measured_local`——冷编译 hello-world 端到端耗时与全量 check 延迟各做**三次进程级独立运行取 trimmed mean**(统计协议复用 `bench/stats.py`,数据源 = `rurixc --self-profile` + 进程计时),证据 JSON 入 `evidence/`;阈值 = 实测值加余量,设定数值经人工批准留痕(硬规则 1)。close-out 跑 `py -3 ci/budget_eval.py --strict` 输出**全局零 estimated 残留**(14 §3 占位存活 ≤2 里程碑的硬约束,本契约是 m2.bench.* 的到期里程碑,逾期即 FAIL)。
+3. **G-M3-3(预算实测回填)**:[../m2/m2_budget.json](../m2/m2_budget.json) 两条 `m2.bench.*` 占位转 `measured_local`——冷编译 hello-world 端到端耗时与全量 check 延迟各做**三次进程级独立运行取 trimmed mean**(统计协议复用 `bench/stats.py`,数据源 = `rurixc --self-profile` + 进程计时),证据 JSON 入 `evidence/`;阈值 = 实测值加余量,设定数值经自主批准留痕(硬规则 1)。close-out 跑 `py -3 ci/budget_eval.py --strict` 输出**全局零 estimated 残留**(14 §3 占位存活 ≤2 里程碑的硬约束,本契约是 m2.bench.* 的到期里程碑,逾期即 FAIL)。
 4. **G-M3-4(const eval 真跑)**:const 泛型程序(数组长度/`const fn` 求值类,入 `conformance/consteval/`)经 rurixc 全管线产出 EXE,CI 自动核对运行退出码与预期输出(对齐 G-M2-1 真跑铁律,步骤 16);5xxx 错误码(const 求值溢出/越界/非 const 操作)snapshot 入 `tests/ui/consteval/`(计入全局 snapshot 计数,不另立计数器)。
 5. **G-M3-5(traceability 延续)**:M3 新增 RXS 条款(borrow/consteval)每条 ≥1 测试锚定;`ci/trace_matrix.py` 全局口径核对(`m1.counter.spec_clause_test_anchoring` 为全局断言,无需另立 m3 计数器)。
 

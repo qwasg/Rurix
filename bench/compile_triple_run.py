@@ -7,7 +7,7 @@ measured_local(m2.bench.cold_compile_hello_world_ms / m2.bench.check_latency_ms)
 
 阈值方向 = max(延迟越低越好,阈值为上界):阈值 = 实测 trimmed mean × (1 + 余量)。
 余量(MARGIN)默认 0.5(50% 上界冗余,应对 Windows 文件系统/杀软扫描噪声,
-BENCH_PROTOCOL 环境画像纪律);**数值经人工批准**(契约 G-M3-3 / 硬规则 1),
+BENCH_PROTOCOL 环境画像纪律);**数值经自主批准**(契约 G-M3-3 / 硬规则 1),
 本脚本回填后于 revision_log 标注 agent 提案、待人工终审。
 
 用法:py -3 bench/compile_triple_run.py [--only cold|check] [--margin 0.5]

@@ -1,0 +1,612 @@
+// ruridrop Stage-2 实时入口 — 生产档(RFC-0010 §4.3/§4.5:1280×720 / 1spp /
+// N=131072)。present typestate 帧循环(RXS-0197/0198,母本 =
+// conformance/host_orch/accept/present_loop):Present::create → ready →
+// 循环{sim 子步 → 渲染排序 pass → wait → backbuffer → rt_primary 直写
+// backbuffer(RXS-0143 blit 像素域 0…255)→ signal → pump → present},
+// 窗口关闭请求或帧数上限(MAX_FRAMES,RFC-0010 §4.5 取证 ≥300 帧)退出。
+// MS1.4 取证扩面(G-MS1-5):循环结束后把最后一帧 rt_primary 重渲进普通
+// Buffer(非 backbuffer)→ download → 采样统计(min/max/均值粗测)+ 天空区
+// (顶行像素,相机上仰纯天空)/水体区(世界点投影,初始水柱脚印内恒有水)
+// 各采样点范围核验;全过 → 打印 REALTIME_OK frames=<n> sample_ok=true,
+// 任一失败 → REALTIME_FAIL + 退出非 0。采样域 = RXS-0143 blit 契约 f32 RGB
+// 0…255;范围定标按生产档 600 帧收敛态(提前关窗仍会走采样,收敛前失败
+// 属预期,取证跑不提前关)。数值行经 CRT putchar(RXS-0195,sim_check 先例)
+// 逐字符输出。常量单一事实源 = params,经标量实参下发。
+
+mod params;
+mod dmath;
+mod rng;
+mod sim;
+mod render_core;
+mod render_pt;
+mod render_rt;
+
+extern "C" {
+    fn putchar(c: i32) -> i32;
+}
+
+// present-real C++ shim 系统库接线(RXS-0195 #[link];D-130:窗/泵/交换链在
+// shim 内,user32 = 窗口/消息泵、d3d12/dxgi = 设备/交换链、d3dcompiler =
+// present.hlsl 编译。stub 形态链接这些系统库同样无害,真实形态缺一即 LNK2019)
+#[link(name = "user32")]
+#[link(name = "d3d12")]
+#[link(name = "dxgi")]
+#[link(name = "d3dcompiler")]
+extern "C" {
+}
+
+// 帧数上限(G-MS1-5:真跑 ≥300 帧后可退出;600 = 生产档取证长度,
+// 兼 ms1.bench.uc07_realtime_frame_ms 的墙钟分母)
+pub const MAX_FRAMES: usize = 600;
+
+// u32 十进制逐位输出(sim_check 母本:除数法自最高位,免反转溢出)
+fn print_u32(v: u32) {
+    let mut div: u32 = 1;
+    while v / div >= 10u32 {
+        div = div * 10u32;
+    }
+    while div > 0u32 {
+        let d = (v / div) % 10u32;
+        unsafe { putchar((48u32 + d) as i32) };
+        div = div / 10u32;
+    }
+}
+
+// f32(已知非负、采样域 0…255)四舍五入为 u32 后输出(粗测口径)
+fn print_f32_round(v: f32) {
+    let c = dmath::rx_clamp(v, 0.0, 999.0) + 0.5;
+    print_u32((c as i32) as u32);
+}
+
+// "SAMPLE_STATS min=<a> max=<b> mean=<c>\n"
+fn print_stats_line(vmin: f32, vmax: f32, vmean: f32) {
+    unsafe { putchar(83) };
+    unsafe { putchar(65) };
+    unsafe { putchar(77) };
+    unsafe { putchar(80) };
+    unsafe { putchar(76) };
+    unsafe { putchar(69) };
+    unsafe { putchar(95) };
+    unsafe { putchar(83) };
+    unsafe { putchar(84) };
+    unsafe { putchar(65) };
+    unsafe { putchar(84) };
+    unsafe { putchar(83) };
+    unsafe { putchar(32) };
+    unsafe { putchar(109) };
+    unsafe { putchar(105) };
+    unsafe { putchar(110) };
+    unsafe { putchar(61) };
+    print_f32_round(vmin);
+    unsafe { putchar(32) };
+    unsafe { putchar(109) };
+    unsafe { putchar(97) };
+    unsafe { putchar(120) };
+    unsafe { putchar(61) };
+    print_f32_round(vmax);
+    unsafe { putchar(32) };
+    unsafe { putchar(109) };
+    unsafe { putchar(101) };
+    unsafe { putchar(97) };
+    unsafe { putchar(110) };
+    unsafe { putchar(61) };
+    print_f32_round(vmean);
+    unsafe { putchar(10) };
+}
+
+// "SAMPLE_SKY " / "SAMPLE_WATER " 两标签 + 两采样点 "r g b | r g b\n"
+fn print_rgb(r: f32, g: f32, b: f32) {
+    print_f32_round(r);
+    unsafe { putchar(32) };
+    print_f32_round(g);
+    unsafe { putchar(32) };
+    print_f32_round(b);
+}
+
+fn print_sample_line(is_sky: i32, r1: f32, g1: f32, b1: f32, r2: f32, g2: f32, b2: f32) {
+    unsafe { putchar(83) };
+    unsafe { putchar(65) };
+    unsafe { putchar(77) };
+    unsafe { putchar(80) };
+    unsafe { putchar(76) };
+    unsafe { putchar(69) };
+    unsafe { putchar(95) };
+    if is_sky == 1 {
+        unsafe { putchar(83) };
+        unsafe { putchar(75) };
+        unsafe { putchar(89) };
+    } else {
+        unsafe { putchar(87) };
+        unsafe { putchar(65) };
+        unsafe { putchar(84) };
+        unsafe { putchar(69) };
+        unsafe { putchar(82) };
+    }
+    unsafe { putchar(32) };
+    print_rgb(r1, g1, b1);
+    unsafe { putchar(32) };
+    unsafe { putchar(124) };
+    unsafe { putchar(32) };
+    print_rgb(r2, g2, b2);
+    unsafe { putchar(10) };
+}
+
+// "REALTIME_OK frames=<n> sample_ok=true\n"(ok=1)或
+// "REALTIME_FAIL frames=<n> sample_ok=false\n"(ok=0)
+fn print_verdict_line(ok: i32, frames: u32) {
+    unsafe { putchar(82) };
+    unsafe { putchar(69) };
+    unsafe { putchar(65) };
+    unsafe { putchar(76) };
+    unsafe { putchar(84) };
+    unsafe { putchar(73) };
+    unsafe { putchar(77) };
+    unsafe { putchar(69) };
+    unsafe { putchar(95) };
+    if ok == 1 {
+        unsafe { putchar(79) };
+        unsafe { putchar(75) };
+    } else {
+        unsafe { putchar(70) };
+        unsafe { putchar(65) };
+        unsafe { putchar(73) };
+        unsafe { putchar(76) };
+    }
+    unsafe { putchar(32) };
+    unsafe { putchar(102) };
+    unsafe { putchar(114) };
+    unsafe { putchar(97) };
+    unsafe { putchar(109) };
+    unsafe { putchar(101) };
+    unsafe { putchar(115) };
+    unsafe { putchar(61) };
+    print_u32(frames);
+    unsafe { putchar(32) };
+    unsafe { putchar(115) };
+    unsafe { putchar(97) };
+    unsafe { putchar(109) };
+    unsafe { putchar(112) };
+    unsafe { putchar(108) };
+    unsafe { putchar(101) };
+    unsafe { putchar(95) };
+    unsafe { putchar(111) };
+    unsafe { putchar(107) };
+    unsafe { putchar(61) };
+    if ok == 1 {
+        unsafe { putchar(116) };
+        unsafe { putchar(114) };
+        unsafe { putchar(117) };
+        unsafe { putchar(101) };
+    } else {
+        unsafe { putchar(102) };
+        unsafe { putchar(97) };
+        unsafe { putchar(108) };
+        unsafe { putchar(115) };
+        unsafe { putchar(101) };
+    }
+    unsafe { putchar(10) };
+}
+
+fn main() -> i32 {
+    // ---- 仿真常量(与 offline 同源) ----
+    let n = params::N;
+    let col_x = params::COL_X;
+    let col_y = params::COL_Y;
+    let cells = params::CELLS;
+    let passes = params::SORT_PASSES;
+    let substeps = params::SUBSTEPS;
+    let grid_dim = params::GRID_DIM;
+    let inv_cell = params::INV_CELL;
+    let h = params::SMOOTH_H;
+    let h2 = params::SMOOTH_H2;
+    let mass = params::MASS;
+    let rho0 = params::REST_DENSITY;
+    let stiff = params::STIFFNESS;
+    let visc = params::VISCOSITY;
+    let gravity = params::GRAVITY;
+    let dt = params::DT;
+    let damp = params::BOUNDARY_DAMP;
+    let max_speed = params::MAX_SPEED;
+    let lo = params::MARGIN;
+    let hi = params::BOX - params::MARGIN;
+    let spacing = params::SPACING;
+    let origin = params::ORIGIN;
+    let nblocks = n / 256;
+
+    // ---- 渲染常量 ----
+    let rw = params::REND_W;
+    let rh = params::REND_H;
+    let radius = params::PART_R;
+    let lx0 = params::LIGHT_X0;
+    let lx1 = params::LIGHT_X1;
+    let lz0 = params::LIGHT_Z0;
+    let lz1 = params::LIGHT_Z1;
+    let ly = params::LIGHT_Y;
+    let le = params::LIGHT_E;
+    let vscale = params::VEL_COLOR_SCALE;
+    let rw32 = rw as u32;
+    let rh32 = rh as u32;
+    let gx = (rw + 15) / 16;
+    let gy = (rh + 15) / 16;
+    let npix = rw * rh;
+    let nrgb = npix * 3;
+
+    // ---- 相机基底(host 侧,render_core plain fn) ----
+    let vs = params::VIEW_SCALE;
+    let ex = params::CAM_EYE_X;
+    let ey = params::CAM_EYE_Y;
+    let ez = params::CAM_EYE_Z;
+    let cdx = params::CAM_TGT_X - ex;
+    let cdy = params::CAM_TGT_Y - ey;
+    let cdz = params::CAM_TGT_Z - ez;
+    let cl = render_core::len3(cdx, cdy, cdz);
+    let cinv = 1.0 / cl;
+    let fwx = cdx * cinv;
+    let fwy = cdy * cinv;
+    let fwz = cdz * cinv;
+    let r0x = render_core::cross_x(fwy, fwz, 1.0, 0.0);
+    let r0y = render_core::cross_y(fwx, fwz, 0.0, 0.0);
+    let r0z = render_core::cross_z(fwx, fwy, 0.0, 1.0);
+    let rl = render_core::len3(r0x, r0y, r0z);
+    let rinv = 1.0 / rl;
+    let rix = r0x * rinv;
+    let riy = r0y * rinv;
+    let riz = r0z * rinv;
+    let upx = render_core::cross_x(riy, riz, fwy, fwz);
+    let upy = render_core::cross_y(rix, riz, fwx, fwz);
+    let upz = render_core::cross_z(rix, riy, fwx, fwy);
+    let inv_w = 1.0 / (rw as f32);
+    let inv_h = 1.0 / (rh as f32);
+    let aspect = (rw as f32) / (rh as f32);
+    let scale_x = vs * aspect;
+    let scale_y = 0.0 - vs;
+
+    let ctx = Context::create();
+    let stream = ctx.stream();
+
+    // ---- 锁页缓冲(每长度域独立;hrgb = 末帧采样 download 域) ----
+    let mut hf = ctx.alloc_pinned(n);
+    let mut hu = ctx.alloc_pinned(n);
+    let mut hc = ctx.alloc_pinned(cells);
+    let mut hs = ctx.alloc_pinned(nblocks + 1);
+    let mut hrgb = ctx.alloc_pinned(nrgb);
+
+    // ---- 设备缓冲(sim 同 offline;backbuffer 由 present 会话提供;
+    //      fbuf = 末帧采样普通 Buffer,非 backbuffer,G-MS1-5 采样对照) ----
+    let mut pax = ctx.alloc(n);
+    let mut pay = ctx.alloc(n);
+    let mut paz = ctx.alloc(n);
+    let mut vax = ctx.alloc(n);
+    let mut vay = ctx.alloc(n);
+    let mut vaz = ctx.alloc(n);
+    let mut pbx = ctx.alloc(n);
+    let mut pby = ctx.alloc(n);
+    let mut pbz = ctx.alloc(n);
+    let mut vbx = ctx.alloc(n);
+    let mut vby = ctx.alloc(n);
+    let mut vbz = ctx.alloc(n);
+    let mut rho = ctx.alloc(n);
+    let mut pres = ctx.alloc(n);
+    let mut ffx = ctx.alloc(n);
+    let mut ffy = ctx.alloc(n);
+    let mut ffz = ctx.alloc(n);
+    let mut key0 = ctx.alloc(n);
+    let mut key1 = ctx.alloc(n);
+    let mut idx0 = ctx.alloc(n);
+    let mut idx1 = ctx.alloc(n);
+    let mut flag = ctx.alloc(n);
+    let mut bofs = ctx.alloc(n);
+    let mut bsums = ctx.alloc(nblocks + 1);
+    let mut bscan = ctx.alloc(nblocks + 1);
+    let mut cstart = ctx.alloc(cells);
+    let mut cend = ctx.alloc(cells);
+    let mut fbuf = ctx.alloc(nrgb);
+
+    // ---- 显式初始化(sim_check 同款) ----
+    let mut i: usize = 0;
+    while i < n {
+        hf.set(i, 0.0f32);
+        i = i + 1;
+    }
+    pbx.upload(&hf);
+    pby.upload(&hf);
+    pbz.upload(&hf);
+    vbx.upload(&hf);
+    vby.upload(&hf);
+    vbz.upload(&hf);
+    rho.upload(&hf);
+    pres.upload(&hf);
+    ffx.upload(&hf);
+    ffy.upload(&hf);
+    ffz.upload(&hf);
+    vax.upload(&hf);
+    vay.upload(&hf);
+    vaz.upload(&hf);
+    i = 0;
+    while i < n {
+        let ix = i % col_x;
+        hf.set(i, origin + (ix as f32) * spacing);
+        i = i + 1;
+    }
+    pax.upload(&hf);
+    i = 0;
+    while i < n {
+        let iy = (i / col_x) % col_y;
+        hf.set(i, origin + (iy as f32) * spacing);
+        i = i + 1;
+    }
+    pay.upload(&hf);
+    i = 0;
+    while i < n {
+        let iz = i / (col_x * col_y);
+        hf.set(i, origin + (iz as f32) * spacing);
+        i = i + 1;
+    }
+    paz.upload(&hf);
+    i = 0;
+    while i < n {
+        hu.set(i, 0u32);
+        i = i + 1;
+    }
+    key0.upload(&hu);
+    key1.upload(&hu);
+    idx0.upload(&hu);
+    idx1.upload(&hu);
+    flag.upload(&hu);
+    bofs.upload(&hu);
+    i = 0;
+    while i < cells {
+        hc.set(i, 0u32);
+        i = i + 1;
+    }
+    cstart.upload(&hc);
+    cend.upload(&hc);
+    i = 0;
+    while i < nblocks + 1 {
+        hs.set(i, 0u32);
+        i = i + 1;
+    }
+    bsums.upload(&hs);
+    bscan.upload(&hs);
+    i = 0;
+    while i < nrgb {
+        hrgb.set(i, 0.0f32);
+        i = i + 1;
+    }
+    fbuf.upload(&hrgb);
+
+    // ---- present typestate 帧循环(RXS-0197:wait → backbuffer → launch →
+    //      signal → pump → present;关闭请求或 MAX_FRAMES 上限退出) ----
+    let sess = Present::create(&ctx, rw32, rh32, rw32, rh32);
+    let mut ready = sess.ready();
+    let mut running: i32 = 1;
+    let mut frames_done: usize = 0;
+    while running == 1 {
+        let mut sub: usize = 0;
+        while sub < substeps {
+            stream.launch(sim::sim_cell_key, GridDim(nblocks), BlockDim(256),
+                (pax, pay, paz, key0, idx0, n, grid_dim, inv_cell));
+            let mut pair: usize = 0;
+            while pair < passes / 2 {
+                let bit0 = (pair * 2) as u32;
+                stream.launch(sim::split_flag, GridDim(nblocks), BlockDim(256),
+                    (key0, flag, n, bit0));
+                stream.launch(sim::scan_block_u32, GridDim(nblocks), BlockDim(256),
+                    (flag, bofs, bsums, n));
+                stream.launch(sim::scan_sums_u32, GridDim(1), BlockDim(256),
+                    (bsums, bscan, nblocks));
+                stream.launch(sim::split_scatter, GridDim(nblocks), BlockDim(256),
+                    (key0, idx0, flag, bofs, bscan, key1, idx1, n, nblocks));
+                let bit1 = bit0 + 1u32;
+                stream.launch(sim::split_flag, GridDim(nblocks), BlockDim(256),
+                    (key1, flag, n, bit1));
+                stream.launch(sim::scan_block_u32, GridDim(nblocks), BlockDim(256),
+                    (flag, bofs, bsums, n));
+                stream.launch(sim::scan_sums_u32, GridDim(1), BlockDim(256),
+                    (bsums, bscan, nblocks));
+                stream.launch(sim::split_scatter, GridDim(nblocks), BlockDim(256),
+                    (key1, idx1, flag, bofs, bscan, key0, idx0, n, nblocks));
+                pair = pair + 1;
+            }
+            stream.launch(sim::sim_reorder, GridDim(nblocks), BlockDim(256),
+                (idx0, pax, pay, paz, vax, vay, vaz,
+                 pbx, pby, pbz, vbx, vby, vbz, n));
+            stream.launch(sim::sim_clear_bounds, GridDim(cells / 256), BlockDim(256),
+                (cstart, cend, cells));
+            stream.launch(sim::sim_cell_bounds, GridDim(nblocks), BlockDim(256),
+                (key0, cstart, cend, n));
+            stream.launch(sim::sim_density, GridDim(nblocks), BlockDim(256),
+                (pbx, pby, pbz, cstart, cend, rho, pres,
+                 n, grid_dim, inv_cell, h2, mass, stiff, rho0));
+            stream.launch(sim::sim_forces, GridDim(nblocks), BlockDim(256),
+                (pbx, pby, pbz, vbx, vby, vbz, rho, pres, cstart, cend,
+                 ffx, ffy, ffz, n, grid_dim, inv_cell, h, visc, gravity, rho0));
+            stream.launch(sim::sim_integrate, GridDim(nblocks), BlockDim(256),
+                (pbx, pby, pbz, vbx, vby, vbz, ffx, ffy, ffz,
+                 pax, pay, paz, vax, vay, vaz,
+                 n, dt, max_speed, damp, lo, hi));
+            sub = sub + 1;
+        }
+        // 渲染排序 pass(A 组当前态 → 排序 B 组 + cell 边界表)
+        stream.launch(sim::sim_cell_key, GridDim(nblocks), BlockDim(256),
+            (pax, pay, paz, key0, idx0, n, grid_dim, inv_cell));
+        let mut pair: usize = 0;
+        while pair < passes / 2 {
+            let bit0 = (pair * 2) as u32;
+            stream.launch(sim::split_flag, GridDim(nblocks), BlockDim(256),
+                (key0, flag, n, bit0));
+            stream.launch(sim::scan_block_u32, GridDim(nblocks), BlockDim(256),
+                (flag, bofs, bsums, n));
+            stream.launch(sim::scan_sums_u32, GridDim(1), BlockDim(256),
+                (bsums, bscan, nblocks));
+            stream.launch(sim::split_scatter, GridDim(nblocks), BlockDim(256),
+                (key0, idx0, flag, bofs, bscan, key1, idx1, n, nblocks));
+            let bit1 = bit0 + 1u32;
+            stream.launch(sim::split_flag, GridDim(nblocks), BlockDim(256),
+                (key1, flag, n, bit1));
+            stream.launch(sim::scan_block_u32, GridDim(nblocks), BlockDim(256),
+                (flag, bofs, bsums, n));
+            stream.launch(sim::scan_sums_u32, GridDim(1), BlockDim(256),
+                (bsums, bscan, nblocks));
+            stream.launch(sim::split_scatter, GridDim(nblocks), BlockDim(256),
+                (key1, idx1, flag, bofs, bscan, key0, idx0, n, nblocks));
+            pair = pair + 1;
+        }
+        stream.launch(sim::sim_reorder, GridDim(nblocks), BlockDim(256),
+            (idx0, pax, pay, paz, vax, vay, vaz,
+             pbx, pby, pbz, vbx, vby, vbz, n));
+        stream.launch(sim::sim_clear_bounds, GridDim(cells / 256), BlockDim(256),
+            (cstart, cend, cells));
+        stream.launch(sim::sim_cell_bounds, GridDim(nblocks), BlockDim(256),
+            (key0, cstart, cend, n));
+        // present:实时主光线直写 backbuffer(RXS-0198 借用句柄作 launch 实参)
+        let acq = ready.wait();
+        let bb = acq.backbuffer();
+        stream.launch(render_rt::rt_primary, GridDim(gx, gy), BlockDim(16, 16),
+            (pbx, pby, pbz, vbx, vby, vbz, cstart, cend, bb,
+             rw, rh, grid_dim,
+             ex, ey, ez, fwx, fwy, fwz, rix, riy, riz, upx, upy, upz,
+             inv_w, inv_h, scale_x, scale_y, radius,
+             lx0, lx1, lz0, lz1, ly, le, vscale));
+        let pres_ = acq.signal();
+        let close = pres_.pump();
+        ready = pres_.present();
+        frames_done = frames_done + 1;
+        if close {
+            running = 0;
+        }
+        if frames_done >= MAX_FRAMES {
+            running = 0;
+        }
+    }
+    stream.sync();
+
+    // ---- 末帧采样对照(G-MS1-5):同一 rt_primary、同一末帧排序态,渲进
+    //      普通 Buffer fbuf(非 backbuffer)→ download → 统计 + 区域核验 ----
+    stream.launch(render_rt::rt_primary, GridDim(gx, gy), BlockDim(16, 16),
+        (pbx, pby, pbz, vbx, vby, vbz, cstart, cend, fbuf,
+         rw, rh, grid_dim,
+         ex, ey, ez, fwx, fwy, fwz, rix, riy, riz, upx, upy, upz,
+         inv_w, inv_h, scale_x, scale_y, radius,
+         lx0, lx1, lz0, lz1, ly, le, vscale));
+    stream.sync();
+    fbuf.download(&mut hrgb);
+
+    // 全域统计(NaN 检测 + min/max;均值按行两级累加压 f32 精度损失,粗测)
+    let mut nan_found: i32 = 0;
+    let mut vmin: f32 = 1.0e30;
+    let mut vmax: f32 = -1.0e30;
+    let mut vsum: f32 = 0.0;
+    let row_len = rw * 3;
+    let mut ry: usize = 0;
+    while ry < rh {
+        let mut row_sum: f32 = 0.0;
+        let base = ry * row_len;
+        let mut rxi: usize = 0;
+        while rxi < row_len {
+            let v = hrgb.get(base + rxi);
+            if v != v {
+                nan_found = 1;
+            } else {
+                if v < vmin {
+                    vmin = v;
+                }
+                if v > vmax {
+                    vmax = v;
+                }
+                row_sum = row_sum + v;
+            }
+            rxi = rxi + 1;
+        }
+        vsum = vsum + row_sum;
+        ry = ry + 1;
+    }
+    let vmean = vsum / (nrgb as f32);
+
+    // 天空区采样(顶行 y=4:相机上仰,顶行光线 dy≈0.17~0.23 纯天空梯度,
+    // 面光源矩形与盒体均在画外;期望 tone_map 后 r≈159~161 g≈166~168 b≈175)
+    let sky_x1: usize = 640;
+    let sky_x2: usize = 8;
+    let sky_y: usize = 4;
+    let s1 = (sky_y * rw + sky_x1) * 3;
+    let skyr1 = hrgb.get(s1);
+    let skyg1 = hrgb.get(s1 + 1);
+    let skyb1 = hrgb.get(s1 + 2);
+    let s2 = (sky_y * rw + sky_x2) * 3;
+    let skyr2 = hrgb.get(s2);
+    let skyg2 = hrgb.get(s2 + 1);
+    let skyb2 = hrgb.get(s2 + 2);
+
+    // 水体区采样:世界点 (9,2,9) / (12,2,24)(初始水柱脚印内,溃坝全程与
+    // 收敛态均有水)经相机基底正投影到像素;速度基色恒 b > r(render_core
+    // speed_col:B ∈ [.60,.95] > R ∈ [.10,.45],Fresnel 天空项同号)
+    let w1dx = 9.0 - ex;
+    let w1dy = 2.0 - ey;
+    let w1dz = 9.0 - ez;
+    let w1f = render_core::dot3(w1dx, w1dy, w1dz, fwx, fwy, fwz);
+    let w1r = render_core::dot3(w1dx, w1dy, w1dz, rix, riy, riz);
+    let w1u = render_core::dot3(w1dx, w1dy, w1dz, upx, upy, upz);
+    let w1px = ((w1r / w1f) / scale_x + 1.0) * 0.5 * (rw as f32);
+    let w1py = ((w1u / w1f) / scale_y + 1.0) * 0.5 * (rh as f32);
+    let wat_x1 = dmath::rx_clamp(w1px, 0.0, (rw as f32) - 1.0) as usize;
+    let wat_y1 = dmath::rx_clamp(w1py, 0.0, (rh as f32) - 1.0) as usize;
+    let w2dx = 12.0 - ex;
+    let w2dy = 2.0 - ey;
+    let w2dz = 24.0 - ez;
+    let w2f = render_core::dot3(w2dx, w2dy, w2dz, fwx, fwy, fwz);
+    let w2r = render_core::dot3(w2dx, w2dy, w2dz, rix, riy, riz);
+    let w2u = render_core::dot3(w2dx, w2dy, w2dz, upx, upy, upz);
+    let w2px = ((w2r / w2f) / scale_x + 1.0) * 0.5 * (rw as f32);
+    let w2py = ((w2u / w2f) / scale_y + 1.0) * 0.5 * (rh as f32);
+    let wat_x2 = dmath::rx_clamp(w2px, 0.0, (rw as f32) - 1.0) as usize;
+    let wat_y2 = dmath::rx_clamp(w2py, 0.0, (rh as f32) - 1.0) as usize;
+    let t1 = (wat_y1 * rw + wat_x1) * 3;
+    let watr1 = hrgb.get(t1);
+    let watg1 = hrgb.get(t1 + 1);
+    let watb1 = hrgb.get(t1 + 2);
+    let t2 = (wat_y2 * rw + wat_x2) * 3;
+    let watr2 = hrgb.get(t2);
+    let watg2 = hrgb.get(t2 + 1);
+    let watb2 = hrgb.get(t2 + 2);
+
+    // ---- 范围核验(任一失败 → sample_ok=false → 退出非 0) ----
+    let mut sample_ok: i32 = 1;
+    if nan_found == 1 {
+        sample_ok = 0;
+    }
+    // 全域:blit 像素域 0…255(RXS-0143);均值宽带(全黑/全白即红)
+    if vmin < 0.0 || vmax > 255.0 {
+        sample_ok = 0;
+    }
+    if vmean < 20.0 || vmean > 235.0 {
+        sample_ok = 0;
+    }
+    // 天空区:定参相机顶行为确定性天空梯度(蓝 > 红),范围含 ±25 裕度
+    if skyr1 < 130.0 || skyr1 > 195.0 || skyg1 < 140.0 || skyg1 > 200.0
+        || skyb1 < 155.0 || skyb1 > 205.0 || skyb1 <= skyr1 {
+        sample_ok = 0;
+    }
+    if skyr2 < 130.0 || skyr2 > 195.0 || skyg2 < 140.0 || skyg2 > 200.0
+        || skyb2 < 155.0 || skyb2 > 205.0 || skyb2 <= skyr2 {
+        sample_ok = 0;
+    }
+    // 水体区:蓝主导(b > r)+ 亮度带(地面棋盘灰 r==g==b 即红)
+    if watb1 <= watr1 || watb1 < 70.0 || watb1 > 245.0 {
+        sample_ok = 0;
+    }
+    if watb2 <= watr2 || watb2 < 70.0 || watb2 > 245.0 {
+        sample_ok = 0;
+    }
+
+    print_stats_line(vmin, vmax, vmean);
+    print_sample_line(1, skyr1, skyg1, skyb1, skyr2, skyg2, skyb2);
+    print_sample_line(0, watr1, watg1, watb1, watr2, watg2, watb2);
+    print_verdict_line(sample_ok, frames_done as u32);
+
+    ctx.sync();
+    if sample_ok == 1 {
+        0
+    } else {
+        1
+    }
+}
