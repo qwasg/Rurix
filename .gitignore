@@ -20,3 +20,6 @@ __pycache__/
 
 # 自托管 runner(若误放仓库内)
 actions-runner/
+
+# 外部工程本地 checkout(工具件不入库;如 external/godot-master ≈2.1GB)
+external/
