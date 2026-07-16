@@ -25,7 +25,7 @@ CUDA-first, Windows-native, single-stack NVIDIA done deep: the backend emits PTX
 
 The full argument lives in [`01_VISION_AND_MISSION.md`](01_VISION_AND_MISSION.md) and [`03_POSITIONING_AND_LANDSCAPE.md`](03_POSITIONING_AND_LANDSCAPE.md) (Chinese).
 
-## Project status: MVP + G1 + G2 complete (`g2-closed`)
+## Project status: language 1.0 released (`v1.0.0`); mission stage 1 + multi-backend stage 1 closed (baseline `mb1-closed`)
 
 The first-layer full acceptance (01 §6) is met. The three flagship use cases run end-to-end on real hardware, performance criteria are satisfied, the resource-lifetime error classes are 100% intercepted at compile time, and every budget threshold is `measured_local` (zero `estimated`):
 
@@ -33,18 +33,20 @@ The first-layer full acceptance (01 §6) is met. The three flagship use cases ru
 - **UC-02 — three-stream overlapped pipeline**: affine Context/Stream/Event/Buffer + cross-thread ownership transfer + typed stream-ordered allocation; the four resource-lifetime error classes (use-after-free / double-free / cross-thread / cross-stream-unsynchronized) are **intercepted at compile time**.
 - **UC-03 — SPH simulation + compute soft rasterizer**: a single executable — particle update + spatial hashing + rasterization kernels + host frame loop — producing deterministic images.
 - **cublas binding package**: three-layer GEMM/GEMV bindings (raw FFI / safe wrapper / high-level API).
-- **Release pipeline**: rurixup + MSI + winget + Azure Artifact Signing (Authenticode) + SBOM (SPDX/CycloneDX) + NVIDIA redistribution-whitelist audit.
+- **Release pipeline**: rurixup (stable-channel manifest) + an Authenticode sign/verify release gate (currently a **self-signed test certificate**; the of-record production backend is Azure Artifact Signing behind a secret-gated manual step) + SBOM (SPDX/CycloneDX) + NVIDIA redistribution-whitelist audit.
 - **Bilingual diagnostics with full coverage** (Chinese/English) + **documentation site** (`rx doc`).
 
 **Since the MVP, the G1 and G2 phases have both closed.** **G1** (`g1-closed`, PR #77): CUDA–D3D12 interop with real-time windowed present (RFC-0001), stream-ordered `AsyncBuffer` allocation (MR-0001), a first engine integration via a Rurix C-ABI DLL embedded in a C++/D3D12 harness (MR-0002), open-source community infrastructure plus a `geometry` crate (MR-0003/0004), and production fatbin distribution (MR-0005). **G2** (`g2-closed`, PR #117): the shader-stage type surface (RFC-0002, RXS-0153–0156), a DXIL backend (D-131 adjudicated = **hybrid**: compute via direct LLVM-DirectX emit / graphics via SPIR-V→DXIL), binding-layout derivation, a UC-04 deferred renderer + texture sampling (RFC-0006/0007), and a stable API + edition (RFC-0008, RD-008). Separately, an out-of-tree **GRX showcase** — a Godot 4.7-dev D3D12 integration/demo spike (**not a core-roadmap milestone**) — reached gated, opt-in, *measured* real-D3D12-dispatch compute passes with pixel-exact LDR parity (`max_abs = 0`); honest ceiling: **default-disabled / fallback-only, no performance claim, Amdahl 1.0669× hard ceiling**.
 
-> Stable-API snapshot freeze: the MVP close-out keeps it `not_frozen` (the public surface is still converging); the mechanism activates at the first stable release ([`RD-008`](registry/deferred.json)).
+**Since then, three more phases have closed.** **V1** (`v1-closed`, 2026-07-14): the first stable release of the language — tag `v1.0.0`, stabilization report, FCP-lite notice, stable-channel manifest (rurixup), and the first GitHub Release. **MS1** (`ms1-closed`, 2026-07-15): single-source host GPU orchestration (`std::gpu`, RFC-0009 — one `.rx` source produces one EXE with embedded PTX) and **ruridrop**, the first production-grade renderer/simulation written with Rurix as its primary language (application layer contains zero `.rs`; GPU frames match a CPU replay golden **byte-for-byte** in the CI smoke tier; ~68 fps realtime at 1280×720 / 131k particles, measured_local). **MB1** (`mb1-closed`, 2026-07-16): a single Vulkan/SPIR-V cross-platform backend (RFC-0011) covering AMD desktop + Android, compute + graphics; Android on-device runs are **measured on real hardware** (compute bit-exact across three vendors, windowed present + validation-clean); the AMD real-card gate (G-MB1-6) honestly stays **open pending hardware**, and the backend ships as a **preview behind a default-off feature flag** — no cross-vendor performance claim.
+
+> Stable-API snapshot freeze has been **active since the 1.0 release** ([`RD-008`](registry/deferred.json) closed): the stable surface (spec clause IDs + error-code meanings + edition values + the `rx` CLI command set) is anchored by snapshot comparison with bless-gated approval — additive-only within an edition; breaking changes require a new edition.
 
 ## Workspace
 
 | Crate | Responsibility |
 |---|---|
-| `src/rurixc` | Compiler (frontend + MIR + NVPTX backend + borrow/resource checks + formatter + LSP session) |
+| `src/rurixc` | Compiler (frontend + MIR + NVPTX/DXIL/SPIR-V backends + borrow/resource checks + formatter + LSP session) |
 | `src/rurix-rt` | Runtime (CUDA Driver API bindings, execution resources) |
 | `src/rx` | Toolchain CLI (`build`/`check`/`run`/`fmt`/`bench`/`test`/`doc`/`watch`/`vendor`) |
 | `src/rurix-pkg` | Package management (lockfile + vendor + checksum) |
