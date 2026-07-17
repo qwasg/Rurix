@@ -5,8 +5,9 @@
 兑现 10 §7「开源后 CI 自动阻断缺 provenance / 验证输出 / 条款号的 PR」(D-406)。
 扫描 PR 范围(base..HEAD)的每个**非 merge commit**,三类缺项即红(反 YAML-only):
 
-1. **Provenance**:每个 commit 含 `Assisted-by: <tool>:<model>` 或 `Co-Authored-By:`
-   trailer(仓库既有约定 + AGENTS 硬规则 2)。
+1. **Provenance**:每个 commit 含 provenance trailer 之一(仓库既有约定 + AGENTS 硬规则 2):
+   `Assisted-by: <tool>:<model>`(机读冒号形)/ `Assisted-by: <名称> (<模型>)`(人写
+   括号形,语义映射 tool=claude-code;全仓惯例如 `Claude (Fable 5)`)/ `Co-Authored-By:`。
 2. **条款号**:触 `src/**/*.rs` 或 `spec/**/*.md`(README 除外)的语义改动,须在 commit
    body / 新增 diff 行(`//@ spec: RXS-####`)/ 关联 `rfcs/*.md` 之一引用条款号或
    deferred/RFC 编号(`RXS-####` / `RD-###` / `RFC-####` / `MR-####`);纯文档/纯配置/
@@ -36,9 +37,18 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 # —— 规则正则 ——
-# Provenance trailer:`Assisted-by: tool:model` 或 `Co-Authored-By: name <email>`。
+# Provenance trailer,三种等价形(D-406 / 硬规则 2):
+#   1) `Assisted-by: tool:model`(机读冒号形,10 §7 规约原形);
+#   2) `Assisted-by: 名称 (模型)`(人写括号形,全仓惯例如 `Claude (Fable 5)`,
+#      语义映射 tool=claude-code;已合入历史 PR #147/#148/#151 即此形);
+#   3) `Co-Authored-By: name <email>`。
+# 括号形要求名称非空且括号内含非空模型;裸 `Assisted-by: Claude`(无模型)不算。
 PROVENANCE_RE = re.compile(
-    r"(?im)^\s*(?:Assisted-by:\s*\S+:\S+|Co-Authored-By:\s*.+\S)\s*$"
+    r"(?im)^\s*(?:"
+    r"Assisted-by:\s*\S+:\S+"
+    r"|Assisted-by:\s*[^\s:()][^:()\r\n]*\([^()\r\n]*\S[^()\r\n]*\)"
+    r"|Co-Authored-By:\s*.+\S"
+    r")\s*$"
 )
 # 条款号 / deferred / RFC / Mini-RFC 编号(语义改动须引用其一)。
 CLAUSE_ID_RE = re.compile(r"\b(?:RXS-\d{4}|RD-\d{3}|RFC-\d{4}|MR-\d{4})\b")
@@ -88,8 +98,9 @@ def check_commit(rec: CommitRecord) -> list[str]:
     # 规则 1:Provenance trailer。
     if not PROVENANCE_RE.search(rec.message):
         problems.append(
-            "缺 provenance trailer(须含 `Assisted-by: <tool>:<model>` 或 "
-            "`Co-Authored-By:`,D-406 / 硬规则 2)"
+            "缺 provenance trailer(须含 `Assisted-by: <tool>:<model>`、"
+            "`Assisted-by: <名称> (<模型>)` 或 `Co-Authored-By:` 之一,"
+            "D-406 / 硬规则 2)"
         )
 
     # 规则 2:语义改动须引用条款号 / deferred / RFC 编号。
@@ -197,6 +208,26 @@ def red_self_test() -> None:
     good_problems = check_commit(good)
     if good_problems:
         _fail(f"red 自检失败:齐备 commit 被误判有缺项(门过严):{good_problems}")
+    # (c) 人写括号形 provenance(全仓惯例,已合入 PR #147/#148/#151 即此形)→ 应判绿。
+    paren = CommitRecord(
+        sha="",
+        message=(
+            "docs(errata): 修正尾门状态错标\n\n"
+            "Assisted-by: Claude (Fable 5)\n"
+        ),
+        files=["13_DECISION_LOG.md"],
+    )
+    paren_problems = check_commit(paren)
+    if paren_problems:
+        _fail(f"red 自检失败:括号形 provenance 被误判缺项(门过严):{paren_problems}")
+    # (d) 裸 `Assisted-by: Claude`(无模型,既非冒号形也非括号形)→ 仍应判缺(门不得放空)。
+    bare = CommitRecord(
+        sha="",
+        message="docs: touch readme\n\nAssisted-by: Claude\n",
+        files=["README.md"],
+    )
+    if not check_commit(bare):
+        _fail("red 自检失败:裸 `Assisted-by: Claude`(无模型)未被识别为缺项(门失效)")
 
 
 def _fail(msg: str) -> None:
