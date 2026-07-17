@@ -28,6 +28,8 @@
 > **post-V1 延伸(2026-07-14,Mini-RFC/MR-0009)**:本文件续承 **rurixup 工具链前端首切片** 语义面(消费 stable channel 清单的本地版本注册 + 默认切换),续号 **RXS-0187 ~ RXS-0188**(见 §2.7):工具链版本注册表 + 默认切换 / stable channel 消费与 install 内容寻址校验。**复用** RXS-0135 原子安装 content-tree 完整性内核 + RXS-0186 channel 一致性判据 + RXS-0093 content SHA-256;`rurixup install/list/default` 纯 host、纯确定性、零网络端点、零真实 FS 物化。**真实文件系统物化 + 网络拉取 defer RD-025**(真实 IO / 安全包络 / 网络端点面)。依据 [mini-0009-toolchain-frontend.md](../rfcs/mini-0009-toolchain-frontend.md)(agent Approved 2026-07-14)。既有条款 RXS-0135 ~ RXS-0186 条款体 **0-byte**。
 >
 > **EA1.1a 延伸(2026-07-17,Full RFC/RFC-0012)**:本文件续承 **rurixup 真实 FS 物化 + 活跃版本切换**(RD-025 兑现,兑现 §2.7 post-V1 defer 的真实 IO 面),续号 **RXS-0214 ~ RXS-0215**(见 §2.8;**RXS-0189 ~ RXS-0213 已被 MS1/MB1 承接**,续号自 RXS-0214):真实 FS 物化与原子落盘(已校验 bundle 内容树 staging→逐组件 sha256 复核→tree_digest 双向复算→**同卷单次 rename** 原子提交,失败零半装,重装幂等)/ 活跃版本切换(裁决 B shim:argv0 干名转发 default 版同名 exe,退出码透传,防自递归/防逃逸;切换 = 注册表 JSON 单写)。**复用** RXS-0135 原子安装 content-tree 完整性内核 + `rurix-pkg` RXS-0090/0093 content_tree/SHA-256;注册表 schema v1→v2(追加 `install_path`/`tree_digest`,v1 旧条目读入标 registered-only)。`rurixup install --from-dir`/`setup` 纯离线本地源,`unsafe_code=deny` + 零第三方维持。**网络拉取(URL 下载 channel/bundle)+ 四级信任链 defer EA1.1b(RXS-0216 ~ RXS-0217)**。依据 [RFC-0012](../rfcs/0012-toolchain-real-distribution.md)(Approved 2026-07-17,§4.1~4.3 / §5)+ EA1_CONTRACT D-EA1-2 / G-EA1-2。既有条款 RXS-0135 ~ RXS-0213 条款体 **0-byte**。
+>
+> **EA1.1b 延伸(2026-07-17,Full RFC/RFC-0012;裁决 A)**:本文件续承 **rurixup 网络拉取 + 四级内容寻址信任链**(承 EA1.1a 真实 IO 面接通网络端点面,本仓首段网络代码),续号 **RXS-0216 ~ RXS-0217**(见 §2.8):网络拉取载体与端点约束(系统 `curl.exe` 固定参数集、https-only 双 proto 钉死、host 白名单三者、环回 127.0.0.1 + 显式测试 env 唯一豁免,缺省 fail-closed)/ 下载校验 fail-closed 四级内容寻址信任链(repo 锚 `channels/stable.json` → channel 清单 → bundle 清单 → 组件字节,任一级失配 → 拒装 + 清 staging + 零注册;无锚版本拒装[过渡窗];离线/不可达 → 诚实错误,系统 0-byte,不 fake success)。**复用** RXS-0188 内容寻址交叉核对 + RXS-0186 channel 一致性 + RXS-0214 `materialize_to_disk` 级④ 物化内核;载体 = 系统 `curl.exe` 子进程(`std::process`,`unsafe_code=deny` + 零第三方维持)。**pr-smoke 零真实外呼**——网络测试走 hermetic 本地 `http.server` fixture(环回放行仅限显式 env)。依据 [RFC-0012](../rfcs/0012-toolchain-real-distribution.md)(Approved 2026-07-17,§4.4~4.6 / §5;裁决 A 认可全案)+ EA1_CONTRACT D-EA1-3 / G-EA1-3。既有条款 RXS-0135 ~ RXS-0215 条款体 **0-byte**。
 
 ## 2. 条款
 
@@ -368,7 +370,7 @@ ToolchainRegistry::install(&ChannelManifest, &BundleManifest, bundle_json)
 
 > 锚定测试:`src/rurixup/src/toolchain.rs`(`install_consumes_stable_channel_with_verification`:一致 + digest 匹配注册 / 篡改 bundle digest 失配拒 / channel-bundle 不一致拒;`//@ spec: RXS-0188`)。
 
-## 2.8 EA1.1a — rurixup 真实 FS 物化 + 活跃版本切换（RXS-0214 ~ RXS-0215，Full RFC/RFC-0012）
+## 2.8 EA1.1a + EA1.1b — rurixup 真实 FS 物化 + 活跃切换 + 网络拉取 + 四级信任链（RXS-0214 ~ RXS-0217，Full RFC/RFC-0012）
 
 > 兑现 §2.7 post-V1 defer 的**真实 IO 面**(RD-025):把已校验 bundle 内容树**物化到磁盘版本目录**并**切换活跃版本**。**复用** RXS-0135 原子安装 content-tree 完整性内核 + `rurix-pkg` RXS-0090/0093 content_tree/SHA-256(内容寻址),**新增仅补磁盘物化 + shim 切换缺口**;`rurixup install --from-dir`/`setup` 纯离线本地源,**零网络端点**(网络拉取 defer EA1.1b RXS-0216~0217)。物化完整性 / 切换机制以 **content-tree SHA-256 + tree_digest 双向复算 + 磁盘存在性的确定性机器事实** 定义,违例由 `rurixup` **工具层 Result / 退出码 / 机器 token 行**表达,**不引用新 RX 段位码**(§3),**严禁 UB 节**(10 §7.5)。`unsafe_code=deny` + 零第三方依赖维持(shim 转发经 `std::process` 外呼,零 unsafe)。每条 ≥1 测试锚定。依据 [RFC-0012](../rfcs/0012-toolchain-real-distribution.md) §4.1~4.3 / §5。
 
@@ -440,6 +442,74 @@ setup [--add-path]                                           // 缺省只打印;
 
 > 锚定测试:`src/rurixup/src/shim.rs`(`exe_stem_and_home_derivation`:干名判定 + home 派生;`resolve_target_stays_under_toolchains_and_blocks_escape`:目标恒在 toolchains\ 下;`resolve_target_detects_self_recursion`:目标 == 自身判自递归;`//@ spec: RXS-0215`)。
 
+> **EA1.1b(RXS-0216 ~ RXS-0217,裁决 A)延伸**:承 EA1.1a 真实 IO 面接通**网络端点面**(本仓首段网络代码)。网络拉取仅经**系统 `curl.exe` 子进程**(固定参数集、https-only),经 **repo 锚 `channels/stable.json` 四级内容寻址信任链** fail-closed 拉取 channel/bundle/组件;任一级失配 → 拒装/清 staging/零注册。载体/信任链违例由 `rurixup` **工具层 Result / 退出码 / 机器 token `RURIXUP_INSTALL_ERROR: kind=<integrity|network>`** 表达,**不引用新 RX 段位码**(§3),**严禁 UB 节**(10 §7.5)。`unsafe_code=deny` + 零第三方依赖维持(载体经 `std::process` 外呼系统 curl.exe,零 unsafe、零下载 crate)。**pr-smoke 零真实外呼**——网络红绿走 hermetic 本地 `http.server` fixture,环回放行仅限显式 env `RURIXUP_TEST_ALLOW_LOOPBACK_HTTP=1` + 127.0.0.1。每条 ≥1 测试锚定。依据 [RFC-0012](../rfcs/0012-toolchain-real-distribution.md) §4.4~4.6 / §5。
+
+### RXS-0216 网络拉取载体与端点约束（curl.exe，https-only）
+
+**Syntax**(载体封装,`src/rurixup`):
+
+```
+HOST_ALLOWLIST ::= { github.com, objects.githubusercontent.com, raw.githubusercontent.com }
+validate_endpoint(url, allow_loopback_http) -> Result<(Scheme, Host), FetchError>
+build_curl_args(url, output, max_time_secs, allow_loopback_http) -> Result<Vec<String>, FetchError>
+download_to(url, output, max_time_secs, allow_loopback_http) -> Result<(), FetchError>
+FetchError ::= UnsupportedScheme | HostNotAllowed | CurlSpawn | CurlNonZero | Io
+env RURIXUP_TEST_ALLOW_LOOPBACK_HTTP=1                        // 环回 http 唯一豁免开关
+```
+
+**Legality**:
+
+- **固定参数集**(条款锚定,逐参数可审):`curl.exe --fail --silent --show-error --location --proto =https --proto-redir =https --max-redirs 5 --max-time <n> --output <staging路径> <url>`;TLS 信任/代理/吊销全部委托 OS(schannel),与既有「重外部能力经受控外呼」同构(rurixc 外呼 clang/link.exe,签名外呼 PowerShell)。
+- **https-only 双 proto 钉死**:`--proto =https --proto-redir =https` 封死协议降级重定向(github.com → objects.githubusercontent.com 正常跳转保留);curl 只搬运,**完整性判定不信任传输层**——截断/部分下载由 RXS-0217 级④ digest 兜底。
+- **端点 host 白名单** = `HOST_ALLOWLIST` 三者;非白名单 host(https)→ `FetchError::HostNotAllowed`(拒,不 spawn curl)。
+- **环回例外唯一豁免**:host == `127.0.0.1` **且** env `RURIXUP_TEST_ALLOW_LOOPBACK_HTTP=1` 时放行 `http://`(hermetic CI fixture 用),此时 proto 集为 `=http`;**缺省态**(env 未设)任何 host 的 `http://` → `FetchError::UnsupportedScheme`(默认 fail-closed 拒,即协议降级拒)。
+- **载体失败 → 诚实错误退出非 0、零半装**:`curl.exe` spawn 失败(缺失)→ `FetchError::CurlSpawn`;非零退出(离线/DNS/TLS/HTTP≥400/截断)→ `FetchError::CurlNonZero`(stderr 透传);均映射机器 token `RURIXUP_INSTALL_ERROR: kind=network`,系统 0-byte(无版本目录、无注册表)。
+
+**Dynamic Semantics**:
+
+- `validate_endpoint` / `build_curl_args` 为**纯函数**(host 可测,不 spawn):`validate_endpoint` 先判 scheme+host(违规即 `Err`),`build_curl_args` 合规后按 scheme 产固定参数序(https → `--proto =https --proto-redir =https`;放行的环回 http → `--proto =http --proto-redir =http`),其余参数逐字节不变。
+- `download_to` = `validate_endpoint` → `Command::new("curl.exe")`(参数序原样)→ spawn 失败/非零退出即 `Err`;成功后字节落 `output`,**不因 HTTP 200 视作可信**(交 RXS-0217 级联)。
+
+**Implementation Requirements**:
+
+- 载体为**系统 `curl.exe` 子进程**(`std::process`,零 FFI、零第三方,`unsafe_code=deny` 维持)。否决 WinHTTP/schannel FFI(破 unsafe 纪律,裁决 A 若改选登记 `unsafe-audit` U29)与外部 HTTP crate(破零依赖)。失败零新 RX 码,以 `FetchError` + 退出码非 0 + 机器 token `kind=network` 表达(§3)。
+
+> 锚定测试:`src/rurixup/src/fetch.rs`(`build_curl_args_fixed_https_only_set`:固定参数集逐项 + https 双 proto 钉死;`loopback_gating_default_https_only`:缺 env `http://` 拒 / 有 env 环回放行 / 非白名单 host 拒 / https 白名单放行;`//@ spec: RXS-0216`)。
+
+### RXS-0217 下载校验 fail-closed 四级内容寻址信任链
+
+**Syntax**(锚 schema 与信任链级联,`src/rurixup`):
+
+```
+channels/stable.json ::= { schema_version, channel,
+                           releases[ { version, channel_manifest_sha256, base_url } ], latest? }
+Anchor::from_json(text) -> Result<Anchor, String>
+Anchor::release_for(version) -> Option<&AnchorRelease>
+四级级联:① 锚→channel   ② channel→bundle   ③ 一致性   ④ bundle→组件
+```
+
+**Legality**:
+
+- **repo 锚 `channels/stable.json`**(确定性 JSON,无时间戳):`releases[]` 每条目 = (`version`、`channel_manifest_sha256` = 级① 期望 digest、`base_url` = 分发前缀);`latest` 派生自锚而非服务端。锚获取 = `--channel-file <本地路径 | URL>`(URL 经 RXS-0216 载体拉取)。
+- **四级级联,任一级失配 = 拒装 / 清 staging / 退出非 0 / 系统 0-byte**(§4.6 表 11 条失败模式全 fail-closed):
+  - 级① 锚→channel:`sha256(channel_manifest.json 字节流) == 锚 channel_manifest_sha256`(**新增**)。
+  - 级② channel→bundle:`sha256(bundle.json 字节流) == channel 清单 bundle_manifest_sha256`(RXS-0188 复用)。
+  - 级③ 一致性:`channel::consistent`(channel 合法 / 版号 / 组件全集,RXS-0186 复用)。
+  - 级④ bundle→组件:逐组件 sha256 + tree_digest 双向复算全量判据(RXS-0214 `materialize_to_disk` 复用)。
+- **无锚版本拒装**:请求版本不在锚 `releases[]`(锚 PR 合并前的「已发布未登记」过渡窗)→ 拒装(`release_for` 返回 `None` → 诚实错误),不试探服务端。
+- **降级攻击**(端点回喂旧版)在级① 即失配(`latest`/URL 派生自锚);**离线/不可达** → 载体 `kind=network`(RXS-0216),系统 0-byte,**不 fake success**。
+
+**Dynamic Semantics**:
+
+- 网络 install 序:载入锚 → `release_for(version)`(无锚拒装)→ 载体下载 `channel_manifest.json` → 级① → 下载 `bundle.json` → 级② → 解析 bundle + 级③ → 逐组件下载 → 复用 `materialize_to_disk` 级④ + 同卷单次 rename → 注册表 v2 单写。任一级失配 → 清下载/staging、**不写注册表**(回滚,`RURIXUP_INSTALL_ERROR: kind=integrity`)。
+- 级①~③ 判定为纯函数(digest 比较 / 一致性),host 可测不触网;级④ 与 RXS-0214 物化同一内核(逐组件 sha256 + tree_digest 双向复算),因此四级校验的物化面复用既有原子性全有或全无。
+
+**Implementation Requirements**:
+
+- **信任根 = repo**(clone 自建与下载安装同一信任面;不新增服务端信任设施——无 index/无 sumdb/无账号体系);digest 链防「登记后资产篡改 / 传输篡改」,**不防 repo 级失陷**(锚与 Release 资产同一权限域;对冲 = 锚 PR owner 合并人工门 + git 历史可审计,诚实边界进用户文档)。**Authenticode 现状 = 自签测试证书,对外部用户信任贡献为零**;bootstrap 首次获取 `rurixup.exe` 仅 TLS + 手动核对 SHA256SUMS。失败零新 RX 码,以工具层 Result + 退出码非 0 + 机器 token `kind=integrity|network` 表达(§3)。
+
+> 锚定测试:`src/rurixup/src/fetch.rs`(`anchor_parse_and_release_lookup`:锚解析 + `release_for` 命中 / 无锚版本拒装;`level_one_anchor_digest_gate`:级① digest 匹配放行 / 失配拒;`//@ spec: RXS-0217`)。
+
 ## 3. 错误码引用汇总
 
 > **本里程碑不新增 RX 错误码**(零追加)。`rurixup` 为独立发布工具(非编译器前端),其发布门失败诊断(未签名/验签失败 / SBOM 缺失或不全 / 再分发白名单违例 / bundle content-tree 完整性不符)以**工具层错误值 + 退出码 + 失败子门枚举**表达——`InstallError`(`IntegrityMismatch` / `VersionSkew`,RXS-0135)、`SigningManifest::upload_permitted=false`(RXS-0137)、`RedistributionAudit::violations`(RXS-0136)、`ReleaseDecision::failed_gates` + 退出码 2(RXS-0139),**而非编译器侧 `RX####` 段位码**;`registry/error_codes.json` 与 `src/rurixc/src/messages/{en,zh}.messages` **本里程碑不动**(对齐 M8.3 pipeline.md §3「rustc 原生诊断而非 RX 段位码」零追加先例)。
@@ -455,6 +525,8 @@ setup [--add-path]                                           // 缺省只打印;
 > **post-V1(§2.7,RXS-0187 ~ RXS-0188)同样零新增 RX 码**:工具链前端校验失败以工具层 `ToolchainError`(`ManifestInconsistent` / `DigestMismatch` / `UnknownVersion`)+ `rurixup` 退出码 1 表达(镜像 install.rs `InstallError` 先例);`registry/error_codes.json` 与双语 messages post-V1 零追加(bilingual 88/88 不变)。真实 FS 物化 / 网络拉取(RD-025)若成硬需求且确需诊断段位码,则停手标注「需升档」,按段位 7(`RX70xx` 从 **RX7023** 起——RX7021/7022 已被 MS1 消费)续接,不预造。
 >
 > **EA1.1a(§2.8,RXS-0214 ~ RXS-0215)同样零新增 RX 码**:真实 FS 物化失败以工具层 `InstallError`(`IntegrityMismatch` / `ComponentDigestMismatch` / `UnknownComponent` / `VersionSkew` / `Io`)+ `rurixup` 退出码 1 + 机器 token `RURIXUP_INSTALL_ERROR: kind=<integrity|io|usage>` 表达;活跃切换 / shim 代理失败以 `ShimError`(`NoDefault` / `Escape` / `SelfRecursion` / `TargetMissing` / …)+ 退出码非 0 表达。`registry/error_codes.json` 与双语 messages EA1.1a 零追加(bilingual 96/96 不变)。网络拉取(URL 下载,EA1.1b RXS-0216~0217)若确需诊断段位码,则停手标注「需升档」,按段位 7(`RX70xx` 从 **RX7023** 起)续接,不预造。
+>
+> **EA1.1b(§2.8,RXS-0216 ~ RXS-0217)同样零新增 RX 码**:网络拉取载体 / 端点约束失败以工具层 `FetchError`(`UnsupportedScheme` / `HostNotAllowed` / `CurlSpawn` / `CurlNonZero` / `Io`)+ `rurixup` 退出码非 0 + 机器 token `RURIXUP_INSTALL_ERROR: kind=network` 表达;四级内容寻址信任链失配(级①~④)复用 RXS-0214 物化内核判据,以 `InstallError` / 工具层 Result + 退出码非 0 + 机器 token `kind=<integrity|network>` 表达(级①锚 digest / 级②bundle digest / 级③一致性 / 级④组件 digest 全部走 content-tree SHA-256 机器事实,非编译器段位码)。`registry/error_codes.json` 与双语 messages EA1.1b 零追加(bilingual 96/96 不变)。若网络面确需诊断段位码,则停手标注「需升档」,按段位 7(`RX70xx` 从 **RX7023** 起)续接,不预造。
 
 ## 4. 升档 / 禁区留痕
 
@@ -479,3 +551,4 @@ setup [--add-path]                                           // 缺省只打印;
 | v1.3 | 2026-07-14 | V1.2 最小 stable channel 清单语义面延伸(Mini-RFC/MR-0008,agent Approved 2026-07-14;用户同日裁决范围 = 最小清单,V1_CONTRACT §7 ④):§1 续号区间补 RXS-0185 ~ RXS-0186(**RXS-0181~0184 已被 GRX showcase 分支 claim,跳号避撞,编号永不复用 10 §9.5**)+ §2.6 落条款体——RXS-0185 stable channel 清单存在性·字段语义·确定性序列化(channel ∈ {stable} 首版合法集 / rurix 版号拷贝 bundle / `bundle_manifest_sha256` = bundle.json 字节流 SHA-256 内容寻址引用复用 RXS-0093 / 组件干名字典序 / 同一输入两次产逐字节一致、无时间戳;为 rustup 式前端预留锚点,不实现 install/update/channel 切换,nightly 不建)/ RXS-0186 channel 与 bundle 同版号一致性判据 + Release 层发布门延伸(判据 = channel 合法 + 清单版号 == bundle 版号 RXS-0135 判据延续 + 组件全集一一对应;门集追加末位第 8 子门 channel-manifest,清单缺失/漂移/版号不符 → 发布阻断退出码 2;RXS-0139 既有 7 门相对顺序 0-byte;`--simulate-channel-drift` 故障注入真实红绿,CI 步骤 50 `ci/channel_manifest_smoke.py`)。§3 追加 V1.2 零新 RX 码说明(未知 channel 走工具层用法错误退出码 1,确需则 RX7021 续接停手不预造)。**M8.4/G1.5 既有条款 RXS-0135 ~ RXS-0139、RXS-0150 ~ RXS-0152 条款体 0-byte**;stable 快照(RD-008)因条款计数 180→182 同 PR 重 bless + bless_log 追加(RXS-0180 L2 加性演进)。依据 [mini-0008-stable-channel-manifest.md](../rfcs/mini-0008-stable-channel-manifest.md) + V1_CONTRACT D-V1-3 / G-V1-3 + V1_PLAN §2。agent 自主判档,判档争议向上取严,无体例变更 | Mini-RFC(MR-0008) |
 | v1.4 | 2026-07-14 | post-V1 rurixup 工具链前端首切片语义面延伸(Mini-RFC/MR-0009,agent Approved 2026-07-14;兑现 MR-0008 §1 预留的 rustup 式前端锚点,08 §9 D-241 locked 意图):§1 续号区间补 RXS-0187 ~ RXS-0188 + §2.7 落条款体——RXS-0187 工具链版号注册表与默认切换(ToolchainRegistry:多版号注册幂等 + default 指针 + set_default 未注册版号拒 + 确定性序列化 round-trip、无时间戳)/ RXS-0188 stable channel 消费与 install 内容寻址校验(channel 一致性 RXS-0186 + bundle_manifest_sha256 == 实测 sha256(bundle_json)RXS-0093/0135,全有或全无不注册;幂等;首装成 default)。`rurixup install/list/default` 纯 host、纯确定性、零网络端点、零真实 FS 物化;复用 install.rs RXS-0135 原子安装内核 + channel.rs RXS-0186 判据。**真实 FS 物化 + 网络拉取 defer RD-025**(真实 IO/安全包络/网络端点面)。§3 追加 post-V1 零新 RX 码说明(ToolchainError 工具层 + 退出码 1)。**M8.4/G1.5/V1.2 既有条款 RXS-0135 ~ RXS-0186 条款体 0-byte**;stable 快照因条款计数 182→184 同 PR 重 bless + bless_log 追加(RXS-0180 L2 加性演进,同 edition 2026 内只增不破坏);锚定 src/rurixup/src/toolchain.rs 单测 + ci/toolchain_frontend_smoke.py(步骤 51)。依据 [mini-0009-toolchain-frontend.md](../rfcs/mini-0009-toolchain-frontend.md);新增 deferred RD-025(真实 FS 物化 + 网络拉取)。agent 自主判档,判档争议向上取严,无体例变更 | Mini-RFC(MR-0009) |
 | v1.5 | 2026-07-17 | EA1.1a rurixup 真实 FS 物化 + 活跃切换语义面延伸(Full RFC/RFC-0012,Approved 2026-07-17;RD-025 兑现,兑现 §2.7 post-V1 defer 的真实 IO 面):§1 续号区间补 RXS-0214 ~ RXS-0215(**RXS-0189~0213 已被 MS1/MB1 承接,续号自 RXS-0214**)+ §2.8 落带编号条款体——RXS-0214 真实 FS 物化与原子落盘(RURIX_HOME 磁盘布局 + 组件干名→相对路径确定性规则 *.exe→bin/·*.lib→bin/lib/·NvidiaRedist→nvidia/;版号目录仅经「staging 全量校验→同卷单次 rename」诞生;逐组件 sha256 复核 == bundle 声明;tree_digest 双向独立复算不变量 从 bundle 预算 == 从磁盘 collect_dir 重哈希;失败零半装、重装幂等、断电孤儿清理;注册表 schema v1→v2 追加 install_path/tree_digest,v1 旧条目读入标 registered-only;复用 rurix-pkg content_tree/sha256 RXS-0090/0093)/ RXS-0215 活跃切换(裁决 B shim:`<home>\bin\<name>.exe` = rurixup 拷贝一次入 PATH,current_exe 干名≠rurixup → 代理转发 toolchains\<default>\bin\<干名>.exe,参数/退出码/stdio 透传;防逃逸 目标必在 toolchains\ 下 + 防自递归 目标≠自身;切换 = 注册表 JSON 单写,指向缺失目录诚实报错非 0;setup 缺省只打印 PATH 指令、--add-path 显式经 PowerShell SetEnvironmentVariable 改用户 PATH)。条款体 FLS 体例(Syntax/Legality/Dynamic Semantics/Implementation Requirements,**严禁 UB 节**)+ 每条 ≥1 `//@ spec` 单测锚定(`src/rurixup/src/{install,toolchain,shim}.rs`)同 PR 落(条款 commit 先于实现 commit,trace_matrix 209→211 全锚定);**零新 RX 码**(InstallError/ShimError 工具层 + 退出码 + 机器 token `RURIXUP_INSTALL_ERROR: kind=..`,§3 追加 EA1.1a 零新码说明;§3 过期取号文字「RX7021 起」→「RX7023 起」顺手修正,RX7021/7022 已被 MS1 消费)+ 零新 unsafe(`unsafe_code=deny` 维持,shim 转发经 std::process 外呼零 unsafe)+ 零第三方依赖(仅 rurix-pkg);stable 快照因条款计数 209→211 同 PR 重 bless + `tests/stable/bless_log.md` 追加(RXS-0180 L2 加性演进);CI 步骤 59 前半 `ci/rurixup_dist_smoke.py`(纯离线 --from-dir,物化+切换探针+幂等 green / 篡改组件红 / default 错向红 / 复原绿 + red_self_test)。**网络拉取 + 四级信任链 defer EA1.1b(RXS-0216~0217)**。**M8.4/G1.5/V1.2/post-V1 既有条款 RXS-0135 ~ RXS-0213 条款体 0-byte**。依据 [RFC-0012](../rfcs/0012-toolchain-real-distribution.md)(Approved 2026-07-17,§4.1~4.3 / §5)+ EA1_CONTRACT D-EA1-2 / G-EA1-2。不触红线/禁区。 | **Full RFC**(RFC-0012) |
+| v1.6 | 2026-07-17 | EA1.1b rurixup 网络拉取 + 四级内容寻址信任链语义面延伸(Full RFC/RFC-0012,裁决 A 认可全案;承 EA1.1a 真实 IO 面接通本仓首段网络端点面):§1 续号区间补 RXS-0216 ~ RXS-0217 + §2.8 落带编号条款体——RXS-0216 网络拉取载体与端点约束(系统 `curl.exe` 固定参数集 `--fail --silent --show-error --location --proto =https --proto-redir =https --max-redirs 5 --max-time --output`;https-only 双 proto 钉死封死协议降级;端点 host 白名单 github.com/objects.githubusercontent.com/raw.githubusercontent.com;环回 127.0.0.1 + env `RURIXUP_TEST_ALLOW_LOOPBACK_HTTP=1` 唯一豁免 http、缺省 fail-closed 拒;载体失败诚实退出非 0 零半装 + 机器 token kind=network;`validate_endpoint`/`build_curl_args` 纯函数 host 可测)/ RXS-0217 下载校验 fail-closed 四级内容寻址信任链(repo 锚 `channels/stable.json` releases[] 记 channel_manifest_sha256+base_url;级①锚→channel digest 新增 + 级②channel→bundle 复用 RXS-0188 + 级③一致性复用 RXS-0186 + 级④bundle→组件复用 RXS-0214 materialize_to_disk;任一级失配拒装/清 staging/退出非 0/系统 0-byte;无锚版号拒装[过渡窗];降级攻击级①失配;离线不可达诚实错误不 fake success;信任根=repo 不新增服务端信任设施,digest 链不防 repo 级失陷 对冲=锚 PR owner 合并人工门,Authenticode 自签测试证书对外信任贡献为零如实标注)。条款体 FLS 体例(Syntax/Legality/Dynamic Semantics/Implementation Requirements,**严禁 UB 节**)+ 每条 ≥1 `//@ spec` 单测锚定(`src/rurixup/src/fetch.rs`)同 PR 落(条款 commit 先于实现 commit,trace_matrix 211→213 全锚定);**零新 RX 码**(FetchError/InstallError 工具层 + 退出码非 0 + 机器 token `RURIXUP_INSTALL_ERROR: kind=<integrity|network>`,§3 追加 EA1.1b 零新码说明)+ 零新 unsafe(`unsafe_code=deny` 维持,载体经 std::process 外呼系统 curl.exe)+ 零第三方依赖(无下载 crate);stable 快照因条款计数 211→213 同 PR 重 bless + `tests/stable/bless_log.md` 追加(RXS-0180 L2 加性演进);CI 步骤 59 后半 `ci/rurixup_dist_smoke.py`(hermetic 本地 http.server fixture 环回,**pr-smoke 零真实外呼**:完好资产全链 install 绿 / RED 坏字节·坏哈希·截断·协议降级四路各自独立见证 + 端点不可达诚实错误 + 每路 kind 断言 / red_self_test 扩展)。**M8.4/G1.5/V1.2/post-V1/EA1.1a 既有条款 RXS-0135 ~ RXS-0215 条款体 0-byte**。依据 [RFC-0012](../rfcs/0012-toolchain-real-distribution.md)(Approved 2026-07-17,§4.4~4.6 / §5;裁决 A)+ EA1_CONTRACT D-EA1-3 / G-EA1-3。不触红线/禁区。 | **Full RFC**(RFC-0012) |

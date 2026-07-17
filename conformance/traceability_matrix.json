@@ -1184,6 +1184,12 @@
     ],
     "RXS-0215": [
       "src/rurixup/src/shim.rs"
+    ],
+    "RXS-0216": [
+      "src/rurixup/src/fetch.rs"
+    ],
+    "RXS-0217": [
+      "src/rurixup/src/fetch.rs"
     ]
   }
 }

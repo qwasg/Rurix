@@ -529,9 +529,19 @@ jobs:
       # 干名转发 toolchains 内真实 exe 退出 0)→ 幂等;RED:①篡改组件一字节→内容寻址拒
       # 且 toolchains/ 零残留+注册表 0-byte ②default 指向已删目录→诚实报错非 0 ③复原绿;
       # 内建 red_self_test。**防降级硬门**:账面注册/内存提交/mock FS 均不得替代真实磁盘。
-      # 网络拉取后半(hermetic HTTP fixture,RXS-0216/0217)随 EA1.1b 落地。
-      - name: rurixup dist smoke (EA1 CI_GATES §2.59 前半, G-EA1-2, RFC-0012)
+      #
+      # 步骤 59 后半（EA1.1b,契约 G-EA1-3,RFC-0012 / RXS-0216~0217):网络拉取 + 四级
+      # 内容寻址信任链 fail-closed。同一脚本 hermetic 本地 http.server fixture(stdlib,
+      # 127.0.0.1 随机端口)+ 系统 curl.exe 载体,`RURIXUP_TEST_ALLOW_LOOPBACK_HTTP=1`
+      # 放行环回 http:GREEN 全链网络 install 物化;RED 四路各自独立见证——①组件坏一字节
+      # (级④→kind=integrity)②清单坏哈希(级①锚失配→kind=integrity)③截断传输(curl
+      # 部分传输→kind=network)④协议降级(缺 env 默认态拒 http→kind=network)——+ 端点
+      # 不可达(fixture 关→kind=network + 系统 0-byte,不 fake success)。**pr-smoke 零
+      # 真实外呼**——fixture 进程为唯一网络面;环回放行仅限显式 env + 127.0.0.1,缺省 fail-closed。
+      - name: rurixup dist smoke (EA1 CI_GATES §2.59 前半+后半, G-EA1-2/G-EA1-3, RFC-0012)
         shell: powershell
+        env:
+          RURIXUP_TEST_ALLOW_LOOPBACK_HTTP: "1"
         run: py -3 ci/rurixup_dist_smoke.py
 
       - name: budget evaluator load (CI_GATES §3.6)

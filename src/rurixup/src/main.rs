@@ -18,7 +18,7 @@ use rurixup::bundle::{BundleManifest, Component, Partition};
 use rurixup::install::{self, MaterializeReceipt};
 use rurixup::signing::{SignBackend, SignStatus, SignedArtifact, SigningManifest};
 use rurixup::toolchain::ToolchainRegistry;
-use rurixup::{CiFacts, Faults, channel, json_escape, run_release, shim};
+use rurixup::{CiFacts, Faults, channel, fetch, json_escape, run_release, shim};
 
 fn main() -> ExitCode {
     // 活跃版本切换 shim(RXS-0215):current_exe 干名 ≠ "rurixup" → 代理转发 default
@@ -61,6 +61,7 @@ fn print_usage() {
          rurixup release --version <ver> --component '...' --sign '...' [选项] --out-dir <dir>\n  \
          rurixup install --channel-manifest <path> --bundle <path> [--registry <path>]\n  \
          rurixup install --from-dir <dir> [--registry <path>] [--home <dir>]   (真实 FS 物化,RXS-0214)\n  \
+         rurixup install <version> --channel-file <锚|URL> [--registry <path>] [--home <dir>] [--max-time <s>]   (网络拉取 + 四级校验,RXS-0216/0217)\n  \
          rurixup list [--registry <path>] [--verify]\n  \
          rurixup default <version> [--registry <path>] [--home <dir>]\n  \
          rurixup setup [--add-path] [--home <dir>]   (缺省只打印 PATH 接入指令,RXS-0215)\n\
@@ -80,6 +81,25 @@ fn opt_arg(args: &[String], flag: &str) -> Option<String> {
     args.iter()
         .position(|a| a == flag)
         .and_then(|i| args.get(i + 1).cloned())
+}
+
+/// 取第一个位置参数(跳过 `--flag` 及其紧随取值,防把 flag 值误当位置参数)。
+/// `value_flags` = 取值的 flag 集(其后一个 token 为值,须跳过)。
+fn first_positional(args: &[String], value_flags: &[&str]) -> Option<String> {
+    let mut i = 0;
+    while i < args.len() {
+        let a = &args[i];
+        if a.starts_with("--") {
+            if value_flags.contains(&a.as_str()) {
+                i += 2; // 跳过 flag + 值
+            } else {
+                i += 1; // 布尔 flag
+            }
+            continue;
+        }
+        return Some(a.clone());
+    }
+    None
 }
 
 /// 注册表原子写(RXS-0214 动态语义(5) + RXS-0215「单写原子」):同目录 `.tmp` 先落
@@ -107,6 +127,16 @@ fn write_registry_atomic(path: &str, json: &str) -> Result<(), String> {
 fn cmd_install(args: &[String]) -> Result<ExitCode, String> {
     if let Some(from_dir) = opt_arg(args, "--from-dir") {
         return cmd_install_from_dir(args, &from_dir);
+    }
+    // EA1.1b(RXS-0216/0217):`install <version> --channel-file <锚>` 网络路径
+    // (repo 锚 → channel → bundle → 组件,系统 curl.exe 载体 + 四级内容寻址信任链)。
+    if let Some(channel_file) = opt_arg(args, "--channel-file") {
+        let version = first_positional(
+            args,
+            &["--channel-file", "--registry", "--home", "--max-time"],
+        )
+        .ok_or("网络 install 缺 <version> 位置参数")?;
+        return cmd_install_network(args, &version, &channel_file);
     }
 
     let manifest_path = opt_arg(args, "--channel-manifest").ok_or("缺 --channel-manifest")?;
@@ -164,19 +194,48 @@ fn cmd_install(args: &[String]) -> Result<ExitCode, String> {
 /// sha256→tree_digest 双向复算→同卷单次 rename)→ 注册表 v2 单写(install_path +
 /// tree_digest)。**任一校验失败** → 不写注册表(materialize 已清 staging、零残留)。
 fn cmd_install_from_dir(args: &[String], from_dir: &str) -> Result<ExitCode, String> {
-    let dir = Path::new(from_dir);
     let registry_path = opt_arg(args, "--registry").unwrap_or_else(|| "toolchains.json".into());
     // --home 覆盖 RURIX_HOME(测试缝);缺省用 install::rurix_home()。
     let home = match opt_arg(args, "--home") {
         Some(h) => std::path::PathBuf::from(h),
         None => install::rurix_home().map_err(|e| fs_err_report(&format!("{e:?}")))?,
     };
+    // 本地目录源:级① 无锚(anchor_digest=None);②③④ 与网络路径同一内核。
+    install_verified_dir(Path::new(from_dir), &home, &registry_path, None)
+}
+
+/// **四级内容寻址信任链的物化内核**(RXS-0217;`--from-dir` 与网络路径共用):
+/// 从 `dir`(含 `channel_manifest.json` + `bundle.json` + 逐组件干名字节)执行——
+/// - 级①(仅 `anchor_digest=Some`,网络路径):`sha256(channel_manifest.json 字节)` == 锚声明;
+/// - 级② 内容寻址:清单声明 `bundle_manifest_sha256` == 实测 `sha256(bundle_json)`(RXS-0188);
+/// - 级③ 一致性:`channel::generate`(channel ∈ 合法集 + 组件全集,RXS-0186);
+/// - 级④ 真实 FS 物化:`materialize_to_disk`(逐组件 sha256 + tree_digest 双向复算 + 同卷单次 rename,RXS-0214);
+///
+/// 任一级失配 → `RURIXUP_INSTALL_ERROR: kind=integrity` + 退出非 0,物化已清 staging、
+/// **不写注册表**(零半装)。成功 → 注册表 v2 单写。
+fn install_verified_dir(
+    dir: &Path,
+    home: &Path,
+    registry_path: &str,
+    anchor_digest: Option<&str>,
+) -> Result<ExitCode, String> {
+    let manifest_path = dir.join("channel_manifest.json");
+    let manifest_text = std::fs::read_to_string(&manifest_path)
+        .map_err(|e| fs_err_report(&format!("读 {} 失败:{e}", manifest_path.display())))?;
+
+    // 级① 锚→channel(仅网络路径):sha256(channel_manifest 字节流) == 锚声明 digest。
+    if let Some(anchor) = anchor_digest {
+        let manifest_actual = rurix_pkg::sha256::hex_digest(manifest_text.as_bytes());
+        if anchor != manifest_actual {
+            return Err(integrity_report(&format!(
+                "级① 锚→channel 失配:channel_manifest.json 实测 {manifest_actual} != 锚声明 {anchor}(篡改/错版)"
+            )));
+        }
+    }
 
     let bundle_json = std::fs::read_to_string(dir.join("bundle.json"))
-        .map_err(|e| fs_err_report(&format!("读 {}/bundle.json 失败:{e}", from_dir)))?;
+        .map_err(|e| fs_err_report(&format!("读 {}/bundle.json 失败:{e}", dir.display())))?;
     let bundle = BundleManifest::from_json(&bundle_json).map_err(|e| integrity_report(&e))?;
-    let manifest_text = std::fs::read_to_string(dir.join("channel_manifest.json"))
-        .map_err(|e| fs_err_report(&format!("读 {}/channel_manifest.json 失败:{e}", from_dir)))?;
     let declared_channel = json_string_field(&manifest_text, "channel")
         .ok_or_else(|| integrity_report("channel_manifest.json 缺 channel"))?;
     let declared_digest = json_string_field(&manifest_text, "bundle_manifest_sha256")
@@ -186,7 +245,7 @@ fn cmd_install_from_dir(args: &[String], from_dir: &str) -> Result<ExitCode, Str
     let actual = rurix_pkg::sha256::hex_digest(bundle_json.as_bytes());
     if declared_digest != actual {
         return Err(integrity_report(&format!(
-            "channel 清单 bundle_manifest_sha256 与实测 bundle 不符(声明 {declared_digest} != 实测 {actual})"
+            "级② channel→bundle 失配:bundle_manifest_sha256 声明 {declared_digest} != 实测 {actual}"
         )));
     }
     // 级③ 一致性:由 bundle 重生规范 channel 清单(channel ∈ 合法集 + 组件全集,RXS-0186)。
@@ -203,13 +262,13 @@ fn cmd_install_from_dir(args: &[String], from_dir: &str) -> Result<ExitCode, Str
     }
 
     // 级④ 真实 FS 物化(逐组件 sha256 + tree_digest 双向复算 + 同卷单次 rename)。
-    let receipt: MaterializeReceipt = install::materialize_to_disk(&home, &bundle, &staged)
-        .map_err(|e| integrity_report(&format!("物化失败:{e:?}")))?;
+    let receipt: MaterializeReceipt = install::materialize_to_disk(home, &bundle, &staged)
+        .map_err(|e| integrity_report(&format!("级④ bundle→组件 物化失败:{e:?}")))?;
 
     // 物化成功 → 注册表 v2 单写(install_path + tree_digest);失败前绝不触注册表。
-    let mut registry = if std::path::Path::new(&registry_path).exists() {
+    let mut registry = if std::path::Path::new(registry_path).exists() {
         ToolchainRegistry::from_json(
-            &std::fs::read_to_string(&registry_path)
+            &std::fs::read_to_string(registry_path)
                 .map_err(|e| fs_err_report(&format!("读 {registry_path} 失败:{e}")))?,
         )
         .map_err(|e| integrity_report(&e))?
@@ -222,8 +281,10 @@ fn cmd_install_from_dir(args: &[String], from_dir: &str) -> Result<ExitCode, Str
         &receipt.install_path.to_string_lossy(),
         &receipt.tree_digest,
     );
-    write_registry_atomic(&registry_path, &registry.to_json()).map_err(|e| fs_err_report(&e))?;
+    write_registry_atomic(registry_path, &registry.to_json()).map_err(|e| fs_err_report(&e))?;
 
+    // digest_levels_verified=4:from-dir = 内容寻址②/一致性③/逐组件④/tree_digest 双向;
+    // 网络 = 锚①/②/③/④(级① 锚 digest 已在上方核过)。既有 from-dir 摘要字段 0-byte。
     println!(
         "RURIXUP_INSTALL: version={} channel={} default={} registered={} components={} digest_levels_verified=4 installed={}",
         receipt.version,
@@ -234,6 +295,148 @@ fn cmd_install_from_dir(args: &[String], from_dir: &str) -> Result<ExitCode, Str
         receipt.install_path.display(),
     );
     Ok(ExitCode::SUCCESS)
+}
+
+/// `rurixup install <version> --channel-file <锚>`(RXS-0216/0217,EA1.1b):网络路径。
+///
+/// `<锚>` = repo 锚 `channels/stable.json`(本地路径或 URL,URL 经系统 curl.exe 载体拉取)。
+/// 流程:载入锚 → `release_for(version)`(**无锚版号拒装**)→ 经 base_url 逐件下载
+/// `channel_manifest.json` / `bundle.json` / 逐组件字节到本地下载暂存 → 复用
+/// [`install_verified_dir`](级① 锚 digest + ②③④)→ 物化 + 注册。载体失败 → 机器
+/// token `RURIXUP_INSTALL_ERROR: kind=network`,系统 0-byte(不 fake success)。
+fn cmd_install_network(
+    args: &[String],
+    version: &str,
+    channel_file: &str,
+) -> Result<ExitCode, String> {
+    let registry_path = opt_arg(args, "--registry").unwrap_or_else(|| "toolchains.json".into());
+    let home = match opt_arg(args, "--home") {
+        Some(h) => std::path::PathBuf::from(h),
+        None => install::rurix_home().map_err(|e| fs_err_report(&format!("{e:?}")))?,
+    };
+    let max_time: u64 = opt_arg(args, "--max-time")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(300);
+    let allow_loopback = fetch::loopback_allowed_from_env();
+
+    // 载入锚(本地路径 / URL);URL 经系统 curl.exe 载体拉取到临时锚文件。
+    let anchor_text = if is_url(channel_file) {
+        let tmp = home.join("tmp");
+        std::fs::create_dir_all(&tmp).map_err(|e| fs_err_report(&format!("建 tmp 失败:{e}")))?;
+        let anchor_path = tmp.join(format!(".anchor-{}.json", staging_nonce()));
+        fetch::download_to(channel_file, &anchor_path, max_time, allow_loopback)
+            .map_err(|e| network_report(&format!("拉取锚 {channel_file} 失败:{e}")))?;
+        let t = std::fs::read_to_string(&anchor_path)
+            .map_err(|e| fs_err_report(&format!("读锚暂存 {} 失败:{e}", anchor_path.display())))?;
+        let _ = std::fs::remove_file(&anchor_path);
+        t
+    } else {
+        std::fs::read_to_string(channel_file)
+            .map_err(|e| fs_err_report(&format!("读锚 {channel_file} 失败:{e}")))?
+    };
+
+    let anchor = fetch::Anchor::from_json(&anchor_text).map_err(|e| integrity_report(&e))?;
+    // 无锚版号拒装(「已发布未登记」过渡窗;不试探服务端)。
+    let rel = anchor.release_for(version).ok_or_else(|| {
+        integrity_report(&format!(
+            "版号 {version} 不在 repo 锚 releases[](已发布未登记过渡窗,或版号无效)→ 拒装"
+        ))
+    })?;
+    let base = ensure_trailing_slash(&rel.base_url);
+
+    // 下载暂存目录(与 toolchains\ 同卷,materialize staging 亦在 home\tmp 下)。
+    let dl = home
+        .join("tmp")
+        .join(format!(".download-{version}-{}", staging_nonce()));
+    let _ = std::fs::remove_dir_all(&dl);
+    std::fs::create_dir_all(&dl)
+        .map_err(|e| fs_err_report(&format!("建下载暂存 {} 失败:{e}", dl.display())))?;
+    // 失败/成功均清下载暂存(materialize 已把校验字节搬进独立 staging)。
+    let cleanup_dl = |p: &Path| {
+        let _ = std::fs::remove_dir_all(p);
+    };
+
+    // 载体下载 channel_manifest.json + bundle.json。
+    for name in ["channel_manifest.json", "bundle.json"] {
+        if let Err(e) = fetch::download_to(
+            &format!("{base}{name}"),
+            &dl.join(name),
+            max_time,
+            allow_loopback,
+        ) {
+            cleanup_dl(&dl);
+            return Err(network_report(&format!("下载 {name} 失败:{e}")));
+        }
+    }
+    // 读 bundle.json 得组件清单(逐件下载)。
+    let bundle_json = match std::fs::read_to_string(dl.join("bundle.json")) {
+        Ok(t) => t,
+        Err(e) => {
+            cleanup_dl(&dl);
+            return Err(fs_err_report(&format!("读下载 bundle.json 失败:{e}")));
+        }
+    };
+    let bundle = match BundleManifest::from_json(&bundle_json) {
+        Ok(b) => b,
+        Err(e) => {
+            cleanup_dl(&dl);
+            return Err(integrity_report(&e));
+        }
+    };
+    for c in &bundle.components {
+        if let Err(e) = fetch::download_to(
+            &format!("{base}{}", c.name),
+            &dl.join(&c.name),
+            max_time,
+            allow_loopback,
+        ) {
+            cleanup_dl(&dl);
+            return Err(network_report(&format!("下载组件 {} 失败:{e}", c.name)));
+        }
+    }
+
+    // 复用四级信任链物化内核(级① = 锚 channel_manifest_sha256)。
+    let result = install_verified_dir(
+        &dl,
+        &home,
+        &registry_path,
+        Some(&rel.channel_manifest_sha256),
+    );
+    cleanup_dl(&dl);
+    result
+}
+
+/// 判定 `--channel-file` 参数是否为 URL(http/https scheme)。
+fn is_url(s: &str) -> bool {
+    s.starts_with("http://") || s.starts_with("https://")
+}
+
+/// base_url 补尾斜杠(拼接 `<base><name>` 用)。
+fn ensure_trailing_slash(base: &str) -> String {
+    if base.ends_with('/') {
+        base.to_string()
+    } else {
+        format!("{base}/")
+    }
+}
+
+/// 进程内唯一暂存后缀(下载/锚暂存名;不入任何 digest)。
+fn staging_nonce() -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let pid = std::process::id();
+    let seq = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    format!("{pid}-{seq}-{nanos}")
+}
+
+/// 网络载体失败诊断(机器 token `RURIXUP_INSTALL_ERROR: kind=network`)。
+fn network_report(detail: &str) -> String {
+    println!("RURIXUP_INSTALL_ERROR: kind=network");
+    detail.to_string()
 }
 
 /// 完整性/内容寻址失败诊断(机器 token `RURIXUP_INSTALL_ERROR: kind=integrity`)。

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""rurixup 真实分发冒烟(EA1.1a / RFC-0012,CI 步骤 59 前半,RXS-0214 ~ RXS-0215)。
+"""rurixup 真实分发冒烟(EA1.1a+EA1.1b / RFC-0012,CI 步骤 59 前半+后半,RXS-0214 ~ RXS-0217)。
 
 契约 G-EA1-2 防降级硬门(**真实磁盘物化,账面注册/内存提交/mock 文件系统均不得
 替代**),spec/release.md RXS-0214(真实 FS 物化)+ RXS-0215(活跃切换)。纯离线
@@ -25,12 +25,23 @@
   内建 red_self_test:把断言反向喂进纯判定层,证明 smoke 能区分红/绿(反 YAML-only)。
 
 无 device / 无网络;不 SKIP 充绿(仅无 cargo 工具链时降级 SKIP)。退出码:0=绿;非零=红。
+EA1.1b 后半(hermetic 环回 HTTP,RXS-0216/0217):Python `http.server`(stdlib,零第三方)
+起本地 fixture 于 127.0.0.1 随机端口,served = 真实构建产物组件 + 真算 digest 清单链;
+`RURIXUP_TEST_ALLOW_LOOPBACK_HTTP=1` 下经系统 curl.exe 全链网络 install 物化绿;RED 四路
+各自独立见证——①组件坏一字节(级④)②清单坏哈希(级①锚失配)③截断传输(curl 部分)
+④协议降级(缺 env 拒 http)——+ 端点不可达(fixture 关)诚实 network 错误 + 系统 0-byte;
+每路断言 RURIXUP_INSTALL_ERROR kind。**pr-smoke 零真实外呼**——fixture 进程为唯一网络面。
 """
+import hashlib
+import http.server
 import json
+import os
 import re
+import socketserver
 import subprocess
 import sys
 import tempfile
+import threading
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -64,6 +75,11 @@ def install_succeeded(exit_code: int, toolchains_exists: bool, registry_exists: 
     return exit_code == 0 and toolchains_exists and registry_exists
 
 
+def has_kind(stdout: str, kind: str) -> bool:
+    """机器 token 判据:stdout 含 `RURIXUP_INSTALL_ERROR: kind=<kind>`。纯函数。"""
+    return f"RURIXUP_INSTALL_ERROR: kind={kind}" in (stdout or "")
+
+
 def red_self_test() -> None:
     """反 YAML-only:合成红/绿场景喂纯判定层,断言门能区分。门失效即红。"""
     # (a) 干净拒装(退出 1 + 零残留)→ 应判「被拒」。
@@ -80,6 +96,13 @@ def red_self_test() -> None:
         fail("red 自检失败:成功安装未被识别(门过严)")
     if install_succeeded(1, True, True):
         fail("red 自检失败:退出非 0 被误判为成功(门失效)")
+    # (e) 网络机器 token(EA1.1b):kind 提取正/反。
+    if not has_kind("RURIXUP_INSTALL_ERROR: kind=network\n其它", "network"):
+        fail("red 自检失败:network token 未被识别(门失效)")
+    if has_kind("RURIXUP_INSTALL: version=1.1.0", "network"):
+        fail("red 自检失败:成功摘要被误判含 network token(门过松)")
+    if has_kind("RURIXUP_INSTALL_ERROR: kind=integrity", "network"):
+        fail("red 自检失败:integrity 被误判为 network(kind 串扰,门失效)")
 
 
 # ————————————————— IO / 工具层 —————————————————
@@ -143,11 +166,206 @@ def make_fixture(rurixup: Path, rx: Path, wd: Path, ver: str) -> Path:
     return fromdir
 
 
-def install_env(home: Path) -> dict:
-    import os
+def install_env(home: Path, loopback: bool = False) -> dict:
     env = dict(os.environ)
     env["RURIX_HOME"] = str(home)
+    if loopback:
+        env["RURIXUP_TEST_ALLOW_LOOPBACK_HTTP"] = "1"
+    else:
+        env.pop("RURIXUP_TEST_ALLOW_LOOPBACK_HTTP", None)
     return env
+
+
+# ————————————————— EA1.1b hermetic 环回 HTTP fixture(RXS-0216/0217)—————————————————
+
+# 截断标记:{相对路径: True} → 该资源声明完整 Content-Length 但只发半个 body(curl 部分传输)。
+_TRUNCATE: dict = {}
+
+
+def _make_handler(served_dir: Path):
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def log_message(self, *_a):  # 静默(pr-smoke 干净输出)
+            pass
+
+        def do_GET(self):
+            rel = self.path.lstrip("/").split("?", 1)[0]
+            fp = served_dir / rel
+            if not fp.is_file():
+                self.send_error(404, "not found")
+                return
+            data = fp.read_bytes()
+            if _TRUNCATE.get(rel):
+                # 声明完整长度但只发一半 → 提前关闭 → curl 报部分传输(exit 18)。
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                try:
+                    self.wfile.write(data[: max(1, len(data) // 2)])
+                except Exception:
+                    pass
+                return
+            self.send_response(200)
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+    return Handler
+
+
+def start_fixture(served_dir: Path):
+    """起本地 http.server 于 127.0.0.1 随机端口(daemon 线程),返回 (httpd, base_url)。"""
+    httpd = socketserver.TCPServer(("127.0.0.1", 0), _make_handler(served_dir))
+    httpd.timeout = 5
+    port = httpd.server_address[1]
+    t = threading.Thread(target=httpd.serve_forever, daemon=True)
+    t.start()
+    return httpd, f"http://127.0.0.1:{port}/"
+
+
+def write_anchor(anchor_path: Path, ver: str, base_url: str, channel_manifest_bytes: bytes) -> None:
+    """写 repo 锚 channels/stable.json(本地文件,base_url 指向 fixture;级① digest 真算)。"""
+    digest = hashlib.sha256(channel_manifest_bytes).hexdigest()
+    anchor = {
+        "schema_version": 1,
+        "channel": "stable",
+        "releases": [
+            {"version": ver, "channel_manifest_sha256": digest, "base_url": base_url}
+        ],
+        "latest": ver,
+    }
+    # 规范缩进(与 fetch.rs line-scan 解析形态对齐:每字段独立行)。
+    lines = ["{", '  "schema_version": 1,', '  "channel": "stable",', '  "releases": [', "    {",
+             f'      "version": "{ver}",',
+             f'      "channel_manifest_sha256": "{digest}",',
+             f'      "base_url": "{base_url}"',
+             "    }", "  ],", f'  "latest": "{ver}"', "}", ""]
+    anchor_path.write_bytes("\n".join(lines).encode("utf-8"))
+    # anchor 变量仅用于交叉核对 digest 一致(防手写 JSON 与结构漂移)。
+    assert json.loads(anchor_path.read_text(encoding="utf-8"))["releases"][0]["channel_manifest_sha256"] == digest
+    assert anchor["latest"] == ver
+
+
+def net_install(rurixup: Path, ver: str, anchor: Path, home: Path, reg: Path, loopback: bool):
+    """跑网络 install:`rurixup install <ver> --channel-file <anchor> --registry <reg> --home <home>`。"""
+    return run(
+        [str(rurixup), "install", ver, "--channel-file", str(anchor),
+         "--registry", str(reg), "--home", str(home), "--max-time", "30"],
+        env=install_env(home, loopback=loopback),
+    )
+
+
+def net_half(rurixup: Path, rx: Path, ver: str, wd: Path):
+    """EA1.1b 后半:hermetic 环回 HTTP 全链 install 绿 + 四路 RED + 不可达。"""
+    served = wd / "served"
+    served.mkdir(parents=True, exist_ok=True)
+    # served 资产 = 真实构建产物 + 真算 digest 清单链(复用 make_fixture 布局)。
+    fx = make_fixture(rurixup, rx, wd / "netfx", ver)
+    for name in ("rx.exe", "rurixup.exe", "bundle.json", "channel_manifest.json"):
+        (served / name).write_bytes((fx / name).read_bytes())
+
+    httpd, base_url = start_fixture(served)
+    try:
+        anchor = wd / "stable.json"
+        write_anchor(anchor, ver, base_url, (served / "channel_manifest.json").read_bytes())
+
+        # —————————————————— GREEN(全链网络物化)——————————————————
+        home = wd / "nethome"
+        reg = home / "toolchains.json"
+        r = net_install(rurixup, ver, anchor, home, reg, loopback=True)
+        tdir = home / "toolchains" / ver
+        if not install_succeeded(r.returncode, tdir.is_dir(), reg.is_file()):
+            fail(f"后半 GREEN 网络 install 未成功(exit={r.returncode} dir={tdir.is_dir()} "
+                 f"reg={reg.is_file()}):{r.stdout[-400:]}\n{r.stderr[-400:]}")
+        s = tokens(r.stdout, "RURIXUP_INSTALL:")
+        if s.get("version") != ver or s.get("digest_levels_verified") != "4" or s.get("components") != "2":
+            fail(f"后半 GREEN install 摘要不符:{s}")
+        # 磁盘逐字节 == 源(经 curl 真下载 + 四级校验 + 物化)。
+        if (tdir / "bin" / "rx.exe").read_bytes() != rx.read_bytes():
+            fail("后半 GREEN 物化 rx.exe 与源逐字节不等(防降级:非真实下载物化)")
+        print(f"[dist_smoke] 后半 GREEN ✓ 环回 HTTP 全链 install {ver} 物化(curl→四级校验→rename)+ 逐字节==源")
+
+        # —————————————————— RED① 组件坏一字节(级④)——————————————————
+        good_rx = (served / "rx.exe").read_bytes()
+        b = bytearray(good_rx)
+        b[100] ^= 0xFF
+        (served / "rx.exe").write_bytes(bytes(b))
+        home1 = wd / "nethome_r1"
+        reg1 = home1 / "toolchains.json"
+        r = net_install(rurixup, ver, anchor, home1, reg1, loopback=True)
+        if not install_rejected_cleanly(r.returncode, (home1 / "toolchains" / ver).exists(), reg1.is_file()):
+            fail(f"RED① 坏组件未干净拒装(exit={r.returncode}):{r.stdout[-300:]}\n{r.stderr[-300:]}")
+        if not has_kind(r.stdout, "integrity"):
+            fail(f"RED① 缺 integrity token:{r.stdout[-300:]}")
+        _assert_no_staging(home1)
+        (served / "rx.exe").write_bytes(good_rx)  # 复原
+        print("[dist_smoke] RED① ✓ 组件坏字节 → 级④ 内容寻址拒(kind=integrity)+ 零半装 + staging 零残留")
+
+        # —————————————————— RED② 清单坏哈希(级①锚失配)——————————————————
+        good_mf = (served / "channel_manifest.json").read_bytes()
+        # 保持合法 UTF-8/JSON 前提下改字节(改 channel 值一字母)→ 级① 哈希失配
+        # (级① 为纯字节 sha256 对比,先于任何解析;不制造无效 UTF-8 令 read 早失败)。
+        mf_text = good_mf.decode("utf-8")
+        tampered_text = mf_text.replace('"stable"', '"stablx"', 1)
+        if tampered_text == mf_text:
+            fail("RED② 构造失败:channel_manifest 未含预期 stable 令牌")
+        (served / "channel_manifest.json").write_bytes(tampered_text.encode("utf-8"))
+        home2 = wd / "nethome_r2"
+        reg2 = home2 / "toolchains.json"
+        r = net_install(rurixup, ver, anchor, home2, reg2, loopback=True)
+        if not install_rejected_cleanly(r.returncode, (home2 / "toolchains" / ver).exists(), reg2.is_file()):
+            fail(f"RED② 坏清单哈希未干净拒装(exit={r.returncode}):{r.stdout[-300:]}")
+        if not has_kind(r.stdout, "integrity"):
+            fail(f"RED② 缺 integrity token(级①锚失配):{r.stdout[-300:]}")
+        (served / "channel_manifest.json").write_bytes(good_mf)  # 复原
+        print("[dist_smoke] RED② ✓ 清单坏哈希 → 级①锚→channel 失配拒(kind=integrity)")
+
+        # —————————————————— RED③ 截断传输(curl 部分)——————————————————
+        _TRUNCATE["rx.exe"] = True
+        home3 = wd / "nethome_r3"
+        reg3 = home3 / "toolchains.json"
+        r = net_install(rurixup, ver, anchor, home3, reg3, loopback=True)
+        _TRUNCATE.pop("rx.exe", None)
+        if not install_rejected_cleanly(r.returncode, (home3 / "toolchains" / ver).exists(), reg3.is_file()):
+            fail(f"RED③ 截断未干净拒装(exit={r.returncode}):{r.stdout[-300:]}")
+        if not has_kind(r.stdout, "network"):
+            fail(f"RED③ 缺 network token(curl 部分传输):{r.stdout[-300:]}\n{r.stderr[-300:]}")
+        _assert_no_staging(home3)
+        print("[dist_smoke] RED③ ✓ 截断传输 → curl 部分传输非零退出(kind=network)+ 零半装")
+
+        # —————————————————— RED④ 协议降级(缺 env 拒 http)——————————————————
+        home4 = wd / "nethome_r4"
+        reg4 = home4 / "toolchains.json"
+        r = net_install(rurixup, ver, anchor, home4, reg4, loopback=False)  # 无 env 标志
+        if not install_rejected_cleanly(r.returncode, (home4 / "toolchains" / ver).exists(), reg4.is_file()):
+            fail(f"RED④ 协议降级未干净拒装(exit={r.returncode}):{r.stdout[-300:]}")
+        if not has_kind(r.stdout, "network"):
+            fail(f"RED④ 缺 network token(默认态 https-only 拒 http):{r.stdout[-300:]}")
+        print("[dist_smoke] RED④ ✓ 协议降级 → 缺 env 默认态拒 http://127.0.0.1(kind=network,https-only fail-closed)")
+
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+
+    # —————————————————— 端点不可达(fixture 已关)——————————————————
+    home5 = wd / "nethome_r5"
+    reg5 = home5 / "toolchains.json"
+    r = net_install(rurixup, ver, anchor, home5, reg5, loopback=True)
+    if not install_rejected_cleanly(r.returncode, (home5 / "toolchains" / ver).exists(), reg5.is_file()):
+        fail(f"不可达未干净拒装(exit={r.returncode}):{r.stdout[-300:]}")
+    if not has_kind(r.stdout, "network"):
+        fail(f"不可达缺 network token(curl 连接失败):{r.stdout[-300:]}\n{r.stderr[-300:]}")
+    print("[dist_smoke] 不可达 ✓ fixture 关闭 → curl 连接失败(kind=network)+ 系统 0-byte,不 fake success")
+    print("[dist_smoke] 后半 PASS(hermetic 环回 HTTP:GREEN 全链 / RED①坏字节 ②坏哈希 ③截断 ④协议降级 / 不可达;零真实外呼)")
+
+
+def _assert_no_staging(home: Path):
+    """断言 home\\tmp 下无 .staging- / .download- 残留(零半装辅助)。"""
+    tmp = home / "tmp"
+    if tmp.is_dir():
+        for e in tmp.iterdir():
+            nm = e.name
+            if nm.startswith(".staging-") or nm.startswith(".download-"):
+                fail(f"staging/download 残留未清:{e}")
 
 
 def main():
@@ -258,7 +476,11 @@ def main():
                  "--registry", str(reg)], env=install_env(home))
         if not install_succeeded(r.returncode, toolchain_dir.is_dir(), reg.is_file()):
             fail(f"复原绿失败(exit={r.returncode})")
-        print("[dist_smoke] PASS 复原绿(红绿闭合;GREEN+切换探针+幂等 / RED①篡改 / RED②错向)")
+        print("[dist_smoke] 前半 PASS 复原绿(红绿闭合;GREEN+切换探针+幂等 / RED①篡改 / RED②错向)")
+
+        # —————————————————— EA1.1b 后半:hermetic 环回 HTTP 网络拉取 ——————————————————
+        net_half(rurixup, rx, ver, wd)
+    print("[dist_smoke] PASS 前半(离线 --from-dir)+ 后半(hermetic 环回 HTTP)全绿")
     sys.exit(0)
 
 

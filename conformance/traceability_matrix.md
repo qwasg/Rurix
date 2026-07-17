@@ -215,3 +215,5 @@
 | RXS-0213 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/vk.rs` |
 | RXS-0214 | spec/release.md | 2 | `src/rurixup/src/install.rs`, `src/rurixup/src/toolchain.rs` |
 | RXS-0215 | spec/release.md | 1 | `src/rurixup/src/shim.rs` |
+| RXS-0216 | spec/release.md | 1 | `src/rurixup/src/fetch.rs` |
+| RXS-0217 | spec/release.md | 1 | `src/rurixup/src/fetch.rs` |
