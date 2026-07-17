@@ -1190,6 +1190,12 @@
     ],
     "RXS-0217": [
       "src/rurixup/src/fetch.rs"
+    ],
+    "RXS-0218": [
+      "src/rurixup/src/bundle.rs"
+    ],
+    "RXS-0219": [
+      "src/rurixup/src/e2e.rs"
     ]
   }
 }

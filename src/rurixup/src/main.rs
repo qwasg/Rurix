@@ -671,9 +671,14 @@ fn run(args: &[String]) -> Result<ExitCode, String> {
     let bundle_json_str = bundle.to_json();
     let channel_manifest = channel::generate(&bundle, &channel_name, &bundle_json_str)?;
 
+    // 发布资产 3 组件完备判定 + SHA256SUMS 字典序确定性(RXS-0218,EA1.2):在 bundle
+    // 移入 run_release 前算出(纯函数);上传/回读自校验/信任根登记流本体仅在 release.yml。
+    let completeness = bundle.release_completeness();
+    let sha256sums = bundle.sha256sums();
+
     let report = run_release(bundle, signing, channel_manifest, ci, faults);
 
-    // 写出产物(SBOM 双视图 + bundle / channel / 签名 / 门决策清单)。
+    // 写出产物(SBOM 双视图 + bundle / channel / 签名 / 门决策清单 + SHA256SUMS)。
     let out = Path::new(&out_dir);
     std::fs::create_dir_all(out).map_err(|e| format!("建 out-dir 失败:{e}"))?;
     write_file(out, "sbom.spdx.json", &report.sbom.spdx)?;
@@ -682,17 +687,23 @@ fn run(args: &[String]) -> Result<ExitCode, String> {
     write_file(out, "channel_manifest.json", &report.channel.to_json())?;
     write_file(out, "signing_manifest.json", &signing_json(&report))?;
     write_file(out, "gate_decision.json", &gate_json(&report))?;
+    // SHA256SUMS(字典序确定性,RXS-0218):每资产字节 == bundle.json 组件 digest 一比一。
+    write_file(out, "SHA256SUMS", &sha256sums)?;
 
     // 摘要行(冒烟脚本解析 + 人读;token 纯追加,既有 token 0-byte)。
+    // release_complete / release_missing(RXS-0218,EA1.2 纯追加):3 组件完备最小集
+    // (rx.exe/rurixup.exe/rurix_rt_cabi.lib)完备判定,缺件即红判据源(非 hard-block 子门)。
     println!(
-        "RURIXUP_RELEASE: allow_upload={} signed_artifacts={} sbom_present={} audit_pass={} channel={} channel_ok={} failed_gates=[{}]",
+        "RURIXUP_RELEASE: allow_upload={} signed_artifacts={} sbom_present={} audit_pass={} channel={} channel_ok={} failed_gates=[{}] release_complete={} release_missing=[{}]",
         report.decision.allow_upload,
         report.signed_artifacts.len(),
         report.sbom_present,
         report.audit.pass,
         report.channel.channel,
         report.channel_ok,
-        report.decision.failed_gates.join(",")
+        report.decision.failed_gates.join(","),
+        completeness.complete,
+        completeness.missing.join(",")
     );
 
     if report.decision.allow_upload {

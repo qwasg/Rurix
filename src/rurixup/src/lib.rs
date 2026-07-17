@@ -16,6 +16,11 @@
 //! - [`fetch`] 网络拉取载体 + 四级内容寻址信任链(RXS-0216/0217,EA1.1b:系统
 //!   curl.exe 固定参数集 https-only + repo 锚 channels/stable.json 四级 digest 链
 //!   fail-closed;载体经 std::process 外呼零 unsafe,pr-smoke 零真实外呼)
+//! - [`bundle`] 发布资产 3 组件完备判定 + SHA256SUMS 字典序确定性(RXS-0218,EA1.2:
+//!   `release_completeness` / `sha256sums` 纯函数;上传/回读自校验/信任根登记流本体
+//!   仅在 release.yml)
+//! - [`e2e`] 端到端安装时长 measured evidence 字段面校验(RXS-0219,EA1.2:
+//!   `validate_install_e2e` 纯离线字段名存在性校验,冷启动 measured_local 不进 CI 硬门)
 //!
 //! 纪律:**全 safe**(`unsafe_code = "deny"`,继承 workspace lints);**零外部依赖**
 //! (标准库 + `rurix-pkg` 手写 SHA-256 / 内容树),纯函数、确定性——同一发布输入产
@@ -24,6 +29,7 @@
 
 pub mod bundle;
 pub mod channel;
+pub mod e2e;
 pub mod fetch;
 pub mod gate;
 pub mod install;

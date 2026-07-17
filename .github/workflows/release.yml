@@ -12,10 +12,19 @@ on:
       # 误触发 release workflow——历史 m*/g*-closed tag 均无 v 前缀,v1-closed 首撞。
       - "v[0-9]+.[0-9]+.[0-9]+*"
   workflow_dispatch:        # 手动触发(发布演练 / 真实红绿验证)
+    inputs:
+      rehearsal_n:
+        description: "发布演练序号 N(EA1.2/裁决 D):版号 = v1.0.1-dist.N,run 内 gh release create --prerelease(不推演练 tag;每次演练独立取号不复用)"
+        required: false
+        default: "1"
 
 concurrency:
   group: gpu-runner          # 与 pr-smoke / nightly 共用 GPU runner,串行(CI_GATES §1)
   cancel-in-progress: false
+
+permissions:
+  contents: write          # EA1.2(RXS-0218):run 内 gh release create/upload 以 github.token
+  pull-requests: write     # EA1.2(RXS-0218):信任根登记流 gh pr create(owner 合并人工门)
 
 jobs:
   release:
@@ -114,3 +123,149 @@ jobs:
             target/rurixup_release_smoke/green/channel_manifest.json
             target/rurixup_release_smoke/green/gate_decision.json
           if-no-files-found: error
+
+      # ════════════════════════════════════════════════════════════════════════
+      # EA1.2 发布侧对称自动化(RXS-0218 / 裁决 D;RFC-0012 §4.7)——**全部上方
+      # hard-block 门(schema / guardrails / trace / 再分发审计 / bench-strict / fmt /
+      # clippy / test / 发布门 sign+SBOM+audit / channel-manifest / toolchain-frontend)
+      # 绿之后**方执行。既有八门与触发器 0-byte 沿用;上传步骤严格位于全部 hard-block
+      # 门之后。演练形态定案(2026-07-17,裁决 D):workflow_dispatch → 版号 v1.0.1-dist.N
+      # pre-release(run 内 `gh release create --prerelease` 以 github.token,**不推演练
+      # tag**——触发器 `v[0-9]+.[0-9]+.[0-9]+*` 的 `*` 会吞 `-dist.N` 后缀致误触发);
+      # tag 触发 → ref_name 版号非 prerelease。生产签名门控(§4 禁区)0-byte。
+      # ════════════════════════════════════════════════════════════════════════
+
+      # ⑤ 版号 + prerelease 判定(演练 vs tag 正式发布)。
+      - name: resolve release version + prerelease flag (EA1.2, RXS-0218)
+        shell: powershell
+        run: |
+          if ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+            $n = '${{ github.event.inputs.rehearsal_n }}'
+            if (-not $n) { $n = '1' }
+            $ver = "v1.0.1-dist.$n"; $pre = 'true'
+            Write-Output "发布演练(裁决 D):版号 $ver pre-release(不推演练 tag)"
+          } else {
+            $ver = '${{ github.ref_name }}'; $pre = 'false'
+            Write-Output "tag 触发正式发布:版号 $ver(run 内 gh release create 非 prerelease)"
+          }
+          "REL_VERSION=$ver"    | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "REL_PRERELEASE=$pre" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      # ① 真发布件构建:--release + crt-static rurix-rt-cabi(对齐 driver.rs:904 命令)。
+      - name: build real release artifacts (--release + crt-static rurix-rt-cabi)
+        shell: powershell
+        run: |
+          cargo build --release -p rx -p rurixup
+          if ($LASTEXITCODE -ne 0) { throw "cargo build --release 失败(exit $LASTEXITCODE)" }
+          $env:RUSTFLAGS = '-C target-feature=+crt-static'
+          cargo build -p rurix-rt-cabi --release --target-dir target/crt-static
+          if ($LASTEXITCODE -ne 0) { throw "crt-static rurix-rt-cabi 构建失败(exit $LASTEXITCODE)" }
+          if (-not (Test-Path target/crt-static/release/rurix_rt_cabi.lib)) {
+            throw "crt-static 构建成功但 rurix_rt_cabi.lib 缺失"
+          }
+
+      # ② 自签(现状 selftest;生产签名门控 §4 禁区 0-byte,本 job 不自动调用 Azure)。
+      - name: self-sign selftest note (production signing gated, §4 禁区 0-byte)
+        shell: powershell
+        run: |
+          Write-Output "自签 Authenticode = 自签测试证书(selftest,对外部用户信任贡献为零),已由上方"
+          Write-Output "『Release pipeline sign/SBOM/audit gate』步骤以 RURIXUP_SIGN=1 兑现真实 Authenticode"
+          Write-Output "红绿 + evidence/release_pipeline_smoke.json;生产签名(Azure Artifact Signing)经 secret"
+          Write-Output "+ 人工门控,本 job 不自动调用(spec/release.md §4 禁区 0-byte)。"
+
+      # ③④ rurixup release 3 组件编排(rx.exe + rurixup.exe + crt-static rurix_rt_cabi.lib)
+      #     + SHA256SUMS(rurixup release 产出,干名字典序确定性,RXS-0218)。
+      - name: rurixup release 3-component orchestration + SHA256SUMS (RXS-0218)
+        shell: powershell
+        run: |
+          $ver = $env:REL_VERSION
+          New-Item -ItemType Directory -Force target/release_dist | Out-Null
+          & target/release/rurixup.exe release --version $ver `
+            --component "rx.exe|$ver|Apache-2.0|core|target/release/rx.exe" `
+            --component "rurixup.exe|$ver|Apache-2.0|core|target/release/rurixup.exe" `
+            --component "rurix_rt_cabi.lib|$ver|Apache-2.0|core|target/crt-static/release/rurix_rt_cabi.lib" `
+            --sign "rx.exe|Valid|true|selftest" `
+            --sign "rurixup.exe|Valid|true|selftest" `
+            --sign "rurix_rt_cabi.lib|Valid|true|selftest" `
+            --out-dir target/release_dist
+          if ($LASTEXITCODE -ne 0) { throw "rurixup release 未放行(exit $LASTEXITCODE)—发布门阻断" }
+          Write-Output "SHA256SUMS(干名字典序确定性):"
+          Get-Content target/release_dist/SHA256SUMS
+
+      # ⑤ Release 对象与资产上传:Release/tag 一律 run 内 gh release create + upload 以
+      #    github.token(GITHUB_TOKEN 事件不触发新 workflow,天然免二次触发;禁手工推演练 tag)。
+      #    资产 = 3 裸文件 + bundle/channel/SBOM×2/签名/门决策 + SHA256SUMS。
+      - name: gh release create + upload (run-internal, github.token; RXS-0218 裁决 D)
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ver = $env:REL_VERSION
+          $assets = @(
+            'target/release/rx.exe',
+            'target/release/rurixup.exe',
+            'target/crt-static/release/rurix_rt_cabi.lib',
+            'target/release_dist/bundle.json',
+            'target/release_dist/channel_manifest.json',
+            'target/release_dist/sbom.spdx.json',
+            'target/release_dist/sbom.cdx.json',
+            'target/release_dist/signing_manifest.json',
+            'target/release_dist/gate_decision.json',
+            'target/release_dist/SHA256SUMS'
+          )
+          $notes = "Rurix $ver — 自签测试证书(selftest)非生产信任根;3 组件含 crt-static rurix_rt_cabi.lib(v1.0.0 缺此件,无 Rust 环境含 GPU 面 rx build 必死)。安装前须 owner 合并信任根登记 PR(channels/stable.json)。"
+          $args = @('release','create',$ver,'--title',$ver,'--notes',$notes) + $assets
+          if ($env:REL_PRERELEASE -eq 'true') { $args += '--prerelease' }
+          & gh @args
+          if ($LASTEXITCODE -ne 0) { throw "gh release create/upload 失败(exit $LASTEXITCODE)" }
+
+      # ⑥ 上传后回读自校验:curl 下载刚上传的逐资产 → sha256 == bundle.json 组件 digest
+      #    → 任一失配即 job 红(分发通路的真 HTTPS 逆向核对,每次发布必跑;RXS-0218)。
+      - name: read-back self-verify (curl 逐资产 sha256 == bundle.json; 失配 job 红)
+        shell: powershell
+        run: |
+          $ver = $env:REL_VERSION
+          $repo = '${{ github.repository }}'
+          $bundle = Get-Content target/release_dist/bundle.json -Raw | ConvertFrom-Json
+          $tmp = New-Item -ItemType Directory -Force target/release_readback
+          $mismatch = @()
+          foreach ($c in $bundle.components) {
+            $name = $c.name; $want = $c.sha256.ToLower()
+            $url = "https://github.com/$repo/releases/download/$ver/$name"
+            $dest = Join-Path $tmp $name
+            curl.exe --fail --silent --show-error --location --proto =https --proto-redir =https --max-redirs 5 --max-time 180 --output $dest $url
+            if ($LASTEXITCODE -ne 0) { $mismatch += "$name(curl 下载失败 exit=$LASTEXITCODE)"; continue }
+            $got = (Get-FileHash $dest -Algorithm SHA256).Hash.ToLower()
+            if ($got -ne $want) { $mismatch += "$name(got=$got want=$want)" }
+          }
+          if ($mismatch.Count -gt 0) { throw ("回读自校验失配(job 红):" + ($mismatch -join '; ')) }
+          Write-Output "回读自校验 ✓ 逐资产 sha256 == bundle.json 组件 digest(分发通路真 HTTPS 逆向核对)"
+
+      # ⑦ 信任根登记流:生成 channels/stable.json 新条目 → 自动开 PR → **owner 合并 =
+      #    人工门**(合并前该版本「已发布未登记」,rurixup 对无锚版本拒装 RXS-0217)。
+      #    演练本批只落通道不执行——本步骤在真实 release run 内运行(channels/stable.json
+      #    确定性 line-scan 形态,与 fetch.rs Anchor::from_json 解析对齐)。
+      - name: trust-root registration PR (channels/stable.json 新条目; owner 合并人工门)
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ver = $env:REL_VERSION
+          $repo = '${{ github.repository }}'
+          $chDigest = (Get-FileHash target/release_dist/channel_manifest.json -Algorithm SHA256).Hash.ToLower()
+          $baseUrl = "https://github.com/$repo/releases/download/$ver/"
+          # 生成/更新 channels/stable.json(确定性 line-scan 形态,无时间戳;保留既有条目;
+          # 与 fetch.rs Anchor::from_json 解析对齐)。见 ci/emit_trust_root_entry.py。
+          py -3 ci/emit_trust_root_entry.py $ver $chDigest $baseUrl
+          if ($LASTEXITCODE -ne 0) { throw "channels/stable.json 生成失败(exit $LASTEXITCODE)" }
+          $branch = "trust-root/$ver"
+          git config user.name  'rurix-release-bot'
+          git config user.email '25890346@qq.com'
+          git checkout -b $branch
+          git add channels/stable.json
+          git commit -m "chore(channels): 登记 $ver 信任根锚(EA1.2/RXS-0218;owner 合并人工门)"
+          git push origin $branch
+          if ($LASTEXITCODE -ne 0) { throw "push 信任根分支失败(exit $LASTEXITCODE)" }
+          $body = "自动生成:登记 $ver 信任根锚 channels/stable.json(channel_manifest_sha256=$chDigest)。**owner 合并 = 人工门**——合并前该版本处于『已发布未登记』过渡态,rurixup 对无锚版本拒装(RXS-0217)。自签测试证书非生产信任根。"
+          gh pr create --base main --head $branch --title "trust-root: 登记 $ver(EA1.2/RXS-0218,owner 合并人工门)" --body $body
+          if ($LASTEXITCODE -ne 0) { throw "gh pr create 信任根登记 PR 失败(exit $LASTEXITCODE)" }

@@ -25,10 +25,10 @@
       "pattern": "RXS-####",
       "main_fact_source": "spec/README.md §4 + spec/*.md 的 `### RXS-####` 条款头",
       "guard_spec_heading_scan": true,
-      "on_tree_max": 217,
-      "next_free": 218,
+      "on_tree_max": 219,
+      "next_free": 220,
       "shadow_reserved": [181, 182, 183, 184],
-      "notes": "spec 条款号。main 现存条款头 213 个,最高 RXS-0217(release.md §2.8:RXS-0214~0215 EA1.1a 真实 FS 物化+切换、RXS-0216~0217 EA1.1b 网络拉取+四级信任链;vulkan_backend.md 锁定预留区间 RXS-0200~0213)。RXS-0181~0184 由 GRX 影子分支 claim(提交 cc059daa,条款体入该分支 spec/dxil_backend.md),main 跳号避撞——经 git 核实当前 main 树『零』`### RXS-0181~0184` 条款定义(每处出现均为跳号注,非复用),故对 main 永久 burned、未 materialize 为同树同号异义碰撞(见 known_collisions[shared-namespace-grx])。另 main 侧 RXS-0189~0199 由 MS1.2/MS1.2b 承接。下一个可用 RXS-0218(EA1.2 在途 RXS-0218~0219,见 reserved_in_flight)。"
+      "notes": "spec 条款号。main 现存条款头 215 个,最高 RXS-0219(release.md §2.8:RXS-0214~0215 EA1.1a 真实 FS 物化+切换、RXS-0216~0217 EA1.1b 网络拉取+四级信任链、RXS-0218~0219 EA1.2 发布侧对称自动化+端到端安装时长 measured;vulkan_backend.md 锁定预留区间 RXS-0200~0213)。RXS-0181~0184 由 GRX 影子分支 claim(提交 cc059daa,条款体入该分支 spec/dxil_backend.md),main 跳号避撞——经 git 核实当前 main 树『零』`### RXS-0181~0184` 条款定义(每处出现均为跳号注,非复用),故对 main 永久 burned、未 materialize 为同树同号异义碰撞(见 known_collisions[shared-namespace-grx])。另 main 侧 RXS-0189~0199 由 MS1.2/MS1.2b 承接。下一个可用 RXS-0220。"
     },
     "RD": {
       "scope": "shared",
@@ -187,7 +187,7 @@
       "source": "milestones/ea1/EA1_CONTRACT.md §7 + rfcs/README.md §5",
       "claims": {
         "RFC": "RFC-0012(已用,Draft;下一个 Full RFC 实际可用 = RFC-0013)",
-        "RXS": "RXS-0214~0217 已落 main(EA1.1a RXS-0214/0215 + EA1.1b RXS-0216/0217);剩余 EA1.2 在途 RXS-0218~0219(上传自动化+回读自校验 / 端到端安装时长 measured,approximate)",
+        "RXS": "RXS-0214~0219 已落 main(EA1.1a RXS-0214/0215 + EA1.1b RXS-0216/0217 + EA1.2 RXS-0218 发布资产上传自动化与回读自校验 / RXS-0219 端到端安装时长 measured);EA1 期 RXS 区间收口(下一个可用 RXS-0220,执行期新 RXS 另起)",
         "RD": "RD-033 起(执行期新 RD)",
         "U": "U29(拟不触发)",
         "SG": "SG-010 留续号(不登记,现状 not_triggered)",
@@ -213,6 +213,11 @@
       "version": "v1.1",
       "date": "2026-07-17",
       "change": "RXS 命名空间校准(EA1.1b 落地,消 check_number_ledger 查 2c ADVISORY 漂移):on_tree_max 213→217、next_free 214→218,承接 EA1.1a(RXS-0214/0215,已落 main)+ EA1.1b(RXS-0216/0217,本 PR 网络拉取载体 RXS-0216 + 四级内容寻址信任链 RXS-0217,条款体入 spec/release.md §2.8)。校准后与实测 spec `### RXS-` 最大值 217 一致(ADVISORY 归零)。reserved_in_flight[EA1].RXS 同步更新:RXS-0214~0217 已落,剩余 EA1.2 在途 RXS-0218~0219。shadow_reserved[181~184] 不变(GRX 跳号避撞维持)。仅动 RXS 命名空间字段 + 本 revision_log 追加(deferred/spike_gating/error_codes 命名空间 0-byte);零新 RXS/RD/SG/error-code/budget counter。"
+    },
+    {
+      "version": "v1.2",
+      "date": "2026-07-17",
+      "change": "RXS 命名空间校准(EA1.2 落地,消 check_number_ledger 查 2c ADVISORY 漂移):on_tree_max 217→219、next_free 218→220,承接 EA1.2(RXS-0218 发布资产上传自动化与回读自校验 / RXS-0219 端到端安装时长 measured,条款体入 spec/release.md §2.8,裁决 C/D)。校准后与实测 spec `### RXS-` 最大值 219 一致(ADVISORY 归零)。reserved_in_flight[EA1].RXS 同步更新:RXS-0214~0219 全落,EA1 期 RXS 区间收口(下一个可用 RXS-0220)。shadow_reserved[181~184] 不变(GRX 跳号避撞维持);CI_step 步骤 60(EA1.2)随本 PR 落 pr-smoke.yml,reserved_in_flight_steps 保留登记(next_free 步骤号 61 不变)。仅动 RXS 命名空间字段 + reserved_in_flight[EA1] + 本 revision_log 追加(deferred/spike_gating/error_codes 命名空间 0-byte);零新 RXS/RD/SG/error-code/budget counter。"
     }
   ]
 }
