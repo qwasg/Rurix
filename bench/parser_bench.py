@@ -25,6 +25,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from bench.stats import bootstrap_ci, cv, iqr_filter, steady_state_reached, trimmed_mean
+from bench.proc_guard import guarded_run, EXE_RUN_TIMEOUT, CARGO_BUILD_TIMEOUT
 
 ROOT = Path(__file__).resolve().parent.parent
 CORPUS_DIR = ROOT / "conformance" / "syntax"
@@ -77,19 +78,21 @@ def build_corpus(target_bytes: int) -> tuple[str, str]:
 
 def ensure_binary() -> None:
     print("[parser_bench] cargo build --release --bin parse_bench ...")
-    subprocess.run(
-        ["cargo", "build", "--release", "--bin", "parse_bench"],
-        cwd=ROOT, check=True,
-    )
+    r = guarded_run(["cargo", "build", "--release", "--bin", "parse_bench"],
+                    cwd=ROOT, timeout=CARGO_BUILD_TIMEOUT, capture=False,
+                    label="cargo build parse_bench")
+    if r.returncode != 0:
+        raise RuntimeError(f"cargo build parse_bench 退出码 {r.returncode}"
+                           + ("(超时,已杀进程树)" if r.timed_out else ""))
     if not BIN.is_file():
         raise FileNotFoundError(f"构建产物不存在: {BIN}")
 
 
 def run_binary(corpus_path: Path, iters: int) -> tuple[int, list[int]]:
     """执行 parse_bench,返回 (语料 loc, 逐迭代 ns 列表)。"""
-    proc = subprocess.run(
+    proc = guarded_run(
         [str(BIN), str(corpus_path), str(iters)],
-        capture_output=True, text=True, check=False,
+        timeout=EXE_RUN_TIMEOUT, quarantine_exe=BIN, label="parse_bench",
     )
     if proc.returncode != 0:
         raise RuntimeError(f"parse_bench 退出码 {proc.returncode}: {proc.stderr.strip()}")

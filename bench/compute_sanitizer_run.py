@@ -33,6 +33,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from bench.proc_guard import guarded_run, SANITIZER_TIMEOUT  # noqa: E402
+
+# 单 (tool, kernel) 组合超时额度(秒);sanitizer 显著拖慢 kernel → 大额度,
+# 经 RURIX_SANITIZER_TIMEOUT 覆盖以便真机 measured 校准(map gap:阈值需实机校准)。
+SANI_TIMEOUT = float(os.environ.get("RURIX_SANITIZER_TIMEOUT", str(SANITIZER_TIMEOUT)))
+
 # kernel 干名 → 包裹的真跑命令(相对 ROOT;均为 --smoke 闭环,return 0=成功)
 KERNELS: dict[str, list[str]] = {
     "reduce": ["bench/reduce_bench.py", "--smoke"],
@@ -59,6 +65,15 @@ KERNELS: dict[str, list[str]] = {
     "async_buffer": ["bench/async_buffer_bench.py", "--smoke"],
 }
 TOOLS = ("racecheck", "memcheck")
+
+# 仅两 kernel 在 sanitizer 下 spawn 真实编译 exe 孙进程(其余为 in-process ctypes,
+# 无 exe 可隔离,超时靠 taskkill /T 杀 python 树即可)。超时时把这些卡死的孙 exe
+# move 到隔离区(2026-07-17 async_buffer_pipeline.exe 锁 runner 事故的直接对策)。
+_EXE = ".exe" if os.name == "nt" else ""
+KERNEL_EXE: dict[str, Path] = {
+    "uc02_stream": ROOT / "target" / "debug" / f"uc02-demo{_EXE}",
+    "async_buffer": ROOT / "target" / "debug" / "examples" / f"async_buffer_pipeline{_EXE}",
+}
 
 # 红绿验证夹具(非生产 kernel 目录):race 应被检出竞争,clean(补 bar.sync)应转绿
 FIXTURES: dict[str, list[str]] = {
@@ -173,8 +188,12 @@ def run_one(sanitizer: str, version: str, tool: str, label: str,
                  "--", *abs_cmd]
     cmd = _wrap(sanitizer, sani_args)
     print(f"\n[sanitizer] >>> --tool {tool} -- {' '.join(target_cmd)}")
-    proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
-    output = (proc.stdout or "") + "\n" + (proc.stderr or "")
+    # 看门狗:超时杀整树(sanitizer→python→exe)+ 隔离卡死孙 exe + 诚实红(exit 124),
+    # 绝不永久挂起锁 runner(P0-7)。
+    proc = guarded_run(cmd, cwd=ROOT, timeout=SANI_TIMEOUT,
+                       quarantine_exe=KERNEL_EXE.get(label),
+                       label=f"sanitizer {tool}/{label}")
+    output = proc.stdout + "\n" + proc.stderr
 
     errors = 0
     m = re.search(r"ERROR SUMMARY:\s*(\d+)\s+error", output)
