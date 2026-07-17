@@ -82,6 +82,37 @@ def eval_lsp_latency(entry: dict) -> None:
             err(f"{eid}.{name}: FAIL — {value:.3f} 违反 {direction} {thr}")
 
 
+def eval_cold_start(entry: dict) -> None:
+    """EA1 冷启动两段式(契约 G-EA1-6/G-EA1-8;RXS-0219,裁决 C):evidence 为
+    install_e2e 档(segment/pass/duration_s 字段面),非 BENCH_PROTOCOL results 形
+    ——专属分支(对齐 M6.5 eval_lsp_latency 特例先例)。判据:evidence pass 为真 +
+    duration_s 对 threshold(direction=max,秒);evidence 段位须与 entry id 后缀
+    一致(防拿 A 段档充 B 段条目);失败 attempt 档(pass=false)不得作达标依据。
+    """
+    eid = entry["id"]
+    ef = entry.get("evidence_file")
+    if not ef or not (ROOT / ef).is_file():
+        err(f"{eid}: evidence_file 缺失或不存在: {ef!r}")
+        return
+    doc = json.loads((ROOT / ef).read_text(encoding="utf-8"))
+    seg = doc.get("segment")
+    if not eid.endswith(f"cold_start_{seg}_s"):
+        err(f"{eid}: evidence segment {seg!r} 与 entry id 不一致")
+        return
+    if doc.get("pass") is not True:
+        err(f"{eid}: evidence pass 非 true(该 attempt 不可作达标依据)")
+        return
+    value = doc["duration_s"]
+    thr = entry["threshold"]
+    if value <= thr:
+        PASSES.append(
+            f"{eid}: PASS — {value:.2f} s vs max {thr}(attempt {doc.get('attempt')},"
+            f" {doc.get('toolchain_version')})"
+        )
+    else:
+        err(f"{eid}: FAIL — {value:.2f} s 违反 max {thr}")
+
+
 def eval_entry(entry: dict, strict: bool) -> None:
     eid = entry["id"]
     ev = entry.get("evidence")
@@ -96,6 +127,9 @@ def eval_entry(entry: dict, strict: bool) -> None:
         return
     if eid == "m6.bench.lsp_interaction_latency_ms":
         eval_lsp_latency(entry)
+        return
+    if eid.startswith("ea1.bench.cold_start_"):
+        eval_cold_start(entry)
         return
     value = measured_value(entry)
     if value is None:
