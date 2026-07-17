@@ -51,3 +51,11 @@
 ## 7. Agent 批准
 
 > 〈**Approved — YYYY-MM-DD**。agent 自主批准本 Mini-RFC（§2 形态 + §3 判档 + §4 错误码 + §6 范围）并记录。device 真跑 / 证据回填 / 计数器兑现 / 合入均由 agent 自主签署。〉
+
+## 7.1 对抗性评审记录（轻量，D-409 Mini-RFC 档 · [`../13_DECISION_LOG.md`](../13_DECISION_LOG.md) D-409）
+
+> 〈**Mini-RFC 轻量**：至少一轮由与起草者 Provenance **不同**的 AI 工具/模型执行的对抗性评审记录（评审 provenance ≠ 起草 provenance）。findings 少可一行带过 disposition。Full RFC 的强制版见 [`TEMPLATE-RFC.md`](TEMPLATE-RFC.md) §9.1。〉
+>
+> - **评审者 provenance**：`Assisted-by: <评审 tool>:<评审 model>`（须 ≠ 起草 Provenance）。
+> - **评审轮次**：〈第 N 轮，YYYY-MM-DD〉。
+> - **Findings 与 disposition**：〈F1 …（采纳并修 §X／驳回 + 理由）；无实质 finding 则记「一轮评审无阻断项」并留评审者 provenance〉。

@@ -38,6 +38,7 @@
 
 - **触发面**：语义 / `unsafe` / FFI / edition / 破坏性变更（即 Full RFC 触发面，10 §3）走 FCP-lite 公开讨论。Mini-RFC 走单页提案（轻量，不强制公开等待窗）。
 - **通过条件**：advisory——公开等待窗内收集意见，agent 自主裁决是否合入（不强制 ≥2/3 人工同意）。
+- **对抗性评审（D-409，Proposed）**：闭门单人+AI 下 FCP-lite 无真实外部评审者，故 Full RFC 强制附**至少一轮跨工具/跨模型对抗性评审**——由与起草者 Provenance 不同的 AI 工具/模型（评审 provenance ≠ 起草 provenance）产出 findings 并逐条 disposition，记录于 RFC「对抗性评审记录」段（[`TEMPLATE-RFC.md`](TEMPLATE-RFC.md) §9.1；Mini-RFC 轻量，§7.1）；`ci/check_contribution.py` 对缺段/未区分 provenance 打印 advisory finding。反自提自批单环（10 §3 / §7 · [`../13_DECISION_LOG.md`](../13_DECISION_LOG.md) D-409）。
 - **公开等待窗**：进入 FCP 后 **5–7 天公开等待期**（r7），无未决阻断意见即合入；其间任何人可提出阻断点。
 - **发布节奏**：开源后 **6 周 train 模式**（Rust 节奏的放宽版，nightly 每日）；稳定化经 stabilization report + FCP-lite 进入 stable（10 §5 §6）。
 - **晋升路径**：贡献者 → 评审者 → 维护者，路径文档化（10 §2.2 / §8）；行为准则采用 Contributor Covenant（[`../CODE_OF_CONDUCT.md`](../CODE_OF_CONDUCT.md)）。
