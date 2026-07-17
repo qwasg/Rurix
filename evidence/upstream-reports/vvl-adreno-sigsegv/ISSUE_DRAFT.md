@@ -21,7 +21,7 @@ Adreno / Android 16
 | Item | Value |
 |---|---|
 | VVL version | **1.4.350.1** (`libVkLayer_khronos_validation.so` from vulkan-sdk android-binaries 1.4.350.1; arm64; 26,345,704 B; sha256 `34a741d51cb6e9111ec52cda20eee812bcfbcd197348c1404232aacb60e89ef3`) |
-| Crashing binary BuildId (from tombstone) | `13204c6e71811fabb9fd173b89b19c786d8337b4` |
+| Crashing binary BuildId (from tombstone) | `13204c6e71811fabb9fd173b89b19c786d8337b4` — **confirmed 2026-07-17** to match `readelf -n` of the official 1.4.350.1 arm64 `.so` byte-for-byte (the on-hand redistributable is the crashing binary; but it is stripped — see the entry-point note below) |
 | Device | HONOR BKQ-AN10, arm64 |
 | SoC / GPU | Qualcomm SM8850 (Adreno) |
 | Adreno driver / Vulkan ICD version | `<FILL / PENDING: not present in any tracked evidence — the EA1 back-pack search of evidence/mb1-android-ondevice/ found only "SM8850 (Adreno系)" and "libvulkan.so present", no driverVersion/ICD string; read from vulkaninfo / GPU driver package on the device (owner-held)>` |
@@ -55,15 +55,22 @@ validation message of any kind reached logcat before the process died.
   offsets/values — pin together with the standalone MRP>`
 - Vulkan entry point in flight at crash time: expected trigger was
   `vkCreateShaderModule` / pipeline creation (per the test design), but the six layer frames in
-  the backtrace are unsymbolized. A symbolizer is available locally (NDK 27.3
-  `llvm-symbolizer.exe`), but the **VVL 1.4.350.1 arm64 symbol/debug package is not on hand and
-  must not be downloaded** in this back-pack, so the layer frames cannot be resolved here → the
-  exact entry point stays `<PENDING: symbolize the six layer frames against 1.4.350.1 symbols>`.
-  Data point from the 2026-07-17 desktop control (below): desktop VVL emitted a
-  `vkCreateShaderModule` VUID (`pCode-08737`) immediately before the access violation, which is
-  consistent with the crash being in the invalid-SPIR-V handling path at/after shader-module
-  creation — but this is a desktop 1.3.296 signal, not a symbolization of the device 1.4.350.1
-  frames.
+  the backtrace are unsymbolized. A 2026-07-17 symbolization pass (NDK 27.3
+  `llvm-symbolizer.exe` / `llvm-readelf.exe`) obtained the **exact-BuildId** official VVL
+  1.4.350.1 arm64 binary and confirmed `readelf -n` Build ID
+  `13204c6e71811fabb9fd173b89b19c786d8337b4` **matches the tombstone byte-for-byte** — i.e. the
+  crashing binary itself is on hand. **However, the official Khronos android-binaries
+  redistributable is stripped** (`.dynsym`-only: ~140 exported entry points clustered at
+  `0xf1ec88–0xf1edd4`, no `.symtab`/`.debug_*`), and all six crash PCs
+  (`0xb72f08`, `0x1283494`, `0x128a064`, `0x12a291c`, `0x129a0e8`, `0x12df32c`) lie **outside**
+  every exported symbol range — the symbolizer returns `??` for all six. So the exact entry
+  point **stays** `<PENDING: symbolize against an unstripped/debug (.sym) build of VVL 1.4.350.1
+  — the shipped redistributable is stripped; the exact-BuildId binary is confirmed but carries
+  no internal symbols>` (full log: `symbolication_log_20260717.md`). Data point from the
+  2026-07-17 desktop control (below): desktop VVL emitted a `vkCreateShaderModule` VUID
+  (`pCode-08737`) immediately before the access violation, which is consistent with the crash
+  being in the invalid-SPIR-V handling path at/after shader-module creation — but this is a
+  desktop 1.3.296 signal, not a symbolization of the device 1.4.350.1 frames.
 
 ### Expected behavior
 
@@ -209,9 +216,12 @@ issue must not be filed until the standalone MRP exists and reconfirms the crash
 2. **Reconfirm against current VVL** — the capture is on 1.4.350.1 (2026-07-16); the
    invalid-SPIR-V handling path may have changed upstream. Re-run the MRP against the latest
    SDK release and/or VVL `main`; if it no longer reproduces, do not file.
-3. **Symbolize the six layer frames** against 1.4.350.1 symbols (BuildId
-   `13204c6e71811fabb9fd173b89b19c786d8337b4`) and fill the exact Vulkan entry point and layer
-   function names.
+3. **Symbolize the six layer frames** — ⚠️ BLOCKED (2026-07-17). BuildId
+   `13204c6e71811fabb9fd173b89b19c786d8337b4` **matches** the official 1.4.350.1 arm64 `.so`
+   byte-for-byte, but that redistributable is **stripped** (`.dynsym`-only; all six PCs fall
+   outside every export → `llvm-symbolizer` returns `??`). Needs an **unstripped/debug (`.sym`)
+   build of VVL 1.4.350.1** to resolve the exact entry point + function names. See
+   `symbolication_log_20260717.md`.
 4. **Fill the corruption recipe** (exact offsets/values) and attach the corrupted `.spv`, the
    full tombstone, and the full logcat capture.
 5. **Run the desktop control** (same corrupted bytes, desktop VVL) and record the result.
