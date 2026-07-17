@@ -138,6 +138,8 @@
 
 **否决**：无 provenance 的实质性 AI 内容合入；"模型说对就是对"的验收。
 
+**交叉引用（[13](13_DECISION_LOG.md) D-408，Proposed — 待 owner 签署）**：P-13「agent 完全自主」的默认之上存在一组 owner 保留权 carve-out（红线解除 / 硬件验收签署 / outward-facing 提报 / 里程碑立项 / 生产签名 + 信任根锚 PR 合并 / NVIDIA 再分发白名单 / 成败尺度定义），显式化载体见 D-408 与 [10](10_GOVERNANCE.md) §7 v2.1；该显式化触本条准永久面（[10](10_GOVERNANCE.md) §9.3 额外 30 天公示，owner 签署）。**本行仅交叉引用，不改 P-13 陈述本体。**
+
 ---
 
 ## P-14 Windows 与 WDDM 是一等环境条件
@@ -165,3 +167,4 @@
 |---|---|---|
 | v1.0 | 2026-06-11 | 初版：P-01 ~ P-14 |
 | v1.1 | 2026-06-29 | P-13 解除"人类负责/agent 批准门"约束：AI agent 完全自主决策与执行，高敏面可自主起草/实现/合入（Full RFC 作留档手段，无需自主批准）（同步 10 §7、AGENTS §2、13 D-406） |
+| v1.2 | 2026-07-17 | P-13 追加交叉引用一行（不改陈述本体）：指向 [13](13_DECISION_LOG.md) D-408 owner 保留权白名单 + [10](10_GOVERNANCE.md) §7 v2.1 调和条款（Proposed — 待 owner 签署）；D-408 显式化 P-13「agent 完全自主」默认之上的七类 owner 保留权 carve-out，触本条准永久面（10 §9.3 额外 30 天公示，owner 签署）。规划文档勘误（00 §6.3 追加式修订，独立 errata PR，check_planning_docs advisory，owner 审签） |
