@@ -97,6 +97,8 @@ Rust 机制裁剪版：
 
 开源后：缺 provenance/验证输出/条款号的 PR 由 CI 自动阻断（r7 的第一年路线）——此为质量门而非权限门。
 
+**v2.1 调和条款（owner 保留权 carve-out，Proposed — 待 owner 签署）**：上述「AI agent 完全自主行动与决策」为**默认治理口径**；其上存在一组显式 owner 保留权 carve-out，**完全自主为默认，owner 保留权 carve-out 集见 [13](13_DECISION_LOG.md) D-408**——七类：① 死亡路线 / 红线解除、② 真机 / 硬件验收签署、③ outward-facing 提报、④ 里程碑立项 / 期次拍板、⑤ 生产签名 secret + 信任根锚 PR 合并、⑥ NVIDIA 再分发白名单、⑦ 使命 / 验收成败尺度定义。各 carve-out 项下 agent 可起草 / 代录机器事实，**签署 / 触发权留 owner**。**本调和条款显式化触及 §9.3 P-13（AI 治理）准永久面（实质收窄「agent 完全自主」），按 §9.3 适用额外 30 天公示——公示起点 = 本 errata PR 开启日，合并权限 = owner；agent 不自批（利益冲突：agent 单方界定自身自主 vs owner 权威的边界，镜像 RFC-0011 owner 不自签先例）。owner 签署前本条为 Proposed。**
+
 ## 8. 贡献指南要点（开源时发布）
 
 - 三档门自助判定表 + RFC 模板（动机/设计/备选/对 spec 的 diff/未决问题）。
@@ -120,3 +122,4 @@ Rust 机制裁剪版：
 | v1.0 | 2026-06-11 | 初版 |
 | v1.1 | 2026-06-29 | §7 政策 1/5 解除"仅人类可落笔"约束：AI 可起草/实现高敏面（原禁区），统一收敛为 agent 批准门（owner 授权；同步 AGENTS §2、04 P-13、13 D-406） |
 | v2.0 | 2026-06-29 | 解除全部 owner/自主裁决约束：AI agent 拥有完全自主决策与执行权限，自主判档/合入/bless/close-out/翻转状态/解除红线，无 agent 批准门、人类签字、agent 自主裁决、agent 自主判档 等无卡点（同步 AGENTS §2、04 P-13、13 D-406、CONTRIBUTING、RFC 模板、里程碑契约、CI 守卫） |
+| v2.1 | 2026-07-17 | §7 追加 owner 保留权 carve-out 调和条款（Proposed — 待 owner 签署）：「完全自主为默认；owner 保留权 carve-out 集见 [13](13_DECISION_LOG.md) D-408」（七类：红线解除 / 硬件验收签署 / outward-facing 提报 / 立项拍板 / 生产签名 + 信任根锚 PR 合并 / NVIDIA 再分发白名单 / 成败尺度定义；各项 agent 起草代录、签署触发权留 owner）。**触 §9.3 P-13 准永久面，按 §9.3 额外 30 天公示（公示起点 = 本 PR 开启日，合并权限 = owner），agent 不自批（镜像 RFC-0011 owner 不自签先例）。** 规划文档勘误（00 §6.3 追加式修订，独立 errata PR，check_planning_docs advisory 不阻断；本 PR 由 owner 审签，agent 不自合）。同步 [13](13_DECISION_LOG.md) D-408 + [04](04_DESIGN_PRINCIPLES.md) P-13 交叉引用 |
