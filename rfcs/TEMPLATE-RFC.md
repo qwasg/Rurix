@@ -18,6 +18,7 @@
 | 依据决策 | 〈D-### · D-### · 上游文档 §〉（13_DECISION_LOG.md 已锁决策，禁止重新发明） |
 | Provenance | `Assisted-by: <tool>:<model>`〈如有多方逐行列出〉。agent 自主决策，批准后推进下游实现 |
 | Agent 批准 | 〈Approved — YYYY-MM-DD；批准范围（含 🔒 禁区章节）；记录方式〉 |
+| 对抗性评审 | 〈评审者 provenance `Assisted-by: <评审 tool>:<评审 model>`（**须 ≠ 起草 Provenance**，D-409 / 硬规则 2）；轮次 + findings 数 + disposition 摘要；详见 §9.1〉 |
 
 ---
 
@@ -64,6 +65,21 @@
 ## 9. 未决问题 / 关键裁决
 
 〈Q1~Qn 待裁项与裁决结果；agent 自主签署后回填。〉
+
+## 9.1 对抗性评审记录（对抗性评审要求，10 §3 / §7 · [`../13_DECISION_LOG.md`](../13_DECISION_LOG.md) D-409）
+
+〈**Full RFC 强制**：由与起草者 Provenance **不同**的 AI 工具/模型执行**至少一轮**批判性（对抗性）评审——**评审 provenance ≠ 起草 provenance**（硬规则 2 可机验，`ci/check_contribution.py` advisory 校验）。每条 finding 显式 disposition（采纳并修 §X / 驳回并附理由），不得空过。删去本提示后填写真实评审者与 findings。Mini-RFC 见 [`TEMPLATE-MINI-RFC.md`](TEMPLATE-MINI-RFC.md) §7.1 轻量记录。〉
+
+| 字段 | 值 |
+|---|---|
+| 评审者 provenance | `Assisted-by: <评审 tool>:<评审 model>`（**须 ≠ 起草 Provenance**；填真实工具:模型，如 `codex:gpt-5` / `gemini:...`） |
+| 评审轮次 | 〈第 N 轮，YYYY-MM-DD〉 |
+
+**Findings 与 disposition**（每条一行；disposition 二选一：**采纳并修** §X ／ **驳回** + 理由）：
+
+| # | Finding（评审者提出） | 严重度 | Disposition |
+|---|---|---|---|
+| F1 | 〈…〉 | 〈high / med / low〉 | 〈采纳：改 §X …／驳回：理由 …〉 |
 
 ## 10. 稳定化与 provenance
 
