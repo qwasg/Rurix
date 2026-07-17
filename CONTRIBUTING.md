@@ -38,7 +38,7 @@ Rurix 的唯一验收边界是 `conformance/`,不是 PR 描述。
 
 `ci/check_contribution.py` 扫描 PR 范围(`base..HEAD`)的每个非 merge commit,三类缺项即红——提交前自查:
 
-1. **Provenance**:每个 commit 含 `Assisted-by: <tool>:<model>` 或 `Co-Authored-By:` trailer(D-406 / 硬规则 2)。
+1. **Provenance**:每个 commit 含 provenance trailer 之一(D-406 / 硬规则 2):`Assisted-by: <tool>:<model>`(机读冒号形)/ `Assisted-by: <名称> (<模型>)`(人写括号形,语义映射 tool=claude-code,如 `Assisted-by: Claude (Fable 5)`)/ `Co-Authored-By:`。
 2. **条款号**:触 `src/**/*.rs` 或 `spec/**/*.md` 的 commit,在 commit body / 新增 `//@ spec: RXS-####` 注释行 / 关联 `rfcs/*.md` 之一引用条款号(或 deferred/RFC 编号;纯文档/纯测试豁免,硬规则 7)。
 3. **验证强制**:触 `src/` 功能改动的 commit body 含验证标记(`Validation:` / `验证:` / 引用 `ci/*.py` / `cargo test` 命令;数字必须来自命令输出,硬规则 3/10)。
 
