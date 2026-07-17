@@ -544,6 +544,18 @@ jobs:
           RURIXUP_TEST_ALLOW_LOOPBACK_HTTP: "1"
         run: py -3 ci/rurixup_dist_smoke.py
 
+      # 步骤 60（EA1.2,契约 G-EA1-4,RFC-0012 / RXS-0218）:发布 bundle 打包冒烟
+      # (纯离线面,host/CPU-only,零真实外呼)。`ci/release_bundle_smoke.py`:①打包
+      # 确定性(同源两次 rurixup release 产 bundle.json/SHA256SUMS 逐字节一致)②资产
+      # 字节与 bundle.json 组件 digest 一比一闭环 ③3 组件完备(rx.exe/rurixup.exe/
+      # rurix_rt_cabi.lib,人为缺 .lib → release_complete=false + release_missing 见证 RED)
+      # ④SHA256SUMS 字典序断言 ⑤channels/stable.json 锚 schema 字段面 ⑥red_self_test。
+      # **上传本体 / 回读自校验 / 信任根登记流只在 release.yml**(全部 hard-block 门后 +
+      # workflow_dispatch 演练);本步骤只核发布资产的离线可判性。
+      - name: release bundle smoke (EA1 CI_GATES §2.60, G-EA1-4, RFC-0012 / RXS-0218)
+        shell: powershell
+        run: py -3 ci/release_bundle_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

@@ -217,3 +217,5 @@
 | RXS-0215 | spec/release.md | 1 | `src/rurixup/src/shim.rs` |
 | RXS-0216 | spec/release.md | 1 | `src/rurixup/src/fetch.rs` |
 | RXS-0217 | spec/release.md | 1 | `src/rurixup/src/fetch.rs` |
+| RXS-0218 | spec/release.md | 1 | `src/rurixup/src/bundle.rs` |
+| RXS-0219 | spec/release.md | 1 | `src/rurixup/src/e2e.rs` |

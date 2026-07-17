@@ -67,6 +67,23 @@ pub struct RedistributionAudit {
     pub violations: Vec<String>,
 }
 
+/// 发布资产 3 组件完备最小集(RXS-0218 / 裁决 D):新版本发布清单须含编译器
+/// (`rx.exe`)、引导器(`rurixup.exe`)与 **crt-static** 运行时静态库
+/// (`rurix_rt_cabi.lib`)——v1.0.0 资产缺 `rurix_rt_cabi.lib`,无 Rust 环境含 GPU
+/// 面的 `rx build` 必死,EA1.2 本期修口径。全 [`Partition::LanguageCore`]。
+pub const RELEASE_COMPONENTS: [&str; 3] = ["rurix_rt_cabi.lib", "rurixup.exe", "rx.exe"];
+
+/// 发布资产 3 组件完备判定(RXS-0218):`complete` = [`RELEASE_COMPONENTS`] 全部
+/// 出现于 bundle 组件干名集;`missing` 为缺失的必需组件干名(字典序,`complete=false`
+/// 时非空)。**发布侧新版本查询**,非 `run_release` hard-block 子门(既有 8 子门 0-byte)。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReleaseCompleteness {
+    /// 3 组件完备最小集是否齐备。
+    pub complete: bool,
+    /// 缺失的必需组件干名(字典序枚举;`complete=false` 时非空)。
+    pub missing: Vec<String>,
+}
+
 impl BundleManifest {
     /// 构造空清单(指定版号)。
     pub fn new(rurix_version: impl Into<String>) -> Self {
@@ -98,6 +115,42 @@ impl BundleManifest {
         self.partition(Partition::LanguageCore)
             .iter()
             .all(|c| c.version == self.rurix_version)
+    }
+
+    /// 发布资产 3 组件完备判定(RXS-0218 / 裁决 D):bundle 组件干名集须覆盖
+    /// [`RELEASE_COMPONENTS`]("rx.exe" + "rurixup.exe" + "rurix_rt_cabi.lib")全集,
+    /// 缺任一必需组件 → `complete=false` + `missing` 枚举(字典序)。**新版本发布查询**
+    /// (非 hard-block 子门;老版本两件清单 `complete=false` 是如实,不阻断既有语义)。
+    pub fn release_completeness(&self) -> ReleaseCompleteness {
+        let present: std::collections::BTreeSet<&str> =
+            self.components.iter().map(|c| c.name.as_str()).collect();
+        let mut missing: Vec<String> = RELEASE_COMPONENTS
+            .iter()
+            .filter(|req| !present.contains(**req))
+            .map(|req| req.to_string())
+            .collect();
+        missing.sort();
+        ReleaseCompleteness {
+            complete: missing.is_empty(),
+            missing,
+        }
+    }
+
+    /// SHA256SUMS 清单确定性序列化(RXS-0218):组件按**干名字典序**,每行标准
+    /// `sha256sum` 双空格格式 `<sha256>␣␣<name>`(每资产字节 == bundle.json 组件
+    /// `sha256` 的对象,一比一内容寻址,无第二 digest 域)。同一 bundle 两次生成
+    /// **逐字节一致**(纯函数确定性,复用 to_json 的干名字典序纪律)。
+    pub fn sha256sums(&self) -> String {
+        let mut comps = self.components.clone();
+        comps.sort_by(|a, b| a.name.cmp(&b.name));
+        let mut s = String::new();
+        for c in &comps {
+            s.push_str(&c.sha256);
+            s.push_str("  ");
+            s.push_str(&c.name);
+            s.push('\n');
+        }
+        s
     }
 
     /// bundle 清单确定性 JSON 序列化(组件按干名字典序;自 `main.rs` 上移,
@@ -354,5 +407,80 @@ mod tests {
         assert_eq!(parsed, expected);
         // 再序列化逐字节一致(确定性)。
         assert_eq!(parsed.to_json(), b.to_json());
+    }
+
+    //@ spec: RXS-0218
+    // 发布资产 3 组件完备判定(裁决 D):rx.exe + rurixup.exe + rurix_rt_cabi.lib 全集
+    // → complete;缺 crt-static .lib → complete=false + missing 枚举(缺件即红判据源);
+    // 老版本两件清单如实 complete=false(不阻断既有 bundle 语义)。
+    #[test]
+    fn release_completeness_requires_three_components() {
+        // 3 组件完备(新版本清单)。
+        let mut full = BundleManifest::new("1.1.0");
+        full.push(comp("rx.exe", "1.1.0", Partition::LanguageCore));
+        full.push(comp("rurixup.exe", "1.1.0", Partition::LanguageCore));
+        full.push(comp("rurix_rt_cabi.lib", "1.1.0", Partition::LanguageCore));
+        let c = full.release_completeness();
+        assert!(c.complete);
+        assert!(c.missing.is_empty());
+
+        // 缺 crt-static rurix_rt_cabi.lib(v1.0.0 两件老清单)→ 缺件红。
+        let mut two = BundleManifest::new("1.0.0");
+        two.push(comp("rx.exe", "1.0.0", Partition::LanguageCore));
+        two.push(comp("rurixup.exe", "1.0.0", Partition::LanguageCore));
+        let c2 = two.release_completeness();
+        assert!(!c2.complete);
+        assert_eq!(c2.missing, vec!["rurix_rt_cabi.lib".to_string()]);
+
+        // 空 bundle → 三件全缺(字典序枚举)。
+        let empty = BundleManifest::new("1.1.0");
+        assert_eq!(
+            empty.release_completeness().missing,
+            vec![
+                "rurix_rt_cabi.lib".to_string(),
+                "rurixup.exe".to_string(),
+                "rx.exe".to_string(),
+            ]
+        );
+    }
+
+    //@ spec: RXS-0218
+    // SHA256SUMS 字典序确定性:组件按干名字典序、标准 sha256sum 双空格格式,
+    // 同一 bundle 两次生成逐字节一致 + 每行 digest == 组件 sha256(一比一内容寻址)。
+    #[test]
+    fn sha256sums_lexicographic_deterministic() {
+        let mut b = BundleManifest::new("1.1.0");
+        // 刻意乱序 push,验证输出按干名字典序。
+        let mut rx = comp("rx.exe", "1.1.0", Partition::LanguageCore);
+        rx.sha256 = "11".repeat(32);
+        let mut up = comp("rurixup.exe", "1.1.0", Partition::LanguageCore);
+        up.sha256 = "22".repeat(32);
+        let mut lib = comp("rurix_rt_cabi.lib", "1.1.0", Partition::LanguageCore);
+        lib.sha256 = "33".repeat(32);
+        b.push(rx);
+        b.push(up);
+        b.push(lib);
+
+        let sums = b.sha256sums();
+        // 干名字典序:rurix_rt_cabi.lib < rurixup.exe < rx.exe。
+        let expected = format!(
+            "{}  rurix_rt_cabi.lib\n{}  rurixup.exe\n{}  rx.exe\n",
+            "33".repeat(32),
+            "22".repeat(32),
+            "11".repeat(32),
+        );
+        assert_eq!(sums, expected);
+        // 两次生成逐字节一致(纯函数确定性)。
+        assert_eq!(b.sha256sums(), sums);
+        // 每行双空格 sha256sum 格式 + 每行 digest == 组件 sha256(一比一内容寻址)。
+        for line in sums.lines() {
+            let (digest, name) = line.split_once("  ").expect("双空格分隔");
+            let matched = b
+                .components
+                .iter()
+                .find(|c| c.name == name)
+                .expect("行干名 == bundle 组件");
+            assert_eq!(digest, matched.sha256);
+        }
     }
 }
