@@ -18,6 +18,9 @@
 | R-106 | **WDDM/TDR 现实**：长 kernel 超 2s 被杀、计时扭曲（r4/r11） | 高 | 中 | P-14 全套（环境画像/TDR lint/计时刷队列协议）；demo 设计避免单 kernel >100ms |
 | R-107 | **D3D12 interop 未知数**（G1）：external memory/semaphore 在消费级 WDDM 的行为差异 | 中 | 中 | G1 启动前 spike：纯 C 验证 interop 通路再做语言化；上一项目"先探测后承诺"模式 |
 | R-108 | **借用检查器+views 扩展的正确性**：soundness 漏洞 | 中 | 高 | 不相交证明走保守规则（拒绝可疑而非放行）；fuzz + conformance；RustBelt 式义务清单只锚定 unsafe 原语（不贪全栈证明，r5） |
+| R-109 | **生产档路径追踪毒径挂起**（UC-07 `pt_render` 特定样本序号/弹射深度组合不终止；疑 rurixc PTX 分支重汇聚生成或驱动 JIT 层缺陷，RD-027；2026-07-15 RTX 4070 Ti/driver 620.02/CUDA 13.2 实测同配置必现） | 中 | 中 | 已切片锁定：ms1.bench.uc07_offline 降至 32spp/2-弹射可测切片、CI 冒烟档 160×120/bounces=4 golden 全绿隔离；kernel 源内全部循环编译期有界（spp 批宽/bounces/DDA max_steps/cell 段/拒绝采样 ≤16/Newton 30，非源级死循环）；最小化复现定位 rurixc PTX 生成或上报驱动后把切片升回完整生产档（256spp/4-弹射）重测回填 |
+| R-110 | **上游 validation layer 在 Adreno/MTE 上自身崩溃**（VVL vulkan-sdk-1.4.350.1 处理非法 SPIR-V 的错误格式化路径踩已释放/错标指针 → 设备 MTE tagged-pointer 抓死 SIGSEGV/SEGV_ACCERR，VUID 未吐即崩；MB1 G-MB1-7 round-1 实测，layer 上游鲁棒性 bug 非本项目缺陷） | 低 | 中 | RED 自测改「合法 SPIR-V + 模块内假入口名」（pName-00707）天然规避非法字节路径（round-2 已绿）；崩溃逐字栈存档为独立上游证据（evidence/mb1-android-ondevice/round1_halt_excerpt.md）；上游报告 owner 复核门、未提报——提报前须补独立 MRP + 最新 SDK 重测 |
+| R-111 | **多后端真硬件验收尾门长期悬置**（MB1 Vulkan/SPIR-V 后端 AMD 桌面真卡验收 G-MB1-6 缺 AMD 硬件无法关闭；NVIDIA+lavapipe 跑通 ≠ AMD 已验证） | 中 | 中 | 缺硬件不设 CI 硬门（SKIP 不充绿）、不伪造 device 绿、不签；DoD 写清（MB1_CONTRACT.md acceptance_gates G-MB1-6 + §8）；lavapipe/SwiftShader 软件 ICD 作过渡验证 SPIR-V 跨非-NVIDIA 驱动可消费 + 数值一致；获硬件后按 DoD 补 evidence + run URL |
 
 ## 2. 生态风险（R-2xx）
 
@@ -63,6 +66,7 @@
 | R-603 | **范围蔓延**（单人项目无人踩刹车） | 高 | 高 | spike gating 永久清单 + 死亡路线 + MVP 红线三层防御；任何新方向必须先有 not_triggered 决策记录才能立项 |
 | R-604 | **文档税复发**（上一项目 CLAUDE.md 72KB 教训） | 中 | 中 | P-11 单一事实源 + [00](00_MASTER_INDEX.md) §6 尺寸纪律 + deferred/决策走结构化注册表 |
 | R-605 | **12–18 个月节奏断档**（动力衰减） | 中 | 高 | 每里程碑硬件证据交付物 = 可见进展；G0 出图节点（M7）刻意置于士气低谷期；阶段切换设回顾点允许范围再裁剪 |
+| R-606 | **nightly 子进程无 timeout 僵尸锁 runner**（CI 冒烟脚本多处 `subprocess.run` 无 `timeout=`，挂死子进程变僵尸 exe 持锁工作区，占死自托管 GPU runner 串行队列；nightly 自 2026-06-14 长期非绿，2026-07-17 晨 run 29530318038 经 gh run cancel 止血再证；R-601 单点 bus factor 的运维变体） | 高 | 中 | 止血：gh run cancel + 隔离僵尸 exe（Move-Item 解锁）+ rerun --failed；根治（未落地）= 统一子进程包装强制 timeout= + 超时杀进程树；job 级 `timeout-minutes: 60` 只杀 GitHub job 不杀自托管 runner 内核态僵尸 |
 
 ## 7. 难题清单（无完整解，只有姿态）
 
@@ -77,3 +81,4 @@
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-06-11 | 初版 |
+| v1.1 | 2026-07-17 | §1 追加 R-109（RD-027 生产档 PT 毒径挂起）/R-110（VVL Adreno-MTE 自崩上游 bug）/R-111（MB1 AMD 真卡尾门 G-MB1-6 悬置）；§6 追加 R-606（nightly 子进程无 timeout 僵尸锁 runner，R-601 运维变体）。依本表头列 5「风险编号永不复用；状态变化以追加方式记录」自授权表尾追加：§1–§7 既有风险行与编号 0-byte，不新增章节、不重排 §8。规划文档勘误（00 §6.3 追加式修订，独立 errata PR，check_planning_docs advisory 不阻断）。 |
