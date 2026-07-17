@@ -1,0 +1,19 @@
+//@ spec: RXS-0081, RXS-0082, RXS-0070
+// device 三角 intrinsic → NVPTX IR golden(RXS-0081 libdevice __nv_* 符号映射,
+// RXS-0082 bitcode 链接前保留外部符号,RXS-0070 ptx_kernel 入口)。kernel 经 device
+// fn 调 sin/cos(f32 方法形),IR 含 __nv_sinf / __nv_cosf declare/call 与
+// nvvm-reflect-ftz module flag。扩展既有 device_math_sqrt 的单一 sqrt 覆盖到三角族。
+device fn ring(theta: f32) -> f32 {
+    let s = theta.sin();
+    let c = theta.cos();
+    s + c
+}
+
+kernel fn map_trig(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        dst[i] = ring(src[i]);
+    }
+}
+
+fn main() {}
