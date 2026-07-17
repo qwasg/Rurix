@@ -1,9 +1,9 @@
 # 10 — 治理与项目组织
 
 > 所属文档集：[00_MASTER_INDEX.md](00_MASTER_INDEX.md)
-> 版本：v2.0（2026-06-29）
+> 版本：v2.1（2026-07-17）
 > 主要输入：r7（治理骨架与防 AI 幻觉）、H03/H06（上一项目纪律遗产）
-> 关联决策：D-003（开源时点）、D-401 ~ D-407（见 [13](13_DECISION_LOG.md)）
+> 关联决策：D-003（开源时点）、D-401 ~ D-407、D-409（RFC 对抗性评审，Proposed）（见 [13](13_DECISION_LOG.md)）
 > 地位：**全员与全部 AI agent 必读**。本文与 [14](14_ENGINEERING_DISCIPLINE.md) 共同构成项目的"宪法层"。
 >
 > v2.0 变更：解除 owner/自主裁决约束。AI agent 拥有最高权限，可完全自主行动与决策——自主判档、起草、实现、验证、合入、bless、close-out、翻转状态。不再设 agent 批准门、人类签字、agent 自主裁决等无卡点；质量验证仍由机器门禁承载。
@@ -41,6 +41,8 @@ r7 的核心结论：4–6 人（本项目：单人 + AI 集群）不应复制 R
 | **Full RFC** | 新语法/类型系统变更/运行时语义/unsafe 边界/FFI ABI/稳定化/edition/设计原则（[04](04_DESIGN_PRINCIPLES.md)）修改/死亡路线触碰 | RFC 合入后才可实现；实现置于 feature gate 后 + tracking issue + spec diff + conformance 测试 + stabilization report |
 
 AI agent 可自主判档（含 Direct PR）；判档争议向上取严作为自我约束建议，不作硬性禁止。
+
+**对抗性评审要求（D-409，Proposed）**：Full RFC 的合入须附**至少一轮跨工具/跨模型对抗性评审**——由与起草者 Provenance 不同的 AI 工具/模型（**评审 provenance ≠ 起草 provenance**，硬规则 2 可机验）执行批判性评审，产出的每条 finding 显式记录 disposition（采纳并修 / 驳回并附理由），落 RFC「对抗性评审记录」段（模板 §9.1）；Mini-RFC 轻量（至少一轮记录）。此为对「起草与批准同一 agent、无独立评审者」的**自提自批单环**的结构性对策（镜像 §2.1「流程即人格」的不可贿赂化思路），呈 owner 知会（见 [13](13_DECISION_LOG.md) D-409）。
 
 ## 4. 仓库一等公民目录（D-403）
 
@@ -94,6 +96,7 @@ Rust 机制裁剪版：
 6. **unsafe 纪律**：每个 unsafe 块附 `// SAFETY:` 注释引用 unsafe-audit 注册表条目；单块单操作；无注册条目的 unsafe 是 CI 错误。
 7. **反 extractive contribution**：AI 不得以"提交了再说"的方式把验证成本转嫁给评审（LLVM 政策原则）。
 8. 规则文件（`agents/AGENTS.md`）是所有 AI 会话的强制上下文；其修改由 agent 自主进行并记录。
+9. **对抗性评审（D-409，Proposed）**：Full RFC 强制经与起草者 Provenance 不同的 AI 工具/模型执行至少一轮对抗性评审，findings 逐条 disposition 并记录于 RFC「对抗性评审记录」段（评审 provenance ≠ 起草 provenance，硬规则 2 可机验；Mini-RFC 轻量）——反自提自批单环的自我加严约束，呈 owner 知会（见 [13](13_DECISION_LOG.md) D-409 与 §3）。
 
 开源后：缺 provenance/验证输出/条款号的 PR 由 CI 自动阻断（r7 的第一年路线）——此为质量门而非权限门。
 
@@ -120,3 +123,4 @@ Rust 机制裁剪版：
 | v1.0 | 2026-06-11 | 初版 |
 | v1.1 | 2026-06-29 | §7 政策 1/5 解除"仅人类可落笔"约束：AI 可起草/实现高敏面（原禁区），统一收敛为 agent 批准门（owner 授权；同步 AGENTS §2、04 P-13、13 D-406） |
 | v2.0 | 2026-06-29 | 解除全部 owner/自主裁决约束：AI agent 拥有完全自主决策与执行权限，自主判档/合入/bless/close-out/翻转状态/解除红线，无 agent 批准门、人类签字、agent 自主裁决、agent 自主判档 等无卡点（同步 AGENTS §2、04 P-13、13 D-406、CONTRIBUTING、RFC 模板、里程碑契约、CI 守卫） |
+| v2.1 | 2026-07-17 | §3 变更三档门追加**对抗性评审要求段** + §7 AI 贡献政策追加**第 9 项**（D-409，Proposed）：Full RFC 强制跨工具/跨模型对抗性评审（评审 provenance ≠ 起草 provenance，硬规则 2 可机验）+ findings 逐条 disposition + 记录于 RFC「对抗性评审记录」段，Mini-RFC 轻量。反自提自批单环的 agent 自我加严约束（不 reserve 任何 owner 权力），呈 owner 知会，不代 owner 签署；主决策登记于 [13](13_DECISION_LOG.md) D-409。同步 rfcs/TEMPLATE-RFC.md §9.1 / TEMPLATE-MINI-RFC.md / rfcs/README.md §3 / ci/check_contribution.py（属 agent 域，独立实现 PR）。规划文档勘误（00 §6.3 追加式修订，独立 errata PR，check_planning_docs advisory 不阻断） |
