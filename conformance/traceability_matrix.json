@@ -493,14 +493,18 @@
       "tests/ui/borrowck/dangling_reference.rx"
     ],
     "RXS-0062": [
+      "conformance/consteval/const_arith_run.rx",
       "conformance/consteval/const_eval_run.rx",
+      "conformance/consteval/const_fn_eval.rx",
       "src/rurixc/src/const_eval.rs",
       "src/rurixc/src/mir_build.rs",
       "tests/ui/consteval/non_const_call.rx",
       "tests/ui/consteval/non_const_in_fn.rx"
     ],
     "RXS-0063": [
+      "conformance/consteval/const_arith_run.rx",
       "conformance/consteval/const_eval_run.rx",
+      "conformance/consteval/const_fn_eval.rx",
       "src/rurixc/src/const_eval.rs",
       "tests/ui/consteval/overflow_mul.rx"
     ],
@@ -521,8 +525,12 @@
       "tests/ui/coloring/host_in_device.rx"
     ],
     "RXS-0067": [
+      "conformance/addrspace/accept/constant_view_match.rx",
       "conformance/addrspace/accept/matching_space.rx",
+      "conformance/addrspace/accept/mut_global_match.rx",
+      "conformance/addrspace/reject/local_space/basic.rx",
       "conformance/addrspace/reject/space_mismatch/basic.rx",
+      "conformance/addrspace/reject/space_mismatch/constant_to_global.rx",
       "src/rurixc/src/typeck.rs",
       "tests/ui/addrspace/space_mismatch.rx"
     ],
@@ -632,12 +640,20 @@
     ],
     "RXS-0081": [
       "conformance/libdevice/accept/device_math_intrinsics.rx",
+      "conformance/libdevice/accept/f64_intrinsics.rx",
+      "conformance/libdevice/accept/log_exp_intrinsics.rx",
+      "conformance/libdevice/accept/round_minmax_intrinsics.rx",
+      "conformance/libdevice/accept/trig_intrinsics.rx",
       "conformance/libdevice/reject/host_math/basic.rx",
       "src/rurixc/tests/libdevice_link_mapping.rs",
       "tests/ui/codegen/host_device_math.rx"
     ],
     "RXS-0082": [
       "conformance/libdevice/accept/device_math_intrinsics.rx",
+      "conformance/libdevice/accept/f64_intrinsics.rx",
+      "conformance/libdevice/accept/log_exp_intrinsics.rx",
+      "conformance/libdevice/accept/round_minmax_intrinsics.rx",
+      "conformance/libdevice/accept/trig_intrinsics.rx",
       "src/rurixc/tests/libdevice_link_mapping.rs"
     ],
     "RXS-0083": [

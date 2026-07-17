@@ -1,0 +1,27 @@
+//@ spec: RXS-0081, RXS-0082
+// libdevice 对数/指数 intrinsic 正例(RXS-0081/0082):device 上下文调用 ln / log2 /
+// log10 / exp2 / powf(f32 方法形),下译为 __nv_logf / __nv_log2f / __nv_log10f /
+// __nv_exp2f / __nv_powf(RXS-0081 映射,ln 别名归一到 log 基名)。经 bitcode 链接
+// 流程解析(RXS-0082)。深化 device 数学 intrinsic 识别面的对数/指数族。
+
+device fn decay(x: f32) -> f32 {
+    let a = x.ln();
+    let b = x.log2();
+    let c = x.log10();
+    a + b + c
+}
+
+device fn grow(x: f32, p: f32) -> f32 {
+    let e = x.exp2();
+    e.powf(p)
+}
+
+kernel fn map_logexp(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        let a = src[i];
+        dst[i] = decay(a) + grow(a, 2.0);
+    }
+}
+
+fn main() {}

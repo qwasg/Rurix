@@ -1,0 +1,12 @@
+//@ spec: RXS-0067
+//@ expect-error: RX3002
+// addrspace 反例(RXS-0067):constant 空间 view 传入期待 global 的形参,地址空间
+// 不一致 → RX3002。与既有 basic.rx(global→constant)互为反向,补全对称拦截。
+
+device fn consume(v: View<global, f32>) {}
+
+kernel fn k(c: View<constant, f32>) {
+    consume(c);
+}
+
+fn main() {}

@@ -1,0 +1,33 @@
+//@ spec: RXS-0081, RXS-0082
+// libdevice 取整/极值/根 intrinsic 正例(RXS-0081/0082):device 上下文调用 floor /
+// ceil / trunc / round / abs / min / max / rsqrt / cbrt(f32 方法形),下译为
+// __nv_floorf / __nv_ceilf / __nv_truncf / __nv_roundf / __nv_fabsf / __nv_fminf /
+// __nv_fmaxf / __nv_rsqrtf / __nv_cbrtf(RXS-0081 映射,abs→fabs、min→fmin、
+// max→fmax 别名归一)。经 bitcode 链接流程解析(RXS-0082)。深化取整/极值/根族。
+
+device fn quantize(x: f32) -> f32 {
+    let f = x.floor();
+    let c = x.ceil();
+    let t = x.trunc();
+    let r = x.round();
+    f + c + t + r
+}
+
+device fn shape(x: f32, y: f32) -> f32 {
+    let a = x.abs();
+    let lo = a.min(y);
+    let hi = a.max(y);
+    let rs = x.rsqrt();
+    let cb = y.cbrt();
+    lo + hi + rs + cb
+}
+
+kernel fn map_round(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        let a = src[i];
+        dst[i] = quantize(a) + shape(a, 1.0);
+    }
+}
+
+fn main() {}

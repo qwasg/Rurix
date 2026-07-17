@@ -1,0 +1,34 @@
+//@ spec: RXS-0062, RXS-0063
+// const 算术/比较/bool 短路 + const item 链真跑(RXS-0062/0063;兑现 spec/consteval.md
+// §RXS-0063 锚定测试预告 const_arith_run.rx)。const fn 组合加法、区间比较与 && / ||
+// 短路,const item 交叉引用求值成链;运行期由常量值驱动标量分支输出。
+// 全环求值正确则 OUT==20,打印 "constarith-ok"(退出 0);任一环偏离 → CI 步骤 16 红。
+// 与 const_eval_run.rx(square/clamp)语义不重叠。
+
+const fn add3(a: i32, b: i32, c: i32) -> i32 {
+    a + b + c
+}
+
+const fn in_range(n: i32, lo: i32, hi: i32) -> bool {
+    n >= lo && n <= hi
+}
+
+const fn pick(flag: bool, x: i32, y: i32) -> i32 {
+    if flag {
+        x
+    } else {
+        y
+    }
+}
+
+const BASE: i32 = add3(2, 3, 5);
+const OK: bool = in_range(BASE, 0, 100) || false;
+const OUT: i32 = pick(OK, BASE * 2, BASE - 1);
+
+fn main() {
+    if OUT == 20 {
+        println("constarith-ok");
+    } else {
+        println("constarith-bad");
+    }
+}

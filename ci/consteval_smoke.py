@@ -19,6 +19,8 @@ OUT_DIR = ROOT / "build" / "ci_smoke"
 # (源文件, 期待 stdout, 期待退出码)
 CASES = [
     ("conformance/consteval/const_eval_run.rx", "consteval-ok", 0),
+    ("conformance/consteval/const_arith_run.rx", "constarith-ok", 0),
+    ("conformance/consteval/const_fn_eval.rx", "constfn-ok", 0),
 ]
 
 

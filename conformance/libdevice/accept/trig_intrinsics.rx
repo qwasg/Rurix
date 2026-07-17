@@ -1,0 +1,25 @@
+//@ spec: RXS-0081, RXS-0082
+// libdevice 三角函数 intrinsic 正例(RXS-0081/0082):device 上下文调用编译器已知的
+// sin / cos / tan(f32 方法形),下译为 libdevice ABI 外部符号 __nv_sinf / __nv_cosf /
+// __nv_tanf(RXS-0081 映射),经 bitcode 链接流程解析(RXS-0082)。深化 device 数学
+// intrinsic 识别面(hir.rs DeviceMathFn),补全既有 sqrt/exp/fma 未覆盖的三角族。
+
+device fn wave(theta: f32) -> f32 {
+    let s = theta.sin();
+    let c = theta.cos();
+    s * c
+}
+
+device fn slope(theta: f32) -> f32 {
+    theta.tan()
+}
+
+kernel fn map_trig(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        let a = src[i];
+        dst[i] = wave(a) + slope(a);
+    }
+}
+
+fn main() {}
