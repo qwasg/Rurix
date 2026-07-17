@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "channel": "stable",
+  "releases": [
+    {
+      "version": "v1.0.1-dist.1",
+      "channel_manifest_sha256": "601109a351809a2598b0daca530658ccec619735f30f1178a186ee89c3d51fe7",
+      "base_url": "https://github.com/qwasg/Rurix/releases/download/v1.0.1-dist.1/"
+    }
+  ],
+  "latest": "v1.0.1-dist.1"
+}
