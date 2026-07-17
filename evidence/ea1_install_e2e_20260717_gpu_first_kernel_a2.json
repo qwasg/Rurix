@@ -1,0 +1,43 @@
+{
+  "segment": "gpu_first_kernel",
+  "host": {
+    "os": "Microsoft Windows 11 专业版 Insider Preview build 28120",
+    "cpu": "13th Gen Intel(R) Core(TM) i5-13600KF",
+    "gpu": "NVIDIA GeForce RTX 4070 Ti",
+    "driver": "32.0.16.2002"
+  },
+  "toolchain_version": "v1.0.1-dist.2",
+  "t_start": "2026-07-17T13:17:09.801Z",
+  "t_end": "2026-07-17T13:17:36.356Z",
+  "duration_s": 26.56,
+  "steps": [
+    {
+      "cmd": "curl.exe --proto =https ... rurixup.exe",
+      "name": "bootstrap_download_rurixup(pre-T0,not counted)",
+      "note": "571904 bytes",
+      "duration_s": 2.6,
+      "exit": 0
+    },
+    {
+      "cmd": "rurixup.exe install v1.0.1-dist.2 --channel-file <raw anchor url>",
+      "name": "install_via_anchor",
+      "note": "RURIXUP_INSTALL: version=v1.0.1-dist.2 channel=stable default=v1.0.1-dist.1 registered=2 components=3 digest_levels_ver\r\nified=4 installed=C:\\Users\\rurixtest\\.rurix\\toolchains\\v1.0.1-dist.2",
+      "duration_s": 24.61,
+      "exit": 0
+    },
+    {
+      "cmd": "rx.exe run first_kernel.rx (single-source SAXPY, self-verifying)",
+      "name": "first_kernel_device_run",
+      "note": "exit 0 = kernel launched on device and numeric self-check passed",
+      "duration_s": 1.9,
+      "exit": 0
+    }
+  ],
+  "digest_levels_verified": 4,
+  "bytes_downloaded": 571904,
+  "bandwidth_note": "home broadband; bootstrap download recorded pre-T0 per segment-B protocol (T0 = install start)",
+  "attempt": 2,
+  "pass": true,
+  "notes": "clean-account run: user=rurixtest; cargo present=False; rustc present=False; system-level MSVC/CUDA/driver are documented prerequisites, not timed",
+  "median_note": "attempt1(v1.0.1-dist.1)因 RX7001 临时目录 bug 失败不可计时(见 a1 档);attempt2 为首个可判定计时,取其值 26.56s"
+}

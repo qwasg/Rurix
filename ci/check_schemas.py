@@ -205,6 +205,9 @@ def check_evidence_files() -> None:
     ea1_real_endpoint_e2e_schema = load(
         ROOT / "milestones/ea1/real_endpoint_e2e_evidence_schema.json"
     )
+    ea1_install_e2e_schema = load(
+        ROOT / "milestones/ea1/install_e2e_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -301,6 +304,11 @@ def check_evidence_files() -> None:
     ea1_real_endpoint_e2e_validator = (
         jsonschema.Draft7Validator(ea1_real_endpoint_e2e_schema)
         if ea1_real_endpoint_e2e_schema
+        else None
+    )
+    ea1_install_e2e_validator = (
+        jsonschema.Draft7Validator(ea1_install_e2e_schema)
+        if ea1_install_e2e_schema
         else None
     )
     for f in evidence_files:
@@ -478,6 +486,14 @@ def check_evidence_files() -> None:
             # → milestones/ea1/real_endpoint_e2e_evidence_schema.json。与冷启动两段
             # (install_e2e_evidence_schema.json,裁决 C)互斥不混用,开发机热环境不冒充冷启动段。
             validator = ea1_real_endpoint_e2e_validator
+        elif (
+            f.name.startswith("ea1_install_e2e_")
+            and ea1_install_e2e_validator is not None
+        ):
+            # EA1 冷启动两段式取证(G-EA1-6/RXS-0219,裁决 C:vm_rxcheck / gpu_first_kernel,
+            # 各 ≤10min measured;重测 ≤3 次全部尝试入 evidence 取 median,失败尝试同样入档)
+            # → milestones/ea1/install_e2e_evidence_schema.json。
+            validator = ea1_install_e2e_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):

@@ -10,7 +10,18 @@
     "milestones/m0/BENCH_PROTOCOL.md",
     "rfcs/0012-toolchain-real-distribution.md(RFC-0012,EA1.0 序列内紧邻本包落地)"
   ],
-  "entries": [],
+  "entries": [
+    {
+      "id": "ea1.bench.cold_start_gpu_first_kernel_s",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "s",
+      "threshold": 600,
+      "evidence_file": "evidence/ea1_install_e2e_20260717_gpu_first_kernel_a2.json",
+      "measured_value": 26.56
+    }
+  ],
   "ratio_assertions": [],
   "counter_assertions": [],
   "namespace_check": {
@@ -18,6 +29,11 @@
     "unit_test_required": true
   },
   "revision_log": [
+    {
+      "version": "v1.1",
+      "date": "2026-07-17",
+      "change": "回填 ea1.bench.cold_start_gpu_first_kernel_s(B 段,裁决 C 口径;G-EA1-6/G-EA1-8):measured_local 26.56 s vs max 600 s——开发机干净用户账户(rurixtest,用户环境零 cargo/rustc)bootstrap(pre-T0 不计)→ raw 锚四级校验安装 v1.0.1-dist.2 → 单源 SAXPY 首 kernel device 真跑数值自校验 exit 0。attempt1(v1.0.1-dist.1)因 RX7001 跨用户临时目录 bug 失败,如实入档(a1)不作达标依据,修复=PR #164→dist.2;attempt2 为首个可判定计时。evaluator 专属分支 eval_cold_start 同 PR 落(登记与 evaluator 同 PR,不预造;M6.5 特例先例)。A 段 ea1.bench.cold_start_vm_rxcheck_s 待干净 VM,不预欠 estimated。"
+    },
     {
       "version": "v1.0",
       "date": "2026-07-16",
