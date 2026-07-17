@@ -202,6 +202,9 @@ def check_evidence_files() -> None:
     uc07_bench_schema = load(
         ROOT / "milestones/ms1/uc07_bench_evidence_schema.json"
     )
+    ea1_real_endpoint_e2e_schema = load(
+        ROOT / "milestones/ea1/real_endpoint_e2e_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -293,6 +296,11 @@ def check_evidence_files() -> None:
     uc07_bench_validator = (
         jsonschema.Draft7Validator(uc07_bench_schema)
         if uc07_bench_schema
+        else None
+    )
+    ea1_real_endpoint_e2e_validator = (
+        jsonschema.Draft7Validator(ea1_real_endpoint_e2e_schema)
+        if ea1_real_endpoint_e2e_schema
         else None
     )
     for f in evidence_files:
@@ -461,6 +469,15 @@ def check_evidence_files() -> None:
             # 经 HLSL 边界改写后 dxc 接受 + signature_gate 不放宽也过 + 物理 ABI 不变 + 确定性,
             # 不入 budget counter;golden bless / device 真跑 / RD-017 状态翻转留 owner,G-G2-4)
             validator = rd017_varying_semantic_spike_validator
+        elif (
+            f.name.startswith("ea1_real_endpoint_e2e_")
+            and ea1_real_endpoint_e2e_validator is not None
+        ):
+            # EA1.2 真端点闭环 e2e 证据(G-EA1-3:真实 GitHub Releases 端点闭环归 EA1.2
+            # e2e evidence,不进 pr-smoke;bootstrap→锚→四级校验→物化→探针 全链 measured_local)
+            # → milestones/ea1/real_endpoint_e2e_evidence_schema.json。与冷启动两段
+            # (install_e2e_evidence_schema.json,裁决 C)互斥不混用,开发机热环境不冒充冷启动段。
+            validator = ea1_real_endpoint_e2e_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):

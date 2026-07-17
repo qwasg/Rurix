@@ -1,0 +1,33 @@
+{
+  "kind": "ea1.2_real_endpoint_e2e",
+  "description": "EA1.2 真端点闭环 evidence(G-EA1-3 明记『真实 GitHub Releases 端点闭环归 EA1.2 e2e evidence,不进 pr-smoke』)。外部用户完整路径实测:bootstrap 下载 rurixup.exe → raw 锚 URL → 四级内容寻址校验 → 物化 → rx check 探针。注意:本档为开发机热环境 measured_local,**非**裁决 C 冷启动两段(vm_rxcheck/gpu_first_kernel)——两段须干净 VM/干净账户,见 pending;不冒充、不跨机加总。",
+  "date": "2026-07-17",
+  "host": {
+    "os": "Windows 11 Pro (Insider build 28120)",
+    "cpu": "Intel Core i5-13600KF",
+    "gpu": "NVIDIA GeForce RTX 4070 Ti(本段未用 GPU)",
+    "driver": "n/a(rx check 零 GPU 路径)"
+  },
+  "toolchain_version": "v1.0.1-dist.1",
+  "anchor_channel": "https://raw.githubusercontent.com/qwasg/Rurix/main/channels/stable.json(渠道③,TLS;锚合入 = PR #162,owner 授权 agent 代执行人工门)",
+  "release_run": "https://github.com/qwasg/Rurix/actions/runs/29572938705(owner 亲手 workflow_dispatch;24 步绿,末步 gh pr create 被仓库 Actions 设置拦,PR 由 orchestrator 代开;该设置已翻开供后续 run 自动开 PR)",
+  "steps": [
+    { "name": "bootstrap_download_rurixup", "cmd": "curl --fail --silent --show-error --location --proto =https --proto-redir =https -o rurixup.exe https://github.com/qwasg/Rurix/releases/download/v1.0.1-dist.1/rurixup.exe", "exit": 0, "duration_s": 3.1, "note": "571904 bytes" },
+    { "name": "install_via_anchor", "cmd": "rurixup.exe install v1.0.1-dist.1 --channel-file <raw 锚 URL> --registry <RURIX_HOME>/toolchains.json", "exit": 0, "duration_s": 13.1, "note": "RURIXUP_INSTALL: version=v1.0.1-dist.1 channel=stable default=v1.0.1-dist.1 registered=1 components=3 digest_levels_verified=4" },
+    { "name": "rx_check_probe", "cmd": "home/toolchains/v1.0.1-dist.1/bin/rx.exe check hello.rx", "exit": 0, "duration_s": 0.12, "note": "物化产物真实可执行;负样例先行(println 收 i32 → RX2001 拒,证真编译器非壳)" }
+  ],
+  "t_start": "2026-07-17T10:33:49.708Z",
+  "t_end": "2026-07-17T10:35:11.742Z",
+  "duration_s_install_chain": 16.2,
+  "digest_levels_verified": 4,
+  "components": ["rx.exe", "rurixup.exe", "bin/lib/rurix_rt_cabi.lib"],
+  "rt_cabi_gap_closed": "v1.0.0 缺 rurix_rt_cabi.lib 的必修缺口闭合:物化树 bin/lib/rurix_rt_cabi.lib 在位,driver.rs locate_or_build_rt_cabi 的 exe 旁 lib/ 分支可命中(无 Rust 环境含 GPU 面 rx build 不再必死)",
+  "bytes_downloaded_note": "rurixup.exe 571904 B + channel/bundle 清单 + 3 组件(总量见 bundle.json digest 对象)",
+  "bandwidth_note": "家宽,未做带宽画像仪表;本档不进 CI 硬门",
+  "attempt": 1,
+  "pass": true,
+  "pending": [
+    "冷启动 A 段(vm_rxcheck):须干净 Win11 VM(本机无 Windows Sandbox/现成 VM),owner 备 VM 后按 install_e2e_evidence_schema.json 补测",
+    "冷启动 B 段(gpu_first_kernel):须开发机干净用户账户(建账户须 owner 亲手或明示),补测后回填 ea1.bench.cold_start_* entries(G-EA1-8)"
+  ]
+}
