@@ -521,6 +521,19 @@ jobs:
           RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/vulkan_present_smoke.py
 
+      # 步骤 59 前半（EA1.1a,契约 G-EA1-2,RFC-0012 / RXS-0214~0215）:rurixup 真实
+      # 分发冒烟。`ci/rurixup_dist_smoke.py`(纯离线 `--from-dir` 本地源,host 面总跑,
+      # 零真实外呼、零 GPU):cargo build rurixup+rx → 真实构建产物当组件造 fixture →
+      # install 物化到临时 RURIX_HOME(staging→逐组件 sha256→tree_digest 双向复算→同卷
+      # 单次 rename)→ 断言磁盘树在 + 逐字节==源 + 注册表 v2 字段真 → 切换探针(经 shim
+      # 干名转发 toolchains 内真实 exe 退出 0)→ 幂等;RED:①篡改组件一字节→内容寻址拒
+      # 且 toolchains/ 零残留+注册表 0-byte ②default 指向已删目录→诚实报错非 0 ③复原绿;
+      # 内建 red_self_test。**防降级硬门**:账面注册/内存提交/mock FS 均不得替代真实磁盘。
+      # 网络拉取后半(hermetic HTTP fixture,RXS-0216/0217)随 EA1.1b 落地。
+      - name: rurixup dist smoke (EA1 CI_GATES §2.59 前半, G-EA1-2, RFC-0012)
+        shell: powershell
+        run: py -3 ci/rurixup_dist_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py
