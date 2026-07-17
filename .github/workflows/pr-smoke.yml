@@ -59,6 +59,18 @@ jobs:
         shell: powershell
         run: py -3 ci/check_contribution.py
 
+      # —— 编号台账 / 跨分支保留号守卫(MR-0010,check_* 守卫风格,CPU-only,不占数字步骤号)——
+      # 兑现 10 §9.5「编号永不复用」的跨分支执行面:off-main 影子分支(如 GRX,closed)可能
+      # 消费共享命名空间(MR-0006/0007、RXS-0181~0184);registry/number_ledger.json 登记这些消费,
+      # 本门强制两条可靠判定——(1)树内同号异义碰撞(spec `### RXS-####` 头重复 / registry id 重复);
+      # (2)已登记 shadow-reserved(对 main 永久 burned)号不得在树内新出现为条款定义 + ledger
+      # next_free 跳过树内已用与影子保留。台账引用存在性 advisory 打印不阻断。**能力诚实边界**:
+      # CI 只见当前树,无法枚举未合分支,新影子工作流登记是人工/agent 前置动作(不宣称自动发现)。
+      # 内置 red 自检(反 YAML-only)。blocking(exit 1)——编号永不复用是抗混乱硬不变式。
+      - name: number ledger / cross-branch reservation guard (10 §9.5 execution face, MR-0010)
+        shell: powershell
+        run: py -3 ci/check_number_ledger.py
+
       - name: harness unit tests (CI_GATES §3.4)
         shell: powershell
         run: py -3 -m pytest tests/ -q
