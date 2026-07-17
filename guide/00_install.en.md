@@ -2,7 +2,7 @@
 
 [English](00_install.en.md) · [简体中文](00_install.md)
 
-> API-convergence notice (RD-008): commands and artifact shapes may change between versions.
+> Language 1.0 has shipped (v1.0.0): the stable surface (including the `rx` command surface) is frozen — additive-only within an edition (RD-008 closed).
 
 ## Environment prerequisites
 
@@ -11,12 +11,27 @@
 | Operating system | Windows 11 (native COFF/PE/PDB toolchain) |
 | GPU | NVIDIA (reference machine: RTX 4070 Ti) |
 | Driver / runtime | CUDA Toolkit + CUDA Driver API |
-| C++ toolchain | MSVC 2022 |
-| Build host | The Rust toolchain (Rurix itself is built with Rust, D-201) |
+| C++ toolchain | MSVC 2022 (only needed at link time for `rx build` / `rx run`; `rx check` has zero such prerequisite) |
+| Build host | The Rust toolchain (**only needed for Option B, building from source**; Option A prebuilt install has zero Rust prerequisite, D-201) |
 
-> A bare `rx check` (pure front-end static checking) does **not** need a GPU; only execution paths such as `rx run` / `rx bench` require a real device.
+> A bare `rx check` (pure front-end static checking) does **not** need a GPU nor any of the system-level prerequisites above; only execution paths such as `rx run` / `rx bench` require a real device. GPU / MSVC / CUDA are **documented system-level prerequisites and are not counted toward install time** (same framing as rustup).
 
-## Building the toolchain
+## Option A: install the prebuilt toolchain (rurixup, recommended)
+
+1. Download `rurixup.exe` from [GitHub Releases](https://github.com/qwasg/Rurix/releases) (honest bootstrap-gap note: this step is protected by TLS + manually checking `SHA256SUMS`, same shape as rustup-init; the Authenticode signature is a self-signed test certificate — defense in depth, **not** a trust root).
+2. Install (via the in-repo trust-root anchor, four-level content-addressed verification; any level mismatch refuses the install):
+
+```sh
+rurixup.exe install v1.0.1-dist.1 --channel-file https://raw.githubusercontent.com/qwasg/Rurix/main/channels/stable.json
+```
+
+   On success it prints `RURIXUP_INSTALL: ... digest_levels_verified=4` and materializes the toolchain under `%USERPROFILE%\.rurix\toolchains\<version>\bin\` (including `rx.exe` and `bin\lib\rurix_rt_cabi.lib` — `rx build` works without a Rust environment).
+3. PATH setup: `rurixup setup` prints the instructions (does not modify your environment by default); `rurixup setup --add-path` explicitly writes the user PATH. Switch / list versions: `rurixup default <version>` / `rurixup list`.
+4. Verify: `rx check <file.rx>` exits 0.
+
+> The currently installable version is `v1.0.1-dist.1` (the EA1.2 first release-rehearsal artifact, pre-release; the trust-root anchor `channels/stable.json` only lists versions merged through the owner's manual gate). Install time depends on your bandwidth; cold-start acceptance uses a two-segment protocol (clean VM to `rx check` / clean account to first kernel, each ≤10 minutes, measured — RFC-0012 §4.10). This document makes no unqualified duration claims.
+
+## Option B: build from source (contributor path)
 
 At the repository root:
 
