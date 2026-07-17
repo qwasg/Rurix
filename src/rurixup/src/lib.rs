@@ -13,6 +13,9 @@
 //!   tree_digest 双向复算→同卷单次 rename;失败零半装)
 //! - [`shim`] 活跃版本切换 shim(RXS-0215,EA1.1a:argv0 干名转发 default 版同名 exe,
 //!   退出码透传,防自递归/防逃逸)
+//! - [`fetch`] 网络拉取载体 + 四级内容寻址信任链(RXS-0216/0217,EA1.1b:系统
+//!   curl.exe 固定参数集 https-only + repo 锚 channels/stable.json 四级 digest 链
+//!   fail-closed;载体经 std::process 外呼零 unsafe,pr-smoke 零真实外呼)
 //!
 //! 纪律:**全 safe**(`unsafe_code = "deny"`,继承 workspace lints);**零外部依赖**
 //! (标准库 + `rurix-pkg` 手写 SHA-256 / 内容树),纯函数、确定性——同一发布输入产
@@ -21,6 +24,7 @@
 
 pub mod bundle;
 pub mod channel;
+pub mod fetch;
 pub mod gate;
 pub mod install;
 pub mod sbom;
