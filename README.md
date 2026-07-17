@@ -2,9 +2,11 @@
 
 > 让 GPU 系统编程拥有自己的 Rust。
 
+[English](README.en.md) · [简体中文](README.md)
+
 **Rurix** 是一门独立的、静态编译的 GPU 系统编程语言与工具链——把*资源所有权、地址空间、并行执行层级*做成类型系统的一等公民,让图形与 GPU 计算程序在不牺牲 CUDA 级底层控制的前提下,获得**可静态证明的安全性、可预测的性能与可长期治理的生态**。
 
-CUDA 优先、Windows 原生、NVIDIA 单栈做深;双后端产出 PTX(运行时直连 CUDA Driver API)与 DXIL(原生 D3D12 图形运行时),SPIR-V 仅作图形路径内部 IR。
+CUDA 优先、Windows 原生、NVIDIA 单栈做深;三后端产出 PTX(运行时直连 CUDA Driver API)、DXIL(原生 D3D12 图形运行时)与 SPIR-V(MB1 起的单一 Vulkan/SPIR-V 跨端后端,AMD 桌面 + Android、compute+graphics;preview,feature 默认关闭)。
 
 ---
 
@@ -21,9 +23,9 @@ CUDA 优先、Windows 原生、NVIDIA 单栈做深;双后端产出 PTX(运行时
 
 完整论证见 [`01_VISION_AND_MISSION.md`](01_VISION_AND_MISSION.md) 与 [`03_POSITIONING_AND_LANDSCAPE.md`](03_POSITIONING_AND_LANDSCAPE.md)。
 
-## 项目状态:语言 1.0 已发行(`v1.0.0`),使命判据第一期落地(`ms1-closed`)
+## 项目状态:语言 1.0 已发行(`v1.0.0`),使命判据第一期 + 多后端第一期落地(`mb1-closed`)
 
-第一层全量验收(01 §6)已达成,使命判据第一期(11 §6)已落地——首个以 Rurix 为主语言的生产级渲染器/仿真系统(第一方)。从 MVP 到 1.0 再到使命期,13 个里程碑契约全部按验收门收口;性能与诊断预算全程 `measured_local`(零 estimated),预设资源生命周期错误类别 100% 编译期拦截:
+第一层全量验收(01 §6)已达成,使命判据第一期(11 §6)已落地——首个以 Rurix 为主语言的生产级渲染器/仿真系统(第一方);多后端新纪元第一期(MB1)亦已收口。从 MVP 到 1.0 再到使命期与多后端期,14 个里程碑契约全部按验收门收口;性能与诊断预算全程 `measured_local`(零 estimated),预设资源生命周期错误类别 100% 编译期拦截:
 
 | 阶段 | 收口 | 交付 |
 |---|---|---|
@@ -32,6 +34,7 @@ CUDA 优先、Windows 原生、NVIDIA 单栈做深;双后端产出 PTX(运行时
 | G2 | 2026-06-30 `g2-closed` | 着色阶段进类型系统、DXIL 第二后端(D-131 混合路线)、绑定布局推导(root signature)、D3D12 运行时 + UC-04 deferred 渲染器、语言 1.0 机制就绪(edition "2026" + stable 面快照冻结) |
 | V1 | 2026-07-14 `v1-closed` | 语言 1.0 首个 stable 发行(tag `v1.0.0`):stabilization report、FCP-lite 公示、stable channel 清单(rurixup)、首个 GitHub Release |
 | MS1 | 2026-07-15 `ms1-closed` | `std::gpu` 单源宿主编排(单源 `.rx` → 单 EXE)+ 首个全 `.rx` 应用 ruridrop(UC-07) |
+| MB1 | 2026-07-16 `mb1-closed` | 单一 Vulkan/SPIR-V 跨端后端(RFC-0011;AMD 桌面 + Android,compute+graphics;Android 真机 on-device measured;AMD 真卡尾门 G-MB1-6 诚实维持 open 待硬件;preview、feature 默认关闭) |
 
 旗舰用例与关键交付(全部端到端真机验收):
 
@@ -50,7 +53,7 @@ CUDA 优先、Windows 原生、NVIDIA 单栈做深;双后端产出 PTX(运行时
 
 | 组件 | 职责 |
 |---|---|
-| `src/rurixc` | 编译器(前端 + MIR + NVPTX/DXIL 双后端 + 借用/资源检查 + 格式化器 + LSP 会话) |
+| `src/rurixc` | 编译器(前端 + MIR + NVPTX/DXIL/SPIR-V 三后端 + 借用/资源检查 + 格式化器 + LSP 会话) |
 | `src/rurix-rt` | 运行时(CUDA Driver API 薄层:affine Context/Stream/Event/Buffer、launch、fatbin 装载协商、poisoned 状态机) |
 | `src/rurix-rt-cabi` | 宿主编排 C ABI 运行时边界(`rxrt_*`/`rxp_*`/`rxio_*`:单源 `.rx` 应用 ↔ 运行时,fatbin 装载/launch/present/图像落盘) |
 | `src/rx` | 工具链 CLI(`build`/`check`/`run`/`fmt`/`bench`/`test`/`doc`/`vendor`) |
