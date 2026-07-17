@@ -5,12 +5,12 @@
 | RFC 编号 | RFC-0012（4 位制，编号永不复用，10 §9.5） |
 | 标题 | rurixup 工具链真实分发：把已校验 bundle 物化到磁盘版本目录、切换活跃版本、从 GitHub Releases 经四级内容寻址校验拉取签名 bundle，并建发布侧对称自动化——RD-025 兑现 |
 | 档位 | **Full RFC**（10 §3：**真实 IO**(磁盘物化/原子落盘)+ **安全包络**(下载校验 fail-closed 信任链)+ **网络端点面**(本仓首段网络代码)——RD-025 backfill_condition 明记「按 10 §3 判档,可能需 Full RFC」；AGENTS 硬规则 5，判档争议向上取严 硬规则 8） |
-| 状态 | **Draft（2026-07-16）**。§9 裁决 A~D（A 网络端点+信任根+载体 / B 活跃切换机制 / C 冷启动验收口径 / D bundle 自动发布确认）标 **owner-pending**，经 [milestones/ea1/OWNER_DECISION_PACKAGE.md](../milestones/ea1/OWNER_DECISION_PACKAGE.md) 呈 owner 勾选；**裁决 A、B 落地前本 RFC 不翻 Approved**（RXS-0216/0217 语义依赖 A，RXS-0215 依赖 B），不推进 EA1.1 实现 PR；C/D 可后置 pending（ODP §3.4 部分落地协议）。agent 起草并摊清，不预设裁决结果 |
+| 状态 | **Approved（2026-07-17）**。§9 裁决 A~D 已于 2026-07-17 全部经 [milestones/ea1/OWNER_DECISION_PACKAGE.md](../milestones/ea1/OWNER_DECISION_PACKAGE.md) §0 落地（owner 会话勾选四项拟裁,agent 代录）：A 认可全案 / B shim / C 两段各 ≤10min / D 认可自动发布——翻 Approved 前置（A、B）满足,§9 已回填,§4.7 演练形态已定案。EA1.1a/1.1b/EA1.2 实现 PR 解锁（实现序见 §6;G-EA1-1 失败测试先行前提在本 PR 时点保持:main 无步骤 59/60 脚本、无真实 IO/网络实现代码） |
 | 承接里程碑 | EA1（[milestones/ea1/EA1_CONTRACT.md](../milestones/ea1/EA1_CONTRACT.md)，验收门 G-EA1-1 ~ G-EA1-8；裁决 A gate EA1.1b 网络面） |
 | 关联条款 | 拟落 spec/release.md **延伸 §2.8**（G1.5/MR-0005「延伸 spec/release.md」先例），条款 **RXS-0214 ~ RXS-0219**（区间随条款数定，见 §5）；**零裸条款头**——条款体随 EA1.1a/1.1b/1.2 实现 PR 同落，脚手架与本 RFC 不动 spec/ |
 | 依据决策 | **RD-025**（兑现对象：MR-0009 defer 的真实 FS 物化 + PATH/junction 切换 + URL 下载；backfill_condition =「网络拉取若引入须先裁 D-312 相关面」→ §9 Q-A）· **D-312**（包 registry sumdb 待决——本 RFC **拟**窄裁「工具链分发非 registry 激活」呈裁决 A，SG-007 现状维持 not_triggered）· D-308/D-309（包管理 MVP 无 registry / 无 build.rs——供应链姿态一致性）· MR-0009（工具链前端首切片范围红线，本 RFC 解除其 defer）· RXS-0135~0139 / RXS-0185~0188（既有分发条款底座：原子分发内容树 / 分离打包 / 签名 / SBOM / hard-block 发布门 / channel 清单 / 一致性 / 注册表 / 内容寻址消费——**全部只增不破坏**）· 12 R-202（供应链事故红线）· D-406 v2.0（agent 自主默认；裁决 A~D 为 RD-025 契约性前置 + outward-facing 惯例的 carve-out） |
 | Provenance | `Assisted-by: claude-code:claude-fable-5`。agent 起草并把裁决 A~D 摊清呈 owner；拟裁全程标「拟」 |
-| Agent 批准 | **未批准（Draft）**。翻 Approved 前置 = 裁决 A、B 经 OWNER_DECISION_PACKAGE 落地（裁决落地小 PR 内同步回填 §9 + 本表状态行 + §4.7 演练版号/Release 创建形态定案，agent 代录）；若裁决 A 为「触 D-312」，本 RFC 网络面章节（§4.4/§4.5/§4.7 网络半程）标 blocked，本地面（§4.1~§4.3）可独立 Approved 推进（EA1 按 ODP §1-A 备选后果收窄） |
+| Agent 批准 | **已批准（Approved 2026-07-17）**——裁决 A、B（及 C、D）经 OWNER_DECISION_PACKAGE 于 2026-07-17 落地（owner 会话勾选,agent 代录）,本表状态行 + §9 + §4.7 演练形态同 PR 回填兑现;「若裁 A 触 D-312」的 blocked 条件分支未触发,网络面章节（§4.4/§4.5/§4.7）全解锁 |
 
 ---
 
@@ -178,7 +178,7 @@ release.yml 既有八门(RXS-0139 七子门 + RXS-0186 第 8 门)与触发器(`v
 6. **上传后回读自校验**:curl 下载刚上传资产 → 逐件 sha256 复核 == bundle.json → 失配即 job 红(分发通路的真 HTTPS 红绿,每次发布必跑);
 7. **信任根登记流**:生成 `channels/stable.json` 新条目 → 自动开 PR → **owner 合并 = 人工门**(每次发布用户可安装前 owner 须合一个 PR;合并前该版本处于「已发布未登记」过渡态,rurixup 拒装,文档写明)。
 
-资产布局 = **裸文件 + SHA256SUMS 共 11 件**(现 10 件 + rurix_rt_cabi.lib):每资产字节 == bundle.json 组件 digest 的对象,一比一内容寻址无第二 digest 域;zip 备选见 §7。**首次演练走 workflow_dispatch**——注意「防误发」只防 tag 误触发,**演练产物即首个可安装公开资产**:演练以独立 pre-release 版号发布(拟 `v1.0.1-dist.1` 型,精确形态随裁决 D 落地定案回填本节),不覆写 v1.0.0 资产;演练失败的资产/Release 删除重来(GitHub Release 资产可变,与 evidence 只增纪律不冲突——evidence 记录尝试历史)。
+资产布局 = **裸文件 + SHA256SUMS 共 11 件**(现 10 件 + rurix_rt_cabi.lib):每资产字节 == bundle.json 组件 digest 的对象,一比一内容寻址无第二 digest 域;zip 备选见 §7。**首次演练走 workflow_dispatch**——注意「防误发」只防 tag 误触发,**演练产物即首个可安装公开资产**:演练以独立 pre-release 版号发布(**定案 2026-07-17,随裁决 D 落地;agent 拟、owner 可 veto**:版号 = `v1.0.1-dist.N`,N 自 1 递增、每次演练尝试独立取号不复用;Release 由 run 内 `gh release create --prerelease` 以 github.token 创建,**不推演练 tag**——本节第 5 点触发器吞后缀坑;Release 页与资产说明如实标注自签测试证书非生产信任根),不覆写 v1.0.0 资产;演练失败的资产/Release 删除重来(GitHub Release 资产可变,与 evidence 只增纪律不冲突——evidence 记录尝试历史)。
 
 ### 4.8 测试三缝与 hermetic 红绿
 
@@ -238,14 +238,14 @@ stable 快照随各条款 PR 加性重 bless(209→211→213→215,bless_log 同
 
 ## 9. 未决问题 / 关键裁决
 
-**owner-pending(经 [OWNER_DECISION_PACKAGE.md](../milestones/ea1/OWNER_DECISION_PACKAGE.md) §0 勾选,裁决落地小 PR 回填本表)**:
+**已全部落地(2026-07-17,owner 会话勾选 [OWNER_DECISION_PACKAGE.md](../milestones/ea1/OWNER_DECISION_PACKAGE.md) §0 四项拟裁,agent 代录回填本表)**:
 
 | # | 问题 | agent 拟裁 | 状态 |
 |---|---|---|---|
-| Q-A | 网络端点+信任根+载体(gate EA1.1b;RD-025「先裁 D-312 相关面」兑现点) | 单端点本仓 Releases;repo 锚 `channels/stable.json` 四级 digest 链;curl.exe 固定参数集;**拟**定性非 D-312 激活,SG-007 现状维持;锚 PR owner 合并人工门 | **owner-pending** |
-| Q-B | 活跃切换机制(偏离 RD-025「PATH/junction」记载措辞) | shim 目录 + argv0 转发;junction 降 §7 备选 | **owner-pending** |
-| Q-C | 冷启动 <10min 验收口径 | 两段各 ≤10min measured(A 段 VM 到 rx check 含下载;B 段干净账户 GPU 真跑,系统级前置文档化不计时);重测 ≤3 次全入 evidence 取 median | **owner-pending** |
-| Q-D | bundle 随 semver tag 自动发布公开资产(一次性确认) | 认可;首次演练 workflow_dispatch,演练产物即首个可安装资产(pre-release 版号,§4.7) | **owner-pending** |
+| Q-A | 网络端点+信任根+载体(gate EA1.1b;RD-025「先裁 D-312 相关面」兑现点) | 单端点本仓 Releases;repo 锚 `channels/stable.json` 四级 digest 链;curl.exe 固定参数集;**拟**定性非 D-312 激活,SG-007 现状维持;锚 PR owner 合并人工门 | **已裁 2026-07-17:认可全案**(拟裁通过;EA1.1b 解锁,SG-007 维持 not_triggered,D-312 维持待决) |
+| Q-B | 活跃切换机制(偏离 RD-025「PATH/junction」记载措辞) | shim 目录 + argv0 转发;junction 降 §7 备选 | **已裁 2026-07-17:shim**(拟裁通过;RXS-0215 语义定案) |
+| Q-C | 冷启动 <10min 验收口径 | 两段各 ≤10min measured(A 段 VM 到 rx check 含下载;B 段干净账户 GPU 真跑,系统级前置文档化不计时);重测 ≤3 次全入 evidence 取 median | **已裁 2026-07-17:两段各 ≤10min**(拟裁通过;G-EA1-6 口径定案) |
+| Q-D | bundle 随 semver tag 自动发布公开资产(一次性确认) | 认可;首次演练 workflow_dispatch,演练产物即首个可安装资产(pre-release 版号,§4.7) | **已裁 2026-07-17:认可**(拟裁通过;演练形态定案见 §4.7) |
 
 **agent 拟裁自主项(D-406 v2.0;owner 可 veto,实现 PR 定案回填)**:
 
@@ -274,3 +274,4 @@ stable 快照随各条款 PR 加性重 bless(209→211→213→215,bless_log 同
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
 | Draft | 2026-07-16 | 初稿:四级内容寻址信任链 + staged-rename 原子物化 + shim 切换拟案 + curl.exe 载体拟案 + 发布侧对称自动化 + 两段式冷启动协议;§9 Q-A~Q-D owner-pending 呈 OWNER_DECISION_PACKAGE,Q5~Q10 agent 拟裁;失败模式表 11 条全 fail-closed;诚实边界三句(自签证书零信任贡献/bootstrap 空窗/不防 repo 级失陷)入 §4.5 | Full RFC(Draft) |
+| Approved | 2026-07-17 | 裁决 A~D 落地回填(owner 2026-07-17 会话勾选 ODP §0 四项拟裁,agent 代录):§9 Q-A~Q-D owner-pending→已裁(A 认可全案 / B shim / C 两段各≤10min / D 认可自动发布);头表状态 Draft→**Approved**、Agent 批准行兑现;§4.7 演练形态定案(v1.0.1-dist.N pre-release + run 内 gh release create --prerelease + 不推演练 tag + 自签如实标注)。配套:EA1_CONTRACT §7 v1.1 + ODP v1.1 + deferred.json RD-025 history(v1.57);13 号文档/spike_gating 零改动 | Full RFC(Approved) |
