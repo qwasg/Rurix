@@ -16,16 +16,28 @@
 
 ## Tested versions
 
-- Reproducible in: 4.7.dev [`<FILL: exact commit hash of the stock build you confirm on>`], Direct3D 12 backend.
-- Not tested / please confirm: Vulkan backend (same project, `--rendering-driver vulkan`) — expected not to reproduce.
-- `RenderingDevice.buffer_clear()` predates 4.0, so this is very likely present in all 4.x with the D3D12 backend. `<FILL: whether an earlier stable (e.g. 4.3/4.4) also reproduces>`.
+- Reproducible in: **4.7.1.stable.official** [`a13da4feb8d8aefc283c3763d33a2f170a18d541`], Direct3D 12
+  backend — confirmed on the official godot-builds release (4.7.1-stable, 2026-07-14) on a 100%-stock
+  build (re-measured 2026-07-17; the original diagnosis was on a self-built 4.7-**dev**). **This is a
+  shipped-release defect, not a dev-branch-only artifact.**
+- Vulkan backend (same project, `--rendering-driver vulkan`): **does not reproduce** — measured clean
+  (300 frames rendered, process exit 0) on 4.7.1-stable. The removal is Direct3D 12-specific.
+- `RenderingDevice.buffer_clear()` predates 4.0, so this is very likely present in all 4.x with the
+  D3D12 backend. An earlier stable (e.g. 4.3/4.4) was **not** tested in this pass (only 4.7.1-stable
+  was downloaded/confirmed) — a suggested check before filing.
 
 ## System information
 
-`<FILL via editor: Help → Copy System Info>` — e.g.:
-`Windows 11 (build 22631) - Godot v4.7.dev [<commit>] - Direct3D 12 (Forward+) - NVIDIA GeForce RTX 4070 Ti (nvidia; <driver version>) - <CPU model>`
+`Windows 11 (build 28120) - Godot v4.7.1.stable.official [a13da4feb8d8aefc283c3763d33a2f170a18d541] - Direct3D 12 (Forward+) - NVIDIA GeForce RTX 4070 Ti (nvidia; 32.0.16.2002 / NVIDIA ~620.02) - 13th Gen Intel(R) Core(TM) i5-13600KF`
 
-Known-fixed parts: Windows 11, Direct3D 12 (Forward+), NVIDIA GeForce RTX 4070 Ti.
+> This string is **CLI-composed** at re-confirmation time (engine `--version` + PowerShell
+> `Win32_OperatingSystem`/`Win32_Processor`/`Win32_VideoController`), **not** the editor's
+> *Help → Copy System Info* verbatim output. The GPU line uses the Windows `DriverVersion`
+> field (`32.0.16.2002`; NVIDIA's own numbering is ~620.02). The measuring machine ran a
+> Windows 11 Insider Preview build (28120). At file time, replace this with the editor's real
+> *Copy System Info* line. Full capture: `repro_log_stock_20260717.md` §5.
+
+Confirmed-on parts: Windows 11, Direct3D 12 (Forward+), NVIDIA GeForce RTX 4070 Ti.
 
 ## Issue description
 
@@ -107,22 +119,26 @@ rd.buffer_clear(buf, 4, 4)   # offset 4 is not a multiple of 16 -> device remove
 
 ## Minimal reproduction project (MRP)
 
-`<FILL: attach rd-buffer-clear-misaligned-offset-mrp.zip>` — the
-`spike/godot-rurix/upstream-repro/rd-buffer-clear-misaligned-offset/` folder zipped without the
-`.godot/` cache (keep `project.godot`).
+**At file time, attach `rd-buffer-clear-misaligned-offset-mrp.zip`** — zip the entire `mrp/`
+directory of this evidence pack (equivalently the source
+`spike/godot-rurix/upstream-repro/rd-buffer-clear-misaligned-offset/` folder) **without** the
+`.godot/` cache (keep `project.godot`), under 10 MB. The MRP is self-contained pure GDScript;
+this same MRP, run headless on the stock build, produced the reproduction recorded in
+`repro_log_stock_20260717.md` §4.
 
 ---
 
 ## Pre-filing checklist (owner — remove this whole section before pasting into GitHub)
 
-1. **Confirm on a STOCK build.** The reproducer was run on a local self-built 4.7-dev engine
-   (its only nonstandard content is an inactive module never touched by this project; the code
-   path is 100% stock `RenderingDevice`/D3D12). Reconfirm on an official 4.7-dev snapshot or a
-   clean self-build before filing.
-2. **Fill `System information`** from *Help → Copy System Info* (GPU driver version + CPU).
-3. **Fill `Tested versions`**: the exact commit hash you confirmed on; the Vulkan result
-   (`--rendering-driver vulkan`); and, ideally, whether an earlier stable reproduces
-   (`buffer_clear` predates 4.0, so this is likely long-standing, not a 4.7 regression).
+1. **Confirm on a STOCK build.** ✅ DONE 2026-07-17 — reconfirmed on the **official
+   4.7.1-stable** godot-builds release (`a13da4feb`, 100% stock), reproduces
+   (`0x887a0005` device removal, exit `0xC0000005`). See `repro_log_stock_20260717.md`. (The
+   original diagnosis was on a self-built 4.7-dev; this now confirms a shipped-release build.)
+2. **Fill `System information`** — filled with a CLI-composed string (annotated). At file time
+   still prefer the editor's *Help → Copy System Info* verbatim (GPU driver version + CPU).
+3. **Fill `Tested versions`** — filled: commit `a13da4feb…`; Vulkan `--rendering-driver vulkan`
+   measured **clean**; earlier stable (4.3/4.4) **not** tested this pass (only 4.7.1-stable
+   downloaded) — `buffer_clear` predates 4.0, so likely long-standing, not a 4.7 regression.
 4. **Search once more** at file time. As of this draft there is **no duplicate**: searches for
    `buffer_clear`, `ClearUnorderedAccessViewUint`, `D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT`, and
    `buffer_clear` + device-removal returned nothing relevant, and a broad 80-query

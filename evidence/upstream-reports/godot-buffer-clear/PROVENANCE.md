@@ -13,16 +13,16 @@
 
 `RenderingDevice.buffer_clear()` 以非 16 字节对齐的 offset(offset % 16 != 0)在主设备帧图内调用即致 D3D12 device removal(`DXGI_ERROR_DEVICE_REMOVED` / `0x887A0005`);根因为 `rendering_device_driver_d3d12.cpp` 的 `command_clear_buffer` 构建 RAW UAV 时 `FirstElement = p_offset / 4` 无 16 字节对齐守卫,违反 `D3D12_RAW_UAV_SRV_BYTE_ALIGNMENT`。
 
-## `<FILL>` 残留清单(提报前待实测/待补)
+## `<FILL>` 清零状态(4 处,EA1 支线实测回填后)
 
-`ISSUE_DRAFT.md` 中共 4 处占位:
+`ISSUE_DRAFT.md` 原有 4 处占位,2026-07-17 已在 owner 授权的官方 stock build 上实测清零(逐字命令+输出见 [repro_log_stock_20260717.md](repro_log_stock_20260717.md)):
 
-1. **Tested versions — stock build 精确 commit hash**:复现最初在本机自编 4.7-dev 引擎上取得(唯一非标内容为一个本工程从不触及的休眠 module,代码路径 100% stock);提报前须在官方 4.7-dev snapshot 或干净自编 build 上重新确认并回填 hash。
-2. **Tested versions — 旧 stable 是否同样复现**(如 4.3/4.4;`buffer_clear` 早于 4.0,大概率为长期缺陷而非 4.7 回归)。另 Vulkan 后端(`--rendering-driver vulkan`)对照结果亦待确认(预期不复现)。
-3. **System information**:编辑器 *Help → Copy System Info* 完整串(GPU 驱动版本号 + CPU 型号)。已知部分:Windows 11 / Direct3D 12 (Forward+) / NVIDIA GeForce RTX 4070 Ti。
-4. **MRP 附件**:`rd-buffer-clear-misaligned-offset-mrp.zip`——将 `mrp/` 打包(剔除 `.godot/` 缓存、保留 `project.godot`,<10 MB)后附上。
+1. **Tested versions — stock build 精确 commit hash**:**已回填 measured**——官方 **4.7.1-stable**(godot-builds release,2026-07-14)`--version` = `4.7.1.stable.official.a13da4feb`(full `a13da4feb8d8aefc283c3763d33a2f170a18d541`)。原诊断在自编 **4.7-dev**;现于最新官方 stable 100%-stock build 上**仍复现**(`0x887a0005` device removal,exit `0xC0000005`)——**影响面上修:非 dev-only,系已发行 stable 缺陷**,已在草稿 Tested versions 显要标注。
+2. **Tested versions — Vulkan 对照 + 旧 stable**:**Vulkan 已回填 measured**——`--rendering-driver vulkan` 跑同工程 **300 帧干净退出(exit 0)**,证 removal 为 D3D12 专属。**旧 stable(4.3/4.4)本轮未测**(工具件仅下载 4.7.1-stable);`buffer_clear` 早于 4.0,大概率长期缺陷,留提报前建议项。
+3. **System information**:**已回填(CLI 组合取证,诚实标注)**——`Windows 11 (build 28120) - Godot v4.7.1.stable.official [a13da4feb…] - Direct3D 12 (Forward+) - NVIDIA GeForce RTX 4070 Ti (nvidia; 32.0.16.2002 / NVIDIA ~620.02) - 13th Gen Intel Core i5-13600KF`。**非编辑器 Copy System Info 原样**(无 GUI,用 `--version` + PowerShell `Win32_*` CIM 组合;GPU 驱动为 Windows `DriverVersion` 字段);提报时 owner 宜以编辑器实串替换。取证机为 Win11 Insider Preview build 28120。
+4. **MRP 附件**:提报时将本包 `mrp/` 目录整体打包为 `rd-buffer-clear-misaligned-offset-mrp.zip`(剔除 `.godot/` 缓存、保留 `project.godot`,<10 MB)。本轮实测即以该 `mrp/` 复制到 scratch(令 `.godot/` 缓存落在库外)后跑出 §4 复现。
 
-另:草稿末尾整节 "Pre-filing checklist" 为 owner 自查用,粘贴到 GitHub 前须整节删除。
+另:草稿末尾整节 "Pre-filing checklist" 为 owner 自查用,粘贴到 GitHub 前须整节删除(item 1~3 已随本轮实测标注完成状态)。
 
 ## DRAFT 标头口径(G-EA1-7「全部文件显式标头」的落地解释)
 
@@ -37,22 +37,23 @@
   给 owner:若 close-out 人工核要求「字面全部文件」,可将 `.tscn`/`project.godot` 的 DRAFT 声明改由打包
   README/清单承载,而非注入结构化文件。
 
-## `<FILL>` 清零依赖(待 owner 授权下载 stock Godot build 后实测)
+## `<FILL>` 清零实测(owner 2026-07-17 授权 stock build 下载 + 实测,已完成)
 
-G-EA1-7 要求 Godot 包 `<FILL>` 清零,但清零须在**官方/干净 stock Godot 4.7-dev build**(无自定义
-module)上实测。本机无 Godot,下载 stock dev snapshot 属 owner 逐件授权项(非本备包 agent 自决,禁网络
-下载)。授权下载 stock build 后,在其编辑器打开 `mrp/` 工程实测,精确所需产物清单:
+G-EA1-7 要求 Godot 包 `<FILL>` 清零须在**官方/干净 stock Godot build**(无自定义 module)上实测。
+owner 白栀已于 **2026-07-17 会话明示授权**本批下载 stock build 与本机实测(工具件落 scratch,不入库)。
+授权后下载官方 **4.7.1-stable**(godot-builds release;注意上游已由原诊断的 4.7-**dev** 前进到 4.7.1-stable,
+2026-07-14),将本包 `mrp/` 复制到 scratch(令 `.godot/` 导入缓存落库外)后实测,四处产物**全部实测清零**:
 
-| # | `ISSUE_DRAFT.md` 位置 | 所需产物(stock build 上实测) |
+| # | `ISSUE_DRAFT.md` 位置 | 实测结果(stock 4.7.1-stable 上) |
 |---|---|---|
-| 1 | Tested versions | stock 4.7-dev build 的**精确 commit hash**(官方 dev snapshot 版本号或干净自编 build 的 `--version --verbose` 串) |
-| 2 | Tested versions | Vulkan 后端对照(`--rendering-driver vulkan` 跑同工程,预期**不**复现)+ 旧 stable(如 4.3/4.4)是否同样复现 |
-| 3 | System information | 编辑器 *Help → Copy System Info* 完整串(GPU 驱动版本号 + CPU 型号 + stock build 版本) |
-| 4 | Minimal reproduction project (MRP) | `rd-buffer-clear-misaligned-offset-mrp.zip`(将 `mrp/` 剔除 `.godot/` 缓存打包,<10 MB) |
+| 1 | Tested versions | `--version` = `4.7.1.stable.official.a13da4feb`(full `a13da4feb8d8aefc283c3763d33a2f170a18d541`);**仍复现** → 影响面上修为已发行 stable 缺陷 |
+| 2 | Tested versions | Vulkan 对照 `--rendering-driver vulkan`:**clean**(300 帧 exit 0);旧 stable(4.3/4.4)本轮**未测**(仅下载 4.7.1-stable) |
+| 3 | System information | CLI 组合串(`--version` + PowerShell `Win32_*`),**非编辑器 Copy System Info 原样**,已诚实标注 |
+| 4 | Minimal reproduction project (MRP) | 提报时打包本包 `mrp/`(剔 `.godot/`、留 `project.godot`,<10 MB);本轮即以该 `mrp/` 跑出复现 |
 
-判定退出码非 grep stdout(崩溃时 buffered stdout 可能不 flush);连环 device-removal 会污染 GPU/TDR 态致
-后续假崩,清洁 offset 先跑或拉开间隔(见 `mrp/README.md` §Notes)。**本包四处 `<FILL>` 全部保留**——清零
-需 owner 授权 stock build,agent 不在本机自编 4.7-dev 上充数(否则 hash 无意义)。
+判定退出码非 grep stdout(实测印证:崩溃时 stdout 的 `[repro]` 帧行未 flush,`0x887a0005` 走 stderr;exit
+`0xC0000005`);连环 device-removal 会污染 GPU/TDR 态,故 crash 运行置最后、与 clean Vulkan 对照拉开间隔
+(见 `mrp/README.md` §Notes)。逐字命令+输出:[repro_log_stock_20260717.md](repro_log_stock_20260717.md)。
 
 ## 提报纪律
 
