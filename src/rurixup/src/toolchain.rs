@@ -35,13 +35,26 @@ pub enum ToolchainError {
     UnknownVersion(String),
 }
 
-/// 单个已注册工具链版本(不可变事实:版号 + 已校验 bundle 内容寻址 digest)。
+/// 单个已注册工具链版本(不可变事实:版号 + 已校验 bundle 内容寻址 digest;
+/// **schema v2** 追加磁盘落点 `install_path` + 内容树 `tree_digest`,RXS-0214)。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstalledToolchain {
     /// 已注册版号。
     pub version: String,
     /// 已校验的 bundle 清单 content digest(= channel 清单 `bundle_manifest_sha256`)。
     pub content_digest: String,
+    /// 磁盘版本目录落点(`<RURIX_HOME>\toolchains\<version>`);`None` = **registered-only**
+    /// (纯账面注册,无真实 FS 物化——v1 旧条目读入 / RXS-0188 账面 install 路径)。
+    pub install_path: Option<String>,
+    /// 内容树 tree_digest(真实物化时记录,RXS-0214);`None` = registered-only。
+    pub tree_digest: Option<String>,
+}
+
+impl InstalledToolchain {
+    /// 是否为 registered-only(纯账面,无真实磁盘物化)。
+    pub fn is_registered_only(&self) -> bool {
+        self.install_path.is_none()
+    }
 }
 
 /// 工具链注册表(纯确定性状态;序列化为 `toolchains.json`)。
@@ -81,6 +94,8 @@ impl ToolchainRegistry {
         let entry = InstalledToolchain {
             version: manifest.rurix_version.clone(),
             content_digest: actual,
+            install_path: None,
+            tree_digest: None,
         };
         // 幂等:已注册同 (version, digest) → no-op。
         if !self.installed.contains(&entry) {
@@ -94,6 +109,39 @@ impl ToolchainRegistry {
             self.default = Some(entry.version.clone());
         }
         Ok(entry.version)
+    }
+
+    /// **登记真实物化版本**(RXS-0214):在账面校验(RXS-0188)之外记录磁盘落点
+    /// `install_path` 与内容树 `tree_digest`(schema v2)。幂等:同 `(version, content_digest,
+    /// install_path, tree_digest)` 重复登记 = no-op;同版号异内容 = 重装覆盖。首个登记
+    /// 版本自动成为 default。调用序:先 [`install`](账面内容寻址校验)后本方法(物化落点),
+    /// 或直接以已校验事实登记。
+    pub fn register_materialized(
+        &mut self,
+        version: &str,
+        content_digest: &str,
+        install_path: &str,
+        tree_digest: &str,
+    ) {
+        let entry = InstalledToolchain {
+            version: version.to_string(),
+            content_digest: content_digest.to_string(),
+            install_path: Some(install_path.to_string()),
+            tree_digest: Some(tree_digest.to_string()),
+        };
+        if !self.installed.contains(&entry) {
+            self.installed.retain(|t| t.version != entry.version);
+            self.installed.push(entry.clone());
+            self.installed.sort_by(|a, b| a.version.cmp(&b.version));
+        }
+        if self.default.is_none() {
+            self.default = Some(entry.version.clone());
+        }
+    }
+
+    /// 取指定版号条目(只读)。
+    pub fn get(&self, version: &str) -> Option<&InstalledToolchain> {
+        self.installed.iter().find(|t| t.version == version)
     }
 
     /// 设默认版本(RXS-0187):`version` 须已注册,否则 [`ToolchainError::UnknownVersion`]。
@@ -121,7 +169,7 @@ impl ToolchainRegistry {
     pub fn to_json(&self) -> String {
         let mut s = String::new();
         s.push_str("{\n");
-        s.push_str("  \"schema_version\": 1,\n");
+        s.push_str("  \"schema_version\": 2,\n");
         match &self.default {
             Some(v) => s.push_str(&format!("  \"default\": \"{}\",\n", json_escape(v))),
             None => s.push_str("  \"default\": null,\n"),
@@ -139,9 +187,21 @@ impl ToolchainRegistry {
                 json_escape(&t.version)
             ));
             s.push_str(&format!(
-                "      \"content_digest\": \"{}\"\n",
+                "      \"content_digest\": \"{}\",\n",
                 json_escape(&t.content_digest)
             ));
+            // schema v2:install_path / tree_digest;registered-only(v1 / 账面)= null。
+            match &t.install_path {
+                Some(p) => s.push_str(&format!(
+                    "      \"install_path\": \"{}\",\n",
+                    json_escape(p)
+                )),
+                None => s.push_str("      \"install_path\": null,\n"),
+            }
+            match &t.tree_digest {
+                Some(d) => s.push_str(&format!("      \"tree_digest\": \"{}\"\n", json_escape(d))),
+                None => s.push_str("      \"tree_digest\": null\n"),
+            }
             s.push_str(&format!("    }}{comma}\n"));
         }
         s.push_str("  ]\n}\n");
@@ -154,6 +214,17 @@ impl ToolchainRegistry {
         let mut reg = ToolchainRegistry::new();
         let mut default: Option<String> = None;
         let mut cur_version: Option<String> = None;
+        let mut cur_digest: Option<String> = None;
+        let mut cur_install_path: Option<String> = None;
+        // 可空标量字段解析:`"key": null` → None;`"key": "v"` → Some(v)。
+        let opt_field = |raw: &str| -> Result<Option<String>, String> {
+            let v = raw.trim().trim_end_matches(',').trim();
+            if v == "null" {
+                Ok(None)
+            } else {
+                Ok(Some(unquote(v)?))
+            }
+        };
         for raw in text.lines() {
             let line = raw.trim();
             if let Some(rest) = line.strip_prefix("\"default\":") {
@@ -162,17 +233,49 @@ impl ToolchainRegistry {
                     default = Some(unquote(v)?);
                 }
             } else if let Some(rest) = line.strip_prefix("\"version\":") {
+                // 若上一条目为 v1 形态(有 version+content_digest 但无 tree_digest 收束行),
+                // 遇下一 version 前先 flush(v1 多条目兼容读入)。
+                if let (Some(v), Some(d)) = (cur_version.take(), cur_digest.take()) {
+                    reg.installed.push(InstalledToolchain {
+                        version: v,
+                        content_digest: d,
+                        install_path: cur_install_path.take(),
+                        tree_digest: None,
+                    });
+                }
                 cur_version = Some(unquote(rest.trim().trim_end_matches(','))?);
+                cur_digest = None;
+                cur_install_path = None;
             } else if let Some(rest) = line.strip_prefix("\"content_digest\":") {
-                let digest = unquote(rest.trim().trim_end_matches(','))?;
+                cur_digest = Some(unquote(rest.trim().trim_end_matches(','))?);
+            } else if let Some(rest) = line.strip_prefix("\"install_path\":") {
+                // v2 字段;v1 旧条目无此行 → 保持 None(registered-only 兼容读入)。
+                cur_install_path = opt_field(rest)?;
+            } else if let Some(rest) = line.strip_prefix("\"tree_digest\":") {
+                // 条目末字段(v2):此处收束一个 InstalledToolchain。
+                let tree_digest = opt_field(rest)?;
                 let version = cur_version
                     .take()
-                    .ok_or_else(|| "content_digest 无匹配 version".to_string())?;
+                    .ok_or_else(|| "tree_digest 无匹配 version".to_string())?;
+                let content_digest = cur_digest
+                    .take()
+                    .ok_or_else(|| "tree_digest 无匹配 content_digest".to_string())?;
                 reg.installed.push(InstalledToolchain {
                     version,
-                    content_digest: digest,
+                    content_digest,
+                    install_path: cur_install_path.take(),
+                    tree_digest,
                 });
             }
+        }
+        // v1 兼容:content_digest 为条目末字段(无 install_path/tree_digest 行),收束遗留条目。
+        if let (Some(version), Some(content_digest)) = (cur_version.take(), cur_digest.take()) {
+            reg.installed.push(InstalledToolchain {
+                version,
+                content_digest,
+                install_path: cur_install_path.take(),
+                tree_digest: None,
+            });
         }
         reg.installed.sort_by(|a, b| a.version.cmp(&b.version));
         // default 须在已注册集合内(否则损坏)。
@@ -186,15 +289,40 @@ impl ToolchainRegistry {
     }
 }
 
-/// 解析 JSON 字符串字面量(仅识别 `"..."`;无转义还原,配 `json_escape` 的
-/// 版号/digest 输入——均为 ASCII 十六进制/semver,无需反转义)。
+/// 解析 JSON 字符串字面量(识别 `"..."` 并反转义 `json_escape` 产出的转义序列
+/// `\" \\ \n \r \t \uXXXX`)。版号/digest 为纯 ASCII 无转义,原样返回;install_path
+/// 含 Windows 反斜杠 `\`(json_escape → `\\`),此处还原以保 round-trip(RXS-0214)。
 fn unquote(s: &str) -> Result<String, String> {
     let s = s.trim();
-    if s.len() >= 2 && s.starts_with('"') && s.ends_with('"') {
-        Ok(s[1..s.len() - 1].to_string())
-    } else {
-        Err(format!("非法 JSON 字符串字面量:{s}"))
+    if s.len() < 2 || !s.starts_with('"') || !s.ends_with('"') {
+        return Err(format!("非法 JSON 字符串字面量:{s}"));
     }
+    let inner = &s[1..s.len() - 1];
+    let mut out = String::with_capacity(inner.len());
+    let mut chars = inner.chars();
+    while let Some(c) = chars.next() {
+        if c != '\\' {
+            out.push(c);
+            continue;
+        }
+        match chars.next() {
+            Some('"') => out.push('"'),
+            Some('\\') => out.push('\\'),
+            Some('/') => out.push('/'),
+            Some('n') => out.push('\n'),
+            Some('r') => out.push('\r'),
+            Some('t') => out.push('\t'),
+            Some('u') => {
+                let hex: String = (&mut chars).take(4).collect();
+                let cp =
+                    u32::from_str_radix(&hex, 16).map_err(|_| format!("非法 \\u 转义:\\u{hex}"))?;
+                out.push(char::from_u32(cp).unwrap_or('\u{fffd}'));
+            }
+            Some(other) => return Err(format!("未知转义序列 \\{other}")),
+            None => return Err("字符串以孤立反斜杠结尾".to_string()),
+        }
+    }
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -286,5 +414,75 @@ mod tests {
         assert_eq!(parsed, reg);
         // 序列化不含时间戳。
         assert!(!reg.to_json().to_lowercase().contains("timestamp"));
+    }
+
+    //@ spec: RXS-0214
+    // 注册表 schema v2:register_materialized 记录 install_path/tree_digest;确定性
+    // round-trip 保真;v1 旧条目(无 install_path 行)读入标 registered-only 不丢弃。
+    #[test]
+    fn registry_v2_materialized_roundtrip_and_v1_compat() {
+        let mut reg = ToolchainRegistry::new();
+        reg.register_materialized(
+            "1.0.0",
+            &"aa".repeat(32),
+            "C:\\home\\toolchains\\1.0.0",
+            &"bb".repeat(32),
+        );
+        reg.register_materialized(
+            "1.1.0",
+            &"cc".repeat(32),
+            "C:\\home\\toolchains\\1.1.0",
+            &"dd".repeat(32),
+        );
+        // schema v2 + install_path/tree_digest 落 JSON。
+        let json = reg.to_json();
+        assert!(json.contains("\"schema_version\": 2"));
+        assert!(json.contains("\"install_path\": \"C:\\\\home\\\\toolchains\\\\1.0.0\""));
+        assert!(json.contains("\"tree_digest\""));
+        // 首装成 default;get + is_registered_only。
+        assert_eq!(reg.default_version(), Some("1.0.0"));
+        let e = reg.get("1.1.0").expect("已注册");
+        assert!(!e.is_registered_only());
+        assert_eq!(
+            e.install_path.as_deref(),
+            Some("C:\\home\\toolchains\\1.1.0")
+        );
+        // 确定性 round-trip 保真。
+        assert_eq!(reg.to_json(), reg.to_json());
+        assert_eq!(
+            ToolchainRegistry::from_json(&json).expect("round-trip"),
+            reg
+        );
+
+        // 幂等:同事实重登记 = no-op。
+        reg.register_materialized(
+            "1.0.0",
+            &"aa".repeat(32),
+            "C:\\home\\toolchains\\1.0.0",
+            &"bb".repeat(32),
+        );
+        assert_eq!(reg.list().len(), 2);
+
+        // v1 兼容读入:旧格式(schema_version 1,无 install_path/tree_digest 行)→ registered-only。
+        let v1 = concat!(
+            "{\n",
+            "  \"schema_version\": 1,\n",
+            "  \"default\": \"0.9.0\",\n",
+            "  \"installed\": [\n",
+            "    {\n",
+            "      \"version\": \"0.9.0\",\n",
+            "      \"content_digest\": \"ee\"\n",
+            "    },\n",
+            "    {\n",
+            "      \"version\": \"0.9.1\",\n",
+            "      \"content_digest\": \"ff\"\n",
+            "    }\n",
+            "  ]\n}\n"
+        );
+        let parsed = ToolchainRegistry::from_json(v1).expect("v1 读入");
+        assert_eq!(parsed.list().len(), 2, "v1 多条目不丢弃");
+        assert!(parsed.get("0.9.0").unwrap().is_registered_only());
+        assert!(parsed.get("0.9.1").unwrap().is_registered_only());
+        assert_eq!(parsed.default_version(), Some("0.9.0"));
     }
 }

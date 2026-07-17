@@ -1177,6 +1177,13 @@
     ],
     "RXS-0213": [
       "src/rurix-rt/src/vk.rs"
+    ],
+    "RXS-0214": [
+      "src/rurixup/src/install.rs",
+      "src/rurixup/src/toolchain.rs"
+    ],
+    "RXS-0215": [
+      "src/rurixup/src/shim.rs"
     ]
   }
 }

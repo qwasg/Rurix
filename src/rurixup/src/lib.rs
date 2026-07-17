@@ -7,7 +7,12 @@
 //! - [`sbom`] SBOM SPDX 构建视图 + CycloneDX 发布视图(RXS-0138)
 //! - [`gate`] Release 层 hard-block 发布门(RXS-0139;RXS-0186 第 8 子门延伸)
 //! - [`channel`] stable channel 最小清单(RXS-0185 ~ RXS-0186,V1.2/MR-0008)
-//! - [`toolchain`] 本地工具链版本注册 + stable channel 消费(RXS-0187 ~ RXS-0188,MR-0009)
+//! - [`toolchain`] 本地工具链版本注册 + stable channel 消费(RXS-0187 ~ RXS-0188,MR-0009;
+//!   schema v2 注册表 install_path/tree_digest,RXS-0214,EA1.1a)
+//! - [`install`] 真实 FS 物化与原子落盘(RXS-0214,EA1.1a:staging→逐组件 sha256→
+//!   tree_digest 双向复算→同卷单次 rename;失败零半装)
+//! - [`shim`] 活跃版本切换 shim(RXS-0215,EA1.1a:argv0 干名转发 default 版同名 exe,
+//!   退出码透传,防自递归/防逃逸)
 //!
 //! 纪律:**全 safe**(`unsafe_code = "deny"`,继承 workspace lints);**零外部依赖**
 //! (标准库 + `rurix-pkg` 手写 SHA-256 / 内容树),纯函数、确定性——同一发布输入产
@@ -19,6 +24,7 @@ pub mod channel;
 pub mod gate;
 pub mod install;
 pub mod sbom;
+pub mod shim;
 pub mod signing;
 pub mod toolchain;
 
