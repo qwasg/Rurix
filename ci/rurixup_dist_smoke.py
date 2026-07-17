@@ -218,6 +218,12 @@ def main():
             fail("幂等 install 后 toolchains.json 字节漂移(确定性破坏)")
         print("[dist_smoke] 幂等 ✓ 再装同源 registered=1 且 toolchains.json 逐字节一致")
 
+        # 注册表原子写零残渣(RXS-0214 动态语义(5):tmp→rename,不留 .tmp)。
+        tmp_residue = sorted(p.name for p in reg.parent.glob("*.tmp"))
+        if tmp_residue:
+            fail(f"注册表原子写残留 tmp 文件:{tmp_residue}")
+        print("[dist_smoke] 原子写 ✓ 注册表目录零 .tmp 残渣")
+
         # —————————————————— RED① 篡改组件一字节 ——————————————————
         home_r = wd / "home_red"
         reg_r = home_r / "toolchains.json"

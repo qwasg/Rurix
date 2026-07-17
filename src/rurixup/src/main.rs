@@ -82,6 +82,20 @@ fn opt_arg(args: &[String], flag: &str) -> Option<String> {
         .and_then(|i| args.get(i + 1).cloned())
 }
 
+/// 注册表原子写(RXS-0214 动态语义(5) + RXS-0215「单写原子」):同目录 `.tmp` 先落
+/// 全部字节,再同卷单次 `rename` 替换目标——断电/中断不产生半写 `toolchains.json`
+/// (Windows `std::fs::rename` = `MoveFileExW(REPLACE_EXISTING)`,同卷替换原子)。
+/// rename 失败时清理 `.tmp` 不留残渣。
+fn write_registry_atomic(path: &str, json: &str) -> Result<(), String> {
+    let target = std::path::Path::new(path);
+    let tmp = target.with_extension("json.tmp");
+    std::fs::write(&tmp, json).map_err(|e| format!("写 {} 失败:{e}", tmp.display()))?;
+    std::fs::rename(&tmp, target).map_err(|e| {
+        let _ = std::fs::remove_file(&tmp);
+        format!("原子替换 {path} 失败:{e}")
+    })
+}
+
 /// `rurixup install`:两条路径——
 /// - `--from-dir <dir>`(RXS-0214,EA1.1a):本地目录源,组件字节真实物化到磁盘版本
 ///   目录(staging→逐组件 sha256→tree_digest 双向复算→同卷单次 rename),失败零半装;
@@ -130,8 +144,7 @@ fn cmd_install(args: &[String]) -> Result<ExitCode, String> {
     let version = registry
         .install(&manifest, &bundle, &bundle_json)
         .map_err(|e| format!("install 校验失败:{e:?}"))?;
-    std::fs::write(&registry_path, registry.to_json())
-        .map_err(|e| format!("写 {registry_path} 失败:{e}"))?;
+    write_registry_atomic(&registry_path, &registry.to_json())?;
 
     println!(
         "RURIXUP_INSTALL: version={} channel={} default={} registered={}",
@@ -209,8 +222,7 @@ fn cmd_install_from_dir(args: &[String], from_dir: &str) -> Result<ExitCode, Str
         &receipt.install_path.to_string_lossy(),
         &receipt.tree_digest,
     );
-    std::fs::write(&registry_path, registry.to_json())
-        .map_err(|e| fs_err_report(&format!("写 {registry_path} 失败:{e}")))?;
+    write_registry_atomic(&registry_path, &registry.to_json()).map_err(|e| fs_err_report(&e))?;
 
     println!(
         "RURIXUP_INSTALL: version={} channel={} default={} registered={} components={} digest_levels_verified=4 installed={}",
@@ -312,8 +324,7 @@ fn cmd_default(args: &[String]) -> Result<ExitCode, String> {
     registry
         .set_default(&version)
         .map_err(|e| format!("set default 失败:{e:?}"))?;
-    std::fs::write(&registry_path, registry.to_json())
-        .map_err(|e| format!("写 {registry_path} 失败:{e}"))?;
+    write_registry_atomic(&registry_path, &registry.to_json())?;
     println!("RURIXUP_DEFAULT: default={version}");
     Ok(ExitCode::SUCCESS)
 }
