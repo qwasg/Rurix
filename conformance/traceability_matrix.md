@@ -65,12 +65,12 @@
 | RXS-0059 | spec/borrow.md | 2 | `conformance/borrowck/accept/nll_released_reborrow.rx`, `src/rurixc/src/borrow_check.rs` |
 | RXS-0060 | spec/borrow.md | 5 | `conformance/borrowck/reject/assign_while_borrowed/basic.rx`, `conformance/borrowck/reject/move_while_borrowed/basic.rx`, `src/rurixc/src/borrow_check.rs` …(+2) |
 | RXS-0061 | spec/borrow.md | 4 | `conformance/borrowck/accept/reference_to_param.rx`, `conformance/borrowck/reject/dangling_reference/basic.rx`, `src/rurixc/src/borrow_check.rs` …(+1) |
-| RXS-0062 | spec/consteval.md | 5 | `conformance/consteval/const_eval_run.rx`, `src/rurixc/src/const_eval.rs`, `src/rurixc/src/mir_build.rs` …(+2) |
-| RXS-0063 | spec/consteval.md | 3 | `conformance/consteval/const_eval_run.rx`, `src/rurixc/src/const_eval.rs`, `tests/ui/consteval/overflow_mul.rx` |
+| RXS-0062 | spec/consteval.md | 7 | `conformance/consteval/const_arith_run.rx`, `conformance/consteval/const_eval_run.rx`, `conformance/consteval/const_fn_eval.rx` …(+4) |
+| RXS-0063 | spec/consteval.md | 5 | `conformance/consteval/const_arith_run.rx`, `conformance/consteval/const_eval_run.rx`, `conformance/consteval/const_fn_eval.rx` …(+2) |
 | RXS-0064 | spec/consteval.md | 1 | `src/rurixc/src/const_eval.rs` |
 | RXS-0065 | spec/consteval.md | 2 | `src/rurixc/src/const_eval.rs`, `tests/ui/consteval/overflow_add.rx` |
 | RXS-0066 | spec/device.md | 7 | `conformance/coloring/accept/host_calls_device.rx`, `conformance/coloring/accept/kernel_calls_device.rx`, `conformance/coloring/reject/direct_kernel_call/basic.rx` …(+4) |
-| RXS-0067 | spec/device.md | 4 | `conformance/addrspace/accept/matching_space.rx`, `conformance/addrspace/reject/space_mismatch/basic.rx`, `src/rurixc/src/typeck.rs` …(+1) |
+| RXS-0067 | spec/device.md | 8 | `conformance/addrspace/accept/constant_view_match.rx`, `conformance/addrspace/accept/matching_space.rx`, `conformance/addrspace/accept/mut_global_match.rx` …(+5) |
 | RXS-0068 | spec/device.md | 4 | `conformance/coloring/accept/uniform_barrier.rx`, `conformance/coloring/reject/barrier_non_uniform/basic.rx`, `src/rurixc/src/coloring.rs` …(+1) |
 | RXS-0069 | spec/device.md | 2 | `src/rurixc/src/coloring.rs`, `src/rurixc/src/typeck.rs` |
 | RXS-0070 | spec/device.md | 3 | `src/rurix-rt/tests/gpu_roundtrip.rs`, `src/rurixc/src/device_codegen.rs`, `tests/ui/codegen/kernel_array_index.rx` |
@@ -84,8 +84,8 @@
 | RXS-0078 | spec/device.md | 14 | `conformance/views/accept/chunks_disjoint.rx`, `conformance/views/accept/split_at_disjoint.rx`, `conformance/views/reject/alias_mut_write/basic.rx` …(+11) |
 | RXS-0079 | spec/device.md | 10 | `conformance/shared/accept/shared_barrier_consistent.rx`, `conformance/shared/reject/barrier_too_late/basic.rx`, `conformance/shared/reject/unsynced_cross_lane_read/basic.rx` …(+7) |
 | RXS-0080 | spec/device.md | 11 | `conformance/atomics/accept/narrower_scope_ok.rx`, `conformance/atomics/accept/scoped_atomics_ok.rx`, `conformance/atomics/reject/scope_addrspace_incompat/basic.rx` …(+8) |
-| RXS-0081 | spec/device.md | 4 | `conformance/libdevice/accept/device_math_intrinsics.rx`, `conformance/libdevice/reject/host_math/basic.rx`, `src/rurixc/tests/libdevice_link_mapping.rs` …(+1) |
-| RXS-0082 | spec/device.md | 2 | `conformance/libdevice/accept/device_math_intrinsics.rx`, `src/rurixc/tests/libdevice_link_mapping.rs` |
+| RXS-0081 | spec/device.md | 8 | `conformance/libdevice/accept/device_math_intrinsics.rx`, `conformance/libdevice/accept/f64_intrinsics.rx`, `conformance/libdevice/accept/log_exp_intrinsics.rx` …(+5) |
+| RXS-0082 | spec/device.md | 6 | `conformance/libdevice/accept/device_math_intrinsics.rx`, `conformance/libdevice/accept/f64_intrinsics.rx`, `conformance/libdevice/accept/log_exp_intrinsics.rx` …(+3) |
 | RXS-0083 | spec/toolchain.md | 3 | `src/rurixc/tests/toolchain_corpus.rs`, `src/rx/src/doc.rs`, `src/rx/tests/cli.rs` |
 | RXS-0084 | spec/toolchain.md | 2 | `conformance/toolchain/hello.rx`, `src/rurixc/tests/toolchain_corpus.rs` |
 | RXS-0085 | spec/toolchain.md | 1 | `conformance/toolchain/exit_code.rx` |

@@ -1,0 +1,37 @@
+//@ spec: RXS-0062, RXS-0063
+// const fn 控制流求值真跑(RXS-0062/0063;兑现 spec/consteval.md §RXS-0062/0063 锚定
+// 测试预告 const_fn_eval.rx)。const fn 体内 while 循环累加、match 臂选择与 if/else
+// 分支经编译期求值为常量,运行期由结果驱动标量输出。
+// 全环求值正确则 TOTAL==35,打印 "constfn-ok"(退出 0);偏离 → CI 步骤 16 红。
+// 与 const_eval_run.rx / const_arith_run.rx 语义不重叠(演练循环与 match)。
+
+const fn sum_to(n: i32) -> i32 {
+    let mut acc = 0;
+    let mut i = 1;
+    while i <= n {
+        acc = acc + i;
+        i = i + 1;
+    }
+    acc
+}
+
+const fn grade(score: i32) -> i32 {
+    match score {
+        0 => 0,
+        1 => 10,
+        2 => 20,
+        _ => 99,
+    }
+}
+
+const TRI: i32 = sum_to(5);
+const G: i32 = grade(2);
+const TOTAL: i32 = TRI + G;
+
+fn main() {
+    if TOTAL == 35 {
+        println("constfn-ok");
+    } else {
+        println("constfn-bad");
+    }
+}

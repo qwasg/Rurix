@@ -1,0 +1,21 @@
+//@ spec: RXS-0081, RXS-0082
+// libdevice f64 receiver intrinsic 正例(RXS-0081/0082):device 上下文以 f64 接收者
+// 调用 sqrt / exp / ln / fma,下译为**无 f 后缀**的双精度 libdevice 符号
+// __nv_sqrt / __nv_exp / __nv_log / __nv_fma(RXS-0081 映射,hir.rs nv_symbol 的
+// is_f32=false 分支)。验证 f32/f64 符号分派两条腿,补全既有仅 f32 的覆盖。
+
+device fn f64_mix(x: f64, y: f64) -> f64 {
+    let s = x.sqrt();
+    let e = y.exp();
+    let l = x.ln();
+    s.fma(e, l)
+}
+
+kernel fn map_f64(t: ThreadCtx<1>, src: View<global, f64>, dst: ViewMut<global, f64>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        dst[i] = f64_mix(src[i], 2.0);
+    }
+}
+
+fn main() {}

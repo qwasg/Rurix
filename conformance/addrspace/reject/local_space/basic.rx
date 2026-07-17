@@ -1,0 +1,12 @@
+//@ spec: RXS-0067
+//@ expect-error: RX3002
+// addrspace 反例(RXS-0067):local 空间 view 传入期待 global 的形参,地址空间不
+// 一致 → RX3002。新增 local_space 类别,扩展地址空间不匹配拦截的空间对覆盖。
+
+device fn consume(v: View<global, f32>) {}
+
+kernel fn k(l: View<local, f32>) {
+    consume(l);
+}
+
+fn main() {}

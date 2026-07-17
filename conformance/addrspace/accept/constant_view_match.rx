@@ -1,0 +1,11 @@
+//@ spec: RXS-0067
+// addrspace 正例(RXS-0067):constant 地址空间 view 流入期待 constant 的 device fn,
+// 地址空间一致 → 0 诊断。深化既有 global 匹配正例,覆盖 constant 空间的一致路径。
+
+device fn sample(lut: View<constant, f32>) {}
+
+kernel fn k(tbl: View<constant, f32>) {
+    sample(tbl);
+}
+
+fn main() {}

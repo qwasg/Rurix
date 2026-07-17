@@ -1,0 +1,11 @@
+//@ spec: RXS-0067
+// addrspace 正例(RXS-0067):可变 global view(ViewMut<global>)流入期待同签名的
+// device fn,地址空间一致 → 0 诊断。覆盖 ViewMut 族的地址空间一致路径。
+
+device fn fill(out: ViewMut<global, f32>) {}
+
+kernel fn k(dst: ViewMut<global, f32>) {
+    fill(dst);
+}
+
+fn main() {}

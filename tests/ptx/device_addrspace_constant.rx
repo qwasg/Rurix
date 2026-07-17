@@ -1,0 +1,13 @@
+//@ spec: RXS-0071, RXS-0070
+// device constant 地址空间 view 读 → NVPTX IR golden(RXS-0071 View<space,T> ABI =
+// ptr addrspace(N),地址空间序 constant→addrspace(4);RXS-0070 ptx_kernel 入口)。
+// kernel 从 View<constant,f32> 索引读、写回 ViewMut<global,f32>,IR 含 ptr
+// addrspace(4) 形参与从 addrspace(4) 的 load、ptr addrspace(1) 的 store。
+kernel fn gather(t: ThreadCtx<1>, lut: View<constant, f32>, dst: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        dst[i] = lut[i];
+    }
+}
+
+fn main() {}
