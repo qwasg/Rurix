@@ -76,7 +76,7 @@
 | RXS-0070 | spec/device.md | 3 | `src/rurix-rt/tests/gpu_roundtrip.rs`, `src/rurixc/src/device_codegen.rs`, `tests/ui/codegen/kernel_array_index.rx` |
 | RXS-0071 | spec/device.md | 4 | `src/rurix-rt/tests/gpu_roundtrip.rs`, `src/rurixc/src/device_codegen.rs`, `tests/ui/codegen/host_addrspace_view.rx` …(+1) |
 | RXS-0072 | spec/device.md | 4 | `conformance/device/reject/threadctx_dim/basic.rx`, `src/rurix-rt/tests/gpu_roundtrip.rs`, `src/rurixc/src/device_codegen.rs` …(+1) |
-| RXS-0073 | spec/device.md | 3 | `src/rurixc/src/device_codegen.rs`, `src/rurixc/tests/ptxas_gate.rs`, `tests/ui/codegen/device_string_literal.rx` |
+| RXS-0073 | spec/device.md | 4 | `src/rurixc/src/device_codegen.rs`, `src/rurixc/src/ptxas.rs`, `src/rurixc/tests/ptxas_gate.rs` …(+1) |
 | RXS-0074 | spec/device.md | 10 | `conformance/launch/accept/saxpy_launch.rx`, `conformance/launch/reject/arg_type_mismatch/basic.rx`, `conformance/launch/reject/context_brand_mismatch/basic.rx` …(+7) |
 | RXS-0075 | spec/device.md | 10 | `conformance/launch/accept/saxpy_launch.rx`, `conformance/launch/reject/arg_type_mismatch/basic.rx`, `conformance/launch/reject/context_brand_mismatch/basic.rx` …(+7) |
 | RXS-0076 | spec/device.md | 2 | `src/rurix-rt/src/lib.rs`, `src/rurix-rt/tests/gpu_roundtrip.rs` |

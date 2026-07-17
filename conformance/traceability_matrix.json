@@ -563,6 +563,7 @@
     ],
     "RXS-0073": [
       "src/rurixc/src/device_codegen.rs",
+      "src/rurixc/src/ptxas.rs",
       "src/rurixc/tests/ptxas_gate.rs",
       "tests/ui/codegen/device_string_literal.rx"
     ],

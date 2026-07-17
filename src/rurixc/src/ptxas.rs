@@ -44,6 +44,41 @@ pub fn locate_ptxas() -> Option<PathBuf> {
     })
 }
 
+/// ASCII 临时目录选路(纯函数,可测):`%TEMP%` 纯 ASCII → 直用其下 `rurixc_ptx`
+/// (本就按用户隔离);否则(如中文用户名的 profile 路径)落
+/// `C:\Windows\Temp\rurixc_ptx_<userprofile FNV-1a 哈希 8 hex>`——仍 ASCII、
+/// **按用户唯一**、同用户重入稳定。
+///
+/// 按用户唯一是硬要求:曾用跨用户共享的固定 `C:\Windows\Temp\rurixc_ptx`,用户 A
+/// 创建后其 creator-owner ACL 挡住用户 B 的 `create_dir_all` 存在性探测,盲创建
+/// 撞 `ERROR_ALREADY_EXISTS`(os error 183)——EA1 冷启动 B 段干净账户实测抓获。
+fn ascii_temp_dir_for(std_tmp: &Path, userprofile: &str) -> PathBuf {
+    if std_tmp.to_str().is_some_and(|s| s.is_ascii()) {
+        return std_tmp.join("rurixc_ptx");
+    }
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in userprofile.as_bytes() {
+        h ^= u64::from(*b);
+        h = h.wrapping_mul(0x0100_0000_01b3);
+    }
+    let tag = ((h >> 32) as u32) ^ (h as u32);
+    PathBuf::from("C:\\Windows\\Temp").join(format!("rurixc_ptx_{tag:08x}"))
+}
+
+/// 建 ASCII 临时目录(幂等:`AlreadyExists` 视同成功)。失败 → `Err(报文)`(上层
+/// 映射 RX7001,语义不变)。
+fn ensure_ascii_temp_dir() -> Result<PathBuf, String> {
+    let dir = ascii_temp_dir_for(
+        &std::env::temp_dir(),
+        &std::env::var("USERPROFILE").unwrap_or_default(),
+    );
+    match std::fs::create_dir_all(&dir) {
+        Ok(()) => Ok(dir),
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => Ok(dir),
+        Err(e) => Err(format!("cannot create ascii temp dir: {e}")),
+    }
+}
+
 /// 对给定 PTX 文本跑 `ptxas -arch=sm_89` 干验证关卡(RXS-0073,G-M4-4)。
 ///
 /// 始终写入 ASCII 临时目录(非 ASCII 路径防御);产 cubin 至临时文件后即删除
@@ -52,10 +87,10 @@ pub fn dry_gate(ptx: &str, stem: &str) -> PtxasOutcome {
     let Some(ptxas) = locate_ptxas() else {
         return PtxasOutcome::Skipped;
     };
-    let dir = PathBuf::from("C:\\Windows\\Temp").join("rurixc_ptx");
-    if let Err(e) = std::fs::create_dir_all(&dir) {
-        return PtxasOutcome::Toolchain(format!("cannot create ascii temp dir: {e}"));
-    }
+    let dir = match ensure_ascii_temp_dir() {
+        Ok(d) => d,
+        Err(e) => return PtxasOutcome::Toolchain(e),
+    };
     let base = sanitize_ascii(stem);
     let ptx_path = dir.join(format!("{base}_{}.ptx", std::process::id()));
     if let Err(e) = std::fs::write(&ptx_path, ptx) {
@@ -111,10 +146,10 @@ pub fn compile_cubin(ptx: &str, stem: &str, arch: &str) -> CubinOutcome {
     let Some(ptxas) = locate_ptxas() else {
         return CubinOutcome::Skipped;
     };
-    let dir = PathBuf::from("C:\\Windows\\Temp").join("rurixc_ptx");
-    if let Err(e) = std::fs::create_dir_all(&dir) {
-        return CubinOutcome::Toolchain(format!("cannot create ascii temp dir: {e}"));
-    }
+    let dir = match ensure_ascii_temp_dir() {
+        Ok(d) => d,
+        Err(e) => return CubinOutcome::Toolchain(e),
+    };
     let base = sanitize_ascii(stem);
     let arch_clean = sanitize_ascii(arch);
     let ptx_path = dir.join(format!("{base}_{arch_clean}_{}.ptx", std::process::id()));
@@ -173,4 +208,50 @@ pub fn sanitize_ascii(s: &str) -> String {
 /// `Path` 是否纯 ASCII(非 ASCII 时 ptxas 有崩溃先例,r6)。
 pub fn is_ascii_path(p: &Path) -> bool {
     p.to_string_lossy().is_ascii()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    //@ spec: RXS-0073
+    #[test]
+    fn ascii_temp_dir_uses_per_user_temp_when_ascii() {
+        let d = ascii_temp_dir_for(
+            Path::new(r"C:\Users\rurixtest\AppData\Local\Temp"),
+            r"C:\Users\rurixtest",
+        );
+        assert_eq!(
+            d,
+            PathBuf::from(r"C:\Users\rurixtest\AppData\Local\Temp\rurixc_ptx")
+        );
+        assert!(d.to_str().unwrap().is_ascii());
+    }
+
+    //@ spec: RXS-0073
+    #[test]
+    fn ascii_temp_dir_hashes_per_user_when_profile_non_ascii() {
+        let tmp = Path::new(r"C:\Users\苍\AppData\Local\Temp");
+        let a = ascii_temp_dir_for(tmp, r"C:\Users\苍");
+        let b = ascii_temp_dir_for(tmp, r"C:\Users\苍");
+        let other = ascii_temp_dir_for(tmp, r"C:\Users\别人");
+        // ASCII、同用户稳定、异用户不同名(修 os error 183 跨用户 ACL 碰撞的关键不变量)。
+        assert!(a.to_str().unwrap().is_ascii());
+        assert!(
+            a.to_str()
+                .unwrap()
+                .starts_with(r"C:\Windows\Temp\rurixc_ptx_")
+        );
+        assert_eq!(a, b);
+        assert_ne!(a, other);
+    }
+
+    //@ spec: RXS-0073
+    #[test]
+    fn ensure_ascii_temp_dir_is_idempotent() {
+        let first = ensure_ascii_temp_dir().expect("first create");
+        let second = ensure_ascii_temp_dir().expect("second create tolerates existing");
+        assert_eq!(first, second);
+        assert!(first.is_dir());
+    }
 }
