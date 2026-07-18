@@ -1,0 +1,129 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/rd027_pt_poison_spike/v1",
+  "title": "Rurix G3.1 RD-027 毒径判别 spike 取证证据 JSON(G-G3-1;G3_CONTRACT §7 ②)",
+  "description": "纯取证 spike 的机器事实清单(非性能基准,非常驻 CI 门;探针隔离于 spike/rd027-pt-poison/ 标 // SPIKE(RD-027),不入 src/ 生产路径)。四层判别矩阵(rurixc IR / LLVM NVPTX / ptxas / 驱动 JIT)对 UC-07 pt_render 毒径挂起的归因证据:同一 artifact 双装载路对照(E0b)+ ptxas 优化档扫描(E1)+ compute-sanitizer 前置排除(E7a)+ 源循环封顶插桩(E7b)+ 单 artifact 事实核验。证据分级 measured-first / blocked-honest(AGENTS 硬规则 3/4);全部 GPU 运行经 bench/proc_guard 硬超时(超时=诚实红 124,零裸 launch,R-606),挂起判定后金丝雀门记录在案。归因结论由 attribution.verdict 承载,不杜撰、不以超时无果充『驱动缺陷』(G-G3-1 ④)。",
+  "type": "object",
+  "required": ["schema_version", "subject", "status", "timestamp", "environment",
+               "baseline", "single_artifact", "experiments", "attribution", "discipline"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": { "const": "rd027_pt_poison_spike" },
+    "status": { "enum": ["measured_local", "blocked"] },
+    "rd_ref": { "const": "RD-027" },
+    "gate_ref": { "type": "string", "examples": ["G3_CONTRACT G-G3-1"] },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "required": ["gpu_name", "driver_version", "cuda_driver_version", "ptxas_version"],
+      "properties": {
+        "gpu_name": { "type": "string" },
+        "driver_version": { "type": "string" },
+        "cuda_driver_version": { "type": "string" },
+        "ptxas_version": { "description": "本轮 AOT cubin 工具链版本(MS1.4 时为 13.2,本轮实测)", "type": "string" },
+        "os_build": { "type": "string" },
+        "compute_capability": { "type": "string" },
+        "tdr": {},
+        "hags_enabled": {}
+      }
+    },
+    "baseline": {
+      "description": "E0a 基线重立:毒径三档 + 对照两档在当前工具链下的复现判定",
+      "type": "object",
+      "required": ["reproduced", "results"],
+      "properties": {
+        "reproduced": { "type": "boolean" },
+        "results": {
+          "type": "object",
+          "additionalProperties": { "enum": ["completed", "hang_timeout", "error"] }
+        }
+      }
+    },
+    "single_artifact": {
+      "description": "单 artifact 事实:毒径与对照共用同一 PTX(挂/不挂由运行期实参决定)",
+      "type": "object",
+      "required": ["distinct_ptx_digests", "confirmed"],
+      "properties": {
+        "distinct_ptx_digests": { "type": "integer" },
+        "confirmed": { "type": "boolean" },
+        "ptx_sha256": { "type": "string" },
+        "jit_leg_ptx_sha256": { "description": "JIT 腿 PTX(.version 7.8 保守档,与 AOT 腿仅版本头差异)", "type": "string" }
+      }
+    },
+    "experiments": {
+      "description": "判别实验逐条机器记录(campaign.jsonl 蒸馏;原始逐 run JSONL 留 spike 工作区)",
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "required": ["experiment", "name", "classification"],
+        "properties": {
+          "experiment": { "enum": ["E0a", "E0b", "E1", "E7a", "E7b"] },
+          "name": { "type": "string" },
+          "loader_path": { "type": "string" },
+          "classification": { "enum": ["completed", "hang_timeout", "error"] },
+          "exit_code": { "type": "integer" },
+          "wall_s": { "type": "number" },
+          "timeout_s": { "type": "number" },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "gpu_hang_signature": {
+      "description": "挂起期采样签名(少数 warp 自旋特征:util 100% + 低功耗 + 满频)",
+      "type": "object",
+      "properties": {
+        "util_pct": { "type": "number" },
+        "power_w": { "type": "number" },
+        "sm_clock_mhz": { "type": "number" }
+      }
+    },
+    "attribution": {
+      "type": "object",
+      "required": ["verdict", "confidence", "key_evidence", "excluded"],
+      "properties": {
+        "verdict": {
+          "enum": ["rurixc_ir", "llvm_nvptx", "ptxas", "driver_jit",
+                   "nvidia_optimizing_backends", "app_data", "toolchain_fixed",
+                   "inconclusive"]
+        },
+        "confidence": { "enum": ["high", "medium", "low"] },
+        "key_evidence": { "type": "array", "items": { "type": "string" } },
+        "excluded": {
+          "description": "被排除的嫌疑层及排除依据",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "trigger_shape": { "description": "触发构型描述(SASS 证据模式/最小化结论)", "type": "string" }
+      }
+    },
+    "minimized_repro": {
+      "type": "object",
+      "properties": {
+        "status": { "enum": ["done", "in_progress", "not_attempted"] },
+        "path": { "type": "string" },
+        "trigger_construct": { "type": "string" }
+      }
+    },
+    "workaround": {
+      "description": "护栏实测(如 ptxas -O0 pin 下毒径档完成)",
+      "type": "object",
+      "properties": {
+        "kind": { "type": "string" },
+        "verified": { "type": "boolean" },
+        "detail": { "type": "string" }
+      }
+    },
+    "discipline": {
+      "type": "object",
+      "required": ["proc_guard_all_runs", "canary_gates_passed"],
+      "properties": {
+        "proc_guard_all_runs": { "type": "boolean" },
+        "canary_gates_passed": { "type": "integer" },
+        "canary_gates_failed": { "type": "integer" },
+        "quarantined_exes": { "type": "integer" },
+        "notes": { "type": "string" }
+      }
+    }
+  }
+}

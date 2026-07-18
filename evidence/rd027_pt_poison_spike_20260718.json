@@ -1,0 +1,382 @@
+{
+  "schema_version": 1,
+  "subject": "rd027_pt_poison_spike",
+  "status": "measured_local",
+  "rd_ref": "RD-027",
+  "gate_ref": "G3_CONTRACT G-G3-1",
+  "timestamp": "2026-07-18T11:08:03.862539+00:00",
+  "environment": {
+    "gpu_name": "NVIDIA GeForce RTX 4070 Ti",
+    "driver_version": "620.02",
+    "cuda_driver_version": "13.2",
+    "ptxas_version": "Cuda compilation tools, release 13.3, V13.3.33",
+    "os_build": "Windows 10.0.28120",
+    "compute_capability": "8.9",
+    "tdr": {
+      "tdr_delay": "not_set(os_default)",
+      "tdr_level": "not_set(os_default)"
+    },
+    "hags_enabled": true
+  },
+  "baseline": {
+    "reproduced": true,
+    "results": {
+      "ctrl_b2": "completed",
+      "ctrl_32": "completed",
+      "poison_b3": "hang_timeout",
+      "poison_b4": "hang_timeout",
+      "poison_256": "hang_timeout"
+    }
+  },
+  "single_artifact": {
+    "distinct_ptx_digests": 1,
+    "confirmed": true,
+    "ptx_sha256": "85d597dd22e2d05f511a0cf8b2a27823bee78cf58523862eb06ccc67c738e315",
+    "jit_leg_ptx_sha256": "8d9c3c05035b925c873561446fa1cd01e23ff3352f1749f92eff2f445ff92a35"
+  },
+  "experiments": [
+    {
+      "experiment": "E0a",
+      "name": "ctrl_b2",
+      "loader_path": "ptxas_aot_default(O3)",
+      "classification": "completed",
+      "exit_code": 0,
+      "wall_s": 0.62,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E0a",
+      "name": "ctrl_32",
+      "loader_path": "ptxas_aot_default(O3)",
+      "classification": "completed",
+      "exit_code": 0,
+      "wall_s": 0.94,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E0a",
+      "name": "poison_b3",
+      "loader_path": "ptxas_aot_default(O3)",
+      "classification": "hang_timeout",
+      "exit_code": 124,
+      "wall_s": 120.32,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E0a",
+      "name": "poison_b4",
+      "loader_path": "ptxas_aot_default(O3)",
+      "classification": "hang_timeout",
+      "exit_code": 124,
+      "wall_s": 120.32,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E0a",
+      "name": "poison_256",
+      "loader_path": "ptxas_aot_default(O3)",
+      "classification": "hang_timeout",
+      "exit_code": 124,
+      "wall_s": 120.32,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E0b",
+      "name": "jit_ctrl_b2",
+      "loader_path": "driver_jit(ptx78)",
+      "classification": "completed",
+      "exit_code": 0,
+      "wall_s": 0.81,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E0b",
+      "name": "jit_poison_b3",
+      "loader_path": "driver_jit(ptx78)",
+      "classification": "hang_timeout",
+      "exit_code": 124,
+      "wall_s": 120.21,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E0b",
+      "name": "jit_poison_b4",
+      "loader_path": "driver_jit(ptx78)",
+      "classification": "hang_timeout",
+      "exit_code": 124,
+      "wall_s": 120.36,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E0b",
+      "name": "jit_poison_256",
+      "loader_path": "driver_jit(ptx78)",
+      "classification": "hang_timeout",
+      "exit_code": 124,
+      "wall_s": 120.32,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E7a",
+      "name": "memcheck_ctrl_b2",
+      "loader_path": "ptxas_aot_default(O3)+compute-sanitizer",
+      "classification": "completed",
+      "exit_code": 0,
+      "wall_s": -1.0,
+      "timeout_s": 300,
+      "detail": "========= ERROR SUMMARY: 0 errors"
+    },
+    {
+      "experiment": "E7a",
+      "name": "memcheck_poison_b3",
+      "loader_path": "ptxas_aot_default(O3)+compute-sanitizer",
+      "classification": "error",
+      "exit_code": 1,
+      "wall_s": -1.0,
+      "timeout_s": 300,
+      "detail": ""
+    },
+    {
+      "experiment": "E7a",
+      "name": "memcheck_ctrl_b2",
+      "loader_path": "ptxas_aot_default(O3)+compute-sanitizer",
+      "classification": "completed",
+      "exit_code": 0,
+      "wall_s": -1.0,
+      "timeout_s": 300,
+      "detail": "========= ERROR SUMMARY: 0 errors"
+    },
+    {
+      "experiment": "E7a",
+      "name": "memcheck_poison_b3",
+      "loader_path": "ptxas_aot_default(O3)+compute-sanitizer",
+      "classification": "hang_timeout",
+      "exit_code": 124,
+      "wall_s": -1.0,
+      "timeout_s": 300,
+      "detail": ""
+    },
+    {
+      "experiment": "E1",
+      "name": "aotO0_ctrl_b2",
+      "loader_path": "ptxas_aot_O0",
+      "classification": "completed",
+      "exit_code": 0,
+      "wall_s": 0.62,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E1",
+      "name": "aotO0_poison_b3",
+      "loader_path": "ptxas_aot_O0",
+      "classification": "completed",
+      "exit_code": 0,
+      "wall_s": 0.66,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E1",
+      "name": "aotO1_ctrl_b2",
+      "loader_path": "ptxas_aot_O1",
+      "classification": "completed",
+      "exit_code": 0,
+      "wall_s": 0.4,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E1",
+      "name": "aotO1_poison_b3",
+      "loader_path": "ptxas_aot_O1",
+      "classification": "hang_timeout",
+      "exit_code": 124,
+      "wall_s": 120.24,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E1",
+      "name": "aotO2_ctrl_b2",
+      "loader_path": "ptxas_aot_O2",
+      "classification": "completed",
+      "exit_code": 0,
+      "wall_s": 0.55,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E1",
+      "name": "aotO2_poison_b3",
+      "loader_path": "ptxas_aot_O2",
+      "classification": "hang_timeout",
+      "exit_code": 124,
+      "wall_s": 120.28,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E7b",
+      "name": "e7b_cap_all",
+      "loader_path": "ptxas_aot_default(O3)",
+      "classification": "hang_timeout",
+      "exit_code": 124,
+      "wall_s": 120.36,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E1",
+      "name": "aotO0_full_prod",
+      "loader_path": "ptxas_aot_O0",
+      "classification": "completed",
+      "exit_code": 0,
+      "wall_s": 9.49,
+      "timeout_s": 600
+    },
+    {
+      "experiment": "E0a",
+      "name": "e4_d1",
+      "loader_path": "ptxas_aot_default(O3)",
+      "classification": "completed",
+      "exit_code": 0,
+      "wall_s": 0.41,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E0a",
+      "name": "e4_d2",
+      "loader_path": "ptxas_aot_default(O3)",
+      "classification": "completed",
+      "exit_code": 0,
+      "wall_s": 0.41,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E0a",
+      "name": "e4_d3",
+      "loader_path": "ptxas_aot_default(O3)",
+      "classification": "completed",
+      "exit_code": 0,
+      "wall_s": 0.37,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E0a",
+      "name": "e4_d4",
+      "loader_path": "ptxas_aot_default(O3)",
+      "classification": "completed",
+      "exit_code": 0,
+      "wall_s": 0.46,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E0a",
+      "name": "e4_d5",
+      "loader_path": "ptxas_aot_default(O3)",
+      "classification": "hang_timeout",
+      "exit_code": 124,
+      "wall_s": 120.25,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E0a",
+      "name": "e4_d6",
+      "loader_path": "ptxas_aot_default(O3)",
+      "classification": "hang_timeout",
+      "exit_code": 124,
+      "wall_s": 120.21,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E0a",
+      "name": "e4_d7",
+      "loader_path": "ptxas_aot_default(O3)",
+      "classification": "completed",
+      "exit_code": 0,
+      "wall_s": 0.41,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E0a",
+      "name": "e4_d6_nosim",
+      "loader_path": "ptxas_aot_default(O3)",
+      "classification": "completed",
+      "exit_code": 0,
+      "wall_s": 0.54,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E0a",
+      "name": "e4_d6a",
+      "loader_path": "ptxas_aot_default(O3)",
+      "classification": "hang_timeout",
+      "exit_code": 124,
+      "wall_s": 120.31,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E0a",
+      "name": "e4_d6b",
+      "loader_path": "ptxas_aot_default(O3)",
+      "classification": "completed",
+      "exit_code": 0,
+      "wall_s": 0.38,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E0a",
+      "name": "e4_d6c",
+      "loader_path": "ptxas_aot_default(O3)",
+      "classification": "hang_timeout",
+      "exit_code": 124,
+      "wall_s": 120.2,
+      "timeout_s": 120
+    },
+    {
+      "experiment": "E0a",
+      "name": "e4_d6d",
+      "loader_path": "ptxas_aot_default(O3)",
+      "classification": "completed",
+      "exit_code": 0,
+      "wall_s": 0.51,
+      "timeout_s": 120
+    }
+  ],
+  "gpu_hang_signature": {
+    "util_pct": 100.0,
+    "power_w": 63.19,
+    "sm_clock_mhz": 2745.0
+  },
+  "attribution": {
+    "verdict": "nvidia_optimizing_backends",
+    "confidence": "high",
+    "key_evidence": [
+      "E1:ptxas -O0 完成(毒径 0.7s;完整 256spp/4 档 9.5s/帧)而 -O1/-O2/-O3 全挂;O2 与 O3 SASS 逐字节相同,绿/挂分界精确落在 O0→O1(E5 round-2)",
+      "E0b:同源构型双装载路(ptxas AOT cubin PTX8.8 / 驱动 620.02 JIT PTX7.8)全部一致挂起——两个 NVIDIA 优化后段同酿,单一后段假说排除",
+      "E5 round-2 SASS 差量:O1 即引入全部 4 处 `@!P0 CALL.REL.NOINC` latch 出口(无 reconvergence 记账的谓词边,O0 同环为 `@P0 BREAK+BRA→BSYNC` 正规记账);同 barrier-id 并发再臂窗口 9/9 零裕度——掩码一坏 BSYNC 永等(机理 M1′);E7b 封顶版 SASS 仍保留全部 4 处协议,与「封顶不解」自洽",
+      "E7b:全源循环硬封顶(DDA≤1000/cell≤4096/bounce≤8/spp≤64)后仍挂——自旋不在源循环迭代层,SASS 协议层死锁",
+      "单 artifact 事实:五配置变体 PTX 逐字节同一,挂/不挂纯由运行期实参+数据决定;挂起签名 util 100%/~63W/满频 2745MHz = 少数 warp 栅栏死等非计算",
+      "E4 删减阶梯非单调(d1~d4 绿/d5,d6 挂/d7 绿)= 代码形态敏感的优化器陷阱签名,非单一源语义构造"
+    ],
+    "excluded": [
+      "rurixc/LLVM 语义错(源或 PTX 编码了无限循环):排除——ptxas -O0 对同一 PTX 正确终止(0.7s/9.5s),refcpu 逐位重放有限终止,E5 round-1 静态分析 20 循环全可归约、计数定值链干净",
+      "应用/数据缺陷(OOB/表损坏):强削弱——对照档 compute-sanitizer memcheck 0 errors;同数据同表在 rt_primary 600 帧与冒烟档 bounces=4 全绿(MS1.4 实录)",
+      "ptxas 13.2→13.3 工具链漂移已修:排除——13.3 下全复现(E0a)",
+      "单独 ptxas 或单独驱动 JIT:排除——双装载路一致挂(E0b)",
+      "源循环跑飞(计数回绕类 M2 主嫌):削弱至次嫌——全封顶不解(E7b);仅 10 个 sqrt 环(-5 步长等值出口)不在封顶集,列报告残余次嫌"
+    ],
+    "trigger_shape": "合法 PTX(LLVM NVPTX 后端形态,rurixc device MIR→LLVM IR→clang 22.1.x)的多层嵌套发散循环+多级 break 构型,经 ptxas -O1+ (驱动 JIT 同变换)的 latch→CALL.REL.NOINC 出口协议重构后,在特定运行期实参(弹射≥3/256spp)与 sim 后粒子分布下 barrier 掩码破坏→BSYNC 死等;数据依赖(SUBSTEPS=0 初始排布不触发);SASS 证据模式 A-F 带行号见 build/spike-rd027/e5/analysis.md §6(入 MRP)"
+  },
+  "minimized_repro": {
+    "status": "done",
+    "path": "spike/rd027-pt-poison/mrp/(最小挂起变体 = E4 d6a,276 行全循环有界;阶梯与细分全记录 campaign.jsonl)",
+    "trigger_construct": "spp×弹射×DDA 三层嵌套 + 多级 break + 单粒子 sphere_t + RNG 种子 CALL 链 + 方向弹射改写(d6b/d6d 单删各自溶解=参与形态;d6a/d6c 单删仍挂=光源块与法线着色非必要);E4 阶梯非单调(d1~d4 绿/d5,d6 挂/d7 绿)证形态叠加型陷阱;需 sim 后粒子分布(SUBSTEPS=0 不触发)"
+  },
+  "workaround": {
+    "kind": "ptxas -O0 pin(AOT cubin 腿)",
+    "verified": true,
+    "detail": "wrapper 注入 -O0:毒径 8spp/b3 0.7s 完成;完整生产档 256spp/4 弹射/720p 9.5s/帧完成(此前 >15min 挂起不可测)。JIT fallback 腿无对应开关,护栏须保 cubin AOT 路径生效"
+  },
+  "discipline": {
+    "proc_guard_all_runs": true,
+    "canary_gates_passed": 14,
+    "canary_gates_failed": 0,
+    "quarantined_exes": 13,
+    "notes": "全 GPU 运行经 bench/proc_guard guarded_run(120s 判定线/杀树/隔离);毒径判定后金丝雀门;实验窗与 CI runner 错峰;首轮 E7a 因隔离区收走 exe 判定作废并重测(campaign correction 记录在案)"
+  }
+}
