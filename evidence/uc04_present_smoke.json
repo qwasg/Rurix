@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "subject": "uc04_present_smoke",
+  "present_ok": true,
+  "milestone": "G3.2 / G-G3-2 (RFC-0013 §4.A; RXS-0220~0222)",
+  "adapter": "NVIDIA GeForce RTX 4070 Ti",
+  "frames_presented": 6,
+  "present": {
+    "swapchain": "flip-model FLIP_DISCARD, BufferCount=3, visible WS_OVERLAPPEDWINDOW window",
+    "loop": "per-frame deferred (geom G-buffer MRT -> lighting sample albedo SRV -> backbuffer) -> RENDER_TARGET->COPY_SOURCE->PRESENT -> Present(sync_interval)",
+    "resize": "SetWindowPos synth WM_SIZE @ frame 3 -> ResizeBuffers -> rebuild RTV",
+    "readback_points": [
+      "first_frame",
+      "after_rebuild",
+      "last_frame"
+    ],
+    "shaders_from_rurix_source": [
+      "uc04_gbuffer_vs",
+      "uc04_gbuffer_fs",
+      "uc04_lighting_vs",
+      "uc04_lighting_fs"
+    ],
+    "offscreen_not_replaced": "step 48 (ci/dxil_uc04_device_smoke.py) offscreen hard gate 0-byte"
+  },
+  "pixels": {
+    "first": [
+      191,
+      0,
+      0,
+      0
+    ],
+    "rebuilt": [
+      191,
+      0,
+      0,
+      0
+    ],
+    "last": [
+      191,
+      0,
+      0,
+      0
+    ]
+  },
+  "checks": {
+    "visible_window_flip_model_present": true,
+    "per_frame_present_s_ok": true,
+    "resize_rebuild_readback_reasserted": true,
+    "backbuffer_readback_numeric_compare": true,
+    "readback_is_render_product_not_scanout": true
+  },
+  "run_url": "local interactive runner",
+  "timestamp": "2026-07-18T21:35:17+08:00",
+  "stdout": "UC-04 deferred 渲染器 demo — blocked-honest interim slice (RXS-0167~0170)\n[RXS-0167] graphics PSO 装配:root params=3 RTS0=168B\n[RXS-0168] deferred 编排:G-buffer color=2 depth=true lighting SRV=3\n[RXS-0169] barrier 锚点:5 个\n[RXS-0170] readback 布局:row_pitch=256 buffer=16384B\nDXIL_UC04_PRESENT: ok adapter=\"NVIDIA GeForce RTX 4070 Ti\" frames_presented=6 first=191,0,0,0 rebuilt=191,0,0,0 last=191,0,0,0 present=ok"
+}
