@@ -25,10 +25,10 @@
       "pattern": "RXS-####",
       "main_fact_source": "spec/README.md §4 + spec/*.md 的 `### RXS-####` 条款头",
       "guard_spec_heading_scan": true,
-      "on_tree_max": 219,
-      "next_free": 220,
+      "on_tree_max": 222,
+      "next_free": 223,
       "shadow_reserved": [181, 182, 183, 184],
-      "notes": "spec 条款号。main 现存条款头 215 个,最高 RXS-0219(release.md §2.8:RXS-0214~0215 EA1.1a 真实 FS 物化+切换、RXS-0216~0217 EA1.1b 网络拉取+四级信任链、RXS-0218~0219 EA1.2 发布侧对称自动化+端到端安装时长 measured;vulkan_backend.md 锁定预留区间 RXS-0200~0213)。RXS-0181~0184 由 GRX 影子分支 claim(提交 cc059daa,条款体入该分支 spec/dxil_backend.md),main 跳号避撞——经 git 核实当前 main 树『零』`### RXS-0181~0184` 条款定义(每处出现均为跳号注,非复用),故对 main 永久 burned、未 materialize 为同树同号异义碰撞(见 known_collisions[shared-namespace-grx])。另 main 侧 RXS-0189~0199 由 MS1.2/MS1.2b 承接。下一个可用 RXS-0220。"
+      "notes": "spec 条款号。main 现存条款头 218 个,最高 RXS-0222(d3d12_runtime.md §2A:RXS-0220~0222 G3.2/RFC-0013 §4.A UC-04 可见窗口 flip-model swapchain present 装配与呈现循环 / swapchain 失效与重建 D3D12 ResizeBuffers·Vulkan OUT_OF_DATE / present headless readback 校验与 SKIP 纪律,RD-019 兑现;release.md §2.8:RXS-0214~0219 EA1.1a/1.1b/1.2;vulkan_backend.md 锁定预留区间 RXS-0200~0213)。RXS-0181~0184 由 GRX 影子分支 claim(提交 cc059daa,条款体入该分支 spec/dxil_backend.md),main 跳号避撞——经 git 核实当前 main 树『零』`### RXS-0181~0184` 条款定义(每处出现均为跳号注,非复用),故对 main 永久 burned、未 materialize 为同树同号异义碰撞(见 known_collisions[shared-namespace-grx])。另 main 侧 RXS-0189~0199 由 MS1.2/MS1.2b 承接。RFC-0013 五面剩余区间 RXS-0223~0249 归 G3.3~G3.6 后续 PR(溢出自 RXS-0270,0250~0269 = EI1 earmark)。下一个可用(G3.2 后)RXS-0223。"
     },
     "RD": {
       "scope": "shared",

@@ -783,9 +783,30 @@
       "status": "active",
       "introduced_in": "MS1.2",
       "spec_clauses": ["RXS-0195"]
+    },
+    {
+      "id": "RX6027",
+      "title": "UC-04 可见窗口 present 装配核验失败(flip-model swapchain desc ↔ lighting final RT 格式/缓冲数失配 / blt-model 或不支持 swap effect 请求 / 缺 RENDER_TARGET→COPY_SOURCE→PRESENT 态迁移锚点;RXS-0220 strict-only,无运行期 fallback)",
+      "message_key": "runtime.uc04_present_assembly",
+      "status": "active",
+      "introduced_in": "G3.2",
+      "spec_clauses": ["RXS-0220"]
+    },
+    {
+      "id": "RX6028",
+      "title": "UC-04 swapchain 重建核验失败(ResizeBuffers/OUT_OF_DATE 重建后格式/缓冲数漂移 / 视图未重建即录制;RXS-0221 strict-only,失效=正常路径但重建违例装配期拒)",
+      "message_key": "runtime.uc04_resize_rebuild",
+      "status": "active",
+      "introduced_in": "G3.2",
+      "spec_clauses": ["RXS-0221"]
     }
   ],
   "revision_log": [
+    {
+      "version": "v1.30",
+      "date": "2026-07-18",
+      "change": "G3.2 present 面分配 RX6027 + RX6028(UC-04 可见窗口 flip-model swapchain present,RFC-0013 §4.A5,spec/d3d12_runtime.md RXS-0220/0221 配套,实现真实可达类别只追加;§5.1 码表预测 RX6027/RX6028 兑现,Q-P-CodeGranularity 装配核验 ×1 + 重建核验 ×1)。RX6027 present 装配核验失败(6xxx codegen/装配段续接 RX6026;flip-model swapchain desc ↔ lighting final RT 格式/缓冲数失配 / blt-model 或不支持 swap effect 请求 / 缺 RENDER_TARGET→COPY_SOURCE→PRESENT 态迁移锚点;RXS-0220 strict-only,host 侧可判定装配违例,无运行期 fallback P-01)。RX6028 swapchain 重建核验失败(6xxx;ResizeBuffers/OUT_OF_DATE 重建后格式/缓冲数漂移 / 视图未重建即录制;RXS-0221 strict-only,swapchain 失效=正常路径但重建违例装配期显式拒)。**纯运行期/环境失败不占 RX 码**(Present 返回 DXGI_STATUS_OCCLUDED/DEVICE_REMOVED、tearing 能力缺失、Vulkan surface 建失败、无显示环境 SKIP;06 §8.2 / RXS-0193 / spec/release.md §3 口径)。message_key runtime.uc04_present_assembly / runtime.uc04_resize_rebuild 同落 en/zh.messages(双语全量覆盖门 ci/bilingual_coverage.py,96→98);段内分配制递增不复用、含义冻结(10 §6)。RX6018~6026 既有 entries 不动"
+    },
     {
       "version": "v1.0",
       "date": "2026-06-11",
