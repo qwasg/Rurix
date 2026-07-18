@@ -1197,6 +1197,17 @@
     ],
     "RXS-0219": [
       "src/rurixup/src/e2e.rs"
+    ],
+    "RXS-0220": [
+      "src/uc04-demo/src/present.rs"
+    ],
+    "RXS-0221": [
+      "src/rurix-rt/src/vk.rs",
+      "src/uc04-demo/src/present.rs"
+    ],
+    "RXS-0222": [
+      "src/uc04-demo/src/device.rs",
+      "src/uc04-demo/src/present.rs"
     ]
   }
 }

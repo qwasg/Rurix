@@ -219,3 +219,6 @@
 | RXS-0217 | spec/release.md | 1 | `src/rurixup/src/fetch.rs` |
 | RXS-0218 | spec/release.md | 1 | `src/rurixup/src/bundle.rs` |
 | RXS-0219 | spec/release.md | 1 | `src/rurixup/src/e2e.rs` |
+| RXS-0220 | spec/d3d12_runtime.md | 1 | `src/uc04-demo/src/present.rs` |
+| RXS-0221 | spec/d3d12_runtime.md | 2 | `src/rurix-rt/src/vk.rs`, `src/uc04-demo/src/present.rs` |
+| RXS-0222 | spec/d3d12_runtime.md | 2 | `src/uc04-demo/src/device.rs`, `src/uc04-demo/src/present.rs` |

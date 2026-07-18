@@ -556,6 +556,21 @@ jobs:
         shell: powershell
         run: py -3 ci/release_bundle_smoke.py
 
+      # 步骤 61（G-G3-2,RFC-0013 §4.A / RXS-0220~0222）:UC-04 可见窗口 present 冒烟。
+      # `ci/uc04_present_smoke.py` host 段**恒跑**(present 装配/重建核验单测 RXS-0220~0222 +
+      # vk.rs 重建协商纯 host helper swapchain_present_action RXS-0221 + typestate 编译面 +
+      # 内建 red_self_test:篡改/缺 PRESENT 态迁移锚点 → 装配门拒 RX6027)。device 段(可见窗口
+      # flip-model swapchain present N 帧逐帧 S_OK + backbuffer RENDER_TARGET→COPY_SOURCE→PRESENT +
+      # SetWindowPos 合成 WM_SIZE→ResizeBuffers 重建 + 三点 backbuffer readback 数值断言)=
+      # **交互桌面人工链路,不进 pr-smoke 硬门**(镜像 realtime_present / uc07_present 双态)——
+      # 默认 SKIP(dev-env degrade,退 0),须显式 RURIX_UC04_PRESENT_DEVICE=1(或 RURIX_REQUIRE_REAL=1)
+      # 在交互桌面 opt-in 真跑;device 见证 run URL 归 owner 交互桌面回填(present_ok=true 计入
+      # g3.counter.uc04_present_frames)。**步骤 48 offscreen 硬门 0-byte 不动**,present 不替代
+      # offscreen 真跑(RD-019 backfill_condition)。
+      - name: UC-04 present smoke (G3 CI_GATES §2.61, G-G3-2, RFC-0013 §4.A)
+        shell: powershell
+        run: py -3 ci/uc04_present_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

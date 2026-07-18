@@ -149,6 +149,9 @@ runtime.uc04_rts0_pso_mismatch = UC-04 RTS0 / PSO binding inconsistency: {detail
 runtime.uc04_pass_orchestration = UC-04 deferred pass orchestration failed: {detail}
 runtime.uc04_barrier_plan = UC-04 barrier orchestration failed: {detail}
 runtime.uc04_readback_layout = UC-04 readback buffer layout mismatch: {detail}
+## UC-04 可见窗口 present 装配/重建诊断(RX6027 ~ RX6028,spec/d3d12_runtime.md RXS-0220~0222;G3.2 RFC-0013 §4.A 分配)
+runtime.uc04_present_assembly = UC-04 visible-window present assembly inconsistency: {detail}
+runtime.uc04_resize_rebuild = UC-04 swapchain rebuild verification failed: {detail}
 #
 # 宿主编排前端机械面诊断(RX1005 / RX7022,spec/host_orchestration.md RXS-0195~0196;MS1.2 分配)
 resolve.module_load_failure = cannot load out-of-line module {name}: {detail}

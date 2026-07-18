@@ -491,6 +491,22 @@ def eval_counter(entry: dict, strict: bool) -> None:
             if doc.get("digest_match") is True:
                 n += 1
         count_or_gate(eid, n, 1, "份 UC-07 离线 golden 端到端证据", "MS1.3 device 真跑回填前为正常状态,契约 G-MS1-4", strict)
+    elif eid == "g3.counter.uc04_present_frames":
+        # UC-04 可见窗口 flip-model swapchain present 端到端证据数 ≥1(契约 G-G3-2;RFC-0013
+        # §4.A / RXS-0220~0222;可见窗口 WS_OVERLAPPEDWINDOW + CreateSwapChainForHwnd FLIP_DISCARD
+        # 逐帧 present + RENDER_TARGET→COPY_SOURCE→PRESENT 迁移锚点 + SetWindowPos 合成 WM_SIZE→
+        # ResizeBuffers 重建 + 三点 backbuffer readback 数值断言〔首/重建后/末帧〕,着色器 Rurix 源
+        # 经图形=B DXIL 非手写);计数 = evidence/uc04_present_*.json 中 present_ok=true 的报告数
+        # (ci/uc04_present_smoke.py device 段真跑写)。present 真跑 = 交互桌面人工链路不进 pr-smoke
+        # 硬门(镜像 g1.counter.realtime_present / uc07_present 双态);无显示/无 GPU/未 opt-in →
+        # device SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL。
+        n = 0
+        for f in (ROOT / "evidence").glob("uc04_present_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("present_ok") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份 UC-04 可见窗口 present 端到端证据",
+                      "G3.2 present device 见证回填前为正常状态,契约 G-G3-2", strict)
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 

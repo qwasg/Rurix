@@ -12,7 +12,12 @@
   ],
   "entries": [],
   "ratio_assertions": [],
-  "counter_assertions": [],
+  "counter_assertions": [
+    {
+      "id": "g3.counter.uc04_present_frames",
+      "description": "UC-04 可见窗口 flip-model swapchain present 端到端证据数 ≥1(契约 G-G3-2;RFC-0013 §4.A / RXS-0220~0222;可见窗口 WS_OVERLAPPEDWINDOW + CreateSwapChainForHwnd FLIP_DISCARD 逐帧 present N 帧 Present 逐帧 S_OK + backbuffer RENDER_TARGET→COPY_SOURCE→PRESENT 迁移锚点 + SetWindowPos 合成 WM_SIZE→ResizeBuffers 重建 + 三点 backbuffer readback 数值断言〔首帧/重建后首帧/末帧〕,着色器 Rurix 源经图形=B DXIL 非手写);计数源 = evidence/uc04_present_*.json 中 present_ok=true 的报告数(机器事实:ci/uc04_present_smoke.py device 段真跑写)。present 真跑 = 交互桌面人工链路,**不进 pr-smoke 硬门**(镜像 uc07_present / realtime_present 双态先例);无显示/无 GPU/无 real-shim/未 opt-in → device 段 SKIP=dev-env degrade 非 fake pass → 0 → 建设期 normal SKIP / close-out strict FAIL,对齐 g1.counter.realtime_present 先例。RURIX_REQUIRE_REAL=1 时缺失翻硬红。**present 不得替代 offscreen 真跑**(步骤 48 offscreen 硬门 0-byte 不动,RD-019 backfill_condition 原文)。"
+    }
+  ],
   "namespace_check": {
     "rule": "本文件所有 id 必须以 'g3.' 前缀开头;多预算合并加载时冲突即 FAIL(14 §3)。预算自动发现 glob 为 *_budget.json(ci/check_schemas.py / budget_eval.py / check_guardrails.py / tests/test_budget_namespace.py 同一 glob),g3 自动纳入无新 CI 码。",
     "unit_test_required": true
@@ -22,6 +27,11 @@
       "version": "v1.0",
       "date": "2026-07-18",
       "change": "初版模板(G3 开工脚手架):entries/ratio_assertions/counter_assertions 全部留空。entries/ratio_assertions 留空(不预欠 estimated 占位,双活跃期零 estimated 铁律);counter_assertions 留空(五面 Full-RFC-gated(RFC-0013~0017),不预造 counter)。g3.counter.* 随各面实现 PR 回填 + 配套 ci/budget_eval.py evaluator 分支(条款先于实现);RD-027 修复路径的 uc07 升档回填归 ms1_budget.json 按其 backfill_condition 协议。永不立外部采纳类条目。预算 glob *_budget.json 自动纳入 g3,无新 CI 代码改动。"
+    },
+    {
+      "version": "v1.1",
+      "date": "2026-07-18",
+      "change": "G3.2 present 面回填 counter_assertions[g3.counter.uc04_present_frames](RFC-0013 §4.A / §6.5 PR-P2,契约 G-G3-2;条款先于实现,登记与 ci/budget_eval.py evaluator 分支同 PR,未知 id 强制 FAIL 纪律)。计数源 = evidence/uc04_present_*.json 中 present_ok=true 的报告数(ci/uc04_present_smoke.py device 段真跑写:可见窗口 flip-model swapchain present N 帧 + resize 重建 + 三点 backbuffer readback 数值断言)。present 真跑 = 交互桌面人工链路不进 pr-smoke 硬门,无显示/无 GPU/未 opt-in → device SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL(对齐 g1.counter.realtime_present 先例);RURIX_REQUIRE_REAL=1 缺失翻硬红。entries/ratio_assertions 维持留空(零 estimated 铁律)。"
     }
   ]
 }

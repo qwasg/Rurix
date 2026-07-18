@@ -10,6 +10,11 @@
 //! - **RXS-0169**:资源状态 + barrier 编排锚点([`barrier::plan_barriers`];RT→SRV→RT /
 //!   Copy / Readback;首期手动编排,自动状态跟踪 defer RD-020)。
 //! - **RXS-0170**:offscreen readback 缓冲布局([`readback::plan_readback`])。
+//! - **RXS-0220~0222**(G3.2 present 面,RFC-0013 §4.A):可见窗口 flip-model swapchain
+//!   present 装配([`present::assemble_present`])/ swapchain 失效与重建
+//!   ([`present::classify_swapchain_status`] / [`present::rebuild_swapchain`])/ present
+//!   headless readback 断言点纪律([`present::ReadbackCadence`])。语言面零新语法(D-130),
+//!   窗口 present 独立走 C++ shim(不实例化 RXS-0197 interop typestate,SC-5)。
 //!
 //! # blocked-honest 边界(G-G2-4 防降级硬门)
 //! **device 段(hardware 多 pass deferred draw + offscreen 像素对照)阻塞于 RD-013**——
@@ -28,6 +33,7 @@
 pub mod barrier;
 pub mod deferred;
 pub mod error;
+pub mod present;
 pub mod pso;
 pub mod readback;
 

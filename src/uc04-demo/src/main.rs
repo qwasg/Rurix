@@ -132,7 +132,19 @@ fn main() {
     // ShimUnavailable(不伪造 device 绿,G-G2-4 防降级硬门)。
     let _ = (&pso, &plan, &anchors, &layout); // host 模型已打印;device 走 Rurix DXIL 真出图。
     #[cfg(feature = "d3d12-runtime")]
-    device_run();
+    device_dispatch();
+}
+
+/// device 子命令分发(`d3d12-runtime`):`present <...>` → 可见窗口 present(G3.2 RXS-0220~0222);
+/// 否则 → offscreen(G2.4 RXS-0167~0170)。
+#[cfg(feature = "d3d12-runtime")]
+fn device_dispatch() {
+    let args: Vec<String> = std::env::args().collect();
+    if args.get(1).map(String::as_str) == Some("present") {
+        present_run();
+    } else {
+        device_run();
+    }
 }
 
 /// device 真出图(`d3d12-runtime`):读 4 个 Rurix 图形=B DXIL(命令行给出)+ 构造**每 pass**
@@ -255,6 +267,145 @@ fn device_run() {
         }
         Err(e) => {
             eprintln!("DXIL_UC04: fail {e}");
+            std::process::exit(1);
+        }
+    }
+}
+
+/// device present(`d3d12-runtime`,真出图 gate `real-shim`;G3.2 RXS-0220~0222):host 先核验
+/// present 会话([`assemble_present`],RXS-0220)+ 每 pass RFC-0005 RTS0,再经 execute_present
+/// 走可见窗口 flip-model swapchain present + resize 重建 + 三点 backbuffer 回读。缺 `real-shim`
+/// → 显式 `DXIL_UC04_PRESENT: skip ShimUnavailable`(不伪造 present device 绿,退 0 由 CI 三态
+/// 纪律裁定;本入口打印后退 0)。
+///
+/// usage: `uc04-demo present <geom_vs.dxil> <geom_fs.dxil> <light_vs.dxil> <light_fs.dxil>
+///         [frames] [sync_interval] [resize_frame resize_w resize_h]`
+#[cfg(feature = "d3d12-runtime")]
+fn present_run() {
+    use uc04_demo::Format;
+    use uc04_demo::device::{PresentDeviceRequest, PresentResult, execute_present};
+    use uc04_demo::present::{PresentRequest, PresentState, SwapEffect, assemble_present};
+    use uc04_demo::pso::AssembledPso;
+
+    use rurixc::binding_layout::{infer_root_signature, serialize_rts0};
+
+    let args: Vec<String> = std::env::args().collect();
+    // args[0]=exe, args[1]="present", args[2..6]=4 DXIL, args[6..]=可选 frames/sync/resize。
+    if args.len() < 6 {
+        eprintln!(
+            "[present] usage: uc04-demo present <geom_vs.dxil> <geom_fs.dxil> <light_vs.dxil> \
+             <light_fs.dxil> [frames] [sync_interval] [resize_frame resize_w resize_h]"
+        );
+        std::process::exit(2);
+    }
+    let read = |p: &str| -> Vec<u8> {
+        std::fs::read(p).unwrap_or_else(|e| {
+            eprintln!("[present] 读 DXIL {p} 失败: {e}");
+            std::process::exit(2);
+        })
+    };
+    let geom_vs = read(&args[2]);
+    let geom_fs = read(&args[3]);
+    let light_vs = read(&args[4]);
+    let light_fs = read(&args[5]);
+    let parse_at =
+        |i: usize, dflt: u32| -> u32 { args.get(i).and_then(|s| s.parse().ok()).unwrap_or(dflt) };
+    let frames = parse_at(6, 8);
+    let sync_interval = parse_at(7, 1);
+    let resize_frame = parse_at(8, 0);
+    let resize_width = parse_at(9, 0);
+    let resize_height = parse_at(10, 0);
+
+    // 几何 pass RFC-0005 RTS0(P-11):空资源 + IA flag(承 offscreen device_run 口径)。
+    let mut rs =
+        infer_root_signature(&[]).expect("几何 pass 空资源集 root signature 推导(RFC-0005)");
+    rs.flags = 0x1;
+    let rts0_bytes = serialize_rts0(&rs);
+
+    // lighting pass RFC-0005 RTS0:SRV t0 + Sampler s0(RFC-0007 真采样)。
+    let light_resources = vec![
+        rb("g_albedo", MirResourceType::Texture2D(PrimTy::F32)),
+        rb("g_samp", MirResourceType::Sampler),
+    ];
+    let mut light_rs = infer_root_signature(&light_resources)
+        .expect("lighting pass root signature 推导(RFC-0005)");
+    light_rs.flags = 0x1;
+    let light_rts0_bytes = serialize_rts0(&light_rs);
+
+    let pso = AssembledPso {
+        root_signature: rs,
+        rts0_bytes,
+        rtv_formats: vec![Format::Rgba8Unorm],
+        dsv_format: None,
+    };
+
+    // RXS-0220:host 先核验 present 会话(swapchain desc ↔ backbuffer 格式一致 + 迁移锚点)。
+    let session = assemble_present(&PresentRequest {
+        swapchain_format: Format::Rgba8Unorm,
+        final_rt_format: Format::Rgba8Unorm,
+        buffer_count: 3,
+        swap_effect: SwapEffect::FlipDiscard,
+        width: 256,
+        height: 256,
+        sync_interval,
+        tearing_requested: false,
+        frames,
+        present_transitions: vec![
+            (PresentState::RenderTarget, PresentState::CopySource),
+            (PresentState::CopySource, PresentState::Present),
+        ],
+    })
+    .unwrap_or_else(|e| {
+        eprintln!("DXIL_UC04_PRESENT: fail present 装配核验拒 {e}");
+        std::process::exit(1);
+    });
+
+    let req = PresentDeviceRequest {
+        session: &session,
+        pso: &pso,
+        light_rts0: &light_rts0_bytes,
+        resize_frame,
+        resize_width,
+        resize_height,
+        geom_vs_dxil: &geom_vs,
+        geom_fs_dxil: &geom_fs,
+        light_vs_dxil: &light_vs,
+        light_fs_dxil: &light_fs,
+    };
+    match execute_present(&req) {
+        Ok(PresentResult {
+            adapter,
+            first_pixel,
+            rebuilt_pixel,
+            last_pixel,
+            frames_presented,
+        }) => {
+            // present device 见证行(对齐 DXIL_UC04 offscreen 范式;三点 backbuffer 像素)。
+            println!(
+                "DXIL_UC04_PRESENT: ok adapter=\"{adapter}\" frames_presented={frames_presented} \
+                 first={},{},{},{} rebuilt={},{},{},{} last={},{},{},{} present=ok",
+                first_pixel[0],
+                first_pixel[1],
+                first_pixel[2],
+                first_pixel[3],
+                rebuilt_pixel[0],
+                rebuilt_pixel[1],
+                rebuilt_pixel[2],
+                rebuilt_pixel[3],
+                last_pixel[0],
+                last_pixel[1],
+                last_pixel[2],
+                last_pixel[3],
+            );
+            std::process::exit(0);
+        }
+        Err(uc04_demo::Uc04Error::ShimUnavailable { detail }) => {
+            // dev-env degrade:缺 real-shim / 无显示环境 → SKIP sentinel,不伪造 present 绿。
+            println!("DXIL_UC04_PRESENT: skip ShimUnavailable {detail}");
+            std::process::exit(0);
+        }
+        Err(e) => {
+            eprintln!("DXIL_UC04_PRESENT: fail {e}");
             std::process::exit(1);
         }
     }

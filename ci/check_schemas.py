@@ -211,6 +211,9 @@ def check_evidence_files() -> None:
     rd027_pt_poison_spike_schema = load(
         ROOT / "milestones/g3/rd027_spike_evidence_schema.json"
     )
+    uc04_present_schema = load(
+        ROOT / "milestones/g3/uc04_present_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -313,6 +316,9 @@ def check_evidence_files() -> None:
         jsonschema.Draft7Validator(rd027_pt_poison_spike_schema)
         if rd027_pt_poison_spike_schema
         else None
+    )
+    uc04_present_validator = (
+        jsonschema.Draft7Validator(uc04_present_schema) if uc04_present_schema else None
     )
     ea1_install_e2e_validator = (
         jsonschema.Draft7Validator(ea1_install_e2e_schema)
@@ -512,6 +518,16 @@ def check_evidence_files() -> None:
             # spike/rd027-pt-poison/ 标 // SPIKE(RD-027),全 GPU 运行经 bench/proc_guard)
             # → milestones/g3/rd027_spike_evidence_schema.json。
             validator = rd027_pt_poison_spike_validator
+        elif (
+            f.name.startswith("uc04_present_")
+            and uc04_present_validator is not None
+        ):
+            # G3.2 UC-04 可见窗口 present 冒烟证据(G-G3-2;RFC-0013 §4.A / RXS-0220~0222)→
+            # milestones/g3/uc04_present_evidence_schema.json(ci/uc04_present_smoke.py device 段
+            # 真跑写:可见窗口 flip-model swapchain present N 帧 + resize 重建 + 三点 backbuffer
+            # readback 数值断言;present_ok=true 计入 g3.counter.uc04_present_frames,ci/budget_eval.py。
+            # present 真跑 = 交互桌面人工链路不进 pr-smoke 硬门,SKIP 不充绿,镜像 realtime_present 双态)
+            validator = uc04_present_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):

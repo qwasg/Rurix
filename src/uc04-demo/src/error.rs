@@ -39,6 +39,18 @@ pub enum Uc04Error {
         /// readback 布局失败诊断上下文。
         detail: String,
     },
+    /// RXS-0220 L2:UC-04 可见窗口 present 装配核验失败(swapchain desc ↔ final RT 格式/
+    /// 缓冲数失配 / blt-model 或不支持 swap effect / 缺 PRESENT 态迁移锚点;RX6027)。
+    PresentAssembly {
+        /// present 装配失败诊断上下文。
+        detail: String,
+    },
+    /// RXS-0221 L2:UC-04 swapchain 重建核验失败(重建后格式/缓冲数漂移 / 视图未重建;
+    /// RX6028;失效=正常路径,但重建违例装配期显式拒)。
+    ResizeRebuild {
+        /// 重建核验失败诊断上下文。
+        detail: String,
+    },
     /// device 段:`real-shim`(D3D12 离屏 shim)未编入 / pin 工具缺失 → 无法真跑。
     /// **非语言 RX**(环境失败,不滥发诊断码);按 G-G2-4 防降级硬门标环境缺失,不伪造 device 绿。
     ShimUnavailable {
@@ -68,6 +80,8 @@ impl Uc04Error {
             Uc04Error::PassOrchestration { .. } => Some("RX6020"),
             Uc04Error::BarrierPlan { .. } => Some("RX6021"),
             Uc04Error::ReadbackLayout { .. } => Some("RX6022"),
+            Uc04Error::PresentAssembly { .. } => Some("RX6027"),
+            Uc04Error::ResizeRebuild { .. } => Some("RX6028"),
             Uc04Error::ShimUnavailable { .. } | Uc04Error::DeviceRunFailed { .. } => None,
         }
     }
@@ -90,6 +104,12 @@ impl fmt::Display for Uc04Error {
             }
             Uc04Error::ReadbackLayout { detail } => {
                 write!(f, "UC-04 readback 布局失配: {detail}")
+            }
+            Uc04Error::PresentAssembly { detail } => {
+                write!(f, "UC-04 可见窗口 present 装配不一致: {detail}")
+            }
+            Uc04Error::ResizeRebuild { detail } => {
+                write!(f, "UC-04 swapchain 重建核验失败: {detail}")
             }
             Uc04Error::ShimUnavailable { detail } => {
                 write!(
@@ -148,6 +168,21 @@ mod tests {
             }
             .rx_code(),
             Some("RX6022")
+        );
+        // RXS-0220/0221:present 装配 / swapchain 重建核验失败(G3.2 present 面)。
+        assert_eq!(
+            Uc04Error::PresentAssembly {
+                detail: String::new()
+            }
+            .rx_code(),
+            Some("RX6027")
+        );
+        assert_eq!(
+            Uc04Error::ResizeRebuild {
+                detail: String::new()
+            }
+            .rx_code(),
+            Some("RX6028")
         );
         // device 段 sentinel(shim 缺失 / 真跑失败)= 环境/运行期失败,非语言诊断码。
         assert_eq!(
