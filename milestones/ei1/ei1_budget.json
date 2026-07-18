@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "namespace": "ei1",
+  "description": "EI1 预算(14 §3:entries + ratio_assertions + counter_assertions,命名空间强制前缀)。EI1 gated 契约脚手架:entries/ratio_assertions/counter_assertions 全部留空(延续 G2/MB1/EA1/G3 脚手架先例 + 零占位纪律,14 §3;且本契约 gated——激活 gated on G3 close-out + owner 立项确认,契约 §0/G-EI1-0,gated 期恒空)。entries/ratio_assertions 留空 = 不预欠 estimated 占位;counter_assertions 留空 = 实体面 Full-RFC-gated(RFC-0014 earmark,export(c) codegen + UC-05 RHI 双面承载;gated 期 RFC 文件不落),deliverable 形态未定,预造 counter 即预设 Full RFC 应定义的语义。红绿 counter(ei1.counter.*,如 export_c_redgreen_cases / uc05_invariant_cases)随激活后 EI1.2~EI1.5 实现 PR 落地 + 配套 ci/budget_eval.py evaluator 分支(条款先于实现,对齐 MS1.2/EA1 counter 先例)。采纳判据 entries(ei1.bench.uc05_check_cold_ms / ei1.bench.uc05_check_warm_ms,07 §6 增量 check <5s 双口径:冷全检 + tooling-server 热重查)随激活后 EI1.5 取证以 measured_local 回填,回填前不预欠 estimated。**永不立引擎采纳/下载量/用户数类条目**(契约 out_of_scope production_adoption_claim,EA1/MS1 carve-out 纪律)。占位规则:evidence=estimated 时 evaluator skip 并输出 skip_reason;占位存活 ≤2 个里程碑。预算自动发现 glob 已泛化为 *_budget.json,ei1_budget.json 自动纳入,零新 CI 码。",
+  "source_docs": [
+    "14 §3",
+    "milestones/ei1/EI1_CONTRACT.md",
+    "milestones/ei1/CI_GATES.md",
+    "milestones/g3/G3_CONTRACT.md(§7 ④ EI1 gated 依据 + §7 v1.1 编号 earmark)",
+    "milestones/m0/BENCH_PROTOCOL.md"
+  ],
+  "entries": [],
+  "ratio_assertions": [],
+  "counter_assertions": [],
+  "namespace_check": {
+    "rule": "本文件所有 id 必须以 'ei1.' 前缀开头;多预算合并加载时冲突即 FAIL(14 §3)。预算自动发现 glob 为 *_budget.json(ci/check_schemas.py / budget_eval.py / check_guardrails.py / tests/test_budget_namespace.py 同一 glob),ei1 自动纳入无新 CI 码。",
+    "unit_test_required": true
+  },
+  "revision_log": [
+    {
+      "version": "v1.0",
+      "date": "2026-07-18",
+      "change": "初版模板(EI1 gated 契约脚手架):entries/ratio_assertions/counter_assertions 全部留空,gated 期恒空(契约 §0/G-EI1-0)。entries/ratio_assertions 留空(不预欠 estimated 占位);counter_assertions 留空(实体面 Full-RFC-gated(RFC-0014 earmark),不预造 counter)。ei1.counter.* 随激活后 EI1.2~EI1.5 实现 PR 回填 + 配套 ci/budget_eval.py evaluator 分支(条款先于实现);ei1.bench.uc05_check_{cold,warm}_ms(增量 check <5s 双口径,07 §6)随激活后 EI1.5 取证 measured_local 回填。永不立引擎采纳/下载量/用户数类条目。预算 glob *_budget.json 自动纳入 ei1,无新 CI 代码改动。"
+    }
+  ]
+}
