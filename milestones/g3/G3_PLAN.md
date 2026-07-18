@@ -3,7 +3,7 @@
 > 所属契约:[G3_CONTRACT.md](G3_CONTRACT.md)
 > 版本:v1.0(2026-07-18)
 > 粒度依据:11 §7(小里程碑两级结构);本计划是工作分解,验收以契约 §4 为准,本文不重定义成功。
-> 编排裁决(契约 §7 ⑦):主线 G3.1→G3.6 **合入序严格串行**;面 k 实现期间,面 k+1 的 RFC 起草与对抗性评审**可并行**(worktree 隔离,不进合并队列;RFC(k+1) 合入不早于面 k 实现 PR 合入;MS1 §7「并行起草、串行合入」/ EA1 支线先例);**G3.1 spike 期间零面 RFC 合入**(闸门语义,owner 已裁归因落地即开闸)。
+> 编排裁决(契约 §7 ⑦,v1.1 更正后):主线 G3.1→G3.6 **合入序严格串行**;五面共用**单伞形 Full RFC-0013(五面各成章,契约 §7 v1.1;MB1 RFC-0011 先例)**——RFC-0013 起草与对抗性评审可在 G3.1 spike 实验期**并行进行**(worktree 隔离,不进合并队列;MS1 §7「并行起草、串行合入」先例),**合入不早于 G-G3-1 开闸**(spike 期间零面 RFC 合入,闸门语义,owner 已裁归因落地即开闸);RFC-0013 Approved 合入 = 五面 RFC 前置一次性满足,各面失败测试先行判据不变(各面步骤脚本在 RFC 合入时点 main 不存在 = RED)。
 > **定位口径**:把工业渲染特性面从 deferred 登记做成 measured 工程事实;「全量推到底」(owner 裁定)受 measured-first/blocked-honest 约束——上游 blocked 的腿以 probe 证据落尾门,不伪造。
 
 ---
@@ -13,11 +13,12 @@
 ```mermaid
 flowchart LR
     g30[G3.0 治理包+EI1 契约] --> g31[G3.1 RD-027 spike 闸门]
-    g31 -- 归因证据合入=开闸 --> g32[G3.2 present RFC-0013 步骤61]
-    g32 --> g33[G3.3 采样超集 RFC-0014 步骤62/63]
-    g33 --> g34[G3.4 bindless RFC-0015 步骤64]
-    g34 --> g35[G3.5 render graph RFC-0016 步骤65]
-    g35 --> g36[G3.6 mesh/task/RT RFC-0017 步骤66/67±]
+    g31 -- 归因证据合入=开闸 --> rfc13[RFC-0013 伞形五章 Approved 合入]
+    rfc13 --> g32[G3.2 present 步骤61]
+    g32 --> g33[G3.3 采样超集 步骤62/63]
+    g33 --> g34[G3.4 bindless 步骤64]
+    g34 --> g35[G3.5 render graph 步骤65]
+    g35 --> g36[G3.6 mesh/task/RT 步骤66/67±]
     g36 --> g37[G3.7 close-out]
     g31 -. 处置尾项(修复或备包+护栏)不阻塞开闸,close-out 前置 .-> g37
 ```
@@ -26,7 +27,7 @@ flowchart LR
 |---|---|---|---|
 | G3.0 | ~2–3 天 | D-G3-1(治理包)+ D-G3-2(EI1 契约) | **G3 入口**;G3 脚手架 PR 先合,EI1 脚手架 PR 随后 |
 | G3.1 | ~1–1.5 周 | D-G3-3(spike 全案 + RD-027 处置) | 闸门:归因证据合入 main 即解锁五面 RFC 合入;处置尾项并行推进 |
-| G3.2 | ~1 周 | D-G3-4(present) | 依赖 G-G3-1 开闸;最低风险快胜,给全期 showcase 出口 |
+| G3.2 | ~1 周 | D-G3-4(present) | 依赖 G-G3-1 开闸 + RFC-0013 Approved 合入;最低风险快胜,给全期 showcase 出口 |
 | G3.3 | ~1.5–2 周 | D-G3-5(采样超集) | 依赖 G3.2 合入;含 vk graphics descriptor 建面(后续面共用底座);**关键路径** |
 | G3.4 | ~1 周 | D-G3-6(bindless) | 依赖 G3.3(采样+descriptor 底座);为 G3.6 RT 材质表铺路 |
 | G3.5 | ~1–1.5 周 | D-G3-7(render graph) | 依赖 G3.3(真采样 deferred 作验收语料);present 为 graph 终端 pass 的胶水随本面 |
@@ -64,44 +65,44 @@ flowchart LR
 
 **出口判据**:归因结论(rurixc_ir|llvm_nvptx|ptxas|driver_jit|app_data|toolchain_fixed 之一,或诚实 inconclusive)+ evidence/报告合入;inconclusive 时五面不开,§7 追加裁决路由。
 
-## 3. G3.2 — present(D-G3-4,RFC-0013)
+## 3. G3.2 — present(D-G3-4,RFC-0013·present 章)
 
 | # | 任务 | 验证方式 / gating |
 |---|---|---|
-| 1 | RFC-0013(Full;含 §9.1 对抗性评审跨模型):D3D12 可见窗口 flip-model swapchain + resize 重建 + vsync 参数 + backbuffer readback 校验;Vulkan OUT_OF_DATE 重建;§8 锁死 D-130(窗/泵/输入不进语言,语言面零新语法复用 RXS-0197 typestate) | RFC PR 独立合入,Approved 先于实现(步骤 61 脚本 main 不存在 = RED) |
+| 1 | **RFC-0013 伞形(Full,五面五章;含 §9.1 对抗性评审跨模型,逐章 findings/disposition)整篇于本面前落地**——present 章:D3D12 可见窗口 flip-model swapchain + resize 重建 + vsync 参数 + backbuffer readback 校验;Vulkan OUT_OF_DATE 重建;§8 锁死 D-130(窗/泵/输入不进语言,语言面零新语法复用 RXS-0197 typestate);其余四章(采样超集/bindless/render graph/mesh-task-RT)同篇承载,DXIL probe 待定面以条件分支条款写入(G-EA1-3 先例) | RFC-0013 PR 独立合入(gated on G-G3-1 开闸),Approved 先于一切面实现(各面步骤脚本 main 不存在 = RED) |
 | 2 | 条款 RXS-0220~0222(预期:窗口 present 装配与呈现循环 / swapchain 重建与 resize 语义 / present SKIP 纪律与 readback 校验)落 spec/dxil_backend.md 或 d3d12 运行时节 + 实现:uc04 shim present 段(ABI 版本 bump)+ vk.rs 重建 + cabi 追加 | 单 PR 条款 commit 先行;trace 215→N;快照重 bless 同 PR |
 | 3 | CI 步骤 61:`ci/uc04_present_smoke.py`(host 段恒跑 + device 段 present N 帧 readback 断言 + resize 后再断言 + 篡改 PRESENT 态迁移 RED;无显示 SKIP + REQUIRE_REAL 硬红)+ g3.counter.uc04_present_frames 与 evaluator 分支同 PR | 真实红绿 + run URL 归 §8;步骤 48 offscreen 硬门 0-byte |
 
-## 4. G3.3 — 采样超集(D-G3-5,RFC-0014,关键路径)
+## 4. G3.3 — 采样超集(D-G3-5,RFC-0013·采样超集章,关键路径)
 
 | # | 任务 | 验证方式 / gating |
 |---|---|---|
-| 1 | RFC-0014(Full,06 §4.2 禁区增补):四批全量(fetch/隐式 LOD+导数/sampler 状态/shadow+gather+多分量+UAV 写);隐式 LOD 非均匀控制流条款对齐 D3D/Vulkan quad 语义不发明自有语义;UAV memory-order 对齐既有 Atomic scope 最保守子集;严禁 UB 节 | RFC PR 独立合入 + 对抗性评审 |
+| 1 | RFC-0013·采样超集章(06 §4.2 禁区增补):四批全量(fetch/隐式 LOD+导数/sampler 状态/shadow+gather+多分量+UAV 写);隐式 LOD 非均匀控制流条款对齐 D3D/Vulkan quad 语义不发明自有语义;UAV memory-order 对齐既有 Atomic scope 最保守子集;严禁 UB 节 | 已随 RFC-0013 伞形合入(G3.2 前);实现前复核该章无漂移 |
 | 2 | 条款 RXS-0223~0230(预期)+ 前端(shader_stages.rs 方法族 typeck + mir Rvalue kind 枚举扩)+ codegen(dxil_spirv.rs 采样 opcode 全家 + binding_layout static sampler/storage image 轴 + B 链贯通)+ 运行时(uc04 shim sampler heap/mip 链/UAV;**vk.rs graphics descriptor 建面 run_graphics_offscreen_v2 加性 API**) | 大面拆 2~3 栈式 PR(条款+前端+SPIR-V → B 链+shim → vk 运行时+device);每 PR 条款先行 |
 | 3 | B 链 probe 先行:分离 image/sampler 形态 SampleCmp/Gather 的 spirv-cross 输出 5 分钟语料实测 | 证据入 evidence,红则该子模式诚实标注 |
 | 4 | CI 步骤 62(codegen/host:dxv+spirv-val 三态)+ 63(device:≥6 模式数值判据,mip 金字塔/wrap-clamp 对照/UAV 回读/双后端一致性)+ g3.counter.sampling_superset_modes(≥6) | 真实红绿 + run URL;既有 RXS-0174~0176 显式 LOD 0 路零回归 |
 
-## 5. G3.4 — bindless(D-G3-6,RFC-0015)
+## 5. G3.4 — bindless(D-G3-6,RFC-0013·bindless 章)
 
 | # | 任务 | 验证方式 / gating |
 |---|---|---|
-| 1 | RFC-0015(Full):无界句柄数组仅签名形参 + 动态索引临时句柄仅立即采样 receiver + nonuniform 标注 strict-only + 越界 robustness 条款(实现定义但有界,无 UB 节);§8 登记 heap 直索引语法糖收窄(RD-034+) | RFC PR 独立合入 + 对抗性评审 |
+| 1 | RFC-0013·bindless 章:无界句柄数组仅签名形参 + 动态索引临时句柄仅立即采样 receiver + nonuniform 标注 strict-only + 越界 robustness 条款(实现定义但有界,无 UB 节);§8 登记 heap 直索引语法糖收窄(RD-034+) | 已随 RFC-0013 伞形合入;实现前复核该章无漂移 |
 | 2 | 条款 RXS-0231~0235(预期)+ 实现:mir ResourceCount::Unbounded 从 Unmappable 转合法路径 + RuntimeDescriptorArray/NonUniform 装饰 + RTS0 unbounded range 独占新 space 分配律 + vk descriptor indexing feature chain/update-after-bind + std::gpu TextureTable + 新 RX 码(nonuniform 缺失/位置违例,自 RX6027) | 单 PR 条款先行;binding_layout 单测回归网全绿 |
 | 3 | CI 步骤 64:四纹理四象限索引红绿 + 篡改注册序换位 RED + feature 缺失确定性 Err + g3.counter.bindless_descriptor_smoke | 真实红绿 + run URL |
 
-## 6. G3.5 — render graph(D-G3-7,RFC-0016)
+## 6. G3.5 — render graph(D-G3-7,RFC-0013·render graph 章)
 
 | # | 任务 | 验证方式 / gating |
 |---|---|---|
-| 1 | RFC-0016(Full,🔒 pass 边界 happens-before 本体):Graph/Pass 声明式宿主库面(lang-item,无新语法)+ access 声明合法性 + 自动状态转换语义;仅承诺 pass 粒度全序单 queue;§8 锁重排/多 queue/split barrier(登 RD-034+) | RFC PR 独立合入 + 对抗性评审 |
+| 1 | RFC-0013·render graph 章(🔒 pass 边界 happens-before 本体):Graph/Pass 声明式宿主库面(lang-item,无新语法)+ access 声明合法性 + 自动状态转换语义;仅承诺 pass 粒度全序单 queue;§8 锁重排/多 queue/split barrier(登 RD-034+) | 已随 RFC-0013 伞形合入;实现前复核该章无漂移 |
 | 2 | 条款 RXS-0236~0241(预期)落 spec/host_orchestration.md 等 + 实现:rurix-rt graph.rs(纯 host safe 状态推导,双后端映射同源 AccessKind)+ D3D12 执行器(shim pass/barrier 数组下发)+ Vulkan 执行器(多 pass command buffer + vkCmdPipelineBarrier)+ cabi rxrt_graph_* + uc04 手动 plan_barriers 转独立复核门 | 拆 2 栈式 PR(推导核心+host 单测 → 双执行器+迁移);互证金标准:自动推导 == RXS-0169 手动锚点集 |
 | 3 | CI 步骤 65:uc04 迁 Graph API 重跑步骤 48 同判据 + 漏声明 read strict 拒 RED + Vulkan 同图同判据 + g3.counter.auto_barrier_hazard_redgreen;present 终端 pass 胶水随本面 | 真实红绿 + run URL |
 
-## 7. G3.6 — mesh/task/RT(D-G3-8,RFC-0017,置尾)
+## 7. G3.6 — mesh/task/RT(D-G3-8,RFC-0013·mesh-task-RT 章,置尾)
 
 | # | 任务 | 验证方式 / gating |
 |---|---|---|
-| 1 | RFC-0017(Full,本期最大):六阶段全量类型面(AST 补 intersection/callable;mesh #[numthreads]+#[outputs];payload/attribute 契约升全量;AccelStruct/trace_ray);Vulkan 主腿全量;DXIL 腿分层(mesh probe-first / RT 预判 blocked);§7 论证并否决 MIR→HLSL 第三发射路径 | RFC PR 独立合入 + 对抗性评审 |
+| 1 | RFC-0013·mesh-task-RT 章(五章中最大):六阶段全量类型面(AST 补 intersection/callable;mesh #[numthreads]+#[outputs];payload/attribute 契约升全量;AccelStruct/trace_ray);Vulkan 主腿全量;DXIL 腿分层(mesh probe-first / RT 预判 blocked,条件分支条款);§7 论证并否决 MIR→HLSL 第三发射路径 | 已随 RFC-0013 伞形合入;probe 结果落 RFC 修订行不重开 RFC |
 | 2 | 前置双 probe:① DXIL mesh(最小 SPIR-V→spirv-cross→dxc -T ms_6_5→dxv);② `bin/vk_rt_probe`(AS 构建 alignment/SBT stride/bufferDeviceAddress 驱动坑) | 证据先行入 evidence;①红则 DXIL mesh 与 RT 同落 RD-034+ |
 | 3 | 实现栈式 3~4 PR:(a) 条款 + 类型面 + SPIR-V mesh/task 执行模型 + vk mesh pipeline + 步骤 66;(b) **SPIR-V 1.4 分叉独立 PR**(dxil 1.0 路零回归);(c) RT SPIR-V codegen + vk AS/SBT/TraceRays 运行时(U30+ 登记)+ 步骤 67;(d) DXIL 腿:probe 绿则 mesh 全量落 + RX6008 改接 + 步骤 68,RT blocked 探针 + RD-034+ 登记 + 步骤 69(防静默腐烂) | 每 PR 条款先行;spirv-val vulkan1.2/spv1.4 三态;intersection/callable 运行时语料可 accept-only(device 语料首期 raygen/miss/closesthit 三件套) |
 | 4 | CI 步骤 66(Vulkan mesh 像素判据+SetMeshOutputs 篡改 RED)/ 67(Vulkan RT 命中-miss 双色+移顶点 RED)/ ±68/69(DXIL 腿)+ g3.counter.mesh_task_rt_stages(≥3) | 真实红绿 + run URL;VVL 崩溃与驱动崩溃以退出码区分(反 grep,P0-5 教训) |
@@ -129,3 +130,4 @@ flowchart LR
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-07-18 | 初版(G3 契约配套;主线 G3.0~G3.7 串行 + RFC 流水线重叠声明;RD-027 spike 执行序(E0a 基线→E7a 排除→E0b 双装载路→E1/E2 优化档→E4/E6 最小化对照→证据→处置)+ 安全纪律;五面任务分解与栈式 PR 结构;步骤 61~67± 计划项随实现 PR 回填 workflow;关键依赖洞察(descriptor 底座/互证语料/置尾钳制隔离);deferred 九条承接) |
+| v1.1 | 2026-07-18 | 编号更正对齐(契约 §7 v1.1):五面 RFC 载体自「五 Full RFC」更正为**单伞形 Full RFC-0013 五面五章**(MB1 RFC-0011 先例;RFC-0014 = EI1 earmark,RXS-0250~0269/步骤 71~75 归 EI1,G3 RXS 溢出改自 RXS-0270);RFC-0013 起草/评审与 G3.1 spike 并行、合入 gated on G-G3-1 开闸;各面任务表首行改「章复核」措辞;依赖图更新(rfc13 节点) |

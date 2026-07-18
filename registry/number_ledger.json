@@ -206,9 +206,9 @@
       "owner": "G3(工业渲染期,owner 2026-07-18 双轨立项 G3∥EI1、脚手架 G3 先合;裁决全文记 milestones/g3/G3_CONTRACT.md §7)",
       "source": "milestones/g3/G3_CONTRACT.md §7 ⑥",
       "claims": {
-        "RFC": "RFC-0013~0017(五特性面 Full RFC:0013 present / 0014 采样超集 / 0015 bindless / 0016 render graph / 0017 mesh-task-RT;G3.1 spike 纯取证不占 RFC)",
+        "RFC": "RFC-0013 单号(伞形 Full RFC,五面五章:present/采样超集/bindless/render graph/mesh-task-RT;MB1 RFC-0011 单期伞形先例;G3.1 spike 纯取证不占 RFC。v1.4 更正:初版误 claim 0013~0017,0014 = EI1 earmark 归还,0015~0017 in-flight 撤回归自由池未 materialize 无复用问题;读法见 G3_CONTRACT §7 v1.1)",
         "MR": "MR-0011 留 RD-027 处置(若判 Mini 档),否则不消费",
-        "RXS": "RXS-0220 起(预期 0220~0249 五面切分见契约 §7 ⑥;以实现实际为准,溢出自 RXS-0250 顺续 + 本台账校准 revision;脚手架零裸条款头,条款体随实现 PR 落)",
+        "RXS": "RXS-0220 起(预期 0220~0249 五面切分见契约 §7 ⑥;以实现实际为准,溢出自 RXS-0270 顺续 + 本台账校准 revision——RXS-0250~0269 = EI1 earmark;脚手架零裸条款头,条款体随实现 PR 落)",
         "RD": "RD-034 起(执行期新 RD;RD-033=EA1 在途 claim,共享段串行消费,以合入时 deferred.json 实际为准双侧标注)",
         "U": "U30 起(U29=EA1 预留显式跳让,无论其释放与否不回收)",
         "SG": "零消费(五面均为既登记 deferred 兑现非扩张方向;SG-010 软保留维持)",
@@ -216,7 +216,7 @@
         "RX_error": "codegen 自 RX6027 续号 + RX6008 预留码正式改接(RD-012,唯一预留已存在码;RX6009 burned 不用);工具类确需自 RX7023",
         "D": "共享 D 段零消费(D-408=P1-2 earmark 不动;开工裁决记契约 §7,D-G3-N 仅为交付物编号)"
       },
-      "note": "EI1(引擎集成期,双轨另一半)契约脚手架 milestones/ei1/ 零共享编号消费,激活 gated on G3 close-out + 立项确认,届时以本台账实际为准另行登记。"
+      "note": "EI1(引擎集成期,双轨另一半)earmark = RFC-0014 / RXS-0250~0269 / CI 步骤 71~75(owner 2026-07-18 双轨分配;v1.4 更正初版『EI1 零消费』误记);EI1 脚手架 PR 自行登记 reserved_in_flight[EI1] 全量 claim,RD/U/RX 共享段按 main 合并序消费不预留。"
     }
   ],
   "revision_log": [
@@ -239,6 +239,11 @@
       "version": "v1.3",
       "date": "2026-07-18",
       "change": "G3 工业渲染期开工登记(chore/g3-scaffold,agent 完全自主 D-406 v2.0):reserved_in_flight 追加 G3 行——owner 2026-07-18 双轨立项 G3∥EI1(脚手架 G3 先合,裁决全文记 milestones/g3/G3_CONTRACT.md §7)。claim:RFC-0013~0017(五面 Full RFC)/ RXS-0220 起(预期 ~0249,溢出顺续+校准)/ CI 步骤 61 起(预期 61~67±)/ RD-034 起(RD-033=EA1 claim 串行让位)/ U30 起(显式跳让 U29)/ RX6027 续号+RX6008 预留码改接(RD-012 兑现)/ MR-0011 留 RD-027 处置;SG 与共享 D 段零消费(D-408 earmark 不动)。EI1 契约脚手架零共享编号消费(gated on G3 close-out)。各命名空间 on_tree_max/next_free 本 revision 0-byte(脚手架零条款/零步骤落地,校准随实现 PR;deferred/spike_gating/error_codes 命名空间 0-byte);零新 RXS/RD/SG/error-code/budget counter。"
+    },
+    {
+      "version": "v1.4",
+      "date": "2026-07-18",
+      "change": "G3 claim 校准更正(编号更正 PR,与 EI1 轨会话协调后落;agent 完全自主 D-406 v2.0):v1.3 的 reserved_in_flight[G3].RFC 误 claim RFC-0013~0017,撞 owner 2026-07-18 双轨分配的 EI1 earmark(EI1 = RFC-0014 / RXS-0250~0269 / CI 步骤 71~75)——更正为 **RFC-0013 单号伞形 Full RFC(五面五章,MB1 RFC-0011 先例)**;0014 归还 EI1 earmark;0015~0017 in-flight claim 撤回归自由池(从未 materialize 为 rfcs/ 文件,无「复用已消费号」问题,RFC namespace next_free 逻辑不变)。RXS 溢出规则同步更正:0250 顺续→**0270 顺续**(0250~0269 = EI1 earmark)。G3 entry note 的『EI1 零消费』误记更正为 EI1 真实 earmark。承 milestones/g3/G3_CONTRACT.md §7 v1.1 + G3_PLAN/CI_GATES v1.1。其余命名空间字段与 claim(MR-0011/步骤 61 起/RD-034 起/U30 起/RX6027+RX6008)0-byte;零新 RXS/RD/SG/error-code/budget counter。"
     }
   ]
 }
