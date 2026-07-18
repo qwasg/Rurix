@@ -809,6 +809,14 @@ fn build_gpu_artifacts(
     };
     match emit_ptx_and_gate(&ir, stem, &ptx_out) {
         Ok(PtxGate::Ok(ptx)) => {
+            // MR-0011(RD-027 护栏):RURIXC_PTXAS_OPT 非法值 = 构建侧确定性拒——
+            // 护栏静默失效即毒径复挂,不得并入下方「失败降级仅 PTX fallback」软路径。
+            if let Err(e) =
+                crate::ptxas::opt_flag_from_env(std::env::var("RURIXC_PTXAS_OPT").ok().as_deref())
+            {
+                eprintln!("rurixc: error: {e}");
+                return Err(1);
+            }
             // ptxas 在位:预编 sm_89 cubin 一并入描述表(RXS-0150;失败降级仅
             // PTX fallback,保守兜底)。
             let cubin = match crate::ptxas::compile_cubin(&ptx, stem, "sm_89") {

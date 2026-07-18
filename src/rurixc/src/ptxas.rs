@@ -135,6 +135,25 @@ pub enum CubinOutcome {
     Toolchain(String),
 }
 
+/// `RURIXC_PTXAS_OPT` 环境开关 → ptxas `-O<n>` 旗标(MR-0011,RD-027 护栏)。
+///
+/// 纯函数(可测):`None` = 不注入(ptxas 默认 -O3,行为 0-byte);`Some("0"~"3")` =
+/// 注入对应 `-O<n>`;其余值 = 确定性拒(工具层报文,不静默回落——RD-027 spike 实证
+/// `-O0` 下毒径构型正确终止而 `-O1+` SASS 死锁,误写档位静默回默认会让护栏假生效)。
+pub fn opt_flag_from_env(val: Option<&str>) -> Result<Option<String>, String> {
+    match val {
+        None => Ok(None),
+        // 空串/纯空白 = 视同未设(MR-0011 §7.1 F1:`RURIXC_PTXAS_OPT=` 置空是
+        // CI/shell 常见「清空」写法,语义归「用默认」而非「误写」)。
+        Some(v) if v.trim().is_empty() => Ok(None),
+        Some(v) if matches!(v, "0" | "1" | "2" | "3") => Ok(Some(format!("-O{v}"))),
+        Some(v) => Err(format!(
+            "RURIXC_PTXAS_OPT must be one of 0|1|2|3, got {v:?} (RD-027 guardrail; \
+             refusing to silently fall back to default opt level)"
+        )),
+    }
+}
+
 /// 对给定 PTX 文本按架构 `ptxas -arch=<arch>` **预编并保留** cubin 字节(RXS-0150,G1.5)。
 ///
 /// 区别于 [`dry_gate`](干验证后丢弃 cubin,RXS-0073):本函数**保留** cubin 用于「按架构预编
@@ -142,7 +161,13 @@ pub enum CubinOutcome {
 /// fallback,保守兜底前向兼容)。`arch` 形如 `"sm_89"`(基线);非 ASCII 路径防御同 [`dry_gate`]
 /// (始终写 ASCII 临时目录)。预编 cubin 由 [`crate`] 嵌入产物并经 lockfile `[[artifact]]`
 /// 内容寻址锁定(RXS-0152)。
+///
+/// `RURIXC_PTXAS_OPT`(MR-0011,RD-027 护栏):见 [`opt_flag_from_env`];缺省不注入 0-byte。
 pub fn compile_cubin(ptx: &str, stem: &str, arch: &str) -> CubinOutcome {
+    let opt_flag = match opt_flag_from_env(std::env::var("RURIXC_PTXAS_OPT").ok().as_deref()) {
+        Ok(f) => f,
+        Err(e) => return CubinOutcome::Toolchain(e),
+    };
     let Some(ptxas) = locate_ptxas() else {
         return CubinOutcome::Skipped;
     };
@@ -157,7 +182,11 @@ pub fn compile_cubin(ptx: &str, stem: &str, arch: &str) -> CubinOutcome {
         return CubinOutcome::Toolchain(format!("cannot write ptx: {e}"));
     }
     let cubin = ptx_path.with_extension("cubin");
-    let out = Command::new(&ptxas)
+    let mut cmd = Command::new(&ptxas);
+    if let Some(flag) = &opt_flag {
+        cmd.arg(flag);
+    }
+    let out = cmd
         .arg(format!("-arch={arch}"))
         .arg(&ptx_path)
         .arg("-o")
@@ -244,6 +273,34 @@ mod tests {
         );
         assert_eq!(a, b);
         assert_ne!(a, other);
+    }
+
+    // MR-0011(RD-027 护栏):RURIXC_PTXAS_OPT → -O 旗标注入,非法值确定性拒。
+    #[test]
+    fn opt_flag_accepts_levels_0_to_3_and_defaults_to_none() {
+        assert_eq!(opt_flag_from_env(None).unwrap(), None);
+        // 空串/纯空白 = 视同未设(评审 F1:CI 置空写法不应硬红)。
+        assert_eq!(opt_flag_from_env(Some("")).unwrap(), None);
+        assert_eq!(opt_flag_from_env(Some("  ")).unwrap(), None);
+        for (v, want) in [("0", "-O0"), ("1", "-O1"), ("2", "-O2"), ("3", "-O3")] {
+            assert_eq!(opt_flag_from_env(Some(v)).unwrap().as_deref(), Some(want));
+        }
+    }
+
+    // MR-0011(RD-027 护栏):误写档位不得静默回落默认(护栏假生效即毒径复挂)。
+    #[test]
+    fn opt_flag_rejects_invalid_levels_deterministically() {
+        for bad in ["4", "-1", "O0", "fast", "00"] {
+            let err = opt_flag_from_env(Some(bad)).unwrap_err();
+            assert!(
+                err.contains("RURIXC_PTXAS_OPT"),
+                "err carries env name: {err}"
+            );
+            assert!(
+                err.contains("RD-027"),
+                "err carries guardrail anchor: {err}"
+            );
+        }
     }
 
     //@ spec: RXS-0073
