@@ -507,6 +507,22 @@ def eval_counter(entry: dict, strict: bool) -> None:
                 n += 1
         count_or_gate(eid, n, 1, "份 UC-04 可见窗口 present 端到端证据",
                       "G3.2 present device 见证回填前为正常状态,契约 G-G3-2", strict)
+    elif eid == "g3.counter.sampling_superset_modes":
+        # 采样超集面 device 数值判据模式去重基数 ≥6(契约 G-G3-3;RFC-0013 §4.B / RXS-0223~0230;
+        # §4.B8 ①mip 逐层异色/②sample_lod 选层/③sample_grad 选高层/④load 越界钳制/⑤wrap-vs-clamp/
+        # ⑥sample_cmp shadow/⑦gather 角点/⑧storage 唯一写者 store→barrier→回读/⑨多分量,逐项篡改→
+        # 像素变 RED 复原 GREEN + 双后端一致性对照)。计数 = evidence/sampling_superset_*.json 中
+        # modes_ok 去重后总模式数(取最大一份报告;ci/sampling_superset_smoke.py device 段真跑写)。
+        # 采样数值真跑 = 交互 GPU 链路不进 pr-smoke 硬门,无显示/无 GPU/未 opt-in → device SKIP=
+        # dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL(对齐 uc04_present_frames)。
+        modes: set[str] = set()
+        for f in (ROOT / "evidence").glob("sampling_superset_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            for m in doc.get("modes_ok", []):
+                modes.add(m)
+        n = len(modes)
+        count_or_gate(eid, n, 6, "个采样模式 device 数值判据(去重)",
+                      "G3.3 采样数值 device 见证回填前为正常状态,契约 G-G3-3", strict)
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 

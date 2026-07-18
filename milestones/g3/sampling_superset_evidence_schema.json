@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/sampling_superset/v1",
+  "title": "Rurix 采样超集面冒烟证据 JSON(G3.3,契约 G-G3-3,RFC-0013 §4.B / RXS-0223~0230)",
+  "description": "采样超集面 device 见证:≥6 模式数值判据(RFC-0013 §4.B8;①隐式 LOD + mip 金字塔逐层异色 / ②sample_lod 指定层选色 / ③sample_grad 大梯度选高层 / ④load 越界钳制断言 / ⑤wrap-vs-clamp 像素对照 / ⑥sample_cmp shadow 双色 / ⑦gather 角点 2×2 单分量 / ⑧TextureRw2D 唯一写者 store→pass 边界 barrier→回读 + 多写者编译期拒 / ⑨多分量元素)+ 双后端(dxil B 链 / vulkan 原生)一致性对照(nearest 逐位 / linear 容差)。逐项『篡改→像素变=RED,复原=GREEN』数据流红绿(RXS-0176 IR2 纪律)。modes_ok 中每模式为 device 数值判据真过者;num_modes = len(modes_ok) 计入 g3.counter.sampling_superset_modes(ci/budget_eval.py;>=6 则 PASS)。机器复核闸门 = ci/sampling_superset_smoke.py(host 段恒跑 codegen opcode 全家结构性单测 + spirv-val 三态 + reject UI golden;device 段 ≥6 模式数值 + 双后端对照)。device 真跑 = 交互 GPU 链路,**无显示/无 GPU/无 real-shim/未 opt-in → device 段 SKIP=dev-env degrade 非 fake pass**(不充绿);RURIX_REQUIRE_REAL=1 时缺失翻硬红。**AMD 真卡见证 = G-MB1-6 硬件尾门独立存续**(本机 RTX 4070 Ti measured 不充作 AMD)。",
+  "type": "object",
+  "required": ["schema_version", "subject", "modes_ok", "num_modes", "timestamp"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": { "const": "sampling_superset_smoke" },
+    "modes_ok": {
+      "description": "device 数值判据真过的采样模式名去重集(RFC-0013 §4.B8 ①~⑨;每模式篡改→像素变 RED / 复原 GREEN 通过者)",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "implicit_lod_mip",
+          "sample_lod_level",
+          "sample_grad_high_level",
+          "load_oob_clamp",
+          "wrap_vs_clamp",
+          "sample_cmp_shadow",
+          "gather_corner",
+          "storage_unique_writer",
+          "multi_component"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "num_modes": {
+      "description": "len(modes_ok);计入 g3.counter.sampling_superset_modes(>=6 则 PASS)",
+      "type": "integer"
+    },
+    "milestone": { "type": "string" },
+    "adapter": {
+      "description": "选中的硬件 adapter 名(device 见证)",
+      "type": "string"
+    },
+    "backend_consistency": {
+      "description": "双后端一致性对照(nearest 逐位 / linear 容差;RFC-0013 §4.B8 诚实边界)",
+      "type": "object",
+      "properties": {
+        "nearest_bitexact": { "type": "boolean" },
+        "linear_within_tolerance": { "type": "boolean" }
+      }
+    },
+    "checks": {
+      "description": "逐项机器事实背书(反 YAML-only)",
+      "type": "object"
+    },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "stdout": { "type": "string" }
+  }
+}

@@ -214,6 +214,9 @@ def check_evidence_files() -> None:
     uc04_present_schema = load(
         ROOT / "milestones/g3/uc04_present_evidence_schema.json"
     )
+    sampling_superset_schema = load(
+        ROOT / "milestones/g3/sampling_superset_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -319,6 +322,11 @@ def check_evidence_files() -> None:
     )
     uc04_present_validator = (
         jsonschema.Draft7Validator(uc04_present_schema) if uc04_present_schema else None
+    )
+    sampling_superset_validator = (
+        jsonschema.Draft7Validator(sampling_superset_schema)
+        if sampling_superset_schema
+        else None
     )
     ea1_install_e2e_validator = (
         jsonschema.Draft7Validator(ea1_install_e2e_schema)
@@ -528,6 +536,17 @@ def check_evidence_files() -> None:
             # readback 数值断言;present_ok=true 计入 g3.counter.uc04_present_frames,ci/budget_eval.py。
             # present 真跑 = 交互桌面人工链路不进 pr-smoke 硬门,SKIP 不充绿,镜像 realtime_present 双态)
             validator = uc04_present_validator
+        elif (
+            f.name.startswith("sampling_superset_")
+            and sampling_superset_validator is not None
+        ):
+            # G3.3 采样超集面冒烟证据(G-G3-3;RFC-0013 §4.B / RXS-0223~0230)→
+            # milestones/g3/sampling_superset_evidence_schema.json(ci/sampling_superset_smoke.py
+            # device 段真跑写:≥6 模式数值判据〔mip/sample_lod/sample_grad/load 越界/wrap-vs-clamp/
+            # sample_cmp/gather/storage 唯一写者/多分量〕逐项篡改→像素变 RED 复原 GREEN + 双后端一致性
+            # 对照;num_modes>=6 计入 g3.counter.sampling_superset_modes,ci/budget_eval.py。device 真跑 =
+            # 交互 GPU 链路不进 pr-smoke 硬门,SKIP 不充绿,镜像 uc04_present 双态)
+            validator = sampling_superset_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):
