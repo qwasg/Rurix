@@ -2744,6 +2744,8 @@ const COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR: u32 = 0x2;
 const COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR: u32 = 0x4;
 const COMPOSITE_ALPHA_INHERIT_BIT_KHR: u32 = 0x8;
 const SUBOPTIMAL_KHR: VkResult = 1_000_001_003;
+// RXS-0221(RFC-0013 §4.A2 Vulkan 收尾):swapchain 失效 = 正常路径非错误。
+const ERROR_OUT_OF_DATE_KHR: VkResult = -1_000_001_004;
 const SUBPASS_EXTERNAL: u32 = u32::MAX;
 const PIPELINE_STAGE_BOTTOM_OF_PIPE: u32 = 0x2000;
 
@@ -2922,6 +2924,36 @@ fn choose_min_image_count(min_count: u32, max_count: u32) -> u32 {
         max_count
     } else {
         desired
+    }
+}
+
+/// RXS-0221:`vkAcquireNextImageKHR`/`vkQueuePresentKHR` 返回码 → swapchain 重建协商动作
+/// (RFC-0013 §4.A2:swapchain 失效是**正常路径**非错误)。纯 host 确定性三分类,可单测:
+/// - `VK_SUCCESS` → `Present`(正常呈现);
+/// - `VK_ERROR_OUT_OF_DATE_KHR` / `SUBOPTIMAL_KHR` → `Rebuild`(等 GPU idle → 重建 swapchain/
+///   imageView/framebuffer,重查 surface caps extent;`SUBOPTIMAL` 首期与 `OUT_OF_DATE` 同走
+///   保守重建,窄化收益登 RD-034+);
+/// - 其余非预期码 → `Fatal`(终止,不重建)。
+///
+/// 调用侧语境(acquire vs present)另行区分:acquire 返回 `OUT_OF_DATE` 时该帧未取到 image →
+/// 重建后重试不推进帧;acquire 返回 `SUBOPTIMAL` 时 image 已取到 → 本帧照常渲染、present 后再
+/// 重建(避免信号量泄漏)。本纯函数只做码 → 动作映射,不含 FFI。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SwapchainAction {
+    /// 正常呈现,不重建。
+    Present,
+    /// swapchain 失效 → 重建(idle → 释放 → 重查 caps extent 重建 → 重建后首帧再校验)。
+    Rebuild,
+    /// 非预期返回码 → 终止。
+    Fatal,
+}
+
+/// RXS-0221 重建协商纯函数(host 可单测;见 [`SwapchainAction`])。
+pub fn swapchain_present_action(result: VkResult) -> SwapchainAction {
+    match result {
+        VK_SUCCESS => SwapchainAction::Present,
+        SUBOPTIMAL_KHR | ERROR_OUT_OF_DATE_KHR => SwapchainAction::Rebuild,
+        _ => SwapchainAction::Fatal,
     }
 }
 
@@ -3614,15 +3646,10 @@ unsafe fn present_body(
         return Err("surface 不含 FIFO present mode(spec 违例)".into());
     }
 
-    let (ext_w, ext_h) = choose_present_extent(
-        (caps.current_extent.width, caps.current_extent.height),
-        width,
-        height,
-        (caps.min_image_extent.width, caps.min_image_extent.height),
-        (caps.max_image_extent.width, caps.max_image_extent.height),
-    );
+    // RXS-0221:extent / readback_len 由 swapchain 构建(初次 + OUT_OF_DATE 重建)重查 surface
+    // caps 得出并随重建更新(见 'run 内 build_swapchain);此处仅取 min_image_count
+    // (缓冲数恒定、不随 extent 变)。
     let min_image_count = choose_min_image_count(caps.min_image_count, caps.max_image_count);
-    let readback_len = (ext_w as usize) * (ext_h as usize) * 4;
 
     // 句柄(全 null 初始;末尾逆序销毁非 null 者)。
     let mut swapchain: VkSwapchainKHR = VK_NULL_HANDLE;
@@ -3682,49 +3709,8 @@ unsafe fn present_body(
     };
 
     let result: Result<(Vec<u8>, u32, u32), String> = 'run: {
-        // ── swapchain(imageUsage = COLOR_ATTACHMENT | TRANSFER_SRC,可回读)──
-        let sci = SwapchainCreateInfoKHR {
-            s_type: ST_SWAPCHAIN_CREATE_INFO_KHR,
-            p_next: std::ptr::null(),
-            flags: 0,
-            surface,
-            min_image_count,
-            image_format: chosen_format,
-            image_color_space: chosen_cs,
-            image_extent: VkExtent2D {
-                width: ext_w,
-                height: ext_h,
-            },
-            image_array_layers: 1,
-            image_usage: IMAGE_USAGE_COLOR_ATTACHMENT | IMAGE_USAGE_TRANSFER_SRC,
-            image_sharing_mode: SHARING_MODE_EXCLUSIVE,
-            queue_family_index_count: 0,
-            p_queue_family_indices: std::ptr::null(),
-            // pre_transform / composite_alpha 由 caps 派生(**不硬编码**):win32 得
-            // IDENTITY + OPAQUE(与旧值等价,数值零回归);Android 得设备旋转变换 +
-            // INHERIT(硬编码 OPAQUE 会触 VUID-VkSwapchainCreateInfoKHR-compositeAlpha)。
-            pre_transform: caps.current_transform,
-            composite_alpha: pick_composite_alpha(caps.supported_composite_alpha),
-            present_mode: PRESENT_MODE_FIFO_KHR,
-            clipped: 1,
-            old_swapchain: VK_NULL_HANDLE,
-        };
-        let r = create_swapchain(device, &sci, std::ptr::null(), &mut swapchain);
-        if r != VK_SUCCESS {
-            break 'run Err(format!("vkCreateSwapchainKHR 失败: {r}"));
-        }
-
-        // swapchain images(所有权归 swapchain,不单独 destroy)。
-        let mut img_count = 0u32;
-        get_swapchain_images(device, swapchain, &mut img_count, std::ptr::null_mut());
-        if img_count == 0 {
-            break 'run Err("swapchain 无 image".into());
-        }
-        let mut images: Vec<VkImage> = vec![VK_NULL_HANDLE; img_count as usize];
-        get_swapchain_images(device, swapchain, &mut img_count, images.as_mut_ptr());
-
         // ── render pass(单 color attachment,CLEAR→STORE,final=TRANSFER_SRC;+ 外部子通道
-        //    依赖同步 acquire 的 layout 转换)──
+        //    依赖同步 acquire 的 layout 转换)。format 恒定 → 一次创建,swapchain 重建复用 ──
         let att = AttachmentDescription {
             flags: 0,
             format: chosen_format,
@@ -3776,50 +3762,151 @@ unsafe fn present_body(
             break 'run Err("vkCreateRenderPass 失败".into());
         }
 
-        // ── per-image view + framebuffer ──
-        for &img in &images {
-            let view_ci = ImageViewCreateInfo {
-                s_type: ST_IMAGE_VIEW_CREATE_INFO,
+        // ── swapchain + imageView + framebuffer 构建闭包(RXS-0221:初次 + OUT_OF_DATE 重建
+        //    共用;重查 surface caps extent;`old_swapchain` 传入以复用旧链资源)。返回
+        //    (swapchain, images, image_views, framebuffers, ext_w, ext_h);出错前清理自身部分产物 ──
+        type SwapResources = (
+            VkSwapchainKHR,
+            Vec<VkImage>,
+            Vec<VkImageView>,
+            Vec<VkFramebuffer>,
+            u32,
+            u32,
+        );
+        let build_swapchain = |old_swapchain: VkSwapchainKHR| -> Result<SwapResources, String> {
+            // 重查 surface caps → 重算 extent / transform / composite alpha(重建时随窗口新尺寸)。
+            let mut caps2 = std::mem::zeroed::<SurfaceCapabilitiesKHR>();
+            if get_surf_caps(pd, surface, &mut caps2) != VK_SUCCESS {
+                return Err("vkGetPhysicalDeviceSurfaceCapabilitiesKHR(rebuild)失败".into());
+            }
+            let (ew, eh) = choose_present_extent(
+                (caps2.current_extent.width, caps2.current_extent.height),
+                width,
+                height,
+                (caps2.min_image_extent.width, caps2.min_image_extent.height),
+                (caps2.max_image_extent.width, caps2.max_image_extent.height),
+            );
+            let sci = SwapchainCreateInfoKHR {
+                s_type: ST_SWAPCHAIN_CREATE_INFO_KHR,
                 p_next: std::ptr::null(),
                 flags: 0,
-                image: img,
-                view_type: IMAGE_VIEW_TYPE_2D,
-                format: chosen_format,
-                components: VkComponentMapping {
-                    r: COMPONENT_SWIZZLE_IDENTITY,
-                    g: COMPONENT_SWIZZLE_IDENTITY,
-                    b: COMPONENT_SWIZZLE_IDENTITY,
-                    a: COMPONENT_SWIZZLE_IDENTITY,
+                surface,
+                min_image_count,
+                image_format: chosen_format,
+                image_color_space: chosen_cs,
+                image_extent: VkExtent2D {
+                    width: ew,
+                    height: eh,
                 },
-                subresource_range: VkImageSubresourceRange {
-                    aspect_mask: IMAGE_ASPECT_COLOR,
-                    base_mip_level: 0,
-                    level_count: 1,
-                    base_array_layer: 0,
-                    layer_count: 1,
-                },
+                image_array_layers: 1,
+                image_usage: IMAGE_USAGE_COLOR_ATTACHMENT | IMAGE_USAGE_TRANSFER_SRC,
+                image_sharing_mode: SHARING_MODE_EXCLUSIVE,
+                queue_family_index_count: 0,
+                p_queue_family_indices: std::ptr::null(),
+                // pre_transform / composite_alpha 由 caps 派生(**不硬编码**):win32 得
+                // IDENTITY + OPAQUE(与旧值等价,数值零回归);Android 得设备旋转变换 +
+                // INHERIT(硬编码 OPAQUE 会触 VUID-VkSwapchainCreateInfoKHR-compositeAlpha)。
+                pre_transform: caps2.current_transform,
+                composite_alpha: pick_composite_alpha(caps2.supported_composite_alpha),
+                present_mode: PRESENT_MODE_FIFO_KHR,
+                clipped: 1,
+                old_swapchain, // 重建时复用旧链(初次 = VK_NULL_HANDLE)。
             };
-            let mut view: VkImageView = VK_NULL_HANDLE;
-            if create_view(device, &view_ci, std::ptr::null(), &mut view) != VK_SUCCESS {
-                break 'run Err("vkCreateImageView(swapchain)失败".into());
+            let mut sc: VkSwapchainKHR = VK_NULL_HANDLE;
+            let r = create_swapchain(device, &sci, std::ptr::null(), &mut sc);
+            if r != VK_SUCCESS {
+                return Err(format!("vkCreateSwapchainKHR 失败: {r}"));
             }
-            image_views.push(view);
-            let fb_ci = FramebufferCreateInfo {
-                s_type: ST_FRAMEBUFFER_CREATE_INFO,
-                p_next: std::ptr::null(),
-                flags: 0,
-                render_pass,
-                attachment_count: 1,
-                p_attachments: &view,
-                width: ext_w,
-                height: ext_h,
-                layers: 1,
-            };
-            let mut fb: VkFramebuffer = VK_NULL_HANDLE;
-            if create_fb(device, &fb_ci, std::ptr::null(), &mut fb) != VK_SUCCESS {
-                break 'run Err("vkCreateFramebuffer(swapchain)失败".into());
+            // swapchain images(所有权归 swapchain,不单独 destroy)。
+            let mut img_count = 0u32;
+            get_swapchain_images(device, sc, &mut img_count, std::ptr::null_mut());
+            if img_count == 0 {
+                destroy_swapchain(device, sc, std::ptr::null());
+                return Err("swapchain 无 image".into());
             }
-            framebuffers.push(fb);
+            let mut imgs: Vec<VkImage> = vec![VK_NULL_HANDLE; img_count as usize];
+            get_swapchain_images(device, sc, &mut img_count, imgs.as_mut_ptr());
+
+            // per-image view + framebuffer(出错前销毁已建 view/fb + swapchain,不泄漏)。
+            let mut views: Vec<VkImageView> = Vec::new();
+            let mut fbs: Vec<VkFramebuffer> = Vec::new();
+            for &img in &imgs {
+                let view_ci = ImageViewCreateInfo {
+                    s_type: ST_IMAGE_VIEW_CREATE_INFO,
+                    p_next: std::ptr::null(),
+                    flags: 0,
+                    image: img,
+                    view_type: IMAGE_VIEW_TYPE_2D,
+                    format: chosen_format,
+                    components: VkComponentMapping {
+                        r: COMPONENT_SWIZZLE_IDENTITY,
+                        g: COMPONENT_SWIZZLE_IDENTITY,
+                        b: COMPONENT_SWIZZLE_IDENTITY,
+                        a: COMPONENT_SWIZZLE_IDENTITY,
+                    },
+                    subresource_range: VkImageSubresourceRange {
+                        aspect_mask: IMAGE_ASPECT_COLOR,
+                        base_mip_level: 0,
+                        level_count: 1,
+                        base_array_layer: 0,
+                        layer_count: 1,
+                    },
+                };
+                let mut view: VkImageView = VK_NULL_HANDLE;
+                if create_view(device, &view_ci, std::ptr::null(), &mut view) != VK_SUCCESS {
+                    for &f in &fbs {
+                        destroy_fb(device, f, std::ptr::null());
+                    }
+                    for &v in &views {
+                        destroy_view(device, v, std::ptr::null());
+                    }
+                    destroy_swapchain(device, sc, std::ptr::null());
+                    return Err("vkCreateImageView(swapchain)失败".into());
+                }
+                views.push(view);
+                let fb_ci = FramebufferCreateInfo {
+                    s_type: ST_FRAMEBUFFER_CREATE_INFO,
+                    p_next: std::ptr::null(),
+                    flags: 0,
+                    render_pass,
+                    attachment_count: 1,
+                    p_attachments: &view,
+                    width: ew,
+                    height: eh,
+                    layers: 1,
+                };
+                let mut fb: VkFramebuffer = VK_NULL_HANDLE;
+                if create_fb(device, &fb_ci, std::ptr::null(), &mut fb) != VK_SUCCESS {
+                    for &f in &fbs {
+                        destroy_fb(device, f, std::ptr::null());
+                    }
+                    for &v in &views {
+                        destroy_view(device, v, std::ptr::null());
+                    }
+                    destroy_swapchain(device, sc, std::ptr::null());
+                    return Err("vkCreateFramebuffer(swapchain)失败".into());
+                }
+                fbs.push(fb);
+            }
+            Ok((sc, imgs, views, fbs, ew, eh))
+        };
+
+        // 初次构建(old_swapchain = VK_NULL_HANDLE);extent / readback_len 以实建为准。
+        let mut images: Vec<VkImage>;
+        let mut ext_w: u32;
+        let mut ext_h: u32;
+        let mut readback_len: usize;
+        match build_swapchain(VK_NULL_HANDLE) {
+            Ok((sc, imgs, views, fbs, ew, eh)) => {
+                swapchain = sc;
+                images = imgs;
+                image_views = views;
+                framebuffers = fbs;
+                ext_w = ew;
+                ext_h = eh;
+                readback_len = (ew as usize) * (eh as usize) * 4;
+            }
+            Err(e) => break 'run Err(e),
         }
 
         // ── vertex buffer + 上传 ──
@@ -4079,9 +4166,57 @@ unsafe fn present_body(
             0
         };
 
-        // ── 渲染 / present 循环 ──
+        // ── 渲染 / present 循环(RXS-0221:acquire/present 返回 OUT_OF_DATE/SUBOPTIMAL →
+        //    vkDeviceWaitIdle 等价 queue idle → 重建 swapchain/imageView/framebuffer(重查
+        //    surface caps extent)→ 重建后首帧再校验;失效是正常路径非错误)──
         let mut last_present: VkResult = VK_SUCCESS;
-        for _frame in 0..frames {
+        let mut rebuild_pending = false;
+        let mut frame = 0u32;
+        while frame < frames {
+            // 重建(前一帧 present/acquire 报失效;或 acquire OUT_OF_DATE 重试本帧)。
+            if rebuild_pending {
+                queue_wait(queue); // 等 GPU idle(单 queue,等价 vkDeviceWaitIdle)。
+                let old_sc = swapchain;
+                match build_swapchain(old_sc) {
+                    Ok((sc, imgs, views, fbs, ew, eh)) => {
+                        // 新链已建(old_swapchain 复用)→ 销毁旧 framebuffer/imageView/swapchain。
+                        for &f in &framebuffers {
+                            destroy_fb(device, f, std::ptr::null());
+                        }
+                        for &v in &image_views {
+                            destroy_view(device, v, std::ptr::null());
+                        }
+                        destroy_swapchain(device, old_sc, std::ptr::null());
+                        swapchain = sc;
+                        images = imgs;
+                        image_views = views;
+                        framebuffers = fbs;
+                        // extent 变(客户区 resize)→ 重查后重建 readback buffer(尺寸相关)。
+                        if (ew, eh) != (ext_w, ext_h) {
+                            ext_w = ew;
+                            ext_h = eh;
+                            let new_len = (ew as usize) * (eh as usize) * 4;
+                            if rbuf != VK_NULL_HANDLE {
+                                destroy_buffer(device, rbuf, std::ptr::null());
+                            }
+                            if rbuf_mem != VK_NULL_HANDLE {
+                                free_mem(device, rbuf_mem, std::ptr::null());
+                            }
+                            match make_host_buffer(BUFFER_USAGE_TRANSFER_DST, new_len as u64) {
+                                Ok((b, m)) => {
+                                    rbuf = b;
+                                    rbuf_mem = m;
+                                }
+                                Err(e) => break 'run Err(e),
+                            }
+                            readback_len = new_len;
+                        }
+                    }
+                    Err(e) => break 'run Err(e),
+                }
+                rebuild_pending = false;
+            }
+
             let mut image_index = 0u32;
             let acq = acquire_next(
                 device,
@@ -4091,8 +4226,20 @@ unsafe fn present_body(
                 VK_NULL_HANDLE,
                 &mut image_index,
             );
-            if acq != VK_SUCCESS && acq != SUBOPTIMAL_KHR {
-                break 'run Err(format!("vkAcquireNextImageKHR 失败: {acq}"));
+            match swapchain_present_action(acq) {
+                SwapchainAction::Fatal => {
+                    break 'run Err(format!("vkAcquireNextImageKHR 失败: {acq}"));
+                }
+                SwapchainAction::Rebuild if acq == ERROR_OUT_OF_DATE_KHR => {
+                    // 未取到 image(信号量未触发)→ 重建后重试本帧,不推进 frame。
+                    rebuild_pending = true;
+                    continue;
+                }
+                SwapchainAction::Rebuild => {
+                    // SUBOPTIMAL:image 已取到(信号量已触发)→ 本帧照常渲染,present 后再重建。
+                    rebuild_pending = true;
+                }
+                SwapchainAction::Present => {}
             }
 
             // 录制命令。
@@ -4245,13 +4392,23 @@ unsafe fn present_body(
                 p_results: &mut present_result,
             };
             last_present = queue_present(queue, &pi);
-            if last_present != VK_SUCCESS && last_present != SUBOPTIMAL_KHR {
-                break 'run Err(format!("vkQueuePresentKHR 失败: {last_present}"));
+            // RXS-0221:OUT_OF_DATE/SUBOPTIMAL → 下帧前重建(非错误);其余非预期码翻红。
+            match swapchain_present_action(last_present) {
+                SwapchainAction::Fatal => {
+                    break 'run Err(format!("vkQueuePresentKHR 失败: {last_present}"));
+                }
+                SwapchainAction::Rebuild => rebuild_pending = true,
+                SwapchainAction::Present => {}
             }
-            if present_result != VK_SUCCESS && present_result != SUBOPTIMAL_KHR {
-                break 'run Err(format!("present per-swapchain 结果失败: {present_result}"));
+            match swapchain_present_action(present_result) {
+                SwapchainAction::Fatal => {
+                    break 'run Err(format!("present per-swapchain 结果失败: {present_result}"));
+                }
+                SwapchainAction::Rebuild => rebuild_pending = true,
+                SwapchainAction::Present => {}
             }
             queue_wait(queue); // 令 binary semaphore 逐帧复用安全。
+            frame += 1;
         }
         let _ = last_present;
 
@@ -4902,6 +5059,31 @@ mod tests {
         assert_eq!(choose_min_image_count(1, 0), 2); // max=0 无上限
         assert_eq!(choose_min_image_count(2, 8), 3);
         assert_eq!(choose_min_image_count(3, 3), 3); // min+1=4 clamp 到 max 3
+    }
+
+    /// RXS-0221(RFC-0013 §4.A2 Vulkan 收尾):swapchain 重建协商纯 host helper——
+    /// `vkAcquireNextImageKHR`/`vkQueuePresentKHR` 返回码 → 三分类动作
+    /// (`VK_SUCCESS`→Present / `OUT_OF_DATE`·`SUBOPTIMAL`→Rebuild / 其余→Fatal)。无设备。
+    //@ spec: RXS-0221
+    #[test]
+    fn swapchain_present_action_classification() {
+        // 成功 → 正常呈现。
+        assert_eq!(
+            swapchain_present_action(VK_SUCCESS),
+            SwapchainAction::Present
+        );
+        // 失效是正常路径 → 重建(OUT_OF_DATE 与 SUBOPTIMAL 首期同走保守重建)。
+        assert_eq!(
+            swapchain_present_action(ERROR_OUT_OF_DATE_KHR),
+            SwapchainAction::Rebuild
+        );
+        assert_eq!(
+            swapchain_present_action(SUBOPTIMAL_KHR),
+            SwapchainAction::Rebuild
+        );
+        // 其余非预期码(如 VK_ERROR_DEVICE_LOST = -4)→ 终止。
+        assert_eq!(swapchain_present_action(-4), SwapchainAction::Fatal);
+        assert_eq!(swapchain_present_action(-1), SwapchainAction::Fatal);
     }
 
     /// RXS-0210(W7 android present 派生):composite alpha 择位纯函数——win32 得 OPAQUE

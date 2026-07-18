@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/uc04_present/v1",
+  "title": "Rurix UC-04 可见窗口 present 冒烟证据 JSON(G3.2,契约 G-G3-2,RFC-0013 §4.A / RXS-0220~0222)",
+  "description": "UC-04 deferred 渲染器接可见 win32 窗口 D3D12 flip-model swapchain(CreateSwapChainForHwnd + FLIP_DISCARD + BufferCount∈{2,3} + WS_OVERLAPPEDWINDOW)逐帧 present N 帧(Present 逐帧 S_OK)+ backbuffer RENDER_TARGET→COPY_SOURCE→PRESENT 迁移锚点(沿 RXS-0169 手动口径)+ SetWindowPos 合成 WM_SIZE→ResizeBuffers 重建(RXS-0221)+ 三点 backbuffer 中心像素回读数值断言(首帧/重建后首帧/末帧,RXS-0222),着色器 Rurix 源经图形=B DXIL 非手写。present_ok=true 计入 g3.counter.uc04_present_frames(ci/budget_eval.py;>=1 则 PASS,无显示/无 GPU/无 real-shim/未 opt-in 为 normal SKIP)。机器复核闸门 = ci/uc04_present_smoke.py(host 段恒跑 present 装配核验单测 + red_self_test 篡改 PRESENT 迁移装配门拒;device 段 present N 帧 readback 断言 + resize 后再断言)。present 真跑 = 交互桌面人工链路,**不进 pr-smoke 硬门**,SKIP 不充绿(镜像 realtime_present / uc07_present 双态);RURIX_REQUIRE_REAL=1 时缺失翻硬红。**readback 证明的是渲染产物非 scanout 像素**(P-1 证据边界)。**present 不得替代 offscreen 真跑**(步骤 48 offscreen 硬门 0-byte 不动,RD-019 backfill_condition 原文)。",
+  "type": "object",
+  "required": ["schema_version", "subject", "present_ok", "timestamp"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": { "const": "uc04_present_smoke" },
+    "present_ok": {
+      "description": "可见窗口 flip-model swapchain present N 帧 + resize 重建 + 三点 backbuffer readback 数值断言全过端到端真跑(real-shim + 交互桌面 GPU + 显示环境;无则不写证据降级 SKIP)",
+      "type": "boolean"
+    },
+    "milestone": { "type": "string" },
+    "adapter": {
+      "description": "选中的硬件 adapter 名(device 见证)",
+      "type": "string"
+    },
+    "frames_presented": {
+      "description": "Present 逐帧 S_OK 的帧数(>0 表示可见窗口呈现循环真跑)",
+      "type": "integer"
+    },
+    "present": {
+      "description": "present 装配/呈现循环/重建/回读画像(RXS-0220~0222 逐项背书,反 YAML-only)",
+      "type": "object",
+      "properties": {
+        "swapchain": { "type": "string" },
+        "loop": { "type": "string" },
+        "resize": { "type": "string" },
+        "readback_points": { "type": "array", "items": { "type": "string" } },
+        "shaders_from_rurix_source": { "type": "array", "items": { "type": "string" } },
+        "offscreen_not_replaced": { "type": "string" }
+      }
+    },
+    "pixels": {
+      "description": "三点 backbuffer 中心像素 RGBA8(首帧 / resize 重建后首帧 / 末帧,RXS-0222 断言点)",
+      "type": "object",
+      "properties": {
+        "first": { "type": "array", "items": { "type": "integer" } },
+        "rebuilt": { "type": "array", "items": { "type": "integer" } },
+        "last": { "type": "array", "items": { "type": "integer" } }
+      }
+    },
+    "checks": {
+      "description": "逐项机器事实背书(反 YAML-only)",
+      "type": "object"
+    },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "stdout": { "type": "string" }
+  }
+}
