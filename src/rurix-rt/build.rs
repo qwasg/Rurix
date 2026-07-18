@@ -39,6 +39,9 @@ fn main() {
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     println!("cargo:rerun-if-env-changed=RURIXC_CLANG");
     println!("cargo:rerun-if-env-changed=CUDA_PATH");
+    // MR-0011(RD-027 护栏):compile_cubin 读 RURIXC_PTXAS_OPT 注入 ptxas -O<n> 旗标;
+    // 缺此行则改 env 后 cargo 不重跑 build.rs → 旧 cubin 被复用 → 护栏静默失效。
+    println!("cargo:rerun-if-env-changed=RURIXC_PTXAS_OPT");
 
     for name in KERNELS {
         let kernel_rx = manifest.join("kernels").join(format!("{name}.rx"));
@@ -150,12 +153,21 @@ const CUBIN_ARCH: &str = "sm_89";
 
 /// PTX → 按架构预编 cubin 字节(RXS-0150;`ptxas -arch=sm_89` 保留字节)。无 ptxas /
 /// 空 PTX / 拒绝 → 空 cubin(降级仅 PTX fallback,保守兜底前向兼容,D-207;不阻断 build)。
+///
+/// MR-0011(RD-027 护栏):`RURIXC_PTXAS_OPT` 非法值 → 构建硬红(fail-closed,同 driver 预检;
+/// 静默回落会让护栏假生效——用户显式设置了坏值,不应悄悄当没设)。
 fn gen_cubin(ptx_out: &std::path::Path, module: &str) -> Vec<u8> {
     let Ok(ptx) = std::fs::read_to_string(ptx_out) else {
         return Vec::new();
     };
     if ptx.trim().is_empty() {
         return Vec::new();
+    }
+    // MR-0011(RD-027 护栏):非法值必须构建拒——与 driver.rs 预检同源 fail-closed。
+    if let Err(e) = rurixc::ptxas::opt_flag_from_env(
+        std::env::var("RURIXC_PTXAS_OPT").ok().as_deref(),
+    ) {
+        panic!("rurixc: error: {e}");
     }
     match rurixc::ptxas::compile_cubin(&ptx, module, CUBIN_ARCH) {
         rurixc::ptxas::CubinOutcome::Compiled(bytes) => bytes,
