@@ -208,6 +208,9 @@ def check_evidence_files() -> None:
     ea1_install_e2e_schema = load(
         ROOT / "milestones/ea1/install_e2e_evidence_schema.json"
     )
+    rd027_pt_poison_spike_schema = load(
+        ROOT / "milestones/g3/rd027_spike_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -304,6 +307,11 @@ def check_evidence_files() -> None:
     ea1_real_endpoint_e2e_validator = (
         jsonschema.Draft7Validator(ea1_real_endpoint_e2e_schema)
         if ea1_real_endpoint_e2e_schema
+        else None
+    )
+    rd027_pt_poison_spike_validator = (
+        jsonschema.Draft7Validator(rd027_pt_poison_spike_schema)
+        if rd027_pt_poison_spike_schema
         else None
     )
     ea1_install_e2e_validator = (
@@ -494,6 +502,16 @@ def check_evidence_files() -> None:
             # 各 ≤10min measured;重测 ≤3 次全部尝试入 evidence 取 median,失败尝试同样入档)
             # → milestones/ea1/install_e2e_evidence_schema.json。
             validator = ea1_install_e2e_validator
+        elif (
+            f.name.startswith("rd027_pt_poison_spike_")
+            and rd027_pt_poison_spike_validator is not None
+        ):
+            # G3.1 RD-027 毒径判别 spike 证据(G-G3-1 归因闸门:四层判别矩阵——双装载路
+            # 对照/ptxas 优化档扫描/sanitizer 前置排除/源循环封顶插桩 + 单 artifact 事实
+            # + 归因 verdict;measured-first / blocked-honest,纯取证非性能基准;探针隔离
+            # spike/rd027-pt-poison/ 标 // SPIKE(RD-027),全 GPU 运行经 bench/proc_guard)
+            # → milestones/g3/rd027_spike_evidence_schema.json。
+            validator = rd027_pt_poison_spike_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):
