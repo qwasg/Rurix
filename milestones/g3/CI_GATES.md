@@ -21,11 +21,11 @@
 | # | 步骤 | 失败即红 |
 |---|---|---|
 | 61 | UC-04 窗口 present 冒烟(G-G3-2 通道;G3.2 落地,RFC-0013 前置后):`ci/uc04_present_smoke.py` —— host 段恒跑(present 装配核验单测 + typestate 编译面);device 段:窗口 present N 帧逐帧成功 + backbuffer readback 像素断言(与步骤 48 同判据)+ ResizeBuffers 重建后再 readback;RED:篡改 PRESENT 态迁移 barrier → debug layer 报错翻红;无显示环境 SKIP(dev-env degrade)+ `RURIX_REQUIRE_REAL=1` 翻硬红;**步骤 48 offscreen 硬门 0-byte 不动**;内建 red_self_test;写 evidence JSON(schema 校验) | 是 |
-| 62 | 采样超集 codegen/host 冒烟(G-G3-3 通道;G3.3 落地,RFC-0014 前置后):全模式语料 B 链(spirv-cross→dxc→**dxv 全过**+签名门)+ SPIR-V `spirv-val` 三态 gate;reject 通道 UI golden(RX3014/RX6023 扩类别);既有显式 LOD 0 路零回归 | 是 |
+| 62 | 采样超集 codegen/host 冒烟(G-G3-3 通道;G3.3 落地,RFC-0013·采样超集章前置后):全模式语料 B 链(spirv-cross→dxc→**dxv 全过**+签名门)+ SPIR-V `spirv-val` 三态 gate;reject 通道 UI golden(RX3014/RX6023 扩类别);既有显式 LOD 0 路零回归 | 是 |
 | 63 | 采样超集 device 冒烟(同面 device 腿):≥6 模式数值判据(隐式 LOD/lod/grad/fetch/sampler 状态对照/shadow/gather/UAV 回读)+ mip 金字塔逐层异色 + wrap-vs-clamp 像素对照 + 双后端(D3D12/Vulkan)同语义源数值一致性;篡改→像素变 RED;REQUIRE_REAL | 是 |
-| 64 | bindless 冒烟(G-G3-4 通道;G3.4 落地,RFC-0015 前置后):host(推导单测:Unbounded 合法化+独占 space 分配律+RTS0 roundtrip;nonuniform 缺失 reject UI golden)+ device(四纹理四象限动态索引采样==四色;篡改注册序→换位 RED;feature 缺失→确定性 Err) | 是 |
-| 65 | render graph 冒烟(G-G3-5 通道;G3.5 落地,RFC-0016 前置后):host 互证恒跑(uc04 三 pass 图自动推导 barrier 集 == RXS-0169 手动锚点集;环/冲突/未声明访问 reject)+ device(uc04 迁 Graph API 重跑步骤 48 同判据;漏声明 read → strict 拒 RED;Vulkan 同图同判据) | 是 |
-| 66 | Vulkan mesh/task 冒烟(G-G3-6 通道;G3.6 落地,RFC-0017 前置后):spirv-val(vulkan1.2/spv1.4 三态)+ device mesh 程序化网格 offscreen 像素判据(covered 计数)+ 篡改 SetMeshOutputs 顶点数 RED;扩展缺失 SKIP 非 fake + REQUIRE_REAL 硬红 | 是 |
+| 64 | bindless 冒烟(G-G3-4 通道;G3.4 落地,RFC-0013·bindless 章前置后):host(推导单测:Unbounded 合法化+独占 space 分配律+RTS0 roundtrip;nonuniform 缺失 reject UI golden)+ device(四纹理四象限动态索引采样==四色;篡改注册序→换位 RED;feature 缺失→确定性 Err) | 是 |
+| 65 | render graph 冒烟(G-G3-5 通道;G3.5 落地,RFC-0013·render graph 章前置后):host 互证恒跑(uc04 三 pass 图自动推导 barrier 集 == RXS-0169 手动锚点集;环/冲突/未声明访问 reject)+ device(uc04 迁 Graph API 重跑步骤 48 同判据;漏声明 read → strict 拒 RED;Vulkan 同图同判据) | 是 |
+| 66 | Vulkan mesh/task 冒烟(G-G3-6 通道;G3.6 落地,RFC-0013·mesh-task-RT 章前置后):spirv-val(vulkan1.2/spv1.4 三态)+ device mesh 程序化网格 offscreen 像素判据(covered 计数)+ 篡改 SetMeshOutputs 顶点数 RED;扩展缺失 SKIP 非 fake + REQUIRE_REAL 硬红 | 是 |
 | 67 | Vulkan RT 冒烟(同面 RT 腿):device 单三角形 BLAS/TLAS raygen/miss/closesthit 命中-miss 双色断言 + 移动顶点→命中区域移动 RED(数据流红绿);VVL 崩溃与驱动崩溃以退出码区分(反 grep) | 是 |
 | (68) | DXIL mesh 冒烟(**视 probe**:probe 绿则落——B 链 ms_6_5/as_6_5 dxv 全过 + DispatchMesh device 像素判据 + RX6008 改接见证;probe 红则本步骤不落,mesh DXIL 与 RT 同入 RD-034+ 尾门) | 视落地 |
 | (69) | DXIL RT blocked 探针(预判 blocked 时落:上游能力探测脚本——spirv-cross RT 转译能力/A 路签名缺口逐项探测,能转译则翻活提示升级,否则输出 BLOCKED 见证防静默腐烂;对齐 RD-011/RD-015 跟踪纪律;**非 fake pass:BLOCKED 见证 = 预期绿,能力出现未跟进 = 红**) | 视落地 |
@@ -82,3 +82,4 @@
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-07-18 | 初版(G3 契约配套;计划步骤 61~67 为五面计划项+68/69/70 条件项,落地时回填 workflow YAML 实测命令与 run URL;Release/Nightly 零增量(spike 不进 CI);guardrail 动作:基准兼容两序、快照 5~8 次加性重 bless、RX6027 续号+RX6008 改接、U30 起跳让 U29、SPIR-V 1.4 分叉零回归门、spike 纪律新增激活项、D-409 规则 4 全程;runner 预置增量 = Vulkan 扩展探测(缺失确定性 SKIP)与 dxc ms_6_5 版本核对)。**G3 开工脚手架零 CI 代码改动**:g3_budget.json 经 glob 自动纳入,counter/entries 不预造;开工不写入 workflow YAML 真实步骤 |
+| v1.1 | 2026-07-18 | 编号更正对齐(契约 §7 v1.1):步骤 62/64/65/66 前置措辞自「RFC-0014/0015/0016/0017」改为「RFC-0013 对应面章节」——五面共用单伞形 Full RFC-0013(五面五章,MB1 RFC-0011 先例;RFC-0014 = EI1 earmark)。步骤号分配确认:G3 = 61~70、EI1 = 71~75(owner 双轨分配);本文步骤面 0-byte 无实质变更 |
