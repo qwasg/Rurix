@@ -264,24 +264,28 @@ mod dxil_io {
         }
     }
 
-    /// AST 类型 → 资源句柄建模(RXS-0156 首批 `Texture2D<F>`/`Sampler`);非资源
-    /// 句柄类型 → None。`Texture2D` 取首个类型实参的头 prim 作分量类型(缺省 `f32`)。
+    /// AST 类型 → 资源句柄建模(RXS-0156 `Texture2D<F>`/`Sampler`;RXS-0223 扩
+    /// `TextureRw2D<F>`/`SamplerCmp`);非资源句柄类型 → None。`Texture2D`/
+    /// `TextureRw2D` 取首个类型实参的头 prim 作分量类型(缺省 `f32`)。
     fn ast_ty_to_resource(ty: &ast::Ty) -> Option<MirResourceType> {
         let ty = unwrap_ty(ty);
         let head = ty_head_name(ty)?;
-        match head {
-            "Texture2D" => {
-                let prim = if let TyKind::Path(p) = &ty.kind {
-                    p.segments
-                        .last()
-                        .and_then(vector_elem_prim)
-                        .unwrap_or(PrimTy::F32)
-                } else {
-                    PrimTy::F32
-                };
-                Some(MirResourceType::Texture2D(prim))
+        let elem_prim = || {
+            if let TyKind::Path(p) = &ty.kind {
+                p.segments
+                    .last()
+                    .and_then(vector_elem_prim)
+                    .unwrap_or(PrimTy::F32)
+            } else {
+                PrimTy::F32
             }
+        };
+        match head {
+            "Texture2D" => Some(MirResourceType::Texture2D(elem_prim())),
             "Sampler" => Some(MirResourceType::Sampler),
+            // RXS-0223:storage image(UAV 轴)+ 比较采样器(Sampler 轴)。
+            "TextureRw2D" => Some(MirResourceType::TextureRw2D(elem_prim())),
+            "SamplerCmp" => Some(MirResourceType::SamplerCmp),
             _ => None,
         }
     }
@@ -1059,11 +1063,19 @@ impl Builder<'_, '_> {
                     );
                 }
                 let coord_op = self.op_of(coord);
+                // RXS-0223 语义升级(Q-S-SampleName):既有 `.sample()` = 显式 LOD 0,
+                // 现由 `sample_lod(s, uv, 0.0)` 同一 lowering 路径逐字节承接 →
+                // `ResourceMethod::SampleLod` 空 extra(codegen 默认 LOD 0),既有
+                // uc04 golden(`dx.op.sampleLevel`)0-byte。新方法族(隐式 sample /
+                // grad / bias / load / cmp / gather / store)的前端 typeck→tbir 接线为
+                // 后续里程碑,codegen 方法族已就位(RXS-0226)。
                 self.rvalue_to_op(
                     Rvalue::ResourceSample {
                         texture_local: tex_p.local,
-                        sampler_local: samp_p.local,
+                        sampler_local: Some(samp_p.local),
+                        method: crate::mir::ResourceMethod::SampleLod,
                         coord: coord_op,
+                        extra: Vec::new(),
                     },
                     ty,
                     e.span,

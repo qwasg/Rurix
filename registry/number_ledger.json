@@ -25,10 +25,10 @@
       "pattern": "RXS-####",
       "main_fact_source": "spec/README.md §4 + spec/*.md 的 `### RXS-####` 条款头",
       "guard_spec_heading_scan": true,
-      "on_tree_max": 222,
-      "next_free": 223,
+      "on_tree_max": 230,
+      "next_free": 231,
       "shadow_reserved": [181, 182, 183, 184],
-      "notes": "spec 条款号。main 现存条款头 218 个,最高 RXS-0222(d3d12_runtime.md §2A:RXS-0220~0222 G3.2/RFC-0013 §4.A UC-04 可见窗口 flip-model swapchain present 装配与呈现循环 / swapchain 失效与重建 D3D12 ResizeBuffers·Vulkan OUT_OF_DATE / present headless readback 校验与 SKIP 纪律,RD-019 兑现;release.md §2.8:RXS-0214~0219 EA1.1a/1.1b/1.2;vulkan_backend.md 锁定预留区间 RXS-0200~0213)。RXS-0181~0184 由 GRX 影子分支 claim(提交 cc059daa,条款体入该分支 spec/dxil_backend.md),main 跳号避撞——经 git 核实当前 main 树『零』`### RXS-0181~0184` 条款定义(每处出现均为跳号注,非复用),故对 main 永久 burned、未 materialize 为同树同号异义碰撞(见 known_collisions[shared-namespace-grx])。另 main 侧 RXS-0189~0199 由 MS1.2/MS1.2b 承接。RFC-0013 五面剩余区间 RXS-0223~0249 归 G3.3~G3.6 后续 PR(溢出自 RXS-0270,0250~0269 = EI1 earmark)。下一个可用(G3.2 后)RXS-0223。"
+      "notes": "spec 条款号。main 现存条款头 226 个,最高 RXS-0230(G3.3/RFC-0013 §4.B 采样超集章:shader_stages.md RXS-0223 采样方法族类型面 / RXS-0224 静态 sampler 属性;host_orchestration.md RXS-0225 宿主 SamplerDesc;dxil_backend.md RXS-0226 opcode 全家 / RXS-0227 🔒 隐式 LOD / RXS-0228 🔒 texel fetch 越界钳制 / RXS-0229 🔒 storage image 唯一写者;vulkan_backend.md RXS-0230 vk graphics descriptor 建面,RD-022/023/024 兑现,blocker G-RED-1 定稿)。前:RXS-0220~0222 G3.2/RFC-0013 §4.A present(d3d12_runtime.md §2A);release.md §2.8 RXS-0214~0219 EA1.1a/1.1b/1.2;vulkan_backend.md RXS-0200~0213 mb1。RXS-0181~0184 由 GRX 影子分支 claim(提交 cc059daa),main 跳号避撞永久 burned(见 known_collisions[shared-namespace-grx]);RXS-0189~0199 由 MS1.2/MS1.2b 承接。RFC-0013 五面剩余区间 RXS-0231~0249 归 G3.4~G3.6 后续 PR(溢出自 RXS-0270,0250~0269 = EI1 earmark)。下一个可用(G3.3 后)RXS-0231。"
     },
     "RD": {
       "scope": "shared",

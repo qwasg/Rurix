@@ -54,8 +54,12 @@ pub(crate) fn rvalue_operands(rv: &Rvalue) -> Vec<&Operand> {
         Rvalue::BinaryOp(_, a, b) => vec![a, b],
         Rvalue::Aggregate(_, ops) | Rvalue::VariantAggregate { ops, .. } => ops.iter().collect(),
         Rvalue::Ref(..) | Rvalue::Discriminant(_) => Vec::new(),
-        // 采样(RXS-0175):coord 为读 operand;texture/sampler 句柄非 operand(local 引用)。
-        Rvalue::ResourceSample { coord, .. } => vec![coord],
+        // 采样方法族(RXS-0175/0223):coord + extra 为读 operand;texture/sampler 句柄非 operand。
+        Rvalue::ResourceSample { coord, extra, .. } => {
+            let mut ops = vec![coord];
+            ops.extend(extra.iter());
+            ops
+        }
     }
 }
 

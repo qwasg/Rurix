@@ -19,6 +19,10 @@ pub mod fatbin;
 #[cfg(feature = "d3d12-interop")]
 pub mod interop;
 pub mod pipeline;
+/// 宿主 sampler 状态面（G3.3，RXS-0225；RFC-0013 §4.B2 形态 b）。纯 host 类型,
+/// 与着色阶段静态属性 `#[sampler(...)]`（RXS-0224）镜像同一状态空间;经 cabi 降级
+/// `VkSamplerCreateInfo`（vk descriptor 建面 RXS-0230 消费）。
+pub mod sampler;
 pub mod sys;
 #[cfg(feature = "vulkan")]
 pub mod vk;

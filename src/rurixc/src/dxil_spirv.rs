@@ -38,7 +38,7 @@ use crate::binding_layout::{self, BindingInferError};
 use crate::hir::PrimTy;
 use crate::mir::{
     Body, Const, IoDir, IoSigElem, IoSigKind, LocalIdx, MirIoType, MirResourceType, Operand, Place,
-    ProjElem, ResourceBinding, Rvalue, StatementKind, TerminatorKind,
+    ProjElem, ResourceBinding, ResourceMethod, Rvalue, StatementKind, TerminatorKind,
 };
 
 use std::collections::HashMap;
@@ -143,10 +143,27 @@ const OP_CONSTANT: u16 = 43;
 const OP_VARIABLE: u16 = 59;
 const OP_LOAD: u16 = 61;
 const OP_STORE: u16 = 62;
+const OP_EXT_INST_IMPORT: u16 = 11;
+const OP_EXT_INST: u16 = 12;
+const OP_CONSTANT_COMPOSITE: u16 = 44;
 /// `OpSampledImage`(组合 image + sampler 为采样图像,RXS-0175;RFC-0007)。
 const OP_SAMPLED_IMAGE: u16 = 86;
-/// `OpImageSampleExplicitLod`(显式 LOD 采样,首期 LOD 0 规避隐式导数,RFC-0007 §4.6)。
+/// `OpImageSampleImplicitLod`(隐式 LOD 采样,quad 导数;`sample`/`sample_bias`,RXS-0226/0227)。
+const OP_IMAGE_SAMPLE_IMPLICIT_LOD: u16 = 87;
+/// `OpImageSampleExplicitLod`(显式 LOD 采样;`sample_lod`(Lod)/`sample_grad`(Grad),RXS-0226)。
 const OP_IMAGE_SAMPLE_EXPLICIT_LOD: u16 = 88;
+/// `OpImageSampleDrefExplicitLod`(比较采样,shadow;`sample_cmp`,Lod 0,RXS-0226)。
+const OP_IMAGE_SAMPLE_DREF_EXPLICIT_LOD: u16 = 90;
+/// `OpImageFetch`(无过滤整型取址;`load`/`load_lod`,RXS-0226/0228)。
+const OP_IMAGE_FETCH: u16 = 95;
+/// `OpImageGather`(基层 2×2 单分量聚合;`gather`,RXS-0226)。
+const OP_IMAGE_GATHER: u16 = 96;
+/// `OpImageRead`(storage image 读;`TextureRw2D.load`,RXS-0226)。
+const OP_IMAGE_READ: u16 = 98;
+/// `OpImageWrite`(storage image 写;`TextureRw2D.store` 唯一写者,RXS-0226/0229)。
+const OP_IMAGE_WRITE: u16 = 99;
+/// `OpImageQuerySizeLod`(取 mip 层尺寸;texel fetch 越界钳制序列,RXS-0228)。
+const OP_IMAGE_QUERY_SIZE_LOD: u16 = 104;
 const OP_DECORATE: u16 = 71;
 const OP_FUNCTION: u16 = 54;
 const OP_IADD: u16 = 128;
@@ -204,8 +221,26 @@ const DIM_2D: u32 = 1;
 const IMAGE_FORMAT_UNKNOWN: u32 = 0;
 /// `OpTypeImage` Sampled = 1(与采样器配合使用的采样图像)。
 const IMAGE_SAMPLED_WITH_SAMPLER: u32 = 1;
-/// `ImageOperands` `Lod` bit(0x2;显式 LOD 采样,RXS-0175)。
+/// `OpTypeImage` Sampled = 2(无采样器读写 storage image,`TextureRw2D`,RXS-0226)。
+const IMAGE_SAMPLED_STORAGE: u32 = 2;
+/// `ImageOperands` `Bias` bit(0x1;`sample_bias`,RXS-0226)。
+const IMAGE_OPERANDS_BIAS: u32 = 0x1;
+/// `ImageOperands` `Lod` bit(0x2;显式 LOD 采样 / texel fetch,RXS-0175/0226)。
 const IMAGE_OPERANDS_LOD: u32 = 0x2;
+/// `ImageOperands` `Grad` bit(0x4;`sample_grad` ddx/ddy,RXS-0226)。
+const IMAGE_OPERANDS_GRAD: u32 = 0x4;
+/// `Capability ImageQuery`(50;`OpImageQuerySizeLod` texel fetch 越界钳制,RXS-0228)。
+const CAP_IMAGE_QUERY: u32 = 50;
+/// `ImageFormat Rgba32f`(1;`TextureRw2D<f32>` 显式 format,RXS-0226 L2)。
+const IMAGE_FORMAT_RGBA32F: u32 = 1;
+/// `ImageFormat Rgba32i`(21;`TextureRw2D<i32>`)。
+const IMAGE_FORMAT_RGBA32I: u32 = 21;
+/// `ImageFormat Rgba32ui`(30;`TextureRw2D<u32>`)。
+const IMAGE_FORMAT_RGBA32UI: u32 = 30;
+/// GLSL.std.450 ext-inst `UMin`(38;texel fetch 越界钳制 `min(coord, size-1)`,RXS-0228)。
+const GLSL_STD_450_UMIN: u32 = 38;
+/// GLSL.std.450 ext-inst 集合名。
+const EXT_GLSL_STD_450: &str = "GLSL.std.450";
 
 // ───────────────────────── 编码器本体 ─────────────────────────
 
@@ -227,6 +262,18 @@ struct IoVar {
 /// 已 emit 的资源句柄变量记录(RXS-0175;采样 body lowering 消费)。`type_id` =
 /// 该资源的 SPIR-V 类型 id(`OpTypeImage` for texture / `OpTypeSampler` for sampler);
 /// `sampled_prim` = 纹理分量类型(texture 用,sampler 占位 f32)。
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum ResourceVarKind {
+    /// `Texture2D<F>` → 采样图像(Sampled=1,与采样器配合)。
+    SampledImage,
+    /// `TextureRw2D<F>` → storage image(Sampled=2,显式 format,读写,RXS-0226/0229)。
+    StorageImage,
+    /// `Sampler` → 采样器。
+    Sampler,
+    /// `SamplerCmp` → 比较采样器(与 depth 图像配合,RXS-0226)。
+    SamplerCmp,
+}
+
 #[derive(Clone, Debug)]
 struct ResourceVarInfo {
     /// 源码形参名(保名依据;BodyLowerer 按 MIR local 名匹配解析此变量)。
@@ -235,8 +282,8 @@ struct ResourceVarInfo {
     var_id: u32,
     /// 资源 SPIR-V 类型 id(image / sampler)。
     type_id: u32,
-    /// 是否为纹理图像(true=Texture2D,false=Sampler)。
-    is_image: bool,
+    /// 资源种类(采样/storage 图像 / 采样器 / 比较采样器,RXS-0226)。
+    kind: ResourceVarKind,
     /// 纹理分量类型(image 用;sampler 占位)。
     sampled_prim: PrimTy,
 }
@@ -328,6 +375,14 @@ struct Builder {
     resource_vars: Vec<ResourceVarInfo>,
     /// `OpTypeSampledImage` 去重缓存(image_type_id → sampled_image_type_id)。
     sampled_image_cache: Vec<(u32, u32)>,
+    /// 追加能力(`Capability Shader` 之外;RXS-0228 texel fetch 需 `ImageQuery`)。
+    extra_caps: Vec<u32>,
+    /// `OpExtInstImport "GLSL.std.450"` 指令(懒 emit;texel fetch 越界钳制 UMin,RXS-0228)。
+    ext_imports: Vec<u32>,
+    /// GLSL.std.450 ext-inst 集合 result-id(懒分配)。
+    glsl_ext_id: Option<u32>,
+    /// `OpConstantComposite` 去重缓存(vec2<u32> {1,1} 钳制序列复用,RXS-0228)。
+    const_composite_cache: Vec<(u32, u32)>,
 }
 
 impl Builder {
@@ -348,7 +403,51 @@ impl Builder {
             pointer_cache: Vec::new(),
             resource_vars: Vec::new(),
             sampled_image_cache: Vec::new(),
+            extra_caps: Vec::new(),
+            ext_imports: Vec::new(),
+            glsl_ext_id: None,
+            const_composite_cache: Vec::new(),
         }
+    }
+
+    /// 登记追加能力(去重;RXS-0228)。
+    fn add_capability(&mut self, cap: u32) {
+        if !self.extra_caps.contains(&cap) {
+            self.extra_caps.push(cap);
+        }
+    }
+
+    /// 取/造 GLSL.std.450 ext-inst 集合 result-id(懒 emit `OpExtInstImport`;RXS-0228)。
+    fn glsl_ext_inst(&mut self) -> u32 {
+        if let Some(id) = self.glsl_ext_id {
+            return id;
+        }
+        let id = self.alloc_id();
+        let mut operands = vec![id];
+        Self::push_string(&mut operands, EXT_GLSL_STD_450);
+        Self::emit(&mut self.ext_imports, OP_EXT_INST_IMPORT, &operands);
+        self.glsl_ext_id = Some(id);
+        id
+    }
+
+    /// 取/造 vec2<u32> `OpConstantComposite {a, a}`(钳制序列复用,RXS-0228)。
+    fn const_uvec2_splat(&mut self, comp_id: u32, vec_ty: u32) -> u32 {
+        if let Some(&(_, id)) = self
+            .const_composite_cache
+            .iter()
+            .find(|&&(v, _)| v == vec_ty)
+        {
+            let _ = comp_id;
+            return id;
+        }
+        let id = self.alloc_id();
+        Self::emit(
+            &mut self.types,
+            OP_CONSTANT_COMPOSITE,
+            &[vec_ty, id, comp_id, comp_id],
+        );
+        self.const_composite_cache.push((vec_ty, id));
+        id
     }
 
     /// 分配下一个 result-id。
@@ -555,7 +654,7 @@ impl Builder {
         set: u32,
         binding: u32,
     ) -> Result<(), DxilError> {
-        let (res_type, is_image, sampled_prim) = match res.res {
+        let (res_type, kind, sampled_prim) = match res.res {
             MirResourceType::Texture2D(prim) => {
                 let sampled_type = self.scalar_type(prim)?;
                 let id = self.alloc_id();
@@ -575,19 +674,59 @@ impl Builder {
                         IMAGE_FORMAT_UNKNOWN,
                     ],
                 );
-                (id, true, prim)
+                (id, ResourceVarKind::SampledImage, prim)
             }
             MirResourceType::Sampler => {
                 let id = self.alloc_id();
                 Self::emit(&mut self.types, OP_TYPE_SAMPLER, &[id]);
-                (id, false, PrimTy::F32)
+                (id, ResourceVarKind::Sampler, PrimTy::F32)
+            }
+            // RXS-0226 L2:storage image = Sampled=2 + 显式 format(规避
+            // `shaderStorageImageWriteWithoutFormat` capability 依赖)。
+            MirResourceType::TextureRw2D(prim) => {
+                let sampled_type = self.scalar_type(prim)?;
+                let format = match prim {
+                    PrimTy::F32 => IMAGE_FORMAT_RGBA32F,
+                    PrimTy::I32 => IMAGE_FORMAT_RGBA32I,
+                    PrimTy::U32 => IMAGE_FORMAT_RGBA32UI,
+                    other => {
+                        return Err(DxilError::sample_unsupported(format!(
+                            "TextureRw2D 分量类型 {other:?} 无显式 storage image format\
+                             (首期 {{f32,u32,i32}},RXS-0226 L2)"
+                        )));
+                    }
+                };
+                let id = self.alloc_id();
+                Self::emit(
+                    &mut self.types,
+                    OP_TYPE_IMAGE,
+                    &[
+                        id,
+                        sampled_type,
+                        DIM_2D,
+                        0,
+                        0,
+                        0,
+                        IMAGE_SAMPLED_STORAGE,
+                        format,
+                    ],
+                );
+                (id, ResourceVarKind::StorageImage, prim)
+            }
+            // RXS-0226 L2:比较采样器与 depth 图像配合 → OpTypeSampler(depth-image
+            // 由采样 lowering 在 OpTypeImage Depth=1 上组合)。
+            MirResourceType::SamplerCmp => {
+                let id = self.alloc_id();
+                Self::emit(&mut self.types, OP_TYPE_SAMPLER, &[id]);
+                (id, ResourceVarKind::SamplerCmp, PrimTy::F32)
             }
             other => {
                 return Err(DxilError::unmappable(
                     "resource-type",
                     format!(
                         "资源 `{}` 类型 {other:?} 不在 B 路编码器资源最小子集\
-                         (Texture2D<F>/Sampler)内(CBV/structured buffer SPIR-V 降级为后续扩展)",
+                         (Texture2D<F>/Sampler/TextureRw2D<F>/SamplerCmp)内\
+                         (CBV/structured buffer SPIR-V 降级为后续扩展)",
                         res.name
                     ),
                 ));
@@ -623,12 +762,12 @@ impl Builder {
             self.used_user_semantic = true;
         }
 
-        // 登记资源变量(RXS-0175;采样 body lowering 按名匹配 MIR local 解析)。
+        // 登记资源变量(RXS-0175/0226;采样方法族 body lowering 按名匹配 MIR local 解析)。
         self.resource_vars.push(ResourceVarInfo {
             name: res.name.clone(),
             var_id: var,
             type_id: res_type,
-            is_image,
+            kind,
             sampled_prim,
         });
 
@@ -789,13 +928,17 @@ impl<'a> BodyLowerer<'a> {
             Rvalue::ResourceSample {
                 texture_local,
                 sampler_local,
+                method,
                 coord,
-            } => Ok(LocalValue::Value(self.lower_resource_sample(
+                extra,
+            } => self.lower_resource_op(
                 b,
+                *method,
                 texture_local.0,
-                sampler_local.0,
+                sampler_local.map(|s| s.0),
                 coord,
-            )?)),
+                extra,
+            ),
             other => Err(DxilError::unmappable(
                 "body-rvalue",
                 format!("RXS-0171 最小切片不支持 rvalue `{other:?}`"),
@@ -1091,18 +1234,66 @@ impl<'a> BodyLowerer<'a> {
             })
     }
 
-    /// 纹理采样 lowering(RXS-0175;RFC-0007 §4.5):`OpLoad` 纹理/采样器 +
-    /// `OpSampledImage` + `OpImageSampleExplicitLod`(显式 LOD 0,规避隐式导数)→
-    /// `vec4<F>`。首期收敛子集外(coord 非 `vec2<f32>` / 非 `Texture2D<f32>` /
-    /// sampler 实参非 `Sampler`)→ [`DxilError::SampleUnsupported`](RX6023)。
-    fn lower_resource_sample(
+    /// 采样方法族 lowering(RXS-0223/0226;RFC-0013 §4.B6):按 [`ResourceMethod`]
+    /// 分发 SPIR-V opcode 全家。sample 族(`OpImageSample{Implicit,Explicit}Lod` /
+    /// `OpImageSampleDrefExplicitLod` / `OpImageGather`)产 `vec4<F>` 或 `sample_cmp`
+    /// 的标量 `f32`;texel fetch(`OpImageFetch` + 越界钳制序列,RXS-0228)产 `vec4<F>`;
+    /// storage image(`OpImageRead`/`OpImageWrite`,RXS-0229 唯一写者)产 `vec4<F>` / `()`。
+    /// 子集外 → [`DxilError::SampleUnsupported`](RX6023)。
+    fn lower_resource_op(
         &mut self,
         b: &mut Builder,
+        method: ResourceMethod,
+        texture_local: u32,
+        sampler_local: Option<u32>,
+        coord: &Operand,
+        extra: &[Operand],
+    ) -> Result<LocalValue, DxilError> {
+        use ResourceMethod as M;
+        match method {
+            // ── storage image(TextureRw2D):无 sampler,坐标 vec2<u32>,RXS-0229 ──
+            M::StorageLoad => Ok(LocalValue::Value(self.lower_storage_load(
+                b,
+                texture_local,
+                coord,
+            )?)),
+            M::Store => {
+                self.lower_storage_store(b, texture_local, coord, extra)?;
+                Ok(LocalValue::Unit)
+            }
+            // ── texel fetch(Texture2D):无 sampler,坐标 vec2<u32> + 越界钳制,RXS-0228 ──
+            M::Load | M::LoadLod => Ok(LocalValue::Value(self.lower_texel_fetch(
+                b,
+                method,
+                texture_local,
+                coord,
+                extra,
+            )?)),
+            // ── sample 族(Texture2D + Sampler/SamplerCmp):坐标 vec2<f32> ──
+            M::Sample | M::SampleLod | M::SampleGrad | M::SampleBias | M::SampleCmp | M::Gather => {
+                let sampler_local = sampler_local.ok_or_else(|| {
+                    DxilError::sample_unsupported(format!(
+                        "采样方法 `{}` 缺 sampler 实参",
+                        method.name()
+                    ))
+                })?;
+                self.lower_sample_family(b, method, texture_local, sampler_local, coord, extra)
+            }
+        }
+    }
+
+    /// sample 族 lowering(sample/sample_lod/sample_grad/sample_bias/sample_cmp/gather)。
+    fn lower_sample_family(
+        &mut self,
+        b: &mut Builder,
+        method: ResourceMethod,
         texture_local: u32,
         sampler_local: u32,
         coord: &Operand,
-    ) -> Result<SpirvValue, DxilError> {
-        // coord 须为 vec2<f32>(归一化 UV;首期子集,RXS-0175)。
+        extra: &[Operand],
+    ) -> Result<LocalValue, DxilError> {
+        use ResourceMethod as M;
+        // coord 须为 vec2<f32>(归一化 UV;首期子集,RXS-0175/0223)。
         let coord_val = self.lower_operand_value(b, coord, None)?;
         if coord_val.ty != MirIoType::Vector(PrimTy::F32, 2) {
             return Err(DxilError::sample_unsupported(format!(
@@ -1113,26 +1304,35 @@ impl<'a> BodyLowerer<'a> {
 
         let tex = self.resource_for_local(texture_local)?;
         let samp = self.resource_for_local(sampler_local)?;
-        if !tex.is_image {
+        if tex.kind != ResourceVarKind::SampledImage {
             return Err(DxilError::sample_unsupported(format!(
-                "采样 receiver `{}` 非 Texture2D 纹理句柄",
+                "采样 receiver `{}` 非 Texture2D 采样图像句柄",
                 tex.name
             )));
         }
-        if samp.is_image {
+        // sample_cmp 须 SamplerCmp;其余 sample 族须 Sampler(RXS-0223)。
+        let want_cmp = method == M::SampleCmp;
+        let samp_ok = if want_cmp {
+            samp.kind == ResourceVarKind::SamplerCmp
+        } else {
+            samp.kind == ResourceVarKind::Sampler
+        };
+        if !samp_ok {
             return Err(DxilError::sample_unsupported(format!(
-                "采样 sampler 实参 `{}` 非 Sampler 采样器句柄",
-                samp.name
+                "采样方法 `{}` 的 sampler 实参 `{}` 种类不符({:?})",
+                method.name(),
+                samp.name,
+                samp.kind
             )));
         }
         if tex.sampled_prim != PrimTy::F32 {
             return Err(DxilError::sample_unsupported(format!(
-                "首期仅支持 Texture2D<f32>(实得分量类型 {:?})",
+                "sample 族首期仅支持 Texture2D<f32>(实得分量类型 {:?})",
                 tex.sampled_prim
             )));
         }
 
-        // OpLoad 纹理 / 采样器对象(UniformConstant opaque 资源,SPIR-V 合法)。
+        // OpLoad 纹理 / 采样器对象(UniformConstant opaque 资源)。
         let img_id = b.alloc_id();
         Builder::emit(&mut self.ops, OP_LOAD, &[tex.type_id, img_id, tex.var_id]);
         let samp_id = b.alloc_id();
@@ -1151,31 +1351,426 @@ impl<'a> BodyLowerer<'a> {
             &[si_ty, si_id, img_id, samp_id],
         );
 
-        // 显式 LOD 0 常量(规避隐式导数,RFC-0007 §4.6)。
-        let f32_ty = b.scalar_type(PrimTy::F32)?;
-        let lod0 = b.alloc_id();
-        Builder::emit(&mut b.types, OP_CONSTANT, &[f32_ty, lod0, 0.0f32.to_bits()]);
+        match method {
+            // sample_lod:显式任意层 → OpImageSampleExplicitLod(Lod)。空 extra = LOD 0
+            // (既有 `.sample()` 迁移,byte-preserving,RXS-0223 Q-S-SampleName)。
+            M::SampleLod => {
+                let lod = self.lod_operand(b, extra)?;
+                let (result_ty, result_mir) = self.vec4f(b)?;
+                let result_id = b.alloc_id();
+                Builder::emit(
+                    &mut self.ops,
+                    OP_IMAGE_SAMPLE_EXPLICIT_LOD,
+                    &[
+                        result_ty,
+                        result_id,
+                        si_id,
+                        coord_val.id,
+                        IMAGE_OPERANDS_LOD,
+                        lod,
+                    ],
+                );
+                Ok(LocalValue::Value(SpirvValue {
+                    id: result_id,
+                    ty: result_mir,
+                }))
+            }
+            // sample:隐式 LOD(quad 导数,🔒 RXS-0227)→ OpImageSampleImplicitLod(无 operands)。
+            M::Sample => {
+                let (result_ty, result_mir) = self.vec4f(b)?;
+                let result_id = b.alloc_id();
+                Builder::emit(
+                    &mut self.ops,
+                    OP_IMAGE_SAMPLE_IMPLICIT_LOD,
+                    &[result_ty, result_id, si_id, coord_val.id],
+                );
+                Ok(LocalValue::Value(SpirvValue {
+                    id: result_id,
+                    ty: result_mir,
+                }))
+            }
+            // sample_bias:隐式 + bias → OpImageSampleImplicitLod(Bias)。
+            M::SampleBias => {
+                let bias = self.f32_operand(b, extra, "sample_bias 缺 bias:f32")?;
+                let (result_ty, result_mir) = self.vec4f(b)?;
+                let result_id = b.alloc_id();
+                Builder::emit(
+                    &mut self.ops,
+                    OP_IMAGE_SAMPLE_IMPLICIT_LOD,
+                    &[
+                        result_ty,
+                        result_id,
+                        si_id,
+                        coord_val.id,
+                        IMAGE_OPERANDS_BIAS,
+                        bias,
+                    ],
+                );
+                Ok(LocalValue::Value(SpirvValue {
+                    id: result_id,
+                    ty: result_mir,
+                }))
+            }
+            // sample_grad:显式梯度 → OpImageSampleExplicitLod(Grad ddx, ddy)。
+            M::SampleGrad => {
+                if extra.len() != 2 {
+                    return Err(DxilError::sample_unsupported(
+                        "sample_grad 需 ddx/ddy 两个 vec2<f32> 梯度".to_owned(),
+                    ));
+                }
+                let ddx = self.lower_operand_value(b, &extra[0], None)?;
+                let ddy = self.lower_operand_value(b, &extra[1], None)?;
+                for g in [&ddx, &ddy] {
+                    if g.ty != MirIoType::Vector(PrimTy::F32, 2) {
+                        return Err(DxilError::sample_unsupported(
+                            "sample_grad 梯度须 vec2<f32>".to_owned(),
+                        ));
+                    }
+                }
+                let (result_ty, result_mir) = self.vec4f(b)?;
+                let result_id = b.alloc_id();
+                Builder::emit(
+                    &mut self.ops,
+                    OP_IMAGE_SAMPLE_EXPLICIT_LOD,
+                    &[
+                        result_ty,
+                        result_id,
+                        si_id,
+                        coord_val.id,
+                        IMAGE_OPERANDS_GRAD,
+                        ddx.id,
+                        ddy.id,
+                    ],
+                );
+                Ok(LocalValue::Value(SpirvValue {
+                    id: result_id,
+                    ty: result_mir,
+                }))
+            }
+            // sample_cmp:恒显式 LOD 0 比较采样(shadow)→ OpImageSampleDrefExplicitLod。结果标量 f32。
+            M::SampleCmp => {
+                let dref = self.f32_operand(b, extra, "sample_cmp 缺 dref:f32")?;
+                let f32_ty = b.scalar_type(PrimTy::F32)?;
+                let lod0 = self.const_f32(b, 0.0);
+                let result_id = b.alloc_id();
+                Builder::emit(
+                    &mut self.ops,
+                    OP_IMAGE_SAMPLE_DREF_EXPLICIT_LOD,
+                    &[
+                        f32_ty,
+                        result_id,
+                        si_id,
+                        coord_val.id,
+                        dref,
+                        IMAGE_OPERANDS_LOD,
+                        lod0,
+                    ],
+                );
+                Ok(LocalValue::Value(SpirvValue {
+                    id: result_id,
+                    ty: MirIoType::Scalar(PrimTy::F32),
+                }))
+            }
+            // gather:基层 2×2 单分量聚合 → OpImageGather(component 0..=3 常量)。
+            M::Gather => {
+                let comp = self.gather_component(b, extra)?;
+                let (result_ty, result_mir) = self.vec4f(b)?;
+                let result_id = b.alloc_id();
+                Builder::emit(
+                    &mut self.ops,
+                    OP_IMAGE_GATHER,
+                    &[result_ty, result_id, si_id, coord_val.id, comp],
+                );
+                Ok(LocalValue::Value(SpirvValue {
+                    id: result_id,
+                    ty: result_mir,
+                }))
+            }
+            other => Err(DxilError::sample_unsupported(format!(
+                "sample 族分发意外方法 {other:?}"
+            ))),
+        }
+    }
 
-        // OpImageSampleExplicitLod:结果 vec4<f32>,ImageOperands = Lod。
-        let result_mir = MirIoType::Vector(PrimTy::F32, 4);
-        let result_ty = b.value_type(result_mir)?;
+    /// texel fetch(load/load_lod)lowering:`OpImageFetch` + 越界钳制序列
+    /// (`OpImageQuerySizeLod` → `OpISub`(size-1)→ GLSL.std.450 `UMin`,RXS-0228)。
+    fn lower_texel_fetch(
+        &mut self,
+        b: &mut Builder,
+        method: ResourceMethod,
+        texture_local: u32,
+        coord: &Operand,
+        extra: &[Operand],
+    ) -> Result<SpirvValue, DxilError> {
+        // coord 须为 vec2<u32>(非归一化整型纹素坐标,RXS-0228)。
+        let coord_val = self.lower_operand_value(b, coord, None)?;
+        if coord_val.ty != MirIoType::Vector(PrimTy::U32, 2) {
+            return Err(DxilError::sample_unsupported(format!(
+                "texel fetch 坐标类型 {:?} 非 vec2<u32>(RXS-0228)",
+                coord_val.ty
+            )));
+        }
+        let tex = self.resource_for_local(texture_local)?;
+        if tex.kind != ResourceVarKind::SampledImage {
+            return Err(DxilError::sample_unsupported(format!(
+                "texel fetch receiver `{}` 非 Texture2D 采样图像句柄",
+                tex.name
+            )));
+        }
+        // lod:load = 0、load_lod = extra[0]:u32(RXS-0228)。
+        let lod_id = if method == ResourceMethod::LoadLod {
+            self.u32_operand(b, extra, "load_lod 缺 lod:u32")?
+        } else {
+            self.const_u32(b, 0)
+        };
+
+        let img_id = b.alloc_id();
+        Builder::emit(&mut self.ops, OP_LOAD, &[tex.type_id, img_id, tex.var_id]);
+
+        // 越界钳制序列 min(coord, size-1)(RXS-0228 DS2;两后端同源确定性,零 feature 依赖)。
+        b.add_capability(CAP_IMAGE_QUERY);
+        let uvec2_ty = b.value_type(MirIoType::Vector(PrimTy::U32, 2))?;
+        let size_id = b.alloc_id();
+        Builder::emit(
+            &mut self.ops,
+            OP_IMAGE_QUERY_SIZE_LOD,
+            &[uvec2_ty, size_id, img_id, lod_id],
+        );
+        let u32_ty = b.scalar_type(PrimTy::U32)?;
+        let one = self.const_u32(b, 1);
+        let ones = b.const_uvec2_splat(one, uvec2_ty);
+        let _ = u32_ty;
+        let size_minus1 = b.alloc_id();
+        Builder::emit(
+            &mut self.ops,
+            OP_ISUB,
+            &[uvec2_ty, size_minus1, size_id, ones],
+        );
+        let glsl = b.glsl_ext_inst();
+        let clamped = b.alloc_id();
+        Builder::emit(
+            &mut self.ops,
+            OP_EXT_INST,
+            &[
+                uvec2_ty,
+                clamped,
+                glsl,
+                GLSL_STD_450_UMIN,
+                coord_val.id,
+                size_minus1,
+            ],
+        );
+
+        // OpImageFetch(image, clamped_coord, Lod, lod)。
+        let (result_ty, result_mir) = self.vec4_of(b, tex.sampled_prim)?;
         let result_id = b.alloc_id();
         Builder::emit(
             &mut self.ops,
-            OP_IMAGE_SAMPLE_EXPLICIT_LOD,
+            OP_IMAGE_FETCH,
             &[
                 result_ty,
                 result_id,
-                si_id,
-                coord_val.id,
+                img_id,
+                clamped,
                 IMAGE_OPERANDS_LOD,
-                lod0,
+                lod_id,
             ],
         );
         Ok(SpirvValue {
             id: result_id,
             ty: result_mir,
         })
+    }
+
+    /// storage image 读(TextureRw2D.load)→ `OpImageRead`(RXS-0226/0229)。
+    fn lower_storage_load(
+        &mut self,
+        b: &mut Builder,
+        texture_local: u32,
+        coord: &Operand,
+    ) -> Result<SpirvValue, DxilError> {
+        let coord_val = self.lower_operand_value(b, coord, None)?;
+        if coord_val.ty != MirIoType::Vector(PrimTy::U32, 2) {
+            return Err(DxilError::sample_unsupported(format!(
+                "storage image load 坐标 {:?} 非 vec2<u32>(RXS-0228)",
+                coord_val.ty
+            )));
+        }
+        let tex = self.resource_for_local(texture_local)?;
+        if tex.kind != ResourceVarKind::StorageImage {
+            return Err(DxilError::sample_unsupported(format!(
+                "storage image load receiver `{}` 非 TextureRw2D storage image",
+                tex.name
+            )));
+        }
+        let img_id = b.alloc_id();
+        Builder::emit(&mut self.ops, OP_LOAD, &[tex.type_id, img_id, tex.var_id]);
+        let (result_ty, result_mir) = self.vec4_of(b, tex.sampled_prim)?;
+        let result_id = b.alloc_id();
+        Builder::emit(
+            &mut self.ops,
+            OP_IMAGE_READ,
+            &[result_ty, result_id, img_id, coord_val.id],
+        );
+        Ok(SpirvValue {
+            id: result_id,
+            ty: result_mir,
+        })
+    }
+
+    /// storage image 写(TextureRw2D.store)→ `OpImageWrite`(唯一写者纪律,RXS-0229)。
+    /// **唯一写者 codegen 强制**:store 坐标须为本 invocation 位置标识 identity 映射
+    /// (frag_coord / launch_id);非 identity、可产生多写者的坐标派生 → strict-only 拒。
+    fn lower_storage_store(
+        &mut self,
+        b: &mut Builder,
+        texture_local: u32,
+        coord: &Operand,
+        extra: &[Operand],
+    ) -> Result<(), DxilError> {
+        // RXS-0229 IR1:唯一写者纪律——store 坐标须直接来自本 invocation 位置标识
+        // (identity 映射),不做别名分析,保守近似:仅接受直接读自输入 I/O place 的
+        // 坐标(frag_coord 派生 / launch_id 派生);常量 / 算术派生坐标可产生多写者 → 拒。
+        if !self.is_identity_coord(coord) {
+            return Err(DxilError::sample_unsupported(
+                "TextureRw2D.store 坐标非本 invocation 位置标识 identity 映射(唯一写者纪律,\
+                 RXS-0229;可竞写模式登 RD-034+ 另 Full RFC)"
+                    .to_owned(),
+            ));
+        }
+        let coord_val = self.lower_operand_value(b, coord, None)?;
+        if coord_val.ty != MirIoType::Vector(PrimTy::U32, 2) {
+            return Err(DxilError::sample_unsupported(format!(
+                "storage image store 坐标 {:?} 非 vec2<u32>(RXS-0228)",
+                coord_val.ty
+            )));
+        }
+        let tex = self.resource_for_local(texture_local)?;
+        if tex.kind != ResourceVarKind::StorageImage {
+            return Err(DxilError::sample_unsupported(format!(
+                "storage image store receiver `{}` 非 TextureRw2D storage image",
+                tex.name
+            )));
+        }
+        if extra.len() != 1 {
+            return Err(DxilError::sample_unsupported(
+                "TextureRw2D.store 需 value:vec4<F> 一个写入值".to_owned(),
+            ));
+        }
+        let value = self.lower_operand_value(b, &extra[0], None)?;
+        if value.ty != MirIoType::Vector(tex.sampled_prim, 4) {
+            return Err(DxilError::sample_unsupported(format!(
+                "storage image store 值类型 {:?} 与纹理分量 vec4<{:?}> 不符",
+                value.ty, tex.sampled_prim
+            )));
+        }
+        let img_id = b.alloc_id();
+        Builder::emit(&mut self.ops, OP_LOAD, &[tex.type_id, img_id, tex.var_id]);
+        // OpImageWrite(image, coord, value):无结果 id。
+        Builder::emit(
+            &mut self.ops,
+            OP_IMAGE_WRITE,
+            &[img_id, coord_val.id, value.id],
+        );
+        Ok(())
+    }
+
+    /// 唯一写者纪律保守近似(RXS-0229 IR1):坐标是否为本 invocation 位置标识 identity
+    /// 映射。保守判据:坐标 operand 直接读自**输入 I/O place**(frag_coord / launch_id
+    /// 派生形参字段),不做别名分析;常量 / 算术派生 → 非 identity(可产生多写者)→ 拒。
+    fn is_identity_coord(&self, coord: &Operand) -> bool {
+        match coord {
+            // 直接读输入 I/O 形参字段(frag_coord / launch_id 位置标识)= identity。
+            Operand::Copy(p) | Operand::Move(p) => {
+                p.local.0 >= 1 && (p.local.0 as usize) <= self.body.arg_count
+            }
+            // 常量坐标 → 所有 invocation 写同一 texel = 多写者 → 非 identity。
+            Operand::Const(_) => false,
+        }
+    }
+
+    /// LOD operand(sample_lod):空 extra = 显式 LOD 0 常量(既有 `.sample()` byte-preserving);
+    /// 否则 extra[0]:f32(RXS-0223 Q-S-SampleName)。
+    fn lod_operand(&mut self, b: &mut Builder, extra: &[Operand]) -> Result<u32, DxilError> {
+        if extra.is_empty() {
+            // 显式 LOD 0 常量(既有路承接,RFC-0007 §4.6)。
+            let f32_ty = b.scalar_type(PrimTy::F32)?;
+            let lod0 = b.alloc_id();
+            Builder::emit(&mut b.types, OP_CONSTANT, &[f32_ty, lod0, 0.0f32.to_bits()]);
+            Ok(lod0)
+        } else {
+            self.f32_operand(b, extra, "sample_lod 缺 lod:f32")
+        }
+    }
+
+    /// f32 标量 operand(extra[0]),类型校验。
+    fn f32_operand(
+        &mut self,
+        b: &mut Builder,
+        extra: &[Operand],
+        msg: &str,
+    ) -> Result<u32, DxilError> {
+        let op = extra
+            .first()
+            .ok_or_else(|| DxilError::sample_unsupported(msg.to_owned()))?;
+        let v = self.lower_operand_value(b, op, Some(MirIoType::Scalar(PrimTy::F32)))?;
+        Ok(v.id)
+    }
+
+    /// u32 标量 operand(extra[0]),类型校验。
+    fn u32_operand(
+        &mut self,
+        b: &mut Builder,
+        extra: &[Operand],
+        msg: &str,
+    ) -> Result<u32, DxilError> {
+        let op = extra
+            .first()
+            .ok_or_else(|| DxilError::sample_unsupported(msg.to_owned()))?;
+        let v = self.lower_operand_value(b, op, Some(MirIoType::Scalar(PrimTy::U32)))?;
+        Ok(v.id)
+    }
+
+    /// gather component(0..=3 字面量常量,RXS-0223)。
+    fn gather_component(&mut self, b: &mut Builder, extra: &[Operand]) -> Result<u32, DxilError> {
+        let op = extra.first().ok_or_else(|| {
+            DxilError::sample_unsupported("gather 缺 component 字面量".to_owned())
+        })?;
+        match op {
+            Operand::Const(Const::Int(v, _)) if (0..=3).contains(v) => {
+                Ok(self.const_u32(b, *v as u32))
+            }
+            _ => Err(DxilError::sample_unsupported(
+                "gather component 须 0..=3 字面量常量".to_owned(),
+            )),
+        }
+    }
+
+    /// vec4<f32> 类型 id + MirIoType(sample 族结果)。
+    fn vec4f(&mut self, b: &mut Builder) -> Result<(u32, MirIoType), DxilError> {
+        self.vec4_of(b, PrimTy::F32)
+    }
+
+    /// vec4<prim> 类型 id + MirIoType。
+    fn vec4_of(&mut self, b: &mut Builder, prim: PrimTy) -> Result<(u32, MirIoType), DxilError> {
+        let mir = MirIoType::Vector(prim, 4);
+        Ok((b.value_type(mir)?, mir))
+    }
+
+    /// f32 常量 id(去缓存,直接 emit;顺序敏感处调用)。
+    fn const_f32(&mut self, b: &mut Builder, v: f32) -> u32 {
+        let f32_ty = b.scalar_type(PrimTy::F32).expect("f32 scalar type");
+        let id = b.alloc_id();
+        Builder::emit(&mut b.types, OP_CONSTANT, &[f32_ty, id, v.to_bits()]);
+        id
+    }
+
+    /// u32 常量 id。
+    fn const_u32(&mut self, b: &mut Builder, v: u32) -> u32 {
+        let u32_ty = b.scalar_type(PrimTy::U32).expect("u32 scalar type");
+        let id = b.alloc_id();
+        Builder::emit(&mut b.types, OP_CONSTANT, &[u32_ty, id, v]);
+        id
     }
 
     fn load_input_field(&mut self, b: &mut Builder, field: usize) -> Result<SpirvValue, DxilError> {
@@ -1386,8 +1981,11 @@ fn emit_spirv_inner(
     module.push(0); // bound 占位,最后回填。
     module.push(SPIRV_SCHEMA);
 
-    // 2) capability。
+    // 2) capability(Shader + 方法族追加能力,如 texel fetch 的 ImageQuery,RXS-0228)。
     Builder::emit(&mut module, OP_CAPABILITY, &[CAP_SHADER]);
+    for &cap in &b.extra_caps {
+        Builder::emit(&mut module, OP_CAPABILITY, &[cap]);
+    }
 
     // 3) extension(仅当用到 UserSemantic 保名)。
     if b.used_user_semantic {
@@ -1395,6 +1993,9 @@ fn emit_spirv_inner(
         Builder::push_string(&mut operands, EXT_HLSL_FUNCTIONALITY1);
         Builder::emit(&mut module, OP_EXTENSION, &operands);
     }
+
+    // 3.5) ext-inst import(GLSL.std.450,texel fetch 越界钳制 UMin;须在 memory model 前)。
+    module.extend_from_slice(&b.ext_imports);
 
     // 4) memory model。
     Builder::emit(
@@ -2244,6 +2845,319 @@ mod tests {
         assert!(
             instrs.iter().any(|(op, _)| *op == OP_EXTENSION),
             "DXIL 路应保留 OpExtension SPV_GOOGLE_hlsl_functionality1"
+        );
+    }
+
+    // ── 采样方法族 opcode 全家(RXS-0223/0226~0229;结构性单测,不依赖 spirv-val 恒跑) ──
+
+    /// 构造一个 fragment body:输入 I/O 字段(coord/val/grad 等)+ 具名资源句柄形参 +
+    /// 单条 `assign(temp, rv)` 语句(rv = 采样方法族 rvalue,texture_local=2 / sampler_local=3)。
+    fn emit_resource_op_body(
+        in_fields: Vec<(&str, MirIoType)>,
+        resources: Vec<ResourceBinding>,
+        rv: Rvalue,
+    ) -> Result<Vec<u32>, DxilError> {
+        let io_sig: Vec<IoSigElem> = in_fields
+            .iter()
+            .map(|(n, ty)| elem(n, IoSigKind::Varying, *ty, IoDir::In))
+            .collect();
+        // locals: 0=ret / 1=input struct arg / 2.. = 具名资源句柄 / 末=temp result。
+        let mut locals = vec![local(output_adt()), local(input_adt())];
+        for res in &resources {
+            locals.push(Local {
+                ty: output_adt(),
+                name: Some(res.name.clone()),
+                span: dummy_span(),
+                shared: false,
+                array_len: None,
+            });
+        }
+        let temp = LocalIdx(locals.len() as u32);
+        locals.push(local(output_adt()));
+        let arg_count = 1 + resources.len();
+        let body = Body {
+            def: DefId(0),
+            symbol: "main".to_owned(),
+            color: FnColor::Kernel,
+            generic_args: Vec::new(),
+            locals,
+            arg_count,
+            blocks: vec![BasicBlock {
+                stmts: vec![assign(temp, rv)],
+                terminator: Terminator {
+                    kind: TerminatorKind::Return,
+                    span: dummy_span(),
+                },
+            }],
+            span: dummy_span(),
+            stage: Some(ShaderStage::Fragment),
+            io_sig,
+            resources,
+        };
+        emit_spirv_body(ShaderStage::Fragment, &body)
+    }
+
+    fn rb(name: &str, res: MirResourceType) -> ResourceBinding {
+        ResourceBinding {
+            name: name.to_owned(),
+            res,
+            count: crate::mir::ResourceCount::One,
+        }
+    }
+
+    /// coord = 读输入 I/O 字段 idx(identity 位置标识形态,RXS-0229)。
+    fn coord_field(idx: u32) -> Operand {
+        Operand::Copy(field(LocalIdx(1), idx))
+    }
+
+    fn has_op(m: &[u32], op: u16) -> bool {
+        instructions(m).iter().any(|(o, _)| *o == op)
+    }
+
+    /// RXS-0226/0227:`sample`(隐式 LOD)→ `OpImageSampleImplicitLod`(无 Lod operand)。
+    #[test]
+    fn sample_lowers_to_implicit_lod() {
+        //@ spec: RXS-0223
+        //@ spec: RXS-0226
+        //@ spec: RXS-0227
+        let m = emit_resource_op_body(
+            vec![("uv", MirIoType::Vector(PrimTy::F32, 2))],
+            vec![
+                rb("tex", MirResourceType::Texture2D(PrimTy::F32)),
+                rb("samp", MirResourceType::Sampler),
+            ],
+            Rvalue::ResourceSample {
+                texture_local: LocalIdx(2),
+                sampler_local: Some(LocalIdx(3)),
+                method: ResourceMethod::Sample,
+                coord: coord_field(0),
+                extra: Vec::new(),
+            },
+        )
+        .expect("sample 隐式 LOD 应 Ok");
+        assert!(
+            has_op(&m, OP_IMAGE_SAMPLE_IMPLICIT_LOD),
+            "sample → OpImageSampleImplicitLod"
+        );
+        assert!(
+            !has_op(&m, OP_IMAGE_SAMPLE_EXPLICIT_LOD),
+            "sample 不应 emit ExplicitLod"
+        );
+    }
+
+    /// RXS-0223:既有 `.sample()` 迁移 = `sample_lod` 空 extra → `OpImageSampleExplicitLod`(Lod 0)。
+    #[test]
+    fn sample_lod_empty_extra_lowers_to_explicit_lod0() {
+        //@ spec: RXS-0223
+        let m = emit_resource_op_body(
+            vec![("uv", MirIoType::Vector(PrimTy::F32, 2))],
+            vec![
+                rb("tex", MirResourceType::Texture2D(PrimTy::F32)),
+                rb("samp", MirResourceType::Sampler),
+            ],
+            Rvalue::ResourceSample {
+                texture_local: LocalIdx(2),
+                sampler_local: Some(LocalIdx(3)),
+                method: ResourceMethod::SampleLod,
+                coord: coord_field(0),
+                extra: Vec::new(),
+            },
+        )
+        .expect("sample_lod 空 extra 应 Ok");
+        assert!(
+            has_op(&m, OP_IMAGE_SAMPLE_EXPLICIT_LOD),
+            "sample_lod → OpImageSampleExplicitLod"
+        );
+    }
+
+    /// RXS-0226:`sample_grad` → `OpImageSampleExplicitLod`(Grad ddx/ddy)。
+    #[test]
+    fn sample_grad_lowers_to_explicit_grad() {
+        //@ spec: RXS-0226
+        let m = emit_resource_op_body(
+            vec![
+                ("uv", MirIoType::Vector(PrimTy::F32, 2)),
+                ("ddx", MirIoType::Vector(PrimTy::F32, 2)),
+                ("ddy", MirIoType::Vector(PrimTy::F32, 2)),
+            ],
+            vec![
+                rb("tex", MirResourceType::Texture2D(PrimTy::F32)),
+                rb("samp", MirResourceType::Sampler),
+            ],
+            Rvalue::ResourceSample {
+                texture_local: LocalIdx(2),
+                sampler_local: Some(LocalIdx(3)),
+                method: ResourceMethod::SampleGrad,
+                coord: coord_field(0),
+                extra: vec![coord_field(1), coord_field(2)],
+            },
+        )
+        .expect("sample_grad 应 Ok");
+        let grad = instructions(&m)
+            .into_iter()
+            .find(|(op, _)| *op == OP_IMAGE_SAMPLE_EXPLICIT_LOD)
+            .expect("应 emit ExplicitLod");
+        assert!(
+            grad.1.contains(&IMAGE_OPERANDS_GRAD),
+            "ImageOperands 应含 Grad bit"
+        );
+    }
+
+    /// RXS-0228:`load` → `OpImageFetch` + 越界钳制序列(ImageQuery cap + QuerySizeLod + UMin)。
+    #[test]
+    fn texel_fetch_lowers_with_clamp_sequence() {
+        //@ spec: RXS-0228
+        let m = emit_resource_op_body(
+            vec![("px", MirIoType::Vector(PrimTy::U32, 2))],
+            vec![rb("tex", MirResourceType::Texture2D(PrimTy::F32))],
+            Rvalue::ResourceSample {
+                texture_local: LocalIdx(2),
+                sampler_local: None,
+                method: ResourceMethod::Load,
+                coord: coord_field(0),
+                extra: Vec::new(),
+            },
+        )
+        .expect("load texel fetch 应 Ok");
+        assert!(has_op(&m, OP_IMAGE_FETCH), "load → OpImageFetch");
+        assert!(
+            has_op(&m, OP_IMAGE_QUERY_SIZE_LOD),
+            "越界钳制应 emit OpImageQuerySizeLod"
+        );
+        assert!(
+            has_op(&m, OP_EXT_INST),
+            "越界钳制应 emit OpExtInst(GLSL.std.450 UMin)"
+        );
+        assert!(
+            has_op(&m, OP_EXT_INST_IMPORT),
+            "应 emit OpExtInstImport GLSL.std.450"
+        );
+        // ImageQuery capability 声明(RXS-0228)。
+        let caps: Vec<u32> = instructions(&m)
+            .iter()
+            .filter(|(op, _)| *op == OP_CAPABILITY)
+            .map(|(_, ops)| ops[0])
+            .collect();
+        assert!(
+            caps.contains(&CAP_IMAGE_QUERY),
+            "应声明 ImageQuery 能力,实得 {caps:?}"
+        );
+    }
+
+    /// RXS-0229:`TextureRw2D.store`(identity 坐标)→ `OpImageWrite`(唯一写者)。
+    #[test]
+    fn storage_store_identity_lowers_to_image_write() {
+        //@ spec: RXS-0229
+        let m = emit_resource_op_body(
+            vec![
+                ("px", MirIoType::Vector(PrimTy::U32, 2)),
+                ("val", MirIoType::Vector(PrimTy::F32, 4)),
+            ],
+            vec![rb("img", MirResourceType::TextureRw2D(PrimTy::F32))],
+            Rvalue::ResourceSample {
+                texture_local: LocalIdx(2),
+                sampler_local: None,
+                method: ResourceMethod::Store,
+                coord: coord_field(0),
+                extra: vec![coord_field(1)],
+            },
+        )
+        .expect("identity store 应 Ok");
+        assert!(has_op(&m, OP_IMAGE_WRITE), "store → OpImageWrite");
+        // storage image 类型带显式 format(Rgba32f)。
+        let img_ty = instructions(&m)
+            .into_iter()
+            .find(|(op, _)| *op == OP_TYPE_IMAGE)
+            .expect("应 emit OpTypeImage");
+        assert_eq!(
+            img_ty.1.last(),
+            Some(&IMAGE_FORMAT_RGBA32F),
+            "storage image 应带显式 format Rgba32f"
+        );
+    }
+
+    /// RXS-0229:非 identity(常量)坐标 store → strict-only 拒(唯一写者纪律,可 golden)。
+    #[test]
+    fn storage_store_nonidentity_rejects() {
+        //@ spec: RXS-0229
+        let r = emit_resource_op_body(
+            vec![("val", MirIoType::Vector(PrimTy::F32, 4))],
+            vec![rb("img", MirResourceType::TextureRw2D(PrimTy::F32))],
+            Rvalue::ResourceSample {
+                texture_local: LocalIdx(2),
+                sampler_local: None,
+                method: ResourceMethod::Store,
+                // 常量坐标 = 所有 invocation 写同一 texel = 多写者 → 非 identity。
+                coord: Operand::Const(Const::Int(0, PrimTy::U32)),
+                extra: vec![coord_field(0)],
+            },
+        );
+        assert!(
+            matches!(r, Err(DxilError::SampleUnsupported { .. })),
+            "非 identity 坐标 store 应 strict-only 拒(唯一写者纪律 RXS-0229),实得 {r:?}"
+        );
+    }
+
+    /// RXS-0226:`gather` → `OpImageGather`;`sample_cmp` → `OpImageSampleDrefExplicitLod`;
+    /// `TextureRw2D.load` → `OpImageRead`(probe-gated 子模式亦落 opcode 结构)。
+    #[test]
+    fn gather_cmp_storageload_lower_to_family_opcodes() {
+        //@ spec: RXS-0226
+        let gather = emit_resource_op_body(
+            vec![("uv", MirIoType::Vector(PrimTy::F32, 2))],
+            vec![
+                rb("tex", MirResourceType::Texture2D(PrimTy::F32)),
+                rb("samp", MirResourceType::Sampler),
+            ],
+            Rvalue::ResourceSample {
+                texture_local: LocalIdx(2),
+                sampler_local: Some(LocalIdx(3)),
+                method: ResourceMethod::Gather,
+                coord: coord_field(0),
+                extra: vec![Operand::Const(Const::Int(1, PrimTy::U32))],
+            },
+        )
+        .expect("gather 应 Ok");
+        assert!(has_op(&gather, OP_IMAGE_GATHER), "gather → OpImageGather");
+
+        let cmp = emit_resource_op_body(
+            vec![
+                ("uv", MirIoType::Vector(PrimTy::F32, 2)),
+                ("dref", MirIoType::Scalar(PrimTy::F32)),
+            ],
+            vec![
+                rb("tex", MirResourceType::Texture2D(PrimTy::F32)),
+                rb("scmp", MirResourceType::SamplerCmp),
+            ],
+            Rvalue::ResourceSample {
+                texture_local: LocalIdx(2),
+                sampler_local: Some(LocalIdx(3)),
+                method: ResourceMethod::SampleCmp,
+                coord: coord_field(0),
+                extra: vec![coord_field(1)],
+            },
+        )
+        .expect("sample_cmp 应 Ok");
+        assert!(
+            has_op(&cmp, OP_IMAGE_SAMPLE_DREF_EXPLICIT_LOD),
+            "sample_cmp → DrefExplicitLod"
+        );
+
+        let rwload = emit_resource_op_body(
+            vec![("px", MirIoType::Vector(PrimTy::U32, 2))],
+            vec![rb("img", MirResourceType::TextureRw2D(PrimTy::F32))],
+            Rvalue::ResourceSample {
+                texture_local: LocalIdx(2),
+                sampler_local: None,
+                method: ResourceMethod::StorageLoad,
+                coord: coord_field(0),
+                extra: Vec::new(),
+            },
+        )
+        .expect("TextureRw2D.load 应 Ok");
+        assert!(
+            has_op(&rwload, OP_IMAGE_READ),
+            "TextureRw2D.load → OpImageRead"
         );
     }
 }

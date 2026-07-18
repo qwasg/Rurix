@@ -1208,6 +1208,30 @@
     "RXS-0222": [
       "src/uc04-demo/src/device.rs",
       "src/uc04-demo/src/present.rs"
+    ],
+    "RXS-0223": [
+      "src/rurixc/src/dxil_spirv.rs"
+    ],
+    "RXS-0224": [
+      "src/rurixc/src/binding_layout.rs"
+    ],
+    "RXS-0225": [
+      "src/rurix-rt/src/sampler.rs"
+    ],
+    "RXS-0226": [
+      "src/rurixc/src/dxil_spirv.rs"
+    ],
+    "RXS-0227": [
+      "src/rurixc/src/dxil_spirv.rs"
+    ],
+    "RXS-0228": [
+      "src/rurixc/src/dxil_spirv.rs"
+    ],
+    "RXS-0229": [
+      "src/rurixc/src/dxil_spirv.rs"
+    ],
+    "RXS-0230": [
+      "src/rurixc/src/binding_layout.rs"
     ]
   }
 }

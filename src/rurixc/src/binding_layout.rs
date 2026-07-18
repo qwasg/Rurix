@@ -646,6 +646,213 @@ pub fn check_binding_consistency(
     Ok(())
 }
 
+// ════════════════ RXS-0230:Vk-native set-per-class 分配策略 ════════════════
+// (E-3:单一 binding-号事实源 + 按目标两套 set 分配策略)。
+
+/// Vk-native 形态 set 轴映射(RXS-0230 L2 / RFC-0013 §4.0-1):
+/// `set = 类别轴`(0=CBV / 1=SRV / 2=UAV / 3=Sampler);bindless 无界表自 set4 起
+/// (§4.C,本函数不涉及)。
+pub fn class_to_vk_set(class: ResourceClass) -> u32 {
+    match class {
+        ResourceClass::Cbv => 0,
+        ResourceClass::Srv => 1,
+        ResourceClass::Uav => 2,
+        ResourceClass::Sampler => 3,
+    }
+}
+
+/// RXS-0230(E-3):Vk-native descriptor set 分配策略——**binding 号与
+/// [`infer_spirv_bindings`] 同一事实源**(per-class 递增),但 `set = 类别轴`
+/// (0=CBV/1=SRV/2=UAV/3=Sampler)而非硬编码 set0。原生 Vulkan 消费下四类轴各占
+/// 独立 set,不再 binding 0 互撞(承 binding_layout.rs:144-147 device bug 教训)。
+///
+/// **B 链形态(`infer_spirv_bindings`)装饰字节不动**(零 golden 重 bless);两套策略
+/// 共享同一 binding-号推导(单一事实源,非「一处推导两形态」的含糊)。
+///
+/// # Errors
+/// 同 [`infer_spirv_bindings`]:`Unbounded` → [`BindingInferError::Unmappable`](RD-018)。
+pub fn infer_spirv_bindings_vk_native(
+    resources: &[ResourceBinding],
+) -> Result<Vec<SpirvBinding>, BindingInferError> {
+    // binding 号复用 B 链同一事实源;仅 set 分配策略切换为类别轴。
+    let b_chain = infer_spirv_bindings(resources)?;
+    Ok(b_chain
+        .into_iter()
+        .map(|b| SpirvBinding {
+            set: class_to_vk_set(b.class),
+            ..b
+        })
+        .collect())
+}
+
+// ════════════════ RXS-0224:sampler 状态空间 + 静态 sampler 序列化 ════════════════
+
+/// sampler 过滤模式(min/mag/mip 三合一;RXS-0224 状态空间,与宿主 `SamplerDesc`
+/// 〔RXS-0225〕镜像同一状态空间)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SamplerFilter {
+    /// 最近邻(point)。
+    Nearest,
+    /// 线性(min/mag/mip 线性)。
+    Linear,
+}
+
+/// sampler 寻址模式(RXS-0224)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SamplerAddress {
+    /// clamp-to-edge。
+    Clamp,
+    /// wrap / repeat。
+    Wrap,
+    /// mirror。
+    Mirror,
+    /// border(色限三预置)。
+    Border,
+}
+
+/// 比较函数(仅 `SamplerCmp`;RXS-0224)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SamplerCompare {
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
+}
+
+/// sampler 状态空间(RXS-0224 单一事实源;静态属性 `#[sampler(...)]` 与宿主
+/// `SamplerDesc`〔RXS-0225〕镜像同一状态集)。`lod_bias` 钳 [-16,16)。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SamplerState {
+    /// 过滤模式(min/mag/mip 三合一)。
+    pub filter: SamplerFilter,
+    /// 寻址模式(UVW 三向同值,首期)。
+    pub address: SamplerAddress,
+    /// 各向异性(1=off;>1 时 device 探测 `samplerAnisotropy`)。
+    pub max_anisotropy: u32,
+    /// LOD bias(钳 [-16,16))。
+    pub lod_bias: f32,
+    /// min LOD。
+    pub min_lod: f32,
+    /// max LOD。
+    pub max_lod: f32,
+    /// 比较函数(仅 `SamplerCmp`;`None` = 普通采样)。
+    pub compare: Option<SamplerCompare>,
+}
+
+impl Default for SamplerState {
+    /// 无属性 = 现行静态默认(linear + clamp,RXS-0176 DS4 向后一致)。
+    fn default() -> Self {
+        SamplerState {
+            filter: SamplerFilter::Linear,
+            address: SamplerAddress::Clamp,
+            max_anisotropy: 1,
+            lod_bias: 0.0,
+            min_lod: 0.0,
+            max_lod: f32::MAX,
+            compare: None,
+        }
+    }
+}
+
+impl SamplerState {
+    /// 状态合法性(RXS-0224 Legality:`lod_bias` 钳 [-16,16)、`max_anisotropy` ≥ 1)。
+    /// 非法状态组合 → `false`(前端并入 RX3014 扩类别,strict-only)。
+    pub fn is_valid(&self) -> bool {
+        (-16.0..16.0).contains(&self.lod_bias) && self.max_anisotropy >= 1
+    }
+}
+
+/// D3D12 `D3D12_STATIC_SAMPLER_DESC` 静态 sampler(RXS-0224:`#[sampler(...)]` 常量折叠
+/// → RTS0 static sampler,不占 descriptor table 槽位;s 轴与动态 sampler 共序 RXS-0164)。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StaticSamplerDesc {
+    /// sampler 状态(常量折叠自 `#[sampler(...)]`)。
+    pub state: SamplerState,
+    /// `s` 轴 register 基号(与动态 sampler 共声明序,RXS-0164)。
+    pub shader_register: u32,
+    /// register space(首期 0)。
+    pub space: u32,
+}
+
+impl StaticSamplerDesc {
+    /// 序列化为 `D3D12_STATIC_SAMPLER_DESC`(13 × u32 = 52 字节,确定性;RXS-0224)。
+    /// 具体枚举数值取 D3D12 既定常量(实现确定、gate 后、非 stable;🔒 不冻结为 ABI)。
+    pub fn serialize(&self) -> [u8; 52] {
+        // D3D12_FILTER:MIN_MAG_MIP_POINT=0 / MIN_MAG_MIP_LINEAR=0x15;比较型 +0x80。
+        let base_filter = match self.state.filter {
+            SamplerFilter::Nearest => 0x0,
+            SamplerFilter::Linear => 0x15,
+        };
+        let filter = if self.state.compare.is_some() {
+            base_filter | 0x80 // COMPARISON 位。
+        } else {
+            base_filter
+        };
+        // D3D12_TEXTURE_ADDRESS_MODE:WRAP=1 / MIRROR=2 / CLAMP=3 / BORDER=4。
+        let addr = match self.state.address {
+            SamplerAddress::Wrap => 1,
+            SamplerAddress::Mirror => 2,
+            SamplerAddress::Clamp => 3,
+            SamplerAddress::Border => 4,
+        };
+        // D3D12_COMPARISON_FUNC:LESS=2 / LESS_EQUAL=4 / GREATER=5 / GREATER_EQUAL=7;
+        // 无比较 → NEVER=1(D3D12 static sampler 恒填有效枚举)。
+        let cmp = match self.state.compare {
+            Some(SamplerCompare::Less) => 2,
+            Some(SamplerCompare::LessEqual) => 4,
+            Some(SamplerCompare::Greater) => 5,
+            Some(SamplerCompare::GreaterEqual) => 7,
+            None => 1,
+        };
+        let mut out = [0u8; 52];
+        let mut w = |i: usize, v: u32| out[i * 4..i * 4 + 4].copy_from_slice(&v.to_le_bytes());
+        w(0, filter);
+        w(1, addr); // AddressU
+        w(2, addr); // AddressV
+        w(3, addr); // AddressW
+        w(4, self.state.lod_bias.to_bits());
+        w(5, self.state.max_anisotropy);
+        w(6, cmp);
+        w(7, 0); // BorderColor = OPAQUE_BLACK(0)。
+        w(8, self.state.min_lod.to_bits());
+        w(9, self.state.max_lod.to_bits());
+        w(10, self.shader_register);
+        w(11, self.space);
+        w(12, SHADER_VISIBILITY_ALL);
+        out
+    }
+}
+
+/// RXS-0224:静态 sampler 经 s 轴与动态 sampler **共声明序**分配 register(RXS-0164);
+/// 静态者**不占 descriptor table 槽位**(降级 RTS0 static sampler)。给定动态 sampler
+/// 已消费的 s 轴 register 数 `dynamic_sampler_count`,静态 sampler 自其后按 `states`
+/// 声明序递增分配。
+pub fn assign_static_sampler_registers(
+    states: &[SamplerState],
+    dynamic_sampler_count: u32,
+) -> Vec<StaticSamplerDesc> {
+    states
+        .iter()
+        .enumerate()
+        .map(|(i, state)| StaticSamplerDesc {
+            state: *state,
+            shader_register: dynamic_sampler_count + i as u32,
+            space: 0,
+        })
+        .collect()
+}
+
+/// RXS-0224:RTS0 header 的 `NumStaticSamplers` 字段值(现 `serialize_rts0` 恒写 0
+/// 的扩展点)。静态 sampler 存在时 = `samplers.len()`,序列化载荷为各
+/// [`StaticSamplerDesc::serialize`] 连缀(确定性)。
+pub fn serialize_static_samplers(samplers: &[StaticSamplerDesc]) -> Vec<u8> {
+    let mut buf = Vec::with_capacity(samplers.len() * 52);
+    for s in samplers {
+        buf.extend_from_slice(&s.serialize());
+    }
+    buf
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -980,5 +1187,113 @@ mod tests {
             check_binding_consistency(&intent, &reflected),
             Err(BindingInferError::Psv0Mismatch { .. })
         ));
+    }
+
+    // ── RXS-0230:Vk-native set-per-class 两套 set 分配策略(E-3) ──
+
+    /// RXS-0230:Vk-native 形态 set = 类别轴(0=CBV/1=SRV/2=UAV/3=Sampler),binding 号
+    /// 与 B 链**同一事实源**(单一 binding-号 + 两套 set 策略)。
+    #[test]
+    fn vk_native_set_per_class_shares_binding_source() {
+        //@ spec: RXS-0230
+        let resources = vec![
+            rb("cbv", MirResourceType::ConstantBuffer),
+            rb("tex", MirResourceType::Texture2D(PrimTy::F32)),
+            rb("rw", MirResourceType::TextureRw2D(PrimTy::F32)),
+            rb("samp", MirResourceType::Sampler),
+        ];
+        let b_chain = infer_spirv_bindings(&resources).expect("B 链推导");
+        let vk = infer_spirv_bindings_vk_native(&resources).expect("Vk-native 推导");
+
+        // B 链形态:set 恒 0(字节不动,零 golden 重 bless)。
+        assert!(b_chain.iter().all(|b| b.set == 0), "B 链 set 恒 0");
+
+        // Vk-native 形态:set = 类别轴。
+        let sets: Vec<(String, u32)> = vk.iter().map(|b| (b.name.clone(), b.set)).collect();
+        assert_eq!(
+            sets,
+            vec![
+                ("cbv".to_owned(), 0),  // CBV → set 0
+                ("tex".to_owned(), 1),  // SRV → set 1
+                ("rw".to_owned(), 2),   // UAV(TextureRw2D)→ set 2
+                ("samp".to_owned(), 3)  // Sampler → set 3
+            ]
+        );
+
+        // 单一 binding-号事实源:两形态 binding 号逐一相等(仅 set 策略不同)。
+        for (bc, v) in b_chain.iter().zip(vk.iter()) {
+            assert_eq!(bc.name, v.name);
+            assert_eq!(bc.binding, v.binding, "binding 号两策略同源");
+            assert_eq!(bc.class, v.class);
+        }
+    }
+
+    // ── RXS-0224:sampler 状态空间 + 静态 sampler(#[sampler(...)] 常量折叠) ──
+
+    /// RXS-0224:sampler 状态空间合法性(lod_bias 钳 [-16,16)、max_anisotropy ≥ 1)。
+    #[test]
+    fn sampler_state_validity() {
+        //@ spec: RXS-0224
+        assert!(SamplerState::default().is_valid(), "默认 linear+clamp 合法");
+        let bad_bias = SamplerState {
+            lod_bias: 16.0, // 越界(钳 [-16,16))。
+            ..SamplerState::default()
+        };
+        assert!(!bad_bias.is_valid(), "lod_bias 越界应非法");
+        let bad_aniso = SamplerState {
+            max_anisotropy: 0,
+            ..SamplerState::default()
+        };
+        assert!(!bad_aniso.is_valid(), "max_anisotropy 0 应非法");
+    }
+
+    /// RXS-0224:静态 sampler s 轴与动态 sampler 共声明序(RXS-0164)+ NumStaticSamplers
+    /// 序列化确定性 + 不占 descriptor table 槽位。
+    #[test]
+    fn static_sampler_shares_s_axis_and_serializes() {
+        //@ spec: RXS-0224
+        // 场景:1 个动态 sampler(消费 s0)+ 2 个静态 sampler → 静态自 s1/s2。
+        let statics = vec![
+            SamplerState {
+                filter: SamplerFilter::Nearest,
+                address: SamplerAddress::Wrap,
+                ..SamplerState::default()
+            },
+            SamplerState {
+                compare: Some(SamplerCompare::LessEqual),
+                ..SamplerState::default()
+            },
+        ];
+        let descs = assign_static_sampler_registers(&statics, /*dynamic_sampler_count=*/ 1);
+        assert_eq!(descs.len(), 2);
+        assert_eq!(descs[0].shader_register, 1, "静态 sampler 自 s1(动态占 s0)");
+        assert_eq!(descs[1].shader_register, 2, "第二静态 sampler s2");
+
+        // NumStaticSamplers 序列化:2 × 52 字节,确定性(两次逐字节一致)。
+        let bytes = serialize_static_samplers(&descs);
+        assert_eq!(bytes.len(), 2 * 52, "每 static sampler 52 字节");
+        assert_eq!(bytes, serialize_static_samplers(&descs), "序列化确定性");
+
+        // 静态者不占 descriptor table 槽位:仅动态 sampler 入 root signature table。
+        // (root signature 推导只消费 resources 中的动态 sampler;静态 sampler 走 RTS0
+        //  static sampler 段,不产生 DescriptorTable range。)
+        let rs = infer_root_signature(&[rb("dyn_samp", MirResourceType::Sampler)])
+            .expect("单动态 sampler root sig");
+        let sampler_tables = rs
+            .parameters
+            .iter()
+            .filter(|p| {
+                matches!(p, RootParameter::DescriptorTable { ranges }
+                if ranges.iter().any(|r| r.range_type == ResourceClass::Sampler))
+            })
+            .count();
+        assert_eq!(sampler_tables, 1, "仅动态 sampler 入 table;静态不占槽位");
+
+        // 比较型静态 sampler 序列化含 COMPARISON filter 位(0x80)。
+        let cmp_filter = u32::from_le_bytes(bytes[52..56].try_into().unwrap());
+        assert!(
+            cmp_filter & 0x80 != 0,
+            "SamplerCmp 静态 sampler filter 含比较位"
+        );
     }
 }
