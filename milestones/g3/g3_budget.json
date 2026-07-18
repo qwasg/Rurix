@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "namespace": "g3",
+  "description": "G3 预算(14 §3:entries + ratio_assertions + counter_assertions,命名空间强制前缀)。G3 开工脚手架:entries/ratio_assertions/counter_assertions 全部留空(延续 G2/MB1/EA1 脚手架先例 + MVP 零占位纪律,14 §3)。entries/ratio_assertions 留空 = 不预欠 estimated 占位(EA1×G3 双活跃期互斥保险 = 全程零 estimated 铁律,契约 §7 ⑧);counter_assertions 留空 = 五特性面全部 Full-RFC-gated(RFC-0013~0017),deliverable 形态未定,预造 counter 即预设 Full RFC 应定义的语义。预期 counter 集(以各面实现 PR 实际为准):g3.counter.uc04_present_frames(present 帧数见证) / g3.counter.sampling_superset_modes(采样模式去重基数,预期 ≥6) / g3.counter.bindless_descriptor_smoke(索引红绿见证) / g3.counter.auto_barrier_hazard_redgreen(hazard 检出红绿见证) / g3.counter.mesh_task_rt_stages(阶段去重基数,预期 ≥3)——各随对应面实现 PR 落地 + 配套 ci/budget_eval.py evaluator 分支(条款先于实现,登记与 evaluator 同 PR,未知 id 强制 FAIL)。性能 entries(如 present 帧时延)仅在有真实取证时以 measured_local 回填,不预欠。RD-027 处置若走修复路径,ms1.bench.uc07_offline_frame_s 的 256spp/4 弹射升档重测回填归 milestones/ms1/ms1_budget.json 按其 backfill_condition 协议留痕,不在本文件立镜像条目。**永不立下载量/用户数类外部采纳条目**(契约 out_of_scope production_adoption_claim,MS1/EA1 carve-out 纪律)。占位规则:evidence=estimated 时 evaluator skip 并输出 skip_reason;占位存活 ≤2 个里程碑。预算自动发现 glob 已泛化为 *_budget.json,g3_budget.json 自动纳入,零新 CI 码。",
+  "source_docs": [
+    "14 §3",
+    "milestones/g3/G3_CONTRACT.md",
+    "milestones/g3/G3_PLAN.md",
+    "milestones/g3/CI_GATES.md",
+    "milestones/m0/BENCH_PROTOCOL.md",
+    "registry/deferred.json(RD-012/018/019/020/022/023/024/027/029 = 本期兑现/处置对象)"
+  ],
+  "entries": [],
+  "ratio_assertions": [],
+  "counter_assertions": [],
+  "namespace_check": {
+    "rule": "本文件所有 id 必须以 'g3.' 前缀开头;多预算合并加载时冲突即 FAIL(14 §3)。预算自动发现 glob 为 *_budget.json(ci/check_schemas.py / budget_eval.py / check_guardrails.py / tests/test_budget_namespace.py 同一 glob),g3 自动纳入无新 CI 码。",
+    "unit_test_required": true
+  },
+  "revision_log": [
+    {
+      "version": "v1.0",
+      "date": "2026-07-18",
+      "change": "初版模板(G3 开工脚手架):entries/ratio_assertions/counter_assertions 全部留空。entries/ratio_assertions 留空(不预欠 estimated 占位,双活跃期零 estimated 铁律);counter_assertions 留空(五面 Full-RFC-gated(RFC-0013~0017),不预造 counter)。g3.counter.* 随各面实现 PR 回填 + 配套 ci/budget_eval.py evaluator 分支(条款先于实现);RD-027 修复路径的 uc07 升档回填归 ms1_budget.json 按其 backfill_condition 协议。永不立外部采纳类条目。预算 glob *_budget.json 自动纳入 g3,无新 CI 代码改动。"
+    }
+  ]
+}
