@@ -347,11 +347,17 @@ pub enum Rvalue {
     /// store-value,见 [`ResourceMethod`]);仅图形=B(`dxil-backend`)/ Vulkan
     /// (`vulkan-backend`)着色 body 产出。
     ResourceSample {
-        /// `Texture2D<F>` / `TextureRw2D<F>` 句柄形参的 local 下标。
+        /// `Texture2D<F>` / `TextureRw2D<F>` 句柄形参的 local 下标。G3.4 无界表
+        /// (`table_index = Some`)时 = `[Texture2D<F>]` 无界表句柄形参的 local。
         texture_local: LocalIdx,
         /// `Sampler`/`SamplerCmp` 句柄形参的 local 下标;`load`/`load_lod`/`store`
         /// (无过滤整型取址/写)= `None`。
         sampler_local: Option<LocalIdx>,
+        /// G3.4 bindless(RXS-0232/0234):无界表动态索引 `table[nonuniform(idx)]`。
+        /// `Some(idx)` = 无界表元素采样(codegen `OpAccessChain`(runtime array)→
+        /// `OpLoad` 立即消费,不物化中间句柄 local;强制 clamp `UMin(idx, len-1)`)。
+        /// `None` = 既有单句柄采样(byte-preserving)。
+        table_index: Option<Operand>,
         /// 采样方法族判别(RXS-0223/0226)。
         method: ResourceMethod,
         /// 坐标:`sample` 族 = `vec2<f32>` 归一化 UV;`load`/`load_lod`/`store` =
@@ -659,6 +665,7 @@ fn print_rvalue(rv: &Rvalue, res: &Resolutions) -> String {
         Rvalue::ResourceSample {
             texture_local,
             sampler_local,
+            table_index,
             method,
             coord,
             extra,
@@ -667,11 +674,16 @@ fn print_rvalue(rv: &Rvalue, res: &Resolutions) -> String {
                 Some(s) => format!("_{}", s.0),
                 None => "-".to_owned(),
             };
+            // G3.4 无界表动态索引:`_tex[idx]`(RXS-0232);单句柄 = `_tex`。
+            let tex_ref = match table_index {
+                Some(idx) => format!("_{}[{}]", texture_local.0, print_operand(idx)),
+                None => format!("_{}", texture_local.0),
+            };
             let extra_s: Vec<String> = extra.iter().map(print_operand).collect();
             format!(
-                "{}(_{}, {}, {}{})",
+                "{}({}, {}, {}{})",
                 method.name(),
-                texture_local.0,
+                tex_ref,
                 samp,
                 print_operand(coord),
                 if extra_s.is_empty() {

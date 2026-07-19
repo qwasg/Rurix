@@ -523,6 +523,22 @@ def eval_counter(entry: dict, strict: bool) -> None:
         n = len(modes)
         count_or_gate(eid, n, 6, "个采样模式 device 数值判据(去重)",
                       "G3.3 采样数值 device 见证回填前为正常状态,契约 G-G3-3", strict)
+
+    elif eid == "g3.counter.bindless_descriptor_smoke":
+        # bindless 面 device 索引红绿见证数 ≥1(契约 G-G3-4;RFC-0013 §4.C / RXS-0231~0235;
+        # ≥4 纹理注册表按屏幕象限动态索引采样==四色 + 篡改注册序→像素换位 RED + feature
+        # chain 四 bit 缺失→确定性 Err)。计数 = evidence/bindless_*.json 中 smoke_ok=true 报告数
+        # (ci/bindless_smoke.py device 段真跑写;harness bin/bindless_modes 判据结构就位,数值
+        # 阈值 TODO 留 owner 本机)。bindless 索引真跑 = 交互 GPU 链路不进 pr-smoke 硬门,无显示/
+        # 无 GPU/未 opt-in → device SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out
+        # strict FAIL(对齐 g3.counter.sampling_superset_modes 先例)。
+        n = 0
+        for f in (ROOT / "evidence").glob("bindless_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("smoke_ok") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份 bindless 索引红绿 device 见证",
+                      "G3.4 bindless device 见证回填前为正常状态,契约 G-G3-4", strict)
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 

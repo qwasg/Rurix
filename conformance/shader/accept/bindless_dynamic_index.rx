@@ -1,0 +1,22 @@
+//@ spec: RXS-0231, RXS-0232
+// G3.4 bindless accept(RFC-0013 §4.C1):无界纹理表 `[Texture2D<f32>]` 仅签名形参 +
+// 动态索引临时句柄仅立即 sample receiver。`nonuniform(idx)` 标注(波内非均匀)+ 整型
+// 字面量常量索引(唯一豁免,无需标注)两路均 0 诊断。
+struct BlVary {
+    #[interpolate(perspective)] uv: vec2<f32>,
+    #[interpolate(flat)] idx: u32,
+}
+
+struct BlOut {
+    #[interpolate(perspective)] dyn_c: vec4<f32>,
+    #[interpolate(perspective)] lit_c: vec4<f32>,
+}
+
+fragment fn bindless_dynamic_index(inp: BlVary, table: [Texture2D<f32>], samp: Sampler) -> BlOut {
+    BlOut {
+        dyn_c: table[nonuniform(inp.idx)].sample(samp, inp.uv),
+        lit_c: table[0].sample(samp, inp.uv),
+    }
+}
+
+fn main() {}

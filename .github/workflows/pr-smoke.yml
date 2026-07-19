@@ -587,6 +587,21 @@ jobs:
         shell: powershell
         run: py -3 ci/sampling_superset_smoke.py
 
+      # `ci/bindless_smoke.py` host 段（步骤 64）**恒跑**(绑定推导翻转 Unbounded SRV 纹理合法化 +
+      # Vk-native 独占 set4 / RTS0 独占 space1 分配律 + 有界路零漂移 + RTS0 unbounded range roundtrip
+      # RXS-0233 + codegen 无界表 OpTypeRuntimeArray + RuntimeDescriptorArray/ShaderNonUniform capability +
+      # SPV_EXT_descriptor_indexing RXS-0234 + rxrt_table_* 符号面注册序即索引/handle-0 失败路 RXS-0235 +
+      # nonuniform 缺失 reject UI golden RX3016/RXS-0232 + conformance accept/reject 语料 + bindless SPIR-V
+      # spirv-val vulkan1.2 三态)。device 段(bindless harness bin/bindless_modes:≥4 纹理注册表按屏幕象限
+      # 动态索引采样==四色 + 篡改注册序→像素换位 RED + feature chain 四 bit 缺失→确定性 Err)= **交互 GPU
+      # 链路,不进 pr-smoke 硬门**(镜像 sampling_superset 双态)——默认 SKIP(dev-env degrade,退 0),须显式
+      # RURIX_BINDLESS_DEVICE=1(或 RURIX_REQUIRE_REAL=1)opt-in 真跑;**device 判据阈值 = owner 本机主循环
+      # 校准 TODO**(smoke_ok=true 计入 g3.counter.bindless_descriptor_smoke)。**AMD 真卡见证 = G-MB1-6
+      # 硬件尾门独立存续**(本机 RTX 4070 Ti measured 不充作 AMD)。
+      - name: bindless smoke (G3 CI_GATES §2.64, G-G3-4, RFC-0013 §4.C)
+        shell: powershell
+        run: py -3 ci/bindless_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

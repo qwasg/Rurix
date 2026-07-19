@@ -1,0 +1,5 @@
+error[RX3016]: bindless table dynamic index must be annotated with nonuniform(...): bindless table dynamic index must be wrapped in `nonuniform(...)` (only integer-literal constant indices are exempt; RXS-0232)
+  --> $DIR/shader/bindless_nonuniform_missing.rx:12:22
+   |
+12 |     BlOut { c: table[inp.idx].sample(samp, inp.uv) } //~ ERROR RX3016
+   |                      ^^^^^^^ un-annotated non-uniform bindless index

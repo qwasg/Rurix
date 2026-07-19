@@ -230,3 +230,8 @@
 | RXS-0228 | spec/dxil_backend.md | 4 | `conformance/dxil/graphics/accept/sample_superset_fs.rx`, `conformance/dxil/graphics/accept/sampling_fetch_vs.rx`, `conformance/dxil/graphics/accept/sampling_load_fs.rx` …(+1) |
 | RXS-0229 | spec/dxil_backend.md | 4 | `conformance/dxil/graphics/accept/sample_superset_rw_fs.rx`, `conformance/dxil/graphics/accept/sampling_fetch_vs.rx`, `conformance/dxil/graphics/accept/sampling_storage_fs.rx` …(+1) |
 | RXS-0230 | spec/vulkan_backend.md | 4 | `conformance/dxil/graphics/accept/sampling_fetch_vs.rx`, `conformance/dxil/graphics/accept/sampling_fullscreen_vs.rx`, `src/rurix-rt/src/vk.rs` …(+1) |
+| RXS-0231 | spec/shader_stages.md | 3 | `conformance/dxil/graphics/accept/bindless_sample_fs.rx`, `conformance/shader/accept/bindless_dynamic_index.rx`, `conformance/shader/reject/resource_handle/bindless_table_return.rx` |
+| RXS-0232 | spec/shader_stages.md | 6 | `conformance/dxil/graphics/accept/bindless_sample_fs.rx`, `conformance/shader/accept/bindless_dynamic_index.rx`, `conformance/shader/reject/bindless/handle_escape.rx` …(+3) |
+| RXS-0233 | spec/binding_layout.md | 2 | `conformance/dxil/graphics/accept/bindless_sample_fs.rx`, `src/rurixc/src/binding_layout.rs` |
+| RXS-0234 | spec/dxil_backend.md | 3 | `conformance/dxil/graphics/accept/bindless_sample_fs.rx`, `src/rurixc/src/dxil_spirv.rs`, `src/rurixc/tests/bindless_vulkan_spirv_val.rs` |
+| RXS-0235 | spec/host_orchestration.md | 1 | `src/rurix-rt-cabi/src/lib.rs` |

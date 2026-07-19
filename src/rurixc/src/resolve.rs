@@ -104,6 +104,10 @@ pub struct LangItems {
     /// `write_ppm` 宿主图像落盘桥自由函数(MS1.2b,RXS-0199;值位置兜底,
     /// 可被用户遮蔽;签名为 typeck 编译器已知)。
     pub write_ppm: Option<DefId>,
+    /// `nonuniform(idx)` bindless 动态非均匀索引标注自由函数(G3.4,RXS-0232;
+    /// 值位置兜底,可被用户遮蔽)。仅在无界表索引位置有意义:`table[nonuniform(idx)]`
+    /// → strict-only 标注缺失新码 RX3016;身份语义(返回实参,SPIR-V `NonUniform` 装饰)。
+    pub nonuniform: Option<DefId>,
     /// device block barrier 上下文(M5.2,RXS-0079):`block.sync()` 的 `block`
     /// 值位置兜底;`.sync()` → block 级 barrier(可被用户遮蔽)。
     pub block_ctx: Option<DefId>,
@@ -186,8 +190,15 @@ impl LangItems {
             // 宿主图像落盘桥自由函数(MS1.2b,RXS-0199):值位置兜底(模块值 ns
             // 优先 = 用户同名定义遮蔽);签名为 typeck 编译器已知。
             "write_ppm" => self.write_ppm,
+            // bindless 动态非均匀索引标注(RXS-0232);值位置兜底,用户同名定义遮蔽。
+            "nonuniform" => self.nonuniform,
             _ => None,
         }
+    }
+
+    /// `nonuniform(idx)` 标注自由函数判定(RXS-0232;bindless 索引识别)。
+    pub fn is_nonuniform(&self, d: DefId) -> bool {
+        Some(d) == self.nonuniform
     }
 
     /// `ThreadCtx` 容器判定(RXS-0072;device intrinsic 方法识别)。
@@ -429,6 +440,7 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
             present_presentable: None,
             present_create: None,
             write_ppm: None,
+            nonuniform: None,
             block_ctx: None,
             atomic: None,
             atomic_view: None,
@@ -538,6 +550,9 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
             Some(r.new_def(DefKind::Struct, "SamplerCmp", Vis::Pub, span, 0));
         r.out.lang_items.texture_rw2d =
             Some(r.new_def(DefKind::Struct, "TextureRw2D", Vis::Pub, span, 0));
+        // bindless 动态非均匀索引标注自由函数(G3.4,RXS-0232)。**追加于全部既有
+        // lang items 之后**,不动摇既有 DefId 编号(MIR/PTX golden 符号名稳定性)。
+        r.out.lang_items.nonuniform = Some(r.new_def(DefKind::Fn, "nonuniform", Vis::Pub, span, 0));
     }
     r.resolve_uses();
     r.resolve_impl_targets();

@@ -68,6 +68,12 @@ required-features = ["vulkan"]
 name = "sampling_modes"
 required-features = ["vulkan"]
 
+# G3.4 bindless device 索引判据 harness(步骤 64,opt-in RURIX_BINDLESS_DEVICE=1;
+# 四象限动态索引四色 + 篡改注册序换位 RED + feature chain 缺失 Err;判据阈值 TODO owner)。
+[[bin]]
+name = "bindless_modes"
+required-features = ["vulkan"]
+
 # unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6):rurix-rt 是首个 unsafe 边界(Driver API
 # FFI)。块级豁免 `unsafe_code`(注册见 unsafe-audit/rurix-rt.md),仍强制每个
 # unsafe 块携 `// SAFETY:` 注释(clippy undocumented_unsafe_blocks = deny)。

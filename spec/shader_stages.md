@@ -18,7 +18,7 @@
 
 全部着色阶段语义维持**仅类型面/语法面**:**DXIL codegen**(G2.2,内建变量寄存器/语义槽映射、DXIL 文本 golden)、**绑定布局推导实现**(G2.3,descriptor/root signature 生成)、**🔒 纹理/采样器内存模型映射**(06 §4.2 禁区:tex proxy / 采样 opcode / 描述符编码 / 缓存一致性 / UB,留后续独立 Full RFC,RFC-0002 §4.5)均**不在本文件**;device 分发维持 **PTX-only**(07 §7;DXIL 第二后端无 MVP 期 PTX↔DXIL 对应,完全于 G2.2 重评估,D-131)。着色阶段误用 / 阶段间接口不匹配 / 资源句柄违例以 **编译期类型/着色/接口诊断(P-01 strict-only)**定义,**不以 UB 表述**(§4)。
 
-**编号区间**:本文件条款自 **RXS-0153** 起续号(全 spec 唯一、分配制递增、永不复用,见 [README.md](README.md) §1;最高现存 RXS-0152 @ [release.md](release.md))。**区间已锁定 4 条 RXS-0153 ~ RXS-0156**(RFC-0002 §9 Q5,owner 2026-06-23 裁决:不预留、不预造;网格/RT 阶段间接口并入 RXS-0155、纹理类型集合并入 RXS-0156,本里程碑不拆条)。本轮(脚手架)**仅登记区间预留 RXS-0153 ~ RXS-0156**,**不落带编号裸条款头**;条款体与每条 ≥1 测试锚定随 G2.1 实现 PR(PR-B2,步骤 45)同落。区间登记于 [README.md](README.md) §4 文件清单。
+**编号区间**:本文件条款自 **RXS-0153** 起续号(全 spec 唯一、分配制递增、永不复用,见 [README.md](README.md) §1;最高现存 RXS-0152 @ [release.md](release.md))。**区间已锁定 4 条 RXS-0153 ~ RXS-0156**(RFC-0002 §9 Q5,owner 2026-06-23 裁决:不预留、不预造;网格/RT 阶段间接口并入 RXS-0155、纹理类型集合并入 RXS-0156,本里程碑不拆条)。本轮(脚手架)**仅登记区间预留 RXS-0153 ~ RXS-0156**,**不落带编号裸条款头**;条款体与每条 ≥1 测试锚定随 G2.1 实现 PR(PR-B2,步骤 45)同落。区间登记于 [README.md](README.md) §4 文件清单。**续登(G2.4/RFC-0007):RXS-0174 采样表达式类型面**;**续登(G3.3/RFC-0013 §4.B):RXS-0223 ~ RXS-0224 采样方法族 + 静态 sampler**;**续登(G3.4/RFC-0013 §4.C):RXS-0231 无界句柄数组类型面 + RXS-0232 动态索引 + `nonuniform` 标注**(bindless,区间自 RFC-0013 伞形 RXS-0220~0249 分配)。
 
 ## 2. 条款（RXS-0153 ~ RXS-0156，带编号条款体）
 
@@ -196,7 +196,49 @@ SamplerAttr  ::= "filter" "=" ("nearest" | "linear")
 
 > 锚定测试:`conformance/shader/accept/static_sampler_*.rx`(合法 `#[sampler(...)]` 0 诊断)+ `conformance/shader/reject/static_sampler_*.rx`(非法键值 `RX3014`);`binding_layout` 单测(`NumStaticSamplers > 0` 序列化确定性 + s 轴共序)。
 
-## 3. 错误码引用汇总（RX3011 ~ RX3014）
+### RXS-0231 无界资源句柄数组类型面（`[Texture2D<F>]` 仅签名形参，RFC-0013 §4.C1）
+
+**Syntax**（切片样式类型文法，**无新 token**——复用既有 `[T]` 切片类型产生式，RXS-0231 定义其在着色阶段签名形参位的资源句柄语义）:
+
+```
+UnboundedTable ::= "[" "Texture2D" "<" Type ">" "]"    // 无界纹理表(F 首批 = f32)
+```
+
+**Legality**（承句柄非值纪律 RXS-0156/0174，Q-B-IndexForm）:
+
+- `[Texture2D<F>]` **仅可作着色阶段函数签名形参**——返回位置 / 结构体字段 / 非着色阶段签名 / 嵌套 / 有界数组混写一律违例 → **RX3013 扩类别**（复用 RXS-0156「资源句柄违例」类别，位置纪律同构；strict-only）。
+- 首期无界元素种类**仅 SRV 纹理**（`Texture2D<F>`，F 首批 = `f32`）；无界 `Sampler`/CBV/UAV 表在绑定推导层维持不可映射（`RX6013`，见 spec/binding_layout.md RXS-0233 与 §8），本文件类型面不单列码。
+- 无界表句柄自身**非值**：不可 `let` 绑定、不可传参、不可存字段（RXS-0156/0174 不破）；其元素经动态索引取用见 RXS-0232。
+
+**Dynamic Semantics**：本条为纯类型/位置面，无运行期语言语义（无界表的 descriptor 布局推导见 spec/binding_layout.md RXS-0233，codegen 见 spec/dxil_backend.md RXS-0234，宿主注册面见 spec/host_orchestration.md RXS-0235）。
+
+**Implementation Requirements**：位置合法性在着色阶段前端（gate `shader-stages`，[`shader_stages`](../src/rurixc/src/shader_stages.rs) 剥一层切片取句柄头名，无界表位置纪律同标量句柄）；无界基数由 [`mir`](../src/rurixc/src/mir.rs) `ResourceCount::Unbounded` 承载（[`mir_build`](../src/rurixc/src/mir_build.rs) 切片样式形参 → `Unbounded`）。
+
+> 锚定测试:`conformance/shader/accept/bindless_dynamic_index.rx`（无界表签名形参 + 动态索引采样 0 诊断）+ `conformance/shader/reject/resource_handle/bindless_table_return.rx`（返回位置 `RX3013`）。
+
+### RXS-0232 动态索引表达式与 `nonuniform` 标注（strict-only，RFC-0013 §4.C1）
+
+**Syntax**（`table[idx]` 复用既有 `Index` 产生式;`nonuniform(idx)` 复用调用产生式，`nonuniform` 为值位置兜底标注自由函数，可被用户同名定义遮蔽）:
+
+```
+TableIndex     ::= Expr "[" IndexAnno "]"
+IndexAnno      ::= "nonuniform" "(" Expr ")"     // 非均匀索引(强制,strict-only)
+               | IntLiteral                       // 整型字面量常量索引(唯一豁免)
+```
+
+**Legality**（临时句柄仅立即 receiver，承 RXS-0174;Q-B-Uniformity）:
+
+- 索引表达式 `table[idx]`（`idx : u32` 任意表达式）的结果为**临时句柄**（类型 `Texture2D<F>`），**仅可作立即 receiver**（`table[i].sample(samp, uv)` / RXS-0223 方法族）——不可 `let` 绑定、不可传参、不可存字段（逃逸 → **RX3014 扩类别**，句柄非值纪律不破）。
+- 索引表达式须以 `nonuniform(expr)` 包裹，**唯一豁免 = 整型字面量常量索引**；缺失 → 编译期拒 **RX3016**（`shader.nonuniform_annotation_missing`，strict-only）。
+- **不做 uniformity / divergence 推断**——保守全标合法（过标注仅性能保守、SPIR-V 合法），推断留后期（Q-B-Uniformity）。
+
+**Dynamic Semantics**：`nonuniform(expr)` 语义为身份（返回实参值，类型 = 实参类型 `u32`），codegen 施 SPIR-V `NonUniform` 装饰（波内正确采样）；越界索引结果为**实现定义但有界**（clamp 至已注册表段，见 spec/dxil_backend.md RXS-0234），访问恒有界，**无未定义行为**。
+
+**Implementation Requirements**：`nonuniform` 为值位置兜底 lang-item 自由函数（[`resolve`](../src/rurixc/src/resolve.rs)，可用户遮蔽）；typeck（[`typeck`](../src/rurixc/src/typeck.rs)）在 `table[idx].method(..)` receiver 位拦截无界表索引、校验 nonuniform 标注（缺失 `RX3016`）+ 索引 `u32` 定型 + 记录 bindless；非 receiver 位的 `table[idx]` → `RX3014`（逃逸）；tbir 抽取索引值（剥 `nonuniform` 壳）降为 MIR `Rvalue::ResourceSample{table_index: Some(..)}`。
+
+> 锚定测试:`conformance/shader/accept/bindless_dynamic_index.rx`（`table[nonuniform(i)].sample` + 字面量常量索引 0 诊断）+ `conformance/shader/reject/bindless/nonuniform_missing.rx`（`RX3016`）+ `conformance/shader/reject/bindless/handle_escape.rx`（`let` 绑定临时句柄 `RX3014`）+ UI golden `tests/ui/shader/bindless_nonuniform_missing.stderr`。
+
+## 3. 错误码引用汇总（RX3011 ~ RX3016）
 
 > 三类编译期拦截(着色阶段误用 / 阶段间接口不匹配 / 资源句柄违例)属 **Rurix 语义诊断**(编译期可检的着色/接口/句柄合法性,对齐 RXS-0066 着色诊断先例),归 **3xxx 着色/地址空间段位续号**(07 §5 语义分配;接 RX3010 之后 **RX3011+**——**非全局 7xxx 段**,7xxx 为运行期/互操作段)。纯 Rust 通用错误(类型不符等)走 rustc 原生诊断(零新 RX)。
 
@@ -206,9 +248,10 @@ SamplerAttr  ::= "filter" "=" ("nearest" | "linear")
 | RX3011 | 着色阶段 I/O 标注违例:着色阶段 I/O 字段无 `#[interpolate(..)]`/`#[builtin(..)]` 标注 / 未知 builtin 名 / 未知插值限定 | RXS-0154 |
 | RX3012 | 阶段间接口不匹配:fragment 输入 varying 与上游 vertex 输出名/类型/插值限定不兼容 | RXS-0155 |
 | RX3013 | 资源句柄违例:`Texture2D`/`Sampler` 出现在返回位置 / 结构体字段 / 非着色阶段签名,或未支持纹理维度(defer) | RXS-0156 |
-| RX3014 | 采样表达式违例:`tex.sample(samp, coord)` receiver 非 `Texture2D<F>` / `samp` 非 `Sampler` / `coord` 非 `vec2<f32>` / 元数不符 / 非 fragment 阶段采样(首期收敛子集外) | RXS-0174 |
+| RX3014 | 采样表达式违例:`tex.sample(samp, coord)` receiver 非 `Texture2D<F>` / `samp` 非 `Sampler` / `coord` 非 `vec2<f32>` / 元数不符 / 非 fragment 阶段采样(首期收敛子集外);G3.4 扩:无界表动态索引临时句柄逃逸(非立即 receiver) | RXS-0174, RXS-0232 |
+| RX3016 | bindless 无界表动态非均匀索引临时句柄未标注 `nonuniform`（`table[idx]` 须 `nonuniform(idx)` 包裹;唯一豁免整型字面量常量索引） | RXS-0232 |
 
-**只追加、不预造**:RX3011~3014 按**实现中真实可达、用户可行动**的错误类别只追加(着色阶段误用复用既有 RX3001,无新码);含义冻结(10 §6,`check_error_codes` 延续),`registry/error_codes.json` 只追加并同时落 [../src/rurixc/src/messages/en.messages](../src/rurixc/src/messages/en.messages)(`shader.stage_io_invalid` / `shader.stage_interface_mismatch` / `shader.resource_handle_invalid` / `shader.sample_expr_invalid`)+ [../src/rurixc/src/messages/zh.messages](../src/rurixc/src/messages/zh.messages) 双语 message-key(`ci/bilingual_coverage.py` 覆盖门)。RX3014 由 RFC-0007 分配(采样表达式类型面)。
+**只追加、不预造**:RX3011~3016 按**实现中真实可达、用户可行动**的错误类别只追加(着色阶段误用复用既有 RX3001,无新码);含义冻结(10 §6,`check_error_codes` 延续),`registry/error_codes.json` 只追加并同时落 [../src/rurixc/src/messages/en.messages](../src/rurixc/src/messages/en.messages)(`shader.stage_io_invalid` / `shader.stage_interface_mismatch` / `shader.resource_handle_invalid` / `shader.sample_expr_invalid` / `shader.nonuniform_annotation_missing`)+ [../src/rurixc/src/messages/zh.messages](../src/rurixc/src/messages/zh.messages) 双语 message-key(`ci/bilingual_coverage.py` 覆盖门)。RX3014 由 RFC-0007 分配(采样表达式类型面);**RX3016 由 RFC-0013 §4.C1 分配(G3.4 bindless nonuniform 标注缺失,3xxx typeck 段自 RX3016 续号,number_ledger v1.5 校准避 EI1 撞号)**。
 
 ## 4. 升档 / 禁区留痕
 
@@ -225,6 +268,7 @@ SamplerAttr  ::= "filter" "=" ("nearest" | "linear")
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
+| v1.4 | 2026-07-19 | **RFC-0013 §4.C bindless 章类型面落库 + RXS-0231/RXS-0232 条款体(spec-first,G3.4 条款先行)**。承 RFC-0013(Agent Approved 2026-07-18)。新增 `### RXS-0231`(无界资源句柄数组类型面):`[Texture2D<F>]` 切片样式文法**无新 token**,**仅着色阶段签名形参**(返回/字段/非阶段/嵌套/有界混写 → RX3013 扩类别);首期无界仅 SRV 纹理(无界 Sampler/CBV/UAV 维持 RX6013,binding_layout RXS-0233);句柄非值承 RXS-0156/0174。新增 `### RXS-0232`(动态索引 + `nonuniform` 标注 strict-only):`table[idx]`(`idx:u32`)产临时句柄**仅立即 receiver**(逃逸 → RX3014 扩类别);索引须 `nonuniform(expr)` 包裹(唯一豁免整型字面量常量),缺失 → **新码 RX3016**(3xxx typeck 段自 RX3016 续号,`shader.nonuniform_annotation_missing` en/zh 成对,number_ledger v1.5 校准避 EI1 撞号);**不做 uniformity 推断**(保守全标,Q-B-Uniformity)。§3 错误码表回填 RX3016 + RX3014 扩覆盖(逃逸);`nonuniform` 为值位置兜底 lang-item 自由函数(可用户遮蔽)。各条 FLS 分 Syntax/Legality/Dynamic Semantics/Implementation Requirements,**严禁 UB 节**(越界索引实现定义但有界,clamp 至已注册段,无 UB;RXS-0234)。绑定推导独占 set/space 见 spec/binding_layout.md RXS-0233;codegen 双腿见 spec/dxil_backend.md RXS-0234;宿主 TextureTable 见 spec/host_orchestration.md RXS-0235。每条 ≥1 `//@ spec` 测试锚定(conformance/shader accept+reject + UI golden + binding_layout/dxil_spirv 单测)随实现 commit 同落(条款 PR 先于实现 PR) | **Full RFC**（RFC-0013） |
 | v1.0 | 2026-06-23 | 新建 spec/shader_stages.md(G2.1 着色阶段类型面起始文件):登记编号区间 RXS-0153 起续号预留(**已锁定 4 条 RXS-0153 ~ RXS-0156**,RFC-0002 §9 Q5)+ 文件级前言 / 范围(着色阶段函数着色扩展 RXS-0066 / 阶段专属 I/O 语义类型属性式标注 / 阶段间接口类型契约 vertex out→fragment in / 资源句柄·纹理采样器参数化类型面 `Texture2D<F>`+`Sampler` 平行 View;复用 kernel 子语言+views、device⊂host 单向可达、trait 单态化子集、PTX-only、🔒 纹理内存模型映射禁区不落笔)/ 依据与授权(RFC-0002 agent 批准 + 06 §8.2/§4.2 + 05 §1/§2.2 + spec/device.md RXS-0066/0067/0074/0078;G2_CONTRACT D-G2-1/D-G2-6 / G-G2-1/G-G2-6 + G2_PLAN G2.1)/ 计划条款骨架(§2 预留,非裸条款头,照搬 RFC-0002 §5 表:RXS-0153 着色阶段函数着色规则 / RXS-0154 阶段专属 I/O 语义类型 / RXS-0155 阶段间接口类型契约 / RXS-0156 资源句柄·纹理采样器参数化类型面)/ 错误码新段位说明(§3:着色阶段语义诊断归 3xxx 段 RX3011+ 续号,脚手架不预造、不预留;纯 Rust 错误走 rustc 原生零新码)/ 升档·禁区留痕(§4:档位 Full RFC/RFC-0002、🔒 纹理内存模型映射禁区、G2.2 D-131、G2.3 P-11、多后端/红线1/SG、UB 节禁区)。**沿 README v1.32 / v1.33 先例:本轮不落带编号裸条款头**——条款体与每条 ≥1 测试锚定随 G2.1 实现 PR(PR-B2,步骤 45)同落(条款 PR 先于实现 PR,trace_matrix 维持全锚定 152/152),无体例变更 | **Full RFC**(RFC-0002) |
 | v1.1 | 2026-06-23 | **G2.1 实现 PR(PR-B2):§2 计划骨架升格为带编号条款体 `### RXS-0153 ~ ### RXS-0156`**(FLS 体例,按需分 Syntax / Legality / Dynamic Semantics / Implementation Requirements 节,**严禁 UB 节**;Legality 引用对应 RX 码):RXS-0153 着色阶段函数着色规则(前缀式 `<stage> fn`,着色阶段取 kernel 入口着色,直接调用入口 / 跨着色非法调用复用 `RX3001`;compute 复用 kernel;device⊂host 单向可达;trait 单态化子集)/ RXS-0154 阶段专属 I/O 语义类型(`#[interpolate(..)]`/`#[builtin(..)]` 属性式,无标注字段编译期拒绝 → `RX3011`)/ RXS-0155 阶段间接口类型契约(vertex out → fragment in varying 兼容 → 不兼容 `RX3012`,网格/RT 并入本条)/ RXS-0156 资源句柄·纹理采样器参数化类型面(`Texture2D<F>`+`Sampler` 仅着色阶段签名形参,返回/字段/非阶段位置或未支持维度 → `RX3013`,纹理仅类型形态无采样/内存语义)。§3 错误码表回填 RX3011~3013(3xxx 段续号,着色阶段误用复用 RX3001;en/zh message-key 同落,bilingual_coverage 覆盖)。配套 rurixc 着色阶段前端(parser 上下文关键字 `<stage> fn` + AST 层着色阶段类型面检查,gate `cargo feature shader-stages`)+ conformance accept/reject(`conformance/shader/`)+ UI golden(`tests/ui/shader/*.stderr`,经 bless)+ 每条 ≥1 `//@ spec: RXS-####` 锚定(trace_matrix 152→156 全锚定)。**仅类型面/语法面 + 编译期拦截**:不碰 DXIL codegen(G2.2)/ 绑定布局推导(G2.3)/ 🔒 纹理内存模型映射(06 §4.2 禁区);区间锁定 4 条不拆条 | **Full RFC**(RFC-0002) |
 | v1.3 | 2026-07-18 | **RFC-0013 §4.B 采样超集章类型面落库 + RXS-0223/RXS-0224 条款体(spec-first,G3.3 条款先行)**。承 RFC-0013(Agent Approved 2026-07-18,工业渲染期五特性面伞形 Full RFC)。新增 `### RXS-0223`(采样方法族类型面,续 RXS-0174):把首期收敛子集(单 `sample` 显式 LOD 0)扩为方法族 `sample`(隐式化)/`sample_lod`/`sample_grad`/`sample_bias`/`load`/`load_lod`/`sample_cmp`/`gather`/`TextureRw2D` load·store;新资源句柄类型 `SamplerCmp`/`TextureRw2D<F>`(`MirResourceType` 加 `TextureRw2D(PrimTy)`/`SamplerCmp`,`class()` 归 UAV/Sampler 轴);方法×阶段合法性矩阵(`sample`/`sample_bias` 仅 fragment,`TextureRw2D` = fragment+raygen);`sample` 语义升级为隐式 LOD(既有显式-LOD-0 由 `sample_lod(s,uv,0.0)` 逐字节承接,uc04 语料迁移 golden 0-byte,Q-S-SampleName);元素 F 分方法限定(sample 族 f32 / load·store {f32,u32,i32} / sample_cmp depth-f32);违例 RX3014 扩类别(strict-only,不新增 3xxx 码)。新增 `### RXS-0224`(静态 sampler 属性 `#[sampler(...)]`):状态空间枚举(filter/address/max_anisotropy/lod_bias/min_lod/max_lod/compare,两形态共用单一事实源)+ 编译期常量折叠 → D3D12 static sampler(RTS0 `NumStaticSamplers` 扩现恒 0 写)/ Vulkan immutable sampler;s 轴静态动态共序(RXS-0164);非法键值并入 RX3014。RXS-0174 补 G3.3 语义升级引用(显式-LOD-0 由 sample_lod 承接,`sample` 隐式化)。各条 FLS 分 Syntax/Legality/Dynamic Semantics/Implementation Requirements,**严禁 UB 节**(一切运行期语义 well-defined,子集外编译期 RX3014/RX6023 strict-only)。codegen 降级 opcode 全家见 spec/dxil_backend.md RXS-0226~0229;宿主 SamplerDesc 见 spec/host_orchestration.md RXS-0225;vk descriptor 建面见 spec/vulkan_backend.md RXS-0230。每条 ≥1 `//@ spec` 测试锚定随实现 commit 同落(条款 PR 先于实现 PR)。🔒 descriptor/采样 opcode 二进制布局不冻结(RFC-0003 §4.6 / RFC-0005 §4.5) | **Full RFC**（RFC-0013） |

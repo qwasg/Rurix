@@ -244,12 +244,12 @@ mod dxil_io {
         };
         for p in &f.params {
             if let ast::ParamKind::Typed { pat, ty } = &p.kind
-                && let Some(res) = ast_ty_to_resource(ty)
+                && let Some((res, count)) = ast_ty_to_resource(ty)
             {
                 out.push(ResourceBinding {
                     name: pat_binding_name(pat).unwrap_or_default(),
                     res,
-                    count: ResourceCount::One,
+                    count,
                 });
             }
         }
@@ -264,11 +264,24 @@ mod dxil_io {
         }
     }
 
-    /// AST 类型 → 资源句柄建模(RXS-0156 `Texture2D<F>`/`Sampler`;RXS-0223 扩
-    /// `TextureRw2D<F>`/`SamplerCmp`);非资源句柄类型 → None。`Texture2D`/
-    /// `TextureRw2D` 取首个类型实参的头 prim 作分量类型(缺省 `f32`)。
-    fn ast_ty_to_resource(ty: &ast::Ty) -> Option<MirResourceType> {
+    /// AST 类型 → 资源句柄建模 + 绑定基数(RXS-0156 `Texture2D<F>`/`Sampler`;
+    /// RXS-0223 扩 `TextureRw2D<F>`/`SamplerCmp`;G3.4 RXS-0231 扩无界句柄数组
+    /// `[Texture2D<F>]` → [`ResourceCount::Unbounded`]);非资源句柄类型 → None。
+    fn ast_ty_to_resource(ty: &ast::Ty) -> Option<(MirResourceType, ResourceCount)> {
         let ty = unwrap_ty(ty);
+        // G3.4 无界句柄数组 `[Texture2D<F>]`(RXS-0231;切片样式文法,无新 token)→
+        // 无界基数(binding 推导 RXS-0233 自 Unmappable 翻转;首期无界仅 SRV 纹理,
+        // 非-SRV-纹理无界维持 RX6013,binding_layout 兜底)。
+        if let TyKind::Slice(inner) = &ty.kind {
+            let res = scalar_resource(unwrap_ty(inner))?;
+            return Some((res, ResourceCount::Unbounded));
+        }
+        Some((scalar_resource(ty)?, ResourceCount::One))
+    }
+
+    /// 标量(单)资源句柄类型建模。`Texture2D`/`TextureRw2D` 取首个类型实参的头
+    /// prim 作分量类型(缺省 `f32`);非资源句柄类型 → None。
+    fn scalar_resource(ty: &ast::Ty) -> Option<MirResourceType> {
         let head = ty_head_name(ty)?;
         let elem_prim = || {
             if let TyKind::Path(p) = &ty.kind {
@@ -1073,6 +1086,7 @@ impl Builder<'_, '_> {
                     Rvalue::ResourceSample {
                         texture_local: tex_p.local,
                         sampler_local: Some(samp_p.local),
+                        table_index: None,
                         method: crate::mir::ResourceMethod::SampleLod,
                         coord: coord_op,
                         extra: Vec::new(),
@@ -1085,6 +1099,7 @@ impl Builder<'_, '_> {
                 method,
                 texture,
                 sampler,
+                table_index,
                 coord,
                 extra,
             } => {
@@ -1092,6 +1107,10 @@ impl Builder<'_, '_> {
                 // 形参的裸 local 引用(句柄非值,无投影,承 RXS-0175 L4);coord /
                 // extra 为值 operand,按 [`crate::mir::ResourceMethod`] 形态携带,
                 // codegen 方法族分发消费(dxil_spirv `lower_resource_op`)。
+                // G3.4 bindless(RXS-0232/0234):`table_index = Some` 时 `texture` 为
+                // `[Texture2D<F>]` 无界表形参裸 local,`table_index` 为动态索引值 operand
+                // (codegen `OpAccessChain` runtime array + `NonUniform` + clamp);句柄
+                // **不物化中间 local**(RXS-0175 内联形态)。
                 let ty = self.ty_of(e);
                 let Some(tex_p) = self.place_of(texture) else {
                     return self
@@ -1104,6 +1123,8 @@ impl Builder<'_, '_> {
                          (RXS-0223)",
                     );
                 }
+                // G3.4:动态索引值物化为 operand(无界表元素采样);单句柄 = None。
+                let table_index_op = table_index.as_ref().map(|idx| self.op_of(idx));
                 let sampler_local = match sampler {
                     Some(s) => {
                         let Some(samp_p) = self.place_of(s) else {
@@ -1126,6 +1147,7 @@ impl Builder<'_, '_> {
                     Rvalue::ResourceSample {
                         texture_local: tex_p.local,
                         sampler_local,
+                        table_index: table_index_op,
                         method: *method,
                         coord: coord_op,
                         extra: extra_ops,

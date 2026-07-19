@@ -426,10 +426,35 @@ B 全链为编译期确定性变换,本条无运行期语言语义(着色器在 
 - IR3(可竞写模式 + image atomics 登 RD-034+):可竞写模式(多写者同 texel)整体放开登 **RD-034+ 另 Full RFC**(§8;放开须独立论证 Vulkan/D3D 非原子写可见性 + 规范引文);image atomics(`OpImageTexelPointer` + atomic)同显式不做(RD-034+),跨线程协同走既有 `Atomic<T, Scope>` 缓冲路(RXS-0080),不在图像路重复建面。
 - IR4(测试锚定):≥1 `//@ spec: RXS-0229` 覆盖 (a) 合法 identity-store 降为 `OpImageWrite`、(b) 非 identity 多写者 reject(唯一写者 golden)、(c) 步骤 63 模式⑧(唯一写者 store→pass 边界 barrier〔RXS-0169 手动〕→回读红绿 + 多写者编译期拒);类型面 reject 经 RXS-0223 锚。
 
+### RXS-0234 🔒 descriptor indexing codegen 降级与越界有界性（双腿，RFC-0013 §4.C3）
+
+无界纹理表(`[Texture2D<F>]`,RXS-0231)动态索引采样 `table[nonuniform(idx)].sample(..)` 降级为 SPIR-V descriptor indexing 形态:`OpTypeRuntimeArray`(元素 = image 类型)+ `OpVariable`(UniformConstant)+ `DescriptorSet`/`Binding` 装饰;capability `RuntimeDescriptorArray` + 标注索引处 `NonUniform` 装饰 + capability `ShaderNonUniform`;归属 `SPV_EXT_descriptor_indexing`(**Vulkan 1.2 core**,spirv-val 以 vulkan1.2 环境校验,承 RXS-0212)。索引降级为 `OpAccessChain`(runtime array)→ `OpLoad`(image)→ 立即消费,**不物化中间句柄 local**(MIR 层以 Rvalue 内联形态承载,镜像 RXS-0175)。本条只承诺 opcode 全家的存在性 / 越界有界性;🔒 descriptor 二进制布局不冻结为 stable(RFC-0005 §4.5)。
+
+#### Syntax
+
+descriptor indexing 降级为 codegen 面,非语言文法面(类型面见 spec/shader_stages.md RXS-0231/0232)。
+
+#### Legality
+
+- L1(SPIR-V 腿,共享语义源):无界表 → `OpTypeRuntimeArray` + UniformConstant `OpVariable`;capability `RuntimeDescriptorArray`(5302)+ `ShaderNonUniform`(5301)+ 扩展 `SPV_EXT_descriptor_indexing`;动态索引处 `NonUniform`(5300)装饰(施于 `OpAccessChain` 结果指针与 `OpLoad` 加载对象)。
+- L2(DXIL 腿,B 链,D-131;probe-first,§4.0-8):spirv-cross 将 runtime array 译为 HLSL unbounded `Texture2D t[] : register(t0, spaceN)` → dxc `-T *_6_0`(SM6.0 资源能力面即可,probe 前文献推断)→ dxv + 签名门(RX6011/RX6012)不旁路;RTS0 unbounded range 与 HLSL register/space 经 RXS-0166 同构一致性门交叉核验。**probe 红则 DXIL 腿以证据诚实落 RD-034+ 尾门,Vulkan 腿不受牵连**;子集外构造 → RX6023 扩类别(承 RXS-0226)。
+- 🔒(布局边界):descriptor/runtime array 二进制布局 / set·space 数值不冻结为 stable。
+
+#### Dynamic Semantics（越界有界性，实现定义但有界，无 UB 措辞）
+
+codegen 对每个动态索引**强制发射 clamp**(`UMin(idx, table_len - 1)`),`table_len` 由运行时经既有 marshalling 通道(RXS-0208 push-constant 槽尾部追加)提供 = 宿主 TextureTable 已注册计数(host_orchestration.md RXS-0235)。语义承诺:越界索引的观察结果为**实现定义**(clamp 后某已注册元素的采样值),访问**恒有界于已注册表段**,空槽结构性不可达;**不依赖设备可选 robustness feature**(Q-B-OOB)。无未定义行为(§4)。
+
+#### Implementation Requirements
+
+- IR1(SPIR-V emit):[`dxil_spirv::emit_resource`](../src/rurixc/src/dxil_spirv.rs) 对 `ResourceCount::Unbounded` SRV 纹理 emit `OpTypeRuntimeArray` + capability + 扩展;[`lower_sample_family`](../src/rurixc/src/dxil_spirv.rs)/`lower_bindless_image_load` 对 `table_index = Some` 发射 clamp(`push_constant_table_len_var` + `OpISub` + GLSL.std.450 `UMin`)→ `OpAccessChain`(runtime array)→ `OpLoad` + `NonUniform` 装饰;纯 safe。
+- IR2(DXIL 腿 probe-first):spirv-cross runtime array → HLSL `t[]` → dxc → dxv probe;绿 → B 链全量 + 步骤 64 含 DXIL 段;红 → RD-034+ 尾门 + blocked 探针入 CI,Vulkan 腿单独兑现 G-G3-4(Q-B-BLegGate)。**SM6.6 heap 直索引不做**(§7-8,RD-034+ 收窄留痕)。
+- IR3(测试锚定):≥1 `//@ spec: RXS-0234`——`dxil_spirv` 单测(无界表 emit `OpTypeRuntimeArray` + `RuntimeDescriptorArray`/`ShaderNonUniform` capability + 扩展)+ bindless `.rx` → Vulkan SPIR-V 过 `spirv-val --target-env vulkan1.2` accept(`bindless_vulkan_spirv_val`)。
+
 ## 3. 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
+| v1.10 | 2026-07-19 | **RFC-0013 §4.C bindless codegen 落库 + RXS-0234 条款体(spec-first,G3.4 条款先行)**。承 RFC-0013(Agent Approved 2026-07-18)。新增 `### RXS-0234`(🔒 descriptor indexing codegen 降级与越界有界性,双腿):无界纹理表 `[Texture2D<F>]` 动态索引 → SPIR-V `OpTypeRuntimeArray`(元素 image)+ `RuntimeDescriptorArray`/`ShaderNonUniform` capability + `SPV_EXT_descriptor_indexing`(Vulkan 1.2 core,spirv-val vulkan1.2)+ 索引处 `NonUniform` 装饰;`OpAccessChain`(runtime array)→ `OpLoad`(image)→ 立即消费不物化中间 local(RXS-0175)。**越界有界性(实现定义但有界,无 UB 节)**:codegen 强制 clamp `UMin(idx, table_len-1)`,`table_len` 经 push-constant 尾槽(RXS-0208)= 宿主 TextureTable 已注册计数(RXS-0235);访问恒有界于已注册段,不依赖 robustness feature(Q-B-OOB)。DXIL 腿 probe-first(spirv-cross runtime array → HLSL `t[]` → dxc `-T *_6_0` → dxv;绿=全量 / 红=RD-034+ 尾门,Vulkan 腿不牵连);子集外 RX6023 扩类别。SM6.6 heap 直索引不做(§7-8,RD-034+ 留痕)。FLS 分 Syntax/Legality/Dynamic Semantics/Implementation Requirements,**严禁 UB 节**。≥1 `//@ spec: RXS-0234` 锚定(`dxil_spirv` 无界表 emit 单测 + bindless `.rx` → spirv-val vulkan1.2 accept)。类型面见 spec/shader_stages.md RXS-0231/0232,绑定推导见 spec/binding_layout.md RXS-0233,宿主 TextureTable 见 spec/host_orchestration.md RXS-0235。 | **Full RFC**（RFC-0013） |
 | v1.6 | 2026-06-27 | **G-G2-2 owner 收口 + DXIL golden bless 落档**。owner 白栀于本工作会话监督确认 device 真跑 run URL、DXIL 文本 golden bless 与 G-G2-2 子里程碑签字;agent 代录机器事实,自主签署 G2 整体 close-out。`tests/dxil/graphics/gfx_vs_min.dxil-disasm` 在 signed DXC pin 环境(`H:\dxc-round7\extracted\bin\x64` 含 `dxc.exe`/`dxv.exe`/`dxil.dll`)和显式 `spirv-cross.exe` 下经 `RURIX_BLESS=1 cargo test -p rurixc --features dxil-backend --test dxil_golden dxil_b_disasm_golden_matches_when_toolchain_present -- --exact --nocapture` 重 bless;入 golden 前 `dxv.exe` validator 接受,版本噪声规范化为 `OWNER-BLESSED-NORMALIZED`。远端 PR smoke [28284960733](https://github.com/qwasg/Rurix/actions/runs/28284960733) 全量 success,步骤 46 输出 `DXIL_DEVICE: ok adapter="NVIDIA GeForce RTX 4070 Ti" pixel=64,127,255,255 draw=ok`。当前 `gfx_vs_min` 仍为 RD-013/RD-017 缺口下的 TEXCOORD baseline,不关闭 deferred、不声称 output varying 用户语义保真。§2 仅更新当前 golden 形态说明;RXS-0160 计划映射、🔒 签名二进制 ABI 布局/纹理内存模型/DXIL·SPIR-V UB 边界仍不触及。| **Full RFC**（RFC-0004 / PR-D2） |
 | v1.0 | 2026-06-24 | 新建 dxil_backend.md（PR-C1 spec 脚手架，承 RFC-0003 / D-131=A）:登记文件名 + 文件级语义面说明（MIR→DXIL 第二后端，承 RFC-0002 着色阶段类型面 RXS-0153~0156）+ §1 范围与 **RXS-0157~ 预留区间声明**（区间大小未锁定，随 RFC-0003 §9 Q-Range 与路径裁定一并定）+ §2 条款占位（条款体随 PR-C2 实现 PR 同落）。**沿 README v1.32 interop_d3d12.md / v1.33 async_buffer.md / v1.37 shader_stages.md 脚手架先例:仅登记文件名 + 预留区间，不落带编号裸条款头**——本文件**零 `### RXS-####` 条款头**，`ci/trace_matrix.py --check` 维持全锚定 **156/156**（无新增裸条款头、无悬空锚点、零新 RXS）。条款体（RXS-0157 起）与每条 ≥1 `//@ spec` 测试锚定随 PR-C2（DXIL 后端实现 PR）同落（条款 PR 先于实现 PR）。禁区声明:🔒 纹理路径内存模型映射（06 §4.2）/ FFI ABI 二进制布局（RFC-0003 §4.6 / §9 Q-Builtin）/ 绑定布局推导（G2.3，P-11）/ 多后端架构承诺（D-008/SG-003）均不在本文件，触及即停手升档。错误码 **6xxx codegen 段**脚手架不预造、不预留，随 PR-C2 按真实可达类别只追加。档位 **Full RFC**（RFC-0003;触 codegen 第二后端 + target 分发，agent 自主判档，判档争议向上取严）。授权 G2_CONTRACT D-G2-2 / G-G2-2 + G2_PLAN G2.2 子里程碑，无体例变更 | **Full RFC**（RFC-0003） |
 | v1.1 | 2026-06-24 | **PR-C2 分片1:落首条带编号条款体 `### RXS-0157`**(codegen target 分发与 DXIL 后端分叉)+ 配套最小 compute kernel 端到端实现(rurixc `dxil_codegen` 模块 + `--target dxil` 分发 + cargo feature `dxil-backend` + patched llc 经 `RURIX_LLC` dev env 定位 RD-011 + dxc validator accept)。条款体按 FLS 体例分 Syntax / Legality(L1 后端可用性·L2 最小子集·L3 降级失败 → RX6007)/ Dynamic Semantics / Implementation Requirements(IR1 分发点·IR2 D-131=A 路径·IR3 golden 文本反汇编经 validator·IR4 错误码 RX6007),**严禁 UB 节**。配套 conformance accept(空体 compute kernel 产 DXIL,`//@ spec: RXS-0157`)+ reject(子集外构造 → RX6007)+ DXIL golden(文本反汇编 + bless)。错误码新增 **RX6007**(6xxx codegen/目标段续接 RX6006,只追加)+ en/zh message-key(双语覆盖)。`ci/trace_matrix.py --check` 全锚定 **157/157**(新增 RXS-0157 带测试锚定、无悬空)。RXS-0158/0159/0160 仍为 §9 Q-Range 计划映射(非裸条款头),随后续分片落地。本片不碰 🔒 纹理内存模型映射 / FFI ABI 布局 / 绑定布局推导(G2.3)。档位 **Full RFC**(RFC-0003),无体例变更 | **Full RFC**（RFC-0003） |

@@ -20,6 +20,10 @@
     {
       "id": "g3.counter.sampling_superset_modes",
       "description": "采样超集面 device 数值判据模式去重基数 ≥6(契约 G-G3-3;RFC-0013 §4.B / RXS-0223~0230;§4.B8 ①隐式 LOD + mip 金字塔逐层异色 / ②sample_lod 指定层选色 / ③sample_grad 大梯度选高层 / ④load 越界钳制断言 / ⑤wrap-vs-clamp 像素对照 / ⑥sample_cmp shadow 双色 / ⑦gather 角点 2×2 单分量 / ⑧TextureRw2D 唯一写者 store→pass 边界 barrier〔RXS-0169 手动〕→回读 + 多写者编译期拒 / ⑨多分量元素,逐项篡改→像素变 RED 复原 GREEN 数据流红绿 + 双后端〔dxil B 链 / vulkan 原生〕一致性对照 nearest 逐位 / linear 容差);计数源 = evidence/sampling_superset_*.json 中 modes_ok 去重后 num_modes(机器事实:ci/sampling_superset_smoke.py device 段真跑写)。采样数值真跑 = 交互 GPU 链路,**不进 pr-smoke 硬门**(镜像 uc04_present / realtime_present 双态先例);无显示/无 GPU/无 real-shim/未 opt-in → device 段 SKIP=dev-env degrade 非 fake pass → 0 → 建设期 normal SKIP / close-out strict FAIL,对齐 g3.counter.uc04_present_frames 先例。RURIX_REQUIRE_REAL=1 时缺失翻硬红。host 段(步骤 62 codegen opcode 全家结构性单测 + spirv-val 三态 + 唯一写者 reject golden)恒跑不入本 counter。**AMD 真卡见证 = G-MB1-6 硬件尾门独立存续**(本机 RTX 4070 Ti measured 不充作 AMD)。"
+    },
+    {
+      "id": "g3.counter.bindless_descriptor_smoke",
+      "description": "bindless 面 device 索引红绿见证数 ≥1(契约 G-G3-4;RFC-0013 §4.C / RXS-0231~0235;≥4 纹理注册表按屏幕象限动态索引采样 == 四色〔quadrant_index_four_color〕+ 篡改注册序→像素换位 RED〔tamper_register_order_swap〕+ feature chain 四 bit〔shaderSampledImageArrayNonUniformIndexing / descriptorBindingSampledImageUpdateAfterBind / descriptorBindingPartiallyBound / runtimeDescriptorArray〕缺失→确定性 Err〔feature_chain_missing_err〕);计数源 = evidence/bindless_*.json 中 smoke_ok=true 报告数(机器事实:ci/bindless_smoke.py device 段真跑写;harness bin/bindless_modes 判据结构就位,数值阈值 TODO 留 owner 本机)。bindless 索引真跑 = 交互 GPU 链路,**不进 pr-smoke 硬门**(镜像 g3.counter.sampling_superset_modes 双态先例);无显示/无 GPU/未 opt-in → device 段 SKIP=dev-env degrade 非 fake pass → 0 → 建设期 normal SKIP / close-out strict FAIL,对齐 g3.counter.sampling_superset_modes 先例。RURIX_REQUIRE_REAL=1 时缺失翻硬红。host 段(步骤 64 Unbounded 合法化 + 独占 space 分配律 + RTS0 roundtrip 推导单测 + nonuniform 缺失 reject UI golden + bindless SPIR-V spirv-val vulkan1.2 三态)恒跑不入本 counter。**AMD 真卡见证 = G-MB1-6 硬件尾门独立存续**(本机 RTX 4070 Ti measured 不充作 AMD)。"
     }
   ],
   "namespace_check": {
@@ -41,6 +45,11 @@
       "version": "v1.2",
       "date": "2026-07-18",
       "change": "G3.3 采样超集面回填 counter_assertions[g3.counter.sampling_superset_modes](RFC-0013 §4.B / §6.5 PR-S3,契约 G-G3-3;条款先于实现,登记与 ci/budget_eval.py evaluator 分支 + ci/sampling_superset_smoke.py + milestones/g3/sampling_superset_evidence_schema.json 同 PR,未知 id 强制 FAIL 纪律)。计数源 = evidence/sampling_superset_*.json 中 modes_ok 去重后 num_modes(ci/sampling_superset_smoke.py device 段真跑写:≥6 模式数值判据〔§4.B8 ①mip/②sample_lod/③sample_grad/④load 越界钳制/⑤wrap-vs-clamp/⑥sample_cmp/⑦gather/⑧storage 唯一写者 store→barrier→回读/⑨多分量〕逐项篡改→像素变 RED 复原 GREEN + 双后端一致性对照)。采样数值真跑 = 交互 GPU 链路不进 pr-smoke 硬门,无显示/无 GPU/未 opt-in → device SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL(对齐 g3.counter.uc04_present_frames 先例);RURIX_REQUIRE_REAL=1 缺失翻硬红。host 段(步骤 62 codegen opcode 全家结构性单测 + spirv-val 三态 + 唯一写者 reject golden)恒跑不入本 counter。AMD 真卡见证 = G-MB1-6 硬件尾门独立存续(本机 RTX 4070 Ti measured 不充作 AMD)。entries/ratio_assertions 维持留空(零 estimated 铁律)。"
+    },
+    {
+      "version": "v1.3",
+      "date": "2026-07-19",
+      "change": "G3.4 bindless 面回填 counter_assertions[g3.counter.bindless_descriptor_smoke](RFC-0013 §4.C / §6.5 PR-K2,契约 G-G3-4;条款先于实现,登记与 ci/budget_eval.py evaluator 分支 + ci/bindless_smoke.py + milestones/g3/bindless_descriptor_smoke_evidence_schema.json 同 PR,未知 id 强制 FAIL 纪律)。计数源 = evidence/bindless_*.json 中 smoke_ok=true 报告数(ci/bindless_smoke.py device 段真跑写:≥4 纹理注册表按屏幕象限动态索引采样==四色 + 篡改注册序→像素换位 RED + feature chain 四 bit 缺失→确定性 Err;harness bin/bindless_modes 判据结构就位,数值阈值 TODO 留 owner 本机)。bindless 索引真跑 = 交互 GPU 链路不进 pr-smoke 硬门,无显示/无 GPU/未 opt-in → device SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL(对齐 g3.counter.sampling_superset_modes 先例);RURIX_REQUIRE_REAL=1 缺失翻硬红。host 段(步骤 64 Unbounded 合法化 + 独占 space 分配律 + RTS0 roundtrip 单测 + nonuniform 缺失 reject UI golden + bindless SPIR-V spirv-val vulkan1.2 三态)恒跑不入本 counter。AMD 真卡见证 = G-MB1-6 硬件尾门独立存续(本机 RTX 4070 Ti measured 不充作 AMD)。entries/ratio_assertions 维持留空(零 estimated 铁律)。"
     }
   ]
 }

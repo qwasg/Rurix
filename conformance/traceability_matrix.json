@@ -1278,6 +1278,31 @@
       "conformance/dxil/graphics/accept/sampling_fullscreen_vs.rx",
       "src/rurix-rt/src/vk.rs",
       "src/rurixc/src/binding_layout.rs"
+    ],
+    "RXS-0231": [
+      "conformance/dxil/graphics/accept/bindless_sample_fs.rx",
+      "conformance/shader/accept/bindless_dynamic_index.rx",
+      "conformance/shader/reject/resource_handle/bindless_table_return.rx"
+    ],
+    "RXS-0232": [
+      "conformance/dxil/graphics/accept/bindless_sample_fs.rx",
+      "conformance/shader/accept/bindless_dynamic_index.rx",
+      "conformance/shader/reject/bindless/handle_escape.rx",
+      "conformance/shader/reject/bindless/nonuniform_missing.rx",
+      "src/rurixc/tests/bindless_vulkan_spirv_val.rs",
+      "tests/ui/shader/bindless_nonuniform_missing.rx"
+    ],
+    "RXS-0233": [
+      "conformance/dxil/graphics/accept/bindless_sample_fs.rx",
+      "src/rurixc/src/binding_layout.rs"
+    ],
+    "RXS-0234": [
+      "conformance/dxil/graphics/accept/bindless_sample_fs.rx",
+      "src/rurixc/src/dxil_spirv.rs",
+      "src/rurixc/tests/bindless_vulkan_spirv_val.rs"
+    ],
+    "RXS-0235": [
+      "src/rurix-rt-cabi/src/lib.rs"
     ]
   }
 }

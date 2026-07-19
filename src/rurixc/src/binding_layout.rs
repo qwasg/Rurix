@@ -36,7 +36,7 @@
 //! (类比 RXS-0162 DXIL 容器),其布局为**实现确定、gate 后、非 stable**,不自创
 //! ABI;真链 validator / device 核验归 PR-E2b。
 
-use crate::mir::{ResourceBinding, ResourceClass, ResourceCount};
+use crate::mir::{MirResourceType, ResourceBinding, ResourceClass, ResourceCount};
 
 /// 绑定布局推导失败(strict-only;RFC-0005 §4 / P-01,无运行期 fallback)。
 ///
@@ -108,6 +108,28 @@ impl std::error::Error for BindingInferError {}
 /// D3D12 root signature DWORD 上限(64;RFC-0005 §4 / D3D12 既定)。
 pub const ROOT_SIGNATURE_DWORD_LIMIT: u32 = 64;
 
+// ── G3.4 bindless 独占 set/space 分配律常量(RXS-0233;RFC-0013 §4.C2/§4.0-1) ──
+//
+// 🔒(边界声明,沿 RXS-0163 先例):set/space **具体数值**为实现确定、gate 后、
+// 非 stable,不冻结为 ABI;本层只承诺「独占性 / 声明序确定性 / 有界路零漂移」。
+
+/// Vk-native 形态:无界表独占 descriptor set,**自 set4 起**按声明序递增
+/// (类别轴 set0~3 之后首个空闲 set,§4.0-1)。
+pub const VK_BINDLESS_SET_BASE: u32 = 4;
+
+/// B 链形态(spirv-cross → HLSL):无界表独占 descriptor set,**自 set1 起**按声明
+/// 序递增(bounded 恒 set0 之后;spirv-cross 默认 set→space 映射使其落
+/// `register(t0, space{1+ord})`,§4.C3 DXIL 腿)。bounded 资源 set0 装饰**字节不动**。
+pub const B_CHAIN_BINDLESS_SET_BASE: u32 = 1;
+
+/// D3D12/RTS0 形态:无界表独占 register space,**自 space1 起**按声明序递增
+/// (bounded 恒 space0)。
+pub const RTS0_BINDLESS_SPACE_BASE: u32 = 1;
+
+/// 无界 descriptor range 的 `NumDescriptors` 哨兵(D3D12 unbounded = `0xFFFFFFFF`)。
+/// 独占 space 分配律使无界 range「吞轴」行为结构性无冲突(§4.C2)。
+pub const UNBOUNDED_DESCRIPTOR_COUNT: u32 = 0xffff_ffff;
+
 // ════════════════ RXS-0163:资源句柄 → SPIR-V 资源绑定降级面 ════════════════
 
 /// 单个资源的 SPIR-V 资源绑定装饰意图(RXS-0163)。
@@ -121,9 +143,10 @@ pub struct SpirvBinding {
     pub name: String,
     /// 资源种类轴(opaque 资源类型归类)。
     pub class: ResourceClass,
-    /// `DescriptorSet` 装饰(首期单 set,恒 0)。
+    /// `DescriptorSet` 装饰。有界:B 链恒 0 / Vk-native = 类别轴(0~3)。无界表
+    /// (G3.4 RXS-0233):B 链自 set1、Vk-native 自 set4 独占(§4.C2)。
     pub set: u32,
-    /// `Binding` 装饰(按声明序确定性递增)。
+    /// `Binding` 装饰(有界 = 声明序确定性递增;无界表 = 0 单点)。
     pub binding: u32,
 }
 
@@ -134,8 +157,9 @@ pub struct SpirvBinding {
 /// `count` 个连续 binding)。
 ///
 /// # Errors
-/// `Unbounded`(bindless / unbounded descriptor array)→ [`BindingInferError::Unmappable`]
-/// (RD-018 defer,strict-only,不发明 descriptor heap 编码)。
+/// 无界**非-SRV-纹理**表(无界 Sampler/CBV/UAV)/ 零基数有界 →
+/// [`BindingInferError::Unmappable`](RD-018/RX6013,strict-only)。首期无界仅
+/// `[Texture2D<F>]` 合法(RXS-0231/0233,G3.4)。
 pub fn infer_spirv_bindings(
     resources: &[ResourceBinding],
 ) -> Result<Vec<SpirvBinding>, BindingInferError> {
@@ -146,32 +170,63 @@ pub fn infer_spirv_bindings(
     // → spirv-cross HLSL `s1`,而 RTS0 推导 sampler 为 `s0` → device 描述符表 register 失配
     // (lighting pass 采样不到 G-buffer)。改 per-class 后 sampler binding 0 → `s0` ↔ RTS0 `s0`。
     let mut counters = AxisCounters::default();
+    let mut unbounded_ord = 0u32;
     let mut out = Vec::with_capacity(resources.len());
     for r in resources {
-        let span = descriptor_span(r)?;
         let class = r.res.class();
-        let binding = counters.take(class, span);
-        out.push(SpirvBinding {
-            name: r.name.clone(),
-            class,
-            set: 0,
-            binding,
-        });
+        match resource_multiplicity(r)? {
+            Multiplicity::Bounded(span) => {
+                let binding = counters.take(class, span);
+                out.push(SpirvBinding {
+                    name: r.name.clone(),
+                    class,
+                    set: 0,
+                    binding,
+                });
+            }
+            // G3.4(RXS-0233):无界 SRV 纹理表——B 链形态自 set1 独占 set、binding 0
+            // (spirv-cross → `register(t0, space{1+ord})`)。bounded 资源 set0 装饰字节不动。
+            Multiplicity::UnboundedTable => {
+                let set = B_CHAIN_BINDLESS_SET_BASE + unbounded_ord;
+                unbounded_ord += 1;
+                out.push(SpirvBinding {
+                    name: r.name.clone(),
+                    class,
+                    set,
+                    binding: 0,
+                });
+            }
+        }
     }
     Ok(out)
 }
 
-/// 资源消费的连续 descriptor / register 跨度(有界基数;`Unbounded` → 不可映射)。
-fn descriptor_span(r: &ResourceBinding) -> Result<u32, BindingInferError> {
+/// 资源的绑定基数(G3.4 RXS-0233;`Unbounded` SRV 纹理 = 合法无界表)。
+enum Multiplicity {
+    /// 有界:占 `n` 个连续 descriptor / register(单 = 1)。
+    Bounded(u32),
+    /// 无界 SRV 纹理表(`[Texture2D<F>]`,RXS-0231):独占 set / space。
+    UnboundedTable,
+}
+
+/// 资源消费的绑定基数判别(RXS-0233;RFC-0013 §4.C2)。**Unbounded 翻转**:自
+/// `descriptor_span` 旧「一律 Unmappable」翻转为「SRV 纹理无界 = 合法无界表,余
+/// 维持 Unmappable/RX6013」。
+fn resource_multiplicity(r: &ResourceBinding) -> Result<Multiplicity, BindingInferError> {
     match r.count {
-        ResourceCount::One => Ok(1),
-        ResourceCount::Bounded(n) if n >= 1 => Ok(n),
+        ResourceCount::One => Ok(Multiplicity::Bounded(1)),
+        ResourceCount::Bounded(n) if n >= 1 => Ok(Multiplicity::Bounded(n)),
         ResourceCount::Bounded(_) => Err(BindingInferError::Unmappable {
             detail: format!("资源 `{}` 有界数组基数为 0(非法)", r.name),
         }),
+        // G3.4 RXS-0233(RFC-0013 §4.C2):首期无界仅 SRV 纹理(`Texture2D<F>`)合法。
+        ResourceCount::Unbounded if matches!(r.res, MirResourceType::Texture2D(_)) => {
+            Ok(Multiplicity::UnboundedTable)
+        }
+        // 无界 Sampler / CBV / UAV(StructuredBuffer)表:维持 Unmappable/RX6013(§8,不新码)。
         ResourceCount::Unbounded => Err(BindingInferError::Unmappable {
             detail: format!(
-                "资源 `{}` 为 unbounded / bindless descriptor array(RD-018 defer,本期不推导)",
+                "资源 `{}` 为无界非-SRV-纹理表(首期无界仅 `[Texture2D<F>]`;无界 Sampler/CBV/UAV 维持 RD-018/RX6013)",
                 r.name
             ),
         }),
@@ -241,23 +296,42 @@ impl AxisCounters {
 /// register 基号,首期单 `space0`。有界数组占 `count` 个连续 register。
 ///
 /// # Errors
-/// `Unbounded` / 非法基数 → [`BindingInferError::Unmappable`](RD-018,strict-only)。
+/// 无界非-SRV-纹理表 / 非法基数 → [`BindingInferError::Unmappable`](RD-018/RX6013)。
+///
+/// G3.4(RXS-0233):无界 SRV 纹理表 = `register 0`、独占 `space{1+ord}`(自 space1
+/// 按声明序)、`span = UNBOUNDED_DESCRIPTOR_COUNT`;bounded 恒 space0 零漂移。
 pub fn infer_register_assignments(
     resources: &[ResourceBinding],
 ) -> Result<Vec<RegisterAssignment>, BindingInferError> {
     let mut counters = AxisCounters::default();
+    let mut unbounded_ord = 0u32;
     let mut out = Vec::with_capacity(resources.len());
     for r in resources {
-        let span = descriptor_span(r)?;
         let class = r.res.class();
-        let register = counters.take(class, span);
-        out.push(RegisterAssignment {
-            name: r.name.clone(),
-            class,
-            register,
-            space: 0,
-            span,
-        });
+        match resource_multiplicity(r)? {
+            Multiplicity::Bounded(span) => {
+                let register = counters.take(class, span);
+                out.push(RegisterAssignment {
+                    name: r.name.clone(),
+                    class,
+                    register,
+                    space: 0,
+                    span,
+                });
+            }
+            // 无界 SRV 纹理表:base_register 0,独占 space1+,unbounded 计数哨兵。
+            Multiplicity::UnboundedTable => {
+                let space = RTS0_BINDLESS_SPACE_BASE + unbounded_ord;
+                unbounded_ord += 1;
+                out.push(RegisterAssignment {
+                    name: r.name.clone(),
+                    class,
+                    register: 0,
+                    space,
+                    span: UNBOUNDED_DESCRIPTOR_COUNT,
+                });
+            }
+        }
     }
     Ok(out)
 }
@@ -294,9 +368,11 @@ pub fn detect_register_conflict(
 }
 
 /// 两个同轴 + 同 space 分配的 `[register, register + span)` 半开区间是否重叠。
+/// `saturating_add` 容纳无界表 `span = UNBOUNDED_DESCRIPTOR_COUNT`(无界表各占独立
+/// space,`detect_register_conflict` 的同-space 前置使其永不进本比较,此处仅防溢出)。
 fn ranges_overlap(a: &RegisterAssignment, b: &RegisterAssignment) -> bool {
-    let a_end = a.register + a.span;
-    let b_end = b.register + b.span;
+    let a_end = a.register.saturating_add(a.span);
+    let b_end = b.register.saturating_add(b.span);
     a.register < b_end && b.register < a_end
 }
 
@@ -395,6 +471,24 @@ pub fn infer_root_signature(
         });
     }
 
+    // G3.4(RXS-0233):每个无界 SRV 纹理表 = 独占 descriptor table(单 unbounded SRV
+    // range,自 space1;`NumDescriptors = 0xFFFFFFFF`、`BaseShaderRegister = 0`)。独占
+    // space 分配律使 unbounded range「吞轴」结构性无冲突(§4.C2)。声明序稳定(assignments
+    // 保序,space 自 space1 递增即声明序)。
+    for a in assignments
+        .iter()
+        .filter(|a| a.space >= RTS0_BINDLESS_SPACE_BASE)
+    {
+        parameters.push(RootParameter::DescriptorTable {
+            ranges: vec![DescriptorRange {
+                range_type: ResourceClass::Srv,
+                num_descriptors: UNBOUNDED_DESCRIPTOR_COUNT,
+                base_register: 0,
+                space: a.space,
+            }],
+        });
+    }
+
     let rs = RootSignature {
         parameters,
         flags: 0,
@@ -410,11 +504,15 @@ pub fn infer_root_signature(
     Ok(rs)
 }
 
-/// 把某轴的全部分配聚合为单个 descriptor range(无该轴资源 → `None`)。
+/// 把某轴的**有界(space0)**分配聚合为单个 descriptor range(无该轴 bounded 资源
+/// → `None`)。无界表(space1+)独占各自 table,不进本聚合(§4.C2)。
 fn axis_range(assignments: &[RegisterAssignment], class: ResourceClass) -> Option<DescriptorRange> {
     let mut total = 0u32;
     let mut base = u32::MAX;
-    for a in assignments.iter().filter(|a| a.class == class) {
+    for a in assignments
+        .iter()
+        .filter(|a| a.class == class && a.space == 0)
+    {
         total += a.span;
         base = base.min(a.register);
     }
@@ -669,20 +767,47 @@ pub fn class_to_vk_set(class: ResourceClass) -> u32 {
 /// **B 链形态(`infer_spirv_bindings`)装饰字节不动**(零 golden 重 bless);两套策略
 /// 共享同一 binding-号推导(单一事实源,非「一处推导两形态」的含糊)。
 ///
+/// G3.4(RXS-0233):无界 SRV 纹理表在 Vk-native 形态独占 descriptor set **自 set4**
+/// 按声明序递增(类别轴 set0~3 之后首个空闲 set,§4.0-1),表内 binding 0。
+///
+/// **binding 号与 [`infer_spirv_bindings`] 单一事实源**(bounded per-class 递增、
+/// unbounded 恒 0);两形态仅 set 分配策略不同(E-3)。
+///
 /// # Errors
-/// 同 [`infer_spirv_bindings`]:`Unbounded` → [`BindingInferError::Unmappable`](RD-018)。
+/// 同 [`infer_spirv_bindings`]:无界非-SRV-纹理 → [`BindingInferError::Unmappable`](RD-018)。
 pub fn infer_spirv_bindings_vk_native(
     resources: &[ResourceBinding],
 ) -> Result<Vec<SpirvBinding>, BindingInferError> {
-    // binding 号复用 B 链同一事实源;仅 set 分配策略切换为类别轴。
-    let b_chain = infer_spirv_bindings(resources)?;
-    Ok(b_chain
-        .into_iter()
-        .map(|b| SpirvBinding {
-            set: class_to_vk_set(b.class),
-            ..b
-        })
-        .collect())
+    let mut counters = AxisCounters::default();
+    let mut unbounded_ord = 0u32;
+    let mut out = Vec::with_capacity(resources.len());
+    for r in resources {
+        let class = r.res.class();
+        match resource_multiplicity(r)? {
+            // bounded:set = 类别轴(0=CBV/1=SRV/2=UAV/3=Sampler),binding = 类内序(同 B 链)。
+            Multiplicity::Bounded(span) => {
+                let binding = counters.take(class, span);
+                out.push(SpirvBinding {
+                    name: r.name.clone(),
+                    class,
+                    set: class_to_vk_set(class),
+                    binding,
+                });
+            }
+            // unbounded SRV 纹理表:独占 set4+(声明序),binding 0。
+            Multiplicity::UnboundedTable => {
+                let set = VK_BINDLESS_SET_BASE + unbounded_ord;
+                unbounded_ord += 1;
+                out.push(SpirvBinding {
+                    name: r.name.clone(),
+                    class,
+                    set,
+                    binding: 0,
+                });
+            }
+        }
+    }
+    Ok(out)
 }
 
 // ════════════════ RXS-0224:sampler 状态空间 + 静态 sampler 序列化 ════════════════
@@ -933,19 +1058,138 @@ mod tests {
         assert_eq!(bindings[1].binding, 0);
     }
 
-    /// reject:unbounded / bindless → Unmappable(RD-018 defer,strict-only)。
-    //@ spec: RXS-0163
+    /// accept(G3.4 翻转):无界 SRV 纹理表 `[Texture2D<F>]` = 合法无界表——B 链独占
+    /// set1(bounded set0 之后)、binding 0(RXS-0233;自 Unmappable 翻转为合法路)。
+    //@ spec: RXS-0233
     #[test]
-    fn spirv_bindings_unbounded_is_unmappable() {
+    fn spirv_bindings_unbounded_srv_texture_is_legal_bindless_set() {
+        let resources = vec![
+            rb("tex", MirResourceType::Texture2D(PrimTy::F32)),
+            rb_n(
+                "table",
+                MirResourceType::Texture2D(PrimTy::F32),
+                ResourceCount::Unbounded,
+            ),
+        ];
+        let b = infer_spirv_bindings(&resources).expect("无界 SRV 纹理表应合法(RXS-0233)");
+        // bounded tex:set0 装饰字节不动。
+        assert_eq!((b[0].set, b[0].binding), (0, 0));
+        // 无界 table:B 链自 set1 独占,binding 0。
+        assert_eq!((b[1].set, b[1].binding), (B_CHAIN_BINDLESS_SET_BASE, 0));
+        assert_eq!(b[1].class, ResourceClass::Srv);
+    }
+
+    /// reject(维持):无界**非-SRV-纹理**表(无界 Sampler)→ Unmappable/RX6013(§8,不新码)。
+    //@ spec: RXS-0233
+    #[test]
+    fn spirv_bindings_unbounded_non_texture_still_unmappable() {
         let resources = vec![rb_n(
-            "heap",
-            MirResourceType::Texture2D(PrimTy::F32),
+            "samps",
+            MirResourceType::Sampler,
             ResourceCount::Unbounded,
         )];
         match infer_spirv_bindings(&resources) {
             Err(BindingInferError::Unmappable { .. }) => {}
-            other => panic!("unbounded 应 Unmappable(RD-018),实得 {other:?}"),
+            other => panic!("无界非纹理应维持 Unmappable(§8),实得 {other:?}"),
         }
+    }
+
+    /// accept(G3.4):Vk-native 无界表独占 set4+;RTS0 无界表独占 space1+;有界路
+    /// (bounded set0~3 / space0)零漂移;多表按声明序递增(独占分配律,RXS-0233)。
+    //@ spec: RXS-0233
+    #[test]
+    fn bindless_exclusive_set_space_allocation_law() {
+        // 混合:1 CBV + 1 有界 SRV + 2 无界 SRV 纹理表 + 1 Sampler + 1 UAV。
+        let resources = vec![
+            rb("cbv", MirResourceType::ConstantBuffer),
+            rb("tex", MirResourceType::Texture2D(PrimTy::F32)),
+            rb_n(
+                "tableA",
+                MirResourceType::Texture2D(PrimTy::F32),
+                ResourceCount::Unbounded,
+            ),
+            rb_n(
+                "tableB",
+                MirResourceType::Texture2D(PrimTy::F32),
+                ResourceCount::Unbounded,
+            ),
+            rb("samp", MirResourceType::Sampler),
+            rb("rw", MirResourceType::StructuredBuffer { read_only: false }),
+        ];
+
+        // Vk-native:bounded 类别轴 set0~3;无界表 tableA=set4、tableB=set5(声明序)。
+        let vk = infer_spirv_bindings_vk_native(&resources).unwrap();
+        let vk_by: std::collections::HashMap<&str, (u32, u32)> = vk
+            .iter()
+            .map(|b| (b.name.as_str(), (b.set, b.binding)))
+            .collect();
+        assert_eq!(vk_by["cbv"], (0, 0)); // CBV → set0
+        assert_eq!(vk_by["tex"], (1, 0)); // 有界 SRV → set1
+        assert_eq!(vk_by["samp"], (3, 0)); // Sampler → set3
+        assert_eq!(vk_by["rw"], (2, 0)); // UAV → set2
+        assert_eq!(vk_by["tableA"], (VK_BINDLESS_SET_BASE, 0)); // set4
+        assert_eq!(vk_by["tableB"], (VK_BINDLESS_SET_BASE + 1, 0)); // set5
+
+        // RTS0/register:bounded 恒 space0;无界表 tableA=space1、tableB=space2。
+        let reg = infer_register_assignments(&resources).unwrap();
+        let reg_by: std::collections::HashMap<&str, (u32, u32, u32)> = reg
+            .iter()
+            .map(|a| (a.name.as_str(), (a.register, a.space, a.span)))
+            .collect();
+        assert_eq!(reg_by["tex"], (0, 0, 1)); // 有界 SRV t0 space0
+        assert_eq!(
+            reg_by["tableA"],
+            (0, RTS0_BINDLESS_SPACE_BASE, UNBOUNDED_DESCRIPTOR_COUNT)
+        );
+        assert_eq!(
+            reg_by["tableB"],
+            (0, RTS0_BINDLESS_SPACE_BASE + 1, UNBOUNDED_DESCRIPTOR_COUNT)
+        );
+        // 独占 space → 推导集无冲突(unbounded 各占独立 space)。
+        assert!(detect_register_conflict(&reg).is_ok());
+
+        // root signature:每个无界表 = 独占 descriptor table(单 unbounded SRV range)。
+        let rs = infer_root_signature(&resources).unwrap();
+        let unbounded_tables: Vec<u32> = rs
+            .parameters
+            .iter()
+            .filter_map(|p| match p {
+                RootParameter::DescriptorTable { ranges }
+                    if ranges.len() == 1
+                        && ranges[0].num_descriptors == UNBOUNDED_DESCRIPTOR_COUNT =>
+                {
+                    Some(ranges[0].space)
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            unbounded_tables,
+            vec![1, 2],
+            "两无界表独占 space1/space2 各自 table"
+        );
+
+        // 确定性:两次推导字段全等。
+        assert_eq!(vk, infer_spirv_bindings_vk_native(&resources).unwrap());
+        assert_eq!(reg, infer_register_assignments(&resources).unwrap());
+    }
+
+    /// 有界路零漂移:纯有界签名的 B 链推导与「加入无界表前」逐字段全等(无界表
+    /// 不扰动 bounded 资源 set0/binding,承 §4.C2「B 链字节不动」合入门语义)。
+    //@ spec: RXS-0233
+    #[test]
+    fn bounded_path_zero_drift_when_table_added() {
+        let bounded_only = mixed();
+        let base = infer_spirv_bindings(&bounded_only).unwrap();
+        // 在末尾追加一个无界表后,bounded 前四项的 (set,binding,class) 不变。
+        let mut with_table = mixed();
+        with_table.push(rb_n(
+            "table",
+            MirResourceType::Texture2D(PrimTy::F32),
+            ResourceCount::Unbounded,
+        ));
+        let after = infer_spirv_bindings(&with_table).unwrap();
+        assert_eq!(&after[..4], &base[..], "bounded 资源 B 链装饰零漂移");
     }
 
     // ──────────────── RXS-0164:register/space 分配推导 ────────────────

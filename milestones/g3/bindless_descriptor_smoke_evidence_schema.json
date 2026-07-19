@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/bindless_descriptor_smoke/v1",
+  "title": "Rurix bindless 面冒烟证据 JSON(G3.4,契约 G-G3-4,RFC-0013 §4.C / RXS-0231~0235)",
+  "description": "bindless 无界表动态索引 device 见证:≥4 纹理注册表按屏幕象限动态索引采样 == 四色(quadrant_index_four_color)+ 篡改注册序 → 像素换位 RED(tamper_register_order_swap)+ feature chain 四 bit 缺失 → 确定性 Err(feature_chain_missing_err)。逐项『篡改→像素变=RED,复原=GREEN』数据流红绿(RXS-0176 IR2 纪律)。modes_ok = device 数值判据真过者去重集;smoke_ok = 全判据通过。**device 判据阈值随实现 PR 定案(harness bin/bindless_modes 判据结构就位,四象限四色/换位/feature-Err;数值阈值 TODO 留 owner 本机)**。计数源 g3.counter.bindless_descriptor_smoke = evidence/bindless_*.json 中 smoke_ok=true 报告数(≥1;ci/budget_eval.py)。机器复核闸门 = ci/bindless_smoke.py(host 段恒跑:Unbounded 合法化 + 独占 space 分配律 + RTS0 roundtrip + nonuniform 缺失 reject UI golden + bindless SPIR-V spirv-val vulkan1.2 三态;device 段:bindless harness 四象限索引红绿)。device 真跑 = 交互 GPU 链路,**无显示/无 GPU/未 opt-in → device 段 SKIP=dev-env degrade 非 fake pass**(不充绿);RURIX_REQUIRE_REAL=1 时缺失翻硬红。**AMD 真卡见证 = G-MB1-6 硬件尾门独立存续**(本机 RTX 4070 Ti measured 不充作 AMD)。",
+  "type": "object",
+  "required": ["schema_version", "subject", "smoke_ok", "timestamp"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": { "const": "bindless_descriptor_smoke" },
+    "smoke_ok": {
+      "description": "bindless device 数值判据全过(四象限四色 + 篡改换位 RED + feature 缺失 Err);计入 g3.counter.bindless_descriptor_smoke(>=1 则 PASS)",
+      "type": "boolean"
+    },
+    "modes_ok": {
+      "description": "device 数值判据真过的 bindless 模式名去重集(RFC-0013 §4.C4 判据结构;每模式篡改→像素变 RED / 复原 GREEN 通过者)",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "quadrant_index_four_color",
+          "tamper_register_order_swap",
+          "feature_chain_missing_err"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "num_textures": {
+      "description": "注册表纹理数(≥4,四象限动态索引)",
+      "type": "integer"
+    },
+    "milestone": { "type": "string" },
+    "adapter": {
+      "description": "选中的硬件 adapter 名(device 见证)",
+      "type": "string"
+    },
+    "checks": {
+      "description": "逐项机器事实背书(反 YAML-only)",
+      "type": "object"
+    },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "stdout": { "type": "string" }
+  }
+}
