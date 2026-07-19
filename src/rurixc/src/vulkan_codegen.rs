@@ -1661,9 +1661,9 @@ pub fn emit_task_min() -> Vec<u32> {
     b.finish(EXEC_MODEL_TASK_EXT, true)
 }
 
-/// raygen 阶段最小合规 SPIR-V(§4.E6/E8:RayGenerationKHR + SPV_KHR_ray_tracing + AccelStruct SRV
-/// + RayPayloadKHR + OpTraceRayKHR〔已知签名固定:opaque/0xFF/SBT 恒 0/递归恒 1〕+ **storage image
-/// 写出**〔RXS-0247〕)。
+/// raygen 阶段最小合规 SPIR-V(§4.E6/E8:RayGenerationKHR、SPV_KHR_ray_tracing、AccelStruct SRV、
+/// RayPayloadKHR、OpTraceRayKHR〔已知签名固定:opaque/0xFF/SBT 恒 0/递归恒 1〕、storage image
+/// 写出〔RXS-0247〕)。
 ///
 /// **device 可判据落点**(RXS-0247):此前 raygen 无 storage image 落点 → device 回读全 clear
 /// 黑、`bin/vk_rt` 中心/角落像素判据无法判(MISS)。本形态补齐两半:
