@@ -1,0 +1,6 @@
+//@ spec: RXS-0251, RXS-0255
+// export_c accept: unit 返回位映射 `void`（RXS-0251）；空体无可 panic 面
+// （RXS-0255 结构性保证）。
+
+#[export(c)]
+pub fn rurix_noop() {}

@@ -1,0 +1,7 @@
+//@ spec: RXS-0250
+//@ expect-error: RX6033
+// export_c reject: `#[export(c)]` 挂 `kernel fn`（非 host 着色）→ RX6033
+// （RXS-0250 挂载对象合法性：仅 host `pub fn`）。
+
+#[export(c)]
+kernel fn compute() {}

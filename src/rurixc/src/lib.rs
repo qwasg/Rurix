@@ -24,6 +24,7 @@ pub mod dxil_codegen;
 pub mod dxil_sig_gate;
 #[cfg(any(feature = "dxil-backend", feature = "vulkan-backend"))]
 pub mod dxil_spirv;
+pub mod export_c;
 pub mod feature_gate;
 pub mod fmt;
 pub mod hir;

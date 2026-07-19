@@ -11,7 +11,12 @@
   ],
   "entries": [],
   "ratio_assertions": [],
-  "counter_assertions": [],
+  "counter_assertions": [
+    {
+      "id": "ei1.counter.export_c_redgreen_cases",
+      "description": "`#[export(c)]` C ABI 导出 codegen 红绿 reject 语料基数 ≥8(契约 G-EI1-2;RFC-0014 Part A §4.A / RXS-0250~0255;编译期 100% 拦截口径,I1~I8 类)。计数源 = conformance/export_c/reject/*.rx 文件数(静态语料计数,机器事实,ci/export_c_smoke.py 步骤 71 host 段 cargo test export_c_corpus 恒跑批跑全拦截 + accept 0 诊断验证每条真出预期码)。覆盖 3 诊断码:RX6033 属性挂载非法(挂 kernel/device/非 pub)×3 + RX6031 子集/panic 面违例(slice/array 按值/数组索引/unwrap/`?`)×5。**host 段恒跑不 gate**(collect_c_exports 编译期诊断,不需 device/工具链;对齐 m1.counter.syntax_corpus_size 静态语料计数先例,非 device evidence 计数)。工具链段(--emit=dll DLL+import lib+生成头 + dumpbin 未 mangle + 类型层 ABI 往返哨兵 RXS-0252/0253 步骤 71 硬门)缺 clang/link/MSVC → SKIP=dev-env degrade,RURIX_REQUIRE_REAL=1 翻硬红,不入本 counter。EI1.3~EI1.5 counter(uc05_invariant_cases 等)随后续实现 PR 落。"
+    }
+  ],
   "namespace_check": {
     "rule": "本文件所有 id 必须以 'ei1.' 前缀开头;多预算合并加载时冲突即 FAIL(14 §3)。预算自动发现 glob 为 *_budget.json(ci/check_schemas.py / budget_eval.py / check_guardrails.py / tests/test_budget_namespace.py 同一 glob),ei1 自动纳入无新 CI 码。",
     "unit_test_required": true
@@ -21,6 +26,11 @@
       "version": "v1.0",
       "date": "2026-07-18",
       "change": "初版模板(EI1 gated 契约脚手架):entries/ratio_assertions/counter_assertions 全部留空,gated 期恒空(契约 §0/G-EI1-0)。entries/ratio_assertions 留空(不预欠 estimated 占位);counter_assertions 留空(实体面 Full-RFC-gated(RFC-0014 earmark),不预造 counter)。ei1.counter.* 随激活后 EI1.2~EI1.5 实现 PR 回填 + 配套 ci/budget_eval.py evaluator 分支(条款先于实现);ei1.bench.uc05_check_{cold,warm}_ms(增量 check <5s 双口径,07 §6)随激活后 EI1.5 取证 measured_local 回填。永不立引擎采纳/下载量/用户数类条目。预算 glob *_budget.json 自动纳入 ei1,无新 CI 代码改动。"
+    },
+    {
+      "version": "v1.1",
+      "date": "2026-07-19",
+      "change": "EI1.2 export(c) codegen 实现 PR:counter_assertions 落首个实体 counter ei1.counter.export_c_redgreen_cases(≥8,契约 G-EI1-2,RFC-0014 Part A / RXS-0250~0255)+ 配套 ci/budget_eval.py evaluator 分支(条款先于实现兑现,MS1.2/EA1 counter 先例)。计数源 = conformance/export_c/reject/*.rx 静态语料数(host 恒跑,非 device evidence 计数,对齐 m1.counter.syntax_corpus_size 先例):RX6033 属性挂载非法 ×3 + RX6031 子集/panic 面 ×5。entries/ratio_assertions 维持留空(采纳判据 bench ei1.bench.uc05_check_{cold,warm}_ms 随 EI1.5 measured_local 回填,不预欠 estimated)。Part B/UC-05 counter(uc05_invariant_cases 等)随 EI1.3~EI1.5 落。零 estimated 铁律维持(本 counter measured 静态计数)。"
     }
   ]
 }

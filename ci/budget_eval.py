@@ -572,6 +572,16 @@ def eval_counter(entry: dict, strict: bool) -> None:
         n = len(stages)
         count_or_gate(eid, n, 3, "个 mesh-task-RT 阶段 device 见证(去重:mesh/raygen/closesthit)",
                       "G3.6 mesh/RT device 见证回填前为正常状态,契约 G-G3-6", strict)
+    elif eid == "ei1.counter.export_c_redgreen_cases":
+        # `#[export(c)]` C ABI 导出红绿 reject 语料基数 ≥8(契约 G-EI1-2;RFC-0014 Part A §4.A /
+        # RXS-0250~0255)。计数源 = conformance/export_c/reject/*.rx 静态语料数(编译期 100% 拦截口径,
+        # host 恒跑不 gate;对齐 m1.counter.syntax_corpus_size / m3.counter.borrowck_conformance_categories
+        # 静态语料计数先例,非 device evidence 计数)。3 码覆盖:RX6033 属性挂载非法 ×3 + RX6031 子集/
+        # panic 面违例 ×5。工具链段(--emit=dll + dumpbin + 类型层 ABI 往返哨兵)缺工具链 → SKIP 不入本 counter。
+        reject_dir = ROOT / "conformance" / "export_c" / "reject"
+        n = len(list(reject_dir.glob("*.rx"))) if reject_dir.is_dir() else 0
+        count_or_gate(eid, n, 8, "个 export(c) 红绿 reject 语料",
+                      "EI1.2 建设期为正常状态,契约 G-EI1-2", strict)
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 

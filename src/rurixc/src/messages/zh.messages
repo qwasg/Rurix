@@ -171,3 +171,8 @@ coloring.gpu_host_api_in_device = std::gpu 宿主编排 API 不可在 `kernel`/`
 gpu.launch_arg_subset = launch 实参类型 {ty} 超出首期 marshalling 子集(Buffer 与 i32 / u32 / f32 / usize,RXS-0191)
 codegen.gpu_embed_failure = 无法把 device 产物嵌入宿主产物:{detail}(RXS-0192)
 link.rt_cabi_failure = 无法定位或构建 rurix-rt-cabi 运行时库:{detail}(定位序:RURIX_RT_CABI_LIB、<编译器>/lib/、workspace target;RXS-0195)
+#
+# `#[export(c)]` C ABI 导出诊断(RX6031 ~ RX6033,spec/export_c.md RXS-0250/0251/0252/0255;EI1.2 RFC-0014 Part A 分配)
+export_c.attr_target = `#[export(c)]` 属性只能挂在 host `pub fn` 上(RXS-0250):{detail}
+export_c.subset = `#[export(c)]` 导出面超出 C 兼容子集 v1(RXS-0251 签名 / RXS-0255 体):{detail}
+export_c.empty = `--emit=dll` 无任何 `#[export(c)]` 导出(RXS-0252):空导出集

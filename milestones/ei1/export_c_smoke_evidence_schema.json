@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/export_c_smoke/v1",
+  "title": "Rurix `#[export(c)]` C ABI 导出 codegen 冒烟证据 JSON(EI1.2,契约 G-EI1-2,RFC-0014 Part A §4.A / RXS-0250~0255)",
+  "description": "步骤 71 ci/export_c_smoke.py 的机器复核证据。host 段恒跑(export_c_corpus 批跑 reject 全拦截 RX6031/6032/6033 + accept 0 诊断 + 空导出集 RX6032 RXS-0252 + 内建头幂等两次逐字节一致 RXS-0253 + 篡改入库头再生成 byte-diff RED RXS-0254);工具链/device 段(--emit=dll → DLL + import lib + 内建头 + dumpbin 未 mangle + C 宿主类型层 ABI 往返哨兵:i64 宽度 / i8·i32 符号扩展 / 裸指针读写,RXS-0252/0253 步骤 71 硬门 redline F6)= clang+link.exe+MSVC 在位真跑,缺则 dev_env_degrade=true SKIP(退 0),RURIX_REQUIRE_REAL=1 翻硬红。红绿 reject 语料基数计入 ei1.counter.export_c_redgreen_cases(计数源为 conformance/export_c/reject/*.rx 静态语料数,非本证据文件)。checks 各布尔背书对应 RXS 条款(反 YAML-only)。",
+  "type": "object",
+  "required": ["schema_version", "subject", "step", "host_section_pass", "checks", "timestamp"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": { "const": "export_c_smoke" },
+    "milestone": { "type": "string" },
+    "step": { "const": 71 },
+    "host_section_pass": {
+      "description": "host 段(corpus 批跑 + 空导出集 + 头幂等 + 篡改再生成 RED)恒跑全过",
+      "type": "boolean"
+    },
+    "device_section_rc": {
+      "description": "工具链/device 段退出码(0 = 真跑全过或 dev-env degrade SKIP;非 0 = 硬红)",
+      "type": "integer"
+    },
+    "checks": {
+      "description": "逐条 RXS 背书布尔(反 YAML-only):corpus 批跑 / 空导出集 RX6032 / 头幂等 RXS-0253 / 篡改再生成 RED RXS-0254 / dumpbin 未 mangle RXS-0252 / 类型层 ABI 往返哨兵 RXS-0252-0253",
+      "type": "object",
+      "required": ["corpus_pass", "empty_reject_ok", "header_idempotent", "tamper_regen_red"],
+      "properties": {
+        "corpus_pass": { "type": "boolean" },
+        "empty_reject_ok": { "type": "boolean" },
+        "header_idempotent": { "type": "boolean" },
+        "tamper_regen_red": { "type": "boolean" },
+        "dumpbin_unmangled": { "type": ["boolean", "null"] },
+        "abi_roundtrip_ok": { "type": ["boolean", "null"] }
+      }
+    },
+    "toolchain_skip": {
+      "description": "工具链缺失时的 SKIP 归因(clang/link.exe/MSVC 定位失败);null = 未 SKIP",
+      "type": ["string", "null"]
+    },
+    "dev_env_degrade": {
+      "description": "true = 工具链缺失 device 段降级 SKIP(退 0,非 fake pass);RURIX_REQUIRE_REAL=1 时翻硬红不写此项为 true",
+      "type": "boolean"
+    },
+    "run_url": {
+      "description": "CI run URL 或 'local'(本机主循环真跑)",
+      "type": "string"
+    },
+    "timestamp": { "type": "string" }
+  }
+}

@@ -1,0 +1,10 @@
+//@ spec: RXS-0251
+// export_c accept: `*mut T`（T 标量）是 C 兼容子集 v1 合法参数类型（RXS-0251）；
+// documented unsafe FFI 边界，codegen 不引入隐式解引用，有效性/对齐为调用方前置条件。
+
+#[export(c)]
+pub fn rurix_store(p: *mut i32, v: i32) {
+    unsafe {
+        *p = v;
+    }
+}

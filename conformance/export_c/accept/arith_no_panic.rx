@@ -1,0 +1,8 @@
+//@ spec: RXS-0255
+// export_c accept: 纯 C 兼容算术体，结构上不含数组索引/`?`/`unwrap`·`expect`
+// 等可 panic 面（RXS-0255「无 panic 面 by-construction」编译期结构性保证）。
+
+#[export(c)]
+pub fn rurix_poly(a: f64, b: f64) -> f64 {
+    a * b + a - b
+}
