@@ -54,5 +54,13 @@ required-features = ["dxil-backend", "shader-stages"]
 name = "emit_spirv_provenance"
 required-features = ["dxil-backend", "shader-stages"]
 
+# G3.3 PR-S3 采样模式着色器 SPIR-V 合法性机验(RXS-0223~0230):消费 dxil_spirv::
+# emit_spirv_body_vulkan + toolchain::locate_spirv_val,须 dxil-backend + shader-stages
+# (缺 required-features 时,不带该 feature 集的 rurixc tests 构建〔如 LSP smoke〕编译红;
+# 镜像上三条既有缺口勘误)。
+[[test]]
+name = "sampling_vulkan_spirv_val"
+required-features = ["dxil-backend", "shader-stages"]
+
 [lints]
 workspace = true
