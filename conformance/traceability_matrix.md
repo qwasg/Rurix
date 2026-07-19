@@ -229,4 +229,4 @@
 | RXS-0227 | spec/dxil_backend.md | 1 | `src/rurixc/src/dxil_spirv.rs` |
 | RXS-0228 | spec/dxil_backend.md | 1 | `src/rurixc/src/dxil_spirv.rs` |
 | RXS-0229 | spec/dxil_backend.md | 1 | `src/rurixc/src/dxil_spirv.rs` |
-| RXS-0230 | spec/vulkan_backend.md | 1 | `src/rurixc/src/binding_layout.rs` |
+| RXS-0230 | spec/vulkan_backend.md | 2 | `src/rurix-rt/src/vk.rs`, `src/rurixc/src/binding_layout.rs` |

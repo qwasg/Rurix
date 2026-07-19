@@ -1231,6 +1231,7 @@
       "src/rurixc/src/dxil_spirv.rs"
     ],
     "RXS-0230": [
+      "src/rurix-rt/src/vk.rs",
       "src/rurixc/src/binding_layout.rs"
     ]
   }
