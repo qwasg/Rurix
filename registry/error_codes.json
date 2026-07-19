@@ -839,9 +839,38 @@
       "status": "active",
       "introduced_in": "G3.5",
       "spec_clauses": ["RXS-0237"]
+    },
+    {
+      "id": "RX6031",
+      "title": "`#[export(c)]` 导出面超出 C 兼容子集 v1(编译期 strict:签名参数/返回超出〔标量 / `*mut T`·`*const T`〔T 标量〕/ unit→void〕,或导出体含可 panic 面〔数组越界 / `?` / `unwrap`·`expect`〕;RXS-0251 签名 + RXS-0255 体 by-construction 无 panic 面结构性保证,export_c.rs 收集校验)",
+      "message_key": "export_c.subset",
+      "status": "active",
+      "introduced_in": "EI1.2",
+      "spec_clauses": ["RXS-0251", "RXS-0255"]
+    },
+    {
+      "id": "RX6032",
+      "title": "`--emit=dll` 空导出集(编译期 strict:cdylib 通道无任何 `#[export(c)]` 导出;RXS-0252 §4.A4,driver.rs 空集守门)",
+      "message_key": "export_c.empty",
+      "status": "active",
+      "introduced_in": "EI1.2",
+      "spec_clauses": ["RXS-0252"]
+    },
+    {
+      "id": "RX6033",
+      "title": "`#[export(c)]` 属性挂载对象非法(编译期 strict:仅 host `pub fn` 合法;挂 device/kernel/着色阶段 fn·非 pub·非 fn item → 拒;RXS-0250 §4.A1,export_c.rs 合法性校验)",
+      "message_key": "export_c.attr_target",
+      "status": "active",
+      "introduced_in": "EI1.2",
+      "spec_clauses": ["RXS-0250"]
     }
   ],
   "revision_log": [
+    {
+      "version": "v1.33",
+      "date": "2026-07-19",
+      "change": "EI1.2 `#[export(c)]` C ABI 导出 codegen 面分配 RX6031 + RX6032 + RX6033(RFC-0014 Part A §4.A,spec/export_c.md RXS-0250/0251/0252/0255 配套;§5.1 码表预测〔确定 ×2 = 签名子集违例 + 空导出集,条件 ×2 = 属性误用 + DLL 链接失败〕兑现,实现真实可达类别只追加)。RX6031 导出面超出 C 兼容子集 v1(6xxx 段续接 RX6030;签名参数/返回超出标量·裸指针·unit 子集〔RXS-0251〕**或**导出体含可 panic 面〔RXS-0255 无 panic 面 by-construction 编译期结构性保证:数组越界 / `?` / `unwrap`·`expect`〕——§5.1 预测「签名不兼容」与 panic 面折入单码「超出子集 v1〔签名或体〕」,少一新码,export_c.rs 收集校验 strict-only)。RX6032 空导出集(6xxx;`--emit=dll` 零 `#[export(c)]` 导出,driver.rs 守门)。RX6033 属性挂载对象非法(6xxx;§5.1 预测「属性误用〔条件〕或复用 RX3015」——materialize 为专用码而非复用 RX3015 coloring,因属性挂载对象错误〔非 pub / 非 fn item / device·kernel fn〕与跨色调用〔RX3015〕语义不同,精确诊断优先;RXS-0250)。DLL 链接失败复用 RX7001/RX7022(§4.A4 条件复用兑现,不占新码)。三码 < RX_error on_tree_max 7022,number_ledger on_tree_max 不 bump(v1.5 RX3016 先例)。message_key export_c.subset / export_c.empty / export_c.attr_target 同落 en/zh.messages(双语全量覆盖门 ci/bilingual_coverage.py);段内分配制递增不复用、含义冻结(10 §6)。RX6027~6030 既有 entries 不动"
+    },
     {
       "version": "v1.32",
       "date": "2026-07-19",

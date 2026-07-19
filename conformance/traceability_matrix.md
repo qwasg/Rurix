@@ -249,3 +249,9 @@
 | RXS-0247 | spec/vulkan_backend.md | 1 | `src/rurixc/src/vulkan_codegen.rs` |
 | RXS-0248 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/vk.rs` |
 | RXS-0249 | spec/dxil_backend.md | 1 | `src/rurixc/src/dxil_codegen.rs` |
+| RXS-0250 | spec/export_c.md | 6 | `conformance/export_c/accept/add.rx`, `conformance/export_c/accept/name_override.rx`, `conformance/export_c/reject/attr_non_pub.rx` …(+3) |
+| RXS-0251 | spec/export_c.md | 7 | `conformance/export_c/accept/add.rx`, `conformance/export_c/accept/ptr_store.rx`, `conformance/export_c/accept/unit_return.rx` …(+4) |
+| RXS-0252 | spec/export_c.md | 2 | `conformance/export_c/accept/multi_export.rx`, `src/rurixc/src/export_c.rs` |
+| RXS-0253 | spec/export_c.md | 2 | `conformance/export_c/accept/multi_export.rx`, `src/rurixc/src/export_c.rs` |
+| RXS-0254 | spec/export_c.md | 2 | `conformance/export_c/accept/multi_export.rx`, `src/rurixc/src/export_c.rs` |
+| RXS-0255 | spec/export_c.md | 6 | `conformance/export_c/accept/arith_no_panic.rx`, `conformance/export_c/accept/unit_return.rx`, `conformance/export_c/reject/index_body_panic.rx` …(+3) |

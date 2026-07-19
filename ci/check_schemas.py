@@ -226,6 +226,9 @@ def check_evidence_files() -> None:
     meshrt_stages_schema = load(
         ROOT / "milestones/g3/meshrt_stages_evidence_schema.json"
     )
+    export_c_smoke_schema = load(
+        ROOT / "milestones/ei1/export_c_smoke_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -344,6 +347,9 @@ def check_evidence_files() -> None:
     )
     meshrt_stages_validator = (
         jsonschema.Draft7Validator(meshrt_stages_schema) if meshrt_stages_schema else None
+    )
+    export_c_smoke_validator = (
+        jsonschema.Draft7Validator(export_c_smoke_schema) if export_c_smoke_schema else None
     )
     bindless_smoke_validator = (
         jsonschema.Draft7Validator(bindless_smoke_schema)
@@ -603,6 +609,17 @@ def check_evidence_files() -> None:
             # g3.counter.mesh_task_rt_stages,ci/budget_eval.py。device 真跑 = 交互 GPU 链路不进
             # pr-smoke 硬门,SKIP 不充绿,镜像 auto_barrier_hazard 双态;像素判据阈值 owner device 调优)
             validator = meshrt_stages_validator
+        elif (
+            f.name.startswith("export_c_smoke")
+            and export_c_smoke_validator is not None
+        ):
+            # EI1.2 `#[export(c)]` C ABI 导出 codegen 冒烟证据(G-EI1-2;RFC-0014 Part A §4.A /
+            # RXS-0250~0255)→ milestones/ei1/export_c_smoke_evidence_schema.json(ci/export_c_smoke.py
+            # host 段恒跑 corpus 批跑 + 空导出集 RX6032 + 头幂等 RXS-0253 + 篡改再生成 RED RXS-0254;
+            # 工具链/device 段 --emit=dll + dumpbin 未 mangle + 类型层 ABI 往返哨兵 RXS-0252/0253 步骤 71
+            # 硬门 redline F6,缺工具链 dev_env_degrade SKIP 退 0,REQUIRE_REAL 翻硬红)。红绿 reject 语料
+            # 基数计入 ei1.counter.export_c_redgreen_cases(计数源 conformance/export_c/reject/*.rx 非本证据)。
+            validator = export_c_smoke_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):

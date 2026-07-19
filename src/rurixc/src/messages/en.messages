@@ -170,3 +170,8 @@ coloring.gpu_host_api_in_device = std::gpu host orchestration API cannot be used
 gpu.launch_arg_subset = launch argument type {ty} is outside the first-phase marshalling subset (Buffer plus i32 / u32 / f32 / usize, RXS-0191)
 codegen.gpu_embed_failure = failed to embed device artifacts into the host image: {detail} (RXS-0192)
 link.rt_cabi_failure = cannot locate or build the rurix-rt-cabi runtime library: {detail} (search order: RURIX_RT_CABI_LIB, <compiler>/lib/, workspace target; RXS-0195)
+#
+# `#[export(c)]` C ABI export diagnostics (RX6031 ~ RX6033, spec/export_c.md RXS-0250/0251/0252/0255; EI1.2 RFC-0014 Part A allocation)
+export_c.attr_target = `#[export(c)]` may only be attached to a host `pub fn` (RXS-0250): {detail}
+export_c.subset = `#[export(c)]` export surface is outside the C-compatible subset v1 (RXS-0251 signature / RXS-0255 body): {detail}
+export_c.empty = `--emit=dll` has no `#[export(c)]` exports (RXS-0252): empty export set

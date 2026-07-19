@@ -1,0 +1,10 @@
+//@ spec: RXS-0255
+//@ expect-error: RX6031
+// export_c reject: 签名合法，但导出体含 `unwrap`（显式 panic 面）→ RX6031
+// （RXS-0255 导出体须无 panic 面 by-construction）。
+
+#[export(c)]
+pub fn unwrap_it(x: i32) -> i32 {
+    let o = compute(x);
+    o.unwrap()
+}

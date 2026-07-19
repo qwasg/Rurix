@@ -1356,6 +1356,43 @@
     ],
     "RXS-0249": [
       "src/rurixc/src/dxil_codegen.rs"
+    ],
+    "RXS-0250": [
+      "conformance/export_c/accept/add.rx",
+      "conformance/export_c/accept/name_override.rx",
+      "conformance/export_c/reject/attr_non_pub.rx",
+      "conformance/export_c/reject/attr_on_device.rx",
+      "conformance/export_c/reject/attr_on_kernel.rx",
+      "src/rurixc/src/export_c.rs"
+    ],
+    "RXS-0251": [
+      "conformance/export_c/accept/add.rx",
+      "conformance/export_c/accept/ptr_store.rx",
+      "conformance/export_c/accept/unit_return.rx",
+      "conformance/export_c/accept/wide_int.rx",
+      "conformance/export_c/reject/array_by_value_param.rx",
+      "conformance/export_c/reject/slice_param.rx",
+      "src/rurixc/src/export_c.rs"
+    ],
+    "RXS-0252": [
+      "conformance/export_c/accept/multi_export.rx",
+      "src/rurixc/src/export_c.rs"
+    ],
+    "RXS-0253": [
+      "conformance/export_c/accept/multi_export.rx",
+      "src/rurixc/src/export_c.rs"
+    ],
+    "RXS-0254": [
+      "conformance/export_c/accept/multi_export.rx",
+      "src/rurixc/src/export_c.rs"
+    ],
+    "RXS-0255": [
+      "conformance/export_c/accept/arith_no_panic.rx",
+      "conformance/export_c/accept/unit_return.rx",
+      "conformance/export_c/reject/index_body_panic.rx",
+      "conformance/export_c/reject/try_body_panic.rx",
+      "conformance/export_c/reject/unwrap_body_panic.rx",
+      "src/rurixc/src/export_c.rs"
     ]
   }
 }

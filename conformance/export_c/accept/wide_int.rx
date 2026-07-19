@@ -1,0 +1,8 @@
+//@ spec: RXS-0251
+// export_c accept: i64 参数/返回映射 `int64_t`，宽度保真（RXS-0251 类型映射表）；
+// 纯算术体无 panic 面。
+
+#[export(c)]
+pub fn rurix_widen(x: i64) -> i64 {
+    x + 1
+}

@@ -41,7 +41,8 @@ pub struct CompileOptions {
     pub input: PathBuf,
     /// 输出产物路径(`-o`);None 时默认与输入同目录同名(EXE/PTX 各自扩展名)。
     pub out: Option<PathBuf>,
-    /// emit 目标:`check`/`mir`/`llvm-ir`/`nvptx-ir`/`ptx`;None = 默认 host EXE。
+    /// emit 目标:`check`/`mir`/`llvm-ir`/`nvptx-ir`/`ptx`/`pyd`/`dll`;None = 默认 host EXE。
+    /// `dll` = `#[export(c)]` C ABI 导出 cdylib(RXS-0252,EI1.2)。
     pub emit: Option<String>,
     /// self-profile JSON 行输出路径(`--self-profile`);None 时不落盘。
     pub profile_out: Option<PathBuf>,
@@ -123,6 +124,10 @@ pub fn compile(opts: &CompileOptions) -> u8 {
     // 属性形态非法 → RX7022(编译期,同经阶段化关卡中止)。
     let mut link_libs: Vec<String> = Vec::new();
     collect_link_libs(&ast.items, &sm, &diag, &mut link_libs);
+    // `#[export(c)]` 导出集收集/校验(RXS-0250~0251/0255,EI1.2)——早于 HIR 下降,
+    // 消费前从 AST 收(`ast` 在 from_ast 处 move)。合法性诊断随前端阶段化关卡,
+    // 导出集供 --emit=dll 链接段拼 /EXPORT: + 生成头(单一事实源)。
+    let c_exports = crate::export_c::collect_c_exports(&ast.items, &sm, &diag);
     let mut cx = QueryCtx::from_ast(ast, &src, id, &diag);
     for (fid, fsrc) in module_srcs {
         cx.add_module_src(fid, fsrc);
@@ -208,7 +213,7 @@ pub fn compile(opts: &CompileOptions) -> u8 {
                         let device_emit =
                             matches!(
                                 emit.as_deref(),
-                                Some("nvptx-ir") | Some("ptx") | Some("pyd")
+                                Some("nvptx-ir") | Some("ptx") | Some("pyd") | Some("dll")
                             ) || matches!(target.as_deref(), Some("dxil") | Some("vulkan"));
                         if m.is_empty() && !device_emit {
                             diag.struct_error(E_MISSING_MAIN, "codegen.missing_main")
@@ -235,6 +240,19 @@ pub fn compile(opts: &CompileOptions) -> u8 {
         return 1;
     }
     let mir_bodies = mir_bodies.expect("无错误则 MIR 存在");
+
+    // --emit=dll:`#[export(c)]` 导出 host fn 为 MIR 收集根(不依赖 `main`,RXS-0252),
+    // 导出根 body.symbol 改未 mangle 导出符号名(C ABI 保名,单一事实源与 /EXPORT:·
+    // 内建头一致)——替换 main-reachable mir_bodies(无 main 时为空集)。
+    let mir_bodies = if emit.as_deref() == Some("dll") {
+        let roots: Vec<(String, String)> = c_exports
+            .iter()
+            .map(|e| (e.fn_name.clone(), e.symbol.clone()))
+            .collect();
+        std::rc::Rc::new(crate::mir_build::build_export_crate(&cx, &roots))
+    } else {
+        mir_bodies
+    };
 
     // --emit=check:全量静态检查闭环(resolve/typeck/穷尽性/const eval/MIR/
     // move/borrow 均已跑),不产 codegen/link 产物——check 延迟计时口径(G-M3-3)
@@ -425,13 +443,13 @@ pub fn compile(opts: &CompileOptions) -> u8 {
     if let Some(target) = emit.as_deref()
         && !matches!(
             target,
-            "check" | "mir" | "nvptx-ir" | "ptx" | "llvm-ir" | "pyd"
+            "check" | "mir" | "nvptx-ir" | "ptx" | "llvm-ir" | "pyd" | "dll"
         )
     {
         toolchain_err(
             &diag,
             &sm,
-            format!("未知 --emit 目标 `{target}`(合法:check/mir/llvm-ir/nvptx-ir/ptx/pyd)"),
+            format!("未知 --emit 目标 `{target}`(合法:check/mir/llvm-ir/nvptx-ir/ptx/pyd/dll)"),
         );
         return 1;
     }
@@ -520,6 +538,25 @@ pub fn compile(opts: &CompileOptions) -> u8 {
     }
     // codegen 阶段 = LLVM IR 生成 + .ll 落盘 + clang → .obj(文本 IR 通道,M2_PLAN v1.3)
     prof.record("codegen", t, &[("ir_bytes", ir.len() as u64)]);
+
+    // --emit=dll:C ABI 导出 cdylib 通道(RXS-0252,§4.A3/A4,EI1.2)——link.exe
+    // /DLL + driver 拼 /EXPORT: + import lib 副产 + 内建头生成(单一事实源 =
+    // typeck C 映射,同源既产 /EXPORT 参数又产 .h)。免 main(device_emit 分支)。
+    if emit.as_deref() == Some("dll") {
+        return emit_dll(
+            &diag,
+            &sm,
+            &obj,
+            &exe,
+            &c_exports,
+            &link_libs,
+            opts.reproducible,
+            &prof,
+            &cx,
+            t_start,
+            profile_out.as_deref(),
+        );
+    }
 
     // link.exe(D-209:默认 link.exe;PDB 经 /debug:full)
     let t = Instant::now();
@@ -630,6 +667,112 @@ fn finish_profile(
             .map_err(|e| format!("cannot write self-profile {}: {e}", p.display()))?;
     }
     Ok(())
+}
+
+/// `--emit=dll` C ABI 导出 cdylib 链接段(RXS-0252/0253,§4.A3/A4/A5,EI1.2)。
+/// link.exe `/DLL` + driver 从 [`c_exports`] 拼 `/EXPORT:name`(**非 obj dllexport
+/// 标注**,单一事实源 §4.0-1)+ import lib 副产(link.exe 自 `<out>.lib`+`.exp`)+
+/// 内建头生成(与 `/EXPORT:` 同源)。空导出集 → RX6032(§4.A4 守门)。
+/// CRT = 静态 libcmt(§4.A4:subset v1 无跨堆所有权跨 ABI,CRT 同源与否对内存
+/// 正确性无影响,§8 CRT-boundary 不变量)。
+#[allow(clippy::too_many_arguments)]
+fn emit_dll(
+    diag: &DiagCtxt,
+    sm: &SourceMap,
+    obj: &Path,
+    exe: &Path,
+    c_exports: &[crate::export_c::CExport],
+    link_libs: &[String],
+    reproducible: bool,
+    prof: &Profiler,
+    cx: &QueryCtx<'_>,
+    t_start: Instant,
+    profile_out: Option<&Path>,
+) -> u8 {
+    // 空导出集(RXS-0252,§4.A4)→ RX6032:cdylib 通道须至少一个 `#[export(c)]`。
+    if c_exports.is_empty() {
+        diag.struct_error(crate::export_c::E_EXPORT_C_EMPTY, "export_c.empty")
+            .emit();
+        eprint!(
+            "{}",
+            render_diagnostics(&diag.emitted(), sm, diag.messages())
+        );
+        return 1;
+    }
+    let (link, libpaths) = match locate_link() {
+        Ok(v) => v,
+        Err(e) => {
+            toolchain_err(diag, sm, e);
+            return 1;
+        }
+    };
+    let dll = exe.with_extension("dll");
+    let t = Instant::now();
+    let mut cmd = Command::new(&link);
+    cmd.arg("/nologo")
+        .arg("/DLL")
+        .arg(format!("/out:{}", dll.display()))
+        .arg(obj)
+        .arg("libcmt.lib")
+        .arg("libucrt.lib")
+        .arg("libvcruntime.lib")
+        .arg("kernel32.lib");
+    // driver 拼 /EXPORT:name 序列(从 typeck 导出集,单一事实源)。
+    for d in crate::export_c::export_directives(c_exports) {
+        cmd.arg(d);
+    }
+    // #[link(name = "x")] 追加(RXS-0195,与 EXE 段一致)。
+    for lib in link_libs {
+        cmd.arg(format!("{lib}.lib"));
+    }
+    if reproducible {
+        cmd.arg("/Brepro");
+    } else {
+        cmd.arg("/debug:full");
+    }
+    for p in &libpaths {
+        cmd.arg(format!("/libpath:{}", p.display()));
+    }
+    if let Err(e) = run_tool(&mut cmd, "link.exe") {
+        // link.exe /DLL 退出非零 → 复用 RX7001 外部工具链失败(§4.A4 条件复用)。
+        toolchain_err(diag, sm, e);
+        return 1;
+    }
+    // 内建头文件生成(RXS-0253,§4.A5):确定性 LF/无时间戳/无绝对路径/幂等。
+    let header = dll.with_extension("h");
+    let stem: String = dll
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("out")
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() {
+                c.to_ascii_uppercase()
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let guard = format!("RURIX_EXPORT_{stem}_H");
+    let hdr = crate::export_c::generate_header(c_exports, &guard);
+    if let Err(e) = std::fs::write(&header, hdr.as_bytes()) {
+        toolchain_err(diag, sm, format!("cannot write {}: {e}", header.display()));
+        return 1;
+    }
+    let artifacts = [&dll, &header].iter().filter(|p| p.exists()).count() as u64;
+    prof.record(
+        "link",
+        t,
+        &[
+            ("artifacts", artifacts),
+            ("exports", c_exports.len() as u64),
+        ],
+    );
+    if let Err(e) = finish_profile(prof, cx, t_start, profile_out) {
+        toolchain_err(diag, sm, e);
+        return 1;
+    }
+    0
 }
 
 /// 收集 extern 块上的 `#[link(name = "x")]`(RXS-0195):链接段追加 `x.lib` 参数

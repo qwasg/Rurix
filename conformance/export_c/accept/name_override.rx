@@ -1,0 +1,8 @@
+//@ spec: RXS-0250
+// export_c accept: `#[export(c, name = "…")]` 覆写导出符号名（RXS-0250）；
+// 源 fn 名 `scale_by_two`，导出符号名覆写为 `rurix_scale`。
+
+#[export(c, name = "rurix_scale")]
+pub fn scale_by_two(x: i32) -> i32 {
+    x * 2
+}

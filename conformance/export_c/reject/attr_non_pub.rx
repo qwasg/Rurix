@@ -1,0 +1,9 @@
+//@ spec: RXS-0250
+//@ expect-error: RX6033
+// export_c reject: `#[export(c)]` 挂非 `pub` host fn → RX6033
+// （RXS-0250 挂载对象合法性：仅 host `pub fn`）。
+
+#[export(c)]
+fn private_helper(a: i32) -> i32 {
+    a
+}

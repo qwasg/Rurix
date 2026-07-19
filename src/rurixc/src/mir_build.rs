@@ -79,6 +79,60 @@ pub fn build_crate(cx: &QueryCtx<'_>) -> Vec<Body> {
     out
 }
 
+/// `#[export(c)]` 导出 MIR 构建入口(EI1.2,RXS-0252):以导出 host fn 为收集根
+/// (不依赖 `main` 可达性,镜像 [`build_device_crate`] 的 kernel 根口径),沿 host
+/// 调用图收集被调 host fn。**导出根 body 的 `symbol` 改为未 mangle 的导出符号名**
+/// (`export_symbol`,单一事实源与 link.exe `/EXPORT:`·内建头一致);其余被调 fn
+/// 维持 mangle 名(内部符号)。`roots` = (源 fn 名, 导出符号名)对。
+pub fn build_export_crate(cx: &QueryCtx<'_>, roots: &[(String, String)]) -> Vec<Body> {
+    let krate = cx.hir_crate();
+    let mut out = Vec::new();
+    let mut visited: HashSet<String> = HashSet::new();
+    // 导出根 mangle 名 → 导出符号名(收集后改 body.symbol)。
+    let mut rename: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut worklist: Vec<(DefId, Vec<Ty>)> = Vec::new();
+    for item in &krate.items {
+        let hir::ItemKind::Fn(decl) = &item.kind else {
+            continue;
+        };
+        if decl.color != crate::ast::FnColor::Host
+            || decl.body.is_none()
+            || !decl.generic_params.is_empty()
+        {
+            continue;
+        }
+        // 匹配导出根(按源 fn 名;`name=` 覆写在 export_symbol 侧)。
+        let Some((_, export_symbol)) = roots.iter().find(|(fn_name, _)| *fn_name == item.name)
+        else {
+            continue;
+        };
+        let mangled = mangle(&item.name, item.def_id, &[]);
+        if visited.insert(mangled.clone()) {
+            rename.insert(mangled, export_symbol.clone());
+            worklist.push((item.def_id, Vec::new()));
+        }
+    }
+    while let Some((def, args)) = worklist.pop() {
+        let (mut body, callees, _const_err) = build_body(cx, def, args);
+        crate::drop_elab::elaborate(&mut body);
+        let drop_callees = crate::drop_elab::collect_drop_callees(&krate, &body);
+        // 导出根:改 body.symbol 为未 mangle 导出符号名(C ABI 保名)。
+        if let Some(export_symbol) = rename.get(&body.symbol) {
+            body.symbol = export_symbol.clone();
+        }
+        out.push(body);
+        for (d, a) in callees.into_iter().chain(drop_callees) {
+            let sym = mangle(&krate.item(d).name, d, &a);
+            if visited.insert(sym) {
+                worklist.push((d, a));
+            }
+        }
+    }
+    // 收集序稳定化(按符号名)。
+    out.sort_by(|a, b| a.symbol.cmp(&b.symbol));
+    out
+}
+
 /// device MIR 构建入口(M4.2,RXS-0070):以 `kernel fn` 为收集根(不依赖
 /// host `main` 可达性),沿 device 调用图收集 `device fn`;产物供 device
 /// codegen(MIR→NVPTX IR→PTX)消费。host 收集(`build_crate`)不受影响。

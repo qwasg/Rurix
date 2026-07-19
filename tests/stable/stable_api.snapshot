@@ -3,7 +3,7 @@
   "editions": [
     "2026"
   ],
-  "error_code_count": 103,
+  "error_code_count": 106,
   "error_codes": {
     "RX0001": "lex.unexpected_char",
     "RX0002": "lex.unterminated_block_comment",
@@ -86,6 +86,9 @@
     "RX6028": "runtime.uc04_resize_rebuild",
     "RX6029": "runtime.graph_structure",
     "RX6030": "runtime.graph_reflection_mismatch",
+    "RX6031": "export_c.subset",
+    "RX6032": "export_c.empty",
+    "RX6033": "export_c.attr_target",
     "RX7001": "link.toolchain_failure",
     "RX7002": "link.libdevice_failure",
     "RX7003": "toolchain.rx_cli_usage",
@@ -121,7 +124,7 @@
     "vendor"
   ],
   "schema_version": 1,
-  "spec_clause_count": 245,
+  "spec_clause_count": 251,
   "spec_clauses": [
     "RXS-0001",
     "RXS-0002",
@@ -367,7 +370,13 @@
     "RXS-0246",
     "RXS-0247",
     "RXS-0248",
-    "RXS-0249"
+    "RXS-0249",
+    "RXS-0250",
+    "RXS-0251",
+    "RXS-0252",
+    "RXS-0253",
+    "RXS-0254",
+    "RXS-0255"
   ],
   "subject": "rurix_stable_api_surface"
 }

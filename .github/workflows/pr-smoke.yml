@@ -639,6 +639,16 @@ jobs:
         shell: powershell
         run: py -3 ci/meshrt_probe_smoke.py
 
+      # 步骤 71（G-EI1-2,RFC-0014 Part A §4.A / RXS-0250~0255）:`#[export(c)]` C ABI 导出 codegen 冒烟。
+      # `ci/export_c_smoke.py` host 段**恒跑**(cargo test export_c_corpus:reject 全拦截 RX6031/6032/6033 +
+      # accept 干净 + 空导出集 RX6032 + 头幂等两次逐字节一致 + 篡改入库头再生成 byte-diff RED RXS-0254)。
+      # 工具链/device 段(--emit=dll → DLL + import lib + 内建头 + dumpbin 未 mangle + C 宿主**类型层 ABI 往返
+      # 哨兵**:i64 宽度 / i8·i32 符号扩展 / 裸指针读写,RXS-0252/0253 步骤 71 硬门 redline F6)= clang+link.exe+
+      # MSVC 在位真跑,缺则 SKIP(dev-env degrade,退 0),RURIX_REQUIRE_REAL=1 翻硬红。退出码判定非 grep(P0-5)。
+      - name: export(c) C ABI smoke (EI1 CI_GATES §2.71, G-EI1-2, RFC-0014 §4.A)
+        shell: powershell
+        run: py -3 ci/export_c_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

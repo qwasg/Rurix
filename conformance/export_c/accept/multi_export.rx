@@ -1,0 +1,27 @@
+//@ spec: RXS-0252, RXS-0253, RXS-0254
+// export_c accept: 多导出 crate —— `--emit=dll` 以 `#[export(c)]` host fn 为 MIR
+// 收集根（不依赖 `main`，RXS-0252）；四导出确定性生成同一份内建头（RXS-0253，
+// 每声明 ↔ 恰一 DLL 导出符号）；CI 再生成守卫的锚样例（RXS-0254 篡改→byte-diff）。
+// 亦为 device 段 ABI 往返哨兵所链：宽度（i64）/符号（i32 负值）/`*mut i32` store/加法。
+
+#[export(c)]
+pub fn rurix_add(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+#[export(c)]
+pub fn rurix_widen(x: i64) -> i64 {
+    x + 1
+}
+
+#[export(c)]
+pub fn rurix_negate(x: i32) -> i32 {
+    -x
+}
+
+#[export(c)]
+pub fn rurix_store(p: *mut i32, v: i32) {
+    unsafe {
+        *p = v;
+    }
+}

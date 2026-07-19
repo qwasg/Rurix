@@ -1,0 +1,8 @@
+//@ spec: RXS-0250, RXS-0251
+// export_c accept: host `pub fn` 标量签名是合法 `#[export(c)]` 挂载对象（RXS-0250），
+// i32 参数/返回落在 C 兼容子集 v1 标量映射（RXS-0251）。
+
+#[export(c)]
+pub fn rurix_add(a: i32, b: i32) -> i32 {
+    a + b
+}

@@ -1,0 +1,7 @@
+//@ spec: RXS-0251
+//@ expect-error: RX6031
+// export_c reject: 数组按值参数 `[i32; 4]` 超出 C 兼容子集 v1（复合按值非标量）→ RX6031
+// （RXS-0251 签名子集守门）。
+
+#[export(c)]
+pub fn take_array(a: [i32; 4]) {}
