@@ -17,6 +17,10 @@
 //!   首批仅 `Texture2D<F>` + `Sampler`,其余纹理维度(`Texture1D`/`Texture3D`/
 //!   `TextureCube`/`*Array`)**defer** → `RX3013`(RFC-0002 §9 Q4)。
 //!   **纹理/采样器仅类型形态,不承诺任何采样/内存语义**(06 §4.2 禁区)。
+//! - **RXS-0223 采样超集句柄增补**(G3.3,RFC-0013 §4.B1):支持集扩为
+//!   `Texture2D<F>`/`TextureRw2D<F>` + `Sampler`/`SamplerCmp`(位置纪律同
+//!   RXS-0156:仅着色阶段签名形参);方法族 typeck 面见 [`crate::typeck`]
+//!   (RX3014 扩类别)。
 
 use std::collections::{HashMap, HashSet};
 
@@ -53,10 +57,10 @@ const KNOWN_INTERP: &[&str] = &[
     "sample",
 ];
 
-/// 首批支持的纹理类型名(RFC-0002 §9 Q4:仅 `Texture2D`,其余维度 defer)。
-const SUPPORTED_TEXTURE: &str = "Texture2D";
-/// 采样器类型名(RFC-0002 §4.4)。
-const SAMPLER: &str = "Sampler";
+/// 支持的资源句柄类型名(RFC-0002 §9 Q4 首批 `Texture2D`/`Sampler`;G3.3 RXS-0223
+/// 增补 `TextureRw2D<F>` storage image + `SamplerCmp` 比较采样器。其余纹理维度
+/// 〔`Texture1D`/`Texture3D`/`TextureCube`/`*Array`〕维持 defer → RX3013)。
+const SUPPORTED_HANDLES: &[&str] = &["Texture2D", "TextureRw2D", "Sampler", "SamplerCmp"];
 
 /// 着色阶段类型面检查入口(driver / ui_golden / conformance 复用)。
 pub fn check(file: &SourceFile, diag: &DiagCtxt) {
@@ -291,11 +295,12 @@ fn check_fn(
     }
 }
 
-/// 纹理/采样器分类:`Some(true)` = 首批支持(`Texture2D`/`Sampler`);
-/// `Some(false)` = 资源句柄但未支持维度(defer);`None` = 非资源句柄类型。
+/// 纹理/采样器分类:`Some(true)` = 已支持(`Texture2D`/`TextureRw2D`/`Sampler`/
+/// `SamplerCmp`,RXS-0156 + RXS-0223);`Some(false)` = 资源句柄但未支持维度
+/// (defer);`None` = 非资源句柄类型。
 fn texture_kind(ty: &Ty) -> Option<bool> {
     let head = ty_head_name(ty)?;
-    if head == SUPPORTED_TEXTURE || head == SAMPLER {
+    if SUPPORTED_HANDLES.contains(&head) {
         Some(true)
     } else if head.starts_with("Texture") {
         Some(false) // Texture1D/Texture3D/TextureCube/*Array 等:首批不支持
@@ -314,7 +319,7 @@ fn check_handle_return(ty: &Ty, diag: &DiagCtxt) {
             )
         } else {
             format!(
-                "unsupported texture type `{}` (first batch supports only `Texture2D<F>` + `Sampler`; other dimensions are deferred)",
+                "unsupported texture type `{}` (supported handles: `Texture2D<F>`/`TextureRw2D<F>` + `Sampler`/`SamplerCmp` (RXS-0156/RXS-0223); other dimensions are deferred)",
                 ty_head_name(ty).unwrap_or("")
             )
         };
@@ -336,7 +341,7 @@ fn check_handle_param(ty: &Ty, in_stage_fn: bool, diag: &DiagCtxt) {
         Some(false) => emit_handle(
             ty.span,
             format!(
-                "unsupported texture type `{}` (first batch supports only `Texture2D<F>` + `Sampler`; other dimensions are deferred)",
+                "unsupported texture type `{}` (supported handles: `Texture2D<F>`/`TextureRw2D<F>` + `Sampler`/`SamplerCmp` (RXS-0156/RXS-0223); other dimensions are deferred)",
                 ty_head_name(ty).unwrap_or("")
             ),
             diag,
@@ -604,6 +609,42 @@ mod tests {
     fn handle_in_return_position_is_rx3013() {
         let codes = check_codes(
             "fragment fn fs() -> Texture2D<f32> { }\n\
+             fn main() {}",
+        );
+        assert_eq!(codes, vec![3013]);
+    }
+
+    //@ spec: RXS-0223
+    #[test]
+    fn sampling_superset_handles_are_clean() {
+        // G3.3 增补句柄(RXS-0223):TextureRw2D<F> + SamplerCmp 作着色阶段签名
+        // 形参 = 合法(位置纪律同 RXS-0156)。
+        let codes = check_codes(
+            "struct VsOut { #[interpolate(perspective)] uv: f32 }\n\
+             vertex fn vs() -> VsOut { VsOut { uv: 0.0 } }\n\
+             fragment fn fs(inp: VsOut, rw: TextureRw2D<f32>, sc: SamplerCmp) -> VsOut { inp }\n\
+             fn main() {}",
+        );
+        assert!(codes.is_empty(), "{codes:?}");
+    }
+
+    //@ spec: RXS-0223
+    #[test]
+    fn rw_handle_in_return_position_is_rx3013() {
+        // 位置纪律承 RXS-0156:TextureRw2D 返回位置违例 → RX3013。
+        let codes = check_codes(
+            "fragment fn fs() -> TextureRw2D<f32> { }\n\
+             fn main() {}",
+        );
+        assert_eq!(codes, vec![3013]);
+    }
+
+    //@ spec: RXS-0223
+    #[test]
+    fn sampler_cmp_in_struct_field_is_rx3013() {
+        // 位置纪律承 RXS-0156:SamplerCmp 结构体字段违例 → RX3013。
+        let codes = check_codes(
+            "struct Bag { sc: SamplerCmp }\n\
              fn main() {}",
         );
         assert_eq!(codes, vec![3013]);

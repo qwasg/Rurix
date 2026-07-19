@@ -72,6 +72,11 @@ pub struct LangItems {
     /// (typeck 层,RFC-0007 采样语义本体)。
     pub texture2d: Option<DefId>,
     pub sampler: Option<DefId>,
+    /// 采样超集资源句柄(G3.3,RXS-0223;RFC-0013 §4.B1):`SamplerCmp` 比较采样器
+    /// (shadow)/ `TextureRw2D<F>` 可读写 storage image。类型位置兜底识别(可被
+    /// 用户遮蔽),方法族(`sample_cmp` / rw `load`·`store`)→ 采样 intrinsic(typeck 层)。
+    pub sampler_cmp: Option<DefId>,
+    pub texture_rw2d: Option<DefId>,
     /// host 运行时 launch 类型契约已知类型(M4.3,RXS-0074;类型/值位置兜底,
     /// 可被用户遮蔽)。`Stream<Ctx>` 的首类型实参为 context-brand;`GridDim`/
     /// `BlockDim` 兼为值位置构造器(变维数容忍)。
@@ -160,6 +165,9 @@ impl LangItems {
             // 着色资源句柄(RXS-0156/0174,RFC-0007):类型位置兜底(可被用户遮蔽)。
             "Texture2D" => self.texture2d,
             "Sampler" => self.sampler,
+            // 采样超集资源句柄(G3.3,RXS-0223):类型位置兜底(可被用户遮蔽)。
+            "SamplerCmp" => self.sampler_cmp,
+            "TextureRw2D" => self.texture_rw2d,
             _ => ADDR_SPACES
                 .iter()
                 .position(|n| *n == name)
@@ -195,6 +203,17 @@ impl LangItems {
     /// `Sampler` 采样器句柄判定(RXS-0156/0174;RFC-0007)。
     pub fn is_sampler(&self, d: DefId) -> bool {
         Some(d) == self.sampler
+    }
+
+    /// `SamplerCmp` 比较采样器句柄判定(G3.3,RXS-0223;`sample_cmp` 实参核验)。
+    pub fn is_sampler_cmp(&self, d: DefId) -> bool {
+        Some(d) == self.sampler_cmp
+    }
+
+    /// `TextureRw2D<F>` 可读写 storage image 句柄判定(G3.3,RXS-0223;
+    /// rw `load`/`store` 方法接收者识别)。
+    pub fn is_texture_rw2d(&self, d: DefId) -> bool {
+        Some(d) == self.texture_rw2d
     }
 
     /// `Stream` 容器判定(RXS-0074;launch 方法接收者识别)。
@@ -395,6 +414,8 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
             thread_ctx: None,
             texture2d: None,
             sampler: None,
+            sampler_cmp: None,
+            texture_rw2d: None,
             context: None,
             module: None,
             stream: None,
@@ -509,6 +530,14 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
         r.out.lang_items.present_create =
             Some(r.new_def(DefKind::AssocFn, "create", Vis::Pub, span, 0));
         r.out.lang_items.write_ppm = Some(r.new_def(DefKind::Fn, "write_ppm", Vis::Pub, span, 0));
+        // 采样超集资源句柄(G3.3,RXS-0223;RFC-0013 §4.B1):`SamplerCmp` /
+        // `TextureRw2D<F>`。**追加于全部既有 lang items 之后**,不动摇既有 DefId 编号
+        // (MIR/PTX golden 符号名稳定性);同 View 族兜底纪律(用户同名定义优先遮蔽,
+        // 不入模块命名空间)。
+        r.out.lang_items.sampler_cmp =
+            Some(r.new_def(DefKind::Struct, "SamplerCmp", Vis::Pub, span, 0));
+        r.out.lang_items.texture_rw2d =
+            Some(r.new_def(DefKind::Struct, "TextureRw2D", Vis::Pub, span, 0));
     }
     r.resolve_uses();
     r.resolve_impl_targets();

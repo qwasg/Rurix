@@ -1081,6 +1081,59 @@ impl Builder<'_, '_> {
                     e.span,
                 )
             }
+            tbir::ExprKind::ResourceMethodCall {
+                method,
+                texture,
+                sampler,
+                coord,
+                extra,
+            } => {
+                // 采样方法族(G3.3,RXS-0223/0226):receiver/sampler 须为资源句柄
+                // 形参的裸 local 引用(句柄非值,无投影,承 RXS-0175 L4);coord /
+                // extra 为值 operand,按 [`crate::mir::ResourceMethod`] 形态携带,
+                // codegen 方法族分发消费(dxil_spirv `lower_resource_op`)。
+                let ty = self.ty_of(e);
+                let Some(tex_p) = self.place_of(texture) else {
+                    return self
+                        .unsupported(texture.span, "texture method receiver must be a handle");
+                };
+                if !tex_p.proj.is_empty() {
+                    return self.unsupported(
+                        e.span,
+                        "texture/sampler must be direct resource handle parameter references \
+                         (RXS-0223)",
+                    );
+                }
+                let sampler_local = match sampler {
+                    Some(s) => {
+                        let Some(samp_p) = self.place_of(s) else {
+                            return self.unsupported(s.span, "sampler argument must be a handle");
+                        };
+                        if !samp_p.proj.is_empty() {
+                            return self.unsupported(
+                                e.span,
+                                "texture/sampler must be direct resource handle parameter \
+                                 references (RXS-0223)",
+                            );
+                        }
+                        Some(samp_p.local)
+                    }
+                    None => None,
+                };
+                let coord_op = self.op_of(coord);
+                let extra_ops: Vec<Operand> = extra.iter().map(|x| self.op_of(x)).collect();
+                self.rvalue_to_op(
+                    Rvalue::ResourceSample {
+                        texture_local: tex_p.local,
+                        sampler_local,
+                        method: *method,
+                        coord: coord_op,
+                        extra: extra_ops,
+                    },
+                    ty,
+                    e.span,
+                )
+            }
             tbir::ExprKind::Field { .. } => match self.place_of(e) {
                 Some(p) => {
                     let ty = self.ty_of(e);
@@ -2268,7 +2321,9 @@ fn strip_suffix_text(text: &str, suffix: Option<LitSuffix>) -> &str {
     text.strip_suffix(name).unwrap_or(text)
 }
 
-fn parse_int(text: &str, suffix: Option<LitSuffix>) -> Option<i128> {
+/// 整型字面量文本解析(pub(crate):typeck gather 分量 0..=3 字面量核验复用,
+/// RXS-0223;与 MIR 常量物化同一事实源)。
+pub(crate) fn parse_int(text: &str, suffix: Option<LitSuffix>) -> Option<i128> {
     let t = strip_suffix_text(text, suffix).replace('_', "");
     let (radix, digits) = if let Some(d) = t.strip_prefix("0x").or_else(|| t.strip_prefix("0X")) {
         (16, d)
@@ -2617,6 +2672,101 @@ bb1:
                 .any(|e| e.field_name == "tex" || e.field_name == "samp"),
             "资源句柄不应进入 io_sig"
         );
+    }
+
+    /// G3.3 采样方法族 lowering(RXS-0223/0226;RFC-0013 §4.B1):新方法自 `.rx`
+    /// 源经 typeck(`sample_family_calls`)→ tbir `ResourceMethodCall` → MIR
+    /// `Rvalue::ResourceSample{method, extra}`(方法判别 + sampler 携带 + extra
+    /// 形态);既有 `.sample()` 路持续产 `SampleLod` 空 extra(byte-preserving,
+    /// Q-S-SampleName,uc04 golden 0-byte 由 dxil_golden 硬门另证)。
+    //@ spec: RXS-0223, RXS-0226
+    #[cfg(all(feature = "dxil-backend", feature = "shader-stages"))]
+    #[test]
+    fn sample_family_lowering_carries_method_and_extra() {
+        use crate::ast::ShaderStage;
+        use crate::mir::{ResourceMethod, Rvalue, StatementKind};
+
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(
+            "struct V {\n\
+            \x20   #[interpolate(perspective)] uv: vec2<f32>,\n\
+            \x20   #[interpolate(flat)] px: vec2<u32>,\n\
+            \x20   #[interpolate(perspective)] val: vec4<f32>,\n\
+             }\n\
+             struct O {\n\
+            \x20   a: vec4<f32>,\n\
+            \x20   b: vec4<f32>,\n\
+            \x20   c: vec4<f32>,\n\
+            \x20   d: f32,\n\
+             }\n\
+             fragment fn fs_family(\n\
+            \x20   inp: V,\n\
+            \x20   tex: Texture2D<f32>,\n\
+            \x20   samp: Sampler,\n\
+            \x20   scmp: SamplerCmp,\n\
+            \x20   img: TextureRw2D<f32>,\n\
+             ) -> O {\n\
+            \x20   img.store(inp.px, inp.val);\n\
+            \x20   O {\n\
+            \x20       a: tex.sample(samp, inp.uv),\n\
+            \x20       b: tex.gather(samp, inp.uv, 2),\n\
+            \x20       c: img.load(inp.px),\n\
+            \x20       d: tex.sample_cmp(scmp, inp.uv, 0.5),\n\
+            \x20   }\n\
+             }\n\
+             fn main() {}",
+            SourceId(0),
+            Edition::Rx0,
+            &diag,
+        );
+        cx.check_crate();
+        assert!(
+            !diag.has_errors(),
+            "方法族语料应 0 诊断(实得 {:?})",
+            diag.emitted()
+                .iter()
+                .filter_map(|d| d.code)
+                .collect::<Vec<_>>()
+        );
+        let device = cx.device_mir_crate();
+        let fs = device
+            .iter()
+            .find(|b| b.stage == Some(ShaderStage::Fragment))
+            .expect("fragment 图形阶段根应进入 device MIR");
+
+        // (方法, 携 sampler?, extra 元数) 三元组集(块序无关断言)。
+        let mut seen: Vec<(ResourceMethod, bool, usize)> = Vec::new();
+        for bb in &fs.blocks {
+            for st in &bb.stmts {
+                let StatementKind::Assign(_, rv) = &st.kind;
+                if let Rvalue::ResourceSample {
+                    method,
+                    sampler_local,
+                    extra,
+                    ..
+                } = rv
+                {
+                    seen.push((*method, sampler_local.is_some(), extra.len()));
+                }
+            }
+        }
+        for want in [
+            // 既有 `.sample()` → SampleLod 空 extra(byte-preserving 承接)。
+            (ResourceMethod::SampleLod, true, 0),
+            // gather → 分量字面量入 extra。
+            (ResourceMethod::Gather, true, 1),
+            // rw store → 无 sampler + store 值入 extra(唯一写者 🔒 RXS-0229)。
+            (ResourceMethod::Store, false, 1),
+            // rw load → 无 sampler 无 extra。
+            (ResourceMethod::StorageLoad, false, 0),
+            // sample_cmp → dref 入 extra。
+            (ResourceMethod::SampleCmp, true, 1),
+        ] {
+            assert!(
+                seen.contains(&want),
+                "MIR 应含方法族 rvalue {want:?}(实得 {seen:?})"
+            );
+        }
     }
 
     /// PR-E2b E2b-1 端到端(闭合 assumed-1):着色阶段签名资源句柄形参 →
