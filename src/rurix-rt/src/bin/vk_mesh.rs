@@ -12,8 +12,9 @@
 //! ## 两判据(evidence stages_ok 同源)
 //! - `mesh_pipeline_draw`(**device**):mesh 管线出图,covered 像素计数 ≥ 阈值(证 mesh 阶段
 //!   程序化生成三角形真上屏)。**阈值/期望色 = owner 本机迭代校准 TODO**(`expect_coverage`)。
-//! - `tamper_set_mesh_outputs_red`(篡改 → RED):篡改 mesh SPIR-V 的 `OpSetMeshOutputsEXT` 顶点数
-//!   (操作数换位 3→1)→ 覆盖减少 = RED;复原 = GREEN。
+//! - `tamper_set_mesh_outputs_red`(篡改 → RED):篡改 mesh SPIR-V 的 `OpSetMeshOutputsEXT`
+//!   **primitiveCount**(次操作数)→ 指向 `uint 0` 常量 → 发射图元数 0 → 光栅化 0 三角形 →
+//!   覆盖归零 = RED;复原 = GREEN。
 //!
 //! **device 真跑 / SKIP 三态**:无 Vulkan loader / 无 GPU / **无 VK_EXT_mesh_shader feature** →
 //! `run_mesh_offscreen` 确定性 `Err` → `MESH: SKIP` 退 0(dev-env degrade,**非 fake pass**);
@@ -32,6 +33,9 @@ const CLEAR: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
 
 /// `OpSetMeshOutputsEXT`(opcode 5295)指令首字 = opcode | (wordcount 3 << 16)。
 const SET_MESH_OUTPUTS_MARKER: u32 = 5295 | (3 << 16);
+
+/// `OpConstant`(SPIR-V core opcode 43;32 位 scalar 字面常量,wordcount 4)。
+const OP_CONSTANT: u32 = 43;
 
 /// 无设备 / feature 缺失(SKIP)信号(镜像 ci/*_smoke.py NO_DEVICE_KEYS + mesh feature)。
 const NO_DEVICE_KEYS: &[&str] = &[
@@ -66,10 +70,21 @@ fn covered(pixels: &[u8]) -> usize {
         .count()
 }
 
-/// 篡改 `OpSetMeshOutputsEXT` 顶点数:找到指令,把顶点数操作数(首操作数)换为 prim 数操作数
-/// (次操作数,值 1)→ 顶点数 3→1,输出欠供 → 覆盖减少。找不到 → 原样返回(harness 记不可用)。
+/// 篡改 `OpSetMeshOutputsEXT` 的 **primitiveCount** 操作数(次操作数)→ 指向 `uint 0` 常量 →
+/// 发射图元数 0 → 光栅化 0 三角形 → 覆盖归零(RED);复原(base)= 覆盖恢复(GREEN)。
+/// 定位失败(SPIR-V 布局变化)→ 原样返回(harness 记不可用)。
+///
+/// **为何改 primitiveCount 而非旧法减 vertexCount**:mesh 着色器体无条件写 3 顶点 + 1 图元
+/// 索引;仅减 vertexCount(旧法换位 3→1)时越界顶点写仍落地、图元数仍 1 → 驱动照常光栅化整
+/// 三角形(实测 base_cov==tamper_cov==968,篡改无效)。primitiveCount 是光栅化器权威图元计数:
+/// 置 0 → 确定性 0 覆盖,不受越界写宽容度影响。不改 `OpConstant` 定义值(`uint_3` 与顶点输出
+/// 数组尺寸 `OpTypeArray … uint_3` 共用,改之令数组尺寸 0 → 非法 SPIR-V),改指令操作数指向
+/// 既有 `uint 0` 常量 id。
 fn tamper_set_mesh_outputs(spv: &[u32]) -> (Vec<u32>, bool) {
     let mut out = spv.to_vec();
+    // ① 定位 OpSetMeshOutputsEXT:取 vertexCount id(供定型)+ primitiveCount 操作数下标。
+    let mut vc_id = 0u32;
+    let mut prim_idx = 0usize;
     let mut i = 5; // header 5 字后为指令流
     while i < out.len() {
         let wc = (out[i] >> 16) as usize;
@@ -77,13 +92,65 @@ fn tamper_set_mesh_outputs(spv: &[u32]) -> (Vec<u32>, bool) {
             break;
         }
         if out[i] == SET_MESH_OUTPUTS_MARKER && i + 2 < out.len() {
-            // 操作数:[i+1]=vertex_count id,[i+2]=primitive_count id → 换位(vertex←prim)。
-            out[i + 1] = out[i + 2];
-            return (out, true);
+            // 操作数:[i+1]=vertexCount id,[i+2]=primitiveCount id。
+            vc_id = out[i + 1];
+            prim_idx = i + 2;
+            break;
         }
         i += wc;
     }
-    (out, false)
+    if prim_idx == 0 {
+        return (out, false);
+    }
+    // ② 由 vertexCount 常量定义取其类型 id(uint 型);③ 找同类型、值 0 的常量 → uint_0 id。
+    let uint_ty = find_constant_type(&out, vc_id);
+    if uint_ty == 0 {
+        return (out, false);
+    }
+    let zero_id = find_zero_constant(&out, uint_ty);
+    if zero_id == 0 {
+        return (out, false);
+    }
+    // ④ primitiveCount → uint_0(0 图元 → 光栅化 0 三角形 → 覆盖 0 = RED)。
+    out[prim_idx] = zero_id;
+    (out, true)
+}
+
+/// 扫 `OpConstant` 指令,返回 `result_id == id` 常量的 result_type id(0 = 未找到)。
+fn find_constant_type(spv: &[u32], id: u32) -> u32 {
+    let mut i = 5;
+    while i < spv.len() {
+        let wc = (spv[i] >> 16) as usize;
+        if wc == 0 {
+            break;
+        }
+        if (spv[i] & 0xffff) == OP_CONSTANT && wc == 4 && i + 3 < spv.len() && spv[i + 2] == id {
+            return spv[i + 1];
+        }
+        i += wc;
+    }
+    0
+}
+
+/// 扫 `OpConstant`,返回首个 `result_type == ty` 且 value == 0 的常量 result_id(0 = 未找到)。
+fn find_zero_constant(spv: &[u32], ty: u32) -> u32 {
+    let mut i = 5;
+    while i < spv.len() {
+        let wc = (spv[i] >> 16) as usize;
+        if wc == 0 {
+            break;
+        }
+        if (spv[i] & 0xffff) == OP_CONSTANT
+            && wc == 4
+            && i + 3 < spv.len()
+            && spv[i + 1] == ty
+            && spv[i + 3] == 0
+        {
+            return spv[i + 2];
+        }
+        i += wc;
+    }
+    0
 }
 
 /// covered 达阈值(mesh 三角形真上屏)。

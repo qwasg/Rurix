@@ -1382,6 +1382,24 @@ const OP_REPORT_INTERSECTION_KHR: u16 = 5334;
 const OP_SET_MESH_OUTPUTS_EXT: u16 = 5295;
 const OP_EMIT_MESH_TASKS_EXT: u16 = 5294;
 
+// storage image 写出面(RT raygen payload → UAV;§4.E8 device 见证落点)。opcode 取值 =
+// SPIR-V core 规范,与 glslang rg.spv 反汇编逐字核对(build/spike-sampling-probe)。
+const OP_TYPE_IMAGE: u16 = 25;
+const OP_VECTOR_SHUFFLE: u16 = 79;
+const OP_CONVERT_U_TO_F: u16 = 112;
+const OP_BITCAST: u16 = 124;
+const OP_IMAGE_WRITE: u16 = 99;
+
+// RT launch builtin(BuiltIn LaunchIdKHR/LaunchSizeKHR;取自 glslang rg.spv `OpDecorate … BuiltIn`)。
+const BUILTIN_LAUNCH_ID_KHR: u32 = 5319;
+const BUILTIN_LAUNCH_SIZE_KHR: u32 = 5320;
+
+// OpTypeImage Dim(2D=1)+ storage image 显式 format(§4.B5「OpTypeImage 带显式 format」纪律)。
+// Rgba8(=4)↔ vk.rs `run_rt_inner` storage image 的 `VK_FORMAT_R8G8B8A8_UNORM`(UAV 回读逐纹素
+// 4B);format-qualified write 须与 image view 格式一致,故取 Rgba8 而非探针的 Rgba32f。
+const DIM_2D: u32 = 1;
+const IMAGE_FORMAT_RGBA8: u32 = 4;
+
 // RayFlags / cull mask(§4.E4 已知签名固定:opaque / 0xFF / SBT 恒 0)。
 const RAY_FLAG_OPAQUE: u32 = 1;
 const CULL_MASK_ALL: u32 = 0xFF;
@@ -1643,12 +1661,31 @@ pub fn emit_task_min() -> Vec<u32> {
     b.finish(EXEC_MODEL_TASK_EXT, true)
 }
 
-/// raygen 阶段最小合规 SPIR-V(§4.E6:RayGenerationKHR + SPV_KHR_ray_tracing + AccelStruct SRV
-/// + RayPayloadKHR + OpTraceRayKHR〔已知签名固定:opaque/0xFF/SBT 恒 0/递归恒 1〕)。
+/// raygen 阶段最小合规 SPIR-V(§4.E6/E8:RayGenerationKHR + SPV_KHR_ray_tracing + AccelStruct SRV
+/// + RayPayloadKHR + OpTraceRayKHR〔已知签名固定:opaque/0xFF/SBT 恒 0/递归恒 1〕+ **storage image
+/// 写出**〔RXS-0247〕)。
+///
+/// **device 可判据落点**(RXS-0247):此前 raygen 无 storage image 落点 → device 回读全 clear
+/// 黑、`bin/vk_rt` 中心/角落像素判据无法判(MISS)。本形态补齐两半:
+/// 1. **per-pixel 光线原点** = `(gl_LaunchIDEXT.xy / gl_LaunchSizeEXT.xy) * 2 - 1`(→ NDC 式
+///    `[-1,1]` 平面坐标,z=-1、方向 +z)——每像素独立命中判定,使「中心命中 / 角落 miss」及
+///    「移动顶点 → 命中区移动」空间判据有信号(定原点恒定则全像素同判、判据无法辨);
+/// 2. **`OpImageWrite`**:TraceRay 返回后把 payload(命中色 / miss 色)写落 UAV storage image
+///    的 `ivec2(launchid.xy)` 纹素。
+///
+/// storage image = `OpTypeImage f32 2D 0 0 0 Sampled=2 Rgba8`,UAV 轴 **set1/binding0** = vk.rs
+/// `run_rt_inner` 的 `set_layouts[1]=dsl_img`(TLAS SRV = set0/binding0 = `set_layouts[0]`);
+/// format `Rgba8` 对齐 `VK_FORMAT_R8G8B8A8_UNORM`。精确原点映射 / 命中·miss 阈值 = owner device
+/// 校准(`bin/vk_rt`,步骤 67)。
 pub fn emit_raygen_min() -> Vec<u32> {
     let mut b = ExtBuilder::new(vec![CAP_RAY_TRACING_KHR], vec![EXT_RAY_TRACING]);
     let uint = b.type_result(OP_TYPE_INT, &[32, 0]);
+    let int = b.type_result(OP_TYPE_INT, &[32, 1]);
     let float = b.type_result(OP_TYPE_FLOAT, &[32]);
+    let v2uint = b.type_result(OP_TYPE_VECTOR, &[uint, 2]);
+    let v3uint = b.type_result(OP_TYPE_VECTOR, &[uint, 3]);
+    let v2int = b.type_result(OP_TYPE_VECTOR, &[int, 2]);
+    let v2float = b.type_result(OP_TYPE_VECTOR, &[float, 2]);
     let v3float = b.type_result(OP_TYPE_VECTOR, &[float, 3]);
     let v4float = b.type_result(OP_TYPE_VECTOR, &[float, 4]);
     let uint_0 = b.constant(uint, 0);
@@ -1656,20 +1693,79 @@ pub fn emit_raygen_min() -> Vec<u32> {
     let cull_mask = b.constant(uint, CULL_MASK_ALL);
     let float_0 = b.constant(float, 0.0f32.to_bits());
     let float_1 = b.constant(float, 1.0f32.to_bits());
+    let float_2 = b.constant(float, 2.0f32.to_bits());
+    let float_n1 = b.constant(float, (-1.0f32).to_bits());
     let float_100 = b.constant(float, 100.0f32.to_bits());
-    let origin = b.const_composite(v3float, &[float_0, float_0, float_0]);
+    let two_v2 = b.const_composite(v2float, &[float_2, float_2]);
+    let one_v2 = b.const_composite(v2float, &[float_1, float_1]);
     let dir = b.const_composite(v3float, &[float_0, float_0, float_1]);
     let zero_v4 = b.const_composite(v4float, &[float_0, float_0, float_0, float_0]);
-    // AccelStruct SRV(UniformConstant;set0/binding0,承 RXS-0163 SRV 轴)。
+    // gl_LaunchIDEXT / gl_LaunchSizeEXT(Input v3uint;BuiltIn LaunchIdKHR / LaunchSizeKHR)。
+    let ptr_in_v3uint = b.type_result(OP_TYPE_POINTER, &[STORAGE_INPUT, v3uint]);
+    let launch_id = b.global_var(ptr_in_v3uint, STORAGE_INPUT, true);
+    b.decorate(launch_id, DECORATION_BUILTIN, &[BUILTIN_LAUNCH_ID_KHR]);
+    let launch_size = b.global_var(ptr_in_v3uint, STORAGE_INPUT, true);
+    b.decorate(launch_size, DECORATION_BUILTIN, &[BUILTIN_LAUNCH_SIZE_KHR]);
+    // AccelStruct SRV(UniformConstant;set0/binding0,承 RXS-0163 SRV 轴 = run_rt_inner
+    // set_layouts[0]=dsl_tlas)。
     let accel_ty = b.type_result(OP_TYPE_ACCELERATION_STRUCTURE_KHR, &[]);
     let ptr_uc_accel = b.type_result(OP_TYPE_POINTER, &[STORAGE_UNIFORM_CONSTANT, accel_ty]);
     let tlas = b.global_var(ptr_uc_accel, STORAGE_UNIFORM_CONSTANT, true);
     b.decorate(tlas, DECORATION_DESCRIPTOR_SET, &[0]);
     b.decorate(tlas, DECORATION_BINDING, &[0]);
-    // ray payload(RayPayloadKHR)。
+    // storage image UAV(OpTypeImage f32 2D 0 0 0 Sampled=2 Rgba8;set1/binding0 = run_rt_inner
+    // set_layouts[1]=dsl_img)。
+    let image_ty = b.type_result(
+        OP_TYPE_IMAGE,
+        &[float, DIM_2D, 0, 0, 0, 2, IMAGE_FORMAT_RGBA8],
+    );
+    let ptr_uc_image = b.type_result(OP_TYPE_POINTER, &[STORAGE_UNIFORM_CONSTANT, image_ty]);
+    let out_image = b.global_var(ptr_uc_image, STORAGE_UNIFORM_CONSTANT, true);
+    b.decorate(out_image, DECORATION_DESCRIPTOR_SET, &[1]);
+    b.decorate(out_image, DECORATION_BINDING, &[0]);
+    // ray payload(RayPayloadKHR vec4)。
     let ptr_payload = b.type_result(OP_TYPE_POINTER, &[STORAGE_RAY_PAYLOAD_KHR, v4float]);
     let payload = b.global_var(ptr_payload, STORAGE_RAY_PAYLOAD_KHR, true);
-    // 函数体:payload = 0;acc = load tlas;TraceRay。
+
+    // ── 函数体 ──
+    // uv = launchid.xy / launchsize.xy ∈ [0,1);origin.xy = uv*2-1 ∈ [-1,1)(三角形居中平面)。
+    let li = b.id();
+    emit(&mut b.body, OP_LOAD, &[v3uint, li, launch_id]);
+    let li_xy = b.id();
+    emit(
+        &mut b.body,
+        OP_VECTOR_SHUFFLE,
+        &[v2uint, li_xy, li, li, 0, 1],
+    );
+    let li_f = b.id();
+    emit(&mut b.body, OP_CONVERT_U_TO_F, &[v2float, li_f, li_xy]);
+    let ls = b.id();
+    emit(&mut b.body, OP_LOAD, &[v3uint, ls, launch_size]);
+    let ls_xy = b.id();
+    emit(
+        &mut b.body,
+        OP_VECTOR_SHUFFLE,
+        &[v2uint, ls_xy, ls, ls, 0, 1],
+    );
+    let ls_f = b.id();
+    emit(&mut b.body, OP_CONVERT_U_TO_F, &[v2float, ls_f, ls_xy]);
+    let uv = b.id();
+    emit(&mut b.body, OP_FDIV, &[v2float, uv, li_f, ls_f]);
+    let scaled = b.id();
+    emit(&mut b.body, OP_FMUL, &[v2float, scaled, uv, two_v2]);
+    let centered = b.id();
+    emit(&mut b.body, OP_FSUB, &[v2float, centered, scaled, one_v2]);
+    let ox = b.id();
+    emit(&mut b.body, OP_COMPOSITE_EXTRACT, &[float, ox, centered, 0]);
+    let oy = b.id();
+    emit(&mut b.body, OP_COMPOSITE_EXTRACT, &[float, oy, centered, 1]);
+    let origin = b.id();
+    emit(
+        &mut b.body,
+        OP_COMPOSITE_CONSTRUCT,
+        &[v3float, origin, ox, oy, float_n1],
+    );
+    // payload = 0;acc = load tlas;TraceRay(payload 落 hit/miss 色)。
     emit(&mut b.body, OP_STORE, &[payload, zero_v4]);
     let acc = b.id();
     emit(&mut b.body, OP_LOAD, &[accel_ty, acc, tlas]);
@@ -1681,10 +1777,23 @@ pub fn emit_raygen_min() -> Vec<u32> {
             payload,
         ],
     );
+    // imageStore(out_image, ivec2(launchid.xy), payload):命中/miss 色写落 storage image。
+    let pv = b.id();
+    emit(&mut b.body, OP_LOAD, &[v4float, pv, payload]);
+    let img = b.id();
+    emit(&mut b.body, OP_LOAD, &[image_ty, img, out_image]);
+    let coord = b.id();
+    emit(&mut b.body, OP_BITCAST, &[v2int, coord, li_xy]);
+    emit(&mut b.body, OP_IMAGE_WRITE, &[img, coord, pv]);
     b.finish(EXEC_MODEL_RAY_GENERATION_KHR, false)
 }
 
-/// miss 阶段最小合规 SPIR-V(§4.E6:MissKHR + IncomingRayPayloadKHR 写)。
+/// miss 阶段最小合规 SPIR-V(§4.E6:MissKHR + IncomingRayPayloadKHR 写 miss 色)。
+///
+/// miss 色 = **黑 (0,0,0,1)**(RXS-0247):device 端 raygen 把本 payload 写落 storage image →
+/// 未命中像素 `(0,0,0,255)`,`bin/vk_rt::expect_miss`(`r,g,b ≤ 8` 近黑)判 miss。取黑而非蓝
+/// 是为与既有 `expect_miss` 近黑判据同相(vk_rt 判据阈值 = owner device 域,本片不动);全部
+/// launch 像素均被 raygen 写落(命中→红 / miss→黑),无未写「clear」像素与黑 miss 混淆之虞。
 pub fn emit_miss_min() -> Vec<u32> {
     let mut b = ExtBuilder::new(vec![CAP_RAY_TRACING_KHR], vec![EXT_RAY_TRACING]);
     let float = b.type_result(OP_TYPE_FLOAT, &[32]);
@@ -1701,36 +1810,24 @@ pub fn emit_miss_min() -> Vec<u32> {
     b.finish(EXEC_MODEL_MISS_KHR, false)
 }
 
-/// closesthit 阶段最小合规 SPIR-V(§4.E6:ClosestHitKHR + IncomingRayPayloadKHR 写 +
-/// HitAttributeKHR 读〔固定三角形几何内建重心坐标 vec2〕)。
+/// closesthit 阶段最小合规 SPIR-V(§4.E6:ClosestHitKHR + IncomingRayPayloadKHR 写命中色)。
+///
+/// 命中色 = **红 (1,0,0,1)**(RXS-0247):device 端 raygen 把本 payload 写落 storage image →
+/// 命中像素 `(255,0,0,255)`,`bin/vk_rt::expect_hit`(`r>8`)判命中。固定高对比色规避重心坐标
+/// 近顶点时 r/g→0 的假 miss(此前 payload=vec4(bary.x,bary.y,0,1) 在近顶点处退化为近黑)。
 pub fn emit_closesthit_min() -> Vec<u32> {
     let mut b = ExtBuilder::new(vec![CAP_RAY_TRACING_KHR], vec![EXT_RAY_TRACING]);
     let float = b.type_result(OP_TYPE_FLOAT, &[32]);
-    let v2float = b.type_result(OP_TYPE_VECTOR, &[float, 2]);
     let v4float = b.type_result(OP_TYPE_VECTOR, &[float, 4]);
     let float_0 = b.constant(float, 0.0f32.to_bits());
     let float_1 = b.constant(float, 1.0f32.to_bits());
+    let hit_color = b.const_composite(v4float, &[float_1, float_0, float_0, float_1]);
     let ptr_payload = b.type_result(
         OP_TYPE_POINTER,
         &[STORAGE_INCOMING_RAY_PAYLOAD_KHR, v4float],
     );
     let payload = b.global_var(ptr_payload, STORAGE_INCOMING_RAY_PAYLOAD_KHR, true);
-    let ptr_attr = b.type_result(OP_TYPE_POINTER, &[STORAGE_HIT_ATTRIBUTE_KHR, v2float]);
-    let bary = b.global_var(ptr_attr, STORAGE_HIT_ATTRIBUTE_KHR, true);
-    // payload = vec4(bary.x, bary.y, 0, 1)。
-    let loaded = b.id();
-    emit(&mut b.body, OP_LOAD, &[v2float, loaded, bary]);
-    let bx = b.id();
-    emit(&mut b.body, OP_COMPOSITE_EXTRACT, &[float, bx, loaded, 0]);
-    let by = b.id();
-    emit(&mut b.body, OP_COMPOSITE_EXTRACT, &[float, by, loaded, 1]);
-    let color = b.id();
-    emit(
-        &mut b.body,
-        OP_COMPOSITE_CONSTRUCT,
-        &[v4float, color, bx, by, float_0, float_1],
-    );
-    emit(&mut b.body, OP_STORE, &[payload, color]);
+    emit(&mut b.body, OP_STORE, &[payload, hit_color]);
     b.finish(EXEC_MODEL_CLOSEST_HIT_KHR, false)
 }
 
