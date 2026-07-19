@@ -807,9 +807,30 @@
       "status": "active",
       "introduced_in": "G3.2",
       "spec_clauses": ["RXS-0221"]
+    },
+    {
+      "id": "RX6029",
+      "title": "render graph 图结构违例族(装配期 strict:环/读未写 use-before-write 可达形态 / 同 pass 写写或读写冲突〔reads_writes_uav 为唯一合法读写合并〕/ 生命周期误用〔空图 execute·seal 后追加·重复 execute〕;RXS-0237 §4.D2,graph.rs 装配核验,无运行期 fallback P-01)",
+      "message_key": "runtime.graph_structure",
+      "status": "active",
+      "introduced_in": "G3.5",
+      "spec_clauses": ["RXS-0237"]
+    },
+    {
+      "id": "RX6030",
+      "title": "render graph 声明-反射失配族(装配期 strict:pass 声明访问集与管线绑定反射面〔RXS-0163~0166 单一事实源〕双向精确相等核验失败,漏声明或声明未用;相等域 = 首期封闭枚举资源面〔§4.0-3〕;RXS-0237 §4.D2,graph.rs 装配核验)",
+      "message_key": "runtime.graph_reflection_mismatch",
+      "status": "active",
+      "introduced_in": "G3.5",
+      "spec_clauses": ["RXS-0237"]
     }
   ],
   "revision_log": [
+    {
+      "version": "v1.31",
+      "date": "2026-07-19",
+      "change": "G3.5 render graph 面分配 RX6029 + RX6030(RFC-0013 §4.D2,spec/render_graph.md RXS-0237 配套,§5.1 码表预测 RX6029/RX6030 兑现;装配期 strict-only 可预测错误续接 6xxx 段〔RFC-0006 §9 Q-Err 先例〕,实现真实可达类别只追加)。RX6029 图结构违例族(6xxx 装配段续接 RX6028;环/读未写 use-before-write 可达形态 / 同 pass 写写或读写冲突〔reads_writes_uav 为唯一合法读写合并〕/ 生命周期误用〔空图 execute·seal 后追加·重复 execute〕;RXS-0237 §4.D2,rurix-rt graph.rs 装配核验,无运行期 fallback P-01)。RX6030 声明-反射失配族(6xxx;pass 声明访问集 ↔ 管线绑定反射面〔RXS-0163~0166 单一事实源〕双向精确相等核验失败,漏声明/声明未用,相等域 = 首期封闭枚举资源面〔§4.0-3〕)。**图合法性装配核验为 host 侧 graph.rs 本体**(纯函数 + 恒跑单测);运行期后端失败不占 RX 码(RXS-0193 确定性诊断 + rxrt_trap 终止)。RX6029/6030 < RX_error on_tree_max 7022,number_ledger on_tree_max 不 bump(v1.5 RX3016 先例)。message_key runtime.graph_structure / runtime.graph_reflection_mismatch 同落 en/zh.messages(双语全量覆盖门 ci/bilingual_coverage.py,99→101);段内分配制递增不复用、含义冻结(10 §6)。RX6018~6028 既有 entries 不动"
+    },
     {
       "version": "v1.30",
       "date": "2026-07-18",

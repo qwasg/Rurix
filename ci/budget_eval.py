@@ -539,6 +539,22 @@ def eval_counter(entry: dict, strict: bool) -> None:
                 n += 1
         count_or_gate(eid, n, 1, "份 bindless 索引红绿 device 见证",
                       "G3.4 bindless device 见证回填前为正常状态,契约 G-G3-4", strict)
+    elif eid == "g3.counter.auto_barrier_hazard_redgreen":
+        # render graph 自动 barrier hazard 检出红绿 device 见证数 ≥1(契约 G-G3-5;RFC-0013
+        # §4.D / RXS-0236~0241;uc04 deferred 三 pass 图迁 Graph API 经 run_graph 自动状态推导
+        # 重跑步骤 48 同判据 + 漏声明 read → 装配期 strict 拒 RED + Vulkan 同图 run_graph 对照)。
+        # 计数 = evidence/graph_*.json 中 hazard_ok=true 报告数(ci/render_graph_smoke.py device
+        # 段真跑写)。auto barrier 真跑 = 交互 GPU 链路不进 pr-smoke 硬门,无显示/无 GPU/未 opt-in
+        # → device SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL(对齐
+        # g3.counter.bindless_descriptor_smoke 先例)。host 段(D6 互证金标准 + 图合法性 reject
+        # + 推导 golden)恒跑不入本 counter 但为本面核心验收。
+        n = 0
+        for f in (ROOT / "evidence").glob("graph_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("hazard_ok") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份 render graph 自动 barrier 红绿 device 见证",
+                      "G3.5 render graph device 见证回填前为正常状态,契约 G-G3-5", strict)
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 

@@ -32,7 +32,9 @@ use rurixc::span::Edition;
 /// (typestate 错序 = move 违例,既有 RX4001 拦,RXS-0197)/ present_in_kernel
 /// (RX3015,RXS-0197)。bindless 语料一类(G3.4):table_in_kernel(TextureTable
 /// 宿主注册面 kernel 体内 → RX3015,RXS-0235 L2 承 RXS-0189 同点位)。
-const REJECT_CATEGORIES: [&str; 9] = [
+// render graph 语料一类(G3.5):graph_in_kernel(Graph 宿主构造/方法 kernel 体内 →
+// RX3015,RXS-0236 承 RXS-0189 同点位)。
+const REJECT_CATEGORIES: [&str; 10] = [
     "mod_missing",
     "mod_cycle",
     "elem_infer",
@@ -42,6 +44,7 @@ const REJECT_CATEGORIES: [&str; 9] = [
     "present_out_of_order",
     "present_in_kernel",
     "table_in_kernel",
+    "graph_in_kernel",
 ];
 
 fn host_orch_dir(sub: &str) -> PathBuf {
@@ -285,6 +288,47 @@ fn accept_bindless_table_lowers_to_rxrt_table() {
     assert!(
         ir.contains("call i32 @rxrt_launch(i64"),
         "注册后句柄应仍可作 launch 实参(RXS-0235/RXS-0191)\nIR:\n{ir}"
+    );
+}
+
+/// accept/graph_deferred_three_pass(G3.5,RXS-0236):Graph/PassBuilder/GraphResource
+/// 编译器已知签名 0 诊断,deferred 三 pass 图声明 lowering 落 `rxrt_graph_*` 字面符号 declare
+/// (create 产 u64 图句柄 / resource 产 u64 资源句柄 / pass 产 u64 pass 句柄 / declare 三参
+/// 声明访问 / readback / execute 装配核验);声明序 = 提交序,用户不写 barrier。
+#[test]
+fn accept_graph_deferred_three_pass_lowers_to_rxrt_graph() {
+    let root = host_orch_dir("accept/graph_deferred_three_pass").join("main.rx");
+    let (codes, ir) = run_root(&root);
+    assert!(
+        codes.is_empty(),
+        "accept/graph_deferred_three_pass 产生诊断: {codes:?}"
+    );
+    assert!(
+        ir.contains("declare i64 @rxrt_graph_create(i64)"),
+        "rxrt_graph_create declare 形态(ctx 句柄入,图句柄出,RXS-0241)\nIR:\n{ir}"
+    );
+    assert!(
+        ir.contains("declare i64 @rxrt_graph_resource(i64, i32)"),
+        "rxrt_graph_resource declare 形态(图句柄 + class 入,资源句柄出)\nIR:\n{ir}"
+    );
+    assert!(
+        ir.contains("declare i64 @rxrt_graph_pass(i64)"),
+        "rxrt_graph_pass declare 形态(图句柄入,pass 句柄出)\nIR:\n{ir}"
+    );
+    assert!(
+        ir.contains("declare i32 @rxrt_graph_declare(i64, i64, i32)"),
+        "rxrt_graph_declare declare 形态(pass + resource 句柄 + access tag)\nIR:\n{ir}"
+    );
+    for sym in ["rxrt_graph_readback", "rxrt_graph_execute", "rxrt_trap"] {
+        assert!(
+            ir.contains(&format!("@{sym}(")),
+            "缺 render graph 符号 @{sym}(RXS-0241)\nIR:\n{ir}"
+        );
+    }
+    // 装配核验失败终止检查接线(RXS-0193:execute 负值 rc → rxrt_trap)。
+    assert!(
+        ir.contains("@rxrt_graph_execute("),
+        "execute 装配核验应接线(RXS-0241/0193)\nIR:\n{ir}"
     );
 }
 

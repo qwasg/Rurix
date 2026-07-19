@@ -1913,6 +1913,90 @@ impl Builder<'_, '_> {
                     self.emit_rt_call("rxrt_table_len", vec![h], Ty::Prim(PrimTy::U32), span);
                 self.consume(Place::local(dest), &Ty::Prim(PrimTy::U32))
             }
+            // G3.5 render graph(RXS-0241):图构造 `Graph::create(&ctx)` → `rxrt_graph_create`;
+            // 句柄 0 → 终止(RXS-0193)。
+            Op::GraphCreate => {
+                let ret = self.ty_of(e);
+                // `&ctx` → 取内层 ctx 句柄(i64,cabi 按句柄查 ctx);镜像 rxp_create ctx 下发。
+                let h = match &args[0].kind {
+                    tbir::ExprKind::Borrow { expr, .. } => self.gpu_handle_op(expr),
+                    _ => self.gpu_handle_op(&args[0]),
+                };
+                let dest = self.emit_rt_call("rxrt_graph_create", vec![h], ret.clone(), span);
+                self.guard_handle_zero(dest, span);
+                self.consume(Place::local(dest), &ret)
+            }
+            // color/depth target 资源句柄 → `rxrt_graph_resource(g, class)`(w/h 维度不下发,
+            // 执行器消费;接收者非消费);句柄 0 → 终止。
+            Op::GraphColorTarget | Op::GraphDepthTarget => {
+                let g = self.gpu_handle_op(&args[0]);
+                let class = i128::from(op == Op::GraphDepthTarget); // color=0 / depth=1
+                let ret = self.ty_of(e);
+                let dest = self.emit_rt_call(
+                    "rxrt_graph_resource",
+                    vec![g, Operand::Const(Const::Int(class, PrimTy::U32))],
+                    ret.clone(),
+                    span,
+                );
+                self.guard_handle_zero(dest, span);
+                self.consume(Place::local(dest), &ret)
+            }
+            // pass 句柄 → `rxrt_graph_pass(g)`(声明序 = 提交序;接收者非消费);句柄 0 → 终止。
+            Op::GraphPass => {
+                let g = self.gpu_handle_op(&args[0]);
+                let ret = self.ty_of(e);
+                let dest = self.emit_rt_call("rxrt_graph_pass", vec![g], ret.clone(), span);
+                self.guard_handle_zero(dest, span);
+                self.consume(Place::local(dest), &ret)
+            }
+            // 五类访问声明(封闭枚举 AccessKind)→ `rxrt_graph_declare(pb, t, access)`:接收者 pb
+            // 消费并返回(builder 链),资源实参 t 非消费(gpu_handle_op Copy);负值 rc → 终止。
+            Op::PassWritesRt | Op::PassWritesDepth | Op::PassReads | Op::PassReadsWritesUav => {
+                let ret = self.ty_of(e);
+                let carried = self.gpu_consume_receiver(&args[0], &ret, span);
+                let t = self.gpu_handle_op(&args[1]);
+                let access = match op {
+                    Op::PassWritesRt => 0,
+                    Op::PassWritesDepth => 1,
+                    Op::PassReads => 2,
+                    _ => 3, // PassReadsWritesUav
+                };
+                let rc = self.emit_rt_call(
+                    "rxrt_graph_declare",
+                    vec![
+                        Operand::Copy(Place::local(carried)),
+                        t,
+                        Operand::Const(Const::Int(access, PrimTy::U32)),
+                    ],
+                    Ty::Prim(PrimTy::I32),
+                    span,
+                );
+                self.guard_rc_negative(rc, span);
+                self.consume(Place::local(carried), &ret)
+            }
+            // readback(源 CopySrc + 自动目的 buffer CopyDst)→ `rxrt_graph_readback(g, t)`;
+            // 接收者与实参非消费;负值 rc → 终止。
+            Op::GraphReadback => {
+                let g = self.gpu_handle_op(&args[0]);
+                let t = self.gpu_handle_op(&args[1]);
+                let rc = self.emit_rt_call(
+                    "rxrt_graph_readback",
+                    vec![g, t],
+                    Ty::Prim(PrimTy::I32),
+                    span,
+                );
+                self.guard_rc_negative(rc, span);
+                Operand::Const(Const::Unit)
+            }
+            // execute(装配核验 RX6029/RX6030 + 纯函数状态推导)→ `rxrt_graph_execute(g)`;
+            // 接收者非消费;负值 rc(装配违例)→ 终止(strict-only,RXS-0193)。
+            Op::GraphExecute => {
+                let g = self.gpu_handle_op(&args[0]);
+                let rc =
+                    self.emit_rt_call("rxrt_graph_execute", vec![g], Ty::Prim(PrimTy::I32), span);
+                self.guard_rc_negative(rc, span);
+                Operand::Const(Const::Unit)
+            }
             Op::Launch => unreachable!("launch 走 GpuLaunch 节点(RXS-0191)"),
         }
     }

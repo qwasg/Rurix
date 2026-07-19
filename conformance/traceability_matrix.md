@@ -235,3 +235,9 @@
 | RXS-0233 | spec/binding_layout.md | 3 | `conformance/dxil/graphics/accept/bindless_sample_fs.rx`, `src/rurix-rt/src/vk.rs`, `src/rurixc/src/binding_layout.rs` |
 | RXS-0234 | spec/dxil_backend.md | 4 | `conformance/dxil/graphics/accept/bindless_sample_fs.rx`, `src/rurix-rt/src/vk.rs`, `src/rurixc/src/dxil_spirv.rs` …(+1) |
 | RXS-0235 | spec/host_orchestration.md | 5 | `conformance/dxil/graphics/accept/bindless_quadrant_vs.rx`, `conformance/host_orch/accept/bindless_table/main.rx`, `conformance/host_orch/reject/table_in_kernel/main.rx` …(+2) |
+| RXS-0236 | spec/render_graph.md | 2 | `conformance/host_orch/accept/graph_deferred_three_pass/main.rx`, `conformance/host_orch/reject/graph_in_kernel/main.rx` |
+| RXS-0237 | spec/render_graph.md | 1 | `src/rurix-rt/src/graph.rs` |
+| RXS-0238 | spec/render_graph.md | 1 | `src/rurix-rt/src/graph.rs` |
+| RXS-0239 | spec/render_graph.md | 1 | `src/uc04-demo/tests/d6_crosscheck.rs` |
+| RXS-0240 | spec/render_graph.md | 2 | `src/rurix-rt/src/graph.rs`, `src/rurix-rt/src/vk.rs` |
+| RXS-0241 | spec/render_graph.md | 2 | `src/rurix-rt-cabi/src/lib.rs`, `src/uc04-demo/tests/d6_crosscheck.rs` |

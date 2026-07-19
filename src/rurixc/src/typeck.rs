@@ -344,6 +344,27 @@ fn gpu_host_method(
             _ => None,
         };
     }
+    // G3.5 render graph(RXS-0236):Graph 图本体方法族(资源创建 / pass 声明 / readback /
+    // execute)+ PassBuilder 访问声明方法族(五类访问)。
+    if li.is_graph(d) {
+        return match method {
+            "color_target" => Some(Op::GraphColorTarget),
+            "depth_target" => Some(Op::GraphDepthTarget),
+            "pass" => Some(Op::GraphPass),
+            "readback" => Some(Op::GraphReadback),
+            "execute" => Some(Op::GraphExecute),
+            _ => None,
+        };
+    }
+    if li.is_pass_builder(d) {
+        return match method {
+            "writes_rt" => Some(Op::PassWritesRt),
+            "writes_depth" => Some(Op::PassWritesDepth),
+            "reads" => Some(Op::PassReads),
+            "reads_writes_uav" => Some(Op::PassReadsWritesUav),
+            _ => None,
+        };
+    }
     if li.is_buffer(d) {
         return match method {
             "upload" => Some(Op::BufUpload),
@@ -1860,6 +1881,28 @@ impl Tck<'_, '_> {
             ];
             return self.check_args(span, &expected, args, Ty::Adt(present_def, Vec::new()));
         }
+        // render graph 图构造(G3.5,RXS-0236):`Graph::create(&ctx)` 编译器已知关联函数——
+        // 首实参 `&Context`(单 brand 方案沿 RXS-0189),产 `Graph<C>` 句柄(非 Copy affine)。
+        if let hir::ExprKind::Res(Res::Def(d)) = &callee.kind
+            && Some(*d) == self.res.lang_items.graph_create
+        {
+            self.results
+                .gpu_calls
+                .insert(call_id, crate::hir::GpuHostOp::GraphCreate);
+            let ctx_def = self
+                .res
+                .lang_items
+                .context
+                .expect("Context lang item 在 resolve 入口注入");
+            let graph_def = self
+                .res
+                .lang_items
+                .graph
+                .expect("Graph lang item 在 resolve 入口注入");
+            let brand = Ty::Adt(ctx_def, Vec::new());
+            let expected = [Ty::Ref(Box::new(brand.clone()), false)];
+            return self.check_args(span, &expected, args, Ty::Adt(graph_def, vec![brand]));
+        }
         // 宿主图像落盘桥(MS1.2b,RXS-0199):`write_ppm(path, w, h, &pinned)`
         // 编译器已知自由函数;data 形参位为元素类型使用点约束(RXS-0190:
         // 未定元素在此定型 f32)。
@@ -2524,9 +2567,67 @@ impl Tck<'_, '_> {
             }
             // `table.len() -> u32`(已注册计数 = clamp 表长源,RXS-0235)。
             Op::TableLen => self.check_args(span, &[], args, Ty::Prim(PrimTy::U32)),
-            Op::CtxCreate | Op::Launch | Op::PresentCreate | Op::WritePpm => {
+            // G3.5 render graph(RXS-0236):`g.color_target(w, h)` / `g.depth_target(w, h)`
+            // → `GraphResource<C>`(单 brand 方案沿 RFC-0009 §9 Q-Brand;非 Copy affine 沿
+            // RXS-0189)。w/h 为 u32 维度(执行器消费,推导本体不用)。
+            Op::GraphColorTarget | Op::GraphDepthTarget => {
+                let gr = self
+                    .res
+                    .lang_items
+                    .graph_resource
+                    .expect("GraphResource lang item 在 resolve 入口注入");
+                let b = adt_args.first().cloned().unwrap_or(brand);
+                let u32t = Ty::Prim(PrimTy::U32);
+                self.check_args(span, &[u32t.clone(), u32t], args, Ty::Adt(gr, vec![b]))
+            }
+            // `g.pass() -> PassBuilder<C>`(声明序 = 提交序;非消费接收者)。
+            Op::GraphPass => {
+                let pb = self
+                    .res
+                    .lang_items
+                    .pass_builder
+                    .expect("PassBuilder lang item 在 resolve 入口注入");
+                let b = adt_args.first().cloned().unwrap_or(brand);
+                self.check_args(span, &[], args, Ty::Adt(pb, vec![b]))
+            }
+            // `g.readback(t: GraphResource<C>)`(源 CopySrc + 自动 readback 目的 buffer;
+            // 非消费接收者与实参)。
+            Op::GraphReadback => {
+                let gr = self
+                    .res
+                    .lang_items
+                    .graph_resource
+                    .expect("GraphResource lang item 在 resolve 入口注入");
+                let b = adt_args.first().cloned().unwrap_or(brand);
+                self.check_args(span, &[Ty::Adt(gr, vec![b])], args, Ty::unit())
+            }
+            // `g.execute()`(装配核验 + 状态推导;非消费接收者;返回 unit)。
+            Op::GraphExecute => self.check_args(span, &[], args, Ty::unit()),
+            // `pb.writes_rt(t)` / `writes_depth(t)` / `reads(t)` / `reads_writes_uav(t)`
+            // → `PassBuilder<C>`(消费接收者并返回〔builder 链〕;资源实参 t 非消费,镜像
+            // launch/register Buffer 实参纪律)。五类访问声明方法(封闭枚举 AccessKind)。
+            Op::PassWritesRt | Op::PassWritesDepth | Op::PassReads | Op::PassReadsWritesUav => {
+                let pb = self
+                    .res
+                    .lang_items
+                    .pass_builder
+                    .expect("PassBuilder lang item 在 resolve 入口注入");
+                let gr = self
+                    .res
+                    .lang_items
+                    .graph_resource
+                    .expect("GraphResource lang item 在 resolve 入口注入");
+                let b = adt_args.first().cloned().unwrap_or(brand);
+                self.check_args(
+                    span,
+                    &[Ty::Adt(gr, vec![b.clone()])],
+                    args,
+                    Ty::Adt(pb, vec![b]),
+                )
+            }
+            Op::CtxCreate | Op::Launch | Op::PresentCreate | Op::WritePpm | Op::GraphCreate => {
                 unreachable!(
-                    "CtxCreate/PresentCreate/WritePpm 走 check_call;launch 走既有 launch 分支"
+                    "CtxCreate/PresentCreate/GraphCreate/WritePpm 走 check_call;launch 走既有 launch 分支"
                 )
             }
         }

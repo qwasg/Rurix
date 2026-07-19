@@ -24,6 +24,10 @@
     {
       "id": "g3.counter.bindless_descriptor_smoke",
       "description": "bindless 面 device 索引红绿见证数 ≥1(契约 G-G3-4;RFC-0013 §4.C / RXS-0231~0235;≥4 纹理注册表按屏幕象限动态索引采样 == 四色〔quadrant_index_four_color〕+ 篡改注册序→像素换位 RED〔tamper_register_order_swap〕+ feature chain 四 bit〔shaderSampledImageArrayNonUniformIndexing / descriptorBindingSampledImageUpdateAfterBind / descriptorBindingPartiallyBound / runtimeDescriptorArray〕缺失→确定性 Err〔feature_chain_missing_err〕);计数源 = evidence/bindless_*.json 中 smoke_ok=true 报告数(机器事实:ci/bindless_smoke.py device 段真跑写;harness bin/bindless_modes 判据结构就位,数值阈值 TODO 留 owner 本机)。bindless 索引真跑 = 交互 GPU 链路,**不进 pr-smoke 硬门**(镜像 g3.counter.sampling_superset_modes 双态先例);无显示/无 GPU/未 opt-in → device 段 SKIP=dev-env degrade 非 fake pass → 0 → 建设期 normal SKIP / close-out strict FAIL,对齐 g3.counter.sampling_superset_modes 先例。RURIX_REQUIRE_REAL=1 时缺失翻硬红。host 段(步骤 64 Unbounded 合法化 + 独占 space 分配律 + RTS0 roundtrip 推导单测 + nonuniform 缺失 reject UI golden + bindless SPIR-V spirv-val vulkan1.2 三态)恒跑不入本 counter。**AMD 真卡见证 = G-MB1-6 硬件尾门独立存续**(本机 RTX 4070 Ti measured 不充作 AMD)。"
+    },
+    {
+      "id": "g3.counter.auto_barrier_hazard_redgreen",
+      "description": "render graph 自动 barrier hazard 检出红绿 device 见证数 ≥1(契约 G-G3-5;RFC-0013 §4.D / RXS-0236~0241;uc04 deferred 三 pass 图迁 Graph API 经 run_graph 自动状态推导重跑步骤 48 同判据〔auto_barrier_deferred_match〕+ 漏声明 read → 装配期 strict 拒 RED〔undeclared_read_strict_reject〕+ Vulkan 同图 run_graph 出图对照〔vulkan_run_graph_match〕);计数源 = evidence/graph_*.json 中 hazard_ok=true 报告数(机器事实:ci/render_graph_smoke.py device 段真跑写)。auto barrier 真跑 = 交互 GPU 链路,**不进 pr-smoke 硬门**(镜像 g3.counter.bindless_descriptor_smoke 双态先例);无显示/无 GPU/未 opt-in → device 段 SKIP=dev-env degrade 非 fake pass → 0 → 建设期 normal SKIP / close-out strict FAIL,对齐 g3.counter.bindless_descriptor_smoke 先例。RURIX_REQUIRE_REAL=1 时缺失翻硬红。**host 段恒跑不入本 counter 但为本面核心**(D6 互证金标准:graph.rs 推导集 == uc04 RXS-0169 手动锚点集集合相等双向〔src/uc04-demo/tests/d6_crosscheck.rs〕+ 图合法性 reject 四族 RX6029/RX6030 + 推导 golden 确定性双跑〔src/rurix-rt/src/graph.rs〕+ cabi rxrt_graph_* 符号面〔src/rurix-rt-cabi〕)。**D3D12 shim 执行器诚实边界**:shim C++ pass/barrier 数组下发入口大改留后续,device 首跑先经 Vulkan run_graph(本机活驱动)。**AMD 真卡见证 = G-MB1-6 硬件尾门独立存续**(本机 RTX 4070 Ti measured 不充作 AMD)。"
     }
   ],
   "namespace_check": {
@@ -45,6 +49,11 @@
       "version": "v1.2",
       "date": "2026-07-18",
       "change": "G3.3 采样超集面回填 counter_assertions[g3.counter.sampling_superset_modes](RFC-0013 §4.B / §6.5 PR-S3,契约 G-G3-3;条款先于实现,登记与 ci/budget_eval.py evaluator 分支 + ci/sampling_superset_smoke.py + milestones/g3/sampling_superset_evidence_schema.json 同 PR,未知 id 强制 FAIL 纪律)。计数源 = evidence/sampling_superset_*.json 中 modes_ok 去重后 num_modes(ci/sampling_superset_smoke.py device 段真跑写:≥6 模式数值判据〔§4.B8 ①mip/②sample_lod/③sample_grad/④load 越界钳制/⑤wrap-vs-clamp/⑥sample_cmp/⑦gather/⑧storage 唯一写者 store→barrier→回读/⑨多分量〕逐项篡改→像素变 RED 复原 GREEN + 双后端一致性对照)。采样数值真跑 = 交互 GPU 链路不进 pr-smoke 硬门,无显示/无 GPU/未 opt-in → device SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL(对齐 g3.counter.uc04_present_frames 先例);RURIX_REQUIRE_REAL=1 缺失翻硬红。host 段(步骤 62 codegen opcode 全家结构性单测 + spirv-val 三态 + 唯一写者 reject golden)恒跑不入本 counter。AMD 真卡见证 = G-MB1-6 硬件尾门独立存续(本机 RTX 4070 Ti measured 不充作 AMD)。entries/ratio_assertions 维持留空(零 estimated 铁律)。"
+    },
+    {
+      "version": "v1.4",
+      "date": "2026-07-19",
+      "change": "G3.5 render graph 面回填 counter_assertions[g3.counter.auto_barrier_hazard_redgreen](RFC-0013 §4.D / §6.5 PR-G2,契约 G-G3-5;条款先于实现,登记与 ci/budget_eval.py evaluator 分支 + ci/render_graph_smoke.py + milestones/g3/auto_barrier_hazard_evidence_schema.json 同 PR,未知 id 强制 FAIL 纪律)。计数源 = evidence/graph_*.json 中 hazard_ok=true 报告数(ci/render_graph_smoke.py device 段真跑写:uc04 deferred 三 pass 图迁 Graph API 经 run_graph 自动状态推导重跑步骤 48 同判据 + 漏声明 read → 装配期 strict 拒 RED + Vulkan 同图 run_graph 出图对照)。auto barrier 真跑 = 交互 GPU 链路不进 pr-smoke 硬门,无显示/无 GPU/未 opt-in → device SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL(对齐 g3.counter.bindless_descriptor_smoke 先例);RURIX_REQUIRE_REAL=1 缺失翻硬红。**host 段(D6 互证金标准 graph.rs 推导集 == uc04 RXS-0169 手动锚点集集合相等双向 + 图合法性 reject 四族 RX6029/6030 + 推导 golden 确定性双跑 + cabi 符号面)恒跑不入本 counter 但为本面核心验收**。D3D12 shim 执行器诚实边界(shim C++ 大改留后续,device 首跑经 Vulkan run_graph)。AMD 真卡见证 = G-MB1-6 硬件尾门独立存续(本机 RTX 4070 Ti measured 不充作 AMD)。entries/ratio_assertions 维持留空(零 estimated 铁律)。"
     },
     {
       "version": "v1.3",

@@ -8868,9 +8868,68 @@ pub mod android_present {
     }
 }
 
+// ── G3.5 render graph Vulkan 执行器（RXS-0240）──────────────────────────────────────
+//
+// `run_graph` 多 pass command buffer 录制（逐 pass render pass begin/end + 边界
+// `vkCmdPipelineBarrier`）**逐字重放** `graph.rs`（RXS-0238）纯 host 推导产物——layout/stage/access
+// 全取自 `graph.rs` 同源表，执行器**禁二次推导或语义重映射**（P-11 单一事实源）。现
+// `run_graphics_offscreen` / `run_graphics_offscreen_v2` / `run_graphics_present` 手写定点 barrier
+// 路径 0-byte 保留（RXS-0240b）；device 多 pass 出图段真跑归主循环（活驱动，D3D12 shim pass/barrier
+// 数组下发入口大改留后续 = 诚实边界）。本节落地**逐字重放映射本体**（host 可单测，无 device 调用）。
+
+/// 把 `graph.rs` 纯 host 推导的一条 image [`crate::graph::PlannedBarrier`] 逐字重放为
+/// `vkCmdPipelineBarrier` 的 `VkImageMemoryBarrier` 字段与 stage 掩码（RXS-0240）：返回
+/// `(old_layout, new_layout, src_access, dst_access, src_stage, dst_stage)`——全取自 `graph.rs`
+/// 同源表（layout/stage/access 单一事实源），执行器只补 image 句柄与 aspect（按资源类别）。
+/// 纯 host（无 device 调用），host 单测恒跑。
+#[must_use]
+pub fn graph_image_barrier_fields(
+    b: &crate::graph::PlannedBarrier,
+) -> (u32, u32, VkFlags, VkFlags, VkFlags, VkFlags) {
+    (
+        b.vk_old_layout,
+        b.vk_new_layout,
+        b.vk_src_access,
+        b.vk_dst_access,
+        b.vk_src_stage,
+        b.vk_dst_stage,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// RXS-0240:render graph Vulkan 执行器逐字重放映射(host 纯函数,无设备)——`graph.rs` 推导的
+    /// image barrier 逐字段映射为 vk barrier 字段(layout/stage/access 全取自 graph.rs 同源表,禁
+    /// 二次推导);deferred 图的 RT→PSR 转换映射为 COLOR_ATTACHMENT_OPTIMAL→SHADER_READ_ONLY_OPTIMAL +
+    /// COLOR_ATTACHMENT_OUTPUT→FRAGMENT_SHADER stage + COLOR_ATTACHMENT_WRITE→SHADER_READ access。
+    //@ spec: RXS-0240
+    #[test]
+    fn graph_barrier_replay_maps_verbatim() {
+        use crate::graph::{Graph, PassSpec};
+        let mut g = Graph::new();
+        let a = g.color_target("gbuf");
+        let lit = g.color_target("lit");
+        g.add_pass(PassSpec::new("geo").writes_rt(a)).unwrap();
+        g.add_pass(PassSpec::new("light").reads(a).writes_rt(lit))
+            .unwrap();
+        let plan = g.execute().unwrap();
+        // gbuf 的 RT→PSR image transition。
+        let rt_psr = plan
+            .iter()
+            .find(|b| b.resource_name == "gbuf")
+            .expect("gbuf barrier");
+        let (old_layout, new_layout, src_access, dst_access, src_stage, dst_stage) =
+            graph_image_barrier_fields(rt_psr);
+        // 逐字重放:layout/stage/access 与 vk.rs 常量逐值一致(graph.rs 同源表单一事实源)。
+        assert_eq!(old_layout, IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        assert_eq!(new_layout, IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        assert_eq!(src_access, ACCESS_COLOR_ATTACHMENT_WRITE);
+        assert_eq!(dst_access, ACCESS_SHADER_READ);
+        assert_eq!(src_stage, PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT);
+        assert_eq!(dst_stage, PIPELINE_STAGE_FRAGMENT_SHADER);
+    }
 
     /// RXS-0210:graphics offscreen 路的内存类型选择(host 纯函数,无设备)——device-local
     /// (color image)与 host-visible+coherent(顶点/回读缓冲)分道选取,`type_bits` 掩码守约。

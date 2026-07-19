@@ -113,6 +113,19 @@ pub struct LangItems {
     /// 借用码);`ctx.texture_table()` / `register` / `len` 经 typeck 编译器已知签名
     /// 分支 → `rxrt_table_*`(mir_build);kernel/device 体内 → RX3015(coloring)。
     pub texture_table: Option<DefId>,
+    /// std::gpu 宿主 render graph 类型面(G3.5,RXS-0236;类型位置兜底,可被用户遮蔽)。
+    /// `Graph<C>` 图本体 / `GraphResource<C>` 资源句柄(color/depth target)/ `PassBuilder<C>`
+    /// pass 声明句柄——全非 Copy affine(纪律与 brand 契约全量复用 RXS-0189,零新借用码);
+    /// 方法族(`color_target`/`depth_target`/`pass`/`readback`/`execute` + `writes_rt`/
+    /// `writes_depth`/`reads`/`reads_writes_uav`)经 typeck 编译器已知签名分支 → `rxrt_graph_*`
+    /// (mir_build);kernel/device 体内 → RX3015(coloring)。`Graph::create` 关联构造镜像
+    /// `context_create`。
+    pub graph: Option<DefId>,
+    pub graph_resource: Option<DefId>,
+    pub pass_builder: Option<DefId>,
+    /// `Graph::create` 编译器已知关联构造函数(G3.5,RXS-0236;值路径解析锚点,
+    /// 镜像 `context_create`)。
+    pub graph_create: Option<DefId>,
     /// device block barrier 上下文(M5.2,RXS-0079):`block.sync()` 的 `block`
     /// 值位置兜底;`.sync()` → block 级 barrier(可被用户遮蔽)。
     pub block_ctx: Option<DefId>,
@@ -179,6 +192,10 @@ impl LangItems {
             "TextureRw2D" => self.texture_rw2d,
             // std::gpu 宿主无界纹理表(G3.4,RXS-0235):类型位置兜底(可被用户遮蔽)。
             "TextureTable" => self.texture_table,
+            // std::gpu render graph 类型面(G3.5,RXS-0236):类型位置兜底(可被用户遮蔽)。
+            "Graph" => self.graph,
+            "GraphResource" => self.graph_resource,
+            "PassBuilder" => self.pass_builder,
             _ => ADDR_SPACES
                 .iter()
                 .position(|n| *n == name)
@@ -286,6 +303,23 @@ impl LangItems {
         Some(d) == self.texture_table
     }
 
+    /// `Graph` render graph 图本体判定(G3.5,RXS-0236;`color_target`/`depth_target`/
+    /// `pass`/`readback`/`execute` 方法接收者识别)。
+    pub fn is_graph(&self, d: DefId) -> bool {
+        Some(d) == self.graph
+    }
+
+    /// `PassBuilder` pass 声明句柄判定(G3.5,RXS-0236;`writes_rt`/`writes_depth`/
+    /// `reads`/`reads_writes_uav` 方法接收者识别)。
+    pub fn is_pass_builder(&self, d: DefId) -> bool {
+        Some(d) == self.pass_builder
+    }
+
+    /// `GraphResource` 图资源句柄判定(G3.5,RXS-0236;color/depth target,声明实参)。
+    pub fn is_graph_resource(&self, d: DefId) -> bool {
+        Some(d) == self.graph_resource
+    }
+
     /// `PinnedBuffer` 锁页缓冲判定(MS1.2,RXS-0189)。
     pub fn is_pinned_buffer(&self, d: DefId) -> bool {
         Some(d) == self.pinned_buffer
@@ -310,6 +344,9 @@ impl LangItems {
             || self.is_pinned_buffer(d)
             || self.is_present_state(d)
             || self.is_texture_table(d)
+            || self.is_graph(d)
+            || self.is_pass_builder(d)
+            || self.is_graph_resource(d)
     }
 
     /// `GridDim` 构造器判定(RXS-0074;launch 维度契约)。
@@ -456,6 +493,10 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
             write_ppm: None,
             nonuniform: None,
             texture_table: None,
+            graph: None,
+            graph_resource: None,
+            pass_builder: None,
+            graph_create: None,
             block_ctx: None,
             atomic: None,
             atomic_view: None,
@@ -573,6 +614,17 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
         // 优先遮蔽,不入模块命名空间)。
         r.out.lang_items.texture_table =
             Some(r.new_def(DefKind::Struct, "TextureTable", Vis::Pub, span, 0));
+        // std::gpu render graph 类型面(G3.5,RXS-0236):`Graph` 图本体 / `GraphResource`
+        // 资源句柄 / `PassBuilder` pass 句柄 + `Graph::create` 关联构造。**追加于全部既有
+        // lang items 之后**,不动摇既有 DefId 编号(MIR/PTX golden 符号名稳定性);同 View
+        // 族兜底纪律(用户同名定义优先遮蔽,不入模块命名空间)。
+        r.out.lang_items.graph = Some(r.new_def(DefKind::Struct, "Graph", Vis::Pub, span, 0));
+        r.out.lang_items.graph_resource =
+            Some(r.new_def(DefKind::Struct, "GraphResource", Vis::Pub, span, 0));
+        r.out.lang_items.pass_builder =
+            Some(r.new_def(DefKind::Struct, "PassBuilder", Vis::Pub, span, 0));
+        r.out.lang_items.graph_create =
+            Some(r.new_def(DefKind::AssocFn, "create", Vis::Pub, span, 0));
     }
     r.resolve_uses();
     r.resolve_impl_targets();
@@ -1695,6 +1747,15 @@ impl Resolver<'_> {
                         && let Some(create) = self.out.lang_items.present_create
                     {
                         // present 会话构造(MS1.2b,RXS-0197):`Present::create`
+                        // 编译器已知关联函数(镜像 `Context::create` 解析锚点)
+                        Res::Def(create)
+                    } else if last
+                        && last_ns == Ns::Value
+                        && Some(prefix_def) == self.out.lang_items.graph
+                        && seg.ident.name == "create"
+                        && let Some(create) = self.out.lang_items.graph_create
+                    {
+                        // render graph 图构造(G3.5,RXS-0236):`Graph::create`
                         // 编译器已知关联函数(镜像 `Context::create` 解析锚点)
                         Res::Def(create)
                     } else {

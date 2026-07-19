@@ -602,6 +602,22 @@ jobs:
         shell: powershell
         run: py -3 ci/bindless_smoke.py
 
+      # `ci/render_graph_smoke.py` host 段（步骤 65）**恒跑**(**D6 互证金标准** graph.rs 纯 host 自动状态
+      # 推导集 == uc04 手动 barrier::plan_barriers RXS-0169 手动锚点集,集合相等双向断言〔两独立实现互证,
+      # graph.rs 禁 import barrier.rs〕RXS-0239/0241 + graph.rs 图合法性 reject 四族 RX6029 + 声明-反射失配
+      # RX6030 RXS-0237 + 推导 golden 确定性双跑 + AccessKind 双后端映射单一事实源 RXS-0238/0240 + cabi
+      # rxrt_graph_* 符号面/handle-0 失败路/增量建面 execute 装配核验 RXS-0241 + conformance graph 语料
+      # 〔accept graph_deferred_three_pass lowering 落 rxrt_graph_* + reject graph_in_kernel RX3015〕RXS-0236)。
+      # device 段(uc04 deferred 三 pass 图迁 Graph API 经 run_graph 自动状态推导重跑步骤 48 同判据 + 漏声明
+      # read → 装配期 strict 拒 RED + Vulkan 同图 run_graph 对照)= **交互 GPU 链路,不进 pr-smoke 硬门**
+      # (镜像 bindless 双态)——默认 SKIP(dev-env degrade,退 0),须显式 RURIX_GRAPH_DEVICE=1(或
+      # RURIX_REQUIRE_REAL=1)opt-in 真跑;**Vulkan run_graph device 首跑归主循环活驱动,D3D12 shim pass/barrier
+      # 数组下发入口大改留后续 = 诚实边界,判据阈值 = owner 本机主循环校准 TODO**(hazard_ok=true 计入
+      # g3.counter.auto_barrier_hazard_redgreen)。**AMD 真卡见证 = G-MB1-6 硬件尾门独立存续**。
+      - name: render graph smoke (G3 CI_GATES §2.65, G-G3-5, RFC-0013 §4.D)
+        shell: powershell
+        run: py -3 ci/render_graph_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

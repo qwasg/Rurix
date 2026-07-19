@@ -15,6 +15,10 @@ pub mod backend;
 mod error;
 /// 生产分发 fatbin:分发产物变体模型 + 装载协商决策（G1.5，RXS-0150/0151；MR-0005）。
 pub mod fatbin;
+/// render graph 纯 host 自动资源状态推导（G3.5，RXS-0236~0241；RFC-0013 §4.D）。always-on、
+/// 零 unsafe、零后端调用:图合法性装配核验 + 逐资源状态机 barrier 推导 + 双后端映射同源表。
+/// 执行器（`vk.rs run_graph` / uc04 D3D12 shim）只逐字重放本模块产出（P-11 单一事实源）。
+pub mod graph;
 /// CUDA–D3D12 互操作呈现类型化（G1.1，RXS-0140~0143；RFC-0001 §4）。feature `d3d12-interop`。
 #[cfg(feature = "d3d12-interop")]
 pub mod interop;

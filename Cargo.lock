@@ -190,5 +190,6 @@ name = "uc04-demo"
 version = "1.0.0"
 dependencies = [
  "cc",
+ "rurix-rt",
  "rurixc",
 ]
