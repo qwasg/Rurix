@@ -22,10 +22,13 @@ sampler 状态 + storage image 唯一写者纪律 + ≥6 模式 device 数值判
 
   device 段（**gate real-shim + GPU + 显示环境**;步骤 63;采样数值真跑 = 交互 GPU 链路,
   **不进 pr-smoke 硬门**,镜像 uc04_present / realtime_present 双态先例):
-    6. ≥6 模式数值判据（RFC-0013 §4.B8 ①~⑨:mip 逐层异色 / sample_lod 选层 / sample_grad 选高层 /
+    6. **v2 descriptor 底座最小闭环**（RXS-0230,PR-S0;opt-in 后真跑）:`bin/vk_desc_v2`
+       以 v1/v2 各渲染同帧(v2 带 mip 纹理 + immutable sampler ×2 + storage image 三类
+       资源建面),断言像素逐字节相等（底座中性）+ validation 零报错;
+    7. ≥6 模式数值判据（RFC-0013 §4.B8 ①~⑨:mip 逐层异色 / sample_lod 选层 / sample_grad 选高层 /
        load 越界钳制 / wrap-vs-clamp 像素对照 / sample_cmp shadow / gather 角点 / storage 唯一写者
-       store→barrier→回读 / 多分量),逐项篡改→像素变 RED,复原 GREEN;
-    7. 双后端一致性对照（dxil B 链 / vulkan 原生:nearest 逐位 / linear 容差）。
+       store→barrier→回读 / 多分量),逐项篡改→像素变 RED,复原 GREEN(PR-S3);
+    8. 双后端一致性对照（dxil B 链 / vulkan 原生:nearest 逐位 / linear 容差,PR-S3）。
 
 **SKIP 纪律（RFC-0013 §4.B8 / RXS-0230 L4）**:无显示/无 GPU/无 real-shim/未 opt-in →
 device 段 SKIP = dev-env degrade（**非 fake pass**,退 0,打印 dev-env-degrade);
@@ -44,6 +47,18 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 EVIDENCE_DIR = ROOT / "evidence"
+EXE_SUFFIX = ".exe" if sys.platform == "win32" else ""
+
+# 无设备(SKIP)信号:vk_desc_v2 / run_graphics_offscreen* 缺 Vulkan 运行时的确定性 Err 串
+# (镜像 ci/vulkan_graphics_smoke.py NO_DEVICE_KEYS)。
+NO_DEVICE_KEYS = (
+    "vulkan-1.dll",
+    "libvulkan",
+    "vkGetInstanceProcAddr",
+    "物理设备",
+    "graphics queue",
+    "vkCreateInstance",
+)
 
 # host 段恒跑的 codegen/绑定/宿主结构性单测(RXS-0223~0230;工具无关,不依赖 GPU)。
 HOST_TESTS = [
@@ -129,24 +144,56 @@ def device_opt_in() -> bool:
 
 
 def device_section() -> int:
-    """device 段:≥6 模式数值判据 + 双后端一致性对照。
+    """device 段:v2 descriptor 底座最小闭环(PR-S0)+ ≥6 模式数值判据(PR-S3)。
 
-    device 真跑需 real-shim + GPU + 显示环境 + 图形=B DXIL 工具链(dxc/spirv-cross)+
-    vulkan 原生 ICD。本仓 worktree 无 GPU 见证环境 → SKIP(dev-env degrade;
-    RURIX_REQUIRE_REAL=1 翻硬红)。owner 本机 RTX 4070 Ti 错峰真跑写 evidence/
+    opt-in 后先跑 **v2 descriptor 底座最小闭环**(RXS-0230,PR-S0 兑现段):
+    `bin/vk_desc_v2` 以 demo tri 着色器各跑 v1(`run_graphics_offscreen`)与 v2
+    (`run_graphics_offscreen_v2`,三类资源齐全:mip 纹理 + immutable sampler ×2 +
+    storage image),断言 v2 三角形三断言 + v1/v2 像素**逐字节相等**(底座中性)+
+    `RURIX_VK_VALIDATION=1` 零报错(fail-closed)。无 Vulkan 设备 → SKIP 三态。
+
+    ≥6 模式数值判据 + 双后端一致性对照须 descriptor-消费着色器语料(PR-S3),未随
+    底座落地 → 维持诚实 SKIP(RURIX_REQUIRE_REAL=1 翻硬红;不伪造 device 绿,
+    G-G3-3 防降级硬门)。owner 本机 RTX 4070 Ti 错峰真跑写 evidence/
     sampling_superset_*.json(modes_ok >= 6 → g3.counter.sampling_superset_modes PASS)。
     **AMD 真卡见证 = G-MB1-6 硬件尾门独立存续**(NVIDIA measured 不充作 AMD)。"""
     if not device_opt_in():
         return skip(
             "device 段未 opt-in(采样数值真跑 = 交互 GPU 链路;设 RURIX_SAMPLING_DEVICE=1 "
-            "或 RURIX_REQUIRE_REAL=1 启用)——≥6 模式数值判据 + 双后端对照归 owner 本机错峰见证"
+            "或 RURIX_REQUIRE_REAL=1 启用)——v2 底座闭环 + ≥6 模式数值判据 + 双后端对照归 "
+            "owner 本机错峰见证"
         )
-    # opt-in 但无 real-shim / GPU 工具链 → 仍 SKIP 三态(REQUIRE_REAL=1 已在 skip 内翻红)。
-    # 真 device 数值判据实现随 owner 本机 real-shim + dxc/spirv-cross + vulkan ICD 落地;
-    # 此处不伪造 device 绿(G-G3-3 防降级硬门,不以替代物充数)。
+
+    # ── v2 descriptor 底座最小闭环(RXS-0230 / RFC-0013 §4.B7;PR-S0)──
+    build = run(
+        ["cargo", "build", "-p", "rurix-rt", "--features", "vulkan",
+         "--bin", "vk_desc_v2", "--quiet"]
+    )
+    if build.returncode != 0:
+        print((build.stdout + build.stderr)[-2500:], file=sys.stderr)
+        return fail("cargo build vk_desc_v2(--features vulkan)失败(host 编译红,非 SKIP 事项)")
+    exe = ROOT / "target" / "debug" / f"vk_desc_v2{EXE_SUFFIX}"
+    env = dict(os.environ, RURIX_VK_VALIDATION="1")
+    p = subprocess.run([str(exe)], cwd=ROOT, capture_output=True, text=True, env=env)
+    out = p.stdout + p.stderr
+    if any(k in out for k in NO_DEVICE_KEYS):
+        return skip(f"device 段 opt-in 但无 Vulkan 设备/loader:{p.stderr.strip()[:300]}")
+    if p.returncode != 0 or "VK_DESC_V2: ok" not in p.stdout:
+        print(out[-2500:], file=sys.stderr)
+        return fail("v2 descriptor 底座最小闭环失败(vk_desc_v2 退出非 0 或缺 ok 行)")
+    if "Validation Error" in p.stderr or "VUID-" in p.stderr:
+        print(p.stderr[-2500:], file=sys.stderr)
+        return fail("v2 descriptor 底座:VK_LAYER_KHRONOS_validation 报错(fail-closed)")
+    print(
+        "[sampling_superset_smoke] device 段:v2 descriptor 底座最小闭环 PASS"
+        "(vk_desc_v2:v1/v2 像素逐字节相等 + validation 零报错)"
+    )
+
+    # ≥6 模式数值判据 + 双后端对照(PR-S3)未随本底座落地 → 维持诚实 SKIP 三态,
+    # 不伪造 modes_ok(G-G3-3 防降级硬门,不以底座闭环充数值判据)。
     return skip(
-        "device 段 opt-in 但本环境无 real-shim + GPU + 图形=B 工具链 + vulkan ICD(≥6 模式数值 "
-        "判据 + 双后端一致性对照未达成;不伪造 device 绿)"
+        "device 段 ≥6 模式数值判据 + 双后端一致性对照未随 PR-S0 底座落地(须 descriptor-"
+        "消费着色器语料,归 PR-S3;不伪造 device 绿)"
     )
 
 
