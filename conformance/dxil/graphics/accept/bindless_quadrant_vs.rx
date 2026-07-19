@@ -1,0 +1,23 @@
+//@ spec: RXS-0231, RXS-0232, RXS-0235
+// G3.4 bindless device 判据四象限 vertex(RFC-0013 §4.C4):host 顶点缓冲提供四象限
+// 双三角形 pos(clip 空间)+ uv(quad 内 0..1)+ idx(flat u32 = 象限号 = 无界表注册序
+// 索引),passthrough 至输出——#[builtin(position)] clip = SV_Position,perspective uv +
+// flat idx 供 bindless_sample_fs 的 `table[nonuniform(idx)].sample(samp, uv)` 消费
+// (镜像 sampling_fullscreen_vs / sampling_fetch_vs 先例:属性由 host 缓冲提供,避
+// vertex_index 算术超 body-lowering 子集,RXS-0171)。flat idx 逐象限异值 → 波内非均匀
+// 索引(nonuniform 标注的真实消费面;harness bin/bindless_modes 四色/换位判据)。
+struct BqvIn {
+    #[interpolate(perspective)] pos: vec4<f32>,
+    #[interpolate(perspective)] uv: vec2<f32>,
+    #[interpolate(flat)] idx: u32,
+}
+
+struct BqvVary {
+    #[builtin(position)] clip: vec4<f32>,
+    #[interpolate(perspective)] uv: vec2<f32>,
+    #[interpolate(flat)] idx: u32,
+}
+
+vertex fn bindless_quadrant_vs(inp: BqvIn) -> BqvVary {
+    BqvVary { clip: inp.pos, uv: inp.uv, idx: inp.idx }
+}

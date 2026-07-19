@@ -104,6 +104,15 @@ pub struct LangItems {
     /// `write_ppm` 宿主图像落盘桥自由函数(MS1.2b,RXS-0199;值位置兜底,
     /// 可被用户遮蔽;签名为 typeck 编译器已知)。
     pub write_ppm: Option<DefId>,
+    /// `nonuniform(idx)` bindless 动态非均匀索引标注自由函数(G3.4,RXS-0232;
+    /// 值位置兜底,可被用户遮蔽)。仅在无界表索引位置有意义:`table[nonuniform(idx)]`
+    /// → strict-only 标注缺失新码 RX3016;身份语义(返回实参,SPIR-V `NonUniform` 装饰)。
+    pub nonuniform: Option<DefId>,
+    /// std::gpu 宿主无界纹理表 `TextureTable<C>`(G3.4,RXS-0235;类型位置兜底,
+    /// 可被用户遮蔽)。非 Copy affine 句柄(纪律与 brand 契约全量复用 RXS-0189,零新
+    /// 借用码);`ctx.texture_table()` / `register` / `len` 经 typeck 编译器已知签名
+    /// 分支 → `rxrt_table_*`(mir_build);kernel/device 体内 → RX3015(coloring)。
+    pub texture_table: Option<DefId>,
     /// device block barrier 上下文(M5.2,RXS-0079):`block.sync()` 的 `block`
     /// 值位置兜底;`.sync()` → block 级 barrier(可被用户遮蔽)。
     pub block_ctx: Option<DefId>,
@@ -168,6 +177,8 @@ impl LangItems {
             // 采样超集资源句柄(G3.3,RXS-0223):类型位置兜底(可被用户遮蔽)。
             "SamplerCmp" => self.sampler_cmp,
             "TextureRw2D" => self.texture_rw2d,
+            // std::gpu 宿主无界纹理表(G3.4,RXS-0235):类型位置兜底(可被用户遮蔽)。
+            "TextureTable" => self.texture_table,
             _ => ADDR_SPACES
                 .iter()
                 .position(|n| *n == name)
@@ -186,8 +197,15 @@ impl LangItems {
             // 宿主图像落盘桥自由函数(MS1.2b,RXS-0199):值位置兜底(模块值 ns
             // 优先 = 用户同名定义遮蔽);签名为 typeck 编译器已知。
             "write_ppm" => self.write_ppm,
+            // bindless 动态非均匀索引标注(RXS-0232);值位置兜底,用户同名定义遮蔽。
+            "nonuniform" => self.nonuniform,
             _ => None,
         }
+    }
+
+    /// `nonuniform(idx)` 标注自由函数判定(RXS-0232;bindless 索引识别)。
+    pub fn is_nonuniform(&self, d: DefId) -> bool {
+        Some(d) == self.nonuniform
     }
 
     /// `ThreadCtx` 容器判定(RXS-0072;device intrinsic 方法识别)。
@@ -262,6 +280,12 @@ impl LangItems {
         Some(d) == self.context
     }
 
+    /// `TextureTable` 宿主无界纹理表判定(G3.4,RXS-0235;`register`/`len` 方法
+    /// 接收者识别)。
+    pub fn is_texture_table(&self, d: DefId) -> bool {
+        Some(d) == self.texture_table
+    }
+
     /// `PinnedBuffer` 锁页缓冲判定(MS1.2,RXS-0189)。
     pub fn is_pinned_buffer(&self, d: DefId) -> bool {
         Some(d) == self.pinned_buffer
@@ -285,6 +309,7 @@ impl LangItems {
             || self.is_buffer(d)
             || self.is_pinned_buffer(d)
             || self.is_present_state(d)
+            || self.is_texture_table(d)
     }
 
     /// `GridDim` 构造器判定(RXS-0074;launch 维度契约)。
@@ -429,6 +454,8 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
             present_presentable: None,
             present_create: None,
             write_ppm: None,
+            nonuniform: None,
+            texture_table: None,
             block_ctx: None,
             atomic: None,
             atomic_view: None,
@@ -538,6 +565,14 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
             Some(r.new_def(DefKind::Struct, "SamplerCmp", Vis::Pub, span, 0));
         r.out.lang_items.texture_rw2d =
             Some(r.new_def(DefKind::Struct, "TextureRw2D", Vis::Pub, span, 0));
+        // bindless 动态非均匀索引标注自由函数(G3.4,RXS-0232)。**追加于全部既有
+        // lang items 之后**,不动摇既有 DefId 编号(MIR/PTX golden 符号名稳定性)。
+        r.out.lang_items.nonuniform = Some(r.new_def(DefKind::Fn, "nonuniform", Vis::Pub, span, 0));
+        // std::gpu 宿主无界纹理表 TextureTable(G3.4,RXS-0235)。**追加于全部既有
+        // lang items 之后**,不动摇既有 DefId 编号;同 View 族兜底纪律(用户同名定义
+        // 优先遮蔽,不入模块命名空间)。
+        r.out.lang_items.texture_table =
+            Some(r.new_def(DefKind::Struct, "TextureTable", Vis::Pub, span, 0));
     }
     r.resolve_uses();
     r.resolve_impl_targets();

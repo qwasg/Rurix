@@ -374,6 +374,17 @@ pub enum GpuHostOp {
     /// `write_ppm(path, w, h, &pinned)` → `rxio_write_ppm`(宿主图像落盘桥,
     /// RXS-0114~0117 语义 0-byte 复用,RXS-0199)。
     WritePpm,
+    /// `ctx.texture_table()` → `rxrt_table_create`(G3.4 bindless,RXS-0235;
+    /// `TextureTable<C>` 非 Copy affine,brand 契约沿 RXS-0189)。
+    CtxTextureTable,
+    /// `table.register(buf)` → `rxrt_table_register`(注册序即索引,稳定单调;
+    /// 首期宿主可注册资源 = `Buffer<C, T>` 句柄〔std::gpu 唯一宿主资源面〕,格式擦除
+    /// host↔shader 形态错配 = 运行期确定性 Err,RXS-0235 L3;实参非消费镜像 launch
+    /// Buffer 实参纪律)。失败哨兵 `u32::MAX` → 终止(RXS-0193)。
+    TableRegister,
+    /// `table.len()` → `rxrt_table_len`(已注册计数 = 动态索引 clamp 表长源,
+    /// RXS-0235;返回 `u32`)。
+    TableLen,
 }
 
 /// scoped atomics 原子读改写算子(M5.2,RXS-0080;`Atomic`/`AtomicView` 族方法)。

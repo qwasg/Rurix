@@ -90,6 +90,7 @@ shader.stage_io_invalid = 非法的着色阶段 I/O 字段:{detail}
 shader.stage_interface_mismatch = 阶段间接口不匹配:{detail}
 shader.resource_handle_invalid = 非法的着色资源句柄:{detail}
 shader.sample_expr_invalid = 非法的纹理采样表达式:{detail}
+shader.nonuniform_annotation_missing = bindless 无界表动态索引须以 nonuniform(...) 标注:{detail}
 #
 # libdevice 链接 / device 数学 intrinsic 诊断(RX6006 / RX7002,spec/device.md RXS-0081~0082;M5.3 分配)
 codegen.device_math_unsupported = {detail} 不是受支持的 device 数学 intrinsic(超出 libdevice 覆盖范围或元素类型不受支持)

@@ -348,6 +348,14 @@
       "spec_clauses": ["RXS-0189"]
     },
     {
+      "id": "RX3016",
+      "title": "bindless 无界表动态非均匀索引临时句柄未标注 nonuniform(`table[idx]` 须 `nonuniform(idx)` 包裹;唯一豁免整型字面量常量索引;typeck strict-only,RFC-0013 §4.C1)",
+      "message_key": "shader.nonuniform_annotation_missing",
+      "status": "active",
+      "introduced_in": "G3.4",
+      "spec_clauses": ["RXS-0232"]
+    },
+    {
       "id": "RX4001",
       "title": "使用已移出的值(use after move,含 maybe-moved 保守判定)",
       "message_key": "borrowck.use_after_move",

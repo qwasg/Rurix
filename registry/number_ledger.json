@@ -213,7 +213,7 @@
         "U": "U30 起(U29=EA1 预留显式跳让,无论其释放与否不回收)",
         "SG": "零消费(五面均为既登记 deferred 兑现非扩张方向;SG-010 软保留维持)",
         "CI_step": "步骤 61 起(预期 61 present / 62~63 采样 / 64 bindless / 65 graph / 66~67 mesh-RT,DXIL 腿视 probe ±68/69、步骤 70 集成 showcase 视判档;数量随实现回填不预占)",
-        "RX_error": "codegen 自 RX6027 续号 + RX6008 预留码正式改接(RD-012,唯一预留已存在码;RX6009 burned 不用);工具类确需自 RX7023",
+        "RX_error": "codegen 自 RX6027 续号 + RX6008 预留码正式改接(RD-012,唯一预留已存在码;RX6009 burned 不用);**3xxx typeck 自 RX3016**(G3.4 bindless nonuniform 标注缺失,RXS-0232,已落;避与 EI1 轨撞号,SC-4);工具类确需自 RX7023",
         "D": "共享 D 段零消费(D-408=P1-2 earmark 不动;开工裁决记契约 §7,D-G3-N 仅为交付物编号)"
       },
       "note": "EI1(引擎集成期,双轨另一半)earmark = RFC-0014 / RXS-0250~0269 / CI 步骤 71~75(owner 2026-07-18 双轨分配;v1.4 更正初版『EI1 零消费』误记);EI1 脚手架 PR 自行登记 reserved_in_flight[EI1] 全量 claim,RD/U/RX 共享段按 main 合并序消费不预留。"
@@ -244,6 +244,11 @@
       "version": "v1.4",
       "date": "2026-07-18",
       "change": "G3 claim 校准更正(编号更正 PR,与 EI1 轨会话协调后落;agent 完全自主 D-406 v2.0):v1.3 的 reserved_in_flight[G3].RFC 误 claim RFC-0013~0017,撞 owner 2026-07-18 双轨分配的 EI1 earmark(EI1 = RFC-0014 / RXS-0250~0269 / CI 步骤 71~75)——更正为 **RFC-0013 单号伞形 Full RFC(五面五章,MB1 RFC-0011 先例)**;0014 归还 EI1 earmark;0015~0017 in-flight claim 撤回归自由池(从未 materialize 为 rfcs/ 文件,无「复用已消费号」问题,RFC namespace next_free 逻辑不变)。RXS 溢出规则同步更正:0250 顺续→**0270 顺续**(0250~0269 = EI1 earmark)。G3 entry note 的『EI1 零消费』误记更正为 EI1 真实 earmark。承 milestones/g3/G3_CONTRACT.md §7 v1.1 + G3_PLAN/CI_GATES v1.1。其余命名空间字段与 claim(MR-0011/步骤 61 起/RD-034 起/U30 起/RX6027+RX6008)0-byte;零新 RXS/RD/SG/error-code/budget counter。"
+    },
+    {
+      "version": "v1.5",
+      "date": "2026-07-19",
+      "change": "G3.4 bindless 期 RX_error claim 校准(feat/g3.4-bindless,agent 完全自主 D-406 v2.0,SC-4):reserved_in_flight[G3].RX_error 补『3xxx typeck 自 RX3016』预留——G3.4 落 RX3016(bindless nonuniform 标注缺失,RXS-0232;error_codes.json 已追加 active,en/zh message-key `shader.nonuniform_annotation_missing` 成对),避与并行 EI1 轨跨分支撞号(RFC-0013 §9.1 SC-4 disposition)。RX3016 < on_tree_max(7022,RX 全局整数序),on_tree_max/next_free 字段 0-byte;仅动 RX_error claim 文本 + 本 revision_log 追加(deferred/spike_gating/其余命名空间 0-byte);无新 RXS/RD/SG/budget counter(RXS-0231~0235 为 G3.4 spec 条款,已在 RXS 区间 0220~0249 内不改 on_tree_max)。"
     }
   ]
 }

@@ -134,6 +134,10 @@ pub enum ExprKind {
         method: crate::mir::ResourceMethod,
         texture: Box<Expr>,
         sampler: Option<Box<Expr>>,
+        /// G3.4 bindless(RXS-0232):无界表动态索引 `table[nonuniform(idx)]` 的
+        /// 索引值表达式(`Some` = 无界表元素采样;`None` = 单句柄采样)。`texture`
+        /// 此时为 `[Texture2D<F>]` 无界表句柄形参引用。
+        table_index: Option<Box<Expr>>,
         coord: Box<Expr>,
         extra: Vec<Expr>,
     },

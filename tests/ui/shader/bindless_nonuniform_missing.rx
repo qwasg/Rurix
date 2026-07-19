@@ -1,0 +1,15 @@
+//@ spec: RXS-0232
+struct BlVary {
+    #[interpolate(perspective)] uv: vec2<f32>,
+    #[interpolate(flat)] idx: u32,
+}
+
+struct BlOut {
+    #[interpolate(perspective)] c: vec4<f32>,
+}
+
+fragment fn fs_nonuniform_missing(inp: BlVary, table: [Texture2D<f32>], samp: Sampler) -> BlOut {
+    BlOut { c: table[inp.idx].sample(samp, inp.uv) } //~ ERROR RX3016
+}
+
+fn main() {}

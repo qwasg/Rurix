@@ -296,10 +296,10 @@ fn check_fn(
 }
 
 /// 纹理/采样器分类:`Some(true)` = 已支持(`Texture2D`/`TextureRw2D`/`Sampler`/
-/// `SamplerCmp`,RXS-0156 + RXS-0223);`Some(false)` = 资源句柄但未支持维度
-/// (defer);`None` = 非资源句柄类型。
+/// `SamplerCmp`,RXS-0156 + RXS-0223;含 G3.4 无界表 `[Texture2D<F>]`,RXS-0231);
+/// `Some(false)` = 资源句柄但未支持维度(defer);`None` = 非资源句柄类型。
 fn texture_kind(ty: &Ty) -> Option<bool> {
-    let head = ty_head_name(ty)?;
+    let head = resource_head_name(ty)?;
     if SUPPORTED_HANDLES.contains(&head) {
         Some(true)
     } else if head.starts_with("Texture") {
@@ -309,18 +309,29 @@ fn texture_kind(ty: &Ty) -> Option<bool> {
     }
 }
 
+/// 资源句柄头名:剥一层无界句柄数组 `[Texture2D<F>]`(RXS-0231,切片样式文法)后
+/// 取句柄头名,否则同 [`ty_head_name`]。无界表在**位置面**与标量句柄同纪律
+/// (仅着色阶段签名形参合法;返回/字段/非阶段函数 → RX3013);无界基数由 mir_build
+/// `ResourceCount::Unbounded` 承载、binding 推导 RXS-0233 翻转。
+fn resource_head_name(ty: &Ty) -> Option<&str> {
+    match &ty.kind {
+        TyKind::Slice(inner) => ty_head_name(inner),
+        _ => ty_head_name(ty),
+    }
+}
+
 fn check_handle_return(ty: &Ty, diag: &DiagCtxt) {
     if let Some(supported) = texture_kind(ty) {
         let detail = if supported {
             format!(
                 "resource handle `{}` cannot appear in return position \
                  (handles are input-only shader stage parameters)",
-                ty_head_name(ty).unwrap_or("")
+                resource_head_name(ty).unwrap_or("")
             )
         } else {
             format!(
                 "unsupported texture type `{}` (supported handles: `Texture2D<F>`/`TextureRw2D<F>` + `Sampler`/`SamplerCmp` (RXS-0156/RXS-0223); other dimensions are deferred)",
-                ty_head_name(ty).unwrap_or("")
+                resource_head_name(ty).unwrap_or("")
             )
         };
         emit_handle(ty.span, detail, diag);
@@ -334,7 +345,7 @@ fn check_handle_param(ty: &Ty, in_stage_fn: bool, diag: &DiagCtxt) {
             ty.span,
             format!(
                 "resource handle `{}` may only appear as a shader stage signature parameter",
-                ty_head_name(ty).unwrap_or("")
+                resource_head_name(ty).unwrap_or("")
             ),
             diag,
         ),
@@ -342,7 +353,7 @@ fn check_handle_param(ty: &Ty, in_stage_fn: bool, diag: &DiagCtxt) {
             ty.span,
             format!(
                 "unsupported texture type `{}` (supported handles: `Texture2D<F>`/`TextureRw2D<F>` + `Sampler`/`SamplerCmp` (RXS-0156/RXS-0223); other dimensions are deferred)",
-                ty_head_name(ty).unwrap_or("")
+                resource_head_name(ty).unwrap_or("")
             ),
             diag,
         ),
@@ -357,7 +368,7 @@ fn check_handle_in_field(ty: &Ty, diag: &DiagCtxt) {
             format!(
                 "resource handle `{}` cannot appear as a struct field \
                  (handles enter only shader stage signatures)",
-                ty_head_name(ty).unwrap_or("")
+                resource_head_name(ty).unwrap_or("")
             ),
             diag,
         );

@@ -1,0 +1,8 @@
+//@ spec: RXS-0231
+//@ expect-error: RX3013
+// bindless 违例(RFC-0013 §4.C1):无界纹理表 `[Texture2D<F>]` 仅可作着色阶段签名形参,
+// 出现在返回位置非法(承 RXS-0156 句柄位置纪律,无界表位置面同标量句柄)→ RX3013。
+fragment fn fs_bindless_return() -> [Texture2D<f32>] {
+}
+
+fn main() {}

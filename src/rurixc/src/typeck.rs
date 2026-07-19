@@ -27,6 +27,7 @@ pub const E_ARG_COUNT: ErrorCode = ErrorCode(2003); // RX2003
 pub const E_UNKNOWN_METHOD: ErrorCode = ErrorCode(2004); // RX2004
 pub const E_ATOMICS_SCOPE: ErrorCode = ErrorCode(3010); // RX3010(RXS-0080)
 pub const E_SAMPLE_EXPR: ErrorCode = ErrorCode(3014); // RX3014(RXS-0174,RFC-0007)
+pub const E_NONUNIFORM_MISSING: ErrorCode = ErrorCode(3016); // RX3016(RXS-0232,RFC-0013 §4.C1)
 pub const E_NOT_CALLABLE: ErrorCode = ErrorCode(2005); // RX2005
 pub const E_BAD_OPERAND: ErrorCode = ErrorCode(2006); // RX2006
 pub const E_BAD_DERIVE_COPY: ErrorCode = ErrorCode(2008); // RX2008
@@ -73,6 +74,12 @@ pub struct TypeckResults {
     /// 路,byte-preserving,Q-S-SampleName)。tbir/MIR/codegen 消费,降为
     /// `Rvalue::ResourceSample{method, extra}` → SPIR-V opcode 全家(RXS-0226)。
     pub sample_family_calls: HashMap<HirId, crate::mir::ResourceMethod>,
+    /// bindless 无界表动态索引采样调用点(G3.4,RXS-0232;RFC-0013 §4.C1):
+    /// MethodCall 节点(receiver = `table[nonuniform(idx)]`,base = `[Texture2D<F>]`
+    /// 无界表形参)→ 记录,供 tbir_build 抽取索引值(降为
+    /// `Rvalue::ResourceSample{table_index: Some(..)}` → `OpAccessChain` runtime array
+    /// + `NonUniform` 装饰 + clamp,RXS-0234)。`sample`/方法族两路共用本标记。
+    pub bindless_index_calls: std::collections::HashSet<HirId>,
     /// 宿主 GPU 编排调用点(MS1.2,RXS-0189~0191):Call/MethodCall 节点 → 已知
     /// 操作(接收者为 std::gpu lang item 句柄时识别;用户同名 impl 优先遮蔽)。
     /// tbir/mir_build 消费降级为 `rxrt_*` 调用;coloring 消费裁决宿主 API 着色
@@ -324,6 +331,16 @@ fn gpu_host_method(
             "alloc" => Some(Op::CtxAlloc),
             "alloc_pinned" => Some(Op::CtxAllocPinned),
             "sync" => Some(Op::CtxSync),
+            // G3.4 bindless(RXS-0235):无界纹理表句柄构造。
+            "texture_table" => Some(Op::CtxTextureTable),
+            _ => None,
+        };
+    }
+    // G3.4 bindless(RXS-0235):TextureTable 注册面(注册序即索引 / 已注册计数)。
+    if li.is_texture_table(d) {
+        return match method {
+            "register" => Some(Op::TableRegister),
+            "len" => Some(Op::TableLen),
             _ => None,
         };
     }
@@ -1535,9 +1552,27 @@ impl Tck<'_, '_> {
             }
             hir::ExprKind::Index { expr, index } => {
                 let bt = self.check_expr(expr);
+                let based = self.autoderef(&bt);
+                // G3.4 逃逸(RXS-0232;RFC-0013 §4.C1):无界纹理表索引 `table[idx]` 产临时
+                // 句柄,**仅立即 sample-family receiver 合法**(该位由 [`Self::check_method`]
+                // 拦截,不达此臂)。出现在此臂 = 句柄逃逸至 let / 实参 / 字段等非 receiver
+                // 位 → RX3014 扩类别(句柄非值纪律 RXS-0156/0174 不破)。不 demand usize
+                // (索引 u32),避免二次 RX2001 级联。
+                if let Ty::Slice(inner) = &based
+                    && matches!(self.infcx.resolve(inner), Ty::Adt(d, _)
+                        if self.res.lang_items.is_texture2d(d))
+                {
+                    let _ = self.check_expr(index);
+                    self.err_sample_expr(
+                        e.span,
+                        "bindless table index handle may only be the immediate receiver of a \
+                         sample-family method (it cannot be let-bound, passed, or stored; RXS-0232)",
+                    );
+                    return Ty::Err;
+                }
                 let it = self.check_expr(index);
                 self.demand(index.span, &Ty::Prim(PrimTy::Usize), &it);
-                match self.autoderef(&bt) {
+                match based {
                     Ty::Array(t) | Ty::Slice(t) => *t,
                     // `View<space, T, ..>` / `ViewMut<space, T, ..>` 索引(M4.2,
                     // RXS-0071):元素类型 = 第二类型实参(args[0] = 地址空间标记)。
@@ -1743,6 +1778,24 @@ impl Tck<'_, '_> {
         callee: &hir::Expr,
         args: &[hir::Expr],
     ) -> Ty {
+        // G3.4 bindless(RXS-0232):`nonuniform(idx)` 身份标注——返回实参类型
+        // (`table[nonuniform(idx)]` 采样 receiver 位由 [`Self::check_method`] 拦截并
+        // 抽取内层,不达此处;此臂仅兜底 nonuniform 用于非索引位的容忍定型)。
+        if let hir::ExprKind::Res(Res::Def(d)) = &callee.kind
+            && self.res.lang_items.is_nonuniform(*d)
+        {
+            if args.len() != 1 {
+                self.err_arg_count(span, 1, args.len());
+            }
+            let mut ty = Ty::Err;
+            for (i, a) in args.iter().enumerate() {
+                let t = self.check_expr(a);
+                if i == 0 {
+                    ty = t;
+                }
+            }
+            return ty;
+        }
         // launch 维度构造器(M4.3,RXS-0074):`GridDim(..)`/`BlockDim(..)` 变维数
         // 容忍——维数 = 实参个数(launch_check 结构化读取);typeck 仅核对实参可
         // 定型,不按 0 字段 struct 构造器报 arity(防 RX2003 误报)。
@@ -1909,6 +1962,36 @@ impl Tck<'_, '_> {
         output
     }
 
+    /// G3.4 bindless(RXS-0232;RFC-0013 §4.C1):无界表动态索引 `table[<idx>]` 的
+    /// nonuniform 标注校验 + 索引值 u32 定型 + bindless 标记记录。`<idx>` 须以
+    /// `nonuniform(expr)` 包裹(唯一豁免 = 整型字面量常量索引);缺失 → RX3016
+    /// strict-only(不做 uniformity 推断,保守全标合法,Q-B-Uniformity)。
+    fn check_bindless_index(&mut self, call_id: HirId, index: &hir::Expr) {
+        let value = match nonuniform_inner(index, &self.res.lang_items) {
+            // `nonuniform(idx)`:取内层索引值。
+            Some(inner) => inner,
+            // 整型字面量常量索引:豁免标注(波内恒均匀,SPIR-V 合法)。
+            None if is_int_literal(index) => index,
+            // 缺失标注:strict-only 拒(RX3016)。仍定型索引(单错单报,继续族校验)。
+            None => {
+                self.diag()
+                    .struct_error(E_NONUNIFORM_MISSING, "shader.nonuniform_annotation_missing")
+                    .arg(
+                        "detail",
+                        "bindless table dynamic index must be wrapped in `nonuniform(...)` \
+                         (only integer-literal constant indices are exempt; RXS-0232)",
+                    )
+                    .span_label(index.span, "un-annotated non-uniform bindless index")
+                    .emit();
+                index
+            }
+        };
+        // 索引值 : u32(RFC-0013 §4.C1)。
+        let it = self.check_expr(value);
+        self.demand(value.span, &Ty::Prim(PrimTy::U32), &it);
+        self.results.bindless_index_calls.insert(call_id);
+    }
+
     fn check_method(
         &mut self,
         span: Span,
@@ -1917,7 +2000,40 @@ impl Tck<'_, '_> {
         method: &str,
         args: &[hir::Expr],
     ) -> Ty {
-        let rt = self.check_expr(receiver);
+        // G3.4 bindless(RXS-0232;RFC-0013 §4.C1):无界表动态索引临时句柄仅立即
+        // receiver——`table[nonuniform(idx)].sample(...)`。在此对 Index-receiver 特判:
+        // base 定型恰一次(避免二次定型),元素句柄类型 `Texture2D<F>` 作 receiver 走
+        // 下方既有采样方法族 / `.sample()` 臂;bindless 标记 + nonuniform 校验单独记录。
+        // 逃逸(非立即 receiver 的 `table[idx]`)由通用 `ExprKind::Index` 臂拒(RX3014)。
+        let rt = if let hir::ExprKind::Index { expr: base, index } = &receiver.kind {
+            let bt = self.check_expr(base);
+            let based = self.infcx.resolve(&self.autoderef(&bt));
+            // G3.4 bindless:base = `[Texture2D<F>]` 无界表 → 元素句柄 receiver + 校验;
+            // 其余索引 receiver(View/ViewMut/Array/Slice/运算符)= 复用既有 Index
+            // 元素类型规则(**不含逃逸检查**——receiver 位是唯一合法位)。
+            if let Ty::Slice(inner) = &based
+                && matches!(self.infcx.resolve(inner), Ty::Adt(d, _)
+                    if self.res.lang_items.is_texture2d(d))
+            {
+                self.check_bindless_index(call_id, index);
+                self.infcx.resolve(inner)
+            } else {
+                let it = self.check_expr(index);
+                self.demand(index.span, &Ty::Prim(PrimTy::Usize), &it);
+                match based {
+                    Ty::Array(t) | Ty::Slice(t) => *t,
+                    // `View`/`ViewMut<space, T, ..>` 索引(M4.2,RXS-0071):元素 = args[1]。
+                    Ty::Adt(d, args)
+                        if self.res.lang_items.view_mutable(d).is_some() && args.len() >= 2 =>
+                    {
+                        args[1].clone()
+                    }
+                    _ => Ty::Err,
+                }
+            }
+        } else {
+            self.check_expr(receiver)
+        };
         // 数值类未定变量按 RXS-0039 默认化后再查方法(原生类型无 inherent
         // 方法 → RX2004;无类约束的推断变量维持容忍)
         let base = self.infcx.resolve(&self.autoderef(&rt));
@@ -2377,6 +2493,37 @@ impl Tck<'_, '_> {
                 )
             }
             Op::PresentPump => self.check_args(span, &[], args, Ty::Prim(PrimTy::Bool)),
+            // G3.4 bindless(RXS-0235):`ctx.texture_table() -> TextureTable<C>`
+            // (单 brand 方案沿 RFC-0009 §9 Q-Brand;非 Copy affine 沿 RXS-0189)。
+            Op::CtxTextureTable => {
+                let tt = self
+                    .res
+                    .lang_items
+                    .texture_table
+                    .expect("TextureTable lang item 在 resolve 入口注入");
+                self.check_args(span, &[], args, Ty::Adt(tt, vec![brand]))
+            }
+            // `table.register(buf) -> u32`(注册序即索引;首期宿主可注册资源 =
+            // `Buffer<C, T>` 句柄——std::gpu 唯一宿主资源面,格式擦除 host↔shader
+            // 形态错配 = 运行期确定性 Err,RXS-0235 L3;实参非消费镜像 launch Buffer
+            // 实参纪律,RXS-0191)。
+            Op::TableRegister => {
+                let buffer = self
+                    .res
+                    .lang_items
+                    .buffer
+                    .expect("Buffer lang item 在 resolve 入口注入");
+                let b = adt_args.first().cloned().unwrap_or(brand);
+                let elem = self.infcx.fresh(None);
+                self.check_args(
+                    span,
+                    &[Ty::Adt(buffer, vec![b, elem])],
+                    args,
+                    Ty::Prim(PrimTy::U32),
+                )
+            }
+            // `table.len() -> u32`(已注册计数 = clamp 表长源,RXS-0235)。
+            Op::TableLen => self.check_args(span, &[], args, Ty::Prim(PrimTy::U32)),
             Op::CtxCreate | Op::Launch | Op::PresentCreate | Op::WritePpm => {
                 unreachable!(
                     "CtxCreate/PresentCreate/WritePpm 走 check_call;launch 走既有 launch 分支"
@@ -2591,6 +2738,28 @@ fn scope_name(rank: u8) -> &'static str {
         1 => "Gpu",
         _ => "System",
     }
+}
+
+/// G3.4 bindless(RXS-0232):若 `expr` 为 `nonuniform(inner)` 调用(callee 解析为
+/// `nonuniform` lang item + 恰 1 实参),返回内层索引表达式 `inner`(否则 `None`)。
+fn nonuniform_inner<'e>(
+    expr: &'e hir::Expr,
+    lang_items: &crate::resolve::LangItems,
+) -> Option<&'e hir::Expr> {
+    if let hir::ExprKind::Call { callee, args } = &expr.kind
+        && let hir::ExprKind::Res(Res::Def(d)) = &callee.kind
+        && lang_items.is_nonuniform(*d)
+        && args.len() == 1
+    {
+        Some(&args[0])
+    } else {
+        None
+    }
+}
+
+/// G3.4 bindless(RXS-0232):`expr` 是否为整型字面量常量(nonuniform 标注唯一豁免)。
+fn is_int_literal(expr: &hir::Expr) -> bool {
+    matches!(&expr.kind, hir::ExprKind::Lit(l) if l.kind == LitKind::Int)
 }
 
 /// 采样方法族名 → [`crate::mir::ResourceMethod`](G3.3,RXS-0223;`Texture2D<F>`

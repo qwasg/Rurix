@@ -1,0 +1,19 @@
+//@ spec: RXS-0232
+//@ expect-error: RX3016
+// bindless 违例(RFC-0013 §4.C1):无界表动态索引须以 `nonuniform(idx)` 包裹(唯一豁免
+// 整型字面量常量索引);非字面量索引 `table[inp.idx]` 缺 nonuniform 标注 → RX3016
+// (strict-only,不做 uniformity 推断,保守拒)。
+struct BlVary {
+    #[interpolate(perspective)] uv: vec2<f32>,
+    #[interpolate(flat)] idx: u32,
+}
+
+struct BlOut {
+    #[interpolate(perspective)] c: vec4<f32>,
+}
+
+fragment fn fs_nonuniform_missing(inp: BlVary, table: [Texture2D<f32>], samp: Sampler) -> BlOut {
+    BlOut { c: table[inp.idx].sample(samp, inp.uv) }
+}
+
+fn main() {}

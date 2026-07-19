@@ -1,0 +1,20 @@
+//@ spec: RXS-0231, RXS-0232, RXS-0233, RXS-0234
+// G3.4 bindless device 模式(RFC-0013 §4.C):无界纹理表 `[Texture2D<f32>]` + 动态非均匀
+// 索引采样 `table[nonuniform(idx)].sample(samp, uv)`。codegen:OpTypeRuntimeArray +
+// RuntimeDescriptorArray/ShaderNonUniform capability + SPV_EXT_descriptor_indexing +
+// OpAccessChain(clamp UMin(idx, table_len-1),table_len 经 push-constant 尾槽)→ OpLoad
+// (NonUniform 装饰)→ OpImageSampleImplicitLod。harness(bin/bindless_modes)按屏幕象限
+// 动态索引 ≥4 纹理表 → 四色;篡改注册序 → 像素换位 RED。索引经 flat u32 varying(波内
+// 非均匀 = 各 fragment 索引可异,须 nonuniform 标注)。
+struct BlVary {
+    #[interpolate(perspective)] uv: vec2<f32>,
+    #[interpolate(flat)] idx: u32,
+}
+
+struct BlOut {
+    color: vec4<f32>,
+}
+
+fragment fn bindless_sample_fs(inp: BlVary, table: [Texture2D<f32>], samp: Sampler) -> BlOut {
+    BlOut { color: table[nonuniform(inp.idx)].sample(samp, inp.uv) }
+}

@@ -217,6 +217,9 @@ def check_evidence_files() -> None:
     sampling_superset_schema = load(
         ROOT / "milestones/g3/sampling_superset_evidence_schema.json"
     )
+    bindless_smoke_schema = load(
+        ROOT / "milestones/g3/bindless_descriptor_smoke_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -326,6 +329,11 @@ def check_evidence_files() -> None:
     sampling_superset_validator = (
         jsonschema.Draft7Validator(sampling_superset_schema)
         if sampling_superset_schema
+        else None
+    )
+    bindless_smoke_validator = (
+        jsonschema.Draft7Validator(bindless_smoke_schema)
+        if bindless_smoke_schema
         else None
     )
     ea1_install_e2e_validator = (
@@ -547,6 +555,17 @@ def check_evidence_files() -> None:
             # 对照;num_modes>=6 计入 g3.counter.sampling_superset_modes,ci/budget_eval.py。device 真跑 =
             # 交互 GPU 链路不进 pr-smoke 硬门,SKIP 不充绿,镜像 uc04_present 双态)
             validator = sampling_superset_validator
+        elif (
+            f.name.startswith("bindless_")
+            and bindless_smoke_validator is not None
+        ):
+            # G3.4 bindless 面冒烟证据(G-G3-4;RFC-0013 §4.C / RXS-0231~0235)→
+            # milestones/g3/bindless_descriptor_smoke_evidence_schema.json(ci/bindless_smoke.py
+            # device 段真跑写:≥4 纹理注册表按屏幕象限动态索引采样==四色 + 篡改注册序→像素换位 RED +
+            # feature chain 四 bit 缺失→确定性 Err;smoke_ok=true 计入 g3.counter.bindless_descriptor_smoke,
+            # ci/budget_eval.py。device 真跑 = 交互 GPU 链路不进 pr-smoke 硬门,SKIP 不充绿,镜像
+            # sampling_superset 双态;harness bin/bindless_modes 判据结构就位,数值阈值 TODO 留 owner 本机)
+            validator = bindless_smoke_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):

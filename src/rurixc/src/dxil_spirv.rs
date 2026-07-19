@@ -250,6 +250,30 @@ const GLSL_STD_450_UMIN: u32 = 38;
 /// GLSL.std.450 ext-inst 集合名。
 const EXT_GLSL_STD_450: &str = "GLSL.std.450";
 
+// ── G3.4 bindless descriptor indexing(RXS-0234;RFC-0013 §4.C3;Vulkan 1.2 core)──
+/// `OpTypeRuntimeArray`(29;无界 descriptor 数组元素类型)。
+const OP_TYPE_RUNTIME_ARRAY: u16 = 29;
+/// `OpAccessChain`(65;runtime array 动态索引 → 元素指针)。
+const OP_ACCESS_CHAIN: u16 = 65;
+/// `OpTypeStruct`(30;push-constant 块 `table_len` 尾槽,RXS-0208)。
+const OP_TYPE_STRUCT: u16 = 30;
+/// `OpMemberDecorate`(72;push-constant 成员 Offset)。
+const OP_MEMBER_DECORATE: u16 = 72;
+/// `Decoration NonUniform`(5300;非均匀索引临时句柄标注,ShaderNonUniform 依赖)。
+const DECORATION_NON_UNIFORM: u32 = 5300;
+/// `Decoration Block`(2;push-constant 块)。
+const DECORATION_BLOCK: u32 = 2;
+/// `Decoration Offset`(35;push-constant 成员字节偏移)。
+const DECORATION_OFFSET: u32 = 35;
+/// `Capability ShaderNonUniform`(5301;NonUniform 装饰依赖,Vk1.2 core)。
+const CAP_SHADER_NON_UNIFORM: u32 = 5301;
+/// `Capability RuntimeDescriptorArray`(5302;无界 descriptor 数组,Vk1.2 core)。
+const CAP_RUNTIME_DESCRIPTOR_ARRAY: u32 = 5302;
+/// `StorageClass PushConstant`(9;`table_len` 尾槽块,RXS-0208)。
+const STORAGE_PUSH_CONSTANT: u32 = 9;
+/// SPIR-V 扩展名 `SPV_EXT_descriptor_indexing`(Vulkan 1.2 core promoted)。
+const EXT_DESCRIPTOR_INDEXING: &str = "SPV_EXT_descriptor_indexing";
+
 // ───────────────────────── 编码器本体 ─────────────────────────
 
 /// 已建模 builtin 的 SPIR-V 映射结果:`BuiltIn` 枚举 + 该 builtin 要求的类型。
@@ -294,6 +318,10 @@ struct ResourceVarInfo {
     kind: ResourceVarKind,
     /// 纹理分量类型(image 用;sampler 占位)。
     sampled_prim: PrimTy,
+    /// G3.4 bindless(RXS-0234):`true` = 无界表(`[Texture2D<F>]`)——`var_id` 为
+    /// `OpTypeRuntimeArray(image)` 的 `UniformConstant` 变量,`type_id` = 元素 image
+    /// 类型(动态索引经 `OpAccessChain`→`OpLoad` 取元素);`false` = 单句柄。
+    runtime_array: bool,
 }
 
 /// 把源码 builtin 名(在给定 `stage`/`dir` 下)映射到 SPIR-V `BuiltIn` 枚举与其
@@ -391,6 +419,12 @@ struct Builder {
     glsl_ext_id: Option<u32>,
     /// `OpConstantComposite` 去重缓存(vec2<u32> {1,1} 钳制序列复用,RXS-0228)。
     const_composite_cache: Vec<(u32, u32)>,
+    /// G3.4 bindless(RXS-0234):是否用到 descriptor indexing(决定 emit
+    /// `SPV_EXT_descriptor_indexing` 扩展;capability 走 `extra_caps`)。
+    used_descriptor_indexing: bool,
+    /// G3.4 bindless(RXS-0208/0234):`table_len` push-constant 块的 `OpVariable` id
+    /// (懒 emit,单块;成员 0 = `u32` 表长)。
+    table_len_pc_var: Option<u32>,
 }
 
 impl Builder {
@@ -415,6 +449,8 @@ impl Builder {
             ext_imports: Vec::new(),
             glsl_ext_id: None,
             const_composite_cache: Vec::new(),
+            used_descriptor_indexing: false,
+            table_len_pc_var: None,
         }
     }
 
@@ -423,6 +459,39 @@ impl Builder {
         if !self.extra_caps.contains(&cap) {
             self.extra_caps.push(cap);
         }
+    }
+
+    /// G3.4 bindless(RXS-0208/0234):取/造 `table_len` push-constant 块的 `OpVariable`
+    /// id(懒 emit,单块)。块 = `struct { u32 table_len; }`,`Block` 装饰、成员 Offset 0、
+    /// `PushConstant` 存储类。运行时经既有 marshalling 通道于 push-constant 尾槽下发表长
+    /// (宿主 TextureTable 已注册计数,RXS-0235)。成员 0 = `u32` 表长(clamp 上界源)。
+    fn push_constant_table_len_var(&mut self) -> u32 {
+        if let Some(v) = self.table_len_pc_var {
+            return v;
+        }
+        let u32_ty = self.scalar_type(PrimTy::U32).expect("u32 标量类型");
+        let struct_ty = self.alloc_id();
+        Self::emit(&mut self.types, OP_TYPE_STRUCT, &[struct_ty, u32_ty]);
+        // Block 装饰 + 成员 0 Offset 0(push-constant 块布局,RXS-0208)。
+        Self::emit(
+            &mut self.decorations,
+            OP_DECORATE,
+            &[struct_ty, DECORATION_BLOCK],
+        );
+        Self::emit(
+            &mut self.decorations,
+            OP_MEMBER_DECORATE,
+            &[struct_ty, 0, DECORATION_OFFSET, 0],
+        );
+        let ptr_ty = self.pointer_type(STORAGE_PUSH_CONSTANT, struct_ty);
+        let var = self.alloc_id();
+        Self::emit(
+            &mut self.variables,
+            OP_VARIABLE,
+            &[ptr_ty, var, STORAGE_PUSH_CONSTANT],
+        );
+        self.table_len_pc_var = Some(var);
+        var
     }
 
     /// 取/造 GLSL.std.450 ext-inst 集合 result-id(懒 emit `OpExtInstImport`;RXS-0228)。
@@ -762,7 +831,27 @@ impl Builder {
             }
         };
 
-        let ptr = self.pointer_type(STORAGE_UNIFORM_CONSTANT, res_type);
+        // G3.4 bindless(RXS-0234;RFC-0013 §4.C3):无界表 `[Texture2D<F>]` 的变量类型
+        // 为 `OpTypeRuntimeArray(image)`(元素 = image 类型)+ `RuntimeDescriptorArray`
+        // capability + `SPV_EXT_descriptor_indexing`(Vulkan 1.2 core)。`type_id` 存元素
+        // image 类型(动态索引 `OpAccessChain`→`OpLoad` 取元素句柄)。
+        let is_unbounded = matches!(res.count, crate::mir::ResourceCount::Unbounded);
+        let (var_type, runtime_array) = if is_unbounded {
+            let rt_array = self.alloc_id();
+            Self::emit(
+                &mut self.types,
+                OP_TYPE_RUNTIME_ARRAY,
+                &[rt_array, res_type],
+            );
+            self.add_capability(CAP_RUNTIME_DESCRIPTOR_ARRAY);
+            self.add_capability(CAP_SHADER_NON_UNIFORM);
+            self.used_descriptor_indexing = true;
+            (rt_array, true)
+        } else {
+            (res_type, false)
+        };
+
+        let ptr = self.pointer_type(STORAGE_UNIFORM_CONSTANT, var_type);
         let var = self.alloc_id();
         Self::emit(
             &mut self.variables,
@@ -798,6 +887,7 @@ impl Builder {
             type_id: res_type,
             kind,
             sampled_prim,
+            runtime_array,
         });
 
         Ok(())
@@ -957,6 +1047,7 @@ impl<'a> BodyLowerer<'a> {
             Rvalue::ResourceSample {
                 texture_local,
                 sampler_local,
+                table_index,
                 method,
                 coord,
                 extra,
@@ -965,6 +1056,7 @@ impl<'a> BodyLowerer<'a> {
                 *method,
                 texture_local.0,
                 sampler_local.map(|s| s.0),
+                table_index.as_ref(),
                 coord,
                 extra,
             ),
@@ -1269,16 +1361,31 @@ impl<'a> BodyLowerer<'a> {
     /// 的标量 `f32`;texel fetch(`OpImageFetch` + 越界钳制序列,RXS-0228)产 `vec4<F>`;
     /// storage image(`OpImageRead`/`OpImageWrite`,RXS-0229 唯一写者)产 `vec4<F>` / `()`。
     /// 子集外 → [`DxilError::SampleUnsupported`](RX6023)。
+    #[allow(clippy::too_many_arguments)] // G3.4 table_index 参数(bindless);采样面自然多参
     fn lower_resource_op(
         &mut self,
         b: &mut Builder,
         method: ResourceMethod,
         texture_local: u32,
         sampler_local: Option<u32>,
+        table_index: Option<&Operand>,
         coord: &Operand,
         extra: &[Operand],
     ) -> Result<LocalValue, DxilError> {
         use ResourceMethod as M;
+        // G3.4(RXS-0234):首期无界表动态索引仅承 sample 族(`[Texture2D<F>]` = SRV
+        // 纹理表);load/store 表元素越出首期(§8),诚实拒绝而非静默取元素 0。
+        if table_index.is_some()
+            && !matches!(
+                method,
+                M::Sample | M::SampleLod | M::SampleGrad | M::SampleBias | M::SampleCmp | M::Gather
+            )
+        {
+            return Err(DxilError::sample_unsupported(format!(
+                "bindless 无界表动态索引首期仅支持 sample 族,`{}` 越出首期(RXS-0234/§8)",
+                method.name()
+            )));
+        }
         match method {
             // ── storage image(TextureRw2D):无 sampler,坐标 vec2<u32>,RXS-0229 ──
             M::StorageLoad => Ok(LocalValue::Value(self.lower_storage_load(
@@ -1306,18 +1413,31 @@ impl<'a> BodyLowerer<'a> {
                         method.name()
                     ))
                 })?;
-                self.lower_sample_family(b, method, texture_local, sampler_local, coord, extra)
+                self.lower_sample_family(
+                    b,
+                    method,
+                    texture_local,
+                    sampler_local,
+                    table_index,
+                    coord,
+                    extra,
+                )
             }
         }
     }
 
     /// sample 族 lowering(sample/sample_lod/sample_grad/sample_bias/sample_cmp/gather)。
+    /// G3.4 bindless(RXS-0234):`table_index = Some` 时 `texture_local` 指向无界表
+    /// (`OpTypeRuntimeArray`),经 `OpAccessChain`(clamp 后索引)→`OpLoad` 取元素 image
+    /// 句柄 + `NonUniform` 装饰(不物化中间句柄 local)。
+    #[allow(clippy::too_many_arguments)] // G3.4 table_index 参数(bindless);采样面自然多参
     fn lower_sample_family(
         &mut self,
         b: &mut Builder,
         method: ResourceMethod,
         texture_local: u32,
         sampler_local: u32,
+        table_index: Option<&Operand>,
         coord: &Operand,
         extra: &[Operand],
     ) -> Result<LocalValue, DxilError> {
@@ -1361,9 +1481,22 @@ impl<'a> BodyLowerer<'a> {
             )));
         }
 
-        // OpLoad 纹理 / 采样器对象(UniformConstant opaque 资源)。
-        let img_id = b.alloc_id();
-        Builder::emit(&mut self.ops, OP_LOAD, &[tex.type_id, img_id, tex.var_id]);
+        // OpLoad 纹理句柄:单句柄 = 直接 OpLoad var;G3.4 无界表(RXS-0234)= 先
+        // clamp 索引 → OpAccessChain(runtime array 元素指针)→ OpLoad + NonUniform 装饰。
+        let img_id = match table_index {
+            Some(idx) if tex.runtime_array => self.lower_bindless_image_load(b, &tex, idx)?,
+            Some(_) => {
+                return Err(DxilError::sample_unsupported(format!(
+                    "采样 receiver `{}` 带动态索引但非无界表(RXS-0234)",
+                    tex.name
+                )));
+            }
+            None => {
+                let img_id = b.alloc_id();
+                Builder::emit(&mut self.ops, OP_LOAD, &[tex.type_id, img_id, tex.var_id]);
+                img_id
+            }
+        };
         let samp_id = b.alloc_id();
         Builder::emit(
             &mut self.ops,
@@ -1519,6 +1652,77 @@ impl<'a> BodyLowerer<'a> {
                 "sample 族分发意外方法 {other:?}"
             ))),
         }
+    }
+
+    /// G3.4 bindless(RXS-0234;RFC-0013 §4.C3):从无界表 `tex`(`OpTypeRuntimeArray`)
+    /// 按动态索引 `idx` 取元素 image 句柄。序列:① clamp `UMin(idx, table_len-1)`
+    /// (`table_len` 经 push-constant 尾槽,RXS-0208/0235;越界索引结果**实现定义但有
+    /// 界**,访问恒有界于已注册表段,无 UB 措辞);② `OpAccessChain`(runtime array
+    /// 元素指针)+ `NonUniform` 装饰;③ `OpLoad` image + `NonUniform`。**不物化中间
+    /// 句柄 local**(镜像 RXS-0175 内联形态)。返回加载出的 image result-id。
+    fn lower_bindless_image_load(
+        &mut self,
+        b: &mut Builder,
+        tex: &ResourceVarInfo,
+        idx: &Operand,
+    ) -> Result<u32, DxilError> {
+        // 动态索引值(u32;typeck 已 demand u32,RXS-0232)。
+        let idx_val = self.lower_operand_value(b, idx, None)?;
+        let u32_ty = b.scalar_type(PrimTy::U32)?;
+
+        // clamp 上界 = table_len - 1(table_len 经 push-constant 尾槽成员 0,RXS-0208/0235)。
+        let pc_var = b.push_constant_table_len_var();
+        let pc_ptr = b.pointer_type(STORAGE_PUSH_CONSTANT, u32_ty);
+        let zero = self.const_u32(b, 0);
+        let len_ptr = b.alloc_id();
+        Builder::emit(
+            &mut self.ops,
+            OP_ACCESS_CHAIN,
+            &[pc_ptr, len_ptr, pc_var, zero],
+        );
+        let len_id = b.alloc_id();
+        Builder::emit(&mut self.ops, OP_LOAD, &[u32_ty, len_id, len_ptr]);
+        let one = self.const_u32(b, 1);
+        let len_minus1 = b.alloc_id();
+        Builder::emit(&mut self.ops, OP_ISUB, &[u32_ty, len_minus1, len_id, one]);
+        let glsl = b.glsl_ext_inst();
+        let clamped = b.alloc_id();
+        Builder::emit(
+            &mut self.ops,
+            OP_EXT_INST,
+            &[
+                u32_ty,
+                clamped,
+                glsl,
+                GLSL_STD_450_UMIN,
+                idx_val.id,
+                len_minus1,
+            ],
+        );
+
+        // OpAccessChain(runtime array 元素指针)→ OpLoad(image)。NonUniform 装饰
+        // 施于访问链指针与加载对象(descriptor indexing 波内正确采样,RXS-0234;
+        // Q-B-Uniformity 保守全标合法)。
+        let elem_ptr_ty = b.pointer_type(STORAGE_UNIFORM_CONSTANT, tex.type_id);
+        let chain = b.alloc_id();
+        Builder::emit(
+            &mut self.ops,
+            OP_ACCESS_CHAIN,
+            &[elem_ptr_ty, chain, tex.var_id, clamped],
+        );
+        Builder::emit(
+            &mut b.decorations,
+            OP_DECORATE,
+            &[chain, DECORATION_NON_UNIFORM],
+        );
+        let img_id = b.alloc_id();
+        Builder::emit(&mut self.ops, OP_LOAD, &[tex.type_id, img_id, chain]);
+        Builder::emit(
+            &mut b.decorations,
+            OP_DECORATE,
+            &[img_id, DECORATION_NON_UNIFORM],
+        );
+        Ok(img_id)
     }
 
     /// texel fetch(load/load_lod)lowering:`OpImageFetch` + 越界钳制序列
@@ -2032,6 +2236,13 @@ fn emit_spirv_inner(
     if b.used_user_semantic {
         let mut operands = Vec::new();
         Builder::push_string(&mut operands, EXT_HLSL_FUNCTIONALITY1);
+        Builder::emit(&mut module, OP_EXTENSION, &operands);
+    }
+    // 3.1) G3.4 bindless(RXS-0234):descriptor indexing 扩展(Vulkan 1.2 core;
+    //      RuntimeDescriptorArray/ShaderNonUniform capability 走 extra_caps 段)。
+    if b.used_descriptor_indexing {
+        let mut operands = Vec::new();
+        Builder::push_string(&mut operands, EXT_DESCRIPTOR_INDEXING);
         Builder::emit(&mut module, OP_EXTENSION, &operands);
     }
 
@@ -2846,20 +3057,66 @@ mod tests {
         }
     }
 
-    /// strict-only:bindless / unbounded 资源 → 透传 [`DxilError::Unmappable`]
-    /// (RD-018 defer,不发明 descriptor heap 编码)。
+    /// G3.4(RXS-0234;RFC-0013 §4.C3):无界 SRV 纹理表 `[Texture2D<F>]` 合法化——
+    /// emit `OpTypeRuntimeArray` + `RuntimeDescriptorArray`/`ShaderNonUniform`
+    /// capability + `SPV_EXT_descriptor_indexing` 扩展(自 Unmappable 翻转)。
+    //@ spec: RXS-0234
     #[test]
-    fn unbounded_resource_is_unmappable() {
+    fn unbounded_srv_texture_emits_runtime_array() {
         use crate::mir::ResourceCount;
         let resources = vec![ResourceBinding {
-            name: "heap".to_owned(),
+            name: "table".to_owned(),
             res: MirResourceType::Texture2D(PrimTy::F32),
+            count: ResourceCount::Unbounded,
+        }];
+        let m = emit_spirv(ShaderStage::Fragment, &[], &resources)
+            .expect("无界 SRV 纹理表应合法 emit(RXS-0234)");
+        let instrs = instructions(&m);
+        assert!(
+            instrs.iter().any(|(op, _)| *op == OP_TYPE_RUNTIME_ARRAY),
+            "应 emit OpTypeRuntimeArray(无界表元素)"
+        );
+        let caps: Vec<u32> = instrs
+            .iter()
+            .filter(|(op, _)| *op == OP_CAPABILITY)
+            .map(|(_, ops)| ops[0])
+            .collect();
+        assert!(
+            caps.contains(&CAP_RUNTIME_DESCRIPTOR_ARRAY),
+            "应 emit RuntimeDescriptorArray capability"
+        );
+        assert!(
+            caps.contains(&CAP_SHADER_NON_UNIFORM),
+            "应 emit ShaderNonUniform capability"
+        );
+        // SPV_EXT_descriptor_indexing 扩展 emit(OpExtension 首操作数 = 扩展名字符串)。
+        assert!(
+            instrs.iter().any(|(op, _)| *op == OP_EXTENSION),
+            "应 emit OpExtension SPV_EXT_descriptor_indexing"
+        );
+
+        match run_spirv_val(&m, "bindless_runtime_array") {
+            ValResult::Skip => {
+                eprintln!("[SKIP] spirv-val 不可用(bindless 无界表真实红绿在带 SPIRV-Tools 环境)")
+            }
+            ValResult::Pass => eprintln!("[OK] spirv-val 通过: bindless_runtime_array"),
+            ValResult::Fail(msg) => panic!("{msg}"),
+        }
+    }
+
+    /// reject(维持):无界**非-SRV-纹理**表(无界 Sampler)→ Unmappable/RX6013(§8,不新码)。
+    #[test]
+    fn unbounded_non_texture_still_unmappable() {
+        use crate::mir::ResourceCount;
+        let resources = vec![ResourceBinding {
+            name: "samps".to_owned(),
+            res: MirResourceType::Sampler,
             count: ResourceCount::Unbounded,
         }];
         let r = emit_spirv(ShaderStage::Fragment, &[], &resources);
         assert!(
             matches!(r, Err(DxilError::Unmappable { .. })),
-            "unbounded 资源应不可映射(RD-018),实得 {r:?}"
+            "无界非纹理表应维持 Unmappable(§8),实得 {r:?}"
         );
     }
 
@@ -3031,6 +3288,7 @@ mod tests {
             Rvalue::ResourceSample {
                 texture_local: LocalIdx(2),
                 sampler_local: Some(LocalIdx(3)),
+                table_index: None,
                 method: ResourceMethod::Sample,
                 coord: coord_field(0),
                 extra: Vec::new(),
@@ -3060,6 +3318,7 @@ mod tests {
             Rvalue::ResourceSample {
                 texture_local: LocalIdx(2),
                 sampler_local: Some(LocalIdx(3)),
+                table_index: None,
                 method: ResourceMethod::SampleLod,
                 coord: coord_field(0),
                 extra: Vec::new(),
@@ -3089,6 +3348,7 @@ mod tests {
             Rvalue::ResourceSample {
                 texture_local: LocalIdx(2),
                 sampler_local: Some(LocalIdx(3)),
+                table_index: None,
                 method: ResourceMethod::SampleGrad,
                 coord: coord_field(0),
                 extra: vec![coord_field(1), coord_field(2)],
@@ -3115,6 +3375,7 @@ mod tests {
             Rvalue::ResourceSample {
                 texture_local: LocalIdx(2),
                 sampler_local: None,
+                table_index: None,
                 method: ResourceMethod::Load,
                 coord: coord_field(0),
                 extra: Vec::new(),
@@ -3159,6 +3420,7 @@ mod tests {
             Rvalue::ResourceSample {
                 texture_local: LocalIdx(2),
                 sampler_local: None,
+                table_index: None,
                 method: ResourceMethod::Store,
                 coord: coord_field(0),
                 extra: vec![coord_field(1)],
@@ -3188,6 +3450,7 @@ mod tests {
             Rvalue::ResourceSample {
                 texture_local: LocalIdx(2),
                 sampler_local: None,
+                table_index: None,
                 method: ResourceMethod::Store,
                 // 常量坐标 = 所有 invocation 写同一 texel = 多写者 → 非 identity。
                 coord: Operand::Const(Const::Int(0, PrimTy::U32)),
@@ -3214,6 +3477,7 @@ mod tests {
             Rvalue::ResourceSample {
                 texture_local: LocalIdx(2),
                 sampler_local: Some(LocalIdx(3)),
+                table_index: None,
                 method: ResourceMethod::Gather,
                 coord: coord_field(0),
                 extra: vec![Operand::Const(Const::Int(1, PrimTy::U32))],
@@ -3234,6 +3498,7 @@ mod tests {
             Rvalue::ResourceSample {
                 texture_local: LocalIdx(2),
                 sampler_local: Some(LocalIdx(3)),
+                table_index: None,
                 method: ResourceMethod::SampleCmp,
                 coord: coord_field(0),
                 extra: vec![coord_field(1)],
@@ -3251,6 +3516,7 @@ mod tests {
             Rvalue::ResourceSample {
                 texture_local: LocalIdx(2),
                 sampler_local: None,
+                table_index: None,
                 method: ResourceMethod::StorageLoad,
                 coord: coord_field(0),
                 extra: Vec::new(),

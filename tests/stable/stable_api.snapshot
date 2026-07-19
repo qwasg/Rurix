@@ -3,7 +3,7 @@
   "editions": [
     "2026"
   ],
-  "error_code_count": 98,
+  "error_code_count": 99,
   "error_codes": {
     "RX0001": "lex.unexpected_char",
     "RX0002": "lex.unterminated_block_comment",
@@ -46,6 +46,7 @@
     "RX3013": "shader.resource_handle_invalid",
     "RX3014": "shader.sample_expr_invalid",
     "RX3015": "coloring.gpu_host_api_in_device",
+    "RX3016": "shader.nonuniform_annotation_missing",
     "RX4001": "borrowck.use_after_move",
     "RX4002": "borrowck.use_before_init",
     "RX4003": "borrowck.move_out_of_ref",
@@ -116,7 +117,7 @@
     "vendor"
   ],
   "schema_version": 1,
-  "spec_clause_count": 226,
+  "spec_clause_count": 231,
   "spec_clauses": [
     "RXS-0001",
     "RXS-0002",
@@ -343,7 +344,12 @@
     "RXS-0227",
     "RXS-0228",
     "RXS-0229",
-    "RXS-0230"
+    "RXS-0230",
+    "RXS-0231",
+    "RXS-0232",
+    "RXS-0233",
+    "RXS-0234",
+    "RXS-0235"
   ],
   "subject": "rurix_stable_api_surface"
 }

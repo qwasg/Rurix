@@ -70,6 +70,23 @@ struct Builder<'a> {
     locals: Vec<tbir::LocalDecl>,
 }
 
+/// G3.4 bindless(RXS-0232):剥 `nonuniform(inner)` 壳取内层索引值(callee 为
+/// `nonuniform` lang item + 恰 1 实参);否则原样返回(整型字面量常量索引豁免)。
+fn unwrap_nonuniform<'e>(
+    index: &'e hir::Expr,
+    lang_items: &crate::resolve::LangItems,
+) -> &'e hir::Expr {
+    if let hir::ExprKind::Call { callee, args } = &index.kind
+        && let hir::ExprKind::Res(hir::Res::Def(d)) = &callee.kind
+        && lang_items.is_nonuniform(*d)
+        && args.len() == 1
+    {
+        &args[0]
+    } else {
+        index
+    }
+}
+
 impl Builder<'_> {
     fn expr_ty(&self, e: &hir::Expr) -> Ty {
         self.tcr.expr_ty.get(&e.hir_id).cloned().unwrap_or(Ty::Err)
@@ -83,6 +100,25 @@ impl Builder<'_> {
         match &self.krate.item(def).kind {
             hir::ItemKind::Struct { fields } | hir::ItemKind::Variant { fields } => Some(fields),
             _ => None,
+        }
+    }
+
+    /// G3.4 bindless(RXS-0232):从采样 receiver 抽取纹理表句柄 tbir + 可选动态索引值
+    /// tbir。bindless(`bindless_index_calls` 命中、receiver = `table[<idx>]`)→
+    /// `(table 句柄, Some(索引值))`(索引值剥 `nonuniform(..)` 壳);否则
+    /// `(receiver 句柄, None)`(既有单句柄采样,byte-preserving)。
+    fn sample_receiver(
+        &mut self,
+        call_id: hir::HirId,
+        receiver: &hir::Expr,
+    ) -> (tbir::Expr, Option<tbir::Expr>) {
+        if self.tcr.bindless_index_calls.contains(&call_id)
+            && let hir::ExprKind::Index { expr: base, index } = &receiver.kind
+        {
+            let idx_value = unwrap_nonuniform(index, &self.res.lang_items);
+            (self.expr(base), Some(self.expr(idx_value)))
+        } else {
+            (self.expr(receiver), None)
         }
     }
 
@@ -392,14 +428,31 @@ impl Builder<'_> {
                 // / fragment 阶段(违例 RX3014);此处仅当恰 2 实参时产采样节点,否则容忍
                 // 区兜底(typeck 已发诊断)。
                 if self.tcr.sample_calls.contains(&e.hir_id) && args.len() == 2 {
-                    let texture = Box::new(self.expr(receiver));
+                    let (texture_expr, table_index) = self.sample_receiver(e.hir_id, receiver);
                     let sampler = Box::new(self.expr(&args[0]));
                     let coord = Box::new(self.expr(&args[1]));
+                    // G3.4 bindless `.sample()`:走 ResourceMethodCall(method=SampleLod 空
+                    // extra,与既有 `.sample()` 语义同,Q-S-SampleName)承载 table_index;
+                    // 单句柄 `.sample()` 维持 ResourceSample 节点(byte-preserving)。
+                    if let Some(idx) = table_index {
+                        return tbir::Expr {
+                            ty,
+                            span,
+                            kind: tbir::ExprKind::ResourceMethodCall {
+                                method: crate::mir::ResourceMethod::SampleLod,
+                                texture: Box::new(texture_expr),
+                                sampler: Some(sampler),
+                                table_index: Some(Box::new(idx)),
+                                coord,
+                                extra: Vec::new(),
+                            },
+                        };
+                    }
                     return tbir::Expr {
                         ty,
                         span,
                         kind: tbir::ExprKind::ResourceSample {
-                            texture,
+                            texture: Box::new(texture_expr),
                             sampler,
                             coord,
                         },
@@ -421,7 +474,7 @@ impl Builder<'_> {
                         M::LoadLod | M::Store => (false, 2),
                     };
                     if args.len() == arity {
-                        let texture = Box::new(self.expr(receiver));
+                        let (texture_expr, table_index) = self.sample_receiver(e.hir_id, receiver);
                         let (sampler, coord_idx) = if has_sampler {
                             (Some(Box::new(self.expr(&args[0]))), 1)
                         } else {
@@ -434,8 +487,9 @@ impl Builder<'_> {
                             span,
                             kind: tbir::ExprKind::ResourceMethodCall {
                                 method: m,
-                                texture,
+                                texture: Box::new(texture_expr),
                                 sampler,
+                                table_index: table_index.map(Box::new),
                                 coord,
                                 extra,
                             },

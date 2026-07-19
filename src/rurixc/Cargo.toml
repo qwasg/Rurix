@@ -62,5 +62,13 @@ required-features = ["dxil-backend", "shader-stages"]
 name = "sampling_vulkan_spirv_val"
 required-features = ["dxil-backend", "shader-stages"]
 
+# G3.4 PR-K1 bindless 模式着色器 SPIR-V 合法性机验(RXS-0231~0235):消费 dxil_spirv::
+# emit_spirv_body_vulkan + toolchain::locate_spirv_val,须 dxil-backend + shader-stages
+# (G3.4 落地轮缺该条目,`cargo test -p rurixc`〔默认 feature 集〕编译即红——#175 三轮红
+# 教训「新 test 必登 required-features」的本轮勘误;镜像 sampling_vulkan_spirv_val)。
+[[test]]
+name = "bindless_vulkan_spirv_val"
+required-features = ["dxil-backend", "shader-stages"]
+
 [lints]
 workspace = true

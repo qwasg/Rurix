@@ -1,0 +1,19 @@
+//@ spec: RXS-0232
+//@ expect-error: RX3014
+// bindless 违例(RFC-0013 §4.C1):动态索引 `table[idx]` 产临时句柄,**仅可作立即 sample
+// receiver**——出现在值位置(此处 struct 字段初值,非 sample 方法 receiver)= 句柄逃逸
+// → RX3014(句柄非值纪律 RXS-0156/0174 不破)。
+struct BlVary {
+    #[interpolate(perspective)] uv: vec2<f32>,
+    #[interpolate(flat)] idx: u32,
+}
+
+struct BlOut {
+    #[interpolate(perspective)] c: vec4<f32>,
+}
+
+fragment fn fs_handle_escape(inp: BlVary, table: [Texture2D<f32>], samp: Sampler) -> BlOut {
+    BlOut { c: table[nonuniform(inp.idx)] }
+}
+
+fn main() {}

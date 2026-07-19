@@ -1,0 +1,58 @@
+//@ spec: RXS-0235
+// G3.4 bindless 宿主注册面(RFC-0013 §4.C4):`ctx.texture_table()` / `register` / `len`
+// 编译器已知签名(lang-item 宿主类型,镜像 RXS-0189/0190 分支)→ `rxrt_table_*` 字面
+// 符号(注册序即索引,稳定单调)。首期宿主可注册资源 = `Buffer<C, T>` 句柄(std::gpu
+// 唯一宿主资源面;格式擦除——host↔shader 形态错配 = 运行期确定性 Err,RXS-0235 L3);
+// 实参非消费(镜像 launch Buffer 实参纪律:注册后句柄仍可用作 launch 实参)。返回的
+// 注册索引(u32)在 marshalling 子集内,可作 launch 标量实参下发(动态索引消费面)。
+kernel fn shade(out: ViewMut<global, f32>, x: View<global, f32>,
+                idx: u32, n: usize, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = x[i] + 1.0;
+    }
+}
+
+fn main() -> i32 {
+    let ctx = Context::create();
+    let stream = ctx.stream();
+    let n: usize = 256;
+
+    let mut host = ctx.alloc_pinned(n);
+    let mut i: usize = 0;
+    while i < n {
+        host.set(i, 1.0);
+        i = i + 1;
+    }
+
+    let mut tex_a = ctx.alloc(n);
+    let mut out = ctx.alloc(n);
+    tex_a.upload(&host);
+    out.upload(&host);
+
+    // 无界表注册(注册序即索引:idx0 = 0,idx1 = 1;len = 2)。
+    let table = ctx.texture_table();
+    let idx0 = table.register(tex_a);
+    let idx1 = table.register(out);
+    let count = table.len();
+    if idx0 != 0 {
+        return 1;
+    }
+    if idx1 != 1 {
+        return 1;
+    }
+    if count != 2 {
+        return 1;
+    }
+
+    // 注册非消费:句柄仍可作 launch 实参;注册索引作标量实参下发(动态索引消费面)。
+    stream.launch(shade, GridDim(n / 64), BlockDim(64), (out, tex_a, idx0, n));
+    stream.sync();
+
+    out.download(&mut host);
+    if host.get(0) != 2.0 {
+        return 1;
+    }
+    ctx.sync();
+    0
+}

@@ -89,6 +89,7 @@ shader.stage_io_invalid = invalid shader stage I/O field: {detail}
 shader.stage_interface_mismatch = shader stage interface mismatch: {detail}
 shader.resource_handle_invalid = invalid shader resource handle: {detail}
 shader.sample_expr_invalid = invalid texture sampling expression: {detail}
+shader.nonuniform_annotation_missing = bindless table dynamic index must be annotated with nonuniform(...): {detail}
 #
 # libdevice 链接 / device 数学 intrinsic 诊断(RX6006 / RX7002,spec/device.md RXS-0081~0082;M5.3 分配)
 codegen.device_math_unsupported = {detail} is not a supported device math intrinsic (outside libdevice coverage or unsupported element type)

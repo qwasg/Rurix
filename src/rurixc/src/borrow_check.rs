@@ -362,12 +362,17 @@ fn rvalue_read_locals(rv: &Rvalue) -> Vec<LocalIdx> {
             coord,
             texture_local,
             sampler_local,
+            table_index,
             extra,
             ..
         } => {
             push(coord);
             for op in extra {
                 push(op);
+            }
+            // G3.4:无界表动态索引值(RXS-0232)为活跃读。
+            if let Some(idx) = table_index {
+                push(idx);
             }
             v.push(*texture_local);
             if let Some(s) = sampler_local {

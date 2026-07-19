@@ -146,6 +146,16 @@ struct PinnedEntry {
     buf: SendPinned,
 }
 
+/// G3.4 bindless(RXS-0235):std::gpu `TextureTable` 宿主注册面条目——**注册序即索引**
+/// 稳定单调的纹理句柄段(元素为纹理资源句柄 u64);descriptor 写入 / feature chain 探
+/// 测归 vk.rs 运行时(设备路),本表仅承载注册序与计数(host 侧,提交前注册)。
+struct TableEntry {
+    /// 所属 ctx 句柄(poisoned 检查 / 清表锚)。
+    ctx: u64,
+    /// 已注册纹理资源句柄(按注册序;下标 = `register` 返回的索引)。
+    textures: Vec<u64>,
+}
+
 /// 进程级句柄表(单锁:无锁序问题;宿主 `.rx` 首期单线程,互斥仅为 Send/Sync 健全性)。
 #[derive(Default)]
 struct Tables {
@@ -154,6 +164,8 @@ struct Tables {
     streams: HashMap<u64, StreamEntry>,
     bufs: HashMap<u64, BufEntry>,
     pinned: HashMap<u64, PinnedEntry>,
+    /// G3.4 bindless(RXS-0235):`TextureTable` 注册面(只追加符号族 `rxrt_table_*`)。
+    texture_tables: HashMap<u64, TableEntry>,
 }
 
 impl Tables {
@@ -676,6 +688,116 @@ pub extern "C" fn rxrt_pinned_len(p: u64) -> u64 {
     pe.buf.0.len() as u64
 }
 
+// -- G3.4 bindless:std::gpu `TextureTable` 宿主注册面(RXS-0235;`rxrt_table_*` 只追加) --
+//
+// RXS-0194「符号面只追加」纪律:`rxrt_launch` 及既有 `rxrt_*`/`rxp_*`/`rxio_*` 符号面字节
+// 不变;u64 句柄表 / handle-0 = 失败 / poisoned 传播跨后端不变式维持。注册序即索引稳定
+// 单调;descriptor pool/set-layout(UPDATE_AFTER_BIND + PARTIALLY_BOUND)+ feature chain
+// 四 bit 探测归 vk.rs 运行时(设备路,缺失确定性 Err);本 cabi 面仅承载注册序与计数。
+// unsafe 新增集中 vk.rs(折叠 U27 扩注);本 cabi 面纯 safe(HashMap/Vec 累积)。
+
+/// C ABI:创建 `TextureTable`(RXS-0235)。未知 ctx / poisoned → 诊断 + handle-0(失败)。
+//@ spec: RXS-0235
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_table_create(ctx: u64) -> u64 {
+    const OP: &str = "table_create";
+    let mut guard = lock();
+    let t = &mut *guard;
+    let Some(ce) = t.ctxs.get(&ctx) else {
+        diag(OP, format!("unknown ctx handle {ctx}"));
+        return 0;
+    };
+    if ce.poisoned {
+        diag(OP, POISONED);
+        return 0;
+    }
+    let h = t.alloc_handle();
+    t.texture_tables.insert(
+        h,
+        TableEntry {
+            ctx,
+            textures: Vec::new(),
+        },
+    );
+    h
+}
+
+/// C ABI:向 `TextureTable` 注册纹理句柄(RXS-0235)——返回**注册序即索引**(0,1,2,…,
+/// 稳定单调)。未知 table / ctx 已销毁 / poisoned → 诊断 + `u32::MAX`(失败哨兵,使
+/// 后续动态索引确定性越出已注册段;非静默)。注册写入仅发生在提交前(§8,in-flight
+/// 期间不更新)。
+//@ spec: RXS-0235
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_table_register(table: u64, tex: u64) -> u32 {
+    const OP: &str = "table_register";
+    let mut guard = lock();
+    let t = &mut *guard;
+    let Some(te) = t.texture_tables.get(&table) else {
+        diag(OP, format!("unknown texture table handle {table}"));
+        return u32::MAX;
+    };
+    let ctx = te.ctx;
+    let Some(ce) = t.ctxs.get(&ctx) else {
+        diag(
+            OP,
+            format!("ctx of texture table {table} already destroyed"),
+        );
+        return u32::MAX;
+    };
+    if ce.poisoned {
+        diag(OP, POISONED);
+        return u32::MAX;
+    }
+    let te = t
+        .texture_tables
+        .get_mut(&table)
+        .expect("table 存在(上文已取)");
+    let index = te.textures.len() as u32;
+    te.textures.push(tex);
+    index
+}
+
+/// C ABI:查 `TextureTable` 已注册计数(RXS-0235;= 动态索引 clamp 表长源,codegen 经
+/// push-constant 尾槽下发,RXS-0208/0234)。未知 table / ctx 已销毁 / poisoned → 诊断 + `0`。
+//@ spec: RXS-0235
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_table_len(table: u64) -> u32 {
+    const OP: &str = "table_len";
+    let mut guard = lock();
+    let t = &mut *guard;
+    let Some(te) = t.texture_tables.get(&table) else {
+        diag(OP, format!("unknown texture table handle {table}"));
+        return 0;
+    };
+    let Some(ce) = t.ctxs.get(&te.ctx) else {
+        diag(
+            OP,
+            format!("ctx of texture table {table} already destroyed"),
+        );
+        return 0;
+    };
+    if ce.poisoned {
+        diag(OP, POISONED);
+        return 0;
+    }
+    te.textures.len() as u32
+}
+
+/// C ABI:销毁 `TextureTable`(RXS-0235;affine 消费式,清表)。未知 / 已销毁 → no-op 诊断。
+//@ spec: RXS-0235
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_table_destroy(table: u64) {
+    const OP: &str = "table_destroy";
+    let mut guard = lock();
+    let t = &mut *guard;
+    if t.texture_tables.remove(&table).is_none() {
+        diag(
+            OP,
+            format!("unknown or already destroyed texture table handle {table} (no-op)"),
+        );
+    }
+}
+
 /// C ABI:运行期失败终止(RXS-0193):编译器对每个 `rxrt_*` 失败返回值(负 `i32` /
 /// 句柄 `0` / 越界)注入检查分支,命中即调本符号终止进程。确定性诊断行已由失败点
 /// 的 [`diag`] 落 stderr,此处直接 abort(无静默降级、无 UB 出口,P-01)。
@@ -841,6 +963,44 @@ pub(crate) fn gpu_available() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// G3.4 bindless(RXS-0235):`rxrt_table_*` 符号面失败路不变式(handle-0 / u32::MAX /
+    /// no-op)+ 注册序即索引语义——不需 CUDA(纯句柄表逻辑,未知 ctx/table 走确定性失败
+    /// 哨兵)。register 顺序单调经 `TableEntry` 语义直接见证(注册序 = Vec 下标)。
+    //@ spec: RXS-0235
+    #[test]
+    fn table_symbols_failure_path_and_register_order() {
+        // 未知 ctx → table_create 返回 handle-0(失败)。
+        let bogus_ctx = 0xDEAD_0001u64;
+        assert_eq!(
+            rxrt_table_create(bogus_ctx),
+            0,
+            "未知 ctx 应 handle-0 失败(RXS-0235)"
+        );
+        // 未知 table → register 返回 u32::MAX 失败哨兵(使动态索引确定性越出已注册段)。
+        let bogus_table = 0xDEAD_0002u64;
+        assert_eq!(
+            rxrt_table_register(bogus_table, 42),
+            u32::MAX,
+            "未知 table register 应 u32::MAX 哨兵"
+        );
+        // 未知 table → len 返回 0(clamp 表长源确定性 0)。
+        assert_eq!(rxrt_table_len(bogus_table), 0, "未知 table len 应 0");
+        // 未知 table → destroy no-op(不 panic)。
+        rxrt_table_destroy(bogus_table);
+
+        // 注册序即索引稳定单调(TableEntry 语义直接见证;register 内 `textures.len()` 即索引)。
+        let mut te = TableEntry {
+            ctx: 1,
+            textures: Vec::new(),
+        };
+        for (expect_idx, tex) in [(0u32, 100u64), (1, 200), (2, 300)] {
+            let idx = te.textures.len() as u32;
+            te.textures.push(tex);
+            assert_eq!(idx, expect_idx, "注册序即索引(稳定单调,RXS-0235)");
+        }
+        assert_eq!(te.textures, vec![100, 200, 300], "注册序保序");
+    }
 
     /// 手写 SAXPY PTX(镜像 rurix-rt `tests/gpu_roundtrip.rs`:`y[i] = a*x[i] + y[i]`;
     /// `.version 8.0` 为协商起点,驱动不支持时自动降版,RXS-0076)。
