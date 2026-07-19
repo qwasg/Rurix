@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "subject": "sampling_superset_smoke",
+  "milestone": "g3.3",
+  "modes_ok": ["sample_lod_level", "multi_component", "gather_corner", "load_oob_clamp", "sample_cmp_shadow", "wrap_vs_clamp", "storage_unique_writer"],
+  "num_modes": 7,
+  "adapter": "unknown",
+  "run_url": "local interactive runner",
+  "timestamp": "2026-07-19T02:32:57Z"
+}

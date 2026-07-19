@@ -1212,6 +1212,11 @@
     "RXS-0223": [
       "conformance/dxil/graphics/accept/sample_superset_fs.rx",
       "conformance/dxil/graphics/accept/sample_superset_rw_fs.rx",
+      "conformance/dxil/graphics/accept/sampling_cmp_fs.rx",
+      "conformance/dxil/graphics/accept/sampling_fullscreen_vs.rx",
+      "conformance/dxil/graphics/accept/sampling_gather_fs.rx",
+      "conformance/dxil/graphics/accept/sampling_sample_lod_fs.rx",
+      "conformance/dxil/graphics/accept/sampling_storage_fs.rx",
       "conformance/shader/accept/sample_family_fs.rx",
       "conformance/shader/accept/sample_family_rw_fs.rx",
       "conformance/shader/accept/sample_family_vs.rx",
@@ -1234,14 +1239,21 @@
       "tests/ui/shader/sample_family_stage.rx"
     ],
     "RXS-0224": [
+      "conformance/dxil/graphics/accept/sampling_sample_lod_fs.rx",
       "src/rurixc/src/binding_layout.rs"
     ],
     "RXS-0225": [
+      "conformance/dxil/graphics/accept/sampling_sample_lod_fs.rx",
       "src/rurix-rt/src/sampler.rs"
     ],
     "RXS-0226": [
       "conformance/dxil/graphics/accept/sample_superset_fs.rx",
       "conformance/dxil/graphics/accept/sample_superset_rw_fs.rx",
+      "conformance/dxil/graphics/accept/sampling_cmp_fs.rx",
+      "conformance/dxil/graphics/accept/sampling_gather_fs.rx",
+      "conformance/dxil/graphics/accept/sampling_load_fs.rx",
+      "conformance/dxil/graphics/accept/sampling_sample_lod_fs.rx",
+      "conformance/dxil/graphics/accept/sampling_storage_fs.rx",
       "src/rurixc/src/dxil_spirv.rs",
       "src/rurixc/src/mir_build.rs",
       "src/rurixc/tests/dxil_corpus.rs"
@@ -1251,13 +1263,19 @@
     ],
     "RXS-0228": [
       "conformance/dxil/graphics/accept/sample_superset_fs.rx",
+      "conformance/dxil/graphics/accept/sampling_fetch_vs.rx",
+      "conformance/dxil/graphics/accept/sampling_load_fs.rx",
       "src/rurixc/src/dxil_spirv.rs"
     ],
     "RXS-0229": [
       "conformance/dxil/graphics/accept/sample_superset_rw_fs.rx",
+      "conformance/dxil/graphics/accept/sampling_fetch_vs.rx",
+      "conformance/dxil/graphics/accept/sampling_storage_fs.rx",
       "src/rurixc/src/dxil_spirv.rs"
     ],
     "RXS-0230": [
+      "conformance/dxil/graphics/accept/sampling_fetch_vs.rx",
+      "conformance/dxil/graphics/accept/sampling_fullscreen_vs.rx",
       "src/rurix-rt/src/vk.rs",
       "src/rurixc/src/binding_layout.rs"
     ]

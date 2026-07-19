@@ -505,7 +505,9 @@ fn main() {
             address: Address::Wrap,
             ..SamplerDesc::default()
         });
-        let sample = (3 * W / 4, H / 4); // uv≈(1.5, 0.5),uv.x>1
+        // uv.x∈(1.0,1.5):clamp 钳边缘→level1 texel x=1 / wrap 回绕(uv.x-1)∈(0,0.5)→texel x=0,
+        // 两模式取 level1 不同列纹素必异(sample=(40,16) → uv≈(1.25,0.5);uv=(x/W)*uv_span/2)。
+        let sample = (W / 2 + W / 8, H / 4); // (40,16) uv≈(1.25,0.5),uv.x>1 且 clamp≠wrap 列
         let verts = fullscreen_verts(4.0);
         let run = |samp: GraphicsResource| -> Result<Px, String> {
             let p = run_graphics_offscreen_v2(
