@@ -102,14 +102,11 @@
       "scope": "shared",
       "pattern": "步骤 NN (.github/workflows/pr-smoke.yml 里程碑冒烟步)",
       "main_fact_source": ".github/workflows/pr-smoke.yml 步骤注",
-      "on_tree_max": 58,
-      "next_free": 61,
+      "on_tree_max": 69,
+      "next_free": 70,
       "shadow_reserved": [],
-      "reserved_in_flight_steps": [
-        59,
-        60
-      ],
-      "notes": "PR Smoke 里程碑冒烟步的数字步骤号。main 最高步骤 58(vulkan win32 present)。步骤 59/60 由 EA1(EA1.1/EA1.2)预留(EA1_CONTRACT §7 / milestones/ea1/CI_GATES.md)。check_* 守卫类步骤(structure/schema/guardrails/redistribution/contribution/number_ledger)『不占数字步骤号』——本 MR 的 check_number_ledger 步骤即无编号声明。下一个数字步骤号 61。"
+      "reserved_in_flight_steps": [],
+      "notes": "PR Smoke 里程碑冒烟步的数字步骤号。main 最高步骤 58(vulkan win32 present)。步骤 59/60 由 EA1(EA1.1/EA1.2)预留(EA1_CONTRACT §7 / milestones/ea1/CI_GATES.md)。check_* 守卫类步骤(structure/schema/guardrails/redistribution/contribution/number_ledger)『不占数字步骤号』——本 MR 的 check_number_ledger 步骤即无编号声明。G3 五面落步骤 61~69(61 present / 62~63 采样 / 64 bindless / 65 render graph / 66~67 mesh-RT device / 68 DXIL mesh probe / 69 DXIL RT blocked 探针);EA1 步骤 59/60 已随 EA1.1/1.2 落。下一个数字步骤号 70。"
     },
     "GRX_private": {
       "scope": "private_off_tree",
@@ -294,6 +291,11 @@
       "version": "v1.6",
       "date": "2026-07-19",
       "change": "G3.6 mesh-task-RT RD 段校准(mesh-RT PR):RD on_tree_max 32→34、next_free 33→35——G3.6 登记 RD-034(DXIL RT 腿 blocked-on-upstream 尾门,registry/deferred.json v1.64,照 G-MB1-6 越 close-out 存续)。RD-033 = EA1 reserved 未 materialize(跳号,reserved_in_flight[EA1].RD 维持);RD-034 自 G3 段起(reserved_in_flight[G3].RD 兑现)。仅动 RD 命名空间字段 + 本 revision_log 追加(其余命名空间 0-byte);零新 RXS/SG/error-code/budget counter。"
+    },
+    {
+      "version": "v1.7",
+      "date": "2026-07-19",
+      "change": "G3 close-out CI_step 校准(G3 close-out PR):on_tree_max 58→69、next_free 61→70——G3 五面落 pr-smoke.yml 步骤 61~69(present 61 / 采样 62~63 / bindless 64 / render graph 65 / mesh-RT device 66~67 / DXIL mesh probe 68 / DXIL RT blocked 探针 69);reserved_in_flight_steps [59,60] 清(EA1.1/1.2 已落)。reserved_in_flight[G3] claim 全兑现(RFC-0013 伞形 / RXS-0220~0249 满 / 步骤 61~69 / RD-034 / U30 / RX6027~6030+3016/3017+6008 改接);G3 status closed(milestones/g3/G3_CONTRACT §8.1)。仅动 CI_step 字段 + 本 revision_log 追加(其余命名空间 0-byte)。"
     }
   ]
 }
