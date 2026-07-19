@@ -23,10 +23,12 @@ clamp)+ TextureTable 宿主注册面 + Vulkan feature chain。
 
   device 段（**gate real-shim + GPU + 显示环境**;bindless 索引真跑 = 交互 GPU 链路,
   **不进 pr-smoke 硬门**,镜像 sampling_superset 双态先例):
-    6. bindless harness（`bin/bindless_modes`:≥4 纹理注册表按屏幕象限动态索引采样 ==
-       四色 + 篡改注册序 → 像素换位 RED + feature chain 四 bit 缺失 → 确定性 Err);
-       **判据阈值(采样点/期望色/容差)= owner 本机迭代校准 TODO**;首期 PARTIAL(真跑
-       但未过阈值)= 诚实 SKIP(不伪造绿;REQUIRE_REAL=1 翻硬红)。
+    6. bindless harness（`bin/bindless_modes` 真调 `run_graphics_offscreen_bindless`:
+       4 纹理注册表〔注册序=索引〕四象限 flat idx 动态非均匀索引采样 == 四色 + 篡改
+       注册序 0↔3 → 象限换位 RED / 复原 GREEN + feature chain 四 bit 探测〔缺失确定性
+       Err;missing 路 mock,本机四 bit 全在〕+ push-constant table_len 下发);
+       **判据阈值(采样点/期望色/容差)= owner 本机迭代校准 TODO**;PARTIAL(真跑但未
+       过阈值)= 诚实 SKIP(不伪造绿;REQUIRE_REAL=1 翻硬红),PASS 写 evidence。
 
 **SKIP 纪律**:无显示/无 GPU/无 real-shim/未 opt-in → device 段 SKIP = dev-env
 degrade（**非 fake pass**,退 0);`RURIX_REQUIRE_REAL=1` 把缺失翻**硬红**。device 真跑须
@@ -100,6 +102,23 @@ HOST_TESTS = [
          "--test", "bindless_vulkan_spirv_val"],
         "rurixc bindless Vulkan SPIR-V + spirv-val vulkan1.2 三态",
     ),
+    # rurix-rt:feature chain 四 bit mock 单测(missing 路确定性 Err;本机四 bit 全在,
+    # missing 路唯一诚实覆盖 = mock)+ bindless 入口纯 host 预校验/FFI 布局锚(RXS-0235)。
+    (
+        ["cargo", "test", "-p", "rurix-rt", "--features", "vulkan", "--lib", "--",
+         "vk::tests::bindless_feature_chain_all_present_ok",
+         "vk::tests::bindless_feature_chain_missing_bits_err",
+         "vk::tests::bindless_input_validation_and_ffi_layout"],
+        "rurix-rt bindless feature-chain mock + 入口预校验单测",
+    ),
+    # rurixc:std::gpu TextureTable 宿主接线语料(accept lowering 落 rxrt_table_* declare +
+    # reject table_in_kernel RX3015 全拦截,RXS-0235 IR1)。
+    (
+        ["cargo", "test", "-p", "rurixc", "--test", "host_orch_corpus", "--",
+         "accept_bindless_table_lowers_to_rxrt_table",
+         "reject_corpus_all_intercepted"],
+        "rurixc TextureTable 宿主接线语料(accept + reject RX3015)",
+    ),
 ]
 
 
@@ -159,11 +178,13 @@ def device_opt_in() -> bool:
 def device_section() -> int:
     """device 段:bindless harness(bin/bindless_modes)四象限动态索引红绿。
 
-    opt-in 后 build + run `bin/bindless_modes`:≥4 纹理注册表按屏幕象限动态索引采样 ==
-    四色 + 篡改注册序 → 像素换位 RED + feature chain 四 bit 缺失 → 确定性 Err。**判据阈值
-    (采样点/期望色/容差)= owner 本机迭代校准 TODO**——首期 PARTIAL(真跑但未过阈值)=
-    诚实 SKIP(不伪造 device 绿;RURIX_REQUIRE_REAL=1 翻硬红,G-G3-4 防降级硬门)。owner 本机
-    RTX 4070 Ti 错峰真跑写 evidence/bindless_<date>.json(smoke_ok=true →
+    opt-in 后 build + run `bin/bindless_modes`(真调 vk::run_graphics_offscreen_bindless):
+    4 纹理注册表〔注册序=索引〕四象限动态非均匀索引采样 == 四色 + 篡改注册序 0↔3 → 象限
+    换位 RED / 复原 GREEN + feature chain 四 bit 探测(缺失确定性 Err;missing 路 mock)+
+    push-constant table_len 下发。**判据阈值(采样点/期望色/容差)= owner 本机迭代校准
+    TODO(expect_quadrant 谓词)**——PARTIAL(真跑但未过阈值)= 诚实 SKIP(不伪造 device
+    绿;RURIX_REQUIRE_REAL=1 翻硬红,G-G3-4 防降级硬门)。owner 本机 RTX 4070 Ti 错峰真跑
+    PASS 时 harness 写 evidence/bindless_<epoch>.json(smoke_ok=true →
     g3.counter.bindless_descriptor_smoke PASS)。**AMD 真卡见证 = G-MB1-6 硬件尾门独立存续**。
     """
     if not device_opt_in():

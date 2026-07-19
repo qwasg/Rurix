@@ -148,6 +148,19 @@ fn main() {
         let bytes = gen_spirv(&rx).unwrap_or_default();
         std::fs::write(&spv_out, &bytes).unwrap_or_else(|e| panic!("write {stem}.spv: {e}"));
     }
+
+    // G3.4 PR-K2(RFC-0013 §4.C4):bindless device 判据模式着色器(四象限动态非均匀索引,
+    // RXS-0231~0235)经同一 Vulkan 原生路产 `.spv` 嵌入 `bin/bindless_modes`
+    // (`vk::bindless_shaders_spv` 消费)。无界表 set4 binding0 / sampler set3 binding0 装饰
+    // 与 `run_graphics_offscreen_bindless` 运行时分配律同源镜像(RXS-0233)。降级 → 空哨兵,
+    // harness 据空 SKIP(非 fake;镜像 sampling 降级纪律)。
+    for stem in ["bindless_quadrant_vs", "bindless_sample_fs"] {
+        let rx = graphics_accept.join(format!("{stem}.rx"));
+        println!("cargo:rerun-if-changed={}", rx.display());
+        let spv_out = out_dir.join(format!("{stem}.spv"));
+        let bytes = gen_spirv(&rx).unwrap_or_default();
+        std::fs::write(&spv_out, &bytes).unwrap_or_else(|e| panic!("write {stem}.spv: {e}"));
+    }
 }
 
 /// `saxpy.rx` → Vulkan SPIR-V 字节(RXS-0208 anchor 支撑;`build_and_emit_vulkan` 纯 Rust

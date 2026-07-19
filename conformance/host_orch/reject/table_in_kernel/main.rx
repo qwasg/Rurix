@@ -1,0 +1,13 @@
+//@ spec: RXS-0235
+//@ expect-error: RX3015
+// 宿主 API 着色合法性(RXS-0235 L2,承 RXS-0189):TextureTable 宿主注册面出现在
+// kernel 体内 → RX3015(coloring 层,与 RX3001 同点位;construct 与方法调用同拦)。
+kernel fn bad(t: ThreadCtx<1>) {
+    let c = Context::create();
+    let tb = c.texture_table();
+    let n = tb.len();
+}
+
+fn main() -> i32 {
+    0
+}

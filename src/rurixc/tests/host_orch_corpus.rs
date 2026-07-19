@@ -30,8 +30,9 @@ use rurixc::span::Edition;
 /// RXS-0189)/ launch_arg_subset(RX6024,RXS-0191)/ buffer_move(move 后再用,
 /// 既有 RX4001 拦,RXS-0189)。present 语料两类(MS1.2b):present_out_of_order
 /// (typestate 错序 = move 违例,既有 RX4001 拦,RXS-0197)/ present_in_kernel
-/// (RX3015,RXS-0197)。
-const REJECT_CATEGORIES: [&str; 8] = [
+/// (RX3015,RXS-0197)。bindless 语料一类(G3.4):table_in_kernel(TextureTable
+/// 宿主注册面 kernel 体内 → RX3015,RXS-0235 L2 承 RXS-0189 同点位)。
+const REJECT_CATEGORIES: [&str; 9] = [
     "mod_missing",
     "mod_cycle",
     "elem_infer",
@@ -40,6 +41,7 @@ const REJECT_CATEGORIES: [&str; 8] = [
     "buffer_move",
     "present_out_of_order",
     "present_in_kernel",
+    "table_in_kernel",
 ];
 
 fn host_orch_dir(sub: &str) -> PathBuf {
@@ -247,6 +249,42 @@ fn accept_saxpy_single_source_lowers_to_rxrt() {
     assert!(
         ir.contains("call i32 @rxrt_launch(i64"),
         "rxrt_launch 调用形态\nIR:\n{ir}"
+    );
+}
+
+/// accept/bindless_table(G3.4,RXS-0235):`ctx.texture_table()` / `register` / `len`
+/// 编译器已知签名 0 诊断,lowering 落 `rxrt_table_*` 字面符号 declare(create 产 u64
+/// 句柄 / register 双 u64 入 u32 出〔失败哨兵 u32::MAX → rxrt_trap〕/ len u64 入 u32
+/// 出);注册非消费——注册后句柄仍作 launch 实参(镜像 RXS-0191 Buffer 实参纪律)。
+#[test]
+fn accept_bindless_table_lowers_to_rxrt_table() {
+    let root = host_orch_dir("accept/bindless_table").join("main.rx");
+    let (codes, ir) = run_root(&root);
+    assert!(
+        codes.is_empty(),
+        "accept/bindless_table 产生诊断: {codes:?}"
+    );
+    assert!(
+        ir.contains("declare i64 @rxrt_table_create(i64)"),
+        "rxrt_table_create declare 形态(ctx 句柄入,table 句柄出,RXS-0235)\nIR:\n{ir}"
+    );
+    assert!(
+        ir.contains("declare i32 @rxrt_table_register(i64, i64)"),
+        "rxrt_table_register declare 形态(table + 资源句柄入,注册序索引 u32 出)\nIR:\n{ir}"
+    );
+    assert!(
+        ir.contains("declare i32 @rxrt_table_len(i64)"),
+        "rxrt_table_len declare 形态(table 句柄入,已注册计数 u32 出)\nIR:\n{ir}"
+    );
+    // 失败终止检查接线(RXS-0193:register 失败哨兵 u32::MAX → rxrt_trap)。
+    assert!(
+        ir.contains("@rxrt_trap("),
+        "register 失败哨兵检查应接线 rxrt_trap(RXS-0193)\nIR:\n{ir}"
+    );
+    // 注册非消费:注册后句柄仍可作 launch 实参(RXS-0191 同纪律)。
+    assert!(
+        ir.contains("call i32 @rxrt_launch(i64"),
+        "注册后句柄应仍可作 launch 实参(RXS-0235/RXS-0191)\nIR:\n{ir}"
     );
 }
 

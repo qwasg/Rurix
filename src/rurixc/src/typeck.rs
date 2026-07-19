@@ -331,6 +331,16 @@ fn gpu_host_method(
             "alloc" => Some(Op::CtxAlloc),
             "alloc_pinned" => Some(Op::CtxAllocPinned),
             "sync" => Some(Op::CtxSync),
+            // G3.4 bindless(RXS-0235):无界纹理表句柄构造。
+            "texture_table" => Some(Op::CtxTextureTable),
+            _ => None,
+        };
+    }
+    // G3.4 bindless(RXS-0235):TextureTable 注册面(注册序即索引 / 已注册计数)。
+    if li.is_texture_table(d) {
+        return match method {
+            "register" => Some(Op::TableRegister),
+            "len" => Some(Op::TableLen),
             _ => None,
         };
     }
@@ -2483,6 +2493,37 @@ impl Tck<'_, '_> {
                 )
             }
             Op::PresentPump => self.check_args(span, &[], args, Ty::Prim(PrimTy::Bool)),
+            // G3.4 bindless(RXS-0235):`ctx.texture_table() -> TextureTable<C>`
+            // (单 brand 方案沿 RFC-0009 §9 Q-Brand;非 Copy affine 沿 RXS-0189)。
+            Op::CtxTextureTable => {
+                let tt = self
+                    .res
+                    .lang_items
+                    .texture_table
+                    .expect("TextureTable lang item 在 resolve 入口注入");
+                self.check_args(span, &[], args, Ty::Adt(tt, vec![brand]))
+            }
+            // `table.register(buf) -> u32`(注册序即索引;首期宿主可注册资源 =
+            // `Buffer<C, T>` 句柄——std::gpu 唯一宿主资源面,格式擦除 host↔shader
+            // 形态错配 = 运行期确定性 Err,RXS-0235 L3;实参非消费镜像 launch Buffer
+            // 实参纪律,RXS-0191)。
+            Op::TableRegister => {
+                let buffer = self
+                    .res
+                    .lang_items
+                    .buffer
+                    .expect("Buffer lang item 在 resolve 入口注入");
+                let b = adt_args.first().cloned().unwrap_or(brand);
+                let elem = self.infcx.fresh(None);
+                self.check_args(
+                    span,
+                    &[Ty::Adt(buffer, vec![b, elem])],
+                    args,
+                    Ty::Prim(PrimTy::U32),
+                )
+            }
+            // `table.len() -> u32`(已注册计数 = clamp 表长源,RXS-0235)。
+            Op::TableLen => self.check_args(span, &[], args, Ty::Prim(PrimTy::U32)),
             Op::CtxCreate | Op::Launch | Op::PresentCreate | Op::WritePpm => {
                 unreachable!(
                     "CtxCreate/PresentCreate/WritePpm 走 check_call;launch 走既有 launch 分支"

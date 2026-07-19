@@ -24,8 +24,9 @@ fn accept_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../conformance/dxil/graphics/accept")
 }
 
-/// G3.4 bindless device 模式着色器(单 fragment;无界表 + 动态非均匀索引采样)。
-const BINDLESS_SHADERS: &[&str] = &["bindless_sample_fs"];
+/// G3.4 bindless device 模式着色器(四象限 vertex + 无界表动态非均匀索引采样 fragment,
+/// = `bin/bindless_modes` harness 消费的完整着色器对)。
+const BINDLESS_SHADERS: &[&str] = &["bindless_quadrant_vs", "bindless_sample_fs"];
 
 /// `.rx` → Vulkan 原生 SPIR-V 字节(0 诊断门 + emit_spirv_body_vulkan)。
 fn emit_vulkan_spv(stem: &str) -> Vec<u8> {

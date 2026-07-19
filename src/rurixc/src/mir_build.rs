@@ -1872,6 +1872,47 @@ impl Builder<'_, '_> {
                 self.guard_rc_negative(rc, span);
                 Operand::Const(Const::Unit)
             }
+            // G3.4 bindless(RXS-0235):TextureTable 宿主注册面 → `rxrt_table_*`
+            // 字面符号(镜像 `rxrt_buf_*`;RXS-0194 只追加符号族)。
+            Op::CtxTextureTable => {
+                let h = self.gpu_handle_op(&args[0]);
+                let ret = self.ty_of(e);
+                let dest = self.emit_rt_call("rxrt_table_create", vec![h], ret.clone(), span);
+                self.guard_handle_zero(dest, span);
+                self.consume(Place::local(dest), &ret)
+            }
+            // register(注册序即索引):失败哨兵 `u32::MAX`(cabi 诊断已落 stderr)→
+            // 终止(RXS-0193 失败返回值检查纪律;buf 实参非消费,镜像 launch Buffer
+            // 实参 gpu_handle_op 纪律)。
+            Op::TableRegister => {
+                let ht = self.gpu_handle_op(&args[0]);
+                let hx = self.gpu_handle_op(&args[1]);
+                let dest = self.emit_rt_call(
+                    "rxrt_table_register",
+                    vec![ht, hx],
+                    Ty::Prim(PrimTy::U32),
+                    span,
+                );
+                let bad = self.temp(Ty::Prim(PrimTy::Bool), span);
+                self.assign(
+                    Place::local(bad),
+                    Rvalue::BinaryOp(
+                        BinOp::Eq,
+                        Operand::Copy(Place::local(dest)),
+                        Operand::Const(Const::Int(i128::from(u32::MAX), PrimTy::U32)),
+                    ),
+                    span,
+                );
+                self.emit_gpu_guard(bad, None, span);
+                self.consume(Place::local(dest), &Ty::Prim(PrimTy::U32))
+            }
+            // len(已注册计数;0 为合法值,不设 guard)。
+            Op::TableLen => {
+                let h = self.gpu_handle_op(&args[0]);
+                let dest =
+                    self.emit_rt_call("rxrt_table_len", vec![h], Ty::Prim(PrimTy::U32), span);
+                self.consume(Place::local(dest), &Ty::Prim(PrimTy::U32))
+            }
             Op::Launch => unreachable!("launch 走 GpuLaunch 节点(RXS-0191)"),
         }
     }

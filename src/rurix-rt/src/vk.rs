@@ -4802,6 +4802,1747 @@ unsafe fn graphics_body_v2(
     result
 }
 
+// ───────── G3.4 bindless 无界表运行时(RXS-0235;RFC-0013 §4.C4,验收门 G-G3-4) ─────────
+// 无界纹理表(`[Texture2D<F>]`,rurixc 侧 set4 独占,RXS-0233)的 Vulkan descriptor
+// indexing 运行时:feature chain 四 bit 探测(任一缺失 → 确定性 Err,P-01)+
+// `UPDATE_AFTER_BIND`/`PARTIALLY_BOUND` binding flags + 注册序写入(索引 = 注册序)+
+// **pipeline layout push-constant range + `vkCmdPushConstants` 下发 table_len**——codegen
+// 强制 clamp `UMin(idx, table_len - 1)` 的上界源(RXS-0208 尾槽/RXS-0234);缺此注册则
+// shader 读到未初始化 push-constant,clamp 到垃圾上界(前轮负重点 a,故为硬接线)。
+// 既有 v1/v2/present 路径 0-byte 不动,独立组装(v2 先例,§6.4/E-2)。
+
+/// `VK_MAKE_API_VERSION(0, 1, 2, 0)`(bindless 路 descriptor indexing = **Vulkan 1.2
+/// core**,承 RXS-0212 spirv-val vulkan1.2 校验环境;仅 bindless 入口用,v1/v2 维持 1.1)。
+const API_VERSION_1_2: u32 = (1 << 22) | (2 << 12);
+
+// descriptor indexing sType(VK_EXT_descriptor_indexing 扩展号 162 → 基 1000161000;
+// Vulkan 1.2 core 收编,结构体编号不变)。
+const ST_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO: u32 = 1_000_161_000;
+const ST_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES: u32 = 1_000_161_001;
+/// `VkPhysicalDeviceFeatures2`(VK_KHR_get_physical_device_properties2 扩展号 60;1.1 core)。
+const ST_PHYSICAL_DEVICE_FEATURES_2: u32 = 1_000_059_000;
+
+// `VkDescriptorBindingFlagBits`(RXS-0235:无界表 binding 双 flag)。
+const DESCRIPTOR_BINDING_UPDATE_AFTER_BIND: u32 = 0x1;
+const DESCRIPTOR_BINDING_PARTIALLY_BOUND: u32 = 0x4;
+/// `VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT`。
+const DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL: u32 = 0x2;
+/// `VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT`。
+const DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND: u32 = 0x2;
+
+/// `VkPhysicalDeviceDescriptorIndexingFeatures` 的 VkBool32 字段数(spec 字段序顺排 20;
+/// 定长数组建模逐字节对齐,按 `FEAT_*` 常量索引——镜像 [`PhysicalDeviceFeatures`] 纪律)。
+const DESCRIPTOR_INDEXING_FEATURE_COUNT: usize = 20;
+/// `shaderSampledImageArrayNonUniformIndexing` 字段序(0 基第 5 字段)。
+const FEAT_SAMPLED_IMAGE_NON_UNIFORM: usize = 4;
+/// `descriptorBindingSampledImageUpdateAfterBind`(0 基第 12 字段)。
+const FEAT_SAMPLED_IMAGE_UPDATE_AFTER_BIND: usize = 11;
+/// `descriptorBindingPartiallyBound`(0 基第 18 字段)。
+const FEAT_PARTIALLY_BOUND: usize = 17;
+/// `runtimeDescriptorArray`(0 基第 20 字段)。
+const FEAT_RUNTIME_DESCRIPTOR_ARRAY: usize = 19;
+
+/// 无界表独占 descriptor set(首表 = **set4**;镜像 rurixc `binding_layout.rs`
+/// `VK_BINDLESS_SET_BASE` 分配律——类别轴 set0~3 之后首个空闲 set,RXS-0233;首期单表)。
+/// 有界 set0~3 完全不触 feature chain(零回归最强形,RXS-0235)。
+const BINDLESS_SET: u32 = 4;
+/// push-constant 表长块字节数(`struct { u32 table_len; }` 成员 0 Offset 0,RXS-0208/0234)。
+const TABLE_LEN_PC_BYTES: u32 = 4;
+
+#[repr(C)]
+struct PhysicalDeviceDescriptorIndexingFeatures {
+    s_type: u32,
+    p_next: *mut c_void,
+    bits: [VkBool32; DESCRIPTOR_INDEXING_FEATURE_COUNT],
+}
+
+#[repr(C)]
+struct PhysicalDeviceFeatures2 {
+    s_type: u32,
+    p_next: *mut c_void,
+    features: PhysicalDeviceFeatures,
+}
+
+#[repr(C)]
+struct DescriptorSetLayoutBindingFlagsCreateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    binding_count: u32,
+    p_binding_flags: *const VkFlags,
+}
+
+/// `VkPhysicalDeviceProperties` 承载 blob:仅消费首字段 `apiVersion`(u32);驱动写入
+/// 完整结构(x64 约 824 字节),blob 预留 2048 字节严格超集 + `align(8)`(结构含
+/// VkDeviceSize limits)防越界/错位写。
+#[repr(C, align(8))]
+struct PhysicalDevicePropertiesBlob {
+    api_version: u32,
+    _rest: [u8; 2044],
+}
+
+type FnGetPhysicalDeviceFeatures2 =
+    unsafe extern "system" fn(VkPhysicalDevice, *mut PhysicalDeviceFeatures2);
+type FnGetPhysicalDeviceProperties =
+    unsafe extern "system" fn(VkPhysicalDevice, *mut PhysicalDevicePropertiesBlob);
+// `FnCmdPushConstants` 复用 compute 路既有定义(RXS-0206;bindless 表长下发同一签名)。
+
+/// descriptor indexing 四 bit 探测结果(RXS-0235;host 纯数据——设备路自
+/// `VkPhysicalDeviceDescriptorIndexingFeatures` 摘取;本机 RTX 4070 Ti 四 bit 全在,
+/// missing 路由 mock 单测覆盖〔`bindless_feature_chain_*`〕,不伪造设备)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DescriptorIndexingBits {
+    /// `shaderSampledImageArrayNonUniformIndexing`。
+    pub sampled_image_non_uniform: bool,
+    /// `descriptorBindingSampledImageUpdateAfterBind`。
+    pub sampled_image_update_after_bind: bool,
+    /// `descriptorBindingPartiallyBound`。
+    pub partially_bound: bool,
+    /// `runtimeDescriptorArray`。
+    pub runtime_descriptor_array: bool,
+}
+
+impl DescriptorIndexingBits {
+    /// 四 bit 全在(mock 单测基线)。
+    pub fn all_present() -> Self {
+        DescriptorIndexingBits {
+            sampled_image_non_uniform: true,
+            sampled_image_update_after_bind: true,
+            partially_bound: true,
+            runtime_descriptor_array: true,
+        }
+    }
+}
+
+/// 四 bit feature chain 判定(RXS-0235;host 纯函数):任一缺失 → 确定性 `Err` **全列
+/// 缺失位名**(RXS-0193 封口不占 RX 码,无静默降级 P-01)。
+//@ spec: RXS-0235
+pub fn check_descriptor_indexing_bits(bits: &DescriptorIndexingBits) -> Result<(), String> {
+    let mut missing: Vec<&str> = Vec::new();
+    if !bits.sampled_image_non_uniform {
+        missing.push("shaderSampledImageArrayNonUniformIndexing");
+    }
+    if !bits.sampled_image_update_after_bind {
+        missing.push("descriptorBindingSampledImageUpdateAfterBind");
+    }
+    if !bits.partially_bound {
+        missing.push("descriptorBindingPartiallyBound");
+    }
+    if !bits.runtime_descriptor_array {
+        missing.push("runtimeDescriptorArray");
+    }
+    if missing.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "device 缺 descriptor indexing feature: {}(bindless 无界表不可用;确定性 Err,\
+             RXS-0235/RXS-0193 口径,无静默降级)",
+            missing.join(", ")
+        ))
+    }
+}
+
+/// bindless 入口纯 host 预校验(任何句柄创建前 fail-closed,P-01):表非空、表元素全为
+/// SRV 纹理(首期 RXS-0233:无界 Sampler/CBV/UAV 维持 Unmappable)、有界资源首期仅
+/// Texture2D/Sampler(storage 面归 v2)。
+fn validate_bindless_inputs(
+    resources: &[GraphicsResource],
+    table: &[GraphicsResource],
+) -> Result<(), String> {
+    if table.is_empty() {
+        return Err(
+            "bindless 表须至少注册 1 纹理(空表无动态索引面;有界路走 run_graphics_offscreen_v2)"
+                .into(),
+        );
+    }
+    if table
+        .iter()
+        .any(|r| !matches!(r, GraphicsResource::Texture2D { .. }))
+    {
+        return Err(
+            "bindless 表元素首期仅 SRV 纹理 Texture2D(无界 Sampler/CBV/UAV 维持 Unmappable,\
+             RXS-0233)"
+                .into(),
+        );
+    }
+    if resources
+        .iter()
+        .any(|r| matches!(r, GraphicsResource::StorageImage { .. }))
+    {
+        return Err(
+            "bindless 入口有界资源首期仅 Texture2D/Sampler(storage image 面走 \
+             run_graphics_offscreen_v2)"
+                .into(),
+        );
+    }
+    Ok(())
+}
+
+/// offscreen 渲染一帧并回读——**bindless 无界表路**(RXS-0235;RFC-0013 §4.C4)。
+/// `resources` = 有界 per-dispatch 资源(set0~3 类别轴,分配律同 v2);`table` = 无界表
+/// 注册纹理(**切片序 = 注册序 = shader 动态索引值**,稳定单调;独占 set4 binding 0)。
+///
+/// 运行时纪律(RXS-0235):
+/// - descriptor pool / set4 layout 带 `UPDATE_AFTER_BIND` + `PARTIALLY_BOUND` flags;
+/// - `VkPhysicalDeviceFeatures2` + pNext `VkPhysicalDeviceDescriptorIndexingFeatures`
+///   四 bit 探测,任一缺失(或 device < Vulkan 1.2)→ 确定性 `Err`(无静默降级,P-01);
+/// - pipeline layout 声明 push-constant range(offset 0,4 字节,VS|FS)并在录制期
+///   `vkCmdPushConstants` 下发 `table_len = table.len()`(codegen clamp 上界源,RXS-0234);
+/// - 注册写入(set4 descriptor writes)仅发生在提交前,in-flight 期间不更新(§8)。
+///
+/// device 数值判据(四象限动态索引四色 / 篡改注册序换位 RED / feature 缺失 Err,步骤 64)
+/// 归 `bin/bindless_modes` + owner 本机主循环;本入口交付编译绿 + host 单测 + 确定性 Err 路。
+///
+/// # SAFETY(U27 G3.4 bindless 扩注,graphics FFI 边界,0 新 U 号)
+/// 对上全 safe(无 `unsafe` 签名)。内部契约同 v2 U27 扩注:句柄(table 纹理
+/// image·mem·view·staging×N + v2 有界全集 + set4 layout)线性配对 create/destroy、末尾
+/// 逆序销毁;资源合法性在任何句柄创建**前**纯 host 预校验;单 graphics queue 同步提交 +
+/// `vkQueueWaitIdle` 后回读。
+//@ spec: RXS-0235
+#[allow(clippy::too_many_arguments)]
+pub fn run_graphics_offscreen_bindless(
+    vs_spv: &[u32],
+    fs_spv: &[u32],
+    vertices: &[u8],
+    vertex_stride: u32,
+    attrs: &[(u32, u32, u32)],
+    width: u32,
+    height: u32,
+    clear: [f32; 4],
+    resources: &[GraphicsResource],
+    table: &[GraphicsResource],
+) -> Result<Vec<u8>, String> {
+    validate_resources(resources)?;
+    validate_resources(table)?;
+    validate_bindless_inputs(resources, table)?;
+    let gipa = load_vulkan_loader().ok_or("vulkan loader (vulkan-1.dll/libvulkan.so) 不可用")?;
+    // SAFETY: 见 U27 G3.4 bindless 扩注(上);句柄生命周期由内部函数线性管理,末尾逆序销毁。
+    unsafe {
+        run_graphics_inner_bindless(
+            gipa,
+            vs_spv,
+            fs_spv,
+            vertices,
+            vertex_stride,
+            attrs,
+            width,
+            height,
+            clear,
+            resources,
+            table,
+        )
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+unsafe fn run_graphics_inner_bindless(
+    gipa: FnGetInstanceProcAddr,
+    vs_spv: &[u32],
+    fs_spv: &[u32],
+    vertices: &[u8],
+    vertex_stride: u32,
+    attrs: &[(u32, u32, u32)],
+    width: u32,
+    height: u32,
+    clear: [f32; 4],
+    resources: &[GraphicsResource],
+    table: &[GraphicsResource],
+) -> Result<Vec<u8>, String> {
+    let vk_create_instance: FnCreateInstance =
+        cast_fn(gipa(std::ptr::null_mut(), c"vkCreateInstance".as_ptr()))
+            .ok_or("缺 vkCreateInstance")?;
+
+    let validation = std::env::var("RURIX_VK_VALIDATION").as_deref() == Ok("1");
+    let layer_name = c"VK_LAYER_KHRONOS_validation";
+    let layers: [*const c_char; 1] = [layer_name.as_ptr()];
+    let debug_ext = c"VK_EXT_debug_utils";
+    let exts: [*const c_char; 1] = [debug_ext.as_ptr()];
+    let app = ApplicationInfo {
+        s_type: ST_APPLICATION_INFO,
+        p_next: std::ptr::null(),
+        p_application_name: c"rurix-g3-bindless".as_ptr(),
+        application_version: 0,
+        p_engine_name: c"rurix".as_ptr(),
+        engine_version: 0,
+        // descriptor indexing = Vulkan 1.2 core(RXS-0212 spirv-val vulkan1.2 同环境)。
+        api_version: API_VERSION_1_2,
+    };
+    let ici = InstanceCreateInfo {
+        s_type: ST_INSTANCE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        p_application_info: &app,
+        enabled_layer_count: if validation { 1 } else { 0 },
+        pp_enabled_layer_names: if validation {
+            layers.as_ptr()
+        } else {
+            std::ptr::null()
+        },
+        enabled_extension_count: if validation { 1 } else { 0 },
+        pp_enabled_extension_names: if validation {
+            exts.as_ptr()
+        } else {
+            std::ptr::null()
+        },
+    };
+    let mut instance: VkInstance = std::ptr::null_mut();
+    let r = vk_create_instance(&ici, std::ptr::null(), &mut instance);
+    if r != VK_SUCCESS {
+        return Err(format!("vkCreateInstance 失败: {r}"));
+    }
+
+    // instance 级符号(v2 全集 + features2/properties;messenger 创建前全部 `?` 完毕——
+    // 镜像 v1/v2 U27「创建点与首个销毁点之间无 `?` 早退」契约)。
+    let vk_destroy_instance: FnDestroyInstance =
+        cast_fn(gipa(instance, c"vkDestroyInstance".as_ptr())).ok_or("缺 vkDestroyInstance")?;
+    let vk_enum_pd: FnEnumeratePhysicalDevices =
+        cast_fn(gipa(instance, c"vkEnumeratePhysicalDevices".as_ptr()))
+            .ok_or("缺 vkEnumeratePhysicalDevices")?;
+    let vk_get_qf: FnGetPhysicalDeviceQueueFamilyProperties = cast_fn(gipa(
+        instance,
+        c"vkGetPhysicalDeviceQueueFamilyProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkGetPhysicalDeviceQueueFamilyProperties")?;
+    let vk_get_mem: FnGetPhysicalDeviceMemoryProperties = cast_fn(gipa(
+        instance,
+        c"vkGetPhysicalDeviceMemoryProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkGetPhysicalDeviceMemoryProperties")?;
+    let vk_create_device: FnCreateDevice =
+        cast_fn(gipa(instance, c"vkCreateDevice".as_ptr())).ok_or("缺 vkCreateDevice")?;
+    let vk_get_device_proc: FnGetDeviceProcAddr =
+        cast_fn(gipa(instance, c"vkGetDeviceProcAddr".as_ptr())).ok_or("缺 vkGetDeviceProcAddr")?;
+    let vk_get_features: FnGetPhysicalDeviceFeatures =
+        cast_fn(gipa(instance, c"vkGetPhysicalDeviceFeatures".as_ptr()))
+            .ok_or("缺 vkGetPhysicalDeviceFeatures")?;
+    // Vulkan 1.1 core(instance 已 1.2):feature chain 探测 + apiVersion 门。
+    let vk_get_features2: FnGetPhysicalDeviceFeatures2 =
+        cast_fn(gipa(instance, c"vkGetPhysicalDeviceFeatures2".as_ptr()))
+            .ok_or("缺 vkGetPhysicalDeviceFeatures2(需 Vulkan 1.1+ loader)")?;
+    let vk_get_props: FnGetPhysicalDeviceProperties =
+        cast_fn(gipa(instance, c"vkGetPhysicalDeviceProperties".as_ptr()))
+            .ok_or("缺 vkGetPhysicalDeviceProperties")?;
+
+    // fail-closed messenger(L3,RXS-0210 契约复用;ERROR 级校验消息 → 末尾翻 `Err`)。
+    let validation_error = std::sync::atomic::AtomicBool::new(false);
+    let mut messenger: VkDebugUtilsMessengerEXT = VK_NULL_HANDLE;
+    let destroy_messenger: Option<FnDestroyDebugUtilsMessengerEXT> = if validation {
+        cast_fn(gipa(instance, c"vkDestroyDebugUtilsMessengerEXT".as_ptr()))
+    } else {
+        None
+    };
+    if validation
+        && let Some(create_messenger) = cast_fn::<FnCreateDebugUtilsMessengerEXT>(gipa(
+            instance,
+            c"vkCreateDebugUtilsMessengerEXT".as_ptr(),
+        ))
+    {
+        let dumci = DebugUtilsMessengerCreateInfoEXT {
+            s_type: ST_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+            p_next: std::ptr::null(),
+            flags: 0,
+            message_severity: DEBUG_UTILS_SEVERITY_ERROR,
+            message_type: DEBUG_UTILS_TYPE_GENERAL
+                | DEBUG_UTILS_TYPE_VALIDATION
+                | DEBUG_UTILS_TYPE_PERFORMANCE,
+            pfn_user_callback: debug_messenger_cb,
+            p_user_data: &validation_error as *const std::sync::atomic::AtomicBool as *mut c_void,
+        };
+        let _ = create_messenger(instance, &dumci, std::ptr::null(), &mut messenger);
+    }
+    macro_rules! destroy_msgr {
+        () => {
+            if let Some(dm) = destroy_messenger {
+                if messenger != VK_NULL_HANDLE {
+                    dm(instance, messenger, std::ptr::null());
+                }
+            }
+        };
+    }
+
+    let mut count = 0u32;
+    vk_enum_pd(instance, &mut count, std::ptr::null_mut());
+    if count == 0 {
+        destroy_msgr!();
+        vk_destroy_instance(instance, std::ptr::null());
+        return Err("无 Vulkan 物理设备".into());
+    }
+    let mut pds = vec![std::ptr::null_mut::<c_void>(); count as usize];
+    vk_enum_pd(instance, &mut count, pds.as_mut_ptr());
+    let pd = pds[0];
+
+    let mut qf_count = 0u32;
+    vk_get_qf(pd, &mut qf_count, std::ptr::null_mut());
+    let mut qfs: Vec<QueueFamilyProperties> = (0..qf_count)
+        .map(|_| QueueFamilyProperties {
+            queue_flags: 0,
+            queue_count: 0,
+            timestamp_valid_bits: 0,
+            min_image_transfer_granularity: VkExtent3D {
+                width: 0,
+                height: 0,
+                depth: 0,
+            },
+        })
+        .collect();
+    vk_get_qf(pd, &mut qf_count, qfs.as_mut_ptr());
+    let qfi = match qfs
+        .iter()
+        .position(|q| q.queue_flags & QUEUE_GRAPHICS_BIT != 0)
+    {
+        Some(i) => i as u32,
+        None => {
+            destroy_msgr!();
+            vk_destroy_instance(instance, std::ptr::null());
+            return Err("无 graphics queue family".into());
+        }
+    };
+
+    // ── device apiVersion 门(descriptor indexing = 1.2 core;< 1.2 → 确定性 Err)──
+    let mut props = std::mem::zeroed::<PhysicalDevicePropertiesBlob>();
+    vk_get_props(pd, &mut props);
+    if props.api_version < API_VERSION_1_2 {
+        destroy_msgr!();
+        vk_destroy_instance(instance, std::ptr::null());
+        return Err(format!(
+            "device Vulkan apiVersion {:#x} < 1.2(descriptor indexing core 面;确定性 Err,\
+             RXS-0235/RXS-0193 口径)",
+            props.api_version
+        ));
+    }
+
+    // ── feature chain 四 bit 探测(VkPhysicalDeviceFeatures2 + pNext indexing 链)──
+    let mut probe_indexing = PhysicalDeviceDescriptorIndexingFeatures {
+        s_type: ST_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
+        p_next: std::ptr::null_mut(),
+        bits: [0; DESCRIPTOR_INDEXING_FEATURE_COUNT],
+    };
+    let mut probe = PhysicalDeviceFeatures2 {
+        s_type: ST_PHYSICAL_DEVICE_FEATURES_2,
+        p_next: (&mut probe_indexing as *mut PhysicalDeviceDescriptorIndexingFeatures)
+            .cast::<c_void>(),
+        features: PhysicalDeviceFeatures {
+            features: [0; PHYSICAL_DEVICE_FEATURE_COUNT],
+        },
+    };
+    vk_get_features2(pd, &mut probe);
+    let bits = DescriptorIndexingBits {
+        sampled_image_non_uniform: probe_indexing.bits[FEAT_SAMPLED_IMAGE_NON_UNIFORM] != 0,
+        sampled_image_update_after_bind: probe_indexing.bits[FEAT_SAMPLED_IMAGE_UPDATE_AFTER_BIND]
+            != 0,
+        partially_bound: probe_indexing.bits[FEAT_PARTIALLY_BOUND] != 0,
+        runtime_descriptor_array: probe_indexing.bits[FEAT_RUNTIME_DESCRIPTOR_ARRAY] != 0,
+    };
+    if let Err(e) = check_descriptor_indexing_bits(&bits) {
+        destroy_msgr!();
+        vk_destroy_instance(instance, std::ptr::null());
+        return Err(e);
+    }
+
+    // ── 1.0 feature 协商(镜像 v2:aniso 探测;bindless 入口无 storage 面)──
+    let needs_aniso = resources
+        .iter()
+        .any(|r| matches!(r, GraphicsResource::Sampler(d) if d.max_anisotropy > 1));
+    let mut supported = PhysicalDeviceFeatures {
+        features: [0; PHYSICAL_DEVICE_FEATURE_COUNT],
+    };
+    vk_get_features(pd, &mut supported);
+    if needs_aniso && supported.features[FEATURE_SAMPLER_ANISOTROPY] == 0 {
+        destroy_msgr!();
+        vk_destroy_instance(instance, std::ptr::null());
+        return Err(
+            "sampler max_anisotropy>1 但设备缺 samplerAnisotropy feature(确定性 Err,RXS-0193 口径)"
+                .into(),
+        );
+    }
+    let mut enabled = PhysicalDeviceFeatures {
+        features: [0; PHYSICAL_DEVICE_FEATURE_COUNT],
+    };
+    if needs_aniso {
+        enabled.features[FEATURE_SAMPLER_ANISOTROPY] = 1;
+    }
+    // device 启用链:恰启用探测过的四 bit(不启用未消费面;pNext 直挂 indexing 链,
+    // pEnabledFeatures 仍 1.0 结构——链中无 Features2 时两者并用合法)。
+    let mut enabled_indexing = PhysicalDeviceDescriptorIndexingFeatures {
+        s_type: ST_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES,
+        p_next: std::ptr::null_mut(),
+        bits: [0; DESCRIPTOR_INDEXING_FEATURE_COUNT],
+    };
+    enabled_indexing.bits[FEAT_SAMPLED_IMAGE_NON_UNIFORM] = 1;
+    enabled_indexing.bits[FEAT_SAMPLED_IMAGE_UPDATE_AFTER_BIND] = 1;
+    enabled_indexing.bits[FEAT_PARTIALLY_BOUND] = 1;
+    enabled_indexing.bits[FEAT_RUNTIME_DESCRIPTOR_ARRAY] = 1;
+
+    let prio = [1.0f32];
+    let dqci = DeviceQueueCreateInfo {
+        s_type: ST_DEVICE_QUEUE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        queue_family_index: qfi,
+        queue_count: 1,
+        p_queue_priorities: prio.as_ptr(),
+    };
+    let dci = DeviceCreateInfo {
+        s_type: ST_DEVICE_CREATE_INFO,
+        p_next: (&enabled_indexing as *const PhysicalDeviceDescriptorIndexingFeatures)
+            .cast::<c_void>(),
+        flags: 0,
+        queue_create_info_count: 1,
+        p_queue_create_infos: &dqci,
+        enabled_layer_count: 0,
+        pp_enabled_layer_names: std::ptr::null(),
+        enabled_extension_count: 0,
+        pp_enabled_extension_names: std::ptr::null(),
+        p_enabled_features: (&enabled as *const PhysicalDeviceFeatures).cast::<c_void>(),
+    };
+    let mut device: VkDevice = std::ptr::null_mut();
+    let r = vk_create_device(pd, &dci, std::ptr::null(), &mut device);
+    if r != VK_SUCCESS {
+        destroy_msgr!();
+        vk_destroy_instance(instance, std::ptr::null());
+        return Err(format!("vkCreateDevice 失败: {r}"));
+    }
+
+    let mut out = graphics_body_bindless(
+        vk_get_device_proc,
+        device,
+        pd,
+        vk_get_mem,
+        qfi,
+        vs_spv,
+        fs_spv,
+        vertices,
+        vertex_stride,
+        attrs,
+        width,
+        height,
+        clear,
+        resources,
+        table,
+    );
+
+    if validation && validation_error.load(std::sync::atomic::Ordering::Relaxed) {
+        out =
+            Err("VK_LAYER_KHRONOS_validation 报 ERROR 级校验错误(见 stderr;fail-closed,L3)".into());
+    }
+
+    let vk_destroy_device: Option<FnDestroyDevice> =
+        cast_fn(vk_get_device_proc(device, c"vkDestroyDevice".as_ptr()));
+    if let Some(dd) = vk_destroy_device {
+        dd(device, std::ptr::null());
+    }
+    destroy_msgr!();
+    vk_destroy_instance(instance, std::ptr::null());
+    out
+}
+
+#[allow(clippy::too_many_arguments)]
+unsafe fn graphics_body_bindless(
+    gdpa: FnGetDeviceProcAddr,
+    device: VkDevice,
+    pd: VkPhysicalDevice,
+    vk_get_mem: FnGetPhysicalDeviceMemoryProperties,
+    qfi: u32,
+    vs_spv: &[u32],
+    fs_spv: &[u32],
+    vertices: &[u8],
+    vertex_stride: u32,
+    attrs: &[(u32, u32, u32)],
+    width: u32,
+    height: u32,
+    clear: [f32; 4],
+    resources: &[GraphicsResource],
+    table: &[GraphicsResource],
+) -> Result<Vec<u8>, String> {
+    macro_rules! dp {
+        ($name:literal, $ty:ty) => {
+            cast_fn::<$ty>(gdpa(device, $name.as_ptr())).ok_or("缺 device 符号")?
+        };
+    }
+    // v2 符号全集(镜像 graphics_body_v2)+ bindless 新增 vkCmdPushConstants。
+    let get_queue: FnGetDeviceQueue = dp!(c"vkGetDeviceQueue", FnGetDeviceQueue);
+    let create_buffer: FnCreateBuffer = dp!(c"vkCreateBuffer", FnCreateBuffer);
+    let destroy_buffer: FnDestroyBuffer = dp!(c"vkDestroyBuffer", FnDestroyBuffer);
+    let buf_mem_req: FnGetBufferMemoryRequirements = dp!(
+        c"vkGetBufferMemoryRequirements",
+        FnGetBufferMemoryRequirements
+    );
+    let alloc_mem: FnAllocateMemory = dp!(c"vkAllocateMemory", FnAllocateMemory);
+    let free_mem: FnFreeMemory = dp!(c"vkFreeMemory", FnFreeMemory);
+    let bind_buf: FnBindBufferMemory = dp!(c"vkBindBufferMemory", FnBindBufferMemory);
+    let map_mem: FnMapMemory = dp!(c"vkMapMemory", FnMapMemory);
+    let unmap_mem: FnUnmapMemory = dp!(c"vkUnmapMemory", FnUnmapMemory);
+    let create_shader: FnCreateShaderModule = dp!(c"vkCreateShaderModule", FnCreateShaderModule);
+    let destroy_shader: FnDestroyShaderModule =
+        dp!(c"vkDestroyShaderModule", FnDestroyShaderModule);
+    let create_pl: FnCreatePipelineLayout = dp!(c"vkCreatePipelineLayout", FnCreatePipelineLayout);
+    let destroy_pl: FnDestroyPipelineLayout =
+        dp!(c"vkDestroyPipelineLayout", FnDestroyPipelineLayout);
+    let destroy_pipe: FnDestroyPipeline = dp!(c"vkDestroyPipeline", FnDestroyPipeline);
+    let create_cmdpool: FnCreateCommandPool = dp!(c"vkCreateCommandPool", FnCreateCommandPool);
+    let destroy_cmdpool: FnDestroyCommandPool = dp!(c"vkDestroyCommandPool", FnDestroyCommandPool);
+    let alloc_cmd: FnAllocateCommandBuffers =
+        dp!(c"vkAllocateCommandBuffers", FnAllocateCommandBuffers);
+    let begin_cmd: FnBeginCommandBuffer = dp!(c"vkBeginCommandBuffer", FnBeginCommandBuffer);
+    let end_cmd: FnEndCommandBuffer = dp!(c"vkEndCommandBuffer", FnEndCommandBuffer);
+    let cmd_bind_pipe: FnCmdBindPipeline = dp!(c"vkCmdBindPipeline", FnCmdBindPipeline);
+    let queue_submit: FnQueueSubmit = dp!(c"vkQueueSubmit", FnQueueSubmit);
+    let queue_wait: FnQueueWaitIdle = dp!(c"vkQueueWaitIdle", FnQueueWaitIdle);
+    let create_image: FnCreateImage = dp!(c"vkCreateImage", FnCreateImage);
+    let destroy_image: FnDestroyImage = dp!(c"vkDestroyImage", FnDestroyImage);
+    let img_mem_req: FnGetImageMemoryRequirements = dp!(
+        c"vkGetImageMemoryRequirements",
+        FnGetImageMemoryRequirements
+    );
+    let bind_image: FnBindImageMemory = dp!(c"vkBindImageMemory", FnBindImageMemory);
+    let create_view: FnCreateImageView = dp!(c"vkCreateImageView", FnCreateImageView);
+    let destroy_view: FnDestroyImageView = dp!(c"vkDestroyImageView", FnDestroyImageView);
+    let create_rp: FnCreateRenderPass = dp!(c"vkCreateRenderPass", FnCreateRenderPass);
+    let destroy_rp: FnDestroyRenderPass = dp!(c"vkDestroyRenderPass", FnDestroyRenderPass);
+    let create_fb: FnCreateFramebuffer = dp!(c"vkCreateFramebuffer", FnCreateFramebuffer);
+    let destroy_fb: FnDestroyFramebuffer = dp!(c"vkDestroyFramebuffer", FnDestroyFramebuffer);
+    let create_gp: FnCreateGraphicsPipelines =
+        dp!(c"vkCreateGraphicsPipelines", FnCreateGraphicsPipelines);
+    let cmd_begin_rp: FnCmdBeginRenderPass = dp!(c"vkCmdBeginRenderPass", FnCmdBeginRenderPass);
+    let cmd_end_rp: FnCmdEndRenderPass = dp!(c"vkCmdEndRenderPass", FnCmdEndRenderPass);
+    let cmd_bind_vbuf: FnCmdBindVertexBuffers =
+        dp!(c"vkCmdBindVertexBuffers", FnCmdBindVertexBuffers);
+    let cmd_draw: FnCmdDraw = dp!(c"vkCmdDraw", FnCmdDraw);
+    let cmd_barrier: FnCmdPipelineBarrier = dp!(c"vkCmdPipelineBarrier", FnCmdPipelineBarrier);
+    let cmd_copy_img_buf: FnCmdCopyImageToBuffer =
+        dp!(c"vkCmdCopyImageToBuffer", FnCmdCopyImageToBuffer);
+    let create_dsl: FnCreateDescriptorSetLayout =
+        dp!(c"vkCreateDescriptorSetLayout", FnCreateDescriptorSetLayout);
+    let destroy_dsl: FnDestroyDescriptorSetLayout = dp!(
+        c"vkDestroyDescriptorSetLayout",
+        FnDestroyDescriptorSetLayout
+    );
+    let create_dpool: FnCreateDescriptorPool =
+        dp!(c"vkCreateDescriptorPool", FnCreateDescriptorPool);
+    let destroy_dpool: FnDestroyDescriptorPool =
+        dp!(c"vkDestroyDescriptorPool", FnDestroyDescriptorPool);
+    let alloc_ds: FnAllocateDescriptorSets =
+        dp!(c"vkAllocateDescriptorSets", FnAllocateDescriptorSets);
+    let update_ds: FnUpdateDescriptorSets = dp!(c"vkUpdateDescriptorSets", FnUpdateDescriptorSets);
+    let cmd_bind_ds: FnCmdBindDescriptorSets =
+        dp!(c"vkCmdBindDescriptorSets", FnCmdBindDescriptorSets);
+    let create_sampler: FnCreateSampler = dp!(c"vkCreateSampler", FnCreateSampler);
+    let destroy_sampler: FnDestroySampler = dp!(c"vkDestroySampler", FnDestroySampler);
+    let cmd_copy_buf_img: FnCmdCopyBufferToImage =
+        dp!(c"vkCmdCopyBufferToImage", FnCmdCopyBufferToImage);
+    // bindless 新增:push-constant 表长下发(负重点 a;RXS-0208/0234)。
+    let cmd_push_constants: FnCmdPushConstants = dp!(c"vkCmdPushConstants", FnCmdPushConstants);
+
+    let mut queue: VkQueue = std::ptr::null_mut();
+    get_queue(device, qfi, 0, &mut queue);
+
+    let mut memprops = std::mem::zeroed::<PhysicalDeviceMemoryProperties>();
+    vk_get_mem(pd, &mut memprops);
+
+    let readback_len = (width as usize) * (height as usize) * 4;
+    let table_len = table.len() as u32;
+
+    // 有界计划(纯函数;set0~3 类别轴,分配律同 v2/rurixc 单一镜像律);无界表恒 set4。
+    let plans = plan_descriptor_sets(resources);
+    let set_count = BINDLESS_SET + 1; // set0~3 有界(空 set 占位)+ set4 无界表。
+    let mut pool_sizes_plan = plan_pool_sizes(resources);
+    // 无界表占 SAMPLED_IMAGE 容量(注册计数;并入既有类目防重复条目)。
+    if let Some(e) = pool_sizes_plan
+        .iter_mut()
+        .find(|(t, _)| *t == DESCRIPTOR_TYPE_SAMPLED_IMAGE)
+    {
+        e.1 += table_len;
+    } else {
+        pool_sizes_plan.insert(0, (DESCRIPTOR_TYPE_SAMPLED_IMAGE, table_len));
+    }
+
+    // host-visible buffer 建立 helper(镜像 v2)。
+    let make_host_buffer = |usage: u32, size: u64| -> Result<(VkBuffer, VkDeviceMemory), String> {
+        let bci = BufferCreateInfo {
+            s_type: ST_BUFFER_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            size: size.max(4),
+            usage,
+            sharing_mode: SHARING_MODE_EXCLUSIVE,
+            queue_family_index_count: 0,
+            p_queue_family_indices: std::ptr::null(),
+        };
+        let mut buffer: VkBuffer = VK_NULL_HANDLE;
+        if create_buffer(device, &bci, std::ptr::null(), &mut buffer) != VK_SUCCESS {
+            return Err("vkCreateBuffer 失败".into());
+        }
+        let mut req = std::mem::zeroed::<MemoryRequirements>();
+        buf_mem_req(device, buffer, &mut req);
+        let Some(mt) = pick_mem_type(
+            &memprops,
+            req.memory_type_bits,
+            MEM_HOST_VISIBLE | MEM_HOST_COHERENT,
+        ) else {
+            destroy_buffer(device, buffer, std::ptr::null());
+            return Err("无 host-visible+coherent 内存类型".into());
+        };
+        let mai = MemoryAllocateInfo {
+            s_type: ST_MEMORY_ALLOCATE_INFO,
+            p_next: std::ptr::null(),
+            allocation_size: req.size,
+            memory_type_index: mt,
+        };
+        let mut mem: VkDeviceMemory = VK_NULL_HANDLE;
+        if alloc_mem(device, &mai, std::ptr::null(), &mut mem) != VK_SUCCESS {
+            destroy_buffer(device, buffer, std::ptr::null());
+            return Err("vkAllocateMemory 失败".into());
+        }
+        bind_buf(device, buffer, mem, 0);
+        Ok((buffer, mem))
+    };
+
+    // device-local image 建立 helper(镜像 v2)。
+    let make_image = |w: u32,
+                      h: u32,
+                      mips: u32,
+                      format: u32,
+                      usage: u32|
+     -> Result<(VkImage, VkDeviceMemory), String> {
+        let ici = ImageCreateInfo {
+            s_type: ST_IMAGE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            image_type: IMAGE_TYPE_2D,
+            format,
+            extent: VkExtent3D {
+                width: w,
+                height: h,
+                depth: 1,
+            },
+            mip_levels: mips,
+            array_layers: 1,
+            samples: SAMPLE_COUNT_1,
+            tiling: IMAGE_TILING_OPTIMAL,
+            usage,
+            sharing_mode: SHARING_MODE_EXCLUSIVE,
+            queue_family_index_count: 0,
+            p_queue_family_indices: std::ptr::null(),
+            initial_layout: IMAGE_LAYOUT_UNDEFINED,
+        };
+        let mut image: VkImage = VK_NULL_HANDLE;
+        if create_image(device, &ici, std::ptr::null(), &mut image) != VK_SUCCESS {
+            return Err("bindless vkCreateImage 失败".into());
+        }
+        let mut req = std::mem::zeroed::<MemoryRequirements>();
+        img_mem_req(device, image, &mut req);
+        let Some(mt) = pick_mem_type(&memprops, req.memory_type_bits, MEM_DEVICE_LOCAL) else {
+            destroy_image(device, image, std::ptr::null());
+            return Err("无 device-local 内存类型".into());
+        };
+        let mai = MemoryAllocateInfo {
+            s_type: ST_MEMORY_ALLOCATE_INFO,
+            p_next: std::ptr::null(),
+            allocation_size: req.size,
+            memory_type_index: mt,
+        };
+        let mut mem: VkDeviceMemory = VK_NULL_HANDLE;
+        if alloc_mem(device, &mai, std::ptr::null(), &mut mem) != VK_SUCCESS {
+            destroy_image(device, image, std::ptr::null());
+            return Err("bindless image vkAllocateMemory 失败".into());
+        }
+        bind_image(device, image, mem, 0);
+        Ok((image, mem))
+    };
+
+    // image view 建立 helper(镜像 v2)。
+    let make_view = |image: VkImage, format: u32, levels: u32| -> Result<VkImageView, String> {
+        let vci = ImageViewCreateInfo {
+            s_type: ST_IMAGE_VIEW_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            image,
+            view_type: IMAGE_VIEW_TYPE_2D,
+            format,
+            components: VkComponentMapping {
+                r: COMPONENT_SWIZZLE_IDENTITY,
+                g: COMPONENT_SWIZZLE_IDENTITY,
+                b: COMPONENT_SWIZZLE_IDENTITY,
+                a: COMPONENT_SWIZZLE_IDENTITY,
+            },
+            subresource_range: VkImageSubresourceRange {
+                aspect_mask: IMAGE_ASPECT_COLOR,
+                base_mip_level: 0,
+                level_count: levels,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+        };
+        let mut view: VkImageView = VK_NULL_HANDLE;
+        if create_view(device, &vci, std::ptr::null(), &mut view) != VK_SUCCESS {
+            return Err("bindless vkCreateImageView 失败".into());
+        }
+        Ok(view)
+    };
+
+    // SRV 纹理建面 + staging 上传写入 helper(有界 texs / 无界 table_texs 共用同一纪律)。
+    // 闭包捕获 device 符号;失败即 Err(块外统一销毁已建部分)。
+    let build_tex =
+        |dst: &mut Vec<V2Tex>, tw: u32, th: u32, data: &TextureData| -> Result<(), String> {
+            let levels = data.level_count();
+            let extents = mip_level_extents(tw, th, levels);
+            let (staging_total, staging_offsets) =
+                mip_staging_layout(&extents, data.bytes_per_texel());
+            let (image, mem) = make_image(
+                tw,
+                th,
+                levels,
+                data.vk_format(),
+                IMAGE_USAGE_SAMPLED | IMAGE_USAGE_TRANSFER_DST,
+            )?;
+            dst.push(V2Tex {
+                image,
+                mem,
+                view: VK_NULL_HANDLE,
+                staging: VK_NULL_HANDLE,
+                staging_mem: VK_NULL_HANDLE,
+                levels,
+            });
+            let ti = dst.len() - 1;
+            dst[ti].view = make_view(image, data.vk_format(), levels)?;
+            let (b, m) = make_host_buffer(BUFFER_USAGE_TRANSFER_SRC, staging_total)?;
+            dst[ti].staging = b;
+            dst[ti].staging_mem = m;
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            if map_mem(device, dst[ti].staging_mem, 0, WHOLE_SIZE, 0, &mut ptr) != VK_SUCCESS {
+                return Err("bindless 纹理 staging vkMapMemory 失败".into());
+            }
+            for (lvl, off) in staging_offsets.iter().enumerate() {
+                let p = ptr.cast::<u8>().add(*off as usize);
+                match data {
+                    TextureData::Rgba8(v) => {
+                        std::ptr::copy_nonoverlapping(v[lvl].as_ptr(), p, v[lvl].len());
+                    }
+                    TextureData::RgbaF32(v) => {
+                        std::ptr::copy_nonoverlapping(
+                            v[lvl].as_ptr().cast::<u8>(),
+                            p,
+                            v[lvl].len() * 4,
+                        );
+                    }
+                }
+            }
+            unmap_mem(device, dst[ti].staging_mem);
+            Ok(())
+        };
+
+    // 句柄(全 null 初始,末尾逆序销毁非 null 者)。
+    let mut samplers: Vec<VkSampler> = Vec::new();
+    let mut texs: Vec<V2Tex> = Vec::new(); // 有界 SRV(set1)
+    let mut table_texs: Vec<V2Tex> = Vec::new(); // 无界表(set4;下标 = 注册序 = 索引)
+    let mut set_layouts: Vec<VkDescriptorSetLayout> = Vec::new();
+    let mut desc_pool: VkDescriptorPool = VK_NULL_HANDLE;
+    let mut color_image: VkImage = VK_NULL_HANDLE;
+    let mut color_mem: VkDeviceMemory = VK_NULL_HANDLE;
+    let mut color_view: VkImageView = VK_NULL_HANDLE;
+    let mut render_pass: VkRenderPass = VK_NULL_HANDLE;
+    let mut framebuffer: VkFramebuffer = VK_NULL_HANDLE;
+    let mut vbuf: VkBuffer = VK_NULL_HANDLE;
+    let mut vbuf_mem: VkDeviceMemory = VK_NULL_HANDLE;
+    let mut rbuf: VkBuffer = VK_NULL_HANDLE;
+    let mut rbuf_mem: VkDeviceMemory = VK_NULL_HANDLE;
+    let mut vs_mod: VkShaderModule = VK_NULL_HANDLE;
+    let mut fs_mod: VkShaderModule = VK_NULL_HANDLE;
+    let mut pipe_layout: VkPipelineLayout = VK_NULL_HANDLE;
+    let mut pipeline: VkPipeline = VK_NULL_HANDLE;
+    let mut cmdpool: VkCommandPool = VK_NULL_HANDLE;
+
+    let result: Result<Vec<u8>, String> = 'run: {
+        // ── ① samplers(声明序 = Sampler 轴 binding 序;immutable 进 set3 layout)──
+        for r in resources {
+            if let GraphicsResource::Sampler(desc) = r {
+                let sci = sampler_create_info(desc);
+                let mut s: VkSampler = VK_NULL_HANDLE;
+                if create_sampler(device, &sci, std::ptr::null(), &mut s) != VK_SUCCESS {
+                    break 'run Err("vkCreateSampler 失败".into());
+                }
+                samplers.push(s);
+            }
+        }
+
+        // ── ② 有界 SRV 纹理 + ③ 无界表纹理(注册序 = table 切片序 = 索引)──
+        for r in resources {
+            if let GraphicsResource::Texture2D {
+                width: tw,
+                height: th,
+                data,
+            } = r
+                && let Err(e) = build_tex(&mut texs, *tw, *th, data)
+            {
+                break 'run Err(e);
+            }
+        }
+        for r in table {
+            let GraphicsResource::Texture2D {
+                width: tw,
+                height: th,
+                data,
+            } = r
+            else {
+                // validate_bindless_inputs 已拒;防御性兜底。
+                break 'run Err("bindless 表元素须为 Texture2D".into());
+            };
+            if let Err(e) = build_tex(&mut table_texs, *tw, *th, data) {
+                break 'run Err(e);
+            }
+        }
+
+        // ── ④ set layouts:有界 set0~3(v2 同律,空 set 占位)+ set4 无界表 ──
+        for set in 0..BINDLESS_SET {
+            let mut bindings: Vec<DescriptorSetLayoutBinding> = Vec::new();
+            for (r, &(s, b)) in resources.iter().zip(&plans) {
+                if s != set {
+                    continue;
+                }
+                let (dtype, stage_flags, p_imm) = match r {
+                    GraphicsResource::Texture2D { .. } => (
+                        DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+                        SHADER_STAGE_VERTEX | SHADER_STAGE_FRAGMENT,
+                        std::ptr::null(),
+                    ),
+                    // bindless 入口无 storage 面(validate_bindless_inputs 已拒)。
+                    GraphicsResource::StorageImage { .. } => {
+                        break 'run Err("bindless 入口不承载 storage image".into());
+                    }
+                    GraphicsResource::Sampler(_) => (
+                        DESCRIPTOR_TYPE_SAMPLER,
+                        SHADER_STAGE_VERTEX | SHADER_STAGE_FRAGMENT,
+                        (&samplers[b as usize]) as *const VkSampler as *const c_void,
+                    ),
+                };
+                bindings.push(DescriptorSetLayoutBinding {
+                    binding: b,
+                    descriptor_type: dtype,
+                    descriptor_count: 1,
+                    stage_flags,
+                    p_immutable_samplers: p_imm,
+                });
+            }
+            let dslci = DescriptorSetLayoutCreateInfo {
+                s_type: ST_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                binding_count: bindings.len() as u32,
+                p_bindings: if bindings.is_empty() {
+                    std::ptr::null()
+                } else {
+                    bindings.as_ptr()
+                },
+            };
+            let mut dsl: VkDescriptorSetLayout = VK_NULL_HANDLE;
+            if create_dsl(device, &dslci, std::ptr::null(), &mut dsl) != VK_SUCCESS {
+                break 'run Err("bindless 有界 vkCreateDescriptorSetLayout 失败".into());
+            }
+            set_layouts.push(dsl);
+        }
+        // set4 无界表 layout:binding 0 × table_len,UPDATE_AFTER_BIND + PARTIALLY_BOUND
+        // binding flags + UPDATE_AFTER_BIND_POOL layout flag(RXS-0235)。
+        {
+            let binding_flags: VkFlags =
+                DESCRIPTOR_BINDING_UPDATE_AFTER_BIND | DESCRIPTOR_BINDING_PARTIALLY_BOUND;
+            let bfci = DescriptorSetLayoutBindingFlagsCreateInfo {
+                s_type: ST_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO,
+                p_next: std::ptr::null(),
+                binding_count: 1,
+                p_binding_flags: &binding_flags,
+            };
+            let table_binding = DescriptorSetLayoutBinding {
+                binding: 0,
+                descriptor_type: DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+                descriptor_count: table_len,
+                stage_flags: SHADER_STAGE_VERTEX | SHADER_STAGE_FRAGMENT,
+                p_immutable_samplers: std::ptr::null(),
+            };
+            let dslci = DescriptorSetLayoutCreateInfo {
+                s_type: ST_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                p_next: (&bfci as *const DescriptorSetLayoutBindingFlagsCreateInfo)
+                    .cast::<c_void>(),
+                flags: DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL,
+                binding_count: 1,
+                p_bindings: &table_binding,
+            };
+            let mut dsl: VkDescriptorSetLayout = VK_NULL_HANDLE;
+            if create_dsl(device, &dslci, std::ptr::null(), &mut dsl) != VK_SUCCESS {
+                break 'run Err("bindless set4 vkCreateDescriptorSetLayout 失败".into());
+            }
+            set_layouts.push(dsl);
+        }
+
+        // ── ⑤ pipeline layout:set0~4 + push-constant range(table_len 下发面,负重点 a)──
+        let pc_range = PushConstantRange {
+            stage_flags: SHADER_STAGE_VERTEX | SHADER_STAGE_FRAGMENT,
+            offset: 0,
+            size: TABLE_LEN_PC_BYTES,
+        };
+        let plci = PipelineLayoutCreateInfo {
+            s_type: ST_PIPELINE_LAYOUT_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            set_layout_count: set_count,
+            p_set_layouts: set_layouts.as_ptr(),
+            push_constant_range_count: 1,
+            p_push_constant_ranges: &pc_range,
+        };
+        if create_pl(device, &plci, std::ptr::null(), &mut pipe_layout) != VK_SUCCESS {
+            break 'run Err("bindless vkCreatePipelineLayout 失败".into());
+        }
+
+        // ── ⑥ descriptor pool(UPDATE_AFTER_BIND flag)+ sets + update ──
+        let pool_sizes: Vec<DescriptorPoolSize> = pool_sizes_plan
+            .iter()
+            .map(|&(t, c)| DescriptorPoolSize {
+                descriptor_type: t,
+                descriptor_count: c,
+            })
+            .collect();
+        let dpci = DescriptorPoolCreateInfo {
+            s_type: ST_DESCRIPTOR_POOL_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND,
+            max_sets: set_count,
+            pool_size_count: pool_sizes.len() as u32,
+            p_pool_sizes: pool_sizes.as_ptr(),
+        };
+        if create_dpool(device, &dpci, std::ptr::null(), &mut desc_pool) != VK_SUCCESS {
+            break 'run Err("bindless vkCreateDescriptorPool 失败".into());
+        }
+        let dsai = DescriptorSetAllocateInfo {
+            s_type: ST_DESCRIPTOR_SET_ALLOCATE_INFO,
+            p_next: std::ptr::null(),
+            descriptor_pool: desc_pool,
+            descriptor_set_count: set_count,
+            p_set_layouts: set_layouts.as_ptr(),
+        };
+        let mut dsets: Vec<VkDescriptorSet> = vec![VK_NULL_HANDLE; set_count as usize];
+        if alloc_ds(device, &dsai, dsets.as_mut_ptr()) != VK_SUCCESS {
+            break 'run Err("bindless vkAllocateDescriptorSets 失败".into());
+        }
+        // image infos 先建全(向量此后不增删,写引用其元素地址稳定):有界 SRV + 无界表。
+        let mut image_infos: Vec<DescriptorImageInfo> = Vec::new();
+        for t in &texs {
+            image_infos.push(DescriptorImageInfo {
+                sampler: VK_NULL_HANDLE,
+                image_view: t.view,
+                image_layout: IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            });
+        }
+        let table_info_base = image_infos.len();
+        for t in &table_texs {
+            image_infos.push(DescriptorImageInfo {
+                sampler: VK_NULL_HANDLE,
+                image_view: t.view,
+                image_layout: IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            });
+        }
+        let mut writes: Vec<WriteDescriptorSet> = Vec::new();
+        let mut info_i = 0usize;
+        for (r, &(s, b)) in resources.iter().zip(&plans) {
+            if !matches!(r, GraphicsResource::Texture2D { .. }) {
+                continue; // sampler = immutable 无 write;storage 已拒。
+            }
+            writes.push(WriteDescriptorSet {
+                s_type: ST_WRITE_DESCRIPTOR_SET,
+                p_next: std::ptr::null(),
+                dst_set: dsets[s as usize],
+                dst_binding: b,
+                dst_array_element: 0,
+                descriptor_count: 1,
+                descriptor_type: DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+                p_image_info: (&image_infos[info_i]) as *const DescriptorImageInfo as *const c_void,
+                p_buffer_info: std::ptr::null(),
+                p_texel_buffer_view: std::ptr::null(),
+            });
+            info_i += 1;
+        }
+        // 无界表写入:set4 binding0,dstArrayElement = 注册序 = 索引(RXS-0235;
+        // 写入仅发生在提交前,in-flight 期间不更新)。
+        for (i, _) in table_texs.iter().enumerate() {
+            writes.push(WriteDescriptorSet {
+                s_type: ST_WRITE_DESCRIPTOR_SET,
+                p_next: std::ptr::null(),
+                dst_set: dsets[BINDLESS_SET as usize],
+                dst_binding: 0,
+                dst_array_element: i as u32,
+                descriptor_count: 1,
+                descriptor_type: DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+                p_image_info: (&image_infos[table_info_base + i]) as *const DescriptorImageInfo
+                    as *const c_void,
+                p_buffer_info: std::ptr::null(),
+                p_texel_buffer_view: std::ptr::null(),
+            });
+        }
+        if !writes.is_empty() {
+            update_ds(
+                device,
+                writes.len() as u32,
+                writes.as_ptr(),
+                0,
+                std::ptr::null(),
+            );
+        }
+
+        // ── ⑦ v2 镜像:color image / view / render pass / framebuffer ──
+        let img_ci = ImageCreateInfo {
+            s_type: ST_IMAGE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            image_type: IMAGE_TYPE_2D,
+            format: FORMAT_R8G8B8A8_UNORM,
+            extent: VkExtent3D {
+                width,
+                height,
+                depth: 1,
+            },
+            mip_levels: 1,
+            array_layers: 1,
+            samples: SAMPLE_COUNT_1,
+            tiling: IMAGE_TILING_OPTIMAL,
+            usage: IMAGE_USAGE_COLOR_ATTACHMENT | IMAGE_USAGE_TRANSFER_SRC,
+            sharing_mode: SHARING_MODE_EXCLUSIVE,
+            queue_family_index_count: 0,
+            p_queue_family_indices: std::ptr::null(),
+            initial_layout: IMAGE_LAYOUT_UNDEFINED,
+        };
+        if create_image(device, &img_ci, std::ptr::null(), &mut color_image) != VK_SUCCESS {
+            break 'run Err("vkCreateImage 失败".into());
+        }
+        let mut ireq = std::mem::zeroed::<MemoryRequirements>();
+        img_mem_req(device, color_image, &mut ireq);
+        let Some(imt) = pick_mem_type(&memprops, ireq.memory_type_bits, MEM_DEVICE_LOCAL) else {
+            break 'run Err("无 device-local 内存类型".into());
+        };
+        let mai = MemoryAllocateInfo {
+            s_type: ST_MEMORY_ALLOCATE_INFO,
+            p_next: std::ptr::null(),
+            allocation_size: ireq.size,
+            memory_type_index: imt,
+        };
+        if alloc_mem(device, &mai, std::ptr::null(), &mut color_mem) != VK_SUCCESS {
+            break 'run Err("color image vkAllocateMemory 失败".into());
+        }
+        bind_image(device, color_image, color_mem, 0);
+        match make_view(color_image, FORMAT_R8G8B8A8_UNORM, 1) {
+            Ok(v) => color_view = v,
+            Err(e) => break 'run Err(e),
+        }
+
+        let att = AttachmentDescription {
+            flags: 0,
+            format: FORMAT_R8G8B8A8_UNORM,
+            samples: SAMPLE_COUNT_1,
+            load_op: ATTACHMENT_LOAD_OP_CLEAR,
+            store_op: ATTACHMENT_STORE_OP_STORE,
+            stencil_load_op: ATTACHMENT_LOAD_OP_DONT_CARE,
+            stencil_store_op: ATTACHMENT_STORE_OP_DONT_CARE,
+            initial_layout: IMAGE_LAYOUT_UNDEFINED,
+            final_layout: IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        };
+        let att_ref = AttachmentReference {
+            attachment: 0,
+            layout: IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        };
+        let subpass = SubpassDescription {
+            flags: 0,
+            pipeline_bind_point: PIPELINE_BIND_POINT_GRAPHICS,
+            input_attachment_count: 0,
+            p_input_attachments: std::ptr::null(),
+            color_attachment_count: 1,
+            p_color_attachments: &att_ref,
+            p_resolve_attachments: std::ptr::null(),
+            p_depth_stencil_attachment: std::ptr::null(),
+            preserve_attachment_count: 0,
+            p_preserve_attachments: std::ptr::null(),
+        };
+        let rp_ci = RenderPassCreateInfo {
+            s_type: ST_RENDER_PASS_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            attachment_count: 1,
+            p_attachments: &att,
+            subpass_count: 1,
+            p_subpasses: &subpass,
+            dependency_count: 0,
+            p_dependencies: std::ptr::null(),
+        };
+        if create_rp(device, &rp_ci, std::ptr::null(), &mut render_pass) != VK_SUCCESS {
+            break 'run Err("vkCreateRenderPass 失败".into());
+        }
+        let fb_ci = FramebufferCreateInfo {
+            s_type: ST_FRAMEBUFFER_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            render_pass,
+            attachment_count: 1,
+            p_attachments: &color_view,
+            width,
+            height,
+            layers: 1,
+        };
+        if create_fb(device, &fb_ci, std::ptr::null(), &mut framebuffer) != VK_SUCCESS {
+            break 'run Err("vkCreateFramebuffer 失败".into());
+        }
+
+        // ── 顶点缓冲 + 回读缓冲 ──
+        match make_host_buffer(BUFFER_USAGE_VERTEX, vertices.len().max(4) as u64) {
+            Ok((b, m)) => {
+                vbuf = b;
+                vbuf_mem = m;
+            }
+            Err(e) => {
+                break 'run Err(e);
+            }
+        }
+        {
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            if map_mem(device, vbuf_mem, 0, WHOLE_SIZE, 0, &mut ptr) != VK_SUCCESS {
+                break 'run Err("顶点缓冲 vkMapMemory 失败".into());
+            }
+            std::ptr::copy_nonoverlapping(vertices.as_ptr(), ptr.cast::<u8>(), vertices.len());
+            unmap_mem(device, vbuf_mem);
+        }
+        match make_host_buffer(BUFFER_USAGE_TRANSFER_DST, readback_len as u64) {
+            Ok((b, m)) => {
+                rbuf = b;
+                rbuf_mem = m;
+            }
+            Err(e) => {
+                break 'run Err(e);
+            }
+        }
+
+        // ── shader modules(pName 恒 "main")──
+        let make_shader = |spv: &[u32]| -> Result<VkShaderModule, String> {
+            let smci = ShaderModuleCreateInfo {
+                s_type: ST_SHADER_MODULE_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                code_size: spv.len() * 4,
+                p_code: spv.as_ptr(),
+            };
+            let mut m: VkShaderModule = VK_NULL_HANDLE;
+            if create_shader(device, &smci, std::ptr::null(), &mut m) != VK_SUCCESS {
+                return Err("vkCreateShaderModule 失败(VUID-...-08742?)".into());
+            }
+            Ok(m)
+        };
+        match make_shader(vs_spv) {
+            Ok(m) => vs_mod = m,
+            Err(e) => {
+                break 'run Err(format!("vertex {e}"));
+            }
+        }
+        match make_shader(fs_spv) {
+            Ok(m) => fs_mod = m,
+            Err(e) => {
+                break 'run Err(format!("fragment {e}"));
+            }
+        }
+
+        // ── graphics pipeline(layout = set0~4 + push-constant range)──
+        let stages = [
+            PipelineShaderStageCreateInfo {
+                s_type: ST_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                stage: SHADER_STAGE_VERTEX,
+                module: vs_mod,
+                p_name: c"main".as_ptr(),
+                p_specialization_info: std::ptr::null(),
+            },
+            PipelineShaderStageCreateInfo {
+                s_type: ST_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                stage: SHADER_STAGE_FRAGMENT,
+                module: fs_mod,
+                p_name: c"main".as_ptr(),
+                p_specialization_info: std::ptr::null(),
+            },
+        ];
+        let vbind = VkVertexInputBindingDescription {
+            binding: 0,
+            stride: vertex_stride,
+            input_rate: VERTEX_INPUT_RATE_VERTEX,
+        };
+        let vattrs: Vec<VkVertexInputAttributeDescription> = attrs
+            .iter()
+            .map(
+                |&(location, format, offset)| VkVertexInputAttributeDescription {
+                    location,
+                    binding: 0,
+                    format,
+                    offset,
+                },
+            )
+            .collect();
+        let vin = PipelineVertexInputStateCreateInfo {
+            s_type: ST_PIPELINE_VERTEX_INPUT_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            vertex_binding_description_count: 1,
+            p_vertex_binding_descriptions: &vbind,
+            vertex_attribute_description_count: vattrs.len() as u32,
+            p_vertex_attribute_descriptions: vattrs.as_ptr(),
+        };
+        let ia = PipelineInputAssemblyStateCreateInfo {
+            s_type: ST_PIPELINE_INPUT_ASSEMBLY_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            topology: PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+            primitive_restart_enable: 0,
+        };
+        let viewport = VkViewport {
+            x: 0.0,
+            y: 0.0,
+            width: width as f32,
+            height: height as f32,
+            min_depth: 0.0,
+            max_depth: 1.0,
+        };
+        let scissor = VkRect2D {
+            offset: VkOffset2D { x: 0, y: 0 },
+            extent: VkExtent2D { width, height },
+        };
+        let vp = PipelineViewportStateCreateInfo {
+            s_type: ST_PIPELINE_VIEWPORT_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            viewport_count: 1,
+            p_viewports: &viewport,
+            scissor_count: 1,
+            p_scissors: &scissor,
+        };
+        let rs = PipelineRasterizationStateCreateInfo {
+            s_type: ST_PIPELINE_RASTERIZATION_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            depth_clamp_enable: 0,
+            rasterizer_discard_enable: 0,
+            polygon_mode: POLYGON_MODE_FILL,
+            cull_mode: CULL_MODE_NONE,
+            front_face: FRONT_FACE_COUNTER_CLOCKWISE,
+            depth_bias_enable: 0,
+            depth_bias_constant_factor: 0.0,
+            depth_bias_clamp: 0.0,
+            depth_bias_slope_factor: 0.0,
+            line_width: 1.0,
+        };
+        let ms = PipelineMultisampleStateCreateInfo {
+            s_type: ST_PIPELINE_MULTISAMPLE_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            rasterization_samples: SAMPLE_COUNT_1,
+            sample_shading_enable: 0,
+            min_sample_shading: 0.0,
+            p_sample_mask: std::ptr::null(),
+            alpha_to_coverage_enable: 0,
+            alpha_to_one_enable: 0,
+        };
+        let blend_att = PipelineColorBlendAttachmentState {
+            blend_enable: 0,
+            src_color_blend_factor: 0,
+            dst_color_blend_factor: 0,
+            color_blend_op: 0,
+            src_alpha_blend_factor: 0,
+            dst_alpha_blend_factor: 0,
+            alpha_blend_op: 0,
+            color_write_mask: COLOR_COMPONENT_RGBA,
+        };
+        let cb = PipelineColorBlendStateCreateInfo {
+            s_type: ST_PIPELINE_COLOR_BLEND_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            logic_op_enable: 0,
+            logic_op: 0,
+            attachment_count: 1,
+            p_attachments: &blend_att,
+            blend_constants: [0.0; 4],
+        };
+        let gpci = GraphicsPipelineCreateInfo {
+            s_type: ST_GRAPHICS_PIPELINE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            stage_count: 2,
+            p_stages: stages.as_ptr(),
+            p_vertex_input_state: &vin,
+            p_input_assembly_state: &ia,
+            p_tessellation_state: std::ptr::null(),
+            p_viewport_state: &vp,
+            p_rasterization_state: &rs,
+            p_multisample_state: &ms,
+            p_depth_stencil_state: std::ptr::null(),
+            p_color_blend_state: &cb,
+            p_dynamic_state: std::ptr::null(),
+            layout: pipe_layout,
+            render_pass,
+            subpass: 0,
+            base_pipeline_handle: VK_NULL_HANDLE,
+            base_pipeline_index: -1,
+        };
+        let r = create_gp(
+            device,
+            VK_NULL_HANDLE,
+            1,
+            &gpci,
+            std::ptr::null(),
+            &mut pipeline,
+        );
+        if r != VK_SUCCESS {
+            break 'run Err(format!("vkCreateGraphicsPipelines 失败: {r}"));
+        }
+
+        // ── command pool + buffer + 录制 ──
+        let cpci = CommandPoolCreateInfo {
+            s_type: ST_COMMAND_POOL_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            queue_family_index: qfi,
+        };
+        if create_cmdpool(device, &cpci, std::ptr::null(), &mut cmdpool) != VK_SUCCESS {
+            break 'run Err("vkCreateCommandPool 失败".into());
+        }
+        let cbai = CommandBufferAllocateInfo {
+            s_type: ST_COMMAND_BUFFER_ALLOCATE_INFO,
+            p_next: std::ptr::null(),
+            command_pool: cmdpool,
+            level: CMD_BUFFER_LEVEL_PRIMARY,
+            command_buffer_count: 1,
+        };
+        let mut cmd: VkCommandBuffer = std::ptr::null_mut();
+        alloc_cmd(device, &cbai, &mut cmd);
+        let cbbi = CommandBufferBeginInfo {
+            s_type: ST_COMMAND_BUFFER_BEGIN_INFO,
+            p_next: std::ptr::null(),
+            flags: CMD_BUFFER_USAGE_ONE_TIME_SUBMIT,
+            p_inheritance_info: std::ptr::null(),
+        };
+        begin_cmd(cmd, &cbbi);
+
+        // ── 纹理上传与 layout 迁移(有界 + 无界表同一纪律;render pass 前)──
+        for t in texs.iter().chain(table_texs.iter()) {
+            let to_dst = ImageMemoryBarrier {
+                s_type: ST_IMAGE_MEMORY_BARRIER,
+                p_next: std::ptr::null(),
+                src_access_mask: 0,
+                dst_access_mask: ACCESS_TRANSFER_WRITE,
+                old_layout: IMAGE_LAYOUT_UNDEFINED,
+                new_layout: IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                src_queue_family_index: QUEUE_FAMILY_IGNORED,
+                dst_queue_family_index: QUEUE_FAMILY_IGNORED,
+                image: t.image,
+                subresource_range: VkImageSubresourceRange {
+                    aspect_mask: IMAGE_ASPECT_COLOR,
+                    base_mip_level: 0,
+                    level_count: t.levels,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                },
+            };
+            cmd_barrier(
+                cmd,
+                PIPELINE_STAGE_TOP_OF_PIPE,
+                PIPELINE_STAGE_TRANSFER,
+                0,
+                0,
+                std::ptr::null(),
+                0,
+                std::ptr::null(),
+                1,
+                &to_dst,
+            );
+        }
+        // 逐层 staging → image copy(偏移与上传写入同源 mip_staging_layout)。
+        {
+            let tex_sources = resources
+                .iter()
+                .filter(|r| matches!(r, GraphicsResource::Texture2D { .. }))
+                .chain(table.iter());
+            for (r, t) in tex_sources.zip(texs.iter().chain(table_texs.iter())) {
+                let GraphicsResource::Texture2D {
+                    width: tw,
+                    height: th,
+                    data,
+                } = r
+                else {
+                    continue;
+                };
+                let extents = mip_level_extents(*tw, *th, t.levels);
+                let (_, offsets) = mip_staging_layout(&extents, data.bytes_per_texel());
+                for (lvl, (&(w, h), &off)) in extents.iter().zip(offsets.iter()).enumerate() {
+                    let region = VkBufferImageCopy {
+                        buffer_offset: off,
+                        buffer_row_length: 0,
+                        buffer_image_height: 0,
+                        image_subresource: VkImageSubresourceLayers {
+                            aspect_mask: IMAGE_ASPECT_COLOR,
+                            mip_level: lvl as u32,
+                            base_array_layer: 0,
+                            layer_count: 1,
+                        },
+                        image_offset: VkOffset3D { x: 0, y: 0, z: 0 },
+                        image_extent: VkExtent3D {
+                            width: w,
+                            height: h,
+                            depth: 1,
+                        },
+                    };
+                    cmd_copy_buf_img(
+                        cmd,
+                        t.staging,
+                        t.image,
+                        IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                        1,
+                        &region,
+                    );
+                }
+            }
+        }
+        for t in texs.iter().chain(table_texs.iter()) {
+            let to_read = ImageMemoryBarrier {
+                s_type: ST_IMAGE_MEMORY_BARRIER,
+                p_next: std::ptr::null(),
+                src_access_mask: ACCESS_TRANSFER_WRITE,
+                dst_access_mask: ACCESS_SHADER_READ,
+                old_layout: IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                new_layout: IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                src_queue_family_index: QUEUE_FAMILY_IGNORED,
+                dst_queue_family_index: QUEUE_FAMILY_IGNORED,
+                image: t.image,
+                subresource_range: VkImageSubresourceRange {
+                    aspect_mask: IMAGE_ASPECT_COLOR,
+                    base_mip_level: 0,
+                    level_count: t.levels,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                },
+            };
+            cmd_barrier(
+                cmd,
+                PIPELINE_STAGE_TRANSFER,
+                PIPELINE_STAGE_VERTEX_SHADER | PIPELINE_STAGE_FRAGMENT_SHADER,
+                0,
+                0,
+                std::ptr::null(),
+                0,
+                std::ptr::null(),
+                1,
+                &to_read,
+            );
+        }
+
+        // ── render pass:clear → bind(pipeline + set0~4)→ push-constant → draw ──
+        let clear_val = ClearValue { color: clear };
+        let rpbi = RenderPassBeginInfo {
+            s_type: ST_RENDER_PASS_BEGIN_INFO,
+            p_next: std::ptr::null(),
+            render_pass,
+            framebuffer,
+            render_area: VkRect2D {
+                offset: VkOffset2D { x: 0, y: 0 },
+                extent: VkExtent2D { width, height },
+            },
+            clear_value_count: 1,
+            p_clear_values: &clear_val,
+        };
+        cmd_begin_rp(cmd, &rpbi, SUBPASS_CONTENTS_INLINE);
+        cmd_bind_pipe(cmd, PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+        cmd_bind_ds(
+            cmd,
+            PIPELINE_BIND_POINT_GRAPHICS,
+            pipe_layout,
+            0,
+            set_count,
+            dsets.as_ptr(),
+            0,
+            std::ptr::null(),
+        );
+        // table_len 下发(负重点 a;RXS-0208 尾槽/RXS-0234):stageFlags 与 range 逐位一致,
+        // 注册计数即 clamp 上界源——缺此调用则 shader 读未初始化 push-constant。
+        cmd_push_constants(
+            cmd,
+            pipe_layout,
+            SHADER_STAGE_VERTEX | SHADER_STAGE_FRAGMENT,
+            0,
+            TABLE_LEN_PC_BYTES,
+            (&table_len as *const u32).cast::<c_void>(),
+        );
+        let vbuf_offset: VkDeviceSize = 0;
+        cmd_bind_vbuf(cmd, 0, 1, &vbuf, &vbuf_offset);
+        let vertex_count = if vertex_stride > 0 {
+            (vertices.len() / vertex_stride as usize) as u32
+        } else {
+            0
+        };
+        cmd_draw(cmd, vertex_count, 1, 0, 0);
+        cmd_end_rp(cmd);
+
+        // color-write → transfer-read 屏障 + 回读 copy(v1/v2 镜像)。
+        let barrier = ImageMemoryBarrier {
+            s_type: ST_IMAGE_MEMORY_BARRIER,
+            p_next: std::ptr::null(),
+            src_access_mask: ACCESS_COLOR_ATTACHMENT_WRITE,
+            dst_access_mask: ACCESS_TRANSFER_READ,
+            old_layout: IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            new_layout: IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            src_queue_family_index: QUEUE_FAMILY_IGNORED,
+            dst_queue_family_index: QUEUE_FAMILY_IGNORED,
+            image: color_image,
+            subresource_range: VkImageSubresourceRange {
+                aspect_mask: IMAGE_ASPECT_COLOR,
+                base_mip_level: 0,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+        };
+        cmd_barrier(
+            cmd,
+            PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT,
+            PIPELINE_STAGE_TRANSFER,
+            0,
+            0,
+            std::ptr::null(),
+            0,
+            std::ptr::null(),
+            1,
+            &barrier,
+        );
+        let region = VkBufferImageCopy {
+            buffer_offset: 0,
+            buffer_row_length: 0,
+            buffer_image_height: 0,
+            image_subresource: VkImageSubresourceLayers {
+                aspect_mask: IMAGE_ASPECT_COLOR,
+                mip_level: 0,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+            image_offset: VkOffset3D { x: 0, y: 0, z: 0 },
+            image_extent: VkExtent3D {
+                width,
+                height,
+                depth: 1,
+            },
+        };
+        cmd_copy_img_buf(
+            cmd,
+            color_image,
+            IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            rbuf,
+            1,
+            &region,
+        );
+        end_cmd(cmd);
+
+        // 提交 + 等待 + 回读。
+        let si = SubmitInfo {
+            s_type: ST_SUBMIT_INFO,
+            p_next: std::ptr::null(),
+            wait_semaphore_count: 0,
+            p_wait_semaphores: std::ptr::null(),
+            p_wait_dst_stage_mask: std::ptr::null(),
+            command_buffer_count: 1,
+            p_command_buffers: &cmd,
+            signal_semaphore_count: 0,
+            p_signal_semaphores: std::ptr::null(),
+        };
+        let r = queue_submit(queue, 1, &si, VK_NULL_HANDLE);
+        if r != VK_SUCCESS {
+            break 'run Err(format!("vkQueueSubmit 失败: {r}"));
+        }
+        queue_wait(queue);
+
+        let mut ptr: *mut c_void = std::ptr::null_mut();
+        if map_mem(device, rbuf_mem, 0, WHOLE_SIZE, 0, &mut ptr) != VK_SUCCESS {
+            break 'run Err("回读 vkMapMemory 失败".into());
+        }
+        let mut pixels = vec![0u8; readback_len];
+        std::ptr::copy_nonoverlapping(ptr.cast::<u8>(), pixels.as_mut_ptr(), readback_len);
+        unmap_mem(device, rbuf_mem);
+        Ok(pixels)
+    };
+
+    // ── 逆序销毁(非 null 者;pool 先于 setLayout,sampler 在 pool/layout 之后)──
+    if cmdpool != VK_NULL_HANDLE {
+        destroy_cmdpool(device, cmdpool, std::ptr::null());
+    }
+    if pipeline != VK_NULL_HANDLE {
+        destroy_pipe(device, pipeline, std::ptr::null());
+    }
+    if pipe_layout != VK_NULL_HANDLE {
+        destroy_pl(device, pipe_layout, std::ptr::null());
+    }
+    if desc_pool != VK_NULL_HANDLE {
+        destroy_dpool(device, desc_pool, std::ptr::null());
+    }
+    for &dsl in &set_layouts {
+        if dsl != VK_NULL_HANDLE {
+            destroy_dsl(device, dsl, std::ptr::null());
+        }
+    }
+    if fs_mod != VK_NULL_HANDLE {
+        destroy_shader(device, fs_mod, std::ptr::null());
+    }
+    if vs_mod != VK_NULL_HANDLE {
+        destroy_shader(device, vs_mod, std::ptr::null());
+    }
+    if rbuf != VK_NULL_HANDLE {
+        destroy_buffer(device, rbuf, std::ptr::null());
+    }
+    if rbuf_mem != VK_NULL_HANDLE {
+        free_mem(device, rbuf_mem, std::ptr::null());
+    }
+    if vbuf != VK_NULL_HANDLE {
+        destroy_buffer(device, vbuf, std::ptr::null());
+    }
+    if vbuf_mem != VK_NULL_HANDLE {
+        free_mem(device, vbuf_mem, std::ptr::null());
+    }
+    for t in texs.iter().chain(table_texs.iter()) {
+        if t.view != VK_NULL_HANDLE {
+            destroy_view(device, t.view, std::ptr::null());
+        }
+        if t.image != VK_NULL_HANDLE {
+            destroy_image(device, t.image, std::ptr::null());
+        }
+        if t.mem != VK_NULL_HANDLE {
+            free_mem(device, t.mem, std::ptr::null());
+        }
+        if t.staging != VK_NULL_HANDLE {
+            destroy_buffer(device, t.staging, std::ptr::null());
+        }
+        if t.staging_mem != VK_NULL_HANDLE {
+            free_mem(device, t.staging_mem, std::ptr::null());
+        }
+    }
+    for &s in &samplers {
+        if s != VK_NULL_HANDLE {
+            destroy_sampler(device, s, std::ptr::null());
+        }
+    }
+    if framebuffer != VK_NULL_HANDLE {
+        destroy_fb(device, framebuffer, std::ptr::null());
+    }
+    if render_pass != VK_NULL_HANDLE {
+        destroy_rp(device, render_pass, std::ptr::null());
+    }
+    if color_view != VK_NULL_HANDLE {
+        destroy_view(device, color_view, std::ptr::null());
+    }
+    if color_image != VK_NULL_HANDLE {
+        destroy_image(device, color_image, std::ptr::null());
+    }
+    if color_mem != VK_NULL_HANDLE {
+        free_mem(device, color_mem, std::ptr::null());
+    }
+
+    result
+}
+
 // ───────────────────── win32 swapchain present(RXS-0210 L4,W6) ──────────────
 // present 完成 RXS-0210 的 L4 present-defer(RD-032 的 code-deferral 部分):真 win32
 // surface + swapchain 出图 + `vkQueuePresentKHR`,并**经 swapchain-image readback 数值校验**
@@ -6621,6 +8362,28 @@ pub fn sampling_shaders_spv() -> SamplingShadersSpv {
     }
 }
 
+/// G3.4 bindless device 判据模式着色器 SPIR-V(RFC-0013 §4.C4;RXS-0231~0235)。
+/// `build.rs` 经 `dxil_spirv::emit_spirv_body_vulkan`(Vulkan 原生路;无界表 set4 binding0 +
+/// sampler set3 binding0 装饰与 [`run_graphics_offscreen_bindless`] 分配律同源镜像)对
+/// `conformance/dxil/graphics/accept/bindless_*.rx` 产,`include_bytes!` 自 `OUT_DIR`。
+/// codegen 降级 → 空切片,harness(`bin/bindless_modes`)据空 SKIP(非 fake)。
+pub struct BindlessShadersSpv {
+    /// 四象限 vertex(pos + uv perspective + idx flat u32 passthrough)。
+    pub quadrant_vs: &'static [u8],
+    /// 无界表动态非均匀索引采样 fragment(`table[nonuniform(idx)].sample(samp, uv)`;
+    /// clamp `UMin(idx, table_len-1)`,table_len 经 push-constant 尾槽,RXS-0234)。
+    pub sample_fs: &'static [u8],
+}
+
+/// [`BindlessShadersSpv`] 全体(build.rs 嵌入的 bindless device 模式 SPIR-V)。
+//@ spec: RXS-0234, RXS-0235
+pub fn bindless_shaders_spv() -> BindlessShadersSpv {
+    BindlessShadersSpv {
+        quadrant_vs: include_bytes!(concat!(env!("OUT_DIR"), "/bindless_quadrant_vs.spv")),
+        sample_fs: include_bytes!(concat!(env!("OUT_DIR"), "/bindless_sample_fs.spv")),
+    }
+}
+
 // ── Android on-device present（VK_KHR_android_surface;尾门 G-MB1-7 兑现） ────────
 // libandroid liblog:`__android_log_write`——on-device validation 消息(VUID)直落 logcat
 // (tag `RurixVK-VVL`),证 layer 真加载(桌面 messenger 走 stderr,android 无用故改 logcat)。
@@ -7664,5 +9427,100 @@ mod tests {
         assert_eq!(sci2.compare_op, 3, "LessEqual → LESS_OR_EQUAL");
         assert_eq!(sci2.min_lod, 0.5);
         assert_eq!(sci2.max_lod, 4.0, "未超钳值不动");
+    }
+
+    /// RXS-0235(G3.4 bindless):feature chain 四 bit 全在 → Ok(本机 RTX 4070 Ti 实况的
+    /// host 镜像基线)。无设备(纯函数)。
+    //@ spec: RXS-0235
+    #[test]
+    fn bindless_feature_chain_all_present_ok() {
+        assert_eq!(
+            check_descriptor_indexing_bits(&DescriptorIndexingBits::all_present()),
+            Ok(())
+        );
+    }
+
+    /// RXS-0235(G3.4 bindless):feature chain **missing 路 mock**——四 bit 逐一缺失 →
+    /// 确定性 `Err` 且消息点名缺失位;多缺失全列。本机四 bit 全在,missing 路无真设备
+    /// 可跑,mock 即其唯一诚实覆盖(RXS-0193 封口,无静默降级 P-01)。
+    //@ spec: RXS-0235
+    #[test]
+    fn bindless_feature_chain_missing_bits_err() {
+        type ClearBit = fn(&mut DescriptorIndexingBits);
+        let cases: [(&str, ClearBit); 4] = [
+            ("shaderSampledImageArrayNonUniformIndexing", |b| {
+                b.sampled_image_non_uniform = false
+            }),
+            ("descriptorBindingSampledImageUpdateAfterBind", |b| {
+                b.sampled_image_update_after_bind = false
+            }),
+            ("descriptorBindingPartiallyBound", |b| {
+                b.partially_bound = false
+            }),
+            ("runtimeDescriptorArray", |b| {
+                b.runtime_descriptor_array = false
+            }),
+        ];
+        for (name, clear) in cases {
+            let mut bits = DescriptorIndexingBits::all_present();
+            clear(&mut bits);
+            let e = check_descriptor_indexing_bits(&bits)
+                .expect_err("任一 bit 缺失应确定性 Err(无静默降级)");
+            assert!(e.contains(name), "Err 应点名缺失位 {name}: {e}");
+        }
+        // 全缺失:四位全列(确定性拒,列全便于 owner 定位驱动面)。
+        let none = DescriptorIndexingBits {
+            sampled_image_non_uniform: false,
+            sampled_image_update_after_bind: false,
+            partially_bound: false,
+            runtime_descriptor_array: false,
+        };
+        let e = check_descriptor_indexing_bits(&none).expect_err("全缺失应 Err");
+        for name in [
+            "shaderSampledImageArrayNonUniformIndexing",
+            "descriptorBindingSampledImageUpdateAfterBind",
+            "descriptorBindingPartiallyBound",
+            "runtimeDescriptorArray",
+        ] {
+            assert!(e.contains(name), "全缺失 Err 应全列: {e}");
+        }
+    }
+
+    /// RXS-0233/0235(G3.4 bindless):入口纯 host 预校验——空表拒 / 非纹理表元素拒
+    /// (无界 Sampler 维持 Unmappable 口径)/ 有界 storage 拒(归 v2);合法组合 Ok。
+    /// `VkPhysicalDeviceDescriptorIndexingFeatures` 布局锚:20 个 VkBool32 + sType/pNext 头。
+    //@ spec: RXS-0233
+    //@ spec: RXS-0235
+    #[test]
+    fn bindless_input_validation_and_ffi_layout() {
+        let tex = GraphicsResource::Texture2D {
+            width: 2,
+            height: 2,
+            data: TextureData::Rgba8(vec![vec![0u8; 16]]),
+        };
+        let samp = GraphicsResource::Sampler(SamplerDesc::default());
+        // 合法:有界 [Sampler] + 表 [tex; 4]。
+        let table = vec![tex.clone(), tex.clone(), tex.clone(), tex.clone()];
+        assert!(validate_bindless_inputs(std::slice::from_ref(&samp), &table).is_ok());
+        // 空表拒。
+        assert!(validate_bindless_inputs(&[], &[]).is_err());
+        // 表元素非纹理拒(无界 Sampler/CBV/UAV 维持 Unmappable,RXS-0233)。
+        assert!(validate_bindless_inputs(&[], std::slice::from_ref(&samp)).is_err());
+        // 有界 storage 拒(bindless 入口首期面窄;storage 归 v2)。
+        let sto = GraphicsResource::StorageImage {
+            width: 4,
+            height: 4,
+            format: StorageFormat::Rgba8Unorm,
+        };
+        assert!(validate_bindless_inputs(std::slice::from_ref(&sto), &table).is_err());
+        // FFI 布局锚:sType(u32)+ pad + pNext(ptr)+ 20×VkBool32(x64:8+8+80=96)。
+        assert_eq!(
+            std::mem::size_of::<PhysicalDeviceDescriptorIndexingFeatures>(),
+            std::mem::size_of::<*const c_void>() * 2 + DESCRIPTOR_INDEXING_FEATURE_COUNT * 4,
+            "VkPhysicalDeviceDescriptorIndexingFeatures 布局(头 16 + 20×4)"
+        );
+        // properties blob ≥ 真实 VkPhysicalDeviceProperties(x64 约 824 B)严格超集 + 8 对齐。
+        assert!(std::mem::size_of::<PhysicalDevicePropertiesBlob>() >= 1024);
+        assert_eq!(std::mem::align_of::<PhysicalDevicePropertiesBlob>(), 8);
     }
 }
