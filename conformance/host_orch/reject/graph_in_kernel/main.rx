@@ -1,0 +1,16 @@
+//@ spec: RXS-0236
+//@ expect-error: RX3015
+// 宿主 API 着色合法性(RXS-0236 承 RXS-0189):render graph 宿主构造与方法出现在 kernel
+// 体内 → RX3015(coloring 层,与 RX3001 同点位;Graph::create / color_target / pass /
+// execute 与 Context::create 同属 std::gpu 宿主识别面,construct 与方法调用同拦)。
+kernel fn bad(t: ThreadCtx<1>) {
+    let c = Context::create();
+    let g = Graph::create(&c);
+    let a = g.color_target(64, 64);
+    g.pass().writes_rt(a);
+    g.execute();
+}
+
+fn main() -> i32 {
+    0
+}

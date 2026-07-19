@@ -39,6 +39,7 @@ use std::ffi::CStr;
 use std::sync::{Mutex, MutexGuard, OnceLock};
 
 use rurix_rt::fatbin::DeviceArtifactSet;
+use rurix_rt::graph::{Access, AccessKind, Graph, PassSpec, ResourceId};
 use rurix_rt::{DeviceBox, PinnedBox, SharedContext, SharedModule, SharedStream};
 
 mod artifacts;
@@ -156,6 +157,19 @@ struct TableEntry {
     textures: Vec<u64>,
 }
 
+/// G3.5 render graph(RXS-0241):std::gpu `Graph` 宿主图结构条目——承载 rurix-rt `graph.rs`
+/// 纯 host 图(资源表 + 声明序 pass 序列)。资源/pass/declare/readback 增量建面,`execute`
+/// 时组装 → 装配核验(RX6029/RX6030)→ 纯函数状态推导。**装配核验与推导本体归 graph.rs**
+/// (P-11 单一事实源);本 cabi 面仅承载增量建面与 execute 转发。
+struct GraphEntry {
+    /// 所属 ctx 句柄(poisoned 检查 / 清表锚)。
+    ctx: u64,
+    /// graph.rs 图(资源已建;pass 于 execute 时注入)。
+    graph: Graph,
+    /// 增量建面中的 pass 序列(声明序 = 提交序;execute 时 `add_pass` 注入 graph)。
+    passes: Vec<PassSpec>,
+}
+
 /// 进程级句柄表(单锁:无锁序问题;宿主 `.rx` 首期单线程,互斥仅为 Send/Sync 健全性)。
 #[derive(Default)]
 struct Tables {
@@ -166,6 +180,12 @@ struct Tables {
     pinned: HashMap<u64, PinnedEntry>,
     /// G3.4 bindless(RXS-0235):`TextureTable` 注册面(只追加符号族 `rxrt_table_*`)。
     texture_tables: HashMap<u64, TableEntry>,
+    /// G3.5 render graph(RXS-0241):`Graph` 图结构面(只追加符号族 `rxrt_graph_*`)。
+    graphs: HashMap<u64, GraphEntry>,
+    /// 资源句柄 → (所属 graph 句柄, 资源下标):`GraphResource<C>` u64 affine 句柄映射。
+    graph_resources: HashMap<u64, (u64, u32)>,
+    /// pass 句柄 → (所属 graph 句柄, pass 下标):`PassBuilder<C>` u64 affine 句柄映射。
+    graph_passes: HashMap<u64, (u64, u32)>,
 }
 
 impl Tables {
@@ -798,6 +818,257 @@ pub extern "C" fn rxrt_table_destroy(table: u64) {
     }
 }
 
+// -- G3.5 render graph:std::gpu `Graph` 图结构与访问声明下发(RXS-0241;`rxrt_graph_*` 只追加) --
+//
+// RXS-0194「符号面只追加」纪律:`rxrt_launch` 及既有 `rxrt_*`/`rxp_*`/`rxio_*`/`rxrt_table_*`
+// 符号面字节不变;u64 句柄表 / handle-0 = 失败 / poisoned 传播跨后端不变式维持。粒度
+// (Q-G-CabiGranularity)= create/resource/pass/declare/readback/execute/destroy 增量建面族,
+// `diag` 失败行定位到违例 pass;整图序列化单符号下发否决(RFC §7-6)。图合法性装配核验
+// (RX6029/RX6030)与纯函数状态推导本体归 graph.rs(P-11 单一事实源);本 cabi 面纯 safe。
+
+/// C ABI:创建 `Graph`(RXS-0241)。未知 ctx / poisoned → 诊断 + handle-0(失败)。
+//@ spec: RXS-0241
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_graph_create(ctx: u64) -> u64 {
+    const OP: &str = "graph_create";
+    let mut guard = lock();
+    let t = &mut *guard;
+    let Some(ce) = t.ctxs.get(&ctx) else {
+        diag(OP, format!("unknown ctx handle {ctx}"));
+        return 0;
+    };
+    if ce.poisoned {
+        diag(OP, POISONED);
+        return 0;
+    }
+    let h = t.alloc_handle();
+    t.graphs.insert(
+        h,
+        GraphEntry {
+            ctx,
+            graph: Graph::new(),
+            passes: Vec::new(),
+        },
+    );
+    h
+}
+
+/// 取图条目(校验 ctx 存活 + 非 poisoned)。失败 → 诊断,返回 `None`(调用方返回失败哨兵)。
+fn graph_entry<'a>(t: &'a mut Tables, op: &str, g: u64) -> Option<&'a mut GraphEntry> {
+    let ctx = t.graphs.get(&g).map(|ge| ge.ctx)?;
+    let poisoned = match t.ctxs.get(&ctx) {
+        Some(ce) => ce.poisoned,
+        None => {
+            diag(op, format!("ctx of graph {g} already destroyed"));
+            return None;
+        }
+    };
+    if poisoned {
+        diag(op, POISONED);
+        return None;
+    }
+    t.graphs.get_mut(&g)
+}
+
+/// C ABI:向 `Graph` 注册资源(RXS-0241)——返回资源 u64 句柄(`GraphResource<C>` affine 句柄;
+/// handle-0 = 失败)。`class`:0 = color target / 1 = depth target / 2 = UAV buffer /
+/// 3 = readback buffer。未知 graph / class / ctx 已销毁 / poisoned → 诊断 + handle-0。
+//@ spec: RXS-0241
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_graph_resource(g: u64, class: u32) -> u64 {
+    const OP: &str = "graph_resource";
+    let mut guard = lock();
+    let t = &mut *guard;
+    if !t.graphs.contains_key(&g) {
+        diag(OP, format!("unknown graph handle {g}"));
+        return 0;
+    }
+    // class 先校验(避免 handle 泄漏)。
+    if class > 3 {
+        diag(OP, format!("unknown resource class {class} (graph {g})"));
+        return 0;
+    }
+    {
+        let Some(ge) = graph_entry(t, OP, g) else {
+            return 0;
+        };
+        let n = ge.graph.resource_count();
+        let name = format!("res{n}");
+        match class {
+            0 => ge.graph.color_target(&name),
+            1 => ge.graph.depth_target(&name),
+            2 => ge.graph.uav_buffer(&name),
+            _ => ge.graph.readback_buffer(&name),
+        };
+    }
+    let idx = t
+        .graphs
+        .get(&g)
+        .map_or(0, |ge| ge.graph.resource_count() as u32 - 1);
+    let h = t.alloc_handle();
+    t.graph_resources.insert(h, (g, idx));
+    h
+}
+
+/// C ABI:向 `Graph` 追加一个 pass(RXS-0241)——返回 pass u64 句柄(`PassBuilder<C>` affine 句柄;
+/// 声明序 = 提交序;handle-0 = 失败)。未知 graph / ctx 已销毁 / poisoned → 诊断 + handle-0。
+//@ spec: RXS-0241
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_graph_pass(g: u64) -> u64 {
+    const OP: &str = "graph_pass";
+    let mut guard = lock();
+    let t = &mut *guard;
+    if !t.graphs.contains_key(&g) {
+        diag(OP, format!("unknown graph handle {g}"));
+        return 0;
+    }
+    let idx = {
+        let Some(ge) = graph_entry(t, OP, g) else {
+            return 0;
+        };
+        let idx = ge.passes.len() as u32;
+        ge.passes.push(PassSpec::new(&format!("pass{idx}")));
+        idx
+    };
+    let h = t.alloc_handle();
+    t.graph_passes.insert(h, (g, idx));
+    h
+}
+
+/// C ABI:向 `Graph` 的某 pass 声明一条资源访问(RXS-0241)。`pass` / `resource` 为 u64 句柄
+/// (`rxrt_graph_pass` / `rxrt_graph_resource` 产);`access` = [`AccessKind::as_u32`] 稳定 tag
+/// (0..=6)。未知句柄 / access tag / 跨 graph 误用 → 诊断 + [`RXRT_FAIL`](编译器注入检查 →
+/// `rxrt_trap` 终止,RXS-0193)。
+//@ spec: RXS-0241
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_graph_declare(pass: u64, resource: u64, access: u32) -> i32 {
+    const OP: &str = "graph_declare";
+    let mut guard = lock();
+    let t = &mut *guard;
+    let Some(&(pg, pass_idx)) = t.graph_passes.get(&pass) else {
+        diag(OP, format!("unknown pass handle {pass}"));
+        return RXRT_FAIL;
+    };
+    let Some(&(rg, res_idx)) = t.graph_resources.get(&resource) else {
+        diag(OP, format!("unknown resource handle {resource}"));
+        return RXRT_FAIL;
+    };
+    if pg != rg {
+        diag(
+            OP,
+            format!("cross-graph misuse: pass belongs to {pg}, resource to {rg}"),
+        );
+        return RXRT_FAIL;
+    }
+    let Some(kind) = AccessKind::from_u32(access) else {
+        diag(OP, format!("unknown access kind tag {access}"));
+        return RXRT_FAIL;
+    };
+    let Some(ge) = graph_entry(t, OP, pg) else {
+        return RXRT_FAIL;
+    };
+    let Some(ps) = ge.passes.get_mut(pass_idx as usize) else {
+        diag(
+            OP,
+            format!("pass index {pass_idx} out of range (graph {pg})"),
+        );
+        return RXRT_FAIL;
+    };
+    ps.accesses.push(Access {
+        resource: ResourceId(res_idx),
+        kind,
+    });
+    0
+}
+
+/// C ABI:向 `Graph` 追加 readback pass(RXS-0241;源 `CopySrcReadback` + 自动 readback 目的
+/// buffer `CopyDstReadback`)。`src` = 资源 u64 句柄。未知句柄 / ctx 已销毁 / poisoned →
+/// 诊断 + [`RXRT_FAIL`]。
+//@ spec: RXS-0241
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_graph_readback(g: u64, src: u64) -> i32 {
+    const OP: &str = "graph_readback";
+    let mut guard = lock();
+    let t = &mut *guard;
+    if !t.graphs.contains_key(&g) {
+        diag(OP, format!("unknown graph handle {g}"));
+        return RXRT_FAIL;
+    }
+    let Some(&(rg, src_idx)) = t.graph_resources.get(&src) else {
+        diag(OP, format!("unknown resource handle {src}"));
+        return RXRT_FAIL;
+    };
+    if rg != g {
+        diag(
+            OP,
+            format!("cross-graph misuse: resource belongs to {rg}, not {g}"),
+        );
+        return RXRT_FAIL;
+    }
+    let Some(ge) = graph_entry(t, OP, g) else {
+        return RXRT_FAIL;
+    };
+    let dst = ge.graph.readback_buffer("readback_dst");
+    let mut ps = PassSpec::new("readback");
+    ps.accesses.push(Access {
+        resource: ResourceId(src_idx),
+        kind: AccessKind::CopySrcReadback,
+    });
+    ps.accesses.push(Access {
+        resource: dst,
+        kind: AccessKind::CopyDstReadback,
+    });
+    ge.passes.push(ps);
+    0
+}
+
+/// C ABI:装配并推导 `Graph`(RXS-0241)——组装增量 pass → seal(装配核验 RX6029/RX6030)→
+/// 纯函数状态推导。装配违例 → 诊断(含 rx 码)+ [`RXRT_FAIL`](编译器注入检查 → `rxrt_trap`
+/// 终止,strict-only 无静默降级 P-01);推导计划交执行器逐字重放(设备路,本符号仅装配核验)。
+//@ spec: RXS-0241
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_graph_execute(g: u64) -> i32 {
+    const OP: &str = "graph_execute";
+    let mut guard = lock();
+    let t = &mut *guard;
+    if !t.graphs.contains_key(&g) {
+        diag(OP, format!("unknown graph handle {g}"));
+        return RXRT_FAIL;
+    }
+    let Some(ge) = graph_entry(t, OP, g) else {
+        return RXRT_FAIL;
+    };
+    // 增量 pass 注入 graph(声明序 = 提交序)。
+    for ps in ge.passes.drain(..) {
+        if let Err(e) = ge.graph.add_pass(ps) {
+            diag(OP, format!("[{}] {e}", e.rx_code()));
+            return RXRT_FAIL;
+        }
+    }
+    match ge.graph.execute() {
+        Ok(_plan) => 0,
+        Err(e) => {
+            diag(OP, format!("[{}] {e}", e.rx_code()));
+            RXRT_FAIL
+        }
+    }
+}
+
+/// C ABI:销毁 `Graph`(RXS-0241;affine 消费式,清表)。未知 / 已销毁 → no-op 诊断。
+//@ spec: RXS-0241
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_graph_destroy(g: u64) {
+    const OP: &str = "graph_destroy";
+    let mut guard = lock();
+    let t = &mut *guard;
+    if t.graphs.remove(&g).is_none() {
+        diag(
+            OP,
+            format!("unknown or already destroyed graph handle {g} (no-op)"),
+        );
+    }
+}
+
 /// C ABI:运行期失败终止(RXS-0193):编译器对每个 `rxrt_*` 失败返回值(负 `i32` /
 /// 句柄 `0` / 越界)注入检查分支,命中即调本符号终止进程。确定性诊断行已由失败点
 /// 的 [`diag`] 落 stderr,此处直接 abort(无静默降级、无 UB 出口,P-01)。
@@ -1000,6 +1271,82 @@ mod tests {
             assert_eq!(idx, expect_idx, "注册序即索引(稳定单调,RXS-0235)");
         }
         assert_eq!(te.textures, vec![100, 200, 300], "注册序保序");
+    }
+
+    /// G3.5 render graph(RXS-0241):`rxrt_graph_*` 符号面失败路不变式(handle-0 / u32::MAX /
+    /// RXRT_FAIL / no-op)+ 增量建面 → execute 装配核验(GraphEntry 结构直接见证,不需 CUDA)。
+    //@ spec: RXS-0241
+    #[test]
+    fn graph_symbols_failure_path_and_incremental_build() {
+        // 未知 ctx → graph_create 返回 handle-0(失败)。
+        assert_eq!(
+            rxrt_graph_create(0xDEAD_1001),
+            0,
+            "未知 ctx 应 handle-0 失败(RXS-0241)"
+        );
+        // 未知 graph → 各符号确定性失败哨兵(非静默)。
+        let bogus = 0xDEAD_1002u64;
+        assert_eq!(
+            rxrt_graph_resource(bogus, 0),
+            0,
+            "未知 graph resource → handle-0"
+        );
+        assert_eq!(rxrt_graph_pass(bogus), 0, "未知 graph pass → handle-0");
+        // 未知 pass/resource 句柄 → declare/readback 确定性 RXRT_FAIL。
+        assert_eq!(
+            rxrt_graph_declare(0xDEAD_2001, 0xDEAD_2002, 0),
+            RXRT_FAIL,
+            "未知 pass/resource declare"
+        );
+        assert_eq!(
+            rxrt_graph_readback(bogus, 0xDEAD_2003),
+            RXRT_FAIL,
+            "未知 graph readback"
+        );
+        assert_eq!(rxrt_graph_execute(bogus), RXRT_FAIL, "未知 graph execute");
+        rxrt_graph_destroy(bogus); // no-op(不 panic)
+
+        // 增量建面 → execute 装配核验(镜像 table 测试直接构造 GraphEntry,纯句柄表逻辑不需 CUDA)。
+        let mut ge = GraphEntry {
+            ctx: 1,
+            graph: Graph::new(),
+            passes: Vec::new(),
+        };
+        let albedo = ge.graph.color_target("res0");
+        let lit = ge.graph.color_target("res1");
+        let rb = ge.graph.readback_buffer("res2");
+        let mut geo = PassSpec::new("pass0");
+        geo.accesses.push(Access {
+            resource: albedo,
+            kind: AccessKind::ColorAttachmentWrite,
+        });
+        ge.passes.push(geo);
+        let mut light = PassSpec::new("pass1");
+        light.accesses.push(Access {
+            resource: albedo,
+            kind: AccessKind::ShaderRead,
+        });
+        light.accesses.push(Access {
+            resource: lit,
+            kind: AccessKind::ColorAttachmentWrite,
+        });
+        ge.passes.push(light);
+        let mut rbp = PassSpec::new("readback");
+        rbp.accesses.push(Access {
+            resource: lit,
+            kind: AccessKind::CopySrcReadback,
+        });
+        rbp.accesses.push(Access {
+            resource: rb,
+            kind: AccessKind::CopyDstReadback,
+        });
+        ge.passes.push(rbp);
+        for ps in ge.passes.drain(..) {
+            ge.graph.add_pass(ps).expect("合法 pass 注入");
+        }
+        let plan = ge.graph.execute().expect("合法图装配核验通过");
+        // albedo RT→PSR + lit RT→CopySource + rb Common→CopyDest = 3 条。
+        assert_eq!(plan.len(), 3, "deferred-lite 图应 3 条 barrier");
     }
 
     /// 手写 SAXPY PTX(镜像 rurix-rt `tests/gpu_roundtrip.rs`:`y[i] = a*x[i] + y[i]`;

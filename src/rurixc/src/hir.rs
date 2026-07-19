@@ -385,6 +385,32 @@ pub enum GpuHostOp {
     /// `table.len()` → `rxrt_table_len`(已注册计数 = 动态索引 clamp 表长源,
     /// RXS-0235;返回 `u32`)。
     TableLen,
+    /// `Graph::create(&ctx)` → `rxrt_graph_create`(G3.5 render graph,RXS-0241;
+    /// `Graph<C>` 非 Copy affine,brand 契约沿 RXS-0189)。
+    GraphCreate,
+    /// `g.color_target(w, h)` → `rxrt_graph_resource(g, 0)`(color target 资源句柄
+    /// `GraphResource<C>`,RXS-0241;非消费接收者)。
+    GraphColorTarget,
+    /// `g.depth_target(w, h)` → `rxrt_graph_resource(g, 1)`(depth target 资源句柄)。
+    GraphDepthTarget,
+    /// `g.pass()` → `rxrt_graph_pass(g)`(pass 句柄 `PassBuilder<C>`,声明序 = 提交序;
+    /// 非消费接收者)。
+    GraphPass,
+    /// `pb.writes_rt(t)` → `rxrt_graph_declare(pb, t, 0)`(color attachment 写;消费
+    /// 接收者 pb 并返回〔builder 链〕,资源实参 t 非消费)。
+    PassWritesRt,
+    /// `pb.writes_depth(t)` → `rxrt_graph_declare(pb, t, 1)`(depth attachment 写)。
+    PassWritesDepth,
+    /// `pb.reads(t)` → `rxrt_graph_declare(pb, t, 2)`(shader 资源读)。
+    PassReads,
+    /// `pb.reads_writes_uav(t)` → `rxrt_graph_declare(pb, t, 3)`(UAV 读写合并)。
+    PassReadsWritesUav,
+    /// `g.readback(t)` → `rxrt_graph_readback(g, t)`(源 CopySrc + 自动 readback 目的
+    /// buffer CopyDst;非消费接收者与实参)。
+    GraphReadback,
+    /// `g.execute()` → `rxrt_graph_execute(g)`(装配核验 RX6029/RX6030 + 纯函数状态推导;
+    /// 非消费接收者;负值 rc → 终止 RXS-0193)。
+    GraphExecute,
 }
 
 /// scoped atomics 原子读改写算子(M5.2,RXS-0080;`Atomic`/`AtomicView` 族方法)。

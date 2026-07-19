@@ -1311,6 +1311,27 @@
       "conformance/host_orch/reject/table_in_kernel/main.rx",
       "src/rurix-rt-cabi/src/lib.rs",
       "src/rurix-rt/src/vk.rs"
+    ],
+    "RXS-0236": [
+      "conformance/host_orch/accept/graph_deferred_three_pass/main.rx",
+      "conformance/host_orch/reject/graph_in_kernel/main.rx"
+    ],
+    "RXS-0237": [
+      "src/rurix-rt/src/graph.rs"
+    ],
+    "RXS-0238": [
+      "src/rurix-rt/src/graph.rs"
+    ],
+    "RXS-0239": [
+      "src/uc04-demo/tests/d6_crosscheck.rs"
+    ],
+    "RXS-0240": [
+      "src/rurix-rt/src/graph.rs",
+      "src/rurix-rt/src/vk.rs"
+    ],
+    "RXS-0241": [
+      "src/rurix-rt-cabi/src/lib.rs",
+      "src/uc04-demo/tests/d6_crosscheck.rs"
     ]
   }
 }

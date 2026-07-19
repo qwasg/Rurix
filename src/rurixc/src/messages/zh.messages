@@ -155,6 +155,10 @@ runtime.uc04_readback_layout = UC-04 readback 缓冲布局失配:{detail}
 runtime.uc04_present_assembly = UC-04 可见窗口 present 装配不一致:{detail}
 runtime.uc04_resize_rebuild = UC-04 swapchain 重建核验失败:{detail}
 #
+# render graph 装配核验诊断(RX6029 ~ RX6030,spec/render_graph.md RXS-0237;G3.5 RFC-0013 §4.D 分配)
+runtime.graph_structure = render graph 图结构违例(环/读未写/写写冲突/生命周期误用):{detail}
+runtime.graph_reflection_mismatch = render graph 声明-反射失配(漏声明/声明未用):{detail}
+#
 # 宿主编排前端机械面诊断(RX1005 / RX7022,spec/host_orchestration.md RXS-0195~0196;MS1.2 分配)
 resolve.module_load_failure = 无法加载 out-of-line 模块 {name}:{detail}
 link.native_lib_failure = #[link] 原生库失败:{detail}

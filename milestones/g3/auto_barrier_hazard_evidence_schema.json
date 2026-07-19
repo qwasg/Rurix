@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/auto_barrier_hazard_redgreen/v1",
+  "title": "Rurix render graph 自动 barrier hazard 红绿证据 JSON(G3.5,契约 G-G3-5,RFC-0013 §4.D / RXS-0236~0241)",
+  "description": "render graph 自动资源状态推导 device 见证:uc04 deferred 三 pass 图迁 Graph API 经 run_graph 自动状态推导重跑步骤 48 同判据(auto_barrier_deferred_match)+ 漏声明 read → 装配期 strict 拒 RED(undeclared_read_strict_reject)+ Vulkan 同图 run_graph 出图对照(vulkan_run_graph_match)。逐项『篡改→像素变/装配拒=RED,复原=GREEN』数据流红绿(RXS-0239 IR 纪律)。modes_ok = device 判据真过者去重集;hazard_ok = 全判据通过。**host 段 D6 互证金标准(graph.rs 推导集 == uc04 RXS-0169 手动锚点集集合相等双向)+ 图合法性 reject 四族 RX6029/RX6030 + 推导 golden 确定性双跑为本面核心恒跑验收(不入本 counter)**;device 判据阈值随实现 PR 定案(D3D12 shim 执行器诚实边界,device 首跑先经 Vulkan run_graph 本机活驱动)。计数源 g3.counter.auto_barrier_hazard_redgreen = evidence/graph_*.json 中 hazard_ok=true 报告数(≥1;ci/budget_eval.py)。机器复核闸门 = ci/render_graph_smoke.py(host 段恒跑:D6 互证 set-equality + 图合法性 reject + 推导 golden + cabi 符号面;device 段:uc04→Graph run_graph 重跑步骤 48 + Vulkan 同图)。device 真跑 = 交互 GPU 链路,**无显示/无 GPU/未 opt-in → device 段 SKIP=dev-env degrade 非 fake pass**(不充绿);RURIX_REQUIRE_REAL=1 时缺失翻硬红。**AMD 真卡见证 = G-MB1-6 硬件尾门独立存续**(本机 RTX 4070 Ti measured 不充作 AMD)。",
+  "type": "object",
+  "required": ["schema_version", "subject", "hazard_ok", "timestamp"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": { "const": "auto_barrier_hazard_redgreen" },
+    "hazard_ok": {
+      "description": "render graph device 判据全过(auto barrier deferred 对照 + 漏声明 strict 拒 RED + Vulkan run_graph 对照);计入 g3.counter.auto_barrier_hazard_redgreen(>=1 则 PASS)",
+      "type": "boolean"
+    },
+    "modes_ok": {
+      "description": "device 判据真过的 render graph 模式名去重集(RFC-0013 §4.D 判据结构;每模式篡改/装配拒→RED / 复原→GREEN 通过者)",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "auto_barrier_deferred_match",
+          "undeclared_read_strict_reject",
+          "vulkan_run_graph_match"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "d6_crosscheck_ok": {
+      "description": "D6 互证金标准(host 恒跑,无 GPU):graph.rs 推导 barrier 集 == uc04 RXS-0169 手动 plan_barriers 锚点集,集合相等双向断言通过",
+      "type": "boolean"
+    },
+    "num_passes": {
+      "description": "图 pass 数(deferred 三 pass = 3)",
+      "type": "integer"
+    },
+    "milestone": { "type": "string" },
+    "adapter": {
+      "description": "选中的硬件 adapter 名(device 见证)",
+      "type": "string"
+    },
+    "checks": {
+      "description": "逐项机器事实背书(反 YAML-only)",
+      "type": "object"
+    },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "stdout": { "type": "string" }
+  }
+}

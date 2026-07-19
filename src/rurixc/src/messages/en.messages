@@ -154,6 +154,10 @@ runtime.uc04_readback_layout = UC-04 readback buffer layout mismatch: {detail}
 runtime.uc04_present_assembly = UC-04 visible-window present assembly inconsistency: {detail}
 runtime.uc04_resize_rebuild = UC-04 swapchain rebuild verification failed: {detail}
 #
+# render graph 装配核验诊断(RX6029 ~ RX6030,spec/render_graph.md RXS-0237;G3.5 RFC-0013 §4.D 分配)
+runtime.graph_structure = render graph structure violation (cycle/read-before-write/write-write conflict/lifecycle misuse): {detail}
+runtime.graph_reflection_mismatch = render graph declaration/reflection mismatch (missing declaration/unused declaration): {detail}
+#
 # 宿主编排前端机械面诊断(RX1005 / RX7022,spec/host_orchestration.md RXS-0195~0196;MS1.2 分配)
 resolve.module_load_failure = cannot load out-of-line module {name}: {detail}
 link.native_lib_failure = #[link] native library failure: {detail}

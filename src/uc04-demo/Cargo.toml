@@ -15,6 +15,13 @@ rurixc = { path = "../rurixc", features = ["dxil-backend"] }
 # real-shim 段经 build.rs + cc 编译 D3D12 离屏 deferred C++ shim(shim/uc04_offscreen.cpp)。
 cc = "1"
 
+[dev-dependencies]
+# G3.5 D6 互证金标准(RFC-0013 §4.D6):rurix-rt `graph.rs`(纯 host 自动状态推导,always-on
+# 无 feature)对 uc04 deferred 三 pass 图的 barrier 推导集 == 本 crate `barrier::plan_barriers`
+# 的 RXS-0169 手动锚点集(集合相等双向断言,两独立实现互证)。graph.rs **禁 import**
+# barrier.rs(oracle 独立性),互证测试单向依赖 rurix-rt(default features,不启 vulkan)。
+rurix-rt = { path = "../rurix-rt" }
+
 [features]
 default = []
 # d3d12-runtime:device 执行入口 gate(RFC-0006 §9 Q-Gate;**不**复用 `dxil-backend`)。

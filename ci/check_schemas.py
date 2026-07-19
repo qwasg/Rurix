@@ -220,6 +220,9 @@ def check_evidence_files() -> None:
     bindless_smoke_schema = load(
         ROOT / "milestones/g3/bindless_descriptor_smoke_evidence_schema.json"
     )
+    auto_barrier_hazard_schema = load(
+        ROOT / "milestones/g3/auto_barrier_hazard_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -329,6 +332,11 @@ def check_evidence_files() -> None:
     sampling_superset_validator = (
         jsonschema.Draft7Validator(sampling_superset_schema)
         if sampling_superset_schema
+        else None
+    )
+    auto_barrier_hazard_validator = (
+        jsonschema.Draft7Validator(auto_barrier_hazard_schema)
+        if auto_barrier_hazard_schema
         else None
     )
     bindless_smoke_validator = (
@@ -566,6 +574,18 @@ def check_evidence_files() -> None:
             # ci/budget_eval.py。device 真跑 = 交互 GPU 链路不进 pr-smoke 硬门,SKIP 不充绿,镜像
             # sampling_superset 双态;harness bin/bindless_modes 判据结构就位,数值阈值 TODO 留 owner 本机)
             validator = bindless_smoke_validator
+        elif (
+            f.name.startswith("graph_")
+            and auto_barrier_hazard_validator is not None
+        ):
+            # G3.5 render graph 自动 barrier hazard 证据(G-G3-5;RFC-0013 §4.D / RXS-0236~0241)→
+            # milestones/g3/auto_barrier_hazard_evidence_schema.json(ci/render_graph_smoke.py device
+            # 段真跑写:uc04 deferred 三 pass 图迁 Graph API 经 run_graph 自动状态推导重跑步骤 48 同判据 +
+            # 漏声明 read → 装配期 strict 拒 RED + Vulkan 同图 run_graph 对照;hazard_ok=true 计入
+            # g3.counter.auto_barrier_hazard_redgreen,ci/budget_eval.py。host 段 D6 互证金标准 + 图合法性
+            # reject + 推导 golden 为本面核心恒跑验收;device 真跑 = 交互 GPU 链路不进 pr-smoke 硬门,SKIP
+            # 不充绿,镜像 bindless 双态;D3D12 shim 执行器诚实边界,device 首跑先经 Vulkan run_graph)
+            validator = auto_barrier_hazard_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):

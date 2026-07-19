@@ -1,0 +1,30 @@
+//@ spec: RXS-0236
+// G3.5 render graph 宿主类型面(RFC-0013 §4.D):Graph / PassBuilder / GraphResource 为编译器
+// 已知签名 lang-item 宿主类型(镜像 RXS-0189/0190 分支,零新文法产生式)→ `rxrt_graph_*` 字面
+// 符号(mir_build)。deferred 三 pass 图声明(§3.4 结构):几何 MRT(albedo+normal+depth)→
+// lighting 采样 G-buffer → readback;声明序 = 提交序;**用户不写任何 barrier**(自动状态推导
+// graph.rs / RXS-0238)。方法名终形随实现 PR 在已知签名纪律内定案(RFC-0009 §4.7);语义面以
+// RFC-0013 §4.D 条款为准。全部句柄非 Copy affine(承 RXS-0189,零新借用码)。
+fn main() -> i32 {
+    let ctx = Context::create();
+    let w: u32 = 320;
+    let h: u32 = 240;
+
+    let g = Graph::create(&ctx);
+    let albedo = g.color_target(w, h);
+    let normal = g.color_target(w, h);
+    let depth = g.depth_target(w, h);
+    let lit = g.color_target(w, h);
+
+    // 几何 pass:写 G-buffer MRT(color ×2 + depth)。
+    g.pass().writes_rt(albedo).writes_rt(normal).writes_depth(depth);
+    // lighting pass:采样 G-buffer(RT→SRV)+ 写 lighting 输出。
+    g.pass().reads(albedo).reads(normal).reads(depth).writes_rt(lit);
+    // readback:lighting 输出 → COPY_SOURCE + 自动 readback 目的 buffer。
+    g.readback(lit);
+
+    // 装配核验(环/读未写/写写冲突/生命周期 → RX6029;声明-反射失配 → RX6030)→ 状态推导。
+    g.execute();
+    ctx.sync();
+    0
+}

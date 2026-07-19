@@ -74,6 +74,13 @@ required-features = ["vulkan"]
 name = "bindless_modes"
 required-features = ["vulkan"]
 
+# G3.5 render graph device 自动 barrier hazard 判据 harness(步骤 65,opt-in
+# RURIX_GRAPH_DEVICE=1;两 pass 自动 RT→SRV barrier 出图 + 漏声明 read 装配期 RX6030 拒 RED /
+# 声明 GREEN + 推导逐字重放对照;判据阈值 TODO owner)。
+[[bin]]
+name = "graph_modes"
+required-features = ["vulkan"]
+
 # unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6):rurix-rt 是首个 unsafe 边界(Driver API
 # FFI)。块级豁免 `unsafe_code`(注册见 unsafe-audit/rurix-rt.md),仍强制每个
 # unsafe 块携 `// SAFETY:` 注释(clippy undocumented_unsafe_blocks = deny)。
