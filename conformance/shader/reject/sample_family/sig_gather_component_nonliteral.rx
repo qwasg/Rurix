@@ -1,0 +1,18 @@
+//@ spec: RXS-0223
+//@ expect-error: RX3014
+// 签名违例(RFC-0013 §4.B1):gather 分量须 0..=3 **整型字面量**;非字面量表达式
+// (varying 读)→ RX3014(strict-only,不做常量传播)。
+struct SfVary {
+    #[interpolate(perspective)] uv: vec2<f32>,
+    #[interpolate(flat)] k: u32,
+}
+
+struct SfOut {
+    #[interpolate(perspective)] corner: vec4<f32>,
+}
+
+fragment fn fs_gather_dyn(inp: SfVary, tex: Texture2D<f32>, samp: Sampler) -> SfOut {
+    SfOut { corner: tex.gather(samp, inp.uv, inp.k) }
+}
+
+fn main() {}

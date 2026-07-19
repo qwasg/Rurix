@@ -1,0 +1,17 @@
+//@ spec: RXS-0223
+//@ expect-error: RX3014
+// 接收者 × 方法轴违例(RFC-0013 §4.B1):TextureRw2D<F> storage image 仅支持
+// load/store(无 sampler 过滤路);sample 族方法(sample_lod)→ RX3014。
+struct SfVary {
+    #[interpolate(perspective)] uv: vec2<f32>,
+}
+
+struct SfOut {
+    #[interpolate(perspective)] c: vec4<f32>,
+}
+
+fragment fn fs_rw_sample(inp: SfVary, img: TextureRw2D<f32>, samp: Sampler) -> SfOut {
+    SfOut { c: img.sample_lod(samp, inp.uv, 0.0) }
+}
+
+fn main() {}

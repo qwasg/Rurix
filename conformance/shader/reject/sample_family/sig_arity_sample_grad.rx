@@ -1,0 +1,17 @@
+//@ spec: RXS-0223
+//@ expect-error: RX3014
+// 签名违例(RFC-0013 §4.B1 签名表):sample_grad 须 (sampler, coord, ddx, ddy)
+// 四实参;缺 ddy → 元数不符 RX3014。
+struct SfVary {
+    #[interpolate(perspective)] uv: vec2<f32>,
+}
+
+struct SfOut {
+    #[interpolate(perspective)] graded: vec4<f32>,
+}
+
+fragment fn fs_grad_arity(inp: SfVary, tex: Texture2D<f32>, samp: Sampler) -> SfOut {
+    SfOut { graded: tex.sample_grad(samp, inp.uv, inp.uv) }
+}
+
+fn main() {}

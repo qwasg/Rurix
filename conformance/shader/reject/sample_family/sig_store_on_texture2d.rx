@@ -1,0 +1,19 @@
+//@ spec: RXS-0223
+//@ expect-error: RX3014
+// 接收者 × 方法轴违例(RFC-0013 §4.B1):store 仅可用于 TextureRw2D<F> storage
+// image(UAV 轴);Texture2D<F>(只读 SRV 轴)上调用 → RX3014。
+struct SfVary {
+    #[interpolate(flat)] px: vec2<u32>,
+    #[interpolate(perspective)] val: vec4<f32>,
+}
+
+struct SfOut {
+    #[interpolate(perspective)] c: vec4<f32>,
+}
+
+fragment fn fs_srv_store(inp: SfVary, tex: Texture2D<f32>) -> SfOut {
+    tex.store(inp.px, inp.val);
+    SfOut { c: inp.val }
+}
+
+fn main() {}

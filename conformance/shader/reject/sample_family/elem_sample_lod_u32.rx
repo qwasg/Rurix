@@ -1,0 +1,17 @@
+//@ spec: RXS-0223
+//@ expect-error: RX3014
+// 元素违例(Q-S-Element):sample 族限 f32 元素(过滤仅对浮点定义);
+// Texture2D<u32> 上 sample_lod → RX3014(u32 元素仅 load/load_lod 合法)。
+struct SfVary {
+    #[interpolate(perspective)] uv: vec2<f32>,
+}
+
+struct SfOut {
+    #[interpolate(perspective)] c: vec4<u32>,
+}
+
+fragment fn fs_elem_u32(inp: SfVary, tex: Texture2D<u32>, samp: Sampler) -> SfOut {
+    SfOut { c: tex.sample_lod(samp, inp.uv, 0.0) }
+}
+
+fn main() {}

@@ -1,0 +1,29 @@
+//@ spec: RXS-0223
+// G3.3 TextureRw2D<F> storage image accept(RFC-0013 §4.B1 阶段列 fragment +
+// raygen 之 fragment 腿;raygen 腿 accept 待 §4.E launch_id 位置标识落地,阶段
+// 矩阵已含 raygen 扩展点):rw load + store(唯一写者 identity 坐标语义 🔒
+// RXS-0229 由 codegen 层强制,类型面此处 0 诊断)。元素 {f32, u32, i32} 之
+// u32 腿同覆盖(Q-S-Element)。
+struct RwVary {
+    #[interpolate(flat)] px: vec2<u32>,
+    #[interpolate(perspective)] val: vec4<f32>,
+}
+
+struct RwOut {
+    #[interpolate(perspective)] echo: vec4<f32>,
+    #[interpolate(perspective)] raw: vec4<u32>,
+}
+
+fragment fn sample_family_rw_fs(
+    inp: RwVary,
+    img: TextureRw2D<f32>,
+    img_u: TextureRw2D<u32>,
+) -> RwOut {
+    img.store(inp.px, inp.val);
+    RwOut {
+        echo: img.load(inp.px),
+        raw: img_u.load(inp.px),
+    }
+}
+
+fn main() {}

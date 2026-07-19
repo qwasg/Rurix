@@ -222,11 +222,11 @@
 | RXS-0220 | spec/d3d12_runtime.md | 1 | `src/uc04-demo/src/present.rs` |
 | RXS-0221 | spec/d3d12_runtime.md | 2 | `src/rurix-rt/src/vk.rs`, `src/uc04-demo/src/present.rs` |
 | RXS-0222 | spec/d3d12_runtime.md | 2 | `src/uc04-demo/src/device.rs`, `src/uc04-demo/src/present.rs` |
-| RXS-0223 | spec/shader_stages.md | 1 | `src/rurixc/src/dxil_spirv.rs` |
+| RXS-0223 | spec/shader_stages.md | 22 | `conformance/dxil/graphics/accept/sample_superset_fs.rx`, `conformance/dxil/graphics/accept/sample_superset_rw_fs.rx`, `conformance/shader/accept/sample_family_fs.rx` …(+19) |
 | RXS-0224 | spec/shader_stages.md | 1 | `src/rurixc/src/binding_layout.rs` |
 | RXS-0225 | spec/host_orchestration.md | 1 | `src/rurix-rt/src/sampler.rs` |
-| RXS-0226 | spec/dxil_backend.md | 1 | `src/rurixc/src/dxil_spirv.rs` |
+| RXS-0226 | spec/dxil_backend.md | 5 | `conformance/dxil/graphics/accept/sample_superset_fs.rx`, `conformance/dxil/graphics/accept/sample_superset_rw_fs.rx`, `src/rurixc/src/dxil_spirv.rs` …(+2) |
 | RXS-0227 | spec/dxil_backend.md | 1 | `src/rurixc/src/dxil_spirv.rs` |
-| RXS-0228 | spec/dxil_backend.md | 1 | `src/rurixc/src/dxil_spirv.rs` |
-| RXS-0229 | spec/dxil_backend.md | 1 | `src/rurixc/src/dxil_spirv.rs` |
+| RXS-0228 | spec/dxil_backend.md | 2 | `conformance/dxil/graphics/accept/sample_superset_fs.rx`, `src/rurixc/src/dxil_spirv.rs` |
+| RXS-0229 | spec/dxil_backend.md | 2 | `conformance/dxil/graphics/accept/sample_superset_rw_fs.rx`, `src/rurixc/src/dxil_spirv.rs` |
 | RXS-0230 | spec/vulkan_backend.md | 2 | `src/rurix-rt/src/vk.rs`, `src/rurixc/src/binding_layout.rs` |

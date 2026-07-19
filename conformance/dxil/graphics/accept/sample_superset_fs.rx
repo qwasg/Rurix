@@ -1,0 +1,38 @@
+//@ spec: RXS-0223, RXS-0226, RXS-0228
+// G3.3 缺口①端到端见证(RFC-0013 §4.B1/B6):采样方法族自 `.rx` 源全链可达
+// (parse → typeck 方法族矩阵 → tbir → MIR `Rvalue::ResourceSample{method,extra}`
+// → emit_spirv_body 方法族分发),产物含新 opcode 全家——
+// OpImageSampleExplicitLod(sample_lod/sample_grad)/ OpImageSampleImplicitLod
+// (sample_bias,Bias operand)/ OpImageFetch + 越界钳制序列(load_lod,
+// RXS-0228)/ OpImageSampleDrefExplicitLod(sample_cmp,恒 LOD 0)/
+// OpImageGather(gather,分量字面量)。opcode 断言见
+// src/rurixc/tests/dxil_corpus.rs `sample_superset_source_reaches_new_opcodes`。
+struct SsVary {
+    #[interpolate(perspective)] uv: vec2<f32>,
+    #[interpolate(flat)] px: vec2<u32>,
+}
+
+struct SsOut {
+    base: vec4<f32>,
+    graded: vec4<f32>,
+    biased: vec4<f32>,
+    mip1: vec4<f32>,
+    corner: vec4<f32>,
+    shadow: f32,
+}
+
+fragment fn sample_superset_fs(
+    inp: SsVary,
+    tex: Texture2D<f32>,
+    samp: Sampler,
+    scmp: SamplerCmp,
+) -> SsOut {
+    SsOut {
+        base: tex.sample_lod(samp, inp.uv, 1.5),
+        graded: tex.sample_grad(samp, inp.uv, inp.uv, inp.uv),
+        biased: tex.sample_bias(samp, inp.uv, 1.0),
+        mip1: tex.load_lod(inp.px, 1),
+        corner: tex.gather(samp, inp.uv, 1),
+        shadow: tex.sample_cmp(scmp, inp.uv, 0.5),
+    }
+}

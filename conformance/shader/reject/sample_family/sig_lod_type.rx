@@ -1,0 +1,17 @@
+//@ spec: RXS-0223
+//@ expect-error: RX3014
+// 签名违例(RFC-0013 §4.B1 签名表):sample_lod 的 lod 实参须 f32;bool → RX3014
+// (违例归采样类别,不落 RX2001)。
+struct SfVary {
+    #[interpolate(perspective)] uv: vec2<f32>,
+}
+
+struct SfOut {
+    #[interpolate(perspective)] c: vec4<f32>,
+}
+
+fragment fn fs_bad_lod(inp: SfVary, tex: Texture2D<f32>, samp: Sampler) -> SfOut {
+    SfOut { c: tex.sample_lod(samp, inp.uv, true) }
+}
+
+fn main() {}

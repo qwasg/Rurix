@@ -1,0 +1,14 @@
+//@ spec: RXS-0223
+struct VtxIn {
+    #[interpolate(perspective)] uv: vec2<f32>,
+}
+
+struct VtxOut {
+    #[builtin(position)] pos: vec4<f32>,
+}
+
+vertex fn vs_bias(inp: VtxIn, tex: Texture2D<f32>, samp: Sampler) -> VtxOut {
+    VtxOut { pos: tex.sample_bias(samp, inp.uv, 1.0) } //~ ERROR RX3014
+}
+
+fn main() {}

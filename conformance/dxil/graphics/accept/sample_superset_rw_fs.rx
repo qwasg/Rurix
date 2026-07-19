@@ -1,0 +1,19 @@
+//@ spec: RXS-0223, RXS-0226, RXS-0229
+// G3.3 缺口①端到端见证(RFC-0013 §4.B1/B5/B6):TextureRw2D<F> storage image
+// 自 `.rx` 源全链可达——store(唯一写者:coord 直接读自输入 I/O 位置标识,
+// identity 映射,🔒 RXS-0229 codegen 强制)→ OpImageWrite;load → OpImageRead。
+// opcode 断言见 src/rurixc/tests/dxil_corpus.rs
+// `sample_superset_source_reaches_new_opcodes`。
+struct RwsVary {
+    #[interpolate(flat)] px: vec2<u32>,
+    #[interpolate(perspective)] val: vec4<f32>,
+}
+
+struct RwsOut {
+    echo: vec4<f32>,
+}
+
+fragment fn sample_superset_rw_fs(inp: RwsVary, img: TextureRw2D<f32>) -> RwsOut {
+    img.store(inp.px, inp.val);
+    RwsOut { echo: img.load(inp.px) }
+}
