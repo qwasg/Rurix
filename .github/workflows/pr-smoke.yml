@@ -571,6 +571,22 @@ jobs:
         shell: powershell
         run: py -3 ci/uc04_present_smoke.py
 
+      # 步骤 62/63（G-G3-3,RFC-0013 §4.B / RXS-0223~0230）:采样超集面冒烟。
+      # `ci/sampling_superset_smoke.py` host 段（步骤 62）**恒跑**(codegen opcode 全家结构性单测:
+      # sample→ImplicitLod / sample_lod→ExplicitLod / sample_grad→Grad / load→OpImageFetch+越界钳制序列 /
+      # gather→OpImageGather / sample_cmp→DrefExplicitLod / TextureRw2D.load·store→OpImageRead·OpImageWrite,
+      # RXS-0226~0229 + 绑定两套 set 策略 Vk-native set-per-class RXS-0230 + 静态 sampler NumStaticSamplers
+      # RXS-0224 + 宿主 SamplerDesc→VkSamplerCreateInfo RXS-0225 + 唯一写者 reject golden RXS-0229 +
+      # spirv-val 三态)。device 段(步骤 63:≥6 模式数值判据〔mip/sample_lod/sample_grad/load 越界/
+      # wrap-vs-clamp/sample_cmp/gather/storage 唯一写者/多分量〕逐项篡改→像素变 RED 复原 GREEN + 双后端
+      # 一致性对照)= **交互 GPU 链路,不进 pr-smoke 硬门**(镜像 uc04_present / realtime_present 双态)——
+      # 默认 SKIP(dev-env degrade,退 0),须显式 RURIX_SAMPLING_DEVICE=1(或 RURIX_REQUIRE_REAL=1)opt-in
+      # 真跑;device 见证 run URL 归 owner 交互 GPU 回填(num_modes>=6 计入 g3.counter.sampling_superset_modes)。
+      # **AMD 真卡见证 = G-MB1-6 硬件尾门独立存续**(本机 RTX 4070 Ti measured 不充作 AMD)。
+      - name: sampling superset smoke (G3 CI_GATES §2.62/63, G-G3-3, RFC-0013 §4.B)
+        shell: powershell
+        run: py -3 ci/sampling_superset_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

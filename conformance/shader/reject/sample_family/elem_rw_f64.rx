@@ -1,0 +1,17 @@
+//@ spec: RXS-0223
+//@ expect-error: RX3014
+// 元素违例(Q-S-Element):TextureRw2D<F> 元素首期 = {f32, u32, i32}(32-bit
+// 分量,🔒 RXS-0229 唯一写者 store 前提);f64 → RX3014。
+struct RwVary {
+    #[interpolate(flat)] px: vec2<u32>,
+}
+
+struct RwOut {
+    #[interpolate(perspective)] c: vec4<f32>,
+}
+
+fragment fn fs_rw_f64(inp: RwVary, img: TextureRw2D<f64>) -> RwOut {
+    RwOut { c: img.load(inp.px) }
+}
+
+fn main() {}

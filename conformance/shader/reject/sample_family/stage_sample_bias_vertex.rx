@@ -1,0 +1,17 @@
+//@ spec: RXS-0223
+//@ expect-error: RX3014
+// 阶段违例(RFC-0013 §4.B1 矩阵):sample_bias = 隐式 LOD 族(quad 导数,🔒
+// RXS-0227),仅 fragment;vertex 阶段调用 → RX3014。
+struct VtxIn {
+    #[interpolate(perspective)] uv: vec2<f32>,
+}
+
+struct VtxOut {
+    #[builtin(position)] pos: vec4<f32>,
+}
+
+vertex fn vs_bias(inp: VtxIn, tex: Texture2D<f32>, samp: Sampler) -> VtxOut {
+    VtxOut { pos: tex.sample_bias(samp, inp.uv, 1.0) }
+}
+
+fn main() {}

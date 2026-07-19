@@ -67,6 +67,12 @@ pub struct TypeckResults {
     /// (接收者为 `Texture2D<F>` lang item + 方法 `sample` 时识别;tbir/MIR/codegen
     /// 消费,降为 `Rvalue::ResourceSample` → `OpImageSampleExplicitLod`)。
     pub sample_calls: std::collections::HashSet<HirId>,
+    /// 采样方法族调用点(G3.3,RXS-0223;RFC-0013 §4.B1):MethodCall 节点 →
+    /// [`crate::mir::ResourceMethod`](接收者为 `Texture2D<F>`/`TextureRw2D<F>`
+    /// lang item + 方法 ∈ 方法族时识别;`sample` 本名走既有 [`Self::sample_calls`]
+    /// 路,byte-preserving,Q-S-SampleName)。tbir/MIR/codegen 消费,降为
+    /// `Rvalue::ResourceSample{method, extra}` → SPIR-V opcode 全家(RXS-0226)。
+    pub sample_family_calls: HashMap<HirId, crate::mir::ResourceMethod>,
     /// 宿主 GPU 编排调用点(MS1.2,RXS-0189~0191):Call/MethodCall 节点 → 已知
     /// 操作(接收者为 std::gpu lang item 句柄时识别;用户同名 impl 优先遮蔽)。
     /// tbir/mir_build 消费降级为 `rxrt_*` 调用;coloring 消费裁决宿主 API 着色
@@ -800,6 +806,257 @@ impl Tck<'_, '_> {
             .arg("detail", detail)
             .span_label(span, "invalid texture sampling expression")
             .emit();
+    }
+
+    /// 采样方法族类型检查(G3.3,RXS-0223;RFC-0013 §4.B1 签名 × 阶段矩阵)。
+    /// 违例一律 **RX3014 扩类别**(strict-only,不新增 3xxx 码):接收者 × 方法轴 /
+    /// 阶段矩阵 / 元数与实参形态 / 元素 F 分方法限定。`elem` = 接收者首类型实参
+    /// (`Texture2D<F>`/`TextureRw2D<F>` 的 F,已 resolve);`rw` = 接收者为
+    /// `TextureRw2D<F>`。`sample` 本名走既有 RXS-0174 分支(byte-preserving),
+    /// 不进本函数。
+    fn check_sample_family(
+        &mut self,
+        span: Span,
+        call_id: HirId,
+        method: &str,
+        elem: Option<Ty>,
+        args: &[hir::Expr],
+        rw: bool,
+    ) -> Ty {
+        use crate::mir::ResourceMethod as M;
+        // 实参逐一定型(expr_ty 物化;核验基于定型结果)。
+        let arg_tys: Vec<Ty> = args.iter().map(|a| self.check_expr(a)).collect();
+
+        // 接收者 × 方法轴(RXS-0223 矩阵):族内方法配错接收者 → RX3014。
+        let m = if rw {
+            match method {
+                "load" => M::StorageLoad,
+                "store" => M::Store,
+                _ => {
+                    self.err_sample_expr(
+                        span,
+                        &format!(
+                            "`{method}` is not available on `TextureRw2D<F>` (storage image \
+                             supports only `load`/`store`; RXS-0223)"
+                        ),
+                    );
+                    return Ty::Err;
+                }
+            }
+        } else if method == "store" {
+            self.err_sample_expr(
+                span,
+                "`store` requires a `TextureRw2D<F>` storage image receiver (`Texture2D<F>` \
+                 is a read-only SRV handle; RXS-0223)",
+            );
+            return Ty::Err;
+        } else {
+            texture2d_family_method(method).expect("guard 已确保方法族方法")
+        };
+
+        // 阶段 × 合法性矩阵(RXS-0223;`TextureRw2D` 阶段列 = fragment + raygen,
+        // §4.0-2 一次性钉死;后续阶段扩展点集中于 [`family_stage_note`] / 本 match)。
+        let stage_ok = match m {
+            // 隐式 LOD 族(quad 导数,🔒 RXS-0227)仅 fragment。
+            M::Sample | M::SampleBias => {
+                matches!(self.ctx_stage, Some(crate::ast::ShaderStage::Fragment))
+            }
+            M::SampleLod | M::SampleGrad | M::Load | M::LoadLod | M::SampleCmp | M::Gather => {
+                matches!(
+                    self.ctx_stage,
+                    Some(crate::ast::ShaderStage::Fragment | crate::ast::ShaderStage::Vertex)
+                )
+            }
+            M::StorageLoad | M::Store => matches!(
+                self.ctx_stage,
+                Some(crate::ast::ShaderStage::Fragment | crate::ast::ShaderStage::RayGen)
+            ),
+        };
+        if !stage_ok {
+            self.err_sample_expr(
+                span,
+                &format!(
+                    "`{method}` is not available in this shader stage (RXS-0223 stage matrix: \
+                     {})",
+                    family_stage_note(m)
+                ),
+            );
+        }
+
+        // 元素 F 分方法限定(Q-S-Element):sample 族限 `f32`(过滤仅对浮点定义);
+        // `load`/`store` 族支持 {f32, u32, i32}。无类型实参 = 默认 f32(mir_build
+        // `ast_ty_to_resource` 同口径);`Ty::Err` 容忍区。
+        let sample_only_f32 = matches!(
+            m,
+            M::Sample | M::SampleLod | M::SampleGrad | M::SampleBias | M::SampleCmp | M::Gather
+        );
+        match &elem {
+            None | Some(Ty::Err) | Some(Ty::Infer(_)) | Some(Ty::Prim(PrimTy::F32)) => {}
+            Some(Ty::Prim(PrimTy::U32 | PrimTy::I32)) if !sample_only_f32 => {}
+            Some(other) => {
+                let allowed = if sample_only_f32 {
+                    "the sample family is limited to `f32` elements"
+                } else {
+                    "`load`/`store` support {f32, u32, i32} elements"
+                };
+                self.err_sample_expr(
+                    span,
+                    &format!(
+                        "element type `{}` is not supported for `{method}` ({allowed}; \
+                         RXS-0223)",
+                        self.render(other)
+                    ),
+                );
+            }
+        }
+
+        // 元数 + 实参形态(RFC-0013 §4.B1 签名表)。向量位实参(coord / ddx / ddy /
+        // store 值):vec2/vec4 非真实 typeck 类型(承 RXS-0174 名约定,结构性
+        // `Ty::Err` 容忍区),故仅拒已定型的非向量实参,精确向量类型由 codegen 层
+        // 裁决(RXS-0226/0228 strict-only);标量位实参(lod/bias/dref)经推断合一。
+        let (sampler_cmp_kind, arity, sig_note) = match m {
+            // `sample` 防御项:本函数不承接(既有 RXS-0174 分支)。
+            M::Sample => (Some(false), 2, "(sampler, coord)"),
+            M::SampleLod => (Some(false), 3, "(sampler, coord, lod: f32)"),
+            M::SampleGrad => (
+                Some(false),
+                4,
+                "(sampler, coord, ddx: vec2<f32>, ddy: vec2<f32>)",
+            ),
+            M::SampleBias => (Some(false), 3, "(sampler, coord, bias: f32)"),
+            M::SampleCmp => (Some(true), 3, "(sampler_cmp, coord, dref: f32)"),
+            M::Gather => (Some(false), 3, "(sampler, coord, component: 0..=3 literal)"),
+            M::Load | M::StorageLoad => (None, 1, "(coord: vec2<u32>)"),
+            M::LoadLod => (None, 2, "(coord: vec2<u32>, lod: u32)"),
+            M::Store => (None, 2, "(coord: vec2<u32>, value: vec4<F>)"),
+        };
+        if args.len() != arity {
+            self.err_sample_expr(
+                span,
+                &format!("`{method}` expects exactly {sig_note} arguments (RXS-0223)"),
+            );
+        } else {
+            if let Some(want_cmp) = sampler_cmp_kind {
+                let samp_ty = self.infcx.resolve(&self.autoderef(&arg_tys[0]));
+                let ok = match &samp_ty {
+                    Ty::Adt(sd, _) => {
+                        if want_cmp {
+                            self.res.lang_items.is_sampler_cmp(*sd)
+                        } else {
+                            self.res.lang_items.is_sampler(*sd)
+                        }
+                    }
+                    Ty::Err => true,
+                    _ => false,
+                };
+                if !ok {
+                    let want = if want_cmp { "SamplerCmp" } else { "Sampler" };
+                    self.err_sample_expr(
+                        args[0].span,
+                        &format!(
+                            "first argument to `{method}` must be a `{want}` handle (RXS-0223)"
+                        ),
+                    );
+                }
+            }
+            let coord_idx = if sampler_cmp_kind.is_some() { 1 } else { 0 };
+            let coord_want = if sample_only_f32 {
+                "vec2<f32>"
+            } else {
+                "vec2<u32>"
+            };
+            self.expect_vec_arg(
+                args[coord_idx].span,
+                &arg_tys[coord_idx],
+                method,
+                "coord",
+                coord_want,
+            );
+            match m {
+                M::SampleLod => {
+                    self.expect_scalar_arg(args[2].span, &arg_tys[2], PrimTy::F32, method, "lod");
+                }
+                M::SampleBias => {
+                    self.expect_scalar_arg(args[2].span, &arg_tys[2], PrimTy::F32, method, "bias");
+                }
+                M::SampleCmp => {
+                    self.expect_scalar_arg(args[2].span, &arg_tys[2], PrimTy::F32, method, "dref");
+                }
+                M::LoadLod => {
+                    self.expect_scalar_arg(args[1].span, &arg_tys[1], PrimTy::U32, method, "lod");
+                }
+                M::SampleGrad => {
+                    self.expect_vec_arg(args[2].span, &arg_tys[2], method, "ddx", "vec2<f32>");
+                    self.expect_vec_arg(args[3].span, &arg_tys[3], method, "ddy", "vec2<f32>");
+                }
+                M::Gather => self.check_gather_component(&args[2]),
+                M::Store => {
+                    self.expect_vec_arg(args[1].span, &arg_tys[1], method, "value", "vec4<F>");
+                }
+                M::Sample | M::Load | M::StorageLoad => {}
+            }
+        }
+
+        self.results.sample_family_calls.insert(call_id, m);
+        match m {
+            // 结果标量 f32(RXS-0223:`sample_cmp` 恒 depth 比较,非 vec4)。
+            M::SampleCmp => Ty::Prim(PrimTy::F32),
+            // `store` 无结果(唯一写者 storage 写,🔒 RXS-0229)。
+            M::Store => Ty::unit(),
+            // vec4<F> 非真实类型(承 vec2/vec4 名约定结构性);返回容忍区。
+            _ => Ty::Err,
+        }
+    }
+
+    /// 向量位实参核验(RXS-0223 容忍口径):vec2/vec4 非真实 typeck 类型(结构性
+    /// `Ty::Err`),故仅拒**已定型的非向量**实参(标量/bool/ADT 等);精确向量
+    /// 类型由 codegen 层裁决(RXS-0226/0228 strict-only)。
+    fn expect_vec_arg(&self, span: Span, t: &Ty, method: &str, what: &str, want: &str) {
+        let r = self.infcx.resolve(t);
+        if !matches!(r, Ty::Err | Ty::Infer(_)) {
+            self.err_sample_expr(
+                span,
+                &format!(
+                    "`{what}` of `{method}` must be `{want}` (found {}; RXS-0223)",
+                    self.render(t)
+                ),
+            );
+        }
+    }
+
+    /// 标量位实参核验(lod/bias/dref: f32;`load_lod` 的 lod: u32):与期望原生
+    /// 类型推断合一(无后缀字面量经数值类约束绑定);不可合一 → RX3014(违例归
+    /// 采样表达式类别,不落 RX2001,RXS-0223)。
+    fn expect_scalar_arg(&mut self, span: Span, t: &Ty, want: PrimTy, method: &str, what: &str) {
+        if !self.infcx.unify(&Ty::Prim(want), t) {
+            self.err_sample_expr(
+                span,
+                &format!(
+                    "`{what}` of `{method}` must be `{}` (found {}; RXS-0223)",
+                    self.render(&Ty::Prim(want)),
+                    self.render(t)
+                ),
+            );
+        }
+    }
+
+    /// gather 分量实参(RXS-0223):须 0..=3 **整型字面量**(非字面量 / 越界 →
+    /// RX3014;codegen 层 `gather_component` 再核常量形态,双保险)。
+    fn check_gather_component(&self, arg: &hir::Expr) {
+        let ok = match &arg.kind {
+            hir::ExprKind::Lit(l) if l.kind == LitKind::Int => self
+                .cx
+                .snippet(l.span)
+                .and_then(|t| crate::mir_build::parse_int(t, l.suffix))
+                .is_some_and(|v| (0..=3).contains(&v)),
+            _ => false,
+        };
+        if !ok {
+            self.err_sample_expr(
+                arg.span,
+                "`component` of `gather` must be an integer literal in 0..=3 (RXS-0223)",
+            );
+        }
     }
 
     fn is_device_ctx(&self) -> bool {
@@ -1877,6 +2134,27 @@ impl Tck<'_, '_> {
                 // vec4<F> 非真实类型(承 vec2/vec4 名约定结构性);返回容忍区。
                 Ty::Err
             }
+            // 采样方法族(G3.3,RXS-0223;RFC-0013 §4.B1):`Texture2D<F>` 接收者的
+            // 新方法(sample_lod/sample_grad/sample_bias/load/load_lod/sample_cmp/
+            // gather;`sample` 本名走上方既有 RXS-0174 分支,byte-preserving,
+            // Q-S-SampleName)。`store` 配 Texture2D(只读 SRV 轴)= 族内违例 →
+            // RX3014。原生 lang item 句柄无用户 inherent impl(无遮蔽问题)。
+            Ty::Adt(d, adt_args)
+                if self.res.lang_items.is_texture2d(*d)
+                    && (texture2d_family_method(method).is_some() || method == "store") =>
+            {
+                let elem = adt_args.first().map(|t| self.infcx.resolve(t));
+                self.check_sample_family(span, call_id, method, elem, args, false)
+            }
+            // 采样方法族(G3.3,RXS-0223):`TextureRw2D<F>` storage image 接收者的
+            // `load`/`store`(阶段列 fragment + raygen,§4.0-2);sample 族方法配
+            // rw 接收者 = 族内违例 → RX3014。
+            Ty::Adt(d, adt_args)
+                if self.res.lang_items.is_texture_rw2d(*d) && is_sample_family_name(method) =>
+            {
+                let elem = adt_args.first().map(|t| self.infcx.resolve(t));
+                self.check_sample_family(span, call_id, method, elem, args, true)
+            }
             Ty::Adt(d, _adt_args) => {
                 let found = self
                     .res
@@ -2312,6 +2590,53 @@ fn scope_name(rank: u8) -> &'static str {
         0 => "Block",
         1 => "Gpu",
         _ => "System",
+    }
+}
+
+/// 采样方法族名 → [`crate::mir::ResourceMethod`](G3.3,RXS-0223;`Texture2D<F>`
+/// 接收者的新方法)。`sample` 本名不在此表——走既有 RXS-0174 分支(`sample_calls`
+/// → `SampleLod` 空 extra,byte-preserving,Q-S-SampleName)。
+fn texture2d_family_method(name: &str) -> Option<crate::mir::ResourceMethod> {
+    use crate::mir::ResourceMethod as M;
+    Some(match name {
+        "sample_lod" => M::SampleLod,
+        "sample_grad" => M::SampleGrad,
+        "sample_bias" => M::SampleBias,
+        "load" => M::Load,
+        "load_lod" => M::LoadLod,
+        "sample_cmp" => M::SampleCmp,
+        "gather" => M::Gather,
+        _ => return None,
+    })
+}
+
+/// 方法名 ∈ 采样方法族(含 `sample`/`store`;RXS-0223)。`TextureRw2D` 接收者
+/// 分支守卫:族内方法在 rw 接收者上或合法(load/store)或 RX3014,均归采样类别。
+fn is_sample_family_name(name: &str) -> bool {
+    matches!(
+        name,
+        "sample"
+            | "sample_lod"
+            | "sample_grad"
+            | "sample_bias"
+            | "load"
+            | "load_lod"
+            | "sample_cmp"
+            | "gather"
+            | "store"
+    )
+}
+
+/// 方法 → 阶段列展示(RXS-0223 阶段 × 合法性矩阵;RX3014 诊断渲染。后续阶段
+/// 扩展〔如 mesh/RT 其余阶段〕集中改此处与 `check_sample_family` 的 stage match)。
+fn family_stage_note(m: crate::mir::ResourceMethod) -> &'static str {
+    use crate::mir::ResourceMethod as M;
+    match m {
+        M::Sample | M::SampleBias => "`fragment` only",
+        M::SampleLod | M::SampleGrad | M::Load | M::LoadLod | M::SampleCmp | M::Gather => {
+            "`fragment` + `vertex`"
+        }
+        M::StorageLoad | M::Store => "`fragment` + `raygen`",
     }
 }
 

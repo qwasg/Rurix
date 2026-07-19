@@ -1,0 +1,40 @@
+//@ spec: RXS-0223
+// G3.3 采样方法族 accept(RFC-0013 §4.B1,typeck 源接线):fragment 阶段法定
+// 方法各 1 合法用例(sample_lod / sample_grad / sample_bias / load / load_lod /
+// gather / sample_cmp;方法族矩阵 0 诊断)。coord/梯度 = vec2<f32> 归一化 UV,
+// texel 坐标 = vec2<u32> 非归一化整型(RXS-0228);gather 分量 = 0..=3 字面量;
+// sample_cmp 经 SamplerCmp 产标量 f32。既有 `.sample()` 路不在本文件
+// (byte-preserving,Q-S-SampleName)。
+struct SfVary {
+    #[interpolate(perspective)] uv: vec2<f32>,
+    #[interpolate(flat)] px: vec2<u32>,
+}
+
+struct SfOut {
+    #[interpolate(perspective)] base: vec4<f32>,
+    #[interpolate(perspective)] graded: vec4<f32>,
+    #[interpolate(perspective)] biased: vec4<f32>,
+    #[interpolate(perspective)] texel: vec4<f32>,
+    #[interpolate(perspective)] mip1: vec4<f32>,
+    #[interpolate(perspective)] corner: vec4<f32>,
+    #[interpolate(perspective)] shadow: f32,
+}
+
+fragment fn sample_family_fs(
+    inp: SfVary,
+    tex: Texture2D<f32>,
+    samp: Sampler,
+    scmp: SamplerCmp,
+) -> SfOut {
+    SfOut {
+        base: tex.sample_lod(samp, inp.uv, 0.0),
+        graded: tex.sample_grad(samp, inp.uv, inp.uv, inp.uv),
+        biased: tex.sample_bias(samp, inp.uv, 1.0),
+        texel: tex.load(inp.px),
+        mip1: tex.load_lod(inp.px, 1),
+        corner: tex.gather(samp, inp.uv, 3),
+        shadow: tex.sample_cmp(scmp, inp.uv, 0.5),
+    }
+}
+
+fn main() {}

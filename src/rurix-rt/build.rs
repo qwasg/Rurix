@@ -117,6 +117,37 @@ fn main() {
         let bytes = gen_spirv(&rx).unwrap_or_default();
         std::fs::write(&spv_out, &bytes).unwrap_or_else(|e| panic!("write {spv_name}: {e}"));
     }
+
+    // G3.3 PR-S3(RFC-0013 §4.B8):采样超集 device 数值判据模式着色器经同一 Vulkan 原生路
+    // (dxil_spirv::emit_spirv_body_vulkan,Vk-native set-per-class 绑定装饰,与
+    // run_graphics_offscreen_v2 的 plan_descriptor_sets 分配律对齐)产 `.spv` 嵌入
+    // `bin/sampling_modes` harness(`vk::sampling_shaders_spv` 消费)。全屏 vertex + 整型取址
+    // vertex + 逐模式 fragment;每 .rx 单阶段根。降级 → 空 `.spv` 哨兵,harness 据空 SKIP
+    // (非 fake pass;镜像 tri/saxpy 降级纪律)。语料合法性另经 rurixc 库级 spirv-val 门
+    // (tests/sampling_vulkan_spirv_val.rs)+ dxil_corpus accept 见证。
+    let graphics_accept = manifest // src/rurix-rt → src → repo root → conformance/dxil/graphics/accept
+        .parent()
+        .and_then(std::path::Path::parent)
+        .expect("repo root(CARGO_MANIFEST_DIR 上二级)")
+        .join("conformance")
+        .join("dxil")
+        .join("graphics")
+        .join("accept");
+    for stem in [
+        "sampling_fullscreen_vs",
+        "sampling_fetch_vs",
+        "sampling_sample_lod_fs",
+        "sampling_load_fs",
+        "sampling_gather_fs",
+        "sampling_cmp_fs",
+        "sampling_storage_fs",
+    ] {
+        let rx = graphics_accept.join(format!("{stem}.rx"));
+        println!("cargo:rerun-if-changed={}", rx.display());
+        let spv_out = out_dir.join(format!("{stem}.spv"));
+        let bytes = gen_spirv(&rx).unwrap_or_default();
+        std::fs::write(&spv_out, &bytes).unwrap_or_else(|e| panic!("write {stem}.spv: {e}"));
+    }
 }
 
 /// `saxpy.rx` → Vulkan SPIR-V 字节(RXS-0208 anchor 支撑;`build_and_emit_vulkan` 纯 Rust

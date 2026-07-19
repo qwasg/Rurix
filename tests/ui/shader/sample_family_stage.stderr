@@ -1,0 +1,5 @@
+error[RX3014]: invalid texture sampling expression: `sample_bias` is not available in this shader stage (RXS-0223 stage matrix: `fragment` only)
+  --> $DIR/shader/sample_family_stage.rx:11:19
+   |
+11 |     VtxOut { pos: tex.sample_bias(samp, inp.uv, 1.0) } //~ ERROR RX3014
+   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ invalid texture sampling expression

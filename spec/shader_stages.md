@@ -121,6 +121,81 @@ SampleExpr ::= Expr "." "sample" "(" Expr "," Expr ")"
 
 > 锚定测试:`conformance/shader/reject/sample/*.rx`(采样违例 `RX3014`:非 fragment / 类型不符)+ `tests/ui/shader/*.stderr`(`RX3014` snapshot);accept 经 `conformance/dxil/graphics/accept/uc04_lighting_fs.rx`(fragment 真采样 0 诊断);`shader_stages` 单测(采样类型规则 accept/reject)。
 
+> **G3.3 语义升级引用(RXS-0223,RFC-0013 §4.B1)**:本条 `sample` 的**显式 LOD 0** 语义在 G3.3 由 `sample_lod(samp, coord, 0.0)` **同一 lowering 路径逐字节承接**;`sample` 本名升级为**隐式 LOD**(quad 导数,🔒 见 spec/dxil_backend.md RXS-0227)。既有 uc04 语料迁移为 `sample_lod` 0 后 golden(`dx.op.sampleLevel`)0-byte、步骤 48 判据不动(Q-S-SampleName)。方法族全表见 RXS-0223。
+
+### RXS-0223 采样方法族类型面（`sample` 隐式化 + `SamplerCmp`/`TextureRw2D`，承 RXS-0156/0174，RFC-0013 §4.B1）
+
+> **编号续号说明**:本条 RXS-0223 由 **RFC-0013**(工业渲染期采样超集章 §4.B)新增,续 RXS-0174 采样表达式类型面,把首期收敛子集(单 `sample` 显式 LOD 0)扩为**采样方法族**——`sample`(隐式化)/ `sample_lod` / `sample_grad` / `sample_bias` / `load` / `load_lod` / `sample_cmp` / `gather` / `TextureRw2D` load·store。**06 §4.2 内存模型映射禁区(纹理路径)第二次增补的类型面**(第一次 = RFC-0007 RXS-0174);codegen 降级见 spec/dxil_backend.md RXS-0226~0229。
+
+**Syntax**(方法族复用既有 `MethodCall` 产生式,无新 token;新资源句柄类型 `SamplerCmp` / `TextureRw2D<F>` 复用 `ResourceTy` 类型头名识别):
+
+```
+ResourceTy ::= ...(承 RXS-0156)
+             | "SamplerCmp"                     // 比较采样器(shadow)
+             | "TextureRw2D" "<" Type ">"       // 可读写 storage image(UAV 轴)
+SampleMethodCall ::= Expr "." SampleMethod "(" Args? ")"
+SampleMethod ::= "sample" | "sample_lod" | "sample_grad" | "sample_bias"
+               | "load"   | "load_lod"  | "sample_cmp"   | "gather"
+               | "store"
+```
+
+**Legality**(方法族签名 / 阶段 × 合法性矩阵,首期收敛子集;句柄纪律承 RXS-0156 / RXS-0175 L4;strict-only):
+
+- **方法签名与阶段表**(F = 已建模标量分量类型):
+
+  | 方法 | 签名 | 阶段 | 元素 F |
+  |---|---|---|---|
+  | `sample` | `(Sampler, vec2<f32>) → vec4<F>` | **仅 fragment** | `f32` |
+  | `sample_lod` | `(Sampler, vec2<f32>, f32) → vec4<F>` | fragment + vertex | `f32` |
+  | `sample_grad` | `(Sampler, vec2<f32>, vec2<f32>, vec2<f32>) → vec4<F>` | fragment + vertex | `f32` |
+  | `sample_bias` | `(Sampler, vec2<f32>, f32) → vec4<F>` | **仅 fragment** | `f32` |
+  | `load` / `load_lod` | `(vec2<u32>[, u32]) → vec4<F>` | fragment + vertex | `{f32,u32,i32}` |
+  | `sample_cmp` | `(SamplerCmp, vec2<f32>, f32) → f32` | fragment + vertex | `f32`(depth) |
+  | `gather` | `(Sampler, vec2<f32>, ⟨0..=3 字面量⟩) → vec4<F>` | fragment + vertex | `f32` |
+  | `TextureRw2D<F>.load` | `(vec2<u32>) → vec4<F>` | **fragment + raygen** | `{f32,u32,i32}` |
+  | `TextureRw2D<F>.store` | `(vec2<u32>, vec4<F>) → ()` | **fragment + raygen** | `{f32,u32,i32}` |
+
+- **`sample` 语义升级与既有路零回归(Q-S-SampleName)**:RXS-0174 现行 `sample` = 显式 LOD 0;本条把 `sample` 升级为**隐式 LOD**(对齐 D3D `Sample`/Vulkan `OpImageSampleImplicitLod` 业界语义,不发明自有名,🔒 语义见 RXS-0227)。既有显式-LOD-0 语义由 `sample_lod(samp, coord, 0.0)` **同一 lowering 路径逐字节承接**;uc04 既有 `.sample(...)` 语料迁移为 `.sample_lod(.., 0.0)` → 既有 golden(`dx.op.sampleLevel`)0-byte(步骤 48 判据不动)。
+- **句柄纪律(承 RXS-0156 / RXS-0175 L4)**:`SamplerCmp` / `TextureRw2D<F>` 均**仅可作着色阶段签名形参**,receiver / `samp` / `SamplerCmp` 实参**须直接是资源句柄形参引用**(句柄非值:不可存 `let`/结构体、不可传参);违例 → `RX3013`(资源句柄违例,承 RXS-0156)或 `RX3014`(采样表达式违例)。
+- **`TextureRw2D<F>` 阶段面(§4.0-2)**:首期阶段列 = **fragment + raygen**(raygen 写 storage image 是 §4.E RT 输出通道类型面前提,在本条一次性钉死,mesh-RT 章不另修订阶段矩阵)。
+- **元素 F 分方法限定**:`sample` 族(`sample`/`sample_lod`/`sample_grad`/`sample_bias`/`gather`)仅 `f32`(过滤仅对浮点定义);`load`/`load_lod`/`TextureRw2D` load·store 支持 `{f32,u32,i32}`(Q-S-Element);`sample_cmp` 恒 depth-`f32`,结果标量 `f32`(非 `vec4`)。
+- **违例**(receiver / 实参类型不符 / 元数不符 / 阶段不符 / 首期收敛子集外方法)一律 **RX3014 扩类别**(strict-only,经 UI golden;G-G3-3 门文;含义可加不可改,不新增 3xxx 码)。
+
+**Dynamic Semantics**(采样语义本体的**类型面投影**;完整内存模型映射见 spec/dxil_backend.md RXS-0227〔隐式 LOD/quad 导数〕/ RXS-0228〔texel fetch 越界〕/ RXS-0229〔storage image 唯一写者〕):方法族各按其 LOD 语义(隐式 quad 导数 / 显式层 / 显式梯度 / bias / 无 LOD 整型取址 / 恒 LOD 0 比较采样 / 基层 2×2 聚合)读取,产 `vec4<F>`(或 `sample_cmp` 的 `f32`)。**一切运行期语义 well-defined**(越界钳制、唯一写者结构回避,RXS-0228/0229);**严禁 UB 节**——子集外一律编译期 `RX3014`(类型面)/ `RX6023`(codegen 面)strict-only 拒,**不静默降级**。
+
+**Implementation Requirements**:方法族 typeck 在 typeck 层(`method` ∈ 方法族 且 receiver 为 `Texture2D<F>`/`TextureRw2D<F>`/`SamplerCmp` lang-item 时按本条矩阵核对 receiver/`samp`/`coord`/额外实参类型与阶段);`mir.rs` `MirResourceType` 加 `TextureRw2D(PrimTy)` / `SamplerCmp` 两变体,`class()` 归轴(`TextureRw2D → Uav`、`SamplerCmp → Sampler`);MIR 降级为采样方法族 rvalue(spec/dxil_backend.md RXS-0226),各方法映射对应 SPIR-V opcode 全家。诊断 span 指向方法调用表达式。
+
+> 锚定测试:`conformance/shader/reject/sample_family/*.rx`(方法族违例 `RX3014`:阶段不符 / 类型不符 / 元素越界)+ `tests/ui/shader/sample_family_*.stderr`(`RX3014` snapshot);accept 经 `conformance/shader/accept/sample_family_*.rx`(合法方法族 0 诊断);`shader_stages`/`typeck`/`mir_build` 单测(方法族矩阵 accept/reject + `MirResourceType` 新变体 class 归轴)。
+
+### RXS-0224 静态 sampler 属性 `#[sampler(...)]`（编译期常量折叠 → static/immutable sampler，RFC-0013 §4.B2）
+
+> **编号续号说明**:本条 RXS-0224 由 **RFC-0013**(§4.B2 形态 a)新增,承 RXS-0164 per-class 轴纪律(binding_layout)。定义 sampler 状态空间(两形态共用同一枚举集,单一事实源)+ 静态属性形态经编译期常量折叠降级为 D3D12 static sampler / Vulkan immutable sampler。宿主运行期形态(`SamplerDesc`)见 spec/host_orchestration.md RXS-0225。
+
+**Syntax**(静态 sampler 属性挂 `Sampler`/`SamplerCmp` 形参,属性式,无新类型):
+
+```
+SamplerParam ::= "#[" "sampler" "(" SamplerAttr ("," SamplerAttr)* ")" "]"? Ident ":" ("Sampler" | "SamplerCmp")
+SamplerAttr  ::= "filter" "=" ("nearest" | "linear")
+               | "address" "=" ("clamp" | "wrap" | "mirror" | "border")
+               | "max_anisotropy" "=" IntLit
+               | "lod_bias" "=" FloatLit
+               | "min_lod" "=" FloatLit | "max_lod" "=" FloatLit
+               | "compare" "=" ("less" | "less_equal" | "greater" | "greater_equal")   // 仅 SamplerCmp
+```
+
+**Legality**(状态空间枚举 + 常量折叠 + s 轴共序,P-01 strict-only):
+
+- **首期状态空间**(两形态共用):`filter ∈ {nearest, linear}`(min/mag/mip 三合一)+ `max_anisotropy: u32`(1=off;>1 时 Vulkan 侧探测 `samplerAnisotropy`,缺失 → 运行期确定性 Err,RFC-0011 §4.11 纪律,不占 RX 码)+ `address ∈ {clamp, wrap, mirror, border}`(border 色限三预置)+ `lod_bias`(钳 [-16,16))+ `min_lod`/`max_lod`;`compare ∈ {less, less_equal, greater, greater_equal}`(仅 `SamplerCmp`)。
+- **静态属性形态(a)**:`#[sampler(...)]` 挂 `Sampler`/`SamplerCmp` 形参 → 状态**编译期常量折叠**;降级 D3D12 static sampler(RTS0 `D3D12_STATIC_SAMPLER_DESC`;现 `serialize_rts0` 恒写 `NumStaticSamplers = 0`,本面扩展)/ Vulkan immutable sampler。静态与动态 sampler **共用 s 轴按声明序分配 register**(RXS-0164 per-class 轴纪律),静态者**不占 descriptor table 槽位**。
+- **无属性 = 现行静态默认**(linear + clamp,RXS-0176 DS4 措辞向后一致)。
+- **属性键 / 值非法**(未知键、`filter` 非 {nearest,linear}、`compare` 挂非 `SamplerCmp` 等)→ strict-only 拒(默认并入 RX3014 扩类别;独立可达类别 → §5 码表条件行,不预造码)。
+
+**Dynamic Semantics**:静态 sampler 属性为编译期常量折叠(无运行期语言语义);折叠后状态经 binding_layout 降级为 RTS0 static sampler / SPIR-V immutable sampler,采样运行期行为由该 sampler 状态决定(见 RXS-0176/RXS-0227)。给定属性集,折叠结果确定。
+
+**Implementation Requirements**:属性解析 + 状态枚举校验在着色阶段前端(gate `shader-stages`);常量折叠状态经 `binding_layout` 降级——static sampler 落 RTS0 `NumStaticSamplers`(扩现恒 0 写),SPIR-V 侧 immutable sampler 装饰;s 轴 register 与动态 sampler 同一声明序事实源(RXS-0164)。诊断 span 指向非法属性键 / 值。
+
+> 锚定测试:`conformance/shader/accept/static_sampler_*.rx`(合法 `#[sampler(...)]` 0 诊断)+ `conformance/shader/reject/static_sampler_*.rx`(非法键值 `RX3014`);`binding_layout` 单测(`NumStaticSamplers > 0` 序列化确定性 + s 轴共序)。
+
 ## 3. 错误码引用汇总（RX3011 ~ RX3014）
 
 > 三类编译期拦截(着色阶段误用 / 阶段间接口不匹配 / 资源句柄违例)属 **Rurix 语义诊断**(编译期可检的着色/接口/句柄合法性,对齐 RXS-0066 着色诊断先例),归 **3xxx 着色/地址空间段位续号**(07 §5 语义分配;接 RX3010 之后 **RX3011+**——**非全局 7xxx 段**,7xxx 为运行期/互操作段)。纯 Rust 通用错误(类型不符等)走 rustc 原生诊断(零新 RX)。
@@ -152,4 +227,5 @@ SampleExpr ::= Expr "." "sample" "(" Expr "," Expr ")"
 |---|---|---|---|
 | v1.0 | 2026-06-23 | 新建 spec/shader_stages.md(G2.1 着色阶段类型面起始文件):登记编号区间 RXS-0153 起续号预留(**已锁定 4 条 RXS-0153 ~ RXS-0156**,RFC-0002 §9 Q5)+ 文件级前言 / 范围(着色阶段函数着色扩展 RXS-0066 / 阶段专属 I/O 语义类型属性式标注 / 阶段间接口类型契约 vertex out→fragment in / 资源句柄·纹理采样器参数化类型面 `Texture2D<F>`+`Sampler` 平行 View;复用 kernel 子语言+views、device⊂host 单向可达、trait 单态化子集、PTX-only、🔒 纹理内存模型映射禁区不落笔)/ 依据与授权(RFC-0002 agent 批准 + 06 §8.2/§4.2 + 05 §1/§2.2 + spec/device.md RXS-0066/0067/0074/0078;G2_CONTRACT D-G2-1/D-G2-6 / G-G2-1/G-G2-6 + G2_PLAN G2.1)/ 计划条款骨架(§2 预留,非裸条款头,照搬 RFC-0002 §5 表:RXS-0153 着色阶段函数着色规则 / RXS-0154 阶段专属 I/O 语义类型 / RXS-0155 阶段间接口类型契约 / RXS-0156 资源句柄·纹理采样器参数化类型面)/ 错误码新段位说明(§3:着色阶段语义诊断归 3xxx 段 RX3011+ 续号,脚手架不预造、不预留;纯 Rust 错误走 rustc 原生零新码)/ 升档·禁区留痕(§4:档位 Full RFC/RFC-0002、🔒 纹理内存模型映射禁区、G2.2 D-131、G2.3 P-11、多后端/红线1/SG、UB 节禁区)。**沿 README v1.32 / v1.33 先例:本轮不落带编号裸条款头**——条款体与每条 ≥1 测试锚定随 G2.1 实现 PR(PR-B2,步骤 45)同落(条款 PR 先于实现 PR,trace_matrix 维持全锚定 152/152),无体例变更 | **Full RFC**(RFC-0002) |
 | v1.1 | 2026-06-23 | **G2.1 实现 PR(PR-B2):§2 计划骨架升格为带编号条款体 `### RXS-0153 ~ ### RXS-0156`**(FLS 体例,按需分 Syntax / Legality / Dynamic Semantics / Implementation Requirements 节,**严禁 UB 节**;Legality 引用对应 RX 码):RXS-0153 着色阶段函数着色规则(前缀式 `<stage> fn`,着色阶段取 kernel 入口着色,直接调用入口 / 跨着色非法调用复用 `RX3001`;compute 复用 kernel;device⊂host 单向可达;trait 单态化子集)/ RXS-0154 阶段专属 I/O 语义类型(`#[interpolate(..)]`/`#[builtin(..)]` 属性式,无标注字段编译期拒绝 → `RX3011`)/ RXS-0155 阶段间接口类型契约(vertex out → fragment in varying 兼容 → 不兼容 `RX3012`,网格/RT 并入本条)/ RXS-0156 资源句柄·纹理采样器参数化类型面(`Texture2D<F>`+`Sampler` 仅着色阶段签名形参,返回/字段/非阶段位置或未支持维度 → `RX3013`,纹理仅类型形态无采样/内存语义)。§3 错误码表回填 RX3011~3013(3xxx 段续号,着色阶段误用复用 RX3001;en/zh message-key 同落,bilingual_coverage 覆盖)。配套 rurixc 着色阶段前端(parser 上下文关键字 `<stage> fn` + AST 层着色阶段类型面检查,gate `cargo feature shader-stages`)+ conformance accept/reject(`conformance/shader/`)+ UI golden(`tests/ui/shader/*.stderr`,经 bless)+ 每条 ≥1 `//@ spec: RXS-####` 锚定(trace_matrix 152→156 全锚定)。**仅类型面/语法面 + 编译期拦截**:不碰 DXIL codegen(G2.2)/ 绑定布局推导(G2.3)/ 🔒 纹理内存模型映射(06 §4.2 禁区);区间锁定 4 条不拆条 | **Full RFC**(RFC-0002) |
+| v1.3 | 2026-07-18 | **RFC-0013 §4.B 采样超集章类型面落库 + RXS-0223/RXS-0224 条款体(spec-first,G3.3 条款先行)**。承 RFC-0013(Agent Approved 2026-07-18,工业渲染期五特性面伞形 Full RFC)。新增 `### RXS-0223`(采样方法族类型面,续 RXS-0174):把首期收敛子集(单 `sample` 显式 LOD 0)扩为方法族 `sample`(隐式化)/`sample_lod`/`sample_grad`/`sample_bias`/`load`/`load_lod`/`sample_cmp`/`gather`/`TextureRw2D` load·store;新资源句柄类型 `SamplerCmp`/`TextureRw2D<F>`(`MirResourceType` 加 `TextureRw2D(PrimTy)`/`SamplerCmp`,`class()` 归 UAV/Sampler 轴);方法×阶段合法性矩阵(`sample`/`sample_bias` 仅 fragment,`TextureRw2D` = fragment+raygen);`sample` 语义升级为隐式 LOD(既有显式-LOD-0 由 `sample_lod(s,uv,0.0)` 逐字节承接,uc04 语料迁移 golden 0-byte,Q-S-SampleName);元素 F 分方法限定(sample 族 f32 / load·store {f32,u32,i32} / sample_cmp depth-f32);违例 RX3014 扩类别(strict-only,不新增 3xxx 码)。新增 `### RXS-0224`(静态 sampler 属性 `#[sampler(...)]`):状态空间枚举(filter/address/max_anisotropy/lod_bias/min_lod/max_lod/compare,两形态共用单一事实源)+ 编译期常量折叠 → D3D12 static sampler(RTS0 `NumStaticSamplers` 扩现恒 0 写)/ Vulkan immutable sampler;s 轴静态动态共序(RXS-0164);非法键值并入 RX3014。RXS-0174 补 G3.3 语义升级引用(显式-LOD-0 由 sample_lod 承接,`sample` 隐式化)。各条 FLS 分 Syntax/Legality/Dynamic Semantics/Implementation Requirements,**严禁 UB 节**(一切运行期语义 well-defined,子集外编译期 RX3014/RX6023 strict-only)。codegen 降级 opcode 全家见 spec/dxil_backend.md RXS-0226~0229;宿主 SamplerDesc 见 spec/host_orchestration.md RXS-0225;vk descriptor 建面见 spec/vulkan_backend.md RXS-0230。每条 ≥1 `//@ spec` 测试锚定随实现 commit 同落(条款 PR 先于实现 PR)。🔒 descriptor/采样 opcode 二进制布局不冻结(RFC-0003 §4.6 / RFC-0005 §4.5) | **Full RFC**（RFC-0013） |
 | v1.2 | 2026-06-30 | **RFC-0007 采样语义本体落库 + RXS-0174 采样表达式类型面条款(spec-first,G2.4 严格面)**。承 RFC-0007(agent 2026-06-30 自主批准,废止 G2_CONTRACT §8.5 选项 B「不采样」折中、关闭 RD-021):把 RXS-0156 的 opaque 资源句柄类型面升级为**可在着色 body 求值的采样表达式**类型面。新增 `### RXS-0174`(采样表达式类型面,**超出 G2.1/RFC-0002 锁定的 RXS-0153~0156 区间,独立 RFC 续号**):`tex.sample(samp, coord)` 复用 `MethodCall` 产生式(无新 token);合法当且仅当 `tex : Texture2D<F>`、`samp : Sampler`、`coord : vec2<f32>` 且包含函数为 `fragment` 阶段;结果 `vec4<F>`;首期收敛子集(显式 LOD 0,规避隐式导数;receiver/`samp` 须直接句柄形参引用),违例 `RX3014`;规避项登记 RD-022~RD-024。§3 错误码表回填 RX3014(3xxx 段续号,`shader.sample_expr_invalid` en/zh message-key)。§4 🔒 纹理内存模型映射禁区留痕更新:采样语义本体首期收敛映射已由 RFC-0007 落笔(类型面 RXS-0174 本文件 + codegen/内存模型 RXS-0175/0176 @ dxil_backend.md),不再「占位待后续」。**条款先于实现**(硬规则 7),测试锚定随实现 commit 同落(trace_matrix 维持全锚定)。🔒 完整内存模型映射(采样 opcode/坐标/LOD/寻址/越界/缓存可见性·memory-order)落 dxil_backend.md RXS-0176 | **Full RFC**(RFC-0007) |

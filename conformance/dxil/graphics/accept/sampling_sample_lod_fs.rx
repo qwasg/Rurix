@@ -1,0 +1,20 @@
+//@ spec: RXS-0223, RXS-0224, RXS-0225, RXS-0226
+// G3.3 PR-S3 device 模式 ① sample_lod 指定层选色 / ⑥ wrap-vs-clamp / ⑦ 多分量(RFC-0013
+// §4.B8):`tex.sample_lod(samp, uv, 1.0)` → OpImageSampleExplicitLod(Lod=1.0)。同一着色器
+// 三模式复用(harness 换资源/sampler 双跑,bin/sampling_modes.rs):
+//   ① mip 逐层异色纹理(level0 红/1 绿/2 蓝)+ Lod 1.0 → 采 level1 应得绿;
+//   ⑥ 同着色器配 clamp vs wrap 两 SamplerDesc,uv>1 采样点像素必异(harness 双跑对照);
+//   ⑦ 多分量:level 纹素 RGBA 四分量各异 → 全 vec4 采样,四通道逐一断言。
+// 采样结果 vec4<f32> → 颜色附件 location 0(harness 回读采样点像素)。Lod 字面量 1.0
+// = mip 层选择显式化(隐式 LOD/quad 导数属 §4.B3,另 mode)。
+struct SlVary {
+    #[interpolate(perspective)] uv: vec2<f32>,
+}
+
+struct SlOut {
+    color: vec4<f32>,
+}
+
+fragment fn sampling_sample_lod_fs(inp: SlVary, tex: Texture2D<f32>, samp: Sampler) -> SlOut {
+    SlOut { color: tex.sample_lod(samp, inp.uv, 1.0) }
+}

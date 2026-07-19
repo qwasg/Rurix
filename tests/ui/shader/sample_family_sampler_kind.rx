@@ -1,0 +1,14 @@
+//@ spec: RXS-0223
+struct SfVary {
+    #[interpolate(perspective)] uv: vec2<f32>,
+}
+
+struct SfOut {
+    #[interpolate(perspective)] shadow: f32,
+}
+
+fragment fn fs_cmp(inp: SfVary, tex: Texture2D<f32>, samp: Sampler) -> SfOut {
+    SfOut { shadow: tex.sample_cmp(samp, inp.uv, 0.5) } //~ ERROR RX3014
+}
+
+fn main() {}

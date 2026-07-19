@@ -1,0 +1,39 @@
+//@ spec: RXS-0223
+// G3.3 采样方法族 accept(RFC-0013 §4.B1 阶段矩阵):vertex 阶段合法列
+// (sample_lod / sample_grad / load / load_lod / gather / sample_cmp =
+// fragment + vertex;显式 LOD / 显式梯度 / 整型取址在 vertex 无隐式导数问题)。
+// 隐式 LOD 族(sample / sample_bias)仅 fragment,不在本文件(反例见
+// reject/sample_family/)。
+struct VtxIn {
+    #[interpolate(perspective)] uv: vec2<f32>,
+    #[interpolate(flat)] px: vec2<u32>,
+}
+
+struct VtxOut {
+    #[builtin(position)] pos: vec4<f32>,
+    #[interpolate(perspective)] lodded: vec4<f32>,
+    #[interpolate(perspective)] graded: vec4<f32>,
+    #[interpolate(perspective)] texel: vec4<f32>,
+    #[interpolate(perspective)] mip1: vec4<f32>,
+    #[interpolate(perspective)] corner: vec4<f32>,
+    #[interpolate(perspective)] shadow: f32,
+}
+
+vertex fn sample_family_vs(
+    inp: VtxIn,
+    tex: Texture2D<f32>,
+    samp: Sampler,
+    scmp: SamplerCmp,
+) -> VtxOut {
+    VtxOut {
+        pos: tex.sample_lod(samp, inp.uv, 0.0),
+        lodded: tex.sample_lod(samp, inp.uv, 2.0),
+        graded: tex.sample_grad(samp, inp.uv, inp.uv, inp.uv),
+        texel: tex.load(inp.px),
+        mip1: tex.load_lod(inp.px, 1),
+        corner: tex.gather(samp, inp.uv, 0),
+        shadow: tex.sample_cmp(scmp, inp.uv, 0.5),
+    }
+}
+
+fn main() {}

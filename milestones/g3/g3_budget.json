@@ -16,6 +16,10 @@
     {
       "id": "g3.counter.uc04_present_frames",
       "description": "UC-04 可见窗口 flip-model swapchain present 端到端证据数 ≥1(契约 G-G3-2;RFC-0013 §4.A / RXS-0220~0222;可见窗口 WS_OVERLAPPEDWINDOW + CreateSwapChainForHwnd FLIP_DISCARD 逐帧 present N 帧 Present 逐帧 S_OK + backbuffer RENDER_TARGET→COPY_SOURCE→PRESENT 迁移锚点 + SetWindowPos 合成 WM_SIZE→ResizeBuffers 重建 + 三点 backbuffer readback 数值断言〔首帧/重建后首帧/末帧〕,着色器 Rurix 源经图形=B DXIL 非手写);计数源 = evidence/uc04_present_*.json 中 present_ok=true 的报告数(机器事实:ci/uc04_present_smoke.py device 段真跑写)。present 真跑 = 交互桌面人工链路,**不进 pr-smoke 硬门**(镜像 uc07_present / realtime_present 双态先例);无显示/无 GPU/无 real-shim/未 opt-in → device 段 SKIP=dev-env degrade 非 fake pass → 0 → 建设期 normal SKIP / close-out strict FAIL,对齐 g1.counter.realtime_present 先例。RURIX_REQUIRE_REAL=1 时缺失翻硬红。**present 不得替代 offscreen 真跑**(步骤 48 offscreen 硬门 0-byte 不动,RD-019 backfill_condition 原文)。"
+    },
+    {
+      "id": "g3.counter.sampling_superset_modes",
+      "description": "采样超集面 device 数值判据模式去重基数 ≥6(契约 G-G3-3;RFC-0013 §4.B / RXS-0223~0230;§4.B8 ①隐式 LOD + mip 金字塔逐层异色 / ②sample_lod 指定层选色 / ③sample_grad 大梯度选高层 / ④load 越界钳制断言 / ⑤wrap-vs-clamp 像素对照 / ⑥sample_cmp shadow 双色 / ⑦gather 角点 2×2 单分量 / ⑧TextureRw2D 唯一写者 store→pass 边界 barrier〔RXS-0169 手动〕→回读 + 多写者编译期拒 / ⑨多分量元素,逐项篡改→像素变 RED 复原 GREEN 数据流红绿 + 双后端〔dxil B 链 / vulkan 原生〕一致性对照 nearest 逐位 / linear 容差);计数源 = evidence/sampling_superset_*.json 中 modes_ok 去重后 num_modes(机器事实:ci/sampling_superset_smoke.py device 段真跑写)。采样数值真跑 = 交互 GPU 链路,**不进 pr-smoke 硬门**(镜像 uc04_present / realtime_present 双态先例);无显示/无 GPU/无 real-shim/未 opt-in → device 段 SKIP=dev-env degrade 非 fake pass → 0 → 建设期 normal SKIP / close-out strict FAIL,对齐 g3.counter.uc04_present_frames 先例。RURIX_REQUIRE_REAL=1 时缺失翻硬红。host 段(步骤 62 codegen opcode 全家结构性单测 + spirv-val 三态 + 唯一写者 reject golden)恒跑不入本 counter。**AMD 真卡见证 = G-MB1-6 硬件尾门独立存续**(本机 RTX 4070 Ti measured 不充作 AMD)。"
     }
   ],
   "namespace_check": {
@@ -32,6 +36,11 @@
       "version": "v1.1",
       "date": "2026-07-18",
       "change": "G3.2 present 面回填 counter_assertions[g3.counter.uc04_present_frames](RFC-0013 §4.A / §6.5 PR-P2,契约 G-G3-2;条款先于实现,登记与 ci/budget_eval.py evaluator 分支同 PR,未知 id 强制 FAIL 纪律)。计数源 = evidence/uc04_present_*.json 中 present_ok=true 的报告数(ci/uc04_present_smoke.py device 段真跑写:可见窗口 flip-model swapchain present N 帧 + resize 重建 + 三点 backbuffer readback 数值断言)。present 真跑 = 交互桌面人工链路不进 pr-smoke 硬门,无显示/无 GPU/未 opt-in → device SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL(对齐 g1.counter.realtime_present 先例);RURIX_REQUIRE_REAL=1 缺失翻硬红。entries/ratio_assertions 维持留空(零 estimated 铁律)。"
+    },
+    {
+      "version": "v1.2",
+      "date": "2026-07-18",
+      "change": "G3.3 采样超集面回填 counter_assertions[g3.counter.sampling_superset_modes](RFC-0013 §4.B / §6.5 PR-S3,契约 G-G3-3;条款先于实现,登记与 ci/budget_eval.py evaluator 分支 + ci/sampling_superset_smoke.py + milestones/g3/sampling_superset_evidence_schema.json 同 PR,未知 id 强制 FAIL 纪律)。计数源 = evidence/sampling_superset_*.json 中 modes_ok 去重后 num_modes(ci/sampling_superset_smoke.py device 段真跑写:≥6 模式数值判据〔§4.B8 ①mip/②sample_lod/③sample_grad/④load 越界钳制/⑤wrap-vs-clamp/⑥sample_cmp/⑦gather/⑧storage 唯一写者 store→barrier→回读/⑨多分量〕逐项篡改→像素变 RED 复原 GREEN + 双后端一致性对照)。采样数值真跑 = 交互 GPU 链路不进 pr-smoke 硬门,无显示/无 GPU/未 opt-in → device SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL(对齐 g3.counter.uc04_present_frames 先例);RURIX_REQUIRE_REAL=1 缺失翻硬红。host 段(步骤 62 codegen opcode 全家结构性单测 + spirv-val 三态 + 唯一写者 reject golden)恒跑不入本 counter。AMD 真卡见证 = G-MB1-6 硬件尾门独立存续(本机 RTX 4070 Ti measured 不充作 AMD)。entries/ratio_assertions 维持留空(零 estimated 铁律)。"
     }
   ]
 }

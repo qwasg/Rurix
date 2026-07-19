@@ -691,13 +691,18 @@
       "title": "RFC-0007 采样首期收敛子集外:隐式 LOD / quad 导数 / LOD 选择 + 派生链一致性 + 可配置 sampler 状态(point/aniso/wrap/mirror/border、LOD bias、mip)",
       "reason": "RFC-0007 §4.2/§4.4/§4.5 首期收敛子集只覆盖显式 LOD 0 + 静态默认 sampler(min/mag/mip 线性 + UVW clamp-to-edge);隐式 LOD 采样(OpImageSampleImplicitLod / dx.op.sample)依赖 fragment quad 派生导数与非均匀控制流后果(06 §4.2 内存模型面),可配置 sampler 状态扩大状态空间——均属采样内存模型本体增补,由 agent 后续 Full RFC 落笔,不在 RFC-0007 一次落全(避免占位式过度承诺,14 §4)。子集外构造编译期 RX6023 strict-only 拒(spec RXS-0175 L2 / RXS-0176 DS1/DS3/DS4)。",
       "backfill_condition": "需 mip / 隐式导数采样或可配置过滤模式(point/aniso/wrap/border、LOD bias)的渲染场景时,由 agent 经后续 Full RFC 增补 RFC-0007 §4.4/§4.5 本体(隐式 LOD opcode / 导数语义 / sampler 状态空间),再补 spec/实现/conformance/golden + device 证据。在此之前采样维持显式 LOD 0 + 静态默认 sampler。",
-      "owner_milestone": "G2.4",
-      "status": "open",
+      "owner_milestone": "G3",
+      "status": "closed",
       "history": [
         {
           "date": "2026-06-30",
           "event": "RFC-0007 §8 登记(RD-022 首期收敛子集外子能力 defer;agent 完全自主,硬规则 1):RFC-0007(纹理采样内存模型 Full RFC)首期只收敛显式 LOD 0 + Texture2D<f32> + Sampler + vec2<f32> → vec4<f32> + fragment 阶段;本子能力越出首期收敛子集,编译期 RX6023(codegen.dxil_sample_unsupported,strict-only)拒,登记 defer 不偷偷略过,由 agent 后续 Full RFC 增补 RFC-0007 §4 本体后实现。RD-016 已跳号永不复用(10 §9.5)。",
           "evidence": "rfcs/0007-texture-sampling-memory-model.md §8 / spec/dxil_backend.md RXS-0175 L2 / RXS-0176"
+        },
+        {
+          "date": "2026-07-18",
+          "event": "G3.3 采样面兑现 → RD-022 CLOSE(status open→closed,owner_milestone G2.4→G3;agent 完全自主签署,AGENTS v3.0 硬规则 1):隐式 LOD/导数/mip/可配置 sampler 首期兑现——sample 隐式化(OpImageSampleImplicitLod,RXS-0223/0226/0227)+sample_grad/sample_bias+可配置 sampler(filter nearest/linear,address clamp/wrap/mirror/border,lod_bias,anisotropy,静态 #[sampler] 属性 RXS-0224 + 宿主 SamplerDesc RXS-0225)。device 见证(开发机 RTX 4070 Ti,ci/sampling_superset_smoke.py 步骤 63 真跑):sample_lod 选层(mip 逐层异色 level1 绿)+wrap-vs-clamp(uv>1 clamp 钳边缘≠wrap 回绕,像素异)。**首期收窄边界**:隐式 LOD 非均匀控制流合法性由结构性成立(图形 body 现 straight-line 切片 RXS-0171 无发散点 by-construction 满足)+条件条款前置锁定(控制流落地时点激活,§4.B3/§4.0-8),非未兑现;anisotropy>1 缺特性运行期确定性 Err。G-G3-3 签署归 close-out 终审。",
+          "evidence": "spec/shader_stages.md RXS-0223~0225 / spec/dxil_backend.md RXS-0226~0229 / spec/vulkan_backend.md RXS-0230 / src/rurixc/src/{typeck.rs,dxil_spirv.rs,binding_layout.rs} / src/rurix-rt/src/{vk.rs,sampler.rs,bin/sampling_modes.rs} / evidence/sampling_superset_1784428377.json(modes_ok=7) / evidence/sampling_bchain_probe_20260718.md"
         }
       ]
     },
@@ -706,13 +711,18 @@
       "title": "RFC-0007 采样首期收敛子集外:非归一化整型 texel fetch(OpImageFetch / dx.op.textureLoad)",
       "reason": "RFC-0007 §4.3 首期只覆盖 coord ∈ [0,1]² 归一化 UV 经 sampler 过滤采样;非归一化整型纹素直取(texel fetch,无过滤、整型坐标、无 sampler)属另一访问语义,留 agent 后续 Full RFC 增补 §4.3 本体。子集外编译期 RX6023 strict-only 拒(spec RXS-0176 DS2)。",
       "backfill_condition": "需精确纹素整型取址(无过滤,如 G-buffer 逐像素精确读)的场景时,由 agent 经后续 Full RFC 增补 RFC-0007 §4.3 texel fetch 本体(整型坐标空间 / 无过滤语义 / 越界后果),再补 spec/实现/conformance/golden + device 证据。",
-      "owner_milestone": "G2.4",
-      "status": "open",
+      "owner_milestone": "G3",
+      "status": "closed",
       "history": [
         {
           "date": "2026-06-30",
           "event": "RFC-0007 §8 登记(RD-023 首期收敛子集外子能力 defer;agent 完全自主,硬规则 1):RFC-0007(纹理采样内存模型 Full RFC)首期只收敛显式 LOD 0 + Texture2D<f32> + Sampler + vec2<f32> → vec4<f32> + fragment 阶段;本子能力越出首期收敛子集,编译期 RX6023(codegen.dxil_sample_unsupported,strict-only)拒,登记 defer 不偷偷略过,由 agent 后续 Full RFC 增补 RFC-0007 §4 本体后实现。RD-016 已跳号永不复用(10 §9.5)。",
           "evidence": "rfcs/0007-texture-sampling-memory-model.md §8 / spec/dxil_backend.md RXS-0175 L2 / RXS-0176"
+        },
+        {
+          "date": "2026-07-18",
+          "event": "G3.3 采样面兑现 → RD-023 CLOSE(status open→closed,owner_milestone G2.4→G3;agent 完全自主签署,AGENTS v3.0 硬规则 1):非归一化整型 texel fetch 兑现——load/load_lod(OpImageFetch+越界钳制序列 OpImageQuerySizeLod→OpISub→UMin,RXS-0228,codegen 层唯一语义源产确定性钳制不依赖 robustness feature,well-defined 无 UB)。device 见证:load_oob_clamp(越界坐标钳制到边缘纹素)。B 链 spirv-val 门首次暴露并修复 OpImageQuerySizeLod opcode 103(此前误 104 产非法 SPIR-V,dxil_corpus 从不跑 spirv-val 故漏)。G-G3-3 签署归 close-out 终审。",
+          "evidence": "spec/shader_stages.md RXS-0223~0225 / spec/dxil_backend.md RXS-0226~0229 / spec/vulkan_backend.md RXS-0230 / src/rurixc/src/{typeck.rs,dxil_spirv.rs,binding_layout.rs} / src/rurix-rt/src/{vk.rs,sampler.rs,bin/sampling_modes.rs} / evidence/sampling_superset_1784428377.json(modes_ok=7) / evidence/sampling_bchain_probe_20260718.md"
         }
       ]
     },
@@ -721,13 +731,18 @@
       "title": "RFC-0007 采样首期收敛子集外:比较采样(shadow)/ gather / 多分量纹理元素 / 可写 image(UAV)写 + memory-order",
       "reason": "RFC-0007 首期只覆盖 Texture2D<f32> 只读 SRV 单分量采样(无 store、无 inter-thread memory-order,§4.7);比较采样器(shadow map)、gather(4-texel 聚合)、多分量纹理元素、可写 image(UAV)写涉跨线程可见性与 memory-order(06 §4.2 跨线程可见性面),属采样/资源访问内存模型本体增补,留 agent 后续 Full RFC。子集外编译期 RX6023 strict-only 拒(spec RXS-0175 L2 / RXS-0176 DS6)。",
       "backfill_condition": "需阴影比较采样 / gather / 多分量纹理 / UAV 写的场景时,由 agent 经后续 Full RFC 增补 RFC-0007 §4.7 本体(尤其 UAV 写的 memory-order 触 06 §4.2 跨线程可见性,与 Atomic scope/order 映射对齐),再补 spec/实现/conformance/golden + device 证据。",
-      "owner_milestone": "G2.4",
-      "status": "open",
+      "owner_milestone": "G3",
+      "status": "closed",
       "history": [
         {
           "date": "2026-06-30",
           "event": "RFC-0007 §8 登记(RD-024 首期收敛子集外子能力 defer;agent 完全自主,硬规则 1):RFC-0007(纹理采样内存模型 Full RFC)首期只收敛显式 LOD 0 + Texture2D<f32> + Sampler + vec2<f32> → vec4<f32> + fragment 阶段;本子能力越出首期收敛子集,编译期 RX6023(codegen.dxil_sample_unsupported,strict-only)拒,登记 defer 不偷偷略过,由 agent 后续 Full RFC 增补 RFC-0007 §4 本体后实现。RD-016 已跳号永不复用(10 §9.5)。",
           "evidence": "rfcs/0007-texture-sampling-memory-model.md §8 / spec/dxil_backend.md RXS-0175 L2 / RXS-0176"
+        },
+        {
+          "date": "2026-07-18",
+          "event": "G3.3 采样面兑现 → RD-024 CLOSE(status open→closed,owner_milestone G2.4→G3;agent 完全自主签署,AGENTS v3.0 硬规则 1):比较采样/gather/多分量/storage 写兑现——sample_cmp shadow(OpImageSampleDrefExplicitLod)+gather(OpImageGather 2x2 单分量)+多分量 Texture2D<vec4<f32>>+TextureRw2D store(OpImageWrite,RXS-0229 **唯一写者纪律**:store 坐标恒本 invocation identity 映射,竞写模式结构性不可构造→无 race 无 UB,禁区结构回避非未证内存模型断言,blocker G-RED-1 定稿)。device 见证:sample_cmp_shadow+gather_corner(置换核验,D3D/Vk 角点序不同)+multi_component+storage_unique_writer(store→pass 边界 barrier→回读,数据流红绿)。**首期收窄边界**:可竞写模式(多写者同 texel)+image atomics 整体放开登 RD-034+ 另 Full RFC(§8,须论证 Vk/D3D 非原子写可见性规范,非首期结构回避可承载);gather D3D/Vk 逐位一致不承诺(角点序差,只落同判据双绿)。G-G3-3 签署归 close-out 终审。",
+          "evidence": "spec/shader_stages.md RXS-0223~0225 / spec/dxil_backend.md RXS-0226~0229 / spec/vulkan_backend.md RXS-0230 / src/rurixc/src/{typeck.rs,dxil_spirv.rs,binding_layout.rs} / src/rurix-rt/src/{vk.rs,sampler.rs,bin/sampling_modes.rs} / evidence/sampling_superset_1784428377.json(modes_ok=7) / evidence/sampling_bchain_probe_20260718.md"
         }
       ]
     },
@@ -1213,6 +1228,11 @@
       "version": "v1.60",
       "date": "2026-07-18",
       "change": "G3.2 present device 见证 measured → RD-019 close(present PR;追加 RD-019 device-见证 history 行 + status open→closed + owner_milestone G2.4→G3 + revision_log v1.60,既有 entries 其余字段/既有 history 行/既有 revision_log v1.0~v1.59 行 0-byte;agent 完全自主签署,AGENTS v3.0 硬规则 1):RD-019 窗口 swapchain present 由 G3.2 兑现,backfill_condition 全满足(spec RXS-0220~0222 + 实现 + CI 步骤 61 + 有显示环境 device 见证 real-shim 真跑 frames=6/resize readback 一致/RTX 4070 Ti)。零新 RD;G-G3-2 验收门签署归 G3 close-out 终审(契约 G-G3-9)。"
+    },
+    {
+      "version": "v1.61",
+      "date": "2026-07-18",
+      "change": "G3.3 采样超集面兑现 → RD-022/023/024 close(采样 PR;三条 status open→closed + owner_milestone G2.4→G3 + 各追加 device-见证 history 行 + revision_log v1.61,既有 entries 其余字段/既有 history 行/既有 revision_log v1.0~v1.60 行 0-byte;agent 完全自主签署,AGENTS v3.0 硬规则 1):RD-022 隐式 LOD/sampler、RD-023 texel fetch、RD-024 shadow/gather/多分量/storage 唯一写者由 RFC-0013 §4.B 采样超集面(RXS-0223~0230)全量兑现,7 模式 device 数值判据开发机 RTX 4070 Ti 真跑 PASS。首期收窄(隐式 LOD 非均匀控制流条件锁定、可竞写模式登 RD-034+)如实留痕。零新 RD(可竞写/heap 直索引等放开面 RFC §8 已 earmark RD-034+,本期未触发不预登)。G-G3-3 验收门签署归 G3 close-out 终审(契约 G-G3-9)。"
     }
   ]
 }

@@ -157,10 +157,18 @@ pub enum MirResourceType {
         /// 只读(SRV)vs 可写(UAV)。
         read_only: bool,
     },
+    /// `TextureRw2D<F>`(G3.3,RXS-0223;可读写 storage image)→ UAV(RFC-0013 §4.B1
+    /// `class() → UAV(u)`)。`F` = 已建模标量分量类型;codegen 侧带**显式 format**
+    /// (Rgba32f/Rgba32ui/Rgba32i,RXS-0226 L2)规避 `shaderStorageImageWriteWithoutFormat`。
+    TextureRw2D(PrimTy),
+    /// `SamplerCmp`(G3.3,RXS-0223;比较采样器,shadow)→ Sampler(RFC-0013 §4.B1
+    /// `class() → Sampler(s)`)。codegen 侧走 depth-比较采样类型形态(RXS-0226 L2)。
+    SamplerCmp,
 }
 
 impl MirResourceType {
-    /// 资源种类轴归类(RXS-0164;CBV→b / SRV→t / UAV→u / Sampler→s)。
+    /// 资源种类轴归类(RXS-0164;CBV→b / SRV→t / UAV→u / Sampler→s;RXS-0223 扩
+    /// `TextureRw2D → UAV`、`SamplerCmp → Sampler`)。
     pub fn class(&self) -> ResourceClass {
         match self {
             MirResourceType::Texture2D(_) => ResourceClass::Srv,
@@ -168,6 +176,9 @@ impl MirResourceType {
             MirResourceType::ConstantBuffer => ResourceClass::Cbv,
             MirResourceType::StructuredBuffer { read_only: true } => ResourceClass::Srv,
             MirResourceType::StructuredBuffer { read_only: false } => ResourceClass::Uav,
+            // RXS-0223:storage image 归 UAV 轴、比较采样器归 Sampler 轴。
+            MirResourceType::TextureRw2D(_) => ResourceClass::Uav,
+            MirResourceType::SamplerCmp => ResourceClass::Sampler,
         }
     }
 }
@@ -325,20 +336,77 @@ pub enum Rvalue {
     },
     /// enum 判别读取(i32;match 降级的测试输入)。
     Discriminant(Place),
-    /// 纹理采样(G2.4,RXS-0175;RFC-0007 §4.4):对 `texture_local` 指向的
-    /// `Texture2D<F>` 句柄、用 `sampler_local` 指向的 `Sampler`、在 `coord`
-    /// (`vec2<f32>`)处采样,产 `vec4<F>`。`texture_local`/`sampler_local` 为
-    /// **资源句柄形参的 local 下标**(句柄非值,不进 `local_values`;codegen 按
-    /// local 名匹配 `resources` 解析 SPIR-V 资源变量)。仅图形=B(`dxil-backend`)
-    /// 着色 body 产出;首期显式 LOD 0(规避隐式导数,RFC-0007 §4.6)。
+    /// 纹理采样方法族(G2.4 RXS-0175 起,G3.3 RXS-0223/0226 扩为方法族):对
+    /// `texture_local` 指向的 `Texture2D<F>` / `TextureRw2D<F>` 句柄、用
+    /// `sampler_local` 指向的 `Sampler`/`SamplerCmp`(`load`/`load_lod`/`store`
+    /// 无 sampler → `None`)、在 `coord` 处按 `method` 语义采样/取址/写,产
+    /// `vec4<F>`(或 `sample_cmp` 的标量 `f32`、`store` 的 `()`)。
+    /// `texture_local`/`sampler_local` 为**资源句柄形参的 local 下标**(句柄非值,
+    /// 不进 `local_values`;codegen 按 local 名匹配 `resources` 解析 SPIR-V 资源变量)。
+    /// `extra` = 方法族额外操作数(lod / grad ddx·ddy / bias / gather-component /
+    /// store-value,见 [`ResourceMethod`]);仅图形=B(`dxil-backend`)/ Vulkan
+    /// (`vulkan-backend`)着色 body 产出。
     ResourceSample {
-        /// `Texture2D<F>` 句柄形参的 local 下标。
+        /// `Texture2D<F>` / `TextureRw2D<F>` 句柄形参的 local 下标。
         texture_local: LocalIdx,
-        /// `Sampler` 句柄形参的 local 下标。
-        sampler_local: LocalIdx,
-        /// 归一化 UV 坐标(`vec2<f32>` 值)。
+        /// `Sampler`/`SamplerCmp` 句柄形参的 local 下标;`load`/`load_lod`/`store`
+        /// (无过滤整型取址/写)= `None`。
+        sampler_local: Option<LocalIdx>,
+        /// 采样方法族判别(RXS-0223/0226)。
+        method: ResourceMethod,
+        /// 坐标:`sample` 族 = `vec2<f32>` 归一化 UV;`load`/`load_lod`/`store` =
+        /// `vec2<u32>` 非归一化整型纹素坐标(RXS-0228)。
         coord: Operand,
+        /// 方法族额外操作数(按 [`ResourceMethod`] 定义;无额外 = 空):
+        /// `SampleLod`=[lod:f32]、`SampleGrad`=[ddx:vec2f, ddy:vec2f]、
+        /// `SampleBias`=[bias:f32]、`LoadLod`=[lod:u32]、`SampleCmp`=[dref:f32]、
+        /// `Gather`=[component:u32 常量 0..=3]、`Store`=[value:vec4<F>]。
+        extra: Vec<Operand>,
     },
+}
+
+/// 采样方法族判别(G3.3,RXS-0223/0226;RFC-0013 §4.B1/B6)。降级 opcode 见
+/// [`crate::dxil_spirv`] 方法族分发表。
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ResourceMethod {
+    /// `sample`:隐式 LOD(quad 导数,🔒 RXS-0227)→ `OpImageSampleImplicitLod`。仅 fragment。
+    Sample,
+    /// `sample_lod`:显式任意层 → `OpImageSampleExplicitLod`(Lod)。既有 RXS-0175 显式-LOD-0 承接。
+    SampleLod,
+    /// `sample_grad`:显式梯度 → `OpImageSampleExplicitLod`(Grad ddx/ddy)。
+    SampleGrad,
+    /// `sample_bias`:隐式 + bias(钳 [-16,16))→ `OpImageSampleImplicitLod`(Bias)。仅 fragment。
+    SampleBias,
+    /// `load`:无过滤整型取址(🔒 RXS-0228 越界钳制)→ `OpImageFetch` + 钳制序列。
+    Load,
+    /// `load_lod`:选 mip 层的整型取址 → `OpImageFetch`(Lod)+ 钳制序列。
+    LoadLod,
+    /// `sample_cmp`:恒显式 LOD 0 比较采样(shadow)→ `OpImageSampleDrefExplicitLod`(Lod 0)。结果标量 f32。
+    SampleCmp,
+    /// `gather`:基层 2×2 单分量聚合(component 0..=3 字面量)→ `OpImageGather`。
+    Gather,
+    /// `TextureRw2D<F>.store`:唯一写者纪律(🔒 RXS-0229)→ `OpImageWrite`。结果 `()`。
+    Store,
+    /// `TextureRw2D<F>.load`:storage image 读 → `OpImageRead`。
+    StorageLoad,
+}
+
+impl ResourceMethod {
+    /// 方法名(诊断/打印用)。
+    pub fn name(self) -> &'static str {
+        match self {
+            ResourceMethod::Sample => "sample",
+            ResourceMethod::SampleLod => "sample_lod",
+            ResourceMethod::SampleGrad => "sample_grad",
+            ResourceMethod::SampleBias => "sample_bias",
+            ResourceMethod::Load => "load",
+            ResourceMethod::LoadLod => "load_lod",
+            ResourceMethod::SampleCmp => "sample_cmp",
+            ResourceMethod::Gather => "gather",
+            ResourceMethod::Store => "store",
+            ResourceMethod::StorageLoad => "rw_load",
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -591,13 +659,28 @@ fn print_rvalue(rv: &Rvalue, res: &Resolutions) -> String {
         Rvalue::ResourceSample {
             texture_local,
             sampler_local,
+            method,
             coord,
-        } => format!(
-            "sample(_{}, _{}, {})",
-            texture_local.0,
-            sampler_local.0,
-            print_operand(coord)
-        ),
+            extra,
+        } => {
+            let samp = match sampler_local {
+                Some(s) => format!("_{}", s.0),
+                None => "-".to_owned(),
+            };
+            let extra_s: Vec<String> = extra.iter().map(print_operand).collect();
+            format!(
+                "{}(_{}, {}, {}{})",
+                method.name(),
+                texture_local.0,
+                samp,
+                print_operand(coord),
+                if extra_s.is_empty() {
+                    String::new()
+                } else {
+                    format!(", {}", extra_s.join(", "))
+                }
+            )
+        }
     }
 }
 

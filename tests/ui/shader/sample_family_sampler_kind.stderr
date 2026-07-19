@@ -1,0 +1,5 @@
+error[RX3014]: invalid texture sampling expression: first argument to `sample_cmp` must be a `SamplerCmp` handle (RXS-0223)
+  --> $DIR/shader/sample_family_sampler_kind.rx:11:36
+   |
+11 |     SfOut { shadow: tex.sample_cmp(samp, inp.uv, 0.5) } //~ ERROR RX3014
+   |                                    ^^^^ invalid texture sampling expression

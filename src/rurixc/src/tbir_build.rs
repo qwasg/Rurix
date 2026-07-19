@@ -405,6 +405,43 @@ impl Builder<'_> {
                         },
                     };
                 }
+                // 采样方法族(G3.3,RXS-0223;RFC-0013 §4.B1):typeck 已按矩阵核对
+                // 并记录 `ResourceMethod`;此处仅当元数与方法形态一致时产方法族节点
+                // (sample 族:args[0]=sampler、args[1]=coord、余 extra;load/store:
+                // args[0]=coord、余 extra),否则容忍区兜底(typeck 已发 RX3014)。
+                if let Some(&m) = self.tcr.sample_family_calls.get(&e.hir_id) {
+                    use crate::mir::ResourceMethod as M;
+                    let (has_sampler, arity) = match m {
+                        // `sample` 防御项:本路径不产(既有 `.sample()` 走上方
+                        // ResourceSample,byte-preserving,Q-S-SampleName)。
+                        M::Sample => (true, 2),
+                        M::SampleLod | M::SampleBias | M::SampleCmp | M::Gather => (true, 3),
+                        M::SampleGrad => (true, 4),
+                        M::Load | M::StorageLoad => (false, 1),
+                        M::LoadLod | M::Store => (false, 2),
+                    };
+                    if args.len() == arity {
+                        let texture = Box::new(self.expr(receiver));
+                        let (sampler, coord_idx) = if has_sampler {
+                            (Some(Box::new(self.expr(&args[0]))), 1)
+                        } else {
+                            (None, 0)
+                        };
+                        let coord = Box::new(self.expr(&args[coord_idx]));
+                        let extra = args[coord_idx + 1..].iter().map(|a| self.expr(a)).collect();
+                        return tbir::Expr {
+                            ty,
+                            span,
+                            kind: tbir::ExprKind::ResourceMethodCall {
+                                method: m,
+                                texture,
+                                sampler,
+                                coord,
+                                extra,
+                            },
+                        };
+                    }
+                }
                 // 宿主 GPU 编排(MS1.2,RXS-0189/0191):launch → GpuLaunch(kernel
                 // 编译期绑定 + 维度分量 + 实参元组);其余已知方法 → GpuCall
                 // (receiver 作 args[0];upload/download 的 `&pinned` 借用剥壳为
@@ -793,6 +830,23 @@ impl ExhaustCx<'_> {
                 self.walk_expr(texture);
                 self.walk_expr(sampler);
                 self.walk_expr(coord);
+            }
+            // 采样方法族(G3.3,RXS-0223):receiver/sampler/coord/extra 子树走查。
+            tbir::ExprKind::ResourceMethodCall {
+                texture,
+                sampler,
+                coord,
+                extra,
+                ..
+            } => {
+                self.walk_expr(texture);
+                if let Some(s) = sampler {
+                    self.walk_expr(s);
+                }
+                self.walk_expr(coord);
+                for x in extra {
+                    self.walk_expr(x);
+                }
             }
             tbir::ExprKind::Binary { lhs, rhs, .. }
             | tbir::ExprKind::Assign { lhs, rhs, .. }

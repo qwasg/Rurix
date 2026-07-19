@@ -1,0 +1,23 @@
+//@ spec: RXS-0228, RXS-0229, RXS-0230
+// G3.3 PR-S3 整型取址模式 vertex(RFC-0013 §4.B4/B5/B8 ②④load / ⑤storage):host 顶点缓冲
+// 提供全屏三角形 pos + 整型纹素坐标 px(flat,vec2<u32>)+ store 值 val(vec4<f32>),
+// passthrough——#[builtin(position)] clip = SV_Position,flat px 供 `load`/`store` 整型取址
+// (无过滤,RXS-0228 越界钳制由 codegen 注入),val 供 storage store。load fragment 只消费
+// px(忽略 val,location 1 未消费合法);storage fragment 消费 px+val。首期 px flat = 全三角形
+// 常量(mode② OOB 钳制:host 置越界常量,断言采到边缘纹素;mode⑤ storage 唯一写者的
+// per-fragment identity 坐标〔FragCoord 派生〕= device 迭代 TODO,见 bin/sampling_modes.rs)。
+struct SfeIn {
+    #[interpolate(flat)] pos: vec4<f32>,
+    #[interpolate(flat)] px: vec2<u32>,
+    #[interpolate(flat)] val: vec4<f32>,
+}
+
+struct SfeVary {
+    #[builtin(position)] clip: vec4<f32>,
+    #[interpolate(flat)] px: vec2<u32>,
+    #[interpolate(flat)] val: vec4<f32>,
+}
+
+vertex fn sampling_fetch_vs(inp: SfeIn) -> SfeVary {
+    SfeVary { clip: inp.pos, px: inp.px, val: inp.val }
+}

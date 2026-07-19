@@ -1,0 +1,18 @@
+//@ spec: RXS-0223, RXS-0226
+// G3.3 PR-S3 device 模式 ④ sample_cmp shadow 比较采样(RFC-0013 §4.B8):
+// `tex.sample_cmp(scmp, uv, 0.5)` → OpImageSampleDrefExplicitLod(恒显式 LOD 0,
+// SampleCmpLevelZero 形态)。深度纹理与参考值 0.5 逐纹素比较(compare 函数由宿主
+// SamplerDesc.compare 配置)→ 通过=1.0 / 不通过=0.0(linear 过滤则 [0,1] 阴影因子)。
+// 结果 f32 → 颜色附件 location 0 标量输出(harness 回读 R 通道)。harness 断言:参考值
+// 两侧的采样点像素双色异(篡改深度纹理 → 比较结果翻转 RED,复原 GREEN)。
+struct CmpVary {
+    #[interpolate(perspective)] uv: vec2<f32>,
+}
+
+struct CmpOut {
+    shadow: f32,
+}
+
+fragment fn sampling_cmp_fs(inp: CmpVary, tex: Texture2D<f32>, scmp: SamplerCmp) -> CmpOut {
+    CmpOut { shadow: tex.sample_cmp(scmp, inp.uv, 0.5) }
+}

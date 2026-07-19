@@ -1,0 +1,16 @@
+//@ spec: RXS-0223
+//@ expect-error: RX3014
+// 签名违例(RFC-0013 §4.B1):gather 分量字面量域 = 0..=3(vec4 分量);4 → RX3014。
+struct SfVary {
+    #[interpolate(perspective)] uv: vec2<f32>,
+}
+
+struct SfOut {
+    #[interpolate(perspective)] corner: vec4<f32>,
+}
+
+fragment fn fs_gather_oob(inp: SfVary, tex: Texture2D<f32>, samp: Sampler) -> SfOut {
+    SfOut { corner: tex.gather(samp, inp.uv, 4) }
+}
+
+fn main() {}

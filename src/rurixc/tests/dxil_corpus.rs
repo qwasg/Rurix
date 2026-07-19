@@ -304,6 +304,73 @@ fn accept_graphics_body_corpus_lowers_io_dataflow() {
     }
 }
 
+/// G3.3 缺口①收口见证(RXS-0223/0226;RFC-0013 §4.B):采样方法族自 `.rx` 源
+/// **全链可达**——parse → typeck 方法族矩阵(RX3014 通道)→ tbir
+/// `ResourceMethodCall` → MIR `Rvalue::ResourceSample{method, extra}` →
+/// `emit_spirv_body` 方法族分发,产物含新 opcode 全家(前一实现切片诚实遗留:
+/// codegen 就位但仅单测构造 MIR 可达;本测试为源级端到端)。图形 emit 无 CLI
+/// `--emit` 通道(driver 合法 emit = check/mir/llvm-ir/nvptx-ir/ptx/pyd),故以
+/// rurixc 库级全链兑现(诚实注明;B 全链/device 见证归步骤 46/62 冒烟)。
+//@ spec: RXS-0223, RXS-0226
+#[cfg(feature = "shader-stages")]
+#[test]
+fn sample_superset_source_reaches_new_opcodes() {
+    use rurixc::ast::ShaderStage;
+    const OP_IMAGE_SAMPLE_IMPLICIT_LOD: u16 = 87;
+    const OP_IMAGE_SAMPLE_EXPLICIT_LOD: u16 = 88;
+    const OP_IMAGE_SAMPLE_DREF_EXPLICIT_LOD: u16 = 90;
+    const OP_IMAGE_FETCH: u16 = 95;
+    const OP_IMAGE_GATHER: u16 = 96;
+    const OP_IMAGE_READ: u16 = 98;
+    const OP_IMAGE_WRITE: u16 = 99;
+
+    let cases: [(&str, &[u16]); 2] = [
+        (
+            "sample_superset_fs",
+            &[
+                OP_IMAGE_SAMPLE_EXPLICIT_LOD,      // sample_lod / sample_grad
+                OP_IMAGE_SAMPLE_IMPLICIT_LOD,      // sample_bias(Bias operand)
+                OP_IMAGE_FETCH,                    // load_lod(+ RXS-0228 钳制)
+                OP_IMAGE_GATHER,                   // gather(分量字面量)
+                OP_IMAGE_SAMPLE_DREF_EXPLICIT_LOD, // sample_cmp(恒 LOD 0)
+            ],
+        ),
+        ("sample_superset_rw_fs", &[OP_IMAGE_READ, OP_IMAGE_WRITE]),
+    ];
+    for (stem, want_ops) in cases {
+        let path = dxil_dir("graphics/accept").join(format!("{stem}.rx"));
+        let src = fs::read_to_string(&path).expect("读取采样超集见证语料失败");
+        let diag = DiagCtxt::new();
+        let cx = QueryCtx::new(&src, SourceId(0), Edition::Rx0, &diag);
+        cx.check_crate();
+        cx.check_coloring();
+        cx.check_crate_patterns();
+        cx.check_consteval();
+        assert!(
+            !diag.has_errors(),
+            "{stem} 应 0 诊断: {:?}",
+            diag.emitted()
+                .iter()
+                .filter_map(|d| d.code)
+                .collect::<Vec<_>>()
+        );
+        let bodies = cx.device_mir_crate();
+        let fs_body = bodies
+            .iter()
+            .find(|b| b.stage == Some(ShaderStage::Fragment))
+            .expect("fragment 图形阶段根应进入 device MIR");
+        let spv = rurixc::dxil_spirv::emit_spirv_body(ShaderStage::Fragment, fs_body)
+            .unwrap_or_else(|e| panic!("{stem} emit_spirv_body 应 Ok, 实得 {e:?}"));
+        let ops = spirv_opcodes(&spv);
+        for w in want_ops {
+            assert!(
+                ops.contains(w),
+                "{stem} SPIR-V 应含方法族 opcode {w}(实得 {ops:?})"
+            );
+        }
+    }
+}
+
 /// RXS-0160:vertex+fragment 配对的图形 accept 语料经多阶段联编点链接核对 → `Linked`。
 /// 对 graphics/accept 中同时含 vertex+fragment 阶段根的文件(如 `vs_fs_link.rx`)断言
 /// [`link_graphics_stages`] 链接一致(host 侧确定性;builtin 不参与、location 不比对

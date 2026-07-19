@@ -134,7 +134,15 @@ def main():
     require_real = os.environ.get("RURIX_REQUIRE_REAL") == "1"
 
     build("rurixc", "--features", "vulkan-backend")
-    build("rurixc", "--features", "vulkan-backend", "--example", "emit_spirv_provenance")
+    # emit_spirv_provenance required-features = dxil-backend + shader-stages(G3.3 typeck
+    # 接线补齐后仅传 vulkan-backend 不满足);一并带上,red_self_test 语义不变。
+    build(
+        "rurixc",
+        "--features",
+        "vulkan-backend dxil-backend shader-stages",
+        "--example",
+        "emit_spirv_provenance",
+    )
     build("rurix-rt", "--features", "vulkan", "--bin", "vk_present")
 
     rurixc = ROOT / "target" / "debug" / f"rurixc{EXE_SUFFIX}"

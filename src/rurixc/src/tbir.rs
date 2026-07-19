@@ -124,6 +124,19 @@ pub enum ExprKind {
         sampler: Box<Expr>,
         coord: Box<Expr>,
     },
+    /// 采样方法族(G3.3,RXS-0223/0226;RFC-0013 §4.B1):新方法(`sample_lod`/
+    /// `sample_grad`/`sample_bias`/`load`/`load_lod`/`sample_cmp`/`gather`/
+    /// `TextureRw2D` load·store)调用 → MIR `Rvalue::ResourceSample{method, extra}`。
+    /// 既有 `.sample()` 走 [`ExprKind::ResourceSample`](byte-preserving,
+    /// Q-S-SampleName)。`sampler` 仅 sample 族携带(`load`/`store` 无);`extra` =
+    /// 方法族额外实参(lod / ddx·ddy / bias / dref / component / store 值)。
+    ResourceMethodCall {
+        method: crate::mir::ResourceMethod,
+        texture: Box<Expr>,
+        sampler: Option<Box<Expr>>,
+        coord: Box<Expr>,
+        extra: Vec<Expr>,
+    },
     /// 宿主 GPU 编排调用(MS1.2,RXS-0189/0191):`args[0]` 为 receiver 句柄
     /// (`CtxCreate` 无 receiver,args 为空);upload/download 的 `&pinned` 借用
     /// 实参已剥壳为句柄表达式。MIR lowering 降级为 `rxrt_*` 字面符号调用

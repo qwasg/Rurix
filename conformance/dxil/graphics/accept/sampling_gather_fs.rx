@@ -1,0 +1,17 @@
+//@ spec: RXS-0223, RXS-0226
+// G3.3 PR-S3 device 模式 ③ gather 角点 2×2 单分量聚合(RFC-0013 §4.B8):
+// `tex.gather(samp, uv, 0)` → OpImageGather(分量字面量 0 = R 通道)。基层 2×2 邻域四纹素
+// 的 R 分量聚合为 vec4(x=(0,1)/y=(1,1)/z=(1,0)/w=(0,0) texel R,D3D/Vulkan gather 角点序)。
+// harness 断言:采样点 gather 结果四分量 == 该 2×2 邻域四纹素 R(篡改任一纹素 R → 对应
+// 分量变 RED,复原 GREEN)。gather 无 LOD(恒基层),分量字面量 0..=3 编译期常量。
+struct GaVary {
+    #[interpolate(perspective)] uv: vec2<f32>,
+}
+
+struct GaOut {
+    color: vec4<f32>,
+}
+
+fragment fn sampling_gather_fs(inp: GaVary, tex: Texture2D<f32>, samp: Sampler) -> GaOut {
+    GaOut { color: tex.gather(samp, inp.uv, 0) }
+}

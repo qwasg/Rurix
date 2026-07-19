@@ -20,6 +20,8 @@
 
 use core::ffi::{c_char, c_void};
 
+use crate::sampler::SamplerDesc;
+
 // ── 句柄类型 ────────────────────────────────────────────────────────────────
 // dispatchable = 指针;non-dispatchable = u64(VK_DEFINE_NON_DISPATCHABLE_HANDLE)。
 type VkInstance = *mut c_void;
@@ -2712,6 +2714,2094 @@ unsafe fn graphics_body(
     result
 }
 
+// ─────────────── graphics offscreen v2:descriptor 建面(RXS-0230,G3.3 PR-S0) ────────────
+// RFC-0013 §4.B7:v1 `run_graphics_offscreen` 零 descriptor 面 → v2 加性 API 追加
+// `resources: &[GraphicsResource]`(纹理逐层 mip / SamplerDesc / storage image),内部建
+// Vk-native set-per-class descriptor 底座(采样 / bindless / graph / present 四面共用;
+// set = 类别轴 0=CBV/1=SRV/2=UAV/3=Sampler、binding = 类内声明序,与 rurixc
+// `binding_layout::infer_spirv_bindings_vk_native` 同一分配律)。v1 签名与行为 0-byte 保留
+// (MB1 语料零回归,RXS-0230 L1);v2 独立组装(`graphics_body_v2`),不触 v1 路径字节。
+
+// v2 句柄(non-dispatchable = u64)。
+type VkSampler = u64;
+
+// v2 sType / descriptor / usage / layout / access / stage 常量(RXS-0230)。
+const ST_SAMPLER_CREATE_INFO: u32 = 31;
+const DESCRIPTOR_TYPE_SAMPLER: u32 = 0;
+const DESCRIPTOR_TYPE_SAMPLED_IMAGE: u32 = 2;
+const DESCRIPTOR_TYPE_STORAGE_IMAGE: u32 = 3;
+const IMAGE_USAGE_TRANSFER_DST: u32 = 0x2;
+const IMAGE_USAGE_SAMPLED: u32 = 0x4;
+const IMAGE_USAGE_STORAGE: u32 = 0x8;
+const BUFFER_USAGE_TRANSFER_SRC: u32 = 0x1;
+const IMAGE_LAYOUT_GENERAL: u32 = 1;
+const IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL: u32 = 5;
+const IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL: u32 = 7;
+const ACCESS_TRANSFER_WRITE: u32 = 0x1000;
+const ACCESS_SHADER_READ: u32 = 0x20;
+const ACCESS_SHADER_WRITE: u32 = 0x40;
+const PIPELINE_STAGE_TOP_OF_PIPE: u32 = 0x1;
+const PIPELINE_STAGE_VERTEX_SHADER: u32 = 0x8;
+const PIPELINE_STAGE_FRAGMENT_SHADER: u32 = 0x80;
+const FORMAT_R32G32B32A32_SFLOAT: u32 = 109;
+const BORDER_COLOR_FLOAT_OPAQUE_BLACK: u32 = 2;
+/// `VK_LOD_CLAMP_NONE`(maxLod 语义上限;宿主 `f32::MAX` 语义等价,构造时钳此值)。
+const LOD_CLAMP_NONE: f32 = 1000.0;
+/// `VkPhysicalDeviceFeatures` 定长 VkBool32 字段数(Vulkan 1.0 固定 55,字段序 spec 固定)。
+const PHYSICAL_DEVICE_FEATURE_COUNT: usize = 55;
+/// `samplerAnisotropy` 字段序(0 基第 20 字段;sampler `max_anisotropy > 1` 需之)。
+const FEATURE_SAMPLER_ANISOTROPY: usize = 19;
+/// `fragmentStoresAndAtomics` 字段序(storage image 片元 store 需之;机会性启用)。
+const FEATURE_FRAGMENT_STORES_AND_ATOMICS: usize = 26;
+
+/// `VkPhysicalDeviceFeatures`(Vulkan 1.0;55 个 VkBool32 顺排——全字段同型,以定长数组
+/// 建模逐字节对齐,按 spec 字段序索引〔`FEATURE_*` 常量〕)。
+#[repr(C)]
+struct PhysicalDeviceFeatures {
+    features: [VkBool32; PHYSICAL_DEVICE_FEATURE_COUNT],
+}
+
+#[repr(C)]
+struct SamplerCreateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    flags: VkFlags,
+    mag_filter: u32,
+    min_filter: u32,
+    mipmap_mode: u32,
+    address_mode_u: u32,
+    address_mode_v: u32,
+    address_mode_w: u32,
+    mip_lod_bias: f32,
+    anisotropy_enable: VkBool32,
+    max_anisotropy: f32,
+    compare_enable: VkBool32,
+    compare_op: u32,
+    min_lod: f32,
+    max_lod: f32,
+    border_color: u32,
+    unnormalized_coordinates: VkBool32,
+}
+
+#[repr(C)]
+struct DescriptorImageInfo {
+    sampler: VkSampler,
+    image_view: VkImageView,
+    image_layout: u32,
+}
+
+// v2 新增函数指针(既有 descriptor 集〔create_dsl/pool/alloc/update/bind〕复用 compute
+// 先例的类型;此处仅 sampler / features / copy-buffer-to-image 三面为新)。
+type FnGetPhysicalDeviceFeatures =
+    unsafe extern "system" fn(VkPhysicalDevice, *mut PhysicalDeviceFeatures);
+type FnCreateSampler = unsafe extern "system" fn(
+    VkDevice,
+    *const SamplerCreateInfo,
+    *const c_void,
+    *mut VkSampler,
+) -> VkResult;
+type FnDestroySampler = unsafe extern "system" fn(VkDevice, VkSampler, *const c_void);
+type FnCmdCopyBufferToImage = unsafe extern "system" fn(
+    VkCommandBuffer,
+    VkBuffer,
+    VkImage,
+    u32,
+    u32,
+    *const VkBufferImageCopy,
+);
+
+/// v2 纹理逐层数据(RXS-0230;level 0 起,每层尺寸减半钳 1〔`mip_level_extents`〕)。
+#[derive(Debug, Clone, PartialEq)]
+pub enum TextureData {
+    /// RGBA8 UNORM(4 字节/纹素;层字节数 = w×h×4)。
+    Rgba8(Vec<Vec<u8>>),
+    /// RGBA32 SFLOAT(4×f32/纹素;层 f32 数 = w×h×4)。
+    RgbaF32(Vec<Vec<f32>>),
+}
+
+impl TextureData {
+    /// mip 层数(= 数据层数)。
+    fn level_count(&self) -> u32 {
+        match self {
+            TextureData::Rgba8(v) => v.len() as u32,
+            TextureData::RgbaF32(v) => v.len() as u32,
+        }
+    }
+
+    /// 纹素字节数(staging 布局用)。
+    fn bytes_per_texel(&self) -> u64 {
+        match self {
+            TextureData::Rgba8(_) => 4,
+            TextureData::RgbaF32(_) => 16,
+        }
+    }
+
+    /// VkFormat(R8G8B8A8_UNORM / R32G32B32A32_SFLOAT)。
+    fn vk_format(&self) -> u32 {
+        match self {
+            TextureData::Rgba8(_) => FORMAT_R8G8B8A8_UNORM,
+            TextureData::RgbaF32(_) => FORMAT_R32G32B32A32_SFLOAT,
+        }
+    }
+}
+
+/// storage image 显式格式(RXS-0230;UAV 轴,承 §4.B5「`OpTypeImage` 带显式 format」纪律)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StorageFormat {
+    /// R8G8B8A8_UNORM。
+    Rgba8Unorm,
+    /// R32G32B32A32_SFLOAT(`TextureRw2D<f32>` → Rgba32f)。
+    Rgba32Float,
+}
+
+impl StorageFormat {
+    fn vk_format(self) -> u32 {
+        match self {
+            StorageFormat::Rgba8Unorm => FORMAT_R8G8B8A8_UNORM,
+            StorageFormat::Rgba32Float => FORMAT_R32G32B32A32_SFLOAT,
+        }
+    }
+}
+
+/// `run_graphics_offscreen_v2` 的 per-dispatch 有界资源(RXS-0230 / RFC-0013 §4.B7)。
+///
+/// **声明序须与着色器签名资源声明序一致**——binding 号 = 类内声明序,与 rurixc
+/// `binding_layout::infer_spirv_bindings_vk_native`(单一 binding-号事实源)同序;三条
+/// 资源下发路分工见 §4.0-6(本枚举 = 有界 per-dispatch 路,无界表 = §4.C4 `rxrt_table_*`)。
+#[derive(Debug, Clone, PartialEq)]
+pub enum GraphicsResource {
+    /// SRV 轴 sampled 纹理(逐层 mip)→ set1,`VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE`,
+    /// `SHADER_READ_ONLY_OPTIMAL`。
+    Texture2D {
+        /// level 0 宽(≥1)。
+        width: u32,
+        /// level 0 高(≥1)。
+        height: u32,
+        /// 逐层数据(层数 = mip 数,1..=完整链)。
+        data: TextureData,
+    },
+    /// Sampler 轴采样器(immutable sampler 进 set3 layout,RXS-0230 L3)。
+    Sampler(SamplerDesc),
+    /// UAV 轴 storage image → set2,`VK_DESCRIPTOR_TYPE_STORAGE_IMAGE`,`GENERAL` layout。
+    StorageImage {
+        /// 宽(≥1)。
+        width: u32,
+        /// 高(≥1)。
+        height: u32,
+        /// 显式格式。
+        format: StorageFormat,
+    },
+}
+
+// ── v2 纯 host 计划函数(无 FFI,单测锚定 RXS-0230) ─────────────────────────────
+
+/// RXS-0230 IR2:Vk-native set-per-class 归类计划(host 纯函数)。返回逐资源
+/// `(set, binding)`:set = 类别轴(1=SRV / 2=UAV / 3=Sampler;set0 = CBV 首期恒空占位),
+/// binding = 类内声明序——与 rurixc `infer_spirv_bindings_vk_native` 同一分配律
+/// (单一 binding-号事实源同序;两 crate 分立,镜像同一律)。
+fn plan_descriptor_sets(resources: &[GraphicsResource]) -> Vec<(u32, u32)> {
+    let (mut srv, mut uav, mut smp) = (0u32, 0u32, 0u32);
+    resources
+        .iter()
+        .map(|r| match r {
+            GraphicsResource::Texture2D { .. } => {
+                let b = srv;
+                srv += 1;
+                (1, b)
+            }
+            GraphicsResource::StorageImage { .. } => {
+                let b = uav;
+                uav += 1;
+                (2, b)
+            }
+            GraphicsResource::Sampler(_) => {
+                let b = smp;
+                smp += 1;
+                (3, b)
+            }
+        })
+        .collect()
+}
+
+/// set layout 数 = 最大使用 set + 1(中间未用 set〔含 set0 CBV〕以空 layout 占位,
+/// 保 set 号 = 类别轴不平移;资源空 → 0,v2 入口直接委派 v1)。
+fn planned_set_count(plans: &[(u32, u32)]) -> u32 {
+    plans.iter().map(|&(s, _)| s + 1).max().unwrap_or(0)
+}
+
+/// descriptor pool sizes(host 纯函数):`(VkDescriptorType, count)`,确定性序
+/// SAMPLED_IMAGE → STORAGE_IMAGE → SAMPLER,零计数不入。immutable sampler 仍占
+/// SAMPLER pool 容量(分配含 immutable 绑定的 set 消耗之)。
+fn plan_pool_sizes(resources: &[GraphicsResource]) -> Vec<(u32, u32)> {
+    let mut tex = 0u32;
+    let mut sto = 0u32;
+    let mut smp = 0u32;
+    for r in resources {
+        match r {
+            GraphicsResource::Texture2D { .. } => tex += 1,
+            GraphicsResource::StorageImage { .. } => sto += 1,
+            GraphicsResource::Sampler(_) => smp += 1,
+        }
+    }
+    let mut out = Vec::new();
+    if tex > 0 {
+        out.push((DESCRIPTOR_TYPE_SAMPLED_IMAGE, tex));
+    }
+    if sto > 0 {
+        out.push((DESCRIPTOR_TYPE_STORAGE_IMAGE, sto));
+    }
+    if smp > 0 {
+        out.push((DESCRIPTOR_TYPE_SAMPLER, smp));
+    }
+    out
+}
+
+/// mip 尺寸序列(host 纯函数):`levels` 层,每层减半、钳 1(level 0 = `(width, height)`)。
+fn mip_level_extents(width: u32, height: u32, levels: u32) -> Vec<(u32, u32)> {
+    (0..levels)
+        .map(|i| ((width >> i).max(1), (height >> i).max(1)))
+        .collect()
+}
+
+/// 完整 mip 链层数:`floor(log2(max(w,h))) + 1`(w/h ≥ 1)。
+fn full_mip_chain_len(width: u32, height: u32) -> u32 {
+    32 - width.max(height).max(1).leading_zeros()
+}
+
+/// mip 链 staging 紧凑布局(host 纯函数):逐层偏移 + 总字节(层字节 = w×h×texel;偏移
+/// 恒为纹素尺寸整倍 → 满足 `vkCmdCopyBufferToImage` bufferOffset 对齐 VUID)。
+fn mip_staging_layout(extents: &[(u32, u32)], bytes_per_texel: u64) -> (u64, Vec<u64>) {
+    let mut offsets = Vec::with_capacity(extents.len());
+    let mut total = 0u64;
+    for &(w, h) in extents {
+        offsets.push(total);
+        total += u64::from(w) * u64::from(h) * bytes_per_texel;
+    }
+    (total, offsets)
+}
+
+/// v2 资源合法性预校验(host 纯函数,任何句柄创建**前** fail-closed,P-01):纹理尺寸 /
+/// mip 层数(1..=完整链)/ 逐层数据长(RGBA8 字节数与 RGBA-f32 f32 数同为 w×h×4)、
+/// `SamplerDesc::is_valid`(RXS-0225 合法域)、storage 尺寸。Err = 确定性拒,非 panic。
+fn validate_resources(resources: &[GraphicsResource]) -> Result<(), String> {
+    for (i, r) in resources.iter().enumerate() {
+        match r {
+            GraphicsResource::Texture2D {
+                width,
+                height,
+                data,
+            } => {
+                if *width == 0 || *height == 0 {
+                    return Err(format!("resources[{i}]: 纹理尺寸须 ≥1({width}×{height})"));
+                }
+                let levels = data.level_count();
+                if levels == 0 {
+                    return Err(format!("resources[{i}]: 纹理须至少 1 个 mip 层"));
+                }
+                let full = full_mip_chain_len(*width, *height);
+                if levels > full {
+                    return Err(format!(
+                        "resources[{i}]: mip 层数 {levels} 超完整链 {full}({width}×{height})"
+                    ));
+                }
+                for (lvl, (w, h)) in mip_level_extents(*width, *height, levels)
+                    .into_iter()
+                    .enumerate()
+                {
+                    let want = (w as usize) * (h as usize) * 4;
+                    let got = match data {
+                        TextureData::Rgba8(v) => v[lvl].len(),
+                        TextureData::RgbaF32(v) => v[lvl].len(),
+                    };
+                    if got != want {
+                        return Err(format!(
+                            "resources[{i}] level {lvl}: 数据长 {got} != {want}({w}×{h}×4)"
+                        ));
+                    }
+                }
+            }
+            GraphicsResource::Sampler(desc) => {
+                if !desc.is_valid() {
+                    return Err(format!(
+                        "resources[{i}]: SamplerDesc 非法(lod_bias 域 [-16,16) / max_anisotropy ≥ 1)"
+                    ));
+                }
+            }
+            GraphicsResource::StorageImage { width, height, .. } => {
+                if *width == 0 || *height == 0 {
+                    return Err(format!(
+                        "resources[{i}]: storage image 尺寸须 ≥1({width}×{height})"
+                    ));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// `SamplerDesc`(经 RXS-0225 [`SamplerDesc::vk_fields`] plain 降级)→ `VkSamplerCreateInfo`
+/// 构造(RXS-0230 L3;host 纯构造,可单测)。UVW 三向同值(首期);maxLod 钳
+/// `VK_LOD_CLAMP_NONE`(1000.0,宿主 `f32::MAX` 语义等价);border 预置 FLOAT_OPAQUE_BLACK;
+/// 归一化坐标恒开。
+fn sampler_create_info(desc: &SamplerDesc) -> SamplerCreateInfo {
+    let f = desc.vk_fields();
+    SamplerCreateInfo {
+        s_type: ST_SAMPLER_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        mag_filter: f.mag_min_filter,
+        min_filter: f.mag_min_filter,
+        mipmap_mode: f.mipmap_mode,
+        address_mode_u: f.address_mode,
+        address_mode_v: f.address_mode,
+        address_mode_w: f.address_mode,
+        mip_lod_bias: f.mip_lod_bias,
+        anisotropy_enable: f.anisotropy_enable,
+        max_anisotropy: f.max_anisotropy,
+        compare_enable: f.compare_enable,
+        compare_op: f.compare_op,
+        min_lod: f.min_lod,
+        max_lod: if f.max_lod > LOD_CLAMP_NONE {
+            LOD_CLAMP_NONE
+        } else {
+            f.max_lod
+        },
+        border_color: BORDER_COLOR_FLOAT_OPAQUE_BLACK,
+        unnormalized_coordinates: 0,
+    }
+}
+
+/// v2 纹理句柄组(线性生命周期,末尾统一逆序销毁;`VK_NULL_HANDLE` = 未建)。
+struct V2Tex {
+    image: VkImage,
+    mem: VkDeviceMemory,
+    view: VkImageView,
+    staging: VkBuffer,
+    staging_mem: VkDeviceMemory,
+    levels: u32,
+}
+
+/// v2 storage image 句柄组。
+struct V2Storage {
+    image: VkImage,
+    mem: VkDeviceMemory,
+    view: VkImageView,
+}
+
+/// offscreen 渲染一帧并回读(**v2 加性 API**,RXS-0230 / RFC-0013 §4.B7):v1 全参语义
+/// 不变,追加 `resources`——SRV 纹理(逐层 mip 经 staging 上传 + `TRANSFER_DST→
+/// SHADER_READ_ONLY` 迁移)/ immutable sampler(进 set3 layout,RXS-0230 L3)/ storage
+/// image(`GENERAL`)。descriptor 建面 set-per-class(set0 CBV 空占位 / set1 SRV /
+/// set2 UAV / set3 Sampler,binding = 类内声明序,与 rurixc
+/// `infer_spirv_bindings_vk_native` 同一分配律);pipeline layout 由 v1 的空 layout 扩为
+/// 含 set layouts(**v1 路径不动,v2 独立组装**)。`resources` 为空 ≡ v1(直接委派)。
+///
+/// sampler `max_anisotropy > 1` → device 探测 `samplerAnisotropy`,缺失 → 确定性 `Err`
+/// (RXS-0193 口径,不占 RX 码);storage image 在位时机会性启用
+/// `fragmentStoresAndAtomics`(片元 store 需之;缺失不 Err——绑定本身不需该 feature)。
+/// 缺 Vulkan / 资源非法 → 确定性 `Err`(P-01 fail-closed)。device 数值见证(≥6 模式,
+/// 步骤 63)归主循环;本入口交付编译绿 + host 单测。
+///
+/// # SAFETY(U27 扩注,graphics FFI 边界,0 新 U 号)
+/// 对上全 safe(无 `unsafe` 签名)。内部 `run_graphics_inner_v2`/`graphics_body_v2` 契约
+/// 同 v1 U27:句柄(sampler×N / texture image·mem·view·staging×N / storage
+/// image·mem·view×N / setLayout×N / descriptorPool + v1 全集)线性配对 create/destroy、
+/// 末尾逆序销毁(pool 先于 setLayout,sampler 在 pool/layout 之后);资源合法性在任何
+/// 句柄创建**前**纯 host 预校验;单 graphics queue 同步提交 + `vkQueueWaitIdle` 后回读。
+//@ spec: RXS-0230
+#[allow(clippy::too_many_arguments)]
+pub fn run_graphics_offscreen_v2(
+    vs_spv: &[u32],
+    fs_spv: &[u32],
+    vertices: &[u8],
+    vertex_stride: u32,
+    attrs: &[(u32, u32, u32)],
+    width: u32,
+    height: u32,
+    clear: [f32; 4],
+    resources: &[GraphicsResource],
+) -> Result<Vec<u8>, String> {
+    run_graphics_offscreen_v2_dispatch(
+        vs_spv,
+        fs_spv,
+        vertices,
+        vertex_stride,
+        attrs,
+        width,
+        height,
+        clear,
+        resources,
+        /*readback_storage=*/ false,
+    )
+    .map(|(color, _storage)| color)
+}
+
+/// [`run_graphics_offscreen_v2`] 加 **storage image 回读出口**(RXS-0230 / RFC-0013
+/// §4.B5/B8 模式⑤ TextureRw2D 唯一写者 store→回读)。返回 `(color, storage)`:`color` 同
+/// v2 颜色附件回读;`storage` = **首个** `GraphicsResource::StorageImage` 经 pass 边界
+/// barrier(shader-write→transfer-read,GENERAL 保持)+ `vkCmdCopyImageToBuffer` 回读的
+/// 逐纹素字节(`Rgba8Unorm`=4B/纹素、`Rgba32Float`=16B/纹素;小端),无 storage image 时
+/// `None`。**唯一写者纪律**(§4.B5)保证回读值 well-defined。device 数值判据(identity 坐标
+/// 见证 + 篡改红绿阈值)归 `bin/sampling_modes` + 步骤 63 owner 本机。
+///
+/// # SAFETY(U27 扩注,graphics FFI 边界,0 新 U 号)
+/// 契约同 [`run_graphics_offscreen_v2`];额外 storage 回读缓冲(host-visible TRANSFER_DST)
+/// 与其余句柄同线性配对 create/destroy、末尾逆序销毁,`vkCmdCopyImageToBuffer` 在同一命令
+/// 缓冲的 pass 结束 barrier 之后录制,单 queue 同步提交 + `vkQueueWaitIdle` 后映射回读。
+//@ spec: RXS-0230
+#[allow(clippy::too_many_arguments)]
+pub fn run_graphics_offscreen_v2_readback(
+    vs_spv: &[u32],
+    fs_spv: &[u32],
+    vertices: &[u8],
+    vertex_stride: u32,
+    attrs: &[(u32, u32, u32)],
+    width: u32,
+    height: u32,
+    clear: [f32; 4],
+    resources: &[GraphicsResource],
+) -> Result<(Vec<u8>, Option<Vec<u8>>), String> {
+    run_graphics_offscreen_v2_dispatch(
+        vs_spv,
+        fs_spv,
+        vertices,
+        vertex_stride,
+        attrs,
+        width,
+        height,
+        clear,
+        resources,
+        /*readback_storage=*/ true,
+    )
+}
+
+/// v2 公共派发(RXS-0230):校验 + 空资源委派 v1 + loader + `unsafe` 内部。`readback_storage`
+/// 决定是否额外回读首个 storage image(§4.B8 模式⑤)。
+#[allow(clippy::too_many_arguments)]
+fn run_graphics_offscreen_v2_dispatch(
+    vs_spv: &[u32],
+    fs_spv: &[u32],
+    vertices: &[u8],
+    vertex_stride: u32,
+    attrs: &[(u32, u32, u32)],
+    width: u32,
+    height: u32,
+    clear: [f32; 4],
+    resources: &[GraphicsResource],
+    readback_storage: bool,
+) -> Result<(Vec<u8>, Option<Vec<u8>>), String> {
+    validate_resources(resources)?;
+    if resources.is_empty() {
+        // 空资源 ≡ v1 行为(加性中性;RXS-0230 L1)。storage 回读恒 None(无 storage image)。
+        return run_graphics_offscreen(
+            vs_spv,
+            fs_spv,
+            vertices,
+            vertex_stride,
+            attrs,
+            width,
+            height,
+            clear,
+        )
+        .map(|color| (color, None));
+    }
+    let gipa = load_vulkan_loader().ok_or("vulkan loader (vulkan-1.dll/libvulkan.so) 不可用")?;
+    // SAFETY: 见 U27 v2 扩注(上);句柄生命周期由内部函数线性管理,末尾逆序销毁。
+    unsafe {
+        run_graphics_inner_v2(
+            gipa,
+            vs_spv,
+            fs_spv,
+            vertices,
+            vertex_stride,
+            attrs,
+            width,
+            height,
+            clear,
+            resources,
+            readback_storage,
+        )
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+unsafe fn run_graphics_inner_v2(
+    gipa: FnGetInstanceProcAddr,
+    vs_spv: &[u32],
+    fs_spv: &[u32],
+    vertices: &[u8],
+    vertex_stride: u32,
+    attrs: &[(u32, u32, u32)],
+    width: u32,
+    height: u32,
+    clear: [f32; 4],
+    resources: &[GraphicsResource],
+    readback_storage: bool,
+) -> Result<(Vec<u8>, Option<Vec<u8>>), String> {
+    let vk_create_instance: FnCreateInstance =
+        cast_fn(gipa(std::ptr::null_mut(), c"vkCreateInstance".as_ptr()))
+            .ok_or("缺 vkCreateInstance")?;
+
+    let validation = std::env::var("RURIX_VK_VALIDATION").as_deref() == Ok("1");
+    let layer_name = c"VK_LAYER_KHRONOS_validation";
+    let layers: [*const c_char; 1] = [layer_name.as_ptr()];
+    let debug_ext = c"VK_EXT_debug_utils";
+    let exts: [*const c_char; 1] = [debug_ext.as_ptr()];
+    let app = ApplicationInfo {
+        s_type: ST_APPLICATION_INFO,
+        p_next: std::ptr::null(),
+        p_application_name: c"rurix-mb1".as_ptr(),
+        application_version: 0,
+        p_engine_name: c"rurix".as_ptr(),
+        engine_version: 0,
+        api_version: API_VERSION_1_1,
+    };
+    let ici = InstanceCreateInfo {
+        s_type: ST_INSTANCE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        p_application_info: &app,
+        enabled_layer_count: if validation { 1 } else { 0 },
+        pp_enabled_layer_names: if validation {
+            layers.as_ptr()
+        } else {
+            std::ptr::null()
+        },
+        enabled_extension_count: if validation { 1 } else { 0 },
+        pp_enabled_extension_names: if validation {
+            exts.as_ptr()
+        } else {
+            std::ptr::null()
+        },
+    };
+    let mut instance: VkInstance = std::ptr::null_mut();
+    let r = vk_create_instance(&ici, std::ptr::null(), &mut instance);
+    if r != VK_SUCCESS {
+        return Err(format!("vkCreateInstance 失败: {r}"));
+    }
+
+    // instance 级符号(v1 全集 + `vkGetPhysicalDeviceFeatures`;messenger 创建前全部
+    // `?` 完毕——镜像 v1 U27「创建点与首个销毁点之间无 `?` 早退」契约)。
+    let vk_destroy_instance: FnDestroyInstance =
+        cast_fn(gipa(instance, c"vkDestroyInstance".as_ptr())).ok_or("缺 vkDestroyInstance")?;
+    let vk_enum_pd: FnEnumeratePhysicalDevices =
+        cast_fn(gipa(instance, c"vkEnumeratePhysicalDevices".as_ptr()))
+            .ok_or("缺 vkEnumeratePhysicalDevices")?;
+    let vk_get_qf: FnGetPhysicalDeviceQueueFamilyProperties = cast_fn(gipa(
+        instance,
+        c"vkGetPhysicalDeviceQueueFamilyProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkGetPhysicalDeviceQueueFamilyProperties")?;
+    let vk_get_mem: FnGetPhysicalDeviceMemoryProperties = cast_fn(gipa(
+        instance,
+        c"vkGetPhysicalDeviceMemoryProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkGetPhysicalDeviceMemoryProperties")?;
+    let vk_create_device: FnCreateDevice =
+        cast_fn(gipa(instance, c"vkCreateDevice".as_ptr())).ok_or("缺 vkCreateDevice")?;
+    let vk_get_device_proc: FnGetDeviceProcAddr =
+        cast_fn(gipa(instance, c"vkGetDeviceProcAddr".as_ptr())).ok_or("缺 vkGetDeviceProcAddr")?;
+    let vk_get_features: FnGetPhysicalDeviceFeatures =
+        cast_fn(gipa(instance, c"vkGetPhysicalDeviceFeatures".as_ptr()))
+            .ok_or("缺 vkGetPhysicalDeviceFeatures")?;
+
+    // fail-closed messenger(L3,RXS-0210 契约复用;ERROR 级校验消息 → 末尾翻 `Err`)。
+    let validation_error = std::sync::atomic::AtomicBool::new(false);
+    let mut messenger: VkDebugUtilsMessengerEXT = VK_NULL_HANDLE;
+    let destroy_messenger: Option<FnDestroyDebugUtilsMessengerEXT> = if validation {
+        cast_fn(gipa(instance, c"vkDestroyDebugUtilsMessengerEXT".as_ptr()))
+    } else {
+        None
+    };
+    if validation
+        && let Some(create_messenger) = cast_fn::<FnCreateDebugUtilsMessengerEXT>(gipa(
+            instance,
+            c"vkCreateDebugUtilsMessengerEXT".as_ptr(),
+        ))
+    {
+        let dumci = DebugUtilsMessengerCreateInfoEXT {
+            s_type: ST_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+            p_next: std::ptr::null(),
+            flags: 0,
+            message_severity: DEBUG_UTILS_SEVERITY_ERROR,
+            message_type: DEBUG_UTILS_TYPE_GENERAL
+                | DEBUG_UTILS_TYPE_VALIDATION
+                | DEBUG_UTILS_TYPE_PERFORMANCE,
+            pfn_user_callback: debug_messenger_cb,
+            p_user_data: &validation_error as *const std::sync::atomic::AtomicBool as *mut c_void,
+        };
+        let _ = create_messenger(instance, &dumci, std::ptr::null(), &mut messenger);
+    }
+    macro_rules! destroy_msgr {
+        () => {
+            if let Some(dm) = destroy_messenger {
+                if messenger != VK_NULL_HANDLE {
+                    dm(instance, messenger, std::ptr::null());
+                }
+            }
+        };
+    }
+
+    let mut count = 0u32;
+    vk_enum_pd(instance, &mut count, std::ptr::null_mut());
+    if count == 0 {
+        destroy_msgr!();
+        vk_destroy_instance(instance, std::ptr::null());
+        return Err("无 Vulkan 物理设备".into());
+    }
+    let mut pds = vec![std::ptr::null_mut::<c_void>(); count as usize];
+    vk_enum_pd(instance, &mut count, pds.as_mut_ptr());
+    let pd = pds[0];
+
+    let mut qf_count = 0u32;
+    vk_get_qf(pd, &mut qf_count, std::ptr::null_mut());
+    let mut qfs: Vec<QueueFamilyProperties> = (0..qf_count)
+        .map(|_| QueueFamilyProperties {
+            queue_flags: 0,
+            queue_count: 0,
+            timestamp_valid_bits: 0,
+            min_image_transfer_granularity: VkExtent3D {
+                width: 0,
+                height: 0,
+                depth: 0,
+            },
+        })
+        .collect();
+    vk_get_qf(pd, &mut qf_count, qfs.as_mut_ptr());
+    let qfi = match qfs
+        .iter()
+        .position(|q| q.queue_flags & QUEUE_GRAPHICS_BIT != 0)
+    {
+        Some(i) => i as u32,
+        None => {
+            destroy_msgr!();
+            vk_destroy_instance(instance, std::ptr::null());
+            return Err("无 graphics queue family".into());
+        }
+    };
+
+    // ── device feature 协商(RXS-0225 aniso 探测 + storage 片元写机会性启用)──
+    let needs_aniso = resources
+        .iter()
+        .any(|r| matches!(r, GraphicsResource::Sampler(d) if d.max_anisotropy > 1));
+    let has_storage = resources
+        .iter()
+        .any(|r| matches!(r, GraphicsResource::StorageImage { .. }));
+    let mut supported = PhysicalDeviceFeatures {
+        features: [0; PHYSICAL_DEVICE_FEATURE_COUNT],
+    };
+    vk_get_features(pd, &mut supported);
+    if needs_aniso && supported.features[FEATURE_SAMPLER_ANISOTROPY] == 0 {
+        destroy_msgr!();
+        vk_destroy_instance(instance, std::ptr::null());
+        return Err(
+            "sampler max_anisotropy>1 但设备缺 samplerAnisotropy feature(确定性 Err,RXS-0193 口径)"
+                .into(),
+        );
+    }
+    let mut enabled = PhysicalDeviceFeatures {
+        features: [0; PHYSICAL_DEVICE_FEATURE_COUNT],
+    };
+    if needs_aniso {
+        enabled.features[FEATURE_SAMPLER_ANISOTROPY] = 1;
+    }
+    if has_storage && supported.features[FEATURE_FRAGMENT_STORES_AND_ATOMICS] != 0 {
+        enabled.features[FEATURE_FRAGMENT_STORES_AND_ATOMICS] = 1;
+    }
+
+    let prio = [1.0f32];
+    let dqci = DeviceQueueCreateInfo {
+        s_type: ST_DEVICE_QUEUE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        queue_family_index: qfi,
+        queue_count: 1,
+        p_queue_priorities: prio.as_ptr(),
+    };
+    let dci = DeviceCreateInfo {
+        s_type: ST_DEVICE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        queue_create_info_count: 1,
+        p_queue_create_infos: &dqci,
+        enabled_layer_count: 0,
+        pp_enabled_layer_names: std::ptr::null(),
+        enabled_extension_count: 0,
+        pp_enabled_extension_names: std::ptr::null(),
+        p_enabled_features: (&enabled as *const PhysicalDeviceFeatures).cast::<c_void>(),
+    };
+    let mut device: VkDevice = std::ptr::null_mut();
+    let r = vk_create_device(pd, &dci, std::ptr::null(), &mut device);
+    if r != VK_SUCCESS {
+        destroy_msgr!();
+        vk_destroy_instance(instance, std::ptr::null());
+        return Err(format!("vkCreateDevice 失败: {r}"));
+    }
+
+    let mut out = graphics_body_v2(
+        vk_get_device_proc,
+        device,
+        pd,
+        vk_get_mem,
+        qfi,
+        vs_spv,
+        fs_spv,
+        vertices,
+        vertex_stride,
+        attrs,
+        width,
+        height,
+        clear,
+        resources,
+        readback_storage,
+    );
+
+    if validation && validation_error.load(std::sync::atomic::Ordering::Relaxed) {
+        out =
+            Err("VK_LAYER_KHRONOS_validation 报 ERROR 级校验错误(见 stderr;fail-closed,L3)".into());
+    }
+
+    let vk_destroy_device: Option<FnDestroyDevice> =
+        cast_fn(vk_get_device_proc(device, c"vkDestroyDevice".as_ptr()));
+    if let Some(dd) = vk_destroy_device {
+        dd(device, std::ptr::null());
+    }
+    destroy_msgr!();
+    vk_destroy_instance(instance, std::ptr::null());
+    out
+}
+
+#[allow(clippy::too_many_arguments)]
+unsafe fn graphics_body_v2(
+    gdpa: FnGetDeviceProcAddr,
+    device: VkDevice,
+    pd: VkPhysicalDevice,
+    vk_get_mem: FnGetPhysicalDeviceMemoryProperties,
+    qfi: u32,
+    vs_spv: &[u32],
+    fs_spv: &[u32],
+    vertices: &[u8],
+    vertex_stride: u32,
+    attrs: &[(u32, u32, u32)],
+    width: u32,
+    height: u32,
+    clear: [f32; 4],
+    resources: &[GraphicsResource],
+    readback_storage: bool,
+) -> Result<(Vec<u8>, Option<Vec<u8>>), String> {
+    macro_rules! dp {
+        ($name:literal, $ty:ty) => {
+            cast_fn::<$ty>(gdpa(device, $name.as_ptr())).ok_or("缺 device 符号")?
+        };
+    }
+    // v1 符号全集(镜像 graphics_body)。
+    let get_queue: FnGetDeviceQueue = dp!(c"vkGetDeviceQueue", FnGetDeviceQueue);
+    let create_buffer: FnCreateBuffer = dp!(c"vkCreateBuffer", FnCreateBuffer);
+    let destroy_buffer: FnDestroyBuffer = dp!(c"vkDestroyBuffer", FnDestroyBuffer);
+    let buf_mem_req: FnGetBufferMemoryRequirements = dp!(
+        c"vkGetBufferMemoryRequirements",
+        FnGetBufferMemoryRequirements
+    );
+    let alloc_mem: FnAllocateMemory = dp!(c"vkAllocateMemory", FnAllocateMemory);
+    let free_mem: FnFreeMemory = dp!(c"vkFreeMemory", FnFreeMemory);
+    let bind_buf: FnBindBufferMemory = dp!(c"vkBindBufferMemory", FnBindBufferMemory);
+    let map_mem: FnMapMemory = dp!(c"vkMapMemory", FnMapMemory);
+    let unmap_mem: FnUnmapMemory = dp!(c"vkUnmapMemory", FnUnmapMemory);
+    let create_shader: FnCreateShaderModule = dp!(c"vkCreateShaderModule", FnCreateShaderModule);
+    let destroy_shader: FnDestroyShaderModule =
+        dp!(c"vkDestroyShaderModule", FnDestroyShaderModule);
+    let create_pl: FnCreatePipelineLayout = dp!(c"vkCreatePipelineLayout", FnCreatePipelineLayout);
+    let destroy_pl: FnDestroyPipelineLayout =
+        dp!(c"vkDestroyPipelineLayout", FnDestroyPipelineLayout);
+    let destroy_pipe: FnDestroyPipeline = dp!(c"vkDestroyPipeline", FnDestroyPipeline);
+    let create_cmdpool: FnCreateCommandPool = dp!(c"vkCreateCommandPool", FnCreateCommandPool);
+    let destroy_cmdpool: FnDestroyCommandPool = dp!(c"vkDestroyCommandPool", FnDestroyCommandPool);
+    let alloc_cmd: FnAllocateCommandBuffers =
+        dp!(c"vkAllocateCommandBuffers", FnAllocateCommandBuffers);
+    let begin_cmd: FnBeginCommandBuffer = dp!(c"vkBeginCommandBuffer", FnBeginCommandBuffer);
+    let end_cmd: FnEndCommandBuffer = dp!(c"vkEndCommandBuffer", FnEndCommandBuffer);
+    let cmd_bind_pipe: FnCmdBindPipeline = dp!(c"vkCmdBindPipeline", FnCmdBindPipeline);
+    let queue_submit: FnQueueSubmit = dp!(c"vkQueueSubmit", FnQueueSubmit);
+    let queue_wait: FnQueueWaitIdle = dp!(c"vkQueueWaitIdle", FnQueueWaitIdle);
+    let create_image: FnCreateImage = dp!(c"vkCreateImage", FnCreateImage);
+    let destroy_image: FnDestroyImage = dp!(c"vkDestroyImage", FnDestroyImage);
+    let img_mem_req: FnGetImageMemoryRequirements = dp!(
+        c"vkGetImageMemoryRequirements",
+        FnGetImageMemoryRequirements
+    );
+    let bind_image: FnBindImageMemory = dp!(c"vkBindImageMemory", FnBindImageMemory);
+    let create_view: FnCreateImageView = dp!(c"vkCreateImageView", FnCreateImageView);
+    let destroy_view: FnDestroyImageView = dp!(c"vkDestroyImageView", FnDestroyImageView);
+    let create_rp: FnCreateRenderPass = dp!(c"vkCreateRenderPass", FnCreateRenderPass);
+    let destroy_rp: FnDestroyRenderPass = dp!(c"vkDestroyRenderPass", FnDestroyRenderPass);
+    let create_fb: FnCreateFramebuffer = dp!(c"vkCreateFramebuffer", FnCreateFramebuffer);
+    let destroy_fb: FnDestroyFramebuffer = dp!(c"vkDestroyFramebuffer", FnDestroyFramebuffer);
+    let create_gp: FnCreateGraphicsPipelines =
+        dp!(c"vkCreateGraphicsPipelines", FnCreateGraphicsPipelines);
+    let cmd_begin_rp: FnCmdBeginRenderPass = dp!(c"vkCmdBeginRenderPass", FnCmdBeginRenderPass);
+    let cmd_end_rp: FnCmdEndRenderPass = dp!(c"vkCmdEndRenderPass", FnCmdEndRenderPass);
+    let cmd_bind_vbuf: FnCmdBindVertexBuffers =
+        dp!(c"vkCmdBindVertexBuffers", FnCmdBindVertexBuffers);
+    let cmd_draw: FnCmdDraw = dp!(c"vkCmdDraw", FnCmdDraw);
+    let cmd_barrier: FnCmdPipelineBarrier = dp!(c"vkCmdPipelineBarrier", FnCmdPipelineBarrier);
+    let cmd_copy_img_buf: FnCmdCopyImageToBuffer =
+        dp!(c"vkCmdCopyImageToBuffer", FnCmdCopyImageToBuffer);
+    // descriptor 建面符号(compute `run_on_device` 先例镜像,graphics 路首次消费)。
+    let create_dsl: FnCreateDescriptorSetLayout =
+        dp!(c"vkCreateDescriptorSetLayout", FnCreateDescriptorSetLayout);
+    let destroy_dsl: FnDestroyDescriptorSetLayout = dp!(
+        c"vkDestroyDescriptorSetLayout",
+        FnDestroyDescriptorSetLayout
+    );
+    let create_dpool: FnCreateDescriptorPool =
+        dp!(c"vkCreateDescriptorPool", FnCreateDescriptorPool);
+    let destroy_dpool: FnDestroyDescriptorPool =
+        dp!(c"vkDestroyDescriptorPool", FnDestroyDescriptorPool);
+    let alloc_ds: FnAllocateDescriptorSets =
+        dp!(c"vkAllocateDescriptorSets", FnAllocateDescriptorSets);
+    let update_ds: FnUpdateDescriptorSets = dp!(c"vkUpdateDescriptorSets", FnUpdateDescriptorSets);
+    let cmd_bind_ds: FnCmdBindDescriptorSets =
+        dp!(c"vkCmdBindDescriptorSets", FnCmdBindDescriptorSets);
+    // v2 新增符号(sampler / staging→image copy)。
+    let create_sampler: FnCreateSampler = dp!(c"vkCreateSampler", FnCreateSampler);
+    let destroy_sampler: FnDestroySampler = dp!(c"vkDestroySampler", FnDestroySampler);
+    let cmd_copy_buf_img: FnCmdCopyBufferToImage =
+        dp!(c"vkCmdCopyBufferToImage", FnCmdCopyBufferToImage);
+
+    let mut queue: VkQueue = std::ptr::null_mut();
+    get_queue(device, qfi, 0, &mut queue);
+
+    let mut memprops = std::mem::zeroed::<PhysicalDeviceMemoryProperties>();
+    vk_get_mem(pd, &mut memprops);
+
+    let readback_len = (width as usize) * (height as usize) * 4;
+
+    // 计划(纯函数;资源已在公共入口预校验,resources 非空)。
+    let plans = plan_descriptor_sets(resources);
+    let set_count = planned_set_count(&plans);
+    let pool_sizes_plan = plan_pool_sizes(resources);
+
+    // host-visible buffer 建立 helper(顶点/回读/staging 共用;镜像 v1)。
+    let make_host_buffer = |usage: u32, size: u64| -> Result<(VkBuffer, VkDeviceMemory), String> {
+        let bci = BufferCreateInfo {
+            s_type: ST_BUFFER_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            size: size.max(4),
+            usage,
+            sharing_mode: SHARING_MODE_EXCLUSIVE,
+            queue_family_index_count: 0,
+            p_queue_family_indices: std::ptr::null(),
+        };
+        let mut buffer: VkBuffer = VK_NULL_HANDLE;
+        if create_buffer(device, &bci, std::ptr::null(), &mut buffer) != VK_SUCCESS {
+            return Err("vkCreateBuffer 失败".into());
+        }
+        let mut req = std::mem::zeroed::<MemoryRequirements>();
+        buf_mem_req(device, buffer, &mut req);
+        let Some(mt) = pick_mem_type(
+            &memprops,
+            req.memory_type_bits,
+            MEM_HOST_VISIBLE | MEM_HOST_COHERENT,
+        ) else {
+            destroy_buffer(device, buffer, std::ptr::null());
+            return Err("无 host-visible+coherent 内存类型".into());
+        };
+        let mai = MemoryAllocateInfo {
+            s_type: ST_MEMORY_ALLOCATE_INFO,
+            p_next: std::ptr::null(),
+            allocation_size: req.size,
+            memory_type_index: mt,
+        };
+        let mut mem: VkDeviceMemory = VK_NULL_HANDLE;
+        if alloc_mem(device, &mai, std::ptr::null(), &mut mem) != VK_SUCCESS {
+            destroy_buffer(device, buffer, std::ptr::null());
+            return Err("vkAllocateMemory 失败".into());
+        }
+        bind_buf(device, buffer, mem, 0);
+        Ok((buffer, mem))
+    };
+
+    // device-local image 建立 helper(v2 纹理 / storage 共用)。
+    let make_image = |w: u32,
+                      h: u32,
+                      mips: u32,
+                      format: u32,
+                      usage: u32|
+     -> Result<(VkImage, VkDeviceMemory), String> {
+        let ici = ImageCreateInfo {
+            s_type: ST_IMAGE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            image_type: IMAGE_TYPE_2D,
+            format,
+            extent: VkExtent3D {
+                width: w,
+                height: h,
+                depth: 1,
+            },
+            mip_levels: mips,
+            array_layers: 1,
+            samples: SAMPLE_COUNT_1,
+            tiling: IMAGE_TILING_OPTIMAL,
+            usage,
+            sharing_mode: SHARING_MODE_EXCLUSIVE,
+            queue_family_index_count: 0,
+            p_queue_family_indices: std::ptr::null(),
+            initial_layout: IMAGE_LAYOUT_UNDEFINED,
+        };
+        let mut image: VkImage = VK_NULL_HANDLE;
+        if create_image(device, &ici, std::ptr::null(), &mut image) != VK_SUCCESS {
+            return Err("v2 vkCreateImage 失败".into());
+        }
+        let mut req = std::mem::zeroed::<MemoryRequirements>();
+        img_mem_req(device, image, &mut req);
+        let Some(mt) = pick_mem_type(&memprops, req.memory_type_bits, MEM_DEVICE_LOCAL) else {
+            destroy_image(device, image, std::ptr::null());
+            return Err("无 device-local 内存类型".into());
+        };
+        let mai = MemoryAllocateInfo {
+            s_type: ST_MEMORY_ALLOCATE_INFO,
+            p_next: std::ptr::null(),
+            allocation_size: req.size,
+            memory_type_index: mt,
+        };
+        let mut mem: VkDeviceMemory = VK_NULL_HANDLE;
+        if alloc_mem(device, &mai, std::ptr::null(), &mut mem) != VK_SUCCESS {
+            destroy_image(device, image, std::ptr::null());
+            return Err("v2 image vkAllocateMemory 失败".into());
+        }
+        bind_image(device, image, mem, 0);
+        Ok((image, mem))
+    };
+
+    // image view 建立 helper(levels 层全视图)。
+    let make_view = |image: VkImage, format: u32, levels: u32| -> Result<VkImageView, String> {
+        let vci = ImageViewCreateInfo {
+            s_type: ST_IMAGE_VIEW_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            image,
+            view_type: IMAGE_VIEW_TYPE_2D,
+            format,
+            components: VkComponentMapping {
+                r: COMPONENT_SWIZZLE_IDENTITY,
+                g: COMPONENT_SWIZZLE_IDENTITY,
+                b: COMPONENT_SWIZZLE_IDENTITY,
+                a: COMPONENT_SWIZZLE_IDENTITY,
+            },
+            subresource_range: VkImageSubresourceRange {
+                aspect_mask: IMAGE_ASPECT_COLOR,
+                base_mip_level: 0,
+                level_count: levels,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+        };
+        let mut view: VkImageView = VK_NULL_HANDLE;
+        if create_view(device, &vci, std::ptr::null(), &mut view) != VK_SUCCESS {
+            return Err("v2 vkCreateImageView 失败".into());
+        }
+        Ok(view)
+    };
+
+    // 句柄(全 null 初始,末尾逆序销毁非 null 者)。
+    let mut samplers: Vec<VkSampler> = Vec::new();
+    let mut texs: Vec<V2Tex> = Vec::new();
+    let mut storages: Vec<V2Storage> = Vec::new();
+    let mut set_layouts: Vec<VkDescriptorSetLayout> = Vec::new();
+    let mut desc_pool: VkDescriptorPool = VK_NULL_HANDLE;
+    let mut color_image: VkImage = VK_NULL_HANDLE;
+    let mut color_mem: VkDeviceMemory = VK_NULL_HANDLE;
+    let mut color_view: VkImageView = VK_NULL_HANDLE;
+    let mut render_pass: VkRenderPass = VK_NULL_HANDLE;
+    let mut framebuffer: VkFramebuffer = VK_NULL_HANDLE;
+    let mut vbuf: VkBuffer = VK_NULL_HANDLE;
+    let mut vbuf_mem: VkDeviceMemory = VK_NULL_HANDLE;
+    let mut rbuf: VkBuffer = VK_NULL_HANDLE;
+    let mut rbuf_mem: VkDeviceMemory = VK_NULL_HANDLE;
+    // storage image 回读缓冲(§4.B8 模式⑤;仅 readback_storage && 存在 storage image 时建)。
+    let mut srbuf: VkBuffer = VK_NULL_HANDLE;
+    let mut srbuf_mem: VkDeviceMemory = VK_NULL_HANDLE;
+    let mut vs_mod: VkShaderModule = VK_NULL_HANDLE;
+    let mut fs_mod: VkShaderModule = VK_NULL_HANDLE;
+    let mut pipe_layout: VkPipelineLayout = VK_NULL_HANDLE;
+    let mut pipeline: VkPipeline = VK_NULL_HANDLE;
+    let mut cmdpool: VkCommandPool = VK_NULL_HANDLE;
+
+    // 首个 storage image 的回读几何(w, h, 字节/纹素);无 storage / 不回读 → None。
+    let storage_readback: Option<(u32, u32, u64)> = if readback_storage {
+        resources.iter().find_map(|r| match r {
+            GraphicsResource::StorageImage {
+                width: sw,
+                height: sh,
+                format,
+            } => {
+                let bpt: u64 = match format {
+                    StorageFormat::Rgba8Unorm => 4,
+                    StorageFormat::Rgba32Float => 16,
+                };
+                Some((*sw, *sh, bpt))
+            }
+            _ => None,
+        })
+    } else {
+        None
+    };
+    let storage_readback_len: usize = storage_readback
+        .map(|(w, h, bpt)| (w as usize) * (h as usize) * (bpt as usize))
+        .unwrap_or(0);
+
+    let result: Result<(Vec<u8>, Option<Vec<u8>>), String> = 'run: {
+        // ── ① samplers(声明序 = Sampler 轴 binding 序;immutable 进 set3 layout)──
+        for r in resources {
+            if let GraphicsResource::Sampler(desc) = r {
+                let sci = sampler_create_info(desc);
+                let mut s: VkSampler = VK_NULL_HANDLE;
+                if create_sampler(device, &sci, std::ptr::null(), &mut s) != VK_SUCCESS {
+                    break 'run Err("vkCreateSampler 失败".into());
+                }
+                samplers.push(s);
+            }
+        }
+
+        // ── ② SRV 纹理:device-local image + 全层 view + staging(逐层紧凑)上传源 ──
+        for r in resources {
+            let GraphicsResource::Texture2D {
+                width: tw,
+                height: th,
+                data,
+            } = r
+            else {
+                continue;
+            };
+            let levels = data.level_count();
+            let extents = mip_level_extents(*tw, *th, levels);
+            let (staging_total, staging_offsets) =
+                mip_staging_layout(&extents, data.bytes_per_texel());
+            let (image, mem) = match make_image(
+                *tw,
+                *th,
+                levels,
+                data.vk_format(),
+                IMAGE_USAGE_SAMPLED | IMAGE_USAGE_TRANSFER_DST,
+            ) {
+                Ok(v) => v,
+                Err(e) => break 'run Err(e),
+            };
+            // 先入列(建到一半失败时块外统一销毁已建部分)。
+            texs.push(V2Tex {
+                image,
+                mem,
+                view: VK_NULL_HANDLE,
+                staging: VK_NULL_HANDLE,
+                staging_mem: VK_NULL_HANDLE,
+                levels,
+            });
+            let ti = texs.len() - 1;
+            match make_view(image, data.vk_format(), levels) {
+                Ok(v) => texs[ti].view = v,
+                Err(e) => break 'run Err(e),
+            }
+            match make_host_buffer(BUFFER_USAGE_TRANSFER_SRC, staging_total) {
+                Ok((b, m)) => {
+                    texs[ti].staging = b;
+                    texs[ti].staging_mem = m;
+                }
+                Err(e) => break 'run Err(e),
+            }
+            // 逐层数据写入 staging(host-visible+coherent,免 flush)。
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            if map_mem(device, texs[ti].staging_mem, 0, WHOLE_SIZE, 0, &mut ptr) != VK_SUCCESS {
+                break 'run Err("纹理 staging vkMapMemory 失败".into());
+            }
+            for (lvl, off) in staging_offsets.iter().enumerate() {
+                let dst = ptr.cast::<u8>().add(*off as usize);
+                match data {
+                    TextureData::Rgba8(v) => {
+                        std::ptr::copy_nonoverlapping(v[lvl].as_ptr(), dst, v[lvl].len());
+                    }
+                    TextureData::RgbaF32(v) => {
+                        std::ptr::copy_nonoverlapping(
+                            v[lvl].as_ptr().cast::<u8>(),
+                            dst,
+                            v[lvl].len() * 4,
+                        );
+                    }
+                }
+            }
+            unmap_mem(device, texs[ti].staging_mem);
+        }
+
+        // ── ③ storage images(UAV 轴;GENERAL layout 迁移在命令录制段)──
+        for r in resources {
+            let GraphicsResource::StorageImage {
+                width: sw,
+                height: sh,
+                format,
+            } = r
+            else {
+                continue;
+            };
+            let (image, mem) = match make_image(
+                *sw,
+                *sh,
+                1,
+                format.vk_format(),
+                IMAGE_USAGE_STORAGE | IMAGE_USAGE_TRANSFER_SRC,
+            ) {
+                Ok(v) => v,
+                Err(e) => break 'run Err(e),
+            };
+            storages.push(V2Storage {
+                image,
+                mem,
+                view: VK_NULL_HANDLE,
+            });
+            let si = storages.len() - 1;
+            match make_view(image, format.vk_format(), 1) {
+                Ok(v) => storages[si].view = v,
+                Err(e) => break 'run Err(e),
+            }
+        }
+
+        // ── ④ set layouts(set-per-class;set0 CBV 空占位;immutable sampler 进 set3)──
+        for set in 0..set_count {
+            let mut bindings: Vec<DescriptorSetLayoutBinding> = Vec::new();
+            for (r, &(s, b)) in resources.iter().zip(&plans) {
+                if s != set {
+                    continue;
+                }
+                let (dtype, stage_flags, p_imm) = match r {
+                    GraphicsResource::Texture2D { .. } => (
+                        DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+                        SHADER_STAGE_VERTEX | SHADER_STAGE_FRAGMENT,
+                        std::ptr::null(),
+                    ),
+                    GraphicsResource::StorageImage { .. } => (
+                        DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                        SHADER_STAGE_FRAGMENT,
+                        std::ptr::null(),
+                    ),
+                    // binding = Sampler 类内声明序 = samplers 向量下标(同为声明序)。
+                    GraphicsResource::Sampler(_) => (
+                        DESCRIPTOR_TYPE_SAMPLER,
+                        SHADER_STAGE_VERTEX | SHADER_STAGE_FRAGMENT,
+                        (&samplers[b as usize]) as *const VkSampler as *const c_void,
+                    ),
+                };
+                bindings.push(DescriptorSetLayoutBinding {
+                    binding: b,
+                    descriptor_type: dtype,
+                    descriptor_count: 1,
+                    stage_flags,
+                    p_immutable_samplers: p_imm,
+                });
+            }
+            let dslci = DescriptorSetLayoutCreateInfo {
+                s_type: ST_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                binding_count: bindings.len() as u32,
+                p_bindings: if bindings.is_empty() {
+                    std::ptr::null()
+                } else {
+                    bindings.as_ptr()
+                },
+            };
+            let mut dsl: VkDescriptorSetLayout = VK_NULL_HANDLE;
+            if create_dsl(device, &dslci, std::ptr::null(), &mut dsl) != VK_SUCCESS {
+                break 'run Err("v2 vkCreateDescriptorSetLayout 失败".into());
+            }
+            set_layouts.push(dsl);
+        }
+
+        // ── ⑤ pipeline layout(v1 空 layout → 含 set layouts;v2 独立组装)──
+        let plci = PipelineLayoutCreateInfo {
+            s_type: ST_PIPELINE_LAYOUT_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            set_layout_count: set_count,
+            p_set_layouts: set_layouts.as_ptr(),
+            push_constant_range_count: 0,
+            p_push_constant_ranges: std::ptr::null(),
+        };
+        if create_pl(device, &plci, std::ptr::null(), &mut pipe_layout) != VK_SUCCESS {
+            break 'run Err("v2 vkCreatePipelineLayout 失败".into());
+        }
+
+        // ── ⑥ descriptor pool + sets + update ──
+        let pool_sizes: Vec<DescriptorPoolSize> = pool_sizes_plan
+            .iter()
+            .map(|&(t, c)| DescriptorPoolSize {
+                descriptor_type: t,
+                descriptor_count: c,
+            })
+            .collect();
+        let dpci = DescriptorPoolCreateInfo {
+            s_type: ST_DESCRIPTOR_POOL_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            max_sets: set_count,
+            pool_size_count: pool_sizes.len() as u32,
+            p_pool_sizes: pool_sizes.as_ptr(),
+        };
+        if create_dpool(device, &dpci, std::ptr::null(), &mut desc_pool) != VK_SUCCESS {
+            break 'run Err("v2 vkCreateDescriptorPool 失败".into());
+        }
+        let dsai = DescriptorSetAllocateInfo {
+            s_type: ST_DESCRIPTOR_SET_ALLOCATE_INFO,
+            p_next: std::ptr::null(),
+            descriptor_pool: desc_pool,
+            descriptor_set_count: set_count,
+            p_set_layouts: set_layouts.as_ptr(),
+        };
+        let mut dsets: Vec<VkDescriptorSet> = vec![VK_NULL_HANDLE; set_count as usize];
+        if alloc_ds(device, &dsai, dsets.as_mut_ptr()) != VK_SUCCESS {
+            break 'run Err("v2 vkAllocateDescriptorSets 失败".into());
+        }
+        // image infos 先建全(向量此后不增删,写引用其元素地址稳定)。
+        let mut image_infos: Vec<DescriptorImageInfo> = Vec::new();
+        {
+            let mut tex_i = 0usize;
+            let mut sto_i = 0usize;
+            for r in resources {
+                match r {
+                    GraphicsResource::Texture2D { .. } => {
+                        image_infos.push(DescriptorImageInfo {
+                            sampler: VK_NULL_HANDLE,
+                            image_view: texs[tex_i].view,
+                            image_layout: IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                        });
+                        tex_i += 1;
+                    }
+                    GraphicsResource::StorageImage { .. } => {
+                        image_infos.push(DescriptorImageInfo {
+                            sampler: VK_NULL_HANDLE,
+                            image_view: storages[sto_i].view,
+                            image_layout: IMAGE_LAYOUT_GENERAL,
+                        });
+                        sto_i += 1;
+                    }
+                    GraphicsResource::Sampler(_) => {} // immutable → 无 write。
+                }
+            }
+        }
+        let mut writes: Vec<WriteDescriptorSet> = Vec::new();
+        let mut info_i = 0usize;
+        for (r, &(s, b)) in resources.iter().zip(&plans) {
+            let dtype = match r {
+                GraphicsResource::Texture2D { .. } => DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+                GraphicsResource::StorageImage { .. } => DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                GraphicsResource::Sampler(_) => continue,
+            };
+            writes.push(WriteDescriptorSet {
+                s_type: ST_WRITE_DESCRIPTOR_SET,
+                p_next: std::ptr::null(),
+                dst_set: dsets[s as usize],
+                dst_binding: b,
+                dst_array_element: 0,
+                descriptor_count: 1,
+                descriptor_type: dtype,
+                p_image_info: (&image_infos[info_i]) as *const DescriptorImageInfo as *const c_void,
+                p_buffer_info: std::ptr::null(),
+                p_texel_buffer_view: std::ptr::null(),
+            });
+            info_i += 1;
+        }
+        if !writes.is_empty() {
+            update_ds(
+                device,
+                writes.len() as u32,
+                writes.as_ptr(),
+                0,
+                std::ptr::null(),
+            );
+        }
+
+        // ── ⑦ v1 镜像:color image / view / render pass / framebuffer ──
+        let img_ci = ImageCreateInfo {
+            s_type: ST_IMAGE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            image_type: IMAGE_TYPE_2D,
+            format: FORMAT_R8G8B8A8_UNORM,
+            extent: VkExtent3D {
+                width,
+                height,
+                depth: 1,
+            },
+            mip_levels: 1,
+            array_layers: 1,
+            samples: SAMPLE_COUNT_1,
+            tiling: IMAGE_TILING_OPTIMAL,
+            usage: IMAGE_USAGE_COLOR_ATTACHMENT | IMAGE_USAGE_TRANSFER_SRC,
+            sharing_mode: SHARING_MODE_EXCLUSIVE,
+            queue_family_index_count: 0,
+            p_queue_family_indices: std::ptr::null(),
+            initial_layout: IMAGE_LAYOUT_UNDEFINED,
+        };
+        if create_image(device, &img_ci, std::ptr::null(), &mut color_image) != VK_SUCCESS {
+            break 'run Err("vkCreateImage 失败".into());
+        }
+        let mut ireq = std::mem::zeroed::<MemoryRequirements>();
+        img_mem_req(device, color_image, &mut ireq);
+        let Some(imt) = pick_mem_type(&memprops, ireq.memory_type_bits, MEM_DEVICE_LOCAL) else {
+            break 'run Err("无 device-local 内存类型".into());
+        };
+        let mai = MemoryAllocateInfo {
+            s_type: ST_MEMORY_ALLOCATE_INFO,
+            p_next: std::ptr::null(),
+            allocation_size: ireq.size,
+            memory_type_index: imt,
+        };
+        if alloc_mem(device, &mai, std::ptr::null(), &mut color_mem) != VK_SUCCESS {
+            break 'run Err("color image vkAllocateMemory 失败".into());
+        }
+        bind_image(device, color_image, color_mem, 0);
+        match make_view(color_image, FORMAT_R8G8B8A8_UNORM, 1) {
+            Ok(v) => color_view = v,
+            Err(e) => break 'run Err(e),
+        }
+
+        let att = AttachmentDescription {
+            flags: 0,
+            format: FORMAT_R8G8B8A8_UNORM,
+            samples: SAMPLE_COUNT_1,
+            load_op: ATTACHMENT_LOAD_OP_CLEAR,
+            store_op: ATTACHMENT_STORE_OP_STORE,
+            stencil_load_op: ATTACHMENT_LOAD_OP_DONT_CARE,
+            stencil_store_op: ATTACHMENT_STORE_OP_DONT_CARE,
+            initial_layout: IMAGE_LAYOUT_UNDEFINED,
+            final_layout: IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        };
+        let att_ref = AttachmentReference {
+            attachment: 0,
+            layout: IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        };
+        let subpass = SubpassDescription {
+            flags: 0,
+            pipeline_bind_point: PIPELINE_BIND_POINT_GRAPHICS,
+            input_attachment_count: 0,
+            p_input_attachments: std::ptr::null(),
+            color_attachment_count: 1,
+            p_color_attachments: &att_ref,
+            p_resolve_attachments: std::ptr::null(),
+            p_depth_stencil_attachment: std::ptr::null(),
+            preserve_attachment_count: 0,
+            p_preserve_attachments: std::ptr::null(),
+        };
+        let rp_ci = RenderPassCreateInfo {
+            s_type: ST_RENDER_PASS_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            attachment_count: 1,
+            p_attachments: &att,
+            subpass_count: 1,
+            p_subpasses: &subpass,
+            dependency_count: 0,
+            p_dependencies: std::ptr::null(),
+        };
+        if create_rp(device, &rp_ci, std::ptr::null(), &mut render_pass) != VK_SUCCESS {
+            break 'run Err("vkCreateRenderPass 失败".into());
+        }
+        let fb_ci = FramebufferCreateInfo {
+            s_type: ST_FRAMEBUFFER_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            render_pass,
+            attachment_count: 1,
+            p_attachments: &color_view,
+            width,
+            height,
+            layers: 1,
+        };
+        if create_fb(device, &fb_ci, std::ptr::null(), &mut framebuffer) != VK_SUCCESS {
+            break 'run Err("vkCreateFramebuffer 失败".into());
+        }
+
+        // ── 顶点缓冲 + 回读缓冲 ──
+        match make_host_buffer(BUFFER_USAGE_VERTEX, vertices.len().max(4) as u64) {
+            Ok((b, m)) => {
+                vbuf = b;
+                vbuf_mem = m;
+            }
+            Err(e) => {
+                break 'run Err(e);
+            }
+        }
+        {
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            if map_mem(device, vbuf_mem, 0, WHOLE_SIZE, 0, &mut ptr) != VK_SUCCESS {
+                break 'run Err("顶点缓冲 vkMapMemory 失败".into());
+            }
+            std::ptr::copy_nonoverlapping(vertices.as_ptr(), ptr.cast::<u8>(), vertices.len());
+            unmap_mem(device, vbuf_mem);
+        }
+        match make_host_buffer(BUFFER_USAGE_TRANSFER_DST, readback_len as u64) {
+            Ok((b, m)) => {
+                rbuf = b;
+                rbuf_mem = m;
+            }
+            Err(e) => {
+                break 'run Err(e);
+            }
+        }
+        // storage image 回读缓冲(host-visible TRANSFER_DST;§4.B8 模式⑤;仅在需回读时建)。
+        if storage_readback_len > 0 {
+            match make_host_buffer(BUFFER_USAGE_TRANSFER_DST, storage_readback_len as u64) {
+                Ok((b, m)) => {
+                    srbuf = b;
+                    srbuf_mem = m;
+                }
+                Err(e) => {
+                    break 'run Err(e);
+                }
+            }
+        }
+
+        // ── shader modules(pName 恒 "main")──
+        let make_shader = |spv: &[u32]| -> Result<VkShaderModule, String> {
+            let smci = ShaderModuleCreateInfo {
+                s_type: ST_SHADER_MODULE_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                code_size: spv.len() * 4,
+                p_code: spv.as_ptr(),
+            };
+            let mut m: VkShaderModule = VK_NULL_HANDLE;
+            if create_shader(device, &smci, std::ptr::null(), &mut m) != VK_SUCCESS {
+                return Err("vkCreateShaderModule 失败(VUID-...-08742?)".into());
+            }
+            Ok(m)
+        };
+        match make_shader(vs_spv) {
+            Ok(m) => vs_mod = m,
+            Err(e) => {
+                break 'run Err(format!("vertex {e}"));
+            }
+        }
+        match make_shader(fs_spv) {
+            Ok(m) => fs_mod = m,
+            Err(e) => {
+                break 'run Err(format!("fragment {e}"));
+            }
+        }
+
+        // ── graphics pipeline(layout = v2 含 set layouts)──
+        let stages = [
+            PipelineShaderStageCreateInfo {
+                s_type: ST_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                stage: SHADER_STAGE_VERTEX,
+                module: vs_mod,
+                p_name: c"main".as_ptr(),
+                p_specialization_info: std::ptr::null(),
+            },
+            PipelineShaderStageCreateInfo {
+                s_type: ST_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                stage: SHADER_STAGE_FRAGMENT,
+                module: fs_mod,
+                p_name: c"main".as_ptr(),
+                p_specialization_info: std::ptr::null(),
+            },
+        ];
+        let vbind = VkVertexInputBindingDescription {
+            binding: 0,
+            stride: vertex_stride,
+            input_rate: VERTEX_INPUT_RATE_VERTEX,
+        };
+        let vattrs: Vec<VkVertexInputAttributeDescription> = attrs
+            .iter()
+            .map(
+                |&(location, format, offset)| VkVertexInputAttributeDescription {
+                    location,
+                    binding: 0,
+                    format,
+                    offset,
+                },
+            )
+            .collect();
+        let vin = PipelineVertexInputStateCreateInfo {
+            s_type: ST_PIPELINE_VERTEX_INPUT_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            vertex_binding_description_count: 1,
+            p_vertex_binding_descriptions: &vbind,
+            vertex_attribute_description_count: vattrs.len() as u32,
+            p_vertex_attribute_descriptions: vattrs.as_ptr(),
+        };
+        let ia = PipelineInputAssemblyStateCreateInfo {
+            s_type: ST_PIPELINE_INPUT_ASSEMBLY_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            topology: PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+            primitive_restart_enable: 0,
+        };
+        let viewport = VkViewport {
+            x: 0.0,
+            y: 0.0,
+            width: width as f32,
+            height: height as f32,
+            min_depth: 0.0,
+            max_depth: 1.0,
+        };
+        let scissor = VkRect2D {
+            offset: VkOffset2D { x: 0, y: 0 },
+            extent: VkExtent2D { width, height },
+        };
+        let vp = PipelineViewportStateCreateInfo {
+            s_type: ST_PIPELINE_VIEWPORT_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            viewport_count: 1,
+            p_viewports: &viewport,
+            scissor_count: 1,
+            p_scissors: &scissor,
+        };
+        let rs = PipelineRasterizationStateCreateInfo {
+            s_type: ST_PIPELINE_RASTERIZATION_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            depth_clamp_enable: 0,
+            rasterizer_discard_enable: 0,
+            polygon_mode: POLYGON_MODE_FILL,
+            cull_mode: CULL_MODE_NONE,
+            front_face: FRONT_FACE_COUNTER_CLOCKWISE,
+            depth_bias_enable: 0,
+            depth_bias_constant_factor: 0.0,
+            depth_bias_clamp: 0.0,
+            depth_bias_slope_factor: 0.0,
+            line_width: 1.0,
+        };
+        let ms = PipelineMultisampleStateCreateInfo {
+            s_type: ST_PIPELINE_MULTISAMPLE_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            rasterization_samples: SAMPLE_COUNT_1,
+            sample_shading_enable: 0,
+            min_sample_shading: 0.0,
+            p_sample_mask: std::ptr::null(),
+            alpha_to_coverage_enable: 0,
+            alpha_to_one_enable: 0,
+        };
+        let blend_att = PipelineColorBlendAttachmentState {
+            blend_enable: 0,
+            src_color_blend_factor: 0,
+            dst_color_blend_factor: 0,
+            color_blend_op: 0,
+            src_alpha_blend_factor: 0,
+            dst_alpha_blend_factor: 0,
+            alpha_blend_op: 0,
+            color_write_mask: COLOR_COMPONENT_RGBA,
+        };
+        let cb = PipelineColorBlendStateCreateInfo {
+            s_type: ST_PIPELINE_COLOR_BLEND_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            logic_op_enable: 0,
+            logic_op: 0,
+            attachment_count: 1,
+            p_attachments: &blend_att,
+            blend_constants: [0.0; 4],
+        };
+        let gpci = GraphicsPipelineCreateInfo {
+            s_type: ST_GRAPHICS_PIPELINE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            stage_count: 2,
+            p_stages: stages.as_ptr(),
+            p_vertex_input_state: &vin,
+            p_input_assembly_state: &ia,
+            p_tessellation_state: std::ptr::null(),
+            p_viewport_state: &vp,
+            p_rasterization_state: &rs,
+            p_multisample_state: &ms,
+            p_depth_stencil_state: std::ptr::null(),
+            p_color_blend_state: &cb,
+            p_dynamic_state: std::ptr::null(),
+            layout: pipe_layout,
+            render_pass,
+            subpass: 0,
+            base_pipeline_handle: VK_NULL_HANDLE,
+            base_pipeline_index: -1,
+        };
+        let r = create_gp(
+            device,
+            VK_NULL_HANDLE,
+            1,
+            &gpci,
+            std::ptr::null(),
+            &mut pipeline,
+        );
+        if r != VK_SUCCESS {
+            break 'run Err(format!("vkCreateGraphicsPipelines 失败: {r}"));
+        }
+
+        // ── command pool + buffer + 录制 ──
+        let cpci = CommandPoolCreateInfo {
+            s_type: ST_COMMAND_POOL_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            queue_family_index: qfi,
+        };
+        if create_cmdpool(device, &cpci, std::ptr::null(), &mut cmdpool) != VK_SUCCESS {
+            break 'run Err("vkCreateCommandPool 失败".into());
+        }
+        let cbai = CommandBufferAllocateInfo {
+            s_type: ST_COMMAND_BUFFER_ALLOCATE_INFO,
+            p_next: std::ptr::null(),
+            command_pool: cmdpool,
+            level: CMD_BUFFER_LEVEL_PRIMARY,
+            command_buffer_count: 1,
+        };
+        let mut cmd: VkCommandBuffer = std::ptr::null_mut();
+        alloc_cmd(device, &cbai, &mut cmd);
+        let cbbi = CommandBufferBeginInfo {
+            s_type: ST_COMMAND_BUFFER_BEGIN_INFO,
+            p_next: std::ptr::null(),
+            flags: CMD_BUFFER_USAGE_ONE_TIME_SUBMIT,
+            p_inheritance_info: std::ptr::null(),
+        };
+        begin_cmd(cmd, &cbbi);
+
+        // ── 资源上传与 layout 迁移(render pass 前;RXS-0230 IR1)──
+        // 纹理:UNDEFINED → TRANSFER_DST(全 mip)。
+        for t in &texs {
+            let to_dst = ImageMemoryBarrier {
+                s_type: ST_IMAGE_MEMORY_BARRIER,
+                p_next: std::ptr::null(),
+                src_access_mask: 0,
+                dst_access_mask: ACCESS_TRANSFER_WRITE,
+                old_layout: IMAGE_LAYOUT_UNDEFINED,
+                new_layout: IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                src_queue_family_index: QUEUE_FAMILY_IGNORED,
+                dst_queue_family_index: QUEUE_FAMILY_IGNORED,
+                image: t.image,
+                subresource_range: VkImageSubresourceRange {
+                    aspect_mask: IMAGE_ASPECT_COLOR,
+                    base_mip_level: 0,
+                    level_count: t.levels,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                },
+            };
+            cmd_barrier(
+                cmd,
+                PIPELINE_STAGE_TOP_OF_PIPE,
+                PIPELINE_STAGE_TRANSFER,
+                0,
+                0,
+                std::ptr::null(),
+                0,
+                std::ptr::null(),
+                1,
+                &to_dst,
+            );
+        }
+        // 逐层 staging → image copy(偏移 = 纯函数 mip_staging_layout,与上传写入同源)。
+        {
+            let mut tex_i = 0usize;
+            for r in resources {
+                let GraphicsResource::Texture2D {
+                    width: tw,
+                    height: th,
+                    data,
+                } = r
+                else {
+                    continue;
+                };
+                let t = &texs[tex_i];
+                tex_i += 1;
+                let extents = mip_level_extents(*tw, *th, t.levels);
+                let (_, offsets) = mip_staging_layout(&extents, data.bytes_per_texel());
+                for (lvl, (&(w, h), &off)) in extents.iter().zip(offsets.iter()).enumerate() {
+                    let region = VkBufferImageCopy {
+                        buffer_offset: off,
+                        buffer_row_length: 0,   // 紧凑(= 层宽)
+                        buffer_image_height: 0, // 紧凑(= 层高)
+                        image_subresource: VkImageSubresourceLayers {
+                            aspect_mask: IMAGE_ASPECT_COLOR,
+                            mip_level: lvl as u32,
+                            base_array_layer: 0,
+                            layer_count: 1,
+                        },
+                        image_offset: VkOffset3D { x: 0, y: 0, z: 0 },
+                        image_extent: VkExtent3D {
+                            width: w,
+                            height: h,
+                            depth: 1,
+                        },
+                    };
+                    cmd_copy_buf_img(
+                        cmd,
+                        t.staging,
+                        t.image,
+                        IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                        1,
+                        &region,
+                    );
+                }
+            }
+        }
+        // 纹理:TRANSFER_DST → SHADER_READ_ONLY(全 mip;供 vertex/fragment 采样)。
+        for t in &texs {
+            let to_read = ImageMemoryBarrier {
+                s_type: ST_IMAGE_MEMORY_BARRIER,
+                p_next: std::ptr::null(),
+                src_access_mask: ACCESS_TRANSFER_WRITE,
+                dst_access_mask: ACCESS_SHADER_READ,
+                old_layout: IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                new_layout: IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                src_queue_family_index: QUEUE_FAMILY_IGNORED,
+                dst_queue_family_index: QUEUE_FAMILY_IGNORED,
+                image: t.image,
+                subresource_range: VkImageSubresourceRange {
+                    aspect_mask: IMAGE_ASPECT_COLOR,
+                    base_mip_level: 0,
+                    level_count: t.levels,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                },
+            };
+            cmd_barrier(
+                cmd,
+                PIPELINE_STAGE_TRANSFER,
+                PIPELINE_STAGE_VERTEX_SHADER | PIPELINE_STAGE_FRAGMENT_SHADER,
+                0,
+                0,
+                std::ptr::null(),
+                0,
+                std::ptr::null(),
+                1,
+                &to_read,
+            );
+        }
+        // storage image:UNDEFINED → GENERAL(片元 load/store)。
+        for s in &storages {
+            let to_general = ImageMemoryBarrier {
+                s_type: ST_IMAGE_MEMORY_BARRIER,
+                p_next: std::ptr::null(),
+                src_access_mask: 0,
+                dst_access_mask: ACCESS_SHADER_READ | ACCESS_SHADER_WRITE,
+                old_layout: IMAGE_LAYOUT_UNDEFINED,
+                new_layout: IMAGE_LAYOUT_GENERAL,
+                src_queue_family_index: QUEUE_FAMILY_IGNORED,
+                dst_queue_family_index: QUEUE_FAMILY_IGNORED,
+                image: s.image,
+                subresource_range: VkImageSubresourceRange {
+                    aspect_mask: IMAGE_ASPECT_COLOR,
+                    base_mip_level: 0,
+                    level_count: 1,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                },
+            };
+            cmd_barrier(
+                cmd,
+                PIPELINE_STAGE_TOP_OF_PIPE,
+                PIPELINE_STAGE_FRAGMENT_SHADER,
+                0,
+                0,
+                std::ptr::null(),
+                0,
+                std::ptr::null(),
+                1,
+                &to_general,
+            );
+        }
+
+        // ── render pass:clear → bind(pipeline + 全部 descriptor set)→ draw ──
+        let clear_val = ClearValue { color: clear };
+        let rpbi = RenderPassBeginInfo {
+            s_type: ST_RENDER_PASS_BEGIN_INFO,
+            p_next: std::ptr::null(),
+            render_pass,
+            framebuffer,
+            render_area: VkRect2D {
+                offset: VkOffset2D { x: 0, y: 0 },
+                extent: VkExtent2D { width, height },
+            },
+            clear_value_count: 1,
+            p_clear_values: &clear_val,
+        };
+        cmd_begin_rp(cmd, &rpbi, SUBPASS_CONTENTS_INLINE);
+        cmd_bind_pipe(cmd, PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+        cmd_bind_ds(
+            cmd,
+            PIPELINE_BIND_POINT_GRAPHICS,
+            pipe_layout,
+            0,
+            set_count,
+            dsets.as_ptr(),
+            0,
+            std::ptr::null(),
+        );
+        let vbuf_offset: VkDeviceSize = 0;
+        cmd_bind_vbuf(cmd, 0, 1, &vbuf, &vbuf_offset);
+        let vertex_count = if vertex_stride > 0 {
+            (vertices.len() / vertex_stride as usize) as u32
+        } else {
+            0
+        };
+        cmd_draw(cmd, vertex_count, 1, 0, 0);
+        cmd_end_rp(cmd);
+
+        // color-write → transfer-read 屏障 + 回读 copy(v1 镜像)。
+        let barrier = ImageMemoryBarrier {
+            s_type: ST_IMAGE_MEMORY_BARRIER,
+            p_next: std::ptr::null(),
+            src_access_mask: ACCESS_COLOR_ATTACHMENT_WRITE,
+            dst_access_mask: ACCESS_TRANSFER_READ,
+            old_layout: IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            new_layout: IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            src_queue_family_index: QUEUE_FAMILY_IGNORED,
+            dst_queue_family_index: QUEUE_FAMILY_IGNORED,
+            image: color_image,
+            subresource_range: VkImageSubresourceRange {
+                aspect_mask: IMAGE_ASPECT_COLOR,
+                base_mip_level: 0,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+        };
+        cmd_barrier(
+            cmd,
+            PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT,
+            PIPELINE_STAGE_TRANSFER,
+            0,
+            0,
+            std::ptr::null(),
+            0,
+            std::ptr::null(),
+            1,
+            &barrier,
+        );
+        let region = VkBufferImageCopy {
+            buffer_offset: 0,
+            buffer_row_length: 0,
+            buffer_image_height: 0,
+            image_subresource: VkImageSubresourceLayers {
+                aspect_mask: IMAGE_ASPECT_COLOR,
+                mip_level: 0,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+            image_offset: VkOffset3D { x: 0, y: 0, z: 0 },
+            image_extent: VkExtent3D {
+                width,
+                height,
+                depth: 1,
+            },
+        };
+        cmd_copy_img_buf(
+            cmd,
+            color_image,
+            IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            rbuf,
+            1,
+            &region,
+        );
+
+        // storage image 回读(§4.B8 模式⑤;仅 readback_storage && 存在 storage image):片元
+        // store 写 → transfer 读内存/执行可见性屏障(pass 边界 barrier,RXS-0169 手动锚点,
+        // GENERAL 保持)+ `vkCmdCopyImageToBuffer` 到 srbuf。唯一写者纪律(§4.B5)下无跨
+        // invocation 冲突写 → 回读 well-defined。
+        if storage_readback_len > 0
+            && let Some((sw, sh, _bpt)) = storage_readback
+            && let Some(s0) = storages.first()
+        {
+            let s_barrier = ImageMemoryBarrier {
+                s_type: ST_IMAGE_MEMORY_BARRIER,
+                p_next: std::ptr::null(),
+                src_access_mask: ACCESS_SHADER_WRITE,
+                dst_access_mask: ACCESS_TRANSFER_READ,
+                old_layout: IMAGE_LAYOUT_GENERAL,
+                new_layout: IMAGE_LAYOUT_GENERAL,
+                src_queue_family_index: QUEUE_FAMILY_IGNORED,
+                dst_queue_family_index: QUEUE_FAMILY_IGNORED,
+                image: s0.image,
+                subresource_range: VkImageSubresourceRange {
+                    aspect_mask: IMAGE_ASPECT_COLOR,
+                    base_mip_level: 0,
+                    level_count: 1,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                },
+            };
+            cmd_barrier(
+                cmd,
+                PIPELINE_STAGE_FRAGMENT_SHADER,
+                PIPELINE_STAGE_TRANSFER,
+                0,
+                0,
+                std::ptr::null(),
+                0,
+                std::ptr::null(),
+                1,
+                &s_barrier,
+            );
+            let s_region = VkBufferImageCopy {
+                buffer_offset: 0,
+                buffer_row_length: 0,
+                buffer_image_height: 0,
+                image_subresource: VkImageSubresourceLayers {
+                    aspect_mask: IMAGE_ASPECT_COLOR,
+                    mip_level: 0,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                },
+                image_offset: VkOffset3D { x: 0, y: 0, z: 0 },
+                image_extent: VkExtent3D {
+                    width: sw,
+                    height: sh,
+                    depth: 1,
+                },
+            };
+            cmd_copy_img_buf(cmd, s0.image, IMAGE_LAYOUT_GENERAL, srbuf, 1, &s_region);
+        }
+        end_cmd(cmd);
+
+        // 提交 + 等待 + 回读。
+        let si = SubmitInfo {
+            s_type: ST_SUBMIT_INFO,
+            p_next: std::ptr::null(),
+            wait_semaphore_count: 0,
+            p_wait_semaphores: std::ptr::null(),
+            p_wait_dst_stage_mask: std::ptr::null(),
+            command_buffer_count: 1,
+            p_command_buffers: &cmd,
+            signal_semaphore_count: 0,
+            p_signal_semaphores: std::ptr::null(),
+        };
+        let r = queue_submit(queue, 1, &si, VK_NULL_HANDLE);
+        if r != VK_SUCCESS {
+            break 'run Err(format!("vkQueueSubmit 失败: {r}"));
+        }
+        queue_wait(queue);
+
+        let mut ptr: *mut c_void = std::ptr::null_mut();
+        if map_mem(device, rbuf_mem, 0, WHOLE_SIZE, 0, &mut ptr) != VK_SUCCESS {
+            break 'run Err("回读 vkMapMemory 失败".into());
+        }
+        let mut pixels = vec![0u8; readback_len];
+        std::ptr::copy_nonoverlapping(ptr.cast::<u8>(), pixels.as_mut_ptr(), readback_len);
+        unmap_mem(device, rbuf_mem);
+
+        // storage image 回读映射(§4.B8 模式⑤;srbuf 仅在需回读且存在 storage image 时非空)。
+        let storage_pixels = if storage_readback_len > 0 && srbuf_mem != VK_NULL_HANDLE {
+            let mut sptr: *mut c_void = std::ptr::null_mut();
+            if map_mem(device, srbuf_mem, 0, WHOLE_SIZE, 0, &mut sptr) != VK_SUCCESS {
+                break 'run Err("storage 回读 vkMapMemory 失败".into());
+            }
+            let mut sp = vec![0u8; storage_readback_len];
+            std::ptr::copy_nonoverlapping(sptr.cast::<u8>(), sp.as_mut_ptr(), storage_readback_len);
+            unmap_mem(device, srbuf_mem);
+            Some(sp)
+        } else {
+            None
+        };
+        Ok((pixels, storage_pixels))
+    };
+
+    // ── 逆序销毁(非 null 者;pool 先于 setLayout,sampler 在 pool/layout 之后)──
+    if cmdpool != VK_NULL_HANDLE {
+        destroy_cmdpool(device, cmdpool, std::ptr::null());
+    }
+    if pipeline != VK_NULL_HANDLE {
+        destroy_pipe(device, pipeline, std::ptr::null());
+    }
+    if pipe_layout != VK_NULL_HANDLE {
+        destroy_pl(device, pipe_layout, std::ptr::null());
+    }
+    if desc_pool != VK_NULL_HANDLE {
+        destroy_dpool(device, desc_pool, std::ptr::null());
+    }
+    for &dsl in &set_layouts {
+        if dsl != VK_NULL_HANDLE {
+            destroy_dsl(device, dsl, std::ptr::null());
+        }
+    }
+    if fs_mod != VK_NULL_HANDLE {
+        destroy_shader(device, fs_mod, std::ptr::null());
+    }
+    if vs_mod != VK_NULL_HANDLE {
+        destroy_shader(device, vs_mod, std::ptr::null());
+    }
+    if rbuf != VK_NULL_HANDLE {
+        destroy_buffer(device, rbuf, std::ptr::null());
+    }
+    if rbuf_mem != VK_NULL_HANDLE {
+        free_mem(device, rbuf_mem, std::ptr::null());
+    }
+    if srbuf != VK_NULL_HANDLE {
+        destroy_buffer(device, srbuf, std::ptr::null());
+    }
+    if srbuf_mem != VK_NULL_HANDLE {
+        free_mem(device, srbuf_mem, std::ptr::null());
+    }
+    if vbuf != VK_NULL_HANDLE {
+        destroy_buffer(device, vbuf, std::ptr::null());
+    }
+    if vbuf_mem != VK_NULL_HANDLE {
+        free_mem(device, vbuf_mem, std::ptr::null());
+    }
+    for t in &texs {
+        if t.view != VK_NULL_HANDLE {
+            destroy_view(device, t.view, std::ptr::null());
+        }
+        if t.image != VK_NULL_HANDLE {
+            destroy_image(device, t.image, std::ptr::null());
+        }
+        if t.mem != VK_NULL_HANDLE {
+            free_mem(device, t.mem, std::ptr::null());
+        }
+        if t.staging != VK_NULL_HANDLE {
+            destroy_buffer(device, t.staging, std::ptr::null());
+        }
+        if t.staging_mem != VK_NULL_HANDLE {
+            free_mem(device, t.staging_mem, std::ptr::null());
+        }
+    }
+    for s in &storages {
+        if s.view != VK_NULL_HANDLE {
+            destroy_view(device, s.view, std::ptr::null());
+        }
+        if s.image != VK_NULL_HANDLE {
+            destroy_image(device, s.image, std::ptr::null());
+        }
+        if s.mem != VK_NULL_HANDLE {
+            free_mem(device, s.mem, std::ptr::null());
+        }
+    }
+    for &s in &samplers {
+        if s != VK_NULL_HANDLE {
+            destroy_sampler(device, s, std::ptr::null());
+        }
+    }
+    if framebuffer != VK_NULL_HANDLE {
+        destroy_fb(device, framebuffer, std::ptr::null());
+    }
+    if render_pass != VK_NULL_HANDLE {
+        destroy_rp(device, render_pass, std::ptr::null());
+    }
+    if color_view != VK_NULL_HANDLE {
+        destroy_view(device, color_view, std::ptr::null());
+    }
+    if color_image != VK_NULL_HANDLE {
+        destroy_image(device, color_image, std::ptr::null());
+    }
+    if color_mem != VK_NULL_HANDLE {
+        free_mem(device, color_mem, std::ptr::null());
+    }
+
+    result
+}
+
 // ───────────────────── win32 swapchain present(RXS-0210 L4,W6) ──────────────
 // present 完成 RXS-0210 的 L4 present-defer(RD-032 的 code-deferral 部分):真 win32
 // surface + swapchain 出图 + `vkQueuePresentKHR`,并**经 swapchain-image readback 数值校验**
@@ -4495,6 +6585,42 @@ pub fn demo_shaders_spv() -> (&'static [u8], &'static [u8], &'static [u8]) {
     (TRI_VS, TRI_FS, SAXPY)
 }
 
+/// G3.3 PR-S3 采样超集 device 数值判据模式着色器 SPIR-V(RFC-0013 §4.B8;RXS-0223~0230)。
+/// `build.rs` 经 `dxil_spirv::emit_spirv_body_vulkan`(Vulkan 原生路,Vk-native set-per-class
+/// 绑定装饰,与 [`run_graphics_offscreen_v2`] 的 `plan_descriptor_sets` 分配律对齐)对
+/// `conformance/dxil/graphics/accept/sampling_*.rx` 产,`include_bytes!` 自 `OUT_DIR`。全绿
+/// 构建下各非空;codegen 降级 → 空切片,harness(`bin/sampling_modes`)据空 SKIP(非 fake)。
+pub struct SamplingShadersSpv {
+    /// 全屏三角形 vertex(pos + uv perspective varying):sample_lod/gather/cmp/多分量/
+    /// wrap-vs-clamp 模式共用(模式 ①③④⑥⑦)。
+    pub fullscreen_vs: &'static [u8],
+    /// 整型取址 vertex(pos + px flat + val flat):load/storage 模式共用(模式 ②⑤)。
+    pub fetch_vs: &'static [u8],
+    /// sample_lod fragment(模式 ① mip 选层 / ⑥ wrap-vs-clamp / ⑦ 多分量;LOD=1.0 显式)。
+    pub sample_lod_fs: &'static [u8],
+    /// load 越界钳制 fragment(模式 ②;OpImageFetch + RXS-0228 钳制序列)。
+    pub load_fs: &'static [u8],
+    /// gather 角点 2×2 单分量 fragment(模式 ③;OpImageGather 分量字面量 0)。
+    pub gather_fs: &'static [u8],
+    /// sample_cmp shadow fragment(模式 ④;OpImageSampleDrefExplicitLod 恒 LOD 0)。
+    pub cmp_fs: &'static [u8],
+    /// TextureRw2D 唯一写者 store→load fragment(模式 ⑤;OpImageWrite/OpImageRead)。
+    pub storage_fs: &'static [u8],
+}
+
+/// [`SamplingShadersSpv`] 全体(build.rs 嵌入的 device 模式 SPIR-V)。
+pub fn sampling_shaders_spv() -> SamplingShadersSpv {
+    SamplingShadersSpv {
+        fullscreen_vs: include_bytes!(concat!(env!("OUT_DIR"), "/sampling_fullscreen_vs.spv")),
+        fetch_vs: include_bytes!(concat!(env!("OUT_DIR"), "/sampling_fetch_vs.spv")),
+        sample_lod_fs: include_bytes!(concat!(env!("OUT_DIR"), "/sampling_sample_lod_fs.spv")),
+        load_fs: include_bytes!(concat!(env!("OUT_DIR"), "/sampling_load_fs.spv")),
+        gather_fs: include_bytes!(concat!(env!("OUT_DIR"), "/sampling_gather_fs.spv")),
+        cmp_fs: include_bytes!(concat!(env!("OUT_DIR"), "/sampling_cmp_fs.spv")),
+        storage_fs: include_bytes!(concat!(env!("OUT_DIR"), "/sampling_storage_fs.spv")),
+    }
+}
+
 // ── Android on-device present（VK_KHR_android_surface;尾门 G-MB1-7 兑现） ────────
 // libandroid liblog:`__android_log_write`——on-device validation 消息(VUID)直落 logcat
 // (tag `RurixVK-VVL`),证 layer 真加载(桌面 messenger 走 stderr,android 无用故改 logcat)。
@@ -5362,5 +7488,181 @@ mod tests {
                 "RXS-0213:rurixc codegen 须自包含,不得声明外部 SPIR-V 绑定依赖 `{dep}`(vulkan_codegen.rs 纯 Rust emitter)"
             );
         }
+    }
+
+    /// RXS-0230(v2 descriptor 建面,G3.3 PR-S0):Vk-native set-per-class 归类纯函数——
+    /// set = 类别轴(1=SRV/2=UAV/3=Sampler,set0=CBV 空占位)、binding = 类内声明序(与
+    /// rurixc `infer_spirv_bindings_vk_native` 同一分配律)+ set layout 数 + pool sizes。无设备。
+    //@ spec: RXS-0230
+    #[test]
+    fn v2_plan_descriptor_sets_set_per_class() {
+        let tex = |w: u32, h: u32| GraphicsResource::Texture2D {
+            width: w,
+            height: h,
+            data: TextureData::Rgba8(vec![vec![0u8; (w * h * 4) as usize]]),
+        };
+        let resources = [
+            tex(4, 4),
+            GraphicsResource::Sampler(SamplerDesc::default()),
+            tex(2, 2),
+            GraphicsResource::StorageImage {
+                width: 8,
+                height: 8,
+                format: StorageFormat::Rgba32Float,
+            },
+        ];
+        let plans = plan_descriptor_sets(&resources);
+        // SRV→set1 类内序 0,1;Sampler→set3 序 0;UAV→set2 序 0(声明序穿插不乱类内序)。
+        assert_eq!(plans, vec![(1, 0), (3, 0), (1, 1), (2, 0)]);
+        // set 数 = 最大使用 set + 1(set0 CBV 空占位,类别轴不平移)。
+        assert_eq!(planned_set_count(&plans), 4);
+        // 仅 SRV → set0(空)+ set1 两层;资源空 → 0(入口直接委派 v1)。
+        assert_eq!(planned_set_count(&plan_descriptor_sets(&[tex(4, 4)])), 2);
+        assert_eq!(planned_set_count(&plan_descriptor_sets(&[])), 0);
+        // pool sizes:确定性序 SAMPLED_IMAGE → STORAGE_IMAGE → SAMPLER,零计数不入。
+        assert_eq!(
+            plan_pool_sizes(&resources),
+            vec![
+                (DESCRIPTOR_TYPE_SAMPLED_IMAGE, 2),
+                (DESCRIPTOR_TYPE_STORAGE_IMAGE, 1),
+                (DESCRIPTOR_TYPE_SAMPLER, 1)
+            ]
+        );
+        assert_eq!(
+            plan_pool_sizes(&[GraphicsResource::Sampler(SamplerDesc::default())]),
+            vec![(DESCRIPTOR_TYPE_SAMPLER, 1)]
+        );
+    }
+
+    /// RXS-0230:mip 尺寸序列(逐层减半钳 1)+ 完整链层数 + staging 紧凑布局偏移
+    /// (RGBA8 = 4 B/texel,RGBA-f32 = 16 B/texel;偏移恒纹素尺寸整倍)。无设备。
+    //@ spec: RXS-0230
+    #[test]
+    fn v2_mip_extents_and_staging_layout() {
+        assert_eq!(
+            mip_level_extents(8, 4, 4),
+            vec![(8, 4), (4, 2), (2, 1), (1, 1)]
+        );
+        assert_eq!(full_mip_chain_len(8, 4), 4);
+        assert_eq!(full_mip_chain_len(1, 1), 1);
+        assert_eq!(full_mip_chain_len(4, 4), 3);
+        // RGBA8:4×4=64 B → 2×2=16 B → 1×1=4 B,偏移 [0,64,80],总 84。
+        let (total, offsets) = mip_staging_layout(&[(4, 4), (2, 2), (1, 1)], 4);
+        assert_eq!(offsets, vec![0, 64, 80]);
+        assert_eq!(total, 84);
+        // RGBA-f32 纹素 16 B:2×2=64 B → 1×1=16 B。
+        let (total_f, offsets_f) = mip_staging_layout(&[(2, 2), (1, 1)], 16);
+        assert_eq!(offsets_f, vec![0, 64]);
+        assert_eq!(total_f, 80);
+    }
+
+    /// RXS-0230:资源合法性预校验(fail-closed,任何句柄创建前)——mip 层数超链 / 层数据
+    /// 长错 / 零层 / sampler 非法域(RXS-0225)/ storage 零尺寸各拒;合法组合过。无设备。
+    //@ spec: RXS-0230
+    #[test]
+    fn v2_validate_resources_fail_closed() {
+        // 合法:4×4 两层 RGBA8 + 默认 sampler + storage。
+        let good = [
+            GraphicsResource::Texture2D {
+                width: 4,
+                height: 4,
+                data: TextureData::Rgba8(vec![vec![0; 64], vec![0; 16]]),
+            },
+            GraphicsResource::Sampler(SamplerDesc::default()),
+            GraphicsResource::StorageImage {
+                width: 8,
+                height: 8,
+                format: StorageFormat::Rgba8Unorm,
+            },
+        ];
+        assert!(validate_resources(&good).is_ok());
+        // f32 层长按 f32 数(2×2×4 = 16 个 f32)。
+        let f32_ok = [GraphicsResource::Texture2D {
+            width: 2,
+            height: 2,
+            data: TextureData::RgbaF32(vec![vec![0.0; 16]]),
+        }];
+        assert!(validate_resources(&f32_ok).is_ok());
+        // mip 层数超完整链(4×4 完整链 = 3)。
+        let too_deep = [GraphicsResource::Texture2D {
+            width: 4,
+            height: 4,
+            data: TextureData::Rgba8(vec![vec![0; 64], vec![0; 16], vec![0; 4], vec![0; 4]]),
+        }];
+        assert!(validate_resources(&too_deep).is_err());
+        // 层数据长错(level 1 应 2×2×4 = 16)。
+        let bad_len = [GraphicsResource::Texture2D {
+            width: 4,
+            height: 4,
+            data: TextureData::Rgba8(vec![vec![0; 64], vec![0; 15]]),
+        }];
+        assert!(validate_resources(&bad_len).is_err());
+        // 零 mip 层拒。
+        let no_level = [GraphicsResource::Texture2D {
+            width: 4,
+            height: 4,
+            data: TextureData::Rgba8(vec![]),
+        }];
+        assert!(validate_resources(&no_level).is_err());
+        // sampler lod_bias 越域拒(RXS-0225 合法域 [-16,16))。
+        let bad_sampler = [GraphicsResource::Sampler(SamplerDesc {
+            lod_bias: 32.0,
+            ..SamplerDesc::default()
+        })];
+        assert!(validate_resources(&bad_sampler).is_err());
+        // storage 零尺寸拒。
+        let bad_storage = [GraphicsResource::StorageImage {
+            width: 0,
+            height: 8,
+            format: StorageFormat::Rgba32Float,
+        }];
+        assert!(validate_resources(&bad_storage).is_err());
+    }
+
+    /// RXS-0230 L3 + RXS-0225:`SamplerDesc`(经 `vk_fields` plain 降级)→
+    /// `VkSamplerCreateInfo` 全字段构造断言(immutable sampler 用;UVW 同值 / maxLod 钳
+    /// `VK_LOD_CLAMP_NONE` / border 预置 / 归一化坐标恒开)。无设备。
+    //@ spec: RXS-0230
+    #[test]
+    fn v2_sampler_create_info_field_mapping() {
+        use crate::sampler::{Address, Compare, Filter};
+        // 默认 linear + clamp:LINEAR(1)/CLAMP_TO_EDGE(2),无 aniso 无比较。
+        let sci = sampler_create_info(&SamplerDesc::default());
+        assert_eq!(sci.s_type, ST_SAMPLER_CREATE_INFO);
+        assert_eq!(sci.mag_filter, 1);
+        assert_eq!(sci.min_filter, 1);
+        assert_eq!(sci.mipmap_mode, 1);
+        assert_eq!(sci.address_mode_u, 2);
+        assert_eq!(sci.address_mode_v, sci.address_mode_u, "UVW 三向同值");
+        assert_eq!(sci.address_mode_w, sci.address_mode_u, "UVW 三向同值");
+        assert_eq!(sci.anisotropy_enable, 0);
+        assert_eq!(sci.compare_enable, 0);
+        assert_eq!(
+            sci.max_lod, LOD_CLAMP_NONE,
+            "宿主 f32::MAX 钳 VK_LOD_CLAMP_NONE"
+        );
+        assert_eq!(sci.border_color, BORDER_COLOR_FLOAT_OPAQUE_BLACK);
+        assert_eq!(sci.unnormalized_coordinates, 0);
+
+        // 全非默认:nearest + wrap + aniso 8 + LessEqual 比较 + 有限 LOD 域。
+        let sci2 = sampler_create_info(&SamplerDesc {
+            filter: Filter::Nearest,
+            address: Address::Wrap,
+            max_anisotropy: 8,
+            lod_bias: 1.5,
+            min_lod: 0.5,
+            max_lod: 4.0,
+            compare: Some(Compare::LessEqual),
+        });
+        assert_eq!(sci2.mag_filter, 0, "nearest → VK_FILTER_NEAREST");
+        assert_eq!(sci2.mipmap_mode, 0);
+        assert_eq!(sci2.address_mode_u, 0, "wrap → REPEAT");
+        assert_eq!(sci2.mip_lod_bias, 1.5);
+        assert_eq!(sci2.anisotropy_enable, 1);
+        assert_eq!(sci2.max_anisotropy, 8.0);
+        assert_eq!(sci2.compare_enable, 1);
+        assert_eq!(sci2.compare_op, 3, "LessEqual → LESS_OR_EQUAL");
+        assert_eq!(sci2.min_lod, 0.5);
+        assert_eq!(sci2.max_lod, 4.0, "未超钳值不动");
     }
 }

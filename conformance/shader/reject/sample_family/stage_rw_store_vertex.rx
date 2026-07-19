@@ -1,0 +1,19 @@
+//@ spec: RXS-0223
+//@ expect-error: RX3014
+// 阶段违例(RFC-0013 §4.B1 矩阵 / §4.0-2):TextureRw2D<F> 阶段列 = fragment +
+// raygen;vertex 阶段 store → RX3014。
+struct VtxIn {
+    #[interpolate(flat)] px: vec2<u32>,
+    #[interpolate(perspective)] val: vec4<f32>,
+}
+
+struct VtxOut {
+    #[builtin(position)] pos: vec4<f32>,
+}
+
+vertex fn vs_store(inp: VtxIn, img: TextureRw2D<f32>) -> VtxOut {
+    img.store(inp.px, inp.val);
+    VtxOut { pos: inp.val }
+}
+
+fn main() {}

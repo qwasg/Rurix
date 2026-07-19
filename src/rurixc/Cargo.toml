@@ -46,5 +46,21 @@ required-features = ["dxil-backend"]
 name = "emit_uc04_dxil"
 required-features = ["dxil-backend", "shader-stages"]
 
+# mb1 Phase 3 red_self_test 支撑工具(非生产 codegen;RXS-0210):图形着色源经
+# `dxil_spirv::emit_spirv_body`(provenance=true)落盘 SPIR-V 供 ci/vulkan_graphics_smoke.py
+# 反证。须 dxil-backend + shader-stages(既有缺口勘误:此前缺 required-features 条目,
+# `cargo test -p rurixc` 单包〔无 --workspace 特性合一〕编译该 example 即红;镜像上两条)。
+[[example]]
+name = "emit_spirv_provenance"
+required-features = ["dxil-backend", "shader-stages"]
+
+# G3.3 PR-S3 采样模式着色器 SPIR-V 合法性机验(RXS-0223~0230):消费 dxil_spirv::
+# emit_spirv_body_vulkan + toolchain::locate_spirv_val,须 dxil-backend + shader-stages
+# (缺 required-features 时,不带该 feature 集的 rurixc tests 构建〔如 LSP smoke〕编译红;
+# 镜像上三条既有缺口勘误)。
+[[test]]
+name = "sampling_vulkan_spirv_val"
+required-features = ["dxil-backend", "shader-stages"]
+
 [lints]
 workspace = true
