@@ -1,0 +1,21 @@
+//@ spec: RXS-0223, RXS-0230
+// G3.3 PR-S3 device 数值判据全屏 vertex(RFC-0013 §4.B8):host 顶点缓冲提供全屏三角形
+// pos(clip 空间,覆盖视口)+ uv(0..1〔或越界供 wrap-vs-clamp〕),passthrough 至输出——
+// #[builtin(position)] clip = SV_Position,插值 varying uv 供采样 fragment 消费(镜像
+// uc04_lighting_vs / vk_tri_vs 先例:位置 + 属性由 host 缓冲提供,避 vertex_index 算术超
+// body-lowering 子集,RXS-0171)。sample_lod / gather / sample_cmp / 多分量各模式共用本
+// vertex(fragment 侧按 location 消费 uv varying;set-per-class 绑定装饰经
+// emit_spirv_body_vulkan 的 Vk-native 策略,binding_layout::infer_spirv_bindings_vk_native)。
+struct SfvIn {
+    #[interpolate(perspective)] pos: vec4<f32>,
+    #[interpolate(perspective)] uv: vec2<f32>,
+}
+
+struct SfvVary {
+    #[builtin(position)] clip: vec4<f32>,
+    #[interpolate(perspective)] uv: vec2<f32>,
+}
+
+vertex fn sampling_fullscreen_vs(inp: SfvIn) -> SfvVary {
+    SfvVary { clip: inp.pos, uv: inp.uv }
+}

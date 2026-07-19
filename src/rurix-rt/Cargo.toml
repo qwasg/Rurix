@@ -60,6 +60,14 @@ required-features = ["vulkan"]
 name = "vk_desc_v2"
 required-features = ["vulkan"]
 
+# G3.3 PR-S3 采样超集 device 数值判据 harness(RXS-0223~0230,RFC-0013 §4.B8;验收门 G-G3-3):
+# ≥6 模式(sample_lod 选层 / load 越界钳制 / gather 角点 / sample_cmp shadow / storage 唯一写者 /
+# wrap-vs-clamp / 多分量)descriptor-消费着色器真采样 + 采样点像素判据 + 篡改红绿。device 真跑
+# 归 owner 本机(步骤 63,opt-in RURIX_SAMPLING_DEVICE=1);无 GPU → SKIP 三态。
+[[bin]]
+name = "sampling_modes"
+required-features = ["vulkan"]
+
 # unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6):rurix-rt 是首个 unsafe 边界(Driver API
 # FFI)。块级豁免 `unsafe_code`(注册见 unsafe-audit/rurix-rt.md),仍强制每个
 # unsafe 块携 `// SAFETY:` 注释(clippy undocumented_unsafe_blocks = deny)。

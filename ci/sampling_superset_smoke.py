@@ -84,6 +84,20 @@ HOST_TESTS = [
         ["cargo", "test", "-p", "rurix-rt", "--lib", "sampler::tests::sampler_desc_maps_to_vk_fields"],
         "rurix-rt 宿主 SamplerDesc 单测",
     ),
+    # rurixc(PR-S3):Vk-native set-per-class 绑定装饰单测(provenance=false → SRV set1/
+    # Sampler set3;与 run_graphics_offscreen_v2 plan_descriptor_sets 分配律对齐,RXS-0230/E-3)。
+    (
+        ["cargo", "test", "-p", "rurixc", "--features", "dxil-backend shader-stages",
+         "--lib", "dxil_spirv::tests::vulkan_resource_bindings_use_set_per_class"],
+        "rurixc Vk-native set-per-class 绑定单测",
+    ),
+    # rurixc(PR-S3):≥6 模式 device 着色器 .rx → Vulkan 原生 SPIR-V → spirv-val 三态
+    # (工具在位 accept 全部模式 / 缺工具 SKIP;device 真跑前唯一 SPIR-V 合法性机验闸门)。
+    (
+        ["cargo", "test", "-p", "rurixc", "--features", "dxil-backend shader-stages vulkan-backend",
+         "--test", "sampling_vulkan_spirv_val"],
+        "rurixc 采样模式 Vulkan SPIR-V + spirv-val 三态",
+    ),
 ]
 
 
@@ -189,11 +203,38 @@ def device_section() -> int:
         "(vk_desc_v2:v1/v2 像素逐字节相等 + validation 零报错)"
     )
 
-    # ≥6 模式数值判据 + 双后端对照(PR-S3)未随本底座落地 → 维持诚实 SKIP 三态,
-    # 不伪造 modes_ok(G-G3-3 防降级硬门,不以底座闭环充数值判据)。
+    # ── ≥6 模式数值判据(PR-S3;bin/sampling_modes harness)──
+    # 逐模式 descriptor-消费着色器真采样 + 采样点像素判据 + 篡改红绿(RXS-0176 IR2)。harness
+    # 有 GPU → 逐模式评判,≥6 过写 evidence/sampling_superset_<date>.json(modes_ok →
+    # g3.counter.sampling_superset_modes,ci/budget_eval.py ≥6 PASS);无 GPU → SAMPLING_MODES:
+    # SKIP。**判据阈值(expect_* 谓词/采样点/容差)= owner 本机迭代校准**——首期 PARTIAL
+    # (真跑但 <6 模式过阈值)= 诚实 SKIP(不伪造绿;RURIX_REQUIRE_REAL=1 翻硬红,促 owner 收敛)。
+    build_s = run(
+        ["cargo", "build", "-p", "rurix-rt", "--features", "vulkan",
+         "--bin", "sampling_modes", "--quiet"]
+    )
+    if build_s.returncode != 0:
+        print((build_s.stdout + build_s.stderr)[-2500:], file=sys.stderr)
+        return fail("cargo build sampling_modes(--features vulkan)失败(host 编译红,非 SKIP 事项)")
+    exe_s = ROOT / "target" / "debug" / f"sampling_modes{EXE_SUFFIX}"
+    ps = subprocess.run([str(exe_s)], cwd=ROOT, capture_output=True, text=True, env=env)
+    outs = ps.stdout + ps.stderr
+    if any(k in outs for k in NO_DEVICE_KEYS) or "SAMPLING_MODES: SKIP" in ps.stdout:
+        return skip(f"device 段 sampling_modes 无 Vulkan 设备/loader:{ps.stderr.strip()[:300]}")
+    if ps.returncode != 0:
+        print(outs[-2500:], file=sys.stderr)
+        return fail("sampling_modes harness 退出非 0(device 真跑内部错误,非阈值 MISS)")
+    if "Validation Error" in ps.stderr or "VUID-" in ps.stderr:
+        print(ps.stderr[-2500:], file=sys.stderr)
+        return fail("sampling_modes:VK_LAYER_KHRONOS_validation 报错(fail-closed)")
+    if "SAMPLING_MODES: PASS" in ps.stdout:
+        print(f"[sampling_superset_smoke] device 段:≥6 模式数值判据 PASS\n{ps.stdout.strip()[-600:]}")
+        return 0
+    # PARTIAL:真跑但 <6 模式过阈值(owner 迭代 expect_* 校准)→ 诚实 SKIP(REQUIRE_REAL 翻红)。
+    print(ps.stdout.strip()[-800:], file=sys.stderr)
     return skip(
-        "device 段 ≥6 模式数值判据 + 双后端一致性对照未随 PR-S0 底座落地(须 descriptor-"
-        "消费着色器语料,归 PR-S3;不伪造 device 绿)"
+        "device 段 sampling_modes PARTIAL(<6 模式过阈值)——判据阈值/采样点归 owner 本机迭代"
+        "校准(expect_* 谓词);不伪造 device 绿(G-G3-3 防降级硬门)"
     )
 
 

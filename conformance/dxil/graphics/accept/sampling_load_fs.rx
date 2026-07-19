@@ -1,0 +1,17 @@
+//@ spec: RXS-0226, RXS-0228
+// G3.3 PR-S3 device 模式 ② load 越界钳制(RFC-0013 §4.B4/B8):`tex.load_lod(px, 0)` →
+// OpImageFetch + RXS-0228 越界钳制序列(codegen 注入 min(coord, size-1),两后端同一确定性
+// 行为,无 UB、零 robustness feature 依赖)。整型纹素坐标 px 自 flat varying(host 置越界
+// 常量,如 4×4 纹理取 (100,100))→ 钳制到边缘纹素 (3,3) → 采得边缘纹素色。harness 断言:
+// 越界坐标采样点像素 == 边缘纹素预期色(篡改边缘纹素 → 像素变 RED,复原 GREEN)。
+struct LdVary {
+    #[interpolate(flat)] px: vec2<u32>,
+}
+
+struct LdOut {
+    color: vec4<f32>,
+}
+
+fragment fn sampling_load_fs(inp: LdVary, tex: Texture2D<f32>) -> LdOut {
+    LdOut { color: tex.load_lod(inp.px, 0) }
+}

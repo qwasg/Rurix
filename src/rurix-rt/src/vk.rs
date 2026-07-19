@@ -3121,9 +3121,78 @@ pub fn run_graphics_offscreen_v2(
     clear: [f32; 4],
     resources: &[GraphicsResource],
 ) -> Result<Vec<u8>, String> {
+    run_graphics_offscreen_v2_dispatch(
+        vs_spv,
+        fs_spv,
+        vertices,
+        vertex_stride,
+        attrs,
+        width,
+        height,
+        clear,
+        resources,
+        /*readback_storage=*/ false,
+    )
+    .map(|(color, _storage)| color)
+}
+
+/// [`run_graphics_offscreen_v2`] 加 **storage image 回读出口**(RXS-0230 / RFC-0013
+/// §4.B5/B8 模式⑤ TextureRw2D 唯一写者 store→回读)。返回 `(color, storage)`:`color` 同
+/// v2 颜色附件回读;`storage` = **首个** `GraphicsResource::StorageImage` 经 pass 边界
+/// barrier(shader-write→transfer-read,GENERAL 保持)+ `vkCmdCopyImageToBuffer` 回读的
+/// 逐纹素字节(`Rgba8Unorm`=4B/纹素、`Rgba32Float`=16B/纹素;小端),无 storage image 时
+/// `None`。**唯一写者纪律**(§4.B5)保证回读值 well-defined。device 数值判据(identity 坐标
+/// 见证 + 篡改红绿阈值)归 `bin/sampling_modes` + 步骤 63 owner 本机。
+///
+/// # SAFETY(U27 扩注,graphics FFI 边界,0 新 U 号)
+/// 契约同 [`run_graphics_offscreen_v2`];额外 storage 回读缓冲(host-visible TRANSFER_DST)
+/// 与其余句柄同线性配对 create/destroy、末尾逆序销毁,`vkCmdCopyImageToBuffer` 在同一命令
+/// 缓冲的 pass 结束 barrier 之后录制,单 queue 同步提交 + `vkQueueWaitIdle` 后映射回读。
+//@ spec: RXS-0230
+#[allow(clippy::too_many_arguments)]
+pub fn run_graphics_offscreen_v2_readback(
+    vs_spv: &[u32],
+    fs_spv: &[u32],
+    vertices: &[u8],
+    vertex_stride: u32,
+    attrs: &[(u32, u32, u32)],
+    width: u32,
+    height: u32,
+    clear: [f32; 4],
+    resources: &[GraphicsResource],
+) -> Result<(Vec<u8>, Option<Vec<u8>>), String> {
+    run_graphics_offscreen_v2_dispatch(
+        vs_spv,
+        fs_spv,
+        vertices,
+        vertex_stride,
+        attrs,
+        width,
+        height,
+        clear,
+        resources,
+        /*readback_storage=*/ true,
+    )
+}
+
+/// v2 公共派发(RXS-0230):校验 + 空资源委派 v1 + loader + `unsafe` 内部。`readback_storage`
+/// 决定是否额外回读首个 storage image(§4.B8 模式⑤)。
+#[allow(clippy::too_many_arguments)]
+fn run_graphics_offscreen_v2_dispatch(
+    vs_spv: &[u32],
+    fs_spv: &[u32],
+    vertices: &[u8],
+    vertex_stride: u32,
+    attrs: &[(u32, u32, u32)],
+    width: u32,
+    height: u32,
+    clear: [f32; 4],
+    resources: &[GraphicsResource],
+    readback_storage: bool,
+) -> Result<(Vec<u8>, Option<Vec<u8>>), String> {
     validate_resources(resources)?;
     if resources.is_empty() {
-        // 空资源 ≡ v1 行为(加性中性;RXS-0230 L1)。
+        // 空资源 ≡ v1 行为(加性中性;RXS-0230 L1)。storage 回读恒 None(无 storage image)。
         return run_graphics_offscreen(
             vs_spv,
             fs_spv,
@@ -3133,7 +3202,8 @@ pub fn run_graphics_offscreen_v2(
             width,
             height,
             clear,
-        );
+        )
+        .map(|color| (color, None));
     }
     let gipa = load_vulkan_loader().ok_or("vulkan loader (vulkan-1.dll/libvulkan.so) 不可用")?;
     // SAFETY: 见 U27 v2 扩注(上);句柄生命周期由内部函数线性管理,末尾逆序销毁。
@@ -3149,6 +3219,7 @@ pub fn run_graphics_offscreen_v2(
             height,
             clear,
             resources,
+            readback_storage,
         )
     }
 }
@@ -3165,7 +3236,8 @@ unsafe fn run_graphics_inner_v2(
     height: u32,
     clear: [f32; 4],
     resources: &[GraphicsResource],
-) -> Result<Vec<u8>, String> {
+    readback_storage: bool,
+) -> Result<(Vec<u8>, Option<Vec<u8>>), String> {
     let vk_create_instance: FnCreateInstance =
         cast_fn(gipa(std::ptr::null_mut(), c"vkCreateInstance".as_ptr()))
             .ok_or("缺 vkCreateInstance")?;
@@ -3381,6 +3453,7 @@ unsafe fn run_graphics_inner_v2(
         height,
         clear,
         resources,
+        readback_storage,
     );
 
     if validation && validation_error.load(std::sync::atomic::Ordering::Relaxed) {
@@ -3414,7 +3487,8 @@ unsafe fn graphics_body_v2(
     height: u32,
     clear: [f32; 4],
     resources: &[GraphicsResource],
-) -> Result<Vec<u8>, String> {
+    readback_storage: bool,
+) -> Result<(Vec<u8>, Option<Vec<u8>>), String> {
     macro_rules! dp {
         ($name:literal, $ty:ty) => {
             cast_fn::<$ty>(gdpa(device, $name.as_ptr())).ok_or("缺 device 符号")?
@@ -3646,13 +3720,39 @@ unsafe fn graphics_body_v2(
     let mut vbuf_mem: VkDeviceMemory = VK_NULL_HANDLE;
     let mut rbuf: VkBuffer = VK_NULL_HANDLE;
     let mut rbuf_mem: VkDeviceMemory = VK_NULL_HANDLE;
+    // storage image 回读缓冲(§4.B8 模式⑤;仅 readback_storage && 存在 storage image 时建)。
+    let mut srbuf: VkBuffer = VK_NULL_HANDLE;
+    let mut srbuf_mem: VkDeviceMemory = VK_NULL_HANDLE;
     let mut vs_mod: VkShaderModule = VK_NULL_HANDLE;
     let mut fs_mod: VkShaderModule = VK_NULL_HANDLE;
     let mut pipe_layout: VkPipelineLayout = VK_NULL_HANDLE;
     let mut pipeline: VkPipeline = VK_NULL_HANDLE;
     let mut cmdpool: VkCommandPool = VK_NULL_HANDLE;
 
-    let result: Result<Vec<u8>, String> = 'run: {
+    // 首个 storage image 的回读几何(w, h, 字节/纹素);无 storage / 不回读 → None。
+    let storage_readback: Option<(u32, u32, u64)> = if readback_storage {
+        resources.iter().find_map(|r| match r {
+            GraphicsResource::StorageImage {
+                width: sw,
+                height: sh,
+                format,
+            } => {
+                let bpt: u64 = match format {
+                    StorageFormat::Rgba8Unorm => 4,
+                    StorageFormat::Rgba32Float => 16,
+                };
+                Some((*sw, *sh, bpt))
+            }
+            _ => None,
+        })
+    } else {
+        None
+    };
+    let storage_readback_len: usize = storage_readback
+        .map(|(w, h, bpt)| (w as usize) * (h as usize) * (bpt as usize))
+        .unwrap_or(0);
+
+    let result: Result<(Vec<u8>, Option<Vec<u8>>), String> = 'run: {
         // ── ① samplers(声明序 = Sampler 轴 binding 序;immutable 进 set3 layout)──
         for r in resources {
             if let GraphicsResource::Sampler(desc) = r {
@@ -4045,6 +4145,18 @@ unsafe fn graphics_body_v2(
             }
             Err(e) => {
                 break 'run Err(e);
+            }
+        }
+        // storage image 回读缓冲(host-visible TRANSFER_DST;§4.B8 模式⑤;仅在需回读时建)。
+        if storage_readback_len > 0 {
+            match make_host_buffer(BUFFER_USAGE_TRANSFER_DST, storage_readback_len as u64) {
+                Ok((b, m)) => {
+                    srbuf = b;
+                    srbuf_mem = m;
+                }
+                Err(e) => {
+                    break 'run Err(e);
+                }
             }
         }
 
@@ -4494,6 +4606,64 @@ unsafe fn graphics_body_v2(
             1,
             &region,
         );
+
+        // storage image 回读(§4.B8 模式⑤;仅 readback_storage && 存在 storage image):片元
+        // store 写 → transfer 读内存/执行可见性屏障(pass 边界 barrier,RXS-0169 手动锚点,
+        // GENERAL 保持)+ `vkCmdCopyImageToBuffer` 到 srbuf。唯一写者纪律(§4.B5)下无跨
+        // invocation 冲突写 → 回读 well-defined。
+        if storage_readback_len > 0
+            && let Some((sw, sh, _bpt)) = storage_readback
+            && let Some(s0) = storages.first()
+        {
+            let s_barrier = ImageMemoryBarrier {
+                s_type: ST_IMAGE_MEMORY_BARRIER,
+                p_next: std::ptr::null(),
+                src_access_mask: ACCESS_SHADER_WRITE,
+                dst_access_mask: ACCESS_TRANSFER_READ,
+                old_layout: IMAGE_LAYOUT_GENERAL,
+                new_layout: IMAGE_LAYOUT_GENERAL,
+                src_queue_family_index: QUEUE_FAMILY_IGNORED,
+                dst_queue_family_index: QUEUE_FAMILY_IGNORED,
+                image: s0.image,
+                subresource_range: VkImageSubresourceRange {
+                    aspect_mask: IMAGE_ASPECT_COLOR,
+                    base_mip_level: 0,
+                    level_count: 1,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                },
+            };
+            cmd_barrier(
+                cmd,
+                PIPELINE_STAGE_FRAGMENT_SHADER,
+                PIPELINE_STAGE_TRANSFER,
+                0,
+                0,
+                std::ptr::null(),
+                0,
+                std::ptr::null(),
+                1,
+                &s_barrier,
+            );
+            let s_region = VkBufferImageCopy {
+                buffer_offset: 0,
+                buffer_row_length: 0,
+                buffer_image_height: 0,
+                image_subresource: VkImageSubresourceLayers {
+                    aspect_mask: IMAGE_ASPECT_COLOR,
+                    mip_level: 0,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                },
+                image_offset: VkOffset3D { x: 0, y: 0, z: 0 },
+                image_extent: VkExtent3D {
+                    width: sw,
+                    height: sh,
+                    depth: 1,
+                },
+            };
+            cmd_copy_img_buf(cmd, s0.image, IMAGE_LAYOUT_GENERAL, srbuf, 1, &s_region);
+        }
         end_cmd(cmd);
 
         // 提交 + 等待 + 回读。
@@ -4521,7 +4691,21 @@ unsafe fn graphics_body_v2(
         let mut pixels = vec![0u8; readback_len];
         std::ptr::copy_nonoverlapping(ptr.cast::<u8>(), pixels.as_mut_ptr(), readback_len);
         unmap_mem(device, rbuf_mem);
-        Ok(pixels)
+
+        // storage image 回读映射(§4.B8 模式⑤;srbuf 仅在需回读且存在 storage image 时非空)。
+        let storage_pixels = if storage_readback_len > 0 && srbuf_mem != VK_NULL_HANDLE {
+            let mut sptr: *mut c_void = std::ptr::null_mut();
+            if map_mem(device, srbuf_mem, 0, WHOLE_SIZE, 0, &mut sptr) != VK_SUCCESS {
+                break 'run Err("storage 回读 vkMapMemory 失败".into());
+            }
+            let mut sp = vec![0u8; storage_readback_len];
+            std::ptr::copy_nonoverlapping(sptr.cast::<u8>(), sp.as_mut_ptr(), storage_readback_len);
+            unmap_mem(device, srbuf_mem);
+            Some(sp)
+        } else {
+            None
+        };
+        Ok((pixels, storage_pixels))
     };
 
     // ── 逆序销毁(非 null 者;pool 先于 setLayout,sampler 在 pool/layout 之后)──
@@ -4553,6 +4737,12 @@ unsafe fn graphics_body_v2(
     }
     if rbuf_mem != VK_NULL_HANDLE {
         free_mem(device, rbuf_mem, std::ptr::null());
+    }
+    if srbuf != VK_NULL_HANDLE {
+        destroy_buffer(device, srbuf, std::ptr::null());
+    }
+    if srbuf_mem != VK_NULL_HANDLE {
+        free_mem(device, srbuf_mem, std::ptr::null());
     }
     if vbuf != VK_NULL_HANDLE {
         destroy_buffer(device, vbuf, std::ptr::null());
@@ -6393,6 +6583,42 @@ pub fn demo_shaders_spv() -> (&'static [u8], &'static [u8], &'static [u8]) {
     const TRI_FS: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/tri_fs.spv"));
     const SAXPY: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/saxpy.spv"));
     (TRI_VS, TRI_FS, SAXPY)
+}
+
+/// G3.3 PR-S3 采样超集 device 数值判据模式着色器 SPIR-V(RFC-0013 §4.B8;RXS-0223~0230)。
+/// `build.rs` 经 `dxil_spirv::emit_spirv_body_vulkan`(Vulkan 原生路,Vk-native set-per-class
+/// 绑定装饰,与 [`run_graphics_offscreen_v2`] 的 `plan_descriptor_sets` 分配律对齐)对
+/// `conformance/dxil/graphics/accept/sampling_*.rx` 产,`include_bytes!` 自 `OUT_DIR`。全绿
+/// 构建下各非空;codegen 降级 → 空切片,harness(`bin/sampling_modes`)据空 SKIP(非 fake)。
+pub struct SamplingShadersSpv {
+    /// 全屏三角形 vertex(pos + uv perspective varying):sample_lod/gather/cmp/多分量/
+    /// wrap-vs-clamp 模式共用(模式 ①③④⑥⑦)。
+    pub fullscreen_vs: &'static [u8],
+    /// 整型取址 vertex(pos + px flat + val flat):load/storage 模式共用(模式 ②⑤)。
+    pub fetch_vs: &'static [u8],
+    /// sample_lod fragment(模式 ① mip 选层 / ⑥ wrap-vs-clamp / ⑦ 多分量;LOD=1.0 显式)。
+    pub sample_lod_fs: &'static [u8],
+    /// load 越界钳制 fragment(模式 ②;OpImageFetch + RXS-0228 钳制序列)。
+    pub load_fs: &'static [u8],
+    /// gather 角点 2×2 单分量 fragment(模式 ③;OpImageGather 分量字面量 0)。
+    pub gather_fs: &'static [u8],
+    /// sample_cmp shadow fragment(模式 ④;OpImageSampleDrefExplicitLod 恒 LOD 0)。
+    pub cmp_fs: &'static [u8],
+    /// TextureRw2D 唯一写者 store→load fragment(模式 ⑤;OpImageWrite/OpImageRead)。
+    pub storage_fs: &'static [u8],
+}
+
+/// [`SamplingShadersSpv`] 全体(build.rs 嵌入的 device 模式 SPIR-V)。
+pub fn sampling_shaders_spv() -> SamplingShadersSpv {
+    SamplingShadersSpv {
+        fullscreen_vs: include_bytes!(concat!(env!("OUT_DIR"), "/sampling_fullscreen_vs.spv")),
+        fetch_vs: include_bytes!(concat!(env!("OUT_DIR"), "/sampling_fetch_vs.spv")),
+        sample_lod_fs: include_bytes!(concat!(env!("OUT_DIR"), "/sampling_sample_lod_fs.spv")),
+        load_fs: include_bytes!(concat!(env!("OUT_DIR"), "/sampling_load_fs.spv")),
+        gather_fs: include_bytes!(concat!(env!("OUT_DIR"), "/sampling_gather_fs.spv")),
+        cmp_fs: include_bytes!(concat!(env!("OUT_DIR"), "/sampling_cmp_fs.spv")),
+        storage_fs: include_bytes!(concat!(env!("OUT_DIR"), "/sampling_storage_fs.spv")),
+    }
 }
 
 // ── Android on-device present（VK_KHR_android_surface;尾门 G-MB1-7 兑现） ────────

@@ -163,7 +163,10 @@ const OP_IMAGE_READ: u16 = 98;
 /// `OpImageWrite`(storage image 写;`TextureRw2D.store` 唯一写者,RXS-0226/0229)。
 const OP_IMAGE_WRITE: u16 = 99;
 /// `OpImageQuerySizeLod`(取 mip 层尺寸;texel fetch 越界钳制序列,RXS-0228)。
-const OP_IMAGE_QUERY_SIZE_LOD: u16 = 104;
+/// SPIR-V 核心 opcode = **103**(104 = `OpImageQuerySize`〔无 LOD 操作数,4 字〕;先前误置
+/// 104 令带 LOD 操作数〔5 字〕的产物被 spirv-val 拒——由 PR-S3 采样模式 spirv-val 门捕获,
+/// tests/sampling_vulkan_spirv_val.rs)。
+const OP_IMAGE_QUERY_SIZE_LOD: u16 = 103;
 const OP_DECORATE: u16 = 71;
 const OP_FUNCTION: u16 = 54;
 const OP_IADD: u16 = 128;
@@ -194,6 +197,11 @@ const FUNCTION_CONTROL_NONE: u32 = 0;
 
 // decoration 取值。
 const DECORATION_BUILTIN: u32 = 11;
+/// `NoPerspective`(线性/屏幕空间插值,`#[interpolate(noperspective)]`)。
+const DECORATION_NO_PERSPECTIVE: u32 = 13;
+/// `Flat`(无插值;Vulkan 强约束:整型/双精度 fragment 输入**须** Flat,
+/// VUID-StandaloneSpirv-Flat-04744;`#[interpolate(flat)]`)。
+const DECORATION_FLAT: u32 = 14;
 const DECORATION_LOCATION: u32 = 30;
 /// `Binding`(SPIR-V 资源绑定装饰:轴内绑定号)。
 const DECORATION_BINDING: u32 = 33;
@@ -611,6 +619,27 @@ impl Builder {
                     OP_DECORATE,
                     &[var, DECORATION_LOCATION, n],
                 );
+                // 插值限定装饰(仅**跨阶段光栅化接口** = fragment 输入 / vertex 输出;
+                // vertex 输入〔顶点缓冲侧〕与 fragment 输出〔颜色附件〕不承载,否则
+                // spirv-val 拒 VUID-StandaloneSpirv-Flat-06202)。`#[interpolate(flat)]`
+                // → `Flat`(Vulkan 强约束:整型/双精度 fragment 输入须 Flat,
+                // VUID-StandaloneSpirv-Flat-04744;flat varying 两阶段限定须一致)/
+                // `noperspective` → `NoPerspective`;`perspective`/裸 `Varying` = 默认透视无装饰。
+                // 整型纹素坐标 varying(load/storage 模式)据此过 spirv-val。
+                let interstage_varying = matches!(
+                    (stage, elem.dir),
+                    (ShaderStage::Fragment, IoDir::In) | (ShaderStage::Vertex, IoDir::Out)
+                );
+                if interstage_varying && let IoSigKind::Interpolate(mode) = &elem.kind {
+                    let deco = match mode.as_str() {
+                        "flat" => Some(DECORATION_FLAT),
+                        "noperspective" => Some(DECORATION_NO_PERSPECTIVE),
+                        _ => None,
+                    };
+                    if let Some(d) = deco {
+                        Self::emit(&mut self.decorations, OP_DECORATE, &[var, d]);
+                    }
+                }
             }
         }
 
@@ -1956,8 +1985,20 @@ fn emit_spirv_inner(
     // `DescriptorSet`/`Binding`(按声明序),逐资源 emit opaque 类型 + 变量 + 装饰。
     // bindless / unbounded → `BindingInferError::Unmappable` → 透传 `DxilError::Unmappable`
     // (strict-only,RD-018,不发明 descriptor heap 编码)。
-    let spirv_bindings =
-        binding_layout::infer_spirv_bindings(resources).map_err(map_binding_err)?;
+    //
+    // 绑定 set 装饰按目标选择两套策略(RXS-0230/E-3,RFC-0013 §4.B7,provenance 旗标承载):
+    // DXIL/B 链路(provenance=true)维持硬编码 set0 装饰**字节不动**(零 golden 重 bless);
+    // Vulkan 原生路(provenance=false,`emit_spirv_body_vulkan` / `--target vulkan`)切
+    // Vk-native set-per-class(0=CBV/1=SRV/2=UAV/3=Sampler),令原生 vkCreateShaderModule
+    // 消费下四类轴各占独立 set,与 `run_graphics_offscreen_v2` 的 `plan_descriptor_sets`
+    // (rurix-rt 侧镜像同一分配律)对齐。**binding 号两策略同一事实源**(per-class 递增),
+    // 仅 set 分配策略切换——非「一处推导两形态」的含糊。
+    let spirv_bindings = if provenance {
+        binding_layout::infer_spirv_bindings(resources)
+    } else {
+        binding_layout::infer_spirv_bindings_vk_native(resources)
+    }
+    .map_err(map_binding_err)?;
     for (res, b_intent) in resources.iter().zip(spirv_bindings.iter()) {
         b.emit_resource(res, b_intent.set, b_intent.binding)?;
     }
@@ -2740,6 +2781,67 @@ mod tests {
                 eprintln!("[SKIP] spirv-val 不可用(资源绑定真实红绿在带 SPIRV-Tools 环境)")
             }
             ValResult::Pass => eprintln!("[OK] spirv-val 通过: fragment_resources"),
+            ValResult::Fail(msg) => panic!("{msg}"),
+        }
+    }
+
+    /// RXS-0230(E-3;RFC-0013 §4.B7):Vulkan 原生路(provenance=false)绑定装饰切
+    /// **Vk-native set-per-class**(SRV→set1 / Sampler→set3),与 `run_graphics_offscreen_v2`
+    /// 的 `plan_descriptor_sets` 分配律对齐;binding 号与 B 链同一事实源(per-class 从 0)。
+    /// DXIL 路(provenance=true,`resource_bindings_emit_decorations_and_pass_val`)维持 set0
+    /// 装饰字节不动——两测并列证「按目标选择两套 set 策略、单一 binding-号事实源」。
+    #[test]
+    fn vulkan_resource_bindings_use_set_per_class() {
+        use crate::mir::ResourceCount;
+
+        let resources = vec![
+            ResourceBinding {
+                name: "tex".to_owned(),
+                res: MirResourceType::Texture2D(PrimTy::F32),
+                count: ResourceCount::One,
+            },
+            ResourceBinding {
+                name: "samp".to_owned(),
+                res: MirResourceType::Sampler,
+                count: ResourceCount::One,
+            },
+        ];
+        let io = vec![elem(
+            "out_color",
+            IoSigKind::Varying,
+            MirIoType::Vector(PrimTy::F32, 4),
+            IoDir::Out,
+        )];
+        // provenance=false = Vulkan 原生路(emit_spirv_body_vulkan / --target vulkan 同路)。
+        let m = emit_spirv_inner(ShaderStage::Fragment, &io, &resources, None, false)
+            .expect("Vulkan 资源 emit 应 Ok");
+        let instrs = instructions(&m);
+        let sets: Vec<u32> = instrs
+            .iter()
+            .filter(|(op, ops)| {
+                *op == OP_DECORATE && ops.get(1) == Some(&DECORATION_DESCRIPTOR_SET)
+            })
+            .map(|(_, ops)| ops[2])
+            .collect();
+        let bindings: Vec<u32> = instrs
+            .iter()
+            .filter(|(op, ops)| *op == OP_DECORATE && ops.get(1) == Some(&DECORATION_BINDING))
+            .map(|(_, ops)| ops[2])
+            .collect();
+        // SRV 轴 → set1 / Sampler 轴 → set3(class_to_vk_set;plan_descriptor_sets 镜像)。
+        assert_eq!(
+            sets,
+            vec![1, 3],
+            "Vulkan 原生路 set = 类别轴(SRV=1/Sampler=3)"
+        );
+        // binding 号与 B 链同一事实源:per-class 各从 0(单一 binding-号事实源)。
+        assert_eq!(bindings, vec![0, 0], "binding 与 B 链同源(per-class 从 0)");
+
+        match run_spirv_val(&m, "vulkan_set_per_class") {
+            ValResult::Skip => {
+                eprintln!("[SKIP] spirv-val 不可用(Vk-native 绑定真实红绿在带 SPIRV-Tools 环境)")
+            }
+            ValResult::Pass => eprintln!("[OK] spirv-val 通过: vulkan_set_per_class"),
             ValResult::Fail(msg) => panic!("{msg}"),
         }
     }

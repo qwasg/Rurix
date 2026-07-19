@@ -1,0 +1,27 @@
+//@ spec: RXS-0223, RXS-0226, RXS-0229
+// G3.3 PR-S3 device 模式 ⑤ TextureRw2D 唯一写者 store→回读(RFC-0013 §4.B5/B8):
+// `rw.store(px, val)` → OpImageWrite(普通非原子 32-bit 分量写)；`rw.load(px)` →
+// OpImageRead。store 目标坐标 px 为本 invocation 位置标识(唯一写者纪律,RXS-0229:每
+// texel ≤1 invocation 写,竞写模式结构性不可构造)。回读经 pass 边界 barrier(RXS-0169
+// 手动编排)+ v2 storage readback 出口(run_graphics_offscreen_v2_readback,U27 扩注)。
+// echo = 写后立即 load(同 invocation 内 store→load 程序序可见),供 fragment 输出见证
+// 写发生;storage image 本体经 device readback 断言唯一写者结果。
+//
+// **device 迭代 TODO(bin/sampling_modes.rs)**：首期 px 自 flat varying = 全三角形常量
+// ⇒ 严格唯一写者(每 texel 单 invocation)须 px 派生自本 fragment 的 FragCoord/目标像素
+// 坐标(§4.B5 identity)。FragCoord 作 fragment 输入 builtin 的接线属 device 迭代面;
+// 本着色器为 store/load 全链 + storage readback 出口的编译+spirv-val 见证,identity 语义
+// 的 device 数值判据阈值留 owner 本机迭代。
+struct StVary {
+    #[interpolate(flat)] px: vec2<u32>,
+    #[interpolate(flat)] val: vec4<f32>,
+}
+
+struct StOut {
+    echo: vec4<f32>,
+}
+
+fragment fn sampling_storage_fs(inp: StVary, rw: TextureRw2D<f32>) -> StOut {
+    rw.store(inp.px, inp.val);
+    StOut { echo: rw.load(inp.px) }
+}
