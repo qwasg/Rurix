@@ -244,6 +244,20 @@
         "D": "共享 D 段零消费(D-408=P1-2 earmark 不动;开工裁决记契约 §7,D-G3-N 仅为交付物编号)"
       },
       "note": "EI1(引擎集成期,双轨另一半)earmark = RFC-0014 / RXS-0250~0269 / CI 步骤 71~75(owner 2026-07-18 双轨分配;v1.4 更正初版『EI1 零消费』误记);EI1 脚手架 PR 自行登记 reserved_in_flight[EI1] 全量 claim,RD/U/RX 共享段按 main 合并序消费不预留。"
+    },
+    {
+      "owner": "EI1(引擎集成期,2026-07-19 激活:G3 close-out + owner 立项确认,G-EI1-0;裁决全文 milestones/ei1/EI1_CONTRACT.md §7)",
+      "source": "milestones/ei1/EI1_CONTRACT.md §7 ③ + v1.1 激活复核",
+      "claims": {
+        "RFC": "RFC-0014(单 RFC 双面:Part A #[export(c)] 导出表 codegen+--emit=dll+内建头文件生成 / Part B UC-05 RHI+render graph 库面;earmark 复核空闲 ✓)",
+        "RXS": "RXS-0250 起(earmark 0250~0269;G3 恰用满 0220~0249;溢出顺续以台账为准;激活期零裸条款头,条款体随实现 PR 落)",
+        "CI_step": "步骤 71~75(71 export(c) 红绿 / 72~73 UC-05 RHI+graph / 74 引擎嵌入 / 75 对照报告;步骤 70 = G3 earmark 内 showcase 判档未落维持 G3 段留空,EI1 不占用)",
+        "RD": "按 main 合并序取(现 next 35;RD-033 EA1 reserved 跳号维持)",
+        "U": "按 main 合并序取(现 next 31;U29 EA1 预留维持)",
+        "RX_error": "确需时 codegen 自 RX6031 续/工具类自 RX7023(以合入时 error_codes.json 实际为准)",
+        "MR": "MR-0012 起按需(MR-0011 = G3 RD-027 护栏已用)",
+        "SG": "零消费(UC-05/export(c) 均既登记方向;SG-010 软保留维持)"
+      }
     }
   ],
   "revision_log": [
@@ -296,6 +310,11 @@
       "version": "v1.7",
       "date": "2026-07-19",
       "change": "G3 close-out CI_step 校准(G3 close-out PR):on_tree_max 58→69、next_free 61→70——G3 五面落 pr-smoke.yml 步骤 61~69(present 61 / 采样 62~63 / bindless 64 / render graph 65 / mesh-RT device 66~67 / DXIL mesh probe 68 / DXIL RT blocked 探针 69);reserved_in_flight_steps [59,60] 清(EA1.1/1.2 已落)。reserved_in_flight[G3] claim 全兑现(RFC-0013 伞形 / RXS-0220~0249 满 / 步骤 61~69 / RD-034 / U30 / RX6027~6030+3016/3017+6008 改接);G3 status closed(milestones/g3/G3_CONTRACT §8.1)。仅动 CI_step 字段 + 本 revision_log 追加(其余命名空间 0-byte)。"
+    },
+    {
+      "version": "v1.8",
+      "date": "2026-07-19",
+      "change": "EI1 激活登记(EI1 激活小 PR):reserved_in_flight 追加 EI1 行——G-EI1-0 过门(G3 close-out g3-closed + owner 立项确认 2026-07-19)。claim:RFC-0014(双面单 RFC)/ RXS-0250 起(earmark 0250~0269,复核空闲)/ CI 步骤 71~75(步骤 70 维持 G3 段留空)/ RD·U·RX·MR 按 main 合并序;SG 零消费。gated 期零消费纪律核验通过(此前 EI1 对共享命名空间 0-byte)。各命名空间 on_tree_max/next_free 本 revision 0-byte(激活零条款/零步骤落地,校准随实现 PR)。"
     }
   ]
 }

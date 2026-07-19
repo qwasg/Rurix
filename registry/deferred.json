@@ -321,7 +321,7 @@
       "title": "`#[export(c)]` C ABI 导出属性 + 编译器内建头文件生成(D-113)codegen 实现",
       "reason": "D-113 锁定 FFI 战略=导出走 `#[export(c)]` + 编译器内建头文件生成(cbindgen 角色内置化,05 §11 / P-11)。当前实现现实:`#[export(c)]` 仅作解析测试桩出现(src/rurixc/src/parser.rs,parsed-but-inert),无 DLL 导出表 codegen、无内建头文件生成(rurixc --emit 无 header/pyd);生产 C ABI 由 src/rurix-interop 以手写 `extern \"C\"` + `#[unsafe(no_mangle)]` 兑现(RXS-0125)。G1.3 首个引擎集成(owner 经 AskUserQuestion 裁 Mini-RFC/MR-0002 复用既有 C ABI)以 `extern \"C\"` C ABI + 与导出 ABI 1:1 的随附头文件即满足 G-G1-3;本期实现 `#[export(c)]` 编译器 codegen 与 G1.3 引擎集成预算不成比例,且触 FFI ABI codegen 面(AGENTS 硬规则 5,可能需 Full RFC)",
       "backfill_condition": "后续里程碑出现『需经 rurixc `#[export(c)]` 自动产 DLL 导出表 + 单一事实源内建头文件生成』的硬需求时接通;届时按 10 §3 判档(FFI ABI codegen 触硬规则 5 则Full RFC,向上取严)。在此之前复用 `extern \"C\"` C ABI(RXS-0125 0-byte)+ 随附 1:1 头文件兑现,头↔ABI 一致性由 spec/engine_integration.md RXS-0149 + CI 步骤 43 host 段守卫(漂移即红)。代码侧无 STUB 标注(为未实现编译器特性而非半成品)",
-      "owner_milestone": "MS1",
+      "owner_milestone": "EI1",
       "status": "open",
       "history": [
         {
@@ -363,6 +363,11 @@
           "date": "2026-07-15",
           "event": "MS1 close-out 处置(维持 open,owner_milestone 维持 MS1;agent 完全自主签署,AGENTS v3.0 硬规则 1):MS1 期 C ABI 工作全部为导入方向(host .rx 经 std::gpu 消费 src/rurix-rt-cabi 手写 extern C rxrt_*/rxp_*/rxio_* 符号,RXS-0125 口径 0-byte,RXS-0194 边界条款化),未出现『需经 rurixc #[export(c)] 自动产 DLL 导出表 + 内建头文件生成』的导出 codegen 硬需求。**维持 open 不翻转**(编译器特性未实现即不 closed,force-close 违硬规则 3);触 FFI ABI codegen 面(硬规则 5,可能需 Full RFC),owner_milestone 维持 MS1 待后续阶段顺延。**非 MS1 验收门**,MS1 整体 close-out 见 MS1_CONTRACT §8.5",
           "evidence": "milestones/ms1/MS1_CONTRACT.md §8 / registry/deferred.json v1.51"
+        },
+        {
+          "date": "2026-07-19",
+          "event": "EI1 激活承接 = 本期兑现对象(维持 open,owner_milestone MS1→EI1;agent 完全自主签署,AGENTS v3.0 硬规则 1;G-EI1-0 激活过门:G3 close-out g3-closed + owner 立项确认 2026-07-19):backfill_condition 首次触发——引擎集成期 UC-05 最小 RHI 的 C ABI 导出面即『需经 rurixc #[export(c)] 自动产 DLL 导出表 + 单一事实源内建头文件生成』的硬需求(.rx 代码今天无任何 DLL 出口——rurixc host 只产 EXE,手写 extern \"C\" 回退仅对 Rust crate 有效)。判档 = Full RFC(RFC-0014 earmark,FFI ABI codegen 触硬规则 5,10 §3 取严;EI1_CONTRACT §7 ④);首切片范围 = 导出表 codegen + 内建头文件生成两面全做(owner 预记录 Q-D 激活复核生效,D-113 完整兑现,RD-009 本期可关)。落地前 RXS-0125 手写 extern \"C\" 语义 0-byte 只增、RXS-0149 头↔ABI 守卫维持全绿;落地时共存判据升级与条款同 PR(手写路冻结覆盖 Rust crate 出口,生成路覆盖 .rx 出口)。EI1.2 落地后 close-out 关闭或收窄余项另立 RD(号按 main 合并序取,双轨纪律不预留)",
+          "evidence": "milestones/ei1/EI1_CONTRACT.md §7 v1.1(激活留痕)/ §0 / G3_CONTRACT §8.1(g3-closed)/ registry/number_ledger.json reserved_in_flight[EI1](同 PR 登记)"
         }
       ]
     },
@@ -1283,6 +1288,11 @@
       "version": "v1.64",
       "date": "2026-07-19",
       "change": "G3.6 mesh-task-RT 面兑现 → RD-029 close + RD-012 分层处置 + 新建 RD-034(mesh-RT PR;RD-029 status open→closed owner_milestone MB1→G3 + RD-012 owner_milestone G2.2→G3 维持 open + 新增 RD-034 entry + 各 history 行 + revision_log v1.64,既有 entries 其余字段/既有 history 行/既有 revision_log v1.0~v1.63 行 0-byte;agent 完全自主签署,AGENTS v3.0 硬规则 1):RFC-0013 §4.E(RXS-0242~0249)mesh-task-RT 全量兑现——Vulkan 主腿全量(RD-029 close,8 阶段 SPIR-V+1.4 分叉+vk mesh/RT 运行时,4 stages device RTX 4070 Ti 真跑 PASS);DXIL 腿分层(mesh/task probe 绿+RX6008 改接,RD-012 维持 open 记 mesh/task 兑现;RT blocked→新登 RD-034 尾门照 G-MB1-6)。RD-033 EA1 reserved 跳号,RD-034 自 G3 段起(number_ledger RD on_tree_max 32→34/next_free 33→35 随本 PR 校准)。G-G3-6 签署归 G3 close-out 终审(契约 G-G3-9)。"
+    },
+    {
+      "version": "v1.65",
+      "date": "2026-07-19",
+      "change": "EI1 激活承接留痕(EI1 激活小 PR;只追加 RD-009 history 行 + owner_milestone MS1→EI1 承接翻转 + revision_log v1.65,既有 entries 其余字段/既有 history 行/既有 revision_log v1.0~v1.64 行 0-byte;agent 完全自主签署,AGENTS v3.0 硬规则 1):RD-009 = EI1 兑现对象(#[export(c)] DLL 导出表 codegen + 内建头文件生成两面全做,D-113 完整兑现,Q-D 复核生效;判档 Full RFC = RFC-0014 earmark,EI1.1 起草→对抗性评审→Approved 先于实现)。UC-05 最小 RHI 同期承接(EA1_CONTRACT out_of_scope uc05_minimal_rhi 显式留下期项兑现,无 RD 维持不登)。零新 RD(执行期按 main 合并序自 RD-035 起);零新条款号(RXS-0250 段随实现 PR 落)。承 milestones/ei1/ 契约 §7 v1.1 激活留痕 + G-EI1-0 过门(G3 close-out + owner 立项确认 2026-07-19)。"
     }
   ]
 }
