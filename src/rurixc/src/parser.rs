@@ -455,6 +455,9 @@ impl<'a> Parser<'a> {
             "closesthit" => ClosestHit,
             "anyhit" => AnyHit,
             "miss" => Miss,
+            // RFC-0013 §4.E1(RXS-0242;RXS-0153 stage 集类别扩充,前缀式,不占新号)。
+            "intersection" => Intersection,
+            "callable" => Callable,
             _ => return None,
         })
     }

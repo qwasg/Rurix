@@ -90,6 +90,7 @@ shader.stage_interface_mismatch = shader stage interface mismatch: {detail}
 shader.resource_handle_invalid = invalid shader resource handle: {detail}
 shader.sample_expr_invalid = invalid texture sampling expression: {detail}
 shader.nonuniform_annotation_missing = bindless table dynamic index must be annotated with nonuniform(...): {detail}
+shader.mesh_entry_invalid = invalid mesh/task entry annotation: {detail}
 #
 # libdevice 链接 / device 数学 intrinsic 诊断(RX6006 / RX7002,spec/device.md RXS-0081~0082;M5.3 分配)
 codegen.device_math_unsupported = {detail} is not a supported device math intrinsic (outside libdevice coverage or unsupported element type)
@@ -97,6 +98,7 @@ link.libdevice_failure = libdevice link failure: {reason}
 #
 # DXIL codegen 诊断(RX6007,spec/dxil_backend.md RXS-0157;G2.2 PR-C2 分片1 分配)
 codegen.dxil_unsupported = DXIL codegen target unavailable or unsupported: {detail}
+codegen.dxil_stage_deferred = DXIL stage lowering unavailable: {detail}
 #
 # Vulkan/SPIR-V codegen 诊断(RX6026,spec/vulkan_backend.md RXS-0200/0201;mb1 RFC-0011 分配;跳 RX6024/6025=MS1.2b 避撞)
 codegen.vulkan_unsupported = Vulkan/SPIR-V codegen target unavailable or unsupported: {detail}

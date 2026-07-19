@@ -555,6 +555,23 @@ def eval_counter(entry: dict, strict: bool) -> None:
                 n += 1
         count_or_gate(eid, n, 1, "份 render graph 自动 barrier 红绿 device 见证",
                       "G3.5 render graph device 见证回填前为正常状态,契约 G-G3-5", strict)
+    elif eid == "g3.counter.mesh_task_rt_stages":
+        # mesh-task-RT 面 device 阶段去重基数 ≥3(契约 G-G3-6;RFC-0013 §4.E7/E8 / RXS-0248;
+        # bin/vk_mesh mesh 管线出图 covered 计数 + 篡改 SetMeshOutputs 顶点数 RED〔mesh〕/
+        # bin/vk_rt 单三角形 TLAS raygen/miss/closesthit 命中·miss 双色 + 移动顶点命中区移动 RED
+        # 〔raygen/miss/closesthit〕)。计数 = evidence/meshrt_*.json 中 stages_ok 去重并集
+        # (ci/meshrt_device_smoke.py device 段真跑写)。mesh/RT device 真跑 = 交互 GPU 链路不进
+        # pr-smoke 硬门,无显示/无 GPU/未 opt-in → device SKIP=dev-env degrade → 0 → 建设期 normal
+        # SKIP / close-out strict FAIL(对齐 g3.counter.auto_barrier_hazard_redgreen 先例)。host 段
+        # (SBT 对齐/协商/FFI 布局纯 host 单测 + 见证语料 spirv-val 三态)恒跑不入本 counter 但为本面核心。
+        stages: set[str] = set()
+        for f in (ROOT / "evidence").glob("meshrt_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            for s in doc.get("stages_ok", []):
+                stages.add(s)
+        n = len(stages)
+        count_or_gate(eid, n, 3, "个 mesh-task-RT 阶段 device 见证(去重:mesh/raygen/closesthit)",
+                      "G3.6 mesh/RT device 见证回填前为正常状态,契约 G-G3-6", strict)
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 

@@ -1332,6 +1332,30 @@
     "RXS-0241": [
       "src/rurix-rt-cabi/src/lib.rs",
       "src/uc04-demo/tests/d6_crosscheck.rs"
+    ],
+    "RXS-0242": [
+      "src/rurixc/src/shader_stages.rs"
+    ],
+    "RXS-0243": [
+      "src/rurixc/src/shader_stages.rs"
+    ],
+    "RXS-0244": [
+      "src/rurixc/src/shader_stages.rs"
+    ],
+    "RXS-0245": [
+      "src/rurixc/src/shader_stages.rs"
+    ],
+    "RXS-0246": [
+      "src/rurixc/src/vulkan_codegen.rs"
+    ],
+    "RXS-0247": [
+      "src/rurixc/src/vulkan_codegen.rs"
+    ],
+    "RXS-0248": [
+      "src/rurix-rt/src/vk.rs"
+    ],
+    "RXS-0249": [
+      "src/rurixc/src/dxil_codegen.rs"
     ]
   }
 }

@@ -91,6 +91,7 @@ shader.stage_interface_mismatch = 阶段间接口不匹配:{detail}
 shader.resource_handle_invalid = 非法的着色资源句柄:{detail}
 shader.sample_expr_invalid = 非法的纹理采样表达式:{detail}
 shader.nonuniform_annotation_missing = bindless 无界表动态索引须以 nonuniform(...) 标注:{detail}
+shader.mesh_entry_invalid = 非法的 mesh/task 入口标注:{detail}
 #
 # libdevice 链接 / device 数学 intrinsic 诊断(RX6006 / RX7002,spec/device.md RXS-0081~0082;M5.3 分配)
 codegen.device_math_unsupported = {detail} 不是受支持的 device 数学 intrinsic(超出 libdevice 覆盖范围或元素类型不受支持)
@@ -98,6 +99,7 @@ link.libdevice_failure = libdevice 链接失败:{reason}
 #
 # DXIL codegen 诊断(RX6007,spec/dxil_backend.md RXS-0157;G2.2 PR-C2 分片1 分配)
 codegen.dxil_unsupported = DXIL codegen 目标不可用或暂不支持:{detail}
+codegen.dxil_stage_deferred = DXIL 阶段降级不可用:{detail}
 #
 # Vulkan/SPIR-V codegen 诊断(RX6026,spec/vulkan_backend.md RXS-0200/0201;mb1 RFC-0011 分配;跳 RX6024/6025=MS1.2b 避撞)
 codegen.vulkan_unsupported = Vulkan/SPIR-V codegen 目标不可用或暂不支持:{detail}

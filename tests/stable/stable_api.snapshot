@@ -3,7 +3,7 @@
   "editions": [
     "2026"
   ],
-  "error_code_count": 101,
+  "error_code_count": 103,
   "error_codes": {
     "RX0001": "lex.unexpected_char",
     "RX0002": "lex.unterminated_block_comment",
@@ -47,6 +47,7 @@
     "RX3014": "shader.sample_expr_invalid",
     "RX3015": "coloring.gpu_host_api_in_device",
     "RX3016": "shader.nonuniform_annotation_missing",
+    "RX3017": "shader.mesh_entry_invalid",
     "RX4001": "borrowck.use_after_move",
     "RX4002": "borrowck.use_before_init",
     "RX4003": "borrowck.move_out_of_ref",
@@ -63,6 +64,7 @@
     "RX6005": "codegen.device_constraint",
     "RX6006": "codegen.device_math_unsupported",
     "RX6007": "codegen.dxil_unsupported",
+    "RX6008": "codegen.dxil_stage_deferred",
     "RX6010": "codegen.dxil_b_transpile_failed",
     "RX6011": "codegen.dxil_sig_mismatch",
     "RX6012": "codegen.dxil_sig_dropped_input",
@@ -119,7 +121,7 @@
     "vendor"
   ],
   "schema_version": 1,
-  "spec_clause_count": 237,
+  "spec_clause_count": 245,
   "spec_clauses": [
     "RXS-0001",
     "RXS-0002",
@@ -357,7 +359,15 @@
     "RXS-0238",
     "RXS-0239",
     "RXS-0240",
-    "RXS-0241"
+    "RXS-0241",
+    "RXS-0242",
+    "RXS-0243",
+    "RXS-0244",
+    "RXS-0245",
+    "RXS-0246",
+    "RXS-0247",
+    "RXS-0248",
+    "RXS-0249"
   ],
   "subject": "rurix_stable_api_surface"
 }

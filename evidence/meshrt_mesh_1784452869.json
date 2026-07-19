@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "subject": "mesh_task_rt_stages",
+  "milestone": "g3.6",
+  "kind": "mesh",
+  "smoke_ok": true,
+  "stages_ok": ["mesh"],
+  "adapter": "unknown",
+  "run_url": "local interactive runner",
+  "timestamp": "2026-07-19T09:21:09Z"
+}

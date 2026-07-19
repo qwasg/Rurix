@@ -1030,19 +1030,20 @@ pub fn dispatch_and_emit(diag: &DiagCtxt, body: &Body, module_name: &str) -> Dis
                 DispatchOutcome::Diagnosed
             }
         },
-        // ── STUB(RD-012):mesh/task/RT 着色器类型降级未实现 → 显式 6xxx 停手。 ──
+        // ── STUB(RD-012):mesh/task/RT 着色器类型 DXIL 阶段降级不可用 → 显式 RX6008 停手。 ──
         StageRoute::Stub(stage) => {
-            // STUB(RD-012): mesh/task/RT 着色器类型 DXIL 降级 deferred。任务7 核查:
-            // registry/deferred.json RD-012 已引用 RX6008 作此类降级码,honor 既有引用
-            // 不改派;但 RX6008 的 registry 落条目 + status 翻转归后续里程碑/owner(非
-            // 任务7 真实可达类别),故本层暂续用既有 RX6007 通道发显式「暂不支持」
-            // 6xxx,不静默降级(strict-only,R6.1)。RX6008 落码后由 owner 改接此点。
-            diag.struct_error(ErrorCode(6007), "codegen.dxil_unsupported")
+            // RX6008 改接(RFC-0013 §4.E9,RD-012 预留码正式落 registry,introduced_in
+            // G3.6,语义「DXIL 阶段降级不可用」)。拒绝通道自 RX6007 迁至专用码 RX6008
+            // (只加类别不改既有语义,Q-M-RX6008Scope):probe 绿的阶段落地真降级后从拒绝
+            // 集移除(mesh/task 全量落地 = PR-Me/后续接线);blocked 阶段(RT 六模型,双上游
+            // 钳制 spirv-cross 无 SPV_KHR_ray_tracing 消费 + RD-015)维持在拒绝集(strict-only,
+            // 无静默降级,R6.1)。
+            diag.struct_error(ErrorCode(6008), "codegen.dxil_stage_deferred")
                 .arg(
                     "detail",
                     format!(
-                        "着色器类型 {stage:?} 暂不支持 DXIL 降级(mesh/task/RT;\
-                         STUB(RD-012),待后续里程碑回填)"
+                        "着色器类型 {stage:?} 的 DXIL 阶段降级不可用(RD-012;RT 六模型上游 \
+                         blocked → RD-034 尾门,步骤 69 blocked 探针;mesh/task 全量落地随 B 链接线)"
                     ),
                 )
                 .span_label(body.span, "in DXIL graphics entry")
@@ -1582,8 +1583,10 @@ mod tests {
         }
     }
 
-    /// mesh/task/RT stub:发「暂不支持」6xxx 诊断、不产物(STUB(RD-012))。
+    /// mesh/task/RT stub:发「DXIL 阶段降级不可用」RX6008 诊断、不产物(RFC-0013 §4.E9
+    /// RX6008 改接;RD-012 预留码正式落 registry,拒绝通道自 RX6007 迁至专用码 RX6008)。
     //@ spec: RXS-0161
+    //@ spec: RXS-0249
     #[test]
     fn dispatch_mesh_task_rt_stub_diagnoses_no_artifact() {
         for s in [
@@ -1593,6 +1596,8 @@ mod tests {
             ShaderStage::ClosestHit,
             ShaderStage::AnyHit,
             ShaderStage::Miss,
+            ShaderStage::Intersection,
+            ShaderStage::Callable,
         ] {
             let diag = DiagCtxt::new();
             let body = make_body(Some(s), Vec::new());
@@ -1602,8 +1607,13 @@ mod tests {
                 "{s:?} 应 stub 诊断不产物,实得 {outcome:?}"
             );
             assert!(
-                emitted_codes(&diag).contains(&6007),
-                "{s:?} stub 应发 6xxx(本任务用既有 RX6007 通道),实得 {:?}",
+                emitted_codes(&diag).contains(&6008),
+                "{s:?} stub 应发 RX6008(阶段降级不可用,RX6008 改接),实得 {:?}",
+                emitted_codes(&diag)
+            );
+            assert!(
+                !emitted_codes(&diag).contains(&6007),
+                "{s:?} stub 已自 RX6007 迁至 RX6008,不得再发 RX6007,实得 {:?}",
                 emitted_codes(&diag)
             );
         }

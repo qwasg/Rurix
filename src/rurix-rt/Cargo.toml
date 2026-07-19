@@ -81,6 +81,18 @@ required-features = ["vulkan"]
 name = "graph_modes"
 required-features = ["vulkan"]
 
+# G3.6 mesh 管线 device 像素判据 harness(步骤 66,opt-in RURIX_MESH_DEVICE=1;mesh 管线无
+# vertex-input DrawMeshTasks 出图 + covered 计数 + 篡改 SetMeshOutputs 顶点数 RED;判据阈值 TODO owner)。
+[[bin]]
+name = "vk_mesh"
+required-features = ["vulkan"]
+
+# G3.6 RT(BLAS/TLAS/SBT/TraceRays)device 像素判据 harness(步骤 67,opt-in RURIX_RT_DEVICE=1;
+# 单三角形 TLAS raygen/miss/closesthit 命中/miss 双色 + 移动顶点命中区移动 RED;判据阈值 TODO owner)。
+[[bin]]
+name = "vk_rt"
+required-features = ["vulkan"]
+
 # unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6):rurix-rt 是首个 unsafe 边界(Driver API
 # FFI)。块级豁免 `unsafe_code`(注册见 unsafe-audit/rurix-rt.md),仍强制每个
 # unsafe 块携 `// SAFETY:` 注释(clippy undocumented_unsafe_blocks = deny)。

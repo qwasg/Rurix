@@ -223,6 +223,9 @@ def check_evidence_files() -> None:
     auto_barrier_hazard_schema = load(
         ROOT / "milestones/g3/auto_barrier_hazard_evidence_schema.json"
     )
+    meshrt_stages_schema = load(
+        ROOT / "milestones/g3/meshrt_stages_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -338,6 +341,9 @@ def check_evidence_files() -> None:
         jsonschema.Draft7Validator(auto_barrier_hazard_schema)
         if auto_barrier_hazard_schema
         else None
+    )
+    meshrt_stages_validator = (
+        jsonschema.Draft7Validator(meshrt_stages_schema) if meshrt_stages_schema else None
     )
     bindless_smoke_validator = (
         jsonschema.Draft7Validator(bindless_smoke_schema)
@@ -586,6 +592,17 @@ def check_evidence_files() -> None:
             # reject + 推导 golden 为本面核心恒跑验收;device 真跑 = 交互 GPU 链路不进 pr-smoke 硬门,SKIP
             # 不充绿,镜像 bindless 双态;D3D12 shim 执行器诚实边界,device 首跑先经 Vulkan run_graph)
             validator = auto_barrier_hazard_validator
+        elif (
+            f.name.startswith("meshrt_")
+            and meshrt_stages_validator is not None
+        ):
+            # G3.6 mesh-task-RT 阶段 device 见证证据(G-G3-6;RFC-0013 §4.E7/E8 / RXS-0248)→
+            # milestones/g3/meshrt_stages_evidence_schema.json(ci/meshrt_device_smoke.py device 段
+            # 真跑写:bin/vk_mesh mesh 管线出图 covered + 篡改 SetMeshOutputs RED / bin/vk_rt 单三角形
+            # TLAS 命中·miss 双色 + 移动顶点 RED;stages_ok 去重并集 ≥3〔mesh/raygen/closesthit〕计入
+            # g3.counter.mesh_task_rt_stages,ci/budget_eval.py。device 真跑 = 交互 GPU 链路不进
+            # pr-smoke 硬门,SKIP 不充绿,镜像 auto_barrier_hazard 双态;像素判据阈值 owner device 调优)
+            validator = meshrt_stages_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):

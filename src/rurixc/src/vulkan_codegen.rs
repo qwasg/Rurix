@@ -41,6 +41,13 @@ use crate::ty::Ty;
 
 const SPIRV_MAGIC: u32 = 0x0723_0203;
 const SPIRV_VERSION_1_0: u32 = 0x0001_0000;
+/// SPIR-V 1.4(RFC-0013 §4.E6,Q-M-SpirvVersion:per-entry 版本轴)。mesh/RT 入口
+/// **硬性要求** 1.4(`VK_KHR_ray_tracing_pipeline` 依赖 `VK_KHR_spirv_1_4`;1.4 起
+/// `OpEntryPoint` interface 须枚举全部被引用全局变量)。既有 compute/vertex/fragment 入口
+/// 维持 [`SPIRV_VERSION_1_0`] emit(产物字节零漂移;既有 vulkan golden 不重 bless、DXIL B 路
+/// 消费的 SPIR-V 字节不变)——分叉在**发射函数级**:compute [`assemble`] 恒 1.0,mesh/task/RT
+/// [`assemble_ext_module`] 恒 1.4。
+const SPIRV_VERSION_1_4: u32 = 0x0001_0400;
 const SPIRV_GENERATOR: u32 = 0;
 const SPIRV_SCHEMA: u32 = 0;
 
@@ -1311,6 +1318,594 @@ pub fn words_to_bytes(words: &[u32]) -> Vec<u8> {
     out
 }
 
+// ═══════════════════════ G3.6 mesh/task/RT SPIR-V 编码(RFC-0013 §4.E5/E6) ═══════════════════════
+//
+// mesh/task 复用本模块 workgroup/LocalSize 基建(E-4 采纳,§4.E5 钉死落点);RT 六执行模型
+// 亦落本模块(§4.E6「dxil_spirv.rs 或 vulkan_codegen.rs 钉落点」——归 workgroup 发射器同址)。
+// **per-entry SPIR-V 1.4 分叉**:本节全部产物 header 恒 [`SPIRV_VERSION_1_4`],`OpEntryPoint`
+// interface 枚举全部被引用全局变量;既有 compute [`assemble`](1.0)/ vertex·fragment
+// [`crate::dxil_spirv::emit_spirv_inner`](1.0)字节零漂移(零回归门)。
+//
+// **首期语料形态**(§8 accept-only 边界):mesh = 单三角形非空输出;task = payload 写 +
+// EmitMeshTasks;raygen/miss/closesthit = 三件套最小形态。这些发射器产**固定最小合规模块**
+// (库级见证,镜像 dxil_corpus / sampling_vulkan_spirv_val 无 CLI 见证);从真实 `.rx` MIR
+// 体(SetMeshOutputs / EmitMeshTasks / TraceRay 的 mir_build intrinsic 降级)接线归后续 PR。
+//
+// 数值取值 = 参考 glslang 产物字节解证(build/spike-sampling-probe 探针 mesh.spv/rg.spv 反汇编)。
+
+// 追加 SPIR-V 常量(本模块既有集之外)。
+const OP_EXTENSION: u16 = 10;
+const OP_TYPE_ARRAY: u16 = 28;
+const OP_CONSTANT_COMPOSITE: u16 = 44;
+const OP_COMPOSITE_CONSTRUCT: u16 = 80;
+
+// 执行模型(RFC-0013 §4.E5/E6)。
+const EXEC_MODEL_MESH_EXT: u32 = 5365;
+const EXEC_MODEL_TASK_EXT: u32 = 5364;
+const EXEC_MODEL_RAY_GENERATION_KHR: u32 = 5313;
+const EXEC_MODEL_INTERSECTION_KHR: u32 = 5314;
+const EXEC_MODEL_ANY_HIT_KHR: u32 = 5315;
+const EXEC_MODEL_CLOSEST_HIT_KHR: u32 = 5316;
+const EXEC_MODEL_MISS_KHR: u32 = 5317;
+const EXEC_MODEL_CALLABLE_KHR: u32 = 5318;
+
+// capability。
+const CAP_MESH_SHADING_EXT: u32 = 5283;
+const CAP_RAY_TRACING_KHR: u32 = 4479;
+
+// 扩展字符串。
+const EXT_MESH_SHADER: &str = "SPV_EXT_mesh_shader";
+const EXT_RAY_TRACING: &str = "SPV_KHR_ray_tracing";
+
+// execution modes(mesh)。
+const EXEC_MODE_OUTPUT_VERTICES: u32 = 26;
+const EXEC_MODE_OUTPUT_PRIMITIVES_EXT: u32 = 5270;
+const EXEC_MODE_OUTPUT_TRIANGLES_EXT: u32 = 5298;
+
+// 存储类(mesh/RT)。
+const STORAGE_UNIFORM_CONSTANT: u32 = 0;
+const STORAGE_OUTPUT: u32 = 3;
+const STORAGE_RAY_PAYLOAD_KHR: u32 = 5338;
+const STORAGE_HIT_ATTRIBUTE_KHR: u32 = 5339;
+const STORAGE_INCOMING_RAY_PAYLOAD_KHR: u32 = 5342;
+const STORAGE_INCOMING_CALLABLE_DATA_KHR: u32 = 5329;
+const STORAGE_TASK_PAYLOAD_WORKGROUP_EXT: u32 = 5402;
+
+// builtin(mesh)。
+const BUILTIN_POSITION: u32 = 0;
+const BUILTIN_PRIMITIVE_TRIANGLE_INDICES_EXT: u32 = 5296;
+
+// RT / mesh 专属指令。
+const OP_TYPE_ACCELERATION_STRUCTURE_KHR: u16 = 5341;
+const OP_TRACE_RAY_KHR: u16 = 4445;
+const OP_REPORT_INTERSECTION_KHR: u16 = 5334;
+const OP_SET_MESH_OUTPUTS_EXT: u16 = 5295;
+const OP_EMIT_MESH_TASKS_EXT: u16 = 5294;
+
+// storage image 写出面(RT raygen payload → UAV;§4.E8 device 见证落点)。opcode 取值 =
+// SPIR-V core 规范,与 glslang rg.spv 反汇编逐字核对(build/spike-sampling-probe)。
+const OP_TYPE_IMAGE: u16 = 25;
+const OP_VECTOR_SHUFFLE: u16 = 79;
+const OP_CONVERT_U_TO_F: u16 = 112;
+const OP_BITCAST: u16 = 124;
+const OP_IMAGE_WRITE: u16 = 99;
+
+// RT launch builtin(BuiltIn LaunchIdKHR/LaunchSizeKHR;取自 glslang rg.spv `OpDecorate … BuiltIn`)。
+const BUILTIN_LAUNCH_ID_KHR: u32 = 5319;
+const BUILTIN_LAUNCH_SIZE_KHR: u32 = 5320;
+
+// OpTypeImage Dim(2D=1)+ storage image 显式 format(§4.B5「OpTypeImage 带显式 format」纪律)。
+// Rgba8(=4)↔ vk.rs `run_rt_inner` storage image 的 `VK_FORMAT_R8G8B8A8_UNORM`(UAV 回读逐纹素
+// 4B);format-qualified write 须与 image view 格式一致,故取 Rgba8 而非探针的 Rgba32f。
+const DIM_2D: u32 = 1;
+const IMAGE_FORMAT_RGBA8: u32 = 4;
+
+// RayFlags / cull mask(§4.E4 已知签名固定:opaque / 0xFF / SBT 恒 0)。
+const RAY_FLAG_OPAQUE: u32 = 1;
+const CULL_MASK_ALL: u32 = 0xFF;
+
+/// 固定最小合规 SPIR-V 模块构造器(mesh/task/RT;E5/E6)。分节累积,末尾按 SPIR-V logical
+/// layout 组装,header 恒 1.4(per-entry 版本轴)。
+struct ExtBuilder {
+    next_id: u32,
+    caps: Vec<u32>,
+    exts: Vec<&'static str>,
+    exec_modes: Vec<u32>,
+    decorations: Vec<u32>,
+    types: Vec<u32>,
+    body: Vec<u32>,
+    interface: Vec<u32>,
+    void_id: u32,
+    fn_ty_id: u32,
+    main_id: u32,
+    entry_label: u32,
+}
+
+impl ExtBuilder {
+    fn new(caps: Vec<u32>, exts: Vec<&'static str>) -> Self {
+        let mut b = ExtBuilder {
+            next_id: 1,
+            caps,
+            exts,
+            exec_modes: Vec::new(),
+            decorations: Vec::new(),
+            types: Vec::new(),
+            body: Vec::new(),
+            interface: Vec::new(),
+            void_id: 0,
+            fn_ty_id: 0,
+            main_id: 0,
+            entry_label: 0,
+        };
+        b.void_id = b.type_result(OP_TYPE_VOID, &[]);
+        b.fn_ty_id = b.type_result(OP_TYPE_FUNCTION, &[b.void_id]);
+        b.main_id = b.id();
+        b.entry_label = b.id();
+        b
+    }
+
+    fn id(&mut self) -> u32 {
+        let id = self.next_id;
+        self.next_id += 1;
+        id
+    }
+
+    /// 结果型指令(结果 id 为首操作数)→ types 段;返回结果 id。
+    fn type_result(&mut self, opcode: u16, tail: &[u32]) -> u32 {
+        let id = self.id();
+        let mut ops = vec![id];
+        ops.extend_from_slice(tail);
+        emit(&mut self.types, opcode, &ops);
+        id
+    }
+
+    /// `OpConstant <ty> <id> <value>`。
+    fn constant(&mut self, ty: u32, value: u32) -> u32 {
+        let id = self.id();
+        emit(&mut self.types, OP_CONSTANT, &[ty, id, value]);
+        id
+    }
+
+    /// `OpConstantComposite <ty> <id> <comps...>`。
+    fn const_composite(&mut self, ty: u32, comps: &[u32]) -> u32 {
+        let id = self.id();
+        let mut ops = vec![ty, id];
+        ops.extend_from_slice(comps);
+        emit(&mut self.types, OP_CONSTANT_COMPOSITE, &ops);
+        id
+    }
+
+    /// `OpVariable <ptr_ty> <id> <storage>` → types 段(全局变量);返回变量 id。
+    /// `in_interface` = 是否登记入 `OpEntryPoint` interface(1.4:全部被引用全局变量)。
+    fn global_var(&mut self, ptr_ty: u32, storage: u32, in_interface: bool) -> u32 {
+        let id = self.id();
+        emit(&mut self.types, OP_VARIABLE, &[ptr_ty, id, storage]);
+        if in_interface {
+            self.interface.push(id);
+        }
+        id
+    }
+
+    fn decorate(&mut self, target: u32, deco: u32, args: &[u32]) {
+        let mut ops = vec![target, deco];
+        ops.extend_from_slice(args);
+        emit(&mut self.decorations, OP_DECORATE, &ops);
+    }
+
+    fn member_decorate(&mut self, target: u32, member: u32, deco: u32, args: &[u32]) {
+        let mut ops = vec![target, member, deco];
+        ops.extend_from_slice(args);
+        emit(&mut self.decorations, OP_MEMBER_DECORATE, &ops);
+    }
+
+    fn exec_mode(&mut self, mode: u32, args: &[u32]) {
+        let mut ops = vec![self.main_id, mode];
+        ops.extend_from_slice(args);
+        emit(&mut self.exec_modes, OP_EXECUTION_MODE, &ops);
+    }
+
+    /// 按 SPIR-V logical layout 组装(header 恒 1.4)。`body_terminated` = 函数体已自带
+    /// 终结子(task 的 `OpEmitMeshTasksEXT`)→ 不追加 `OpReturn`。
+    fn finish(self, exec_model: u32, body_terminated: bool) -> Vec<u32> {
+        let mut m: Vec<u32> = vec![
+            SPIRV_MAGIC,
+            SPIRV_VERSION_1_4,
+            SPIRV_GENERATOR,
+            self.next_id,
+            SPIRV_SCHEMA,
+        ];
+        for &c in &self.caps {
+            emit(&mut m, OP_CAPABILITY, &[c]);
+        }
+        for e in &self.exts {
+            let mut ops = Vec::new();
+            push_string(&mut ops, e);
+            emit(&mut m, OP_EXTENSION, &ops);
+        }
+        emit(
+            &mut m,
+            OP_MEMORY_MODEL,
+            &[ADDR_MODEL_LOGICAL, MEM_MODEL_GLSL450],
+        );
+        let mut ep = vec![exec_model, self.main_id];
+        push_string(&mut ep, "main");
+        ep.extend_from_slice(&self.interface);
+        emit(&mut m, OP_ENTRY_POINT, &ep);
+        m.extend_from_slice(&self.exec_modes);
+        m.extend_from_slice(&self.decorations);
+        m.extend_from_slice(&self.types);
+        emit(
+            &mut m,
+            OP_FUNCTION,
+            &[
+                self.void_id,
+                self.main_id,
+                FUNCTION_CONTROL_NONE,
+                self.fn_ty_id,
+            ],
+        );
+        emit(&mut m, OP_LABEL, &[self.entry_label]);
+        m.extend_from_slice(&self.body);
+        if !body_terminated {
+            emit(&mut m, OP_RETURN, &[]);
+        }
+        emit(&mut m, OP_FUNCTION_END, &[]);
+        m
+    }
+}
+
+/// mesh 阶段最小合规 SPIR-V(§4.E5:MeshEXT + SPV_EXT_mesh_shader + LocalSize/OutputVertices/
+/// OutputPrimitivesEXT/OutputTrianglesEXT + OpSetMeshOutputsEXT + Position/PrimitiveTriangleIndicesEXT
+/// 输出 = 单三角形非空输出)。
+pub fn emit_mesh_min() -> Vec<u32> {
+    let mut b = ExtBuilder::new(vec![CAP_MESH_SHADING_EXT], vec![EXT_MESH_SHADER]);
+    // 类型 / 常量。
+    let uint = b.type_result(OP_TYPE_INT, &[32, 0]);
+    let float = b.type_result(OP_TYPE_FLOAT, &[32]);
+    let v4float = b.type_result(OP_TYPE_VECTOR, &[float, 4]);
+    let v3uint = b.type_result(OP_TYPE_VECTOR, &[uint, 3]);
+    let int = b.type_result(OP_TYPE_INT, &[32, 1]);
+    let uint_1 = b.constant(uint, 1);
+    let uint_3 = b.constant(uint, 3);
+    let uint_0c = b.constant(uint, 0);
+    let uint_2 = b.constant(uint, 2);
+    let float_0 = b.constant(float, 0.0f32.to_bits());
+    let float_1 = b.constant(float, 1.0f32.to_bits());
+    // 覆盖屏幕中心的三角形 NDC 顶点(非退化,使 mesh 管线 device 判据 covered>0;
+    // G3.6 步骤 66 像素见证)。0.7 / -0.7 对称,三顶点互异。
+    let float_p7 = b.constant(float, 0.7f32.to_bits());
+    let float_n7 = b.constant(float, (-0.7f32).to_bits());
+    let int_0 = b.constant(int, 0);
+    let int_1 = b.constant(int, 1);
+    let int_2 = b.constant(int, 2);
+    // per-vertex Block { vec4 Position }(单成员最小合规)。
+    let per_vertex = b.type_result(OP_TYPE_STRUCT, &[v4float]);
+    b.decorate(per_vertex, DECORATION_BLOCK, &[]);
+    b.member_decorate(per_vertex, 0, DECORATION_BUILTIN, &[BUILTIN_POSITION]);
+    let arr_pv = b.type_result(OP_TYPE_ARRAY, &[per_vertex, uint_3]);
+    let ptr_out_arr_pv = b.type_result(OP_TYPE_POINTER, &[STORAGE_OUTPUT, arr_pv]);
+    let verts = b.global_var(ptr_out_arr_pv, STORAGE_OUTPUT, true);
+    // primitive triangle indices 输出(uvec3[max_primitives])。
+    let arr_idx = b.type_result(OP_TYPE_ARRAY, &[v3uint, uint_1]);
+    let ptr_out_arr_idx = b.type_result(OP_TYPE_POINTER, &[STORAGE_OUTPUT, arr_idx]);
+    let prims = b.global_var(ptr_out_arr_idx, STORAGE_OUTPUT, true);
+    b.decorate(
+        prims,
+        DECORATION_BUILTIN,
+        &[BUILTIN_PRIMITIVE_TRIANGLE_INDICES_EXT],
+    );
+    // 元素指针型 + 常量。
+    let ptr_out_v4f = b.type_result(OP_TYPE_POINTER, &[STORAGE_OUTPUT, v4float]);
+    let ptr_out_v3u = b.type_result(OP_TYPE_POINTER, &[STORAGE_OUTPUT, v3uint]);
+    // 三互异顶点(v0 上 / v1 左下 / v2 右下),覆盖屏幕中心。
+    let pos0 = b.const_composite(v4float, &[float_0, float_n7, float_0, float_1]);
+    let pos1 = b.const_composite(v4float, &[float_n7, float_p7, float_0, float_1]);
+    let pos2 = b.const_composite(v4float, &[float_p7, float_p7, float_0, float_1]);
+    let tri = b.const_composite(v3uint, &[uint_0c, uint_1, uint_2]);
+    // execution modes。
+    b.exec_mode(EXEC_MODE_LOCAL_SIZE, &[1, 1, 1]);
+    b.exec_mode(EXEC_MODE_OUTPUT_VERTICES, &[3]);
+    b.exec_mode(EXEC_MODE_OUTPUT_PRIMITIVES_EXT, &[1]);
+    b.exec_mode(EXEC_MODE_OUTPUT_TRIANGLES_EXT, &[]);
+    // 函数体:SetMeshOutputs(3,1) + 三顶点 Position 写 + 单三角形索引写。
+    emit(&mut b.body, OP_SET_MESH_OUTPUTS_EXT, &[uint_3, uint_1]);
+    for &(vi, vpos) in &[(int_0, pos0), (int_1, pos1), (int_2, pos2)] {
+        let acc = b.id();
+        emit(
+            &mut b.body,
+            OP_ACCESS_CHAIN,
+            &[ptr_out_v4f, acc, verts, vi, int_0],
+        );
+        emit(&mut b.body, OP_STORE, &[acc, vpos]);
+    }
+    let acc_idx = b.id();
+    emit(
+        &mut b.body,
+        OP_ACCESS_CHAIN,
+        &[ptr_out_v3u, acc_idx, prims, int_0],
+    );
+    emit(&mut b.body, OP_STORE, &[acc_idx, tri]);
+    b.finish(EXEC_MODEL_MESH_EXT, false)
+}
+
+/// task 阶段最小合规 SPIR-V(§4.E5:TaskEXT + LocalSize + TaskPayloadWorkgroupEXT payload 写 +
+/// OpEmitMeshTasksEXT〔终结子〕)。
+pub fn emit_task_min() -> Vec<u32> {
+    let mut b = ExtBuilder::new(vec![CAP_MESH_SHADING_EXT], vec![EXT_MESH_SHADER]);
+    let uint = b.type_result(OP_TYPE_INT, &[32, 0]);
+    let int = b.type_result(OP_TYPE_INT, &[32, 1]);
+    let uint_1 = b.constant(uint, 1);
+    let int_0 = b.constant(int, 0);
+    // task payload = struct { uint v }(TaskPayloadWorkgroupEXT)。
+    let payload_struct = b.type_result(OP_TYPE_STRUCT, &[uint]);
+    let ptr_tp_struct = b.type_result(
+        OP_TYPE_POINTER,
+        &[STORAGE_TASK_PAYLOAD_WORKGROUP_EXT, payload_struct],
+    );
+    let payload = b.global_var(ptr_tp_struct, STORAGE_TASK_PAYLOAD_WORKGROUP_EXT, true);
+    let ptr_tp_uint = b.type_result(OP_TYPE_POINTER, &[STORAGE_TASK_PAYLOAD_WORKGROUP_EXT, uint]);
+    b.exec_mode(EXEC_MODE_LOCAL_SIZE, &[1, 1, 1]);
+    // payload.v = 1u; EmitMeshTasksEXT(1,1,1)(终结子,无 OpReturn)。
+    let acc = b.id();
+    emit(
+        &mut b.body,
+        OP_ACCESS_CHAIN,
+        &[ptr_tp_uint, acc, payload, int_0],
+    );
+    emit(&mut b.body, OP_STORE, &[acc, uint_1]);
+    emit(
+        &mut b.body,
+        OP_EMIT_MESH_TASKS_EXT,
+        &[uint_1, uint_1, uint_1],
+    );
+    b.finish(EXEC_MODEL_TASK_EXT, true)
+}
+
+/// raygen 阶段最小合规 SPIR-V(§4.E6/E8:RayGenerationKHR、SPV_KHR_ray_tracing、AccelStruct SRV、
+/// RayPayloadKHR、OpTraceRayKHR〔已知签名固定:opaque/0xFF/SBT 恒 0/递归恒 1〕、storage image
+/// 写出〔RXS-0247〕)。
+///
+/// **device 可判据落点**(RXS-0247):此前 raygen 无 storage image 落点 → device 回读全 clear
+/// 黑、`bin/vk_rt` 中心/角落像素判据无法判(MISS)。本形态补齐两半:
+/// 1. **per-pixel 光线原点** = `(gl_LaunchIDEXT.xy / gl_LaunchSizeEXT.xy) * 2 - 1`(→ NDC 式
+///    `[-1,1]` 平面坐标,z=-1、方向 +z)——每像素独立命中判定,使「中心命中 / 角落 miss」及
+///    「移动顶点 → 命中区移动」空间判据有信号(定原点恒定则全像素同判、判据无法辨);
+/// 2. **`OpImageWrite`**:TraceRay 返回后把 payload(命中色 / miss 色)写落 UAV storage image
+///    的 `ivec2(launchid.xy)` 纹素。
+///
+/// storage image = `OpTypeImage f32 2D 0 0 0 Sampled=2 Rgba8`,UAV 轴 **set1/binding0** = vk.rs
+/// `run_rt_inner` 的 `set_layouts[1]=dsl_img`(TLAS SRV = set0/binding0 = `set_layouts[0]`);
+/// format `Rgba8` 对齐 `VK_FORMAT_R8G8B8A8_UNORM`。精确原点映射 / 命中·miss 阈值 = owner device
+/// 校准(`bin/vk_rt`,步骤 67)。
+pub fn emit_raygen_min() -> Vec<u32> {
+    let mut b = ExtBuilder::new(vec![CAP_RAY_TRACING_KHR], vec![EXT_RAY_TRACING]);
+    let uint = b.type_result(OP_TYPE_INT, &[32, 0]);
+    let int = b.type_result(OP_TYPE_INT, &[32, 1]);
+    let float = b.type_result(OP_TYPE_FLOAT, &[32]);
+    let v2uint = b.type_result(OP_TYPE_VECTOR, &[uint, 2]);
+    let v3uint = b.type_result(OP_TYPE_VECTOR, &[uint, 3]);
+    let v2int = b.type_result(OP_TYPE_VECTOR, &[int, 2]);
+    let v2float = b.type_result(OP_TYPE_VECTOR, &[float, 2]);
+    let v3float = b.type_result(OP_TYPE_VECTOR, &[float, 3]);
+    let v4float = b.type_result(OP_TYPE_VECTOR, &[float, 4]);
+    let uint_0 = b.constant(uint, 0);
+    let ray_flags = b.constant(uint, RAY_FLAG_OPAQUE);
+    let cull_mask = b.constant(uint, CULL_MASK_ALL);
+    let float_0 = b.constant(float, 0.0f32.to_bits());
+    let float_1 = b.constant(float, 1.0f32.to_bits());
+    let float_2 = b.constant(float, 2.0f32.to_bits());
+    let float_n1 = b.constant(float, (-1.0f32).to_bits());
+    let float_100 = b.constant(float, 100.0f32.to_bits());
+    let two_v2 = b.const_composite(v2float, &[float_2, float_2]);
+    let one_v2 = b.const_composite(v2float, &[float_1, float_1]);
+    let dir = b.const_composite(v3float, &[float_0, float_0, float_1]);
+    let zero_v4 = b.const_composite(v4float, &[float_0, float_0, float_0, float_0]);
+    // gl_LaunchIDEXT / gl_LaunchSizeEXT(Input v3uint;BuiltIn LaunchIdKHR / LaunchSizeKHR)。
+    let ptr_in_v3uint = b.type_result(OP_TYPE_POINTER, &[STORAGE_INPUT, v3uint]);
+    let launch_id = b.global_var(ptr_in_v3uint, STORAGE_INPUT, true);
+    b.decorate(launch_id, DECORATION_BUILTIN, &[BUILTIN_LAUNCH_ID_KHR]);
+    let launch_size = b.global_var(ptr_in_v3uint, STORAGE_INPUT, true);
+    b.decorate(launch_size, DECORATION_BUILTIN, &[BUILTIN_LAUNCH_SIZE_KHR]);
+    // AccelStruct SRV(UniformConstant;set0/binding0,承 RXS-0163 SRV 轴 = run_rt_inner
+    // set_layouts[0]=dsl_tlas)。
+    let accel_ty = b.type_result(OP_TYPE_ACCELERATION_STRUCTURE_KHR, &[]);
+    let ptr_uc_accel = b.type_result(OP_TYPE_POINTER, &[STORAGE_UNIFORM_CONSTANT, accel_ty]);
+    let tlas = b.global_var(ptr_uc_accel, STORAGE_UNIFORM_CONSTANT, true);
+    b.decorate(tlas, DECORATION_DESCRIPTOR_SET, &[0]);
+    b.decorate(tlas, DECORATION_BINDING, &[0]);
+    // storage image UAV(OpTypeImage f32 2D 0 0 0 Sampled=2 Rgba8;set1/binding0 = run_rt_inner
+    // set_layouts[1]=dsl_img)。
+    let image_ty = b.type_result(
+        OP_TYPE_IMAGE,
+        &[float, DIM_2D, 0, 0, 0, 2, IMAGE_FORMAT_RGBA8],
+    );
+    let ptr_uc_image = b.type_result(OP_TYPE_POINTER, &[STORAGE_UNIFORM_CONSTANT, image_ty]);
+    let out_image = b.global_var(ptr_uc_image, STORAGE_UNIFORM_CONSTANT, true);
+    b.decorate(out_image, DECORATION_DESCRIPTOR_SET, &[1]);
+    b.decorate(out_image, DECORATION_BINDING, &[0]);
+    // ray payload(RayPayloadKHR vec4)。
+    let ptr_payload = b.type_result(OP_TYPE_POINTER, &[STORAGE_RAY_PAYLOAD_KHR, v4float]);
+    let payload = b.global_var(ptr_payload, STORAGE_RAY_PAYLOAD_KHR, true);
+
+    // ── 函数体 ──
+    // uv = launchid.xy / launchsize.xy ∈ [0,1);origin.xy = uv*2-1 ∈ [-1,1)(三角形居中平面)。
+    let li = b.id();
+    emit(&mut b.body, OP_LOAD, &[v3uint, li, launch_id]);
+    let li_xy = b.id();
+    emit(
+        &mut b.body,
+        OP_VECTOR_SHUFFLE,
+        &[v2uint, li_xy, li, li, 0, 1],
+    );
+    let li_f = b.id();
+    emit(&mut b.body, OP_CONVERT_U_TO_F, &[v2float, li_f, li_xy]);
+    let ls = b.id();
+    emit(&mut b.body, OP_LOAD, &[v3uint, ls, launch_size]);
+    let ls_xy = b.id();
+    emit(
+        &mut b.body,
+        OP_VECTOR_SHUFFLE,
+        &[v2uint, ls_xy, ls, ls, 0, 1],
+    );
+    let ls_f = b.id();
+    emit(&mut b.body, OP_CONVERT_U_TO_F, &[v2float, ls_f, ls_xy]);
+    let uv = b.id();
+    emit(&mut b.body, OP_FDIV, &[v2float, uv, li_f, ls_f]);
+    let scaled = b.id();
+    emit(&mut b.body, OP_FMUL, &[v2float, scaled, uv, two_v2]);
+    let centered = b.id();
+    emit(&mut b.body, OP_FSUB, &[v2float, centered, scaled, one_v2]);
+    let ox = b.id();
+    emit(&mut b.body, OP_COMPOSITE_EXTRACT, &[float, ox, centered, 0]);
+    let oy = b.id();
+    emit(&mut b.body, OP_COMPOSITE_EXTRACT, &[float, oy, centered, 1]);
+    let origin = b.id();
+    emit(
+        &mut b.body,
+        OP_COMPOSITE_CONSTRUCT,
+        &[v3float, origin, ox, oy, float_n1],
+    );
+    // payload = 0;acc = load tlas;TraceRay(payload 落 hit/miss 色)。
+    emit(&mut b.body, OP_STORE, &[payload, zero_v4]);
+    let acc = b.id();
+    emit(&mut b.body, OP_LOAD, &[accel_ty, acc, tlas]);
+    emit(
+        &mut b.body,
+        OP_TRACE_RAY_KHR,
+        &[
+            acc, ray_flags, cull_mask, uint_0, uint_0, uint_0, origin, float_0, dir, float_100,
+            payload,
+        ],
+    );
+    // imageStore(out_image, ivec2(launchid.xy), payload):命中/miss 色写落 storage image。
+    let pv = b.id();
+    emit(&mut b.body, OP_LOAD, &[v4float, pv, payload]);
+    let img = b.id();
+    emit(&mut b.body, OP_LOAD, &[image_ty, img, out_image]);
+    let coord = b.id();
+    emit(&mut b.body, OP_BITCAST, &[v2int, coord, li_xy]);
+    emit(&mut b.body, OP_IMAGE_WRITE, &[img, coord, pv]);
+    b.finish(EXEC_MODEL_RAY_GENERATION_KHR, false)
+}
+
+/// miss 阶段最小合规 SPIR-V(§4.E6:MissKHR + IncomingRayPayloadKHR 写 miss 色)。
+///
+/// miss 色 = **黑 (0,0,0,1)**(RXS-0247):device 端 raygen 把本 payload 写落 storage image →
+/// 未命中像素 `(0,0,0,255)`,`bin/vk_rt::expect_miss`(`r,g,b ≤ 8` 近黑)判 miss。取黑而非蓝
+/// 是为与既有 `expect_miss` 近黑判据同相(vk_rt 判据阈值 = owner device 域,本片不动);全部
+/// launch 像素均被 raygen 写落(命中→红 / miss→黑),无未写「clear」像素与黑 miss 混淆之虞。
+pub fn emit_miss_min() -> Vec<u32> {
+    let mut b = ExtBuilder::new(vec![CAP_RAY_TRACING_KHR], vec![EXT_RAY_TRACING]);
+    let float = b.type_result(OP_TYPE_FLOAT, &[32]);
+    let v4float = b.type_result(OP_TYPE_VECTOR, &[float, 4]);
+    let float_0 = b.constant(float, 0.0f32.to_bits());
+    let float_1 = b.constant(float, 1.0f32.to_bits());
+    let miss_color = b.const_composite(v4float, &[float_0, float_0, float_0, float_1]);
+    let ptr_payload = b.type_result(
+        OP_TYPE_POINTER,
+        &[STORAGE_INCOMING_RAY_PAYLOAD_KHR, v4float],
+    );
+    let payload = b.global_var(ptr_payload, STORAGE_INCOMING_RAY_PAYLOAD_KHR, true);
+    emit(&mut b.body, OP_STORE, &[payload, miss_color]);
+    b.finish(EXEC_MODEL_MISS_KHR, false)
+}
+
+/// closesthit 阶段最小合规 SPIR-V(§4.E6:ClosestHitKHR + IncomingRayPayloadKHR 写命中色)。
+///
+/// 命中色 = **红 (1,0,0,1)**(RXS-0247):device 端 raygen 把本 payload 写落 storage image →
+/// 命中像素 `(255,0,0,255)`,`bin/vk_rt::expect_hit`(`r>8`)判命中。固定高对比色规避重心坐标
+/// 近顶点时 r/g→0 的假 miss(此前 payload=vec4(bary.x,bary.y,0,1) 在近顶点处退化为近黑)。
+pub fn emit_closesthit_min() -> Vec<u32> {
+    let mut b = ExtBuilder::new(vec![CAP_RAY_TRACING_KHR], vec![EXT_RAY_TRACING]);
+    let float = b.type_result(OP_TYPE_FLOAT, &[32]);
+    let v4float = b.type_result(OP_TYPE_VECTOR, &[float, 4]);
+    let float_0 = b.constant(float, 0.0f32.to_bits());
+    let float_1 = b.constant(float, 1.0f32.to_bits());
+    let hit_color = b.const_composite(v4float, &[float_1, float_0, float_0, float_1]);
+    let ptr_payload = b.type_result(
+        OP_TYPE_POINTER,
+        &[STORAGE_INCOMING_RAY_PAYLOAD_KHR, v4float],
+    );
+    let payload = b.global_var(ptr_payload, STORAGE_INCOMING_RAY_PAYLOAD_KHR, true);
+    emit(&mut b.body, OP_STORE, &[payload, hit_color]);
+    b.finish(EXEC_MODEL_CLOSEST_HIT_KHR, false)
+}
+
+/// anyhit 阶段最小合规 SPIR-V(§4.E6:AnyHitKHR + IncomingRayPayloadKHR 写)。
+pub fn emit_anyhit_min() -> Vec<u32> {
+    let mut b = ExtBuilder::new(vec![CAP_RAY_TRACING_KHR], vec![EXT_RAY_TRACING]);
+    let float = b.type_result(OP_TYPE_FLOAT, &[32]);
+    let v4float = b.type_result(OP_TYPE_VECTOR, &[float, 4]);
+    let float_0 = b.constant(float, 0.0f32.to_bits());
+    let float_1 = b.constant(float, 1.0f32.to_bits());
+    let color = b.const_composite(v4float, &[float_1, float_0, float_0, float_1]);
+    let ptr_payload = b.type_result(
+        OP_TYPE_POINTER,
+        &[STORAGE_INCOMING_RAY_PAYLOAD_KHR, v4float],
+    );
+    let payload = b.global_var(ptr_payload, STORAGE_INCOMING_RAY_PAYLOAD_KHR, true);
+    emit(&mut b.body, OP_STORE, &[payload, color]);
+    b.finish(EXEC_MODEL_ANY_HIT_KHR, false)
+}
+
+/// intersection 阶段最小合规 SPIR-V(§4.E6:IntersectionKHR + HitAttributeKHR 写 +
+/// OpReportIntersectionKHR〔hit-t / hit-kind → bool〕)。首期 accept-only(§8)。
+pub fn emit_intersection_min() -> Vec<u32> {
+    let mut b = ExtBuilder::new(vec![CAP_RAY_TRACING_KHR], vec![EXT_RAY_TRACING]);
+    let bool_ty = b.type_result(OP_TYPE_BOOL, &[]);
+    let uint = b.type_result(OP_TYPE_INT, &[32, 0]);
+    let float = b.type_result(OP_TYPE_FLOAT, &[32]);
+    let v2float = b.type_result(OP_TYPE_VECTOR, &[float, 2]);
+    let uint_0 = b.constant(uint, 0);
+    let float_half = b.constant(float, 0.5f32.to_bits());
+    let float_1 = b.constant(float, 1.0f32.to_bits());
+    let attr = b.const_composite(v2float, &[float_half, float_half]);
+    let ptr_attr = b.type_result(OP_TYPE_POINTER, &[STORAGE_HIT_ATTRIBUTE_KHR, v2float]);
+    let bary = b.global_var(ptr_attr, STORAGE_HIT_ATTRIBUTE_KHR, true);
+    emit(&mut b.body, OP_STORE, &[bary, attr]);
+    let reported = b.id();
+    emit(
+        &mut b.body,
+        OP_REPORT_INTERSECTION_KHR,
+        &[bool_ty, reported, float_1, uint_0],
+    );
+    b.finish(EXEC_MODEL_INTERSECTION_KHR, false)
+}
+
+/// callable 阶段最小合规 SPIR-V(§4.E6:CallableKHR + IncomingCallableDataKHR 写)。
+/// 首期 accept-only(§8)。
+pub fn emit_callable_min() -> Vec<u32> {
+    let mut b = ExtBuilder::new(vec![CAP_RAY_TRACING_KHR], vec![EXT_RAY_TRACING]);
+    let float = b.type_result(OP_TYPE_FLOAT, &[32]);
+    let v4float = b.type_result(OP_TYPE_VECTOR, &[float, 4]);
+    let float_1 = b.constant(float, 1.0f32.to_bits());
+    let data_val = b.const_composite(v4float, &[float_1, float_1, float_1, float_1]);
+    let ptr_data = b.type_result(
+        OP_TYPE_POINTER,
+        &[STORAGE_INCOMING_CALLABLE_DATA_KHR, v4float],
+    );
+    let data = b.global_var(ptr_data, STORAGE_INCOMING_CALLABLE_DATA_KHR, true);
+    emit(&mut b.body, OP_STORE, &[data, data_val]);
+    b.finish(EXEC_MODEL_CALLABLE_KHR, false)
+}
+
+/// mesh/task/RT 六执行模型的库级见证集(阶段名 → 发射器)。device 端 mesh/raygen/miss/
+/// closesthit 三件套见证归主循环(vk 运行时);intersection/anyhit/callable 首期 accept-only
+/// (§8;类型面 + spirv-val 全量,device 端到端见证 defer RD-034)。所有产物过 spirv-val
+/// `--target-env vulkan1.2` / `spv1.4`(见 tests/mesh_rt_vulkan_spirv_val.rs)。
+pub fn mesh_rt_witness_corpus() -> Vec<(&'static str, Vec<u32>)> {
+    vec![
+        ("mesh", emit_mesh_min()),
+        ("task", emit_task_min()),
+        ("raygen", emit_raygen_min()),
+        ("miss", emit_miss_min()),
+        ("closesthit", emit_closesthit_min()),
+        ("anyhit", emit_anyhit_min()),
+        ("intersection", emit_intersection_min()),
+        ("callable", emit_callable_min()),
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1342,5 +1937,68 @@ mod tests {
     fn bytes_are_little_endian() {
         let b = words_to_bytes(&[SPIRV_MAGIC]);
         assert_eq!(b, vec![0x03, 0x02, 0x23, 0x07]);
+    }
+
+    /// per-entry 版本轴(RFC-0013 §4.E6):mesh/task/RT 六执行模型入口恒 emit 1.4 +
+    /// interface 全量;既有 compute [`assemble`] 恒 1.0(SPIRV_VERSION_1_0 常量不变 =
+    /// 字节零漂移锚点,跨两发射器零回归门)。
+    //@ spec: RXS-0247
+    #[test]
+    fn mesh_rt_entries_emit_1_4_and_full_interface() {
+        for (name, words) in mesh_rt_witness_corpus() {
+            assert_eq!(words[1], SPIRV_VERSION_1_4, "{name} 入口须 emit SPIR-V 1.4");
+        }
+        // compute 路版本常量维持 1.0(assemble 恒引用,既有 GLCompute golden 字节不动)。
+        assert_eq!(SPIRV_VERSION_1_0, 0x0001_0000);
+        assert_ne!(SPIRV_VERSION_1_0, SPIRV_VERSION_1_4);
+    }
+
+    /// mesh 入口 = MeshEXT 执行模型 + SPV_EXT_mesh_shader + OutputTrianglesEXT(§4.E5)。
+    //@ spec: RXS-0246
+    #[test]
+    fn mesh_entry_point_is_mesh_ext_model() {
+        let words = emit_mesh_min();
+        // 定位 OpEntryPoint(op=15):首操作数 = 执行模型。
+        let mut i = 5;
+        let mut found = None;
+        while i < words.len() {
+            let wc = (words[i] >> 16) as usize;
+            let op = (words[i] & 0xffff) as u16;
+            if wc == 0 {
+                break;
+            }
+            if op == OP_ENTRY_POINT {
+                found = Some(words[i + 1]);
+                break;
+            }
+            i += wc;
+        }
+        assert_eq!(
+            found,
+            Some(EXEC_MODEL_MESH_EXT),
+            "mesh 入口执行模型须 MeshEXT"
+        );
+    }
+
+    /// raygen 入口 = RayGenerationKHR 执行模型(§4.E6)。
+    //@ spec: RXS-0247
+    #[test]
+    fn raygen_entry_point_is_ray_generation_khr() {
+        let words = emit_raygen_min();
+        let mut i = 5;
+        let mut model = None;
+        while i < words.len() {
+            let wc = (words[i] >> 16) as usize;
+            let op = (words[i] & 0xffff) as u16;
+            if wc == 0 {
+                break;
+            }
+            if op == OP_ENTRY_POINT {
+                model = Some(words[i + 1]);
+                break;
+            }
+            i += wc;
+        }
+        assert_eq!(model, Some(EXEC_MODEL_RAY_GENERATION_KHR));
     }
 }

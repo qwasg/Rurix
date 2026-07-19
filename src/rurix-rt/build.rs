@@ -161,6 +161,18 @@ fn main() {
         let bytes = gen_spirv(&rx).unwrap_or_default();
         std::fs::write(&spv_out, &bytes).unwrap_or_else(|e| panic!("write {stem}.spv: {e}"));
     }
+
+    // G3.6 PR-Mc/Md(RFC-0013 §4.E5/E6):mesh-task-RT SPIR-V 见证语料经 vulkan_codegen 的
+    // `emit_*_min`(MeshEXT/TaskEXT + SPV_EXT_mesh_shader / 六 RT 执行模型 + SPV_KHR_ray_tracing)
+    // 直接产 `.spv` 嵌入 `bin/vk_mesh`/`bin/vk_rt` harness(`vk::mesh_rt_witness_spv` 消费,驱动
+    // GPU mesh 管线 / BLAS-TLAS-SBT-TraceRays 运行时)。**codegen 腿产物零改**——本 build.rs 仅
+    // 消费其 SPIR-V 字节。合法性另由 rurixc tests/mesh_rt_vulkan_spirv_val.rs(spirv-val
+    // vulkan1.2/spv1.4)机核。降级(vulkan-backend build-dep 缺)→ 空哨兵,harness 据空 SKIP。
+    for (name, words) in rurixc::vulkan_codegen::mesh_rt_witness_corpus() {
+        let spv_out = out_dir.join(format!("meshrt_{name}.spv"));
+        let bytes = rurixc::vulkan_codegen::words_to_bytes(&words);
+        std::fs::write(&spv_out, &bytes).unwrap_or_else(|e| panic!("write meshrt_{name}.spv: {e}"));
+    }
 }
 
 /// `saxpy.rx` → Vulkan SPIR-V 字节(RXS-0208 anchor 支撑;`build_and_emit_vulkan` 纯 Rust

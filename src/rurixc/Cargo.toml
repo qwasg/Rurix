@@ -70,5 +70,13 @@ required-features = ["dxil-backend", "shader-stages"]
 name = "bindless_vulkan_spirv_val"
 required-features = ["dxil-backend", "shader-stages"]
 
+# G3.6 PR-Mc/Md mesh/task/RT 六执行模型 SPIR-V 合法性机验(RXS-0246/0247):消费
+# vulkan_codegen::mesh_rt_witness_corpus + toolchain::locate_spirv_val,须 vulkan-backend
+# (缺 required-features 时,不带该 feature 的 rurixc tests 构建编译红;#175 教训「新 test
+# 必登 required-features」,镜像 sampling_vulkan_spirv_val)。
+[[test]]
+name = "mesh_rt_vulkan_spirv_val"
+required-features = ["vulkan-backend"]
+
 [lints]
 workspace = true

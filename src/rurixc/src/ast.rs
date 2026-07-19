@@ -203,6 +203,10 @@ pub enum ShaderStage {
     ClosestHit,
     AnyHit,
     Miss,
+    /// RT 求交阶段(RFC-0013 §4.E1,RXS-0242;RXS-0153 修订行,不占新号)。
+    Intersection,
+    /// RT 可调用阶段(RFC-0013 §4.E1,RXS-0242;RXS-0153 修订行,不占新号)。
+    Callable,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]

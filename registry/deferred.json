@@ -456,13 +456,18 @@
       "title": "DXIL 着色阶段降级:mesh / amplification(task)+ RT(library 多入口)着色器类型的合规降级实现",
       "reason": "RXS-0158 着色阶段着色 → DXIL 着色器类型降级对应表已完整登记全部阶段映射(vertex→vertex / fragment→pixel / compute→compute / mesh→mesh / task→amplification / RT raygen·closesthit·anyhit·miss→library 对应 RT 类型,含 triple env / hlsl.shader / SM 下限)。PR-C2 分片2 落地 vertex/fragment/compute(SM6.0,空体 void 入口经 patched llc + dxc validator 1.9.2602.24 接受,passing 锚定);mesh/task/RT 的最小合规 DXIL 降级越出『阶段 → 着色器类型(类型面)』本片边界——mesh/amplification 经 dxc validator 实测对空体入口报缺线程组维度/输出拓扑/DispatchMesh(需阶段 I/O 签名 RXS-0159 + 输出声明),RT 为 DXIL library 多入口形态(需 library 容器 + payload/attribute I/O ABI),两者均落入阶段 I/O 签名(RXS-0159)/ library 与 ABI 面,本片不实现以免触 I/O 签名 ABI(硬规则 5 边界）",
       "backfill_condition": "RXS-0159(阶段 I/O → DXIL 签名/系统值语义)及后续阶段降级子分片落地时承接:mesh/task 补线程组维度 + 输出拓扑/DispatchMesh 降级、RT 补 library 多入口 + payload/attribute 契约,经 dxc validator 接受后补 passing 锚定(accept + DXIL golden)并 close 本条。在此之前请求降级 mesh/task/RT 阶段 → RX6008 编译期诊断(P-01 strict-only)。代码侧 dxil_codegen::stage_target 对这些阶段返回 stage_deferred(// 引 RD-012),映射登记不实现",
-      "owner_milestone": "G2.2",
+      "owner_milestone": "G3",
       "status": "open",
       "history": [
         {
           "date": "2026-06-25",
           "event": "G2.2 PR-C2 分片2 执行期登记(open):RXS-0158 着色阶段着色 → DXIL 着色器类型降级对应表完整登记全部阶段,vertex/fragment/compute 落地 passing 锚定(SM6.0 空体 void 入口经 patched llc + dxc validator 1.9.2602.24 接受);mesh/task/RT 合规降级越出阶段→着色器类型类型面(mesh/amp 需线程组维度+输出拓扑+DispatchMesh、RT 为 library 多入口+payload/attribute I/O ABI,落入 RXS-0159 阶段 I/O 签名 / library 与 ABI 面),本片仅登记映射、不实现,请求降级 → RX6008。承接 RXS-0159 及后续阶段降级子分片,补 passing 锚定后 close。非 G2.2 验收门翻转项,本登记为 agent 自主记录,接通与否后续里程碑处置留痕(硬规则 1)",
           "evidence": "spec/dxil_backend.md RXS-0158 着色器类型对应表 + L2 / src/rurixc/src/dxil_codegen.rs stage_target / registry/error_codes.json RX6008 / conformance/dxil/reject/{mesh_deferred,task_deferred,raygen_deferred}.rx"
+        },
+        {
+          "date": "2026-07-19",
+          "event": "G3.6 DXIL 腿分层处置(维持 open,owner_milestone G2.2→G3;agent 完全自主签署,AGENTS v3.0 硬规则 1):RD-012(DXIL mesh/task/RT 降级)分量处置——**mesh/task DXIL 分量兑现**:B 链 probe 绿(evidence/meshrt_bchain_probe_20260719.md:mesh GL_EXT_mesh_shader→spirv-cross ms_6_5→dxc OK 2900B)+ **RX6008 预留码正式改接**(dxil_codegen StageRoute::Stub RX6007→RX6008 codegen.dxil_stage_deferred,RD-012 预留码兑现;RX6009 随 RD-013 close 未 materialize 正式 burn,SC-1)+ 步骤 68 mesh DXIL 探针入 CI;**RT DXIL 分量 blocked-on-upstream → 新登 RD-034 承接**(spirv-cross HLSL 无 SPV_KHR_ray_tracing 消费路径,probe 红 Unsupported builtin 5319;A 路 RD-015 签名钳制未解)。RD-012 维持 open——RT DXIL 降级实现分量未落(force-close 违硬规则 3),余项由 RD-034 专门尾门跟踪;mesh/task DXIL 全量 B 链贯通落地为后续 PR-Me(probe 绿已解锁,步骤 68 骨架在位)。G-G3-6 签署归 close-out 终审。",
+          "evidence": "spec/shader_stages.md RXS-0242~0245 / spec/vulkan_backend.md RXS-0246~0248 / spec/dxil_backend.md RXS-0249 / src/rurixc/src/vulkan_codegen.rs(8 阶段 SPIR-V 编码) / src/rurix-rt/src/vk.rs(run_mesh_offscreen/run_ray_tracing_offscreen) / evidence/meshrt_mesh_1784452869.json + meshrt_rt_1784452871.json(stages_ok=4) / evidence/meshrt_bchain_probe_20260719.md"
         }
       ]
     },
@@ -846,8 +851,8 @@
       "title": "mesh/task/RT 着色阶段 Vulkan/SPIR-V 降级(compute+graphics 首期外)",
       "reason": "MB1 单一 Vulkan/SPIR-V 后端首期只覆盖 compute + graphics(vertex/fragment)着色阶段(RFC-0011 §4;MB1_CONTRACT out_of_scope mesh_task_rt_stages);mesh/task 着色器(SPV_EXT_mesh_shader)与 ray tracing 阶段(SPV_KHR_ray_tracing)涉独立执行模型 / 扩展能力声明 / 管线类型,属着色阶段面本体增补,首期不做,留 agent 后续按 10 §3 判档。",
       "backfill_condition": "需 mesh/task/RT 阶段 Vulkan 出图的场景时,由 agent 经后续 Full RFC 增补 RFC-0011 着色阶段本体(SPIR-V 扩展能力声明 + 阶段执行模型 + 管线类型),再补 spec/实现/conformance/golden + device 证据。",
-      "owner_milestone": "MB1",
-      "status": "open",
+      "owner_milestone": "G3",
+      "status": "closed",
       "history": [
         {
           "date": "2026-07-15",
@@ -858,6 +863,11 @@
           "date": "2026-07-16",
           "event": "MB1 close-out 处置(维持 open,owner_milestone 维持 MB1;agent 完全自主签署,AGENTS v3.0 硬规则 1):MB1 单一 Vulkan/SPIR-V 后端首期收敛 compute + graphics(vertex/fragment)在 MB1.1~MB1.4 全程够用,mesh/task/RT 阶段硬需求未出现(saxpy/三角形语料与 present/交叉构建面均不涉独立执行模型/扩展能力声明/管线类型)。维持 open 待硬需求经后续 Full RFC 增补 RFC-0011 着色阶段本体接通,承接后续里程碑,**非 MB1 验收门**,MB1 整体 close-out 见 MB1_CONTRACT.md §8",
           "evidence": "milestones/mb1/MB1_CONTRACT.md §8 / registry/deferred.json v1.55"
+        },
+        {
+          "date": "2026-07-19",
+          "event": "G3.6 mesh-task-RT Vulkan 主腿兑现 → RD-029 CLOSE(status open→closed,owner_milestone MB1→G3;agent 完全自主签署,AGENTS v3.0 硬规则 1):mesh/task/RT Vulkan/SPIR-V 降级全量落地——类型面十一阶段(intersection/callable 补齐)+ SPIR-V mesh/task 编码(MeshEXT/TaskEXT+SPV_EXT_mesh_shader+SetMeshOutputs/EmitMeshTasks)+ RT 六执行模型编码(RayGenerationKHR 等+SPV_KHR_ray_tracing+OpTraceRayKHR 族+OpTypeAccelerationStructureKHR)+ SPIR-V 1.4 per-entry 分叉(mesh/RT 入口 1.4+interface 全量,compute/vertex/fragment 1.0 字节零漂移)+ vk.rs 运行时(run_mesh_offscreen vkCmdDrawMeshTasksEXT + run_ray_tracing_offscreen BLAS/TLAS 两段构建/RT 管线/SBT 三 region 对齐/vkCmdTraceRaysKHR,feature chain 探测缺失确定性 Err,AS/SBT/device-address 细审计 U30)。device 见证(开发机 RTX 4070 Ti,ci/meshrt_device_smoke.py 步骤 66/67 真跑 validation 零报错):mesh 管线出图 covered=968 + 篡改 SetMeshOutputs primitiveCount 减覆盖 RED;RT 单三角形 TLAS raygen/miss/closesthit 命中(红)/miss(黑)双色 + 移动顶点命中区移动 RED;stages_ok=4(mesh/raygen/miss/closesthit)≥3。8 阶段 SPIR-V 双口径 spirv-val vulkan1.2/spv1.4 accept 16/16。**首期收窄边界**:intersection/callable device 语料 accept-only(codegen+spirv-val 过,device 首期 raygen/miss/closesthit 三件套);单 RT 管线三件套配对域(多 payload/多 hit group SBT 序越出首期编译期拒);AMD 见证 = G-MB1-6 硬件尾门独立存续。G-G3-6 签署归 close-out 终审。",
+          "evidence": "spec/shader_stages.md RXS-0242~0245 / spec/vulkan_backend.md RXS-0246~0248 / spec/dxil_backend.md RXS-0249 / src/rurixc/src/vulkan_codegen.rs(8 阶段 SPIR-V 编码) / src/rurix-rt/src/vk.rs(run_mesh_offscreen/run_ray_tracing_offscreen) / evidence/meshrt_mesh_1784452869.json + meshrt_rt_1784452871.json(stages_ok=4) / evidence/meshrt_bchain_probe_20260719.md"
         }
       ]
     },
@@ -923,6 +933,21 @@
           "date": "2026-07-16",
           "event": "MB1 close-out 处置(维持 open,owner_milestone 维持 MB1;agent 完全自主签署,AGENTS v3.0 硬规则 1):win32 swapchain present 已 discharge(W6)+ Android surface present 经 G-MB1-7 四要素 measured(NativeActivity APK 壳,HONOR BKQ-AN10 真机 ANativeWindow present 3 帧 + validation RED→GREEN;owner 明确授权代录签署 2026-07-16)——backfill 的 win32/android 平台 surface 两支均落地;余 AMD 真卡 present 像素校验 = G-MB1-6 唯一存续 open 尾门(越过 close-out 继续存续,获得 AMD 硬件后按 DoD 补证据)。维持 open,**非 MB1 验收门**,MB1 整体 close-out 见 MB1_CONTRACT.md §8",
           "evidence": "milestones/mb1/MB1_CONTRACT.md §8 / evidence/mb1-android-ondevice/android_present_smoke_report.md / registry/deferred.json v1.55"
+        }
+      ]
+    },
+    {
+      "id": "RD-034",
+      "title": "DXIL ray-tracing 腿降级 blocked-on-upstream(spirv-cross HLSL 后端无 SPV_KHR_ray_tracing 消费路径 + A 路 DirectX RT library 多入口签名钳制 RD-015 未解)",
+      "reason": "G3.6 mesh-task-RT probe 实证(evidence/meshrt_bchain_probe_20260719.md,2026-07-19,Vulkan SDK 1.3.296.0):最小 raygen SPIR-V(GL_EXT_ray_tracing)经 spirv-cross --hlsl 抛异常 'Unsupported builtin in HLSL: 5319'(5319=LaunchIdKHR,RT builtin 族 HLSL 后端无翻译)。双重上游钳制:① B 链 spirv-cross HLSL 后端不支持 SPV_KHR_ray_tracing 存储类/builtin/指令族;② A 路(LLVM DirectX 后端)RT 为 DXIL library 多入口形态且 A-graphics 签名 elemcount=0 钳制未解(RD-015 open,上游 LLVM #90504/#57928)。DXIL RT 双路均 blocked。Vulkan RT 主腿(RXS-0247/0248)已全量兑现,DXIL RT 腿为 D3D12 后端 RT 降级面。",
+      "backfill_condition": "上游解锁二选一:① spirv-cross HLSL 后端增 SPV_KHR_ray_tracing 消费路径(RT builtin/存储类→DXR HLSL 翻译);② A 路 DirectX RT library 签名钳制解除(RD-015 上游 #90504/#57928 merge)。届时 DXIL RT 腿按 RFC-0013 §4.E9 条件分支全量落地(spirv-cross→dxc lib_6_3 DXR state object 或 A 路 library emit)。步骤 69 blocked 探针恒跑(最小 raygen SPIR-V→spirv-cross 预期失败=探针 PASS/证据新鲜;上游某日翻绿→探针意外成功翻红提醒复评,对齐 RD-011/RD-015 防静默腐烂纪律)。照 G-MB1-6 open 尾门先例:本 RD 越过 G3 close-out 继续存续,不伪造、不 force-close;上游解锁后按 §4.E9 全量臂落地,状态翻转不依赖新契约。",
+      "owner_milestone": "G3",
+      "status": "open",
+      "history": [
+        {
+          "date": "2026-07-19",
+          "event": "G3.6 执行期登记(open;agent 完全自主签署,AGENTS v3.0 硬规则 1;RFC-0013 §4.E9 RXS-0249 条件分支『RT 预判 blocked 以探针证据落地非以预判落地』兑现):DXIL RT 腿 blocked-on-upstream 由 probe 实证落地(非预判)——spirv-cross HLSL 拒 raygen(builtin 5319);RD-012 RT 分量承接至本 RD;步骤 69 blocked 探针入 CI 防腐烂。Vulkan RT 主腿(RD-029 close)不受牵连。RD-033 = EA1 reserved 未 materialize(跳号),本 RD 自 RD-034 起(G3 契约 §7 ⑥ / number_ledger reserved_in_flight[G3].RD)。",
+          "evidence": "spec/shader_stages.md RXS-0242~0245 / spec/vulkan_backend.md RXS-0246~0248 / spec/dxil_backend.md RXS-0249 / src/rurixc/src/vulkan_codegen.rs(8 阶段 SPIR-V 编码) / src/rurix-rt/src/vk.rs(run_mesh_offscreen/run_ray_tracing_offscreen) / evidence/meshrt_mesh_1784452869.json + meshrt_rt_1784452871.json(stages_ok=4) / evidence/meshrt_bchain_probe_20260719.md"
         }
       ]
     }
@@ -1253,6 +1278,11 @@
       "version": "v1.63",
       "date": "2026-07-19",
       "change": "G3.5 render graph 面兑现 → RD-020 close(render graph PR;status open→closed + owner_milestone G2.4→G3 + device-见证 history 行 + revision_log v1.63,既有 entries 其余字段/既有 history 行/既有 revision_log v1.0~v1.62 行 0-byte;agent 完全自主签署,AGENTS v3.0 硬规则 1):RFC-0013 §4.D(RXS-0236~0241)自动 barrier + happens-before 本体全链兑现,D6 双实现互证金标准绿 + 3 判据 device RTX 4070 Ti 真跑 PASS。重排/多queue/split barrier/storage-in-graph 诚实收窄 RD-034+(RFC §8 earmark,零新 RD)。G-G3-5 签署归 G3 close-out 终审(契约 G-G3-9)。"
+    },
+    {
+      "version": "v1.64",
+      "date": "2026-07-19",
+      "change": "G3.6 mesh-task-RT 面兑现 → RD-029 close + RD-012 分层处置 + 新建 RD-034(mesh-RT PR;RD-029 status open→closed owner_milestone MB1→G3 + RD-012 owner_milestone G2.2→G3 维持 open + 新增 RD-034 entry + 各 history 行 + revision_log v1.64,既有 entries 其余字段/既有 history 行/既有 revision_log v1.0~v1.63 行 0-byte;agent 完全自主签署,AGENTS v3.0 硬规则 1):RFC-0013 §4.E(RXS-0242~0249)mesh-task-RT 全量兑现——Vulkan 主腿全量(RD-029 close,8 阶段 SPIR-V+1.4 分叉+vk mesh/RT 运行时,4 stages device RTX 4070 Ti 真跑 PASS);DXIL 腿分层(mesh/task probe 绿+RX6008 改接,RD-012 维持 open 记 mesh/task 兑现;RT blocked→新登 RD-034 尾门照 G-MB1-6)。RD-033 EA1 reserved 跳号,RD-034 自 G3 段起(number_ledger RD on_tree_max 32→34/next_free 33→35 随本 PR 校准)。G-G3-6 签署归 G3 close-out 终审(契约 G-G3-9)。"
     }
   ]
 }
