@@ -1,259 +1,294 @@
 {
-  "schema_version": 1,
-  "description": "Rurix 编号台账(MR-0010):共享/私有编号命名空间的跨分支事实源,补齐 10 §9.5「编号永不复用」的跨分支执行面。既有 rfcs/README.md 台账、registry/{deferred,spike_gating,error_codes}.json、spec/README.md 仍是各命名空间的主事实源;本文件专记『off-main 影子工作流对共享命名空间的消费』这一未覆盖维度 + 全命名空间的下一个自由号快照,供 ci/check_number_ledger.py 机核。守卫能力边界:CI 只见当前树,无法枚举未合分支;新影子工作流登记是人工/agent 前置动作,本文件只让『已登记的保留号被尊重』可机验。本文件对 AI 只追加(镜像 deferred.json 纪律)。所有编号区间均经 git 命令(git log / git ls-tree / grep spec 条款头)核实,不确定处标 approximate 并注核实方式。",
-  "namespaces": {
-    "RFC": {
-      "scope": "shared",
-      "pattern": "RFC-####",
-      "main_fact_source": "rfcs/README.md §5 + rfcs/NNNN-*.md 文件名",
-      "on_tree_max": 12,
-      "next_free": 13,
-      "shadow_reserved": [],
-      "notes": "Full RFC。main 现存 RFC-0001~0012(RFC-0012=EA1 rurixup 分发,Draft 2026-07-16)。GRX 影子分支未消费 Full RFC(rfc_required:none)。下一个可用 RFC-0013。"
-    },
-    "MR": {
-      "scope": "shared",
-      "pattern": "MR-####",
-      "main_fact_source": "rfcs/README.md §5 + rfcs/mini-NNNN-*.md 文件名",
-      "on_tree_max": 10,
-      "next_free": 11,
-      "shadow_reserved": [6, 7],
-      "notes": "Mini-RFC。main 已用 {1,2,3,4,5,8,9} + 本 MR 落地的 10;{6,7} 由 GRX 影子分支 claim(见 off_tree_workflows[grx]),main 跳号避撞(rfcs/README.md §5 既有注)。MR-0010 = 本 PR(EA1_CONTRACT §7 明记不占用可用)。下一个可用 MR-0011。"
-    },
-    "RXS": {
-      "scope": "shared",
-      "pattern": "RXS-####",
-      "main_fact_source": "spec/README.md §4 + spec/*.md 的 `### RXS-####` 条款头",
-      "guard_spec_heading_scan": true,
-      "on_tree_max": 249,
-      "next_free": 250,
-      "shadow_reserved": [181, 182, 183, 184],
-      "notes": "spec 条款号。最高 RXS-0249(G3.6/RFC-0013 §4.E mesh-task-RT 章:shader_stages.md RXS-0242 intersection/callable 阶段全集 / RXS-0243 mesh/task 入口契约〔新码 RX3017〕/ RXS-0244 RT payload/attribute/callable data 契约〔RX3012 扩〕/ RXS-0245 AccelStruct/trace_ray/RT builtins〔RX3013 扩〕;vulkan_backend.md RXS-0246 mesh/task SPIR-V 编码 / RXS-0247 RT 六模型编码 + SPIR-V 1.4 per-entry 分叉;dxil_backend.md RXS-0249 DXIL 腿条件分支 + RX6008 改接。RXS-0248〔vk 运行时 mesh pipeline/AS/SBT/TraceRays〕留后续 PR 未落条款头)。前:RXS-0236~0241 G3.5 render graph(spec/render_graph.md);RXS-0231~0235 G3.4 bindless;RXS-0230 G3.3 vk descriptor;RXS-0223~0229 G3.3 采样超集;RXS-0220~0222 G3.2 present;release.md §2.8 RXS-0214~0219 EA1;vulkan_backend.md RXS-0200~0213 mb1。RXS-0181~0184 由 GRX 影子分支 claim(提交 cc059daa),main 跳号避撞永久 burned(见 known_collisions[shared-namespace-grx]);RXS-0189~0199 由 MS1.2/MS1.2b 承接。RFC-0013 五面 RXS-0220~0249 已全落地(RXS-0248 除外,留 vk 运行时 PR);0250~0269 = EI1 earmark,溢出自 RXS-0270。on_tree_max 校准 241→249(G3.6 落 RXS-0242~0247/0249 消 2c ADVISORY 漂移),下一个可用 RXS-0250(EI1 轨)/RXS-0248(vk 运行时)。"
-    },
-    "RD": {
-      "scope": "shared",
-      "pattern": "RD-###",
-      "main_fact_source": "registry/deferred.json entries",
-      "on_tree_max": 32,
-      "next_free": 33,
-      "shadow_reserved": [],
-      "main_skipped": [16, 28],
-      "notes": "deferred 编号。main entries 最高 RD-032;RD-016/RD-028 为 main 侧跳号(永不复用,EA1_CONTRACT §7 记)。GRX 影子分支未消费 RD 共享段(改用私有 D-GRX 交付物段,见 namespaces.D_GRX)。下一个可用 RD-033(EA1 执行期起号)。"
-    },
-    "SG": {
-      "scope": "shared",
-      "pattern": "SG-###",
-      "main_fact_source": "registry/spike_gating.json entries",
-      "on_tree_max": 9,
-      "next_free": 10,
-      "shadow_reserved": [],
-      "soft_reserved": {
-        "SG-010": "软保留给『窗口/UI 框架进语言 / 通用异步宿主运行时』扩张诱惑方向(registry/spike_gating.json revision v1.5/v1.7『留续号不登记』;EA1_CONTRACT §7『SG-010 留续号』)。非自由号——新 spike-gating 若非该方向应取 SG-011 或先登记该方向。P1-1 明确不用 SG 载体(SG=拒绝扩张方向,与登记既发生工作语义错配)。"
-      },
-      "notes": "spike-gating 编号。main entries SG-001~SG-009(SG-006 已 closed)。GRX 影子分支未消费 SG 段(用私有 G-GRX 验收门段)。SG-010 见 soft_reserved。"
-    },
-    "RX_error": {
-      "scope": "shared",
-      "pattern": "RX#### (段位 0-7,07 §5)",
-      "main_fact_source": "registry/error_codes.json entries + en/zh.messages",
-      "on_tree_max": 7022,
-      "next_free": 7023,
-      "shadow_reserved": [],
-      "notes": "错误码(分配制,07 §5,段位 0-7)。main 最高 RX7022。GRX 影子分支未新增错误码(evidence/v1.1-stabilization 记『registry/error_codes.json 零触碰』)。下一个 7 段可用 RX7023(注:spec/release.md §3 旧文『RX7021 起』已过期两号,EA1_CONTRACT §7 记须自 RX7023,条款 PR 顺修)。"
-    },
-    "D": {
-      "scope": "shared",
-      "pattern": "D-###",
-      "main_fact_source": "13_DECISION_LOG.md",
-      "on_tree_max": 407,
-      "next_free": 408,
-      "shadow_reserved": [],
-      "notes": "治理决策编号。main 决策止于 D-407。D-408 已由 milestones/g2/G2_CONTEXT.md 预留为『下一个 00 §6.3 errata 续号』(拟承接 P1-2 owner 保留权白名单,owner 必签)。GRX 私有交付物用 D-GRX 段(见 namespaces.D_GRX),不占共享 D 段。下一个可用 D-408。"
-    },
-    "U": {
-      "scope": "shared",
-      "pattern": "U##",
-      "main_fact_source": "unsafe-audit/ 登记",
-      "on_tree_max": 28,
-      "next_free": 29,
-      "shadow_reserved": [],
-      "notes": "unsafe-audit 条目编号。main 最高 U28。U29 由 EA1 预留(拟不触发,EA1_CONTRACT §7 / milestones/ea1/CI_GATES.md)。下一个可用 U29。"
-    },
-    "G": {
-      "scope": "milestone_scoped",
-      "pattern": "G-<里程碑>-# (如 G-M8-4 / G-G2-1 / G-MB1-7 / G-EA1-1)",
-      "main_fact_source": "各 milestones/*/CONTRACT.md acceptance_gates",
-      "next_free": null,
-      "shadow_reserved": [],
-      "notes": "验收门 = 里程碑分段编号,非全局整数序列(每里程碑各自 -1 起递增),故无全局 next_free。GRX 私有验收门用 G-GRX 段(见 namespaces.G_GRX)。"
-    },
-    "CI_step": {
-      "scope": "shared",
-      "pattern": "步骤 NN (.github/workflows/pr-smoke.yml 里程碑冒烟步)",
-      "main_fact_source": ".github/workflows/pr-smoke.yml 步骤注",
-      "on_tree_max": 58,
-      "next_free": 61,
-      "shadow_reserved": [],
-      "reserved_in_flight_steps": [59, 60],
-      "notes": "PR Smoke 里程碑冒烟步的数字步骤号。main 最高步骤 58(vulkan win32 present)。步骤 59/60 由 EA1(EA1.1/EA1.2)预留(EA1_CONTRACT §7 / milestones/ea1/CI_GATES.md)。check_* 守卫类步骤(structure/schema/guardrails/redistribution/contribution/number_ledger)『不占数字步骤号』——本 MR 的 check_number_ledger 步骤即无编号声明。下一个数字步骤号 61。"
-    },
-    "GRX_private": {
-      "scope": "private_off_tree",
-      "pattern": "GRX-0xx",
-      "on_main": false,
-      "shadow_branch": "codex/grx-godot-dxil-workspace",
-      "consumed_range": "GRX-001 ~ GRX-026",
-      "consumed_verification": "GRX_PLAN.md(该分支)枚举至 GRX-026;git log(origin/main..codex/grx-godot-dxil-workspace,全 commit body)确认 distinct tokens {001,004,009,010,011,012,013,014,015,016,017,020,021,022,024,025}(16 个);中间号 {002,003,005,006,007,008,018,019,023,026} 见 GRX_PLAN 分段但未逐一在 commit subject 出现,区间上界 026 approximate(以 GRX_PLAN 为准)。",
-      "notes": "GRX 私有里程碑编号段,仅存在于 closed 影子分支,main 树零引用。私有段本不在 main『永不复用』显式列举(10 §9.5 只列错误码/RXS/deferred/RFC)——本台账登记以补齐可追踪面。"
-    },
-    "patch_private": {
-      "scope": "private_off_tree",
-      "pattern": "patch-00xx (spike/godot-rurix/patches/NNNN-*.patch)",
-      "on_main": false,
-      "shadow_branch": "codex/grx-godot-dxil-workspace",
-      "consumed_range": "0001 ~ 0048(有跳号)",
-      "consumed_verification": "git ls-tree codex/grx-godot-dxil-workspace spike/godot-rurix/patches/:实际 patch 文件 0001~0029、0036~0038、0040~0048 + PATCH_ALLOCATION.md;缺号 {0030~0035,0039}(见该分支 PATCH_ALLOCATION.md 分配表)。",
-      "notes": "GRX Godot 侧改动的 patch 队列编号(external/godot 永久 ignore,改动只以 patch 表示)。仅存在于影子分支,main 树零引用。GRX 源码/patch/Godot 快照『不入 main』(GRX 契约 out_of_scope vendoring_godot;本 MR evidence 范围只登记指针)。"
-    },
-    "D_GRX": {
-      "scope": "private_off_tree",
-      "pattern": "D-GRX-#",
-      "on_main": false,
-      "shadow_branch": "codex/grx-godot-dxil-workspace",
-      "consumed_range": "D-GRX-1 ~ D-GRX-6",
-      "consumed_verification": "该分支 milestones/grx/GRX_CONTRACT.md deliverables(D-GRX-1~6)。",
-      "notes": "GRX 私有交付物编号段(≠ 共享 D-### 治理决策段),仅存在于影子分支。"
-    },
-    "G_GRX": {
-      "scope": "private_off_tree",
-      "pattern": "G-GRX-#",
-      "on_main": false,
-      "shadow_branch": "codex/grx-godot-dxil-workspace",
-      "consumed_range": "G-GRX-1 ~ G-GRX-5",
-      "consumed_verification": "该分支 milestones/grx/GRX_CONTRACT.md acceptance_gates(G-GRX-1~5)。",
-      "notes": "GRX 私有验收门编号段(≠ 里程碑分段 G-<M>-# 主序),仅存在于影子分支。"
-    }
+ "schema_version": 1,
+ "description": "Rurix 编号台账(MR-0010):共享/私有编号命名空间的跨分支事实源,补齐 10 §9.5「编号永不复用」的跨分支执行面。既有 rfcs/README.md 台账、registry/{deferred,spike_gating,error_codes}.json、spec/README.md 仍是各命名空间的主事实源;本文件专记『off-main 影子工作流对共享命名空间的消费』这一未覆盖维度 + 全命名空间的下一个自由号快照,供 ci/check_number_ledger.py 机核。守卫能力边界:CI 只见当前树,无法枚举未合分支;新影子工作流登记是人工/agent 前置动作,本文件只让『已登记的保留号被尊重』可机验。本文件对 AI 只追加(镜像 deferred.json 纪律)。所有编号区间均经 git 命令(git log / git ls-tree / grep spec 条款头)核实,不确定处标 approximate 并注核实方式。",
+ "namespaces": {
+  "RFC": {
+   "scope": "shared",
+   "pattern": "RFC-####",
+   "main_fact_source": "rfcs/README.md §5 + rfcs/NNNN-*.md 文件名",
+   "on_tree_max": 12,
+   "next_free": 13,
+   "shadow_reserved": [],
+   "notes": "Full RFC。main 现存 RFC-0001~0012(RFC-0012=EA1 rurixup 分发,Draft 2026-07-16)。GRX 影子分支未消费 Full RFC(rfc_required:none)。下一个可用 RFC-0013。"
   },
-  "off_tree_workflows": [
-    {
-      "id": "grx",
-      "title": "Godot 4.7-dev D3D12 Forward+ Rurix opt-in 加速(GRX 里程碑)",
-      "branch": "codex/grx-godot-dxil-workspace",
-      "remote": "origin/codex/grx-godot-dxil-workspace",
-      "closeout_commit": "95d5af436b118c1a19f84d52816a5c71048dc009",
-      "closeout_commit_short": "95d5af43",
-      "closeout_signed_by": "白栀 <25890346@qq.com> (2026-07-13)",
-      "status": "closed",
-      "contract_version": "v1.31",
-      "contract_path_on_branch": "milestones/grx/GRX_CONTRACT.md",
-      "rfc_required": "none",
-      "consumed_shared_namespaces": {
-        "MR": [6, 7],
-        "RXS": [181, 182, 183, 184]
-      },
-      "consumed_shared_verification": "提交 cc059daaaffb6f4e343b9f3ece220447351fcf29『feat(rurixc): MR-0006/0007 批准落档与实现 — DXIL 整型能力 + 数学内建(RXS-0181~0184)』;git log origin/main..codex/grx-godot-dxil-workspace 确认 MR-0005/0006/0007 + RXS-0181/0184 tokens。",
-      "consumed_private_namespaces": {
-        "GRX": "GRX-001 ~ GRX-026",
-        "patch": "0001 ~ 0048(缺 0030~0035,0039)",
-        "D_GRX": "D-GRX-1 ~ D-GRX-6",
-        "G_GRX": "G-GRX-1 ~ G-GRX-5"
-      },
-      "main_tracking_status": {
-        "MR_6_7": "已注:rfcs/README.md §5 跳号注",
-        "RXS_181_184": "已注(散落):spec/release.md、spec/README.md、spec/host_orchestration.md、spec/vulkan_backend.md、evidence/v1.1-stabilization/stabilization_facts_20260714.md 各处跳号避撞注",
-        "private_GRX_patch_D-GRX_G-GRX": "此前 main 零结构化登记——本台账首次补录",
-        "code_patch_snapshot": "永不入 main(GRX 契约 out_of_scope vendoring_godot;external/ 永久 ignore)"
-      },
-      "evidence_scope": "本台账只登记编号 + 分支/commit 指针。GRX 蒸馏的 Godot buffer_clear 上游发现由 EA1 upstream_report_packs 单独承接(EA1_CONTRACT §out_of_scope grx_merge + 上游备包面),本 MR 不重复搬运。showcase/grx-demo(untracked demo deck)维持独立轨道。"
-    }
-  ],
-  "known_collisions": [
-    {
-      "id": "shared-namespace-grx",
-      "kind": "cross_branch_shared_namespace_consumption",
-      "materialized_same_tree_collision": false,
-      "affected": {
-        "MR": [6, 7],
-        "RXS": [181, 182, 183, 184]
-      },
-      "finding": "GRX 影子分支(closed,close-out 95d5af43)在共享命名空间上 claim 了 MR-0006/0007 与 RXS-0181~0184。main 侧对这些号一律**跳号避撞**(deliberate skip):经 git 核实,当前 main 树『零』`### RXS-0181~0184` 条款定义、rfcs/ 无 mini-0006/0007 文件——每处 main 出现均为『已被 GRX claim、跳号避撞』的注,非复用。",
-      "disposition": "登记为『已知跨分支共享命名空间消费 + main 跳号处置』。影子(GRX)侧号为 closed 分支上的 definition of record;这些号对 main **永久 burned**(10 §9.5),main 永不复用。**未 materialize 为同树同号异义碰撞**——10 §9.5 目前靠人工跨分支警觉避开,本 MR 的 ci/check_number_ledger.py 把『不得复用 burned 号』落为机器门(near-miss/潜在风险的结构化防护)。绝不假装可回收、不改写任何既有条款、不虚构已发生的违反。",
-      "honesty_note": "本条修正了 P1-1 早期调查稿的表述:早期稿称『main 独立复用 RXS-0181/0184 承载异义条款=已 materialize 的违反』;逐项 git 核对(grep spec/ 全树 + git log)证实 main 从未复用,而是跳号避撞。真实状态是『潜在/近失』而非『已发生』,故如实登记为 materialized_same_tree_collision=false。"
-    }
-  ],
-  "reserved_in_flight": [
-    {
-      "owner": "EA1(rurixup 真实分发期,owner 2026-07-16 立项)",
-      "source": "milestones/ea1/EA1_CONTRACT.md §7 + rfcs/README.md §5",
-      "claims": {
-        "RFC": "RFC-0012(已用,Draft;下一个 Full RFC 实际可用 = RFC-0013)",
-        "RXS": "RXS-0214~0219 已落 main(EA1.1a RXS-0214/0215 + EA1.1b RXS-0216/0217 + EA1.2 RXS-0218 发布资产上传自动化与回读自校验 / RXS-0219 端到端安装时长 measured);EA1 期 RXS 区间收口(下一个可用 RXS-0220,执行期新 RXS 另起)",
-        "RD": "RD-033 起(执行期新 RD)",
-        "U": "U29(拟不触发)",
-        "SG": "SG-010 留续号(不登记,现状 not_triggered)",
-        "CI_step": "步骤 59(EA1.1)/ 60(EA1.2)",
-        "RX_error": "确需升档自 RX7023(拟零新 RX 码)"
-      }
-    },
-    {
-      "owner": "P1-2(owner 保留权白名单治理修订,owner 必签)",
-      "source": "milestones/g2/G2_CONTEXT.md(D-408 earmark)",
-      "claims": {
-        "D": "D-408(拟经 00 §6.3 独立 errata PR;owner 必签,触 P-13 准永久面 + 30 天公示)"
-      }
-    },
-    {
-      "owner": "G3(工业渲染期,owner 2026-07-18 双轨立项 G3∥EI1、脚手架 G3 先合;裁决全文记 milestones/g3/G3_CONTRACT.md §7)",
-      "source": "milestones/g3/G3_CONTRACT.md §7 ⑥",
-      "claims": {
-        "RFC": "RFC-0013 单号(伞形 Full RFC,五面五章:present/采样超集/bindless/render graph/mesh-task-RT;MB1 RFC-0011 单期伞形先例;G3.1 spike 纯取证不占 RFC。v1.4 更正:初版误 claim 0013~0017,0014 = EI1 earmark 归还,0015~0017 in-flight 撤回归自由池未 materialize 无复用问题;读法见 G3_CONTRACT §7 v1.1)",
-        "MR": "MR-0011 留 RD-027 处置(若判 Mini 档),否则不消费",
-        "RXS": "RXS-0220 起(预期 0220~0249 五面切分见契约 §7 ⑥;以实现实际为准,溢出自 RXS-0270 顺续 + 本台账校准 revision——RXS-0250~0269 = EI1 earmark;脚手架零裸条款头,条款体随实现 PR 落)",
-        "RD": "RD-034 起(执行期新 RD;RD-033=EA1 在途 claim,共享段串行消费,以合入时 deferred.json 实际为准双侧标注)",
-        "U": "U30 起(U29=EA1 预留显式跳让,无论其释放与否不回收)",
-        "SG": "零消费(五面均为既登记 deferred 兑现非扩张方向;SG-010 软保留维持)",
-        "CI_step": "步骤 61 起(预期 61 present / 62~63 采样 / 64 bindless / 65 graph / 66~67 mesh-RT,DXIL 腿视 probe ±68/69、步骤 70 集成 showcase 视判档;数量随实现回填不预占)",
-        "RX_error": "codegen 自 RX6027 续号(G3.2 present RX6027/6028 已落;**G3.5 render graph RX6029/6030 已落**〔图结构违例族 / 声明-反射失配族,RXS-0237,§4.D2〕)+ **RX6008 预留码正式改接已落**(G3.6/RFC-0013 §4.E9,RD-012,`codegen.dxil_stage_deferred`,dxil_codegen StageRoute::Stub 自 RX6007 迁至 RX6008,RXS-0249)+ **RX6009 随 error_codes.json errata 正式 burn**(SC-1,RD-013 已 close 未 materialize,永不复用);**3xxx typeck 自 RX3016**(G3.4 bindless nonuniform 标注缺失 RX3016 已落;**G3.6 mesh/task 入口标注缺失 RX3017 已落**,RXS-0243,避与 EI1 轨撞号,SC-4;RT payload/attribute/callable/AccelStruct 复用 RX3012/RX3013 扩类别零新码);工具类确需自 RX7023。RX3017/RX6008 < on_tree_max 7022,RX 全局整数序 on_tree_max/next_free 0-byte(v1.5 RX3016 先例)",
-        "D": "共享 D 段零消费(D-408=P1-2 earmark 不动;开工裁决记契约 §7,D-G3-N 仅为交付物编号)"
-      },
-      "note": "EI1(引擎集成期,双轨另一半)earmark = RFC-0014 / RXS-0250~0269 / CI 步骤 71~75(owner 2026-07-18 双轨分配;v1.4 更正初版『EI1 零消费』误记);EI1 脚手架 PR 自行登记 reserved_in_flight[EI1] 全量 claim,RD/U/RX 共享段按 main 合并序消费不预留。"
-    }
-  ],
-  "revision_log": [
-    {
-      "version": "v1.6",
-      "date": "2026-07-19",
-      "change": "G3.5 render graph 期编号校准(feat/g3.5-graph,agent 完全自主 D-406 v2.0):① RXS 命名空间 on_tree_max 230→241、next_free 231→242,承接 G3.4(RXS-0231~0235,已落 main)+ G3.5(RXS-0236~0241,spec/render_graph.md 新建,RFC-0013 §4.D:0236 Graph/Pass 类型面 / 0237 图合法性+声明-反射相等 / 0238 状态推导状态机 / 0239 🔒 pass 边界 happens-before / 0240 双后端执行器 / 0241 rxrt_graph_* + 互证门),校准后与实测 spec `### RXS-` 最大值 241 一致(2c ADVISORY 归零)。② reserved_in_flight[G3].RX_error claim 补『G3.5 RX6029/6030 已落』(图结构违例族 / 声明-反射失配族,RXS-0237,§4.D2);RX6029/6030 < RX_error on_tree_max 7022(RX 全局整数序),on_tree_max/next_free 字段 0-byte(v1.5 RX3016 先例)。③ CI 步骤 65(render graph smoke)在 reserved_in_flight[G3].CI_step 预期表内已登记,CI_step on_tree_max/next_free 本 revision 0-byte(check_* 守卫步骤不占号)。shadow_reserved[181~184] 不变(GRX 跳号避撞维持)。仅动 RXS/RX_error claim 字段 + 本 revision_log 追加(deferred/spike_gating/error_codes 命名空间字段 0-byte);error_codes.json RX6029/6030 entries 于其自身文件登记(本台账 RX_error 为跨分支保留号守卫,不镜像 entry 明细)。"
-    },
-    {
-      "version": "v1.0",
-      "date": "2026-07-17",
-      "change": "初版(MR-0010 落地,agent 完全自主签署,D-406 v2.0):建立 registry/number_ledger.json 结构化编号台账 + ci/check_number_ledger.py 跨分支保留号守卫。补录 GRX 影子分支(codex/grx-godot-dxil-workspace,closed v1.31,close-out 95d5af43)对共享命名空间(MR-0006/0007、RXS-0181~0184)与私有命名空间(GRX-001~026、patch-0001~0048、D-GRX-1~6、G-GRX-1~5)的消费,全部经 git 命令核实。诚实登记:RXS-0181~0184 未 materialize 为同树碰撞(main 跳号避撞),known_collisions 修正早期调查稿的『已复用』表述。一并登记 EA1 在途 claim(RFC-0012/RXS-0214/RD-033/U29/SG-010/步骤 59-60)与 P1-2 D-408 earmark。零新 RXS/RD/SG/error-code/budget counter。依据 rfcs/mini-0010-shadow-workflow-ledger.md(agent Approved 2026-07-17)。"
-    },
-    {
-      "version": "v1.1",
-      "date": "2026-07-17",
-      "change": "RXS 命名空间校准(EA1.1b 落地,消 check_number_ledger 查 2c ADVISORY 漂移):on_tree_max 213→217、next_free 214→218,承接 EA1.1a(RXS-0214/0215,已落 main)+ EA1.1b(RXS-0216/0217,本 PR 网络拉取载体 RXS-0216 + 四级内容寻址信任链 RXS-0217,条款体入 spec/release.md §2.8)。校准后与实测 spec `### RXS-` 最大值 217 一致(ADVISORY 归零)。reserved_in_flight[EA1].RXS 同步更新:RXS-0214~0217 已落,剩余 EA1.2 在途 RXS-0218~0219。shadow_reserved[181~184] 不变(GRX 跳号避撞维持)。仅动 RXS 命名空间字段 + 本 revision_log 追加(deferred/spike_gating/error_codes 命名空间 0-byte);零新 RXS/RD/SG/error-code/budget counter。"
-    },
-    {
-      "version": "v1.2",
-      "date": "2026-07-17",
-      "change": "RXS 命名空间校准(EA1.2 落地,消 check_number_ledger 查 2c ADVISORY 漂移):on_tree_max 217→219、next_free 218→220,承接 EA1.2(RXS-0218 发布资产上传自动化与回读自校验 / RXS-0219 端到端安装时长 measured,条款体入 spec/release.md §2.8,裁决 C/D)。校准后与实测 spec `### RXS-` 最大值 219 一致(ADVISORY 归零)。reserved_in_flight[EA1].RXS 同步更新:RXS-0214~0219 全落,EA1 期 RXS 区间收口(下一个可用 RXS-0220)。shadow_reserved[181~184] 不变(GRX 跳号避撞维持);CI_step 步骤 60(EA1.2)随本 PR 落 pr-smoke.yml,reserved_in_flight_steps 保留登记(next_free 步骤号 61 不变)。仅动 RXS 命名空间字段 + reserved_in_flight[EA1] + 本 revision_log 追加(deferred/spike_gating/error_codes 命名空间 0-byte);零新 RXS/RD/SG/error-code/budget counter。"
-    },
-    {
-      "version": "v1.3",
-      "date": "2026-07-18",
-      "change": "G3 工业渲染期开工登记(chore/g3-scaffold,agent 完全自主 D-406 v2.0):reserved_in_flight 追加 G3 行——owner 2026-07-18 双轨立项 G3∥EI1(脚手架 G3 先合,裁决全文记 milestones/g3/G3_CONTRACT.md §7)。claim:RFC-0013~0017(五面 Full RFC)/ RXS-0220 起(预期 ~0249,溢出顺续+校准)/ CI 步骤 61 起(预期 61~67±)/ RD-034 起(RD-033=EA1 claim 串行让位)/ U30 起(显式跳让 U29)/ RX6027 续号+RX6008 预留码改接(RD-012 兑现)/ MR-0011 留 RD-027 处置;SG 与共享 D 段零消费(D-408 earmark 不动)。EI1 契约脚手架零共享编号消费(gated on G3 close-out)。各命名空间 on_tree_max/next_free 本 revision 0-byte(脚手架零条款/零步骤落地,校准随实现 PR;deferred/spike_gating/error_codes 命名空间 0-byte);零新 RXS/RD/SG/error-code/budget counter。"
-    },
-    {
-      "version": "v1.4",
-      "date": "2026-07-18",
-      "change": "G3 claim 校准更正(编号更正 PR,与 EI1 轨会话协调后落;agent 完全自主 D-406 v2.0):v1.3 的 reserved_in_flight[G3].RFC 误 claim RFC-0013~0017,撞 owner 2026-07-18 双轨分配的 EI1 earmark(EI1 = RFC-0014 / RXS-0250~0269 / CI 步骤 71~75)——更正为 **RFC-0013 单号伞形 Full RFC(五面五章,MB1 RFC-0011 先例)**;0014 归还 EI1 earmark;0015~0017 in-flight claim 撤回归自由池(从未 materialize 为 rfcs/ 文件,无「复用已消费号」问题,RFC namespace next_free 逻辑不变)。RXS 溢出规则同步更正:0250 顺续→**0270 顺续**(0250~0269 = EI1 earmark)。G3 entry note 的『EI1 零消费』误记更正为 EI1 真实 earmark。承 milestones/g3/G3_CONTRACT.md §7 v1.1 + G3_PLAN/CI_GATES v1.1。其余命名空间字段与 claim(MR-0011/步骤 61 起/RD-034 起/U30 起/RX6027+RX6008)0-byte;零新 RXS/RD/SG/error-code/budget counter。"
-    },
-    {
-      "version": "v1.5",
-      "date": "2026-07-19",
-      "change": "G3.4 bindless 期 RX_error claim 校准(feat/g3.4-bindless,agent 完全自主 D-406 v2.0,SC-4):reserved_in_flight[G3].RX_error 补『3xxx typeck 自 RX3016』预留——G3.4 落 RX3016(bindless nonuniform 标注缺失,RXS-0232;error_codes.json 已追加 active,en/zh message-key `shader.nonuniform_annotation_missing` 成对),避与并行 EI1 轨跨分支撞号(RFC-0013 §9.1 SC-4 disposition)。RX3016 < on_tree_max(7022,RX 全局整数序),on_tree_max/next_free 字段 0-byte;仅动 RX_error claim 文本 + 本 revision_log 追加(deferred/spike_gating/其余命名空间 0-byte);无新 RXS/RD/SG/budget counter(RXS-0231~0235 为 G3.4 spec 条款,已在 RXS 区间 0220~0249 内不改 on_tree_max)。"
-    }
-  ]
+  "MR": {
+   "scope": "shared",
+   "pattern": "MR-####",
+   "main_fact_source": "rfcs/README.md §5 + rfcs/mini-NNNN-*.md 文件名",
+   "on_tree_max": 10,
+   "next_free": 11,
+   "shadow_reserved": [
+    6,
+    7
+   ],
+   "notes": "Mini-RFC。main 已用 {1,2,3,4,5,8,9} + 本 MR 落地的 10;{6,7} 由 GRX 影子分支 claim(见 off_tree_workflows[grx]),main 跳号避撞(rfcs/README.md §5 既有注)。MR-0010 = 本 PR(EA1_CONTRACT §7 明记不占用可用)。下一个可用 MR-0011。"
+  },
+  "RXS": {
+   "scope": "shared",
+   "pattern": "RXS-####",
+   "main_fact_source": "spec/README.md §4 + spec/*.md 的 `### RXS-####` 条款头",
+   "guard_spec_heading_scan": true,
+   "on_tree_max": 249,
+   "next_free": 250,
+   "shadow_reserved": [
+    181,
+    182,
+    183,
+    184
+   ],
+   "notes": "spec 条款号。最高 RXS-0249(G3.6/RFC-0013 §4.E mesh-task-RT 章:shader_stages.md RXS-0242 intersection/callable 阶段全集 / RXS-0243 mesh/task 入口契约〔新码 RX3017〕/ RXS-0244 RT payload/attribute/callable data 契约〔RX3012 扩〕/ RXS-0245 AccelStruct/trace_ray/RT builtins〔RX3013 扩〕;vulkan_backend.md RXS-0246 mesh/task SPIR-V 编码 / RXS-0247 RT 六模型编码 + SPIR-V 1.4 per-entry 分叉;dxil_backend.md RXS-0249 DXIL 腿条件分支 + RX6008 改接。RXS-0248〔vk 运行时 mesh pipeline/AS/SBT/TraceRays〕留后续 PR 未落条款头)。前:RXS-0236~0241 G3.5 render graph(spec/render_graph.md);RXS-0231~0235 G3.4 bindless;RXS-0230 G3.3 vk descriptor;RXS-0223~0229 G3.3 采样超集;RXS-0220~0222 G3.2 present;release.md §2.8 RXS-0214~0219 EA1;vulkan_backend.md RXS-0200~0213 mb1。RXS-0181~0184 由 GRX 影子分支 claim(提交 cc059daa),main 跳号避撞永久 burned(见 known_collisions[shared-namespace-grx]);RXS-0189~0199 由 MS1.2/MS1.2b 承接。RFC-0013 五面 RXS-0220~0249 已全落地(RXS-0248 除外,留 vk 运行时 PR);0250~0269 = EI1 earmark,溢出自 RXS-0270。on_tree_max 校准 241→249(G3.6 落 RXS-0242~0247/0249 消 2c ADVISORY 漂移),下一个可用 RXS-0250(EI1 轨)/RXS-0248(vk 运行时)。"
+  },
+  "RD": {
+   "scope": "shared",
+   "pattern": "RD-###",
+   "main_fact_source": "registry/deferred.json entries",
+   "on_tree_max": 32,
+   "next_free": 33,
+   "shadow_reserved": [],
+   "main_skipped": [
+    16,
+    28
+   ],
+   "notes": "deferred 编号。main entries 最高 RD-032;RD-016/RD-028 为 main 侧跳号(永不复用,EA1_CONTRACT §7 记)。GRX 影子分支未消费 RD 共享段(改用私有 D-GRX 交付物段,见 namespaces.D_GRX)。下一个可用 RD-033(EA1 执行期起号)。"
+  },
+  "SG": {
+   "scope": "shared",
+   "pattern": "SG-###",
+   "main_fact_source": "registry/spike_gating.json entries",
+   "on_tree_max": 9,
+   "next_free": 10,
+   "shadow_reserved": [],
+   "soft_reserved": {
+    "SG-010": "软保留给『窗口/UI 框架进语言 / 通用异步宿主运行时』扩张诱惑方向(registry/spike_gating.json revision v1.5/v1.7『留续号不登记』;EA1_CONTRACT §7『SG-010 留续号』)。非自由号——新 spike-gating 若非该方向应取 SG-011 或先登记该方向。P1-1 明确不用 SG 载体(SG=拒绝扩张方向,与登记既发生工作语义错配)。"
+   },
+   "notes": "spike-gating 编号。main entries SG-001~SG-009(SG-006 已 closed)。GRX 影子分支未消费 SG 段(用私有 G-GRX 验收门段)。SG-010 见 soft_reserved。"
+  },
+  "RX_error": {
+   "scope": "shared",
+   "pattern": "RX#### (段位 0-7,07 §5)",
+   "main_fact_source": "registry/error_codes.json entries + en/zh.messages",
+   "on_tree_max": 7022,
+   "next_free": 7023,
+   "shadow_reserved": [],
+   "notes": "错误码(分配制,07 §5,段位 0-7)。main 最高 RX7022。GRX 影子分支未新增错误码(evidence/v1.1-stabilization 记『registry/error_codes.json 零触碰』)。下一个 7 段可用 RX7023(注:spec/release.md §3 旧文『RX7021 起』已过期两号,EA1_CONTRACT §7 记须自 RX7023,条款 PR 顺修)。"
+  },
+  "D": {
+   "scope": "shared",
+   "pattern": "D-###",
+   "main_fact_source": "13_DECISION_LOG.md",
+   "on_tree_max": 407,
+   "next_free": 408,
+   "shadow_reserved": [],
+   "notes": "治理决策编号。main 决策止于 D-407。D-408 已由 milestones/g2/G2_CONTEXT.md 预留为『下一个 00 §6.3 errata 续号』(拟承接 P1-2 owner 保留权白名单,owner 必签)。GRX 私有交付物用 D-GRX 段(见 namespaces.D_GRX),不占共享 D 段。下一个可用 D-408。"
+  },
+  "U": {
+   "scope": "shared",
+   "pattern": "U##",
+   "main_fact_source": "unsafe-audit/ 登记",
+   "on_tree_max": 30,
+   "next_free": 31,
+   "shadow_reserved": [],
+   "notes": "unsafe-audit 条目编号。main 最高 U30(G3.6 AS/SBT/device-address 细审计,RXS-0248,RFC-0013 §4.E8)。U29 由 EA1 预留(显式跳让,无论其释放与否不回收,EA1_CONTRACT §7)。下一个可用 U31。"
+  },
+  "G": {
+   "scope": "milestone_scoped",
+   "pattern": "G-<里程碑>-# (如 G-M8-4 / G-G2-1 / G-MB1-7 / G-EA1-1)",
+   "main_fact_source": "各 milestones/*/CONTRACT.md acceptance_gates",
+   "next_free": null,
+   "shadow_reserved": [],
+   "notes": "验收门 = 里程碑分段编号,非全局整数序列(每里程碑各自 -1 起递增),故无全局 next_free。GRX 私有验收门用 G-GRX 段(见 namespaces.G_GRX)。"
+  },
+  "CI_step": {
+   "scope": "shared",
+   "pattern": "步骤 NN (.github/workflows/pr-smoke.yml 里程碑冒烟步)",
+   "main_fact_source": ".github/workflows/pr-smoke.yml 步骤注",
+   "on_tree_max": 58,
+   "next_free": 61,
+   "shadow_reserved": [],
+   "reserved_in_flight_steps": [
+    59,
+    60
+   ],
+   "notes": "PR Smoke 里程碑冒烟步的数字步骤号。main 最高步骤 58(vulkan win32 present)。步骤 59/60 由 EA1(EA1.1/EA1.2)预留(EA1_CONTRACT §7 / milestones/ea1/CI_GATES.md)。check_* 守卫类步骤(structure/schema/guardrails/redistribution/contribution/number_ledger)『不占数字步骤号』——本 MR 的 check_number_ledger 步骤即无编号声明。下一个数字步骤号 61。"
+  },
+  "GRX_private": {
+   "scope": "private_off_tree",
+   "pattern": "GRX-0xx",
+   "on_main": false,
+   "shadow_branch": "codex/grx-godot-dxil-workspace",
+   "consumed_range": "GRX-001 ~ GRX-026",
+   "consumed_verification": "GRX_PLAN.md(该分支)枚举至 GRX-026;git log(origin/main..codex/grx-godot-dxil-workspace,全 commit body)确认 distinct tokens {001,004,009,010,011,012,013,014,015,016,017,020,021,022,024,025}(16 个);中间号 {002,003,005,006,007,008,018,019,023,026} 见 GRX_PLAN 分段但未逐一在 commit subject 出现,区间上界 026 approximate(以 GRX_PLAN 为准)。",
+   "notes": "GRX 私有里程碑编号段,仅存在于 closed 影子分支,main 树零引用。私有段本不在 main『永不复用』显式列举(10 §9.5 只列错误码/RXS/deferred/RFC)——本台账登记以补齐可追踪面。"
+  },
+  "patch_private": {
+   "scope": "private_off_tree",
+   "pattern": "patch-00xx (spike/godot-rurix/patches/NNNN-*.patch)",
+   "on_main": false,
+   "shadow_branch": "codex/grx-godot-dxil-workspace",
+   "consumed_range": "0001 ~ 0048(有跳号)",
+   "consumed_verification": "git ls-tree codex/grx-godot-dxil-workspace spike/godot-rurix/patches/:实际 patch 文件 0001~0029、0036~0038、0040~0048 + PATCH_ALLOCATION.md;缺号 {0030~0035,0039}(见该分支 PATCH_ALLOCATION.md 分配表)。",
+   "notes": "GRX Godot 侧改动的 patch 队列编号(external/godot 永久 ignore,改动只以 patch 表示)。仅存在于影子分支,main 树零引用。GRX 源码/patch/Godot 快照『不入 main』(GRX 契约 out_of_scope vendoring_godot;本 MR evidence 范围只登记指针)。"
+  },
+  "D_GRX": {
+   "scope": "private_off_tree",
+   "pattern": "D-GRX-#",
+   "on_main": false,
+   "shadow_branch": "codex/grx-godot-dxil-workspace",
+   "consumed_range": "D-GRX-1 ~ D-GRX-6",
+   "consumed_verification": "该分支 milestones/grx/GRX_CONTRACT.md deliverables(D-GRX-1~6)。",
+   "notes": "GRX 私有交付物编号段(≠ 共享 D-### 治理决策段),仅存在于影子分支。"
+  },
+  "G_GRX": {
+   "scope": "private_off_tree",
+   "pattern": "G-GRX-#",
+   "on_main": false,
+   "shadow_branch": "codex/grx-godot-dxil-workspace",
+   "consumed_range": "G-GRX-1 ~ G-GRX-5",
+   "consumed_verification": "该分支 milestones/grx/GRX_CONTRACT.md acceptance_gates(G-GRX-1~5)。",
+   "notes": "GRX 私有验收门编号段(≠ 里程碑分段 G-<M>-# 主序),仅存在于影子分支。"
+  }
+ },
+ "off_tree_workflows": [
+  {
+   "id": "grx",
+   "title": "Godot 4.7-dev D3D12 Forward+ Rurix opt-in 加速(GRX 里程碑)",
+   "branch": "codex/grx-godot-dxil-workspace",
+   "remote": "origin/codex/grx-godot-dxil-workspace",
+   "closeout_commit": "95d5af436b118c1a19f84d52816a5c71048dc009",
+   "closeout_commit_short": "95d5af43",
+   "closeout_signed_by": "白栀 <25890346@qq.com> (2026-07-13)",
+   "status": "closed",
+   "contract_version": "v1.31",
+   "contract_path_on_branch": "milestones/grx/GRX_CONTRACT.md",
+   "rfc_required": "none",
+   "consumed_shared_namespaces": {
+    "MR": [
+     6,
+     7
+    ],
+    "RXS": [
+     181,
+     182,
+     183,
+     184
+    ]
+   },
+   "consumed_shared_verification": "提交 cc059daaaffb6f4e343b9f3ece220447351fcf29『feat(rurixc): MR-0006/0007 批准落档与实现 — DXIL 整型能力 + 数学内建(RXS-0181~0184)』;git log origin/main..codex/grx-godot-dxil-workspace 确认 MR-0005/0006/0007 + RXS-0181/0184 tokens。",
+   "consumed_private_namespaces": {
+    "GRX": "GRX-001 ~ GRX-026",
+    "patch": "0001 ~ 0048(缺 0030~0035,0039)",
+    "D_GRX": "D-GRX-1 ~ D-GRX-6",
+    "G_GRX": "G-GRX-1 ~ G-GRX-5"
+   },
+   "main_tracking_status": {
+    "MR_6_7": "已注:rfcs/README.md §5 跳号注",
+    "RXS_181_184": "已注(散落):spec/release.md、spec/README.md、spec/host_orchestration.md、spec/vulkan_backend.md、evidence/v1.1-stabilization/stabilization_facts_20260714.md 各处跳号避撞注",
+    "private_GRX_patch_D-GRX_G-GRX": "此前 main 零结构化登记——本台账首次补录",
+    "code_patch_snapshot": "永不入 main(GRX 契约 out_of_scope vendoring_godot;external/ 永久 ignore)"
+   },
+   "evidence_scope": "本台账只登记编号 + 分支/commit 指针。GRX 蒸馏的 Godot buffer_clear 上游发现由 EA1 upstream_report_packs 单独承接(EA1_CONTRACT §out_of_scope grx_merge + 上游备包面),本 MR 不重复搬运。showcase/grx-demo(untracked demo deck)维持独立轨道。"
+  }
+ ],
+ "known_collisions": [
+  {
+   "id": "shared-namespace-grx",
+   "kind": "cross_branch_shared_namespace_consumption",
+   "materialized_same_tree_collision": false,
+   "affected": {
+    "MR": [
+     6,
+     7
+    ],
+    "RXS": [
+     181,
+     182,
+     183,
+     184
+    ]
+   },
+   "finding": "GRX 影子分支(closed,close-out 95d5af43)在共享命名空间上 claim 了 MR-0006/0007 与 RXS-0181~0184。main 侧对这些号一律**跳号避撞**(deliberate skip):经 git 核实,当前 main 树『零』`### RXS-0181~0184` 条款定义、rfcs/ 无 mini-0006/0007 文件——每处 main 出现均为『已被 GRX claim、跳号避撞』的注,非复用。",
+   "disposition": "登记为『已知跨分支共享命名空间消费 + main 跳号处置』。影子(GRX)侧号为 closed 分支上的 definition of record;这些号对 main **永久 burned**(10 §9.5),main 永不复用。**未 materialize 为同树同号异义碰撞**——10 §9.5 目前靠人工跨分支警觉避开,本 MR 的 ci/check_number_ledger.py 把『不得复用 burned 号』落为机器门(near-miss/潜在风险的结构化防护)。绝不假装可回收、不改写任何既有条款、不虚构已发生的违反。",
+   "honesty_note": "本条修正了 P1-1 早期调查稿的表述:早期稿称『main 独立复用 RXS-0181/0184 承载异义条款=已 materialize 的违反』;逐项 git 核对(grep spec/ 全树 + git log)证实 main 从未复用,而是跳号避撞。真实状态是『潜在/近失』而非『已发生』,故如实登记为 materialized_same_tree_collision=false。"
+  }
+ ],
+ "reserved_in_flight": [
+  {
+   "owner": "EA1(rurixup 真实分发期,owner 2026-07-16 立项)",
+   "source": "milestones/ea1/EA1_CONTRACT.md §7 + rfcs/README.md §5",
+   "claims": {
+    "RFC": "RFC-0012(已用,Draft;下一个 Full RFC 实际可用 = RFC-0013)",
+    "RXS": "RXS-0214~0219 已落 main(EA1.1a RXS-0214/0215 + EA1.1b RXS-0216/0217 + EA1.2 RXS-0218 发布资产上传自动化与回读自校验 / RXS-0219 端到端安装时长 measured);EA1 期 RXS 区间收口(下一个可用 RXS-0220,执行期新 RXS 另起)",
+    "RD": "RD-033 起(执行期新 RD)",
+    "U": "U29(拟不触发)",
+    "SG": "SG-010 留续号(不登记,现状 not_triggered)",
+    "CI_step": "步骤 59(EA1.1)/ 60(EA1.2)",
+    "RX_error": "确需升档自 RX7023(拟零新 RX 码)"
+   }
+  },
+  {
+   "owner": "P1-2(owner 保留权白名单治理修订,owner 必签)",
+   "source": "milestones/g2/G2_CONTEXT.md(D-408 earmark)",
+   "claims": {
+    "D": "D-408(拟经 00 §6.3 独立 errata PR;owner 必签,触 P-13 准永久面 + 30 天公示)"
+   }
+  },
+  {
+   "owner": "G3(工业渲染期,owner 2026-07-18 双轨立项 G3∥EI1、脚手架 G3 先合;裁决全文记 milestones/g3/G3_CONTRACT.md §7)",
+   "source": "milestones/g3/G3_CONTRACT.md §7 ⑥",
+   "claims": {
+    "RFC": "RFC-0013 单号(伞形 Full RFC,五面五章:present/采样超集/bindless/render graph/mesh-task-RT;MB1 RFC-0011 单期伞形先例;G3.1 spike 纯取证不占 RFC。v1.4 更正:初版误 claim 0013~0017,0014 = EI1 earmark 归还,0015~0017 in-flight 撤回归自由池未 materialize 无复用问题;读法见 G3_CONTRACT §7 v1.1)",
+    "MR": "MR-0011 留 RD-027 处置(若判 Mini 档),否则不消费",
+    "RXS": "RXS-0220 起(预期 0220~0249 五面切分见契约 §7 ⑥;以实现实际为准,溢出自 RXS-0270 顺续 + 本台账校准 revision——RXS-0250~0269 = EI1 earmark;脚手架零裸条款头,条款体随实现 PR 落)",
+    "RD": "RD-034 起(执行期新 RD;RD-033=EA1 在途 claim,共享段串行消费,以合入时 deferred.json 实际为准双侧标注)",
+    "U": "U30 起(U29=EA1 预留显式跳让,无论其释放与否不回收)",
+    "SG": "零消费(五面均为既登记 deferred 兑现非扩张方向;SG-010 软保留维持)",
+    "CI_step": "步骤 61 起(预期 61 present / 62~63 采样 / 64 bindless / 65 graph / 66~67 mesh-RT,DXIL 腿视 probe ±68/69、步骤 70 集成 showcase 视判档;数量随实现回填不预占)",
+    "RX_error": "codegen 自 RX6027 续号(G3.2 present RX6027/6028 已落;**G3.5 render graph RX6029/6030 已落**〔图结构违例族 / 声明-反射失配族,RXS-0237,§4.D2〕)+ **RX6008 预留码正式改接已落**(G3.6/RFC-0013 §4.E9,RD-012,`codegen.dxil_stage_deferred`,dxil_codegen StageRoute::Stub 自 RX6007 迁至 RX6008,RXS-0249)+ **RX6009 随 error_codes.json errata 正式 burn**(SC-1,RD-013 已 close 未 materialize,永不复用);**3xxx typeck 自 RX3016**(G3.4 bindless nonuniform 标注缺失 RX3016 已落;**G3.6 mesh/task 入口标注缺失 RX3017 已落**,RXS-0243,避与 EI1 轨撞号,SC-4;RT payload/attribute/callable/AccelStruct 复用 RX3012/RX3013 扩类别零新码);工具类确需自 RX7023。RX3017/RX6008 < on_tree_max 7022,RX 全局整数序 on_tree_max/next_free 0-byte(v1.5 RX3016 先例)",
+    "D": "共享 D 段零消费(D-408=P1-2 earmark 不动;开工裁决记契约 §7,D-G3-N 仅为交付物编号)"
+   },
+   "note": "EI1(引擎集成期,双轨另一半)earmark = RFC-0014 / RXS-0250~0269 / CI 步骤 71~75(owner 2026-07-18 双轨分配;v1.4 更正初版『EI1 零消费』误记);EI1 脚手架 PR 自行登记 reserved_in_flight[EI1] 全量 claim,RD/U/RX 共享段按 main 合并序消费不预留。"
+  }
+ ],
+ "revision_log": [
+  {
+   "version": "v1.6",
+   "date": "2026-07-19",
+   "change": "G3.5 render graph 期编号校准(feat/g3.5-graph,agent 完全自主 D-406 v2.0):① RXS 命名空间 on_tree_max 230→241、next_free 231→242,承接 G3.4(RXS-0231~0235,已落 main)+ G3.5(RXS-0236~0241,spec/render_graph.md 新建,RFC-0013 §4.D:0236 Graph/Pass 类型面 / 0237 图合法性+声明-反射相等 / 0238 状态推导状态机 / 0239 🔒 pass 边界 happens-before / 0240 双后端执行器 / 0241 rxrt_graph_* + 互证门),校准后与实测 spec `### RXS-` 最大值 241 一致(2c ADVISORY 归零)。② reserved_in_flight[G3].RX_error claim 补『G3.5 RX6029/6030 已落』(图结构违例族 / 声明-反射失配族,RXS-0237,§4.D2);RX6029/6030 < RX_error on_tree_max 7022(RX 全局整数序),on_tree_max/next_free 字段 0-byte(v1.5 RX3016 先例)。③ CI 步骤 65(render graph smoke)在 reserved_in_flight[G3].CI_step 预期表内已登记,CI_step on_tree_max/next_free 本 revision 0-byte(check_* 守卫步骤不占号)。shadow_reserved[181~184] 不变(GRX 跳号避撞维持)。仅动 RXS/RX_error claim 字段 + 本 revision_log 追加(deferred/spike_gating/error_codes 命名空间字段 0-byte);error_codes.json RX6029/6030 entries 于其自身文件登记(本台账 RX_error 为跨分支保留号守卫,不镜像 entry 明细)。"
+  },
+  {
+   "version": "v1.0",
+   "date": "2026-07-17",
+   "change": "初版(MR-0010 落地,agent 完全自主签署,D-406 v2.0):建立 registry/number_ledger.json 结构化编号台账 + ci/check_number_ledger.py 跨分支保留号守卫。补录 GRX 影子分支(codex/grx-godot-dxil-workspace,closed v1.31,close-out 95d5af43)对共享命名空间(MR-0006/0007、RXS-0181~0184)与私有命名空间(GRX-001~026、patch-0001~0048、D-GRX-1~6、G-GRX-1~5)的消费,全部经 git 命令核实。诚实登记:RXS-0181~0184 未 materialize 为同树碰撞(main 跳号避撞),known_collisions 修正早期调查稿的『已复用』表述。一并登记 EA1 在途 claim(RFC-0012/RXS-0214/RD-033/U29/SG-010/步骤 59-60)与 P1-2 D-408 earmark。零新 RXS/RD/SG/error-code/budget counter。依据 rfcs/mini-0010-shadow-workflow-ledger.md(agent Approved 2026-07-17)。"
+  },
+  {
+   "version": "v1.1",
+   "date": "2026-07-17",
+   "change": "RXS 命名空间校准(EA1.1b 落地,消 check_number_ledger 查 2c ADVISORY 漂移):on_tree_max 213→217、next_free 214→218,承接 EA1.1a(RXS-0214/0215,已落 main)+ EA1.1b(RXS-0216/0217,本 PR 网络拉取载体 RXS-0216 + 四级内容寻址信任链 RXS-0217,条款体入 spec/release.md §2.8)。校准后与实测 spec `### RXS-` 最大值 217 一致(ADVISORY 归零)。reserved_in_flight[EA1].RXS 同步更新:RXS-0214~0217 已落,剩余 EA1.2 在途 RXS-0218~0219。shadow_reserved[181~184] 不变(GRX 跳号避撞维持)。仅动 RXS 命名空间字段 + 本 revision_log 追加(deferred/spike_gating/error_codes 命名空间 0-byte);零新 RXS/RD/SG/error-code/budget counter。"
+  },
+  {
+   "version": "v1.2",
+   "date": "2026-07-17",
+   "change": "RXS 命名空间校准(EA1.2 落地,消 check_number_ledger 查 2c ADVISORY 漂移):on_tree_max 217→219、next_free 218→220,承接 EA1.2(RXS-0218 发布资产上传自动化与回读自校验 / RXS-0219 端到端安装时长 measured,条款体入 spec/release.md §2.8,裁决 C/D)。校准后与实测 spec `### RXS-` 最大值 219 一致(ADVISORY 归零)。reserved_in_flight[EA1].RXS 同步更新:RXS-0214~0219 全落,EA1 期 RXS 区间收口(下一个可用 RXS-0220)。shadow_reserved[181~184] 不变(GRX 跳号避撞维持);CI_step 步骤 60(EA1.2)随本 PR 落 pr-smoke.yml,reserved_in_flight_steps 保留登记(next_free 步骤号 61 不变)。仅动 RXS 命名空间字段 + reserved_in_flight[EA1] + 本 revision_log 追加(deferred/spike_gating/error_codes 命名空间 0-byte);零新 RXS/RD/SG/error-code/budget counter。"
+  },
+  {
+   "version": "v1.3",
+   "date": "2026-07-18",
+   "change": "G3 工业渲染期开工登记(chore/g3-scaffold,agent 完全自主 D-406 v2.0):reserved_in_flight 追加 G3 行——owner 2026-07-18 双轨立项 G3∥EI1(脚手架 G3 先合,裁决全文记 milestones/g3/G3_CONTRACT.md §7)。claim:RFC-0013~0017(五面 Full RFC)/ RXS-0220 起(预期 ~0249,溢出顺续+校准)/ CI 步骤 61 起(预期 61~67±)/ RD-034 起(RD-033=EA1 claim 串行让位)/ U30 起(显式跳让 U29)/ RX6027 续号+RX6008 预留码改接(RD-012 兑现)/ MR-0011 留 RD-027 处置;SG 与共享 D 段零消费(D-408 earmark 不动)。EI1 契约脚手架零共享编号消费(gated on G3 close-out)。各命名空间 on_tree_max/next_free 本 revision 0-byte(脚手架零条款/零步骤落地,校准随实现 PR;deferred/spike_gating/error_codes 命名空间 0-byte);零新 RXS/RD/SG/error-code/budget counter。"
+  },
+  {
+   "version": "v1.4",
+   "date": "2026-07-18",
+   "change": "G3 claim 校准更正(编号更正 PR,与 EI1 轨会话协调后落;agent 完全自主 D-406 v2.0):v1.3 的 reserved_in_flight[G3].RFC 误 claim RFC-0013~0017,撞 owner 2026-07-18 双轨分配的 EI1 earmark(EI1 = RFC-0014 / RXS-0250~0269 / CI 步骤 71~75)——更正为 **RFC-0013 单号伞形 Full RFC(五面五章,MB1 RFC-0011 先例)**;0014 归还 EI1 earmark;0015~0017 in-flight claim 撤回归自由池(从未 materialize 为 rfcs/ 文件,无「复用已消费号」问题,RFC namespace next_free 逻辑不变)。RXS 溢出规则同步更正:0250 顺续→**0270 顺续**(0250~0269 = EI1 earmark)。G3 entry note 的『EI1 零消费』误记更正为 EI1 真实 earmark。承 milestones/g3/G3_CONTRACT.md §7 v1.1 + G3_PLAN/CI_GATES v1.1。其余命名空间字段与 claim(MR-0011/步骤 61 起/RD-034 起/U30 起/RX6027+RX6008)0-byte;零新 RXS/RD/SG/error-code/budget counter。"
+  },
+  {
+   "version": "v1.5",
+   "date": "2026-07-19",
+   "change": "G3.4 bindless 期 RX_error claim 校准(feat/g3.4-bindless,agent 完全自主 D-406 v2.0,SC-4):reserved_in_flight[G3].RX_error 补『3xxx typeck 自 RX3016』预留——G3.4 落 RX3016(bindless nonuniform 标注缺失,RXS-0232;error_codes.json 已追加 active,en/zh message-key `shader.nonuniform_annotation_missing` 成对),避与并行 EI1 轨跨分支撞号(RFC-0013 §9.1 SC-4 disposition)。RX3016 < on_tree_max(7022,RX 全局整数序),on_tree_max/next_free 字段 0-byte;仅动 RX_error claim 文本 + 本 revision_log 追加(deferred/spike_gating/其余命名空间 0-byte);无新 RXS/RD/SG/budget counter(RXS-0231~0235 为 G3.4 spec 条款,已在 RXS 区间 0220~0249 内不改 on_tree_max)。"
+  },
+  {
+   "version": "v1.6",
+   "date": "2026-07-19",
+   "change": "G3.6 mesh/RT 运行时 U30 materialize(feat/g3.6-meshrt-vkrt,RFC-0013 §4.E8/§6.4/E-2;agent 完全自主 D-406 v2.0):U.on_tree_max 28→30、next_free 29→31——**U30 = 🔒 AS 构建 / SBT 布局 / device-address 细审计**(全期最高危 unsafe 面,裸 GPU 指针 `vkGetAccelerationStructureDeviceAddressKHR`/`vkGetBufferDeviceAddress` + SBT 三 region 对齐算术;`src/rurix-rt/src/vk.rs` run_ray_tracing_offscreen/rt_body,unsafe-audit/rurix-rt.md 新增 U30 行)。**U29 = EA1 预留显式跳让,不回收**(G3 净新增 1 个 U 号,契约 §6.4/E-2「G3 净消费 U30 一个,余折叠 U27 扩注」)。mesh 管线运行时(run_mesh_offscreen,RXS-0248 前半)在 graphics FFI 边界内 **折叠 U27 扩注 0 新号**。反映 reserved_in_flight[G3].U「U30 起」的 materialize。零新 RXS(RXS-0248 由 RFC-0013 §5 既定,本 revision 不改 RXS 命名空间号)、零新 RD/SG/error-code;g3.counter.mesh_task_rt_stages 回填 milestones/g3/g3_budget.json(counter 命名空间不入 number_ledger)。CI 步骤 66/67(mesh/RT device smoke)+ 68/69(DXIL probe,codegen 腿 meshrt_probe_smoke 接线)落 pr-smoke.yml。"
+  }
+ ]
 }

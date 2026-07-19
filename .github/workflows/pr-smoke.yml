@@ -618,6 +618,27 @@ jobs:
         shell: powershell
         run: py -3 ci/render_graph_smoke.py
 
+      # 步骤 66/67（G-G3-6,RFC-0013 §4.E7/E8 / RXS-0248）:mesh-task-RT 运行时面冒烟。
+      # `ci/meshrt_device_smoke.py` host 段（步骤 66/67）**恒跑**(🔒 SBT 三 region 对齐律不变式 +
+      # 扩展协商缺失确定性 Err + AS/RT FFI 布局逐字节锚纯 host 单测 + mesh/RT 编码腿见证语料 spirv-val
+      # vulkan1.2/spv1.4 三态)。device 段(bin/vk_mesh mesh 管线出图 covered + 篡改 SetMeshOutputs RED /
+      # bin/vk_rt 单三角形 TLAS 命中·miss 双色 + 移动顶点 RED)= **交互 GPU 链路,不进 pr-smoke 硬门**
+      # (镜像 render graph / bindless 双态)——默认 SKIP(dev-env degrade,退 0),须显式 RURIX_MESH_DEVICE=1 /
+      # RURIX_RT_DEVICE=1(或 RURIX_REQUIRE_REAL=1)opt-in 真跑;**device 首跑归 owner 本机活驱动(RTX
+      # 4070 Ti,validation 开:全机构零 validation 报错),coverage-producing 见证语料 + 像素判据阈值 =
+      # owner 校准 TODO**(stages_ok 去重 ≥3 计入 g3.counter.mesh_task_rt_stages)。**AMD 真卡见证 = G-MB1-6**。
+      - name: mesh-task-RT device smoke (G3 CI_GATES §2.66/67, G-G3-6, RFC-0013 §4.E7/E8)
+        shell: powershell
+        run: py -3 ci/meshrt_device_smoke.py
+
+      # 步骤 68/69（RFC-0013 §4.E9 / RXS-0249）:mesh/task DXIL B 链 probe + RT blocked 探针。
+      # `ci/meshrt_probe_smoke.py`（spirv-cross→dxc ms_6_5 probe;RT raygen spirv-cross **预期失败 =
+      # 探针 PASS**,意外绿翻红防静默腐烂）;glslang/spirv-cross/dxc 缺 → SKIP(dev-env degrade,退 0),
+      # RURIX_REQUIRE_REAL=1 翻硬红。退出码判定非 grep(P0-5 教训)。
+      - name: mesh-task-RT DXIL probe smoke (G3 CI_GATES §2.68/69, RFC-0013 §4.E9)
+        shell: powershell
+        run: py -3 ci/meshrt_probe_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

@@ -1351,6 +1351,9 @@
     "RXS-0247": [
       "src/rurixc/src/vulkan_codegen.rs"
     ],
+    "RXS-0248": [
+      "src/rurix-rt/src/vk.rs"
+    ],
     "RXS-0249": [
       "src/rurixc/src/dxil_codegen.rs"
     ]

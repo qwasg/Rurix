@@ -28,6 +28,10 @@
     {
       "id": "g3.counter.auto_barrier_hazard_redgreen",
       "description": "render graph 自动 barrier hazard 检出红绿 device 见证数 ≥1(契约 G-G3-5;RFC-0013 §4.D / RXS-0236~0241;uc04 deferred 三 pass 图迁 Graph API 经 run_graph 自动状态推导重跑步骤 48 同判据〔auto_barrier_deferred_match〕+ 漏声明 read → 装配期 strict 拒 RED〔undeclared_read_strict_reject〕+ Vulkan 同图 run_graph 出图对照〔vulkan_run_graph_match〕);计数源 = evidence/graph_*.json 中 hazard_ok=true 报告数(机器事实:ci/render_graph_smoke.py device 段真跑写)。auto barrier 真跑 = 交互 GPU 链路,**不进 pr-smoke 硬门**(镜像 g3.counter.bindless_descriptor_smoke 双态先例);无显示/无 GPU/未 opt-in → device 段 SKIP=dev-env degrade 非 fake pass → 0 → 建设期 normal SKIP / close-out strict FAIL,对齐 g3.counter.bindless_descriptor_smoke 先例。RURIX_REQUIRE_REAL=1 时缺失翻硬红。**host 段恒跑不入本 counter 但为本面核心**(D6 互证金标准:graph.rs 推导集 == uc04 RXS-0169 手动锚点集集合相等双向〔src/uc04-demo/tests/d6_crosscheck.rs〕+ 图合法性 reject 四族 RX6029/RX6030 + 推导 golden 确定性双跑〔src/rurix-rt/src/graph.rs〕+ cabi rxrt_graph_* 符号面〔src/rurix-rt-cabi〕)。**D3D12 shim 执行器诚实边界**:shim C++ pass/barrier 数组下发入口大改留后续,device 首跑先经 Vulkan run_graph(本机活驱动)。**AMD 真卡见证 = G-MB1-6 硬件尾门独立存续**(本机 RTX 4070 Ti measured 不充作 AMD)。"
+    },
+    {
+      "id": "g3.counter.mesh_task_rt_stages",
+      "description": "mesh-task-RT 面 device 阶段去重基数 ≥3(契约 G-G3-6;RFC-0013 §4.E7/E8 / RXS-0248;bin/vk_mesh mesh 管线出图 covered 计数 + 篡改 SetMeshOutputs 顶点数 RED〔mesh 阶段〕/ bin/vk_rt 单三角形 TLAS raygen/miss/closesthit 命中·miss 双色 + 移动顶点命中区移动 RED〔raygen/miss/closesthit 阶段〕;逐项篡改·移动→像素变 RED 复原 GREEN 数据流红绿)。计数源 = evidence/meshrt_*.json 中 stages_ok 去重基数(取并集;ci/meshrt_device_smoke.py device 段真跑写)。mesh/RT device 真跑 = 交互 GPU 链路,**不进 pr-smoke 硬门**(镜像 g3.counter.auto_barrier_hazard_redgreen 双态先例);无显示/无 GPU/未 opt-in → device 段 SKIP=dev-env degrade 非 fake pass → 0 → 建设期 normal SKIP / close-out strict FAIL,对齐 g3.counter.auto_barrier_hazard_redgreen 先例。RURIX_REQUIRE_REAL=1 时缺失翻硬红。**host 段(SBT 三 region 对齐律不变式 + 扩展协商缺失确定性 Err + FFI 布局逐字节锚纯 host 单测 + 见证语料 spirv-val vulkan1.2/spv1.4 三态)恒跑不入本 counter 但为本面核心验收**。device 首跑(本机 RTX 4070 Ti,validation 开)mesh 管线 + BLAS/TLAS/SBT/TraceRays 全机构零 validation 报错;像素判据阈值(coverage-producing mesh + 写 storage image 的 raygen 见证语料 + hit/miss 色)= owner 本机迭代校准 TODO(codegen emit_mesh_min 退化三角形 / emit_raygen_min 首期不写 storage image → 首期 PARTIAL,机构就位)。**AMD 真卡见证 = G-MB1-6 硬件尾门独立存续**(本机 RTX 4070 Ti measured 不充作 AMD)。"
     }
   ],
   "namespace_check": {
@@ -59,6 +63,11 @@
       "version": "v1.3",
       "date": "2026-07-19",
       "change": "G3.4 bindless 面回填 counter_assertions[g3.counter.bindless_descriptor_smoke](RFC-0013 §4.C / §6.5 PR-K2,契约 G-G3-4;条款先于实现,登记与 ci/budget_eval.py evaluator 分支 + ci/bindless_smoke.py + milestones/g3/bindless_descriptor_smoke_evidence_schema.json 同 PR,未知 id 强制 FAIL 纪律)。计数源 = evidence/bindless_*.json 中 smoke_ok=true 报告数(ci/bindless_smoke.py device 段真跑写:≥4 纹理注册表按屏幕象限动态索引采样==四色 + 篡改注册序→像素换位 RED + feature chain 四 bit 缺失→确定性 Err;harness bin/bindless_modes 判据结构就位,数值阈值 TODO 留 owner 本机)。bindless 索引真跑 = 交互 GPU 链路不进 pr-smoke 硬门,无显示/无 GPU/未 opt-in → device SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL(对齐 g3.counter.sampling_superset_modes 先例);RURIX_REQUIRE_REAL=1 缺失翻硬红。host 段(步骤 64 Unbounded 合法化 + 独占 space 分配律 + RTS0 roundtrip 单测 + nonuniform 缺失 reject UI golden + bindless SPIR-V spirv-val vulkan1.2 三态)恒跑不入本 counter。AMD 真卡见证 = G-MB1-6 硬件尾门独立存续(本机 RTX 4070 Ti measured 不充作 AMD)。entries/ratio_assertions 维持留空(零 estimated 铁律)。"
+    },
+    {
+      "version": "v1.5",
+      "date": "2026-07-19",
+      "change": "G3.6 mesh-task-RT 面回填 counter_assertions[g3.counter.mesh_task_rt_stages](RFC-0013 §4.E7/E8 / §6.5 PR-Mc/Md,契约 G-G3-6;条款先于实现,登记与 ci/budget_eval.py evaluator 分支 + ci/meshrt_device_smoke.py + milestones/g3/meshrt_stages_evidence_schema.json 同 PR,未知 id 强制 FAIL 纪律)。计数源 = evidence/meshrt_*.json 中 stages_ok 去重基数(≥3:mesh/raygen/closesthit;bin/vk_mesh + bin/vk_rt device 段真跑写)。mesh/RT device 真跑 = 交互 GPU 链路不进 pr-smoke 硬门,无显示/无 GPU/未 opt-in → device SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL(对齐 g3.counter.auto_barrier_hazard_redgreen 先例);RURIX_REQUIRE_REAL=1 缺失翻硬红。host 段(SBT 对齐/协商/FFI 布局纯 host 单测 + 见证语料 spirv-val 三态)恒跑不入本 counter。device 首跑(RTX 4070 Ti,validation 开)全机构零 validation 报错,像素阈值 owner device 调优 TODO(emit_mesh_min 退化三角形 / emit_raygen_min 首期不写 storage image → PARTIAL,机构就位)。AMD 真卡见证 = G-MB1-6 硬件尾门独立存续。entries/ratio_assertions 维持留空(零 estimated 铁律)。"
     }
   ]
 }

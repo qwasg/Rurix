@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/mesh_task_rt_stages/v1",
+  "title": "Rurix mesh-task-RT 阶段 device 见证证据 JSON(G3.6,契约 G-G3-6,RFC-0013 §4.E7/E8 / RXS-0248)",
+  "description": "mesh 管线 + BLAS/TLAS/SBT/TraceRays 运行时 device 阶段见证:bin/vk_mesh(mesh 管线出图 covered 计数 + 篡改 SetMeshOutputs 顶点数 RED)+ bin/vk_rt(单三角形 TLAS raygen/miss/closesthit 命中/miss 双色 + 移动顶点命中区移动 RED)。逐项『篡改/移动→像素变=RED,复原=GREEN』数据流红绿(RXS-0176 IR2)。stages_ok = device 像素判据真过的着色阶段去重集;smoke_ok = 全判据通过。kind=mesh(vk_mesh)/rt(vk_rt)。**device 判据阈值随实现 PR 定案(harness 判据结构就位:covered 计数/命中·miss 色/篡改·移动 RED;coverage-producing mesh + 写 storage image 的 raygen 见证语料 + 像素阈值 TODO 留 owner 本机 RTX 4070 Ti)**。计数源 g3.counter.mesh_task_rt_stages = evidence/meshrt_*.json 中 stages_ok 去重基数(≥3:mesh/raygen/closesthit;ci/budget_eval.py)。机器复核闸门 = ci/meshrt_device_smoke.py(host 段恒跑:SBT 三 region 对齐律不变式 + 扩展协商缺失确定性 Err + FFI 布局逐字节锚纯 host 单测 + 见证语料 spirv-val vulkan1.2/spv1.4 三态;device 段:vk_mesh/vk_rt harness 像素红绿)。device 真跑 = 交互 GPU 链路,**无显示/无 GPU/未 opt-in → device 段 SKIP=dev-env degrade 非 fake pass**(不充绿);RURIX_REQUIRE_REAL=1 时缺失翻硬红。**AMD 真卡见证 = G-MB1-6 硬件尾门独立存续**(本机 RTX 4070 Ti measured 不充作 AMD)。",
+  "type": "object",
+  "required": ["schema_version", "subject", "smoke_ok", "timestamp"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "subject": { "const": "mesh_task_rt_stages" },
+    "smoke_ok": {
+      "description": "本 harness device 像素判据全过(vk_mesh:mesh 出图 + 篡改 RED;vk_rt:命中/miss 双色 + 移动 RED)",
+      "type": "boolean"
+    },
+    "kind": {
+      "description": "见证 harness 类别:mesh(bin/vk_mesh)/ rt(bin/vk_rt)",
+      "type": "string",
+      "enum": ["mesh", "rt"]
+    },
+    "stages_ok": {
+      "description": "device 像素判据真过的着色阶段名去重集(RFC-0013 §4.E7/E8;g3.counter.mesh_task_rt_stages 跨 meshrt_*.json 去重 ≥3=PASS)",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["mesh", "task", "raygen", "miss", "closesthit"]
+      },
+      "uniqueItems": true
+    },
+    "milestone": { "type": "string" },
+    "adapter": {
+      "description": "选中的硬件 adapter 名(device 见证)",
+      "type": "string"
+    },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "stdout": { "type": "string" }
+  }
+}

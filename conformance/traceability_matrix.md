@@ -247,4 +247,5 @@
 | RXS-0245 | spec/shader_stages.md | 1 | `src/rurixc/src/shader_stages.rs` |
 | RXS-0246 | spec/vulkan_backend.md | 1 | `src/rurixc/src/vulkan_codegen.rs` |
 | RXS-0247 | spec/vulkan_backend.md | 1 | `src/rurixc/src/vulkan_codegen.rs` |
+| RXS-0248 | spec/vulkan_backend.md | 1 | `src/rurix-rt/src/vk.rs` |
 | RXS-0249 | spec/dxil_backend.md | 1 | `src/rurixc/src/dxil_codegen.rs` |
