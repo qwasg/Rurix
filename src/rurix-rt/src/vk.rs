@@ -8896,6 +8896,1322 @@ pub fn graph_image_barrier_fields(
     )
 }
 
+/// 一趟 render graph pass 的绘制参数（[`run_graph_offscreen`] 消费；镜像 v1/v2 顶点面签名）。
+pub struct GraphPassDraw<'a> {
+    /// vertex SPIR-V（`OpEntryPoint` 名恒 `"main"`）。
+    pub vs_spv: &'a [u32],
+    /// fragment SPIR-V。
+    pub fs_spv: &'a [u32],
+    /// 交错顶点字节（每顶点 `vertex_stride` 字节）。
+    pub vertices: &'a [u8],
+    /// 每顶点字节步长。
+    pub vertex_stride: u32,
+    /// `(location, format, offset)` 顶点属性（单 binding 0）。
+    pub attrs: &'a [(u32, u32, u32)],
+    /// 清屏色 RGBA（f32）。
+    pub clear: [f32; 4],
+}
+
+/// 最小两 pass render graph device 执行器（RXS-0240 / RFC-0013 §4.D D5）：pass0 三角形写
+/// offscreen RT（资源 0）→ **pass 边界 `vkCmdPipelineBarrier` 全取 `graph.rs` 纯 host 推导
+/// 产物 `plan`**（逐字重放 [`graph_image_barrier_fields`] 映射；执行器**禁二次推导或语义
+/// 重映射**，P-11 单一事实源）→ pass1 全屏采样该 RT（set1 SRV binding0 + set3 immutable
+/// sampler binding0，镜像 [`run_graphics_offscreen_v2`] descriptor 分配律）出 final（资源 1）
+/// → `vkCmdCopyImageToBuffer` 回读 final 紧凑 RGBA8。既有 `run_graphics_offscreen` /
+/// `run_graphics_offscreen_v2` / `run_graphics_present` 手写定点 barrier 路 **0-byte 保留**。
+///
+/// **契约（首期最小见证，非完整 uc04 deferred MRT）**：`plan` = 对图「资源 0 =
+/// `color_target(rt0)`、资源 1 = `color_target(final)`；pass0 `writes_rt(rt0)`；pass1
+/// `reads(rt0)` + `writes_rt(final)`」的 [`crate::graph::Graph::derive_barriers`] 产物（恰
+/// 1 条 rt0 `RenderTarget→PixelShaderResource` @ `at_pass=1`）。执行器把 `at_pass==1` 的
+/// image transition barrier 逐条经 `graph_image_barrier_fields` 重放为 `vkCmdPipelineBarrier`：
+/// pass0 render pass `finalLayout` 停在 `COLOR_ATTACHMENT_OPTIMAL`，barrier 迁至
+/// `SHADER_READ_ONLY_OPTIMAL`。**`plan` 缺该 barrier（漏声明 read）→ rt0 停在
+/// `COLOR_ATTACHMENT_OPTIMAL` 而 pass1 descriptor 声明 `SHADER_READ_ONLY_OPTIMAL` →
+/// validation 报错**（RXS-0239 hazard 红绿；`RURIX_VK_VALIDATION=1` fail-closed 翻 `Err`）。
+/// pass1 采样点数值判据 / 期望色 / 容差 = **owner 本机迭代校准**（`bin/graph_modes`，步骤 65）。
+///
+/// 缺 Vulkan 驱动 / 无 graphics queue / pipeline 建失败 → 确定性 `Err`（P-01 fail-closed，
+/// 无静默 fallback）。资源映射：`plan` 内 `resource.0 == 0` → rt0；`== 1` → final。
+///
+/// # SAFETY（U27 扩注，graphics FFI 边界，0 新 U 号）
+/// 对上全 safe（无 `unsafe` 签名）。内部 `run_graph_inner`/`run_graph_body` 契约同 v1/v2
+/// U27：`vulkan-1.dll` 经 loader 动态装载（缺失 → `Err` 非 panic）；每个 `#[repr(C)]`
+/// VkStruct 与 spec 逐字节对齐；两 pass 的句柄（rt0/final image·mem·view / sampler /
+/// renderPass×2 / framebuffer×2 / setLayout×4 / descriptorPool / pipelineLayout×2 /
+/// pipeline×2 / shaderModule×4 / vertexBuffer×2 / readbackBuffer / commandPool）在
+/// `run_graph_body` 内**线性配对 create/destroy**（末尾逆序销毁：pool 先于 setLayout，view
+/// 先于 image 先于 memory）；顶点/回读缓冲 host-visible+coherent（免 flush）；单 graphics
+/// queue 同步提交 + `vkQueueWaitIdle` 后回读（无数据竞争）；messenger fail-closed 同 v1。
+/// gate feature `vulkan` 默认关闭，CUDA 路零回归。
+//@ spec: RXS-0240
+pub fn run_graph_offscreen(
+    plan: &[crate::graph::PlannedBarrier],
+    pass0: &GraphPassDraw,
+    pass1: &GraphPassDraw,
+    sampler: &SamplerDesc,
+    width: u32,
+    height: u32,
+) -> Result<Vec<u8>, String> {
+    let gipa = load_vulkan_loader().ok_or("vulkan loader (vulkan-1.dll/libvulkan.so) 不可用")?;
+    // SAFETY: 见 U27 扩注（上）；句柄生命周期由内部函数线性管理，末尾逆序销毁。
+    unsafe { run_graph_inner(gipa, plan, pass0, pass1, sampler, width, height) }
+}
+
+#[allow(clippy::too_many_arguments)]
+unsafe fn run_graph_inner(
+    gipa: FnGetInstanceProcAddr,
+    plan: &[crate::graph::PlannedBarrier],
+    pass0: &GraphPassDraw,
+    pass1: &GraphPassDraw,
+    sampler: &SamplerDesc,
+    width: u32,
+    height: u32,
+) -> Result<Vec<u8>, String> {
+    let vk_create_instance: FnCreateInstance =
+        cast_fn(gipa(std::ptr::null_mut(), c"vkCreateInstance".as_ptr()))
+            .ok_or("缺 vkCreateInstance")?;
+
+    let validation = std::env::var("RURIX_VK_VALIDATION").as_deref() == Ok("1");
+    let layer_name = c"VK_LAYER_KHRONOS_validation";
+    let layers: [*const c_char; 1] = [layer_name.as_ptr()];
+    let debug_ext = c"VK_EXT_debug_utils";
+    let exts: [*const c_char; 1] = [debug_ext.as_ptr()];
+    let app = ApplicationInfo {
+        s_type: ST_APPLICATION_INFO,
+        p_next: std::ptr::null(),
+        p_application_name: c"rurix-mb1".as_ptr(),
+        application_version: 0,
+        p_engine_name: c"rurix".as_ptr(),
+        engine_version: 0,
+        api_version: API_VERSION_1_1,
+    };
+    let ici = InstanceCreateInfo {
+        s_type: ST_INSTANCE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        p_application_info: &app,
+        enabled_layer_count: if validation { 1 } else { 0 },
+        pp_enabled_layer_names: if validation {
+            layers.as_ptr()
+        } else {
+            std::ptr::null()
+        },
+        enabled_extension_count: if validation { 1 } else { 0 },
+        pp_enabled_extension_names: if validation {
+            exts.as_ptr()
+        } else {
+            std::ptr::null()
+        },
+    };
+    let mut instance: VkInstance = std::ptr::null_mut();
+    let r = vk_create_instance(&ici, std::ptr::null(), &mut instance);
+    if r != VK_SUCCESS {
+        return Err(format!("vkCreateInstance 失败: {r}"));
+    }
+
+    let vk_destroy_instance: FnDestroyInstance =
+        cast_fn(gipa(instance, c"vkDestroyInstance".as_ptr())).ok_or("缺 vkDestroyInstance")?;
+    let vk_enum_pd: FnEnumeratePhysicalDevices =
+        cast_fn(gipa(instance, c"vkEnumeratePhysicalDevices".as_ptr()))
+            .ok_or("缺 vkEnumeratePhysicalDevices")?;
+    let vk_get_qf: FnGetPhysicalDeviceQueueFamilyProperties = cast_fn(gipa(
+        instance,
+        c"vkGetPhysicalDeviceQueueFamilyProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkGetPhysicalDeviceQueueFamilyProperties")?;
+    let vk_get_mem: FnGetPhysicalDeviceMemoryProperties = cast_fn(gipa(
+        instance,
+        c"vkGetPhysicalDeviceMemoryProperties".as_ptr(),
+    ))
+    .ok_or("缺 vkGetPhysicalDeviceMemoryProperties")?;
+    let vk_create_device: FnCreateDevice =
+        cast_fn(gipa(instance, c"vkCreateDevice".as_ptr())).ok_or("缺 vkCreateDevice")?;
+    let vk_get_device_proc: FnGetDeviceProcAddr =
+        cast_fn(gipa(instance, c"vkGetDeviceProcAddr".as_ptr())).ok_or("缺 vkGetDeviceProcAddr")?;
+
+    // fail-closed（L3，RXS-0210 口径）：validation 开时装 debug messenger，ERROR 级校验消息
+    // 经回调置标志 → 末尾翻 `Err`（漏 barrier 的 layout 失配以退出码判红）。置于全部 instance-符号
+    // `?` 查找之后、首个 Vulkan 调用之前（其间纯取址，无 messenger 需求；闭合泄漏窗口）。
+    let validation_error = std::sync::atomic::AtomicBool::new(false);
+    let mut messenger: VkDebugUtilsMessengerEXT = VK_NULL_HANDLE;
+    let destroy_messenger: Option<FnDestroyDebugUtilsMessengerEXT> = if validation {
+        cast_fn(gipa(instance, c"vkDestroyDebugUtilsMessengerEXT".as_ptr()))
+    } else {
+        None
+    };
+    if validation
+        && let Some(create_messenger) = cast_fn::<FnCreateDebugUtilsMessengerEXT>(gipa(
+            instance,
+            c"vkCreateDebugUtilsMessengerEXT".as_ptr(),
+        ))
+    {
+        let dumci = DebugUtilsMessengerCreateInfoEXT {
+            s_type: ST_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+            p_next: std::ptr::null(),
+            flags: 0,
+            message_severity: DEBUG_UTILS_SEVERITY_ERROR,
+            message_type: DEBUG_UTILS_TYPE_GENERAL
+                | DEBUG_UTILS_TYPE_VALIDATION
+                | DEBUG_UTILS_TYPE_PERFORMANCE,
+            pfn_user_callback: debug_messenger_cb,
+            p_user_data: &validation_error as *const std::sync::atomic::AtomicBool as *mut c_void,
+        };
+        let _ = create_messenger(instance, &dumci, std::ptr::null(), &mut messenger);
+    }
+    macro_rules! destroy_msgr {
+        () => {
+            if let Some(dm) = destroy_messenger {
+                if messenger != VK_NULL_HANDLE {
+                    dm(instance, messenger, std::ptr::null());
+                }
+            }
+        };
+    }
+
+    let mut count = 0u32;
+    vk_enum_pd(instance, &mut count, std::ptr::null_mut());
+    if count == 0 {
+        destroy_msgr!();
+        vk_destroy_instance(instance, std::ptr::null());
+        return Err("无 Vulkan 物理设备".into());
+    }
+    let mut pds = vec![std::ptr::null_mut::<c_void>(); count as usize];
+    vk_enum_pd(instance, &mut count, pds.as_mut_ptr());
+    let pd = pds[0];
+
+    let mut qf_count = 0u32;
+    vk_get_qf(pd, &mut qf_count, std::ptr::null_mut());
+    let mut qfs: Vec<QueueFamilyProperties> = (0..qf_count)
+        .map(|_| QueueFamilyProperties {
+            queue_flags: 0,
+            queue_count: 0,
+            timestamp_valid_bits: 0,
+            min_image_transfer_granularity: VkExtent3D {
+                width: 0,
+                height: 0,
+                depth: 0,
+            },
+        })
+        .collect();
+    vk_get_qf(pd, &mut qf_count, qfs.as_mut_ptr());
+    let qfi = match qfs
+        .iter()
+        .position(|q| q.queue_flags & QUEUE_GRAPHICS_BIT != 0)
+    {
+        Some(i) => i as u32,
+        None => {
+            destroy_msgr!();
+            vk_destroy_instance(instance, std::ptr::null());
+            return Err("无 graphics queue family".into());
+        }
+    };
+
+    let prio = [1.0f32];
+    let dqci = DeviceQueueCreateInfo {
+        s_type: ST_DEVICE_QUEUE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        queue_family_index: qfi,
+        queue_count: 1,
+        p_queue_priorities: prio.as_ptr(),
+    };
+    let dci = DeviceCreateInfo {
+        s_type: ST_DEVICE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        queue_create_info_count: 1,
+        p_queue_create_infos: &dqci,
+        enabled_layer_count: 0,
+        pp_enabled_layer_names: std::ptr::null(),
+        enabled_extension_count: 0,
+        pp_enabled_extension_names: std::ptr::null(),
+        p_enabled_features: std::ptr::null(),
+    };
+    let mut device: VkDevice = std::ptr::null_mut();
+    let r = vk_create_device(pd, &dci, std::ptr::null(), &mut device);
+    if r != VK_SUCCESS {
+        destroy_msgr!();
+        vk_destroy_instance(instance, std::ptr::null());
+        return Err(format!("vkCreateDevice 失败: {r}"));
+    }
+
+    let mut out = run_graph_body(
+        vk_get_device_proc,
+        device,
+        pd,
+        vk_get_mem,
+        qfi,
+        plan,
+        pass0,
+        pass1,
+        sampler,
+        width,
+        height,
+    );
+
+    if validation && validation_error.load(std::sync::atomic::Ordering::Relaxed) {
+        out =
+            Err("VK_LAYER_KHRONOS_validation 报 ERROR 级校验错误(见 stderr;fail-closed,L3)".into());
+    }
+
+    let vk_destroy_device: Option<FnDestroyDevice> =
+        cast_fn(vk_get_device_proc(device, c"vkDestroyDevice".as_ptr()));
+    if let Some(dd) = vk_destroy_device {
+        dd(device, std::ptr::null());
+    }
+    destroy_msgr!();
+    vk_destroy_instance(instance, std::ptr::null());
+    out
+}
+
+#[allow(clippy::too_many_arguments)]
+unsafe fn run_graph_body(
+    gdpa: FnGetDeviceProcAddr,
+    device: VkDevice,
+    pd: VkPhysicalDevice,
+    vk_get_mem: FnGetPhysicalDeviceMemoryProperties,
+    qfi: u32,
+    plan: &[crate::graph::PlannedBarrier],
+    pass0: &GraphPassDraw,
+    pass1: &GraphPassDraw,
+    sampler: &SamplerDesc,
+    width: u32,
+    height: u32,
+) -> Result<Vec<u8>, String> {
+    macro_rules! dp {
+        ($name:literal, $ty:ty) => {
+            cast_fn::<$ty>(gdpa(device, $name.as_ptr())).ok_or("缺 device 符号")?
+        };
+    }
+    let get_queue: FnGetDeviceQueue = dp!(c"vkGetDeviceQueue", FnGetDeviceQueue);
+    let create_buffer: FnCreateBuffer = dp!(c"vkCreateBuffer", FnCreateBuffer);
+    let destroy_buffer: FnDestroyBuffer = dp!(c"vkDestroyBuffer", FnDestroyBuffer);
+    let buf_mem_req: FnGetBufferMemoryRequirements = dp!(
+        c"vkGetBufferMemoryRequirements",
+        FnGetBufferMemoryRequirements
+    );
+    let alloc_mem: FnAllocateMemory = dp!(c"vkAllocateMemory", FnAllocateMemory);
+    let free_mem: FnFreeMemory = dp!(c"vkFreeMemory", FnFreeMemory);
+    let bind_buf: FnBindBufferMemory = dp!(c"vkBindBufferMemory", FnBindBufferMemory);
+    let map_mem: FnMapMemory = dp!(c"vkMapMemory", FnMapMemory);
+    let unmap_mem: FnUnmapMemory = dp!(c"vkUnmapMemory", FnUnmapMemory);
+    let create_shader: FnCreateShaderModule = dp!(c"vkCreateShaderModule", FnCreateShaderModule);
+    let destroy_shader: FnDestroyShaderModule =
+        dp!(c"vkDestroyShaderModule", FnDestroyShaderModule);
+    let create_pl: FnCreatePipelineLayout = dp!(c"vkCreatePipelineLayout", FnCreatePipelineLayout);
+    let destroy_pl: FnDestroyPipelineLayout =
+        dp!(c"vkDestroyPipelineLayout", FnDestroyPipelineLayout);
+    let destroy_pipe: FnDestroyPipeline = dp!(c"vkDestroyPipeline", FnDestroyPipeline);
+    let create_cmdpool: FnCreateCommandPool = dp!(c"vkCreateCommandPool", FnCreateCommandPool);
+    let destroy_cmdpool: FnDestroyCommandPool = dp!(c"vkDestroyCommandPool", FnDestroyCommandPool);
+    let alloc_cmd: FnAllocateCommandBuffers =
+        dp!(c"vkAllocateCommandBuffers", FnAllocateCommandBuffers);
+    let begin_cmd: FnBeginCommandBuffer = dp!(c"vkBeginCommandBuffer", FnBeginCommandBuffer);
+    let end_cmd: FnEndCommandBuffer = dp!(c"vkEndCommandBuffer", FnEndCommandBuffer);
+    let cmd_bind_pipe: FnCmdBindPipeline = dp!(c"vkCmdBindPipeline", FnCmdBindPipeline);
+    let queue_submit: FnQueueSubmit = dp!(c"vkQueueSubmit", FnQueueSubmit);
+    let queue_wait: FnQueueWaitIdle = dp!(c"vkQueueWaitIdle", FnQueueWaitIdle);
+    let create_image: FnCreateImage = dp!(c"vkCreateImage", FnCreateImage);
+    let destroy_image: FnDestroyImage = dp!(c"vkDestroyImage", FnDestroyImage);
+    let img_mem_req: FnGetImageMemoryRequirements = dp!(
+        c"vkGetImageMemoryRequirements",
+        FnGetImageMemoryRequirements
+    );
+    let bind_image: FnBindImageMemory = dp!(c"vkBindImageMemory", FnBindImageMemory);
+    let create_view: FnCreateImageView = dp!(c"vkCreateImageView", FnCreateImageView);
+    let destroy_view: FnDestroyImageView = dp!(c"vkDestroyImageView", FnDestroyImageView);
+    let create_rp: FnCreateRenderPass = dp!(c"vkCreateRenderPass", FnCreateRenderPass);
+    let destroy_rp: FnDestroyRenderPass = dp!(c"vkDestroyRenderPass", FnDestroyRenderPass);
+    let create_fb: FnCreateFramebuffer = dp!(c"vkCreateFramebuffer", FnCreateFramebuffer);
+    let destroy_fb: FnDestroyFramebuffer = dp!(c"vkDestroyFramebuffer", FnDestroyFramebuffer);
+    let create_gp: FnCreateGraphicsPipelines =
+        dp!(c"vkCreateGraphicsPipelines", FnCreateGraphicsPipelines);
+    let cmd_begin_rp: FnCmdBeginRenderPass = dp!(c"vkCmdBeginRenderPass", FnCmdBeginRenderPass);
+    let cmd_end_rp: FnCmdEndRenderPass = dp!(c"vkCmdEndRenderPass", FnCmdEndRenderPass);
+    let cmd_bind_vbuf: FnCmdBindVertexBuffers =
+        dp!(c"vkCmdBindVertexBuffers", FnCmdBindVertexBuffers);
+    let cmd_draw: FnCmdDraw = dp!(c"vkCmdDraw", FnCmdDraw);
+    let cmd_barrier: FnCmdPipelineBarrier = dp!(c"vkCmdPipelineBarrier", FnCmdPipelineBarrier);
+    let cmd_copy_img_buf: FnCmdCopyImageToBuffer =
+        dp!(c"vkCmdCopyImageToBuffer", FnCmdCopyImageToBuffer);
+    // descriptor + sampler 符号（pass1 采样 rt0；镜像 graphics_body_v2）。
+    let create_dsl: FnCreateDescriptorSetLayout =
+        dp!(c"vkCreateDescriptorSetLayout", FnCreateDescriptorSetLayout);
+    let destroy_dsl: FnDestroyDescriptorSetLayout = dp!(
+        c"vkDestroyDescriptorSetLayout",
+        FnDestroyDescriptorSetLayout
+    );
+    let create_dpool: FnCreateDescriptorPool =
+        dp!(c"vkCreateDescriptorPool", FnCreateDescriptorPool);
+    let destroy_dpool: FnDestroyDescriptorPool =
+        dp!(c"vkDestroyDescriptorPool", FnDestroyDescriptorPool);
+    let alloc_ds: FnAllocateDescriptorSets =
+        dp!(c"vkAllocateDescriptorSets", FnAllocateDescriptorSets);
+    let update_ds: FnUpdateDescriptorSets = dp!(c"vkUpdateDescriptorSets", FnUpdateDescriptorSets);
+    let cmd_bind_ds: FnCmdBindDescriptorSets =
+        dp!(c"vkCmdBindDescriptorSets", FnCmdBindDescriptorSets);
+    let create_sampler: FnCreateSampler = dp!(c"vkCreateSampler", FnCreateSampler);
+    let destroy_sampler: FnDestroySampler = dp!(c"vkDestroySampler", FnDestroySampler);
+
+    let mut queue: VkQueue = std::ptr::null_mut();
+    get_queue(device, qfi, 0, &mut queue);
+
+    let mut memprops = std::mem::zeroed::<PhysicalDeviceMemoryProperties>();
+    vk_get_mem(pd, &mut memprops);
+
+    let readback_len = (width as usize) * (height as usize) * 4;
+
+    // host-visible buffer helper（顶点/回读共用；镜像 v1/v2）。
+    let make_host_buffer = |usage: u32, size: u64| -> Result<(VkBuffer, VkDeviceMemory), String> {
+        let bci = BufferCreateInfo {
+            s_type: ST_BUFFER_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            size: size.max(4),
+            usage,
+            sharing_mode: SHARING_MODE_EXCLUSIVE,
+            queue_family_index_count: 0,
+            p_queue_family_indices: std::ptr::null(),
+        };
+        let mut buffer: VkBuffer = VK_NULL_HANDLE;
+        if create_buffer(device, &bci, std::ptr::null(), &mut buffer) != VK_SUCCESS {
+            return Err("vkCreateBuffer 失败".into());
+        }
+        let mut req = std::mem::zeroed::<MemoryRequirements>();
+        buf_mem_req(device, buffer, &mut req);
+        let Some(mt) = pick_mem_type(
+            &memprops,
+            req.memory_type_bits,
+            MEM_HOST_VISIBLE | MEM_HOST_COHERENT,
+        ) else {
+            destroy_buffer(device, buffer, std::ptr::null());
+            return Err("无 host-visible+coherent 内存类型".into());
+        };
+        let mai = MemoryAllocateInfo {
+            s_type: ST_MEMORY_ALLOCATE_INFO,
+            p_next: std::ptr::null(),
+            allocation_size: req.size,
+            memory_type_index: mt,
+        };
+        let mut mem: VkDeviceMemory = VK_NULL_HANDLE;
+        if alloc_mem(device, &mai, std::ptr::null(), &mut mem) != VK_SUCCESS {
+            destroy_buffer(device, buffer, std::ptr::null());
+            return Err("vkAllocateMemory 失败".into());
+        }
+        bind_buf(device, buffer, mem, 0);
+        Ok((buffer, mem))
+    };
+
+    // device-local 2D 图像 helper。
+    let make_image = |usage: u32| -> Result<(VkImage, VkDeviceMemory), String> {
+        let ici = ImageCreateInfo {
+            s_type: ST_IMAGE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            image_type: IMAGE_TYPE_2D,
+            format: FORMAT_R8G8B8A8_UNORM,
+            extent: VkExtent3D {
+                width,
+                height,
+                depth: 1,
+            },
+            mip_levels: 1,
+            array_layers: 1,
+            samples: SAMPLE_COUNT_1,
+            tiling: IMAGE_TILING_OPTIMAL,
+            usage,
+            sharing_mode: SHARING_MODE_EXCLUSIVE,
+            queue_family_index_count: 0,
+            p_queue_family_indices: std::ptr::null(),
+            initial_layout: IMAGE_LAYOUT_UNDEFINED,
+        };
+        let mut image: VkImage = VK_NULL_HANDLE;
+        if create_image(device, &ici, std::ptr::null(), &mut image) != VK_SUCCESS {
+            return Err("vkCreateImage 失败".into());
+        }
+        let mut req = std::mem::zeroed::<MemoryRequirements>();
+        img_mem_req(device, image, &mut req);
+        let Some(mt) = pick_mem_type(&memprops, req.memory_type_bits, MEM_DEVICE_LOCAL) else {
+            destroy_image(device, image, std::ptr::null());
+            return Err("无 device-local 内存类型".into());
+        };
+        let mai = MemoryAllocateInfo {
+            s_type: ST_MEMORY_ALLOCATE_INFO,
+            p_next: std::ptr::null(),
+            allocation_size: req.size,
+            memory_type_index: mt,
+        };
+        let mut mem: VkDeviceMemory = VK_NULL_HANDLE;
+        if alloc_mem(device, &mai, std::ptr::null(), &mut mem) != VK_SUCCESS {
+            destroy_image(device, image, std::ptr::null());
+            return Err("image vkAllocateMemory 失败".into());
+        }
+        bind_image(device, image, mem, 0);
+        Ok((image, mem))
+    };
+
+    let make_view = |image: VkImage| -> Result<VkImageView, String> {
+        let vci = ImageViewCreateInfo {
+            s_type: ST_IMAGE_VIEW_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            image,
+            view_type: IMAGE_VIEW_TYPE_2D,
+            format: FORMAT_R8G8B8A8_UNORM,
+            components: VkComponentMapping {
+                r: COMPONENT_SWIZZLE_IDENTITY,
+                g: COMPONENT_SWIZZLE_IDENTITY,
+                b: COMPONENT_SWIZZLE_IDENTITY,
+                a: COMPONENT_SWIZZLE_IDENTITY,
+            },
+            subresource_range: VkImageSubresourceRange {
+                aspect_mask: IMAGE_ASPECT_COLOR,
+                base_mip_level: 0,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+        };
+        let mut view: VkImageView = VK_NULL_HANDLE;
+        if create_view(device, &vci, std::ptr::null(), &mut view) != VK_SUCCESS {
+            return Err("vkCreateImageView 失败".into());
+        }
+        Ok(view)
+    };
+
+    // render pass helper（单 color attachment CLEAR→STORE；`final_layout` 由调用方给）。
+    let make_render_pass = |final_layout: u32| -> Result<VkRenderPass, String> {
+        let att = AttachmentDescription {
+            flags: 0,
+            format: FORMAT_R8G8B8A8_UNORM,
+            samples: SAMPLE_COUNT_1,
+            load_op: ATTACHMENT_LOAD_OP_CLEAR,
+            store_op: ATTACHMENT_STORE_OP_STORE,
+            stencil_load_op: ATTACHMENT_LOAD_OP_DONT_CARE,
+            stencil_store_op: ATTACHMENT_STORE_OP_DONT_CARE,
+            initial_layout: IMAGE_LAYOUT_UNDEFINED,
+            final_layout,
+        };
+        let att_ref = AttachmentReference {
+            attachment: 0,
+            layout: IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        };
+        let subpass = SubpassDescription {
+            flags: 0,
+            pipeline_bind_point: PIPELINE_BIND_POINT_GRAPHICS,
+            input_attachment_count: 0,
+            p_input_attachments: std::ptr::null(),
+            color_attachment_count: 1,
+            p_color_attachments: &att_ref,
+            p_resolve_attachments: std::ptr::null(),
+            p_depth_stencil_attachment: std::ptr::null(),
+            preserve_attachment_count: 0,
+            p_preserve_attachments: std::ptr::null(),
+        };
+        let rp_ci = RenderPassCreateInfo {
+            s_type: ST_RENDER_PASS_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            attachment_count: 1,
+            p_attachments: &att,
+            subpass_count: 1,
+            p_subpasses: &subpass,
+            dependency_count: 0,
+            p_dependencies: std::ptr::null(),
+        };
+        let mut rp: VkRenderPass = VK_NULL_HANDLE;
+        if create_rp(device, &rp_ci, std::ptr::null(), &mut rp) != VK_SUCCESS {
+            return Err("vkCreateRenderPass 失败".into());
+        }
+        Ok(rp)
+    };
+
+    let make_framebuffer = |rp: VkRenderPass, view: VkImageView| -> Result<VkFramebuffer, String> {
+        let fb_ci = FramebufferCreateInfo {
+            s_type: ST_FRAMEBUFFER_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            render_pass: rp,
+            attachment_count: 1,
+            p_attachments: &view,
+            width,
+            height,
+            layers: 1,
+        };
+        let mut fb: VkFramebuffer = VK_NULL_HANDLE;
+        if create_fb(device, &fb_ci, std::ptr::null(), &mut fb) != VK_SUCCESS {
+            return Err("vkCreateFramebuffer 失败".into());
+        }
+        Ok(fb)
+    };
+
+    let make_shader = |spv: &[u32]| -> Result<VkShaderModule, String> {
+        let smci = ShaderModuleCreateInfo {
+            s_type: ST_SHADER_MODULE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            code_size: spv.len() * 4,
+            p_code: spv.as_ptr(),
+        };
+        let mut m: VkShaderModule = VK_NULL_HANDLE;
+        if create_shader(device, &smci, std::ptr::null(), &mut m) != VK_SUCCESS {
+            return Err("vkCreateShaderModule 失败(VUID-...-08742?)".into());
+        }
+        Ok(m)
+    };
+
+    // graphics pipeline helper（顶点面按 pass 属性；layout 由调用方给）。
+    let make_pipeline = |vs_mod: VkShaderModule,
+                         fs_mod: VkShaderModule,
+                         vstride: u32,
+                         vattrs_in: &[(u32, u32, u32)],
+                         layout: VkPipelineLayout,
+                         rp: VkRenderPass|
+     -> Result<VkPipeline, String> {
+        let stages = [
+            PipelineShaderStageCreateInfo {
+                s_type: ST_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                stage: SHADER_STAGE_VERTEX,
+                module: vs_mod,
+                p_name: c"main".as_ptr(),
+                p_specialization_info: std::ptr::null(),
+            },
+            PipelineShaderStageCreateInfo {
+                s_type: ST_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                stage: SHADER_STAGE_FRAGMENT,
+                module: fs_mod,
+                p_name: c"main".as_ptr(),
+                p_specialization_info: std::ptr::null(),
+            },
+        ];
+        let vbind = VkVertexInputBindingDescription {
+            binding: 0,
+            stride: vstride,
+            input_rate: VERTEX_INPUT_RATE_VERTEX,
+        };
+        let vattrs: Vec<VkVertexInputAttributeDescription> = vattrs_in
+            .iter()
+            .map(
+                |&(location, format, offset)| VkVertexInputAttributeDescription {
+                    location,
+                    binding: 0,
+                    format,
+                    offset,
+                },
+            )
+            .collect();
+        let vin = PipelineVertexInputStateCreateInfo {
+            s_type: ST_PIPELINE_VERTEX_INPUT_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            vertex_binding_description_count: 1,
+            p_vertex_binding_descriptions: &vbind,
+            vertex_attribute_description_count: vattrs.len() as u32,
+            p_vertex_attribute_descriptions: vattrs.as_ptr(),
+        };
+        let ia = PipelineInputAssemblyStateCreateInfo {
+            s_type: ST_PIPELINE_INPUT_ASSEMBLY_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            topology: PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+            primitive_restart_enable: 0,
+        };
+        let viewport = VkViewport {
+            x: 0.0,
+            y: 0.0,
+            width: width as f32,
+            height: height as f32,
+            min_depth: 0.0,
+            max_depth: 1.0,
+        };
+        let scissor = VkRect2D {
+            offset: VkOffset2D { x: 0, y: 0 },
+            extent: VkExtent2D { width, height },
+        };
+        let vp = PipelineViewportStateCreateInfo {
+            s_type: ST_PIPELINE_VIEWPORT_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            viewport_count: 1,
+            p_viewports: &viewport,
+            scissor_count: 1,
+            p_scissors: &scissor,
+        };
+        let rs = PipelineRasterizationStateCreateInfo {
+            s_type: ST_PIPELINE_RASTERIZATION_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            depth_clamp_enable: 0,
+            rasterizer_discard_enable: 0,
+            polygon_mode: POLYGON_MODE_FILL,
+            cull_mode: CULL_MODE_NONE,
+            front_face: FRONT_FACE_COUNTER_CLOCKWISE,
+            depth_bias_enable: 0,
+            depth_bias_constant_factor: 0.0,
+            depth_bias_clamp: 0.0,
+            depth_bias_slope_factor: 0.0,
+            line_width: 1.0,
+        };
+        let ms = PipelineMultisampleStateCreateInfo {
+            s_type: ST_PIPELINE_MULTISAMPLE_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            rasterization_samples: SAMPLE_COUNT_1,
+            sample_shading_enable: 0,
+            min_sample_shading: 0.0,
+            p_sample_mask: std::ptr::null(),
+            alpha_to_coverage_enable: 0,
+            alpha_to_one_enable: 0,
+        };
+        let blend_att = PipelineColorBlendAttachmentState {
+            blend_enable: 0,
+            src_color_blend_factor: 0,
+            dst_color_blend_factor: 0,
+            color_blend_op: 0,
+            src_alpha_blend_factor: 0,
+            dst_alpha_blend_factor: 0,
+            alpha_blend_op: 0,
+            color_write_mask: COLOR_COMPONENT_RGBA,
+        };
+        let cb = PipelineColorBlendStateCreateInfo {
+            s_type: ST_PIPELINE_COLOR_BLEND_STATE_CI,
+            p_next: std::ptr::null(),
+            flags: 0,
+            logic_op_enable: 0,
+            logic_op: 0,
+            attachment_count: 1,
+            p_attachments: &blend_att,
+            blend_constants: [0.0; 4],
+        };
+        let gpci = GraphicsPipelineCreateInfo {
+            s_type: ST_GRAPHICS_PIPELINE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            stage_count: 2,
+            p_stages: stages.as_ptr(),
+            p_vertex_input_state: &vin,
+            p_input_assembly_state: &ia,
+            p_tessellation_state: std::ptr::null(),
+            p_viewport_state: &vp,
+            p_rasterization_state: &rs,
+            p_multisample_state: &ms,
+            p_depth_stencil_state: std::ptr::null(),
+            p_color_blend_state: &cb,
+            p_dynamic_state: std::ptr::null(),
+            layout,
+            render_pass: rp,
+            subpass: 0,
+            base_pipeline_handle: VK_NULL_HANDLE,
+            base_pipeline_index: -1,
+        };
+        let mut pipeline: VkPipeline = VK_NULL_HANDLE;
+        let r = create_gp(
+            device,
+            VK_NULL_HANDLE,
+            1,
+            &gpci,
+            std::ptr::null(),
+            &mut pipeline,
+        );
+        if r != VK_SUCCESS {
+            return Err(format!("vkCreateGraphicsPipelines 失败: {r}"));
+        }
+        Ok(pipeline)
+    };
+
+    // 句柄（全 null 初始，末尾逆序销毁非 null 者）。
+    let mut rt0_image: VkImage = VK_NULL_HANDLE;
+    let mut rt0_mem: VkDeviceMemory = VK_NULL_HANDLE;
+    let mut rt0_view: VkImageView = VK_NULL_HANDLE;
+    let mut final_image: VkImage = VK_NULL_HANDLE;
+    let mut final_mem: VkDeviceMemory = VK_NULL_HANDLE;
+    let mut final_view: VkImageView = VK_NULL_HANDLE;
+    let mut sampler_h: VkSampler = VK_NULL_HANDLE;
+    let mut rp0: VkRenderPass = VK_NULL_HANDLE;
+    let mut fb0: VkFramebuffer = VK_NULL_HANDLE;
+    let mut rp1: VkRenderPass = VK_NULL_HANDLE;
+    let mut fb1: VkFramebuffer = VK_NULL_HANDLE;
+    let mut vbuf0: VkBuffer = VK_NULL_HANDLE;
+    let mut vbuf0_mem: VkDeviceMemory = VK_NULL_HANDLE;
+    let mut vbuf1: VkBuffer = VK_NULL_HANDLE;
+    let mut vbuf1_mem: VkDeviceMemory = VK_NULL_HANDLE;
+    let mut rbuf: VkBuffer = VK_NULL_HANDLE;
+    let mut rbuf_mem: VkDeviceMemory = VK_NULL_HANDLE;
+    let mut vs0_mod: VkShaderModule = VK_NULL_HANDLE;
+    let mut fs0_mod: VkShaderModule = VK_NULL_HANDLE;
+    let mut vs1_mod: VkShaderModule = VK_NULL_HANDLE;
+    let mut fs1_mod: VkShaderModule = VK_NULL_HANDLE;
+    let mut set_layouts: Vec<VkDescriptorSetLayout> = Vec::new();
+    let mut desc_pool: VkDescriptorPool = VK_NULL_HANDLE;
+    let mut pl0: VkPipelineLayout = VK_NULL_HANDLE;
+    let mut pl1: VkPipelineLayout = VK_NULL_HANDLE;
+    let mut pipe0: VkPipeline = VK_NULL_HANDLE;
+    let mut pipe1: VkPipeline = VK_NULL_HANDLE;
+    let mut cmdpool: VkCommandPool = VK_NULL_HANDLE;
+
+    let result: Result<Vec<u8>, String> = 'run: {
+        // ── rt0（pass0 color attachment + pass1 SRV）+ final（pass1 color attachment→回读）──
+        match make_image(IMAGE_USAGE_COLOR_ATTACHMENT | IMAGE_USAGE_SAMPLED) {
+            Ok((i, m)) => {
+                rt0_image = i;
+                rt0_mem = m;
+            }
+            Err(e) => break 'run Err(e),
+        }
+        match make_view(rt0_image) {
+            Ok(v) => rt0_view = v,
+            Err(e) => break 'run Err(e),
+        }
+        match make_image(IMAGE_USAGE_COLOR_ATTACHMENT | IMAGE_USAGE_TRANSFER_SRC) {
+            Ok((i, m)) => {
+                final_image = i;
+                final_mem = m;
+            }
+            Err(e) => break 'run Err(e),
+        }
+        match make_view(final_image) {
+            Ok(v) => final_view = v,
+            Err(e) => break 'run Err(e),
+        }
+
+        // ── sampler（pass1 SRV 采样；immutable 进 set3 layout）──
+        let sci = sampler_create_info(sampler);
+        if create_sampler(device, &sci, std::ptr::null(), &mut sampler_h) != VK_SUCCESS {
+            break 'run Err("vkCreateSampler 失败".into());
+        }
+
+        // ── render pass ×2 ──
+        // pass0 finalLayout = COLOR_ATTACHMENT_OPTIMAL：rt0 停在写态，RT→SRV 迁移由 graph.rs
+        // 推导的 barrier（下方逐字重放）承担，**不**由 render pass 隐式迁移（P-11 单一事实源）。
+        match make_render_pass(IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+            Ok(rp) => rp0 = rp,
+            Err(e) => break 'run Err(e),
+        }
+        match make_framebuffer(rp0, rt0_view) {
+            Ok(fb) => fb0 = fb,
+            Err(e) => break 'run Err(e),
+        }
+        // pass1 finalLayout = TRANSFER_SRC_OPTIMAL：final 供回读。
+        match make_render_pass(IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
+            Ok(rp) => rp1 = rp,
+            Err(e) => break 'run Err(e),
+        }
+        match make_framebuffer(rp1, final_view) {
+            Ok(fb) => fb1 = fb,
+            Err(e) => break 'run Err(e),
+        }
+
+        // ── descriptor set layouts（set-per-class 分配律，镜像 plan_descriptor_sets：
+        // set0 CBV 空占位 / set1 SRV binding0(rt0) / set2 UAV 空占位 / set3 Sampler binding0
+        // immutable；与 rurixc infer_spirv_bindings_vk_native 同序，故复用 sampling 着色器语料）──
+        for set in 0..4u32 {
+            let mut bindings: Vec<DescriptorSetLayoutBinding> = Vec::new();
+            if set == 1 {
+                bindings.push(DescriptorSetLayoutBinding {
+                    binding: 0,
+                    descriptor_type: DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+                    descriptor_count: 1,
+                    stage_flags: SHADER_STAGE_VERTEX | SHADER_STAGE_FRAGMENT,
+                    p_immutable_samplers: std::ptr::null(),
+                });
+            } else if set == 3 {
+                bindings.push(DescriptorSetLayoutBinding {
+                    binding: 0,
+                    descriptor_type: DESCRIPTOR_TYPE_SAMPLER,
+                    descriptor_count: 1,
+                    stage_flags: SHADER_STAGE_VERTEX | SHADER_STAGE_FRAGMENT,
+                    // immutable sampler：binding 携 sampler_h，pass1 无需 write（镜像 v2 L3）。
+                    p_immutable_samplers: (&sampler_h) as *const VkSampler as *const c_void,
+                });
+            }
+            let dslci = DescriptorSetLayoutCreateInfo {
+                s_type: ST_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                binding_count: bindings.len() as u32,
+                p_bindings: if bindings.is_empty() {
+                    std::ptr::null()
+                } else {
+                    bindings.as_ptr()
+                },
+            };
+            let mut dsl: VkDescriptorSetLayout = VK_NULL_HANDLE;
+            if create_dsl(device, &dslci, std::ptr::null(), &mut dsl) != VK_SUCCESS {
+                break 'run Err("vkCreateDescriptorSetLayout 失败".into());
+            }
+            set_layouts.push(dsl);
+        }
+
+        // ── pipeline layouts：pass0 空 layout；pass1 含 4 set layouts ──
+        let plci0 = PipelineLayoutCreateInfo {
+            s_type: ST_PIPELINE_LAYOUT_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            set_layout_count: 0,
+            p_set_layouts: std::ptr::null(),
+            push_constant_range_count: 0,
+            p_push_constant_ranges: std::ptr::null(),
+        };
+        if create_pl(device, &plci0, std::ptr::null(), &mut pl0) != VK_SUCCESS {
+            break 'run Err("pass0 vkCreatePipelineLayout 失败".into());
+        }
+        let plci1 = PipelineLayoutCreateInfo {
+            s_type: ST_PIPELINE_LAYOUT_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            set_layout_count: set_layouts.len() as u32,
+            p_set_layouts: set_layouts.as_ptr(),
+            push_constant_range_count: 0,
+            p_push_constant_ranges: std::ptr::null(),
+        };
+        if create_pl(device, &plci1, std::ptr::null(), &mut pl1) != VK_SUCCESS {
+            break 'run Err("pass1 vkCreatePipelineLayout 失败".into());
+        }
+
+        // ── descriptor pool + set + write（pass1 SRV = rt0 view，SHADER_READ_ONLY_OPTIMAL）──
+        let pool_sizes = [
+            DescriptorPoolSize {
+                descriptor_type: DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+                descriptor_count: 1,
+            },
+            DescriptorPoolSize {
+                descriptor_type: DESCRIPTOR_TYPE_SAMPLER,
+                descriptor_count: 1,
+            },
+        ];
+        let dpci = DescriptorPoolCreateInfo {
+            s_type: ST_DESCRIPTOR_POOL_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            max_sets: 4,
+            pool_size_count: pool_sizes.len() as u32,
+            p_pool_sizes: pool_sizes.as_ptr(),
+        };
+        if create_dpool(device, &dpci, std::ptr::null(), &mut desc_pool) != VK_SUCCESS {
+            break 'run Err("vkCreateDescriptorPool 失败".into());
+        }
+        let dsai = DescriptorSetAllocateInfo {
+            s_type: ST_DESCRIPTOR_SET_ALLOCATE_INFO,
+            p_next: std::ptr::null(),
+            descriptor_pool: desc_pool,
+            descriptor_set_count: set_layouts.len() as u32,
+            p_set_layouts: set_layouts.as_ptr(),
+        };
+        let mut dsets: Vec<VkDescriptorSet> = vec![VK_NULL_HANDLE; set_layouts.len()];
+        if alloc_ds(device, &dsai, dsets.as_mut_ptr()) != VK_SUCCESS {
+            break 'run Err("vkAllocateDescriptorSets 失败".into());
+        }
+        let srv_info = DescriptorImageInfo {
+            sampler: VK_NULL_HANDLE,
+            image_view: rt0_view,
+            image_layout: IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        };
+        let srv_write = WriteDescriptorSet {
+            s_type: ST_WRITE_DESCRIPTOR_SET,
+            p_next: std::ptr::null(),
+            dst_set: dsets[1],
+            dst_binding: 0,
+            dst_array_element: 0,
+            descriptor_count: 1,
+            descriptor_type: DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+            p_image_info: (&srv_info) as *const DescriptorImageInfo as *const c_void,
+            p_buffer_info: std::ptr::null(),
+            p_texel_buffer_view: std::ptr::null(),
+        };
+        update_ds(device, 1, &srv_write, 0, std::ptr::null());
+
+        // ── 顶点缓冲 ×2 + 回读缓冲 ──
+        match make_host_buffer(BUFFER_USAGE_VERTEX, pass0.vertices.len().max(4) as u64) {
+            Ok((b, m)) => {
+                vbuf0 = b;
+                vbuf0_mem = m;
+            }
+            Err(e) => break 'run Err(e),
+        }
+        {
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            if map_mem(device, vbuf0_mem, 0, WHOLE_SIZE, 0, &mut ptr) != VK_SUCCESS {
+                break 'run Err("pass0 顶点缓冲 vkMapMemory 失败".into());
+            }
+            std::ptr::copy_nonoverlapping(
+                pass0.vertices.as_ptr(),
+                ptr.cast::<u8>(),
+                pass0.vertices.len(),
+            );
+            unmap_mem(device, vbuf0_mem);
+        }
+        match make_host_buffer(BUFFER_USAGE_VERTEX, pass1.vertices.len().max(4) as u64) {
+            Ok((b, m)) => {
+                vbuf1 = b;
+                vbuf1_mem = m;
+            }
+            Err(e) => break 'run Err(e),
+        }
+        {
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            if map_mem(device, vbuf1_mem, 0, WHOLE_SIZE, 0, &mut ptr) != VK_SUCCESS {
+                break 'run Err("pass1 顶点缓冲 vkMapMemory 失败".into());
+            }
+            std::ptr::copy_nonoverlapping(
+                pass1.vertices.as_ptr(),
+                ptr.cast::<u8>(),
+                pass1.vertices.len(),
+            );
+            unmap_mem(device, vbuf1_mem);
+        }
+        match make_host_buffer(BUFFER_USAGE_TRANSFER_DST, readback_len as u64) {
+            Ok((b, m)) => {
+                rbuf = b;
+                rbuf_mem = m;
+            }
+            Err(e) => break 'run Err(e),
+        }
+
+        // ── shader modules ×4（pName 恒 "main"）──
+        match make_shader(pass0.vs_spv) {
+            Ok(m) => vs0_mod = m,
+            Err(e) => break 'run Err(format!("pass0 vertex {e}")),
+        }
+        match make_shader(pass0.fs_spv) {
+            Ok(m) => fs0_mod = m,
+            Err(e) => break 'run Err(format!("pass0 fragment {e}")),
+        }
+        match make_shader(pass1.vs_spv) {
+            Ok(m) => vs1_mod = m,
+            Err(e) => break 'run Err(format!("pass1 vertex {e}")),
+        }
+        match make_shader(pass1.fs_spv) {
+            Ok(m) => fs1_mod = m,
+            Err(e) => break 'run Err(format!("pass1 fragment {e}")),
+        }
+
+        // ── pipelines ×2 ──
+        match make_pipeline(vs0_mod, fs0_mod, pass0.vertex_stride, pass0.attrs, pl0, rp0) {
+            Ok(p) => pipe0 = p,
+            Err(e) => break 'run Err(e),
+        }
+        match make_pipeline(vs1_mod, fs1_mod, pass1.vertex_stride, pass1.attrs, pl1, rp1) {
+            Ok(p) => pipe1 = p,
+            Err(e) => break 'run Err(e),
+        }
+
+        // ── command pool + buffer + 录制 ──
+        let cpci = CommandPoolCreateInfo {
+            s_type: ST_COMMAND_POOL_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            queue_family_index: qfi,
+        };
+        if create_cmdpool(device, &cpci, std::ptr::null(), &mut cmdpool) != VK_SUCCESS {
+            break 'run Err("vkCreateCommandPool 失败".into());
+        }
+        let cbai = CommandBufferAllocateInfo {
+            s_type: ST_COMMAND_BUFFER_ALLOCATE_INFO,
+            p_next: std::ptr::null(),
+            command_pool: cmdpool,
+            level: CMD_BUFFER_LEVEL_PRIMARY,
+            command_buffer_count: 1,
+        };
+        let mut cmd: VkCommandBuffer = std::ptr::null_mut();
+        alloc_cmd(device, &cbai, &mut cmd);
+        let cbbi = CommandBufferBeginInfo {
+            s_type: ST_COMMAND_BUFFER_BEGIN_INFO,
+            p_next: std::ptr::null(),
+            flags: CMD_BUFFER_USAGE_ONE_TIME_SUBMIT,
+            p_inheritance_info: std::ptr::null(),
+        };
+        begin_cmd(cmd, &cbbi);
+
+        let vcount = |verts: &[u8], stride: u32| -> u32 {
+            if stride > 0 {
+                (verts.len() / stride as usize) as u32
+            } else {
+                0
+            }
+        };
+
+        // ── pass0：三角形写 rt0 ──
+        let clear0 = ClearValue { color: pass0.clear };
+        let rpbi0 = RenderPassBeginInfo {
+            s_type: ST_RENDER_PASS_BEGIN_INFO,
+            p_next: std::ptr::null(),
+            render_pass: rp0,
+            framebuffer: fb0,
+            render_area: VkRect2D {
+                offset: VkOffset2D { x: 0, y: 0 },
+                extent: VkExtent2D { width, height },
+            },
+            clear_value_count: 1,
+            p_clear_values: &clear0,
+        };
+        cmd_begin_rp(cmd, &rpbi0, SUBPASS_CONTENTS_INLINE);
+        cmd_bind_pipe(cmd, PIPELINE_BIND_POINT_GRAPHICS, pipe0);
+        let voff0: VkDeviceSize = 0;
+        cmd_bind_vbuf(cmd, 0, 1, &vbuf0, &voff0);
+        cmd_draw(cmd, vcount(pass0.vertices, pass0.vertex_stride), 1, 0, 0);
+        cmd_end_rp(cmd);
+
+        // ── pass 边界 barrier：逐字重放 graph.rs 推导产物（at_pass==1 的 image transition）──
+        // **执行器禁二次推导**：layout/stage/access 全取 graph_image_barrier_fields（graph.rs
+        // 同源表）；缺该 barrier（漏声明 read → plan 无 rt0 转换）→ rt0 停在 COLOR_ATTACHMENT_OPTIMAL
+        // 而 descriptor 声明 SHADER_READ_ONLY_OPTIMAL → validation 报错（RXS-0239 hazard 红绿）。
+        for b in plan {
+            if b.at_pass != 1 || b.form != crate::graph::BarrierForm::Transition {
+                continue;
+            }
+            let img = if b.resource.0 == 0 {
+                rt0_image
+            } else {
+                final_image
+            };
+            let (old_layout, new_layout, src_access, dst_access, src_stage, dst_stage) =
+                graph_image_barrier_fields(b);
+            let imb = ImageMemoryBarrier {
+                s_type: ST_IMAGE_MEMORY_BARRIER,
+                p_next: std::ptr::null(),
+                src_access_mask: src_access,
+                dst_access_mask: dst_access,
+                old_layout,
+                new_layout,
+                src_queue_family_index: QUEUE_FAMILY_IGNORED,
+                dst_queue_family_index: QUEUE_FAMILY_IGNORED,
+                image: img,
+                subresource_range: VkImageSubresourceRange {
+                    aspect_mask: IMAGE_ASPECT_COLOR,
+                    base_mip_level: 0,
+                    level_count: 1,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                },
+            };
+            cmd_barrier(
+                cmd,
+                src_stage,
+                dst_stage,
+                0,
+                0,
+                std::ptr::null(),
+                0,
+                std::ptr::null(),
+                1,
+                &imb,
+            );
+        }
+
+        // ── pass1：全屏采样 rt0 → final ──
+        let clear1 = ClearValue { color: pass1.clear };
+        let rpbi1 = RenderPassBeginInfo {
+            s_type: ST_RENDER_PASS_BEGIN_INFO,
+            p_next: std::ptr::null(),
+            render_pass: rp1,
+            framebuffer: fb1,
+            render_area: VkRect2D {
+                offset: VkOffset2D { x: 0, y: 0 },
+                extent: VkExtent2D { width, height },
+            },
+            clear_value_count: 1,
+            p_clear_values: &clear1,
+        };
+        cmd_begin_rp(cmd, &rpbi1, SUBPASS_CONTENTS_INLINE);
+        cmd_bind_pipe(cmd, PIPELINE_BIND_POINT_GRAPHICS, pipe1);
+        cmd_bind_ds(
+            cmd,
+            PIPELINE_BIND_POINT_GRAPHICS,
+            pl1,
+            0,
+            set_layouts.len() as u32,
+            dsets.as_ptr(),
+            0,
+            std::ptr::null(),
+        );
+        let voff1: VkDeviceSize = 0;
+        cmd_bind_vbuf(cmd, 0, 1, &vbuf1, &voff1);
+        cmd_draw(cmd, vcount(pass1.vertices, pass1.vertex_stride), 1, 0, 0);
+        cmd_end_rp(cmd);
+
+        // ── 终端胶水回读（final 已经 pass1 render pass finalLayout 处 TRANSFER_SRC_OPTIMAL；
+        // color-write→transfer-read 可见性屏障 + copy，镜像 v1/v2 终端；非 pass 边界推导）──
+        let final_barrier = ImageMemoryBarrier {
+            s_type: ST_IMAGE_MEMORY_BARRIER,
+            p_next: std::ptr::null(),
+            src_access_mask: ACCESS_COLOR_ATTACHMENT_WRITE,
+            dst_access_mask: ACCESS_TRANSFER_READ,
+            old_layout: IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            new_layout: IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            src_queue_family_index: QUEUE_FAMILY_IGNORED,
+            dst_queue_family_index: QUEUE_FAMILY_IGNORED,
+            image: final_image,
+            subresource_range: VkImageSubresourceRange {
+                aspect_mask: IMAGE_ASPECT_COLOR,
+                base_mip_level: 0,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+        };
+        cmd_barrier(
+            cmd,
+            PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT,
+            PIPELINE_STAGE_TRANSFER,
+            0,
+            0,
+            std::ptr::null(),
+            0,
+            std::ptr::null(),
+            1,
+            &final_barrier,
+        );
+        let region = VkBufferImageCopy {
+            buffer_offset: 0,
+            buffer_row_length: 0,
+            buffer_image_height: 0,
+            image_subresource: VkImageSubresourceLayers {
+                aspect_mask: IMAGE_ASPECT_COLOR,
+                mip_level: 0,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+            image_offset: VkOffset3D { x: 0, y: 0, z: 0 },
+            image_extent: VkExtent3D {
+                width,
+                height,
+                depth: 1,
+            },
+        };
+        cmd_copy_img_buf(
+            cmd,
+            final_image,
+            IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            rbuf,
+            1,
+            &region,
+        );
+        end_cmd(cmd);
+
+        // 提交 + 等待 + 回读。
+        let si = SubmitInfo {
+            s_type: ST_SUBMIT_INFO,
+            p_next: std::ptr::null(),
+            wait_semaphore_count: 0,
+            p_wait_semaphores: std::ptr::null(),
+            p_wait_dst_stage_mask: std::ptr::null(),
+            command_buffer_count: 1,
+            p_command_buffers: &cmd,
+            signal_semaphore_count: 0,
+            p_signal_semaphores: std::ptr::null(),
+        };
+        let r = queue_submit(queue, 1, &si, VK_NULL_HANDLE);
+        if r != VK_SUCCESS {
+            break 'run Err(format!("vkQueueSubmit 失败: {r}"));
+        }
+        queue_wait(queue);
+
+        let mut ptr: *mut c_void = std::ptr::null_mut();
+        if map_mem(device, rbuf_mem, 0, WHOLE_SIZE, 0, &mut ptr) != VK_SUCCESS {
+            break 'run Err("回读 vkMapMemory 失败".into());
+        }
+        let mut pixels = vec![0u8; readback_len];
+        std::ptr::copy_nonoverlapping(ptr.cast::<u8>(), pixels.as_mut_ptr(), readback_len);
+        unmap_mem(device, rbuf_mem);
+        Ok(pixels)
+    };
+
+    // ── 逆序销毁（非 null 者；pool 先于 setLayout，view 先于 image 先于 memory）──
+    if cmdpool != VK_NULL_HANDLE {
+        destroy_cmdpool(device, cmdpool, std::ptr::null());
+    }
+    if pipe1 != VK_NULL_HANDLE {
+        destroy_pipe(device, pipe1, std::ptr::null());
+    }
+    if pipe0 != VK_NULL_HANDLE {
+        destroy_pipe(device, pipe0, std::ptr::null());
+    }
+    if pl1 != VK_NULL_HANDLE {
+        destroy_pl(device, pl1, std::ptr::null());
+    }
+    if pl0 != VK_NULL_HANDLE {
+        destroy_pl(device, pl0, std::ptr::null());
+    }
+    if desc_pool != VK_NULL_HANDLE {
+        destroy_dpool(device, desc_pool, std::ptr::null());
+    }
+    for &dsl in &set_layouts {
+        if dsl != VK_NULL_HANDLE {
+            destroy_dsl(device, dsl, std::ptr::null());
+        }
+    }
+    if fs1_mod != VK_NULL_HANDLE {
+        destroy_shader(device, fs1_mod, std::ptr::null());
+    }
+    if vs1_mod != VK_NULL_HANDLE {
+        destroy_shader(device, vs1_mod, std::ptr::null());
+    }
+    if fs0_mod != VK_NULL_HANDLE {
+        destroy_shader(device, fs0_mod, std::ptr::null());
+    }
+    if vs0_mod != VK_NULL_HANDLE {
+        destroy_shader(device, vs0_mod, std::ptr::null());
+    }
+    if rbuf != VK_NULL_HANDLE {
+        destroy_buffer(device, rbuf, std::ptr::null());
+    }
+    if rbuf_mem != VK_NULL_HANDLE {
+        free_mem(device, rbuf_mem, std::ptr::null());
+    }
+    if vbuf1 != VK_NULL_HANDLE {
+        destroy_buffer(device, vbuf1, std::ptr::null());
+    }
+    if vbuf1_mem != VK_NULL_HANDLE {
+        free_mem(device, vbuf1_mem, std::ptr::null());
+    }
+    if vbuf0 != VK_NULL_HANDLE {
+        destroy_buffer(device, vbuf0, std::ptr::null());
+    }
+    if vbuf0_mem != VK_NULL_HANDLE {
+        free_mem(device, vbuf0_mem, std::ptr::null());
+    }
+    if fb1 != VK_NULL_HANDLE {
+        destroy_fb(device, fb1, std::ptr::null());
+    }
+    if rp1 != VK_NULL_HANDLE {
+        destroy_rp(device, rp1, std::ptr::null());
+    }
+    if fb0 != VK_NULL_HANDLE {
+        destroy_fb(device, fb0, std::ptr::null());
+    }
+    if rp0 != VK_NULL_HANDLE {
+        destroy_rp(device, rp0, std::ptr::null());
+    }
+    if sampler_h != VK_NULL_HANDLE {
+        destroy_sampler(device, sampler_h, std::ptr::null());
+    }
+    if final_view != VK_NULL_HANDLE {
+        destroy_view(device, final_view, std::ptr::null());
+    }
+    if final_image != VK_NULL_HANDLE {
+        destroy_image(device, final_image, std::ptr::null());
+    }
+    if final_mem != VK_NULL_HANDLE {
+        free_mem(device, final_mem, std::ptr::null());
+    }
+    if rt0_view != VK_NULL_HANDLE {
+        destroy_view(device, rt0_view, std::ptr::null());
+    }
+    if rt0_image != VK_NULL_HANDLE {
+        destroy_image(device, rt0_image, std::ptr::null());
+    }
+    if rt0_mem != VK_NULL_HANDLE {
+        free_mem(device, rt0_mem, std::ptr::null());
+    }
+
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -8923,6 +10239,49 @@ mod tests {
         let (old_layout, new_layout, src_access, dst_access, src_stage, dst_stage) =
             graph_image_barrier_fields(rt_psr);
         // 逐字重放:layout/stage/access 与 vk.rs 常量逐值一致(graph.rs 同源表单一事实源)。
+        assert_eq!(old_layout, IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        assert_eq!(new_layout, IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        assert_eq!(src_access, ACCESS_COLOR_ATTACHMENT_WRITE);
+        assert_eq!(dst_access, ACCESS_SHADER_READ);
+        assert_eq!(src_stage, PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT);
+        assert_eq!(dst_stage, PIPELINE_STAGE_FRAGMENT_SHADER);
+    }
+
+    /// RXS-0240:`run_graph_offscreen` 两 pass 契约的推导计划(host 纯函数,无设备)——执行器
+    /// 消费的 `plan` 对「资源 0=rt0、资源 1=final;pass0 writes_rt(rt0);pass1 reads(rt0)+
+    /// writes_rt(final)」图恰产 1 条 rt0 RT→SRV barrier @ at_pass=1,资源映射(id 0→rt0)与
+    /// 执行器 `run_graph_body` barrier 重放循环的 `resource.0 == 0` 分支同源(锚定 device 首跑
+    /// 逐字重放的输入契约,`bin/graph_modes` mode `auto_barrier_deferred_match` 同判定点)。
+    //@ spec: RXS-0240
+    #[test]
+    fn run_graph_two_pass_plan_contract() {
+        use crate::graph::{BarrierForm, D3d12State, Graph, PassSpec};
+        let mut g = Graph::new();
+        let rt0 = g.color_target("rt0");
+        let final_rt = g.color_target("final");
+        assert_eq!(rt0.0, 0, "资源 0 = rt0(执行器 resource.0==0 分支契约)");
+        assert_eq!(final_rt.0, 1, "资源 1 = final");
+        g.add_pass(PassSpec::new("pass0").writes_rt(rt0)).unwrap();
+        g.add_pass(
+            PassSpec::new("pass1")
+                .reads(rt0)
+                .writes_rt(final_rt)
+                .with_reflection(vec![rt0, final_rt]),
+        )
+        .unwrap();
+        let plan = g.execute().unwrap();
+        // 恰 1 条:rt0 RT→SRV @ at_pass=1(final 恒 RenderTarget 无迁移)。
+        assert_eq!(plan.len(), 1, "两 pass 见证图恰 1 条 barrier");
+        let b = &plan[0];
+        assert_eq!(b.resource.0, 0);
+        assert_eq!(b.resource_name, "rt0");
+        assert_eq!(b.at_pass, 1, "在 pass1 边界之前录制");
+        assert_eq!(b.form, BarrierForm::Transition);
+        assert_eq!(b.d3d12_before, D3d12State::RenderTarget);
+        assert_eq!(b.d3d12_after, D3d12State::PixelShaderResource);
+        // 执行器逐字重放的字段与 vk.rs 常量逐值一致。
+        let (old_layout, new_layout, src_access, dst_access, src_stage, dst_stage) =
+            graph_image_barrier_fields(b);
         assert_eq!(old_layout, IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         assert_eq!(new_layout, IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         assert_eq!(src_access, ACCESS_COLOR_ATTACHMENT_WRITE);

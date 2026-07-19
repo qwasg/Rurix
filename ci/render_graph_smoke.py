@@ -153,17 +153,45 @@ def device_section() -> int:
     if not device_opt_in():
         return skip(
             "device 段未 opt-in(auto barrier 真跑 = 交互 GPU 链路;设 RURIX_GRAPH_DEVICE=1 或 "
-            "RURIX_REQUIRE_REAL=1 启用)——uc04→Graph run_graph 重跑步骤 48 + 漏声明 strict 拒 RED "
-            "+ Vulkan 同图对照归 owner 本机活驱动错峰见证(D3D12 shim 执行器诚实边界,判据阈值 TODO)"
+            "RURIX_REQUIRE_REAL=1 启用)——两 pass 自动 RT→SRV barrier 出图 + 漏声明 read 装配期 "
+            "RX6030 拒 RED + 推导逐字重放对照归 owner 本机活驱动错峰见证(判据阈值 TODO)"
         )
-    # device 执行器 harness(uc04 迁 Graph + Vulkan run_graph)归主循环活驱动落地;本 smoke 阶段
-    # 无独立 graph device harness bin(run_graph 设备段真跑归主循环,D3D12 shim 入口大改留后续),
-    # 故 opt-in 亦诚实 SKIP(不伪造 device 绿,G-G3-5 防降级硬门;REQUIRE_REAL=1 翻硬红提醒)。
+
+    # opt-in 后 build + run bin/graph_modes(真调 vk::run_graph_offscreen,两 pass 最小见证;
+    # 逐字重放 graph.rs 推导的 rt0 RT→SRV barrier)。**判据阈值(采样点/期望色/容差)= owner
+    # 本机迭代校准 TODO**——PARTIAL(真跑但未过阈值)= 诚实 SKIP(不伪造绿;REQUIRE_REAL 翻硬红),
+    # PASS 时 harness 写 evidence/graph_<epoch>.json(hazard_ok=true →
+    # g3.counter.auto_barrier_hazard_redgreen PASS)。**D3D12 shim 执行器诚实边界**:shim C++
+    # pass/barrier 数组下发入口大改留后续,device 首跑先经 Vulkan run_graph(本机活驱动)。
+    # **AMD 真卡见证 = G-MB1-6 硬件尾门独立存续**(本机 RTX 4070 Ti measured 不充作 AMD)。
+    build = run(
+        ["cargo", "build", "-p", "rurix-rt", "--features", "vulkan",
+         "--bin", "graph_modes", "--quiet"]
+    )
+    if build.returncode != 0:
+        print((build.stdout + build.stderr)[-2500:], file=sys.stderr)
+        return fail("cargo build graph_modes(--features vulkan)失败(host 编译红,非 SKIP 事项)")
+    exe = ROOT / "target" / "debug" / f"graph_modes{EXE_SUFFIX}"
+    env = dict(os.environ, RURIX_VK_VALIDATION="1")
+    p = subprocess.run([str(exe)], cwd=ROOT, capture_output=True, text=True, env=env)
+    out = p.stdout + p.stderr
+    if any(k in out for k in NO_DEVICE_KEYS) or "GRAPH_MODES: SKIP" in p.stdout:
+        return skip(f"device 段 graph_modes 无 Vulkan 设备/loader:{p.stderr.strip()[:300]}")
+    if p.returncode != 0:
+        print(out[-2500:], file=sys.stderr)
+        return fail("graph_modes harness 退出非 0(device 真跑内部错误,非阈值 MISS)")
+    if "Validation Error" in p.stderr or "VUID-" in p.stderr:
+        print(p.stderr[-2500:], file=sys.stderr)
+        return fail("graph_modes:VK_LAYER_KHRONOS_validation 报错(fail-closed)")
+    if "GRAPH_MODES: PASS" in p.stdout:
+        print(f"[render_graph_smoke] device 段:render graph 自动 barrier hazard 红绿 PASS\n"
+              f"{p.stdout.strip()[-600:]}")
+        return 0
+    # PARTIAL:真跑但判据阈值未过(owner 迭代校准)→ 诚实 SKIP(REQUIRE_REAL 翻红)。
+    print(p.stdout.strip()[-800:], file=sys.stderr)
     return skip(
-        "device 段 render graph 执行器 harness 未就位(Vulkan run_graph device 首跑归主循环活驱动;"
-        "D3D12 shim pass/barrier 数组下发入口大改留后续 = 诚实边界)——host 段 D6 互证金标准为本面"
-        "核心恒跑验收,device 首跑判据(uc04→Graph run_graph 重跑步骤 48 + 漏声明 strict 拒 RED)归 "
-        "owner 本机错峰;不伪造 device 绿(G-G3-5 防降级硬门)"
+        "device 段 graph_modes PARTIAL(判据阈值未过)——判据阈值/采样点归 owner 本机迭代校准"
+        "(expect_center 谓词 TODO);不伪造 device 绿(G-G3-5 防降级硬门)"
     )
 
 
