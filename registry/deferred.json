@@ -576,13 +576,18 @@
       "title": "bindless / unbounded descriptor array / descriptor heap 直索引绑定推导",
       "reason": "RFC-0005 §9 Q-Bindless agent 裁决为 defer:本期 G2.3 绑定布局推导先收敛有界 descriptor 布局(root signature + bounded descriptor tables)。bindless 属 SM6.6+ resource heap / descriptor heap 直索引大面,牵涉未建模 descriptor heap 编码、资源数组上界、越界语义与后续 PSO/runtime 面;本期纳入与预算不成比例,但不永久/条件裁剪该方向",
       "backfill_condition": "UC-04 或后续里程碑出现 bindless / unbounded descriptor array / descriptor heap 直索引硬需求时,按 10 §3 判档接通:补 Full RFC 或对应升档文档、spec 条款、conformance/golden、错误码与 device/PSO 证据;在此之前 G2.3 绑定布局推导仅支持有界 descriptor 布局,遇到 bindless 构造以 6xxx codegen 诊断显式拒绝或保持结构上不可达",
-      "owner_milestone": "G2",
-      "status": "open",
+      "owner_milestone": "G3",
+      "status": "closed",
       "history": [
         {
           "date": "2026-06-28",
           "event": "RFC-0005 owner approval 执行期登记(open;agent 自主记录,硬规则 1):owner(Language Lead)裁决 Q-Bindless = A 本期 defer,登记 RD-018;不登记 SG-010 gating,不永久/条件裁剪 bindless 方向。PR-E1 仅登记有界绑定布局推导 spec 脚手架(RXS-0163~0166,不落裸条款头),PR-E2 实现面遇 bindless / unbounded descriptor array / descriptor heap 直索引保持 out-of-scope/deferred 并以 strict-only 6xxx 诊断或结构不可达处置。",
           "evidence": "rfcs/0005-binding-layout-inference.md §9 Q-Bindless / spec/binding_layout.md §1 / spec/README.md §4"
+        },
+        {
+          "date": "2026-07-19",
+          "event": "G3.4 bindless 面兑现 → RD-018 CLOSE(status open→closed,owner_milestone G2→G3;agent 完全自主签署,AGENTS v3.0 硬规则 1):unbounded descriptor array 全链落地——类型面 [Texture2D<F>] 仅签名形参 + table[idx] 动态索引临时句柄 + nonuniform 标注 strict-only(新码 RX3016,豁免整型字面量;RXS-0231/0232)+ 绑定翻转(ResourceCount::Unbounded 自 Unmappable 改合法路:Vk-native 独占 set4+/RTS0 独占 space1+ NumDescriptors=0xFFFFFFFF,RXS-0233 + RXS-0164 加性收窄修订)+ codegen(OpTypeRuntimeArray+RuntimeDescriptorArray+NonUniform+越界 clamp UMin(idx,table_len-1) push-constant 尾部,RXS-0234)+ 运行时(vk.rs UPDATE_AFTER_BIND/PARTIALLY_BOUND+feature chain 4-bit 探测缺失确定性 Err+set4 写入+push-constant table_len 提交;std::gpu TextureTable affine 全接线 ctx.texture_table()/register/len→rxrt_table_* cabi 只追加,RXS-0235)。device 见证(开发机 RTX 4070 Ti,ci/bindless_smoke.py 步骤 64 真跑,validation 零报错):四象限动态索引四色命中 + 篡改注册序换位 RED/复原 GREEN(真验 NonUniform 命中非碰巧)+ feature chain mock 缺位 Err。DXIL 腿 B 链 probe 绿(evidence/bindless_bchain_probe_20260719.md:SM6.0 unbounded array+NonUniformResourceIndex 即可,免 RD-034 尾门)。**收窄留痕**:SM6.6 ResourceDescriptorHeap[] 直索引语法糖无 SPIR-V 标准对应无法过 B 链,显式不做,登 RD-034+(RFC-0013 §8 earmark,unbounded array 语义等价覆盖工业需求——RD-018 标题第三分项『heap 直索引』以此诚实收窄非静默砍面);无界 Sampler/CBV/UAV 表维持 Unmappable/RX6013(RFC §8)。G-G3-4 签署归 close-out 终审。",
+          "evidence": "spec/{shader_stages,binding_layout,dxil_backend,host_orchestration}.md RXS-0231~0235 / src/rurixc/src/{typeck,binding_layout,dxil_spirv}.rs / src/rurix-rt/src/{vk.rs,bin/bindless_modes.rs} / src/rurix-rt-cabi rxrt_table_* / evidence/bindless_1784436355.json(modes_ok=3) / evidence/bindless_bchain_probe_20260719.md"
         }
       ]
     },
@@ -1233,6 +1238,11 @@
       "version": "v1.61",
       "date": "2026-07-18",
       "change": "G3.3 采样超集面兑现 → RD-022/023/024 close(采样 PR;三条 status open→closed + owner_milestone G2.4→G3 + 各追加 device-见证 history 行 + revision_log v1.61,既有 entries 其余字段/既有 history 行/既有 revision_log v1.0~v1.60 行 0-byte;agent 完全自主签署,AGENTS v3.0 硬规则 1):RD-022 隐式 LOD/sampler、RD-023 texel fetch、RD-024 shadow/gather/多分量/storage 唯一写者由 RFC-0013 §4.B 采样超集面(RXS-0223~0230)全量兑现,7 模式 device 数值判据开发机 RTX 4070 Ti 真跑 PASS。首期收窄(隐式 LOD 非均匀控制流条件锁定、可竞写模式登 RD-034+)如实留痕。零新 RD(可竞写/heap 直索引等放开面 RFC §8 已 earmark RD-034+,本期未触发不预登)。G-G3-3 验收门签署归 G3 close-out 终审(契约 G-G3-9)。"
+    },
+    {
+      "version": "v1.62",
+      "date": "2026-07-19",
+      "change": "G3.4 bindless 面兑现 → RD-018 close(bindless PR;status open→closed + owner_milestone G2→G3 + device-见证 history 行 + revision_log v1.62,既有 entries 其余字段/既有 history 行/既有 revision_log v1.0~v1.61 行 0-byte;agent 完全自主签署,AGENTS v3.0 硬规则 1):RFC-0013 §4.C(RXS-0231~0235)全链兑现,三判据 device RTX 4070 Ti 真跑 PASS(四象限索引/换位红绿/feature 探测),DXIL 腿 probe 绿。SM6.6 heap 直索引诚实收窄(RFC §8 earmark RD-034+,本期未触发不预登,零新 RD)。G-G3-4 签署归 G3 close-out 终审(契约 G-G3-9)。"
     }
   ]
 }

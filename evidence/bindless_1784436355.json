@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "subject": "bindless_descriptor_smoke",
+  "milestone": "g3.4",
+  "smoke_ok": true,
+  "modes_ok": ["quadrant_index_four_color", "tamper_register_order_swap", "feature_chain_missing_err"],
+  "num_textures": 4,
+  "adapter": "unknown",
+  "run_url": "local interactive runner",
+  "timestamp": "2026-07-19T04:45:55Z"
+}
