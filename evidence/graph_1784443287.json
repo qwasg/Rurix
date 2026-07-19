@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "subject": "auto_barrier_hazard_redgreen",
+  "milestone": "g3.5",
+  "hazard_ok": true,
+  "modes_ok": ["vulkan_run_graph_match", "undeclared_read_strict_reject", "auto_barrier_deferred_match"],
+  "num_passes": 2,
+  "adapter": "unknown",
+  "run_url": "local interactive runner",
+  "timestamp": "2026-07-19T06:41:27Z"
+}
