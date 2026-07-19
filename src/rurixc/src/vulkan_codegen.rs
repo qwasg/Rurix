@@ -1553,6 +1553,10 @@ pub fn emit_mesh_min() -> Vec<u32> {
     let uint_2 = b.constant(uint, 2);
     let float_0 = b.constant(float, 0.0f32.to_bits());
     let float_1 = b.constant(float, 1.0f32.to_bits());
+    // 覆盖屏幕中心的三角形 NDC 顶点(非退化,使 mesh 管线 device 判据 covered>0;
+    // G3.6 步骤 66 像素见证)。0.7 / -0.7 对称,三顶点互异。
+    let float_p7 = b.constant(float, 0.7f32.to_bits());
+    let float_n7 = b.constant(float, (-0.7f32).to_bits());
     let int_0 = b.constant(int, 0);
     let int_1 = b.constant(int, 1);
     let int_2 = b.constant(int, 2);
@@ -1575,7 +1579,10 @@ pub fn emit_mesh_min() -> Vec<u32> {
     // 元素指针型 + 常量。
     let ptr_out_v4f = b.type_result(OP_TYPE_POINTER, &[STORAGE_OUTPUT, v4float]);
     let ptr_out_v3u = b.type_result(OP_TYPE_POINTER, &[STORAGE_OUTPUT, v3uint]);
-    let pos = b.const_composite(v4float, &[float_0, float_0, float_0, float_1]);
+    // 三互异顶点(v0 上 / v1 左下 / v2 右下),覆盖屏幕中心。
+    let pos0 = b.const_composite(v4float, &[float_0, float_n7, float_0, float_1]);
+    let pos1 = b.const_composite(v4float, &[float_n7, float_p7, float_0, float_1]);
+    let pos2 = b.const_composite(v4float, &[float_p7, float_p7, float_0, float_1]);
     let tri = b.const_composite(v3uint, &[uint_0c, uint_1, uint_2]);
     // execution modes。
     b.exec_mode(EXEC_MODE_LOCAL_SIZE, &[1, 1, 1]);
@@ -1584,14 +1591,14 @@ pub fn emit_mesh_min() -> Vec<u32> {
     b.exec_mode(EXEC_MODE_OUTPUT_TRIANGLES_EXT, &[]);
     // 函数体:SetMeshOutputs(3,1) + 三顶点 Position 写 + 单三角形索引写。
     emit(&mut b.body, OP_SET_MESH_OUTPUTS_EXT, &[uint_3, uint_1]);
-    for &vi in &[int_0, int_1, int_2] {
+    for &(vi, vpos) in &[(int_0, pos0), (int_1, pos1), (int_2, pos2)] {
         let acc = b.id();
         emit(
             &mut b.body,
             OP_ACCESS_CHAIN,
             &[ptr_out_v4f, acc, verts, vi, int_0],
         );
-        emit(&mut b.body, OP_STORE, &[acc, pos]);
+        emit(&mut b.body, OP_STORE, &[acc, vpos]);
     }
     let acc_idx = b.id();
     emit(
