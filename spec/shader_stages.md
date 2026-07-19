@@ -18,7 +18,7 @@
 
 全部着色阶段语义维持**仅类型面/语法面**:**DXIL codegen**(G2.2,内建变量寄存器/语义槽映射、DXIL 文本 golden)、**绑定布局推导实现**(G2.3,descriptor/root signature 生成)、**🔒 纹理/采样器内存模型映射**(06 §4.2 禁区:tex proxy / 采样 opcode / 描述符编码 / 缓存一致性 / UB,留后续独立 Full RFC,RFC-0002 §4.5)均**不在本文件**;device 分发维持 **PTX-only**(07 §7;DXIL 第二后端无 MVP 期 PTX↔DXIL 对应,完全于 G2.2 重评估,D-131)。着色阶段误用 / 阶段间接口不匹配 / 资源句柄违例以 **编译期类型/着色/接口诊断(P-01 strict-only)**定义,**不以 UB 表述**(§4)。
 
-**编号区间**:本文件条款自 **RXS-0153** 起续号(全 spec 唯一、分配制递增、永不复用,见 [README.md](README.md) §1;最高现存 RXS-0152 @ [release.md](release.md))。**区间已锁定 4 条 RXS-0153 ~ RXS-0156**(RFC-0002 §9 Q5,owner 2026-06-23 裁决:不预留、不预造;网格/RT 阶段间接口并入 RXS-0155、纹理类型集合并入 RXS-0156,本里程碑不拆条)。本轮(脚手架)**仅登记区间预留 RXS-0153 ~ RXS-0156**,**不落带编号裸条款头**;条款体与每条 ≥1 测试锚定随 G2.1 实现 PR(PR-B2,步骤 45)同落。区间登记于 [README.md](README.md) §4 文件清单。**续登(G2.4/RFC-0007):RXS-0174 采样表达式类型面**;**续登(G3.3/RFC-0013 §4.B):RXS-0223 ~ RXS-0224 采样方法族 + 静态 sampler**;**续登(G3.4/RFC-0013 §4.C):RXS-0231 无界句柄数组类型面 + RXS-0232 动态索引 + `nonuniform` 标注**(bindless,区间自 RFC-0013 伞形 RXS-0220~0249 分配)。
+**编号区间**:本文件条款自 **RXS-0153** 起续号(全 spec 唯一、分配制递增、永不复用,见 [README.md](README.md) §1;最高现存 RXS-0152 @ [release.md](release.md))。**区间已锁定 4 条 RXS-0153 ~ RXS-0156**(RFC-0002 §9 Q5,owner 2026-06-23 裁决:不预留、不预造;网格/RT 阶段间接口并入 RXS-0155、纹理类型集合并入 RXS-0156,本里程碑不拆条)。本轮(脚手架)**仅登记区间预留 RXS-0153 ~ RXS-0156**,**不落带编号裸条款头**;条款体与每条 ≥1 测试锚定随 G2.1 实现 PR(PR-B2,步骤 45)同落。区间登记于 [README.md](README.md) §4 文件清单。**续登(G2.4/RFC-0007):RXS-0174 采样表达式类型面**;**续登(G3.3/RFC-0013 §4.B):RXS-0223 ~ RXS-0224 采样方法族 + 静态 sampler**;**续登(G3.4/RFC-0013 §4.C):RXS-0231 无界句柄数组类型面 + RXS-0232 动态索引 + `nonuniform` 标注**(bindless,区间自 RFC-0013 伞形 RXS-0220~0249 分配)。**续登(G3.6/RFC-0013 §4.E):RXS-0242 intersection/callable 阶段全集 + RXS-0243 mesh/task 入口契约(新码 RX3017)+ RXS-0244 RT payload/attribute/callable data 契约(RX3012 扩)+ RXS-0245 AccelStruct/trace_ray/RT builtins(RX3013 扩)**。
 
 ## 2. 条款（RXS-0153 ~ RXS-0156，带编号条款体）
 
@@ -238,7 +238,104 @@ IndexAnno      ::= "nonuniform" "(" Expr ")"     // 非均匀索引(强制,stric
 
 > 锚定测试:`conformance/shader/accept/bindless_dynamic_index.rx`（`table[nonuniform(i)].sample` + 字面量常量索引 0 诊断）+ `conformance/shader/reject/bindless/nonuniform_missing.rx`（`RX3016`）+ `conformance/shader/reject/bindless/handle_escape.rx`（`let` 绑定临时句柄 `RX3014`）+ UI golden `tests/ui/shader/bindless_nonuniform_missing.stderr`。
 
-## 3. 错误码引用汇总（RX3011 ~ RX3016）
+### RXS-0242 着色阶段全集补齐:`intersection` / `callable` 与 RT 六阶段着色规则（RXS-0153 修订行，RFC-0013 §4.E1）
+
+> **RXS-0153 加性修订行**(不占新号,Q-M-StageSyntax):`intersection` / `callable` 入 `<stage>` 备选集,与既有九阶段零不对称。
+
+**Syntax**（前缀式，复用 RXS-0153 `<stage> fn` 产生式，**无新属性面**）:
+
+```
+Stage ::= "vertex" | "fragment" | "compute" | "mesh" | "task"
+        | "raygen" | "closesthit" | "anyhit" | "miss"
+        | "intersection" | "callable"    // RFC-0013 §4.E1 类别扩充
+```
+
+**Legality**（承 RXS-0153 着色语义）:
+
+- `intersection fn` / `callable fn` 取 **kernel 入口着色**（parser 置 [`FnColor::Kernel`] + `stage` 标记），与既有九阶段同享「非直接可调用入口 + 设备上下文体」着色语义;直接调用着色阶段入口 / 着色阶段体内调 host 着色函数等跨着色非法调用**复用既有 `RX3001`**（[`coloring`](../src/rurixc/src/coloring.rs)），本条不另发文法级错误类别。
+- **PTX 收集根排除维持**（D-207）:着色阶段不进 PTX 收集根。
+
+**Dynamic Semantics**:纯类型/着色面,无运行期语言语义（RT 六执行模型 SPIR-V 编码见 spec/vulkan_backend.md RXS-0247）。
+
+**Implementation Requirements**:[`ast`](../src/rurixc/src/ast.rs) `ShaderStage` 补 `Intersection`/`Callable` 变体;[`parser`](../src/rurixc/src/parser.rs) `shader_stage_ahead` 前瞻加 `intersection`/`callable` 上下文关键字。
+
+> 锚定测试:[`shader_stages::tests::intersection_callable_stages_declare_clean`](../src/rurixc/src/shader_stages.rs)（`intersection fn`/`callable fn` + 三 RT 阶段声明 0 诊断）+ reject `intersection_direct_call`（直接调用 → `RX3001`,归 coloring）。
+
+### RXS-0243 mesh/task 入口契约（`#[numthreads]` + `#[outputs]` + task payload 契约，RFC-0013 §4.E2）
+
+**Syntax**（属性式标注，复用既有 `#[..]` 产生式）:
+
+```
+MeshEntry ::= "#[numthreads" "(" IntLit "," IntLit "," IntLit ")" "]"
+              "#[outputs" "(" "topology" "=" StrLit ","
+                              "max_vertices" "=" IntLit ","
+                              "max_primitives" "=" IntLit ")" "]"
+              "mesh" "fn" ...
+TaskEntry ::= "#[numthreads" "(" IntLit "," IntLit "," IntLit ")" "]" "task" "fn" ...
+```
+
+**Legality**（strict-only，缺任一 / 非法 → `RX3017`）:
+
+- **mesh 入口**须携 `#[numthreads(x, y, z)]`（恰三**正整数字面量**）+ `#[outputs(topology = "triangles", max_vertices = N, max_primitives = M)]`。首期拓扑集 **triangles-only**（Q-M-MeshTopology）;缺任一标注 / 未知拓扑（非 `"triangles"`）/ N、M 非正字面量 → 编译期拒 **`RX3017`**（新码,`shader.mesh_entry_invalid`）。
+- **task 入口**须携 `#[numthreads(x, y, z)]`;缺失 / 非法 → `RX3017`。
+- **mesh 输出**比照 vertex 输出参与 vs-out→fs-in 阶段间契约（RXS-0155 兑现:mesh 输出 `#[builtin(position)]` + varying 结构与 vertex 输出同格）。
+- **task payload 契约**:task 体内终结 API `emit_mesh_tasks(x, y, z, payload)` 的 `T` 与下游 `mesh fn` 的 `#[task_payload] p: &T` 形参**编译期逐字段比对**（名/类型/序），错配 → **`RX3012` 类别扩充**（见 RXS-0244）;payload `T` 限 POD 聚合。
+
+**Dynamic Semantics**:`set_mesh_outputs(vertex_count, primitive_count)`（运行值 ≤ 静态上限,静态可判越界编译期拒;运行期值语义由 `OpSetMeshOutputsEXT` 承载）+ 顶点输出数组写 + 三角形索引输出 → SPIR-V 编码见 spec/vulkan_backend.md RXS-0246。**严禁 UB**:越界写为编译期结构约束（静态上限），非运行期未定义。
+
+**Implementation Requirements**:[`shader_stages`](../src/rurixc/src/shader_stages.rs) `check_stage_entries` 读 item 属性,`check_numthreads`/`check_mesh_entry` 校验字面量;`#[outputs]` topology 字符串经源切片读取。
+
+> 锚定测试:[`shader_stages::tests`](../src/rurixc/src/shader_stages.rs)`::mesh_task_entry_full_annotations_are_clean`（accept）+ `::mesh_missing_numthreads_is_rx3017` + `::mesh_missing_outputs_is_rx3017` + `::mesh_bad_topology_is_rx3017` + `::task_missing_numthreads_is_rx3017`。
+
+### RXS-0244 RT payload / attribute / callable data 显式类型契约（RXS-0155 修订行，RFC-0013 §4.E3）
+
+> **RXS-0155 加性修订行**（SC-3）:RXS-0244 声明 `RX3012` 覆盖的是「**着色阶段间数据契约**」**超集**——task→mesh workgroup payload、raygen↔closesthit/miss 经 SBT 的**非相邻** payload 传递、callable data 均纳入其扩类别;其冻结 title 的「**插值限定**」维度对 RT / payload / callable 面 **N/A**（仅 mesh 输出→fragment 仍属可复用的相邻 varying 面）。此为**只加类别不改既有语义**（07 §5),非对 RXS-0155「相邻着色阶段类型契约」冻结语义的改派。
+
+**Syntax**（标注式形参，对齐 RFC-0002 §9 Q2 属性式 I/O,Q-M-PayloadForm）:
+
+```
+PayloadParam    ::= "#[payload]" Ident ":" "&" "mut" Type          // closesthit/anyhit/miss
+HitAttrParam    ::= "#[hit_attribute]" Ident ":" "&" Type          // closesthit/anyhit(intersection 产)
+CallableDataParam ::= "#[callable_data]" Ident ":" "&" "mut" Type  // callable
+TaskPayloadParam  ::= "#[task_payload]" Ident ":" "&" Type          // mesh(承 task)
+```
+
+**Legality**（编译期逐字段比对，错配 → `RX3012` 扩类别）:
+
+- **payload 声明形态**:closesthit/anyhit/miss 以 `#[payload] p: &mut P` 标注式形参声明;raygen 在 `trace_ray` 调用点以 `&mut P` 实参给定（body 层,见 RXS-0245 实现要求）。**编译期比对**:同编译单元内每类契约（`#[payload]` / `#[hit_attribute]` / `#[callable_data]` / `#[task_payload]`）**逐字段一致**（名/类型/序）;错配 → **`RX3012`**。首期配对域 = **单编译单元 + 单 RT 管线三件套**（raygen×1 + miss×1 + closesthit×1，Q-M-PairingDomain）;多 payload / 多 hit group 的 SBT 序配对越出首期 → 编译期拒。
+- **attribute 契约**:intersection 经 `report_intersection(t, attr)` 产 hit attribute,closesthit/anyhit 以 `#[hit_attribute] a: &A` 消费;固定三角形几何的内建 attribute（重心坐标 `vec2<f32>`）为已知类型。首期 device 语料不含 intersection（accept-only,§8）。
+- **callable data 契约**:`execute_callable(index, data: &mut D)` ↔ `#[callable_data] d: &mut D`;首期 accept-only。
+- **🔒 类型面承诺边界**:本契约只承诺**类型等价面**（字段名/类型/序编译期一致性）;payload 在管线间的**字节布局/寄存器承载不属承诺**（由 SPIR-V 存储类降级自然承载,镜像 RXS-0159 🔒 布局禁区口径）。
+
+**Dynamic Semantics**:纯类型面契约,无运行期语义;payload 存储类降级见 spec/vulkan_backend.md RXS-0247（`RayPayloadKHR` / `IncomingRayPayloadKHR` / `HitAttributeKHR` / `CallableDataKHR`）。
+
+**Implementation Requirements**:[`shader_stages`](../src/rurixc/src/shader_stages.rs) `check_payload_contracts` 收集各 payload 类形参结构名,组内首个可判定声明为参照,字段序（名+类型文本）不一致 → `RX3012`;payload 类形参从 varying I/O 收集排除（POD 数据契约非插值 varying,不误发 RX3011）。raygen↔hit/miss 经 `trace_ray` 调用点的比对为 body 层,归后续 mir_build 接线。
+
+> 锚定测试:[`shader_stages::tests::rt_payload_pair_is_clean`](../src/rurixc/src/shader_stages.rs)（closesthit + miss 同 payload 0 诊断）+ `::rt_payload_mismatch_is_rx3012`（字段序错配 → `RX3012`）。
+
+### RXS-0245 AccelStruct 句柄、`trace_ray` 已知签名与 RT builtins 类型面（RFC-0013 §4.E4）
+
+**Syntax**（`AccelStruct` 不透明句柄，首期无泛型参数化）:
+
+```
+AccelStruct ::= "AccelStruct"                    // 仅 RT 阶段签名形参
+TraceRay    ::= "trace_ray" "(" AccelStruct "," Vec3 "," F32 "," Vec3 "," F32 "," "&" "mut" Payload ")"
+```
+
+**Legality**（位置纪律 + 阶段合法性 + 固定签名，违例 → `RX3013` 扩类别）:
+
+- **`AccelStruct`**:不透明资源句柄,**仅可作 RT 阶段签名形参**（raygen 为主）;返回位置 / 结构体字段 / 非 RT 阶段签名 → **`RX3013`**（位置纪律同 RXS-0156;绑定轴 = **SRV**,`OpTypeAccelerationStructureKHR` descriptor,承 RXS-0163/0164）。
+- **`trace_ray` 已知签名**（首期固定,收窄即显式）:`trace_ray(tlas, origin: vec3<f32>, t_min: f32, dir: vec3<f32>, t_max: f32, payload: &mut P)`。ray flags 恒 opaque、cull mask 恒 0xFF、SBT offset/stride/miss index 恒 0（单三件套唯一确定）;扩展参数越出首期 → 编译期拒。**递归深度恒 1**:`trace_ray` 仅在 `raygen` 可达域合法（含经调用图可达 closesthit/anyhit/miss/callable 的 device fn 体内亦拒）——把运行期递归上限整体前移为编译期结构约束,**不存在越界递归运行期路径**（无 UB 措辞）。
+- **RT builtins**（阶段×合法性矩阵,阶段不符 → 编译期拒）:`launch_id`/`launch_size`（全 RT 阶段）、`world_ray_origin`/`world_ray_direction`/`ray_t_min`（intersection/anyhit/closesthit/miss）、`hit_t`（anyhit/closesthit）、`primitive_index`/`instance_id`（intersection/anyhit/closesthit）、`hit_kind`（anyhit/closesthit）。命名沿 compute builtins snake_case 谱系（RXS-0202）;本条类型面承认名字合法,阶段维度矩阵落 body/coloring 层。
+- **anyhit 调用次数纪律**:对同一 ray 的调用次数与序为**实现定义但有界**（Vulkan/DXR 双规范一致遍历自由度）,如实登记该自由度,**不写成「未定义」**。
+
+**Dynamic Semantics**:纯类型/位置面;`trace_ray` 调用点签名核对 + builtin 阶段矩阵为 body/coloring 层（归后续 mir_build/coloring 接线),SPIR-V `OpTraceRayKHR` 族编码见 spec/vulkan_backend.md RXS-0247。**严禁 UB**:递归深度 = 编译期结构约束,越界索引无运行期未定义路径。
+
+**Implementation Requirements**:[`shader_stages`](../src/rurixc/src/shader_stages.rs) `is_accel_struct` + `check_accel_return`/`check_accel_param`/`check_accel_in_field`（RT 阶段判定 `is_rt_stage`);RT builtins 名入 `KNOWN_BUILTINS`。
+
+> 锚定测试:[`shader_stages::tests::accelstruct_in_raygen_param_is_clean`](../src/rurixc/src/shader_stages.rs)（accept）+ `::accelstruct_return_is_rx3013` + `::accelstruct_in_non_rt_stage_is_rx3013` + `::accelstruct_in_struct_field_is_rx3013`。
+
+## 3. 错误码引用汇总（RX3011 ~ RX3017）
 
 > 三类编译期拦截(着色阶段误用 / 阶段间接口不匹配 / 资源句柄违例)属 **Rurix 语义诊断**(编译期可检的着色/接口/句柄合法性,对齐 RXS-0066 着色诊断先例),归 **3xxx 着色/地址空间段位续号**(07 §5 语义分配;接 RX3010 之后 **RX3011+**——**非全局 7xxx 段**,7xxx 为运行期/互操作段)。纯 Rust 通用错误(类型不符等)走 rustc 原生诊断(零新 RX)。
 
@@ -250,8 +347,9 @@ IndexAnno      ::= "nonuniform" "(" Expr ")"     // 非均匀索引(强制,stric
 | RX3013 | 资源句柄违例:`Texture2D`/`Sampler` 出现在返回位置 / 结构体字段 / 非着色阶段签名,或未支持纹理维度(defer) | RXS-0156 |
 | RX3014 | 采样表达式违例:`tex.sample(samp, coord)` receiver 非 `Texture2D<F>` / `samp` 非 `Sampler` / `coord` 非 `vec2<f32>` / 元数不符 / 非 fragment 阶段采样(首期收敛子集外);G3.4 扩:无界表动态索引临时句柄逃逸(非立即 receiver) | RXS-0174, RXS-0232 |
 | RX3016 | bindless 无界表动态非均匀索引临时句柄未标注 `nonuniform`（`table[idx]` 须 `nonuniform(idx)` 包裹;唯一豁免整型字面量常量索引） | RXS-0232 |
+| RX3017 | mesh/task 入口标注缺失或非法（mesh 须 `#[numthreads]` + `#[outputs(topology="triangles", max_vertices, max_primitives)]`,task 须 `#[numthreads]`;缺任一 / 未知拓扑 / 非正整数字面量） | RXS-0243 |
 
-**只追加、不预造**:RX3011~3016 按**实现中真实可达、用户可行动**的错误类别只追加(着色阶段误用复用既有 RX3001,无新码);含义冻结(10 §6,`check_error_codes` 延续),`registry/error_codes.json` 只追加并同时落 [../src/rurixc/src/messages/en.messages](../src/rurixc/src/messages/en.messages)(`shader.stage_io_invalid` / `shader.stage_interface_mismatch` / `shader.resource_handle_invalid` / `shader.sample_expr_invalid` / `shader.nonuniform_annotation_missing`)+ [../src/rurixc/src/messages/zh.messages](../src/rurixc/src/messages/zh.messages) 双语 message-key(`ci/bilingual_coverage.py` 覆盖门)。RX3014 由 RFC-0007 分配(采样表达式类型面);**RX3016 由 RFC-0013 §4.C1 分配(G3.4 bindless nonuniform 标注缺失,3xxx typeck 段自 RX3016 续号,number_ledger v1.5 校准避 EI1 撞号)**。
+**只追加、不预造**:RX3011~3017 按**实现中真实可达、用户可行动**的错误类别只追加(着色阶段误用复用既有 RX3001,无新码);含义冻结(10 §6,`check_error_codes` 延续),`registry/error_codes.json` 只追加并同时落 [../src/rurixc/src/messages/en.messages](../src/rurixc/src/messages/en.messages)(`shader.stage_io_invalid` / `shader.stage_interface_mismatch` / `shader.resource_handle_invalid` / `shader.sample_expr_invalid` / `shader.nonuniform_annotation_missing` / `shader.mesh_entry_invalid`)+ [../src/rurixc/src/messages/zh.messages](../src/rurixc/src/messages/zh.messages) 双语 message-key(`ci/bilingual_coverage.py` 覆盖门)。RX3014 由 RFC-0007 分配(采样表达式类型面);**RX3016 由 RFC-0013 §4.C1 分配(G3.4 bindless nonuniform 标注缺失,3xxx typeck 段自 RX3016 续号,number_ledger v1.5 校准避 EI1 撞号)**;**RX3017 由 RFC-0013 §4.E2 分配(G3.6 mesh/task 入口标注缺失/非法,3xxx typeck 段续接 RX3016,`shader.mesh_entry_invalid` en/zh 成对)**。RT payload/attribute/callable data 契约错配复用 **RX3012 扩类别**(RXS-0244,SC-3:阶段间数据契约超集,只加类别不改语义);AccelStruct 位置违例复用 **RX3013 扩类别**(RXS-0245)。
 
 ## 4. 升档 / 禁区留痕
 
@@ -268,6 +366,7 @@ IndexAnno      ::= "nonuniform" "(" Expr ")"     // 非均匀索引(强制,stric
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
+| v1.5 | 2026-07-19 | **RFC-0013 §4.E mesh-task-RT 章类型面落库 + RXS-0242~RXS-0245 条款体(spec-first,G3.6 条款先行)**。承 RFC-0013(Agent Approved 2026-07-18)。新增 `### RXS-0242`(intersection/callable 阶段全集补齐,RXS-0153 加性修订行不占新号):前缀式 `intersection fn`/`callable fn` 入 `<stage>` 集,取 kernel 入口着色,直接调用复用 RX3001,PTX 收集根排除维持(D-207);ast.rs ShaderStage 补 Intersection/Callable + parser 前瞻。新增 `### RXS-0243`(mesh/task 入口契约):mesh 须 `#[numthreads(x,y,z)]`(三正整数字面量)+ `#[outputs(topology="triangles", max_vertices=N, max_primitives=M)]`(triangles-only,Q-M-MeshTopology),task 须 `#[numthreads]`;缺任一/未知拓扑/非正字面量 → **新码 RX3017**(`shader.mesh_entry_invalid` en/zh 成对,3xxx typeck 段续接 RX3016);task→mesh payload 逐字段比对 → RX3012 扩类别。新增 `### RXS-0244`(RT payload/attribute/callable data 显式类型契约,RXS-0155 加性修订行,SC-3):`#[payload]`/`#[hit_attribute]`/`#[callable_data]`/`#[task_payload]` 标注式形参逐字段比对(单三件套配对域,Q-M-PairingDomain),错配 → **RX3012 扩类别**(阶段间数据契约超集,插值维度对 RT/callable N/A,只加类别不改语义);🔒 字节布局非承诺。新增 `### RXS-0245`(AccelStruct 句柄 + trace_ray 已知签名 + RT builtins):AccelStruct 仅 RT 阶段签名形参(SRV 轴承 RXS-0163)违例 → **RX3013 扩类别**;trace_ray 固定签名 + 递归恒 1 编译期结构约束;RT builtins 阶段矩阵(launch_id/world_ray_*/hit_t/hit_kind/primitive_index 等,名入 KNOWN_BUILTINS)。§3 错误码表回填 RX3017 + RX3012/RX3013 扩覆盖。各条 FLS 分 Syntax/Legality/Dynamic Semantics/Implementation Requirements,**严禁 UB 节**(递归深度=编译期结构约束,越界写=静态上限,无运行期未定义;anyhit 调用次数「实现定义但有界」非「未定义」)。mesh/task SPIR-V 编码见 spec/vulkan_backend.md RXS-0246;RT 六模型编码+1.4 分叉见 RXS-0247;DXIL 腿条件分支见 spec/dxil_backend.md RXS-0249。每条 ≥1 `//@ spec` 测试锚定(shader_stages.rs typeck 单测 accept+reject)。**类型面首期**:trace_ray 调用点签名核对 + RT builtin 阶段矩阵 + raygen↔hit/miss payload body 层比对归后续 mir_build/coloring 接线(诚实标注);intersection/callable device 语料 accept-only(§8) | **Full RFC**（RFC-0013） |
 | v1.4 | 2026-07-19 | **RFC-0013 §4.C bindless 章类型面落库 + RXS-0231/RXS-0232 条款体(spec-first,G3.4 条款先行)**。承 RFC-0013(Agent Approved 2026-07-18)。新增 `### RXS-0231`(无界资源句柄数组类型面):`[Texture2D<F>]` 切片样式文法**无新 token**,**仅着色阶段签名形参**(返回/字段/非阶段/嵌套/有界混写 → RX3013 扩类别);首期无界仅 SRV 纹理(无界 Sampler/CBV/UAV 维持 RX6013,binding_layout RXS-0233);句柄非值承 RXS-0156/0174。新增 `### RXS-0232`(动态索引 + `nonuniform` 标注 strict-only):`table[idx]`(`idx:u32`)产临时句柄**仅立即 receiver**(逃逸 → RX3014 扩类别);索引须 `nonuniform(expr)` 包裹(唯一豁免整型字面量常量),缺失 → **新码 RX3016**(3xxx typeck 段自 RX3016 续号,`shader.nonuniform_annotation_missing` en/zh 成对,number_ledger v1.5 校准避 EI1 撞号);**不做 uniformity 推断**(保守全标,Q-B-Uniformity)。§3 错误码表回填 RX3016 + RX3014 扩覆盖(逃逸);`nonuniform` 为值位置兜底 lang-item 自由函数(可用户遮蔽)。各条 FLS 分 Syntax/Legality/Dynamic Semantics/Implementation Requirements,**严禁 UB 节**(越界索引实现定义但有界,clamp 至已注册段,无 UB;RXS-0234)。绑定推导独占 set/space 见 spec/binding_layout.md RXS-0233;codegen 双腿见 spec/dxil_backend.md RXS-0234;宿主 TextureTable 见 spec/host_orchestration.md RXS-0235。每条 ≥1 `//@ spec` 测试锚定(conformance/shader accept+reject + UI golden + binding_layout/dxil_spirv 单测)随实现 commit 同落(条款 PR 先于实现 PR) | **Full RFC**（RFC-0013） |
 | v1.0 | 2026-06-23 | 新建 spec/shader_stages.md(G2.1 着色阶段类型面起始文件):登记编号区间 RXS-0153 起续号预留(**已锁定 4 条 RXS-0153 ~ RXS-0156**,RFC-0002 §9 Q5)+ 文件级前言 / 范围(着色阶段函数着色扩展 RXS-0066 / 阶段专属 I/O 语义类型属性式标注 / 阶段间接口类型契约 vertex out→fragment in / 资源句柄·纹理采样器参数化类型面 `Texture2D<F>`+`Sampler` 平行 View;复用 kernel 子语言+views、device⊂host 单向可达、trait 单态化子集、PTX-only、🔒 纹理内存模型映射禁区不落笔)/ 依据与授权(RFC-0002 agent 批准 + 06 §8.2/§4.2 + 05 §1/§2.2 + spec/device.md RXS-0066/0067/0074/0078;G2_CONTRACT D-G2-1/D-G2-6 / G-G2-1/G-G2-6 + G2_PLAN G2.1)/ 计划条款骨架(§2 预留,非裸条款头,照搬 RFC-0002 §5 表:RXS-0153 着色阶段函数着色规则 / RXS-0154 阶段专属 I/O 语义类型 / RXS-0155 阶段间接口类型契约 / RXS-0156 资源句柄·纹理采样器参数化类型面)/ 错误码新段位说明(§3:着色阶段语义诊断归 3xxx 段 RX3011+ 续号,脚手架不预造、不预留;纯 Rust 错误走 rustc 原生零新码)/ 升档·禁区留痕(§4:档位 Full RFC/RFC-0002、🔒 纹理内存模型映射禁区、G2.2 D-131、G2.3 P-11、多后端/红线1/SG、UB 节禁区)。**沿 README v1.32 / v1.33 先例:本轮不落带编号裸条款头**——条款体与每条 ≥1 测试锚定随 G2.1 实现 PR(PR-B2,步骤 45)同落(条款 PR 先于实现 PR,trace_matrix 维持全锚定 152/152),无体例变更 | **Full RFC**(RFC-0002) |
 | v1.1 | 2026-06-23 | **G2.1 实现 PR(PR-B2):§2 计划骨架升格为带编号条款体 `### RXS-0153 ~ ### RXS-0156`**(FLS 体例,按需分 Syntax / Legality / Dynamic Semantics / Implementation Requirements 节,**严禁 UB 节**;Legality 引用对应 RX 码):RXS-0153 着色阶段函数着色规则(前缀式 `<stage> fn`,着色阶段取 kernel 入口着色,直接调用入口 / 跨着色非法调用复用 `RX3001`;compute 复用 kernel;device⊂host 单向可达;trait 单态化子集)/ RXS-0154 阶段专属 I/O 语义类型(`#[interpolate(..)]`/`#[builtin(..)]` 属性式,无标注字段编译期拒绝 → `RX3011`)/ RXS-0155 阶段间接口类型契约(vertex out → fragment in varying 兼容 → 不兼容 `RX3012`,网格/RT 并入本条)/ RXS-0156 资源句柄·纹理采样器参数化类型面(`Texture2D<F>`+`Sampler` 仅着色阶段签名形参,返回/字段/非阶段位置或未支持维度 → `RX3013`,纹理仅类型形态无采样/内存语义)。§3 错误码表回填 RX3011~3013(3xxx 段续号,着色阶段误用复用 RX3001;en/zh message-key 同落,bilingual_coverage 覆盖)。配套 rurixc 着色阶段前端(parser 上下文关键字 `<stage> fn` + AST 层着色阶段类型面检查,gate `cargo feature shader-stages`)+ conformance accept/reject(`conformance/shader/`)+ UI golden(`tests/ui/shader/*.stderr`,经 bless)+ 每条 ≥1 `//@ spec: RXS-####` 锚定(trace_matrix 152→156 全锚定)。**仅类型面/语法面 + 编译期拦截**:不碰 DXIL codegen(G2.2)/ 绑定布局推导(G2.3)/ 🔒 纹理内存模型映射(06 §4.2 禁区);区间锁定 4 条不拆条 | **Full RFC**(RFC-0002) |

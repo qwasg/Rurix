@@ -25,10 +25,10 @@
       "pattern": "RXS-####",
       "main_fact_source": "spec/README.md §4 + spec/*.md 的 `### RXS-####` 条款头",
       "guard_spec_heading_scan": true,
-      "on_tree_max": 241,
-      "next_free": 242,
+      "on_tree_max": 249,
+      "next_free": 250,
       "shadow_reserved": [181, 182, 183, 184],
-      "notes": "spec 条款号。main 现存条款头 226 个,最高 RXS-0230(G3.3/RFC-0013 §4.B 采样超集章:shader_stages.md RXS-0223 采样方法族类型面 / RXS-0224 静态 sampler 属性;host_orchestration.md RXS-0225 宿主 SamplerDesc;dxil_backend.md RXS-0226 opcode 全家 / RXS-0227 🔒 隐式 LOD / RXS-0228 🔒 texel fetch 越界钳制 / RXS-0229 🔒 storage image 唯一写者;vulkan_backend.md RXS-0230 vk graphics descriptor 建面,RD-022/023/024 兑现,blocker G-RED-1 定稿)。前:RXS-0220~0222 G3.2/RFC-0013 §4.A present(d3d12_runtime.md §2A);release.md §2.8 RXS-0214~0219 EA1.1a/1.1b/1.2;vulkan_backend.md RXS-0200~0213 mb1。RXS-0181~0184 由 GRX 影子分支 claim(提交 cc059daa),main 跳号避撞永久 burned(见 known_collisions[shared-namespace-grx]);RXS-0189~0199 由 MS1.2/MS1.2b 承接。RFC-0013 五面剩余区间 RXS-0231~0249 归 G3.4~G3.6 后续 PR(溢出自 RXS-0270,0250~0269 = EI1 earmark)。下一个可用(G3.3 后)RXS-0231;G3.4 落 RXS-0231~0235、G3.5 render graph 落 RXS-0236~0241(spec/render_graph.md 新建,RFC-0013 §4.D),on_tree_max 校准 230→241 消 2c ADVISORY 漂移,下一个可用 RXS-0242。"
+      "notes": "spec 条款号。最高 RXS-0249(G3.6/RFC-0013 §4.E mesh-task-RT 章:shader_stages.md RXS-0242 intersection/callable 阶段全集 / RXS-0243 mesh/task 入口契约〔新码 RX3017〕/ RXS-0244 RT payload/attribute/callable data 契约〔RX3012 扩〕/ RXS-0245 AccelStruct/trace_ray/RT builtins〔RX3013 扩〕;vulkan_backend.md RXS-0246 mesh/task SPIR-V 编码 / RXS-0247 RT 六模型编码 + SPIR-V 1.4 per-entry 分叉;dxil_backend.md RXS-0249 DXIL 腿条件分支 + RX6008 改接。RXS-0248〔vk 运行时 mesh pipeline/AS/SBT/TraceRays〕留后续 PR 未落条款头)。前:RXS-0236~0241 G3.5 render graph(spec/render_graph.md);RXS-0231~0235 G3.4 bindless;RXS-0230 G3.3 vk descriptor;RXS-0223~0229 G3.3 采样超集;RXS-0220~0222 G3.2 present;release.md §2.8 RXS-0214~0219 EA1;vulkan_backend.md RXS-0200~0213 mb1。RXS-0181~0184 由 GRX 影子分支 claim(提交 cc059daa),main 跳号避撞永久 burned(见 known_collisions[shared-namespace-grx]);RXS-0189~0199 由 MS1.2/MS1.2b 承接。RFC-0013 五面 RXS-0220~0249 已全落地(RXS-0248 除外,留 vk 运行时 PR);0250~0269 = EI1 earmark,溢出自 RXS-0270。on_tree_max 校准 241→249(G3.6 落 RXS-0242~0247/0249 消 2c ADVISORY 漂移),下一个可用 RXS-0250(EI1 轨)/RXS-0248(vk 运行时)。"
     },
     "RD": {
       "scope": "shared",
@@ -213,7 +213,7 @@
         "U": "U30 起(U29=EA1 预留显式跳让,无论其释放与否不回收)",
         "SG": "零消费(五面均为既登记 deferred 兑现非扩张方向;SG-010 软保留维持)",
         "CI_step": "步骤 61 起(预期 61 present / 62~63 采样 / 64 bindless / 65 graph / 66~67 mesh-RT,DXIL 腿视 probe ±68/69、步骤 70 集成 showcase 视判档;数量随实现回填不预占)",
-        "RX_error": "codegen 自 RX6027 续号(G3.2 present RX6027/6028 已落;**G3.5 render graph RX6029/6030 已落**〔图结构违例族 / 声明-反射失配族,RXS-0237,§4.D2〕)+ RX6008 预留码正式改接(RD-012,唯一预留已存在码;RX6009 burned 不用);**3xxx typeck 自 RX3016**(G3.4 bindless nonuniform 标注缺失,RXS-0232,已落;避与 EI1 轨撞号,SC-4);工具类确需自 RX7023。RX6029/6030 < on_tree_max 7022,RX 全局整数序 on_tree_max/next_free 0-byte(v1.5 RX3016 先例)",
+        "RX_error": "codegen 自 RX6027 续号(G3.2 present RX6027/6028 已落;**G3.5 render graph RX6029/6030 已落**〔图结构违例族 / 声明-反射失配族,RXS-0237,§4.D2〕)+ **RX6008 预留码正式改接已落**(G3.6/RFC-0013 §4.E9,RD-012,`codegen.dxil_stage_deferred`,dxil_codegen StageRoute::Stub 自 RX6007 迁至 RX6008,RXS-0249)+ **RX6009 随 error_codes.json errata 正式 burn**(SC-1,RD-013 已 close 未 materialize,永不复用);**3xxx typeck 自 RX3016**(G3.4 bindless nonuniform 标注缺失 RX3016 已落;**G3.6 mesh/task 入口标注缺失 RX3017 已落**,RXS-0243,避与 EI1 轨撞号,SC-4;RT payload/attribute/callable/AccelStruct 复用 RX3012/RX3013 扩类别零新码);工具类确需自 RX7023。RX3017/RX6008 < on_tree_max 7022,RX 全局整数序 on_tree_max/next_free 0-byte(v1.5 RX3016 先例)",
         "D": "共享 D 段零消费(D-408=P1-2 earmark 不动;开工裁决记契约 §7,D-G3-N 仅为交付物编号)"
       },
       "note": "EI1(引擎集成期,双轨另一半)earmark = RFC-0014 / RXS-0250~0269 / CI 步骤 71~75(owner 2026-07-18 双轨分配;v1.4 更正初版『EI1 零消费』误记);EI1 脚手架 PR 自行登记 reserved_in_flight[EI1] 全量 claim,RD/U/RX 共享段按 main 合并序消费不预留。"

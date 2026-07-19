@@ -69,14 +69,14 @@ RXS-0153 着色阶段着色(`vertex`/`fragment`/`compute`/`mesh`/`task` + RT `ra
 | `compute`(及 `kernel`,RXS-0153 compute-via-kernel) | compute shader | `compute` | `compute` | SM 6.0 | **已落**(承 RXS-0157;`hlsl.numthreads`) |
 | `vertex` | vertex shader | `vertex` | `vertex` | SM 6.0 | **已落** |
 | `fragment` | pixel shader | `pixel` | `pixel` | SM 6.0 | **已落** |
-| `mesh` | mesh shader | `mesh` | `mesh` | SM 6.5 | 映射登记,实现 deferred(RD-012) |
-| `task` | amplification shader | `amplification` | `amplification` | SM 6.5 | 映射登记,实现 deferred(RD-012) |
-| `raygen` | RT raygeneration(library) | `library` | `raygeneration` | SM 6.3 | 映射登记,实现 deferred(RD-012) |
-| `closesthit` | RT closesthit(library) | `library` | `closesthit` | SM 6.3 | 映射登记,实现 deferred(RD-012) |
-| `anyhit` | RT anyhit(library) | `library` | `anyhit` | SM 6.3 | 映射登记,实现 deferred(RD-012) |
-| `miss` | RT miss(library) | `library` | `miss` | SM 6.3 | 映射登记,实现 deferred(RD-012) |
+| `mesh` | mesh shader | `mesh` | `mesh` | SM 6.5 | probe 绿(RXS-0249,§4.E9);B 链全量可落(接线随后续 PR),拒绝通道 RX6008 |
+| `task` | amplification shader | `amplification` | `amplification` | SM 6.5 | probe 绿(RXS-0249,§4.E9);B 链全量可落(接线随后续 PR),拒绝通道 RX6008 |
+| `raygen` | RT raygeneration(library) | `library` | `raygeneration` | SM 6.3 | RD-034 尾门(上游 blocked,RXS-0249);拒绝通道 RX6008 |
+| `closesthit` | RT closesthit(library) | `library` | `closesthit` | SM 6.3 | RD-034 尾门(上游 blocked,RXS-0249);拒绝通道 RX6008 |
+| `anyhit` | RT anyhit(library) | `library` | `anyhit` | SM 6.3 | RD-034 尾门(上游 blocked,RXS-0249);拒绝通道 RX6008 |
+| `miss` | RT miss(library) | `library` | `miss` | SM 6.3 | RD-034 尾门(上游 blocked,RXS-0249);拒绝通道 RX6008 |
 
-> **deferred 诚实标注(RD-012)**:`mesh`/`task` 着色器的合规 DXIL 需线程组维度 + 输出拓扑/`DispatchMesh` 声明(dxc validator 对空体 mesh/amplification 入口报缺失),RT 着色器为 **DXIL library 多入口形态**——两者的最小合规降级均越出「阶段→着色器类型(类型面)」、落入阶段 I/O(RXS-0159)/ library 多入口与 ABI 面,本片**不**实现,以 RD-012 显式登记承接后续子分片。本表对其映射**完整登记**(triple env / `hlsl.shader` / SM 下限),但**无 passing 测试锚定的规范性降级条款**:不支持阶段的 DXIL 降级请求 → **RX6007** 编译期诊断(下文 Legality L2;沿 RXS-0157 通道,`registry/deferred.json` RD-012 已预留专用码 RX6008,待 RD-012 实现时改接)。光栅(vertex/fragment)与 compute 阶段提供 passing 锚定(accept + DXIL golden,经 dxc validator 接受)。
+> **deferred 诚实标注(RD-012)**:`mesh`/`task` 着色器的合规 DXIL 需线程组维度 + 输出拓扑/`DispatchMesh` 声明(dxc validator 对空体 mesh/amplification 入口报缺失),RT 着色器为 **DXIL library 多入口形态**——两者的最小合规降级均越出「阶段→着色器类型(类型面)」、落入阶段 I/O(RXS-0159)/ library 多入口与 ABI 面,本片**不**实现,以 RD-012 显式登记承接后续子分片。本表对其映射**完整登记**(triple env / `hlsl.shader` / SM 下限)。**RX6008 改接(RFC-0013 §4.E9,RXS-0249;v1.11)**:不支持阶段的 DXIL 降级请求现 → **RX6008**(`codegen.dxil_stage_deferred`,语义「DXIL 阶段降级不可用」;RD-012 预留码正式落 registry,拒绝通道自 RX6007 迁至专用码,只加类别不改语义,Q-M-RX6008Scope)。probe 结果(evidence,§4.E9):mesh/task probe 绿(B 链 spirv-cross ms_6_5 + dxc 通)= DXIL 全量可落,接线随后续 PR;RT 六模型 probe 红(spirv-cross HLSL 后端无 SPV_KHR_ray_tracing 消费,LaunchIdKHR builtin 5319 无翻译)+ RD-015 未解 = 双上游钳制,落 **RD-034 尾门** + 步骤 69 blocked 探针。光栅(vertex/fragment)与 compute 阶段提供 passing 锚定(accept + DXIL golden,经 dxc validator 接受)。
 
 #### Syntax
 
@@ -85,7 +85,7 @@ RXS-0153 着色阶段着色(`vertex`/`fragment`/`compute`/`mesh`/`task` + RT `ra
 #### Legality
 
 - L1(可降级阶段最小子集):本片仅 `compute`(及 `kernel`)/ `vertex` / `fragment` 着色阶段可降级,且沿 RXS-0157 最小子集——无 ABI 形参、平凡(空)体 → DXIL `void` 入口。子集外构造(I/O 签名形参 / 非平凡体——需 RXS-0159 阶段 I/O 签名或绑定布局推导 G2.3 / FFI ABI 禁区)→ **RX6007**(承 RXS-0157 L2,本条不重定义)。
-- L2(deferred 阶段):`mesh` / `task` / RT(`raygen`/`closesthit`/`anyhit`/`miss`)着色阶段的 DXIL 降级**本片未实现**(RD-012;合规降级越出阶段→着色器类型类型面,见上表 deferred 标注)→ **RX6007**(沿 RXS-0157 通道显式拒绝「DXIL 着色阶段降级暂未支持」,P-01 strict-only,无静默 fallback、不降级为其他着色器类型;`registry/deferred.json` RD-012 已预留专用码 RX6008,待 RD-012 实现时改接)。
+- L2(deferred 阶段):`mesh` / `task` / RT(`raygen`/`closesthit`/`anyhit`/`miss` + `intersection`/`callable`)着色阶段的 DXIL 降级**本片未接线全量**(RD-012;mesh/task probe 绿可全量落地 B 链接线随后续 PR,RT 六模型 RD-034 尾门)→ **RX6008**(`codegen.dxil_stage_deferred`,RX6008 改接;显式拒绝「DXIL 阶段降级不可用」,P-01 strict-only,无静默 fallback、不降级为其他着色器类型;RXS-0249)。
 - L3(降级失败):同 RXS-0157 L3——DXIL 降级管线(IR emit / patched llc → DXIL 容器 / dxc validator)失败 → **RX6007**;工具链缺失为开发环境降级 **SKIP**(非发码,对齐 RXS-0073/RXS-0157)。
 
 #### Dynamic Semantics
@@ -95,9 +95,9 @@ RXS-0153 着色阶段着色(`vertex`/`fragment`/`compute`/`mesh`/`task` + RT `ra
 #### Implementation Requirements
 
 - IR1(阶段→着色器类型映射):降级按上表将阶段类别映射为 triple 环境分量(`dxil-unknown-shadermodel<sm>-<env>`)+ 入口 `hlsl.shader` 属性值;`compute`/`mesh`/`task` 附 `hlsl.numthreads`(本片仅 compute 落地,取最小 `1,1,1`),`vertex`/`fragment` 不附 numthreads。映射在 [`dxil_codegen`](../src/rurixc/src/dxil_codegen.rs) 由阶段标记(HIR `FnDecl::stage`,RXS-0153;`None` 取 compute)裁定;DXIL 收集根扩到含着色阶段入口(`build_dxil_crate`),不改 PTX 收集根(`build_device_crate` 维持排除着色阶段,D-207)。
-- IR2(deferred 阶段发码):`mesh`/`task`/RT 阶段降级请求 → `RX6007`(message-key `codegen.dxil_unsupported`,附阶段名 + RD-012),不产任何 DXIL(strict-only);[`dxil_codegen`](../src/rurixc/src/dxil_codegen.rs) 现沿 RXS-0157 RX6007 通道,`registry/deferred.json` RD-012 落码时改接预留 RX6008。
+- IR2(deferred 阶段发码):`mesh`/`task`/RT 阶段降级请求 → `RX6008`(message-key `codegen.dxil_stage_deferred`,附阶段名 + RD-012/RD-034),不产任何 DXIL(strict-only);[`dxil_codegen`](../src/rurixc/src/dxil_codegen.rs) `StageRoute::Stub` 自 RX6007 迁至专用码 RX6008(RX6008 改接,RXS-0249;RFC-0013 §4.E9)。
 - IR3(SM 下限登记):上表 shader model 下限随阶段登记(光栅/compute SM6.0、mesh/amp SM6.5、RT SM6.3);本片落地阶段(SM6.0)的着色器类型映射经各自后端实测(compute=A 路;vertex/fragment=B 路 dxc,见 RXS-0161/0162),SM6.5/6.3 阶段(mesh/task/RT)为 deferred 阶段的映射登记值,无 passing 测试(RD-012);DXIL golden 经 dxc validator 验证,由 agent pin 环境 bless。
-- IR4(错误码):本条**不新增错误码**——mesh/task/RT deferred 阶段暂沿 RXS-0157 **RX6007** 通道显式拒绝(`registry/deferred.json` RD-012 已预留专用码 RX6008,落码归 RD-012 实现里程碑,不在本片);子集外 / 降级失败亦归 RX6007(承 RXS-0157)。
+- IR4(错误码):mesh/task/RT deferred 阶段经 **RX6008**(`codegen.dxil_stage_deferred`,RX6008 改接,RXS-0249;RD-012 预留码正式落 registry,§4.E9)显式拒绝;compute 子集外 / 降级失败仍归 **RX6007**(承 RXS-0157,语义不动)。
 
 ### RXS-0159 阶段 I/O → DXIL 签名/系统值语义降级（B 路）
 
@@ -163,7 +163,7 @@ MIR→SPIR-V 降级为 codegen 面,非语言文法面。
 
 - L1(已建模子集):`vertex` / `fragment` execution model + 标量 / 向量 I/O + opaque 资源句柄类型(仅类型 / 传递,不涉访问语义)。
 - L2(不可映射):未建模 builtin / 类型 / 阶段构造 → **RX6013**(`DxilError::Unmappable`,strict-only,不静默降级)。
-- L3(deferred 阶段):`mesh` / `task` / RT execution model 本片不降级 → 承 RXS-0158 **RX6007** stub(RD-012)。
+- L3(deferred 阶段):`mesh` / `task` / RT execution model 本片不接线全量 → 承 RXS-0158/RXS-0249 **RX6008** stub(RX6008 改接,RD-012/RD-034)。
 - 🔒(纹理禁区):纹理访问语义(描述符编码 / 采样·load·store opcode / 缓存 / LOD / 导数 / 越界)在本层**结构上不可达**(`MirIoType` 仅标量 / 向量,无法表达资源句柄 / 采样器);一旦类型面扩展触及,编码器在映射处发 RX6013 并标「需升档」,**不**发明 lowering / 二进制布局(RFC-0004 §4.6(b)、06 §4.2)。
 
 #### Dynamic Semantics
@@ -450,10 +450,35 @@ codegen 对每个动态索引**强制发射 clamp**(`UMin(idx, table_len - 1)`),
 - IR2(DXIL 腿 probe-first):spirv-cross runtime array → HLSL `t[]` → dxc → dxv probe;绿 → B 链全量 + 步骤 64 含 DXIL 段;红 → RD-034+ 尾门 + blocked 探针入 CI,Vulkan 腿单独兑现 G-G3-4(Q-B-BLegGate)。**SM6.6 heap 直索引不做**(§7-8,RD-034+ 收窄留痕)。
 - IR3(测试锚定):≥1 `//@ spec: RXS-0234`——`dxil_spirv` 单测(无界表 emit `OpTypeRuntimeArray` + `RuntimeDescriptorArray`/`ShaderNonUniform` capability + 扩展)+ bindless `.rx` → Vulkan SPIR-V 过 `spirv-val --target-env vulkan1.2` accept(`bindless_vulkan_spirv_val`)。
 
+### RXS-0249 DXIL 腿条件分支:mesh/task probe-gated + RT blocked 探针 + RX6008 改接（RXS-0158 表修订行，RFC-0013 §4.E9）
+
+> **RXS-0158 表状态列加性修订行**:mesh/task = probe 绿(B 链可全量落);RT 六模型 = RD-034 尾门(上游 blocked)。拒绝通道自 RX6007 迁至专用码 **RX6008**（RX6008 改接,Q-M-RX6008Scope）。
+
+#### Syntax
+
+无用户面语法(codegen 分支决策 + CI probe);消费 RXS-0158 阶段→着色器类型映射。
+
+#### Legality
+
+- **mesh/task 分支(probe-gated,§4.0-8)**:probe = 最小 mesh/task SPIR-V(RXS-0246 产物,含非空输出单三角形写)→ `spirv-cross --hlsl` → `dxc -T ms_6_5 / as_6_5` → dxv 签名门。**probe 绿**(evidence:mesh spirv-cross ms_6_5 OK + dxc 3172B DXIL)→ mesh/task DXIL 全量可落地(B 链贯通 + 本表状态列修订)+ CI 步骤 68 真实红绿(B 链接线随后续 PR)。
+- **RT 分支(预判 blocked,以探针证据落地)**:双重上游钳制——① B 链:spirv-cross HLSL 后端无 `SPV_KHR_ray_tracing` 消费路径(`Unsupported builtin in HLSL: 5319` = LaunchIdKHR);② A 路:RT 为 DXIL library 多入口形态且 A-graphics 签名钳制未解(RD-015 open)。处置 = **步骤 69 blocked 探针**:CI 恒跑最小 raygen SPIR-V → spirv-cross HLSL,**预期失败 = 探针 PASS**(blocked 证据新鲜);上游某日翻绿 → 探针「意外成功」翻红提醒复评(对齐 RD-011/RD-015 跟踪纪律,防静默腐烂)。RT DXIL 全量登 **RD-034** 尾门,照 G-MB1-6 措辞越过 close-out 存续。
+- **拒绝通道**:mesh/task/RT deferred 阶段降级请求 → **RX6008**(`codegen.dxil_stage_deferred`,RX6008 改接;probe 绿的 mesh/task 接线全量后从拒绝集移除转真降级,blocked 的 RT 维持拒绝集——只改集合成员不改码语义,Q-M-RX6008Scope)。
+
+#### Dynamic Semantics
+
+probe 为编译期/CI 面确定性判定,无运行期语言语义;RX6008 拒绝为编译期 strict-only 诊断,不产 DXIL、无静默 fallback(P-01)。**严禁 UB 节**。
+
+#### Implementation Requirements
+
+- IR1(RX6008 改接):[`dxil_codegen`](../src/rurixc/src/dxil_codegen.rs) `StageRoute::Stub` 自 `ErrorCode(6007)`/`codegen.dxil_unsupported` 迁至 `ErrorCode(6008)`/`codegen.dxil_stage_deferred`;`registry/error_codes.json` 落 RX6008 正式条目(introduced_in G3.6)+ en/zh message-key;RX6009 随 errata 正式 burn（SC-1,权威 registry 与 number_ledger 口径统一）。
+- IR2(CI probe):步骤 68 = mesh/task B 链(probe 绿 → B 链全量红绿,接线随后续 PR);步骤 69 = RT blocked 探针恒建(预期失败 = PASS,意外绿 = 翻红)。probe 证据 JSON + 报告入 `evidence/`（`meshrt_bchain_probe_20260719.md`)。
+- IR3(测试锚定):≥1 `//@ spec: RXS-0249`——[`dxil_codegen::tests::dispatch_mesh_task_rt_stub_diagnoses_no_artifact`](../src/rurixc/src/dxil_codegen.rs)（mesh/task/RT + intersection/callable stub → RX6008,不复发 RX6007）。
+
 ## 3. 修订记录
 
 | 版本 | 日期 | 变更 | 档位 |
 |---|---|---|---|
+| v1.11 | 2026-07-19 | **RFC-0013 §4.E9 DXIL 腿条件分支 + RXS-0249 条款体 + RXS-0158 表状态列修订 + RX6008 改接(spec-first,G3.6 条款先行)**。承 RFC-0013(Agent Approved 2026-07-18)。新增 `### RXS-0249`(DXIL 腿条件分支:mesh/task probe-gated + RT blocked 探针 + RX6008 改接):**probe 证据先行**(evidence/meshrt_bchain_probe_20260719.md,glslang/spirv-cross/dxc @ Vulkan SDK 1.3.296.0)——**mesh/task probe 绿**(spirv-cross --hlsl --shader-model 65 OK + dxc -T ms_6_5 产 3172B DXIL)= B 链全量可落(接线随后续 PR,步骤 68);**RT 六模型 probe 红**(spirv-cross `Unsupported builtin in HLSL: 5319`=LaunchIdKHR,HLSL 后端无 SPV_KHR_ray_tracing 消费 + RD-015 A 路未解 = 双上游钳制)= **RD-034 尾门** + 步骤 69 blocked 探针(预期失败=PASS,意外绿=翻红防腐烂,对齐 RD-011/RD-015)。**RX6008 改接**(Q-M-RX6008Scope):`dxil_codegen.rs` `StageRoute::Stub` 拒绝通道自 `ErrorCode(6007)`/`codegen.dxil_unsupported` 迁至专用码 **`ErrorCode(6008)`/`codegen.dxil_stage_deferred`**(RD-012 预留码正式落 registry,introduced_in G3.6,语义「DXIL 阶段降级不可用」;只加类别不改语义)——probe 绿的 mesh/task 接线全量后从拒绝集移除转真降级,blocked 的 RT 维持拒绝集。**RXS-0158 表状态列修订**:mesh/task 行 `映射登记,实现 deferred(RD-012)` → `probe 绿;B 链全量可落,拒绝通道 RX6008`;RT 四行 → `RD-034 尾门;拒绝通道 RX6008`;L2/IR2/IR4/deferred 注 RX6007→RX6008(compute 子集外 / 降级失败仍 RX6007 语义不动)。**RX6009 burn**(SC-1):RD-013 已 close 未 materialize,随本 errata 正式 burn(error_codes.json revision_log,10 §9.5)。error_codes.json 追加 RX6008 entry + en/zh `codegen.dxil_stage_deferred`(bilingual 门)。测试:`dxil_codegen::tests::dispatch_mesh_task_rt_stub_diagnoses_no_artifact`（八阶段含 intersection/callable → RX6008,不复发 RX6007)。FLS 分节 **严禁 UB 节**。SPIR-V 编码腿见 spec/vulkan_backend.md RXS-0246/0247;类型面见 spec/shader_stages.md RXS-0242~0245。每条 ≥1 `//@ spec` 锚定 | **Full RFC**（RFC-0013） |
 | v1.10 | 2026-07-19 | **RFC-0013 §4.C bindless codegen 落库 + RXS-0234 条款体(spec-first,G3.4 条款先行)**。承 RFC-0013(Agent Approved 2026-07-18)。新增 `### RXS-0234`(🔒 descriptor indexing codegen 降级与越界有界性,双腿):无界纹理表 `[Texture2D<F>]` 动态索引 → SPIR-V `OpTypeRuntimeArray`(元素 image)+ `RuntimeDescriptorArray`/`ShaderNonUniform` capability + `SPV_EXT_descriptor_indexing`(Vulkan 1.2 core,spirv-val vulkan1.2)+ 索引处 `NonUniform` 装饰;`OpAccessChain`(runtime array)→ `OpLoad`(image)→ 立即消费不物化中间 local(RXS-0175)。**越界有界性(实现定义但有界,无 UB 节)**:codegen 强制 clamp `UMin(idx, table_len-1)`,`table_len` 经 push-constant 尾槽(RXS-0208)= 宿主 TextureTable 已注册计数(RXS-0235);访问恒有界于已注册段,不依赖 robustness feature(Q-B-OOB)。DXIL 腿 probe-first(spirv-cross runtime array → HLSL `t[]` → dxc `-T *_6_0` → dxv;绿=全量 / 红=RD-034+ 尾门,Vulkan 腿不牵连);子集外 RX6023 扩类别。SM6.6 heap 直索引不做(§7-8,RD-034+ 留痕)。FLS 分 Syntax/Legality/Dynamic Semantics/Implementation Requirements,**严禁 UB 节**。≥1 `//@ spec: RXS-0234` 锚定(`dxil_spirv` 无界表 emit 单测 + bindless `.rx` → spirv-val vulkan1.2 accept)。类型面见 spec/shader_stages.md RXS-0231/0232,绑定推导见 spec/binding_layout.md RXS-0233,宿主 TextureTable 见 spec/host_orchestration.md RXS-0235。 | **Full RFC**（RFC-0013） |
 | v1.6 | 2026-06-27 | **G-G2-2 owner 收口 + DXIL golden bless 落档**。owner 白栀于本工作会话监督确认 device 真跑 run URL、DXIL 文本 golden bless 与 G-G2-2 子里程碑签字;agent 代录机器事实,自主签署 G2 整体 close-out。`tests/dxil/graphics/gfx_vs_min.dxil-disasm` 在 signed DXC pin 环境(`H:\dxc-round7\extracted\bin\x64` 含 `dxc.exe`/`dxv.exe`/`dxil.dll`)和显式 `spirv-cross.exe` 下经 `RURIX_BLESS=1 cargo test -p rurixc --features dxil-backend --test dxil_golden dxil_b_disasm_golden_matches_when_toolchain_present -- --exact --nocapture` 重 bless;入 golden 前 `dxv.exe` validator 接受,版本噪声规范化为 `OWNER-BLESSED-NORMALIZED`。远端 PR smoke [28284960733](https://github.com/qwasg/Rurix/actions/runs/28284960733) 全量 success,步骤 46 输出 `DXIL_DEVICE: ok adapter="NVIDIA GeForce RTX 4070 Ti" pixel=64,127,255,255 draw=ok`。当前 `gfx_vs_min` 仍为 RD-013/RD-017 缺口下的 TEXCOORD baseline,不关闭 deferred、不声称 output varying 用户语义保真。§2 仅更新当前 golden 形态说明;RXS-0160 计划映射、🔒 签名二进制 ABI 布局/纹理内存模型/DXIL·SPIR-V UB 边界仍不触及。| **Full RFC**（RFC-0004 / PR-D2） |
 | v1.0 | 2026-06-24 | 新建 dxil_backend.md（PR-C1 spec 脚手架，承 RFC-0003 / D-131=A）:登记文件名 + 文件级语义面说明（MIR→DXIL 第二后端，承 RFC-0002 着色阶段类型面 RXS-0153~0156）+ §1 范围与 **RXS-0157~ 预留区间声明**（区间大小未锁定，随 RFC-0003 §9 Q-Range 与路径裁定一并定）+ §2 条款占位（条款体随 PR-C2 实现 PR 同落）。**沿 README v1.32 interop_d3d12.md / v1.33 async_buffer.md / v1.37 shader_stages.md 脚手架先例:仅登记文件名 + 预留区间，不落带编号裸条款头**——本文件**零 `### RXS-####` 条款头**，`ci/trace_matrix.py --check` 维持全锚定 **156/156**（无新增裸条款头、无悬空锚点、零新 RXS）。条款体（RXS-0157 起）与每条 ≥1 `//@ spec` 测试锚定随 PR-C2（DXIL 后端实现 PR）同落（条款 PR 先于实现 PR）。禁区声明:🔒 纹理路径内存模型映射（06 §4.2）/ FFI ABI 二进制布局（RFC-0003 §4.6 / §9 Q-Builtin）/ 绑定布局推导（G2.3，P-11）/ 多后端架构承诺（D-008/SG-003）均不在本文件，触及即停手升档。错误码 **6xxx codegen 段**脚手架不预造、不预留，随 PR-C2 按真实可达类别只追加。档位 **Full RFC**（RFC-0003;触 codegen 第二后端 + target 分发，agent 自主判档，判档争议向上取严）。授权 G2_CONTRACT D-G2-2 / G-G2-2 + G2_PLAN G2.2 子里程碑，无体例变更 | **Full RFC**（RFC-0003） |

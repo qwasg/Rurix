@@ -356,6 +356,14 @@
       "spec_clauses": ["RXS-0232"]
     },
     {
+      "id": "RX3017",
+      "title": "mesh/task 入口标注缺失或非法(mesh 须携 `#[numthreads(x,y,z)]` + `#[outputs(topology = \"triangles\", max_vertices = N, max_primitives = M)]`,task 须携 `#[numthreads]`;缺任一 / 未知拓扑〔非 triangles〕/ 非正整数字面量 → 编译期拒;typeck strict-only,RFC-0013 §4.E2)",
+      "message_key": "shader.mesh_entry_invalid",
+      "status": "active",
+      "introduced_in": "G3.6",
+      "spec_clauses": ["RXS-0243"]
+    },
+    {
       "id": "RX4001",
       "title": "使用已移出的值(use after move,含 maybe-moved 保守判定)",
       "message_key": "borrowck.use_after_move",
@@ -480,6 +488,14 @@
       "status": "active",
       "introduced_in": "G2.2",
       "spec_clauses": ["RXS-0157"]
+    },
+    {
+      "id": "RX6008",
+      "title": "DXIL 阶段降级不可用(RD-012 预留码正式改接,RFC-0013 §4.E9;mesh/task/RT 着色阶段 DXIL 降级请求 → 显式拒绝:RT 六模型上游 blocked〔spirv-cross 无 SPV_KHR_ray_tracing 消费 + RD-015〕维持拒绝集,probe 绿的 mesh/task 落地真降级后从拒绝集移除;拒绝通道自 RX6007 迁至本专用码,只加类别不改既有语义,Q-M-RX6008Scope)",
+      "message_key": "codegen.dxil_stage_deferred",
+      "status": "active",
+      "introduced_in": "G3.6",
+      "spec_clauses": ["RXS-0249"]
     },
     {
       "id": "RX6010",
@@ -826,6 +842,11 @@
     }
   ],
   "revision_log": [
+    {
+      "version": "v1.32",
+      "date": "2026-07-19",
+      "change": "G3.6 mesh-task-RT 面分配 RX3017 + RX6008 改接 + RX6009 burn(RFC-0013 §4.E,spec/shader_stages.md RXS-0243 / spec/dxil_backend.md RXS-0249 配套,实现真实可达类别只追加)。RX3017 mesh/task 入口标注缺失/非法(3xxx typeck 段续接 RX3016;mesh 须携 `#[numthreads(x,y,z)]` + `#[outputs(topology = \"triangles\", max_vertices = N, max_primitives = M)]`,task 须携 `#[numthreads]`;缺任一 / 未知拓扑〔非 triangles,Q-M-MeshTopology〕/ 非正整数字面量 → 编译期拒;shader_stages.rs typeck strict-only,无运行期 fallback P-01)。**RX6008 改接**(RD-012 预留码正式落 registry,introduced_in G3.6,语义「DXIL 阶段降级不可用」,§4.E9/Q-M-RX6008Scope):dxil_codegen.rs StageRoute::Stub 拒绝通道自 RX6007 迁至专用码 RX6008(只加类别不改既有语义)——RT 六模型上游 blocked〔spirv-cross 无 SPV_KHR_ray_tracing 消费 + RD-015〕维持拒绝集 + RD-034 尾门 + 步骤 69 blocked 探针,probe 绿的 mesh/task 落地真降级后从拒绝集移除(B 链接线随后续 PR)。message_key codegen.dxil_stage_deferred 同落 en/zh.messages(双语全量覆盖门 ci/bilingual_coverage.py)。**RX6009 burn**(SC-1):权威 registry 此前无 RX6009 entry,RD-013 已于 2026-06-29 经 G-G2-4 close(实现 RXS-0171 body lowering,从未 materialize RX6009)——本 errata 正式登记 RX6009 永久 burn(10 §9.5,永不复用),使权威 registry 与 number_ledger/RFC-0013 口径统一;error_codes.json codes[] 不追加 status=burned entry(schema 仅 active/deprecated),burn 以本 revision_log + number_ledger 承载。RX3017 < RX_error on_tree_max 7022,number_ledger on_tree_max 不 bump(v1.5 RX3016 先例)。RX6018~6030 既有 entries 不动;RX6007 A 路语义与 emit 点不动(mesh/task/RT stub 迁 RX6008 后 RX6007 保留 compute 子集外 / patched llc·dxc validator 降级失败语义);段内分配制递增不复用、含义冻结(10 §6)"
+    },
     {
       "version": "v1.31",
       "date": "2026-07-19",

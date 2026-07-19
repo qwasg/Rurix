@@ -241,3 +241,10 @@
 | RXS-0239 | spec/render_graph.md | 1 | `src/uc04-demo/tests/d6_crosscheck.rs` |
 | RXS-0240 | spec/render_graph.md | 2 | `src/rurix-rt/src/graph.rs`, `src/rurix-rt/src/vk.rs` |
 | RXS-0241 | spec/render_graph.md | 2 | `src/rurix-rt-cabi/src/lib.rs`, `src/uc04-demo/tests/d6_crosscheck.rs` |
+| RXS-0242 | spec/shader_stages.md | 1 | `src/rurixc/src/shader_stages.rs` |
+| RXS-0243 | spec/shader_stages.md | 1 | `src/rurixc/src/shader_stages.rs` |
+| RXS-0244 | spec/shader_stages.md | 1 | `src/rurixc/src/shader_stages.rs` |
+| RXS-0245 | spec/shader_stages.md | 1 | `src/rurixc/src/shader_stages.rs` |
+| RXS-0246 | spec/vulkan_backend.md | 1 | `src/rurixc/src/vulkan_codegen.rs` |
+| RXS-0247 | spec/vulkan_backend.md | 1 | `src/rurixc/src/vulkan_codegen.rs` |
+| RXS-0249 | spec/dxil_backend.md | 1 | `src/rurixc/src/dxil_codegen.rs` |

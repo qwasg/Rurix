@@ -302,7 +302,7 @@ impl<'a> QueryCtx<'a> {
     /// 不参与编译,RFC-0002 §6)。
     pub fn check_shader_stages(&self) {
         #[cfg(feature = "shader-stages")]
-        crate::shader_stages::check(self.ast(), self.diag);
+        crate::shader_stages::check(self.ast(), self.src(), self.diag);
     }
 
     /// views 不相交检查(RXS-0078;device 借用扩展 pass,HIR 层,host 借用检查
