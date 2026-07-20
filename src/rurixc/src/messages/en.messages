@@ -74,6 +74,9 @@ launch.non_kernel = cannot launch {callee}: only a `kernel` function can be laun
 launch.dim_mismatch = launch grid and block dimensions disagree: grid is {grid}-dimensional, block is {block}-dimensional
 launch.context_brand = context-brand mismatch: {what} belongs to a different context than the launching stream
 #
+# UC-05 RHI 跨 brand 资源误用诊断(RX3006 复用,spec/rhi.md RXS-0256 I7;EI1.3 Part B 分配)
+rhi.cross_brand = context-brand mismatch: {what} belongs to a different `Rhi` instance than this pass
+#
 # views 不相交证明诊断(RX3007 ~ RX3008,spec/device.md RXS-0078;M5.1 分配)
 views.overlapping_mut = overlapping or aliased mutable sub-views of {place}: cannot prove the sub-views are disjoint
 views.out_of_bounds = view split is out of bounds: {detail}

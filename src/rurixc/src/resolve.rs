@@ -126,6 +126,21 @@ pub struct LangItems {
     /// `Graph::create` 编译器已知关联构造函数(G3.5,RXS-0236;值路径解析锚点,
     /// 镜像 `context_create`)。
     pub graph_create: Option<DefId>,
+    /// std::gpu UC-05 最小 RHI 类型面(EI1.3 Part B,RXS-0256;RFC-0014 §4.B;类型位置兜底,
+    /// 可被用户遮蔽)。`Rhi<C>` 图根句柄 / `Res<C>` 资源句柄 / `Pass<C>` pass 声明句柄 /
+    /// `Queue<C>` submit 后消费式 typestate 结果——全非 Copy affine(纪律与 brand 契约复用
+    /// RXS-0189/0054,零新借用码);与 G3.5 `Graph` 平行的不同 lang items(compute-pass 面,
+    /// RFC-0014 §7-2)。**per-instance 新鲜 opaque brand 类型 `C`**(`Rhi::create` 每调用点
+    /// 合成新鲜 brand;跨 `Rhi` 实例误用 → RX3006,I7);方法族(`resource`/`pass`/`submit` +
+    /// `reads`/`writes`)经 typeck 编译器已知签名分支 → `rxrt_rhi_*`(mir_build);kernel/device
+    /// 体内 → RX3015(coloring)。`Rhi::create` 关联构造镜像 `context_create`。
+    pub rhi: Option<DefId>,
+    pub rhi_res: Option<DefId>,
+    pub rhi_pass: Option<DefId>,
+    pub rhi_queue: Option<DefId>,
+    /// `Rhi::create` 编译器已知关联构造函数(EI1.3 Part B,RXS-0256;值路径解析锚点,
+    /// 镜像 `context_create`/`graph_create`)。
+    pub rhi_create: Option<DefId>,
     /// device block barrier 上下文(M5.2,RXS-0079):`block.sync()` 的 `block`
     /// 值位置兜底;`.sync()` → block 级 barrier(可被用户遮蔽)。
     pub block_ctx: Option<DefId>,
@@ -196,6 +211,11 @@ impl LangItems {
             "Graph" => self.graph,
             "GraphResource" => self.graph_resource,
             "PassBuilder" => self.pass_builder,
+            // std::gpu UC-05 最小 RHI 类型面(EI1.3 Part B,RXS-0256):类型位置兜底(可被用户遮蔽)。
+            "Rhi" => self.rhi,
+            "Res" => self.rhi_res,
+            "Pass" => self.rhi_pass,
+            "Queue" => self.rhi_queue,
             _ => ADDR_SPACES
                 .iter()
                 .position(|n| *n == name)
@@ -320,6 +340,30 @@ impl LangItems {
         Some(d) == self.graph_resource
     }
 
+    /// `Rhi<C>` UC-05 RHI 图根判定(EI1.3 Part B,RXS-0256;`resource`/`pass`/`submit`
+    /// 方法接收者识别)。
+    pub fn is_rhi(&self, d: DefId) -> bool {
+        Some(d) == self.rhi
+    }
+
+    /// `Res<C>` RHI 资源句柄判定(EI1.3 Part B,RXS-0256;`reads`/`writes` 声明实参 +
+    /// per-instance brand 核验源)。
+    pub fn is_rhi_res(&self, d: DefId) -> bool {
+        Some(d) == self.rhi_res
+    }
+
+    /// `Pass<C>` RHI pass 声明句柄判定(EI1.3 Part B,RXS-0256;`reads`/`writes` 方法
+    /// 接收者识别)。
+    pub fn is_rhi_pass(&self, d: DefId) -> bool {
+        Some(d) == self.rhi_pass
+    }
+
+    /// `Queue<C>` RHI submit 结果句柄判定(EI1.3 Part B,RXS-0260;submit 消费式 typestate
+    /// 结果,affine 布局消费)。
+    pub fn is_rhi_queue(&self, d: DefId) -> bool {
+        Some(d) == self.rhi_queue
+    }
+
     /// `PinnedBuffer` 锁页缓冲判定(MS1.2,RXS-0189)。
     pub fn is_pinned_buffer(&self, d: DefId) -> bool {
         Some(d) == self.pinned_buffer
@@ -347,6 +391,10 @@ impl LangItems {
             || self.is_graph(d)
             || self.is_pass_builder(d)
             || self.is_graph_resource(d)
+            || self.is_rhi(d)
+            || self.is_rhi_res(d)
+            || self.is_rhi_pass(d)
+            || self.is_rhi_queue(d)
     }
 
     /// `GridDim` 构造器判定(RXS-0074;launch 维度契约)。
@@ -497,6 +545,11 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
             graph_resource: None,
             pass_builder: None,
             graph_create: None,
+            rhi: None,
+            rhi_res: None,
+            rhi_pass: None,
+            rhi_queue: None,
+            rhi_create: None,
             block_ctx: None,
             atomic: None,
             atomic_view: None,
@@ -624,6 +677,17 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
         r.out.lang_items.pass_builder =
             Some(r.new_def(DefKind::Struct, "PassBuilder", Vis::Pub, span, 0));
         r.out.lang_items.graph_create =
+            Some(r.new_def(DefKind::AssocFn, "create", Vis::Pub, span, 0));
+        // std::gpu UC-05 最小 RHI 类型面(EI1.3 Part B,RXS-0256;RFC-0014 §4.B):`Rhi` 图根 /
+        // `Res` 资源句柄 / `Pass` pass 声明句柄 / `Queue` submit 结果 + `Rhi::create` 关联构造。
+        // **追加于全部既有 lang items 之后**,不动摇既有 DefId 编号(MIR/PTX golden 符号名
+        // 稳定性);同 View 族兜底纪律(用户同名定义优先遮蔽,不入模块命名空间)。与 G3.5
+        // `Graph` 平行的不同 lang items(compute-pass 面,RFC-0014 §7-2)。
+        r.out.lang_items.rhi = Some(r.new_def(DefKind::Struct, "Rhi", Vis::Pub, span, 0));
+        r.out.lang_items.rhi_res = Some(r.new_def(DefKind::Struct, "Res", Vis::Pub, span, 0));
+        r.out.lang_items.rhi_pass = Some(r.new_def(DefKind::Struct, "Pass", Vis::Pub, span, 0));
+        r.out.lang_items.rhi_queue = Some(r.new_def(DefKind::Struct, "Queue", Vis::Pub, span, 0));
+        r.out.lang_items.rhi_create =
             Some(r.new_def(DefKind::AssocFn, "create", Vis::Pub, span, 0));
     }
     r.resolve_uses();
@@ -1756,6 +1820,15 @@ impl Resolver<'_> {
                         && let Some(create) = self.out.lang_items.graph_create
                     {
                         // render graph 图构造(G3.5,RXS-0236):`Graph::create`
+                        // 编译器已知关联函数(镜像 `Context::create` 解析锚点)
+                        Res::Def(create)
+                    } else if last
+                        && last_ns == Ns::Value
+                        && Some(prefix_def) == self.out.lang_items.rhi
+                        && seg.ident.name == "create"
+                        && let Some(create) = self.out.lang_items.rhi_create
+                    {
+                        // UC-05 RHI 图根构造(EI1.3 Part B,RXS-0256):`Rhi::create`
                         // 编译器已知关联函数(镜像 `Context::create` 解析锚点)
                         Res::Def(create)
                     } else {

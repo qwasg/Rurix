@@ -1,0 +1,29 @@
+//@ spec: RXS-0256
+// EI1.3 Part B UC-05 最小 RHI 宿主类型面(RFC-0014 §4.B):Rhi / Res / Pass / Queue 为编译器
+// 已知签名 lang-item 宿主类型(镜像 RXS-0189/0190 分支,零新文法产生式)→ `rxrt_rhi_*` 字面
+// 符号(mir_build)。compute-pass 声明式建图:节点 = pass、边由资源读写声明推导;声明序 =
+// 提交序;**用户不写任何 barrier / 同步**(自动 hazard 推导 rhi.rs / RXS-0258)。全部句柄非
+// Copy affine(承 RXS-0189,零新借用码);`reads(&res)` / `writes(&res)` 取 `&Res` 借用——同
+// 资源可跨 pass 二次借用(借用非 use-after-move,故 `&a` 多次出现可编译,RFC-0014 §4.B1)。
+fn main() -> i32 {
+    let ctx = Context::create();
+    let n: u32 = 256;
+
+    let rhi = Rhi::create(&ctx);
+    let a = rhi.resource(n);
+    let b = rhi.resource(n);
+    let c = rhi.resource(n);
+
+    // produce:写 a。
+    rhi.pass().writes(&a);
+    // transform:读 a 写 b(`&a` 二次借用合法——借用非 move)。
+    rhi.pass().reads(&a).writes(&b);
+    // consume:读 a 读 b 写 c(`&a` 三次借用合法)。
+    rhi.pass().reads(&a).reads(&b).writes(&c);
+
+    // 装配核验(依赖环 I3 / 未声明访问 I4 / 写写冲突 I5 → 库层状态值 strict 拒)+ hazard 推导;
+    // submit 消费式 typestate(1-submit,镜像 RXS-0197 present)→ Queue。
+    rhi.submit();
+    ctx.sync();
+    0
+}

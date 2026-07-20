@@ -1,0 +1,18 @@
+//@ spec: RXS-0260
+//@ expect-error: RX4001
+// 1-submit typestate 重复 submit(I6,RFC-0014 §4.B4;镜像 RXS-0197 present 消费式):
+// `Rhi::submit(self) -> Queue` **move-out** 消费接收者;二次 submit = 编译期 move 违例
+// **RX4001**(复用 RXS-0054,零新码;经引用消费 → RX4003)。
+fn main() -> i32 {
+    let ctx = Context::create();
+    let n: u32 = 256;
+
+    let rhi = Rhi::create(&ctx);
+    let a = rhi.resource(n);
+    rhi.pass().writes(&a);
+
+    rhi.submit(); // move-out rhi
+    rhi.submit(); // use-after-move → RX4001
+    ctx.sync();
+    0
+}

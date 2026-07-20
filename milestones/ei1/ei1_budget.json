@@ -15,6 +15,10 @@
     {
       "id": "ei1.counter.export_c_redgreen_cases",
       "description": "`#[export(c)]` C ABI 导出 codegen 红绿 reject 语料基数 ≥8(契约 G-EI1-2;RFC-0014 Part A §4.A / RXS-0250~0255;编译期 100% 拦截口径,I1~I8 类)。计数源 = conformance/export_c/reject/*.rx 文件数(静态语料计数,机器事实,ci/export_c_smoke.py 步骤 71 host 段 cargo test export_c_corpus 恒跑批跑全拦截 + accept 0 诊断验证每条真出预期码)。覆盖 3 诊断码:RX6033 属性挂载非法(挂 kernel/device/非 pub)×3 + RX6031 子集/panic 面违例(slice/array 按值/数组索引/unwrap/`?`)×5。**host 段恒跑不 gate**(collect_c_exports 编译期诊断,不需 device/工具链;对齐 m1.counter.syntax_corpus_size 静态语料计数先例,非 device evidence 计数)。工具链段(--emit=dll DLL+import lib+生成头 + dumpbin 未 mangle + 类型层 ABI 往返哨兵 RXS-0252/0253 步骤 71 硬门)缺 clang/link/MSVC → SKIP=dev-env degrade,RURIX_REQUIRE_REAL=1 翻硬红,不入本 counter。EI1.3~EI1.5 counter(uc05_invariant_cases 等)随后续实现 PR 落。"
+    },
+    {
+      "id": "ei1.counter.uc05_invariant_cases",
+      "description": "UC-05 RHI I1~I10 不变量红绿语料基数 ≥8(契约 G-EI1-3;RFC-0014 Part B §4.B / RXS-0256~0265;确定性拦截口径)。计数源 = conformance/uc05/reject/*.rx(编译期档:I1 res_use_after_move / I2 res_double_move / I6 rhi_double_submit〔RX4001〕/ I7 rhi_cross_brand〔RX3006〕/ I8 rhi_in_kernel〔RX3015〕= 5)+ conformance/uc05/assembly/*.rx(装配期档:I3 graph_cycle / I5 graph_write_write / graph_empty 生命周期 = 3)= 8 静态语料计数(机器事实,对齐 m1.counter.syntax_corpus_size / ei1.counter.export_c_redgreen_cases 静态计数先例,非 device evidence 计数)。**host 段恒跑不 gate**:编译期档由 ci/uc05_rhi_smoke.py 步骤 72 host 段 cargo test uc05_corpus 批跑全拦截 + 步骤 73 ci/uc05_invariant_gate.py 逐条断言;装配期档编译期 CLEAN,拦截由 rhi.rs 库单测(纯 host 无 GPU)+ 步骤 72 device 段 EXE red-green(需 GPU 运行 Context,SKIP=dev-env-degrade,RURIX_REQUIRE_REAL 翻红,不入本 counter)。I4 = lib_tested(诚实收窄,.rx 反射喂入 EI1.4,不计语料);I9/I10 = report_only。"
     }
   ],
   "namespace_check": {
@@ -26,6 +30,11 @@
       "version": "v1.0",
       "date": "2026-07-18",
       "change": "初版模板(EI1 gated 契约脚手架):entries/ratio_assertions/counter_assertions 全部留空,gated 期恒空(契约 §0/G-EI1-0)。entries/ratio_assertions 留空(不预欠 estimated 占位);counter_assertions 留空(实体面 Full-RFC-gated(RFC-0014 earmark),不预造 counter)。ei1.counter.* 随激活后 EI1.2~EI1.5 实现 PR 回填 + 配套 ci/budget_eval.py evaluator 分支(条款先于实现);ei1.bench.uc05_check_{cold,warm}_ms(增量 check <5s 双口径,07 §6)随激活后 EI1.5 取证 measured_local 回填。永不立引擎采纳/下载量/用户数类条目。预算 glob *_budget.json 自动纳入 ei1,无新 CI 代码改动。"
+    },
+    {
+      "version": "v1.2",
+      "date": "2026-07-19",
+      "change": "EI1.3 UC-05 RHI 实现 PR-B2:counter_assertions 落第二个实体 counter ei1.counter.uc05_invariant_cases(≥8,契约 G-EI1-3,RFC-0014 Part B / RXS-0256~0265)+ 配套 ci/budget_eval.py evaluator 分支(条款先于实现兑现)。计数源 = conformance/uc05/reject/*.rx(编译期档 I1/I2/I6/I7/I8 = 5)+ conformance/uc05/assembly/*.rx(装配期档 I3/I5/生命周期 = 3)= 8 静态语料计数(host 恒跑不 gate,对齐 export_c_redgreen_cases 静态计数先例)。I4 = lib_tested(诚实收窄,.rx 反射喂入 EI1.4 不计语料),I9/I10 = report_only。entries/ratio_assertions 维持留空(采纳判据 bench ei1.bench.uc05_check_{cold,warm}_ms 随 EI1.5 measured_local 回填,不预欠 estimated)。零 estimated 铁律维持(本 counter measured 静态计数)。"
     },
     {
       "version": "v1.1",

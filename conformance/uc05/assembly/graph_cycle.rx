@@ -1,0 +1,26 @@
+//@ spec: RXS-0258
+//@ assembly-reject: structure
+// 依赖环 / use-before-write 可达形态(I3,RFC-0014 §4.B3;RXS-0258)。**编译期 CLEAN**——图结构
+// 合法性非类型面性质,`--emit=check` 不拦(此文件不带 //@ expect-error)。违例在 `submit()`
+// **装配期(图装配期)** host 侧确定性拦:消费读(`reads`)的资源无先前 pass 写(`writes`)→
+// 库层状态值 Structure Err(镜像 G3.5 RX6029 口径,零新 RX 码)→ RXRT_FAIL → rxrt_trap 终止。
+// 由 ci/uc05_rhi_smoke.py(步骤 72)编译成 EXE 真跑见证:退非零 + stderr 含装配 Err(装配期
+// 确定性拦,非运行期概率性)。rhi.rs 库单测 `rejects_read_before_write_i3` 为纯 host(无 GPU)证。
+// 最小不 launch kernel:仅为 Context::create 提供合法 GPU 产物(RXS-0192;host 图安全,不 launch)。
+kernel fn uc05_touch(g: View<global, f32>) {}
+
+fn main() -> i32 {
+    let ctx = Context::create();
+    let n: u32 = 256;
+
+    let rhi = Rhi::create(&ctx);
+    let a = rhi.resource(n);
+    let out = rhi.resource(n);
+
+    // transform 读 a 写 out,但无先前 pass 写 a → 读未写(依赖环 / use-before-write,I3)。
+    rhi.pass().reads(&a).writes(&out);
+
+    rhi.submit(); // 装配期 Structure Err(strict 拒)→ 确定性终止
+    ctx.sync();
+    0
+}

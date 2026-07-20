@@ -2051,6 +2051,89 @@ impl Builder<'_, '_> {
                 self.guard_rc_negative(rc, span);
                 Operand::Const(Const::Unit)
             }
+            // EI1.3 Part B UC-05 RHI(RXS-0256):图根构造 `Rhi::create(&ctx)` → `rxrt_rhi_create`;
+            // 句柄 0 → 终止(RXS-0193;镜像 graph_create,`&ctx` 取内层 ctx 句柄)。
+            Op::RhiCreate => {
+                let ret = self.ty_of(e);
+                let h = match &args[0].kind {
+                    tbir::ExprKind::Borrow { expr, .. } => self.gpu_handle_op(expr),
+                    _ => self.gpu_handle_op(&args[0]),
+                };
+                let dest = self.emit_rt_call("rxrt_rhi_create", vec![h], ret.clone(), span);
+                self.guard_handle_zero(dest, span);
+                self.consume(Place::local(dest), &ret)
+            }
+            // 资源句柄 → `rxrt_rhi_resource(rhi)`(n 容量维度不下发,执行器消费;接收者非消费);
+            // 句柄 0 → 终止(RXS-0257)。
+            Op::RhiResource => {
+                let rhi = self.gpu_handle_op(&args[0]);
+                let ret = self.ty_of(e);
+                let dest = self.emit_rt_call("rxrt_rhi_resource", vec![rhi], ret.clone(), span);
+                self.guard_handle_zero(dest, span);
+                self.consume(Place::local(dest), &ret)
+            }
+            // pass 句柄 → `rxrt_rhi_pass(rhi)`(声明序 = 提交序;接收者非消费);句柄 0 → 终止
+            // (RXS-0257)。
+            Op::RhiPass => {
+                let rhi = self.gpu_handle_op(&args[0]);
+                let ret = self.ty_of(e);
+                let dest = self.emit_rt_call("rxrt_rhi_pass", vec![rhi], ret.clone(), span);
+                self.guard_handle_zero(dest, span);
+                self.consume(Place::local(dest), &ret)
+            }
+            // 读 / 写访问声明(封闭枚举 AccessKind{Read=0,Write=1})→ `rxrt_rhi_declare(pass, res,
+            // access)`:接收者 pass 消费并返回(builder 链),资源实参 `&Res` 非消费(gpu_handle_op
+            // Copy,取内层句柄);负值 rc → 终止(RXS-0257)。
+            Op::RhiPassReads | Op::RhiPassWrites => {
+                let ret = self.ty_of(e);
+                let carried = self.gpu_consume_receiver(&args[0], &ret, span);
+                let t = self.gpu_handle_op(&args[1]);
+                let access = i128::from(op == Op::RhiPassWrites); // read=0 / write=1
+                let rc = self.emit_rt_call(
+                    "rxrt_rhi_declare",
+                    vec![
+                        Operand::Copy(Place::local(carried)),
+                        t,
+                        Operand::Const(Const::Int(access, PrimTy::U32)),
+                    ],
+                    Ty::Prim(PrimTy::I32),
+                    span,
+                );
+                self.guard_rc_negative(rc, span);
+                self.consume(Place::local(carried), &ret)
+            }
+            // submit(装配核验 I3/I4/I5 + 纯函数状态推导)→ `rxrt_rhi_submit(rhi)`;**消费式接收者**
+            // 按值 move 进 `Queue<C>` 结果(1-submit typestate,句柄同为单 u64 再定名,镜像 present
+            // 消费式转移);负值 rc(装配违例)→ 终止(strict-only,RXS-0193/0258/0260)。
+            Op::RhiSubmit => {
+                let ret = self.ty_of(e);
+                let carried = self.gpu_consume_receiver(&args[0], &ret, span);
+                let rc = self.emit_rt_call(
+                    "rxrt_rhi_submit",
+                    vec![Operand::Copy(Place::local(carried))],
+                    Ty::Prim(PrimTy::I32),
+                    span,
+                );
+                self.guard_rc_negative(rc, span);
+                self.consume(Place::local(carried), &ret)
+            }
+            // readback → `rxrt_rhi_readback(rhi, res)`(RXS-0259):接收者 `rhi` 非消费(handle Copy),
+            // **资源实参 `res` 按值 move-out**——`place_of_or_temp` 取实参 place 后 `Operand::Move`,令
+            // move 检查把 readback 后再用 / 二次 readback 判为 use-after-move **RX4001**(I1/I2;镜像
+            // gpu_consume_receiver 的接收者 move,唯此处 move 的是实参非接收者)。负值 rc → 终止。
+            Op::RhiReadback => {
+                let rhi = self.gpu_handle_op(&args[0]);
+                let res_place = self.place_of_or_temp(&args[1]);
+                let src = Operand::Move(res_place);
+                let rc = self.emit_rt_call(
+                    "rxrt_rhi_readback",
+                    vec![rhi, src],
+                    Ty::Prim(PrimTy::I32),
+                    span,
+                );
+                self.guard_rc_negative(rc, span);
+                Operand::Const(Const::Unit)
+            }
             Op::Launch => unreachable!("launch 走 GpuLaunch 节点(RXS-0191)"),
         }
     }

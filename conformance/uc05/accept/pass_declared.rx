@@ -1,0 +1,23 @@
+//@ spec: RXS-0257
+// pass 声明与资源访问集(RXS-0257,RFC-0014 §4.B2):`g.pass().reads(&res).writes(&res)`
+// builder 方法链,逐方法即逐 typeck 已知签名分支(诊断 span 精确到单条访问声明)。访问种类
+// 首期封闭枚举 read / write;声明集入 `Graph<C>` 无堆记账(声明序 = 提交序)。**pass 声明面 0
+// 诊断**:同资源可在同一 pass 内既非重复写、既非读写冲突时合法声明(此处 seed 写 a、consume
+// 读 a 写 b 的合法读写建序,I4 声明-反射相等由 EI1.4 compute-pass kernel 绑定喂入,见 §5)。
+fn main() -> i32 {
+    let ctx = Context::create();
+    let n: u32 = 256;
+
+    let rhi = Rhi::create(&ctx);
+    let a = rhi.resource(n);
+    let b = rhi.resource(n);
+
+    // seed:仅写 a(单访问声明)。
+    rhi.pass().writes(&a);
+    // consume:读 a 写 b(读写建序,声明集 = {read a, write b})。
+    rhi.pass().reads(&a).writes(&b);
+
+    rhi.submit();
+    ctx.sync();
+    0
+}

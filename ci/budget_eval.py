@@ -582,6 +582,18 @@ def eval_counter(entry: dict, strict: bool) -> None:
         n = len(list(reject_dir.glob("*.rx"))) if reject_dir.is_dir() else 0
         count_or_gate(eid, n, 8, "个 export(c) 红绿 reject 语料",
                       "EI1.2 建设期为正常状态,契约 G-EI1-2", strict)
+    elif eid == "ei1.counter.uc05_invariant_cases":
+        # UC-05 RHI I1~I10 不变量红绿语料基数 ≥8(契约 G-EI1-3;RFC-0014 Part B §4.B /
+        # RXS-0256~0265;确定性拦截口径)。计数源 = conformance/uc05/reject/*.rx(编译期档
+        # I1/I2/I6/I7/I8 = 5)+ conformance/uc05/assembly/*.rx(装配期档 I3/I5/生命周期 = 3)
+        # = 8 静态语料计数(host 恒跑不 gate;对齐 export_c_redgreen_cases 静态计数先例,非
+        # device evidence 计数)。I4 = lib_tested 不计语料,I9/I10 = report_only。
+        uc05 = ROOT / "conformance" / "uc05"
+        reject_n = len(list((uc05 / "reject").glob("*.rx"))) if (uc05 / "reject").is_dir() else 0
+        assembly_n = len(list((uc05 / "assembly").glob("*.rx"))) if (uc05 / "assembly").is_dir() else 0
+        n = reject_n + assembly_n
+        count_or_gate(eid, n, 8, "个 UC-05 RHI 不变量红绿语料(编译期 reject + 装配期)",
+                      "EI1.3 建设期为正常状态,契约 G-EI1-3", strict)
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 

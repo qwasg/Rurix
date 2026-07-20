@@ -411,6 +411,31 @@ pub enum GpuHostOp {
     /// `g.execute()` → `rxrt_graph_execute(g)`(装配核验 RX6029/RX6030 + 纯函数状态推导;
     /// 非消费接收者;负值 rc → 终止 RXS-0193)。
     GraphExecute,
+    /// `Rhi::create(&ctx)` → `rxrt_rhi_create`(EI1.3 Part B,RXS-0256;`Rhi<C>` 非 Copy
+    /// affine,per-instance 新鲜 opaque brand 契约,RFC-0014 §4.B1)。
+    RhiCreate,
+    /// `rhi.resource(n)` → `rxrt_rhi_resource(rhi)`(RHI 资源句柄 `Res<C>`,owned affine;
+    /// 非消费接收者;n 为容量维度,执行器消费不下发,RXS-0257)。
+    RhiResource,
+    /// `rhi.pass()` → `rxrt_rhi_pass(rhi)`(pass 句柄 `Pass<C>`,声明序 = 提交序;非消费
+    /// 接收者,RXS-0257)。
+    RhiPass,
+    /// `pass.reads(&res)` → `rxrt_rhi_declare(pass, res, 0)`(shader/UAV 读声明;消费接收者
+    /// 并返回〔builder 链〕,资源实参 `&Res` 借用非消费,RXS-0257)。与 G3.5 `PassReads`
+    /// (graph `GraphResource`)平行的不同算子(RHI `Res` 面)。
+    RhiPassReads,
+    /// `pass.writes(&res)` → `rxrt_rhi_declare(pass, res, 1)`(UAV 写声明;消费接收者并返回,
+    /// 资源实参 `&Res` 借用非消费,RXS-0257)。
+    RhiPassWrites,
+    /// `rhi.submit()` → `rxrt_rhi_submit(rhi)`(装配核验 I3/I4/I5 + 纯函数状态推导;**消费式
+    /// 接收者**→ `Queue<C>`,1-submit typestate 镜像 RXS-0197;二次 submit = RX4001;负值 rc
+    /// → 终止 RXS-0193,RXS-0258/0260)。
+    RhiSubmit,
+    /// `rhi.readback(res)` → `rxrt_rhi_readback(rhi, res)`(RXS-0259;**资源 `res` 按值消费=
+    /// move-out 点**——`Res` 的 use-after-free〔I1〕/ double-free〔I2〕实际消费锚;readback 后再用
+    /// `res` / 二次 readback = 编译期 move 违例 RX4001。**区别于 G3.5 `GraphReadback`**〔`&res`
+    /// 借用非消费〕:RHI `readback` 消费 `Res` 落实 affine 释放语义,负值 rc → 终止 RXS-0193)。
+    RhiReadback,
 }
 
 /// scoped atomics 原子读改写算子(M5.2,RXS-0080;`Atomic`/`AtomicView` 族方法)。

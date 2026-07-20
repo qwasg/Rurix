@@ -23,6 +23,11 @@ pub mod graph;
 #[cfg(feature = "d3d12-interop")]
 pub mod interop;
 pub mod pipeline;
+/// UC-05 最小 RHI 纯 host 图合法性核验与 compute-pass hazard 推导（EI1.3 Part B，
+/// RXS-0256~0260；RFC-0014 §4.B）。always-on、零 unsafe、零后端调用:装配核验（I3 依赖环 /
+/// I4 未声明访问 / I5 写写冲突）+ 纯函数 RAW/WAW/WAR hazard 推导。与 G3.5 `graph`（图形面）
+/// 平行的库面 compute-pass RHI（RFC-0014 §7-2 设计参照非复用）。
+pub mod rhi;
 /// 宿主 sampler 状态面（G3.3，RXS-0225；RFC-0013 §4.B2 形态 b）。纯 host 类型,
 /// 与着色阶段静态属性 `#[sampler(...)]`（RXS-0224）镜像同一状态空间;经 cabi 降级
 /// `VkSamplerCreateInfo`（vk descriptor 建面 RXS-0230 消费）。

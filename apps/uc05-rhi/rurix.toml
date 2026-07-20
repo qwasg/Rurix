@@ -1,0 +1,9 @@
+# UC-05 RHI 应用包清单(EI1.3,RFC-0014 §4.B / spec/rhi.md;G-EI1-3 主语言判据:
+# 包目录内零 .rs/.cpp/.c/.py,仅 .rx 源 + 本清单)。形态抄 apps/ruridrop/rurix.toml。
+# host 侧图安全 demo:声明式 compute-pass render graph(资源 / pass / reads / writes /
+# readback / submit)+ 装配核验 + hazard 推导;compute dispatch / device 数值归 EI1.4
+# (诚实标注,本 demo 不 launch kernel、不作数值断言)。
+[package]
+name = "uc05-rhi"
+version = "0.1.0"
+build = "declarative"

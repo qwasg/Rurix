@@ -75,6 +75,9 @@ launch.non_kernel = 无法 launch {callee}:只有 `kernel` 函数可被 launch
 launch.dim_mismatch = launch 的 grid 与 block 维度不一致:grid 为 {grid} 维,block 为 {block} 维
 launch.context_brand = context-brand 不匹配:{what} 与发起 launch 的 stream 属于不同的 context
 #
+# UC-05 RHI 跨 brand 资源误用诊断(RX3006 复用,spec/rhi.md RXS-0256 I7;EI1.3 Part B 分配)
+rhi.cross_brand = context-brand 不匹配:{what} 与本 pass 属于不同的 `Rhi` 实例
+#
 # views 不相交证明诊断(RX3007 ~ RX3008,spec/device.md RXS-0078;M5.1 分配)
 views.overlapping_mut = {place} 的可变子视图重叠或别名:无法证明各子视图不相交
 views.out_of_bounds = 视图切分越界:{detail}

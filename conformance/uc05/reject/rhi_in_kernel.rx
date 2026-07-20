@@ -1,0 +1,18 @@
+//@ spec: RXS-0256
+//@ expect-error: RX3015
+// 宿主 API 着色合法性(I8,RFC-0014 §4.B1 承 RXS-0189):UC-05 RHI 宿主构造与方法出现在
+// kernel 体内 → RX3015(coloring 层,与 RX3001 / Graph::create 同点位;`Rhi::create` /
+// `resource` / `pass` / `reads` / `writes` / `submit` 与 `Context::create` 同属 std::gpu
+// 宿主识别面,construct 与方法调用同拦)。
+kernel fn bad(t: ThreadCtx<1>) {
+    let c = Context::create();
+    let n: u32 = 256;
+    let rhi = Rhi::create(&c);
+    let a = rhi.resource(n);
+    rhi.pass().writes(&a);
+    rhi.submit();
+}
+
+fn main() -> i32 {
+    0
+}

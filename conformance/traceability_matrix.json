@@ -1393,6 +1393,56 @@
       "conformance/export_c/reject/try_body_panic.rx",
       "conformance/export_c/reject/unwrap_body_panic.rx",
       "src/rurixc/src/export_c.rs"
+    ],
+    "RXS-0256": [
+      "conformance/uc05/accept/rhi_min.rx",
+      "conformance/uc05/reject/rhi_cross_brand.rx",
+      "conformance/uc05/reject/rhi_in_kernel.rx",
+      "src/rurix-rt-cabi/src/lib.rs",
+      "src/rurixc/tests/uc05_corpus.rs"
+    ],
+    "RXS-0257": [
+      "conformance/uc05/accept/pass_declared.rx",
+      "src/rurix-rt-cabi/src/lib.rs",
+      "src/rurix-rt/src/rhi.rs",
+      "src/rurixc/tests/uc05_corpus.rs"
+    ],
+    "RXS-0258": [
+      "conformance/uc05/accept/graph_three_pass.rx",
+      "conformance/uc05/assembly/graph_cycle.rx",
+      "conformance/uc05/assembly/graph_empty.rx",
+      "conformance/uc05/assembly/graph_write_write.rx",
+      "src/rurix-rt-cabi/src/lib.rs",
+      "src/rurix-rt/src/rhi.rs",
+      "src/rurixc/tests/uc05_corpus.rs"
+    ],
+    "RXS-0259": [
+      "conformance/uc05/accept/graph_three_pass.rx",
+      "conformance/uc05/reject/res_double_move.rx",
+      "conformance/uc05/reject/res_use_after_move.rx",
+      "src/rurix-rt-cabi/src/lib.rs",
+      "src/rurixc/tests/uc05_corpus.rs"
+    ],
+    "RXS-0260": [
+      "conformance/uc05/accept/single_submit.rx",
+      "conformance/uc05/reject/rhi_double_submit.rx",
+      "src/rurix-rt-cabi/src/lib.rs",
+      "src/rurixc/tests/uc05_corpus.rs"
+    ],
+    "RXS-0261": [
+      "src/rurix-rt-cabi/src/lib.rs"
+    ],
+    "RXS-0262": [
+      "src/rurix-rt/src/rhi.rs"
+    ],
+    "RXS-0263": [
+      "src/rurixc/tests/uc05_corpus.rs"
+    ],
+    "RXS-0264": [
+      "src/rurixc/tests/uc05_corpus.rs"
+    ],
+    "RXS-0265": [
+      "src/rurixc/tests/uc05_corpus.rs"
     ]
   }
 }
