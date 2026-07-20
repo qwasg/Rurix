@@ -1,0 +1,16 @@
+//@ spec: RXS-0255
+//@ expect-error: RX6031
+// export_c reject: 导出体 **match 臂内**含数组索引（panic 面）→ RX6031。
+//
+// 与 `loop_body_panic.rx` 同源回归护栏（EI1.4 实证）：`scan_expr` 的 `_ => None`
+// 兜底曾令 `Match` 的 scrutinee/guard/臂体不被扫描。现穷尽 match 递归 match 臂
+// （含 guard）与循环/闭包体,RXS-0255 结构性保证不再有洞。
+
+#[export(c)]
+pub fn pick(n: i32) -> i32 {
+    let a = [1, 2, 3, 4];
+    match n {
+        0 => a[n],
+        _ => 7,
+    }
+}

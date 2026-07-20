@@ -1390,6 +1390,8 @@
       "conformance/export_c/accept/arith_no_panic.rx",
       "conformance/export_c/accept/unit_return.rx",
       "conformance/export_c/reject/index_body_panic.rx",
+      "conformance/export_c/reject/loop_body_panic.rx",
+      "conformance/export_c/reject/match_arm_panic.rx",
       "conformance/export_c/reject/try_body_panic.rx",
       "conformance/export_c/reject/unwrap_body_panic.rx",
       "src/rurixc/src/export_c.rs"

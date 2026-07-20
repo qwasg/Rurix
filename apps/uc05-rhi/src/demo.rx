@@ -25,6 +25,9 @@
 // puts 同一 stdout 缓冲,序保持)逐字符输出(纪律同 apps/ruridrop/src/sim_check.rx)。
 // RD-026 纪律:无堆、无字符串、无运行期反射。
 
+// compute kernel 与闭式参考公式的单一事实源(与 export(c) 嵌入面 embed.rx 共用)。
+mod graph;
+
 extern "C" {
     fn putchar(c: i32) -> i32;
 }
@@ -74,24 +77,6 @@ fn print_ref_line(v: u32) {
     unsafe { putchar(10) };
 }
 
-// ---- compute kernels(编译期有界简单核;无深弹射循环,RD-027 毒径规避) ----
-
-// pass1:a[i] = i + 1(建立内容)。
-kernel fn uc05_fill(t: ThreadCtx<1>, out: ViewMut<global, f32>, n: usize) {
-    let i = t.global_id();
-    if i < n {
-        out[i] = ((i as u32) + 1u32) as f32;
-    }
-}
-
-// pass2:b[i] = 2 * a[i](消费读 a,写 b —— RAW 建序)。
-kernel fn uc05_scale(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>, n: usize) {
-    let i = t.global_id();
-    if i < n {
-        dst[i] = src[i] * 2.0;
-    }
-}
-
 fn main() -> i32 {
     let ctx = Context::create();
     let n: u32 = 256;
@@ -107,8 +92,8 @@ fn main() -> i32 {
     let b = rhi.resource(n);
 
     // pass1 写 a(反射集 {a} = 声明集);pass2 读 a 写 b(反射集 {a, b} = 声明集)。
-    rhi.pass(uc05_fill, GridDim(1), BlockDim(256), (a, nn)).writes(&a);
-    rhi.pass(uc05_scale, GridDim(1), BlockDim(256), (a, b, nn))
+    rhi.pass(graph::uc05_fill, GridDim(1), BlockDim(256), (a, nn)).writes(&a);
+    rhi.pass(graph::uc05_scale, GridDim(1), BlockDim(256), (a, b, nn))
         .reads(&a)
         .writes(&b);
 
@@ -130,7 +115,7 @@ fn main() -> i32 {
         i = i + 1;
     }
     // 闭式参考:sum_{i=0}^{N-1} 2*(i+1) = N*(N+1);N = 256 → 65792。
-    let reference: u32 = n * (n + 1u32);
+    let reference: u32 = graph::uc05_reference(n);
 
     print_sum_line(sum);
     print_ref_line(reference);

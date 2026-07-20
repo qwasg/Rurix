@@ -1,0 +1,21 @@
+//@ spec: RXS-0255
+//@ expect-error: RX6031
+// export_c reject: 导出体**循环内**含数组索引（panic 面）→ RX6031。
+//
+// 回归护栏（EI1.4 实证）：`find_panic_face::scan_expr` 曾以 `_ => None` 兜底,
+// 令 `While`/`Loop`/`For`/`Match`/`Closure` 体被**静默跳过**——循环体内的
+// Index/`?`/`unwrap` 可逃逸 RXS-0255「导出体无 panic 面」结构性保证。现改为
+// **穷尽 match 无 `_` 兜底**（新增 ExprKind 变体须显式判档,编译错即强制决策,
+// fail-closed）。本语料锁住循环面,`match_arm_panic.rx` 锁住 match 面。
+
+#[export(c)]
+pub fn sum_prefix(n: i32) -> i32 {
+    let a = [1, 2, 3, 4];
+    let mut i: i32 = 0;
+    let mut acc: i32 = 0;
+    while i < n {
+        acc = acc + a[i];
+        i = i + 1;
+    }
+    acc
+}

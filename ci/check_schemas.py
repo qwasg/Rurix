@@ -235,6 +235,9 @@ def check_evidence_files() -> None:
     uc05_rhi_smoke_schema = load(
         ROOT / "milestones/ei1/uc05_rhi_smoke_evidence_schema.json"
     )
+    uc05_engine_embed_schema = load(
+        ROOT / "milestones/ei1/uc05_engine_embed_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -364,6 +367,9 @@ def check_evidence_files() -> None:
     )
     uc05_rhi_smoke_validator = (
         jsonschema.Draft7Validator(uc05_rhi_smoke_schema) if uc05_rhi_smoke_schema else None
+    )
+    uc05_engine_embed_validator = (
+        jsonschema.Draft7Validator(uc05_engine_embed_schema) if uc05_engine_embed_schema else None
     )
     bindless_smoke_validator = (
         jsonschema.Draft7Validator(bindless_smoke_schema)
@@ -654,6 +660,18 @@ def check_evidence_files() -> None:
             # assembly EXE red-green,需 GPU 运行 Context::create,SKIP=dev-env-degrade,REQUIRE_REAL
             # 翻硬红)。I3/I5 装配期确定性拦由本 smoke red-green + rhi.rs 库单测双证。
             validator = uc05_rhi_smoke_validator
+        elif (
+            f.name.startswith("uc05_engine_embed")
+            and uc05_engine_embed_validator is not None
+        ):
+            # EI1.4 UC-05 引擎嵌入证据(G-EI1-4;RFC-0014 §4.A+§4.B / RXS-0250~0255 + RXS-0261)→
+            # milestones/ei1/uc05_engine_embed_evidence_schema.json(ci/uc05_engine_embed_smoke.py
+            # 步骤 74 写:host 恒跑 生成头不手写审计 + 两制共存审计〔v1 手写路 RXS-0149 面 0-byte
+            # 保留〕+ 零 .rs 审计,工具链档 --emit=dll GPU 导出面三件 + 生成头幂等 + 篡改再生成
+            # byte-diff RED;device 段 cl.exe 编 engine_host v2 链 rurix_rhi.lib 真跑 + 三方数值
+            # 对照,SKIP=dev-env-degrade,REQUIRE_REAL 翻硬红)。embed_ok=true 计入
+            # ei1.counter.uc05_engine_embed(ci/budget_eval.py,计数源 = 本证据族)。
+            validator = uc05_engine_embed_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):

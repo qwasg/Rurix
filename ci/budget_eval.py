@@ -594,6 +594,20 @@ def eval_counter(entry: dict, strict: bool) -> None:
         n = reject_n + assembly_n
         count_or_gate(eid, n, 8, "个 UC-05 RHI 不变量红绿语料(编译期 reject + 装配期)",
                       "EI1.3 建设期为正常状态,契约 G-EI1-3", strict)
+    elif eid == "ei1.counter.uc05_engine_embed":
+        # UC-05 引擎嵌入 device 见证基数 ≥1(契约 G-EI1-4;RFC-0014 §4.A+§4.B / RXS-0250~0255 +
+        # RXS-0261)。计数源 = evidence/uc05_engine_embed*.json 中 embed_ok=true 的证据数——**device
+        # evidence 计数**(非静态语料计数):C++/D3D12 宿主链接 `--emit=dll` 产 rurix_rhi.dll 真跑
+        # Rurix RHI 图 + 三方数值对照精确相等,须有 GPU + MSVC 才能成立,故按 device 见证归档口径
+        # 计数(对齐 g3.counter.mesh_task_rt_stages device 见证计数先例)。host 段审计与工具链档
+        # (生成头不手写 / 两制共存 / 零 .rs / 头幂等 / 篡改再生成 RED)恒跑但**不入本 counter**。
+        n = 0
+        for f in (ROOT / "evidence").glob("uc05_engine_embed*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("embed_ok") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "个 UC-05 引擎嵌入 device 见证(embed_ok=true)",
+                      "EI1.4 device 见证回填前为正常状态,契约 G-EI1-4", strict)
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 

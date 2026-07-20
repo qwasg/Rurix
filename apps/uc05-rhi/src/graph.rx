@@ -1,0 +1,29 @@
+// UC-05 RHI 图核(EI1.4,RFC-0014 §4.B / spec/rhi.md;RXS-0256~0261)。
+//
+// 两 compute pass 的 kernel 与图的闭式参考值集中于此模块,**单一事实源**——in-EXE demo
+// (`demo.rx`)与 export(c) 嵌入面(`embed.rx`)共用同一份 kernel 与同一份参考公式,
+// 二者数值必然同源(engine_host v2 的宿主侧对照因此对照的是同一图,而非另写一份)。
+//
+// kernel = 编译期有界简单核(RD-027 毒径规避:无深弹射循环、无递归、无动态分支深度)。
+
+// pass1:a[i] = i + 1(建立内容)。
+pub kernel fn uc05_fill(t: ThreadCtx<1>, out: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = ((i as u32) + 1u32) as f32;
+    }
+}
+
+// pass2:b[i] = 2 * a[i](消费读 a,写 b —— RAW 建序)。
+pub kernel fn uc05_scale(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        dst[i] = src[i] * 2.0;
+    }
+}
+
+// 图的闭式参考值:sum_{i=0}^{n-1} 2*(i+1) = n*(n+1)。host 侧对照的唯一事实源
+// (demo.rx / embed.rx / engine_host v2 三方同一公式)。
+pub fn uc05_reference(n: u32) -> u32 {
+    n * (n + 1u32)
+}

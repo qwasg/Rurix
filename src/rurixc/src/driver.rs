@@ -542,6 +542,8 @@ pub fn compile(opts: &CompileOptions) -> u8 {
     // --emit=dll:C ABI 导出 cdylib 通道(RXS-0252,§4.A3/A4,EI1.2)——link.exe
     // /DLL + driver 拼 /EXPORT: + import lib 副产 + 内建头生成(单一事实源 =
     // typeck C 映射,同源既产 /EXPORT 参数又产 .h)。免 main(device_emit 分支)。
+    // `uses_gpu` 透传(EI1.4):导出体使用 gpu 宿主 API 时链接段追加 rurix_rt_cabi
+    // + Rust staticlib 系统库固定集,与 EXE 段同源(RXS-0195/0252)。
     if emit.as_deref() == Some("dll") {
         return emit_dll(
             &diag,
@@ -550,6 +552,7 @@ pub fn compile(opts: &CompileOptions) -> u8 {
             &exe,
             &c_exports,
             &link_libs,
+            uses_gpu,
             opts.reproducible,
             &prof,
             &cx,
@@ -675,6 +678,13 @@ fn finish_profile(
 /// 内建头生成(与 `/EXPORT:` 同源)。空导出集 → RX6032(§4.A4 守门)。
 /// CRT = 静态 libcmt(§4.A4:subset v1 无跨堆所有权跨 ABI,CRT 同源与否对内存
 /// 正确性无影响,§8 CRT-boundary 不变量)。
+///
+/// GPU 导出面(EI1.4,RXS-0261 嵌入面):`uses_gpu` = 导出根可达 MIR 含 `rxrt_*`
+/// 调用(判定与 EXE 段同一表达式,单一事实源)。为真时链接段追加
+/// `rurix_rt_cabi.lib`(crt-static,与基础集 libcmt 系一致)+ Rust staticlib 系统库
+/// 固定集(ntdll/userenv/ws2_32/dbghelp),与 EXE 段逐参数同源;定位/构建失败 →
+/// RX7021。device 产物(PTX/cubin)嵌入由上游 `build_gpu_artifacts` 于 codegen 前
+/// 完成,EXE/DLL 两路共用同一段,无第二事实源。
 #[allow(clippy::too_many_arguments)]
 fn emit_dll(
     diag: &DiagCtxt,
@@ -683,6 +693,7 @@ fn emit_dll(
     exe: &Path,
     c_exports: &[crate::export_c::CExport],
     link_libs: &[String],
+    uses_gpu: bool,
     reproducible: bool,
     prof: &Profiler,
     cx: &QueryCtx<'_>,
@@ -724,6 +735,29 @@ fn emit_dll(
     // #[link(name = "x")] 追加(RXS-0195,与 EXE 段一致)。
     for lib in link_libs {
         cmd.arg(format!("{lib}.lib"));
+    }
+    // 宿主 GPU 编排链接接线(RXS-0195/0261,EI1.4):导出体使用 gpu 宿主 API 时,
+    // cdylib 与 EXE 同样需要 rurix_rt_cabi(`rxrt_*` 符号定义方)+ Rust staticlib
+    // 系统库固定集;缺此段则 GPU 导出面在 link 期报未解析外部符号。
+    if uses_gpu {
+        match locate_or_build_rt_cabi() {
+            Ok(lib) => {
+                cmd.arg(&lib);
+                for l in ["ntdll.lib", "userenv.lib", "ws2_32.lib", "dbghelp.lib"] {
+                    cmd.arg(l);
+                }
+            }
+            Err(detail) => {
+                diag.struct_error(E_RT_CABI, "link.rt_cabi_failure")
+                    .arg("detail", detail)
+                    .emit();
+                eprint!(
+                    "{}",
+                    render_diagnostics(&diag.emitted(), sm, diag.messages())
+                );
+                return 1;
+            }
+        }
     }
     if reproducible {
         cmd.arg("/Brepro");

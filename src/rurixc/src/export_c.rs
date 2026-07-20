@@ -219,14 +219,35 @@ fn find_panic_face(body: &Block) -> Option<Span> {
                 scan_expr(receiver).or_else(|| args.iter().find_map(scan_expr))
             }
             ExprKind::Tuple(xs) | ExprKind::Array(xs) => xs.iter().find_map(scan_expr),
+            ExprKind::Repeat { elem, len } => scan_expr(elem).or_else(|| scan_expr(len)),
+            ExprKind::StructLit { fields, .. } => fields
+                .iter()
+                .find_map(|f| f.expr.as_ref().and_then(scan_expr)),
             ExprKind::Block(b) | ExprKind::Unsafe(b) => scan_block(b),
             ExprKind::If {
                 cond, then, else_, ..
             } => scan_expr(cond)
                 .or_else(|| scan_block(then))
                 .or_else(|| else_.as_deref().and_then(scan_expr)),
+            // 循环 / match / 闭包体**必须递归**:`_ => None` 兜底曾令循环体内的
+            // Index·`?`·unwrap 静默逃逸,使 RXS-0255「结构性保证」出洞(EI1.4 实证)。
+            ExprKind::While { cond, body } => scan_expr(cond).or_else(|| scan_block(body)),
+            ExprKind::Loop { body } => scan_block(body),
+            ExprKind::For { iter, body, .. } => scan_expr(iter).or_else(|| scan_block(body)),
+            ExprKind::Match { scrutinee, arms } => scan_expr(scrutinee).or_else(|| {
+                arms.iter().find_map(|a| {
+                    a.guard
+                        .as_ref()
+                        .and_then(scan_expr)
+                        .or_else(|| scan_expr(&a.body))
+                })
+            }),
+            ExprKind::Closure { body, .. } => scan_expr(body),
             ExprKind::Return(x) | ExprKind::Break(x) => x.as_deref().and_then(scan_expr),
-            _ => None,
+            // **穷尽枚举(无 `_` 兜底)**:新增 ExprKind 变体须在此显式判档
+            // (递归 or 判定为无 panic 面叶子),编译错即强制决策——fail-closed,
+            // 防再次出现「静默跳过 = 保证出洞」(RXS-0255 结构性保证的守门纪律)。
+            ExprKind::Lit(_) | ExprKind::Path(_) | ExprKind::Continue | ExprKind::Err => None,
         }
     }
     fn scan_block(b: &Block) -> Option<Span> {
