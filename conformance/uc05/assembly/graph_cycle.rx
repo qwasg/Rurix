@@ -6,19 +6,27 @@
 // 库层状态值 Structure Err(镜像 G3.5 RX6029 口径,零新 RX 码)→ RXRT_FAIL → rxrt_trap 终止。
 // 由 ci/uc05_rhi_smoke.py(步骤 72)编译成 EXE 真跑见证:退非零 + stderr 含装配 Err(装配期
 // 确定性拦,非运行期概率性)。rhi.rs 库单测 `rejects_read_before_write_i3` 为纯 host(无 GPU)证。
-// 最小不 launch kernel:仅为 Context::create 提供合法 GPU 产物(RXS-0192;host 图安全,不 launch)。
-kernel fn uc05_touch(g: View<global, f32>) {}
+// **EI1.4:装配核验严格先于派发**(RXS-0261)——seal 失败则一个 kernel 也不派发。
+kernel fn uc05_scale(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        dst[i] = src[i] * 2.0;
+    }
+}
 
 fn main() -> i32 {
     let ctx = Context::create();
     let n: u32 = 256;
+    let nn: usize = 256;
 
     let rhi = Rhi::create(&ctx);
     let a = rhi.resource(n);
     let out = rhi.resource(n);
 
     // transform 读 a 写 out,但无先前 pass 写 a → 读未写(依赖环 / use-before-write,I3)。
-    rhi.pass().reads(&a).writes(&out);
+    rhi.pass(uc05_scale, GridDim(1), BlockDim(256), (a, out, nn))
+        .reads(&a)
+        .writes(&out);
 
     rhi.submit(); // 装配期 Structure Err(strict 拒)→ 确定性终止
     ctx.sync();

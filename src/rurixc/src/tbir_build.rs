@@ -61,6 +61,10 @@ pub fn build(
     }
 }
 
+/// kernel 绑定实参的结构化形态(`stream.launch` 与 `rhi.pass` 共用;RXS-0191/0257):
+/// `(kernel fn item, GridDim 分量, BlockDim 分量, 实参元组元素)`。
+type KernelBindingForm<'e> = (DefId, &'e [hir::Expr], &'e [hir::Expr], &'e [hir::Expr]);
+
 struct Builder<'a> {
     krate: &'a hir::Crate,
     res: &'a Resolutions,
@@ -504,6 +508,11 @@ impl Builder<'_> {
                     if op == crate::hir::GpuHostOp::Launch {
                         return self.gpu_launch(receiver, args, ty, span);
                     }
+                    // EI1.4 UC-05 RHI(RXS-0257/0261):`rhi.pass(kernel, ..)` 绑 kernel 走与
+                    // launch 同一结构化提取(单一事实源),落 `RhiPassBind`。
+                    if op == crate::hir::GpuHostOp::RhiPass {
+                        return self.rhi_pass_bind(receiver, args, ty, span);
+                    }
                     let recv = self.expr(receiver);
                     let mut all = vec![self.gpu_deref(recv)];
                     // EI1.3 Part B UC-05 RHI(RXS-0257):`pass.reads(&res)`/`writes(&res)` 的
@@ -515,6 +524,10 @@ impl Builder<'_> {
                             | crate::hir::GpuHostOp::BufDownload
                             | crate::hir::GpuHostOp::RhiPassReads
                             | crate::hir::GpuHostOp::RhiPassWrites
+                            // EI1.4(RXS-0259):`rhi.readback(res, &mut pinned)` 的落地面
+                            // `&mut PinnedBuffer` 剥壳为句柄表达式(镜像 download);`res`
+                            // 非借用形态,剥壳对其为恒等(autoderef 不动非引用值)。
+                            | crate::hir::GpuHostOp::RhiReadback
                     );
                     for a in args {
                         let lowered = if unborrow {
@@ -680,28 +693,7 @@ impl Builder<'_> {
         ty: Ty,
         span: crate::span::Span,
     ) -> tbir::Expr {
-        let structural = 'form: {
-            if args.len() != 4 {
-                break 'form None;
-            }
-            let hir::ExprKind::Res(Res::Def(kernel)) = &args[0].kind else {
-                break 'form None;
-            };
-            if !matches!(self.krate.item(*kernel).kind, hir::ItemKind::Fn(_)) {
-                break 'form None;
-            }
-            let Some(grid) = self.gpu_dim_components(&args[1], true) else {
-                break 'form None;
-            };
-            let Some(block) = self.gpu_dim_components(&args[2], false) else {
-                break 'form None;
-            };
-            let hir::ExprKind::Tuple(elems) = &args[3].kind else {
-                break 'form None;
-            };
-            Some((*kernel, grid, block, elems))
-        };
-        let Some((kernel, grid, block, elems)) = structural else {
+        let Some((kernel, grid, block, elems)) = self.kernel_binding_form(args) else {
             return tbir::Expr {
                 ty,
                 span,
@@ -726,6 +718,64 @@ impl Builder<'_> {
                 args: largs,
             },
         }
+    }
+
+    /// EI1.4 UC-05 RHI **pass 绑 kernel** 结构化提取(RXS-0257/0261):
+    /// `rhi.pass(kernel, GridDim(..), BlockDim(..), (args..))` → [`tbir::ExprKind::RhiPassBind`]。
+    /// 形态判据与 [`Self::gpu_launch`] 共用 [`Self::kernel_binding_form`](单一事实源);
+    /// 形态残缺落 Err(MIR 报 RX6001,既有口径)。
+    fn rhi_pass_bind(
+        &mut self,
+        receiver: &hir::Expr,
+        args: &[hir::Expr],
+        ty: Ty,
+        span: crate::span::Span,
+    ) -> tbir::Expr {
+        let Some((kernel, grid, block, elems)) = self.kernel_binding_form(args) else {
+            return tbir::Expr {
+                ty,
+                span,
+                kind: tbir::ExprKind::Err,
+            };
+        };
+        let rhi = {
+            let recv = self.expr(receiver);
+            Box::new(self.gpu_deref(recv))
+        };
+        let grid = grid.iter().map(|c| self.expr(c)).collect();
+        let block = block.iter().map(|c| self.expr(c)).collect();
+        let bargs = elems.iter().map(|a| self.expr(a)).collect();
+        tbir::Expr {
+            ty,
+            span,
+            kind: tbir::ExprKind::RhiPassBind {
+                rhi,
+                kernel,
+                grid,
+                block,
+                args: bargs,
+            },
+        }
+    }
+
+    /// kernel 绑定实参的形态判据(`stream.launch` 与 `rhi.pass` 共用;RXS-0191/0257):
+    /// 4 实参 = fn item kernel 引用 + `GridDim(..)` + `BlockDim(..)` + 实参元组。
+    fn kernel_binding_form<'e>(&self, args: &'e [hir::Expr]) -> Option<KernelBindingForm<'e>> {
+        if args.len() != 4 {
+            return None;
+        }
+        let hir::ExprKind::Res(Res::Def(kernel)) = &args[0].kind else {
+            return None;
+        };
+        if !matches!(self.krate.item(*kernel).kind, hir::ItemKind::Fn(_)) {
+            return None;
+        }
+        let grid = self.gpu_dim_components(&args[1], true)?;
+        let block = self.gpu_dim_components(&args[2], false)?;
+        let hir::ExprKind::Tuple(elems) = &args[3].kind else {
+            return None;
+        };
+        Some((*kernel, grid, block, elems.as_slice()))
     }
 
     /// `GridDim(..)` / `BlockDim(..)` 构造的维度分量表达式(≤ 3 轴;非该构造 /
@@ -931,13 +981,21 @@ impl ExhaustCx<'_> {
             }
             // 宿主 GPU launch(MS1.2,RXS-0191):stream/维度/实参子树走查。
             tbir::ExprKind::GpuLaunch {
-                stream,
+                stream: root,
+                grid,
+                block,
+                args,
+                ..
+            }
+            // EI1.4 RHI pass 绑 kernel(RXS-0257):rhi/维度/实参子树走查(同构)。
+            | tbir::ExprKind::RhiPassBind {
+                rhi: root,
                 grid,
                 block,
                 args,
                 ..
             } => {
-                self.walk_expr(stream);
+                self.walk_expr(root);
                 for x in grid.iter().chain(block.iter()).chain(args.iter()) {
                     self.walk_expr(x);
                 }

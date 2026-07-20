@@ -1,0 +1,93 @@
+// UC-05 RHI 导出面(EI1.4,RFC-0014 §4.A+§4.B / spec/export_c.md + spec/rhi.md;
+// RXS-0250~0255 + RXS-0261)。
+//
+// **全 .rx、零 .rs**:本文件是 `rurix_rhi.dll` 的**唯一**源——`rurixc --emit=dll` 以
+// `#[export(c)]` host fn 为 MIR 收集根(免 `main`,RXS-0252),同一份 C 映射既产 link.exe
+// `/EXPORT:` 参数又产内建头 `rurix_rhi.h`(RXS-0253 单一事实源;头**自始生成、不手写**,
+// CI 再生成逐字节比对守卫 RXS-0254)。
+//
+// **嵌入面语义(RXS-0261,EI1.4)**:导出体内建 UC-05 声明式 compute-pass render graph
+// (kernel 与闭式参考公式取自 `mod graph`,与 in-EXE demo 同一事实源),`submit()` 图装配期
+// 确定性核验(I3/I4/I5)+ hazard 推导 + 按推导序真派发 + 真 D2H 读回,归约后经 `*mut i32`
+// 出参回写宿主。宿主(engine_host v2,C++/D3D12)只见 C ABI 标量与裸指针,不见任何 Rurix
+// 类型——GPU 上下文、图、资源生命周期全部封闭在导出体内(单次调用内创建与销毁)。
+//
+// **subset v1 合规(RXS-0251/0255)**:签名仅 `*mut i32` + `i32` + `i32` 返回;导出体
+// **无 panic 面 by-construction**——无数组/切片索引(`Pinned::get` 为方法调用,非 Index)、
+// 无 `?`、无 `unwrap`/`expect`。错误面经 **i32 状态码**返回(RD-026 无 Result 面纪律),
+// 不跨 ABI 展开、不 panic 终止。
+
+mod graph;
+
+// 图容量与线程块形状(编译期常量;n 为运行期入参但按块整除向上取整,kernel 内 `i < n` 守界)。
+// RD-027 纪律:块内无深弹射循环。
+
+/// 运行 UC-05 两 pass compute graph,把 device 归约结果写入 `out`。
+///
+/// - `out`:宿主提供的 `int32_t*` 单槽写出位置(调用方前置条件:非空、对齐、可写 4 字节;
+///   documented unsafe FFI 边界,RXS-0251 §4.A6——codegen 不引入隐式解引用检查)。
+/// - `n`:图元素数;须 `1 <= n <= 65535`(上界保证 `sum = n*(n+1)` 与逐元素值 `2*(i+1)`
+///   均在 u32 / f32 精确可表域内;越界 → 状态码,不进 GPU 路)。
+///
+/// 返回:`0` = 成功(`*out` = device 求和);`2` = `n` 越界(不进 GPU 路);
+/// `3` = device 求和与 host 闭式参考不等(数值红,**不静默**)。
+///
+/// **空指针不由本函数检查**:subset v1 无「指针→整数」cast(RXS-0251 类型映射表不含,
+/// 刻意——避免在 C ABI 边界引入指针可比较性假设),`out` 非空是**调用方前置条件**
+/// (§4.A6 documented unsafe FFI 边界)。生成头把该前置条件随声明一并交付宿主。
+#[export(c)]
+pub fn uc05_run_graph(out: *mut i32, n: i32) -> i32 {
+    if n < 1 || n > 65535 {
+        return 2;
+    }
+    let cn = n as u32;
+    let nn = n as usize;
+
+    let ctx = Context::create();
+    // readback 落地面:锁页主机缓冲(真 D2H 目标)。
+    let mut host = ctx.alloc_pinned(nn);
+
+    let rhi = Rhi::create(&ctx);
+    // 声明式 compute-pass 图:两资源 + 两 pass(线性 RAW 建序;用户不写任何 barrier)。
+    let a = rhi.resource(cn);
+    let b = rhi.resource(cn);
+
+    // grid 按 256 线程/块向上取整(kernel 内 `i < n` 守界,尾块不越界)。
+    let blocks = (nn + 255) / 256;
+
+    rhi.pass(graph::uc05_fill, GridDim(blocks), BlockDim(256), (a, nn))
+        .writes(&a);
+    rhi.pass(graph::uc05_scale, GridDim(blocks), BlockDim(256), (a, b, nn))
+        .reads(&a)
+        .writes(&b);
+
+    // 装配核验(I3/I4/I5 确定性拦)+ hazard 推导 + 按推导序真派发;1-submit 消费式 typestate。
+    let q = rhi.submit();
+    // 真 D2H:b → 锁页主机缓冲(b 按值 move-out,资源释放锚,RXS-0259)。
+    q.readback(b, &mut host);
+    ctx.sync();
+
+    // host 侧归约 + 闭式参考对照(与 demo.rx 同一 `graph::uc05_reference`)。
+    let mut sum: u32 = 0;
+    let mut i: usize = 0;
+    while i < nn {
+        // f32 → u32:值域 [2, 2n] 在 n <= 65535 时精确可表,无舍入歧义。
+        sum = sum + (host.get(i) as u32);
+        i = i + 1;
+    }
+    let reference = graph::uc05_reference(cn);
+    if sum != reference {
+        return 3;
+    }
+    unsafe {
+        *out = sum as i32;
+    }
+    0
+}
+
+/// 图形状自述(宿主无需重解析 `.rx` 即可断言图规模;纯常量,不触 GPU)。
+/// 返回本导出面所建图的 pass 数(= 2:fill / scale)。
+#[export(c)]
+pub fn uc05_graph_pass_count() -> i32 {
+    2
+}

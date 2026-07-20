@@ -2,11 +2,32 @@
 //@ spec: RXS-0259
 // graph 构建与依赖推导(RXS-0258)+ 资源生命周期 affine move-out(RXS-0259):三 compute pass
 // 声明式建图,写后读(RAW)按声明序建 pass 序(声明全序无重排,RFC-0010 确定性)。装配期自动
-// hazard 推导 → 顺序调度 + 显式 sync(用户不写 barrier)。末尾 `rhi.readback(c)` 是 `Res` 的
-// **move-out 点**(按值消费,合法末次使用——消费后 c 不再用,故 0 诊断;二次消费才 RX4001)。
+// hazard 推导 → 顺序调度 + 显式 sync(用户不写 barrier)。末尾 `queue.readback(c, &mut h)` 是
+// `Res` 的 **move-out 点**(按值消费,合法末次使用——消费后 c 不再用,故 0 诊断;二次消费才
+// RX4001)。
+//
+// **EI1.4(RXS-0259/0261)**:readback 归 `Queue<C>`——`submit(self) -> Queue<C>` 的消费式
+// typestate 使「先派发、后读回」的执行序**由类型强制**(submit 前无 `Queue` 可读回,submit 后
+// `Rhi` 已被消费);落地面为锁页主机缓冲(真 D2H,纪律镜像 `buf.download(&mut pinned)`)。
+kernel fn uc05_fill(t: ThreadCtx<1>, out: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = ((i as u32) + 1u32) as f32;
+    }
+}
+
+kernel fn uc05_scale(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        dst[i] = src[i] * 2.0;
+    }
+}
+
 fn main() -> i32 {
     let ctx = Context::create();
     let n: u32 = 256;
+    let nn: usize = 256;
+    let mut h = ctx.alloc_pinned(nn);
 
     let rhi = Rhi::create(&ctx);
     let a = rhi.resource(n);
@@ -14,14 +35,20 @@ fn main() -> i32 {
     let c = rhi.resource(n);
 
     // produce a → transform 读 a 写 b → consume 读 b 写 c(RAW 建序,声明序 = 提交序)。
-    rhi.pass().writes(&a);
-    rhi.pass().reads(&a).writes(&b);
-    rhi.pass().reads(&b).writes(&c);
+    rhi.pass(uc05_fill, GridDim(1), BlockDim(256), (a, nn)).writes(&a);
+    rhi.pass(uc05_scale, GridDim(1), BlockDim(256), (a, b, nn))
+        .reads(&a)
+        .writes(&b);
+    rhi.pass(uc05_scale, GridDim(1), BlockDim(256), (b, c, nn))
+        .reads(&b)
+        .writes(&c);
 
-    // readback c:按值消费(move-out;末次使用合法,RXS-0259)。
-    rhi.readback(c);
+    // 装配核验 + hazard 推导 + 按推导序真派发(RXS-0261)→ Queue。
+    let q = rhi.submit();
 
-    rhi.submit();
+    // readback c:按值消费(move-out;末次使用合法,RXS-0259)+ 真 D2H 落锁页缓冲。
+    q.readback(c, &mut h);
+
     ctx.sync();
     0
 }

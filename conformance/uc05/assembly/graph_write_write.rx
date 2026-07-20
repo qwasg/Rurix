@@ -5,18 +5,26 @@
 // (compute 面每资源每 pass 至多一条声明)→ 库层状态值 Structure Err(镜像 RX6029 口径,零新
 // RX 码)→ RXRT_FAIL → rxrt_trap 终止。由步骤 72 编译成 EXE 真跑见证退非零 + stderr 含装配 Err。
 // rhi.rs 库单测 `rejects_write_write_conflict_i5` 为纯 host(无 GPU)证。
-// 最小不 launch kernel:仅为 Context::create 提供合法 GPU 产物(RXS-0192;host 图安全,不 launch)。
-kernel fn uc05_touch(g: View<global, f32>) {}
+// **EI1.4:装配核验严格先于派发**(RXS-0261)——seal 失败则一个 kernel 也不派发。
+kernel fn uc05_fill(t: ThreadCtx<1>, out: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = ((i as u32) + 1u32) as f32;
+    }
+}
 
 fn main() -> i32 {
     let ctx = Context::create();
     let n: u32 = 256;
+    let nn: usize = 256;
 
     let rhi = Rhi::create(&ctx);
     let a = rhi.resource(n);
 
     // 同 pass 对同资源写写冲突(重复 writes;`&a` 二次借用编译合法,冲突在装配期,I5)。
-    rhi.pass().writes(&a).writes(&a);
+    rhi.pass(uc05_fill, GridDim(1), BlockDim(256), (a, nn))
+        .writes(&a)
+        .writes(&a);
 
     rhi.submit(); // 装配期 Structure Err(strict 拒)→ 确定性终止
     ctx.sync();

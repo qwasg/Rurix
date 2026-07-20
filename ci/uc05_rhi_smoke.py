@@ -19,10 +19,12 @@ std::gpu `Rhi` compute-pass render graph 的端到端见证——编译期 100% 
   driver:Context::create 经 from_primary〕在位;`RURIX_REQUIRE_REAL=1` 翻硬红,缺则 SKIP
   退 0 打 dev-env-degrade):
     4. **GREEN**:`rx build apps/uc05-rhi/src/demo.rx` → EXE,run → exit 0 + stdout 含
-       `UC05_RHI_OK`(合法图装配核验通过 + submit 成功)。
+       `UC05_RHI_OK`(合法图装配核验通过 + submit 成功 + **真派发 compute pass** + **真 D2H**)
+       + **I9 数值对照**:`UC05_SUM` == `UC05_REF`(device 求和 vs host 闭式参考,EI1.4)。
     5. **RED**:`rx build` 每个 conformance/uc05/assembly/*.rx → EXE,run → **退非零** + stderr 含
-       `rhi_submit` + `structure`(图装配期库层状态值 Structure Err → RXRT_FAIL → rxrt_trap;
-       I3 依赖环 / I5 写写冲突 / 空图生命周期,确定性拦非运行期概率性)。
+       `rhi_submit` + **该语料头声明的装配期类别** `[structure]` / `[reflection]`(图装配期库层
+       状态值 Err → RXRT_FAIL → rxrt_trap;I3 依赖环 / **I4 未声明访问** / I5 写写冲突 / 空图
+       生命周期,确定性拦非运行期概率性)。
     6. 落 evidence JSON(`evidence/uc05_rhi_smoke_<ts>.json`;schema
        milestones/ei1/uc05_rhi_smoke_evidence_schema.json)。
 
@@ -39,6 +41,7 @@ from __future__ import annotations
 import datetime as _dt
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -183,6 +186,23 @@ def rx_build(src: Path, exe: Path):
     return run([str(RX), "build", str(src), "-o", str(exe)])
 
 
+def _numeric_tokens(stdout: str) -> dict:
+    """抽取 demo 的机器可核数值 token(`UC05_SUM=<u32>` / `UC05_REF=<u32>`,EI1.4 I9 对照)。"""
+    out: dict = {}
+    for m in re.finditer(r"^(UC05_(?:SUM|REF))=(\d+)\s*$", stdout, re.MULTILINE):
+        out[m.group(1)] = int(m.group(2))
+    return out
+
+
+def _assembly_reject_category(src: Path) -> str | None:
+    """读语料头 `//@ assembly-reject: <category>`(structure / reflection;rhi.rs 库层状态值族)。"""
+    for line in src.read_text(encoding="utf-8").splitlines():
+        m = re.search(r"//@\s*assembly-reject:\s*(\w+)", line)
+        if m:
+            return m.group(1)
+    return None
+
+
 def device_section(results: dict, workdir: Path) -> int:
     if not RX.is_file():
         code, out, err = run(["cargo", "build", "-q", "-p", "rurixc", "-p", "rx"])
@@ -199,7 +219,7 @@ def device_section(results: dict, workdir: Path) -> int:
 
     workdir.mkdir(parents=True, exist_ok=True)
 
-    # GREEN:demo → EXE → run → exit 0 + UC05_RHI_OK。
+    # GREEN:demo → EXE → run → exit 0 + UC05_RHI_OK + **数值对照**(I9)。
     demo_exe = workdir / "uc05_demo.exe"
     bc, bo, be = rx_build(DEMO, demo_exe)
     if bc != 0 or not demo_exe.is_file():
@@ -211,16 +231,37 @@ def device_section(results: dict, workdir: Path) -> int:
         results["toolchain_skip"] = "no-link"
         return skip(f"demo rx build 失败（link 工具链缺?）:\n{be[-500:]}")
     rc, ro, re_ = run([str(demo_exe)], cwd=workdir)
-    green_ok = rc == 0 and "UC05_RHI_OK" in ro
+    # I9 数值对照(EI1.4):demo 打印 device 求和与 host 闭式参考,须精确相等(demo 自身不等即
+    # 退 2;此处**独立复核** token,防 demo 打印与判定脱节)。
+    sums = _numeric_tokens(ro)
+    green_ok = (
+        rc == 0
+        and "UC05_RHI_OK" in ro
+        and sums.get("UC05_SUM") is not None
+        and sums.get("UC05_SUM") == sums.get("UC05_REF")
+    )
     results["demo_run_green"] = green_ok
+    results["demo_numeric"] = (
+        f"UC05_SUM={sums.get('UC05_SUM')} UC05_REF={sums.get('UC05_REF')}"
+    )
     if not green_ok:
         print((ro + re_)[-800:], file=sys.stderr)
-        return fail(f"GREEN 失败: demo EXE rc={rc}, stdout 缺 UC05_RHI_OK")
-    print(f"[uc05_rhi_smoke] device 步骤 4 PASS: GREEN demo EXE exit 0 + UC05_RHI_OK（合法图 submit 通过）")
+        return fail(
+            f"GREEN 失败: demo EXE rc={rc}, stdout 缺 UC05_RHI_OK 或数值对照不等 "
+            f"(UC05_SUM={sums.get('UC05_SUM')} vs UC05_REF={sums.get('UC05_REF')})"
+        )
+    print(
+        "[uc05_rhi_smoke] device 步骤 4 PASS: GREEN demo EXE exit 0 + UC05_RHI_OK"
+        f"（合法图 submit 通过 + 真派发 + 真 D2H;I9 数值对照 {results['demo_numeric']} 相等）"
+    )
 
-    # RED:每个 assembly → EXE → run → 退非零 + stderr 含 rhi_submit + structure。
+    # RED:每个 assembly → EXE → run → 退非零 + stderr 含 rhi_submit + **该语料声明的装配期类别**
+    # (`//@ assembly-reject: <structure|reflection>` 头;类别 = rhi.rs 库层状态值族)。
     cases = []
     for src in sorted(ASSEMBLY_DIR.glob("*.rx")):
+        category = _assembly_reject_category(src)
+        if category is None:
+            return fail(f"assembly/{src.name} 缺 //@ assembly-reject: <category> 头")
         exe = workdir / f"uc05_{src.stem}.exe"
         rbc, rbo, rbe = rx_build(src, exe)
         if rbc != 0 or not exe.is_file():
@@ -229,17 +270,17 @@ def device_section(results: dict, workdir: Path) -> int:
             return skip(f"assembly/{src.name} rx build 失败（link 工具链缺?）")
         arc, aro, are = run([str(exe)], cwd=workdir)
         blob = aro + are
-        red_ok = arc != 0 and "rhi_submit" in blob and "structure" in blob
-        cases.append(f"{src.stem}:{'RED_OK' if red_ok else 'RED_FAIL'}")
+        red_ok = arc != 0 and "rhi_submit" in blob and f"[{category}]" in blob
+        cases.append(f"{src.stem}:{category}:{'RED_OK' if red_ok else 'RED_FAIL'}")
         if not red_ok:
             print(blob[-800:], file=sys.stderr)
             return fail(
-                f"RED 失败: assembly/{src.name} EXE rc={arc},stderr 缺装配 Structure Err"
-                "（图装配期确定性拦应退非零 + rhi_submit [structure]）"
+                f"RED 失败: assembly/{src.name} EXE rc={arc},stderr 缺装配 [{category}] Err"
+                f"（图装配期确定性拦应退非零 + rhi_submit [{category}]）"
             )
         print(
             f"[uc05_rhi_smoke] device 步骤 5 PASS: RED assembly/{src.stem} EXE 退非零"
-            f"（rc={arc}）+ stderr 含 rhi_submit [structure]（I3/I5/生命周期装配期确定性拦）"
+            f"（rc={arc}）+ stderr 含 rhi_submit [{category}]（I3/I4/I5/生命周期装配期确定性拦）"
         )
     results["assembly_redgreen"] = True
     results["assembly_cases"] = cases
@@ -258,6 +299,7 @@ def write_evidence(results: dict, host_ok: bool, device_rc: int) -> None:
             "compile_demo",
             "compile_assembly",
             "demo_run_green",
+            "demo_numeric",
             "assembly_redgreen",
         )
         if results.get(k) is not None

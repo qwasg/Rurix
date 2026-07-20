@@ -668,6 +668,20 @@ jobs:
         shell: powershell
         run: py -3 ci/uc05_invariant_gate.py
 
+      # 步骤 74（G-EI1-4,RFC-0014 §4.A+§4.B / RXS-0250~0255 + RXS-0261）:UC-05 引擎嵌入(C++/D3D12 宿主
+      # 链接 export(c) 产 DLL 真跑)。`ci/uc05_engine_embed_smoke.py` host 段**恒跑**(生成头**自始生成、不手写**
+      # 审计:仓库零 tracked rurix_rhi.h + v2 harness include 现场再生成头;两制共存审计:v1 手写路三件在位且
+      # v2 不 include v1 头/不引用 rurix_engine_* 符号面,RXS-0254 §4.A5;apps/uc05-rhi 零 .rs 主语言判据维持
+      # ——C++ 宿主置于 src/rurix-engine/harness/ 即在审计边界之外,RFC-0014 §9.2)+ 工具链档(clang+link.exe:
+      # embed.rx --emit=dll **GPU-using 导出面**产 .dll + import lib + 生成头三件〔链接段含 rurix_rt_cabi,
+      # `rxrt_*` 全解析〕+ 生成头幂等 RXS-0253 + 篡改一字节再生成 byte-diff RED RXS-0254)。device 段(MSVC/
+      # Windows SDK D3D12 + CUDA + GPU:cl.exe 编 engine_host v2 链 rurix_rhi.lib/cudart/d3d12/dxgi → 真跑 →
+      # **三方数值对照** device 求和 / 宿主闭式参考 / 本脚本独立重算 n*(n+1) 精确相等)= 在位真跑,缺则 SKIP
+      # (dev-env degrade,退 0),RURIX_REQUIRE_REAL=1 翻硬红。退出码判定非 grep(P0-5)。
+      - name: UC-05 engine embed smoke (EI1 CI_GATES §2.74, G-EI1-4, RFC-0014 §4.A+§4.B)
+        shell: powershell
+        run: py -3 ci/uc05_engine_embed_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

@@ -1,21 +1,31 @@
 //@ spec: RXS-0259
 //@ expect-error: RX4001
-// 资源 double-free(I2,RFC-0014 §4.B / RXS-0259):`rhi.readback(res)` 按值消费 `Res`
-// (move-out 点)。对同一 `Res` 二次 readback = 重复 move-out = 编译期 move 违例 **RX4001**
+// 资源 double-free(I2,RFC-0014 §4.B / RXS-0259):`queue.readback(res, &mut dst)` 按值消费
+// `Res`(move-out 点)。对同一 `Res` 二次 readback = 重复 move-out = 编译期 move 违例 **RX4001**
 // (复用 RXS-0054,零新码)。affine 所有权令 double-free by construction 不可达——第二次
-// readback 的接收实参已是 moved value。
+// readback 的资源实参已是 moved value。
+// (EI1.4:readback 归 `Queue`——派发之后的读回点,RXS-0261;move-out 语义不变。)
+kernel fn uc05_fill(t: ThreadCtx<1>, out: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = ((i as u32) + 1u32) as f32;
+    }
+}
+
 fn main() -> i32 {
     let ctx = Context::create();
     let n: u32 = 256;
+    let nn: usize = 256;
+    let mut h = ctx.alloc_pinned(nn);
 
     let rhi = Rhi::create(&ctx);
     let a = rhi.resource(n);
-    rhi.pass().writes(&a);
+    rhi.pass(uc05_fill, GridDim(1), BlockDim(256), (a, nn)).writes(&a);
 
-    rhi.readback(a); // move-out a(第一次消费)
-    rhi.readback(a); // double-free:二次 move-out a → RX4001
+    let q = rhi.submit();
+    q.readback(a, &mut h); // move-out a(第一次消费)
+    q.readback(a, &mut h); // double-free:二次 move-out a → RX4001
 
-    rhi.submit();
     ctx.sync();
     0
 }

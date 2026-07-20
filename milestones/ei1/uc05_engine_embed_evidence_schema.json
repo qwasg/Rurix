@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UC-05 引擎嵌入证据 schema(EI1.4,步骤 74;G-EI1-4;RFC-0014 §4.A+§4.B;RXS-0250~0255 + RXS-0261)",
+  "description": "ci/uc05_engine_embed_smoke.py 写 evidence/uc05_engine_embed_<ts>.json。host 段(恒跑,无工具链亦跑步骤 1~3):生成头自始生成不手写审计(仓库零 tracked rurix_rhi.h + v2 harness include 生成头)+ 两制共存审计(v1 手写路三件在位、v2 不 include v1 头/不引用 rurix_engine_* 符号面,RXS-0254 §4.A5)+ apps/uc05-rhi 零 .rs 主语言判据(RFC-0014 §9.2;C++ 宿主在审计边界之外)+ 工具链档(需 clang/link.exe):`--emit=dll` GPU 导出面产 .dll/.lib/.h 三件 + 生成头幂等 RXS-0253 + 篡改再生成 byte-diff RED RXS-0254。device 段(需 MSVC/Windows SDK D3D12 + CUDA + GPU;SKIP=dev-env-degrade,RURIX_REQUIRE_REAL=1 翻硬红):cl.exe 编译 engine_host v2 链 rurix_rhi.lib + 真跑 + 三方数值对照(device 求和 / 宿主闭式参考 / 脚本独立重算)。`embed_ok` = device 段数值对照精确相等,计入 ei1.counter.uc05_engine_embed。`embed_cases` 为**本机可复跑观测**的字符串陈述(非历史计数器),形如 `n=<n>:sum=<s>:ref=<r>`。镜像 uc05_rhi_smoke / export_c_smoke 证据体例。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "milestone",
+    "step",
+    "host_section_pass",
+    "device_section_rc",
+    "checks",
+    "embed_ok",
+    "run_url",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "uc05_engine_embed" },
+    "milestone": { "type": "string" },
+    "step": { "type": "integer", "const": 74 },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_rc": { "type": "integer" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "generated_header_not_handwritten": { "type": ["boolean", "string"] },
+        "v1_coexistence": { "type": ["boolean", "string"] },
+        "zero_rs_audit": { "type": ["boolean", "string"] },
+        "emit_dll_artifacts": { "type": ["boolean", "string"] },
+        "header_idempotent": { "type": ["boolean", "string"] },
+        "tamper_regen_red": { "type": ["boolean", "string"] },
+        "harness_build": { "type": ["boolean", "string"] },
+        "embed_numeric_ok": { "type": ["boolean", "string"] }
+      }
+    },
+    "embed_ok": { "type": "boolean" },
+    "embed_cases": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "toolchain_skip": { "type": ["string", "null"] },
+    "dev_env_degrade": { "type": "boolean" },
+    "adapter": { "type": "string" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" }
+  }
+}

@@ -102,11 +102,11 @@
       "scope": "shared",
       "pattern": "步骤 NN (.github/workflows/pr-smoke.yml 里程碑冒烟步)",
       "main_fact_source": ".github/workflows/pr-smoke.yml 步骤注",
-      "on_tree_max": 73,
-      "next_free": 74,
+      "on_tree_max": 74,
+      "next_free": 75,
       "shadow_reserved": [],
       "reserved_in_flight_steps": [],
-      "notes": "PR Smoke 里程碑冒烟步的数字步骤号。main 最高步骤 58(vulkan win32 present)。步骤 59/60 由 EA1(EA1.1/EA1.2)预留(EA1_CONTRACT §7 / milestones/ea1/CI_GATES.md)。check_* 守卫类步骤(structure/schema/guardrails/redistribution/contribution/number_ledger)『不占数字步骤号』——本 MR 的 check_number_ledger 步骤即无编号声明。G3 五面落步骤 61~69(61 present / 62~63 采样 / 64 bindless / 65 render graph / 66~67 mesh-RT device / 68 DXIL mesh probe / 69 DXIL RT blocked 探针);EA1 步骤 59/60 已随 EA1.1/1.2 落。EI1 步骤 71(export(c) codegen 冒烟)/ 72(UC-05 RHI 冒烟 ci/uc05_rhi_smoke.py:host 恒跑 corpus+审计+--emit=check / device 段 EXE red-green)/ 73(UC-05 RHI 不变量拦截门 ci/uc05_invariant_gate.py:I1~I8 逐条 + 矩阵三方一致,纯 host 恒跑)。**步骤 70 = G3 showcase 段永久留空 gap**(G3 已 close-out 不回填)。下一个数字步骤号 74(74 引擎嵌入 / 75 对照报告随 EI1.4/EI1.5)。"
+      "notes": "PR Smoke 里程碑冒烟步的数字步骤号。main 最高步骤 58(vulkan win32 present)。步骤 59/60 由 EA1(EA1.1/EA1.2)预留(EA1_CONTRACT §7 / milestones/ea1/CI_GATES.md)。check_* 守卫类步骤(structure/schema/guardrails/redistribution/contribution/number_ledger)『不占数字步骤号』——本 MR 的 check_number_ledger 步骤即无编号声明。G3 五面落步骤 61~69(61 present / 62~63 采样 / 64 bindless / 65 render graph / 66~67 mesh-RT device / 68 DXIL mesh probe / 69 DXIL RT blocked 探针);EA1 步骤 59/60 已随 EA1.1/1.2 落。EI1 步骤 71(export(c) codegen 冒烟)/ 72(UC-05 RHI 冒烟 ci/uc05_rhi_smoke.py:host 恒跑 corpus+审计+--emit=check / device 段 EXE red-green)/ 73(UC-05 RHI 不变量拦截门 ci/uc05_invariant_gate.py:I1~I8 逐条 + 矩阵三方一致,纯 host 恒跑)/ 74(UC-05 引擎嵌入 ci/uc05_engine_embed_smoke.py:host 恒跑 生成头不手写审计 + 两制共存审计〔v1 手写路 RXS-0149 面 0-byte〕+ 零 .rs 审计 + --emit=dll GPU 导出面三件 + 生成头幂等 + 篡改再生成 byte-diff RED / device 段 cl.exe 编 engine_host v2 链 rurix_rhi.lib 真跑 + 三方数值对照)。**步骤 70 = G3 showcase 段永久留空 gap**(G3 已 close-out 不回填)。下一个数字步骤号 75(75 对照报告随 EI1.5)。"
     },
     "GRX_private": {
       "scope": "private_off_tree",

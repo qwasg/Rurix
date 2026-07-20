@@ -6,8 +6,10 @@
 //!   res_use_after_move / res_double_move(RX4001,readback 按值 move-out)/ rhi_double_submit
 //!   (RX4001,1-submit typestate)/ rhi_cross_brand(RX3006,per-instance brand)/ rhi_in_kernel
 //!   (RX3015,着色合法性);
-//! - **assembly**(I3/I5;`//@ assembly-reject:` 头,**编译期 CLEAN**——图装配期性质,`--emit=check`
-//!   不拦,由 ci/uc05_rhi_smoke.py 步骤 72 编译成 EXE 真跑 red-green + rhi.rs 库单测纯 host 见证)。
+//! - **assembly**(I3/**I4**/I5;`//@ assembly-reject: <structure|reflection>` 头,**编译期 CLEAN**——
+//!   图装配期性质,`--emit=check` 不拦,由 ci/uc05_rhi_smoke.py 步骤 72 编译成 EXE 真跑 red-green +
+//!   rhi.rs 库单测纯 host 见证)。EI1.4 起 I4 `.rx` 反射喂入已接线(pass 绑 kernel → kind-2 槽 →
+//!   `with_reflection`),`pass_undeclared_read` 真触发 seal 的 I4 分支。
 //!
 //! 管线镜像 driver:lex/parse → resolve → typeck → 着色/launch/穷尽性/consteval → MIR →
 //! move/borrow → codegen IR(uc05 语料为单文件 flat,无 out-of-line mod)。
@@ -33,8 +35,14 @@ const COMPILE_REJECTS: [&str; 5] = [
     "rhi_in_kernel",
 ];
 
-/// 装配期 reject 预设文件(I3/I5 + 生命周期;编译期 CLEAN,submit 装配期确定性拦)。
-const ASSEMBLY_REJECTS: [&str; 3] = ["graph_cycle", "graph_write_write", "graph_empty"];
+/// 装配期 reject 预设文件(I3/I4/I5 + 生命周期;编译期 CLEAN,submit 装配期确定性拦)。
+/// `pass_undeclared_read` = EI1.4 兑现的 I4 未声明访问(声明集 ⊊ kernel 反射集)。
+const ASSEMBLY_REJECTS: [&str; 4] = [
+    "graph_cycle",
+    "graph_write_write",
+    "graph_empty",
+    "pass_undeclared_read",
+];
 
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -139,8 +147,8 @@ fn accept_rhi_min_lowers_to_rxrt_rhi() {
         "rxrt_rhi_create declare 形态(ctx 句柄入,图根句柄出,RXS-0256)\nIR:\n{ir}"
     );
     assert!(
-        ir.contains("declare i64 @rxrt_rhi_resource(i64)"),
-        "rxrt_rhi_resource declare 形态(图根句柄入,资源句柄出)\nIR:\n{ir}"
+        ir.contains("declare i64 @rxrt_rhi_resource(i64, i64)"),
+        "rxrt_rhi_resource declare 形态(图根句柄 + 字节数入,资源句柄出;EI1.4 真设备分配)\nIR:\n{ir}"
     );
     assert!(
         ir.contains("declare i64 @rxrt_rhi_pass(i64)"),
@@ -150,6 +158,18 @@ fn accept_rhi_min_lowers_to_rxrt_rhi() {
         ir.contains("declare i32 @rxrt_rhi_declare(i64, i64, i32)"),
         "rxrt_rhi_declare declare 形态(pass + resource 句柄 + access tag)\nIR:\n{ir}"
     );
+    // EI1.4(RXS-0257/0261):pass 绑 kernel + I4 反射喂入 —— 形态与 `rxrt_launch` 同构
+    // (pass 句柄 + entry 名 + 维度×6 + slots/kinds/n_args)。
+    assert!(
+        ir.contains(
+            "declare i32 @rxrt_rhi_bind(i64, ptr, i32, i32, i32, i32, i32, i32, ptr, ptr, i64)"
+        ),
+        "rxrt_rhi_bind declare 形态(pass 绑 kernel + marshalling 槽,RXS-0257)\nIR:\n{ir}"
+    );
+    assert!(
+        ir.contains("@rxrt_rhi_bind("),
+        "pass 绑 kernel 应接线(I4 反射集经 kind-2 槽下发,RXS-0257)\nIR:\n{ir}"
+    );
     for sym in ["rxrt_rhi_submit", "rxrt_trap"] {
         assert!(
             ir.contains(&format!("@{sym}(")),
@@ -158,8 +178,9 @@ fn accept_rhi_min_lowers_to_rxrt_rhi() {
     }
 }
 
-/// accept/graph_three_pass(RXS-0258/0259):三 compute pass RAW 建序 + `rhi.readback(c)` 按值
-/// move-out lowering 落 `rxrt_rhi_readback(rhi, res)`(资源实参 move,I1/I2 消费锚);0 诊断。
+/// accept/graph_three_pass(RXS-0258/0259):三 compute pass RAW 建序 + `queue.readback(c, &mut h)`
+/// 按值 move-out lowering 落 `rxrt_rhi_readback(queue, res, dst, bytes)`(资源实参 move,I1/I2 消费
+/// 锚;EI1.4 真 D2H 落锁页缓冲,读回点归 `Queue` 使执行序由 typestate 强制);0 诊断。
 //@ spec: RXS-0258, RXS-0259
 #[test]
 fn accept_graph_three_pass_lowers_readback() {
@@ -170,8 +191,9 @@ fn accept_graph_three_pass_lowers_readback() {
         "accept/graph_three_pass 产生诊断: {codes:?}"
     );
     assert!(
-        ir.contains("declare i32 @rxrt_rhi_readback(i64, i64)"),
-        "rxrt_rhi_readback declare 形态(rhi + 资源句柄入,rc 出;资源按值消费 RXS-0259)\nIR:\n{ir}"
+        ir.contains("declare i32 @rxrt_rhi_readback(i64, i64, ptr, i64)"),
+        "rxrt_rhi_readback declare 形态(queue + 资源句柄 + 锁页落地面指针/字节数入,rc 出;\
+         资源按值消费 RXS-0259,EI1.4 真 D2H)\nIR:\n{ir}"
     );
     assert!(
         ir.contains("@rxrt_rhi_readback("),
@@ -287,8 +309,8 @@ fn corpus_files_carry_spec_anchor() {
         }
     }
     assert!(
-        n >= 12,
-        "uc05 语料过少: {n} 个(4 accept + 5 reject + 3 assembly)"
+        n >= 13,
+        "uc05 语料过少: {n} 个(4 accept + 5 reject + 4 assembly)"
     );
 }
 
@@ -324,6 +346,7 @@ fn invariant_matrix_three_way_consistency() {
         ("I1", "conformance/uc05/reject/res_use_after_move.rx"),
         ("I2", "conformance/uc05/reject/res_double_move.rx"),
         ("I3", "conformance/uc05/assembly/graph_cycle.rx"),
+        ("I4", "conformance/uc05/assembly/pass_undeclared_read.rx"),
         ("I5", "conformance/uc05/assembly/graph_write_write.rx"),
         ("I6", "conformance/uc05/reject/rhi_double_submit.rx"),
         ("I7", "conformance/uc05/reject/rhi_cross_brand.rx"),
@@ -343,10 +366,11 @@ fn invariant_matrix_three_way_consistency() {
             "{inv} corpus 路径未在对照报告出现(三方一致性,RXS-0264): {path}"
         );
     }
-    // I4 = lib_tested(诚实收窄):矩阵标注 rx_wiring:EI1.4,不锚 .rx corpus。
+    // I4 = EI1.4 兑现:自 lib_tested 升为 assembly_time(.rx 反射喂入接线 → 真触发),
+    // 矩阵须标注兑现里程碑 EI1.4 且锚 pass_undeclared_read 语料(上方 corpora 已断言实存)。
     assert!(
         matrix_text.contains("\"rx_wiring\": \"EI1.4") || matrix_text.contains(".rx_wiring:EI1.4"),
-        "I4 应诚实标注 .rx 反射喂入随 EI1.4(RXS-0257 收窄)"
+        "I4 应标注 .rx 反射喂入兑现于 EI1.4(RXS-0257)"
     );
     // 报告三档划界措辞在位(裁决 1)。
     for tier in ["编译期", "装配期", "report_only"] {

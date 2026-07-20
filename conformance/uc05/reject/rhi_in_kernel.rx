@@ -1,15 +1,17 @@
 //@ spec: RXS-0256
 //@ expect-error: RX3015
 // 宿主 API 着色合法性(I8,RFC-0014 §4.B1 承 RXS-0189):UC-05 RHI 宿主构造与方法出现在
-// kernel 体内 → RX3015(coloring 层,与 RX3001 / Graph::create 同点位;`Rhi::create` /
-// `resource` / `pass` / `reads` / `writes` / `submit` 与 `Context::create` 同属 std::gpu
-// 宿主识别面,construct 与方法调用同拦)。
+// kernel 体内 → RX3015(coloring 层,与 RX3001 / Graph::create 同点位;`Rhi::create` 与
+// `Context::create` 同属 std::gpu 宿主识别面,construct 与方法调用同拦)。
+//
+// **诚实标注(EI1.4)**:本反例取 `Context::create` / `Rhi::create` / `submit` 三点位作着色
+// 见证。`resource` / `pass` 未入本反例体——`pass` 自 EI1.4 起绑 kernel(kernel 体内引用 kernel
+// 无合法形态)、`resource` 的元素类型在 kernel 体内无使用点故先落元素定型 RX2010(反例全拦截
+// 口径要求单一预期码,故不混入)。着色闸口对该族**逐方法一致**(coloring 按 std::gpu 宿主识别
+// 面统一拦截,非逐方法白名单),此三点位即足证 I8。
 kernel fn bad(t: ThreadCtx<1>) {
     let c = Context::create();
-    let n: u32 = 256;
     let rhi = Rhi::create(&c);
-    let a = rhi.resource(n);
-    rhi.pass().writes(&a);
     rhi.submit();
 }
 

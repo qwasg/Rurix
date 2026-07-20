@@ -17,6 +17,10 @@
       "description": "`#[export(c)]` C ABI 导出 codegen 红绿 reject 语料基数 ≥8(契约 G-EI1-2;RFC-0014 Part A §4.A / RXS-0250~0255;编译期 100% 拦截口径,I1~I8 类)。计数源 = conformance/export_c/reject/*.rx 文件数(静态语料计数,机器事实,ci/export_c_smoke.py 步骤 71 host 段 cargo test export_c_corpus 恒跑批跑全拦截 + accept 0 诊断验证每条真出预期码)。覆盖 3 诊断码:RX6033 属性挂载非法(挂 kernel/device/非 pub)×3 + RX6031 子集/panic 面违例(slice/array 按值/数组索引/unwrap/`?`)×5。**host 段恒跑不 gate**(collect_c_exports 编译期诊断,不需 device/工具链;对齐 m1.counter.syntax_corpus_size 静态语料计数先例,非 device evidence 计数)。工具链段(--emit=dll DLL+import lib+生成头 + dumpbin 未 mangle + 类型层 ABI 往返哨兵 RXS-0252/0253 步骤 71 硬门)缺 clang/link/MSVC → SKIP=dev-env degrade,RURIX_REQUIRE_REAL=1 翻硬红,不入本 counter。EI1.3~EI1.5 counter(uc05_invariant_cases 等)随后续实现 PR 落。"
     },
     {
+      "id": "ei1.counter.uc05_engine_embed",
+      "description": "UC-05 引擎嵌入 device 见证基数 ≥1(契约 G-EI1-4;RFC-0014 §4.A+§4.B / RXS-0250~0255 + RXS-0261)。计数源 = evidence/uc05_engine_embed*.json 中 embed_ok=true 的证据数——**device evidence 计数**(区别于 export_c_redgreen_cases / uc05_invariant_cases 的静态语料计数):`apps/uc05-rhi/src/embed.rx` 单源经 `rurixc --emit=dll`(GPU-using 导出面:链接段含 rurix_rt_cabi + Rust staticlib 系统库固定集)产 rurix_rhi.dll + import lib + **编译器生成头**,C++/D3D12 宿主 engine_host v2(src/rurix-engine/harness/uc05_engine_host.cpp,LUID 匹配 adapter + fence 锚点夹住图节点)链接并真跑整个 Rurix RHI 两 pass 图,**三方数值对照**(device 求和 / 宿主闭式参考 / ci 脚本独立重算 n*(n+1))精确相等方记 embed_ok=true。须 GPU + MSVC/Windows SDK + CUDA 才能成立 → device 段 SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL(对齐 g3.counter.mesh_task_rt_stages / auto_barrier_hazard_redgreen device 见证计数先例)。host 段(生成头自始生成不手写审计 + 两制共存审计〔v1 手写路 RXS-0149 面 0-byte〕+ 零 .rs 审计 + 生成头幂等 RXS-0253 + 篡改再生成 byte-diff RED RXS-0254)恒跑但**不入本 counter**。"
+    },
+    {
       "id": "ei1.counter.uc05_invariant_cases",
       "description": "UC-05 RHI I1~I10 不变量红绿语料基数 ≥8(契约 G-EI1-3;RFC-0014 Part B §4.B / RXS-0256~0265;确定性拦截口径)。计数源 = conformance/uc05/reject/*.rx(编译期档:I1 res_use_after_move / I2 res_double_move / I6 rhi_double_submit〔RX4001〕/ I7 rhi_cross_brand〔RX3006〕/ I8 rhi_in_kernel〔RX3015〕= 5)+ conformance/uc05/assembly/*.rx(装配期档:I3 graph_cycle / I5 graph_write_write / graph_empty 生命周期 = 3)= 8 静态语料计数(机器事实,对齐 m1.counter.syntax_corpus_size / ei1.counter.export_c_redgreen_cases 静态计数先例,非 device evidence 计数)。**host 段恒跑不 gate**:编译期档由 ci/uc05_rhi_smoke.py 步骤 72 host 段 cargo test uc05_corpus 批跑全拦截 + 步骤 73 ci/uc05_invariant_gate.py 逐条断言;装配期档编译期 CLEAN,拦截由 rhi.rs 库单测(纯 host 无 GPU)+ 步骤 72 device 段 EXE red-green(需 GPU 运行 Context,SKIP=dev-env-degrade,RURIX_REQUIRE_REAL 翻红,不入本 counter)。I4 = lib_tested(诚实收窄,.rx 反射喂入 EI1.4,不计语料);I9/I10 = report_only。"
     }
@@ -26,6 +30,11 @@
     "unit_test_required": true
   },
   "revision_log": [
+    {
+      "version": "v1.3",
+      "date": "2026-07-20",
+      "change": "EI1.4 引擎嵌入实现 PR:counter_assertions 落第三个实体 counter ei1.counter.uc05_engine_embed(≥1,契约 G-EI1-4,RFC-0014 §4.A+§4.B / RXS-0250~0255 + RXS-0261)+ 配套 ci/budget_eval.py evaluator 分支(条款先于实现兑现)。本 counter 与前两个不同,为 **device evidence 计数**(计数源 evidence/uc05_engine_embed*.json 的 embed_ok=true 份数,ci/uc05_engine_embed_smoke.py 步骤 74 device 段真跑写),对齐 g3.counter.mesh_task_rt_stages 先例:无 GPU/MSVC → device SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL。阈值取 ≥1(嵌入面判据是「至少一个 C++/D3D12 宿主链接 export(c) 产 DLL 真跑绿」,非规模计数;本机真跑已归档 2 例规模 n=256/1024 于同一份证据的 embed_cases)。entries/ratio_assertions 维持留空(采纳判据 bench ei1.bench.uc05_check_{cold,warm}_ms 随 EI1.5 measured_local 回填,不预欠 estimated)。零 estimated 铁律维持。"
+    },
     {
       "version": "v1.0",
       "date": "2026-07-18",

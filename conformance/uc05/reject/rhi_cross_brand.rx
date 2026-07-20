@@ -1,21 +1,35 @@
 //@ spec: RXS-0256
 //@ expect-error: RX3006
 // 跨 `Rhi` 实例资源误用(I7,RFC-0014 §4.B1):`Rhi::create` 每调用点合成 per-instance 新鲜
-// opaque brand 类型;brand A 的 `Res` 入 brand B 的 `Pass`(`reads`/`writes` 声明实参)→ 编译期
+// opaque brand 类型;brand B 的 `Res` 入 brand A 的 `Pass`(`reads`/`writes` 声明实参)→ 编译期
 // context-brand 不匹配 **RX3006**(复用 launch brand 裁决 RXS-0074/0189,非 RX2001)。区别于 G3.5
 // `Graph` 单 brand + 运行期 ctx-id 校验路——UC-05 取 per-instance 新鲜 brand 保 I7 ∈ 编译期集。
+// (EI1.4:`rhi.pass` 绑 kernel 的资源实参走同一 brand 裁决体〔launch_check〕,故跨 `Rhi` 误用
+// 在**声明面与 kernel 绑定面同码同口径** RX3006,零新码。)
+kernel fn uc05_fill(t: ThreadCtx<1>, out: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = ((i as u32) + 1u32) as f32;
+    }
+}
+
 fn main() -> i32 {
     let ctx = Context::create();
     let n: u32 = 256;
+    let nn: usize = 256;
 
     let rhi_a = Rhi::create(&ctx);
     let rhi_b = Rhi::create(&ctx);
 
+    let res_a = rhi_a.resource(n); // brand A
     let res_b = rhi_b.resource(n); // brand B
-    rhi_b.pass().writes(&res_b);
+    rhi_b.pass(uc05_fill, GridDim(1), BlockDim(256), (res_b, nn))
+        .writes(&res_b);
 
-    // brand B 的资源入 brand A 的 pass → RX3006。
-    rhi_a.pass().reads(&res_b);
+    // brand B 的资源入 brand A 的 pass 声明 → RX3006。
+    rhi_a.pass(uc05_fill, GridDim(1), BlockDim(256), (res_a, nn))
+        .writes(&res_a)
+        .reads(&res_b);
 
     rhi_a.submit();
     rhi_b.submit();

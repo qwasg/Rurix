@@ -1390,6 +1390,8 @@
       "conformance/export_c/accept/arith_no_panic.rx",
       "conformance/export_c/accept/unit_return.rx",
       "conformance/export_c/reject/index_body_panic.rx",
+      "conformance/export_c/reject/loop_body_panic.rx",
+      "conformance/export_c/reject/match_arm_panic.rx",
       "conformance/export_c/reject/try_body_panic.rx",
       "conformance/export_c/reject/unwrap_body_panic.rx",
       "src/rurixc/src/export_c.rs"
@@ -1403,6 +1405,7 @@
     ],
     "RXS-0257": [
       "conformance/uc05/accept/pass_declared.rx",
+      "conformance/uc05/assembly/pass_undeclared_read.rx",
       "src/rurix-rt-cabi/src/lib.rs",
       "src/rurix-rt/src/rhi.rs",
       "src/rurixc/tests/uc05_corpus.rs"

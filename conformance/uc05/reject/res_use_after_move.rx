@@ -1,21 +1,31 @@
 //@ spec: RXS-0259
 //@ expect-error: RX4001
-// 资源 use-after-free(I1,RFC-0014 §4.B / RXS-0259):`rhi.readback(res)` **按值消费** `Res`
-// (move-out 点)。readback 后再用同一 `Res`(此处再次 move `a` 入 `let _b`)= 编译期 move 违例
-// **RX4001**(复用 RXS-0054,零新借用码、零新 RX 码)。`Res` 非 Copy affine——move 后其值不可再
-// 触及,use-after-free by construction 不可达。
+// 资源 use-after-free(I1,RFC-0014 §4.B / RXS-0259):`queue.readback(res, &mut dst)` **按值消费**
+// `Res`(move-out 点)。readback 后再用同一 `Res`(此处再次 move `a` 入 `let _b`)= 编译期 move
+// 违例 **RX4001**(复用 RXS-0054,零新借用码、零新 RX 码)。`Res` 非 Copy affine——move 后其值不
+// 可再触及,use-after-free by construction 不可达。
+// (EI1.4:readback 归 `Queue`——派发之后的读回点,RXS-0261;move-out 语义不变。)
+kernel fn uc05_fill(t: ThreadCtx<1>, out: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = ((i as u32) + 1u32) as f32;
+    }
+}
+
 fn main() -> i32 {
     let ctx = Context::create();
     let n: u32 = 256;
+    let nn: usize = 256;
+    let mut h = ctx.alloc_pinned(nn);
 
     let rhi = Rhi::create(&ctx);
     let a = rhi.resource(n);
-    rhi.pass().writes(&a);
+    rhi.pass(uc05_fill, GridDim(1), BlockDim(256), (a, nn)).writes(&a);
 
-    rhi.readback(a); // move-out a(资源释放锚)
+    let q = rhi.submit();
+    q.readback(a, &mut h); // move-out a(资源释放锚)
     let _b = a; // use-after-free:再用已 move 的 a → RX4001
 
-    rhi.submit();
     ctx.sync();
     0
 }

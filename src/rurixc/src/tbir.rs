@@ -159,6 +159,19 @@ pub enum ExprKind {
         block: Vec<Expr>,
         args: Vec<Expr>,
     },
+    /// EI1.4 UC-05 RHI **pass 绑 kernel**(RXS-0257/0261):`rhi.pass(kernel, GridDim(..),
+    /// BlockDim(..), (args..))` → 追加 pass(`rxrt_rhi_pass`)+ 绑定 kernel 与 marshalling
+    /// 槽(`rxrt_rhi_bind`)。形态与 [`ExprKind::GpuLaunch`] 逐位同构(单一 marshalling
+    /// 事实源),差别仅在:① 接收者为 `Rhi` 图根而非 `Stream`;② **延迟派发**——槽在绑定
+    /// 期拷入 pass 记录,真派发在 `submit()` 的 hazard 推导之后按推导序进行(RXS-0261)。
+    /// 实参中 `Res<C, T>` 槽(kind 2)即该 pass 的 **I4 反射集**(RXS-0257)。
+    RhiPassBind {
+        rhi: Box<Expr>,
+        kernel: DefId,
+        grid: Vec<Expr>,
+        block: Vec<Expr>,
+        args: Vec<Expr>,
+    },
     /// 字段访问(字段名已解析为定义序/元组位置下标)。
     Field {
         base: Box<Expr>,
