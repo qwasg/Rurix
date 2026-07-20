@@ -1,0 +1,27 @@
+//@ spec: RXS-0258
+//@ spec: RXS-0259
+// graph 构建与依赖推导(RXS-0258)+ 资源生命周期 affine move-out(RXS-0259):三 compute pass
+// 声明式建图,写后读(RAW)按声明序建 pass 序(声明全序无重排,RFC-0010 确定性)。装配期自动
+// hazard 推导 → 顺序调度 + 显式 sync(用户不写 barrier)。末尾 `rhi.readback(c)` 是 `Res` 的
+// **move-out 点**(按值消费,合法末次使用——消费后 c 不再用,故 0 诊断;二次消费才 RX4001)。
+fn main() -> i32 {
+    let ctx = Context::create();
+    let n: u32 = 256;
+
+    let rhi = Rhi::create(&ctx);
+    let a = rhi.resource(n);
+    let b = rhi.resource(n);
+    let c = rhi.resource(n);
+
+    // produce a → transform 读 a 写 b → consume 读 b 写 c(RAW 建序,声明序 = 提交序)。
+    rhi.pass().writes(&a);
+    rhi.pass().reads(&a).writes(&b);
+    rhi.pass().reads(&b).writes(&c);
+
+    // readback c:按值消费(move-out;末次使用合法,RXS-0259)。
+    rhi.readback(c);
+
+    rhi.submit();
+    ctx.sync();
+    0
+}

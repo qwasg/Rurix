@@ -506,9 +506,15 @@ impl Builder<'_> {
                     }
                     let recv = self.expr(receiver);
                     let mut all = vec![self.gpu_deref(recv)];
+                    // EI1.3 Part B UC-05 RHI(RXS-0257):`pass.reads(&res)`/`writes(&res)` 的
+                    // `&Res` 借用实参剥壳为句柄表达式(镜像 upload/download 的 `&pinned`);
+                    // 资源非消费(借用),句柄 Copy 下发。
                     let unborrow = matches!(
                         op,
-                        crate::hir::GpuHostOp::BufUpload | crate::hir::GpuHostOp::BufDownload
+                        crate::hir::GpuHostOp::BufUpload
+                            | crate::hir::GpuHostOp::BufDownload
+                            | crate::hir::GpuHostOp::RhiPassReads
+                            | crate::hir::GpuHostOp::RhiPassWrites
                     );
                     for a in args {
                         let lowered = if unborrow {

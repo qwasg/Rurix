@@ -28,6 +28,7 @@ pub const E_UNKNOWN_METHOD: ErrorCode = ErrorCode(2004); // RX2004
 pub const E_ATOMICS_SCOPE: ErrorCode = ErrorCode(3010); // RX3010(RXS-0080)
 pub const E_SAMPLE_EXPR: ErrorCode = ErrorCode(3014); // RX3014(RXS-0174,RFC-0007)
 pub const E_NONUNIFORM_MISSING: ErrorCode = ErrorCode(3016); // RX3016(RXS-0232,RFC-0013 §4.C1)
+pub const E_RHI_CROSS_BRAND: ErrorCode = ErrorCode(3006); // RX3006(复用,RXS-0256 I7;跨 Rhi 实例 brand 误用)
 pub const E_NOT_CALLABLE: ErrorCode = ErrorCode(2005); // RX2005
 pub const E_BAD_OPERAND: ErrorCode = ErrorCode(2006); // RX2006
 pub const E_BAD_DERIVE_COPY: ErrorCode = ErrorCode(2008); // RX2008
@@ -225,6 +226,11 @@ impl InferCtxt {
                     && self.unify(&xr.clone(), &yr.clone())
             }
             (Ty::Param(i), Ty::Param(j)) => i == j,
+            // const 泛型实参 / per-instance opaque brand(RHI Res<C> 的 `C` = Ty::Const(call_id),
+            // RXS-0256):结构相等即数值相等(line 448 口径)。缺此自反臂时,同一 brand 的 RHI 句柄
+            // 经 if/else / match 分支合流(demand→unify)会落 `_ => false` 被自相矛盾误拒
+            // (「expected Res<K>, found Res<K>」)。跨 brand(distinct Const)仍判异,隔离不弱化。
+            (Ty::Const(m), Ty::Const(n)) => m == n,
             _ => false,
         }
     }
@@ -365,6 +371,26 @@ fn gpu_host_method(
             _ => None,
         };
     }
+    // EI1.3 Part B UC-05 RHI(RXS-0256/0257):`Rhi` 图根方法族(资源创建 / pass 声明 /
+    // submit)+ `Pass` 访问声明方法族(读 / 写)。与 G3.5 `Graph`/`PassBuilder` 平行的
+    // 不同 lang items(compute-pass 面,RFC-0014 §7-2);方法名 `reads`/`writes` 与 graph
+    // `PassBuilder::reads` 语义相邻但由接收者 lang item 区分分发。
+    if li.is_rhi(d) {
+        return match method {
+            "resource" => Some(Op::RhiResource),
+            "pass" => Some(Op::RhiPass),
+            "submit" => Some(Op::RhiSubmit),
+            "readback" => Some(Op::RhiReadback),
+            _ => None,
+        };
+    }
+    if li.is_rhi_pass(d) {
+        return match method {
+            "reads" => Some(Op::RhiPassReads),
+            "writes" => Some(Op::RhiPassWrites),
+            _ => None,
+        };
+    }
     if li.is_buffer(d) {
         return match method {
             "upload" => Some(Op::BufUpload),
@@ -408,6 +434,26 @@ fn gpu_host_method(
         };
     }
     None
+}
+
+/// `&Res<C>` / `Res<C>` → 内层 brand 类型实参(EI1.3 Part B,RXS-0256;I7 brand 核验源)。
+/// 剥可选引用后,若为 `Res` lang item 的 ADT 则取首类型实参(brand);非 `Res` 形态 → `None`
+/// (调用方按类型失配 RX2001 裁决)。
+fn rhi_res_brand(ty: &Ty, res_def: DefId) -> Option<Ty> {
+    let peeled = match ty {
+        Ty::Ref(inner, _) => inner.as_ref(),
+        other => other,
+    };
+    match peeled {
+        Ty::Adt(d, args) if *d == res_def => Some(args.first().cloned().unwrap_or(Ty::Err)),
+        _ => None,
+    }
+}
+
+/// per-instance brand 相容判定(EI1.3 Part B,RXS-0256;I7)。`Err`/`Infer` 容忍侧一律相容
+/// (不级联,承 RXS-0047);其余按结构相等(brand = `Ty::Const` 时即数值相等)。
+fn brands_compatible(a: &Ty, b: &Ty) -> bool {
+    matches!(a, Ty::Err | Ty::Infer(_)) || matches!(b, Ty::Err | Ty::Infer(_)) || a == b
 }
 
 /// 内建函数签名(M2.3 最小 prelude)。
@@ -1903,6 +1949,32 @@ impl Tck<'_, '_> {
             let expected = [Ty::Ref(Box::new(brand.clone()), false)];
             return self.check_args(span, &expected, args, Ty::Adt(graph_def, vec![brand]));
         }
+        // UC-05 RHI 图根构造(EI1.3 Part B,RXS-0256):`Rhi::create(&ctx)` 编译器已知关联
+        // 函数——首实参 `&Context`,产 `Rhi<C>` 句柄(非 Copy affine)。**per-instance 新鲜
+        // opaque brand 类型 `C`**:brand 取本调用点 `call_id` 派生的 `Ty::Const`(每 `Rhi::create`
+        // 调用点唯一 → 跨 `Rhi` 实例的资源/pass 携不同 brand,`reads`/`writes` 处编译期 RX3006
+        // 拦截,I7,RFC-0014 §4.B1;区别于 G3.5 `Graph` 单 brand + 运行期 ctx-id 校验路)。
+        if let hir::ExprKind::Res(Res::Def(d)) = &callee.kind
+            && Some(*d) == self.res.lang_items.rhi_create
+        {
+            self.results
+                .gpu_calls
+                .insert(call_id, crate::hir::GpuHostOp::RhiCreate);
+            let ctx_def = self
+                .res
+                .lang_items
+                .context
+                .expect("Context lang item 在 resolve 入口注入");
+            let rhi_def = self
+                .res
+                .lang_items
+                .rhi
+                .expect("Rhi lang item 在 resolve 入口注入");
+            // per-instance 新鲜 brand:调用点 HirId → Const(编译期唯一,类型层记账,不入 codegen)。
+            let brand = Ty::Const(u64::from(call_id.0));
+            let expected = [Ty::Ref(Box::new(Ty::Adt(ctx_def, Vec::new())), false)];
+            return self.check_args(span, &expected, args, Ty::Adt(rhi_def, vec![brand]));
+        }
         // 宿主图像落盘桥(MS1.2b,RXS-0199):`write_ppm(path, w, h, &pinned)`
         // 编译器已知自由函数;data 形参位为元素类型使用点约束(RXS-0190:
         // 未定元素在此定型 f32)。
@@ -2625,9 +2697,108 @@ impl Tck<'_, '_> {
                     Ty::Adt(pb, vec![b]),
                 )
             }
-            Op::CtxCreate | Op::Launch | Op::PresentCreate | Op::WritePpm | Op::GraphCreate => {
+            // EI1.3 Part B UC-05 RHI(RXS-0257):`rhi.resource(n) -> Res<C>`(owned affine 资源
+            // 句柄;非消费接收者;n 为 u32 容量维度,执行器消费不下发,镜像 graph color_target
+            // w/h 纪律)。brand 取接收者 `Rhi<C>` 的 per-instance 新鲜 brand。
+            Op::RhiResource => {
+                let res = self
+                    .res
+                    .lang_items
+                    .rhi_res
+                    .expect("Res lang item 在 resolve 入口注入");
+                let b = adt_args.first().cloned().unwrap_or(brand);
+                self.check_args(span, &[Ty::Prim(PrimTy::U32)], args, Ty::Adt(res, vec![b]))
+            }
+            // `rhi.pass() -> Pass<C>`(声明序 = 提交序;非消费接收者,RXS-0257)。
+            Op::RhiPass => {
+                let pass = self
+                    .res
+                    .lang_items
+                    .rhi_pass
+                    .expect("Pass lang item 在 resolve 入口注入");
+                let b = adt_args.first().cloned().unwrap_or(brand);
+                self.check_args(span, &[], args, Ty::Adt(pass, vec![b]))
+            }
+            // `pass.reads(&res)` / `pass.writes(&res) -> Pass<C>`(消费接收者并返回〔builder 链〕;
+            // 资源实参 `&Res` **借用非消费**——保 `.reads(&a).reads(&a)` 二次借用可编译,RFC-0014
+            // §4.B1)。**per-instance brand 核验(I7)**:资源 brand 与 pass brand 不一致(跨 `Rhi`
+            // 实例误用)→ **RX3006**(复用 launch brand 裁决 RXS-0074/0189,非 RX2001);非 `&Res`
+            // 形态 → RX2001(demand)。
+            Op::RhiPassReads | Op::RhiPassWrites => {
+                let pass = self
+                    .res
+                    .lang_items
+                    .rhi_pass
+                    .expect("Pass lang item 在 resolve 入口注入");
+                let res = self
+                    .res
+                    .lang_items
+                    .rhi_res
+                    .expect("Res lang item 在 resolve 入口注入");
+                let pass_brand = adt_args.first().cloned().unwrap_or(brand);
+                if args.len() != 1 {
+                    self.err_arg_count(span, 1, args.len());
+                }
+                for (i, a) in args.iter().enumerate() {
+                    let at = self.check_expr(a);
+                    if i != 0 {
+                        continue;
+                    }
+                    match rhi_res_brand(&at, res) {
+                        // `&Res<C'>`:per-instance brand 相等核验(I7)。
+                        Some(res_brand) => {
+                            if !brands_compatible(&pass_brand, &res_brand) {
+                                self.diag()
+                                    .struct_error(E_RHI_CROSS_BRAND, "rhi.cross_brand")
+                                    .arg("what", "this RHI resource")
+                                    .span_label(a.span, "belongs to a different `Rhi` instance")
+                                    .emit();
+                            }
+                        }
+                        // 非 `&Res` 形态:类型失配 RX2001。
+                        None => {
+                            let expected =
+                                Ty::Ref(Box::new(Ty::Adt(res, vec![pass_brand.clone()])), false);
+                            self.demand(a.span, &expected, &at);
+                        }
+                    }
+                }
+                Ty::Adt(pass, vec![pass_brand])
+            }
+            // `rhi.submit() -> Queue<C>`(装配核验 I3/I4/I5 + 纯函数状态推导;**消费式接收者**,
+            // 1-submit typestate 镜像 RXS-0197 present;二次 submit = RX4001,由 mir_build move-out
+            // + move 检查裁决,RXS-0258/0260)。
+            Op::RhiSubmit => {
+                let queue = self
+                    .res
+                    .lang_items
+                    .rhi_queue
+                    .expect("Queue lang item 在 resolve 入口注入");
+                let b = adt_args.first().cloned().unwrap_or(brand);
+                self.check_args(span, &[], args, Ty::Adt(queue, vec![b]))
+            }
+            // `rhi.readback(res: Res<C>)`(RXS-0259):资源实参**按值消费**(`Res<C>` 非引用,
+            // 非 `&Res`)——非消费接收者 `rhi`,消费实参 `res`。实参为 owned `Res<C>`,brand 取
+            // 接收者 `Rhi<C>` 的 per-instance 新鲜 brand(跨 brand → RX2001 by demand)。返回 unit。
+            // 实际 move-out(I1 use-after-free / I2 double-free 的 RX4001 拦截)由 mir_build 对
+            // 实参发射 `Operand::Move` + move 检查裁决(镜像 submit 消费式接收者纪律)。
+            Op::RhiReadback => {
+                let res = self
+                    .res
+                    .lang_items
+                    .rhi_res
+                    .expect("Res lang item 在 resolve 入口注入");
+                let b = adt_args.first().cloned().unwrap_or(brand);
+                self.check_args(span, &[Ty::Adt(res, vec![b])], args, Ty::unit())
+            }
+            Op::CtxCreate
+            | Op::Launch
+            | Op::PresentCreate
+            | Op::WritePpm
+            | Op::GraphCreate
+            | Op::RhiCreate => {
                 unreachable!(
-                    "CtxCreate/PresentCreate/GraphCreate/WritePpm 走 check_call;launch 走既有 launch 分支"
+                    "CtxCreate/PresentCreate/GraphCreate/RhiCreate/WritePpm 走 check_call;launch 走既有 launch 分支"
                 )
             }
         }

@@ -229,6 +229,12 @@ def check_evidence_files() -> None:
     export_c_smoke_schema = load(
         ROOT / "milestones/ei1/export_c_smoke_evidence_schema.json"
     )
+    uc05_invariant_matrix_schema = load(
+        ROOT / "milestones/ei1/uc05_invariant_matrix_schema.json"
+    )
+    uc05_rhi_smoke_schema = load(
+        ROOT / "milestones/ei1/uc05_rhi_smoke_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -350,6 +356,14 @@ def check_evidence_files() -> None:
     )
     export_c_smoke_validator = (
         jsonschema.Draft7Validator(export_c_smoke_schema) if export_c_smoke_schema else None
+    )
+    uc05_invariant_matrix_validator = (
+        jsonschema.Draft7Validator(uc05_invariant_matrix_schema)
+        if uc05_invariant_matrix_schema
+        else None
+    )
+    uc05_rhi_smoke_validator = (
+        jsonschema.Draft7Validator(uc05_rhi_smoke_schema) if uc05_rhi_smoke_schema else None
     )
     bindless_smoke_validator = (
         jsonschema.Draft7Validator(bindless_smoke_schema)
@@ -620,6 +634,26 @@ def check_evidence_files() -> None:
             # 硬门 redline F6,缺工具链 dev_env_degrade SKIP 退 0,REQUIRE_REAL 翻硬红)。红绿 reject 语料
             # 基数计入 ei1.counter.export_c_redgreen_cases(计数源 conformance/export_c/reject/*.rx 非本证据)。
             validator = export_c_smoke_validator
+        elif (
+            f.name.startswith("uc05_invariant_matrix")
+            and uc05_invariant_matrix_validator is not None
+        ):
+            # EI1.3 UC-05 RHI I1~I10 不变量矩阵证据(G-EI1-3 / G-EI1-5;RFC-0014 Part B /
+            # RXS-0263/0264)→ milestones/ei1/uc05_invariant_matrix_schema.json。redline F3 硬门:
+            # invariant 条目字段全 string/null(additionalProperties:false),**任何 number 值即
+            # schema 违例** → by-construction 封死 I9/I10 无 in-repo 出处杜撰数字窗口(裁决 1 三档:
+            # 编译期/装配期确定拦 I1~I8,report_only I9~I10 documented_historical)。
+            validator = uc05_invariant_matrix_validator
+        elif (
+            f.name.startswith("uc05_rhi_smoke")
+            and uc05_rhi_smoke_validator is not None
+        ):
+            # EI1.3 UC-05 RHI 冒烟证据(G-EI1-3;RFC-0014 Part B / RXS-0256~0265)→
+            # milestones/ei1/uc05_rhi_smoke_evidence_schema.json(ci/uc05_rhi_smoke.py 步骤 72 写:
+            # host 恒跑 uc05_corpus 批跑 + 零 .rs 审计 + rx build 编译;device 段 demo EXE green +
+            # assembly EXE red-green,需 GPU 运行 Context::create,SKIP=dev-env-degrade,REQUIRE_REAL
+            # 翻硬红)。I3/I5 装配期确定性拦由本 smoke red-green + rhi.rs 库单测双证。
+            validator = uc05_rhi_smoke_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):

@@ -649,6 +649,25 @@ jobs:
         shell: powershell
         run: py -3 ci/export_c_smoke.py
 
+      # 步骤 72（G-EI1-3,RFC-0014 Part B §4.B / RXS-0256~0265）:UC-05 最小 RHI compute-pass 图冒烟。
+      # `ci/uc05_rhi_smoke.py` host 段**恒跑**(cargo test uc05_corpus:accept 0 诊断 + reject 编译期 I1/I2/I6/I7/I8
+      # 全拦截〔RX4001/RX3006/RX3015〕+ assembly 编译期 CLEAN + I1~I10 矩阵三方一致 + apps/uc05-rhi 零 .rs 审计 +
+      # --emit=check〔不 link〕demo/assembly)。device/toolchain 段(rx build demo → EXE GREEN〔UC05_RHI_OK〕+
+      # assembly EXE RED〔退非零 + stderr rhi_submit [structure]:I3 依赖环 / I5 写写冲突 / 空图生命周期,图装配期
+      # 确定性拦〕)= link 工具链 + GPU〔Context::create from_primary〕在位真跑,缺则 SKIP(dev-env degrade,退 0),
+      # RURIX_REQUIRE_REAL=1 翻硬红。退出码判定非 grep(P0-5)。
+      - name: UC-05 RHI smoke (EI1 CI_GATES §2.72, G-EI1-3, RFC-0014 §4.B)
+        shell: powershell
+        run: py -3 ci/uc05_rhi_smoke.py
+
+      # 步骤 73（G-EI1-3 / G-EI1-5,RXS-0263/0264）:UC-05 RHI I1~I10 不变量拦截门(**纯 host 恒跑,无 GPU**)。
+      # `ci/uc05_invariant_gate.py` 逐条断言裁决 1 三档(编译期 I1/I2/I6/I7/I8 / 装配期 I3/I5 / lib_tested I4 /
+      # report_only I9/I10)+ 矩阵 json ↔ reject/assembly 语料 ↔ comparison_report.md 三方一致性互查 + 真跑
+      # uc05_corpus（编译期全拦截）+ rhi.rs 库单测（I3/I5 装配期 + I4 反射 纯 host 无 GPU 见证）。反 YAML-only 自检内置。
+      - name: UC-05 RHI invariant gate (EI1 CI_GATES §2.73, G-EI1-3/G-EI1-5, RXS-0263/0264)
+        shell: powershell
+        run: py -3 ci/uc05_invariant_gate.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

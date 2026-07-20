@@ -40,6 +40,10 @@ use std::sync::{Mutex, MutexGuard, OnceLock};
 
 use rurix_rt::fatbin::DeviceArtifactSet;
 use rurix_rt::graph::{Access, AccessKind, Graph, PassSpec, ResourceId};
+use rurix_rt::rhi::{
+    Access as RhiAccess, AccessKind as RhiAccessKind, PassSpec as RhiPassSpec,
+    ResourceId as RhiResourceId, RhiGraph,
+};
 use rurix_rt::{DeviceBox, PinnedBox, SharedContext, SharedModule, SharedStream};
 
 mod artifacts;
@@ -170,6 +174,20 @@ struct GraphEntry {
     passes: Vec<PassSpec>,
 }
 
+/// EI1.3 Part B UC-05 RHI(RXS-0256~0260):std::gpu `Rhi` 图根宿主条目——承载 rurix-rt `rhi.rs`
+/// 纯 host 图(资源表 + 声明序 pass 序列)。resource/pass/declare 增量建面,`submit` 时组装 →
+/// 装配核验(I3/I4/I5,库层状态值)→ 纯函数 hazard 推导。**装配核验与推导本体归 rhi.rs**
+/// (P-11 单一事实源);本 cabi 面仅承载增量建面与 submit 转发。与 G3.5 `GraphEntry` 平行
+/// (compute-pass 面,RFC-0014 §7-2)。
+struct RhiEntry {
+    /// 所属 ctx 句柄(poisoned 检查 / 清表锚)。
+    ctx: u64,
+    /// rhi.rs 图(资源已建;pass 于 submit 时注入)。
+    graph: RhiGraph,
+    /// 增量建面中的 pass 序列(声明序 = 提交序;submit 时 `add_pass` 注入 graph)。
+    passes: Vec<RhiPassSpec>,
+}
+
 /// 进程级句柄表(单锁:无锁序问题;宿主 `.rx` 首期单线程,互斥仅为 Send/Sync 健全性)。
 #[derive(Default)]
 struct Tables {
@@ -186,6 +204,12 @@ struct Tables {
     graph_resources: HashMap<u64, (u64, u32)>,
     /// pass 句柄 → (所属 graph 句柄, pass 下标):`PassBuilder<C>` u64 affine 句柄映射。
     graph_passes: HashMap<u64, (u64, u32)>,
+    /// EI1.3 Part B UC-05 RHI(RXS-0256):`Rhi` 图根面(只追加符号族 `rxrt_rhi_*`)。
+    rhis: HashMap<u64, RhiEntry>,
+    /// 资源句柄 → (所属 rhi 句柄, 资源下标):`Res<C>` u64 affine 句柄映射。
+    rhi_resources: HashMap<u64, (u64, u32)>,
+    /// pass 句柄 → (所属 rhi 句柄, pass 下标):`Pass<C>` u64 affine 句柄映射。
+    rhi_passes: HashMap<u64, (u64, u32)>,
 }
 
 impl Tables {
@@ -1069,6 +1093,239 @@ pub extern "C" fn rxrt_graph_destroy(g: u64) {
     }
 }
 
+// -- EI1.3 Part B UC-05 RHI:std::gpu `Rhi` compute-pass 图结构与访问声明下发(RXS-0256~0260;
+//    `rxrt_rhi_*` 只追加) --
+//
+// RXS-0194「符号面只追加」纪律:既有 `rxrt_*`/`rxp_*`/`rxio_*`/`rxrt_table_*`/`rxrt_graph_*`
+// 符号面字节不变;u64 句柄表 / handle-0 = 失败 / poisoned 传播跨后端不变式维持。粒度 =
+// create/resource/pass/declare/submit/destroy 增量建面族,`diag` 失败行定位到违例 pass。图
+// 合法性装配核验(I3/I4/I5,库层状态值)与纯函数 hazard 推导本体归 rhi.rs(P-11 单一事实源);
+// 本 cabi 面纯 safe。与 G3.5 `rxrt_graph_*` 平行(compute-pass 面,RFC-0014 §7-2)。
+
+/// C ABI:创建 `Rhi`(RXS-0256)。未知 ctx / poisoned → 诊断 + handle-0(失败)。
+//@ spec: RXS-0256
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_rhi_create(ctx: u64) -> u64 {
+    const OP: &str = "rhi_create";
+    let mut guard = lock();
+    let t = &mut *guard;
+    let Some(ce) = t.ctxs.get(&ctx) else {
+        diag(OP, format!("unknown ctx handle {ctx}"));
+        return 0;
+    };
+    if ce.poisoned {
+        diag(OP, POISONED);
+        return 0;
+    }
+    let h = t.alloc_handle();
+    t.rhis.insert(
+        h,
+        RhiEntry {
+            ctx,
+            graph: RhiGraph::new(),
+            passes: Vec::new(),
+        },
+    );
+    h
+}
+
+/// 取 RHI 条目(校验 ctx 存活 + 非 poisoned)。失败 → 诊断,返回 `None`(调用方返回失败哨兵)。
+fn rhi_entry<'a>(t: &'a mut Tables, op: &str, r: u64) -> Option<&'a mut RhiEntry> {
+    let ctx = t.rhis.get(&r).map(|re| re.ctx)?;
+    let poisoned = match t.ctxs.get(&ctx) {
+        Some(ce) => ce.poisoned,
+        None => {
+            diag(op, format!("ctx of rhi {r} already destroyed"));
+            return None;
+        }
+    };
+    if poisoned {
+        diag(op, POISONED);
+        return None;
+    }
+    t.rhis.get_mut(&r)
+}
+
+/// C ABI:向 `Rhi` 注册资源(RXS-0257)——返回资源 u64 句柄(`Res<C>` affine 句柄;handle-0 =
+/// 失败)。未知 rhi / ctx 已销毁 / poisoned → 诊断 + handle-0。
+//@ spec: RXS-0257
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_rhi_resource(r: u64) -> u64 {
+    const OP: &str = "rhi_resource";
+    let mut guard = lock();
+    let t = &mut *guard;
+    if !t.rhis.contains_key(&r) {
+        diag(OP, format!("unknown rhi handle {r}"));
+        return 0;
+    }
+    {
+        let Some(re) = rhi_entry(t, OP, r) else {
+            return 0;
+        };
+        let n = re.graph.resource_count();
+        re.graph.resource(&format!("res{n}"));
+    }
+    let idx = t
+        .rhis
+        .get(&r)
+        .map_or(0, |re| re.graph.resource_count() as u32 - 1);
+    let h = t.alloc_handle();
+    t.rhi_resources.insert(h, (r, idx));
+    h
+}
+
+/// C ABI:向 `Rhi` 追加一个 pass(RXS-0257)——返回 pass u64 句柄(`Pass<C>` affine 句柄;声明序 =
+/// 提交序;handle-0 = 失败)。未知 rhi / ctx 已销毁 / poisoned → 诊断 + handle-0。
+//@ spec: RXS-0257
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_rhi_pass(r: u64) -> u64 {
+    const OP: &str = "rhi_pass";
+    let mut guard = lock();
+    let t = &mut *guard;
+    if !t.rhis.contains_key(&r) {
+        diag(OP, format!("unknown rhi handle {r}"));
+        return 0;
+    }
+    let idx = {
+        let Some(re) = rhi_entry(t, OP, r) else {
+            return 0;
+        };
+        let idx = re.passes.len() as u32;
+        re.passes.push(RhiPassSpec::new(&format!("pass{idx}")));
+        idx
+    };
+    let h = t.alloc_handle();
+    t.rhi_passes.insert(h, (r, idx));
+    h
+}
+
+/// C ABI:向 `Rhi` 的某 pass 声明一条资源访问(RXS-0257)。`pass` / `res` 为 u64 句柄
+/// (`rxrt_rhi_pass` / `rxrt_rhi_resource` 产);`access` = [`RhiAccessKind::as_u32`] 稳定 tag
+/// (0 = read / 1 = write)。未知句柄 / access tag / 跨 rhi 误用 → 诊断 + [`RXRT_FAIL`](编译器
+/// 注入检查 → `rxrt_trap` 终止,RXS-0193)。跨 rhi 误用(I7)首道防线在编译期 RX3006,本运行期
+/// 校验为纵深防御。
+//@ spec: RXS-0257
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_rhi_declare(pass: u64, res: u64, access: u32) -> i32 {
+    const OP: &str = "rhi_declare";
+    let mut guard = lock();
+    let t = &mut *guard;
+    let Some(&(pr, pass_idx)) = t.rhi_passes.get(&pass) else {
+        diag(OP, format!("unknown pass handle {pass}"));
+        return RXRT_FAIL;
+    };
+    let Some(&(rr, res_idx)) = t.rhi_resources.get(&res) else {
+        diag(OP, format!("unknown resource handle {res}"));
+        return RXRT_FAIL;
+    };
+    if pr != rr {
+        diag(
+            OP,
+            format!("cross-rhi misuse: pass belongs to {pr}, resource to {rr}"),
+        );
+        return RXRT_FAIL;
+    }
+    let Some(kind) = RhiAccessKind::from_u32(access) else {
+        diag(OP, format!("unknown access kind tag {access}"));
+        return RXRT_FAIL;
+    };
+    let Some(re) = rhi_entry(t, OP, pr) else {
+        return RXRT_FAIL;
+    };
+    let Some(ps) = re.passes.get_mut(pass_idx as usize) else {
+        diag(OP, format!("pass index {pass_idx} out of range (rhi {pr})"));
+        return RXRT_FAIL;
+    };
+    ps.accesses.push(RhiAccess {
+        resource: RhiResourceId(res_idx),
+        kind,
+    });
+    0
+}
+
+/// C ABI:装配并推导 `Rhi`(RXS-0258/0260)——组装增量 pass → seal(装配核验 I3/I4/I5,库层
+/// 状态值)→ 纯函数 hazard 推导(1-submit)。装配违例 → 诊断(含类别)+ [`RXRT_FAIL`](编译器
+/// 注入检查 → `rxrt_trap` 终止,strict-only 无静默降级 P-01);推导计划交执行器逐字重放(设备路,
+/// 本符号仅装配核验)。二次 submit(编译期 typestate RX4001 之外的运行期纵深防御)→ Structure。
+//@ spec: RXS-0260
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_rhi_submit(r: u64) -> i32 {
+    const OP: &str = "rhi_submit";
+    let mut guard = lock();
+    let t = &mut *guard;
+    if !t.rhis.contains_key(&r) {
+        diag(OP, format!("unknown rhi handle {r}"));
+        return RXRT_FAIL;
+    }
+    let Some(re) = rhi_entry(t, OP, r) else {
+        return RXRT_FAIL;
+    };
+    // 增量 pass 注入 graph(声明序 = 提交序)。
+    for ps in re.passes.drain(..) {
+        if let Err(e) = re.graph.add_pass(ps) {
+            diag(OP, format!("[{}] {e}", e.category()));
+            return RXRT_FAIL;
+        }
+    }
+    match re.graph.execute() {
+        Ok(_plan) => 0,
+        Err(e) => {
+            diag(OP, format!("[{}] {e}", e.category()));
+            RXRT_FAIL
+        }
+    }
+}
+
+/// C ABI:资源 readback(RXS-0259;`Res` 消费式 move-out 点)。`src` = 资源 u64 句柄。校验
+/// rhi + 资源归属(跨 rhi 误用纵深防御)后**消费句柄**(affine 释放语义:自 `rhi_resources`
+/// 表移除 → 运行期二次 readback 亦 fail-closed with 未知句柄;编译期首道防线 = RX4001
+/// use-after-move,I1/I2)。device 侧真实 copy-back(GPU → pinned)归 EI1.4 compute-pass 落地,
+/// 本 host 面为已校验消费(纯 host 图安全,无 GPU 依赖)。未知句柄 / ctx 已销毁 / poisoned /
+/// 跨 rhi → 诊断 + [`RXRT_FAIL`](编译器注入检查 → `rxrt_trap` 终止,RXS-0193)。
+//@ spec: RXS-0259
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_rhi_readback(r: u64, src: u64) -> i32 {
+    const OP: &str = "rhi_readback";
+    let mut guard = lock();
+    let t = &mut *guard;
+    if !t.rhis.contains_key(&r) {
+        diag(OP, format!("unknown rhi handle {r}"));
+        return RXRT_FAIL;
+    }
+    let Some(&(rr, _res_idx)) = t.rhi_resources.get(&src) else {
+        diag(OP, format!("unknown resource handle {src}"));
+        return RXRT_FAIL;
+    };
+    if rr != r {
+        diag(
+            OP,
+            format!("cross-rhi misuse: resource belongs to {rr}, not {r}"),
+        );
+        return RXRT_FAIL;
+    }
+    if rhi_entry(t, OP, r).is_none() {
+        return RXRT_FAIL;
+    }
+    // affine 消费:资源句柄自表移除(编译期 RX4001 首道防线,运行期为纵深防御)。
+    t.rhi_resources.remove(&src);
+    0
+}
+
+/// C ABI:销毁 `Rhi`(RXS-0256;affine 消费式,清表)。未知 / 已销毁 → no-op 诊断。
+//@ spec: RXS-0256
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_rhi_destroy(r: u64) {
+    const OP: &str = "rhi_destroy";
+    let mut guard = lock();
+    let t = &mut *guard;
+    if t.rhis.remove(&r).is_none() {
+        diag(
+            OP,
+            format!("unknown or already destroyed rhi handle {r} (no-op)"),
+        );
+    }
+}
+
 /// C ABI:运行期失败终止(RXS-0193):编译器对每个 `rxrt_*` 失败返回值(负 `i32` /
 /// 句柄 `0` / 越界)注入检查分支,命中即调本符号终止进程。确定性诊断行已由失败点
 /// 的 [`diag`] 落 stderr,此处直接 abort(无静默降级、无 UB 出口,P-01)。
@@ -1347,6 +1604,79 @@ mod tests {
         let plan = ge.graph.execute().expect("合法图装配核验通过");
         // albedo RT→PSR + lit RT→CopySource + rb Common→CopyDest = 3 条。
         assert_eq!(plan.len(), 3, "deferred-lite 图应 3 条 barrier");
+    }
+
+    /// EI1.3 Part B UC-05 RHI(RXS-0258/0259/0261):`rxrt_rhi_*` 符号面失败路不变式
+    /// (handle-0 / RXRT_FAIL / no-op)+ readback 跨 rhi 误用确定性拒 + 增量建面 → submit
+    /// 装配核验 + 声明全序执行序(RhiGraph 结构直接见证,不需 CUDA;纯 host 图安全)。
+    //@ spec: RXS-0258, RXS-0259, RXS-0261
+    #[test]
+    fn rhi_symbols_failure_path_and_assembly() {
+        // 未知 ctx → rhi_create 返回 handle-0(失败)。
+        assert_eq!(
+            rxrt_rhi_create(0xDEAD_3001),
+            0,
+            "未知 ctx 应 handle-0 失败(RXS-0256)"
+        );
+        // 未知 rhi → 各符号确定性失败哨兵(非静默)。
+        let bogus = 0xDEAD_3002u64;
+        assert_eq!(rxrt_rhi_resource(bogus), 0, "未知 rhi resource → handle-0");
+        assert_eq!(rxrt_rhi_pass(bogus), 0, "未知 rhi pass → handle-0");
+        assert_eq!(
+            rxrt_rhi_declare(0xDEAD_4001, 0xDEAD_4002, 0),
+            RXRT_FAIL,
+            "未知 pass/resource declare → RXRT_FAIL"
+        );
+        assert_eq!(
+            rxrt_rhi_declare(0xDEAD_4001, 0xDEAD_4002, 99),
+            RXRT_FAIL,
+            "未知 access tag → RXRT_FAIL"
+        );
+        // readback:未知 rhi / 未知资源 → 确定性 RXRT_FAIL(I1/I2 运行期纵深)。
+        assert_eq!(
+            rxrt_rhi_readback(bogus, 0xDEAD_4003),
+            RXRT_FAIL,
+            "未知 rhi readback → RXRT_FAIL"
+        );
+        assert_eq!(
+            rxrt_rhi_submit(bogus),
+            RXRT_FAIL,
+            "未知 rhi submit → RXRT_FAIL"
+        );
+        rxrt_rhi_destroy(bogus); // no-op(不 panic)
+
+        // 增量建面 → submit 装配核验 + 声明全序执行序(直接构造 RhiEntry,纯句柄表逻辑不需 CUDA)。
+        let mut re = RhiEntry {
+            ctx: 1,
+            graph: RhiGraph::new(),
+            passes: Vec::new(),
+        };
+        let a = re.graph.resource("res0");
+        let b = re.graph.resource("res1");
+        // produce 写 a → transform 读 a 写 b(声明序 = 提交序,RXS-0261)。
+        let mut produce = RhiPassSpec::new("pass0");
+        produce.accesses.push(RhiAccess {
+            resource: a,
+            kind: RhiAccessKind::Write,
+        });
+        re.passes.push(produce);
+        let mut transform = RhiPassSpec::new("pass1");
+        transform.accesses.push(RhiAccess {
+            resource: a,
+            kind: RhiAccessKind::Read,
+        });
+        transform.accesses.push(RhiAccess {
+            resource: b,
+            kind: RhiAccessKind::Write,
+        });
+        re.passes.push(transform);
+        for ps in re.passes.drain(..) {
+            re.graph.add_pass(ps).expect("合法 pass 注入");
+        }
+        let plan = re.graph.execute().expect("合法图装配核验通过");
+        // a 在 transform 读 → 恰 1 条 RAW 同步 @ pass 1(声明全序推导,执行序确定)。
+        assert_eq!(plan.len(), 1, "线性两 pass 图应恰 1 条 RAW 同步(RXS-0261)");
+        assert_eq!(plan[0].at_pass, 1, "RAW 同步录于 transform(pass 1)边界前");
     }
 
     /// 手写 SAXPY PTX(镜像 rurix-rt `tests/gpu_roundtrip.rs`:`y[i] = a*x[i] + y[i]`;

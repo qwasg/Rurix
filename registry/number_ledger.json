@@ -28,8 +28,8 @@
       "pattern": "RXS-####",
       "main_fact_source": "spec/README.md §4 + spec/*.md 的 `### RXS-####` 条款头",
       "guard_spec_heading_scan": true,
-      "on_tree_max": 255,
-      "next_free": 256,
+      "on_tree_max": 265,
+      "next_free": 266,
       "shadow_reserved": [
         181,
         182,
@@ -102,11 +102,11 @@
       "scope": "shared",
       "pattern": "步骤 NN (.github/workflows/pr-smoke.yml 里程碑冒烟步)",
       "main_fact_source": ".github/workflows/pr-smoke.yml 步骤注",
-      "on_tree_max": 71,
-      "next_free": 72,
+      "on_tree_max": 73,
+      "next_free": 74,
       "shadow_reserved": [],
       "reserved_in_flight_steps": [],
-      "notes": "PR Smoke 里程碑冒烟步的数字步骤号。main 最高步骤 58(vulkan win32 present)。步骤 59/60 由 EA1(EA1.1/EA1.2)预留(EA1_CONTRACT §7 / milestones/ea1/CI_GATES.md)。check_* 守卫类步骤(structure/schema/guardrails/redistribution/contribution/number_ledger)『不占数字步骤号』——本 MR 的 check_number_ledger 步骤即无编号声明。G3 五面落步骤 61~69(61 present / 62~63 采样 / 64 bindless / 65 render graph / 66~67 mesh-RT device / 68 DXIL mesh probe / 69 DXIL RT blocked 探针);EA1 步骤 59/60 已随 EA1.1/1.2 落。下一个数字步骤号 70。"
+      "notes": "PR Smoke 里程碑冒烟步的数字步骤号。main 最高步骤 58(vulkan win32 present)。步骤 59/60 由 EA1(EA1.1/EA1.2)预留(EA1_CONTRACT §7 / milestones/ea1/CI_GATES.md)。check_* 守卫类步骤(structure/schema/guardrails/redistribution/contribution/number_ledger)『不占数字步骤号』——本 MR 的 check_number_ledger 步骤即无编号声明。G3 五面落步骤 61~69(61 present / 62~63 采样 / 64 bindless / 65 render graph / 66~67 mesh-RT device / 68 DXIL mesh probe / 69 DXIL RT blocked 探针);EA1 步骤 59/60 已随 EA1.1/1.2 落。EI1 步骤 71(export(c) codegen 冒烟)/ 72(UC-05 RHI 冒烟 ci/uc05_rhi_smoke.py:host 恒跑 corpus+审计+--emit=check / device 段 EXE red-green)/ 73(UC-05 RHI 不变量拦截门 ci/uc05_invariant_gate.py:I1~I8 逐条 + 矩阵三方一致,纯 host 恒跑)。**步骤 70 = G3 showcase 段永久留空 gap**(G3 已 close-out 不回填)。下一个数字步骤号 74(74 引擎嵌入 / 75 对照报告随 EI1.4/EI1.5)。"
     },
     "GRX_private": {
       "scope": "private_off_tree",
@@ -320,6 +320,11 @@
       "version": "v1.9",
       "date": "2026-07-19",
       "change": "EI1.2 export(c) codegen 实现 PR 校准:RXS on_tree_max 249→255 / next_free 250→256(spec/export_c.md materialize RXS-0250~0255 = EI1 earmark 0250~0269 的 Part A 段消费,guard_spec_heading_scan 扫得 251 头)。RX_error on_tree_max/next_free 0-byte(新码 RX6031/6032/6033 < on_tree_max 7022,v1.5 RX3016 小号不 bump 先例)。CI_step on_tree_max 69→71 / next_free 70→72(pr-smoke.yml 落地步骤 71 export(c) 冒烟;**步骤 70 = G3 showcase 段永久留空 gap**,G3 已 close-out 不回填,v1.8 EI1 激活登记记「步骤 70 维持 G3 段留空」)。Part B(RXS-0256~0265)随 EI1.3 UC-05 落 rhi.md。"
+    },
+    {
+      "version": "v1.10",
+      "date": "2026-07-19",
+      "change": "EI1.3 UC-05 RHI 实现 PR-B2 校准:RXS on_tree_max 255→265 / next_free 256→266(spec/rhi.md materialize RXS-0256~0265 = EI1 earmark 0250~0269 的 Part B 段消费,guard_spec_heading_scan 扫得 261 头〔全 spec 累计〕;下一个可用 RXS-0266,earmark 0250~0269 剩 0266~0269〔EI1.4/EI1.5〕,溢出自 0270)。RX_error 0-byte(Part B 零新 RX 码全复用 RX4001/RX4003/RX3006/RX3015/RX2001~2004 + 库层状态值镜像 RX6029/RX6030,rhi.md §3/§5.1)。CI_step on_tree_max 71→73 / next_free 72→74(pr-smoke.yml 落地步骤 72 UC-05 RHI 冒烟 ci/uc05_rhi_smoke.py + 步骤 73 不变量拦截门 ci/uc05_invariant_gate.py;步骤 74 引擎嵌入 / 75 对照报告随 EI1.4/EI1.5;**步骤 70 = G3 showcase 段永久留空 gap** 维持)。RD 0-byte(RXS-0262 const 泛型容量诚实收窄不新登 RD,沿 RD-026 无堆约束)。"
     }
   ]
 }

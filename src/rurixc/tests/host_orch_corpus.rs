@@ -34,6 +34,8 @@ use rurixc::span::Edition;
 /// 宿主注册面 kernel 体内 → RX3015,RXS-0235 L2 承 RXS-0189 同点位)。
 // render graph 语料一类(G3.5):graph_in_kernel(Graph 宿主构造/方法 kernel 体内 →
 // RX3015,RXS-0236 承 RXS-0189 同点位)。
+// EI1.3 Part B UC-05 RHI 语料独立成 `conformance/uc05/`(见 tests/uc05_corpus.rs);不混入
+// host_orch(RFC-0014 §4.B / spec/rhi.md,路径与 spec 锚对齐)。
 const REJECT_CATEGORIES: [&str; 10] = [
     "mod_missing",
     "mod_cycle",

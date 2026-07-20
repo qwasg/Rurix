@@ -1,0 +1,17 @@
+//@ spec: RXS-0260
+// submit typestate(RXS-0260,I6;镜像 RXS-0197 present 消费式):`Graph<C>` 消费式
+// `submit(self) -> Queue<C>` 接收者按值消费(1-submit)。单次 submit 合法 → `Queue`(终态
+// 句柄,无图建面方法)。二次 submit 才是编译期 move 违例(见 reject/rhi_double_submit.rx)。
+fn main() -> i32 {
+    let ctx = Context::create();
+    let n: u32 = 256;
+
+    let rhi = Rhi::create(&ctx);
+    let a = rhi.resource(n);
+    rhi.pass().writes(&a);
+
+    // 单次 submit → Queue(1-submit typestate 正例,0 诊断)。
+    rhi.submit();
+    ctx.sync();
+    0
+}

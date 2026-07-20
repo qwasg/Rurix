@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UC-05 RHI 冒烟证据 schema(EI1.3,步骤 72;G-EI1-3;RFC-0014 Part B;RXS-0256~0265)",
+  "description": "ci/uc05_rhi_smoke.py 写 evidence/uc05_rhi_smoke_<ts>.json。host 段(恒跑,无 GPU):uc05_corpus 批跑 + apps/uc05-rhi 零 .rs 审计 + rx build 编译 demo/assembly。device 段(需 GPU 运行 Context::create;probe GPU;SKIP=dev-env-degrade,RURIX_REQUIRE_REAL=1 翻硬红):demo EXE exit0 green + assembly EXE 退非零 + stderr 含装配 Err red。镜像 export_c_smoke_evidence_schema 体例。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "milestone",
+    "step",
+    "host_section_pass",
+    "device_section_rc",
+    "checks",
+    "run_url",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "uc05_rhi_smoke" },
+    "milestone": { "type": "string" },
+    "step": { "type": "integer", "const": 72 },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_rc": { "type": "integer" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "corpus_pass": { "type": ["boolean", "string"] },
+        "zero_rs_audit": { "type": ["boolean", "string"] },
+        "compile_demo": { "type": ["boolean", "string"] },
+        "compile_assembly": { "type": ["boolean", "string"] },
+        "demo_run_green": { "type": ["boolean", "string"] },
+        "assembly_redgreen": { "type": ["boolean", "string"] }
+      }
+    },
+    "assembly_cases": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "toolchain_skip": { "type": ["string", "null"] },
+    "dev_env_degrade": { "type": "boolean" },
+    "adapter": { "type": "string" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" }
+  }
+}

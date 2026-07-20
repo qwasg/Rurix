@@ -124,7 +124,7 @@
     "vendor"
   ],
   "schema_version": 1,
-  "spec_clause_count": 251,
+  "spec_clause_count": 261,
   "spec_clauses": [
     "RXS-0001",
     "RXS-0002",
@@ -376,7 +376,17 @@
     "RXS-0252",
     "RXS-0253",
     "RXS-0254",
-    "RXS-0255"
+    "RXS-0255",
+    "RXS-0256",
+    "RXS-0257",
+    "RXS-0258",
+    "RXS-0259",
+    "RXS-0260",
+    "RXS-0261",
+    "RXS-0262",
+    "RXS-0263",
+    "RXS-0264",
+    "RXS-0265"
   ],
   "subject": "rurix_stable_api_surface"
 }
