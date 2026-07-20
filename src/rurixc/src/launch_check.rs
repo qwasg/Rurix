@@ -30,6 +30,8 @@ pub const E_LAUNCH_CONTEXT_BRAND: ErrorCode = ErrorCode(3006); // RX3006(RXS-007
 pub const E_MISMATCHED_TYPES: ErrorCode = ErrorCode(2001); // RX2001(复用,RXS-0074 参数契约)
 
 const LAUNCH_METHOD: &str = "launch";
+/// EI1.4 UC-05 RHI 的 **pass 绑 kernel** 方法名(`rhi.pass(kernel, ..)`,RXS-0257)。
+const RHI_PASS_METHOD: &str = "pass";
 
 /// 全 crate launch 类型契约检查入口(provider:[`QueryCtx::check_launch`])。
 pub fn check_crate(cx: &QueryCtx<'_>) {
@@ -81,7 +83,31 @@ impl Walker<'_, '_> {
         if !self.res.lang_items.is_stream(*d) {
             return;
         }
-        // 形态:launch(kernel, GridDim, BlockDim, (args..));不完整即容忍
+        self.check_kernel_binding(brand_args, args);
+    }
+
+    /// EI1.4 UC-05 RHI `rhi.pass(kernel, GridDim(..), BlockDim(..), (args..))` 的 **pass 绑 kernel**
+    /// 契约裁决(RXS-0257/0261)。与 `Stream::launch` 逐位同构 → **直接复用**同一裁决体
+    /// [`Self::check_kernel_binding`](着色 RX3004 / 维度 RX3005 / 实参 RX2001 / brand RX3006;
+    /// **零新码**)。brand 位取 `Rhi<C>` 的 per-instance 新鲜 brand,故资源实参 `Res<C, T>` 的
+    /// 跨 `Rhi` 误用与 launch 的跨 context 误用同码同口径(I7)。
+    fn check_rhi_pass_call(&self, receiver: &Expr, args: &[Expr]) {
+        let Some(base) = self.receiver_base(receiver) else {
+            return;
+        };
+        let Ty::Adt(d, brand_args) = &base else {
+            return;
+        };
+        if !self.res.lang_items.is_rhi(*d) {
+            return;
+        }
+        self.check_kernel_binding(brand_args, args);
+    }
+
+    /// kernel 绑定裁决本体(`Stream::launch` 与 `Rhi::pass` 共用;RXS-0074/0257)。`brand_args` =
+    /// 接收者句柄的类型实参(首位 = brand)。
+    fn check_kernel_binding(&self, brand_args: &[Ty], args: &[Expr]) {
+        // 形态:(kernel, GridDim, BlockDim, (args..));不完整即容忍
         if args.len() != 4 {
             return;
         }
@@ -150,9 +176,12 @@ impl Walker<'_, '_> {
     fn check_arg(&self, param: &Ty, arg_ty: &Ty, stream_brand: Option<&Ty>, elem: &Expr) -> bool {
         // host `Buffer<Ctx, T>` 满足 device `View<space, T>`/`ViewMut<space, T>`
         // 形参:元素类型 T 可合一(Buffer 提供 view);brand 与 Stream 一致。
+        // EI1.4(RXS-0257):`Res<C, T>` 与 `Buffer<C, T>` 平行——同为 `View`/`ViewMut` 形参的
+        // 宿主承载物;本判据即「kernel 签名 ↔ 实参」的编译期核对,I4 反射集(实参中的 `Res`)
+        // 由此确认确落在 kernel 的 view 形参位(非落此位 → 下方 RX2001)。
         if let (Ty::Adt(pd, pargs), Ty::Adt(ad, aargs)) = (param, arg_ty)
             && self.res.lang_items.view_mutable(*pd).is_some()
-            && self.res.lang_items.is_buffer(*ad)
+            && (self.res.lang_items.is_buffer(*ad) || self.res.lang_items.is_rhi_res(*ad))
         {
             let param_elem = pargs.get(1);
             let arg_elem = aargs.get(1);
@@ -245,6 +274,10 @@ impl Walker<'_, '_> {
             } => {
                 if method == LAUNCH_METHOD {
                     self.check_launch_call(receiver, args);
+                }
+                // EI1.4 UC-05 RHI:`rhi.pass(kernel, ..)` 绑 kernel(RXS-0257/0261)。
+                if method == RHI_PASS_METHOD {
+                    self.check_rhi_pass_call(receiver, args);
                 }
                 self.walk_expr(receiver);
                 for a in args {
@@ -351,6 +384,10 @@ fn ty_compat(a: &Ty, b: &Ty) -> bool {
         (Ty::Err, _) | (_, Ty::Err) => true,
         (Ty::Prim(p), Ty::Prim(q)) => p == q,
         (Ty::Param(i), Ty::Param(j)) => i == j,
+        // const 泛型实参 / per-instance opaque brand(EI1.4 RHI `Res<C, T>` 的 `C` =
+        // `Ty::Const(call_id)`,RXS-0256):结构相等即数值相等。缺此自反臂时,同一 `Rhi`
+        // 实例的资源在 `rhi.pass` 绑 kernel 处会被误判跨 brand(镜像 typeck unify 自反臂)。
+        (Ty::Const(m), Ty::Const(n)) => m == n,
         (Ty::Adt(d, xs), Ty::Adt(e, ys)) => {
             d == e && xs.len() == ys.len() && xs.iter().zip(ys).all(|(x, y)| ty_compat(x, y))
         }

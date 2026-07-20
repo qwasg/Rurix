@@ -1403,6 +1403,7 @@
     ],
     "RXS-0257": [
       "conformance/uc05/accept/pass_declared.rx",
+      "conformance/uc05/assembly/pass_undeclared_read.rx",
       "src/rurix-rt-cabi/src/lib.rs",
       "src/rurix-rt/src/rhi.rs",
       "src/rurixc/tests/uc05_corpus.rs"

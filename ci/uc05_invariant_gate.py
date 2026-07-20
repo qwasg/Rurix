@@ -13,11 +13,14 @@
      counters 标注在位。schema 层(check_schemas)另硬拦 I9/I10 无 in-repo 出处数值字段。
   3. **I1/I2/I6/I7/I8(编译期)**:reject/*.rx 实存 + `//@ expect-error:` == 矩阵 diagnostic;
      由 uc05_corpus(cargo test)真编译全拦截兑现。
-  4. **I3/I5(装配期)**:assembly/*.rx 实存 + 编译期 CLEAN;**装配期确定性拦的纯 host 无 GPU 见证**
-     = rurix-rt rhi.rs 库单测(rejects_read_before_write_i3 / rejects_write_write_conflict_i5 /
-     rejects_lifecycle_misuse)真跑(EXE red-green 为 device 段 e2e 加证,步骤 72)。
-  5. **I4(lib_tested,诚实收窄)**:机制由 rhi.rs `rejects_reflection_mismatch_i4` 库测证;`.rx`
-     反射喂入(pass 绑 kernel)随 EI1.4——矩阵标注 rx_wiring:EI1.4,**不宣称 I4 .rx 路 ci_checked**。
+  4. **I3/I4/I5(装配期)**:assembly/*.rx 实存 + 编译期 CLEAN;**装配期确定性拦的纯 host 无 GPU
+     见证** = rurix-rt rhi.rs 库单测(rejects_read_before_write_i3 / rejects_write_write_conflict_i5
+     / rejects_lifecycle_misuse / rejects_reflection_mismatch_i4)真跑(EXE red-green 为 device 段
+     e2e 加证,步骤 72)。
+  5. **I4(EI1.4 兑现)**:`.rx` 反射喂入(pass 绑 kernel)已接线——编译器自 kernel 签名与绑定实参
+     静态提取反射集 → `rxrt_rhi_bind` kind-2 槽 → `PassSpec::with_reflection`;
+     assembly/pass_undeclared_read.rx 真触发 seal 的 I4 分支。矩阵 tier 自 lib_tested 升
+     assembly_time,须锚该语料(EI1.3 期的 lib_tested 收窄标注就此兑现)。
   6. **I9/I10(report_only)**:documented_historical,无诊断码 / 无杜撰数字(schema by-construction)。
 
 内置 red_self_test 反 YAML-only(合成漂移矩阵须判红)。**blocking(exit 1)**。
@@ -37,9 +40,12 @@ MATRIX = ROOT / "evidence" / "uc05_invariant_matrix.json"
 REPORT = ROOT / "evidence" / "uc05_comparison_report.md"
 
 # 期望三档划界(裁决 1;矩阵/报告/语料三方须一致)。
+# EI1.4:I4 自 lib_tested 升入 assembly_time —— `.rx` 反射喂入(pass 绑 kernel)已接线,
+# assembly/pass_undeclared_read.rx 真触发 seal 的 I4 分支(库层 ReflectionMismatch);
+# LIB_TESTED 遂为空集(档位保留供后续诚实收窄用)。
 COMPILE_TIME = {"I1", "I2", "I6", "I7", "I8"}
-ASSEMBLY_TIME = {"I3", "I5"}
-LIB_TESTED = {"I4"}
+ASSEMBLY_TIME = {"I3", "I4", "I5"}
+LIB_TESTED: set[str] = set()
 REPORT_ONLY = {"I9", "I10"}
 
 # 编译期不变量 ↔ reject 语料 ↔ 期望诊断码。
@@ -53,6 +59,10 @@ COMPILE_MAP = {
 # 装配期不变量 ↔ assembly 语料 ↔ 纯 host 库单测(无 GPU 见证)。
 ASSEMBLY_MAP = {
     "I3": ("conformance/uc05/assembly/graph_cycle.rx", "rejects_read_before_write_i3"),
+    "I4": (
+        "conformance/uc05/assembly/pass_undeclared_read.rx",
+        "rejects_reflection_mismatch_i4",
+    ),
     "I5": ("conformance/uc05/assembly/graph_write_write.rx", "rejects_write_write_conflict_i5"),
 }
 # 装配期须真跑的 rhi.rs 库单测(纯 host,无 GPU;含生命周期)。
@@ -163,9 +173,12 @@ def main() -> int:
         if not (ROOT / path).is_file():
             err(f"{inv}: assembly 语料不存在 {path}")
 
-    # 5) I4 诚实收窄:矩阵标注 .rx 反射喂入随 EI1.4。
+    # 5) I4 兑现口径:矩阵标注 .rx 反射喂入的兑现里程碑 EI1.4,且已锚 assembly 语料
+    #    (语料实存由上方 ASSEMBLY_MAP 断言;三方一致由 check_three_way 断言)。
     if "I4" in invs and "EI1.4" not in (invs["I4"].get("rx_wiring", "") + invs["I4"].get("evidence_level", "")):
-        err("I4: 矩阵应诚实标注 .rx 反射喂入随 EI1.4(RXS-0257 收窄)")
+        err("I4: 矩阵应标注 .rx 反射喂入兑现于 EI1.4(RXS-0257)")
+    if "I4" in invs and not invs["I4"].get("corpus"):
+        err("I4: 矩阵应锚 .rx 反射失配语料(EI1.4 已接线,不得只留 lib_test)")
 
     if ERRORS:
         print("[uc05_invariant_gate] FAIL")
@@ -193,11 +206,11 @@ def main() -> int:
             print(f"[uc05_invariant_gate] FAIL: rhi.rs 库单测缺 {t}（I3/I4/I5 装配期纯 host 无 GPU 见证）",
                   file=sys.stderr)
             return 1
-    print("[uc05_invariant_gate] PASS rhi.rs 库单测（I3/I5 装配期 + I4 反射 纯 host 无 GPU 确定性拦）")
+    print("[uc05_invariant_gate] PASS rhi.rs 库单测（I3/I4/I5 装配期纯 host 无 GPU 确定性拦）")
 
     print(
-        "[uc05_invariant_gate] PASS I1~I8 逐条确定性拦截（编译期 I1/I2/I6/I7/I8 + 装配期 I3/I5 +"
-        " lib_tested I4）+ I9/I10 report_only documented_historical;矩阵 ↔ 语料 ↔ 报告三方一致"
+        "[uc05_invariant_gate] PASS I1~I8 逐条确定性拦截（编译期 I1/I2/I6/I7/I8 + 装配期"
+        " I3/I4/I5）+ I9/I10 report_only documented_historical;矩阵 ↔ 语料 ↔ 报告三方一致"
     )
     return 0
 

@@ -256,7 +256,7 @@
 | RXS-0254 | spec/export_c.md | 2 | `conformance/export_c/accept/multi_export.rx`, `src/rurixc/src/export_c.rs` |
 | RXS-0255 | spec/export_c.md | 6 | `conformance/export_c/accept/arith_no_panic.rx`, `conformance/export_c/accept/unit_return.rx`, `conformance/export_c/reject/index_body_panic.rx` …(+3) |
 | RXS-0256 | spec/rhi.md | 5 | `conformance/uc05/accept/rhi_min.rx`, `conformance/uc05/reject/rhi_cross_brand.rx`, `conformance/uc05/reject/rhi_in_kernel.rx` …(+2) |
-| RXS-0257 | spec/rhi.md | 4 | `conformance/uc05/accept/pass_declared.rx`, `src/rurix-rt-cabi/src/lib.rs`, `src/rurix-rt/src/rhi.rs` …(+1) |
+| RXS-0257 | spec/rhi.md | 5 | `conformance/uc05/accept/pass_declared.rx`, `conformance/uc05/assembly/pass_undeclared_read.rx`, `src/rurix-rt-cabi/src/lib.rs` …(+2) |
 | RXS-0258 | spec/rhi.md | 7 | `conformance/uc05/accept/graph_three_pass.rx`, `conformance/uc05/assembly/graph_cycle.rx`, `conformance/uc05/assembly/graph_empty.rx` …(+4) |
 | RXS-0259 | spec/rhi.md | 5 | `conformance/uc05/accept/graph_three_pass.rx`, `conformance/uc05/reject/res_double_move.rx`, `conformance/uc05/reject/res_use_after_move.rx` …(+2) |
 | RXS-0260 | spec/rhi.md | 4 | `conformance/uc05/accept/single_submit.rx`, `conformance/uc05/reject/rhi_double_submit.rx`, `src/rurix-rt-cabi/src/lib.rs` …(+1) |

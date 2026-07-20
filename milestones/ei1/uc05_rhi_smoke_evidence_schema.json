@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "UC-05 RHI 冒烟证据 schema(EI1.3,步骤 72;G-EI1-3;RFC-0014 Part B;RXS-0256~0265)",
-  "description": "ci/uc05_rhi_smoke.py 写 evidence/uc05_rhi_smoke_<ts>.json。host 段(恒跑,无 GPU):uc05_corpus 批跑 + apps/uc05-rhi 零 .rs 审计 + rx build 编译 demo/assembly。device 段(需 GPU 运行 Context::create;probe GPU;SKIP=dev-env-degrade,RURIX_REQUIRE_REAL=1 翻硬红):demo EXE exit0 green + assembly EXE 退非零 + stderr 含装配 Err red。镜像 export_c_smoke_evidence_schema 体例。",
+  "description": "ci/uc05_rhi_smoke.py 写 evidence/uc05_rhi_smoke_<ts>.json。host 段(恒跑,无 GPU):uc05_corpus 批跑 + apps/uc05-rhi 零 .rs 审计 + rx build 编译 demo/assembly。device 段(需 GPU 运行 Context::create;probe GPU;SKIP=dev-env-degrade,RURIX_REQUIRE_REAL=1 翻硬红):demo EXE exit0 green(EI1.4 起含**真派发 compute pass** + 真 D2H + I9 数值对照 `demo_numeric` = UC05_SUM/UC05_REF 相等)+ assembly EXE 退非零 + stderr 含该语料声明的装配 Err 类别(`[structure]` / `[reflection]`)red。`demo_numeric` 为**本机可复跑观测**的字符串陈述(非历史计数器),值由 demo 自身 host 参考闭式算出。镜像 export_c_smoke_evidence_schema 体例。",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -31,6 +31,7 @@
         "compile_demo": { "type": ["boolean", "string"] },
         "compile_assembly": { "type": ["boolean", "string"] },
         "demo_run_green": { "type": ["boolean", "string"] },
+        "demo_numeric": { "type": "string" },
         "assembly_redgreen": { "type": ["boolean", "string"] }
       }
     },

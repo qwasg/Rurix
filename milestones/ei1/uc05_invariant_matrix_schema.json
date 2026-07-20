@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "UC-05 RHI I1~I10 不变量矩阵证据 schema(EI1.3,RXS-0264;G-EI1-3 / G-EI1-5)",
-  "description": "evidence/uc05_invariant_matrix.json 的结构硬门。RXS-0264 redline F3:schema 层禁止 I9 / I10 出现无 in-repo 出处的数值字段——本 schema 令 invariant 条目字段全部为 string 或 null(additionalProperties:false),**任何 number 类型值即 schema 违例**,由此 by-construction 封死杜撰 Python 数字窗口(I9/I10 Python 侧 = 无数字定性历史陈述)。裁决 1 三档:compile_time(编译期 typeck / --emit=check 即拦)/ assembly_time(submit 图装配期 host 确定性拦)/ lib_tested(库单测已证,.rx 接线随 EI1.4)/ report_only(运行期观测,documented_historical)。",
+  "description": "evidence/uc05_invariant_matrix.json 的结构硬门。RXS-0264 redline F3:schema 层禁止 I9 / I10 出现无 in-repo 出处的数值字段——本 schema 令 invariant 条目字段全部为 string 或 null(additionalProperties:false),**任何 number 类型值即 schema 违例**,由此 by-construction 封死杜撰 Python 数字窗口(I9/I10 Python 侧 = 无数字定性历史陈述)。裁决 1 三档:compile_time(编译期 typeck / --emit=check 即拦)/ assembly_time(submit 图装配期 host 确定性拦;**EI1.4 起含 I4**——.rx 反射喂入已接线,自 lib_tested 迁入)/ lib_tested(库单测已证但 .rx 未接线;EI1.4 起为空集,档位保留供后续诚实收窄用)/ report_only(运行期观测,documented_historical)。",
   "type": "object",
   "additionalProperties": false,
   "required": [

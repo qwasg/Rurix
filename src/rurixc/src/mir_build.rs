@@ -1107,6 +1107,14 @@ impl Builder<'_, '_> {
                 block,
                 args,
             } => self.lower_gpu_launch(e, stream, *kernel, grid, block, args),
+            // EI1.4 UC-05 RHI pass 绑 kernel(RXS-0257/0261):追加 pass + 绑定 kernel/槽。
+            tbir::ExprKind::RhiPassBind {
+                rhi,
+                kernel,
+                grid,
+                block,
+                args,
+            } => self.lower_rhi_pass_bind(e, rhi, *kernel, grid, block, args),
             tbir::ExprKind::ResourceSample {
                 texture,
                 sampler,
@@ -2063,24 +2071,31 @@ impl Builder<'_, '_> {
                 self.guard_handle_zero(dest, span);
                 self.consume(Place::local(dest), &ret)
             }
-            // 资源句柄 → `rxrt_rhi_resource(rhi)`(n 容量维度不下发,执行器消费;接收者非消费);
-            // 句柄 0 → 终止(RXS-0257)。
+            // 资源句柄 → `rxrt_rhi_resource(rhi, bytes)`(EI1.4:`n * sizeof(T)` 字节真设备分配,
+            // T = `Res<C, T>` 元素定型;接收者非消费);句柄 0 → 终止(RXS-0257)。
             Op::RhiResource => {
                 let rhi = self.gpu_handle_op(&args[0]);
                 let ret = self.ty_of(e);
-                let dest = self.emit_rt_call("rxrt_rhi_resource", vec![rhi], ret.clone(), span);
+                // n: u32 → u64 后乘 sizeof(T)(元素定型由 typeck RX2010 保证在首期子集内)。
+                let n32 = self.op_of(&args[1]);
+                let n64 = self.temp(Ty::Prim(PrimTy::U64), span);
+                self.assign(
+                    Place::local(n64),
+                    Rvalue::Cast(n32, Ty::Prim(PrimTy::U64)),
+                    span,
+                );
+                let esz = self.gpu_elem_size(&ret);
+                let bytes = self.gpu_bytes_of(Operand::Copy(Place::local(n64)), esz, span);
+                let dest = self.emit_rt_call(
+                    "rxrt_rhi_resource",
+                    vec![rhi, Operand::Copy(Place::local(bytes))],
+                    ret.clone(),
+                    span,
+                );
                 self.guard_handle_zero(dest, span);
                 self.consume(Place::local(dest), &ret)
             }
-            // pass 句柄 → `rxrt_rhi_pass(rhi)`(声明序 = 提交序;接收者非消费);句柄 0 → 终止
-            // (RXS-0257)。
-            Op::RhiPass => {
-                let rhi = self.gpu_handle_op(&args[0]);
-                let ret = self.ty_of(e);
-                let dest = self.emit_rt_call("rxrt_rhi_pass", vec![rhi], ret.clone(), span);
-                self.guard_handle_zero(dest, span);
-                self.consume(Place::local(dest), &ret)
-            }
+            Op::RhiPass => unreachable!("rhi.pass 绑 kernel 走 RhiPassBind 节点(RXS-0257)"),
             // 读 / 写访问声明(封闭枚举 AccessKind{Read=0,Write=1})→ `rxrt_rhi_declare(pass, res,
             // access)`:接收者 pass 消费并返回(builder 链),资源实参 `&Res` 非消费(gpu_handle_op
             // Copy,取内层句柄);负值 rc → 终止(RXS-0257)。
@@ -2125,9 +2140,26 @@ impl Builder<'_, '_> {
                 let rhi = self.gpu_handle_op(&args[0]);
                 let res_place = self.place_of_or_temp(&args[1]);
                 let src = Operand::Move(res_place);
+                // EI1.4 真 D2H(RXS-0259):落地面 = 锁页主机缓冲(`&mut PinnedBuffer`),取
+                // 指针 + 分配字节数下发(cabi 与资源字节数精确核对,不一致 = 确定性诊断 +
+                // 负值 → 终止;纪律逐字镜像 `rxrt_buf_download`,RXS-0193/0194)。
+                let hp = self.gpu_handle_op(&args[2]);
+                let p = self.emit_rt_call(
+                    "rxrt_pinned_ptr",
+                    vec![hp.clone()],
+                    Ty::RawPtr(Box::new(Ty::Prim(PrimTy::U8)), true),
+                    span,
+                );
+                let pb =
+                    self.emit_rt_call("rxrt_pinned_len", vec![hp], Ty::Prim(PrimTy::U64), span);
                 let rc = self.emit_rt_call(
                     "rxrt_rhi_readback",
-                    vec![rhi, src],
+                    vec![
+                        rhi,
+                        src,
+                        Operand::Copy(Place::local(p)),
+                        Operand::Copy(Place::local(pb)),
+                    ],
                     Ty::Prim(PrimTy::I32),
                     span,
                 );
@@ -2165,7 +2197,33 @@ impl Builder<'_, '_> {
             }
         }
 
-        // slot/kinds 物化(空实参仍物化 1 槽哨兵,n_args = 0 时 cabi 不读)。
+        let (slots_ref, kinds_ref, n) = self.gpu_marshal_args(args, span);
+        let mut call_args = vec![s, Operand::Const(Const::Str(entry))];
+        call_args.extend(dims);
+        call_args.push(slots_ref);
+        call_args.push(kinds_ref);
+        call_args.push(Operand::Const(Const::Int(n as i128, PrimTy::U64)));
+        let rc = self.emit_rt_call("rxrt_launch", call_args, Ty::Prim(PrimTy::I32), span);
+        self.guard_rc_negative(rc, span);
+        Operand::Const(Const::Unit)
+    }
+
+    /// 🔒 kernel 实参 marshalling 物化(RXS-0191 单一事实源;`rxrt_launch` 与 EI1.4
+    /// `rxrt_rhi_bind` 共用)。实参元组物化为栈上 `[u64; n]` slot(Tuple[u64;n] 布局 =
+    /// 连续 8 字节槽)+ `[u8; n]` kinds:
+    /// - `0` = `Buffer` 句柄(cabi 换设备指针);
+    /// - `1` = 标量按位样式存槽低位(f32/i32 直接 store 进槽低 4 字节,LE 下按形参尺寸读取);
+    /// - `2` = **`Res<C, T>` RHI 资源句柄**(EI1.4,RXS-0257;submit 期换设备指针)——kind-2
+    ///   槽集即该 pass 的 **I4 反射集**(kernel 实际触碰资源,由 launch_check 核对确落在
+    ///   `View`/`ViewMut` 形参位)。
+    ///
+    /// 返回 `(slots 引用 operand, kinds 引用 operand, n_args)`;空实参仍物化 1 槽哨兵
+    /// (`n_args = 0` 时 cabi 不读)。地址稳定至 cabi 调用返回(参数由被调方在调用内拷贝)。
+    fn gpu_marshal_args(
+        &mut self,
+        args: &[tbir::Expr],
+        span: crate::span::Span,
+    ) -> (Operand, Operand, usize) {
         let n = args.len();
         let slot_count = n.max(1);
         let mut slot_ops: Vec<Operand> = Vec::with_capacity(slot_count);
@@ -2176,6 +2234,12 @@ impl Builder<'_, '_> {
                 Ty::Adt(d, _) if self.res.lang_items.is_buffer(*d) => {
                     slot_ops.push(self.gpu_handle_op(a));
                     kind_ops.push(Operand::Const(Const::Int(0, PrimTy::U8)));
+                }
+                // EI1.4(RXS-0257):RHI 资源句柄槽——**非消费**(句柄 Copy,镜像 launch 的
+                // Buffer 实参纪律),故 `.reads(&a)` / 后续 pass 复用同资源仍合法。
+                Ty::Adt(d, _) if self.res.lang_items.is_rhi_res(*d) => {
+                    slot_ops.push(self.gpu_handle_op(a));
+                    kind_ops.push(Operand::Const(Const::Int(2, PrimTy::U8)));
                 }
                 _ => {
                     slot_ops.push(self.op_of(a));
@@ -2201,7 +2265,6 @@ impl Builder<'_, '_> {
             Rvalue::Aggregate(kinds_ty.clone(), kind_ops),
             span,
         );
-        // slot/kinds 地址稳定至 rxrt_launch 返回(cuLaunchKernel 调用内拷贝参数)。
         let slots_ref = self.temp(Ty::Ref(Box::new(slots_ty), false), span);
         self.assign(
             Place::local(slots_ref),
@@ -2214,15 +2277,52 @@ impl Builder<'_, '_> {
             Rvalue::Ref(BorrowKind::Shared, Place::local(kinds)),
             span,
         );
+        (
+            Operand::Copy(Place::local(slots_ref)),
+            Operand::Copy(Place::local(kinds_ref)),
+            n,
+        )
+    }
 
-        let mut call_args = vec![s, Operand::Const(Const::Str(entry))];
+    /// EI1.4 UC-05 RHI **pass 绑 kernel** lowering(RXS-0257/0261):
+    /// `rxrt_rhi_pass(rhi)` 追加 pass(句柄 0 → 终止)→ `rxrt_rhi_bind(pass, entry, 维度×6,
+    /// slots, kinds, n)` 记录 kernel 与 marshalling 槽(**延迟派发**:真派发在 submit 的
+    /// hazard 推导之后按推导序进行)。kernel 符号 = device MIR 同源 `mangle` 名(单一事实源,
+    /// 与 launch 同);实参 marshalling 复用 [`Self::gpu_marshal_args`]。
+    fn lower_rhi_pass_bind(
+        &mut self,
+        e: &tbir::Expr,
+        rhi: &tbir::Expr,
+        kernel: DefId,
+        grid: &[tbir::Expr],
+        block: &[tbir::Expr],
+        args: &[tbir::Expr],
+    ) -> Operand {
+        let span = e.span;
+        let r = self.gpu_handle_op(rhi);
+        let entry = mangle(&self.krate.item(kernel).name, kernel, &[]);
+        let ret = self.ty_of(e);
+        let pass = self.emit_rt_call("rxrt_rhi_pass", vec![r], ret.clone(), span);
+        self.guard_handle_zero(pass, span);
+
+        let mut dims: Vec<Operand> = Vec::with_capacity(6);
+        for comps in [grid, block] {
+            for i in 0..3 {
+                dims.push(self.gpu_dim_op(comps, i));
+            }
+        }
+        let (slots_ref, kinds_ref, n) = self.gpu_marshal_args(args, span);
+        let mut call_args = vec![
+            Operand::Copy(Place::local(pass)),
+            Operand::Const(Const::Str(entry)),
+        ];
         call_args.extend(dims);
-        call_args.push(Operand::Copy(Place::local(slots_ref)));
-        call_args.push(Operand::Copy(Place::local(kinds_ref)));
+        call_args.push(slots_ref);
+        call_args.push(kinds_ref);
         call_args.push(Operand::Const(Const::Int(n as i128, PrimTy::U64)));
-        let rc = self.emit_rt_call("rxrt_launch", call_args, Ty::Prim(PrimTy::I32), span);
+        let rc = self.emit_rt_call("rxrt_rhi_bind", call_args, Ty::Prim(PrimTy::I32), span);
         self.guard_rc_negative(rc, span);
-        Operand::Const(Const::Unit)
+        self.consume(Place::local(pass), &ret)
     }
 
     /// launch 维度分量 → u32 值(缺轴补常量 1)。

@@ -1,0 +1,49 @@
+//@ spec: RXS-0257
+//@ assembly-reject: reflection
+// **未声明访问(I4,RFC-0014 §4.B3;RXS-0257)——EI1.4 兑现面**。pass 绑 kernel 后,编译器自
+// kernel 签名与绑定实参静态提取该 pass 的**反射集**(= 实参中的 `Res`,即 kernel 实际触碰的
+// 资源;launch_check 已核对其确落在 `View`/`ViewMut` 形参位),经 marshalling kind-2 槽下发
+// `rxrt_rhi_bind` → `PassSpec::with_reflection`。装配期 `seal()` 对**声明集 ↔ 反射集**做双向
+// 精确相等核验:此处 transform pass 的 kernel 实际触碰 {a, b},但只声明了 `.writes(&b)`——
+// **漏声明 a** → 库层状态值 ReflectionMismatch(镜像 G3.5 RX6030 口径,**零新 RX 码**)→
+// RXRT_FAIL → rxrt_trap 终止。
+//
+// **编译期 CLEAN**——声明-反射相等是图装配期性质(声明集经 builder 链增量累积,`--emit=check`
+// 不拦;此文件不带 //@ expect-error)。由 ci/uc05_rhi_smoke.py(步骤 72)编译成 EXE 真跑见证:
+// 退非零 + stderr 含 `[reflection]` 装配 Err。rhi.rs 库单测 `rejects_reflection_mismatch_i4`
+// 为纯 host(无 GPU)证。正例(声明-反射精确相等)见 accept/pass_declared.rx。
+kernel fn uc05_fill(t: ThreadCtx<1>, out: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = ((i as u32) + 1u32) as f32;
+    }
+}
+
+kernel fn uc05_scale(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        dst[i] = src[i] * 2.0;
+    }
+}
+
+fn main() -> i32 {
+    let ctx = Context::create();
+    let n: u32 = 256;
+    let nn: usize = 256;
+
+    let rhi = Rhi::create(&ctx);
+    let a = rhi.resource(n);
+    let b = rhi.resource(n);
+
+    // seed:写 a(声明集 {a} = 反射集 {a},合法)。
+    rhi.pass(uc05_fill, GridDim(1), BlockDim(256), (a, nn)).writes(&a);
+
+    // transform:kernel 实际触碰 {a, b},但**只声明 writes(&b)**——漏声明对 a 的读
+    // → 装配期 ReflectionMismatch(I4)。
+    rhi.pass(uc05_scale, GridDim(1), BlockDim(256), (a, b, nn))
+        .writes(&b);
+
+    rhi.submit(); // 装配期 ReflectionMismatch Err(strict 拒)→ 确定性终止
+    ctx.sync();
+    0
+}

@@ -186,6 +186,30 @@ struct RhiEntry {
     graph: RhiGraph,
     /// 增量建面中的 pass 序列(声明序 = 提交序;submit 时 `add_pass` 注入 graph)。
     passes: Vec<RhiPassSpec>,
+    /// EI1.4(RXS-0261):每 pass 的 kernel 绑定(与 [`RhiEntry::passes`] **平行同序**;
+    /// `None` = 未绑 kernel 的纯声明 pass〔host 图安全语料〕,submit 时跳过派发)。
+    bindings: Vec<Option<RhiPassBinding>>,
+    /// EI1.4(RXS-0257):资源下标 → 设备缓冲句柄(`t.bufs`)。`rxrt_rhi_resource` 真
+    /// `cuMemAlloc`,派发期换设备指针,`rxrt_rhi_readback` 真 D2H。
+    resources: Vec<u64>,
+    /// EI1.4(RXS-0261):本图专属派发 stream(单 queue 声明全序 ≙ 单 stream 顺序派发;
+    /// hazard 计划的同步锚点落为该 stream 上的显式同步点)。**惰性创建**——纯 host 图安全
+    /// 路径(无 kernel 绑定的语料 / 装配核验失败)不触 CUDA,`None` 即「尚未派发过」。
+    stream: Option<SendStream>,
+}
+
+/// EI1.4 UC-05 RHI **pass 绑 kernel** 记录(RXS-0257/0261):`rxrt_rhi_bind` 在绑定期把
+/// kernel 符号名 + 维度 + marshalling 槽**拷入** pass 记录(调用方栈上 slots/kinds 生命期
+/// 仅至调用返回,故必须拷贝),真派发延迟到 `rxrt_rhi_submit` 的 hazard 推导之后。
+struct RhiPassBinding {
+    /// device MIR 同源 mangle 符号名(单一事实源,与 launch 同)。
+    entry: String,
+    /// `[gx, gy, gz, bx, by, bz]`。
+    dims: [u32; 6],
+    /// marshalling 槽(kind 2 位为**资源句柄**,派发期换设备指针)。
+    slots: Vec<u64>,
+    /// 槽种类(0 = Buffer 句柄 / 1 = 标量按位值 / 2 = RHI 资源句柄)。
+    kinds: Vec<u8>,
 }
 
 /// 进程级句柄表(单锁:无锁序问题;宿主 `.rx` 首期单线程,互斥仅为 Send/Sync 健全性)。
@@ -1124,9 +1148,47 @@ pub extern "C" fn rxrt_rhi_create(ctx: u64) -> u64 {
             ctx,
             graph: RhiGraph::new(),
             passes: Vec::new(),
+            bindings: Vec::new(),
+            resources: Vec::new(),
+            stream: None,
         },
     );
     h
+}
+
+/// 惰性创建本图派发 stream(EI1.4,RXS-0261;首次派发前调用)。已存在 → no-op。
+/// 失败 → 诊断 + poison ctx + `false`。
+fn rhi_ensure_stream(t: &mut Tables, op: &str, r: u64) -> bool {
+    let Some(re) = t.rhis.get(&r) else {
+        diag(op, format!("unknown rhi handle {r}"));
+        return false;
+    };
+    if re.stream.is_some() {
+        return true;
+    }
+    let ctx = re.ctx;
+    let stream = {
+        let Some(ce) = t.ctxs.get_mut(&ctx) else {
+            diag(op, format!("ctx of rhi {r} already destroyed"));
+            return false;
+        };
+        if ce.poisoned {
+            diag(op, POISONED);
+            return false;
+        }
+        match ce.shared.bind().and_then(|b| b.create_stream()) {
+            Ok(stream) => stream,
+            Err(e) => {
+                ce.poisoned = true;
+                diag(op, e);
+                return false;
+            }
+        }
+    };
+    if let Some(re) = t.rhis.get_mut(&r) {
+        re.stream = Some(SendStream(stream));
+    }
+    true
 }
 
 /// 取 RHI 条目(校验 ctx 存活 + 非 poisoned)。失败 → 诊断,返回 `None`(调用方返回失败哨兵)。
@@ -1146,29 +1208,64 @@ fn rhi_entry<'a>(t: &'a mut Tables, op: &str, r: u64) -> Option<&'a mut RhiEntry
     t.rhis.get_mut(&r)
 }
 
-/// C ABI:向 `Rhi` 注册资源(RXS-0257)——返回资源 u64 句柄(`Res<C>` affine 句柄;handle-0 =
-/// 失败)。未知 rhi / ctx 已销毁 / poisoned → 诊断 + handle-0。
+/// C ABI:向 `Rhi` 注册资源(RXS-0257)——**真设备分配** `bytes` 字节(`cuMemAlloc`,EI1.4
+/// 兑现;EI1.3 期仅 host 记账),返回资源 u64 句柄(`Res<C, T>` affine 句柄;handle-0 = 失败)。
+/// `bytes` = `n * sizeof(T)`(编译期物化,RXS-0190 元素定型)。未知 rhi / ctx 已销毁 /
+/// poisoned / 零字节 / 分配失败 → 诊断 + handle-0。
 //@ spec: RXS-0257
 #[unsafe(no_mangle)]
-pub extern "C" fn rxrt_rhi_resource(r: u64) -> u64 {
+pub extern "C" fn rxrt_rhi_resource(r: u64, bytes: u64) -> u64 {
     const OP: &str = "rhi_resource";
+    if bytes == 0 {
+        diag(OP, "zero-byte rhi resource allocation");
+        return 0;
+    }
     let mut guard = lock();
     let t = &mut *guard;
     if !t.rhis.contains_key(&r) {
         diag(OP, format!("unknown rhi handle {r}"));
         return 0;
     }
-    {
+    let ctx = {
         let Some(re) = rhi_entry(t, OP, r) else {
             return 0;
         };
         let n = re.graph.resource_count();
         re.graph.resource(&format!("res{n}"));
-    }
-    let idx = t
-        .rhis
-        .get(&r)
-        .map_or(0, |re| re.graph.resource_count() as u32 - 1);
+        re.ctx
+    };
+    // 真设备分配(纪律逐字镜像 `rxrt_buf_alloc`:失败 → poison + 诊断 + handle-0)。
+    let buf = {
+        let Some(ce) = t.ctxs.get_mut(&ctx) else {
+            diag(OP, format!("ctx of rhi {r} already destroyed"));
+            return 0;
+        };
+        match ce.shared.bind().and_then(|b| b.alloc::<u8>(bytes as usize)) {
+            Ok(buf) => buf,
+            Err(e) => {
+                ce.poisoned = true;
+                diag(OP, e);
+                return 0;
+            }
+        }
+    };
+    let bh = t.alloc_handle();
+    t.bufs.insert(
+        bh,
+        BufEntry {
+            ctx,
+            bytes,
+            kind: BufKind::Owned(buf),
+        },
+    );
+    let idx = {
+        let Some(re) = t.rhis.get_mut(&r) else {
+            diag(OP, format!("unknown rhi handle {r}"));
+            return 0;
+        };
+        re.resources.push(bh);
+        re.graph.resource_count() as u32 - 1
+    };
     let h = t.alloc_handle();
     t.rhi_resources.insert(h, (r, idx));
     h
@@ -1176,6 +1273,7 @@ pub extern "C" fn rxrt_rhi_resource(r: u64) -> u64 {
 
 /// C ABI:向 `Rhi` 追加一个 pass(RXS-0257)——返回 pass u64 句柄(`Pass<C>` affine 句柄;声明序 =
 /// 提交序;handle-0 = 失败)。未知 rhi / ctx 已销毁 / poisoned → 诊断 + handle-0。
+/// EI1.4 起紧随其后由 [`rxrt_rhi_bind`] 绑 kernel(codegen 成对发射)。
 //@ spec: RXS-0257
 #[unsafe(no_mangle)]
 pub extern "C" fn rxrt_rhi_pass(r: u64) -> u64 {
@@ -1192,11 +1290,136 @@ pub extern "C" fn rxrt_rhi_pass(r: u64) -> u64 {
         };
         let idx = re.passes.len() as u32;
         re.passes.push(RhiPassSpec::new(&format!("pass{idx}")));
+        re.bindings.push(None);
         idx
     };
     let h = t.alloc_handle();
     t.rhi_passes.insert(h, (r, idx));
     h
+}
+
+/// C ABI:**pass 绑 kernel + I4 反射喂入**(EI1.4,RXS-0257/0261)。`pass` = [`rxrt_rhi_pass`]
+/// 产的 pass 句柄;`entry` / 维度 / `slots` / `kinds` / `n_args` 的含义与 [`rxrt_launch`] 逐位
+/// 同构(同一 marshalling 契约,RFC-0009 §4.4),新增 `kinds[i] == 2` = **RHI 资源句柄**。
+///
+/// 两件事:
+/// 1. **延迟派发记录**:kernel 符号 + 维度 + 槽**拷入** pass 记录(调用方栈上数组生命期仅至
+///    本调用返回),真派发在 [`rxrt_rhi_submit`] 的 hazard 推导之后按推导序进行;
+/// 2. **I4 反射喂入**:kind-2 槽集 = 该 pass 的 kernel **实际触碰资源集**(编译器自 kernel 签名
+///    与实参静态提取,launch_check 已核对其落在 `View`/`ViewMut` 形参位)→
+///    [`RhiPassSpec::with_reflection`],由 `rhi.rs::seal()` 与声明集双向精确相等核验
+///    (漏声明 / 声明未用 → 装配期确定性 `ReflectionMismatch`,**库层状态值零新 RX 码**)。
+///
+/// 未知句柄 / 未知 kind / 跨 rhi 误用 / 空 entry → 诊断 + [`RXRT_FAIL`](编译器注入检查 →
+/// `rxrt_trap` 终止,RXS-0193)。
+//@ spec: RXS-0257
+#[allow(clippy::too_many_arguments)] // C ABI 签名与 `rxrt_launch` 同构冻结(RFC-0009 §4.3)
+#[allow(clippy::not_unsafe_ptr_arg_deref)] // C ABI 入口:指针契约由调用方 codegen 保证(U25)
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_rhi_bind(
+    pass: u64,
+    entry: *const u8,
+    gx: u32,
+    gy: u32,
+    gz: u32,
+    bx: u32,
+    by: u32,
+    bz: u32,
+    slots: *const u64,
+    kinds: *const u8,
+    n_args: u64,
+) -> i32 {
+    const OP: &str = "rhi_bind";
+    if entry.is_null() {
+        diag(OP, "null entry name");
+        return RXRT_FAIL;
+    }
+    // SAFETY: (U25):`entry` 非 null(上方已检),调用方(codegen)保证其为 NUL 终止
+    // 字符串常量(device MIR 同源 mangle 名,RFC-0009 §4.4),进程生命期有效。
+    let name = unsafe { CStr::from_ptr(entry.cast()) };
+    let Ok(name) = name.to_str() else {
+        diag(OP, "entry name is not valid UTF-8");
+        return RXRT_FAIL;
+    };
+    let n = n_args as usize;
+    let (slots_v, kinds_v): (Vec<u64>, Vec<u8>) = if n == 0 {
+        (Vec::new(), Vec::new())
+    } else {
+        if slots.is_null() || kinds.is_null() {
+            diag(OP, "null slots/kinds with n_args > 0");
+            return RXRT_FAIL;
+        }
+        // SAFETY: (U25):`slots`/`kinds` 非 null(上方已检),调用方保证为长度 `n_args`
+        // 的平行数组(RFC-0009 §4.4 marshalling 布局);读入即拷贝为 owned Vec(延迟派发
+        // 要求跨调用存活),借用不越出本函数。
+        unsafe {
+            (
+                core::slice::from_raw_parts(slots, n).to_vec(),
+                core::slice::from_raw_parts(kinds, n).to_vec(),
+            )
+        }
+    };
+
+    let mut guard = lock();
+    let t = &mut *guard;
+    let Some(&(pr, pass_idx)) = t.rhi_passes.get(&pass) else {
+        diag(OP, format!("unknown pass handle {pass}"));
+        return RXRT_FAIL;
+    };
+    // I4 反射集:kind-2 槽(资源句柄)→ 资源下标(跨 rhi 误用纵深防御:编译期 RX3006 首道)。
+    let mut reflected: Vec<RhiResourceId> = Vec::new();
+    for (i, kind) in kinds_v.iter().enumerate() {
+        match *kind {
+            0 | 1 => {}
+            2 => {
+                let Some(&(rr, res_idx)) = t.rhi_resources.get(&slots_v[i]) else {
+                    diag(
+                        OP,
+                        format!("arg {i}: unknown rhi resource handle {}", slots_v[i]),
+                    );
+                    return RXRT_FAIL;
+                };
+                if rr != pr {
+                    diag(
+                        OP,
+                        format!("arg {i}: cross-rhi misuse (resource of {rr}, pass of {pr})"),
+                    );
+                    return RXRT_FAIL;
+                }
+                reflected.push(RhiResourceId(res_idx));
+            }
+            k => {
+                diag(
+                    OP,
+                    format!("arg {i}: unknown arg kind {k} (expected 0|1|2)"),
+                );
+                return RXRT_FAIL;
+            }
+        }
+    }
+    let Some(re) = rhi_entry(t, OP, pr) else {
+        return RXRT_FAIL;
+    };
+    let Some(ps) = re.passes.get_mut(pass_idx as usize) else {
+        diag(OP, format!("pass index {pass_idx} out of range (rhi {pr})"));
+        return RXRT_FAIL;
+    };
+    // I4:声明-反射相等核验开启(核验本体归 rhi.rs::seal,P-11 单一事实源)。
+    ps.reflection = Some(reflected);
+    let Some(slot) = re.bindings.get_mut(pass_idx as usize) else {
+        diag(
+            OP,
+            format!("binding index {pass_idx} out of range (rhi {pr})"),
+        );
+        return RXRT_FAIL;
+    };
+    *slot = Some(RhiPassBinding {
+        entry: name.to_owned(),
+        dims: [gx, gy, gz, bx, by, bz],
+        slots: slots_v,
+        kinds: kinds_v,
+    });
+    0
 }
 
 /// C ABI:向 `Rhi` 的某 pass 声明一条资源访问(RXS-0257)。`pass` / `res` 为 u64 句柄
@@ -1243,10 +1466,19 @@ pub extern "C" fn rxrt_rhi_declare(pass: u64, res: u64, access: u32) -> i32 {
     0
 }
 
-/// C ABI:装配并推导 `Rhi`(RXS-0258/0260)——组装增量 pass → seal(装配核验 I3/I4/I5,库层
-/// 状态值)→ 纯函数 hazard 推导(1-submit)。装配违例 → 诊断(含类别)+ [`RXRT_FAIL`](编译器
-/// 注入检查 → `rxrt_trap` 终止,strict-only 无静默降级 P-01);推导计划交执行器逐字重放(设备路,
-/// 本符号仅装配核验)。二次 submit(编译期 typestate RX4001 之外的运行期纵深防御)→ Structure。
+/// C ABI:装配、推导并**派发** `Rhi`(RXS-0258/0260/0261)——组装增量 pass → seal(装配核验
+/// I3/I4/I5,库层状态值)→ 纯函数 hazard 推导 → **按推导序真派发 compute pass**(1-submit)。
+///
+/// 装配违例 → 诊断(含类别)+ [`RXRT_FAIL`](编译器注入检查 → `rxrt_trap` 终止,strict-only
+/// 无静默降级 P-01)。二次 submit(编译期 typestate RX4001 之外的运行期纵深防御)→ Structure。
+///
+/// **执行语义(EI1.4 兑现,RXS-0261)**:派发**严格在 hazard 推导之后**,按 `pass_count()`
+/// 的声明全序逐 pass 进行,并**尊重推导计划**——推导计划在第 `at_pass` 个 pass 边界产出的每
+/// 条 [`PlannedSync`] 令执行器在**派发该 pass 之前**于本图 stream 上落一个显式同步点(计划
+/// 逐字重放,执行器**禁二次推导**)。单 queue 声明全序 ≙ 单 stream 顺序派发,故同步点为
+/// hazard 计划驱动的保守封口而非重排依据。全部 pass 派发完毕后对本图 stream 收尾同步,使
+/// 后续 [`rxrt_rhi_readback`] 的 D2H 见到完整结果。未绑 kernel 的纯声明 pass 跳过派发
+/// (host 图安全语料路径),图安全核验不受影响。
 //@ spec: RXS-0260
 #[unsafe(no_mangle)]
 pub extern "C" fn rxrt_rhi_submit(r: u64) -> i32 {
@@ -1257,23 +1489,156 @@ pub extern "C" fn rxrt_rhi_submit(r: u64) -> i32 {
         diag(OP, format!("unknown rhi handle {r}"));
         return RXRT_FAIL;
     }
-    let Some(re) = rhi_entry(t, OP, r) else {
-        return RXRT_FAIL;
+    // ── 阶段 1:装配核验 + 纯函数 hazard 推导(本体归 rhi.rs,P-11)。
+    let plan = {
+        let Some(re) = rhi_entry(t, OP, r) else {
+            return RXRT_FAIL;
+        };
+        // 增量 pass 注入 graph(声明序 = 提交序)。
+        for ps in re.passes.drain(..) {
+            if let Err(e) = re.graph.add_pass(ps) {
+                diag(OP, format!("[{}] {e}", e.category()));
+                return RXRT_FAIL;
+            }
+        }
+        match re.graph.execute() {
+            Ok(plan) => plan,
+            Err(e) => {
+                diag(OP, format!("[{}] {e}", e.category()));
+                return RXRT_FAIL;
+            }
+        }
     };
-    // 增量 pass 注入 graph(声明序 = 提交序)。
-    for ps in re.passes.drain(..) {
-        if let Err(e) = re.graph.add_pass(ps) {
-            diag(OP, format!("[{}] {e}", e.category()));
+
+    // ── 阶段 2:按推导序派发(计划逐字重放;槽的资源位换设备指针)。
+    let (ctx, pass_count) = match t.rhis.get(&r) {
+        Some(re) => (re.ctx, re.graph.pass_count()),
+        None => return RXRT_FAIL,
+    };
+    for pass_idx in 0..pass_count {
+        // 该 pass 边界的推导同步点:计划驱动,逐条落显式 stream 同步(禁二次推导)。
+        let syncs = plan.iter().filter(|s| s.at_pass == pass_idx).count();
+        if syncs > 0 && !rhi_stream_sync(t, OP, r) {
+            return RXRT_FAIL;
+        }
+        // 槽物化:kind 2(资源)换设备指针,kind 0(Buffer)换设备指针,kind 1 标量按位保留。
+        let Some(re) = t.rhis.get(&r) else {
+            return RXRT_FAIL;
+        };
+        let Some(Some(bind)) = re.bindings.get(pass_idx) else {
+            continue; // 未绑 kernel 的纯声明 pass:跳过派发(host 图安全语料路径)。
+        };
+        let entry = bind.entry.clone();
+        let dims = bind.dims;
+        let mut storage = bind.slots.clone();
+        let kinds = bind.kinds.clone();
+        for (i, kind) in kinds.iter().enumerate() {
+            let dptr = match *kind {
+                1 => continue,
+                0 => match t.bufs.get(&storage[i]) {
+                    Some(b) if b.ctx == ctx => b.device_ptr(),
+                    Some(_) => {
+                        diag(
+                            OP,
+                            format!("pass {pass_idx} arg {i}: buffer of another ctx"),
+                        );
+                        return RXRT_FAIL;
+                    }
+                    None => {
+                        diag(
+                            OP,
+                            format!("pass {pass_idx} arg {i}: unknown buffer handle"),
+                        );
+                        return RXRT_FAIL;
+                    }
+                },
+                2 => {
+                    let Some(&(_, res_idx)) = t.rhi_resources.get(&storage[i]) else {
+                        diag(
+                            OP,
+                            format!("pass {pass_idx} arg {i}: unknown rhi resource handle"),
+                        );
+                        return RXRT_FAIL;
+                    };
+                    let Some(bh) = t
+                        .rhis
+                        .get(&r)
+                        .and_then(|re| re.resources.get(res_idx as usize).copied())
+                    else {
+                        diag(
+                            OP,
+                            format!("pass {pass_idx} arg {i}: resource {res_idx} unbacked"),
+                        );
+                        return RXRT_FAIL;
+                    };
+                    let Some(b) = t.bufs.get(&bh) else {
+                        diag(
+                            OP,
+                            format!("pass {pass_idx} arg {i}: resource buffer already freed"),
+                        );
+                        return RXRT_FAIL;
+                    };
+                    b.device_ptr()
+                }
+                k => {
+                    diag(OP, format!("pass {pass_idx} arg {i}: unknown arg kind {k}"));
+                    return RXRT_FAIL;
+                }
+            };
+            storage[i] = dptr;
+        }
+        // 派发(复用 launch 单一事实源;stream 与 ctx 为 Tables 的不相交字段)。
+        if !rhi_ensure_stream(t, OP, r) {
+            return RXRT_FAIL;
+        }
+        let Some(Some(stream)) = t.rhis.get(&r).map(|re| re.stream.as_ref()) else {
+            diag(OP, "dispatch stream unavailable"); // 防御:上方已惰性创建,不可达
+            return RXRT_FAIL;
+        };
+        let Some(ce) = t.ctxs.get_mut(&ctx) else {
+            diag(OP, format!("ctx of rhi {r} already destroyed"));
+            return RXRT_FAIL;
+        };
+        if ce.poisoned {
+            diag(OP, POISONED);
+            return RXRT_FAIL;
+        }
+        if !launch_prepared(ce, stream, OP, &entry, dims, &storage) {
             return RXRT_FAIL;
         }
     }
-    match re.graph.execute() {
-        Ok(_plan) => 0,
-        Err(e) => {
-            diag(OP, format!("[{}] {e}", e.category()));
-            RXRT_FAIL
-        }
+    // 收尾同步:使后续 readback 的 D2H 见到完整结果。
+    if pass_count > 0 && !rhi_stream_sync(t, OP, r) {
+        return RXRT_FAIL;
     }
+    0
+}
+
+/// 本图派发 stream 的显式同步(推导计划同步锚点 + submit 收尾)。stream 尚未创建 = 本图未派发
+/// 过任何 kernel(纯 host 图安全路径)→ 无同步义务,`true`。失败 → 诊断 + poison ctx。
+fn rhi_stream_sync(t: &mut Tables, op: &str, r: u64) -> bool {
+    let Some(re) = t.rhis.get(&r) else {
+        diag(op, format!("unknown rhi handle {r}"));
+        return false;
+    };
+    let ctx = re.ctx;
+    let Some(stream) = re.stream.as_ref() else {
+        return true;
+    };
+    let Some(ce) = t.ctxs.get_mut(&ctx) else {
+        diag(op, format!("ctx of rhi {r} already destroyed"));
+        return false;
+    };
+    if ce.poisoned {
+        diag(op, POISONED);
+        return false;
+    }
+    if let Err(e) = ce.shared.bind().and_then(|_b| stream.0.synchronize()) {
+        ce.poisoned = true;
+        diag(op, e);
+        return false;
+    }
+    true
 }
 
 /// C ABI:资源 readback(RXS-0259;`Res` 消费式 move-out 点)。`src` = 资源 u64 句柄。校验
@@ -1283,16 +1648,21 @@ pub extern "C" fn rxrt_rhi_submit(r: u64) -> i32 {
 /// 本 host 面为已校验消费(纯 host 图安全,无 GPU 依赖)。未知句柄 / ctx 已销毁 / poisoned /
 /// 跨 rhi → 诊断 + [`RXRT_FAIL`](编译器注入检查 → `rxrt_trap` 终止,RXS-0193)。
 //@ spec: RXS-0259
+#[allow(clippy::not_unsafe_ptr_arg_deref)] // C ABI 入口:指针契约由调用方 codegen 保证(U25)
 #[unsafe(no_mangle)]
-pub extern "C" fn rxrt_rhi_readback(r: u64, src: u64) -> i32 {
+pub extern "C" fn rxrt_rhi_readback(r: u64, src: u64, dst: *mut u8, bytes: u64) -> i32 {
     const OP: &str = "rhi_readback";
+    if dst.is_null() {
+        diag(OP, "null dst pointer");
+        return RXRT_FAIL;
+    }
     let mut guard = lock();
     let t = &mut *guard;
     if !t.rhis.contains_key(&r) {
         diag(OP, format!("unknown rhi handle {r}"));
         return RXRT_FAIL;
     }
-    let Some(&(rr, _res_idx)) = t.rhi_resources.get(&src) else {
+    let Some(&(rr, res_idx)) = t.rhi_resources.get(&src) else {
         diag(OP, format!("unknown resource handle {src}"));
         return RXRT_FAIL;
     };
@@ -1303,7 +1673,49 @@ pub extern "C" fn rxrt_rhi_readback(r: u64, src: u64) -> i32 {
         );
         return RXRT_FAIL;
     }
-    if rhi_entry(t, OP, r).is_none() {
+    let Some(re) = rhi_entry(t, OP, r) else {
+        return RXRT_FAIL;
+    };
+    let ctx = re.ctx;
+    let Some(bh) = re.resources.get(res_idx as usize).copied() else {
+        diag(OP, format!("resource {res_idx} unbacked (rhi {r})"));
+        return RXRT_FAIL;
+    };
+    // EI1.4 真 D2H(`cuMemcpyDtoH`;长度纪律逐字镜像 `rxrt_buf_download`——须与资源分配
+    // 字节数精确一致,不匹配 = 失败诊断,不触 CUDA)。派发已在 submit 收尾同步完成。
+    let Some(be) = t.bufs.get(&bh) else {
+        diag(OP, format!("resource buffer of {res_idx} already freed"));
+        return RXRT_FAIL;
+    };
+    let BufKind::Owned(buf) = &be.kind else {
+        diag(OP, "rhi resource is not an owned device allocation");
+        return RXRT_FAIL;
+    };
+    if bytes != be.bytes {
+        diag(
+            OP,
+            format!(
+                "length mismatch: rhi resource is {} bytes, got {bytes}",
+                be.bytes
+            ),
+        );
+        return RXRT_FAIL;
+    }
+    let Some(ce) = t.ctxs.get_mut(&ctx) else {
+        diag(OP, format!("ctx of rhi {r} already destroyed"));
+        return RXRT_FAIL;
+    };
+    if ce.poisoned {
+        diag(OP, POISONED);
+        return RXRT_FAIL;
+    }
+    // SAFETY: (U25):`dst` 非 null(上方已检),调用方(codegen 发射的 readback 调用)保证其
+    // 指向 `bytes` 字节有效可写主机内存(锁页缓冲,`rxrt_pinned_ptr` 产)、调用期存活且无
+    // 别名并发访问(RFC-0009 §4.3 指针契约);借用不越出本函数。
+    let host = unsafe { core::slice::from_raw_parts_mut(dst, bytes as usize) };
+    if let Err(e) = ce.shared.bind().and_then(|_b| buf.copy_to_host(host)) {
+        ce.poisoned = true;
+        diag(OP, e);
         return RXRT_FAIL;
     }
     // affine 消费:资源句柄自表移除(编译期 RX4001 首道防线,运行期为纵深防御)。
@@ -1311,18 +1723,35 @@ pub extern "C" fn rxrt_rhi_readback(r: u64, src: u64) -> i32 {
     0
 }
 
-/// C ABI:销毁 `Rhi`(RXS-0256;affine 消费式,清表)。未知 / 已销毁 → no-op 诊断。
+/// C ABI:销毁 `Rhi`(RXS-0256;affine 消费式,清表)。EI1.4 起**连带释放图内 transient 资源
+/// 的设备分配**(先对 ctx sync 封口 in-flight 窗口,纪律镜像 `rxrt_buf_free`/D-231)。
+/// 未知 / 已销毁 → no-op 诊断。
 //@ spec: RXS-0256
 #[unsafe(no_mangle)]
 pub extern "C" fn rxrt_rhi_destroy(r: u64) {
     const OP: &str = "rhi_destroy";
     let mut guard = lock();
     let t = &mut *guard;
-    if t.rhis.remove(&r).is_none() {
+    let Some(re) = t.rhis.remove(&r) else {
         diag(
             OP,
             format!("unknown or already destroyed rhi handle {r} (no-op)"),
         );
+        return;
+    };
+    match t.ctxs.get_mut(&re.ctx) {
+        Some(ce) if !ce.poisoned => {
+            if let Err(e) = ce.shared.bind().and_then(|bound| bound.synchronize()) {
+                ce.poisoned = true;
+                diag(OP, e);
+            }
+        }
+        // poisoned:sync 必然确定性失败,直接落表(Drop 自行重绑后 free)。
+        Some(_) => {}
+        None => diag(OP, format!("ctx of rhi {r} already destroyed")),
+    }
+    for bh in &re.resources {
+        t.bufs.remove(bh); // DeviceBox Drop:重绑本 context 后 cuMemFree(U13/U3)
     }
 }
 
@@ -1435,7 +1864,29 @@ pub extern "C" fn rxrt_launch(
         }
     }
 
-    // module 惰性装载缓存(fatbin 协商:cubin 命中免 JIT,否则 PTX 版号梯子,RXS-0150/0151)。
+    if launch_prepared(ce, &se.stream, OP, name, [gx, gy, gz, bx, by, bz], &storage) {
+        0
+    } else {
+        RXRT_FAIL
+    }
+}
+
+/// kernel 派发本体(**单一事实源**:[`rxrt_launch`] 与 EI1.4 RHI submit 期派发共用)。
+/// `storage` 须为**已物化完毕**的槽(buffer/资源位已换设备指针),`dims` = `[gx, gy, gz,
+/// bx, by, bz]`。module 经 fatbin 协商在 ctx 上惰性装载缓存(cubin 命中免 JIT,否则 PTX
+/// 版号梯子,RXS-0150/0151)。失败 → 诊断 + poison ctx + `false`。
+///
+/// 物化纪律镜像 interop.rs `AcquiredFrame::launch`(U7 调用方义务):`storage` 先固定
+/// (之后不再增删,地址稳定),`params` 各元素指向对应 slot,二者存活至 `cuLaunchKernel`
+/// 返回(同步提交,参数由驱动在调用内拷贝)。
+fn launch_prepared(
+    ce: &mut CtxEntry,
+    stream: &SendStream,
+    op: &str,
+    name: &str,
+    dims: [u32; 6],
+    storage: &[u64],
+) -> bool {
     if ce.module.is_none() {
         match ce
             .shared
@@ -1445,35 +1896,34 @@ pub extern "C" fn rxrt_launch(
             Ok(module) => ce.module = Some(SendModule(module)),
             Err(e) => {
                 ce.poisoned = true;
-                diag(OP, e);
-                return RXRT_FAIL;
+                diag(op, e);
+                return false;
             }
         }
     }
     let Some(module) = ce.module.as_ref() else {
-        diag(OP, "module cache unavailable"); // 防御:上方已装载,不可达
-        return RXRT_FAIL;
+        diag(op, "module cache unavailable"); // 防御:上方已装载,不可达
+        return false;
     };
-
-    // 物化纪律镜像 interop.rs `AcquiredFrame::launch`(U7 调用方义务):`storage` 先固定
-    // (之后不再增删,地址稳定),`params` 各元素指向对应 slot,二者存活至 `cuLaunchKernel`
-    // 返回(同步提交,参数由驱动在调用内拷贝)。
     let launched = ce.shared.bind().and_then(|_b| {
         let kernel = module.0.function(name)?;
         let mut params: Vec<*mut c_void> = storage
             .iter()
             .map(|slot| core::ptr::from_ref(slot).cast_mut().cast::<c_void>())
             .collect();
-        se.stream
-            .0
-            .launch(&kernel, [gx, gy, gz], [bx, by, bz], &mut params)
+        stream.0.launch(
+            &kernel,
+            [dims[0], dims[1], dims[2]],
+            [dims[3], dims[4], dims[5]],
+            &mut params,
+        )
     });
     if let Err(e) = launched {
         ce.poisoned = true;
-        diag(OP, e);
-        return RXRT_FAIL;
+        diag(op, e);
+        return false;
     }
-    0
+    true
 }
 
 // -- tests ----------------------------------------------------------------------------
@@ -1620,8 +2070,53 @@ mod tests {
         );
         // 未知 rhi → 各符号确定性失败哨兵(非静默)。
         let bogus = 0xDEAD_3002u64;
-        assert_eq!(rxrt_rhi_resource(bogus), 0, "未知 rhi resource → handle-0");
+        assert_eq!(
+            rxrt_rhi_resource(bogus, 1024),
+            0,
+            "未知 rhi resource → handle-0"
+        );
+        assert_eq!(
+            rxrt_rhi_resource(bogus, 0),
+            0,
+            "零字节 rhi resource → handle-0(不触 CUDA)"
+        );
         assert_eq!(rxrt_rhi_pass(bogus), 0, "未知 rhi pass → handle-0");
+        // EI1.4(RXS-0257):bind 失败路——空 entry / 未知 pass 句柄 → 确定性 RXRT_FAIL。
+        assert_eq!(
+            rxrt_rhi_bind(
+                0xDEAD_4004,
+                core::ptr::null(),
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                core::ptr::null(),
+                core::ptr::null(),
+                0
+            ),
+            RXRT_FAIL,
+            "null entry bind → RXRT_FAIL"
+        );
+        let entry = c"k";
+        assert_eq!(
+            rxrt_rhi_bind(
+                0xDEAD_4004,
+                entry.as_ptr().cast(),
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                core::ptr::null(),
+                core::ptr::null(),
+                0
+            ),
+            RXRT_FAIL,
+            "未知 pass 句柄 bind → RXRT_FAIL"
+        );
         assert_eq!(
             rxrt_rhi_declare(0xDEAD_4001, 0xDEAD_4002, 0),
             RXRT_FAIL,
@@ -1632,9 +2127,15 @@ mod tests {
             RXRT_FAIL,
             "未知 access tag → RXRT_FAIL"
         );
-        // readback:未知 rhi / 未知资源 → 确定性 RXRT_FAIL(I1/I2 运行期纵深)。
+        // readback:null 落地面 / 未知 rhi / 未知资源 → 确定性 RXRT_FAIL(I1/I2 运行期纵深)。
+        let mut dst = [0u8; 8];
         assert_eq!(
-            rxrt_rhi_readback(bogus, 0xDEAD_4003),
+            rxrt_rhi_readback(bogus, 0xDEAD_4003, core::ptr::null_mut(), 8),
+            RXRT_FAIL,
+            "null 落地面 readback → RXRT_FAIL"
+        );
+        assert_eq!(
+            rxrt_rhi_readback(bogus, 0xDEAD_4003, dst.as_mut_ptr(), 8),
             RXRT_FAIL,
             "未知 rhi readback → RXRT_FAIL"
         );
@@ -1650,6 +2151,10 @@ mod tests {
             ctx: 1,
             graph: RhiGraph::new(),
             passes: Vec::new(),
+            bindings: Vec::new(),
+            resources: Vec::new(),
+            // EI1.4:派发 stream 惰性创建 —— 纯 host 装配/推导路径不触 CUDA(本测无 GPU)。
+            stream: None,
         };
         let a = re.graph.resource("res0");
         let b = re.graph.resource("res1");

@@ -1,13 +1,13 @@
 {
   "schema_version": 1,
   "subject": "uc05_invariant_matrix",
-  "milestone": "EI1.3 / G-EI1-3 (I1~I8 拦截) + G-EI1-5 (I9~I10 报告); RFC-0014 Part B; RXS-0256~0265",
+  "milestone": "EI1.3 + EI1.4 / G-EI1-3 (I1~I8 拦截) + G-EI1-5 (I9~I10 报告); RFC-0014 Part B; RXS-0256~0265",
   "historical_counters": "unavailable in-repo, non-reproducible, no fabricated figures",
   "date": "2026-07-19",
   "tiers": {
     "compile_time": "typeck / --emit=check 即拦(编译期 100% 结构拦截,违例不可构造)",
     "assembly_time": "submit() 图装配期 host 侧确定性拦(--emit=check CLEAN;submit 时库层状态值 Structure/ReflectionMismatch Err → RXRT_FAIL → rxrt_trap 确定性终止,pre-dispatch,无需 GPU 见证于 rhi.rs 库单测)",
-    "lib_tested": "机制已由 rurix-rt rhi.rs 库单测证(纯 host,无 GPU);.rx 编译器反射喂入接线随 EI1.4 compute-pass kernel 绑定落地",
+    "lib_tested": "机制已由 rurix-rt rhi.rs 库单测证(纯 host,无 GPU)但 .rx 路未接线 —— EI1.4 起本档为空集(I4 已接线升入 assembly_time;档位保留供后续诚实收窄用)",
     "report_only": "运行期观测对照,本质动态不可静态拦截(documented_historical;上一项目历史计数器不在仓库、不可复跑、零杜撰数字)"
   },
   "invariants": [
@@ -45,13 +45,14 @@
     {
       "id": "I4",
       "name": "未声明访问 (触碰未声明 Res)",
-      "tier": "lib_tested",
-      "mechanism": "声明-反射精确相等(编译器喂反射集,PassSpec::with_reflection);.rx 反射喂入(pass 绑 kernel)随 EI1.4 compute-pass kernel 绑定落地",
+      "tier": "assembly_time",
+      "mechanism": "声明-反射精确相等(编译器自 kernel 签名与 pass 绑定实参静态提取反射集 → rxrt_rhi_bind kind-2 槽 → PassSpec::with_reflection;seal 双向精确相等核验)",
       "clause": "RXS-0257",
       "diagnostic": "library-state ReflectionMismatch Err (mirrors RX6030, zero new RX code)",
+      "corpus": "conformance/uc05/assembly/pass_undeclared_read.rx",
       "lib_test": "rurix-rt rhi::tests::rejects_reflection_mismatch_i4",
-      "rx_wiring": "EI1.4 (compute-pass kernel 绑定;EI1.3 不宣称 I4 .rx 路 ci_checked)",
-      "evidence_level": "lib_tested(EI1.3) / .rx_wiring:EI1.4"
+      "rx_wiring": "EI1.4 delivered (pass 绑 kernel 反射喂入接线;EI1.3 期为 lib_tested 诚实收窄)",
+      "evidence_level": "ci_checked"
     },
     {
       "id": "I5",
@@ -98,21 +99,21 @@
       "id": "I9",
       "name": "compute pass 数值正确性 (GPU 输出 vs host 参考)",
       "tier": "report_only",
-      "mechanism": "运行期 device 数值对照(本质动态,不可静态全证;device 真跑归 EI1.4)",
+      "mechanism": "运行期 device 数值对照(本质动态,不可静态全证):EI1.4 起 apps/uc05-rhi demo 两 pass 真派发 → readback 真 D2H → host 侧逐元素求和 vs 闭式参考值精确比对,不等即退非零",
       "clause": "RXS-0263",
       "diagnostic": null,
-      "note": "GPU vs host checksum 一致;measured_local(EI1.4 device 落地)。Python 侧 = 无数字定性历史陈述(上一项目代码/交接档不在仓库,非可复跑、零杜撰数字)",
-      "evidence_level": "report_only (measured_local, device: EI1.4)"
+      "note": "EI1.4 已 device 落地:见证 token UC05_SUM / UC05_REF(demo 内 host 参考闭式算出,同行打印供机核),相等才打 UC05_RHI_OK;ci/uc05_rhi_smoke.py 步骤 72 断言二者相等。**本条仍为 report_only**——数值正确性本质动态(单机单驱动一次观测,非全域证明)。Python 侧 = 无数字定性历史陈述(上一项目代码/交接档不在仓库,非可复跑、零杜撰数字)",
+      "evidence_level": "report_only (measured_local, device: EI1.4 delivered)"
     },
     {
       "id": "I10",
       "name": "transient 资源执行期峰值 / 生命周期 (并发存活 vs 声明容量)",
       "tier": "report_only",
-      "mechanism": "运行期观测(不可静态全证实际峰值;host 侧容量记账为 EI1.3 兑现面,实际峰值 evidence 归 device EI1.4)",
+      "mechanism": "运行期观测(不可静态全证实际峰值;host 侧容量记账为 EI1.3 兑现面)",
       "clause": "RXS-0263",
       "diagnostic": null,
-      "note": "实际峰值 <= 声明容量;measured_local。Python 侧 = 无数字定性历史陈述(同 I9,非可复跑、零杜撰数字)",
-      "evidence_level": "report_only (measured_local, device: EI1.4)"
+      "note": "**诚实标注(EI1.4 未完全兑现)**:EI1.4 起每个 transient `Res` 为一笔真设备分配、生命期 = 图生命期(rhi_destroy 连带释放),故实际峰值**恒等于**声明容量——「峰值 <= 声明容量」平凡成立但**并非因 aliasing/复用而收紧**;transient 资源别名复用(令峰值真严格小于声明容量)与执行期峰值计数器**均未实现**,随后续期。Python 侧 = 无数字定性历史陈述(同 I9,非可复跑、零杜撰数字)",
+      "evidence_level": "report_only (host 容量记账 measured;device 峰值计数器 not implemented)"
     }
   ]
 }

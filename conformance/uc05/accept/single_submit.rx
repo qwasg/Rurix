@@ -1,14 +1,23 @@
 //@ spec: RXS-0260
-// submit typestate(RXS-0260,I6;镜像 RXS-0197 present 消费式):`Graph<C>` 消费式
+// submit typestate(RXS-0260,I6;镜像 RXS-0197 present 消费式):`Rhi<C>` 消费式
 // `submit(self) -> Queue<C>` 接收者按值消费(1-submit)。单次 submit 合法 → `Queue`(终态
-// 句柄,无图建面方法)。二次 submit 才是编译期 move 违例(见 reject/rhi_double_submit.rx)。
+// 句柄,建面方法已不可及;EI1.4 起 `Queue` 承载 `readback`——即读回点在派发之后,执行序由
+// 类型强制,RXS-0259/0261)。二次 submit 才是编译期 move 违例(见 reject/rhi_double_submit.rx)。
+kernel fn uc05_fill(t: ThreadCtx<1>, out: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = ((i as u32) + 1u32) as f32;
+    }
+}
+
 fn main() -> i32 {
     let ctx = Context::create();
     let n: u32 = 256;
+    let nn: usize = 256;
 
     let rhi = Rhi::create(&ctx);
     let a = rhi.resource(n);
-    rhi.pass().writes(&a);
+    rhi.pass(uc05_fill, GridDim(1), BlockDim(256), (a, nn)).writes(&a);
 
     // 单次 submit → Queue(1-submit typestate 正例,0 诊断)。
     rhi.submit();

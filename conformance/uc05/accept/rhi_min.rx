@@ -5,9 +5,42 @@
 // 提交序;**用户不写任何 barrier / 同步**(自动 hazard 推导 rhi.rs / RXS-0258)。全部句柄非
 // Copy affine(承 RXS-0189,零新借用码);`reads(&res)` / `writes(&res)` 取 `&Res` 借用——同
 // 资源可跨 pass 二次借用(借用非 use-after-move,故 `&a` 多次出现可编译,RFC-0014 §4.B1)。
+//
+// **EI1.4(RXS-0257/0261)**:`pass` **绑 kernel**——`rhi.pass(kernel, GridDim(..), BlockDim(..),
+// (args..))`,形态与 `Stream::launch` 逐位同构(同一 marshalling 契约)。实参中的 `Res` 即该
+// pass 的 **I4 反射集**(kernel 实际触碰资源,编译期自 kernel 签名与实参提取),与声明集双向
+// 精确相等核验——此处逐 pass 精确相等 → 装配期通过。
+kernel fn uc05_fill(t: ThreadCtx<1>, out: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = ((i as u32) + 1u32) as f32;
+    }
+}
+
+kernel fn uc05_scale(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        dst[i] = src[i] * 2.0;
+    }
+}
+
+kernel fn uc05_combine(
+    t: ThreadCtx<1>,
+    x: View<global, f32>,
+    y: View<global, f32>,
+    out: ViewMut<global, f32>,
+    n: usize,
+) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = x[i] + y[i];
+    }
+}
+
 fn main() -> i32 {
     let ctx = Context::create();
     let n: u32 = 256;
+    let nn: usize = 256;
 
     let rhi = Rhi::create(&ctx);
     let a = rhi.resource(n);
@@ -15,14 +48,20 @@ fn main() -> i32 {
     let c = rhi.resource(n);
 
     // produce:写 a。
-    rhi.pass().writes(&a);
+    rhi.pass(uc05_fill, GridDim(1), BlockDim(256), (a, nn)).writes(&a);
     // transform:读 a 写 b(`&a` 二次借用合法——借用非 move)。
-    rhi.pass().reads(&a).writes(&b);
+    rhi.pass(uc05_scale, GridDim(1), BlockDim(256), (a, b, nn))
+        .reads(&a)
+        .writes(&b);
     // consume:读 a 读 b 写 c(`&a` 三次借用合法)。
-    rhi.pass().reads(&a).reads(&b).writes(&c);
+    rhi.pass(uc05_combine, GridDim(1), BlockDim(256), (a, b, c, nn))
+        .reads(&a)
+        .reads(&b)
+        .writes(&c);
 
-    // 装配核验(依赖环 I3 / 未声明访问 I4 / 写写冲突 I5 → 库层状态值 strict 拒)+ hazard 推导;
-    // submit 消费式 typestate(1-submit,镜像 RXS-0197 present)→ Queue。
+    // 装配核验(依赖环 I3 / 未声明访问 I4 / 写写冲突 I5 → 库层状态值 strict 拒)+ hazard 推导 +
+    // **按推导序真派发 compute pass**(RXS-0261);submit 消费式 typestate(1-submit,镜像
+    // RXS-0197 present)→ Queue。
     rhi.submit();
     ctx.sync();
     0

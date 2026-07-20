@@ -380,9 +380,15 @@ fn gpu_host_method(
             "resource" => Some(Op::RhiResource),
             "pass" => Some(Op::RhiPass),
             "submit" => Some(Op::RhiSubmit),
-            "readback" => Some(Op::RhiReadback),
             _ => None,
         };
+    }
+    // EI1.4(RXS-0259/0261):`readback` **归 `Queue<C>`**——即 submit 之后。EI1.3 期 readback
+    // 挂在 `Rhi` 上(纯 host 图安全,无数值);EI1.4 派发真实发生在 submit 内,故读回点必须在
+    // submit 之后才可能看到计算结果。`submit(self) -> Queue<C>` 的消费式 typestate 使这一执行
+    // 序**由类型强制**(submit 前无 `Queue` 可读回,submit 后 `Rhi` 已被消费),1-submit 不变。
+    if li.is_rhi_queue(d) && method == "readback" {
+        return Some(Op::RhiReadback);
     }
     if li.is_rhi_pass(d) {
         return match method {
@@ -2697,9 +2703,11 @@ impl Tck<'_, '_> {
                     Ty::Adt(pb, vec![b]),
                 )
             }
-            // EI1.3 Part B UC-05 RHI(RXS-0257):`rhi.resource(n) -> Res<C>`(owned affine 资源
-            // 句柄;非消费接收者;n 为 u32 容量维度,执行器消费不下发,镜像 graph color_target
-            // w/h 纪律)。brand 取接收者 `Rhi<C>` 的 per-instance 新鲜 brand。
+            // EI1.4 UC-05 RHI(RXS-0257):`rhi.resource(n) -> Res<C, T>`(owned affine 资源句柄;
+            // 非消费接收者;n 为 u32 元素数)。**元素类型 `T` 经使用点推断合一**(镜像
+            // `ctx.alloc`,RXS-0190):合成 fresh 变量并登记分配点,body 收尾定型检查(不可定型 /
+            // 超出首期子集 → RX2010)。`T` 定型后 mir_build 以 `n * sizeof(T)` 下发真设备分配
+            // (EI1.4 兑现;EI1.3 期 n 不下发)。brand 取接收者 `Rhi<C>` 的 per-instance 新鲜 brand。
             Op::RhiResource => {
                 let res = self
                     .res
@@ -2707,9 +2715,24 @@ impl Tck<'_, '_> {
                     .rhi_res
                     .expect("Res lang item 在 resolve 入口注入");
                 let b = adt_args.first().cloned().unwrap_or(brand);
-                self.check_args(span, &[Ty::Prim(PrimTy::U32)], args, Ty::Adt(res, vec![b]))
+                let elem = self.infcx.fresh(None);
+                self.gpu_allocs.push((span, elem.clone()));
+                self.check_args(
+                    span,
+                    &[Ty::Prim(PrimTy::U32)],
+                    args,
+                    Ty::Adt(res, vec![b, elem]),
+                )
             }
-            // `rhi.pass() -> Pass<C>`(声明序 = 提交序;非消费接收者,RXS-0257)。
+            // EI1.4 `rhi.pass(kernel, GridDim(..), BlockDim(..), (args..)) -> Pass<C>`(RXS-0257/0261):
+            // **pass 绑 kernel**——形态与 `Stream::launch` 逐位同构(kernel 引用 + 维度 + 实参元组),
+            // 类型契约由 [`crate::launch_check`] 结构化裁决(着色 RX3004 / 维度 RX3005 / 实参 RX2001
+            // / brand RX3006,**零新码全复用**);typeck 侧仅递归定型 + 元素推断增强(kernel `View`
+            // 形参元素 ← `Res` 未定元素静默合一)+ 实参登记(收尾 RX6024 子集检查)。
+            //
+            // **I4 反射喂入源**:实参中类型为 `Res<C, T>` 者 = 该 pass 的 kernel **实际触碰资源集**
+            // (reflected 集;由 launch_check 核对其确落在 kernel 的 `View`/`ViewMut` 形参位)→
+            // mir_build 以 kind-2 槽下发 `rxrt_rhi_bind` → `PassSpec::with_reflection`(RXS-0257)。
             Op::RhiPass => {
                 let pass = self
                     .res
@@ -2717,7 +2740,14 @@ impl Tck<'_, '_> {
                     .rhi_pass
                     .expect("Pass lang item 在 resolve 入口注入");
                 let b = adt_args.first().cloned().unwrap_or(brand);
-                self.check_args(span, &[], args, Ty::Adt(pass, vec![b]))
+                for a in args {
+                    let _ = self.check_expr(a);
+                }
+                if args.len() != 4 {
+                    self.err_arg_count(span, 4, args.len());
+                }
+                self.gpu_launch_infer(args);
+                Ty::Adt(pass, vec![b])
             }
             // `pass.reads(&res)` / `pass.writes(&res) -> Pass<C>`(消费接收者并返回〔builder 链〕;
             // 资源实参 `&Res` **借用非消费**——保 `.reads(&a).reads(&a)` 二次借用可编译,RFC-0014
@@ -2777,9 +2807,10 @@ impl Tck<'_, '_> {
                 let b = adt_args.first().cloned().unwrap_or(brand);
                 self.check_args(span, &[], args, Ty::Adt(queue, vec![b]))
             }
-            // `rhi.readback(res: Res<C>)`(RXS-0259):资源实参**按值消费**(`Res<C>` 非引用,
-            // 非 `&Res`)——非消费接收者 `rhi`,消费实参 `res`。实参为 owned `Res<C>`,brand 取
-            // 接收者 `Rhi<C>` 的 per-instance 新鲜 brand(跨 brand → RX2001 by demand)。返回 unit。
+            // `rhi.readback(res: Res<C, T>, dst: &mut PinnedBuffer<Ctx, T>)`(RXS-0259;EI1.4 兑现
+            // 真 D2H)。资源实参**按值消费**(`Res<C, T>` 非引用)——非消费接收者 `rhi`,消费实参
+            // `res`;`dst` 为**锁页主机缓冲可变借用**(镜像 `buf.download(&mut pinned)` 的落地面,
+            // RXS-0190),元素 `T` 与资源元素合一(不一致 → RX2001 by demand)。返回 unit。
             // 实际 move-out(I1 use-after-free / I2 double-free 的 RX4001 拦截)由 mir_build 对
             // 实参发射 `Operand::Move` + move 检查裁决(镜像 submit 消费式接收者纪律)。
             Op::RhiReadback => {
@@ -2788,8 +2819,22 @@ impl Tck<'_, '_> {
                     .lang_items
                     .rhi_res
                     .expect("Res lang item 在 resolve 入口注入");
-                let b = adt_args.first().cloned().unwrap_or(brand);
-                self.check_args(span, &[Ty::Adt(res, vec![b])], args, Ty::unit())
+                let pinned = self
+                    .res
+                    .lang_items
+                    .pinned_buffer
+                    .expect("PinnedBuffer lang item 在 resolve 入口注入");
+                let b = adt_args.first().cloned().unwrap_or(brand.clone());
+                let elem = self.infcx.fresh(None);
+                self.check_args(
+                    span,
+                    &[
+                        Ty::Adt(res, vec![b, elem.clone()]),
+                        Ty::Ref(Box::new(Ty::Adt(pinned, vec![brand, elem])), true),
+                    ],
+                    args,
+                    Ty::unit(),
+                )
             }
             Op::CtxCreate
             | Op::Launch
@@ -2843,9 +2888,12 @@ impl Tck<'_, '_> {
             };
             let shallow = self.infcx.shallow(&arg_ty);
             match (param, &shallow) {
+                // `Buffer<C, T>`(launch)/ `Res<C, T>`(EI1.4 `rhi.pass` 绑 kernel,RXS-0257)
+                // 均以 `View`/`ViewMut` 形参承载:未定元素静默合一(裁决权仍在 launch_check)。
                 (Ty::Adt(pd, pargs), Ty::Adt(ad, aargs))
                     if self.res.lang_items.view_mutable(*pd).is_some()
-                        && self.res.lang_items.is_buffer(*ad) =>
+                        && (self.res.lang_items.is_buffer(*ad)
+                            || self.res.lang_items.is_rhi_res(*ad)) =>
                 {
                     if let (Some(pe), Some(ae)) = (pargs.get(1), aargs.get(1))
                         && matches!(self.infcx.shallow(ae), Ty::Infer(_))
@@ -2888,6 +2936,9 @@ impl Tck<'_, '_> {
             match &r {
                 Ty::Prim(PrimTy::F32 | PrimTy::I32 | PrimTy::U32 | PrimTy::Usize) => {}
                 Ty::Adt(d, _) if self.res.lang_items.is_buffer(*d) => {}
+                // EI1.4(RXS-0257):`Res<C, T>` 为 `rhi.pass` 绑 kernel 的资源实参(marshalling
+                // kind-2 槽,submit 期换设备指针),与 Buffer 平行落在首期子集内。
+                Ty::Adt(d, _) if self.res.lang_items.is_rhi_res(*d) => {}
                 Ty::Err | Ty::Infer(_) => {} // 容忍区/未定不级联(定型违例另有归位)
                 _ => self.err_gpu_launch_arg(span, &r),
             }

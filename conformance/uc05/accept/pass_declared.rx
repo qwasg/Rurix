@@ -1,21 +1,42 @@
 //@ spec: RXS-0257
-// pass 声明与资源访问集(RXS-0257,RFC-0014 §4.B2):`g.pass().reads(&res).writes(&res)`
+// pass 声明与资源访问集(RXS-0257,RFC-0014 §4.B2):`g.pass(kernel, ..).reads(&res).writes(&res)`
 // builder 方法链,逐方法即逐 typeck 已知签名分支(诊断 span 精确到单条访问声明)。访问种类
-// 首期封闭枚举 read / write;声明集入 `Graph<C>` 无堆记账(声明序 = 提交序)。**pass 声明面 0
+// 首期封闭枚举 read / write;声明集入 `Rhi<C>` 无堆记账(声明序 = 提交序)。**pass 声明面 0
 // 诊断**:同资源可在同一 pass 内既非重复写、既非读写冲突时合法声明(此处 seed 写 a、consume
-// 读 a 写 b 的合法读写建序,I4 声明-反射相等由 EI1.4 compute-pass kernel 绑定喂入,见 §5)。
+// 读 a 写 b 的合法读写建序)。
+//
+// **EI1.4 I4 正例(RXS-0257)**:pass 绑 kernel 后,实参中的 `Res` 集 = kernel 实际触碰资源
+// (反射集,编译期自 kernel 签名与实参提取),与 `.reads`/`.writes` 声明集**双向精确相等**
+// → 装配期通过。反例(声明少于实际触碰)见 assembly/pass_undeclared_read.rx。
+kernel fn uc05_fill(t: ThreadCtx<1>, out: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = ((i as u32) + 1u32) as f32;
+    }
+}
+
+kernel fn uc05_scale(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        dst[i] = src[i] * 2.0;
+    }
+}
+
 fn main() -> i32 {
     let ctx = Context::create();
     let n: u32 = 256;
+    let nn: usize = 256;
 
     let rhi = Rhi::create(&ctx);
     let a = rhi.resource(n);
     let b = rhi.resource(n);
 
-    // seed:仅写 a(单访问声明)。
-    rhi.pass().writes(&a);
-    // consume:读 a 写 b(读写建序,声明集 = {read a, write b})。
-    rhi.pass().reads(&a).writes(&b);
+    // seed:仅写 a(单访问声明;反射集 = {a} = 声明集)。
+    rhi.pass(uc05_fill, GridDim(1), BlockDim(256), (a, nn)).writes(&a);
+    // consume:读 a 写 b(读写建序,声明集 = {read a, write b} = 反射集 {a, b})。
+    rhi.pass(uc05_scale, GridDim(1), BlockDim(256), (a, b, nn))
+        .reads(&a)
+        .writes(&b);
 
     rhi.submit();
     ctx.sync();

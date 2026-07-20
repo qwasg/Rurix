@@ -1,47 +1,144 @@
-// UC-05 最小 RHI host 侧图安全 demo(EI1.3,RFC-0014 §4.B / spec/rhi.md;RXS-0256~0261)。
+// UC-05 最小 RHI compute-pass demo(EI1.4,RFC-0014 §4.B / spec/rhi.md;RXS-0256~0261)。
 //
 // **全 .rx、零 .rs**(主语言判据沿 MS1 最严口径;engine_host v2〔C++〕为嵌入宿主、在应用主
-// 语言判据审计边界之外,RFC-0014 §9.2)。本 demo 只声明 compute-pass render graph 并 submit:
-// 节点 = pass、边由资源读写声明推导;声明序 = 提交序;**用户不写任何 barrier / 同步**——装配期
-// 自动 hazard 推导(rhi.rs / RXS-0258)。装配核验(依赖环 I3 / 写写冲突 I5 → 库层状态值 strict
-// 拒)于 `submit()` 图装配期确定性判定。
+// 语言判据审计边界之外,RFC-0014 §9.2)。声明式 compute-pass render graph:节点 = pass、边由
+// 资源读写声明推导;声明序 = 提交序;**用户不写任何 barrier / 同步**——装配期自动 hazard 推导
+// (rhi.rs / RXS-0258)。装配核验(依赖环 I3 / 未声明访问 I4 / 写写冲突 I5 → 库层状态值 strict
+// 拒)于 `submit()` 图装配期确定性判定,**严格先于派发**。
 //
-// **诚实边界**:compute dispatch(pass 绑 kernel + I4 反射喂入)与 device 数值(I9)/ transient
-// 峰值(I10)归 **EI1.4**(device 真跑);本 demo 为纯 host 图安全见证(无 kernel launch、无数值
-// 断言)。`readback(c)` 是 `Res` 的按值 move-out 点(资源释放锚,I1/I2 编译期 RX4001 拦截面)。
+// **EI1.4 兑现面**:
+//   ① pass **绑 kernel**(`rhi.pass(kernel, GridDim(..), BlockDim(..), (args..))`,形态与
+//      `Stream::launch` 逐位同构);实参中的 `Res` = 该 pass 的 I4 反射集(编译期自 kernel 签名
+//      与实参提取),与声明集双向精确相等核验;
+//   ② `Res` 为**真设备分配**(`n * sizeof(T)` 字节),submit 在 hazard 推导之后**按推导序真派发
+//      compute pass**,推导计划的每个同步锚点落为本图 stream 上的显式同步点(RXS-0261);
+//   ③ `queue.readback(res, &mut pinned)` 为**真 D2H**——读回点归 `Queue`,即派发之后(执行序由
+//      `submit(self) -> Queue<C>` 的消费式 typestate 强制)。
 //
-// 见证行 `UC05_RHI_OK`:图装配核验通过 + submit 成功后打印(供 ci/uc05_rhi_smoke.py 步骤 72
-// green 断言;assembly reject 变体退非零 + stderr 含装配 Err 为 red 侧)。
+// **数值对照(I9)**:两 pass 真算 —— pass1 `fill`:a[i] = i + 1;pass2 `scale`:b[i] = 2*a[i]。
+// readback b 后 host 侧逐元素求和,与闭式参考值 `2 * N*(N+1)/2 = N*(N+1)` 比对。N = 256 →
+// 期望 65792。见证行:
+//   `UC05_SUM=<device 求和>` / `UC05_REF=<host 参考>`(机器可核 token,供 CI 与 C++ 宿主对照)
+//   `UC05_RHI_OK graph=2pass`(仅在数值精确相等时打印;不等则打印 UC05_MISMATCH 并退 2)
+//
+// host .rx 无格式化输出:数值行经 CRT `putchar`(extern "C" 字面名链接,RXS-0195;与 println/
+// puts 同一 stdout 缓冲,序保持)逐字符输出(纪律同 apps/ruridrop/src/sim_check.rx)。
+// RD-026 纪律:无堆、无字符串、无运行期反射。
 
-// **诚实标注**:`Context::create()`(std::gpu 底座)要求非空 GPU 产物(嵌入 PTX,RXS-0192);
-// 故 demo 定义一个**不 launch** 的最小 kernel `uc05_touch` 仅为提供合法产物 blob——compute
-// dispatch / pass 绑 kernel(I4 反射喂入)/ device 数值归 **EI1.4**,本 demo 不 launch、不作
-// 数值断言(纯 host 图安全见证)。
-kernel fn uc05_touch(g: View<global, f32>) {}
+extern "C" {
+    fn putchar(c: i32) -> i32;
+}
+
+// u32 十进制逐位输出(不带换行;v = 0 输出 "0")。除数法自最高位输出:除数上限 1e9 恒在
+// u32 域内(反转数字法在 10 位值上会 u32 溢出,弃用;同 sim_check.rx 口径)。
+fn print_u32(v: u32) {
+    let mut div: u32 = 1;
+    while v / div >= 10u32 {
+        div = div * 10u32;
+    }
+    while div > 0u32 {
+        let d = (v / div) % 10u32;
+        unsafe { putchar((48u32 + d) as i32) };
+        div = div / 10u32;
+    }
+}
+
+// 输出 "UC05_" 前缀(5 字符)。
+fn print_prefix() {
+    unsafe { putchar(85) }; // U
+    unsafe { putchar(67) }; // C
+    unsafe { putchar(48) }; // 0
+    unsafe { putchar(53) }; // 5
+    unsafe { putchar(95) }; // _
+}
+
+// 输出一行 "UC05_SUM=<十进制 u32>\n"。
+fn print_sum_line(v: u32) {
+    print_prefix();
+    unsafe { putchar(83) }; // S
+    unsafe { putchar(85) }; // U
+    unsafe { putchar(77) }; // M
+    unsafe { putchar(61) }; // =
+    print_u32(v);
+    unsafe { putchar(10) };
+}
+
+// 输出一行 "UC05_REF=<十进制 u32>\n"。
+fn print_ref_line(v: u32) {
+    print_prefix();
+    unsafe { putchar(82) }; // R
+    unsafe { putchar(69) }; // E
+    unsafe { putchar(70) }; // F
+    unsafe { putchar(61) }; // =
+    print_u32(v);
+    unsafe { putchar(10) };
+}
+
+// ---- compute kernels(编译期有界简单核;无深弹射循环,RD-027 毒径规避) ----
+
+// pass1:a[i] = i + 1(建立内容)。
+kernel fn uc05_fill(t: ThreadCtx<1>, out: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = ((i as u32) + 1u32) as f32;
+    }
+}
+
+// pass2:b[i] = 2 * a[i](消费读 a,写 b —— RAW 建序)。
+kernel fn uc05_scale(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        dst[i] = src[i] * 2.0;
+    }
+}
 
 fn main() -> i32 {
     let ctx = Context::create();
     let n: u32 = 256;
+    let nn: usize = 256;
+
+    // readback 落地面:锁页主机缓冲(真 D2H 目标)。
+    let mut host = ctx.alloc_pinned(nn);
 
     let rhi = Rhi::create(&ctx);
 
-    // 声明式 compute-pass 图:三资源 + 三 pass(线性 RAW 建序)。
+    // 声明式 compute-pass 图:两资源 + 两 pass(线性 RAW 建序)。
     let a = rhi.resource(n);
     let b = rhi.resource(n);
-    let c = rhi.resource(n);
 
-    // produce a → transform 读 a 写 b → consume 读 b 写 c(声明序 = 提交序,RFC-0010 确定性)。
-    rhi.pass().writes(&a);
-    rhi.pass().reads(&a).writes(&b);
-    rhi.pass().reads(&b).writes(&c);
+    // pass1 写 a(反射集 {a} = 声明集);pass2 读 a 写 b(反射集 {a, b} = 声明集)。
+    rhi.pass(uc05_fill, GridDim(1), BlockDim(256), (a, nn)).writes(&a);
+    rhi.pass(uc05_scale, GridDim(1), BlockDim(256), (a, b, nn))
+        .reads(&a)
+        .writes(&b);
 
-    // readback 最终资源 c(按值 move-out;末次使用合法,RXS-0259)。
-    rhi.readback(c);
+    // 装配核验(I3/I4/I5 图装配期确定性拦)+ hazard 推导 + 按推导序真派发;1-submit 消费式
+    // typestate → Queue。
+    let q = rhi.submit();
 
-    // 装配核验(I3/I5 图装配期确定性拦)+ hazard 推导 + 顺序调度;1-submit 消费式 typestate。
-    rhi.submit();
+    // 真 D2H:b → 锁页主机缓冲(b 按值 move-out,资源释放锚,RXS-0259)。
+    q.readback(b, &mut host);
     ctx.sync();
 
-    println("UC05_RHI_OK graph=3pass");
+    // ---- 数值对照(I9):device 求和 vs host 闭式参考 ----
+    let mut sum: u32 = 0;
+    let mut i: usize = 0;
+    while i < nn {
+        let v = host.get(i);
+        // f32 → u32:值域 [2, 512] 精确可表(2*(i+1),i < 256),无舍入歧义。
+        sum = sum + (v as u32);
+        i = i + 1;
+    }
+    // 闭式参考:sum_{i=0}^{N-1} 2*(i+1) = N*(N+1);N = 256 → 65792。
+    let reference: u32 = n * (n + 1u32);
+
+    print_sum_line(sum);
+    print_ref_line(reference);
+
+    if sum != reference {
+        println("UC05_MISMATCH device sum != host reference");
+        return 2;
+    }
+    println("UC05_RHI_OK graph=2pass");
     0
 }
