@@ -1,0 +1,594 @@
+// blackhole 离线视频帧序列入口(非实时高采样档;v3 新增)。
+// 管线与 realtime.rx 逐帧同构(同一 bh_render/bh_bloom_h/bh_bloom_v 三 pass,
+// 相机轨道 OFFLINE_DPHI = 2π/144 整圈),差异:
+//   · 无 Present 窗口,纯离屏渲染 → 每帧 download → write_ppm 落盘
+//     (RXS-0199;路径为字符串字面量 if-chain,Rurix 无动态字符串,链由
+//     tools_gen_offline.py 作者期一次性生成后冻结为源码事实);
+//   · 超采样 OFFLINE_SSAA = 4(16 spp,v4 画质无限档;实时档 SSAA = 2);
+//   · 帧数 OFFLINE_FRAMES = 144(24fps × 6s),帧序列供外部 ffmpeg 合成 MP4。
+// 末行打印 OFFLINE_OK frames=<n>;数值行经 CRT putchar(RXS-0195)。
+
+mod params;
+mod dmath;
+mod render_core;
+mod starfield;
+mod render;
+
+extern "C" {
+    fn putchar(c: i32) -> i32;
+}
+
+// present-real cabi 静态库链接系统库接线(RXS-0195 #[link];母本 = realtime.rx:
+// 静态库整链时 rxp_* 目标文件引用 D3D12/DXGI/user32 符号,即使本入口不调 Present)
+#[link(name = "user32")]
+#[link(name = "d3d12")]
+#[link(name = "dxgi")]
+#[link(name = "d3dcompiler")]
+extern "C" {
+}
+
+// u32 十进制逐位输出(ruridrop 母本:除数法自最高位,免反转溢出)
+fn print_u32(v: u32) {
+    let mut div: u32 = 1;
+    while v / div >= 10u32 {
+        div = div * 10u32;
+    }
+    while div > 0u32 {
+        let d = (v / div) % 10u32;
+        unsafe { putchar((48u32 + d) as i32) };
+        div = div / 10u32;
+    }
+}
+
+fn main() -> i32 {
+    // ---- 渲染常量 ----
+    let rw = params::REND_W;
+    let rh = params::REND_H;
+    let rw32 = rw as u32;
+    let rh32 = rh as u32;
+    let gx = (rw + 15) / 16;
+    let gy = (rh + 15) / 16;
+    let npix = rw * rh;
+    let nrgb = npix * 3;
+    let inv_w = 1.0 / (rw as f32);
+    let inv_h = 1.0 / (rh as f32);
+    let aspect = (rw as f32) / (rh as f32);
+    let vs = params::VIEW_SCALE;
+    let scale_x = vs * aspect;
+    let scale_y = 0.0 - vs;
+
+    // ---- 相机常量 ----
+    let cam_r = params::CAM_R;
+    let th_c = params::CAM_THETA;
+    let stc = dmath::rx_sin(th_c);
+    let ctc = dmath::rx_cos(th_c);
+
+    let ctx = Context::create();
+    let stream = ctx.stream();
+
+    // ---- 缓冲(fout = 呈现域 0…255;hppm = [0,1] 量化前缓冲) ----
+    let mut hrgb = ctx.alloc_pinned(nrgb);
+    let mut hppm = ctx.alloc_pinned(nrgb);
+    let mut fbuf = ctx.alloc(nrgb);
+    let mut tbuf = ctx.alloc(nrgb);
+    let mut fout = ctx.alloc(nrgb);
+
+    // ---- 离屏帧循环:轨道相机整圈 + 三 pass 管线 + 逐帧落盘 ----
+    let mut fi: u32 = 0;
+    while fi < params::OFFLINE_FRAMES {
+        let ph_c = params::CAM_PH0 + (fi as f32) * params::OFFLINE_DPHI;
+        let spc = dmath::rx_sin(ph_c);
+        let cpc = dmath::rx_cos(ph_c);
+        // e_r(θ 自 +y,φ 在 xz 平面)
+        let erx = stc * cpc;
+        let ery = ctc;
+        let erz = stc * spc;
+        let cam_x = cam_r * erx;
+        let cam_y = cam_r * ery;
+        let cam_z = cam_r * erz;
+        // fw = −e_r(指向原点)
+        let fwx = 0.0 - erx;
+        let fwy = 0.0 - ery;
+        let fwz = 0.0 - erz;
+        // ri = normalize(cross(fw, (0,1,0))) = normalize(−fwz, 0, fwx)
+        let r0x = 0.0 - fwz;
+        let r0z = fwx;
+        let rl = render_core::len3(r0x, 0.0, r0z);
+        let rinv = 1.0 / dmath::rx_max(rl, 0.000001);
+        let rix = r0x * rinv;
+        let riz = r0z * rinv;
+        // up = cross(ri, fw)
+        let upx = render_core::cross_x(0.0, riz, fwy, fwz);
+        let upy = render_core::cross_y(rix, riz, fwx, fwz);
+        let upz = render_core::cross_z(rix, 0.0, fwx, fwy);
+        // 横滚 CAM_ROLL:ri/up 绕 fw 旋转(v7 参考图盘带右升 ~12°)
+        let cro = dmath::rx_cos(params::CAM_ROLL);
+        let sro = dmath::rx_sin(params::CAM_ROLL);
+        let rix2 = rix * cro + upx * sro;
+        let riy2 = upy * sro;
+        let riz2 = riz * cro + upz * sro;
+        let upx2 = upx * cro - rix * sro;
+        let upy2 = upy * cro;
+        let upz2 = upz * cro - riz * sro;
+        let time = (fi as f32) * params::FRAME_DT;
+        // 三 pass:① RK4 测地线 HDR → fbuf;② 亮通+水平 tent → tbuf;
+        // ③ 垂直 tent + 合成 + ACES tone_map → fout(0…255)
+        stream.launch(render::bh_render, GridDim(gx, gy), BlockDim(16, 16),
+            (fbuf, rw, rh, cam_x, cam_y, cam_z, th_c, ph_c,
+             fwx, fwy, fwz, rix2, riy2, riz2, upx2, upy2, upz2,
+             inv_w, inv_h, scale_x, scale_y, time, params::OFFLINE_SSAA));
+        stream.launch(render::bh_bloom_h, GridDim(gx, gy), BlockDim(16, 16),
+            (tbuf, fbuf, rw, rh, params::BLOOM_THRESH));
+        stream.launch(render::bh_bloom_v, GridDim(gx, gy), BlockDim(16, 16),
+            (fout, fbuf, tbuf, rw, rh, params::BLOOM_STRENGTH));
+        stream.sync();
+        fout.download(&mut hrgb);
+        // 0…255 → [0,1](write_ppm 域,RXS-0116 量化口径)
+        let mut pi: usize = 0;
+        while pi < nrgb {
+            hppm.set(pi, hrgb.get(pi) * 0.00392156862745098);
+            pi = pi + 1;
+        }
+        // ---- 文件名字面量 if-chain(Rurix 无动态字符串) ----
+        if fi == 0u32 {
+            write_ppm("apps/blackhole/frames/f_0000.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 1u32 {
+            write_ppm("apps/blackhole/frames/f_0001.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 2u32 {
+            write_ppm("apps/blackhole/frames/f_0002.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 3u32 {
+            write_ppm("apps/blackhole/frames/f_0003.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 4u32 {
+            write_ppm("apps/blackhole/frames/f_0004.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 5u32 {
+            write_ppm("apps/blackhole/frames/f_0005.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 6u32 {
+            write_ppm("apps/blackhole/frames/f_0006.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 7u32 {
+            write_ppm("apps/blackhole/frames/f_0007.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 8u32 {
+            write_ppm("apps/blackhole/frames/f_0008.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 9u32 {
+            write_ppm("apps/blackhole/frames/f_0009.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 10u32 {
+            write_ppm("apps/blackhole/frames/f_0010.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 11u32 {
+            write_ppm("apps/blackhole/frames/f_0011.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 12u32 {
+            write_ppm("apps/blackhole/frames/f_0012.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 13u32 {
+            write_ppm("apps/blackhole/frames/f_0013.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 14u32 {
+            write_ppm("apps/blackhole/frames/f_0014.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 15u32 {
+            write_ppm("apps/blackhole/frames/f_0015.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 16u32 {
+            write_ppm("apps/blackhole/frames/f_0016.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 17u32 {
+            write_ppm("apps/blackhole/frames/f_0017.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 18u32 {
+            write_ppm("apps/blackhole/frames/f_0018.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 19u32 {
+            write_ppm("apps/blackhole/frames/f_0019.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 20u32 {
+            write_ppm("apps/blackhole/frames/f_0020.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 21u32 {
+            write_ppm("apps/blackhole/frames/f_0021.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 22u32 {
+            write_ppm("apps/blackhole/frames/f_0022.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 23u32 {
+            write_ppm("apps/blackhole/frames/f_0023.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 24u32 {
+            write_ppm("apps/blackhole/frames/f_0024.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 25u32 {
+            write_ppm("apps/blackhole/frames/f_0025.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 26u32 {
+            write_ppm("apps/blackhole/frames/f_0026.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 27u32 {
+            write_ppm("apps/blackhole/frames/f_0027.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 28u32 {
+            write_ppm("apps/blackhole/frames/f_0028.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 29u32 {
+            write_ppm("apps/blackhole/frames/f_0029.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 30u32 {
+            write_ppm("apps/blackhole/frames/f_0030.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 31u32 {
+            write_ppm("apps/blackhole/frames/f_0031.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 32u32 {
+            write_ppm("apps/blackhole/frames/f_0032.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 33u32 {
+            write_ppm("apps/blackhole/frames/f_0033.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 34u32 {
+            write_ppm("apps/blackhole/frames/f_0034.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 35u32 {
+            write_ppm("apps/blackhole/frames/f_0035.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 36u32 {
+            write_ppm("apps/blackhole/frames/f_0036.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 37u32 {
+            write_ppm("apps/blackhole/frames/f_0037.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 38u32 {
+            write_ppm("apps/blackhole/frames/f_0038.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 39u32 {
+            write_ppm("apps/blackhole/frames/f_0039.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 40u32 {
+            write_ppm("apps/blackhole/frames/f_0040.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 41u32 {
+            write_ppm("apps/blackhole/frames/f_0041.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 42u32 {
+            write_ppm("apps/blackhole/frames/f_0042.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 43u32 {
+            write_ppm("apps/blackhole/frames/f_0043.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 44u32 {
+            write_ppm("apps/blackhole/frames/f_0044.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 45u32 {
+            write_ppm("apps/blackhole/frames/f_0045.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 46u32 {
+            write_ppm("apps/blackhole/frames/f_0046.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 47u32 {
+            write_ppm("apps/blackhole/frames/f_0047.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 48u32 {
+            write_ppm("apps/blackhole/frames/f_0048.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 49u32 {
+            write_ppm("apps/blackhole/frames/f_0049.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 50u32 {
+            write_ppm("apps/blackhole/frames/f_0050.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 51u32 {
+            write_ppm("apps/blackhole/frames/f_0051.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 52u32 {
+            write_ppm("apps/blackhole/frames/f_0052.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 53u32 {
+            write_ppm("apps/blackhole/frames/f_0053.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 54u32 {
+            write_ppm("apps/blackhole/frames/f_0054.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 55u32 {
+            write_ppm("apps/blackhole/frames/f_0055.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 56u32 {
+            write_ppm("apps/blackhole/frames/f_0056.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 57u32 {
+            write_ppm("apps/blackhole/frames/f_0057.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 58u32 {
+            write_ppm("apps/blackhole/frames/f_0058.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 59u32 {
+            write_ppm("apps/blackhole/frames/f_0059.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 60u32 {
+            write_ppm("apps/blackhole/frames/f_0060.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 61u32 {
+            write_ppm("apps/blackhole/frames/f_0061.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 62u32 {
+            write_ppm("apps/blackhole/frames/f_0062.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 63u32 {
+            write_ppm("apps/blackhole/frames/f_0063.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 64u32 {
+            write_ppm("apps/blackhole/frames/f_0064.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 65u32 {
+            write_ppm("apps/blackhole/frames/f_0065.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 66u32 {
+            write_ppm("apps/blackhole/frames/f_0066.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 67u32 {
+            write_ppm("apps/blackhole/frames/f_0067.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 68u32 {
+            write_ppm("apps/blackhole/frames/f_0068.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 69u32 {
+            write_ppm("apps/blackhole/frames/f_0069.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 70u32 {
+            write_ppm("apps/blackhole/frames/f_0070.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 71u32 {
+            write_ppm("apps/blackhole/frames/f_0071.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 72u32 {
+            write_ppm("apps/blackhole/frames/f_0072.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 73u32 {
+            write_ppm("apps/blackhole/frames/f_0073.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 74u32 {
+            write_ppm("apps/blackhole/frames/f_0074.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 75u32 {
+            write_ppm("apps/blackhole/frames/f_0075.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 76u32 {
+            write_ppm("apps/blackhole/frames/f_0076.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 77u32 {
+            write_ppm("apps/blackhole/frames/f_0077.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 78u32 {
+            write_ppm("apps/blackhole/frames/f_0078.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 79u32 {
+            write_ppm("apps/blackhole/frames/f_0079.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 80u32 {
+            write_ppm("apps/blackhole/frames/f_0080.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 81u32 {
+            write_ppm("apps/blackhole/frames/f_0081.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 82u32 {
+            write_ppm("apps/blackhole/frames/f_0082.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 83u32 {
+            write_ppm("apps/blackhole/frames/f_0083.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 84u32 {
+            write_ppm("apps/blackhole/frames/f_0084.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 85u32 {
+            write_ppm("apps/blackhole/frames/f_0085.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 86u32 {
+            write_ppm("apps/blackhole/frames/f_0086.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 87u32 {
+            write_ppm("apps/blackhole/frames/f_0087.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 88u32 {
+            write_ppm("apps/blackhole/frames/f_0088.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 89u32 {
+            write_ppm("apps/blackhole/frames/f_0089.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 90u32 {
+            write_ppm("apps/blackhole/frames/f_0090.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 91u32 {
+            write_ppm("apps/blackhole/frames/f_0091.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 92u32 {
+            write_ppm("apps/blackhole/frames/f_0092.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 93u32 {
+            write_ppm("apps/blackhole/frames/f_0093.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 94u32 {
+            write_ppm("apps/blackhole/frames/f_0094.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 95u32 {
+            write_ppm("apps/blackhole/frames/f_0095.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 96u32 {
+            write_ppm("apps/blackhole/frames/f_0096.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 97u32 {
+            write_ppm("apps/blackhole/frames/f_0097.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 98u32 {
+            write_ppm("apps/blackhole/frames/f_0098.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 99u32 {
+            write_ppm("apps/blackhole/frames/f_0099.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 100u32 {
+            write_ppm("apps/blackhole/frames/f_0100.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 101u32 {
+            write_ppm("apps/blackhole/frames/f_0101.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 102u32 {
+            write_ppm("apps/blackhole/frames/f_0102.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 103u32 {
+            write_ppm("apps/blackhole/frames/f_0103.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 104u32 {
+            write_ppm("apps/blackhole/frames/f_0104.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 105u32 {
+            write_ppm("apps/blackhole/frames/f_0105.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 106u32 {
+            write_ppm("apps/blackhole/frames/f_0106.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 107u32 {
+            write_ppm("apps/blackhole/frames/f_0107.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 108u32 {
+            write_ppm("apps/blackhole/frames/f_0108.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 109u32 {
+            write_ppm("apps/blackhole/frames/f_0109.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 110u32 {
+            write_ppm("apps/blackhole/frames/f_0110.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 111u32 {
+            write_ppm("apps/blackhole/frames/f_0111.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 112u32 {
+            write_ppm("apps/blackhole/frames/f_0112.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 113u32 {
+            write_ppm("apps/blackhole/frames/f_0113.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 114u32 {
+            write_ppm("apps/blackhole/frames/f_0114.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 115u32 {
+            write_ppm("apps/blackhole/frames/f_0115.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 116u32 {
+            write_ppm("apps/blackhole/frames/f_0116.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 117u32 {
+            write_ppm("apps/blackhole/frames/f_0117.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 118u32 {
+            write_ppm("apps/blackhole/frames/f_0118.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 119u32 {
+            write_ppm("apps/blackhole/frames/f_0119.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 120u32 {
+            write_ppm("apps/blackhole/frames/f_0120.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 121u32 {
+            write_ppm("apps/blackhole/frames/f_0121.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 122u32 {
+            write_ppm("apps/blackhole/frames/f_0122.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 123u32 {
+            write_ppm("apps/blackhole/frames/f_0123.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 124u32 {
+            write_ppm("apps/blackhole/frames/f_0124.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 125u32 {
+            write_ppm("apps/blackhole/frames/f_0125.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 126u32 {
+            write_ppm("apps/blackhole/frames/f_0126.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 127u32 {
+            write_ppm("apps/blackhole/frames/f_0127.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 128u32 {
+            write_ppm("apps/blackhole/frames/f_0128.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 129u32 {
+            write_ppm("apps/blackhole/frames/f_0129.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 130u32 {
+            write_ppm("apps/blackhole/frames/f_0130.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 131u32 {
+            write_ppm("apps/blackhole/frames/f_0131.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 132u32 {
+            write_ppm("apps/blackhole/frames/f_0132.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 133u32 {
+            write_ppm("apps/blackhole/frames/f_0133.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 134u32 {
+            write_ppm("apps/blackhole/frames/f_0134.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 135u32 {
+            write_ppm("apps/blackhole/frames/f_0135.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 136u32 {
+            write_ppm("apps/blackhole/frames/f_0136.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 137u32 {
+            write_ppm("apps/blackhole/frames/f_0137.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 138u32 {
+            write_ppm("apps/blackhole/frames/f_0138.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 139u32 {
+            write_ppm("apps/blackhole/frames/f_0139.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 140u32 {
+            write_ppm("apps/blackhole/frames/f_0140.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 141u32 {
+            write_ppm("apps/blackhole/frames/f_0141.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 142u32 {
+            write_ppm("apps/blackhole/frames/f_0142.ppm", rw32, rh32, &hppm);
+        }
+        if fi == 143u32 {
+            write_ppm("apps/blackhole/frames/f_0143.ppm", rw32, rh32, &hppm);
+        }
+        print_u32(fi);
+        unsafe { putchar(10) };
+        fi = fi + 1u32;
+    }
+
+    // "OFFLINE_OK frames=<n>\n"
+    unsafe { putchar(79) };
+    unsafe { putchar(70) };
+    unsafe { putchar(70) };
+    unsafe { putchar(76) };
+    unsafe { putchar(73) };
+    unsafe { putchar(78) };
+    unsafe { putchar(69) };
+    unsafe { putchar(95) };
+    unsafe { putchar(79) };
+    unsafe { putchar(75) };
+    unsafe { putchar(32) };
+    unsafe { putchar(102) };
+    unsafe { putchar(114) };
+    unsafe { putchar(97) };
+    unsafe { putchar(109) };
+    unsafe { putchar(101) };
+    unsafe { putchar(115) };
+    unsafe { putchar(61) };
+    print_u32(params::OFFLINE_FRAMES);
+    unsafe { putchar(10) };
+
+    ctx.sync();
+    0
+}

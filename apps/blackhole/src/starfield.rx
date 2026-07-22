@@ -1,0 +1,326 @@
+// blackhole 程序化星空 + 银河背景(固定 seed,确定性;经光线终向查找 → 透镜扭曲)。
+// 接口冻结:star_ch(dx, dy, dz, ch) 标量进标量出,ch = 0/1/2 选 RGB 通道,
+// 返回线性 RGB(未 tone map;亮星 2~6.5,银河带核心 ~0.014,深空底 ~0.001)。
+// v4(2026-07-20,画质无限档):16→48 格/面细网格 + 小半径锐星点(regular
+// R = 0.05 格 ≈ 3.8 px@1080p,hero R = 0.08 格),星点数 ~5k 全天;银河带
+// 大幅压暗(Gargantua 式纯黑深空);bloom 阈值抬高后星点保持锐利不被涂抹。
+// 工程方法:
+//  · 程序化星表(procedural star catalog):不落星表数据,以格 id 为种经
+//    wang_hash 链逐格派生占据/星位/亮度/色温;seed 固定 → 跨帧、跨像素、
+//    host/device 双路逐位一致的确定性天球。两层:regular(37.5% 占格)+
+//    hero 亮星(同格第二颗,独立哈希链,更亮更大)。
+//  · 立方体贴图投影(cubemap projection):方向 → 主轴定 6 面之一,另两轴
+//    除以有符号主轴值得面内 (u,v) ∈ [-1,1],把天球查找离散为每面 48×48
+//    哈希格;思想谱系 = 计算机图形学经典的"天球/环境查找"(sky lookup),
+//    参 Verbraeck & Eisemann 2021 (IEEE TVCG 27(2), 796) 黑洞 GPU 光线
+//    追踪中逃逸方向 → 环境贴图查找的同构做法。
+//  · 银河带:倾斜银盘(τ = 22° 绕 x 轴,避开与吸积盘重合),Lorentzian/
+//    Cauchy 双峰剖面 1/(1+(d/w)²)(纯除法替 exp 高斯);尘埃消光带 =
+//    贴银道面值噪声 patchy 遮挡(观感对照 Dame et al. 2001, ApJ 547, 792
+//    银盘尘埃分布);低频星云调色(色斑 ±22%)。
+// 无格缝 artifact 构造论证:星心约束在格中央 60%(offset ∈ [0.2,0.8] 格),
+// regular 星半径 0.05 格 / hero 星心 ∈ [0.25,0.75]、半径 0.08 格 → 星盘最远
+// 伸到格界内 0.15 格处,永不跨格界/面缝被裁剪。
+// 数值纪律:仅 + - * /、比较、位运算、as cast;无 pow/exp/log/sin/cos;
+// f32 → u32 cast 前必经 dmath::rx_clamp;除法分母一律下限防护(1e-12);
+// floor 用 dmath::rx_floor(本文件域 |x| ≤ 48 ≪ 2^22,安全)。
+
+mod dmath;
+mod render_core;
+
+// 星场常量(镜像 params.rx:STAR_SEED / STAR_GRID = 48 / STAR_OCC = 96;
+// 接口冻结约定本模块仅依赖 dmath/render_core,不引 params,常量本地写死并注释同源)
+const STAR_SEED: u32 = 0x9E3779B9u32;
+// 占据阈值:(h1 & 255) < STAR_OCC → 该格有星(v8 48/256 = 18.75%,参考图稀疏)
+const STAR_OCC: u32 = 32;
+// hero 亮星层:占据阈值(v9 A5 16/256 ≈ 6.25%)、半径² = 0.08² 格
+const HERO_OCC: u32 = 16;
+// 星半径平方(格单位²;半径 0.05 格 ≈ 0.094° ≈ 3.8 px@1080p50°FOV)
+const STAR_R2: f32 = 0.0025;
+const HERO_R2: f32 = 0.0064;
+// 银河常量(镜像 params.rx GAL_*:τ = 22° 倾角 sin/cos 编译期写死;
+// v4 Gargantua 纯黑深空定标:银带仅极隐约可见)
+const GAL_TILT_S: f32 = 0.37460659;
+const GAL_TILT_C: f32 = 0.92718385;
+const GAL_CORE_I: f32 = 0.014;
+const GAL_CORE_W: f32 = 0.15;
+const GAL_HALO_I: f32 = 0.005;
+const GAL_HALO_W: f32 = 0.55;
+const GAL_DUST_A: f32 = 0.72;
+const GAL_DUST_W: f32 = 0.085;
+const GAL_DUST_F: f32 = 4.6;
+
+// Wang hash:u32 → u32 雪崩混合(母本 = apps/ruridrop/src/rng.rx;乘法 u32 wrapping)
+pub device fn wang_hash(seed: u32) -> u32 {
+    let mut s = seed;
+    s = (s ^ 61u32) ^ (s >> 16);
+    s = s * 9u32;
+    s = s ^ (s >> 4);
+    s = s * 0x27d4eb2du32;
+    s = s ^ (s >> 15);
+    s
+}
+
+// 星色温调色板(4 类;近似黑体群:暖橙/白/蓝白/黄白)
+pub device fn star_palette(cls: u32, ch: i32) -> f32 {
+    if cls == 0u32 {
+        // 暖橙 (1.0, 0.75, 0.55)
+        if ch == 0 {
+            1.0
+        } else if ch == 1 {
+            0.75
+        } else {
+            0.55
+        }
+    } else if cls == 1u32 {
+        // 白 (0.9, 0.92, 1.0)
+        if ch == 0 {
+            0.9
+        } else if ch == 1 {
+            0.92
+        } else {
+            1.0
+        }
+    } else if cls == 2u32 {
+        // 蓝白 (0.72, 0.82, 1.0)
+        if ch == 0 {
+            0.72
+        } else if ch == 1 {
+            0.82
+        } else {
+            1.0
+        }
+    } else {
+        // 黄白 (1.0, 0.9, 0.7)
+        if ch == 0 {
+            1.0
+        } else if ch == 1 {
+            0.9
+        } else {
+            0.7
+        }
+    }
+}
+
+// 星空通道值:方向 (dx,dy,dz)(单位向量;对非单位/零向量有防御)→ 线性 RGB 通道
+pub device fn star_ch(dx: f32, dy: f32, dz: f32, ch: i32) -> f32 {
+    // ---- 1. 立方体贴图投影:|d| 最大轴定面,另两轴除以有符号主轴值 ----
+    let ax = dmath::rx_abs(dx);
+    let ay = dmath::rx_abs(dy);
+    let az = dmath::rx_abs(dz);
+    let mut face: u32 = 0u32;
+    let mut uu: f32 = 0.0;
+    let mut vv: f32 = 0.0;
+    if ax >= ay && ax >= az {
+        // ±X 面(face 0/1);分母 = 有符号 x,绝对值下限防护 1e-12
+        let gx = dmath::rx_max(ax, 0.000000000001);
+        let mut sx: f32 = gx;
+        if dx < 0.0 {
+            sx = 0.0 - gx;
+            face = 1u32;
+        }
+        uu = dy / sx;
+        vv = dz / sx;
+    } else if ay >= az {
+        // ±Y 面(face 2/3)
+        let gy = dmath::rx_max(ay, 0.000000000001);
+        let mut sy: f32 = gy;
+        face = 2u32;
+        if dy < 0.0 {
+            sy = 0.0 - gy;
+            face = 3u32;
+        }
+        uu = dx / sy;
+        vv = dz / sy;
+    } else {
+        // ±Z 面(face 4/5)
+        let gz = dmath::rx_max(az, 0.000000000001);
+        let mut sz: f32 = gz;
+        face = 4u32;
+        if dz < 0.0 {
+            sz = 0.0 - gz;
+            face = 5u32;
+        }
+        uu = dx / sz;
+        vv = dy / sz;
+    }
+    // ---- 2. 面内 48×48 网格:格坐标 t ∈ [0,48],下标 clamp 到 [0,47] ----
+    // (格宽 2/48;(u+1)*0.5*48 = (u+1)*24,编译期合并常数)
+    let up = uu + 1.0;
+    let vp = vv + 1.0;
+    let tu = up * 24.0;
+    let tv = vp * 24.0;
+    let fu = dmath::rx_floor(tu);
+    let fv = dmath::rx_floor(tv);
+    // f32 → u32 cast 前必经 rx_clamp(防 fptoui poison;t=48 恰在界上 → 47)
+    let iu_f = dmath::rx_clamp(fu, 0.0, 47.0);
+    let iv_f = dmath::rx_clamp(fv, 0.0, 47.0);
+    let iu = iu_f as u32;
+    let iv = iv_f as u32;
+    // 格 id = (face*48 + iu)*48 + iv(u32;全局面内唯一)
+    let fid = face * 48u32;
+    let cid = fid + iu;
+    let cell_id = cid * 48u32 + iv;
+    // ---- 3. 哈希链:h1..h5 regular 星;h6..h10 hero 亮星 ----
+    let cseed = cell_id ^ STAR_SEED;
+    let h1 = wang_hash(cseed);
+    let occ = h1 & 255u32;
+    let h2 = wang_hash(h1);
+    let h3 = wang_hash(h2);
+    let h4 = wang_hash(h3);
+    let h5 = wang_hash(h4);
+    // ---- 4. regular 格内星位:offset ∈ [0.2,0.8](中央 60%,星盘永不跨格缝) ----
+    // ox = 0.2 + 0.6 × ((h2>>8) & 1023) / 1023
+    let h2s = (h2 >> 8) & 1023u32;
+    let h2f = h2s as f32;
+    let h2t = h2f / 1023.0;
+    let oxm = 0.6 * h2t;
+    let ox = 0.2 + oxm;
+    // oy 同理(h3)
+    let h3s = (h3 >> 8) & 1023u32;
+    let h3f = h3s as f32;
+    let h3t = h3f / 1023.0;
+    let oym = 0.6 * h3t;
+    let oy = 0.2 + oym;
+    // 像素方向点的格内小数位置与星心距(格单位)
+    let fru = tu - fu;
+    let frv = tv - fv;
+    let du = fru - ox;
+    let dv = frv - oy;
+    let du2 = du * du;
+    let dv2 = dv * dv;
+    let d2 = du2 + dv2;
+    // 权重 w = clamp(1 − d²/R², 0, 1)³(软边,纯乘法立方)
+    let dr = d2 / STAR_R2;
+    let w0 = 1.0 - dr;
+    let w1 = dmath::rx_clamp(w0, 0.0, 1.0);
+    let w2 = w1 * w1;
+    let w = w2 * w1;
+    // ---- 5. regular 亮度:mag = 0.15 + 1.0 t²,t = ((h4>>8) & 1023)/1023 ----
+    // (t² 分布 → 多数暗星少数亮星;v10 mag ∈ [0.15, 1.15],参考图微星)
+    let h4s = (h4 >> 8) & 1023u32;
+    let h4f = h4s as f32;
+    let t4 = h4f / 1023.0;
+    let t42 = t4 * t4;
+    let magm = 1.0 * t42;
+    let mag = 0.15 + magm;
+    // 占据门控:约 37.5% 格子出星,其余贡献 0
+    let mut inten = mag * w;
+    if occ >= STAR_OCC {
+        inten = 0.0;
+    }
+    // regular 色温分类(h5 & 3)
+    let cls = h5 & 3u32;
+    let star_c = star_palette(cls, ch);
+    let star_v = inten * star_c;
+    // ---- 5b. hero 亮星(同格第二颗;h6..h10 独立链;v8 mag ∈ [1.2,4.2]) ----
+    let h6 = wang_hash(h5);
+    let hocc = h6 & 255u32;
+    let h7 = wang_hash(h6);
+    let h8 = wang_hash(h7);
+    let h9 = wang_hash(h8);
+    let h10 = wang_hash(h9);
+    // hero 星心 ∈ [0.25,0.75](中央 50%,R = 0.08 < 0.25 格界裕度,不跨缝)
+    let h7s = (h7 >> 8) & 1023u32;
+    let h7f = h7s as f32;
+    let h7t = h7f / 1023.0;
+    let hxm = 0.5 * h7t;
+    let hox = 0.25 + hxm;
+    let h8s = (h8 >> 8) & 1023u32;
+    let h8f = h8s as f32;
+    let h8t = h8f / 1023.0;
+    let hym = 0.5 * h8t;
+    let hoy = 0.25 + hym;
+    let hdu = fru - hox;
+    let hdv = frv - hoy;
+    let hdu2 = hdu * hdu;
+    let hdv2 = hdv * hdv;
+    let hd2 = hdu2 + hdv2;
+    let hdr = hd2 / HERO_R2;
+    let hw0 = 1.0 - hdr;
+    let hw1 = dmath::rx_clamp(hw0, 0.0, 1.0);
+    let hw2 = hw1 * hw1;
+    let hw = hw2 * hw1;
+    let h9s = (h9 >> 8) & 1023u32;
+    let h9f = h9s as f32;
+    let ht = h9f / 1023.0;
+    let ht2 = ht * ht;
+    let hmagm = 1.8 * ht2;
+    let hmag = 0.8 + hmagm;
+    let mut hinten = hmag * hw;
+    if hocc >= HERO_OCC {
+        hinten = 0.0;
+    }
+    let hcls = h10 & 3u32;
+    let hero_c = star_palette(hcls, ch);
+    let hero_v = hinten * hero_c;
+    // ---- 6. 银河带(倾斜银盘;Lorentzian 双峰 + 尘埃消光 + 星云调色) ----
+    // 银盘法向 n_g = (0, cosτ, sinτ)(τ = 22° 绕 x 轴倾转,与吸积盘错开)
+    let gd0 = dy * GAL_TILT_C + dz * GAL_TILT_S;
+    let gd = dmath::rx_abs(gd0);
+    // 带内平面坐标(噪声采样):u = dx,v = dz·cosτ − dy·sinτ
+    let gu = dx;
+    let gv0 = dz * GAL_TILT_C;
+    let gv1 = dy * GAL_TILT_S;
+    let gv = gv0 - gv1;
+    // Lorentzian/Cauchy 双峰剖面 1/(1+(d/w)²)(纯除法替 exp 高斯)
+    let q1 = gd / GAL_CORE_W;
+    let q1s = q1 * q1;
+    let q1d = 1.0 + q1s;
+    let core = GAL_CORE_I / q1d;
+    let q2 = gd / GAL_HALO_W;
+    let q2s = q2 * q2;
+    let q2d = 1.0 + q2s;
+    let halo = GAL_HALO_I / q2d;
+    // 尘埃消光:贴银道面 patchy 遮挡(Dame et al. 2001, ApJ 547, 792 观感)
+    let dn = render_core::fbm2(gu * GAL_DUST_F, gv * GAL_DUST_F, STAR_SEED ^ 0x51ed270bu32);
+    let dq = gd / GAL_DUST_W;
+    let dqs = dq * dq;
+    let dqd = 1.0 + dqs;
+    let dmask = 1.0 / dqd;
+    let ext0 = dn * dmask * GAL_DUST_A;
+    let ext1 = dmath::rx_min(ext0, 0.9);
+    let ext = 1.0 - ext1;
+    // 星云调色(低频色斑 ±22%;fbm 中心 0.5)
+    let gu2 = gu * 1.7 + 3.1;
+    let gv2 = gv * 1.7 + 9.7;
+    let neb = render_core::fbm2(gu2, gv2, STAR_SEED ^ 0xc2b2ae35u32);
+    let nbc = neb - 0.5;
+    // 通道调色:核心暖 (1.0,0.84,0.62),宽晕冷蓝 (0.60,0.72,1.05)
+    let mut warm_c: f32 = 1.0;
+    if ch == 1 {
+        warm_c = 0.84;
+    }
+    if ch == 2 {
+        warm_c = 0.62;
+    }
+    let mut cool_c: f32 = 1.05;
+    if ch == 0 {
+        cool_c = 0.60;
+    }
+    if ch == 1 {
+        cool_c = 0.72;
+    }
+    let mut tint: f32 = 1.0;
+    if ch == 0 {
+        tint = 1.0 + 0.44 * nbc;
+    }
+    if ch == 2 {
+        tint = 1.0 - 0.44 * nbc;
+    }
+    let core_v = core * warm_c * tint;
+    let halo_v = halo * cool_c;
+    let band_s = core_v + halo_v;
+    let band_v = band_s * ext;
+    // ---- 7. 深空底(微蓝,近黑;v4 Gargantua 纯黑场定标) ----
+    let mut base_v: f32 = 0.001;
+    if ch == 0 {
+        base_v = 0.0009;
+    }
+    if ch == 2 {
+        base_v = 0.0015;
+    }
+    let bg = base_v + band_v;
+    let sky = bg + star_v;
+    sky + hero_v
+}

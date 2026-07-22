@@ -1,0 +1,528 @@
+// blackhole 实时入口(母本 = apps/ruridrop/src/realtime.rx 的 present typestate
+// 帧循环,RXS-0197/0198):Present::create → ready → 循环{轨道相机推进 → wait →
+// backbuffer → bh_render 直写 backbuffer → signal → pump → present},
+// v3 取消帧数上限——仅窗口关闭请求退出(无限实时轨道演示;离线视频序列见
+// offline.rx)。循环结束后末帧重渲进普通 Buffer → download → 采样自检:
+//  ① NaN / 值域 0…255 / 均值带;
+//  ② 中心黑盘(阴影覆盖画面中心);
+//  ③ 阴影半径自检:±x / −y 三向亚像素边缘扫描 vs 解析期望
+//     (阴影角半径 sin α = b_crit·√(1−2M/r_c)/r_c,b_crit = 3√3 M = √27 M,
+//     Synge 1966, MNRAS 131, 463;Bardeen 1973 静态观测者角径公式),
+//     偏差 > 2% 判 bug;
+//     (+y 向不用:盘近侧光学厚覆盖阴影下半,属 Luminet 1979 物理预期,非畸变)
+//  ④ 多普勒不对称:r_arm = 10M 左右臂投影盒亮度比 ≥ 1.15 且方向 = 解析期望
+//     (−φ 自旋取向下左亮右暗,Gargantua 定帧取向;Cunningham 1975 / Luminet 1979);
+//  ⑤ 光子环存在性:期望环径 annulus 内最大亮度 > 100;
+//  ⑥ 星空存在性:角区亮度最大值 > 40(逃逸方向查表)。
+// 全过 → REALTIME_OK frames=<n> sample_ok=true;任一失败 → REALTIME_FAIL + 非 0。
+// 同时 write_ppm 落盘末帧(取证截图)。数值行经 CRT putchar(RXS-0195)。
+
+mod params;
+mod dmath;
+mod render_core;
+mod starfield;
+mod render;
+
+extern "C" {
+    fn putchar(c: i32) -> i32;
+}
+
+// present-real C++ shim 系统库接线(RXS-0195 #[link];母本 = ruridrop realtime.rx)
+#[link(name = "user32")]
+#[link(name = "d3d12")]
+#[link(name = "dxgi")]
+#[link(name = "d3dcompiler")]
+extern "C" {
+}
+
+// u32 十进制逐位输出(ruridrop 母本:除数法自最高位,免反转溢出)
+fn print_u32(v: u32) {
+    let mut div: u32 = 1;
+    while v / div >= 10u32 {
+        div = div * 10u32;
+    }
+    while div > 0u32 {
+        let d = (v / div) % 10u32;
+        unsafe { putchar((48u32 + d) as i32) };
+        div = div / 10u32;
+    }
+}
+
+// f32(已知非负、采样域 0…255)四舍五入为 u32 后输出
+fn print_f32_round(v: f32) {
+    let c = dmath::rx_clamp(v, 0.0, 999.0) + 0.5;
+    print_u32((c as i32) as u32);
+}
+
+// f32 → "xx.yy" 分两段输出(阴影半径亚像素留痕)
+fn print_f32_centi(v: f32) {
+    let c = dmath::rx_clamp(v, 0.0, 9999.0);
+    let ip = c as i32;
+    let frac = dmath::rx_clamp((c - (ip as f32)) * 100.0, 0.0, 99.0) as i32;
+    print_u32(ip as u32);
+    unsafe { putchar(46) };
+    if frac < 10 {
+        unsafe { putchar(48) };
+    }
+    print_u32(frac as u32);
+}
+
+// "REALTIME_OK frames=<n> sample_ok=true\n"(ok=1)或 FAIL 变体
+fn print_verdict_line(ok: i32, frames: u32) {
+    unsafe { putchar(82) };
+    unsafe { putchar(69) };
+    unsafe { putchar(65) };
+    unsafe { putchar(76) };
+    unsafe { putchar(84) };
+    unsafe { putchar(73) };
+    unsafe { putchar(77) };
+    unsafe { putchar(69) };
+    unsafe { putchar(95) };
+    if ok == 1 {
+        unsafe { putchar(79) };
+        unsafe { putchar(75) };
+    } else {
+        unsafe { putchar(70) };
+        unsafe { putchar(65) };
+        unsafe { putchar(73) };
+        unsafe { putchar(76) };
+    }
+    unsafe { putchar(32) };
+    unsafe { putchar(102) };
+    unsafe { putchar(114) };
+    unsafe { putchar(97) };
+    unsafe { putchar(109) };
+    unsafe { putchar(101) };
+    unsafe { putchar(115) };
+    unsafe { putchar(61) };
+    print_u32(frames);
+    unsafe { putchar(32) };
+    unsafe { putchar(115) };
+    unsafe { putchar(97) };
+    unsafe { putchar(109) };
+    unsafe { putchar(112) };
+    unsafe { putchar(108) };
+    unsafe { putchar(101) };
+    unsafe { putchar(95) };
+    unsafe { putchar(111) };
+    unsafe { putchar(107) };
+    unsafe { putchar(61) };
+    if ok == 1 {
+        unsafe { putchar(116) };
+        unsafe { putchar(114) };
+        unsafe { putchar(117) };
+        unsafe { putchar(101) };
+    } else {
+        unsafe { putchar(102) };
+        unsafe { putchar(97) };
+        unsafe { putchar(108) };
+        unsafe { putchar(115) };
+        unsafe { putchar(101) };
+    }
+    unsafe { putchar(10) };
+}
+
+fn main() -> i32 {
+    // ---- 渲染常量 ----
+    let rw = params::REND_W;
+    let rh = params::REND_H;
+    let rw32 = rw as u32;
+    let rh32 = rh as u32;
+    let gx = (rw + 15) / 16;
+    let gy = (rh + 15) / 16;
+    let npix = rw * rh;
+    let nrgb = npix * 3;
+    let inv_w = 1.0 / (rw as f32);
+    let inv_h = 1.0 / (rh as f32);
+    let aspect = (rw as f32) / (rh as f32);
+    let vs = params::VIEW_SCALE;
+    let scale_x = vs * aspect;
+    let scale_y = 0.0 - vs;
+
+    // ---- 相机常量 ----
+    let cam_r = params::CAM_R;
+    let th_c = params::CAM_THETA;
+    let stc = dmath::rx_sin(th_c);
+    let ctc = dmath::rx_cos(th_c);
+
+    let ctx = Context::create();
+    let stream = ctx.stream();
+
+    // ---- 缓冲 ----
+    let mut hrgb = ctx.alloc_pinned(nrgb);
+    let mut hppm = ctx.alloc_pinned(nrgb);
+    let mut hhdr = ctx.alloc_pinned(nrgb);
+    let mut fbuf = ctx.alloc(nrgb);
+    let mut tbuf = ctx.alloc(nrgb);
+    let mut fout = ctx.alloc(nrgb);
+    let mut i0: usize = 0;
+    while i0 < nrgb {
+        hrgb.set(i0, 0.0f32);
+        hppm.set(i0, 0.0f32);
+        i0 = i0 + 1;
+    }
+    fbuf.upload(&hrgb);
+
+    // ---- present typestate 帧循环(RXS-0197) ----
+    let sess = Present::create(&ctx, rw32, rh32, rw32, rh32);
+    let mut ready = sess.ready();
+    let mut running: i32 = 1;
+    let mut frames_done: usize = 0;
+    let mut ph_last = params::CAM_PH0;
+    let mut time_last: f32 = 0.0;
+    while running == 1 {
+        // 轨道相机:方位角随帧推进(r_cam = 40M ∈ [30,60],FOV 60° ∈ [60,90])
+        let ph_c = params::CAM_PH0 + (frames_done as f32) * params::CAM_DPHI;
+        ph_last = ph_c;
+        let spc = dmath::rx_sin(ph_c);
+        let cpc = dmath::rx_cos(ph_c);
+        // e_r(θ 自 +y,φ 在 xz 平面)
+        let erx = stc * cpc;
+        let ery = ctc;
+        let erz = stc * spc;
+        let cam_x = cam_r * erx;
+        let cam_y = cam_r * ery;
+        let cam_z = cam_r * erz;
+        // fw = −e_r(指向原点)
+        let fwx = 0.0 - erx;
+        let fwy = 0.0 - ery;
+        let fwz = 0.0 - erz;
+        // ri = normalize(cross(fw, (0,1,0))) = normalize(−fwz, 0, fwx)
+        let r0x = 0.0 - fwz;
+        let r0z = fwx;
+        let rl = render_core::len3(r0x, 0.0, r0z);
+        let rinv = 1.0 / dmath::rx_max(rl, 0.000001);
+        let rix = r0x * rinv;
+        let riz = r0z * rinv;
+        // up = cross(ri, fw)
+        let upx = render_core::cross_x(0.0, riz, fwy, fwz);
+        let upy = render_core::cross_y(rix, riz, fwx, fwz);
+        let upz = render_core::cross_z(rix, 0.0, fwx, fwy);
+        // 横滚 CAM_ROLL:ri/up 绕 fw 旋转(v7 参考图盘带右升 ~12°)
+        let cro = dmath::rx_cos(params::CAM_ROLL);
+        let sro = dmath::rx_sin(params::CAM_ROLL);
+        let rix2 = rix * cro + upx * sro;
+        let riy2 = upy * sro;
+        let riz2 = riz * cro + upz * sro;
+        let upx2 = upx * cro - rix * sro;
+        let upy2 = upy * cro;
+        let upz2 = upz * cro - riz * sro;
+        // 三 pass 管线:① RK4 测地线 HDR → fbuf;② 亮通+水平 tent → tbuf;
+        // ③ 垂直 tent + 合成 + tone_map → backbuffer(0…255)
+        let time = (frames_done as f32) * params::FRAME_DT;
+        time_last = time;
+        let acq = ready.wait();
+        let bb = acq.backbuffer();
+        stream.launch(render::bh_render, GridDim(gx, gy), BlockDim(16, 16),
+            (fbuf, rw, rh, cam_x, cam_y, cam_z, th_c, ph_c,
+             fwx, fwy, fwz, rix2, riy2, riz2, upx2, upy2, upz2,
+             inv_w, inv_h, scale_x, scale_y, time, params::SSAA));
+        stream.launch(render::bh_bloom_h, GridDim(gx, gy), BlockDim(16, 16),
+            (tbuf, fbuf, rw, rh, params::BLOOM_THRESH));
+        stream.launch(render::bh_bloom_v, GridDim(gx, gy), BlockDim(16, 16),
+            (bb, fbuf, tbuf, rw, rh, params::BLOOM_STRENGTH));
+        let pres_ = acq.signal();
+        let close = pres_.pump();
+        ready = pres_.present();
+        frames_done = frames_done + 1;
+        // PREVIEW_MAX_FRAMES>0:渲满 N 帧自动退出(画质迭代对照);
+        // 0 = 等用户关窗
+        let preview_cap = params::PREVIEW_MAX_FRAMES as usize;
+        if close || (preview_cap > 0 && frames_done >= preview_cap) {
+            running = 0;
+        }
+    }
+
+    // ---- 末帧采样对照(同一 kernel、末帧相机) ----
+    let spc = dmath::rx_sin(ph_last);
+    let cpc = dmath::rx_cos(ph_last);
+    let erx = stc * cpc;
+    let ery = ctc;
+    let erz = stc * spc;
+    let cam_x = cam_r * erx;
+    let cam_y = cam_r * ery;
+    let cam_z = cam_r * erz;
+    let fwx = 0.0 - erx;
+    let fwy = 0.0 - ery;
+    let fwz = 0.0 - erz;
+    let r0x = 0.0 - fwz;
+    let r0z = fwx;
+    let rl = render_core::len3(r0x, 0.0, r0z);
+    let rinv = 1.0 / dmath::rx_max(rl, 0.000001);
+    let rix = r0x * rinv;
+    let riz = r0z * rinv;
+    let upx = render_core::cross_x(0.0, riz, fwy, fwz);
+    let upy = render_core::cross_y(rix, riz, fwx, fwz);
+    let upz = render_core::cross_z(rix, 0.0, fwx, fwy);
+    // 横滚 CAM_ROLL:ri/up 绕 fw 旋转(v7 参考图盘带右升 ~12°)
+    let cro = dmath::rx_cos(params::CAM_ROLL);
+    let sro = dmath::rx_sin(params::CAM_ROLL);
+    let rix2 = rix * cro + upx * sro;
+    let riy2 = upy * sro;
+    let riz2 = riz * cro + upz * sro;
+    let upx2 = upx * cro - rix * sro;
+    let upy2 = upy * cro;
+    let upz2 = upz * cro - riz * sro;
+    // 末帧同一三 pass 管线(末帧相机/湍流时间):fout = 呈现域 0…255;
+    // fbuf = HDR 物理缓冲(阴影/多普勒/光子环/星空自检在 HDR 上采样,
+    // bloom 为镜头光学效应不污染物理测量;两缓冲逐位同 kernel 产出)
+    stream.launch(render::bh_render, GridDim(gx, gy), BlockDim(16, 16),
+        (fbuf, rw, rh, cam_x, cam_y, cam_z, th_c, ph_last,
+         fwx, fwy, fwz, rix2, riy2, riz2, upx2, upy2, upz2,
+         inv_w, inv_h, scale_x, scale_y, time_last, params::SSAA));
+    stream.launch(render::bh_bloom_h, GridDim(gx, gy), BlockDim(16, 16),
+        (tbuf, fbuf, rw, rh, params::BLOOM_THRESH));
+    stream.launch(render::bh_bloom_v, GridDim(gx, gy), BlockDim(16, 16),
+        (fout, fbuf, tbuf, rw, rh, params::BLOOM_STRENGTH));
+    stream.sync();
+    fout.download(&mut hrgb);
+    fbuf.download(&mut hhdr);
+
+    // ---- ① 全域统计(NaN / min / max / 均值) ----
+    let mut nan_found: i32 = 0;
+    let mut vmin: f32 = 1.0e30;
+    let mut vmax: f32 = -1.0e30;
+    let mut vsum: f32 = 0.0;
+    let row_len = rw * 3;
+    let mut ry: usize = 0;
+    while ry < rh {
+        let mut row_sum: f32 = 0.0;
+        let base = ry * row_len;
+        let mut rxi: usize = 0;
+        while rxi < row_len {
+            let v = hrgb.get(base + rxi);
+            if v != v {
+                nan_found = 1;
+            } else {
+                if v < vmin {
+                    vmin = v;
+                }
+                if v > vmax {
+                    vmax = v;
+                }
+                row_sum = row_sum + v;
+            }
+            rxi = rxi + 1;
+        }
+        vsum = vsum + row_sum;
+        ry = ry + 1;
+    }
+    let vmean = vsum / (nrgb as f32);
+
+    // ---- ② 中心黑盘 ----
+    let cx = rw / 2;
+    let cy = rh / 2;
+    let ci = (cy * rw + cx) * 3;
+    let cr_c = render_core::tone_map(hhdr.get(ci)) * 255.0;
+    let cg_c = render_core::tone_map(hhdr.get(ci + 1)) * 255.0;
+    let cb_c = render_core::tone_map(hhdr.get(ci + 2)) * 255.0;
+
+    // ---- ③ 阴影半径自检(Kerr 临界 b 均值;Bardeen 1973) ----
+    // 期望角半径:sin α = b_crit·√(1−2M/r_c)/r_c(远距近似;容差放宽因不对称)
+    let fc = 1.0 - 2.0 / cam_r;
+    let sfc = dmath::rx_sqrt(fc);
+    let sin_a = params::SHADOW_BCRIT * sfc / cam_r;
+    let tan_a = sin_a / dmath::rx_sqrt(dmath::rx_max(1.0 - sin_a * sin_a, 0.0001));
+    let tan_fx = vs * aspect;
+    let r_exp = tan_a / tan_fx * (rw as f32) * 0.5;
+    // 亚像素边缘扫描:自中心向 +x / −x / −y 三向,首个亮度(三通道和)> 阈值处线性内插
+    let thr = params::SMP_EDGE_LUM;
+    let mut edge_xp: f32 = 0.0;
+    let mut edge_xn: f32 = 0.0;
+    let mut edge_yn: f32 = 0.0;
+    let mut dir: usize = 0;
+    while dir < 3 {
+        let dxi: i32 = if dir == 0 { 1 } else if dir == 1 { -1 } else { 0 };
+        let dyi: i32 = if dir == 2 { -1 } else { 0 };
+        let mut prev_lum: f32 = 0.0;
+        let mut dist: f32 = 0.0;
+        let mut found: i32 = 0;
+        let mut i: i32 = 1;
+        while i < 500 && found == 0 {
+            let sx_i = (cx as i32) + dxi * i;
+            let sy_i = (cy as i32) + dyi * i;
+            let ii = ((sy_i as usize) * rw + (sx_i as usize)) * 3;
+            let l0 = render_core::tone_map(hhdr.get(ii)) * 255.0;
+            let l1 = render_core::tone_map(hhdr.get(ii + 1)) * 255.0;
+            let l2 = render_core::tone_map(hhdr.get(ii + 2)) * 255.0;
+            let lum = l0 + l1 + l2;
+            if lum > thr {
+                let den = dmath::rx_max(lum - prev_lum, 0.0001);
+                let frac = (thr - prev_lum) / den;
+                dist = ((i - 1) as f32) + dmath::rx_clamp(frac, 0.0, 1.0);
+                found = 1;
+            }
+            prev_lum = lum;
+            i = i + 1;
+        }
+        if dir == 0 {
+            edge_xp = dist;
+        } else if dir == 1 {
+            edge_xn = dist;
+        } else {
+            edge_yn = dist;
+        }
+        dir = dir + 1;
+    }
+    let r_meas = (edge_xp + edge_xn + edge_yn) / 3.0;
+    let shadow_rel = dmath::rx_abs(r_meas - r_exp) / r_exp;
+
+    // ---- ④ 多普勒不对称(r_arm = 10M 左右臂投影盒;−φ 自旋取向 → 左亮右暗,
+    //      Gargantua 定帧取向;Cunningham 1975 / Luminet 1979) ----
+    let arm_r: f32 = 10.0;
+    let arm_sx = arm_r / cam_r;
+    let arm_px = arm_sx / scale_x;
+    let xl = (cx as f32) * (1.0 - arm_px);
+    let xr = (cx as f32) * (1.0 + arm_px);
+    let xl_i = dmath::rx_clamp(xl, 8.0, (rw as f32) - 9.0) as usize;
+    let xr_i = dmath::rx_clamp(xr, 8.0, (rw as f32) - 9.0) as usize;
+    let mut lum_l: f32 = 0.0;
+    let mut lum_r: f32 = 0.0;
+    let mut by: i32 = -6;
+    while by <= 6 {
+        let mut bx: i32 = -6;
+        while bx <= 6 {
+            let yl = ((cy as i32) + by) as usize;
+            let xll = ((xl_i as i32) + bx) as usize;
+            let xrr = ((xr_i as i32) + bx) as usize;
+            let il = (yl * rw + xll) * 3;
+            let ir = (yl * rw + xrr) * 3;
+            lum_l = lum_l + render_core::tone_map(hhdr.get(il)) * 255.0 + render_core::tone_map(hhdr.get(il + 1)) * 255.0 + render_core::tone_map(hhdr.get(il + 2)) * 255.0;
+            lum_r = lum_r + render_core::tone_map(hhdr.get(ir)) * 255.0 + render_core::tone_map(hhdr.get(ir + 1)) * 255.0 + render_core::tone_map(hhdr.get(ir + 2)) * 255.0;
+            bx = bx + 1;
+        }
+        by = by + 1;
+    }
+    let dop_ratio = lum_l / dmath::rx_max(lum_r, 0.001);
+
+    // ---- ⑤ 光子环存在性(期望环径 ±14 px annulus 最大亮度;
+    //      扫描盒半宽随 r_exp 自适应(v7 近相机 r_exp ≈ 395)) ----
+    let mut ring_max: f32 = 0.0;
+    let r_lo = r_exp - 14.0;
+    let r_hi = r_exp + 14.0;
+    let boxr = (r_exp + 20.0) as usize;
+    let mut ay: usize = cy - boxr;
+    while ay <= cy + boxr {
+        let mut ax: usize = cx - boxr;
+        while ax <= cx + boxr {
+            let dxf = (ax as f32) - (cx as f32);
+            let dyf = (ay as f32) - (cy as f32);
+            let rr = dmath::rx_sqrt(dxf * dxf + dyf * dyf);
+            if rr >= r_lo && rr <= r_hi {
+                let ii = (ay * rw + ax) * 3;
+                let lum = render_core::tone_map(hhdr.get(ii)) * 255.0 + render_core::tone_map(hhdr.get(ii + 1)) * 255.0 + render_core::tone_map(hhdr.get(ii + 2)) * 255.0;
+                if lum > ring_max {
+                    ring_max = lum;
+                }
+            }
+            ax = ax + 1;
+        }
+        ay = ay + 1;
+    }
+
+    // ---- ⑥ 星空存在性(左上角区最大亮度) ----
+    let mut sky_max: f32 = 0.0;
+    let mut sy2: usize = 30;
+    while sy2 < 130 {
+        let mut sx2: usize = 40;
+        while sx2 < 140 {
+            let ii = (sy2 * rw + sx2) * 3;
+            let lum = render_core::tone_map(hhdr.get(ii)) * 255.0 + render_core::tone_map(hhdr.get(ii + 1)) * 255.0 + render_core::tone_map(hhdr.get(ii + 2)) * 255.0;
+            if lum > sky_max {
+                sky_max = lum;
+            }
+            sx2 = sx2 + 1;
+        }
+        sy2 = sy2 + 1;
+    }
+
+    // ---- 判定 ----
+    let mut sample_ok: i32 = 1;
+    if nan_found == 1 {
+        sample_ok = 0;
+    }
+    if vmin < 0.0 || vmax > 255.0 {
+        sample_ok = 0;
+    }
+    if vmean < 0.5 || vmean > 235.0 {
+        sample_ok = 0;
+    }
+    if cr_c > 15.0 || cg_c > 15.0 || cb_c > 15.0 {
+        sample_ok = 0;
+    }
+    if edge_xp < 1.0 || edge_xn < 1.0 || edge_yn < 1.0 {
+        sample_ok = 0;
+    }
+    if shadow_rel > params::SMP_SHADOW_TOL {
+        sample_ok = 0;
+    }
+    if dop_ratio < params::SMP_DOPPLER_RATIO {
+        sample_ok = 0;
+    }
+    if ring_max < 100.0 {
+        sample_ok = 0;
+    }
+    if sky_max < 40.0 {
+        sample_ok = 0;
+    }
+
+    // ---- PPM 落盘(取证截图;write_ppm 域 [0,1] = backbuffer 域 /255) ----
+    let mut pi: usize = 0;
+    while pi < nrgb {
+        hppm.set(pi, hrgb.get(pi) * 0.00392156862745098);
+        pi = pi + 1;
+    }
+    write_ppm("apps/blackhole/frame_final.ppm", rw32, rh32, &hppm);
+
+    // ---- 证据行 ----
+    unsafe { putchar(83) };
+    unsafe { putchar(84) };
+    unsafe { putchar(65) };
+    unsafe { putchar(84) };
+    unsafe { putchar(83) };
+    unsafe { putchar(32) };
+    unsafe { putchar(109) }; unsafe { putchar(105) }; unsafe { putchar(110) }; unsafe { putchar(61) };
+    print_f32_round(vmin);
+    unsafe { putchar(32) };
+    unsafe { putchar(109) }; unsafe { putchar(97) }; unsafe { putchar(120) }; unsafe { putchar(61) };
+    print_f32_round(vmax);
+    unsafe { putchar(32) };
+    unsafe { putchar(109) }; unsafe { putchar(101) }; unsafe { putchar(97) }; unsafe { putchar(110) }; unsafe { putchar(61) };
+    print_f32_round(vmean);
+    unsafe { putchar(10) };
+    // SHADOW exp=<xx.yy> meas=<xx.yy> edges=<xp,xn,yn>
+    unsafe { putchar(83) }; unsafe { putchar(72) }; unsafe { putchar(65) }; unsafe { putchar(68) };
+    unsafe { putchar(79) }; unsafe { putchar(87) }; unsafe { putchar(32) };
+    unsafe { putchar(101) }; unsafe { putchar(120) }; unsafe { putchar(112) }; unsafe { putchar(61) };
+    print_f32_centi(r_exp);
+    unsafe { putchar(32) };
+    unsafe { putchar(109) }; unsafe { putchar(101) }; unsafe { putchar(97) }; unsafe { putchar(115) }; unsafe { putchar(61) };
+    print_f32_centi(r_meas);
+    unsafe { putchar(32) };
+    unsafe { putchar(101) }; unsafe { putchar(100) }; unsafe { putchar(103) }; unsafe { putchar(101) }; unsafe { putchar(115) }; unsafe { putchar(61) };
+    print_f32_centi(edge_xp);
+    unsafe { putchar(44) };
+    print_f32_centi(edge_xn);
+    unsafe { putchar(44) };
+    print_f32_centi(edge_yn);
+    unsafe { putchar(10) };
+    // DOP ratio=<xx.yy>(右/左) RING=<n> SKY=<n>
+    unsafe { putchar(68) }; unsafe { putchar(79) }; unsafe { putchar(80) }; unsafe { putchar(32) };
+    unsafe { putchar(114) }; unsafe { putchar(97) }; unsafe { putchar(116) }; unsafe { putchar(105) }; unsafe { putchar(111) }; unsafe { putchar(61) };
+    print_f32_centi(dop_ratio);
+    unsafe { putchar(32) };
+    unsafe { putchar(82) }; unsafe { putchar(73) }; unsafe { putchar(78) }; unsafe { putchar(71) }; unsafe { putchar(61) };
+    print_f32_round(ring_max);
+    unsafe { putchar(32) };
+    unsafe { putchar(83) }; unsafe { putchar(75) }; unsafe { putchar(89) }; unsafe { putchar(61) };
+    print_f32_round(sky_max);
+    unsafe { putchar(10) };
+    print_verdict_line(sample_ok, frames_done as u32);
+
+    ctx.sync();
+    if sample_ok == 1 {
+        0
+    } else {
+        1
+    }
+}

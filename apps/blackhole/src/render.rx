@@ -1,0 +1,687 @@
+// blackhole 实时 kernel 组 — Kerr Carter/Mino + 体积路径追踪 + bloom。
+// 自旋沿 +y;BL 极轴=ŷ;赤道 θ=π/2 ↔ 盘面 y=0。
+// 路径追踪:沿测地线体积发射/吸收/单次散射(Beer 无 exp)。
+// 数值纪律:仅 + - * /、比较、位运算、rx_sqrt;无 pow/exp。
+
+mod dmath;
+mod render_core;
+mod starfield;
+mod params;
+
+// ================= ① 主渲染 kernel(HDR 线性输出;Kerr Carter/Mino) =================
+pub kernel fn bh_render(
+    t: ThreadCtx<2>,
+    bb: ViewMut<global, f32>,
+    w: usize,
+    h: usize,
+    cam_x: f32,
+    cam_y: f32,
+    cam_z: f32,
+    th_c: f32,
+    ph_c: f32,
+    fw_x: f32,
+    fw_y: f32,
+    fw_z: f32,
+    ri_x: f32,
+    ri_y: f32,
+    ri_z: f32,
+    up_x: f32,
+    up_y: f32,
+    up_z: f32,
+    inv_w: f32,
+    inv_h: f32,
+    scale_x: f32,
+    scale_y: f32,
+    time: f32,
+    ssaa: usize,
+) {
+    let x = t.global_id_x();
+    let y = t.global_id_y();
+    if x >= w || y >= h {
+        return;
+    }
+    let pi = y * w + x;
+    let nss = ssaa * ssaa;
+    let inv_ss = 1.0 / (ssaa as f32);
+    let a_spin = params::BH_A;
+    let mut acc_r: f32 = 0.0;
+    let mut acc_g: f32 = 0.0;
+    let mut acc_b: f32 = 0.0;
+    let mut si: usize = 0;
+    while si < nss {
+        let sxi = si % ssaa;
+        let syi = si / ssaa;
+        // 路径抖动:每条路径在子像素内随机偏移(路径追踪采样)
+        let jx = render_core::path_rand(x as i32, y as i32, si as i32, params::STAR_SEED ^ 0x91eb9u32);
+        let jy = render_core::path_rand(x as i32, y as i32, si as i32, params::STAR_SEED ^ 0xc2b2ae35u32);
+        let oxf = ((sxi as f32) + 0.5 + (jx - 0.5) * params::PT_JITTER) * inv_ss;
+        let oyf = ((syi as f32) + 0.5 + (jy - 0.5) * params::PT_JITTER) * inv_ss;
+        let pxf = (x as f32) + oxf;
+        let pyf = (y as f32) + oyf;
+        let sx = render_core::screen_coord(pxf, inv_w, scale_x);
+        // CAM_SY0>0:光轴略仰 → 黑洞落在画面偏下(对标参考构图)
+        let sy = render_core::screen_coord(pyf, inv_h, scale_y) + params::CAM_SY0;
+        let udx = render_core::ray_dir_comp(fw_x, ri_x, up_x, sx, sy);
+        let udy = render_core::ray_dir_comp(fw_y, ri_y, up_y, sx, sy);
+        let udz = render_core::ray_dir_comp(fw_z, ri_z, up_z, sx, sy);
+        let il = render_core::inv_len3(udx, udy, udz);
+        let dx = udx * il;
+        let dy = udy * il;
+        let dz = udz * il;
+
+        let mut cr: f32 = 0.0;
+        let mut cg: f32 = 0.0;
+        let mut cb: f32 = 0.0;
+
+        // ---- 相机 BL 初值(host 已给 th_c/ph_c;自旋 +y) ----
+        let mut r = render_core::len3(cam_x, cam_y, cam_z);
+        r = dmath::rx_max(r, 1.5);
+        let mut th = dmath::rx_clamp(th_c, params::TH_POLE_EPS, params::TH_POLE_MAX);
+        let mut ph = ph_c;
+        let sth0 = dmath::rx_sin(th);
+        let cth0 = dmath::rx_cos(th);
+        let sph0 = dmath::rx_sin(ph);
+        let cph0 = dmath::rx_cos(ph);
+
+        // Jacobian 列投影 → (dr,dθ,dφ)
+        let jrx = render_core::jac_r_x(r, sth0, cph0, a_spin);
+        let jry = render_core::jac_r_y(cth0);
+        let jrz = render_core::jac_r_z(r, sth0, sph0, a_spin);
+        let jtx = render_core::jac_th_x(r, cth0, cph0, a_spin);
+        let jty = render_core::jac_th_y(r, sth0);
+        let jtz = render_core::jac_th_z(r, cth0, sph0, a_spin);
+        let jpx = render_core::jac_ph_x(r, sth0, sph0, a_spin);
+        let jpy = render_core::jac_ph_y();
+        let jpz = render_core::jac_ph_z(r, sth0, cph0, a_spin);
+        let jr2 = dmath::rx_max(render_core::dot3(jrx, jry, jrz, jrx, jry, jrz), 0.000001);
+        let mut dr = render_core::dot3(dx, dy, dz, jrx, jry, jrz) / jr2;
+        let d1x = dx - dr * jrx;
+        let d1y = dy - dr * jry;
+        let d1z = dz - dr * jrz;
+        let jt2 = dmath::rx_max(render_core::dot3(jtx, jty, jtz, jtx, jty, jtz), 0.000001);
+        let mut dth = render_core::dot3(d1x, d1y, d1z, jtx, jty, jtz) / jt2;
+        let d2x = d1x - dth * jtx;
+        let d2y = d1y - dth * jty;
+        let d2z = d1z - dth * jtz;
+        let jp2 = dmath::rx_max(render_core::dot3(jpx, jpy, jpz, jpx, jpy, jpz), 0.000001);
+        let mut dph = render_core::dot3(d2x, d2y, d2z, jpx, jpy, jpz) / jp2;
+
+        // null 约束求 dt → E,L,Q
+        let sig0 = render_core::kerr_sigma(r, cth0, a_spin);
+        let dlt0 = render_core::kerr_delta(r, a_spin);
+        let gtt = render_core::kerr_g_tt(r, sig0);
+        let gtph = render_core::kerr_g_tph(r, sth0, sig0, a_spin);
+        let grr = render_core::kerr_g_rr(sig0, dlt0);
+        let gthth = sig0;
+        let gphph = render_core::kerr_g_phph(r, sth0, sig0, dlt0, a_spin);
+        let c_sp = grr * dr * dr + gthth * dth * dth + gphph * dph * dph;
+        let dt = render_core::kerr_null_dt(gtt, gtph, c_sp, dph);
+        let ene = 0.0 - (gtt * dt + gtph * dph);
+        let ene_g = dmath::rx_max(dmath::rx_abs(ene), 0.0001);
+        let lz = gtph * dt + gphph * dph;
+        let lam = lz / ene_g;
+        let pth_c = gthth * dth;
+        let s2_0 = dmath::rx_max(sth0 * sth0, 0.00000001);
+        let qcar = pth_c * pth_c + cth0 * cth0 * (lz * lz / s2_0 - a_spin * a_spin * ene * ene);
+        let eta = qcar / (ene_g * ene_g);
+
+        // Mino 初速:与第一积分同号
+        let r_pot = render_core::kerr_R(r, lam, eta, a_spin);
+        let th_pot = render_core::kerr_Theta(sth0, cth0, lam, eta, a_spin);
+        let mut vr = dmath::rx_sqrt(dmath::rx_max(r_pot, 0.0));
+        if dr < 0.0 {
+            vr = 0.0 - vr;
+        }
+        let mut vth = dmath::rx_sqrt(dmath::rx_max(th_pot, 0.0));
+        if dth < 0.0 {
+            vth = 0.0 - vth;
+        }
+
+        let mut trn: f32 = 1.0;
+        let mut n_hits: u32 = 0;
+        let mut glow_e: f32 = 0.0;
+        let mut glow_rw: f32 = 0.0;
+        let mut q_prev = cth0;
+        let mut status: i32 = 0;
+        let mut step: u32 = 0;
+        let mut rp_prev = render_core::kerr_R(r, lam, eta, a_spin);
+        let mut tp_prev = render_core::kerr_Theta(dmath::rx_sin(th), dmath::rx_cos(th), lam, eta, a_spin);
+
+        while step < params::MAX_STEPS && status == 0 {
+            // 近临界半步(消盘线锯齿)
+            let rp_chk = render_core::kerr_R(r, lam, eta, a_spin);
+            let dtau = if r < 5.0 {
+                params::STEP_MINO * 0.25
+            } else if r < 10.0 {
+                params::STEP_MINO * 0.5
+            } else if dmath::rx_abs(rp_chk) < 1.5 {
+                params::STEP_MINO * 0.5
+            } else {
+                params::STEP_MINO
+            };
+            let sth = dmath::rx_sin(th);
+            let cth = dmath::rx_cos(th);
+            // ---- RK4 on (r,th,ph,vr,vth) ----
+            let a_r = vr;
+            let a_th = vth;
+            let a_ph = render_core::kerr_dphi_dtau(r, sth, lam, a_spin);
+            let a_vr = 0.5 * render_core::kerr_dRdr(r, lam, eta, a_spin);
+            let a_vth = 0.5 * render_core::kerr_dThetadth(sth, cth, lam, a_spin);
+
+            let r2 = r + dtau * 0.5 * a_r;
+            let th2 = dmath::rx_clamp(th + dtau * 0.5 * a_th, params::TH_POLE_EPS, params::TH_POLE_MAX);
+            let vr2 = vr + dtau * 0.5 * a_vr;
+            let vth2 = vth + dtau * 0.5 * a_vth;
+            let sth2 = dmath::rx_sin(th2);
+            let cth2 = dmath::rx_cos(th2);
+            let b_r = vr2;
+            let b_th = vth2;
+            let b_ph = render_core::kerr_dphi_dtau(r2, sth2, lam, a_spin);
+            let b_vr = 0.5 * render_core::kerr_dRdr(r2, lam, eta, a_spin);
+            let b_vth = 0.5 * render_core::kerr_dThetadth(sth2, cth2, lam, a_spin);
+
+            let r3 = r + dtau * 0.5 * b_r;
+            let th3 = dmath::rx_clamp(th + dtau * 0.5 * b_th, params::TH_POLE_EPS, params::TH_POLE_MAX);
+            let vr3 = vr + dtau * 0.5 * b_vr;
+            let vth3 = vth + dtau * 0.5 * b_vth;
+            let sth3 = dmath::rx_sin(th3);
+            let cth3 = dmath::rx_cos(th3);
+            let c_r = vr3;
+            let c_th = vth3;
+            let c_ph = render_core::kerr_dphi_dtau(r3, sth3, lam, a_spin);
+            let c_vr = 0.5 * render_core::kerr_dRdr(r3, lam, eta, a_spin);
+            let c_vth = 0.5 * render_core::kerr_dThetadth(sth3, cth3, lam, a_spin);
+
+            let r4 = r + dtau * c_r;
+            let th4 = dmath::rx_clamp(th + dtau * c_th, params::TH_POLE_EPS, params::TH_POLE_MAX);
+            let vr4 = vr + dtau * c_vr;
+            let vth4 = vth + dtau * c_vth;
+            let sth4 = dmath::rx_sin(th4);
+            let cth4 = dmath::rx_cos(th4);
+            let d_r = vr4;
+            let d_th = vth4;
+            let d_ph = render_core::kerr_dphi_dtau(r4, sth4, lam, a_spin);
+            let d_vr = 0.5 * render_core::kerr_dRdr(r4, lam, eta, a_spin);
+            let d_vth = 0.5 * render_core::kerr_dThetadth(sth4, cth4, lam, a_spin);
+
+            let r_prev = r;
+            let th_prev = th;
+            let ph_prev = ph;
+            let vr_prev = vr;
+            let h6 = dtau / 6.0;
+            r = r + h6 * (a_r + 2.0 * b_r + 2.0 * c_r + d_r);
+            th = th + h6 * (a_th + 2.0 * b_th + 2.0 * c_th + d_th);
+            ph = ph + h6 * (a_ph + 2.0 * b_ph + 2.0 * c_ph + d_ph);
+            vr = vr + h6 * (a_vr + 2.0 * b_vr + 2.0 * c_vr + d_vr);
+            vth = vth + h6 * (a_vth + 2.0 * b_vth + 2.0 * c_vth + d_vth);
+
+            // 极轴防护:撞下限则翻 vth 并弹回内侧
+            if th < params::TH_POLE_EPS {
+                th = params::TH_POLE_EPS + 0.0001;
+                vth = dmath::rx_abs(vth);
+            } else if th > params::TH_POLE_MAX {
+                th = params::TH_POLE_MAX - 0.0001;
+                vth = 0.0 - dmath::rx_abs(vth);
+            }
+            th = dmath::rx_clamp(th, params::TH_POLE_EPS, params::TH_POLE_MAX);
+
+            let sthn = dmath::rx_sin(th);
+            let cthn = dmath::rx_cos(th);
+            let rp = render_core::kerr_R(r, lam, eta, a_spin);
+            let tp = render_core::kerr_Theta(sthn, cthn, lam, eta, a_spin);
+            // 仅真转折(势正→负)翻符号;绝不 r 上抬
+            if status == 0 && rp_prev >= 0.0 && rp < 0.0 {
+                vr = 0.0 - vr;
+            }
+            if status == 0 && tp_prev >= 0.0 && tp < 0.0 {
+                vth = 0.0 - vth;
+            }
+            rp_prev = rp;
+            tp_prev = tp;
+            // 每步重同步 vr/vth → ±√R / ±√Θ(消漂移断层)
+            let srp = dmath::rx_sqrt(dmath::rx_max(rp, 0.0));
+            let stp = dmath::rx_sqrt(dmath::rx_max(tp, 0.0));
+            if vr >= 0.0 {
+                vr = srp;
+            } else {
+                vr = 0.0 - srp;
+            }
+            if vth >= 0.0 {
+                vth = stp;
+            } else {
+                vth = 0.0 - stp;
+            }
+
+            let q_now = cthn;
+            // 赤道跨越插值(捕获前算好,plunge 同一步仍可命中前景盘)
+            let mut crossed = 0;
+            let mut r_x = r;
+            let mut ph_x = ph;
+            let mut hit_vr = vr;
+            let mut fr = 0.0;
+            if q_prev * q_now < 0.0 {
+                let denq = q_prev - q_now;
+                fr = dmath::rx_clamp(q_prev / dmath::rx_max(denq, 0.0000001), 0.0, 1.0);
+                r_x = r_prev + fr * (r - r_prev);
+                ph_x = ph_prev + fr * (ph - ph_prev);
+                hit_vr = vr_prev + fr * (vr - vr_prev);
+                crossed = 1;
+            }
+
+            // 捕获(不推离视界)
+            if r < params::R_CAPTURE {
+                status = 1;
+            }
+
+            // ---- 体积路径追踪(发射 + 单次散射 + Beer 吸收) ----
+            if status == 0 && trn > params::PT_TRN_MIN && r >= params::DISK_R_MIN && r <= params::DISK_R_OUT {
+                let absq = dmath::rx_abs(q_now);
+                // 压极区体积 → 消上弧垂直涡旋伪影
+                let pole_w = 1.0 / (1.0 + absq * absq * 35.0);
+                let hh = params::PT_H0;
+                let yy = absq / dmath::rx_max(hh, 0.0001);
+                let lor = pole_w / (1.0 + yy * yy);
+                if lor > 0.02 {
+                    let ae0 = (params::DISK_R_OUT - r) / params::DISK_FADE_OUT;
+                    let af = dmath::rx_clamp(ae0, 0.0, 1.0);
+                    let pf0 = (r - params::GLOW_R_PLUNGE) / (params::DISK_R_IN - params::GLOW_R_PLUNGE);
+                    let pf = dmath::rx_clamp(pf0, 0.0, 1.0);
+                    let cphs = dmath::rx_cos(ph);
+                    let sphs = dmath::rx_sin(ph);
+                    let xhs = render_core::bl_to_wx(r, dmath::rx_max(dmath::rx_abs(sthn), 0.2), cphs, a_spin);
+                    let zhs = render_core::bl_to_wz(r, dmath::rx_max(dmath::rx_abs(sthn), 0.2), sphs, a_spin);
+                    let sr_h = dmath::rx_sqrt(dmath::rx_max(r, 0.01));
+                    let om = 1.0 / (r * sr_h);
+                    let ang = 0.0 - time * om + params::TURB_TWIST * r;
+                    let ca = dmath::rx_cos(ang);
+                    let sa = dmath::rx_sin(ang);
+                    let xr = xhs * ca - zhs * sa;
+                    let zr = xhs * sa + zhs * ca;
+                    let nfx = xr * params::TURB_FREQ;
+                    let nfz = zr * params::TURB_FREQ * params::TURB_ANISO;
+                    let n0 = render_core::fbm2_soft(nfx * 0.35, nfz * 0.35, params::STAR_SEED ^ 0xa511e9b3u32);
+                    let wx = nfx + 3.2 * (n0 - 0.5);
+                    let wz = nfz + 3.2 * (n0 - 0.5);
+                    let n1 = render_core::fbm2_soft(wx, wz, params::STAR_SEED ^ 0xc2b2ae35u32);
+                    let n1b = render_core::fbm2_soft(wx * 2.6, wz * 2.6, params::STAR_SEED ^ 0x85ebca6bu32);
+                    let n1c = render_core::fbm2(wx * 5.8, wz * 5.8, params::STAR_SEED ^ 0x27d4eb2fu32);
+                    let n1d = render_core::fbm2(wx * 11.0, wz * 11.0, params::STAR_SEED ^ 0x165667b1u32);
+                    let dens0 = 0.34 * n1 + 0.28 * n1b + 0.22 * n1c + 0.16 * n1d;
+                    let fil = 1.0 - dmath::rx_abs(2.0 * dens0 - 1.0);
+                    let fil2 = fil * fil;
+                    let dens_t = (1.0 - params::TURB_FIL_W) * dens0 + params::TURB_FIL_W * fil2;
+                    // 锐度向:密度立方+丝脊,压平雾底与同心环
+                    let dens_lin = lor * af * (0.08 + params::TURB_AMP * dens_t) * (0.4 + 0.6 * pf);
+                    let dens = dens_lin * dens_lin * dens_lin * (3.5 + 4.0 * fil2);
+
+                    let ds = dmath::rx_sqrt(dmath::rx_max(r * r + a_spin * a_spin, 0.01)) * dtau;
+                    let sig_a = params::PT_SIGMA_A * dens;
+                    let sig_s = params::PT_SIGMA_S * dens;
+                    let sig_t = sig_a + sig_s;
+
+                    // 扁平径向:压 1/r³ 造成的同心环带(结构伪影)
+                    let w0 = render_core::disk_flux_w(r, params::DISK_R_IN);
+                    let w0_s = 0.55 + 0.45 * dmath::rx_sqrt(dmath::rx_max(w0, 0.000001));
+                    let w0s = dmath::rx_min(w0_s, 1.35);
+                    let t_em = render_core::disk_temp(params::DISK_T_IN, r, params::DISK_R_IN);
+                    // 体积段也要多普勒:否则 L/R 被雾冲成 ~1.2
+                    let sth_abs = dmath::rx_max(dmath::rx_abs(sthn), 0.2);
+                    let jrxv = render_core::jac_r_x(r, sth_abs, cphs, a_spin);
+                    let jryv = render_core::jac_r_y(cthn);
+                    let jrzv = render_core::jac_r_z(r, sth_abs, sphs, a_spin);
+                    let jpxv = render_core::jac_ph_x(r, sth_abs, sphs, a_spin);
+                    let jpzv = render_core::jac_ph_z(r, sth_abs, cphs, a_spin);
+                    let dphv = render_core::kerr_dphi_dtau(r, sth_abs, lam, a_spin);
+                    let pvx = vr * jrxv + dphv * jpxv;
+                    let pvy = vr * jryv;
+                    let pvz = vr * jrzv + dphv * jpzv;
+                    let ilv = render_core::inv_len3(pvx, pvy, pvz);
+                    let xhv = render_core::bl_to_wx(r, sth_abs, cphs, a_spin);
+                    let zhv = render_core::bl_to_wz(r, sth_abs, sphs, a_spin);
+                    let cxv = render_core::cross_x(0.0, zhv, 1.0, 0.0);
+                    let cyv = render_core::cross_y(xhv, zhv, 0.0, 0.0);
+                    let czv = render_core::cross_z(xhv, 0.0, 0.0, 1.0);
+                    let cilv = render_core::inv_len3(cxv, cyv, czv);
+                    let epxv = 0.0 - cxv * cilv;
+                    let epyv = 0.0 - cyv * cilv;
+                    let epzv = 0.0 - czv * cilv;
+                    let n_phi_v = render_core::dot3(pvx * ilv, pvy * ilv, pvz * ilv, epxv, epyv, epzv);
+                    let g_v = render_core::g_factor(r, n_phi_v, a_spin);
+                    let g2v = g_v * g_v;
+                    let g3v = g2v * g_v;
+                    let t_obs = t_em * g_v * (0.86 + 0.28 * dens0);
+                    let er = render_core::bb_ch(t_obs, 0);
+                    let eg = render_core::bb_ch(t_obs, 1);
+                    let eb = render_core::bb_ch(t_obs, 2);
+
+                    let em = params::PT_EMIT * dens * w0s * g3v * ds * trn;
+                    cr = cr + er * em;
+                    cg = cg + eg * em;
+                    cb = cb + eb * em;
+
+                    let sc = params::PT_INSCAT * sig_s * dens * w0s * g3v * ds * trn;
+                    cr = cr + er * sc;
+                    cg = cg + eg * sc;
+                    cb = cb + eb * sc;
+
+                    // 光子环细壳:贴 r_ph 的极薄高亮(同样吃多普勒)
+                    let drp = r - params::R_PHOTON;
+                    let ring_r = 1.0 / (1.0 + drp * drp * params::PHOTON_RING_W);
+                    let ring_h = 1.0 / (1.0 + yy * yy * 90.0);
+                    let ring = params::PHOTON_RING_J * ring_r * ring_h * g3v * ds * trn * (0.5 + dens0);
+                    let t_ring = t_obs * 1.35;
+                    cr = cr + render_core::bb_ch(t_ring, 0) * ring;
+                    cg = cg + render_core::bb_ch(t_ring, 1) * ring;
+                    cb = cb + render_core::bb_ch(t_ring, 2) * ring;
+
+                    let tau = sig_t * ds;
+                    trn = render_core::beer_step(trn, tau);
+
+                    let je_t = params::GLOW_J0 * dens * ds * trn;
+                    glow_e = glow_e + je_t;
+                    glow_rw = glow_rw + je_t * r;
+                }
+            }
+
+            // 盘命中:status=1(捕获)时若本步已跨赤道且 r_x 在盘外仍贡献(前景带)
+            let do_hit = if crossed == 1 && n_hits < params::DISK_MAX_HITS {
+                if status == 0 {
+                    1
+                } else if r_x >= params::R_CAPTURE {
+                    1
+                } else {
+                    0
+                }
+            } else {
+                0
+            };
+            if do_hit == 1 {
+                if r > params::R_FAR {
+                    status = 2;
+                } else if status == 0 && trn <= params::PT_TRN_MIN {
+                    status = 1;
+                }
+                if r_x >= params::DISK_R_MIN && r_x <= params::DISK_R_OUT && trn > params::PT_TRN_MIN {
+                        let ae0 = (params::DISK_R_OUT - r_x) / params::DISK_FADE_OUT;
+                        let a_base = params::DISK_ALPHA * dmath::rx_clamp(ae0, 0.0, 1.0);
+                        // 一次像前景带;二次像=上下弧;三次≈光子环细弧
+                        let hit_w = if n_hits == 0u32 {
+                            1.0
+                        } else if n_hits == 1u32 {
+                            0.42
+                        } else {
+                            0.2
+                        };
+                        let alpha = a_base * hit_w;
+                        let wt = trn * alpha;
+                        trn = trn * (1.0 - alpha);
+                        n_hits = n_hits + 1u32;
+
+                        let cphx = dmath::rx_cos(ph_x);
+                        let sphx = dmath::rx_sin(ph_x);
+                        let xhx = render_core::bl_to_wx(r_x, 1.0, cphx, a_spin);
+                        let xhy = 0.0;
+                        let xhz = render_core::bl_to_wz(r_x, 1.0, sphx, a_spin);
+
+                        // 光子方向(世界)≈ vr Jr + dφ Jφ(赤道)
+                        let sth_x = 1.0;
+                        let jrx2 = render_core::jac_r_x(r_x, sth_x, cphx, a_spin);
+                        let jry2 = render_core::jac_r_y(0.0);
+                        let jrz2 = render_core::jac_r_z(r_x, sth_x, sphx, a_spin);
+                        let jpx2 = render_core::jac_ph_x(r_x, sth_x, sphx, a_spin);
+                        let jpz2 = render_core::jac_ph_z(r_x, sth_x, cphx, a_spin);
+                        let dphx = render_core::kerr_dphi_dtau(r_x, sth_x, lam, a_spin);
+                        let pdx = hit_vr * jrx2 + dphx * jpx2;
+                        let pdy = hit_vr * jry2;
+                        let pdz = hit_vr * jrz2 + dphx * jpz2;
+                        let il2 = render_core::inv_len3(pdx, pdy, pdz);
+                        let pdxn = pdx * il2;
+                        let pdyn = pdy * il2;
+                        let pdzn = pdz * il2;
+
+                        let cx_ = render_core::cross_x(xhy, xhz, 1.0, 0.0);
+                        let cy_ = render_core::cross_y(xhx, xhz, 0.0, 0.0);
+                        let cz_ = render_core::cross_z(xhx, xhy, 0.0, 1.0);
+                        let cil = render_core::inv_len3(cx_, cy_, cz_);
+                        let epx = 0.0 - cx_ * cil;
+                        let epy = 0.0 - cy_ * cil;
+                        let epz = 0.0 - cz_ * cil;
+                        let n_phi = render_core::dot3(pdxn, pdyn, pdzn, epx, epy, epz);
+                        let g = render_core::g_factor(r_x, n_phi, a_spin);
+                        let t_em = render_core::disk_temp(params::DISK_T_IN, r_x, params::DISK_R_IN);
+                        let t_obs = g * t_em;
+                        let w0 = render_core::disk_flux_w(r_x, params::DISK_R_IN);
+                        let w0s = 0.35 * w0 + 0.65 * dmath::rx_sqrt(dmath::rx_max(w0, 0.000001));
+                        let g2 = g * g;
+                        let g3 = g2 * g;
+                        let wgt = params::DISK_EXPOSURE * w0s * g3;
+
+                        let sr_h = dmath::rx_sqrt(r_x);
+                        let om = 1.0 / (r_x * sr_h);
+                        let adv = 0.0 - time * om;
+                        let tw = params::TURB_TWIST * r_x;
+                        let ang = adv + tw;
+                        let ca = dmath::rx_cos(ang);
+                        let sa = dmath::rx_sin(ang);
+                        let xr = xhx * ca - xhz * sa;
+                        let zr = xhx * sa + xhz * ca;
+                        let nfx = xr * params::TURB_FREQ;
+                        let nfz = zr * params::TURB_FREQ * params::TURB_ANISO;
+                        let n0 = render_core::fbm2_soft(nfx * 0.3, nfz * 0.3, params::STAR_SEED ^ 0xa511e9b3u32);
+                        let n0b = render_core::fbm2_soft(nfx * 0.85 + 8.0, nfz * 0.85 - 4.0, params::STAR_SEED ^ 0xb5297a4du32);
+                        let wx = nfx + 3.8 * (n0 - 0.5) + 1.5 * (n0b - 0.5);
+                        let wz = nfz + 3.8 * (n0 - 0.5) - 1.5 * (n0b - 0.5);
+                        let n1 = render_core::fbm2_soft(wx, wz, params::STAR_SEED ^ 0xc2b2ae35u32);
+                        let n1b = render_core::fbm2_soft(wx * 2.7 + 3.1, wz * 2.7 - 1.7, params::STAR_SEED ^ 0x85ebca6bu32);
+                        let n1c = render_core::fbm2(wx * 6.2, wz * 6.2, params::STAR_SEED ^ 0x27d4eb2fu32);
+                        let n1d = render_core::fbm2(wx * 12.5, wz * 12.5, params::STAR_SEED ^ 0x165667b1u32);
+                        let d1m = 0.30 * n1 + 0.28 * n1b + 0.24 * n1c + 0.18 * n1d;
+                        let fil = 1.0 - dmath::rx_abs(2.0 * d1m - 1.0);
+                        let dens = (1.0 - params::TURB_FIL_W) * d1m + params::TURB_FIL_W * fil * fil;
+                        let m1 = 0.08 + params::TURB_AMP * dens * dens * dens;
+                        let turb = m1;
+                        let tf = 0.84 + 0.32 * n1;
+                        // 近光子球命中加亮细环
+                        let drp = r_x - params::R_PHOTON;
+                        let ring_boost = 1.0 + params::PHOTON_RING_HIT * (1.0 / (1.0 + drp * drp * 40.0));
+                        let wgt2 = wgt * turb * wt * ring_boost;
+                        let t_obs2 = t_obs * tf;
+                        cr = cr + render_core::bb_ch(t_obs2, 0) * wgt2;
+                        cg = cg + render_core::bb_ch(t_obs2, 1) * wgt2;
+                        cb = cb + render_core::bb_ch(t_obs2, 2) * wgt2;
+                }
+            } else if status == 0 {
+                if r > params::R_FAR {
+                    status = 2;
+                } else if trn <= params::PT_TRN_MIN {
+                    status = 1;
+                }
+            }
+            q_prev = q_now;
+            step = step + 1u32;
+        }
+        if status == 0 {
+            status = 2;
+        }
+        if status == 2 && glow_e > 0.0000001 {
+            let r_avg = glow_rw / glow_e;
+            let f_av = 1.0 - 2.0 / dmath::rx_max(r_avg, 2.02);
+            let sf_av = dmath::rx_sqrt(dmath::rx_max(f_av, 0.0001));
+            let t_g = render_core::disk_temp(params::DISK_T_IN, r_avg, params::DISK_R_IN);
+            let t_g2 = t_g * sf_av;
+            let gc = params::DISK_EXPOSURE * glow_e;
+            cr = cr + render_core::bb_ch(t_g2, 0) * gc;
+            cg = cg + render_core::bb_ch(t_g2, 1) * gc;
+            cb = cb + render_core::bb_ch(t_g2, 2) * gc;
+        }
+        if status == 2 {
+            let sthf = dmath::rx_sin(th);
+            let cthf = dmath::rx_cos(th);
+            let cphf = dmath::rx_cos(ph);
+            let sphf = dmath::rx_sin(ph);
+            let jrxf = render_core::jac_r_x(r, sthf, cphf, a_spin);
+            let jryf = render_core::jac_r_y(cthf);
+            let jrzf = render_core::jac_r_z(r, sthf, sphf, a_spin);
+            let jtxf = render_core::jac_th_x(r, cthf, cphf, a_spin);
+            let jtyf = render_core::jac_th_y(r, sthf);
+            let jtzf = render_core::jac_th_z(r, cthf, sphf, a_spin);
+            let jpxf = render_core::jac_ph_x(r, sthf, sphf, a_spin);
+            let jpyf = render_core::jac_ph_y();
+            let jpzf = render_core::jac_ph_z(r, sthf, cphf, a_spin);
+            let dphf = render_core::kerr_dphi_dtau(r, sthf, lam, a_spin);
+            let ox0 = vr * jrxf + vth * jtxf + dphf * jpxf;
+            let oy0 = vr * jryf + vth * jtyf + dphf * jpyf;
+            let oz0 = vr * jrzf + vth * jtzf + dphf * jpzf;
+            let ilf = render_core::inv_len3(ox0, oy0, oz0);
+            let ox = ox0 * ilf;
+            let oy = oy0 * ilf;
+            let oz = oz0 * ilf;
+            cr = cr + trn * starfield::star_ch(ox, oy, oz, 0);
+            cg = cg + trn * starfield::star_ch(ox, oy, oz, 1);
+            cb = cb + trn * starfield::star_ch(ox, oy, oz, 2);
+        }
+
+        acc_r = acc_r + cr;
+        acc_g = acc_g + cg;
+        acc_b = acc_b + cb;
+        si = si + 1;
+    }
+    let inv_ns = 1.0 / (nss as f32);
+    bb[pi * 3] = acc_r * inv_ns;
+    bb[pi * 3 + 1] = acc_g * inv_ns;
+    bb[pi * 3 + 2] = acc_b * inv_ns;
+}
+
+// ================= ② bloom pass 1:亮通(软膝)+ 水平 tent 模糊 =================
+// tent 权重 w_i = (R+1−|i|)/(R+1)²(两次可分离 pass 近似高斯;
+// 纯乘加,无 exp 高斯核)。
+pub kernel fn bh_bloom_h(
+    t: ThreadCtx<2>,
+    dst: ViewMut<global, f32>,
+    src: View<global, f32>,
+    w: usize,
+    h: usize,
+    thresh: f32,
+) {
+    let x = t.global_id_x();
+    let y = t.global_id_y();
+    if x >= w || y >= h {
+        return;
+    }
+    let pi = y * w + x;
+    let r_max = params::BLOOM_RADIUS;
+    let wi = w as i32;
+    let xi = x as i32;
+    let mut ar: f32 = 0.0;
+    let mut ag: f32 = 0.0;
+    let mut ab: f32 = 0.0;
+    let mut wsum: f32 = 0.0;
+    let mut i: i32 = 0 - r_max;
+    while i <= r_max {
+        // 边界 clamp 采样(防御)
+        let mut sx2 = xi + i;
+        if sx2 < 0 {
+            sx2 = 0;
+        }
+        if sx2 >= wi {
+            sx2 = wi - 1;
+        }
+        let idx = (y * w + (sx2 as usize)) * 3;
+        let r0 = src[idx];
+        let g0 = src[idx + 1];
+        let b0 = src[idx + 2];
+        let lum = r0 + g0 + b0;
+        let kw = render_core::bright_w(lum, thresh);
+        let ai = if i < 0 {
+            0 - i
+        } else {
+            i
+        };
+        let wt = (r_max + 1 - ai) as f32;
+        let wr = wt * kw;
+        ar = ar + wr * r0;
+        ag = ag + wr * g0;
+        ab = ab + wr * b0;
+        wsum = wsum + wt;
+        i = i + 1;
+    }
+    let inv = 1.0 / wsum;
+    dst[pi * 3] = ar * inv;
+    dst[pi * 3 + 1] = ag * inv;
+    dst[pi * 3 + 2] = ab * inv;
+}
+
+// ================= ③ bloom pass 2:垂直 tent + 合成 + tone_map → 0…255 =================
+pub kernel fn bh_bloom_v(
+    t: ThreadCtx<2>,
+    bb: ViewMut<global, f32>,
+    hdr: View<global, f32>,
+    blur: View<global, f32>,
+    w: usize,
+    h: usize,
+    strength: f32,
+) {
+    let x = t.global_id_x();
+    let y = t.global_id_y();
+    if x >= w || y >= h {
+        return;
+    }
+    let pi = y * w + x;
+    let r_max = params::BLOOM_RADIUS;
+    let hi = h as i32;
+    let yi = y as i32;
+    let mut ar: f32 = 0.0;
+    let mut ag: f32 = 0.0;
+    let mut ab: f32 = 0.0;
+    let mut wsum: f32 = 0.0;
+    let mut i: i32 = 0 - r_max;
+    while i <= r_max {
+        let mut sy2 = yi + i;
+        if sy2 < 0 {
+            sy2 = 0;
+        }
+        if sy2 >= hi {
+            sy2 = hi - 1;
+        }
+        let idx = ((sy2 as usize) * w + x) * 3;
+        let r0 = blur[idx];
+        let g0 = blur[idx + 1];
+        let b0 = blur[idx + 2];
+        let ai = if i < 0 {
+            0 - i
+        } else {
+            i
+        };
+        let wt = (r_max + 1 - ai) as f32;
+        ar = ar + wt * r0;
+        ag = ag + wt * g0;
+        ab = ab + wt * b0;
+        wsum = wsum + wt;
+        i = i + 1;
+    }
+    let inv = 1.0 / wsum;
+    let bl_r = ar * inv * strength * 1.08;
+    let bl_g = ag * inv * strength * 0.95;
+    let bl_b = ab * inv * strength * 0.72;
+    // 合成:HDR 主图 + 强度缩放 bloom(镜头散射;加法混合)
+    let fr0 = hdr[pi * 3] + bl_r;
+    let fg0 = hdr[pi * 3 + 1] + bl_g;
+    let fb0 = hdr[pi * 3 + 2] + bl_b;
+    // 软膝压高光(防内盘吹白成片)
+    // 软膝略减:保留内盘热点与光子环锐度
+    let fr1 = fr0 / (1.0 + 0.08 * fr0);
+    let fg1 = fg0 / (1.0 + 0.08 * fg0);
+    let fb1 = fb0 / (1.0 + 0.08 * fb0);
+    let nx = ((x as f32) * 2.0) / (w as f32) - 1.0;
+    let ny = ((y as f32) * 2.0) / (h as f32) - 1.0;
+    let rr2 = nx * nx + ny * ny;
+    let vd = 1.0 + params::VIG_STR * rr2;
+    let vig = 1.0 / vd;
+    let fr = (fr1 + params::GRADE_LIFT_R) * vig;
+    let fg = (fg1 + params::GRADE_LIFT_G) * vig;
+    let fb = (fb1 + params::GRADE_LIFT_B) * vig;
+    // ACES tone_map → [0,1] → ×255(RXS-0143 blit 像素域)
+    bb[pi * 3] = render_core::tone_map(fr) * 255.0;
+    bb[pi * 3 + 1] = render_core::tone_map(fg) * 255.0;
+    bb[pi * 3 + 2] = render_core::tone_map(fb) * 255.0;
+}

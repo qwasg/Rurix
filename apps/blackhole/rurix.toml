@@ -1,0 +1,6 @@
+# apps/blackhole 应用包清单(RFC-0010 §4.3 应用形态;形态抄 apps/ruridrop/rurix.toml
+# 与 conformance/pkg/rurix.toml:包目录内零 .rs/.cpp/.c/.py,仅 .rx 源 + 本清单)。
+[package]
+name = "blackhole"
+version = "0.1.0"
+build = "declarative"

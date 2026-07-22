@@ -1,0 +1,100 @@
+// apps/blackhole — 缩小透镜环:更贴赤道 + 更小 DISK_R_OUT + 薄二次像。
+// 数值纪律 = + - * /、比较、位运算、rx_sqrt。G=c=M=1。
+
+pub const BH_M: f32 = 1.0;
+pub const BH_A: f32 = 0.998;
+pub const R_HORIZON: f32 = 1.0632139;
+pub const EPS_HOR: f32 = 0.01;
+pub const R_FAR: f32 = 100.0;
+pub const SHADOW_BCRIT: f32 = 4.553777;
+pub const SHADOW_BCRIT_SCH: f32 = 5.1961524;
+pub const R_PHOTON: f32 = 1.0739093;
+
+pub const DISK_R_IN: f32 = 6.0;
+pub const DISK_R_MIN: f32 = 1.2369707;
+// 外半径压小 → 二次像弧角直径明显变小
+pub const DISK_R_OUT: f32 = 12.0;
+pub const DISK_T_IN: f32 = 6800.0;
+pub const DISK_EXPOSURE: f32 = 1.55;
+pub const DISK_ALPHA: f32 = 0.9;
+pub const DISK_FADE_OUT: f32 = 3.5;
+pub const DISK_MAX_HITS: u32 = 3;
+
+pub const GLOW_J0: f32 = 0.025;
+pub const GLOW_H0: f32 = 0.012;
+pub const GLOW_R_IN: f32 = 1.08;
+pub const GLOW_R_PLUNGE: f32 = 1.06;
+
+// 薄盘:前景带约阴影直径的 ~1/3
+pub const PT_H0: f32 = 0.010;
+pub const PT_SIGMA_A: f32 = 0.75;
+pub const PT_SIGMA_S: f32 = 0.22;
+pub const PT_EMIT: f32 = 0.4;
+pub const PT_INSCAT: f32 = 0.22;
+pub const PT_TRN_MIN: f32 = 0.02;
+pub const PT_JITTER: f32 = 0.16;
+
+pub const PHOTON_RING_J: f32 = 10.0;
+pub const PHOTON_RING_W: f32 = 900.0;
+pub const PHOTON_RING_HIT: f32 = 8.0;
+
+// ≈3°贴赤道压扁纵向环高;拉远;略宽FOV
+pub const CAM_R: f32 = 30.0;
+pub const CAM_THETA: f32 = 1.53;
+pub const CAM_PH0: f32 = 3.1415927;
+pub const CAM_DPHI: f32 = 0.005;
+pub const CAM_ROLL: f32 = -0.10;
+pub const CAM_SY0: f32 = 0.02;
+pub const VIEW_SCALE: f32 = 0.46;
+
+pub const REND_W: usize = 2800;
+pub const REND_H: usize = 1080;
+pub const SSAA: usize = 2;
+pub const PREVIEW_MAX_FRAMES: u32 = 0;
+pub const OFFLINE_FRAMES: u32 = 1;
+pub const OFFLINE_SSAA: usize = 3;
+pub const OFFLINE_DPHI: f32 = 0.043633231;
+
+pub const STEP_MINO: f32 = 0.0020;
+pub const TH_POLE_EPS: f32 = 0.065;
+pub const TH_POLE_MAX: f32 = 3.0765927;
+pub const SIN2_POLE_MIN: f32 = 0.004216;
+pub const R_CAPTURE: f32 = 1.073846;
+pub const MAX_STEPS: u32 = 65536;
+
+pub const STAR_SEED: u32 = 0x9E3779B9u32;
+pub const STAR_GRID: f32 = 48.0;
+pub const STAR_OCC: u32 = 20;
+
+pub const SMP_EDGE_LUM: f32 = 28.0;
+pub const SMP_SHADOW_TOL: f32 = 0.08;
+pub const SMP_DOPPLER_RATIO: f32 = 1.15;
+
+pub const FRAME_DT: f32 = 0.45;
+pub const TURB_AMP: f32 = 1.6;
+pub const TURB_FREQ: f32 = 1.25;
+pub const TURB_TWIST: f32 = 1.2;
+pub const TURB_ANISO: f32 = 0.55;
+pub const TURB_RINGS_F: f32 = 1.2;
+pub const TURB_RINGS_A: f32 = 0.0;
+pub const TURB_FIL_W: f32 = 0.5;
+
+pub const BLOOM_THRESH: f32 = 3.2;
+pub const BLOOM_STRENGTH: f32 = 0.5;
+pub const BLOOM_RADIUS: i32 = 10;
+
+pub const GRADE_LIFT_R: f32 = 0.004;
+pub const GRADE_LIFT_G: f32 = 0.005;
+pub const GRADE_LIFT_B: f32 = 0.014;
+pub const VIG_STR: f32 = 1.15;
+
+pub const GAL_TILT_S: f32 = 0.37460659;
+pub const GAL_TILT_C: f32 = 0.92718385;
+pub const GAL_CORE_I: f32 = 0.003;
+pub const GAL_CORE_W: f32 = 0.12;
+pub const GAL_HALO_I: f32 = 0.001;
+pub const GAL_HALO_W: f32 = 0.45;
+pub const GAL_DUST_A: f32 = 0.7;
+pub const GAL_DUST_W: f32 = 0.085;
+pub const GAL_DUST_F: f32 = 4.6;
+pub const GAL_BASE: f32 = 0.0002;

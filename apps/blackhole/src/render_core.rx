@@ -1,0 +1,528 @@
+// blackhole 渲染共享核心(母本 = apps/ruridrop/src/render_core.rx:全部为可双
+// 上下文调用的 plain device fn,标量进标量出——host 与 kernel 两侧逐位同义)。
+// 数值纪律:仅 + - * /、比较、位运算 + dmath::rx_sqrt;乘加显式分步(let 拆分);
+// f32→整数 cast 前一律 rx_clamp;零向量归一化防护(inv_len3 下限防护)。
+// 物理公式出处逐条标注(见各 fn 注释)。
+
+mod dmath;
+
+// ---- 标量向量代数(显式分步累加) ----
+
+pub device fn dot3(ax: f32, ay: f32, az: f32, bx: f32, by: f32, bz: f32) -> f32 {
+    let x = ax * bx;
+    let y = ay * by;
+    let z = az * bz;
+    let s = x + y;
+    s + z
+}
+
+pub device fn len3(x: f32, y: f32, z: f32) -> f32 {
+    dmath::rx_sqrt(dot3(x, y, z, x, y, z))
+}
+
+// 零向量归一化防护:1/|v|,|v| < 1e-12 时按下限计(防御,不产生 NaN/Inf)
+pub device fn inv_len3(x: f32, y: f32, z: f32) -> f32 {
+    let l = len3(x, y, z);
+    let lg = dmath::rx_max(l, 0.000000000001);
+    1.0 / lg
+}
+
+pub device fn min3(a: f32, b: f32, c: f32) -> f32 {
+    dmath::rx_min(dmath::rx_min(a, b), c)
+}
+
+pub device fn lerp(a: f32, b: f32, t: f32) -> f32 {
+    let d = b - a;
+    let m = d * t;
+    a + m
+}
+
+// 叉积单分量(相机基底构造:cross(a, b).x/y/z)
+pub device fn cross_x(ay: f32, az: f32, by: f32, bz: f32) -> f32 {
+    let p = ay * bz;
+    let q = az * by;
+    p - q
+}
+
+pub device fn cross_y(ax: f32, az: f32, bx: f32, bz: f32) -> f32 {
+    let p = az * bx;
+    let q = ax * bz;
+    p - q
+}
+
+pub device fn cross_z(ax: f32, ay: f32, bx: f32, by: f32) -> f32 {
+    let p = ax * by;
+    let q = ay * bx;
+    p - q
+}
+
+// ---- 相机(定参 pinhole;基底向量由入口 host 侧算好经实参下发) ----
+
+// 像素坐标 → 归一化屏幕坐标 × 视场比例(scale 含纵横比与 y 翻转)
+pub device fn screen_coord(p: f32, inv_n: f32, scale: f32) -> f32 {
+    let t = p * inv_n;
+    let c = t * 2.0 - 1.0;
+    c * scale
+}
+
+// 未归一化光线方向分量 = fwd + sx*right + sy*up(逐分量;调用方随后统一归一化)
+pub device fn ray_dir_comp(fwd_c: f32, right_c: f32, up_c: f32, sx: f32, sy: f32) -> f32 {
+    let a = sx * right_c;
+    let b = sy * up_c;
+    let s = fwd_c + a;
+    s + b
+}
+
+// ACES fitted 色调映射 + gamma 2.0(x^0.5 = rx_sqrt)→ [0,1]。
+// ACES 拟合式 = Stephen Hill 2016("ACES filmic tone mapping curve",self-shadow
+// blog;拟合 Academy ACES RRT+ODT 参考):f(x) = x(2.51x+0.03)/(x(2.43x+0.59)+0.14),
+// 纯有理函数(仅 + * /),契合数值纪律;肩部滚降保高光层次(Gargantua 盘内缘
+// 白热点与金色外盘的层次分离依赖肩部,Reinhard 高光压缩过平不满足)。
+pub device fn tone_map(c: f32) -> f32 {
+    let cc = dmath::rx_max(c, 0.0);
+    let n1 = cc * 2.51 + 0.03;
+    let num = cc * n1;
+    let d1 = cc * 2.43 + 0.59;
+    let den = d1 * cc + 0.14;
+    let m = dmath::rx_clamp(num / den, 0.0, 1.0);
+    dmath::rx_sqrt(m)
+}
+
+// 丝状(ridged)fbm:脊线变换 r = 1 − |2n − 1|(纯算术;湍流长丝结构,
+// 剪切流中涡丝被拉成方位向亮纹的观感近似,MRI 湍流可视化
+// Balbus & Hawley 1991, ApJ 376, 214)
+pub device fn fil2(x: f32, y: f32, seed: u32) -> f32 {
+    let n = fbm2(x, y, seed);
+    let a = dmath::rx_abs(2.0 * n - 1.0);
+    let r = 1.0 - a;
+    r * r
+}
+
+// ---- 吸积盘物理(公式出处见各 fn) ----
+
+// 盘有效温度:T(r) = T_IN × (r/r_in)^(−3/4)(Shakura & Sunyaev 1973, A&A 24, 337:
+// 远离内缘 (1−√(r_in/r))→1 的经典幂律)。无 pow 实现:r^(3/4) = √r·√√r
+// (初等代数恒等,报告主题 9b),两次嵌套 rx_sqrt + 一次除法。
+pub device fn disk_temp(t_in: f32, r: f32, r_in: f32) -> f32 {
+    let q = dmath::rx_max(r / r_in, 0.000001);
+    let sq = dmath::rx_sqrt(q);
+    let qq = dmath::rx_sqrt(sq);
+    let den = sq * qq;
+    t_in / den
+}
+
+// 盘 flux 权重 w = (r_in/r)³(Stefan-Boltzmann F ∝ T⁴ 归一化;T ∝ r^(−3/4) →
+// T⁴ ∝ r^(−3),纯乘法;Shakura-Sunyaev 1973)
+pub device fn disk_flux_w(r: f32, r_in: f32) -> f32 {
+    let q = dmath::rx_max(r / r_in, 0.000001);
+    let q2 = q * q;
+    let q3 = q2 * q;
+    1.0 / q3
+}
+
+// Kepler 圆轨道线速度。Kerr 顺行(M=1):v ≈ 1/(√r + a/r)
+// (Ω = 1/(r^{3/2}+a),BPT 1972;a→0 → √(M/r))
+pub device fn kepler_v(r: f32, a: f32) -> f32 {
+    let rg = dmath::rx_max(r, 0.000001);
+    let sr = dmath::rx_sqrt(rg);
+    1.0 / (sr + a / rg)
+}
+
+// 合成红移因子 g(Cunningham 1975;Kerr 顺行薄盘 Novikov–Thorne):
+//  · 圆轨道引力因子 √(1 − 3/r + 2a/r^{3/2})(a→0 → √(1−3/r))
+//  · 多普勒 δ = 1/[γ(1+v·n_φ)],v = kepler_v(r,a)
+// 比强度 I_obs = g³·I_em 由调用方施加。
+pub device fn g_factor(r: f32, n_phi: f32, a: f32) -> f32 {
+    let rg = dmath::rx_max(r, 1.10);
+    let sr = dmath::rx_sqrt(rg);
+    let grav0 = 1.0 - 3.0 / rg + 2.0 * a / (rg * sr);
+    let sf0 = dmath::rx_sqrt(dmath::rx_max(grav0, 0.0001));
+    // ISCO 处 NT→0 会把内盘压黑;地板略降以显 Kerr 内缘
+    let sf = dmath::rx_max(sf0, 0.42);
+    let v = kepler_v(rg, a);
+    let v2 = v * v;
+    let b2 = dmath::rx_min(v2, 0.95);
+    let one = 1.0 - b2;
+    let gam = 1.0 / dmath::rx_sqrt(one);
+    let np = dmath::rx_clamp(n_phi, -1.0, 1.0);
+    let dop = 1.0 + v * np;
+    let den = gam * dmath::rx_max(dop, 0.03);
+    // 极强多普勒:右臂压暗到参考级
+    let delta = dmath::rx_clamp(1.0 / den, 0.22, 2.7);
+    sf * delta
+}
+
+// ---- Kerr Carter / Mino 零测地线(Carter 1968;Mino 2003;M=1) ----
+// 自旋沿世界 +y;BL 极轴 = ŷ;赤道 θ=π/2 ↔ 盘面 y=0。
+pub device fn kerr_delta(r: f32, a: f32) -> f32 {
+    r * r - 2.0 * r + a * a
+}
+pub device fn kerr_sigma(r: f32, cth: f32, a: f32) -> f32 {
+    r * r + a * a * cth * cth
+}
+pub device fn kerr_R(r: f32, lam: f32, eta: f32, a: f32) -> f32 {
+    let rr = r * r;
+    let p = rr + a * a - a * lam;
+    let dlt = kerr_delta(r, a);
+    let k = eta + (lam - a) * (lam - a);
+    p * p - dlt * k
+}
+pub device fn kerr_dRdr(r: f32, lam: f32, eta: f32, a: f32) -> f32 {
+    let rr = r * r;
+    let p = rr + a * a - a * lam;
+    let k = eta + (lam - a) * (lam - a);
+    4.0 * r * p - 2.0 * (r - 1.0) * k
+}
+// sin²θ 下限 = sin²(TH_POLE_EPS)≈0.0072
+pub device fn kerr_Theta(sth: f32, cth: f32, lam: f32, eta: f32, a: f32) -> f32 {
+    let s2 = dmath::rx_max(sth * sth, 0.007189);
+    eta + cth * cth * (a * a - lam * lam / s2)
+}
+pub device fn kerr_dThetadth(sth: f32, cth: f32, lam: f32, a: f32) -> f32 {
+    let s2 = dmath::rx_max(sth * sth, 0.007189);
+    let s3 = s2 * dmath::rx_max(dmath::rx_abs(sth), 0.085);
+    2.0 * cth * (0.0 - a * a * sth + lam * lam / s3)
+}
+pub device fn kerr_dphi_dtau(r: f32, sth: f32, lam: f32, a: f32) -> f32 {
+    let rr = r * r;
+    let p = rr + a * a - a * lam;
+    let dlt = dmath::rx_max(dmath::rx_abs(kerr_delta(r, a)), 0.000001);
+    let s2 = dmath::rx_max(sth * sth, 0.007189);
+    lam / s2 + a * (p / dlt - 1.0)
+}
+pub device fn bl_to_wx(r: f32, sth: f32, cph: f32, a: f32) -> f32 {
+    dmath::rx_sqrt(r * r + a * a) * sth * cph
+}
+pub device fn bl_to_wy(r: f32, cth: f32) -> f32 {
+    r * cth
+}
+pub device fn bl_to_wz(r: f32, sth: f32, sph: f32, a: f32) -> f32 {
+    dmath::rx_sqrt(r * r + a * a) * sth * sph
+}
+pub device fn jac_r_x(r: f32, sth: f32, cph: f32, a: f32) -> f32 {
+    let ra = dmath::rx_sqrt(r * r + a * a);
+    (r / dmath::rx_max(ra, 0.0001)) * sth * cph
+}
+pub device fn jac_r_y(cth: f32) -> f32 { cth }
+pub device fn jac_r_z(r: f32, sth: f32, sph: f32, a: f32) -> f32 {
+    let ra = dmath::rx_sqrt(r * r + a * a);
+    (r / dmath::rx_max(ra, 0.0001)) * sth * sph
+}
+pub device fn jac_th_x(r: f32, cth: f32, cph: f32, a: f32) -> f32 {
+    dmath::rx_sqrt(r * r + a * a) * cth * cph
+}
+pub device fn jac_th_y(r: f32, sth: f32) -> f32 { 0.0 - r * sth }
+pub device fn jac_th_z(r: f32, cth: f32, sph: f32, a: f32) -> f32 {
+    dmath::rx_sqrt(r * r + a * a) * cth * sph
+}
+pub device fn jac_ph_x(r: f32, sth: f32, sph: f32, a: f32) -> f32 {
+    0.0 - dmath::rx_sqrt(r * r + a * a) * sth * sph
+}
+pub device fn jac_ph_y() -> f32 { 0.0 }
+pub device fn jac_ph_z(r: f32, sth: f32, cph: f32, a: f32) -> f32 {
+    dmath::rx_sqrt(r * r + a * a) * sth * cph
+}
+pub device fn kerr_g_tt(r: f32, sig: f32) -> f32 {
+    0.0 - (1.0 - 2.0 * r / dmath::rx_max(sig, 0.0001))
+}
+pub device fn kerr_g_tph(r: f32, sth: f32, sig: f32, a: f32) -> f32 {
+    0.0 - 2.0 * a * r * sth * sth / dmath::rx_max(sig, 0.0001)
+}
+pub device fn kerr_g_rr(sig: f32, dlt: f32) -> f32 {
+    sig / dmath::rx_max(dlt, 0.000001)
+}
+pub device fn kerr_g_phph(r: f32, sth: f32, sig: f32, dlt: f32, a: f32) -> f32 {
+    let rr = r * r;
+    let s2 = sth * sth;
+    let a2 = a * a;
+    let num = (rr + a2) * (rr + a2) - dlt * a2 * s2;
+    num * s2 / dmath::rx_max(sig, 0.0001)
+}
+pub device fn kerr_null_dt(gtt: f32, gtph: f32, c_sp: f32, dph: f32) -> f32 {
+    let b = gtph * dph;
+    let disc0 = b * b - gtt * c_sp;
+    let disc = dmath::rx_sqrt(dmath::rx_max(disc0, 0.0));
+    let ga = dmath::rx_abs(gtt);
+    let gs = if gtt >= 0.0 { ga } else { 0.0 - ga };
+    let gg = if ga < 0.0000001 { -1.0 } else { gs };
+    let dt1 = (0.0 - b + disc) / gg;
+    let dt2 = (0.0 - b - disc) / gg;
+    let e1 = 0.0 - (gtt * dt1 + gtph * dph);
+    let e2 = 0.0 - (gtt * dt2 + gtph * dph);
+    if e1 >= e2 { dt1 } else { dt2 }
+}
+
+// 黑体色温 → 线性 sRGB 查表(分段线性插值;表值编译期写死)。
+// 数据源:Mitchell Charity "What color is a blackbody?"(CIE 1931 2° CMF,CVRL
+// ciexyz31_1)按 Planck 谱功率积分 + XYZ→线性 sRGB 矩阵;无 pow/exp,运行时仅
+// 比较 + 乘加。覆盖 1000K..40000K,域外 rx_clamp。
+pub device fn bb_seg(
+    t0: f32, r0: f32, g0: f32, b0: f32,
+    t1: f32, r1: f32, g1: f32, b1: f32,
+    t: f32, ch: i32,
+) -> f32 {
+    let s = (t - t0) / (t1 - t0);
+    if ch == 0 {
+        let d = r1 - r0;
+        let m = d * s;
+        r0 + m
+    } else if ch == 1 {
+        let d = g1 - g0;
+        let m = d * s;
+        g0 + m
+    } else {
+        let d = b1 - b0;
+        let m = d * s;
+        b0 + m
+    }
+}
+
+// ch: 0=R 1=G 2=B;t 单位 K。行内表值即编译期 LUT(Charity / CIE 1931)。
+pub device fn bb_ch(t: f32, ch: i32) -> f32 {
+    let tc = dmath::rx_clamp(t, 1000.0, 40000.0);
+    if tc < 1200.0 {
+        return bb_seg(1000.0, 1.000000, 0.008606, 0.000000, 1200.0, 1.000000, 0.057533, 0.000000, tc, ch);
+    }
+    if tc < 1400.0 {
+        return bb_seg(1200.0, 1.000000, 0.057533, 0.000000, 1400.0, 1.000000, 0.107766, 0.000000, tc, ch);
+    }
+    if tc < 1600.0 {
+        return bb_seg(1400.0, 1.000000, 0.107766, 0.000000, 1600.0, 1.000000, 0.158157, 0.000000, tc, ch);
+    }
+    if tc < 1800.0 {
+        return bb_seg(1600.0, 1.000000, 0.158157, 0.000000, 1800.0, 1.000000, 0.207964, 0.000000, tc, ch);
+    }
+    if tc < 2000.0 {
+        return bb_seg(1800.0, 1.000000, 0.207964, 0.000000, 2000.0, 1.000000, 0.256704, 0.008104, tc, ch);
+    }
+    if tc < 2200.0 {
+        return bb_seg(2000.0, 1.000000, 0.256704, 0.008104, 2200.0, 1.000000, 0.304063, 0.028223, tc, ch);
+    }
+    if tc < 2400.0 {
+        return bb_seg(2200.0, 1.000000, 0.304063, 0.028223, 2400.0, 1.000000, 0.349845, 0.053249, tc, ch);
+    }
+    if tc < 2600.0 {
+        return bb_seg(2400.0, 1.000000, 0.349845, 0.053249, 2600.0, 1.000000, 0.393931, 0.082807, tc, ch);
+    }
+    if tc < 2800.0 {
+        return bb_seg(2600.0, 1.000000, 0.393931, 0.082807, 2800.0, 1.000000, 0.436261, 0.116447, tc, ch);
+    }
+    if tc < 3000.0 {
+        return bb_seg(2800.0, 1.000000, 0.436261, 0.116447, 3000.0, 1.000000, 0.476810, 0.153685, tc, ch);
+    }
+    if tc < 3200.0 {
+        return bb_seg(3000.0, 1.000000, 0.476810, 0.153685, 3200.0, 1.000000, 0.515584, 0.194031, tc, ch);
+    }
+    if tc < 3400.0 {
+        return bb_seg(3200.0, 1.000000, 0.515584, 0.194031, 3400.0, 1.000000, 0.552606, 0.237009, tc, ch);
+    }
+    if tc < 3600.0 {
+        return bb_seg(3400.0, 1.000000, 0.552606, 0.237009, 3600.0, 1.000000, 0.587913, 0.282167, tc, ch);
+    }
+    if tc < 3800.0 {
+        return bb_seg(3600.0, 1.000000, 0.587913, 0.282167, 3800.0, 1.000000, 0.621553, 0.329084, tc, ch);
+    }
+    if tc < 4000.0 {
+        return bb_seg(3800.0, 1.000000, 0.621553, 0.329084, 4000.0, 1.000000, 0.653579, 0.377375, tc, ch);
+    }
+    if tc < 4200.0 {
+        return bb_seg(4000.0, 1.000000, 0.653579, 0.377375, 4200.0, 1.000000, 0.684051, 0.426691, tc, ch);
+    }
+    if tc < 4400.0 {
+        return bb_seg(4200.0, 1.000000, 0.684051, 0.426691, 4400.0, 1.000000, 0.713030, 0.476719, tc, ch);
+    }
+    if tc < 4600.0 {
+        return bb_seg(4400.0, 1.000000, 0.713030, 0.476719, 4600.0, 1.000000, 0.740578, 0.527178, tc, ch);
+    }
+    if tc < 4800.0 {
+        return bb_seg(4600.0, 1.000000, 0.740578, 0.527178, 4800.0, 1.000000, 0.766761, 0.577825, tc, ch);
+    }
+    if tc < 5000.0 {
+        return bb_seg(4800.0, 1.000000, 0.766761, 0.577825, 5000.0, 1.000000, 0.791640, 0.628445, tc, ch);
+    }
+    if tc < 5200.0 {
+        return bb_seg(5000.0, 1.000000, 0.791640, 0.628445, 5200.0, 1.000000, 0.815280, 0.678850, tc, ch);
+    }
+    if tc < 5400.0 {
+        return bb_seg(5200.0, 1.000000, 0.815280, 0.678850, 5400.0, 1.000000, 0.837743, 0.728882, tc, ch);
+    }
+    if tc < 5600.0 {
+        return bb_seg(5400.0, 1.000000, 0.837743, 0.728882, 5600.0, 1.000000, 0.859088, 0.778405, tc, ch);
+    }
+    if tc < 5800.0 {
+        return bb_seg(5600.0, 1.000000, 0.859088, 0.778405, 5800.0, 1.000000, 0.879375, 0.827304, tc, ch);
+    }
+    if tc < 6000.0 {
+        return bb_seg(5800.0, 1.000000, 0.879375, 0.827304, 6000.0, 1.000000, 0.898660, 0.875483, tc, ch);
+    }
+    if tc < 6500.0 {
+        return bb_seg(6000.0, 1.000000, 0.898660, 0.875483, 6500.0, 1.000000, 0.942837, 0.992311, tc, ch);
+    }
+    if tc < 7000.0 {
+        return bb_seg(6500.0, 1.000000, 0.942837, 0.992311, 7000.0, 0.906326, 0.889892, 1.000000, tc, ch);
+    }
+    if tc < 7500.0 {
+        return bb_seg(7000.0, 0.906326, 0.889892, 1.000000, 7500.0, 0.827672, 0.841281, 1.000000, tc, ch);
+    }
+    if tc < 8000.0 {
+        return bb_seg(7500.0, 0.827672, 0.841281, 1.000000, 8000.0, 0.765254, 0.801345, 1.000000, tc, ch);
+    }
+    if tc < 8500.0 {
+        return bb_seg(8000.0, 0.765254, 0.801345, 1.000000, 8500.0, 0.714749, 0.768033, 1.000000, tc, ch);
+    }
+    if tc < 9000.0 {
+        return bb_seg(8500.0, 0.714749, 0.768033, 1.000000, 9000.0, 0.673202, 0.739880, 1.000000, tc, ch);
+    }
+    if tc < 9500.0 {
+        return bb_seg(9000.0, 0.673202, 0.739880, 1.000000, 9500.0, 0.638533, 0.715819, 1.000000, tc, ch);
+    }
+    if tc < 10000.0 {
+        return bb_seg(9500.0, 0.638533, 0.715819, 1.000000, 10000.0, 0.609242, 0.695050, 1.000000, tc, ch);
+    }
+    if tc < 11000.0 {
+        return bb_seg(10000.0, 0.609242, 0.695050, 1.000000, 11000.0, 0.562641, 0.661096, 1.000000, tc, ch);
+    }
+    if tc < 12000.0 {
+        return bb_seg(11000.0, 0.562641, 0.661096, 1.000000, 12000.0, 0.527408, 0.634602, 1.000000, tc, ch);
+    }
+    if tc < 13000.0 {
+        return bb_seg(12000.0, 0.527408, 0.634602, 1.000000, 13000.0, 0.499966, 0.613422, 1.000000, tc, ch);
+    }
+    if tc < 15000.0 {
+        return bb_seg(13000.0, 0.499966, 0.613422, 1.000000, 15000.0, 0.460236, 0.581824, 1.000000, tc, ch);
+    }
+    if tc < 17000.0 {
+        return bb_seg(15000.0, 0.460236, 0.581824, 1.000000, 17000.0, 0.433051, 0.559502, 1.000000, tc, ch);
+    }
+    if tc < 20000.0 {
+        return bb_seg(17000.0, 0.433051, 0.559502, 1.000000, 20000.0, 0.405495, 0.536229, 1.000000, tc, ch);
+    }
+    if tc < 25000.0 {
+        return bb_seg(20000.0, 0.405495, 0.536229, 1.000000, 25000.0, 0.377799, 0.512124, 1.000000, tc, ch);
+    }
+    if tc < 30000.0 {
+        return bb_seg(25000.0, 0.377799, 0.512124, 1.000000, 30000.0, 0.361243, 0.497347, 1.000000, tc, ch);
+    }
+    if tc < 40000.0 {
+        return bb_seg(30000.0, 0.361243, 0.497347, 1.000000, 40000.0, 0.342510, 0.480274, 1.000000, tc, ch);
+    }
+    bb_seg(30000.0, 0.361243, 0.497347, 1.000000, 40000.0, 0.342510, 0.480274, 1.000000, tc, ch)
+}
+
+// ---- 程序化值噪声(确定性;host/device 双路逐位同义) ----
+// 谱系:Wang hash 整型雪崩(母本 apps/ruridrop/src/rng.rx)+ Perlin 值噪声
+// (Perlin 1985, SIGGRAPH;smootherstep 插值 s(t) = t³(6t²−15t+10),
+// Perlin 2002 "improving noise",纯乘加,无 pow/exp)。
+
+// u32 雪崩混合(wang_hash 同形;wrapping 乘法/位移/异或)
+pub device fn mix32(seed: u32) -> u32 {
+    let mut s = seed;
+    s = (s ^ 61u32) ^ (s >> 16);
+    s = s * 9u32;
+    s = s ^ (s >> 4);
+    s = s * 0x27d4eb2du32;
+    s = s ^ (s >> 15);
+    s
+}
+
+// beer 透射近似:T' = T/(1+τ),无 exp(数值纪律)
+pub device fn beer_step(trn: f32, tau: f32) -> f32 {
+    trn / (1.0 + dmath::rx_max(tau, 0.0))
+}
+
+// 2D 整点哈希 → [0,1](大奇数乘法常数去相关 + 雪崩)
+pub device fn hash2f(ix: i32, iy: i32, seed: u32) -> f32 {
+    let ax = (ix as u32) * 0x8da6b343u32;
+    let ay = (iy as u32) * 0xd8163841u32;
+    let h0 = ax ^ ay;
+    let h1 = h0 ^ seed;
+    let h = mix32(h1);
+    let hm = (h >> 8) & 65535u32;
+    let hf = hm as f32;
+    hf / 65535.0
+}
+
+// 路径追踪用伪随机[0,1](像素+样本)
+pub device fn path_rand(x: i32, y: i32, s: i32, salt: u32) -> f32 {
+    hash2f(x + s * 17, y - s * 13, salt)
+}
+
+// 值噪声单 octave:格点 hash + 双线性 smootherstep 插值(Perlin 2002)
+pub device fn vnoise2(x: f32, y: f32, seed: u32) -> f32 {
+    let fx = dmath::rx_floor(x);
+    let fy = dmath::rx_floor(y);
+    let tx = x - fx;
+    let ty = y - fy;
+    // f32 → i32 cast 前 rx_clamp(域 ≪ 2^21,防御)
+    let cxi = dmath::rx_clamp(fx, -2097152.0, 2097152.0);
+    let cyi = dmath::rx_clamp(fy, -2097152.0, 2097152.0);
+    let ix = cxi as i32;
+    let iy = cyi as i32;
+    // smootherstep s(t) = t³(6t²−15t+10)(零一阶/二阶导,无格痕)
+    let t2x = tx * tx;
+    let t3x = t2x * tx;
+    let p6 = tx * 6.0;
+    let p15 = p6 - 15.0;
+    let px = tx * p15;
+    let p10 = px + 10.0;
+    let sx = t3x * p10;
+    let t2y = ty * ty;
+    let t3y = t2y * ty;
+    let q6 = ty * 6.0;
+    let q15 = q6 - 15.0;
+    let qy = ty * q15;
+    let q10 = qy + 10.0;
+    let sy = t3y * q10;
+    let v00 = hash2f(ix, iy, seed);
+    let v10 = hash2f(ix + 1, iy, seed);
+    let v01 = hash2f(ix, iy + 1, seed);
+    let v11 = hash2f(ix + 1, iy + 1, seed);
+    let a = lerp(v00, v10, sx);
+    let b = lerp(v01, v11, sx);
+    lerp(a, b, sy)
+}
+
+// fbm 3 octaves(幅值 1/2 衰减,频率 ~2 倍,种子异或去相关;和 ∈ [0,1])
+pub device fn fbm2(x: f32, y: f32, seed: u32) -> f32 {
+    let n0 = vnoise2(x, y, seed);
+    let x1 = x * 2.03 + 17.13;
+    let y1 = y * 2.03 + 9.27;
+    let s1 = seed ^ 0x9e3779b9u32;
+    let n1 = vnoise2(x1, y1, s1);
+    let x2 = x * 4.09 + 3.71;
+    let y2 = y * 4.09 + 21.37;
+    let s2 = seed ^ 0x85ebca6bu32;
+    let n2 = vnoise2(x2, y2, s2);
+    let m0 = n0 * 0.5;
+    let m1 = n1 * 0.3;
+    let m2 = n2 * 0.2;
+    let s = m0 + m1;
+    s + m2
+}
+
+// 软 fbm(v13):低频主导的 3 octaves(0.65/0.28/0.07),高频细碎成分大幅压
+// 低 —— 吸积盘湍流云絮为软边大团块(参考图纹理),非硬边细密纹。
+pub device fn fbm2_soft(x: f32, y: f32, seed: u32) -> f32 {
+    let n0 = vnoise2(x, y, seed);
+    let x1 = x * 2.03 + 17.13;
+    let y1 = y * 2.03 + 9.27;
+    let s1 = seed ^ 0x9e3779b9u32;
+    let n1 = vnoise2(x1, y1, s1);
+    let x2 = x * 4.09 + 3.71;
+    let y2 = y * 4.09 + 21.37;
+    let s2 = seed ^ 0x85ebca6bu32;
+    let n2 = vnoise2(x2, y2, s2);
+    let m0 = n0 * 0.65;
+    let m1 = n1 * 0.28;
+    let m2 = n2 * 0.07;
+    let s = m0 + m1;
+    s + m2
+}
+
+// bloom 亮通权重(软膝):w = max(lum − T, 0)/max(lum, ε);作用于整像素 RGB
+// (乘同一权重 → 保色相;HDR 线性域)
+pub device fn bright_w(lum: f32, thresh: f32) -> f32 {
+    let over = dmath::rx_max(lum - thresh, 0.0);
+    let den = dmath::rx_max(lum, 0.0001);
+    over / den
+}

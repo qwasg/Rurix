@@ -1,0 +1,22 @@
+# 本地构建与中间产物
+*.exe
+*.ilk
+*.obj
+*.pdb
+*.ptx
+*.ll
+*.dev.ll
+
+# 渲染输出与迭代取证(体积大,不入库)
+frames/
+iters/
+*.ppm
+*.mp4
+*.pid
+
+# 过程截图/对比图(保留参考图 ref_gargantua.png)
+frame_*.png
+user_fail_crop.png
+
+# 本地备份
+src_v2_backup/
