@@ -982,7 +982,13 @@ fn build_gpu_artifacts(
             );
             return Err(1);
         }
-        Ok(codegen::GpuArtifacts { ptx, cubin })
+        Ok(codegen::GpuArtifacts {
+            ptx,
+            cubin,
+            // artifacts v2(RXS-0291):同一编译单源多入口 SPIR-V 收集(feature
+            // `vulkan-backend` on;off → 恒空,emit v1 blob 逐字节不变)。
+            spirv_modules: collect_spirv_entries(cx),
+        })
     };
     match emit_ptx_and_gate(&ir, stem, &ptx_out) {
         Ok(PtxGate::Ok(ptx)) => {
@@ -1041,6 +1047,69 @@ fn build_gpu_artifacts(
             Err(1)
         }
     }
+}
+
+/// 多入口 SPIR-V 收集(RXS-0291;feature `vulkan-backend` on):driver 侧入口迭代器,
+/// 枚举同一编译单源 device MIR 全部 GPU 入口(compute kernel 与 vertex/fragment 阶段
+/// 着色函数;`device fn` callee 非入口,排除),**逐入口调用与 `--target vulkan` 相同
+/// 的 lowering 入口**(单一事实源:compute → [`crate::vulkan_codegen::lower_compute`];
+/// vertex/fragment → [`crate::dxil_spirv::emit_spirv_body_vulkan`];mesh/task →
+/// RXS-0275 lowering 承接期落地前该阶段入口缺席,同下条 note 口径)。每入口一独立
+/// SPIR-V 模块(无合并、无链接器);入口名 = `Body.symbol`(PTX launch 同名内核标识)。
+/// 逐入口降级失败 → **编译期 note + 该入口缺席于 SPIR-V 表**(PTX 腿不受影响;
+/// 经 Vulkan 通道要求缺席入口 → 运行期确定性 `Err`,RXS-0193 口径)。
+//@ spec: RXS-0291
+#[cfg(feature = "vulkan-backend")]
+fn collect_spirv_entries(cx: &QueryCtx<'_>) -> Vec<codegen::SpirvModule> {
+    use crate::ast::{FnColor, ShaderStage};
+    let bodies = cx.device_mir_crate();
+    if bodies.is_empty() || cx.diag().has_errors() {
+        return Vec::new();
+    }
+    let res = cx.resolutions();
+    let mut out = Vec::new();
+    for b in &bodies {
+        if b.color != FnColor::Kernel {
+            continue;
+        }
+        let name = b.symbol.clone();
+        let lowered = match b.stage {
+            None => crate::vulkan_codegen::lower_compute(b, &res)
+                .map(|words| (codegen::stage_tag(ShaderStage::Compute), words))
+                .map_err(|e| e.detail),
+            Some(stage @ (ShaderStage::Vertex | ShaderStage::Fragment)) => {
+                crate::dxil_spirv::emit_spirv_body_vulkan(stage, b)
+                    .map(|words| (codegen::stage_tag(stage), words))
+                    .map_err(|e| e.to_string())
+            }
+            Some(stage) => {
+                eprintln!(
+                    "rurixc: note: SPIR-V lowering for stage {stage:?} is not yet wired \
+                     (RXS-0275); entry `{name}` omitted from artifacts SPIR-V table (RXS-0291)"
+                );
+                continue;
+            }
+        };
+        match lowered {
+            Ok((stage_tag, words)) => out.push(codegen::SpirvModule {
+                name,
+                stage_tag,
+                bytes: crate::vulkan_codegen::words_to_bytes(&words),
+            }),
+            Err(detail) => eprintln!(
+                "rurixc: note: SPIR-V lowering failed for entry `{name}`: {detail}; \
+                 entry omitted from artifacts SPIR-V table (RXS-0291)"
+            ),
+        }
+    }
+    out
+}
+
+/// feature `vulkan-backend` off:不产 SPIR-V 段(恒空 → v1 blob 逐字节不变,RXS-0290
+/// Legality feature 门控)。
+#[cfg(not(feature = "vulkan-backend"))]
+fn collect_spirv_entries(_cx: &QueryCtx<'_>) -> Vec<codegen::SpirvModule> {
+    Vec::new()
 }
 
 /// rurix_rt_cabi.lib 定位序(RXS-0195,RX7021):env `RURIX_RT_CABI_LIB` →
@@ -1467,4 +1536,118 @@ fn compile_vulkan_target(
         render_diagnostics(&diag.emitted(), sm, diag.messages())
     );
     1
+}
+
+/// 多入口 SPIR-V 收集锚定测试(RXS-0291;feature `vulkan-backend` + `shader-stages`)。
+#[cfg(all(test, feature = "vulkan-backend", feature = "shader-stages"))]
+mod tests {
+    use super::*;
+
+    /// 收集 fixture:两 compute kernel + vertex/fragment 阶段着色函数 → 四入口表;
+    /// 入口名 = device MIR kernel 根 `Body.symbol`(PTX launch 同名标识,单一事实源),
+    /// `stage_tag` 按 `ShaderStage` 声明序(vertex 0 / fragment 1 / compute 2);
+    /// 每入口一独立 SPIR-V 模块(magic 头),无合并无链接器。
+    //@ spec: RXS-0291
+    #[test]
+    fn collect_spirv_entries_multi_entry_table() {
+        let src = r#"
+struct VsOut {
+    #[interpolate(perspective)] uv: f32,
+}
+
+vertex fn vs_main() -> VsOut {
+    VsOut { uv: 0.0 }
+}
+
+fragment fn fs_main(inp: VsOut) -> VsOut {
+    inp
+}
+
+kernel fn k_alpha() {}
+
+kernel fn k_beta(out: ViewMut<global, f32>, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    out[i] = 1.0;
+}
+"#;
+        let diag = DiagCtxt::new();
+        let mut sm = SourceMap::new();
+        let id = sm.add_file("test.rx", src, Edition::Rx0);
+        let cx = QueryCtx::new(src, id, Edition::Rx0, &diag);
+        cx.check_crate();
+        assert!(diag.emitted().is_empty(), "诊断非空: {:?}", diag.emitted());
+
+        let entries = collect_spirv_entries(&cx);
+        assert_eq!(
+            entries.len(),
+            4,
+            "两 kernel + vertex/fragment 四入口: {entries:?}"
+        );
+
+        // 每个入口名须为 device MIR 某 kernel 根的 Body.symbol(rxrt_launch 的
+        // NUL 终止 entry 字符串同源 mangle),且 stage_tag 与阶段一致。
+        let bodies = cx.device_mir_crate();
+        for e in &entries {
+            let root = bodies
+                .iter()
+                .find(|b| b.symbol == e.name && b.color == crate::ast::FnColor::Kernel)
+                .unwrap_or_else(|| panic!("入口名 {} 非 device MIR kernel 根 symbol", e.name));
+            let expect_tag = match root.stage {
+                None => 2, // compute
+                Some(crate::ast::ShaderStage::Vertex) => 0,
+                Some(crate::ast::ShaderStage::Fragment) => 1,
+                Some(other) => panic!("fixture 不应含 {other:?} 阶段"),
+            };
+            assert_eq!(e.stage_tag, expect_tag, "{} stage_tag 错", e.name);
+            // 独立 SPIR-V 模块:小端 magic 0x07230203。
+            assert_eq!(
+                &e.bytes[..4],
+                &[0x03, 0x02, 0x23, 0x07],
+                "{} 缺 SPIR-V magic",
+                e.name
+            );
+        }
+        // 四入口名集合按 mangle 前缀锚(device MIR 按 symbol 排序,收集序确定)。
+        for stem in ["rx_vs_main_", "rx_fs_main_", "rx_k_alpha_", "rx_k_beta_"] {
+            assert!(
+                entries.iter().any(|e| e.name.starts_with(stem)),
+                "缺 {stem}* 入口(got: {:?})",
+                entries.iter().map(|e| &e.name).collect::<Vec<_>>()
+            );
+        }
+    }
+
+    /// 产物模块 spirv-val 三态校验(RXS-0291 IR / RXS-0212 gate 纪律):工具在位 →
+    /// 每入口模块 Accepted(非法即 Rejected 真红);缺工具 → Skipped dev-env degrade
+    /// (非 fake pass)。退出码判定,非 grep。
+    //@ spec: RXS-0291
+    #[test]
+    fn collect_spirv_entries_modules_spirv_val_tristate() {
+        let src = "kernel fn k_solo() {}\n";
+        let diag = DiagCtxt::new();
+        let mut sm = SourceMap::new();
+        let id = sm.add_file("test.rx", src, Edition::Rx0);
+        let cx = QueryCtx::new(src, id, Edition::Rx0, &diag);
+        cx.check_crate();
+        assert!(diag.emitted().is_empty(), "诊断非空: {:?}", diag.emitted());
+        let entries = collect_spirv_entries(&cx);
+        assert_eq!(entries.len(), 1);
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let spv = std::env::temp_dir().join(format!("rurix_rxs0291_{nanos}.spv"));
+        std::fs::write(&spv, &entries[0].bytes).expect("写临时 .spv");
+        let gate = crate::toolchain::spirv_val_gate(&spv);
+        let _ = std::fs::remove_file(&spv);
+        match gate {
+            crate::toolchain::SpirvValGate::Accepted => {}
+            crate::toolchain::SpirvValGate::Skipped => {
+                eprintln!("SKIP: spirv-val 不在位(dev-env degrade,非 fake pass)")
+            }
+            crate::toolchain::SpirvValGate::Rejected(reason) => {
+                panic!("收集产物模块被 spirv-val 拒绝:{reason}")
+            }
+        }
+    }
 }

@@ -265,3 +265,6 @@
 | RXS-0263 | spec/rhi.md | 1 | `src/rurixc/tests/uc05_corpus.rs` |
 | RXS-0264 | spec/rhi.md | 1 | `src/rurixc/tests/uc05_corpus.rs` |
 | RXS-0265 | spec/rhi.md | 1 | `src/rurixc/tests/uc05_corpus.rs` |
+| RXS-0290 | spec/vulkan_backend.md | 2 | `src/rurix-rt-cabi/src/artifacts.rs`, `src/rurixc/src/codegen.rs` |
+| RXS-0291 | spec/vulkan_backend.md | 2 | `src/rurixc/src/codegen.rs`, `src/rurixc/src/driver.rs` |
+| RXS-0292 | spec/vulkan_backend.md | 2 | `src/rurix-rt-cabi/src/artifacts.rs`, `src/rurix-rt/src/fatbin.rs` |

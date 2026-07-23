@@ -290,6 +290,21 @@ pub extern "C" fn rxrt_ctx_create(artifacts: *const u8) -> u64 {
     if let Some((sm, bytes)) = parsed.cubin {
         set = set.with_cubin(sm, bytes);
     }
+    // artifacts v2(RXS-0292):SPIR-V 入口表按名索引填入 DeviceArtifactSet(加性;
+    // v1 解析恒空 → 此臂不触,既有装载面 0-byte;重名等畸形已在 parse 确定性拒)。
+    if !parsed.spirv_entries.is_empty() {
+        let entries = parsed
+            .spirv_entries
+            .into_iter()
+            .map(|e| rurix_rt::fatbin::SpirvEntry::new(e.name, e.stage_tag, e.spv));
+        set = match set.with_spirv_entries(entries) {
+            Ok(set) => set,
+            Err(detail) => {
+                diag(OP, detail);
+                return 0;
+            }
+        };
+    }
     let mut t = lock();
     let h = t.alloc_handle();
     t.ctxs.insert(
@@ -2264,9 +2279,9 @@ DONE:
         assert!(unsafe { artifacts::parse(core::ptr::null()) }.is_err());
 
         let ptx = b".version 8.0\n";
-        // 版本不符(version != 1)。
+        // 版本不符(version 非 1 非 2;version=2 自 RXS-0290 起为合法 v2 分支)。
         let mut blob = artifacts::make_artifacts_blob(ptx, &[], NO_CUBIN_KEY);
-        blob[0] = 2;
+        blob[0] = 3;
         // SAFETY: blob 为 48 字节栈上描述表;版本检查在解引用载荷指针前拒绝。
         assert!(unsafe { artifacts::parse(blob.as_ptr()) }.is_err());
 
