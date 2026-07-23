@@ -225,7 +225,7 @@ MSVC 14.44(cl.exe / link.exe / dumpbin)+ clang 22.1.7(export(c) obj 通道)+ CUD
 
 #### 关键 PR / run 归档
 
-激活 [#180](https://github.com/qwasg/Rurix/pull/180) · RFC-0014 [#181](https://github.com/qwasg/Rurix/pull/181)(Agent Approved + 对抗性评审 disposition)· EI1.2 export(c) [#182](https://github.com/qwasg/Rurix/pull/182)(run [29687949559](https://github.com/qwasg/Rurix/actions/runs/29687949559),步骤 71)· EI1.3 UC-05 RHI+graph [#183](https://github.com/qwasg/Rurix/pull/183)(run [29710566780](https://github.com/qwasg/Rurix/actions/runs/29710566780),步骤 72/73)· EI1.4 引擎嵌入 [#184](https://github.com/qwasg/Rurix/pull/184)(run [29713688567](https://github.com/qwasg/Rurix/actions/runs/29713688567),步骤 74)· EI1.5 + close-out 本 PR(步骤 75 + 三 pass 补齐 + 终审,run URL 合入前 CI 绿后追加于此)。
+激活 [#180](https://github.com/qwasg/Rurix/pull/180) · RFC-0014 [#181](https://github.com/qwasg/Rurix/pull/181)(Agent Approved + 对抗性评审 disposition)· EI1.2 export(c) [#182](https://github.com/qwasg/Rurix/pull/182)(run [29687949559](https://github.com/qwasg/Rurix/actions/runs/29687949559),步骤 71)· EI1.3 UC-05 RHI+graph [#183](https://github.com/qwasg/Rurix/pull/183)(run [29710566780](https://github.com/qwasg/Rurix/actions/runs/29710566780),步骤 72/73)· EI1.4 引擎嵌入 [#184](https://github.com/qwasg/Rurix/pull/184)(run [29713688567](https://github.com/qwasg/Rurix/actions/runs/29713688567),步骤 74)· EI1.5 + close-out PR [#185](https://github.com/qwasg/Rurix/pull/185)(run [29978515280](https://github.com/qwasg/Rurix/actions/runs/29978515280),步骤 71~75 含 device 段全绿 + 三 pass 补齐 + 本终审)。
 
 #### Status flip / 基准切换 / tag
 
