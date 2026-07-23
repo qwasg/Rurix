@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "evidence_level": "measured_local",
+  "timestamp": "2026-07-20T11:23:09+08:00",
+  "bench": {
+    "id": "uc05_check_warm",
+    "budget_entry": "ei1.bench.uc05_check_warm_ms",
+    "package": "apps/uc05-rhi",
+    "emit": "check",
+    "roots": [
+      "apps/uc05-rhi/src/demo.rx"
+    ],
+    "covered_files": [
+      "apps/uc05-rhi/src/demo.rx",
+      "apps/uc05-rhi/src/graph.rx"
+    ],
+    "clause": "RXS-0265"
+  },
+  "uncheckable_roots": [
+    {
+      "file": "apps/uc05-rhi/src/embed.rx",
+      "reason": "`#[export(c)]` cdylib 根,无 host `main`;`--emit=check` 不在 driver.rs `device_emit` 免 main 豁免集内(RXS-0252 导出根免 main 只覆盖 `--emit=dll`) → RX6002。全包冷/热检因此**不覆盖本文件**(诚实缺口,不折算进 trimmed_mean)",
+      "probe": {
+        "command": "rurixc apps/uc05-rhi/src/embed.rx --emit=check",
+        "exit_code": 1,
+        "stderr_first_line": "error[RX6002]: no `main` function found for executable target"
+      }
+    }
+  ],
+  "environment": {
+    "host_kind": "pure_host_compiler_wallclock",
+    "gpu_involved": false,
+    "clock_lock_applicability": "n/a —— 本 bench 零 GPU 参与(`--emit=check` 不 codegen / 不 link / 不建 CUDA Context),BENCH_PROTOCOL §2.1 锁频规程与 unlocked 降级规则对本 bench 不适用;不因此降级 evidence_level,理由如实入档不静默省略",
+    "os": "Windows-11-10.0.28120-SP0",
+    "os_build": "10.0.28120",
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 183 Stepping 1, GenuineIntel",
+    "cpu_count_logical": 20,
+    "python": "3.12.1",
+    "rurixc_profile": "release",
+    "rurixc_path": "target/release/rurixc.exe",
+    "rurixc_sha256": "6296a27f37e18350d31d98ca138192a5489952159a2f33f9953c28fbd4457a40",
+    "rurixc_size_bytes": 2506240,
+    "harness_commit": "9806848d22c25658783998edea421a14350eaf98",
+    "worktree_dirty": true
+  },
+  "sampling": {
+    "trials": 3,
+    "trimmed_pct": 0.2,
+    "timer": "wall_clock_process",
+    "warmup_iters_per_trial": 10,
+    "timed_iters_per_trial": 5,
+    "trial_statistic": "median",
+    "method": "预热后全包重跑(**全量重析,非 LSP 增量** —— RXS-0265 锁:现 tooling session 单文件、无 mod 解析/磁盘加载,无法增量检全包,故不走 didChange → publishDiagnostics 路):每 trial 在仓库原址用同一 rurixc.exe 先跑 10 次预热(BENCH_PROTOCOL §3 warmup ≥10),再跑 5 次计时迭代取**中位数**(§3 trial 内统计 = 中位数)。冷/热差 = 进程启动 + 文件 IO + 镜像装载缓存,**非**编译器内部增量缓存(rurixc 无跨进程增量,07 §9)。"
+  },
+  "results": {
+    "metric": "package_check_warm_wallclock",
+    "unit": "ms",
+    "trimmed_mean": 18.033,
+    "trial_values": [
+      18.955,
+      17.552,
+      17.59
+    ],
+    "min": 17.552,
+    "max": 18.955
+  },
+  "notes": "采纳判据 RXS-0265 阈 5000ms(direction=max)。本组 trimmed_mean 18.033 ms。纯 host 编译器墙钟,零 GPU;evidence 面不进 CI 硬门(计时波动,EA1 冷启动先例)。"
+}

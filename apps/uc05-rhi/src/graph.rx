@@ -1,8 +1,10 @@
 // UC-05 RHI 图核(EI1.4,RFC-0014 §4.B / spec/rhi.md;RXS-0256~0261)。
 //
-// 两 compute pass 的 kernel 与图的闭式参考值集中于此模块,**单一事实源**——in-EXE demo
-// (`demo.rx`)与 export(c) 嵌入面(`embed.rx`)共用同一份 kernel 与同一份参考公式,
-// 二者数值必然同源(engine_host v2 的宿主侧对照因此对照的是同一图,而非另写一份)。
+// compute pass kernel 与图的闭式参考值集中于此模块,**单一事实源**——in-EXE demo
+// (`demo.rx`,**三 pass**:fill → scale → scale,G-EI1-3「≥3 pass」判据)与 export(c) 嵌入面
+// (`embed.rx`,两 pass:fill → scale,G-EI1-4「≥1 pass」判据)共用同一份 kernel;闭式参考
+// 各按图形态取 `uc05_reference3`(三 pass)/ `uc05_reference`(两 pass),数值必然同源
+// (engine_host v2 的宿主侧对照因此对照的是同一组 kernel,而非另写一份)。
 //
 // kernel = 编译期有界简单核(RD-027 毒径规避:无深弹射循环、无递归、无动态分支深度)。
 
@@ -22,8 +24,14 @@ pub kernel fn uc05_scale(t: ThreadCtx<1>, src: View<global, f32>, dst: ViewMut<g
     }
 }
 
-// 图的闭式参考值:sum_{i=0}^{n-1} 2*(i+1) = n*(n+1)。host 侧对照的唯一事实源
-// (demo.rx / embed.rx / engine_host v2 三方同一公式)。
+// 两 pass 图(embed.rx / engine_host v2 嵌入面)的闭式参考值:sum_{i=0}^{n-1} 2*(i+1) = n*(n+1)。
+// host 侧对照的唯一事实源(demo.rx 三 pass 取 `uc05_reference3`)。
 pub fn uc05_reference(n: u32) -> u32 {
     n * (n + 1u32)
+}
+
+// 三 pass 图(demo.rx,G-EI1-3「graph ≥3 pass device 真跑数值对照」判据)的闭式参考值:
+// sum_{i=0}^{n-1} 4*(i+1) = 2*n*(n+1)。demo host 侧对照的唯一事实源。
+pub fn uc05_reference3(n: u32) -> u32 {
+    2u32 * n * (n + 1u32)
 }

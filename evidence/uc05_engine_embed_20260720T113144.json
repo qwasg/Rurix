@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "subject": "uc05_engine_embed",
+  "milestone": "EI1.4 / G-EI1-4 (RFC-0014 §4.A+§4.B; RXS-0250~0255 + RXS-0261)",
+  "step": 74,
+  "host_section_pass": true,
+  "device_section_rc": 0,
+  "checks": {
+    "generated_header_not_handwritten": true,
+    "v1_coexistence": true,
+    "zero_rs_audit": true,
+    "emit_dll_artifacts": true,
+    "header_idempotent": true,
+    "tamper_regen_red": true,
+    "harness_build": true,
+    "embed_numeric_ok": true
+  },
+  "embed_ok": true,
+  "toolchain_skip": null,
+  "dev_env_degrade": false,
+  "run_url": "local",
+  "timestamp": "2026-07-20T11:31:44+08:00",
+  "embed_cases": [
+    "n=256:sum=65792:ref=65792",
+    "n=1024:sum=1049600:ref=1049600"
+  ]
+}

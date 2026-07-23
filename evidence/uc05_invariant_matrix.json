@@ -99,7 +99,7 @@
       "id": "I9",
       "name": "compute pass 数值正确性 (GPU 输出 vs host 参考)",
       "tier": "report_only",
-      "mechanism": "运行期 device 数值对照(本质动态,不可静态全证):EI1.4 起 apps/uc05-rhi demo 两 pass 真派发 → readback 真 D2H → host 侧逐元素求和 vs 闭式参考值精确比对,不等即退非零",
+      "mechanism": "运行期 device 数值对照(本质动态,不可静态全证):EI1.4 起 apps/uc05-rhi demo 三 pass 真派发(G-EI1-3「graph ≥3 pass」判据,close-out 补齐)→ readback 真 D2H → host 侧逐元素求和 vs 闭式参考值精确比对,不等即退非零",
       "clause": "RXS-0263",
       "diagnostic": null,
       "note": "EI1.4 已 device 落地:见证 token UC05_SUM / UC05_REF(demo 内 host 参考闭式算出,同行打印供机核),相等才打 UC05_RHI_OK;ci/uc05_rhi_smoke.py 步骤 72 断言二者相等。**本条仍为 report_only**——数值正确性本质动态(单机单驱动一次观测,非全域证明)。Python 侧 = 无数字定性历史陈述(上一项目代码/交接档不在仓库,非可复跑、零杜撰数字)",
