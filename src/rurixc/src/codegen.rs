@@ -1196,9 +1196,12 @@ fn emit_gpu_artifact_globals_v2(globals: &mut String, gpu: &GpuArtifacts) {
             if i > 0 {
                 rows.push_str(", ");
             }
+            // 数组常量元素须带元素类型(`[<elem-ty> <elem-val>, …]`)——
+            // 裸 `<{ … }>` 会被 clang 拒(expected '}' at end of struct)。
             let _ = write!(
                 rows,
-                "<{{ ptr @__rx_gpu_spirv_name_{i}, i64 {}, i32 {}, i32 0, \
+                "<{{ ptr, i64, i32, i32, ptr, i64 }}> \
+                 <{{ ptr @__rx_gpu_spirv_name_{i}, i64 {}, i32 {}, i32 0, \
                  ptr @__rx_gpu_spirv_{i}, i64 {} }}>",
                 m.name.len(),
                 m.stage_tag,
@@ -1495,13 +1498,74 @@ mod tests {
              @__rx_gpu_spirv_name_1 = private unnamed_addr constant [7 x i8] c\"rx_vs_5\"\n\
              @__rx_gpu_spirv_1 = private unnamed_addr constant [1 x i8] c\"\\AA\"\n\
              @__rx_gpu_spirv_entries = private unnamed_addr constant [2 x <{ ptr, i64, i32, i32, ptr, i64 }>] \
-             [<{ ptr @__rx_gpu_spirv_name_0, i64 6, i32 2, i32 0, ptr @__rx_gpu_spirv_0, i64 4 }>, \
-             <{ ptr @__rx_gpu_spirv_name_1, i64 7, i32 0, i32 0, ptr @__rx_gpu_spirv_1, i64 1 }>]\n\
+             [<{ ptr, i64, i32, i32, ptr, i64 }> <{ ptr @__rx_gpu_spirv_name_0, i64 6, i32 2, i32 0, ptr @__rx_gpu_spirv_0, i64 4 }>, \
+             <{ ptr, i64, i32, i32, ptr, i64 }> <{ ptr @__rx_gpu_spirv_name_1, i64 7, i32 0, i32 0, ptr @__rx_gpu_spirv_1, i64 1 }>]\n\
              @__rx_gpu_artifacts = private unnamed_addr constant \
              <{ i32, i32, ptr, i64, ptr, i64, [8 x i8], i64, ptr }> \
              <{ i32 2, i32 0, ptr @__rx_gpu_ptx, i64 13, ptr @__rx_gpu_cubin_sm89, i64 2, \
              [8 x i8] c\"sm_89\\00\\00\\00\", i64 2, ptr @__rx_gpu_spirv_entries }>\n";
         assert_eq!(globals, expected);
+    }
+
+    /// artifacts v2 发射 IR 的 clang 编译红绿(RXS-0291,反 YAML-only):golden 文本锚
+    /// 不证「clang 接受」——v2 入口表数组元素须带元素类型(裸 `<{…}>` 曾被 clang 拒,
+    /// 本测试把发射产物真喂 clang,并构造裸元素变体断言其必红(红绿闭合)。
+    /// 缺 clang → SKIP(dev-env degrade,不充绿)。
+    //@ spec: RXS-0290, RXS-0291
+    #[cfg(feature = "vulkan-backend")]
+    #[test]
+    fn artifacts_v2_emitted_ir_clang_accepts_and_tamper_rejects() {
+        let gpu = GpuArtifacts {
+            ptx: ".version 8.0\n".to_owned(),
+            cubin: Vec::new(),
+            spirv_modules: vec![
+                SpirvModule {
+                    name: "rx_k_3".to_owned(),
+                    stage_tag: 2,
+                    bytes: vec![0x03, 0x02, 0x23, 0x07],
+                },
+                SpirvModule {
+                    name: "rx_vs_5".to_owned(),
+                    stage_tag: 0,
+                    bytes: vec![0xAA],
+                },
+            ],
+        };
+        let mut globals = String::new();
+        emit_gpu_artifact_globals(&mut globals, Some(&gpu));
+        let Ok(clang) = crate::toolchain::locate_clang() else {
+            eprintln!("SKIP: clang not found (dev-env degrade, not a pass)");
+            return;
+        };
+        let dir = std::env::temp_dir().join(format!("rx_g42_v2_ir_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let compile = |name: &str, body: &str| -> bool {
+            let f = dir.join(name);
+            std::fs::write(&f, body).unwrap();
+            let out = std::process::Command::new(&clang)
+                .args(["-x", "ir", "-c"])
+                .arg(&f)
+                .args(["-o", dir.join(name.replace(".ll", ".o")).to_str().unwrap()])
+                .output()
+                .unwrap();
+            out.status.success()
+        };
+        // GREEN:真发射产物(含 2 入口表 + v2 blob)clang 接受。
+        assert!(
+            compile("v2_green.ll", &globals),
+            "clang 拒收 v2 发射 IR:\n{globals}"
+        );
+        // RED:裸元素变体(剥掉元素类型)必被 clang 拒——证 GREEN 非「全绿橡皮章」。
+        let tampered = globals.replace(
+            "<{ ptr, i64, i32, i32, ptr, i64 }> <{ ptr @__rx_gpu_spirv_name_0,",
+            "<{ ptr @__rx_gpu_spirv_name_0,",
+        );
+        assert_ne!(tampered, globals, "篡改构造未生效");
+        assert!(
+            !compile("v2_red.ll", &tampered),
+            "裸元素变体竟被 clang 接受"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// v2 空表合法(RXS-0290:`spirv_count == 0` → `entries_ptr = null`)+ v2 哨兵
