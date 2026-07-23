@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "subject": "uc05_rhi_smoke",
+  "milestone": "EI1.3 / G-EI1-3 (RFC-0014 Part B; RXS-0256~0265)",
+  "step": 72,
+  "host_section_pass": true,
+  "device_section_rc": 0,
+  "checks": {
+    "corpus_pass": true,
+    "zero_rs_audit": true,
+    "compile_demo": true,
+    "compile_assembly": true,
+    "demo_run_green": true,
+    "demo_numeric": "UC05_SUM=131584 UC05_REF=131584",
+    "assembly_redgreen": true
+  },
+  "toolchain_skip": null,
+  "dev_env_degrade": false,
+  "run_url": "local",
+  "timestamp": "2026-07-23T11:54:55+08:00",
+  "assembly_cases": [
+    "graph_cycle:structure:RED_OK",
+    "graph_empty:structure:RED_OK",
+    "graph_write_write:structure:RED_OK",
+    "pass_undeclared_read:reflection:RED_OK"
+  ]
+}

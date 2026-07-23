@@ -15,11 +15,12 @@
 //   ③ `queue.readback(res, &mut pinned)` 为**真 D2H**——读回点归 `Queue`,即派发之后(执行序由
 //      `submit(self) -> Queue<C>` 的消费式 typestate 强制)。
 //
-// **数值对照(I9)**:两 pass 真算 —— pass1 `fill`:a[i] = i + 1;pass2 `scale`:b[i] = 2*a[i]。
-// readback b 后 host 侧逐元素求和,与闭式参考值 `2 * N*(N+1)/2 = N*(N+1)` 比对。N = 256 →
-// 期望 65792。见证行:
+// **数值对照(I9)**:三 pass 真算(G-EI1-3「graph ≥3 pass device 真跑数值对照」判据)——
+// pass1 `fill`:a[i] = i + 1;pass2 `scale`:b[i] = 2*a[i];pass3 `scale`:c[i] = 2*b[i] = 4*(i+1)。
+// readback c 后 host 侧逐元素求和,与闭式参考值 `4 * N*(N+1)/2 = 2*N*(N+1)` 比对。N = 256 →
+// 期望 131584。见证行:
 //   `UC05_SUM=<device 求和>` / `UC05_REF=<host 参考>`(机器可核 token,供 CI 与 C++ 宿主对照)
-//   `UC05_RHI_OK graph=2pass`(仅在数值精确相等时打印;不等则打印 UC05_MISMATCH 并退 2)
+//   `UC05_RHI_OK graph=3pass`(仅在数值精确相等时打印;不等则打印 UC05_MISMATCH 并退 2)
 //
 // host .rx 无格式化输出:数值行经 CRT `putchar`(extern "C" 字面名链接,RXS-0195;与 println/
 // puts 同一 stdout 缓冲,序保持)逐字符输出(纪律同 apps/ruridrop/src/sim_check.rx)。
@@ -87,22 +88,27 @@ fn main() -> i32 {
 
     let rhi = Rhi::create(&ctx);
 
-    // 声明式 compute-pass 图:两资源 + 两 pass(线性 RAW 建序)。
+    // 声明式 compute-pass 图:三资源 + 三 pass(线性 RAW 建序)。
     let a = rhi.resource(n);
     let b = rhi.resource(n);
+    let c = rhi.resource(n);
 
-    // pass1 写 a(反射集 {a} = 声明集);pass2 读 a 写 b(反射集 {a, b} = 声明集)。
+    // pass1 写 a(反射集 {a} = 声明集);pass2 读 a 写 b(反射集 {a, b} = 声明集);
+    // pass3 读 b 写 c(反射集 {b, c} = 声明集)。
     rhi.pass(graph::uc05_fill, GridDim(1), BlockDim(256), (a, nn)).writes(&a);
     rhi.pass(graph::uc05_scale, GridDim(1), BlockDim(256), (a, b, nn))
         .reads(&a)
         .writes(&b);
+    rhi.pass(graph::uc05_scale, GridDim(1), BlockDim(256), (b, c, nn))
+        .reads(&b)
+        .writes(&c);
 
     // 装配核验(I3/I4/I5 图装配期确定性拦)+ hazard 推导 + 按推导序真派发;1-submit 消费式
     // typestate → Queue。
     let q = rhi.submit();
 
-    // 真 D2H:b → 锁页主机缓冲(b 按值 move-out,资源释放锚,RXS-0259)。
-    q.readback(b, &mut host);
+    // 真 D2H:c → 锁页主机缓冲(c 按值 move-out,资源释放锚,RXS-0259)。
+    q.readback(c, &mut host);
     ctx.sync();
 
     // ---- 数值对照(I9):device 求和 vs host 闭式参考 ----
@@ -110,12 +116,12 @@ fn main() -> i32 {
     let mut i: usize = 0;
     while i < nn {
         let v = host.get(i);
-        // f32 → u32:值域 [2, 512] 精确可表(2*(i+1),i < 256),无舍入歧义。
+        // f32 → u32:值域 [4, 1024] 精确可表(4*(i+1),i < 256),无舍入歧义。
         sum = sum + (v as u32);
         i = i + 1;
     }
-    // 闭式参考:sum_{i=0}^{N-1} 2*(i+1) = N*(N+1);N = 256 → 65792。
-    let reference: u32 = graph::uc05_reference(n);
+    // 闭式参考:sum_{i=0}^{N-1} 4*(i+1) = 2*N*(N+1);N = 256 → 131584。
+    let reference: u32 = graph::uc05_reference3(n);
 
     print_sum_line(sum);
     print_ref_line(reference);
@@ -124,6 +130,6 @@ fn main() -> i32 {
         println("UC05_MISMATCH device sum != host reference");
         return 2;
     }
-    println("UC05_RHI_OK graph=2pass");
+    println("UC05_RHI_OK graph=3pass");
     0
 }
