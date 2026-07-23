@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "namespace": "g4",
+  "description": "G4 预算(14 §3:entries + ratio_assertions + counter_assertions,命名空间强制前缀)。G4 开工契约脚手架:entries/ratio_assertions/counter_assertions 全部留空(延续 G2/MB1/EA1/G3/EI1 脚手架先例 + 零占位纪律,14 §3)。entries/ratio_assertions 留空 = 不预欠 estimated 占位;counter_assertions 留空 = 实体面 Full-RFC-gated(RFC-0015 伞形,开工期 RFC 文件不落),deliverable 形态未定,预造 counter 即预设 Full RFC 应定义的语义。红绿 counter(g4.counter.*)随 G4.2~G4.6 实现 PR 与 ci/budget_eval.py evaluator 分支同落(未知 id 强制 FAIL);g4.bench.*(如 blackhole realtime 帧时)随取证 measured_local 回填。永不立引擎采纳/下载量/用户数类条目(G4_CONTRACT guardrails)。",
+  "source_docs": [
+    "milestones/g4/G4_CONTRACT.md",
+    "milestones/g4/G4_PLAN.md",
+    "milestones/g4/CI_GATES.md"
+  ],
+  "entries": [],
+  "ratio_assertions": [],
+  "counter_assertions": [],
+  "namespace_check": "全部 id 必须 g4. 前缀;跨文件合并冲突即 FAIL(ci/budget_eval.py)",
+  "revision_log": [
+    {
+      "version": "v1.0",
+      "date": "2026-07-23",
+      "change": "G4.0 开工脚手架空壳(三组全空,零 estimated 预欠;G4_CONTRACT §7 ⑤ 编号 claim 与 CI_GATES §2 步骤拟分配随实现 PR 回填)。"
+    }
+  ]
+}
