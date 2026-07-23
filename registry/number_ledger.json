@@ -6,22 +6,22 @@
       "scope": "shared",
       "pattern": "RFC-####",
       "main_fact_source": "rfcs/README.md §5 + rfcs/NNNN-*.md 文件名",
-      "on_tree_max": 12,
-      "next_free": 13,
+      "on_tree_max": 14,
+      "next_free": 15,
       "shadow_reserved": [],
-      "notes": "Full RFC。main 现存 RFC-0001~0012(RFC-0012=EA1 rurixup 分发,Draft 2026-07-16)。GRX 影子分支未消费 Full RFC(rfc_required:none)。下一个可用 RFC-0013。"
+      "notes": "Full RFC。main 现存 RFC-0001~0014(RFC-0013=G3 工业渲染期伞形五章 Agent Approved;RFC-0014=EI1 export(c)+UC-05 RHI 双面 Agent Approved)。GRX 影子分支未消费 Full RFC(rfc_required:none)。下一个可用 RFC-0015。v1.13 校准:此前 next_free 标 13 为滞后(v1.7/v1.12 行『RFC 字段不随行』口径),G4.0 按 rfcs/README §5 实际校准(G4_CONTRACT §7 ②a)。"
     },
     "MR": {
       "scope": "shared",
       "pattern": "MR-####",
       "main_fact_source": "rfcs/README.md §5 + rfcs/mini-NNNN-*.md 文件名",
-      "on_tree_max": 10,
-      "next_free": 11,
+      "on_tree_max": 11,
+      "next_free": 12,
       "shadow_reserved": [
         6,
         7
       ],
-      "notes": "Mini-RFC。main 已用 {1,2,3,4,5,8,9} + 本 MR 落地的 10;{6,7} 由 GRX 影子分支 claim(见 off_tree_workflows[grx]),main 跳号避撞(rfcs/README.md §5 既有注)。MR-0010 = 本 PR(EA1_CONTRACT §7 明记不占用可用)。下一个可用 MR-0011。"
+      "notes": "Mini-RFC。main 已用 {1,2,3,4,5,8,9,10,11}(MR-0011=G3.1 RD-027 处置护栏 RURIXC_PTXAS_OPT,Approved 2026-07-18);{6,7} 由 GRX 影子分支 claim(见 off_tree_workflows[grx]),main 跳号避撞(rfcs/README.md §5 既有注)。下一个可用 MR-0012。v1.13 校准:此前 next_free 标 11 为滞后(MR-0011 已消费),G4.0 按 rfcs/README §5 实际校准(G4_CONTRACT §7 ②b)。"
     },
     "RXS": {
       "scope": "shared",
@@ -29,14 +29,14 @@
       "main_fact_source": "spec/README.md §4 + spec/*.md 的 `### RXS-####` 条款头",
       "guard_spec_heading_scan": true,
       "on_tree_max": 265,
-      "next_free": 266,
+      "next_free": 270,
       "shadow_reserved": [
         181,
         182,
         183,
         184
       ],
-      "notes": "spec 条款号。最高 RXS-0249(G3.6/RFC-0013 §4.E mesh-task-RT 章:shader_stages.md RXS-0242 intersection/callable 阶段全集 / RXS-0243 mesh/task 入口契约〔新码 RX3017〕/ RXS-0244 RT payload/attribute/callable data 契约〔RX3012 扩〕/ RXS-0245 AccelStruct/trace_ray/RT builtins〔RX3013 扩〕;vulkan_backend.md RXS-0246 mesh/task SPIR-V 编码 / RXS-0247 RT 六模型编码 + SPIR-V 1.4 per-entry 分叉;dxil_backend.md RXS-0249 DXIL 腿条件分支 + RX6008 改接。RXS-0248〔vk 运行时 mesh pipeline/AS/SBT/TraceRays〕留后续 PR 未落条款头)。前:RXS-0236~0241 G3.5 render graph(spec/render_graph.md);RXS-0231~0235 G3.4 bindless;RXS-0230 G3.3 vk descriptor;RXS-0223~0229 G3.3 采样超集;RXS-0220~0222 G3.2 present;release.md §2.8 RXS-0214~0219 EA1;vulkan_backend.md RXS-0200~0213 mb1。RXS-0181~0184 由 GRX 影子分支 claim(提交 cc059daa),main 跳号避撞永久 burned(见 known_collisions[shared-namespace-grx]);RXS-0189~0199 由 MS1.2/MS1.2b 承接。RFC-0013 五面 RXS-0220~0249 已全落地(RXS-0248 除外,留 vk 运行时 PR);0250~0269 = EI1 earmark,溢出自 RXS-0270。on_tree_max 校准 241→249(G3.6 落 RXS-0242~0247/0249 消 2c ADVISORY 漂移),下一个可用 RXS-0250(EI1 轨)/RXS-0248(vk 运行时)。"
+      "notes": "spec 条款号。最高 RXS-0249(G3.6/RFC-0013 §4.E mesh-task-RT 章:shader_stages.md RXS-0242 intersection/callable 阶段全集 / RXS-0243 mesh/task 入口契约〔新码 RX3017〕/ RXS-0244 RT payload/attribute/callable data 契约〔RX3012 扩〕/ RXS-0245 AccelStruct/trace_ray/RT builtins〔RX3013 扩〕;vulkan_backend.md RXS-0246 mesh/task SPIR-V 编码 / RXS-0247 RT 六模型编码 + SPIR-V 1.4 per-entry 分叉;dxil_backend.md RXS-0249 DXIL 腿条件分支 + RX6008 改接。RXS-0248〔vk 运行时 mesh pipeline/AS/SBT/TraceRays〕留后续 PR 未落条款头)。前:RXS-0236~0241 G3.5 render graph(spec/render_graph.md);RXS-0231~0235 G3.4 bindless;RXS-0230 G3.3 vk descriptor;RXS-0223~0229 G3.3 采样超集;RXS-0220~0222 G3.2 present;release.md §2.8 RXS-0214~0219 EA1;vulkan_backend.md RXS-0200~0213 mb1。RXS-0181~0184 由 GRX 影子分支 claim(提交 cc059daa),main 跳号避撞永久 burned(见 known_collisions[shared-namespace-grx]);RXS-0189~0199 由 MS1.2/MS1.2b 承接。RFC-0013 五面 RXS-0220~0249 已全落地(RXS-0248 除外,留 vk 运行时 PR);0250~0269 = EI1 earmark,溢出自 RXS-0270。on_tree_max 校准 241→249(G3.6 落 RXS-0242~0247/0249 消 2c ADVISORY 漂移),下一个可用 RXS-0250(EI1 轨)/RXS-0248(vk 运行时)。v1.13 校准(G4.0):EI1 earmark RXS-0250~0269 实消费 0250~0265,余 **RXS-0266~0269 四号作废不回收(burned)**——EI1 close-out §8.1「作废不回收」与「next_free=266 由后续期顺位使用」自相矛盾,按 10 §9.5「编号永不复用」+ burned 字面裁决为**跳号**(owner G4 立项提示词 §3 裁决,G4_CONTRACT §7 ②c):next_free 266→**270**,on_tree_max 265 不变(四号从未 materialize 为条款头);main 侧 burned 记本 notes + revision_log,**不入 shadow_reserved**(该字段专记 off-tree burned,EI1 契约 guardrails 明记)。G4 claim 自 RXS-0270 起(见 reserved_in_flight[G4])。"
     },
     "RD": {
       "scope": "shared",
@@ -76,10 +76,10 @@
       "scope": "shared",
       "pattern": "D-###",
       "main_fact_source": "13_DECISION_LOG.md",
-      "on_tree_max": 407,
-      "next_free": 408,
+      "on_tree_max": 409,
+      "next_free": 410,
       "shadow_reserved": [],
-      "notes": "治理决策编号。main 决策止于 D-407。D-408 已由 milestones/g2/G2_CONTEXT.md 预留为『下一个 00 §6.3 errata 续号』(拟承接 P1-2 owner 保留权白名单,owner 必签)。GRX 私有交付物用 D-GRX 段(见 namespaces.D_GRX),不占共享 D 段。下一个可用 D-408。"
+      "notes": "治理决策编号。main 决策止于 D-409(D-409=RFC 对抗性评审要求,Proposed,13_DECISION_LOG v2.3)。D-408 已由 milestones/g2/G2_CONTEXT.md 预留为『下一个 00 §6.3 errata 续号』(拟承接 P1-2 owner 保留权白名单,owner 必签)。GRX 私有交付物用 D-GRX 段(见 namespaces.D_GRX),不占共享 D 段。下一个可用 D-410。v1.13 校准:此前 on_tree_max 标 407 / next_free 标 408 为滞后(D-409 已消费),G4.0 按 13_DECISION_LOG 实际校准(G4_CONTRACT §7 ②d)。"
     },
     "U": {
       "scope": "shared",
@@ -258,9 +258,29 @@
         "MR": "MR-0012 起按需(MR-0011 = G3 RD-027 护栏已用)",
         "SG": "零消费(UC-05/export(c) 均既登记方向;SG-010 软保留维持)"
       }
+    },
+    {
+      "owner": "G4(引擎渲染期,2026-07-23 开工:EI1 close-out ei1-closed + owner 立项确认经 agent-prompt-g4.md 全文下达;裁决全文 milestones/g4/G4_CONTRACT.md §7)",
+      "source": "milestones/g4/G4_CONTRACT.md §7 ⑤",
+      "claims": {
+        "RFC": "RFC-0015 单号伞形 Full RFC(四章:A 图形 RHI 化 / B RD-035 执行面三项 / C artifacts v2+.rx 单源 Vulkan RHI / D C ABI v2 条件臂;G3 v1.1 单伞形先例;BLACKHOLE 面不占 RFC,零新语义判档 Direct/Mini 执行期定)",
+        "RXS": "RXS-0270 起(预期 0270~0299 切分:0270~0279 图形 RHI 库面 / 0280~0289 RD-035 执行面 / 0290~0294 artifacts v2+Vulkan RHI 通道 / 0295~0299 ABI v2 条件臂,以实现实际为准;**RXS-0266~0269 = EI1 earmark 余号 burned 跳号**,v1.13 校准,溢出自 0300 顺续+校准;开工期零裸条款头,条款体随实现 PR 落)",
+        "CI_step": "步骤 76 起(预期 76 图形 RHI 冒烟 / 77 图形不变量门 / 78 引擎嵌入 v3 / 79 RD-035 执行面门 / 80 Vulkan RHI 通道 / 81 BLACKHOLE realtime;步骤 70 = G3 showcase 永久 gap 维持;数量随实现回填不预占,多余号作废声明 burned)",
+        "RD": "RD-036 起(执行期新 RD;RD-016/028 跳号永不复用;以合入时 deferred.json 实际为准双侧标注)",
+        "U": "U31 起(U29=EA1 预留显式跳让,无论其释放与否不回收)",
+        "RX_error": "codegen 自 RX6034 续号(RX6009 burned 不用,以合入时 error_codes.json 实际为准)/ 3xxx typeck 按合并序 / 工具类自 RX7023;en+zh messages 成对",
+        "MR": "MR-0012 起按需",
+        "SG": "零消费(各面均为既登记 deferred 兑现非扩张方向;SG-010 软保留维持)",
+        "D": "共享 D 段零消费(D-408=P1-2 earmark 不动,D-409 已消费;开工裁决记契约 §7,D-G4-N 仅为交付物编号)"
+      }
     }
   ],
   "revision_log": [
+    {
+      "version": "v1.13",
+      "date": "2026-07-23",
+      "change": "G4.0 治理包校准(chore/g4-scaffold,agent 完全自主 D-406 v2.0;G4_CONTRACT §7 ② 四处滞后消除):① RFC on_tree_max 12→14、next_free 13→15(RFC-0013 G3 伞形 / RFC-0014 EI1 已消费,rfcs/README §5 标 RFC-0015 自由池;此前『字段不随行』口径致滞后,本条起随行);② MR on_tree_max 10→11、next_free 11→12(MR-0011=G3.1 RD-027 护栏已消费);③ **RXS-0266~0269 矛盾裁决**:EI1 close-out §8.1『作废不回收(burned)』与『next_free=266 由后续期顺位使用』自相矛盾——按 10 §9.5 + burned 字面裁决为**跳号**,RXS next_free 266→270(on_tree_max 265 不变,四号从未 materialize 为条款头;owner G4 立项提示词 §3 裁决);main 侧 burned 记 RXS notes + 本条,不入 shadow_reserved(off-tree 专用,EI1 契约 guardrails);④ D on_tree_max 407→409、next_free 408→410(D-409=RFC 对抗性评审要求 Proposed 已被 13_DECISION_LOG v2.3 消费;D-408=P1-2 earmark 维持)。reserved_in_flight 追加 G4 行(claim:RFC-0015 伞形 / RXS-0270 起 / 步骤 76 起 / RD-036 起 / U31 起 / RX6034+RX7023 / MR-0012 按需 / SG·D 零消费)。RD/CI_step/U/SG/RX_error 命名空间字段 0-byte(已核无滞后:CI 步骤 next_free 76 / RD 36 / U 31 / SG-010 软保留 / RX 7023);零新 RXS/RD/SG/error-code/budget counter。"
+    },
     {
       "version": "v1.6",
       "date": "2026-07-19",
