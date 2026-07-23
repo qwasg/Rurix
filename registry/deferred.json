@@ -322,7 +322,7 @@
       "reason": "D-113 锁定 FFI 战略=导出走 `#[export(c)]` + 编译器内建头文件生成(cbindgen 角色内置化,05 §11 / P-11)。当前实现现实:`#[export(c)]` 仅作解析测试桩出现(src/rurixc/src/parser.rs,parsed-but-inert),无 DLL 导出表 codegen、无内建头文件生成(rurixc --emit 无 header/pyd);生产 C ABI 由 src/rurix-interop 以手写 `extern \"C\"` + `#[unsafe(no_mangle)]` 兑现(RXS-0125)。G1.3 首个引擎集成(owner 经 AskUserQuestion 裁 Mini-RFC/MR-0002 复用既有 C ABI)以 `extern \"C\"` C ABI + 与导出 ABI 1:1 的随附头文件即满足 G-G1-3;本期实现 `#[export(c)]` 编译器 codegen 与 G1.3 引擎集成预算不成比例,且触 FFI ABI codegen 面(AGENTS 硬规则 5,可能需 Full RFC)",
       "backfill_condition": "后续里程碑出现『需经 rurixc `#[export(c)]` 自动产 DLL 导出表 + 单一事实源内建头文件生成』的硬需求时接通;届时按 10 §3 判档(FFI ABI codegen 触硬规则 5 则Full RFC,向上取严)。在此之前复用 `extern \"C\"` C ABI(RXS-0125 0-byte)+ 随附 1:1 头文件兑现,头↔ABI 一致性由 spec/engine_integration.md RXS-0149 + CI 步骤 43 host 段守卫(漂移即红)。代码侧无 STUB 标注(为未实现编译器特性而非半成品)",
       "owner_milestone": "EI1",
-      "status": "open",
+      "status": "closed",
       "history": [
         {
           "date": "2026-06-20",
@@ -368,6 +368,11 @@
           "date": "2026-07-19",
           "event": "EI1 激活承接 = 本期兑现对象(维持 open,owner_milestone MS1→EI1;agent 完全自主签署,AGENTS v3.0 硬规则 1;G-EI1-0 激活过门:G3 close-out g3-closed + owner 立项确认 2026-07-19):backfill_condition 首次触发——引擎集成期 UC-05 最小 RHI 的 C ABI 导出面即『需经 rurixc #[export(c)] 自动产 DLL 导出表 + 单一事实源内建头文件生成』的硬需求(.rx 代码今天无任何 DLL 出口——rurixc host 只产 EXE,手写 extern \"C\" 回退仅对 Rust crate 有效)。判档 = Full RFC(RFC-0014 earmark,FFI ABI codegen 触硬规则 5,10 §3 取严;EI1_CONTRACT §7 ④);首切片范围 = 导出表 codegen + 内建头文件生成两面全做(owner 预记录 Q-D 激活复核生效,D-113 完整兑现,RD-009 本期可关)。落地前 RXS-0125 手写 extern \"C\" 语义 0-byte 只增、RXS-0149 头↔ABI 守卫维持全绿;落地时共存判据升级与条款同 PR(手写路冻结覆盖 Rust crate 出口,生成路覆盖 .rx 出口)。EI1.2 落地后 close-out 关闭或收窄余项另立 RD(号按 main 合并序取,双轨纪律不预留)",
           "evidence": "milestones/ei1/EI1_CONTRACT.md §7 v1.1(激活留痕)/ §0 / G3_CONTRACT §8.1(g3-closed)/ registry/number_ledger.json reserved_in_flight[EI1](同 PR 登记)"
+        },
+        {
+          "date": "2026-07-20",
+          "event": "EI1 close-out **关闭**(status open→closed,owner_milestone 维持 EI1;agent 完全自主签署,AGENTS v3.0 硬规则 1):backfill_condition **完整兑现**——EI1.2 落地 `#[export(c)]` 导出表 codegen(属性合法性 + C 兼容签名子集 v1 + 保名不 mangle + `--emit=dll` cdylib 通道,机制 = clang 无 dllexport obj + driver 拼 link.exe `/EXPORT:`)+ **编译器内建头文件生成**(确定性、单一事实源 = typeck 的 C 映射、CI 再生成逐字节比对),D-113 两面全做(Q-D 复核生效),PR #182 / commit 2b4047c1;判档 Full RFC = RFC-0014 Agent Approved 先于实现(PR #181 / commit 1d1ff13b,10 §3 失败测试先行)。**device 真实见证**:CI 步骤 71 本机 RTX 4070 Ti + MSVC 14.44 + clang 22.1.7 `RURIX_REQUIRE_REAL=1` 全绿——`--emit=dll` 产 DLL + import lib + 生成头,dumpbin 4 裸名未 mangle,**C 宿主类型层 ABI 往返真跑**(i64 宽度 / i8·i32 符号扩展 / 裸指针读写),头幂等 byte-eq,5 reject 命中 RX6031/6032/6033。**EI1.4 再扩 GPU-using 导出面**:apps/uc05-rhi/src/embed.rx 单源 → rurix_rhi.dll(链接段含 rurix_rt_cabi + Rust staticlib 系统库固定集)+ 生成头被 C++/D3D12 宿主 engine_host v2 链接,真跑整个 Rurix RHI 两 pass 图并三方数值对照精确相等(步骤 74,PR #184 / commit 9806848d,UC05_EMBED_OK passes=2 cases=2 d3d12=true)。**C 兼容子集 v1 边界不另立 RD**(留档纪律 = 超界出现硬需求时才按 10 §3 判档登记):`repr(C)` struct 按值 / 回调函数指针 / 数组按值 / 切片 + 跨堆资源所有权红线,边界锁维持 spec/export_c.md RXS-0251 Legality + §4 升档留痕 + RFC-0014 §8;**留痕更正**——export_c.md §4 与 RFC-0014 §8 的『RD-035+』系『合入时按 main 序续号、不预留』写法而非号预留,**RD-035 已由本 close-out 的 UC-05 执行面余项占用**,故扩签名 / 跨堆所有权面届时自 **RD-036+** 起。UC-05 RHI 执行面余项(transient 别名复用 + 执行期峰值计数器 / pass 重排并行调度 / RXS-0262 const 泛型定长容量 `.rx` 接线)**不静默**,另立 **RD-035**(open,后续期)",
+          "evidence": "spec/export_c.md RXS-0250~0255(§4 升档 / 禁区留痕)/ rfcs/0014-engine-integration.md §4.A §8 / src/rurixc/src/export_c.rs / registry/error_codes.json RX6031·RX6032·RX6033 / .github/workflows/pr-smoke.yml 步骤 71 + 步骤 74 / milestones/ei1/EI1_CONTRACT.md §8.1 终审表 G-EI1-2·G-EI1-4 / commit 2b4047c1(PR #182)+ 9806848d(PR #184)"
         }
       ]
     },
@@ -955,6 +960,21 @@
           "evidence": "spec/shader_stages.md RXS-0242~0245 / spec/vulkan_backend.md RXS-0246~0248 / spec/dxil_backend.md RXS-0249 / src/rurixc/src/vulkan_codegen.rs(8 阶段 SPIR-V 编码) / src/rurix-rt/src/vk.rs(run_mesh_offscreen/run_ray_tracing_offscreen) / evidence/meshrt_mesh_1784452869.json + meshrt_rt_1784452871.json(stages_ok=4) / evidence/meshrt_bchain_probe_20260719.md"
         }
       ]
+    },
+    {
+      "id": "RD-035",
+      "title": "UC-05 RHI 执行面余项:transient 资源别名复用 + 执行期峰值计数器(I10 完整兑现)/ pass 重排与依赖驱动并行调度 / RXS-0262 const 泛型定长容量 `.rx` 编译期拒",
+      "reason": "EI1.3/EI1.4 的诚实标注三项,均为「机制未实现」而非「半成品」,close-out 不静默(硬规则 3):① **I10 平凡成立**——EI1.4 起每个 transient `Res` 为一笔真设备分配、生命期 = 整个图生命期(rhi_destroy 连带释放),故执行期实际并发存活峰值**恒等于**声明容量,「峰值 ≤ 声明容量」平凡成立而**非因 aliasing/复用而收紧**;transient 资源别名复用(令峰值真严格小于声明容量)与**执行期峰值计数器**均未实现,I10 维持 report_only(evidence/uc05_invariant_matrix.json I10 note 已如实标注)。② **无重排无并行**——`RhiGraph` 声明序 = 执行序,`derive_syncs()` 只在既有执行序上插同步点(`PlannedSync`),不做 pass 重排、不做依赖驱动的并行调度(与 G3.5 render graph 侧同名收窄 RD-034+ 家族同源但对象不同:此处为 UC-05 RHI 库面)。③ **容量以 `Vec` 承载非 const 泛型**——spec/rhi.md RXS-0262 Legality 的「const 泛型定长数组 + 声明资源数超容量编译期拒」为 RD-026 无堆对策的**目标形态**,现 host 记账在 src/rurix-rt/src/rhi.rs 以 `Vec` 承载(runtime-bounded),`.rx` 侧 const 泛型定长容量与编译期越界拒**未接线**;EI1.3 已如实不锚不存在的 reject 语料(不伪造 conformance 条目)。",
+      "backfill_condition": "后续 GPU / 引擎里程碑出现下列硬需求之一时兑现,按 10 §3 判档(预期 Mini-RFC 或随承接期伞形 Full RFC 一章;库面扩展不触硬规则 5 则不强制 Full RFC):① **图内显存复用**成为真实约束(transient 资源集规模或单资源体量令「每 Res 一笔真分配、活满图生命期」不可接受)→ 落别名/复用分配器 + **执行期峰值计数器** device 采集,I10 自 report_only 升为 measured 收紧判据(峰值 < 声明容量可见证);② **并行调度**成为真实约束(独立 pass 需跨 queue / 跨 stream 重叠以达吞吐目标)→ 落依赖驱动重排 + 并行调度,并同步扩不变量矩阵(重排后 happens-before 正确性须新增确定性拦截项);③ `.rx` 侧 **const 泛型定长容量**接线可行(const 泛型实参在 `.rx` RHI 面可用,参见 RD-007 turbofish const 实参面)→ RXS-0262 Legality 的编译期越界拒落地 + 补 conformance/uc05 reject 语料。三项彼此独立,可分批兑现分批留痕;未兑现前 evidence/uc05_invariant_matrix.json 的 I10 note 与 spec/rhi.md RXS-0262「诚实收窄」段维持字面有效,**不得改写为已兑现**。",
+      "owner_milestone": "TBD(后续期)",
+      "status": "open",
+      "history": [
+        {
+          "date": "2026-07-20",
+          "event": "EI1 close-out 执行期登记(open,首条;agent 完全自主签署,AGENTS v3.0 硬规则 1):EI1 期**诚实非交付集**结构化落档——UC-05 RHI 执行面三项余项(transient 别名复用 + 执行期峰值计数器 / pass 重排与依赖驱动并行调度 / RXS-0262 const 泛型定长容量 `.rx` 编译期拒)在 EI1.3/EI1.4 已于 spec 条款与不变量矩阵内如实标注,本条把三项自「散落文字标注」升为**可机核的 deferred 登记**,防静默腐烂(对齐 RD-034 / RD-027 诚实尾门纪律)。**不 force-close、不伪造兑现**:I1~I8 的 100% 确定性拦截判据(G-EI1-3)与 I9 的 device 数值对照(G-EI1-4/步骤 72·74)不受本条牵连——本条只承接 I10 的**收紧面**与调度/容量两项机制面。owner_milestone 记 **TBD(后续期)**:EI1 为本期最后一段,后续期未立项,承接里程碑届时立项时顺延(对齐 RD-025 曾记 post-V1 先例)。号自 **RD-035** 起(RD-033 = EA1 reserved 未 materialize 跳号维持;RD-016/028 永不复用;number_ledger RD on_tree_max 34→35 / next_free 35→36 随本 PR 校准)。**RD-036 不立**(EI1 期无第二独立缺口:export(c) 子集 v1 边界属留档不登面,见 RD-009 close 留痕)。",
+          "evidence": "evidence/uc05_invariant_matrix.json(I10 note 诚实标注 + tiers.report_only)/ evidence/uc05_comparison_report.md §2 §3 / spec/rhi.md RXS-0262「诚实收窄(EI1.3 落地口径)」+ RXS-0263 / src/rurix-rt/src/rhi.rs(`RhiGraph` resources: Vec / derive_syncs 声明序插同步点不重排)/ milestones/ei1/EI1_CONTRACT.md §8.1 终审表 G-EI1-3·G-EI1-5 + §8.4 / registry/number_ledger.json v1.12"
+        }
+      ]
     }
   ],
   "revision_log": [
@@ -1293,6 +1313,11 @@
       "version": "v1.65",
       "date": "2026-07-19",
       "change": "EI1 激活承接留痕(EI1 激活小 PR;只追加 RD-009 history 行 + owner_milestone MS1→EI1 承接翻转 + revision_log v1.65,既有 entries 其余字段/既有 history 行/既有 revision_log v1.0~v1.64 行 0-byte;agent 完全自主签署,AGENTS v3.0 硬规则 1):RD-009 = EI1 兑现对象(#[export(c)] DLL 导出表 codegen + 内建头文件生成两面全做,D-113 完整兑现,Q-D 复核生效;判档 Full RFC = RFC-0014 earmark,EI1.1 起草→对抗性评审→Approved 先于实现)。UC-05 最小 RHI 同期承接(EA1_CONTRACT out_of_scope uc05_minimal_rhi 显式留下期项兑现,无 RD 维持不登)。零新 RD(执行期按 main 合并序自 RD-035 起);零新条款号(RXS-0250 段随实现 PR 落)。承 milestones/ei1/ 契约 §7 v1.1 激活留痕 + G-EI1-0 过门(G3 close-out + owner 立项确认 2026-07-19)。"
+    },
+    {
+      "version": "v1.66",
+      "date": "2026-07-20",
+      "change": "EI1 整体 close-out RD 处置(EI1.5 close-out PR;只追加 RD-009 history 行 + RD-009 status open→closed + 新增 RD-035 entry + revision_log v1.66,既有 entries 其余字段 / 既有 history 行 / 既有 revision_log v1.0~v1.65 行 0-byte;agent 完全自主签署,AGENTS v3.0 硬规则 1):**RD-009 closed**——`#[export(c)]` 导出表 codegen + 编译器内建头文件生成两面由 EI1.2 完整兑现(D-113,PR #182 / 2b4047c1),CI 步骤 71 本机 RTX 4070 Ti + MSVC `RURIX_REQUIRE_REAL=1` 类型层 ABI 往返真跑绿,EI1.4 再扩 GPU-using 导出面(步骤 74,PR #184 / 9806848d);C 兼容签名子集 v1 边界(struct 按值 / 回调指针 / 数组按值 / 切片 + 跨堆所有权)按 spec/export_c.md RXS-0251 §4 + RFC-0014 §8 **留档不另立 RD**(超界时才登)。**新登 RD-035 open**(EI1 诚实非交付集,不静默):UC-05 RHI 执行面三项余项 = transient 别名复用 + 执行期峰值计数器(I10 完整兑现)/ pass 重排与依赖驱动并行调度 / RXS-0262 const 泛型定长容量 `.rx` 编译期拒;owner_milestone **TBD(后续期)**,backfill 三条件独立可分批。**RD-036 不立**(无第二独立缺口)。**留痕更正**:export_c.md §4 / RFC-0014 §8 的『RD-035+』为合入时续号写法非号预留,RD-035 既由本条占用,扩签名面届时自 RD-036+ 起。RD-033 = EA1 reserved 未 materialize 跳号维持;RD-016/028 永不复用。其余 open 尾门(RD-027 / RD-034 / RD-012 RT 分量 / RD-007 / RD-025 / RD-026 / RD-030 / RD-031 / RD-032 等)本期未触发接通点,**维持原状态与原 owner_milestone 不动**(EI1 未涉其面,不代管不 force-close)。number_ledger RD on_tree_max 34→35 / next_free 35→36 随本 PR 校准。详见 milestones/ei1/EI1_CONTRACT.md §8"
     }
   ]
 }

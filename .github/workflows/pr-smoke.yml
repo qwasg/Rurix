@@ -682,6 +682,21 @@ jobs:
         shell: powershell
         run: py -3 ci/uc05_engine_embed_smoke.py
 
+      # 步骤 75（G-EI1-5,RXS-0263/0264/0265）:UC-05 对照报告一致性核(**纯 host 恒跑,零 GPU/工具链/网络**;
+      # check_* 守卫风格——不分配错误码、不写 evidence、**不写 budget counter**)。`ci/uc05_report_check.py`
+      # 与步骤 73(拦截面)分工不重叠,专注**报告面**:① evidence/uc05_invariant_matrix.json 经
+      # milestones/ei1/uc05_invariant_matrix_schema.json JSON Schema 校验;② 三方一致性 —— 矩阵 corpus ↔
+      # conformance/uc05/{reject,assembly} 磁盘语料集**双向**互查(悬空 / 漏登各自判红,文档化例外须显式登记,
+      # 新增语料默认红 fail-closed)+ evidence/uc05_comparison_report.md §3 表 I 集合与矩阵**全等**且逐条
+      # 条款 / 档位一致;③ documented_historical 分级**字面核** —— 报告顶部标注在位 + I9/I10 对照侧陈述段
+      # **零无 in-repo 出处数字字面**(剥离条款号/错误码/不变量号等可机核标识符后仍剩数字即红;schema 层
+      # by-construction 封 number 类型字段,本门补字面窗口);④ RXS-0265 采纳判据 —— 报告 §5 bench 数字必须
+      # **逐位等于** evidence results.trimmed_mean,且 evidence 的 uncheckable_roots 诚实缺口披露须同步出现
+      # 在叙事面(禁「机器档承认、叙事面隐去」)。内建 red_self_test(对真实数据施四类篡改逐类判红,零仓库改动)。
+      - name: UC-05 comparison report check (EI1 CI_GATES §2.75, G-EI1-5, RXS-0263/0264/0265)
+        shell: powershell
+        run: py -3 ci/uc05_report_check.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

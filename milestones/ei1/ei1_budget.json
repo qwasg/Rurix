@@ -9,7 +9,28 @@
     "milestones/g3/G3_CONTRACT.md(§7 ④ EI1 gated 依据 + §7 v1.1 编号 earmark)",
     "milestones/m0/BENCH_PROTOCOL.md"
   ],
-  "entries": [],
+  "entries": [
+    {
+      "id": "ei1.bench.uc05_check_cold_ms",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 5000,
+      "evidence_file": "evidence/uc05_check_cold_20260720.json",
+      "measured_value": 107.468
+    },
+    {
+      "id": "ei1.bench.uc05_check_warm_ms",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 5000,
+      "evidence_file": "evidence/uc05_check_warm_20260720.json",
+      "measured_value": 18.033
+    }
+  ],
   "ratio_assertions": [],
   "counter_assertions": [
     {
@@ -30,6 +51,11 @@
     "unit_test_required": true
   },
   "revision_log": [
+    {
+      "version": "v1.4",
+      "date": "2026-07-20",
+      "change": "EI1.5 采纳判据 bench 双口径 measured_local 回填(契约 G-EI1-5;RFC-0014 §4.B7 / RXS-0265):entries 自空态落两条 —— ei1.bench.uc05_check_cold_ms(**107.468 ms** vs max 5000,trials 98.213 / 85.543 / 138.649)+ ei1.bench.uc05_check_warm_ms(**18.033 ms** vs max 5000,trials 18.955 / 17.552 / 17.590),均 measured_local 真跑(ci/uc05_check_bench.py,evidence/uc05_check_{cold,warm}_20260720.json,schema milestones/ei1/uc05_check_bench_evidence_schema.json 入 ci/check_schemas.py dispatch)。**零新 evaluator 分支** —— 证据形态取 BENCH_PROTOCOL `results.trimmed_mean`,由 ci/budget_eval.py **既有 eval_entry 通用路**判读(对比 M6.5 eval_lsp_latency / EA1 eval_cold_start 需专属分支的先例,本组不需)。口径:cold = 全新进程 + exe 与包源各拷全新临时路径的全包 `--emit=check`(零预热,含磁盘 mod 解析),单 trial 一次计时;warm = 预热后全包重跑(**全量重析、非 LSP 增量**,RXS-0265 锁 + RFC-0014 §9.1 I-EI1-IMPL-04 disposition;每 trial warmup 10 次后 5 次计时取中位数);跨 3 次进程级独立 trial 取 trimmed mean(0.2),BENCH_PROTOCOL §3 三次运行规则。纯 host 编译器墙钟、**零 GPU**,§2.1 锁频规程与 unlocked 降级规则不适用(理由 required 落 evidence environment.clock_lock_applicability,不静默省略)。**诚实缺口如实入档**:apps/uc05-rhi/src/embed.rx 为 `#[export(c)]` cdylib 根无 main,`--emit=check` 不在 driver.rs device_emit 免 main 豁免集内(RXS-0252 只覆盖 --emit=dll)→ 实测 RX6002,故「全包 check」实测覆盖 demo.rx + graph.rx 不覆盖 embed.rx;该披露经 schema required 字段 uncheckable_roots(含真实探测 exit_code/stderr 首行)+ 步骤 75 ci/uc05_report_check.py 强制同步进 evidence/uc05_comparison_report.md §5。evidence 面**不进 CI 硬门**(计时波动,EA1 冷启动先例)但 budget_eval 恒判读。counter_assertions 三条 0-byte;零 estimated 铁律维持。"
+    },
     {
       "version": "v1.3",
       "date": "2026-07-20",

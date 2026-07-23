@@ -1,0 +1,136 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rurix://schemas/evidence/uc05_check_bench/v1",
+  "title": "UC-05 全包 --emit=check 双口径采纳判据证据 JSON(EI1.5,RXS-0265;G-EI1-5)",
+  "description": "ci/uc05_check_bench.py 产出(cold / warm 两口径)。与 m0 evidence_schema 的差异如实声明:本 bench 为**纯 host 编译器端到端墙钟**(timer=wall_clock_process),**零 GPU 参与**——无 CUDA Event 内层 50×3 协议、无 L2 清缓存、无锁频;BENCH_PROTOCOL §2.1 锁频规程与 unlocked 降级规则对本 bench **不适用**,理由必须落 environment.clock_lock_applicability(required,不得静默省略)。BENCH_PROTOCOL §3 三次运行规则维持:results.trimmed_mean = 三次进程级独立 trial 值的 trimmed mean(0.2),任一 trial 非 measured_local 整组作废。**RXS-0265 redline:诚实缺口 by-construction 强制披露** —— `uncheckable_roots` 为 required 且每项须带**真实探测**结果(probe.exit_code + probe.stderr_first_line,机器事实非人工断言),封死「把不可 check 的包成员静默排除在『全包』口径外」的窗口。warm 口径**不是 LSP 增量**(RFC-0014 §9.1 I-EI1-IMPL-04 disposition):sampling.method 必须写明全量重析口径。results.trimmed_mean 由 milestones/ei1/ei1_budget.json entries 经 ci/budget_eval.py **既有 eval_entry 通用路**判读(direction=max,阈 5000ms),零新 evaluator 分支。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "evidence_level",
+    "timestamp",
+    "bench",
+    "uncheckable_roots",
+    "environment",
+    "sampling",
+    "results"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "evidence_level": {
+      "description": "三级证据(14 §5)。本 bench 零 GPU,unlocked 档不适用(见 environment.clock_lock_applicability),但枚举保持同源同构。",
+      "enum": ["measured_local", "unlocked", "estimated"]
+    },
+    "timestamp": { "type": "string" },
+    "bench": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "budget_entry", "package", "emit", "roots", "covered_files", "clause"],
+      "properties": {
+        "id": { "enum": ["uc05_check_cold", "uc05_check_warm"] },
+        "budget_entry": {
+          "enum": ["ei1.bench.uc05_check_cold_ms", "ei1.bench.uc05_check_warm_ms"]
+        },
+        "package": { "const": "apps/uc05-rhi" },
+        "emit": { "const": "check" },
+        "roots": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "covered_files": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "clause": { "type": "string", "pattern": "^RXS-\\d{4}$" }
+      }
+    },
+    "uncheckable_roots": {
+      "description": "RXS-0265 诚实缺口披露(required,可为空数组但字段不得缺):包内**无法**经 `--emit=check` 覆盖的 .rx 成员,逐条须带真实探测结果。",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "reason", "probe"],
+        "properties": {
+          "file": { "type": "string" },
+          "reason": { "type": "string", "minLength": 1 },
+          "probe": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["command", "exit_code", "stderr_first_line"],
+            "properties": {
+              "command": { "type": "string" },
+              "exit_code": { "type": "integer" },
+              "stderr_first_line": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host_kind",
+        "gpu_involved",
+        "clock_lock_applicability",
+        "os",
+        "machine",
+        "processor",
+        "cpu_count_logical",
+        "rurixc_profile",
+        "rurixc_sha256",
+        "harness_commit"
+      ],
+      "properties": {
+        "host_kind": { "const": "pure_host_compiler_wallclock" },
+        "gpu_involved": { "const": false },
+        "clock_lock_applicability": { "type": "string", "minLength": 1 },
+        "os": { "type": "string" },
+        "os_build": { "type": "string" },
+        "machine": { "type": "string" },
+        "processor": { "type": "string" },
+        "cpu_count_logical": { "type": "integer", "minimum": 1 },
+        "python": { "type": "string" },
+        "rurixc_profile": { "enum": ["release", "debug"] },
+        "rurixc_path": { "type": "string" },
+        "rurixc_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "rurixc_size_bytes": { "type": "integer" },
+        "harness_commit": { "type": "string" },
+        "worktree_dirty": { "type": "boolean" }
+      }
+    },
+    "sampling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trials",
+        "trimmed_pct",
+        "timer",
+        "warmup_iters_per_trial",
+        "timed_iters_per_trial",
+        "trial_statistic",
+        "method"
+      ],
+      "properties": {
+        "trials": { "type": "integer", "minimum": 3 },
+        "trimmed_pct": { "type": "number" },
+        "timer": { "const": "wall_clock_process" },
+        "warmup_iters_per_trial": { "type": "integer", "minimum": 0 },
+        "timed_iters_per_trial": { "type": "integer", "minimum": 1 },
+        "trial_statistic": { "enum": ["single_measurement", "median"] },
+        "method": { "type": "string", "minLength": 1 }
+      }
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric", "unit", "trimmed_mean", "trial_values"],
+      "properties": {
+        "metric": {
+          "enum": ["package_check_cold_wallclock", "package_check_warm_wallclock"]
+        },
+        "unit": { "const": "ms" },
+        "trimmed_mean": { "type": "number" },
+        "trial_values": { "type": "array", "minItems": 3, "items": { "type": "number" } },
+        "min": { "type": "number" },
+        "max": { "type": "number" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

@@ -226,6 +226,9 @@ def check_evidence_files() -> None:
     meshrt_stages_schema = load(
         ROOT / "milestones/g3/meshrt_stages_evidence_schema.json"
     )
+    uc05_check_bench_schema = load(
+        ROOT / "milestones/ei1/uc05_check_bench_evidence_schema.json"
+    )
     export_c_smoke_schema = load(
         ROOT / "milestones/ei1/export_c_smoke_evidence_schema.json"
     )
@@ -370,6 +373,9 @@ def check_evidence_files() -> None:
     )
     uc05_engine_embed_validator = (
         jsonschema.Draft7Validator(uc05_engine_embed_schema) if uc05_engine_embed_schema else None
+    )
+    uc05_check_bench_validator = (
+        jsonschema.Draft7Validator(uc05_check_bench_schema) if uc05_check_bench_schema else None
     )
     bindless_smoke_validator = (
         jsonschema.Draft7Validator(bindless_smoke_schema)
@@ -672,6 +678,22 @@ def check_evidence_files() -> None:
             # 对照,SKIP=dev-env-degrade,REQUIRE_REAL 翻硬红)。embed_ok=true 计入
             # ei1.counter.uc05_engine_embed(ci/budget_eval.py,计数源 = 本证据族)。
             validator = uc05_engine_embed_validator
+        elif (
+            f.name.startswith("uc05_check_")
+            and uc05_check_bench_validator is not None
+        ):
+            # EI1.5 UC-05 全包 `--emit=check` 双口径采纳判据证据(G-EI1-5;RFC-0014 §4.B7 /
+            # RXS-0265)→ milestones/ei1/uc05_check_bench_evidence_schema.json
+            # (ci/uc05_check_bench.py 操作者工具写,**不进 CI 硬门** —— 计时波动,EA1 冷启动
+            # 先例,SKIP 不充绿)。纯 host 编译器墙钟零 GPU:BENCH_PROTOCOL §2.1 锁频规程不适用,
+            # 理由 required 落 environment.clock_lock_applicability;三次进程级独立 trial →
+            # results.trimmed_mean 由 ei1_budget.json entries 经 ci/budget_eval.py **既有
+            # eval_entry 通用路**判读(direction=max,阈 5000ms),零新 evaluator 分支。
+            # `uncheckable_roots` 为 required 且逐项须带真实探测(probe.exit_code +
+            # stderr_first_line),by-construction 封死「把不可 check 的包成员静默排除在
+            # 『全包』口径外」的窗口(RXS-0265 诚实缺口纪律);步骤 75 ci/uc05_report_check.py
+            # 另核该披露必须同步出现在 evidence/uc05_comparison_report.md 叙事面。
+            validator = uc05_check_bench_validator
         else:
             validator = gpu_validator
         for v in validator.iter_errors(doc):

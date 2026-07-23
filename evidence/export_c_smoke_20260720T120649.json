@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "subject": "export_c_smoke",
+  "milestone": "EI1.2 / G-EI1-2 (RFC-0014 Part A; RXS-0250~0255)",
+  "step": 71,
+  "host_section_pass": true,
+  "device_section_rc": 0,
+  "checks": {
+    "corpus_pass": true,
+    "empty_reject_ok": true,
+    "header_idempotent": true,
+    "tamper_regen_red": true,
+    "dumpbin_unmangled": true,
+    "abi_roundtrip_ok": true
+  },
+  "toolchain_skip": null,
+  "dev_env_degrade": false,
+  "run_url": "local",
+  "timestamp": "2026-07-20T12:06:49+08:00"
+}
