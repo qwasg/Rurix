@@ -552,6 +552,66 @@ pass.reads / pass.writes         // compute pass 访问声明 0-byte(RXS-0257)
 > 测试锚定:conformance/uc05/reject/gfx_undeclared_texture.rx(着色函数采样未声明纹理 → 装配期拒)+
 > reject/gfx_declared_unused.rx(声明未用 → 装配期拒)+ reject/gfx_sampler_unbound.rx(sampler 用到未绑定 → 装配期拒)。
 
+### RXS-0274 present 面库化（终端 handoff 执行语义 + headless readback 判据 + RXS-0197 typestate 复用，G4.2 PR-C，RFC-0015 §4.A4）
+
+**Legality**:
+
+- **终端声明唯一且末位**:`g.present(&back)`（或 `present_handoff` 访问）每张图至多一次且必须为声明序末 pass——违例 → 装配期确定性拒(库层状态值零新码,RXS-0272 同口径)。
+- **窗口腿 = RXS-0197 / 0198 typestate 复用 0-byte**:RHI 应用的窗口呈现走既有 `Present` / `Ready` / `Acquired` /
+  `Presentable` 消费式帧状态机 + backbuffer 借用缓冲(语义本体 0-byte;窗/泵/交换链维持 C++ shim,**D-130 红线不动**);
+  RHI 图产出的 color target 经 blit/拷贝进入 backbuffer 借用缓冲(RXS-0198 契约面),或经 handoff 直接成为 present 源。
+- **headless readback 判据(RXS-0222 纪律)**:present 终端在 CI/无显示环境以 readback 像素断言兑现「呈现前内容正确」——
+  三断言点(首帧 / 重建后 / 末帧)沿 RXS-0222;无显示环境 SKIP = dev-env degrade(`RURIX_REQUIRE_REAL=1` 翻硬红),
+  **mock / SKIP 不充绿**。
+
+**Dynamic Semantics**:
+
+- present 执行的 barrier 语义 = `PresentHandoff`(COLOR_ATTACHMENT_OPTIMAL → PRESENT_SRC_KHR / RENDER_TARGET → PRESENT,
+  RXS-0238 映射表既有锚)由自动推导承载;窗口腿 device 见证(可见窗口 flip-model present)由 **G4.6 BLACKHOLE** 真实窗口
+  路径承载,本条不以窗口为验收前提(术语:handoff = 图内终端声明,present session = 宿主帧状态机,两者经 backbuffer 契约
+  胶合)。
+
+**Implementation Requirements**:
+
+- handoff 迁移由 vk 执行器在末 pass 后执行;窗口腿经既有 `rxp_*` shim 面(RXS-0197 IR),`rurix-d3d12` real-shim 构建
+  面见 G4.6 归因;**零新 RX 码**。
+
+> 测试锚定:conformance/uc05/reject/gfx_present_not_last.rx(present 非末位 → 装配期拒)+ reject/gfx_present_twice.rx
+> (双 present → 装配期拒)+ 步骤 76 present 迁移 + headless readback 像素判据。
+
+### RXS-0276 RHI bindless 面（TextureTable 入 pass，descriptor-indexing 运行时面复用，G4.2 PR-C，RFC-0015 §4.A6）
+
+**Syntax**(bindless 绑定声明):
+
+```
+let table = rhi.texture_table();          // RXS-0235 TextureTable 薄映射(RXS-0271 资源面)
+table.register(&tex_a);                   // 注册 → 稳定单调索引 u32(宿主侧,图外)
+table.register(&tex_b);
+gfx.reads_table(&table);                  // pass 绑定无界纹理表(动态索引面,着色侧 RXS-0231/0232 0-byte)
+```
+
+**Legality**:
+
+- `texture_table()` 产 `Res<C>` 族句柄(table 类);`register(&tex)` 为宿主侧注册(图外,单调索引);`reads_table(&table)`
+  为 pass 级绑定声明——计入反射并集但标「无状态访问」类(RXS-0273:barrier 相等域不核,绑定完备性另核)。
+- 着色侧:无界句柄数组 `[Texture2D<F>]` 形参 + 动态索引 + `nonuniform` 标注维持 **RXS-0231 / RXS-0232 0-byte**
+  (缺标注 → RX3016 既有);表内纹理生命周期须覆盖 pass 执行(宿主义务,类型面不拦截——诚实标注)。
+- **feature chain 探测**:descriptor-indexing 运行时能力缺失 → **确定性 `Err`**(RXS-0235 同口径,非 fake pass)。
+
+**Dynamic Semantics**:
+
+- 执行 = vk descriptor-indexing 面既有底座复用(`run_graphics_offscreen_bindless` 同族 descriptor 写,update-after-bind
+  沿 G3.4 运行时面);barrier 推导对 table 内纹理按**集合整体 ShaderRead** 保守迁移(单一事实源 = graph.rs 映射表)。
+- bindless 与有界 `reads(&tex)` 在同图共存合法;表内容与有界纹理重复注册不拒(宿主义务管理)。
+
+**Implementation Requirements**:
+
+- cabi 资源类 5=table 的 descriptor 装配(RXS-0230 底座);vk.rs 执行器 table 绑定路径沿 U27 扩注;**零新 RX 码**;
+  像素判据 = 四象限动态索引四色 + 篡改注册序换位 RED(G3.4 步骤 64 同判据移植)。
+
+> 测试锚定:conformance/uc05/accept/gfx_bindless.rx(表注册 + reads_table 声明 0 诊断)+ 步骤 76 bindless 动态索引像素
+> 判据(四象限四色 + 篡改换位 RED)。
+
 ## 3. 错误码引用汇总(**Part B 零新 RX 码全复用**)
 
 | 码 / 状态面 | 段 | 语义 | 条款 |
@@ -593,3 +653,4 @@ const / 类型诊断;运行期 / 环境失败(device 分配 / launch / sync)走 
 | v1.0 | 2026-07-19 | 新建 spec/rhi.md(EI1.3,PR-B1 条款先行):带编号条款体 `### RXS-0256 ~ ### RXS-0265`(FLS 体例,按需分 Syntax / Legality / Dynamic Semantics / Implementation Requirements,**严禁 UB 节**;镜像 spec/render_graph.md 体例)——RXS-0256 RHI 类型面与 brand(Rhi / Queue / Res / Pass 薄映射 std::gpu lang items,per-instance 新鲜 opaque brand,方法所有权 reads / writes 取 &Res 借用、submit move-out、readback 为 Res move-out 锚,跨 brand → RX3006〔非 RX2001〕,kernel 体内 → RX3015,显式排除 RXS-0189 line 61 单-brand 运行期降级)/ RXS-0257 pass 声明与资源访问集(read / write 封闭枚举,未声明访问 I4 由编译器喂反射集核验、库层状态 Err 镜像 RX6030)/ RXS-0258 graph 构建与依赖推导(RAW / WAW 建序,依赖环 I3 / 写写冲突 I5 纯库层定长数组状态值构建期拒、镜像 RX6029)/ RXS-0259 资源生命周期 affine 拦截(I1 / I2 → RX4001 复用)/ RXS-0260 submit typestate(Graph → Submitted 消费式 1-submit,镜像 RXS-0197,二次 submit → RX4001)/ RXS-0261 执行语义(顺序调度 + 显式 sync + RXS-0193 诊断封口 + device 数值确定 I9)/ RXS-0262 transient 资源(const 泛型定长容量 RD-026,超界编译期拒,I10 峰值观测源)/ RXS-0263 I1~I10 不变量矩阵(裁决 1 划界:I1~I8 编译 / 构建期 100% 拦截入 G-EI1-3 步骤 73、I9 / I10 报告项入 G-EI1-5 步骤 75,documented_historical 无数字定性历史陈述、schema 禁无 in-repo 出处数值)/ RXS-0264 对照报告证据形态(uc05_invariant_matrix.json + schema check_schemas 硬拦 + comparison_report.md 顶部标注、三方一致性机核)/ RXS-0265 采纳判据操作化(C ABI 成熟 G-EI1-4 + check <5s 双口径 cold / warm、warm = 全量重析非 LSP 增量,阈 5000ms)。**Part B 零新 RX 码全复用**(RX4001 / RX4003 / RX3006 / RX3015 / RX2001 / RX2003 / RX2004 + 库层状态值镜像 RX6029 / RX6030 口径,§3 / §5.1);零新借用码。每条 ≥1 `//@ spec` 测试锚定(conformance/uc05/{accept,reject} + apps/uc05-rhi/src/demo.rx + 步骤 72 / 73 / 75 + evidence/uc05_* + schema)随实现 commit 同 PR 落,trace_matrix 全锚定;stable 快照同 PR 重 bless(RXS-0180 L2)。承 [RFC-0014](../rfcs/0014-engine-integration.md)(Agent Approved 2026-07-19,§4.B Part B 参考级设计)。 | **Full RFC**(RFC-0014 / §4.B / PR-B1) |
 | v1.3 | 2026-07-20 | EI1.4 引擎嵌入落地(§4 任务 2 / G-EI1-4):§RXS-0261 新增**嵌入面**实现要求一条 —— 整张 RHI 图可完整封闭在一个 `#[export(c)]` host fn 体内经 `--emit=dll` 产 cdylib 供 C/C++ 宿主调用,GPU 上下文/图/资源在**单次调用内**创建与销毁,宿主只见 C 子集 v1 标量与裸指针、不见任何 Rurix 类型;对执行语义**零特例**(seal → 推导 → 派发 → 收尾同步 → D2H 与 in-EXE 路逐段同一,差别仅在结果出口是 `*mut T` 出参),错误面以 **i32 状态码**跨 ABI 返回(§RXS-0255 无 panic 面 by-construction,不展开 unwind)。落地物:`apps/uc05-rhi/src/embed.rx`(全 .rx 导出面,`uc05_run_graph(*mut i32, i32) -> i32` + `uc05_graph_pass_count()`)+ `apps/uc05-rhi/src/graph.rx`(kernel 与闭式参考公式抽为模块 = demo/embed 单一事实源,demo.rx 改为 `mod graph` 复用,语义 0-byte)+ `src/rurix-engine/harness/uc05_engine_host.cpp`(engine_host **v2**:C++/D3D12 驱动方,LUID 匹配 adapter + queue fence 锚点夹住 Rurix 图节点,**新增文件**——G1.3 v1 三符号面/手写头/RXS-0149 守卫逐字节 0-byte,两制共存 spec/export_c.md §RXS-0254)+ 步骤 74 `ci/uc05_engine_embed_smoke.py`(host 恒跑:生成头自始生成不手写审计 + 两制共存审计 + 零 .rs 审计 + `--emit=dll` 三件 + 生成头幂等 + 篡改再生成 byte-diff RED;device:cl.exe 编 v2 harness 链 rurix_rhi.lib 真跑 + **三方数值对照**)+ evidence schema + `ei1.counter.uc05_engine_embed`(≥1,device 见证计数)。**零新 RX 码**;条款语义无收窄或扩张,§RXS-0256~0260/0262~0265 全部 0-byte。 | **Full RFC**(RFC-0014 / §4.A+§4.B / EI1.4) |
 | v1.4 | 2026-07-23 | **G4.2 PR-B 图形 RHI 化主面条款先行:落带编号条款体 `### RXS-0270` ~ `### RXS-0273`(spec-first;编号自 RXS-0270 claim 段,0266~0269 burned 跳号,number_ledger v1.13)**。承 RFC-0015(Agent Approved 2026-07-23,G4 伞形章 A;G4_CONTRACT G-G4-3)。**RXS-0270**(RHI 图形 pass 类型面:`g.raster_pass(vs, fs)` / `g.mesh_pass(ms, fs)` → `GfxPass<C>` 句柄族;着色函数引用合法性〔vertex/fragment 阶段 + mesh 须 RXS-0243 入口契约〕;task 前置条件臂首期不开放;**RT pass 条件臂**——执行臂不可达则不立类型面登记 RD-036+,G-EA1-3/RXS-0249 先例;kernel 体内声明 → RX3015 I8 扩展)。**RXS-0271**(RHI 图形资源面:`color_target`/`depth_target`/`texture2d`/`sampler`/`texture_table` 五构造已知方法,封闭格式集 RGBA8/D32F;SamplerDesc 复用 RXS-0225、TextureTable 复用 RXS-0235;cabi 资源类枚举追加式 0~5)。**RXS-0272**(图形 pass 访问声明集与自动 barrier:封闭枚举镜像 RXS-0236 **同一 graph.rs::AccessKind 单源**;**推导单源 = G3.5 graph.rs `derive_barriers`**——rhi.rs 同 crate 构造 Graph/PassSpec 无 cabi marshalling,PlannedBarrier 逐字回放禁二次推导;compute pass reads/writes → ShaderRead/UavReadWrite BufferSync 映射钉死〔RFC-0015 §4.0-1 R-F5〕;含图形 pass 的图仅 Vulkan 后端 strict 无回退,compute-only 图 CUDA 既有路 0-byte;RXS-0239 pass 边界 happens-before 既有承诺,重排归 RXS-0281/0282;`present(&back)` 终端 handoff 唯一且末位 + headless readback 校验 RXS-0222 纪律,窗口腿 D-130 0-byte 归 G4.6)。**RXS-0273**(图形 pass 声明↔反射相等:**反射集 = 逐阶段函数签名资源形参并集**〔按资源身份合并〕;sampler/table 计入并集但标「无状态访问」类——barrier 相等域只核资源状态访问,sampler/table 另核绑定完备性;双向精确相等装配期拒,库层状态值零新码,与 RXS-0257 I4 同口径)。FLS 分节 **严禁 UB 节**;**零新 RX 码、零新借用码**(§3 引用汇总维持)。每条 ≥1 `//@ spec` 测试锚定(conformance/uc05/{accept,reject} gfx_* 语料 + rurixc corpus 单测 + 推导 golden + 步骤 76/77)随实现 commit 同 PR 落;stable 快照因条款增长同 PR 重 bless(RXS-0180 L2)。档位 **Full RFC**(RFC-0015) | **Full RFC**（RFC-0015） |
+| v1.5 | 2026-07-23 | **G4.2 PR-C 库化补齐条款先行:落带编号条款体 `### RXS-0274` / `### RXS-0276`(spec-first)**。承 RFC-0015(§4.A4/A6)。**RXS-0274**(present 面库化:终端 handoff 唯一且末位 + present 执行 barrier 语义〔COLOR_ATTACHMENT → PRESENT_SRC,RXS-0238 映射表既有锚〕+ headless readback 三断言点判据〔RXS-0222 纪律〕+ 窗口腿 = RXS-0197/0198 typestate 复用 0-byte〔D-130 不动,窗口 device 见证归 G4.6〕)。**RXS-0276**(RHI bindless 面:`texture_table()` + `register(&tex)` 单调索引 + `reads_table(&table)` pass 绑定;标「无状态访问」类另核绑定完备性;着色侧 RXS-0231/0232 0-byte;feature chain 缺失 → 确定性 Err;descriptor-indexing 运行时面复用,table 整体按 ShaderRead 保守迁移;像素判据 = 四象限动态索引四色 + 篡改注册序换位 RED)。FLS 分节 **严禁 UB 节**;零新 RX 码零新借用码。每条 ≥1 `//@ spec` 锚定随实现 commit 同 PR 落。档位 **Full RFC**(RFC-0015) | **Full RFC**（RFC-0015） |
