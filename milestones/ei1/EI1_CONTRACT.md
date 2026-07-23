@@ -3,7 +3,7 @@
 # 状态:gated——激活 gated on G3 close-out + owner 立项确认(G3_CONTRACT §7 ④ / G-G3-8,MB1 §0 先例);未获确认前零实现 PR、零共享编号消费。
 contract: EI1
 title: EI1 期——引擎集成期:UC-05 最小 RHI + render graph 核心(U5 旗舰用例,EA1 显式留下期项)+ RD-009 `#[export(c)]` C ABI 导出 codegen 与内建头文件生成(D-113)
-status: active            # gated → active(2026-07-19 激活:G3 close-out g3-closed 签署 + owner 立项确认,G-EI1-0 过门,§7 v1.1)→ closed(close-out 只追加 §8,上方条款 0-byte)
+status: closed            # gated → active(2026-07-19 激活:G3 close-out g3-closed 签署 + owner 立项确认,G-EI1-0 过门,§7 v1.1)→ closed(2026-07-23 close-out 终审签署,§8.1;close-out 只追加 §8,上方条款 0-byte)
 version: v1.0
 date: 2026-07-18
 timebox: "激活后约 5–7 周(主线 EI1.1~EI1.5 串行,见 EI1_PLAN.md;周为相对刻度,非日历承诺;gated 期不计时)"
@@ -161,3 +161,75 @@ EI1 期结束时项目获得:① `#[export(c)]` 接通(RD-009 兑现)——rurix
 ## 8. Close-out(只追加区 — 开工时为空)
 
 <!-- G-EI1-0 激活留痕(立项确认 + 激活小 PR 指针)、激活后验收记录、guardrail 核对输出、EI1.1~EI1.5 留痕(RFC-0014 Approved / 步骤 71~75 run URL / export(c) 红绿 / RHI demo / engine_host v2 嵌入真跑 / 对照报告 / bench 回填)、RD-009 处置留痕、SG 复评结论追加于此;上方条款 0-byte 修改。EI1 close-out 关闭判定 / 基准切换(按 main 合并序串行化)/ ei1-closed tag / RD·SG 处置由 agent 自主签署兑现。 -->
+
+### 8.1 EI1 整体 close-out 终审(2026-07-23,agent 完全自主签署,AGENTS v3.0 硬规则 1)
+
+EI1 引擎集成期按 EI1.1~EI1.5 串行主线推完(2026-07-19 激活 → 2026-07-23 收口),全程 agent 完全自主(D-406 v2.0)。四项工程事实落地:① `#[export(c)]` 接通(RD-009 兑现)——`.rx` 单源经 `--emit=dll` 自动产 DLL + import lib + 编译器内建单一事实源头文件;② UC-05 最小 RHI + render graph 核心全 `.rx`(apps/uc05-rhi 零 `.rs`),graph **三 pass** device 真跑数值对照;③ 引擎嵌入——`rurix_rhi.dll` + 生成头被自建 C++/D3D12 宿主 engine_host v2 链接真跑 graph compute pass,三方数值对照精确相等;④ 「同一组不变量」对照报告 I1~I10 矩阵三方一致性机核 + 采纳判据双口径 measured 回填。device 见证 = 开发机 RTX 4070 Ti + MSVC 14.44 + clang 22.1.7 + CUDA 链 + D3D12,RURIX_REQUIRE_REAL=1 纪律贯穿,mock/SKIP 未充绿。
+
+#### 全量回归冻结(逐命令真实输出;2026-07-23 本机真跑,19/19 退出码 0)
+
+- `cargo fmt --all --check` PASS(静默零输出)
+- `cargo test --workspace` PASS(84 套件,781 passed / 0 failed)
+- `cargo clippy --workspace --all-targets --features "dxil-backend shader-stages vulkan-backend vulkan" -- -D warnings` PASS(0 warning)
+- `ci/trace_matrix.py --check` PASS(261/261 条款全锚定,588 测试文件)
+- `ci/stable_snapshot.py --check` PASS(spec_clauses=261 / error_codes=106,同 edition 只增)
+- `ci/bilingual_coverage.py` PASS(zh/en 107/107 成对;本地跑后 evidence 时间戳文件已 `git checkout --` 还原,不带入 PR)
+- `ci/check_schemas.py` / `ci/check_structure.py` PASS
+- `ci/budget_eval.py --strict` PASS(85 pass,**0 skip / 全局零 estimated**)
+- `ci/check_guardrails.py g3-closed` ADVISORY(显式旧基准双基准核对留痕,不阻断;唯一条目 = evidence/bilingual_diagnostic_coverage.json 相对 g3-closed 的 main 自身漂移,非本 PR 触碰)
+- `ci/check_number_ledger.py` PASS(spec RXS 头 261 零同号碰撞;14 命名空间保留号被尊重)
+- `ci/check_contribution.py` PASS(本 PR 2 非 merge commit:provenance + 条款号 + 验证 + 对抗性评审全过)
+- `ci/check_redistribution.py` PASS(再分发面为空)
+- 步骤 71 `RURIX_REQUIRE_REAL=1 ci/export_c_smoke.py` PASS(dumpbin 4 裸名未 mangle == 头声明集;类型层 ABI 往返 EXPORT_C_ABI_OK:i64 宽度 / i32 负值符号 / `*mut i32` store 回读;evidence/export_c_smoke_20260723T114057.json)
+- 步骤 72 `RURIX_REQUIRE_REAL=1 ci/uc05_rhi_smoke.py` PASS(**三 pass** GREEN `UC05_SUM=131584 == UC05_REF=131584` + `UC05_RHI_OK graph=3pass`;RED 四件装配期确定性拦;evidence/uc05_rhi_smoke_20260723T115455.json)
+- 步骤 73 `ci/uc05_invariant_gate.py` PASS(I1~I8 逐条确定性拦截:编译期 I1/I2/I6/I7/I8 + 装配期 I3/I4/I5;矩阵↔语料↔报告三方一致)
+- 步骤 74 `RURIX_REQUIRE_REAL=1 ci/uc05_engine_embed_smoke.py` PASS(cl.exe 编 engine_host v2 链 rurix_rhi.lib 真跑 2 例,三方数值对照精确相等 `UC05_EMBED_OK passes=2 cases=2 d3d12=true`;evidence/uc05_engine_embed_20260723T114145.json)
+- 步骤 75 `ci/uc05_report_check.py` PASS(矩阵 schema + 三方一致性 + documented_historical 字面核 + RXS-0265 bench 报告↔evidence 逐位一致;red_self_test 四类真实篡改逐类判红)
+- `bench/saxpy_bench.py --smoke` correctness PASS(n=2^20 逐位相等)
+- **采集时序诚实注**:cargo 面 / host 门禁面冻结于 G-EI1-3 三 pass 补齐 commit 之前采集(该补齐纯 `.rx`/evidence 面,零 Rust 改动);补齐后复跑步骤 72/73/75 + trace + schemas + contribution 全绿(本清单所引为补齐后终态输出)。
+
+#### 验收门终审表
+
+| 门 | 判据 | 结论 | 证据 |
+|---|---|---|---|
+| G-EI1-0 | 激活门:G3 close-out + owner 立项确认 → 激活小 PR | **✅ 达成**(2026-07-19) | g3-closed 签署 + owner 立项确认;PR [#180](https://github.com/qwasg/Rurix/pull/180);earmark 复核无撞号 + RD-009 承接 + ledger 登记(§7 v1.1) |
+| G-EI1-1 | 治理与条款门:RFC Approved 先于实现 + 失败测试先行 + 条款先行 + 同 PR 重 bless | **✅ 达成** | RFC-0014 Draft→跨模型对抗性评审→Agent Approved(PR [#181](https://github.com/qwasg/Rurix/pull/181) / commit 1d1ff13b)先于一切实现;失败测试先行成立(步骤 71~75 脚本与 export(c)/`--emit=dll`/RHI 代码在 RFC 合入时点 main 不存在);条款 commit 序在前 + `//@ spec:` 锚定同 PR;trace 261/261 全锚定;stable 快照 2 次加性重 bless(245→251→261);check_number_ledger PASS |
+| G-EI1-2 | export(c) 红绿门(步骤 71) | **✅ 达成(measured)** | `.rx` → `--emit=dll` → DLL + import lib + 生成头;dumpbin 裸名未 mangle;C 宿主类型层 ABI 往返真跑;头幂等 byte-eq;RED 三路独立见证(非 C 兼容签名 RX6031/6032/6033 拒 / 篡改头 byte-diff 红 / 导出名冲突拒)+ red_self_test;RURIX_REQUIRE_REAL=1。PR [#182](https://github.com/qwasg/Rurix/pull/182) / run [29687949559](https://github.com/qwasg/Rurix/actions/runs/29687949559) / evidence/export_c_smoke_20260723T114057.json |
+| G-EI1-3 | RHI + render graph 语义门(步骤 72/73) | **✅ 达成(measured;含 close-out 补齐)** | apps/uc05-rhi 零 .rs 审计过;graph **三 pass** device 真跑数值对照(131584==131584);I1~I8 100% 编译期/构建期拦截,reject+assembly 语料矩阵逐条断言漏拦即红。**补齐留痕**:EI1.3/EI1.4 交付的 demo 为两 pass(EI1.4 与 embed 面共用 graph.rx 所致),与门文本「graph ≥3 pass」字面有距——门文本 0-byte 不可改,本 close-out PR 内将 demo 扩为三 pass device 真跑(commit 55a27f68)使字面成立,矩阵/报告 I9 文本同步。PR [#183](https://github.com/qwasg/Rurix/pull/183) / run [29710566780](https://github.com/qwasg/Rurix/actions/runs/29710566780) / evidence/uc05_rhi_smoke_20260723T115455.json |
+| G-EI1-4 | 引擎嵌入门(步骤 74) | **✅ 达成(measured)** | rurix_rhi.dll(export(c) 产,非手写 extern "C")+ 编译器生成头(CI 再生成逐字节比对,仓库零 tracked .h)被 engine_host v2(C++/D3D12,LUID 匹配,G1.3 母本升级新增文件)链接执行 graph compute pass 三方数值对照精确相等;G1.3 三符号面/手写头/RXS-0149 守卫 0-byte。PR [#184](https://github.com/qwasg/Rurix/pull/184) / run [29713688567](https://github.com/qwasg/Rurix/actions/runs/29713688567) / evidence/uc05_engine_embed_20260723T114145.json |
+| G-EI1-5 | 对照报告与采纳判据门(步骤 75) | **✅ 达成(measured)** | evidence/uc05_invariant_matrix.json schema 校验 + 矩阵↔语料↔报告三方一致性机核(步骤 75 纯 host 恒跑,内建 red_self_test);Rurix 侧全 measured/ci_checked、Python 侧全 documented_historical 带引文零杜撰(字面核封 number 字面);采纳判据 ei1.bench.uc05_check_cold_ms=**107.468ms** / uc05_check_warm_ms=**18.033ms** vs 阈 5000ms measured_local 回填(口径钉死:warm = 全量重析非 LSP 增量,RXS-0265;embed.rx 免 main 豁免缺口 uncheckable_roots 诚实入档)。本 PR / evidence/uc05_check_{cold,warm}_20260720.json |
+| G-EI1-6 | 性能与收口 | **✅ 达成** | 本节:全量回归冻结零 estimated + RD-009 关闭 / RD-035 新登 + SG 复评(spike_gating v1.9)+ RXS-0266~0269 作废声明 + status flip + 基准切换 ei1-closed + annotated tag + ledger v1.11/v1.12 校准 |
+
+**签署:agent 完全自主(D-406 v2.0);device 见证均 evidence-based measured;RD-035 open 余项诚实存续(机制未实现如实登记,非半成品)——measured-first / blocked-honest 高于「全量」表述。**
+
+#### Deferred 处置复核(registry/deferred.json v1.65~v1.66)
+
+| RD | 处置 | 依据 |
+|---|---|---|
+| RD-009 | **closed**(owner_milestone 维持 EI1) | backfill_condition 完整兑现:EI1.2 导出表 codegen + 内建头生成两面全做(PR #182)+ EI1.4 GPU-using 导出面 engine_host v2 三方数值对照(PR #184);D-113 完整兑现(Q-D)。C 兼容子集 v1 边界(repr(C) struct 按值 / 回调指针 / 数组按值 / 跨堆所有权)不另立 RD——超界硬需求出现时按 10 §3 判档,自 RD-036+ 起 |
+| RD-035 | **open**(新登,owner_milestone TBD 后续期) | UC-05 RHI 执行面余项三项:① transient 别名复用 + 执行期峰值计数器(I10 维持 report_only,峰值恒等容量平凡成立如实标注)② pass 重排与依赖驱动并行调度未实现 ③ RXS-0262 const 泛型定长容量 `.rx` 接线(Vec 承载 runtime-bounded)。三项独立可分批兑现;未兑现前矩阵 I10 note 与 RXS-0262「诚实收窄」段字面维持,不得改写为已兑现 |
+
+其余 RD 面 0-byte:RD-016/028 跳号永不复用(10 §9.5);RD-031(Vulkan RHI)维持 open 归后续期;RD-012/027/034(G3 尾门)独立存续不代管。
+
+#### SG 复评(registry/spike_gating.json v1.9)
+
+SG-001~002/004~009 维持 not_triggered;SG-003 维持 triggered(RFC-0011 多后端不回翻;EI1 `rhi_on_vulkan` 显式 out_of_scope,RD-031 open);SG-010 留续号(窗口/UI 框架进语言方向,本期不触)。**EI1 两面(export(c) + UC-05 RHI/graph 库面)均既登记 deferred(RD-009)兑现,非扩张诱惑方向,零 SG 消费**;每 entry 追加 decisions 复评行,current_verdict/trigger_condition/permanence 0-byte。
+
+#### RXS-0266~0269 earmark 作废声明
+
+EI1 earmark RXS-0250~0269(G3_CONTRACT §7 v1.1)实消费 **RXS-0250~0265**(0250~0255 export_c / 0256~0262 rhi+graph / 0263~0265 报告判据);余 **RXS-0266~0269 四号未消费,依 EI1_PLAN §5「预留不落裸条款头,close-out 作废声明留痕」作废不回收**(burned,MR-0006/0007 先例;number_ledger v1.12 留痕,RXS next_free=266 由后续期顺位使用)。CI 步骤 earmark 71~75 全部兑现;**步骤 70 = G3 showcase 段永久留空 gap 维持**(G3 已 close-out 不回填),下一个数字步骤号 76 归后续期。
+
+#### Provisioning 注(工具件不入库)
+
+MSVC 14.44(cl.exe / link.exe / dumpbin)+ clang 22.1.7(export(c) obj 通道)+ CUDA 工具链(rxrt_* PTX / ptxas)+ D3D12 系统 SDK(engine_host v2)+ RTX 4070 Ti 活驱动——全部 runner 本机预置,零入库工件;rurix_rt_cabi staticlib 由 cargo 现场构建驻 target/。CI runner(自托管开发机)同等 provisioning 复现 device 真绿;缺 provisioning 环境 device 段 SKIP=dev-env degrade(REQUIRE_REAL=1 翻硬红),不伪造。
+
+#### 关键 PR / run 归档
+
+激活 [#180](https://github.com/qwasg/Rurix/pull/180) · RFC-0014 [#181](https://github.com/qwasg/Rurix/pull/181)(Agent Approved + 对抗性评审 disposition)· EI1.2 export(c) [#182](https://github.com/qwasg/Rurix/pull/182)(run [29687949559](https://github.com/qwasg/Rurix/actions/runs/29687949559),步骤 71)· EI1.3 UC-05 RHI+graph [#183](https://github.com/qwasg/Rurix/pull/183)(run [29710566780](https://github.com/qwasg/Rurix/actions/runs/29710566780),步骤 72/73)· EI1.4 引擎嵌入 [#184](https://github.com/qwasg/Rurix/pull/184)(run [29713688567](https://github.com/qwasg/Rurix/actions/runs/29713688567),步骤 74)· EI1.5 + close-out 本 PR(步骤 75 + 三 pass 补齐 + 终审,run URL 合入前 CI 绿后追加于此)。
+
+#### Status flip / 基准切换 / tag
+
+- 本契约 `status: active → closed`(本 §8.1 追加生效,上方条款 0-byte)。
+- `ci/check_guardrails.py` 默认 `resolve_base` 由 `g3-closed` 切至 `ei1-closed`(切换前双基准核对 `g3-closed` ADVISORY 不阻断留痕;**EA1 仍 active 未收口**,基准链 mb1-closed→g3-closed→ei1-closed 单线性,EA1 日后收口另裁;PR 路径以 GITHUB_BASE_REF 为准)。
+- 本 close-out PR 合入后推 annotated `ei1-closed` tag(不匹配 release.yml 触发器 `v[0-9]+.[0-9]+.[0-9]+*`,零误触发)。
+- number_ledger v1.11~v1.12 校准:CI_step on_tree_max→75 / next_free→76(EI1 earmark 步骤 71~75 全兑现);RD on_tree_max→35 / next_free→36(RD-035 新登);RXS-0266~0269 作废声明;reserved_in_flight[EI1] claim 全兑现状收口(RFC-0014 双面 / RXS-0250~0265 / 步骤 71~75 / RD-009 close+RD-035 / 零新 U / RX6031~6033 / 零 MR 消费)。

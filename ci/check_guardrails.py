@@ -55,11 +55,11 @@ def resolve_base() -> str:
     gh_base = os.environ.get("GITHUB_BASE_REF")
     if gh_base:
         return f"origin/{gh_base}"
-    # G3 close-out 收官起回退基准切至 g3-closed(G3_CONTRACT §8.1 整体 close-out 终审,2026-07-19;
-    # 承 MB1 close-out mb1-closed / MS1 ms1-closed 先例;切换前双基准核对 mb1-closed PASS + g3-closed
-    # PASS,反 YAML-only。EA1 仍 active 未收口,基准链 mb1-closed→g3-closed 单线性,EA1 日后收口另裁。
-    # PR 路径以 GITHUB_BASE_REF 为准)
-    return "g3-closed"
+    # EI1 close-out 收官起回退基准切至 ei1-closed(EI1_CONTRACT §8.1 整体 close-out 终审,2026-07-23;
+    # 承 G3 close-out g3-closed / MB1 mb1-closed / MS1 ms1-closed 先例;切换前双基准核对 g3-closed
+    # ADVISORY(不阻断)+ ei1-closed ADVISORY,反 YAML-only。EA1 仍 active 未收口,基准链
+    # mb1-closed→g3-closed→ei1-closed 单线性,EA1 日后收口另裁。PR 路径以 GITHUB_BASE_REF 为准)
+    return "ei1-closed"
 
 
 def changed_paths(base: str) -> list[str]:

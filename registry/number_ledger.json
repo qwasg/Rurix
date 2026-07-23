@@ -42,8 +42,8 @@
       "scope": "shared",
       "pattern": "RD-###",
       "main_fact_source": "registry/deferred.json entries",
-      "on_tree_max": 34,
-      "next_free": 35,
+      "on_tree_max": 35,
+      "next_free": 36,
       "shadow_reserved": [],
       "main_skipped": [
         16,
@@ -330,6 +330,11 @@
       "version": "v1.10",
       "date": "2026-07-19",
       "change": "EI1.3 UC-05 RHI 实现 PR-B2 校准:RXS on_tree_max 255→265 / next_free 256→266(spec/rhi.md materialize RXS-0256~0265 = EI1 earmark 0250~0269 的 Part B 段消费,guard_spec_heading_scan 扫得 261 头〔全 spec 累计〕;下一个可用 RXS-0266,earmark 0250~0269 剩 0266~0269〔EI1.4/EI1.5〕,溢出自 0270)。RX_error 0-byte(Part B 零新 RX 码全复用 RX4001/RX4003/RX3006/RX3015/RX2001~2004 + 库层状态值镜像 RX6029/RX6030,rhi.md §3/§5.1)。CI_step on_tree_max 71→73 / next_free 72→74(pr-smoke.yml 落地步骤 72 UC-05 RHI 冒烟 ci/uc05_rhi_smoke.py + 步骤 73 不变量拦截门 ci/uc05_invariant_gate.py;步骤 74 引擎嵌入 / 75 对照报告随 EI1.4/EI1.5;**步骤 70 = G3 showcase 段永久留空 gap** 维持)。RD 0-byte(RXS-0262 const 泛型容量诚实收窄不新登 RD,沿 RD-026 无堆约束)。"
+    },
+    {
+      "version": "v1.12",
+      "date": "2026-07-23",
+      "change": "EI1 close-out 校准(EI1 close-out PR):RD on_tree_max 34→35、next_free 35→36——EI1.5 已登记 RD-035(UC-05 RHI 执行面余项:transient 别名复用+执行期峰值计数器 I10 / pass 重排并行调度 / RXS-0262 const 泛型定长容量 .rx 接线,registry/deferred.json,open 归后续期);RD-009 同 PR 关闭 (backfill_condition 完整兑现 = PR #182 export(c) 两面全做 + PR #184 GPU 导出面嵌入真跑)。**留痕更正**:v1.11 记『RD 0-byte(零新 RD)』指台账 RD 字段未动,但同 PR deferred.json 实新登 RD-035,字段校准归本条,无编号漂移(RD-036+ 归后续期)。**RXS earmark 作废声明**:EI1 earmark RXS-0250~0269 实消费 0250~0265(0250~0255 export_c / 0256~0262 rhi+graph / 0263~0265 报告判据),余 **RXS-0266~0269 四号未消费,依 EI1_PLAN §5 作废留痕不回收**(burned,MR-0006/0007 先例),RXS next_free=266 维持由后续期顺位使用。reserved_in_flight[EI1] claim 全兑现(RFC-0014 单 RFC 双面 Agent Approved / RXS-0250~0265 / 步骤 71~75 / RD-009 close+RD-035 / 零新 U / RX6031~6033 / 零 MR 消费);EI1 status closed(milestones/ei1/EI1_CONTRACT §8.1)。RFC 命名空间字段 0-byte(G3 close-out v1.7 同例:RFC-0013/0014 兑现以 rfcs/README §5 台账为事实源,本台账字段不随行)。仅动 RD 字段 + 本 revision_log 追加(其余命名空间 0-byte)。"
     }
   ]
 }

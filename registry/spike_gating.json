@@ -51,6 +51,11 @@
           "date": "2026-07-19",
           "verdict": "not_triggered",
           "note": "G3 工业渲染期满 close-out 复评(agent 完全自主,AGENTS v3.0):G3 五面(present/采样超集/bindless/render graph/mesh-task-RT)均为既登记 deferred(RD-012/018/019/020/022/023/024/029)兑现,非扩张诱惑方向,本 SG 零消费/零触发变化。维持 not_triggered。"
+        },
+        {
+          "date": "2026-07-23",
+          "verdict": "not_triggered",
+          "note": "EI1 引擎集成期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):EI1 两面(#[export(c)] C ABI 导出 codegen + 内建头生成 / UC-05 最小 RHI + render graph 全 .rx 库面)均既登记 deferred(RD-009)兑现与库面工程,非扩张诱惑方向;本方向零消费/零触发变化,维持 not_triggered。"
         }
       ]
     },
@@ -100,6 +105,11 @@
           "date": "2026-07-19",
           "verdict": "not_triggered",
           "note": "G3 工业渲染期满 close-out 复评(agent 完全自主,AGENTS v3.0):G3 五面(present/采样超集/bindless/render graph/mesh-task-RT)均为既登记 deferred(RD-012/018/019/020/022/023/024/029)兑现,非扩张诱惑方向,本 SG 零消费/零触发变化。维持 not_triggered。"
+        },
+        {
+          "date": "2026-07-23",
+          "verdict": "not_triggered",
+          "note": "EI1 引擎集成期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):EI1 两面(#[export(c)] C ABI 导出 codegen + 内建头生成 / UC-05 最小 RHI + render graph 全 .rx 库面)均既登记 deferred(RD-009)兑现与库面工程,非扩张诱惑方向;本方向零消费/零触发变化,维持 not_triggered。"
         }
       ]
     },
@@ -149,6 +159,11 @@
           "date": "2026-07-19",
           "verdict": "triggered(RFC-0011)",
           "note": "G3 工业渲染期满 close-out 复评(agent 完全自主,AGENTS v3.0):G3 五面(present/采样超集/bindless/render graph/mesh-task-RT)均为既登记 deferred(RD-012/018/019/020/022/023/024/029)兑现,非扩张诱惑方向,本 SG 零消费/零触发变化。维持 triggered(RFC-0011)。"
+        },
+        {
+          "date": "2026-07-23",
+          "verdict": "triggered(RFC-0011)",
+          "note": "EI1 引擎集成期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):EI1 两面(#[export(c)] C ABI 导出 codegen + 内建头生成 / UC-05 最小 RHI + render graph 全 .rx 库面)均既登记 deferred(RD-009)兑现与库面工程;EI1 rhi_on_vulkan 显式 out_of_scope(RD-031 open;G3 期 vk 图形着色底座为图形面,UC-05 首期 compute pass graph 维持 CUDA 底座,G-EI1-0 激活复核 Q-A),多后端触发面零变化,维持 triggered(RFC-0011)不回翻。"
         }
       ]
     },
@@ -178,6 +193,11 @@
           "date": "2026-07-19",
           "verdict": "not_triggered",
           "note": "G3 工业渲染期满 close-out 复评(agent 完全自主,AGENTS v3.0):G3 五面(present/采样超集/bindless/render graph/mesh-task-RT)均为既登记 deferred(RD-012/018/019/020/022/023/024/029)兑现,非扩张诱惑方向,本 SG 零消费/零触发变化。维持 not_triggered。"
+        },
+        {
+          "date": "2026-07-23",
+          "verdict": "not_triggered",
+          "note": "EI1 引擎集成期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):EI1 两面(#[export(c)] C ABI 导出 codegen + 内建头生成 / UC-05 最小 RHI + render graph 全 .rx 库面)均既登记 deferred(RD-009)兑现与库面工程,非扩张诱惑方向;本方向零消费/零触发变化,维持 not_triggered。"
         }
       ]
     },
@@ -207,6 +227,11 @@
           "date": "2026-07-19",
           "verdict": "not_triggered",
           "note": "G3 工业渲染期满 close-out 复评(agent 完全自主,AGENTS v3.0):G3 五面(present/采样超集/bindless/render graph/mesh-task-RT)均为既登记 deferred(RD-012/018/019/020/022/023/024/029)兑现,非扩张诱惑方向,本 SG 零消费/零触发变化。维持 not_triggered。"
+        },
+        {
+          "date": "2026-07-23",
+          "verdict": "not_triggered",
+          "note": "EI1 引擎集成期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):EI1 两面(#[export(c)] C ABI 导出 codegen + 内建头生成 / UC-05 最小 RHI + render graph 全 .rx 库面)均既登记 deferred(RD-009)兑现与库面工程,非扩张诱惑方向;本方向零消费/零触发变化,维持 not_triggered。"
         }
       ]
     },
@@ -231,6 +256,11 @@
           "date": "2026-07-19",
           "verdict": "not_triggered",
           "note": "G3 工业渲染期满 close-out 复评(agent 完全自主,AGENTS v3.0):G3 五面(present/采样超集/bindless/render graph/mesh-task-RT)均为既登记 deferred(RD-012/018/019/020/022/023/024/029)兑现,非扩张诱惑方向,本 SG 零消费/零触发变化。维持 not_triggered。"
+        },
+        {
+          "date": "2026-07-23",
+          "verdict": "not_triggered",
+          "note": "EI1 引擎集成期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):EI1 两面(#[export(c)] C ABI 导出 codegen + 内建头生成 / UC-05 最小 RHI + render graph 全 .rx 库面)均既登记 deferred(RD-009)兑现与库面工程,非扩张诱惑方向;本方向零消费/零触发变化,维持 not_triggered。"
         }
       ]
     },
@@ -285,6 +315,11 @@
           "date": "2026-07-19",
           "verdict": "not_triggered",
           "note": "G3 工业渲染期满 close-out 复评(agent 完全自主,AGENTS v3.0):G3 五面(present/采样超集/bindless/render graph/mesh-task-RT)均为既登记 deferred(RD-012/018/019/020/022/023/024/029)兑现,非扩张诱惑方向,本 SG 零消费/零触发变化。维持 not_triggered。"
+        },
+        {
+          "date": "2026-07-23",
+          "verdict": "not_triggered",
+          "note": "EI1 引擎集成期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):EI1 两面(#[export(c)] C ABI 导出 codegen + 内建头生成 / UC-05 最小 RHI + render graph 全 .rx 库面)均既登记 deferred(RD-009)兑现与库面工程,非扩张诱惑方向;本方向零消费/零触发变化,维持 not_triggered。"
         }
       ]
     },
@@ -319,6 +354,11 @@
           "date": "2026-07-19",
           "verdict": "not_triggered",
           "note": "G3 工业渲染期满 close-out 复评(agent 完全自主,AGENTS v3.0):G3 五面(present/采样超集/bindless/render graph/mesh-task-RT)均为既登记 deferred(RD-012/018/019/020/022/023/024/029)兑现,非扩张诱惑方向,本 SG 零消费/零触发变化。维持 not_triggered。"
+        },
+        {
+          "date": "2026-07-23",
+          "verdict": "not_triggered",
+          "note": "EI1 引擎集成期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):EI1 两面(#[export(c)] C ABI 导出 codegen + 内建头生成 / UC-05 最小 RHI + render graph 全 .rx 库面)均既登记 deferred(RD-009)兑现与库面工程,非扩张诱惑方向;本方向零消费/零触发变化,维持 not_triggered。"
         }
       ]
     },
@@ -348,6 +388,11 @@
           "date": "2026-07-19",
           "verdict": "not_triggered",
           "note": "G3 工业渲染期满 close-out 复评(agent 完全自主,AGENTS v3.0):G3 五面(present/采样超集/bindless/render graph/mesh-task-RT)均为既登记 deferred(RD-012/018/019/020/022/023/024/029)兑现,非扩张诱惑方向,本 SG 零消费/零触发变化。维持 not_triggered。"
+        },
+        {
+          "date": "2026-07-23",
+          "verdict": "not_triggered",
+          "note": "EI1 引擎集成期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):EI1 两面(#[export(c)] C ABI 导出 codegen + 内建头生成 / UC-05 最小 RHI + render graph 全 .rx 库面)均既登记 deferred(RD-009)兑现与库面工程,非扩张诱惑方向;本方向零消费/零触发变化,维持 not_triggered。"
         }
       ]
     }
@@ -397,6 +442,11 @@
       "version": "v1.8",
       "date": "2026-07-19",
       "change": "G3 close-out 满期复评(G3 close-out PR;每 SG entry 追加 decisions 复评行,current_verdict/trigger_condition/permanence 0-byte,既有 decisions 行 0-byte;agent 完全自主签署):SG-001~002/004~005/007~009 维持 not_triggered、SG-003 维持 triggered(RFC-0011 多后端不回翻)、SG-006 维持 closed;G3 五面均既登记 deferred 兑现非扩张方向,零 SG 消费。SG-010 留续号(窗口/UI 框架进语言方向,present 面 D-130 红线使其不触)。仅追加 decisions + revision_log,零结构变更。"
+    },
+    {
+      "version": "v1.9",
+      "date": "2026-07-23",
+      "change": "EI1 close-out 满期复评(EI1 close-out PR;每 SG entry 追加 decisions 复评行,current_verdict/trigger_condition/permanence 0-byte,既有 decisions 行 0-byte;agent 完全自主签署):SG-001~002/004~009 维持 not_triggered、SG-003 维持 triggered(RFC-0011 多后端不回翻);EI1 两面(export(c) + UC-05 RHI/graph 库面)均既登记 deferred(RD-009)兑现非扩张方向,零 SG 消费。SG-010 留续号(窗口/UI 框架进语言方向,本期不触)。仅追加 decisions + revision_log,零结构变更。"
     }
   ]
 }
