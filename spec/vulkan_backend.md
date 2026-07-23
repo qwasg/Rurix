@@ -525,6 +525,81 @@ Vulkan 运行时绑定与 SPIR-V codegen 的**供应链纪律**:运行时绑定 
 
 > 锚定测试:[`vk::tests`](../src/rurix-rt/src/vk.rs)（`plan_sbt_alignment_invariants` + `plan_sbt_nvidia_typical_exact` + `align_up_rounds_to_power_of_two` + `negotiate_device_extensions_missing_deterministic_err` + `mesh_rt_ffi_layout_anchors` + `accel_instance_bitfield_packing`）+ device harness [`bin/vk_mesh`](../src/rurix-rt/src/bin/vk_mesh.rs) / [`bin/vk_rt`](../src/rurix-rt/src/bin/vk_rt.rs)（步骤 66/67,`ci/meshrt_device_smoke.py`;SKIP 三态,device 真跑归 owner 本机活驱动）。
 
+### RXS-0290 device 描述表 v2 blob 布局（artifacts v2：v1 前缀兼容 + SPIR-V 入口表，RFC-0015 §4.C1，RD-031 兑现）
+
+#### Syntax
+
+无用户面语法（host 产物内部格式;消费 RXS-0192 单源嵌入纪律与 RXS-0209 host 产物模型泛化）。
+
+#### Legality
+
+- **v2 blob = 64B packed 小端布局**:`version:u32 = 2`(@0)/ `reserved:u32`(@4)/ `ptx_ptr:u64`(@8)/ `ptx_len:u64`(@16)/ `cubin_ptr:u64`(@24)/ `cubin_len:u64`(@32)/ `sm_key:[u8;8]`(@40)/ **`spirv_count:u64`(@48)/ `spirv_entries_ptr:u64`(@56)**。v1 48B 字段原位不变(v1 前缀兼容)。
+- **入口表项 = 40B packed**:`name_ptr:u64`(@0)/ `name_len:u64`(@8)/ `stage_tag:u32`(@16)/ `reserved:u32`(@20)/ `spv_ptr:u64`(@24)/ `spv_len:u64`(@32);表 = 连续 `spirv_count` 项。
+- **`stage_tag` 映射 `ShaderStage` 枚举声明序(单一事实源)**:0=Vertex / 1=Fragment / 2=Compute / 3=Mesh / 4=Task / 5=RayGen / 6=ClosestHit / 7=AnyHit / 8=Miss / 9=Intersection / 10=Callable;越界值 → 畸形拒。
+- **版本分支**:`version == 1` → v1 解析路径 **0-byte**;`version == 2` → v2 解析;其余 → 拒绝(RXS-0193 确定性诊断,不占 RX 码)。
+- **畸形判据(全部确定性拒)**:`spirv_count > 0` 而 `spirv_entries_ptr` 为空;表项 `name_ptr`/`spv_ptr` 空而对应 `len > 0`;`stage_tag` 越界;入口名重复;`spirv_count` 与表指针组合越出合理上界(防越界读)。`spirv_count == 0` 合法(feature on 但本单元无 SPIR-V 产物)。
+- **feature 门控**:cargo feature `vulkan-backend` **off → 发射 v1 blob,产物与此前逐字节一致**(「默认构建零依赖绿」承诺不变);**on → 发射 v2 blob**。「单源 Vulkan RHI 通道」可用性 = 工具链构建面,非默认构建可达。
+
+#### Dynamic Semantics
+
+- **NVIDIA PTX/cubin 装载路径逐字节不变**:v1 blob 产物、cubin/PTX 装载协商、PTX JIT ladder **0-byte**(RXS-0209 IR1 纪律);v2 的 PTX/cubin 字段语义与 v1 同。
+- **指针字段重定位**:blob 内全部指针 = 常量段全局符号的 link-time 重定位(v1 `ptx_ptr` 同构先例;DLL 形态经 EI1.2 `--emit=dll` device 真跑验证——ASLR/基址重定位对常量段绝对地址成立),EXE/DLL 双形态均可解析。
+- **装载语义**:v2 解析后 SPIR-V 入口表按**入口名索引**供 Vulkan 通道消费(RXS-0292/0293);SPIR-V 槽缺席不影响 CUDA 腿装载(v1 字段完整时 CUDA 路径与今日一致)。
+
+#### Implementation Requirements
+
+[`rurixc`](../src/rurixc/src/codegen.rs) `emit_gpu_artifact_globals` 组装 v2 + [`rurix-rt-cabi`](../src/rurix-rt-cabi/src/artifacts.rs) 版本分支解析;布局 golden(字段偏移/字节序/64B 总长)+ feature-off v1 产物零漂移断言 + 解析红绿(v1/v2/各畸形类)。
+
+> 锚定测试:[`codegen::tests`](../src/rurixc/src/codegen.rs)(v2 blob 布局 golden + feature-off v1 零漂移)+ [`artifacts::tests`](../src/rurix-rt-cabi/src/artifacts.rs)(v1/v2/畸形解析红绿)。
+
+### RXS-0291 `@__rx_gpu_spirv` 段发射与多入口 SPIR-V 收集（同一编译单源，每入口独立模块，RFC-0015 §4.C2）
+
+#### Syntax
+
+无用户面语法(codegen/driver 内部);消费 MIR 全部 GPU 入口(compute kernel 与阶段着色函数,RXS-0200~0204/0242~0246)。
+
+#### Legality
+
+- **收集 = driver 侧入口迭代器**([`build_gpu_artifacts`](../src/rurixc/src/driver.rs) 扩展):枚举 MIR 全部 GPU 入口,**逐入口调用与 `--target vulkan` 相同的 lowering 入口**——compute kernel → [`vulkan_codegen::lower_compute`](../src/rurixc/src/vulkan_codegen.rs);vertex/fragment → [`dxil_spirv::emit_spirv_body_vulkan`](../src/rurixc/src/dxil_spirv.rs);mesh/task → RXS-0275 lowering(承接期落地前,该阶段入口缺席 = 下条 note 口径)。两路径共用 lowering 函数 = **单一事实源**;`build_and_emit_vulkan` 单入口形态与 `--target vulkan` 单文件产出面 **0-byte 不变**。
+- **每入口一独立 SPIR-V 模块**——无 SPIR-V 合并、无链接器;`@__rx_gpu_spirv_<i>` 每入口一全局(模块字节)+ 名字节全局 + 入口表全局(RXS-0290 表项),经 `emit_gpu_artifact_globals` 同函数加性发射。
+- **入口名 = 既有 PTX launch 路径同名内核标识**(单一事实源;同名映射保证 RHI/launch 面按名索引 SPIR-V 模块与 CUDA 模块一致)。
+- **逐入口降级失败 → 编译期 note**(诊断输出,非静默)+ 该入口缺席于 SPIR-V 表;**经 Vulkan 通道要求缺席入口 → 运行期确定性 `Err`**(RXS-0193 口径,不占 RX 码);lowering 不可映射维持 `RX6026` 既有族(--target vulkan 路径)。PTX 腿不受 SPIR-V 缺席影响。
+- **feature 门控**:`vulkan-backend` off → 不产 SPIR-V 段、发射 v1 blob(逐字节不变,RXS-0290 Legality);on → 收集并发射 v2。
+
+#### Dynamic Semantics
+
+- **同一编译单源防漂移**:PTX 与 SPIR-V 由同一次编译、同一份 MIR 产出(非两趟独立编译);PTX 产物与今日逐字节一致。
+- **sentinel 纪律**:工具链缺(vulkan-backend off / 无 kernel)按既有 sentinel 口径(v1 blob 或空表 v2),不伪造产物。
+
+#### Implementation Requirements
+
+[`driver`](../src/rurixc/src/driver.rs) 入口迭代器 + [`codegen`](../src/rurixc/src/codegen.rs) `GpuArtifacts.spirv_modules` 与 v2 全局发射;codegen 单测(多入口表内容/名字/阶段号锚定)+ feature-off 零漂移 + spirv-val 三态(RXS-0212 gate)对产物模块校验。
+
+> 锚定测试:[`driver::tests`](../src/rurixc/src/driver.rs)/[`codegen::tests`](../src/rurixc/src/codegen.rs)(多入口收集:两 kernel + vertex/fragment 四入口表项、名字、stage_tag)+ v1 零漂移断言。
+
+### RXS-0292 rxrt artifacts v2 解析与 `DeviceArtifactSet` SPIR-V 填充（RFC-0015 §4.C3）
+
+#### Syntax
+
+无用户面语法(运行时解析与产物模型;消费 RXS-0290 blob v2)。
+
+#### Legality
+
+- **解析版本分支**([`rurix-rt-cabi/src/artifacts.rs`](../src/rurix-rt-cabi/src/artifacts.rs)):`version == 1` → 既有解析 **0-byte**;`version == 2` → v1 字段 + SPIR-V 入口表逐项核 RXS-0290 畸形判据;其余 → 拒绝(RXS-0193 确定性诊断 + 句柄 0,不占 RX 码)。
+- **`DeviceArtifactSet` 加性扩展**([`fatbin.rs`](../src/rurix-rt/src/fatbin.rs)):新增**按名索引的 SPIR-V 入口集合**(`with_spirv_entries` builder + 访问器);既有 `spirv_fallback` 槽与全部既有访问器 **0-byte**;`ArchKey`/`ArtifactKind`/`LoadChoice` 语义不变。
+- **装载面**:CUDA 装载协商(cubin → PTX JIT ladder)0-byte;SPIR-V 入口集合仅被 Vulkan 通道消费(RXS-0293),CUDA-only 进程不触碰。
+
+#### Dynamic Semantics
+
+- **解析失败语义**:任何畸形(版本/表项/指针/阶段号/重名)→ 确定性诊断(op + 上下文)+ 句柄 0(RXS-0193 同族);无部分解析、无静默截断。
+- **EXE/DLL 双形态回环**:v2 blob 在 EXE 与 DLL(export(c) 产物)两种 host 形态均可被解析(常量段重定位成立,RXS-0290 Dynamic Semantics)。
+
+#### Implementation Requirements
+
+新增指针走查(表项 name/spv 指针解引)登记 **U31 起**(unsafe-audit,单块单操作,沿 artifacts.rs U25 族审计模式);解析单测(v1/v2/各畸形类/双形态);`DeviceArtifactSet` 填充单测(按名索引、重名拒、空表)。
+
+> 锚定测试:[`artifacts::tests`](../src/rurix-rt-cabi/src/artifacts.rs)(v2 双形态回环 + 畸形类逐条)+ [`fatbin::tests`](../src/rurix-rt/src/fatbin.rs)(按名索引填充 + 既有槽 0-byte)。
+
 
 ## 3. 修订记录
 
@@ -548,3 +623,4 @@ Vulkan 运行时绑定与 SPIR-V codegen 的**供应链纪律**:运行时绑定 
 | v1.15 | 2026-07-19 | **RXS-0207/RXS-0210 加性修订行(G3.5 render graph Vulkan 执行器引用,零改条款体):** [render_graph.md](render_graph.md) **`### RXS-0240`**(双后端 barrier 映射与执行器语义,RFC-0013 §4.D5b,Agent Approved 2026-07-18)的 Vulkan 执行器新入口 **`run_graph`**——多 pass command buffer 录制(逐 pass render pass begin/end + 边界 `vkCmdPipelineBarrier`,layout/stage/access 全取自 render_graph.md RXS-0238 `graph.rs` 同源表,执行器**逐字重放禁二次推导**),承 `### RXS-0207`(Vulkan compute 运行时)/ `### RXS-0210`(graphics+offscreen present)执行语义地基。现 `run_graphics_offscreen` / `run_graphics_offscreen_v2` / `run_graphics_present` 手写定点 barrier 路径 **0-byte 保留**(步骤 48 offscreen 入口 / 既有入口字节不动);新 FFI unsafe 沿 **U27 扩注**(graphics FFI 边界,**0 新 U 号**,RFC-0013 §6.4)。**RXS-0207/RXS-0210 条款体字节 0-byte**(render graph 多 pass 执行语义由 render_graph.md RXS-0240 承载,vulkan_backend.md 不落 graph 执行条款本体);零新条款号 / 零新 RX 码 / 零新 RD / 零新 RFC。Vulkan 数值常量(layout/stage/access)与 `graph.rs` 逐值一致(执行器逐字重放单一事实源)。device 段真跑归主循环活驱动;host 段(D6 互证 + 映射一致性单测)恒跑。档位 **Full RFC**(RFC-0013 §4.D / render_graph.md RXS-0240)。无体例变更 | **Full RFC**（RFC-0013） |
 | v1.13 | 2026-07-18 | **RXS-0210 加性修订行(G3.2 present 收尾引用,零改条款体):** `### RXS-0210` L4 win32 swapchain present(RD-032 discharge,W6 落地)的 `run_graphics_present` 呈现循环由 [d3d12_runtime.md](d3d12_runtime.md) **`### RXS-0221`**(swapchain 失效与重建,RFC-0013 §4.A2,Agent Approved 2026-07-18)**加性收尾**——`vkAcquireNextImageKHR`/`vkQueuePresentKHR` 返回 `VK_ERROR_OUT_OF_DATE_KHR`(与可选 `SUBOPTIMAL_KHR`)时,由既有仅接受 `VK_SUCCESS`/`SUBOPTIMAL_KHR` 的终止路收窄为「`vkDeviceWaitIdle` → 重建 swapchain/imageView/framebuffer(重查 surface caps extent)→ 重录后续帧 + 重建后首帧 readback 再断言」。**跨后端重建不变式的单一事实源 = RXS-0221**(Q-P-RebuildHome:重建序为后端无关不变式,单条防两文件语义漂移,本行仅引用不复述);实现落 `src/rurix-rt/src/vk.rs`(present 协商 helper 纯 host 可单测 + OUT_OF_DATE/SUBOPTIMAL 分支),新 unsafe 沿 **U27 扩注**(graphics FFI 边界,**0 新 U 号**,RFC-0013 §6.4)。**RXS-0210 条款体字节 0-byte**(present 循环语义扩充由 RXS-0221 承载,vulkan_backend.md 不落 present 重建条款本体);零新条款号 / 零新 RX 码 / 零新 RD / 零新 RFC。**NVIDIA/Windows 零回归**:`OUT_OF_DATE` 在 NVIDIA/Windows 极难自然触发,既有 offscreen/present 三 smoke 绿路字节行为不变;AMD 真卡 present = G-MB1-6、Android surface present = G-MB1-7 维持 open 尾门(不 claim)。档位 **Full RFC**(RFC-0013 §4.A / d3d12_runtime.md RXS-0221)。无体例变更 | **Full RFC**（RFC-0013） |
 | v1.17 | 2026-07-19 | **G3.6 mesh/RT 运行时:落带编号条款体 `### RXS-0248`**(🔒 Vulkan mesh 管线 + BLAS/TLAS/SBT/TraceRays 运行时执行语义;RFC-0013 §4.E7/E8,验收门 G-G3-6)+ 配套 `src/rurix-rt/src/vk.rs`(feature `vulkan` 默认关闭,**既有 present/采样 v2/graph run_graph 入口 0-byte 纯加性**):`run_mesh_offscreen`(无 vertex-input graphics 管线 + `vkCmdDrawMeshTasksEXT` + mesh feature 缺失确定性 Err,unsafe **折叠 U27**)+ `run_ray_tracing_offscreen`(四扩展协商 + accel_struct/rt_pipeline/bda feature 链 + BLAS→屏障→TLAS 两段构建〔device address 经 `vkGetAccelerationStructureDeviceAddressKHR`〕+ RT 管线〔raygen/miss/hit 三 group,maxRecursion=1〕+ 🔒 SBT 三 region 对齐〔`plan_sbt`/`align_up` 纯 host〕+ set-per-class descriptor〔TLAS SRV/storage image UAV〕+ `vkCmdTraceRaysKHR`,**AS/SBT/device-address 切细审计 U30**〔全期唯一新 U 号,§6.4/E-2〕)。消费 codegen 腿 `emit_*_min` SPIR-V 见证语料(build.rs 嵌入 `mesh_rt_witness_spv`)+ 手编无输入 const-color fragment 见证(`mesh_witness_fs_spv`,spirv-val vulkan1.2 accept)。**纯 host 单测 6 支**(SBT 三 region 对齐律不变式〔含 NVIDIA 32/32/64 确切铺设〕+ align_up + 扩展协商缺失确定性 Err + FFI 布局逐字节锚〔AccelInstance 64/geometry union 64/AccelGeometry 96〕+ instance bitfield 打包)。device 见证 harness `bin/vk_mesh`(步骤 66)/`bin/vk_rt`(步骤 67)+ `ci/meshrt_device_smoke.py`(host 段 SBT/协商单测 + spirv-val 恒跑 + device 段 SKIP 三态,opt-in `RURIX_MESH_DEVICE`/`RURIX_RT_DEVICE`)+ counter `g3.counter.mesh_task_rt_stages`(阶段去重 ≥3)+ evidence schema。**device 真跑(本机 RTX 4070 Ti,Vulkan validation 开)**:mesh 管线 + BLAS/TLAS/SBT/TraceRays 全机构真跑**零 validation 报错**,像素判据阈值(coverage-producing 见证语料 + hit/miss 色)= owner device 调优 TODO(codegen `emit_mesh_min` 退化三角形 / `emit_raygen_min` 首期不写 storage image → 首期 PARTIAL,机构就位)。零新 RX 码、零新 RFC;U30 净新增 1(AS/SBT/device-address 细审计)。档位 **Full RFC**(RFC-0011/RFC-0013)。无体例变更 | **Full RFC**（RFC-0013） |
+| v1.18 | 2026-07-23 | **G4.2 artifacts v2 前置切片:落带编号条款体 `### RXS-0290` / `### RXS-0291` / `### RXS-0292`(spec-first,G4 PR-A;RD-031 backfill_condition 兑现之 codegen 本体)**。承 RFC-0015(Agent Approved 2026-07-23,G4 伞形章 C;编号自 RXS-0270 claim 段,0266~0269 = EI1 earmark 余号 burned 跳号,number_ledger v1.13)。**RXS-0290**(device 描述表 v2 blob 布局:v1 48B 前缀兼容 + `spirv_count`/`spirv_entries_ptr` 追加 = 64B;入口表项 40B;`stage_tag` 映射 ShaderStage 枚举序;版本分支 v1 解析 0-byte / v2 新解析 / 其余拒;畸形判据逐条;**feature 门控 = vulkan-backend off → v1 产物逐字节不变**)。**RXS-0291**(`@__rx_gpu_spirv` 段发射与多入口收集:driver 入口迭代器逐入口调用与 `--target vulkan` 相同 lowering 入口〔单一事实源〕;每入口独立模块无合并无链接器;入口名 = PTX launch 同名内核标识;逐入口降级失败 → 编译期 note + 缺席,经 Vulkan 通道要求缺席入口 → RXS-0193 确定性 Err)。**RXS-0292**(rxrt 解析与 `DeviceArtifactSet` SPIR-V 填充:版本分支解析;`with_spirv_entries` 按名索引加性扩展,既有槽 0-byte;新增指针走查 U31 起登记)。FLS 分节 **严禁 UB 节**。前置已核(RD-031 history 2026-07-16 + G4.0 复核):artifacts blob / `emit_gpu_artifact_globals` 在 main(src/rurixc/src/codegen.rs:99/1028)。每条 ≥1 `//@ spec` 测试锚定随实现 commit 同落(codegen 布局 golden + feature-off 零漂移 + 解析红绿 + 双形态回环)。档位 **Full RFC**(RFC-0015)。无体例变更 | **Full RFC**（RFC-0015） |

@@ -108,14 +108,55 @@ impl CubinVariant {
     }
 }
 
+/// v2 按名索引 SPIR-V 入口(RXS-0292;artifacts 描述表 v2 表项的运行时形态):
+/// 入口名 = PTX launch 同名内核标识(codegen `Body.symbol` 同源),`stage_tag` =
+/// `ShaderStage` 枚举声明序(0..=10,单一事实源在编译器侧 ast.rs),`spv` = 该入口
+/// 独立 SPIR-V 模块小端字节(每入口一模块,无合并/链接器,RXS-0291)。
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SpirvEntry {
+    name: String,
+    stage_tag: u32,
+    spv: Vec<u8>,
+}
+
+impl SpirvEntry {
+    /// 构造按名索引 SPIR-V 入口(畸形判据 — 空名/越界 stage_tag — 已在 artifacts
+    /// 描述表解析侧确定性拒绝,RXS-0290;本构造不重复校验)。
+    pub fn new(name: impl Into<String>, stage_tag: u32, spv: Vec<u8>) -> Self {
+        SpirvEntry {
+            name: name.into(),
+            stage_tag,
+            spv,
+        }
+    }
+
+    /// 入口名(PTX launch 同名内核标识)。
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// `ShaderStage` 枚举声明序(0=Vertex / 1=Fragment / 2=Compute / …,RXS-0290)。
+    pub fn stage_tag(&self) -> u32 {
+        self.stage_tag
+    }
+
+    /// 独立 SPIR-V 模块小端字节(`vkCreateShaderModule` 直接消费形态)。
+    pub fn spv(&self) -> &[u8] {
+        &self.spv
+    }
+}
+
 /// 分发产物变体集(RXS-0150;RXS-0209 加 Vulkan 可移植槽):PTX fallback 必存 + 按架构
 /// AOT 变体(可空)+ SPIR-V 可移植槽(可空)。两个可移植槽(`ptx_fallback` NVIDIA JIT /
 /// `spirv_fallback` Vulkan JIT)平行,per-arch AOT 未命中时按目标厂商择一降级。
+/// RXS-0292 加 v2 按名索引 SPIR-V 入口集合(可空;仅 Vulkan 通道消费,CUDA-only
+/// 进程不触碰)。
 #[derive(Clone, Debug)]
 pub struct DeviceArtifactSet {
     ptx_fallback: String,
     spirv_fallback: Option<Vec<u8>>,
     cubin_variants: Vec<CubinVariant>,
+    spirv_entries: Vec<SpirvEntry>,
 }
 
 impl DeviceArtifactSet {
@@ -126,6 +167,7 @@ impl DeviceArtifactSet {
             ptx_fallback: ptx_fallback.into(),
             spirv_fallback: None,
             cubin_variants: Vec::new(),
+            spirv_entries: Vec::new(),
         }
     }
 
@@ -166,6 +208,36 @@ impl DeviceArtifactSet {
     /// 按架构键查命中预编 AOT 变体(`None` = 未命中,装载协商降级可移植槽,RXS-0151)。
     pub fn cubin_for(&self, sm: &ArchKey) -> Option<&CubinVariant> {
         self.cubin_variants.iter().find(|v| &v.sm == sm)
+    }
+
+    /// 追加 v2 按名索引 SPIR-V 入口集合(RXS-0292,加性;既有 `spirv_fallback` 槽与
+    /// 全部既有访问器 0-byte)。入口名唯一:与既有表项或批内重名 → 确定性 `Err`
+    /// (重名 = 畸形,与 artifacts 描述表解析同族判据,RXS-0290),不自覆盖、不部分
+    /// 追加;空批 = no-op。仅 Vulkan 通道消费(RXS-0293),CUDA-only 进程不触碰。
+    pub fn with_spirv_entries(
+        mut self,
+        entries: impl IntoIterator<Item = SpirvEntry>,
+    ) -> Result<Self, String> {
+        for entry in entries {
+            if self.spirv_entries.iter().any(|e| e.name == entry.name) {
+                return Err(format!(
+                    "duplicate SPIR-V entry name `{}` (RXS-0292)",
+                    entry.name
+                ));
+            }
+            self.spirv_entries.push(entry);
+        }
+        Ok(self)
+    }
+
+    /// 按入口名查 v2 SPIR-V 入口(`None` = 未命中;按名索引,RXS-0292)。
+    pub fn spirv_entry(&self, name: &str) -> Option<&SpirvEntry> {
+        self.spirv_entries.iter().find(|e| e.name == name)
+    }
+
+    /// v2 SPIR-V 入口表(追加序;空 = 无 artifacts v2 SPIR-V 产物,既有面 0-byte)。
+    pub fn spirv_entries(&self) -> &[SpirvEntry] {
+        &self.spirv_entries
     }
 
     /// 已预编 AOT 架构键集(字典序确定,供 lockfile `[[artifact]]` 与诊断消费)。
@@ -331,5 +403,57 @@ mod tests {
             select_load_variant(&ArchKey::from_capability(7, 5), &nv_set),
             LoadChoice::PtxFallback
         );
+    }
+
+    /// v2 按名索引 SPIR-V 入口集合(RXS-0292):插入/按名查找/重名确定性拒;
+    /// 既有槽(`spirv_fallback`/cubin/ptx)与既有访问器 0-byte。
+    //@ spec: RXS-0292
+    #[test]
+    fn with_spirv_entries_name_indexed_and_duplicates_rejected() {
+        // 空集(既有形态):v2 入口表空、按名查未命中;既有访问器不受影响(0-byte)。
+        let base = DeviceArtifactSet::new(".version 8.0\n").with_spirv_fallback(vec![0x01]);
+        assert!(base.spirv_entries().is_empty());
+        assert!(base.spirv_entry("rx_k_1").is_none());
+
+        // 按名索引插入 + 查找命中(名字/stage_tag/模块字节逐项回读)。
+        let set = base
+            .with_spirv_entries([
+                SpirvEntry::new("rx_vs_5", 0, vec![0x03, 0x02, 0x23, 0x07]),
+                SpirvEntry::new("rx_k_3", 2, vec![0xAA, 0xBB]),
+            ])
+            .expect("两不重合名插入");
+        assert_eq!(set.spirv_entries().len(), 2);
+        let vs = set.spirv_entry("rx_vs_5").expect("vertex 入口命中");
+        assert_eq!(vs.stage_tag(), 0);
+        assert_eq!(vs.spv(), &[0x03, 0x02, 0x23, 0x07]);
+        let k = set.spirv_entry("rx_k_3").expect("compute 入口命中");
+        assert_eq!(k.stage_tag(), 2);
+        assert_eq!(k.spv(), &[0xAA, 0xBB]);
+        assert!(set.spirv_entry("rx_fs_7").is_none());
+        // 既有槽 0-byte:spirv_fallback / ptx_fallback / 装载协商语义不变。
+        assert_eq!(set.spirv_fallback(), Some(&[0x01][..]));
+        assert_eq!(set.ptx_fallback(), ".version 8.0\n");
+        assert_eq!(
+            select_load_variant(&ArchKey::from_capability(7, 5), &set),
+            LoadChoice::SpirvPortable
+        );
+
+        // 重名 = 畸形确定性拒(与既有表项重;不部分追加)。
+        let dup_existing = DeviceArtifactSet::new(".version 8.0\n")
+            .with_spirv_entries([SpirvEntry::new("rx_k_3", 2, vec![0x01])])
+            .expect("首次插入")
+            .with_spirv_entries([SpirvEntry::new("rx_k_3", 2, vec![0x02])]);
+        assert!(dup_existing.is_err(), "与既有表项重名须确定性拒");
+        // 批内重名同样拒。
+        let dup_in_batch = DeviceArtifactSet::new(".version 8.0\n").with_spirv_entries([
+            SpirvEntry::new("rx_a_1", 2, vec![0x01]),
+            SpirvEntry::new("rx_a_1", 0, vec![0x02]),
+        ]);
+        assert!(dup_in_batch.is_err(), "批内重名须确定性拒");
+        // 空批 = no-op。
+        let noop = DeviceArtifactSet::new(".version 8.0\n")
+            .with_spirv_entries([])
+            .expect("空批 no-op");
+        assert!(noop.spirv_entries().is_empty());
     }
 }

@@ -42,11 +42,48 @@ pub struct CodegenOpts<'a> {
 }
 
 /// single-source 嵌入 device 产物(RXS-0192):PTX 文本(必存;空 = 哨兵)+
-/// 可选 sm_89 预编 cubin 字节。
+/// 可选 sm_89 预编 cubin 字节 + 多入口 SPIR-V 表(RXS-0290/0291,artifacts v2)。
 #[derive(Debug, Default)]
 pub struct GpuArtifacts {
     pub ptx: String,
     pub cubin: Vec<u8>,
+    /// 多入口独立 SPIR-V 模块表(RXS-0291;无合并无链接器):cargo feature
+    /// `vulkan-backend` on 时由 driver 入口迭代器收集(`build_gpu_artifacts`);
+    /// off 恒空 → `emit_gpu_artifact_globals` 发射 v1 blob,产物逐字节不变
+    /// (RXS-0290 Legality feature 门控)。
+    pub spirv_modules: Vec<SpirvModule>,
+}
+
+/// 单入口独立 SPIR-V 模块(RXS-0291 每入口一模块,无 SPIR-V 合并/链接器)。
+#[derive(Debug)]
+pub struct SpirvModule {
+    /// 入口名 = 既有 PTX launch 路径同名内核标识(device MIR `Body.symbol`,
+    /// `rxrt_launch` 的 NUL 终止 `entry` 字符串同源 mangle,单一事实源)。
+    pub name: String,
+    /// `ShaderStage` 枚举声明序(RXS-0290;见 [`stage_tag`])。
+    pub stage_tag: u32,
+    /// SPIR-V 模块小端字节(`.spv` 形态;`vulkan_codegen::words_to_bytes`)。
+    pub bytes: Vec<u8>,
+}
+
+/// `stage_tag` 映射(RXS-0290 单一事实源):[`crate::ast::ShaderStage`] 枚举声明序
+/// (0=Vertex / 1=Fragment / 2=Compute / 3=Mesh / 4=Task / 5=RayGen / 6=ClosestHit /
+/// 7=AnyHit / 8=Miss / 9=Intersection / 10=Callable)。
+pub fn stage_tag(stage: crate::ast::ShaderStage) -> u32 {
+    use crate::ast::ShaderStage;
+    match stage {
+        ShaderStage::Vertex => 0,
+        ShaderStage::Fragment => 1,
+        ShaderStage::Compute => 2,
+        ShaderStage::Mesh => 3,
+        ShaderStage::Task => 4,
+        ShaderStage::RayGen => 5,
+        ShaderStage::ClosestHit => 6,
+        ShaderStage::AnyHit => 7,
+        ShaderStage::Miss => 8,
+        ShaderStage::Intersection => 9,
+        ShaderStage::Callable => 10,
+    }
 }
 
 /// codegen 入口:全部单态化实例 → 单一 LLVM IR 模块文本。
@@ -1017,7 +1054,9 @@ fn encode_bytes(bytes: &[u8]) -> String {
     enc
 }
 
-/// 发射 `@__rx_gpu_ptx` / `@__rx_gpu_cubin_sm89` / `@__rx_gpu_artifacts`(RXS-0192)。
+/// 发射 `@__rx_gpu_ptx` / `@__rx_gpu_cubin_sm89` / `@__rx_gpu_artifacts`(RXS-0192);
+/// artifacts v2(RXS-0290/0291)追加 `@__rx_gpu_spirv_<i>` / `@__rx_gpu_spirv_name_<i>`
+/// / `@__rx_gpu_spirv_entries`(feature `vulkan-backend`,同函数加性发射)。
 ///
 /// 描述表 v1 布局**逐字节匹配** rurix-rt-cabi `artifacts.rs`(48 字节,LE):
 /// `<{ i32 version=1, i32 reserved, ptr ptx, i64 ptx_len, ptr cubin, i64 cubin_len,
@@ -1025,9 +1064,22 @@ fn encode_bytes(bytes: &[u8]) -> String {
 /// 绝对地址,链接期重定位)。PTX 常量带尾 NUL(RFC-0009 §4.4),`ptx_len` 不含
 /// 尾 NUL。哨兵(无 kernel / 工具链缺失 / driver 未传)= 全 null 描述表 →
 /// `rxrt_ctx_create` 解析确定性拒(RXS-0193,无静默降级)。
+///
+/// 版本分叉(RXS-0290 Legality feature 门控):cargo feature `vulkan-backend`
+/// **off → v1 blob,产物逐字节不变**;on → v2 blob(64B,v1 48B 前缀原位不变 +
+/// `spirv_count`/`spirv_entries_ptr` 追加)。
 fn emit_gpu_artifact_globals(globals: &mut String, gpu: Option<&GpuArtifacts>) {
     let sentinel = GpuArtifacts::default();
     let gpu = gpu.unwrap_or(&sentinel);
+    #[cfg(not(feature = "vulkan-backend"))]
+    emit_gpu_artifact_globals_v1(globals, gpu);
+    #[cfg(feature = "vulkan-backend")]
+    emit_gpu_artifact_globals_v2(globals, gpu);
+}
+
+/// v1 blob 发射(feature `vulkan-backend` off 唯一路径;产物与既有逐字节一致)。
+#[cfg(not(feature = "vulkan-backend"))]
+fn emit_gpu_artifact_globals_v1(globals: &mut String, gpu: &GpuArtifacts) {
     if gpu.ptx.is_empty() {
         let _ = writeln!(
             globals,
@@ -1067,6 +1119,112 @@ fn emit_gpu_artifact_globals(globals: &mut String, gpu: Option<&GpuArtifacts>) {
         "@__rx_gpu_artifacts = private unnamed_addr constant \
          <{{ i32, i32, ptr, i64, ptr, i64, [8 x i8] }}> \
          <{{ i32 1, i32 0, ptr @__rx_gpu_ptx, i64 {}, {cubin_ref}, i64 {cubin_len}, [8 x i8] {sm_key} }}>",
+        ptx_bytes.len()
+    );
+}
+
+/// v2 blob 发射(RXS-0290/0291;feature `vulkan-backend` on):
+///
+/// 描述表 v2 布局**逐字节匹配** rurix-rt-cabi `artifacts.rs`(64 字节 packed,LE;
+/// v1 48B 字段原位不变 = v1 前缀兼容):
+/// `<{ i32 version=2, i32 reserved, ptr ptx, i64 ptx_len, ptr cubin, i64 cubin_len,
+/// [8 x i8] sm_key, i64 spirv_count, ptr spirv_entries }>`
+/// (i32×2 + ptr/i64×6 + 8 = 64;`spirv_count` @48,`spirv_entries_ptr` @56)。
+/// 入口表项 40B packed:`<{ ptr name, i64 name_len, i32 stage_tag, i32 reserved,
+/// ptr spv, i64 spv_len }>`(ptr/i64×2 + i32×2 = 40);表 = 连续 `spirv_count` 项。
+/// `spirv_count == 0` 合法(entries_ptr = null,RXS-0290 Legality)。
+//@ spec: RXS-0290
+#[cfg(feature = "vulkan-backend")]
+fn emit_gpu_artifact_globals_v2(globals: &mut String, gpu: &GpuArtifacts) {
+    if gpu.ptx.is_empty() {
+        // 哨兵空表 v2(RXS-0291 Dynamic Semantics sentinel 纪律:不伪造产物;
+        // 缺 PTX 运行期确定性拒,RXS-0193 口径不变)。
+        let _ = writeln!(
+            globals,
+            "@__rx_gpu_artifacts = private unnamed_addr constant \
+             <{{ i32, i32, ptr, i64, ptr, i64, [8 x i8], i64, ptr }}> \
+             <{{ i32 2, i32 0, ptr null, i64 0, ptr null, i64 0, [8 x i8] zeroinitializer, \
+             i64 0, ptr null }}>"
+        );
+        return;
+    }
+    let ptx_bytes = gpu.ptx.as_bytes();
+    let mut ptx_nul = ptx_bytes.to_vec();
+    ptx_nul.push(0);
+    let _ = writeln!(
+        globals,
+        "@__rx_gpu_ptx = private unnamed_addr constant [{} x i8] c\"{}\"",
+        ptx_nul.len(),
+        encode_bytes(&ptx_nul)
+    );
+    let (cubin_ref, cubin_len, sm_key) = if gpu.cubin.is_empty() {
+        ("ptr null".to_owned(), 0usize, "zeroinitializer".to_owned())
+    } else {
+        let _ = writeln!(
+            globals,
+            "@__rx_gpu_cubin_sm89 = private unnamed_addr constant [{} x i8] c\"{}\"",
+            gpu.cubin.len(),
+            encode_bytes(&gpu.cubin)
+        );
+        (
+            "ptr @__rx_gpu_cubin_sm89".to_owned(),
+            gpu.cubin.len(),
+            // "sm_89" + 3 NUL(cabi sm_key 8 字节 NUL 填充口径)
+            "c\"sm_89\\00\\00\\00\"".to_owned(),
+        )
+    };
+    // `@__rx_gpu_spirv` 段(RXS-0291):每入口名字节全局 + 模块字节全局 + 入口表全局。
+    for (i, m) in gpu.spirv_modules.iter().enumerate() {
+        let _ = writeln!(
+            globals,
+            "@__rx_gpu_spirv_name_{i} = private unnamed_addr constant [{} x i8] c\"{}\"",
+            m.name.len(),
+            encode_bytes(m.name.as_bytes())
+        );
+        let _ = writeln!(
+            globals,
+            "@__rx_gpu_spirv_{i} = private unnamed_addr constant [{} x i8] c\"{}\"",
+            m.bytes.len(),
+            encode_bytes(&m.bytes)
+        );
+    }
+    let (spirv_count, entries_ref) = if gpu.spirv_modules.is_empty() {
+        (0usize, "ptr null".to_owned())
+    } else {
+        let mut rows = String::new();
+        for (i, m) in gpu.spirv_modules.iter().enumerate() {
+            if i > 0 {
+                rows.push_str(", ");
+            }
+            // 数组常量元素须带元素类型(`[<elem-ty> <elem-val>, …]`)——
+            // 裸 `<{ … }>` 会被 clang 拒(expected '}' at end of struct)。
+            let _ = write!(
+                rows,
+                "<{{ ptr, i64, i32, i32, ptr, i64 }}> \
+                 <{{ ptr @__rx_gpu_spirv_name_{i}, i64 {}, i32 {}, i32 0, \
+                 ptr @__rx_gpu_spirv_{i}, i64 {} }}>",
+                m.name.len(),
+                m.stage_tag,
+                m.bytes.len()
+            );
+        }
+        let _ = writeln!(
+            globals,
+            "@__rx_gpu_spirv_entries = private unnamed_addr constant \
+             [{} x <{{ ptr, i64, i32, i32, ptr, i64 }}>] [{rows}]",
+            gpu.spirv_modules.len()
+        );
+        (
+            gpu.spirv_modules.len(),
+            "ptr @__rx_gpu_spirv_entries".to_owned(),
+        )
+    };
+    let _ = writeln!(
+        globals,
+        "@__rx_gpu_artifacts = private unnamed_addr constant \
+         <{{ i32, i32, ptr, i64, ptr, i64, [8 x i8], i64, ptr }}> \
+         <{{ i32 2, i32 0, ptr @__rx_gpu_ptx, i64 {}, {cubin_ref}, i64 {cubin_len}, \
+         [8 x i8] {sm_key}, i64 {spirv_count}, {entries_ref} }}>",
         ptx_bytes.len()
     );
 }
@@ -1281,5 +1439,200 @@ mod tests {
         assert!(ir.contains("= add i32"), "{ir}");
         assert!(ir.contains("icmp eq i32"), "{ir}");
         assert!(ir.contains("br i1"), "{ir}");
+    }
+
+    /// `stage_tag` 映射 = [`crate::ast::ShaderStage`] 枚举声明序(RXS-0290 单一事实源)。
+    //@ spec: RXS-0290
+    #[test]
+    fn stage_tag_maps_shader_stage_declaration_order() {
+        use crate::ast::ShaderStage;
+        let expect = [
+            (ShaderStage::Vertex, 0),
+            (ShaderStage::Fragment, 1),
+            (ShaderStage::Compute, 2),
+            (ShaderStage::Mesh, 3),
+            (ShaderStage::Task, 4),
+            (ShaderStage::RayGen, 5),
+            (ShaderStage::ClosestHit, 6),
+            (ShaderStage::AnyHit, 7),
+            (ShaderStage::Miss, 8),
+            (ShaderStage::Intersection, 9),
+            (ShaderStage::Callable, 10),
+        ];
+        for (stage, tag) in expect {
+            assert_eq!(stage_tag(stage), tag, "{stage:?} stage_tag 错");
+        }
+    }
+
+    /// artifacts v2 blob 布局 golden(RXS-0290/0291,feature `vulkan-backend` on):
+    /// 描述表 64B packed(`i32×2 + ptr/i64×6 + [8 x i8]` = 4+4+48+8 = 64;
+    /// `spirv_count` @48 / `spirv_entries_ptr` @56,v1 48B 前缀原位不变),
+    /// 入口表项 40B packed(`ptr/i64×2 + i32×2` = 40)。逐字节 golden 锚定字段序
+    /// 与初始值;cabi 侧 `DESC_LEN_V2 = 64` / `ENTRY_LEN_V2 = 40` 同值锚(artifacts.rs)。
+    //@ spec: RXS-0290, RXS-0291
+    #[cfg(feature = "vulkan-backend")]
+    #[test]
+    fn artifacts_v2_blob_layout_golden() {
+        let gpu = GpuArtifacts {
+            ptx: ".version 8.0\n".to_owned(),
+            cubin: vec![0x7F, 0x45],
+            spirv_modules: vec![
+                SpirvModule {
+                    name: "rx_k_3".to_owned(),
+                    stage_tag: 2,
+                    bytes: vec![0x03, 0x02, 0x23, 0x07],
+                },
+                SpirvModule {
+                    name: "rx_vs_5".to_owned(),
+                    stage_tag: 0,
+                    bytes: vec![0xAA],
+                },
+            ],
+        };
+        let mut globals = String::new();
+        emit_gpu_artifact_globals(&mut globals, Some(&gpu));
+        let expected = "@__rx_gpu_ptx = private unnamed_addr constant [14 x i8] c\".version 8.0\\0A\\00\"\n\
+             @__rx_gpu_cubin_sm89 = private unnamed_addr constant [2 x i8] c\"\\7FE\"\n\
+             @__rx_gpu_spirv_name_0 = private unnamed_addr constant [6 x i8] c\"rx_k_3\"\n\
+             @__rx_gpu_spirv_0 = private unnamed_addr constant [4 x i8] c\"\\03\\02#\\07\"\n\
+             @__rx_gpu_spirv_name_1 = private unnamed_addr constant [7 x i8] c\"rx_vs_5\"\n\
+             @__rx_gpu_spirv_1 = private unnamed_addr constant [1 x i8] c\"\\AA\"\n\
+             @__rx_gpu_spirv_entries = private unnamed_addr constant [2 x <{ ptr, i64, i32, i32, ptr, i64 }>] \
+             [<{ ptr, i64, i32, i32, ptr, i64 }> <{ ptr @__rx_gpu_spirv_name_0, i64 6, i32 2, i32 0, ptr @__rx_gpu_spirv_0, i64 4 }>, \
+             <{ ptr, i64, i32, i32, ptr, i64 }> <{ ptr @__rx_gpu_spirv_name_1, i64 7, i32 0, i32 0, ptr @__rx_gpu_spirv_1, i64 1 }>]\n\
+             @__rx_gpu_artifacts = private unnamed_addr constant \
+             <{ i32, i32, ptr, i64, ptr, i64, [8 x i8], i64, ptr }> \
+             <{ i32 2, i32 0, ptr @__rx_gpu_ptx, i64 13, ptr @__rx_gpu_cubin_sm89, i64 2, \
+             [8 x i8] c\"sm_89\\00\\00\\00\", i64 2, ptr @__rx_gpu_spirv_entries }>\n";
+        assert_eq!(globals, expected);
+    }
+
+    /// artifacts v2 发射 IR 的 clang 编译红绿(RXS-0291,反 YAML-only):golden 文本锚
+    /// 不证「clang 接受」——v2 入口表数组元素须带元素类型(裸 `<{…}>` 曾被 clang 拒,
+    /// 本测试把发射产物真喂 clang,并构造裸元素变体断言其必红(红绿闭合)。
+    /// 缺 clang → SKIP(dev-env degrade,不充绿)。
+    //@ spec: RXS-0290, RXS-0291
+    #[cfg(feature = "vulkan-backend")]
+    #[test]
+    fn artifacts_v2_emitted_ir_clang_accepts_and_tamper_rejects() {
+        let gpu = GpuArtifacts {
+            ptx: ".version 8.0\n".to_owned(),
+            cubin: Vec::new(),
+            spirv_modules: vec![
+                SpirvModule {
+                    name: "rx_k_3".to_owned(),
+                    stage_tag: 2,
+                    bytes: vec![0x03, 0x02, 0x23, 0x07],
+                },
+                SpirvModule {
+                    name: "rx_vs_5".to_owned(),
+                    stage_tag: 0,
+                    bytes: vec![0xAA],
+                },
+            ],
+        };
+        let mut globals = String::new();
+        emit_gpu_artifact_globals(&mut globals, Some(&gpu));
+        let Ok(clang) = crate::toolchain::locate_clang() else {
+            eprintln!("SKIP: clang not found (dev-env degrade, not a pass)");
+            return;
+        };
+        let dir = std::env::temp_dir().join(format!("rx_g42_v2_ir_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let compile = |name: &str, body: &str| -> bool {
+            let f = dir.join(name);
+            std::fs::write(&f, body).unwrap();
+            let out = std::process::Command::new(&clang)
+                .args(["-x", "ir", "-c"])
+                .arg(&f)
+                .args(["-o", dir.join(name.replace(".ll", ".o")).to_str().unwrap()])
+                .output()
+                .unwrap();
+            out.status.success()
+        };
+        // GREEN:真发射产物(含 2 入口表 + v2 blob)clang 接受。
+        assert!(
+            compile("v2_green.ll", &globals),
+            "clang 拒收 v2 发射 IR:\n{globals}"
+        );
+        // RED:裸元素变体(剥掉元素类型)必被 clang 拒——证 GREEN 非「全绿橡皮章」。
+        let tampered = globals.replace(
+            "<{ ptr, i64, i32, i32, ptr, i64 }> <{ ptr @__rx_gpu_spirv_name_0,",
+            "<{ ptr @__rx_gpu_spirv_name_0,",
+        );
+        assert_ne!(tampered, globals, "篡改构造未生效");
+        assert!(
+            !compile("v2_red.ll", &tampered),
+            "裸元素变体竟被 clang 接受"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// v2 空表合法(RXS-0290:`spirv_count == 0` → `entries_ptr = null`)+ v2 哨兵
+    /// (无 PTX → 全 null 描述表,运行期确定性拒,RXS-0193 口径不变)。
+    //@ spec: RXS-0290
+    #[cfg(feature = "vulkan-backend")]
+    #[test]
+    fn artifacts_v2_empty_table_and_sentinel() {
+        // 有 PTX、无 cubin、无 SPIR-V 入口:count = 0 + entries_ptr = null。
+        let gpu = GpuArtifacts {
+            ptx: ".version 8.0\n".to_owned(),
+            cubin: Vec::new(),
+            spirv_modules: Vec::new(),
+        };
+        let mut globals = String::new();
+        emit_gpu_artifact_globals(&mut globals, Some(&gpu));
+        let expected = "@__rx_gpu_ptx = private unnamed_addr constant [14 x i8] c\".version 8.0\\0A\\00\"\n\
+             @__rx_gpu_artifacts = private unnamed_addr constant \
+             <{ i32, i32, ptr, i64, ptr, i64, [8 x i8], i64, ptr }> \
+             <{ i32 2, i32 0, ptr @__rx_gpu_ptx, i64 13, ptr null, i64 0, \
+             [8 x i8] zeroinitializer, i64 0, ptr null }>\n";
+        assert_eq!(globals, expected);
+
+        // 哨兵(None 与空 GpuArtifacts 同形):version = 2 全 null。
+        let mut globals = String::new();
+        emit_gpu_artifact_globals(&mut globals, None);
+        let expected = "@__rx_gpu_artifacts = private unnamed_addr constant \
+             <{ i32, i32, ptr, i64, ptr, i64, [8 x i8], i64, ptr }> \
+             <{ i32 2, i32 0, ptr null, i64 0, ptr null, i64 0, \
+             [8 x i8] zeroinitializer, i64 0, ptr null }>\n";
+        assert_eq!(globals, expected);
+    }
+
+    /// feature `vulkan-backend` **off → v1 blob 逐字节不变**(RXS-0290 Legality feature
+    /// 门控):即使 `GpuArtifacts.spirv_modules` 非空也不产 SPIR-V 段,v1 golden 与
+    /// 既有产物逐字节一致(48B 描述表 `<{ i32, i32, ptr, i64, ptr, i64, [8 x i8] }>`)。
+    //@ spec: RXS-0290
+    #[cfg(not(feature = "vulkan-backend"))]
+    #[test]
+    fn artifacts_v1_blob_zero_drift_when_feature_off() {
+        let gpu = GpuArtifacts {
+            ptx: ".version 8.0\n".to_owned(),
+            cubin: vec![0x7F, 0x45],
+            // feature off 下收集恒空(driver collect_spirv_entries stub);此处故意
+            // 构造非空,证 v1 发射路径对其完全不可见(零漂移)。
+            spirv_modules: vec![SpirvModule {
+                name: "rx_k_3".to_owned(),
+                stage_tag: 2,
+                bytes: vec![0x03, 0x02, 0x23, 0x07],
+            }],
+        };
+        let mut globals = String::new();
+        emit_gpu_artifact_globals(&mut globals, Some(&gpu));
+        let expected = "@__rx_gpu_ptx = private unnamed_addr constant [14 x i8] c\".version 8.0\\0A\\00\"\n\
+             @__rx_gpu_cubin_sm89 = private unnamed_addr constant [2 x i8] c\"\\7FE\"\n\
+             @__rx_gpu_artifacts = private unnamed_addr constant \
+             <{ i32, i32, ptr, i64, ptr, i64, [8 x i8] }> \
+             <{ i32 1, i32 0, ptr @__rx_gpu_ptx, i64 13, ptr @__rx_gpu_cubin_sm89, i64 2, \
+             [8 x i8] c\"sm_89\\00\\00\\00\" }>\n";
+        assert_eq!(globals, expected);
+
+        // 哨兵:v1 全 null 描述表(与既有产物逐字节一致)。
+        let mut globals = String::new();
+        emit_gpu_artifact_globals(&mut globals, None);
+        let expected = "@__rx_gpu_artifacts = private unnamed_addr constant \
+             <{ i32, i32, ptr, i64, ptr, i64, [8 x i8] }> \
+             <{ i32 1, i32 0, ptr null, i64 0, ptr null, i64 0, [8 x i8] zeroinitializer }>\n";
+        assert_eq!(globals, expected);
     }
 }

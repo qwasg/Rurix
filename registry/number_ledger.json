@@ -28,8 +28,8 @@
       "pattern": "RXS-####",
       "main_fact_source": "spec/README.md §4 + spec/*.md 的 `### RXS-####` 条款头",
       "guard_spec_heading_scan": true,
-      "on_tree_max": 265,
-      "next_free": 270,
+      "on_tree_max": 292,
+      "next_free": 293,
       "shadow_reserved": [
         181,
         182,
@@ -276,6 +276,11 @@
     }
   ],
   "revision_log": [
+    {
+      "version": "v1.14",
+      "date": "2026-07-23",
+      "change": "G4.2 PR-A artifacts v2 校准(feat/g4.2-artifacts-v2,agent 完全自主 D-406 v2.0):RXS on_tree_max 265→292、next_free 270→293——spec/vulkan_backend.md v1.18 materialize RXS-0290~0292(G4 claim 0270~0299 的章 C 前置切片,guard_spec_heading_scan 实测最大头 292)。**G4 期内乱序消费留痕**:PR-A 先落 0290~0292(工程前置,G4_CONTRACT §7 ④),**0270~0289 仍归 G4 后续 PR 顺落**(章 A 0270~0279 / 章 B 0280~0289,见 reserved_in_flight[G4]),对外 = 293 起;check 2b(next_free>on_tree_max)与本注同真。RXS notes 中 0266~0269 burned 跳号记载 0-byte 维持。RD/CI_step/U/SG/RX_error/MR/D 命名空间字段 0-byte(零新 RD/步骤/U/RX 码/MR/D);零新 SG/error-code/budget counter(counter 归后续 PR)。"
+    },
     {
       "version": "v1.13",
       "date": "2026-07-23",
