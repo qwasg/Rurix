@@ -39,10 +39,21 @@
       "description": "Vulkan RHI 通道 device 见证基数 ≥1(契约 G-G4-5;RFC-0015 §4.C4 / RXS-0293/0294;ci/vulkan_rhi_channel_smoke.py 步骤 80 device 段)。计数源 = evidence/vulkan_rhi_channel_smoke_*.json 中 vulkan_channel_ok=true 的报告数(机器事实:rx build rhi_create_vk.rx 产 EXE 真跑 exit 0〔`Rhi::create_vk(&ctx)` 显式 Vulkan 后端 + SPIR-V pipeline + descriptor set + dispatch + 回写;Vulkan 不可用 → strict Err RXS-0193,非 fake pass〕)。**通道语义面**:RXS-0293 .rx 单源 Vulkan RHI 通道〔compute + graphics 双腿,`Rhi::create_vk` 显式后端 strict 无回退;compute 腿 = rxrt_rhi_* Vulkan 变体〔pipeline 自 SPIR-V + descriptor set + dispatch + 计划同步点回放〕;graphics 腿复用 G4.2 章A 执行面 A7 同一通道;feature 门控 vulkan-backend〕+ RXS-0294 device 见证判据〔compute 图 device 真跑 + 数值对照 + spirv-val 全模块校验 + RURIX_REQUIRE_REAL=1〕。**device evidence 计数**(非静态语料计数):须有 link 工具链 + Vulkan 驱动 + GPU 才能成立,故按 device 见证归档口径计数(对齐 g4.counter.exec_face_gate device 见证计数先例)。host 段(vk.rs feature vulkan 库单测 + rhi.rs backend 分流 + cabi create_vk 符号面 + uc05_corpus accept/rhi_create_vk + rurixc --emit=check + spirv-val 全模块校验)恒跑但**不入本 counter**。无 link 工具链 / 无 Vulkan 驱动 / 无 GPU → device SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL。strict 无回退:Vulkan 不可用 → 确定性 Err(RXS-0193 口径);RURIX_REQUIRE_REAL=1 翻硬红(SKIP 不充绿)。",
       "required": 1,
       "unit": "份 Vulkan RHI 通道 device 见证(vulkan_channel_ok=true)"
+    },
+    {
+      "id": "g4.counter.blackhole_realtime_smoke",
+      "description": "BLACKHOLE realtime device 见证基数 ≥1(契约 G-G4-7;RFC-0015 §1 carve-out / RXS-0197/0198;ci/blackhole_realtime_smoke.py 步骤 81 device 段)。计数源 = evidence/blackhole_realtime_smoke_*.json 中 blackhole_realtime_ok=true 的报告数(机器事实:rxp_create Shim E_NOTIMPL〔0x80004001,-2147467263〕归因 = present-real cargo feature 默认关闭导致 feature 链 present-real → d3d12-interop-real → real-shim 全 off;C++ shim 源 rx_d3d12_shim.cpp 实现完整,非 shim gap。修复 = apps/blackhole 构建配置启用 present-real feature〔Direct PR,零代码/零语义/零 ABI 变更〕→ 预编 rurix-rt-cabi --features present-real + RURIX_RT_CABI_LIB 注入 → rx build realtime.rx 产 EXE 真跑 exit 0〔Present::create 经 real-shim 建 D3D12 device/swapchain〕+ REALTIME_OK 六项物理自检〔NaN/range、中心黑盘、shadow 半径 vs 解析 ±2%、Doppler 非对称 ≥1.15、光子环、星野〕+ 30fps measured〔BENCH_PROTOCOL 口径:锁频 + 三次 trimmed mean + 环境画像;evidence 面不进硬门,计时波动 EA1 冷启动先例〕+ 帧对照〔offline 144 帧 vs realtime 帧像素对照,Q-PixelCriterion 纯色/nearest RGBA8 整数 fetch 域不设 ULP 容差〕)。**归因先于修复**(pr_h_attribution_report.md 留痕);禁绕过禁静默降级(stub 不假绿、不 poison ctx)。**device evidence 计数**(非静态语料计数):须有 MSVC + Windows SDK(D3D12)+ GPU + 交互桌面会话才能成立,故按 device 见证归档口径计数(对齐 g4.counter.vulkan_rhi_channel device 见证计数先例)。host 段(feature 链三跳 + 修复姿态 apps/blackhole Cargo.toml + shim 源 + E_NOTIMPL stub 锚 + REALTIME_OK 六项源 + offline 帧对照基线 + present stub 失败路径单测)恒跑但**不入本 counter**。无 MSVC / 无 Windows SDK / 无 GPU / 无交互桌面 → device SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL。G3.2 步骤 61 present 既有路径零回归(本 PR 不改 src/ 任何源码,default features 不变)。",
+      "required": 1,
+      "unit": "份 BLACKHOLE realtime device 见证(blackhole_realtime_ok=true)"
     }
   ],
   "namespace_check": "全部 id 必须 g4. 前缀;跨文件合并冲突即 FAIL(ci/budget_eval.py)",
   "revision_log": [
+    {
+      "version": "v1.5",
+      "date": "2026-07-24",
+      "change": "G4.6 PR-H BLACKHOLE 验收 counter_assertions 第六落(G4_CONTRACT §7 ⑤ counter 随实现 PR 回填):追加 g4.counter.blackhole_realtime_smoke(step 81 device 见证基数 ≥1,对齐 g4.counter.vulkan_rhi_channel device 见证计数先例;计数源 = evidence/blackhole_realtime_smoke_*.json 中 blackhole_realtime_ok=true,rx build realtime.rx 产 EXE 真跑 exit 0〔present-real feature 接线修复 rxp_create Shim E_NOTIMPL + Present::create 经 real-shim 建 D3D12 device/swapchain〕+ REALTIME_OK 六项物理自检 + 30fps measured〔evidence 面不进硬门〕+ 帧对照〔offline 144 帧 vs realtime〕)。归因先于修复(pr_h_attribution_report.md:present-real cargo feature 默认关闭 = feature 接线 gap,非 shim 面缺口);修复 = apps/blackhole 构建配置启用 present-real〔Direct PR,零代码/零语义/零 ABI 变更〕;G3.2 步骤 61 present 既有路径零回归(本 PR 不改 src/ 源码,default features 不变)。counter_assertions 自 5 条增到 6 条;entries/ratio_assertions 维持空(零 estimated 预欠)。evaluator 分支同 PR 落 ci/budget_eval.py(未知 id 强制 FAIL)。"
+    },
     {
       "version": "v1.4",
       "date": "2026-07-24",

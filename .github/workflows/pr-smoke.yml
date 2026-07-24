@@ -787,6 +787,27 @@ jobs:
         shell: powershell
         run: py -3 ci/vulkan_rhi_channel_smoke.py
 
+      # 步骤 81（G-G4-7,RFC-0015 §1 carve-out / RXS-0197/0198）:BLACKHOLE realtime smoke
+      # (rxp_create Shim E_NOTIMPL 归因 + present-real feature 接线修复 + REALTIME_OK 六项
+      # 物理自检 + 30fps measured + 帧对照;Direct PR,零代码/零语义/零 ABI 变更)。
+      # `ci/blackhole_realtime_smoke.py` host 段**恒跑**(反 YAML-only,无 GPU):
+      # ① feature 链核验(present-real → d3d12-interop-real → real-shim 三跳逐跳解析)
+      # ② 修复姿态核验(apps/blackhole/Cargo.toml 声明 present-real = THE FIX)
+      # ③ shim 源完整性(rx_d3d12_shim.cpp 含 rx_d3d12_present_create,非 shim gap)
+      # ④ E_NOTIMPL stub 锚(lib.rs 含 RX_D3D12_E_NOTIMPL + cfg(not(real-shim)))
+      # ⑤ REALTIME_OK 六项源(realtime.rx 含 NaN/黑盘/shadow/Doppler/光子环/星野)
+      # ⑥ offline 帧对照基线(frames/f_0000.ppm 144 帧 PPM)
+      # ⑦ present stub 失败路径单测(rxp_create stub 态 E_NOTIMPL 确定性锚)
+      # device/toolchain 段 gate real(`RURIX_REQUIRE_REAL=1`,缺 provisioning SKIP=dev-env degrade):
+      # ⑧ 预编 rurix-rt-cabi --features present-real(crt-static,接通 real-shim C++ 编译)
+      # ⑨ RURIX_RT_CABI_LIB 指向预编产物 → rx build realtime.rx → EXE GREEN
+      # ⑩ realtime EXE 真跑 → REALTIME_OK 六项 + 30fps measured + 帧对照。
+      # 30fps 数值为 evidence 面不进硬门(计时波动,EA1 冷启动先例),SKIP 不充绿。
+      # G3.2 步骤 61 present 既有路径零回归(本步骤不改 src/ 任何源码,default features 不变)。
+      - name: BLACKHOLE realtime smoke (G4 CI_GATES §2.81, G-G4-7, RFC-0015 §1 / RXS-0197/0198)
+        shell: powershell
+        run: py -3 ci/blackhole_realtime_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

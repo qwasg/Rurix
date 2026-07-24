@@ -715,6 +715,32 @@ def eval_counter(entry: dict, strict: bool) -> None:
                 n += 1
         count_or_gate(eid, n, 1, "份 Vulkan RHI 通道 device 见证(vulkan_channel_ok=true)",
                       "G4.4 device 见证回填前为正常状态,契约 G-G4-5", strict)
+    elif eid == "g4.counter.blackhole_realtime_smoke":
+        # BLACKHOLE realtime device 见证基数 ≥1(契约 G-G4-7;RFC-0015 §1 carve-out /
+        # RXS-0197/0198;ci/blackhole_realtime_smoke.py 步骤 81 device 段)。计数源 =
+        # evidence/blackhole_realtime_smoke_*.json 中 blackhole_realtime_ok=true 的报告数
+        # (机器事实:rxp_create Shim E_NOTIMPL〔0x80004001〕归因 = present-real cargo feature
+        # 默认关闭,feature 链 present-real → d3d12-interop-real → real-shim 全 off;C++ shim
+        # 源完整,非 shim gap。修复 = apps/blackhole 构建配置启用 present-real〔Direct PR,
+        # 零代码/零语义/零 ABI 变更〕→ 预编 rurix-rt-cabi --features present-real +
+        # RURIX_RT_CABI_LIB 注入 → rx build realtime.rx 产 EXE 真跑 exit 0 + REALTIME_OK 六项
+        # 物理自检 + 30fps measured〔evidence 面不进硬门〕+ 帧对照〔offline 144 帧 vs realtime〕)。
+        # **归因先于修复**(pr_h_attribution_report.md 留痕);禁绕过禁静默降级。
+        # **device evidence 计数**(非静态语料计数):须有 MSVC + Windows SDK(D3D12)+ GPU +
+        # 交互桌面会话才能成立,故按 device 见证归档口径计数(对齐
+        # g4.counter.vulkan_rhi_channel device 见证计数先例)。host 段(feature 链三跳 +
+        # 修复姿态 + shim 源 + E_NOTIMPL stub 锚 + REALTIME_OK 六项源 + offline 帧对照基线 +
+        # present stub 失败路径单测)恒跑但**不入本 counter**。无 MSVC / 无 Windows SDK /
+        # 无 GPU / 无交互桌面 → device SKIP=dev-env degrade → 0 → 建设期 normal SKIP /
+        # close-out strict FAIL。G3.2 步骤 61 present 既有路径零回归(本 PR 不改 src/ 源码,
+        # default features 不变)。
+        n = 0
+        for f in (ROOT / "evidence").glob("blackhole_realtime_smoke_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("blackhole_realtime_ok") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份 BLACKHOLE realtime device 见证(blackhole_realtime_ok=true)",
+                      "G4.6 device 见证回填前为正常状态,契约 G-G4-7", strict)
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 

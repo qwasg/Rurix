@@ -1,0 +1,30 @@
+# apps/blackhole 构建配置(G4.6 PR-H BLACKHOLE 验收;G-G4-7;RFC-0015 §1 carve-out)。
+#
+# 归因(见 .trae/specs/push_g4_rendering_stack_to_closeout/pr_h_attribution_report.md):
+#   rxp_create Shim E_NOTIMPL(0x80004001)= `rurix-rt-cabi` 的 `present-real` cargo feature
+#   默认关闭(default = ["present"] 不含 present-real),导致 feature 链
+#   `present-real → d3d12-interop-real → real-shim` 全部 off;C++ shim 源
+#   (src/rurix-d3d12/shim/rx_d3d12_shim.cpp)实现完整——这是 feature 接线 gap,非 shim 缺口。
+#
+# 修复(Direct PR,10 §3:不改语义的 bug fix;零代码 / 零语义 / 零 ABI / 零 unsafe 变更):
+#   apps/blackhole 构建配置启用 `present-real` feature,接通既有 feature 链。
+#   rurix-rt-cabi default features 不变(常驻回归网绿纪律;src/rurix-rt-cabi/Cargo.toml
+#   default = ["present"] 维持),present-real 仅在本应用构建配置显式启用。
+#
+# 注:apps/blackhole 非 workspace 成员(根 Cargo.toml [workspace] members 不含本 crate),
+# 本 Cargo.toml 为构建配置声明面(声明 present-real 依赖),不影响 `cargo build --workspace`。
+# device 段真跑经 ci/blackhole_realtime_smoke.py 预编 rurix-rt-cabi --features present-real
+# + RURIX_RT_CABI_LIB 指向预编产物 + `rx build` realtime.rx(见 driver.rs locate_or_build_rt_cabi)。
+[package]
+name = "blackhole"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# present-real:在 present 之上经 rurix-rt/d3d12-interop-real 编译真实 D3D12/DXGI C++ shim
+# (需 MSVC + Windows SDK + 交互桌面会话)。接通 feature 链:
+#   rurix-rt-cabi/present-real → rurix-rt/d3d12-interop-real → rurix-d3d12/real-shim
+# (src/rurix-rt-cabi/Cargo.toml: present-real = ["present", "rurix-rt/d3d12-interop-real"];
+#  src/rurix-rt/Cargo.toml: d3d12-interop-real = ["d3d12-interop", "rurix-d3d12/real-shim"])。
+[dependencies]
+rurix-rt-cabi = { path = "../../src/rurix-rt-cabi", features = ["present-real"] }
