@@ -612,6 +612,59 @@ gfx.reads_table(&table);                  // pass 绑定无界纹理表(动态�
 > 测试锚定:conformance/uc05/accept/gfx_bindless.rx(表注册 + reads_table 声明 0 诊断)+ 步骤 76 bindless 动态索引像素
 > 判据(四象限四色 + 篡改换位 RED)。
 
+### RXS-0277 engine_host v3 嵌入面 + 三方数值精确相等判据(G4.2 PR-D,RFC-0015 §4.A7)
+
+**Syntax**(图形导出 + 宿主嵌入 C ABI):
+
+```
+#[export(c)]
+fn uc05_gfx_run_frame(out: *mut u32, w: i32, h: i32) -> i32
+```
+
+**Legality**:
+
+- **图形嵌入面(RXS-0261 嵌入面的图形侧扩展)**:整张图形 RHI 图(≥1 raster + ≥1 mesh pass,含 color_target / 装配
+  核验 / hazard 推导 / 派发 / 真像素读回)可完整封闭在一个 `#[export(c)]` host fn 体内经 `--emit=dll` 产 cdylib 供
+  C/C++ 宿主调用,**EI1.4 同构**(subset v1:标量 + 裸指针,无 upcall、无外部固定 ABI;PR-G 判档输入)。GPU 上下文 /
+  图 / 资源生命周期**单次调用内创建与销毁**;宿主只见 C ABI 标量与裸指针、不见任何 Rurix 类型。
+- **engine_host v3 嵌入宿主(RXS-0261 嵌入面的宿主侧升级)**:`src/rurix-engine/harness/` 新增 C++/D3D12 文件,链接
+  `rurix_rhi.lib` 图形导出面 device 真跑;**v1/v2 既有资产逐字节 0-byte**(两制共存,RXS-0254 §4.A5 同面)。宿主建立
+  D3D12 device + queue + fence 上下文,与 Rurix 侧 Vulkan device 经 **LUID 匹配**(同 adapter,跨 API 共享 GPU 节点
+  时间轴;v2 LUID 匹配为 CUDA↔D3D12,v3 升级为 Vulkan↔D3D12),Rurix 图形图节点夹在宿主 fence 锚点之间执行——证图
+  节点在宿主时间轴上有确定位置(非「另起一条无关时间线」)。
+- **三方数值精确相等判据(Q-PixelCriterion)**:**不设 ULP 浮点容差**。三方为:① .rx RHI(Vulkan)readback 像素
+  (`uc05_gfx_run_frame` 出参 `*out`);② D3D12 宿主 raster/mesh pipeline readback 像素(D3D12 graphics pipeline
+  与 mesh pipeline 同图对照);③ host 参考值(闭式参考公式,C 实现与 .rx 侧不同实现——对照非自证)。**相等域 =
+  纯色/nearest RGBA8 整数 fetch 域**:无纹理过滤、无混合、无 depth 写入、无多采样(避免浮点不确定性来源),像素为
+  RGBA8 整数 texel fetch 严格逐字节相等。**超域换用例不降判据**(不换到带过滤/混合用例后放宽到 ULP 容差;Q-
+  PixelCriterion 是判据硬约束,P-12 不以「完整」为名放宽)。
+- **生成头逐字节守卫(RXS-0254 同面)**:CI 再生成 `rurix_rhi.h` 与仓库 tracked 头逐字节比对,篡改翻红。仓库**零 tracked
+  .h**(生成头由 `rurixc --emit=dll` 现场生成,RXS-0253);守卫与 v2 嵌入面同 RXS-0254 守卫同面。
+- **subset v1 合规(RXS-0251/0255)**:签名仅 `*mut u32` + `i32` + `i32` 返回;导出体**无 panic 面 by-construction**——
+  错误面经 **i32 状态码**返回(RD-026 无 Result 面纪律),不跨 ABI 展开、不 panic 终止。
+
+**Dynamic Semantics**:
+
+- 执行序沿用 RXS-0261 嵌入面零特例:seal → 推导 → 派发 → 收尾同步 → D2H,与 in-EXE 路逐段同一,差别仅在结果出口
+  是 `*mut u32` 出参(像素缓冲逐 RGBA8 写回)。三方数值对照于宿主侧 CPU 比对(逐字节 memcmp)。
+- engine_host v3 宿主侧 D3D12 pipeline:raster 对照(vs/ps,d3dcompiler 或预编 cso)、mesh 对照(ms_6_5/ps_6_5,
+  dxc 预编,Vulkan SDK dxc 在 provisioning);LUID 匹配保证 Vulkan 与 D3D12 device 共同一 adapter。
+
+**Implementation Requirements**:
+
+- 新增文件 `src/rurix-engine/harness/engine_host_v3.cpp`;`engine_host.cpp`(v1)/ `uc05_engine_host.cpp`(v2)**逐字节
+  0-byte**。cabi 图形导出槽位扩展(class / access tag 追加式,与 PR-C 同源;PR-D 不新增 cabi 符号面,图形导出经既有
+  `rxrt_rhi_*` 族 + `#[export(c)]` 收集根)。零新 RX 码、零新借用码、零新 lang item。
+- 步骤 78 `ci/uc05_engine_embed_v3_smoke.py`:host 段恒跑(零 .rs 审计 / 生成头幂等 / 篡改再生成 byte-diff RED /
+  `--emit=dll` 产图形导出面);device 段 gate real(cl.exe 编 v3 harness 链 `rurix_rhi.lib` 真跑 + 三方数值精确相等 +
+  RED 三路:篡改 .rx 侧参考 / 篡改 D3D12 侧参考 / 篡改 host 侧参考任一翻红)。RURIX_REQUIRE_REAL=1 翻硬红;缺
+  provisioning 环境 SKIP = dev-env degrade(非 fake pass)。
+
+> 测试锚定:apps/uc05-rhi/src/embed.rx(`uc05_gfx_run_frame` 图形导出,`//@ spec: RXS-0277`)+
+> src/rurix-engine/harness/engine_host_v3.cpp(v3 嵌入宿主三方数值精确相等,`//@ spec: RXS-0277`)+
+> ci/uc05_engine_embed_v3_smoke.py(步骤 78 device 段 cl.exe 编 v3 + 三方像素逐字节相等 + RED 三路)+
+> g4.counter.engine_embed_v3(device 见证计数 ≥1,evaluator 分支同 PR)。
+
 ## 3. 错误码引用汇总(**Part B 零新 RX 码全复用**)
 
 | 码 / 状态面 | 段 | 语义 | 条款 |
@@ -654,3 +707,4 @@ const / 类型诊断;运行期 / 环境失败(device 分配 / launch / sync)走 
 | v1.3 | 2026-07-20 | EI1.4 引擎嵌入落地(§4 任务 2 / G-EI1-4):§RXS-0261 新增**嵌入面**实现要求一条 —— 整张 RHI 图可完整封闭在一个 `#[export(c)]` host fn 体内经 `--emit=dll` 产 cdylib 供 C/C++ 宿主调用,GPU 上下文/图/资源在**单次调用内**创建与销毁,宿主只见 C 子集 v1 标量与裸指针、不见任何 Rurix 类型;对执行语义**零特例**(seal → 推导 → 派发 → 收尾同步 → D2H 与 in-EXE 路逐段同一,差别仅在结果出口是 `*mut T` 出参),错误面以 **i32 状态码**跨 ABI 返回(§RXS-0255 无 panic 面 by-construction,不展开 unwind)。落地物:`apps/uc05-rhi/src/embed.rx`(全 .rx 导出面,`uc05_run_graph(*mut i32, i32) -> i32` + `uc05_graph_pass_count()`)+ `apps/uc05-rhi/src/graph.rx`(kernel 与闭式参考公式抽为模块 = demo/embed 单一事实源,demo.rx 改为 `mod graph` 复用,语义 0-byte)+ `src/rurix-engine/harness/uc05_engine_host.cpp`(engine_host **v2**:C++/D3D12 驱动方,LUID 匹配 adapter + queue fence 锚点夹住 Rurix 图节点,**新增文件**——G1.3 v1 三符号面/手写头/RXS-0149 守卫逐字节 0-byte,两制共存 spec/export_c.md §RXS-0254)+ 步骤 74 `ci/uc05_engine_embed_smoke.py`(host 恒跑:生成头自始生成不手写审计 + 两制共存审计 + 零 .rs 审计 + `--emit=dll` 三件 + 生成头幂等 + 篡改再生成 byte-diff RED;device:cl.exe 编 v2 harness 链 rurix_rhi.lib 真跑 + **三方数值对照**)+ evidence schema + `ei1.counter.uc05_engine_embed`(≥1,device 见证计数)。**零新 RX 码**;条款语义无收窄或扩张,§RXS-0256~0260/0262~0265 全部 0-byte。 | **Full RFC**(RFC-0014 / §4.A+§4.B / EI1.4) |
 | v1.4 | 2026-07-23 | **G4.2 PR-B 图形 RHI 化主面条款先行:落带编号条款体 `### RXS-0270` ~ `### RXS-0273`(spec-first;编号自 RXS-0270 claim 段,0266~0269 burned 跳号,number_ledger v1.13)**。承 RFC-0015(Agent Approved 2026-07-23,G4 伞形章 A;G4_CONTRACT G-G4-3)。**RXS-0270**(RHI 图形 pass 类型面:`g.raster_pass(vs, fs)` / `g.mesh_pass(ms, fs)` → `GfxPass<C>` 句柄族;着色函数引用合法性〔vertex/fragment 阶段 + mesh 须 RXS-0243 入口契约〕;task 前置条件臂首期不开放;**RT pass 条件臂**——执行臂不可达则不立类型面登记 RD-036+,G-EA1-3/RXS-0249 先例;kernel 体内声明 → RX3015 I8 扩展)。**RXS-0271**(RHI 图形资源面:`color_target`/`depth_target`/`texture2d`/`sampler`/`texture_table` 五构造已知方法,封闭格式集 RGBA8/D32F;SamplerDesc 复用 RXS-0225、TextureTable 复用 RXS-0235;cabi 资源类枚举追加式 0~5)。**RXS-0272**(图形 pass 访问声明集与自动 barrier:封闭枚举镜像 RXS-0236 **同一 graph.rs::AccessKind 单源**;**推导单源 = G3.5 graph.rs `derive_barriers`**——rhi.rs 同 crate 构造 Graph/PassSpec 无 cabi marshalling,PlannedBarrier 逐字回放禁二次推导;compute pass reads/writes → ShaderRead/UavReadWrite BufferSync 映射钉死〔RFC-0015 §4.0-1 R-F5〕;含图形 pass 的图仅 Vulkan 后端 strict 无回退,compute-only 图 CUDA 既有路 0-byte;RXS-0239 pass 边界 happens-before 既有承诺,重排归 RXS-0281/0282;`present(&back)` 终端 handoff 唯一且末位 + headless readback 校验 RXS-0222 纪律,窗口腿 D-130 0-byte 归 G4.6)。**RXS-0273**(图形 pass 声明↔反射相等:**反射集 = 逐阶段函数签名资源形参并集**〔按资源身份合并〕;sampler/table 计入并集但标「无状态访问」类——barrier 相等域只核资源状态访问,sampler/table 另核绑定完备性;双向精确相等装配期拒,库层状态值零新码,与 RXS-0257 I4 同口径)。FLS 分节 **严禁 UB 节**;**零新 RX 码、零新借用码**(§3 引用汇总维持)。每条 ≥1 `//@ spec` 测试锚定(conformance/uc05/{accept,reject} gfx_* 语料 + rurixc corpus 单测 + 推导 golden + 步骤 76/77)随实现 commit 同 PR 落;stable 快照因条款增长同 PR 重 bless(RXS-0180 L2)。档位 **Full RFC**(RFC-0015) | **Full RFC**（RFC-0015） |
 | v1.5 | 2026-07-23 | **G4.2 PR-C 库化补齐条款先行:落带编号条款体 `### RXS-0274` / `### RXS-0276`(spec-first)**。承 RFC-0015(§4.A4/A6)。**RXS-0274**(present 面库化:终端 handoff 唯一且末位 + present 执行 barrier 语义〔COLOR_ATTACHMENT → PRESENT_SRC,RXS-0238 映射表既有锚〕+ headless readback 三断言点判据〔RXS-0222 纪律〕+ 窗口腿 = RXS-0197/0198 typestate 复用 0-byte〔D-130 不动,窗口 device 见证归 G4.6〕)。**RXS-0276**(RHI bindless 面:`texture_table()` + `register(&tex)` 单调索引 + `reads_table(&table)` pass 绑定;标「无状态访问」类另核绑定完备性;着色侧 RXS-0231/0232 0-byte;feature chain 缺失 → 确定性 Err;descriptor-indexing 运行时面复用,table 整体按 ShaderRead 保守迁移;像素判据 = 四象限动态索引四色 + 篡改注册序换位 RED)。FLS 分节 **严禁 UB 节**;零新 RX 码零新借用码。每条 ≥1 `//@ spec` 锚定随实现 commit 同 PR 落。档位 **Full RFC**(RFC-0015) | **Full RFC**（RFC-0015） |
+| v1.6 | 2026-07-24 | **G4.2 PR-D engine_host v3 嵌入条款先行:落带编号条款体 `### RXS-0277`(spec-first;编号续 RXS-0276,PR-C 已落 0274/0276)**。承 RFC-0015(§4.A7)。**RXS-0277**(engine_host v3 嵌入面 + 三方数值精确相等判据:整张图形 RHI 图封闭在 `#[export(c)]` host fn `uc05_gfx_run_frame(out: *mut u32, w: i32, h: i32) -> i32` 体内经 `--emit=dll` 产 cdylib〔EI1.4 同构,subset v1 标量+裸指针,无 upcall 无外部固定 ABI〕;宿主 `src/rurix-engine/harness/engine_host_v3.cpp`(C++/D3D12,**新增文件**,v1/v2 既有资产逐字节 0-byte)链接 `rurix_rhi.lib` device 真跑,LUID 匹配升级为 Vulkan↔D3D12〔v2 = CUDA↔D3D12〕;**三方数值精确相等判据 Q-PixelCriterion** = .rx RHI Vulkan readback ↔ D3D12 raster/mesh pipeline readback ↔ host 闭式参考,**不设 ULP 容差**,相等域 = 纯色/nearest RGBA8 整数 fetch 域〔无过滤/混合/depth/多采样〕,超域换用例不降判据;生成头 CI 再生成逐字节守卫〔RXS-0254 同面,仓库零 tracked .h〕;步骤 78 `ci/uc05_engine_embed_v3_smoke.py` host 恒跑 + device gate real〔cl.exe 编 v3 + 三方像素逐字节相等 + RED 三路〕,RURIX_REQUIRE_REAL=1 翻硬红,缺 provisioning SKIP=dev-env degrade)。FLS 分节 **严禁 UB 节**;零新 RX 码零新借用码零新 lang item。每条 ≥1 `//@ spec` 锚定随实现 commit 同 PR 落。档位 **Full RFC**(RFC-0015) | **Full RFC**(RFC-0015) |
