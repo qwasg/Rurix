@@ -77,6 +77,11 @@ launch.context_brand = context-brand mismatch: {what} belongs to a different con
 # UC-05 RHI 跨 brand 资源误用诊断(RX3006 复用,spec/rhi.md RXS-0256 I7;EI1.3 Part B 分配)
 rhi.cross_brand = context-brand mismatch: {what} belongs to a different `Rhi` instance than this pass
 #
+# UC-05 RHI const 容量接线诊断(RX2010 复用,spec/rhi.md RXS-0283;G4.3 PR-E 分配)
+rhi.graph_cap_literal = `rhi.graph::<CAP>()` requires an integer literal CAP (RXS-0283)
+rhi.graph_nonstatic = `rhi.graph::<CAP>()` must not be constructed inside a loop/condition (RXS-0283 non-static construction strict)
+rhi.graph_dup = duplicate `rhi.graph::<CAP>()` declaration in a single function body (RXS-0283 affine single-definition chain)
+#
 # views 不相交证明诊断(RX3007 ~ RX3008,spec/device.md RXS-0078;M5.1 分配)
 views.overlapping_mut = overlapping or aliased mutable sub-views of {place}: cannot prove the sub-views are disjoint
 views.out_of_bounds = view split is out of bounds: {detail}

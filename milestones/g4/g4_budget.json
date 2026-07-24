@@ -27,10 +27,21 @@
       "description": "UC-05 engine_host v3 图形嵌入 device 见证基数 ≥1(契约 G-G4-3;RFC-0015 §4.A7 / RXS-0277;ci/uc05_engine_embed_v3_smoke.py 步骤 78 device 段)。计数源 = evidence/uc05_engine_embed_v3_*.json 中 embed_v3_ok=true 的报告数(机器事实:cl.exe 编 engine_host v3〔C++/D3D12,新增文件 src/rurix-engine/harness/engine_host_v3.cpp,v1/v2 既有资产 0-byte〕链 rurix_rhi.lib + d3d12 + dxgi + vulkan-1 真跑,LUID 匹配升级为 Vulkan↔D3D12〔v2 = CUDA↔D3D12〕,Rurix 图形图节点夹在宿主 fence 锚点之间执行,三方数值精确相等〔Q-PixelCriterion:① .rx RHI Vulkan readback ↔ ② D3D12 raster/mesh pipeline readback ↔ ③ host 闭式参考,纯色/nearest RGBA8 整数 fetch 域,不设 ULP 容差,超域换用例不降判据〕+ RED 三路〔篡改 .rx/D3D12/host 侧参考任一翻红〕)。**device evidence 计数**(非静态语料计数):须有 cl.exe + MSVC + Windows SDK(D3D12)+ Vulkan SDK + GPU 才能成立,故按 device 见证归档口径计数(对齐 ei1.counter.uc05_engine_embed + g4.counter.graphics_rhi_smoke device 见证计数先例)。host 段审计(生成头不手写 / 三制共存 / 零 .rs / 头幂等 / 篡改再生成 RED)恒跑但**不入本 counter**。无 cl.exe / 无 Vulkan SDK / 无 GPU → device SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL。",
       "required": 1,
       "unit": "份 UC-05 engine_host v3 图形嵌入 device 见证(embed_v3_ok=true)"
+    },
+    {
+      "id": "g4.counter.exec_face_gate",
+      "description": "UC-05 执行面三项 device 见证基数 ≥1(契约 G-G4-4;RFC-0015 §4.B / RXS-0280~0283;ci/uc05_exec_face_gate.py 步骤 79 device 段)。计数源 = evidence/uc05_exec_face_gate_*.json 中 exec_face_ok=true 且 i10_measured_local=true 的报告数(机器事实:rx build const_capacity_graph.rx 产 EXE 真跑 exit 0〔合法 const 容量图装配核验通过 + submit 成功;exec_face 四序闭合在 device 端成立:seal → derive_exec_plan → verify_exec_plan(I11 pre-dispatch fail-closed)→ derive_alias_plan → PeakCounter 初始化〕+ host 库测 `exec_face_peak_below_declared_capacity` 已在 host 段真跑通过〔别名复用后静态峰值 = 1024 < 声明容量 2048,非平凡成立,aliasing 收紧而非平凡相等〕双锚 I10 measured_local)。**三项拦截面**:① RXS-0280 别名复用 + 峰值计数器(alias_alloc.rs 区间图贪心着色 + 三分量 size/align/lifetime + PeakCounter on_alloc/on_free 饱和加减);② RXS-0281 依赖驱动重排批级提交(scheduler.rs derive_exec_plan 拓扑分层 + ExecPlan{layers, batch_submit=true});③ RXS-0282 I11 漏拦即红(verify_exec_plan 独立重建依赖闭包逐边核 + red_self_test 双向互证:桩化调度器丢边被拦 + 桩化核验器被门检出)。**device evidence 计数**(非静态语料计数):须有 link 工具链 + GPU 才能成立,故按 device 见证归档口径计数(对齐 g4.counter.graphics_rhi_smoke / g4.counter.engine_embed_v3 device 见证计数先例)。host 段(alias_alloc + scheduler + rhi.rs exec_face 库单测 + uc05_corpus 批跑 + rurixc --emit=check 编译档)恒跑但**不入本 counter**。无 link 工具链 / 无 GPU → device SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL。I10 自 report_only 升 measured_local 由本步骤 device 见证 + host 库测共同锚定(矩阵 I10 note/tiers 同步三方一致,步骤 75 机制扩);I11 入矩阵漏拦即红(矩阵新增 I11 条目,tier=assembly_time,机制 = scheduler 丢边拦截,条款 RXS-0282)。",
+      "required": 1,
+      "unit": "份 UC-05 执行面三项 device 见证(exec_face_ok=true + i10_measured_local=true)"
     }
   ],
   "namespace_check": "全部 id 必须 g4. 前缀;跨文件合并冲突即 FAIL(ci/budget_eval.py)",
   "revision_log": [
+    {
+      "version": "v1.3",
+      "date": "2026-07-24",
+      "change": "G4.3 PR-E 执行面三项 counter_assertions 第四落(feat/g4.3-rd035-exec-face,agent 完全自主 D-406 v2.0;G4_CONTRACT §7 ⑤ counter 随实现 PR 回填):追加 g4.counter.exec_face_gate(step 79 device 见证基数 ≥1,对齐 g4.counter.graphics_rhi_smoke / g4.counter.engine_embed_v3 device 见证计数先例;计数源 = evidence/uc05_exec_face_gate_*.json 中 exec_face_ok=true 且 i10_measured_local=true,rx build const_capacity_graph.rx 产 EXE 真跑 exit 0〔合法 const 容量图装配核验通过 + submit 成功;exec_face 四序闭合在 device 端成立〕+ host 库测 `exec_face_peak_below_declared_capacity` 双锚 I10 measured_local)。三项拦截面:① RXS-0280 别名复用 + 峰值计数器(alias_alloc.rs 区间图贪心着色 + PeakCounter);② RXS-0281 依赖驱动重排批级提交(scheduler.rs derive_exec_plan 拓扑分层);③ RXS-0282 I11 漏拦即红(verify_exec_plan 独立重建依赖闭包逐边核 + red_self_test 双向互证)。counter_assertions 自 3 条增到 4 条;entries/ratio_assertions 维持空(零 estimated 预欠)。evaluator 分支同 PR 落 ci/budget_eval.py(未知 id 强制 FAIL)。同 PR 落矩阵 I10 升 measured_local + I11 入矩阵漏拦即红(三方一致,步骤 75 机制扩)。"
+    },
     {
       "version": "v1.2",
       "date": "2026-07-24",

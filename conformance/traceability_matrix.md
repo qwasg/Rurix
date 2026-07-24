@@ -273,6 +273,10 @@
 | RXS-0275 | spec/vulkan_backend.md | 1 | `src/rurixc/src/vulkan_codegen.rs` |
 | RXS-0276 | spec/rhi.md | 2 | `conformance/uc05/accept/gfx_bindless.rx`, `src/rurix-rt/src/rhi.rs` |
 | RXS-0277 | spec/rhi.md | 1 | `src/rurixc/src/mir_build.rs` |
+| RXS-0280 | spec/rhi.md | 2 | `src/rurix-rt/src/alias_alloc.rs`, `src/rurix-rt/src/rhi.rs` |
+| RXS-0281 | spec/rhi.md | 2 | `src/rurix-rt/src/rhi.rs`, `src/rurix-rt/src/scheduler.rs` |
+| RXS-0282 | spec/rhi.md | 2 | `src/rurix-rt/src/rhi.rs`, `src/rurix-rt/src/scheduler.rs` |
+| RXS-0283 | spec/rhi.md | 5 | `conformance/uc05/accept/const_capacity_graph.rx`, `conformance/uc05/reject/nonstatic_graph_construction.rx`, `conformance/uc05/reject/transient_capacity_overflow.rx` …(+2) |
 | RXS-0290 | spec/vulkan_backend.md | 2 | `src/rurix-rt-cabi/src/artifacts.rs`, `src/rurixc/src/codegen.rs` |
 | RXS-0291 | spec/vulkan_backend.md | 2 | `src/rurixc/src/codegen.rs`, `src/rurixc/src/driver.rs` |
 | RXS-0292 | spec/vulkan_backend.md | 2 | `src/rurix-rt-cabi/src/artifacts.rs`, `src/rurix-rt/src/fatbin.rs` |

@@ -319,3 +319,58 @@ PR-D engine_host v3 嵌入(G4.2,RXS-0277;验收锚步骤 78)。apps/uc05-rhi/src
 **下一 PR(PR-E)开工声明**:
 
 PR-E RD-035 执行面三项(G4.3,RXS-0280~0283 + RXS-0239/0261/0262 修订;验收锚步骤 79)。transient 别名复用分配器(区间图着色,纯 host safe 码)+ 执行期峰值计数器(I10 自 report_only 升 measured)+ 依赖驱动重排 + 批级提交(DAG 拓扑分层)+ I11 拦截项(调度器与核验器两独立纯函数,red_self_test 双向)+ RXS-0262 const 泛型定长容量 .rx 接线 + reject 语料锚定 + ci/uc05_exec_face_gate.py(步骤 79)。串行口径:PR-D 合入后开工,合一等一。
+
+### 8.4 PR-E RD-035 执行面三项合入留痕(G4.3 / G-G4-4;RFC-0015 §4.B;RXS-0280~0283;2026-07-24)
+
+**完成面摘要**:
+- 条款先行:spec commit `887d7430`(RXS-0280 transient 别名复用分配器 + RXS-0281 依赖驱动重排批级提交 + RXS-0282 I11 漏拦即红 + RXS-0283 RXS-0262 const 泛型定长容量 .rx 接线收窄;spec/rhi.md RXS-0280~0283 + RXS-0239/0261 追加式修订 + RXS-0262 收窄段更新;零新 RX 码全复用 RX2010 既有 const 诊断)。
+- src/rurix-rt/src/alias_alloc.rs 新增(RXS-0280):transient 别名复用分配器——区间图贪心着色 + 三分量(size/align/lifetime)逐成员核满足性 + PeakCounter 饱和加减(on_alloc/on_free);#![forbid(unsafe_code)] 纯 host safe 码;无写者资源独立槽(保守);端点相邻保守异槽。10 库单测覆盖重叠/不重叠/三分量/无写者/峰值计数。
+- src/rurix-rt/src/scheduler.rs 新增(RXS-0281/0282):依赖驱动重排 + 批级提交——derive_exec_plan DAG 拓扑分层(Kahn 算法 golden)+ verify_exec_plan 独立纯函数(重建依赖闭包逐边核,I11 pre-dispatch fail-closed)+ red_self_test 双向互证(桩化调度器丢边被核验器检出 + 桩化核验器被门检出)。9 库单测覆盖拓扑分层/丢边拦/核验器被门检出/双向互证。
+- src/rurix-rt/src/rhi.rs 修改(RXS-0280/0281/0282 闭合):execute_exec_face 四序闭合 seal → derive_exec_plan → verify_exec_plan(I11 pre-dispatch fail-closed)→ derive_alias_plan → PeakCounter 初始化;exec_face_peak_below_declared_capacity 为 I10 measured_local 锚(别名复用后静态峰值 1024 < 声明容量 2048 非平凡成立);declared_capacity() + resource() 越界装配期二次防线。6 库单测覆盖四序闭合/I10 锚/越界防线/资源记账。
+- src/rurixc/src/typeck.rs 修改(RXS-0283):Op::RhiGraph 分支 + eval_graph_cap(turbofish const 实参求值 i64 存 gpu_graph_caps)+ 编译期越界拒复用 RX2010 + non-static construction strict 拒 + 单定义 affine 链拒;3 消息 key(rhi.graph_cap_literal / rhi.graph_nonstatic / rhi.graph_dup)en/zh 成对注册。
+- src/rurixc/src/{hir.rs,lower.rs,resolve.rs,mir_build.rs,tbir_build.rs,coloring.rs,launch_check.rs,shared_check.rs,views_check.rs} 修改:RhiGraph 变体 + MethodCall generic_args 透传 + graph 方法注册 + Op::RhiGraph lowering + turbofish const 实参物化 SynthInt 下发 cabi + MethodCall 模式 `..` 修复。
+- src/rurix-rt-cabi/src/lib.rs 修改:rxrt_rhi_graph_create 符号(const 容量 i64 实参面)。
+- conformance/uc05/accept/const_capacity_graph.rx 新建(RXS-0283 正例:CAP=8,3 resource,3 pass RAW 链,0 诊断)+ conformance/uc05/reject/transient_capacity_overflow.rx(CAP 越界 RX2010)+ nonstatic_graph_construction.rx(non-static construction strict RX2010)。
+- src/rurixc/tests/uc05_corpus.rs 修改:COMPILE_REJECTS 5→7 + accept_const_capacity_graph 测试(const 容量语料三方一致)。
+- ci/uc05_exec_face_gate.py 新建(步骤 79):host 段恒跑(alias_alloc + scheduler + rhi.rs exec_face 库单测 + uc05_corpus 批跑 + --emit=check 编译档)+ device 段 gate real(rx build const_capacity_graph.rx → EXE 真跑 + I10 measured 见证);RURIX_REQUIRE_REAL=1 翻硬红。
+- .github/workflows/pr-smoke.yml 修改:步骤 79 回填。
+- milestones/g4/g4_budget.json 修改:counter_assertions 第三条 g4.counter.exec_face_gate(device 见证基数 ≥1)+ revision_log;ci/budget_eval.py 修改:exec_face_gate evaluator 分支(未知 id 强制 FAIL)。
+- registry/number_ledger.json 修改:CI_step on_tree_max 78→79 / next_free 79→80 + notes 步骤 79 描述 + revision_log。
+- evidence/uc05_invariant_matrix.json 修改:I10 entry(report_only→measured_local)+ I11 entry(assembly_time 拦截项入矩阵)+ milestones/ei1/uc05_invariant_matrix_schema.json 修改(id pattern + minItems)+ ci/uc05_report_check.py 修改(I1-I11 + DOCUMENTED_UNMAPPED)+ evidence/uc05_comparison_report.md 修改(§1/§2/§3 更新)。
+- milestones/g4/uc05_exec_face_gate_evidence_schema.json 新建(镜像 uc05_engine_embed_v3 体例,step=79,subject=uc05_exec_face_gate)+ ci/check_schemas.py 路由分支加性(uc05_exec_face_gate_validator)。
+- stable 快照重 bless:spec_clauses 272→276(RXS-0280~0283;error_codes=106 / editions / subcommands 三段 0 变化);bless_log 同 diff;trace_matrix 272→276 全锚定(RXS-0280 锚 alias_alloc.rs / RXS-0281/0282 锚 scheduler.rs + rhi.rs / RXS-0283 锚 conformance/uc05/reject + typeck.rs)。
+
+**关键验证命令真实输出尾部**:
+
+```
+[uc05_exec_face_gate] host 段 PASS:alias_alloc(RXS-0280)+ scheduler(RXS-0281/0282)+ rhi.rs exec_face 闭合(I10 measured_local 锚)+ uc05_corpus 零回归+ const 容量语料 reject RX2010 / accept 0 诊断(零新码)
+[uc05_exec_face_gate] device 步骤 6 PASS: const_capacity_graph.rx EXE 真跑 exit 0(const 容量图装配核验通过 + exec_face 四序闭合 + kernel 派发成功)
+[uc05_exec_face_gate] device 步骤 7 PASS: I10 measured_local 见证(host 库测峰值 1024 < 声明容量 2048,别名复用收紧非平凡成立;device EXE 真跑 exit 0 双锚)
+[uc05_exec_face_gate] 写 evidence evidence\uc05_exec_face_gate_20260724T232800.json; run_url=local
+[trace_matrix] PASS (276/276 clauses anchored, 603 test files scanned)
+[stable_snapshot] PASS(stable 面与入库快照一致:spec_clauses=276,error_codes=106,editions=['2026'],subcommands=['bench', 'build', 'check', 'doc', 'fmt', 'run', 'test', 'vendor'])
+[check_schemas] PASS
+[check_number_ledger] PASS(spec RXS 头 276 个零同号碰撞;ledger 14 命名空间保留号被尊重;red 自检已过)
+[uc05_graphics_invariant_gate] PASS gfx I7/I8 编译期 + I3/I5 装配期 + accept 0 诊断 + gfx_demo.rx 0 诊断 + uc05_corpus 零回归
+  PASS g4.counter.exec_face_gate: PASS — 2 份 UC-05 执行面三项 device 见证(exec_face_ok=true + i10_measured_local=true)(要求 ≥1)
+[budget_eval] PASS (87 pass, 2 skip, normal mode)
+```
+
+注:cargo fmt --check / clippy --workspace --all-targets -D warnings / test --workspace 均 PASS。`RURIX_REQUIRE_REAL=1 py -3 ci/uc05_exec_face_gate.py` 退 0(device 段真跑 PASS,非 SKIP)。
+
+**device 段真跑见证(I10 measured_local 双锚成立)**:
+
+步骤 79 device 段本机真跑 PASS(非 SKIP):`rx build const_capacity_graph.rx` 产 EXE,真跑 exit 0(const 容量图装配核验通过 + exec_face 四序闭合 + kernel 派发成功);I10 measured_local 双锚——① host 库测 `exec_face_peak_below_declared_capacity`(别名复用后静态峰值 1024 < 声明容量 2048,非平凡成立,aliasing 收紧而非平凡相等)+ ② device EXE 真跑 exit 0(exec_face 四序闭合在 device 端成立)。`RURIX_REQUIRE_REAL=1` 严格模式退 0(不触发 SKIP 分支)。I10 自 report_only 升 measured_local 兑现(RD-035 ① 项)。
+
+**evidence 路径**:
+
+- evidence/uc05_exec_face_gate_20260724T232800.json(host_section_pass=true,device_section_rc=0,checks: host_lib_tests=true, device_run=true, i10_measured=true, peak_bytes=1024, declared_capacity=2048, peak_below_declared=true;exec_face_ok=true;i10_measured_local=true;toolchain_skip=null;dev_env_degrade=false;run_url=local)
+- milestones/g4/uc05_exec_face_gate_evidence_schema.json(schema;check_schemas 路由对齐)
+
+**RD-035 处置留痕(closed)**:
+
+RD-035「UC-05 RHI 执行面余项」三项全量兑现,registry/deferred.json status open→closed:① transient 别名复用分配器 + 执行期峰值计数器 → alias_alloc.rs(PeakCounter)+ rhi.rs exec_face I10 measured_local 双锚(峰值 1024 < 声明 2048 非平凡成立);② pass 重排与依赖驱动并行调度 → scheduler.rs(DAG 拓扑分层 derive_exec_plan + verify_exec_plan 独立纯函数);③ RXS-0262 const 泛型定长容量 .rx 编译期拒 → RXS-0283 turbofish const 实参接线 + 编译期越界拒 RX2010 + non-static strict 拒 + 装配期二次防线。I11 拦截项入不变量矩阵 assembly_time 档(red_self_test 双向互证)。backfill_condition 三项硬需求全兑现。
+
+**下一 PR(PR-F)开工声明**:
+
+PR-F Vulkan RHI 通道 device 见证回填(G4.4,G-G4-3 device 段 / G-G4-4 device 段收口;RXS-0222 像素判据 + 步骤 80)。步骤 76 gfx device SKIP(NVPTX 不支持图形 shader,需 Vulkan 后端)+ 步骤 78 engine_host v3 device SKIP(无 GPU/Vulkan provision)的 device 见证回填归 PR-F。串行口径:PR-E 合入后开工,合一等一。

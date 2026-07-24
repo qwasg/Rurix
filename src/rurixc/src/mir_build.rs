@@ -2265,6 +2265,20 @@ impl Builder<'_, '_> {
                 self.guard_handle_zero(dest, span);
                 self.consume(Place::local(dest), &ret)
             }
+            // G4.3 PR-E(RXS-0283):`rhi.graph::<CAP>()` → `rxrt_rhi_graph_create(rhi, cap: i64)`
+            // (非消费接收者;CAP = turbofish const 实参字面量即时求值 → i64,经 typeck → tbir
+            // SynthInt → 此处 op_of 物化为 Const::Int(cap, I64) 下发)。返回 `Graph<C>` 句柄
+            // (cabi 返回 r 本身——Graph 为 Rhi 的容量定长视图,brand 同源,零新句柄表)。
+            // 句柄 0 → 终止(RXS-0193,镜像 RhiCreate)。
+            Op::RhiGraph => {
+                let rhi = self.gpu_handle_op(&args[0]);
+                let cap = self.op_of(&args[1]);
+                let ret = self.ty_of(e);
+                let dest =
+                    self.emit_rt_call("rxrt_rhi_graph_create", vec![rhi, cap], ret.clone(), span);
+                self.guard_handle_zero(dest, span);
+                self.consume(Place::local(dest), &ret)
+            }
             // 资源句柄 → `rxrt_rhi_resource(rhi, bytes)`(EI1.4:`n * sizeof(T)` 字节真设备分配,
             // T = `Res<C, T>` 元素定型;接收者非消费);句柄 0 → 终止(RXS-0257)。
             Op::RhiResource => {

@@ -734,6 +734,33 @@ jobs:
         shell: powershell
         run: py -3 ci/uc05_engine_embed_v3_smoke.py
 
+      # 步骤 79（G-G4-4,RFC-0015 §4.B / RXS-0280~0283）:UC-05 执行面三项拦截门
+      # (别名复用+峰值计数器 I10 measured / 依赖驱动重排批级提交 / I11 漏拦即红）。
+      # `ci/uc05_exec_face_gate.py` host 段**恒跑**(反 YAML-only,无 GPU):
+      # ① `alias_alloc.rs` 库单测(RXS-0280 别名复用 + 峰值计数器:区间图贪心着色 +
+      #    三分量 size/align/lifetime + PeakCounter on_alloc/on_free 饱和加减)
+      # ② `scheduler.rs` 库单测(RXS-0281 重排 + RXS-0282 I11 漏拦即红:derive_exec_plan
+      #    拓扑分层 golden + verify_exec_plan 独立重建依赖闭包逐边核 + red_self_test 双向互证)
+      # ③ `rhi.rs` exec_face 库单测(RXS-0280/0281/0282 闭合:execute_exec_face 四序闭合
+      #    seal → derive_exec_plan → verify_exec_plan(I11 pre-dispatch fail-closed)→
+      #    derive_alias_plan → PeakCounter 初始化;`exec_face_peak_below_declared_capacity`
+      #    为 I10 measured_local 锚)
+      # ④ `uc05_corpus` 批跑(compute 路零回归守卫;含 Task 4.8 const 容量语料:
+      #    reject transient_capacity_overflow / nonstatic_graph_construction → RX2010;
+      #    accept const_capacity_graph 0 诊断,由 cargo test 真编译兑现)
+      # ⑤ rurixc `--emit=check` 编译档:reject 语料产生 RX2010 + accept 语料 0 诊断
+      #    (零新码,复用既有 `E_GPU_ELEM_INFER` const 诊断)。
+      # device/toolchain 段 gate real(`RURIX_REQUIRE_REAL=1`,缺 provisioning SKIP=dev-env degrade):
+      # ⑥ `rx build const_capacity_graph.rx` → EXE GREEN(合法 const 容量图装配核验通过 +
+      #    submit 成功;exec_face 四序闭合在 device 真跑成立)。
+      # ⑦ evidence JSON 记录 I10 measured 见证(峰值计数器 host 侧回放模拟 + device EXE
+      #    运行成功;`peak_bytes < declared_capacity` 非平凡成立,别名复用收紧)。
+      # I10 自 report_only 升 measured_local 由本步骤 device 见证 + host 库测共同锚定
+      # (矩阵 I10 note/tiers 同步三方一致,步骤 75 机制扩);I11 入矩阵漏拦即红。
+      - name: UC-05 exec face gate (G4 CI_GATES §2.79, G-G4-4, RFC-0015 §4.B / RXS-0280~0283)
+        shell: powershell
+        run: py -3 ci/uc05_exec_face_gate.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

@@ -244,6 +244,9 @@ def check_evidence_files() -> None:
     uc05_engine_embed_v3_schema = load(
         ROOT / "milestones/g4/uc05_engine_embed_v3_evidence_schema.json"
     )
+    uc05_exec_face_gate_schema = load(
+        ROOT / "milestones/g4/uc05_exec_face_gate_evidence_schema.json"
+    )
     uc05_graphics_rhi_smoke_schema = load(
         ROOT / "milestones/g4/uc05_graphics_rhi_smoke_evidence_schema.json"
     )
@@ -382,6 +385,11 @@ def check_evidence_files() -> None:
     )
     uc05_engine_embed_v3_validator = (
         jsonschema.Draft7Validator(uc05_engine_embed_v3_schema) if uc05_engine_embed_v3_schema else None
+    )
+    uc05_exec_face_gate_validator = (
+        jsonschema.Draft7Validator(uc05_exec_face_gate_schema)
+        if uc05_exec_face_gate_schema
+        else None
     )
     uc05_graphics_rhi_smoke_validator = (
         jsonschema.Draft7Validator(uc05_graphics_rhi_smoke_schema)
@@ -695,6 +703,19 @@ def check_evidence_files() -> None:
             and uc05_engine_embed_v3_validator is not None
         ):
             validator = uc05_engine_embed_v3_validator
+        elif (
+            f.name.startswith("uc05_exec_face_gate")
+            and uc05_exec_face_gate_validator is not None
+        ):
+            # G4.3 PR-E UC-05 执行面三项拦截门证据(G-G4-4;RFC-0015 §4.B / RXS-0280~0283)→
+            # milestones/g4/uc05_exec_face_gate_evidence_schema.json(ci/uc05_exec_face_gate.py
+            # 步骤 79 写:host 恒跑 alias_alloc + scheduler + rhi.rs exec_face 库单测 + uc05_corpus
+            # 批跑 + --emit=check 编译档;device 段 gate real rx build const_capacity_graph.rx
+            # EXE 真跑 + I10 measured 见证,SKIP=dev-env-degrade,RURIX_REQUIRE_REAL=1 翻硬红)。
+            # exec_face_ok = device 段真跑 + I10 measured;i10_measured_local = I10 自 report_only
+            # 升 measured_local(host 库测锚 + device EXE 双锚)。host_lib_tests 计入
+            # g4.counter.exec_face_gate(ci/budget_eval.py,计数源 = 本证据族)。
+            validator = uc05_exec_face_gate_validator
         elif (
             f.name.startswith("uc05_engine_embed")
             and uc05_engine_embed_validator is not None

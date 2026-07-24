@@ -665,6 +665,35 @@ def eval_counter(entry: dict, strict: bool) -> None:
                 n += 1
         count_or_gate(eid, n, 1, "份 UC-05 engine_host v3 图形嵌入 device 见证(embed_v3_ok=true)",
                       "G4.2 device 见证回填前为正常状态,契约 G-G4-3", strict)
+    elif eid == "g4.counter.exec_face_gate":
+        # UC-05 执行面三项 device 见证基数 ≥1(契约 G-G4-4;RFC-0015 §4.B / RXS-0280~0283;
+        # ci/uc05_exec_face_gate.py 步骤 79 device 段)。计数源 = evidence/uc05_exec_face_gate_*.json
+        # 中 exec_face_ok=true 且 i10_measured_local=true 的报告数(机器事实:rx build
+        # const_capacity_graph.rx 产 EXE 真跑 exit 0〔合法 const 容量图装配核验通过 + submit 成功;
+        # exec_face 四序闭合在 device 端成立:seal → derive_exec_plan → verify_exec_plan(I11
+        # pre-dispatch fail-closed)→ derive_alias_plan → PeakCounter 初始化〕+ host 库测
+        # `exec_face_peak_below_declared_capacity` 已在 host 段真跑通过〔别名复用后静态峰值 = 1024
+        # < 声明容量 2048,非平凡成立,aliasing 收紧而非平凡相等〕双锚 I10 measured_local)。
+        # **三项拦截面**:① RXS-0280 别名复用 + 峰值计数器(alias_alloc.rs 区间图贪心着色 +
+        # PeakCounter on_alloc/on_free 饱和加减);② RXS-0281 依赖驱动重排批级提交
+        # (scheduler.rs derive_exec_plan 拓扑分层 + ExecPlan{layers, batch_submit=true});
+        # ③ RXS-0282 I11 漏拦即红(verify_exec_plan 独立重建依赖闭包逐边核 + red_self_test
+        # 双向互证:桩化调度器丢边被拦 + 桩化核验器被门检出)。**device evidence 计数**(非静态语料
+        # 计数):须有 link 工具链 + GPU 才能成立,故按 device 见证归档口径计数(对齐
+        # g4.counter.graphics_rhi_smoke / g4.counter.engine_embed_v3 device 见证计数先例)。
+        # host 段(alias_alloc + scheduler + rhi.rs exec_face 库单测 + uc05_corpus 批跑 +
+        # rurixc --emit=check 编译档)恒跑但**不入本 counter**。无 link 工具链 / 无 GPU →
+        # device SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL。
+        # I10 自 report_only 升 measured_local 由本步骤 device 见证 + host 库测共同锚定
+        # (矩阵 I10 note/tiers 同步三方一致,步骤 75 机制扩);I11 入矩阵漏拦即红(矩阵新增
+        # I11 条目,tier=assembly_time,机制 = scheduler 丢边拦截,条款 RXS-0282)。
+        n = 0
+        for f in (ROOT / "evidence").glob("uc05_exec_face_gate_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("exec_face_ok") is True and doc.get("i10_measured_local") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份 UC-05 执行面三项 device 见证(exec_face_ok=true + i10_measured_local=true)",
+                      "G4.3 device 见证回填前为正常状态,契约 G-G4-4", strict)
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 

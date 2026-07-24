@@ -1,0 +1,49 @@
+//@ spec: RXS-0283
+//@ expect-error: RX2010
+// G4.3 PR-E const 容量越界编译期拒(RXS-0283,RFC-0015 §4.A;spec/rhi.md 章 A)。
+//
+// `rhi.graph::<2>()` 声明 CAP=2,但 body 内 `rhi.resource(n)` 调用 3 次 > CAP 2 →
+// 编译期越界拒 **RX2010**(复用既有 `E_GPU_ELEM_INFER` const 诊断,零新码;诊断 span
+// 指向 graph 声明点,收尾 check_gpu_deferred 统一核 count > cap)。与 compute 面
+// reject/rhi_in_kernel.rx 同码同口径(RX2010),零新码。
+//
+// 三 resource 经 `uc05_combine` pass 绑 kernel 约束元素类型为 f32(RXS-0257 反射集 =
+// {a, b, c} = 声明集),避免元素未约束 RX2010 噪声——只发越界 RX2010 单诊断。装配核验
+// 严格先于派发(RXS-0261):typeck 越界拒先于 launch/装配,故 submit 不达。
+
+kernel fn uc05_combine(
+    t: ThreadCtx<1>,
+    x: View<global, f32>,
+    y: View<global, f32>,
+    out: ViewMut<global, f32>,
+    n: usize,
+) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = x[i] + y[i];
+    }
+}
+
+fn main() -> i32 {
+    let ctx = Context::create();
+    let n: u32 = 256;
+    let nn: usize = 256;
+
+    let rhi = Rhi::create(&ctx);
+    // G4.3 PR-E(RXS-0283):CAP=2,但下方 resource() 调用 3 次 → 越界 RX2010。
+    let _g = rhi.graph::<2>();
+
+    let a = rhi.resource(n);
+    let b = rhi.resource(n);
+    let c = rhi.resource(n); // 第 3 个 → count=3 > CAP=2 → RX2010
+
+    // 三 resource 经 pass 绑 kernel 约束元素类型(反射集 = {a, b, c} = 声明集,RXS-0257)。
+    rhi.pass(uc05_combine, GridDim(1), BlockDim(256), (a, b, c, nn))
+        .reads(&a)
+        .reads(&b)
+        .writes(&c);
+
+    rhi.submit();
+    ctx.sync();
+    0
+}

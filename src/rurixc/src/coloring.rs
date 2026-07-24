@@ -164,6 +164,7 @@ impl Walker<'_> {
                 receiver,
                 method,
                 args,
+                ..
             } => {
                 self.check_call_target(e.hir_id, e.span);
                 self.check_gpu_host_api(e);
@@ -294,6 +295,7 @@ fn walk_for_tid(e: &Expr, found: &mut bool) {
             receiver,
             method,
             args,
+            ..
         } => {
             if THREAD_ID_METHODS.contains(&method.as_str()) {
                 *found = true;

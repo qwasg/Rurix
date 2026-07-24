@@ -271,6 +271,7 @@ impl Walker<'_, '_> {
                 receiver,
                 method,
                 args,
+                ..
             } => {
                 if method == LAUNCH_METHOD {
                     self.check_launch_call(receiver, args);

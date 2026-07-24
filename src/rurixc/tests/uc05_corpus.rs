@@ -27,12 +27,14 @@ use rurixc::source_map::SourceMap;
 use rurixc::span::Edition;
 
 /// 编译期 reject 预设文件(I1/I2/I6/I7/I8;裁决 1 编译期档)。
-const COMPILE_REJECTS: [&str; 5] = [
+const COMPILE_REJECTS: [&str; 7] = [
     "res_use_after_move",
     "res_double_move",
     "rhi_double_submit",
     "rhi_cross_brand",
     "rhi_in_kernel",
+    "transient_capacity_overflow",
+    "nonstatic_graph_construction",
 ];
 
 /// 装配期 reject 预设文件(I3/I4/I5 + 生命周期;编译期 CLEAN,submit 装配期确定性拦)。
@@ -238,6 +240,19 @@ fn adoption_c_abi_surface_present() {
             "采纳判据 C ABI 面缺 @{sym}(RXS-0265 C ABI 成熟腿)\nIR:\n{ir}"
         );
     }
+}
+
+/// accept/const_capacity_graph(RXS-0283):`rhi.graph::<CAP>()` const 容量接线正例
+/// (CAP=8 ≥ 3 resource,non-static construction 不触发)→ 0 诊断。
+//@ spec: RXS-0283
+#[test]
+fn accept_const_capacity_graph() {
+    let root = uc05_dir("accept").join("const_capacity_graph.rx");
+    let (codes, _ir) = run_root(&root);
+    assert!(
+        codes.is_empty(),
+        "accept/const_capacity_graph 产生诊断(RXS-0283 const 容量接线): {codes:?}"
+    );
 }
 
 // ---------------------------------------------------------------------------

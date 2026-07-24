@@ -269,6 +269,7 @@ impl Checker<'_, '_> {
             receiver,
             method,
             args,
+            ..
         } = &init.kind
         else {
             return;
@@ -425,6 +426,7 @@ impl Checker<'_, '_> {
                 receiver,
                 method,
                 args,
+                ..
             } => {
                 // view 算子调用点越界裁决(provenance 记录在 `let` 处)。
                 self.check_view_op_bounds(e, receiver, method, args, in_unsafe);

@@ -1178,6 +1178,29 @@ pub extern "C" fn rxrt_rhi_create(ctx: u64) -> u64 {
     h
 }
 
+/// C ABI:声明 `Rhi` 的 `Graph<C>` 容量定长图根(G4.3 PR-E,RXS-0283)。CAP =
+/// turbofish const 实参字面量即时求值 → i64 cabi 实参(不进类型参数表)。未知 rhi /
+/// ctx 已销毁 / poisoned / 负值 CAP → 诊断 + handle-0(失败)。返回 r 本身(`Graph<C>`
+/// 为 `Rhi<C>` 的容量定长视图,brand 同源,零新句柄表)。
+//@ spec: RXS-0283
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_rhi_graph_create(r: u64, cap: i64) -> u64 {
+    const OP: &str = "rhi_graph_create";
+    let mut guard = lock();
+    let t = &mut *guard;
+    let Some(re) = rhi_entry(t, OP, r) else {
+        return 0;
+    };
+    // CAP < 0 = 非法容量(防御性;typeck 期字面量已拒负数,此处兜底)。
+    if cap < 0 {
+        diag(OP, format!("negative graph capacity {cap}"));
+        return 0;
+    }
+    re.graph.declared_capacity = Some(cap as u64);
+    // Graph<C> 与 Rhi<C> 共享句柄(brand 同源,零新句柄表)。
+    r
+}
+
 /// 惰性创建本图派发 stream(EI1.4,RXS-0261;首次派发前调用)。已存在 → no-op。
 /// 失败 → 诊断 + poison ctx + `false`。
 fn rhi_ensure_stream(t: &mut Tables, op: &str, r: u64) -> bool {

@@ -478,6 +478,10 @@ pub enum GpuHostOp {
     /// `Rhi::create(&ctx)` → `rxrt_rhi_create`(EI1.3 Part B,RXS-0256;`Rhi<C>` 非 Copy
     /// affine,per-instance 新鲜 opaque brand 契约,RFC-0014 §4.B1)。
     RhiCreate,
+    /// `rhi.graph::<CAP>()` → `rxrt_rhi_graph_create(rhi, cap)`(G4.3 PR-E,RXS-0283;
+    /// `Graph<C>` affine 句柄,brand `C` 与 `Rhi` 同源;CAP = turbofish const 实参字面量
+    /// 即时求值 → i64 cabi 实参,不进类型参数表,无 RD-007 依赖)。
+    RhiGraph,
     /// `rhi.resource(n)` → `rxrt_rhi_resource(rhi)`(RHI 资源句柄 `Res<C>`,owned affine;
     /// 非消费接收者;n 为容量维度,执行器消费不下发,RXS-0257)。
     RhiResource,
@@ -945,6 +949,8 @@ pub enum ExprKind {
     MethodCall {
         receiver: Box<Expr>,
         method: String,
+        /// turbofish generic_args(RXS-0283 const 容量接线;None = 无 turbofish)。
+        generic_args: Option<crate::ast::GenericArgs>,
         args: Vec<Expr>,
     },
     Field {

@@ -24,6 +24,13 @@
 
 use std::collections::BTreeSet;
 
+// G4.3 PR-E(RXS-0280/0281/0282)re-export:执行面产物类型供 cabi / 测试 / engine_host
+// 直接消费(避免调用方再 `use crate::scheduler::*` + `use crate::alias_alloc::*`)。
+pub use crate::alias_alloc::{
+    AliasAlloc, AliasPlan, Align, Lifetime, LiveRange, PeakCounter, Size, SlotAssignment, SlotInfo,
+};
+pub use crate::scheduler::{ExecPlan, Layer};
+
 // ── AccessKind 封闭枚举(compute UAV 面,单一事实源)──────────────────────────────────
 
 /// 访问声明的封闭枚举——compute-pass 面「读 / 写」二元(RFC-0014 §4.B2)。C ABI 下发用稳定
@@ -382,6 +389,16 @@ pub struct RhiGraph {
     /// 图形 barrier 推导产物(`seal()` 桥接 `graph.rs::derive_barriers` 产;RXS-0272)。
     /// compute-only 图(无 gfx pass)为空——`derive_syncs` 0-byte 不受影响。
     gfx_barriers: Vec<crate::graph::PlannedBarrier>,
+    /// G4.3 PR-E(RXS-0280):transient 资源字节尺寸表(与 `resources` 平行;alias 着色
+    /// 三分量之一)。默认 0(`resource()` 不指定尺寸)→ [`derive_alias_plan`](Self::derive_alias_plan)
+    /// 视为默认 4 字节(保守);经 [`resource_with_size`](Self::resource_with_size) /
+    /// [`set_resource_size`](Self::set_resource_size) 设置实际字节。
+    resource_sizes: Vec<u64>,
+    /// G4.3 PR-E(RXS-0283):const 泛型定长容量(资源槽计数上限)。`rhi.graph::<CAP>()`
+    /// 调用时记录;`None` = 无容量限制(兼容既有 `Rhi::create` 路径)。装配期
+    /// [`resource`](Self::resource) / [`gfx_resource`](Self::gfx_resource) 越界二次防线
+    /// (编译期 typeck 已拒,此处防御性 `debug_assert` + 哨兵)。
+    pub declared_capacity: Option<u64>,
 }
 
 impl RhiGraph {
@@ -391,19 +408,88 @@ impl RhiGraph {
         RhiGraph::default()
     }
 
+    /// G4.3 PR-E(RXS-0283):装配期越界二次防线。返回 `true` = 未越界可继续,
+    /// `false` = 越界(调用方返回哨兵 [`ResourceId(u32::MAX)`])。编译期 typeck 已拒
+    /// 越界,此处为防御性 `debug_assert` + 哨兵(库层状态值,零新 RX 码)。
+    fn check_cap(&self) -> bool {
+        if let Some(cap) = self.declared_capacity
+            && (self.resources.len() as u64) >= cap
+        {
+            debug_assert!(
+                (self.resources.len() as u64) < cap,
+                "RXS-0283 capacity overflow: {} >= {}",
+                self.resources.len(),
+                cap
+            );
+            false
+        } else {
+            true
+        }
+    }
+
     /// 分配一个 compute 资源(UAV buffer 面),返回稳定单调 [`ResourceId`]。
     pub fn resource(&mut self, name: &str) -> ResourceId {
+        // G4.3 PR-E(RXS-0283):装配期越界二次防线(typeck 已拒,此处防御)。
+        if !self.check_cap() {
+            return ResourceId(u32::MAX);
+        }
         let id = ResourceId(u32::try_from(self.resources.len()).unwrap_or(u32::MAX));
         self.resources.push(name.to_owned());
         self.resource_kinds.push(None);
+        self.resource_sizes.push(0);
         id
+    }
+
+    /// 分配一个 compute 资源并设置字节尺寸(G4.3 PR-E,RXS-0280 alias 着色三分量之一)。
+    /// 与 [`resource`](Self::resource) 等价但额外记录尺寸;`derive_alias_plan` 据之做
+    /// 尺寸/对齐三分量着色(同槽组按 `max(成员尺寸)` + `max(成员对齐)` 分配)。
+    pub fn resource_with_size(&mut self, name: &str, bytes: u64) -> ResourceId {
+        let id = self.resource(name);
+        // 安全:刚分配,id 必在表内。
+        self.resource_sizes[id.0 as usize] = bytes;
+        id
+    }
+
+    /// 设置 transient 资源字节尺寸(G4.3 PR-E,RXS-0280)。默认 0(`resource()` 不指定)
+    /// → `derive_alias_plan` 视为默认 4 字节(保守)。seal 后设置 → Structure(生命周期误用)。
+    ///
+    /// # Errors
+    /// 资源越界 / seal 后设置 → [`RhiError::Structure`]。
+    pub fn set_resource_size(&mut self, res: ResourceId, bytes: u64) -> Result<()> {
+        if self.sealed {
+            return Err(RhiError::Structure {
+                detail: format!("seal 后设置资源 {res:?} 尺寸(生命周期误用)"),
+            });
+        }
+        let idx = res.0 as usize;
+        if idx >= self.resource_sizes.len() {
+            return Err(RhiError::Structure {
+                detail: format!("set_resource_size: 资源 {res:?} 越界"),
+            });
+        }
+        self.resource_sizes[idx] = bytes;
+        Ok(())
+    }
+
+    /// 资源字节尺寸(只读;G4.3 PR-E alias 着色用)。默认 0(`resource()` 不指定)。
+    #[must_use]
+    pub fn resource_size(&self, res: ResourceId) -> u64 {
+        self.resource_sizes
+            .get(res.0 as usize)
+            .copied()
+            .unwrap_or(0)
     }
 
     /// 分配一个图形资源(RXS-0271),返回稳定单调 [`ResourceId`]。
     fn gfx_resource(&mut self, name: &str, kind: GfxResourceKind) -> ResourceId {
+        // G4.3 PR-E(RXS-0283):装配期越界二次防线(typeck 已拒,此处防御)。
+        if !self.check_cap() {
+            return ResourceId(u32::MAX);
+        }
         let id = ResourceId(u32::try_from(self.resources.len()).unwrap_or(u32::MAX));
         self.resources.push(name.to_owned());
         self.resource_kinds.push(Some(kind));
+        self.resource_sizes.push(0);
         id
     }
 
@@ -783,21 +869,17 @@ impl RhiGraph {
     /// 完整装配生命周期:seal(如未 seal)+ 推导 + 生命周期封口(二次 execute → Structure)。
     /// 返回确定性 hazard 计划,供执行器逐字重放。`rxrt_rhi_submit` 转发本函数(1-submit)。
     ///
+    /// **G4.3 PR-E**(RXS-0280/0281/0282):本函数为兼容路,内部走 [`execute_exec_face`]
+    /// 完整四序闭合(seal → 调度 → I11 核验 → 着色 → 峰值计数器)后仅返回 `syncs`。
+    /// 调用方需 `ExecPlan` / `AliasPlan` / `PeakCounter` 时直接调 [`execute_exec_face`]。
+    ///
     /// # Errors
     /// 图结构违例(I3/I5)→ [`RhiError::Structure`];声明-反射失配(I4)→
-    /// [`RhiError::ReflectionMismatch`];二次 execute → [`RhiError::Structure`]。
+    /// [`RhiError::ReflectionMismatch`];I11 丢边 → [`RhiError::Structure`];
+    /// 二次 execute → [`RhiError::Structure`]。
     pub fn execute(&mut self) -> Result<Vec<PlannedSync>> {
-        if self.executed {
-            return Err(RhiError::Structure {
-                detail: "重复 submit/execute(生命周期误用)".to_owned(),
-            });
-        }
-        if !self.sealed {
-            self.seal()?;
-        }
-        let plan = self.derive_syncs();
-        self.executed = true;
-        Ok(plan)
+        let face = self.execute_exec_face()?;
+        Ok(face.syncs)
     }
 
     /// 图形 barrier 推导产物(G4.2,RXS-0272;`seal()` 桥接 `graph.rs::derive_barriers` 产)。
@@ -834,6 +916,185 @@ impl RhiGraph {
     pub fn resource_count(&self) -> usize {
         self.resources.len()
     }
+
+    /// 是否已 seal(G4.3 PR-E:调度器/核验器要求 sealed 图输入,RXS-0281/0282)。
+    #[must_use]
+    pub fn is_sealed(&self) -> bool {
+        self.sealed
+    }
+
+    /// compute pass 声明序切片(只读;G4.3 PR-E 调度器/核验器独立重建依赖闭包用,
+    /// RXS-0281/0282)。**两独立纯函数各自自此切片重建边集,互不导入对方推导逻辑**
+    /// (D6 互证先例,镜像 graph.rs 禁 import barrier.rs)。
+    #[must_use]
+    pub fn passes(&self) -> &[PassSpec] {
+        &self.passes
+    }
+
+    // ── G4.3 PR-E 执行面三项(RXS-0280/0281/0282)────────────────────────────────── //
+
+    /// G4.3 PR-E:sealed 图 → 拓扑分层调度计划(RXS-0281,纯函数)。建依赖 DAG
+    /// (RAW/WAW/WAR 边)→ 最长路径分层。同层 pass 互独立,可换序 / 批级提交。
+    /// 同图 → 逐字节相同计划(golden 可锚)。调用前须 `seal()`(未 seal → 空计划)。
+    #[must_use]
+    pub fn derive_exec_plan(&self) -> ExecPlan {
+        if !self.sealed {
+            return ExecPlan {
+                layers: Vec::new(),
+                batch_submit: true,
+            };
+        }
+        crate::scheduler::derive_exec_plan(self)
+    }
+
+    /// G4.3 PR-E:I11 核验器(RXS-0282,独立纯函数)。自 sealed 图独立重建依赖闭包,
+    /// 逐边核 `ExecPlan` 是否保持(丢边即 Err)。[`execute_exec_face`](Self::execute_exec_face)
+    /// 派发前**严格先于**调用(pre-dispatch fail-closed):失败则一个 kernel 也不派发。
+    ///
+    /// # Errors
+    /// 丢边 / pass 数不符 / pass 越界 → [`RhiError::Structure`]。
+    pub fn verify_exec_plan(&self, plan: &ExecPlan) -> Result<()> {
+        crate::scheduler::verify_exec_plan(self, plan)
+    }
+
+    /// G4.3 PR-E:在调度后序上算生命期区间 → alias 着色(RXS-0280,纯函数)。
+    /// **B1 分配器输入 = 最终执行计划,单一事实源**。生命期区间在 `ExecPlan` 的执行序上计算:
+    /// 资源生命期 = `[首写 pass 执行序位, 末读 pass 执行序位]`(含端点);无写者 → 哨兵
+    /// `[MAX, 0]` → 独立槽。尺寸/对齐三分量:尺寸取 `resource_sizes`(默认 4 字节保守),
+    /// 对齐 = `max(4, size 的下一个 2 的幂)`。调用前须 `seal()`(未 seal → 空计划)。
+    #[must_use]
+    pub fn derive_alias_plan(&self, plan: &ExecPlan) -> AliasPlan {
+        if !self.sealed {
+            return AliasPlan {
+                slots: Vec::new(),
+                slot_info: Vec::new(),
+                peak_bytes: 0,
+            };
+        }
+        let exec_order = plan.execution_order();
+        // 逐资源在执行序上算生命期区间:start = 首写执行序位,end = 末读(或末写)执行序位。
+        let n_res = self.resources.len();
+        let mut first_write: Vec<u32> = vec![u32::MAX; n_res];
+        let mut last_access: Vec<u32> = vec![0; n_res];
+        let mut has_writer: Vec<bool> = vec![false; n_res];
+        for (exec_idx, &pass_idx) in exec_order.iter().enumerate() {
+            let Some(pass) = self.passes.get(pass_idx) else {
+                continue;
+            };
+            let exec_idx_u32 = u32::try_from(exec_idx).unwrap_or(u32::MAX);
+            for a in &pass.accesses {
+                let r = a.resource.0 as usize;
+                if r >= n_res {
+                    continue;
+                }
+                if a.kind.is_write() && !has_writer[r] {
+                    first_write[r] = exec_idx_u32;
+                    has_writer[r] = true;
+                }
+                // 末访问序位:写或读均推进(写后无读 → end = 写位;读后无写 → end = 读位)。
+                if exec_idx_u32 > last_access[r] {
+                    last_access[r] = exec_idx_u32;
+                }
+            }
+        }
+        // 构造 Lifetime 列表(逐资源)。
+        let lifetimes: Vec<Lifetime> = (0..n_res)
+            .map(|r| {
+                let range = if has_writer[r] {
+                    LiveRange::new(first_write[r], last_access[r])
+                } else {
+                    // 无写者哨兵:start=MAX → 独立槽(不参别名复用)。
+                    LiveRange::new(u32::MAX, 0)
+                };
+                let raw_size = self.resource_sizes.get(r).copied().unwrap_or(0);
+                let size = if raw_size == 0 { 4 } else { raw_size };
+                // 对齐:保守取 max(4, size 的下一个 2 的幂)。
+                let align = if size <= 4 {
+                    4
+                } else {
+                    size.next_power_of_two()
+                };
+                Lifetime {
+                    resource: ResourceId(u32::try_from(r).unwrap_or(u32::MAX)),
+                    range,
+                    size: Size(size),
+                    align: Align(align),
+                }
+            })
+            .collect();
+        let mut alloc = AliasAlloc::new();
+        alloc.assign(&lifetimes)
+    }
+
+    /// G4.3 PR-E 执行面完整生命周期(RXS-0280/0281/0282):seal → `derive_exec_plan` →
+    /// `verify_exec_plan`(I11 pre-dispatch fail-closed)→ `derive_alias_plan` →
+    /// `derive_syncs`(0-byte 兼容路)→ `PeakCounter` 初始化。**四序闭合漂移窗口**:
+    /// 调度/着色/回放共享同一执行计划,执行器禁二次推导(P-11)。二次 execute → Structure。
+    ///
+    /// # Errors
+    /// 图结构违例(I3/I5)→ [`RhiError::Structure`];声明-反射失配(I4)→
+    /// [`RhiError::ReflectionMismatch`];I11 丢边 → [`RhiError::Structure`];
+    /// 二次 execute → [`RhiError::Structure`]。
+    pub fn execute_exec_face(&mut self) -> Result<ExecFace> {
+        if self.executed {
+            return Err(RhiError::Structure {
+                detail: "重复 submit/execute(生命周期误用)".to_owned(),
+            });
+        }
+        if !self.sealed {
+            self.seal()?;
+        }
+        // 四序闭合:① 调度(拓扑分层)→ ② I11 核验(pre-dispatch fail-closed)→
+        // ③ 着色(在调度后序上算生命期区间)→ ④ derive_syncs 兼容路 + PeakCounter 初始化。
+        let exec_plan = crate::scheduler::derive_exec_plan(self);
+        // I11:核验器独立重建依赖闭包逐边核,失败则一个 kernel 也不派发(pre-dispatch fail-closed)。
+        crate::scheduler::verify_exec_plan(self, &exec_plan)?;
+        let alias_plan = self.derive_alias_plan(&exec_plan);
+        let syncs = self.derive_syncs();
+        // 声明容量 = 图内 transient 资源总字节上界(未别名;alias 复用后实测峰值通常收紧)。
+        let declared_capacity: u64 = (0..self.resources.len())
+            .map(|r| {
+                let raw = self.resource_sizes.get(r).copied().unwrap_or(0);
+                if raw == 0 { 4 } else { raw }
+            })
+            .sum();
+        let peak_counter = PeakCounter::new(declared_capacity);
+        self.executed = true;
+        Ok(ExecFace {
+            exec_plan,
+            alias_plan,
+            syncs,
+            peak_counter,
+            declared_capacity,
+        })
+    }
+}
+
+// ── G4.3 PR-E 执行面完整产物(RXS-0280/0281/0282)──────────────────────────────────//
+
+/// G4.3 PR-E 执行面完整产物(RXS-0280/0281/0282)。seal → 调度(拓扑分层)→
+/// I11 核验(pre-dispatch fail-closed)→ 着色(在调度后序上算生命期区间)→
+/// `derive_syncs`(0-byte 兼容路)→ `PeakCounter` 初始化。**四序闭合漂移窗口**:
+/// 调度/着色/回放共享同一执行计划,执行器禁二次推导(P-11 单一事实源)。
+///
+/// `PeakCounter` 在 [`RhiGraph::execute_exec_face`] 仅初始化(声明容量 = transient
+/// 资源总字节上界);回放期 `on_alloc` / `on_free` 由 cabi 真实设备分配驱动
+/// (`rxrt_rhi_resource` 真分配时调 `on_alloc`,释放时调 `on_free`);mock device 段
+/// (步骤 79 纯 host)用模拟分配事件驱动。
+#[derive(Debug, Clone)]
+pub struct ExecFace {
+    /// 拓扑分层调度计划(RXS-0281;层内可换序,层间屏障裁定全序 happens-before)。
+    pub exec_plan: ExecPlan,
+    /// transient 别名着色计划(RXS-0280;B1 = 最终执行计划,单一事实源)。
+    pub alias_plan: AliasPlan,
+    /// hazard 同步计划(既有 `derive_syncs` 0-byte 兼容路产物)。
+    pub syncs: Vec<PlannedSync>,
+    /// 执行期峰值计数器(RXS-0280;回放期随分配/释放事件记账并发存活字节峰值)。
+    /// 声明容量 = 图内 transient 资源总字节上界;alias 复用后实测峰值通常收紧
+    /// (`peak_bytes() ≤ declared_capacity`,别名复用使实际并发存活收紧非平凡成立)。
+    pub peak_counter: PeakCounter,
+    /// 声明容量(transient 资源总字节;I10 见证比对基准)。
+    pub declared_capacity: u64,
 }
 
 #[cfg(test)]
@@ -1135,5 +1396,279 @@ mod tests {
             .unwrap();
         g.seal().unwrap();
         assert!(matches!(g.present(back), Err(RhiError::Structure { .. })));
+    }
+
+    // ── G4.3 PR-E 执行面三项(RXS-0280/0281/0282)────────────────────────────────── //
+
+    /// accept(RXS-0281):`derive_exec_plan` 在线性 RAW 链上产三层 golden(每层单 pass)。
+    /// demo.rx 三 pass:p0 写 a,p1 读 a 写 b,p2 读 b 写 c。边:p0→p1(RAW a),p1→p2(RAW b)。
+    //@ spec: RXS-0281
+    #[test]
+    fn derive_exec_plan_linear_raw_chain() {
+        let mut g = RhiGraph::new();
+        let a = g.resource("a");
+        let b = g.resource("b");
+        let c = g.resource("c");
+        g.add_pass(PassSpec::new("p0").writes(a)).unwrap();
+        g.add_pass(PassSpec::new("p1").reads(a).writes(b)).unwrap();
+        g.add_pass(PassSpec::new("p2").reads(b).writes(c)).unwrap();
+        g.seal().unwrap();
+        let plan = g.derive_exec_plan();
+        // 手算 golden:线性 RAW 链 → 三层,每层单 pass。
+        assert_eq!(
+            plan.layers,
+            vec![
+                Layer {
+                    pass_indices: vec![0]
+                },
+                Layer {
+                    pass_indices: vec![1]
+                },
+                Layer {
+                    pass_indices: vec![2]
+                },
+            ],
+            "线性 RAW 链 → 每层单 pass(golden)"
+        );
+        assert!(plan.batch_submit, "单 queue 批级提交标志");
+        assert_eq!(plan.execution_order(), vec![0, 1, 2]);
+    }
+
+    /// accept(RXS-0281):菱形依赖 → 独立 pass 同层(p1/p2 互独立)。
+    /// p0 写 a 写 b,p1 读 a,p2 读 b → p1/p2 同层(无跨资源依赖)。
+    //@ spec: RXS-0281
+    #[test]
+    fn derive_exec_plan_diamond_independent_share_layer() {
+        let mut g = RhiGraph::new();
+        let a = g.resource("a");
+        let b = g.resource("b");
+        g.add_pass(PassSpec::new("p0").writes(a).writes(b)).unwrap();
+        g.add_pass(PassSpec::new("p1").reads(a)).unwrap();
+        g.add_pass(PassSpec::new("p2").reads(b)).unwrap();
+        g.seal().unwrap();
+        let plan = g.derive_exec_plan();
+        assert_eq!(plan.layers.len(), 2, "菱形 → 两层");
+        assert_eq!(plan.layers[0].pass_indices, vec![0]);
+        assert_eq!(plan.layers[1].pass_indices, vec![1, 2], "p1/p2 独立同层");
+    }
+
+    /// accept(RXS-0280):`derive_alias_plan` 在调度后序上算生命期区间 → alias 着色。
+    /// 线性 RAW 链三 pass:p0 写 a,p1 读 a 写 b,p2 读 b 写 c。
+    /// 执行序 = [0,1,2];生命期:a=[0,1] b=[1,2] c=[2,2]。
+    /// a/b 端点相邻(保守异槽),b/c 端点相邻(异槽);但 a.end=1 < c.start=2 严格不重叠 →
+    /// c 复用 a 的槽(区间图贪心着色:逐槽找首个不重叠者)→ 两槽(别名复用核心)。
+    //@ spec: RXS-0280
+    #[test]
+    fn derive_alias_plan_linear_chain() {
+        let mut g = RhiGraph::new();
+        let a = g.resource_with_size("a", 1024);
+        let b = g.resource_with_size("b", 1024);
+        let c = g.resource_with_size("c", 1024);
+        g.add_pass(PassSpec::new("p0").writes(a)).unwrap();
+        g.add_pass(PassSpec::new("p1").reads(a).writes(b)).unwrap();
+        g.add_pass(PassSpec::new("p2").reads(b).writes(c)).unwrap();
+        g.seal().unwrap();
+        let plan = g.derive_exec_plan();
+        let alias = g.derive_alias_plan(&plan);
+        // a=[0,1] b=[1,2] c=[2,2]:a/b 端点相邻异槽,b/c 端点相邻异槽;
+        // a.end=1 < c.start=2 严格不重叠 → c 复用 a 槽(贪心着色)→ 两槽。
+        assert_eq!(
+            alias.slot_info.len(),
+            2,
+            "a/c 严格不重叠 → c 复用 a 槽 → 两槽"
+        );
+        assert_eq!(alias.peak_bytes, 2 * 1024, "静态峰值 = 两槽尺寸和");
+        // 逐资源槽分配与输入顺序对应。
+        assert_eq!(alias.slots.len(), 3);
+        // a 与 c 共享槽(b 独占一槽)。
+        assert_eq!(
+            alias.slots[0].slot, alias.slots[2].slot,
+            "a/c 严格不重叠 → 共享槽"
+        );
+        assert_ne!(
+            alias.slots[0].slot, alias.slots[1].slot,
+            "a/b 端点相邻 → 异槽"
+        );
+    }
+
+    /// accept(RXS-0280):不重叠生命期 → alias 复用(核心)。
+    /// 两独立写 pass(无跨资源依赖 → 同层):p0 写 a,p1 写 b。
+    /// 执行序 = [0,1](同层,层内声明序);生命期:a=[0,0] b=[1,1]。
+    /// a.end=0 < b.start=1 严格不重叠 → 共享槽(别名复用核心)。
+    //@ spec: RXS-0280
+    #[test]
+    fn derive_alias_plan_disjoint_share_slot() {
+        let mut g = RhiGraph::new();
+        let a = g.resource_with_size("a", 1024);
+        let b = g.resource_with_size("b", 1024);
+        // 两独立写 pass(写不同资源,无依赖)→ 同层 → 执行序 = 声明序 = [0, 1]。
+        // 生命期 a=[0,0] b=[1,1] 严格不重叠(a.end=0 < b.start=1)→ 共享槽。
+        g.add_pass(PassSpec::new("p0").writes(a)).unwrap();
+        g.add_pass(PassSpec::new("p1").writes(b)).unwrap();
+        g.seal().unwrap();
+        let plan = g.derive_exec_plan();
+        // 两独立 pass → 同层(无跨资源依赖)。
+        assert_eq!(plan.layers.len(), 1, "两独立写 pass → 同层");
+        let alias = g.derive_alias_plan(&plan);
+        assert_eq!(
+            alias.slots[0].slot, alias.slots[1].slot,
+            "a/b 不重叠生命期 → 共享槽(别名复用核心)"
+        );
+        assert_eq!(alias.slot_info.len(), 1, "两不重叠资源 → 一槽");
+        assert_eq!(alias.peak_bytes, 1024, "别名复用后静态峰值 = 单槽尺寸");
+    }
+
+    /// accept(RXS-0282):`execute_exec_face` I11 pre-dispatch fail-closed——调度器产物
+    /// 自洽(核验器恒 Ok)。线性 RAW 链三 pass → ExecFace 产出含 ExecPlan + AliasPlan +
+    /// syncs + PeakCounter(声明容量 = 12,3 资源 × 4 字节默认)。
+    /// 生命期 a=[0,1] b=[1,2] c=[2,2]:a/c 严格不重叠(a.end=1 < c.start=2)→ c 复用 a 槽 → 两槽。
+    //@ spec: RXS-0282
+    #[test]
+    fn execute_exec_face_self_consistent() {
+        let mut g = RhiGraph::new();
+        let a = g.resource("a");
+        let b = g.resource("b");
+        let c = g.resource("c");
+        g.add_pass(PassSpec::new("p0").writes(a)).unwrap();
+        g.add_pass(PassSpec::new("p1").reads(a).writes(b)).unwrap();
+        g.add_pass(PassSpec::new("p2").reads(b).writes(c)).unwrap();
+        let face = g
+            .execute_exec_face()
+            .expect("合法图 execute_exec_face 通过");
+        // ExecPlan:线性 RAW 链 → 三层。
+        assert_eq!(face.exec_plan.layers.len(), 3);
+        // AliasPlan:a=[0,1] b=[1,2] c=[2,2];a/c 严格不重叠 → c 复用 a 槽 → 两槽。
+        assert_eq!(face.alias_plan.slot_info.len(), 2, "a/c 严格不重叠 → 两槽");
+        // syncs:既有 derive_syncs 0-byte 兼容路产物(2 条 RAW)。
+        assert_eq!(face.syncs.len(), 2, "兼容路 derive_syncs 产物保持");
+        assert!(
+            face.syncs
+                .iter()
+                .all(|s| s.hazard == Hazard::ReadAfterWrite)
+        );
+        // PeakCounter:声明容量 = 3 资源 × 4 字节默认 = 12。
+        assert_eq!(face.declared_capacity, 12, "声明容量 = 3 资源 × 4 字节默认");
+        assert_eq!(face.peak_counter.declared_capacity(), 12);
+        assert_eq!(face.peak_counter.peak_bytes(), 0, "初始化未回放 → 峰值 0");
+    }
+
+    /// accept(RXS-0282):I11 核验器拒丢边计划(注入违反 RAW 边的 ExecPlan → Err)。
+    //@ spec: RXS-0282
+    #[test]
+    fn execute_exec_face_i11_rejects_dropped_edge() {
+        let mut g = RhiGraph::new();
+        let a = g.resource("a");
+        g.add_pass(PassSpec::new("p0").writes(a)).unwrap();
+        g.add_pass(PassSpec::new("p1").reads(a)).unwrap();
+        g.seal().unwrap();
+        // 注入丢边计划:p0、p1 放同层(违反 RAW p0→p1)。
+        let bad_plan = ExecPlan {
+            layers: vec![Layer {
+                pass_indices: vec![0, 1],
+            }],
+            batch_submit: true,
+        };
+        assert!(
+            matches!(
+                g.verify_exec_plan(&bad_plan),
+                Err(RhiError::Structure { .. })
+            ),
+            "I11 核验器拒丢边计划(Structure Err)"
+        );
+    }
+
+    /// accept(RXS-0282):`execute_exec_face` 二次 execute → Structure(生命周期误用)。
+    //@ spec: RXS-0282
+    #[test]
+    fn execute_exec_face_twice_rejects() {
+        let mut g = RhiGraph::new();
+        let a = g.resource("a");
+        g.add_pass(PassSpec::new("p0").writes(a)).unwrap();
+        g.add_pass(PassSpec::new("p1").reads(a)).unwrap();
+        let _ = g.execute_exec_face().unwrap();
+        assert!(
+            matches!(g.execute_exec_face(), Err(RhiError::Structure { .. })),
+            "二次 execute_exec_face → Structure"
+        );
+    }
+
+    /// accept(RXS-0280):`set_resource_size` / `resource_with_size` / `resource_size` 三分量
+    /// 着色尺寸记账。seal 后设置 → Structure(生命周期误用)。
+    //@ spec: RXS-0280
+    #[test]
+    fn resource_size_accounting() {
+        let mut g = RhiGraph::new();
+        let a = g.resource("a");
+        assert_eq!(g.resource_size(a), 0, "默认 0");
+        g.set_resource_size(a, 2048).unwrap();
+        assert_eq!(g.resource_size(a), 2048);
+        let b = g.resource_with_size("b", 4096);
+        assert_eq!(g.resource_size(b), 4096);
+        g.add_pass(PassSpec::new("p0").writes(a).writes(b)).unwrap();
+        g.add_pass(PassSpec::new("p1").reads(a).reads(b)).unwrap();
+        g.seal().unwrap();
+        // seal 后 set_resource_size → Structure。
+        assert!(matches!(
+            g.set_resource_size(a, 8192),
+            Err(RhiError::Structure { .. })
+        ));
+    }
+
+    /// accept(RXS-0280):`execute_exec_face` 声明容量 = sum(resource_sizes);别名复用后
+    /// `alias_plan.peak_bytes ≤ declared_capacity`(端点相邻保守异槽时 = ;严格不重叠时 <)。
+    /// 模拟回放:PeakCounter on_alloc/on_free 后峰值 ≤ 声明容量(I10 measured_local 锚)。
+    /// 两独立写 pass(同层)→ 生命期 a=[0,0] b=[1,1] 严格不重叠 → 别名复用 → 单槽。
+    //@ spec: RXS-0280
+    #[test]
+    fn exec_face_peak_below_declared_capacity() {
+        let mut g = RhiGraph::new();
+        // 两独立写 pass(无跨资源依赖 → 同层)→ 执行序 = 声明序 = [0, 1]。
+        // 生命期 a=[0,0] b=[1,1] 严格不重叠 → 别名复用 → 单槽。
+        let a = g.resource_with_size("a", 1024);
+        let b = g.resource_with_size("b", 1024);
+        g.add_pass(PassSpec::new("p0").writes(a)).unwrap();
+        g.add_pass(PassSpec::new("p1").writes(b)).unwrap();
+        let face = g.execute_exec_face().unwrap();
+        // 声明容量 = 2048(两资源各 1024);alias 复用后单槽 1024 → peak_bytes < declared。
+        assert_eq!(face.declared_capacity, 2048);
+        assert_eq!(
+            face.alias_plan.peak_bytes, 1024,
+            "别名复用后静态峰值 = 单槽尺寸"
+        );
+        assert!(
+            face.alias_plan.peak_bytes < face.declared_capacity,
+            "I10 非平凡:alias 复用后峰值 < 声明容量"
+        );
+        // 模拟回放:槽 0 分配 1024 → 释放 → 复用同槽分配 1024 → 释放。
+        // 实测峰值 = 1024(单槽并发)< 声明容量 2048(I10 measured_local 锚)。
+        let mut pc = face.peak_counter;
+        pc.on_alloc(face.alias_plan.slot_info[0].size);
+        pc.on_free(face.alias_plan.slot_info[0].size);
+        pc.on_alloc(face.alias_plan.slot_info[0].size);
+        pc.on_free(face.alias_plan.slot_info[0].size);
+        assert_eq!(pc.peak_bytes(), 1024, "回放期实测峰值 = 单槽尺寸");
+        assert!(
+            pc.peak_bytes() < pc.declared_capacity(),
+            "I10 measured_local 非平凡成立"
+        );
+    }
+
+    /// accept(RXS-0280/0281):`execute()` 兼容路保持既有签名,内部走 `execute_exec_face`
+    /// 后仅返回 syncs。既有测 `accepts_linear_graph_derives_raw_syncs` 行为不变。
+    //@ spec: RXS-0281
+    #[test]
+    fn execute_compat_returns_syncs() {
+        let mut g = RhiGraph::new();
+        let a = g.resource("a");
+        let b = g.resource("b");
+        let c = g.resource("c");
+        g.add_pass(PassSpec::new("produce").writes(a)).unwrap();
+        g.add_pass(PassSpec::new("transform").reads(a).writes(b))
+            .unwrap();
+        g.add_pass(PassSpec::new("consume").reads(b).writes(c))
+            .unwrap();
+        let plan = g.execute().expect("兼容路 execute 通过");
+        assert_eq!(plan.len(), 2, "线性图应恰 2 条 RAW 同步(兼容路保持)");
+        assert!(plan.iter().all(|s| s.hazard == Hazard::ReadAfterWrite));
     }
 }

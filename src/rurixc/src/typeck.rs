@@ -86,6 +86,9 @@ pub struct TypeckResults {
     /// tbir/mir_build 消费降级为 `rxrt_*` 调用;coloring 消费裁决宿主 API 着色
     /// 合法性(kernel/device 内出现 → RX3015,RXS-0189)。
     pub gpu_calls: HashMap<HirId, crate::hir::GpuHostOp>,
+    /// G4.3 PR-E(RXS-0283):`rhi.graph::<CAP>()` 调用点 → 求值后的 i64 容量
+    /// (turbofish const 实参字面量即时求值;tbir_build 消费追加为 SynthInt 实参)。
+    pub gpu_graph_caps: HashMap<HirId, i64>,
 }
 
 // ---------------------------------------------------------------------------
@@ -380,6 +383,7 @@ fn gpu_host_method(
     // `color_target`/`depth_target`/`texture2d`/`sampler`/`texture_table` 产 `Res<C>`(图形资源面)。
     if li.is_rhi(d) {
         return match method {
+            "graph" => Some(Op::RhiGraph),
             "resource" => Some(Op::RhiResource),
             "pass" => Some(Op::RhiPass),
             "submit" => Some(Op::RhiSubmit),
@@ -714,6 +718,9 @@ pub fn check_body_provider(cx: &QueryCtx<'_>, body_id: BodyId) -> TypeckResults 
         ctx_stage,
         gpu_allocs: Vec::new(),
         gpu_launch_args: Vec::new(),
+        gpu_graph_cap: None,
+        gpu_resource_count: 0,
+        gpu_nonstatic_depth: 0,
     };
 
     // 期望返回类型与参数绑定
@@ -823,6 +830,15 @@ struct Tck<'a, 'q> {
     /// launch 实参记录(MS1.2,RXS-0191):`(实参 span, 类型)`;body 收尾统一
     /// 子集检查,超出 Buffer + {i32,u32,f32,usize} → RX6024。
     gpu_launch_args: Vec<(Span, Ty)>,
+    /// G4.3 PR-E(RXS-0283):当前 body 的 graph 容量声明(`rhi.graph::<CAP>()` 求值;
+    /// `None` = 未声明;单函数体单 graph——重复声明 = 编译期拒)。
+    gpu_graph_cap: Option<(Span, i64)>,
+    /// G4.3 PR-E(RXS-0283):当前 body 的 resource() 调用计数(编译期越界拒:
+    /// `count > cap` → 复用既有 RX2010 const 诊断,零新码)。
+    gpu_resource_count: u64,
+    /// G4.3 PR-E(RXS-0283):当前循环/条件上下文深度(non-static construction
+    /// strict 拒:`rhi.graph::<CAP>()` 出现于此上下文 → 复用既有 RX2010 诊断)。
+    gpu_nonstatic_depth: u32,
 }
 
 impl Tck<'_, '_> {
@@ -1602,8 +1618,9 @@ impl Tck<'_, '_> {
             hir::ExprKind::MethodCall {
                 receiver,
                 method,
+                generic_args,
                 args,
-            } => self.check_method(e.span, e.hir_id, receiver, method, args),
+            } => self.check_method(e.span, e.hir_id, receiver, method, generic_args, args),
             hir::ExprKind::Field { expr, field } => {
                 let t = self.check_expr(expr);
                 let base = self.autoderef(&t);
@@ -1711,10 +1728,16 @@ impl Tck<'_, '_> {
             hir::ExprKind::If { cond, then, else_ } => {
                 let ct = self.check_expr(cond);
                 self.demand(cond.span, &Ty::Prim(PrimTy::Bool), &ct);
+                // G4.3 PR-E(RXS-0283):条件分支 = non-static construction strict 拒面
+                // (`rhi.graph::<CAP>()` 不得在条件分支内构造)。
+                self.gpu_nonstatic_depth += 1;
                 let tt = self.check_block(then);
+                self.gpu_nonstatic_depth -= 1;
                 match else_ {
                     Some(eb) => {
+                        self.gpu_nonstatic_depth += 1;
                         let et = self.check_expr(eb);
+                        self.gpu_nonstatic_depth -= 1;
                         self.demand(eb.span, &tt, &et);
                         tt
                     }
@@ -1728,11 +1751,17 @@ impl Tck<'_, '_> {
             hir::ExprKind::While { cond, body } => {
                 let ct = self.check_expr(cond);
                 self.demand(cond.span, &Ty::Prim(PrimTy::Bool), &ct);
+                // G4.3 PR-E(RXS-0283):循环体 = non-static construction strict 拒面。
+                self.gpu_nonstatic_depth += 1;
                 let _ = self.check_block(body);
+                self.gpu_nonstatic_depth -= 1;
                 Ty::unit()
             }
             hir::ExprKind::Loop { body } => {
+                // G4.3 PR-E(RXS-0283):循环体 = non-static construction strict 拒面。
+                self.gpu_nonstatic_depth += 1;
                 let _ = self.check_block(body);
+                self.gpu_nonstatic_depth -= 1;
                 Ty::Err // break 值合一随 M2.3
             }
             hir::ExprKind::Match { scrutinee, arms } => {
@@ -2146,6 +2175,7 @@ impl Tck<'_, '_> {
         call_id: HirId,
         receiver: &hir::Expr,
         method: &str,
+        generic_args: &Option<crate::ast::GenericArgs>,
         args: &[hir::Expr],
     ) -> Ty {
         // G3.4 bindless(RXS-0232;RFC-0013 §4.C1):无界表动态索引临时句柄仅立即
@@ -2237,7 +2267,7 @@ impl Tck<'_, '_> {
                 let op = gpu_host_method(&self.res.lang_items, *d, method)
                     .expect("guard 已确保已知 gpu 方法");
                 let adt_args = adt_args.clone();
-                self.check_gpu_method(span, call_id, op, &adt_args, args)
+                self.check_gpu_method(span, call_id, op, &adt_args, generic_args, args)
             }
             // launch 类型契约(M4.3,RXS-0074):`Stream` 接收者的 `launch` 方法
             // 由 launch_check 结构化裁决(着色/维度/参数/brand);typeck 容忍
@@ -2532,6 +2562,7 @@ impl Tck<'_, '_> {
         call_id: HirId,
         op: crate::hir::GpuHostOp,
         adt_args: &[Ty],
+        generic_args: &Option<crate::ast::GenericArgs>,
         args: &[hir::Expr],
     ) -> Ty {
         use crate::hir::GpuHostOp as Op;
@@ -2735,6 +2766,60 @@ impl Tck<'_, '_> {
             // `ctx.alloc`,RXS-0190):合成 fresh 变量并登记分配点,body 收尾定型检查(不可定型 /
             // 超出首期子集 → RX2010)。`T` 定型后 mir_build 以 `n * sizeof(T)` 下发真设备分配
             // (EI1.4 兑现;EI1.3 期 n 不下发)。brand 取接收者 `Rhi<C>` 的 per-instance 新鲜 brand。
+            // G4.3 PR-E(RXS-0283):`rhi.graph::<CAP>()` → `Graph<C>`(brand `C` 与 `Rhi`
+            // 同源;CAP = turbofish const 实参字面量即时求值 → i64,不进类型参数表,无 RD-007
+            // 依赖)。non-static construction strict 拒:循环/条件上下文内构造 → RX2010(零新码)。
+            // 单函数体单 graph(affine 单定义链):重复声明 → RX2010。CAP 非整数字面量 → RX2010。
+            Op::RhiGraph => {
+                let graph_def = self
+                    .res
+                    .lang_items
+                    .graph
+                    .expect("Graph lang item 在 resolve 入口注入");
+                let b = adt_args.first().cloned().unwrap_or(brand.clone());
+                let ret = Ty::Adt(graph_def, vec![b]);
+                // non-static construction strict 拒(循环/条件内构造)
+                if self.gpu_nonstatic_depth > 0 {
+                    self.diag()
+                        .struct_error(E_GPU_ELEM_INFER, "rhi.graph_nonstatic")
+                        .span_label(
+                            span,
+                            "`rhi.graph::<CAP>()` 不得在循环/条件上下文内构造 \
+                             (RXS-0283 non-static construction strict)",
+                        )
+                        .emit();
+                    return self.check_args(span, &[], args, ret);
+                }
+                // 单函数体单 graph(affine 单定义链)
+                if self.gpu_graph_cap.is_some() {
+                    self.diag()
+                        .struct_error(E_GPU_ELEM_INFER, "rhi.graph_dup")
+                        .span_label(
+                            span,
+                            "单函数体内重复 `rhi.graph::<CAP>()` 声明 \
+                             (RXS-0283 affine 单定义链)",
+                        )
+                        .emit();
+                    return self.check_args(span, &[], args, ret);
+                }
+                // turbofish const 实参字面量即时求值 → i64(非字面量 → RX2010,零新码)
+                let cap: i64 = match self.eval_graph_cap(generic_args) {
+                    Some(v) => v,
+                    None => {
+                        self.diag()
+                            .struct_error(E_GPU_ELEM_INFER, "rhi.graph_cap_literal")
+                            .span_label(
+                                span,
+                                "`rhi.graph::<CAP>()` 的 CAP 须为整数字面量(RXS-0283)",
+                            )
+                            .emit();
+                        return self.check_args(span, &[], args, ret);
+                    }
+                };
+                self.gpu_graph_cap = Some((span, cap));
+                self.results.gpu_graph_caps.insert(call_id, cap);
+                self.check_args(span, &[], args, ret)
+            }
             Op::RhiResource => {
                 let res = self
                     .res
@@ -2744,6 +2829,9 @@ impl Tck<'_, '_> {
                 let b = adt_args.first().cloned().unwrap_or(brand);
                 let elem = self.infcx.fresh(None);
                 self.gpu_allocs.push((span, elem.clone()));
+                // G4.3 PR-E(RXS-0283):编译期越界拒——resource() 计数 vs CAP;
+                // 收尾 check_gpu_deferred 统一核 count > cap → RX2010(零新码)。
+                self.gpu_resource_count += 1;
                 self.check_args(
                     span,
                     &[Ty::Prim(PrimTy::U32)],
@@ -3117,6 +3205,51 @@ impl Tck<'_, '_> {
                 _ => self.err_gpu_launch_arg(span, &r),
             }
         }
+        // G4.3 PR-E(RXS-0283):编译期越界拒——单函数体 resource() 计数 vs CAP
+        // (前向扫描 resource() 调用计数;count > cap → RX2010,零新码)。
+        if let Some((cap_span, cap)) = self.gpu_graph_cap
+            && self.gpu_resource_count as i64 > cap
+        {
+            self.err_gpu_elem_infer(
+                cap_span,
+                &format!(
+                    "`rhi.graph::<{cap}>()` 容量越界:resource() 调用 {} 次 > CAP {cap} \
+                     (RXS-0283 编译期越界拒)",
+                    self.gpu_resource_count
+                ),
+            );
+        }
+    }
+
+    /// G4.3 PR-E(RXS-0283):turbofish const 实参字面量即时求值 → i64。
+    /// 仅接受整数字面量(非字面量 / 表达式 → `None`,调用方发 RX2010,零新码)。
+    fn eval_graph_cap(&self, generic_args: &Option<crate::ast::GenericArgs>) -> Option<i64> {
+        let args = generic_args.as_ref()?;
+        let first = args.args.first()?;
+        // const 实参两形态:(1) `{ expr }` / `-1` → GenericArg::Const(Expr);
+        // (2) 裸整数字面量 → GenericArg::Type(Ty::ConstArg(Lit))(parser 解析类型位置
+        // 整数字面量为 ConstArg,RXS-0021/0022)。两形态均提取 Lit 求值。
+        let l = match first {
+            crate::ast::GenericArg::Const(expr) => {
+                let crate::ast::ExprKind::Lit(l) = &expr.kind else {
+                    return None;
+                };
+                l
+            }
+            crate::ast::GenericArg::Type(ty) => {
+                let crate::ast::TyKind::ConstArg(l) = &ty.kind else {
+                    return None;
+                };
+                l
+            }
+            _ => return None,
+        };
+        if l.kind != crate::ast::LitKind::Int {
+            return None;
+        }
+        let text = self.cx.snippet(l.span)?;
+        let v = crate::mir_build::parse_int(text, l.suffix)?;
+        i64::try_from(v).ok()
     }
 
     /// RX2010(RXS-0190):宿主 GPU 缓冲元素不可定型 / 超出首期子集。

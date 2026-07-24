@@ -50,7 +50,7 @@ MATRIX_SCHEMA = ROOT / "milestones" / "ei1" / "uc05_invariant_matrix_schema.json
 REPORT = ROOT / "evidence" / "uc05_comparison_report.md"
 CORPUS_DIRS = ["conformance/uc05/reject", "conformance/uc05/assembly"]
 
-ALL_INVARIANTS = [f"I{i}" for i in range(1, 11)]
+ALL_INVARIANTS = [f"I{i}" for i in range(1, 12)]
 REPORT_ONLY = {"I9", "I10"}
 HISTORICAL_MARK = "historical counters unavailable in-repo, non-reproducible, no fabricated figures"
 REPORT_HEAD_LINES = 12  # 「顶部」= 报告前 12 行(标题 + 口径块)
@@ -68,6 +68,45 @@ DOCUMENTED_UNMAPPED = {
     "conformance/uc05/assembly/graph_empty.rx": (
         "空图 submit 生命周期误用(RXS-0258 生命周期条目),不单独占 I 编号;拦截见证 = "
         "rurix-rt rhi.rs `rejects_lifecycle_misuse` 库单测 + 步骤 72 device 段 EXE RED"
+    ),
+    # G4.2 PR-B 图形语料(gfx 变体,不单独占 I 编号;锚既有 I3/I5/I7/I8 的 gfx 路复证):
+    "conformance/uc05/reject/cross_brand_gfx.rx": (
+        "gfx 变体 I7(跨 brand 资源误用,RXS-0256/RXS-0270),不单独占 I 编号;"
+        "编译期拒 RX3006,步骤 77 gfx I7 拦截见证"
+    ),
+    "conformance/uc05/reject/gfx_read_before_write.rx": (
+        "gfx 变体 I3(依赖环 / use-before-write,RXS-0258/RXS-0270),不单独占 I 编号;"
+        "编译期 CLEAN,装配期 submit 确定性拦,步骤 76 device EXE RED 见证"
+    ),
+    "conformance/uc05/reject/gfx_write_write_conflict.rx": (
+        "gfx 变体 I5(写写冲突,RXS-0258/RXS-0270),不单独占 I 编号;"
+        "编译期 CLEAN,装配期 submit 确定性拦,步骤 76 device EXE RED 见证"
+    ),
+    "conformance/uc05/reject/gfx_feedback_loop.rx": (
+        "gfx 变体 I3(反馈环 / 依赖环,RXS-0258/RXS-0270),不单独占 I 编号;"
+        "编译期 CLEAN,装配期 submit 确定性拦,步骤 76 device EXE RED 见证"
+    ),
+    "conformance/uc05/reject/rhi_gfx_in_kernel.rx": (
+        "gfx 变体 I8(RHI 着色合法性,RXS-0256/RXS-0270),不单独占 I 编号;"
+        "编译期拒 RX3015,步骤 77 gfx I8 拦截见证"
+    ),
+    # G4.2 PR-C present handoff 语料(RXS-0274,不单独占 I 编号):
+    "conformance/uc05/reject/gfx_present_not_last.rx": (
+        "present handoff 违例(present 非末位 pass,RXS-0274),不单独占 I 编号;"
+        "装配期 submit 确定性拦,步骤 76 device EXE RED 见证"
+    ),
+    "conformance/uc05/reject/gfx_present_twice.rx": (
+        "present handoff 违例(present 重复声明,RXS-0274),不单独占 I 编号;"
+        "装配期 submit 确定性拦,步骤 76 device EXE RED 见证"
+    ),
+    # G4.3 PR-E const 容量语料(RXS-0283,不单独占 I 编号;编译期拒 RX2010,零新码):
+    "conformance/uc05/reject/transient_capacity_overflow.rx": (
+        "const 容量越界拒(RXS-0283,资源声明计数 > CAP),不单独占 I 编号;"
+        "编译期拒 RX2010(零新码,复用 E_GPU_ELEM_INFER),步骤 79 host 段 --emit=check 编译档见证"
+    ),
+    "conformance/uc05/reject/nonstatic_graph_construction.rx": (
+        "non-static construction strict 拒(RXS-0283,循环/条件分支内构建图),不单独占 I 编号;"
+        "编译期拒 RX2010(零新码),步骤 79 host 段 --emit=check 编译档见证"
     ),
 }
 
@@ -99,7 +138,7 @@ def parse_report_rows(report: str) -> dict[str, dict[str, str]]:
         if not line.startswith("|"):
             continue
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if len(cells) < 7 or not re.fullmatch(r"I([1-9]|10)", cells[0]):
+        if len(cells) < 7 or not re.fullmatch(r"I([1-9]|1[0-1])", cells[0]):
             continue
         rows[cells[0]] = {
             "name": cells[1],
@@ -115,7 +154,11 @@ def parse_report_rows(report: str) -> dict[str, dict[str, str]]:
 def check_corpus_two_way(
     invs: dict[str, dict], corpus_files: set[str]
 ) -> list[str]:
-    """矩阵 corpus ↔ 磁盘语料集**双向**互查(纯函数;corpus_files = 相对路径集)。"""
+    """矩阵 corpus ↔ 磁盘语料集**双向**互查(纯函数;corpus_files = 相对路径集)。
+
+    **G4.3 PR-E 扩(步骤 75 机制扩)**:assembly_time 条目若有 `lib_test` 字段作见证,
+    允许无 `corpus`(I11 案:库内调度器/核验器互证不变量,丢边场景由 lib_test 桩化调度器
+    触发,非 .rx 源面可构造违例)。"""
     problems: list[str] = []
     registered: set[str] = set()
     for iid, inv in invs.items():
@@ -128,6 +171,10 @@ def check_corpus_two_way(
                 )
             continue
         if not path:
+            # G4.3 PR-E(I11):assembly_time 条目有 lib_test 见证时免 corpus 要求
+            # (库内调度器/核验器互证,丢边场景非 .rx 源面可构造)。
+            if tier == "assembly_time" and inv.get("lib_test"):
+                continue
             problems.append(f"{iid}: tier={tier} 须锚 corpus 语料路径")
             continue
         if not (ROOT / path).is_file():

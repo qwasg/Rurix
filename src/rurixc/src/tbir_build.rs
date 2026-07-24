@@ -546,6 +546,18 @@ impl Builder<'_> {
                         };
                         all.push(lowered);
                     }
+                    // G4.3 PR-E(RXS-0283):`rhi.graph::<CAP>()` 的 turbofish const 实参
+                    // 已在 typeck 期求值为 i64(存 gpu_graph_caps);追加为 SynthInt 实参,
+                    // mir_build 期 op_of 物化为 Const::Int(cap, I64) 下发 cabi。
+                    if op == crate::hir::GpuHostOp::RhiGraph
+                        && let Some(cap) = self.tcr.gpu_graph_caps.get(&e.hir_id).copied()
+                    {
+                        all.push(tbir::Expr {
+                            ty: Ty::Prim(PrimTy::I64),
+                            span,
+                            kind: tbir::ExprKind::SynthInt(cap as i128),
+                        });
+                    }
                     return tbir::Expr {
                         ty,
                         span,
