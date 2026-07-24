@@ -36,12 +36,15 @@ RXS-0190 已知签名分支先例,零新文法产生式);pass 以封闭枚举访
 - **RXS-0265**:采纳判据操作化(C ABI 成熟 + check <5s 双口径:冷全检 + 预热全量重析)。
 
 **编号区间**:本文件条款自 **RXS-0256** 起(RFC-0014 earmark 段 0250~0269 的 Part B 段,续 Part A `spec/export_c.md`
-RXS-0250~0255);区间登记于 [README.md](README.md) §4 文件清单(主循环收)。
+RXS-0250~0255);区间登记于 [README.md](README.md) §4 文件清单(主循环收)。G4.3 PR-E 追加 **RXS-0280~0283**
+(RD-035 执行面三项 + const 容量接线,续 RXS-0277;0278~0279 burned 跳号)。
 
 **首期不可表达面(§5 范围红线)**:UAV 读写合并 / storage image 资源 / bindless / mesh·RT pass kind / pass 重排 /
 依赖驱动调度 / `rhi_on_vulkan` 均不在首期封闭枚举内——显式登记 §5(RD-031 / RD-035+),不静默。
+**G4.3 PR-E 后**「pass 重排 / 依赖驱动调度」由 RXS-0281/0282 兑现(单 queue 批级,多 queue 仍 out-of-scope);
+§5 既有 RD-035+ 登记**字面不动**,G4.3 PR-E 兑现面以 RXS-0281/0282 追加条款为准。
 
-## 2. 条款(RXS-0256 ~ RXS-0265)
+## 2. 条款(RXS-0256 ~ RXS-0265, G4.2 扩 RXS-0270~0277, G4.3 PR-E 扩 RXS-0280~0283)
 
 > 每条按需分 Syntax / Legality / Dynamic Semantics / Implementation Requirements 节,**严禁 UB 节**(UB 为经
 > Full RFC 由 agent 自主落笔的高敏面,10 §7.5;本面无 UB 出口——承诺面外走编译期诊断 / 装配期库层状态值 strict 拒 /
@@ -288,6 +291,12 @@ RX3005 / 实参 RX2001 / brand RX3006,**零新码**)。`Res<C, T>` 与 `Buffer<C
 > C++/D3D12 LUID 匹配 adapter + fence 锚点夹住图节点)+ 步骤 74 `ci/uc05_engine_embed_smoke.py` device 段
 > (三方数值对照:device 求和 / 宿主闭式参考 / CI 脚本独立重算,见证 `UC05_EMBED_OK`)。
 
+> **G4.3 PR-E 追加式修订(RXS-0281,既有承诺字面不动)**:本条「顺序调度 + 显式 sync」承诺**字面
+> 不动**;G4.3 PR-E 后**依赖保持下的重排/批级调度**为执行模型升级——`derive_exec_plan` 拓扑分层
+> (单 queue 批级提交,层间屏障;多 queue 仍 out-of-scope)。`PlannedSync` 在重排后序上重算,
+> 执行器禁二次推导(P-11)。核验器独立重建依赖闭包逐边核(I11,RXS-0282)。既有 `derive_syncs`
+> 声明全序路**0-byte 保留为兼容路**。
+
 ### RXS-0262 transient 资源图内生命周期
 
 **Legality**:
@@ -312,6 +321,15 @@ RX3005 / 实参 RX2001 / brand RX3006,**零新码**)。`Res<C, T>` 与 `Buffer<C
 
 > 测试锚定:rurix-rt rhi.rs 库单测 `transient_resource_capacity_accounting`(host 侧容量记账本体,I10 静态源;
 > 纯 host 无 GPU)+ apps/uc05-rhi/src/demo.rx 执行期峰值 evidence(I10,device EI1.4)。
+
+> **G4.3 PR-E 追加式修订(RXS-0283,既有承诺字面不动)**:本条「const 泛型定长数组 + 编译期越界拒的
+> `.rx` 接线随后续期落地」**字面不动**;G4.3 PR-E 后**const 容量接线已兑现**——`rhi.graph::<CAP>()`
+> lang-item 已知方法调用点 turbofish const 实参(字面量即时求值 → 普通 i64 cabi 实参,CAP 不进类型
+> 参数表,无 RD-007 依赖)+ 编译期越界拒(typeck 单函数体 affine 单定义链前向扫描)+ non-static
+> construction strict 拒(循环/条件/跨函数)。host 侧 `RhiGraph` 仍以 `Vec` 承载(runtime-bounded),
+> const CAP 经 cabi i64 实参传入,host 侧记账核验(resource_count > cap → 装配期 Structure Err)。
+> **I10 自 report_only 升 measured_local**(RXS-0280 别名复用 + 执行期峰值计数器,峰值 < 声明容量
+> 可 device 见证,非平凡成立)。
 
 ### RXS-0263 I1~I10 不变量矩阵与 100% 拦截判据
 
@@ -665,6 +683,209 @@ fn uc05_gfx_run_frame(out: *mut u32, w: i32, h: i32) -> i32
 > ci/uc05_engine_embed_v3_smoke.py(步骤 78 device 段 cl.exe 编 v3 + 三方像素逐字节相等 + RED 三路)+
 > g4.counter.engine_embed_v3(device 见证计数 ≥1,evaluator 分支同 PR)。
 
+### RXS-0280 transient 别名复用分配器 + 执行期峰值计数器(G4.3 PR-E,RD-035 执行面①,RFC-0014 §4.B8)
+
+**Syntax**(纯 host safe 码面,`#![forbid(unsafe_code)]`;区间图着色分配器 API):
+
+```
+AliasAlloc::new() -> AliasAlloc                                  // 空分配器(纯 host 状态)
+alias_alloc.assign(lifetimes: &[(ResourceId, LiveRange, Size, Align)]) -> AliasPlan
+                                                                 // 区间图着色 → 槽分配
+AliasPlan { slots: Vec<SlotAssignment>, peak_bytes: u64 }        // 着色产物 + 峰值字节
+PeakCounter::new(declared_capacity: u64) -> PeakCounter          // 执行期峰值计数器
+peak_counter.on_alloc(bytes: u64)                                // 回放期分配事件记账
+peak_counter.on_free(bytes: u64)                                 // 回放期释放事件记账
+peak_counter.peak_bytes() -> u64                                 // 并发存活字节峰值
+```
+
+**Legality**(纯 host safe 码,`#![forbid(unsafe_code)]` 面;零新 RX 码):
+
+- **生命期区间定义**:sealed 图上每个 transient 资源生命期区间 = `[首写 pass 序位, 末读 pass 序位]`
+  (含端点;无写者的资源不参别名复用——保守分配独立槽;仅读者归 RXS-0262 host 记账面)。
+- **区间不重叠者共享同一设备分配**(区间图着色,纯 host safe 码):两资源生命期区间 `[a0, a1]` 与
+  `[b0, b1]` 满足 `a1 < b0 || b1 < a0`(严格不重叠,端点不含)→ 可共享同一槽;重叠则必异槽。
+- **尺寸/对齐三分量着色**:同槽组按 `max(成员尺寸)` + `max(成员对齐)` 分配(逐成员核满足性:
+  实际分配字节 ≥ 每成员尺寸、对齐 ≥ 每成员对齐)。槽内复用成员表 monotone 追加。
+- **执行期峰值计数器**:回放期随分配/释放事件记账并发存活字节峰值(cabi 真实设备分配驱动,
+  非静态推算)。`PeakCounter::on_alloc(bytes)` / `on_free(bytes)` 在 cabi 真实设备分配/释放时
+  由执行器调用,`peak_bytes()` 返回观测到的最大并发存活字节。
+- **I10 自 report_only 升 measured**:峰值 < 声明容量可 device 见证(`peak_bytes() < declared_capacity`,
+  非平凡成立——别名复用使实际并发存活收紧)。**I10 矩阵档位**:自 `report_only` 升 `measured_local`
+  (步骤 79 纯 host mock device 分配 + cabi 真实设备分配驱动两面)。
+
+**Dynamic Semantics**:
+
+- 别名着色在**重排后 DAG** 上重算(RXS-0281):seal → 调度(拓扑分层)→ 着色(在调度后序上算生命期区间)
+  → 回放(按调度序派发 + 峰值计数器记账)。**B1 分配器输入 = 最终执行计划,单一事实源**。
+- seal → 调度 → 着色 → 回放**四序固定闭合漂移窗口**:调度/着色/回放三段共享同一执行计划,
+  执行器禁二次推导或重映射(P-11 单一事实源;镜像 RXS-0240 `run_graph` 先例)。
+- 峰值计数器在回放期逐 alloc/free 事件记账;`on_alloc` 增当前存活、`on_free` 减之,`peak_bytes`
+  为期间最大值。**cabi 真实设备分配驱动**:执行器在 `rxrt_rhi_resource` 真设备分配时调 `on_alloc`,
+  释放时调 `on_free`;mock device 段(步骤 79 纯 host)用模拟分配事件驱动。
+
+**Implementation Requirements**:
+
+- 新增模块 `src/rurix-rt/src/alias_alloc.rs`(**纯 host safe 码**,`#![forbid(unsafe_code)]`);
+  - 区间图着色算法(贪心着色,按生命期起点排序;O(n²) 可接受,无堆集合约束用 `Vec` 承载);
+  - 三分量着色(尺寸/对齐 max 合并;逐成员核满足性);
+  - `PeakCounter` 简单计数器(`current_bytes` + `peak_bytes`,`on_alloc`/`on_free` 更新)。
+- rhi.rs `RhiGraph` 暴露 `derive_alias_plan(&ExecPlan) -> AliasPlan`(在调度后序上算生命期区间 → 着色);
+  `execute()` 在派发期对每个 transient 资源的真设备分配/释放调 `PeakCounter::on_alloc/on_free`。
+- **零新 RX 码、零新 lang item、零新借用码**;纯库层状态值,不占编译器段位。
+- I10 矩阵 / evidence / 步骤 79 同步迁档(`report_only` → `measured_local`)。
+
+> 测试锚定:rurix-rt `alias_alloc.rs` 库单测(重叠区间不共享 / 不重叠区间共享 / 尺寸对齐满足性 /
+> 峰值计数器单调性 + 释放后回落)+ rhi.rs `derive_alias_plan` golden 单测(同图同参逐字节一致)+
+> 步骤 79 `ci/uc05_exec_face_gate.py` 纯 host 恒跑(别名复用 + 峰值计数器 < 声明容量 mock device 断言)。
+
+### RXS-0281 重排执行模型(G4.3 PR-E,RD-035 执行面②,RFC-0014 §4.B9)
+
+**Syntax**(纯 host safe 码面,DAG 拓扑分层 + 批级提交):
+
+```
+ExecPlan { layers: Vec<Layer>, batch_submit: bool }              // 调度计划(纯 host 产物)
+Layer { pass_indices: Vec<usize> }                               // 同层独立 pass(可换序/批级提交)
+derive_exec_plan(sealed_graph: &RhiGraph) -> ExecPlan            // DAG 拓扑分层(纯函数)
+```
+
+**Legality**(纯 host safe 码,`#![forbid(unsafe_code)]` 面;零新 RX 码):
+
+- **依赖 DAG**:sealed 图建依赖 DAG(RAW/WAW/WAR 边,复用 RXS-0258 hazard 推导的边集)→ 拓扑分层。
+  同层 pass 互相独立(无跨 pass 资源依赖),可换序;层间须屏障(全序 happens-before,RXS-0239 既有承诺)。
+- **同层独立 pass 可换序**:同层 pass 集合任意排列均保持依赖闭包(核验器独立重建闭包逐边核,
+  RXS-0282 I11 拦截项);换序后 alias 着色在调度后序上重算(RXS-0280)。
+- **批级提交**:单 queue 一次提交多 pass(同层 pass 批量录制到同一 command buffer,层间屏障);
+  GPU 管线重叠(同层 pass 在硬件允许时可重叠执行,执行器不强制串行)。**多 queue 仍 out-of-scope**
+  (单 queue 批级提交 = G4.3 兑现面,多 queue 调度归 RD-035+ 后续期)。
+- **依赖保持性**:重排后执行计划的依赖闭包 ⊇ 原声明序的依赖闭包(核验器独立重建逐边核;
+  丢边即 I11 拦截项红,RXS-0282)。**严禁丢边**:任一 RAW/WAW/WAR 边在重排后须仍由层间全序裁定。
+
+**Dynamic Semantics**:
+
+- 调度 = 纯函数 `derive_exec_plan(sealed_graph) -> ExecPlan`;输入 = sealed 图,输出 = 拓扑分层计划。
+  同图 → 逐字节相同计划(golden 可锚;确定性,镜像 `derive_syncs` / `derive_barriers` 先例)。
+- 执行器按 `ExecPlan` 逐层派发:同层 pass 批量录制(单次 `vkCmdBeginRenderPass`/`cuLaunchKernel` ×N),
+  层间 `vkCmdPipelineBarrier` / `cuStreamSynchronize` 屏障;执行器禁二次推导(P-11)。
+- **执行序 ≠ 声明序**(重排后):同层 pass 可换序,层间序由 DAG 拓扑裁定。`PlannedSync` 同步点
+  在重排后序上重算(RXS-0280 别名着色同源)。
+
+**Implementation Requirements**:
+
+- 新增模块 `src/rurix-rt/src/scheduler.rs`(**纯 host safe 码**,`#![forbid(unsafe_code)]`);
+  - DAG 建图(RAW/WAW/WAR 边,复用 `derive_syncs` 的 hazard 推导边集);
+  - 拓扑分层(Kahn 算法或等价;同层 = 同拓扑深度 + 互独立);
+  - 批级提交计划(`Layer` 数组,每层 pass 索引集合)。
+- rhi.rs `RhiGraph::derive_exec_plan() -> ExecPlan`(纯函数,sealed 后可调);
+  `execute()` 改用 `ExecPlan` 派发(层间屏障 + 同层批级;既有 `derive_syncs` 0-byte 保留为兼容路)。
+- **零新 RX 码、零新 lang item、零新借用码**;纯库层状态值。
+- RXS-0261 追加式修订:顺序调度 → **依赖保持下的重排/批级调度**(本条兑现;既有承诺字面不动)。
+
+> 测试锚定:rurix-rt `scheduler.rs` 库单测(线性图单层 / 菱形依赖双层 / 独立 pass 同层 / 依赖保持性
+> golden)+ rhi.rs `derive_exec_plan` 确定性单测 + 步骤 79 `ci/uc05_exec_face_gate.py` 纯 host 恒跑
+> (DAG 重排依赖保持性 red_self_test 双向)。
+
+### RXS-0282 I11 拦截项 + RXS-0239/0261 追加式修订行(G4.3 PR-E,RD-035 执行面③,RFC-0014 §4.B10)
+
+**Syntax**(调度器与核验器两独立纯函数,互不导入;D6 互证先例):
+
+```
+verify_exec_plan(sealed_graph: &RhiGraph, plan: &ExecPlan) -> Result<()>  // 核验器(独立重建依赖闭包)
+red_self_test_scheduler_drops_edge() -> bool   // 桩化调度器丢边 → 核验器检出(双向红)
+red_self_test_verifier_dropped() -> bool       // 桩化核验器被门检出(调度器侧测试)
+```
+
+**Legality**(纯 host safe 码,`#![forbid(unsafe_code)]` 面;零新 RX 码):
+
+- **调度器与核验器两独立纯函数(互不导入,D6 互证先例)**:`derive_exec_plan`(调度器,产 `ExecPlan`)
+  与 `verify_exec_plan`(核验器,独立重建依赖闭包逐边核)为**两独立模块**,互不 import 对方推导逻辑
+  (镜像 G3.5 `graph.rs` 禁 import `uc04-demo barrier.rs` 的 D6 互证纪律)。核验器**自 sealed 图独立
+  重建**依赖闭包(RAW/WAW/WAR 边),逐边核 `ExecPlan` 是否保持(丢边即 Err)。
+- **red_self_test 双向**:
+  - **桩化调度器丢边被拦**:构造一个故意丢边的桩 `derive_exec_plan_faulty`,核验器须检出并 Err;
+  - **桩化核验器被门检出**:构造一个不核边的桩 `verify_exec_plan_faulty`,调度器侧测试须检出
+    (执行计划注入丢边,桩核验器不拦 → 测试门检红)。
+- **demo 图手算期望调度 golden 锚**:`apps/uc05-rhi/src/demo.rx` 三 pass 线性图 → 期望 `ExecPlan`
+  为单层(三 pass RAW 链,无独立 pass)或等价 golden(手算可核);golden 单测逐字节比对。
+- **I11 入不变量矩阵(漏拦即红)**:I11 = 调度器/核验器丢边拦截项,入 RXS-0263 矩阵 I11 行
+  (档 = 装配期/库测,机制 = 两独立纯函数 + red_self_test 双向,证据级 = ci_checked 步骤 79)。
+- **RXS-0239 追加「重排执行模型」段**(严禁改写既有承诺字面):RXS-0239 既有「单 queue;声明序 =
+  提交序 = pass 粒度完成序」承诺**字面不动**;追加段明记 G4.3 PR-E 后**单 queue 批级提交下**,
+  pass 边界全序 happens-before 仍由层间屏障裁定(同层 pass 互独立无跨资源依赖,层间序 = 全序)。
+- **RXS-0261 顺序调度 → 依赖保持下的重排/批级调度**(追加式修订,既有字面不动):RXS-0261 既有
+  「顺序调度 + 显式 sync」承诺**字面不动**;追加段明记 G4.3 PR-E 后**依赖保持下的重排/批级调度**
+  为执行模型升级(单 queue 批级,多 queue 仍 out-of-scope)。
+
+**Dynamic Semantics**:
+
+- 核验器在 `execute()` 派发前**严格先于**调用(pre-dispatch fail-closed):`verify_exec_plan` 失败
+  则一个 kernel 也不派发(镜像 seal 严格先于派发的纪律)。
+- red_self_test 为**纯 host 库单测**(步骤 79 恒跑,无 GPU 依赖);双向断言两独立纯函数互证。
+
+**Implementation Requirements**:
+
+- 新增模块 `src/rurix-rt/src/scheduler.rs` 内 `verify_exec_plan`(核验器,与 `derive_exec_plan`
+  同模块但**独立函数**——禁共享推导辅助函数的内部状态,只读 sealed 图 + ExecPlan 入参);
+  - 独立重建依赖闭包(不调 `derive_exec_plan` 的内部函数);
+  - 逐边核 ExecPlan 是否保持(层间序覆盖所有 RAW/WAW/WAR 边);
+  - Err = 库层状态值(镜像 RXS-0258 Structure 口径,零新码)。
+- red_self_test 双向单测在 `scheduler.rs` `#[cfg(test)]` 内;
+- I11 入 `evidence/uc05_invariant_matrix.json` 矩阵 I11 行(步骤 79 三方一致)。
+- **零新 RX 码、零新 lang item、零新借用码**。
+
+> 测试锚定:rurix-rt `scheduler.rs` 库单测(`verify_exec_plan` 拒丢边 + red_self_test 双向 +
+> demo 图手算 golden)+ 步骤 79 `ci/uc05_exec_face_gate.py` I11 双向 red_self_test 断言 +
+> 矩阵 I11 行三方一致(矩阵 ↔ 语料 ↔ report.md)。
+
+### RXS-0283 const 容量接线 + RXS-0262 收窄段更新(G4.3 PR-E,RD-035 执行面 const 接线,RFC-0014 §4.B11)
+
+**Syntax**(`rhi.graph::<CAP>()` lang-item 已知方法调用点 turbofish const 实参):
+
+```
+rhi.graph::<CAP>() -> Graph<C>        // CAP = const 泛型实参(turbofish 语法,字面量即时求值)
+                                      // → 普通 i64 cabi 实参(CAP 不进类型参数表,无 RD-007 依赖)
+```
+
+**Legality**(编译期越界拒 + non-static construction 拒;零新 RX 码,复用既有 const/类型诊断):
+
+- **turbofish const 实参**:`rhi.graph::<CAP>()` 的 `CAP` 须为**字面量即时求值**(const eval,
+  单函数体 affine 单定义链前向扫描)→ 普通 i64 cabi 实参传 `rxrt_rhi_graph_create(rhi, cap: i64)`。
+  **CAP 不进类型参数表**(无 RD-007 const 泛型依赖,零新类型面机制)。
+- **编译期越界拒**(typeck/MIR 层有界局部分析):同函数体内 `rhi.resource(n)` 调用计数 > CAP →
+  **编译期拒**(复用既有 const/类型诊断,**零新码**;单函数体 affine 单定义链前向扫描,
+  不跨函数/不跨分支)。
+- **循环/条件/跨函数构建 → strict 拒 non-static construction**:`rhi.graph::<CAP>()` 出现在
+  循环/条件/跨函数体 → **strict 拒**(non-static construction,复用既有 const eval 拒诊断,零新码)。
+  仅**单函数体直链构建**合法(affine 单定义链,RD-026 无堆集合对策)。
+- **RXS-0262 收窄段更新**(Vec 承载 → const 容量接线兑现):RXS-0262 既有「const 泛型定长数组 +
+  编译期越界拒的 `.rx` 接线随后续期落地」**字面不动**;追加段明记 G4.3 PR-E 后**const 容量接线
+  已兑现**(`rhi.graph::<CAP>()` lang-item + 编译期越界拒 + non-static 拒)。host 侧 `RhiGraph`
+  仍以 `Vec` 承载(runtime-bounded),const CAP 经 cabi i64 实参传入,host 侧记账核验
+  (resource_count > cap → 装配期 Structure Err,库层状态值零新码)。
+
+**Dynamic Semantics**:
+
+- `rhi.graph::<CAP>()` 求值 = 调用 `rxrt_rhi_graph_create(rhi, cap: i64)`(cap = 字面量即时求值);
+  返回 `Graph<C>` affine 句柄(brand `C` 与 `Rhi` 同源,跨 brand → RX3006 复用)。
+- 编译期越界拒在 typeck 阶段判定(单函数体 resource() 计数 vs CAP);装配期 host 侧二次核验
+  (resource_count > cap → Structure Err,防御 in-depth)。
+
+**Implementation Requirements**:
+
+- `src/rurixc/src/resolve.rs`:Rhi lang-item 已知方法 `graph` 注册(turbofish const 实参识别);
+- `src/rurixc/src/typeck.rs`:`graph::<CAP>()` turbofish const 实参求值(字面量即时求值 → i64);
+  单函数体 resource() 计数 vs CAP 越界拒(复用既有 const 诊断);循环/条件/跨函数 strict 拒;
+- `src/rurixc/src/mir_build.rs`:`Op::RhiGraph` 物化(cap 作为 i64 cabi 实参下发 `rxrt_rhi_graph_create`);
+- `src/rurix-rt/src/rhi.rs`:`RhiGraph` 增 `declared_capacity: Option<u64>` 字段(graph() 调用时记录);
+  `resource()` 时核 `resource_count > declared_capacity → Structure Err`(装配期防御);
+- `src/rurix-rt-cabi/src/lib.rs`:`rxrt_rhi_graph_create(rhi: u64, cap: i64) -> u64` 新符号(只追加);
+- **零新 RX 码、零新 lang item**(`graph` 为 Rhi 已知方法扩面,镜像 RXS-0190 分支先例);
+  零新借用码(CAP 不进类型参数表,无 brand/affine 新面)。
+
+> 测试锚定:conformance/uc05/reject/transient_capacity_overflow.rx(声明第 9 个资源 CAP=8 → 编译期拒,
+> `//@ expect-error: RX2010` 或既有 const 诊断)+ reject/nonstatic_graph_construction.rx(循环构建图 →
+> strict 拒 non-static construction)+ rurix-rt rhi.rs `rejects_transient_capacity_overflow` 库单测
+> (host 侧装配期防御)+ 步骤 79 `ci/uc05_exec_face_gate.py` reject 语料逐条断言。
+
 ## 3. 错误码引用汇总(**Part B 零新 RX 码全复用**)
 
 | 码 / 状态面 | 段 | 语义 | 条款 |
@@ -708,3 +929,4 @@ const / 类型诊断;运行期 / 环境失败(device 分配 / launch / sync)走 
 | v1.4 | 2026-07-23 | **G4.2 PR-B 图形 RHI 化主面条款先行:落带编号条款体 `### RXS-0270` ~ `### RXS-0273`(spec-first;编号自 RXS-0270 claim 段,0266~0269 burned 跳号,number_ledger v1.13)**。承 RFC-0015(Agent Approved 2026-07-23,G4 伞形章 A;G4_CONTRACT G-G4-3)。**RXS-0270**(RHI 图形 pass 类型面:`g.raster_pass(vs, fs)` / `g.mesh_pass(ms, fs)` → `GfxPass<C>` 句柄族;着色函数引用合法性〔vertex/fragment 阶段 + mesh 须 RXS-0243 入口契约〕;task 前置条件臂首期不开放;**RT pass 条件臂**——执行臂不可达则不立类型面登记 RD-036+,G-EA1-3/RXS-0249 先例;kernel 体内声明 → RX3015 I8 扩展)。**RXS-0271**(RHI 图形资源面:`color_target`/`depth_target`/`texture2d`/`sampler`/`texture_table` 五构造已知方法,封闭格式集 RGBA8/D32F;SamplerDesc 复用 RXS-0225、TextureTable 复用 RXS-0235;cabi 资源类枚举追加式 0~5)。**RXS-0272**(图形 pass 访问声明集与自动 barrier:封闭枚举镜像 RXS-0236 **同一 graph.rs::AccessKind 单源**;**推导单源 = G3.5 graph.rs `derive_barriers`**——rhi.rs 同 crate 构造 Graph/PassSpec 无 cabi marshalling,PlannedBarrier 逐字回放禁二次推导;compute pass reads/writes → ShaderRead/UavReadWrite BufferSync 映射钉死〔RFC-0015 §4.0-1 R-F5〕;含图形 pass 的图仅 Vulkan 后端 strict 无回退,compute-only 图 CUDA 既有路 0-byte;RXS-0239 pass 边界 happens-before 既有承诺,重排归 RXS-0281/0282;`present(&back)` 终端 handoff 唯一且末位 + headless readback 校验 RXS-0222 纪律,窗口腿 D-130 0-byte 归 G4.6)。**RXS-0273**(图形 pass 声明↔反射相等:**反射集 = 逐阶段函数签名资源形参并集**〔按资源身份合并〕;sampler/table 计入并集但标「无状态访问」类——barrier 相等域只核资源状态访问,sampler/table 另核绑定完备性;双向精确相等装配期拒,库层状态值零新码,与 RXS-0257 I4 同口径)。FLS 分节 **严禁 UB 节**;**零新 RX 码、零新借用码**(§3 引用汇总维持)。每条 ≥1 `//@ spec` 测试锚定(conformance/uc05/{accept,reject} gfx_* 语料 + rurixc corpus 单测 + 推导 golden + 步骤 76/77)随实现 commit 同 PR 落;stable 快照因条款增长同 PR 重 bless(RXS-0180 L2)。档位 **Full RFC**(RFC-0015) | **Full RFC**（RFC-0015） |
 | v1.5 | 2026-07-23 | **G4.2 PR-C 库化补齐条款先行:落带编号条款体 `### RXS-0274` / `### RXS-0276`(spec-first)**。承 RFC-0015(§4.A4/A6)。**RXS-0274**(present 面库化:终端 handoff 唯一且末位 + present 执行 barrier 语义〔COLOR_ATTACHMENT → PRESENT_SRC,RXS-0238 映射表既有锚〕+ headless readback 三断言点判据〔RXS-0222 纪律〕+ 窗口腿 = RXS-0197/0198 typestate 复用 0-byte〔D-130 不动,窗口 device 见证归 G4.6〕)。**RXS-0276**(RHI bindless 面:`texture_table()` + `register(&tex)` 单调索引 + `reads_table(&table)` pass 绑定;标「无状态访问」类另核绑定完备性;着色侧 RXS-0231/0232 0-byte;feature chain 缺失 → 确定性 Err;descriptor-indexing 运行时面复用,table 整体按 ShaderRead 保守迁移;像素判据 = 四象限动态索引四色 + 篡改注册序换位 RED)。FLS 分节 **严禁 UB 节**;零新 RX 码零新借用码。每条 ≥1 `//@ spec` 锚定随实现 commit 同 PR 落。档位 **Full RFC**(RFC-0015) | **Full RFC**（RFC-0015） |
 | v1.6 | 2026-07-24 | **G4.2 PR-D engine_host v3 嵌入条款先行:落带编号条款体 `### RXS-0277`(spec-first;编号续 RXS-0276,PR-C 已落 0274/0276)**。承 RFC-0015(§4.A7)。**RXS-0277**(engine_host v3 嵌入面 + 三方数值精确相等判据:整张图形 RHI 图封闭在 `#[export(c)]` host fn `uc05_gfx_run_frame(out: *mut u32, w: i32, h: i32) -> i32` 体内经 `--emit=dll` 产 cdylib〔EI1.4 同构,subset v1 标量+裸指针,无 upcall 无外部固定 ABI〕;宿主 `src/rurix-engine/harness/engine_host_v3.cpp`(C++/D3D12,**新增文件**,v1/v2 既有资产逐字节 0-byte)链接 `rurix_rhi.lib` device 真跑,LUID 匹配升级为 Vulkan↔D3D12〔v2 = CUDA↔D3D12〕;**三方数值精确相等判据 Q-PixelCriterion** = .rx RHI Vulkan readback ↔ D3D12 raster/mesh pipeline readback ↔ host 闭式参考,**不设 ULP 容差**,相等域 = 纯色/nearest RGBA8 整数 fetch 域〔无过滤/混合/depth/多采样〕,超域换用例不降判据;生成头 CI 再生成逐字节守卫〔RXS-0254 同面,仓库零 tracked .h〕;步骤 78 `ci/uc05_engine_embed_v3_smoke.py` host 恒跑 + device gate real〔cl.exe 编 v3 + 三方像素逐字节相等 + RED 三路〕,RURIX_REQUIRE_REAL=1 翻硬红,缺 provisioning SKIP=dev-env degrade)。FLS 分节 **严禁 UB 节**;零新 RX 码零新借用码零新 lang item。每条 ≥1 `//@ spec` 锚定随实现 commit 同 PR 落。档位 **Full RFC**(RFC-0015) | **Full RFC**(RFC-0015) |
+| v1.7 | 2026-07-24 | **G4.3 PR-E RD-035 执行面三项条款先行:落带编号条款体 `### RXS-0280` ~ `### RXS-0283`(spec-first;编号续 RXS-0277,0278~0279 burned 跳号)**。承 RFC-0014(§4.B8~B11)。**RXS-0280**(transient 别名复用分配器 + 执行期峰值计数器:区间图着色〔纯 host safe `#![forbid(unsafe_code)]`〕,生命期区间 = [首写 pass 序位, 末读 pass 序位],区间不重叠者共享同一设备分配,尺寸/对齐三分量着色;执行期峰值计数器 cabi 真实设备分配驱动;I10 自 report_only 升 measured_local)。**RXS-0281**(重排执行模型:sealed 图建依赖 DAG〔RAW/WAW/WAR 边〕→ 拓扑分层,同层独立 pass 可换序/批级提交,层间屏障;多 queue out-of-scope)。**RXS-0282**(I11 拦截项 + RXS-0239/0261 追加式修订行:调度器与核验器两独立纯函数互不导入〔D6 互证先例〕,核验器自 sealed 图独立重建依赖闭包逐边核,red_self_test 双向,demo 图手算 golden,I11 入不变量矩阵;RXS-0239 追加「重排执行模型」段〔严禁改写既有承诺字面〕,RXS-0261 顺序调度 → 依赖保持下的重排/批级调度)。**RXS-0283**(const 容量接线 + RXS-0262 收窄段更新:`rhi.graph::<CAP>()` lang-item 已知方法调用点 turbofish const 实参〔字面量即时求值 → 普通 i64 cabi 实参,CAP 不进类型参数表,无 RD-007 依赖〕,编译期越界拒〔typeck 单函数体 affine 单定义链前向扫描〕,循环/条件/跨函数 strict 拒 non-static construction;RXS-0262 收窄段更新〔Vec 承载 → const 容量接线兑现〕)。**追加式修订**(既有条款字面不动):RXS-0261 追加 PR-E 修订行,RXS-0262 追加 PR-E 修订行,spec/render_graph.md RXS-0239 追加「重排执行模型」段。FLS 分节 **严禁 UB 节**;零新 RX 码零新借用码零新 lang item(`graph` 为 Rhi 已知方法扩面,镜像 RXS-0190)。每条 ≥1 `//@ spec` 锚定随实现 commit 同 PR 落。档位 **Full RFC**(RFC-0014 / §4.B / PR-E) | **Full RFC**(RFC-0014 / §4.B / PR-E) |

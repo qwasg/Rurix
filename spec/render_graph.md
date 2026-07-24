@@ -173,6 +173,13 @@ strict 拒（RFC-0006 §9 Q-Err「装配期可预测错误续用 6xxx」先例�
 > deferred 三 pass 图经 `graph.rs` 推导的 barrier 集 == uc04 `barrier::plan_barriers` RXS-0169 手动锚点集，
 > 集合相等双向断言）+ 步骤 65 device 数据流红绿（漏声明 read → strict 拒 RED）。
 
+> **G4.3 PR-E 追加「重排执行模型」段（RXS-0281/0282，既有承诺字面不动）**：本条「单 queue；声明序 =
+> 提交序 = pass 粒度完成序」承诺**字面不动**——该承诺为 G3.5 render graph 的 happens-before 语义本体。
+> G4.3 PR-E 后 UC-05 RHI（`spec/rhi.md` RXS-0281）引入**依赖保持下的重排/批级调度**：单 queue 批级提交下，
+> pass 边界全序 happens-before 仍由**层间屏障**裁定（同层 pass 互独立无跨资源依赖，层间序 = 全序）。
+> 本条承诺在 G3.5 render graph 面**不扩张**（G3.5 维持声明全序，重排归 UC-05 RHI 面 RXS-0281/0282）；
+> UC-05 RHI 的重排执行模型核验器独立重建依赖闭包逐边核（I11，RXS-0282），丢边即红。
+
 ### RXS-0240 双后端 barrier 映射与执行器语义（`run_graph`）
 
 **Dynamic Semantics**（双执行器消费同一推导产物）：
