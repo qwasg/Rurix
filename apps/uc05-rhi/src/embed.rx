@@ -91,3 +91,104 @@ pub fn uc05_run_graph(out: *mut i32, n: i32) -> i32 {
 pub fn uc05_graph_pass_count() -> i32 {
     2
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// G4.2 PR-D 图形嵌入导出(RXS-0277;RFC-0015 §4.A7;spec/rhi.md §RXS-0277)。
+//
+// **EI1.4 同构(RXS-0261 嵌入面的图形侧扩展)**:整张图形 RHI 图(≥1 raster + ≥1 mesh
+// pass,含 color_target / 装配核验 / hazard 推导 / 派发 / 真像素读回)封闭在一个
+// `#[export(c)]` host fn 体内,经 `--emit=dll` 产 cdylib 供 C/C++ 宿主调用。GPU 上下文 /
+// 图 / 资源生命周期**单次调用内创建与销毁**;宿主只见 C ABI 标量与裸指针,不见任何 Rurix
+// 类型。
+//
+// **subset v1 合规(RXS-0251/0255)**:签名仅 `*mut u32` + `i32` + `i32` 返回;导出体
+// **无 panic 面 by-construction**——错误面经 **i32 状态码**返回(RD-026 无 Result 面纪律)。
+//
+// **三方数值精确相等判据(Q-PixelCriterion,RXS-0277)**:device 段 engine_host v3
+// (C++/D3D12,cl.exe 编 + 链 rurix_rhi.lib 真跑)逐字节 memcmp:
+// ① .rx RHI(Vulkan)readback 像素(本函数 `*out` 出参,纯色 RGBA8 单值代表整帧);
+// ② D3D12 宿主 raster/mesh pipeline readback 像素;
+// ③ host 参考值(闭式参考,C 实现与 .rx 侧不同实现——对照非自证)。
+// **相等域 = 纯色/nearest RGBA8 整数 fetch 域**(无过滤/混合/depth/多采样);**不设 ULP
+// 容差**;超域换用例不降判据(P-12)。subset v1 无裸指针算术(`out + i`),故 `out` 出参
+// 写单值(纯色帧的同一 RGBA8 值,单像素即代表整帧——Q-PixelCriterion 硬约束);device 段
+// engine_host 验 D3D12 全帧像素 == .rx 单值 == host 参考(纯色不变量机核)。
+//
+// 着色阶段 I/O 结构体(复用 gfx_demo.rx 模式;空体最小,像素判据归 device 段)。
+struct GfxVsOut {
+    #[builtin(position)] pos: f32,
+}
+
+vertex fn gfx_vs() -> GfxVsOut {
+    GfxVsOut { pos: 0.0 }
+}
+
+fragment fn gfx_fs(inp: GfxVsOut) -> GfxVsOut {
+    inp
+}
+
+// mesh pass 着色对(RXS-0270/0243):空体最小发射(像素判据归 device 段)。
+#[numthreads(1, 1, 1)]
+#[outputs(topology = "triangles", max_vertices = 3, max_primitives = 1)]
+mesh fn gfx_ms() {}
+
+/// 运行 UC-05 图形帧,把 device readback 像素(纯色 RGBA8 代表值)写入 `*out`。
+///
+/// **Q-PixelCriterion(RXS-0277)**:相等域 = 纯色/nearest RGBA8 整数 fetch 域,全帧同一
+/// RGBA8 值;subset v1 无裸指针算术,`out` 出参写单值代表整帧。device 段 engine_host v3
+/// 验 D3D12 全帧像素 == `*out` == host 参考(纯色不变量)。
+///
+/// - `out`:宿主提供的 `uint32_t*` 单槽写出位置(纯色 RGBA8 代表值;调用方前置条件:
+///   非空、对齐 4 字节、可写;documented unsafe FFI 边界,RXS-0251 §4.A6)。
+/// - `w` / `h`:color target 尺寸;须 `1 <= w <= 4096` 且 `1 <= h <= 4096`(上界保证
+///   w*h 在 u32 精确可表域内;越界 → 状态码,不进 GPU 路)。
+///
+/// 返回:`0` = 成功(`*out` = device readback 纯色代表值);`2` = w/h 越界(不进 GPU 路)。
+///
+/// **空指针不由本函数检查**(subset v1,与 uc05_run_graph 同纪律)。
+//@ spec: RXS-0277
+#[export(c)]
+pub fn uc05_gfx_run_frame(out: *mut u32, w: i32, h: i32) -> i32 {
+    if w < 1 || w > 4096 || h < 1 || h > 4096 {
+        return 2;
+    }
+    let cw = w as u32;
+    let ch = h as u32;
+    let pixels = (w as usize) * (h as usize);
+
+    let ctx = Context::create();
+    let rhi = Rhi::create(&ctx);
+
+    // 两 color target(各 pass 独立写,避免跨 pass WAW 冲突 I5;复用 gfx_demo 模式)。
+    let back = rhi.color_target(cw, ch);
+    let back2 = rhi.color_target(cw, ch);
+
+    // raster pass:vertex + fragment 着色对写 back(RXS-0270/0272)。
+    rhi.raster_pass(gfx_vs, gfx_fs).writes_rt(&back);
+
+    // mesh pass:mesh + fragment 着色对写 back2(RXS-0270/0272)。
+    rhi.mesh_pass(gfx_ms, gfx_fs).writes_rt(&back2);
+
+    // 装配核验(I3/I4/I5 确定性拦)+ hazard 推导 + 按推导序真派发;1-submit 消费式 typestate。
+    let q = rhi.submit();
+
+    // 真 D2H:back → 锁页主机缓冲(像素 readback;back 按值 move-out,资源释放锚,RXS-0259)。
+    let mut host = ctx.alloc_pinned(pixels);
+    q.readback(back, &mut host);
+    ctx.sync();
+
+    // 写出纯色代表值(Q-PixelCriterion:全帧同一 RGBA8,单像素即代表整帧)。
+    let pixel = host.get(0);
+    unsafe {
+        *out = pixel;
+    }
+    0
+}
+
+/// 图形导出面图形状自述(纯常量,不触 GPU;先行核对生成头↔DLL 的调用面通达)。
+/// 返回本图形导出面所建图的 pass 数(= 2:raster + mesh)。
+//@ spec: RXS-0277
+#[export(c)]
+pub fn uc05_gfx_pass_count() -> i32 {
+    2
+}

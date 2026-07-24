@@ -84,6 +84,14 @@ pub fn build_crate(cx: &QueryCtx<'_>) -> Vec<Body> {
 /// 调用图收集被调 host fn。**导出根 body 的 `symbol` 改为未 mangle 的导出符号名**
 /// (`export_symbol`,单一事实源与 link.exe `/EXPORT:`·内建头一致);其余被调 fn
 /// 维持 mangle 名(内部符号)。`roots` = (源 fn 名, 导出符号名)对。
+///
+/// G4.2 PR-D(RXS-0277):图形导出面(`uc05_gfx_run_frame`)经 `raster_pass`/
+/// `mesh_pass` 把着色阶段函数(`vertex`/`fragment`/`mesh`)作为函数指针实参传入
+/// RHI runtime——codegen 在 LLVM IR 侧发射 `ptr @rx_gfx_<name>` 符号引用。若着色
+/// 阶段函数 body 不在 `bodies` 切片内,符号引用无定义 → clang「use of undefined
+/// value」。故 `build_export_crate` 额外收集**着色阶段 kernel 函数**(`stage.is_some()`)
+/// 进 bodies,使 codegen 发射其 LLVM 定义。`build_gpu_artifacts` 用 `build_device_crate`
+/// 独立路径(经 `cx.device_mir_crate()`),本收集不干涉 device codegen(PTX/SPIR-V)。
 pub fn build_export_crate(cx: &QueryCtx<'_>, roots: &[(String, String)]) -> Vec<Body> {
     let krate = cx.hir_crate();
     let mut out = Vec::new();
@@ -109,6 +117,26 @@ pub fn build_export_crate(cx: &QueryCtx<'_>, roots: &[(String, String)]) -> Vec<
         let mangled = mangle(&item.name, item.def_id, &[]);
         if visited.insert(mangled.clone()) {
             rename.insert(mangled, export_symbol.clone());
+            worklist.push((item.def_id, Vec::new()));
+        }
+    }
+    // G4.2 PR-D(RXS-0277):收集着色阶段 kernel 函数(vertex/fragment/mesh 等),
+    // 使其符号在 LLVM IR 中有定义(被 raster_pass/mesh_pass 函数指针实参引用)。
+    // `build_gpu_artifacts` 走 `build_device_crate` 独立路径,不干涉 device codegen。
+    //@ spec: RXS-0277
+    for item in &krate.items {
+        let hir::ItemKind::Fn(decl) = &item.kind else {
+            continue;
+        };
+        if decl.color != crate::ast::FnColor::Kernel
+            || decl.stage.is_none()
+            || decl.body.is_none()
+            || !decl.generic_params.is_empty()
+        {
+            continue;
+        }
+        let mangled = mangle(&item.name, item.def_id, &[]);
+        if visited.insert(mangled.clone()) {
             worklist.push((item.def_id, Vec::new()));
         }
     }

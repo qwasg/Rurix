@@ -646,6 +646,25 @@ def eval_counter(entry: dict, strict: bool) -> None:
         n = sum(1 for name in gfx_files if (reject_dir / name).is_file())
         count_or_gate(eid, n, 5, "个 UC-05 图形 RHI 不变量红绿语料(编译期 + 装配期)",
                       "G4.2 建设期为正常状态,契约 G-G4-3", strict)
+    elif eid == "g4.counter.engine_embed_v3":
+        # UC-05 engine_host v3 图形嵌入 device 见证基数 ≥1(契约 G-G4-3;RFC-0015 §4.A7 /
+        # RXS-0277;ci/uc05_engine_embed_v3_smoke.py 步骤 78 device 段)。计数源 =
+        # evidence/uc05_engine_embed_v3_*.json 中 embed_v3_ok=true 的证据数——**device evidence
+        # 计数**(非静态语料计数):cl.exe 编 engine_host v3〔C++/D3D12,新增文件,v1/v2 既有资产
+        # 0-byte〕链 rurix_rhi.lib + d3d12 + dxgi + vulkan-1 真跑,LUID 匹配升级为 Vulkan↔D3D12
+        # 〔v2 = CUDA↔D3D12〕,三方数值精确相等〔Q-PixelCriterion:纯色/nearest RGBA8 整数 fetch
+        # 域,不设 ULP 容差〕,须有 cl.exe + MSVC + Windows SDK(D3D12)+ Vulkan SDK + GPU 才能成立,
+        # 故按 device 见证归档口径计数(对齐 ei1.counter.uc05_engine_embed + g4.counter.graphics_rhi_smoke
+        # device 见证计数先例)。host 段审计(生成头不手写 / 三制共存 / 零 .rs / 头幂等 / 篡改再生成 RED)
+        # 恒跑但**不入本 counter**。无 cl.exe / 无 Vulkan SDK / 无 GPU → device SKIP=dev-env degrade → 0
+        # → 建设期 normal SKIP / close-out strict FAIL。
+        n = 0
+        for f in (ROOT / "evidence").glob("uc05_engine_embed_v3*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("embed_v3_ok") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份 UC-05 engine_host v3 图形嵌入 device 见证(embed_v3_ok=true)",
+                      "G4.2 device 见证回填前为正常状态,契约 G-G4-3", strict)
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 

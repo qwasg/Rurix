@@ -1486,6 +1486,9 @@
       "conformance/uc05/accept/gfx_bindless.rx",
       "src/rurix-rt/src/rhi.rs"
     ],
+    "RXS-0277": [
+      "src/rurixc/src/mir_build.rs"
+    ],
     "RXS-0290": [
       "src/rurix-rt-cabi/src/artifacts.rs",
       "src/rurixc/src/codegen.rs"

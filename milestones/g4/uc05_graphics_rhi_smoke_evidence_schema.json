@@ -30,9 +30,12 @@
         "zero_rs_audit": { "type": ["boolean", "string"] },
         "compile_gfx_demo": { "type": ["boolean", "string"] },
         "compile_gfx_assembly_rejects": { "type": ["boolean", "string"] },
+        "compile_gfx_bindless": { "type": ["boolean", "string"] },
         "gfx_reject_count": { "type": ["integer", "boolean", "string"] },
         "demo_run_green": { "type": ["boolean", "string"] },
-        "assembly_redgreen": { "type": ["boolean", "string"] }
+        "assembly_redgreen": { "type": ["boolean", "string"] },
+        "bindless_run_green": { "type": ["boolean", "string"] },
+        "bindless_pixel_criteria": { "type": ["boolean", "string"] }
       }
     },
     "assembly_cases": {

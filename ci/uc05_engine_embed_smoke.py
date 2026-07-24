@@ -70,7 +70,11 @@ V1_ASSETS = [
 ]
 
 GENERATED_HEADER_NAME = "rurix_rhi.h"
-EXPECTED_EXPORTS = {"uc05_run_graph", "uc05_graph_pass_count"}
+# G4.2 PR-D:embed.rx 追加 gfx 导出后生成头含四符号(加性;v2 既有 compute 导出面 0-byte)。
+EXPECTED_EXPORTS = {
+    "uc05_run_graph", "uc05_graph_pass_count",
+    "uc05_gfx_run_frame", "uc05_gfx_pass_count",
+}
 # harness 真跑规模(须与 uc05_engine_host.cpp 的 cases[] 一致;脚本独立重算参考值复核)。
 EXPECTED_CASES = (256, 1024)
 

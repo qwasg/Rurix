@@ -272,6 +272,7 @@
 | RXS-0274 | spec/rhi.md | 5 | `conformance/uc05/reject/gfx_present_not_last.rx`, `conformance/uc05/reject/gfx_present_twice.rx`, `src/rurix-rt-cabi/src/lib.rs` …(+2) |
 | RXS-0275 | spec/vulkan_backend.md | 1 | `src/rurixc/src/vulkan_codegen.rs` |
 | RXS-0276 | spec/rhi.md | 2 | `conformance/uc05/accept/gfx_bindless.rx`, `src/rurix-rt/src/rhi.rs` |
+| RXS-0277 | spec/rhi.md | 1 | `src/rurixc/src/mir_build.rs` |
 | RXS-0290 | spec/vulkan_backend.md | 2 | `src/rurix-rt-cabi/src/artifacts.rs`, `src/rurixc/src/codegen.rs` |
 | RXS-0291 | spec/vulkan_backend.md | 2 | `src/rurixc/src/codegen.rs`, `src/rurixc/src/driver.rs` |
 | RXS-0292 | spec/vulkan_backend.md | 2 | `src/rurix-rt-cabi/src/artifacts.rs`, `src/rurix-rt/src/fatbin.rs` |

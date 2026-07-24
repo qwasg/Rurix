@@ -721,6 +721,19 @@ jobs:
         shell: powershell
         run: py -3 ci/uc05_graphics_invariant_gate.py
 
+      # 步骤 78（G-G4-3,RFC-0015 §4.A7 / RXS-0277）:UC-05 engine_host v3 嵌入冒烟
+      # (图形导出面 + 三方数值精确相等)。`ci/uc05_engine_embed_v3_smoke.py` host 段**恒跑**
+      # (生成头自始生成不手写审计 + 三制共存审计〔v1/v2 既有资产在位且 v3 不触之〕+ 零 .rs 审计 +
+      # --emit=dll GPU 导出面三件〔含 gfx 四符号〕+ 生成头幂等 + 篡改再生成 byte-diff RED)。device
+      # 段 gate real(cl.exe 编 engine_host v3 链 rurix_rhi.lib + d3d12 + dxgi + vulkan-1〔Vulkan↔D3D12
+      # LUID 匹配;v2 = cudart,v3 = vulkan-1〕真跑 + 三方数值精确相等〔Q-PixelCriterion:纯色/nearest
+      # RGBA8 整数 fetch 域,不设 ULP 容差,超域换用例不降判据〕+ RED 三路〔篡改 .rx 侧参考 / D3D12 侧
+      # 参考 / host 侧参考任一翻红〕)= cl.exe + MSVC + Windows SDK(D3D12)+ Vulkan SDK + GPU 在位真跑,
+      # 缺则 SKIP(dev-env degrade,退 0),RURIX_REQUIRE_REAL=1 翻硬红。退出码判定非 grep(P0-5)。
+      - name: UC-05 engine embed v3 smoke (G4 CI_GATES §2.78, G-G4-3, RXS-0277)
+        shell: powershell
+        run: py -3 ci/uc05_engine_embed_v3_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

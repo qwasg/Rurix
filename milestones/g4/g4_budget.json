@@ -21,10 +21,21 @@
       "description": "UC-05 图形 RHI 不变量红绿语料基数 ≥5(契约 G-G4-3;RFC-0015 §4.A / RXS-0270~0273;确定性拦截口径,零新 RX 码)。计数源 = conformance/uc05/reject/{cross_brand_gfx,rhi_gfx_in_kernel,gfx_feedback_loop,gfx_read_before_write,gfx_write_write_conflict}.rx 共 5 个静态语料(编译期 I7/I8 = 2〔cross_brand_gfx RX3006 / rhi_gfx_in_kernel RX3015〕+ 装配期 I3/I5 = 3〔gfx_feedback_loop / gfx_read_before_write〔I3 读未写〕/ gfx_write_write_conflict〔I5 写写冲突〕,均 assembly-reject: structure 头,编译期 CLEAN,违例归 submit() 装配期拦,库层状态值镜像 RX6029〕)。host 恒跑不 gate(对齐 ei1.counter.uc05_invariant_cases 静态语料计数先例,非 device evidence 计数);ci/uc05_graphics_invariant_gate.py 步骤 77 纯 host 恒跑断言此语料集纪律 + uc05_corpus 批跑兑现编译期拦截。",
       "required": 5,
       "unit": "个 UC-05 图形 RHI 不变量红绿语料(编译期 + 装配期)"
+    },
+    {
+      "id": "g4.counter.engine_embed_v3",
+      "description": "UC-05 engine_host v3 图形嵌入 device 见证基数 ≥1(契约 G-G4-3;RFC-0015 §4.A7 / RXS-0277;ci/uc05_engine_embed_v3_smoke.py 步骤 78 device 段)。计数源 = evidence/uc05_engine_embed_v3_*.json 中 embed_v3_ok=true 的报告数(机器事实:cl.exe 编 engine_host v3〔C++/D3D12,新增文件 src/rurix-engine/harness/engine_host_v3.cpp,v1/v2 既有资产 0-byte〕链 rurix_rhi.lib + d3d12 + dxgi + vulkan-1 真跑,LUID 匹配升级为 Vulkan↔D3D12〔v2 = CUDA↔D3D12〕,Rurix 图形图节点夹在宿主 fence 锚点之间执行,三方数值精确相等〔Q-PixelCriterion:① .rx RHI Vulkan readback ↔ ② D3D12 raster/mesh pipeline readback ↔ ③ host 闭式参考,纯色/nearest RGBA8 整数 fetch 域,不设 ULP 容差,超域换用例不降判据〕+ RED 三路〔篡改 .rx/D3D12/host 侧参考任一翻红〕)。**device evidence 计数**(非静态语料计数):须有 cl.exe + MSVC + Windows SDK(D3D12)+ Vulkan SDK + GPU 才能成立,故按 device 见证归档口径计数(对齐 ei1.counter.uc05_engine_embed + g4.counter.graphics_rhi_smoke device 见证计数先例)。host 段审计(生成头不手写 / 三制共存 / 零 .rs / 头幂等 / 篡改再生成 RED)恒跑但**不入本 counter**。无 cl.exe / 无 Vulkan SDK / 无 GPU → device SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL。",
+      "required": 1,
+      "unit": "份 UC-05 engine_host v3 图形嵌入 device 见证(embed_v3_ok=true)"
     }
   ],
   "namespace_check": "全部 id 必须 g4. 前缀;跨文件合并冲突即 FAIL(ci/budget_eval.py)",
   "revision_log": [
+    {
+      "version": "v1.2",
+      "date": "2026-07-24",
+      "change": "G4.2 PR-D engine_host v3 嵌入 counter_assertions 第三落(feat/g4.2d-engine-embed-v3,agent 完全自主 D-406 v2.0;G4_CONTRACT §7 ⑤ counter 随实现 PR 回填):追加 g4.counter.engine_embed_v3(step 78 device 见证基数 ≥1,对齐 ei1.counter.uc05_engine_embed + g4.counter.graphics_rhi_smoke device 见证计数先例;计数源 = evidence/uc05_engine_embed_v3_*.json 中 embed_v3_ok=true,cl.exe + Vulkan SDK + GPU 真跑三方数值精确相等〔Q-PixelCriterion 不设 ULP 容差〕)。counter_assertions 自 2 条增到 3 条;entries/ratio_assertions 维持空(零 estimated 预欠)。evaluator 分支同 PR 落 ci/budget_eval.py(未知 id 强制 FAIL)。"
+    },
     {
       "version": "v1.0",
       "date": "2026-07-23",

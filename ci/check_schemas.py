@@ -241,6 +241,9 @@ def check_evidence_files() -> None:
     uc05_engine_embed_schema = load(
         ROOT / "milestones/ei1/uc05_engine_embed_evidence_schema.json"
     )
+    uc05_engine_embed_v3_schema = load(
+        ROOT / "milestones/g4/uc05_engine_embed_v3_evidence_schema.json"
+    )
     uc05_graphics_rhi_smoke_schema = load(
         ROOT / "milestones/g4/uc05_graphics_rhi_smoke_evidence_schema.json"
     )
@@ -376,6 +379,9 @@ def check_evidence_files() -> None:
     )
     uc05_engine_embed_validator = (
         jsonschema.Draft7Validator(uc05_engine_embed_schema) if uc05_engine_embed_schema else None
+    )
+    uc05_engine_embed_v3_validator = (
+        jsonschema.Draft7Validator(uc05_engine_embed_v3_schema) if uc05_engine_embed_v3_schema else None
     )
     uc05_graphics_rhi_smoke_validator = (
         jsonschema.Draft7Validator(uc05_graphics_rhi_smoke_schema)
@@ -684,6 +690,11 @@ def check_evidence_files() -> None:
             # demo/assembly-reject;device 段 gfx demo EXE green + assembly EXE red-green,需 GPU + Vulkan,
             # SKIP=dev-env-degrade,RURIX_REQUIRE_REAL=1 翻硬红;像素判据 RXS-0222 归 PR-F/步骤 80)。
             validator = uc05_graphics_rhi_smoke_validator
+        elif (
+            f.name.startswith("uc05_engine_embed_v3")
+            and uc05_engine_embed_v3_validator is not None
+        ):
+            validator = uc05_engine_embed_v3_validator
         elif (
             f.name.startswith("uc05_engine_embed")
             and uc05_engine_embed_validator is not None

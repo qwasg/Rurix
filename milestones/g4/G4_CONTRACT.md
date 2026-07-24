@@ -267,3 +267,55 @@ PR-C 采样/bindless/present 库化补齐(G4.2,RXS-0274/0276;验收锚步骤 76 
 **下一 PR(PR-D)开工声明**:
 
 PR-D engine_host v3 嵌入(G4.2,RXS-0277;验收锚步骤 78)。apps/uc05-rhi/src/embed.rx 追加图形导出(子集 v1 签名:标量 + 裸指针)+ src/rurix-engine/harness/ 新增 engine_host v3 文件(C++/D3D12,LUID 匹配)+ 生成头逐字节守卫 + 步骤 78 三方数值精确相等(Q-PixelCriterion:纯色/nearest RGBA8 整数 fetch 域,不设 ULP 容差)。串行口径:PR-C 合入后开工,合一等一。
+
+### 8.3 PR-D engine_host v3 嵌入合入留痕(G4.2 / G-G4-3 通道嵌入;RFC-0015 §4.A7;RXS-0277;2026-07-24)
+
+**完成面摘要**:
+- 条款先行:spec commit `810a8773`(RXS-0277 engine_host v3 嵌入面 + 三方数值精确相等判据 Q-PixelCriterion,spec/rhi.md;零新 RX 码零新借用码)。
+- apps/uc05-rhi/src/embed.rx 追加图形导出(RXS-0277):`uc05_gfx_run_frame(out: *mut u32, w: i32, h: i32) -> i32` + `uc05_gfx_pass_count() -> i32` 子集 v1 签名(标量 + 裸指针,RXS-0251);整图封闭在一个 `#[export(c)]` host fn 内(EI1.4 同构);`//@ spec: RXS-0277` 锚定。
+- src/rurix-engine/harness/engine_host_v3.cpp 新增(RXS-0277):C++/D3D12 harness——Vulkan↔D3D12 LUID 匹配(v2 = CUDA↔D3D12 母本升级);raster 对照 D3D12 graphics pipeline(vs/ps);mesh 对照 D3D12 mesh pipeline(ms_6_5/ps_6_5);engine_host v1/v2 既有资产 0-byte(新增文件不触既有)。
+- src/rurixc/src/mir_build.rs RXS-0277 锚定:收集着色阶段 kernel 函数(vertex/fragment/mesh 等),使其符号在 LLVM IR 中有定义(被 raster_pass/mesh_pass 函数指针实参引用);`build_gpu_artifacts` 走 `build_device_crate` 独立路径不干涉 device codegen。
+- 生成头 CI 再生成逐字节守卫(RXS-0254 同面):仓库零 tracked rurix_rhi.h;v3 harness include 现场再生成头;幂等(RXS-0253)+ 篡改再生成 byte-diff RED(RXS-0254)。
+- ci/uc05_engine_embed_v3_smoke.py(步骤 78)新建 + pr-smoke.yml 回填:host 段恒跑(生成头不手写审计 + 三制共存审计 + 零 .rs 审计 + `--emit=dll` GPU 导出面三件含 gfx 四符号 + 生成头幂等 + 篡改再生成 byte-diff RED)+ device 段 gate real(cl.exe 编 engine_host v3 链 rurix_rhi.lib + d3d12 + dxgi + vulkan-1 真跑 + 三方数值精确相等 Q-PixelCriterion + RED 三路);RX7001(外部工具链失败)→ SKIP=dev-env degrade(非编译期红),`RURIX_REQUIRE_REAL=1` 翻硬红。
+- evidence schema:milestones/g4/uc05_engine_embed_v3_evidence_schema.json 新建(镜像 EI1 uc05_engine_embed 体例,step=78,subject=uc05_engine_embed_v3);check_schemas.py 路由分支加性(uc05_engine_embed_v3_validator)。
+- milestones/g4/uc05_graphics_rhi_smoke_evidence_schema.json 补 PR-C 遗留字段(compile_gfx_bindless / bindless_run_green / bindless_pixel_criteria),check_schemas PR-C 证据文件校验对齐。
+- ci/uc05_engine_embed_smoke.py 修正:RX7001(外部工具链失败 ptxas/link.exe 不可用)归类为 SKIP=dev-env degrade,非编译期红(导出面/图装配面)。
+- registry/number_ledger.json v1.17:CI_step on_tree_max 77→78 / next_free 78→79;notes 追加步骤 78 描述;revision_log v1.17 留痕。
+- milestones/g4/g4_budget.json v1.2:counter_assertions 第三条 `g4.counter.engine_embed_v3`(device 见证基数 ≥1,对齐 ei1.counter.uc05_engine_embed + g4.counter.graphics_rhi_smoke device 见证计数先例);ci/budget_eval.py evaluator 分支加性(未知 id 强制 FAIL)。
+- stable 快照重 bless:spec_clauses 271→272(RXS-0277;error_codes=106 / editions / subcommands 三段 0 变化);bless_log 同 diff;trace_matrix 271→272 全锚定(RXS-0277 锚 src/rurixc/src/mir_build.rs + apps/uc05-rhi/src/embed.rx)。
+
+**关键验证命令真实输出尾部**:
+
+```
+[uc05_engine_embed_v3] host 步骤 1 PASS: 生成头自始生成不手写(仓库零 tracked rurix_rhi.h;v3 harness include 现场再生成头)
+[uc05_engine_embed_v3] host 步骤 2 PASS: 三制共存(v1 手写路三件 + v2 生成路在位;v3 既不 include v1 头也不引用 rurix_engine_* 符号面)
+[uc05_engine_embed_v3] host 步骤 3 PASS: 零 .rs 审计(apps/uc05-rhi 仅 4 个 .rx + rurix.toml;导出面 embed.rx 在内)
+[uc05_engine_embed_v3] host 步骤 4 PASS: GPU 导出面 `--emit=dll` 产 .dll + .lib + .h(声明集 ['uc05_gfx_pass_count', 'uc05_gfx_run_frame', 'uc05_graph_pass_count', 'uc05_run_graph'];含 gfx 四符号,RXS-0277)
+[uc05_engine_embed_v3] host 步骤 5 PASS: 生成头幂等 + 无绝对路径/时间戳(RXS-0253)
+[uc05_engine_embed_v3] host 步骤 6 PASS: 篡改生成头 → 再生成逐字节比对 byte-diff(RXS-0254 RED 守卫非空过)
+[uc05_engine_embed_v3] device 步骤 7 PASS: cl.exe 编译 engine_host v3(include 现场再生成头 + 链 rurix_rhi.lib / d3d12 / dxgi / vulkan-1)
+[uc05_engine_embed_v3] SKIP device 段:engine_host v3 真跑 rc=2 (Vulkan↔D3D12 LUID 匹配 / D3D12 上下文不可达;无 GPU 或无 Vulkan provision)(dev-env-degrade,退出 0)
+[uc05_engine_embed_v3] 写 evidence evidence\uc05_engine_embed_v3_20260724T202038.json; run_url=local
+[trace_matrix] PASS (272/272 clauses anchored, 598 test files scanned)
+[stable_snapshot] PASS(stable 面与入库快照一致:spec_clauses=272,error_codes=106,editions=['2026'],subcommands=['bench', 'build', 'check', 'doc', 'fmt', 'run', 'test', 'vendor'])
+[check_schemas] PASS
+[check_number_ledger] PASS(spec RXS 头 272 个零同号碰撞;ledger 14 命名空间保留号被尊重;red 自检已过)
+[bilingual] PASS 写 evidence\bilingual_diagnostic_coverage.json(coverage_complete=true,zh/en key 集对齐 107/107)
+[uc05_graphics_invariant_gate] PASS gfx I7/I8 编译期 + I3/I5 装配期 + accept 0 诊断 + gfx_demo.rx 0 诊断 + uc05_corpus 零回归
+[budget_eval] PASS (86 pass, 2 skip, normal mode)
+```
+
+注:cargo fmt --check / clippy(默认 feature)/ test --workspace / build --workspace(默认 feature)均 PASS。`cargo build --features rurix-rt/vulkan,vulkan-backend` 退出 101 —— rustc 1.93.1 ICE(panicked at compiler\rustc_metadata\src\rmeta\encoder.rs:2431:51: no entry found for key,uc03-demo lib crate,incremental compilation bug),与 PR-D 代码无关(已知 rustc bug)。
+
+**device 段 SKIP 原因(建设期正常态,device 见证回填待 PR-F)**:
+
+步骤 78 device 段需 cl.exe + MSVC + Windows SDK(D3D12)+ Vulkan SDK + GPU 真跑 engine_host v3 三方数值精确相等。本机无 GPU 或无 Vulkan provision → cl.exe 编译虽 PASS(host 步骤 7),但 engine_host v3 真跑 rc=2(Vulkan↔D3D12 LUID 匹配 / D3D12 上下文不可达)→ SKIP=dev-env degrade(非 fake pass,退 0;RURIX_REQUIRE_REAL=1 翻硬红)。host 段恒跑(生成头不手写 + 三制共存 + 零 .rs + --emit=dll 三件 + 头幂等 + 篡改再生成 RED)全 PASS。device 三方数值精确相等(Q-PixelCriterion)+ RED 三路见证归 PR-F/步骤 80 Vulkan RHI 通道 device 见证回填(同 PR-B/PR-C device 段 SKIP 口径)。
+
+**evidence 路径**:
+
+- evidence/uc05_engine_embed_v3_20260724T202038.json(host_section_pass=true,device_section_rc=0,toolchain_skip=null,dev_env_degrade=true;checks: generated_header_not_handwritten=true, coexistence=true, zero_rs_audit=true, emit_dll_artifacts=true, header_idempotent=true, tamper_regen_red=true, harness_build=true, three_party_equal=SKIP, red_three_ways=SKIP;embed_v3_ok=false[device SKIP];run_url=local)
+- milestones/g4/uc05_engine_embed_v3_evidence_schema.json(schema;check_schemas 路由对齐)
+
+**下一 PR(PR-E)开工声明**:
+
+PR-E RD-035 执行面三项(G4.3,RXS-0280~0283 + RXS-0239/0261/0262 修订;验收锚步骤 79)。transient 别名复用分配器(区间图着色,纯 host safe 码)+ 执行期峰值计数器(I10 自 report_only 升 measured)+ 依赖驱动重排 + 批级提交(DAG 拓扑分层)+ I11 拦截项(调度器与核验器两独立纯函数,red_self_test 双向)+ RXS-0262 const 泛型定长容量 .rx 接线 + reject 语料锚定 + ci/uc05_exec_face_gate.py(步骤 79)。串行口径:PR-D 合入后开工,合一等一。
