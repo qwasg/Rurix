@@ -880,6 +880,16 @@ impl Cg<'_> {
                 span,
                 "gpu host runtime call in device code",
             )),
+            // mesh/task intrinsic(G4.2,RXS-0275):mesh 着色仅经 Vulkan 后端
+            // (RXS-0270/0272),NVPTX device codegen 防御拒。
+            CallTarget::MeshIntrinsic(_) => Err(DeviceCodegenError::unsupported(
+                span,
+                "mesh intrinsic in NVPTX device code (Vulkan-only, RXS-0275)",
+            )),
+            CallTarget::TaskIntrinsic(_) => Err(DeviceCodegenError::unsupported(
+                span,
+                "task intrinsic in NVPTX device code (Vulkan-only, RXS-0275)",
+            )),
         }
     }
 

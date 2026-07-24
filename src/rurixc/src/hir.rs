@@ -183,6 +183,70 @@ impl DeviceIntrinsic {
     }
 }
 
+/// mesh 阶段内建 intrinsic(G4.2,RXS-0275;`mesh_set_outputs` 已知函数 →
+/// `OpSetMeshOutputsEXT`)。typeck 在 mesh body 内识别;vulkan codegen 落
+/// `OpSetMeshOutputsEXT`。mesh body 已知内建输出面 `mesh_vertex`/`mesh_triangle`
+/// 的 store 经 Rvalue/Assign 承载,不在此枚举。**仅 Vulkan codegen 产出**
+/// (mesh 着色仅经 Vulkan 后端,RXS-0270/0272;NVPTX device codegen 防御拒)。
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum MeshIntrinsic {
+    /// `mesh_set_outputs(vertex_count, primitive_count)` → `OpSetMeshOutputsEXT`
+    /// (G4.2,RXS-0275;mesh 阶段输出计数终结子,返回 unit;实参 ≤ `#[outputs]`
+    /// 声明上限 `max_vertices`/`max_primitives`,越界编译期拒,复用既有索引诊断)。
+    SetMeshOutputs,
+}
+
+impl MeshIntrinsic {
+    pub fn from_method(name: &str) -> Option<Self> {
+        match name {
+            "mesh_set_outputs" => Some(MeshIntrinsic::SetMeshOutputs),
+            _ => None,
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            MeshIntrinsic::SetMeshOutputs => "mesh_set_outputs",
+        }
+    }
+
+    /// 返回 unit(`mesh_set_outputs` 为终结子,无返回值)。
+    pub fn returns_unit(self) -> bool {
+        true
+    }
+}
+
+/// task 阶段内建 intrinsic(G4.2,RXS-0275;`emit_mesh_tasks` 已知函数 →
+/// `OpEmitMeshTasksEXT`)。**条件臂首期不开放**(RXS-0270:task 前置条件臂
+/// 首期不开放,出现 `task fn` 引用 → 编译期拒,复用 RX3017 类别);类型面
+/// 预留,待 Q-RTArm/Q-MeshScope 评估窗评估后兑现。
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum TaskIntrinsic {
+    /// `emit_mesh_tasks(x, y, z)` → `OpEmitMeshTasksEXT`(G4.2,RXS-0275;
+    /// task 阶段终结子,发射 mesh task 网格;task payload 经
+    /// `TaskPayloadWorkgroupEXT` 传递;返回 unit,无 `OpReturn`)。
+    EmitMeshTasks,
+}
+
+impl TaskIntrinsic {
+    pub fn from_method(name: &str) -> Option<Self> {
+        match name {
+            "emit_mesh_tasks" => Some(TaskIntrinsic::EmitMeshTasks),
+            _ => None,
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            TaskIntrinsic::EmitMeshTasks => "emit_mesh_tasks",
+        }
+    }
+
+    pub fn returns_unit(self) -> bool {
+        true
+    }
+}
+
 /// device 数学函数 intrinsic(M5.3,RXS-0081;f32/f64 初等函数 → libdevice
 /// ABI 外部符号 `__nv_<name>`)。typeck 在接收者为 `f32`/`f64` 原生类型且
 /// 方法名命中时识别(原生类型无用户 inherent impl,无遮蔽问题);device
@@ -436,6 +500,42 @@ pub enum GpuHostOp {
     /// `res` / 二次 readback = 编译期 move 违例 RX4001。**区别于 G3.5 `GraphReadback`**〔`&res`
     /// 借用非消费〕:RHI `readback` 消费 `Res` 落实 affine 释放语义,负值 rc → 终止 RXS-0193)。
     RhiReadback,
+    /// `rhi.raster_pass(vs, fs)` → `rxrt_rhi_raster_pass(rhi)`(G4.2,RXS-0270;raster pass
+    /// 声明,vertex+fragment 着色对;产 `GfxPass<C>` 句柄,非消费接收者,RFC-0015 §4.A1)。
+    RhiRasterPass,
+    /// `rhi.mesh_pass(ms, fs)` → `rxrt_rhi_mesh_pass(rhi)`(G4.2,RXS-0270;mesh pass 声明,
+    /// mesh+fragment 着色对;产 `GfxPass<C>` 句柄,非消费接收者;task 前置首期不开放)。
+    RhiMeshPass,
+    /// `rhi.color_target(w, h)` → `rxrt_rhi_resource(rhi, 1, w, h)`(G4.2,RXS-0271;color
+    /// 附件目标 transient 资源,RGBA8;非消费接收者,产 `Res<C>`)。
+    RhiColorTarget,
+    /// `rhi.depth_target(w, h)` → `rxrt_rhi_resource(rhi, 2, w, h)`(G4.2,RXS-0271;depth
+    /// 附件目标 transient 资源,D32F;非消费接收者,产 `Res<C>`)。
+    RhiDepthTarget,
+    /// `rhi.texture2d(w, h)` → `rxrt_rhi_resource(rhi, 3, w, h)`(G4.2,RXS-0271;可采样纹理
+    /// SRV,RGBA8;非消费接收者,产 `Res<C>`)。
+    RhiTexture2d,
+    /// `rhi.sampler(desc)` → `rxrt_rhi_resource(rhi, 4, 0, 0)`(G4.2,RXS-0271;采样器状态
+    /// 对象,复用 RXS-0225;非消费接收者,产 `Res<C>`)。
+    RhiSampler,
+    /// `rhi.texture_table()` → `rxrt_rhi_resource(rhi, 5, 0, 0)`(G4.2,RXS-0271;无界纹理
+    /// 注册表,复用 RXS-0235;非消费接收者,产 `Res<C>`)。
+    RhiTextureTable,
+    /// `gfx.writes_rt(&res)` → `rxrt_rhi_gfx_declare(gfx, res, 0)`(G4.2,RXS-0272;color
+    /// attachment 写声明;消费接收者并返回〔builder 链〕,资源实参 `&Res` 借用非消费)。
+    RhiGfxWritesRt,
+    /// `gfx.writes_depth(&res)` → `rxrt_rhi_gfx_declare(gfx, res, 1)`(G4.2,RXS-0272;depth
+    /// attachment 写声明;消费接收者并返回,资源实参 `&Res` 借用非消费)。
+    RhiGfxWritesDepth,
+    /// `gfx.reads(&res)` → `rxrt_rhi_gfx_declare(gfx, res, 2)`(G4.2,RXS-0272;shader 资源
+    /// 读声明;消费接收者并返回,资源实参 `&Res` 借用非消费)。
+    RhiGfxReads,
+    /// `gfx.reads_writes_uav(&res)` → `rxrt_rhi_gfx_declare(gfx, res, 3)`(G4.2,RXS-0272;
+    /// UAV 读写合并声明;消费接收者并返回,资源实参 `&Res` 借用非消费)。
+    RhiGfxReadsWritesUav,
+    /// `gfx.binds_sampler(&res)` → `rxrt_rhi_gfx_declare(gfx, res, 4)`(G4.2,RXS-0272;
+    /// 采样器绑定声明,非资源状态访问;消费接收者并返回,资源实参 `&Res` 借用非消费)。
+    RhiGfxBindsSampler,
 }
 
 /// scoped atomics 原子读改写算子(M5.2,RXS-0080;`Atomic`/`AtomicView` 族方法)。

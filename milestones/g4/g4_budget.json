@@ -9,13 +9,31 @@
   ],
   "entries": [],
   "ratio_assertions": [],
-  "counter_assertions": [],
+  "counter_assertions": [
+    {
+      "id": "g4.counter.graphics_rhi_smoke",
+      "description": "UC-05 图形 RHI(raster + mesh pass)device EXE red-green 见证基数 ≥1(契约 G-G4-3;RFC-0015 §4.A / RXS-0270~0273;ci/uc05_graphics_rhi_smoke.py 步骤 76 device 段)。计数源 = evidence/uc05_graphics_rhi_smoke_*.json 中 demo_run_green=true 且 assembly_redgreen=true 的报告数(机器事实:gfx_demo.rx 经 rx build 产 EXE 真跑 exit 0〔合法 gfx 图装配核验通过 + submit 成功〕+ gfx assembly-reject 语料 EXE 退非零 + stderr 含 rhi_submit [structure]〔gfx I3/I5 装配期确定性拦〕)。图形 pass 派发归 PR-F Vulkan RHI 通道(本步骤证装配核验 + EXE 可运行,像素判据 RXS-0222 归 PR-F/步骤 80)。无 link 工具链 / 无 GPU → device SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL,对齐 g3.counter.mesh_task_rt_stages device 见证计数先例。",
+      "required": 1,
+      "unit": "份 UC-05 图形 RHI device EXE red-green 见证"
+    },
+    {
+      "id": "g4.counter.graphics_invariant_cases",
+      "description": "UC-05 图形 RHI 不变量红绿语料基数 ≥5(契约 G-G4-3;RFC-0015 §4.A / RXS-0270~0273;确定性拦截口径,零新 RX 码)。计数源 = conformance/uc05/reject/{cross_brand_gfx,rhi_gfx_in_kernel,gfx_feedback_loop,gfx_read_before_write,gfx_write_write_conflict}.rx 共 5 个静态语料(编译期 I7/I8 = 2〔cross_brand_gfx RX3006 / rhi_gfx_in_kernel RX3015〕+ 装配期 I3/I5 = 3〔gfx_feedback_loop / gfx_read_before_write〔I3 读未写〕/ gfx_write_write_conflict〔I5 写写冲突〕,均 assembly-reject: structure 头,编译期 CLEAN,违例归 submit() 装配期拦,库层状态值镜像 RX6029〕)。host 恒跑不 gate(对齐 ei1.counter.uc05_invariant_cases 静态语料计数先例,非 device evidence 计数);ci/uc05_graphics_invariant_gate.py 步骤 77 纯 host 恒跑断言此语料集纪律 + uc05_corpus 批跑兑现编译期拦截。",
+      "required": 5,
+      "unit": "个 UC-05 图形 RHI 不变量红绿语料(编译期 + 装配期)"
+    }
+  ],
   "namespace_check": "全部 id 必须 g4. 前缀;跨文件合并冲突即 FAIL(ci/budget_eval.py)",
   "revision_log": [
     {
       "version": "v1.0",
       "date": "2026-07-23",
       "change": "G4.0 开工脚手架空壳(三组全空,零 estimated 预欠;G4_CONTRACT §7 ⑤ 编号 claim 与 CI_GATES §2 步骤拟分配随实现 PR 回填)。"
+    },
+    {
+      "version": "v1.1",
+      "date": "2026-07-24",
+      "change": "G4.2 PR-B 图形 RHI 主面 counter_assertions 首落(feat/g4.2b-graphics-rhi-clean,agent 完全自主 D-406 v2.0;G4_CONTRACT §7 ⑤ counter 随实现 PR 回填):追加 g4.counter.graphics_rhi_smoke(step 76 device EXE red-green 见证基数 ≥1,对齐 g3.counter.mesh_task_rt_stages device 见证计数先例)+ g4.counter.graphics_invariant_cases(step 77 gfx 不变量红绿语料基数 ≥5,对齐 ei1.counter.uc05_invariant_cases 静态语料计数先例)。counter_assertions 自空态落 2 条;entries/ratio_assertions 维持空(零 estimated 预欠)。evaluator 分支同 PR 落 ci/budget_eval.py(未知 id 强制 FAIL)。"
     }
   ]
 }

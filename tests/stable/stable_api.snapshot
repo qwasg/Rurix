@@ -124,7 +124,7 @@
     "vendor"
   ],
   "schema_version": 1,
-  "spec_clause_count": 264,
+  "spec_clause_count": 269,
   "spec_clauses": [
     "RXS-0001",
     "RXS-0002",
@@ -387,6 +387,11 @@
     "RXS-0263",
     "RXS-0264",
     "RXS-0265",
+    "RXS-0270",
+    "RXS-0271",
+    "RXS-0272",
+    "RXS-0273",
+    "RXS-0275",
     "RXS-0290",
     "RXS-0291",
     "RXS-0292"

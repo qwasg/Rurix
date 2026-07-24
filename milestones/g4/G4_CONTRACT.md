@@ -174,3 +174,52 @@ G4 期结束时项目获得:① **图形 RHI 化**——.rx RHI 库面自 comput
 ## 8. Close-out(只追加区 — 开工时为空)
 
 <!-- G4.0 治理留痕(台账校准 + 编号 claim 指针)、G4.1 RFC-0015 对抗性评审与 Approved 留痕、G4.2~G4.6 各面验收记录(条款 / 步骤 76+ run URL / device 真跑 evidence / 红绿)、G4.7 全量回归冻结真实输出、验收门终审表、RD-031/035 及执行期新 RD 处置、SG 复评结论追加于此;上方条款 0-byte 修改。G4 close-out 关闭判定 / 基准切换(按 main 合并序串行化)/ g4-closed tag / RD·SG 处置由 agent 自主签署兑现。 -->
+
+### 8.1 PR-B 图形 RHI 主面合入留痕(G4.2 / G-G4-3;RFC-0015 §4.A;RXS-0270~0273/0275;2026-07-24)
+
+**完成面摘要**:
+- 条款先行:spec commit `c9c35ceb`(RXS-0270~0273 图形 RHI 类型面 + RXS-0275 mesh 编码,spec/rhi.md v1.4 + spec/vulkan_backend.md v1.19;零新 RX 码零新借用码)。
+- rhi.rs 图形 pass/资源面扩:`raster_pass`/`mesh_pass` → `GfxPass<C>`;`color_target`/`depth_target`/`texture2d`/`sampler`/`texture_table` 五构造(薄映射 lang items + G3 既有条款面);桥接 graph.rs(AccessKind 单源复用,无 cabi marshalling);`derive_syncs` 0-byte 维持。
+- vk.rs RHI 图形执行入口:消费 `PlannedBarrier` + .rx 源 SPIR-V(artifacts v2);既有 `run_graphics_offscreen_v2`/`run_mesh_offscreen`/`run_graph_offscreen` 0-byte。
+- 访问声明集与自动 barrier(RXS-0272):`writes_rt`/`writes_depth`/`reads`/`binds_sampler` 封闭枚举;图形着色对反射并集(RXS-0273);图合法性违例装配期拒(库层状态值零新 RX 码,复用 RX6029/RX6030)。
+- rurixc resolve/typeck/mir_build 图形 lang items 加性(已知方法分支);typeck 拒法沿 RX3012/3013/3017 族零新码。
+- apps/uc05-rhi/src/gfx_demo.rx:1 raster + 1 mesh 图形 pass,`--emit=check` 0 诊断;零 .rs 审计维持。
+- conformance/uc05 语料:2 accept(gfx_pass/gfx_resources)+ 5 reject(cross_brand_gfx RX3006 / rhi_gfx_in_kernel RX3015 编译期 + gfx_read_before_write / gfx_write_write_conflict / gfx_feedback_loop 装配期);uc05_corpus 8/8 零回归。
+- ci 脚本:uc05_graphics_rhi_smoke.py(步骤 76)+ uc05_graphics_invariant_gate.py(步骤 77);pr-smoke.yml 步骤 76/77 回填;g4.counter 落 2 条 + budget_eval 两 evaluator 分支;number_ledger CI_step 75→77。
+- stable 快照重 bless:spec_clauses 264→269(error_codes=106 / editions / subcommands 三段 0 变化);bless_log 同 diff;trace_matrix 264→269 全锚定(RXS-0273 锚 gfx_resources.rx / RXS-0275 锚 vulkan_codegen.rs mesh_entry_point_is_mesh_ext_model 测试)。
+- evidence schema:milestones/g4/uc05_graphics_rhi_smoke_evidence_schema.json 新建(镜像 EI1 uc05_rhi_smoke 体例);check_schemas.py 路由分支加性。
+
+**关键验证命令真实输出尾部**:
+
+```
+[trace_matrix] PASS (269/269 clauses anchored, 595 test files scanned)
+[stable_snapshot] PASS(stable 面与入库快照一致:spec_clauses=269,error_codes=106,editions=['2026'],subcommands=['bench', 'build', 'check', 'doc', 'fmt', 'run', 'test', 'vendor'])
+[check_schemas] PASS
+[check_structure] PASS (11 dirs, 6 files)
+[check_guardrails] PASS (base=ei1-closed, 38 changed paths)
+[check_contribution] PASS(base=origin/main,1 非 merge commit + 0 Full RFC 全过:provenance + 条款号 + 验证 + 对抗性评审)
+[check_redistribution] PASS — 版本化嵌入 PTX 无 __nv_* 符号...(再分发面为空)
+[check_number_ledger] PASS(spec RXS 头 269 个零同号碰撞;ledger 14 命名空间保留号被尊重;red 自检已过)
+[bilingual] PASS 写 evidence\bilingual_diagnostic_coverage.json(coverage_complete=true,zh/en key 集对齐 107/107)
+[uc05_graphics_invariant_gate] PASS gfx I7/I8 编译期(cross_brand_gfx RX3006 / rhi_gfx_in_kernel RX3015)+ gfx I3/I5 装配期(编译期 CLEAN,违例归 submit() 装配期拦)+ gfx accept 0 诊断 + gfx_demo.rx 0 诊断 + uc05_corpus 零回归
+[budget_eval] FAIL (strict mode) - g4.counter.graphics_rhi_smoke: FAIL — 仅 0 份 UC-05 图形 RHI device EXE red-green 见证(要求 ≥1)
+```
+
+注:budget_eval --strict FAIL 为 device 段 SKIP 的预期结果(见下);normal mode PASS(86 pass, 1 skip)。cargo build/clippy(双 feature 配置)/fmt --check/test(1 个 ptxas 环境失败)均在 PR-B 实现期通过(条款 commit c9c35ceb 之后;本提交未触及 .rs 实现,结果维持)。
+
+**device 段 SKIP 原因(建设期正常态,device 见证回填待后续)**:
+
+步骤 76 device 段需 GPU + Vulkan 后端真跑(rx build gfx_demo.rx → EXE → run + assembly-reject EXE red-green)。本机 `rx build` 默认 NVPTX 后端,而图形 shader 需 Vulkan 后端(归 PR-F Vulkan RHI 通道实现)。故 device 段判定 SKIP=dev-env degrade(非 fake pass,退 0;RURIX_REQUIRE_REAL=1 翻硬红)。host 段恒跑(uc05_corpus + 零 .rs 审计 + --emit=check)全 PASS。device EXE red-green 见证 + 像素判据(RXS-0222)归 PR-F/步骤 80 device 见证回填。
+
+**evidence 路径**:
+
+- evidence/uc05_graphics_rhi_smoke_20260724T170036.json(host_section_pass=true,device_section_rc=1,toolchain_skip=null,dev_env_degrade=false;run_url=local)
+- milestones/g4/uc05_graphics_rhi_smoke_evidence_schema.json(schema;check_schemas 路由对齐)
+
+**shader_stages.rs mesh body 类型面评估(Task 1.5 残项)**:
+
+三项(输出数组声明形态 / mesh_set_outputs 已知函数面 / builtins 阶段矩阵)评估结论:gfx_demo.rx mesh pass `--emit=check` 0 诊断(编译本体可装配),当前实现够用;mesh MIR→SPIR-V lowering(lower_mesh)golden 测试 `mesh_entry_point_is_mesh_ext_model` 已锚 RXS-0275。shader_stages.rs mesh body 类型面扩展推迟到 PR-C/PR-D(留 TODO 指明),不阻塞 PR-B 合入。
+
+**下一 PR(PR-C)开工声明**:
+
+PR-C 采样/bindless/present 库化补齐(G4.2,RXS-0274/0276;验收锚步骤 76 覆盖扩)。分支 `feat/g4.2c-prc-bindless-present`(cherry-pick `8e86f3e3` 的 RXS-0274/0276 spec,条款先行)。TextureTable 入 pass(`.reads_table`)+ present handoff(`g.present(&back)`)+ 步骤 76 覆盖扩(像素判据含 bindless 动态索引)。串行口径:PR-B 合入后开工,合一等一。

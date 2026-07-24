@@ -608,6 +608,44 @@ def eval_counter(entry: dict, strict: bool) -> None:
                 n += 1
         count_or_gate(eid, n, 1, "个 UC-05 引擎嵌入 device 见证(embed_ok=true)",
                       "EI1.4 device 见证回填前为正常状态,契约 G-EI1-4", strict)
+    elif eid == "g4.counter.graphics_rhi_smoke":
+        # UC-05 图形 RHI(raster + mesh pass)device EXE red-green 见证基数 ≥1(契约 G-G4-3;
+        # RFC-0015 §4.A / RXS-0270~0273;ci/uc05_graphics_rhi_smoke.py 步骤 76 device 段)。计数源 =
+        # evidence/uc05_graphics_rhi_smoke_*.json 中 demo_run_green=true 且 assembly_redgreen=true 的
+        # 报告数(机器事实:gfx_demo.rx 经 rx build 产 EXE 真跑 exit 0〔合法 gfx 图装配核验通过 + submit
+        # 成功〕+ gfx assembly-reject 语料 EXE 退非零 + stderr 含 rhi_submit [structure]〔gfx I3/I5
+        # 装配期确定性拦〕)。**device evidence 计数**(非静态语料计数):须有 link 工具链 + GPU 才能成立,
+        # 故按 device 见证归档口径计数(对齐 g3.counter.mesh_task_rt_stages device 见证计数先例)。
+        # host 段(corpus 批跑 + 零 .rs 审计 + --emit=check)恒跑但**不入本 counter**。无 link 工具链 /
+        # 无 GPU → device SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL。
+        n = 0
+        for f in (ROOT / "evidence").glob("uc05_graphics_rhi_smoke_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            checks = doc.get("checks", {})
+            if checks.get("demo_run_green") is True and checks.get("assembly_redgreen") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份 UC-05 图形 RHI device EXE red-green 见证",
+                      "G4.2 device 见证回填前为正常状态,契约 G-G4-3", strict)
+    elif eid == "g4.counter.graphics_invariant_cases":
+        # UC-05 图形 RHI 不变量红绿语料基数 ≥5(契约 G-G4-3;RFC-0015 §4.A / RXS-0270~0273;确定性拦截
+        # 口径,零新 RX 码)。计数源 = conformance/uc05/reject/ 下 5 个 gfx 静态语料(编译期 I7/I8 = 2
+        # 〔cross_brand_gfx RX3006 / rhi_gfx_in_kernel RX3015〕+ 装配期 I3/I5 = 3〔gfx_feedback_loop /
+        # gfx_read_before_write〔I3 读未写〕/ gfx_write_write_conflict〔I5 写写冲突〕,均 assembly-reject:
+        # structure 头,编译期 CLEAN,违例归 submit() 装配期拦,库层状态值镜像 RX6029〕)。**静态语料计数**
+        # (host 恒跑不 gate,对齐 ei1.counter.uc05_invariant_cases 静态语料计数先例,非 device evidence
+        # 计数);ci/uc05_graphics_invariant_gate.py 步骤 77 纯 host 恒跑断言此语料集纪律 + uc05_corpus
+        # 批跑兑现编译期拦截。
+        reject_dir = ROOT / "conformance" / "uc05" / "reject"
+        gfx_files = (
+            "cross_brand_gfx.rx",
+            "rhi_gfx_in_kernel.rx",
+            "gfx_feedback_loop.rx",
+            "gfx_read_before_write.rx",
+            "gfx_write_write_conflict.rx",
+        )
+        n = sum(1 for name in gfx_files if (reject_dir / name).is_file())
+        count_or_gate(eid, n, 5, "个 UC-05 图形 RHI 不变量红绿语料(编译期 + 装配期)",
+                      "G4.2 建设期为正常状态,契约 G-G4-3", strict)
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 

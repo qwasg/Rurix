@@ -1,0 +1,20 @@
+//@ spec: RXS-0271
+//@ expect-error: RX3015
+// 宿主 API 着色合法性(I8,RFC-0015 §4.A2 承 RXS-0189):UC-05 RHI 图形资源构造
+// `rhi.color_target(w, h)` 出现在 kernel 体内 → RX3015(coloring 层,与 `Rhi::create` /
+// `Context::create` / `submit` 同点位;`color_target` 属 std::gpu 宿主识别面,construct 与
+// 方法调用同拦)。着色闸口对该族**逐方法一致**(coloring 按 std::gpu 宿主识别面统一拦截,
+// 非逐方法白名单),此点位即足证 I8 图形面。
+//
+// **诚实标注**:本反例取 `Context::create` / `Rhi::create` / `color_target` 三点位作着色
+// 见证,与 compute 面 reject/rhi_in_kernel.rx 同码同口径(RX3015),零新码。`color_target`
+// 的 w/h 实参在 kernel 体内无使用点,但着色拦截严格先于实参定型(coloring 层不评估实参)。
+kernel fn bad(t: ThreadCtx<1>) {
+    let c = Context::create();
+    let rhi = Rhi::create(&c);
+    let _ = rhi.color_target(640, 480);
+}
+
+fn main() -> i32 {
+    0
+}

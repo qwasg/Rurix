@@ -232,6 +232,19 @@ impl<'a, 'q> Evaluator<'a, 'q> {
                     what: "call to a gpu host runtime entry".to_owned(),
                 });
             }
+            // mesh/task intrinsic(G4.2,RXS-0275):const 上下文不可达面。
+            CallTarget::MeshIntrinsic(_) => {
+                return Err(ConstError::NonConst {
+                    span,
+                    what: "call to a mesh intrinsic".to_owned(),
+                });
+            }
+            CallTarget::TaskIntrinsic(_) => {
+                return Err(ConstError::NonConst {
+                    span,
+                    what: "call to a task intrinsic".to_owned(),
+                });
+            }
         };
         let krate = self.cx.hir_crate();
         let item = krate.item(def);

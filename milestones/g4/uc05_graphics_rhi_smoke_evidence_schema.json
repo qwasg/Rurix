@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UC-05 图形 RHI 冒烟证据 schema(G4.2,步骤 76;G-G4-3;RFC-0015 §4.A;RXS-0270~0273/0275)",
+  "description": "ci/uc05_graphics_rhi_smoke.py 写 evidence/uc05_graphics_rhi_smoke_<ts>.json。host 段(恒跑,无 GPU):uc05_corpus gfx 语料批跑(accept 0 诊断 / reject 逐条期望诊断)+ apps/uc05-rhi 零 .rs 审计 + rurixc --emit=check 编译 gfx demo/assembly-reject 语料(图装配期性质,--emit=check 不拦)。device 段(需 GPU + Vulkan;SKIP=dev-env-degrade,RURIX_REQUIRE_REAL=1 翻硬红):gfx demo EXE exit0 green——≥1 raster + ≥1 mesh 图形 pass 经 .rx RHI 库面 + 自动 barrier 装配核验 + submit 成功;assembly-reject EXE 退非零 + stderr 含 rhi_submit + 装配期类别([structure])red(gfx I3/I5 装配期确定性拦)。像素判据 RXS-0222 归 PR-F/步骤 80 device 见证。镜像 uc05_rhi_smoke_evidence_schema 体例。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "milestone",
+    "step",
+    "host_section_pass",
+    "device_section_rc",
+    "checks",
+    "run_url",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "uc05_graphics_rhi_smoke" },
+    "milestone": { "type": "string" },
+    "step": { "type": "integer", "const": 76 },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_rc": { "type": "integer" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "corpus_pass": { "type": ["boolean", "string"] },
+        "zero_rs_audit": { "type": ["boolean", "string"] },
+        "compile_gfx_demo": { "type": ["boolean", "string"] },
+        "compile_gfx_assembly_rejects": { "type": ["boolean", "string"] },
+        "gfx_reject_count": { "type": ["integer", "boolean", "string"] },
+        "demo_run_green": { "type": ["boolean", "string"] },
+        "assembly_redgreen": { "type": ["boolean", "string"] }
+      }
+    },
+    "assembly_cases": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "toolchain_skip": { "type": ["string", "null"] },
+    "dev_env_degrade": { "type": "boolean" },
+    "env_profile": {
+      "type": ["object", "string"],
+      "description": "环境画像(驱动/Vulkan 版本/GPU;受限环境降级但 schema 不变)"
+    },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" }
+  }
+}

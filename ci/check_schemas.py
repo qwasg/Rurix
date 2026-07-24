@@ -241,6 +241,9 @@ def check_evidence_files() -> None:
     uc05_engine_embed_schema = load(
         ROOT / "milestones/ei1/uc05_engine_embed_evidence_schema.json"
     )
+    uc05_graphics_rhi_smoke_schema = load(
+        ROOT / "milestones/g4/uc05_graphics_rhi_smoke_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -373,6 +376,11 @@ def check_evidence_files() -> None:
     )
     uc05_engine_embed_validator = (
         jsonschema.Draft7Validator(uc05_engine_embed_schema) if uc05_engine_embed_schema else None
+    )
+    uc05_graphics_rhi_smoke_validator = (
+        jsonschema.Draft7Validator(uc05_graphics_rhi_smoke_schema)
+        if uc05_graphics_rhi_smoke_schema
+        else None
     )
     uc05_check_bench_validator = (
         jsonschema.Draft7Validator(uc05_check_bench_schema) if uc05_check_bench_schema else None
@@ -666,6 +674,16 @@ def check_evidence_files() -> None:
             # assembly EXE red-green,需 GPU 运行 Context::create,SKIP=dev-env-degrade,REQUIRE_REAL
             # 翻硬红)。I3/I5 装配期确定性拦由本 smoke red-green + rhi.rs 库单测双证。
             validator = uc05_rhi_smoke_validator
+        elif (
+            f.name.startswith("uc05_graphics_rhi_smoke")
+            and uc05_graphics_rhi_smoke_validator is not None
+        ):
+            # G4.2 UC-05 图形 RHI 冒烟证据(G-G4-3;RFC-0015 §4.A / RXS-0270~0273/0275)→
+            # milestones/g4/uc05_graphics_rhi_smoke_evidence_schema.json(ci/uc05_graphics_rhi_smoke.py
+            # 步骤 76 写:host 恒跑 uc05_corpus gfx 语料批跑 + 零 .rs 审计 + --emit=check 编译 gfx
+            # demo/assembly-reject;device 段 gfx demo EXE green + assembly EXE red-green,需 GPU + Vulkan,
+            # SKIP=dev-env-degrade,RURIX_REQUIRE_REAL=1 翻硬红;像素判据 RXS-0222 归 PR-F/步骤 80)。
+            validator = uc05_graphics_rhi_smoke_validator
         elif (
             f.name.startswith("uc05_engine_embed")
             and uc05_engine_embed_validator is not None

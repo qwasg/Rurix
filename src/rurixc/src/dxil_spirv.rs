@@ -2470,6 +2470,7 @@ mod tests {
             stage: Some(stage),
             io_sig,
             resources: Vec::new(),
+            mesh_meta: None,
         }
     }
 
@@ -3252,6 +3253,7 @@ mod tests {
             stage: Some(ShaderStage::Fragment),
             io_sig,
             resources,
+            mesh_meta: None,
         };
         emit_spirv_body(ShaderStage::Fragment, &body)
     }

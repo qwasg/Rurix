@@ -1,0 +1,55 @@
+// G4.2 PR-B gfx demo (RXS-0270~0272;RFC-0015 §4.A;spec/rhi.md 章 A)。
+//
+// UC-05 RHI 图形 pass demo:≥1 raster + ≥1 mesh 图形 pass 经 .rx RHI 库面声明,自动 barrier
+// 推导(rhi.rs 桥接 graph.rs derive_barriers 单源,RXS-0272)。声明式图形 render graph:节点 =
+// gfx pass、边由资源状态访问声明(writes_rt/reads/...)推导;声明序 = 提交序;**用户不写任何
+// barrier / 同步**——装配期自动 hazard 推导。装配核验(present 唯一末位 / per-pass 同资源多次
+// 声明 I5 / 读未写 I3 / 声明↔反射 RXS-0273)于 `submit()` 装配期确定性判定,**严格先于派发**。
+//
+// **全 .rx、零 .rs**(主语言判据沿 MS1 最严口径;RFC-0014 §9.2)。raster pass = vertex +
+// fragment 着色对;mesh pass = mesh + fragment 着色对(RXS-0270)。color_target = RGBA8
+// transient image(RXS-0271)。两 pass 各写独立 color target(避免跨 pass WAW 冲突 I5)。
+//
+// device 真跑(headless readback 像素判据,RXS-0222 纪律)归 ci/uc05_graphics_rhi_smoke.py
+// 步骤 76(RURIX_REQUIRE_REAL=1);本文件为 .rx RHI 库面声明 + 装配核验通过的可编译本体。
+
+// 着色阶段 I/O 结构体(RXS-0154):字段须携带 #[builtin(..)] 或 #[interpolate(..)] 标注。
+struct VsOut {
+    #[builtin(position)] pos: f32,
+}
+
+// raster pass 着色对(RXS-0270):vertex 输出 position;fragment 输出同结构(类型面最小,
+// 像素判据归 device 段)。
+vertex fn vs() -> VsOut {
+    VsOut { pos: 0.0 }
+}
+
+fragment fn fs(inp: VsOut) -> VsOut {
+    inp
+}
+
+// mesh pass 着色对(RXS-0270/0243):mesh 入口须携带 #[numthreads] + #[outputs] 标注
+// (triangles-only 首期,Q-M-MeshTopology)。空体最小发射(像素判据归 device 段)。
+#[numthreads(1, 1, 1)]
+#[outputs(topology = "triangles", max_vertices = 3, max_primitives = 1)]
+mesh fn ms() {}
+
+fn main() -> i32 {
+    let ctx = Context::create();
+    let rhi = Rhi::create(&ctx);
+
+    // 两 color target(各 pass 独立写,避免跨 pass WAW 冲突 I5)。
+    let back = rhi.color_target(640, 480);
+    let back2 = rhi.color_target(640, 480);
+
+    // raster pass:vertex + fragment 着色对写 back(RXS-0270/0272)。
+    rhi.raster_pass(vs, fs).writes_rt(&back);
+
+    // mesh pass:mesh + fragment 着色对写 back2(RXS-0270/0272)。
+    rhi.mesh_pass(ms, fs).writes_rt(&back2);
+
+    // 装配核验 + hazard 推导 + 按推导序派发(1-submit 消费式 typestate → Queue)。
+    rhi.submit();
+    ctx.sync();
+    0
+}

@@ -375,11 +375,21 @@ fn gpu_host_method(
     // submit)+ `Pass` 访问声明方法族(读 / 写)。与 G3.5 `Graph`/`PassBuilder` 平行的
     // 不同 lang items(compute-pass 面,RFC-0014 §7-2);方法名 `reads`/`writes` 与 graph
     // `PassBuilder::reads` 语义相邻但由接收者 lang item 区分分发。
+    //
+    // G4.2 扩面(RXS-0270/0271,RFC-0015 §4.A1/A2):`raster_pass`/`mesh_pass` 产 `GfxPass<C>`;
+    // `color_target`/`depth_target`/`texture2d`/`sampler`/`texture_table` 产 `Res<C>`(图形资源面)。
     if li.is_rhi(d) {
         return match method {
             "resource" => Some(Op::RhiResource),
             "pass" => Some(Op::RhiPass),
             "submit" => Some(Op::RhiSubmit),
+            "raster_pass" => Some(Op::RhiRasterPass),
+            "mesh_pass" => Some(Op::RhiMeshPass),
+            "color_target" => Some(Op::RhiColorTarget),
+            "depth_target" => Some(Op::RhiDepthTarget),
+            "texture2d" => Some(Op::RhiTexture2d),
+            "sampler" => Some(Op::RhiSampler),
+            "texture_table" => Some(Op::RhiTextureTable),
             _ => None,
         };
     }
@@ -394,6 +404,20 @@ fn gpu_host_method(
         return match method {
             "reads" => Some(Op::RhiPassReads),
             "writes" => Some(Op::RhiPassWrites),
+            _ => None,
+        };
+    }
+    // G4.2 RHI 图形 pass 访问声明方法族(RXS-0272,RFC-0015 §4.A3):`GfxPass<C>` 接收者
+    // 的 `writes_rt`/`writes_depth`/`reads`/`reads_writes_uav`/`binds_sampler`。与 G3.5
+    // `PassBuilder` 同名方法语义相邻但由接收者 lang item 区分分发(compute-pass `Pass<C>`
+    // vs 图形 `GfxPass<C>`)。访问种类映射同一 `graph.rs::AccessKind` 单源(RXS-0272)。
+    if li.is_rhi_gfx_pass(d) {
+        return match method {
+            "writes_rt" => Some(Op::RhiGfxWritesRt),
+            "writes_depth" => Some(Op::RhiGfxWritesDepth),
+            "reads" => Some(Op::RhiGfxReads),
+            "reads_writes_uav" => Some(Op::RhiGfxReadsWritesUav),
+            "binds_sampler" => Some(Op::RhiGfxBindsSampler),
             _ => None,
         };
     }
@@ -2835,6 +2859,150 @@ impl Tck<'_, '_> {
                     args,
                     Ty::unit(),
                 )
+            }
+            // G4.2 RHI 图形 pass 声明(RXS-0270,RFC-0015 §4.A1):`rhi.raster_pass(vs, fs)` /
+            // `rhi.mesh_pass(ms, fs)` → `GfxPass<C>`。两实参须为阶段着色函数引用(raster =
+            // vertex+fragment;mesh = mesh+fragment);错阶段 → RX3001,task fn 引用 → RX3017
+            // (复用既有码,零新码)。brand `C` 与 `Rhi` 同源(跨 brand → RX3006 由 reads/writes
+            // 声明点裁决,此处只携带 brand)。task 前置首期不开放。
+            Op::RhiRasterPass | Op::RhiMeshPass => {
+                let gfx_pass = self
+                    .res
+                    .lang_items
+                    .rhi_gfx_pass
+                    .expect("GfxPass lang item 在 resolve 入口注入");
+                let b = adt_args.first().cloned().unwrap_or(brand.clone());
+                if args.len() != 2 {
+                    self.err_arg_count(span, 2, args.len());
+                }
+                let want_stages: [&str; 2] = if matches!(op, Op::RhiRasterPass) {
+                    ["vertex", "fragment"]
+                } else {
+                    ["mesh", "fragment"]
+                };
+                use crate::ast::ShaderStage;
+                let want: [Option<ShaderStage>; 2] = if matches!(op, Op::RhiRasterPass) {
+                    [Some(ShaderStage::Vertex), Some(ShaderStage::Fragment)]
+                } else {
+                    [Some(ShaderStage::Mesh), Some(ShaderStage::Fragment)]
+                };
+                for (i, a) in args.iter().enumerate() {
+                    let _ = self.check_expr(a);
+                    if i >= 2 {
+                        continue;
+                    }
+                    if let hir::ExprKind::Res(Res::Def(k)) = &a.kind
+                        && let hir::ItemKind::Fn(decl) = &self.krate.item(*k).kind
+                        && decl.stage != want[i]
+                    {
+                        if decl.stage == Some(ShaderStage::Task) {
+                            self.diag()
+                                .struct_error(
+                                    crate::shader_stages::E_MESH_ENTRY,
+                                    "rhi.task_fn_not_supported",
+                                )
+                                .arg("stage", want_stages[i])
+                                .span_label(a.span, "task fn reference not supported in PR-B")
+                                .emit();
+                        } else {
+                            self.diag()
+                                .struct_error(
+                                    crate::coloring::E_CROSS_COLOR_CALL,
+                                    "rhi.wrong_shader_stage",
+                                )
+                                .arg("want", want_stages[i])
+                                .span_label(a.span, "wrong shader stage for this pass slot")
+                                .emit();
+                        }
+                    }
+                }
+                Ty::Adt(gfx_pass, vec![b])
+            }
+            // G4.2 RHI 图形资源构造(RXS-0271,RFC-0015 §4.A2):`color_target(w,h)` /
+            // `depth_target(w,h)` / `texture2d(w,h)` → `Res<C>`(两 u32 实参);`sampler(desc)` /
+            // `texture_table()` → `Res<C>`。brand `C` 与 `Rhi` 同源;非消费接收者。
+            //
+            // 图形资源格式由资源类枚举固化(RXS-0271:color=RGBA8 / depth=D32F / texture=RGBA8;
+            // sampler/table 无状态访问),不参 kernel marshalling 元素定型(RXS-0190),故不登记
+            // `gpu_allocs`(免 RX2010 误拦);`Res<C, T>` 的 `T` 取 u32 占位(RGBA8 = 4 字节,
+            // 首期子集内;mir_build 图形资源路按 class 枚举 + w/h 走,不消费 `T`)。
+            Op::RhiColorTarget | Op::RhiDepthTarget | Op::RhiTexture2d => {
+                let res = self
+                    .res
+                    .lang_items
+                    .rhi_res
+                    .expect("Res lang item 在 resolve 入口注入");
+                let b = adt_args.first().cloned().unwrap_or(brand.clone());
+                let elem = Ty::Prim(PrimTy::U32);
+                self.check_args(
+                    span,
+                    &[Ty::Prim(PrimTy::U32), Ty::Prim(PrimTy::U32)],
+                    args,
+                    Ty::Adt(res, vec![b, elem]),
+                )
+            }
+            Op::RhiSampler | Op::RhiTextureTable => {
+                let res = self
+                    .res
+                    .lang_items
+                    .rhi_res
+                    .expect("Res lang item 在 resolve 入口注入");
+                let b = adt_args.first().cloned().unwrap_or(brand.clone());
+                let elem = Ty::Prim(PrimTy::U32);
+                let expected: &[Ty] = if matches!(op, Op::RhiSampler) {
+                    &[Ty::Prim(PrimTy::U32)]
+                } else {
+                    &[]
+                };
+                self.check_args(span, expected, args, Ty::Adt(res, vec![b, elem]))
+            }
+            // G4.2 RHI 图形 pass 访问声明(RXS-0272,RFC-0015 §4.A3):`gfx.writes_rt(&res)` /
+            // `writes_depth` / `reads` / `reads_writes_uav` / `binds_sampler` → `GfxPass<C>`
+            // (消费接收者并返回〔builder 链〕,资源实参 `&Res` 借用非消费)。per-instance brand
+            // 核验(I7)镜像 `RhiPassReads`/`RhiPassWrites`:资源 brand 与 pass brand 不一致 →
+            // RX3006;非 `&Res` 形态 → RX2001(demand)。
+            Op::RhiGfxWritesRt
+            | Op::RhiGfxWritesDepth
+            | Op::RhiGfxReads
+            | Op::RhiGfxReadsWritesUav
+            | Op::RhiGfxBindsSampler => {
+                let gfx_pass = self
+                    .res
+                    .lang_items
+                    .rhi_gfx_pass
+                    .expect("GfxPass lang item 在 resolve 入口注入");
+                let res = self
+                    .res
+                    .lang_items
+                    .rhi_res
+                    .expect("Res lang item 在 resolve 入口注入");
+                let pass_brand = adt_args.first().cloned().unwrap_or(brand.clone());
+                if args.len() != 1 {
+                    self.err_arg_count(span, 1, args.len());
+                }
+                for (i, a) in args.iter().enumerate() {
+                    let at = self.check_expr(a);
+                    if i != 0 {
+                        continue;
+                    }
+                    match rhi_res_brand(&at, res) {
+                        Some(res_brand) => {
+                            if !brands_compatible(&pass_brand, &res_brand) {
+                                self.diag()
+                                    .struct_error(E_RHI_CROSS_BRAND, "rhi.cross_brand")
+                                    .arg("what", "this RHI resource")
+                                    .span_label(a.span, "belongs to a different `Rhi` instance")
+                                    .emit();
+                            }
+                        }
+                        None => {
+                            let expected =
+                                Ty::Ref(Box::new(Ty::Adt(res, vec![pass_brand.clone()])), false);
+                            self.demand(a.span, &expected, &at);
+                        }
+                    }
+                }
+                Ty::Adt(gfx_pass, vec![pass_brand])
             }
             Op::CtxCreate
             | Op::Launch

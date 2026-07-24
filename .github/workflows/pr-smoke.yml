@@ -697,6 +697,30 @@ jobs:
         shell: powershell
         run: py -3 ci/uc05_report_check.py
 
+      # 步骤 76（G-G4-3,RFC-0015 §4.A / RXS-0270~0273）:UC-05 图形 RHI 冒烟(raster + mesh pass)。
+      # `ci/uc05_graphics_rhi_smoke.py` host 段**恒跑**(cargo test uc05_corpus:compute + gfx 编译期
+      # reject 全拦截 + assembly 编译期 CLEAN + I1~I10 矩阵三方一致〔compute 路零回归守卫〕+ apps/uc05-rhi
+      # 零 .rs 审计 + --emit=check〔不 link〕gfx_demo.rx 0 诊断 + gfx assembly-reject 语料编译期 CLEAN)。
+      # device/toolchain 段(rx build gfx_demo.rx → EXE GREEN〔合法 gfx 图装配核验通过 + submit 成功;图形
+      # pass 派发归 PR-F Vulkan RHI 通道,本步骤证装配核验 + EXE 可运行,像素判据 RXS-0222 归 PR-F/步骤 80〕+
+      # gfx assembly-reject EXE RED〔退非零 + stderr rhi_submit [structure]:gfx I3 依赖环 / I3 读未写 /
+      # I5 写写冲突,图装配期确定性拦〕)= link 工具链 + GPU〔Context::create from_primary〕在位真跑,缺则
+      # SKIP(dev-env degrade,退 0),RURIX_REQUIRE_REAL=1 翻硬红。退出码判定非 grep(P0-5)。
+      - name: UC-05 graphics RHI smoke (G4 CI_GATES §2.76, G-G4-3, RFC-0015 §4.A)
+        shell: powershell
+        run: py -3 ci/uc05_graphics_rhi_smoke.py
+
+      # 步骤 77（G-G4-3 / G-G4-3 gfx 不变量,RXS-0270~0273）:UC-05 图形 RHI 不变量拦截门(**纯 host
+      # 恒跑,无 GPU**;check_* 守卫风格——不分配错误码、不写 evidence、不写 budget counter)。`ci/
+      # uc05_graphics_invariant_gate.py` 逐条断言 gfx 面三档(编译期 I7/I8〔cross_brand_gfx RX3006 /
+      # rhi_gfx_in_kernel RX3015〕/ 装配期 I3/I5〔gfx_feedback_loop / gfx_read_before_write /
+      # gfx_write_write_conflict,编译期 CLEAN,违例归 submit() 装配期拦,零新 RX 码〕/ gfx accept 0 诊断)
+      # + gfx_demo.rx 0 诊断 + uc05_corpus 真跑(compute + gfx 编译期 reject 全拦截 + 矩阵三方一致,compute
+      # 路零回归守卫)+ gfx 语料条款锚定头纪律。反 YAML-only 自检内置。
+      - name: UC-05 graphics RHI invariant gate (G4 CI_GATES §2.77, G-G4-3, RXS-0270~0273)
+        shell: powershell
+        run: py -3 ci/uc05_graphics_invariant_gate.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

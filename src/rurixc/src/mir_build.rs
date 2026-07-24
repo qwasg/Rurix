@@ -180,10 +180,22 @@ pub fn build_device_crate(cx: &QueryCtx<'_>) -> Vec<Body> {
     out
 }
 
-/// device codegen 收集根判定(RXS-0161,R1.2/R1.3/R6.7):默认仅非着色阶段
-/// kernel 根(`stage == None`),vertex/fragment 图形阶段根仅在 `dxil-backend`
-/// feature 下额外收纳(B 路 DXIL 入口)。mesh/task/RT 与 compute 不在此收。
-#[cfg(any(feature = "dxil-backend", feature = "vulkan-backend"))]
+/// device codegen 收集根判定(RXS-0161,R1.2/R1.3/R6.7;G4.2,RXS-0275):
+/// `vulkan-backend` 下额外收 mesh 阶段根(Vulkan mesh 着色入口,RXS-0270/0275)。
+/// task 条件臂首期不开放(RXS-0270),task 阶段根不收集。
+#[cfg(feature = "vulkan-backend")]
+fn collectable_stage(stage: Option<crate::ast::ShaderStage>) -> bool {
+    use crate::ast::ShaderStage;
+    matches!(
+        stage,
+        None | Some(ShaderStage::Vertex | ShaderStage::Fragment | ShaderStage::Mesh)
+    )
+}
+
+/// device codegen 收集根判定(RXS-0161,R1.2/R1.3/R6.7):`dxil-backend` only
+/// (非 `vulkan-backend`):vertex/fragment 图形阶段根(B 路 DXIL 入口)。
+/// mesh/task/RT 不在此收(mesh 着色仅经 Vulkan 后端,RXS-0270/0275)。
+#[cfg(all(feature = "dxil-backend", not(feature = "vulkan-backend")))]
 fn collectable_stage(stage: Option<crate::ast::ShaderStage>) -> bool {
     use crate::ast::ShaderStage;
     matches!(
@@ -192,24 +204,28 @@ fn collectable_stage(stage: Option<crate::ast::ShaderStage>) -> bool {
     )
 }
 
-/// device codegen 收集根判定(默认 / 非 `dxil-backend`):仅非着色阶段 kernel
+/// device codegen 收集根判定(默认 / 无图形后端 feature):仅非着色阶段 kernel
 /// 根。图形/RT 着色阶段一律排除 —— PTX 路径行为与既有测试逐一致(零漂移)。
 #[cfg(not(any(feature = "dxil-backend", feature = "vulkan-backend")))]
 fn collectable_stage(stage: Option<crate::ast::ShaderStage>) -> bool {
     stage.is_none()
 }
 
-/// 为 vertex / fragment 图形阶段根携 stage 类别 + AST I/O 意图签名(RXS-0161,
-/// R1.3):`dxil-backend` 下从 AST `shader_stages` 形参/返回位置的 I/O 结构体
-/// 字段标注提取 [`crate::mir::IoSigElem`] 表,置入 `body`。非图形阶段(含全部
-/// device fn callee)为 no-op。
+/// 为 vertex / fragment / mesh 图形阶段根携 stage 类别 + AST I/O 意图签名
+/// (RXS-0161,R1.3;G4.2,RXS-0275):`dxil-backend` / `vulkan-backend` 下从 AST
+/// `shader_stages` 形参/返回位置的 I/O 结构体字段标注提取 [`crate::mir::IoSigElem`]
+/// 表,置入 `body`。mesh 阶段额外提取 `#[numthreads]`+`#[outputs]` 标注元数据
+/// 供 Vulkan codegen `lower_mesh` 发射 execution modes(RXS-0275)。非图形阶段
+/// (含全部 device fn callee)为 no-op。task 条件臂首期不开放(RXS-0270)。
 #[cfg(any(feature = "dxil-backend", feature = "vulkan-backend"))]
 fn attach_graphics_io_sig(cx: &QueryCtx<'_>, krate: &hir::Crate, def: DefId, body: &mut Body) {
     use crate::ast::ShaderStage;
     let hir::ItemKind::Fn(decl) = &krate.item(def).kind else {
         return;
     };
-    let Some(stage @ (ShaderStage::Vertex | ShaderStage::Fragment)) = decl.stage else {
+    let Some(stage @ (ShaderStage::Vertex | ShaderStage::Fragment | ShaderStage::Mesh)) =
+        decl.stage
+    else {
         return;
     };
     body.stage = Some(stage);
@@ -218,6 +234,14 @@ fn attach_graphics_io_sig(cx: &QueryCtx<'_>, krate: &hir::Crate, def: DefId, bod
     // 绑定布局推导(binding_layout)的确定性输入(io_sig 与 resources 互不交叠:
     // 命名 I/O 结构体 → io_sig;资源句柄形参 → resources)。
     body.resources = dxil_io::resources_for(cx.ast(), &krate.item(def).name, stage);
+    // G4.2,RXS-0275:mesh 阶段额外提取 #[numthreads] + #[outputs] 标注元数据,
+    // 供 Vulkan codegen lower_mesh 发射 LocalSize/OutputVertices/
+    // OutputPrimitivesEXT/OutputTrianglesEXT execution modes。属性合法性由
+    // shader_stages::check_mesh_entry 预校验(RXS-0243 → RX3017);缺失 / 非法
+    // 时 mesh_meta 维持 None(保守不误报,零新诊断)。
+    if stage == ShaderStage::Mesh {
+        body.mesh_meta = dxil_io::mesh_meta_for(cx.ast(), cx.src(), &krate.item(def).name);
+    }
 }
 
 /// 默认 / 非 `dxil-backend`:图形阶段根不收集,`Body` 的 stage/io_sig 维持
@@ -241,10 +265,11 @@ fn attach_graphics_io_sig(_cx: &QueryCtx<'_>, _krate: &hir::Crate, _def: DefId, 
 mod dxil_io {
     use std::collections::HashMap;
 
-    use crate::ast::{self, MetaInner, MetaKind, ShaderStage, TyKind};
+    use crate::ast::{self, LitKind, MetaInner, MetaKind, ShaderStage, TyKind};
     use crate::hir::PrimTy;
     use crate::mir::{
-        IoDir, IoSigElem, IoSigKind, MirIoType, MirResourceType, ResourceBinding, ResourceCount,
+        IoDir, IoSigElem, IoSigKind, MeshEntryMeta, MirIoType, MirResourceType, ResourceBinding,
+        ResourceCount,
     };
 
     /// 提取指定图形阶段函数(名 + 阶段匹配)的 I/O 意图签名表。
@@ -509,6 +534,144 @@ mod dxil_io {
             _ => ty,
         }
     }
+
+    // ---- mesh 入口标注元数据提取(G4.2,RXS-0275) -------------------------------
+    //
+    // `#[numthreads(x,y,z)]` + `#[outputs(topology="triangles",max_vertices=N,
+    // max_primitives=M)]` 自 AST 属性提取为 [`MeshEntryMeta`],供 Vulkan codegen
+    // `lower_mesh` 发射 `LocalSize`/`OutputVertices`/`OutputPrimitivesEXT`/
+    // `OutputTrianglesEXT` execution modes。属性合法性由 `shader_stages::
+    // check_mesh_entry` 预先校验(RXS-0243 → RX3017);本函数仅做提取,缺失 /
+    // 非法则返回 None(保守不误报,零新诊断)。
+
+    /// 提取 mesh 入口标注元数据(G4.2,RXS-0275)。
+    pub(super) fn mesh_meta_for(
+        file: &ast::SourceFile,
+        src: &str,
+        fn_name: &str,
+    ) -> Option<MeshEntryMeta> {
+        let item = find_stage_item(&file.items, fn_name, ShaderStage::Mesh)?;
+        let ast::ItemKind::Fn(_) = &item.kind else {
+            return None;
+        };
+        let attrs = &item.attrs;
+        let numthreads = parse_numthreads(attrs, src)?;
+        let (max_vertices, max_primitives) = parse_outputs(attrs, src)?;
+        Some(MeshEntryMeta {
+            numthreads,
+            max_vertices,
+            max_primitives,
+        })
+    }
+
+    /// 按名 + 阶段查找图形阶段函数所在 Item(含 attrs;含嵌套 mod)。
+    fn find_stage_item<'a>(
+        items: &'a [ast::Item],
+        name: &str,
+        stage: ShaderStage,
+    ) -> Option<&'a ast::Item> {
+        for it in items {
+            match &it.kind {
+                ast::ItemKind::Fn(f) if f.stage == Some(stage) && f.name.name == name => {
+                    return Some(it);
+                }
+                ast::ItemKind::Mod(m) => {
+                    if let Some(found) = find_stage_item(&m.items, name, stage) {
+                        return Some(found);
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+
+    /// 单段路径的名字(`#[numthreads]` → "numthreads";多段 → None)。
+    fn single_seg_path(p: &ast::Path) -> Option<&str> {
+        match p.segments.as_slice() {
+            [seg] => Some(seg.ident.name.as_str()),
+            _ => None,
+        }
+    }
+
+    /// 属性列表中按名查找(单段路径匹配)。
+    fn attr_by_name<'a>(attrs: &'a [ast::Attr], name: &str) -> Option<&'a ast::Attr> {
+        attrs
+            .iter()
+            .find(|a| single_seg_path(&a.meta.path) == Some(name))
+    }
+
+    /// 正整数字面量值(非 Int / 非正 / 解析失败 → None)。数字后缀(`64u32`)容忍。
+    fn lit_pos_int(src: &str, lit: &ast::Lit) -> Option<u32> {
+        if lit.kind != LitKind::Int {
+            return None;
+        }
+        let text = src.get(lit.span.lo.0 as usize..lit.span.hi.0 as usize)?;
+        let digits: String = text
+            .chars()
+            .take_while(|c| c.is_ascii_digit() || *c == '_')
+            .filter(|c| *c != '_')
+            .collect();
+        match digits.parse::<u32>() {
+            Ok(v) if v > 0 => Some(v),
+            _ => None,
+        }
+    }
+
+    /// `#[numthreads(x, y, z)]` → 三正整数字面量。
+    fn parse_numthreads(attrs: &[ast::Attr], src: &str) -> Option<(u32, u32, u32)> {
+        let nt = attr_by_name(attrs, "numthreads")?;
+        let MetaKind::List(inner) = &nt.meta.kind else {
+            return None;
+        };
+        let dims: Vec<u32> = inner
+            .iter()
+            .filter_map(|e| match e {
+                MetaInner::Lit(l) => lit_pos_int(src, l),
+                _ => None,
+            })
+            .collect();
+        match dims.as_slice() {
+            [x, y, z] => Some((*x, *y, *z)),
+            _ => None,
+        }
+    }
+
+    /// `#[outputs(topology="triangles", max_vertices=N, max_primitives=M)]`
+    /// → (max_vertices, max_primitives)。topology 非 triangles / 缺字段 → None
+    /// (合法性由 shader_stages 预校验;本函数保守返回 None 不发诊断)。
+    fn parse_outputs(attrs: &[ast::Attr], src: &str) -> Option<(u32, u32)> {
+        let outputs = attr_by_name(attrs, "outputs")?;
+        let MetaKind::List(inner) = &outputs.meta.kind else {
+            return None;
+        };
+        let mut topology: Option<String> = None;
+        let mut max_vertices: Option<u32> = None;
+        let mut max_primitives: Option<u32> = None;
+        for entry in inner {
+            let MetaInner::Meta(mi) = entry else { continue };
+            let (Some(key), MetaKind::NameValue(lit)) = (single_seg_path(&mi.path), &mi.kind)
+            else {
+                continue;
+            };
+            match key {
+                "topology" if lit.kind == LitKind::Str => {
+                    topology = Some(
+                        src.get(lit.span.lo.0 as usize..lit.span.hi.0 as usize)?
+                            .trim_matches('"')
+                            .to_owned(),
+                    );
+                }
+                "max_vertices" => max_vertices = lit_pos_int(src, lit),
+                "max_primitives" => max_primitives = lit_pos_int(src, lit),
+                _ => {}
+            }
+        }
+        if topology.as_deref() != Some("triangles") {
+            return None;
+        }
+        Some((max_vertices?, max_primitives?))
+    }
 }
 
 /// const 求值专用单实例构建(M3.4,RXS-0062):构建 const item / const fn 的
@@ -642,6 +805,9 @@ fn build_body(cx: &QueryCtx<'_>, def: DefId, generic_args: Vec<Ty>) -> BuildOutp
             // (`attach_graphics_io_sig`)在 `dxil-backend` 下携带;默认路径恒空,
             // 行为零漂移(R1.2/R6.7)。
             resources: Vec::new(),
+            // G4.2,RXS-0275:mesh 入口标注元数据由 `attach_graphics_io_sig`
+            // 在 `vulkan-backend` 下携带;默认路径恒 `None`,零漂移。
+            mesh_meta: None,
         },
         b.callees,
         b.const_err,
@@ -2165,6 +2331,107 @@ impl Builder<'_, '_> {
                 );
                 self.guard_rc_negative(rc, span);
                 Operand::Const(Const::Unit)
+            }
+            // G4.2 RHI 图形 pass 声明(RXS-0270,RFC-0015 §4.A1):`rhi.raster_pass(vs, fs)` /
+            // `rhi.mesh_pass(ms, fs)` → `rxrt_rhi_raster_pass(rhi, vs_sym, fs_sym)` /
+            // `rxrt_rhi_mesh_pass(rhi, ms_sym, fs_sym)`。着色函数引用经 mangle → GlobalAddr 符号
+            // 串下发(镜像 launch kernel 符号纪律);非消费接收者。产 `GfxPass<C>` 句柄。
+            Op::RhiRasterPass | Op::RhiMeshPass => {
+                let rhi = self.gpu_handle_op(&args[0]);
+                let ret = self.ty_of(e);
+                let symbol = if op == Op::RhiRasterPass {
+                    "rxrt_rhi_raster_pass"
+                } else {
+                    "rxrt_rhi_mesh_pass"
+                };
+                let mut call_args = vec![rhi];
+                for a in &args[1..3] {
+                    let sym = if let tbir::ExprKind::Def(d) = &a.kind {
+                        Const::GlobalAddr(mangle(&self.krate.item(*d).name, *d, &[]))
+                    } else {
+                        Const::GlobalAddr(String::new())
+                    };
+                    call_args.push(Operand::Const(sym));
+                }
+                let dest = self.emit_rt_call(symbol, call_args, ret.clone(), span);
+                self.guard_handle_zero(dest, span);
+                self.consume(Place::local(dest), &ret)
+            }
+            // G4.2 RHI 图形资源构造(RXS-0271,RFC-0015 §4.A2):`color_target(w,h)` /
+            // `depth_target(w,h)` / `texture2d(w,h)` / `sampler(desc)` / `texture_table()` →
+            // `rxrt_rhi_gfx_resource(rhi, class, w, h)`。类枚举追加式(0=buffer 既有 / 1=color /
+            // 2=depth / 3=texture / 4=sampler / 5=table);非消费接收者,产 `Res<C>` 句柄。
+            Op::RhiColorTarget
+            | Op::RhiDepthTarget
+            | Op::RhiTexture2d
+            | Op::RhiSampler
+            | Op::RhiTextureTable => {
+                let rhi = self.gpu_handle_op(&args[0]);
+                let ret = self.ty_of(e);
+                let class: i128 = match op {
+                    Op::RhiColorTarget => 1,
+                    Op::RhiDepthTarget => 2,
+                    Op::RhiTexture2d => 3,
+                    Op::RhiSampler => 4,
+                    Op::RhiTextureTable => 5,
+                    _ => unreachable!(),
+                };
+                let (w, h) = match op {
+                    Op::RhiColorTarget | Op::RhiDepthTarget | Op::RhiTexture2d => {
+                        (self.op_of(&args[1]), self.op_of(&args[2]))
+                    }
+                    Op::RhiSampler => (
+                        self.op_of(&args[1]),
+                        Operand::Const(Const::Int(0, PrimTy::U32)),
+                    ),
+                    Op::RhiTextureTable => (
+                        Operand::Const(Const::Int(0, PrimTy::U32)),
+                        Operand::Const(Const::Int(0, PrimTy::U32)),
+                    ),
+                    _ => unreachable!(),
+                };
+                let dest = self.emit_rt_call(
+                    "rxrt_rhi_gfx_resource",
+                    vec![rhi, Operand::Const(Const::Int(class, PrimTy::U32)), w, h],
+                    ret.clone(),
+                    span,
+                );
+                self.guard_handle_zero(dest, span);
+                self.consume(Place::local(dest), &ret)
+            }
+            // G4.2 RHI 图形 pass 访问声明(RXS-0272,RFC-0015 §4.A3):`gfx.writes_rt(&res)` /
+            // `writes_depth` / `reads` / `reads_writes_uav` / `binds_sampler` →
+            // `rxrt_rhi_gfx_declare(gfx, res, access)`。接收者 gfx 消费并返回(builder 链),
+            // 资源实参 `&Res` 非消费(gpu_handle_op Copy);access 枚举追加式(0=writes_rt /
+            // 1=writes_depth / 2=reads / 3=reads_writes_uav / 4=binds_sampler);负值 rc → 终止。
+            Op::RhiGfxWritesRt
+            | Op::RhiGfxWritesDepth
+            | Op::RhiGfxReads
+            | Op::RhiGfxReadsWritesUav
+            | Op::RhiGfxBindsSampler => {
+                let ret = self.ty_of(e);
+                let carried = self.gpu_consume_receiver(&args[0], &ret, span);
+                let t = self.gpu_handle_op(&args[1]);
+                let access: i128 = match op {
+                    Op::RhiGfxWritesRt => 0,
+                    Op::RhiGfxWritesDepth => 1,
+                    Op::RhiGfxReads => 2,
+                    Op::RhiGfxReadsWritesUav => 3,
+                    Op::RhiGfxBindsSampler => 4,
+                    _ => unreachable!(),
+                };
+                let rc = self.emit_rt_call(
+                    "rxrt_rhi_gfx_declare",
+                    vec![
+                        Operand::Copy(Place::local(carried)),
+                        t,
+                        Operand::Const(Const::Int(access, PrimTy::U32)),
+                    ],
+                    Ty::Prim(PrimTy::I32),
+                    span,
+                );
+                self.guard_rc_negative(rc, span);
+                self.consume(Place::local(carried), &ret)
             }
             Op::Launch => unreachable!("launch 走 GpuLaunch 节点(RXS-0191)"),
         }

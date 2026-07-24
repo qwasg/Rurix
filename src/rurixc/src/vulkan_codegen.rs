@@ -27,10 +27,10 @@ use std::collections::HashMap;
 use crate::ast::BinOp;
 use crate::ast::FnColor;
 use crate::diag::ErrorCode;
-use crate::hir::{DeviceIntrinsic, PrimTy};
+use crate::hir::{DeviceIntrinsic, MeshIntrinsic, PrimTy, TaskIntrinsic};
 use crate::mir::{
-    BasicBlock, Body, CallTarget, Const, LocalIdx, Operand, Place, ProjElem, Rvalue, StatementKind,
-    TerminatorKind,
+    BasicBlock, Body, CallTarget, Const, LocalIdx, MeshEntryMeta, Operand, Place, ProjElem, Rvalue,
+    StatementKind, TerminatorKind,
 };
 use crate::query::QueryCtx;
 use crate::resolve::Resolutions;
@@ -623,6 +623,116 @@ pub fn lower_compute(body: &Body, res: &Resolutions) -> Result<Vec<u32>, VulkanC
     }
 
     Ok(assemble(&mut b, &body.symbol))
+}
+
+/// mesh 阶段 MIR → SPIR-V lowering(G4.2,RXS-0275)。
+///
+/// 镜像 [`lower_compute`] 的 MIR 降级流程(形参分类 → 描述符/push-constant →
+/// block 降级),但组装为 **MeshEXT** 执行模型 + SPIR-V 1.4 header(per-entry
+/// 分叉,RXS-0275),并自 `body.mesh_meta` 发射 `LocalSize`/`OutputVertices`/
+/// `OutputPrimitivesEXT`/`OutputTrianglesEXT` execution modes。
+/// `mesh_set_outputs` intrinsic → `OpSetMeshOutputsEXT`(经 [`emit_call`] 分发)。
+/// task 条件臂首期不开放(RXS-0270),task 阶段根不收集,本函数不被 task 入口调用。
+pub fn lower_mesh(body: &Body, res: &Resolutions) -> Result<Vec<u32>, VulkanCodegenError> {
+    let mesh_meta = body.mesh_meta.as_ref().ok_or_else(|| {
+        VulkanCodegenError::unsupported(
+            body.span,
+            "mesh 入口缺 mesh_meta(RXS-0275;attach_graphics_io_sig 未填充)",
+        )
+    })?;
+
+    let mut b = Builder::new(res);
+    b.main_id = b.fresh();
+
+    // 形参分类(locals 1..=arg_count):buffer / scalar / ThreadCtx。
+    let mut params: Vec<(LocalIdx, ParamKind)> = Vec::new();
+    let mut next_binding = 0u32;
+    let mut next_member = 0u32;
+    for i in 1..=body.arg_count {
+        let li = LocalIdx(i as u32);
+        let ty = &body.locals[i].ty;
+        let span = body.locals[i].span;
+        let kind = classify_param(&mut b, ty, span, &mut next_binding, &mut next_member)?;
+        params.push((li, kind));
+    }
+
+    // 描述符 / push-constant 全局变量发射。
+    emit_buffer_descriptors(&mut b, &params, body)?;
+    let pc_var = emit_push_constants(&mut b, &params, body)?;
+
+    // 预分配 block label id。
+    for bi in 0..body.blocks.len() {
+        let id = b.fresh();
+        b.block_label.insert(bi, id);
+    }
+
+    // Function-storage local 变量(非 ZST、非 buffer 形参、非 ret slot)。
+    for (i, l) in body.locals.iter().enumerate() {
+        if i == 0 {
+            continue; // ret slot(mesh = void)
+        }
+        if b.buffer_var.contains_key(&(i as u32)) {
+            continue;
+        }
+        if is_zst(res, &l.ty) {
+            continue;
+        }
+        let elem = prim_of(&l.ty).ok_or_else(|| {
+            VulkanCodegenError::unsupported(
+                l.span,
+                "Vulkan mesh local 首期仅支持标量类型(非标量 local 属后续分片)",
+            )
+        })?;
+        let ty_id = b.prim_type(elem, l.span)?;
+        let ptr = b.ptr_type(STORAGE_FUNCTION, ty_id);
+        let var = b.fresh();
+        emit(&mut b.func_vars, OP_VARIABLE, &[ptr, var, STORAGE_FUNCTION]);
+        b.local_var.insert(i as u32, var);
+    }
+
+    // entry 前导:scalar 形参从 push-constant 拷入其 Function local。
+    for (li, kind) in &params {
+        if let ParamKind::Scalar { member, prim } = kind {
+            let pc = pc_var.expect("有 scalar 形参则 push-constant 块已建");
+            let ty_id = b.prim_type(*prim, body.locals[li.0 as usize].span)?;
+            let ptr_pc = b.ptr_type(STORAGE_PUSH_CONSTANT, ty_id);
+            let midx = b.const_uint(*member);
+            let acc = b.fresh();
+            emit(&mut b.func_body, OP_ACCESS_CHAIN, &[ptr_pc, acc, pc, midx]);
+            let val = b.fresh();
+            emit(&mut b.func_body, OP_LOAD, &[ty_id, val, acc]);
+            let local = b.local_var[&li.0];
+            emit(&mut b.func_body, OP_STORE, &[local, val]);
+        }
+    }
+    let bb0 = b.block_label[&0];
+    emit(&mut b.func_body, OP_BRANCH, &[bb0]);
+
+    // 各 block 降级(复用 compute 的 emit_assign / emit_terminator;
+    // MeshIntrinsic 经 emit_call 分发 → OpSetMeshOutputsEXT)。
+    for (bi, bb) in body.blocks.iter().enumerate() {
+        let label = b.block_label[&bi];
+        emit(&mut b.func_body, OP_LABEL, &[label]);
+        for st in &bb.stmts {
+            let StatementKind::Assign(place, rv) = &st.kind;
+            emit_assign(&mut b, body, place, rv)?;
+        }
+        emit_terminator(&mut b, body, bi)?;
+    }
+
+    Ok(assemble_mesh(&mut b, &body.symbol, mesh_meta))
+}
+
+/// task 阶段 MIR → SPIR-V lowering(G4.2,RXS-0275)。
+///
+/// task 条件臂**首期不开放**(RXS-0270):task 阶段根不收集(`collectable_stage`
+/// 排除 Task),本函数不被调用。类型面预留(`TaskIntrinsic` 枚举 + `emit_call`
+/// 分支),待 Q-RTArm/Q-MeshScope 评估窗评估后兑现。
+pub fn lower_task(_body: &Body, _res: &Resolutions) -> Result<Vec<u32>, VulkanCodegenError> {
+    Err(VulkanCodegenError::unsupported(
+        _body.span,
+        "task 阶段条件臂首期不开放(RXS-0270);lower_task 待评估窗兑现",
+    ))
 }
 
 /// 形参分类 + buffer binding / scalar member 计数递增。
@@ -1228,6 +1338,56 @@ fn emit_call(
             span,
             "宿主 GPU 编排运行时符号 rxrt_* 调用(MS1.2,host-only)不在 device compute/graphics codegen 作用面",
         )),
+        // G4.2,RXS-0275:mesh intrinsic → OpSetMeshOutputsEXT。
+        // mesh 阶段(body.stage == Mesh)lowering;compute 路径防御拒。
+        CallTarget::MeshIntrinsic(mesh_intr) => match mesh_intr {
+            MeshIntrinsic::SetMeshOutputs => {
+                if body.stage != Some(crate::ast::ShaderStage::Mesh) {
+                    return Err(VulkanCodegenError::unsupported(
+                        span,
+                        "mesh intrinsic 在 compute codegen 路径不可达(走 lower_mesh,RXS-0275)",
+                    ));
+                }
+                // mesh_set_outputs(vertex_count, primitive_count) → OpSetMeshOutputsEXT。
+                if args.len() != 2 {
+                    return Err(VulkanCodegenError::unsupported(
+                        span,
+                        "mesh_set_outputs 期望 2 实参(vertex_count, primitive_count)",
+                    ));
+                }
+                let Some((vc, _, _)) = operand(b, body, &args[0])? else {
+                    return Err(VulkanCodegenError::unsupported(
+                        span,
+                        "mesh_set_outputs vertex_count 实参为零尺寸值",
+                    ));
+                };
+                let Some((pc, _, _)) = operand(b, body, &args[1])? else {
+                    return Err(VulkanCodegenError::unsupported(
+                        span,
+                        "mesh_set_outputs primitive_count 实参为零尺寸值",
+                    ));
+                };
+                emit(&mut b.func_body, OP_SET_MESH_OUTPUTS_EXT, &[vc, pc]);
+                Ok(())
+            }
+        },
+        // G4.2,RXS-0275:task intrinsic → OpEmitMeshTasksEXT。
+        // task 条件臂首期不开放(RXS-0270);compute 路径防御拒。
+        CallTarget::TaskIntrinsic(task_intr) => match task_intr {
+            TaskIntrinsic::EmitMeshTasks => {
+                if body.stage != Some(crate::ast::ShaderStage::Task) {
+                    return Err(VulkanCodegenError::unsupported(
+                        span,
+                        "task intrinsic 在 compute codegen 路径不可达(走 lower_task,RXS-0275)",
+                    ));
+                }
+                // task 条件臂首期不开放(RXS-0270):类型面预留,lowering 防御拒。
+                Err(VulkanCodegenError::unsupported(
+                    span,
+                    "task 阶段条件臂首期不开放(RXS-0270);emit_mesh_tasks lowering 待评估窗兑现",
+                ))
+            }
+        },
     }
 }
 
@@ -1268,6 +1428,92 @@ fn assemble(b: &mut Builder, entry_name: &str) -> Vec<u32> {
         &mut m,
         OP_EXECUTION_MODE,
         &[b.main_id, EXEC_MODE_LOCAL_SIZE, 1, 1, 1],
+    );
+    // decorations。
+    m.extend_from_slice(&b.decorations);
+    // types / consts / global vars。
+    m.extend_from_slice(&b.types_globals);
+    // function。
+    emit(
+        &mut m,
+        OP_FUNCTION,
+        &[void_id, b.main_id, FUNCTION_CONTROL_NONE, fn_ty],
+    );
+    emit(&mut m, OP_LABEL, &[entry_label]);
+    m.extend_from_slice(&b.func_vars);
+    m.extend_from_slice(&b.func_body);
+    emit(&mut m, OP_FUNCTION_END, &[]);
+    m
+}
+
+/// mesh 模块组装(G4.2,RXS-0275):SPIR-V 1.4 + MeshEXT 执行模型 +
+/// SPV_EXT_mesh_shader 扩展 + mesh_meta 派生的 execution modes。
+/// 镜像 [`assemble`] 的 logical layout,但 header 版本 1.4(per-entry 分叉)、
+/// capability = MeshShadingEXT、OpEntryPoint = MeshEXT、execution modes 含
+/// LocalSize/OutputVertices/OutputPrimitivesEXT/OutputTrianglesEXT。
+fn assemble_mesh(b: &mut Builder, entry_name: &str, meta: &MeshEntryMeta) -> Vec<u32> {
+    let void_id = b.t_void();
+    let fn_ty = {
+        let id = b.fresh();
+        emit(&mut b.types_globals, OP_TYPE_FUNCTION, &[id, void_id]);
+        id
+    };
+    let entry_label = b.fresh();
+    let bound = b.next_id;
+
+    let mut m: Vec<u32> = vec![
+        SPIRV_MAGIC,
+        SPIRV_VERSION_1_4,
+        SPIRV_GENERATOR,
+        bound,
+        SPIRV_SCHEMA,
+    ];
+    emit(&mut m, OP_CAPABILITY, &[CAP_MESH_SHADING_EXT]);
+    // SPV_EXT_mesh_shader extension(layout 在 memory-model 之前)。
+    let mut ext_ops = Vec::new();
+    push_string(&mut ext_ops, EXT_MESH_SHADER);
+    emit(&mut m, OP_EXTENSION, &ext_ops);
+    m.extend_from_slice(&b.ext_imports);
+    emit(
+        &mut m,
+        OP_MEMORY_MODEL,
+        &[ADDR_MODEL_LOGICAL, MEM_MODEL_GLSL450],
+    );
+    // OpEntryPoint MeshEXT %main "<entry>" <interface...>。
+    let mut ep = vec![EXEC_MODEL_MESH_EXT, b.main_id];
+    push_string(&mut ep, entry_name);
+    ep.extend_from_slice(&b.entry_interface);
+    emit(&mut m, OP_ENTRY_POINT, &ep);
+    // execution modes 自 mesh_meta(RXS-0275)。
+    emit(
+        &mut m,
+        OP_EXECUTION_MODE,
+        &[
+            b.main_id,
+            EXEC_MODE_LOCAL_SIZE,
+            meta.numthreads.0,
+            meta.numthreads.1,
+            meta.numthreads.2,
+        ],
+    );
+    emit(
+        &mut m,
+        OP_EXECUTION_MODE,
+        &[b.main_id, EXEC_MODE_OUTPUT_VERTICES, meta.max_vertices],
+    );
+    emit(
+        &mut m,
+        OP_EXECUTION_MODE,
+        &[
+            b.main_id,
+            EXEC_MODE_OUTPUT_PRIMITIVES_EXT,
+            meta.max_primitives,
+        ],
+    );
+    emit(
+        &mut m,
+        OP_EXECUTION_MODE,
+        &[b.main_id, EXEC_MODE_OUTPUT_TRIANGLES_EXT],
     );
     // decorations。
     m.extend_from_slice(&b.decorations);
@@ -1954,7 +2200,9 @@ mod tests {
     }
 
     /// mesh 入口 = MeshEXT 执行模型 + SPV_EXT_mesh_shader + OutputTrianglesEXT(§4.E5)。
+    /// RXS-0275 mesh MIR→SPIR-V lowering(lower_mesh)产出的执行模型/extension/mode 结构同此 golden。
     //@ spec: RXS-0246
+    //@ spec: RXS-0275
     #[test]
     fn mesh_entry_point_is_mesh_ext_model() {
         let words = emit_mesh_min();

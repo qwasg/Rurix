@@ -850,6 +850,18 @@ impl Cg<'_> {
                     CallTarget::Libdevice { .. } => {
                         unreachable!("CallTarget::Libdevice 仅出现在 device MIR(NVPTX codegen)")
                     }
+                    // mesh/task intrinsic(G4.2,RXS-0275)是 Vulkan device codegen
+                    // 专属,host 不产出(mesh 着色仅经 Vulkan 后端,RXS-0270/0272)。
+                    CallTarget::MeshIntrinsic(_) => {
+                        unreachable!(
+                            "CallTarget::MeshIntrinsic 仅出现在 device MIR(Vulkan codegen)"
+                        )
+                    }
+                    CallTarget::TaskIntrinsic(_) => {
+                        unreachable!(
+                            "CallTarget::TaskIntrinsic 仅出现在 device MIR(Vulkan codegen)"
+                        )
+                    }
                 }
                 let _ = writeln!(self.fns, "  br label %bb{}{}", next.0, self.dbg_suffix());
             }

@@ -207,6 +207,143 @@ impl std::error::Error for RhiError {}
 /// 图装配 `Result`(装配期错误 = 库层状态值)。
 pub type Result<T> = std::result::Result<T, RhiError>;
 
+// ── 图形 RHI 面(G4.2,RXS-0270~0273)──────────────────────────────────────────────────
+
+/// 图形资源种类(RXS-0271;cabi `rxrt_rhi_resource` 类枚举 0~5 的 host 侧映射)。
+///
+/// `color_target`/`depth_target`/`texture2d` 为**资源状态访问**类(参 barrier 推导);
+/// `sampler`/`texture_table` 为**无状态访问**类(RXS-0273:只核绑定完备性,不参 barrier 状态)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GfxResourceKind {
+    /// `color_target(w,h)`:RGBA8 color attachment(transient image)。
+    Color,
+    /// `depth_target(w,h)`:D32F depth attachment(transient image)。
+    Depth,
+    /// `texture2d(w,h)`:RGBA8 可采样纹理(SRV image)。
+    Texture,
+    /// `sampler(desc)`:采样器状态对象(无资源状态)。
+    Sampler,
+    /// `texture_table()`:无界纹理注册表(bindless,无资源状态;RXS-0276)。
+    Table,
+}
+
+impl GfxResourceKind {
+    /// 是否为资源状态访问类(参 barrier 推导;RXS-0273 barrier 相等域)。
+    #[must_use]
+    pub fn has_state(self) -> bool {
+        matches!(
+            self,
+            GfxResourceKind::Color | GfxResourceKind::Depth | GfxResourceKind::Texture
+        )
+    }
+}
+
+/// 图形 pass 阶段(RXS-0270):raster(vertex+fragment)或 mesh(mesh+fragment)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GfxPassStage {
+    /// `raster_pass(vs, fs)`:vertex + fragment 着色对。
+    Raster,
+    /// `mesh_pass(ms, fs)`:mesh + fragment 着色对(RXS-0243 入口契约)。
+    Mesh,
+}
+
+/// 图形 pass 记录(RXS-0270/0272;桥接 `graph.rs::PassSpec` 的 RHI 侧建面)。
+///
+/// 资源状态访问声明(`writes_rt`/`writes_depth`/`reads`/`reads_writes_uav`/`present`)经
+/// [`crate::graph::AccessKind`] 单源表达(封闭枚举镜像 RXS-0236);sampler/table 绑定声明
+/// 另记 [`GfxPassRecord::bindings`](无资源状态,RXS-0273)。seal 时桥接 `graph.rs::Graph`。
+#[derive(Debug, Clone)]
+pub struct GfxPassRecord {
+    /// pass 诊断名。
+    pub name: String,
+    /// pass 阶段(raster / mesh)。
+    pub stage: GfxPassStage,
+    /// 资源状态访问声明(bridge to `graph.rs::AccessKind` single source;RXS-0272)。
+    pub accesses: Vec<crate::graph::Access>,
+    /// 采样器/table 绑定声明(无资源状态;RXS-0273 绑定完备性核验)。
+    pub bindings: Vec<ResourceId>,
+    /// 可选反射面(RXS-0273 声明↔反射双向相等;含 sampler/table 但标「无状态访问」类)。
+    pub reflection: Option<Vec<ResourceId>>,
+    /// present 终端声明(RXS-0272:每图 ≤1,且必须为声明序末 pass)。
+    pub present: Option<ResourceId>,
+}
+
+impl GfxPassRecord {
+    /// 新建具名图形 pass。
+    #[must_use]
+    pub fn new(name: &str, stage: GfxPassStage) -> GfxPassRecord {
+        GfxPassRecord {
+            name: name.to_owned(),
+            stage,
+            accesses: Vec::new(),
+            bindings: Vec::new(),
+            reflection: None,
+            present: None,
+        }
+    }
+
+    /// `writes_rt(&res)`:color attachment 写(RXS-0272)。
+    #[must_use]
+    pub fn writes_rt(mut self, res: ResourceId) -> GfxPassRecord {
+        self.accesses.push(crate::graph::Access {
+            resource: crate::graph::ResourceId(res.0),
+            kind: crate::graph::AccessKind::ColorAttachmentWrite,
+        });
+        self
+    }
+
+    /// `writes_depth(&res)`:depth attachment 写(RXS-0272)。
+    #[must_use]
+    pub fn writes_depth(mut self, res: ResourceId) -> GfxPassRecord {
+        self.accesses.push(crate::graph::Access {
+            resource: crate::graph::ResourceId(res.0),
+            kind: crate::graph::AccessKind::DepthAttachmentWrite,
+        });
+        self
+    }
+
+    /// `reads(&res)`:shader 资源读(含采样纹理;RXS-0272)。
+    #[must_use]
+    pub fn reads(mut self, res: ResourceId) -> GfxPassRecord {
+        self.accesses.push(crate::graph::Access {
+            resource: crate::graph::ResourceId(res.0),
+            kind: crate::graph::AccessKind::ShaderRead,
+        });
+        self
+    }
+
+    /// `reads_writes_uav(&res)`:UAV 读写合并(RXS-0272)。
+    #[must_use]
+    pub fn reads_writes_uav(mut self, res: ResourceId) -> GfxPassRecord {
+        self.accesses.push(crate::graph::Access {
+            resource: crate::graph::ResourceId(res.0),
+            kind: crate::graph::AccessKind::UavReadWrite,
+        });
+        self
+    }
+
+    /// `binds_sampler(&res)`:采样器/table 绑定声明(非资源状态访问;RXS-0272/0273)。
+    #[must_use]
+    pub fn binds_sampler(mut self, res: ResourceId) -> GfxPassRecord {
+        self.bindings.push(res);
+        self
+    }
+
+    /// `present(&res)`:呈现终端 handoff(RXS-0272:每图 ≤1,且必须为声明序末 pass)。
+    #[must_use]
+    pub fn present(mut self, res: ResourceId) -> GfxPassRecord {
+        self.present = Some(res);
+        self
+    }
+
+    /// 附加反射面(RXS-0273 声明↔反射双向相等核验开启;含 sampler/table)。
+    #[must_use]
+    pub fn with_reflection(mut self, resources: Vec<ResourceId>) -> GfxPassRecord {
+        self.reflection = Some(resources);
+        self
+    }
+}
+
 // ── RhiGraph 本体 ──────────────────────────────────────────────────────────────────
 
 /// UC-05 RHI host 本体:资源表 + 声明序 pass 序列 + 装配核验 + hazard 推导。
@@ -214,6 +351,12 @@ pub type Result<T> = std::result::Result<T, RhiError>;
 /// 生命周期:建面(`resource` + `add_pass`)→ `seal()`(装配核验,一次性)→ `derive_syncs()`
 /// (纯函数推导)。`execute()` = seal + derive + 生命周期封口(二次 execute → Structure)。
 /// 零 GPU 依赖:执行(真实 barrier/dispatch)归 engine_host 侧,本模块只产计划。
+///
+/// **G4.2 图形 RHI 扩面(RXS-0270~0273)**:图形资源(`color_target`/`depth_target`/
+/// `texture2d`/`sampler`/`texture_table`)与图形 pass(`raster_pass`/`mesh_pass`)经
+/// `seal()` 桥接 `graph.rs::Graph`(同 crate 直接构造,`AccessKind` 单源复用,无 cabi
+/// marshalling)→ `derive_barriers()` 产 `PlannedBarrier`。compute-only 图维持
+/// `derive_syncs()` CUDA 既有路 **0-byte**(无图形 pass/resource 时 gfx 桥接为 no-op)。
 #[derive(Debug, Clone, Default)]
 pub struct RhiGraph {
     /// 资源诊断名表(下标 = [`ResourceId`])。
@@ -222,6 +365,14 @@ pub struct RhiGraph {
     passes: Vec<PassSpec>,
     sealed: bool,
     executed: bool,
+    /// 资源种类表(与 `resources` 平行;G4.2 图形资源面 RXS-0271)。
+    /// 默认(compute UAV buffer)为 `None`;图形资源为 `Some(kind)`。
+    resource_kinds: Vec<Option<GfxResourceKind>>,
+    /// 图形 pass 序列(G4.2,RXS-0270;与 compute `passes` 并列,声明序 = 提交序)。
+    gfx_passes: Vec<GfxPassRecord>,
+    /// 图形 barrier 推导产物(`seal()` 桥接 `graph.rs::derive_barriers` 产;RXS-0272)。
+    /// compute-only 图(无 gfx pass)为空——`derive_syncs` 0-byte 不受影响。
+    gfx_barriers: Vec<crate::graph::PlannedBarrier>,
 }
 
 impl RhiGraph {
@@ -235,7 +386,41 @@ impl RhiGraph {
     pub fn resource(&mut self, name: &str) -> ResourceId {
         let id = ResourceId(u32::try_from(self.resources.len()).unwrap_or(u32::MAX));
         self.resources.push(name.to_owned());
+        self.resource_kinds.push(None);
         id
+    }
+
+    /// 分配一个图形资源(RXS-0271),返回稳定单调 [`ResourceId`]。
+    fn gfx_resource(&mut self, name: &str, kind: GfxResourceKind) -> ResourceId {
+        let id = ResourceId(u32::try_from(self.resources.len()).unwrap_or(u32::MAX));
+        self.resources.push(name.to_owned());
+        self.resource_kinds.push(Some(kind));
+        id
+    }
+
+    /// `color_target(w, h)`:RGBA8 color attachment(transient image;RXS-0271)。
+    pub fn color_target(&mut self, name: &str, _w: u32, _h: u32) -> ResourceId {
+        self.gfx_resource(name, GfxResourceKind::Color)
+    }
+
+    /// `depth_target(w, h)`:D32F depth attachment(transient image;RXS-0271)。
+    pub fn depth_target(&mut self, name: &str, _w: u32, _h: u32) -> ResourceId {
+        self.gfx_resource(name, GfxResourceKind::Depth)
+    }
+
+    /// `texture2d(w, h)`:RGBA8 可采样纹理(SRV image;RXS-0271)。
+    pub fn texture2d(&mut self, name: &str, _w: u32, _h: u32) -> ResourceId {
+        self.gfx_resource(name, GfxResourceKind::Texture)
+    }
+
+    /// `sampler(desc)`:采样器状态对象(无资源状态;RXS-0271)。
+    pub fn sampler(&mut self, name: &str) -> ResourceId {
+        self.gfx_resource(name, GfxResourceKind::Sampler)
+    }
+
+    /// `texture_table()`:无界纹理注册表(bindless,无资源状态;RXS-0271/0276)。
+    pub fn texture_table(&mut self, name: &str) -> ResourceId {
+        self.gfx_resource(name, GfxResourceKind::Table)
     }
 
     fn resource_name(&self, id: ResourceId) -> String {
@@ -259,10 +444,26 @@ impl RhiGraph {
         Ok(())
     }
 
+    /// 追加一个图形 pass(G4.2,RXS-0270;声明序 = 提交序)。seal 后追加 → Structure。
+    ///
+    /// # Errors
+    /// seal 后追加 pass → [`RhiError::Structure`]。
+    pub fn add_gfx_pass(&mut self, pass: GfxPassRecord) -> Result<()> {
+        if self.sealed {
+            return Err(RhiError::Structure {
+                detail: format!("seal 后追加 gfx pass `{}`(生命周期误用)", pass.name),
+            });
+        }
+        self.gfx_passes.push(pass);
+        Ok(())
+    }
+
     /// 装配期确定性核验(strict-only,一次性)。违例 → [`RhiError`]。
     ///
     /// 核验:① 空图 / 二次 seal(生命周期)② per-pass 同资源多次声明(写写 / 读写冲突,I5)
-    /// ③ 读未写(依赖环 = use-before-write 可达形态,I3)④ 声明-反射双向精确相等(有反射时,I4)。
+    /// ③ 读未写(依赖环 = use-before-write 可达形态,I3)④ 声明-反射双向精确相等(有反射时,I4)
+    /// ⑤ gfx present 唯一且末位(RXS-0272)⑥ gfx pass per-pass 同资源多次声明(I5)
+    /// ⑦ gfx 声明↔反射双向相等(资源状态访问域;RXS-0273)⑧ gfx 桥接 graph.rs derive_barriers。
     ///
     /// # Errors
     /// 图结构违例(I3/I5/生命周期)→ [`RhiError::Structure`];声明-反射失配(I4)→
@@ -273,7 +474,7 @@ impl RhiGraph {
                 detail: "重复 seal(生命周期误用)".to_owned(),
             });
         }
-        if self.passes.is_empty() {
+        if self.passes.is_empty() && self.gfx_passes.is_empty() {
             return Err(RhiError::Structure {
                 detail: "空图 seal/submit(生命周期误用)".to_owned(),
             });
@@ -335,7 +536,170 @@ impl RhiGraph {
             }
         }
 
+        // ── G4.2 图形 pass 装配核验 + 桥接 graph.rs(RXS-0270~0273)──────────────────
+        // compute-only 图(无 gfx_passes)跳过本段,gfx_barriers 维持空 → derive_syncs 0-byte。
+        if !self.gfx_passes.is_empty() {
+            self.seal_gfx(&mut written)?;
+        }
+
         self.sealed = true;
+        Ok(())
+    }
+
+    /// 图形 pass 装配核验 + 桥接 `graph.rs::Graph`(G4.2,RXS-0272/0273)。
+    ///
+    /// 核验:⑤ present 唯一且末位 ⑥ per-pass 同资源多次声明(I5)⑦ 声明↔反射双向相等
+    /// (资源状态访问域 + sampler/table 绑定完备性)⑧ 桥接 `graph.rs::derive_barriers`。
+    /// `written` 继承 compute pass 已写集(混合图 compute→gfx 跨阶段依赖)。
+    fn seal_gfx(&mut self, written: &mut BTreeSet<u32>) -> Result<()> {
+        use crate::graph;
+
+        // ⑤ present 唯一性(RXS-0272:每图 ≤1)。
+        let present_count = self
+            .gfx_passes
+            .iter()
+            .filter(|p| p.present.is_some())
+            .count();
+        if present_count > 1 {
+            return Err(RhiError::Structure {
+                detail: format!("图含 {present_count} 个 present 终端(每图 ≤1,RXS-0272)"),
+            });
+        }
+        // present 末位:若存在,必须在最后一个 gfx pass。
+        if present_count == 1
+            && self
+                .gfx_passes
+                .last()
+                .map(|p| p.present.is_none())
+                .unwrap_or(true)
+        {
+            return Err(RhiError::Structure {
+                detail: "present 终端不在声明序末位(RXS-0272)".to_owned(),
+            });
+        }
+
+        for pass in &self.gfx_passes {
+            // ⑥ per-pass 同资源多次声明(I5;资源状态访问域)。
+            let mut seen: BTreeSet<u32> = BTreeSet::new();
+            for a in &pass.accesses {
+                if !seen.insert(a.resource.0) {
+                    return Err(RhiError::Structure {
+                        detail: format!(
+                            "gfx pass `{}` 对资源 `{}` 多次声明访问(写写 / 读写冲突,I5)",
+                            pass.name,
+                            self.resource_name(ResourceId(a.resource.0))
+                        ),
+                    });
+                }
+            }
+
+            // ③ gfx 读未写(I3;含跨 compute→gfx 的 written 集继承)。
+            for a in &pass.accesses {
+                if a.kind.is_consuming_read() && !written.contains(&a.resource.0) {
+                    return Err(RhiError::Structure {
+                        detail: format!(
+                            "gfx pass `{}` 读资源 `{}` 但无先前 pass 写入(依赖环 / use-before-write,I3)",
+                            pass.name,
+                            self.resource_name(ResourceId(a.resource.0))
+                        ),
+                    });
+                }
+            }
+
+            // ⑦ 声明↔反射双向精确相等(RXS-0273;资源状态访问域 = color/depth/texture/uav,
+            //    sampler/table 计入反射但标「无状态访问」类——barrier 相等域只核状态访问资源,
+            //    sampler/table 另核绑定完备性)。
+            if let Some(refl) = &pass.reflection {
+                let declared_state: BTreeSet<u32> =
+                    pass.accesses.iter().map(|a| a.resource.0).collect();
+                let reflected_state: BTreeSet<u32> = refl
+                    .iter()
+                    .filter(|r| {
+                        self.resource_kinds
+                            .get(r.0 as usize)
+                            .copied()
+                            .flatten()
+                            .is_none_or(|k| k.has_state())
+                    })
+                    .map(|r| r.0)
+                    .collect();
+                if declared_state != reflected_state {
+                    let missing: Vec<u32> = reflected_state
+                        .difference(&declared_state)
+                        .copied()
+                        .collect();
+                    let unused: Vec<u32> = declared_state
+                        .difference(&reflected_state)
+                        .copied()
+                        .collect();
+                    return Err(RhiError::ReflectionMismatch {
+                        detail: format!(
+                            "gfx pass `{}` 声明-反射失配(RXS-0273):漏声明(反射有声明无)={missing:?} / \
+                             声明未用(声明有反射无)={unused:?}",
+                            pass.name
+                        ),
+                    });
+                }
+            }
+
+            // 本 gfx pass 的写更新 written 集。
+            for a in &pass.accesses {
+                if a.kind.is_write() {
+                    written.insert(a.resource.0);
+                }
+            }
+        }
+
+        // ⑧ 桥接 graph.rs::Graph(同 crate 直接构造,AccessKind 单源复用,无 cabi marshalling)。
+        let mut gfx_graph = graph::Graph::new();
+        // 资源映射:RHI ResourceId → graph.rs ResourceId(按 RHI 资源序同步重建)。
+        let mut res_map: Vec<graph::ResourceId> = Vec::with_capacity(self.resources.len());
+        for (i, kind) in self.resource_kinds.iter().enumerate() {
+            let name = self
+                .resources
+                .get(i)
+                .cloned()
+                .unwrap_or_else(|| format!("res#{i}"));
+            let gid = match kind {
+                Some(GfxResourceKind::Color) => gfx_graph.color_target(&name),
+                Some(GfxResourceKind::Depth) => gfx_graph.depth_target(&name),
+                Some(GfxResourceKind::Texture) => gfx_graph.sampled_texture(&name),
+                // sampler / table / None(compute UAV)→ uav_buffer(buffer,COMMON;无 layout)。
+                // compute UAV 在混合图中 reads→ShaderRead / writes→UavReadWrite(RXS-0272 映射)。
+                _ => gfx_graph.uav_buffer(&name),
+            };
+            res_map.push(gid);
+        }
+
+        // gfx pass → graph.rs::PassSpec(声明序 = 提交序;AccessKind 单源直传)。
+        for gfx_pass in &self.gfx_passes {
+            let mut ps = graph::PassSpec::new(&gfx_pass.name);
+            for a in &gfx_pass.accesses {
+                let rhi_rid = ResourceId(a.resource.0);
+                let gid = res_map
+                    .get(rhi_rid.0 as usize)
+                    .copied()
+                    .unwrap_or(graph::ResourceId(a.resource.0));
+                ps = ps.with(gid, a.kind);
+            }
+            // present 终端 handoff → PresentHandoff 声明(RXS-0272)。
+            if let Some(present_rid) = gfx_pass.present {
+                let gid = res_map
+                    .get(present_rid.0 as usize)
+                    .copied()
+                    .unwrap_or(graph::ResourceId(present_rid.0));
+                ps = ps.present_handoff(gid);
+            }
+            gfx_graph.add_pass(ps).map_err(|e| RhiError::Structure {
+                detail: format!("gfx 桥接 graph.rs: {e}"),
+            })?;
+        }
+
+        // graph.rs 装配核验 + derive_barriers(纯函数;同图 → 逐字节相同计划,golden 可锚)。
+        gfx_graph.seal().map_err(|e| RhiError::Structure {
+            detail: format!("gfx 桥接 graph.rs seal: {e}"),
+        })?;
+        self.gfx_barriers = gfx_graph.derive_barriers();
         Ok(())
     }
 
@@ -401,6 +765,29 @@ impl RhiGraph {
         let plan = self.derive_syncs();
         self.executed = true;
         Ok(plan)
+    }
+
+    /// 图形 barrier 推导产物(G4.2,RXS-0272;`seal()` 桥接 `graph.rs::derive_barriers` 产)。
+    /// 供 Vulkan 执行器逐字重放(禁二次推导,P-11)。compute-only 图(无 gfx pass)为空。
+    /// 调用前须 `seal()`(未 seal → 返回空切片)。
+    #[must_use]
+    pub fn derive_gfx_barriers(&self) -> &[crate::graph::PlannedBarrier] {
+        if !self.sealed {
+            return &[];
+        }
+        &self.gfx_barriers
+    }
+
+    /// 图形 pass 数(G4.2,RXS-0270;执行器录制用)。
+    #[must_use]
+    pub fn gfx_pass_count(&self) -> usize {
+        self.gfx_passes.len()
+    }
+
+    /// 是否含图形 pass(G4.2,RXS-0272:含图形 pass 的图仅经 Vulkan 后端执行)。
+    #[must_use]
+    pub fn has_graphics(&self) -> bool {
+        !self.gfx_passes.is_empty()
     }
 
     /// pass 数(执行器录制用)。
