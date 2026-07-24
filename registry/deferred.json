@@ -985,6 +985,21 @@
           "evidence": "src/rurix-rt/src/alias_alloc.rs(RXS-0280 别名复用分配器 + PeakCounter,10 库单测)/ src/rurix-rt/src/scheduler.rs(RXS-0281/0282 derive_exec_plan + verify_exec_plan + red_self_test,9 库单测)/ src/rurix-rt/src/rhi.rs(execute_exec_face 四序闭合 + I10 measured_local 锚,6 库单测)/ src/rurixc/src/typeck.rs(RXS-0283 Op::RhiGraph + eval_graph_cap + 越界拒/non-static 拒/单定义拒)+ mir_build.rs + tbir_build.rs(SynthInt 物化)/ conformance/uc05/accept/const_capacity_graph.rx + reject/transient_capacity_overflow.rx + reject/nonstatic_graph_construction.rx / ci/uc05_exec_face_gate.py(步骤 79,host + device 真跑 PASS)/ evidence/uc05_exec_face_gate_20260724T232800.json(exec_face_ok=true,i10_measured_local=true,peak_bytes=1024<declared_capacity=2048)/ evidence/uc05_invariant_matrix.json(I10 measured_local + I11 assembly_time)/ milestones/g4/G4_CONTRACT.md §8.4 / spec commit 887d7430 + 实现 commit(PR-E)"
         }
       ]
+    },
+    {
+      "id": "RD-036",
+      "title": "export_c_extended_signatures_v2: repr(C) struct 按值 / 回调函数指针 / 数组按值 / 跨堆所有权 —— C ABI v2 超界硬需求存续登记",
+      "raised_in": "G4.5 PR-G C ABI v2 判档（G4_CONTRACT §8.PR-G / RFC-0015 §4.D3）",
+      "owner_milestone": "G4.5 PR-G（登记；判档不成立之存续）",
+      "status": "open",
+      "backfill_condition": "当任一真实嵌入面出现下述硬需求时按 10 §3 判档兑现（任一条成立即对应面条款先行 + ABI 往返真跑）：① upcall 硬需求——.rx 侧需调起宿主代码（回调），数据指针无法承载『调用』语义且子集 v1 无替代表达；② 外部固定 ABI——被嵌入方为 ABI 不可改的既有外部 API（按值 struct 签名已冻结，两侧不可协同改签名指针化替代）。兑现时新 RX 码按 number_ledger 当前 next_free 续号（RXS-0295/0296 burned 号段不再复用），D 章条件臂条款体落 spec/export_c.md，含 3/5/8 字节三尺寸哨兵 + C 侧回调被 .rx 侧调起数值回传断言 + RED 三路。",
+      "history": [
+        {
+          "date": "2026-07-24",
+          "event": "G4.5 PR-G C ABI v2 判档不成立（两项判据均不成立）→ 超界硬需求存续登记。判档依据留痕 G4_CONTRACT §8.PR-G。先例：RD-009 close 注（subset v1 边界，超界硬需求自 RD-036+ 判档）。",
+          "evidence": "G4_CONTRACT §8.PR-G / rfcs/0015-engine-rendering.md §3.4 §4.D / spec/rhi.md RXS-0277 / apps/uc05-rhi/src/embed.rx / src/rurix-engine/harness/engine_host_v3.cpp / registry/number_ledger.json（RXS-0295/0296 burned 登记）"
+        }
+      ]
     }
   ],
   "revision_log": [

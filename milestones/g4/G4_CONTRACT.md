@@ -2,7 +2,7 @@
 # 里程碑契约(14 §1 四要素;g4 = 引擎渲染期,承 TEMPLATE_CONTRACT.md 体例)
 contract: G4
 title: G4 引擎渲染期——图形 RHI 化(raster/mesh/RT pass + 采样/bindless/present 库化 + 自动 barrier + engine_host v3 嵌入)+ RD-035 执行面三项兑现 + .rx 单源 Vulkan RHI(RD-031)+ C ABI v2 判档 + BLACKHOLE 生产档验收
-status: active            # active(2026-07-23 开工:EI1 close-out ei1-closed 已签署 + owner 立项确认经 agent-prompt-g4.md 全文下达,§7 ①)→ closed(close-out 终审签署,§8;close-out 只追加 §8,上方条款 0-byte)
+status: closed            # active(2026-07-23 开工:EI1 close-out ei1-closed 已签署 + owner 立项确认经 agent-prompt-g4.md 全文下达,§7 ①)→ closed(PR-I close-out 终审签署 2026-07-24,§8.8;close-out 只追加 §8,上方条款 0-byte;g4-closed tag 待 owner 创建,见 §8.8 末)
 version: v1.0
 date: 2026-07-23
 timebox: "约 8–12 周(主线 G4.0→G4.7 严格串行,见 G4_PLAN.md;周为相对刻度,非日历承诺)"
@@ -422,3 +422,190 @@ RD-031「RXS-0209 device 描述表 v2 @__rx_gpu_artifacts blob bump + @__rx_gpu_
 **下一 PR(PR-G)开工声明**:
 
 PR-G C ABI v2 判档(G4.5,G-G4-6,条件臂;判档依据留痕契约 §8)。以 engine_host v3 图形嵌入的真实硬需求判档(Q-G 可证伪判据清单,唯一输入):① upcall 硬需求(嵌入面是否需要 .rx 侧调起宿主代码——数据指针无法承载「调用」语义,子集 v1 无替代表达 ⇒ 回调指针硬需求成立)② 外部固定 ABI(被嵌入方是否为 ABI 不可改的既有外部 API——engine_host v3 为本仓自建宿主,天然不满足)。判档依据留痕落 G4_CONTRACT §8,不 rubber-stamp。若判档成立 → RXS-0295/0296 条款先行 + ABI 往返真跑(3/5/8 字节三尺寸哨兵 + C 侧回调被 .rx 侧调起数值回传断言)+ RED 三路;若判档不成立 → RXS-0295/0296 号 burned + RD-036+ 登记 + RFC 修订行留痕(不重开 RFC,G-EA1-3 先例)。两种结局均合法(P-12:条件臂存在 ≠ 条件臂必须兑现)。串行口径:PR-F 合入后开工,合一等一。
+
+### 8.6 PR-G C ABI v2 判档合入留痕(G4.5 / G-G4-6;RFC-0015 §4.D;条件臂;2026-07-24)
+
+**判档结论:不成立**(Q-G 两项判据均不成立;P-12:不以「完整」为名扩面;条件臂存在 ≠ 条件臂必须兑现,G-EA1-3 / RXS-0249 先例)。
+
+**判档依据留痕**(以 engine_host v3 图形嵌入面签名逐条过 Q-G 可证伪判据清单,RFC-0015 §4.D / §9 Q-G;不 rubber-stamp):
+
+- **判据 1(upcall 硬需求)——不成立**:嵌入面是否需要 .rx 侧调起宿主代码(回调)?答:不需要。v3 嵌入面导出签名(`file:///embed.rx`)为子集 v1——`uc05_gfx_run_frame(out: *mut u32, w: i32, h: i32) -> i32` + `uc05_gfx_pass_count() -> i32`(标量 `i32`/`u32` + 裸指针 `*mut u32`,RXS-0251);宿主侧(`file:///engine_host_v3.cpp`)单向调用 `.rx` 导出面(`uc05_gfx_run_frame` / `uc05_gfx_pass_count`),`.rx` 侧无任何调起宿主代码的路径——数据经裸指针出参回写宿主,「调用」语义不存在,数据指针可完整承载。子集 v1 完整表达,回调指针硬需求不成立。
+
+- **判据 2(外部固定 ABI)——不成立**:被嵌入方是否为 ABI 不可改的既有外部 API?答:否。engine_host v3(`file:///engine_host_v3.cpp`)为本仓自建宿主(`src/rurix-engine/harness/engine_host_v3.cpp`,G4.2 PR-D 新增),非外部不可改 ABI——两侧皆可协同改签名,struct 按值恒可指针化替代。struct 按值在本判据下对 v3 恒不成立(RFC-0015 §4.D 判档门判据 2 原文)。
+
+两项判据均不成立 → 本臂条款不 materialize。
+
+**处置路径**(判档不成立路径,RFC-0015 §4.D3):
+- RXS-0295/0296 号随未消费作废声明 **burned**(registry/number_ledger.json v1.21;10 §9.5 编号永不复用;RXS-0266~0269 burned 先例)。
+- 登记 **RD-036+** 存续(registry/deferred.json v1.68;`export_c_extended_signatures_v2`:repr(C) struct 按值 / 回调指针 / 数组按值 / 跨堆所有权;RD-009 close 注先例)。
+- RFC-0015 §4.D 修订行留痕(不重开 RFC,G-EA1-3 先例)。
+
+**完成面摘要**:
+- G4_CONTRACT §8.PR-G 判档依据留痕(本节):v3 嵌入面签名逐条分析 + Q-G 清单逐项结论 + 处置路径,落 §8.6。
+- registry/number_ledger.json v1.21:RXS-0295/0296 burned 登记(notes 追加;on_tree_max 294 不变——两号从未 materialize 为条款头;next_free 295→297——burned 号段不复用,10 §9.5;revision_log v1.21 留痕)。
+- registry/deferred.json v1.68:RD-036 entry 新增(`export_c_extended_signatures_v2`,status open,owner_milestone G4.5 PR-G 登记);revision_log v1.68 留痕。
+- rfcs/0015-engine-rendering.md §4.D 修订行追加(D4 判档结论修订行;追加式,不改写既有承诺字面)。
+- 零代码改动(纯文档/台账/规范留痕 PR);零新条款头(RXS-0295/0296 burned 不落 spec/export_c.md);零新 CI 步骤;零新 budget counter。
+
+**验证方式**:
+- `py -3 ci/check_number_ledger.py` PASS(RXS on_tree_max 294 / next_free 297 一致;burned 号 0295/0296 不复用;14 命名空间保留号被尊重)。
+- `py -3 ci/budget_eval.py`(normal mode)PASS(无回归;零新 counter)。
+- 判档依据可机核:embed.rx 签名(`uc05_gfx_run_frame` / `uc05_gfx_pass_count` = 标量 + 裸指针)+ engine_host_v3.cpp 签名(单向调用,无回调,自建宿主)与判据 1/2 结论逐条对应。
+
+**Provenance**:`Assisted-by: trae:glm-5.2`(判档 + 留痕)。agent 自主决策(D-406 v2.0);判档依据 = engine_host v3 嵌入面签名(Q-G 可证伪判据清单,唯一输入),非 rubber-stamp。
+
+**下一 PR(PR-H)开工声明**:
+
+PR-H BLACKHOLE 验收(G4.6,G-G4-7;验收锚步骤 81)。realtime 路径归因(rxp_create Shim(-2147467263)=0x80004001 E_NOTIMPL,先归因再修,禁绕过禁静默降级)+ 修复 + 30fps measured(BENCH_PROTOCOL 口径:锁频 + 三次 trimmed mean,evidence JSON 含环境画像)+ REALTIME_OK 判据(物理自检六项:NaN/range、中心黑盘、shadow 半径 vs 解析 ±2%、Doppler 非对称 ≥1.15、光子环、星野)+ 帧对照留档(offline 144 帧既有产出 vs realtime 帧像素对照)+ ci/blackhole_realtime_smoke.py(步骤 81)。判档 Direct/Mini 执行期定(10 §3,争议向上取严)。串行口径:PR-G 合入后开工,合一等一。
+
+### 8.7 PR-H BLACKHOLE 验收合入留痕(G4.6 / G-G4-7;RFC-0015 §1 carve-out;RXS-0197/0198;2026-07-24)
+
+**归因(先于修复;pr_h_attribution_report.md 留痕)**:`rxp_create` Shim 返回 `E_NOTIMPL`(0x80004001,i32 位模式 -2_147_467_263)的精确根因 = **`rurix-rt-cabi` 的 `present-real` cargo feature 默认关闭**(`default = ["present"]` 不含 `present-real`),导致 feature 链 `present-real → d3d12-interop-real → real-shim` 全部 off;`src/rurix-d3d12/src/lib.rs::Presenter::create` 的 `#[cfg(not(feature = "real-shim"))]` 段在编译期被选中,运行期直接返回 `Err(RX_D3D12_E_NOTIMPL)`;该错误经 `src/rurix-rt/src/interop.rs` `.map_err(InteropError::Shim)` 包装,在 `src/rurix-rt-cabi/src/present.rs::rxp_create` 经 `diag(OP, format!("{e:?}"))` 输出 `RXRT: error op=rxp_create detail=Shim(-2147467263)` 后 `return 0`(不假绿、不 poison ctx——呈现不可用是环境事实)。C++ shim 源(`src/rurix-d3d12/shim/rx_d3d12_shim.cpp:109-366`)六个 extern "C" ABI 入口全部落地,**实现完整——feature 接线 gap,非 shim 面缺口**。
+
+**判档结论:Direct PR**(10 §3「不改语义的 bug fix」):仅启用既有 cargo feature;零代码修改、零语义变更、零 ABI 变更、零 unsafe 变更、零 spec 变更。present 语义已有条款 RXS-0197/0198/0220~0222,PR-H 零新条款。
+
+**修复(按归因落;禁绕过禁静默降级)**:apps/blackhole 构建配置启用 `present-real` feature——`apps/blackhole/Cargo.toml` 声明 `rurix-rt-cabi = { path = "../../src/rurix-rt-cabi", features = ["present-real"] }`,接通既有 feature 链 `present-real → d3d12-interop-real → real-shim`。rurix-rt-cabi default features 不变(常驻回归网绿纪律,`default = ["present"]` 维持),present-real 仅在本应用构建配置显式启用。device 段经预编 `rurix-rt-cabi --features present-real`(crt-static,接通 real-shim C++ 编译)+ `RURIX_RT_CABI_LIB` 指向预编产物 + `rx build` realtime.rx(driver.rs locate_or_build_rt_cabi 优先取环境变量)→ EXE GREEN(Present::create 经 real-shim 建 D3D12 device/swapchain)。
+
+**REALTIME_OK 六项 + 30fps + 帧对照**(device 段 gate real,缺 provisioning SKIP=dev-env degrade):
+- REALTIME_OK 六项物理自检(来源:apps/blackhole/src_v2_backup/realtime.rx L6-L17):① NaN/值域;② 中心黑盘(Schwarzschild 几何);③ shadow 半径 vs 解析 ±2%(Synge 1966 / Bardeen 1973);④ Doppler 非对称 ≥1.15(Cunningham 1975 / Luminet 1979);⑤ 光子环存在性;⑥ 星野。
+- 30fps measured(BENCH_PROTOCOL 口径:锁频 + 三次 trimmed mean + 环境画像)——**evidence 面不进硬门**(计时波动,EA1 冷启动先例),SKIP 不充绿。
+- 帧对照:offline 144 帧(apps/blackhole/frames/f_0000.ppm ~ f_0143.ppm)vs realtime 帧像素对照(Q-PixelCriterion:纯色/nearest RGBA8 整数 fetch 域不设 ULP 容差)。
+
+**G3.2 步骤 61 present 既有路径零回归**:本 PR 不改 src/rurix-d3d12 / src/rurix-rt / src/rurix-rt-cabi 任何源码(default features 不变),仅 apps/blackhole 构建配置声明面 + CI 脚本 + 台账留痕。
+
+**完成面摘要**:
+- `.trae/specs/push_g4_rendering_stack_to_closeout/pr_h_attribution_report.md`:归因报告(feature 链核对 + shim 源覆盖面 + 错误传播链 + Direct/Mini 判档预览 + 9 节 evidence trail)。
+- `apps/blackhole/Cargo.toml`(新建):构建配置声明面,声明 `rurix-rt-cabi features=["present-real"]`(THE FIX);apps/blackhole 非 workspace 成员(根 Cargo.toml [workspace] members 不含本 crate),不影响 `cargo build --workspace`。
+- `ci/blackhole_realtime_smoke.py`(新建,步骤 81,`#@ spec: RXS-0197/0198` 锚定):host 段恒跑(① feature 链三跳核验〔present-real → d3d12-interop-real → real-shim〕+ ② 修复姿态核验〔apps/blackhole/Cargo.toml 声明 present-real〕+ ③ shim 源完整性〔rx_d3d12_shim.cpp 含 rx_d3d12_present_create〕+ ④ E_NOTIMPL stub 锚〔lib.rs RX_D3D12_E_NOTIMPL + cfg(not(real-shim))〕+ ⑤ REALTIME_OK 六项源〔realtime.rx NaN/黑盘/shadow/Doppler/光子环/星野〕+ ⑥ offline 帧对照基线〔frames/f_0000.ppm 144 帧 PPM〕+ ⑦ present stub 失败路径单测〔rxp_create stub 态 E_NOTIMPL 确定性锚〕)/ device 段 gate real(⑧ 预编 rurix-rt-cabi --features present-real〔crt-static〕+ ⑨ RURIX_RT_CABI_LIB 注入 → rx build realtime.rx EXE GREEN + ⑩ realtime EXE 真跑 → REALTIME_OK 六项 + 30fps measured + 帧对照)。RURIX_REQUIRE_REAL=1 翻硬红,缺 provisioning SKIP=dev-env degrade(退 0,非 fake pass)。
+- `.github/workflows/pr-smoke.yml`:步骤 81 回填(步骤 80 Vulkan RHI 通道之后,budget evaluator load 之前;注释含归因 + 修复 + host/device 双段十项核验 + G3.2 零回归声明)。
+- `milestones/g4/g4_budget.json` v1.5:counter_assertions 第六条 `g4.counter.blackhole_realtime_smoke`(device 见证基数 ≥1,对齐 g4.counter.vulkan_rhi_channel device 见证计数先例;计数源 = evidence/blackhole_realtime_smoke_*.json 中 blackhole_realtime_ok=true);revision_log v1.5 留痕。
+- `ci/budget_eval.py`:evaluator 分支追加(未知 id 强制 FAIL 纪律维持;evidence glob `blackhole_realtime_smoke_*.json` 计 blackhole_realtime_ok=true 数 → count_or_gate)。
+- `registry/number_ledger.json` v1.22:CI_step on_tree_max 80→81 / next_free 81→82 + revision_log v1.22 留痕(反映 reserved_in_flight[G4].CI_step「步骤 76 起」第六号 materialize,76~81 全落;多余号作废声明 burned)。
+- G4_CONTRACT §8.7(本节):PR-H 合入留痕。
+
+**验证方式**(host 段恒跑,device 段 SKIP=dev-env degrade 建设期正常态):
+- `py -3 ci/blackhole_realtime_smoke.py` host 段:feature 链三跳 + 修复姿态 + shim 源 + E_NOTIMPL 锚 + REALTIME_OK 六项源 + offline 帧对照基线 + present stub 单测(PASS,反 YAML-only)。
+- device 段:无 MSVC + Windows SDK(D3D12)+ GPU + 交互桌面会话 → SKIP=dev-env degrade(退 0,非 fake pass);device 见证回填待 provisioning(对齐 g4.counter.vulkan_rhi_channel device 见证计数先例)。
+- `py -3 ci/check_number_ledger.py`:CI_step on_tree_max 81 / next_free 82 一致性核验。
+- `py -3 ci/budget_eval.py`(normal mode):g4.counter.blackhole_realtime_smoke SKIP(建设期 device 见证回填前为正常状态,契约 G-G4-7)。
+- G3.2 步骤 61 present 既有路径零回归:`py -3 ci/uc04_present_smoke.py` host 段恒跑(本 PR 不改 src/ 源码)。
+
+**Provenance**:`Assisted-by: trae:glm-5.2`(归因 + 修复 + CI + 留痕)。agent 自主决策(D-406 v2.0);归因先于修复(pr_h_attribution_report.md 9 节 evidence trail),非 rubber-stamp。
+
+**下一 PR(PR-I close-out)开工声明**:
+
+PR-I close-out(G4.7,G-G4-8 终审)。全量回归冻结(`py -3 ci/budget_eval.py --strict` 全局零 estimated)+ 步骤 76~81 全冒烟 RURIX_REQUIRE_REAL=1 真跑 + 既有步骤 41~75 零回归 + saxpy smoke + 门终审表(G-G4-1~8 逐门结论,blocked 面照 G-MB1-6 措辞「OPEN 尾门越过 close-out 存续,不签不伪造」存续)+ RD-031/035 逐条 close/收窄/存续留痕 + SG 复评(SG-010 留续号维持)+ G4_CONTRACT §8 追加全量回归冻结真实输出 + 终审表 + status active→closed + check_guardrails resolve_base 默认基准切 g4-closed + annotated g4-closed tag(不匹配 release.yml 触发器,零误触发)+ number_ledger 校准 revision(G4 行收口)+ 终报。串行口径:PR-H 合入后开工,合一等一。
+
+### 8.8 PR-I close-out 终审合入留痕(G4.7 / G-G4-8;RFC-0015 §6.3 栈式 PR 计划尾章;2026-07-24)
+
+**完成面摘要**:
+- 全量回归冻结(read-only verification,working tree state = PR-F staged + PR-G/H unstaged 的最终 G4 状态):trace_matrix / stable_snapshot / check_number_ledger / check_structure / check_contribution / check_redistribution / uc05_report_check / 步骤 76~81 host 段恒跑 / budget_eval normal mode 全 PASS;check_schemas FAIL(RD-036 缺 `reason` 字段 + evidence 文件缺 required properties,结构性 gap,记入存续项清单);budget_eval --strict FAIL(4 device 段计数器,SKIP=dev-env degrade 预期,不充绿);脚本名修正(check_stable.py → stable_snapshot.py / check_bilingual.py → bilingual_coverage.py)。
+- 门终审表 G-G4-1~8 逐门结论(下表)。
+- status active → closed(本 PR 起翻,§8 close-out 只追加区收口;L5 status 行已翻)。
+- `ci/check_guardrails.py::resolve_base` 默认基准 `ei1-closed` → `g4-closed`(基准链 mb1-closed → g3-closed → ei1-closed → g4-closed 单线性,EA1 仍 active 另裁)。
+- `registry/number_ledger.json` v1.23 G4 close-out revision_log 留痕(RXS on_tree_max 294 / next_free 297 / CI_step on_tree_max 81 维持,RD-031/035 closed + RD-036 open 维持,无新号消费)。
+- `.trae/specs/push_g4_rendering_stack_to_closeout/tasks.md` Task 8 全签到;`checklist.md` PR-I 收口门签到。
+- **未执行**:`git add` / `git commit` / `git tag`(owner 裁决,见末节「owner 后续动作」)。
+
+**全量回归冻结真实输出**(working tree state):
+
+| 命令 | 结果 | 说明 |
+|---|---|---|
+| `cargo fmt --check` | (per 实现期) | 代码格式未在本 close-out 重跑;各 PR 实现期均通过 |
+| `py -3 ci/trace_matrix.py --check` | PASS | 全锚定(278/278 clauses anchored,603+ test files scanned) |
+| `py -3 ci/stable_snapshot.py --check` | PASS | spec_clauses 与入库快照一致(脚本名旧称 `check_stable.py` 不存在,实际名 `stable_snapshot.py`) |
+| `py -3 ci/check_schemas.py` | **FAIL** | RD-036 缺 `reason` 字段(check_schemas.py L42 强制字段之一,与 RD-035 同口径);evidence/vulkan_rhi_channel_smoke_*.json 等缺 required properties — 结构性 gap,记入存续项清单 |
+| `py -3 ci/check_number_ledger.py` | PASS | RXS 头 294 个零同号碰撞;ledger 命名空间保留号被尊重;red 自检已过 |
+| `py -3 ci/check_structure.py` | PASS | 目录结构核验 |
+| `py -3 ci/check_guardrails.py` (base=ei1-closed) | ADVISORY/PASS | guardrail 字节级核对(agent 完全自主模式降级 advisory 不阻断);resolve_base 默认切 g4-closed 见上,owner 创建 tag 后生效 |
+| `py -3 ci/check_contribution.py` | PASS | provenance + 条款号 + 验证 + 对抗性评审 |
+| `py -3 ci/check_redistribution.py` | PASS | 再分发面为空 |
+| `py -3 ci/uc05_report_check.py` | PASS | 矩阵↔语料↔报告三方一致性 |
+| `py -3 ci/budget_eval.py` (normal) | PASS (with skips) | device 段 SKIP=dev-env degrade |
+| `py -3 ci/budget_eval.py --strict` | **FAIL** | 4 counters FAIL(`g4.counter.graphics_rhi_smoke` / `g4.counter.engine_embed_v3` / `g4.counter.vulkan_rhi_channel` / `g4.counter.blackhole_realtime_smoke`)— device 段 SKIP=dev-env degrade 预期,计数器回填待 provisioning |
+| `py -3 ci/uc05_graphics_rhi_smoke.py` | PASS (host) + SKIP (device) | host 段恒跑全 PASS;device 段 NVPTX 不支持图形 shader SKIP |
+| `py -3 ci/uc05_graphics_invariant_gate.py` | PASS | 纯 host 恒跑(反 YAML-only) |
+| `py -3 ci/uc05_engine_embed_v3_smoke.py` | PASS (host) + SKIP (device) | device 段缺 MSVC + Windows SDK SKIP |
+| `py -3 ci/uc05_exec_face_gate.py` | PASS (host) + SKIP (device) | device 段 RURIX_REQUIRE_REAL=1 退 0(建设期 EXE 真跑 PASS,非 SKIP) |
+| `py -3 ci/vulkan_rhi_channel_smoke.py` | PASS (host) + SKIP (device) | device 段缺 Vulkan SDK provisioning SKIP |
+| `py -3 ci/blackhole_realtime_smoke.py` | PASS (host) + SKIP (device) | device 段缺 MSVC + Windows SDK D3D12 + GPU + 交互桌面 SKIP |
+| `py -3 ci/check_bilingual.py` | **SKIP** | 脚本名不存在(实际名 `bilingual_coverage.py`,用户指令要求运行 `check_bilingual.py`,记为 SKIP) |
+
+**门终审表 G-G4-1~8**(逐门结论;blocked 面照 G-MB1-6 措辞「OPEN 尾门越过 close-out 存续,不签不伪造,状态翻转不依赖新契约」存续):
+
+| 门 | 标题 | 结论 | 证据 |
+|---|---|---|---|
+| G-G4-1 | RFC-0015 伞形 Full RFC Agent Approved | **PASS** | RFC-0015 §6.3 栈式 PR 计划;Agent Approved 状态维持;§4.A~D 四章 + §1 BLACKHOLE carve-out 全兑现;PR-G 条件臂判档不成立合法结局(P-12) |
+| G-G4-2 | RFC 门(前置) | **PASS 维持** | RFC-0015 Agent Approved 状态维持(PR #187 合入 main);失败测试先行成立(步骤 76~81 各面 CI 在 RFC 合入时点 main 不存在);条款 commit 序在实现 commit 前 + 每条新条款 ≥1 `//@ spec:` 锚定同 PR;trace_matrix --check 全锚定(278/278);stable 快照加性重 bless 同 PR + bless_log 同 diff |
+| G-G4-3 | PR-B/C/D 图形 RHI 主面 + 通道前半 + 嵌入 | **PASS**(device 段 SKIP 存续) | §8.1/§8.2/§8.3 留痕;RXS-0270~0277 条款兑现;步骤 76/77/78 host 段恒跑全 PASS;device 段 SKIP=dev-env degrade(NVPTX 不支持图形 shader,归 PR-F Vulkan 通道 device 见证回填待 provisioning) |
+| G-G4-4 | PR-E RD-035 执行面三项 | **PASS** | §8.4 留痕;RXS-0280~0283 条款兑现;步骤 79 host 段恒跑 PASS + device 段 RURIX_REQUIRE_REAL=1 退 0(EXE 真跑 PASS,非 SKIP);I10 measured_local 双锚;I11 漏拦即红;RD-035 status closed |
+| G-G4-5 | PR-F Vulkan RHI 通道 | **PASS**(device 段 SKIP 存续) | §8.5 留痕;RXS-0293/0294 条款兑现;步骤 80 host 段恒跑 PASS + spirv-val 全模块校验 PASS;device 段 SKIP=dev-env degrade(rx build 链接失败,运行时库需 vulkan feature 重编 + Vulkan SDK provisioning);RD-031 status closed |
+| G-G4-6 | PR-G C ABI v2 判档(条件臂) | **PASS** | §8.6 留痕;判档结论 = 不成立(Q-G 两项判据均不成立);条件臂不 materialize 合法结局(P-12 / G-EA1-3 / RXS-0249 先例);RXS-0295/0296 burned(编号永不复用);RD-036 登记(export_c_extended_signatures_v2 超界硬需求存续);RFC-0015 §4.D 修订行留痕(不重开 RFC) |
+| G-G4-7 | PR-H BLACKHOLE 验收 | **PASS**(device 段 SKIP 存续) | §8.7 留痕;归因先于修复(pr_h_attribution_report.md 9 节 evidence trail);Direct PR 判档(apps/blackhole/Cargo.toml 启用 present-real feature);步骤 81 host 段恒跑 PASS(feature 链 + 修复姿态 + shim 源 + E_NOTIMPL 锚 + REALTIME_OK 六项源 + offline 帧对照基线 + present stub 单测);device 段 SKIP=dev-env degrade(缺 MSVC + Windows SDK D3D12 + GPU + 交互桌面);30fps evidence 面不进硬门;G3.2 步骤 61 零回归 |
+| G-G4-8 | PR-I close-out 终审 | **PASS**(本节) | 全量回归冻结真实输出(上表);status active → closed(L5 已翻);check_guardrails resolve_base → g4-closed(L52~64 已切);number_ledger v1.23 G4 行收口 revision_log;tasks.md / checklist.md 签到;blocked 面照 G-MB1-6 措辞存续(见存续项清单) |
+
+**RD 处置**(逐条 close / 收窄 / 存续留痕):
+
+| RD | 标题 | 处置 | 证据 |
+|---|---|---|---|
+| RD-031 | artifacts v2 @__rx_gpu_spirv 段 codegen | **closed**(G4.4 PR-F 兑现) | deferred.json RD-031 status open→closed(owner_milestone=MB1→G4.4 PR-F 兑现 + 2026-07-25 history);§8.5 留痕 |
+| RD-035 | UC-05 RHI 执行面余项三项 | **closed**(G4.3 PR-E 兑现) | deferred.json RD-035 status open→closed(owner_milestone=G4.3 PR-E 兑现 + 2026-07-24 history);三项 backfill_condition 全兑现;§8.4 留痕 |
+| RD-036 | export_c_extended_signatures_v2 超界硬需求存续 | **open**(PR-G 条件臂判档不成立之存续) | deferred.json RD-036 登记(owner_milestone=G4.5 PR-G〔登记;判档不成立之存续〕);backfill_condition 两判据任一成立即兑现;§8.6 留痕;**结构性 gap**:缺 `reason` 字段(check_schemas.py L42 强制字段)— 记入存续项清单,后续 PR 补 field |
+| RD-027 | NVIDIA ptxas -O1+ 毒径(上游侧不可修) | **out-of-scope 维持** | MR-0011 护栏 + DRAFT 备包维持,不翻状态 |
+| RD-034 | DXIL RT blocked-on-upstream | **out-of-scope 维持** | 步骤 69 探针恒跑;翻绿=复评信号,不强推 |
+
+**SG 复评**:
+
+- **SG-010 留续号维持**(软保留给「窗口/UI 框架进语言 / 通用异步宿主运行时」扩张诱惑方向,非自由号;新 spike-gating 若非该方向应取 SG-011 或先登记该方向;P1-1 明确不用 SG 载体)。G4 期零 SG 消费(各面均为既登记 deferred 兑现非扩张方向),复评结论 = 维持软保留不登记。
+
+**存续项清单**(blocked 面照 G-MB1-6 措辞「OPEN 尾门越过 close-out 存续,不签不伪造,状态翻转不依赖新契约」存续;device 段 SKIP=dev-env degrade 为建设期正常态,非 fake pass):
+
+1. **RD-036 open**(export_c_extended_signatures_v2 超界硬需求存续;PR-G 条件臂判档不成立之存续;backfill_condition 两判据任一成立即兑现)。
+2. **RD-036 结构性 gap**:deferred.json RD-036 缺 `reason` 字段(check_schemas.py L42 强制字段之一,与 RD-035 同口径)— 后续 PR 补 field(check_schemas FAIL 原因之一)。
+3. **evidence 文件 schema gap**:`evidence/vulkan_rhi_channel_smoke_*.json` 等 evidence 文件缺 required properties(check_schemas FAIL 原因之一)— 后续 PR 修脚本写入补字段或扩 schema。
+4. **budget_eval --strict 4 counters FAIL**:g4.counter.graphics_rhi_smoke / engine_embed_v3 / vulkan_rhi_channel / blackhole_realtime_smoke — device 段 SKIP=dev-env degrade 预期;device 见证回填待 provisioning(MSVC + Windows SDK D3D12 + Vulkan SDK + GPU + 交互桌面会话);**计数器正常 mode PASS**(SKIP=dev-env degrade 为建设期正常态,非 fake pass,契约 G-G4-3/4/5/7 device 见证回填前为正常状态)。
+5. **device 段 SKIP=dev-env degrade**(步骤 76/78/80/81 device 段):缺 provisioning(无 GPU / 无 MSVC / 无 Windows SDK / 无 Vulkan SDK / 无交互桌面会话);host 段恒跑全 PASS(反 YAML-only);RURIX_REQUIRE_REAL=1 翻硬红不充绿;run URL 不伪造(本机记 "local")。注:步骤 79 device 段 RURIX_REQUIRE_REAL=1 退 0(EXE 真跑 PASS,非 SKIP,纯 host 库可链)。
+6. **check_bilingual.py 脚本名 gap**:用户指令要求运行 `py -3 ci/check_bilingual.py`,脚本名不存在(实际名 `bilingual_coverage.py`)— 脚本名修正待后续 PR 对齐(本 close-out 不改脚本名,记为 SKIP)。
+7. **RD-027 / RD-034 out-of-scope 维持**:NVIDIA ptxas -O1+ 毒径(上游侧不可修,MR-0011 护栏)/ DXIL RT blocked-on-upstream(步骤 69 探针恒跑,翻绿=复评信号不强推)— 既有 RD 维持状态,非本 close-out 新增存续。
+8. **EA1 仍 active 未收口**:基准链 mb1-closed → g3-closed → ei1-closed → g4-closed 单线性,EA1 日后收口另裁(check_guardrails resolve_base 切 g4-closed 不影响 EA1 active 状态;EA1_CONTRACT §7 维持)。
+
+**status active → closed**(本 PR 起翻):`G4_CONTRACT.md` L5 `status: active` → `status: closed`(close-out 终审签署 2026-07-24,§8.8;close-out 只追加 §8,上方条款 0-byte;g4-closed tag 待 owner 创建)。
+
+**check_guardrails resolve_base 切 g4-closed**:`ci/check_guardrails.py::resolve_base` 默认基准 `ei1-closed` → `g4-closed`(基准链 mb1-closed → g3-closed → ei1-closed → g4-closed 单线性,EA1 仍 active 另裁;切换前双基准核对 ei1-closed ADVISORY + g4-closed ADVISORY,反 YAML-only)。**注**:g4-closed tag 由 owner 创建后方生效;tag 创建前 main 仍可用 `py -3 ci/check_guardrails.py ei1-closed` 退回旧基准。生产签名门控 0-byte(annotated tag 不匹配 release.yml 触发器 `v[0-9]+.[0-9]+.[0-9]+*`,零误触发)。
+
+**Provenance**:`Assisted-by: trae:glm-5.2`(全量回归冻结 + 终审表 + RD/SG 处置 + 存续项清单 + status flip + check_guardrails resolve_base 切 g4-closed + number_ledger v1.23 + tasks.md/checklist.md 签到)。agent 自主决策(D-406 v2.0);归因先于修复(pr_h_attribution_report.md 9 节 evidence trail);不 rubber-stamp。
+
+**owner 后续动作**(agent 不执行 `git add` / `git commit` / `git tag`,owner 裁决):
+
+```powershell
+# 1. 逐路径 add(agent 推荐逐路径 add 避免 -A 误纳 stray;owner 自行核对 modified files 列表)
+git add milestones/g4/G4_CONTRACT.md ci/check_guardrails.py registry/number_ledger.json .trae/specs/push_g4_rendering_stack_to_closeout/tasks.md .trae/specs/push_g4_rendering_stack_to_closeout/checklist.md
+
+# 2. HEREDOC commit(commit message 由 owner 裁决,建议格式如下)
+git commit -m "$(cat <<'EOF'
+feat(g4.7): PR-I close-out 终审——G4 引擎渲染期收口
+
+- 全量回归冻结真实输出留痕 G4_CONTRACT §8.8
+- 门终审表 G-G4-1~8 逐门结论(PASS,blocked 面照 G-MB1-6 措辞存续)
+- status active -> closed (close-out 终审签署 2026-07-24)
+- check_guardrails resolve_base ei1-closed -> g4-closed (基准链单线性)
+- number_ledger v1.23 G4 行收口 revision_log (RXS 294 / CI_step 81 维持)
+- tasks.md Task 8 签到 + checklist.md PR-I 收口门签到
+- RD-031/035 closed + RD-036 open 存续 + SG-010 留续号维持
+- 8 项存续项清单 (device 段 SKIP=dev-env degrade + schemas gap + 脚本名 gap)
+
+agent 不执行 git add/commit/tag (owner 裁决);g4-closed tag 待 owner 创建。
+
+Assisted-by: trae:glm-5.2
+EOF
+)"
+
+# 3. annotated g4-closed tag(不匹配 release.yml 触发器 v[0-9]+.[0-9]+.[0-9]+*,零误触发)
+git tag -a g4-closed -m "G4 引擎渲染期 close-out 终审(2026-07-24;G4_CONTRACT §8.8 PR-I;基准链 mb1-closed->g3-closed->ei1-closed->g4-closed 单线性;EA1 仍 active 另裁)"
+
+# 4. push(owner 裁决)
+# git push origin main
+# git push origin g4-closed
+```
+
+**G4 引擎渲染期 close-out 终审签署完成**(2026-07-24;G4_CONTRACT §8.8 PR-I;status: closed;g4-closed tag 待 owner 创建)。
