@@ -1449,26 +1449,42 @@
     ],
     "RXS-0270": [
       "conformance/uc05/accept/gfx_pass.rx",
-      "conformance/uc05/reject/cross_brand_gfx.rx"
+      "conformance/uc05/reject/cross_brand_gfx.rx",
+      "src/rurix-rt-cabi/src/lib.rs"
     ],
     "RXS-0271": [
       "conformance/uc05/accept/gfx_resources.rx",
       "conformance/uc05/reject/cross_brand_gfx.rx",
-      "conformance/uc05/reject/rhi_gfx_in_kernel.rx"
+      "conformance/uc05/reject/rhi_gfx_in_kernel.rx",
+      "src/rurix-rt-cabi/src/lib.rs"
     ],
     "RXS-0272": [
+      "conformance/uc05/accept/gfx_bindless.rx",
       "conformance/uc05/accept/gfx_pass.rx",
       "conformance/uc05/accept/gfx_resources.rx",
       "conformance/uc05/reject/gfx_feedback_loop.rx",
       "conformance/uc05/reject/gfx_read_before_write.rx",
       "conformance/uc05/reject/gfx_write_write_conflict.rx",
+      "src/rurix-rt-cabi/src/lib.rs",
       "src/rurix-rt/src/vk.rs"
     ],
     "RXS-0273": [
+      "conformance/uc05/accept/gfx_bindless.rx",
       "conformance/uc05/accept/gfx_resources.rx"
+    ],
+    "RXS-0274": [
+      "conformance/uc05/reject/gfx_present_not_last.rx",
+      "conformance/uc05/reject/gfx_present_twice.rx",
+      "src/rurix-rt-cabi/src/lib.rs",
+      "src/rurix-rt/src/rhi.rs",
+      "src/rurix-rt/src/vk.rs"
     ],
     "RXS-0275": [
       "src/rurixc/src/vulkan_codegen.rs"
+    ],
+    "RXS-0276": [
+      "conformance/uc05/accept/gfx_bindless.rx",
+      "src/rurix-rt/src/rhi.rs"
     ],
     "RXS-0290": [
       "src/rurix-rt-cabi/src/artifacts.rs",

@@ -1,0 +1,37 @@
+//@ spec: RXS-0274
+//@ assembly-reject: structure
+// gfx present 终端重复声明(RXS-0274,RFC-0015 §4.A3)。**编译期 CLEAN**——
+// `--emit=check` 不拦(不带 //@ expect-error)。违例在 `submit()` **装配期** host 侧确定性
+// 拦:每图 present 终端 ≤1(RXS-0272/0274);pass0 带 present + pass1 带 present → 双 present
+// → 库层状态值 Structure Err(镜像 RX6029 口径,零新 RX 码)→ RXRT_FAIL → rxrt_trap 终止。
+//
+// rhi.rs 库单测 `gfx_present_twice_reject` 为纯 host(无 GPU)证;本语料见证 .rx 级
+// present-twice 装配期拦。present 唯一性核验归 seal()(RXS-0272:每图 ≤1 present)。
+struct VsOut {
+    #[builtin(position)] pos: f32,
+}
+
+vertex fn vs() -> VsOut {
+    VsOut { pos: 0.0 }
+}
+
+fragment fn fs(inp: VsOut) -> VsOut {
+    inp
+}
+
+fn main() -> i32 {
+    let ctx = Context::create();
+    let rhi = Rhi::create(&ctx);
+
+    let back = rhi.color_target(640, 480);
+    let back2 = rhi.color_target(640, 480);
+
+    // pass0:写 back + present(back)——present 终端 1。
+    rhi.raster_pass(vs, fs).writes_rt(&back).present(&back);
+    // pass1:写 back2 + present(back2)——present 终端 2 → 双 present。
+    rhi.raster_pass(vs, fs).writes_rt(&back2).present(&back2);
+
+    rhi.submit(); // 装配期 Structure Err(双 present,每图 ≤1)→ 确定性终止
+    ctx.sync();
+    0
+}

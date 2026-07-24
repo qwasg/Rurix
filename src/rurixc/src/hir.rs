@@ -536,6 +536,13 @@ pub enum GpuHostOp {
     /// `gfx.binds_sampler(&res)` → `rxrt_rhi_gfx_declare(gfx, res, 4)`(G4.2,RXS-0272;
     /// 采样器绑定声明,非资源状态访问;消费接收者并返回,资源实参 `&Res` 借用非消费)。
     RhiGfxBindsSampler,
+    /// `gfx.reads_table(&table)` → `rxrt_rhi_gfx_declare(gfx, res, 5)`(G4.2 PR-C,RXS-0276;
+    /// 无界纹理表绑定声明,无状态访问类〔bindless 动态索引面〕;消费接收者并返回,
+    /// 资源实参 `&Res` 借用非消费)。
+    RhiGfxReadsTable,
+    /// `gfx.present(&res)` → `rxrt_rhi_gfx_present(gfx, res)`(G4.2 PR-C,RXS-0274;
+    /// 呈现终端 handoff 声明,每图 ≤1 且末位;消费接收者并返回,资源实参 `&Res` 借用非消费)。
+    RhiGfxPresent,
 }
 
 /// scoped atomics 原子读改写算子(M5.2,RXS-0080;`Atomic`/`AtomicView` 族方法)。

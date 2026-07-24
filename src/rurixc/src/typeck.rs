@@ -408,7 +408,8 @@ fn gpu_host_method(
         };
     }
     // G4.2 RHI 图形 pass 访问声明方法族(RXS-0272,RFC-0015 §4.A3):`GfxPass<C>` 接收者
-    // 的 `writes_rt`/`writes_depth`/`reads`/`reads_writes_uav`/`binds_sampler`。与 G3.5
+    // 的 `writes_rt`/`writes_depth`/`reads`/`reads_writes_uav`/`binds_sampler`/
+    // `reads_table`(PR-C,RXS-0276)/`present`(PR-C,RXS-0274)。与 G3.5
     // `PassBuilder` 同名方法语义相邻但由接收者 lang item 区分分发(compute-pass `Pass<C>`
     // vs 图形 `GfxPass<C>`)。访问种类映射同一 `graph.rs::AccessKind` 单源(RXS-0272)。
     if li.is_rhi_gfx_pass(d) {
@@ -418,6 +419,8 @@ fn gpu_host_method(
             "reads" => Some(Op::RhiGfxReads),
             "reads_writes_uav" => Some(Op::RhiGfxReadsWritesUav),
             "binds_sampler" => Some(Op::RhiGfxBindsSampler),
+            "reads_table" => Some(Op::RhiGfxReadsTable),
+            "present" => Some(Op::RhiGfxPresent),
             _ => None,
         };
     }
@@ -2957,7 +2960,8 @@ impl Tck<'_, '_> {
                 self.check_args(span, expected, args, Ty::Adt(res, vec![b, elem]))
             }
             // G4.2 RHI 图形 pass 访问声明(RXS-0272,RFC-0015 §4.A3):`gfx.writes_rt(&res)` /
-            // `writes_depth` / `reads` / `reads_writes_uav` / `binds_sampler` → `GfxPass<C>`
+            // `writes_depth` / `reads` / `reads_writes_uav` / `binds_sampler` /
+            // `reads_table`(PR-C,RXS-0276)/ `present`(PR-C,RXS-0274)→ `GfxPass<C>`
             // (消费接收者并返回〔builder 链〕,资源实参 `&Res` 借用非消费)。per-instance brand
             // 核验(I7)镜像 `RhiPassReads`/`RhiPassWrites`:资源 brand 与 pass brand 不一致 →
             // RX3006;非 `&Res` 形态 → RX2001(demand)。
@@ -2965,7 +2969,9 @@ impl Tck<'_, '_> {
             | Op::RhiGfxWritesDepth
             | Op::RhiGfxReads
             | Op::RhiGfxReadsWritesUav
-            | Op::RhiGfxBindsSampler => {
+            | Op::RhiGfxBindsSampler
+            | Op::RhiGfxReadsTable
+            | Op::RhiGfxPresent => {
                 let gfx_pass = self
                     .res
                     .lang_items

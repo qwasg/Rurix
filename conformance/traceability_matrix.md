@@ -265,11 +265,13 @@
 | RXS-0263 | spec/rhi.md | 1 | `src/rurixc/tests/uc05_corpus.rs` |
 | RXS-0264 | spec/rhi.md | 1 | `src/rurixc/tests/uc05_corpus.rs` |
 | RXS-0265 | spec/rhi.md | 1 | `src/rurixc/tests/uc05_corpus.rs` |
-| RXS-0270 | spec/rhi.md | 2 | `conformance/uc05/accept/gfx_pass.rx`, `conformance/uc05/reject/cross_brand_gfx.rx` |
-| RXS-0271 | spec/rhi.md | 3 | `conformance/uc05/accept/gfx_resources.rx`, `conformance/uc05/reject/cross_brand_gfx.rx`, `conformance/uc05/reject/rhi_gfx_in_kernel.rx` |
-| RXS-0272 | spec/rhi.md | 6 | `conformance/uc05/accept/gfx_pass.rx`, `conformance/uc05/accept/gfx_resources.rx`, `conformance/uc05/reject/gfx_feedback_loop.rx` …(+3) |
-| RXS-0273 | spec/rhi.md | 1 | `conformance/uc05/accept/gfx_resources.rx` |
+| RXS-0270 | spec/rhi.md | 3 | `conformance/uc05/accept/gfx_pass.rx`, `conformance/uc05/reject/cross_brand_gfx.rx`, `src/rurix-rt-cabi/src/lib.rs` |
+| RXS-0271 | spec/rhi.md | 4 | `conformance/uc05/accept/gfx_resources.rx`, `conformance/uc05/reject/cross_brand_gfx.rx`, `conformance/uc05/reject/rhi_gfx_in_kernel.rx` …(+1) |
+| RXS-0272 | spec/rhi.md | 8 | `conformance/uc05/accept/gfx_bindless.rx`, `conformance/uc05/accept/gfx_pass.rx`, `conformance/uc05/accept/gfx_resources.rx` …(+5) |
+| RXS-0273 | spec/rhi.md | 2 | `conformance/uc05/accept/gfx_bindless.rx`, `conformance/uc05/accept/gfx_resources.rx` |
+| RXS-0274 | spec/rhi.md | 5 | `conformance/uc05/reject/gfx_present_not_last.rx`, `conformance/uc05/reject/gfx_present_twice.rx`, `src/rurix-rt-cabi/src/lib.rs` …(+2) |
 | RXS-0275 | spec/vulkan_backend.md | 1 | `src/rurixc/src/vulkan_codegen.rs` |
+| RXS-0276 | spec/rhi.md | 2 | `conformance/uc05/accept/gfx_bindless.rx`, `src/rurix-rt/src/rhi.rs` |
 | RXS-0290 | spec/vulkan_backend.md | 2 | `src/rurix-rt-cabi/src/artifacts.rs`, `src/rurixc/src/codegen.rs` |
 | RXS-0291 | spec/vulkan_backend.md | 2 | `src/rurixc/src/codegen.rs`, `src/rurixc/src/driver.rs` |
 | RXS-0292 | spec/vulkan_backend.md | 2 | `src/rurix-rt-cabi/src/artifacts.rs`, `src/rurix-rt/src/fatbin.rs` |

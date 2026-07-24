@@ -2400,15 +2400,17 @@ impl Builder<'_, '_> {
                 self.consume(Place::local(dest), &ret)
             }
             // G4.2 RHI 图形 pass 访问声明(RXS-0272,RFC-0015 §4.A3):`gfx.writes_rt(&res)` /
-            // `writes_depth` / `reads` / `reads_writes_uav` / `binds_sampler` →
-            // `rxrt_rhi_gfx_declare(gfx, res, access)`。接收者 gfx 消费并返回(builder 链),
-            // 资源实参 `&Res` 非消费(gpu_handle_op Copy);access 枚举追加式(0=writes_rt /
-            // 1=writes_depth / 2=reads / 3=reads_writes_uav / 4=binds_sampler);负值 rc → 终止。
+            // `writes_depth` / `reads` / `reads_writes_uav` / `binds_sampler` /
+            // `reads_table`(PR-C,RXS-0276)→ `rxrt_rhi_gfx_declare(gfx, res, access)`。接收者
+            // gfx 消费并返回(builder 链),资源实参 `&Res` 非消费(gpu_handle_op Copy);access
+            // 枚举追加式(0=writes_rt / 1=writes_depth / 2=reads / 3=reads_writes_uav /
+            // 4=binds_sampler / 5=reads_table);负值 rc → 终止。
             Op::RhiGfxWritesRt
             | Op::RhiGfxWritesDepth
             | Op::RhiGfxReads
             | Op::RhiGfxReadsWritesUav
-            | Op::RhiGfxBindsSampler => {
+            | Op::RhiGfxBindsSampler
+            | Op::RhiGfxReadsTable => {
                 let ret = self.ty_of(e);
                 let carried = self.gpu_consume_receiver(&args[0], &ret, span);
                 let t = self.gpu_handle_op(&args[1]);
@@ -2418,6 +2420,7 @@ impl Builder<'_, '_> {
                     Op::RhiGfxReads => 2,
                     Op::RhiGfxReadsWritesUav => 3,
                     Op::RhiGfxBindsSampler => 4,
+                    Op::RhiGfxReadsTable => 5,
                     _ => unreachable!(),
                 };
                 let rc = self.emit_rt_call(
@@ -2427,6 +2430,22 @@ impl Builder<'_, '_> {
                         t,
                         Operand::Const(Const::Int(access, PrimTy::U32)),
                     ],
+                    Ty::Prim(PrimTy::I32),
+                    span,
+                );
+                self.guard_rc_negative(rc, span);
+                self.consume(Place::local(carried), &ret)
+            }
+            // G4.2 PR-C present 终端 handoff(RXS-0274):`gfx.present(&res)` →
+            // `rxrt_rhi_gfx_present(gfx, res)`。接收者 gfx 消费并返回(builder 链),资源实参
+            // `&Res` 非消费(gpu_handle_op Copy);seal 时核验 present 唯一且末位(RXS-0272/0274)。
+            Op::RhiGfxPresent => {
+                let ret = self.ty_of(e);
+                let carried = self.gpu_consume_receiver(&args[0], &ret, span);
+                let t = self.gpu_handle_op(&args[1]);
+                let rc = self.emit_rt_call(
+                    "rxrt_rhi_gfx_present",
+                    vec![Operand::Copy(Place::local(carried)), t],
                     Ty::Prim(PrimTy::I32),
                     span,
                 );

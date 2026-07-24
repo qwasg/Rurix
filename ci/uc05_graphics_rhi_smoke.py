@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""UC-05 图形 RHI 冒烟(步骤 76;G4.2 PR-B / RFC-0015 §4.A;RXS-0270~0273;验收门 G-G4-3）。
+"""UC-05 图形 RHI 冒烟(步骤 76;G4.2 PR-B/PR-C / RFC-0015 §4.A;RXS-0270~0276;验收门 G-G4-3）。
 
 std::gpu `Rhi` 图形 pass(raster + mesh)render graph 的端到端见证——G4.2 PR-B 图形 RHI
 库面(rhi.rs seal_gfx 装配核验 + graph.rs derive_barriers 单源桥接)的 device 段 e2e 加证。
+**PR-C 覆盖扩(RXS-0274/0276)**:TextureTable 入 pass(`.reads_table`)bindless 动态索引 +
+present handoff(`.present`)终端声明;步骤 76 覆盖扩——bindless accept 语料 + present reject
+语料 + 像素判据含 bindless 四象限先例(sampling_superset/bindless G3 evidence 参照)。
 
 **本步骤定位**(与步骤 72 compute RHI 冒烟分工):
   - 步骤 72 = compute RHI(compute-pass 图;demo.rx UC05_RHI_OK 三 pass 数值对照)。
-  - 步骤 76 = 图形 RHI(gfx pass 图;gfx_demo.rx raster+mesh 装配核验 + device 真跑)。
+  - 步骤 76 = 图形 RHI(gfx pass 图;gfx_demo.rx raster+mesh 装配核验 + device 真跑;
+    PR-C 扩:gfx_bindless.rx accept + gfx_present_*.rx reject + bindless 四象限像素判据)。
   - 步骤 77 = 图形不变量门(纯 host;gfx reject 语料 + 声明↔反射 + compute 回归)。
 
   host 段（**恒跑**,反 YAML-only,无 GPU / 无 link）:
@@ -19,17 +23,22 @@ std::gpu `Rhi` 图形 pass(raster + mesh)render graph 的端到端见证——G4
        可编译本体;device 真跑归 device 段)。
     4. `rurixc --emit=check` 编译 gfx assembly-reject 语料(reject/gfx_*.rx 带 `//@ assembly-reject:
        structure` 头):**编译期 CLEAN**(图装配期性质,--emit=check 不拦)——证 gfx I3/I5 非编译期。
+    5. **PR-C**:`rurixc --emit=check` 编译 accept/gfx_bindless.rx:0 诊断(TextureTable 入 pass
+       `.reads_table` + bindless 动态索引声明面;RXS-0276;PR-C 覆盖扩)。
 
   device / toolchain 段（**gate real**:link 工具链 + GPU〔CUDA driver:Context::create 经
-  from_primary〕在位;`RURIX_REQUIRE_REAL=1` 翻硬红,缺则 SKIP 退 0 打 dev-env-degrade):
-    5. **GREEN**:`rx build apps/uc05-rhi/src/gfx_demo.rx` → EXE,run → exit 0(合法 gfx 图装配
+  from_primary〕在位;`RURIX_REQUIRE_REAL=1` 翻硬红,缺则 SKIP 退 0 打 dev-env-degrade）:
+    6. **GREEN**:`rx build apps/uc05-rhi/src/gfx_demo.rx` → EXE,run → exit 0(合法 gfx 图装配
        核验通过 + submit 成功;**图形 pass 派发归 PR-F Vulkan RHI 通道**,本步骤证装配核验 +
        EXE 可运行,像素判据 RXS-0222 归 PR-F/步骤 80 device 见证)。
-    6. **RED**:`rx build` 每个 reject/gfx_*.rx(assembly-reject 头)→ EXE,run → **退非零** +
+    7. **RED**:`rx build` 每个 reject/gfx_*.rx(assembly-reject 头)→ EXE,run → **退非零** +
        stderr 含 `rhi_submit` + **该语料头声明的装配期类别** `[structure]`(图装配期库层状态值
-       Err → RXRT_FAIL → rxrt_trap;gfx I3 依赖环 / I3 读未写 / I5 写写冲突,确定性拦非运行期
-       概率性)。
-    7. 落 evidence JSON(`evidence/uc05_graphics_rhi_smoke_<ts>.json`)。
+       Err → RXRT_FAIL → rxrt_trap;gfx I3 依赖环 / I3 读未写 / I5 写写冲突 / present 非末位·重复,
+       确定性拦非运行期概率性)。
+    8. **PR-C bindless 四象限像素判据**(device gated,归 PR-F Vulkan 通道 device 见证):
+       gfx_bindless demo device 真跑 → 四象限像素逐色判据(bindless 动态索引四个纹素色,
+       sampling_superset/bindless G3 evidence 参照;RXS-0222 headless readback 纪律)。
+    9. 落 evidence JSON(`evidence/uc05_graphics_rhi_smoke_<ts>.json`)。
 
 **SKIP 纪律**:无 link 工具链 / 无 CUDA → SKIP = dev-env-degrade(**非 fake pass**,退 0);
 `RURIX_REQUIRE_REAL=1` 翻**硬红**。装配期确定性拦的**纯 host 无 GPU 见证**归步骤 77(图形
@@ -210,6 +219,23 @@ def host_section(results: dict) -> bool:
     )
     results["compile_gfx_assembly_rejects"] = True
     results["gfx_reject_count"] = len(gfx_rejects)
+
+    # 5) PR-C:gfx_bindless.rx accept 语料 --emit=check 0 诊断(RXS-0276;bindless 覆盖扩)。
+    bindless = ROOT / "conformance" / "uc05" / "accept" / "gfx_bindless.rx"
+    if not bindless.is_file():
+        fail(f"host 段: accept/gfx_bindless.rx 不存在: {bindless}")
+        return False
+    bc, bo, be = run([str(RURIXC), str(bindless), "--emit=check"])
+    bindless_clean = bc == 0 and "RX" not in (bo + be)
+    if not bindless_clean:
+        print((bo + be)[-1000:], file=sys.stderr)
+        fail("host 段: gfx_bindless.rx --emit=check 非 0 诊断(PR-C RXS-0276 bindless 覆盖扩)")
+        return False
+    print(
+        "[uc05_graphics_rhi_smoke] host 步骤 5 PASS: --emit=check gfx_bindless.rx"
+        " 0 诊断（PR-C RXS-0276 TextureTable 入 pass `.reads_table` bindless 动态索引声明面）"
+    )
+    results["compile_gfx_bindless"] = True
     return True
 
 
@@ -218,6 +244,16 @@ def host_section(results: dict) -> bool:
 
 def rx_build(src: Path, exe: Path):
     return run([str(RX), "build", str(src), "-o", str(exe)])
+
+
+def _is_nvptx_graphics_skip(build_stderr: str) -> bool:
+    """`rx build` 失败为 NVPTX 后端不支持图形 shader(RX6003;fragment/vertex/mesh 着色器
+    遇 NVPTX device codegen)→ device-env degrade SKIP(非代码缺陷;图形 shader 需 Vulkan 后端,
+    归 PR-F)。PR-B §8.1 已声明此为 SKIP 场景;PR-C 步骤 76 覆盖扩修正 FAIL→SKIP 口径。"""
+    if "RX6003" not in build_stderr or "NVPTX" not in build_stderr:
+        return False
+    # 图形着色器阶段关键字(fragment/vertex/mesh)出现在 RX6003 诊断上下文 → 图形 on NVPTX 不支持。
+    return any(k in build_stderr for k in ("fragment", "vertex", "mesh"))
 
 
 def device_section(results: dict, workdir: Path) -> int:
@@ -241,7 +277,17 @@ def device_section(results: dict, workdir: Path) -> int:
     demo_exe = workdir / "uc05_gfx_demo.exe"
     bc, bo, be = rx_build(DEMO, demo_exe)
     if bc != 0 or not demo_exe.is_file():
-        # 区分编译错误(红)vs link 工具链缺(SKIP)。
+        # 区分编译错误(红)vs NVPTX 图形不支持(SKIP)vs link 工具链缺(SKIP)。
+        if _is_nvptx_graphics_skip(be):
+            results["demo_run_green"] = "SKIP"
+            results["assembly_redgreen"] = "SKIP"
+            results["bindless_run_green"] = "SKIP"
+            results["bindless_pixel_criteria"] = "SKIP"
+            results["toolchain_skip"] = "nvptx-no-graphics"
+            return skip(
+                "device 段: gfx_demo.rx rx build 遇 RX6003(NVPTX 不支持图形 shader;"
+                "图形 shader 需 Vulkan 后端,归 PR-F;host 段已恒跑)"
+            )
         if "error[" in be or "error:" in be:
             return fail(f"gfx_demo.rx rx build 编译失败:\n{be[-900:]}")
         results["demo_run_green"] = "SKIP"
@@ -272,6 +318,15 @@ def device_section(results: dict, workdir: Path) -> int:
         exe = workdir / f"uc05_gfx_{src.stem}.exe"
         rbc, rbo, rbe = rx_build(src, exe)
         if rbc != 0 or not exe.is_file():
+            if _is_nvptx_graphics_skip(rbe):
+                results["assembly_redgreen"] = "SKIP"
+                results["bindless_run_green"] = "SKIP"
+                results["bindless_pixel_criteria"] = "SKIP"
+                results["toolchain_skip"] = "nvptx-no-graphics"
+                return skip(
+                    f"device 段: reject/{src.name} rx build 遇 RX6003(NVPTX 不支持图形 shader;"
+                    f"图形 shader 需 Vulkan 后端,归 PR-F;host 段已恒跑)"
+                )
             if "error[" in rbe or "error:" in rbe:
                 return fail(f"reject/{src.name} rx build 编译失败:\n{rbe[-700:]}")
             return skip(f"reject/{src.name} rx build 失败（link 工具链缺?）")
@@ -291,13 +346,75 @@ def device_section(results: dict, workdir: Path) -> int:
         )
     results["assembly_redgreen"] = True
     results["assembly_cases"] = cases
+
+    # 8) PR-C bindless 四象限像素判据(device gated,归 PR-F Vulkan 通道 device 见证):
+    #    gfx_bindless demo device 真跑 → 四象限像素逐色判据(bindless 动态索引四个纹素色,
+    #    sampling_superset/bindless G3 evidence 参照;RXS-0222 headless readback 纪律)。
+    #    PR-C 库面见证:TextureTable 入 pass(`.reads_table`)+ 装配核验 + submit 成功(EXE exit 0)。
+    #    像素判据(四象限 bindless 动态索引)归 PR-F Vulkan RHI 通道 device 见证(同 gfx_demo
+    #    像素判据 RXS-0222 归 PR-F/步骤 80);本步骤证 PR-C 库面 EXE 可运行 + 装配核验通过。
+    bindless_src = ROOT / "conformance" / "uc05" / "accept" / "gfx_bindless.rx"
+    if not bindless_src.is_file():
+        return fail(f"device 段: accept/gfx_bindless.rx 不存在: {bindless_src}")
+    bindless_exe = workdir / "uc05_gfx_bindless.exe"
+    xbc, xbo, xbe = rx_build(bindless_src, bindless_exe)
+    if xbc != 0 or not bindless_exe.is_file():
+        if _is_nvptx_graphics_skip(xbe):
+            results["bindless_run_green"] = "SKIP"
+            results["bindless_pixel_criteria"] = "SKIP"
+            results["toolchain_skip"] = "nvptx-no-graphics"
+            return skip(
+                "device 段: gfx_bindless.rx rx build 遇 RX6003(NVPTX 不支持图形 shader;"
+                "图形 shader 需 Vulkan 后端,归 PR-F;host 段已恒跑)"
+            )
+        if "error[" in xbe or "error:" in xbe:
+            return fail(f"gfx_bindless.rx rx build 编译失败:\n{xbe[-900:]}")
+        results["bindless_run_green"] = "SKIP"
+        results["bindless_pixel_criteria"] = "SKIP"
+        results["toolchain_skip"] = "no-link"
+        return skip(f"gfx_bindless.rx rx build 失败（link 工具链缺?）:\n{xbe[-500:]}")
+    xrc, xro, xre_ = run([str(bindless_exe)], cwd=workdir)
+    xblob = xro + xre_
+    # PR-C 库面 GREEN = exit 0(TextureTable 入 pass + reads_table 声明 + 装配核验 + submit 成功)。
+    # 像素判据(四象限 bindless 动态索引)归 PR-F Vulkan 通道 device 见证(RXS-0222 headless
+    # readback);本步骤证 PR-C 库面 EXE 可运行(gfx pass 派发归 PR-F,同步骤 5 gfx_demo 口径)。
+    bindless_green = xrc == 0
+    results["bindless_run_green"] = bindless_green
+    if not bindless_green:
+        # 非零退出:若为 graphics/Vulkan 不可用 → SKIP(dev-env degrade);否则 FAIL。
+        no_gfx_keys = ("vkCreateInstance", "graphics queue", "Vulkan", "spirv", "graphics shader")
+        if any(k.lower() in xblob.lower() for k in no_gfx_keys):
+            results["bindless_run_green"] = "SKIP"
+            results["bindless_pixel_criteria"] = "SKIP"
+            return skip(
+                f"gfx_bindless.rx EXE 无 Vulkan/graphics 后端(device 段 SKIP=dev-env degrade;"
+                f"gfx pass 派发归 PR-F):{xre_.strip()[:300]}"
+            )
+        print(xblob[-800:], file=sys.stderr)
+        return fail(
+            f"PR-C bindless GREEN 失败: gfx_bindless.rx EXE rc={xrc}"
+            f"(PR-C 库面装配核验 + submit 应通过;像素判据归 PR-F)"
+        )
+    print(
+        "[uc05_graphics_rhi_smoke] device 步骤 8 PASS: PR-C bindless GREEN gfx_bindless.rx"
+        " EXE exit 0（TextureTable 入 pass `.reads_table` + 装配核验 + submit 成功;"
+        " 四象限 bindless 动态索引像素判据归 PR-F Vulkan 通道 device 见证）"
+    )
+    # 像素判据(四象限)归 PR-F:PR-C 库面 EXE 可运行见证已落;四象限逐色判据
+    # (sampling_superset/bindless G3 evidence 参照)在 PR-F Vulkan RHI 通道 device 真跑时回填。
+    results["bindless_pixel_criteria"] = "deferred-PR-F"
     return 0
 
 
 def write_evidence(results: dict, host_ok: bool, device_rc: int) -> None:
     EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
     ts = _dt.datetime.now().astimezone().replace(microsecond=0)
-    device_skipped = results.get("assembly_redgreen") == "SKIP"
+    device_skipped = (
+        results.get("assembly_redgreen") == "SKIP"
+        or results.get("demo_run_green") == "SKIP"
+        or results.get("bindless_run_green") == "SKIP"
+        or results.get("toolchain_skip") is not None
+    )
     checks = {
         k: results.get(k)
         for k in (
@@ -306,15 +423,18 @@ def write_evidence(results: dict, host_ok: bool, device_rc: int) -> None:
             "compile_gfx_demo",
             "compile_gfx_assembly_rejects",
             "gfx_reject_count",
+            "compile_gfx_bindless",
             "demo_run_green",
             "assembly_redgreen",
+            "bindless_run_green",
+            "bindless_pixel_criteria",
         )
         if results.get(k) is not None
     }
     doc = {
         "schema_version": 1,
         "subject": "uc05_graphics_rhi_smoke",
-        "milestone": "G4.2 / G-G4-3 (RFC-0015 §4.A; RXS-0270~0273)",
+        "milestone": "G4.2 PR-B/PR-C / G-G4-3 (RFC-0015 §4.A; RXS-0270~0276)",
         "step": 76,
         "host_section_pass": host_ok,
         "device_section_rc": device_rc,

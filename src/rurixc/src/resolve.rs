@@ -366,7 +366,8 @@ impl LangItems {
     }
 
     /// `GfxPass<C>` RHI 图形 pass 声明句柄判定(G4.2,RXS-0270;`writes_rt`/
-    /// `writes_depth`/`reads`/`reads_writes_uav`/`binds_sampler` 方法接收者识别)。
+    /// `writes_depth`/`reads`/`reads_writes_uav`/`binds_sampler`/
+    /// `reads_table`(PR-C,RXS-0276)/`present`(PR-C,RXS-0274)方法接收者识别)。
     pub fn is_rhi_gfx_pass(&self, d: DefId) -> bool {
         Some(d) == self.rhi_gfx_pass
     }

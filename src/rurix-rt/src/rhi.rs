@@ -329,6 +329,15 @@ impl GfxPassRecord {
         self
     }
 
+    /// `reads_table(&table)`:无界纹理表绑定声明(RXS-0276;bindless 动态索引面)。
+    /// 计入反射并集但标「无状态访问」类(RXS-0273:barrier 相等域不核,绑定完备性另核);
+    /// 追加到 [`GfxPassRecord::bindings`](与 `binds_sampler` 同槽,无资源状态)。
+    #[must_use]
+    pub fn reads_table(mut self, res: ResourceId) -> GfxPassRecord {
+        self.bindings.push(res);
+        self
+    }
+
     /// `present(&res)`:呈现终端 handoff(RXS-0272:每图 ≤1,且必须为声明序末 pass)。
     #[must_use]
     pub fn present(mut self, res: ResourceId) -> GfxPassRecord {
@@ -455,6 +464,30 @@ impl RhiGraph {
             });
         }
         self.gfx_passes.push(pass);
+        Ok(())
+    }
+
+    /// `present(&back)`:图级呈现终端 handoff 声明(RXS-0274;`g.present(&back)` 形式)。
+    /// 将 present 终端设置在声明序末位 gfx pass 上(与 `GfxPassRecord::present` 等价的图级
+    /// 便捷面;spec 允许 `g.present(&back)` 或 `present_handoff` 访问两种形式)。seal 时核验
+    /// present 唯一且末位(RXS-0272/0274)。无 gfx pass / 已 seal → Structure(生命周期误用)。
+    ///
+    /// # Errors
+    /// 无 gfx pass / 已 seal → [`RhiError::Structure`]。
+    pub fn present(&mut self, back: ResourceId) -> Result<()> {
+        if self.sealed {
+            return Err(RhiError::Structure {
+                detail: "seal 后声明 present(生命周期误用)".to_owned(),
+            });
+        }
+        let last = self
+            .gfx_passes
+            .last_mut()
+            .ok_or_else(|| RhiError::Structure {
+                detail: "present 终端声明但无 gfx pass(图级 present 须依附末位 gfx pass)"
+                    .to_owned(),
+            })?;
+        last.present = Some(back);
         Ok(())
     }
 
@@ -1009,5 +1042,98 @@ mod tests {
         assert_eq!(AccessKind::from_u32(2), None);
         assert!(AccessKind::Write.is_write());
         assert!(AccessKind::Read.is_consuming_read());
+    }
+
+    // ── G4.2 PR-C(RXS-0274/0276)reads_table + present handoff ─────────────────── //
+
+    /// accept(RXS-0276):TextureTable 入 pass(`.reads_table`)声明 + 装配核验通过。
+    /// table 为无状态访问类(RXS-0273:barrier 相等域不核,绑定完备性另核);reads_table
+    /// 追加到 `bindings`(与 `binds_sampler` 同槽,无资源状态)。
+    //@ spec: RXS-0276
+    #[test]
+    fn gfx_reads_table_bindings_accept() {
+        let mut g = RhiGraph::new();
+        let back = g.color_target("back", 640, 480);
+        let table = g.texture_table("tex_table");
+        // raster pass 写 color target + 绑定 texture_table(无状态访问类)。
+        g.add_gfx_pass(
+            GfxPassRecord::new("draw", GfxPassStage::Raster)
+                .writes_rt(back)
+                .reads_table(table),
+        )
+        .unwrap();
+        assert!(g.seal().is_ok(), "reads_table 声明应装配通过(无状态访问类)");
+        // bindings 含 table(sampler/table 同槽,无资源状态)。
+        assert_eq!(
+            g.gfx_passes[0].bindings,
+            vec![table],
+            "reads_table 追加到 bindings"
+        );
+    }
+
+    /// accept(RXS-0274):图级 `present(&back)` 设置末位 gfx pass 的 present 终端 + 装配通过。
+    /// 两 pass 模式:pass0 写 back,pass1(末位)present back(graph.rs PresentHandoff 为消费读,
+    /// 须有先前 pass 写入;同 pass writes_rt+present 同资源 = I5,故 present 目标取先前 pass 写入)。
+    //@ spec: RXS-0274
+    #[test]
+    fn gfx_present_handoff_graph_level_accept() {
+        let mut g = RhiGraph::new();
+        let back = g.color_target("back", 640, 480);
+        let final_rt = g.color_target("final", 640, 480);
+        // pass0 写 back(渲染目标);pass1 写 final + present back(末位终端 handoff)。
+        g.add_gfx_pass(GfxPassRecord::new("draw", GfxPassStage::Raster).writes_rt(back))
+            .unwrap();
+        g.add_gfx_pass(GfxPassRecord::new("present", GfxPassStage::Raster).writes_rt(final_rt))
+            .unwrap();
+        g.present(back).unwrap();
+        assert!(g.seal().is_ok(), "图级 present 末位应装配通过");
+        assert_eq!(
+            g.gfx_passes[1].present,
+            Some(back),
+            "present 终端已设置在末位 pass"
+        );
+    }
+
+    /// reject(RXS-0274):双 present(图级 + pass 级)→ Structure(每图 ≤1)。
+    //@ spec: RXS-0274
+    #[test]
+    fn gfx_present_twice_reject() {
+        let mut g = RhiGraph::new();
+        let back = g.color_target("back", 640, 480);
+        let back2 = g.color_target("back2", 640, 480);
+        // pass0 带 present + pass1 经图级 present → 双 present。
+        g.add_gfx_pass(
+            GfxPassRecord::new("draw0", GfxPassStage::Raster)
+                .writes_rt(back)
+                .present(back),
+        )
+        .unwrap();
+        g.add_gfx_pass(GfxPassRecord::new("draw1", GfxPassStage::Raster).writes_rt(back2))
+            .unwrap();
+        g.present(back2).unwrap();
+        assert!(matches!(g.seal(), Err(RhiError::Structure { .. })));
+    }
+
+    /// reject(RXS-0274):图级 present 但无 gfx pass → Structure(终端须依附末位 gfx pass)。
+    //@ spec: RXS-0274
+    #[test]
+    fn gfx_present_no_gfx_pass_reject() {
+        let mut g = RhiGraph::new();
+        let back = g.resource("back");
+        g.add_pass(PassSpec::new("compute").writes(back)).unwrap();
+        // 无 gfx pass → 图级 present 不可依附。
+        assert!(matches!(g.present(back), Err(RhiError::Structure { .. })));
+    }
+
+    /// reject(RXS-0274):seal 后图级 present → Structure(生命周期误用)。
+    //@ spec: RXS-0274
+    #[test]
+    fn gfx_present_after_seal_reject() {
+        let mut g = RhiGraph::new();
+        let back = g.color_target("back", 640, 480);
+        g.add_gfx_pass(GfxPassRecord::new("draw", GfxPassStage::Raster).writes_rt(back))
+            .unwrap();
+        g.seal().unwrap();
+        assert!(matches!(g.present(back), Err(RhiError::Structure { .. })));
     }
 }

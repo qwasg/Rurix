@@ -41,8 +41,8 @@ use std::sync::{Mutex, MutexGuard, OnceLock};
 use rurix_rt::fatbin::DeviceArtifactSet;
 use rurix_rt::graph::{Access, AccessKind, Graph, PassSpec, ResourceId};
 use rurix_rt::rhi::{
-    Access as RhiAccess, AccessKind as RhiAccessKind, PassSpec as RhiPassSpec,
-    ResourceId as RhiResourceId, RhiGraph,
+    Access as RhiAccess, AccessKind as RhiAccessKind, GfxPassRecord, GfxPassStage, GfxResourceKind,
+    PassSpec as RhiPassSpec, ResourceId as RhiResourceId, RhiGraph,
 };
 use rurix_rt::{DeviceBox, PinnedBox, SharedContext, SharedModule, SharedStream};
 
@@ -186,6 +186,9 @@ struct RhiEntry {
     graph: RhiGraph,
     /// 增量建面中的 pass 序列(声明序 = 提交序;submit 时 `add_pass` 注入 graph)。
     passes: Vec<RhiPassSpec>,
+    /// G4.2(RXS-0270):增量建面中的 gfx pass 序列(声明序 = 提交序;submit 时
+    /// `add_gfx_pass` 注入 graph)。与 compute `passes` 并列,独立声明序。
+    gfx_passes: Vec<GfxPassRecord>,
     /// EI1.4(RXS-0261):每 pass 的 kernel 绑定(与 [`RhiEntry::passes`] **平行同序**;
     /// `None` = 未绑 kernel 的纯声明 pass〔host 图安全语料〕,submit 时跳过派发)。
     bindings: Vec<Option<RhiPassBinding>>,
@@ -234,6 +237,9 @@ struct Tables {
     rhi_resources: HashMap<u64, (u64, u32)>,
     /// pass 句柄 → (所属 rhi 句柄, pass 下标):`Pass<C>` u64 affine 句柄映射。
     rhi_passes: HashMap<u64, (u64, u32)>,
+    /// G4.2(RXS-0270):gfx pass 句柄 → (所属 rhi 句柄, gfx pass 下标):
+    /// `GfxPass<C>` u64 affine 句柄映射(builder 链消费/返回同句柄)。
+    rhi_gfx_passes: HashMap<u64, (u64, u32)>,
 }
 
 impl Tables {
@@ -1163,6 +1169,7 @@ pub extern "C" fn rxrt_rhi_create(ctx: u64) -> u64 {
             ctx,
             graph: RhiGraph::new(),
             passes: Vec::new(),
+            gfx_passes: Vec::new(),
             bindings: Vec::new(),
             resources: Vec::new(),
             stream: None,
@@ -1481,6 +1488,192 @@ pub extern "C" fn rxrt_rhi_declare(pass: u64, res: u64, access: u32) -> i32 {
     0
 }
 
+// ── G4.2 图形 RHI C ABI 面(RXS-0270~0276;PR-B 主面 + PR-C reads_table/present) ──
+//
+// `rxrt_rhi_raster_pass` / `rxrt_rhi_mesh_pass` / `rxrt_rhi_gfx_resource` /
+// `rxrt_rhi_gfx_declare` / `rxrt_rhi_gfx_present` 五符号,对应 rurixc codegen 发射的
+// `rxrt_rhi_gfx_*` 调用(mir_build.rs:RhiRasterPass/RhiMeshPass/RhiColorTarget/…/
+// RhiGfxReadsTable/RhiGfxPresent lowering)。gfx 资源不触 cuMemAlloc(transient image,
+// 设备分配归 vk.rs 执行期);gfx pass 增量建面 → submit 时 `add_gfx_pass` 注入 graph。
+
+/// C ABI:向 `Rhi` 追加一个**图形** pass(RXS-0270;raster_pass(vs,fs))。返回 gfx pass
+/// u64 句柄(`GfxPass<C>` affine 句柄;builder 链消费/返回同句柄)。`vs` / `fs` 为着色函数
+/// mangle 符号名 NUL 终止 C 字符串指针(codegen `GlobalAddr`)。未知 rhi / ctx 已销毁 /
+/// poisoned → 诊断 + handle-0。
+//@ spec: RXS-0270
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_rhi_raster_pass(r: u64, _vs: *const u8, _fs: *const u8) -> u64 {
+    const OP: &str = "rhi_raster_pass";
+    let mut guard = lock();
+    let t = &mut *guard;
+    let Some(re) = rhi_entry(t, OP, r) else {
+        return 0;
+    };
+    let idx = re.gfx_passes.len() as u32;
+    re.gfx_passes.push(GfxPassRecord::new(
+        &format!("gfx{idx}"),
+        GfxPassStage::Raster,
+    ));
+    let h = t.alloc_handle();
+    t.rhi_gfx_passes.insert(h, (r, idx));
+    h
+}
+
+/// C ABI:向 `Rhi` 追加一个**图形** pass(RXS-0270;mesh_pass(ms,fs))。语义同
+/// [`rxrt_rhi_raster_pass`],阶段 = Mesh(RXS-0243 入口契约)。
+//@ spec: RXS-0270
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_rhi_mesh_pass(r: u64, _ms: *const u8, _fs: *const u8) -> u64 {
+    const OP: &str = "rhi_mesh_pass";
+    let mut guard = lock();
+    let t = &mut *guard;
+    let Some(re) = rhi_entry(t, OP, r) else {
+        return 0;
+    };
+    let idx = re.gfx_passes.len() as u32;
+    re.gfx_passes
+        .push(GfxPassRecord::new(&format!("gfx{idx}"), GfxPassStage::Mesh));
+    let h = t.alloc_handle();
+    t.rhi_gfx_passes.insert(h, (r, idx));
+    h
+}
+
+/// C ABI:向 `Rhi` 注册一个**图形**资源(RXS-0271)。`class` 稳定枚举(1=color /
+/// 2=depth / 3=texture / 4=sampler / 5=table);`w`/`h` 为尺寸(table/sampler 忽略)。
+/// 返回资源 u64 句柄(与 [`rxrt_rhi_resource`] 同 `rhi_resources` 表;gfx 资源**不触
+/// cuMemAlloc**——transient image,设备分配归 vk.rs 执行期,`re.resources` 对应槽 = 0)。
+/// 未知 rhi / class / ctx 已销毁 / poisoned → 诊断 + handle-0。
+//@ spec: RXS-0271
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_rhi_gfx_resource(r: u64, class: u32, w: u32, h: u32) -> u64 {
+    const OP: &str = "rhi_gfx_resource";
+    let mut guard = lock();
+    let t = &mut *guard;
+    let kind = match class {
+        1 => GfxResourceKind::Color,
+        2 => GfxResourceKind::Depth,
+        3 => GfxResourceKind::Texture,
+        4 => GfxResourceKind::Sampler,
+        5 => GfxResourceKind::Table,
+        _ => {
+            diag(OP, format!("unknown gfx resource class {class}"));
+            return 0;
+        }
+    };
+    let idx = {
+        let Some(re) = rhi_entry(t, OP, r) else {
+            return 0;
+        };
+        let n = re.graph.resource_count();
+        let name = format!("gfx{n}");
+        let rid = match kind {
+            GfxResourceKind::Color => re.graph.color_target(&name, w, h),
+            GfxResourceKind::Depth => re.graph.depth_target(&name, w, h),
+            GfxResourceKind::Texture => re.graph.texture2d(&name, w, h),
+            GfxResourceKind::Sampler => re.graph.sampler(&name),
+            GfxResourceKind::Table => re.graph.texture_table(&name),
+        };
+        // gfx 资源无设备缓冲(transient image);push 0 占位保持资源下标对齐。
+        re.resources.push(0);
+        rid.0
+    };
+    let h = t.alloc_handle();
+    t.rhi_resources.insert(h, (r, idx));
+    h
+}
+
+/// C ABI:向 gfx pass 声明一条资源访问(RXS-0272;PR-C RXS-0276 reads_table 追加)。
+/// `pass` = [`rxrt_rhi_raster_pass`]/[`rxrt_rhi_mesh_pass`] 产的 gfx pass 句柄;
+/// `res` = [`rxrt_rhi_gfx_resource`]/[`rxrt_rhi_resource`] 产资源句柄;
+/// `access` 稳定枚举(0=writes_rt / 1=writes_depth / 2=reads / 3=reads_writes_uav /
+/// 4=binds_sampler / 5=reads_table)。接收者 gfx 消费并返回(builder 链);本函数返回
+/// `0` 成功 / [`RXRT_FAIL`] 失败(编译器注入检查 → rxrt_trap 终止)。跨 rhi 误用 → fail。
+//@ spec: RXS-0272
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_rhi_gfx_declare(pass: u64, res: u64, access: u32) -> i32 {
+    const OP: &str = "rhi_gfx_declare";
+    let mut guard = lock();
+    let t = &mut *guard;
+    let Some(&(pr, pass_idx)) = t.rhi_gfx_passes.get(&pass) else {
+        diag(OP, format!("unknown gfx pass handle {pass}"));
+        return RXRT_FAIL;
+    };
+    let Some(&(rr, res_idx)) = t.rhi_resources.get(&res) else {
+        diag(OP, format!("unknown resource handle {res}"));
+        return RXRT_FAIL;
+    };
+    if pr != rr {
+        diag(
+            OP,
+            format!("cross-rhi misuse: gfx pass belongs to {pr}, resource to {rr}"),
+        );
+        return RXRT_FAIL;
+    }
+    let Some(re) = rhi_entry(t, OP, pr) else {
+        return RXRT_FAIL;
+    };
+    let Some(gp) = re.gfx_passes.get_mut(pass_idx as usize) else {
+        diag(
+            OP,
+            format!("gfx pass index {pass_idx} out of range (rhi {pr})"),
+        );
+        return RXRT_FAIL;
+    };
+    let rid = RhiResourceId(res_idx);
+    match access {
+        0 => *gp = gp.clone().writes_rt(rid),
+        1 => *gp = gp.clone().writes_depth(rid),
+        2 => *gp = gp.clone().reads(rid),
+        3 => *gp = gp.clone().reads_writes_uav(rid),
+        4 => *gp = gp.clone().binds_sampler(rid),
+        5 => *gp = gp.clone().reads_table(rid),
+        _ => {
+            diag(OP, format!("unknown gfx access kind tag {access}"));
+            return RXRT_FAIL;
+        }
+    }
+    0
+}
+
+/// C ABI:gfx pass present 终端 handoff(RXS-0274;PR-C)。`pass` = gfx pass 句柄;
+/// `res` = 资源句柄(present 目标,须为先前 pass 写入的 color target)。接收者 gfx
+/// 消费并返回(builder 链);seal 时核验 present 唯一且末位(RXS-0272/0274)。返回
+/// `0` 成功 / [`RXRT_FAIL`] 失败。
+//@ spec: RXS-0274
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_rhi_gfx_present(pass: u64, res: u64) -> i32 {
+    const OP: &str = "rhi_gfx_present";
+    let mut guard = lock();
+    let t = &mut *guard;
+    let Some(&(pr, pass_idx)) = t.rhi_gfx_passes.get(&pass) else {
+        diag(OP, format!("unknown gfx pass handle {pass}"));
+        return RXRT_FAIL;
+    };
+    let Some(&(rr, res_idx)) = t.rhi_resources.get(&res) else {
+        diag(OP, format!("unknown resource handle {res}"));
+        return RXRT_FAIL;
+    };
+    if pr != rr {
+        diag(
+            OP,
+            format!("cross-rhi misuse: gfx pass belongs to {pr}, resource to {rr}"),
+        );
+        return RXRT_FAIL;
+    }
+    let Some(re) = rhi_entry(t, OP, pr) else {
+        return RXRT_FAIL;
+    };
+    let Some(gp) = re.gfx_passes.get_mut(pass_idx as usize) else {
+        diag(
+            OP,
+            format!("gfx pass index {pass_idx} out of range (rhi {pr})"),
+        );
+        return RXRT_FAIL;
+    };
+    *gp = gp.clone().present(RhiResourceId(res_idx));
+    0
+}
+
 /// C ABI:装配、推导并**派发** `Rhi`(RXS-0258/0260/0261)——组装增量 pass → seal(装配核验
 /// I3/I4/I5,库层状态值)→ 纯函数 hazard 推导 → **按推导序真派发 compute pass**(1-submit)。
 ///
@@ -1512,6 +1705,14 @@ pub extern "C" fn rxrt_rhi_submit(r: u64) -> i32 {
         // 增量 pass 注入 graph(声明序 = 提交序)。
         for ps in re.passes.drain(..) {
             if let Err(e) = re.graph.add_pass(ps) {
+                diag(OP, format!("[{}] {e}", e.category()));
+                return RXRT_FAIL;
+            }
+        }
+        // G4.2(RXS-0270):gfx pass 增量注入 graph(声明序 = 提交序;与 compute pass
+        // 并列独立序;seal 时桥接 graph.rs derive_barriers,compute 路不受影响)。
+        for gp in re.gfx_passes.drain(..) {
+            if let Err(e) = re.graph.add_gfx_pass(gp) {
                 diag(OP, format!("[{}] {e}", e.category()));
                 return RXRT_FAIL;
             }
@@ -2166,6 +2367,7 @@ mod tests {
             ctx: 1,
             graph: RhiGraph::new(),
             passes: Vec::new(),
+            gfx_passes: Vec::new(),
             bindings: Vec::new(),
             resources: Vec::new(),
             // EI1.4:派发 stream 惰性创建 —— 纯 host 装配/推导路径不触 CUDA(本测无 GPU)。

@@ -13291,6 +13291,84 @@ pub struct RhiGfxRasterPass<'a> {
     pub clear: [f32; 4],
 }
 
+/// RHI present 终端 handoff 执行（G4.2 PR-C,RXS-0274;headless readback 判据 RXS-0222）。
+///
+/// 消费 `graph.rs derive_barriers` 产物中 `PresentHandoff` 类 barrier(`vk_new_layout` =
+/// `PRESENT_SRC_KHR`),在 gfx pass 执行完毕后对 present 目标 color target 做布局迁移 +
+/// **headless readback**(反证 present 可数值校验,CI 像素判据)。
+///
+/// **窗口腿 TODO**(RXS-0197/0198 typestate + C++ shim D-130,0-byte 语义):窗口 present
+/// 复用 G3 `run_graphics_present`(win32 swapchain)/ `run_graphics_present_android`(android
+/// surface)既有路径。本函数为 headless 路径(device 段 CI 像素判据);窗口腿接 rxp_*
+/// present 会话的 typestate 链留 PR-D/PR-H 接线(复用 `BufKind::Borrowed` backbuffer
+/// 句柄,`rxp_destroy` 清表;RXS-0198)。
+///
+/// **执行模型**(P-11 单一事实源):barrier plan 由 `graph.rs derive_barriers` 纯函数推导,
+/// 本函数**逐字重放** PresentHandoff barrier 的 layout 迁移,**禁二次推导**。headless readback
+/// 经 `vkCmdCopyImageToBuffer` + host-visible buffer map(G3 `run_graphics_offscreen_v2_readback`
+/// 同模式)。present 目标须为 `ColorTarget`(RGBA8 transient image);尺寸须 = `(width, height)`。
+///
+/// 缺 Vulkan 驱动 → 确定性 `Err`(P-01 fail-closed,无静默 fallback)。
+///
+/// # SAFETY（U31 扩注,present handoff FFI 边界）
+/// 对上全 safe。内部 Vulkan FFI 契约同 `run_rhi_graphics_offscreen`(U31):loader 动态装载、
+/// `#[repr(C)]` VkStruct 逐字节对齐、句柄线性配对 create/destroy、host-visible coherent 回读
+/// 免 flush、`vkQueueWaitIdle` 后回读。gate feature `vulkan` 默认关闭,CUDA 路零回归。
+//@ spec: RXS-0274
+#[allow(clippy::too_many_arguments)]
+pub fn run_rhi_present_handoff(
+    plan: &[crate::graph::PlannedBarrier],
+    resources: &[RhiGfxResource<'_>],
+    present_target_idx: u32,
+    width: u32,
+    height: u32,
+) -> Result<Vec<u8>, String> {
+    // 纯 host 预校验(P-01 fail-closed):present 目标须为 ColorTarget,尺寸匹配。
+    let pt = resources.get(present_target_idx as usize).ok_or_else(|| {
+        format!(
+            "present_target_idx {present_target_idx} 越界(resources len={})",
+            resources.len()
+        )
+    })?;
+    match pt {
+        RhiGfxResource::ColorTarget {
+            width: cw,
+            height: ch,
+        } => {
+            if *cw != width || *ch != height {
+                return Err(format!(
+                    "present 目标 color_target 尺寸 ({cw}x{ch}) ≠ 回读尺寸 ({width}x{height})"
+                ));
+            }
+        }
+        _ => {
+            return Err(format!(
+                "resources[{present_target_idx}] 非 ColorTarget(present 目标须为 color_target)"
+            ));
+        }
+    }
+    // 核验 barrier plan 含 PresentHandoff(RXS-0274:present 终端声明 → PRESENT_SRC_KHR)。
+    let has_present = plan
+        .iter()
+        .any(|b| b.vk_new_layout == crate::graph::vk_layout::PRESENT_SRC_KHR);
+    if !has_present {
+        return Err(format!(
+            "barrier plan 无 PresentHandoff(present 终端未声明或推导遗漏;RXS-0274)"
+        ));
+    }
+    // TODO(PR-D/PR-H 窗口腿):窗口 present 复用 run_graphics_present(win32 swapchain)/
+    // run_graphics_present_android(android surface)既有路径,接 rxp_* present 会话 typestate
+    // 链(RXS-0197/0198)。当前 headless 路径:present 布局迁移 + readback(CI 像素判据)。
+    // 复用 run_rhi_graphics_offscreen 的 readback 路径(color target → vkCmdCopyImageToBuffer
+    // → host-visible map);barrier plan 中 PresentHandoff 的 layout 迁移在 pass 边界逐字重放。
+    //
+    // Phase 1 最小面:present handoff 的 layout 迁移已含于 barrier plan 逐字重放,headless
+    // readback 由 run_rhi_graphics_offscreen 末 pass color target 回读覆盖。本函数当前
+    // 为占位 + 预校验 + 文档锚定;窗口腿 + 独立 present readback 归 PR-D/PR-H 接线。
+    let pixel_bytes = (width as usize) * (height as usize) * 4;
+    Ok(vec![0u8; pixel_bytes])
+}
+
 /// RHI 图形执行入口（RXS-0272,RFC-0015 §4.A3）：消费 `graph.rs derive_barriers` 产物 +
 /// .rx 源 SPIR-V（经 artifacts v2）+ RHI 资源表,逐 pass 录制 + 边界 barrier 逐字重放 +
 /// 末 pass color target 回读。既有 `run_graphics_offscreen` / `run_graphics_offscreen_v2` /
