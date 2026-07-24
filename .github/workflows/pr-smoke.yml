@@ -761,6 +761,32 @@ jobs:
         shell: powershell
         run: py -3 ci/uc05_exec_face_gate.py
 
+      # 步骤 80（G-G4-5,RFC-0015 §4.C4 / RXS-0293/0294）:Vulkan RHI 通道 smoke
+      # (.rx 单源 Vulkan RHI 通道:compute + graphics 双腿,`Rhi::create_vk` 显式后端
+      # strict 无回退;device 见证判据:compute 图 device 真跑 + 数值对照 + spirv-val
+      # 全模块校验 + RURIX_REQUIRE_REAL=1）。
+      # `ci/vulkan_rhi_channel_smoke.py` host 段**恒跑**(反 YAML-only,无 GPU):
+      # ① `vk.rs` 库单测(feature vulkan):vulkan_available 探测 + run_compute
+      #    pipeline/descriptor/dispatch 结构(pure host 单测,不触 device)
+      # ② `rhi.rs` 库单测(backend 分流 + create_vk 0-byte 维持)
+      # ③ `rurix-rt-cabi` 库单测(rxrt_rhi_create_vk + Vulkan 分流符号面)
+      # ④ `uc05_corpus` 批跑(含 accept/rhi_create_vk:0 诊断 + rxrt_rhi_create_vk
+      #    lowering 符号锚定;compute 路零回归守卫)
+      # ⑤ rurixc `--emit=check` 编译档:accept/rhi_create_vk.rx 0 诊断(显式 Vulkan
+      #    后端构造合法声明面)
+      # ⑥ spirv-val 全模块校验(工具在位 accept / 缺工具 SKIP,退出码判定非 grep;
+      #    RXS-0212 三态 gate 先例)
+      # device/toolchain 段 gate real(`RURIX_REQUIRE_REAL=1`,缺 provisioning SKIP=dev-env degrade):
+      # ⑦ `rx build rhi_create_vk.rx` → EXE GREEN(Vulkan 通道 compute 腿 device 真跑;
+      #    create_vk + SPIR-V pipeline + descriptor set + dispatch + 回写)。
+      # ⑧ evidence JSON 记录 device 见证结果(含 Vulkan 通道 compute 腿 exit code +
+      #    spirv-val 退出码 + 环境画像)。
+      # strict 无回退:Vulkan 不可用 → 确定性 Err(RXS-0193 口径);RURIX_REQUIRE_REAL=1
+      # 翻硬红(SKIP 不充绿)。
+      - name: Vulkan RHI channel smoke (G4 CI_GATES §2.80, G-G4-5, RFC-0015 §4.C4 / RXS-0293/0294)
+        shell: powershell
+        run: py -3 ci/vulkan_rhi_channel_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

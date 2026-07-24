@@ -2265,6 +2265,19 @@ impl Builder<'_, '_> {
                 self.guard_handle_zero(dest, span);
                 self.consume(Place::local(dest), &ret)
             }
+            // G4.4 PR-F(RXS-0293):`Rhi::create_vk(&ctx)` → `rxrt_rhi_create_vk`
+            // (显式 Vulkan 后端,strict 无回退;镜像 RhiCreate,`&ctx` 取内层 ctx 句柄)。
+            // 句柄 0 → 终止(RXS-0193,镜像 RhiCreate)。
+            Op::RhiCreateVk => {
+                let ret = self.ty_of(e);
+                let h = match &args[0].kind {
+                    tbir::ExprKind::Borrow { expr, .. } => self.gpu_handle_op(expr),
+                    _ => self.gpu_handle_op(&args[0]),
+                };
+                let dest = self.emit_rt_call("rxrt_rhi_create_vk", vec![h], ret.clone(), span);
+                self.guard_handle_zero(dest, span);
+                self.consume(Place::local(dest), &ret)
+            }
             // G4.3 PR-E(RXS-0283):`rhi.graph::<CAP>()` → `rxrt_rhi_graph_create(rhi, cap: i64)`
             // (非消费接收者;CAP = turbofish const 实参字面量即时求值 → i64,经 typeck → tbir
             // SynthInt → 此处 op_of 物化为 Const::Int(cap, I64) 下发)。返回 `Graph<C>` 句柄

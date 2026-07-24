@@ -998,6 +998,15 @@ fn load_vulkan_loader() -> Option<FnGetInstanceProcAddr> {
     }
 }
 
+/// Vulkan loader 可用性探测(G4.4 PR-F,RXS-0293):`vulkan-1.dll`/`libvulkan.so` 可加载
+/// 且导出 `vkGetInstanceProcAddr` → `true`。供 cabi `rxrt_rhi_create_vk` strict 无回退
+/// 判据(feature on 时探测;feature off 时 cabi 不触本函数)。**不持有 loader**——仅探测,
+/// 后续 `run_compute`/`run_rhi_graphics_offscreen` 各自重新加载(进程常驻,幂等)。
+#[must_use]
+pub fn vulkan_available() -> bool {
+    load_vulkan_loader().is_some()
+}
+
 /// 解析 SPIR-V 首个 `OpEntryPoint` 的入口名(codegen 用 mangled 符号名;Vulkan pipeline
 /// 的 `pName` 需与之一致)。header 5 字后扫指令流,opcode 15 = OpEntryPoint,operand
 /// [exec_model, entry_id, name(NUL 终止)..]。
@@ -13352,9 +13361,9 @@ pub fn run_rhi_present_handoff(
         .iter()
         .any(|b| b.vk_new_layout == crate::graph::vk_layout::PRESENT_SRC_KHR);
     if !has_present {
-        return Err(format!(
-            "barrier plan 无 PresentHandoff(present 终端未声明或推导遗漏;RXS-0274)"
-        ));
+        return Err(
+            "barrier plan 无 PresentHandoff(present 终端未声明或推导遗漏;RXS-0274)".to_string(),
+        );
     }
     // TODO(PR-D/PR-H 窗口腿):窗口 present 复用 run_graphics_present(win32 swapchain)/
     // run_graphics_present_android(android surface)既有路径,接 rxp_* present 会话 typestate

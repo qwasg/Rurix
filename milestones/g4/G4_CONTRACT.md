@@ -374,3 +374,51 @@ RD-035「UC-05 RHI 执行面余项」三项全量兑现,registry/deferred.json s
 **下一 PR(PR-F)开工声明**:
 
 PR-F Vulkan RHI 通道 device 见证回填(G4.4,G-G4-3 device 段 / G-G4-4 device 段收口;RXS-0222 像素判据 + 步骤 80)。步骤 76 gfx device SKIP(NVPTX 不支持图形 shader,需 Vulkan 后端)+ 步骤 78 engine_host v3 device SKIP(无 GPU/Vulkan provision)的 device 见证回填归 PR-F。串行口径:PR-E 合入后开工,合一等一。
+
+### 8.5 PR-F Vulkan RHI 通道合入留痕(G4.4 / G-G4-5;RFC-0015 §4.C4;RXS-0293/0294;2026-07-25)
+
+**完成面摘要**:
+- 条款先行:spec commit `0ff190b4`(RXS-0293 .rx 单源 Vulkan RHI 通道:compute + graphics 双腿,`Rhi::create_vk(&ctx)` 显式后端 strict 无回退 + RXS-0294 device 见证判据:数值对照 + spirv-val + RURIX_REQUIRE_REAL=1;spec/vulkan_backend.md v1.20 + registry/number_ledger.json RXS on_tree_max 292→294 + CI_step on_tree_max 79→80;零新 RX 码,Vulkan 不可用走 RXS-0193 确定性诊断,装配期违例镜像 RX6029/RX6030)。
+- `Rhi::create_vk(&ctx)` 显式后端构造器(RXS-0293):resolve.rs 注册 `create_vk` lang-item 已知方法 + typeck.rs `Op::RhiCreateVk` 分支(返回 `Rhi<Vk>` 句柄,strict 无回退)+ mir_build.rs lowering 降级为 `rxrt_rhi_create_vk(ctx)` 调用 + hir.rs `RhiCreateVk` 变体;`Rhi::create` = CUDA 既有 0-byte(backend=Cuda 默认)。
+- rurix-rt-cabi/src/lib.rs `rxrt_rhi_create_vk` C ABI(RXS-0293,`#[unsafe(no_mangle)] pub extern "C"`):feature gate `rurix-rt/vulkan`——feature on → Vulkan loader 探测 + backend=Vk 构造;feature off → 确定性 handle-0(非 fake pass,diag 报 "Vulkan backend not compiled in",RXS-0193 口径);无环境探测静默切换、无静默回退。
+- compute 腿 Vulkan 变体(RXS-0293):vk.rs `vulkan_available` 探测 + compute pipeline 自 SPIR-V 模块(按 kernel 名索引)+ descriptor set 自 marshalling 槽位(RXS-0208 既有 vk 映射:set 0 StorageBuffer 顺排 + push constants)+ dispatch + 计划同步点回放(PlannedBarrier);`run_compute` 同模式先例复用。
+- graphics 腿复用 G4.2 路径(RXS-0293):A7 执行面同一通道——既有 `run_graphics_offscreen_v2`/`run_mesh_offscreen`/`run_graph_offscreen` 入口 0-byte 语义;present handoff 复用 PR-C `run_rhi_present_handoff`。
+- conformance/uc05/accept/rhi_create_vk.rx 新建(RXS-0293 锚定):`Rhi::create_vk(&ctx)` 显式 Vulkan 后端构造正例,`--emit=check` 0 诊断;lowering 落 `rxrt_rhi_create_vk` 字面符号(非 `rxrt_rhi_create`)。
+- src/rurixc/tests/uc05_corpus.rs 追加 `accept_rhi_create_vk_lowers_to_rxrt_rhi_create_vk` 测试(RXS-0293 锚定):断言 IR 含 `declare i64 @rxrt_rhi_create_vk(i64)` + `@rxrt_rhi_create_vk(` 调用形态。
+- src/rurixc/tests/mesh_rt_vulkan_spirv_val.rs 追加 `//@ spec: RXS-0294` 锚定:spirv-val 全模块校验为 Vulkan RHI 通道 device 见证判据 L3 腿(步骤 80 host 段 check_spirv_val 调用本测试)。
+- ci/vulkan_rhi_channel_smoke.py 新建(步骤 80):host 段恒跑(vk.rs/rhi.rs/cabi 库单测 + uc05_corpus 批跑 + `--emit=check` rhi_create_vk.rx + spirv-val 全模块校验)+ device 段 gate real(rx build rhi_create_vk.rx → EXE 真跑);`#@ spec: RXS-0293` / `#@ spec: RXS-0294` 锚定;SKIP 纪律:无 link 工具链 / 无 Vulkan 驱动 / 无 GPU → SKIP=dev-env degrade(退 0),`RURIX_REQUIRE_REAL=1` 把缺失翻硬红。
+- .github/workflows/pr-smoke.yml 步骤 80 回填;milestones/g4/g4_budget.json counter_assertions 追加 `g4.counter.vulkan_rhi_channel`(device 见证基数 ≥1)+ revision_log;ci/budget_eval.py 追加 vulkan_rhi_channel evaluator 分支。
+- registry/number_ledger.json CI_step on_tree_max 79→80 / next_free 80→81 + notes 步骤 80 描述 + revision_log。
+- fmt/clippy 修复:src/rurix-rt-cabi/src/lib.rs `needless_return`(feature off 块 `return 0;` → `0`)+ src/rurix-rt/src/vk.rs `useless_format`(`format!("...")` → `"...".to_string()`)。
+- stable 快照重 bless:spec_clauses 276→278(RXS-0293/0294;error_codes=106 / editions / subcommands 三段 0 变化);bless_log 同 diff;trace_matrix 276→278 全锚定(RXS-0293 锚 conformance/uc05/accept/rhi_create_vk.rx + src/rurix-rt-cabi/src/lib.rs rxrt_rhi_create_vk + src/rurixc/tests/uc05_corpus.rs / RXS-0294 锚 src/rurixc/tests/mesh_rt_vulkan_spirv_val.rs spirv-val L3 腿)。
+
+**关键验证命令真实输出尾部**:
+
+```
+[vulkan_rhi_channel_smoke] host 段 PASS:vk.rs(feature vulkan)+ rhi.rs(backend 分流)+ cabi(create_vk 符号面)+ uc05_corpus(accept/rhi_create_vk 0 诊断 + lowering)+ --emit=check(0 诊断)+ spirv-val(全模块校验)
+[vulkan_rhi_channel_smoke] SKIP device 段:rx build 失败(link.exe / Vulkan SDK 工具链面缺)(dev-env-degrade,退出 0)
+[vulkan_rhi_channel_smoke] 写 evidence evidence\vulkan_rhi_channel_smoke_20260725T031419.json; run_url=local
+[trace_matrix] PASS (278/278 clauses anchored, 604 test files scanned)
+[stable_snapshot] PASS(stable 面与入库快照一致:spec_clauses=278,error_codes=106,editions=['2026'],subcommands=['bench', 'build', 'check', 'doc', 'fmt', 'run', 'test', 'vendor'])
+[check_number_ledger] PASS(spec RXS 头 278 个零同号碰撞;ledger 14 命名空间保留号被尊重;red 自检已过)
+[check_guardrails] ADVISORY (base=ei1-closed,不阻断)
+[budget_eval] PASS (87 pass, 3 skip, normal mode)
+```
+
+注:cargo fmt --check / clippy --workspace --all-targets -D warnings / test --workspace 均 PASS(含 needless_return/useless_format 修复)。`cargo build --workspace --features rurix-rt/vulkan,vulkan-backend` 编译绿(CARGO_INCREMENTAL=0 绕 rustc 1.93.1 ICE,PR-D 同先例)。`RURIX_REQUIRE_REAL=1 py -3 ci/vulkan_rhi_channel_smoke.py` 退 1(device 段 rx build 链接失败翻硬红,per 脚本 SKIP 纪律设计;PR-B/C/D 同先例:device 段 SKIP 取 RURIX_REQUIRE_REAL 未设态,exit 0)。
+
+**device 段 SKIP 原因(建设期正常态,device 见证回填待 provisioning)**:
+
+步骤 80 device 段需 `rx build rhi_create_vk.rx` → EXE → 真跑(Vulkan 通道 compute 腿:create_vk + SPIR-V pipeline + descriptor set + dispatch + 回写)。本机 `rx` 在位但 `rx build` 链接失败(link.exe LNK2019:`rxrt_rhi_create_vk` 未解析——运行时库需 vulkan feature 重编 + Vulkan SDK provisioning;RX7001 外部工具链失败)→ SKIP=dev-env degrade(非 fake pass,退 0;`RURIX_REQUIRE_REAL=1` 翻硬红,PR-B/C/D 同先例)。host 段恒跑(vk.rs/rhi.rs/cabi 库单测 + uc05_corpus 批跑 + --emit=check + spirv-val 全模块校验)全 PASS。device compute 图 saxpy 级 + 图形图章 A demo 真跑 + 数值对照 vs host + vs CUDA 腿交叉对照 + spirv-val 全模块校验回填待 `rx` 工具链 vulkan feature 重编 + Vulkan SDK provisioning(G4.7 close-out 或 owner 裁决 provisioning 节点)。
+
+**evidence 路径**:
+
+- evidence/vulkan_rhi_channel_smoke_20260725T031419.json(host_section_pass=true,device_section_rc=0,checks: host_lib_tests=true, spirv_val=true, device_run=SKIP;vulkan_channel_ok=false;toolchain_skip=no-rx;dev_env_degrade=true;run_url=local)
+
+**RD-031 处置留痕(closed)**:
+
+RD-031「RXS-0209 device 描述表 v2 @__rx_gpu_artifacts blob bump + @__rx_gpu_spirv 段 codegen」closed(owner_milestone=MB1 → G4.4 PR-F 兑现):RXS-0209 IR2 描述表 v2 blob 经 PR-A artifacts v2(emit_gpu_artifact_globals 版本分叉,feature off → v1 逐字节不变)+ PR-F Vulkan RHI 通道(rxrt_rhi_create_vk 消费 v2 blob + @__rx_gpu_spirv 段 SPIR-V 变体)正交兑现。backfill_condition 全兑现(MS1.2 artifacts blob 合入 + codegen 单测/golden)。registry/deferred.json RD-031 status open→closed + history 追加 2026-07-25 PR-F 兑现留痕(evidence: spec/vulkan_backend.md RXS-0290~0294 / src/rurixc/src/codegen.rs emit_gpu_artifact_globals / src/rurix-rt-cabi/src/{artifacts.rs,lib.rs} v2 解析 + rxrt_rhi_create_vk / src/rurix-rt/src/vk.rs vulkan_available + run_compute / ci/vulkan_rhi_channel_smoke.py 步骤 80 / conformance/uc05/accept/rhi_create_vk.rx RXS-0293 锚定 / registry/number_ledger.json RXS on_tree_max 292→294)。
+
+**下一 PR(PR-G)开工声明**:
+
+PR-G C ABI v2 判档(G4.5,G-G4-6,条件臂;判档依据留痕契约 §8)。以 engine_host v3 图形嵌入的真实硬需求判档(Q-G 可证伪判据清单,唯一输入):① upcall 硬需求(嵌入面是否需要 .rx 侧调起宿主代码——数据指针无法承载「调用」语义,子集 v1 无替代表达 ⇒ 回调指针硬需求成立)② 外部固定 ABI(被嵌入方是否为 ABI 不可改的既有外部 API——engine_host v3 为本仓自建宿主,天然不满足)。判档依据留痕落 G4_CONTRACT §8,不 rubber-stamp。若判档成立 → RXS-0295/0296 条款先行 + ABI 往返真跑(3/5/8 字节三尺寸哨兵 + C 侧回调被 .rx 侧调起数值回传断言)+ RED 三路;若判档不成立 → RXS-0295/0296 号 burned + RD-036+ 登记 + RFC 修订行留痕(不重开 RFC,G-EA1-3 先例)。两种结局均合法(P-12:条件臂存在 ≠ 条件臂必须兑现)。串行口径:PR-F 合入后开工,合一等一。

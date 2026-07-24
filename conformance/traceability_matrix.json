@@ -1519,6 +1519,14 @@
     "RXS-0292": [
       "src/rurix-rt-cabi/src/artifacts.rs",
       "src/rurix-rt/src/fatbin.rs"
+    ],
+    "RXS-0293": [
+      "conformance/uc05/accept/rhi_create_vk.rx",
+      "src/rurix-rt-cabi/src/lib.rs",
+      "src/rurixc/tests/uc05_corpus.rs"
+    ],
+    "RXS-0294": [
+      "src/rurixc/tests/mesh_rt_vulkan_spirv_val.rs"
     ]
   }
 }

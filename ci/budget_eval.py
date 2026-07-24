@@ -694,6 +694,27 @@ def eval_counter(entry: dict, strict: bool) -> None:
                 n += 1
         count_or_gate(eid, n, 1, "份 UC-05 执行面三项 device 见证(exec_face_ok=true + i10_measured_local=true)",
                       "G4.3 device 见证回填前为正常状态,契约 G-G4-4", strict)
+    elif eid == "g4.counter.vulkan_rhi_channel":
+        # Vulkan RHI 通道 device 见证基数 ≥1(契约 G-G4-5;RFC-0015 §4.C4 / RXS-0293/0294;
+        # ci/vulkan_rhi_channel_smoke.py 步骤 80 device 段)。计数源 =
+        # evidence/vulkan_rhi_channel_smoke_*.json 中 vulkan_channel_ok=true 的报告数
+        # (机器事实:rx build rhi_create_vk.rx 产 EXE 真跑 exit 0〔Rhi::create_vk 显式
+        # Vulkan 后端 + SPIR-V pipeline + descriptor set + dispatch + 回写;Vulkan 不可用
+        # → strict Err RXS-0193,非 fake pass〕)。**device evidence 计数**(非静态语料计数):
+        # 须有 link 工具链 + Vulkan 驱动 + GPU 才能成立,故按 device 见证归档口径计数(对齐
+        # g4.counter.exec_face_gate device 见证计数先例)。host 段(vk.rs feature vulkan
+        # 库单测 + rhi.rs backend 分流 + cabi create_vk 符号面 + uc05_corpus accept/rhi_create_vk
+        # + rurixc --emit=check + spirv-val 全模块校验)恒跑但**不入本 counter**。
+        # 无 link 工具链 / 无 Vulkan 驱动 / 无 GPU → device SKIP=dev-env degrade → 0 →
+        # 建设期 normal SKIP / close-out strict FAIL。strict 无回退:Vulkan 不可用 →
+        # 确定性 Err(RXS-0193 口径);RURIX_REQUIRE_REAL=1 翻硬红(SKIP 不充绿)。
+        n = 0
+        for f in (ROOT / "evidence").glob("vulkan_rhi_channel_smoke_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("vulkan_channel_ok") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份 Vulkan RHI 通道 device 见证(vulkan_channel_ok=true)",
+                      "G4.4 device 见证回填前为正常状态,契约 G-G4-5", strict)
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 

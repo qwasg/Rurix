@@ -255,6 +255,28 @@ fn accept_const_capacity_graph() {
     );
 }
 
+/// accept/rhi_create_vk(RXS-0293):`Rhi::create_vk(&ctx)` 显式 Vulkan 后端构造 0 诊断,
+/// lowering 落 `rxrt_rhi_create_vk` 字面符号(非 `rxrt_rhi_create`)。compute-pass 声明式
+/// 建图同一库面,后端标识在构造点决定;strict 无回退(Vulkan 不可用 → 运行期 Err,非编译期)。
+//@ spec: RXS-0293
+#[test]
+fn accept_rhi_create_vk_lowers_to_rxrt_rhi_create_vk() {
+    let root = uc05_dir("accept").join("rhi_create_vk.rx");
+    let (codes, ir) = run_root(&root);
+    assert!(
+        codes.is_empty(),
+        "accept/rhi_create_vk 产生诊断(RXS-0293 Vulkan 后端构造): {codes:?}"
+    );
+    assert!(
+        ir.contains("declare i64 @rxrt_rhi_create_vk(i64)"),
+        "rxrt_rhi_create_vk declare 形态(ctx 句柄入,图根句柄出,RXS-0293)\nIR:\n{ir}"
+    );
+    assert!(
+        ir.contains("@rxrt_rhi_create_vk("),
+        "Rhi::create_vk 应接线 rxrt_rhi_create_vk(RXS-0293,显式 Vulkan 后端)\nIR:\n{ir}"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // reject 编译期(I1/I2/I6/I7/I8):反例全拦截口径
 // ---------------------------------------------------------------------------

@@ -1,0 +1,32 @@
+//@ spec: RXS-0293
+// G4.4 PR-F Vulkan RHI 通道(RXS-0293):`Rhi::create_vk(&ctx)` 显式 Vulkan 后端构造——
+// 镜像 `Rhi::create`(RXS-0256)0 诊断,lowering 落 `rxrt_rhi_create_vk` 字面符号(非
+// `rxrt_rhi_create`)。compute-pass 声明式建图同一库面,后端标识 `Backend::Vk` 在构造点
+// 决定,运行期不变;submit 走 Vulkan compute 腿分流(pipeline 自 SPIR-V + descriptor set
+// + dispatch)。strict 无回退:Vulkan 不可用 → 确定性 Err(RXS-0193 口径,运行期判据,
+// 非编译期)。本语料锚定编译期 0 诊断 + lowering 符号(device 真跑归步骤 80)。
+
+kernel fn uc05_fill_vk(t: ThreadCtx<1>, out: ViewMut<global, f32>, n: usize) {
+    let i = t.global_id();
+    if i < n {
+        out[i] = ((i as u32) + 1u32) as f32;
+    }
+}
+
+fn main() -> i32 {
+    let ctx = Context::create();
+    let n: u32 = 256;
+    let nn: usize = 256;
+
+    // G4.4 PR-F(RXS-0293):显式 Vulkan 后端构造(非 `Rhi::create` CUDA 默认)。
+    let rhi = Rhi::create_vk(&ctx);
+    let a = rhi.resource(n);
+
+    // produce:写 a。
+    rhi.pass(uc05_fill_vk, GridDim(1), BlockDim(256), (a, nn)).writes(&a);
+
+    // 装配核验 + hazard 推导 + Vulkan compute 腿派发(1-submit typestate → Queue)。
+    rhi.submit();
+    ctx.sync();
+    0
+}

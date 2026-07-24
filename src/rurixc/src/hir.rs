@@ -478,6 +478,9 @@ pub enum GpuHostOp {
     /// `Rhi::create(&ctx)` → `rxrt_rhi_create`(EI1.3 Part B,RXS-0256;`Rhi<C>` 非 Copy
     /// affine,per-instance 新鲜 opaque brand 契约,RFC-0014 §4.B1)。
     RhiCreate,
+    /// `Rhi::create_vk(&ctx)` → `rxrt_rhi_create_vk`(G4.4 PR-F,RXS-0293;
+    /// 显式 Vulkan 后端,strict 无回退;brand `C` 与 `Rhi::create` 同源 per-instance opaque)。
+    RhiCreateVk,
     /// `rhi.graph::<CAP>()` → `rxrt_rhi_graph_create(rhi, cap)`(G4.3 PR-E,RXS-0283;
     /// `Graph<C>` affine 句柄,brand `C` 与 `Rhi` 同源;CAP = turbofish const 实参字面量
     /// 即时求值 → i64 cabi 实参,不进类型参数表,无 RD-007 依赖)。

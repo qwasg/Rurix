@@ -280,3 +280,5 @@
 | RXS-0290 | spec/vulkan_backend.md | 2 | `src/rurix-rt-cabi/src/artifacts.rs`, `src/rurixc/src/codegen.rs` |
 | RXS-0291 | spec/vulkan_backend.md | 2 | `src/rurixc/src/codegen.rs`, `src/rurixc/src/driver.rs` |
 | RXS-0292 | spec/vulkan_backend.md | 2 | `src/rurix-rt-cabi/src/artifacts.rs`, `src/rurix-rt/src/fatbin.rs` |
+| RXS-0293 | spec/vulkan_backend.md | 3 | `conformance/uc05/accept/rhi_create_vk.rx`, `src/rurix-rt-cabi/src/lib.rs`, `src/rurixc/tests/uc05_corpus.rs` |
+| RXS-0294 | spec/vulkan_backend.md | 1 | `src/rurixc/tests/mesh_rt_vulkan_spirv_val.rs` |

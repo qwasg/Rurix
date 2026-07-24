@@ -30,6 +30,10 @@ present = ["rurix-rt/d3d12-interop"]
 # present-real:在 present 之上经 rurix-rt/d3d12-interop-real 编译真实 D3D12/DXGI
 # C++ shim(需 MSVC + Windows SDK + 交互桌面会话)。仅设备真跑编排启用。
 present-real = ["present", "rurix-rt/d3d12-interop-real"]
+# vulkan(G4.4 PR-F,RXS-0293):透传 rurix-rt/vulkan,启用 `rxrt_rhi_create_vk` 的
+# Vulkan 后端分流(compute 腿 vk::run_compute + graphics 腿 run_rhi_graphics_offscreen)。
+# 默认关闭——默认构建零 GPU/SDK 依赖绿,CUDA 路径 0-byte(RXS-0293 L5 feature 门控)。
+vulkan = ["rurix-rt/vulkan"]
 
 # unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6;镜像 rurix-interop FFI 边界例外写法):
 # rurix-rt-cabi 是宿主编排 FFI 边界 crate(RFC-0009 §4.3),经裁决最小开 unsafe

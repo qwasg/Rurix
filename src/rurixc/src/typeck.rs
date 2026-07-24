@@ -2037,6 +2037,28 @@ impl Tck<'_, '_> {
             let expected = [Ty::Ref(Box::new(Ty::Adt(ctx_def, Vec::new())), false)];
             return self.check_args(span, &expected, args, Ty::Adt(rhi_def, vec![brand]));
         }
+        // G4.4 PR-F(RXS-0293):`Rhi::create_vk(&ctx)` 显式 Vulkan 后端构造——镜像
+        // `Rhi::create` 分支(brand 契约同源 per-instance opaque,strict 无回退)。
+        if let hir::ExprKind::Res(Res::Def(d)) = &callee.kind
+            && Some(*d) == self.res.lang_items.rhi_create_vk
+        {
+            self.results
+                .gpu_calls
+                .insert(call_id, crate::hir::GpuHostOp::RhiCreateVk);
+            let ctx_def = self
+                .res
+                .lang_items
+                .context
+                .expect("Context lang item 在 resolve 入口注入");
+            let rhi_def = self
+                .res
+                .lang_items
+                .rhi
+                .expect("Rhi lang item 在 resolve 入口注入");
+            let brand = Ty::Const(u64::from(call_id.0));
+            let expected = [Ty::Ref(Box::new(Ty::Adt(ctx_def, Vec::new())), false)];
+            return self.check_args(span, &expected, args, Ty::Adt(rhi_def, vec![brand]));
+        }
         // 宿主图像落盘桥(MS1.2b,RXS-0199):`write_ppm(path, w, h, &pinned)`
         // 编译器已知自由函数;data 形参位为元素类型使用点约束(RXS-0190:
         // 未定元素在此定型 f32)。
@@ -3103,9 +3125,10 @@ impl Tck<'_, '_> {
             | Op::PresentCreate
             | Op::WritePpm
             | Op::GraphCreate
-            | Op::RhiCreate => {
+            | Op::RhiCreate
+            | Op::RhiCreateVk => {
                 unreachable!(
-                    "CtxCreate/PresentCreate/GraphCreate/RhiCreate/WritePpm 走 check_call;launch 走既有 launch 分支"
+                    "CtxCreate/PresentCreate/GraphCreate/RhiCreate/RhiCreateVk/WritePpm 走 check_call;launch 走既有 launch 分支"
                 )
             }
         }

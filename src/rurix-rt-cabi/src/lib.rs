@@ -199,6 +199,21 @@ struct RhiEntry {
     /// hazard 计划的同步锚点落为该 stream 上的显式同步点)。**惰性创建**——纯 host 图安全
     /// 路径(无 kernel 绑定的语料 / 装配核验失败)不触 CUDA,`None` 即「尚未派发过」。
     stream: Option<SendStream>,
+    /// G4.4 PR-F(RXS-0293):RHI 后端标识(构造点决定,运行期不变)。`Rhi::create` =
+    /// Cuda(既有 0-byte);`Rhi::create_vk` = Vk(submit/resource 按 backend 分流)。
+    backend: Backend,
+    /// G4.4 PR-F(RXS-0293):Vulkan 后端专属 host 资源缓冲(`rxrt_rhi_resource` 对 Vk
+    /// 不触 `cuMemAlloc`,改记 host `Vec<u8>`;submit 期 upload/download 经 `vk::run_compute`
+    /// 原位回写)。下标与 [`RhiEntry::resources`] **平行同序**——CUDA 路此槽恒空且不读。
+    vk_resources: Vec<Vec<u8>>,
+}
+
+/// RHI 后端标识(RXS-0293;构造点决定,运行期不变)。`Rhi::create` = Cuda(既有 0-byte);
+/// `Rhi::create_vk` = Vk(strict 无回退,`rxrt_rhi_*` 按 backend 分流)。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Backend {
+    Cuda,
+    Vk,
 }
 
 /// EI1.4 UC-05 RHI **pass 绑 kernel** 记录(RXS-0257/0261):`rxrt_rhi_bind` 在绑定期把
@@ -1173,9 +1188,65 @@ pub extern "C" fn rxrt_rhi_create(ctx: u64) -> u64 {
             bindings: Vec::new(),
             resources: Vec::new(),
             stream: None,
+            backend: Backend::Cuda,
+            vk_resources: Vec::new(),
         },
     );
     h
+}
+
+/// C ABI:创建 `Rhi` 的 Vulkan 后端实例(G4.4 PR-F,RXS-0293)。显式 Vulkan 后端,
+/// strict 无回退;Vulkan 不可用(未编译 feature / 无驱动)→ 诊断 + handle-0(失败,
+/// RXS-0193 口径,不占 RX 码,poisoned 语义对齐 RXS-0077)。`Rhi::create` = CUDA 既有
+/// 0-byte(backend=Cuda 默认);本函数设 backend=Vk,`rxrt_rhi_*` 按 backend 分流。
+//@ spec: RXS-0293
+#[unsafe(no_mangle)]
+pub extern "C" fn rxrt_rhi_create_vk(ctx: u64) -> u64 {
+    const OP: &str = "rhi_create_vk";
+    let mut guard = lock();
+    let t = &mut *guard;
+    let Some(ce) = t.ctxs.get(&ctx) else {
+        diag(OP, format!("unknown ctx handle {ctx}"));
+        return 0;
+    };
+    if ce.poisoned {
+        diag(OP, POISONED);
+        return 0;
+    }
+    // Vulkan 可用性检查(feature gate)。feature off → 确定性 handle-0(非 fake pass)。
+    #[cfg(not(feature = "vulkan"))]
+    {
+        let _ = ce;
+        diag(
+            OP,
+            "Vulkan backend not compiled in (feature rurix-rt/vulkan off)",
+        );
+        0
+    }
+    #[cfg(feature = "vulkan")]
+    {
+        // Vulkan loader 可用性探测(缺 vulkan-1.dll/libvulkan.so → handle-0,strict 无回退)。
+        if !rurix_rt::vk::vulkan_available() {
+            diag(OP, "Vulkan loader (vulkan-1.dll/libvulkan.so) 不可用");
+            return 0;
+        }
+        let h = t.alloc_handle();
+        t.rhis.insert(
+            h,
+            RhiEntry {
+                ctx,
+                graph: RhiGraph::new(),
+                passes: Vec::new(),
+                gfx_passes: Vec::new(),
+                bindings: Vec::new(),
+                resources: Vec::new(),
+                stream: None,
+                backend: Backend::Vk,
+                vk_resources: Vec::new(),
+            },
+        );
+        h
+    }
 }
 
 /// C ABI:声明 `Rhi` 的 `Graph<C>` 容量定长图根(G4.3 PR-E,RXS-0283)。CAP =
@@ -1279,6 +1350,24 @@ pub extern "C" fn rxrt_rhi_resource(r: u64, bytes: u64) -> u64 {
         re.graph.resource(&format!("res{n}"));
         re.ctx
     };
+    // G4.4 PR-F(RXS-0293):Vulkan 后端不触 cuMemAlloc——改记 host Vec<u8>(submit 期
+    // 经 vk::run_compute 上传/回读,host-visible+coherent 免 flush)。CUDA 后端维持
+    // 既有真设备分配(0-byte,镜像 rxrt_buf_alloc)。
+    let backend = t.rhis.get(&r).map(|re| re.backend).unwrap_or(Backend::Cuda);
+    if backend == Backend::Vk {
+        let idx = {
+            let Some(re) = t.rhis.get_mut(&r) else {
+                diag(OP, format!("unknown rhi handle {r}"));
+                return 0;
+            };
+            re.resources.push(0); // Vulkan 无 CUDA buf 句柄;占位保持下标对齐
+            re.vk_resources.push(vec![0u8; bytes as usize]);
+            re.graph.resource_count() as u32 - 1
+        };
+        let h = t.alloc_handle();
+        t.rhi_resources.insert(h, (r, idx));
+        return h;
+    }
     // 真设备分配(纪律逐字镜像 `rxrt_buf_alloc`:失败 → poison + 诊断 + handle-0)。
     let buf = {
         let Some(ce) = t.ctxs.get_mut(&ctx) else {
@@ -1309,6 +1398,8 @@ pub extern "C" fn rxrt_rhi_resource(r: u64, bytes: u64) -> u64 {
             return 0;
         };
         re.resources.push(bh);
+        // CUDA 后端 vk_resources 槽位保持空(平行同序占位;非 Vk 路不读)。
+        re.vk_resources.push(Vec::new());
         re.graph.resource_count() as u32 - 1
     };
     let h = t.alloc_handle();
@@ -1750,10 +1841,31 @@ pub extern "C" fn rxrt_rhi_submit(r: u64) -> i32 {
     };
 
     // ── 阶段 2:按推导序派发(计划逐字重放;槽的资源位换设备指针)。
-    let (ctx, pass_count) = match t.rhis.get(&r) {
-        Some(re) => (re.ctx, re.graph.pass_count()),
+    let (ctx, pass_count, backend) = match t.rhis.get(&r) {
+        Some(re) => (re.ctx, re.graph.pass_count(), re.backend),
         None => return RXRT_FAIL,
     };
+    // G4.4 PR-F(RXS-0293):Vulkan 后端 compute 腿分流——`vk::run_compute` 自 SPIR-V 模块
+    // (按 kernel 名索引 artifacts v2 入口表)+ StorageBuffer 顺排自 `vk_resources` host
+    // 缓冲 + push constants 自标量槽 + dispatch。CUDA 后端维持既有路(0-byte)。graphics
+    // 腿复用 G4.2 `run_rhi_graphics_offscreen`(A7,同一通道);gfx pass 派发要 vs/fs SPIR-V
+    // + 顶点数据,`.rx` RHI 声明式库面未承载 → gfx pass 仅参 barrier 推导(同 CUDA 路口径),
+    // compute pass 派发照常。
+    if backend == Backend::Vk {
+        #[cfg(not(feature = "vulkan"))]
+        {
+            let _ = (ctx, pass_count);
+            diag(
+                OP,
+                "Vulkan backend not compiled in (feature rurix-rt/vulkan off)",
+            );
+            return RXRT_FAIL;
+        }
+        #[cfg(feature = "vulkan")]
+        {
+            return rhi_submit_vk(t, OP, r, ctx, pass_count);
+        }
+    }
     for pass_idx in 0..pass_count {
         // 该 pass 边界的推导同步点:计划驱动,逐条落显式 stream 同步(禁二次推导)。
         let syncs = plan.iter().filter(|s| s.at_pass == pass_idx).count();
@@ -1853,6 +1965,134 @@ pub extern "C" fn rxrt_rhi_submit(r: u64) -> i32 {
     0
 }
 
+/// G4.4 PR-F(RXS-0293):Vulkan 后端 compute 腿 submit 派发。`vk::run_compute` 每 pass
+/// 自建 instance/device/command-buffer 并末尾 wait(pass 粒度全序自同步),故 pass 边界
+/// 推导同步点由构造满足——单 queue 声明全序 ≙ 顺序派发,同步语义不变(RXS-0239 承诺)。
+/// 未绑 kernel 的纯声明 pass 跳过(host 图安全语料路径)。StorageBuffer 顺排自 `vk_resources`
+/// host 缓冲(kind 2 槽按出现序);push constants 自标量槽(kind 1,4 字节顺排,对齐 codegen
+/// `emit_push_constants` `Offset = i*4` 均 4 字节标量);raw CUDA buffer(kind 0)无 host
+/// backing → strict 拒(不静默回退)。SPIR-V 模块按 kernel 名索引 artifacts v2 入口表
+/// (RXS-0292);缺席/畸形 → 确定性失败(RXS-0193 口径)。回写:`run_compute` 原位回写 device
+/// 数据到 host `buffers`,逐槽写回 `vk_resources` 使 [`rxrt_rhi_readback`] 自此读。
+#[cfg(feature = "vulkan")]
+fn rhi_submit_vk(t: &mut Tables, op: &str, r: u64, ctx: u64, pass_count: usize) -> i32 {
+    for pass_idx in 0..pass_count {
+        // ── 收集本 pass 绑定 + SPIR-V + buffers/pc(单一 &Tables 不可变借用,拷出局部,
+        //    避免跨 `run_compute` 持表锁借用)。
+        let (spv_words, mut buffers, pc, res_indices, entry, groups) = {
+            let Some(re) = t.rhis.get(&r) else {
+                return RXRT_FAIL;
+            };
+            let Some(Some(bind)) = re.bindings.get(pass_idx) else {
+                continue; // 未绑 kernel 的纯声明 pass:跳过派发(host 图安全语料路径)。
+            };
+            let entry = bind.entry.clone();
+            let dims = bind.dims;
+            let kinds = bind.kinds.clone();
+            let slots = bind.slots.clone();
+            // SPIR-V 模块(按 kernel 名索引 artifacts v2 入口表,RXS-0292)。
+            let Some(ce) = t.ctxs.get(&ctx) else {
+                diag(op, format!("ctx of rhi {r} already destroyed"));
+                return RXRT_FAIL;
+            };
+            let Some(spv_entry) = ce.artifacts.spirv_entry(&entry) else {
+                diag(
+                    op,
+                    format!(
+                        "pass {pass_idx}: SPIR-V entry `{entry}` absent (artifacts v2 @__rx_gpu_spirv 段未填充;vulkan-backend codegen off?)"
+                    ),
+                );
+                return RXRT_FAIL;
+            };
+            let raw = spv_entry.spv();
+            if raw.len() < 4 || raw.len() % 4 != 0 {
+                diag(
+                    op,
+                    format!(
+                        "pass {pass_idx}: SPIR-V entry `{entry}` malformed (len={} not multiple of 4)",
+                        raw.len()
+                    ),
+                );
+                return RXRT_FAIL;
+            }
+            let spv_words: Vec<u32> = raw
+                .chunks_exact(4)
+                .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                .collect();
+            // StorageBuffer 顺排(kind 2 按出现序)+ push constants(kind 1,4 字节顺排)。
+            let mut buffers: Vec<Vec<u8>> = Vec::new();
+            let mut pc: Vec<u8> = Vec::new();
+            let mut res_indices: Vec<u32> = Vec::new();
+            for (i, kind) in kinds.iter().enumerate() {
+                match *kind {
+                    1 => {
+                        // 标量按位值:低 4 字节小端(codegen push constant 均 4 字节标量,Offset=i*4)。
+                        pc.extend_from_slice(&slots[i].to_le_bytes()[..4]);
+                    }
+                    2 => {
+                        let Some(&(_, res_idx)) = t.rhi_resources.get(&slots[i]) else {
+                            diag(
+                                op,
+                                format!("pass {pass_idx} arg {i}: unknown rhi resource handle"),
+                            );
+                            return RXRT_FAIL;
+                        };
+                        let Some(vk_buf) = re.vk_resources.get(res_idx as usize) else {
+                            diag(
+                                op,
+                                format!(
+                                    "pass {pass_idx} arg {i}: resource {res_idx} unbacked (vk_resources)"
+                                ),
+                            );
+                            return RXRT_FAIL;
+                        };
+                        buffers.push(vk_buf.clone());
+                        res_indices.push(res_idx);
+                    }
+                    0 => {
+                        diag(
+                            op,
+                            format!(
+                                "pass {pass_idx} arg {i}: raw buffer (kind 0) unsupported in Vk RHI compute leg (no host backing)"
+                            ),
+                        );
+                        return RXRT_FAIL;
+                    }
+                    k => {
+                        diag(op, format!("pass {pass_idx} arg {i}: unknown arg kind {k}"));
+                        return RXRT_FAIL;
+                    }
+                }
+            }
+            (
+                spv_words,
+                buffers,
+                pc,
+                res_indices,
+                entry,
+                [dims[0], dims[1], dims[2]],
+            )
+        };
+
+        // ── 派发(run_compute 不触 Tables;每 pass 独立 instance/device+wait,pass 粒度自同步)。
+        if let Err(e) = rurix_rt::vk::run_compute(&spv_words, &entry, &mut buffers, &pc, groups) {
+            diag(op, format!("pass {pass_idx} vk::run_compute: {e}"));
+            return RXRT_FAIL;
+        }
+
+        // ── 回写 vk_resources(run_compute 原位回写 device 数据到 host buffers;readback 自此读)。
+        let Some(re) = t.rhis.get_mut(&r) else {
+            return RXRT_FAIL;
+        };
+        for (res_idx, buf) in res_indices.iter().zip(buffers.iter()) {
+            if let Some(slot) = re.vk_resources.get_mut(*res_idx as usize) {
+                *slot = buf.clone();
+            }
+        }
+    }
+    0
+}
+
 /// 本图派发 stream 的显式同步(推导计划同步锚点 + submit 收尾)。stream 尚未创建 = 本图未派发
 /// 过任何 kernel(纯 host 图安全路径)→ 无同步义务,`true`。失败 → 诊断 + poison ctx。
 fn rhi_stream_sync(t: &mut Tables, op: &str, r: u64) -> bool {
@@ -1916,10 +2156,38 @@ pub extern "C" fn rxrt_rhi_readback(r: u64, src: u64, dst: *mut u8, bytes: u64) 
         return RXRT_FAIL;
     };
     let ctx = re.ctx;
+    let backend = re.backend;
     let Some(bh) = re.resources.get(res_idx as usize).copied() else {
         diag(OP, format!("resource {res_idx} unbacked (rhi {r})"));
         return RXRT_FAIL;
     };
+    // G4.4 PR-F(RXS-0293):Vulkan 后端数据已在 host vk_resources(submit 期 run_compute
+    // 原位回写)——直接拷贝到 dst,无 CUDA D2H。CUDA 后端维持既有真 D2H(0-byte)。
+    if backend == Backend::Vk {
+        let Some(re) = t.rhis.get(&r) else {
+            return RXRT_FAIL;
+        };
+        let Some(vk_buf) = re.vk_resources.get(res_idx as usize) else {
+            diag(OP, format!("resource {res_idx} unbacked (rhi {r})"));
+            return RXRT_FAIL;
+        };
+        if bytes != vk_buf.len() as u64 {
+            diag(
+                OP,
+                format!(
+                    "length mismatch: rhi resource is {} bytes, got {bytes}",
+                    vk_buf.len()
+                ),
+            );
+            return RXRT_FAIL;
+        }
+        // SAFETY: (U25):`dst` 非 null(上方已检),调用方保证 `bytes` 字节有效可写主机内存、
+        // 调用期存活且无别名并发访问(RFC-0009 §4.3 指针契约);借用不越出本函数。
+        let host = unsafe { core::slice::from_raw_parts_mut(dst, bytes as usize) };
+        host.copy_from_slice(vk_buf);
+        t.rhi_resources.remove(&src);
+        return 0;
+    }
     // EI1.4 真 D2H(`cuMemcpyDtoH`;长度纪律逐字镜像 `rxrt_buf_download`——须与资源分配
     // 字节数精确一致,不匹配 = 失败诊断,不触 CUDA)。派发已在 submit 收尾同步完成。
     let Some(be) = t.bufs.get(&bh) else {
@@ -2395,6 +2663,9 @@ mod tests {
             resources: Vec::new(),
             // EI1.4:派发 stream 惰性创建 —— 纯 host 装配/推导路径不触 CUDA(本测无 GPU)。
             stream: None,
+            // G4.4 PR-F:默认 CUDA 后端(本测纯 host 装配,backend 不分流)。
+            backend: Backend::Cuda,
+            vk_resources: Vec::new(),
         };
         let a = re.graph.resource("res0");
         let b = re.graph.resource("res1");
