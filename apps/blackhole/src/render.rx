@@ -1,0 +1,454 @@
+// blackhole 实时 kernel 组 — Schwarzschild 逐像素零测地线 RK4 光线追踪 + bloom 后处理。
+// 方法(报告主题 2 荐:grtrans 式 u = 1/r 自变量加密近视界;轨道方程精确形式):
+//   球对称 ⇒ 轨道平面化(角动量矢量守恒,MTW 1973《Gravitation》§25);
+//   零测地线轨道方程(精确,Schwarzschild 1916 线元导出的标准结果,
+//   MTW §25 / Chandrasekhar 1983 ch.3;Dexter 2016 grtrans 同法):
+//       d²u/dφ² + u = 3M·u²,u = 1/r,φ = 轨道面内方位角
+//   一阶组:du/dφ = w, dw/dφ = 3u² − u(M = 1)——无奇点(极点/视界均正则),
+//   kernel 内零三角函数(基向量旋转推进),仅 + − * /、比较、位运算、rx_sqrt。
+// 碰撞参数:b = |x₀ × d₀|(Euclid 直积;Synge 1966, MNRAS 131, 463;
+//   Bardeen 1973);阴影临界 b_crit = 3√3 M = √27 M ≈ 5.196M(自检基准)。
+// 步长:固定 Δφ(RK4 局部误差 Δφ⁵ 量级;近光子球 u≈1/3 振荡周期 2π,
+//   Δφ=0.01 → >600 步/圈;近视界 u→1/(2+2ε) 全程正则,无需额外加密)。
+// 终止三分支(报告主题 2):
+//   ① u > 1/(2M(1+ε))(即 r < 2M(1+ε)) → 落入视界 → 黑;
+//   ② u < 1/R_FAR(即 r > r_far) → 逃逸 → 光线终向查程序化星空(透镜扭曲);
+//   ③ 穿盘(q(φ) = x·ŷ/r 变号;θ=π/2 等价)且 r∈[r_in, r_out] → 命中薄盘
+//     (跨越检测 + 线性内插求交;Luminet 1979 薄盘光学厚,首个在域交叉终止)。
+// 盘着色:Luminet 1979(A&A 75, 228)/ Cunningham 1975(ApJ 202, 788)g 因子
+//   合成(引力红移 MTW 1973 × 多普勒 Rybicki & Lightman 1979 §4.9),
+//   比强度 I_obs = g³·I_em(Liouville I_ν/ν³ 不变,Cunningham 1975);
+//   温度 Shakura & Sunyaev 1973(A&A 24, 337)T ∝ r^(−3/4);
+//   Kepler v_φ = √(M/r)(Bardeen, Press & Teukolsky 1972, ApJ 178, 347);
+//   湍流密度纹理 = MRI 湍流可视化(Balbus & Hawley 1991, ApJ 376, 214),
+//   随 Kepler 微分自转 Ω(r) = √(M/r³)(BPT 1972)平流 + 静态剪切缠绕。
+// 画质档(允许牺牲帧率):SSAA×SSAA 子像素超采样(params::SSAA);
+//   bh_render 输出 HDR 线性 RGB(Reinhard tone_map 上移至 bloom 合成 pass)。
+// 后处理管线:① bh_render → HDR;② bh_bloom_h 亮通 + 水平 tent;
+//   ③ bh_bloom_v 垂直 tent + 合成 + tone_map ×255 → backbuffer(0…255)。
+//   bloom = 镜头/探测器点扩散散射(光学后处理,不改物理量;
+//   James et al. 2015 SIGGRAPH Talks "Building Interstellar's black hole" 同法)。
+// 像素域 = RXS-0143/RXS-0198 blit 契约:行主序紧密 f32 RGB、分量 0…255
+//   (bh_bloom_v 出口;bh_render/bh_bloom_h 中间缓冲为 HDR 线性)。
+// 数值纪律:仅 + − * /、比较、位运算、dmath::rx_sqrt;无 pow/exp/log;
+// 乘加显式 let 分步;f32→整数 cast 前 rx_clamp;零向量归一化防护;步数上限。
+
+mod dmath;
+mod render_core;
+mod starfield;
+mod params;
+
+// ================= ① 主渲染 kernel(HDR 线性输出) =================
+pub kernel fn bh_render(
+    t: ThreadCtx<2>,
+    bb: ViewMut<global, f32>,
+    w: usize,
+    h: usize,
+    cam_x: f32,
+    cam_y: f32,
+    cam_z: f32,
+    th_c: f32,
+    ph_c: f32,
+    fw_x: f32,
+    fw_y: f32,
+    fw_z: f32,
+    ri_x: f32,
+    ri_y: f32,
+    ri_z: f32,
+    up_x: f32,
+    up_y: f32,
+    up_z: f32,
+    inv_w: f32,
+    inv_h: f32,
+    scale_x: f32,
+    scale_y: f32,
+    time: f32,
+) {
+    let x = t.global_id_x();
+    let y = t.global_id_y();
+    if x >= w || y >= h {
+        return;
+    }
+    let pi = y * w + x;
+    // ---- SSAA 超采样(SSAA×SSAA 子像素网格;HDR 累加) ----
+    let nss = params::SSAA * params::SSAA;
+    let inv_ss = 1.0 / (params::SSAA as f32);
+    let mut acc_r: f32 = 0.0;
+    let mut acc_g: f32 = 0.0;
+    let mut acc_b: f32 = 0.0;
+    let mut si: usize = 0;
+    while si < nss {
+        let sxi = si % params::SSAA;
+        let syi = si / params::SSAA;
+        let oxf = ((sxi as f32) + 0.5) * inv_ss;
+        let oyf = ((syi as f32) + 0.5) * inv_ss;
+        // ---- 子像素主光线 ----
+        let pxf = (x as f32) + oxf;
+        let pyf = (y as f32) + oyf;
+        let sx = render_core::screen_coord(pxf, inv_w, scale_x);
+        let sy = render_core::screen_coord(pyf, inv_h, scale_y);
+        let udx = render_core::ray_dir_comp(fw_x, ri_x, up_x, sx, sy);
+        let udy = render_core::ray_dir_comp(fw_y, ri_y, up_y, sx, sy);
+        let udz = render_core::ray_dir_comp(fw_z, ri_z, up_z, sx, sy);
+        let il = render_core::inv_len3(udx, udy, udz);
+        let dx = udx * il;
+        let dy = udy * il;
+        let dz = udz * il;
+        // ---- 轨道面构造(角动量矢量 ⇒ 平面;MTW 1973 §25) ----
+        let r0 = render_core::len3(cam_x, cam_y, cam_z);
+        let r0g = dmath::rx_max(r0, 0.000001);
+        // e1 = 相机径向单位向量
+        let e1x = cam_x / r0g;
+        let e1y = cam_y / r0g;
+        let e1z = cam_z / r0g;
+        // 径向/切向速度分量(v_r = d·e1)
+        let vr = render_core::dot3(dx, dy, dz, e1x, e1y, e1z);
+        // t = d − v_r·e1(切向分量矢量)
+        let t_x = dx - vr * e1x;
+        let t_y = dy - vr * e1y;
+        let t_z = dz - vr * e1z;
+        let vt = render_core::len3(t_x, t_y, t_z);
+        // ---- 子样本着色结果寄存器 ----
+        let mut cr: f32 = 0.0;
+        let mut cg: f32 = 0.0;
+        let mut cb: f32 = 0.0;
+        if vt < 0.000001 {
+            // 近径向退化(L ≈ 0):解析直判(入射→捕获黑,出射→逃逸星空)
+            if vr >= 0.0 {
+                cr = starfield::star_ch(dx, dy, dz, 0);
+                cg = starfield::star_ch(dx, dy, dz, 1);
+                cb = starfield::star_ch(dx, dy, dz, 2);
+            }
+        } else {
+            // e2 = 切向单位向量(轨道面第二基)
+            let vt_inv = 1.0 / vt;
+            let e2x = t_x * vt_inv;
+            let e2y = t_y * vt_inv;
+            let e2z = t_z * vt_inv;
+            // 比角动量 L = r·v_t(= b,E = 1 归一;BPT 1972 / Synge 1966)
+            let f0 = 1.0 - 2.0 / r0g;
+            let sf0 = dmath::rx_sqrt(dmath::rx_max(f0, 0.0001));
+            let ang_l = r0g * vt / sf0;
+            // 初值:u0 = 1/r0,w0 = −v_r/L(du/dφ = −(dr/dλ)/L)
+            let mut u = 1.0 / r0g;
+            let mut w_u = 0.0 - vr / ang_l;
+            // 轨道面基角旋转推进(cos/sin φ 免三角:cosΔ/sinΔ 常量预计算)
+            let mut cph: f32 = 1.0;
+            let mut sph: f32 = 0.0;
+            let dphi = params::STEP_PHI;
+            let cos_d = dmath::rx_cos(dphi);
+            let sin_d = dmath::rx_sin(dphi);
+            // q(φ) = x·ŷ/r(盘面 y=0 的带符号高度/r;跨越检测用)
+            let mut q_prev = e1y;
+            // ---- RK4 主循环(status:0=积分中 1=捕获 2=逃逸 3=盘命中) ----
+            let mut step: u32 = 0;
+            let mut status: i32 = 0;
+            let mut hit_r: f32 = 0.0;
+            let mut hit_u: f32 = 0.0;
+            let mut hit_w: f32 = 0.0;
+            let mut hit_c: f32 = 1.0;
+            let mut hit_s: f32 = 0.0;
+            while step < params::MAX_STEPS && status == 0 {
+                // stage 1
+                let a_u = w_u;
+                let a_w = 3.0 * u * u - u;
+                // stage 2
+                let u_2 = u + dphi * 0.5 * a_u;
+                let w_2 = w_u + dphi * 0.5 * a_w;
+                let b_u = w_2;
+                let b_w = 3.0 * u_2 * u_2 - u_2;
+                // stage 3
+                let u_3 = u + dphi * 0.5 * b_u;
+                let w_3 = w_u + dphi * 0.5 * b_w;
+                let c_u = w_3;
+                let c_w = 3.0 * u_3 * u_3 - u_3;
+                // stage 4
+                let u_4 = u + dphi * c_u;
+                let w_4 = w_u + dphi * c_w;
+                let d_u = w_4;
+                let d_w = 3.0 * u_4 * u_4 - u_4;
+                // 更新(显式分步)
+                let u_prev = u;
+                let w_prev = w_u;
+                let s_u = a_u + 2.0 * b_u + 2.0 * c_u + d_u;
+                let s_w = a_w + 2.0 * b_w + 2.0 * c_w + d_w;
+                let h6 = dphi / 6.0;
+                u = u + h6 * s_u;
+                w_u = w_u + h6 * s_w;
+                // 基角旋转推进(cos(φ+Δ) = cosφ·cosΔ − sinφ·sinΔ)
+                let c_new = cph * cos_d - sph * sin_d;
+                let s_new = sph * cos_d + cph * sin_d;
+                cph = c_new;
+                sph = s_new;
+                // 每 512 步归一(cφ,sφ) 防漂移(零向量防护内置于 rx_max)
+                if (step & 511u32) == 511u32 {
+                    let nn = dmath::rx_sqrt(cph * cph + sph * sph);
+                    let nng = dmath::rx_max(nn, 0.000001);
+                    cph = cph / nng;
+                    sph = sph / nng;
+                }
+                // q(φ) = cosφ·e1y + sinφ·e2y
+                let q_now = cph * e1y + sph * e2y;
+                // ---- 终止三分支 ----
+                if u > params::U_CAPTURE {
+                    status = 1; // ① r < 2M(1+ε)(Schwarzschild 1916)
+                } else if u < params::U_FAR {
+                    status = 2; // ② r > r_far
+                } else {
+                    // ③ 盘面跨越(q 变号)+ 线性内插求交
+                    let prod = q_prev * q_now;
+                    if prod < 0.0 {
+                        let den = q_prev - q_now;
+                        let frac = q_prev / dmath::rx_max(den, 0.0000001);
+                        let fr = dmath::rx_clamp(frac, 0.0, 1.0);
+                        let u_x = u_prev + fr * (u - u_prev);
+                        if u_x > 0.000001 {
+                            let r_x = 1.0 / u_x;
+                            if r_x >= params::DISK_R_IN && r_x <= params::DISK_R_OUT {
+                                status = 3;
+                                hit_r = r_x;
+                                hit_u = u_x;
+                                hit_w = w_prev + fr * (w_u - w_prev);
+                                hit_c = cph;
+                                hit_s = sph;
+                            }
+                        }
+                    }
+                }
+                q_prev = q_now;
+                step = step + 1u32;
+            }
+            if status == 0 {
+                status = 2; // 步数上限:按逃逸处理(临界碰撞参数邻域,测度零)
+            }
+            if status == 1 {
+                // 捕获:黑(光子未返)
+                cr = 0.0;
+                cg = 0.0;
+                cb = 0.0;
+            } else if status == 3 {
+                // 盘命中(Luminet 1979;Cunningham 1975;Shakura-Sunyaev 1973)
+                let f_x = 1.0 - 2.0 * hit_u;
+                let sf_x = dmath::rx_sqrt(dmath::rx_max(f_x, 0.0001));
+                // 命中点 3D 方向(tetrad 归一):d = (−L·w)·e_r(φ) + (√f·L·u)·e_φ(φ)
+                let er_x = hit_c * e1x + hit_s * e2x;
+                let er_y = hit_c * e1y + hit_s * e2y;
+                let er_z = hit_c * e1z + hit_s * e2z;
+                let ef_x = 0.0 - hit_s * e1x + hit_c * e2x;
+                let ef_y = 0.0 - hit_s * e1y + hit_c * e2y;
+                let ef_z = 0.0 - hit_s * e1z + hit_c * e2z;
+                let n_r = 0.0 - ang_l * hit_w;
+                let n_t = sf_x * ang_l * hit_u;
+                let ddx = n_r * er_x + n_t * ef_x;
+                let ddy = n_r * er_y + n_t * ef_y;
+                let ddz = n_r * er_z + n_t * ef_z;
+                let il2 = render_core::inv_len3(ddx, ddy, ddz);
+                let pdx = ddx * il2;
+                let pdy = ddy * il2;
+                let pdz = ddz * il2;
+                // 命中点位置(x_h = r_x·e_r(φ))
+                let xhx = hit_r * er_x;
+                let xhy = hit_r * er_y;
+                let xhz = hit_r * er_z;
+                // e_φ(盘方位) = (x_h × ŷ)/|x_h × ŷ|(盘旋转方向;ŷ=(0,1,0))
+                let cx_ = render_core::cross_x(xhy, xhz, 1.0, 0.0);
+                let cy_ = render_core::cross_y(xhx, xhz, 0.0, 0.0);
+                let cz_ = render_core::cross_z(xhx, xhy, 0.0, 1.0);
+                let cil = render_core::inv_len3(cx_, cy_, cz_);
+                let epx = cx_ * cil;
+                let epy = cy_ * cil;
+                let epz = cz_ * cil;
+                // n_φ = d·e_φ(多普勒投影)
+                let n_phi = render_core::dot3(pdx, pdy, pdz, epx, epy, epz);
+                let g = render_core::g_factor(hit_r, n_phi);
+                let t_em = render_core::disk_temp(params::DISK_T_IN, hit_r, params::DISK_R_IN);
+                let t_obs = g * t_em;
+                let w0 = render_core::disk_flux_w(hit_r, params::DISK_R_IN);
+                let g2 = g * g;
+                let g3 = g2 * g;
+                let wgt = params::DISK_EXPOSURE * w0 * g3;
+                // ---- 湍流纹理(MRI 密度涨落,Balbus & Hawley 1991, ApJ 376, 214;
+                //      Kepler 微分自转平流 Ω(r) = √(M/r³),BPT 1972, ApJ 178, 347;
+                //      采样坐标经静态剪切 + 时间平流旋转 → 旋臂状条纹) ----
+                let sr_h = dmath::rx_sqrt(hit_r);
+                let om = 1.0 / (hit_r * sr_h);
+                let adv = time * om;
+                let tw = params::TURB_TWIST * hit_r;
+                let ang = adv + tw;
+                let ca = dmath::rx_cos(ang);
+                let sa = dmath::rx_sin(ang);
+                let xr = xhx * ca - xhz * sa;
+                let zr = xhx * sa + xhz * ca;
+                let nfx = xr * params::TURB_FREQ;
+                let nfz = zr * params::TURB_FREQ;
+                let n1 = render_core::fbm2(nfx, nfz, params::STAR_SEED ^ 0xc2b2ae35u32);
+                let n2 = render_core::vnoise2(hit_r * params::TURB_RINGS_F, 0.5, params::STAR_SEED ^ 0x27d4eb2fu32);
+                // 乘性涨落(1±TURB_AMP)× 同心环调制(1±TURB_RINGS_A)
+                let a1 = 2.0 * n1 - 1.0;
+                let m1 = 1.0 + params::TURB_AMP * a1;
+                let a2 = 2.0 * n2 - 1.0;
+                let m2 = 1.0 + params::TURB_RINGS_A * a2;
+                let turb = m1 * m2;
+                // 温度涨落 ±8%(色温斑驳;发射率-温度耦合,SS73 盘模型观感)
+                let tf = 0.92 + 0.16 * n1;
+                let t_obs2 = t_obs * tf;
+                let wgt2 = wgt * turb;
+                cr = render_core::bb_ch(t_obs2, 0) * wgt2;
+                cg = render_core::bb_ch(t_obs2, 1) * wgt2;
+                cb = render_core::bb_ch(t_obs2, 2) * wgt2;
+            } else {
+                // 逃逸:光线终向重构(同盘命中重构,f 按当前 u)→ 查星空
+                let f_e = 1.0 - 2.0 * u;
+                let sf_e = dmath::rx_sqrt(dmath::rx_max(f_e, 0.0001));
+                let er_x = cph * e1x + sph * e2x;
+                let er_y = cph * e1y + sph * e2y;
+                let er_z = cph * e1z + sph * e2z;
+                let ef_x = 0.0 - sph * e1x + cph * e2x;
+                let ef_y = 0.0 - sph * e1y + cph * e2y;
+                let ef_z = 0.0 - sph * e1z + cph * e2z;
+                let n_r = 0.0 - ang_l * w_u;
+                let n_t = sf_e * ang_l * u;
+                let ddx = n_r * er_x + n_t * ef_x;
+                let ddy = n_r * er_y + n_t * ef_y;
+                let ddz = n_r * er_z + n_t * ef_z;
+                let il2 = render_core::inv_len3(ddx, ddy, ddz);
+                let ox = ddx * il2;
+                let oy = ddy * il2;
+                let oz = ddz * il2;
+                cr = starfield::star_ch(ox, oy, oz, 0);
+                cg = starfield::star_ch(ox, oy, oz, 1);
+                cb = starfield::star_ch(ox, oy, oz, 2);
+            }
+        }
+        acc_r = acc_r + cr;
+        acc_g = acc_g + cg;
+        acc_b = acc_b + cb;
+        si = si + 1;
+    }
+    // SSAA 平均 → HDR 线性写出(tone_map 在 bh_bloom_v)
+    let inv_ns = 1.0 / (nss as f32);
+    bb[pi * 3] = acc_r * inv_ns;
+    bb[pi * 3 + 1] = acc_g * inv_ns;
+    bb[pi * 3 + 2] = acc_b * inv_ns;
+}
+
+// ================= ② bloom pass 1:亮通(软膝)+ 水平 tent 模糊 =================
+// tent 权重 w_i = (R+1−|i|)/(R+1)²(两次可分离 pass 近似高斯;
+// 纯乘加,无 exp 高斯核)。
+pub kernel fn bh_bloom_h(
+    t: ThreadCtx<2>,
+    dst: ViewMut<global, f32>,
+    src: View<global, f32>,
+    w: usize,
+    h: usize,
+    thresh: f32,
+) {
+    let x = t.global_id_x();
+    let y = t.global_id_y();
+    if x >= w || y >= h {
+        return;
+    }
+    let pi = y * w + x;
+    let r_max = params::BLOOM_RADIUS;
+    let wi = w as i32;
+    let xi = x as i32;
+    let mut ar: f32 = 0.0;
+    let mut ag: f32 = 0.0;
+    let mut ab: f32 = 0.0;
+    let mut wsum: f32 = 0.0;
+    let mut i: i32 = 0 - r_max;
+    while i <= r_max {
+        // 边界 clamp 采样(防御)
+        let mut sx2 = xi + i;
+        if sx2 < 0 {
+            sx2 = 0;
+        }
+        if sx2 >= wi {
+            sx2 = wi - 1;
+        }
+        let idx = (y * w + (sx2 as usize)) * 3;
+        let r0 = src[idx];
+        let g0 = src[idx + 1];
+        let b0 = src[idx + 2];
+        let lum = r0 + g0 + b0;
+        let kw = render_core::bright_w(lum, thresh);
+        let ai = if i < 0 {
+            0 - i
+        } else {
+            i
+        };
+        let wt = (r_max + 1 - ai) as f32;
+        let wr = wt * kw;
+        ar = ar + wr * r0;
+        ag = ag + wr * g0;
+        ab = ab + wr * b0;
+        wsum = wsum + wt;
+        i = i + 1;
+    }
+    let inv = 1.0 / wsum;
+    dst[pi * 3] = ar * inv;
+    dst[pi * 3 + 1] = ag * inv;
+    dst[pi * 3 + 2] = ab * inv;
+}
+
+// ================= ③ bloom pass 2:垂直 tent + 合成 + tone_map → 0…255 =================
+pub kernel fn bh_bloom_v(
+    t: ThreadCtx<2>,
+    bb: ViewMut<global, f32>,
+    hdr: View<global, f32>,
+    blur: View<global, f32>,
+    w: usize,
+    h: usize,
+    strength: f32,
+) {
+    let x = t.global_id_x();
+    let y = t.global_id_y();
+    if x >= w || y >= h {
+        return;
+    }
+    let pi = y * w + x;
+    let r_max = params::BLOOM_RADIUS;
+    let hi = h as i32;
+    let yi = y as i32;
+    let mut ar: f32 = 0.0;
+    let mut ag: f32 = 0.0;
+    let mut ab: f32 = 0.0;
+    let mut wsum: f32 = 0.0;
+    let mut i: i32 = 0 - r_max;
+    while i <= r_max {
+        let mut sy2 = yi + i;
+        if sy2 < 0 {
+            sy2 = 0;
+        }
+        if sy2 >= hi {
+            sy2 = hi - 1;
+        }
+        let idx = ((sy2 as usize) * w + x) * 3;
+        let r0 = blur[idx];
+        let g0 = blur[idx + 1];
+        let b0 = blur[idx + 2];
+        let ai = if i < 0 {
+            0 - i
+        } else {
+            i
+        };
+        let wt = (r_max + 1 - ai) as f32;
+        ar = ar + wt * r0;
+        ag = ag + wt * g0;
+        ab = ab + wt * b0;
+        wsum = wsum + wt;
+        i = i + 1;
+    }
+    let inv = 1.0 / wsum;
+    let bl_r = ar * inv * strength;
+    let bl_g = ag * inv * strength;
+    let bl_b = ab * inv * strength;
+    // 合成:HDR 主图 + 强度缩放 bloom(镜头散射;加法混合)
+    let fr = hdr[pi * 3] + bl_r;
+    let fg = hdr[pi * 3 + 1] + bl_g;
+    let fb = hdr[pi * 3 + 2] + bl_b;
+    // Reinhard tone_map → [0,1] → ×255(RXS-0143 blit 像素域)
+    bb[pi * 3] = render_core::tone_map(fr) * 255.0;
+    bb[pi * 3 + 1] = render_core::tone_map(fg) * 255.0;
+    bb[pi * 3 + 2] = render_core::tone_map(fb) * 255.0;
+}
