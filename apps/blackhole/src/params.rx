@@ -1,0 +1,124 @@
+// apps/blackhole 参数档 — 全部 const 硬编码(硬约束:无文件 IO / 无动态数组 /
+// 无 build.rs;数值纪律 = kernel 仅 + - * /、比较、位运算、dmath::rx_sqrt)。
+// 几何单位 G = c = 1,黑洞质量 M = 1(BH_M),全部长度以 M 为单位。
+// 公式与参数单一事实源 = 《黑洞模拟渲染模型调研报告》(同行评审出处逐条标注):
+//  · Schwarzschild 1916(Sitzungsber. Preuss. Akad. Wiss. 1916, 189):
+//    视界 r_s = 2M;线元 ds² = -(1-2M/r)dt² + (1-2M/r)^-1 dr² + r²dΩ²
+//  · Synge 1966(MNRAS 131, 463):远处观测者阴影半径 b_crit = 3√3 M = √27 M ≈ 5.196M
+//  · Bardeen, Press & Teukolsky 1972(ApJ 178, 347):Schwarzschild ISCO = 6M;
+//    赤道圆轨道角频率 Ω = √(M/r³)(a=0 退化开普勒)
+//  · Shakura & Sunyaev 1973(A&A 24, 337):标准薄盘 T ∝ r^(-3/4)(远离内缘)
+//  · Cunningham 1975(ApJ 202, 788)/ Luminet 1979(A&A 75, 228):
+//    g = ν_obs/ν_em,I_obs = g³·I_em(Liouville I_ν/ν³ 不变)
+//  · Rybicki & Lightman 1979(§4.9):δ³/δ⁴ 比强度变换
+//  · Misner, Thorne & Wheeler 1973《Gravitation》:引力红移 1+z = 1/√(1-2M/r)
+
+// ---- 黑洞几何(Schwarzschild 1916) ----
+pub const BH_M: f32 = 1.0;
+// 事件视界 r = 2M(Schwarzschild 1916)
+pub const R_HORIZON: f32 = 2.0;
+// 捕获判定裕度:r < 2M·(1+EPS_HOR) → 黑(报告主题 2 终止条件"落入视界 r < r+ + ε")
+pub const EPS_HOR: f32 = 0.01;
+// 逃逸判定半径:r > R_FAR → 查星空(报告主题 2 终止条件"逃逸 r > r_far")
+pub const R_FAR: f32 = 100.0;
+// 阴影临界碰撞参数 b_crit = 3√3 M(Synge 1966;自检基准 √27 ≈ 5.1961524)
+pub const SHADOW_BCRIT: f32 = 5.1961524;
+
+// ---- 薄吸积盘(Shakura-Sunyaev 1973;Luminet 1979) ----
+// 盘内缘 = ISCO = 6M(BPT 1972,a=0)
+pub const DISK_R_IN: f32 = 6.0;
+// 盘外缘(Luminet 1979 量级惯例 20M)
+pub const DISK_R_OUT: f32 = 20.0;
+// 内缘有效色温(K;可视化定标锚点)。5200 K = 《星际穿越》Gargantua 式金色盘定标// (James, von Tunzelmann, Franklin & Thorne 2015, CQG 32, 065001, §3:// 为观感选取偏冷"anemic"盘;径向分布仍 Shakura-Sunyaev 1973 T ∝ r^(−3/4))
+pub const DISK_T_IN: f32 = 5200.0;
+// 盘总曝光(亮度定标常数,非物理参数)
+pub const DISK_EXPOSURE: f32 = 2.5;
+
+// ---- 相机(报告基础版:r_cam = 30~60M,FOV 60~90°,轨道式) ----
+// 轨道半径(M)
+pub const CAM_R: f32 = 40.0;
+// 极角 θ_c(自 +y 轴;80° = 盘面俯仰 10°,Luminet 1979 式 ~10° 倾角展示不对称)
+pub const CAM_THETA: f32 = 1.3962634;
+// 初始方位角与每帧角增量(轨道动画)
+pub const CAM_PH0: f32 = 0.0;
+pub const CAM_DPHI: f32 = 0.005;
+// tan(FOV_y/2) 常数化(无三角函数):0.57735027 = tan(30°) → 垂直 FOV = 60°
+pub const VIEW_SCALE: f32 = 0.57735027;
+
+// ---- 渲染规模 ----
+pub const REND_W: usize = 1280;
+pub const REND_H: usize = 720;
+// 帧数上限(取证长度,对齐 ruridrop 生产档 600)
+pub const MAX_FRAMES: usize = 600;
+
+// ---- 测地线积分(报告主题 2:RK4;u = 1/r 自变量,近视界自然加密) ----
+// 轨道方程 d²u/dφ² + u = 3M·u² 的固定步长 Δφ(rad/步;RK4 局部误差 Δφ⁵;
+// 近光子球 u≈1/3 振荡周期 2π,Δφ = 0.01 → >600 步/圈)
+pub const STEP_PHI: f32 = 0.01;
+// 捕获判定(u 域):u > U_CAPTURE ⇔ r < 2M(1+EPS_HOR)(Schwarzschild 1916)
+pub const U_CAPTURE: f32 = 0.49504950;
+// 逃逸判定(u 域):u < U_FAR ⇔ r > R_FAR
+pub const U_FAR: f32 = 0.01;
+// 光线步数上限(防御;光子环邻域光线多圈绕行,上限外按逃逸处理;
+// 16384 步 × Δφ=0.01 ≈ 164 rad ≈ 26 圈,远超可视分离所需)
+pub const MAX_STEPS: u32 = 16384;
+
+// ---- 程序化星空(固定 seed,确定性) ----
+pub const STAR_SEED: u32 = 0x9E3779B9u32;
+// 立方体贴图每面网格数(轴向)
+pub const STAR_GRID: f32 = 16.0;
+// 星点占格率阈值(0..255 子域;< STAR_OCC 出星)
+pub const STAR_OCC: u32 = 96;
+
+// ---- 采样自检阈值(host 末帧对照用;域 0…255) ----
+// 阴影边缘亮度阈值(tone_map 后 ×255 域)
+pub const SMP_EDGE_LUM: f32 = 28.0;
+// 阴影半径容差(Synge 1966 √27M,> 2% 判 bug)
+pub const SMP_SHADOW_TOL: f32 = 0.02;
+// 多普勒不对称最小比率(Cunningham 1975 一侧亮一侧暗)
+pub const SMP_DOPPLER_RATIO: f32 = 1.15;
+// ---- 画质档:超采样(允许牺牲帧率换画质;每像素 SSAA×SSAA 子像素网格) ----
+pub const SSAA: usize = 2;
+// 盘湍流时间步(t = frames_done × FRAME_DT;Kepler 平流动画速率定标)
+pub const FRAME_DT: f32 = 0.45;
+
+// ---- 盘湍流纹理(密度涨落可视化;物理依据:吸积盘湍流由磁旋转不稳定性驱动,
+//      Balbus & Hawley 1991, ApJ 376, 214;剪切缠绕 = Kepler 微分自转
+//      Ω(r) = √(M/r³),Bardeen, Press & Teukolsky 1972, ApJ 178, 347;
+//      径向环结构 = Page & Thorne 1974, ApJ 191, 499 径向 emissivity 分布观感) ----
+// 密度扰动乘性幅度(1±AMP)
+pub const TURB_AMP: f32 = 0.60;
+// 噪声基频(每 M 长度)
+pub const TURB_FREQ: f32 = 0.6;
+// 静态剪切缠绕系数(rad/M;与时间平流叠加产生旋臂状条纹)
+pub const TURB_TWIST: f32 = 0.55;
+// 同心环密度波频率(每 M)与调制幅度
+pub const TURB_RINGS_F: f32 = 2.2;
+pub const TURB_RINGS_A: f32 = 0.30;
+
+// ---- bloom(镜头/探测器点扩散散射,纯后处理光学效应,不改物理量;
+//      James et al. 2015 SIGGRAPH Talks "Building Interstellar's black hole"
+//      同样在 DNGR 物理渲染后叠辉光) ----
+// 亮通阈值(HDR 亮度 r+g+b 域;低于此值不参与 bloom)
+pub const BLOOM_THRESH: f32 = 3.0;
+// bloom 叠加强度
+pub const BLOOM_STRENGTH: f32 = 0.42;
+// tent 模糊半径(px;两次可分离 pass,权重 (R+1−|i|)/(R+1)²)
+pub const BLOOM_RADIUS: i32 = 7;
+
+// ---- 银河背景带(星空升级;银盘倾斜 τ = 22°,与吸积盘错开;
+//      Lorentzian/Cauchy 剖面 1/(1+(d/w)²) 替代 exp 高斯(纯除法);
+//      尘埃消光带 = 值噪声 patchy 遮挡,观感对照 Dame et al. 2001, ApJ 547, 792) ----
+// sin τ / cos τ(τ = 22°,编译期写死)
+pub const GAL_TILT_S: f32 = 0.37460659;
+pub const GAL_TILT_C: f32 = 0.92718385;
+// 核心亮带强度/半宽
+pub const GAL_CORE_I: f32 = 0.60;
+pub const GAL_CORE_W: f32 = 0.15;
+// 宽晕强度/半宽
+pub const GAL_HALO_I: f32 = 0.20;
+pub const GAL_HALO_W: f32 = 0.55;
+// 尘埃消光幅度/贴面半宽/噪声频率
+pub const GAL_DUST_A: f32 = 0.72;
+pub const GAL_DUST_W: f32 = 0.085;
+pub const GAL_DUST_F: f32 = 4.6;

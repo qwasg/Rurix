@@ -78,7 +78,7 @@ SHIM_CPP = ROOT / "src" / "rurix-d3d12" / "shim" / "rx_d3d12_shim.cpp"
 D3D12_LIB = ROOT / "src" / "rurix-d3d12" / "src" / "lib.rs"
 
 # realtime 源 + offline 帧对照基线
-REALTIME_RX = ROOT / "apps" / "blackhole" / "src_v2_backup" / "realtime.rx"
+REALTIME_RX = ROOT / "apps" / "blackhole" / "src" / "realtime.rx"
 OFFLINE_FRAMES_DIR = ROOT / "apps" / "blackhole" / "frames"
 
 # REALTIME_OK 六项物理自检标识(来源:realtime.rx L6-L17 + 归因报告 §E.2)

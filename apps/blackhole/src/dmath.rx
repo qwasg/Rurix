@@ -1,0 +1,140 @@
+// blackhole 确定性标量数学(母本 = apps/ruridrop/src/dmath.rx;host/device 双路
+// 逐位同义纪律:仅 + - * /、比较、位运算,不触 f32 方法 intrinsic——pow/exp/log
+// 一律不用;三角函数 = 象限归约 + minimax 多项式,系数编译期写死)。
+// sin/cos 系数谱系:Abramowitz & Stegun 1964 §4.3(误差界)/ Hart et al. 1968
+// (minimax 逼近标准工具书,NIST DLMF §3.11 引)/ fdlibm __kernel_sinf/cosf
+// 同形系数(Remez minimax,Remez 1934;Fraser & Hart 1962)。
+
+// π 系常量(编译期写死)
+pub const RX_PI: f32 = 3.14159265358979323846;
+pub const RX_HALF_PI: f32 = 1.57079632679489661923;
+pub const RX_TWO_PI: f32 = 6.28318530717958647692;
+// 2/π(象限归约乘子)
+pub const RX_INV_HALF_PI: f32 = 0.63661977236758134308;
+// π/2 Cody-Waite 两段(高位 + 低位,压归约误差)
+const RX_PIO2_HI: f32 = 1.5707963;
+const RX_PIO2_LO: f32 = 7.5497894e-8;
+// 1.5×2^23 幻数(最近偶舍入强制位;|x| < 2^22 前提)
+const RX_MAGIC: f32 = 12582912.0;
+
+// 软件平方根(Newton-Raphson 30 轮;v <= 0(含负零/负值)→ 0;两路径同义)
+pub device fn rx_sqrt(v: f32) -> f32 {
+    if v <= 0.0 {
+        return 0.0;
+    }
+    let mut g = v;
+    let mut i = 0;
+    while i < 30 {
+        g = 0.5 * (g + v / g);
+        i += 1;
+    }
+    g
+}
+
+pub device fn rx_min(a: f32, b: f32) -> f32 {
+    if a < b {
+        a
+    } else {
+        b
+    }
+}
+
+pub device fn rx_max(a: f32, b: f32) -> f32 {
+    if a > b {
+        a
+    } else {
+        b
+    }
+}
+
+pub device fn rx_abs(v: f32) -> f32 {
+    if v < 0.0 {
+        -v
+    } else {
+        v
+    }
+}
+
+// NaN 安全钳制:v ∈ [lo, hi] → v;v > hi → hi;其余(含 NaN:比较全 false)→ lo。
+// f32 → 整数转换前必经本函数,防 fptosi/fptoui poison。
+pub device fn rx_clamp(v: f32, lo: f32, hi: f32) -> f32 {
+    if v >= lo && v <= hi {
+        v
+    } else if v > hi {
+        hi
+    } else {
+        lo
+    }
+}
+
+// 幻数最近偶舍入(|x| < 2^22):x + 1.5×2^23 强迫 f32 精度在整数边界截断
+pub device fn rx_round(x: f32) -> f32 {
+    let t = x + RX_MAGIC;
+    t - RX_MAGIC
+}
+
+// floor:round 后回修(|x| < 2^22;round-half-even 偏差经 r > x 判定吸收)
+pub device fn rx_floor(x: f32) -> f32 {
+    let r = rx_round(x);
+    if r > x {
+        r - 1.0
+    } else {
+        r
+    }
+}
+
+// fract = x - floor(x)(域受控场景:星格内坐标等)
+pub device fn rx_fract(x: f32) -> f32 {
+    x - rx_floor(x)
+}
+
+// sin/cos 共享核:象限归约到 [-π/4, π/4] + 奇(sin)/偶(cos)minimax 多项式。
+// is_cos = 0 → sin,1 → cos(象限表互换)。归约:k = round(x·2/π),r = x − k·(π/2)
+// (Cody-Waite 两段);q = k mod 4 定符号与 sin/cos 互换。
+pub device fn rx_trig(x: f32, is_cos: i32) -> f32 {
+    let kf = rx_round(x * RX_INV_HALF_PI);
+    let r1 = x - kf * RX_PIO2_HI;
+    let r = r1 - kf * RX_PIO2_LO;
+    // kf 为整数值 f32(|kf| < 2^22,cast 安全;k mod 4 归一)
+    let ki = (kf as i32) & 3;
+    let r2 = r * r;
+    // sin(r) = r + r³(S1 + r²S2 + r⁴S3 + r⁶S4)(fdlibm __kernel_sinf 同形 minimax)
+    let sp = -0.1666667163 + r2 * (0.0083333338 + r2 * (-0.0001984127 + r2 * 0.0000027557));
+    let s = r + r * r2 * sp;
+    // cos(r) = 1 − r²/2 + r⁴(C1 + r²C2 + r⁴C3 + r⁶C4)(fdlibm __kernel_cosf 同形)
+    let r4 = r2 * r2;
+    let cp = 0.0416666679 + r2 * (-0.0013888889 + r2 * (0.0000248016 + r2 * -0.0000002756));
+    let c = 1.0 - 0.5 * r2 + r4 * cp;
+    // 象限选择:sin → [s, c, -s, -c];cos → [c, -s, -c, s]
+    if is_cos == 0 {
+        if ki == 0 {
+            s
+        } else if ki == 1 {
+            c
+        } else if ki == 2 {
+            -s
+        } else {
+            -c
+        }
+    } else {
+        if ki == 0 {
+            c
+        } else if ki == 1 {
+            -s
+        } else if ki == 2 {
+            -c
+        } else {
+            s
+        }
+    }
+}
+
+// sin(x)(象限归约 + 9 阶奇 minimax;系数编译期写死;A&S 1964 §4.3 谱系)
+pub device fn rx_sin(x: f32) -> f32 {
+    rx_trig(x, 0)
+}
+
+// cos(x)(同一归约核,象限表互换;10 阶偶 minimax)
+pub device fn rx_cos(x: f32) -> f32 {
+    rx_trig(x, 1)
+}

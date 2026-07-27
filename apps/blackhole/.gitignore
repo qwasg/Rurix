@@ -1,0 +1,16 @@
+# apps/blackhole 编译产物与运行产物(G4.6 PR-H;rx build / cl.exe 输出)
+# 源码 = src/*.rx(realtime + dmath/params/render/render_core/starfield)
+*.exe
+*.obj
+*.pdb
+*.ptx
+*.ll
+*.ilk
+
+# 运行产物(帧序列 / 取证截图 / 视频 / pid)
+frames/
+iters/
+*.ppm
+*.png
+*.mp4
+*.pid
