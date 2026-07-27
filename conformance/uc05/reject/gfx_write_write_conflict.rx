@@ -1,0 +1,35 @@
+//@ spec: RXS-0272
+//@ assembly-reject: structure
+// gfx 写写冲突(I5,RFC-0015 §4.A3;RXS-0272)。**编译期 CLEAN**——`--emit=check` 不拦(不带
+// //@ expect-error)。违例在 `submit()` **装配期** host 侧确定性拦:同 gfx pass 对同 color_target
+// 多次声明写(`writes_rt` ×2)→ 库层状态值 Structure Err(镜像 RX6029 口径,零新 RX 码)→
+// RXRT_FAIL → rxrt_trap 终止。
+//
+// 与 compute 面 assembly/graph_write_write.rx 同码同口径(I5 写写冲突),零新码;此处见证
+// 图形 pass 面的 I5 拦截。rhi.rs 库单测 `rejects_write_write_conflict_i5` 为纯 host(无 GPU)证。
+// **EI1.4:装配核验严格先于派发**(RXS-0261)——seal 失败则一个 kernel 也不派发。
+struct VsOut {
+    #[builtin(position)] pos: f32,
+}
+
+vertex fn vs() -> VsOut {
+    VsOut { pos: 0.0 }
+}
+
+fragment fn fs(inp: VsOut) -> VsOut {
+    inp
+}
+
+fn main() -> i32 {
+    let ctx = Context::create();
+    let rhi = Rhi::create(&ctx);
+
+    let back = rhi.color_target(640, 480);
+
+    // 同 gfx pass 对同 color_target 多次声明写(writes_rt ×2)→ 写写冲突(I5)。
+    rhi.raster_pass(vs, fs).writes_rt(&back).writes_rt(&back);
+
+    rhi.submit(); // 装配期 Structure Err(strict 拒)→ 确定性终止
+    ctx.sync();
+    0
+}

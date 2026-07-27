@@ -40,6 +40,9 @@ fn mesh_rt_corpus_emits_spirv_1_4() {
 /// 每阶段 SPIR-V 过 `spirv-val --target-env vulkan1.2` **且** `spv1.4`(工具在位 accept /
 /// 缺工具 SKIP 三态;退出码判定,反 grep stdout)。合规判定以 spirv-val 退出码为准,不以
 /// 驱动宽容度为准(§4.E6 校验轴)。
+/// RXS-0294 L3:spirv-val 全模块校验为 Vulkan RHI 通道 device 见证判据 L3 腿
+/// (ci/vulkan_rhi_channel_smoke.py 步骤 80 host 段 check_spirv_val 调用本测试)。
+//@ spec: RXS-0294
 #[test]
 fn mesh_rt_corpus_pass_spirv_val() {
     let Some(tool) = rurixc::toolchain::locate_spirv_val() else {

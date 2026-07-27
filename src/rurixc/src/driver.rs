@@ -1082,6 +1082,10 @@ fn collect_spirv_entries(cx: &QueryCtx<'_>) -> Vec<codegen::SpirvModule> {
                     .map(|words| (codegen::stage_tag(stage), words))
                     .map_err(|e| e.to_string())
             }
+            // G4.2,RXS-0275:mesh 阶段 MIR → SPIR-V 经 lower_mesh(MeshEXT + 1.4)。
+            Some(ShaderStage::Mesh) => crate::vulkan_codegen::lower_mesh(b, &res)
+                .map(|words| (codegen::stage_tag(ShaderStage::Mesh), words))
+                .map_err(|e| e.detail),
             Some(stage) => {
                 eprintln!(
                     "rurixc: note: SPIR-V lowering for stage {stage:?} is not yet wired \

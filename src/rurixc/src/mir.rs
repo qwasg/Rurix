@@ -10,7 +10,7 @@
 //! - 借用检查/drop/TBIR 窄门均为 M3 职责,本层不建模。
 
 use crate::ast::{BinOp, FnColor, UnOp};
-use crate::hir::{Builtin, DefId, DeviceIntrinsic, PrimTy};
+use crate::hir::{Builtin, DefId, DeviceIntrinsic, MeshIntrinsic, PrimTy, TaskIntrinsic};
 use crate::resolve::Resolutions;
 use crate::span::Span;
 use crate::ty::Ty;
@@ -54,6 +54,25 @@ pub struct Body {
     /// root signature 形态 + RTS0 序列化)的确定性输入([`crate::binding_layout`])。
     /// 非着色阶段(含默认 PTX 路径)恒为空,行为零漂移(R1.2/R6.7)。
     pub resources: Vec<ResourceBinding>,
+    /// mesh 入口标注元数据(G4.2,RXS-0275;`#[numthreads(x,y,z)]` +
+    /// `#[outputs(topology,max_vertices,max_primitives)]` 参数,供 Vulkan codegen
+    /// 发射 `LocalSize`/`OutputVertices`/`OutputPrimitivesEXT`/`OutputTrianglesEXT`
+    /// execution modes)。仅 mesh 阶段根置 `Some`;其余阶段恒 `None`,零漂移。
+    /// task 条件臂首期不开放(RXS-0270),task 阶段根不收集。
+    pub mesh_meta: Option<MeshEntryMeta>,
+}
+
+/// mesh 入口标注元数据(G4.2,RXS-0275;`#[numthreads]` + `#[outputs]` 参数)。
+/// 由 `attach_graphics_io_sig` 自 AST 属性提取,供 Vulkan codegen
+/// `lower_mesh` 发射 execution modes + 输出变量声明。
+#[derive(Clone, Debug)]
+pub struct MeshEntryMeta {
+    /// `#[numthreads(x, y, z)]` workgroup 维度(三正整数字面量)。
+    pub numthreads: (u32, u32, u32),
+    /// `#[outputs(max_vertices = N)]` per-vertex 输出数组容量上限。
+    pub max_vertices: u32,
+    /// `#[outputs(max_primitives = M)]` per-primitive 输出数组容量上限。
+    pub max_primitives: u32,
 }
 
 impl Body {
@@ -471,6 +490,14 @@ pub enum CallTarget {
     Rt {
         symbol: String,
     },
+    /// mesh 阶段内建 intrinsic(G4.2,RXS-0275;`mesh_set_outputs` 已知函数 →
+    /// `OpSetMeshOutputsEXT`)。**仅 Vulkan codegen 产出**(mesh 着色仅经
+    /// Vulkan 后端,RXS-0270/0272;NVPTX device codegen 防御拒)。host codegen 不产出。
+    MeshIntrinsic(MeshIntrinsic),
+    /// task 阶段内建 intrinsic(G4.2,RXS-0275;`emit_mesh_tasks` 已知函数 →
+    /// `OpEmitMeshTasksEXT`;条件臂首期不开放,类型面预留)。**仅 Vulkan codegen 产出**。
+    /// host codegen 不产出。
+    TaskIntrinsic(TaskIntrinsic),
 }
 
 /// enum 扁平布局(M3.1 取舍:`{ i32 tag, 变体0载荷…, 变体1载荷…, … }`,
@@ -717,6 +744,8 @@ fn print_term(t: &TerminatorKind) -> String {
                 CallTarget::DeviceIntrinsic(d) => format!("device {}", d.name()),
                 CallTarget::Libdevice { symbol } => format!("libdevice {symbol}"),
                 CallTarget::Rt { symbol } => format!("rt {symbol}"),
+                CallTarget::MeshIntrinsic(m) => format!("mesh {}", m.name()),
+                CallTarget::TaskIntrinsic(t) => format!("task {}", t.name()),
             };
             let a: Vec<String> = args.iter().map(print_operand).collect();
             format!(
@@ -794,6 +823,7 @@ mod tests {
             stage,
             io_sig,
             resources: Vec::new(),
+            mesh_meta: None,
         }
     }
 

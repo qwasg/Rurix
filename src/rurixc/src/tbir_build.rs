@@ -524,6 +524,15 @@ impl Builder<'_> {
                             | crate::hir::GpuHostOp::BufDownload
                             | crate::hir::GpuHostOp::RhiPassReads
                             | crate::hir::GpuHostOp::RhiPassWrites
+                            // G4.2(RXS-0272):`gfx.writes_rt(&res)` 等 `&Res` 借用实参剥壳为句柄表达式。
+                            // PR-C(RXS-0274/0276):`reads_table` / `present` 同口径 `&Res` 借用剥壳。
+                            | crate::hir::GpuHostOp::RhiGfxWritesRt
+                            | crate::hir::GpuHostOp::RhiGfxWritesDepth
+                            | crate::hir::GpuHostOp::RhiGfxReads
+                            | crate::hir::GpuHostOp::RhiGfxReadsWritesUav
+                            | crate::hir::GpuHostOp::RhiGfxBindsSampler
+                            | crate::hir::GpuHostOp::RhiGfxReadsTable
+                            | crate::hir::GpuHostOp::RhiGfxPresent
                             // EI1.4(RXS-0259):`rhi.readback(res, &mut pinned)` 的落地面
                             // `&mut PinnedBuffer` 剥壳为句柄表达式(镜像 download);`res`
                             // 非借用形态,剥壳对其为恒等(autoderef 不动非引用值)。
@@ -536,6 +545,18 @@ impl Builder<'_> {
                             self.expr(a)
                         };
                         all.push(lowered);
+                    }
+                    // G4.3 PR-E(RXS-0283):`rhi.graph::<CAP>()` 的 turbofish const 实参
+                    // 已在 typeck 期求值为 i64(存 gpu_graph_caps);追加为 SynthInt 实参,
+                    // mir_build 期 op_of 物化为 Const::Int(cap, I64) 下发 cabi。
+                    if op == crate::hir::GpuHostOp::RhiGraph
+                        && let Some(cap) = self.tcr.gpu_graph_caps.get(&e.hir_id).copied()
+                    {
+                        all.push(tbir::Expr {
+                            ty: Ty::Prim(PrimTy::I64),
+                            span,
+                            kind: tbir::ExprKind::SynthInt(cap as i128),
+                        });
                     }
                     return tbir::Expr {
                         ty,

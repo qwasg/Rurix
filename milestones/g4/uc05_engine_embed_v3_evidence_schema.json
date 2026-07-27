@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UC-05 引擎嵌入 v3 证据 schema(G4.2 PR-D,步骤 78;G-G4-3;RFC-0015 §4.A7;RXS-0277)",
+  "description": "ci/uc05_engine_embed_v3_smoke.py 写 evidence/uc05_engine_embed_v3_<ts>.json。host 段(恒跑,无工具链亦跑步骤 1~3):生成头自始生成不手写审计(仓库零 tracked rurix_rhi.h + v3 harness include 生成头)+ 三制共存审计(v1 手写路三件 + v2 生成路在位、v3 不 include v1 头/不引用 rurix_engine_* 符号面,RXS-0254 §4.A5)+ apps/uc05-rhi 零 .rs 主语言判据(RFC-0014 §9.2)+ 工具链档(需 clang/link.exe):`--emit=dll` GPU 导出面产 .dll/.lib/.h 三件(含 gfx 四符号)+ 生成头幂等 RXS-0253 + 篡改再生成 byte-diff RED RXS-0254。device 段(需 MSVC/Windows SDK D3D12 + Vulkan SDK + GPU;SKIP=dev-env-degrade,RURIX_REQUIRE_REAL=1 翻硬红):cl.exe 编译 engine_host v3 链 rurix_rhi.lib + d3d12 + dxgi + vulkan-1 + 真跑 + 三方数值精确相等(Q-PixelCriterion:纯色/nearest RGBA8 整数 fetch 域,不设 ULP 容差)+ RED 三路。`embed_v3_ok` = device 段三方数值精确相等,计入 g4.counter.engine_embed_v3。`embed_cases` 为本机可复跑观测的字符串陈述。镜像 uc05_engine_embed_evidence_schema(v2)体例,v3 升级:Vulkan↔D3D12 LUID 匹配(v2=CUDA↔D3D12)+ 三方数值精确相等(v2=求和对照)+ gfx 图形导出(v2=compute)。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "milestone",
+    "step",
+    "host_section_pass",
+    "device_section_rc",
+    "checks",
+    "embed_v3_ok",
+    "run_url",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "uc05_engine_embed_v3" },
+    "milestone": { "type": "string" },
+    "step": { "type": "integer", "const": 78 },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_rc": { "type": "integer" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "generated_header_not_handwritten": { "type": ["boolean", "string"] },
+        "coexistence": { "type": ["boolean", "string"] },
+        "zero_rs_audit": { "type": ["boolean", "string"] },
+        "emit_dll_artifacts": { "type": ["boolean", "string"] },
+        "header_idempotent": { "type": ["boolean", "string"] },
+        "tamper_regen_red": { "type": ["boolean", "string"] },
+        "harness_build": { "type": ["boolean", "string"] },
+        "three_party_equal": { "type": ["boolean", "string"] },
+        "red_three_ways": { "type": ["boolean", "string"] }
+      }
+    },
+    "embed_v3_ok": { "type": "boolean" },
+    "embed_cases": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "toolchain_skip": { "type": ["string", "null"] },
+    "dev_env_degrade": { "type": "boolean" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" }
+  }
+}

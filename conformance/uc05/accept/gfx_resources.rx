@@ -1,0 +1,51 @@
+//@ spec: RXS-0271
+//@ spec: RXS-0272
+//@ spec: RXS-0273
+// G4.2 PR-B 图形资源构造五件套正例(RXS-0271/0272/0273,RFC-0015 §4.A2/A3;spec/rhi.md 章 A)。
+//
+// 五图形资源构造(RXS-0271):`color_target(w,h)` RGBA8 color attachment / `depth_target(w,h)`
+// D32F depth attachment / `texture2d(w,h)` RGBA8 可采样纹理 / `sampler(desc)` 采样器状态 /
+// `texture_table()` 无界纹理注册表。前三为**资源状态访问类**(参 barrier 推导);后二为
+// **无状态访问类**(只核绑定完备性,RXS-0273)。
+//
+// 访问声明(RXS-0272):`writes_rt` color 写 / `writes_depth` depth 写 / `binds_sampler`
+// 采样器·表绑定(无资源状态)。texture2d 声明但不在本图访问(无先前 pass 写入则不可 reads,
+// I3 纪律;本正例只验证五构造 lowering 落 `rxrt_rhi_gfx_resource` 字面符号,0 诊断)。
+//
+// **编译期 0 诊断**:五构造 lang-item 已知签名分支,typeck 通过;访问声明形态合法。
+// device 真跑归步骤 76;本文件为 .rx RHI 库面声明 + 装配核验通过的可编译本体。
+
+struct VsOut {
+    #[builtin(position)] pos: f32,
+}
+
+vertex fn vs() -> VsOut {
+    VsOut { pos: 0.0 }
+}
+
+fragment fn fs(inp: VsOut) -> VsOut {
+    inp
+}
+
+fn main() -> i32 {
+    let ctx = Context::create();
+    let rhi = Rhi::create(&ctx);
+
+    // 五图形资源构造(RXS-0271)。
+    let color = rhi.color_target(640, 480);
+    let depth = rhi.depth_target(640, 480);
+    let _tex = rhi.texture2d(640, 480);
+    let samp = rhi.sampler(0u32);
+    let table = rhi.texture_table();
+
+    // raster pass:写 color + depth,绑定 sampler + texture_table(RXS-0272)。
+    rhi.raster_pass(vs, fs)
+        .writes_rt(&color)
+        .writes_depth(&depth)
+        .binds_sampler(&samp)
+        .binds_sampler(&table);
+
+    rhi.submit();
+    ctx.sync();
+    0
+}

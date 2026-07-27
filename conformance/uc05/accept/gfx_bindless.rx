@@ -1,0 +1,43 @@
+//@ spec: RXS-0276
+//@ spec: RXS-0272
+//@ spec: RXS-0273
+// G4.2 PR-C bindless 纹理表入 pass 正例(RXS-0276/0272/0273,RFC-0015 §4.A3;spec/rhi.md 章 A)。
+//
+// TextureTable 无界纹理注册表(bindless 动态索引面,RXS-0276):`texture_table()` 构造 →
+// `raster_pass(vs,fs).writes_rt(&back).reads_table(&table)` 声明。table 为**无状态访问类**
+// (RXS-0273:barrier 相等域不核,绑定完备性另核);reads_table 追加到 `bindings`(与
+// `binds_sampler` 同槽,无资源状态)。bindless 运行时面复用 G3.4 vk descriptor-indexing
+// (`run_graphics_offscreen_bindless` 先例)。
+//
+// **编译期 0 诊断**:reads_table lang-item 已知方法分支(typeck 通过);table 构造合法。
+// 装配核验通过(table 无状态访问类,不计 I3/I5;单 pass 单写 color target)。device 真跑
+// 像素判据(四象限 bindless 动态索引)归 ci/uc05_graphics_rhi_smoke.py 步骤 76 覆盖扩
+// (RURIX_REQUIRE_REAL=1);本文件为 .rx RHI 库面声明 + 装配核验通过的可编译本体。
+
+struct VsOut {
+    #[builtin(position)] pos: f32,
+}
+
+vertex fn vs() -> VsOut {
+    VsOut { pos: 0.0 }
+}
+
+fragment fn fs(inp: VsOut) -> VsOut {
+    inp
+}
+
+fn main() -> i32 {
+    let ctx = Context::create();
+    let rhi = Rhi::create(&ctx);
+
+    // color target + texture_table(bindless 无界纹理注册表,RXS-0276)。
+    let back = rhi.color_target(64, 64);
+    let table = rhi.texture_table();
+
+    // raster pass:写 color target + 绑定 texture_table(reads_table,无状态访问类)。
+    rhi.raster_pass(vs, fs).writes_rt(&back).reads_table(&table);
+
+    rhi.submit();
+    ctx.sync();
+    0
+}

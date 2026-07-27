@@ -13,10 +13,12 @@ I1~I8 这组不变量,上一项目靠**运行期 Python 计数器事后捕获**(
 **类型系统 / 图装配期 100% 确定性拦截**(编译期即不可构造违例,或 submit 装配期 host 侧确定性
 strict 拒 + rxrt_trap 终止)。裁决 1 划界(消 EI1_CONTRACT §1「I1~I10」vs 门「I1~I8」不一致):
 
-- **I1~I8 = 100% 确定性检测项**(编译期 **或** 装配期确定性,入门 G-EI1-3 / 步骤 73,漏拦即红);
-- **I9~I10 = 仅报告 / 观测对照项**(本质动态,不可静态拦截,入 G-EI1-5,`documented_historical`)。
+- **I1~I8 + I11 = 100% 确定性检测项**(编译期 **或** 装配期确定性,入门 G-EI1-3 / 步骤 73,漏拦即红;
+  I11 G4.3 PR-E 入矩阵,scheduler 丢边拦截,漏拦即红);
+- **I9~I10 = 仅报告 / 观测对照项**(本质动态,不可静态拦截,入 G-EI1-5,`documented_historical`;
+  I10 G4.3 PR-E 起升 measured_local——别名复用 + 峰值计数器双锚,但仍留 report_only tier)。
 
-对照上一项目**运行期概率性计数器可漏**:Rurix 侧 I1~I8 无运行期概率窗口——三档全为确定性
+对照上一项目**运行期概率性计数器可漏**:Rurix 侧 I1~I8 + I11 无运行期概率窗口——三档全为确定性
 (编译期 typeck / 装配期 host 确定性拦 / 库单测已证机制)。
 
 ## 2. 三档划界(裁决 1 措辞;诚实收窄)
@@ -24,9 +26,9 @@ strict 拒 + rxrt_trap 终止)。裁决 1 划界(消 EI1_CONTRACT §1「I1~I10�
 | 档 | 判据 | 触点 | I |
 |---|---|---|---|
 | **编译期** | typeck / `--emit=check` 即拦(违例不可构造) | 编译期诊断 | I1, I2, I6, I7, I8 |
-| **装配期(图装配期)** | `submit()` 时 host 侧确定性拦(`--emit=check` CLEAN;submit 确定性 rxrt_trap,pre-dispatch) | 装配期库层状态值 Err + 终止 | I3, **I4**, I5 |
+| **装配期(图装配期)** | `submit()` 时 host 侧确定性拦(`--emit=check` CLEAN;submit 确定性 rxrt_trap,pre-dispatch) | 装配期库层状态值 Err + 终止 | I3, **I4**, I5, **I11**(G4.3 PR-E) |
 | **lib_tested** | 机制由库单测证但 `.rx` 未接线 | 库层状态值 Err | —(EI1.4 起空集) |
-| **report_only** | 运行期观测对照(不可静态拦截) | device measured | I9, I10 |
+| **report_only** | 运行期观测对照(不可静态拦截) | device measured | I9, I10(I10 G4.3 PR-E 升 measured_local) |
 
 > **I3/I4/I5 诚实标注**:装配期 = 图装配期(`submit()` 时确定性拦),`--emit=check` 不拦但 submit
 > 时确定性 `rxrt_trap`。装配期确定性 ≠ 运行期概率性——纯 host、pre-dispatch、无需 GPU 的库层判定
@@ -42,13 +44,23 @@ strict 拒 + rxrt_trap 终止)。裁决 1 划界(消 EI1_CONTRACT §1「I1~I10�
 > **真触发** seal 的 I4 分支(声明 ⊊ 反射 → 库层 ReflectionMismatch → rxrt_trap)。故 I4 升入
 > **装配期**档、证据级 `ci_checked`。
 >
-> **I9 兑现 / I10 未兑现(诚实分列)**:I9 = `apps/uc05-rhi` demo 三 pass 真派发(G-EI1-3
-> 「graph ≥3 pass」判据,close-out 补齐)→ readback 真
+> **I9 兑现 / I10 G4.3 PR-E 兑现 measured_local / I11 G4.3 PR-E 入矩阵(诚实分列)**:I9 = `apps/uc05-rhi`
+> demo 三 pass 真派发(G-EI1-3「graph ≥3 pass」判据,close-out 补齐)→ readback 真
 > D2H → host 侧求和 vs 闭式参考精确比对(见证 token `UC05_SUM` / `UC05_REF`,相等才打
 > `UC05_RHI_OK`),**已 device measured**;但仍留 `report_only`——数值正确性本质动态(单机单驱动
-> 一次观测,非全域证明)。I10 = 每个 transient `Res` 为一笔真设备分配、生命期 = 图生命期,故实际
-> 峰值**恒等于**声明容量;「峰值 <= 声明容量」平凡成立而**非因 aliasing/复用收紧**——transient
-> 资源别名复用与执行期峰值计数器**均未实现**,随后续期。
+> 一次观测,非全域证明)。**I10 G4.3 PR-E 起升 measured_local**——RXS-0280 别名复用分配器
+> (alias_alloc.rs 区间图贪心着色 + 三分量 size/align/lifetime)令不重叠生命期资源共享设备分配 →
+> 静态峰值真严格小于声明容量;RXS-0280 PeakCounter(on_alloc/on_free 饱和加减)在回放期随分配/释放
+> 事件记账并发存活字节峰值。host 库测 `exec_face_peak_below_declared_capacity`(rhi.rs)锚:两独立
+> 写 pass + 两 1024 字节资源 → 别名复用后静态峰值 = 1024 < 声明容量 2048(非平凡成立,因 aliasing
+> 收紧而非平凡相等);device 段 rx build const_capacity_graph.rx EXE 真跑 exit 0(RXS-0283 const 容量
+> 接线正例)双锚 I10 measured_local。**本条仍保留 report_only tier**——tier 反映『本质动态不可静态全证』
+> 性质,measured_local 为 evidence_level 标注(对齐 I9 同模式)。**I11 G4.3 PR-E 入矩阵**(漏拦即红,
+> RXS-0282):scheduler.rs derive_exec_plan 与 verify_exec_plan 两独立纯函数互证,核验器自 sealed 图
+> 独立重建依赖闭包逐边核 ExecPlan 是否保持(丢边即 Err);red_self_test 双向互证(桩化调度器丢边被
+> 真核验器拦 + 桩化核验器被门检出)。I11 为库内调度器/核验器互证不变量,丢边场景由 lib_test 桩化
+> 调度器触发,非 .rx 源面可构造违例(无 .rx 语料锚;check_corpus_two_way 对有 lib_test 字段的
+> assembly_time 条目免 corpus 要求,步骤 75 机制扩)。
 
 ## 3. 逐不变量对照(矩阵 ↔ 语料 ↔ 报告三方一致;步骤 73 机核)
 
@@ -63,7 +75,8 @@ strict 拒 + rxrt_trap 终止)。裁决 1 划界(消 EI1_CONTRACT §1「I1~I10�
 | I7 | 跨 brand 资源误用 | 编译期 | RXS-0256 | RX3006 | `conformance/uc05/reject/rhi_cross_brand.rx` | ci_checked |
 | I8 | RHI 着色合法性 | 编译期 | RXS-0256 | RX3015 | `conformance/uc05/reject/rhi_in_kernel.rx` | ci_checked |
 | I9 | compute pass 数值正确性 | report_only | RXS-0263 | —(无诊断码) | `apps/uc05-rhi/src/demo.rx` device measured(EI1.4:`UC05_SUM` == `UC05_REF`);Python 侧无数字定性陈述 | report_only(measured_local) |
-| I10 | transient 峰值 / 生命周期 | report_only | RXS-0263 | —(无诊断码) | host 容量记账 measured;**device 峰值计数器未实现**(诚实标注,见 §2);Python 侧无数字定性陈述 | report_only(部分未兑现) |
+| I10 | transient 峰值 / 生命周期 | report_only | RXS-0263 | —(无诊断码) | host 库测 `exec_face_peak_below_declared_capacity` measured_local(G4.3 PR-E:别名复用 + 峰值计数器双锚);Python 侧无数字定性陈述 | report_only(measured_local,G4.3 PR-E delivered) |
+| I11 | scheduler 丢边拦截 | 装配期 | RXS-0282 | 库层 Structure(镜像 RX6029) | scheduler.rs `red_self_test_scheduler_drops_edge` + `red_self_test_verifier_dropped` + rhi.rs `execute_exec_face_i11_rejects_dropped_edge`(无 .rx corpus;库内互证,步骤 75 机制扩) | ci_checked |
 
 ## 4. 生成与机核
 

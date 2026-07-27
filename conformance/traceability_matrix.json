@@ -1447,6 +1447,67 @@
     "RXS-0265": [
       "src/rurixc/tests/uc05_corpus.rs"
     ],
+    "RXS-0270": [
+      "conformance/uc05/accept/gfx_pass.rx",
+      "conformance/uc05/reject/cross_brand_gfx.rx",
+      "src/rurix-rt-cabi/src/lib.rs"
+    ],
+    "RXS-0271": [
+      "conformance/uc05/accept/gfx_resources.rx",
+      "conformance/uc05/reject/cross_brand_gfx.rx",
+      "conformance/uc05/reject/rhi_gfx_in_kernel.rx",
+      "src/rurix-rt-cabi/src/lib.rs"
+    ],
+    "RXS-0272": [
+      "conformance/uc05/accept/gfx_bindless.rx",
+      "conformance/uc05/accept/gfx_pass.rx",
+      "conformance/uc05/accept/gfx_resources.rx",
+      "conformance/uc05/reject/gfx_feedback_loop.rx",
+      "conformance/uc05/reject/gfx_read_before_write.rx",
+      "conformance/uc05/reject/gfx_write_write_conflict.rx",
+      "src/rurix-rt-cabi/src/lib.rs",
+      "src/rurix-rt/src/vk.rs"
+    ],
+    "RXS-0273": [
+      "conformance/uc05/accept/gfx_bindless.rx",
+      "conformance/uc05/accept/gfx_resources.rx"
+    ],
+    "RXS-0274": [
+      "conformance/uc05/reject/gfx_present_not_last.rx",
+      "conformance/uc05/reject/gfx_present_twice.rx",
+      "src/rurix-rt-cabi/src/lib.rs",
+      "src/rurix-rt/src/rhi.rs",
+      "src/rurix-rt/src/vk.rs"
+    ],
+    "RXS-0275": [
+      "src/rurixc/src/vulkan_codegen.rs"
+    ],
+    "RXS-0276": [
+      "conformance/uc05/accept/gfx_bindless.rx",
+      "src/rurix-rt/src/rhi.rs"
+    ],
+    "RXS-0277": [
+      "src/rurixc/src/mir_build.rs"
+    ],
+    "RXS-0280": [
+      "src/rurix-rt/src/alias_alloc.rs",
+      "src/rurix-rt/src/rhi.rs"
+    ],
+    "RXS-0281": [
+      "src/rurix-rt/src/rhi.rs",
+      "src/rurix-rt/src/scheduler.rs"
+    ],
+    "RXS-0282": [
+      "src/rurix-rt/src/rhi.rs",
+      "src/rurix-rt/src/scheduler.rs"
+    ],
+    "RXS-0283": [
+      "conformance/uc05/accept/const_capacity_graph.rx",
+      "conformance/uc05/reject/nonstatic_graph_construction.rx",
+      "conformance/uc05/reject/transient_capacity_overflow.rx",
+      "src/rurix-rt-cabi/src/lib.rs",
+      "src/rurixc/tests/uc05_corpus.rs"
+    ],
     "RXS-0290": [
       "src/rurix-rt-cabi/src/artifacts.rs",
       "src/rurixc/src/codegen.rs"
@@ -1458,6 +1519,14 @@
     "RXS-0292": [
       "src/rurix-rt-cabi/src/artifacts.rs",
       "src/rurix-rt/src/fatbin.rs"
+    ],
+    "RXS-0293": [
+      "conformance/uc05/accept/rhi_create_vk.rx",
+      "src/rurix-rt-cabi/src/lib.rs",
+      "src/rurixc/tests/uc05_corpus.rs"
+    ],
+    "RXS-0294": [
+      "src/rurixc/tests/mesh_rt_vulkan_spirv_val.rs"
     ]
   }
 }

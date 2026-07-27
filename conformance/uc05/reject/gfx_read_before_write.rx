@@ -1,0 +1,36 @@
+//@ spec: RXS-0272
+//@ assembly-reject: structure
+// gfx 读未写(I3,RFC-0015 §4.A3;RXS-0272)。**编译期 CLEAN**——图装配期性质,`--emit=check`
+// 不拦(此文件不带 //@ expect-error)。违例在 `submit()` **装配期** host 侧确定性拦:gfx pass
+// 的 `reads(&tex)` 声明消费读 texture2d,但无先前 pass 写入 → 库层状态值 Structure Err
+// (镜像 RX6029 口径,零新 RX 码)→ RXRT_FAIL → rxrt_trap 终止。
+//
+// 与 compute 面 assembly/graph_cycle.rx 同码同口径(I3 读未写),零新码;此处见证图形 pass
+// 面的 I3 拦截。rhi.rs 库单测 `rejects_read_before_write_i3` 为纯 host(无 GPU)证。
+// **EI1.4:装配核验严格先于派发**(RXS-0261)——seal 失败则一个 kernel 也不派发。
+struct VsOut {
+    #[builtin(position)] pos: f32,
+}
+
+vertex fn vs() -> VsOut {
+    VsOut { pos: 0.0 }
+}
+
+fragment fn fs(inp: VsOut) -> VsOut {
+    inp
+}
+
+fn main() -> i32 {
+    let ctx = Context::create();
+    let rhi = Rhi::create(&ctx);
+
+    let back = rhi.color_target(640, 480);
+    let tex = rhi.texture2d(640, 480);
+
+    // raster pass 读 tex 写 back,但无先前 pass 写 tex → 读未写(I3)。
+    rhi.raster_pass(vs, fs).reads(&tex).writes_rt(&back);
+
+    rhi.submit(); // 装配期 Structure Err(strict 拒)→ 确定性终止
+    ctx.sync();
+    0
+}

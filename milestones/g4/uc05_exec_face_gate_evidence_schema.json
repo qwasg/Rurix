@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UC-05 执行面三项拦截门证据 schema(G4.3 PR-E,步骤 79;G-G4-4;RFC-0015 §4.B;RXS-0280~0283)",
+  "description": "ci/uc05_exec_face_gate.py 写 evidence/uc05_exec_face_gate_<ts>.json。host 段(恒跑,无 GPU 亦跑):alias_alloc.rs 库单测(RXS-0280 transient 别名复用 + PeakCounter 饱和加减)+ scheduler.rs 库单测(RXS-0281 依赖驱动重排 DAG 拓扑分层 + RXS-0282 I11 漏拦即红 red_self_test 双向)+ rhi.rs exec_face 库单测(RXS-0280/0281/0282 闭合:execute_exec_face 四序 seal→derive_exec_plan→verify_exec_plan[I11 pre-dispatch fail-closed]→derive_alias_plan→PeakCounter;exec_face_peak_below_declared_capacity 为 I10 measured_local 锚)+ uc05_corpus 批跑(compute 路零回归 + const 容量语料 reject RX2010 / accept 0 诊断)+ rurixc --emit=check 编译档。device 段(gate real,需 rx CLI + link.exe + GPU;SKIP=dev-env-degrade,RURIX_REQUIRE_REAL=1 翻硬红):rx build const_capacity_graph.rx → EXE 真跑 exit 0 + I10 measured 见证(峰值 < 声明容量非平凡成立)。exec_face_ok = device 段真跑 + I10 measured,i10_measured_local = I10 自 report_only 升 measured_local(host 库测锚 + device EXE 双锚)。镜像 uc05_engine_embed_v3_evidence_schema 体例。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "milestone",
+    "step",
+    "host_section_pass",
+    "device_section_rc",
+    "checks",
+    "exec_face_ok",
+    "i10_measured_local",
+    "run_url",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "uc05_exec_face_gate" },
+    "milestone": { "type": "string" },
+    "step": { "type": "integer", "const": 79 },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_rc": { "type": "integer" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "host_lib_tests": { "type": "boolean" },
+        "device_run": { "type": ["boolean", "string"] },
+        "i10_measured": { "type": ["boolean", "string"] },
+        "peak_bytes": { "type": "integer" },
+        "declared_capacity": { "type": "integer" },
+        "peak_below_declared": { "type": "boolean" }
+      }
+    },
+    "exec_face_ok": { "type": "boolean" },
+    "i10_measured_local": { "type": "boolean" },
+    "toolchain_skip": { "type": ["string", "null"] },
+    "dev_env_degrade": { "type": "boolean" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" }
+  }
+}

@@ -1479,6 +1479,7 @@ mod tests {
             stage,
             io_sig,
             resources: Vec::new(),
+            mesh_meta: None,
         }
     }
 

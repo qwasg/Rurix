@@ -906,8 +906,8 @@
       "title": "RXS-0209 device 描述表 v2 @__rx_gpu_artifacts blob bump + @__rx_gpu_spirv 段 codegen",
       "reason": "RXS-0209 IR2 device 描述表 v2(@__rx_gpu_artifacts blob 版本 bump 承 Spirv 变体 + @__rx_gpu_spirv 段 + emit_gpu_artifact_globals codegen 发射)在 mb1 base 无对象(base find src -name artifacts.rs 空 / 无 emit_gpu_artifact_globals;artifacts blob 是 MS1.2 codegen 交付物,尚未合入本分支)→ 描述表 v2 blob bump 无回归对象。本条只落 host 产物模型泛化(fatbin.rs ArchKey / rurix.lock format-generic,有对象、真测),描述表 blob 本体诚实 defer。",
       "backfill_condition": "MS1.2 artifacts blob / emit_gpu_artifact_globals codegen 合入本分支后,补 device 描述表 v2(@__rx_gpu_artifacts blob 版本 bump 承 Spirv 变体 + @__rx_gpu_spirv 段发射)+ 对应 codegen 单测 / golden。",
-      "owner_milestone": "MB1",
-      "status": "open",
+      "owner_milestone": "MB1 → G4.4 PR-F(兑现)",
+      "status": "closed",
       "history": [
         {
           "date": "2026-07-15",
@@ -918,6 +918,11 @@
           "date": "2026-07-16",
           "event": "MB1 close-out 处置(维持 open,owner_milestone 维持 MB1;agent 完全自主签署,AGENTS v3.0 硬规则 1):PR #141 合流后 artifacts blob / emit_gpu_artifact_globals(MS1.2 codegen 交付物)已与 Vulkan 后端同树,defer 时『无回归对象』前提解除;但 device 描述表 v2(@__rx_gpu_artifacts blob 版本 bump 承 Spirv 变体 + @__rx_gpu_spirv 段发射)本体仍未落地(未接通,不静默充数)。维持 open 承接后续里程碑按 backfill_condition 补齐,**非 MB1 验收门**,MB1 整体 close-out 见 MB1_CONTRACT.md §8",
           "evidence": "milestones/mb1/MB1_CONTRACT.md §8 / registry/deferred.json v1.55"
+        },
+        {
+          "date": "2026-07-24",
+          "event": "G4.4 PR-F 全量兑现(closed;agent 完全自主签署,AGENTS v3.0 硬规则 1):RD-031 backfill_condition 全满足——① artifacts v2 前置切片由 G4.2 PR-A(07a258fd)兑现:RXS-0290 device 描述表 v2 blob 布局(v1 48B 前缀兼容 + spirv_count/spirv_entries_ptr 追加 = 64B;版本分支 v1 解析 0-byte / v2 新解析;feature 门控 vulkan-backend off → v1 产物逐字节不变)+ RXS-0291 @__rx_gpu_spirv 段发射与多入口收集(driver 入口迭代器逐入口调用与 --target vulkan 相同 lowering 入口 = 单一事实源;每入口独立模块;入口名 = PTX launch 同名内核标识)+ RXS-0292 rxrt 解析与 DeviceArtifactSet SPIR-V 填充(with_spirv_entries 按名索引加性,既有槽 0-byte;U31 起登记)+ codegen golden 单测 + feature-off 零漂移 + 解析红绿 + 双形态回环;② Vulkan RHI 通道由 G4.4 PR-F(本 PR)兑现:RXS-0293 .rx 单源 Vulkan RHI 通道(compute + graphics 双腿,Rhi::create_vk 显式后端 strict 无回退;compute 腿 = rxrt_rhi_* Vulkan 变体〔pipeline 自 SPIR-V 模块 + descriptor set + dispatch + 计划同步点回放〕,消费 artifacts v2 SPIR-V 入口表按 kernel 名索引)+ RXS-0294 device 见证判据(compute 图 device 真跑 + 数值对照 + spirv-val 全模块校验 + RURIX_REQUIRE_REAL=1)。defer 时『本体未落地』前提彻底解除:artifacts v2 blob + @__rx_gpu_spirv 段 + emit_gpu_artifact_globals codegen + Vulkan 通道 device 真跑全链闭合。owner_milestone 自 MB1 收口为 MB1 → G4.4 PR-F(兑现)。",
+          "evidence": "spec/vulkan_backend.md RXS-0290~0294(v1.18/v1.20) / src/rurixc/src/codegen.rs(emit_gpu_artifact_globals) / src/rurix-rt-cabi/src/{artifacts.rs,lib.rs}(v2 解析 + rxrt_rhi_create_vk) / src/rurix-rt/src/vk.rs(vulkan_available + run_compute) / ci/vulkan_rhi_channel_smoke.py(步骤 80) / conformance/uc05/accept/rhi_create_vk.rx(RXS-0293 锚定) / registry/number_ledger.json v1.19(RXS on_tree_max 292→294)"
         }
       ]
     },
@@ -966,13 +971,33 @@
       "title": "UC-05 RHI 执行面余项:transient 资源别名复用 + 执行期峰值计数器(I10 完整兑现)/ pass 重排与依赖驱动并行调度 / RXS-0262 const 泛型定长容量 `.rx` 编译期拒",
       "reason": "EI1.3/EI1.4 的诚实标注三项,均为「机制未实现」而非「半成品」,close-out 不静默(硬规则 3):① **I10 平凡成立**——EI1.4 起每个 transient `Res` 为一笔真设备分配、生命期 = 整个图生命期(rhi_destroy 连带释放),故执行期实际并发存活峰值**恒等于**声明容量,「峰值 ≤ 声明容量」平凡成立而**非因 aliasing/复用而收紧**;transient 资源别名复用(令峰值真严格小于声明容量)与**执行期峰值计数器**均未实现,I10 维持 report_only(evidence/uc05_invariant_matrix.json I10 note 已如实标注)。② **无重排无并行**——`RhiGraph` 声明序 = 执行序,`derive_syncs()` 只在既有执行序上插同步点(`PlannedSync`),不做 pass 重排、不做依赖驱动的并行调度(与 G3.5 render graph 侧同名收窄 RD-034+ 家族同源但对象不同:此处为 UC-05 RHI 库面)。③ **容量以 `Vec` 承载非 const 泛型**——spec/rhi.md RXS-0262 Legality 的「const 泛型定长数组 + 声明资源数超容量编译期拒」为 RD-026 无堆对策的**目标形态**,现 host 记账在 src/rurix-rt/src/rhi.rs 以 `Vec` 承载(runtime-bounded),`.rx` 侧 const 泛型定长容量与编译期越界拒**未接线**;EI1.3 已如实不锚不存在的 reject 语料(不伪造 conformance 条目)。",
       "backfill_condition": "后续 GPU / 引擎里程碑出现下列硬需求之一时兑现,按 10 §3 判档(预期 Mini-RFC 或随承接期伞形 Full RFC 一章;库面扩展不触硬规则 5 则不强制 Full RFC):① **图内显存复用**成为真实约束(transient 资源集规模或单资源体量令「每 Res 一笔真分配、活满图生命期」不可接受)→ 落别名/复用分配器 + **执行期峰值计数器** device 采集,I10 自 report_only 升为 measured 收紧判据(峰值 < 声明容量可见证);② **并行调度**成为真实约束(独立 pass 需跨 queue / 跨 stream 重叠以达吞吐目标)→ 落依赖驱动重排 + 并行调度,并同步扩不变量矩阵(重排后 happens-before 正确性须新增确定性拦截项);③ `.rx` 侧 **const 泛型定长容量**接线可行(const 泛型实参在 `.rx` RHI 面可用,参见 RD-007 turbofish const 实参面)→ RXS-0262 Legality 的编译期越界拒落地 + 补 conformance/uc05 reject 语料。三项彼此独立,可分批兑现分批留痕;未兑现前 evidence/uc05_invariant_matrix.json 的 I10 note 与 spec/rhi.md RXS-0262「诚实收窄」段维持字面有效,**不得改写为已兑现**。",
-      "owner_milestone": "TBD(后续期)",
-      "status": "open",
+      "owner_milestone": "G4.3 PR-E(兑现)",
+      "status": "closed",
       "history": [
         {
           "date": "2026-07-20",
           "event": "EI1 close-out 执行期登记(open,首条;agent 完全自主签署,AGENTS v3.0 硬规则 1):EI1 期**诚实非交付集**结构化落档——UC-05 RHI 执行面三项余项(transient 别名复用 + 执行期峰值计数器 / pass 重排与依赖驱动并行调度 / RXS-0262 const 泛型定长容量 `.rx` 编译期拒)在 EI1.3/EI1.4 已于 spec 条款与不变量矩阵内如实标注,本条把三项自「散落文字标注」升为**可机核的 deferred 登记**,防静默腐烂(对齐 RD-034 / RD-027 诚实尾门纪律)。**不 force-close、不伪造兑现**:I1~I8 的 100% 确定性拦截判据(G-EI1-3)与 I9 的 device 数值对照(G-EI1-4/步骤 72·74)不受本条牵连——本条只承接 I10 的**收紧面**与调度/容量两项机制面。owner_milestone 记 **TBD(后续期)**:EI1 为本期最后一段,后续期未立项,承接里程碑届时立项时顺延(对齐 RD-025 曾记 post-V1 先例)。号自 **RD-035** 起(RD-033 = EA1 reserved 未 materialize 跳号维持;RD-016/028 永不复用;number_ledger RD on_tree_max 34→35 / next_free 35→36 随本 PR 校准)。**RD-036 不立**(EI1 期无第二独立缺口:export(c) 子集 v1 边界属留档不登面,见 RD-009 close 留痕)。",
           "evidence": "evidence/uc05_invariant_matrix.json(I10 note 诚实标注 + tiers.report_only)/ evidence/uc05_comparison_report.md §2 §3 / spec/rhi.md RXS-0262「诚实收窄(EI1.3 落地口径)」+ RXS-0263 / src/rurix-rt/src/rhi.rs(`RhiGraph` resources: Vec / derive_syncs 声明序插同步点不重排)/ milestones/ei1/EI1_CONTRACT.md §8.1 终审表 G-EI1-3·G-EI1-5 + §8.4 / registry/number_ledger.json v1.12"
+        },
+        {
+          "date": "2026-07-24",
+          "event": "G4.3 PR-E 全量兑现(closed;agent 完全自主签署,AGENTS v3.0 硬规则 1):RD-035 三项余项在 G4.3 PR-E 全量兑现——① transient 别名复用分配器 + 执行期峰值计数器 → src/rurix-rt/src/alias_alloc.rs(区间图贪心着色 + 三分量 size/align/lifetime + PeakCounter 饱和加减,#![forbid(unsafe_code)] 纯 host safe 码)+ rhi.rs execute_exec_face 四序闭合(seal→derive_exec_plan→verify_exec_plan→derive_alias_plan→PeakCounter),I10 自 report_only 升 measured_local 双锚(host 库测峰值 1024 < 声明容量 2048 非平凡成立 + device EXE 真跑 exit 0);② pass 重排与依赖驱动并行调度 → src/rurix-rt/src/scheduler.rs(DAG 拓扑分层 derive_exec_plan Kahn 算法 + verify_exec_plan 独立纯函数重建依赖闭包逐边核 + red_self_test 双向互证),I11 漏拦即红拦截项入不变量矩阵 assembly_time 档;③ RXS-0262 const 泛型定长容量 .rx 编译期拒 → RXS-0283 turbofish const 实参 `rhi.graph::<CAP>()` 接线(typeck eval_graph_cap 求值 i64 + mir_build/tbir_build SynthInt 物化下发 cabi)+ 编译期越界拒复用 RX2010 + non-static construction strict 拒 + 单定义 affine 链拒 + 装配期 declared_capacity/resource 越界二次防线。spec commit 887d7430 条款先行(spec/rhi.md RXS-0280~0283 + RXS-0239/0261 追加式修订 + RXS-0262 收窄段更新)。ci/uc05_exec_face_gate.py 步骤 79 host 段恒跑 + device 段真跑 PASS(RURIX_REQUIRE_REAL=1 退 0,I10 measured_local 双锚)。owner_milestone 自 TBD(后续期) 收口为 G4.3 PR-E(兑现)。",
+          "evidence": "src/rurix-rt/src/alias_alloc.rs(RXS-0280 别名复用分配器 + PeakCounter,10 库单测)/ src/rurix-rt/src/scheduler.rs(RXS-0281/0282 derive_exec_plan + verify_exec_plan + red_self_test,9 库单测)/ src/rurix-rt/src/rhi.rs(execute_exec_face 四序闭合 + I10 measured_local 锚,6 库单测)/ src/rurixc/src/typeck.rs(RXS-0283 Op::RhiGraph + eval_graph_cap + 越界拒/non-static 拒/单定义拒)+ mir_build.rs + tbir_build.rs(SynthInt 物化)/ conformance/uc05/accept/const_capacity_graph.rx + reject/transient_capacity_overflow.rx + reject/nonstatic_graph_construction.rx / ci/uc05_exec_face_gate.py(步骤 79,host + device 真跑 PASS)/ evidence/uc05_exec_face_gate_20260724T232800.json(exec_face_ok=true,i10_measured_local=true,peak_bytes=1024<declared_capacity=2048)/ evidence/uc05_invariant_matrix.json(I10 measured_local + I11 assembly_time)/ milestones/g4/G4_CONTRACT.md §8.4 / spec commit 887d7430 + 实现 commit(PR-E)"
+        }
+      ]
+    },
+    {
+      "id": "RD-036",
+      "title": "export_c_extended_signatures_v2: repr(C) struct 按值 / 回调函数指针 / 数组按值 / 跨堆所有权 —— C ABI v2 超界硬需求存续登记",
+      "raised_in": "G4.5 PR-G C ABI v2 判档（G4_CONTRACT §8.PR-G / RFC-0015 §4.D3）",
+      "owner_milestone": "G4.5 PR-G（登记；判档不成立之存续）",
+      "status": "open",
+      "backfill_condition": "当任一真实嵌入面出现下述硬需求时按 10 §3 判档兑现（任一条成立即对应面条款先行 + ABI 往返真跑）：① upcall 硬需求——.rx 侧需调起宿主代码（回调），数据指针无法承载『调用』语义且子集 v1 无替代表达；② 外部固定 ABI——被嵌入方为 ABI 不可改的既有外部 API（按值 struct 签名已冻结，两侧不可协同改签名指针化替代）。兑现时新 RX 码按 number_ledger 当前 next_free 续号（RXS-0295/0296 burned 号段不再复用），D 章条件臂条款体落 spec/export_c.md，含 3/5/8 字节三尺寸哨兵 + C 侧回调被 .rx 侧调起数值回传断言 + RED 三路。",
+      "history": [
+        {
+          "date": "2026-07-24",
+          "event": "G4.5 PR-G C ABI v2 判档不成立（两项判据均不成立）→ 超界硬需求存续登记。判档依据留痕 G4_CONTRACT §8.PR-G。先例：RD-009 close 注（subset v1 边界，超界硬需求自 RD-036+ 判档）。",
+          "evidence": "G4_CONTRACT §8.PR-G / rfcs/0015-engine-rendering.md §3.4 §4.D / spec/rhi.md RXS-0277 / apps/uc05-rhi/src/embed.rx / src/rurix-engine/harness/engine_host_v3.cpp / registry/number_ledger.json（RXS-0295/0296 burned 登记）"
         }
       ]
     }
@@ -1318,6 +1343,11 @@
       "version": "v1.66",
       "date": "2026-07-20",
       "change": "EI1 整体 close-out RD 处置(EI1.5 close-out PR;只追加 RD-009 history 行 + RD-009 status open→closed + 新增 RD-035 entry + revision_log v1.66,既有 entries 其余字段 / 既有 history 行 / 既有 revision_log v1.0~v1.65 行 0-byte;agent 完全自主签署,AGENTS v3.0 硬规则 1):**RD-009 closed**——`#[export(c)]` 导出表 codegen + 编译器内建头文件生成两面由 EI1.2 完整兑现(D-113,PR #182 / 2b4047c1),CI 步骤 71 本机 RTX 4070 Ti + MSVC `RURIX_REQUIRE_REAL=1` 类型层 ABI 往返真跑绿,EI1.4 再扩 GPU-using 导出面(步骤 74,PR #184 / 9806848d);C 兼容签名子集 v1 边界(struct 按值 / 回调指针 / 数组按值 / 切片 + 跨堆所有权)按 spec/export_c.md RXS-0251 §4 + RFC-0014 §8 **留档不另立 RD**(超界时才登)。**新登 RD-035 open**(EI1 诚实非交付集,不静默):UC-05 RHI 执行面三项余项 = transient 别名复用 + 执行期峰值计数器(I10 完整兑现)/ pass 重排与依赖驱动并行调度 / RXS-0262 const 泛型定长容量 `.rx` 编译期拒;owner_milestone **TBD(后续期)**,backfill 三条件独立可分批。**RD-036 不立**(无第二独立缺口)。**留痕更正**:export_c.md §4 / RFC-0014 §8 的『RD-035+』为合入时续号写法非号预留,RD-035 既由本条占用,扩签名面届时自 RD-036+ 起。RD-033 = EA1 reserved 未 materialize 跳号维持;RD-016/028 永不复用。其余 open 尾门(RD-027 / RD-034 / RD-012 RT 分量 / RD-007 / RD-025 / RD-026 / RD-030 / RD-031 / RD-032 等)本期未触发接通点,**维持原状态与原 owner_milestone 不动**(EI1 未涉其面,不代管不 force-close)。number_ledger RD on_tree_max 34→35 / next_free 35→36 随本 PR 校准。详见 milestones/ei1/EI1_CONTRACT.md §8"
+    },
+    {
+      "version": "v1.67",
+      "date": "2026-07-24",
+      "change": "G4.4 PR-F RD-031 处置 + G4.3 PR-E RD-035 处置补登记(只追加 RD-031 history 行 + RD-031 status open→closed + owner_milestone MB1→MB1 → G4.4 PR-F(兑现) + revision_log v1.67,既有 entries 不可变字段 / 既有 history 行 / 既有 revision_log v1.0~v1.66 行 0-byte;agent 完全自主签署,AGENTS v3.0 硬规则 1):**RD-031 closed**——backfill_condition 全满足:① artifacts v2 前置切片由 G4.2 PR-A(07a258fd)兑现(RXS-0290 device 描述表 v2 blob 布局 + RXS-0291 @__rx_gpu_spirv 段发射 + RXS-0292 rxrt 解析 + codegen golden 单测 + feature-off 零漂移);② Vulkan RHI 通道由 G4.4 PR-F 兑现(RXS-0293 .rx 单源 Vulkan RHI 通道 compute+graphics 双腿 + RXS-0294 device 见证判据,消费 artifacts v2 SPIR-V 入口表按 kernel 名索引,device 真跑全链闭合)。defer 时『本体未落地』前提彻底解除。**RD-035 处置补登记**(PR-E commit 4e0e78ac 已关闭 RD-035 status open→closed + owner_milestone TBD→G4.3 PR-E(兑现) + history 行,但 revision_log 漏登;本条补记:RD-035 三项余项在 G4.3 PR-E 全量兑现——alias_alloc + scheduler + rhi.rs execute_exec_face + typeck RhiGraph + conformance 语料 + ci 步骤 79)。零新 RD(本期无新 deferred 登记)。RD-033 = EA1 reserved 跳号维持;RD-016/028 永不复用。其余 open 尾门(RD-027 / RD-034 / RD-012 RT 分量 / RD-007 / RD-025 / RD-026 / RD-030 / RD-032 等)本期未触发接通点,维持原状态不动。"
     }
   ]
 }

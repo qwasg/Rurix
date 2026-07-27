@@ -265,6 +265,20 @@
 | RXS-0263 | spec/rhi.md | 1 | `src/rurixc/tests/uc05_corpus.rs` |
 | RXS-0264 | spec/rhi.md | 1 | `src/rurixc/tests/uc05_corpus.rs` |
 | RXS-0265 | spec/rhi.md | 1 | `src/rurixc/tests/uc05_corpus.rs` |
+| RXS-0270 | spec/rhi.md | 3 | `conformance/uc05/accept/gfx_pass.rx`, `conformance/uc05/reject/cross_brand_gfx.rx`, `src/rurix-rt-cabi/src/lib.rs` |
+| RXS-0271 | spec/rhi.md | 4 | `conformance/uc05/accept/gfx_resources.rx`, `conformance/uc05/reject/cross_brand_gfx.rx`, `conformance/uc05/reject/rhi_gfx_in_kernel.rx` …(+1) |
+| RXS-0272 | spec/rhi.md | 8 | `conformance/uc05/accept/gfx_bindless.rx`, `conformance/uc05/accept/gfx_pass.rx`, `conformance/uc05/accept/gfx_resources.rx` …(+5) |
+| RXS-0273 | spec/rhi.md | 2 | `conformance/uc05/accept/gfx_bindless.rx`, `conformance/uc05/accept/gfx_resources.rx` |
+| RXS-0274 | spec/rhi.md | 5 | `conformance/uc05/reject/gfx_present_not_last.rx`, `conformance/uc05/reject/gfx_present_twice.rx`, `src/rurix-rt-cabi/src/lib.rs` …(+2) |
+| RXS-0275 | spec/vulkan_backend.md | 1 | `src/rurixc/src/vulkan_codegen.rs` |
+| RXS-0276 | spec/rhi.md | 2 | `conformance/uc05/accept/gfx_bindless.rx`, `src/rurix-rt/src/rhi.rs` |
+| RXS-0277 | spec/rhi.md | 1 | `src/rurixc/src/mir_build.rs` |
+| RXS-0280 | spec/rhi.md | 2 | `src/rurix-rt/src/alias_alloc.rs`, `src/rurix-rt/src/rhi.rs` |
+| RXS-0281 | spec/rhi.md | 2 | `src/rurix-rt/src/rhi.rs`, `src/rurix-rt/src/scheduler.rs` |
+| RXS-0282 | spec/rhi.md | 2 | `src/rurix-rt/src/rhi.rs`, `src/rurix-rt/src/scheduler.rs` |
+| RXS-0283 | spec/rhi.md | 5 | `conformance/uc05/accept/const_capacity_graph.rx`, `conformance/uc05/reject/nonstatic_graph_construction.rx`, `conformance/uc05/reject/transient_capacity_overflow.rx` …(+2) |
 | RXS-0290 | spec/vulkan_backend.md | 2 | `src/rurix-rt-cabi/src/artifacts.rs`, `src/rurixc/src/codegen.rs` |
 | RXS-0291 | spec/vulkan_backend.md | 2 | `src/rurixc/src/codegen.rs`, `src/rurixc/src/driver.rs` |
 | RXS-0292 | spec/vulkan_backend.md | 2 | `src/rurix-rt-cabi/src/artifacts.rs`, `src/rurix-rt/src/fatbin.rs` |
+| RXS-0293 | spec/vulkan_backend.md | 3 | `conformance/uc05/accept/rhi_create_vk.rx`, `src/rurix-rt-cabi/src/lib.rs`, `src/rurixc/tests/uc05_corpus.rs` |
+| RXS-0294 | spec/vulkan_backend.md | 1 | `src/rurixc/tests/mesh_rt_vulkan_spirv_val.rs` |

@@ -141,6 +141,14 @@ pub struct LangItems {
     /// `Rhi::create` 编译器已知关联构造函数(EI1.3 Part B,RXS-0256;值路径解析锚点,
     /// 镜像 `context_create`/`graph_create`)。
     pub rhi_create: Option<DefId>,
+    /// `Rhi::create_vk` 编译器已知关联构造函数(G4.4 PR-F,RXS-0293;显式 Vulkan 后端,
+    /// 镜像 `rhi_create` 解析锚点,strict 无回退)。
+    pub rhi_create_vk: Option<DefId>,
+    /// `GfxPass<C>` RHI 图形 pass 声明句柄(G4.2,RXS-0270;raster/mesh pass 产物,
+    /// 与 `Pass<C>` 同族非 Copy affine;`writes_rt`/`writes_depth`/`reads`/
+    /// `reads_writes_uav`/`binds_sampler` 方法接收者识别)。与 `Pass<C>` 平行的不同
+    /// lang item(compute-pass 面 vs 图形 pass 面,RFC-0015 §4.A1)。
+    pub rhi_gfx_pass: Option<DefId>,
     /// device block barrier 上下文(M5.2,RXS-0079):`block.sync()` 的 `block`
     /// 值位置兜底;`.sync()` → block 级 barrier(可被用户遮蔽)。
     pub block_ctx: Option<DefId>,
@@ -216,6 +224,8 @@ impl LangItems {
             "Res" => self.rhi_res,
             "Pass" => self.rhi_pass,
             "Queue" => self.rhi_queue,
+            // G4.2 RHI 图形 pass 句柄(RXS-0270):类型位置兜底(可被用户遮蔽)。
+            "GfxPass" => self.rhi_gfx_pass,
             _ => ADDR_SPACES
                 .iter()
                 .position(|n| *n == name)
@@ -358,6 +368,13 @@ impl LangItems {
         Some(d) == self.rhi_pass
     }
 
+    /// `GfxPass<C>` RHI 图形 pass 声明句柄判定(G4.2,RXS-0270;`writes_rt`/
+    /// `writes_depth`/`reads`/`reads_writes_uav`/`binds_sampler`/
+    /// `reads_table`(PR-C,RXS-0276)/`present`(PR-C,RXS-0274)方法接收者识别)。
+    pub fn is_rhi_gfx_pass(&self, d: DefId) -> bool {
+        Some(d) == self.rhi_gfx_pass
+    }
+
     /// `Queue<C>` RHI submit 结果句柄判定(EI1.3 Part B,RXS-0260;submit 消费式 typestate
     /// 结果,affine 布局消费)。
     pub fn is_rhi_queue(&self, d: DefId) -> bool {
@@ -394,6 +411,7 @@ impl LangItems {
             || self.is_rhi(d)
             || self.is_rhi_res(d)
             || self.is_rhi_pass(d)
+            || self.is_rhi_gfx_pass(d)
             || self.is_rhi_queue(d)
     }
 
@@ -550,6 +568,8 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
             rhi_pass: None,
             rhi_queue: None,
             rhi_create: None,
+            rhi_create_vk: None,
+            rhi_gfx_pass: None,
             block_ctx: None,
             atomic: None,
             atomic_view: None,
@@ -689,6 +709,15 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
         r.out.lang_items.rhi_queue = Some(r.new_def(DefKind::Struct, "Queue", Vis::Pub, span, 0));
         r.out.lang_items.rhi_create =
             Some(r.new_def(DefKind::AssocFn, "create", Vis::Pub, span, 0));
+        // G4.4 PR-F(RXS-0293):`Rhi::create_vk` 显式 Vulkan 后端构造,镜像 `rhi_create`
+        // 解析锚点(assoc fn `create_vk`,strict 无回退)。
+        r.out.lang_items.rhi_create_vk =
+            Some(r.new_def(DefKind::AssocFn, "create_vk", Vis::Pub, span, 0));
+        // G4.2 RHI 图形 pass 句柄(RXS-0270,RFC-0015 §4.A1):`GfxPass<C>` 为 raster/mesh
+        // pass 产物,与 `Pass<C>` 同族非 Copy affine。**追加于全部既有 lang items 之后**,
+        // 不动摇既有 DefId 编号(MIR/PTX golden 符号名稳定性);同 Rhi 族兜底纪律。
+        r.out.lang_items.rhi_gfx_pass =
+            Some(r.new_def(DefKind::Struct, "GfxPass", Vis::Pub, span, 0));
     }
     r.resolve_uses();
     r.resolve_impl_targets();
@@ -1831,6 +1860,15 @@ impl Resolver<'_> {
                         // UC-05 RHI 图根构造(EI1.3 Part B,RXS-0256):`Rhi::create`
                         // 编译器已知关联函数(镜像 `Context::create` 解析锚点)
                         Res::Def(create)
+                    } else if last
+                        && last_ns == Ns::Value
+                        && Some(prefix_def) == self.out.lang_items.rhi
+                        && seg.ident.name == "create_vk"
+                        && let Some(create_vk) = self.out.lang_items.rhi_create_vk
+                    {
+                        // G4.4 PR-F(RXS-0293):`Rhi::create_vk` 显式 Vulkan 后端构造
+                        // 编译器已知关联函数(镜像 `Rhi::create` 解析锚点,strict 无回退)
+                        Res::Def(create_vk)
                     } else {
                         return Err(PathFail::Missing(seg.ident.name.clone()));
                     }

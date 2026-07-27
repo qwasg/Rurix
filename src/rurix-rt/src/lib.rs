@@ -11,6 +11,10 @@
 //! `DeviceBuffer<'ctx, T>` / `Module<'ctx>` 借用 `&'ctx Context`,跨 context 误用
 //! 与逃逸为借用检查错误;完整 affine 销毁纪律(stream 先同步)随 M5 深化。
 
+/// transient 别名复用分配器 + 执行期峰值计数器（G4.3 PR-E，RXS-0280；RFC-0014 §4.B8）。
+/// always-on、零 unsafe、零后端调用:区间图着色（生命期区间不重叠者共享同一设备分配）+
+/// 尺寸/对齐三分量着色 + 执行期峰值计数器（I10 → measured_local）。
+pub mod alias_alloc;
 pub mod backend;
 mod error;
 /// 生产分发 fatbin:分发产物变体模型 + 装载协商决策（G1.5，RXS-0150/0151；MR-0005）。
@@ -32,6 +36,10 @@ pub mod rhi;
 /// 与着色阶段静态属性 `#[sampler(...)]`（RXS-0224）镜像同一状态空间;经 cabi 降级
 /// `VkSamplerCreateInfo`（vk descriptor 建面 RXS-0230 消费）。
 pub mod sampler;
+/// 依赖驱动重排 + 批级提交调度器（G4.3 PR-E，RXS-0281/0282；RFC-0014 §4.B9/B10）。
+/// always-on、零 unsafe、零后端调用:sealed 图建依赖 DAG（RAW/WAW/WAR 边）→ 拓扑分层
+/// + 批级提交计划 + I11 核验器（独立重建依赖闭包逐边核，red_self_test 双向）。
+pub mod scheduler;
 pub mod sys;
 #[cfg(feature = "vulkan")]
 pub mod vk;

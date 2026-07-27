@@ -265,9 +265,9 @@ impl PassSpec {
         }
     }
 
-    /// 追加一条访问声明(内部辅助)。
+    /// 追加一条访问声明(内部辅助;G4.2 RHI 桥接需跨 AccessKind 通用映射,故 `pub`)。
     #[must_use]
-    fn with(mut self, resource: ResourceId, kind: AccessKind) -> PassSpec {
+    pub fn with(mut self, resource: ResourceId, kind: AccessKind) -> PassSpec {
         self.accesses.push(Access { resource, kind });
         self
     }
@@ -460,6 +460,14 @@ impl Graph {
     /// 分配 readback 目的 buffer(buffer,创建即 `COMMON`)。
     pub fn readback_buffer(&mut self, name: &str) -> ResourceId {
         self.add_resource(ResourceClass::Buffer, D3d12State::Common, name)
+    }
+
+    /// 分配可采样纹理 image(创建即 `COMMON`/`UNDEFINED`,首期经 host 上传〔`CopyDstReadback`〕
+    /// 后转 `SHADER_READ_ONLY`)。G4.2 RHI 图形资源面桥接(RXS-0271):`texture2d` 资源经
+    /// host→device copy 写 + 着色采样读的两步状态迁移由 [`Graph::derive_barriers`] 推导。
+    /// 既有 `color_target`/`depth_target`/`uav_buffer`/`readback_buffer` 构造 0-byte。
+    pub fn sampled_texture(&mut self, name: &str) -> ResourceId {
+        self.add_resource(ResourceClass::Image, D3d12State::Common, name)
     }
 
     /// 追加一个 pass(声明序 = 提交序)。seal 后追加 → RX6029(生命周期)。

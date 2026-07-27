@@ -761,11 +761,12 @@ impl Lowerer<'_> {
             ast::ExprKind::MethodCall {
                 receiver,
                 method,
+                generic_args,
                 args,
-                ..
             } => hir::ExprKind::MethodCall {
                 receiver: Box::new(self.lower_expr(receiver)),
                 method: method.name.clone(),
+                generic_args: generic_args.clone(),
                 args: args.iter().map(|a| self.lower_expr(a)).collect(),
             },
             ast::ExprKind::Field { expr, field } => hir::ExprKind::Field {
@@ -1001,6 +1002,7 @@ impl Lowerer<'_> {
             hir::ExprKind::MethodCall {
                 receiver: Box::new(recv),
                 method: "next".to_owned(),
+                generic_args: None,
                 args: Vec::new(),
             },
         );

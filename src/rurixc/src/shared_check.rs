@@ -232,6 +232,7 @@ impl Checker<'_, '_> {
                 receiver,
                 method,
                 args,
+                ..
             } => {
                 self.walk_expr(receiver, state, in_unsafe);
                 for a in args {

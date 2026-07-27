@@ -1,0 +1,40 @@
+//@ spec: RXS-0272
+//@ assembly-reject: structure
+// gfx 反馈环(I3,RFC-0015 §4.A3;RXS-0272)。**编译期 CLEAN**——图装配期性质,`--emit=check`
+// 不拦(此文件不带 //@ expect-error)。违例在 `submit()` **装配期** host 侧确定性拦:两 gfx pass
+// 形成反馈环(pass1 读 A 写 B / pass2 读 B 写 A),pass1 读 A 但无先前 pass 写 A → 库层状态值
+// Structure Err(镜像 RX6029 口径,零新 RX 码)→ RXRT_FAIL → rxrt_trap 终止。
+//
+// 反馈环 = 声明全序上的 use-before-write 可达形态(I3):pass1 需 A 先写但 A 的写者在 pass2
+// (后序),声明全序不可重排(RFC-0010 确定性)→ 装配期确定性拦。与 compute 面
+// assembly/graph_cycle.rx 同码同口径,零新码;此处见证图形 pass 面的反馈环拦截。
+// **EI1.4:装配核验严格先于派发**(RXS-0261)——seal 失败则一个 kernel 也不派发。
+struct VsOut {
+    #[builtin(position)] pos: f32,
+}
+
+vertex fn vs() -> VsOut {
+    VsOut { pos: 0.0 }
+}
+
+fragment fn fs(inp: VsOut) -> VsOut {
+    inp
+}
+
+fn main() -> i32 {
+    let ctx = Context::create();
+    let rhi = Rhi::create(&ctx);
+
+    let a = rhi.color_target(640, 480);
+    let b = rhi.color_target(640, 480);
+
+    // pass1 读 A 写 B:读 A 但无先前 pass 写 A → 反馈环(use-before-write,I3)。
+    rhi.raster_pass(vs, fs).reads(&a).writes_rt(&b);
+
+    // pass2 读 B 写 A:A 的写者在 pass2(后序)——声明全序不可重排,pass1 的读 A 不可满足。
+    rhi.raster_pass(vs, fs).reads(&b).writes_rt(&a);
+
+    rhi.submit(); // 装配期 Structure Err(strict 拒)→ 确定性终止
+    ctx.sync();
+    0
+}

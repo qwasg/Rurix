@@ -241,6 +241,8 @@ engine_host v3 的真实嵌入签名若需要 repr(C) struct 按值（如帧参�
 
 判档不成立 → 本臂条款不 materialize（RXS-0295/0296 号随未消费作废声明 burned），登记 **RD-036+**（`export_c_extended_signatures_v2`：repr(C) struct 按值 / 回调指针 / 数组按值 / 跨堆所有权，RD-009 close 注先例），RFC 修订行留痕（不重开 RFC，G-EA1-3 先例）。
 
+> **修订行（PR-G 判档留痕，G4.5 / G-G4-6，2026-07-24；不重开 RFC，G-EA1-3 先例）**：**判档结论 = 不成立**（Q-G 两项判据均不成立）。判据 1（upcall 硬需求）——不成立：engine_host v3 嵌入面导出签名（`apps/uc05-rhi/src/embed.rx`）为子集 v1——`uc05_gfx_run_frame(out: *mut u32, w: i32, h: i32) -> i32` + `uc05_gfx_pass_count() -> i32`（标量 `i32`/`u32` + 裸指针 `*mut u32`，RXS-0251）；宿主侧（`src/rurix-engine/harness/engine_host_v3.cpp`）单向调用 `.rx` 导出面，`.rx` 侧无任何调起宿主代码路径——数据经裸指针出参回写宿主，「调用」语义不存在，数据指针可完整承载，回调指针硬需求不成立。判据 2（外部固定 ABI）——不成立：engine_host v3 为本仓自建宿主（G4.2 PR-D 新增），非外部不可改 ABI——两侧皆可协同改签名，struct 按值恒可指针化替代，struct 按值在本判据下对 v3 恒不成立。两项判据均不成立 → 本臂条款不 materialize。**处置路径**（§4.D3）：① RXS-0295/0296 号随未消费作废声明 **burned**（`registry/number_ledger.json` v1.21；10 §9.5 编号永不复用；RXS-0266~0269 burned 先例；on_tree_max 294 不变，next_free 295→297）；② 登记 **RD-036** 存续（`registry/deferred.json`；`export_c_extended_signatures_v2`：repr(C) struct 按值 / 回调指针 / 数组按值 / 跨堆所有权；RD-009 close 注先例）；③ 本修订行留痕。判档依据详留 `G4_CONTRACT §8.6`。该结局合法（P-12：不以「完整」为名扩面；条件臂存在 ≠ 条件臂必须兑现，G-EA1-3 / RXS-0249 先例）。
+
 ## 5. 下游 spec 条款映射（spec diff，10 §3 要件）
 
 自 **RXS-0270** 起续号（G4 claim 段 0270~0299，number_ledger v1.13；**RXS-0266~0269 = EI1 earmark 余号 burned 跳号**）。**条款先行**（硬规则 7）：每 PR 条款 commit 先于实现 commit；每条 ≥1 `//@ spec:` 锚定；trace_matrix 全程全锚定；stable 快照加性重 bless 同 PR + bless_log 同 diff（步骤 49 硬红不可分 PR）；既有条款修订为**追加式修订行**（表头「版本」列名纪律，数据行避「版本」子串用「版号」）。**未消费号 close-out 作废声明 burned**（不落裸条款头）。

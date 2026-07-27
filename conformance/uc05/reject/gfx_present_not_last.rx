@@ -1,0 +1,38 @@
+//@ spec: RXS-0274
+//@ assembly-reject: structure
+// gfx present 终端不在末位 pass(RXS-0274,RFC-0015 §4.A3)。**编译期 CLEAN**——
+// `--emit=check` 不拦(不带 //@ expect-error)。违例在 `submit()` **装配期** host 侧确定性
+// 拦:present 终端须在声明序末位 gfx pass(RXS-0272/0274);pass0 带 present + pass1 在
+// 其后 → 库层状态值 Structure Err(镜像 RX6029 口径,零新 RX 码)→ RXRT_FAIL → rxrt_trap 终止。
+//
+// rhi.rs 库单测 `gfx_present_handoff_graph_level_accept` 为纯 host(无 GPU)正例对照;
+// 本语料见证 .rx 级 present-not-last 装配期拦。present 终端唯一性 + 末位核验归 seal()
+// (RXS-0272:每图 ≤1 present,且必须为声明序末 pass)。
+struct VsOut {
+    #[builtin(position)] pos: f32,
+}
+
+vertex fn vs() -> VsOut {
+    VsOut { pos: 0.0 }
+}
+
+fragment fn fs(inp: VsOut) -> VsOut {
+    inp
+}
+
+fn main() -> i32 {
+    let ctx = Context::create();
+    let rhi = Rhi::create(&ctx);
+
+    let back = rhi.color_target(640, 480);
+    let back2 = rhi.color_target(640, 480);
+
+    // pass0:写 back + present(back)——present 终端设在非末位 pass。
+    rhi.raster_pass(vs, fs).writes_rt(&back).present(&back);
+    // pass1:写 back2——pass0 的 present 不在末位 → 装配期 Structure Err。
+    rhi.raster_pass(vs, fs).writes_rt(&back2);
+
+    rhi.submit(); // 装配期 Structure Err(present 不在末位)→ 确定性终止
+    ctx.sync();
+    0
+}

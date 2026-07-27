@@ -1,0 +1,33 @@
+//@ spec: RXS-0283
+//@ expect-error: RX2010
+// G4.3 PR-E non-static construction strict 编译期拒(RXS-0283,RFC-0015 §4.A;spec/rhi.md 章 A)。
+//
+// `rhi.graph::<CAP>()` 不得在循环/条件上下文内构造(non-static construction strict,
+// RXS-0283)——编译期 typeck 即时拒 **RX2010**(复用既有 `E_GPU_ELEM_INFER` const 诊断,
+// 零新码)。本反例见证两违例场景:条件分支内 / 循环体内构造 graph。
+//
+// strict 拒保证 graph 容量声明在编译期可静态求值(CAP = 字面量 → i64),无运行期控制流
+// 依赖。与 compute 面 reject/rhi_in_kernel.rx 同码同口径(RX2010),零新码。诊断 span
+// 精确到单条 graph 构造点(typeck 即时拒,非收尾)。
+
+fn main() -> i32 {
+    let ctx = Context::create();
+    let rhi = Rhi::create(&ctx);
+
+    // 场景 1:条件分支内构造 graph → non-static construction strict 拒(RX2010)。
+    let cond = true;
+    if cond {
+        let _g = rhi.graph::<8>(); // RX2010(条件上下文 nonstatic_depth > 0)
+    }
+
+    // 场景 2:循环体内构造 graph → non-static construction strict 拒(RX2010)。
+    let mut i = 0u32;
+    while i < 1u32 {
+        let _g = rhi.graph::<8>(); // RX2010(循环上下文 nonstatic_depth > 0)
+        i = i + 1u32;
+    }
+
+    rhi.submit();
+    ctx.sync();
+    0
+}

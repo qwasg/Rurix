@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "subject": "uc05_invariant_matrix",
-  "milestone": "EI1.3 + EI1.4 / G-EI1-3 (I1~I8 拦截) + G-EI1-5 (I9~I10 报告); RFC-0014 Part B; RXS-0256~0265",
+  "milestone": "EI1.3 + EI1.4 / G-EI1-3 (I1~I8 拦截) + G-EI1-5 (I9~I10 报告); G4.3 PR-E (I10 measured_local + I11 漏拦即红); RFC-0014 Part B / RFC-0015 §4.B; RXS-0256~0265 + RXS-0280~0283",
   "historical_counters": "unavailable in-repo, non-reproducible, no fabricated figures",
-  "date": "2026-07-19",
+  "date": "2026-07-24",
   "tiers": {
     "compile_time": "typeck / --emit=check 即拦(编译期 100% 结构拦截,违例不可构造)",
     "assembly_time": "submit() 图装配期 host 侧确定性拦(--emit=check CLEAN;submit 时库层状态值 Structure/ReflectionMismatch Err → RXRT_FAIL → rxrt_trap 确定性终止,pre-dispatch,无需 GPU 见证于 rhi.rs 库单测)",
@@ -109,11 +109,22 @@
       "id": "I10",
       "name": "transient 资源执行期峰值 / 生命周期 (并发存活 vs 声明容量)",
       "tier": "report_only",
-      "mechanism": "运行期观测(不可静态全证实际峰值;host 侧容量记账为 EI1.3 兑现面)",
+      "mechanism": "运行期观测(本质动态不可静态全证;host 侧容量记账为 EI1.3 兑现面;G4.3 PR-E 起别名复用 + 峰值计数器双锚 measured_local)",
       "clause": "RXS-0263",
       "diagnostic": null,
-      "note": "**诚实标注(EI1.4 未完全兑现)**:EI1.4 起每个 transient `Res` 为一笔真设备分配、生命期 = 图生命期(rhi_destroy 连带释放),故实际峰值**恒等于**声明容量——「峰值 <= 声明容量」平凡成立但**并非因 aliasing/复用而收紧**;transient 资源别名复用(令峰值真严格小于声明容量)与执行期峰值计数器**均未实现**,随后续期。Python 侧 = 无数字定性历史陈述(同 I9,非可复跑、零杜撰数字)",
-      "evidence_level": "report_only (host 容量记账 measured;device 峰值计数器 not implemented)"
+      "note": "**G4.3 PR-E 兑现(升 measured_local)**:RXS-0280 别名复用分配器(alias_alloc.rs 区间图贪心着色 + 三分量 size/align/lifetime)令不重叠生命期资源共享设备分配 → 静态峰值真严格小于声明容量;RXS-0280 PeakCounter(on_alloc/on_free 饱和加减)在回放期随分配/释放事件记账并发存活字节峰值。host 库测 `exec_face_peak_below_declared_capacity`(rhi.rs)锚:两独立写 pass + 两 1024 字节资源 → 别名复用后静态峰值 = 1024 < 声明容量 2048(非平凡成立,因 aliasing 收紧而非平凡相等);device 段 rx build const_capacity_graph.rx EXE 真跑 exit 0(RXS-0283 const 容量接线正例)双锚 I10 measured_local。**本条仍保留 report_only tier**——tier 反映『本质动态不可静态全证』性质,measured_local 为 evidence_level 标注(对齐 I9 同模式:tier=report_only + evidence_level=report_only(measured_local))。Python 侧 = 无数字定性历史陈述(同 I9,非可复跑、零杜撰数字)",
+      "evidence_level": "report_only (measured_local, G4.3 PR-E delivered: host 库测 + device EXE 双锚;aliasing 收紧后 peak_bytes < declared_capacity 非平凡成立)"
+    },
+    {
+      "id": "I11",
+      "name": "scheduler 丢边拦截 (执行计划漏依赖边即 Err)",
+      "tier": "assembly_time",
+      "mechanism": "scheduler.rs derive_exec_plan 与 verify_exec_plan 两独立纯函数(同模块但独立函数,禁共享推导辅助函数的内部状态,D6 互证先例);核验器自 sealed 图独立重建依赖闭包逐边核 ExecPlan 是否保持(丢边即 Err);red_self_test 双向互证:桩化调度器丢边被真核验器拦 + 桩化核验器被门检出",
+      "clause": "RXS-0282",
+      "diagnostic": "library-state Structure Err (mirrors RX6029, zero new RX code)",
+      "lib_test": "rurix-rt scheduler::tests::red_self_test_scheduler_drops_edge_passes + rurix-rt scheduler::tests::red_self_test_verifier_dropped_passes + rurix-rt rhi::tests::execute_exec_face_i11_rejects_dropped_edge",
+      "rx_wiring": "G4.3 PR-E delivered (rhi.rs execute_exec_face 四序闭合:seal → derive_exec_plan → verify_exec_plan〔I11 pre-dispatch fail-closed〕→ derive_alias_plan → PeakCounter 初始化;verify_exec_plan 在 ExecPlan 丢边时返 Structure Err)。**无 corpus**:I11 为库内调度器/核验器互证不变量,丢边场景由 lib_test 桩化调度器触发,非 .rx 源面可构造违例(无 .rx 语料锚;check_corpus_two_way 对有 lib_test 字段的 assembly_time 条目免 corpus 要求,步骤 75 机制扩)",
+      "evidence_level": "ci_checked"
     }
   ]
 }

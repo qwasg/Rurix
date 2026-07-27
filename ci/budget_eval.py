@@ -608,6 +608,139 @@ def eval_counter(entry: dict, strict: bool) -> None:
                 n += 1
         count_or_gate(eid, n, 1, "个 UC-05 引擎嵌入 device 见证(embed_ok=true)",
                       "EI1.4 device 见证回填前为正常状态,契约 G-EI1-4", strict)
+    elif eid == "g4.counter.graphics_rhi_smoke":
+        # UC-05 图形 RHI(raster + mesh pass)device EXE red-green 见证基数 ≥1(契约 G-G4-3;
+        # RFC-0015 §4.A / RXS-0270~0273;ci/uc05_graphics_rhi_smoke.py 步骤 76 device 段)。计数源 =
+        # evidence/uc05_graphics_rhi_smoke_*.json 中 demo_run_green=true 且 assembly_redgreen=true 的
+        # 报告数(机器事实:gfx_demo.rx 经 rx build 产 EXE 真跑 exit 0〔合法 gfx 图装配核验通过 + submit
+        # 成功〕+ gfx assembly-reject 语料 EXE 退非零 + stderr 含 rhi_submit [structure]〔gfx I3/I5
+        # 装配期确定性拦〕)。**device evidence 计数**(非静态语料计数):须有 link 工具链 + GPU 才能成立,
+        # 故按 device 见证归档口径计数(对齐 g3.counter.mesh_task_rt_stages device 见证计数先例)。
+        # host 段(corpus 批跑 + 零 .rs 审计 + --emit=check)恒跑但**不入本 counter**。无 link 工具链 /
+        # 无 GPU → device SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL。
+        n = 0
+        for f in (ROOT / "evidence").glob("uc05_graphics_rhi_smoke_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            checks = doc.get("checks", {})
+            if checks.get("demo_run_green") is True and checks.get("assembly_redgreen") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份 UC-05 图形 RHI device EXE red-green 见证",
+                      "G4.2 device 见证回填前为正常状态,契约 G-G4-3", strict)
+    elif eid == "g4.counter.graphics_invariant_cases":
+        # UC-05 图形 RHI 不变量红绿语料基数 ≥5(契约 G-G4-3;RFC-0015 §4.A / RXS-0270~0273;确定性拦截
+        # 口径,零新 RX 码)。计数源 = conformance/uc05/reject/ 下 5 个 gfx 静态语料(编译期 I7/I8 = 2
+        # 〔cross_brand_gfx RX3006 / rhi_gfx_in_kernel RX3015〕+ 装配期 I3/I5 = 3〔gfx_feedback_loop /
+        # gfx_read_before_write〔I3 读未写〕/ gfx_write_write_conflict〔I5 写写冲突〕,均 assembly-reject:
+        # structure 头,编译期 CLEAN,违例归 submit() 装配期拦,库层状态值镜像 RX6029〕)。**静态语料计数**
+        # (host 恒跑不 gate,对齐 ei1.counter.uc05_invariant_cases 静态语料计数先例,非 device evidence
+        # 计数);ci/uc05_graphics_invariant_gate.py 步骤 77 纯 host 恒跑断言此语料集纪律 + uc05_corpus
+        # 批跑兑现编译期拦截。
+        reject_dir = ROOT / "conformance" / "uc05" / "reject"
+        gfx_files = (
+            "cross_brand_gfx.rx",
+            "rhi_gfx_in_kernel.rx",
+            "gfx_feedback_loop.rx",
+            "gfx_read_before_write.rx",
+            "gfx_write_write_conflict.rx",
+        )
+        n = sum(1 for name in gfx_files if (reject_dir / name).is_file())
+        count_or_gate(eid, n, 5, "个 UC-05 图形 RHI 不变量红绿语料(编译期 + 装配期)",
+                      "G4.2 建设期为正常状态,契约 G-G4-3", strict)
+    elif eid == "g4.counter.engine_embed_v3":
+        # UC-05 engine_host v3 图形嵌入 device 见证基数 ≥1(契约 G-G4-3;RFC-0015 §4.A7 /
+        # RXS-0277;ci/uc05_engine_embed_v3_smoke.py 步骤 78 device 段)。计数源 =
+        # evidence/uc05_engine_embed_v3_*.json 中 embed_v3_ok=true 的证据数——**device evidence
+        # 计数**(非静态语料计数):cl.exe 编 engine_host v3〔C++/D3D12,新增文件,v1/v2 既有资产
+        # 0-byte〕链 rurix_rhi.lib + d3d12 + dxgi + vulkan-1 真跑,LUID 匹配升级为 Vulkan↔D3D12
+        # 〔v2 = CUDA↔D3D12〕,三方数值精确相等〔Q-PixelCriterion:纯色/nearest RGBA8 整数 fetch
+        # 域,不设 ULP 容差〕,须有 cl.exe + MSVC + Windows SDK(D3D12)+ Vulkan SDK + GPU 才能成立,
+        # 故按 device 见证归档口径计数(对齐 ei1.counter.uc05_engine_embed + g4.counter.graphics_rhi_smoke
+        # device 见证计数先例)。host 段审计(生成头不手写 / 三制共存 / 零 .rs / 头幂等 / 篡改再生成 RED)
+        # 恒跑但**不入本 counter**。无 cl.exe / 无 Vulkan SDK / 无 GPU → device SKIP=dev-env degrade → 0
+        # → 建设期 normal SKIP / close-out strict FAIL。
+        n = 0
+        for f in (ROOT / "evidence").glob("uc05_engine_embed_v3*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("embed_v3_ok") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份 UC-05 engine_host v3 图形嵌入 device 见证(embed_v3_ok=true)",
+                      "G4.2 device 见证回填前为正常状态,契约 G-G4-3", strict)
+    elif eid == "g4.counter.exec_face_gate":
+        # UC-05 执行面三项 device 见证基数 ≥1(契约 G-G4-4;RFC-0015 §4.B / RXS-0280~0283;
+        # ci/uc05_exec_face_gate.py 步骤 79 device 段)。计数源 = evidence/uc05_exec_face_gate_*.json
+        # 中 exec_face_ok=true 且 i10_measured_local=true 的报告数(机器事实:rx build
+        # const_capacity_graph.rx 产 EXE 真跑 exit 0〔合法 const 容量图装配核验通过 + submit 成功;
+        # exec_face 四序闭合在 device 端成立:seal → derive_exec_plan → verify_exec_plan(I11
+        # pre-dispatch fail-closed)→ derive_alias_plan → PeakCounter 初始化〕+ host 库测
+        # `exec_face_peak_below_declared_capacity` 已在 host 段真跑通过〔别名复用后静态峰值 = 1024
+        # < 声明容量 2048,非平凡成立,aliasing 收紧而非平凡相等〕双锚 I10 measured_local)。
+        # **三项拦截面**:① RXS-0280 别名复用 + 峰值计数器(alias_alloc.rs 区间图贪心着色 +
+        # PeakCounter on_alloc/on_free 饱和加减);② RXS-0281 依赖驱动重排批级提交
+        # (scheduler.rs derive_exec_plan 拓扑分层 + ExecPlan{layers, batch_submit=true});
+        # ③ RXS-0282 I11 漏拦即红(verify_exec_plan 独立重建依赖闭包逐边核 + red_self_test
+        # 双向互证:桩化调度器丢边被拦 + 桩化核验器被门检出)。**device evidence 计数**(非静态语料
+        # 计数):须有 link 工具链 + GPU 才能成立,故按 device 见证归档口径计数(对齐
+        # g4.counter.graphics_rhi_smoke / g4.counter.engine_embed_v3 device 见证计数先例)。
+        # host 段(alias_alloc + scheduler + rhi.rs exec_face 库单测 + uc05_corpus 批跑 +
+        # rurixc --emit=check 编译档)恒跑但**不入本 counter**。无 link 工具链 / 无 GPU →
+        # device SKIP=dev-env degrade → 0 → 建设期 normal SKIP / close-out strict FAIL。
+        # I10 自 report_only 升 measured_local 由本步骤 device 见证 + host 库测共同锚定
+        # (矩阵 I10 note/tiers 同步三方一致,步骤 75 机制扩);I11 入矩阵漏拦即红(矩阵新增
+        # I11 条目,tier=assembly_time,机制 = scheduler 丢边拦截,条款 RXS-0282)。
+        n = 0
+        for f in (ROOT / "evidence").glob("uc05_exec_face_gate_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("exec_face_ok") is True and doc.get("i10_measured_local") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份 UC-05 执行面三项 device 见证(exec_face_ok=true + i10_measured_local=true)",
+                      "G4.3 device 见证回填前为正常状态,契约 G-G4-4", strict)
+    elif eid == "g4.counter.vulkan_rhi_channel":
+        # Vulkan RHI 通道 device 见证基数 ≥1(契约 G-G4-5;RFC-0015 §4.C4 / RXS-0293/0294;
+        # ci/vulkan_rhi_channel_smoke.py 步骤 80 device 段)。计数源 =
+        # evidence/vulkan_rhi_channel_smoke_*.json 中 vulkan_channel_ok=true 的报告数
+        # (机器事实:rx build rhi_create_vk.rx 产 EXE 真跑 exit 0〔Rhi::create_vk 显式
+        # Vulkan 后端 + SPIR-V pipeline + descriptor set + dispatch + 回写;Vulkan 不可用
+        # → strict Err RXS-0193,非 fake pass〕)。**device evidence 计数**(非静态语料计数):
+        # 须有 link 工具链 + Vulkan 驱动 + GPU 才能成立,故按 device 见证归档口径计数(对齐
+        # g4.counter.exec_face_gate device 见证计数先例)。host 段(vk.rs feature vulkan
+        # 库单测 + rhi.rs backend 分流 + cabi create_vk 符号面 + uc05_corpus accept/rhi_create_vk
+        # + rurixc --emit=check + spirv-val 全模块校验)恒跑但**不入本 counter**。
+        # 无 link 工具链 / 无 Vulkan 驱动 / 无 GPU → device SKIP=dev-env degrade → 0 →
+        # 建设期 normal SKIP / close-out strict FAIL。strict 无回退:Vulkan 不可用 →
+        # 确定性 Err(RXS-0193 口径);RURIX_REQUIRE_REAL=1 翻硬红(SKIP 不充绿)。
+        n = 0
+        for f in (ROOT / "evidence").glob("vulkan_rhi_channel_smoke_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("vulkan_channel_ok") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份 Vulkan RHI 通道 device 见证(vulkan_channel_ok=true)",
+                      "G4.4 device 见证回填前为正常状态,契约 G-G4-5", strict)
+    elif eid == "g4.counter.blackhole_realtime_smoke":
+        # BLACKHOLE realtime device 见证基数 ≥1(契约 G-G4-7;RFC-0015 §1 carve-out /
+        # RXS-0197/0198;ci/blackhole_realtime_smoke.py 步骤 81 device 段)。计数源 =
+        # evidence/blackhole_realtime_smoke_*.json 中 blackhole_realtime_ok=true 的报告数
+        # (机器事实:rxp_create Shim E_NOTIMPL〔0x80004001〕归因 = present-real cargo feature
+        # 默认关闭,feature 链 present-real → d3d12-interop-real → real-shim 全 off;C++ shim
+        # 源完整,非 shim gap。修复 = apps/blackhole 构建配置启用 present-real〔Direct PR,
+        # 零代码/零语义/零 ABI 变更〕→ 预编 rurix-rt-cabi --features present-real +
+        # RURIX_RT_CABI_LIB 注入 → rx build realtime.rx 产 EXE 真跑 exit 0 + REALTIME_OK 六项
+        # 物理自检 + 30fps measured〔evidence 面不进硬门〕+ 帧对照〔offline 144 帧 vs realtime〕)。
+        # **归因先于修复**(pr_h_attribution_report.md 留痕);禁绕过禁静默降级。
+        # **device evidence 计数**(非静态语料计数):须有 MSVC + Windows SDK(D3D12)+ GPU +
+        # 交互桌面会话才能成立,故按 device 见证归档口径计数(对齐
+        # g4.counter.vulkan_rhi_channel device 见证计数先例)。host 段(feature 链三跳 +
+        # 修复姿态 + shim 源 + E_NOTIMPL stub 锚 + REALTIME_OK 六项源 + offline 帧对照基线 +
+        # present stub 失败路径单测)恒跑但**不入本 counter**。无 MSVC / 无 Windows SDK /
+        # 无 GPU / 无交互桌面 → device SKIP=dev-env degrade → 0 → 建设期 normal SKIP /
+        # close-out strict FAIL。G3.2 步骤 61 present 既有路径零回归(本 PR 不改 src/ 源码,
+        # default features 不变)。
+        n = 0
+        for f in (ROOT / "evidence").glob("blackhole_realtime_smoke_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            if doc.get("blackhole_realtime_ok") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份 BLACKHOLE realtime device 见证(blackhole_realtime_ok=true)",
+                      "G4.6 device 见证回填前为正常状态,契约 G-G4-7", strict)
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 
