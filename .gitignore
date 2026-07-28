@@ -23,3 +23,13 @@ actions-runner/
 
 # 外部工程本地 checkout(工具件不入库;如 external/godot-master ≈2.1GB)
 external/
+
+# 实验/私人/工作记忆目录不入库（2026-07-28 cleanup_worktree spec）
+# genesis/ = 独立 AI 游戏引擎子项目（MEMORY.md 明确"与 rurix 语言无关，勿混淆"）
+# showcase/ = 实验目录
+# .workbuddy/ = 工作记忆目录
+# .writing/ = 写作目录
+genesis/
+showcase/
+.workbuddy/
+.writing/
