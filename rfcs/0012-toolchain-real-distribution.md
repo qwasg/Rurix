@@ -201,20 +201,20 @@ release.yml 既有八门(RXS-0139 七子门 + RXS-0186 第 8 门)与触发器(`v
 
 | 条款 | 标题(草案) | 一句判据 | 测试锚定计划(每条 ≥1 `//@ spec:`) | 落地 PR |
 |---|---|---|---|---|
-| RXS-0214 | 真实 FS 物化与原子落盘 | 版本目录仅经「staging 全量校验→同卷单次 rename」诞生;任一校验失败 staging 不落 toolchains\、注册表 0-byte;tree_digest 双向独立复算必相等 | rurixup 单测(staging 失配回滚/断电孤儿/幂等补注册)+ 步骤 59 前半篡改 RED | EA1.1a |
-| RXS-0215 | 活跃版本切换 | 机制按裁决 B(拟 shim:argv0 干名转发 default 同名 exe,退出码逐位透传);切换 = 确定性注册表单写,无系统状态改动;探针判据机制中立 | rurixup 单测(argv0 分派/default 单写)+ 步骤 59 切换探针与错向 RED | EA1.1a |
-| RXS-0216 | 网络拉取载体与端点约束 | 拉取仅经 curl.exe 固定参数集,https-only(`--proto =https --proto-redir =https`),端点 host 白名单 = {github.com, objects.githubusercontent.com, raw.githubusercontent.com};唯一例外 = 环回 127.0.0.1 + 显式测试 env,缺省 fail-closed | rurixup 单测(参数集构造/默认态拒 http)+ 步骤 59 后半无 env 拒 http RED | EA1.1b |
-| RXS-0217 | 下载校验 fail-closed 信任链 | 四级内容寻址任一级失配 → 拒装/清 staging/退出 1/零半装;无锚版本拒装;§4.6 表 11 条失败模式全 fail-closed | rurixup 单测(四级各失配/无锚拒装)+ 步骤 59 后半 hermetic 四路 RED | EA1.1b |
-| RXS-0218 | 发布资产上传自动化与回读自校验 | 上传仅在八门全绿后;Release/tag 由 run 内 github.token 创建;回读逐资产 digest 复核失配即 job 红;信任根条目经 PR 门控入库 | 步骤 60(打包确定性/digest 闭环/3 组件完备)+ release.yml 演练 run | EA1.2 |
-| RXS-0219 | 端到端安装时长(measured) | 两段式协议(§4.10,口径按裁决 C)各段 wall-clock ≤10min,evidence 按 schema 归档,measured 非 estimated | evidence schema 校验单测 + e2e evidence 实档(check_schemas 路由) | EA1.2 |
+| RXS-0214 | 真实 FS 物化与原子落盘 | 版本目录仅经「staging 全量校验→同卷单次 rename」诞生;任一校验失败 staging 不落 toolchains\、注册表 0-byte;tree_digest 双向独立复算必相等 | rurixup 单测(staging 失配回滚/断电孤儿/幂等补注册)+ 步骤 59 前半篡改 RED | EA1.1a ✅ `60be64f5` (2026-07-17) |
+| RXS-0215 | 活跃版本切换 | 机制按裁决 B(拟 shim:argv0 干名转发 default 同名 exe,退出码逐位透传);切换 = 确定性注册表单写,无系统状态改动;探针判据机制中立 | rurixup 单测(argv0 分派/default 单写)+ 步骤 59 切换探针与错向 RED | EA1.1a ✅ `60be64f5` (2026-07-17) |
+| RXS-0216 | 网络拉取载体与端点约束 | 拉取仅经 curl.exe 固定参数集,https-only(`--proto =https --proto-redir =https`),端点 host 白名单 = {github.com, objects.githubusercontent.com, raw.githubusercontent.com};唯一例外 = 环回 127.0.0.1 + 显式测试 env,缺省 fail-closed | rurixup 单测(参数集构造/默认态拒 http)+ 步骤 59 后半无 env 拒 http RED | EA1.1b ✅ `be4eee83` (2026-07-17) |
+| RXS-0217 | 下载校验 fail-closed 信任链 | 四级内容寻址任一级失配 → 拒装/清 staging/退出 1/零半装;无锚版本拒装;§4.6 表 11 条失败模式全 fail-closed | rurixup 单测(四级各失配/无锚拒装)+ 步骤 59 后半 hermetic 四路 RED | EA1.1b ✅ `be4eee83` (2026-07-17) |
+| RXS-0218 | 发布资产上传自动化与回读自校验 | 上传仅在八门全绿后;Release/tag 由 run 内 github.token 创建;回读逐资产 digest 复核失配即 job 红;信任根条目经 PR 门控入库 | 步骤 60(打包确定性/digest 闭环/3 组件完备)+ release.yml 演练 run | EA1.2 ✅ `702bf39a` (2026-07-17) |
+| RXS-0219 | 端到端安装时长(measured) | 两段式协议(§4.10,口径按裁决 C)各段 wall-clock ≤10min,evidence 按 schema 归档,measured 非 estimated | evidence schema 校验单测 + e2e evidence 实档(check_schemas 路由) | EA1.2 ✅ `702bf39a` (2026-07-17) |
 
 stable 快照随各条款 PR 加性重 bless(209→211→213→215,bless_log 同 diff,步骤 49 硬红不可分 PR)。
 
 ## 6. gate / tracking / 实现序(10 §3 要件)
 
 - **无语言 feature gate**(rurixup 为独立工具非语言语义;既有 install/list/default/release 子命令语义**只增不破坏**——`--from-dir` 保留一等公民,纯账面 v1 注册条目兼容读入)。
-- **实现序(栈式,各 PR 真实红绿)**:① 裁决落地小 PR(ODP §0 勾选 + 契约 §7 + 本 RFC §9 回填 + 翻 Approved)→ ② EA1.1a 条款 RXS-0214/0215 + FS 物化/切换 + 步骤 59 前半 → ③ EA1.1b 条款 RXS-0216/0217 + curl 拉取/四级校验 + 步骤 59 后半(hermetic)→ ④ EA1.2 条款 RXS-0218/0219 + release.yml 延伸 + 步骤 60 + workflow_dispatch 演练 + 信任根首 PR + 冷启动 e2e 取证。
-- **失败测试先行声明**(10 §3):本 RFC 合入时点,`ci/rurixup_dist_smoke.py`、`ci/release_bundle_smoke.py`、rurixup 真实 IO/网络代码、`channels/` 目录在 main 上均不存在 = RED。
+- **实现序(栈式,各 PR 真实红绿)**:① 裁决落地小 PR(ODP §0 勾选 + 契约 §7 + 本 RFC §9 回填 + 翻 Approved)→ ② EA1.1a 条款 RXS-0214/0215 + FS 物化/切换 + 步骤 59 前半 → ③ EA1.1b 条款 RXS-0216/0217 + curl 拉取/四级校验 + 步骤 59 后半(hermetic)→ ④ EA1.2 条款 RXS-0218/0219 + release.yml 延伸 + 步骤 60 + workflow_dispatch 演练 + 信任根首 PR + 冷启动 e2e 取证。 **【v1.1 状态校正 2026-07-28】实现序 ①~④ 全部已落地**(见 §5 落地 PR 列 commit hash);EA1.3 close-out 待 EA1 期终审。
+- **失败测试先行声明**(10 §3):本 RFC 合入时点(2026-07-17 Draft→Approved),`ci/rurixup_dist_smoke.py`、`ci/release_bundle_smoke.py`、rurixup 真实 IO/网络代码、`channels/` 目录在 main 上均不存在 = RED **【已兑现 2026-07-28:实现序 ①~④ 落地后上述脚本/代码/目录均已在 main 物化,RED 前提已转化为 GREEN 闭环,见 §5 落地 PR 列与 §10 修订记录】**。
 - tracking:EA1_CONTRACT G-EA1-1~8;RD-025 close-out 处置(关闭或收窄余项另立 RD-033+)。
 
 ## 7. 备选方案(为什么不)
@@ -275,3 +275,4 @@ stable 快照随各条款 PR 加性重 bless(209→211→213→215,bless_log 同
 |---|---|---|---|
 | Draft | 2026-07-16 | 初稿:四级内容寻址信任链 + staged-rename 原子物化 + shim 切换拟案 + curl.exe 载体拟案 + 发布侧对称自动化 + 两段式冷启动协议;§9 Q-A~Q-D owner-pending 呈 OWNER_DECISION_PACKAGE,Q5~Q10 agent 拟裁;失败模式表 11 条全 fail-closed;诚实边界三句(自签证书零信任贡献/bootstrap 空窗/不防 repo 级失陷)入 §4.5 | Full RFC(Draft) |
 | Approved | 2026-07-17 | 裁决 A~D 落地回填(owner 2026-07-17 会话勾选 ODP §0 四项拟裁,agent 代录):§9 Q-A~Q-D owner-pending→已裁(A 认可全案 / B shim / C 两段各≤10min / D 认可自动发布);头表状态 Draft→**Approved**、Agent 批准行兑现;§4.7 演练形态定案(v1.0.1-dist.N pre-release + run 内 gh release create --prerelease + 不推演练 tag + 自签如实标注)。配套:EA1_CONTRACT §7 v1.1 + ODP v1.1 + deferred.json RD-025 history(v1.57);13 号文档/spike_gating 零改动 | Full RFC(Approved) |
+| Approved+落地 | 2026-07-28 | EA1.1a/1.1b/1.2 实现序全部落地回填:① EA1.1a(commit `60be64f5`,2026-07-17)= RXS-0214/0215 条款 + FS 物化(staging→sha256→tree_digest 双向→同卷 rename 原子提交)+ shim 切换(argv0 干名转发)+ 步骤 59 前半红绿闭合;② EA1.1b(commit `be4eee83`,2026-07-17)= RXS-0216/0217 条款 + curl.exe 拉取 + 四级内容寻址 fail-closed + 步骤 59 后半 hermetic 四路 RED(坏字节/坏哈希/截断/协议降级);③ EA1.2(commit `702bf39a`,2026-07-17)= RXS-0218/0219 条款 + release.yml 延伸 + 步骤 60 + 资产上传回读自校验。§6 实现序状态标注追加;L217 RED 前提声明标注为"已兑现";EA1.1a 验证收口留痕归 EA1_CONTRACT §8 L170-L199(签署 2026-07-28,agent qwasg/白栀)。本修订为状态校正,不重定义 RFC 条款语义 | Full RFC(Approved,实现序已落) |

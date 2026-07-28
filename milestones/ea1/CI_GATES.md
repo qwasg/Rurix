@@ -4,7 +4,7 @@
 > 版本:v1.0(2026-07-16)
 > 基线:[../m0/CI_GATES.md](../m0/CI_GATES.md) ~ [../mb1/CI_GATES.md](../mb1/CI_GATES.md)(全部沿用:runner 约定、PR Smoke 1–58 步、Release 层门禁(RXS-0139 八子门含 channel-manifest)、guardrail 全部激活项(含 stable 快照 bless)、nightly 全量回归冻结);本文只规定 EA1 期的**增量**。
 > 铁律不变:任何新增门禁必须在真实 PR 上以真实失败/通过路径验证过(反 YAML-only)。
-> 开工脚手架口径:本文 EA1 增量步骤(59/60)为 **EA1.1/EA1.2 计划项**,开工**不**写入 workflow YAML 真实步骤(随实现 PR 落地回填,对齐 M8~MB1 计划→回填范式)。**EA1 开工脚手架零 CI 代码改动**:预算 glob 已泛化为 `*_budget.json` 自动纳入 `ea1_budget.json`;`check_closed_contracts` glob 与无参默认基准 `mb1-closed` 均已就位;**counter/entries 不预造**(登记与 `ci/budget_eval.py` evaluator 分支同实现 PR 落,未知 id 强制 FAIL)。
+> 开工脚手架口径:本文 EA1 增量步骤(59/60)为 **EA1.1/EA1.2 计划项**,开工**不**写入 workflow YAML 真实步骤(随实现 PR 落地回填,对齐 M8~MB1 计划→回填范式)。**EA1 开工脚手架零 CI 代码改动**:预算 glob 已泛化为 `*_budget.json` 自动纳入 `ea1_budget.json`;`check_closed_contracts` glob 与无参默认基准 `mb1-closed` 均已就位;**counter/entries 不预造**(登记与 `ci/budget_eval.py` evaluator 分支同实现 PR 落,未知 id 强制 FAIL)。 **【v1.1 状态校正 2026-07-28】**:本开工脚手架口径已过期——步骤 59/60 已随 EA1.1a/1.1b/1.2 实现 PR 落地回填 workflow YAML,见 §2 状态标注与 §7 v1.1。
 
 ---
 
@@ -16,8 +16,8 @@
 
 | # | 步骤 | 失败即红 |
 |---|---|---|
-| 59 | rurixup 真实分发冒烟(契约 G-EA1-2/G-EA1-3 通道;EA1.1a 落前半、EA1.1b 落后半,**RFC-0012 前置后**):`ci/rurixup_dist_smoke.py` —— **前半(纯离线,`--from-dir` 本地源)**:install 真实物化到临时 `RURIX_HOME`(staging→全量校验→rename)→ toolchains 目录内 exe 真跑探针 → 切换后版本探针指到目标版本(机制按裁决 B);RED:篡改组件一字节 → 内容寻址拒且 toolchains/ 零残留、注册表 0-byte;切换指向已删目录 → 诚实报错退出非 0;复原 → 绿。**后半(hermetic 环回 HTTP,Python http.server 本地 fixture,`RURIXUP_TEST_ALLOW_LOOPBACK_HTTP=1`)**:完好资产全链 install 绿;RED 四路各自独立见证:坏字节 / 坏哈希(锚级失配)/ 截断 / 默认态(无测试 env)非 https 被拒;离线(fixture 关闭)→ 诚实错误退出非 0 + 系统 0-byte。**零真实外呼**;内建 red_self_test;EXE/物化产物落 %TEMP%,不留仓库;写 `evidence/rurixup_dist_smoke.json`(schema 校验) | 是 |
-| 60 | 发布 bundle 打包冒烟(契约 G-EA1-4 通道;EA1.2 落地接入):`ci/release_bundle_smoke.py` —— 3 组件编排(rx.exe/rurixup.exe/rurix_rt_cabi.lib,缺件即红)+ SHA256SUMS 生成确定性(同源两次逐字节一致,字典序)+ 资产字节与 bundle.json 组件 digest 一比一闭环 + channels/stable.json 锚 schema 校验;**上传本体不在 pr-smoke,只在 release.yml**(全 hard-block 门后 + 回读自校验) | 是 |
+| 59 | rurixup 真实分发冒烟(契约 G-EA1-2/G-EA1-3 通道;EA1.1a 落前半、EA1.1b 落后半,**RFC-0012 前置后**):`ci/rurixup_dist_smoke.py` —— **前半(纯离线,`--from-dir` 本地源)**:install 真实物化到临时 `RURIX_HOME`(staging→全量校验→rename)→ toolchains 目录内 exe 真跑探针 → 切换后版本探针指到目标版本(机制按裁决 B);RED:篡改组件一字节 → 内容寻址拒且 toolchains/ 零残留、注册表 0-byte;切换指向已删目录 → 诚实报错退出非 0;复原 → 绿。**后半(hermetic 环回 HTTP,Python http.server 本地 fixture,`RURIXUP_TEST_ALLOW_LOOPBACK_HTTP=1`)**:完好资产全链 install 绿;RED 四路各自独立见证:坏字节 / 坏哈希(锚级失配)/ 截断 / 默认态(无测试 env)非 https 被拒;离线(fixture 关闭)→ 诚实错误退出非 0 + 系统 0-byte。**零真实外呼**;内建 red_self_test;EXE/物化产物落 %TEMP%,不留仓库;写 `evidence/rurixup_dist_smoke.json`(schema 校验) | 是 | ✅ 前半 EA1.1a `60be64f5` + 后半 EA1.1b `be4eee83` (2026-07-17),pr-smoke.yml 已回填 |
+| 60 | 发布 bundle 打包冒烟(契约 G-EA1-4 通道;EA1.2 落地接入):`ci/release_bundle_smoke.py` —— 3 组件编排(rx.exe/rurixup.exe/rurix_rt_cabi.lib,缺件即红)+ SHA256SUMS 生成确定性(同源两次逐字节一致,字典序)+ 资产字节与 bundle.json 组件 digest 一比一闭环 + channels/stable.json 锚 schema 校验;**上传本体不在 pr-smoke,只在 release.yml**(全 hard-block 门后 + 回读自校验) | 是 | ✅ EA1.2 `702bf39a` (2026-07-17) |
 
 预算 evaluator 自动合并加载 [ea1_budget.json](ea1_budget.json)(命名空间冲突即红;**开工全空,counter 登记与 evaluator 分支随 EA1.1/EA1.2 实现 PR 同落,冷启动 entries 随 e2e 取证 measured_local 回填**)。**EA1 close-out 必须跑 `--strict` 且全局零 estimated 残留**(14 §3)。
 
@@ -61,10 +61,10 @@
 
 ## 6. 验证程序(对应契约 G-EA1-1~G-EA1-8 与计划步骤 59/60)
 
-1. EA1.0:治理包 + RFC-0012 合入序核验(RFC Approved 先于任何实现 commit;失败测试先行——步骤 59/60 脚本与 rurixup 真实 IO/网络代码在 RFC 合入时点 main 上不存在);裁决 A 留痕先于 EA1.1b PR。
-2. EA1.1a 步骤 59 前半落地后:本机 `py -3 ci/rurixup_dist_smoke.py`(物化+切换+篡改/错向双红绿);runner PR run URL 归档;trace / stable_snapshot(重 bless 后)/ bilingual / guardrails(基准 mb1-closed)全绿。
-3. EA1.1b 步骤 59 后半:hermetic fixture 四路 RED + 全链绿本机与 runner 双真跑;零真实外呼核验(fixture 进程为唯一网络面)。
-4. EA1.2 步骤 60 + release.yml:workflow_dispatch 演练 run URL + 回读自校验输出 + 信任根 PR 链接归档 §8。
+1. EA1.0:治理包 + RFC-0012 合入序核验(RFC Approved 先于任何实现 commit;失败测试先行——步骤 59/60 脚本与 rurixup 真实 IO/网络代码在 RFC 合入时点 main 上不存在);裁决 A 留痕先于 EA1.1b PR。 【已落地:RFC-0012 Approved 2026-07-17,裁决 A~D 全部勾选】
+2. EA1.1a 步骤 59 前半落地后:本机 `py -3 ci/rurixup_dist_smoke.py`(物化+切换+篡改/错向双红绿);runner PR run URL 归档;trace / stable_snapshot(重 bless 后)/ bilingual / guardrails(基准 mb1-closed)全绿。 【已落地:`60be64f5` 2026-07-17,EA1_CONTRACT §8 L170-L199 验证收口】
+3. EA1.1b 步骤 59 后半:hermetic fixture 四路 RED + 全链绿本机与 runner 双真跑;零真实外呼核验(fixture 进程为唯一网络面)。 【已落地:`be4eee83` 2026-07-17】
+4. EA1.2 步骤 60 + release.yml:workflow_dispatch 演练 run URL + 回读自校验输出 + 信任根 PR 链接归档 §8。 【已落地:`702bf39a` 2026-07-17】
 5. 冷启动 e2e:两段式 evidence JSON(schema 校验 + measured_local)+ ea1.bench.* entries 回填后 `py -3 ci/budget_eval.py`。
 6. close-out:`budget_eval --strict` 输出原文(零 estimated)+ G-EA1-1~8 留痕指针 + RD-025 处置 + SG 复评 + 双基准(mb1-closed / ea1-closed)advisory 复核输出。
 
@@ -73,3 +73,4 @@
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-07-16 | 初版(EA1 契约配套;计划步骤 59/60 为 EA1.1/EA1.2 计划项,落地时回填 workflow YAML 实测命令与 run URL;Release 层延伸为 EA1.2 计划项(上传自动化+回读自校验+信任根登记流,全 hard-block 门后);nightly 零增量(病灶根治 = 契约外轨道信息性提示);guardrail 动作:基准 mb1-closed 无需再切、快照 2~3 次加性重 bless、拟零新 RX 码(升档停手 RX7023 起)、rurixup unsafe deny + 零依赖维持 + U29 留号、网络 fail-closed 纪律随 EA1.1b 进核对面、close-out 切 ea1-closed;SG-007 维持 not_triggered(拟窄裁呈裁决 A)+ SG-010 留续号)。**EA1 开工脚手架零 CI 代码改动**:ea1_budget.json 经 *_budget.json glob 自动纳入,counter/entries 不预造;开工不写入 workflow YAML 真实步骤 |
+| v1.1 | 2026-07-28 | 步骤 59/60 实际落地状态回填:步骤 59(ci/rurixup_dist_smoke.py)前半 EA1.1a + 后半 EA1.1b 均已落 main(commit 60be64f5 + be4eee83,2026-07-17),pr-smoke.yml 步骤 59 已回填;步骤 60(ci/release_bundle_smoke.py)EA1.2 已落 main(commit 702bf39a);§2 表格行追加状态标注;§6 验证程序由"落地后"未来时态标注为"已落地";开工脚手架口径(L7)标注为"已过期,见 v1.1"。本修订为状态校正,不重定义门禁(契约 G-EA1-1~8 仍是验收唯一源) |

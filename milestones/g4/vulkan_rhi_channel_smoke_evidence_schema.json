@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Vulkan RHI 通道冒烟证据 schema(G4.4 PR-F,步骤 80;G-G4-5;RFC-0015 §4.A;RXS-0293/0294 + RXS-0222 像素判据 device 见证)",
+  "description": "ci/vulkan_rhi_channel_smoke.py 写 evidence/vulkan_rhi_channel_smoke_<ts>.json。host 段(恒跑,无 GPU):host_lib_tests(rurix-rt rhi.rs 单元测试绿)+ spirv_val(artifacts v2 SPIR-V 入口表按 kernel 名索引,vulkan validation 通过);device 段(需 GPU + Vulkan;SKIP=dev-env-degrade,RURIX_REQUIRE_REAL=1 翻硬红):device_run 真 Vulkan 通道提交(compute + graphics 双腿),vulkan_channel_ok=true 表示通道完整闭合(提交无诊断 + image layout 转换正确 + queue submit 成功)。像素判据 RXS-0222 归本步骤 device 见证(raster 输出 ≥1 像素写入)。镜像 uc05_graphics_rhi_smoke_evidence_schema 体例。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "milestone",
+    "step",
+    "host_section_pass",
+    "device_section_rc",
+    "checks",
+    "vulkan_channel_ok",
+    "run_url",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "vulkan_rhi_channel_smoke" },
+    "milestone": { "type": "string" },
+    "step": { "type": "integer", "const": 80 },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_rc": { "type": "integer" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "host_lib_tests": { "type": ["boolean", "string"] },
+        "spirv_val": { "type": ["boolean", "string"] },
+        "device_run": { "type": ["boolean", "string"] }
+      }
+    },
+    "vulkan_channel_ok": { "type": ["boolean", "string"] },
+    "toolchain_skip": { "type": ["string", "null"] },
+    "dev_env_degrade": { "type": "boolean" },
+    "env_profile": {
+      "type": ["object", "string"],
+      "description": "环境画像(Vulkan 版本/驱动/GPU;受限环境降级但 schema 不变)"
+    },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" }
+  }
+}

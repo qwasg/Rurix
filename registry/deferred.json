@@ -777,7 +777,7 @@
       "reason": "MR-0009(post-V1,agent Approved 2026-07-14)落地 rurixup install/list/default 工具链前端首切片——纯 host、纯确定性、零网络端点、零真实 FS 物化(RXS-0187/0188:注册表逻辑 + stable channel 消费内容寻址校验)。真实 FS 工具链物化(把已校验 bundle 内容树写到磁盘版本目录 + 用 PATH/junction 切换活跃版本)与网络拉取(从 URL 下载 channel/bundle)属真实 IO + 安全包络 + 网络端点面,不在本切片落笔(MR-0009 §4/§6 范围红线)",
       "backfill_condition": "rurixup 工具链前端出现『需真实磁盘物化 + 活跃版本切换』或『需远程 channel 拉取』的硬需求时接通;届时按 10 §3 判档(触真实 IO/安全包络/网络端点,可能需 Full RFC);registry sumdb(D-312/SG-007)与网络信任根维持 not_triggered,网络拉取若引入须先裁 D-312 相关面。代码侧无 STUB 标注(为未落地前端切片而非半成品)",
       "owner_milestone": "EA1",
-      "status": "open",
+      "status": "closed",
       "history": [
         {
           "date": "2026-07-14",
@@ -808,6 +808,21 @@
           "date": "2026-07-28",
           "event": "EA1.1a 验证收口留痕：RXS-0214（真实 FS 物化与原子落盘）/ RXS-0215（活跃切换 shim）落地 spec/release.md §2.8 + src/rurixup 实现（materialize_to_disk / schema v2 / argv0 干名转发）+ CI 步骤 59 前半（ci/rurixup_dist_smoke.py 红绿闭合 + red_self_test 双向）+ stable bless（spec_clauses 209→211）。全量回归：cargo fmt/clippy/test PASS + trace_matrix 278/278 + stable_snapshot PASS + check_guardrails（g4-closed）PASS + budget_eval normal mode PASS（87 pass 4 skip device）；check_schemas FAIL（pre-existing：9 份 G4.x device evidence schema 缺字段 + RD-036 reason 缺失，非 EA1.1a 引入）。EA1.1b（RXS-0216/0217）+ EA1.2（RXS-0218/0219）已先落 main（be4eee83 / 702bf39a）。",
           "evidence": "spec/release.md §2.8 RXS-0214/0215 / src/rurixup/src/{install,toolchain,shim,main}.rs / ci/rurixup_dist_smoke.py / tests/stable/bless_log.md L27 / milestones/ea1/EA1_CONTRACT.md §8 EA1.1a 留痕段（同 PR 追加）"
+        },
+        {
+          "date": "2026-07-28",
+          "event": "EA1.1b 验证收口留痕（EA1.3 close-out 同 PR 追加,EA1.1a Task 10 兑现承诺）：RXS-0216（系统 curl.exe 子进程封装 + https-only + 缺省 fail-closed 拒协议降级）/ RXS-0217（repo 锚 channels/stable.json + 四级内容寻址级联 fail-closed）落地 spec/release.md §2.8 + src/rurixup/src/fetch.rs + main.rs install 网络路径（install_verified_dir 四级级联，级①锚 digest 新增，②③④ 复用 EA1.1a materialize_to_disk 内核）+ 4 单测锚（rurixup 单测 26→30）+ CI 步骤 59 后半（ci/rurixup_dist_smoke.py hermetic 环回 HTTP fixture 红绿四路 RED + 端点不可达 + red_self_test network/kind 扩展）+ number_ledger RXS 213→217/214→218 + trace 211→213（213/213 全锚定）+ stable 快照重 bless 211→213。裁决 A（owner 2026-07-17）逐字落地——单端点第一方工具链分发非 D-312 registry 激活，SG-007 维持 not_triggered、D-312 维持待决。EA1.3 close-out 复跑：py -3 ci/rurixup_dist_smoke.py 退出 0 + cargo test -p rurixup PASS（34/34）。",
+          "evidence": "spec/release.md §2.8 RXS-0216/0217 / src/rurixup/src/{fetch,main,lib}.rs / ci/rurixup_dist_smoke.py / .github/workflows/pr-smoke.yml 步骤 59 后半 / milestones/ea1/EA1_CONTRACT.md §8 EA1.1b 留痕段（同 PR 追加）"
+        },
+        {
+          "date": "2026-07-28",
+          "event": "EA1.2 验证收口留痕（EA1.3 close-out 同 PR 追加,EA1.1a Task 10 兑现承诺）：RXS-0218（3 组件完备 rx.exe/rurixup.exe/rurix_rt_cabi.lib + SHA256SUMS 字典序确定性）/ RXS-0219（e2e 字段名存在性面校验 + install_e2e_evidence_schema）落地 spec/release.md §2.8 + src/rurixup/src/{bundle,e2e,main}.rs（release_completeness/sha256sums/validate_install_e2e 纯函数，unsafe_code=deny 维持）+ milestones/ea1/install_e2e_evidence_schema.json（Draft-7，RFC-0012 §4.10）+ .github/workflows/release.yml 延伸 7 项门（build crt-static / selftest / rurixup release / SHA256SUMS / workflow_dispatch rehearsal / 回读自校验 / 信任根登记 PR）+ ci/release_bundle_smoke.py（步骤 60 纯离线 + red_self_test）+ ci/emit_trust_root_entry.py + number_ledger RXS 217→219/218→220 + trace 213→215（215/215 全锚定）+ stable 快照重 bless 213→215。裁决 D（owner 2026-07-17）逐字落地——bundle 随 semver tag 自动发布 + 全部门后 + 回读自校验 + 首次演练 workflow_dispatch；演练本批只落通道不执行（首次真实 release 归后续 owner 触发 + 信任根登记 PR owner 合并人工门）。EA1.3 close-out 复跑：py -3 ci/release_bundle_smoke.py 退出 0 + cargo test -p rurixup PASS（30→34）。",
+          "evidence": "spec/release.md §2.8 RXS-0218/0219 / src/rurixup/src/{bundle,e2e,main,lib}.rs / .github/workflows/release.yml / ci/{release_bundle_smoke,emit_trust_root_entry}.py / milestones/ea1/install_e2e_evidence_schema.json / milestones/ea1/EA1_CONTRACT.md §8 EA1.2 留痕段（同 PR 追加）"
+        },
+        {
+          "date": "2026-07-28",
+          "event": "EA1.3 close-out 关闭判定（status open→closed;agent 完全自主签署,AGENTS v3.0 硬规则 1;用户 2026-07-28 会话决策『A 段推迟,先收口』）:RD-025 = EA1 兑现对象（rurixup 工具链前端真实 FS 物化 + 网络拉取），backfill_condition 已由 EA1.1a（RXS-0214/0215 真实 FS 物化 + 活跃切换，commit 60be64f5）+ EA1.1b（RXS-0216/0217 网络拉取 + 四级信任链 fail-closed，commit be4eee83）+ EA1.2（RXS-0218/0219 bundle 发布 + e2e 字段校验，commit 702bf39a）三 PR 全量落地（均 2026-07-17 main）——兑现完成，status 翻 closed。A 段 VM 缺口为 G-EA1-6 冷启动验收范畴（非 RD-025 rurixup 分发面），新立 RD-033 推迟，不影响 RD-025 关闭判定。SG-007 维持 not_triggered（裁决 A 落地：单端点第一方工具链分发 ≠ D-312 registry 激活）。RD-025 关闭后不再承接后续里程碑。",
+          "evidence": "milestones/ea1/EA1_CONTRACT.md §8 EA1.3 close-out 最终签署块 / spec/release.md §2.8 RXS-0214~0219 / src/rurixup/src/{install,toolchain,shim,fetch,bundle,e2e,main}.rs / registry/deferred.json v1.70 / registry/spike_gating.json SG-007 EA1.3 close-out 复评"
         }
       ]
     },
@@ -957,6 +972,22 @@
       ]
     },
     {
+      "id": "RD-033",
+      "title": "EA1 冷启动 A 段(干净 Win11 VM)measured evidence 推迟——裁决 C 两段式口径 A 段 vm_rxcheck 缺 VM 环境待 owner 备齐补测",
+      "reason": "EA1.3 close-out 处置(agent 完全自主签署,AGENTS v3.0 硬规则 1;用户 2026-07-28 会话决策『A 段推迟,先收口』):裁决 C 口径为『两段各 ≤10min measured』——A 段 = 干净 Win11 VM 零预置依赖 T0=文档首命令 T1=rx check 退出 0 含下载;B 段 = 开发机干净用户账户 T1=首 kernel device 真跑退出 0。B 段已 measured 26.56s 回填(ea1.bench.cold_start_gpu_first_kernel_s,evidence/ea1_install_e2e_20260717_gpu_first_kernel_a2.json,v1.0.1-dist.2 attempt2)。A 段需干净 Win11 VM(owner-dependent,本机无 Windows Sandbox/现成 VM),agent 无法自主推进;EA1.3 close-out 不被 A 段阻塞,以 B 段达成 + A 段 pending 留痕收口。",
+      "backfill_condition": "owner 备齐干净 Win11 VM(零预置依赖,零 cargo/rustc)后,按 install_e2e_evidence_schema.json 补测 A 段 evidence(segment=vm_rxcheck,pass=true,duration_s 对 threshold max 600s),回填 ea1.bench.cold_start_vm_rxcheck_s entry measured_local 至 ea1_budget.json,届时 EA1 close-out §8 留痕补档。G-EA1-6 标注『A 段 pending RD-033,B 段达成』——A 段补测后 G-EA1-6 完全闭合。",
+      "raised_in": "EA1.3 close-out t9 处置(用户 2026-07-28 会话决策『A 段推迟,先收口』;裁决 C 口径 / EA1_CONTRACT §6 G-EA1-6)",
+      "owner_milestone": "EA1(close-out 后越过继续存续,owner 备 VM 后补测)",
+      "status": "open",
+      "history": [
+        {
+          "date": "2026-07-28",
+          "event": "EA1.3 close-out 登记(open;agent 完全自主签署,AGENTS v3.0 硬规则 1;用户 2026-07-28 会话决策『A 段推迟,先收口』):裁决 C 两段式口径 A 段(vm_rxcheck)缺干净 Win11 VM 环境(owner-dependent),agent 无法自主推进;EA1.3 close-out 以 B 段(gpu_first_kernel)measured 26.56s 达成 + A 段 pending 留痕收口。G-EA1-6 标注『A 段 pending RD-033,B 段达成』。A 段补测后 G-EA1-6 完全闭合。RD-033 = EA1 earmark 在途 claim(number_ledger reserved_in_flight[EA1].RD)兑现消费。",
+          "evidence": "milestones/ea1/EA1_CONTRACT.md §6 G-EA1-6 / §8 EA1.3 close-out 最终签署块 / milestones/ea1/OWNER_DECISION_PACKAGE.md §0-C / evidence/ea1_install_e2e_20260717_gpu_first_kernel_a2.json(B 段达成)/ registry/deferred.json v1.70"
+        }
+      ]
+    },
+    {
       "id": "RD-034",
       "title": "DXIL ray-tracing 腿降级 blocked-on-upstream(spirv-cross HLSL 后端无 SPV_KHR_ray_tracing 消费路径 + A 路 DirectX RT library 多入口签名钳制 RD-015 未解)",
       "reason": "G3.6 mesh-task-RT probe 实证(evidence/meshrt_bchain_probe_20260719.md,2026-07-19,Vulkan SDK 1.3.296.0):最小 raygen SPIR-V(GL_EXT_ray_tracing)经 spirv-cross --hlsl 抛异常 'Unsupported builtin in HLSL: 5319'(5319=LaunchIdKHR,RT builtin 族 HLSL 后端无翻译)。双重上游钳制:① B 链 spirv-cross HLSL 后端不支持 SPV_KHR_ray_tracing 存储类/builtin/指令族;② A 路(LLVM DirectX 后端)RT 为 DXIL library 多入口形态且 A-graphics 签名 elemcount=0 钳制未解(RD-015 open,上游 LLVM #90504/#57928)。DXIL RT 双路均 blocked。Vulkan RT 主腿(RXS-0247/0248)已全量兑现,DXIL RT 腿为 D3D12 后端 RT 降级面。",
@@ -994,6 +1025,7 @@
     {
       "id": "RD-036",
       "title": "export_c_extended_signatures_v2: repr(C) struct 按值 / 回调函数指针 / 数组按值 / 跨堆所有权 —— C ABI v2 超界硬需求存续登记",
+      "reason": "G4.5 PR-G C ABI v2 判档两项判据均不成立 → 超界硬需求(repr(C) struct 按值 / 回调函数指针 / 数组按值 / 跨堆所有权)在 subset v1 之外存续,待真实嵌入面出现时按 10 §3 判档兑现",
       "raised_in": "G4.5 PR-G C ABI v2 判档（G4_CONTRACT §8.PR-G / RFC-0015 §4.D3）",
       "owner_milestone": "G4.5 PR-G（登记；判档不成立之存续）",
       "status": "open",
@@ -1353,6 +1385,21 @@
       "version": "v1.67",
       "date": "2026-07-24",
       "change": "G4.4 PR-F RD-031 处置 + G4.3 PR-E RD-035 处置补登记(只追加 RD-031 history 行 + RD-031 status open→closed + owner_milestone MB1→MB1 → G4.4 PR-F(兑现) + revision_log v1.67,既有 entries 不可变字段 / 既有 history 行 / 既有 revision_log v1.0~v1.66 行 0-byte;agent 完全自主签署,AGENTS v3.0 硬规则 1):**RD-031 closed**——backfill_condition 全满足:① artifacts v2 前置切片由 G4.2 PR-A(07a258fd)兑现(RXS-0290 device 描述表 v2 blob 布局 + RXS-0291 @__rx_gpu_spirv 段发射 + RXS-0292 rxrt 解析 + codegen golden 单测 + feature-off 零漂移);② Vulkan RHI 通道由 G4.4 PR-F 兑现(RXS-0293 .rx 单源 Vulkan RHI 通道 compute+graphics 双腿 + RXS-0294 device 见证判据,消费 artifacts v2 SPIR-V 入口表按 kernel 名索引,device 真跑全链闭合)。defer 时『本体未落地』前提彻底解除。**RD-035 处置补登记**(PR-E commit 4e0e78ac 已关闭 RD-035 status open→closed + owner_milestone TBD→G4.3 PR-E(兑现) + history 行,但 revision_log 漏登;本条补记:RD-035 三项余项在 G4.3 PR-E 全量兑现——alias_alloc + scheduler + rhi.rs execute_exec_face + typeck RhiGraph + conformance 语料 + ci 步骤 79)。零新 RD(本期无新 deferred 登记)。RD-033 = EA1 reserved 跳号维持;RD-016/028 永不复用。其余 open 尾门(RD-027 / RD-034 / RD-012 RT 分量 / RD-007 / RD-025 / RD-026 / RD-030 / RD-032 等)本期未触发接通点,维持原状态不动。"
+    },
+    {
+      "version": "v1.68",
+      "date": "2026-07-28",
+      "change": "EA1.3 close-out schema 校验去阻(EA1.3 close-out PR;只追加 RD-036 reason 字段补缺 + revision_log v1.68,既有 entries 其余字段 / 既有 history 行 / 既有 revision_log v1.0~v1.67 行 0-byte;agent 完全自主签署,AGENTS v3.0 硬规则 1):**RD-036 reason 字段补缺**——v1.66 落档时漏登 reason 字段(14 §4 注册表强制字段之一),触发 ci/check_schemas.py `deferred RD-036: 缺字段 reason` FAIL 阻塞 pr-smoke + 全量回归。本条按 RD-036 title + history + backfill_condition 同义补 reason(『G4.5 PR-G C ABI v2 判档两项判据均不成立 → 超界硬需求在 subset v1 之外存续,待真实嵌入面出现时按 10 §3 判档兑现』),语义零新增信息(非条款变更非状态翻转),仅 schema 字段闭合。RD-036 status / owner_milestone / backfill_condition / history 全部维持不动。零新 RD。"
+    },
+    {
+      "version": "v1.69",
+      "date": "2026-07-28",
+      "change": "EA1.1b/EA1.2 验证收口 RD-025 history 追加(EA1.3 close-out PR;只追加 RD-025 history 两行(EA1.1b + EA1.2 落地行) + revision_log v1.69,既有 entries 其余字段 / 既有 history 行 / 既有 revision_log v1.0~v1.68 行 0-byte;agent 完全自主签署,AGENTS v3.0 硬规则 1):**RD-025 history EA1.1b/EA1.2 落地行追加**——EA1.1a history 行(v1.67 增)曾承诺『Task 10 同 PR 兑现,与 EA1.1b/EA1.2 落地行一并追加』,但实际仅落 EA1.1a 行;本条补 EA1.1b/EA1.2 各一行,与 §8 EA1.1b/EA1.2 留痕段同 PR 落。EA1.1b 行记 RXS-0216/0217 落地 + 裁决 A 落地核对 + EA1.3 close-out 复跑;EA1.2 行记 RXS-0218/0219 落地 + 裁决 D 落地核对 + EA1.3 close-out 复跑。RD-025 整体 status / owner_milestone / backfill_condition 维持不动(RD-025 整体关闭判定归 EA1 close-out t9 处置)。零新 RD。"
+    },
+    {
+      "version": "v1.70",
+      "date": "2026-07-28",
+      "change": "EA1.3 close-out t9 处置(agent 完全自主签署,AGENTS v3.0 硬规则 1;用户 2026-07-28 会话决策『A 段推迟,先收口』):① **RD-025 关闭判定**——backfill_condition(rurixup 真实 FS 物化 + 网络拉取)已由 EA1.1a/1.1b/1.2 三 PR 全量落地(60be64f5 / be4eee83 / 702bf39a,均 2026-07-17 main),status open→closed,history 追加 close-out 关闭行。② **新增 RD-033**——EA1 冷启动 A 段(干净 Win11 VM,vm_rxcheck)measured evidence 推迟:裁决 C 两段式口径 A 段缺 VM 环境(owner-dependent),agent 无法自主推进;EA1.3 close-out 以 B 段 measured 26.56s 达成 + A 段 pending RD-033 留痕收口;G-EA1-6 标注『A 段 pending RD-033,B 段达成』;owner 备 VM 后补测 + 回填 ea1.bench.cold_start_vm_rxcheck_s。RD-033 = EA1 earmark 在途 claim(number_ledger reserved_in_flight[EA1].RD)兑现消费。零新 RX 码,零新 unsafe。既有 RD-025 不可变字段 id/title/reason/backfill_condition/owner_milestone 0-byte(仅 status 翻 closed + history 追加)。"
     }
   ]
 }

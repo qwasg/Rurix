@@ -55,13 +55,13 @@ def resolve_base() -> str:
     gh_base = os.environ.get("GITHUB_BASE_REF")
     if gh_base:
         return f"origin/{gh_base}"
-    # G4 close-out 收官起回退基准切至 g4-closed(G4_CONTRACT §8.8 PR-I close-out 终审,2026-07-24;
-    # 承 EI1 close-out ei1-closed / G3 close-out g3-closed / MB1 mb1-closed / MS1 ms1-closed 先例;
-    # 切换前双基准核对 ei1-closed ADVISORY(不阻断)+ g4-closed ADVISORY,反 YAML-only。EA1 仍 active
-    # 未收口,基准链 mb1-closed→g3-closed→ei1-closed→g4-closed 单线性,EA1 日后收口另裁。PR 路径以
-    # GITHUB_BASE_REF 为准。注:g4-closed tag 由 owner 创建后方生效;tag 创建前 main 仍可用
-    # `py -3 ci/check_guardrails.py ei1-closed` 退回旧基准。)
-    return "g4-closed"
+    # EA1 close-out 收官起回退基准切至 ea1-closed(EA1_CONTRACT §8 EA1.3 close-out 最终签署块,2026-07-28;
+    # 承 G4 close-out g4-closed / EI1 close-out ei1-closed / G3 close-out g3-closed / MB1 mb1-closed /
+    # MS1 ms1-closed 先例;切换前双基准核对 g4-closed ADVISORY(不阻断)+ ea1-closed ADVISORY,反 YAML-only。
+    # 基准链 mb1-closed→g3-closed→ei1-closed→g4-closed→ea1-closed 单线性。PR 路径以 GITHUB_BASE_REF 为准。
+    # 注:ea1-closed tag 由 EA1.3 close-out agent 自主签署创建后方生效;tag 创建前 main 仍可用
+    # `py -3 ci/check_guardrails.py g4-closed` 退回旧基准。)
+    return "ea1-closed"
 
 
 def changed_paths(base: str) -> list[str]:

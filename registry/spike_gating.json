@@ -320,6 +320,11 @@
           "date": "2026-07-23",
           "verdict": "not_triggered",
           "note": "EI1 引擎集成期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1):EI1 两面(#[export(c)] C ABI 导出 codegen + 内建头生成 / UC-05 最小 RHI + render graph 全 .rx 库面)均既登记 deferred(RD-009)兑现与库面工程,非扩张诱惑方向;本方向零消费/零触发变化,维持 not_triggered。"
+        },
+        {
+          "date": "2026-07-28",
+          "verdict": "not_triggered",
+          "note": "EA1 分发期满 close-out 复评(agent 完全自主,AGENTS v3.0 硬规则 1;用户 2026-07-28 会话决策『A 段推迟,先收口』):EA1.1a/1.1b/1.2 落地 rurixup 真实 FS 物化 + 网络拉取 + bundle 发布(单端点第一方工具链分发:本仓 GitHub Releases + repo 锚 channels/stable.json 四级内容寻址 fail-closed + 系统 curl.exe https-only),裁决 A(2026-07-17 owner 会话勾选)逐字落地——单端点第一方工具链分发 ≠ 包生态 registry 激活(D-312),trigger_condition 0-byte 不改,维持 not_triggered、D-312 维持待决。RD-025 关闭(rurixup 分发面兑现),A 段 VM 缺口新立 RD-033(冷启动验收范畴,非 registry 面)。"
         }
       ]
     },
@@ -447,6 +452,11 @@
       "version": "v1.9",
       "date": "2026-07-23",
       "change": "EI1 close-out 满期复评(EI1 close-out PR;每 SG entry 追加 decisions 复评行,current_verdict/trigger_condition/permanence 0-byte,既有 decisions 行 0-byte;agent 完全自主签署):SG-001~002/004~009 维持 not_triggered、SG-003 维持 triggered(RFC-0011 多后端不回翻);EI1 两面(export(c) + UC-05 RHI/graph 库面)均既登记 deferred(RD-009)兑现非扩张方向,零 SG 消费。SG-010 留续号(窗口/UI 框架进语言方向,本期不触)。仅追加 decisions + revision_log,零结构变更。"
+    },
+    {
+      "version": "v1.10",
+      "date": "2026-07-28",
+      "change": "EA1 close-out 满期复评(EA1.3 close-out PR;仅 SG-007 追加 decisions 复评行,current_verdict/trigger_condition/permanence 0-byte,既有 decisions 行 0-byte;agent 完全自主签署,AGENTS v3.0 硬规则 1;用户 2026-07-28 会话决策『A 段推迟,先收口』):EA1 分发期 rurixup 真实 FS 物化 + 网络拉取 + bundle 发布落地,裁决 A 逐字落地——单端点第一方工具链分发 ≠ D-312 registry 激活,SG-007 维持 not_triggered、D-312 维持待决。其余 SG(SG-001~006/008~009)EA1 期零消费无变化,不追加复评行(对齐 G3/EI1 close-out 仅追加消费变化 SG 先例)。SG-010 留续号(窗口/UI 框架进语言方向,本期不触)。仅 SG-007 追加 decision + revision_log,零结构变更。"
     }
   ]
 }

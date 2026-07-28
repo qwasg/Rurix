@@ -42,14 +42,14 @@
       "scope": "shared",
       "pattern": "RD-###",
       "main_fact_source": "registry/deferred.json entries",
-      "on_tree_max": 35,
-      "next_free": 36,
+      "on_tree_max": 36,
+      "next_free": 37,
       "shadow_reserved": [],
       "main_skipped": [
         16,
         28
       ],
-      "notes": "deferred 编号。main entries 最高 RD-032;RD-016/RD-028 为 main 侧跳号(永不复用,EA1_CONTRACT §7 记)。GRX 影子分支未消费 RD 共享段(改用私有 D-GRX 交付物段,见 namespaces.D_GRX)。下一个可用 RD-035(G3.6 登记 RD-034 = DXIL RT blocked 尾门;RD-033 = EA1 reserved 未 materialize 跳号,EA1 close-out 或后续按需用)。"
+      "notes": "deferred 编号。main entries 最高 RD-036(G4.5 PR-G C ABI v2 超界硬需求存续登记);RD-016/RD-028 为 main 侧跳号(永不复用,EA1_CONTRACT §7 记)。GRX 影子分支未消费 RD 共享段(改用私有 D-GRX 交付物段,见 namespaces.D_GRX)。下一个可用 RD-037。消费明细:RD-033 = EA1 close-out 消费(A 段 VM 推迟,2026-07-28);RD-034 = G3.6 DXIL RT blocked 尾门;RD-035 = EI1 UC-05 RHI 执行面余项;RD-036 = G4.5 PR-G C ABI v2 超界硬需求存续。"
     },
     "SG": {
       "scope": "shared",
@@ -410,6 +410,11 @@
       "version": "v1.24",
       "date": "2026-07-28",
       "change": "EA1.1a rurixup 真实 FS 物化 + 活跃切换（RXS-0214/0215，RFC-0012，G-EA1-2）校准：CI_step 59 前半 materialize 落地（ci/rurixup_dist_smoke.py 前半红绿闭合 + red_self_test 双向）；RXS-0214/0215 落 spec/release.md §2.8 条款体（FLS 体例 + 严禁 UB 节）；src/rurixup install.rs materialize_to_disk（staging→逐组件 sha256→tree_digest 双向→同卷 rename→注册表 v2 单写，幂等+回滚）/ toolchain.rs schema v2 / shim.rs argv0 干名转发 / main.rs 子命令 wired；stable_api.snapshot 重 bless（spec_clauses 209→211，bless_log L27）；字段校准与现状一致（CI_step on_tree_max=81/next_free=82；RXS on_tree_max=294/next_free=297；reserved_in_flight[EA1] 含 59/60 不变）。EA1.1b（be4eee83）+ EA1.2（702bf39a）已先落 main。"
+    },
+    {
+      "version": "v1.25",
+      "date": "2026-07-28",
+      "change": "EA1.3 close-out t9 处置 RD namespace 校准(agent 完全自主签署,AGENTS v3.0 硬规则 1;用户 2026-07-28 会话决策『A 段推迟,先收口』):① on_tree_max 35→36 漂移修复(RD-036 = G4.5 PR-G C ABI v2 超界硬需求存续登记,已落 deferred.json 但 number_ledger 滞后);② next_free 36→37;③ notes 更新:main entries 最高 RD-036 + 消费明细(RD-033 EA1 close-out 消费 A 段 VM 推迟 / RD-034 G3.6 / RD-035 EI1 / RD-036 G4.5);④ RD-033 = EA1 earmark reserved_in_flight[EA1].RD 在途 claim 兑现消费(deferred.json v1.70 新增 RD-033 条目)。零新 RX 码,零新 unsafe。"
     }
   ]
 }

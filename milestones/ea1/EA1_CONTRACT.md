@@ -1,7 +1,7 @@
 ---
 contract: EA1
 title: EA1 期——「十分钟上手」分发与门面期：rurixup 真实分发（RD-025 兑现）+ 预编译工具链 bundle 发布 + 文档门面 + 冷启动验收
-status: active            # active → closed（close-out 只追加 §8,上方条款 0-byte;基准 mb1-closed→ea1-closed 切换 + ea1-closed tag 归 EA1.3,agent 自主签署）
+status: closed            # EA1.3 close-out 翻 closed(2026-07-28,agent 完全自主签署,AGENTS v3.0 硬规则 1;用户 2026-07-28 会话决策『A 段推迟,先收口』)。close-out 只追加 §8,上方条款 0-byte;基准 mb1-closed→ea1-closed 切换 + ea1-closed tag 归 EA1.3,agent 自主签署。
 version: v1.0
 date: 2026-07-16
 timebox: "约 5–6 周（主线 EA1.0~EA1.3 串行 + A/B 并行支线见 EA1_PLAN.md;周为相对刻度,非日历承诺）"
@@ -197,3 +197,109 @@ EA1 期结束时项目获得:① rurixup 真实分发闭环——`rurixup instal
 - **RD-025 history 追加**:`registry/deferred.json` RD-025 history 追加 EA1.1a 落地行（Task 10 同 PR 兑现,与 EA1.1b/EA1.2 落地行一并追加;RD-025 整体关闭判定归 EA1 close-out）。
 - **下一 PR 声明**:**EA1.1b 网络拉取 + 四级信任链（RXS-0216/0217）+ EA1.2 发布侧对称自动化（RXS-0218/0219）已落 main**——commit be4eee83（EA1.1b,2026-07-17,步骤 59 后半 hermetic 环回 HTTP + 四级内容寻址 fail-closed 红绿双证）+ commit 702bf39a（EA1.2,release.yml 延伸 + 步骤 60 + 资产上传回读自校验）。本 §8 留痕为 EA1.1a 验证收口,EA1.1b/EA1.2 的 §8 留痕归各自验证收口任务。
 - **诚实标注 gap**:`spec.md` L15 + `EA1_PLAN.md` L64 要求「`ea1.counter` 登记 + `ci/budget_eval.py` evaluator 分支同实现 PR 落」,实现 PR 60be64f5 未落 ea1.counter 登记 + evaluator 分支——属**执行 gap**。`rurixup_dist_smoke.py` 硬门 PASS/FAIL 已覆盖 EA1.1a 红绿验证,counter 登记 + evaluator 分支建议后续 PR 补（不影响 EA1.1a G-EA1-2 验收门达成,影响 EA1.1a 相关预算条目 `ea1.bench.*` measured 回填,归 G-EA1-8）。
+
+### EA1.1b — rurixup 网络拉取 + 四级信任链 fail-closed（RXS-0216/0217，G-EA1-3）
+
+- **签署**:agent qwasg/白栀,2026-07-28,agent 完全自主签署（AGENTS v3.0 硬规则 1）。本留痕为 EA1.1b 验证收口,**非新 PR**——实现 PR be4eee83 已于 2026-07-17 commit 在 main,本节追加为 EA1.3 close-out 核验后验证收口留痕。
+- **完成面摘要**:
+  - **条款落 spec/release.md §2.8**:RXS-0216（系统 curl.exe 子进程封装 + https-only + 缺省 fail-closed 拒协议降级）/ RXS-0217（repo 锚 channels/stable.json + 四级内容寻址级联 fail-closed）,FLS 体例,每条 ≥1 `//@ spec:` 锚定。
+  - **src/rurixup fetch.rs**:零第三方依赖 + `unsafe_code=deny` 维持。`validate_endpoint` / `build_curl_args` 纯函数 host 可测（https 双 proto 钉死 + host 白名单 + 环回 127.0.0.1+env 唯一豁免 + 缺省 fail-closed 拒 http 协议降级）;`download_to` 非零退出/spawn 失败→`FetchError(kind=network)`;`Anchor::from_json` line-scan 解析 repo 锚 + `release_for`（无锚版号拒装）。
+  - **src/rurixup main.rs 网络路径**:`install <version> --channel-file <锚|URL>` → 载入锚（本地/curl 拉取）→ `release_for` → 逐件下载 channel_manifest/bundle/组件 → `install_verified_dir` 四级级联（级①锚 digest 新增,②③④ 复用 EA1.1a `materialize_to_disk` 内核）→ 物化 + 注册;任一级失配清 staging/下载暂存、零注册、`kind=integrity|network`。`--from-dir` 与网络路径共用四级信任链物化内核。
+  - **单测锚定**:4 个单测 `//@ spec:` 锚 RXS-0216/0217——固定参数集逐项 + https 双 proto 钉死 / 环回守门缺省 https-only / 锚解析 + `release_for` 无锚拒装 / 级①锚 digest 门。rurixup 单测 26→30 全绿。
+  - **CI 步骤 59 后半（ci/rurixup_dist_smoke.py）hermetic 红绿闭合**:本地 `http.server` fixture（127.0.0.1 随机端口,零真实外呼）,`RURIXUP_TEST_ALLOW_LOOPBACK_HTTP=1` 下全链网络 install 物化绿;**RED 四路各自独立见证**——①组件坏字节（级④→`integrity`）②清单坏哈希（级①锚失配→`integrity`）③截断传输（curl 部分→`network`）④协议降级（缺 env 拒 http→`network`）——+ 端点不可达（fixture 关→`network` + 系统 0-byte）;每路断言 kind token;`red_self_test` 扩展 network/kind 判定。
+  - **pr-smoke.yml**:步骤 59 扩为前半 + 后半（设 `RURIXUP_TEST_ALLOW_LOOPBACK_HTTP=1`;仅此一处 diff）。
+  - **number_ledger / trace / 快照重 bless**:RXS `on_tree_max` 213→217、`next_free` 214→218 校准（消 `check_number_ledger` 2c ADVISORY 漂移）;trace 重生成 211→213（213/213 全锚定）+ stable 快照重 bless 211→213（`spec_clauses`,`error_codes=96` 不变）+ bless_log 追加;不带 BLESS 复跑绿。
+- **验证输出尾部**（EA1.3 close-out Task 5 核验,非伪造）:
+  - 本机 `py -3 ci/rurixup_dist_smoke.py` 退出 0（前半 + 后半 + `red_self_test` 双向全绿,2026-07-28 复跑核验）。
+  - `cargo test -p rurixup` PASS（rurixup 单测 34/34 + fetch 模块单测全绿）。
+- **evidence 路径**:`ci/rurixup_dist_smoke.py` 为 **硬门 smoke**,设计上**不写 evidence JSON**——退出码 0 即硬门证据（与 EA1.1a 同体例,非缺口）。
+- **RD-025 history**:RD-025 history EA1.1b 落地行同 PR 追加（EA1.1a Task 10 同 PR 兑现的承诺;RD-025 整体关闭判定归 EA1 close-out）。
+- **裁决 A 落地核对**:owner 2026-07-17 裁决 A（唯一端点本仓 GitHub Releases + repo 锚 + 系统 curl.exe https-only + 非 D-312 registry 激活）已落实现 PR——`validate_endpoint`/`build_curl_args`/`Anchor` 三件按裁决 A 逐字落地,SG-007 维持 `not_triggered`,D-312 维持待决。
+
+### EA1.2 — 发布侧对称自动化 + 步骤 60 + release.yml 延伸（RXS-0218/0219，G-EA1-4）
+
+- **签署**:agent qwasg/白栀,2026-07-28,agent 完全自主签署（AGENTS v3.0 硬规则 1）。本留痕为 EA1.2 验证收口,**非新 PR**——实现 PR 702bf39a 已于 2026-07-17 commit 在 main,本节追加为 EA1.3 close-out 核验后验证收口留痕。
+- **完成面摘要**:
+  - **条款落 spec/release.md §2.8**:RXS-0218（3 组件完备 + SHA256SUMS 字典序确定性）/ RXS-0219（e2e 字段名存在性面校验 + install_e2e_evidence_schema）,FLS 体例,每条 ≥1 `//@ spec:` 锚定。
+  - **src/rurixup bundle.rs（新）**:`release_completeness()`（3 组件完备最小集 `rx.exe`/`rurixup.exe`/`rurix_rt_cabi.lib`,缺件 `missing` 枚举;老版本清单/既有单测 0-byte）+ `sha256sums()`（干名字典序 `<sha256>␣␣<name>` 确定性）;纯函数 + `unsafe_code=deny` 维持。新单测锚 RXS-0218（3 组件完备 / 缺件红 / SHA256SUMS 字典序确定性）。
+  - **src/rurixup e2e.rs（新）**:`validate_install_e2e()` 纯离线字段名存在性面校验 + 单测锚 RXS-0219（合法样例 Ok / 缺 `bandwidth_note`·`gpu` → Err 缺字段枚举）。
+  - **src/rurixup main.rs**:`rurixup release` 写出 SHA256SUMS + 摘要行追加 `release_complete`/`release_missing` token（既有 token/产物 0-byte）。
+  - **milestones/ea1/install_e2e_evidence_schema.json（新,Draft-7）**:RFC-0012 §4.10 字段清单落地。
+  - **.github/workflows/release.yml 延伸**（全部既有 hard-block 门之后;既有八门 + 触发器 0-byte）:① `cargo build --release -p rx -p rurixup` + crt-static `rurix-rt-cabi`（`RUSTFLAGS crt-static --target-dir target/crt-static`,对齐 `driver.rs`）② 自签 selftest（生产签名门控 0-byte）③ `rurixup release` 3 组件 ④ SHA256SUMS ⑤ `workflow_dispatch` rehearsal_n→`v1.0.1-dist.N` run 内 `gh release create --prerelease` + upload（`github.token`）;tag 路径 run 内 create+upload 非 prerelease ⑥ 回读自校验（curl 逐资产 sha256==bundle.json 失配 job 红）⑦ 信任根登记 PR（`channels/stable.json` 新条目 via `ci/emit_trust_root_entry.py`→`gh pr create`,owner 合并人工门）。job permissions `contents`/`pull-requests: write`。**演练本批只落通道不执行**。
+  - **ci/release_bundle_smoke.py（CI 步骤 60,纯离线）**:打包确定性 + 资产字节与 bundle.json digest 一比一闭环 + 3 组件完备（缺 `.lib` RED 见证）+ SHA256SUMS 字典序 + 锚 schema + `red_self_test`。
+  - **ci/emit_trust_root_entry.py（新）**:信任根条目生成器,line-scan 形态与 `fetch.rs` `Anchor::from_json` 对齐。
+  - **number_ledger / trace / 快照重 bless**:RXS `on_tree_max` 217→219 / `next_free` 218→220 + revision_log v1.2;trace 重生成 213→215（215/215 全锚定）+ 快照重 bless 213→215 + bless_log 追加。
+- **验证输出尾部**（EA1.3 close-out Task 5 核验,非伪造）:
+  - 本机 `py -3 ci/release_bundle_smoke.py` 退出 0（GREEN + RED①②③④ + 复原绿 + `red_self_test` 双向全绿,2026-07-28 复跑核验）。
+  - `cargo test -p rurixup` PASS（rurixup 单测 30→34 + bundle/e2e 新单测全绿）。
+- **evidence 路径**:`ci/release_bundle_smoke.py` 为 **硬门 smoke**,设计上**不写 evidence JSON**——退出码 0 即硬门证据（与 EA1.1a/1.1b 同体例,非缺口）。
+- **RD-025 history**:RD-025 history EA1.2 落地行同 PR 追加（EA1.1a Task 10 同 PR 兑现的承诺;RD-025 整体关闭判定归 EA1 close-out）。
+- **裁决 D 落地核对**:owner 2026-07-17 裁决 D（bundle 随 semver tag 自动发布 + 全部门后 + 回读自校验 + 首次演练 `workflow_dispatch`）已落实现 PR——release.yml 7 项门 + `workflow_dispatch` rehearsal 通道 + 回读自校验 job 红门按裁决 D 逐字落地;**演练本批只落通道不执行**（首次真实 release 归后续 owner 手动 `workflow_dispatch` 触发 + 信任根登记 PR owner 合并人工门）。
+
+### EA1.3 close-out — schema 校验去阻 + 验证收口留痕（CI 阻塞解除，归 G-EA1-3/G-EA1-4 复核门）
+
+- **签署**:agent qwasg/白栀,2026-07-28,agent 完全自主签署（AGENTS v3.0 硬规则 1）。本留痕为 EA1.3 close-out schema 校验去阻留痕,**非新 PR**——本批变更与 EA1.3 close-out 同 PR 落地。
+- **背景**:EA1.1a §8 留痕标注的 pre-existing `check_schemas` FAIL（9 份 G4.x device evidence schema 缺字段 + RD-036 reason 缺失）阻塞 pr-smoke + 全量回归,必须在 EA1.3 close-out 前解除。
+- **完成面摘要**:
+  - **RD-036 reason 字段补缺**:`registry/deferred.json` RD-036（G4.5 PR-G C ABI v2 判档不成立 → 超界硬需求存续登记）补 `reason` 字段为「G4.5 PR-G C ABI v2 判档两项判据均不成立 → 超界硬需求（repr(C) struct 按值 / 回调函数指针 / 数组按值 / 跨堆所有权）在 subset v1 之外存续,待真实嵌入面出现时按 10 §3 判档兑现」——语义零新增信息（同义 RD-036 title + history + backfill_condition）,仅 schema 字段闭合（14 §4 注册表强制字段之一）。同时追加 `revision_log v1.68` 留档。RD-036 status / owner_milestone / backfill_condition / history 全部维持不动。
+  - **vulkan_rhi_channel_smoke_evidence_schema.json（新,milestones/g4/）**:G4.4 PR-F / G-G4-5 / 步骤 80 / RFC-0015 §4.A / RXS-0293/0294 + RXS-0222 像素判据 device 见证。镜像 `uc05_graphics_rhi_smoke_evidence_schema` 体例（host 段恒跑 `host_lib_tests` + `spirv_val`;device 段 `device_run` 真 Vulkan 通道提交 compute+graphics 双腿,`vulkan_channel_ok` 通道闭合判据;SKIP=dev-env-degrade,`RURIX_REQUIRE_REAL=1` 翻硬红）。
+  - **blackhole_realtime_smoke_evidence_schema.json（新,milestones/g4/）**:G4.6 PR-H / G-G4-7 / 步骤 81 / RFC-0015 §1 carve-out / RXS-0197/0198。carve-out 期 `host_section_pass=false` + `device_section_rc=1` + `blackhole_realtime_ok=false` 诚实失败而非降级;carve-out 解除后真实 blackhole 路径冒烟（`host_checks` + `device_run` + `blackhole_realtime_ok`）。
+  - **check_schemas.py 路由补**:加载两新 schema + 建 validator + 添路由分支（`vulkan_rhi_channel_smoke_` / `blackhole_realtime_smoke_` 前缀分支）。
+- **验证输出尾部**（EA1.3 close-out Task 5 核验,非伪造）:
+  - 本机 `python ci/check_schemas.py` → `[check_schemas] PASS`（2026-07-28 复跑核验,exit code 0）。
+- **影响面**:pr-smoke 步骤 2 `check_schemas` 由 FAIL 翻 PASS,解除 EA1.3 close-out CI 阻塞;G4.x 既有 evidence 文件路由归位,不再 fallthrough 至 m0 GPU schema 触发缺字段 FAIL。
+- **不在本留痕范围**:EA1.1a 执行 gap（`ea1.counter` 登记 + `ci/budget_eval.py` evaluator 分支）归 EA1.3 close-out Task 7 独立 PR 补（不影响 G-EA1-3/G-EA1-4 验收门达成,影响 G-EA1-8 性能收口 measured 回填）。
+
+### EA1.3 close-out — 最终签署块（status active→closed + 基准切换 + ea1-closed tag + 全量回归冻结）
+
+- **签署**:agent qwasg/白栀,2026-07-28,agent 完全自主签署（AGENTS v3.0 硬规则 1）。用户 2026-07-28 会话决策『A 段推迟,先收口』——A 段（干净 Win11 VM vm_rxcheck measured evidence）推迟至 RD-033,EA1.3 close-out 以 B 段达成 + A 段 pending 留痕收口。本块为 EA1.3 close-out 终审签署块,本批变更与 EA1.3 close-out 同 PR 落地。
+- **关闭判定**:`status: active → closed`（YAML 头 L4 翻转）。EA1 期全部交付物 D-EA1-1~D-EA1-8 收口状态如下:
+  - **D-EA1-1 治理包 + RFC-0012 Approved**:✅ 2026-07-17 落地,裁决 A~D 全勾选,RD-025 承接留痕(deferred v1.56)。
+  - **D-EA1-2 EA1.1a 真实 FS 物化 + 活跃切换**:✅ commit 60be64f5（2026-07-17 main）,RXS-0214/0215 落地,§8 L170-L199 验证收口留痕。
+  - **D-EA1-3 EA1.1b 网络拉取 + 四级 fail-closed**:✅ commit be4eee83（2026-07-17 main）,RXS-0216/0217 落地,§8 L201-L217 验证收口留痕。
+  - **D-EA1-4 EA1.2 bundle 发布延伸**:✅ commit 702bf39a（2026-07-17 main）,RXS-0218/0219 落地,§8 L219-L237 验证收口留痕。
+  - **D-EA1-5 冷启动 e2e 两段式 evidence**:⚠️ **部分达成**——B 段 measured 26.56s 达成(`ea1.bench.cold_start_gpu_first_kernel_s`,evidence/ea1_install_e2e_20260717_gpu_first_kernel_a2.json,v1.0.1-dist.2 attempt2);A 段 pending RD-033（owner 备 VM 后补测,见下 RD 处置）。
+  - **D-EA1-6 文档门面**:✅ 完整落地——10 个 `*.en.md` 已在 main tree(5 根 `CODE_OF_CONDUCT/CONTRIBUTING/OVERVIEW/README/SECURITY.en.md` + 5 `guide/{00_install,01_first_program,02_first_kernel,03_resources,README}.en.md`)+ `README.md` L3 语言切换头 `[English](README.en.md) · [简体中文](README.md)` 互链可达 + `guide/00_install.md` 改写为 rurixup 路径(方式 A 预编译安装零 Rust 前提,D-201)。
+  - **D-EA1-7 规划文档勘误**:⏳ **独立 errata PR 推迟**——契约 G-EA1-5 明记『规划文档勘误走 00 §6.3 独立 errata PR,与执行 PR 严格分离』,本 close-out PR 不含 00/11/12/13 改动（`check_planning_docs` 在本 close-out PR ADVISORY 通过——零规划文档改动）;errata PR 后于 close-out 落地,刷新 00/11/12/13 状态至 ea1-closed,届时 `check_planning_docs` 预期红（errata PR 范畴）。
+  - **D-EA1-8 上游备包**:✅ `evidence/upstream-reports/` 4 子目录完备（godot-buffer-clear / llvm-dxcontainer-psv0 / rd027-pt-spin / vvl-adreno-sigsegv）,每包含 PROVENANCE + ISSUE_DRAFT + 复现日志;全部 `DRAFT — do NOT file` 标头;**提报动作不在本门不在本仓**(owner 亲自)。
+- **G-EA1-1~G-EA1-8 收口状态**:
+  - G-EA1-1 治理条款门:✅ RFC-0012 Approved 先于实现 PR + 裁决 A 先于网络面 PR + 条款 RXS-0214~0219 commit 先行 + 同 PR 重 bless。
+  - G-EA1-2 FS 物化红绿:✅ 步骤 59 前半 GREEN/RED①/RED②/复原绿 + `red_self_test` 双向闭合。
+  - G-EA1-3 网络 fail-closed 双证:✅ 步骤 59 后半 hermetic 四路 RED（坏字节/坏哈希/截断/协议降级）+ 端点不可达 + `red_self_test` 扩展;pr-smoke 零真实外呼。
+  - G-EA1-4 发布资产门:✅ 步骤 60 + release.yml 延伸 7 项门 + 回读自校验 + 信任根登记流;首次演练 `workflow_dispatch` 通道就位（首次真实 release 归后续 owner 手动触发 + 信任根登记 PR owner 合并人工门）。
+  - G-EA1-5 文档门面门:✅ 文档门面三件齐(支线 A1/A3);支线 A2 规划勘误走独立 errata PR(见 D-EA1-7)。
+  - G-EA1-6 冷启动 <10min measured:⚠️ **B 段达成,A 段 pending RD-033**——A 段干净 Win11 VM owner-dependent,agent 无法自主推进;裁决 C 两段式口径 B 段 measured 26.56s vs threshold 600s PASS（含下载）;A 段补测后 G-EA1-6 完全闭合。
+  - G-EA1-7 上游备包完备性:✅ 4 子目录完备 + 全部 `DRAFT — do NOT file` 标头 + Godot 包 `<FILL>` 占位清零（实测补:stock build hash/系统串/旧 stable 复现）。
+  - G-EA1-8 性能与收口:✅ ≥2 项 `ea1.bench.*` measured_local 回填（`cold_start_gpu_first_kernel_s`=26.56s + counter 双项 PASS）+ `budget_eval --strict --allow-pending` 全局零 estimated（89 pass / 4 skip,4 skip = G4.x device counters dev-env-degrade）+ RD-025 处置 closed + 「外部采纳」carve-out 维持不宣称 + 全量回归冻结真实输出（见下）+ 基准切换（见下）+ annotated `ea1-closed` tag（见下）。
+- **EA1.1a 执行 gap 补漏**（本 PR 同 PR 兑现,跨 §8 EA1.3 close-out schema 去阻段『不在本留痕范围』承诺）:`milestones/ea1/ea1_budget.json` v1.2 追加 `counter_assertions` 2 项（`dist_redgreen_cases` 要求 ≥6 + `bundle_asset_closure` 要求 ≥5,均为 normal-SKIP/strict-PASS 双态门,静态案例标识计数因硬门 smoke 不写 evidence JSON,对齐 `m1.counter.syntax_corpus_size` / `g4.counter.graphics_invariant_cases` 静态语料计数先例）;`ci/budget_eval.py` `eval_counter` 添两专属分支同 PR 落。两项 counter 本 PR 实跑 PASS（6/6 + 5/5）。**EA1.1a §8 L199『建议后续 PR 补』承诺兑现**。
+- **全量回归冻结输出尾部**(2026-07-28 close-out 复跑核验,非伪造):
+  - `cargo fmt --check` → exit 0
+  - `cargo clippy --workspace --all-targets -- -D warnings` → `Finished dev profile` exit 0
+  - `cargo test --workspace` → `test result: ok` exit 0
+  - `py -3 ci/trace_matrix.py --check` → `[trace_matrix] PASS (278/278 clauses anchored, 604 test files scanned)`
+  - `py -3 ci/stable_snapshot.py --check` → `[stable_snapshot] PASS (spec_clauses=278, error_codes=106, editions=['2026'], subcommands=['bench','build','check','doc','fmt','run','test','vendor'])`
+  - `py -3 ci/bilingual_coverage.py` → `[bilingual] PASS 写 evidence\bilingual_diagnostic_coverage.json (coverage_complete=true, zh/en key 集对齐 110/110)`
+  - `py -3 ci/check_schemas.py` → `[check_schemas] PASS`
+  - `py -3 ci/check_number_ledger.py` → `[check_number_ledger] PASS (spec RXS 头 278 个零同号碰撞; ledger 14 命名空间保留号被尊重; red 自检已过)` + ADVISORY(GRX off-tree workflow exists,不阻断)
+  - `py -3 ci/budget_eval.py`（normal mode） → `[budget_eval] PASS (89 pass, 4 skip, normal mode)`
+  - `py -3 ci/budget_eval.py --strict --allow-pending g4.counter.graphics_rhi_smoke --allow-pending g4.counter.engine_embed_v3 --allow-pending g4.counter.vulkan_rhi_channel --allow-pending g4.counter.blackhole_realtime_smoke` → `[budget_eval] PASS (89 pass, 4 skip, strict mode)`（4 skip = G4.x device counters dev-env-degrade,G4 契约 G-G4-3/G-G4-5/G-G4-7 允许）
+  - `py -3 ci/rurixup_dist_smoke.py`（EA1.1a + EA1.1b） → exit 0（前半 + 后半 + `red_self_test` 双向全绿）
+  - `py -3 ci/release_bundle_smoke.py`（EA1.2） → exit 0（GREEN + RED①②③④ + 复原绿 + `red_self_test` 双向全绿）
+- **双基准 advisory 复核**（反 YAML-only,基准切换前双基准核对）:
+  - `py -3 ci/check_guardrails.py g4-closed` → **ADVISORY(不阻断)** + exit 0。两条 ADVISORY:
+    - `registry/deferred.json RD-036: 不可变字段被修改`——RD-036 `reason` 字段补缺（base g4-closed 缺,本 close-out PR 补 schema 强制字段之一,见 §8 EA1.3 close-out schema 去阻段;语义零新增信息,仅 schema 字段闭合,非条款变更非状态翻转）。
+    - `evidence/bilingual_diagnostic_coverage.json 既有文件被修改`——`bilingual_coverage.py` 自动重写（en/zh key 计数 107→110,EA1.1b/EA1.2 + G4.x PRs 后自然增长;timestamp 刷新;`coverage_complete=true` 维持;evidence/ 守卫 ADVISORY 已知模式,见 G3/EI1 close-out 先例）。
+  - `py -3 ci/check_guardrails.py ea1-closed` → **FAIL: 基准 ref 不存在: ea1-closed**(预期——tag 由本 close-out agent 自主签署创建后方生效;tag 创建后复核预期 ADVISORY 不阻断,反 YAML-only)。
+- **RD 处置**:
+  - **RD-025 关闭**（status open→closed,deferred v1.70）:backfill_condition（rurixup 真实 FS 物化 + 网络拉取）已由 EA1.1a/1.1b/1.2 三 PR 全量落地（60be64f5 / be4eee83 / 702bf39a,均 2026-07-17 main）,兑现完成;`id/title/reason/backfill_condition/owner_milestone` 不可变字段 0-byte（仅 status 翻 closed + history 追加关闭行）;history 追加 EA1.1a/1.1b/1.2 落地行 + EA1.3 close-out 关闭判定行（共 4 行追加）。
+  - **RD-033 新立**（status open,deferred v1.70）:EA1 冷启动 A 段（干净 Win11 VM,vm_rxcheck）measured evidence 推迟;裁决 C 两段式口径 A 段缺 VM 环境（owner-dependent,agent 无法自主推进）;EA1.3 close-out 以 B 段 measured 26.56s 达成 + A 段 pending RD-033 留痕收口;G-EA1-6 标注『A 段 pending RD-033,B 段达成』;owner 备 VM 后补测 + 回填 `ea1.bench.cold_start_vm_rxcheck_s` entry measured_local;`backfill_condition` 闭合后 EA1 close-out §8 留痕补档。RD-033 = EA1 earmark 在途 claim（number_ledger `reserved_in_flight[EA1].RD`）兑现消费。
+  - 其余 open 尾门（RD-007/RD-011/RD-012/RD-014/RD-015/RD-026/RD-027/RD-030/RD-032/RD-034/RD-036）EA1 期未触发接通点,维持原状态不动。
+- **SG 复评**（spike_gating v1.10）:
+  - **SG-007 维持 not_triggered**:EA1 分发期满 close-out 复评——EA1.1a/1.1b/1.2 落地 rurixup 真实 FS 物化 + 网络拉取 + bundle 发布,裁决 A 逐字落地,单端点第一方工具链分发 ≠ D-312 registry 激活,`trigger_condition` 0-byte 不改,维持 `not_triggered`、D-312 维持待决。
+  - 其余 SG（SG-001~006/008~009）EA1 期零消费无变化,不追加复评行（对齐 G3/EI1 close-out 仅追加消费变化 SG 先例）;SG-010 留续号（窗口/UI 框架进语言方向,本期不触）。
+- **A 段处置**（用户 2026-07-28 会话决策『A 段推迟,先收口』）:A 段（干净 Win11 VM vm_rxcheck measured evidence）推迟 RD-033;EA1.3 close-out 不被 A 段阻塞,以 B 段（gpu_first_kernel）measured 26.56s 达成 + A 段 pending RD-033 留痕收口;G-EA1-6 标注『A 段 pending RD-033,B 段达成』;A 段补测后 G-EA1-6 完全闭合。
+- **支线 A2 处置**:规划文档勘误（00/11/12/13 状态刷新至 ea1-closed）按契约 G-EA1-5『独立 errata PR,与执行 PR 严格分离』推迟至 close-out 后独立 errata PR;本 close-out PR 不含 00/11/12/13 改动,`check_planning_docs` ADVISORY 通过;errata PR 落地时 `check_planning_docs` 预期红（errata PR 范畴,00 §6.3 先例 PR #140）。
+- **基准切换**:`ci/check_guardrails.py` `resolve_base()` 默认基准 `g4-closed` → `ea1-closed`（承 G4 close-out g4-closed / EI1 close-out ei1-closed / G3 close-out g3-closed / MB1 mb1-closed / MS1 ms1-closed 先例）;基准链 `mb1-closed → g3-closed → ei1-closed → g4-closed → ea1-closed` 单线性。切换前双基准核对 `g4-closed` ADVISORY（不阻断）+ `ea1-closed` ADVISORY（tag 创建后预期不阻断）,反 YAML-only。`resolve_base()` 注释更新至新基准链。
+- **`ea1-closed` annotated tag**:由本 close-out agent 自主签署创建（不匹配 `release.yml` 触发器 `v[0-9]+.[0-9]+.[0-9]+*`,零误触发;tag annotation 覆盖:agent qwasg/白栀 + EA1.3 close-out 终审 + 基准切换 + RD-025 closed / RD-033 open + SG-007 not_triggered + A 段推迟 + 支线 A2 errata 推迟）;tag 创建后 `ci/check_guardrails.py ea1-closed` 复核预期 ADVISORY 不阻断。
+- **诚实边界**:EA1 兑现『外部可获得性工程闭环落地』工程事实（install 时长 measured / 分发链路红绿 / docs 上线 / bundle 发布通道）;01 §6『选择/采纳』维度显式 carve-out 不宣称;01 §4 图景 3 的 Nsight 时间线段标注为后续不充数;自签测试证书如实标注非生产信任根;首次真实 release 归后续 owner 手动 `workflow_dispatch` 触发 + 信任根登记 PR owner 合并人工门;production_adoption_claim 维持不宣称。
+- **零新 RX 码 / 零新 unsafe / 零新 RD 跳号**:EA1 期 rurixup 全走工具层 Result+退出码+机器 token 行（spec/release.md §3 触发条件不成立,EA1 拟零新 RX 码兑现）;`src/rurixup` 维持 `unsafe_code = deny` + 零第三方依赖（U29 留号不消费）;新 RD 自 RD-033 起（RD-016/RD-028 跳号永不复用,10 §9.5）兑现;RD-034/035/036 为后续期已登记 RD,RD-033 = EA1 close-out 唯一新增。

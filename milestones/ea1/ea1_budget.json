@@ -23,12 +23,28 @@
     }
   ],
   "ratio_assertions": [],
-  "counter_assertions": [],
+  "counter_assertions": [
+    {
+      "id": "ea1.counter.dist_redgreen_cases",
+      "description": "EA1.1a/EA1.1b rurixup 分发红绿案例完备性(G-EA1-2/G-EA1-3;RXS-0214~0217;ci/rurixup_dist_smoke.py 步骤 59 硬门 smoke,设计不写 evidence JSON——退出码 0 即硬门证据)。静态案例标识计数(非 evidence 计数):扫源中 [dist_smoke] <case> 标识行,取 distinct case 标识符集。前半(EA1.1a)GREEN 物化 + RED① 篡改 + RED② 已删目录 + 复原绿;后半(EA1.1b)GREEN 环回 + RED① 坏字节 + RED② 坏哈希 + RED③ 截断 + RED④ 协议降级 + 不可达。要求 ≥6(RED①②③④ 四种 + 不可达 + 复原绿;red_self_test 双向门自检不计入阈值,GREEN 同名跨前后半仅算一次)。",
+      "required": 6
+    },
+    {
+      "id": "ea1.counter.bundle_asset_closure",
+      "description": "EA1.2 bundle 资产闭环案例完备性(G-EA1-4;RXS-0218/0219;ci/release_bundle_smoke.py 步骤 60 硬门 smoke,设计不写 evidence JSON——退出码 0 即硬门证据)。静态案例标识计数:扫源中 [bundle_smoke] <①-⑥> 标识行,取 distinct case 标识符集。① 打包确定性 / ② digest 闭环 / ③ 3 组件完备+缺件 RED / ④ SHA256SUMS 字典序 / ⑤ 锚 schema / ⑥ red_self_test。要求 ≥5(①-⑤ 主案例;⑥ red_self_test 门自检不计入阈值)。",
+      "required": 5
+    }
+  ],
   "namespace_check": {
     "rule": "本文件所有 id 必须以 'ea1.' 前缀开头;多预算合并加载时冲突即 FAIL(14 §3)。预算自动发现 glob 为 *_budget.json(ci/check_schemas.py / budget_eval.py / check_guardrails.py / tests/test_budget_namespace.py 同一 glob),ea1 自动纳入无新 CI 码。",
     "unit_test_required": true
   },
   "revision_log": [
+    {
+      "version": "v1.2",
+      "date": "2026-07-28",
+      "change": "回填 ea1.counter.dist_redgreen_cases + ea1.counter.bundle_asset_closure(EA1.3 close-out PR;agent 完全自主签署,AGENTS v3.0 硬规则 1):EA1.1a §8 留痕标注执行 gap『实现 PR 60be64f5 未落 ea1.counter 登记 + evaluator 分支』(EA1_PLAN.md L64 + spec.md L15 要求『同 PR 落』),本条按 EA1.1a §8 诚实标注的 gap 兑现承诺补——counter_assertions 由 [] 增 2 项(dist_redgreen_cases / bundle_asset_closure),ci/budget_eval.py eval_counter 同 PR 添两专属分支(静态案例标识计数,因硬门 smoke 不写 evidence JSON;对齐 m1.counter.syntax_corpus_size / g4.counter.graphics_invariant_cases 静态语料计数先例)。两项 counter 均为 normal-SKIP/strict-PASS 双态门(契约 G-EA1-2/G-EA1-3/G-EA1-4 已达成,本 PR 静态计数核验实跑两项均 PASS)。零新 RD,零新 RX 码,零新 unsafe。EA1.1a G-EA1-2 验收门达成不受影响;G-EA1-8 性能收口 measured 回填不受影响(本两 counter 为门自检非性能条目)。"
+    },
     {
       "version": "v1.1",
       "date": "2026-07-17",

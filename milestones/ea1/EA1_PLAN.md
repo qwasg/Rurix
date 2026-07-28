@@ -31,9 +31,9 @@ flowchart LR
 | 子里程碑 | 时长(估) | 交付物映射 | 阻塞关系 / gating |
 |---|---|---|---|
 | EA1.0 | ~1 周 | D-EA1-1(治理包 + RFC-0012 Draft→Approved) | **EA1 入口**;RFC Draft 与治理包同轮起草;裁决 A~D 经 OWNER_DECISION_PACKAGE 呈 owner,落地小 PR 回填(§7/RFC §9/RD-025 history)+ RFC 翻 Approved |
-| EA1.1a | ~1–1.5 周 | D-EA1-2(FS 物化 + 切换 + 步骤 59 前半) | 依赖 RFC-0012 Approved(其翻 Approved 与裁决落地同 PR);不被裁决 A 单独 gate(本地面零网络),切换机制任务按裁决 B;条款前段 + 快照重 bless 同 PR;**关键路径** |
-| EA1.1b | ~1 周 | D-EA1-3(网络拉取 + hermetic 红绿) | 依赖 EA1.1a + **裁决 A 落地**;条款后段;pr-smoke 零真实外呼 |
-| EA1.2 | ~1–1.5 周 | D-EA1-4(bundle 发布 + 演练)+ D-EA1-5(冷启动 evidence) | 依赖 EA1.1b + 裁决 D;首次演练 workflow_dispatch;真端点 e2e 两段式计时(裁决 C 口径) |
+| EA1.1a | ~1–1.5 周 | D-EA1-2(FS 物化 + 切换 + 步骤 59 前半) | 依赖 RFC-0012 Approved(其翻 Approved 与裁决落地同 PR);不被裁决 A 单独 gate(本地面零网络),切换机制任务按裁决 B;条款前段 + 快照重 bless 同 PR;**关键路径** ✅ 已落 main 60be64f5 (2026-07-17) |
+| EA1.1b | ~1 周 | D-EA1-3(网络拉取 + hermetic 红绿) | 依赖 EA1.1a + **裁决 A 落地**;条款后段;pr-smoke 零真实外呼 ✅ 已落 main be4eee83 (2026-07-17) |
+| EA1.2 | ~1–1.5 周 | D-EA1-4(bundle 发布 + 演练)+ D-EA1-5(冷启动 evidence) | 依赖 EA1.1b + 裁决 D;首次演练 workflow_dispatch;真端点 e2e 两段式计时(裁决 C 口径) ✅ 已落 main 702bf39a (2026-07-17) |
 | EA1.3 | ~2–3 天 | close-out 终审 | 依赖 EA1.2 + 支线收口;契约翻 closed + 基准 mb1-closed→ea1-closed + tag + RD/SG 处置(agent 自主签署) |
 | 支线 A | W1–W5 并行 | D-EA1-6 / D-EA1-7 | A1 零依赖;A2 建议后于治理包合入(勘误可引 EA1 立项);A3 gated on EA1.1/1.2 能力就位(文档不先于能力) |
 | 支线 B | W1–W4 并行 | D-EA1-8 | 零依赖;B3 独立 MRP 若需真机而设备不可得则标 pending 不伪造 |
@@ -65,6 +65,8 @@ flowchart LR
 
 **出口判据**:本地 bundle → install 真实物化 → 切换 → 探针经 shim 指到目标版本;步骤 59 前半红绿闭合;快照/trace/guardrails 全绿。
 
+**实际状态**(v1.1 回填 2026-07-28):已落 main `60be64f5` (2026-07-17);EA1_CONTRACT §8 L170-L199 验证收口留痕(签署 2026-07-28,agent qwasg/白栀)。步骤 59 前半 GREEN/RED①/RED②/复原绿 + 内建 red_self_test 双向全闭合。
+
 ## 3. EA1.1b — 网络拉取 + 四级校验 fail-closed(D-EA1-3,gated 裁决 A)
 
 | # | 任务 | 验证方式 / gating |
@@ -75,6 +77,8 @@ flowchart LR
 | 4 | CI 步骤 59 后半(hermetic):Python http.server 本地 fixture——完好资产全链绿;坏字节/坏哈希/截断/默认态非 https 四路 RED 各自独立见证;离线→诚实报错非 fake | pr-smoke 零真实外呼;真实红绿 + run URL |
 
 **出口判据**:hermetic 全链 install 绿 + 四路 fail-closed RED;真端点闭环显式留给 EA1.2。
+
+**实际状态**(v1.1 回填 2026-07-28):已落 main `be4eee83` (2026-07-17);步骤 59 后半 hermetic 四路 RED(坏字节/坏哈希/截断/协议降级)+ 全链绿 + 端点不可达诚实 network 错误,均闭合。
 
 ## 4. EA1.2 — bundle 发布延伸 + 冷启动 e2e(D-EA1-4 / D-EA1-5,gated 裁决 D)
 
@@ -87,6 +91,8 @@ flowchart LR
 | 5 | 支线 A3 挂钩:guide/00_install.md 改写为 rurixup install 路径(能力已就位) | 既有 doc/tutorial 冒烟门绿 |
 
 **出口判据**:演练发布 + 回读自校验绿;两段式计时 evidence 落档;00_install 新路径可走通。
+
+**实际状态**(v1.1 回填 2026-07-28):已落 main `702bf39a` (2026-07-17);release.yml 延伸 + 步骤 60 + 资产上传回读自校验已落。冷启动 e2e 两段式完整 evidence 归 EA1.3 close-out 终审。
 
 ## 5. EA1.3 — close-out(agent 自主签署)
 
@@ -138,3 +144,4 @@ flowchart LR
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-07-16 | 初版(EA1 契约配套;主线 EA1.0~EA1.3 + A/B 并行支线分解 + 依赖图;裁决 A gate EA1.1b、裁决 B 定切换机制、裁决 D gate EA1.2 发布确认,支线 A/B 与 EA1.0 起草零空转;步骤 59/60 计划项随实现 PR 回填 workflow;冷启动 evidence 面不进 CI 硬门;nightly 契约外并行观察小节;deferred 承接 RD-025 → EA1 兑现对象) |
+| v1.1 | 2026-07-28 | EA1.1a/1.1b/1.2 实际落地状态回填:EA1.1a(commit 60be64f5,2026-07-17)+ EA1.1b(be4eee83)+ EA1.2(702bf39a)均已在 main 物化;各任务表追加状态标注;§2/§3/§4 任务由"待办"标注为"已落 main";EA1_CONTRACT §8 L170-L199 为 EA1.1a 验证收口唯一事实源。本修订为状态校正,不重定义任务范围(契约 §4 仍是验收唯一源) |

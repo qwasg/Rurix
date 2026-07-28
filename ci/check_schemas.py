@@ -250,6 +250,12 @@ def check_evidence_files() -> None:
     uc05_graphics_rhi_smoke_schema = load(
         ROOT / "milestones/g4/uc05_graphics_rhi_smoke_evidence_schema.json"
     )
+    vulkan_rhi_channel_smoke_schema = load(
+        ROOT / "milestones/g4/vulkan_rhi_channel_smoke_evidence_schema.json"
+    )
+    blackhole_realtime_smoke_schema = load(
+        ROOT / "milestones/g4/blackhole_realtime_smoke_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -394,6 +400,16 @@ def check_evidence_files() -> None:
     uc05_graphics_rhi_smoke_validator = (
         jsonschema.Draft7Validator(uc05_graphics_rhi_smoke_schema)
         if uc05_graphics_rhi_smoke_schema
+        else None
+    )
+    vulkan_rhi_channel_smoke_validator = (
+        jsonschema.Draft7Validator(vulkan_rhi_channel_smoke_schema)
+        if vulkan_rhi_channel_smoke_schema
+        else None
+    )
+    blackhole_realtime_smoke_validator = (
+        jsonschema.Draft7Validator(blackhole_realtime_smoke_schema)
+        if blackhole_realtime_smoke_schema
         else None
     )
     uc05_check_bench_validator = (
@@ -698,6 +714,27 @@ def check_evidence_files() -> None:
             # demo/assembly-reject;device 段 gfx demo EXE green + assembly EXE red-green,需 GPU + Vulkan,
             # SKIP=dev-env-degrade,RURIX_REQUIRE_REAL=1 翻硬红;像素判据 RXS-0222 归 PR-F/步骤 80)。
             validator = uc05_graphics_rhi_smoke_validator
+        elif (
+            f.name.startswith("vulkan_rhi_channel_smoke")
+            and vulkan_rhi_channel_smoke_validator is not None
+        ):
+            # G4.4 PR-F Vulkan RHI 通道冒烟证据(G-G4-5;RFC-0015 §4.A / RXS-0293/0294 +
+            # RXS-0222 像素判据 device 见证)→
+            # milestones/g4/vulkan_rhi_channel_smoke_evidence_schema.json(ci/vulkan_rhi_channel_smoke.py
+            # 步骤 80 写:host 恒跑 host_lib_tests + spirv_val;device 段 device_run 真 Vulkan 通道
+            # 提交(compute + graphics 双腿),vulkan_channel_ok=true 表示通道完整闭合;SKIP=dev-env-degrade,
+            # RURIX_REQUIRE_REAL=1 翻硬红)。
+            validator = vulkan_rhi_channel_smoke_validator
+        elif (
+            f.name.startswith("blackhole_realtime_smoke")
+            and blackhole_realtime_smoke_validator is not None
+        ):
+            # G4.6 PR-H blackhole 实时冒烟证据(G-G4-7;RFC-0015 §1 carve-out / RXS-0197/0198)→
+            # milestones/g4/blackhole_realtime_smoke_evidence_schema.json(ci/blackhole_realtime_smoke.py
+            # 步骤 81 写:carve-out 期 host_section_pass=false + device_section_rc=1 +
+            # blackhole_realtime_ok=false 诚实失败而非降级;carve-out 解除后真实 blackhole 路径冒烟,
+            # host_checks + device_run + blackhole_realtime_ok)。
+            validator = blackhole_realtime_smoke_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None

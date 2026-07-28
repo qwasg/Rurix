@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -741,6 +742,43 @@ def eval_counter(entry: dict, strict: bool) -> None:
                 n += 1
         count_or_gate(eid, n, 1, "份 BLACKHOLE realtime device 见证(blackhole_realtime_ok=true)",
                       "G4.6 device 见证回填前为正常状态,契约 G-G4-7", strict)
+    elif eid == "ea1.counter.dist_redgreen_cases":
+        # EA1.1a/EA1.1b rurixup 分发红绿案例完备性(契约 G-EA1-2/G-EA1-3;RXS-0214~0217;
+        # ci/rurixup_dist_smoke.py 步骤 59 硬门 smoke,设计不写 evidence JSON——退出码 0 即硬门证据)。
+        # **静态案例标识计数**(非 evidence 计数,因硬门 smoke 无 evidence 文件;对齐静态语料
+        # 计数先例 m1.counter.syntax_corpus_size / g4.counter.graphics_invariant_cases):扫源
+        # 中 `[dist_smoke] <case>` 标识行,取 distinct case 标识符集。
+        # 前半(EA1.1a):GREEN 物化 + RED① 篡改组件 + RED② 已删目录 + 复原绿 + red_self_test 双向
+        # 后半(EA1.1b):GREEN 环回 + RED① 坏字节 + RED② 坏哈希 + RED③ 截断 + RED④ 协议降级 + 不可达 + red_self_test
+        # 要求 ≥6(RED①②③④ 四种 + 不可达 + 复原绿;red_self_test 双向门自检不计入阈值,门自检非案例;
+        # GREEN 同名跨前后半仅算一次——set 去重镜像门语义)。
+        src_file = ROOT / "ci/rurixup_dist_smoke.py"
+        if not src_file.is_file():
+            err(f"{eid}: ci/rurixup_dist_smoke.py 不存在")
+            return
+        src = src_file.read_text(encoding="utf-8")
+        # 全源扫 distinct case 标识(不只 [dist_smoke] 行首,因『复原绿』在『前半 PASS 复原绿』行)
+        cases = set(re.findall(r'(RED[①②③④]|不可达|复原绿)', src))
+        n = len(cases)
+        count_or_gate(eid, n, 6, "条分发红绿案例标识(RED①②③④/不可达/复原绿 distinct)",
+                      "EA1.1/1.1b 建设期为正常状态,契约 G-EA1-2/G-EA1-3", strict)
+    elif eid == "ea1.counter.bundle_asset_closure":
+        # EA1.2 bundle 资产闭环案例完备性(契约 G-EA1-4;RXS-0218/0219;
+        # ci/release_bundle_smoke.py 步骤 60 硬门 smoke,设计不写 evidence JSON——退出码 0 即硬门证据)。
+        # **静态案例标识计数**(非 evidence 计数,因硬门 smoke 无 evidence 文件;对齐静态语料
+        # 计数先例 m1.counter.syntax_corpus_size / g4.counter.graphics_invariant_cases):扫源
+        # 中 `[bundle_smoke] <①-⑥>` 标识行,取 distinct case 标识符集。
+        # ① 打包确定性 / ② digest 闭环 / ③ 3 组件完备+缺件 RED / ④ SHA256SUMS 字典序 / ⑤ 锚 schema / ⑥ red_self_test
+        # 要求 ≥5(①-⑤ 主案例;⑥ red_self_test 门自检不计入阈值,门自检非案例)。
+        src_file = ROOT / "ci/release_bundle_smoke.py"
+        if not src_file.is_file():
+            err(f"{eid}: ci/release_bundle_smoke.py 不存在")
+            return
+        src = src_file.read_text(encoding="utf-8")
+        cases = set(re.findall(r'\[bundle_smoke\] ([①②③④⑤⑥])', src))
+        n = len(cases)
+        count_or_gate(eid, n, 5, "条 bundle 资产闭环案例标识(①-⑤)",
+                      "EA1.2 建设期为正常状态,契约 G-EA1-4", strict)
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 
