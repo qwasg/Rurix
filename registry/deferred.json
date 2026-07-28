@@ -803,6 +803,11 @@
           "date": "2026-07-17",
           "event": "裁决 A~D 落地(owner 2026-07-17 会话勾选 OWNER_DECISION_PACKAGE §0 四项拟裁,agent 代录;只追加本 history 行,既有行 0-byte):A = 认可全案——网络面定性 = 单端点第一方工具链分发(本仓 GitHub Releases + repo 锚 channels/stable.json 四级内容寻址 fail-closed + 系统 curl.exe https-only),非 D-312 registry 激活,SG-007 维持 not_triggered、D-312 维持待决(13 号文档/spike_gating 零改动);B = shim 目录切换(junction 降 RFC-0012 §7 备选,RXS-0215 语义定案);C = 冷启动两段各≤10min measured(重测 ≤3 次全入 evidence 取 median);D = bundle 随 semver tag 自动发布确认(首次演练 workflow_dispatch,形态定案 RFC-0012 §4.7)。RFC-0012 Draft→Approved 同 PR;EA1.1a/1.1b/EA1.2 实现解锁(条款体随实现 PR 落,RXS-0214~0219)",
           "evidence": "milestones/ea1/OWNER_DECISION_PACKAGE.md §0 v1.1 / rfcs/0012-toolchain-real-distribution.md §9+修订记录 / milestones/ea1/EA1_CONTRACT.md §7 v1.1"
+        },
+        {
+          "date": "2026-07-28",
+          "event": "EA1.1a 验证收口留痕：RXS-0214（真实 FS 物化与原子落盘）/ RXS-0215（活跃切换 shim）落地 spec/release.md §2.8 + src/rurixup 实现（materialize_to_disk / schema v2 / argv0 干名转发）+ CI 步骤 59 前半（ci/rurixup_dist_smoke.py 红绿闭合 + red_self_test 双向）+ stable bless（spec_clauses 209→211）。全量回归：cargo fmt/clippy/test PASS + trace_matrix 278/278 + stable_snapshot PASS + check_guardrails（g4-closed）PASS + budget_eval normal mode PASS（87 pass 4 skip device）；check_schemas FAIL（pre-existing：9 份 G4.x device evidence schema 缺字段 + RD-036 reason 缺失，非 EA1.1a 引入）。EA1.1b（RXS-0216/0217）+ EA1.2（RXS-0218/0219）已先落 main（be4eee83 / 702bf39a）。",
+          "evidence": "spec/release.md §2.8 RXS-0214/0215 / src/rurixup/src/{install,toolchain,shim,main}.rs / ci/rurixup_dist_smoke.py / tests/stable/bless_log.md L27 / milestones/ea1/EA1_CONTRACT.md §8 EA1.1a 留痕段（同 PR 追加）"
         }
       ]
     },

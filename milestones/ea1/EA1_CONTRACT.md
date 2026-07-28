@@ -166,3 +166,34 @@ EA1 期结束时项目获得:① rurixup 真实分发闭环——`rurixup instal
 ## 8. Close-out(只追加区 — 开工时为空)
 
 <!-- 验收记录、guardrail 核对输出、EA1.0~EA1.3 与 A/B 支线留痕(RFC-0012 / 裁决 A~D 落地 / 步骤 59/60 run URL / 发布演练 / 冷启动 evidence / 备包完备核)、RD-025 处置留痕、SG 复评结论、nightly 契约外轨道成果(若有)追加于此;上方条款 0-byte 修改。EA1 close-out 关闭判定 / 基准切换(mb1-closed→ea1-closed)/ ea1-closed tag / RD·SG 处置由 agent 自主签署兑现。 -->
+
+### EA1.1a — rurixup 真实 FS 物化 + 活跃版本切换（RXS-0214/0215，G-EA1-2）
+
+- **签署**:agent qwasg/白栀,2026-07-28,agent 完全自主签署（AGENTS v3.0 硬规则 1）。本留痕为 EA1.1a 验证收口,**非新 PR**——实现 PR 60be64f5 已于 2026-07-17 commit 在 main,本节追加为 Task 1-7 核验后验证收口留痕。
+- **完成面摘要**:
+  - **条款落 spec/release.md §2.8**:RXS-0214（真实 FS 物化与原子落盘）/ RXS-0215（活跃切换 shim）,FLS 体例,每条 ≥1 `//@ spec:` 锚定。
+  - **src/rurixup install.rs `materialize_to_disk`**:staging→逐组件 sha256→tree_digest 双向（forward 落盘 + backward 重算核验）→同卷单次 rename 原子提交→注册表 v2 单写;幂等（重入跳过已物化版本）+ 失败回滚（清理 staging + 不落注册表）。
+  - **src/rurixup toolchain.rs**:注册表 schema v2（+`install_path`/`tree_digest` 字段,v1 条目读入标 registered-only 不破坏既有纯确定性语义）。
+  - **src/rurixup shim.rs**:argv0 干名转发——剥路径取纯可执行名,转发至 `toolchains/<ver>/bin/` 下目标 exe;防逃逸（拒绝绝对路径/相对路径 argv0）+ 防自递归（目标 != self）。
+  - **src/rurixup main.rs**:子命令 wired——`install --from-dir <path>`（本地 bundle 物化入口,EA1.1b 网络面接入前的离线载体）/ `list --verify`（对照磁盘+注册表双源核验）/ `default`（查询当前活跃版本）/ `setup`（PATH 接通指引）。
+  - **CI 步骤 59 前半（ci/rurixup_dist_smoke.py）红绿闭合**:
+    - **GREEN**:真实物化（staging→rename→注册表 v2 单写）+ 切换探针（`default` 指向新版本 + `toolchains/<ver>/bin/rx.exe` 真跑探针命令退出 0）+ 幂等（二次 install 不重复物化、注册表无重复条目）。
+    - **RED①**:篡改组件一字节→内容寻址拒（tree_digest 双向核验失配）+ `toolchains/` 零残留 + 注册表 0-byte（staging 清理 + 不落注册表）。
+    - **RED②**:`default` 指向已删目录→诚实报错退出非 0（不 fake success）。
+    - **复原绿**:RED 各自见证后重跑 GREEN 路径全绿。
+    - **内建 `red_self_test` 双向**:正路径物化绿 + 反路径篡改拒红,脚本内嵌自证。
+  - **stable_api.snapshot 重 bless**:实现 PR 60be64f5 同 PR 重 bless,spec_clauses 209→211（新增 RXS-0214/0215 两条条款锚定）,bless_log L27 同 diff 记录（步骤 49 硬红不可分 PR 兑现）。
+- **验证输出尾部**（Task 5 cargo 回归 + Task 6 CI 守卫真实输出,非伪造）:
+  - `cargo fmt --check` PASS
+  - `cargo clippy --workspace --all-targets -- -D warnings` PASS
+  - `cargo test --workspace` PASS（rurixup unit 34/34 + 全 corpus 绿）
+  - `trace_matrix --check` 278/278 PASS
+  - `stable_snapshot --check` PASS（spec_clauses=278）
+  - `check_structure` / `number_ledger` / `contribution` / `redistribution` PASS
+  - `check_guardrails` PASS（base=g4-closed,本契约 §5 字节守卫维持）
+  - `budget_eval` normal mode PASS（87 pass / 4 skip device）
+  - **`check_schemas` FAIL**（pre-existing:**非 EA1.1a 引入**——9 份 G4.x device evidence schema 缺字段 + RD-036 reason 缺失,为 EA1.1a 合入前已存在的 pre-existing 破口;本留痕如实标注不掩盖,后续 PR 补）
+- **evidence 路径**:`ci/rurixup_dist_smoke.py` 为 **硬门 smoke**,设计上**不写 evidence JSON**——退出码 0 即硬门证据（Task 7 已核验:`py -3 ci/rurixup_dist_smoke.py` 退出 0,前半 GREEN/RED①/RED②/复原绿 + 后半 hermetic GREEN/RED①②③④/不可达 全绿,`red_self_test` 双向）。脚本不写 evidence JSON 为设计预期,非缺口。
+- **RD-025 history 追加**:`registry/deferred.json` RD-025 history 追加 EA1.1a 落地行（Task 10 同 PR 兑现,与 EA1.1b/EA1.2 落地行一并追加;RD-025 整体关闭判定归 EA1 close-out）。
+- **下一 PR 声明**:**EA1.1b 网络拉取 + 四级信任链（RXS-0216/0217）+ EA1.2 发布侧对称自动化（RXS-0218/0219）已落 main**——commit be4eee83（EA1.1b,2026-07-17,步骤 59 后半 hermetic 环回 HTTP + 四级内容寻址 fail-closed 红绿双证）+ commit 702bf39a（EA1.2,release.yml 延伸 + 步骤 60 + 资产上传回读自校验）。本 §8 留痕为 EA1.1a 验证收口,EA1.1b/EA1.2 的 §8 留痕归各自验证收口任务。
+- **诚实标注 gap**:`spec.md` L15 + `EA1_PLAN.md` L64 要求「`ea1.counter` 登记 + `ci/budget_eval.py` evaluator 分支同实现 PR 落」,实现 PR 60be64f5 未落 ea1.counter 登记 + evaluator 分支——属**执行 gap**。`rurixup_dist_smoke.py` 硬门 PASS/FAIL 已覆盖 EA1.1a 红绿验证,counter 登记 + evaluator 分支建议后续 PR 补（不影响 EA1.1a G-EA1-2 验收门达成,影响 EA1.1a 相关预算条目 `ea1.bench.*` measured 回填,归 G-EA1-8）。

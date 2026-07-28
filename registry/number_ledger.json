@@ -405,6 +405,11 @@
       "version": "v1.12",
       "date": "2026-07-23",
       "change": "EI1 close-out 校准(EI1 close-out PR):RD on_tree_max 34→35、next_free 35→36——EI1.5 已登记 RD-035(UC-05 RHI 执行面余项:transient 别名复用+执行期峰值计数器 I10 / pass 重排并行调度 / RXS-0262 const 泛型定长容量 .rx 接线,registry/deferred.json,open 归后续期);RD-009 同 PR 关闭 (backfill_condition 完整兑现 = PR #182 export(c) 两面全做 + PR #184 GPU 导出面嵌入真跑)。**留痕更正**:v1.11 记『RD 0-byte(零新 RD)』指台账 RD 字段未动,但同 PR deferred.json 实新登 RD-035,字段校准归本条,无编号漂移(RD-036+ 归后续期)。**RXS earmark 作废声明**:EI1 earmark RXS-0250~0269 实消费 0250~0265(0250~0255 export_c / 0256~0262 rhi+graph / 0263~0265 报告判据),余 **RXS-0266~0269 四号未消费,依 EI1_PLAN §5 作废留痕不回收**(burned,MR-0006/0007 先例),RXS next_free=266 维持由后续期顺位使用。reserved_in_flight[EI1] claim 全兑现(RFC-0014 单 RFC 双面 Agent Approved / RXS-0250~0265 / 步骤 71~75 / RD-009 close+RD-035 / 零新 U / RX6031~6033 / 零 MR 消费);EI1 status closed(milestones/ei1/EI1_CONTRACT §8.1)。RFC 命名空间字段 0-byte(G3 close-out v1.7 同例:RFC-0013/0014 兑现以 rfcs/README §5 台账为事实源,本台账字段不随行)。仅动 RD 字段 + 本 revision_log 追加(其余命名空间 0-byte)。"
+    },
+    {
+      "version": "v1.24",
+      "date": "2026-07-28",
+      "change": "EA1.1a rurixup 真实 FS 物化 + 活跃切换（RXS-0214/0215，RFC-0012，G-EA1-2）校准：CI_step 59 前半 materialize 落地（ci/rurixup_dist_smoke.py 前半红绿闭合 + red_self_test 双向）；RXS-0214/0215 落 spec/release.md §2.8 条款体（FLS 体例 + 严禁 UB 节）；src/rurixup install.rs materialize_to_disk（staging→逐组件 sha256→tree_digest 双向→同卷 rename→注册表 v2 单写，幂等+回滚）/ toolchain.rs schema v2 / shim.rs argv0 干名转发 / main.rs 子命令 wired；stable_api.snapshot 重 bless（spec_clauses 209→211，bless_log L27）；字段校准与现状一致（CI_step on_tree_max=81/next_free=82；RXS on_tree_max=294/next_free=297；reserved_in_flight[EA1] 含 59/60 不变）。EA1.1b（be4eee83）+ EA1.2（702bf39a）已先落 main。"
     }
   ]
 }
