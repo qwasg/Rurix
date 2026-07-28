@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "subject": "blackhole_realtime_smoke",
+  "milestone": "G4.6 PR-H / G-G4-7 (RFC-0015 §1 carve-out; RXS-0197/0198)",
+  "step": 81,
+  "host_section_pass": false,
+  "device_section_rc": 1,
+  "checks": {
+    "host_checks": false
+  },
+  "blackhole_realtime_ok": false,
+  "toolchain_skip": null,
+  "dev_env_degrade": false,
+  "run_url": "local",
+  "timestamp": "2026-07-27T22:33:24+08:00"
+}

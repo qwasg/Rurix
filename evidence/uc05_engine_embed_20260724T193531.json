@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "subject": "uc05_engine_embed",
+  "milestone": "EI1.4 / G-EI1-4 (RFC-0014 §4.A+§4.B; RXS-0250~0255 + RXS-0261)",
+  "step": 74,
+  "host_section_pass": false,
+  "device_section_rc": 1,
+  "checks": {
+    "generated_header_not_handwritten": true,
+    "v1_coexistence": true,
+    "zero_rs_audit": true
+  },
+  "embed_ok": false,
+  "toolchain_skip": null,
+  "dev_env_degrade": false,
+  "run_url": "local",
+  "timestamp": "2026-07-24T19:35:31+08:00"
+}

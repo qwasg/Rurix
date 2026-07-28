@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "subject": "uc05_graphics_rhi_smoke",
+  "milestone": "G4.2 PR-B/PR-C / G-G4-3 (RFC-0015 §4.A; RXS-0270~0276)",
+  "step": 76,
+  "host_section_pass": true,
+  "device_section_rc": 1,
+  "checks": {
+    "corpus_pass": true,
+    "zero_rs_audit": true,
+    "compile_gfx_demo": true,
+    "compile_gfx_assembly_rejects": true,
+    "gfx_reject_count": 5,
+    "compile_gfx_bindless": true
+  },
+  "toolchain_skip": null,
+  "dev_env_degrade": false,
+  "run_url": "local",
+  "timestamp": "2026-07-24T18:06:42+08:00"
+}

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "subject": "uc05_exec_face_gate",
+  "milestone": "G4.3 PR-E / G-G4-4 (RFC-0015 §4.B; RXS-0280~0283)",
+  "step": 79,
+  "host_section_pass": true,
+  "device_section_rc": 0,
+  "checks": {
+    "host_lib_tests": true,
+    "device_run": "SKIP",
+    "i10_measured": "SKIP"
+  },
+  "exec_face_ok": false,
+  "i10_measured_local": false,
+  "toolchain_skip": "no-rx",
+  "dev_env_degrade": true,
+  "run_url": "local",
+  "timestamp": "2026-07-24T23:14:58+08:00"
+}
