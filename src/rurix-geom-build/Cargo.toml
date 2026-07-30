@@ -1,0 +1,14 @@
+[package]
+name = "rurix-geom-build"
+description = "Rurix 离线几何构建器(G5,RFC-0016 章 C,报告1 P0)——网格 → meshlet 化(≤128 tri/≤64 vert 簇,贪心邻接生长)→ 分组简化层级 DAG(裂缝保护 + 误差包围球单调)→ ClusterRecord 序列化(64B 定长,预留页表字段)+ CPU 参照剔除器(视锥/背面锥,GPU 剔除对拍金标准)。host 纯 safe 确定性,零外部依赖(全仓供应链纪律);簇契约单源 = rurix-render graph::types"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+# 簇记录/VisBuffer 位格式冻结契约单源(P-11)。
+rurix-render = { path = "../rurix-render" }
+
+[lints]
+workspace = true

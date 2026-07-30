@@ -91,6 +91,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rurix-geom-build"
+version = "1.0.0"
+dependencies = [
+ "rurix-render",
+]
+
+[[package]]
 name = "rurix-geometry"
 version = "1.0.0"
 
@@ -105,6 +112,13 @@ dependencies = [
 [[package]]
 name = "rurix-pkg"
 version = "1.0.0"
+
+[[package]]
+name = "rurix-render"
+version = "1.0.0"
+dependencies = [
+ "rurix-rt",
+]
 
 [[package]]
 name = "rurix-rt"
@@ -190,6 +204,16 @@ name = "uc04-demo"
 version = "1.0.0"
 dependencies = [
  "cc",
+ "rurix-rt",
+ "rurixc",
+]
+
+[[package]]
+name = "uc06-renderer"
+version = "1.0.0"
+dependencies = [
+ "rurix-geom-build",
+ "rurix-render",
  "rurix-rt",
  "rurixc",
 ]

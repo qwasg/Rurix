@@ -1,0 +1,21 @@
+[package]
+name = "rurix-render"
+description = "Rurix 原生引擎渲染器库(G5,RFC-0016,渲染器调研七报告 P0–P2 主线)——声明式 render graph(逐 pass 读写声明 + EB 三轴屏障推导 + transient 池化别名 + 编译期校验 + 异步 compute 车道)/ 虚拟化几何(GPU 两级剔除 + 64 位 VisBuffer SW/HW 双路光栅 + 材质 classify-resolve)/ VSM clipmap 阴影 / 屏幕探针 GI / AS 管理 + ray query 效果 / 单层材质闭合 + GPU scene + PSO precache + 页式流送 / 时域重建(MV/TAA/TSR/UpscaleBackend)。渲染器是库不进语言(06 §8.3);host 侧全 safe 纯 Rust 可单测(uc04-demo 先例),device 执行经 rurix-rt vk 底座(feature vulkan gate)"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+# device 执行底座(可选):rurix-rt vk 执行器 + graph 双后端映射。host 逻辑(图编译/
+# 屏障推导/transient/几何/时域数学/页表)零外部依赖、default 不拉 GPU 面。
+rurix-rt = { path = "../rurix-rt", optional = true }
+
+[features]
+default = []
+# vulkan:device 执行腿(经 rurix-rt vk 底座真派发)。默认关闭:无 Vulkan SDK 环境
+# `cargo build --workspace` 仍全绿(uc04-demo real-shim 先例,host 逻辑常驻回归网)。
+vulkan = ["dep:rurix-rt", "rurix-rt/vulkan"]
+
+[lints]
+workspace = true

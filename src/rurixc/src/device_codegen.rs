@@ -68,13 +68,27 @@ impl DeviceCodegenError {
 /// 无 kernel → `None`(无 device 产物);codegen 失败 → 经 `cx.diag()` 落结构化
 /// 诊断(`RX6003`/`RX6005`,RXS-0073)并返回 `None`;成功 → `Some(NVPTX IR)`。
 /// ptxas 干验证关卡(`RX6004`)由驱动在产 PTX 后另行实施(RXS-0073)。
+///
+/// 图形阶段(Vertex/Fragment/Mesh)过滤(RXS-0270/0275,RXS-0291):当 cargo feature
+/// `vulkan-backend` / `dxil-backend` 启用时,`build_device_crate` 会收集图形阶段根
+/// 进入 device MIR(供 SPIR-V / DXIL 后端消费)。NVPTX 后端不支持图形 shader,
+/// 这些 body 在此过滤掉——仅 `stage.is_none()` 的 compute kernel 进入 NVPTX
+/// codegen;图形阶段由 `collect_spirv_entries`(Vulkan)/ `build_and_emit_dxil`
+/// (DXIL)独立处理。默认(无图形后端 feature)`stage` 恒为 `None`,过滤为 no-op,
+/// 既有 PTX 路径零漂移(RFC-0004 §4.1;R1.2/R6.7)。
 pub fn build_and_emit(cx: &QueryCtx<'_>, module_name: &str) -> Option<String> {
-    let bodies = cx.device_mir_crate();
-    if bodies.is_empty() {
+    let all_bodies = cx.device_mir_crate();
+    if all_bodies.is_empty() {
         return None;
     }
     // device MIR 构建已报错(RX6001 等作用面外构造)→ 不级联 codegen(防一错多报)。
     if cx.diag().has_errors() {
+        return None;
+    }
+    // 图形阶段过滤:仅 compute kernel(stage == None)进入 NVPTX codegen;
+    // 图形阶段(Vertex/Fragment/Mesh)由 Vulkan/DXIL 后端独立处理。
+    let bodies: Vec<&crate::mir::Body> = all_bodies.iter().filter(|b| b.stage.is_none()).collect();
+    if bodies.is_empty() {
         return None;
     }
     let krate = cx.hir_crate();
@@ -95,7 +109,7 @@ pub fn build_and_emit(cx: &QueryCtx<'_>, module_name: &str) -> Option<String> {
 /// device codegen 入口:device MIR 实例集 → 单一 NVPTX LLVM IR 模块文本。
 /// `bodies` 来自 [`crate::mir_build::build_device_crate`](kernel 为根)。
 pub fn emit_nvptx_ir(
-    bodies: &[Body],
+    bodies: &[&Body],
     krate: &hir::Crate,
     res: &Resolutions,
     module_name: &str,
@@ -729,6 +743,10 @@ impl Cg<'_> {
             Rvalue::ResourceSample { .. } => Err(DeviceCodegenError::constraint(
                 b.span,
                 "texture sampling is out of the device (PTX) codegen subset (RXS-0175 is graphics=B only)",
+            )),
+            Rvalue::Atomic { .. } => Err(DeviceCodegenError::constraint(
+                b.span,
+                "scoped atomics remain deferred in the device (PTX) codegen subset",
             )),
         }
     }

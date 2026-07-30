@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "namespace": "g5",
+  "description": "G5 预算(14 §3:entries + ratio_assertions + counter_assertions,命名空间强制前缀)。G5 开工契约脚手架:三组全部留空(延续 G2/MB1/EA1/G3/EI1/G4 脚手架先例 + 零占位纪律,14 §3)。entries/ratio_assertions 留空 = 不预欠 estimated 占位;counter_assertions 留空 = 实体面 Full-RFC-gated(RFC-0016 伞形,开工期 RFC 文件不落),deliverable 形态未定,预造 counter 即预设 Full RFC 应定义的语义。红绿 counter(g5.counter.*)随 G5.2~G5.4 实现 PR 与 ci/budget_eval.py evaluator 分支同落(未知 id 强制 FAIL);g5.bench.*(如各阶段 GPU 时间戳)随取证 measured_local 回填,数字不进硬门(G5_CONTRACT out_of_scope perf_budget_hard_gates)。永不立引擎采纳/下载量/用户数类条目(G5_CONTRACT guardrails)。",
+  "source_docs": [
+    "milestones/g5/G5_CONTRACT.md",
+    "milestones/g5/G5_PLAN.md",
+    "milestones/g5/CI_GATES.md"
+  ],
+  "entries": [],
+  "ratio_assertions": [],
+  "counter_assertions": [
+    {
+      "id": "g5.counter.renderer_graph_host_tests",
+      "description": "render graph host 单测基数 ≥30(契约 G-G5-3;RFC-0016 章 A;ci/renderer_graph_smoke.py 步骤 82 host 段)。计数源 = evidence/renderer_graph_smoke_*.json 中 graph_test_count(host 恒跑,纯 rust test 静态计数,对齐 m1.counter.syntax_corpus_size 先例)。",
+      "evidence_file": "evidence/renderer_graph_smoke_*.json",
+      "direction": "min",
+      "threshold": 30
+    },
+    {
+      "id": "g5.counter.render_exec_device_tests",
+      "description": "render_exec device 真跑见证基数 = 4(契约 G-G5-4;RFC-0016 章 B;ci/renderer_draw_smoke.py 步骤 83 device 段)。计数源 = evidence/renderer_draw_smoke_*.json 中 render_exec_device_pass=true 且 render_exec_device_tests_present=true 的报告数——device evidence 计数(对齐 g4.counter.vulkan_rhi_channel 先例):须有 Vulkan 驱动 + GPU 才能成立,缺 provisioning SKIP=dev-env degrade → 建设期 normal SKIP / close-out strict FAIL。",
+      "evidence_file": "evidence/renderer_draw_smoke_*.json",
+      "direction": "min",
+      "threshold": 1
+    },
+    {
+      "id": "g5.counter.renderer_smoke_steps",
+      "description": "G5 新 smoke 步骤基数 = 6(契约 G-G5-3~G-G5-8;CI_GATES §2 步骤 82~87;本批同 PR 落)。计数源 = ci/renderer_*_smoke.py + ci/uc06_renderer_smoke.py 六个脚本静态存在(host 恒跑不 gate,对齐 g4.counter.graphics_invariant_cases 静态语料计数先例)。",
+      "evidence_file": "static:ci/scripts",
+      "direction": "min",
+      "threshold": 6
+    }
+  ],
+  "namespace_check": "全部 id 必须 g5. 前缀;跨文件合并冲突即 FAIL(ci/budget_eval.py)",
+  "revision_log": [
+    {
+      "version": "v1.0",
+      "date": "2026-07-29",
+      "change": "G5.0 开工脚手架空壳(三组全空,零 estimated 预欠;编号 claim 见 number_ledger v1.27 reserved_in_flight[G5],CI_GATES §2 步骤拟分配随实现 PR 回填)。"
+    }
+  ]
+}

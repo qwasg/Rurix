@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "光照冒烟证据 schema(G5.3-D/E/F,步骤 85;G-G5-6;RFC-0016 章 D/E/F)",
+  "description": "ci/renderer_lighting_smoke.py 写 evidence/renderer_lighting_smoke_<ts>.json。host 段恒跑 shadow/gi/rt 参考器；device 段按能力分波：W1 VSM page-mark 经 Vulkan 真派发对拍，W3 gi_probe/rtao/hard_shadow 因 rurixc ray query 编码通道与 SPIR-V 1.4 门槛保持 RD-038-W3 blocked-honest，设备能力非阻塞项。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "milestone",
+    "step",
+    "host_section_pass",
+    "device_section_rc",
+    "checks",
+    "run_url",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "renderer_lighting_smoke" },
+    "milestone": { "type": "string" },
+    "step": { "type": "integer", "const": 85 },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_rc": { "type": "integer" },
+    "device_blocked": { "type": ["string", "null"] },
+    "device_probe_note": { "type": ["string", "null"] },
+    "device_wave_w1_pass": { "type": ["boolean", "null"] },
+    "device_wave_w2_pass": { "type": ["boolean", "null"] },
+    "device_wave_tests": {
+      "type": ["array", "null"],
+      "items": { "type": "string" }
+    },
+    "device_blocked_w3": { "type": ["string", "null"] },
+    "blocked_reason": { "type": ["string", "null"] },
+    "missing_toolchain_caps": {
+      "type": ["array", "null"],
+      "items": { "type": "string" }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "shadow_pass": { "type": ["boolean", "string"] },
+        "shadow_count": { "type": ["integer", "boolean", "string"] },
+        "gi_pass": { "type": ["boolean", "string"] },
+        "gi_count": { "type": ["integer", "boolean", "string"] },
+        "rt_pass": { "type": ["boolean", "string"] },
+        "rt_count": { "type": ["integer", "boolean", "string"] }
+      }
+    },
+    "toolchain_skip": { "type": ["string", "null"] },
+    "dev_env_degrade": { "type": "boolean" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" }
+  }
+}

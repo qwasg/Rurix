@@ -1037,6 +1037,91 @@
           "evidence": "G4_CONTRACT §8.PR-G / rfcs/0015-engine-rendering.md §3.4 §4.D / spec/rhi.md RXS-0277 / apps/uc05-rhi/src/embed.rx / src/rurix-engine/harness/engine_host_v3.cpp / registry/number_ledger.json（RXS-0295/0296 burned 登记）"
         }
       ]
+    },
+    {
+      "id": "RD-037",
+      "title": ".rx 声明式 gfx submit 真派发条件臂——rurixc lowering(gfx pass vs/fs SPIR-V 入 artifacts v2)+ cabi VB/IB 顶点数据绑定面 + rxrt_rhi_submit gfx 派发臂",
+      "reason": "G5 RFC-0016 §9.1 R-1 对抗性评审裁决:主通道 = 引擎库 Rust 级执行器 render_exec(已 device 见证);.rx submit 真派发缺口经 W1-B 现场核实为 rurixc lowering 级(声明式库面未承载顶点数据),超本期时间盒,honest 存续不伪造",
+      "raised_in": "G5.2 W1-B 派发桥现场核实(RFC-0016 §4.B2 双通道裁决/G5_CONTRACT G-G5-4 主通道口径)",
+      "owner_milestone": "G5.2(登记;条件臂存续)",
+      "status": "open",
+      "backfill_condition": "当 .rx 单源图形应用(声明式 gfx 图不经 Rust 宿主直接出图)成为真实需求面时按 10 §3 判档兑现:① rurixc lowering 把 gfx pass 顶点供给面纳入 artifacts v2 通道(条款先行,确需自 RXS-0297 顺位);② cabi 追加式 VB/IB 绑定符号(RXS-0194 口径,drop_rhi_children 级联模式);③ rxrt_rhi_submit 阶段 2 gfx 派发臂接 render_exec/vk.rs;判据 = .rx gfx 图零 Rust 宿主代码 device 真跑 readback 像素断言",
+      "history": [
+        {
+          "date": "2026-07-29",
+          "event": "G5.2 W1-B 核实登记:rxrt_rhi_submit gfx pass 仅参 barrier 推导(src/rurix-rt-cabi/src/lib.rs:1883~1885 现状锚),真派发缺口 = rurixc lowering + cabi 绑定面 + 派发臂三件;RFC-0016 §9.1 R-1 裁决主通道改 Rust 级 render_exec(G-G5-4 已由 render_exec device 真跑满足),本面降条件臂存续",
+          "evidence": "rfcs/0016-native-renderer.md §4.B2/§9.1 R-1 / src/rurix-rt/src/render_exec.rs / unsafe-audit U32"
+        }
+      ]
+    },
+    {
+      "id": "RD-038",
+      "title": "渲染器效果 kernel device 化——两级剔除/VisBuffer SW(u64 atomicMax)+HW 光栅/classify-resolve/VSM 深度/屏幕探针 GI/RTAO 硬阴影/TAA-TSR 的 GPU compute/raster kernel 化 + device 对拍(host 参考已全量锚定)",
+      "reason": "G5 RFC-0016 §9.1 R-3 条件臂:rayQueryEXT/u64 atomic 等 SPIR-V 编码依赖 rurixc vulkan_codegen 供给面(现为 emit_*_min 见证形态),效果 kernel 的 .rx 表达通道未通;W2 六面已交付全量 host 参考实现(239 单测,含逐位对拍金标准),device 腿到真实证据边界 honest 存续,不伪造 device 绿",
+      "raised_in": "G5.3 W2 六面交付(RFC-0016 §4.E3 device 腿条件臂/§9 Q-A 着色器供给面拟裁)",
+      "owner_milestone": "G5.3(登记;device 腿条件臂)",
+      "status": "open",
+      "backfill_condition": "rurixc vulkan_codegen 效果 kernel 编码通道就位(ray query/u64 atomic/storage image 写等,条款按需自 RXS-0297 顺位)后逐效果兑现:GPU 剔除与 CPU 蛮力逐簇一致对拍/VisBuffer SW-HW 逐像素 diff 容差 0/VSM device 深度对拍/GI 方向一致性对拍/RTAO 同 TLAS 对拍——host 参考器(geometry::cull/visbuffer,shadow::vsm,gi::pipeline,rt::ref_tracer,temporal::taa/tsr)即金标准,判据已在 G5 CI_GATES §2 步骤 84~86 device 段 blocked 探针占位恒跑",
+      "history": [
+        {
+          "date": "2026-07-29",
+          "event": "G5.3 W2 交付登记:效果六面 host 参考全量落地(剔除/VisBuffer/VSM/GI/RTAO/TAA-TSR,确定性单测含白炉能量守恒/逐位对拍/SSIM 门);device 化以 render_exec 执行面为底座待 kernel 编码通道,步骤 84~86 device 段以 blocked-honest 探针恒跑",
+          "evidence": "rfcs/0016-native-renderer.md §4.E3/§9.1 R-3 / src/rurix-render/src/{geometry,shadow,gi,rt,temporal}/ / milestones/g5/CI_GATES.md §2"
+        },
+        {
+          "date": "2026-07-30",
+          "event": "W1+W2 分波部分兑现(降级方案优化,设备化调研报告 2026-07-29 波次裁决):① rurixc vulkan_codegen compute 通道落地 32 位 SSBO 原子(Rvalue::Atomic→OpAtomicIAdd/UMin/UMax/Or 等,Device+Relaxed)+ compute TextureRw2D 存储图像写读(format-qualified,SPIR-V 1.0 零新能力)+ Int64/Int64Atomics(u64 算术+OpAtomicUMax,capability 按需声明,SPIR-V 维持 1.0);② render_exec 能力位框架:DeviceCaps 扩 ray query 五件链探测 + KernelWave W1/W2/W3 fail-closed require_wave 路由(RFC-0016 §4.0-2 口径,降级仅编排层显式);③ 五效果内核 .rx→SPIR-V device 真跑对拍全绿(cull 72/120 簇集合一致/VisBuffer 9216 词 u64 逐位一致容差 0/classify-resolve 一致/VSM 页位图一致/TAA 最大误差 1.2e-7;RTX 4070 Ti,validation 零报错);④ 步骤 84~86 device 段自一刀切 blocked 探针细化为 W1/W2 gate-real 真跑 + W3 blocked-honest(missing_toolchain_caps 逐项留痕),uc06 device 腿写内核对拍与能力快照入 evidence。W3(ray query,需 SPIR-V 1.4 升级)与 HW 光栅 diff 腿维持 blocked 存续,status 维持 open",
+          "evidence": "src/rurixc/src/vulkan_codegen.rs / src/rurix-rt/src/render_exec.rs / apps/uc06-renderer/{build.rs,kernels/,src/device_kernels.rs} / evidence/renderer_{visbuffer,lighting,temporal}_smoke_20260730T*.json / evidence/uc06_renderer_smoke_20260730T120711.json"
+        }
+      ]
+    },
+    {
+      "id": "RD-039",
+      "title": "虚拟化几何 P3+ 长线评估——mesh shader 第三光栅路径/HZB 两阶段遮挡剔除/cluster 流送 P4(压缩+父页引用+超显存)/Nanite Foliage 与骨骼(Skinning)/曲面细分位移/Assemblies 全功能(嵌套+跨 assembly 去重)/Mega Geometry 簇级 BLAS",
+      "reason": "调研报告1 自身分期建议:P0–P2 主线(meshlet+DAG/两级剔除/VisBuffer 双路/classify-resolve)已由 G5 落地,P3+ 为优化与扩展项非地基(Bevy 纯计算管线证明 mesh shader 非必需;HZB 为 P2 尾条件臂 G5 未达);P-12 克制压过完整性",
+      "raised_in": "G5 RFC-0016 §8 范围红线表(报告1 P3+/§9 Q-B HZB 条件臂未达)",
+      "owner_milestone": "G5(登记;长线评估存续)",
+      "status": "open",
+      "backfill_condition": "逐项独立判档(10 §3):HZB 两阶段在剔除效率成为 measured 瓶颈时优先;mesh shader 在多厂商扩展行为收敛且性能差有 measured 证据时评估;cluster 流送 P4 在场景规模超显存时;Foliage/骨骼在动态资产面出现时(联动 RD-040 蒙皮 MV);Mega Geometry 在 RT 与虚拟几何合流需求出现时",
+      "history": [
+        {
+          "date": "2026-07-29",
+          "event": "G5.4 P3+ 项按 RFC-0016 §8 表登记存续;几何主线 P0–P2 已落地(rurix-geom-build + geometry:: 两级剔除/VisBuffer/classify-resolve,host 参考全量)",
+          "evidence": "rfcs/0016-native-renderer.md §8 / 渲染器调研/调研报告1-几何与Nanite类虚拟化几何.md §7"
+        }
+      ]
+    },
+    {
+      "id": "RD-040",
+      "title": "光照 P3+ 长线评估——SMRT 软阴影完整版/世界辐射缓存(GI P2)/自适应探针(GI P3)/SDF 软追踪(GI P4)/ReSTIR GI-DI 与 MegaLights/RT pipeline+SBT/SER 与 OMM/NRD 类 vendor 降噪接入",
+      "reason": "调研报告2/3/4 自身分期建议:GI-VSM-RT 的 P0–P1 主线(屏幕探针+ray query 单反弹+SH+时域累积/VSM clipmap 硬阴影/RTAO+硬阴影+AS 管理)已由 G5 落地;SMRT 采样端算法零新数据结构可独立承接(RFC-0016 §9 Q-C 降档);RT pipeline/SBT 为十倍级工程量且 ray query 覆盖本期全部需求(§7-4 否决)",
+      "raised_in": "G5 RFC-0016 §8 范围红线表(报告2/3/4 P2+/§9 Q-C SMRT 降档/Q-F NRD 留口)",
+      "owner_milestone": "G5(登记;长线评估存续)",
+      "status": "open",
+      "backfill_condition": "逐项独立判档(10 §3):SMRT 在 VSM device 化(RD-038)后可独立 Mini 兑现(采样端沿光线多采样);世界辐射缓存在屏幕探针远场缺失成为画质 measured 问题时;ReSTIR/MegaLights 在多灯场景需求出现时;RT pipeline/SBT 在『命中点需多样化材质着色』真实出现时(与 GI hit lighting 同步评估);NRD/vendor 降噪经 UpscaleBackend 同构输入契约接入(MV/深度/法线),接入时不改 temporal 底座",
+      "history": [
+        {
+          "date": "2026-07-29",
+          "event": "G5.4 P3+ 项按 RFC-0016 §8 表登记存续;光照主线 P0–P1 已落地(shadow::vsm + gi::pipeline + rt::effects,白炉守恒/逐位对拍/收敛单测全量)",
+          "evidence": "rfcs/0016-native-renderer.md §8/§9 Q-C Q-F / 渲染器调研/调研报告2~4 各 §7"
+        }
+      ]
+    },
+    {
+      "id": "RD-041",
+      "title": "材质/流送/时域 P3+ 长线评估——多层材质 slab(Substrate 类)/SVT 虚拟纹理/KTX2-BasisU 真转码器接入/FSR-DirectSR 类 vendor 超分 SDK 接入/帧生成 FG-MFG/蒙皮 WPO MV 通道资产验证/Work Graphs 与 mesh nodes GPU 侧调度",
+      "reason": "调研报告5/6/7 自身分期建议:材质流送时域 P0–P2 主线(32B 单层闭合/GPU scene/PSO precache/128KB 页式流送三预算/MV-jitter-历史验证底座/TAA/TSR+UpscaleBackend)已由 G5 落地;KTX2 真转码为第三方级工程量(RFC-0016 §9.1 R-4 降档留口);vendor SDK 集成面超时间盒(§9 Q-F 留口不接);Work Graphs 工具链 2026 仍评估项(§7-7 否决)",
+      "raised_in": "G5 RFC-0016 §8 范围红线表(报告5/6/7 P3+/§9.1 R-4 转码降档)",
+      "owner_milestone": "G5(登记;长线评估存续)",
+      "status": "open",
+      "backfill_condition": "逐项独立判档(10 §3):多层 slab 在单层闭合表达力成为真实资产瓶颈时(MaterialClosure 已预留拓扑字段位);KTX2/BasisU 在真实纹理资产管线出现时经 PagedResource::transcode 留口接入(解包确定性单测口径不变);FSR/DirectSR 经 UpscaleBackend trait 接入(接口已冻结,不改底座);FG/MFG 为独立层另判;蒙皮/WPO MV 在动态资产面出现时(接口已按三类速度设计);Work Graphs 待 Vulkan 侧对应物成熟且『pass 内部提交单元可替换』接缝已预留",
+      "history": [
+        {
+          "date": "2026-07-29",
+          "event": "G5.4 P3+ 项按 RFC-0016 §8 表登记存续;材质流送时域主线 P0–P2 已落地(material::/streaming::/temporal::,SSIM 门与三预算扣账单测全量)",
+          "evidence": "rfcs/0016-native-renderer.md §8/§9.1 R-4/§9 Q-F / 渲染器调研/调研报告5~7 各 §7~8"
+        }
+      ]
     }
   ],
   "revision_log": [
@@ -1400,6 +1485,16 @@
       "version": "v1.70",
       "date": "2026-07-28",
       "change": "EA1.3 close-out t9 处置(agent 完全自主签署,AGENTS v3.0 硬规则 1;用户 2026-07-28 会话决策『A 段推迟,先收口』):① **RD-025 关闭判定**——backfill_condition(rurixup 真实 FS 物化 + 网络拉取)已由 EA1.1a/1.1b/1.2 三 PR 全量落地(60be64f5 / be4eee83 / 702bf39a,均 2026-07-17 main),status open→closed,history 追加 close-out 关闭行。② **新增 RD-033**——EA1 冷启动 A 段(干净 Win11 VM,vm_rxcheck)measured evidence 推迟:裁决 C 两段式口径 A 段缺 VM 环境(owner-dependent),agent 无法自主推进;EA1.3 close-out 以 B 段 measured 26.56s 达成 + A 段 pending RD-033 留痕收口;G-EA1-6 标注『A 段 pending RD-033,B 段达成』;owner 备 VM 后补测 + 回填 ea1.bench.cold_start_vm_rxcheck_s。RD-033 = EA1 earmark 在途 claim(number_ledger reserved_in_flight[EA1].RD)兑现消费。零新 RX 码,零新 unsafe。既有 RD-025 不可变字段 id/title/reason/backfill_condition/owner_milestone 0-byte(仅 status 翻 closed + history 追加)。"
+    },
+    {
+      "version": "v1.71",
+      "date": "2026-07-29",
+      "change": "G5.4 P3+/条件臂存续登记:追加 RD-037(.rx gfx submit 真派发条件臂,RFC-0016 §9.1 R-1)/RD-038(渲染器效果 kernel device 化条件臂,§9.1 R-3)/RD-039(几何 P3+ 长线)/RD-040(光照 P3+ 长线)/RD-041(材质流送时域 P3+ 长线),全部 status=open。编号自 number_ledger v1.27 reserved_in_flight[G5].RD claim(RD-037 起)顺位消费;既有条目 0-byte 只追加。"
+    },
+    {
+      "version": "v1.72",
+      "date": "2026-07-30",
+      "change": "RD-038 W1+W2 分波部分兑现登记(降级方案优化,owner 2026-07-30 会话指令『依设备化调研报告全面优化 G5 渲染器降级方案』;agent 完全自主签署,AGENTS v3.0 硬规则 1):history 追加一行——rurixc W1(32 位 SSBO 原子+compute 存储图像写)/W2(Int64+Int64Atomics) lowering 落地 + render_exec 能力位波次路由(fail-closed) + 五效果内核 device 真跑对拍全绿(RTX 4070 Ti) + 步骤 84~86 device 段分波细化(W1/W2 gate-real + W3 blocked-honest)。status 维持 open(W3 ray query 腿与 HW 光栅 diff 腿存续);零新 RX 码,零新 unsafe;既有条目与 history 既有行 0-byte 只追加。"
     }
   ]
 }

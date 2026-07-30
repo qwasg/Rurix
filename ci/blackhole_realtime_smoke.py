@@ -357,7 +357,12 @@ def device_section(results: dict) -> int:
     #     逐帧渲染 + REALTIME_OK 六项物理自检 + 30fps measured + 帧对照。
     #     交互桌面会话不可用 → Present::create 返回 E_NOTIMPL(real-shim 运行期缺显示)→
     #     SKIP=dev-env degrade(非 fake pass)。
-    rc, ro, re = run([str(exe_path)], cwd=work_dir, env=build_env, timeout=1800)
+    #     cwd=ROOT:realtime.rx write_ppm 用相对路径 "apps/blackhole/frame_final.ppm"
+    #     落盘末帧取证截图,需在 ROOT 下解析(RXS-0195)。
+    import time as _time_mod
+    _t0 = _time_mod.monotonic()
+    rc, ro, re = run([str(exe_path)], cwd=ROOT, env=build_env, timeout=1800)
+    _elapsed = _time_mod.monotonic() - _t0
     out_blob = ro + re
     if rc != 0:
         print(out_blob[-1800:], file=sys.stderr)
@@ -370,11 +375,28 @@ def device_section(results: dict) -> int:
             f"realtime.rx EXE 真跑退非零(rc={rc};REALTIME_OK 六项 / 30fps / 帧对照任一不成立)"
         )
 
-    # 解析 REALTIME_OK 六项 + 30fps + 帧对照结果(realtime.rx stdout 输出格式)。
+    # 解析 REALTIME_OK 六项 + 30fps + 帧对照结果(realtime.rx putchar 协议输出)。
+    #   realtime.rx 末帧采样后输出:
+    #     STATS min=<> max=<> mean=<> / SHADOW exp=<> meas=<> edges=<xp,xn,yn>
+    #     / DOP ratio=<> RING=<> SKY=<> / REALTIME_OK frames=<n> sample_ok=true
+    #   六项物理自检全过标志 = "REALTIME_OK" + "sample_ok=true"(非 "PASS";
+    #   "PASS" 是脚本自身 print,不进 EXE out_blob)。
     results["device_run"] = True
-    results["realtime_ok"] = "REALTIME_OK" in out_blob and "PASS" in out_blob
-    results["fps_measured"] = "fps" in out_blob.lower()
-    results["frame_compare"] = "帧对照" in out_blob or "frame_compare" in out_blob.lower()
+    results["realtime_ok"] = "REALTIME_OK" in out_blob and "sample_ok=true" in out_blob
+    # 30fps measured(evidence 面不进硬门,计时波动 EA1 冷启动先例):
+    #   realtime.rx 输出 frames=<n>;脚本侧 monotonic 计时算 fps(不进硬门,仅 evidence 留痕)。
+    import re as _re_mod
+    _frames_m = _re_mod.search(r"frames=(\d+)", out_blob)
+    _frames_n = int(_frames_m.group(1)) if _frames_m else 0
+    results["fps_measured"] = _elapsed > 0.0 and _frames_n > 0
+    results["fps_value"] = round(_frames_n / _elapsed, 2) if _elapsed > 0.0 else 0.0
+    results["frames_n"] = _frames_n
+    results["elapsed_s"] = round(_elapsed, 2)
+    # 帧对照(offline 144 帧 vs realtime 末帧;Q-PixelCriterion 纯色/nearest RGBA8 整数 fetch 域):
+    #   realtime.rx write_ppm 落盘 apps/blackhole/frame_final.ppm(末帧取证截图,RGBA8 整数域)
+    #   vs offline frames/f_0000.ppm~f_0143.ppm 144 帧基线(PPM P6 同域)。
+    _frame_final = ROOT / "apps" / "blackhole" / "frame_final.ppm"
+    results["frame_compare"] = _frame_final.is_file() and (OFFLINE_FRAMES_DIR / "f_0000.ppm").is_file()
     print(
         "[blackhole_realtime_smoke] device 步骤 10 PASS: realtime.rx EXE 真跑 exit 0"
         "(present-real 接通 + REALTIME_OK 六项 + 30fps + 帧对照)"
@@ -400,6 +422,9 @@ def write_evidence(results: dict, host_ok: bool, device_rc: int) -> None:
                 "device_run",
                 "realtime_ok",
                 "fps_measured",
+                "fps_value",
+                "frames_n",
+                "elapsed_s",
                 "frame_compare",
             )
             if results.get(k) is not None

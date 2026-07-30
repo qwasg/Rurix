@@ -256,6 +256,24 @@ def check_evidence_files() -> None:
     blackhole_realtime_smoke_schema = load(
         ROOT / "milestones/g4/blackhole_realtime_smoke_evidence_schema.json"
     )
+    renderer_graph_smoke_schema = load(
+        ROOT / "milestones/g5/renderer_graph_smoke_evidence_schema.json"
+    )
+    renderer_draw_smoke_schema = load(
+        ROOT / "milestones/g5/renderer_draw_smoke_evidence_schema.json"
+    )
+    renderer_visbuffer_smoke_schema = load(
+        ROOT / "milestones/g5/renderer_visbuffer_smoke_evidence_schema.json"
+    )
+    renderer_lighting_smoke_schema = load(
+        ROOT / "milestones/g5/renderer_lighting_smoke_evidence_schema.json"
+    )
+    renderer_temporal_smoke_schema = load(
+        ROOT / "milestones/g5/renderer_temporal_smoke_evidence_schema.json"
+    )
+    uc06_renderer_smoke_schema = load(
+        ROOT / "milestones/g5/uc06_renderer_smoke_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -410,6 +428,36 @@ def check_evidence_files() -> None:
     blackhole_realtime_smoke_validator = (
         jsonschema.Draft7Validator(blackhole_realtime_smoke_schema)
         if blackhole_realtime_smoke_schema
+        else None
+    )
+    renderer_graph_smoke_validator = (
+        jsonschema.Draft7Validator(renderer_graph_smoke_schema)
+        if renderer_graph_smoke_schema
+        else None
+    )
+    renderer_draw_smoke_validator = (
+        jsonschema.Draft7Validator(renderer_draw_smoke_schema)
+        if renderer_draw_smoke_schema
+        else None
+    )
+    renderer_visbuffer_smoke_validator = (
+        jsonschema.Draft7Validator(renderer_visbuffer_smoke_schema)
+        if renderer_visbuffer_smoke_schema
+        else None
+    )
+    renderer_lighting_smoke_validator = (
+        jsonschema.Draft7Validator(renderer_lighting_smoke_schema)
+        if renderer_lighting_smoke_schema
+        else None
+    )
+    renderer_temporal_smoke_validator = (
+        jsonschema.Draft7Validator(renderer_temporal_smoke_schema)
+        if renderer_temporal_smoke_schema
+        else None
+    )
+    uc06_renderer_smoke_validator = (
+        jsonschema.Draft7Validator(uc06_renderer_smoke_schema)
+        if uc06_renderer_smoke_schema
         else None
     )
     uc05_check_bench_validator = (
@@ -735,6 +783,62 @@ def check_evidence_files() -> None:
             # blackhole_realtime_ok=false 诚实失败而非降级;carve-out 解除后真实 blackhole 路径冒烟,
             # host_checks + device_run + blackhole_realtime_ok)。
             validator = blackhole_realtime_smoke_validator
+        elif (
+            f.name.startswith("renderer_graph_smoke")
+            and renderer_graph_smoke_validator is not None
+        ):
+            # G5.2-A 渲染调度 render graph 冒烟证据(G-G5-3;RFC-0016 章 A)→
+            # milestones/g5/renderer_graph_smoke_evidence_schema.json(ci/renderer_graph_smoke.py
+            # 步骤 82 写:纯 host 门,rurix-render graph:: 四趟编译/EB 屏障 golden/别名峰值/校验
+            # RED 自检/异步车道 fence/图 dump 单测全过 + 图 dump 测试在集内)。
+            validator = renderer_graph_smoke_validator
+        elif (
+            f.name.startswith("renderer_draw_smoke")
+            and renderer_draw_smoke_validator is not None
+        ):
+            # G5.2-B 渲染器 draw 派发桥冒烟证据(G-G5-4;RFC-0016 章 B)→
+            # milestones/g5/renderer_draw_smoke_evidence_schema.json(ci/renderer_draw_smoke.py
+            # 步骤 83 写:host 恒跑 render_exec host 单测;device 段 gate real --features vulkan
+            # 含 4 项 device 真跑〔三角形真 draw/compute 写 buffer/raster→compute 混合/能力探测〕,
+            # SKIP=dev-env-degrade,RURIX_REQUIRE_REAL=1 翻硬红)。
+            validator = renderer_draw_smoke_validator
+        elif (
+            f.name.startswith("renderer_visbuffer_smoke")
+            and renderer_visbuffer_smoke_validator is not None
+        ):
+            # G5.2-C+G5.3-C 虚拟化几何冒烟证据(G-G5-5;RFC-0016 章 C)→
+            # milestones/g5/renderer_visbuffer_smoke_evidence_schema.json(ci/renderer_visbuffer_smoke.py
+            # 步骤 84 写:host 恒跑 rurix-geom-build + rurix-render geometry:: 单测;device 段
+            # blocked-honest 探针〔RFC-0016 §9.1 R-3 条件臂,RD-038 存续,不伪造 device 绿〕)。
+            validator = renderer_visbuffer_smoke_validator
+        elif (
+            f.name.startswith("renderer_lighting_smoke")
+            and renderer_lighting_smoke_validator is not None
+        ):
+            # G5.3-D/E/F 光照冒烟证据(G-G5-6;RFC-0016 章 D/E/F)→
+            # milestones/g5/renderer_lighting_smoke_evidence_schema.json(ci/renderer_lighting_smoke.py
+            # 步骤 85 写:host 恒跑 shadow::/gi::/rt:: 单测;device 段 blocked-honest 探针
+            # 〔RD-038 存续,不伪造 device 绿〕)。
+            validator = renderer_lighting_smoke_validator
+        elif (
+            f.name.startswith("renderer_temporal_smoke")
+            and renderer_temporal_smoke_validator is not None
+        ):
+            # G5.2-H+G5.3-H 时域重建冒烟证据(G-G5-7;RFC-0016 章 H)→
+            # milestones/g5/renderer_temporal_smoke_evidence_schema.json(ci/renderer_temporal_smoke.py
+            # 步骤 86 写:host 恒跑 temporal:: 单测 + TAA 静态收敛在集内;device 段 blocked-honest
+            # 探针〔RD-038 存续〕)。
+            validator = renderer_temporal_smoke_validator
+        elif (
+            f.name.startswith("uc06_renderer_smoke")
+            and uc06_renderer_smoke_validator is not None
+        ):
+            # G5.4 UC-06 全管线渲染器冒烟证据(G-G5-8;RFC-0016 §1 管线图)→
+            # milestones/g5/uc06_renderer_smoke_evidence_schema.json(ci/uc06_renderer_smoke.py
+            # 步骤 87 写:host 恒跑 uc06-renderer host 全管线 exit 0 + asserts 全 true + PSO 告警 0
+            # + graph alias/fence 结构;device 段 gate real --features vulkan --device 真跑,
+            # SKIP=dev-env-degrade,RURIX_REQUIRE_REAL=1 翻硬红)。
+            validator = uc06_renderer_smoke_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None

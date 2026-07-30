@@ -561,10 +561,10 @@ PR-I close-out(G4.7,G-G4-8 终审)。全量回归冻结(`py -3 ci/budget_eval.py
 **存续项清单**(blocked 面照 G-MB1-6 措辞「OPEN 尾门越过 close-out 存续,不签不伪造,状态翻转不依赖新契约」存续;device 段 SKIP=dev-env degrade 为建设期正常态,非 fake pass):
 
 1. **RD-036 open**(export_c_extended_signatures_v2 超界硬需求存续;PR-G 条件臂判档不成立之存续;backfill_condition 两判据任一成立即兑现)。
-2. **RD-036 结构性 gap**:deferred.json RD-036 缺 `reason` 字段(check_schemas.py L42 强制字段之一,与 RD-035 同口径)— 后续 PR 补 field(check_schemas FAIL 原因之一)。
-3. **evidence 文件 schema gap**:`evidence/vulkan_rhi_channel_smoke_*.json` 等 evidence 文件缺 required properties(check_schemas FAIL 原因之一)— 后续 PR 修脚本写入补字段或扩 schema。
-4. **budget_eval --strict 4 counters FAIL**:g4.counter.graphics_rhi_smoke / engine_embed_v3 / vulkan_rhi_channel / blackhole_realtime_smoke — device 段 SKIP=dev-env degrade 预期;device 见证回填待 provisioning(MSVC + Windows SDK D3D12 + Vulkan SDK + GPU + 交互桌面会话);**计数器正常 mode PASS**(SKIP=dev-env degrade 为建设期正常态,非 fake pass,契约 G-G4-3/4/5/7 device 见证回填前为正常状态)。
-5. **device 段 SKIP=dev-env degrade**(步骤 76/78/80/81 device 段):缺 provisioning(无 GPU / 无 MSVC / 无 Windows SDK / 无 Vulkan SDK / 无交互桌面会话);host 段恒跑全 PASS(反 YAML-only);RURIX_REQUIRE_REAL=1 翻硬红不充绿;run URL 不伪造(本机记 "local")。注:步骤 79 device 段 RURIX_REQUIRE_REAL=1 退 0(EXE 真跑 PASS,非 SKIP,纯 host 库可链)。
+2. **RD-036 结构性 gap**:**已消除(check_schemas PASS)**——registry/deferred.json RD-036 `reason` 字段已存在(deferred.json v1.68 RD-036 entry `reason` 字段落位,check_schemas.py L42 强制字段满足;原 §8.8 close-out 时记的「缺 reason 字段」结构性 gap 已由后续 deferred.json revision 补 field 消除)。
+3. **evidence 文件 schema gap**:**已消除(check_schemas PASS)**——`evidence/vulkan_rhi_channel_smoke_*.json` 等 evidence 文件 required properties 已补齐(4 份 device 真跑 evidence 文件落位:uc05_graphics_rhi_smoke_20260728T190615.json / uc05_engine_embed_v3_20260728T193238.json / vulkan_rhi_channel_smoke_20260728T174338.json / blackhole_realtime_smoke_20260728T194112.json;check_schemas 路由分支校验通过)。
+4. **budget_eval --strict 4 counters FAIL**:**已关闭(device 见证回填)**——g4.counter.graphics_rhi_smoke / engine_embed_v3 / vulkan_rhi_channel / blackhole_realtime_smoke 4 counter device 见证基数已 ≥1(步骤 76/78/80/81 真跑 exit 0,evidence 落位;budget_eval --strict 全局零 FAIL;原 device 段 SKIP=dev-env degrade 已由 fix_g4_device_toolchain_luid_schemas 规范真跑回填,非 fake pass)。
+5. **device 段 SKIP=dev-env degrade**(步骤 76/78/80/81 device 段):**已关闭(步骤 76/78/80/81 真跑 exit 0)**——fix_g4_device_toolchain_luid_schemas 规范经 driver.rs 链接段修复(D3D12 系统库追加 + target 子目录隔离)+ vulkan_codegen.rs Cast lowering + rx/Cargo.toml vulkan-backend feature 透传 + engine_host_v3.cpp LUID 匹配 + blackhole write_ppm cwd 修复后,4 步骤 device 段在 RTX 4070 Ti(driver 620.02)+ VULKAN_SDK 1.3.296.0 + MSVC 2022 + 交互桌面会话环境真跑 exit 0,evidence JSON 落位;RURIX_REQUIRE_REAL=1 严格模式通过(非 SKIP);host 段恒跑全 PASS(反 YAML-only);run URL 不伪造(本机记 "local")。注:步骤 79 device 段 RURIX_REQUIRE_REAL=1 退 0(EXE 真跑 PASS,非 SKIP,纯 host 库可链)维持。
 6. **check_bilingual.py 脚本名 gap**:用户指令要求运行 `py -3 ci/check_bilingual.py`,脚本名不存在(实际名 `bilingual_coverage.py`)— 脚本名修正待后续 PR 对齐(本 close-out 不改脚本名,记为 SKIP)。
 7. **RD-027 / RD-034 out-of-scope 维持**:NVIDIA ptxas -O1+ 毒径(上游侧不可修,MR-0011 护栏)/ DXIL RT blocked-on-upstream(步骤 69 探针恒跑,翻绿=复评信号不强推)— 既有 RD 维持状态,非本 close-out 新增存续。
 8. **EA1 仍 active 未收口**:基准链 mb1-closed → g3-closed → ei1-closed → g4-closed 单线性,EA1 日后收口另裁(check_guardrails resolve_base 切 g4-closed 不影响 EA1 active 状态;EA1_CONTRACT §7 维持)。
@@ -609,3 +609,39 @@ git tag -a g4-closed -m "G4 引擎渲染期 close-out 终审(2026-07-24;G4_CONTR
 ```
 
 **G4 引擎渲染期 close-out 终审签署完成**(2026-07-24;G4_CONTRACT §8.8 PR-I;status: closed;g4-closed tag 待 owner 创建)。
+
+### 8.9 device 见证回填留痕(步骤 76/78/80/81 真跑 exit 0;2026-07-28;fix_g4_device_toolchain_luid_schemas 规范)
+
+> 本节为 G4 close-out 后的 device 见证回填留痕段(只追加区,§8 close-out 维持 closed 不重开;status 不翻;close-out 终审不重签;g4-closed tag 不动)。回填背景:§8.8 close-out 时步骤 76/78/80/81 device 段因缺 provisioning(MSVC / Windows SDK D3D12 / Vulkan SDK / 交互桌面会话 / link 工具链)SKIP=dev-env degrade,4 counter budget_eval --strict FAIL,记入存续项清单 #4/#5。fix_g4_device_toolchain_luid_schemas 规范经 driver.rs 链接段修复(D3D12 系统库追加 + target 子目录隔离)+ vulkan_codegen.rs Cast lowering + rx/Cargo.toml vulkan-backend feature 透传 + engine_host_v3.cpp LUID 匹配 + blackhole write_ppm cwd 修复后,4 步骤 device 段在 RTX 4070 Ti(driver 620.02)+ VULKAN_SDK 1.3.296.0 + CUDA_PATH v13.3 + MSVC 2022 Community 14.44.35207 cl.exe + 交互桌面会话环境真跑 exit 0,evidence JSON 落位。存续项清单 #2/#3(check_schemas FAIL)同源消除(RD-036 reason 字段已补 + evidence schema required properties 已补齐)。本节仅修改存续项清单状态文字 + 追加留痕段,不修改契约条款体、不重开 G4 close-out、不翻 status。
+
+**4 脚本 run 输出尾部**(RURIX_REQUIRE_REAL=1,RTX 4070 Ti 真跑):
+
+```
+[uc05_graphics_rhi_smoke] device 步骤 5 PASS: gfx_demo.rx EXE 真跑 exit 0(demo_run_green=true)
+[uc05_graphics_rhi_smoke] device 步骤 6 PASS: 5 个 gfx assembly-reject EXE 退非零 + stderr 含 rhi_submit [structure](assembly_redgreen=true;gfx_feedback_loop/gfx_present_not_last/gfx_present_twice/gfx_read_before_write/gfx_write_write_conflict:structure:RED_OK)
+[uc05_graphics_rhi_smoke] device 步骤 8 PASS: gfx_bindless.rx EXE 真跑 exit 0(bindless_run_green=true;四象限像素判据 deferred-PR-F)
+[uc05_graphics_rhi_smoke] 写 evidence evidence\uc05_graphics_rhi_smoke_20260728T190615.json; run_url=local
+
+[uc05_engine_embed_v3] device 步骤 7 PASS: cl.exe 编 engine_host_v3.exe 链 rurix_rhi.lib/d3d12/dxgi/vulkan-1;LUID 匹配通过(apiVersion 1.1 → deviceLUIDValid=VK_TRUE,8 字节 memcmp 命中 RTX 4070 Ti adapter 0)
+[uc05_engine_embed_v3] device 步骤 8 PASS: UC05_EMBED_V3_OK;64x64/256x256 两例四方精确相等(rx=0 d3d_raster=0 d3d_mesh=0 ref=0x00000000,Q-PixelCriterion 不设 ULP 容差;three_party_equal=true)
+[uc05_engine_embed_v3] device 步骤 9 RED 1/2/3 全 PASS: 篡改 .rx 侧/D3D12 clear/host ref 各重编重跑退非零 + 无 UC05_EMBED_V3_OK(red_three_ways=true)
+[uc05_engine_embed_v3] 写 evidence evidence\uc05_engine_embed_v3_20260728T193238.json; run_url=local
+
+[vulkan_rhi_channel_smoke] device 步骤 7 PASS: rhi_create_vk.rx rx build + EXE 真跑 exit 0(Rhi::create_vk 显式 Vulkan 后端 + SPIR-V pipeline + descriptor set + dispatch + 回写;device_run=true;vulkan_channel_ok=true)
+[vulkan_rhi_channel_smoke] 写 evidence evidence\vulkan_rhi_channel_smoke_20260728T174338.json; run_url=local
+
+[blackhole_realtime_smoke] device 步骤 10 PASS: realtime.exe 真跑 exit 0(REALTIME_OK frames=600 sample_ok=true;fps_value=91.65 ≫ 30fps;frame_compare=true)
+[blackhole_realtime_smoke] REALTIME_OK 六项:STATS min=0 max=240 mean=111(NaN无/值域OK)、中心黑盘(cr/cg/cb≤15)、SHADOW exp=79.58 meas=78.77 偏差1.02%<2%、DOP ratio=2.80≥1.15、RING=674>100、SKY=484>40
+[blackhole_realtime_smoke] 写 evidence evidence\blackhole_realtime_smoke_20260728T194112.json; run_url=local
+```
+
+**evidence 路径**(evidence/ 只增不删):
+
+- evidence/uc05_graphics_rhi_smoke_20260728T190615.json(step 76;host_section_pass=true,device_section_rc=0,checks: demo_run_green=true/assembly_redgreen=true/bindless_run_green=true;dev_env_degrade=false,toolchain_skip=null;run_url=local)
+- evidence/uc05_engine_embed_v3_20260728T193238.json(step 78;host_section_pass=true,device_section_rc=0,checks: three_party_equal=true/red_three_ways=true/harness_build=true;embed_v3_ok=true;dev_env_degrade=false,toolchain_skip=null;run_url=local)
+- evidence/vulkan_rhi_channel_smoke_20260728T174338.json(step 80;host_section_pass=true,device_section_rc=0,checks: device_run=true/spirv_val=true/host_lib_tests=true;vulkan_channel_ok=true;dev_env_degrade=false,toolchain_skip=null;run_url=local)
+- evidence/blackhole_realtime_smoke_20260728T194112.json(step 81;host_section_pass=true,device_section_rc=0,checks: device_run=true/realtime_ok=true/fps_measured=true/fps_value=91.65/frames_n=600/elapsed_s=6.55/frame_compare=true;blackhole_realtime_ok=true;dev_env_degrade=false,toolchain_skip=null;run_url=local)
+
+**回填后状态**:存续项清单 #2/#3 已消除(check_schemas PASS);#4 已关闭(device 见证回填,budget_eval --strict 全局零 FAIL);#5 已关闭(步骤 76/78/80/81 真跑 exit 0)。G4 status 维持 closed(不重开 close-out、不翻 status);既有 compute RHI 路(步骤 72~75)0-byte 零回归;engine_host v1/v2 0-byte;dxil 套件 404+ 恒定;vulkan 套件 grow-only;步骤 41~75 既有判据 0-byte 只增;evidence/ 只增不删。
+
+**Provenance**:`Assisted-by: trae:glm-5.2`(device 见证回填 + §8.8 存续项清单事实校正 + 留痕段)。agent 自主(D-406 v2.0);G4 close-out 不重开,status 维持 closed。

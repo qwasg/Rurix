@@ -527,6 +527,10 @@ def red_three_ways(rurixc: Path, cl: Path, env: dict, clang: Path,
     if tampered_text == text:
         print("[uc05_engine_embed_v3] RED 1 WARN: 篡改模式未命中(*out = pixel;)", file=sys.stderr)
     tampered_rx.write_text(tampered_text, encoding="utf-8", newline="\n")
+    # tampered .rx 移至 WORK 目录后 `mod graph;` 须可加载:复制模块依赖至同目录。
+    graph_rx_src = EMBED_RX.parent / "graph.rx"
+    if graph_rx_src.is_file():
+        (WORK / "graph.rx").write_bytes(graph_rx_src.read_bytes())
     tampered_stem = WORK / "rurix_rhi_tamper_rx"
     e_rx = emit_dll(rurixc, tampered_rx, tampered_stem, rurixc_env(clang))
     tampered_lib = tampered_stem.with_suffix(".lib")
@@ -569,8 +573,8 @@ def red_three_ways(rurixc: Path, cl: Path, env: dict, clang: Path,
 
     # ── RED 3:篡改 host 侧参考(HOST_REFERENCE_PIXEL 0x00000000 → 0x00000001)──────
     tampered_host = WORK / "engine_host_v3_tamper_host.cpp"
-    tampered_host_text = text_v3.replace("HOST_REFERENCE_PIXEL = 0x00000000u",
-                                          "HOST_REFERENCE_PIXEL = 0x00000001u  // RED: tampered")
+    tampered_host_text = text_v3.replace("HOST_REFERENCE_PIXEL = 0x00000000u;",
+                                          "HOST_REFERENCE_PIXEL = 0x00000001u;  // RED: tampered")
     tampered_host.write_text(tampered_host_text, encoding="utf-8", newline="\n")
     exe_host = WORK / "engine_host_v3_tamper_host.exe"
     rc_host = compile_harness(cl, tampered_host, exe_host, env, imp_lib)

@@ -808,6 +808,57 @@ jobs:
         shell: powershell
         run: py -3 ci/blackhole_realtime_smoke.py
 
+      # 步骤 82（G-G5-3,RFC-0016 章 A）:渲染调度 render graph 冒烟（**纯 host 恒跑**,无 GPU;
+      # rurix-render graph:: 四趟编译〔剔除/生命周期/EB 三轴屏障 golden/transient 别名峰值/
+      # 编译期校验 RED 自检/异步车道 fence/图 dump〕单测全过 + 图 dump 测试在集内）。失败即红。
+      - name: renderer graph smoke (G5 CI_GATES §2.82, G-G5-3, RFC-0016 章 A)
+        shell: powershell
+        run: py -3 ci/renderer_graph_smoke.py
+
+      # 步骤 83（G-G5-4,RFC-0016 章 B）:渲染器 draw 派发桥冒烟。host 段**恒跑**(rurix-rt 构建绿);
+      # device 段 gate real(rurix-rt --features vulkan render_exec 含 4 项 device 真跑〔三角形真
+      # draw 像素断言/compute 写 buffer/raster→compute 混合/能力探测,RTX 4070 Ti,validation 零报错〕),
+      # 缺 Vulkan SKIP=dev-env degrade,RURIX_REQUIRE_REAL=1 翻硬红。失败即红。
+      - name: renderer draw bridge smoke (G5 CI_GATES §2.83, G-G5-4, RFC-0016 章 B)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/renderer_draw_smoke.py
+
+      # 步骤 84（G-G5-5,RFC-0016 章 C）:虚拟化几何冒烟。host 段**恒跑**(rurix-geom-build〔meshlet
+      # 化/层级 DAG/误差单调/边界锁定/序列化/CPU 参照剔除〕+ rurix-render geometry::〔两级剔除/
+      # VisBuffer 光栅/classify-resolve/GPU 编组〕单测全过);device 段 blocked-honest 探针
+      # (RFC-0016 §9.1 R-3 条件臂,RD-038 存续,不伪造 device 绿)。失败即红。
+      - name: renderer visbuffer smoke (G5 CI_GATES §2.84, G-G5-5, RFC-0016 章 C)
+        shell: powershell
+        run: py -3 ci/renderer_visbuffer_smoke.py
+
+      # 步骤 85（G-G5-6,RFC-0016 章 D/E/F）:光照冒烟。host 段**恒跑**(rurix-render shadow::〔VSM
+      # clipmap 页表/失效/多视图深度/投影〕+ gi::〔屏幕探针 GI 能量守恒/方向一致性/时域收敛/
+      # disocclusion〕+ rt::〔AS 管理/RTAO 硬阴影对拍/时域滤波〕单测全过);device 段 blocked-honest
+      # 探针(RD-038 存续)。失败即红。
+      - name: renderer lighting smoke (G5 CI_GATES §2.85, G-G5-6, RFC-0016 章 D/E/F)
+        shell: powershell
+        run: py -3 ci/renderer_lighting_smoke.py
+
+      # 步骤 86（G-G5-7,RFC-0016 章 H）:时域重建冒烟。host 段**恒跑**(rurix-render temporal::〔MV/
+      # jitter/历史验证/邻域裁剪/TAA 收敛/TSR SSIM 门/闪烁抑制/reactive/SSIM 门禁〕单测全过 + TAA
+      # 静态收敛在集内);device 段 blocked-honest 探针(RD-038 存续)。失败即红。
+      - name: renderer temporal smoke (G5 CI_GATES §2.86, G-G5-7, RFC-0016 章 H)
+        shell: powershell
+        run: py -3 ci/renderer_temporal_smoke.py
+
+      # 步骤 87（G-G5-8,RFC-0016 §1 管线图）:UC-06 全管线渲染器冒烟。host 段**恒跑**(uc06-renderer
+      # host 全管线〔meshlet→剔除→VisBuffer→材质→VSM+GI+RTAO→TAA/TSR〕exit 0 + asserts 全 true +
+      # PSO 运行时编译告警 0 + graph alias_peak < no_alias_peak + fence_count ≥ 1);device 段 gate real
+      # (--features vulkan --device 真跑〔render_exec 真多 pass〕,device 字段非空 + exit 0,缺 Vulkan
+      # SKIP=dev-env degrade,RURIX_REQUIRE_REAL=1 翻硬红)。失败即红。
+      - name: UC-06 full-pipeline renderer smoke (G5 CI_GATES §2.87, G-G5-8, RFC-0016 §1)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/uc06_renderer_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

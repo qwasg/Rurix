@@ -28,7 +28,13 @@
       "additionalProperties": false,
       "properties": {
         "host_checks": { "type": ["boolean", "string"] },
-        "device_run": { "type": ["boolean", "string"] }
+        "device_run": { "type": ["boolean", "string"] },
+        "realtime_ok": { "type": ["boolean", "string"] },
+        "fps_measured": { "type": ["boolean", "string"] },
+        "fps_value": { "type": ["number", "string"] },
+        "frames_n": { "type": ["integer", "string"] },
+        "elapsed_s": { "type": ["number", "string"] },
+        "frame_compare": { "type": ["boolean", "string"] }
       }
     },
     "blackhole_realtime_ok": { "type": ["boolean", "string"] },

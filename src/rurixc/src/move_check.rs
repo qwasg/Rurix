@@ -52,6 +52,22 @@ pub(crate) fn rvalue_operands(rv: &Rvalue) -> Vec<&Operand> {
     match rv {
         Rvalue::Use(o) | Rvalue::UnaryOp(_, o) | Rvalue::Cast(o, _) => vec![o],
         Rvalue::BinaryOp(_, a, b) => vec![a, b],
+        Rvalue::Atomic {
+            index,
+            value,
+            compare,
+            ..
+        } => {
+            let mut ops = Vec::new();
+            if let Some(index) = index {
+                ops.push(index);
+            }
+            ops.push(value);
+            if let Some(compare) = compare {
+                ops.push(compare);
+            }
+            ops
+        }
         Rvalue::Aggregate(_, ops) | Rvalue::VariantAggregate { ops, .. } => ops.iter().collect(),
         Rvalue::Ref(..) | Rvalue::Discriminant(_) => Vec::new(),
         // 采样方法族(RXS-0175/0223):coord + extra 为读 operand;texture/sampler 句柄非 operand。

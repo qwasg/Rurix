@@ -1,0 +1,124 @@
+kernel fn taa(
+    t: ThreadCtx<1>,
+    current: View<global, f32>,
+    history: View<global, f32>,
+    motion: View<global, f32>,
+    validity: View<global, f32>,
+    output: ViewMut<global, f32>,
+    width: usize,
+    height: usize,
+    alpha: f32,
+) {
+    let i = t.global_id();
+    if i < width * height {
+        let base = i * 3;
+        if validity[i] < 0.5 {
+            output[base] = current[base];
+            output[base + 1] = current[base + 1];
+            output[base + 2] = current[base + 2];
+        } else {
+            let x = i % width;
+            let y = i / width;
+            let mut xm = x as i32 - 1i32;
+            let mut xp = x as i32 + 1i32;
+            let mut ym = y as i32 - 1i32;
+            let mut yp = y as i32 + 1i32;
+            if xm < 0i32 { xm = 0i32; }
+            if ym < 0i32 { ym = 0i32; }
+            if xp >= width as i32 { xp = width as i32 - 1i32; }
+            if yp >= height as i32 { yp = height as i32 - 1i32; }
+            let n00 = (ym as usize * width + xm as usize) * 3;
+            let n01 = (ym as usize * width + x) * 3;
+            let n02 = (ym as usize * width + xp as usize) * 3;
+            let n10 = (y * width + xm as usize) * 3;
+            let n11 = base;
+            let n12 = (y * width + xp as usize) * 3;
+            let n20 = (yp as usize * width + xm as usize) * 3;
+            let n21 = (yp as usize * width + x) * 3;
+            let n22 = (yp as usize * width + xp as usize) * 3;
+
+            let y00 = 0.25 * current[n00] + 0.5 * current[n00 + 1] + 0.25 * current[n00 + 2];
+            let y01 = 0.25 * current[n01] + 0.5 * current[n01 + 1] + 0.25 * current[n01 + 2];
+            let y02 = 0.25 * current[n02] + 0.5 * current[n02 + 1] + 0.25 * current[n02 + 2];
+            let y10 = 0.25 * current[n10] + 0.5 * current[n10 + 1] + 0.25 * current[n10 + 2];
+            let y11 = 0.25 * current[n11] + 0.5 * current[n11 + 1] + 0.25 * current[n11 + 2];
+            let y12 = 0.25 * current[n12] + 0.5 * current[n12 + 1] + 0.25 * current[n12 + 2];
+            let y20 = 0.25 * current[n20] + 0.5 * current[n20 + 1] + 0.25 * current[n20 + 2];
+            let y21 = 0.25 * current[n21] + 0.5 * current[n21 + 1] + 0.25 * current[n21 + 2];
+            let y22 = 0.25 * current[n22] + 0.5 * current[n22 + 1] + 0.25 * current[n22 + 2];
+            let co00 = 0.5 * current[n00] - 0.5 * current[n00 + 2];
+            let co01 = 0.5 * current[n01] - 0.5 * current[n01 + 2];
+            let co02 = 0.5 * current[n02] - 0.5 * current[n02 + 2];
+            let co10 = 0.5 * current[n10] - 0.5 * current[n10 + 2];
+            let co11 = 0.5 * current[n11] - 0.5 * current[n11 + 2];
+            let co12 = 0.5 * current[n12] - 0.5 * current[n12 + 2];
+            let co20 = 0.5 * current[n20] - 0.5 * current[n20 + 2];
+            let co21 = 0.5 * current[n21] - 0.5 * current[n21 + 2];
+            let co22 = 0.5 * current[n22] - 0.5 * current[n22 + 2];
+            let cg00 = (0.0 - 0.25) * current[n00] + 0.5 * current[n00 + 1] - 0.25 * current[n00 + 2];
+            let cg01 = (0.0 - 0.25) * current[n01] + 0.5 * current[n01 + 1] - 0.25 * current[n01 + 2];
+            let cg02 = (0.0 - 0.25) * current[n02] + 0.5 * current[n02 + 1] - 0.25 * current[n02 + 2];
+            let cg10 = (0.0 - 0.25) * current[n10] + 0.5 * current[n10 + 1] - 0.25 * current[n10 + 2];
+            let cg11 = (0.0 - 0.25) * current[n11] + 0.5 * current[n11 + 1] - 0.25 * current[n11 + 2];
+            let cg12 = (0.0 - 0.25) * current[n12] + 0.5 * current[n12 + 1] - 0.25 * current[n12 + 2];
+            let cg20 = (0.0 - 0.25) * current[n20] + 0.5 * current[n20 + 1] - 0.25 * current[n20 + 2];
+            let cg21 = (0.0 - 0.25) * current[n21] + 0.5 * current[n21 + 1] - 0.25 * current[n21 + 2];
+            let cg22 = (0.0 - 0.25) * current[n22] + 0.5 * current[n22 + 1] - 0.25 * current[n22 + 2];
+            let lo_y = y00.min(y01).min(y02).min(y10).min(y11).min(y12).min(y20).min(y21).min(y22);
+            let hi_y = y00.max(y01).max(y02).max(y10).max(y11).max(y12).max(y20).max(y21).max(y22);
+            let lo_co = co00.min(co01).min(co02).min(co10).min(co11).min(co12).min(co20).min(co21).min(co22);
+            let hi_co = co00.max(co01).max(co02).max(co10).max(co11).max(co12).max(co20).max(co21).max(co22);
+            let lo_cg = cg00.min(cg01).min(cg02).min(cg10).min(cg11).min(cg12).min(cg20).min(cg21).min(cg22);
+            let hi_cg = cg00.max(cg01).max(cg02).max(cg10).max(cg11).max(cg12).max(cg20).max(cg21).max(cg22);
+
+            let u = (x as f32 + 0.5) / width as f32 + motion[i * 2];
+            let v = (y as f32 + 0.5) / height as f32 + motion[i * 2 + 1];
+            let xf = u * width as f32 - 0.5;
+            let yf = v * height as f32 - 0.5;
+            let x0 = xf.floor() as i32;
+            let y0 = yf.floor() as i32;
+            let fx = xf - x0 as f32;
+            let fy = yf - y0 as f32;
+            let mut xa = x0;
+            let mut xb = x0 + 1i32;
+            let mut ya = y0;
+            let mut yb = y0 + 1i32;
+            if xa < 0i32 { xa = 0i32; }
+            if xb < 0i32 { xb = 0i32; }
+            if ya < 0i32 { ya = 0i32; }
+            if yb < 0i32 { yb = 0i32; }
+            if xa >= width as i32 { xa = width as i32 - 1i32; }
+            if xb >= width as i32 { xb = width as i32 - 1i32; }
+            if ya >= height as i32 { ya = height as i32 - 1i32; }
+            if yb >= height as i32 { yb = height as i32 - 1i32; }
+            let a = (ya as usize * width + xa as usize) * 3;
+            let b = (ya as usize * width + xb as usize) * 3;
+            let c = (yb as usize * width + xa as usize) * 3;
+            let d = (yb as usize * width + xb as usize) * 3;
+            let hr = (history[a] * (1.0 - fx) + history[b] * fx) * (1.0 - fy)
+                + (history[c] * (1.0 - fx) + history[d] * fx) * fy;
+            let hg = (history[a + 1] * (1.0 - fx) + history[b + 1] * fx) * (1.0 - fy)
+                + (history[c + 1] * (1.0 - fx) + history[d + 1] * fx) * fy;
+            let hb = (history[a + 2] * (1.0 - fx) + history[b + 2] * fx) * (1.0 - fy)
+                + (history[c + 2] * (1.0 - fx) + history[d + 2] * fx) * fy;
+            let mut hy = 0.25 * hr + 0.5 * hg + 0.25 * hb;
+            let mut hco = 0.5 * hr - 0.5 * hb;
+            let mut hcg = (0.0 - 0.25) * hr + 0.5 * hg - 0.25 * hb;
+            if hy < lo_y { hy = lo_y; }
+            if hy > hi_y { hy = hi_y; }
+            if hco < lo_co { hco = lo_co; }
+            if hco > hi_co { hco = hi_co; }
+            if hcg < lo_cg { hcg = lo_cg; }
+            if hcg > hi_cg { hcg = hi_cg; }
+            let by = alpha * y11 + (1.0 - alpha) * hy;
+            let bco = alpha * co11 + (1.0 - alpha) * hco;
+            let bcg = alpha * cg11 + (1.0 - alpha) * hcg;
+            let tmp = by - bcg;
+            output[base] = tmp + bco;
+            output[base + 1] = by + bcg;
+            output[base + 2] = tmp - bco;
+        }
+    }
+}
+
+fn main() {}

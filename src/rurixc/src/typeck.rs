@@ -65,6 +65,9 @@ pub struct TypeckResults {
     /// (数学函数, 元素类型 f32/f64);接收者为 `f32`/`f64` 时识别,tbir/MIR/
     /// codegen 消费(下译为 libdevice `__nv_*` 外部符号)。
     pub device_math_calls: HashMap<HirId, (crate::hir::DeviceMathFn, PrimTy)>,
+    /// scoped atomics 调用点:MethodCall → 原子算子 + 接收者是否 AtomicView。
+    /// tbir/MIR/Vulkan codegen 消费；NVPTX 后端仍维持既有 deferred 拒绝。
+    pub atomic_calls: HashMap<HirId, (crate::hir::AtomicOp, bool)>,
     /// 纹理采样调用点(G2.4,RXS-0174;RFC-0007):MethodCall 节点 → 采样标记
     /// (接收者为 `Texture2D<F>` lang item + 方法 `sample` 时识别;tbir/MIR/codegen
     /// 消费,降为 `Rvalue::ResourceSample` → `OpImageSampleExplicitLod`)。
@@ -1002,7 +1005,7 @@ impl Tck<'_, '_> {
             }
             M::StorageLoad | M::Store => matches!(
                 self.ctx_stage,
-                Some(crate::ast::ShaderStage::Fragment | crate::ast::ShaderStage::RayGen)
+                None | Some(crate::ast::ShaderStage::Fragment | crate::ast::ShaderStage::RayGen)
             ),
         };
         if !stage_ok {
@@ -1146,7 +1149,13 @@ impl Tck<'_, '_> {
     /// 类型由 codegen 层裁决(RXS-0226/0228 strict-only)。
     fn expect_vec_arg(&self, span: Span, t: &Ty, method: &str, what: &str, want: &str) {
         let r = self.infcx.resolve(t);
-        if !matches!(r, Ty::Err | Ty::Infer(_)) {
+        let tuple_vector = matches!(
+            &r,
+            Ty::Tuple(elems)
+                if matches!(elems.len(), 2 | 4)
+                    && elems.iter().all(|e| matches!(e, Ty::Prim(_)))
+        );
+        if !matches!(r, Ty::Err | Ty::Infer(_)) && !tuple_vector {
             self.err_sample_expr(
                 span,
                 &format!(
@@ -2344,13 +2353,16 @@ impl Tck<'_, '_> {
                         .is_none_or(|items| !items.iter().any(|(n, _)| n == method))
                     && crate::hir::AtomicOp::from_method(method).is_some() =>
             {
+                let op =
+                    crate::hir::AtomicOp::from_method(method).expect("guard 已确保 atomic 算子");
                 let is_view = self
                     .res
                     .lang_items
                     .atomic_kind(*d)
                     .expect("guard 已确保 atomic 容器");
                 let adt_args = adt_args.clone();
-                self.check_atomic_op(is_view, &adt_args, args);
+                self.check_atomic_op(op, is_view, &adt_args, args);
+                self.results.atomic_calls.insert(call_id, (op, is_view));
                 // 元素类型:`AtomicView<space,T,..>` → args[1];`Atomic<T,..>` → args[0]。
                 let elem_idx = if is_view { 1 } else { 0 };
                 adt_args
@@ -2516,10 +2528,25 @@ impl Tck<'_, '_> {
     /// 仅在 scope 实参可静态判定(`Scope::*` 字面变体)时裁决,scope 不可判 /
     /// 参与类型容忍区 `Err` → 不报(防一错多报,口径同 RXS-0069/0075)。
     /// PTX `atom.{order}.{scope}` 映射为 D-406 禁区,本函数不实现映射语义。
-    fn check_atomic_op(&mut self, is_view: bool, adt_args: &[Ty], args: &[hir::Expr]) {
+    fn check_atomic_op(
+        &mut self,
+        op: crate::hir::AtomicOp,
+        is_view: bool,
+        adt_args: &[Ty],
+        args: &[hir::Expr],
+    ) {
         // 实参定型(不级联:scope 实参为 `Scope` 封闭枚举值)。
-        for a in args {
-            let _ = self.check_expr(a);
+        let arg_tys: Vec<Ty> = args.iter().map(|a| self.check_expr(a)).collect();
+        let elem_idx = usize::from(is_view);
+        let elem = adt_args.get(elem_idx).cloned().unwrap_or(Ty::Err);
+        let value_count = if op == crate::hir::AtomicOp::CompareExchange {
+            2
+        } else {
+            1
+        };
+        let value_start = usize::from(is_view);
+        for ty in arg_tys.iter().skip(value_start).take(value_count) {
+            let _ = self.infcx.unify(&elem, ty);
         }
         // scope 实参:首个解析为 `Scope::*` 变体的实参(scope 位通常居末)。
         let used = args.iter().find_map(|a| {

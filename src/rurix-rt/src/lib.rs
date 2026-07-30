@@ -27,6 +27,12 @@ pub mod graph;
 #[cfg(feature = "d3d12-interop")]
 pub mod interop;
 pub mod pipeline;
+/// Rust 级多 pass 图形执行器(RFC-0016 章 B 主通道;G5 门 G-G5-4 前置;U32)。feature
+/// `vulkan` gate:资源描述 + raster/compute 混合 pass + 屏障计划逐字回放 + readback,
+/// 内建 pipeline cache 与 `VK_KHR_shader_atomic_int64` 能力探测面。引擎渲染器库
+/// (`rurix-render`/uc06)消费;既有 vk.rs 全部入口 0-byte 语义保留。
+#[cfg(feature = "vulkan")]
+pub mod render_exec;
 /// UC-05 最小 RHI 纯 host 图合法性核验与 compute-pass hazard 推导（EI1.3 Part B，
 /// RXS-0256~0260；RFC-0014 §4.B）。always-on、零 unsafe、零后端调用:装配核验（I3 依赖环 /
 /// I4 未声明访问 / I5 写写冲突）+ 纯函数 RAW/WAW/WAR hazard 推导。与 G3.5 `graph`（图形面）

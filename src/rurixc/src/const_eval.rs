@@ -348,6 +348,10 @@ impl<'a, 'q> Evaluator<'a, 'q> {
                 span,
                 what: "texture sampling".to_owned(),
             }),
+            Rvalue::Atomic { .. } => Err(ConstError::NonConst {
+                span,
+                what: "atomic operation".to_owned(),
+            }),
         }
     }
 }

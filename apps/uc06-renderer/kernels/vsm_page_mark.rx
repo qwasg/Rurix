@@ -1,0 +1,18 @@
+kernel fn vsm_page_mark(
+    t: ThreadCtx<1>,
+    virtual_pages: View<global, u32>,
+    page_bits: AtomicView<global, u32, (2048,)>,
+    pixel_count: usize,
+) {
+    let i = t.global_id();
+    if i < pixel_count {
+        let page = virtual_pages[i];
+        if page != 4294967295u32 {
+            let word = page / 32u32;
+            let bit = 1u32 << (page % 32u32);
+            let _old = page_bits.fetch_or(word as usize, bit, Scope::Gpu);
+        }
+    }
+}
+
+fn main() {}

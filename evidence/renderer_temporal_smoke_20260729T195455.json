@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "subject": "renderer_temporal_smoke",
+  "milestone": "G5.2-H+G5.3-H / G-G5-7 (RFC-0016 章 H)",
+  "step": 86,
+  "host_section_pass": true,
+  "device_section_rc": 0,
+  "device_blocked": "RD-038",
+  "device_probe_note": "效果 kernel device 化条件臂(host 参考器全量锚定;device 腿到真实证据边界 honest 存续)",
+  "checks": {
+    "temporal_pass": true,
+    "temporal_count": 46,
+    "taa_convergence_present": true,
+    "tsr_ssim_gate_present": true
+  },
+  "run_url": "local",
+  "timestamp": "2026-07-29T19:54:55+08:00"
+}

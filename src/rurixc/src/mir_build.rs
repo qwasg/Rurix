@@ -1291,6 +1291,55 @@ impl Builder<'_, '_> {
             tbir::ExprKind::DeviceMathCall { op, is_f32, args } => {
                 self.lower_device_math_call(e, *op, *is_f32, args)
             }
+            tbir::ExprKind::AtomicCall {
+                op,
+                is_view,
+                receiver,
+                args,
+            } => {
+                let Some(target) = self.place_of(receiver) else {
+                    return self.unsupported(receiver.span, "atomic receiver must be a handle");
+                };
+                if !target.proj.is_empty() {
+                    return self.unsupported(
+                        receiver.span,
+                        "atomic receiver must be a direct parameter reference",
+                    );
+                }
+                let compare_exchange = matches!(op, crate::hir::AtomicOp::CompareExchange);
+                let expected = usize::from(*is_view) + 1 + usize::from(compare_exchange);
+                if args.len() != expected {
+                    return self.unsupported(e.span, "atomic method argument shape is unsupported");
+                }
+                let mut at = 0usize;
+                let index = if *is_view {
+                    let value = self.op_of(&args[at]);
+                    at += 1;
+                    Some(value)
+                } else {
+                    None
+                };
+                let compare = if compare_exchange {
+                    let value = self.op_of(&args[at]);
+                    at += 1;
+                    Some(value)
+                } else {
+                    None
+                };
+                let value = self.op_of(&args[at]);
+                let ty = self.ty_of(e);
+                self.rvalue_to_op(
+                    Rvalue::Atomic {
+                        op: *op,
+                        target_local: target.local,
+                        index,
+                        value,
+                        compare,
+                    },
+                    ty,
+                    e.span,
+                )
+            }
             // 宿主 GPU 编排(MS1.2,RXS-0191~0193):rxrt_* 字面符号直降 + 失败
             // 终止检查;launch 走 🔒 slot+kinds marshalling。
             tbir::ExprKind::GpuCall { op, args } => self.lower_gpu_call(e, *op, args),
@@ -2389,8 +2438,10 @@ impl Builder<'_, '_> {
             }
             // G4.2 RHI 图形 pass 声明(RXS-0270,RFC-0015 §4.A1):`rhi.raster_pass(vs, fs)` /
             // `rhi.mesh_pass(ms, fs)` → `rxrt_rhi_raster_pass(rhi, vs_sym, fs_sym)` /
-            // `rxrt_rhi_mesh_pass(rhi, ms_sym, fs_sym)`。着色函数引用经 mangle → GlobalAddr 符号
-            // 串下发(镜像 launch kernel 符号纪律);非消费接收者。产 `GfxPass<C>` 句柄。
+            // `rxrt_rhi_mesh_pass(rhi, ms_sym, fs_sym)`。着色函数引用经 mangle → Str 字面量
+            // 下发(镜像 `lower_gpu_launch` 符号纪律:`Const::Str` → `@.str.N` 字节常量全局,
+            // 自包含不需外部 define;运行期形参 `*const u8` 指 NUL 终止 mangle 名字符串,
+            // 供未来 gfx pass 按名索引 `spirv_entry(name)`)。非消费接收者。产 `GfxPass<C>` 句柄。
             Op::RhiRasterPass | Op::RhiMeshPass => {
                 let rhi = self.gpu_handle_op(&args[0]);
                 let ret = self.ty_of(e);
@@ -2402,9 +2453,9 @@ impl Builder<'_, '_> {
                 let mut call_args = vec![rhi];
                 for a in &args[1..3] {
                     let sym = if let tbir::ExprKind::Def(d) = &a.kind {
-                        Const::GlobalAddr(mangle(&self.krate.item(*d).name, *d, &[]))
+                        Const::Str(mangle(&self.krate.item(*d).name, *d, &[]))
                     } else {
-                        Const::GlobalAddr(String::new())
+                        Const::Str(String::new())
                     };
                     call_args.push(Operand::Const(sym));
                 }

@@ -1,0 +1,39 @@
+//! rurix-geom-build — 离线几何构建器(G5,RFC-0016 章 C;报告1 P0)。
+//!
+//! 管线:三角网格 → meshlet 化(≤128 tri / ≤64 vert,贪心邻接生长)→ 分组
+//! 简化层级 DAG(组边界锁定裂缝保护;误差包围球 parent_error ≥ error 单调)
+//! → [`rurix_render::graph::types::ClusterRecord`] 序列化(预留 page_id)。
+//! 附 CPU 参照剔除器(视锥/背面锥逐簇蛮力),作 GPU 剔除 device 对拍金标准。
+//!
+//! 模块:
+//! - [`mesh`]:输入网格模型 + 立方体/UV 球/平面生成器 + 共享边邻接;
+//! - [`cluster`]:贪心簇化 + Ritter 包围球 + meshopt 口径背面锥;
+//! - [`dag`]:Morton 分组 → 边界锁定边收缩 → 再簇化的层级 DAG(误差单调);
+//! - [`serialize`]:RXGB 二进制格式(手写 LE,零依赖,页表字段预留);
+//! - [`cull_ref`]:CPU 参照剔除器(接口冻结 = GPU 剔除对拍契约)。
+//!
+//! 与工业实现的已知差距(P0 取舍,正确性不变量不受影响):
+//! - 分组用簇邻接共享边加权贪心,非 meshopt_partitionClusters 的完整图分区;
+//! - 简化用最短边贪心收缩(端点保持),非 QEM 最优位置收缩;
+//! - 未做 link-condition 拓扑校验,极端输入可能产生 fold-over(误差上界仍保守);
+//! - Ritter 包围球非最优球(偏大 ~20% 以内,剔除保守方向);
+//! - 跨层顶点焊接按精确位置相等,「不同 id 同位置」的输入顶点会被合并
+//!   (内置生成器已规避;外接网格建议先焊接)。
+
+#![forbid(unsafe_code)]
+
+pub mod cluster;
+pub mod cull_ref;
+pub mod dag;
+pub mod mesh;
+pub mod serialize;
+mod vecmath;
+
+pub use cluster::{Cluster, MAX_TRIS, MAX_VERTS, clusterize};
+pub use cull_ref::{CullStats, CullView, Mat4, cull_clusters, lod_cut_select};
+pub use dag::{ClusterDag, DagLevel, DagNode, build_dag};
+pub use mesh::{TriMesh, build_face_adjacency};
+pub use serialize::{RXGB_VERSION, RxgbError, read_dag, write_dag};
+
+// 冻结契约单源转引(64B 簇记录与簇上限;rurix-render graph::types)。
+pub use rurix_render::graph::types::{ClusterRecord, MAX_TRIS_PER_CLUSTER, MAX_VERTS_PER_CLUSTER};

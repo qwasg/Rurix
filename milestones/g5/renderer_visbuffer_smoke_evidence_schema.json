@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "虚拟化几何冒烟证据 schema(G5.2-C+G5.3-C,步骤 84;G-G5-5;RFC-0016 章 C)",
+  "description": "ci/renderer_visbuffer_smoke.py 写 evidence/renderer_visbuffer_smoke_<ts>.json。host 段恒跑几何参考器；device 段按能力分波 gate real：W1 cull/classify-resolve 与 W2 u64 VisBuffer 经 Vulkan 真派发并与 host 金标准对拍；无 loader 可 dev-env-degrade，RURIX_REQUIRE_REAL=1 翻硬红。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "milestone",
+    "step",
+    "host_section_pass",
+    "device_section_rc",
+    "checks",
+    "run_url",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "renderer_visbuffer_smoke" },
+    "milestone": { "type": "string" },
+    "step": { "type": "integer", "const": 84 },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_rc": { "type": "integer" },
+    "device_blocked": { "type": ["string", "null"] },
+    "device_probe_note": { "type": ["string", "null"] },
+    "device_wave_w1_pass": { "type": ["boolean", "null"] },
+    "device_wave_w2_pass": { "type": ["boolean", "null"] },
+    "device_wave_tests": {
+      "type": ["array", "null"],
+      "items": { "type": "string" }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "geom_build_pass": { "type": ["boolean", "string"] },
+        "geom_build_count": { "type": ["integer", "boolean", "string"] },
+        "geometry_pass": { "type": ["boolean", "string"] },
+        "geometry_count": { "type": ["integer", "boolean", "string"] }
+      }
+    },
+    "toolchain_skip": { "type": ["string", "null"] },
+    "dev_env_degrade": { "type": "boolean" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" }
+  }
+}

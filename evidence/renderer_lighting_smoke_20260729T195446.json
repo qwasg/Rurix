@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "subject": "renderer_lighting_smoke",
+  "milestone": "G5.3-D/E/F / G-G5-6 (RFC-0016 章 D/E/F)",
+  "step": 85,
+  "host_section_pass": true,
+  "device_section_rc": 0,
+  "device_blocked": "RD-038",
+  "device_probe_note": "效果 kernel device 化条件臂(host 参考器全量锚定;device 腿到真实证据边界 honest 存续)",
+  "checks": {
+    "shadow_count": 26,
+    "shadow_pass": true,
+    "gi_count": 20,
+    "gi_pass": true,
+    "rt_count": 49,
+    "rt_pass": true
+  },
+  "run_url": "local",
+  "timestamp": "2026-07-29T19:54:46+08:00"
+}

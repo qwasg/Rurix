@@ -1,0 +1,23 @@
+[package]
+name = "uc06-renderer"
+description = "UC-06 rurix 原生渲染器全管线 demo(G5,RFC-0016;门 G-G5-8)——meshlet 场景 → GPU 两级剔除 → VisBuffer → 单层材质延迟着色 → 屏幕探针 GI + VSM 阴影 + RTAO → TAA/TSR → headless readback 像素断言 + 各阶段 GPU 时间戳 evidence。host 段(default features)为纯 safe 装配/编排 + CPU 参照管线,无 GPU 亦 build/test 绿;device 段 feature vulkan 经 rurix-render/rurix-rt vk 底座真跑(RURIX_REQUIRE_REAL 纪律)"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+rurix-render = { path = "../../src/rurix-render" }
+rurix-geom-build = { path = "../../src/rurix-geom-build" }
+rurix-rt = { path = "../../src/rurix-rt", optional = true }
+
+[features]
+default = []
+# device 真跑腿(uc04-demo real-shim 先例:默认关闭,host 常驻回归网)。
+vulkan = ["dep:rurix-rt", "rurix-rt/vulkan"]
+
+[build-dependencies]
+rurixc = { path = "../../src/rurixc", features = ["vulkan-backend"] }
+
+[lints]
+workspace = true

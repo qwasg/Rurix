@@ -1,0 +1,23 @@
+kernel fn classify_resolve(
+    t: ThreadCtx<1>,
+    vis: View<global, u64>,
+    cluster_to_material: View<global, u32>,
+    resolved: ViewMut<global, u32>,
+    material_counts: AtomicView<global, u32, (16,)>,
+    pixel_count: usize,
+) {
+    let i = t.global_id();
+    if i < pixel_count {
+        let packed = vis[i];
+        let cluster = ((packed >> 7u64) & 134217727u64) as u32;
+        if cluster == 134217727u32 {
+            resolved[i] = 65535u32;
+        } else {
+            let material = cluster_to_material[cluster as usize];
+            resolved[i] = material;
+            let _old = material_counts.fetch_add(material as usize, 1u32, Scope::Gpu);
+        }
+    }
+}
+
+fn main() {}

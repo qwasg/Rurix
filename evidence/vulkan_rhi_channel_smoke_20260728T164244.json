@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "subject": "vulkan_rhi_channel_smoke",
+  "milestone": "G4.4 PR-F / G-G4-5 (RFC-0015 §4.C4; RXS-0293/0294)",
+  "step": 80,
+  "host_section_pass": true,
+  "device_section_rc": 1,
+  "checks": {
+    "host_lib_tests": true,
+    "spirv_val": true,
+    "device_run": "SKIP"
+  },
+  "vulkan_channel_ok": false,
+  "toolchain_skip": "no-rx",
+  "dev_env_degrade": true,
+  "run_url": "local",
+  "timestamp": "2026-07-28T16:42:44+08:00"
+}

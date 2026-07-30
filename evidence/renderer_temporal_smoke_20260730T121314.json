@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "subject": "renderer_temporal_smoke",
+  "milestone": "G5.2-H+G5.3-H / G-G5-7 (RFC-0016 章 H)",
+  "step": 86,
+  "host_section_pass": true,
+  "device_section_rc": 0,
+  "device_blocked": null,
+  "device_probe_note": null,
+  "device_wave_w1_pass": true,
+  "device_wave_tests": [
+    "device_w1_taa_matches_host"
+  ],
+  "checks": {
+    "temporal_pass": true,
+    "temporal_count": 46,
+    "taa_convergence_present": true,
+    "tsr_ssim_gate_present": true
+  },
+  "toolchain_skip": null,
+  "dev_env_degrade": false,
+  "run_url": "local",
+  "timestamp": "2026-07-30T12:13:14+08:00"
+}

@@ -1,0 +1,20 @@
+kernel fn atomics_w1(
+    t: ThreadCtx<1>,
+    u: AtomicView<global, u32, (16,)>,
+    s: AtomicView<global, i32, (16,)>,
+) {
+    let i = t.thread_index();
+    let a = u.fetch_add(i, 1u32, Scope::Gpu);
+    let b = u.fetch_sub(i, a, Scope::Gpu);
+    let c = u.fetch_min(i, b, Scope::Gpu);
+    let d = u.fetch_max(i, c, Scope::Gpu);
+    let e = u.fetch_and(i, d, Scope::Gpu);
+    let f = u.fetch_or(i, e, Scope::Gpu);
+    let g = u.fetch_xor(i, f, Scope::Gpu);
+    let h = u.exchange(i, g, Scope::Gpu);
+    let _j = u.compare_exchange(i, h, 0u32, Scope::Gpu);
+    let _k = s.fetch_min(i, 1i32, Scope::Gpu);
+    let _m = s.fetch_max(i, 1i32, Scope::Gpu);
+}
+
+fn main() {}

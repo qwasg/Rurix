@@ -726,8 +726,8 @@ struct VkBufferImageCopy {
 
 // ── 函数指针类型 ────────────────────────────────────────────────────────────
 
-type PfnVoid = unsafe extern "system" fn();
-type FnGetInstanceProcAddr =
+pub(crate) type PfnVoid = unsafe extern "system" fn();
+pub(crate) type FnGetInstanceProcAddr =
     unsafe extern "system" fn(VkInstance, *const c_char) -> Option<PfnVoid>;
 type FnGetDeviceProcAddr = unsafe extern "system" fn(VkDevice, *const c_char) -> Option<PfnVoid>;
 type FnCreateInstance = unsafe extern "system" fn(
@@ -971,7 +971,7 @@ mod loader {
 ///
 /// # Safety
 /// `raw` 须为 `T`(匹配 ABI 的函数指针类型)对应的有效符号地址或 null。
-unsafe fn cast_fn<T: Copy>(raw: Option<PfnVoid>) -> Option<T> {
+pub(crate) unsafe fn cast_fn<T: Copy>(raw: Option<PfnVoid>) -> Option<T> {
     let p = raw? as *const c_void;
     if p.is_null() {
         return None;
@@ -981,7 +981,7 @@ unsafe fn cast_fn<T: Copy>(raw: Option<PfnVoid>) -> Option<T> {
     Some(unsafe { std::mem::transmute_copy::<*const c_void, T>(&p) })
 }
 
-fn load_vulkan_loader() -> Option<FnGetInstanceProcAddr> {
+pub(crate) fn load_vulkan_loader() -> Option<FnGetInstanceProcAddr> {
     // SAFETY: open/sym 为各 OS 稳定 ABI 加载原语(Win32 LoadLibraryA / POSIX dlopen);
     // 入参 NUL 结尾字面量;返回地址经 null 校验后 transmute 为已知 ABI 的函数指针。
     // loader 不 close/FreeLibrary —— 进程生命周期常驻(镜像 sys.rs U1 nvcuda.dll 纪律)。

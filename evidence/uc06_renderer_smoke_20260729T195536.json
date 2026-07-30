@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "subject": "uc06_renderer_smoke",
+  "milestone": "G5.4 / G-G5-8 (RFC-0016 §1 管线图)",
+  "step": 87,
+  "host_section_pass": true,
+  "device_section_rc": 0,
+  "checks": {
+    "host_pipeline_pass": true,
+    "host_exit_ok": true,
+    "host_asserts_all_true": true,
+    "pso_warnings": 0,
+    "graph_alias_saves": true,
+    "graph_fences_nonempty": true,
+    "host_stage_count": 12,
+    "device_pass": true,
+    "device_name": "NVIDIA GeForce RTX 4070 Ti",
+    "device_atomic_int64": true,
+    "device_triangle_pixels": 4096,
+    "device_compute_write_ok": true,
+    "device_mixed_pass_ok": true
+  },
+  "toolchain_skip": null,
+  "dev_env_degrade": false,
+  "run_url": "local",
+  "timestamp": "2026-07-29T19:55:36+08:00"
+}

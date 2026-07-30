@@ -1,0 +1,244 @@
+//! uc06-renderer — rurix 原生渲染器全管线 demo(G5,RFC-0016 §1 管线图;门 G-G5-8)。
+//!
+//! host 全管线(默认 feature,零 GPU 依赖):
+//! geom-build 离线簇化/DAG → GpuScene+MaterialTable+PSO precache → RenderGraph 帧声明
+//! (transient + 历史/页表 import + AO/GI 滤波标 AsyncCompute 车道)→ 每帧:流送 tick
+//! → 两级剔除 → VisBuffer → classify/resolve → GBuffer → VSM(mark/alloc/raster/sample)
+//! → 屏幕探针 GI(时域累积经 temporal 公共底座)→ RTAO+硬阴影(denoise 时域滤波)→
+//! 单层材质延迟着色 → TAA → TSR 超分。
+//!
+//! device 腿(feature `vulkan` + `--device`):经 rurix-rt `render_exec`(RFC-0016 章 B
+//! 主通道)跑真多 pass(≥1 raster 真 draw 场景几何 + ≥1 compute 消费 host 光照合成 +
+//! readback 像素断言)。效果 kernel 全量 device 化按 RFC-0016 §9.1 R-3 条件臂登记
+//! RD-038 存续,本腿为「执行面真派发」的 honest 边界,不伪造效果 device 绿。
+//!
+//! CLI:`uc06-renderer [--frames N=8] [--size WxH=256x144] [--device] [--dump-graph p] [--json]`
+//! `--json` 输出单行 JSON(smoke 脚本消费,字段集冻结);exit 0 仅当全部断言过。
+
+#[cfg(feature = "vulkan")]
+mod device_kernels;
+mod graph_setup;
+mod pipeline;
+mod scene;
+mod shading;
+
+use rurix_render::gi::probe::GiCamera;
+use rurix_render::temporal::common::Mat4;
+
+/// 相机矩阵便捷面(scene 单测与 pipeline 共用)。
+pub fn camera_matrices(w: u32, h: u32) -> pipeline::CameraMats {
+    pipeline::camera_matrices(w, h)
+}
+
+/// GI 场景(每帧同源;材质 albedo 解包自 MaterialTable)。
+pub fn gi_scene_of(scene: &scene::Uc06Scene) -> rurix_render::gi::tracer::GiScene {
+    pipeline::gi_scene_of(scene)
+}
+
+/// 场景 GBuffer(shading::scene_gbuffer 直通)。
+pub fn shading_gbuffer(
+    scene: &scene::Uc06Scene,
+    camera: &GiCamera,
+    w: u32,
+    h: u32,
+    _view_proj: &Mat4,
+) -> (
+    rurix_render::temporal::image::ImageF32,
+    rurix_render::temporal::image::ImageF32,
+) {
+    shading::scene_gbuffer(scene, camera, w, h)
+}
+
+use pipeline::{FrameCtx, PipelineState, RenderConfig, run_frame};
+
+/// CLI 参数(解析确定性;未知参数 = Err)。
+#[derive(Debug, Clone)]
+struct Cli {
+    frames: u32,
+    width: u32,
+    height: u32,
+    device: bool,
+    dump_graph: Option<String>,
+    json: bool,
+}
+
+impl Default for Cli {
+    fn default() -> Self {
+        Cli {
+            frames: 8,
+            width: 256,
+            height: 144,
+            device: false,
+            dump_graph: None,
+            json: false,
+        }
+    }
+}
+
+fn parse_cli(args: &[String]) -> Result<Cli, String> {
+    let mut c = Cli::default();
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--frames" => {
+                i += 1;
+                c.frames = args
+                    .get(i)
+                    .and_then(|s| s.parse().ok())
+                    .filter(|&n: &u32| n >= 1)
+                    .ok_or("--frames 需要 ≥1 整数")?;
+            }
+            "--size" => {
+                i += 1;
+                let s = args.get(i).ok_or("--size 需要 WxH")?;
+                let (w, h) = s.split_once('x').ok_or("--size 形如 256x144")?;
+                c.width = w.parse().map_err(|_| "--size 宽非整数")?;
+                c.height = h.parse().map_err(|_| "--size 高非整数")?;
+                if c.width == 0 || c.height == 0 || c.width > 4096 || c.height > 4096 {
+                    return Err("--size 越界(1..=4096)".to_owned());
+                }
+            }
+            "--device" => c.device = true,
+            "--json" => c.json = true,
+            "--dump-graph" => {
+                i += 1;
+                c.dump_graph = Some(args.get(i).ok_or("--dump-graph 需要路径")?.clone());
+            }
+            other => return Err(format!("未知参数 {other}")),
+        }
+        i += 1;
+    }
+    Ok(c)
+}
+
+/// 主流程(断言失败 → Err 串,exit 非零)。
+fn run(cli: &Cli) -> Result<pipeline::Uc06Summary, String> {
+    let cfg = RenderConfig {
+        out_w: cli.width,
+        out_h: cli.height,
+        frames: cli.frames,
+        ..Default::default()
+    };
+
+    let scene = scene::build_scene();
+    let mut st = PipelineState::new(&scene, &cfg);
+    let mut ctx = FrameCtx::new(&scene);
+
+    let mut summaries = Vec::with_capacity(cli.frames as usize);
+    for frame in 0..cli.frames {
+        let s = run_frame(&scene, &mut st, &mut ctx, &cfg, frame);
+        summaries.push(s);
+    }
+
+    // 图 dump(可选;每帧同构,末帧足够)。
+    if let Some(path) = &cli.dump_graph {
+        let dump = st.compiled.dump_json();
+        std::fs::write(path, dump).map_err(|e| format!("写 dump-graph 失败: {e}"))?;
+    }
+
+    let mut summary = pipeline::assemble_summary(&scene, &st, &summaries, cli.device)?;
+    summary.width = cli.width;
+    summary.height = cli.height;
+    summary.internal_width = cfg.internal_w();
+    summary.internal_height = cfg.internal_h();
+    Ok(summary)
+}
+
+fn main() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let cli = match parse_cli(&args) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("uc06-renderer: {e}");
+            std::process::exit(2);
+        }
+    };
+
+    #[cfg(not(feature = "vulkan"))]
+    if cli.device {
+        eprintln!(
+            "uc06-renderer: --device 需要 feature vulkan(cargo run -p uc06-renderer --features vulkan)"
+        );
+        std::process::exit(2);
+    }
+
+    match run(&cli) {
+        Ok(summary) => {
+            // device 腿(feature + flag 双开)。
+            #[cfg(feature = "vulkan")]
+            let device_json = if cli.device {
+                match pipeline::run_device_leg(&summary) {
+                    Ok(j) => Some(j),
+                    Err(e) => {
+                        let require_real =
+                            std::env::var("RURIX_REQUIRE_REAL").ok().as_deref() == Some("1");
+                        let environment_missing = e.contains("Vulkan loader")
+                            || e.contains("no-vulkan")
+                            || e.contains("vulkan loader");
+                        if require_real || !environment_missing {
+                            eprintln!(
+                                "uc06-renderer: device 腿失败(回归硬红;仅 loader 缺失可降级): {e}"
+                            );
+                            std::process::exit(1);
+                        }
+                        eprintln!("uc06-renderer: device 腿降级(dev-env degrade,不充绿): {e}");
+                        None
+                    }
+                }
+            } else {
+                None
+            };
+            #[cfg(not(feature = "vulkan"))]
+            let device_json: Option<pipeline::DeviceLeg> = None;
+
+            let json = pipeline::summary_json(&summary, device_json.as_ref(), cli.device);
+            if cli.json {
+                println!("{json}");
+            } else {
+                println!("uc06-renderer OK: {}", summary.one_line());
+                println!("{json}");
+            }
+            if !summary.all_asserts_pass(device_json.as_ref()) {
+                eprintln!("uc06-renderer: 断言未全过(见 JSON asserts)");
+                std::process::exit(1);
+            }
+        }
+        Err(e) => {
+            eprintln!("uc06-renderer: {e}");
+            std::process::exit(1);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cli_parse_defaults_and_overrides() {
+        let c = parse_cli(&[]).unwrap();
+        assert_eq!((c.frames, c.width, c.height), (8, 256, 144));
+        assert!(!c.device && !c.json && c.dump_graph.is_none());
+        let c = parse_cli(&[
+            "--frames".into(),
+            "4".into(),
+            "--size".into(),
+            "128x72".into(),
+            "--json".into(),
+        ])
+        .unwrap();
+        assert_eq!((c.frames, c.width, c.height), (4, 128, 72));
+        assert!(c.json);
+        let c = parse_cli(&["--device".into(), "--dump-graph".into(), "g.json".into()]).unwrap();
+        assert!(c.device && c.dump_graph.as_deref() == Some("g.json"));
+    }
+
+    #[test]
+    fn cli_parse_rejects_bad_input() {
+        assert!(parse_cli(&["--frames".into(), "0".into()]).is_err());
+        assert!(parse_cli(&["--size".into(), "0x10".into()]).is_err());
+        assert!(parse_cli(&["--size".into(), "10".into()]).is_err());
+        assert!(parse_cli(&["--bogus".into()]).is_err());
+        assert!(parse_cli(&["--frames".into()]).is_err());
+    }
+}

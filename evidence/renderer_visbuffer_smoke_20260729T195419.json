@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "subject": "renderer_visbuffer_smoke",
+  "milestone": "G5.2-C+G5.3-C / G-G5-5 (RFC-0016 章 C)",
+  "step": 84,
+  "host_section_pass": true,
+  "device_section_rc": 0,
+  "device_blocked": "RD-038",
+  "device_probe_note": "效果 kernel device 化条件臂(host 参考器全量锚定;device 腿到真实证据边界 honest 存续)",
+  "checks": {
+    "geom_build_pass": true,
+    "geom_build_count": 22,
+    "geometry_pass": true,
+    "geometry_count": 29
+  },
+  "run_url": "local",
+  "timestamp": "2026-07-29T19:54:19+08:00"
+}

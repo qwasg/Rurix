@@ -35,6 +35,14 @@ const E_LINK_ATTR: ErrorCode = ErrorCode(7022); // RX7022
 const E_GPU_EMBED: ErrorCode = ErrorCode(6025); // RX6025(RXS-0192)
 const E_RT_CABI: ErrorCode = ErrorCode(7021); // RX7021(RXS-0195)
 
+/// 最小 PTX 占位(G4.2,RXS-0270/0291):无 compute kernel 但有图形 shader SPIR-V
+/// 模块的编译单元用此作为 artifacts PTX fallback。非空 UTF-8 文本通过 `parse` 的
+/// `ptx_ptr/ptx_len` 非零检查(RXS-0150);运行期 `DeviceArtifactSet::ptx()` 装入此
+/// 文本,compute kernel 派发不会发生(无 kernel),gfx pass 装配核验 + submit 跳过
+/// gfx 派发——像素判据归 PR-F/步骤 80。PTX 头仅含 version/target/address_size,
+/// 无 `.entry`——`cuModuleLoadData` 不会在此单元被调用。
+const MINIMAL_PTX_PLACEHOLDER: &str = ".version 7.0\n.target sm_89\n.address_size 64\n";
+
 /// 编译选项(rurixc 驱动 argv 与 rx 子命令分发都构造此结构后调 [`compile`])。
 pub struct CompileOptions {
     /// 输入 `.rx` 源文件路径。
@@ -594,6 +602,20 @@ pub fn compile(opts: &CompileOptions) -> u8 {
                 for l in ["ntdll.lib", "userenv.lib", "ws2_32.lib", "dbghelp.lib"] {
                     cmd.arg(l);
                 }
+                // D3D12 shim 系统库固定集(present-real 含 shim 的 rurix_rt_cabi.lib
+                // 链接所需;shim 不在场时链接器仅拉取实际引用的符号,零副作用)。
+                #[cfg(windows)]
+                {
+                    for l in [
+                        "user32.lib",
+                        "d3d12.lib",
+                        "dxgi.lib",
+                        "d3dcompiler.lib",
+                        "gdi32.lib",
+                    ] {
+                        cmd.arg(l);
+                    }
+                }
             }
             Err(detail) => {
                 diag.struct_error(E_RT_CABI, "link.rt_cabi_failure")
@@ -745,6 +767,21 @@ fn emit_dll(
                 cmd.arg(&lib);
                 for l in ["ntdll.lib", "userenv.lib", "ws2_32.lib", "dbghelp.lib"] {
                     cmd.arg(l);
+                }
+                // D3D12 shim 系统库固定集(present-real 含 shim 的 rurix_rt_cabi.lib
+                // 链接所需;shim 不在场时链接器仅拉取实际引用的符号,零副作用)。
+                // 与 EXE 段同源(RXS-0195/0261,EI1.4)。
+                #[cfg(windows)]
+                {
+                    for l in [
+                        "user32.lib",
+                        "d3d12.lib",
+                        "dxgi.lib",
+                        "d3dcompiler.lib",
+                        "gdi32.lib",
+                    ] {
+                        cmd.arg(l);
+                    }
                 }
             }
             Err(detail) => {
@@ -957,11 +994,33 @@ fn build_gpu_artifacts(
         return Err(1);
     }
     let Some(ir) = ir else {
+        // 无 compute kernel 但可能有图形 shader(vertex/fragment/mesh)device MIR
+        // (G4.2,RXS-0270/0275;feature `vulkan-backend`/`dxil-backend` 下 `collectable_stage`
+        // 收图形阶段根)。artifacts v2:图形 shader 经 `collect_spirv_entries` 产 SPIR-V
+        // 模块嵌入 EXE;PTX fallback 用最小占位(无 compute kernel,PTX 路不会被派发;
+        // `rxrt_ctx_create` 解析非空 PTX → Context 创建成功;gfx pass 装配核验通过,
+        // submit 跳过 gfx 派发——像素判据归 PR-F/步骤 80)。即使 SPIR-V lowering 部分
+        // 失败(vs/fs 类型不匹配等),只要有图形 shader device MIR bodies 即产出占位,
+        // 让 reject 语料能跑到 `rhi_submit()` 装配核验阶段触发确定性拒绝。
+        let spirv_modules = collect_spirv_entries(cx);
+        let has_gfx_bodies = !cx.device_mir_crate().is_empty();
+        if spirv_modules.is_empty() && !has_gfx_bodies {
+            eprintln!(
+                "rurixc: note: no `kernel fn` in this unit; embedding sentinel GPU artifacts \
+                 (first gpu op fails deterministically at run time, RXS-0192)"
+            );
+            return Ok(codegen::GpuArtifacts::default());
+        }
         eprintln!(
-            "rurixc: note: no `kernel fn` in this unit; embedding sentinel GPU artifacts \
-             (first gpu op fails deterministically at run time, RXS-0192)"
+            "rurixc: note: no compute `kernel fn` in this unit; embedding graphics-only \
+             artifacts ({} SPIR-V module(s)) with minimal PTX placeholder (RXS-0270/0291)",
+            spirv_modules.len()
         );
-        return Ok(codegen::GpuArtifacts::default());
+        return Ok(codegen::GpuArtifacts {
+            ptx: MINIMAL_PTX_PLACEHOLDER.to_owned(),
+            cubin: Vec::new(),
+            spirv_modules,
+        });
     };
     let ptx_out = exe.with_extension("ptx");
     let embed = |ptx: String, cubin: Vec<u8>| -> Result<codegen::GpuArtifacts, u8> {
@@ -1117,13 +1176,18 @@ fn collect_spirv_entries(_cx: &QueryCtx<'_>) -> Vec<codegen::SpirvModule> {
 }
 
 /// rurix_rt_cabi.lib 定位序(RXS-0195,RX7021):env `RURIX_RT_CABI_LIB` →
-/// rx.exe 旁 `lib/` → workspace `target/crt-static/release/`(缺则编排
-/// `cargo build -p rurix-rt-cabi --release`,先例 rx build_pyd)。
+/// rx.exe 旁 `lib/` → workspace `target/crt-static-default/release/`(缺则编排
+/// `cargo build -p rurix-rt-cabi --release --features vulkan`,先例 rx build_pyd)。
+/// `--features vulkan` 透传 rurix-rt/vulkan(G4.4 PR-F RXS-0293):启用
+/// `rxrt_rhi_create_vk` 的 Vulkan 后端分流(compute 腿 vk::run_compute,手写
+/// vulkan-1.dll FFI loader 运行期动态加载,零链接期 vulkan-1.lib 依赖;CUDA 路
+/// `rxrt_rhi_create` 不受影响,死代码消除保证非 Vulkan 程序零回归)。
 ///
 /// CRT 口径(RFC-0009 §9 Q-Link 实测定案):cabi 以
 /// `RUSTFLAGS=-C target-feature=+crt-static` 构建(静态 CRT = libcmt 系,与
 /// 本 driver 链接基础集 libcmt.lib 一致,避免 /defaultlib:msvcrt 冲突);
-/// `--target-dir target/crt-static` 与普通 target/release 缓存隔离。
+/// `--target-dir target/crt-static-default` 与普通 target/release 缓存隔离,
+/// 亦与 present-real 预编的 `target/crt-static` 隔离(步骤 81 stale 产物隔离)。
 fn locate_or_build_rt_cabi() -> Result<PathBuf, String> {
     const LIB: &str = "rurix_rt_cabi.lib";
     if let Ok(p) = std::env::var("RURIX_RT_CABI_LIB") {
@@ -1150,14 +1214,14 @@ fn locate_or_build_rt_cabi() -> Result<PathBuf, String> {
     };
     let lib = root
         .join("target")
-        .join("crt-static")
+        .join("crt-static-default")
         .join("release")
         .join(LIB);
     if lib.is_file() {
         return Ok(lib);
     }
     eprintln!(
-        "rurixc: building rurix-rt-cabi (cargo --release, crt-static; one-time per workspace)…"
+        "rurixc: building rurix-rt-cabi (cargo --release --features vulkan, crt-static; one-time per workspace)…"
     );
     let out = Command::new("cargo")
         .args([
@@ -1165,8 +1229,10 @@ fn locate_or_build_rt_cabi() -> Result<PathBuf, String> {
             "-p",
             "rurix-rt-cabi",
             "--release",
+            "--features",
+            "vulkan",
             "--target-dir",
-            "target/crt-static",
+            "target/crt-static-default",
         ])
         .env("RUSTFLAGS", "-C target-feature=+crt-static")
         .current_dir(&root)

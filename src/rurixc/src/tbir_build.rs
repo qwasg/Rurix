@@ -412,6 +412,26 @@ impl Builder<'_> {
                         kind: tbir::ExprKind::DeviceCall(*intr),
                     };
                 }
+                // scoped atomics:scope 实参仅承载类型契约，Vulkan W1 固定映射
+                // Device + Relaxed；其余实参保序进入 MIR。
+                if let Some(&(op, is_view)) = self.tcr.atomic_calls.get(&e.hir_id) {
+                    let value_args = args
+                        .get(..args.len().saturating_sub(1))
+                        .unwrap_or_default()
+                        .iter()
+                        .map(|a| self.expr(a))
+                        .collect();
+                    return tbir::Expr {
+                        ty,
+                        span,
+                        kind: tbir::ExprKind::AtomicCall {
+                            op,
+                            is_view,
+                            receiver: Box::new(self.expr(receiver)),
+                            args: value_args,
+                        },
+                    };
+                }
                 // device 数学 intrinsic(M5.3,RXS-0081):receiver 作 args[0],
                 // 后续为方法实参 → libdevice `__nv_*` 调用。
                 if let Some((op, elem)) = self.tcr.device_math_calls.get(&e.hir_id) {
@@ -977,6 +997,12 @@ impl ExhaustCx<'_> {
                 self.walk_expr(coord);
                 for x in extra {
                     self.walk_expr(x);
+                }
+            }
+            tbir::ExprKind::AtomicCall { receiver, args, .. } => {
+                self.walk_expr(receiver);
+                for a in args {
+                    self.walk_expr(a);
                 }
             }
             tbir::ExprKind::Binary { lhs, rhs, .. }

@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "subject": "renderer_graph_smoke",
+  "milestone": "G5.2-A / G-G5-3 (RFC-0016 章 A)",
+  "step": 82,
+  "host_section_pass": true,
+  "device_section_rc": 0,
+  "checks": {
+    "graph_tests_pass": true,
+    "graph_test_count": 35,
+    "graph_dump_test_present": true
+  },
+  "run_url": "local",
+  "timestamp": "2026-07-29T19:52:06+08:00"
+}

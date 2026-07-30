@@ -11,13 +11,13 @@
 //! - `View`/`ViewMut<global,T>` 形参 → **StorageBuffer 描述符**(SPIR-V 1.0 SSBO:
 //!   `OpTypeStruct{OpTypeRuntimeArray T}` + `BufferBlock` + `DescriptorSet`/`Binding`;
 //!   索引 `buf[i]` → `OpAccessChain`);
-//! - 标量形参(`f32`/`u32`/`usize`)→ **push constant** 块(`Block` + `Offset`);
+//! - 标量形参(`f32`/`u32`/`usize`/`i64`/`u64`)→ **push constant** 块(`Block` + `Offset`);
 //! - `ThreadCtx.global_id()`(DeviceIntrinsic)→ `GlobalInvocationId` builtin;
 //! - 结构化 `if`(SwitchBool)→ `OpSelectionMerge` + `OpBranchConditional`。
 //!
 //! 首期子集(RXS-0203):compute builtins(GlobalId/ThreadIndex/BlockIndex/Barrier)+
 //! 存储缓冲 + 标量算术/比较 + 结构化 `if`;子集外(BlockDim / device fn 调用 / 数学
-//! intrinsic→GLSL.std.450〔RXS-0205〕/ 循环 / 非标量 / F64·I64)→ `RX6026`。下游
+//! intrinsic→GLSL.std.450〔RXS-0205〕/ 循环 / 非标量 / F64)→ `RX6026`。下游
 //! (`.spv` → `spirv-val` clean)见 [`crate::toolchain`];真实红绿:篡改 `.spv` 字节 →
 //! spirv-val 拒(红),复原绿(RFC-0011 §6)。**本片不碰** 🔒 launch marshalling FFI
 //! ABI(RFC-0011 §4.7)/ Backend trait(§4.5)/ 纹理内存模型映射(06 §4.2)。
@@ -27,10 +27,10 @@ use std::collections::HashMap;
 use crate::ast::BinOp;
 use crate::ast::FnColor;
 use crate::diag::ErrorCode;
-use crate::hir::{DeviceIntrinsic, MeshIntrinsic, PrimTy, TaskIntrinsic};
+use crate::hir::{AtomicOp, DeviceIntrinsic, MeshIntrinsic, PrimTy, TaskIntrinsic};
 use crate::mir::{
-    BasicBlock, Body, CallTarget, Const, LocalIdx, MeshEntryMeta, Operand, Place, ProjElem, Rvalue,
-    StatementKind, TerminatorKind,
+    BasicBlock, Body, CallTarget, Const, LocalIdx, MeshEntryMeta, Operand, Place, ProjElem,
+    ResourceMethod, Rvalue, StatementKind, TerminatorKind,
 };
 use crate::query::QueryCtx;
 use crate::resolve::Resolutions;
@@ -63,6 +63,7 @@ const OP_TYPE_BOOL: u16 = 20;
 const OP_TYPE_INT: u16 = 21;
 const OP_TYPE_FLOAT: u16 = 22;
 const OP_TYPE_VECTOR: u16 = 23;
+const OP_TYPE_IMAGE: u16 = 25;
 const OP_TYPE_RUNTIME_ARRAY: u16 = 29;
 const OP_TYPE_STRUCT: u16 = 30;
 const OP_TYPE_POINTER: u16 = 32;
@@ -77,6 +78,16 @@ const OP_ACCESS_CHAIN: u16 = 65;
 const OP_DECORATE: u16 = 71;
 const OP_MEMBER_DECORATE: u16 = 72;
 const OP_COMPOSITE_EXTRACT: u16 = 81;
+const OP_COMPOSITE_CONSTRUCT: u16 = 80;
+const OP_IMAGE_READ: u16 = 98;
+const OP_IMAGE_WRITE: u16 = 99;
+const OP_CONVERT_F_TO_U: u16 = 109;
+const OP_CONVERT_F_TO_S: u16 = 110;
+const OP_CONVERT_S_TO_F: u16 = 111;
+const OP_CONVERT_U_TO_F: u16 = 112;
+const OP_UCONVERT: u16 = 113;
+const OP_SCONVERT: u16 = 114;
+const OP_BITCAST: u16 = 124;
 const OP_SELECT: u16 = 169;
 const OP_IADD: u16 = 128;
 const OP_FADD: u16 = 129;
@@ -106,7 +117,24 @@ const OP_FORDLESSTHAN: u16 = 184;
 const OP_FORDGREATERTHAN: u16 = 186;
 const OP_FORDLESSTHANEQUAL: u16 = 188;
 const OP_FORDGREATERTHANEQUAL: u16 = 190;
+const OP_SHIFT_RIGHT_LOGICAL: u16 = 194;
+const OP_SHIFT_RIGHT_ARITHMETIC: u16 = 195;
+const OP_SHIFT_LEFT_LOGICAL: u16 = 196;
+const OP_BITWISE_OR: u16 = 197;
+const OP_BITWISE_XOR: u16 = 198;
+const OP_BITWISE_AND: u16 = 199;
 const OP_CONTROL_BARRIER: u16 = 224;
+const OP_ATOMIC_EXCHANGE: u16 = 229;
+const OP_ATOMIC_COMPARE_EXCHANGE: u16 = 230;
+const OP_ATOMIC_IADD: u16 = 234;
+const OP_ATOMIC_ISUB: u16 = 235;
+const OP_ATOMIC_SMIN: u16 = 236;
+const OP_ATOMIC_UMIN: u16 = 237;
+const OP_ATOMIC_SMAX: u16 = 238;
+const OP_ATOMIC_UMAX: u16 = 239;
+const OP_ATOMIC_AND: u16 = 240;
+const OP_ATOMIC_OR: u16 = 241;
+const OP_ATOMIC_XOR: u16 = 242;
 const OP_SELECTION_MERGE: u16 = 247;
 const OP_LABEL: u16 = 248;
 const OP_BRANCH: u16 = 249;
@@ -116,6 +144,8 @@ const OP_UNREACHABLE: u16 = 255;
 
 // 枚举取值。
 const CAP_SHADER: u32 = 1;
+const CAP_INT64: u32 = 11;
+const CAP_INT64_ATOMICS: u32 = 12;
 const ADDR_MODEL_LOGICAL: u32 = 0;
 const MEM_MODEL_GLSL450: u32 = 1;
 const EXEC_MODEL_GLCOMPUTE: u32 = 5;
@@ -125,6 +155,7 @@ const SELECTION_CONTROL_NONE: u32 = 0;
 
 // 存储类。
 const STORAGE_INPUT: u32 = 1;
+const STORAGE_UNIFORM_CONSTANT: u32 = 0;
 const STORAGE_UNIFORM: u32 = 2;
 const STORAGE_FUNCTION: u32 = 7;
 const STORAGE_PUSH_CONSTANT: u32 = 9;
@@ -143,8 +174,17 @@ const BUILTIN_WORKGROUP_ID: u32 = 26;
 const BUILTIN_LOCAL_INVOCATION_ID: u32 = 27;
 const BUILTIN_GLOBAL_INVOCATION_ID: u32 = 28;
 
+// storage image 类型。
+const DIM_2D: u32 = 1;
+const IMAGE_SAMPLED_STORAGE: u32 = 2;
+const IMAGE_FORMAT_RGBA32F: u32 = 1;
+const IMAGE_FORMAT_RGBA32I: u32 = 21;
+const IMAGE_FORMAT_RGBA32UI: u32 = 30;
+
 // barrier scope / memory semantics(OpControlBarrier)。
 const SCOPE_WORKGROUP: u32 = 2;
+const SCOPE_DEVICE: u32 = 1;
+const MEM_SEM_RELAXED: u32 = 0;
 const MEM_SEM_ACQUIRE_RELEASE: u32 = 0x8;
 const MEM_SEM_WORKGROUP_MEMORY: u32 = 0x100;
 
@@ -218,6 +258,8 @@ fn push_string(operands: &mut Vec<u32>, s: &str) {
 enum ParamKind {
     /// `View`/`ViewMut<space,T>` → StorageBuffer 描述符(set 0,binding = 序)。
     Buffer { binding: u32, elem: PrimTy },
+    /// `TextureRw2D<F>` → format-qualified storage image(set 0,binding = 序)。
+    Image { binding: u32, elem: PrimTy },
     /// 标量形参 → push constant 块成员(member idx = 序)。
     Scalar { member: u32, prim: PrimTy },
     /// `ThreadCtx`(ZST)→ 不产物化。
@@ -227,6 +269,9 @@ enum ParamKind {
 /// SPIR-V 模块构造器(compute)。分节累积,末尾按 SPIR-V logical layout 组装。
 struct Builder<'a> {
     res: &'a Resolutions,
+    allow_int64: bool,
+    uses_int64: bool,
+    uses_int64_atomics: bool,
     next_id: u32,
     // 分节字流。
     decorations: Vec<u32>,
@@ -241,8 +286,11 @@ struct Builder<'a> {
     type_bool: Option<u32>,
     type_uint: Option<u32>,
     type_int: Option<u32>,
+    type_ulong: Option<u32>,
+    type_long: Option<u32>,
     type_float: Option<u32>,
     type_v3uint: Option<u32>,
+    vector_types: HashMap<(PrimTy, u32), u32>,
     ptr_cache: HashMap<(u32, u32), u32>, // (storage, pointee) → ptr type id
     const_u32: HashMap<u32, u32>,
     const_f32: HashMap<u32, u32>, // bits → id
@@ -252,15 +300,20 @@ struct Builder<'a> {
     local_var: HashMap<u32, u32>,
     // buffer 形参 local idx → (描述符变量 id, 元素 PrimTy)。
     buffer_var: HashMap<u32, (u32, PrimTy)>,
+    // storage image 形参 local idx → (变量 id,OpTypeImage id,分量类型)。
+    image_var: HashMap<u32, (u32, u32, PrimTy)>,
     // block idx → label id。
     block_label: HashMap<usize, u32>,
     main_id: u32,
 }
 
 impl<'a> Builder<'a> {
-    fn new(res: &'a Resolutions) -> Self {
+    fn new(res: &'a Resolutions, allow_int64: bool) -> Self {
         Builder {
             res,
+            allow_int64,
+            uses_int64: false,
+            uses_int64_atomics: false,
             next_id: 1,
             decorations: Vec::new(),
             types_globals: Vec::new(),
@@ -273,14 +326,18 @@ impl<'a> Builder<'a> {
             type_bool: None,
             type_uint: None,
             type_int: None,
+            type_ulong: None,
+            type_long: None,
             type_float: None,
             type_v3uint: None,
+            vector_types: HashMap::new(),
             ptr_cache: HashMap::new(),
             const_u32: HashMap::new(),
             const_f32: HashMap::new(),
             builtin_vars: HashMap::new(),
             local_var: HashMap::new(),
             buffer_var: HashMap::new(),
+            image_var: HashMap::new(),
             block_label: HashMap::new(),
             main_id: 0,
         }
@@ -347,6 +404,28 @@ impl<'a> Builder<'a> {
         id
     }
 
+    fn t_ulong(&mut self) -> u32 {
+        self.uses_int64 = true;
+        if let Some(id) = self.type_ulong {
+            return id;
+        }
+        let id = self.fresh();
+        emit(&mut self.types_globals, OP_TYPE_INT, &[id, 64, 0]);
+        self.type_ulong = Some(id);
+        id
+    }
+
+    fn t_long(&mut self) -> u32 {
+        self.uses_int64 = true;
+        if let Some(id) = self.type_long {
+            return id;
+        }
+        let id = self.fresh();
+        emit(&mut self.types_globals, OP_TYPE_INT, &[id, 64, 1]);
+        self.type_long = Some(id);
+        id
+    }
+
     fn t_float(&mut self) -> u32 {
         if let Some(id) = self.type_float {
             return id;
@@ -368,23 +447,41 @@ impl<'a> Builder<'a> {
         id
     }
 
-    /// 标量 PrimTy → SPIR-V 类型 id。usize/u* → u32;i* → i32;f32 → float。
-    /// F64/I64/U64/bool/char → 子集外(RX6026),需 Int64/Float64 cap 或非标量语义。
+    /// 标量 PrimTy → SPIR-V 类型 id。compute 路径放行 i64/u64 并按需记录 Int64；
+    /// mesh 路径仍拒绝 64 位整数，f64 在两条路径均为 RX6026。
     fn prim_type(&mut self, p: PrimTy, span: Span) -> Result<u32, VulkanCodegenError> {
         match p {
             PrimTy::F32 => Ok(self.t_float()),
             PrimTy::Usize | PrimTy::U32 | PrimTy::U16 | PrimTy::U8 => Ok(self.t_uint()),
             PrimTy::I32 | PrimTy::I16 | PrimTy::I8 => Ok(self.t_int()),
+            PrimTy::U64 if self.allow_int64 => Ok(self.t_ulong()),
+            PrimTy::I64 if self.allow_int64 => Ok(self.t_long()),
             // bool 在内存中以 u32(0/1)表示(镜像 NVPTX i8);SSA 比较结果为 OpTypeBool,
             // 经 OpSelect 转 u32 存回(见 emit_assign 比较分支 / SwitchBool)。
             PrimTy::Bool => Ok(self.t_uint()),
             other => Err(VulkanCodegenError::unsupported(
                 span,
                 format!(
-                    "Vulkan compute 首期标量子集暂不支持类型 {other:?}(F64/I64/U64 需 Float64/Int64 capability,后续分片)"
+                    "Vulkan 当前入口不支持类型 {other:?}(compute 仅新增 I64/U64；F64 仍需 Float64 capability)"
                 ),
             )),
         }
+    }
+
+    fn vector_type(
+        &mut self,
+        prim: PrimTy,
+        len: u32,
+        span: Span,
+    ) -> Result<u32, VulkanCodegenError> {
+        if let Some(&id) = self.vector_types.get(&(prim, len)) {
+            return Ok(id);
+        }
+        let elem = self.prim_type(prim, span)?;
+        let id = self.fresh();
+        emit(&mut self.types_globals, OP_TYPE_VECTOR, &[id, elem, len]);
+        self.vector_types.insert((prim, len), id);
+        Ok(id)
     }
 
     fn ptr_type(&mut self, storage: u32, pointee: u32) -> u32 {
@@ -463,26 +560,6 @@ fn intrinsic_builtin(intr: DeviceIntrinsic) -> Option<(u32, u32)> {
     }
 }
 
-/// 前向可达块集(从 `start`,不跨回边;结构化 Rust MIR 为 DAG-ish)。
-fn forward_reachable(body: &Body, start: usize) -> Vec<usize> {
-    let mut seen = vec![false; body.blocks.len()];
-    let mut stack = vec![start];
-    let mut out = Vec::new();
-    while let Some(b) = stack.pop() {
-        if b >= body.blocks.len() || seen[b] {
-            continue;
-        }
-        seen[b] = true;
-        out.push(b);
-        for succ in block_succs(&body.blocks[b]) {
-            if !seen[succ] {
-                stack.push(succ);
-            }
-        }
-    }
-    out
-}
-
 fn block_succs(bb: &BasicBlock) -> Vec<usize> {
     match &bb.terminator.kind {
         TerminatorKind::Goto(t) => vec![t.0 as usize],
@@ -542,7 +619,7 @@ pub fn build_and_emit_vulkan(cx: &QueryCtx<'_>, _module_name: &str) -> Option<Ve
 
 /// 单个 compute kernel body → SPIR-V 字流(RXS-0201~0203)。
 pub fn lower_compute(body: &Body, res: &Resolutions) -> Result<Vec<u32>, VulkanCodegenError> {
-    let mut b = Builder::new(res);
+    let mut b = Builder::new(res, true);
     b.main_id = b.fresh();
 
     // 形参分类(locals 1..=arg_count):buffer / scalar / ThreadCtx。
@@ -573,19 +650,19 @@ pub fn lower_compute(body: &Body, res: &Resolutions) -> Result<Vec<u32>, VulkanC
         if i == 0 {
             continue; // ret slot(kernel = void)
         }
-        if b.buffer_var.contains_key(&(i as u32)) {
-            continue; // buffer 形参 → 描述符,不建 Function local
+        if b.buffer_var.contains_key(&(i as u32)) || b.image_var.contains_key(&(i as u32)) {
+            continue; // 资源形参 → 描述符,不建 Function local
         }
         if is_zst(res, &l.ty) {
             continue;
         }
-        let elem = prim_of(&l.ty).ok_or_else(|| {
+        let kind = value_kind(&l.ty).ok_or_else(|| {
             VulkanCodegenError::unsupported(
                 l.span,
-                "Vulkan compute local 首期仅支持标量类型(非标量 local 属后续分片)",
+                "Vulkan compute local 仅支持标量与 2/4 分量同型元组向量",
             )
         })?;
-        let ty_id = b.prim_type(elem, l.span)?;
+        let ty_id = value_type(&mut b, kind, l.span)?;
         let ptr = b.ptr_type(STORAGE_FUNCTION, ty_id);
         let var = b.fresh();
         emit(&mut b.func_vars, OP_VARIABLE, &[ptr, var, STORAGE_FUNCTION]);
@@ -641,7 +718,7 @@ pub fn lower_mesh(body: &Body, res: &Resolutions) -> Result<Vec<u32>, VulkanCode
         )
     })?;
 
-    let mut b = Builder::new(res);
+    let mut b = Builder::new(res, false);
     b.main_id = b.fresh();
 
     // 形参分类(locals 1..=arg_count):buffer / scalar / ThreadCtx。
@@ -671,19 +748,19 @@ pub fn lower_mesh(body: &Body, res: &Resolutions) -> Result<Vec<u32>, VulkanCode
         if i == 0 {
             continue; // ret slot(mesh = void)
         }
-        if b.buffer_var.contains_key(&(i as u32)) {
+        if b.buffer_var.contains_key(&(i as u32)) || b.image_var.contains_key(&(i as u32)) {
             continue;
         }
         if is_zst(res, &l.ty) {
             continue;
         }
-        let elem = prim_of(&l.ty).ok_or_else(|| {
+        let kind = value_kind(&l.ty).ok_or_else(|| {
             VulkanCodegenError::unsupported(
                 l.span,
                 "Vulkan mesh local 首期仅支持标量类型(非标量 local 属后续分片)",
             )
         })?;
-        let ty_id = b.prim_type(elem, l.span)?;
+        let ty_id = value_type(&mut b, kind, l.span)?;
         let ptr = b.ptr_type(STORAGE_FUNCTION, ty_id);
         let var = b.fresh();
         emit(&mut b.func_vars, OP_VARIABLE, &[ptr, var, STORAGE_FUNCTION]);
@@ -759,6 +836,42 @@ fn classify_param(
         *next_binding += 1;
         return Ok(ParamKind::Buffer { binding, elem });
     }
+    if let Ty::Adt(d, args) = ty
+        && let Some(is_view) = b.res.lang_items.atomic_kind(*d)
+    {
+        let elem_idx = usize::from(is_view);
+        let elem = args.get(elem_idx).and_then(prim_of).ok_or_else(|| {
+            VulkanCodegenError::unsupported(
+                span,
+                "Vulkan 原子形参仅支持 Atomic/AtomicView 的 i32/u32/i64/u64 元素",
+            )
+        })?;
+        if !(matches!(elem, PrimTy::I32 | PrimTy::U32)
+            || b.allow_int64 && matches!(elem, PrimTy::I64 | PrimTy::U64))
+        {
+            return Err(VulkanCodegenError::unsupported(
+                span,
+                "Vulkan compute 原子仅支持 i32/u32/i64/u64；其他入口维持 i32/u32",
+            ));
+        }
+        let binding = *next_binding;
+        *next_binding += 1;
+        return Ok(ParamKind::Buffer { binding, elem });
+    }
+    if let Ty::Adt(d, args) = ty
+        && b.res.lang_items.is_texture_rw2d(*d)
+    {
+        let elem = args.first().and_then(prim_of).unwrap_or(PrimTy::F32);
+        if !matches!(elem, PrimTy::F32 | PrimTy::I32 | PrimTy::U32) {
+            return Err(VulkanCodegenError::unsupported(
+                span,
+                "TextureRw2D storage image 仅支持 f32/i32/u32 分量",
+            ));
+        }
+        let binding = *next_binding;
+        *next_binding += 1;
+        return Ok(ParamKind::Image { binding, elem });
+    }
     if let Some(p) = prim_of(ty) {
         let member = *next_member;
         *next_member += 1;
@@ -766,7 +879,7 @@ fn classify_param(
     }
     Err(VulkanCodegenError::unsupported(
         span,
-        "Vulkan compute 形参首期仅支持 View/ViewMut<space,T> 存储缓冲、标量、ThreadCtx",
+        "Vulkan compute 形参仅支持 View/ViewMut/Atomic/AtomicView、TextureRw2D、标量、ThreadCtx",
     ))
 }
 
@@ -779,7 +892,7 @@ fn emit_buffer_descriptors(
     for (li, kind) in params {
         if let ParamKind::Buffer { binding, elem } = kind {
             let elem_ty = b.prim_type(*elem, body.locals[li.0 as usize].span)?;
-            let stride = 4u32; // f32/i32/u32 均 4 字节。
+            let stride = prim_layout(*elem).1;
             // OpTypeRuntimeArray T(ArrayStride)。
             let rarr = b.fresh();
             emit(
@@ -824,6 +937,47 @@ fn emit_buffer_descriptors(
                 &[var, DECORATION_BINDING, *binding],
             );
             b.buffer_var.insert(li.0, (var, *elem));
+        } else if let ParamKind::Image { binding, elem } = kind {
+            let sampled_ty = b.prim_type(*elem, body.locals[li.0 as usize].span)?;
+            let format = match elem {
+                PrimTy::F32 => IMAGE_FORMAT_RGBA32F,
+                PrimTy::I32 => IMAGE_FORMAT_RGBA32I,
+                PrimTy::U32 => IMAGE_FORMAT_RGBA32UI,
+                _ => unreachable!("classify_param 已限制 storage image 分量"),
+            };
+            let image_ty = b.fresh();
+            emit(
+                &mut b.types_globals,
+                OP_TYPE_IMAGE,
+                &[
+                    image_ty,
+                    sampled_ty,
+                    DIM_2D,
+                    0,
+                    0,
+                    0,
+                    IMAGE_SAMPLED_STORAGE,
+                    format,
+                ],
+            );
+            let ptr = b.ptr_type(STORAGE_UNIFORM_CONSTANT, image_ty);
+            let var = b.fresh();
+            emit(
+                &mut b.types_globals,
+                OP_VARIABLE,
+                &[ptr, var, STORAGE_UNIFORM_CONSTANT],
+            );
+            emit(
+                &mut b.decorations,
+                OP_DECORATE,
+                &[var, DECORATION_DESCRIPTOR_SET, 0],
+            );
+            emit(
+                &mut b.decorations,
+                OP_DECORATE,
+                &[var, DECORATION_BINDING, *binding],
+            );
+            b.image_var.insert(li.0, (var, image_ty, *elem));
         }
     }
     Ok(())
@@ -853,13 +1007,17 @@ fn emit_push_constants(
     let mut operands = vec![st];
     operands.extend_from_slice(&member_tys);
     emit(&mut b.types_globals, OP_TYPE_STRUCT, &operands);
-    // 成员 Offset(均 4 字节标量,顺排)。
-    for (i, _) in scalars.iter().enumerate() {
+    // 成员按自然标量对齐顺排；i64/u64 为 8 字节对齐。
+    let mut offset = 0u32;
+    for (i, (_, prim)) in scalars.iter().enumerate() {
+        let (align, size) = prim_layout(*prim);
+        offset = align_up(offset, align);
         emit(
             &mut b.decorations,
             OP_MEMBER_DECORATE,
-            &[st, i as u32, DECORATION_OFFSET, (i as u32) * 4],
+            &[st, i as u32, DECORATION_OFFSET, offset],
         );
+        offset += size;
     }
     emit(&mut b.decorations, OP_DECORATE, &[st, DECORATION_BLOCK]);
     let ptr = b.ptr_type(STORAGE_PUSH_CONSTANT, st);
@@ -874,7 +1032,20 @@ fn emit_push_constants(
 
 // ───────────────────────── 语句 / place / operand ─────────────────────────
 
-/// place 解析 → (指针 id, 元素 SPIR-V 类型 id, 元素 PrimTy)。
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum ValueKind {
+    Scalar(PrimTy),
+    Vector(PrimTy, u32),
+}
+
+fn value_type(b: &mut Builder, kind: ValueKind, span: Span) -> Result<u32, VulkanCodegenError> {
+    match kind {
+        ValueKind::Scalar(prim) => b.prim_type(prim, span),
+        ValueKind::Vector(prim, len) => b.vector_type(prim, len, span),
+    }
+}
+
+/// place 解析 → (指针 id,SPIR-V 类型 id,值种类)。
 /// - buffer 形参 + `[Index(idx)]` → `OpAccessChain(var, uint_0, idx)`(StorageBuffer 元素);
 /// - Function local(无投影)→ 其 OpVariable id;
 /// - 其余 → RX6026。
@@ -882,20 +1053,21 @@ fn place_ptr(
     b: &mut Builder,
     body: &Body,
     p: &Place,
-) -> Result<(u32, u32, PrimTy), VulkanCodegenError> {
+) -> Result<(u32, u32, ValueKind), VulkanCodegenError> {
     let span = body.locals[p.local.0 as usize].span;
     if p.proj.is_empty() {
         // Function local(标量/临时/scalar 形参 copy)。
-        let prim = prim_of(&body.locals[p.local.0 as usize].ty)
-            .ok_or_else(|| VulkanCodegenError::unsupported(span, "非标量 local 访问属后续分片"))?;
-        let ty_id = b.prim_type(prim, span)?;
+        let kind = value_kind(&body.locals[p.local.0 as usize].ty).ok_or_else(|| {
+            VulkanCodegenError::unsupported(span, "local 类型不是标量或受支持向量")
+        })?;
+        let ty_id = value_type(b, kind, span)?;
         let var = *b.local_var.get(&p.local.0).ok_or_else(|| {
             VulkanCodegenError::unsupported(
                 span,
                 "对未建 Function 变量的 local 访问(可能是 buffer 形参裸引用,子集外)",
             )
         })?;
-        return Ok((var, ty_id, prim));
+        return Ok((var, ty_id, kind));
     }
     if let [ProjElem::Index(idx_local)] = p.proj.as_slice()
         && let Some((var, elem)) = b.buffer_var.get(&p.local.0).copied()
@@ -910,7 +1082,7 @@ fn place_ptr(
             OP_ACCESS_CHAIN,
             &[ptr_elem, acc, var, member0, idx_val],
         );
-        return Ok((acc, elem_ty, elem));
+        return Ok((acc, elem_ty, ValueKind::Scalar(elem)));
     }
     Err(VulkanCodegenError::unsupported(
         span,
@@ -932,12 +1104,12 @@ fn load_local(b: &mut Builder, body: &Body, l: LocalIdx) -> Result<u32, VulkanCo
     Ok(id)
 }
 
-/// operand → (值 id, 元素 SPIR-V 类型 id, PrimTy);unit/ZST → None。
+/// operand → (值 id,SPIR-V 类型 id,值种类);unit/ZST → None。
 fn operand(
     b: &mut Builder,
     body: &Body,
     o: &Operand,
-) -> Result<Option<(u32, u32, PrimTy)>, VulkanCodegenError> {
+) -> Result<Option<(u32, u32, ValueKind)>, VulkanCodegenError> {
     match o {
         Operand::Copy(p) | Operand::Move(p) => {
             let (ptr, ty_id, prim) = place_ptr(b, body, p)?;
@@ -949,16 +1121,25 @@ fn operand(
             Const::Unit => Ok(None),
             Const::Int(v, p) => {
                 let ty_id = b.prim_type(*p, body.span)?;
-                let val = (*v as i64) as u32; // 32-bit 截断(usize/u32/i32 子集)
+                let bits = *v as u64;
+                let val = bits as u32;
                 // 无符号走 u32 常量缓存;i32 单独发(位型同但结果类型不同,不复用缓存)。
-                let id = if is_signed_prim(*p) {
+                let id = if is_64bit_prim(*p) {
+                    let idn = b.fresh();
+                    emit(
+                        &mut b.types_globals,
+                        OP_CONSTANT,
+                        &[ty_id, idn, val, (bits >> 32) as u32],
+                    );
+                    idn
+                } else if is_signed_prim(*p) {
                     let idn = b.fresh();
                     emit(&mut b.types_globals, OP_CONSTANT, &[ty_id, idn, val]);
                     idn
                 } else {
                     b.const_uint(val)
                 };
-                Ok(Some((id, ty_id, *p)))
+                Ok(Some((id, ty_id, ValueKind::Scalar(*p))))
             }
             Const::Float(v, p) => {
                 if !matches!(p, PrimTy::F32) {
@@ -970,7 +1151,7 @@ fn operand(
                 let bits = (*v as f32).to_bits();
                 let id = b.const_float_bits(bits);
                 let ty_id = b.t_float();
-                Ok(Some((id, ty_id, PrimTy::F32)))
+                Ok(Some((id, ty_id, ValueKind::Scalar(PrimTy::F32))))
             }
             Const::Bool(_) | Const::Char(_) | Const::Str(_) => {
                 Err(VulkanCodegenError::unsupported(
@@ -1002,11 +1183,17 @@ fn emit_assign(
             Ok(())
         }
         Rvalue::BinaryOp(op, a, c) => {
-            let Some((va, ty_id, prim)) = operand(b, body, a)? else {
+            let Some((va, ty_id, kind)) = operand(b, body, a)? else {
                 return Ok(());
             };
             let Some((vc, _, _)) = operand(b, body, c)? else {
                 return Ok(());
+            };
+            let ValueKind::Scalar(prim) = kind else {
+                return Err(VulkanCodegenError::unsupported(
+                    body.span,
+                    "Vulkan compute 向量算术不在 W1 作用面",
+                ));
             };
             let is_float = matches!(prim, PrimTy::F32);
             let is_signed = is_signed_prim(prim);
@@ -1030,11 +1217,316 @@ fn emit_assign(
             }
             Ok(())
         }
+        Rvalue::Cast(o, target) => {
+            let Some((val, src_ty_id, src_kind)) = operand(b, body, o)? else {
+                return Ok(());
+            };
+            let ValueKind::Scalar(src_prim) = src_kind else {
+                return Err(VulkanCodegenError::unsupported(
+                    body.span,
+                    "Vulkan compute 向量 Cast 不在 W1 作用面",
+                ));
+            };
+            let dst_prim = prim_of(target).ok_or_else(|| {
+                VulkanCodegenError::unsupported(body.span, "Cast 目标非标量(子集外)")
+            })?;
+            let dst_ty_id = b.prim_type(dst_prim, body.span)?;
+            let result = if src_ty_id == dst_ty_id {
+                // 同 SPIR-V 类型(如 Usize→U32 均映射 t_uint;F32→F32)→ identity,零转换指令。
+                val
+            } else {
+                let opcode = cast_opcode(src_prim, dst_prim)?;
+                let res = b.fresh();
+                emit(&mut b.func_body, opcode, &[dst_ty_id, res, val]);
+                res
+            };
+            let (ptr, _, _) = place_ptr(b, body, place)?;
+            emit(&mut b.func_body, OP_STORE, &[ptr, result]);
+            Ok(())
+        }
+        Rvalue::Aggregate(ty, ops) => {
+            let kind = value_kind(ty).ok_or_else(|| {
+                VulkanCodegenError::unsupported(
+                    body.span,
+                    "Vulkan compute aggregate 仅支持 2/4 分量同型元组向量",
+                )
+            })?;
+            let ty_id = value_type(b, kind, body.span)?;
+            let mut operands = vec![ty_id, b.fresh()];
+            for op in ops {
+                let Some((value, _, ValueKind::Scalar(_))) = operand(b, body, op)? else {
+                    return Err(VulkanCodegenError::unsupported(
+                        body.span,
+                        "向量构造分量必须是标量",
+                    ));
+                };
+                operands.push(value);
+            }
+            emit(&mut b.func_body, OP_COMPOSITE_CONSTRUCT, &operands);
+            let (ptr, _, _) = place_ptr(b, body, place)?;
+            emit(&mut b.func_body, OP_STORE, &[ptr, operands[1]]);
+            Ok(())
+        }
+        Rvalue::Atomic {
+            op,
+            target_local,
+            index,
+            value,
+            compare,
+        } => emit_atomic(
+            b,
+            body,
+            place,
+            *op,
+            *target_local,
+            index.as_ref(),
+            value,
+            compare.as_ref(),
+        ),
+        Rvalue::ResourceSample {
+            texture_local,
+            method,
+            coord,
+            extra,
+            ..
+        } => emit_storage_image_op(b, body, place, *texture_local, *method, coord, extra),
         _ => Err(VulkanCodegenError::unsupported(
             body.span,
-            "Vulkan compute 首期 rvalue 仅 Use / BinaryOp(Cast/UnaryOp/Ref/Aggregate/纹理采样属后续分片)",
+            "Vulkan compute rvalue 不在当前 W1 子集",
         )),
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn emit_atomic(
+    b: &mut Builder,
+    body: &Body,
+    dest: &Place,
+    op: AtomicOp,
+    target_local: LocalIdx,
+    index: Option<&Operand>,
+    value: &Operand,
+    compare: Option<&Operand>,
+) -> Result<(), VulkanCodegenError> {
+    let span = body.locals[target_local.0 as usize].span;
+    let (var, prim) = b
+        .buffer_var
+        .get(&target_local.0)
+        .copied()
+        .ok_or_else(|| VulkanCodegenError::unsupported(span, "atomic target 不是 SSBO 形参"))?;
+    if !matches!(prim, PrimTy::I32 | PrimTy::U32 | PrimTy::I64 | PrimTy::U64) {
+        return Err(VulkanCodegenError::unsupported(
+            span,
+            "Vulkan compute 原子仅支持 i32/u32/i64/u64",
+        ));
+    }
+    if is_64bit_prim(prim) {
+        b.uses_int64_atomics = true;
+    }
+    let elem_ty = b.prim_type(prim, span)?;
+    let ptr_elem = b.ptr_type(STORAGE_UNIFORM, elem_ty);
+    let idx = if let Some(index) = index {
+        let Some((id, _, ValueKind::Scalar(_))) = operand(b, body, index)? else {
+            return Err(VulkanCodegenError::unsupported(
+                span,
+                "atomic index 必须是标量",
+            ));
+        };
+        id
+    } else {
+        b.const_uint(0)
+    };
+    let member0 = b.const_uint(0);
+    let ptr = b.fresh();
+    emit(
+        &mut b.func_body,
+        OP_ACCESS_CHAIN,
+        &[ptr_elem, ptr, var, member0, idx],
+    );
+    let Some((value_id, _, ValueKind::Scalar(value_prim))) = operand(b, body, value)? else {
+        return Err(VulkanCodegenError::unsupported(
+            span,
+            "atomic value 必须是标量",
+        ));
+    };
+    if b.prim_type(value_prim, span)? != elem_ty {
+        return Err(VulkanCodegenError::unsupported(
+            span,
+            "atomic value 与目标元素类型不一致",
+        ));
+    }
+    let scope = b.const_uint(SCOPE_DEVICE);
+    let semantics = b.const_uint(MEM_SEM_RELAXED);
+    let result = b.fresh();
+    if op == AtomicOp::CompareExchange {
+        let compare = compare.ok_or_else(|| {
+            VulkanCodegenError::unsupported(span, "compare_exchange 缺 expected 实参")
+        })?;
+        let Some((compare_id, compare_ty, ValueKind::Scalar(_))) = operand(b, body, compare)?
+        else {
+            return Err(VulkanCodegenError::unsupported(
+                span,
+                "compare_exchange expected 必须是标量",
+            ));
+        };
+        if compare_ty != elem_ty {
+            return Err(VulkanCodegenError::unsupported(
+                span,
+                "compare_exchange expected 类型与目标不一致",
+            ));
+        }
+        emit(
+            &mut b.func_body,
+            OP_ATOMIC_COMPARE_EXCHANGE,
+            &[
+                elem_ty, result, ptr, scope, semantics, semantics, value_id, compare_id,
+            ],
+        );
+    } else {
+        let opcode = match op {
+            AtomicOp::FetchAdd => OP_ATOMIC_IADD,
+            AtomicOp::FetchSub => OP_ATOMIC_ISUB,
+            AtomicOp::FetchMin if is_signed_prim(prim) => OP_ATOMIC_SMIN,
+            AtomicOp::FetchMin => OP_ATOMIC_UMIN,
+            AtomicOp::FetchMax if is_signed_prim(prim) => OP_ATOMIC_SMAX,
+            AtomicOp::FetchMax => OP_ATOMIC_UMAX,
+            AtomicOp::FetchAnd => OP_ATOMIC_AND,
+            AtomicOp::FetchOr => OP_ATOMIC_OR,
+            AtomicOp::FetchXor => OP_ATOMIC_XOR,
+            AtomicOp::Exchange => OP_ATOMIC_EXCHANGE,
+            AtomicOp::CompareExchange => unreachable!(),
+        };
+        emit(
+            &mut b.func_body,
+            opcode,
+            &[elem_ty, result, ptr, scope, semantics, value_id],
+        );
+    }
+    let (dest_ptr, dest_ty, _) = place_ptr(b, body, dest)?;
+    if dest_ty != elem_ty {
+        return Err(VulkanCodegenError::unsupported(
+            span,
+            "atomic 返回值类型与目标 local 不一致",
+        ));
+    }
+    emit(&mut b.func_body, OP_STORE, &[dest_ptr, result]);
+    Ok(())
+}
+
+fn emit_storage_image_op(
+    b: &mut Builder,
+    body: &Body,
+    dest: &Place,
+    texture_local: LocalIdx,
+    method: ResourceMethod,
+    coord: &Operand,
+    extra: &[Operand],
+) -> Result<(), VulkanCodegenError> {
+    let span = body.locals[texture_local.0 as usize].span;
+    let (var, image_ty, prim) =
+        b.image_var.get(&texture_local.0).copied().ok_or_else(|| {
+            VulkanCodegenError::unsupported(span, "storage image receiver 未绑定")
+        })?;
+    let Some((coord_id, _, ValueKind::Vector(coord_prim, 2))) = operand(b, body, coord)? else {
+        return Err(VulkanCodegenError::unsupported(
+            span,
+            "TextureRw2D 坐标必须是 2 分量向量",
+        ));
+    };
+    if !matches!(coord_prim, PrimTy::U32 | PrimTy::Usize) {
+        return Err(VulkanCodegenError::unsupported(
+            span,
+            "TextureRw2D 坐标分量必须是 u32",
+        ));
+    }
+    let image = b.fresh();
+    emit(&mut b.func_body, OP_LOAD, &[image_ty, image, var]);
+    match method {
+        ResourceMethod::Store => {
+            let [value] = extra else {
+                return Err(VulkanCodegenError::unsupported(
+                    span,
+                    "TextureRw2D.store 需要一个 value",
+                ));
+            };
+            let Some((value_id, _, ValueKind::Vector(value_prim, 4))) = operand(b, body, value)?
+            else {
+                return Err(VulkanCodegenError::unsupported(
+                    span,
+                    "TextureRw2D.store value 必须是 4 分量向量",
+                ));
+            };
+            if value_prim != prim {
+                return Err(VulkanCodegenError::unsupported(
+                    span,
+                    "TextureRw2D.store value 分量类型不匹配",
+                ));
+            }
+            emit(
+                &mut b.func_body,
+                OP_IMAGE_WRITE,
+                &[image, coord_id, value_id],
+            );
+            Ok(())
+        }
+        ResourceMethod::StorageLoad => {
+            let result_ty = b.vector_type(prim, 4, span)?;
+            let result = b.fresh();
+            emit(
+                &mut b.func_body,
+                OP_IMAGE_READ,
+                &[result_ty, result, image, coord_id],
+            );
+            let (dest_ptr, dest_ty, _) = place_ptr(b, body, dest)?;
+            if dest_ty != result_ty {
+                return Err(VulkanCodegenError::unsupported(
+                    span,
+                    "TextureRw2D.load 结果 local 类型不匹配",
+                ));
+            }
+            emit(&mut b.func_body, OP_STORE, &[dest_ptr, result]);
+            Ok(())
+        }
+        _ => Err(VulkanCodegenError::unsupported(
+            span,
+            "compute TextureRw2D 仅支持 load/store",
+        )),
+    }
+}
+
+/// Cast → SPIR-V 转换 opcode(compute 标量子集含 i64/u64)。
+/// 调用方应先判 src_ty_id == dst_ty_id 走 identity;本函数仅处理不同 SPIR-V 类型的转换。
+fn cast_opcode(src: PrimTy, dst: PrimTy) -> Result<u16, VulkanCodegenError> {
+    let is_src_int = !matches!(src, PrimTy::F32);
+    let is_dst_int = !matches!(dst, PrimTy::F32);
+    Ok(match (src, dst) {
+        // int → f32:unsigned 走 OpConvertUToF,signed 走 OpConvertSToF
+        (_, PrimTy::F32) if is_src_int => {
+            if is_signed_prim(src) {
+                OP_CONVERT_S_TO_F
+            } else {
+                OP_CONVERT_U_TO_F
+            }
+        }
+        // f32 → int:unsigned 走 OpConvertFToU,signed 走 OpConvertFToS
+        (PrimTy::F32, _) if is_dst_int => {
+            if is_signed_prim(dst) {
+                OP_CONVERT_F_TO_S
+            } else {
+                OP_CONVERT_F_TO_U
+            }
+        }
+        // 整数扩窄按源操作数符号解释；同位宽 signedness 变化为位型重解释。
+        _ if is_src_int && is_dst_int && int_width(src) != int_width(dst) => {
+            if is_signed_prim(src) {
+                OP_SCONVERT
+            } else {
+                OP_UCONVERT
+            }
+        }
+        _ if is_src_int && is_dst_int => OP_BITCAST,
+        _ => OP_BITCAST,
+    })
 }
 
 /// BinOp → (SPIR-V opcode, 结果是否 bool)。
@@ -1117,6 +1609,12 @@ fn binop_opcode(
             ),
             true,
         ),
+        BinOp::BitAnd if !is_float => (OP_BITWISE_AND, false),
+        BinOp::BitOr if !is_float => (OP_BITWISE_OR, false),
+        BinOp::BitXor if !is_float => (OP_BITWISE_XOR, false),
+        BinOp::Shl if !is_float => (OP_SHIFT_LEFT_LOGICAL, false),
+        BinOp::Shr if !is_float && is_signed => (OP_SHIFT_RIGHT_ARITHMETIC, false),
+        BinOp::Shr if !is_float => (OP_SHIFT_RIGHT_LOGICAL, false),
         BinOp::BitAnd
         | BinOp::BitOr
         | BinOp::BitXor
@@ -1126,7 +1624,7 @@ fn binop_opcode(
         | BinOp::Or => {
             return Err(VulkanCodegenError::unsupported(
                 span,
-                "Vulkan compute 首期算术仅 +−*/% 与比较(位运算/逻辑属后续分片)",
+                "Vulkan compute 逻辑与/或及浮点位运算不在当前子集",
             ));
         }
     };
@@ -1184,9 +1682,9 @@ fn emit_terminator(b: &mut Builder, body: &Body, bi: usize) -> Result<(), Vulkan
             let zero = b.const_uint(0);
             let cond = b.fresh();
             emit(&mut b.func_body, OP_INOTEQUAL, &[bool_ty, cond, dv, zero]);
-            // 结构化 merge 块。
             let then_i = then.0 as usize;
             let else_i = else_.0 as usize;
+            // 结构化 selection merge 块。
             let merge = structured_merge(body, then_i, else_i).ok_or_else(|| {
                 VulkanCodegenError::unsupported(
                     bb.terminator.span,
@@ -1211,11 +1709,36 @@ fn emit_terminator(b: &mut Builder, body: &Body, bi: usize) -> Result<(), Vulkan
     Ok(())
 }
 
-/// 结构化 if 的 merge 块 = 前向可达(then)∩ 前向可达(else),取最小块下标。
+/// 结构化 if 的 merge 块 = 两臂最近共同可达块。不能按 MIR block 下标最小值取：
+/// 嵌套 if 的外层 merge 往往编号更小，会造成多个 header 复用同一 merge，触发
+/// `Block is already a merge block for another header`。
 fn structured_merge(body: &Body, then_i: usize, else_i: usize) -> Option<usize> {
-    let rt = forward_reachable(body, then_i);
-    let re = forward_reachable(body, else_i);
-    rt.iter().filter(|x| re.contains(x)).copied().min()
+    let distance = |start: usize| {
+        let mut dist = vec![usize::MAX; body.blocks.len()];
+        dist[start] = 0;
+        let mut work = vec![start];
+        while let Some(block) = work.pop() {
+            let next_distance = dist[block].saturating_add(1);
+            for succ in block_succs(&body.blocks[block]) {
+                if next_distance < dist[succ] {
+                    dist[succ] = next_distance;
+                    work.push(succ);
+                }
+            }
+        }
+        dist
+    };
+    let then_distance = distance(then_i);
+    let else_distance = distance(else_i);
+    (0..body.blocks.len())
+        .filter(|&block| then_distance[block] != usize::MAX && else_distance[block] != usize::MAX)
+        .min_by_key(|&block| {
+            (
+                then_distance[block].max(else_distance[block]),
+                then_distance[block] + else_distance[block],
+                block,
+            )
+        })
 }
 
 /// libdevice `__nv_*` 数学符号 → (GLSL.std.450 ext-inst 编号, arity)。RXS-0205 首期覆盖
@@ -1412,6 +1935,12 @@ fn assemble(b: &mut Builder, entry_name: &str) -> Vec<u32> {
         SPIRV_SCHEMA,
     ];
     emit(&mut m, OP_CAPABILITY, &[CAP_SHADER]);
+    if b.uses_int64 {
+        emit(&mut m, OP_CAPABILITY, &[CAP_INT64]);
+    }
+    if b.uses_int64_atomics {
+        emit(&mut m, OP_CAPABILITY, &[CAP_INT64_ATOMICS]);
+    }
     // OpExtInstImport(GLSL.std.450 等)layout 在 memory-model 之前。
     m.extend_from_slice(&b.ext_imports);
     emit(
@@ -1551,8 +2080,42 @@ fn prim_of(ty: &Ty) -> Option<PrimTy> {
     }
 }
 
+fn value_kind(ty: &Ty) -> Option<ValueKind> {
+    if let Some(prim) = prim_of(ty) {
+        return Some(ValueKind::Scalar(prim));
+    }
+    let Ty::Tuple(elems) = ty else {
+        return None;
+    };
+    let len = u32::try_from(elems.len()).ok()?;
+    if !matches!(len, 2 | 4) {
+        return None;
+    }
+    let prim = elems.first().and_then(prim_of)?;
+    elems
+        .iter()
+        .all(|elem| prim_of(elem) == Some(prim))
+        .then_some(ValueKind::Vector(prim, len))
+}
+
 fn is_signed_prim(p: PrimTy) -> bool {
     matches!(p, PrimTy::I8 | PrimTy::I16 | PrimTy::I32 | PrimTy::I64)
+}
+
+fn is_64bit_prim(p: PrimTy) -> bool {
+    matches!(p, PrimTy::I64 | PrimTy::U64)
+}
+
+fn int_width(p: PrimTy) -> u32 {
+    if is_64bit_prim(p) { 64 } else { 32 }
+}
+
+fn prim_layout(p: PrimTy) -> (u32, u32) {
+    if is_64bit_prim(p) { (8, 8) } else { (4, 4) }
+}
+
+fn align_up(value: u32, align: u32) -> u32 {
+    value.div_ceil(align) * align
 }
 
 /// SPIR-V 字流 → 小端字节序 `.spv`。
@@ -1583,7 +2146,6 @@ pub fn words_to_bytes(words: &[u32]) -> Vec<u8> {
 const OP_EXTENSION: u16 = 10;
 const OP_TYPE_ARRAY: u16 = 28;
 const OP_CONSTANT_COMPOSITE: u16 = 44;
-const OP_COMPOSITE_CONSTRUCT: u16 = 80;
 
 // 执行模型(RFC-0013 §4.E5/E6)。
 const EXEC_MODEL_MESH_EXT: u32 = 5365;
@@ -1609,7 +2171,6 @@ const EXEC_MODE_OUTPUT_PRIMITIVES_EXT: u32 = 5270;
 const EXEC_MODE_OUTPUT_TRIANGLES_EXT: u32 = 5298;
 
 // 存储类(mesh/RT)。
-const STORAGE_UNIFORM_CONSTANT: u32 = 0;
 const STORAGE_OUTPUT: u32 = 3;
 const STORAGE_RAY_PAYLOAD_KHR: u32 = 5338;
 const STORAGE_HIT_ATTRIBUTE_KHR: u32 = 5339;
@@ -1630,11 +2191,7 @@ const OP_EMIT_MESH_TASKS_EXT: u16 = 5294;
 
 // storage image 写出面(RT raygen payload → UAV;§4.E8 device 见证落点)。opcode 取值 =
 // SPIR-V core 规范,与 glslang rg.spv 反汇编逐字核对(build/spike-sampling-probe)。
-const OP_TYPE_IMAGE: u16 = 25;
 const OP_VECTOR_SHUFFLE: u16 = 79;
-const OP_CONVERT_U_TO_F: u16 = 112;
-const OP_BITCAST: u16 = 124;
-const OP_IMAGE_WRITE: u16 = 99;
 
 // RT launch builtin(BuiltIn LaunchIdKHR/LaunchSizeKHR;取自 glslang rg.spv `OpDecorate … BuiltIn`)。
 const BUILTIN_LAUNCH_ID_KHR: u32 = 5319;
@@ -1643,7 +2200,6 @@ const BUILTIN_LAUNCH_SIZE_KHR: u32 = 5320;
 // OpTypeImage Dim(2D=1)+ storage image 显式 format(§4.B5「OpTypeImage 带显式 format」纪律)。
 // Rgba8(=4)↔ vk.rs `run_rt_inner` storage image 的 `VK_FORMAT_R8G8B8A8_UNORM`(UAV 回读逐纹素
 // 4B);format-qualified write 须与 image view 格式一致,故取 Rgba8 而非探针的 Rgba32f。
-const DIM_2D: u32 = 1;
 const IMAGE_FORMAT_RGBA8: u32 = 4;
 
 // RayFlags / cull mask(§4.E4 已知签名固定:opaque / 0xFF / SBT 恒 0)。

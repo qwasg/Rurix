@@ -157,7 +157,10 @@ pub fn uc05_gfx_run_frame(out: *mut u32, w: i32, h: i32) -> i32 {
     let pixels = (w as usize) * (h as usize);
 
     let ctx = Context::create();
-    let rhi = Rhi::create(&ctx);
+    // G4.4 PR-F(RXS-0293):gfx color_target readback 须走 Vulkan 后端——CUDA backend 下
+    // gfx 资源不分配 cuMemAlloc(RXS-0271:`re.resources` 槽 = 0),readback 走 Vk backend
+    // 的 `vk_resources` host buffer 路径(`rxrt_rhi_readback` Backend::Vk 分流)。
+    let rhi = Rhi::create_vk(&ctx);
 
     // 两 color target(各 pass 独立写,避免跨 pass WAW 冲突 I5;复用 gfx_demo 模式)。
     let back = rhi.color_target(cw, ch);

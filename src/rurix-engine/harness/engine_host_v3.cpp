@@ -60,10 +60,17 @@ constexpr int NUM_CASES = 2;
 // Vulkan physical device LUID 查询(RXS-0277:Vulkan↔D3D12 LUID 匹配)。
 // 宿主建最小 Vulkan instance 查 physical device 0 的 deviceLUID,与 DXGI adapter 匹配。
 // v2 LUID 匹配为 CUDA↔D3D12(cudaGetDeviceProperties);v3 升级为 Vulkan↔D3D12。
+// 注:`VkPhysicalDeviceIDProperties::deviceLUIDValid` 在 Vulkan 1.0 需启用
+// `VK_KHR_external_memory_capabilities` 扩展才为 VK_TRUE;Vulkan 1.1+ 核心提供。
+// 这里请求 apiVersion 1.1 以确保 deviceLUIDValid 可用(无需显式启扩展)。
 bool query_vulkan_luid(uint8_t luid[VK_LUID_SIZE]) {
     VkInstance inst = VK_NULL_HANDLE;
+    VkApplicationInfo app_info{};
+    app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+    app_info.apiVersion = VK_API_VERSION_1_1;
     VkInstanceCreateInfo ci{};
     ci.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    ci.pApplicationInfo = &app_info;
     if (vkCreateInstance(&ci, nullptr, &inst) != VK_SUCCESS) {
         std::fprintf(stderr, "UC05_V3: vkCreateInstance failed (Vulkan loader unavailable?)\n");
         return false;
@@ -270,17 +277,13 @@ bool d3d12_clear_readback(ID3D12Device* device, ID3D12CommandQueue* queue,
     dst.PlacedFootprint = footprint;
     cmd->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
 
-    // readback: COPY_DEST → GENERIC_READ(map 准备)。
-    D3D12_RESOURCE_BARRIER rb_barrier{};
-    rb_barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-    rb_barrier.Transition.pResource = rb.Get();
-    rb_barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-    rb_barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_GENERIC_READ;
-    rb_barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-    cmd->ResourceBarrier(1, &rb_barrier);
-
-    if (FAILED(cmd->Close())) {
-        std::fprintf(stderr, "UC05_V3: CommandList Close failed [%s]\n", label);
+    // readback heap 资源仅可处 COPY_DEST / COMMON 状态(D3D12_HEAP_TYPE_READBACK 限制):
+    // 显式 barrier 至 GENERIC_READ 非法 → Close() 返回 E_INVALIDARG(GENERIC_READ 含
+    // VERTEX_AND_CONSTANT_BUFFER / *_SHADER_RESOURCE 等 readback heap 不支持的状态)。
+    // GPU 完成(fence wait)后 Map 直接读,无需状态转换(readback heap CPU 侧恒可读)。
+    HRESULT close_hr = cmd->Close();
+    if (FAILED(close_hr)) {
+        std::fprintf(stderr, "UC05_V3: CommandList Close failed [%s] hr=0x%08lX\n", label, close_hr);
         return false;
     }
     ID3D12CommandList* lists[] = {cmd.Get()};

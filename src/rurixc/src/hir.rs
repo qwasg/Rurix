@@ -559,10 +559,12 @@ pub enum GpuHostOp {
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum AtomicOp {
     FetchAdd,
+    FetchSub,
     FetchMax,
     FetchMin,
     FetchAnd,
     FetchOr,
+    FetchXor,
     Exchange,
     CompareExchange,
 }
@@ -572,10 +574,12 @@ impl AtomicOp {
     pub fn from_method(name: &str) -> Option<Self> {
         Some(match name {
             "fetch_add" => AtomicOp::FetchAdd,
+            "fetch_sub" => AtomicOp::FetchSub,
             "fetch_max" => AtomicOp::FetchMax,
             "fetch_min" => AtomicOp::FetchMin,
             "fetch_and" => AtomicOp::FetchAnd,
             "fetch_or" => AtomicOp::FetchOr,
+            "fetch_xor" => AtomicOp::FetchXor,
             "exchange" => AtomicOp::Exchange,
             "compare_exchange" => AtomicOp::CompareExchange,
             _ => return None,

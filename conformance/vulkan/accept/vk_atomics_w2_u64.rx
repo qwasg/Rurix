@@ -1,0 +1,17 @@
+kernel fn atomics_w2_u64(
+    t: ThreadCtx<1>,
+    vis: AtomicView<global, u64, (16,)>,
+) {
+    let i = t.thread_index();
+    let depth30 = (1073741823u32 as u64) & 1073741823u64;
+    let cluster27 = (134217727u32 as u64) & 134217727u64;
+    let tri7 = (127u32 as u64) & 127u64;
+    let packed = (depth30 << 34u64) | (cluster27 << 7u64) | tri7;
+    let _old = vis.fetch_max(i, packed, Scope::Gpu);
+    let signed32 = 1i32;
+    let signed64 = signed32 as i64;
+    let scaled = signed64 * 2i64 + 1i64;
+    let _ordered = scaled < 4i64;
+}
+
+fn main() {}

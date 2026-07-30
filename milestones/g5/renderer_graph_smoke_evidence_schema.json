@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "渲染调度 render graph 冒烟证据 schema(G5.2-A,步骤 82;G-G5-3;RFC-0016 章 A)",
+  "description": "ci/renderer_graph_smoke.py 写 evidence/renderer_graph_smoke_<ts>.json。纯 host 门(恒跑,无 GPU):rurix-render graph:: 四趟编译(剔除/生命周期/EB 三轴屏障 golden/transient 别名峰值/编译期校验 RED 自检/异步车道 fence/图 dump)单测全过 + 图 dump 测试在集内。无 device 段(host 调度底座不涉 GPU)。镜像 g4 体例。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "milestone",
+    "step",
+    "host_section_pass",
+    "device_section_rc",
+    "checks",
+    "run_url",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "renderer_graph_smoke" },
+    "milestone": { "type": "string" },
+    "step": { "type": "integer", "const": 82 },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_rc": { "type": "integer" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "graph_tests_pass": { "type": ["boolean", "string"] },
+        "graph_test_count": { "type": ["integer", "boolean", "string"] },
+        "graph_dump_test_present": { "type": ["boolean", "string"] }
+      }
+    },
+    "toolchain_skip": { "type": ["string", "null"] },
+    "dev_env_degrade": { "type": "boolean" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" }
+  }
+}

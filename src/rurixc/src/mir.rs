@@ -10,7 +10,7 @@
 //! - 借用检查/drop/TBIR 窄门均为 M3 职责,本层不建模。
 
 use crate::ast::{BinOp, FnColor, UnOp};
-use crate::hir::{Builtin, DefId, DeviceIntrinsic, MeshIntrinsic, PrimTy, TaskIntrinsic};
+use crate::hir::{AtomicOp, Builtin, DefId, DeviceIntrinsic, MeshIntrinsic, PrimTy, TaskIntrinsic};
 use crate::resolve::Resolutions;
 use crate::span::Span;
 use crate::ty::Ty;
@@ -344,6 +344,15 @@ pub enum Rvalue {
     Ref(BorrowKind, Place),
     /// 数值/bool/char 转换(RXS-0046 合法面;目标类型显式)。
     Cast(Operand, Ty),
+    /// 整数原子读改写。`target_local` 为 Atomic/AtomicView 形参；
+    /// AtomicView 携 `index`，Atomic 隐含元素 0。结果为操作前旧值。
+    Atomic {
+        op: AtomicOp,
+        target_local: LocalIdx,
+        index: Option<Operand>,
+        value: Operand,
+        compare: Option<Operand>,
+    },
     /// struct / 元组构造(operand 按定义序/位置序)。
     Aggregate(Ty, Vec<Operand>),
     /// enum 变体构造(M3.1 扁平布局:tag 落下标 0,载荷自 `base` 起顺排)。
@@ -680,6 +689,23 @@ fn print_rvalue(rv: &Rvalue, res: &Resolutions) -> String {
         Rvalue::Ref(BorrowKind::Shared, p) => format!("&{}", print_place(p)),
         Rvalue::Ref(BorrowKind::Mut, p) => format!("&mut {}", print_place(p)),
         Rvalue::Cast(o, t) => format!("{} as {}", print_operand(o), t.render_plain(res)),
+        Rvalue::Atomic {
+            op,
+            target_local,
+            index,
+            value,
+            compare,
+        } => {
+            let mut args = Vec::new();
+            if let Some(index) = index {
+                args.push(print_operand(index));
+            }
+            if let Some(compare) = compare {
+                args.push(print_operand(compare));
+            }
+            args.push(print_operand(value));
+            format!("{op:?}(_{}, {})", target_local.0, args.join(", "))
+        }
         Rvalue::Aggregate(t, ops) => {
             let parts: Vec<String> = ops.iter().map(print_operand).collect();
             format!("{} {{ {} }}", t.render_plain(res), parts.join(", "))

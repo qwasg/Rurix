@@ -1,0 +1,43 @@
+kernel fn cull(
+    t: ThreadCtx<1>,
+    instance_of: View<global, u32>,
+    instance_aabb: View<global, f32>,
+    cluster_sphere: View<global, f32>,
+    visible_count: AtomicView<global, u32, (1,)>,
+    visible_pairs: ViewMut<global, u32>,
+    cluster_count: usize,
+) {
+    let i = t.global_id();
+    if i < cluster_count {
+        let inst = instance_of[i] as usize;
+        let ib = inst * 6;
+        let ilo_x = instance_aabb[ib];
+        let ilo_y = instance_aabb[ib + 1];
+        let ilo_z = instance_aabb[ib + 2];
+        let ihi_x = instance_aabb[ib + 3];
+        let ihi_y = instance_aabb[ib + 4];
+        let ihi_z = instance_aabb[ib + 5];
+        let inst_visible =
+            ihi_z <= (0.0 - 0.2) &&
+            ilo_x <= (0.0 - ilo_z) && ihi_x >= ilo_z &&
+            ilo_y <= (0.0 - ilo_z) && ihi_y >= ilo_z;
+        if inst_visible {
+            let cb = i * 4;
+            let x = cluster_sphere[cb];
+            let y = cluster_sphere[cb + 1];
+            let z = cluster_sphere[cb + 2];
+            let r = cluster_sphere[cb + 3];
+            let cluster_visible =
+                z - r <= (0.0 - 0.2) &&
+                x - r <= (0.0 - z) && x + r >= z &&
+                y - r <= (0.0 - z) && y + r >= z;
+            if cluster_visible {
+                let slot = visible_count.fetch_add(0, 1u32, Scope::Gpu) as usize;
+                visible_pairs[slot * 2] = inst as u32;
+                visible_pairs[slot * 2 + 1] = i as u32;
+            }
+        }
+    }
+}
+
+fn main() {}

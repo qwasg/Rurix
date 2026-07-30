@@ -50,6 +50,11 @@
   "namespace_check": "全部 id 必须 g4. 前缀;跨文件合并冲突即 FAIL(ci/budget_eval.py)",
   "revision_log": [
     {
+      "version": "v1.6",
+      "date": "2026-07-28",
+      "change": "device 见证回填留痕(fix_g4_device_toolchain_luid_schemas 规范,Assisted-by: trae:glm-5.2;G4 close-out 维持 closed 不重开):4 counter(g4.counter.graphics_rhi_smoke / g4.counter.engine_embed_v3 / g4.counter.vulkan_rhi_channel / g4.counter.blackhole_realtime_smoke)device 见证基数 ≥1 已满足——4 步骤 device 段在 RTX 4070 Ti(driver 620.02)+ VULKAN_SDK 1.3.296.0 + MSVC 2022 + 交互桌面会话环境真跑 exit 0,evidence JSON 落位:evidence/uc05_graphics_rhi_smoke_20260728T190615.json(demo_run_green=true + assembly_redgreen=true)/ evidence/uc05_engine_embed_v3_20260728T193238.json(embed_v3_ok=true)/ evidence/vulkan_rhi_channel_smoke_20260728T174338.json(vulkan_channel_ok=true)/ evidence/blackhole_realtime_smoke_20260728T194112.json(blackhole_realtime_ok=true)。budget_eval.py evaluator 分支不变(glob evidence/*.json 计布尔 true 数 → count_or_gate,未知 id 强制 FAIL 纪律维持);counter_assertions 6 条字段 0-byte(required: 1 已满足,无新 counter/无新字段);entries/ratio_assertions 维持空(零 estimated 预欠)。无新号消费(number_ledger 不动,见 v1.26 留痕)。G4_CONTRACT §8.8 存续项清单 #4(budget_eval --strict 4 counters FAIL)标注「已关闭(device 见证回填)」+ #5(device 段 SKIP)标注「已关闭(步骤 76/78/80/81 真跑 exit 0)」;§8.9 device 见证回填留痕段追加。"
+    },
+    {
       "version": "v1.5",
       "date": "2026-07-24",
       "change": "G4.6 PR-H BLACKHOLE 验收 counter_assertions 第六落(G4_CONTRACT §7 ⑤ counter 随实现 PR 回填):追加 g4.counter.blackhole_realtime_smoke(step 81 device 见证基数 ≥1,对齐 g4.counter.vulkan_rhi_channel device 见证计数先例;计数源 = evidence/blackhole_realtime_smoke_*.json 中 blackhole_realtime_ok=true,rx build realtime.rx 产 EXE 真跑 exit 0〔present-real feature 接线修复 rxp_create Shim E_NOTIMPL + Present::create 经 real-shim 建 D3D12 device/swapchain〕+ REALTIME_OK 六项物理自检 + 30fps measured〔evidence 面不进硬门〕+ 帧对照〔offline 144 帧 vs realtime〕)。归因先于修复(pr_h_attribution_report.md:present-real cargo feature 默认关闭 = feature 接线 gap,非 shim 面缺口);修复 = apps/blackhole 构建配置启用 present-real〔Direct PR,零代码/零语义/零 ABI 变更〕;G3.2 步骤 61 present 既有路径零回归(本 PR 不改 src/ 源码,default features 不变)。counter_assertions 自 5 条增到 6 条;entries/ratio_assertions 维持空(零 estimated 预欠)。evaluator 分支同 PR 落 ci/budget_eval.py(未知 id 强制 FAIL)。"

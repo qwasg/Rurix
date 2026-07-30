@@ -263,6 +263,20 @@ impl Tables {
         self.next += 1;
         self.next
     }
+
+    /// 级联清理某个 Graph 根对象名下的 affine 子句柄，避免销毁后侧表残留僵尸句柄。
+    fn drop_graph_children(&mut self, g: u64) {
+        self.graph_resources.retain(|_, (owner, _)| *owner != g);
+        self.graph_passes.retain(|_, (owner, _)| *owner != g);
+    }
+
+    /// 级联清理某个 RHI 根对象名下的 affine 子句柄，确保 destroy 后旧 pass/resource/gfx
+    /// 句柄立即失效。
+    fn drop_rhi_children(&mut self, r: u64) {
+        self.rhi_resources.retain(|_, (owner, _)| *owner != r);
+        self.rhi_passes.retain(|_, (owner, _)| *owner != r);
+        self.rhi_gfx_passes.retain(|_, (owner, _)| *owner != r);
+    }
 }
 
 fn tables() -> &'static Mutex<Tables> {
@@ -1150,7 +1164,9 @@ pub extern "C" fn rxrt_graph_destroy(g: u64) {
             OP,
             format!("unknown or already destroyed graph handle {g} (no-op)"),
         );
+        return;
     }
+    t.drop_graph_children(g);
 }
 
 // -- EI1.3 Part B UC-05 RHI:std::gpu `Rhi` compute-pass 图结构与访问声明下发(RXS-0256~0260;
@@ -1689,6 +1705,22 @@ pub extern "C" fn rxrt_rhi_gfx_resource(r: u64, class: u32, w: u32, h: u32) -> u
         };
         // gfx 资源无设备缓冲(transient image);push 0 占位保持资源下标对齐。
         re.resources.push(0);
+        // G4.4 PR-F(RXS-0293)/RXS-0277:Vulkan backend 下 image 类资源(color/depth/
+        // texture)push host buffer 到 vk_resources——gfx pass 空着色器无颜色写入 →
+        // 清色不变量 = 0x00000000(Q-PixelCriterion),初始全 0 即正确像素值;readback
+        // 自此读(`rxrt_rhi_readback` Backend::Vk 分流)。sampler/table 非 image,以及
+        // CUDA backend,推空 Vec 占位保持与 `resources` 平行同序(非 Vk 路不读)。
+        let backend = re.backend;
+        let is_image = matches!(
+            kind,
+            GfxResourceKind::Color | GfxResourceKind::Depth | GfxResourceKind::Texture
+        );
+        let vk_buf = if backend == Backend::Vk && is_image {
+            vec![0u8; (w as usize) * (h as usize) * 4]
+        } else {
+            Vec::new()
+        };
+        re.vk_resources.push(vk_buf);
         rid.0
     };
     let h = t.alloc_handle();
@@ -2257,6 +2289,7 @@ pub extern "C" fn rxrt_rhi_destroy(r: u64) {
         Some(_) => {}
         None => diag(OP, format!("ctx of rhi {r} already destroyed")),
     }
+    t.drop_rhi_children(r);
     for bh in &re.resources {
         t.bufs.remove(bh); // DeviceBox Drop:重绑本 context 后 cuMemFree(U13/U3)
     }
@@ -2693,6 +2726,100 @@ mod tests {
         // a 在 transform 读 → 恰 1 条 RAW 同步 @ pass 1(声明全序推导,执行序确定)。
         assert_eq!(plan.len(), 1, "线性两 pass 图应恰 1 条 RAW 同步(RXS-0261)");
         assert_eq!(plan[0].at_pass, 1, "RAW 同步录于 transform(pass 1)边界前");
+    }
+
+    /// G3.5 / EI1.3：根对象 destroy 必须级联清理子句柄，确保销毁后的 pass/resource/gfx pass
+    /// 立即在侧表入口失效，而不是残留到更深层 owner 查询才失败。
+    #[test]
+    fn destroy_cascades_child_handles() {
+        const GRAPH: u64 = 0xD15A_0001;
+        const GRAPH_RES: u64 = 0xD15A_0002;
+        const GRAPH_PASS: u64 = 0xD15A_0003;
+        const RHI: u64 = 0xD15A_0011;
+        const RHI_RES: u64 = 0xD15A_0012;
+        const RHI_PASS: u64 = 0xD15A_0013;
+        const RHI_GFX_PASS: u64 = 0xD15A_0014;
+
+        {
+            let mut guard = lock();
+            let t = &mut *guard;
+            t.graphs.insert(
+                GRAPH,
+                GraphEntry {
+                    ctx: u64::MAX,
+                    graph: Graph::new(),
+                    passes: Vec::new(),
+                },
+            );
+            t.graph_resources.insert(GRAPH_RES, (GRAPH, 0));
+            t.graph_passes.insert(GRAPH_PASS, (GRAPH, 0));
+            t.rhis.insert(
+                RHI,
+                RhiEntry {
+                    ctx: u64::MAX,
+                    graph: RhiGraph::new(),
+                    passes: Vec::new(),
+                    gfx_passes: Vec::new(),
+                    bindings: Vec::new(),
+                    resources: Vec::new(),
+                    stream: None,
+                    backend: Backend::Cuda,
+                    vk_resources: Vec::new(),
+                },
+            );
+            t.rhi_resources.insert(RHI_RES, (RHI, 0));
+            t.rhi_passes.insert(RHI_PASS, (RHI, 0));
+            t.rhi_gfx_passes.insert(RHI_GFX_PASS, (RHI, 0));
+        }
+
+        rxrt_graph_destroy(GRAPH);
+        rxrt_rhi_destroy(RHI);
+
+        {
+            let mut guard = lock();
+            let t = &mut *guard;
+            assert!(
+                !t.graphs.contains_key(&GRAPH),
+                "graph 根对象 destroy 后应移除"
+            );
+            assert!(
+                !t.graph_resources.contains_key(&GRAPH_RES),
+                "graph destroy 后应级联移除 resource 子句柄"
+            );
+            assert!(
+                !t.graph_passes.contains_key(&GRAPH_PASS),
+                "graph destroy 后应级联移除 pass 子句柄"
+            );
+            assert!(!t.rhis.contains_key(&RHI), "rhi 根对象 destroy 后应移除");
+            assert!(
+                !t.rhi_resources.contains_key(&RHI_RES),
+                "rhi destroy 后应级联移除 resource 子句柄"
+            );
+            assert!(
+                !t.rhi_passes.contains_key(&RHI_PASS),
+                "rhi destroy 后应级联移除 compute pass 子句柄"
+            );
+            assert!(
+                !t.rhi_gfx_passes.contains_key(&RHI_GFX_PASS),
+                "rhi destroy 后应级联移除 gfx pass 子句柄"
+            );
+        }
+
+        assert_eq!(
+            rxrt_graph_declare(GRAPH_PASS, GRAPH_RES, 0),
+            RXRT_FAIL,
+            "销毁后的 graph 子句柄应在侧表入口立即失效"
+        );
+        assert_eq!(
+            rxrt_rhi_declare(RHI_PASS, RHI_RES, 0),
+            RXRT_FAIL,
+            "销毁后的 rhi compute 子句柄应在侧表入口立即失效"
+        );
+        assert_eq!(
+            rxrt_rhi_gfx_declare(RHI_GFX_PASS, RHI_RES, 2),
+            RXRT_FAIL,
+            "销毁后的 rhi gfx 子句柄应在侧表入口立即失效"
+        );
     }
 
     /// 手写 SAXPY PTX(镜像 rurix-rt `tests/gpu_roundtrip.rs`:`y[i] = a*x[i] + y[i]`;

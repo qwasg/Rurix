@@ -716,6 +716,47 @@ def eval_counter(entry: dict, strict: bool) -> None:
                 n += 1
         count_or_gate(eid, n, 1, "份 Vulkan RHI 通道 device 见证(vulkan_channel_ok=true)",
                       "G4.4 device 见证回填前为正常状态,契约 G-G4-5", strict)
+    elif eid == "g5.counter.renderer_graph_host_tests":
+        # render graph host 单测基数 ≥30(契约 G-G5-3;RFC-0016 章 A;ci/renderer_graph_smoke.py
+        # 步骤 82 host 段)。计数源 = evidence/renderer_graph_smoke_*.json 中 graph_test_count
+        # (host 恒跑,纯 rust test 静态计数,对齐 m1.counter.syntax_corpus_size 先例)。
+        n = 0
+        for f in (ROOT / "evidence").glob("renderer_graph_smoke_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            v = doc.get("checks", {}).get("graph_test_count")
+            if isinstance(v, int):
+                n = max(n, v)
+        count_or_gate(eid, n, 30, "个 render graph host 单测(graph_test_count)",
+                      "G5.2-A 建设期为正常状态,契约 G-G5-3", strict)
+    elif eid == "g5.counter.render_exec_device_tests":
+        # render_exec device 真跑见证基数 ≥1(契约 G-G5-4;RFC-0016 章 B;ci/renderer_draw_smoke.py
+        # 步骤 83 device 段)。计数源 = evidence/renderer_draw_smoke_*.json 中
+        # render_exec_device_pass=true 且 render_exec_device_tests_present=true 的报告数——
+        # **device evidence 计数**(对齐 g4.counter.vulkan_rhi_channel 先例):须有 Vulkan 驱动 +
+        # GPU 才能成立,缺 provisioning SKIP=dev-env degrade → 建设期 normal SKIP / close-out strict FAIL。
+        n = 0
+        for f in (ROOT / "evidence").glob("renderer_draw_smoke_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            checks = doc.get("checks", {})
+            if checks.get("render_exec_device_pass") is True and checks.get("render_exec_device_tests_present") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份 render_exec device 真跑见证(render_exec_device_pass=true)",
+                      "G5.2-B device 见证回填前为正常状态,契约 G-G5-4", strict)
+    elif eid == "g5.counter.renderer_smoke_steps":
+        # G5 新 smoke 步骤基数 = 6(契约 G-G5-3~G-G5-8;CI_GATES §2 步骤 82~87;本批同 PR 落)。
+        # 计数源 = ci/renderer_*_smoke.py + ci/uc06_renderer_smoke.py 六个脚本静态存在
+        # (host 恒跑不 gate,对齐 g4.counter.graphics_invariant_cases 静态语料计数先例)。
+        scripts = [
+            "ci/renderer_graph_smoke.py",
+            "ci/renderer_draw_smoke.py",
+            "ci/renderer_visbuffer_smoke.py",
+            "ci/renderer_lighting_smoke.py",
+            "ci/renderer_temporal_smoke.py",
+            "ci/uc06_renderer_smoke.py",
+        ]
+        n = sum(1 for s in scripts if (ROOT / s).is_file())
+        count_or_gate(eid, n, 6, "个 G5 新 smoke 脚本(ci/renderer_*_smoke.py + uc06)",
+                      "G5.4 建设期为正常状态,契约 G-G5-3~G-G5-8", strict)
     elif eid == "g4.counter.blackhole_realtime_smoke":
         # BLACKHOLE realtime device 见证基数 ≥1(契约 G-G4-7;RFC-0015 §1 carve-out /
         # RXS-0197/0198;ci/blackhole_realtime_smoke.py 步骤 81 device 段)。计数源 =

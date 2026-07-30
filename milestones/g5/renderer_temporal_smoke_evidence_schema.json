@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "时域重建冒烟证据 schema(G5.2-H+G5.3-H,步骤 86;G-G5-7;RFC-0016 章 H)",
+  "description": "ci/renderer_temporal_smoke.py 写 evidence/renderer_temporal_smoke_<ts>.json。host 段恒跑 temporal 参考器；device 段按能力分波 gate real：W1 TAA 经 Vulkan 真派发并与 host 金标准对拍；无 loader 可 dev-env-degrade，RURIX_REQUIRE_REAL=1 翻硬红。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "milestone",
+    "step",
+    "host_section_pass",
+    "device_section_rc",
+    "checks",
+    "run_url",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "renderer_temporal_smoke" },
+    "milestone": { "type": "string" },
+    "step": { "type": "integer", "const": 86 },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_rc": { "type": "integer" },
+    "device_blocked": { "type": ["string", "null"] },
+    "device_probe_note": { "type": ["string", "null"] },
+    "device_wave_w1_pass": { "type": ["boolean", "null"] },
+    "device_wave_w2_pass": { "type": ["boolean", "null"] },
+    "device_wave_tests": {
+      "type": ["array", "null"],
+      "items": { "type": "string" }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "temporal_pass": { "type": ["boolean", "string"] },
+        "temporal_count": { "type": ["integer", "boolean", "string"] },
+        "taa_convergence_present": { "type": ["boolean", "string"] },
+        "tsr_ssim_gate_present": { "type": ["boolean", "string"] }
+      }
+    },
+    "toolchain_skip": { "type": ["string", "null"] },
+    "dev_env_degrade": { "type": "boolean" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" }
+  }
+}

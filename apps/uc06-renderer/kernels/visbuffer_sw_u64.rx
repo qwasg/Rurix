@@ -1,0 +1,64 @@
+kernel fn visbuffer_sw_u64(
+    t: ThreadCtx<1>,
+    triangles: View<global, f32>,
+    ids: View<global, u32>,
+    vis: AtomicView<global, u64, (9216,)>,
+    triangle_count: usize,
+    width: usize,
+    height: usize,
+) {
+    let invocation = t.global_id();
+    let pixel_count = width * height;
+    if invocation < triangle_count * pixel_count {
+        let tri_idx = invocation / pixel_count;
+        let pixel = invocation % pixel_count;
+        let px = (pixel % width) as f32 + 0.5;
+        let py = (pixel / width) as f32 + 0.5;
+        let b = tri_idx * 9;
+        let ax = triangles[b];
+        let ay = triangles[b + 1];
+        let az = triangles[b + 2];
+        let bx0 = triangles[b + 3];
+        let by0 = triangles[b + 4];
+        let bz0 = triangles[b + 5];
+        let cx0 = triangles[b + 6];
+        let cy0 = triangles[b + 7];
+        let cz0 = triangles[b + 8];
+        let area = (bx0 - ax) * (cy0 - ay) - (by0 - ay) * (cx0 - ax);
+        if area < 0.0 {
+            let bx = cx0;
+            let by = cy0;
+            let bz = cz0;
+            let cx = bx0;
+            let cy = by0;
+            let cz = bz0;
+            let e_bc = (cx - bx) * (py - by) - (cy - by) * (px - bx);
+            let e_ca = (ax - cx) * (py - cy) - (ay - cy) * (px - cx);
+            let e_ab = (bx - ax) * (py - ay) - (by - ay) * (px - ax);
+            let tl_bc = (cy - by) > 0.0 || ((cy - by) == 0.0 && (cx - bx) > 0.0);
+            let tl_ca = (ay - cy) > 0.0 || ((ay - cy) == 0.0 && (ax - cx) > 0.0);
+            let tl_ab = (by - ay) > 0.0 || ((by - ay) == 0.0 && (bx - ax) > 0.0);
+            let inside =
+                (e_bc > 0.0 || (e_bc == 0.0 && tl_bc)) &&
+                (e_ca > 0.0 || (e_ca == 0.0 && tl_ca)) &&
+                (e_ab > 0.0 || (e_ab == 0.0 && tl_ab));
+            if inside {
+                let mut z = (e_bc * az + e_ca * bz + e_ab * cz) / (0.0 - area);
+                if z < 0.0 { z = 0.0; }
+                if z > 1.0 { z = 1.0; }
+                let mut depth = ((1.0 - z) * (1073741823u32 as f32)).round() as u32;
+                if depth < 1u32 { depth = 1u32; }
+                if depth > 1073741823u32 { depth = 1073741823u32; }
+                let cluster = ids[tri_idx * 2];
+                let tri = ids[tri_idx * 2 + 1];
+                let packed =
+                    ((depth as u64) << 34u64) |
+                    ((cluster as u64) << 7u64) |
+                    (tri as u64);
+                let _old = vis.fetch_max(pixel, packed, Scope::Gpu);
+            }
+        }
+    }
+}
+
+fn main() {}

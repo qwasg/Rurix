@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "subject": "renderer_draw_smoke",
+  "milestone": "G5.2-B / G-G5-4 (RFC-0016 章 B)",
+  "step": 83,
+  "host_section_pass": true,
+  "device_section_rc": 0,
+  "checks": {
+    "render_exec_host_pass": true,
+    "render_exec_host_count": 0,
+    "render_exec_device_pass": true,
+    "render_exec_device_count": 18,
+    "render_exec_device_tests_present": true
+  },
+  "toolchain_skip": null,
+  "dev_env_degrade": false,
+  "run_url": "local",
+  "timestamp": "2026-07-30T12:12:58+08:00"
+}

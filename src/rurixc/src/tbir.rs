@@ -116,6 +116,13 @@ pub enum ExprKind {
         is_f32: bool,
         args: Vec<Expr>,
     },
+    /// `Atomic`/`AtomicView` 原子读改写；scope 已由 typeck 静态裁决，不进入 MIR 值流。
+    AtomicCall {
+        op: crate::hir::AtomicOp,
+        is_view: bool,
+        receiver: Box<Expr>,
+        args: Vec<Expr>,
+    },
     /// 纹理采样(G2.4,RXS-0174/0175;RFC-0007;`tex.sample(samp, coord)` →
     /// 采样表达式,产 `vec4<F>`)。`texture`/`sampler` 为资源句柄形参引用
     /// (MIR lowering 取其 local 下标);`coord` 为 `vec2<f32>` 值。

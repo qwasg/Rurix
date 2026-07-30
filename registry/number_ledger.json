@@ -273,6 +273,21 @@
         "SG": "零消费(各面均为既登记 deferred 兑现非扩张方向;SG-010 软保留维持)",
         "D": "共享 D 段零消费(D-408=P1-2 earmark 不动,D-409 已消费;开工裁决记契约 §7,D-G4-N 仅为交付物编号)"
       }
+    },
+    {
+      "owner": "G5(原生渲染器期,2026-07-29 开工:G4 close-out closed + owner 立项确认〔渲染器调研七报告全量落地指令,2026-07-29 会话下达〕;裁决全文记 milestones/g5/G5_CONTRACT.md §7)",
+      "source": "milestones/g5/G5_CONTRACT.md §7",
+      "claims": {
+        "RFC": "RFC-0016 单号伞形 Full RFC(八章:A 渲染调度 render graph 引擎库 / B RHI 图形派发桥执行面 / C 虚拟化几何 meshlet+VisBuffer / D VSM 虚拟阴影 / E 屏幕探针 GI / F 光追效果与 AS 管理 / G 材质场景流送 / H 时域重建 TAA/TSR;G4 RFC-0015 单伞形先例)",
+        "RXS": "确需时自 RXS-0297 起(渲染器为引擎库面〔06 §8.3 render graph/ECS 是库不进语言〕,预期零新语言语义条款;RHI 桥复用 RXS-0270~0294 既有条款面,超出时顺位消费,未消费不占号)",
+        "CI_step": "步骤 82 起(预期 82 renderer graph host 门 / 83 renderer draw 桥 / 84 visbuffer / 85 lighting / 86 temporal / 87 uc06 全管线;数量随实现回填不预占,多余号作废声明 burned)",
+        "RD": "RD-037 起(执行期新 RD;七报告 P3+/长线评估项〔Work Graphs/ReSTIR/帧生成/SVT/Surface Cache/Mega Geometry 等〕按报告建议登记存续)",
+        "U": "U32 起(确需新 unsafe 时;渲染器核心 crate 预期 #![forbid(unsafe_code)],unsafe 集中在 rurix-rt vk FFI 既有审计面)",
+        "RX_error": "预期零新码(渲染器库面违例走库层状态值,镜像 RX6029/6030 口径);确需 codegen 自 RX6034 / 工具类自 RX7023",
+        "MR": "MR-0012 起按需",
+        "SG": "零消费(七报告方向 = U5 引擎旗舰用例主线渲染器建设,非扩张诱惑;SG-010 软保留维持)",
+        "D": "共享 D 段零消费(D-408=P1-2 earmark 不动;开工裁决记契约 §7,D-G5-N 仅为交付物编号)"
+      }
     }
   ],
   "revision_log": [
@@ -412,9 +427,19 @@
       "change": "EA1.1a rurixup 真实 FS 物化 + 活跃切换（RXS-0214/0215，RFC-0012，G-EA1-2）校准：CI_step 59 前半 materialize 落地（ci/rurixup_dist_smoke.py 前半红绿闭合 + red_self_test 双向）；RXS-0214/0215 落 spec/release.md §2.8 条款体（FLS 体例 + 严禁 UB 节）；src/rurixup install.rs materialize_to_disk（staging→逐组件 sha256→tree_digest 双向→同卷 rename→注册表 v2 单写，幂等+回滚）/ toolchain.rs schema v2 / shim.rs argv0 干名转发 / main.rs 子命令 wired；stable_api.snapshot 重 bless（spec_clauses 209→211，bless_log L27）；字段校准与现状一致（CI_step on_tree_max=81/next_free=82；RXS on_tree_max=294/next_free=297；reserved_in_flight[EA1] 含 59/60 不变）。EA1.1b（be4eee83）+ EA1.2（702bf39a）已先落 main。"
     },
     {
+      "version": "v1.26",
+      "date": "2026-07-28",
+      "change": "device 见证回填留痕(fix_g4_device_toolchain_luid_schemas 规范,Assisted-by: trae:glm-5.2;G4 close-out 维持 closed 不重开):**无新号消费**——4 步骤(76/78/80/81)device 段在 RTX 4070 Ti + VULKAN_SDK 1.3.296.0 + MSVC 2022 + 交互桌面会话环境真跑 exit 0,evidence JSON 落位(evidence/uc05_graphics_rhi_smoke_20260728T190615.json / evidence/uc05_engine_embed_v3_20260728T193238.json / evidence/vulkan_rhi_channel_smoke_20260728T174338.json / evidence/blackhole_realtime_smoke_20260728T194112.json)。RXS on_tree_max 294 / next_free 297 维持(RXS-0295/0296 burned);CI_step on_tree_max 81 / next_free 82 维持(76~81 全落);RD on_tree_max 36 / next_free 37 维持(RD-036 open 存续,`reason` 字段已补,check_schemas PASS);U on_tree_max 31 / next_free 32 维持;SG on_tree_max 9 / next_free 10 维持(SG-010 软保留);RX_error on_tree_max 7022 / next_free 7023 维持;MR / D / RFC 命名空间字段 0-byte。G4_CONTRACT §8.8 存续项清单 #2(RD-036 缺 reason)标注「已消除(check_schemas PASS)」+ #3(evidence schema gap)标注「已消除(check_schemas PASS)」+ #4(4 counters FAIL)标注「已关闭(device 见证回填)」+ #5(device 段 SKIP)标注「已关闭(步骤 76/78/80/81 真跑 exit 0)」;§8.9 device 见证回填留痕段追加。budget_eval --strict 全局零 FAIL(4 G4 counter PASS);既有 compute RHI 路(步骤 72~75)0-byte 零回归;engine_host v1/v2 0-byte;dxil 套件 404+ 恒定;vulkan 套件 grow-only;步骤 41~75 既有判据 0-byte 只增;evidence/ 只增不删。零新 RXS/RD/U/SG/RX_error/MR/D 命名空间字段;零新 SG/error-code/budget counter(g4_budget.json v1.6 留痕 counter 不动字段)。"
+    },
+    {
       "version": "v1.25",
       "date": "2026-07-28",
       "change": "EA1.3 close-out t9 处置 RD namespace 校准(agent 完全自主签署,AGENTS v3.0 硬规则 1;用户 2026-07-28 会话决策『A 段推迟,先收口』):① on_tree_max 35→36 漂移修复(RD-036 = G4.5 PR-G C ABI v2 超界硬需求存续登记,已落 deferred.json 但 number_ledger 滞后);② next_free 36→37;③ notes 更新:main entries 最高 RD-036 + 消费明细(RD-033 EA1 close-out 消费 A 段 VM 推迟 / RD-034 G3.6 / RD-035 EI1 / RD-036 G4.5);④ RD-033 = EA1 earmark reserved_in_flight[EA1].RD 在途 claim 兑现消费(deferred.json v1.70 新增 RD-033 条目)。零新 RX 码,零新 unsafe。"
+    },
+    {
+      "version": "v1.27",
+      "date": "2026-07-29",
+      "change": "G5 原生渲染器期开工登记(agent 完全自主 D-406 v2.0,Assisted-by: cursor:claude-fable-5):reserved_in_flight 追加 G5 行——owner 2026-07-29 立项确认(渲染器调研七报告〔H:/rurix/渲染器调研 调研报告1~7〕全量落地指令)。claim:RFC-0016 单号伞形 Full RFC(八章)/ RXS-0297 起确需(预期零新语言语义条款,渲染器为引擎库面)/ CI 步骤 82 起 / RD-037 起(七报告 P3+ 评估项登记)/ U32 起确需 / RX_error 预期零新码 / MR-0012 按需;SG 与共享 D 段零消费(SG-010 软保留维持,D-408 earmark 不动)。各命名空间 on_tree_max/next_free 本 revision 0-byte(开工零条款/零步骤落地,校准随实现 PR 回填);零新 RXS/RD/SG/error-code/budget counter。"
     }
   ]
 }
