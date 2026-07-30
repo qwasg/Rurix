@@ -1,6 +1,6 @@
 # G6_PLAN — 渲染物理双轨架构与主线分解
 
-> **状态**:计划定稿(G6.0)。契约四件套 / CI_GATES / budget / `number_ledger` claim **未开工**——待 owner 正式立项后再开 G6.1 治理包。
+> **状态**:**active**(G6.1 治理包已开工,2026-07-30)——契约 [G6_CONTRACT.md](G6_CONTRACT.md) · 门 [CI_GATES.md](CI_GATES.md) · 预算 g6_budget.json 空壳 · 编号 claim `number_ledger` v1.28 `reserved_in_flight[G6]`。本文升格为 G6 契约上游事实源(G6_CONTRACT upstream_docs 首条)。
 >
 > **上游**:G5 closed([G5_CONTRACT.md](../g5/G5_CONTRACT.md) · [G5_PLAN.md](../g5/G5_PLAN.md) · [RFC-0016](../../rfcs/0016-native-renderer.md)) · 物理选型调研(会话调研 + Cursor canvas `physics-engine-match`) · 仓内后端纪律([`src/rurix-rt/src/backend.rs`](../../src/rurix-rt/src/backend.rs))
 >
@@ -80,17 +80,17 @@ G6.5 Taichi AOT(可选) ──► external import 粒子/体积场 ──► gra
 
 ## 1. 波次分解
 
-### G6.0 计划定稿(本文)· 当前
+### G6.0 计划定稿(本文)· 已完成
 
 - 落盘本文件;择优裁决与双轨架构冻结为后续开工输入。
 - **不**立 CONTRACT / CI_GATES / `g6_budget.json` / ledger claim;编号空间不占用。
 
-### G6.1 治理包 + RFC · **未开工**
+### G6.1 治理包 + RFC · **开工(治理包已落,2026-07-30;RFC 在途)**
 
-待 owner 立项后执行(对齐 G5.0/G5.1 体例):
+对齐 G5.0/G5.1 体例:
 
-- 契约四件套:`G6_CONTRACT.md` / 本 PLAN(升格引用) / `CI_GATES.md` / `g6_budget.json` 空壳。
-- `number_ledger` `reserved_in_flight[G6]` claim(RFC 号 / CI 步骤 / RD / U 续号以开工时 ledger 实际 `next_free` 为准)。
+- 契约四件套:`G6_CONTRACT.md` / 本 PLAN(升格引用) / `CI_GATES.md` / `g6_budget.json` 空壳。**已落(2026-07-30)**。
+- `number_ledger` `reserved_in_flight[G6]` claim(v1.28:RFC-0017 / 步骤 88 起 / RD-042 起 / U33 起,以开工时 ledger 实际 `next_free` 校准)。**已落**。
 - RFC:物理库边界 + 同步契约 + FFI/unsafe 纪律(判档争议向上取严;预期零新语言语义条款——物理为引擎库,同 06 §8.3 / RFC-0016 口径)。
 - D-409 对抗性评审 → Agent Approved 先于实现 PR。
 
@@ -209,3 +209,4 @@ G6.5 Taichi AOT(可选) ──► external import 粒子/体积场 ──► gra
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-07-30 | 初版(G6.0 计划定稿):多项择优锁定 Jolt 主物理 / Rapier 快路径 / Taichi Vulkan AOT 特效副轨 / Newton 系研究隔离;双轨架构与 G5 GpuScene·streaming·temporal 合流;波次 G6.0–G6.6;冻结接口草案;治理包未开工、编号未 claim |
+| v1.1 | 2026-07-30 | G6.1 治理包开工升格(owner 同日会话立项指令):状态行翻 active + 契约四件套/ledger v1.28 claim 已落标注;§1 G6.0/G6.1 波次状态刷新;§0/§2/§3/§4 既有裁决与冻结接口草案 0-byte 不动 |
