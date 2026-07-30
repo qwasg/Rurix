@@ -140,10 +140,10 @@ pub fn make_vsm(scene: &Uc06Scene) -> Vsm {
             base_radius: 2.0,
             depth_extent: extent,
         },
-        // 池预算 = u16 上限内最大(65534;全窗 65536 页差 2 页,实际标记页远少于此——
-        // 屏幕反馈仅标记有表面的页,池过小会导致相机外页抢占探针所在页,sample_shadow
-        // 保守返回 lit 反而漏影,RFC 章 D3「固定预算」按窗口量级取)。
-        pool_pages: 65534,
+        // 池预算 = 512 页(33MB;demo 场景 3 小物体标记页远少于此——屏幕反馈仅标记
+        // 有表面的页,512 足够覆盖全窗有效页。原 65534 页 = 4GB 分配,在并行 workspace
+        // test 下 OOM;按 RFC 章 D3「固定预算」取实际需求量级而非 u16 上限)。
+        pool_pages: 512,
         ..Default::default()
     };
     Vsm::new(cfg, VSM_LIGHT_DIR, crate::scene::CAMERA.eye)

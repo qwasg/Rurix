@@ -195,9 +195,8 @@ impl RenderGraph {
 
     fn add_resource(&mut self, mut desc: ResourceDesc, imported: bool) -> ResourceId {
         desc.imported = imported;
-        let id = ResourceId(
-            u32::try_from(self.resources.len()).expect("resource count overflow u32"),
-        );
+        let id =
+            ResourceId(u32::try_from(self.resources.len()).expect("resource count overflow u32"));
         self.resources.push(ResourceNode { id, desc });
         id
     }
