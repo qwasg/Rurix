@@ -20,8 +20,11 @@ use rurixc::render::render_diagnostics;
 use rurixc::source_map::SourceMap;
 use rurixc::span::Edition;
 
+mod common;
+use common::{assert_spec_anchor, bless_mode, normalize_newlines, read_source, tests_dir};
+
 fn ui_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/ui")
+    tests_dir("ui")
 }
 
 fn collect_rx_files(dir: &Path, out: &mut Vec<PathBuf>) {
@@ -50,10 +53,6 @@ fn normalized_name(path: &Path) -> String {
         .to_string_lossy()
         .replace('\\', "/");
     format!("$DIR/{rel}")
-}
-
-fn normalize_newlines(s: &str) -> String {
-    s.replace("\r\n", "\n")
 }
 
 /// 提取 `//~ ERROR RX####` 行注释:(1-based 行号, 错误码文本)。
@@ -168,10 +167,6 @@ fn run_case(path: &Path, src: &str) -> CaseResult {
     CaseResult { rendered, errors }
 }
 
-fn bless_mode() -> bool {
-    std::env::var("RURIX_BLESS").is_ok_and(|v| v == "1")
-}
-
 #[test]
 fn ui_corpus_is_not_empty() {
     let n = ui_tests().len();
@@ -185,7 +180,7 @@ fn ui_corpus_is_not_empty() {
 #[test]
 fn ui_error_annotations_match() {
     for path in ui_tests() {
-        let src = normalize_newlines(&fs::read_to_string(&path).expect("读取样例失败"));
+        let src = normalize_newlines(&read_source(&path));
         let case = run_case(&path, &src);
         let mut expected = expected_annotations(&src);
         let mut actual = case.errors.clone();
@@ -212,7 +207,7 @@ fn ui_stderr_snapshots_match() {
     let bless = bless_mode();
     let mut mismatches = Vec::new();
     for path in ui_tests() {
-        let src = normalize_newlines(&fs::read_to_string(&path).expect("读取样例失败"));
+        let src = normalize_newlines(&read_source(&path));
         let case = run_case(&path, &src);
         let stderr_path = path.with_extension("stderr");
         if bless {
@@ -249,12 +244,7 @@ fn ui_stderr_snapshots_match() {
 #[test]
 fn ui_files_carry_spec_anchor() {
     for path in ui_tests() {
-        let src = fs::read_to_string(&path).expect("读取样例失败");
-        let first = src.lines().next().unwrap_or("");
-        assert!(
-            first.starts_with("//@ spec: RXS-"),
-            "{} 缺条款锚定头(//@ spec: RXS-####)",
-            path.display()
-        );
+        let src = read_source(&path);
+        assert_spec_anchor(&src, &path);
     }
 }

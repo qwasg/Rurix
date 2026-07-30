@@ -11,14 +11,17 @@
 //! 故 golden 基线在 WP6 安全入库。
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use rurixc::diag::DiagCtxt;
 use rurixc::query::QueryCtx;
 use rurixc::span::{Edition, SourceId};
 
+mod common;
+use common::{assert_spec_anchor, bless_mode, check_golden, read_corpus_normalized, tests_dir};
+
 fn mir_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/mir")
+    tests_dir("mir")
 }
 
 fn rx_files() -> Vec<PathBuf> {
@@ -36,10 +39,6 @@ fn rx_files() -> Vec<PathBuf> {
     }
     out.sort();
     out
-}
-
-fn normalize_newlines(s: &str) -> String {
-    s.replace("\r\n", "\n")
 }
 
 /// 全管线产出 MIR 文本(drop elaboration 已在 mir_crate 内落定;借用检查只读不改形态)。
@@ -77,10 +76,6 @@ fn mir_text(src: &str) -> String {
     text
 }
 
-fn bless_mode() -> bool {
-    std::env::var("RURIX_BLESS").is_ok_and(|v| v == "1")
-}
-
 /// 语料 ≥3(三类形态代表;M3 CI_GATES §4 第 2 项基线范围)。
 #[test]
 fn mir_corpus_is_not_empty() {
@@ -97,29 +92,10 @@ fn mir_golden_snapshots_match() {
     let bless = bless_mode();
     let mut mismatches = Vec::new();
     for path in rx_files() {
-        let src = normalize_newlines(&fs::read_to_string(&path).expect("读取语料失败"));
+        let src = read_corpus_normalized(&path);
         let text = mir_text(&src);
         let golden_path = path.with_extension("mir");
-        if bless {
-            fs::write(&golden_path, &text).expect("bless 写入失败");
-            continue;
-        }
-        let expected = match fs::read_to_string(&golden_path) {
-            Ok(s) => normalize_newlines(&s),
-            Err(_) => {
-                mismatches.push(format!(
-                    "{}: 缺 .mir golden(新语料需经审批 bless:RURIX_BLESS=1 + bless_log.md 留痕)",
-                    golden_path.display()
-                ));
-                continue;
-            }
-        };
-        if expected != text {
-            mismatches.push(format!(
-                "{}: MIR golden 漂移\n--- expected ---\n{expected}\n--- actual ---\n{text}",
-                golden_path.display()
-            ));
-        }
+        mismatches.extend(check_golden(&golden_path, &text, bless, "MIR"));
     }
     assert!(
         mismatches.is_empty(),
@@ -134,11 +110,6 @@ fn mir_golden_snapshots_match() {
 fn mir_files_carry_spec_anchor() {
     for path in rx_files() {
         let src = fs::read_to_string(&path).expect("读取语料失败");
-        let first = src.lines().next().unwrap_or("");
-        assert!(
-            first.starts_with("//@ spec: RXS-"),
-            "{} 缺条款锚定头(//@ spec: RXS-####)",
-            path.display()
-        );
+        assert_spec_anchor(&src, &path);
     }
 }

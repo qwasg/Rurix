@@ -26,6 +26,11 @@ use rurixc::query::QueryCtx;
 use rurixc::source_map::SourceMap;
 use rurixc::span::Edition;
 
+mod common;
+use common::{
+    assert_spec_anchor, conformance_dir, expect_error_code, repo_root, rx_files_shallow as rx_files,
+};
+
 /// 编译期 reject 预设文件(I1/I2/I6/I7/I8;裁决 1 编译期档)。
 const COMPILE_REJECTS: [&str; 7] = [
     "res_use_after_move",
@@ -46,28 +51,8 @@ const ASSEMBLY_REJECTS: [&str; 4] = [
     "pass_undeclared_read",
 ];
 
-fn repo_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
-
 fn uc05_dir(sub: &str) -> PathBuf {
-    repo_root().join("conformance/uc05").join(sub)
-}
-
-fn rx_files(root: &Path) -> Vec<PathBuf> {
-    let mut out = Vec::new();
-    if !root.is_dir() {
-        return out;
-    }
-    for e in fs::read_dir(root).unwrap_or_else(|e| panic!("读取 {} 失败: {e}", root.display()))
-    {
-        let p = e.expect("读取目录项失败").path();
-        if p.extension().is_some_and(|x| x == "rx") {
-            out.push(p);
-        }
-    }
-    out.sort();
-    out
+    conformance_dir("uc05").join(sub)
 }
 
 /// 镜像 driver 管线跑一个根文件(全量静态检查 + MIR/codegen IR)。
@@ -292,13 +277,7 @@ fn reject_compile_time_all_intercepted() {
         let root = uc05_dir("reject").join(format!("{cat}.rx"));
         let src = fs::read_to_string(&root)
             .unwrap_or_else(|e| panic!("缺 reject 根文件 {}: {e}", root.display()));
-        let expected: u16 = src
-            .lines()
-            .find_map(|l| l.trim().strip_prefix("//@ expect-error: RX"))
-            .unwrap_or_else(|| panic!("{} 缺 //@ expect-error: RX#### 头", root.display()))
-            .trim()
-            .parse()
-            .expect("expect-error 码格式非法");
+        let expected: u16 = expect_error_code(&src, &root);
         let (codes, _) = run_root(&root);
         assert!(!codes.is_empty(), "reject/{cat} 未被拦截(反例全拦截口径)");
         assert!(
@@ -336,12 +315,7 @@ fn corpus_files_carry_spec_anchor() {
     for sub in ["accept", "reject", "assembly"] {
         for f in rx_files(&uc05_dir(sub)) {
             let src = fs::read_to_string(&f).expect("读取语料失败");
-            let first = src.lines().next().unwrap_or("");
-            assert!(
-                first.starts_with("//@ spec: RXS-"),
-                "{} 缺条款锚定头(//@ spec: RXS-####)",
-                f.display()
-            );
+            assert_spec_anchor(&src, &f);
             n += 1;
         }
     }
