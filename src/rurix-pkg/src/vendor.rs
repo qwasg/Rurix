@@ -396,4 +396,127 @@ mod tests {
         assert_eq!(join_normalize("a/b", "../../c"), "c");
         assert_eq!(join_normalize(".", "."), ".");
     }
+
+    #[test]
+    fn join_normalize_empty_yields_dot() {
+        assert_eq!(join_normalize(".", "."), ".");
+        assert_eq!(join_normalize("", ""), ".");
+        // 反斜杠分隔符亦归一。
+        assert_eq!(join_normalize("a\\b", "c"), "a/b/c");
+    }
+
+    fn git_dep() -> Source {
+        Source::Git {
+            url: "https://h/r".to_owned(),
+            rev: "deadbeef".to_owned(),
+        }
+    }
+
+    //@ spec: RXS-0094
+    #[test]
+    fn fsloader_remote_offline_without_cache_is_unreachable() {
+        let ws = TempWs::new();
+        let loader = FsLoader::new(&ws.0, true);
+        let err = loader.load("remote", &git_dep()).err().unwrap();
+        assert_eq!(err.code(), "RX7009");
+        assert!(err.detail().contains("--offline"));
+    }
+
+    //@ spec: RXS-0094
+    #[test]
+    fn fsloader_remote_online_without_cache_defers_to_m6_3() {
+        let ws = TempWs::new();
+        let loader = FsLoader::new(&ws.0, false);
+        let err = loader.load("remote", &git_dep()).err().unwrap();
+        assert_eq!(err.code(), "RX7009");
+        assert!(err.detail().contains("vendor"));
+    }
+
+    //@ spec: RXS-0094
+    #[test]
+    fn fsloader_remote_uses_vendor_cache_when_present() {
+        let ws = TempWs::new();
+        ws.write(
+            "vendor/remote/rurix.toml",
+            "[package]\nname = \"remote\"\nversion = \"0.3.0\"\n",
+        );
+        ws.write("vendor/remote/src/lib.rx", "fn remote() {}\n");
+        let loader = FsLoader::new(&ws.0, true);
+        let pkg = loader.load("remote", &git_dep()).unwrap();
+        assert_eq!(pkg.manifest.name, "remote");
+        assert_eq!(pkg.source, git_dep());
+        assert!(!pkg.content_sha256.is_empty());
+    }
+
+    //@ spec: RXS-0090
+    #[test]
+    fn fsloader_path_missing_manifest_is_unreachable() {
+        let ws = TempWs::new();
+        let loader = FsLoader::new(&ws.0, false);
+        let err = loader
+            .load("gone", &Source::Path("gone".to_owned()))
+            .err()
+            .unwrap();
+        assert_eq!(err.code(), "RX7009");
+    }
+
+    #[test]
+    fn load_root_missing_manifest_is_invalid() {
+        let ws = TempWs::new();
+        let err = load_root(&ws.0).unwrap_err();
+        assert_eq!(err.code(), "RX7005");
+    }
+
+    //@ spec: RXS-0096
+    #[test]
+    fn workspace_member_conflicting_with_root_dep_errors() {
+        let ws = TempWs::new();
+        // 根显式声明 member 依赖但来源(路径)与 workspace member 归一后不一致。
+        ws.write(
+            "rurix.toml",
+            "[package]\nname = \"app\"\nversion = \"0.1.0\"\n\
+             [dependencies]\nmember = { path = \"other\" }\n\
+             [workspace]\nmembers = [\"member\"]\n",
+        );
+        ws.write("src/main.rx", "fn main() {}\n");
+        ws.write(
+            "member/rurix.toml",
+            "[package]\nname = \"member\"\nversion = \"0.1.0\"\n",
+        );
+        ws.write("member/src/lib.rx", "fn member() {}\n");
+        let err = resolve_workspace(&ws.0, true).unwrap_err();
+        assert_eq!(err.code(), "RX7006");
+    }
+
+    //@ spec: RXS-0096
+    #[test]
+    fn workspace_member_missing_dir_is_unreachable() {
+        let ws = TempWs::new();
+        ws.write(
+            "rurix.toml",
+            "[package]\nname = \"app\"\nversion = \"0.1.0\"\n[workspace]\nmembers = [\"ghost\"]\n",
+        );
+        ws.write("src/main.rx", "fn main() {}\n");
+        let err = resolve_workspace(&ws.0, true).unwrap_err();
+        assert_eq!(err.code(), "RX7009");
+    }
+
+    //@ spec: RXS-0094
+    #[test]
+    fn verify_locked_requires_lock_file() {
+        let ws = sample_ws();
+        let err = verify_locked(&ws.0, true).unwrap_err();
+        assert_eq!(err.code(), "RX7007");
+    }
+
+    //@ spec: RXS-0093
+    #[test]
+    fn verify_locked_missing_vendor_snapshot_is_digest_mismatch() {
+        let ws = sample_ws();
+        run_vendor(&ws.0, true).unwrap();
+        // 删除 vendor 快照:lock 记录 foo 但快照缺失 → RX7008。
+        std::fs::remove_dir_all(ws.0.join("vendor/foo")).unwrap();
+        let err = verify_locked(&ws.0, true).unwrap_err();
+        assert_eq!(err.code(), "RX7008");
+    }
 }

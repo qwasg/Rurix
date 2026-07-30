@@ -722,4 +722,403 @@ mod tests {
         assert_eq!(v, ConstVal::Int(8, PrimTy::Usize));
         assert_eq!(v.as_usize(), Some(8));
     }
+
+    // ── 纯标量求值原语的直接单元测试(不经完整编译管线;RXS-0063 算术/裁剪) ──
+
+    fn sp() -> Span {
+        Span::new(SourceId(0), 0, 0, Edition::Rx0)
+    }
+
+    #[test]
+    fn int_binop_arithmetic_and_bitwise() {
+        let s = sp();
+        assert_eq!(
+            int_binop(BinOp::Add, 2, 3, PrimTy::I32, s).unwrap(),
+            ConstVal::Int(5, PrimTy::I32)
+        );
+        assert_eq!(
+            int_binop(BinOp::Sub, 3, 5, PrimTy::I32, s).unwrap(),
+            ConstVal::Int(-2, PrimTy::I32)
+        );
+        assert_eq!(
+            int_binop(BinOp::Mul, 4, 6, PrimTy::I32, s).unwrap(),
+            ConstVal::Int(24, PrimTy::I32)
+        );
+        assert_eq!(
+            int_binop(BinOp::Div, 20, 4, PrimTy::I32, s).unwrap(),
+            ConstVal::Int(5, PrimTy::I32)
+        );
+        assert_eq!(
+            int_binop(BinOp::Rem, 20, 6, PrimTy::I32, s).unwrap(),
+            ConstVal::Int(2, PrimTy::I32)
+        );
+        assert_eq!(
+            int_binop(BinOp::BitAnd, 0b1100, 0b1010, PrimTy::U8, s).unwrap(),
+            ConstVal::Int(0b1000, PrimTy::U8)
+        );
+        assert_eq!(
+            int_binop(BinOp::BitOr, 0b1100, 0b1010, PrimTy::U8, s).unwrap(),
+            ConstVal::Int(0b1110, PrimTy::U8)
+        );
+        assert_eq!(
+            int_binop(BinOp::BitXor, 0b1100, 0b1010, PrimTy::U8, s).unwrap(),
+            ConstVal::Int(0b0110, PrimTy::U8)
+        );
+        assert_eq!(
+            int_binop(BinOp::Shl, 1, 4, PrimTy::I32, s).unwrap(),
+            ConstVal::Int(16, PrimTy::I32)
+        );
+        assert_eq!(
+            int_binop(BinOp::Shr, 256, 4, PrimTy::I32, s).unwrap(),
+            ConstVal::Int(16, PrimTy::I32)
+        );
+    }
+
+    #[test]
+    fn int_binop_comparisons_yield_bool() {
+        let s = sp();
+        assert_eq!(
+            int_binop(BinOp::Eq, 3, 3, PrimTy::I32, s).unwrap(),
+            ConstVal::Bool(true)
+        );
+        assert_eq!(
+            int_binop(BinOp::Ne, 3, 4, PrimTy::I32, s).unwrap(),
+            ConstVal::Bool(true)
+        );
+        assert_eq!(
+            int_binop(BinOp::Lt, 3, 4, PrimTy::I32, s).unwrap(),
+            ConstVal::Bool(true)
+        );
+        assert_eq!(
+            int_binop(BinOp::Gt, 5, 4, PrimTy::I32, s).unwrap(),
+            ConstVal::Bool(true)
+        );
+        assert_eq!(
+            int_binop(BinOp::Le, 4, 4, PrimTy::I32, s).unwrap(),
+            ConstVal::Bool(true)
+        );
+        assert_eq!(
+            int_binop(BinOp::Ge, 4, 4, PrimTy::I32, s).unwrap(),
+            ConstVal::Bool(true)
+        );
+    }
+
+    #[test]
+    fn int_binop_overflow_div_zero_and_bad_shift() {
+        let s = sp();
+        // 结果超目标类型范围 → RX5001。
+        assert!(matches!(
+            int_binop(BinOp::Add, 200, 100, PrimTy::U8, s),
+            Err(ConstError::Overflow { .. })
+        ));
+        assert!(matches!(
+            int_binop(BinOp::Mul, 100, 2, PrimTy::I8, s),
+            Err(ConstError::Overflow { .. })
+        ));
+        // 除零 / 取余零 → checked_* None → RX5001。
+        assert!(matches!(
+            int_binop(BinOp::Div, 1, 0, PrimTy::I32, s),
+            Err(ConstError::Overflow { .. })
+        ));
+        assert!(matches!(
+            int_binop(BinOp::Rem, 1, 0, PrimTy::I32, s),
+            Err(ConstError::Overflow { .. })
+        ));
+        // 移位量 ≥ 128 → None → RX5001。
+        assert!(matches!(
+            int_binop(BinOp::Shl, 1, 130, PrimTy::I64, s),
+            Err(ConstError::Overflow { .. })
+        ));
+        assert!(matches!(
+            int_binop(BinOp::Shr, 1, 200, PrimTy::I64, s),
+            Err(ConstError::Overflow { .. })
+        ));
+    }
+
+    #[test]
+    fn int_binop_lazy_boolean_rejected() {
+        let s = sp();
+        assert!(matches!(
+            int_binop(BinOp::And, 1, 1, PrimTy::I32, s),
+            Err(ConstError::NonConst { .. })
+        ));
+        assert!(matches!(
+            int_binop(BinOp::Or, 1, 1, PrimTy::I32, s),
+            Err(ConstError::NonConst { .. })
+        ));
+    }
+
+    #[test]
+    fn float_binop_covers_arith_and_cmp() {
+        let s = sp();
+        assert_eq!(
+            float_binop(BinOp::Add, 1.5, 2.5, PrimTy::F64, s).unwrap(),
+            ConstVal::Float(4.0, PrimTy::F64)
+        );
+        assert_eq!(
+            float_binop(BinOp::Sub, 5.0, 2.0, PrimTy::F64, s).unwrap(),
+            ConstVal::Float(3.0, PrimTy::F64)
+        );
+        assert_eq!(
+            float_binop(BinOp::Mul, 3.0, 2.0, PrimTy::F64, s).unwrap(),
+            ConstVal::Float(6.0, PrimTy::F64)
+        );
+        assert_eq!(
+            float_binop(BinOp::Div, 3.0, 2.0, PrimTy::F32, s).unwrap(),
+            ConstVal::Float(1.5, PrimTy::F32)
+        );
+        assert_eq!(
+            float_binop(BinOp::Rem, 5.0, 3.0, PrimTy::F64, s).unwrap(),
+            ConstVal::Float(2.0, PrimTy::F64)
+        );
+        for (op, want) in [
+            (BinOp::Eq, false),
+            (BinOp::Ne, true),
+            (BinOp::Lt, true),
+            (BinOp::Gt, false),
+            (BinOp::Le, true),
+            (BinOp::Ge, false),
+        ] {
+            assert_eq!(
+                float_binop(op, 1.0, 2.0, PrimTy::F64, s).unwrap(),
+                ConstVal::Bool(want)
+            );
+        }
+        assert!(matches!(
+            float_binop(BinOp::BitAnd, 1.0, 2.0, PrimTy::F64, s),
+            Err(ConstError::NonConst { .. })
+        ));
+    }
+
+    #[test]
+    fn bool_binop_covers_logic_ops() {
+        let s = sp();
+        assert_eq!(
+            bool_binop(BinOp::Eq, true, true, s).unwrap(),
+            ConstVal::Bool(true)
+        );
+        assert_eq!(
+            bool_binop(BinOp::Ne, true, false, s).unwrap(),
+            ConstVal::Bool(true)
+        );
+        assert_eq!(
+            bool_binop(BinOp::BitAnd, true, false, s).unwrap(),
+            ConstVal::Bool(false)
+        );
+        assert_eq!(
+            bool_binop(BinOp::BitOr, true, false, s).unwrap(),
+            ConstVal::Bool(true)
+        );
+        assert_eq!(
+            bool_binop(BinOp::BitXor, true, true, s).unwrap(),
+            ConstVal::Bool(false)
+        );
+        assert!(matches!(
+            bool_binop(BinOp::Add, true, false, s),
+            Err(ConstError::NonConst { .. })
+        ));
+    }
+
+    #[test]
+    fn eval_binop_rejects_mixed_scalar_kinds() {
+        let s = sp();
+        assert!(matches!(
+            eval_binop(
+                BinOp::Add,
+                ConstVal::Int(1, PrimTy::I32),
+                ConstVal::Bool(true),
+                s
+            ),
+            Err(ConstError::NonConst { .. })
+        ));
+        assert!(matches!(
+            eval_binop(
+                BinOp::Add,
+                ConstVal::Int(1, PrimTy::I32),
+                ConstVal::Float(1.0, PrimTy::F64),
+                s
+            ),
+            Err(ConstError::NonConst { .. })
+        ));
+    }
+
+    #[test]
+    fn eval_unop_neg_not_and_overflow() {
+        let s = sp();
+        assert_eq!(
+            eval_unop(UnOp::Neg, ConstVal::Int(5, PrimTy::I32), s).unwrap(),
+            ConstVal::Int(-5, PrimTy::I32)
+        );
+        assert_eq!(
+            eval_unop(UnOp::Neg, ConstVal::Float(2.0, PrimTy::F64), s).unwrap(),
+            ConstVal::Float(-2.0, PrimTy::F64)
+        );
+        assert_eq!(
+            eval_unop(UnOp::Not, ConstVal::Bool(true), s).unwrap(),
+            ConstVal::Bool(false)
+        );
+        // -(i8::MIN) 越出 i8 范围 → RX5001。
+        assert!(matches!(
+            eval_unop(UnOp::Neg, ConstVal::Int(-128, PrimTy::I8), s),
+            Err(ConstError::Overflow { .. })
+        ));
+        // `!` 作用于整数 → 非 const。
+        assert!(matches!(
+            eval_unop(UnOp::Not, ConstVal::Int(1, PrimTy::I32), s),
+            Err(ConstError::NonConst { .. })
+        ));
+    }
+
+    #[test]
+    fn eval_cast_between_scalar_kinds() {
+        let s = sp();
+        // int → int(二进制补码 wrap):300 as u8 = 44。
+        assert_eq!(
+            eval_cast(ConstVal::Int(300, PrimTy::I32), &Ty::Prim(PrimTy::U8), s).unwrap(),
+            ConstVal::Int(44, PrimTy::U8)
+        );
+        // int → float / int → bool。
+        assert_eq!(
+            eval_cast(ConstVal::Int(3, PrimTy::I32), &Ty::Prim(PrimTy::F64), s).unwrap(),
+            ConstVal::Float(3.0, PrimTy::F64)
+        );
+        assert_eq!(
+            eval_cast(ConstVal::Int(0, PrimTy::I32), &Ty::Prim(PrimTy::Bool), s).unwrap(),
+            ConstVal::Bool(false)
+        );
+        assert_eq!(
+            eval_cast(ConstVal::Int(5, PrimTy::I32), &Ty::Prim(PrimTy::Bool), s).unwrap(),
+            ConstVal::Bool(true)
+        );
+        // float → float / float → int(截断)。
+        assert_eq!(
+            eval_cast(ConstVal::Float(1.5, PrimTy::F64), &Ty::Prim(PrimTy::F32), s).unwrap(),
+            ConstVal::Float(1.5, PrimTy::F32)
+        );
+        assert_eq!(
+            eval_cast(ConstVal::Float(3.9, PrimTy::F64), &Ty::Prim(PrimTy::I32), s).unwrap(),
+            ConstVal::Int(3, PrimTy::I32)
+        );
+        // bool → int。
+        assert_eq!(
+            eval_cast(ConstVal::Bool(true), &Ty::Prim(PrimTy::I32), s).unwrap(),
+            ConstVal::Int(1, PrimTy::I32)
+        );
+        // 非法目标 / 非法源 → 非 const。
+        assert!(matches!(
+            eval_cast(ConstVal::Int(65, PrimTy::I32), &Ty::Prim(PrimTy::Char), s),
+            Err(ConstError::NonConst { .. })
+        ));
+        assert!(matches!(
+            eval_cast(
+                ConstVal::Float(1.0, PrimTy::F64),
+                &Ty::Prim(PrimTy::Bool),
+                s
+            ),
+            Err(ConstError::NonConst { .. })
+        ));
+        assert!(matches!(
+            eval_cast(ConstVal::Bool(true), &Ty::Prim(PrimTy::F64), s),
+            Err(ConstError::NonConst { .. })
+        ));
+        assert!(matches!(
+            eval_cast(ConstVal::Int(1, PrimTy::I32), &Ty::Tuple(Vec::new()), s),
+            Err(ConstError::NonConst { .. })
+        ));
+        assert!(matches!(
+            eval_cast(ConstVal::Str("x".to_owned()), &Ty::Prim(PrimTy::I32), s),
+            Err(ConstError::NonConst { .. })
+        ));
+    }
+
+    #[test]
+    fn wrap_int_truncates_and_sign_extends() {
+        assert_eq!(wrap_int(300, PrimTy::U8), 44);
+        assert_eq!(wrap_int(-1, PrimTy::U8), 255);
+        assert_eq!(wrap_int(200, PrimTy::I8), -56); // 高位置 1 → 符号扩展
+        assert_eq!(wrap_int(1i128 << 40, PrimTy::U32), 0);
+        assert_eq!(wrap_int(5, PrimTy::Char), 5); // 非整型 prim → 原样返回
+    }
+
+    #[test]
+    fn int_range_and_fits() {
+        assert_eq!(int_range(PrimTy::I8), Some((-128, 127)));
+        assert_eq!(int_range(PrimTy::U16), Some((0, 65535)));
+        assert_eq!(int_range(PrimTy::Bool), None);
+        assert!(int_fits(PrimTy::U8, 255));
+        assert!(!int_fits(PrimTy::U8, 256));
+        assert!(!int_fits(PrimTy::U8, -1));
+        assert!(int_fits(PrimTy::Char, 99_999)); // 无范围 → 恒 fits
+    }
+
+    #[test]
+    fn is_int_prim_classifies() {
+        assert!(is_int_prim(PrimTy::Usize));
+        assert!(is_int_prim(PrimTy::I64));
+        assert!(!is_int_prim(PrimTy::F32));
+        assert!(!is_int_prim(PrimTy::Bool));
+    }
+
+    #[test]
+    fn const_val_roundtrips_through_mir_const() {
+        let vals = [
+            ConstVal::Int(7, PrimTy::I64),
+            ConstVal::Float(2.5, PrimTy::F32),
+            ConstVal::Bool(true),
+            ConstVal::Str("hi".to_owned()),
+            ConstVal::Char('z'),
+            ConstVal::Unit,
+        ];
+        for v in vals {
+            assert_eq!(mir_const_to_val(&v.to_mir_const()), v);
+        }
+    }
+
+    #[test]
+    fn const_val_truthy_and_as_usize() {
+        assert!(ConstVal::Bool(true).truthy());
+        assert!(!ConstVal::Bool(false).truthy());
+        assert!(ConstVal::Int(3, PrimTy::I32).truthy());
+        assert!(!ConstVal::Int(0, PrimTy::I32).truthy());
+        assert!(!ConstVal::Unit.truthy());
+        assert_eq!(ConstVal::Int(8, PrimTy::Usize).as_usize(), Some(8));
+        assert_eq!(ConstVal::Int(-1, PrimTy::I32).as_usize(), None);
+        assert_eq!(ConstVal::Bool(true).as_usize(), None);
+    }
+
+    #[test]
+    fn const_error_emit_maps_5xxx_codes() {
+        let s = sp();
+        let cases = [
+            (
+                ConstError::Overflow {
+                    span: s,
+                    op: "add".to_owned(),
+                },
+                5001u16,
+            ),
+            (
+                ConstError::IndexOob {
+                    span: s,
+                    index: 5,
+                    len: 2,
+                },
+                5002,
+            ),
+            (
+                ConstError::NonConst {
+                    span: s,
+                    what: "x".to_owned(),
+                },
+                5003,
+            ),
+        ];
+        for (err, code) in cases {
+            let diag = DiagCtxt::new();
+            err.emit(&diag);
+            let emitted = diag.emitted();
+            assert_eq!(emitted.len(), 1);
+            assert_eq!(emitted[0].code.map(|c| c.0), Some(code));
+        }
+    }
 }
