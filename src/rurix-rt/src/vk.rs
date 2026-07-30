@@ -1323,6 +1323,7 @@ unsafe fn run_on_device(
             let mut req = std::mem::zeroed::<MemoryRequirements>();
             buf_mem_req(device, buffer, &mut req);
             let Some(mt) = pick_memtype(req.memory_type_bits) else {
+                destroy_buffer(device, buffer, std::ptr::null());
                 cleanup_err = Some("无 host-visible+coherent 内存类型".into());
                 break 'setup;
             };
@@ -1334,6 +1335,7 @@ unsafe fn run_on_device(
             };
             let mut mem: VkDeviceMemory = VK_NULL_HANDLE;
             if alloc_mem(device, &mai, std::ptr::null(), &mut mem) != VK_SUCCESS {
+                destroy_buffer(device, buffer, std::ptr::null());
                 cleanup_err = Some("vkAllocateMemory 失败".into());
                 break 'setup;
             }
@@ -1341,6 +1343,8 @@ unsafe fn run_on_device(
             // 上传 host 数据。
             let mut ptr: *mut c_void = std::ptr::null_mut();
             if map_mem(device, mem, 0, WHOLE_SIZE, 0, &mut ptr) != VK_SUCCESS {
+                free_mem(device, mem, std::ptr::null());
+                destroy_buffer(device, buffer, std::ptr::null());
                 cleanup_err = Some("vkMapMemory 失败".into());
                 break 'setup;
             }
@@ -1546,7 +1550,13 @@ unsafe fn dispatch_and_readback(
         p_pool_sizes: &pool_size,
     };
     let mut pool: VkDescriptorPool = VK_NULL_HANDLE;
-    create_dp(device, &dpci, std::ptr::null(), &mut pool);
+    if create_dp(device, &dpci, std::ptr::null(), &mut pool) != VK_SUCCESS {
+        destroy_pipe(device, pipe, std::ptr::null());
+        destroy_pl(device, pl, std::ptr::null());
+        destroy_dsl(device, dsl, std::ptr::null());
+        destroy_shader(device, shader, std::ptr::null());
+        return Err("vkCreateDescriptorPool 失败".into());
+    }
     let dsai = DescriptorSetAllocateInfo {
         s_type: ST_DESCRIPTOR_SET_ALLOCATE_INFO,
         p_next: std::ptr::null(),
@@ -1555,7 +1565,14 @@ unsafe fn dispatch_and_readback(
         p_set_layouts: &dsl,
     };
     let mut dset: VkDescriptorSet = VK_NULL_HANDLE;
-    alloc_ds(device, &dsai, &mut dset);
+    if alloc_ds(device, &dsai, &mut dset) != VK_SUCCESS {
+        destroy_dp(device, pool, std::ptr::null());
+        destroy_pipe(device, pipe, std::ptr::null());
+        destroy_pl(device, pl, std::ptr::null());
+        destroy_dsl(device, dsl, std::ptr::null());
+        destroy_shader(device, shader, std::ptr::null());
+        return Err("vkAllocateDescriptorSets 失败".into());
+    }
     let binfos: Vec<DescriptorBufferInfo> = bufs
         .iter()
         .map(|b| DescriptorBufferInfo {
@@ -1588,7 +1605,14 @@ unsafe fn dispatch_and_readback(
         queue_family_index: qfi,
     };
     let mut cmdpool: VkCommandPool = VK_NULL_HANDLE;
-    create_cmdpool(device, &cpci2, std::ptr::null(), &mut cmdpool);
+    if create_cmdpool(device, &cpci2, std::ptr::null(), &mut cmdpool) != VK_SUCCESS {
+        destroy_dp(device, pool, std::ptr::null());
+        destroy_pipe(device, pipe, std::ptr::null());
+        destroy_pl(device, pl, std::ptr::null());
+        destroy_dsl(device, dsl, std::ptr::null());
+        destroy_shader(device, shader, std::ptr::null());
+        return Err("vkCreateCommandPool 失败".into());
+    }
     let cbai = CommandBufferAllocateInfo {
         s_type: ST_COMMAND_BUFFER_ALLOCATE_INFO,
         p_next: std::ptr::null(),
@@ -1597,14 +1621,30 @@ unsafe fn dispatch_and_readback(
         command_buffer_count: 1,
     };
     let mut cmd: VkCommandBuffer = std::ptr::null_mut();
-    alloc_cmd(device, &cbai, &mut cmd);
+    if alloc_cmd(device, &cbai, &mut cmd) != VK_SUCCESS {
+        destroy_cmdpool(device, cmdpool, std::ptr::null());
+        destroy_dp(device, pool, std::ptr::null());
+        destroy_pipe(device, pipe, std::ptr::null());
+        destroy_pl(device, pl, std::ptr::null());
+        destroy_dsl(device, dsl, std::ptr::null());
+        destroy_shader(device, shader, std::ptr::null());
+        return Err("vkAllocateCommandBuffers 失败".into());
+    }
     let cbbi = CommandBufferBeginInfo {
         s_type: ST_COMMAND_BUFFER_BEGIN_INFO,
         p_next: std::ptr::null(),
         flags: CMD_BUFFER_USAGE_ONE_TIME_SUBMIT,
         p_inheritance_info: std::ptr::null(),
     };
-    begin_cmd(cmd, &cbbi);
+    if begin_cmd(cmd, &cbbi) != VK_SUCCESS {
+        destroy_cmdpool(device, cmdpool, std::ptr::null());
+        destroy_dp(device, pool, std::ptr::null());
+        destroy_pipe(device, pipe, std::ptr::null());
+        destroy_pl(device, pl, std::ptr::null());
+        destroy_dsl(device, dsl, std::ptr::null());
+        destroy_shader(device, shader, std::ptr::null());
+        return Err("vkBeginCommandBuffer 失败".into());
+    }
     cmd_bind_pipe(cmd, PIPELINE_BIND_POINT_COMPUTE, pipe);
     cmd_bind_ds(
         cmd,
