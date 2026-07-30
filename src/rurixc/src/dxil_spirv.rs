@@ -2838,8 +2838,12 @@ mod tests {
         }
         let path =
             std::env::temp_dir().join(format!("rurix_spv_{}_{}.spv", std::process::id(), tag));
-        if std::fs::write(&path, &bytes).is_err() {
-            return ValResult::Skip;
+        // 写不进临时 `.spv` = 本机 FS 真故障,不得吞成 SKIP(那等于未验却报绿)。
+        if let Err(e) = std::fs::write(&path, &bytes) {
+            panic!(
+                "写临时 .spv {} 失败(非工具缺失,不得 SKIP):{e}",
+                path.display()
+            );
         }
         let output = std::process::Command::new(&tool).arg(&path).output();
         let _ = std::fs::remove_file(&path);

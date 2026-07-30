@@ -236,17 +236,29 @@ impl Anchor {
         let mut cur_digest: Option<String> = None;
         let mut cur_base: Option<String> = None;
 
+        // 缺字段的 releases[] 条目**拒解析**:曾默认空串——空 digest 会把「锚条目残缺」
+        // 伪装成级① digest 失配、空 base_url 伪装成网络失败,错因错段位(RXS-0217 信任根
+        // 完整性属解析期不变量)。
         let flush = |releases: &mut Vec<AnchorRelease>,
                      v: &mut Option<String>,
                      d: &mut Option<String>,
-                     b: &mut Option<String>| {
-            if let Some(ver) = v.take() {
-                releases.push(AnchorRelease {
-                    version: ver,
-                    channel_manifest_sha256: d.take().unwrap_or_default(),
-                    base_url: b.take().unwrap_or_default(),
-                });
-            }
+                     b: &mut Option<String>|
+         -> Result<(), String> {
+            let Some(ver) = v.take() else {
+                return Ok(());
+            };
+            let digest = d.take().ok_or_else(|| {
+                format!("锚 releases[] 条目 {ver} 缺 channel_manifest_sha256 字段")
+            })?;
+            let base = b
+                .take()
+                .ok_or_else(|| format!("锚 releases[] 条目 {ver} 缺 base_url 字段"))?;
+            releases.push(AnchorRelease {
+                version: ver,
+                channel_manifest_sha256: digest,
+                base_url: base,
+            });
+            Ok(())
         };
 
         for raw in text.lines() {
@@ -257,12 +269,16 @@ impl Anchor {
             }
             if in_releases && (line == "]" || line == "],") {
                 // releases 数组收束:flush 末条目。
-                flush(&mut releases, &mut cur_ver, &mut cur_digest, &mut cur_base);
+                flush(&mut releases, &mut cur_ver, &mut cur_digest, &mut cur_base)?;
                 in_releases = false;
                 continue;
             }
             if let Some(rest) = line.strip_prefix("\"schema_version\":") {
-                schema_version = rest.trim().trim_end_matches(',').trim().parse::<u32>().ok();
+                let raw = rest.trim().trim_end_matches(',').trim();
+                schema_version = Some(
+                    raw.parse::<u32>()
+                        .map_err(|e| format!("锚 schema_version `{raw}` 非法:{e}"))?,
+                );
             } else if let Some(rest) = line.strip_prefix("\"channel\":") {
                 channel = Some(anchor_unquote(rest)?);
             } else if let Some(rest) = line.strip_prefix("\"latest\":") {
@@ -272,7 +288,7 @@ impl Anchor {
                 }
             } else if let Some(rest) = line.strip_prefix("\"version\":") {
                 // 新对象起始:先 flush 上一条(对象数组无收束单行时的边界)。
-                flush(&mut releases, &mut cur_ver, &mut cur_digest, &mut cur_base);
+                flush(&mut releases, &mut cur_ver, &mut cur_digest, &mut cur_base)?;
                 cur_ver = Some(anchor_unquote(rest)?);
             } else if let Some(rest) = line.strip_prefix("\"channel_manifest_sha256\":") {
                 cur_digest = Some(anchor_unquote(rest)?);
@@ -281,10 +297,11 @@ impl Anchor {
             }
         }
         // 兜底 flush(锚数组末尾无独立 `]` 行的形态)。
-        flush(&mut releases, &mut cur_ver, &mut cur_digest, &mut cur_base);
+        flush(&mut releases, &mut cur_ver, &mut cur_digest, &mut cur_base)?;
 
         Ok(Anchor {
-            schema_version: schema_version.unwrap_or(0),
+            // 缺 schema_version 亦拒:曾默认 0(不存在的 schema 版号),把残缺锚当合法锚读。
+            schema_version: schema_version.ok_or("锚缺 schema_version 字段")?,
             channel: channel.ok_or("锚缺 channel 字段")?,
             releases,
             latest,
@@ -413,6 +430,32 @@ mod tests {
         assert_eq!(rel.base_url, "http://127.0.0.1:9/1.1.0/");
         // 无锚版号 → None(过渡窗拒装)。
         assert!(a.release_for("9.9.9").is_none());
+    }
+
+    //@ spec: RXS-0217
+    // 残缺锚**解析期即拒**:曾把缺字段默默补空串/0,使「锚条目残缺」在下游伪装成级①
+    // digest 失配或网络失败(错因错段位)。三形态各自落 Err。
+    #[test]
+    fn anchor_parse_rejects_incomplete_entries() {
+        let missing_digest = "{\n  \"schema_version\": 1,\n  \"channel\": \"stable\",\n  \"releases\": [\n    {\n      \"version\": \"1.1.0\",\n      \"base_url\": \"http://127.0.0.1:9/1.1.0/\"\n    }\n  ],\n  \"latest\": \"1.1.0\"\n}\n";
+        let e = Anchor::from_json(missing_digest).expect_err("缺 digest 须拒");
+        assert!(e.contains("channel_manifest_sha256"), "错因须点名字段:{e}");
+
+        let missing_base = "{\n  \"schema_version\": 1,\n  \"channel\": \"stable\",\n  \"releases\": [\n    {\n      \"version\": \"1.1.0\",\n      \"channel_manifest_sha256\": \"ab\"\n    }\n  ],\n  \"latest\": \"1.1.0\"\n}\n";
+        let e = Anchor::from_json(missing_base).expect_err("缺 base_url 须拒");
+        assert!(e.contains("base_url"), "错因须点名字段:{e}");
+
+        let missing_schema =
+            "{\n  \"channel\": \"stable\",\n  \"releases\": [\n  ],\n  \"latest\": null\n}\n";
+        let e = Anchor::from_json(missing_schema).expect_err("缺 schema_version 须拒");
+        assert!(e.contains("schema_version"), "错因须点名字段:{e}");
+
+        // 非法 schema_version(非 u32)亦拒,不静默当 0。
+        let bad_schema = "{\n  \"schema_version\": \"one\",\n  \"channel\": \"stable\",\n  \"releases\": [\n  ],\n  \"latest\": null\n}\n";
+        assert!(
+            Anchor::from_json(bad_schema).is_err(),
+            "非法 schema_version 须拒"
+        );
     }
 
     //@ spec: RXS-0217

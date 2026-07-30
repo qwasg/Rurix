@@ -857,13 +857,18 @@ pub enum SpirvValGate {
     Accepted,
     /// spirv-val 退出码非 0(SPIR-V 不合规;携 stdout+stderr 原因)。
     Rejected(String),
-    /// spirv-val 不可用(spawn 失败;开发环境降级 SKIP)。
+    /// spirv-val 不在位(spawn `NotFound`;开发环境降级 SKIP)。
     Skipped,
+    /// spirv-val 在位但无法运行(`NotFound` 以外的 spawn 失败:权限、可执行格式、资源
+    /// 耗尽……)。**非 dev-env degrade**:环境真故障,吞成 SKIP 等于 fake pass,故独立
+    /// 落态由调用方按 fail-closed 处置(对齐 [`crate::ptxas::PtxasOutcome::Toolchain`])。
+    Toolchain(String),
 }
 
 /// `.spv` 过 `spirv-val`。定位序:env `RURIX_SPIRV_VAL`(`.is_file`)→ PATH `spirv-val`。
-/// 退出码 0 = `Accepted`,非 0 = `Rejected(stdout+stderr)`,spawn 失败 = `Skipped`
-/// (工具缺失,dev-env degrade)。**退出码判定,不 grep stdout**(反 Godot 崩溃判定教训)。
+/// 退出码 0 = `Accepted`,非 0 = `Rejected(stdout+stderr)`,spawn `NotFound` = `Skipped`
+/// (工具缺失,dev-env degrade),其余 spawn 失败 = `Toolchain`(环境真故障,不吞)。
+/// **退出码判定,不 grep stdout**(反 Godot 崩溃判定教训)。
 #[cfg(feature = "vulkan-backend")]
 pub fn spirv_val_gate(spv: &Path) -> SpirvValGate {
     let tool: PathBuf = std::env::var_os("RURIX_SPIRV_VAL")
@@ -877,7 +882,10 @@ pub fn spirv_val_gate(spv: &Path) -> SpirvValGate {
             let stderr = String::from_utf8_lossy(&o.stderr);
             SpirvValGate::Rejected(format!("{}{}", stdout.trim(), stderr.trim()))
         }
-        Err(_) => SpirvValGate::Skipped,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => SpirvValGate::Skipped,
+        Err(e) => {
+            SpirvValGate::Toolchain(format!("cannot spawn spirv-val {}: {e}", tool.display()))
+        }
     }
 }
 
@@ -989,6 +997,9 @@ mod vulkan_toolchain_tests {
                 !reachable,
                 "Skipped ⇒ 工具缺失(honest dev-env degrade,非 fake accept)"
             ),
+            SpirvValGate::Toolchain(reason) => {
+                panic!("spirv-val 在位却无法运行(环境真故障,不得吞成 SKIP):{reason}")
+            }
         }
 
         // ── (b) Accepted 臂真绿(工具在位时):最小合法 GLCompute 模块 → spirv-val 接受;
@@ -1004,6 +1015,9 @@ mod vulkan_toolchain_tests {
                 "缺工具时合法模块亦 Skipped(dev-env degrade,非 fake)"
             ),
             SpirvValGate::Rejected(r) => panic!("最小合法 GLCompute 模块不应被拒:{r}"),
+            SpirvValGate::Toolchain(r) => {
+                panic!("spirv-val 在位却无法运行(环境真故障,不得吞成 SKIP):{r}")
+            }
         }
     }
 }
