@@ -709,13 +709,14 @@ fn export(
         });
     }
     // 组号全局化(同组簇共享 parent_error 的不变量锚)。
+    // saturating_add 防御 u32 溢出(极端场景:超 4G 组 → 饱和不回绕,保单调性不破)。
     let mut group_seq = 0u32;
     for li in 0..top {
         let base = dag.levels[li].record_start as usize;
         for (ci, &(g, _)) in group_of[li].iter().enumerate() {
-            dag.nodes[base + ci].group = group_seq + g;
+            dag.nodes[base + ci].group = group_seq.saturating_add(g);
         }
-        group_seq += group_counts[li];
+        group_seq = group_seq.saturating_add(group_counts[li]);
     }
     // 父子链接:第 L 层簇的孩子 = 第 L-1 层组内成员(record id 全局化)。
     for li in 1..=top {
@@ -733,7 +734,7 @@ fn export(
     let top_base = dag.levels[top].record_start;
     for ci in 0..dag.levels[top].record_count {
         dag.nodes[(top_base + ci) as usize].group = group_seq;
-        group_seq += 1;
+        group_seq = group_seq.saturating_add(1);
     }
     dag
 }

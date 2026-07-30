@@ -22,7 +22,7 @@
       "description": "render_exec device 真跑见证基数 = 4(契约 G-G5-4;RFC-0016 章 B;ci/renderer_draw_smoke.py 步骤 83 device 段)。计数源 = evidence/renderer_draw_smoke_*.json 中 render_exec_device_pass=true 且 render_exec_device_tests_present=true 的报告数——device evidence 计数(对齐 g4.counter.vulkan_rhi_channel 先例):须有 Vulkan 驱动 + GPU 才能成立,缺 provisioning SKIP=dev-env degrade → 建设期 normal SKIP / close-out strict FAIL。",
       "evidence_file": "evidence/renderer_draw_smoke_*.json",
       "direction": "min",
-      "threshold": 1
+      "threshold": 4
     },
     {
       "id": "g5.counter.renderer_smoke_steps",

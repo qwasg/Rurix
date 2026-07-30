@@ -162,7 +162,7 @@ impl StreamingEngine {
                 p.request.priority = p.request.priority.max(req.priority);
             } else {
                 let seq = self.next_seq;
-                self.next_seq += 1;
+                self.next_seq = self.next_seq.saturating_add(1);
                 self.pending.push(Pending { request: req, seq });
             }
             let e = self

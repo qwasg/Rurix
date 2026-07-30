@@ -1004,7 +1004,7 @@ impl RhiGraph {
                     LiveRange::new(first_write[r], last_access[r])
                 } else {
                     // 无写者哨兵:start=MAX → 独立槽(不参别名复用)。
-                    LiveRange::new(u32::MAX, 0)
+                    LiveRange::no_writer_sentinel()
                 };
                 let raw_size = self.resource_sizes.get(r).copied().unwrap_or(0);
                 let size = if raw_size == 0 { 4 } else { raw_size };

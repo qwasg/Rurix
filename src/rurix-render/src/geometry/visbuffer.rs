@@ -205,8 +205,10 @@ pub fn raster_clusters(
                 let obj = scene.vertices[(c.vertex_offset + local) as usize];
                 let world = transform_point(&inst.transform, obj);
                 let clip = vp.transform_vec4([world[0], world[1], world[2], 1.0]);
-                if clip[3] <= 0.0 {
-                    valid = false; // 近平面穿越/相机背后 ⇒ 保守丢弃(裁决 4)
+                if clip[3] <= 1e-20 {
+                    // 近平面穿越/相机背后(clip[3] ≤ 0)或极近零正值(防 1/clip[3] → inf/NaN
+                    // 传播)⇒ 保守丢弃(裁决 4)。
+                    valid = false;
                     break;
                 }
                 let inv_w = 1.0 / clip[3];

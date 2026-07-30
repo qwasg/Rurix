@@ -36,6 +36,17 @@ impl LiveRange {
         LiveRange { start, end }
     }
 
+    /// 无写者哨兵区间(`start = u32::MAX, end = 0`):`start > end` 标识该资源不参别名复用,
+    /// 由 [`AliasAlloc::assign`] 保守分配独立槽。与 [`LiveRange::new`] 的 `start ≤ end` 契约
+    /// 互斥——哨兵路径专用此构造,常规生命期用 [`LiveRange::new`]。
+    #[must_use]
+    pub fn no_writer_sentinel() -> LiveRange {
+        LiveRange {
+            start: u32::MAX,
+            end: 0,
+        }
+    }
+
     /// 两区间是否**严格不重叠**(端点不含,可共享同一槽)。`a1 < b0 || b1 < a0`(RXS-0280)。
     /// 即 `a.end < b.start || b.end < a.start`(端点相邻 `a.end == b.start` 视为重叠——保守)。
     #[must_use]
@@ -372,7 +383,7 @@ mod tests {
             lt(0, 0, 2, 1024, 4),
             Lifetime {
                 resource: rid(1),
-                range: LiveRange::new(u32::MAX, 0),
+                range: LiveRange::no_writer_sentinel(),
                 size: Size(2048),
                 align: Align(8),
             },

@@ -708,6 +708,8 @@ jobs:
       # SKIP(dev-env degrade,退 0),RURIX_REQUIRE_REAL=1 翻硬红。退出码判定非 grep(P0-5)。
       - name: UC-05 graphics RHI smoke (G4 CI_GATES §2.76, G-G4-3, RFC-0015 §4.A)
         shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/uc05_graphics_rhi_smoke.py
 
       # 步骤 77（G-G4-3 / G-G4-3 gfx 不变量,RXS-0270~0273）:UC-05 图形 RHI 不变量拦截门(**纯 host
@@ -732,6 +734,8 @@ jobs:
       # 缺则 SKIP(dev-env degrade,退 0),RURIX_REQUIRE_REAL=1 翻硬红。退出码判定非 grep(P0-5)。
       - name: UC-05 engine embed v3 smoke (G4 CI_GATES §2.78, G-G4-3, RXS-0277)
         shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/uc05_engine_embed_v3_smoke.py
 
       # 步骤 79（G-G4-4,RFC-0015 §4.B / RXS-0280~0283）:UC-05 执行面三项拦截门
@@ -759,6 +763,8 @@ jobs:
       # (矩阵 I10 note/tiers 同步三方一致,步骤 75 机制扩);I11 入矩阵漏拦即红。
       - name: UC-05 exec face gate (G4 CI_GATES §2.79, G-G4-4, RFC-0015 §4.B / RXS-0280~0283)
         shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/uc05_exec_face_gate.py
 
       # 步骤 80（G-G4-5,RFC-0015 §4.C4 / RXS-0293/0294）:Vulkan RHI 通道 smoke
@@ -785,6 +791,8 @@ jobs:
       # 翻硬红(SKIP 不充绿)。
       - name: Vulkan RHI channel smoke (G4 CI_GATES §2.80, G-G4-5, RFC-0015 §4.C4 / RXS-0293/0294)
         shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/vulkan_rhi_channel_smoke.py
 
       # 步骤 81（G-G4-7,RFC-0015 §1 carve-out / RXS-0197/0198）:BLACKHOLE realtime smoke
@@ -806,6 +814,8 @@ jobs:
       # G3.2 步骤 61 present 既有路径零回归(本步骤不改 src/ 任何源码,default features 不变)。
       - name: BLACKHOLE realtime smoke (G4 CI_GATES §2.81, G-G4-7, RFC-0015 §1 / RXS-0197/0198)
         shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/blackhole_realtime_smoke.py
 
       # 步骤 82（G-G5-3,RFC-0016 章 A）:渲染调度 render graph 冒烟（**纯 host 恒跑**,无 GPU;

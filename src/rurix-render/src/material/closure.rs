@@ -206,6 +206,11 @@ fn pack_emissive_rgbe(rgb: [f32; 3]) -> u32 {
     if v <= 1e-32 || v.is_nan() {
         return 0;
     }
+    // ±∞ 显式拦截:INFINITY 经 to_bits() 得 raw_exp=0xFF → e_channel 饱和 255,
+    // 逐通道字节钳 255(隐式正确);此处显式短路避免依赖隐式路径,确定性编码。
+    if v.is_infinite() {
+        return 0xFFFFFFFF; // E=255, R=G=B=255(极端 HDR 饱和)
+    }
     // v 必为正规格化浮点(> 1e-32 ≫ 最小正规格化 1.18e-38):
     // v = m·2^(raw-127),m∈[1,2) → 尾数 f=m/2∈[0.5,1),指数 e=raw-126。
     let raw_exp = ((v.to_bits() >> 23) & 0xFF) as i32;

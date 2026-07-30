@@ -195,14 +195,16 @@ impl RenderGraph {
 
     fn add_resource(&mut self, mut desc: ResourceDesc, imported: bool) -> ResourceId {
         desc.imported = imported;
-        let id = ResourceId(u32::try_from(self.resources.len()).unwrap_or(u32::MAX));
+        let id = ResourceId(
+            u32::try_from(self.resources.len()).expect("resource count overflow u32"),
+        );
         self.resources.push(ResourceNode { id, desc });
         id
     }
 
     /// 注册无执行闭包的 pass(纯声明;线性序追加)。
     pub fn add_pass(&mut self, desc: PassDesc) -> PassId {
-        let id = PassId(u32::try_from(self.passes.len()).unwrap_or(u32::MAX));
+        let id = PassId(u32::try_from(self.passes.len()).expect("pass count overflow u32"));
         self.passes.push(PassNode {
             id,
             desc,
@@ -216,7 +218,7 @@ impl RenderGraph {
     where
         F: FnMut(&mut CmdRecorder) + 'static,
     {
-        let id = PassId(u32::try_from(self.passes.len()).unwrap_or(u32::MAX));
+        let id = PassId(u32::try_from(self.passes.len()).expect("pass count overflow u32"));
         self.passes.push(PassNode {
             id,
             desc,
