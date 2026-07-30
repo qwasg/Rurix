@@ -13,6 +13,10 @@ concurrency:
   group: gpu-runner          # 与 pr-smoke 共享:GPU 任务串行,防基准互扰
   cancel-in-progress: false
 
+# 最小权限(GITHUB_TOKEN 只读):本 workflow 只读树 + 上传 artifact,不写仓库对象。
+permissions:
+  contents: read
+
 jobs:
   nightly:
     runs-on: [self-hosted, Windows, gpu]

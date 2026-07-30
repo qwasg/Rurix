@@ -11,6 +11,10 @@ concurrency:
   group: gpu-runner          # 基准互扰防护:GPU 任务串行(CI_GATES.md §1)
   cancel-in-progress: false
 
+# 最小权限(GITHUB_TOKEN 只读):PR 门禁只读树跑校验,不写仓库对象。
+permissions:
+  contents: read
+
 jobs:
   smoke:
     runs-on: [self-hosted, Windows, gpu]
