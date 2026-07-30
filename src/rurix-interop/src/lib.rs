@@ -48,6 +48,14 @@ pub const RX_INTEROP_RUNTIME: i32 = -1;
 const BLOCK: u32 = 256;
 const TILE: u32 = 16;
 
+/// 运行时/驱动失败 → [`RX_INTEROP_RUNTIME`],**并把底层错因落 stderr**:C ABI 只能回
+/// 一个 `i32`,错因串若就地丢弃则 PyTorch 侧只见 `-1`(PTX 缺失 / 无驱动 / launch 失败
+/// 不可区分)。诊断形态对齐 `rurix-rt-cabi` 的 `RXRT: error op=…` 单行 token(可 grep)。
+fn runtime_failure(op: &str, detail: &str) -> i32 {
+    eprintln!("RX_INTEROP: error op={op} code={RX_INTEROP_RUNTIME} detail={detail}");
+    RX_INTEROP_RUNTIME
+}
+
 /// 校验设备指针非空(RXS-0123 / RXS-0124:零拷贝设备指针消费的合法性前置)。
 /// 任一为 0 → [`RX_INTEROP_INVALID_DEVICE_PTR`]。纯 CPU 校验,先于任何 GPU 调用。
 fn validate_ptrs(ptrs: &[u64]) -> Result<(), i32> {
@@ -77,7 +85,7 @@ pub fn saxpy(out: u64, x: u64, y: u64, a: f32, n: usize) -> i32 {
     }
     match run_saxpy(out, x, y, a, n) {
         Ok(()) => RX_OK,
-        Err(_) => RX_INTEROP_RUNTIME,
+        Err(e) => runtime_failure("saxpy", &e),
     }
 }
 
@@ -93,7 +101,7 @@ pub fn reduce(out: u64, x: u64, n: usize) -> i32 {
     }
     match run_reduce(out, x, n) {
         Ok(()) => RX_OK,
-        Err(_) => RX_INTEROP_RUNTIME,
+        Err(e) => runtime_failure("reduce", &e),
     }
 }
 
@@ -109,7 +117,7 @@ pub fn gemm(c: u64, a: u64, b: u64, m: usize, n: usize, k: usize) -> i32 {
     }
     match run_gemm(c, a, b, m, n, k) {
         Ok(()) => RX_OK,
-        Err(_) => RX_INTEROP_RUNTIME,
+        Err(e) => runtime_failure("gemm", &e),
     }
 }
 

@@ -705,10 +705,11 @@ fn emit_dxil_b_from_spv(
     let extra = vertex_input_semantic_flags(stage, io_sig);
 
     // 3~7) 临时工作目录内跑链;无论成败统一清理。
-    let dir = match scratch_dir() {
-        Ok(d) => d,
-        Err(e) => return Ok(DxilBOutcome::Skipped(format!("临时目录创建失败: {e}"))),
-    };
+    // 临时目录建失败 = 本机 FS 真故障,不属工具链缺失降级 → Toolchain 错(RX6010)。
+    let dir = scratch_dir().map_err(|e| DxilBError::Toolchain {
+        step: "scratch_dir".to_owned(),
+        reason: format!("cannot create B chain scratch dir: {e}"),
+    })?;
     let result = run_b_chain(&spv, &spvx, &dxc, profile, &dir, io_sig, &extra, stage);
     let _ = std::fs::remove_dir_all(&dir);
     match result {
@@ -736,7 +737,7 @@ fn emit_dxil_b_from_spv(
 ///
 /// # Returns
 /// - `Ok(Some(disasm))`:工具链可用、链跑通且校验门通过。
-/// - `Ok(None)`:工具链不可用(spirv-cross / dxc 定位或 spawn 失败 / 临时目录失败)
+/// - `Ok(None)`:工具链不可用(spirv-cross / dxc 定位或 spawn 失败)
 ///   → 环境降级(非 6xxx;真实红绿在带 pin B 工具链的 dev/owner 环境)。
 ///
 /// # Errors
@@ -762,10 +763,12 @@ pub fn emit_dxil_b_disasm(body: &Body) -> Result<Option<String>, DxilBError> {
     };
     // 顶点输入语义保名旗标(经 io_sig 导出;RFC-0004 §4.4 机制①)。
     let extra = vertex_input_semantic_flags(stage, &body.io_sig);
-    let dir = match scratch_dir() {
-        Ok(d) => d,
-        Err(_) => return Ok(None),
-    };
+    // 临时目录建失败 = 本机 FS 真故障(权限/磁盘/只读 TEMP),**不是**工具链缺失:
+    // 落 Toolchain 错(RX6010)而非静默 SKIP(P-01,反 fake pass)。
+    let dir = scratch_dir().map_err(|e| DxilBError::Toolchain {
+        step: "scratch_dir".to_owned(),
+        reason: format!("cannot create B chain scratch dir: {e}"),
+    })?;
     // 3~8) 与生产出口共用 run_b_chain(含 RXS-0172 保名 + 强制 signature_gate)。
     let result = run_b_chain(
         &spv,
@@ -797,7 +800,7 @@ pub fn emit_dxil_b_disasm(body: &Body) -> Result<Option<String>, DxilBError> {
 ///
 /// # Returns
 /// - `Ok(Some(dxil))`:工具链可用、链跑通且校验门通过 → DXIL 容器字节。
-/// - `Ok(None)`:工具链不可用(spirv-cross / dxc 定位或 spawn 失败 / 临时目录失败)→
+/// - `Ok(None)`:工具链不可用(spirv-cross / dxc 定位或 spawn 失败)→
 ///   环境降级(非 6xxx;真实产出在带 pin B 工具链的 dev/CI 环境)。
 ///
 /// # Errors
@@ -822,10 +825,12 @@ pub fn emit_dxil_b_container(body: &Body) -> Result<Option<Vec<u8>>, DxilBError>
         return Ok(None);
     };
     let extra = vertex_input_semantic_flags(stage, &body.io_sig);
-    let dir = match scratch_dir() {
-        Ok(d) => d,
-        Err(_) => return Ok(None),
-    };
+    // 临时目录建失败 = 本机 FS 真故障(权限/磁盘/只读 TEMP),**不是**工具链缺失:
+    // 落 Toolchain 错(RX6010)而非静默 SKIP(P-01,反 fake pass)。
+    let dir = scratch_dir().map_err(|e| DxilBError::Toolchain {
+        step: "scratch_dir".to_owned(),
+        reason: format!("cannot create B chain scratch dir: {e}"),
+    })?;
     // 3~9) 与生产出口共用 run_b_chain(含 RXS-0172/0173 + 强制 signature_gate + 回读 DXIL)。
     let result = run_b_chain(
         &spv,

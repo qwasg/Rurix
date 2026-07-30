@@ -1514,6 +1514,18 @@ fn compile_vulkan_target(
             );
             0
         }
+        // 工具在位却跑不起来(权限/格式/资源)≠ 工具缺失:fail-closed 落 RX6026,
+        // 不静默降级成 SKIP(P-01,反 fake pass)。
+        crate::toolchain::SpirvValGate::Toolchain(reason) => {
+            diag.struct_error(ErrorCode(6026), "codegen.vulkan_unsupported")
+                .arg("detail", format!("spirv-val gate could not run: {reason}"))
+                .emit();
+            eprint!(
+                "{}",
+                render_diagnostics(&diag.emitted(), sm, diag.messages())
+            );
+            1
+        }
     }
 }
 
@@ -1651,6 +1663,9 @@ kernel fn k_beta(out: ViewMut<global, f32>, t: ThreadCtx<1>) {
             }
             crate::toolchain::SpirvValGate::Rejected(reason) => {
                 panic!("收集产物模块被 spirv-val 拒绝:{reason}")
+            }
+            crate::toolchain::SpirvValGate::Toolchain(reason) => {
+                panic!("spirv-val 在位却无法运行(非 dev-env degrade):{reason}")
             }
         }
     }
