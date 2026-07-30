@@ -32,6 +32,8 @@ pub enum InstallError {
     },
     /// staged 组件在 bundle 清单中无对应条目(RXS-0214:源目录与清单不一致)。
     UnknownComponent(String),
+    /// 清单侧干名 / 版号非单一路径分量(路径逃逸 / 绝对路径 / 非法字符)→ 拒装。
+    UnsafeName(String),
     /// 真实文件系统 IO 失败(建目录 / 写字节 / 重命名 / 清 staging)。
     Io(String),
 }
@@ -217,6 +219,16 @@ pub fn materialize_to_disk(
     // 语言本体同一版号(RXS-0135 判据延续,先于任何落盘)。
     if !bundle.language_core_versions_uniform() {
         return Err(InstallError::VersionSkew);
+    }
+    // 路径安全门(先于任何 join / 落盘):版号与组件干名须为单一路径分量,
+    // 封死清单侧 `../` 逃逸与绝对路径写入(fail-closed)。
+    if !crate::bundle::is_safe_version(&bundle.rurix_version) {
+        return Err(InstallError::UnsafeName(bundle.rurix_version.clone()));
+    }
+    for c in &bundle.components {
+        if !crate::bundle::is_safe_component_name(&c.name) {
+            return Err(InstallError::UnsafeName(c.name.clone()));
+        }
     }
     let version = bundle.rurix_version.clone();
     let expected_tree = tree_digest_from_bundle(bundle);
@@ -494,6 +506,22 @@ mod tests {
         assert_eq!(component_rel_path(&exe), "bin/rx.exe");
         assert_eq!(component_rel_path(&lib), "bin/lib/rurix_rt_cabi.lib");
         assert_eq!(component_rel_path(&nv), "nvidia/libdevice.10.bc");
+    }
+
+    //@ spec: RXS-0214
+    // 物化前路径安全门:逃逸干名(`../`)→ UnsafeName,零落盘(staging / 目标皆不诞生)。
+    #[test]
+    fn materialize_rejects_escaping_component_name() {
+        let home = temp_home("escape");
+        let (bundle, staged) = bundle_with(
+            &[("../../evil.exe", Partition::LanguageCore, b"payload")],
+            "1.0.0",
+        );
+        let err = materialize_to_disk(&home, &bundle, &staged).expect_err("逃逸干名须拒");
+        assert!(matches!(err, InstallError::UnsafeName(_)));
+        assert!(!home.join("../evil.exe").exists());
+        assert!(!home.join("toolchains").exists());
+        let _ = std::fs::remove_dir_all(&home);
     }
 
     //@ spec: RXS-0214

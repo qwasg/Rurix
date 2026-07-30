@@ -237,6 +237,11 @@ impl BundleManifest {
                     "nvidia-redist" => Partition::NvidiaRedist,
                     other => return Err(format!("未知分区 `{other}`")),
                 };
+                if !is_safe_component_name(&n) {
+                    return Err(format!(
+                        "组件干名 `{n}` 非法(仅允许 ASCII 字母/数字/`.`/`_`/`-`/`+`,首字符须字母数字,禁路径分隔符与 `..`)"
+                    ));
+                }
                 components.push(Component {
                     name: n,
                     version: ver,
@@ -247,6 +252,11 @@ impl BundleManifest {
             }
         }
         let rurix_version = rurix_version.ok_or("bundle.json 缺 rurix_version")?;
+        if !is_safe_version(&rurix_version) {
+            return Err(format!(
+                "版号 `{rurix_version}` 非法(仅允许 ASCII 字母/数字/`.`/`_`/`-`/`+`,首字符须字母数字,禁路径分隔符与 `..`)"
+            ));
+        }
         let mut bundle = BundleManifest {
             rurix_version,
             components,
@@ -254,6 +264,37 @@ impl BundleManifest {
         bundle.components.sort_by(|a, b| a.name.cmp(&b.name));
         Ok(bundle)
     }
+}
+
+/// 干名 / 版号的路径安全字符集判定(RXS-0214/0216 落盘与 URL 拼接前置约束):
+/// 非空、≤ 128 字节、仅 ASCII 字母数字与 `.` `_` `-` `+`,首字符须 ASCII 字母数字
+/// (排除 `-` 起头被 curl 误当 flag、`.` 起头隐藏名),且不含 `..` 片段。
+/// 路径分隔符(`/` `\`)、盘符 `:`、通配与控制字符天然落在字符集外。
+fn is_path_safe_token(token: &str) -> bool {
+    if token.is_empty() || token.len() > 128 || token.contains("..") {
+        return false;
+    }
+    let mut bytes = token.bytes();
+    let Some(first) = bytes.next() else {
+        return false;
+    };
+    if !first.is_ascii_alphanumeric() {
+        return false;
+    }
+    bytes.all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-' | b'+'))
+}
+
+/// 组件干名安全判定(见 [`is_path_safe_token`]):组件干名同时用于 `<base><name>` URL
+/// 拼接与 staging 落盘相对路径,清单在完整性级联**之前**即被消费,故干名须先过纯
+/// 字符集门(fail-closed),封死 `../` 逃逸与绝对路径写入。
+pub fn is_safe_component_name(name: &str) -> bool {
+    is_path_safe_token(name)
+}
+
+/// 发布版号安全判定(见 [`is_path_safe_token`]):版号用作 `toolchains\<version>` /
+/// staging 目录名,须为单一路径分量。
+pub fn is_safe_version(version: &str) -> bool {
+    is_path_safe_token(version)
 }
 
 /// 判定组件干名是否为 NVIDIA libdevice bitcode(`libdevice.<digits>.bc`)。
@@ -315,6 +356,51 @@ mod tests {
             partition: p,
             sha256: "00".repeat(32),
         }
+    }
+
+    //@ spec: RXS-0214
+    // 干名 / 版号路径安全门:规范干名放行;路径分隔符 / `..` / 绝对路径 / 盘符 /
+    // `-` 起头(curl flag 混淆)/ 空 / 超长一概拒(fail-closed)。
+    #[test]
+    fn path_safe_token_gate_rejects_escapes() {
+        for ok in ["rx.exe", "rurix_rt_cabi.lib", "libdevice.10.bc", "1.0.0"] {
+            assert!(is_safe_component_name(ok), "应放行 {ok}");
+        }
+        for bad in [
+            "",
+            "..",
+            "../evil.exe",
+            "..\\evil.exe",
+            "a/b.exe",
+            "a\\b.exe",
+            "/etc/cron.d/x",
+            "C:\\Windows\\System32\\evil.dll",
+            "-o",
+            ".hidden",
+            "evil\0.exe",
+        ] {
+            assert!(!is_safe_component_name(bad), "应拒 {bad:?}");
+        }
+        assert!(!is_safe_component_name(&"a".repeat(129)));
+        assert!(!is_safe_version("../../../../Windows"));
+    }
+
+    //@ spec: RXS-0214
+    // bundle.json 解析在完整性级联之前即被消费,故解析层 fail-closed:
+    // 逃逸干名 / 逃逸版号的清单直接解析失败(不产出可被 join 的路径分量)。
+    #[test]
+    fn from_json_rejects_escaping_names_and_versions() {
+        let mut b = BundleManifest::new("1.0.0");
+        b.push(comp("rx.exe", "1.0.0", Partition::LanguageCore));
+        let json = b.to_json();
+        assert!(BundleManifest::from_json(&json).is_ok());
+        let escaped = json.replace("\"rx.exe\"", "\"../../../../evil.exe\"");
+        assert!(BundleManifest::from_json(&escaped).is_err());
+        let bad_ver = json.replace(
+            "\"rurix_version\": \"1.0.0\"",
+            "\"rurix_version\": \"../x\"",
+        );
+        assert!(BundleManifest::from_json(&bad_ver).is_err());
     }
 
     //@ spec: RXS-0136

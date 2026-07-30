@@ -318,6 +318,12 @@ fn cmd_install_network(
         .and_then(|s| s.parse().ok())
         .unwrap_or(300);
     let allow_loopback = fetch::loopback_allowed_from_env();
+    // 版号路径安全门(先于任何目录 join):版号须为单一路径分量,封死 `../` 逃逸。
+    if !rurixup::bundle::is_safe_version(version) {
+        return Err(integrity_report(&format!(
+            "版号 {version} 非法(须为单一路径分量:ASCII 字母数字与 `.`/`_`/`-`/`+`)→ 拒装"
+        )));
+    }
 
     // 载入锚(本地路径 / URL);URL 经系统 curl.exe 载体拉取到临时锚文件。
     let anchor_text = if is_url(channel_file) {
