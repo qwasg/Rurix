@@ -11,7 +11,7 @@
 
 #![cfg(feature = "shader-stages")]
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 
 use rurixc::ast::ShaderStage;
@@ -19,9 +19,12 @@ use rurixc::diag::DiagCtxt;
 use rurixc::query::QueryCtx;
 use rurixc::span::{Edition, SourceId};
 
+mod common;
+use common::conformance_dir;
+
 /// conformance/dxil/graphics/accept(CARGO_MANIFEST_DIR = src/rurixc → repo root)。
 fn accept_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../conformance/dxil/graphics/accept")
+    conformance_dir("dxil/graphics/accept")
 }
 
 /// G3.4 bindless device 模式着色器(四象限 vertex + 无界表动态非均匀索引采样 fragment,

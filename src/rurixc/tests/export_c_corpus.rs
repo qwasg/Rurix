@@ -13,8 +13,7 @@
 //! 空导出集 RX6032 = driver 层 `emit_dll` 发射（非 `collect_c_exports`),不入本语料,
 //! 改由 ci/export_c_smoke.py 步骤 71 host 段覆盖。
 
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use rurixc::diag::DiagCtxt;
 use rurixc::export_c::collect_c_exports;
@@ -23,35 +22,16 @@ use rurixc::parser::parse;
 use rurixc::source_map::SourceMap;
 use rurixc::span::Edition;
 
+mod common;
+use common::{assert_spec_anchor, conformance_dir, expect_error_code, read_source, rx_files};
+
 /// 本语料覆盖的条款全集（accept/reject 合并须每条 ≥1 锚,RFC-0014 Part A）。
 const CLAUSES: [&str; 6] = [
     "RXS-0250", "RXS-0251", "RXS-0252", "RXS-0253", "RXS-0254", "RXS-0255",
 ];
 
 fn root_dir(sub: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../conformance/export_c")
-        .join(sub)
-}
-
-fn rx_files(root: &Path) -> Vec<PathBuf> {
-    let mut out = Vec::new();
-    if !root.is_dir() {
-        return out;
-    }
-    let mut stack = vec![root.to_path_buf()];
-    while let Some(d) = stack.pop() {
-        for e in fs::read_dir(&d).unwrap_or_else(|e| panic!("读取 {} 失败: {e}", d.display())) {
-            let p = e.expect("读取目录项失败").path();
-            if p.is_dir() {
-                stack.push(p);
-            } else if p.extension().is_some_and(|x| x == "rx") {
-                out.push(p);
-            }
-        }
-    }
-    out.sort();
-    out
+    conformance_dir("export_c").join(sub)
 }
 
 /// lex → parse → `collect_c_exports`,返回收集管线发射的错误码序列（RX6031/6033;
@@ -74,7 +54,7 @@ fn accept_corpus_is_export_c_diagnostic_free() {
     let files = rx_files(&root_dir("accept"));
     assert!(!files.is_empty(), "export_c accept 正例集为空");
     for f in files {
-        let src = fs::read_to_string(&f).expect("读取样例失败");
+        let src = read_source(&f);
         let codes = run(&src);
         assert!(
             codes.is_empty(),
@@ -89,14 +69,8 @@ fn reject_corpus_all_intercepted() {
     let files = rx_files(&root_dir("reject"));
     assert!(!files.is_empty(), "export_c reject 反例集为空");
     for f in files {
-        let src = fs::read_to_string(&f).expect("读取样例失败");
-        let expected: u16 = src
-            .lines()
-            .find_map(|l| l.trim().strip_prefix("//@ expect-error: RX"))
-            .unwrap_or_else(|| panic!("{} 缺 //@ expect-error: RX#### 头", f.display()))
-            .trim()
-            .parse()
-            .expect("expect-error 码格式非法");
+        let src = read_source(&f);
+        let expected: u16 = expect_error_code(&src, &f);
         let codes = run(&src);
         assert!(
             !codes.is_empty(),
@@ -116,13 +90,8 @@ fn reject_corpus_all_intercepted() {
 fn corpus_files_carry_spec_anchor() {
     for sub in ["accept", "reject"] {
         for f in rx_files(&root_dir(sub)) {
-            let src = fs::read_to_string(&f).expect("读取样例失败");
-            let first = src.lines().next().unwrap_or("");
-            assert!(
-                first.starts_with("//@ spec: RXS-"),
-                "{} 缺条款锚定头（//@ spec: RXS-####）",
-                f.display()
-            );
+            let src = read_source(&f);
+            assert_spec_anchor(&src, &f);
         }
     }
 }
@@ -133,7 +102,7 @@ fn corpus_covers_all_six_clauses() {
     let mut seen = String::new();
     for sub in ["accept", "reject"] {
         for f in rx_files(&root_dir(sub)) {
-            seen.push_str(&fs::read_to_string(&f).expect("读取样例失败"));
+            seen.push_str(&read_source(&f));
         }
     }
     for clause in CLAUSES {

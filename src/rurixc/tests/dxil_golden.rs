@@ -12,28 +12,24 @@
 #![cfg(feature = "dxil-backend")]
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use rurixc::diag::DiagCtxt;
 use rurixc::query::QueryCtx;
 use rurixc::span::{Edition, SourceId};
 
+mod common;
+use common::{
+    assert_spec_anchor, bless_mode, check_golden, conformance_dir, normalize_newlines,
+    read_corpus_normalized, rx_files_shallow, tests_dir,
+};
+
 fn dxil_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/dxil")
+    tests_dir("dxil")
 }
 
 fn rx_files() -> Vec<PathBuf> {
-    let mut out: Vec<PathBuf> = fs::read_dir(dxil_dir())
-        .expect("读取 tests/dxil 失败")
-        .filter_map(|e| e.ok().map(|e| e.path()))
-        .filter(|p| p.extension().is_some_and(|x| x == "rx"))
-        .collect();
-    out.sort();
-    out
-}
-
-fn bless_mode() -> bool {
-    std::env::var("RURIX_BLESS").is_ok_and(|v| v == "1")
+    rx_files_shallow(&dxil_dir())
 }
 
 /// 全管线产出 device DXIL DirectX 三元组 LLVM IR 文本(`kernel fn` 根;0 诊断断言)。
@@ -54,28 +50,11 @@ fn dxil_ll_golden_matches() {
     let bless = bless_mode();
     let mut mismatches = Vec::new();
     for path in rx_files() {
-        let src = fs::read_to_string(&path)
-            .expect("读取语料失败")
-            .replace("\r\n", "\n");
+        let src = read_corpus_normalized(&path);
         let stem = path.file_stem().unwrap().to_string_lossy().into_owned();
         let ir = dxil_ir(&src, &stem);
         let golden = path.with_extension("dxil-ll");
-        if bless {
-            fs::write(&golden, &ir).expect("bless 写入失败");
-            continue;
-        }
-        match fs::read_to_string(&golden) {
-            Ok(s) if s.replace("\r\n", "\n") == ir => {}
-            Ok(s) => mismatches.push(format!(
-                "{}: DXIL IR golden 漂移\n--- expected ---\n{}\n--- actual ---\n{ir}",
-                golden.display(),
-                s.replace("\r\n", "\n")
-            )),
-            Err(_) => mismatches.push(format!(
-                "{}: 缺 .dxil-ll golden(新语料需 RURIX_BLESS=1 + bless_log.md 留痕)",
-                golden.display()
-            )),
-        }
+        mismatches.extend(check_golden(&golden, &ir, bless, "DXIL IR"));
     }
     assert!(
         mismatches.is_empty(),
@@ -100,9 +79,7 @@ fn dxil_disasm_golden_matches_when_toolchain_present() {
     fs::create_dir_all(&tmp).expect("临时目录");
     let mut mismatches = Vec::new();
     for path in rx_files() {
-        let src = fs::read_to_string(&path)
-            .expect("读取语料失败")
-            .replace("\r\n", "\n");
+        let src = read_corpus_normalized(&path);
         let stem = path.file_stem().unwrap().to_string_lossy().into_owned();
         let ir = dxil_ir(&src, &stem);
         let obj = tmp.join(format!("{stem}.dxc"));
@@ -115,22 +92,7 @@ fn dxil_disasm_golden_matches_when_toolchain_present() {
         );
         let disasm = rurixc::toolchain::dxc_disasm(&dxc_dir, &obj).expect("dxc 反汇编失败");
         let golden = path.with_extension("dxil-disasm");
-        if bless {
-            fs::write(&golden, &disasm).expect("bless 写入失败");
-            continue;
-        }
-        match fs::read_to_string(&golden) {
-            Ok(s) if s.replace("\r\n", "\n") == disasm => {}
-            Ok(s) => mismatches.push(format!(
-                "{}: DXIL 反汇编 golden 漂移\n--- expected ---\n{}\n--- actual ---\n{disasm}",
-                golden.display(),
-                s.replace("\r\n", "\n")
-            )),
-            Err(_) => mismatches.push(format!(
-                "{}: 缺 .dxil-disasm golden(RURIX_BLESS=1 + bless_log.md 留痕)",
-                golden.display()
-            )),
-        }
+        mismatches.extend(check_golden(&golden, &disasm, bless, "DXIL 反汇编"));
     }
     let _ = fs::remove_dir_all(&tmp);
     assert!(
@@ -143,15 +105,8 @@ fn dxil_disasm_golden_matches_when_toolchain_present() {
 #[test]
 fn dxil_corpus_carries_spec_anchor() {
     for path in rx_files() {
-        let src = fs::read_to_string(&path).expect("读取语料失败");
-        assert!(
-            src.lines()
-                .next()
-                .unwrap_or("")
-                .starts_with("//@ spec: RXS-"),
-            "{} 缺条款锚定头",
-            path.display()
-        );
+        let src = read_corpus_normalized(&path);
+        assert_spec_anchor(&src, &path);
     }
 }
 
@@ -168,16 +123,7 @@ fn dxil_corpus_carries_spec_anchor() {
 
 #[cfg(feature = "shader-stages")]
 fn graphics_rx_files() -> Vec<PathBuf> {
-    let dir = dxil_dir().join("graphics");
-    let mut out: Vec<PathBuf> = match fs::read_dir(&dir) {
-        Ok(rd) => rd
-            .filter_map(|e| e.ok().map(|e| e.path()))
-            .filter(|p| p.extension().is_some_and(|x| x == "rx"))
-            .collect(),
-        Err(_) => Vec::new(),
-    };
-    out.sort();
-    out
+    rx_files_shallow(&dxil_dir().join("graphics"))
 }
 
 /// 规范化 dxc 反汇编中的版本噪声行已下沉为 `dxil_codegen::emit_dxil_b_disasm` 的内部
@@ -230,9 +176,7 @@ fn dxil_b_disasm_golden_matches_when_toolchain_present() {
     );
     let mut mismatches = Vec::new();
     for path in graphics_rx_files() {
-        let src = fs::read_to_string(&path)
-            .expect("读取语料失败")
-            .replace("\r\n", "\n");
+        let src = read_corpus_normalized(&path);
         let stem = path.file_stem().unwrap().to_string_lossy().into_owned();
         let Some(body) = graphics_stage_body(&src) else {
             mismatches.push(format!(
@@ -254,22 +198,7 @@ fn dxil_b_disasm_golden_matches_when_toolchain_present() {
             Err(e) => panic!("{stem}: 生产 B 链失败(编码器/校验门 strict-only): {e:?}"),
         };
         let golden = path.with_extension("dxil-disasm");
-        if bless {
-            fs::write(&golden, &produced).expect("bless 写入失败");
-            continue;
-        }
-        match fs::read_to_string(&golden) {
-            Ok(s) if s.replace("\r\n", "\n") == produced => {}
-            Ok(s) => mismatches.push(format!(
-                "{}: B DXIL 反汇编 golden 漂移\n--- expected ---\n{}\n--- actual ---\n{produced}",
-                golden.display(),
-                s.replace("\r\n", "\n")
-            )),
-            Err(_) => mismatches.push(format!(
-                "{}: 缺 .dxil-disasm golden(新语料需 RURIX_BLESS=1 + bless_log.md 留痕)",
-                golden.display()
-            )),
-        }
+        mismatches.extend(check_golden(&golden, &produced, bless, "B DXIL 反汇编"));
     }
     assert!(
         mismatches.is_empty(),
@@ -290,12 +219,11 @@ fn dxil_b_disasm_golden_matches_when_toolchain_present() {
 /// 读取 `conformance/dxil/graphics/accept/<stem>.rx` 源码(UC-04 几何 pass 语料)。
 #[cfg(feature = "shader-stages")]
 fn uc04_gbuffer_src(stem: &str) -> String {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../conformance/dxil/graphics/accept")
-        .join(format!("{stem}.rx"));
-    fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("读取 UC-04 几何 pass 语料 {} 失败: {e}", path.display()))
-        .replace("\r\n", "\n")
+    let path = conformance_dir("dxil/graphics/accept").join(format!("{stem}.rx"));
+    normalize_newlines(
+        &fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("读取 UC-04 几何 pass 语料 {} 失败: {e}", path.display())),
+    )
 }
 
 /// `--ignored` 按需 dump:UC-04 几何 pass VS/FS Rurix 语料经生产忠实 B 链产 DXIL 文本反汇编

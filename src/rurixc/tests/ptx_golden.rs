@@ -13,14 +13,17 @@
 //! 关卡由 `rurixc --emit=ptx`(PR Smoke 步骤 17)覆盖。
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use rurixc::diag::DiagCtxt;
 use rurixc::query::QueryCtx;
 use rurixc::span::{Edition, SourceId};
 
+mod common;
+use common::{assert_spec_anchor, bless_mode, check_golden, read_corpus_normalized, tests_dir};
+
 fn ptx_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/ptx")
+    tests_dir("ptx")
 }
 
 fn rx_files() -> Vec<PathBuf> {
@@ -38,10 +41,6 @@ fn rx_files() -> Vec<PathBuf> {
     }
     out.sort();
     out
-}
-
-fn normalize_newlines(s: &str) -> String {
-    s.replace("\r\n", "\n")
 }
 
 /// 全管线产出 device NVPTX IR 文本(`kernel fn` 为根;0 诊断断言)。
@@ -76,10 +75,6 @@ fn nvptx_text(src: &str, module_name: &str) -> String {
     text
 }
 
-fn bless_mode() -> bool {
-    std::env::var("RURIX_BLESS").is_ok_and(|v| v == "1")
-}
-
 /// 语料 ≥2(SAXPY 雏形 + 线程索引代表;M4 CI_GATES §4.3 起步范围)。
 #[test]
 fn ptx_corpus_is_not_empty() {
@@ -96,30 +91,11 @@ fn ptx_golden_snapshots_match() {
     let bless = bless_mode();
     let mut mismatches = Vec::new();
     for path in rx_files() {
-        let src = normalize_newlines(&fs::read_to_string(&path).expect("读取语料失败"));
+        let src = read_corpus_normalized(&path);
         let stem = path.file_stem().unwrap().to_string_lossy().into_owned();
         let text = nvptx_text(&src, &stem);
         let golden_path = path.with_extension("nvptx");
-        if bless {
-            fs::write(&golden_path, &text).expect("bless 写入失败");
-            continue;
-        }
-        let expected = match fs::read_to_string(&golden_path) {
-            Ok(s) => normalize_newlines(&s),
-            Err(_) => {
-                mismatches.push(format!(
-                    "{}: 缺 .nvptx golden(新语料需经审批 bless:RURIX_BLESS=1 + bless_log.md 留痕)",
-                    golden_path.display()
-                ));
-                continue;
-            }
-        };
-        if expected != text {
-            mismatches.push(format!(
-                "{}: NVPTX IR golden 漂移\n--- expected ---\n{expected}\n--- actual ---\n{text}",
-                golden_path.display()
-            ));
-        }
+        mismatches.extend(check_golden(&golden_path, &text, bless, "NVPTX IR"));
     }
     assert!(
         mismatches.is_empty(),
@@ -134,11 +110,6 @@ fn ptx_golden_snapshots_match() {
 fn ptx_files_carry_spec_anchor() {
     for path in rx_files() {
         let src = fs::read_to_string(&path).expect("读取语料失败");
-        let first = src.lines().next().unwrap_or("");
-        assert!(
-            first.starts_with("//@ spec: RXS-"),
-            "{} 缺条款锚定头(//@ spec: RXS-####)",
-            path.display()
-        );
+        assert_spec_anchor(&src, &path);
     }
 }
