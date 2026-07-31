@@ -10,13 +10,17 @@ host 段(**恒跑**,纯 host 门,check_* 风格;Jolt 为 CPU 库,无 GPU 依赖)
      并解析合并测试名单,按测试名关键字断言 RFC-0017 §4.A7 单测清单在位
      (固定步确定性/堆叠沉降/睡眠唤醒/批插体不锁死主步/query 与 step 并发/
      ContactEvent 有界 drain/SyncBudget 重置饱和)——缺失即红。
-  2. §4.C4 grep 审计门(v1.2 收窄后判据,RFC-0017 修订记录 v1.2 + §9.1 末段留痕):
+  2. §4.C4 grep 审计门(v1.2 + v1.4 收窄后判据,RFC-0017 修订记录 v1.2/v1.4
+     + §9.1 末段留痕):
        - src/rurix-render/ 零 `rurix_physics_sys` 引用、零原生 Jolt/Rapier 类型名
-         (JoltPhysics|JPC_|JPH::|rapier3d)——断言不变;
+         (JoltPhysics|JPC_|JPH::|rapier3d)——断言不变(0-byte 维持);
        - src/rurix-physics/(非 sys)公共 API 不透出 sys/原生类型(代码审计面);
          crate 内部 sys 消费收敛于 src/world.rs 单一模块——grep 判据 = 除
          src/rurix-physics/src/world.rs 外零 `rurix_physics_sys` 引用;
-         原生类型名两 crate 全禁维持(src/world.rs 亦不例外);
+         原生 Jolt 类型名(JoltPhysics|JPC_|JPH::)两 crate 全禁维持
+         (src/world.rs / src/rapier.rs 亦不例外);`rapier3d` 原生类型名
+         (v1.4 收窄,镜像 v1.2 sys→world.rs 先例)收敛于 src/rapier.rs 单一
+         sanctioned 消费模块,crate 其余文件零命中;
        - 全仓 src/ 除既有豁免白名单(rurix-rt 等 7 crate,unsafe-audit 已登记)
          与本波 rurix-physics-sys 外零新增 `unsafe_code = "allow"`;
        - src/rurix-physics-sys 内每个 unsafe 块携 `// SAFETY:` 注释(grep 级)。
@@ -56,18 +60,26 @@ A7_TOPICS = [
     ("a7_sync_budget_reset_saturation", "SyncBudget 每帧重置与饱和截断", ("budget", "saturat")),
 ]
 
-# §4.C4 禁出面(v1.2 收窄,RFC-0017 修订记录 v1.2 + §9.1 末段):
+# §4.C4 禁出面(v1.2 + v1.4 收窄,RFC-0017 修订记录 v1.2/v1.4 + §9.1 末段):
 # - rurix-render 的 .rs 内零 `rurix_physics_sys` 引用(不变);
 # - rurix-physics 的 .rs 内除 src/world.rs 单一消费模块外零 `rurix_physics_sys`
 #   引用(safe crate 消费 sys crate = §4.0-1 Approved 架构本身,jolt 后端经
 #   dep:rurix-physics-sys 实现;公共 API 不透出 sys 类型由代码审计面兜);
-# - 原生 Jolt/Rapier 类型名(JoltPhysics|JPC_|JPH::|rapier3d)两 crate 全禁维持
-#   (src/world.rs 亦不例外)。
+# - 原生 Jolt 类型名(JoltPhysics|JPC_|JPH::)两 crate 全禁维持
+#   (src/world.rs 与 src/rapier.rs 亦不例外);
+# - `rapier3d` 原生类型名(v1.4 收窄,镜像 v1.2 sys 消费收敛 src/world.rs
+#   先例):收敛于 src/rapier.rs 单一 sanctioned 消费模块(G6.4 Rapier 快路径
+#   §4.D2 Approved 架构本身),rurix-physics 其余文件与 rurix-render 全 crate
+#   零命中(0-byte 维持)。
 SYS_REF_RE = re.compile(r"rurix_physics_sys")
 NATIVE_NAME_RE = re.compile(r"JoltPhysics|JPC_|JPH::|rapier3d")
+# Jolt 原生名子集:两 crate 全禁,v1.4 收窄不豁免(src/rapier.rs 内同判红)。
+NATIVE_JOLT_RE = re.compile(r"JoltPhysics|JPC_|JPH::")
 
 # §4.C4(v1.2):rurix-physics crate 内部 sys 消费唯一 sanctioned 模块。
 PHYSICS_WORLD_RS = "src/rurix-physics/src/world.rs"
+# §4.C4(v1.4):`rapier3d` 原生类型名唯一 sanctioned 消费模块。
+PHYSICS_RAPIER_RS = "src/rurix-physics/src/rapier.rs"
 
 # `unsafe_code = "allow"` 既有豁免白名单(2026-07-31 全仓 src/ 普查基线;
 # 各 crate unsafe-audit 注册见 unsafe-audit/*.md,AGENTS 硬规则 9 / 10 §7.6)。
@@ -156,11 +168,15 @@ def audit_sys_refs(files: dict[str, str]) -> list[str]:
 
 
 def audit_native_names(files: dict[str, str]) -> list[str]:
-    """§4.C4:零原生 Jolt/Rapier 类型名(JoltPhysics|JPC_|JPH::|rapier3d)。纯函数。"""
+    """§4.C4(v1.4 收窄):零原生 Jolt/Rapier 类型名(JoltPhysics|JPC_|JPH::|rapier3d);
+    唯一例外 = `rapier3d` 名收敛 src/rapier.rs 单一 sanctioned 模块(Jolt 名在该
+    模块内仍全禁)。纯函数。"""
     problems: list[str] = []
     for path, text in sorted(files.items()):
+        # v1.4:src/rapier.rs 内仅 Jolt 原生名判红,`rapier3d` 名 sanctioned
+        rx = NATIVE_JOLT_RE if path == PHYSICS_RAPIER_RS else NATIVE_NAME_RE
         for lineno, line in enumerate(text.splitlines(), 1):
-            m = NATIVE_NAME_RE.search(line)
+            m = rx.search(line)
             if m:
                 problems.append(
                     f"{path}:{lineno}: 出现原生 Jolt/Rapier 类型名 {m.group(0)!r}(§4.C4 禁出)"
@@ -277,6 +293,21 @@ def red_self_test() -> None:
     native_in_world = {PHYSICS_WORLD_RS: "use rurix_physics_sys::SysWorld;\nlet s: JPH::State;\n"}
     if not audit_native_names(native_in_world):
         _fail("red 自检失败:src/world.rs 原生类型名未判红(两 crate 全禁维持,门失效)")
+    # v1.4 收窄:`rapier3d` 名收敛 src/rapier.rs 单一模块——其 rapier3d 引用判绿
+    # (门过严检查);Jolt 名在 src/rapier.rs 内仍判红;rapier3d 名在 src/world.rs、
+    # rurix-physics 其余文件与 rurix-render 仍判红(0-byte 维持,门失效检查)。
+    sanctioned_rapier = {PHYSICS_RAPIER_RS: "use rapier3d::dynamics::RigidBodySet;\n"}
+    if audit_native_names(sanctioned_rapier):
+        _fail("red 自检失败:src/rapier.rs sanctioned rapier3d 消费被误判红(门过严,v1.4)")
+    jolt_in_rapier = {PHYSICS_RAPIER_RS: "use rapier3d::prelude::*;\nlet s: JPH::State;\n"}
+    if not audit_native_names(jolt_in_rapier):
+        _fail("red 自检失败:src/rapier.rs 内 Jolt 原生名未判红(Jolt 名全禁维持,门失效)")
+    rapier_in_world = {PHYSICS_WORLD_RS: "use rapier3d::dynamics::RigidBodySet;\n"}
+    if not audit_native_names(rapier_in_world):
+        _fail("red 自检失败:src/world.rs 内 rapier3d 名未判红(豁免仅 src/rapier.rs,门失效)")
+    rapier_in_render = {"src/rurix-render/src/y.rs": "let _ = core::mem::size_of::<rapier3d::math::Vector>();\n"}
+    if not audit_native_names(rapier_in_render):
+        _fail("red 自检失败:rurix-render 内 rapier3d 名未判红(render 0-byte 维持,门失效)")
     if not audit_unsafe_allow({"src/rurix-foo/Cargo.toml": 'unsafe_code = "allow"\n'}):
         _fail("red 自检失败:白名单外 unsafe_code=allow 未判红(门失效)")
     if audit_unsafe_allow({
@@ -368,7 +399,7 @@ def cargo_section(results: dict, failures: list[str]) -> bool:
 
 
 def audit_section(results: dict, failures: list[str]) -> bool:
-    """判据 (b):§4.C4 grep 审计门(v1.2 收窄后判据,RFC-0017 修订记录 v1.2)。"""
+    """判据 (b):§4.C4 grep 审计门(v1.2 + v1.4 收窄后判据,RFC-0017 修订记录 v1.2/v1.4)。"""
     scoped = collect_rs_files(["src/rurix-render", "src/rurix-physics"])
     checks = [
         ("audit_no_sys_ref", audit_sys_refs(scoped)),

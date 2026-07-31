@@ -1,11 +1,13 @@
 //! `PhysicsWorld`(RFC-0017 §4.A1~A6 冻结接口实现)。
 //!
 //! 结构纪律:
-//! - 公共方法 = 前置纯校验(两构建档一致)+ 后端分派(`*_inner`,cfg 按 feature);
-//!   `--no-default-features` 档 `new` 全路径确定性 `Err(BackendNotCompiled)`,
-//!   世界类型面不可构造,inner 桩为全函数 Err,零 panic 路径(P-01)。
-//! - safe 层自维护:`BodyId`↔Jolt token 映射、body→`ShapeId` 记录(`QueryHit.shape`
-//!   回填源)、接触事件归一化与有界 ring、预算饱和计数;sys 层只过 u64 token(§4.C3)。
+//! - 公共方法 = 前置纯校验(构建档一致)+ 后端运行时分派(`*_inner` → `Backend`
+//!   枚举 match,变体按 feature cfg):三档构建矩阵 = jolt(默认)/ rapier-only
+//!   (G6.4 无 CMake 路径)/ 双后端(对拍);`--no-default-features` 档 `new`
+//!   全路径确定性 `Err(BackendNotCompiled)`,世界类型面不可构造,零 panic(P-01)。
+//! - safe 层自维护(两后端共享零分叉):`BodyId`↔token(u64)映射、body→`ShapeId`
+//!   记录(`QueryHit.shape` 回填源)、接触事件归一化与有界 ring、预算饱和计数;
+//!   后端边界只过 u64 token(§4.C3)。
 //! - 相位纪律(§4.A4 Q-B):`step`/`add_*`/`remove_*`/`apply_impulse`/`drain_contacts`
 //!   取 `&mut self`(step 相位);cast 查询/变换读取 `&self`,step 外多线程全并发
 //!   (每线程持自己的 `SyncBudget`,`&mut` 不跨线程共享)。
@@ -15,25 +17,29 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 #[cfg(feature = "jolt")]
 use rurix_physics_sys::{
-    SysBodyDesc, SysBodyKind, SysContactEvent, SysContactPhase, SysError, SysErrorCode, SysHit,
-    SysRay, SysShapeParams, SysTransform, SysWorld, SysWorldDesc,
+    SysBodyDesc, SysBodyKind, SysContactPhase, SysError, SysErrorCode, SysRay, SysShapeParams,
+    SysTransform, SysWorld, SysWorldDesc,
 };
 
 use crate::arena::GenArena;
 use crate::budget::SyncBudget;
 use crate::error::PhysicsError;
 use crate::events::ContactRing;
-#[cfg(feature = "jolt")]
+#[cfg(any(feature = "jolt", feature = "rapier"))]
 use crate::events::normalize_contacts;
 use crate::id::{BodyId, ShapeId};
-#[cfg(feature = "jolt")]
+#[cfg(any(feature = "jolt", feature = "rapier"))]
 use crate::order::{sort_overlap_hits, sort_query_hits};
+#[cfg(feature = "rapier")]
+use crate::rapier::RapierBackend;
+#[cfg(feature = "jolt")]
+use crate::types::BodyKind;
+#[cfg(any(feature = "jolt", feature = "rapier"))]
+use crate::types::ContactPhase;
 use crate::types::{
     BackendKind, BodyDesc, ContactEvent, OverlapHit, PhysicsTransform, QueryHit, QueryRay,
     QueryShape, ShapeDesc, StepStats, WorldDesc,
 };
-#[cfg(feature = "jolt")]
-use crate::types::{BodyKind, ContactPhase};
 
 /// 预算饱和计数(单调累计快照;§4.A6「饱和计数上报」出口,计数进 evidence 不进硬门)。
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -46,7 +52,7 @@ pub struct BudgetSaturation {
     pub body_writes: u64,
 }
 
-/// body 槽位负载:Jolt token(safe ↔ sys 映射键)+ body→shape 记录。
+/// body 槽位负载:后端 token(safe ↔ 后端映射键)+ body→shape 记录。
 #[derive(Debug)]
 struct BodyEntry {
     token: u64,
@@ -54,8 +60,22 @@ struct BodyEntry {
 }
 
 /// 一对已占槽位:(body (index, generation), shape (index, generation))。
-#[cfg(feature = "jolt")]
+#[cfg(any(feature = "jolt", feature = "rapier"))]
 type BodyShapeSlots = ((u32, u32), (u32, u32));
+
+/// 后端枚举(构建矩阵三档:jolt 默认 / rapier 快路径(G6.4)/ 双后端对拍;
+/// 无后端档世界不可构造——`new` 全路径先行 `Err(BackendNotCompiled)`)。
+/// Rapier 变体 Box 化(变体体积差悬殊,clippy large_enum_variant;创建期
+/// 单次堆分配,运行期零额外开销)。
+enum Backend {
+    #[cfg(feature = "jolt")]
+    Jolt(SysWorld),
+    #[cfg(feature = "rapier")]
+    Rapier(Box<RapierBackend>),
+    /// 无后端构建档:本变体永不实例化,仅保类型完备与 match 穷尽(P-01 零 panic)。
+    #[cfg(not(any(feature = "jolt", feature = "rapier")))]
+    NeverCompiled,
+}
 
 /// 物理世界(冻结接口 §4.A1;宿主只握此类型与不透明句柄,永不见原生指针)。
 ///
@@ -70,8 +90,7 @@ pub struct PhysicsWorld {
     sat_query_casts: AtomicU64,
     sat_contact_events: u64,
     sat_body_writes: u64,
-    #[cfg(feature = "jolt")]
-    sys: SysWorld,
+    backend: Backend,
 }
 
 impl std::fmt::Debug for PhysicsWorld {
@@ -85,13 +104,13 @@ impl std::fmt::Debug for PhysicsWorld {
 
 impl PhysicsWorld {
     /// 创建世界(§4.A1)。确定性失败路径(P-01,不静默回退):
-    /// 描述非法 → `Err(InvalidDesc)`;后端未编译(Jolt 无 feature / Rapier 在
-    /// G6.4 前)→ `Err(BackendNotCompiled)`;后端初始化失败 → `Err(BackendUnavailable)`。
+    /// 描述非法 → `Err(InvalidDesc)`;后端未编译(Jolt/Rapier 无对应 feature)→
+    /// `Err(BackendNotCompiled)`;后端初始化失败 → `Err(BackendUnavailable)`。
     pub fn new(desc: WorldDesc) -> Result<Self, PhysicsError> {
         desc.validate()?;
         match desc.backend {
-            BackendKind::Rapier => Err(PhysicsError::BackendNotCompiled(BackendKind::Rapier)),
             BackendKind::Jolt => Self::new_jolt(desc),
+            BackendKind::Rapier => Self::new_rapier(desc),
         }
     }
 
@@ -105,7 +124,7 @@ impl PhysicsWorld {
             contact_capacity: desc.contact_capacity,
         })
         .map_err(physics_error_from_sys)?;
-        Ok(Self::assemble(desc, sys))
+        Ok(Self::assemble(desc, Backend::Jolt(sys)))
     }
 
     #[cfg(not(feature = "jolt"))]
@@ -113,8 +132,21 @@ impl PhysicsWorld {
         Err(PhysicsError::BackendNotCompiled(BackendKind::Jolt))
     }
 
-    #[cfg(feature = "jolt")]
-    fn assemble(desc: WorldDesc, sys: SysWorld) -> Self {
+    /// Rapier 快路径后端创建(G6.4,§4.D;feature `rapier` 未编译 → 确定性
+    /// `Err(BackendNotCompiled)`,P-01 不静默回退)。
+    #[cfg(feature = "rapier")]
+    fn new_rapier(desc: WorldDesc) -> Result<Self, PhysicsError> {
+        let backend = RapierBackend::create(desc.gravity, desc.layer_count, desc.dt_fixed)?;
+        Ok(Self::assemble(desc, Backend::Rapier(Box::new(backend))))
+    }
+
+    #[cfg(not(feature = "rapier"))]
+    fn new_rapier(_desc: WorldDesc) -> Result<Self, PhysicsError> {
+        Err(PhysicsError::BackendNotCompiled(BackendKind::Rapier))
+    }
+
+    #[cfg(any(feature = "jolt", feature = "rapier"))]
+    fn assemble(desc: WorldDesc, backend: Backend) -> Self {
         let bodies = GenArena::with_capacity(desc.max_bodies);
         let shapes = GenArena::with_capacity(desc.max_bodies);
         let ring = ContactRing::with_capacity(desc.contact_capacity);
@@ -127,7 +159,7 @@ impl PhysicsWorld {
             sat_query_casts: AtomicU64::new(0),
             sat_contact_events: 0,
             sat_body_writes: 0,
-            sys,
+            backend,
         }
     }
 
@@ -144,38 +176,64 @@ impl PhysicsWorld {
         self.step_inner(dt_fixed)
     }
 
-    #[cfg(feature = "jolt")]
-    fn step_inner(&mut self, dt_fixed: f32) -> Result<StepStats, PhysicsError> {
-        let stats = self.sys.step(dt_fixed).map_err(physics_error_from_sys)?;
-        let (raw, sys_dropped) = self.sys.drain_contacts();
-        let mut unmapped = 0u32;
-        let mut events = Vec::with_capacity(raw.len());
-        for e in raw {
-            match self.map_sys_contact(e) {
-                Some(ev) => events.push(ev),
-                // 事件引用未知 token(如本步内已移除 body):无法命名,确定性丢弃计数。
-                None => unmapped = unmapped.saturating_add(1),
-            }
-        }
-        let normalized = normalize_contacts(events);
-        let emitted = u32::try_from(normalized.len()).unwrap_or(u32::MAX);
-        let dropped_ring = self.ring.push_normalized(normalized);
-        Ok(StepStats {
-            active_bodies: stats.active_bodies,
-            slept_this_step: stats.slept_this_step,
-            contacts_emitted: emitted,
-            contacts_dropped: stats
-                .contacts_dropped
-                .saturating_add(sys_dropped)
-                .saturating_add(dropped_ring)
-                .saturating_add(unmapped),
-            step_time: duration_from_secs(stats.step_time_secs),
-        })
-    }
-
-    #[cfg(not(feature = "jolt"))]
+    // `_dt_fixed`:Jolt 臂按拍传入;Rapier 臂 dt 创建期钉入 params(位级校验
+    // 已在公共 `step` 兜,语义不变),下划线名下使用零告警。
     fn step_inner(&mut self, _dt_fixed: f32) -> Result<StepStats, PhysicsError> {
-        Err(PhysicsError::BackendNotCompiled(self.desc.backend))
+        // 解构分派:backend 与其余字段借用分离(match 臂内不再触 self 整体)。
+        let Self {
+            desc,
+            backend,
+            ring,
+            token_map,
+            ..
+        } = self;
+        match backend {
+            #[cfg(feature = "jolt")]
+            Backend::Jolt(sys) => {
+                let stats = sys.step(_dt_fixed).map_err(physics_error_from_sys)?;
+                let (raw, sys_dropped) = sys.drain_contacts();
+                let raw: Vec<RawContact> = raw
+                    .into_iter()
+                    .map(|e| {
+                        (
+                            e.a,
+                            e.b,
+                            phase_from_sys(e.phase),
+                            e.point,
+                            e.normal,
+                            e.impulse,
+                        )
+                    })
+                    .collect();
+                Ok(finish_step(
+                    ring,
+                    token_map,
+                    (stats.active_bodies, stats.slept_this_step),
+                    stats.contacts_dropped.saturating_add(sys_dropped),
+                    stats.step_time_secs,
+                    raw,
+                ))
+            }
+            #[cfg(feature = "rapier")]
+            Backend::Rapier(r) => {
+                let stats = r.step();
+                let (raw, rapier_dropped) = r.drain_contacts();
+                let raw: Vec<RawContact> = raw
+                    .into_iter()
+                    .map(|e| (e.a, e.b, e.phase, e.point, e.normal, e.impulse))
+                    .collect();
+                Ok(finish_step(
+                    ring,
+                    token_map,
+                    (stats.active_bodies, stats.slept_this_step),
+                    stats.contacts_dropped.saturating_add(rapier_dropped),
+                    stats.step_time_secs,
+                    raw,
+                ))
+            }
+            #[allow(unreachable_patterns)]
+            _ => Err(PhysicsError::BackendNotCompiled(desc.backend)),
+        }
     }
 
     /// 批插体(§4.A3:AddBodiesPrepare/Finalize 映射在 sys 层)。all-or-nothing:
@@ -188,33 +246,44 @@ impl PhysicsWorld {
         self.add_bodies_inner(descs)
     }
 
-    #[cfg(feature = "jolt")]
+    #[cfg(any(feature = "jolt", feature = "rapier"))]
     fn add_bodies_inner(&mut self, descs: &[BodyDesc]) -> Result<Vec<BodyId>, PhysicsError> {
         let n = u32::try_from(descs.len())
             .map_err(|_| PhysicsError::InvalidDesc("批插数量超 u32 上限".into()))?;
         if self.bodies.remaining_capacity() < n || self.shapes.remaining_capacity() < n {
             return Err(PhysicsError::PoolExhausted);
         }
-        // 先占槽(句柄不外泄),sys 成功后回填 token;任一失败整批回滚。
+        // 先占槽(句柄不外泄),后端成功后回填 token;任一失败整批回滚。
         let mut slots = Vec::with_capacity(descs.len());
         for _ in descs {
-            match self.alloc_body_slots() {
+            match alloc_body_slots(&mut self.bodies, &mut self.shapes) {
                 Ok(parts) => slots.push(parts),
                 Err(e) => {
-                    self.rollback_body_slots(&slots);
+                    rollback_body_slots(&mut self.bodies, &mut self.shapes, &slots);
                     return Err(e);
                 }
             }
         }
-        let sys_descs: Vec<SysBodyDesc> = descs.iter().map(sys_body_desc).collect();
-        let tokens = match self.sys.add_bodies_batch(&sys_descs) {
+        let tokens = match &mut self.backend {
+            #[cfg(feature = "jolt")]
+            Backend::Jolt(sys) => {
+                let sys_descs: Vec<SysBodyDesc> = descs.iter().map(sys_body_desc).collect();
+                sys.add_bodies_batch(&sys_descs)
+                    .map_err(physics_error_from_sys)
+            }
+            #[cfg(feature = "rapier")]
+            Backend::Rapier(r) => r.add_bodies_batch(descs),
+            #[allow(unreachable_patterns)]
+            _ => Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
+        };
+        let tokens = match tokens {
             Ok(t) => t,
             Err(e) => {
-                self.rollback_body_slots(&slots);
-                return Err(physics_error_from_sys(e));
+                rollback_body_slots(&mut self.bodies, &mut self.shapes, &slots);
+                return Err(e);
             }
         };
-        // sys 契约:返回 token 与输入一一对应(sys/lib.rs 边界注释)。
+        // 后端契约:返回 token 与输入一一对应(sys/lib.rs 边界注释;rapier 逐插同构)。
         debug_assert_eq!(tokens.len(), slots.len());
         let mut ids = Vec::with_capacity(descs.len());
         for ((body_parts, _), token) in slots.into_iter().zip(tokens) {
@@ -228,7 +297,7 @@ impl PhysicsWorld {
         Ok(ids)
     }
 
-    #[cfg(not(feature = "jolt"))]
+    #[cfg(not(any(feature = "jolt", feature = "rapier")))]
     fn add_bodies_inner(&mut self, _descs: &[BodyDesc]) -> Result<Vec<BodyId>, PhysicsError> {
         Err(PhysicsError::BackendNotCompiled(self.desc.backend))
     }
@@ -248,15 +317,21 @@ impl PhysicsWorld {
         self.remove_bodies_inner(&unique)
     }
 
-    #[cfg(feature = "jolt")]
     fn remove_bodies_inner(&mut self, bodies: &[BodyId]) -> Result<(), PhysicsError> {
         let tokens: Vec<u64> = bodies
             .iter()
             .map(|id| self.body_token(*id))
             .collect::<Result<_, _>>()?;
-        self.sys
-            .remove_bodies_batch(&tokens)
-            .map_err(physics_error_from_sys)?;
+        match &mut self.backend {
+            #[cfg(feature = "jolt")]
+            Backend::Jolt(sys) => sys
+                .remove_bodies_batch(&tokens)
+                .map_err(physics_error_from_sys)?,
+            #[cfg(feature = "rapier")]
+            Backend::Rapier(r) => r.remove_bodies_batch(&tokens)?,
+            #[allow(unreachable_patterns)]
+            _ => return Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
+        }
         for id in bodies {
             if let Some(entry) = self.bodies.remove(id.index(), id.generation()) {
                 self.token_map.remove(&entry.token);
@@ -267,28 +342,24 @@ impl PhysicsWorld {
         Ok(())
     }
 
-    #[cfg(not(feature = "jolt"))]
-    fn remove_bodies_inner(&mut self, _bodies: &[BodyId]) -> Result<(), PhysicsError> {
-        Err(PhysicsError::BackendNotCompiled(self.desc.backend))
-    }
-
     /// 读 body 当前变换(§4.A2;失效句柄 → `Err(InvalidBody)`)。
     pub fn body_transform(&self, body: BodyId) -> Result<PhysicsTransform, PhysicsError> {
         let token = self.body_token(body)?;
         self.body_transform_inner(token)
     }
 
-    #[cfg(feature = "jolt")]
     fn body_transform_inner(&self, token: u64) -> Result<PhysicsTransform, PhysicsError> {
-        self.sys
-            .body_transform(token)
-            .map_err(physics_error_from_sys)
-            .map(transform_from_sys)
-    }
-
-    #[cfg(not(feature = "jolt"))]
-    fn body_transform_inner(&self, _token: u64) -> Result<PhysicsTransform, PhysicsError> {
-        Err(PhysicsError::BackendNotCompiled(self.desc.backend))
+        match &self.backend {
+            #[cfg(feature = "jolt")]
+            Backend::Jolt(sys) => sys
+                .body_transform(token)
+                .map_err(physics_error_from_sys)
+                .map(transform_from_sys),
+            #[cfg(feature = "rapier")]
+            Backend::Rapier(r) => r.body_transform(token),
+            #[allow(unreachable_patterns)]
+            _ => Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
+        }
     }
 
     /// 上一拍变换快照(§4.A4:step 结束边界提交的 active 动态/运动体变换浅拷贝;
@@ -298,25 +369,29 @@ impl PhysicsWorld {
         self.active_transforms_inner()
     }
 
-    #[cfg(feature = "jolt")]
     fn active_transforms_inner(&self) -> Vec<(BodyId, PhysicsTransform)> {
-        let mut out: Vec<(BodyId, PhysicsTransform)> = self
-            .sys
-            .active_transforms()
-            .into_iter()
-            .filter_map(|(token, t)| {
-                self.token_map
-                    .get(&token)
-                    .map(|id| (*id, transform_from_sys(t)))
-            })
-            .collect();
+        let mut out: Vec<(BodyId, PhysicsTransform)> = match &self.backend {
+            #[cfg(feature = "jolt")]
+            Backend::Jolt(sys) => sys
+                .active_transforms()
+                .into_iter()
+                .filter_map(|(token, t)| {
+                    self.token_map
+                        .get(&token)
+                        .map(|id| (*id, transform_from_sys(t)))
+                })
+                .collect(),
+            #[cfg(feature = "rapier")]
+            Backend::Rapier(r) => r
+                .active_transforms()
+                .into_iter()
+                .filter_map(|(token, t)| self.token_map.get(&token).map(|id| (*id, t)))
+                .collect(),
+            #[allow(unreachable_patterns)]
+            _ => Vec::new(),
+        };
         out.sort_by_key(|(id, _)| *id);
         out
-    }
-
-    #[cfg(not(feature = "jolt"))]
-    fn active_transforms_inner(&self) -> Vec<(BodyId, PhysicsTransform)> {
-        Vec::new()
     }
 
     /// 冲量施加(睡眠体冲量 → 唤醒,§4.A7 睡眠唤醒单测锚;`impulse` 须有限)。
@@ -328,16 +403,17 @@ impl PhysicsWorld {
         self.apply_impulse_inner(token, impulse)
     }
 
-    #[cfg(feature = "jolt")]
     fn apply_impulse_inner(&mut self, token: u64, impulse: [f32; 3]) -> Result<(), PhysicsError> {
-        self.sys
-            .apply_impulse(token, impulse)
-            .map_err(physics_error_from_sys)
-    }
-
-    #[cfg(not(feature = "jolt"))]
-    fn apply_impulse_inner(&mut self, _token: u64, _impulse: [f32; 3]) -> Result<(), PhysicsError> {
-        Err(PhysicsError::BackendNotCompiled(self.desc.backend))
+        match &mut self.backend {
+            #[cfg(feature = "jolt")]
+            Backend::Jolt(sys) => sys
+                .apply_impulse(token, impulse)
+                .map_err(physics_error_from_sys),
+            #[cfg(feature = "rapier")]
+            Backend::Rapier(r) => r.apply_impulse(token, impulse),
+            #[allow(unreachable_patterns)]
+            _ => Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
+        }
     }
 
     /// body 是否激活(未睡眠;§4.A7 单测锚)。
@@ -346,14 +422,15 @@ impl PhysicsWorld {
         self.is_active_inner(token)
     }
 
-    #[cfg(feature = "jolt")]
     fn is_active_inner(&self, token: u64) -> Result<bool, PhysicsError> {
-        self.sys.is_active(token).map_err(physics_error_from_sys)
-    }
-
-    #[cfg(not(feature = "jolt"))]
-    fn is_active_inner(&self, _token: u64) -> Result<bool, PhysicsError> {
-        Err(PhysicsError::BackendNotCompiled(self.desc.backend))
+        match &self.backend {
+            #[cfg(feature = "jolt")]
+            Backend::Jolt(sys) => sys.is_active(token).map_err(physics_error_from_sys),
+            #[cfg(feature = "rapier")]
+            Backend::Rapier(r) => r.is_active(token),
+            #[allow(unreachable_patterns)]
+            _ => Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
+        }
     }
 
     /// 射线 cast(§4.A4:step 外并发,`&self`;全命中按 `(t, BodyId)` 规范序返回)。
@@ -371,21 +448,37 @@ impl PhysicsWorld {
         self.cast_ray_inner(ray)
     }
 
-    #[cfg(feature = "jolt")]
     fn cast_ray_inner(&self, ray: &QueryRay) -> Result<Vec<QueryHit>, PhysicsError> {
-        let hits = self.sys.cast_ray(&SysRay {
-            origin: ray.origin,
-            dir: ray.dir,
-            t_min: ray.t_min,
-            t_max: ray.t_max,
-            layer_mask: ray.layer_mask,
-        });
-        Ok(self.map_sys_hits(hits))
-    }
-
-    #[cfg(not(feature = "jolt"))]
-    fn cast_ray_inner(&self, _ray: &QueryRay) -> Result<Vec<QueryHit>, PhysicsError> {
-        Err(PhysicsError::BackendNotCompiled(self.desc.backend))
+        match &self.backend {
+            #[cfg(feature = "jolt")]
+            Backend::Jolt(sys) => {
+                let hits = sys.cast_ray(&SysRay {
+                    origin: ray.origin,
+                    dir: ray.dir,
+                    t_min: ray.t_min,
+                    t_max: ray.t_max,
+                    layer_mask: ray.layer_mask,
+                });
+                Ok(map_raw_hits(
+                    &self.token_map,
+                    &self.bodies,
+                    hits.into_iter()
+                        .map(|h| (h.body, h.t, h.position, h.normal))
+                        .collect(),
+                ))
+            }
+            #[cfg(feature = "rapier")]
+            Backend::Rapier(r) => Ok(map_raw_hits(
+                &self.token_map,
+                &self.bodies,
+                r.cast_ray(ray)
+                    .into_iter()
+                    .map(|h| (h.token, h.t, h.position, h.normal))
+                    .collect(),
+            )),
+            #[allow(unreachable_patterns)]
+            _ => Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
+        }
     }
 
     /// 形状 cast(§4.A4;并发/预算/规范序纪律同 `cast_ray`)。
@@ -401,21 +494,39 @@ impl PhysicsWorld {
         self.cast_shape_inner(query)
     }
 
-    #[cfg(feature = "jolt")]
     fn cast_shape_inner(&self, query: &QueryShape) -> Result<Vec<QueryHit>, PhysicsError> {
-        let hits = self.sys.cast_shape(
-            &sys_shape(&query.shape),
-            &sys_transform(query.start),
-            query.dir,
-            query.t_max,
-            query.layer_mask,
-        );
-        Ok(self.map_sys_hits(hits))
-    }
-
-    #[cfg(not(feature = "jolt"))]
-    fn cast_shape_inner(&self, _query: &QueryShape) -> Result<Vec<QueryHit>, PhysicsError> {
-        Err(PhysicsError::BackendNotCompiled(self.desc.backend))
+        match &self.backend {
+            #[cfg(feature = "jolt")]
+            Backend::Jolt(sys) => {
+                let hits = sys.cast_shape(
+                    &sys_shape(&query.shape),
+                    &sys_transform(query.start),
+                    query.dir,
+                    query.t_max,
+                    query.layer_mask,
+                );
+                Ok(map_raw_hits(
+                    &self.token_map,
+                    &self.bodies,
+                    hits.into_iter()
+                        .map(|h| (h.body, h.t, h.position, h.normal))
+                        .collect(),
+                ))
+            }
+            #[cfg(feature = "rapier")]
+            Backend::Rapier(r) => {
+                let hits = r.cast_shape(query)?;
+                Ok(map_raw_hits(
+                    &self.token_map,
+                    &self.bodies,
+                    hits.into_iter()
+                        .map(|h| (h.token, h.t, h.position, h.normal))
+                        .collect(),
+                ))
+            }
+            #[allow(unreachable_patterns)]
+            _ => Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
+        }
     }
 
     /// 形状 overlap(§4.A4;并发/预算纪律同 `cast_ray`,规范序 = `BodyId` 升序)。
@@ -443,16 +554,23 @@ impl PhysicsWorld {
         self.overlap_inner(shape, transform, layer_mask)
     }
 
-    #[cfg(feature = "jolt")]
+    #[cfg(any(feature = "jolt", feature = "rapier"))]
     fn overlap_inner(
         &self,
         shape: &ShapeDesc,
         transform: &PhysicsTransform,
         layer_mask: u64,
     ) -> Result<Vec<OverlapHit>, PhysicsError> {
-        let tokens =
-            self.sys
-                .overlap_shape(&sys_shape(shape), &sys_transform(*transform), layer_mask);
+        let tokens: Vec<u64> = match &self.backend {
+            #[cfg(feature = "jolt")]
+            Backend::Jolt(sys) => {
+                sys.overlap_shape(&sys_shape(shape), &sys_transform(*transform), layer_mask)
+            }
+            #[cfg(feature = "rapier")]
+            Backend::Rapier(r) => r.overlap_shape(shape, transform, layer_mask)?,
+            #[allow(unreachable_patterns)]
+            _ => return Err(PhysicsError::BackendNotCompiled(self.desc.backend)),
+        };
         let mut out: Vec<OverlapHit> = tokens
             .into_iter()
             .filter_map(|t| {
@@ -465,7 +583,7 @@ impl PhysicsWorld {
         Ok(out)
     }
 
-    #[cfg(not(feature = "jolt"))]
+    #[cfg(not(any(feature = "jolt", feature = "rapier")))]
     fn overlap_inner(
         &self,
         _shape: &ShapeDesc,
@@ -510,74 +628,121 @@ impl PhysicsWorld {
         }
     }
 
-    /// 句柄 → Jolt token(失效句柄二次使用 → `Err(InvalidBody)`,§4.C3 不悬垂)。
+    /// 句柄 → 后端 token(失效句柄二次使用 → `Err(InvalidBody)`,§4.C3 不悬垂)。
     fn body_token(&self, id: BodyId) -> Result<u64, PhysicsError> {
         self.bodies
             .get(id.index(), id.generation())
             .map(|e| e.token)
             .ok_or(PhysicsError::InvalidBody(id))
     }
+}
 
-    /// 占 body+shape 槽位(add 批内单条;返回 (body 部件, shape 部件))。
-    #[cfg(feature = "jolt")]
-    fn alloc_body_slots(&mut self) -> Result<BodyShapeSlots, PhysicsError> {
-        let shape_parts = self.shapes.alloc(())?;
-        match self.bodies.alloc(BodyEntry {
-            token: 0,
-            shape: ShapeId::new(shape_parts.0, shape_parts.1),
-        }) {
-            Ok(body_parts) => Ok((body_parts, shape_parts)),
-            Err(e) => {
-                self.shapes.remove(shape_parts.0, shape_parts.1);
-                Err(e)
-            }
+/// 占 body+shape 槽位(add 批内单条;返回 (body 部件, shape 部件))。
+#[cfg(any(feature = "jolt", feature = "rapier"))]
+fn alloc_body_slots(
+    bodies: &mut GenArena<BodyEntry>,
+    shapes: &mut GenArena<()>,
+) -> Result<BodyShapeSlots, PhysicsError> {
+    let shape_parts = shapes.alloc(())?;
+    match bodies.alloc(BodyEntry {
+        token: 0,
+        shape: ShapeId::new(shape_parts.0, shape_parts.1),
+    }) {
+        Ok(body_parts) => Ok((body_parts, shape_parts)),
+        Err(e) => {
+            shapes.remove(shape_parts.0, shape_parts.1);
+            Err(e)
         }
     }
+}
 
-    /// 回滚一批已占槽位(sys 失败路径;句柄从未外泄,无悬挂)。
-    #[cfg(feature = "jolt")]
-    fn rollback_body_slots(&mut self, slots: &[BodyShapeSlots]) {
-        for &((bi, bg), (si, sg)) in slots {
-            self.bodies.remove(bi, bg);
-            self.shapes.remove(si, sg);
-        }
+/// 回滚一批已占槽位(后端失败路径;句柄从未外泄,无悬挂)。
+#[cfg(any(feature = "jolt", feature = "rapier"))]
+fn rollback_body_slots(
+    bodies: &mut GenArena<BodyEntry>,
+    shapes: &mut GenArena<()>,
+    slots: &[BodyShapeSlots],
+) {
+    for &((bi, bg), (si, sg)) in slots {
+        bodies.remove(bi, bg);
+        shapes.remove(si, sg);
     }
+}
 
-    /// sys 命中 → 公共 `QueryHit`(token→BodyId 映射 + body→shape 回填;
-    /// 未知 token 确定性丢弃),按 `(t, BodyId)` 规范序(C-2)。
-    #[cfg(feature = "jolt")]
-    fn map_sys_hits(&self, hits: Vec<SysHit>) -> Vec<QueryHit> {
-        let mut out: Vec<QueryHit> = hits
-            .into_iter()
-            .filter_map(|h| {
-                let body = *self.token_map.get(&h.body)?;
-                let shape = self.bodies.get(body.index(), body.generation())?.shape;
-                Some(QueryHit {
-                    body,
-                    t: h.t,
-                    position: h.position,
-                    normal: h.normal,
-                    shape,
-                })
+/// 后端原始命中统一上岸型(token + t + 世界系命中点/法线;两后端同构)。
+#[cfg(any(feature = "jolt", feature = "rapier"))]
+type RawHit = (u64, f32, [f32; 3], [f32; 3]);
+
+/// 后端原始接触统一上岸型(token 对 + 相位 + 点/法线/冲量;Jolt 经
+/// `phase_from_sys` 转换后与本型一致,Rapier 直接产出)。
+#[cfg(any(feature = "jolt", feature = "rapier"))]
+type RawContact = (u64, u64, ContactPhase, [f32; 3], [f32; 3], f32);
+
+/// 后端命中 → 公共 `QueryHit`(token→BodyId 映射 + body→shape 回填;
+/// 未知 token 确定性丢弃),按 `(t, BodyId)` 规范序(C-2;两后端共享)。
+#[cfg(any(feature = "jolt", feature = "rapier"))]
+fn map_raw_hits(
+    token_map: &HashMap<u64, BodyId>,
+    bodies: &GenArena<BodyEntry>,
+    raw: Vec<RawHit>,
+) -> Vec<QueryHit> {
+    let mut out: Vec<QueryHit> = raw
+        .into_iter()
+        .filter_map(|(token, t, position, normal)| {
+            let body = *token_map.get(&token)?;
+            let shape = bodies.get(body.index(), body.generation())?.shape;
+            Some(QueryHit {
+                body,
+                t,
+                position,
+                normal,
+                shape,
             })
-            .collect();
-        sort_query_hits(&mut out);
-        out
-    }
-
-    /// sys 原始接触事件 → 公共 `ContactEvent`(token→BodyId;未知 token → `None`)。
-    #[cfg(feature = "jolt")]
-    fn map_sys_contact(&self, e: SysContactEvent) -> Option<ContactEvent> {
-        let a = *self.token_map.get(&e.a)?;
-        let b = *self.token_map.get(&e.b)?;
-        Some(ContactEvent {
-            a,
-            b,
-            phase: phase_from_sys(e.phase),
-            contact_point: e.point,
-            normal: e.normal,
-            impulse: e.impulse,
         })
+        .collect();
+    sort_query_hits(&mut out);
+    out
+}
+
+/// step 结束边界共享收尾(两后端同契约,§4.A5):原始接触 token→BodyId 上岸
+/// (未知 token——如本步内已移除 body——无法命名,确定性丢弃计数)→ 归一化
+/// (规范序排序去重)→ 有界 ring → `StepStats` 组装(丢弃计数三路合流:
+/// 后端层 + ring 溢出 + 未映射)。
+#[cfg(any(feature = "jolt", feature = "rapier"))]
+fn finish_step(
+    ring: &mut ContactRing,
+    token_map: &HashMap<u64, BodyId>,
+    (active_bodies, slept_this_step): (u32, u32),
+    backend_dropped: u32,
+    step_time_secs: f64,
+    raw: Vec<RawContact>,
+) -> StepStats {
+    let mut unmapped = 0u32;
+    let mut events = Vec::with_capacity(raw.len());
+    for (ta, tb, phase, point, normal, impulse) in raw {
+        match (token_map.get(&ta), token_map.get(&tb)) {
+            (Some(&a), Some(&b)) => events.push(ContactEvent {
+                a,
+                b,
+                phase,
+                contact_point: point,
+                normal,
+                impulse,
+            }),
+            _ => unmapped = unmapped.saturating_add(1),
+        }
+    }
+    let normalized = normalize_contacts(events);
+    let emitted = u32::try_from(normalized.len()).unwrap_or(u32::MAX);
+    let dropped_ring = ring.push_normalized(normalized);
+    StepStats {
+        active_bodies,
+        slept_this_step,
+        contacts_emitted: emitted,
+        contacts_dropped: backend_dropped
+            .saturating_add(dropped_ring)
+            .saturating_add(unmapped),
+        step_time: duration_from_secs(step_time_secs),
     }
 }
 
@@ -679,7 +844,7 @@ fn phase_from_sys(p: SysContactPhase) -> ContactPhase {
 
 /// f64 秒 → `Duration`(非有限/非正 → ZERO;`from_secs_f64` 对负/NaN 会 panic,
 /// P-01 下不允许)。
-#[cfg(feature = "jolt")]
+#[cfg(any(feature = "jolt", feature = "rapier"))]
 fn duration_from_secs(secs: f64) -> std::time::Duration {
     if secs.is_finite() && secs > 0.0 {
         std::time::Duration::from_secs_f64(secs)
@@ -726,8 +891,9 @@ mod tests {
         assert!(validate_fixed_dt(dt, f32::NAN).is_err());
     }
 
+    #[cfg(not(feature = "rapier"))]
     #[test]
-    fn rapier_always_backend_not_compiled() {
+    fn rapier_backend_not_compiled_without_feature() {
         let desc = WorldDesc {
             backend: BackendKind::Rapier,
             ..Default::default()
@@ -736,6 +902,20 @@ mod tests {
             PhysicsWorld::new(desc).unwrap_err(),
             PhysicsError::BackendNotCompiled(BackendKind::Rapier)
         );
+    }
+
+    /// G6.4(§4.D1):feature `rapier` 编译后 `BackendKind::Rapier` 可构造
+    /// (含 default+rapier 双后端档;真后端行为测试见 tests/behavior.rs 双
+    /// 后端矩阵与 tests/parity.rs 对拍)。
+    #[cfg(feature = "rapier")]
+    #[test]
+    fn rapier_backend_constructible_with_feature() {
+        let desc = WorldDesc {
+            backend: BackendKind::Rapier,
+            ..Default::default()
+        };
+        let w = PhysicsWorld::new(desc).expect("rapier 已编译:构造应成功");
+        assert_eq!(w.desc().backend, BackendKind::Rapier);
     }
 
     #[cfg(not(feature = "jolt"))]

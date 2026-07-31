@@ -1,6 +1,14 @@
 //! A7 行为测试(RFC-0017 §4.A7 host 单测锚 + §4.A4 query 与 step 并发机验判据;
-//! 真 Jolt 后端,default(= jolt)档运行;`--no-default-features` 档本文件整体
-//! cfg 出局,后端无关 API 锚定见 tests/api.rs)。
+//! 真后端档运行:`--no-default-features` 零后端档本文件整体 cfg 出局,后端无关
+//! API 锚定见 tests/api.rs)。
+//!
+//! 双后端循环(G6.4,§4.D2):jolt 档只跑 Jolt;rapier-only 档只跑 Rapier;双后端档
+//! 同测试名内两后端各跑一遍——测试体 = `compiled_backends()` 循环 + 每后端
+//! `*_on(backend)` 体,断言语义两后端同标准,不为 rapier 放宽;真实能力差只在
+//! 注释留痕(登记源 = src/rapier.rs 模块头「能力差诚实登记」):批插逐插由测试 (4)
+//! C-6 同锚兜底、事件 Begin/Persist/End 窄相差分单源合成与 Jolt 路径同契约
+//! (§4.A5)、impulse Jolt 侧恒 0(RFC-0017 v1.2 登记)本文件不断言 impulse 值、
+//! CCD→CcdEnabled、层→InteractionGroups ≤ 32、单线程标量忽略 job_threads。
 //!
 //! 测试名关键字对齐 ci/physics_core_smoke.py(步骤 88)§4.A7 清单:determin /
 //! stack|settl / sleep|wake / batch / concurren / contact|drain / budget|saturat。
@@ -10,15 +18,15 @@
 //! 故并发烟测的机验形态 = 交替期(&self 相位)真多线程并发读一致 + 互斥交替下主步
 //! 延迟有界;不存在也不允许绕过借用规则的相位内并发读路径。
 
-#![cfg(feature = "jolt")]
+#![cfg(any(feature = "jolt", feature = "rapier"))]
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Barrier, Mutex};
 use std::time::{Duration, Instant};
 
 use rurix_physics::{
-    BodyDesc, BodyKind, ContactEvent, ContactPhase, MassProps, PhysicsTransform, PhysicsWorld,
-    QueryRay, QueryShape, ShapeDesc, SyncBudget, WorldDesc,
+    BackendKind, BodyDesc, BodyKind, ContactEvent, ContactPhase, MassProps, PhysicsTransform,
+    PhysicsWorld, QueryRay, QueryShape, ShapeDesc, SyncBudget, WorldDesc,
 };
 
 const DT: f32 = 1.0 / 60.0;
@@ -27,15 +35,28 @@ const IDENTITY_ROT: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
 /// C-6 批插判据下限:1 帧 @ 60Hz(阈值 = max(基线 mean+3σ, 此下限),见测试 4)。
 const ONE_FRAME: Duration = Duration::from_micros(16_667);
 
-fn world_desc(job_threads: Option<u32>, contact_capacity: u32) -> WorldDesc {
+/// 编译进本构建档的后端清单(jolt 档仅 Jolt;rapier-only 档仅 Rapier;双后端档
+/// 两件——同测试名内两后端各跑一遍,§4.D2 同 `PhysicsWorld` 抽象)。
+fn compiled_backends() -> Vec<BackendKind> {
+    [
+        #[cfg(feature = "jolt")]
+        BackendKind::Jolt,
+        #[cfg(feature = "rapier")]
+        BackendKind::Rapier,
+    ]
+    .into_iter()
+    .collect()
+}
+
+fn world_desc(backend: BackendKind, job_threads: Option<u32>, contact_capacity: u32) -> WorldDesc {
     WorldDesc {
+        backend,
         gravity: [0.0, -9.81, 0.0],
         layer_count: 4,
         max_bodies: 1024,
         job_threads,
         dt_fixed: DT,
         contact_capacity,
-        ..Default::default()
     }
 }
 
@@ -134,8 +155,11 @@ fn mean_sigma(samples: &[Duration]) -> (f64, f64) {
 
 /// 确定性脚本:箱塔(3) + 球 + 冲量脚本(§4.A7「同输入序列:初始变换 + 外力脚本」)。
 /// 返回逐步 active_transforms 位级快照(N=100 帧)。
-fn run_determinism_replay(job_threads: Option<u32>) -> Vec<Vec<(u64, [u32; 7])>> {
-    let mut w = PhysicsWorld::new(world_desc(job_threads, 4096)).unwrap();
+fn run_determinism_replay(
+    backend: BackendKind,
+    job_threads: Option<u32>,
+) -> Vec<Vec<(u64, [u32; 7])>> {
+    let mut w = PhysicsWorld::new(world_desc(backend, job_threads, 4096)).unwrap();
     w.add_bodies_batch(&[ground_desc()]).unwrap();
     let tower: Vec<BodyDesc> = (0..3)
         .map(|i| dyn_box(0.0, 0.45 + i as f32 * 0.901, 0.0, 0.45))
@@ -159,6 +183,12 @@ fn run_determinism_replay(job_threads: Option<u32>) -> Vec<Vec<(u64, [u32; 7])>>
 
 #[test]
 fn fixed_step_determinism_replay_100_steps_bitwise() {
+    for backend in compiled_backends() {
+        fixed_step_determinism_replay_100_steps_bitwise_on(backend);
+    }
+}
+
+fn fixed_step_determinism_replay_100_steps_bitwise_on(backend: BackendKind) {
     // job 线程口径(诚实登记,本切片集成轮探针实测 2026-07-31,Windows 11 x64,
     // dev profile + Jolt Release):同机实测 MT job 池(job_threads=None 硬件并行度
     // /Some(2)/Some(4))在 72 动态体大场景(3×8 箱塔 + 48 球 + 冲量脚本)下 100 步
@@ -168,16 +198,22 @@ fn fixed_step_determinism_replay_100_steps_bitwise() {
     // job_threads=Some(1) 钉住单线程 job,保证 §4.0-4(a)「同二进制同平台重放逐位
     // 一致」判据跨机不 flaky;MT 逐位确定性不作为冻结承诺(跨平台 bit 级选项 (b)
     // 同样未启用,后续波次按需启用并写 evidence)。
-    let run_a = run_determinism_replay(Some(1));
-    let run_b = run_determinism_replay(Some(1));
-    assert_eq!(run_a.len(), 100, "N=100 固定步");
+    // G6.4 留痕:Rapier 单线程标量忽略 job_threads(src/rapier.rs 模块头登记),
+    // 同锚传 Some(1) 不放宽逐位判据,两后端同标准各跑一遍(跨引擎逐位比对不在
+    // 本测试——对拍容差面见 tests/parity.rs,§4.D3)。
+    let run_a = run_determinism_replay(backend, Some(1));
+    let run_b = run_determinism_replay(backend, Some(1));
+    assert_eq!(run_a.len(), 100, "[{backend}] N=100 固定步");
     for (step, (fa, fb)) in run_a.iter().zip(run_b.iter()).enumerate() {
-        assert_eq!(fa, fb, "第 {step} 步 active_transforms 全量逐位不一致");
+        assert_eq!(
+            fa, fb,
+            "[{backend}] 第 {step} 步 active_transforms 全量逐位不一致"
+        );
     }
     // 场景锚定有效:全程存在 active 体(快照非全空)。
     assert!(
         run_a.iter().any(|f| !f.is_empty()),
-        "确定性脚本应存在活动体"
+        "[{backend}] 确定性脚本应存在活动体"
     );
 }
 
@@ -187,7 +223,13 @@ fn fixed_step_determinism_replay_100_steps_bitwise() {
 
 #[test]
 fn box_tower_stack_settling_converges() {
-    let mut w = PhysicsWorld::new(world_desc(None, 4096)).unwrap();
+    for backend in compiled_backends() {
+        box_tower_stack_settling_converges_on(backend);
+    }
+}
+
+fn box_tower_stack_settling_converges_on(backend: BackendKind) {
+    let mut w = PhysicsWorld::new(world_desc(backend, None, 4096)).unwrap();
     w.add_bodies_batch(&[ground_desc()]).unwrap();
     const N: usize = 6;
     const HALF: f32 = 0.45;
@@ -223,18 +265,18 @@ fn box_tower_stack_settling_converges() {
         assert_eq!(
             transform_bits(t0),
             transform_bits(t1),
-            "箱 {i} 入睡后末变换漂移(入睡于第 {asleep_at} 步)"
+            "[{backend}] 箱 {i} 入睡后末变换漂移(入睡于第 {asleep_at} 步)"
         );
         // 沉降位置容差:竖直叠放,不滑移、不倾倒。
         let expected_y = HALF + i as f32 * 2.0 * HALF;
         assert!(
             (t1.translation[1] - expected_y).abs() < 0.05,
-            "箱 {i} 沉降高度 {} 应 ≈ {expected_y}",
+            "[{backend}] 箱 {i} 沉降高度 {} 应 ≈ {expected_y}",
             t1.translation[1]
         );
         assert!(
             t1.translation[0].abs() < 0.1 && t1.translation[2].abs() < 0.1,
-            "箱 {i} 水平漂移过大(倾倒?):{:?}",
+            "[{backend}] 箱 {i} 水平漂移过大(倾倒?):{:?}",
             t1.translation
         );
     }
@@ -246,7 +288,13 @@ fn box_tower_stack_settling_converges() {
 
 #[test]
 fn sleep_then_impulse_wake() {
-    let mut w = PhysicsWorld::new(world_desc(None, 4096)).unwrap();
+    for backend in compiled_backends() {
+        sleep_then_impulse_wake_on(backend);
+    }
+}
+
+fn sleep_then_impulse_wake_on(backend: BackendKind) {
+    let mut w = PhysicsWorld::new(world_desc(backend, None, 4096)).unwrap();
     w.add_bodies_batch(&[ground_desc()]).unwrap();
     let b = w
         .add_bodies_batch(&[dyn_box(0.0, 0.452, 0.0, 0.45)])
@@ -260,19 +308,22 @@ fn sleep_then_impulse_wake() {
             break;
         }
     }
-    assert!(slept, "静置箱应在 400 步内入睡(is_active = false)");
+    assert!(
+        slept,
+        "[{backend}] 静置箱应在 400 步内入睡(is_active = false)"
+    );
     let p0 = w.body_transform(b).unwrap();
 
     w.apply_impulse(b, [0.0, 3.0, 0.0]).unwrap();
     w.step(DT).unwrap();
     assert!(
         w.is_active(b).unwrap(),
-        "冲量应唤醒睡眠体(is_active = true)"
+        "[{backend}] 冲量应唤醒睡眠体(is_active = true)"
     );
     let p1 = w.body_transform(b).unwrap();
     assert!(
         p1.translation[1] > p0.translation[1] + 0.005,
-        "唤醒后位置应变化(上升):{} -> {}",
+        "[{backend}] 唤醒后位置应变化(上升):{} -> {}",
         p0.translation[1],
         p1.translation[1]
     );
@@ -284,11 +335,19 @@ fn sleep_then_impulse_wake() {
 
 #[test]
 fn batch_insert_no_stall_main_step() {
+    for backend in compiled_backends() {
+        batch_insert_no_stall_main_step_on(backend);
+    }
+}
+
+fn batch_insert_no_stall_main_step_on(backend: BackendKind) {
     // 相位纪律(诚实边界):add/remove/step 均取 `&mut self`,Rust 借用规则下两线程
     // 只能互斥交替——这正是 §4.A7 C-6 的「prepare 在 step 外交替期执行、finalize 单点
     // 提交」形态:批插操作落在主步步间交替期,断言批插活跃窗口内主步单步耗时 ≤ 1 帧。
+    // G6.4 留痕:Rapier 无 prepare/finalize 等价语义,批插逐插(src/rapier.rs 模块头
+    // 登记)——C-6 判据形态不变(阈值 = max(基线 mean+3σ, 1 帧),两后端同锚兜底)。
     let world = Arc::new(Mutex::new(
-        PhysicsWorld::new(world_desc(None, 4096)).unwrap(),
+        PhysicsWorld::new(world_desc(backend, None, 4096)).unwrap(),
     ));
     world
         .lock()
@@ -306,7 +365,11 @@ fn batch_insert_no_stall_main_step() {
     // 本切片实测标定(2026-07-31,Windows 11 x64,dev profile + Jolt Release,≥5 次
     // 重复取包络):baseline mean ≈ 29~48 µs、σ ≈ 42~71 µs → mean+3σ ≈ 155~261 µs,
     // 恒低于 1 帧下限,故阈值实际 = 16.667 ms;批插活跃窗口内 max_step ≈ 1.29~1.52 ms
-    // (≈ 帧预算的 8~9%),主步无锁死。
+    // (≈ 帧预算的 8~9%),主步无锁死。G6.4 补测 Rapier(同机同档,2026-07-31,
+    // dev profile,逐插路径):baseline mean ≈ 175 µs、σ ≈ 58 µs → mean+3σ ≈
+    // 349 µs,同样恒低于 1 帧下限;批插活跃窗口内 max_step ≈ 1.20 ms
+    // (≈ 帧预算的 7.2%),同判据同锚无锁死——逐插无 prepare/finalize 的
+    // 能力差(src/rapier.rs 模块头登记)不改变 C-6 判据形态,实测兜底成立。
     let mut baseline = Vec::new();
     for _ in 0..90 {
         let t0 = Instant::now();
@@ -355,7 +418,7 @@ fn batch_insert_no_stall_main_step() {
     assert_eq!(
         ops.load(Ordering::Relaxed),
         50,
-        "批插线程应完成 25 轮 × (add + remove)(真线程注入)"
+        "[{backend}] 批插线程应完成 25 轮 × (add + remove)(真线程注入)"
     );
 
     let max_step = step_times
@@ -367,16 +430,16 @@ fn batch_insert_no_stall_main_step() {
         .map(|d| d.as_secs_f64())
         .fold(0.0, f64::max);
     eprintln!(
-        "[batch_insert_no_stall] baseline mean={mean:.6}s sigma={sigma:.6}s \
+        "[batch_insert_no_stall {backend}] baseline mean={mean:.6}s sigma={sigma:.6}s \
          threshold={threshold:.6}s max_step={max_step:.6}s max_iter_wall={max_wall:.6}s"
     );
     assert!(
         max_step <= threshold,
-        "批插期间主步单步耗时超 1 帧:max={max_step:.6}s threshold={threshold:.6}s"
+        "[{backend}] 批插期间主步单步耗时超 1 帧:max={max_step:.6}s threshold={threshold:.6}s"
     );
     assert!(
         max_wall <= threshold,
-        "批插期间主步迭代墙钟(含交替期批插等待)超 1 帧:max={max_wall:.6}s threshold={threshold:.6}s"
+        "[{backend}] 批插期间主步迭代墙钟(含交替期批插等待)超 1 帧:max={max_wall:.6}s threshold={threshold:.6}s"
     );
 }
 
@@ -387,7 +450,15 @@ fn batch_insert_no_stall_main_step() {
 
 #[test]
 fn concurrent_query_cast_matches_single_thread() {
-    let mut w = PhysicsWorld::new(world_desc(None, 4096)).unwrap();
+    for backend in compiled_backends() {
+        concurrent_query_cast_matches_single_thread_on(backend);
+    }
+}
+
+fn concurrent_query_cast_matches_single_thread_on(backend: BackendKind) {
+    // 一致性断言全程后端内封闭(并发 vs 单线程同后端比对,非跨后端比对——
+    // 跨引擎结果集差异不在本测试判据面,对拍见 tests/parity.rs)。
+    let mut w = PhysicsWorld::new(world_desc(backend, None, 4096)).unwrap();
     w.add_bodies_batch(&[ground_desc()]).unwrap();
     let tower: Vec<BodyDesc> = (0..3)
         .map(|i| dyn_box(0.0, 0.45 + i as f32 * 0.901, 0.0, 0.45))
@@ -443,9 +514,12 @@ fn concurrent_query_cast_matches_single_thread() {
     let ref_snapshot = w.active_transforms();
     assert!(
         !ref_ray_down.is_empty() && !ref_cast.is_empty() && !ref_overlap.is_empty(),
-        "参考查询须非空(场景锚定有效)"
+        "[{backend}] 参考查询须非空(场景锚定有效)"
     );
-    assert!(!ref_snapshot.is_empty(), "下落体使 active 快照非空");
+    assert!(
+        !ref_snapshot.is_empty(),
+        "[{backend}] 下落体使 active 快照非空"
+    );
 
     // ≥2 线程真并发:Barrier 齐射 + 在飞计数(≥2 同时在查询窗 = 真并发证据)。
     let barrier = Arc::new(Barrier::new(4));
@@ -493,19 +567,25 @@ fn concurrent_query_cast_matches_single_thread() {
     for thread in &reports {
         assert_eq!(thread.len(), 25);
         for (r1, r2, r3, r4, snap) in thread {
-            assert_eq!(r1, &ref_ray_down, "并发 cast_ray(down) 与单线程不一致");
-            assert_eq!(r2, &ref_ray_angled, "并发 cast_ray(angled) 与单线程不一致");
-            assert_eq!(r3, &ref_cast, "并发 cast_shape 与单线程不一致");
-            assert_eq!(r4, &ref_overlap, "并发 overlap 与单线程不一致");
+            assert_eq!(
+                r1, &ref_ray_down,
+                "[{backend}] 并发 cast_ray(down) 与单线程不一致"
+            );
+            assert_eq!(
+                r2, &ref_ray_angled,
+                "[{backend}] 并发 cast_ray(angled) 与单线程不一致"
+            );
+            assert_eq!(r3, &ref_cast, "[{backend}] 并发 cast_shape 与单线程不一致");
+            assert_eq!(r4, &ref_overlap, "[{backend}] 并发 overlap 与单线程不一致");
             assert_eq!(
                 snap, &ref_snapshot,
-                "交替期 active_transforms 并发快照读与 step 完成后读不一致"
+                "[{backend}] 交替期 active_transforms 并发快照读与 step 完成后读不一致"
             );
         }
     }
     assert!(
         max_in_flight.load(Ordering::Relaxed) >= 2,
-        "真并发证据:查询窗内须 ≥2 线程同时在飞(实测 max={})",
+        "[{backend}] 真并发证据:查询窗内须 ≥2 线程同时在飞(实测 max={})",
         max_in_flight.load(Ordering::Relaxed)
     );
 }
@@ -517,9 +597,18 @@ fn concurrent_query_cast_matches_single_thread() {
 
 #[test]
 fn contact_events_bounded_drain_and_overflow() {
+    for backend in compiled_backends() {
+        contact_events_bounded_drain_and_overflow_on(backend);
+    }
+}
+
+fn contact_events_bounded_drain_and_overflow_on(backend: BackendKind) {
     // —— A: Begin→Persist→End 相位序列(默认容量,逐步 drain)——
+    // G6.4 留痕:Rapier 事件 = step 结束边界窄相差分单源合成(src/rapier.rs 模块头
+    // 登记),归一化排序去重走 world.rs 共享面,与 Jolt 路径同契约(§4.A5)——
+    // 相位序列断言两后端同标准不放宽。
     {
-        let mut w = PhysicsWorld::new(world_desc(None, 4096)).unwrap();
+        let mut w = PhysicsWorld::new(world_desc(backend, None, 4096)).unwrap();
         let ground = w.add_bodies_batch(&[ground_desc()]).unwrap()[0];
         let ball = w.add_bodies_batch(&[dyn_sphere(0.0, 1.5, 0.0)]).unwrap()[0];
         let mut phases: Vec<ContactPhase> = Vec::new();
@@ -532,7 +621,7 @@ fn contact_events_bounded_drain_and_overflow() {
             let keys: Vec<(u64, u64, u8)> = batch.iter().map(canon_key).collect();
             let mut sorted = keys.clone();
             sorted.sort();
-            assert_eq!(keys, sorted, "step {step} drain 批次须为规范序");
+            assert_eq!(keys, sorted, "[{backend}] step {step} drain 批次须为规范序");
             for e in &batch {
                 let involves = (e.a == ball && e.b == ground) || (e.a == ground && e.b == ball);
                 if involves {
@@ -551,32 +640,32 @@ fn contact_events_bounded_drain_and_overflow() {
         assert_eq!(
             phases.first(),
             Some(&ContactPhase::Begin),
-            "相位序列须以 Begin 开头"
+            "[{backend}] 相位序列须以 Begin 开头"
         );
         assert_eq!(
             phases.last(),
             Some(&ContactPhase::End),
-            "相位序列须以 End 结尾"
+            "[{backend}] 相位序列须以 End 结尾"
         );
         assert_eq!(
             phases.iter().filter(|p| **p == ContactPhase::Begin).count(),
             1,
-            "Begin 恰好一次"
+            "[{backend}] Begin 恰好一次"
         );
         assert_eq!(
             phases.iter().filter(|p| **p == ContactPhase::End).count(),
             1,
-            "End 恰好一次"
+            "[{backend}] End 恰好一次"
         );
         assert!(
             phases.contains(&ContactPhase::Persist),
-            "Begin 与 End 之间须有 Persist"
+            "[{backend}] Begin 与 End 之间须有 Persist"
         );
     }
 
     // —— B: ring 溢出确定性丢最旧 + contacts_dropped 计数(小容量 + 不 drain 累积)——
     {
-        let mut w = PhysicsWorld::new(world_desc(Some(1), 8)).unwrap();
+        let mut w = PhysicsWorld::new(world_desc(backend, Some(1), 8)).unwrap();
         w.add_bodies_batch(&[ground_desc()]).unwrap();
         let descs: Vec<BodyDesc> = [-6.0f32, -2.0, 2.0, 6.0]
             .iter()
@@ -599,24 +688,24 @@ fn contact_events_bounded_drain_and_overflow() {
                 break;
             }
         }
-        assert!(contact_step.is_some(), "4 球应落地产生接触");
+        assert!(contact_step.is_some(), "[{backend}] 4 球应落地产生接触");
         let mut b = SyncBudget::new(0, 1_000_000, 0);
         let rest: Vec<ContactEvent> = w.drain_contacts(&mut b).collect();
-        assert_eq!(rest.len(), 8, "ring 只留容量 8 条");
+        assert_eq!(rest.len(), 8, "[{backend}] ring 只留容量 8 条");
         assert_eq!(
             dropped,
             emitted - 8,
-            "溢出确定性丢弃计数 = 入队总量 - ring 容量"
+            "[{backend}] 溢出确定性丢弃计数 = 入队总量 - ring 容量"
         );
         assert!(
             rest.iter().all(|e| e.phase == ContactPhase::Persist),
-            "最旧事件(Begin)被确定性丢弃,残余全为 Persist"
+            "[{backend}] 最旧事件(Begin)被确定性丢弃,残余全为 Persist"
         );
     }
 
     // —— C: drain_contacts 受 budget.max_contact_events 截断 + 饱和计数 ——
     {
-        let mut w = PhysicsWorld::new(world_desc(None, 4096)).unwrap();
+        let mut w = PhysicsWorld::new(world_desc(backend, None, 4096)).unwrap();
         w.add_bodies_batch(&[ground_desc()]).unwrap();
         w.add_bodies_batch(&[dyn_sphere(0.0, 1.5, 0.0)]).unwrap();
         // 落地后不 drain 累积 3 步(Begin + Persist + Persist)。
@@ -628,18 +717,22 @@ fn contact_events_bounded_drain_and_overflow() {
                 break;
             }
         }
-        assert_eq!(seen, 3, "ring 内应累积 3 条事件");
+        assert_eq!(seen, 3, "[{backend}] ring 内应累积 3 条事件");
         let mut small = SyncBudget::new(0, 2, 0);
         let first: Vec<ContactEvent> = w.drain_contacts(&mut small).collect();
-        assert_eq!(first.len(), 2, "drain 受 max_contact_events=2 确定性截断");
+        assert_eq!(
+            first.len(),
+            2,
+            "[{backend}] drain 受 max_contact_events=2 确定性截断"
+        );
         assert_eq!(
             w.budget_saturation().contact_events,
             1,
-            "截断的 1 条计入饱和计数(§4.A6)"
+            "[{backend}] 截断的 1 条计入饱和计数(§4.A6)"
         );
         let mut full = SyncBudget::new(0, 100, 0);
         let rest: Vec<ContactEvent> = w.drain_contacts(&mut full).collect();
-        assert_eq!(rest.len(), 1, "截断未消费部分留在 ring 不丢");
+        assert_eq!(rest.len(), 1, "[{backend}] 截断未消费部分留在 ring 不丢");
         assert_eq!(w.budget_saturation().contact_events, 1);
         // ring 序 = 归一化入队序:Begin → Persist → Persist。
         assert_eq!(first[0].phase, ContactPhase::Begin);
@@ -654,7 +747,13 @@ fn contact_events_bounded_drain_and_overflow() {
 
 #[test]
 fn sync_budget_reset_and_query_saturation_behavior() {
-    let mut w = PhysicsWorld::new(world_desc(None, 4096)).unwrap();
+    for backend in compiled_backends() {
+        sync_budget_reset_and_query_saturation_behavior_on(backend);
+    }
+}
+
+fn sync_budget_reset_and_query_saturation_behavior_on(backend: BackendKind) {
+    let mut w = PhysicsWorld::new(world_desc(backend, None, 4096)).unwrap();
     w.add_bodies_batch(&[ground_desc()]).unwrap();
     w.add_bodies_batch(&[dyn_sphere(0.0, 0.5, 0.0)]).unwrap();
     let ray = QueryRay {
@@ -681,7 +780,7 @@ fn sync_budget_reset_and_query_saturation_behavior() {
     assert!(!w.cast_ray(&ray, &mut b1).unwrap().is_empty());
     assert!(
         w.cast_ray(&ray, &mut b1).unwrap().is_empty(),
-        "query 轴饱和后 cast 确定性截断为空"
+        "[{backend}] query 轴饱和后 cast 确定性截断为空"
     );
     assert_eq!(w.budget_saturation().query_casts, 1);
     assert!(w.cast_ray(&ray, &mut b1).unwrap().is_empty());
@@ -706,12 +805,12 @@ fn sync_budget_reset_and_query_saturation_behavior() {
     let mut b2 = SyncBudget::new(0, 0, 2);
     assert!(
         !w.cast_ray(&ray, &mut b2).unwrap().is_empty(),
-        "预算重置后额度恢复"
+        "[{backend}] 预算重置后额度恢复"
     );
     assert_eq!(
         w.budget_saturation().query_casts,
         4,
-        "饱和计数随世界单调累计,不随预算重置清零"
+        "[{backend}] 饱和计数随世界单调累计,不随预算重置清零"
     );
 }
 
@@ -721,12 +820,21 @@ fn sync_budget_reset_and_query_saturation_behavior() {
 //     prepare 会改写)。本 sys 层单 broadphase 层(bp_get_layer ≡ 0),排序键全等:
 //     批 ≤ 32 走稳定 InsertionSort → 恒等(G6.2 既有测试全绿之因);批 > 32 走
 //     Hoare 划分 QuickSort,等键也成对交换 → 非恒等。故回归批取 35 体 > 32,
-//     sys 层激活/登记/返回必须按 prepare 前原始序配对)
+//     sys 层激活/登记/返回必须按 prepare 前原始序配对。
+//     G6.4 留痕:Rapier 批插逐插、无 prepare 重排面(src/rapier.rs 模块头登记),
+//     本测试在 rapier 档跑同一契约断言——返回序配对/插入即激活/kind 不错配,
+//     语义不放宽)
 // ---------------------------------------------------------------------------
 
 #[test]
 fn mixed_layer_batch_insert_order_preserved() {
-    let mut w = PhysicsWorld::new(world_desc(None, 4096)).unwrap();
+    for backend in compiled_backends() {
+        mixed_layer_batch_insert_order_preserved_on(backend);
+    }
+}
+
+fn mixed_layer_batch_insert_order_preserved_on(backend: BackendKind) {
+    let mut w = PhysicsWorld::new(world_desc(backend, None, 4096)).unwrap();
     // 35 体同批(> 32 触发 QuickSort 重排):1 静态地面插在非首槽(index 3),
     // 34 动态箱悬空网格(y = 8,间距 1.5 > 2×0.45 互不接触),后续下落不碰地。
     let mut descs: Vec<BodyDesc> = (0..34)
@@ -749,7 +857,7 @@ fn mixed_layer_batch_insert_order_preserved() {
         assert_eq!(
             transform_bits(&t),
             transform_bits(&d.transform),
-            "descs[{i}] 返回 id 位姿错配(批内重排未按原始序还原)"
+            "[{backend}] descs[{i}] 返回 id 位姿错配(批内重排未按原始序还原)"
         );
     }
 
@@ -759,13 +867,13 @@ fn mixed_layer_batch_insert_order_preserved() {
         .filter(|(_, d)| d.kind == BodyKind::Dynamic)
         .map(|(id, _)| *id)
         .collect();
-    assert_eq!(dyn_ids.len(), 34, "场景锚定:34 动态 + 1 静态");
+    assert_eq!(dyn_ids.len(), 34, "[{backend}] 场景锚定:34 动态 + 1 静态");
 
     // ② 动态体全部激活:插入后即 is_active;step 后 active_transforms 收齐。
     for id in &dyn_ids {
         assert!(
             w.is_active(*id).unwrap(),
-            "动态体 {id} 批插后应立即激活(DONT_ACTIVATE + 按类逐个激活)"
+            "[{backend}] 动态体 {id} 批插后应立即激活(DONT_ACTIVATE + 按类逐个激活)"
         );
     }
     let y0: Vec<f32> = dyn_ids
@@ -781,7 +889,7 @@ fn mixed_layer_batch_insert_order_preserved() {
     for id in &dyn_ids {
         assert!(
             active.contains(&id.to_bits()),
-            "step 后 active_transforms 应收齐动态体 {id}(kind 错配为 Static 会永久漏收)"
+            "[{backend}] step 后 active_transforms 应收齐动态体 {id}(kind 错配为 Static 会永久漏收)"
         );
     }
 
@@ -793,7 +901,7 @@ fn mixed_layer_batch_insert_order_preserved() {
         let y = w.body_transform(*id).unwrap().translation[1];
         assert!(
             y < y_init - 0.1,
-            "动态体 {id} 应下落:y0 = {y_init},y = {y}(未激活或 kind 错配则悬停)"
+            "[{backend}] 动态体 {id} 应下落:y0 = {y_init},y = {y}(未激活或 kind 错配则悬停)"
         );
     }
 }

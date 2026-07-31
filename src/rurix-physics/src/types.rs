@@ -11,8 +11,8 @@ pub enum BackendKind {
     /// Jolt 生产默认后端(feature `jolt`,默认 on,经 rurix-physics-sys vendor 构建)。
     #[default]
     Jolt,
-    /// Rapier 快路径后端(feature `rapier`,默认 off;G6.4 实现前一律
-    /// `Err(BackendNotCompiled)`)。
+    /// Rapier 快路径后端(feature `rapier`,默认 off,G6.4 实现;feature 未编译 →
+    /// 确定性 `Err(BackendNotCompiled)`,P-01 不静默回退)。
     Rapier,
 }
 

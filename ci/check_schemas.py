@@ -283,6 +283,9 @@ def check_evidence_files() -> None:
     uc08_physics_smoke_schema = load(
         ROOT / "milestones/g6/uc08_physics_smoke_evidence_schema.json"
     )
+    physics_rapier_parity_schema = load(
+        ROOT / "milestones/g6/physics_rapier_parity_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -482,6 +485,11 @@ def check_evidence_files() -> None:
     uc08_physics_smoke_validator = (
         jsonschema.Draft7Validator(uc08_physics_smoke_schema)
         if uc08_physics_smoke_schema
+        else None
+    )
+    physics_rapier_parity_validator = (
+        jsonschema.Draft7Validator(physics_rapier_parity_schema)
+        if physics_rapier_parity_schema
         else None
     )
     uc05_check_bench_validator = (
@@ -885,6 +893,20 @@ def check_evidence_files() -> None:
             # 〔像素/运动非平凡对拍〕,SKIP=dev-env-degrade,RURIX_REQUIRE_REAL=1 翻硬红)。
             # 前缀置于 physics_core_smoke 分支之后即可(两前缀互不包含)。
             validator = physics_bridge_smoke_validator
+        elif (
+            f.name.startswith("physics_rapier_parity")
+            and physics_rapier_parity_validator is not None
+        ):
+            # G6.4 Rapier 第二后端对拍冒烟 + parity 标定双形态证据(G-G6-5;
+            # RFC-0017 §4.D)→ milestones/g6/physics_rapier_parity_evidence_schema.json
+            # (ci/physics_rapier_parity_smoke.py 步骤 90 写:纯 host 门,cargo metadata
+            # 默认 off 机验 + rapier-only 依赖树零 CMake + cargo test/clippy 两腿 +
+            # parity 双进程重放一致〔§4.D3 容差/重叠率/RLE/阈值钉定〕+ §4.D4 文档口径
+            # 审计)。单前缀同时覆盖 smoke 自身 evidence(physics_rapier_parity_smoke_*)
+            # 与 parity 测试侧标定 evidence(physics_rapier_parity_2*)——前者是后者的
+            # 前缀延长,单路由天然消解包含关系,schema 内按 subject if/then 双形态分流;
+            # 与 physics_core/bridge 前缀互不包含,置于其后安全。
+            validator = physics_rapier_parity_validator
         elif (
             f.name.startswith("uc08_physics_smoke")
             and uc08_physics_smoke_validator is not None

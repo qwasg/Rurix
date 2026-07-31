@@ -1,7 +1,10 @@
-//! 公共 API 锚定测试(后端无关面,两构建档恒跑;真 Jolt 行为测试属集成轮,不在此)。
+//! 公共 API 锚定测试(后端无关面,四档构建矩阵恒跑;真后端行为测试见
+//! tests/behavior.rs 双后端循环,双后端对拍见 tests/parity.rs〔双后端档〕)。
 //!
-//! 覆盖(§4.A7 host 单测锚的后端无关子集):BackendNotCompiled 两路径、WorldDesc
-//! 校验、SyncBudget 公共消耗语义、冻结接口类型面字面锚、PhysicsError Display/Error。
+//! 覆盖(§4.A7 host 单测锚的后端无关子集):BackendNotCompiled 两路径(feature
+//! 未编译 → 确定性 Err,P-01)、feature 编译后 Rapier 创建 Ok 锚(§4.D1,G6.4)、
+//! WorldDesc 校验、SyncBudget 公共消耗语义、冻结接口类型面字面锚、
+//! PhysicsError Display/Error。
 
 use rurix_physics::{
     BackendKind, BodyDesc, BodyId, BodyKind, ContactEvent, ContactPhase, MassProps, OverlapHit,
@@ -9,8 +12,11 @@ use rurix_physics::{
     ShapeId, StepStats, SyncBudget, WorldDesc,
 };
 
+/// feature `rapier` 未编译:`BackendKind::Rapier` 一律确定性
+/// `Err(BackendNotCompiled)`(P-01 不静默回退;含 default(=jolt) 档)。
+#[cfg(not(feature = "rapier"))]
 #[test]
-fn rapier_backend_always_not_compiled() {
+fn rapier_backend_not_compiled_without_feature() {
     let desc = WorldDesc {
         backend: BackendKind::Rapier,
         ..Default::default()
@@ -18,8 +24,58 @@ fn rapier_backend_always_not_compiled() {
     assert_eq!(
         PhysicsWorld::new(desc).unwrap_err(),
         PhysicsError::BackendNotCompiled(BackendKind::Rapier),
-        "Rapier 在 G6.4 实现前一律 Err(BackendNotCompiled),含 default(=jolt) 档"
+        "feature rapier 未编译 → Err(BackendNotCompiled),不静默回退 Jolt"
     );
+}
+
+/// G6.4(§4.D1/D2):feature `rapier` 编译后 `BackendKind::Rapier` 创建 Ok +
+/// 基本 step 可跑(同 `PhysicsWorld` 抽象第二后端;真后端全方法面行为测试见
+/// tests/behavior.rs 双后端循环)。
+#[cfg(feature = "rapier")]
+#[test]
+fn rapier_backend_constructible_and_steps_with_feature() {
+    let dt = WorldDesc::default().dt_fixed;
+    let desc = WorldDesc {
+        backend: BackendKind::Rapier,
+        ..Default::default()
+    };
+    let mut w = PhysicsWorld::new(desc).expect("feature rapier 已编译:创建应 Ok(§4.D1)");
+    assert_eq!(w.desc().backend, BackendKind::Rapier);
+    // 基本 step 可跑:静态地面 + 动态箱,固定步推进后下落、变换可读。
+    w.add_bodies_batch(&[BodyDesc {
+        kind: BodyKind::Static,
+        shape: ShapeDesc::Box {
+            half_extents: [10.0, 0.5, 10.0],
+        },
+        layer: 0,
+        mass_props: MassProps::default(),
+        ccd: false,
+        transform: PhysicsTransform {
+            translation: [0.0, -0.5, 0.0],
+            rotation: [0.0, 0.0, 0.0, 1.0],
+        },
+    }])
+    .unwrap();
+    let b = w
+        .add_bodies_batch(&[BodyDesc {
+            kind: BodyKind::Dynamic,
+            shape: ShapeDesc::Box {
+                half_extents: [0.45, 0.45, 0.45],
+            },
+            layer: 1,
+            mass_props: MassProps::default(),
+            ccd: false,
+            transform: PhysicsTransform {
+                translation: [0.0, 4.0, 0.0],
+                rotation: [0.0, 0.0, 0.0, 1.0],
+            },
+        }])
+        .unwrap()[0];
+    for _ in 0..10 {
+        w.step(dt).unwrap();
+    }
+    let y = w.body_transform(b).unwrap().translation[1];
+    assert!(y < 4.0, "10 固定步后动态箱应下落(基本 step 可跑):y = {y}");
 }
 
 #[cfg(not(feature = "jolt"))]

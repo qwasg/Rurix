@@ -16,12 +16,23 @@ rurix-physics-sys = { path = "../rurix-physics-sys", optional = true }
 # 仅消费 host 侧类型面(GpuScene 变换写口 + DirtyRange),不启用 render 的
 # device feature(vulkan 默认 off);后端无关,`--no-default-features` 档同编译。
 rurix-render = { path = "../rurix-render" }
+# Rapier 快路径第二后端(G6.4,RFC-0017 §4.D):纯 Rust 零 CMake,经 feature
+# `rapier` 启用(默认 off);消费收敛于 src/rapier.rs 单模块(§4.C4 grep
+# 判据 v1.4 收窄),crate 维持 forbid(unsafe_code)。feature 面(RFC 修订
+# 记录 v1.4 留痕):§4.D1「default-features = false」原意 = 无 CMake/无
+# parallel·simd·serde,但 rapier3d 0.33 lib required-features = dim3+f32
+# 且 math/parry 依赖链需 std 启用(零 feature 字面不可编译,84 E0432),
+# 故显式启用最小集 dim3/f32/std——parallel/simd-stable/serde-serialize/
+# enhanced-determinism 维持 off。
+rapier3d = { version = "=0.33.0", default-features = false, features = ["dim3", "f32", "std"], optional = true }
 
 [features]
 default = ["jolt"]
 jolt = ["dep:rurix-physics-sys"]
 # rapier:G6.4 快路径第二后端(默认 off,cargo metadata 可机验;G-G6-5)。
-rapier = []
+# 纯 Rust 零 CMake(default-features = false,=0.33.0 pin,RFC-0017 §4.D1
+# 调研锚 2026-07-31);「快路径 ≠ 性能/稳定性默认」(§4.D4)。
+rapier = ["dep:rapier3d"]
 
 [lints]
 workspace = true

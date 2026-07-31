@@ -895,7 +895,19 @@ jobs:
           RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/physics_bridge_smoke.py
 
-      # 步骤 90 预留(G6.4 rapier 第二后端,不占号)。
+      # 步骤 90（G-G6-5,RFC-0017 §4.D）:rapier 第二后端对拍冒烟。host 段**恒跑**(纯 host 门,
+      # 无 GPU,**无 device 段、无 RURIX_REQUIRE_REAL**,CI_GATES §2.90 行载「—(纯 host 门)」):
+      # cargo metadata 核验 feature `rapier` 默认 off(rurix-physics default feature 集不含
+      # rapier)+ rapier-only 档(--no-default-features --features rapier)无 CMake 路径核验
+      # (不构建 rurix-physics-sys/Jolt vendor)+ cargo test 两腿(rapier-only / 双后端
+      # --features rapier)exit 0 + rapier 两 tier clippy -D warnings + parity 对拍进程级
+      # 重放一致(§4.D3:变换容差/Begin·End 集合重叠 ≥99%/相位等价类/各后端逐位确定性,
+      # 禁跨引擎逐位)+ 文档口径 grep(「快路径 ≠ 性能/稳定性默认」§4.D4)+ evidence 落盘
+      # 过 schema。失败即红。
+      - name: physics rapier parity smoke (G6 CI_GATES §2.90, G-G6-5, RFC-0017 §4.D)
+        shell: powershell
+        run: py -3 ci/physics_rapier_parity_smoke.py
+
       # 步骤 91（G-G6-7,RFC-0017 §4.B）:UC-08 物理合流 demo 冒烟。host 段**恒跑**(cargo test
       # -p uc08-physics exit 0 + uc08-physics --frames 96 --size 128x72 --json host 全跑 exit 0,
       # 单行 JSON 16 断言字段全 true〔物理步 measured/变换落地/MV 早期非零·睡眠后归零/流送批插·

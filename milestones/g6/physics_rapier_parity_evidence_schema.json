@@ -1,0 +1,116 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Rapier 第二后端对拍冒烟 + parity 标定双形态证据 schema(G6.4,步骤 90;G-G6-5;RFC-0017 §4.D)",
+  "description": "单 schema 双形态,ci/check_schemas.py 单前缀路由 physics_rapier_parity(覆盖两族文件,前者为后者前缀延长,单路由天然消解包含关系),按 subject if/then 分流:① smoke 自身 evidence —— ci/physics_rapier_parity_smoke.py 写 evidence/physics_rapier_parity_smoke_<ts>.json(subject=physics_rapier_parity_smoke,镜像 g6 体例:schema_version/subject/milestone/step=90/host_section_pass/device_section_rc=null〔纯 host 门〕/machine/checks/physics_rapier_parity_smoke_ok/run_url/timestamp)。纯 host 门(恒跑,无 GPU):cargo metadata 机验 feature rapier 存在且默认 off(§4.D1)+ rapier-only 档(--no-default-features --features rapier)cargo tree 依赖树零 rurix-physics-sys/Jolt/cxx/cmake(纯 Rust 零 CMake 佐证)+ cargo test 两腿(rapier-only/双后端 --features rapier)exit 0(计数为 0 判红)+ 两 tier clippy --all-targets -D warnings 零告警 + parity 进程级重放一致(双后端档 tests/parity.rs 独立进程 ×2:各后端确定性哈希逐位一致 + max 偏差逐值一致;单次内 §4.D3 判据全过——变换容差 pos ≤0.82m/rot ≤93°、Begin/End 集合重叠率 ≥0.99、逐对相位 RLE 等价类、verdict=pass;阈值常量值钉死核验防静默放宽;禁跨引擎逐位 §4.0-4)+ §4.D4 文档口径 grep(lib.rs/rapier.rs 模块头含「快路径 ≠ 性能/稳定性默认」;rapier.rs 为 src 面唯一含 rapier3d 的 .rs 文件,与步骤 88 v1.4 收窄互锁)。计数/偏差数字入 checks 不进硬门(P-09 / RFC-0017 §4.0-5)。② parity 测试侧标定 evidence —— evidence/physics_rapier_parity_2*.json(subject=physics_rapier_parity):T5 标定件(≥5 次跨进程复跑实测包络 + 文档化余量;machine/scenario/calibration〔runs/measured/stats/cross_process_constancy/per_body_breakdown/per_step_representative〕/thresholds〔pos_tol_m/rot_tol_deg/contact_overlap_min + margin_basis〕/implementation_notes/verdict/run_url),标定留痕支撑 tests/parity.rs 顶部阈值常量。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "milestone",
+    "timestamp",
+    "run_url"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "enum": ["physics_rapier_parity_smoke", "physics_rapier_parity"] },
+    "milestone": { "type": "string" },
+    "step": { "type": "integer", "const": 90 },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_rc": { "type": ["integer", "null"] },
+    "machine": { "type": "string" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "metadata_rapier_feature_present": { "type": ["boolean", "string"] },
+        "metadata_default_off_rapier": { "type": ["boolean", "string"] },
+        "rapier_only_tree_no_cmake": { "type": ["boolean", "string"] },
+        "rapier_only_tests_pass": { "type": ["boolean", "string"] },
+        "rapier_only_test_count": { "type": ["integer", "boolean", "string"] },
+        "dual_backend_tests_pass": { "type": ["boolean", "string"] },
+        "dual_backend_test_count": { "type": ["integer", "boolean", "string"] },
+        "rapier_only_clippy_pass": { "type": ["boolean", "string"] },
+        "dual_backend_clippy_pass": { "type": ["boolean", "string"] },
+        "parity_process1_pass": { "type": ["boolean", "string"] },
+        "parity_process2_pass": { "type": ["boolean", "string"] },
+        "parity_json_wellformed": { "type": ["boolean", "string"] },
+        "parity_verdict_pass": { "type": ["boolean", "string"] },
+        "parity_hashes_replay_identical": { "type": ["boolean", "string"] },
+        "parity_max_dev_replay_identical": { "type": ["boolean", "string"] },
+        "parity_pos_within_tol": { "type": ["boolean", "string"] },
+        "parity_rot_within_tol": { "type": ["boolean", "string"] },
+        "parity_begin_overlap_ok": { "type": ["boolean", "string"] },
+        "parity_end_overlap_ok": { "type": ["boolean", "string"] },
+        "parity_phase_class_equal": { "type": ["boolean", "string"] },
+        "parity_jolt_determinism_hash": { "type": ["string", "null"] },
+        "parity_rapier_determinism_hash": { "type": ["string", "null"] },
+        "parity_max_pos_dev_m": { "type": ["number", "boolean", "string", "null"] },
+        "parity_max_rot_dev_deg": { "type": ["number", "boolean", "string", "null"] },
+        "parity_begin_overlap": { "type": ["number", "boolean", "string", "null"] },
+        "parity_end_overlap": { "type": ["number", "boolean", "string", "null"] },
+        "audit_fastpath_disclaimer": { "type": ["boolean", "string"] },
+        "audit_rapier3d_single_module": { "type": ["boolean", "string"] },
+        "step_time_secs": { "type": ["number", "boolean", "string"] }
+      }
+    },
+    "physics_rapier_parity_smoke_ok": { "type": ["boolean", "string"] },
+    "toolchain_skip": { "type": ["string", "null"] },
+    "dev_env_degrade": { "type": "boolean" },
+    "scenario": { "type": "string" },
+    "calibration": {
+      "type": "object",
+      "required": ["runs", "measured"],
+      "properties": {
+        "runs": { "type": "integer" },
+        "replays_per_backend_per_run": { "type": "integer" },
+        "measured": { "type": "object" },
+        "stats": { "type": "object" },
+        "cross_process_constancy": { "type": "string" },
+        "per_body_breakdown": { "type": "object" },
+        "per_step_representative": { "type": "array" }
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "required": ["pos_tol_m", "rot_tol_deg", "contact_overlap_min"],
+      "properties": {
+        "pos_tol_m": { "type": "number" },
+        "rot_tol_deg": { "type": "number" },
+        "contact_overlap_min": { "type": "number" },
+        "margin_basis": { "type": "string" }
+      }
+    },
+    "implementation_notes": { "type": "array", "items": { "type": "string" } },
+    "verdict": { "type": "string", "enum": ["pass", "fail"] },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "subject": { "const": "physics_rapier_parity_smoke" } } },
+      "then": {
+        "required": [
+          "step",
+          "host_section_pass",
+          "device_section_rc",
+          "checks",
+          "physics_rapier_parity_smoke_ok"
+        ]
+      }
+    },
+    {
+      "if": { "properties": { "subject": { "const": "physics_rapier_parity" } } },
+      "then": {
+        "required": [
+          "machine",
+          "scenario",
+          "calibration",
+          "thresholds",
+          "implementation_notes",
+          "verdict"
+        ]
+      }
+    }
+  ]
+}
