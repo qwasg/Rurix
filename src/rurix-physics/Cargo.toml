@@ -1,0 +1,27 @@
+[package]
+name = "rurix-physics"
+description = "Rurix 引擎物理库(G6.2,RFC-0017 §4.A)——Jolt 生产默认后端(固定步/睡眠/批插体/CCD/job 接宿主池)/ 查询面(ray·shape cast·overlap,step 外并发,规范序确定性)/ 接触事件面(Begin·Persist·End 有界 ring,归一化序列)/ SyncBudget 每帧重置。对外全 safe(`forbid(unsafe_code)`),BodyId/ShapeId 不透明句柄(index32+generation32);物理为引擎库不进语言(06 §8.3)"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+# Jolt 生产默认后端构建 gate(非功能面开关,RFC-0017 §4.0-7):默认 on,经
+# rurix-physics-sys vendor 构建 JoltC;`--no-default-features` 零 C++ 依赖恒绿,
+# `PhysicsWorld::new(Jolt)` → 确定性 Err(BackendNotCompiled,P-01 不静默回退)。
+rurix-physics-sys = { path = "../rurix-physics-sys", optional = true }
+# G6.3 渲染合流桥(RFC-0017 §4.B):bridge 取 GpuScene 类型面——依赖方向裁决 =
+# rurix-physics → rurix-render 单向(rurix-render 永不依赖 physics,§4.B1-1);
+# 仅消费 host 侧类型面(GpuScene 变换写口 + DirtyRange),不启用 render 的
+# device feature(vulkan 默认 off);后端无关,`--no-default-features` 档同编译。
+rurix-render = { path = "../rurix-render" }
+
+[features]
+default = ["jolt"]
+jolt = ["dep:rurix-physics-sys"]
+# rapier:G6.4 快路径第二后端(默认 off,cargo metadata 可机验;G-G6-5)。
+rapier = []
+
+[lints]
+workspace = true

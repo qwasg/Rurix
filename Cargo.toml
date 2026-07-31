@@ -2,7 +2,7 @@
 # crate 划分最小起步,按需拆分(M1_PLAN §1)
 [workspace]
 resolver = "2"
-members = ["src/rurixc", "src/rurix-rt", "src/rurix-rt-cabi", "src/rx", "src/rurix-pkg", "src/image-io", "src/soft-raster", "src/uc02-demo", "src/uc03-demo", "src/rurix-interop", "src/rurix-cublas", "src/rurixup", "src/rurix-d3d12", "src/rurix-engine", "src/rurix-geometry", "src/uc04-demo", "src/rurix-android-present", "src/rurix-render", "src/rurix-geom-build", "apps/uc06-renderer"]
+members = ["src/rurixc", "src/rurix-rt", "src/rurix-rt-cabi", "src/rx", "src/rurix-pkg", "src/image-io", "src/soft-raster", "src/uc02-demo", "src/uc03-demo", "src/rurix-interop", "src/rurix-cublas", "src/rurixup", "src/rurix-d3d12", "src/rurix-engine", "src/rurix-geometry", "src/uc04-demo", "src/rurix-android-present", "src/rurix-render", "src/rurix-geom-build", "apps/uc06-renderer", "src/rurix-physics", "src/rurix-physics-sys", "apps/uc08-physics"]
 
 [workspace.package]
 edition = "2024"

@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "subject": "physics_core_smoke",
+  "milestone": "G6.2 / G-G6-3 (RFC-0017 §4.A/§4.C)",
+  "step": 88,
+  "host_section_pass": true,
+  "device_section_rc": null,
+  "checks": {
+    "sys_tests_pass": true,
+    "sys_test_count": 6,
+    "physics_nodefault_tests_pass": true,
+    "physics_nodefault_test_count": 41,
+    "physics_default_tests_pass": true,
+    "physics_default_test_count": 54,
+    "a7_fixed_step_determinism": true,
+    "a7_stack_settling": true,
+    "a7_sleep_wake": true,
+    "a7_batch_insert_no_stall": true,
+    "a7_query_step_concurrency": true,
+    "a7_contact_bounded_drain": true,
+    "a7_sync_budget_reset_saturation": true,
+    "audit_no_sys_ref": true,
+    "audit_no_native_type_names": true,
+    "audit_unsafe_allow_whitelist": true,
+    "audit_safety_comments": true
+  },
+  "physics_core_smoke_ok": true,
+  "run_url": "local",
+  "timestamp": "2026-07-31T15:31:31+08:00"
+}

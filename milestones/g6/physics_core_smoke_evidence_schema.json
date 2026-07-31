@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "物理库底座冒烟证据 schema(G6.2,步骤 88;G-G6-3;RFC-0017 §4.A/§4.C)",
+  "description": "ci/physics_core_smoke.py 写 evidence/physics_core_smoke_<ts>.json。纯 host 门(恒跑,无 GPU;Jolt 为 CPU 库):cargo 三档单测(rurix-physics-sys / rurix-physics --no-default-features / rurix-physics default=jolt)exit 0 + RFC-0017 §4.A7 单测清单按测试名关键字在位(固定步确定性/堆叠沉降/睡眠唤醒/批插体不锁死主步/query 与 step 并发/ContactEvent 有界 drain/SyncBudget 重置饱和,缺失即红)+ §4.C4 grep 审计门(rurix-render 与 rurix-physics 非 sys 零 rurix_physics_sys 引用·零原生 Jolt/Rapier 类型名〔JoltPhysics|JPC_|JPH::|rapier3d〕;全仓 src/ 除既有豁免白名单与 rurix-physics-sys 外零新增 unsafe_code = \"allow\";sys crate 每 unsafe 块 // SAFETY: 注释)。无 device 段(纯 host 门,device_section_rc=null)。性能数字(物理步耗时)入 checks 不进硬门(P-09 / RFC-0017 §4.0-5)。镜像 g5/g4 体例。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "milestone",
+    "step",
+    "host_section_pass",
+    "device_section_rc",
+    "checks",
+    "physics_core_smoke_ok",
+    "run_url",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "physics_core_smoke" },
+    "milestone": { "type": "string" },
+    "step": { "type": "integer", "const": 88 },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_rc": { "type": ["integer", "null"] },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sys_tests_pass": { "type": ["boolean", "string"] },
+        "sys_test_count": { "type": ["integer", "boolean", "string"] },
+        "physics_nodefault_tests_pass": { "type": ["boolean", "string"] },
+        "physics_nodefault_test_count": { "type": ["integer", "boolean", "string"] },
+        "physics_default_tests_pass": { "type": ["boolean", "string"] },
+        "physics_default_test_count": { "type": ["integer", "boolean", "string"] },
+        "a7_fixed_step_determinism": { "type": ["boolean", "string"] },
+        "a7_stack_settling": { "type": ["boolean", "string"] },
+        "a7_sleep_wake": { "type": ["boolean", "string"] },
+        "a7_batch_insert_no_stall": { "type": ["boolean", "string"] },
+        "a7_query_step_concurrency": { "type": ["boolean", "string"] },
+        "a7_contact_bounded_drain": { "type": ["boolean", "string"] },
+        "a7_sync_budget_reset_saturation": { "type": ["boolean", "string"] },
+        "audit_no_sys_ref": { "type": ["boolean", "string"] },
+        "audit_no_native_type_names": { "type": ["boolean", "string"] },
+        "audit_unsafe_allow_whitelist": { "type": ["boolean", "string"] },
+        "audit_safety_comments": { "type": ["boolean", "string"] },
+        "step_time_secs": { "type": ["number", "boolean", "string"] }
+      }
+    },
+    "physics_core_smoke_ok": { "type": ["boolean", "string"] },
+    "toolchain_skip": { "type": ["string", "null"] },
+    "dev_env_degrade": { "type": "boolean" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" }
+  }
+}

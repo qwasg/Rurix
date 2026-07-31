@@ -1,0 +1,20 @@
+[package]
+name = "rurix-physics-sys"
+description = "G6.2 物理库底座 FFI 边界(RFC-0017 §4.C):JoltC C API 薄绑定,unsafe 唯一集中地(unsafe-audit/rurix-physics-sys.md,U33 起)。对外只露 safe Rust 类型与 u64 句柄;Jolt + JoltC vendor 内联构建(cmake,上游 commit pin 登记 VENDOR.md)"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[build-dependencies]
+# vendor 内联构建 JoltC + Jolt(I-1 评审裁决:可重现、CI 无外部依赖漂移)
+cmake = "0.1"
+
+# unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6 / RFC-0017 §4.C2):本 crate 是物理 FFI
+# 唯一 unsafe 集中地,块级豁免 `unsafe_code`(注册见 unsafe-audit/rurix-physics-sys.md,
+# U33 起续号),仍强制每个 unsafe 块携 `// SAFETY:` 注释。
+[lints.rust]
+unsafe_code = "allow"
+
+[lints.clippy]
+undocumented_unsafe_blocks = "deny"
