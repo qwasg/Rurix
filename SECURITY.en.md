@@ -4,12 +4,12 @@
 
 ## Supported versions
 
-Rurix is at 0.x (the MVP phase); only the latest release line accepts security fixes. From 1.0 (the first LTS-quality release after open-sourcing) onward, a defined security-support window will be provided.
+Rurix has released 1.0 (tag `v1.0.0`, 2026-07-14); only the latest release line accepts security fixes.
 
 | Version | Security support |
 |---|---|
-| Latest `0.x` / `main` | ✅ |
-| Earlier `0.x` | ❌ |
+| Latest `1.x` / `main` | ✅ |
+| MVP-phase `0.x` | ❌ |
 
 ## Reporting a vulnerability
 

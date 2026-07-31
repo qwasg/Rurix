@@ -16,22 +16,35 @@ Rurix's sole acceptance boundary is `conformance/`, not the PR description.
 
 ## Change tiers (the three-tier gate)
 
-Choose a tier by semantic impact (details in 10 §3):
+Choose a tier by semantic impact (details in 10 §3). Find your row, then act per the "Handled by" column:
 
-- **Direct** — engineering work that does not change the semantic surface (bugfix / refactor / docs / added test coverage). No new clause required.
-- **Mini-RFC** — a small semantic surface, or edits to a rule file (`agents/AGENTS.md`).
-- **Full RFC** — a new language feature / semantic surface / expansion direction. Template: motivation / design / alternatives / diff against the spec / open questions (see [`rfcs/`](rfcs/)).
+| Your change | Tier | Requires | Handled by |
+|---|---|---|---|
+| Doc wording / pure refactor / added test coverage / semantics-preserving bugfix | **Direct** | Green CI | Straight to PR; nothing lands in `rfcs/` |
+| In-spec bugfix / diagnostic-wording policy / internal switches / tool-behavior changes / rule-file (`agents/AGENTS.md`) edits | **Mini-RFC** | **Failing test first** + a one-page proposal | Land [`rfcs/mini-NNNN-*.md`](rfcs/TEMPLATE-MINI-RFC.md) first |
+| New syntax / type-system change / runtime semantics / `unsafe` boundary / FFI ABI / memory-model mapping / stabilization / edition / design-principle change / touching a dead-route | **Full RFC** | RFC merged before implementation + feature gate + tracking issue + spec diff + conformance tests + stabilization report | Land [`rfcs/NNNN-*.md`](rfcs/TEMPLATE-RFC.md) first, then the feature gate |
+| **Tier unclear** | → **round up to stricter** (a self-restraint guideline) | — | an agent may self-classify as Direct and records its rationale |
 
-**When in doubt, round up to stricter**: if the tier is unclear, take the stricter one; do not self-classify as Direct.
+Templates and the proposal intake channel live in [`rfcs/README.md`](rfcs/README.md); the FCP-lite review window (public waiting window, 6-week train, promotion path) is in [`rfcs/README.md`](rfcs/README.md) §3 — advisory, with no required human-approval count; agents may proceed autonomously.
 
-## AI-contribution policy (D-406, in force from day one, for everyone including the owner)
+## AI-contribution policy (D-406, in force from day one; full agent autonomy)
 
-1. **Human-in-the-loop**: AI output must be approved by a human before merge; AI may not sign off on any attribution commitment on its own.
+1. **Full autonomy**: AI agents may autonomously draft / implement / verify / adjudicate / merge / bless / close out / flip statuses. **There is no agent approval gate or human sign-off checkpoint** — the agent is the decision-maker, rules on its own, and records its rationale.
 2. **Provenance**: substantive AI-authored content is tagged `Assisted-by: <tool>:<model>`; the commit message states the scope of impact and how it was verified.
 3. **Anti-extractive contribution**: do not push the verification cost onto reviewers with a "submit first, sort it out later" approach.
-4. **Off-limits**: AI may not define or modify UB clauses, memory-model mappings, FFI ABIs, or safety-envelope boundaries — those may only be written by a human via Full RFC.
+4. **High-sensitivity surfaces**: AI agents may autonomously draft, implement, and merge UB clauses, memory-model mappings, FFI ABIs, and safety-envelope boundaries — via a Full RFC as the record-and-traceability mechanism, with no separate approval required.
 
-> After open-sourcing, CI will automatically block PRs that lack provenance / verification output / a clause number.
+> After open-sourcing, CI automatically blocks PRs that lack provenance / verification output / a clause number — enforced by [`ci/check_contribution.py`](ci/check_contribution.py) in the PR Smoke guard step (10 §7 first-year roadmap landed).
+
+### PR self-check (`ci/check_contribution.py` blocking items)
+
+`ci/check_contribution.py` scans every non-merge commit in the PR range (`base..HEAD`); any of the three missing items turns CI red — self-check before submitting:
+
+1. **Provenance**: every commit carries one of the provenance trailers (D-406 / hard rule 2): `Assisted-by: <tool>:<model>` (machine-readable colon form) / `Assisted-by: <name> (<model>)` (human parenthetical form, semantically mapped as tool=claude-code, e.g. `Assisted-by: Claude (Fable 5)`) / `Co-Authored-By:`.
+2. **Clause number**: a commit touching `src/**/*.rs` or `spec/**/*.md` cites a clause number in the commit body / an added `//@ spec: RXS-####` comment line / an associated `rfcs/*.md` (or a deferred/RFC number; pure-docs / pure-tests commits are exempt, hard rule 7).
+3. **Mandatory verification**: a commit with functional changes in `src/` carries a verification marker in its body (`Validation:` / `验证:` / a reference to `ci/*.py` / a `cargo test` command; numbers must come from command output, hard rules 3/10).
+
+Local self-check: `py -3 ci/check_contribution.py` (PASS = exit 0 / blocking = non-zero exit).
 
 ## `unsafe` discipline
 

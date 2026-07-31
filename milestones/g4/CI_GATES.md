@@ -1,6 +1,6 @@
 # G4 CI 门禁增量
 
-> 所属契约:[G4_CONTRACT.md](G4_CONTRACT.md)(status active,2026-07-23 开工)
+> 所属契约:[G4_CONTRACT.md](G4_CONTRACT.md)(status closed:2026-07-23 开工→2026-07-24 close-out 终审签署,§8.8;`g4-closed`)
 > 版本:v1.0(2026-07-23)
 > 基线:[../m0/CI_GATES.md](../m0/CI_GATES.md) ~ [../ei1/CI_GATES.md](../ei1/CI_GATES.md)(全部沿用);本文只规定 G4 期的**增量**。
 > 铁律不变:任何新增门禁必须在真实 PR 上以真实失败/通过路径验证过(反 YAML-only)。

@@ -23,9 +23,9 @@ CUDA 优先、Windows 原生、NVIDIA 单栈做深;三后端产出 PTX(运行时
 
 完整论证见 [`01_VISION_AND_MISSION.md`](01_VISION_AND_MISSION.md) 与 [`03_POSITIONING_AND_LANDSCAPE.md`](03_POSITIONING_AND_LANDSCAPE.md)。
 
-## 项目状态:语言 1.0 已发行(`v1.0.0`),使命判据第一期 + 多后端第一期落地(`mb1-closed`)
+## 项目状态:语言 1.0 已发行(`v1.0.0`),分发与门面期落地(`ea1-closed`),G5 原生渲染器期收口、G6 渲染物理双轨期计划定稿待立项
 
-第一层全量验收(01 §6)已达成,使命判据第一期(11 §6)已落地——首个以 Rurix 为主语言的生产级渲染器/仿真系统(第一方);多后端新纪元第一期(MB1)亦已收口。从 MVP 到 1.0 再到使命期与多后端期,14 个里程碑契约全部按验收门收口;性能与诊断预算全程 `measured_local`(零 estimated),预设资源生命周期错误类别 100% 编译期拦截:
+第一层全量验收(01 §6)已达成,使命判据第一期(11 §6)已落地——首个以 Rurix 为主语言的生产级渲染器/仿真系统(第一方);多后端新纪元第一期(MB1)、工业渲染期(G3)、引擎集成期(EI1)、引擎渲染期(G4)、分发与门面期(EA1)、原生渲染器期(G5)相继收口。从 MVP 到 1.0 再到使命期/多后端期/渲染主线,19 个里程碑契约全部按验收门收口;性能与诊断预算全程 `measured_local`(零 estimated),预设资源生命周期错误类别 100% 编译期拦截:
 
 | 阶段 | 收口 | 交付 |
 |---|---|---|
@@ -35,6 +35,11 @@ CUDA 优先、Windows 原生、NVIDIA 单栈做深;三后端产出 PTX(运行时
 | V1 | 2026-07-14 `v1-closed` | 语言 1.0 首个 stable 发行(tag `v1.0.0`):stabilization report、FCP-lite 公示、stable channel 清单(rurixup)、首个 GitHub Release |
 | MS1 | 2026-07-15 `ms1-closed` | `std::gpu` 单源宿主编排(单源 `.rx` → 单 EXE)+ 首个全 `.rx` 应用 ruridrop(UC-07) |
 | MB1 | 2026-07-16 `mb1-closed` | 单一 Vulkan/SPIR-V 跨端后端(RFC-0011;AMD 桌面 + Android,compute+graphics;Android 真机 on-device measured;AMD 真卡尾门 G-MB1-6 诚实维持 open 待硬件;preview、feature 默认关闭) |
+| G3 | 2026-07-19 `g3-closed` | 工业渲染期:RD-027 毒径归因闸门 + 五特性面全量落地(采样超集 / bindless / render graph 自动 barrier / UC-04 窗口 present / mesh-task-RT 双后端) |
+| EI1 | 2026-07-23 `ei1-closed` | 引擎集成期:UC-05 最小 RHI + render graph 核心(U5 旗舰用例)+ RD-009 `#[export(c)]` C ABI 导出 codegen 与内建头文件生成(D-113) |
+| G4 | 2026-07-24 `g4-closed` | 引擎渲染期:图形 RHI 化 raster/mesh 库面 + 自动 barrier + engine_host v3 嵌入 + `.rx` 单源 Vulkan RHI 通道 + BLACKHOLE 生产档验收(RD-036 open 存续) |
+| EA1 | 2026-07-28 `ea1-closed` | 分发与门面期:rurixup 真实分发(RD-025 兑现)+ 预编译工具链 bundle(`v1.0.1-dist` 系列,pre-release)+ 文档门面 + 冷启动验收 |
+| G5 | 2026-07-29 收口(契约 §8.1) | 原生渲染器期:声明式 render graph(`rurix-render`)+ RHI 图形派发桥 + 虚拟化几何(meshlet/GPU 两级剔除/VisBuffer)+ VSM 阴影 + 屏幕探针 GI + 光追效果 + 材质流送 + 时域重建(TAA/TSR);UC-06 全管线 demo device 真跑(P3+ 长线项登记 RD-037+ 存续,RD-038 分波兑现推进) |
 
 旗舰用例与关键交付(全部端到端真机验收):
 
@@ -67,6 +72,10 @@ CUDA 优先、Windows 原生、NVIDIA 单栈做深;三后端产出 PTX(运行时
 | `src/image-io` · `src/soft-raster` | 图像 I/O · 软光栅 host CPU 参考库(与 device kernel 数值语义同义) |
 | `src/uc02-demo` · `src/uc03-demo` · `src/uc04-demo` | 旗舰用例演示 |
 | `apps/ruridrop` | UC-07 全 `.rx` 应用(渲染器/仿真二合一;非 Cargo crate,声明式 `rurix.toml` 包,零 .rs) |
+| `src/rurix-android-present` | Android on-device present 胶水(MB1;零-Java NativeActivity cdylib 壳,桌面编译为空 lib) |
+| `src/rurix-render` | 原生引擎渲染器库(G5:声明式 render graph / 虚拟化几何 / VSM / 探针 GI / 光追效果 / 材质流送 / 时域重建;渲染器是库不进语言) |
+| `src/rurix-geom-build` | 离线几何构建器(G5:网格 → meshlet 化 → 分组简化层级 DAG + CPU 参照剔除器,host 纯 safe 确定性) |
+| `apps/uc06-renderer` | UC-06 全管线 demo(G5:剔除 → VisBuffer → 延迟着色 → GI/VSM/RTAO → TAA/TSR → headless readback 像素断言) |
 
 ## 上手
 
@@ -93,7 +102,7 @@ cargo run -p rx -- doc --root . --out target/doc   # 生成文档站
 
 Rurix 从第一天把治理内建为产品力(AI 时代语言基础设施,见 [`10_GOVERNANCE.md`](10_GOVERNANCE.md)):
 
-- **规范 ↔ 测试 ↔ PR 三角**:每条 RXS 规范条款 ≥1 测试锚定(`ci/trace_matrix.py`,当前 195/195)。
+- **规范 ↔ 测试 ↔ PR 三角**:每条 RXS 规范条款 ≥1 测试锚定(`ci/trace_matrix.py`,当前 278/278)。
 - **measured_local 预算**:性能/诊断基线全部真机实测,零 estimated 占位(`ci/budget_eval.py --strict`)。
 - **真实红绿**:每道 CI 门经「构造缺陷 → 红 → 复原 → 绿」验证(反 YAML-only),run URL 归档于 [`evidence/`](evidence/)。
 - **字节级 guardrails**、schema 校验、结构校验、conformance 全绿、UI/MIR/PTX/DXIL golden 与 stable API 快照经 bless。

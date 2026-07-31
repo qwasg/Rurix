@@ -6,7 +6,7 @@
 
 **Rurix** is a standalone, statically compiled GPU systems-programming language and toolchain. It promotes *resource ownership, address spaces, and the parallel execution hierarchy* to first-class citizens of the type system, so graphics and GPU-compute programs gain **statically provable safety, predictable performance, and a governable long-term ecosystem** — without giving up CUDA-level low-level control.
 
-CUDA-first, Windows-native, single-stack NVIDIA done deep: the backend emits PTX, and the runtime talks directly to the CUDA Driver API.
+CUDA-first, Windows-native, single-stack NVIDIA done deep: three backends emit PTX (the runtime talks directly to the CUDA Driver API), DXIL (a native D3D12 graphics runtime), and SPIR-V (the single Vulkan/SPIR-V cross-vendor backend since MB1 — AMD desktop + Android, compute + graphics; preview, behind a default-off feature flag).
 
 > **Language note:** the in-depth design dossier (`01`–`14`), the testable specification (`spec/`), and the milestone contracts are currently Chinese-only. For English readers, [`OVERVIEW.en.md`](OVERVIEW.en.md) distills the whole dossier into a single page, and the [`guide/`](guide/README.en.md) tutorial is available in English. This page, plus [`OVERVIEW.en.md`](OVERVIEW.en.md), [`CONTRIBUTING.en.md`](CONTRIBUTING.en.md), [`SECURITY.en.md`](SECURITY.en.md), and [`CODE_OF_CONDUCT.en.md`](CODE_OF_CONDUCT.en.md), are the English entry points. Contributions that translate more of the corpus are welcome (see *Contributing* below).
 
@@ -25,13 +25,15 @@ CUDA-first, Windows-native, single-stack NVIDIA done deep: the backend emits PTX
 
 The full argument lives in [`01_VISION_AND_MISSION.md`](01_VISION_AND_MISSION.md) and [`03_POSITIONING_AND_LANDSCAPE.md`](03_POSITIONING_AND_LANDSCAPE.md) (Chinese).
 
-## Project status: language 1.0 released (`v1.0.0`); mission stage 1 + multi-backend stage 1 closed (baseline `mb1-closed`)
+## Project status: language 1.0 released (`v1.0.0`); distribution phase landed (`ea1-closed`); G5 native-renderer phase closed, G6 (rendering + physics dual track) planned and awaiting formal kickoff
 
 The first-layer full acceptance (01 §6) is met. The three flagship use cases run end-to-end on real hardware, performance criteria are satisfied, the resource-lifetime error classes are 100% intercepted at compile time, and every budget threshold is `measured_local` (zero `estimated`):
 
 - **UC-01 — PyTorch operator replacement**: `rx build --emit=pyd` produces a PYD (nanobind + scikit-build-core), zero-copy-bridged into PyTorch CUDA tensors over both `__cuda_array_interface__` v3 and DLPack; SAXPY/Reduction/GEMM operator replacements reach **≥ 90% of hand-written CUDA C++** (measured_local).
 - **UC-02 — three-stream overlapped pipeline**: affine Context/Stream/Event/Buffer + cross-thread ownership transfer + typed stream-ordered allocation; the four resource-lifetime error classes (use-after-free / double-free / cross-thread / cross-stream-unsynchronized) are **intercepted at compile time**.
 - **UC-03 — SPH simulation + compute soft rasterizer**: a single executable — particle update + spatial hashing + rasterization kernels + host frame loop — producing deterministic images.
+- **UC-04 — deferred renderer (D3D12)**: the DXIL second backend (D-131 hybrid: compute via a direct minimal-subset DXIL channel, graphics via a SPIR-V→HLSL→dxc validation bridge) + binding-layout derivation (root signature RTS0) + multi-pass orchestration with anchored barriers; the lighting pass truly samples the G-buffer, accepted on real hardware via off-screen readback pixel comparison.
+- **UC-07 — ruridrop, an all-`.rx` application**: `std::gpu` single-source host orchestration (one `.rx` entry → one EXE with embedded PTX+cubin); a GPU SPH dam-break simulation + sphere ray tracing, where the offline path-traced PPM and the realtime D3D12 present share the same kernel core; GPU frames match a CPU replay golden **byte-for-byte** (CI smoke tier); ~68 fps realtime at 1280×720 / 131k particles (measured_local).
 - **cublas binding package**: three-layer GEMM/GEMV bindings (raw FFI / safe wrapper / high-level API).
 - **Release pipeline**: rurixup (stable-channel manifest) + an Authenticode sign/verify release gate (currently a **self-signed test certificate**; the of-record production backend is Azure Artifact Signing behind a secret-gated manual step) + SBOM (SPDX/CycloneDX) + NVIDIA redistribution-whitelist audit.
 - **Bilingual diagnostics with full coverage** (Chinese/English) + **documentation site** (`rx doc`).
@@ -39,6 +41,8 @@ The first-layer full acceptance (01 §6) is met. The three flagship use cases ru
 **Since the MVP, the G1 and G2 phases have both closed.** **G1** (`g1-closed`, PR #77): CUDA–D3D12 interop with real-time windowed present (RFC-0001), stream-ordered `AsyncBuffer` allocation (MR-0001), a first engine integration via a Rurix C-ABI DLL embedded in a C++/D3D12 harness (MR-0002), open-source community infrastructure plus a `geometry` crate (MR-0003/0004), and production fatbin distribution (MR-0005). **G2** (`g2-closed`, PR #117): the shader-stage type surface (RFC-0002, RXS-0153–0156), a DXIL backend (D-131 adjudicated = **hybrid**: compute via direct LLVM-DirectX emit / graphics via SPIR-V→DXIL), binding-layout derivation, a UC-04 deferred renderer + texture sampling (RFC-0006/0007), and a stable API + edition (RFC-0008, RD-008). Separately, an out-of-tree **GRX showcase** — a Godot 4.7-dev D3D12 integration/demo spike (**not a core-roadmap milestone**) — reached gated, opt-in, *measured* real-D3D12-dispatch compute passes with pixel-exact LDR parity (`max_abs = 0`); honest ceiling: **default-disabled / fallback-only, no performance claim, Amdahl 1.0669× hard ceiling**.
 
 **Since then, three more phases have closed.** **V1** (`v1-closed`, 2026-07-14): the first stable release of the language — tag `v1.0.0`, stabilization report, FCP-lite notice, stable-channel manifest (rurixup), and the first GitHub Release. **MS1** (`ms1-closed`, 2026-07-15): single-source host GPU orchestration (`std::gpu`, RFC-0009 — one `.rx` source produces one EXE with embedded PTX) and **ruridrop**, the first production-grade renderer/simulation written with Rurix as its primary language (application layer contains zero `.rs`; GPU frames match a CPU replay golden **byte-for-byte** in the CI smoke tier; ~68 fps realtime at 1280×720 / 131k particles, measured_local). **MB1** (`mb1-closed`, 2026-07-16): a single Vulkan/SPIR-V cross-platform backend (RFC-0011) covering AMD desktop + Android, compute + graphics; Android on-device runs are **measured on real hardware** (compute bit-exact across three vendors, windowed present + validation-clean); the AMD real-card gate (G-MB1-6) honestly stays **open pending hardware**, and the backend ships as a **preview behind a default-off feature flag** — no cross-vendor performance claim.
+
+**Since then, five more phases have closed.** **G3** (`g3-closed`, 2026-07-19): the industrial-rendering phase — the RD-027 poison-path attribution gate plus the full five-feature surface (sampling superset / bindless / render-graph automatic barriers / UC-04 windowed present / mesh-task-RT dual backends). **EI1** (`ei1-closed`, 2026-07-23): the engine-integration phase — UC-05 minimal RHI + render-graph core (the U5 flagship use case) and RD-009 `#[export(c)]` C-ABI export codegen with built-in header generation (D-113). **G4** (`g4-closed`, 2026-07-24): the engine-rendering phase — a graphics RHI raster/mesh library surface + automatic barriers + engine_host v3 embedding + a single-source `.rx` Vulkan RHI channel + BLACKHOLE production-tier acceptance (RD-036 stays open). **EA1** (`ea1-closed`, 2026-07-28): the distribution & storefront phase — real rurixup distribution (RD-025 redeemed) + prebuilt toolchain bundles (the `v1.0.1-dist` series, pre-release) + the documentation storefront + cold-start acceptance. **G5** (closed per contract §8.1, 2026-07-29): the native-renderer phase — a declarative render graph (`rurix-render`), an RHI graphics dispatch bridge, virtualized geometry (meshlets / two-level GPU culling / VisBuffer), VSM shadows, screen-probe GI, ray-traced effects, material streaming, and temporal reconstruction (TAA/TSR), with the UC-06 full-pipeline demo running on device (P3+ long-tail items registered as RD-037+; RD-038 wave redemption in progress).
 
 > Stable-API snapshot freeze has been **active since the 1.0 release** ([`RD-008`](registry/deferred.json) closed): the stable surface (spec clause IDs + error-code meanings + edition values + the `rx` CLI command set) is anchored by snapshot comparison with bless-gated approval — additive-only within an edition; breaking changes require a new edition.
 
@@ -48,13 +52,22 @@ The first-layer full acceptance (01 §6) is met. The three flagship use cases ru
 |---|---|
 | `src/rurixc` | Compiler (frontend + MIR + NVPTX/DXIL/SPIR-V backends + borrow/resource checks + formatter + LSP session) |
 | `src/rurix-rt` | Runtime (CUDA Driver API bindings, execution resources) |
-| `src/rx` | Toolchain CLI (`build`/`check`/`run`/`fmt`/`bench`/`test`/`doc`/`watch`/`vendor`) |
+| `src/rurix-rt-cabi` | Host-orchestration C-ABI runtime boundary (`rxrt_*`/`rxp_*`/`rxio_*`: single-source `.rx` apps ↔ the runtime — fatbin loading / launch / present / image dump) |
+| `src/rx` | Toolchain CLI (`build`/`check`/`run`/`fmt`/`bench`/`test`/`doc`/`vendor`) |
 | `src/rurix-pkg` | Package management (lockfile + vendor + checksum) |
 | `src/rurix-interop` | PyTorch interop (PYD / `__cuda_array_interface__` / DLPack boundary) |
 | `src/rurix-cublas` | cublas v2 binding package |
 | `src/rurixup` | Installer / bootstrapper (release pipeline) |
+| `src/rurix-d3d12` | D3D12/DXGI present shim (the CUDA–D3D12 interop realtime-present boundary) |
+| `src/rurix-engine` | Engine-integration DLL (C-ABI cdylib; embedded in C++/D3D12 hosts to run compute passes) |
+| `src/rurix-geometry` | Geometry library (mesh/BVH, zero-dependency, all-safe) |
+| `src/rurix-android-present` | Android on-device present glue (MB1; zero-Java NativeActivity cdylib shell, compiles to an empty lib on desktop) |
+| `src/rurix-render` | Native engine renderer library (G5: declarative render graph / virtualized geometry / VSM / probe GI / ray-traced effects / material streaming / temporal reconstruction; the renderer is a library, not part of the language) |
+| `src/rurix-geom-build` | Offline geometry builder (G5: mesh → meshletization → grouped-and-simplified hierarchical DAG + a CPU reference culler; deterministic all-safe host code) |
 | `src/image-io` · `src/soft-raster` | Image I/O · compute soft-rasterizer library |
-| `src/uc02-demo` · `src/uc03-demo` | Flagship use-case demos |
+| `src/uc02-demo` · `src/uc03-demo` · `src/uc04-demo` | Flagship use-case demos |
+| `apps/uc06-renderer` | UC-06 full-pipeline demo (G5: culling → VisBuffer → deferred shading → GI/VSM/RTAO → TAA/TSR → headless readback pixel assertions) |
+| `apps/ruridrop` | UC-07 all-`.rx` application (renderer/simulation in one; not a Cargo crate — a declarative `rurix.toml` package, zero `.rs`) |
 
 ## Getting started
 
@@ -65,8 +78,8 @@ The first-layer full acceptance (01 §6) is met. The three flagship use cases ru
 cargo build --workspace
 
 # Use the rx toolchain
-cargo run -p rx -- build <manifest>      # compile (emit PTX / PYD)
-cargo run -p rx -- check <manifest>      # check only (borrow / resource / type)
+cargo run -p rx -- build <input.rx>      # compile (produces a host EXE; --emit=ptx / pyd etc.)
+cargo run -p rx -- check <input.rx>      # check only (borrow / resource / type)
 cargo run -p rx -- bench saxpy           # microbenchmark (BENCH_PROTOCOL sampling)
 cargo run -p rx -- doc --root . --out target/doc   # generate the documentation site
 ```
@@ -79,7 +92,7 @@ The documentation site (`rx doc`) is generated deterministically from a single s
 
 Rurix builds governance in as a product capability from day one (language infrastructure for the AI era; see [`10_GOVERNANCE.md`](10_GOVERNANCE.md)):
 
-- **Spec ↔ test ↔ PR triangle**: every RXS spec clause is anchored by ≥1 test (`ci/trace_matrix.py`).
+- **Spec ↔ test ↔ PR triangle**: every RXS spec clause is anchored by ≥1 test (`ci/trace_matrix.py`, currently 278/278).
 - **measured_local budgets**: all performance/diagnostics baselines are measured on real hardware, with zero `estimated` placeholders (`ci/budget_eval.py --strict`).
 - **Real red-green**: every CI gate is validated by "introduce a defect → red → restore → green" (anti-YAML-only), with run URLs archived in [`evidence/`](evidence/).
 - **Byte-level guardrails**, schema validation, structure validation, all-green conformance, and blessed UI/MIR/PTX goldens.
