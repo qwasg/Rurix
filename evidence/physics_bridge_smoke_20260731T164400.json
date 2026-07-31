@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "subject": "physics_bridge_smoke",
+  "milestone": "G6.3 / G-G6-4 (RFC-0017 §4.B)",
+  "step": 89,
+  "host_section_pass": false,
+  "device_section_rc": 1,
+  "checks": {
+    "physics_default_tests_pass": true,
+    "physics_default_test_count": 54,
+    "physics_nodefault_tests_pass": true,
+    "physics_nodefault_test_count": 41,
+    "bridge_test_one_way_sync": true,
+    "bridge_test_sleeping_zero_write": true,
+    "bridge_test_budget_truncation": true,
+    "bridge_test_flush_dirty_ranges": true,
+    "bridge_test_motion_hint": true,
+    "bridge_test_streaming_receipt": true,
+    "bridge_test_unload_race": true,
+    "audit_render_no_physics_backref": true,
+    "audit_render_no_native_physics": true,
+    "audit_bridge_no_as_api": true,
+    "audit_receipt_type_discipline": false
+  },
+  "physics_bridge_smoke_ok": false,
+  "toolchain_skip": null,
+  "dev_env_degrade": false,
+  "run_url": "local",
+  "timestamp": "2026-07-31T16:44:00+08:00"
+}

@@ -1,6 +1,6 @@
 # G6_PLAN — 渲染物理双轨架构与主线分解
 
-> **状态**:**active**(G6.1 治理包已开工,2026-07-30)——契约 [G6_CONTRACT.md](G6_CONTRACT.md) · 门 [CI_GATES.md](CI_GATES.md) · 预算 g6_budget.json 空壳 · 编号 claim `number_ledger` v1.28 `reserved_in_flight[G6]`。本文升格为 G6 契约上游事实源(G6_CONTRACT upstream_docs 首条)。
+> **状态**:**active**(G6.3 已完成 2026-07-31:G-G6-4 合流门 + G-G6-7 demo 门绿——合流桥(`src/rurix-physics/src/bridge/`:单向同步/SyncBudget/MV 提示/流送 RemovalReceipt)+ `apps/uc08-physics` demo + CI 步骤 89/91 全量落地;sys 混批重排缺陷随波修复;下一波 G6.4 Rapier 快路径)——契约 [G6_CONTRACT.md](G6_CONTRACT.md) · 门 [CI_GATES.md](CI_GATES.md) · 预算 g6_budget.json 空壳 · 编号 claim `number_ledger` v1.28 `reserved_in_flight[G6]`(v1.29:RFC-0017 已 materialize,RFC on_tree_max 17 / next_free 18 校准;v1.30:U33~U42 已 materialize,U on_tree_max 42 / next_free 43 校准;v1.31:CI 步骤 88/89/91 已 materialize,CI_step on_tree_max 91 / next_free 92 校准,90 维持 G6.4 拟分配)。本文升格为 G6 契约上游事实源(G6_CONTRACT upstream_docs 首条)。
 >
 > **上游**:G5 closed([G5_CONTRACT.md](../g5/G5_CONTRACT.md) · [G5_PLAN.md](../g5/G5_PLAN.md) · [RFC-0016](../../rfcs/0016-native-renderer.md)) · 物理选型调研(会话调研 + Cursor canvas `physics-engine-match`) · 仓内后端纪律([`src/rurix-rt/src/backend.rs`](../../src/rurix-rt/src/backend.rs))
 >
@@ -85,16 +85,16 @@ G6.5 Taichi AOT(可选) ──► external import 粒子/体积场 ──► gra
 - 落盘本文件;择优裁决与双轨架构冻结为后续开工输入。
 - **不**立 CONTRACT / CI_GATES / `g6_budget.json` / ledger claim;编号空间不占用。
 
-### G6.1 治理包 + RFC · **开工(治理包已落,2026-07-30;RFC 在途)**
+### G6.1 治理包 + RFC · **已完成(2026-07-31:RFC-0017 Agent Approved)**
 
 对齐 G5.0/G5.1 体例:
 
 - 契约四件套:`G6_CONTRACT.md` / 本 PLAN(升格引用) / `CI_GATES.md` / `g6_budget.json` 空壳。**已落(2026-07-30)**。
 - `number_ledger` `reserved_in_flight[G6]` claim(v1.28:RFC-0017 / 步骤 88 起 / RD-042 起 / U33 起,以开工时 ledger 实际 `next_free` 校准)。**已落**。
-- RFC:物理库边界 + 同步契约 + FFI/unsafe 纪律(判档争议向上取严;预期零新语言语义条款——物理为引擎库,同 06 §8.3 / RFC-0016 口径)。
-- D-409 对抗性评审 → Agent Approved 先于实现 PR。
+- RFC:**已落(2026-07-31)**——[RFC-0017](../../rfcs/0017-engine-physics.md) 伞形五章(A 物理库边界 / B 渲染同步契约 / C FFI 与 unsafe 纪律〔R-G6-1:自维护 JoltC FFI〕/ D Rapier 快路径 / E Taichi Vulkan AOT 副轨;预期零新语言语义条款,同 06 §8.3 / RFC-0016 口径)。
+- D-409 对抗性评审 → Agent Approved 先于实现 PR:**已完成(2026-07-31)**——评审 provenance `kimi-cli:kimi-for-coding` 独立实例 ≠ 起草 `Kimi Code CLI (Kimi)`(首选 claude 403 不可得,跨工具/同模型族偏差如实登记 RFC-0017 §9.1 环境留痕,RFC-0015 先例),17 findings 全部采纳并修;§2 冻结接口草案经 RFC Approved 字面冻结(实现 PR 不得漂移,修订点以 RFC §9.1 disposition 为准)。
 
-### G6.2 物理库底座(`rurix-physics`)
+### G6.2 物理库底座(`rurix-physics`)· **已完成(2026-07-31:G-G6-3 物理底座门绿,CI 步骤 88 恒跑 PASS)**
 
 | 面 | 内容 | 主要落点 |
 |---|---|---|
@@ -106,7 +106,7 @@ G6.5 Taichi AOT(可选) ──► external import 粒子/体积场 ──► gra
 
 集成门(拟定,正式门编号随 G6.1 契约落):workspace 绿 + Jolt 路径固定步确定性烟测(同输入同输出,平台内)。
 
-### G6.3 与渲染合流
+### G6.3 与渲染合流 · **已完成(2026-07-31:G-G6-4 合流门 + G-G6-7 demo 门绿,CI 步骤 89/91 落地)**
 
 | 面 | 内容 | 主要落点 |
 |---|---|---|
@@ -117,6 +117,13 @@ G6.5 Taichi AOT(可选) ──► external import 粒子/体积场 ──► gra
 | D | demo:扩展 `uc06-renderer` 或新 `uc0x-physics`——刚体场景 + 既有 VisBuffer/GI/VSM/TAA 管线真跑 | `apps/` |
 
 集成门(拟定):host 恒跑同步正确性 + device gate real(Vulkan)像素/变换非平凡断言 + 既有 G5 步骤 82+ 零回归。
+
+**实施留痕(2026-07-31)**:
+
+- **合流桥** `src/rurix-physics/src/bridge/`:`compose_transform_3x4` / `PhysicsBridge`(sync_frame 单向写 GpuScene、SyncBudget 截断、motion_hints 动态体 MV 提示、dirty_instances 供 AS 脏信号)+ `StreamingBridge`(insert_page/remove_page + `RemovalReceipt` 移动语义凭据,先卸 body 再放页,编译期不可伪造);`tests/bridge.rs` 七项行为测试全绿(one_way_sync_writes_active_dynamic_only / sleeping_body_zero_write_zero_mv / budget_truncation_deterministic / flush_dirty_ranges_match_dirty_instances / motion_hint_tracks_prev_cur / streaming_insert_on_residency_and_remove_receipt / unload_race_injection_no_dangling)。
+- **sys 缺陷修复**(实施期发现):`src/rurix-physics-sys/src/world.rs` 批插入在 >32 体混 broadphase 层批下被 Jolt `AddBodiesPrepare` 内部 QuickSort 非稳定重排(≤32 回退插入排序恒等,故 G6.2 未暴露),返回序/kind 登记/激活三错位;修复 = prepare 前快照 `ids_orig` 三处按原始序配对;回归测试 `mixed_layer_batch_insert_order_preserved`(35 体混批)先红后绿;零新增 unsafe,SAFETY 注释增强。
+- **合流 demo** `apps/uc08-physics`(RFC-0017 Q-D 定名,UC-07 已被 ruridrop 占用):地面 + 5 动态立方体落堆(60 帧入睡)+ 远场景第 6 立方体流送剧本(帧 10 驻留沿批插/帧 29 卸载 receipt 放页);host 15-pass 管线(VisBuffer/GI/VSM/TAA 全跑)新增 physics/bridge_sync/mv 阶段;16 断言全绿(物理步 measured 8.05ms/96 步、transform_landed max_err 5.5e-5、MV 动态区 0.01224 vs 睡眠后 3.4e-6、TLAS rebuild 61 次/BLAS 零 refit);device 腿 RURIX_REQUIRE_REAL=1 真跑 exit 0(RTX 4070 Ti,changed_pixels=168);cargo test 11 绿;clippy/fmt 绿。
+- **CI 步骤**:89 `ci/physics_bridge_smoke.py`(门 G-G6-4)+ 91 `ci/uc08_physics_smoke.py`(门 G-G6-7)落地,evidence 落 `evidence/physics_bridge_smoke_*.json` / `evidence/uc08_physics_smoke_*.json` 过 `ci/check_schemas.py`;uc06-renderer 0-byte(G5 步骤 82~87 零回归)。
 
 ### G6.4 Rapier 快路径
 
@@ -210,3 +217,6 @@ G6.5 Taichi AOT(可选) ──► external import 粒子/体积场 ──► gra
 |---|---|---|
 | v1.0 | 2026-07-30 | 初版(G6.0 计划定稿):多项择优锁定 Jolt 主物理 / Rapier 快路径 / Taichi Vulkan AOT 特效副轨 / Newton 系研究隔离;双轨架构与 G5 GpuScene·streaming·temporal 合流;波次 G6.0–G6.6;冻结接口草案;治理包未开工、编号未 claim |
 | v1.1 | 2026-07-30 | G6.1 治理包开工升格(owner 同日会话立项指令):状态行翻 active + 契约四件套/ledger v1.28 claim 已落标注;§1 G6.0/G6.1 波次状态刷新;§0/§2/§3/§4 既有裁决与冻结接口草案 0-byte 不动 |
+| v1.2 | 2026-07-31 | G6.1 完成(agent 完全自主 D-406 v2.0,Assisted-by: Kimi Code CLI (Kimi)):RFC-0017 伞形五章 Draft → D-409 第 1 轮对抗性评审(评审 provenance `kimi-cli:kimi-for-coding` 独立实例 ≠ 起草 `Kimi Code CLI (Kimi)`;claude 403 环境留痕,RFC-0015 先例)→ **Agent Approved 2026-07-31**(17 findings 全部采纳并修);状态行 + §1 G6.1 波次状态翻「已完成」,§2 冻结接口草案经 RFC Approved 字面冻结(实现期修订点以 RFC §9.1 disposition 为准);number_ledger v1.29 校准(RFC on_tree_max 17 / next_free 18)+ rfcs/README §5 台账行追加同步;§0/§2/§3/§4 既有裁决与冻结接口条文 0-byte 不动 |
+| v1.3 | 2026-07-31 | G6.2 完成(agent 完全自主蜂群实施):`src/rurix-physics`(safe API:PhysicsWorld 固定步/BodyId·ShapeId generation arena/批插/并发查询规范序/ContactEvent 归一化有界 ring/SyncBudget)+ `src/rurix-physics-sys`(JoltC `29820043`+Jolt 5.3.0 `0373ec0d` vendor 内联 cmake 构建,unsafe-audit U33~U42,缺口处置 C-3 (c) 五处登记 VENDOR.md §3 + RFC-0017 §9.1 留痕)全量落地;A7 行为测试 7 项(确定性 N=100 逐位〔job_threads=1 钉住,MT 实测亦逐位不冻结〕/堆叠沉降/睡眠唤醒/批插不锁死主步〔阈值 16.667ms 标定〕/query 与 step 并发/ContactEvent 有界 drain/SyncBudget 饱和)全绿;CI 步骤 88 `ci/physics_core_smoke.py` host 恒跑全绿(cargo 三档 6/31/36 + §4.C4 审计四项)+ evidence;RFC-0017 v1.2 修订行(§4.C4 grep 门自相矛盾收窄:sys 消费收敛 world.rs 单模块,契约层判据 0-byte);number_ledger v1.30 校准(U on_tree_max 42 / next_free 43);全 workspace build/clippy/test 绿(1137 passed 零回归);§0/§2/§3/§4 既有裁决与冻结接口条文 0-byte 不动 |
+| v1.4 | 2026-07-31 | G6.3 完成(agent 完全自主蜂群实施):合流桥 `src/rurix-physics/src/bridge/` 落地——`compose_transform_3x4`/`PhysicsBridge`(sync_frame 单向写 GpuScene/SyncBudget 截断/motion_hints 动态体 MV 提示/dirty_instances 供 AS 脏信号)+ `StreamingBridge`(insert_page/remove_page;`RemovalReceipt` 与 `PageKey` 绑定、移动语义不可 Clone、编译期不可伪造,先卸 body 再放页兑现 R-G6-4 类型纪律),`tests/bridge.rs` 七项行为测试全绿;sys 混批重排缺陷随波修复(实施期发现:Jolt `AddBodiesPrepare` 内部 QuickSort 在 >32 体混 broadphase 层批下非稳定重排致返回序/kind 登记/激活三错位,≤32 回退插入排序恒等故 G6.2 未暴露;修复 = prepare 前快照 `ids_orig` 三处按原始序配对,零新增 unsafe,SAFETY 注释增强;回归测试 `mixed_layer_batch_insert_order_preserved` 35 体混批先红后绿);合流 demo `apps/uc08-physics`(RFC-0017 Q-D 定名,UC-07 已被 ruridrop 占用)落地——host 15-pass 管线(VisBuffer/GI/VSM/TAA 全跑)+ physics/bridge_sync/mv 阶段,16 断言全绿(物理步 measured 8.05ms/96 步、transform_landed max_err 5.5e-5、MV 动态区 0.01224 vs 睡眠后 3.4e-6、TLAS rebuild 61 次/BLAS 零 refit),device 腿 RURIX_REQUIRE_REAL=1 真跑 exit 0(RTX 4070 Ti,changed_pixels=168),cargo test 11 绿;CI 步骤 89(`ci/physics_bridge_smoke.py`,G-G6-4)/ 91(`ci/uc08_physics_smoke.py`,G-G6-7)+ evidence schema 两件落地;number_ledger v1.31 校准(CI_step on_tree_max 87→91 / next_free 88→92,90 维持 G6.4 拟分配);RFC-0017 v1.3 修订行(§4.B4 RemovalReceipt 落点解释 + sys 混批缺陷留痕,正文冻结条文 0-byte);全 workspace 绿(cargo fmt --check / clippy --workspace --all-targets -D warnings 零警告 / cargo test --workspace 1166 passed 0 failed〔98 测试二进制;G6.2 基线 1137 + 本波 29〕);uc06-renderer 0-byte;§0/§2/§3/§4 既有裁决与冻结接口条文 0-byte 不动 |

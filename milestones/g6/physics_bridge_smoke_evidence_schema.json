@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "渲染合流桥冒烟证据 schema(G6.3,步骤 89;G-G6-4;RFC-0017 §4.B)",
+  "description": "ci/physics_bridge_smoke.py 写 evidence/physics_bridge_smoke_<ts>.json。host 段恒跑:cargo 两档单测(rurix-physics default=jolt / --no-default-features)exit 0 + §4.B bridge 七行为测试按测试名关键字在位(单向同步只写 active 动态体/睡眠体零写零 MV/预算截断确定性/flush 脏区间==脏实例/motion hint prev-cur 差分/流送驻留批插+卸载 receipt/卸载竞态注入无悬垂,缺失即红)+ §4.B 机器可核面 grep 审计门四项(render 零 rurix_physics/rurix-physics 引用〔§4.B1-1 单向事实源〕·render 零原生 Jolt/Rapier 类型名与 sys crate〔JoltPhysics|JPC_|JPH::|rapier3d|rurix_physics_sys,不持原生指针〕·bridge 零 AS 所有者/时域私写 API〔TlasBuilder|BlasCache|TriBvh|as_manager|DynamicPolicy|temporal,§4.B5 物理只供脏信号/MV 提示〕·RemovalReceipt 类型纪律〔无 pub 构造器/derive 不含 Clone/Copy/remove_page 唯一产出口,§4.B4 先卸 body 再放页〕)。device 段 gate real(device_section_rc 非 null):uc08-physics --features vulkan --device 真跑,device_pixels_nontrivial==true 且 device_motion_pixels_changed==true(物理驱动变换 → readback 像素/运动非平凡;对拍类非 true 永远硬红),缺 Vulkan SKIP=dev-env-degrade 退 0 不充绿,RURIX_REQUIRE_REAL=1 翻硬红。计数数字入 checks 不进硬门(P-09 / RFC-0017 §4.0-5)。镜像步骤 88 体例。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "milestone",
+    "step",
+    "host_section_pass",
+    "device_section_rc",
+    "checks",
+    "physics_bridge_smoke_ok",
+    "run_url",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "physics_bridge_smoke" },
+    "milestone": { "type": "string" },
+    "step": { "type": "integer", "const": 89 },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_rc": { "type": "integer" },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "physics_default_tests_pass": { "type": ["boolean", "string"] },
+        "physics_default_test_count": { "type": ["integer", "boolean", "string"] },
+        "physics_nodefault_tests_pass": { "type": ["boolean", "string"] },
+        "physics_nodefault_test_count": { "type": ["integer", "boolean", "string"] },
+        "bridge_test_one_way_sync": { "type": ["boolean", "string"] },
+        "bridge_test_sleeping_zero_write": { "type": ["boolean", "string"] },
+        "bridge_test_budget_truncation": { "type": ["boolean", "string"] },
+        "bridge_test_flush_dirty_ranges": { "type": ["boolean", "string"] },
+        "bridge_test_motion_hint": { "type": ["boolean", "string"] },
+        "bridge_test_streaming_receipt": { "type": ["boolean", "string"] },
+        "bridge_test_unload_race": { "type": ["boolean", "string"] },
+        "audit_render_no_physics_backref": { "type": ["boolean", "string"] },
+        "audit_render_no_native_physics": { "type": ["boolean", "string"] },
+        "audit_bridge_no_as_api": { "type": ["boolean", "string"] },
+        "audit_receipt_type_discipline": { "type": ["boolean", "string"] },
+        "device_run_pass": { "type": ["boolean", "string"] },
+        "device_name": { "type": ["string", "boolean"] },
+        "device_pixels_a": { "type": ["integer", "boolean", "string"] },
+        "device_pixels_b": { "type": ["integer", "boolean", "string"] },
+        "device_changed_pixels": { "type": ["integer", "boolean", "string"] },
+        "device_pixels_nontrivial": { "type": ["boolean", "string"] },
+        "device_motion_pixels_changed": { "type": ["boolean", "string"] }
+      }
+    },
+    "physics_bridge_smoke_ok": { "type": ["boolean", "string"] },
+    "toolchain_skip": { "type": ["string", "null"] },
+    "dev_env_degrade": { "type": "boolean" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" }
+  }
+}

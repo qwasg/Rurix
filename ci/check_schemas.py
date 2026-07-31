@@ -274,6 +274,15 @@ def check_evidence_files() -> None:
     uc06_renderer_smoke_schema = load(
         ROOT / "milestones/g5/uc06_renderer_smoke_evidence_schema.json"
     )
+    physics_core_smoke_schema = load(
+        ROOT / "milestones/g6/physics_core_smoke_evidence_schema.json"
+    )
+    physics_bridge_smoke_schema = load(
+        ROOT / "milestones/g6/physics_bridge_smoke_evidence_schema.json"
+    )
+    uc08_physics_smoke_schema = load(
+        ROOT / "milestones/g6/uc08_physics_smoke_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -458,6 +467,21 @@ def check_evidence_files() -> None:
     uc06_renderer_smoke_validator = (
         jsonschema.Draft7Validator(uc06_renderer_smoke_schema)
         if uc06_renderer_smoke_schema
+        else None
+    )
+    physics_core_smoke_validator = (
+        jsonschema.Draft7Validator(physics_core_smoke_schema)
+        if physics_core_smoke_schema
+        else None
+    )
+    physics_bridge_smoke_validator = (
+        jsonschema.Draft7Validator(physics_bridge_smoke_schema)
+        if physics_bridge_smoke_schema
+        else None
+    )
+    uc08_physics_smoke_validator = (
+        jsonschema.Draft7Validator(uc08_physics_smoke_schema)
+        if uc08_physics_smoke_schema
         else None
     )
     uc05_check_bench_validator = (
@@ -839,6 +863,40 @@ def check_evidence_files() -> None:
             # + graph alias/fence 结构;device 段 gate real --features vulkan --device 真跑,
             # SKIP=dev-env-degrade,RURIX_REQUIRE_REAL=1 翻硬红)。
             validator = uc06_renderer_smoke_validator
+        elif (
+            f.name.startswith("physics_core_smoke")
+            and physics_core_smoke_validator is not None
+        ):
+            # G6.2 物理库底座冒烟证据(G-G6-3;RFC-0017 §4.A/§4.C)→
+            # milestones/g6/physics_core_smoke_evidence_schema.json(ci/physics_core_smoke.py
+            # 步骤 88 写:纯 host 门,cargo 三档单测 exit 0 + §4.A7 单测清单关键字在位 +
+            # §4.C4 grep 审计门〔零 sys 引用/零原生类型名/unsafe allow 白名单/SAFETY 注释〕;
+            # 性能数字入 checks 不进硬门)。
+            validator = physics_core_smoke_validator
+        elif (
+            f.name.startswith("physics_bridge_smoke")
+            and physics_bridge_smoke_validator is not None
+        ):
+            # G6.3 渲染合流桥冒烟证据(G-G6-4;RFC-0017 §4.B)→
+            # milestones/g6/physics_bridge_smoke_evidence_schema.json(ci/physics_bridge_smoke.py
+            # 步骤 89 写:host 恒跑 cargo 两档单测 exit 0 + bridge 七行为测试关键字在位 +
+            # §4.B 机器可核面审计门四项〔render 零物理回引/零原生类型名、bridge 零 AS·时域
+            # API、RemovalReceipt 类型纪律〕;device 段 gate real uc08 --device 真跑
+            # 〔像素/运动非平凡对拍〕,SKIP=dev-env-degrade,RURIX_REQUIRE_REAL=1 翻硬红)。
+            # 前缀置于 physics_core_smoke 分支之后即可(两前缀互不包含)。
+            validator = physics_bridge_smoke_validator
+        elif (
+            f.name.startswith("uc08_physics_smoke")
+            and uc08_physics_smoke_validator is not None
+        ):
+            # G6.3 UC-08 物理合流 demo 冒烟证据(G-G6-7;RFC-0017 §4.B)→
+            # milestones/g6/uc08_physics_smoke_evidence_schema.json(ci/uc08_physics_smoke.py
+            # 步骤 91 写:host 恒跑 uc08 单测 + 96 帧全跑 JSON 16 断言全 true +
+            # physics_step_ms measured 留证〔P-09 不进硬门〕;device 段 gate real
+            # uc08 --device 真跑〔像素/运动非平凡对拍〕,SKIP=dev-env-degrade,
+            # RURIX_REQUIRE_REAL=1 翻硬红)。前缀须置于任何更通用 uc0 前缀之前
+            # (现路由表无 uc08 通用前缀,本分支位于 uc06/uc07 分支之后安全)。
+            validator = uc08_physics_smoke_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None

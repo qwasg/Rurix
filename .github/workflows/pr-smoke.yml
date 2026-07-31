@@ -869,6 +869,47 @@ jobs:
           RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/uc06_renderer_smoke.py
 
+      # 步骤 88（G-G6-3,RFC-0017 §4.A/§4.C）:物理库底座冒烟。host 段**恒跑**(纯 host 门,无 GPU;
+      # Jolt 为 CPU 库):cargo 三档单测(rurix-physics-sys / rurix-physics --no-default-features /
+      # rurix-physics default=jolt)exit 0 + RFC-0017 §4.A7 单测清单按测试名关键字在位(固定步确定性/
+      # 堆叠沉降/睡眠唤醒/批插体不锁死主步/query 与 step 并发/ContactEvent 有界 drain/SyncBudget
+      # 重置饱和)+ §4.C4 grep 审计门(rurix-render 与 rurix-physics 零 rurix_physics_sys 引用·零原生
+      # Jolt/Rapier 类型名;全仓 src/ 除既有豁免白名单与 rurix-physics-sys 外零新增 unsafe_code =
+      # "allow";sys crate 每 unsafe 块 // SAFETY: 注释)。无 device 段(check_* 风格)。失败即红。
+      - name: physics core smoke (G6 CI_GATES §2.88, G-G6-3, RFC-0017 §4.A/§4.C)
+        shell: powershell
+        run: py -3 ci/physics_core_smoke.py
+
+      # 步骤 89（G-G6-4,RFC-0017 §4.B）:渲染合流桥冒烟。host 段**恒跑**(cargo 两档单测
+      # 〔rurix-physics default=jolt / --no-default-features〕exit 0 + §4.B bridge 七行为测试
+      # 按测试名关键字在位〔单向同步只写 active 动态体/睡眠体零写零 MV/预算截断确定性/flush
+      # 脏区间==脏实例/motion hint prev-cur 差分/流送驻留批插+卸载 receipt/卸载竞态注入无悬垂〕
+      # + §4.B 机器可核面 grep 审计门四项〔render 零 rurix_physics 回引·零原生 Jolt/Rapier
+      # 类型名;bridge 零 AS 所有者/时域私写 API;RemovalReceipt 无 pub 构造器/derive 不含
+      # Clone/Copy/remove_page 唯一产出口〕);device 段 gate real(uc08-physics --features vulkan
+      # --device 真跑,device_pixels_nontrivial + device_motion_pixels_changed 对拍非 true 永远
+      # 硬红,缺 Vulkan SKIP=dev-env degrade,RURIX_REQUIRE_REAL=1 翻硬红)。失败即红。
+      - name: physics bridge smoke (G6 CI_GATES §2.89, G-G6-4, RFC-0017 §4.B)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/physics_bridge_smoke.py
+
+      # 步骤 90 预留(G6.4 rapier 第二后端,不占号)。
+      # 步骤 91（G-G6-7,RFC-0017 §4.B）:UC-08 物理合流 demo 冒烟。host 段**恒跑**(cargo test
+      # -p uc08-physics exit 0 + uc08-physics --frames 96 --size 128x72 --json host 全跑 exit 0,
+      # 单行 JSON 16 断言字段全 true〔物理步 measured/变换落地/MV 早期非零·睡眠后归零/流送批插·
+      # 卸载 receipt·先卸后放/TLAS 重建≥1·静态 BLAS 零 refit/图像非平凡·材质对比度/时域收敛/长跑
+      # 睡眠到达/PSO 零告警/图 fence·别名〕+ physics.total_step_ms 正值 measured 留证〔P-09 数字
+      # 入 checks 不进硬门〕+ streaming/mv/transform 数据字段存在性);device 段 gate real(同步骤
+      # 89 的 uc08 --device 对拍,缺 Vulkan SKIP=dev-env degrade,RURIX_REQUIRE_REAL=1 翻硬红)。
+      # 失败即红。
+      - name: UC-08 physics demo smoke (G6 CI_GATES §2.91, G-G6-7, RFC-0017 §4.B)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/uc08_physics_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

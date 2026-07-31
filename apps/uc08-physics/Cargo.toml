@@ -1,0 +1,21 @@
+[package]
+name = "uc08-physics"
+description = "UC-08 物理×渲染合流 demo(G6.3,RFC-0017 §4.B)——Jolt 刚体场景(地面 + 5 近立方体沉降睡眠 + 1 远场景立方体流送批插/卸载)→ PhysicsBridge 单向同步 GpuScene(渲染不回写物理)→ 动态体 MV 供时域底座(静态/睡眠零 MV)→ TlasBuilder 增量标脏 + rebuild_if_dirty(BLAS 一律 Static 零 refit)→ G5 十五 pass 全管线照 uc06 host 参考执行。host 段(default features)纯 safe 无 GPU 亦 build/run 绿;device 段 feature vulkan 经 rurix-rt render_exec 真 draw 对拍「物理驱动变换到达 device」(RURIX_REQUIRE_REAL 纪律)"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+rurix-render = { path = "../../src/rurix-render" }
+rurix-physics = { path = "../../src/rurix-physics" }
+rurix-geom-build = { path = "../../src/rurix-geom-build" }
+rurix-rt = { path = "../../src/rurix-rt", optional = true }
+
+[features]
+default = []
+# device 真跑腿(uc06-renderer 先例:默认关闭,host 常驻回归网)。
+vulkan = ["dep:rurix-rt", "rurix-rt/vulkan"]
+
+[lints]
+workspace = true
