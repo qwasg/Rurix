@@ -23,9 +23,9 @@ CUDA 优先、Windows 原生、NVIDIA 单栈做深;三后端产出 PTX(运行时
 
 完整论证见 [`01_VISION_AND_MISSION.md`](01_VISION_AND_MISSION.md) 与 [`03_POSITIONING_AND_LANDSCAPE.md`](03_POSITIONING_AND_LANDSCAPE.md)。
 
-## 项目状态:语言 1.0 已发行(`v1.0.0`),分发与门面期落地(`ea1-closed`),G5 原生渲染器期收口、G6 渲染物理双轨期计划定稿待立项
+## 项目状态:语言 1.0 已发行(`v1.0.0`),G5/G6 已收口,G7 Production Frame Closure 已立项
 
-第一层全量验收(01 §6)已达成,使命判据第一期(11 §6)已落地——首个以 Rurix 为主语言的生产级渲染器/仿真系统(第一方);多后端新纪元第一期(MB1)、工业渲染期(G3)、引擎集成期(EI1)、引擎渲染期(G4)、分发与门面期(EA1)、原生渲染器期(G5)相继收口。从 MVP 到 1.0 再到使命期/多后端期/渲染主线,19 个里程碑契约全部按验收门收口;性能与诊断预算全程 `measured_local`(零 estimated),预设资源生命周期错误类别 100% 编译期拦截:
+第一层全量验收(01 §6)已达成,使命判据第一期(11 §6)已落地——首个以 Rurix 为主语言的生产级渲染器/仿真系统(第一方);多后端新纪元第一期(MB1)、工业渲染期(G3)、引擎集成期(EI1)、引擎渲染期(G4)、分发与门面期(EA1)、原生渲染器期(G5)、渲染物理双轨期(G6)相继收口。从 MVP 到 1.0 再到使命期/多后端期/渲染主线,20 个里程碑契约按各自验收门收口;既有性能阈值均以 `measured_local` 留证且零 estimated（G6 明确未设置性能硬门）,预设资源生命周期错误类别 100% 编译期拦截:
 
 | 阶段 | 收口 | 交付 |
 |---|---|---|
@@ -40,6 +40,8 @@ CUDA 优先、Windows 原生、NVIDIA 单栈做深;三后端产出 PTX(运行时
 | G4 | 2026-07-24 `g4-closed` | 引擎渲染期:图形 RHI 化 raster/mesh 库面 + 自动 barrier + engine_host v3 嵌入 + `.rx` 单源 Vulkan RHI 通道 + BLACKHOLE 生产档验收(RD-036 open 存续) |
 | EA1 | 2026-07-28 `ea1-closed` | 分发与门面期:rurixup 真实分发(RD-025 兑现)+ 预编译工具链 bundle(`v1.0.1-dist` 系列,pre-release)+ 文档门面 + 冷启动验收 |
 | G5 | 2026-07-29 收口(契约 §8.1) | 原生渲染器期:声明式 render graph(`rurix-render`)+ RHI 图形派发桥 + 虚拟化几何(meshlet/GPU 两级剔除/VisBuffer)+ VSM 阴影 + 屏幕探针 GI + 光追效果 + 材质流送 + 时域重建(TAA/TSR);UC-06 全管线 demo device 真跑(P3+ 长线项登记 RD-037+ 存续,RD-038 分波兑现推进) |
+| G6 | 2026-08-01 收口(契约 §8.2) | 渲染物理双轨期:Jolt 生产默认物理库 + Rapier 默认关闭快路径 + Physics→GpuScene 单向桥 + uc08 合流 demo + Taichi Vulkan AOT 特效副轨;性能数字留 evidence 但不设硬门 |
+| G7 | 2026-08-01 active | Production Frame Closure:收口 RD-038 的 compute SPIR-V 1.4/RayQuery、W3 GI/RTAO/硬阴影、VisBuffer SW/HW 对拍、RD-038 字面余项与 One True Device Frame;见 [`milestones/g7/G7_CONTRACT.md`](milestones/g7/G7_CONTRACT.md) |
 
 旗舰用例与关键交付(全部端到端真机验收):
 

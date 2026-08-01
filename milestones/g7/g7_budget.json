@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "namespace": "g7",
+  "description": "G7 Production Frame Closure 预算。G7.0 脚手架阶段三组为空，表示尚未建立目标 GPU baseline，不构成性能通过；此空态只允许存活至 G-G7-3。G7.1 必须在首个语义实现 PR 前根据 RTX 4070 Ti 代表性 1080p 场景的真实输出追加至少一项 measured_local 性能 entry 与一项 correctness counter，并与 ci/budget_eval.py evaluator 同 PR 落。严禁 estimated、严禁预造阈值、严禁以空数组通过 G-G7-9。候选度量族仅作计划提示而非已登记 id：frame GPU p95、CPU submit p95、peak VRAM、pipeline stall、device pass count、validation errors、soak frames。",
+  "source_docs": [
+    "milestones/g7/G7_CONTRACT.md",
+    "milestones/g7/G7_PLAN.md",
+    "milestones/g7/CI_GATES.md",
+    "registry/deferred.json#RD-038"
+  ],
+  "entries": [],
+  "ratio_assertions": [],
+  "counter_assertions": [],
+  "namespace_check": "全部 id 必须 g7. 前缀；跨文件合并冲突即 FAIL(ci/budget_eval.py)。G-G7-3/G-G7-9 另行要求非空，通用 schema 允许空数组不代表里程碑可收口。",
+  "revision_log": [
+    {
+      "version": "v1.0",
+      "date": "2026-08-01",
+      "change": "G7.0 治理脚手架空壳；零 estimated/零伪造阈值。G7.1 baseline 后必须追加 measured_local + correctness counter，空态不得越过 G-G7-3。"
+    }
+  ]
+}

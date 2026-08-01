@@ -303,6 +303,21 @@
         "SG": "零消费(物理引擎库 = U5 引擎旗舰用例主线,非扩张诱惑;GPU 主刚体为 out_of_scope 否决项非 SG 载体;SG-010 软保留维持)",
         "D": "共享 D 段零消费(D-408=P1-2 earmark 不动;开工裁决记契约 §7,D-G6-N 仅为交付物编号)"
       }
+    },
+    {
+      "owner": "G7(生产帧闭环期,2026-08-01 开工:G6 close-out(G6_CONTRACT §8.2)+ 用户指令『帮我把G7文档和脚手架落地』;裁决全文记 milestones/g7/G7_CONTRACT.md §7)",
+      "source": "milestones/g7/G7_CONTRACT.md §7",
+      "claims": {
+        "RFC": "RFC-0018 单号 Full RFC(四章:A compute RayQuery 类型/状态机/动态语义 / B SPIR-V 1.4+KHR capability/extension/per-entry policy / C BLAS/TLAS compute descriptor 与生命周期 / D renderer W3 使用约束与严格对拍;Draft→D-409 独立 provenance 对抗性评审→Agent Approved 后才实现)",
+        "RXS": "RXS-0297 起按需(compute RayQuery 是新 device/runtime 语义面,预计扩 spec/shader_stages.md + spec/vulkan_backend.md;实际条款数随 RFC-0018 spec diff materialize,未消费不占号)",
+        "CI_step": "步骤 93 起(拟 93 ray_query_codegen / 94 renderer W3 / 95 HW raster diff+RD-038 residual audit / 96 One True Device Frame;数量随真实脚本回填不预占,脚手架不写 workflow 空步骤)",
+        "RD": "本期唯一主线为既有 RD-038 closure;新阻塞/做不完项自 RD-045 起按需登记,不为已知 out-of-scope 预造条目",
+        "U": "U44 起按需(优先复用 U30 AS/SBT/device-address 与 U32 render_exec 既有审计边界;若新增 Vulkan AS descriptor/FFI unsafe 才顺位消费;rurix-render 维持 forbid unsafe)",
+        "RX_error": "确需时 codegen 自 RX6034 / 工具类自 RX7023 按合入时事实源顺位;en/zh messages 成对;不预造错误码",
+        "MR": "MR-0012 起按需(预计 Full RFC-0018 足够,零 Mini-RFC 预占)",
+        "SG": "零消费(RD-038 是已登记主线兑现,不是扩张诱惑;SG-002/004/005 not-triggered 或永久门维持,SG-010 软保留维持)",
+        "D": "共享 D 段零消费(D-408=P1-2 earmark 不动,D-410 自由池不占;开工裁决记契约 §7,D-G7-N 仅为交付物编号)"
+      }
     }
   ],
   "revision_log": [
@@ -490,6 +505,11 @@
       "version": "v1.34",
       "date": "2026-08-01",
       "change": "G6.6 close-out RD-042~044 materialize 校准(agent 完全自主 D-406 v2.0,G6.6 close-out 蜂群 RD/SG 处置登记切片;Assisted-by: Kimi Code CLI (Kimi)):RD on_tree_max 41→44、next_free 42→45——registry/deferred.json v1.73 登记 **RD-042 = 物理研究轨观察存续**(Newton/Genesis/MuJoCo Warp 合入主仓 CI:研究隔离维持,独立仓库或 feature 永不默认,观察上游可微/机器人批仿生态成熟度;G6_PLAN §0.1/§3 out-of-scope research_track_main_ci 行)/ **RD-043 = wgrapier GPU 刚体观察存续**(GPU 主刚体否决线维持:不作验收依赖与生产默认,观察纯 Rust GPU 刚体生态;G6_PLAN §0.1『GPU 主刚体不做』+ §0.4 禁止线/§3 gpu_rigid_body_main 行)/ **RD-044 = 物理 P3+ 长线**(Jolt 软体/布料/流体生产化、Taichi MPM·体积场副轨由 spike 走向生产 external-import 面、Rapier 快路径深造——均不进 G6 硬门;G6_PLAN §3『软体/布料/流体进硬门』行;G5 RD-039~041 P3+ 先例),全部 status=open。反映 reserved_in_flight[G6].RD「RD-042 起(G6.5 spike 失败登记 / P3+ 研究轨存续项)」claim 的 materialize——**G6.5 Taichi spike 成功臂未消费失败登记位**(§4.E3 四段闭合,v1.33 已记),RD-042~044 全三号由 G6.6 close-out P3+/研究轨登记消费(G5/v1.29~v1.33 先例:claim 行 0-byte 不改写,materialize 经命名空间校准 + 本行记录)。RD-016/028 跳号永不复用维持;RD-033 = EA1 已消费维持。经命令核实:deferred.json entries 实测最大 id RD-044、单文件零重复 id(`py -3 ci/check_number_ledger.py` PASS + `py -3 ci/check_schemas.py` deferred 段 PASS)。**SG 零消费维持**:G6 全期零新 SG(reserved_in_flight[G6].SG『零消费;SG-010 软保留维持』claim 兑现),SG-010 留续号不登记维持(窗口/UI 框架进语言方向,本期不触),registry/spike_gating.json 0-byte 不动(on_tree_max 9 / next_free 10 不变)。RXS/U/CI_step/RFC/MR/D/RX_error 各命名空间字段 0-byte 不动(U on_tree_max 43 / next_free 44、CI_step on_tree_max 92 / next_free 93 维持 v1.33 口径;RXS-0297 / RFC-0018 自由池不变)。零新 RXS/U/SG/error-code/budget counter(g6_budget.json 空壳维持)。"
+    },
+    {
+      "version": "v1.35",
+      "date": "2026-08-01",
+      "change": "G7 Production Frame Closure 开工登记(agent 完全自主 D-406 v2.0,Assisted-by: codex:gpt-5):reserved_in_flight 追加 G7 行——用户 2026-08-01 指令『帮我把G7文档和脚手架落地』,承同会话裁决 G7 唯一主线 = RD-038 W3 RayQuery + HW raster diff + One True Device Frame。claim:RFC-0018 单号 Full RFC / RXS-0297 起按需 / CI 步骤 93 起 / 既有 RD-038 closure + 新阻塞 RD-045 起 / U44 起按需 / RX_error 按当前自由池 / MR-0012 按需;SG 与共享 D 零消费。脚手架零 RFC 文件/零 RXS 条款/零 CI 脚本/零 unsafe/零新 RD/零错误码 materialize,故 namespaces 各 on_tree_max/next_free 字段本 revision 0-byte;真实消费随实现 PR 校准。G7 四件套落 milestones/g7/,g7_budget.json 空态只允许至 G-G7-3,首个语义实现前必须追加 measured_local+correctness counter。"
     }
   ]
 }
