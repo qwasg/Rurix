@@ -289,6 +289,12 @@ def check_evidence_files() -> None:
     taichi_vulkan_spike_schema = load(
         ROOT / "milestones/g6/taichi_vulkan_spike_evidence_schema.json"
     )
+    g7_baseline_schema = load(
+        ROOT / "milestones/g7/g7_baseline_evidence_schema.json"
+    )
+    g7_perf_baseline_schema = load(
+        ROOT / "milestones/g7/g7_perf_baseline_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -497,7 +503,17 @@ def check_evidence_files() -> None:
     )
     taichi_vulkan_spike_validator = (
         jsonschema.Draft7Validator(taichi_vulkan_spike_schema)
-        if taichi_vulkan_spike_schema
+        if taichi_vulkan_spike_schema is not None
+        else None
+    )
+    g7_baseline_validator = (
+        jsonschema.Draft7Validator(g7_baseline_schema)
+        if g7_baseline_schema is not None
+        else None
+    )
+    g7_perf_baseline_validator = (
+        jsonschema.Draft7Validator(g7_perf_baseline_schema)
+        if g7_perf_baseline_schema is not None
         else None
     )
     uc05_check_bench_validator = (
@@ -940,6 +956,29 @@ def check_evidence_files() -> None:
             # 缺 taichi_c_api.dll SKIP=dev-env-degrade 退 0 不充绿,
             # RURIX_REQUIRE_REAL=1 翻硬红)。前缀与现有各族互不包含,置于末尾安全。
             validator = taichi_vulkan_spike_validator
+        elif (
+            f.name.startswith("g7_baseline_")
+            and g7_baseline_validator is not None
+        ):
+            # G7.0 基线门实跑证据(G-G7-1 治理/基线门;D-G7-1)→
+            # milestones/g7/g7_baseline_evidence_schema.json(G7.0 波次十条既有守卫
+            # 〔fmt/clippy/test/number_ledger/schemas/structure/guardrails/contribution/
+            # trace/budget〕逐条实跑的命令+退出码+pass/fail+摘要全量记录,附环境画像与
+            # Jolt vendor/license/SBOM 复核结论;纯 host 治理记录,ADVISORY 不阻断项如实
+            # 入 advisory_notes;不入 budget counter)。前缀与现有各族互不包含,置于末尾安全。
+            validator = g7_baseline_validator
+        elif (
+            f.name.startswith("g7_perf_baseline_")
+            and g7_perf_baseline_validator is not None
+        ):
+            # G7.1 性能 baseline 实测证据(G-G7-3 预算非空化;CI_GATES §5)→
+            # milestones/g7/g7_perf_baseline_evidence_schema.json(UC-06 host 软件参照
+            # 管线 1080p 末帧 12 阶段 cpu_ms 求和,release 三 trial trimmed mean,results.
+            # trimmed_mean 供 g7.bench.uc06_host_frame_cpu_ms_1080p 经 ci/budget_eval.py
+            # eval_entry 通用路判读,零新 entries evaluator 分支;correctness.device_
+            # pixel_parity_pass + validation_clean 供 g7.counter.uc06_device_pixel_parity
+            # 计数)。前缀置于 g7_baseline_ 分支之后(两前缀互不包含)。
+            validator = g7_perf_baseline_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None

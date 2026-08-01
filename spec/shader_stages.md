@@ -335,6 +335,81 @@ TraceRay    ::= "trace_ray" "(" AccelStruct "," Vec3 "," F32 "," Vec3 "," F32 ",
 
 > 锚定测试:[`shader_stages::tests::accelstruct_in_raygen_param_is_clean`](../src/rurixc/src/shader_stages.rs)（accept）+ `::accelstruct_return_is_rx3013` + `::accelstruct_in_non_rt_stage_is_rx3013` + `::accelstruct_in_struct_field_is_rx3013`。
 
+### RXS-0297 `RayQuery` device 不透明类型与位置纪律 + `AccelStruct` compute 签名加性扩展（RXS-0245 修订行，RFC-0018 §3.A1/A2）
+
+> **编号续号说明**:本条 RXS-0297 由 **RFC-0018**（G7 生产帧闭环期伞形章 A，Agent Approved 2026-08-01）新增，兑现 number_ledger `reserved_in_flight[G7]`「RXS-0297 起按需」claim;条款号连续不跳号（承 RXS-0294 后、0295/0296 burned 跳号口径，shadow_reserved 181~184 不碰）。
+>
+> **RXS-0245 加性修订行**（体例沿 RXS-0242→RXS-0153 / RXS-0244→RXS-0155 先例）:`AccelStruct` **亦可作 `compute fn`（device kernel）签名形参**；既有 RT 阶段 AccelStruct 面、`trace_ray` 已知签名、RT builtins 阶段矩阵 **0-byte 不动**（RFC-0018 §3.A2 逐字）。
+
+**Syntax**（`RayQuery` 新增 device 不透明类型，lang-item；首期无泛型参数化，沿 `AccelStruct` 头名匹配先例或 lang-item 注册，具体接线点实现期核实并随实现 PR 冻结）:
+
+```
+RayQuery ::= "RayQuery"    // 仅 compute fn(device kernel/其可达 device fn)体内 function-local 变量
+```
+
+**Legality**（位置纪律 + 所有权形态 + 禁止逃逸，违例 → 编译期拒，P-01 strict-only）:
+
+- **`RayQuery` = 新增 device 不透明类型**。语义 = 一次 ray 遍历的**遍历器对象**，承载 SPIR-V `OpTypeRayQueryKHR` 的 Function-storage 变量。
+- **位置纪律**:`RayQuery` **仅可作 `compute fn`（device kernel/其可达 device fn）体内的 function-local 变量**;**值形态**签名形参 / 返回位置 / 结构体字段 / host 函数体 / 非 compute 着色阶段 → **编译期拒**（资源/遍历器句柄位置违例，**RX3013 扩类别**方向，沿 AccelStruct/RXS-0245 与 `[Texture2D<F>]`/RXS-0231 扩类别先例；确需新类别自 **RX3018** 顺位，RFC-0018 §7.4,**只追加、不预造**)。device fn 间 `&mut RayQuery` 借用形参为**唯一豁免**（借用纪律沿 device 既有借用面，位置纪律不覆盖借用形态）。
+- **所有权形态**:`RayQuery` 非 Copy/非 Clone；只能经 `ray_query_initialize`（RXS-0298）产出；无用户可及缺省构造/零值路径——「未初始化即使用」在类型面 **by-construction 不可达**（无 UB 措辞，沿 RXS-0245「递归深度 = 编译期结构约束」先例）。
+- **禁止逃逸**:`RayQuery` 不得存入 buffer / 跨 launch 持久化 / 跨函数以值形态形参传递（`&mut RayQuery` 借用传递为唯一豁免）。
+- **SPIR-V 侧自觉收窄声明**（类型面前置事实，编码面见 spec/vulkan_backend.md RXS-0300）:SPV_KHR_ray_query 规范允许 `OpTypeRayQueryKHR` 指针存储类 Private **或** Function，首期收窄为 **Function-only**(Private 全局遍历器 = 跨 launch 持久化等价物，与禁止逃逸同源；自觉首期选择、非规范强制）。规范另明列 `OpStore`/`OpLoad`/`OpCopyMemory`/`OpCopyMemorySized` 对 RayQuery 类型指针禁用——非 Copy 纪律在编码面 by-construction 成立。
+- **`AccelStruct` compute 签名加性扩展**（RXS-0245 修订行，RFC-0018 §3.A2）：绑定轴维持 **SRV**(`OpTypeAccelerationStructureKHR` descriptor,UniformConstant,承 RXS-0163/0164 推导）；返回位置 / 结构体字段 / 非着色签名位置维持 **RX3013** 既有面 **0-byte**;**首期 compute 签名中 `AccelStruct` 至多一个**（单 TLAS 纪律，与 RFC-0018 章 D「三 kernel 共用同一真实 TLAS」同源），多 AS 形参 = 扩展方向，首期编译期拒。
+
+**Dynamic Semantics**：纯类型/位置面，无运行期语言语义；遍历器状态机与 builtins 动态语义见 RXS-0298，非法状态诊断见 RXS-0299,编码面见 spec/vulkan_backend.md RXS-0300。**严禁 UB 节**——位置违例全部以编译期类型/位置诊断定义（P-01 strict-only，无运行期回退），不存在运行期未定义路径。
+
+**Implementation Requirements**：类型面接线点（lang-item 注册或 `shader_stages` 头名匹配，沿 `is_accel_struct` 先例）实现期核实并随实现 PR 冻结；位置合法性逐 item 走查（返回 / 字段 / 形参 / host 体 / 非 compute 阶段）;compute 签名 `AccelStruct` 至多一个核对；诊断 span 指向违例类型/形参。**本期 = 条款先行（spec-first,G7.1 PR-1,硬规则 7)**；类型面实现与 RED 语料转正归 G7.2(W3a)。
+
+> 锚定测试:`conformance/rayquery/accept/ray_query_basic.rx`（compute 签名 AccelStruct + 体内 RayQuery 合法骨架，RED 语料，G7.2 转正）+ `conformance/rayquery/reject/ray_query_escape.rx`（值形态逃逸位置违例，RED 语料）；实现期锚定计划（RFC-0018 §3.A6):shader_stages accept + reject（返回/字段/非 compute/多 AS 形参 → RX3013 扩）。
+
+### RXS-0298 RayQuery 状态机与 builtins 方法族类型面（RFC-0018 §3.A3/A4）
+
+**Syntax**（形态裁决 RFC-0018 §9 Q1:**方法族 intrinsic 于 lang-item `RayQuery`**（沿 `ThreadCtx` DeviceIntrinsic/`tex.sample` 方法先例）+ 构造经**已知自由函数 `ray_query_initialize`**（沿 `trace_ray`/RXS-0245 已知签名先例）；查询族**不入** `KNOWN_BUILTINS` 标注集（非阶段 I/O 标注，`#[builtin]` 集 0-byte）):
+
+```
+RayQueryInitialize ::= "ray_query_initialize" "(" AccelStruct "," Vec3 "," F32 "," Vec3 "," F32 ")"
+RayQueryMethod     ::= Expr "." RayQueryMethodName "(" ")"
+RayQueryMethodName ::= "proceed" | "terminate" | "has_committed"
+                     | "committed_t" | "committed_barycentric"
+                     | "committed_instance_index" | "committed_primitive_index" | "committed_geometry_index"
+```
+
+**Legality**（首期开放面逐个签名与类型约束，逐字承 RFC-0018 §3.A4 表）:
+
+- **`ray_query_initialize`**:`fn ray_query_initialize(tlas: AccelStruct, origin: vec3<f32>, t_min: f32, dir: vec3<f32>, t_max: f32) -> RayQuery`。`tlas` 为 compute 签名 AS 形参（RXS-0297 修订行）或经豁免传递的引用;`t_min >= 0`、`t_max > t_min` 为值域契约（运行期值，不静态检，违约为**实现定义但有界**——不产生遍历结果保证）;`dir` 不要求归一化（t 随 dir 缩放）。任意上下文可调，产 `Initialized`。
+- **`proceed`**:`fn proceed(self: &mut RayQuery) -> bool`，仅 `Initialized`;`true` = 本次 proceed 提交了一个 committed 交点或遇候选（首期候选不可达，见 Dynamic Semantics）,`false` = 遍历穷尽（对象仍处 `Initialized`,committed 查询族可读）。
+- **`terminate`**:`fn terminate(self: &mut RayQuery)`，仅 `Initialized` → `Terminated`;**可选早退**(SPIR-V 语义不要求终结；未 terminate 的 `RayQuery` 随 function 作用域结束自然消亡，Function-storage 变量无析构语义）；二次调用 = 非法状态（RXS-0299 S2)。
+- **`has_committed`**:`fn has_committed(self: &RayQuery) -> bool`，仅 `Initialized`；遍历结束后亦合法。
+- **committed 查询族**:`committed_t(self: &RayQuery) -> f32` / `committed_barycentric(self: &RayQuery) -> vec2<f32>` / `committed_instance_index(self: &RayQuery) -> u32` / `committed_primitive_index(self: &RayQuery) -> u32` / `committed_geometry_index(self: &RayQuery) -> u32`——须 committed 存在（支配域约束见 RXS-0299 S3)。
+- **三态状态机**:`Initialized`（initialize 产出即入）→ 遍历推进（`proceed` 自环）→ `Terminated`（`terminate` 消费）;terminate 后任何后续操作 = 非法状态（编译期诊断，RXS-0299 S2)。
+- **已登记扩展方向（首期不开放，调用即编译期拒；签名拟定不冻结，开放时经 spec 修订行）**:`confirm_intersection`(candidate→committed)、`candidate_*` 查询族（t/barycentric/instance/primitive/geometry/front_face 镜像）、ray flags 参数化（TerminateOnFirstHit/CullBackFace/CullOpaque 等）、object-space 查询与 4×3 instance 矩阵获取、`front_face` 查询。首期三 kernel（GI/RTAO/硬阴影）几何语义需求 = hit/miss、t、instance/primitive/geometry index、barycentric(G-G7-6 逐字），全部由 committed 族承载；**不为首期假想需求预开面**(P-12)。
+
+**Dynamic Semantics**:
+
+- **candidate/committed 二分与首期健全性前提**:proceed 遇**候选交点**(candidate，需着色器确认）与**提交交点**(committed，遍历采纳）二态；首期 **ray flags 恒 `Opaque` + cull mask 恒 `0xFF`**（沿 RXS-0245 `trace_ray` 恒 opaque/恒 0xFF 纪律），三角形几何全 opaque，候选路径首期**不可达**(proceed 内直接提交），阴影早退由着色器 `terminate` 手动表达。**健全性前提钉死**(RFC-0018 §9.1 评审修订）:「`proceed()==true` ⇒ committed 已存在」仅在首期 flags 恒 Opaque + 三角形几何前提下成立（committed 存在判据 = intersection type ≠ None);RXS-0299 S3 支配规则以此前提为健全性条件，**candidate/confirm 面开放时该支配规则必须经 spec 修订行同步重审**，不得静默沿用。
+- **遍历自由度（如实登记）**:proceed 的候选/提交产生**顺序与次数为实现定义但有界**(Vulkan/DXR 双规范一致遍历自由度，沿 RXS-0245 anyhit 先例，**不写成「未定义」**);committed 最终集合的语义 = 最近三角形交点（closest）唯一确定。
+- 几何数值语义（t/barycentric/index）以 SPIR-V 规范与 host oracle 对拍为双重锚（RFC-0018 章 D);SPIR-V 指令面映射（`OpRayQueryInitializeKHR`/`OpRayQueryProceedKHR`/`OpRayQueryTerminateKHR`/committed 查询族）见 spec/vulkan_backend.md RXS-0300。
+
+**Implementation Requirements**:builtin 注册面沿 `ThreadCtx` 方法族先例接线（`hir.rs` `Builtin`/`DeviceIntrinsic` 枚举 + `typeck.rs` `builtin_sig` 签名核对）；`ray_query_initialize` 已知自由函数沿 `trace_ray`/RXS-0245 spec 级先例（调用点签名核对接线点随实现 PR 冻结）；方法族 receiver/元数核对；扩展方向调用编译期拒。**本期 = 条款先行（spec-first,G7.1 PR-1)**；实现与 RED 语料转正归 G7.2(W3a)。
+
+> 锚定测试:`conformance/rayquery/accept/ray_query_basic.rx`(initialize→proceed→has_committed→committed_t→terminate 全流程，RED 语料，G7.2 转正）；实现期锚定计划（RFC-0018 §3.A6):typeck/conformance accept（全流程）+ reject（扩展方向调用/签名错配）。
+
+### RXS-0299 RayQuery 动态语义与非法状态诊断（S2/S3 编译期结构约束，严禁 UB，RFC-0018 §3.A5）
+
+**Legality**（非法状态 = **编译期结构约束**;strict-only P-01，无运行期回退；结构化诊断，message-key en/zh 成对，`ci/bilingual_coverage.py` 覆盖门；错误码只追加、不预造、不预留，§3 体例）:
+
+- **S1 未初始化使用**:by-construction 不可达（RXS-0297 所有权形态，无独立诊断）。
+- **S2 terminate 后使用 / 二次 terminate**:MIR 数据流编译期检查（mir_build/coloring 层新建，实现期核实）；违例 → **结构化诊断**（类型面方向：**RX3013 扩类别优先，确需新类别自 RX3018 起顺位**;codegen 兜底防御性拒自 **RX6034** 顺位，RFC-0018 §7.4)。
+- **S3 committed 不存在时的 `committed_*` 查询**:`committed_*` 调用点须被 `proceed()==true` 或 `has_committed()==true` 的 true 分支**支配**（支配域数据流检查，沿 RXS-0232「不做推断、保守全标」精神前移到编译期）；无法满足支配关系 → **编译期拒**。**守卫形态枚举钉死**(RFC-0018 §9.1 评审修订）:① `if rq.proceed()` true 分支体内；② `if rq.has_committed()` true 分支体内；③ `while rq.proceed()` 循环体内；其余形态（经布尔变量中转、跨函数守卫、循环后无 `has_committed` 守卫等）**一律保守拒**（误判方向恒为拒、恒不为放，strict-only)。健全性前提见 RXS-0298(candidate 首期不可达；`proceed()==true` ⇒ committed 存在仅此前提下成立）。
+- **S4 initialize 重入**:by-construction 不可达（initialize 产新值，无 `&mut` 重入形态）。
+- **S5 `RayQuery` 逃逸**（形参/返回/字段/持久化）:RXS-0297 位置纪律，RX3013 扩类别方向。
+
+**Dynamic Semantics**：遍历顺序/次数 = 实现定义但有界（RXS-0298);**严禁 UB 节**——非法状态全部以编译期结构约束定义，**不存在非法状态运行期路径**（无 UB 措辞，沿 RXS-0245/RXS-0243 先例）；不可静态判定的 committed 存在性经支配域约束（S3）前移到编译期。
+
+**Implementation Requirements**:S2 MIR 数据流检查与 S3 支配域数据流检查为新建面（`dataflow.rs` 有 fixpoint 框架、无 dominator 计算，实现期核实）；备选设计（聚合 `try_committed(self: &RayQuery) -> Option<CommittedHit>` 单次取全，by-construction 消除非法查询；`Option` 为既有 plain generic enum）留 RFC-0018 §8.2-E，如需切换经 spec 修订行，不静默改派。**本期 = 条款先行（spec-first,G7.1 PR-1)**;RED 语料转正（接入 harness + UI golden bless）归 G7.2(W3a)。
+
+> 锚定测试:`conformance/rayquery/reject/ray_query_after_terminate.rx`(S2 terminate 后使用，RED 语料）+ `conformance/rayquery/reject/committed_unguarded.rx`(S3 未支配 committed 查询，RED 语料）；实现期锚定计划（RFC-0018 §3.A6):reject 语料接入 harness + UI golden + 诊断码锚定（G7.2 转正）。
+
 ## 3. 错误码引用汇总（RX3011 ~ RX3017）
 
 > 三类编译期拦截(着色阶段误用 / 阶段间接口不匹配 / 资源句柄违例)属 **Rurix 语义诊断**(编译期可检的着色/接口/句柄合法性,对齐 RXS-0066 着色诊断先例),归 **3xxx 着色/地址空间段位续号**(07 §5 语义分配;接 RX3010 之后 **RX3011+**——**非全局 7xxx 段**,7xxx 为运行期/互操作段)。纯 Rust 通用错误(类型不符等)走 rustc 原生诊断(零新 RX)。
@@ -372,3 +447,4 @@ TraceRay    ::= "trace_ray" "(" AccelStruct "," Vec3 "," F32 "," Vec3 "," F32 ",
 | v1.1 | 2026-06-23 | **G2.1 实现 PR(PR-B2):§2 计划骨架升格为带编号条款体 `### RXS-0153 ~ ### RXS-0156`**(FLS 体例,按需分 Syntax / Legality / Dynamic Semantics / Implementation Requirements 节,**严禁 UB 节**;Legality 引用对应 RX 码):RXS-0153 着色阶段函数着色规则(前缀式 `<stage> fn`,着色阶段取 kernel 入口着色,直接调用入口 / 跨着色非法调用复用 `RX3001`;compute 复用 kernel;device⊂host 单向可达;trait 单态化子集)/ RXS-0154 阶段专属 I/O 语义类型(`#[interpolate(..)]`/`#[builtin(..)]` 属性式,无标注字段编译期拒绝 → `RX3011`)/ RXS-0155 阶段间接口类型契约(vertex out → fragment in varying 兼容 → 不兼容 `RX3012`,网格/RT 并入本条)/ RXS-0156 资源句柄·纹理采样器参数化类型面(`Texture2D<F>`+`Sampler` 仅着色阶段签名形参,返回/字段/非阶段位置或未支持维度 → `RX3013`,纹理仅类型形态无采样/内存语义)。§3 错误码表回填 RX3011~3013(3xxx 段续号,着色阶段误用复用 RX3001;en/zh message-key 同落,bilingual_coverage 覆盖)。配套 rurixc 着色阶段前端(parser 上下文关键字 `<stage> fn` + AST 层着色阶段类型面检查,gate `cargo feature shader-stages`)+ conformance accept/reject(`conformance/shader/`)+ UI golden(`tests/ui/shader/*.stderr`,经 bless)+ 每条 ≥1 `//@ spec: RXS-####` 锚定(trace_matrix 152→156 全锚定)。**仅类型面/语法面 + 编译期拦截**:不碰 DXIL codegen(G2.2)/ 绑定布局推导(G2.3)/ 🔒 纹理内存模型映射(06 §4.2 禁区);区间锁定 4 条不拆条 | **Full RFC**(RFC-0002) |
 | v1.3 | 2026-07-18 | **RFC-0013 §4.B 采样超集章类型面落库 + RXS-0223/RXS-0224 条款体(spec-first,G3.3 条款先行)**。承 RFC-0013(Agent Approved 2026-07-18,工业渲染期五特性面伞形 Full RFC)。新增 `### RXS-0223`(采样方法族类型面,续 RXS-0174):把首期收敛子集(单 `sample` 显式 LOD 0)扩为方法族 `sample`(隐式化)/`sample_lod`/`sample_grad`/`sample_bias`/`load`/`load_lod`/`sample_cmp`/`gather`/`TextureRw2D` load·store;新资源句柄类型 `SamplerCmp`/`TextureRw2D<F>`(`MirResourceType` 加 `TextureRw2D(PrimTy)`/`SamplerCmp`,`class()` 归 UAV/Sampler 轴);方法×阶段合法性矩阵(`sample`/`sample_bias` 仅 fragment,`TextureRw2D` = fragment+raygen);`sample` 语义升级为隐式 LOD(既有显式-LOD-0 由 `sample_lod(s,uv,0.0)` 逐字节承接,uc04 语料迁移 golden 0-byte,Q-S-SampleName);元素 F 分方法限定(sample 族 f32 / load·store {f32,u32,i32} / sample_cmp depth-f32);违例 RX3014 扩类别(strict-only,不新增 3xxx 码)。新增 `### RXS-0224`(静态 sampler 属性 `#[sampler(...)]`):状态空间枚举(filter/address/max_anisotropy/lod_bias/min_lod/max_lod/compare,两形态共用单一事实源)+ 编译期常量折叠 → D3D12 static sampler(RTS0 `NumStaticSamplers` 扩现恒 0 写)/ Vulkan immutable sampler;s 轴静态动态共序(RXS-0164);非法键值并入 RX3014。RXS-0174 补 G3.3 语义升级引用(显式-LOD-0 由 sample_lod 承接,`sample` 隐式化)。各条 FLS 分 Syntax/Legality/Dynamic Semantics/Implementation Requirements,**严禁 UB 节**(一切运行期语义 well-defined,子集外编译期 RX3014/RX6023 strict-only)。codegen 降级 opcode 全家见 spec/dxil_backend.md RXS-0226~0229;宿主 SamplerDesc 见 spec/host_orchestration.md RXS-0225;vk descriptor 建面见 spec/vulkan_backend.md RXS-0230。每条 ≥1 `//@ spec` 测试锚定随实现 commit 同落(条款 PR 先于实现 PR)。🔒 descriptor/采样 opcode 二进制布局不冻结(RFC-0003 §4.6 / RFC-0005 §4.5) | **Full RFC**（RFC-0013） |
 | v1.2 | 2026-06-30 | **RFC-0007 采样语义本体落库 + RXS-0174 采样表达式类型面条款(spec-first,G2.4 严格面)**。承 RFC-0007(agent 2026-06-30 自主批准,废止 G2_CONTRACT §8.5 选项 B「不采样」折中、关闭 RD-021):把 RXS-0156 的 opaque 资源句柄类型面升级为**可在着色 body 求值的采样表达式**类型面。新增 `### RXS-0174`(采样表达式类型面,**超出 G2.1/RFC-0002 锁定的 RXS-0153~0156 区间,独立 RFC 续号**):`tex.sample(samp, coord)` 复用 `MethodCall` 产生式(无新 token);合法当且仅当 `tex : Texture2D<F>`、`samp : Sampler`、`coord : vec2<f32>` 且包含函数为 `fragment` 阶段;结果 `vec4<F>`;首期收敛子集(显式 LOD 0,规避隐式导数;receiver/`samp` 须直接句柄形参引用),违例 `RX3014`;规避项登记 RD-022~RD-024。§3 错误码表回填 RX3014(3xxx 段续号,`shader.sample_expr_invalid` en/zh message-key)。§4 🔒 纹理内存模型映射禁区留痕更新:采样语义本体首期收敛映射已由 RFC-0007 落笔(类型面 RXS-0174 本文件 + codegen/内存模型 RXS-0175/0176 @ dxil_backend.md),不再「占位待后续」。**条款先于实现**(硬规则 7),测试锚定随实现 commit 同落(trace_matrix 维持全锚定)。🔒 完整内存模型映射(采样 opcode/坐标/LOD/寻址/越界/缓存可见性·memory-order)落 dxil_backend.md RXS-0176 | **Full RFC**(RFC-0007) |
+| v1.6 | 2026-08-01 | **RFC-0018 章 A compute RayQuery 语言面落库 + RXS-0297~RXS-0299 条款体(spec-first,G7.1 PR-1 条款先行)**。承 RFC-0018(Agent Approved 2026-08-01,G7 生产帧闭环期伞形;number_ledger `reserved_in_flight[G7]`「RXS-0297 起按需」claim 兑现;条款号连续不跳号,shadow_reserved 181~184 不碰,0295/0296 burned 跳号口径维持)。新增 `### RXS-0297`(`RayQuery` device 不透明类型与位置纪律 + `AccelStruct` compute 签名加性扩展,**RXS-0245 加性修订行**不占新号语义面,体例沿 RXS-0242→RXS-0153 先例):RayQuery 仅 compute fn(device kernel/其可达 device fn)体内 function-local 变量,值形态形参/返回/字段/host 体/非 compute 阶段 → 编译期拒(**RX3013 扩类别**方向,确需新类别自 RX3018 顺位,**只追加不预造**);非 Copy/非 Clone、仅 `ray_query_initialize` 产出、未初始化使用 by-construction 不可达;禁止逃逸(`&mut RayQuery` 借用为唯一豁免);SPIR-V 侧 Function-only 自觉收窄声明;AccelStruct 亦可作 compute 签名形参(SRV 轴 UniformConstant,承 RXS-0163/0164;**首期至多一个**单 TLAS 纪律),既有 RT 面 0-byte。新增 `### RXS-0298`(RayQuery 状态机与 builtins 方法族类型面):三态 Initialized→proceed 自环→Terminated;`ray_query_initialize(tlas, origin, t_min, dir, t_max) -> RayQuery` 已知自由函数(沿 trace_ray 先例)+ `proceed`/`terminate`/`has_committed`/committed 五查询(`committed_t`/`committed_barycentric`/`committed_instance_index`/`committed_primitive_index`/`committed_geometry_index`)方法族(沿 ThreadCtx DeviceIntrinsic 先例,不入 KNOWN_BUILTINS);ray flags 恒 Opaque + cull mask 恒 0xFF(承 RXS-0245),candidate 首期不可达,**健全性前提钉死**(`proceed()==true` ⇒ committed 存在仅此前提下成立,开放 candidate 面须修订行重审);遍历顺序/次数实现定义但有界;扩展方向(confirm_intersection/candidate_*/ray flags 参数化等)首期不开放、调用即编译期拒。新增 `### RXS-0299`(RayQuery 动态语义与非法状态诊断,**严禁 UB**):S1/S4 by-construction 不可达;S2 terminate 后使用/二次 terminate → MIR 数据流编译期检查 + 结构化诊断(RX3013 扩优先/RX3018 顺位,codegen 兜底 RX6034 顺位,RFC-0018 §7.4);S3 committed_* 调用点须被 `proceed()==true`/`has_committed()==true` true 分支**支配**,**守卫形态枚举钉死**(`if proceed`/`if has_committed`/`while proceed` 三形态,余者一律保守拒,误判恒为拒);S5 逃逸归 RXS-0297。各条 FLS 分 Syntax/Legality/Dynamic Semantics/Implementation Requirements,**严禁 UB 节**(非法状态 = 编译期结构约束,不存在运行期未定义路径)。**本期零新错误码**(RX3013 扩类别方向 + RX3018/RX6034 实现期顺位,§3 表 0-byte);en/zh message-key 随实现 PR 成对。编码面(SPIR-V 1.4 per-entry 升版 + RayQueryKHR/SPV_KHR_ray_query 按需声明)见 spec/vulkan_backend.md RXS-0300。RED 语料(conformance/rayquery/,inert + 预期诊断注释 + 转正步骤旁注)同 PR 落盘,每条 ≥1 `//@ spec` 锚定;实现与转正(接 harness + UI golden bless)归 G7.2(W3a) | **Full RFC**（RFC-0018） |

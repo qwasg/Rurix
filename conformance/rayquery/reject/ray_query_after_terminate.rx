@@ -1,0 +1,14 @@
+//@ spec: RXS-0299
+// G7.1 PR-1 RED 语料(RFC-0018 §3.A5-S2):terminate 后使用——`terminate` 消费遍历器后
+// 再调 `proceed`,非法状态 = 编译期结构约束(MIR 数据流检查,严禁 UB,无运行期未定义路径)。
+// 预期诊断:结构化诊断(类型面 RX3013 扩类别优先,确需新类别自 RX3018 顺位;codegen 兜底
+// 防御性拒自 RX6034 顺位,RFC-0018 §7.4)。
+// 当前状态 = RED:状态机/数据流检查未实现(归 G7.2 W3a),本文件 inert 未接 harness。
+// 转正步骤(G7.2 实现 PR):① 接入 reject harness(`//@ expect-error:` 头次行体例,码号
+//   随实现 PR 冻结后补登);② 断言 terminate 后任意操作(含二次 terminate)均产生预期
+//   结构化诊断;③ 按需 bless UI golden(bless_log.md 登记)。
+kernel fn after_terminate(tlas: AccelStruct, t: ThreadCtx<1>) {
+    let mut rq = ray_query_initialize(tlas, vec3(0.0, 0.0, 0.0), 0.0, vec3(0.0, 0.0, 1.0), 100.0);
+    rq.terminate();
+    rq.proceed();
+}

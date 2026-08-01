@@ -8,15 +8,40 @@
     "milestones/g7/CI_GATES.md",
     "registry/deferred.json#RD-038"
   ],
-  "entries": [],
+  "entries": [
+    {
+      "id": "g7.bench.uc06_host_frame_cpu_ms_1080p",
+      "description": "G7.1 baseline(契约 G-G7-3,CI_GATES §5):UC-06 全管线渲染器 host 软件参照管线 1080p(输出 1920x1080,内部 960x540 经 TSR 2x 超分)末帧 12 阶段(streaming/cull/visbuffer/mat_resolve/gbuffer/vsm/gi/rt_effects/shadow_project/deferred_shade/taa/tsr)CPU 耗时合计,release profile,三进程级独立 trial trimmed mean(BENCH_PROTOCOL triple_run 口径,对齐 ms1.bench.uc07_* 先例;evidence results.trimmed_mean 经 eval_entry 通用路判读,零新 entries evaluator 分支)。阈值 = 实测 950.3853 x 1.5 = 1425.578 ms(对齐 ms1 v1.3 阈值纪律)。诚实边界:效果 kernel 全量 device 化未完成(RD-038 存续),现有路径无 1080p GPU 帧耗时输出,本条以 host CPU 软件管线帧耗时为未优化 baseline 锚点;frame GPU p95/CPU submit p95/peak VRAM 属 G7.2+ 步骤 96 renderer_device_frame_smoke 度量面。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 1425.578,
+      "evidence_file": "evidence/g7_perf_baseline_20260801T105318Z.json",
+      "measured_value": 950.3853
+    }
+  ],
   "ratio_assertions": [],
-  "counter_assertions": [],
+  "counter_assertions": [
+    {
+      "id": "g7.counter.uc06_device_pixel_parity",
+      "description": "UC-06 device 腿像素对拍 + validation clean 见证数 >=1(契约 G-G7-3;G7.1 baseline 非空化,CI_GATES §5)。计数源 = evidence/g7_perf_baseline_*.json 中 correctness.device_pixel_parity_pass=true 且 correctness.validation_clean=true 的报告数(机器事实:RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1 下 uc06-renderer --features vulkan --device 真跑 exit 0,RTX 4070 Ti 上 wave_w1/wave_w2/cull/visbuffer/classify_resolve/vsm_page_mark/taa 七项对拍全 true + triangle_pixels=4096 + compute_write/mixed_pass=true + validation layer 开启在位;ci/uc06_renderer_smoke.py 步骤 87 device 段同款命令)。device evidence 计数(非静态语料计数):须有 Vulkan 驱动 + GPU 才能成立,缺 provisioning 不产本证据 -> 0 -> 建设期 normal SKIP / close-out strict FAIL,对齐 g5.counter.render_exec_device_tests 先例。",
+      "evidence_file": "evidence/g7_perf_baseline_*.json",
+      "direction": "min",
+      "threshold": 1
+    }
+  ],
   "namespace_check": "全部 id 必须 g7. 前缀；跨文件合并冲突即 FAIL(ci/budget_eval.py)。G-G7-3/G-G7-9 另行要求非空，通用 schema 允许空数组不代表里程碑可收口。",
   "revision_log": [
     {
       "version": "v1.0",
       "date": "2026-08-01",
       "change": "G7.0 治理脚手架空壳；零 estimated/零伪造阈值。G7.1 baseline 后必须追加 measured_local + correctness counter，空态不得越过 G-G7-3。"
+    },
+    {
+      "version": "v1.1",
+      "date": "2026-08-01",
+      "change": "G7.1 baseline 实测非空化(G-G7-3 兑现,首个语义实现 PR 前):entries 追加 g7.bench.uc06_host_frame_cpu_ms_1080p(measured_local,实测 950.3853 ms = UC-06 host 软件参照管线 1080p 末帧 12 阶段 CPU 合计,release 三 trial trimmed_mean,阈值 x1.5 = 1425.578 ms,evidence/g7_perf_baseline_20260801T105318Z.json 经 milestones/g7/g7_perf_baseline_evidence_schema.json 校验、ci/check_schemas.py 前缀路由 g7_perf_baseline_ 纯追加);counter_assertions 追加 g7.counter.uc06_device_pixel_parity(>=1,同 evidence 族 correctness.device_pixel_parity_pass+validation_clean 双真计数,ci/budget_eval.py eval_counter 新分支同 PR 落;m0~g6 既有判定 0 改动)。零 estimated,阈值只来自本次 baseline 命令真实输出。诚实边界:RD-038 存续,1080p GPU 帧耗时度量面待 G7.2+ 步骤 96,本条为 host CPU 软件管线口径锚点。"
     }
   ]
 }

@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "subject": "g7_baseline",
+  "milestone": "G7.0 / G-G7-1 (D-G7-1 治理与基线包)",
+  "base_ref": "g7-base",
+  "base_commit": "06fe78d0d596ed89bd780385132b5bd945afcf23",
+  "branch": "cursor/g5-rd038-w1w2-degradation-waves",
+  "environment": {
+    "os": "Windows 11 x64",
+    "gpu_name": "NVIDIA GeForce RTX 4070 Ti",
+    "gpu_driver": "620.02",
+    "python_version": "3.12.1",
+    "cargo_version": "1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "1.93.1 (01f6ddf75 2026-02-11)"
+  },
+  "gates": [
+    {
+      "seq": 1,
+      "command": "cargo fmt --check",
+      "exit_code": 0,
+      "status": "pass",
+      "summary": "零输出,全工作区无格式 diff"
+    },
+    {
+      "seq": 2,
+      "command": "cargo clippy --workspace --all-targets -- -D warnings",
+      "exit_code": 0,
+      "status": "pass",
+      "summary": "全工作区 24 crate(含 rurix-physics-sys CMake 构建)Checking 零 warning,Finished `dev` profile in 11.07s"
+    },
+    {
+      "seq": 3,
+      "command": "cargo test --workspace",
+      "exit_code": 0,
+      "status": "pass",
+      "summary": "100 个测试套件全 ok:1174 passed / 0 failed / 3 ignored(ignored = atomics_ptx_mapping D-406/RD-008 deferred 探针、dxil_golden uc04_gbuffer_disasm_dump_not_blessed 未 bless、另 1 项 deferred);含 rurixc lib 442 例、各 corpus/golden/integration 套件与 doc-tests"
+    },
+    {
+      "seq": 4,
+      "command": "py -3 ci/check_number_ledger.py",
+      "exit_code": 0,
+      "status": "pass",
+      "summary": "[check_number_ledger] PASS(spec RXS 头 278 个零同号碰撞;ledger 14 命名空间保留号被尊重;red 自检已过)",
+      "advisory_notes": [
+        "off_tree_workflows[grx].branch = codex/grx-godot-dxil-workspace → exists(不阻断)",
+        "off_tree_workflows[grx].closeout_commit = 95d5af436b118c1a19f84d52816a5c71048dc009 → exists(不阻断)"
+      ]
+    },
+    {
+      "seq": 5,
+      "command": "py -3 ci/check_schemas.py",
+      "exit_code": 0,
+      "status": "pass",
+      "summary": "[check_schemas] PASS(registry 三件 + 19 份预算 + evidence/ 全部在档证据 schema 校验通过)"
+    },
+    {
+      "seq": 6,
+      "command": "py -3 ci/check_structure.py",
+      "exit_code": 0,
+      "status": "pass",
+      "summary": "[check_structure] PASS (11 dirs, 6 files)"
+    },
+    {
+      "seq": 7,
+      "command": "py -3 ci/check_guardrails.py g7-base",
+      "exit_code": 0,
+      "status": "pass",
+      "summary": "[check_guardrails] PASS (base=g7-base, 0 changed paths):规划文档/registry/spec/golden bless/预算/evidence 只增纪律/closed 契约 0-byte 全核过"
+    },
+    {
+      "seq": 8,
+      "command": "py -3 ci/check_contribution.py",
+      "exit_code": 0,
+      "status": "pass",
+      "summary": "[check_contribution] ADVISORY(base=origin/main,11 commit + 2 Full RFC 扫描,不阻断),退出码 0;agent 完全自主模式下建议项不阻断合入(CONTRIBUTING.md / 10 §7 v2.0 / 13 D-409)",
+      "advisory_notes": [
+        "06fe78d0/49a25285/475853f7 三个提交缺 provenance trailer(Assisted-by / Co-Authored-By,D-406 硬规则 2)",
+        "ff30c694 fix(uc06) VSM pool_pages 语义改动未引用条款号(硬规则 7)",
+        "2fa12759 feat(g5) RD-038 W1+W2 src 改动 commit body 缺验证标记(硬规则 3/10)",
+        "rfcs/0016-native-renderer.md 对抗性评审记录段为空/仅占位(D-409)"
+      ]
+    },
+    {
+      "seq": 9,
+      "command": "py -3 ci/trace_matrix.py --check",
+      "exit_code": 0,
+      "status": "pass",
+      "summary": "[trace_matrix] PASS (278/278 clauses anchored, 611 test files scanned)"
+    },
+    {
+      "seq": 10,
+      "command": "py -3 ci/budget_eval.py",
+      "exit_code": 0,
+      "status": "pass",
+      "summary": "[budget_eval] PASS (96 pass, 0 skip, normal mode):m0~ms1 全部 measured_local 性能/ratio/counter 条目过阈;g7_budget.json 三组为空壳(G7.0 合法态,CI_GATES §5 空壳仅表尚未测量,不充绿,G-G7-3 前必须非空 measured)"
+    }
+  ],
+  "jolt_review": {
+    "vendor_path": "src/rurix-physics-sys/vendor/JoltC(JoltPhysics 位于其下 JoltPhysics/,保持 JoltC submodule 相对路径布局)",
+    "joltc_pin": "2982004387a9e36ca89525a87d983709d3666da7",
+    "joltphysics_pin": "0373ec0dd762e4bc2f6acdb08371ee84fa23c6db",
+    "jolt_version": "5.3.0",
+    "license_files_present": [
+      "src/rurix-physics-sys/vendor/JoltC/LICENSE-MIT",
+      "src/rurix-physics-sys/vendor/JoltC/LICENSE-APACHE",
+      "src/rurix-physics-sys/vendor/JoltC/JoltPhysics/LICENSE"
+    ],
+    "sbom_entry": "无 Jolt 条目且与当前分发面一致(by design):src/rurixup/src/sbom.rs 组件源自 BundleManifest(bundle.json),分区仅 language-core / nvidia-redist 两类,rurixup 全 crate 零 Jolt/physics 引用;Jolt 仅以静态库链入开发期二进制(uc08 等 apps),不进入发布 bundle,故 SBOM 无双视图条目",
+    "consistent": true,
+    "findings": "① LICENSE 三件在位:JoltC 为 MIT OR Apache-2.0 双许可(LICENSE-MIT + LICENSE-APACHE),JoltPhysics 为 MIT(Copyright 2021 Jorrit Rouwe);② 版本复核与 src/rurix-physics-sys/VENDOR.md 登记一致:vendored JoltPhysics/Build/CMakeLists.txt project(JoltPhysics VERSION 5.3.0) + Jolt/Core/Core.h JPH_VERSION_MAJOR 5 / MINOR 3 / PATCH 0 → Jolt 5.3.0,满足 RFC-0017 C-5 ≥5.2 要求;两 pin commit 与 VENDOR.md §1 表一致;③ SBOM 一致性:rurixup/sbom.rs 与 ci/check_redistribution.py 均无 Jolt 条目,与『bundle 分发组件清单』口径一致,无冲突;遗留提示:若未来发布 bundle 纳入嵌 Jolt 静态库的二进制(如引擎/物理组件),SBOM 需补 Jolt 组件条目(Jolt 5.3.0 MIT + JoltC MIT OR Apache-2.0)并扩分区枚举"
+  },
+  "all_gates_pass": true,
+  "run_url": "local",
+  "timestamp": "2026-08-01T10:19:23Z"
+}

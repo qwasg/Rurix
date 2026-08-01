@@ -1,0 +1,177 @@
+{
+  "schema_version": 1,
+  "subject": "g7_perf_baseline",
+  "evidence_level": "measured_local",
+  "milestone": "G7.1 / G-G7-3 (g7_budget 非空化 baseline 实测)",
+  "base_ref": "g7-base",
+  "base_commit": "3f3e4db3b39b32e20268d5ee7a2c58d729c6265b",
+  "branch": "cursor/g5-rd038-w1w2-degradation-waves",
+  "timestamp": "2026-08-01T10:53:18Z",
+  "environment": {
+    "os": "Microsoft Windows 11 Pro Insider Preview build 28120",
+    "cpu": "13th Gen Intel(R) Core(TM) i5-13600KF",
+    "gpu_name": "NVIDIA GeForce RTX 4070 Ti",
+    "gpu_driver": "620.02",
+    "gpu_memory_total_mib": 12282,
+    "python_version": "3.12.1",
+    "cargo_version": "1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "1.93.1 (01f6ddf75 2026-02-11)",
+    "clock_lock_applicability": "性能段为 host CPU 软件参照管线计时(零 GPU 参与),GPU 锁频规程(BENCH_PROTOCOL §2.1)不适用;CPU 频率未锁,三 trial 进程级串行独占机器,对齐 ei1 uc05_check_bench 纯 host 先例的如实声明口径"
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo build --release -p uc06-renderer",
+      "exit_code": 0,
+      "note": "release(optimized)构建;Finished `release` profile [optimized] in 4.98s"
+    },
+    {
+      "seq": 2,
+      "command": "target\\release\\uc06-renderer.exe --frames 8 --size 1920x1080 --json",
+      "exit_code": 0,
+      "note": "性能段 trial 1/2/3 同一命令进程级串行三跑;等价 cargo run --release -p uc06-renderer -- --frames 8 --size 1920x1080 --json(现有 CLI 开关,零功能代码改动)"
+    },
+    {
+      "seq": 3,
+      "command": "cargo run -q -p uc06-renderer --bin uc06-renderer --features vulkan -- --device --frames 2 --size 64x64 --json",
+      "exit_code": 0,
+      "note": "correctness device 腿;env RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1(ci/uc06_renderer_smoke.py 步骤 87 device 段同款命令;debug profile)"
+    }
+  ],
+  "sampling": {
+    "trials": 3,
+    "trimmed_pct": 0.2,
+    "timer": "std::time::Instant in-process per-stage cpu_ms(apps/uc06-renderer/src/pipeline.rs run_frame 既有仪器面,非新增)",
+    "method": "每 trial 跑 8 帧 1920x1080 输出(内部 960x540,TSR 2x 超分),取末帧 12 阶段(streaming/cull/visbuffer/mat_resolve/gbuffer/vsm/gi/rt_effects/shadow_project/deferred_shade/taa/tsr)cpu_ms 求和 = 该 trial 单帧全管线 CPU 耗时(JSON stages 字段为末帧粒度,字段集冻结);3 trial 去首尾取中 = trimmed_mean,对齐 ms1 uc07_bench agg 先例"
+  },
+  "results": {
+    "metric": "uc06_host_frame_cpu_ms_1080p",
+    "unit": "ms",
+    "trimmed_mean": 950.3853,
+    "trial_values": [950.3853, 953.1361, 944.8362],
+    "min": 944.8362,
+    "max": 953.1361,
+    "cv": 0.003636,
+    "ci95": [944.8362, 953.1361],
+    "correctness_check": "pass"
+  },
+  "per_trial": [
+    {
+      "trial": 1,
+      "wall_seconds_process": 7.5865061,
+      "frames": 8,
+      "out_width": 1920,
+      "out_height": 1080,
+      "internal_width": 960,
+      "internal_height": 540,
+      "last_frame_stage_cpu_ms": {
+        "streaming": 0.0038,
+        "cull": 0.0037,
+        "visbuffer": 17.7806,
+        "mat_resolve": 1.3823,
+        "gbuffer": 67.0209,
+        "vsm": 106.3568,
+        "gi": 108.8398,
+        "rt_effects": 171.6567,
+        "shadow_project": 23.7491,
+        "deferred_shade": 6.3179,
+        "taa": 45.8071,
+        "tsr": 401.4666
+      },
+      "last_frame_total_cpu_ms": 950.3853,
+      "asserts_all_true": true,
+      "pso_runtime_compile_warnings": 0,
+      "graph": { "pass_count": 15, "barrier_count": 32, "fence_count": 2, "alias_peak": 41480192, "no_alias_peak": 47700992 },
+      "final": { "mean": 0.217537, "std": 0.084363, "shadow_lit_ratio": 0.9632 },
+      "exit_ok": true
+    },
+    {
+      "trial": 2,
+      "wall_seconds_process": 7.4775124,
+      "frames": 8,
+      "out_width": 1920,
+      "out_height": 1080,
+      "internal_width": 960,
+      "internal_height": 540,
+      "last_frame_stage_cpu_ms": {
+        "streaming": 0.0035,
+        "cull": 0.0031,
+        "visbuffer": 16.4438,
+        "mat_resolve": 1.3103,
+        "gbuffer": 65.2899,
+        "vsm": 108.4517,
+        "gi": 108.2097,
+        "rt_effects": 169.5383,
+        "shadow_project": 24.1175,
+        "deferred_shade": 6.4558,
+        "taa": 46.4667,
+        "tsr": 406.8458
+      },
+      "last_frame_total_cpu_ms": 953.1361,
+      "asserts_all_true": true,
+      "pso_runtime_compile_warnings": 0,
+      "graph": { "pass_count": 15, "barrier_count": 32, "fence_count": 2, "alias_peak": 41480192, "no_alias_peak": 47700992 },
+      "final": { "mean": 0.217579, "std": 0.084348, "shadow_lit_ratio": 0.9632 },
+      "exit_ok": true
+    },
+    {
+      "trial": 3,
+      "wall_seconds_process": 7.4473928,
+      "frames": 8,
+      "out_width": 1920,
+      "out_height": 1080,
+      "internal_width": 960,
+      "internal_height": 540,
+      "last_frame_stage_cpu_ms": {
+        "streaming": 0.0039,
+        "cull": 0.0033,
+        "visbuffer": 16.9192,
+        "mat_resolve": 1.2254,
+        "gbuffer": 63.7982,
+        "vsm": 105.0227,
+        "gi": 108.2555,
+        "rt_effects": 171.8344,
+        "shadow_project": 24.4663,
+        "deferred_shade": 6.7087,
+        "taa": 45.7329,
+        "tsr": 400.8657
+      },
+      "last_frame_total_cpu_ms": 944.8362,
+      "asserts_all_true": true,
+      "pso_runtime_compile_warnings": 0,
+      "graph": { "pass_count": 15, "barrier_count": 32, "fence_count": 2, "alias_peak": 41480192, "no_alias_peak": 47700992 },
+      "final": { "mean": 0.217497, "std": 0.084385, "shadow_lit_ratio": 0.9632 },
+      "exit_ok": true
+    }
+  ],
+  "correctness": {
+    "command": "cargo run -q -p uc06-renderer --bin uc06-renderer --features vulkan -- --device --frames 2 --size 64x64 --json",
+    "exit_code": 0,
+    "device_name": "NVIDIA GeForce RTX 4070 Ti",
+    "require_real": true,
+    "vk_validation_enabled": true,
+    "validation_clean": true,
+    "pixel_parity": {
+      "triangle_pixels": 4096,
+      "compute_write_ok": true,
+      "mixed_pass_ok": true,
+      "wave_w1_pass": true,
+      "wave_w2_pass": true,
+      "cull_pass": true,
+      "visbuffer_pass": true,
+      "classify_resolve_pass": true,
+      "vsm_page_mark_pass": true,
+      "taa_pass": true
+    },
+    "device_stats": {
+      "cull_visible_clusters": 72,
+      "visbuffer_matched_words": 9216,
+      "classify_matched_pixels": 9216,
+      "vsm_marked_pages": 4,
+      "taa_max_err": 1.2e-07
+    },
+    "exit_ok": true,
+    "device_pixel_parity_pass": true
+  },
+  "notes": "G7.1 baseline(G-G7-3/CI_GATES §5):RTX 4070 Ti 未优化 baseline 实测。性能锚 = UC-06 host 软件参照管线 1080p 末帧 12 阶段 CPU 合计(950.3853 ms,3 trial 极差 <1%),entry 阈值 = 实测 x1.5 = 1425.578 ms(对齐 ms1 v1.3 阈值纪律)。诚实边界:效果 kernel 全量 device 化未完成(RD-038 存续),现有路径无 1080p GPU 帧耗时输出,本证据以 host CPU 软件管线帧耗时代位未优化 baseline;frame GPU p95/CPU submit p95/peak VRAM 属 G7.2+ 步骤 96 renderer_device_frame_smoke 度量面(CI_GATES §2/§3)。correctness 锚 = 同渲染器 device 腿 64x64 真多 pass 像素对拍七项全 true + validation layer 开启零报错(validation_clean 语义 = RURIX_VK_VALIDATION=1 在位)。三 trial 全帧 exit_ok=true、asserts 9 项全 true、pso 告警 0。"
+}

@@ -820,6 +820,26 @@ def eval_counter(entry: dict, strict: bool) -> None:
         n = len(cases)
         count_or_gate(eid, n, 5, "条 bundle 资产闭环案例标识(①-⑤)",
                       "EA1.2 建设期为正常状态,契约 G-EA1-4", strict)
+    elif eid == "g7.counter.uc06_device_pixel_parity":
+        # UC-06 device 腿像素对拍 + validation clean 见证数 ≥1(契约 G-G7-3;G7.1
+        # baseline 非空化,CI_GATES §5)。计数源 = evidence/g7_perf_baseline_*.json 中
+        # correctness.device_pixel_parity_pass=true 且 correctness.validation_clean=true
+        # 的报告数(机器事实:RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1 下
+        # uc06-renderer --features vulkan --device 真跑 exit 0,RTX 4070 Ti 上
+        # wave_w1/wave_w2/cull/visbuffer/classify_resolve/vsm_page_mark/taa 七项对拍
+        # 全 true + triangle/compute/mixed 像素断言过 + validation layer 开启在位;
+        # ci/uc06_renderer_smoke.py 步骤 87 device 段同款命令)。**device evidence
+        # 计数**(非静态语料计数):须有 Vulkan 驱动 + GPU 才能成立,故按 device 见证
+        # 归档口径计数(对齐 g5.counter.render_exec_device_tests 先例)。无 GPU /
+        # 无 Vulkan → 不产本证据 → 0 → 建设期 normal SKIP / close-out strict FAIL。
+        n = 0
+        for f in (ROOT / "evidence").glob("g7_perf_baseline_*.json"):
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            c = doc.get("correctness", {})
+            if c.get("device_pixel_parity_pass") is True and c.get("validation_clean") is True:
+                n += 1
+        count_or_gate(eid, n, 1, "份 UC-06 device 像素对拍 + validation clean 见证",
+                      "G7.1 baseline device 见证回填前为正常状态,契约 G-G7-3", strict)
     else:
         err(f"{eid}: 未知计数器断言,无对应 evaluator 实现")
 

@@ -1,0 +1,276 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G7.1 性能 baseline 实测证据 schema(G-G7-3 预算非空化;CI_GATES §5)",
+  "description": "evidence/g7_perf_baseline_<UTC时间戳>.json。G7.1 对 RTX 4070 Ti 未优化 baseline 的实测留痕:性能段 = UC-06 全管线渲染器 host 软件参照管线 1080p(输出 1920x1080/内部 960x540)末帧 12 阶段 cpu_ms 求和,release profile,三进程级独立 trial trimmed mean(results.trimmed_mean 供 g7_budget.json entries 经 ci/budget_eval.py eval_entry 通用路判读,对齐 ms1 uc07_bench agg 先例);correctness 段 = 同渲染器 device 腿(RURIX_REQUIRE_REAL=1 + RURIX_VK_VALIDATION=1)像素对拍七项 + validation clean 机器事实(供 g7.counter.uc06_device_pixel_parity 计数)。诚实边界必填:RD-038 存续期现有路径无 1080p GPU 帧耗时输出,性能锚为 host CPU 软件管线口径,notes 如实声明。镜像 g7_baseline_evidence_schema.json 体例。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "evidence_level",
+    "milestone",
+    "base_ref",
+    "base_commit",
+    "branch",
+    "timestamp",
+    "environment",
+    "commands",
+    "sampling",
+    "results",
+    "per_trial",
+    "correctness",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g7_perf_baseline" },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "milestone": { "type": "string" },
+    "base_ref": { "type": "string" },
+    "base_commit": { "type": "string" },
+    "branch": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "cpu",
+        "gpu_name",
+        "gpu_driver",
+        "gpu_memory_total_mib",
+        "python_version",
+        "cargo_version",
+        "rustc_version",
+        "clock_lock_applicability"
+      ],
+      "properties": {
+        "os": { "type": "string" },
+        "cpu": { "type": "string" },
+        "gpu_name": { "type": "string" },
+        "gpu_driver": { "type": "string" },
+        "gpu_memory_total_mib": { "type": "integer" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" },
+        "clock_lock_applicability": { "type": "string", "description": "锁频规程适用性如实声明(ei1 uc05_check_bench 先例)" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seq", "command", "exit_code", "note"],
+        "properties": {
+          "seq": { "type": "integer", "minimum": 1 },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "sampling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trials", "trimmed_pct", "timer", "method"],
+      "properties": {
+        "trials": { "type": "integer", "minimum": 3 },
+        "trimmed_pct": { "type": "number" },
+        "timer": { "type": "string" },
+        "method": { "type": "string" }
+      }
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metric",
+        "unit",
+        "trimmed_mean",
+        "trial_values",
+        "min",
+        "max",
+        "cv",
+        "ci95",
+        "correctness_check"
+      ],
+      "properties": {
+        "metric": { "type": "string" },
+        "unit": { "type": "string" },
+        "trimmed_mean": { "type": "number", "description": "budget_eval eval_entry 通用路判读锚点" },
+        "trial_values": { "type": "array", "items": { "type": "number" }, "minItems": 3 },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "cv": { "type": "number" },
+        "ci95": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+        "correctness_check": { "type": "string", "enum": ["pass", "fail"] }
+      }
+    },
+    "per_trial": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "trial",
+          "wall_seconds_process",
+          "frames",
+          "out_width",
+          "out_height",
+          "internal_width",
+          "internal_height",
+          "last_frame_stage_cpu_ms",
+          "last_frame_total_cpu_ms",
+          "asserts_all_true",
+          "pso_runtime_compile_warnings",
+          "graph",
+          "final",
+          "exit_ok"
+        ],
+        "properties": {
+          "trial": { "type": "integer", "minimum": 1 },
+          "wall_seconds_process": { "type": "number" },
+          "frames": { "type": "integer" },
+          "out_width": { "type": "integer" },
+          "out_height": { "type": "integer" },
+          "internal_width": { "type": "integer" },
+          "internal_height": { "type": "integer" },
+          "last_frame_stage_cpu_ms": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "streaming",
+              "cull",
+              "visbuffer",
+              "mat_resolve",
+              "gbuffer",
+              "vsm",
+              "gi",
+              "rt_effects",
+              "shadow_project",
+              "deferred_shade",
+              "taa",
+              "tsr"
+            ],
+            "properties": {
+              "streaming": { "type": "number" },
+              "cull": { "type": "number" },
+              "visbuffer": { "type": "number" },
+              "mat_resolve": { "type": "number" },
+              "gbuffer": { "type": "number" },
+              "vsm": { "type": "number" },
+              "gi": { "type": "number" },
+              "rt_effects": { "type": "number" },
+              "shadow_project": { "type": "number" },
+              "deferred_shade": { "type": "number" },
+              "taa": { "type": "number" },
+              "tsr": { "type": "number" }
+            }
+          },
+          "last_frame_total_cpu_ms": { "type": "number" },
+          "asserts_all_true": { "type": "boolean" },
+          "pso_runtime_compile_warnings": { "type": "integer" },
+          "graph": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["pass_count", "barrier_count", "fence_count", "alias_peak", "no_alias_peak"],
+            "properties": {
+              "pass_count": { "type": "integer" },
+              "barrier_count": { "type": "integer" },
+              "fence_count": { "type": "integer" },
+              "alias_peak": { "type": "integer" },
+              "no_alias_peak": { "type": "integer" }
+            }
+          },
+          "final": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["mean", "std", "shadow_lit_ratio"],
+            "properties": {
+              "mean": { "type": "number" },
+              "std": { "type": "number" },
+              "shadow_lit_ratio": { "type": "number" }
+            }
+          },
+          "exit_ok": { "type": "boolean" }
+        }
+      }
+    },
+    "correctness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command",
+        "exit_code",
+        "device_name",
+        "require_real",
+        "vk_validation_enabled",
+        "validation_clean",
+        "pixel_parity",
+        "device_stats",
+        "exit_ok",
+        "device_pixel_parity_pass"
+      ],
+      "properties": {
+        "command": { "type": "string" },
+        "exit_code": { "type": "integer" },
+        "device_name": { "type": "string" },
+        "require_real": { "type": "boolean" },
+        "vk_validation_enabled": { "type": "boolean" },
+        "validation_clean": { "type": "boolean", "description": "RURIX_VK_VALIDATION=1 在位语义(pipeline.rs validation_clean)" },
+        "pixel_parity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "triangle_pixels",
+            "compute_write_ok",
+            "mixed_pass_ok",
+            "wave_w1_pass",
+            "wave_w2_pass",
+            "cull_pass",
+            "visbuffer_pass",
+            "classify_resolve_pass",
+            "vsm_page_mark_pass",
+            "taa_pass"
+          ],
+          "properties": {
+            "triangle_pixels": { "type": "integer" },
+            "compute_write_ok": { "type": "boolean" },
+            "mixed_pass_ok": { "type": "boolean" },
+            "wave_w1_pass": { "type": "boolean" },
+            "wave_w2_pass": { "type": "boolean" },
+            "cull_pass": { "type": "boolean" },
+            "visbuffer_pass": { "type": "boolean" },
+            "classify_resolve_pass": { "type": "boolean" },
+            "vsm_page_mark_pass": { "type": "boolean" },
+            "taa_pass": { "type": "boolean" }
+          }
+        },
+        "device_stats": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "cull_visible_clusters",
+            "visbuffer_matched_words",
+            "classify_matched_pixels",
+            "vsm_marked_pages",
+            "taa_max_err"
+          ],
+          "properties": {
+            "cull_visible_clusters": { "type": "integer" },
+            "visbuffer_matched_words": { "type": "integer" },
+            "classify_matched_pixels": { "type": "integer" },
+            "vsm_marked_pages": { "type": "integer" },
+            "taa_max_err": { "type": "number" }
+          }
+        },
+        "exit_ok": { "type": "boolean" },
+        "device_pixel_parity_pass": { "type": "boolean", "description": "g7.counter.uc06_device_pixel_parity 计数锚(与 validation_clean 双条件)" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

@@ -1,0 +1,103 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G7.0 基线门实跑证据 schema(G-G7-1 治理/基线门;D-G7-1)",
+  "description": "evidence/g7_baseline_<UTC时间戳>.json。G7.0 波次对十条既有守卫(cargo fmt --check / cargo clippy --workspace --all-targets -- -D warnings / cargo test --workspace / ci/check_number_ledger.py / ci/check_schemas.py / ci/check_structure.py / ci/check_guardrails.py <base> / ci/check_contribution.py / ci/trace_matrix.py --check / ci/budget_eval.py)逐条实跑并记录命令、退出码、pass/fail 与关键输出摘要,附环境画像与 Jolt vendor/license/SBOM 复核结论。纯 host 治理记录,无 device 段(device_section 概念不适用,故不设该字段);ADVISORY 类不阻断输出如实记入 advisory_notes,不改变 exit_code 事实;不入 budget counter。镜像 g6 体例。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "milestone",
+    "base_ref",
+    "base_commit",
+    "branch",
+    "environment",
+    "gates",
+    "jolt_review",
+    "all_gates_pass",
+    "run_url",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g7_baseline" },
+    "milestone": { "type": "string" },
+    "base_ref": { "type": "string", "description": "基线不可变 ref(本波 = 附注 tag g7-base)" },
+    "base_commit": { "type": "string", "description": "base_ref 解析到的 commit 全哈希" },
+    "branch": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "gpu_name",
+        "gpu_driver",
+        "python_version",
+        "cargo_version",
+        "rustc_version"
+      ],
+      "properties": {
+        "os": { "type": "string" },
+        "gpu_name": { "type": "string" },
+        "gpu_driver": { "type": "string" },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" }
+      }
+    },
+    "gates": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "description": "十条既有守卫逐条实跑记录,序与 milestones/g7/CI_GATES.md §1 一致",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seq", "command", "exit_code", "status", "summary"],
+        "properties": {
+          "seq": { "type": "integer", "minimum": 1, "maximum": 10 },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" },
+          "status": { "enum": ["pass", "fail"] },
+          "summary": { "type": "string", "description": "关键输出摘要(首尾行;失败时保留更多上下文)" },
+          "advisory_notes": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "不阻断的 ADVISORY 输出(exit_code 仍为 0 时如实登记)"
+          }
+        }
+      }
+    },
+    "jolt_review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vendor_path",
+        "joltc_pin",
+        "joltphysics_pin",
+        "jolt_version",
+        "license_files_present",
+        "sbom_entry",
+        "consistent",
+        "findings"
+      ],
+      "properties": {
+        "vendor_path": { "type": "string" },
+        "joltc_pin": { "type": "string" },
+        "joltphysics_pin": { "type": "string" },
+        "jolt_version": { "type": "string" },
+        "license_files_present": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "sbom_entry": { "type": "string", "description": "SBOM 中 Jolt 条目状态与一致性说明" },
+        "consistent": { "type": "boolean" },
+        "findings": { "type": "string" }
+      }
+    },
+    "all_gates_pass": { "type": "boolean" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" }
+  }
+}
