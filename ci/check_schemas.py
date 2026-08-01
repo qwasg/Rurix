@@ -286,6 +286,9 @@ def check_evidence_files() -> None:
     physics_rapier_parity_schema = load(
         ROOT / "milestones/g6/physics_rapier_parity_evidence_schema.json"
     )
+    taichi_vulkan_spike_schema = load(
+        ROOT / "milestones/g6/taichi_vulkan_spike_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -490,6 +493,11 @@ def check_evidence_files() -> None:
     physics_rapier_parity_validator = (
         jsonschema.Draft7Validator(physics_rapier_parity_schema)
         if physics_rapier_parity_schema
+        else None
+    )
+    taichi_vulkan_spike_validator = (
+        jsonschema.Draft7Validator(taichi_vulkan_spike_schema)
+        if taichi_vulkan_spike_schema
         else None
     )
     uc05_check_bench_validator = (
@@ -919,6 +927,19 @@ def check_evidence_files() -> None:
             # RURIX_REQUIRE_REAL=1 翻硬红)。前缀须置于任何更通用 uc0 前缀之前
             # (现路由表无 uc08 通用前缀,本分支位于 uc06/uc07 分支之后安全)。
             validator = uc08_physics_smoke_validator
+        elif (
+            f.name.startswith("taichi_vulkan_spike_")
+            and taichi_vulkan_spike_validator is not None
+        ):
+            # G6.5 Taichi Vulkan AOT spike 冒烟证据(G-G6-6 成功臂;RFC-0017 §4.E)→
+            # milestones/g6/taichi_vulkan_spike_evidence_schema.json
+            # (ci/taichi_vulkan_spike_smoke.py 步骤 92 写:host 恒跑 AOT 资产核验/
+            # feature taichi-tirt 默认 off cargo metadata 机验/§4.E4 三条禁止审计/
+            # U43 登记/uc09 单测 + host 腿 --json 8 断言;device 段 gate real
+            # --features taichi-tirt 真跑〔五断言 + nonzero==64 + first_values 逐位〕,
+            # 缺 taichi_c_api.dll SKIP=dev-env-degrade 退 0 不充绿,
+            # RURIX_REQUIRE_REAL=1 翻硬红)。前缀与现有各族互不包含,置于末尾安全。
+            validator = taichi_vulkan_spike_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None

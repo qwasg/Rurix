@@ -1,0 +1,19 @@
+[package]
+name = "uc09-taichi-spike"
+description = "UC-09 G6.5 Taichi Vulkan AOT spike demo(RFC-0017 §4.E)——host 腿(default features,零 GPU/DLL 依赖):particles.tcm 资产 sha256 核验 + RenderGraph import 外部 TiRT buffer → transient copy 计划真编译(CommandLog 录 copy);device 腿(feature taichi-tirt):rurix-rt tirt 模块在同一并行 Vk 设备上下文 launch fill_particles kernel → NdArray 导出 VkBuffer → graph copy 计划接线 → readback 非零断言(§4.E3 四段闭合;RURIX_REQUIRE_REAL=1 时任何 device 失败硬红,仅 provisioning 缺失可 SKIP 降级,不充绿)"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+rurix-render = { path = "../../src/rurix-render" }
+rurix-rt = { path = "../../src/rurix-rt" }
+
+[features]
+default = []
+# device 真跑腿(uc08-physics 先例:默认关闭,host 常驻回归网)。
+taichi-tirt = ["rurix-rt/taichi-tirt"]
+
+[lints]
+workspace = true

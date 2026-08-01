@@ -47,6 +47,12 @@ pub mod sampler;
 /// + 批级提交计划 + I11 核验器（独立重建依赖闭包逐边核，red_self_test 双向）。
 pub mod scheduler;
 pub mod sys;
+/// G6.5 Taichi Vulkan AOT spike:TiRT(taichi_c_api)FFI 边界(U43;RFC-0017 §4.E)。
+/// feature `taichi-tirt`(依赖 `vulkan`)gate:`taichi_c_api.dll` 动态装载(环境变量
+/// `RURIX_TAICHI_C_API_DLL` 绝对路径,fail-closed)+ 并行 Vk 设备上下文 + AOT kernel
+/// launch + `ti_export_vulkan_memory` 导出 buffer 的 host readback。
+#[cfg(feature = "taichi-tirt")]
+pub mod tirt;
 #[cfg(feature = "vulkan")]
 pub mod vk;
 

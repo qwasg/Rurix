@@ -1007,6 +1007,241 @@ pub fn vulkan_available() -> bool {
     load_vulkan_loader().is_some()
 }
 
+// ── tirt(G6.5)并行设备上下文(RFC-0017 §4.E2;pub(crate) 新增,既有入口 0-byte) ──
+// `tirt` 模块(feature `taichi-tirt`)消费:自建一套与 render_exec 无共享状态的
+// instance+device+queue(Taichi TiRT interop 注入九字段需要 instance/physical_device/
+// device/compute_queue(+family)/graphics_queue(+family) 同设备组合,头文件注释允许
+// compute/graphics 同 queue)。创建面镜像 `run_compute_inner`(U26 骨架)最小化:
+// 无 validation、无 device 扩展/feature 链、api 1.1(Taichi AOT SPIR-V 1.3 需求即满足)。
+// 三件(pub(crate) 结构+create/destroy)随 `taichi-tirt` cfg 编入——vulkan-only 构建
+// 不编入,杜绝 dead_code 噪音(clippy -D warnings 常驻网)。
+
+/// tirt 并行设备上下文句柄包(值移交;销毁仅经 [`destroy_tirt_vulkan_device`] 逆序:
+/// device → instance)。
+#[cfg(feature = "taichi-tirt")]
+pub(crate) struct TirtVulkanDevice {
+    /// instance 创建所用 api version(`VK_MAKE_API_VERSION(0,1,1,0)`;interop 注入用)。
+    pub api_version: u32,
+    pub instance: VkInstance,
+    pub physical_device: VkPhysicalDevice,
+    pub device: VkDevice,
+    pub compute_queue: VkQueue,
+    pub compute_queue_family: u32,
+    pub graphics_queue: VkQueue,
+    pub graphics_queue_family: u32,
+    /// 物理设备名(`vkGetPhysicalDeviceProperties.deviceName`;spike 证据留痕用)。
+    pub device_name: String,
+}
+
+/// 创建 tirt 并行设备上下文(最小 device:无扩展、无 feature 链;compute 家族 +
+/// graphics 家族各取首个,异家族时 device 建两条 queue create info)。
+///
+/// 失败路径同样走完已建句柄销毁(镜像 `run_compute_inner` 纪律)。
+///
+/// # Safety
+/// `gipa` 为有效 `vkGetInstanceProcAddr`;返回句柄由调用方经
+/// [`destroy_tirt_vulkan_device`] 单点销毁(配对一次,不双释放)。
+#[cfg(feature = "taichi-tirt")]
+pub(crate) unsafe fn create_tirt_vulkan_device(
+    gipa: FnGetInstanceProcAddr,
+    app_name: &CStr,
+) -> Result<TirtVulkanDevice, String> {
+    let vk_create_instance: FnCreateInstance =
+        cast_fn(gipa(std::ptr::null_mut(), c"vkCreateInstance".as_ptr()))
+            .ok_or("缺 vkCreateInstance")?;
+    let app = ApplicationInfo {
+        s_type: ST_APPLICATION_INFO,
+        p_next: std::ptr::null(),
+        p_application_name: app_name.as_ptr(),
+        application_version: 0,
+        p_engine_name: c"rurix".as_ptr(),
+        engine_version: 0,
+        api_version: API_VERSION_1_1,
+    };
+    let ici = InstanceCreateInfo {
+        s_type: ST_INSTANCE_CREATE_INFO,
+        p_next: std::ptr::null(),
+        flags: 0,
+        p_application_info: &app,
+        enabled_layer_count: 0,
+        pp_enabled_layer_names: std::ptr::null(),
+        enabled_extension_count: 0,
+        pp_enabled_extension_names: std::ptr::null(),
+    };
+    let mut instance: VkInstance = std::ptr::null_mut();
+    let r = vk_create_instance(&ici, std::ptr::null(), &mut instance);
+    if r != VK_SUCCESS {
+        return Err(format!("vkCreateInstance 失败: {r}"));
+    }
+
+    let out = (|| {
+        let vk_enum_pd: FnEnumeratePhysicalDevices =
+            cast_fn(gipa(instance, c"vkEnumeratePhysicalDevices".as_ptr()))
+                .ok_or("缺 vkEnumeratePhysicalDevices")?;
+        let vk_get_qf: FnGetPhysicalDeviceQueueFamilyProperties = cast_fn(gipa(
+            instance,
+            c"vkGetPhysicalDeviceQueueFamilyProperties".as_ptr(),
+        ))
+        .ok_or("缺 vkGetPhysicalDeviceQueueFamilyProperties")?;
+        let vk_get_props: FnGetPhysicalDeviceProperties =
+            cast_fn(gipa(instance, c"vkGetPhysicalDeviceProperties".as_ptr()))
+                .ok_or("缺 vkGetPhysicalDeviceProperties")?;
+        let vk_create_device: FnCreateDevice =
+            cast_fn(gipa(instance, c"vkCreateDevice".as_ptr())).ok_or("缺 vkCreateDevice")?;
+        let vk_get_device_proc: FnGetDeviceProcAddr =
+            cast_fn(gipa(instance, c"vkGetDeviceProcAddr".as_ptr()))
+                .ok_or("缺 vkGetDeviceProcAddr")?;
+
+        // 枚举物理设备,取首个(与 vk.rs 全部入口同律)。
+        let mut count = 0u32;
+        vk_enum_pd(instance, &mut count, std::ptr::null_mut());
+        if count == 0 {
+            return Err("无 Vulkan 物理设备".to_owned());
+        }
+        let mut pds = vec![std::ptr::null_mut::<c_void>(); count as usize];
+        vk_enum_pd(instance, &mut count, pds.as_mut_ptr());
+        let pd = pds[0];
+
+        // 设备名 + 设备侧 api version(2048B align(8) blob,严格超集防越界写)。
+        let mut blob = PhysicalDevicePropertiesBlob {
+            api_version: 0,
+            _rest: [0; 2044],
+        };
+        vk_get_props(pd, &mut blob);
+        let name_bytes = &blob._rest[16..272]; // deviceName @ 结构偏移 20 = _rest[16..272]
+        let end = name_bytes.iter().position(|&b| b == 0).unwrap_or(256);
+        let device_name = String::from_utf8_lossy(&name_bytes[..end]).into_owned();
+
+        // compute/graphics 家族各取首个(头文件允许两 queue 同家族;异家族 device 建两条)。
+        let mut qf_count = 0u32;
+        vk_get_qf(pd, &mut qf_count, std::ptr::null_mut());
+        let mut qfs: Vec<QueueFamilyProperties> = (0..qf_count)
+            .map(|_| QueueFamilyProperties {
+                queue_flags: 0,
+                queue_count: 0,
+                timestamp_valid_bits: 0,
+                min_image_transfer_granularity: VkExtent3D {
+                    width: 0,
+                    height: 0,
+                    depth: 0,
+                },
+            })
+            .collect();
+        vk_get_qf(pd, &mut qf_count, qfs.as_mut_ptr());
+        let compute_qfi = qfs
+            .iter()
+            .position(|q| q.queue_flags & QUEUE_COMPUTE_BIT != 0)
+            .ok_or("无 compute queue family")? as u32;
+        let graphics_qfi = qfs
+            .iter()
+            .position(|q| q.queue_flags & QUEUE_GRAPHICS_BIT != 0)
+            .ok_or("无 graphics queue family")? as u32;
+
+        let prio = [1.0f32];
+        let dqci_compute = DeviceQueueCreateInfo {
+            s_type: ST_DEVICE_QUEUE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            queue_family_index: compute_qfi,
+            queue_count: 1,
+            p_queue_priorities: prio.as_ptr(),
+        };
+        let dqci_graphics = DeviceQueueCreateInfo {
+            queue_family_index: graphics_qfi,
+            ..dqci_compute
+        };
+        let dqcis = [dqci_compute, dqci_graphics];
+        let (p_dqci, n_dqci) = if compute_qfi == graphics_qfi {
+            (dqcis.as_ptr(), 1u32)
+        } else {
+            (dqcis.as_ptr(), 2u32)
+        };
+        let dci = DeviceCreateInfo {
+            s_type: ST_DEVICE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            queue_create_info_count: n_dqci,
+            p_queue_create_infos: p_dqci,
+            enabled_layer_count: 0,
+            pp_enabled_layer_names: std::ptr::null(),
+            enabled_extension_count: 0,
+            pp_enabled_extension_names: std::ptr::null(),
+            p_enabled_features: std::ptr::null(),
+        };
+        let mut device: VkDevice = std::ptr::null_mut();
+        if vk_create_device(pd, &dci, std::ptr::null(), &mut device) != VK_SUCCESS {
+            return Err("vkCreateDevice 失败".to_owned());
+        }
+
+        let device_out = (|| {
+            let get_queue: FnGetDeviceQueue =
+                cast_fn(vk_get_device_proc(device, c"vkGetDeviceQueue".as_ptr()))
+                    .ok_or("缺 vkGetDeviceQueue")?;
+            let mut compute_queue: VkQueue = std::ptr::null_mut();
+            get_queue(device, compute_qfi, 0, &mut compute_queue);
+            let mut graphics_queue: VkQueue = std::ptr::null_mut();
+            get_queue(device, graphics_qfi, 0, &mut graphics_queue);
+            Ok(TirtVulkanDevice {
+                api_version: API_VERSION_1_1.min(blob.api_version),
+                instance,
+                physical_device: pd,
+                device,
+                compute_queue,
+                compute_queue_family: compute_qfi,
+                graphics_queue,
+                graphics_queue_family: graphics_qfi,
+                device_name,
+            })
+        })();
+        if device_out.is_err() {
+            let vk_destroy_device: Option<FnDestroyDevice> =
+                cast_fn(vk_get_device_proc(device, c"vkDestroyDevice".as_ptr()));
+            if let Some(dd) = vk_destroy_device {
+                dd(device, std::ptr::null());
+            }
+        }
+        device_out
+    })();
+
+    let vk_destroy_instance: Option<FnDestroyInstance> =
+        cast_fn(gipa(instance, c"vkDestroyInstance".as_ptr()));
+    match out {
+        // 成功路径 instance/device 所有权移交调用方(destroy 经 destroy_tirt_vulkan_device)。
+        Ok(ctx) => Ok(ctx),
+        Err(e) => {
+            if let Some(di) = vk_destroy_instance {
+                di(instance, std::ptr::null());
+            }
+            Err(e)
+        }
+    }
+}
+
+/// 销毁 [`create_tirt_vulkan_device`] 产出的并行设备上下文(逆序:device → instance)。
+///
+/// # Safety
+/// `ctx` 须为 `create_tirt_vulkan_device` 成功返回且尚未销毁的句柄包;配对仅一次。
+#[cfg(feature = "taichi-tirt")]
+pub(crate) unsafe fn destroy_tirt_vulkan_device(
+    gipa: FnGetInstanceProcAddr,
+    ctx: &TirtVulkanDevice,
+) {
+    let vk_get_device_proc: Option<FnGetDeviceProcAddr> =
+        cast_fn(gipa(ctx.instance, c"vkGetDeviceProcAddr".as_ptr()));
+    if let Some(gdpa) = vk_get_device_proc {
+        let vk_destroy_device: Option<FnDestroyDevice> =
+            cast_fn(gdpa(ctx.device, c"vkDestroyDevice".as_ptr()));
+        if let Some(dd) = vk_destroy_device {
+            dd(ctx.device, std::ptr::null());
+        }
+    }
+    let vk_destroy_instance: Option<FnDestroyInstance> =
+        cast_fn(gipa(ctx.instance, c"vkDestroyInstance".as_ptr()));
+    if let Some(di) = vk_destroy_instance {
+        di(ctx.instance, std::ptr::null());
+    }
+}
+
 /// 解析 SPIR-V 首个 `OpEntryPoint` 的入口名(codegen 用 mangled 符号名;Vulkan pipeline
 /// 的 `pName` 需与之一致)。header 5 字后扫指令流,opcode 15 = OpEntryPoint,operand
 /// [exec_model, entry_id, name(NUL 终止)..]。

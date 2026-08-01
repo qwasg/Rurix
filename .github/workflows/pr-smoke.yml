@@ -922,6 +922,22 @@ jobs:
           RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/uc08_physics_smoke.py
 
+      # 步骤 92（G-G6-6,RFC-0017 §4.E）:Taichi Vulkan AOT spike 冒烟（成功臂）。host 段
+      # **恒跑**(check_* 风格,无 GPU/DLL 也绿):AOT 资产核验(particles.tcm 在位非空 +
+      # 实测 sha256 == 登记 + gen_particles_aot.py 在树)+ feature `taichi-tirt` 默认 off
+      # cargo metadata 机验(rurix-rt 与 uc09 双包)+ §4.E4 三条禁止审计(rurix-physics/
+      # rurix-render 零 taichi 引用、render forbid(unsafe_code) 在位、tirt.rs 与 uc09 零
+      # CUDA 主物理路径)+ U43 登记核验 + cargo test -p uc09-taichi-spike + host 腿
+      # --json 8 断言全 true(反 YAML-only);device 段 gate real(RURIX_REQUIRE_REAL=1
+      # 且 RURIX_TAICHI_C_API_DLL 设位 → --features taichi-tirt 真跑,五断言 +
+      # nonzero==64 + first_values 逐位相等;缺 taichi_c_api.dll SKIP=dev-env degrade
+      # 退 0 不充绿,provisioning 在位而真失败永远硬红)。失败即红。
+      - name: taichi vulkan aot spike smoke (G6 CI_GATES §2.92, G-G6-6, RFC-0017 §4.E)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/taichi_vulkan_spike_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

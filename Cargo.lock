@@ -772,6 +772,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "uc09-taichi-spike"
+version = "1.0.0"
+dependencies = [
+ "rurix-render",
+ "rurix-rt",
+]
+
+[[package]]
 name = "unicode-ident"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
