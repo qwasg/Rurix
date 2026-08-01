@@ -2,7 +2,7 @@
 # 里程碑契约(14 §1 四要素;g6 = 渲染物理双轨期,承 TEMPLATE_CONTRACT.md 体例)
 contract: G6
 title: G6 渲染物理双轨期——依 G6_PLAN 择优裁决落地引擎物理主线:rurix-physics 物理库(Jolt 生产默认:固定步/睡眠/批插体/CCD/并发查询/接触事件)+ 与 G5 渲染器合流(GpuScene 单向变换桥 + 动态体 MV 供时域底座 + 流送页驻留驱动 body 批插移除 + TLAS/BLAS refit 复用)+ Rapier 快路径 feature 对拍 + Taichi Vulkan AOT 特效副轨 spike,合流 demo device 真跑
-status: active            # active(2026-07-30 开工:G5 close-out(G5_CONTRACT §8.1)+ owner 立项确认〔G6_PLAN v1.0 定稿后的 G6.1 治理包开工指令,2026-07-30 会话下达〕,§7 ①)→ closed(close-out 只追加 §8,上方条款 0-byte)
+status: closed            # active(2026-07-30 开工:G5 close-out(G5_CONTRACT §8.1)+ owner 立项确认〔G6_PLAN v1.0 定稿后的 G6.1 治理包开工指令,2026-07-30 会话下达〕,§7 ①)→ closed(2026-08-01 close-out:G-G6-1~G-G6-8 全过,§8.2 终审追加,上方条款 0-byte)
 version: v1.0
 date: 2026-07-30
 timebox: "约 8–12 周(主线 G6.1→G6.6 波次推进,见 G6_PLAN.md;周为相对刻度,非日历承诺)"
@@ -147,3 +147,62 @@ G6 期结束时项目获得:① **物理库底座**——`rurix-physics` 引擎�
 ## 8. Close-out(只追加区 — 开工时为空)
 
 <!-- 验收记录、guardrail 核对输出、deferred 继承/关闭记录追加于此;上方条款 0-byte 修改。 -->
+
+### §8.2 G6 收口终审(2026-08-01)
+
+**验收门终审表**(acceptance_gates G-G6-1 ~ G-G6-8 全过):
+
+| 门 | 判据 | 结果 | 证据锚 |
+|---|---|---|---|
+| G-G6-1 治理门 | 契约四件套 + ledger reserved_in_flight[G6] 登记 + check_structure/check_number_ledger PASS | ✅ | milestones/g6/ 四件 + number_ledger reserved_in_flight[G6] v1.28 claim |
+| G-G6-2 RFC 门 | RFC-0017 伞形五章 Agent Approved(2026-07-31)先于实现;D-409 评审 provenance ≠ 起草 | ✅ | rfcs/0017-engine-physics.md(评审 `kimi-cli:kimi-for-coding` ≠ 起草 `Kimi Code CLI (Kimi)`,17 findings 逐条 disposition) |
+| G-G6-3 物理底座门 | 固定步确定性烟测 + host 单测齐全;FFI 全部 // SAFETY: + unsafe-audit U33 起登记;对外 API safe 不透明句柄 | ✅ | 步骤 88 evidence + cargo 三档 6/41/54 + A7 行为测试 7/7 + §4.C4 审计四项;unsafe-audit U33~U42 登记,rurix-physics #![forbid(unsafe_code)] |
+| G-G6-4 合流门 | GpuScene 单向变换桥 + MV/流送/TLAS refit 审计 + device gate real(RURIX_REQUIRE_REAL=1) | ✅ | 步骤 89 host+device 双腿真跑(RTX 4070 Ti,changed_pixels=168);bridge 七行为测试 + 审计四项(单向同步/不回写/不持原生指针/receipt 纪律) |
+| G-G6-5 Rapier 对拍门 | feature `rapier` 默认 off + 同场景 host 对拍容差断言全过 + CI 无 CMake 路径 | ✅ | 步骤 90 纯 host 七判据;parity 实测 0.541314125m/61.774520874°(阈值 0.82m/93°=实测×1.5)、Begin/End 重叠 1.0≥0.99、双后端进程级重放逐位(jolt bfa449a7a5515449/rapier 7e7ddda2f21e23d0);rapier 默认 off + 无 CMake 路径机验 |
+| G-G6-6 特效 spike 门 | 软门成功臂:Taichi Vulkan AOT buffer 经 graph external import 进管线 device 见证 | ✅ 成功臂 | 步骤 92 host 六判据 + device 五断言真跑(first_values=[1.0,2.5,4.0,5.5] 与 i*1.5+1.0 逐位相等,readback 64/64 非零,导出 VkBuffer 256B);RD-042 未被 spike 失败臂消费 |
+| G-G6-7 demo 门 | 合流 demo device 真跑 exit 0 + readback 像素非平凡断言 + 物理步 measured 写 evidence(数字不进硬门,P-09) | ✅ | 步骤 91 host+device 双腿真跑;16 断言全 true;physics_step_ms=8.9776 measured(P-09 不进硬门);changed_pixels=168 |
+| G-G6-8 收口门 | budget_eval --strict 全局零 estimated;全量回归冻结真实输出;RD-042+ 登记齐全;status active→closed | ✅ | budget_eval --strict 96 pass 0 skip 全局零 estimated;见下「全量回归冻结」;deferred.json v1.73 RD-042~044 登记齐全 |
+
+**全量回归冻结真实输出**(2026-08-01,收口时点):
+
+```
+cargo fmt --check                                → PASS(rc=0)
+cargo clippy --workspace --all-targets -- -D warnings → PASS(rc=0 零警告)
+cargo test --workspace                           → PASS(rc=0;test result 行加总 1174 passed / 0 failed / 3 ignored,与 G6.5 基线 1174 一致零回归)
+py -3 ci/check_structure.py                      → PASS(11 dirs, 6 files)
+py -3 ci/check_number_ledger.py                  → PASS(spec RXS 头 278 个零同号碰撞;ADVISORY grx off-tree 不阻断)
+py -3 ci/check_schemas.py                        → PASS
+py -3 ci/trace_matrix.py --check                 → PASS(278/278 clauses anchored, 611 test files scanned)
+py -3 ci/budget_eval.py                          → PASS(96 pass, 0 skip, normal mode)
+py -3 ci/budget_eval.py --strict                 → PASS(96 pass, 0 skip, strict mode;全局零 estimated)
+py -3 ci/check_guardrails.py                     → rc=0(ADVISORY 2 条不阻断:00_MASTER_INDEX.md 与 milestones/g4/G4_CONTRACT.md——经 git 核实均为 G6.1 期滞后勘误 commit ef0b1e79 已提交留痕,G6.6 工作树对该两文件 0-byte)
+py -3 ci/check_contribution.py                   → rc=0(ADVISORY 3 条不阻断)
+```
+
+**新步骤真跑**(步骤 88~92,RURIX_REQUIRE_REAL=1 device 段):
+
+```
+py -3 ci/physics_core_smoke.py            → PASS(纯 host 门;cargo 三档 6/41/54 + A7 7/7 + §4.C4 审计四项 + --selftest PASS;evidence physics_core_smoke_20260801T085308.json)
+py -3 ci/physics_bridge_smoke.py          → PASS(host+device 真跑 RTX 4070 Ti,changed_pixels=168;--selftest PASS;evidence physics_bridge_smoke_20260801T085315.json)
+py -3 ci/physics_rapier_parity_smoke.py   → PASS(纯 host 七判据 + --selftest PASS;evidence physics_rapier_parity_smoke_20260801T005320.json)
+py -3 ci/uc08_physics_smoke.py            → PASS(host+device 真跑,16 断言全 true,physics_step_ms=8.9776 measured,changed_pixels=168;--selftest PASS;evidence uc08_physics_smoke_20260801T085707.json)
+py -3 ci/taichi_vulkan_spike_smoke.py     → PASS(host 六判据 + device 五断言真跑,RURIX_TAICHI_C_API_DLL provisioning 在盘;--selftest PASS;evidence taichi_vulkan_spike_20260801T005315.json)
+```
+
+五门 dev_env_degrade=false,device 腿零 SKIP 零 mock 充绿。
+
+**既有步骤 41~87 零回归**:dxil 套件恒定 / vulkan 套件 grow-only / 步骤 41~87 既有判据 0-byte 只增(步骤 70 = G3 showcase 永久 gap 维持;步骤 69 blocked 探针恒跑维持 RD-034;步骤 84~86 device 段 RD-038 分波探针按其自身轨道演进)——全量回归冻结输出(上方 fmt/clippy/test 三件)即为既有判据的机器核验,无既有步骤判据被改写(git diff 0-byte 于 milestones/m0~g5 的 *_CONTRACT.md 与 ci/ 既有 smoke 判据行)。
+
+**P3+/研究轨 RD 处置**(registry/deferred.json v1.73 追加,status 全 = open):
+
+| 编号 | 内容 | 性质 |
+|---|---|---|
+| RD-042 | 物理研究轨观察存续(Newton/Genesis/MuJoCo Warp 合入主仓 CI) | 研究隔离维持,独立仓库或 feature 永不默认 |
+| RD-043 | wgrapier GPU 刚体观察存续 | GPU 主刚体否决线维持,不作验收依赖与生产默认 |
+| RD-044 | 物理 P3+ 长线(Jolt 软体/布料/流体生产化 + Taichi MPM/体积场副轨由 spike 走向生产 external-import 面 + Rapier 快路径深造) | 均不进 G6 硬门 |
+
+**RD-034**(DXIL RT 腿 blocked)、**RD-036**(C ABI v2 超界硬需求存续)、**RD-037/038**(G5 渲染器条件臂)维持 open(维护对象,本期不兑现,如实标注)。RD-042 claim 未被 G6.5 spike 失败臂消费(成功臂落地),close-out 顺位消费 RD-042~044;number_ledger v1.34 校准(RD on_tree_max 44/next_free 45);registry/spike_gating.json 0-byte 未动(G6 零新 SG,SG-010 留续号维持)。
+
+**guardrail 核对**:milestones/m0~g5 的 measured_local 既有预算条目 git diff 0-byte;g6_budget.json 空壳维持(命名空间强制前缀 g6.,三组全空,全程零 estimated;永不立引擎采纳/下载量/用户数类条目);milestones/m0~g5 的 *_CONTRACT.md(closed)0-byte 只追加(check_guardrails 机验;G4_CONTRACT ADVISORY 经 git 核实为 G6.1 期滞后勘误 commit ef0b1e79 已提交留痕,非本期改写);registry/deferred.json 与 spike_gating.json 只追加(RD-016/028 跳号永不复用维持,SG-010 留续号维持);number_ledger 只追加纪律维持;evidence/ 只增不删不改;00–14 共 15 份规划文档 0-byte 不被执行 PR 改写(00_MASTER_INDEX.md ADVISORY 同上 G6.1 勘误留痕);src/ 新 unsafe 全部 // SAFETY: + unsafe-audit U33~U43 登记(U43=TiRT FFI);rurix-render 核心 crate #![forbid(unsafe_code)] 维持;G5 冻结面 0-byte(MaterialClosure 32B / VisBuffer 位格式 / Barrier EB 三轴 / PageRequest 字段布局);主物理 CPU 正交纪律维持(§4.E4 三禁止审计绿:rurix-physics/rurix-render 零 taichi 引用、零 CUDA 主物理路径);既有零回归不变量维持;device 见证纪律兑现(步骤 89/91/92 device 腿全真跑,RURIX_REQUIRE_REAL=1,零 SKIP);LF byte-exact 维持(新文件 LF + 尾换行);本契约既有条款 0-byte,close-out 只追加 §8。
+
+**status 翻转裁决**(agent 自主签署,D-406 v2.0/AGENTS v3.0 硬规则 1):G6 验收门 G-G6-1 ~ G-G6-8 全过,close-out §8.2 追加完毕,status active → **closed**。

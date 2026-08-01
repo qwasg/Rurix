@@ -1122,6 +1122,54 @@
           "evidence": "rfcs/0016-native-renderer.md §8/§9.1 R-4/§9 Q-F / 渲染器调研/调研报告5~7 各 §7~8"
         }
       ]
+    },
+    {
+      "id": "RD-042",
+      "title": "物理研究轨观察存续——Newton / Genesis / MuJoCo Warp 合入主仓 CI(研究隔离维持:独立仓库或 feature 永不默认;观察上游可微/机器人批仿生态成熟度)",
+      "reason": "G6 多项择优裁决(G6_PLAN §0.1):研究轨(CUDA/可微/机器人批仿)库外隔离,不进引擎主环与 CI 硬门;G6 §3 out-of-scope 明记『Newton / Genesis 合入主仓 CI:研究隔离;独立仓库或 feature 永不默认』;本期主物理 Jolt + 快路径 Rapier + Taichi Vulkan AOT 副轨三线已兑现,研究轨无消费面,按 G6.6 close-out 口径登记存续而非关闭(生态仍在演化,观察项不伪造结论)",
+      "raised_in": "G6.6 close-out(G6_PLAN §1 G6.6『P3+ / 研究轨(Newton/Genesis/wgrapier 观察)登记 deferred,不进硬门』/ §3 out-of-scope research_track_main_ci 行;G6_CONTRACT out_of_scope research_track_main_ci)",
+      "owner_milestone": "G6(登记;研究轨观察存续)",
+      "status": "open",
+      "backfill_condition": "观察项逐项独立判档(10 §3):上游可微物理/机器人批仿生态成熟度(API 稳定性、许可、CPU 或 Vulkan 路径可得性、真实项目采用 measured 证据)达到引擎集成评估门槛,且出现真实 U5 面需求(可微仿真、机器人批仿训练环)时重评估;任何合入形态维持『独立仓库或 feature 永不默认』红线——触发判档 ≠ 合入主仓 CI,重评估经 Full RFC 立项,不进既有硬门",
+      "history": [
+        {
+          "date": "2026-08-01",
+          "event": "G6.6 close-out P3+/研究轨登记:G6 三线(Jolt 主物理 G6.2 / Rapier 快路径 G6.4 / Taichi Vulkan AOT spike G6.5 成功臂四段闭合)已兑现,研究轨(Newton/Genesis/MuJoCo Warp)全期维持库外观察,零代码消费、零 CI 面;编号自 number_ledger reserved_in_flight[G6].RD claim(RD-042 起)顺位消费——G6.5 成功臂未消费失败登记位,RD-042 转 close-out 研究轨观察登记",
+          "evidence": "milestones/g6/G6_PLAN.md §0.1/§1 G6.6/§3 / milestones/g6/G6_CONTRACT.md out_of_scope research_track_main_ci / rfcs/0017-engine-physics.md §4 / registry/number_ledger.json reserved_in_flight[G6].RD"
+        }
+      ]
+    },
+    {
+      "id": "RD-043",
+      "title": "wgrapier GPU 刚体观察存续——纯 Rust GPU 刚体生态观察(GPU 主刚体否决线维持:不作验收依赖与生产默认)",
+      "reason": "G6 多项择优裁决(G6_PLAN §0.1『GPU 主刚体不做』):含 PhysX CUDA 刚体、wgrapier 生产依赖、Warp/Newton 主环——游戏刚体预算走 CPU 多核,Vulkan 车道优先留给 G5 已交付效果面(§0.4 禁止线:主物理 ──X──► GPU sim on render queue);G6 §3 out-of-scope『GPU 主刚体:wgrapier 作验收依赖』明记;wgrapier 作为纯 Rust GPU 刚体方向本身是否决线外的生态观察项,观察其成熟度演化,不登记为否决而登记为观察存续",
+      "raised_in": "G6.6 close-out(G6_PLAN §1 G6.6 / §3 out-of-scope gpu_rigid_body_main 行;G6_CONTRACT out_of_scope gpu_rigid_body_main)",
+      "owner_milestone": "G6(登记;观察存续)",
+      "status": "open",
+      "backfill_condition": "wgrapier 上游达到生产成熟度(稳定 API、刚体特性对拍 parity、真实项目采用 measured 证据)且出现 CPU 多核刚体无法承载的 measured 瓶颈场景(如十万级并发动态体)时重评估;即便触发,亦仅作 feature 快路径级集成评估——GPU 主刚体否决线(不与 VisBuffer/VSM/GI/RT 抢车道)与『不作验收依赖/不作生产默认』红线维持,重评估经 Full RFC 立项",
+      "history": [
+        {
+          "date": "2026-08-01",
+          "event": "G6.6 close-out 登记:GPU 主刚体否决线全期维持(G6.2~G6.5 主物理 Jolt CPU + Rapier CPU 快路径 + Taichi 副轨只产粒子/体积场不进刚体求解,零 GPU 刚体路径、零验收依赖);wgrapier 纯 Rust GPU 刚体作为生态观察项存续,零代码消费;编号自 number_ledger reserved_in_flight[G6].RD claim 顺位消费",
+          "evidence": "milestones/g6/G6_PLAN.md §0.1(GPU 主刚体不做段)/§0.4 禁止线/§3 / milestones/g6/G6_CONTRACT.md out_of_scope gpu_rigid_body_main / registry/number_ledger.json reserved_in_flight[G6].RD"
+        }
+      ]
+    },
+    {
+      "id": "RD-044",
+      "title": "物理 P3+ 长线评估——Jolt 软体/布料/流体生产化 / Taichi MPM·体积场副轨由 spike 走向生产 external-import 面 / Rapier 快路径深造(均不进 G6 硬门)",
+      "reason": "G6 分期裁决(G6_PLAN §3):『软体/布料/流体进硬门』明列 out-of-scope——Jolt CPU 软体与 Taichi MPM 仅 spike/副轨;G6.5 Taichi spike 成功臂仅兑现 §4.E3 最低判据四段(launch/导出 VkBuffer 256B/external import 消费接线/非零见证),MPM/连续体粒子·体积场的生产面(多 kernel AOT 资产管线、确定性、与渲染 pass 深度合流)超本期时间盒;Rapier 快路径深造(更多场景 parity/性能剖析)为优化项非地基;P-12 克制压过完整性(G5 RD-039~041 P3+ 先例)",
+      "raised_in": "G6.6 close-out(G6_PLAN §1 G6.6『P3+ 登记 deferred』/ §3『软体/布料/流体进硬门』行;G5 RD-039~041 P3+ 长线登记先例)",
+      "owner_milestone": "G6(登记;长线评估存续)",
+      "status": "open",
+      "backfill_condition": "逐项独立判档(10 §3):Jolt 软体/布料在真实角色/资产需求出现时(rurix-physics crate 内扩 safe API,FFI 沿 U33~U42 审计模式续号,unsafe 集中绑定 crate 纪律不变);Taichi MPM/体积场在特效资产管线真实出现时由 spike 走生产 external-import 面(维持 §4.E4 三条禁止:只产粒子/体积场、不进刚体求解、不承担确定性联网);Rapier 深造在快路径被真实 workload 采用时(对拍门判据形态不变,阈值实测标定口径不变);各项均须 Mini/Full RFC 判档,不自动升格进硬门",
+      "history": [
+        {
+          "date": "2026-08-01",
+          "event": "G6.6 close-out P3+ 登记:物理主线 P0–P2(Jolt 刚体底座/合流桥/Rapier 对拍门/Taichi spike 最低判据)已由 G6.2~G6.5 落地;软体/布料/流体生产化、MPM·体积场生产面、Rapier 深造三类 P3+ 按 G6_PLAN §3 登记存续,不进 G6 硬门;编号自 number_ledger reserved_in_flight[G6].RD claim 顺位消费",
+          "evidence": "milestones/g6/G6_PLAN.md §1 G6.5/§3 / rfcs/0017-engine-physics.md §4.E / apps/uc09-taichi-spike / registry/number_ledger.json reserved_in_flight[G6].RD"
+        }
+      ]
     }
   ],
   "revision_log": [
@@ -1495,6 +1543,11 @@
       "version": "v1.72",
       "date": "2026-07-30",
       "change": "RD-038 W1+W2 分波部分兑现登记(降级方案优化,owner 2026-07-30 会话指令『依设备化调研报告全面优化 G5 渲染器降级方案』;agent 完全自主签署,AGENTS v3.0 硬规则 1):history 追加一行——rurixc W1(32 位 SSBO 原子+compute 存储图像写)/W2(Int64+Int64Atomics) lowering 落地 + render_exec 能力位波次路由(fail-closed) + 五效果内核 device 真跑对拍全绿(RTX 4070 Ti) + 步骤 84~86 device 段分波细化(W1/W2 gate-real + W3 blocked-honest)。status 维持 open(W3 ray query 腿与 HW 光栅 diff 腿存续);零新 RX 码,零新 unsafe;既有条目与 history 既有行 0-byte 只追加。"
+    },
+    {
+      "version": "v1.73",
+      "date": "2026-08-01",
+      "change": "G6.6 close-out P3+/研究轨登记(agent 完全自主 D-406 v2.0,G6.6 close-out 蜂群 RD/SG 处置登记切片;Assisted-by: Kimi Code CLI (Kimi)):追加 RD-042(物理研究轨观察存续——Newton/Genesis/MuJoCo Warp 合入主仓 CI,研究隔离维持:独立仓库或 feature 永不默认,观察上游可微/机器人批仿生态成熟度)/ RD-043(wgrapier GPU 刚体观察存续——GPU 主刚体否决线维持,不作验收依赖与生产默认,观察纯 Rust GPU 刚体生态)/ RD-044(物理 P3+ 长线——Jolt 软体/布料/流体生产化、Taichi MPM·体积场副轨由 spike 走向生产 external-import 面、Rapier 快路径深造,均不进 G6 硬门),全部 status=open。编号自 number_ledger reserved_in_flight[G6].RD claim(RD-042 起)顺位消费——G6.5 Taichi spike 成功臂 §4.E3 四段闭合未消费失败登记位(v1.72 后 RD 零消费),RD-042~044 全三号由 G6.6 close-out P3+/研究轨登记消费(claim 行 0-byte 不改写,G5/v1.29 先例)。RD-016/028 跳号永不复用维持。既有条目、既有 history 行与 revision_log v1.0~v1.72 行 0-byte 只追加。"
     }
   ]
 }
