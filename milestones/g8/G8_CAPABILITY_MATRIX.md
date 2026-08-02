@@ -1,9 +1,9 @@
 # G8_CAPABILITY_MATRIX — UE5 级能力 → Rurix 现状与缺口矩阵
 
-> **所属**：G8 文档集（`milestones/g8/`；计划状态见 [G8_PLAN.md](G8_PLAN.md)——**评审修订中，暂不定稿**）。上游输入：[research/R1](research/R1_UE5_RENDERER_PANORAMA.md) · [research/R2](research/R2_PHYSICS_CHAOS_JOLT.md) · [research/R3](research/R3_GPU_API_ASSET_PIPELINE.md) + 本文 §0 仓内实况核对。下游消费者：G8_PLAN（波次）与未来 G8_CONTRACT / `G8_CANDIDATE_DECISIONS.md` / `G8_ACCEPTANCE_MAP.md`。
+> **所属**：G8 文档集（`milestones/g8/`；计划状态见 [G8_PLAN.md](G8_PLAN.md)——**计划定稿，G8.1 governance-only active / G8.2+ blocked**）。上游输入：[research/R1](research/R1_UE5_RENDERER_PANORAMA.md) · [research/R2](research/R2_PHYSICS_CHAOS_JOLT.md) · [research/R3](research/R3_GPU_API_ASSET_PIPELINE.md) + 本文 §0 仓内实况核对。下游消费者：[G8_CONTRACT](G8_CONTRACT.md) / [G8_CANDIDATE_DECISIONS](G8_CANDIDATE_DECISIONS.md) / [G8_ACCEPTANCE_MAP](G8_ACCEPTANCE_MAP.md)。
 > **基准日**：2026-08-02（deferred.json v1.73、spike_gating.json v1.10、G7 active）。
-> **纪律**：零编号占用；不改写 G5/G6/G7 已收口结论。行号 `M##` 为本文档内部定位标识，非 ledger 编号。
-> **「承 G7」警告**：G-G7-9 允许 RD-038 仍 open 时收口（见 G7_CONTRACT）。标注「承 G7」的行在 **RD-038 closed 之前不得视为已交付**；若 G7 收口而 RD-038 仍 open，按 G8_PLAN §1.0 接入表改标 G8.x。
+> **纪律**：G8.0 基线零编号；G8.1 只 claim RFC-0019~0021，G7 active 仍可能消费的 RXS/RD/U/RX/数字 CI 空间不占用。不改写 G5/G6/G7 结论。行号 `M##` 为本文档内部定位标识，非 ledger 编号。
+> **「承 G7」警告**：G-G7-9 允许 RD-038 仍 open 时收口（见 G7_CONTRACT）。当前全部“承 G7”行均为 **unresolved dependency**，在 RD-038 closed 前不得视为已交付；若 G7 收口而 RD-038 仍 open，按 G8_PLAN §1.0 的互锁终态把遗留行改标 G8.x。
 > **条件型 RD**：RD-039/040/041/044 分项不得以「UE5 级目标」静默改写 backfill；进主线须 G8.1 决策表 go 证据或 strategic_override（G8_PLAN §1.2）。
 > **图例**：✅ 已交付 · 🟡 部分 · ⬜ 缺失 · 🔬 门控观察；档位 A/B/C/D；优先级 P0~P3；4070Ti = 可否真机验证。
 
@@ -37,7 +37,7 @@
 | M02 | GPU 两级剔除 + VisBuffer SW/HW 双路光栅 | R1 §3.1 | 🟡 G5 host + RD-038 W1/W2 device；SW/HW 对拍 = G7.5 在途 | persistent culling / occlusion feedback | C | P1 | ✔ | 承 G7（受 §引导「承 G7」警告约束）；遗留→G8.5a |
 | M03 | HZB 两阶段遮挡剔除 | R1 §3.1 | ⬜ RD-039（backfill：剔除效率成为 **measured** 瓶颈） | HZB 构建 + 两阶段重投影 | C | P1 | ✔ | G8.5a（**仅** G8.1 决策表 go/override；默认 no-go） |
 | M04 | 集群压缩与正式磁盘页格式 | R1 §3.1 / §6.1 | ⬜ RD-039「cluster 流送 P4」；**格式定版**与「超显存」运行时触发分离（见 G8_PLAN §1.2） | 磁盘/内存格式分离、量化、解码 ABI、golden 往返 | C/D | P0 | ✔ | **G8.3**（ABI 冻结；G8.4 M44 只消费不重定） |
-| M05 | WPO / 动态位移 tessellation | R1 §3.1 | ⬜ 语言无位移语义；RD-041 蒙皮/WPO MV 分项 open | A：位移/bounds/velocity 语义；C：programmable geometry | A/C | P1 | ✔ | 语义→RFC-α；实现→G8.5a（决策表） |
+| M05 | WPO / 动态位移 tessellation | R1 §3.1 | ⬜ 语言无位移语义；RD-041 蒙皮/WPO MV 分项 open | A：位移/bounds/velocity 语义；C：programmable geometry | A/C | P1 | ✔ | 语义→RFC-0019；实现→G8.5a（决策表） |
 | M06 | 骨骼/植被虚拟几何（Skinned/Foliage/Assemblies） | R1 §3.1（5.7/5.8 专项） | ⬜ RD-039 分项 | deformer ABI、skin cache、微实例 | A/B/C/D | P2 | ✔ | G8.7 评估（backfill 条件维持「动态资产面出现时」） |
 | M07 | RT fallback/proxy 几何与主几何误差联动 | R1 §3.1 | ⬜ | fallback 构建器 + BLAS 派生数据 | C/D | P1 | ✔ | G8.5a |
 | M08 | programmable raster / material binning | R1 §3.1（GDC 2024） | 🟡 classify/resolve host 参考 + G7 真实帧路径在途 | GPU material dispatch 全量化 | C | P1 | ✔ | G8.5a |
@@ -71,7 +71,7 @@
 | 行 | 能力 | UE5 基线 | Rurix 现状（证据锚） | 缺口要点 | 档位 | 优先级 | 4070Ti | 拟承接 |
 |---|---|---|---|---|---|---|---|---|
 | M23 | TAA/TSR 底座（MV/jitter/历史验证） | R1 §3.5 | ✅ G5 `temporal::` host 全量 + G6 物理 MV 供给；TSR device 化审计 = G7.5 在途（RD-038 分项「TSR 是否仍只有 host reference」） | — | — | 承 G7 | ✔ | 承 G7 |
-| M24 | TSR 生产契约（history resurrection / pixel animation 材质语义 / thin geometry / 动态分辨率 / 透明 velocity） | R1 §3.5 | ⬜ | A：时域材质语义；C：rejection/resurrection；D：序列回归 | A/C/D | P0 | ✔ | 语义→RFC-α；实现→G8.5b |
+| M24 | TSR 生产契约（history resurrection / pixel animation 材质语义 / thin geometry / 动态分辨率 / 透明 velocity） | R1 §3.5 | ⬜ | A：时域材质语义；C：rejection/resurrection；D：序列回归 | A/C/D | P0 | ✔ | 语义→RFC-0019；实现→G8.5b |
 | M25 | vendor 超分插件面（FSR/DirectSR/DLSS 输入 ABI） | R1 §6.4 | ⬜ RD-041（`UpscaleBackend` 留口已冻结） | 标准输入 ABI | B/C | P1 | ✔ | G8.5b（接口不改底座） |
 | M26 | 帧生成 FG/MFG | R1 §6.4 | ⬜ RD-041 分项「FG/MFG 为独立层另判」；G7 out_of_scope 字面 | — | — | P3 | 部分 | 不进 G8（RD-041 观察维持） |
 
@@ -80,7 +80,7 @@
 | 行 | 能力 | UE5 基线 | Rurix 现状（证据锚） | 缺口要点 | 档位 | 优先级 | 4070Ti | 拟承接 |
 |---|---|---|---|---|---|---|---|---|
 | M27 | 单层 principled 材质闭合 | R1 §4.1 | ✅ G5 `MaterialClosure` 32B（拓扑字段位已预留） | — | — | ✅ | ✔ | — |
-| M28 | 多层 closure 材质 IR（Substrate 类：分层/混合/平台降级/跨路径 lowering） | R1 §4.1 | ⬜ RD-041「多层材质 slab」（backfill：单层闭合成为**真实资产瓶颈**） | A：closure 类型/组合/lowering；C：adaptive payload | A/C | P1 | ✔ | **语义强制进 RFC-α**；实现→G8.5b（**仅**决策表 go/override；禁止以 UE5 目标静默改写 backfill） |
+| M28 | 多层 closure 材质 IR（Substrate 类：分层/混合/平台降级/跨路径 lowering） | R1 §4.1 | ⬜ RD-041「多层材质 slab」（backfill：单层闭合成为**真实资产瓶颈**） | A：closure 类型/组合/lowering；C：adaptive payload | A/C | P1 | ✔ | **语义边界进 RFC-0019**；决策表 no-go，故 G8 不实现；真实资产瓶颈或逐项 override 后另开 |
 | M29 | shader permutation 域/静态裁剪/预算 | R3 §3.4 | ⬜（现状单入口小内核集，无 permutation 体系） | A：specialization 常量、permutation key、域定义；D：analyzer/预算报告 | A/D | P0 | ✔ | G8.2 |
 | M30 | PSO precache / pipeline cache / pipeline binary | R3 §3.4 | ⬜（`vk.rs` 本次核对零 `VkPipelineCache` 命中） | B：异步编译服务、分层缓存（源码→IR→shader library→PSO→驱动 binary）；C：collector/precacher/遥测 | B/C | P0 | ✔ | G8.2 |
 | M31 | 结构化 reflection / shader interface hash | R3 §3.1 | 🟡 绑定布局推导（RXS-0163~0170）+ artifacts v2 设备描述表（RXS-0290~0292）已有；稳定 reflection schema 与 interface hash 未定义 | 可序列化 reflection schema、hash 进 DDC 键 | A/B | P0 | ✔ | G8.2 |
@@ -119,7 +119,7 @@
 
 | 行 | 能力 | UE5 基线 | Rurix 现状（证据锚） | 缺口要点 | 档位 | 优先级 | 4070Ti | 拟承接 |
 |---|---|---|---|---|---|---|---|---|
-| M50 | **完整 RT pipeline + SBT**（raygen/miss/closest-hit/any-hit/intersection/callable、payload ABI、递归/栈管理、pipeline library） | R1 §5.2 / R3 §2.2 | 🟡 RXS-0242~0248 + `vk_rt` **最小**三角形 raygen/miss/closest-hit+SBT 见证已有（**不得充绿 G8**）；全量 = RD-040 open；DXIL 腿 = RD-034 blocked；RHI RT pass 条件臂未立（RXS-0270） | **G8 退出门 = RXS-0248 增量面**：多 hit group/材质记录、SBT 用户数据、any-hit/intersection/callable（RFC-α 子集）、stack sizing、pipeline library；非最小见证复述 | A/B | **P0** | ✔ | **G8.2**（strategic_override 或决策表 go；DXIL 不强攻） |
+| M50 | **完整 RT pipeline + SBT**（raygen/miss/closest-hit/any-hit/intersection/callable、payload ABI、递归/栈管理、pipeline library） | R1 §5.2 / R3 §2.2 | 🟡 RXS-0242~0248 + `vk_rt` **最小**三角形 raygen/miss/closest-hit+SBT 见证已有（**不得充绿 G8**）；全量 = RD-040 open；DXIL 腿 = RD-034 blocked；RHI RT pass 条件臂未立（RXS-0270） | **G8 退出门 = RXS-0248 增量面**：多 hit group/材质记录、SBT 用户数据、any-hit/intersection/callable（RFC-0019 子集）、stack sizing、pipeline library；非最小见证复述 | A/B | **P0** | ✔ | **G8.2**（G8.1 strategic_override 已单独裁决；DXIL 不强攻；不替代 RD-038 互锁） |
 | M51 | inline RayQuery（compute） | — | 🟡 RXS-0297~0300 条款冻结（RFC-0018）+ 前端检查在树；codegen/AS descriptor/三效果核 = G7.2~G7.4 在途 | — | — | 承 G7 | ✔ | 承 G7（受「承 G7」警告；遗留→G8.2） |
 | M52 | SER / hit-object 重排 | R3 §2.2 | ⬜ RD-040 分项「SER 与 OMM」 | hit-object intrinsic（依赖 M50） | A/B | P2 | ✔ | G8.7 条件消费 |
 | M53 | Opacity Micromap（OMM） | R3 §2.2 | ⬜ RD-040 分项 | B：micromap build/BLAS attach；D：离线烘焙 | A/B/D | P2 | ✔ | G8.7 条件消费 |
@@ -128,7 +128,7 @@
 | M56 | D3D12 Work Graphs（compute nodes；mesh nodes 另计） | R3 §2.1 | ⬜ RD-041 分项「Work Graphs 与 mesh nodes」；报告5 既判 P3+ | A：node/record 语义；B：backing memory | A/B | P2 | ✔ | G8.7 评估（RD-041 backfill 字面「Vulkan 侧对应物成熟且 pass 内部提交单元可替换接缝已预留」维持） |
 | M57 | Vulkan AMDX shader enqueue | R3 §2.1 | ⬜ provisional、AMD-only | — | — | P3 | ✘ | 不进 G8 |
 | M58 | cooperative vector / 神经着色（NTC/NRC/RTX Neural Shaders） | R1 §6.4 / R3 §2.3 | 🔬 SG-002（Tensor Core 族）conditional not_triggered；DX 原设计已宣布弃用重构（R3 [S4]） | 若未来触发：先 IR 抽象后厂商 intrinsic | A/B | P3 | 部分 | 不进 G8（SG-002 维持；重审条件见 §12） |
-| M59 | 多队列 async compute / timeline semaphore | R3 §2.7 | 🟡 `vk.rs` 独立 compute/graphics queue 句柄在位；执行面单 queue 全序；timeline semaphore 零命中 | **语义须进 RFC-α**（ownership/timeline/跨队列 barrier/无专用队列 fallback）；触 Barrier 冻结面须 RFC 修订行 | B/C | P1 | ✔ | G8.4（**无 RFC-α → 强制单队列**）；async compute → G8.5a/b 评估 |
+| M59 | 多队列 async compute / timeline semaphore | R3 §2.7 | 🟡 `vk.rs` 独立 compute/graphics queue 句柄在位；执行面单 queue 全序；timeline semaphore 零命中 | **语义须进 RFC-0019**（ownership/timeline/跨队列 barrier/无专用队列 fallback）；触 Barrier 冻结面须 RFC 修订行 | B/C | P1 | ✔ | G8.4（**无 RFC-0019 Approved → 强制单队列**）；async compute → G8.5a/b 评估 |
 | M60 | 64 位原子 / synchronization2 / ray query 设备能力 | — | ✅ RFC-0016 §4.0-2 能力链 fail-closed（`VK_KHR_ray_query`/`shader_atomic_int64`/synchronization2）+ G7 场景冻结 capability snapshot | — | — | ✅ | ✔ | — |
 | M61 | mesh shader 光栅路径（第三路径） | R1 §3.1 | 🟡 语言 mesh/task 类型面 + `run_mesh_offscreen` 最小见证（RXS-0243/0246~0248）；作为光栅第三路径 = RD-039 分项 | mesh 路径与 VisBuffer 合流 | A/B/C | P2 | ✔ | G8.7 条件消费（RD-039 backfill 字面「多厂商行为收敛 + measured 证据」维持） |
 | M62 | task shader 开放 | — | ⬜ RXS-0270 字面「task 前置条件臂首期不开放」评估窗未消费 | task 阶段语义评估 | A | P2 | ✔ | G8.2 评估窗（随 M50 RFC 一并裁决开/不开） |
@@ -204,10 +204,10 @@
 
 渲染/平台侧：
 
-1. RT pipeline **增量面**端到端 device 真跑（多 hit group + SBT 用户数据 + stack sizing + pipeline library；any-hit/intersection/callable 按 RFC-α 子集；**禁止**仅复述 RXS-0248 最小见证）。
+1. RT pipeline **增量面**端到端 device 真跑（多 hit group + SBT 用户数据 + stack sizing + pipeline library；any-hit/intersection/callable 按 RFC-0019 子集；**禁止**仅复述 RXS-0248 最小见证）。
 2. `.rx` 单源 gfx 图零 Rust 宿主代码 device 真跑 readback 像素断言（RD-037 backfill 字面判据）。
 3. 资产管线确定性：同一输入双构建 artifact hash 逐字节相等（CI 门）；**M01/M04 页格式 ABI 在 G8.3 冻结**。
-4. 磁盘→GPU 页流送：**门-VT 与 门-GeomPage 各自独立过门**（禁止二选一充绿）+ 迟到页降级可见证；多队列须 RFC-α 或诚实单队列回退。
+4. 磁盘→GPU 页流送：**门-VT 与 门-GeomPage 各自独立过门**（禁止二选一充绿）+ 迟到页降级可见证；多队列须 RFC-0019 或诚实单队列回退。
 5. permutation/PSO/reflection（M29–M32/M85）均有 CI 硬门，不得因「部分实现」假绿 close。
 
 物理侧（承 R2 五门槛）：
@@ -243,3 +243,4 @@
 |---|---|---|
 | v1.0 | 2026-08-02 | 初版：基于 R1/R2/R3 三份深度调研 + 仓内实况核对建立能力矩阵；P0/RD 映射、成功判据草案、门控重审条件。零编号占用。 |
 | v1.1 | 2026-08-02 | **对齐 G8_PLAN v1.1 评审修订（暂不定稿）**：承 G7/条件型 RD 纪律；M01/M04→G8.3；M28→RFC-α+5b；M40 SVT 门槛；M50 增量退出门；M59 多队列 RFC-α；M65b Rapier 深造；P0 波次与成功判据防假绿；Differentiable→RD-042。 |
+| v1.2 | 2026-08-02 | 对齐 G8_PLAN v1.2 双门解耦：G8.1 governance-only active、G8.2+ blocked；“承 G7”全记 unresolved；编号仅 RFC-0019~0021，其他共享在途空间零占用；RFC-α 具体化为 RFC-0019；M50 单独 strategic_override，M28 no-go 不实现。 |

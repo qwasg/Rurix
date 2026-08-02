@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "G8.1 RTX 4070 Ti measured baseline evidence",
+  "description": "evidence/g8_perf_baseline_<UTC>.json。G8.1 governance-only baseline：UC-06 host 参考帧三进程采样 + RTX 4070 Ti Vulkan device correctness/validation 见证；host 计时不得冒充 GPU 帧耗时。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "subject", "evidence_level", "milestone", "base_commit", "branch", "timestamp", "environment", "commands", "sampling", "results", "per_trial", "correctness", "notes"],
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "g8_perf_baseline" },
+    "evidence_level": { "type": "string", "const": "measured_local" },
+    "milestone": { "type": "string" },
+    "base_commit": { "type": "string", "minLength": 7 },
+    "branch": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "cpu", "gpu_name", "gpu_driver", "gpu_memory_total_mib", "python_version", "cargo_version", "rustc_version", "clock_lock_applicability"],
+      "properties": {
+        "os": { "type": "string" },
+        "cpu": { "type": "string" },
+        "gpu_name": { "type": "string" },
+        "gpu_driver": { "type": "string" },
+        "gpu_memory_total_mib": { "type": "integer", "minimum": 1 },
+        "python_version": { "type": "string" },
+        "cargo_version": { "type": "string" },
+        "rustc_version": { "type": "string" },
+        "clock_lock_applicability": { "type": "string" }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["seq", "command", "exit_code", "note"],
+        "properties": {
+          "seq": { "type": "integer", "minimum": 1 },
+          "command": { "type": "string" },
+          "exit_code": { "type": "integer" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "sampling": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trials", "trimmed_pct", "timer", "method"],
+      "properties": {
+        "trials": { "type": "integer", "minimum": 3 },
+        "trimmed_pct": { "type": "number" },
+        "timer": { "type": "string" },
+        "method": { "type": "string" }
+      }
+    },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric", "unit", "trimmed_mean", "trial_values", "min", "max", "cv", "ci95", "threshold_basis", "correctness_check"],
+      "properties": {
+        "metric": { "type": "string" },
+        "unit": { "type": "string" },
+        "trimmed_mean": { "type": "number" },
+        "trial_values": { "type": "array", "minItems": 3, "items": { "type": "number" } },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "cv": { "type": "number", "minimum": 0 },
+        "ci95": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } },
+        "threshold_basis": { "type": "string" },
+        "correctness_check": { "type": "string", "enum": ["pass", "fail"] }
+      }
+    },
+    "per_trial": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["trial", "wall_seconds_process", "frames", "out_width", "out_height", "internal_width", "internal_height", "last_frame_stage_cpu_ms", "last_frame_total_cpu_ms", "asserts_all_true", "pso_runtime_compile_warnings", "exit_ok"],
+        "properties": {
+          "trial": { "type": "integer", "minimum": 1 },
+          "wall_seconds_process": { "type": "number", "minimum": 0 },
+          "frames": { "type": "integer", "minimum": 1 },
+          "out_width": { "type": "integer", "minimum": 1 },
+          "out_height": { "type": "integer", "minimum": 1 },
+          "internal_width": { "type": "integer", "minimum": 1 },
+          "internal_height": { "type": "integer", "minimum": 1 },
+          "last_frame_stage_cpu_ms": { "type": "object", "minProperties": 12, "additionalProperties": { "type": "number", "minimum": 0 } },
+          "last_frame_total_cpu_ms": { "type": "number", "minimum": 0 },
+          "asserts_all_true": { "type": "boolean" },
+          "pso_runtime_compile_warnings": { "type": "integer", "minimum": 0 },
+          "exit_ok": { "type": "boolean" }
+        }
+      }
+    },
+    "correctness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "exit_code", "wall_seconds_process", "device_name", "require_real", "vk_validation_enabled", "validation_clean", "capability_snapshot", "pixel_parity", "device_stats", "exit_ok"],
+      "properties": {
+        "command": { "type": "string" },
+        "exit_code": { "type": "integer" },
+        "wall_seconds_process": { "type": "number", "minimum": 0 },
+        "device_name": { "type": "string" },
+        "require_real": { "type": "boolean" },
+        "vk_validation_enabled": { "type": "boolean" },
+        "validation_clean": { "type": "boolean" },
+        "capability_snapshot": { "type": "object", "minProperties": 8, "additionalProperties": { "type": "boolean" } },
+        "pixel_parity": { "type": "object", "minProperties": 10, "additionalProperties": { "type": ["boolean", "integer"] } },
+        "device_stats": { "type": "object", "minProperties": 5, "additionalProperties": { "type": "number" } },
+        "exit_ok": { "type": "boolean" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

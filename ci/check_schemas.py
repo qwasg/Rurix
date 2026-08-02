@@ -295,6 +295,9 @@ def check_evidence_files() -> None:
     g7_perf_baseline_schema = load(
         ROOT / "milestones/g7/g7_perf_baseline_evidence_schema.json"
     )
+    g8_perf_baseline_schema = load(
+        ROOT / "milestones/g8/g8_perf_baseline_evidence_schema.json"
+    )
     if (gpu_schema is None or frontend_schema is None or compile_schema is None
             or sanitizer_schema is None or redistribution_schema is None
             or rx_cli_smoke_schema is None or offline_rebuild_schema is None
@@ -514,6 +517,11 @@ def check_evidence_files() -> None:
     g7_perf_baseline_validator = (
         jsonschema.Draft7Validator(g7_perf_baseline_schema)
         if g7_perf_baseline_schema is not None
+        else None
+    )
+    g8_perf_baseline_validator = (
+        jsonschema.Draft7Validator(g8_perf_baseline_schema)
+        if g8_perf_baseline_schema is not None
         else None
     )
     uc05_check_bench_validator = (
@@ -979,6 +987,15 @@ def check_evidence_files() -> None:
             # pixel_parity_pass + validation_clean 供 g7.counter.uc06_device_pixel_parity
             # 计数)。前缀置于 g7_baseline_ 分支之后(两前缀互不包含)。
             validator = g7_perf_baseline_validator
+        elif (
+            f.name.startswith("g8_perf_baseline_")
+            and g8_perf_baseline_validator is not None
+        ):
+            # G8.1 governance-only measured baseline：UC-06 host 参考帧三 trial
+            # trimmed_mean + RTX 4070 Ti Vulkan device correctness/validation。
+            # host 计时与 device 见证在 schema 中分栏，禁止把 host cpu_ms 冒充 GPU
+            # frame time；供 g8_budget.json 通用 measured entry 判读。
+            validator = g8_perf_baseline_validator
         elif (
             f.name.startswith("uc05_engine_embed_v3")
             and uc05_engine_embed_v3_validator is not None

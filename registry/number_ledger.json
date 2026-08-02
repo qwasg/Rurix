@@ -6,10 +6,10 @@
       "scope": "shared",
       "pattern": "RFC-####",
       "main_fact_source": "rfcs/README.md §5 + rfcs/NNNN-*.md 文件名",
-      "on_tree_max": 18,
-      "next_free": 19,
+      "on_tree_max": 21,
+      "next_free": 22,
       "shadow_reserved": [],
-      "notes": "Full RFC。main 现存 RFC-0001~0014(RFC-0013=G3 工业渲染期伞形五章 Agent Approved;RFC-0014=EI1 export(c)+UC-05 RHI 双面 Agent Approved)。GRX 影子分支未消费 Full RFC(rfc_required:none)。下一个可用 RFC-0015。v1.13 校准:此前 next_free 标 13 为滞后(v1.7/v1.12 行『RFC 字段不随行』口径),G4.0 按 rfcs/README §5 实际校准(G4_CONTRACT §7 ②a)。v1.28 校准(G6.1):RFC-0015(G4 engine-rendering)/RFC-0016(G5 native-renderer)已 materialize 为 rfcs/ 文件(『字段不随行』口径滞后),on_tree_max 14→16、next_free 15→17,按 rfcs/ 文件名实际校准(v1.13 先例)。v1.29 校准(G6.1):RFC-0017(G6 engine-physics 伞形五章,Agent Approved 2026-07-31)已 materialize 为 rfcs/0017-engine-physics.md,on_tree_max 16→17、next_free 17→18(v1.13/v1.28 先例;reserved_in_flight[G6].RFC claim 兑现,G5 先例:claim 行不改写,materialize 经命名空间校准 + revision_log 记录)。v1.38 校准(G7.2 前置):RFC-0018(G7 compute RayQuery/device frame 伞形,Agent Approved 2026-08-01)已 materialize 为 rfcs/0018-compute-rayquery-device-frame.md,on_tree_max 17→18、next_free 18→19;reserved_in_flight[G7].RFC claim 兑现,claim 行 0-byte。下一个可用 RFC-0019。"
+      "notes": "Full RFC。main 现存 RFC-0001~0014(RFC-0013=G3 工业渲染期伞形五章 Agent Approved;RFC-0014=EI1 export(c)+UC-05 RHI 双面 Agent Approved)。GRX 影子分支未消费 Full RFC(rfc_required:none)。下一个可用 RFC-0015。v1.13 校准:此前 next_free 标 13 为滞后(v1.7/v1.12 行『RFC 字段不随行』口径),G4.0 按 rfcs/README §5 实际校准(G4_CONTRACT §7 ②a)。v1.28 校准(G6.1):RFC-0015(G4 engine-rendering)/RFC-0016(G5 native-renderer)已 materialize 为 rfcs/ 文件(『字段不随行』口径滞后),on_tree_max 14→16、next_free 15→17,按 rfcs/ 文件名实际校准(v1.13 先例)。v1.29 校准(G6.1):RFC-0017(G6 engine-physics 伞形五章,Agent Approved 2026-07-31)已 materialize 为 rfcs/0017-engine-physics.md,on_tree_max 16→17、next_free 17→18(v1.13/v1.28 先例;reserved_in_flight[G6].RFC claim 兑现,G5 先例:claim 行不改写,materialize 经命名空间校准 + revision_log 记录)。v1.38 校准(G7.2 前置):RFC-0018(G7 compute RayQuery/device frame 伞形,Agent Approved 2026-08-01)已 materialize 为 rfcs/0018-compute-rayquery-device-frame.md,on_tree_max 17→18、next_free 18→19;reserved_in_flight[G7].RFC claim 兑现,claim 行 0-byte。下一个可用 RFC-0019。v1.40 校准(G8.1):RFC-0019(G8 rendering-platform)/RFC-0020(G8 asset-pipeline)/RFC-0021(G8 physics-platform)已 materialize 为 rfcs/ 文件并于 2026-08-02 经 D-409 独立 provenance(Kiro:claude-opus-5 ≠ 起草 Codex:gpt-5)对抗性评审后 Agent Approved,on_tree_max 18→21、next_free 19→22(v1.13/v1.28/v1.29/v1.38 先例);reserved_in_flight[G8].RFC 三号 claim 兑现且 claim 行 0-byte。下一个可用 RFC-0022。"
     },
     "MR": {
       "scope": "shared",
@@ -318,6 +318,21 @@
         "SG": "零消费(RD-038 是已登记主线兑现,不是扩张诱惑;SG-002/004/005 not-triggered 或永久门维持,SG-010 软保留维持)",
         "D": "共享 D 段零消费(D-408=P1-2 earmark 不动,D-410 自由池不占;开工裁决记契约 §7,D-G7-N 仅为交付物编号)"
       }
+    },
+    {
+      "owner": "G8(UE5 级前置能力完成期;2026-08-02 governance-only 开工:用户指令『帮我把G8.1前置堵塞修掉』+ agent 依 10 §7/P-13/D-406 显式解耦治理门与实现门;G8.2+ 仍待 G7/RD-038 互锁)",
+      "source": "milestones/g8/G8_PLAN.md v1.2 §1.0/§5 + milestones/g8/G8_CONTRACT.md §7",
+      "claims": {
+        "RFC": "RFC-0019~0021 三号 Full RFC(G8.1 governance-only:0019 rendering-platform / 0020 asset-pipeline / 0021 physics-platform;RFC-0018 已由独立 G7 v1.38 校准兑现;三 RFC 均须 D-409 独立 provenance 对抗性评审后 Agent Approved)",
+        "RXS": "G8.1 零数字 claim(G7 active 仍可能自 RXS-0301 顺位消费;G8.2 互锁绿后重读 actual next_free 再按需 claim/materialize,不得预写推测号)",
+        "CI_step": "G8.1 零数字 claim(只冻结 symbolic gate key 与脚本名,不预放 workflow 空步骤;G7 reserved_in_flight 的步骤 93 起数量尚待真实脚本 materialize;G8.2 互锁绿后按 actual next_free 分配数字步骤)",
+        "RD": "G8.1 零新 RD 编号(只对既有 RD-037~044 history 追加决策/承接留痕;RD-038 不作启动 override;新阻塞须待 G7 RD-045+ 实际消费校准后按 G8.2 actual next_free 登记)",
+        "U": "G8.1 零消费(无 src/unsafe;G7 U44 起在途 claim 不碰;G8.2 后按 actual next_free 且优先复用既有审计边界)",
+        "RX_error": "G8.1 零消费(无实现/诊断发射;G8.2 后按 error_codes 各段 actual next_free 顺位,en/zh messages 成对)",
+        "MR": "零消费(G8.1 三面均用 Full RFC-0019~0021;实现期若出现独立 Mini 判档,互锁后按 actual next_free)",
+        "SG": "零消费(SG-010 UI 方向软保留维持且不占用;G8 已知 P2/P3 走候选决策表,不预造 SG)",
+        "D": "共享 D 段零消费(D-G8-N/G-G8-N 为里程碑私有交付物/门号,不占 D-410;战略裁决记录于 CONTRACT/PLAN/deferred history)"
+      }
     }
   ],
   "revision_log": [
@@ -525,6 +540,16 @@
       "version": "v1.38",
       "date": "2026-08-02",
       "change": "G7 RFC-0018 materialize 漂移校准(agent 完全自主 D-406 v2.0,Assisted-by: Codex:gpt-5):rfcs/0018-compute-rayquery-device-frame.md 已于 G7.1 跟踪且 Agent Approved(2026-08-01,D-409 对抗性评审 10 findings 全 disposition),但 RFC namespace 与 rfcs/README §5 仍误报 RFC-0018 自由。按 rfcs 文件名事实源校准 RFC on_tree_max 17→18、next_free 18→19;reserved_in_flight[G7].RFC 单号 claim 兑现且 claim 行 0-byte。其余 RFC/RXS/RD/SG/CI/U/RX/MR/D 命名空间 0-byte;本校准独立于 G8 claim,确保后续立项从 RFC-0019 起且不与 G7 在途改动混提。"
+    },
+    {
+      "version": "v1.39",
+      "date": "2026-08-02",
+      "change": "G8.1 governance-only 开工 claim(agent 完全自主 D-406 v2.0,Assisted-by: Codex:gpt-5):reserved_in_flight 追加 G8 行,依据用户指令『帮我把G8.1前置堵塞修掉』与 G8_PLAN v1.2 双门解耦裁决。仅 claim 已由 G7 v1.38 明确释放的 RFC-0019~0021 三个 Full RFC;G7 active 期间仍在途的 RXS/RD/U/RX/数字 CI/MR 空间全部零数字 claim,待 G8.2 的 G7 closed + RD-038 closed/终态接入 override 互锁绿后重读 actual next_free。G7 claim 行 0-byte,本 revision 不改任何 namespace on_tree_max/next_free(RFC 文件尚未 materialize);不入 shadow_reserved。G8.1 允许契约/RFC/决策/验收映射/validator/measured baseline,禁止 src/spec/conformance 与 workflow 空步骤。"
+    },
+    {
+      "version": "v1.40",
+      "date": "2026-08-02",
+      "change": "G8.1 RFC materialize 校准 + 治理 validator 落地(agent 完全自主 D-406 v2.0,Assisted-by: Kiro:claude-opus-5):RFC-0019/0020/0021 已作为 rfcs/ 文件在树并经 D-409 独立 provenance 对抗性评审(评审 Kiro:claude-opus-5 ≠ 起草 Codex:gpt-5;三份共 54 findings,8 blocker + 30 major 正文实改)后 Agent Approved,按 rfcs/ 文件名事实源校准 RFC on_tree_max 18→21、next_free 19→22;reserved_in_flight[G8].RFC claim 兑现,claim 行与 v1.39 revision 0-byte。RXS/RD/U/RX/数字 CI/MR/SG/D 命名空间全部 0-byte(仍待 G8.2 互锁绿后按 actual next_free 领取)。同批落 ci/check_g8_acceptance_map.py(MAP/CONTRACT/CI_GATES 三向 key-脚本一致性锁 + 6 RED 自检)、ci/check_g8_implementation_interlock.py(事实门/一致性门分离,当前诚实输出 BLOCKED)、ci/check_g8_budget_baseline.py(7 RED 自检);三者均为未编号 check_* 守卫,零 workflow 数字步骤。G7 车道(G7_CONTRACT/RFC-0018/reserved_in_flight[G7]/g7_budget)0-byte。"
     }
   ]
 }

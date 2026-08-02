@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "namespace": "g8",
+  "description": "G8 UE5 级前置能力完成期预算。G8.1 governance-only 即为非空 measured_local；当前唯一 entry 是 UC-06 host 软件参考帧防回归锚，RTX 4070 Ti 同轮只作 device correctness/validation 见证，不冒充 GPU 帧耗时。G8.2+ 各 P0 实现必须追加自身 measured 条目或 correctness gate，既有 measured 条目只追加式收紧。",
+  "source_docs": [
+    "milestones/g8/G8_PLAN.md",
+    "milestones/g8/G8_CONTRACT.md",
+    "milestones/g8/CI_GATES.md",
+    "milestones/g8/G8_ACCEPTANCE_MAP.md"
+  ],
+  "entries": [
+    {
+      "id": "g8.bench.uc06_host_frame_cpu_ms_1080p",
+      "description": "G8.1 未优化 renderer baseline：UC-06 host 软件参考管线 1920x1080 输出/960x540 内部，release 三个独立进程各 8 帧，末帧 12 阶段 cpu_ms 求和的三点 trimmed mean。阈值 = 实测 936.4859 × 1.5 = 1404.729 ms。诚实边界：这是 host CPU 防回归锚，不是 GPU frame time；同 evidence 的 RTX 4070 Ti device 段仅作 correctness/validation 见证。",
+      "direction": "max",
+      "evidence": "measured_local",
+      "skip_reason": null,
+      "unit": "ms",
+      "threshold": 1404.729,
+      "evidence_file": "evidence/g8_perf_baseline_20260802T124837Z.json",
+      "measured_value": 936.4859
+    }
+  ],
+  "ratio_assertions": [],
+  "counter_assertions": [],
+  "namespace_check": "全部 id 必须以 g8. 开头；跨预算冲突即 FAIL。G8.1 entries 必须非空、全 measured_local、零 estimated/unlocked。",
+  "revision_log": [
+    {
+      "version": "v1.0",
+      "date": "2026-08-02",
+      "change": "G8.1 governance-only measured baseline 非空化：RTX 4070 Ti 同机跑 UC-06 host 三 trial + Vulkan device correctness/validation。entry g8.bench.uc06_host_frame_cpu_ms_1080p measured=936.4859ms, threshold=1404.729ms(x1.5)，零 estimated/skip。"
+    }
+  ]
+}

@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "subject": "g8_perf_baseline",
+  "evidence_level": "measured_local",
+  "milestone": "G8.1 governance-only measured baseline",
+  "base_commit": "e599c69a426709bb38e527b34bc08c3dc3d8062b",
+  "branch": "cursor/g5-rd038-w1w2-degradation-waves",
+  "timestamp": "2026-08-02T12:48:37.092675Z",
+  "environment": {
+    "os": "Microsoft Windows 11 专业版 Insider Preview 10.0.28120 build 28120",
+    "cpu": "13th Gen Intel(R) Core(TM) i5-13600KF",
+    "gpu_name": "NVIDIA GeForce RTX 4070 Ti",
+    "gpu_driver": "620.02",
+    "gpu_memory_total_mib": 12282,
+    "python_version": "3.12.1",
+    "cargo_version": "1.93.1 (083ac5135 2025-12-15)",
+    "rustc_version": "1.93.1 (01f6ddf75 2026-02-11)",
+    "clock_lock_applicability": "性能项为 host CPU 软件参考帧计时，GPU 锁频不适用；CPU 未锁频，三次独立进程串行采样。RTX 4070 Ti 只承担同轮 device correctness/validation 见证，禁止把本条描述成 GPU frame time。"
+  },
+  "commands": [
+    {
+      "seq": 1,
+      "command": "cargo build --release -p uc06-renderer",
+      "exit_code": 0,
+      "note": "release 构建成功，Finished in 4.77s"
+    },
+    {
+      "seq": 2,
+      "command": "target\\release\\uc06-renderer.exe --frames 8 --size 1920x1080 --json",
+      "exit_code": 0,
+      "note": "同一命令三个独立进程串行运行；每次取末帧 12 阶段 cpu_ms 求和"
+    },
+    {
+      "seq": 3,
+      "command": "RURIX_REQUIRE_REAL=1 RURIX_VK_VALIDATION=1 cargo run -q -p uc06-renderer --bin uc06-renderer --features vulkan -- --device --frames 2 --size 64x64 --json",
+      "exit_code": 0,
+      "note": "RTX 4070 Ti Vulkan device 腿真跑，validation_clean=true，W1/W2 与五个现有效果 kernel 对拍全绿"
+    }
+  ],
+  "sampling": {
+    "trials": 3,
+    "trimmed_pct": 0.2,
+    "timer": "std::time::Instant per-stage cpu_ms + subprocess wall clock",
+    "method": "三个独立 release 进程；每进程 8 帧、输出 1920x1080/内部 960x540；取末帧 12 阶段和。三点样本去首尾后保留中位值作为 trimmed_mean，沿 G7.1 同 workload 口径。"
+  },
+  "results": {
+    "metric": "uc06_host_frame_cpu_ms_1080p",
+    "unit": "ms",
+    "trimmed_mean": 936.4859,
+    "trial_values": [919.5808, 936.4859, 941.1455],
+    "min": 919.5808,
+    "max": 941.1455,
+    "cv": 0.00993647677205275,
+    "ci95": [919.5808, 941.1455],
+    "threshold_basis": "measured median 936.4859 ms × 1.5 = 1404.729 ms；这是未优化 host 参考帧防回归阈值，不是 UE5 级性能目标",
+    "correctness_check": "pass"
+  },
+  "per_trial": [
+    {
+      "trial": 1,
+      "wall_seconds_process": 7.50861,
+      "frames": 8,
+      "out_width": 1920,
+      "out_height": 1080,
+      "internal_width": 960,
+      "internal_height": 540,
+      "last_frame_stage_cpu_ms": {
+        "streaming": 0.0037,
+        "cull": 0.0031,
+        "visbuffer": 14.8595,
+        "mat_resolve": 1.254,
+        "gbuffer": 63.0606,
+        "vsm": 104.4639,
+        "gi": 106.2925,
+        "rt_effects": 167.4364,
+        "shadow_project": 23.7563,
+        "deferred_shade": 6.284,
+        "taa": 44.7588,
+        "tsr": 387.408
+      },
+      "last_frame_total_cpu_ms": 919.5808,
+      "asserts_all_true": true,
+      "pso_runtime_compile_warnings": 0,
+      "exit_ok": true
+    },
+    {
+      "trial": 2,
+      "wall_seconds_process": 7.385308,
+      "frames": 8,
+      "out_width": 1920,
+      "out_height": 1080,
+      "internal_width": 960,
+      "internal_height": 540,
+      "last_frame_stage_cpu_ms": {
+        "streaming": 0.0037,
+        "cull": 0.0033,
+        "visbuffer": 14.8856,
+        "mat_resolve": 1.2468,
+        "gbuffer": 63.0938,
+        "vsm": 106.4061,
+        "gi": 106.3491,
+        "rt_effects": 169.9497,
+        "shadow_project": 24.4224,
+        "deferred_shade": 6.3146,
+        "taa": 45.1743,
+        "tsr": 398.6365
+      },
+      "last_frame_total_cpu_ms": 936.4859,
+      "asserts_all_true": true,
+      "pso_runtime_compile_warnings": 0,
+      "exit_ok": true
+    },
+    {
+      "trial": 3,
+      "wall_seconds_process": 7.388838,
+      "frames": 8,
+      "out_width": 1920,
+      "out_height": 1080,
+      "internal_width": 960,
+      "internal_height": 540,
+      "last_frame_stage_cpu_ms": {
+        "streaming": 0.0036,
+        "cull": 0.0034,
+        "visbuffer": 18.3929,
+        "mat_resolve": 1.2888,
+        "gbuffer": 63.1982,
+        "vsm": 104.3697,
+        "gi": 106.457,
+        "rt_effects": 168.4052,
+        "shadow_project": 23.5157,
+        "deferred_shade": 6.3042,
+        "taa": 45.3508,
+        "tsr": 403.856
+      },
+      "last_frame_total_cpu_ms": 941.1455,
+      "asserts_all_true": true,
+      "pso_runtime_compile_warnings": 0,
+      "exit_ok": true
+    }
+  ],
+  "correctness": {
+    "command": "RURIX_REQUIRE_REAL=1 RURIX_VK_VALIDATION=1 cargo run -q -p uc06-renderer --bin uc06-renderer --features vulkan -- --device --frames 2 --size 64x64 --json",
+    "exit_code": 0,
+    "wall_seconds_process": 14.357602,
+    "device_name": "NVIDIA GeForce RTX 4070 Ti",
+    "require_real": true,
+    "vk_validation_enabled": true,
+    "validation_clean": true,
+    "capability_snapshot": {
+      "synchronization2": true,
+      "atomic_int64": true,
+      "shader_int64": true,
+      "ray_query": true,
+      "acceleration_structure": true,
+      "buffer_device_address": true,
+      "descriptor_indexing": true,
+      "deferred_host_operations": true
+    },
+    "pixel_parity": {
+      "triangle_pixels": 4096,
+      "compute_write_ok": true,
+      "mixed_pass_ok": true,
+      "wave_w1_pass": true,
+      "wave_w2_pass": true,
+      "cull_pass": true,
+      "visbuffer_pass": true,
+      "classify_resolve_pass": true,
+      "vsm_page_mark_pass": true,
+      "taa_pass": true
+    },
+    "device_stats": {
+      "cull_visible_clusters": 72,
+      "visbuffer_matched_words": 9216,
+      "classify_matched_pixels": 9216,
+      "vsm_marked_pages": 4,
+      "taa_max_err": 1.2e-07
+    },
+    "exit_ok": true
+  },
+  "notes": "G8.1 governance-only 的非空 measured 基线。性能项只锚现有 UC-06 host 软件参考帧，未声称 GPU frame p95；device 段只证明本机 RTX 4070 Ti、Vulkan validation 与现有 W1/W2 路径可用。RD-038 仍 open，W3/HW raster/VSM depth/TSR/连续帧均未由本证据充绿；这些项仍受 G8.2 互锁与后续独立 evidence gate 约束。"
+}
