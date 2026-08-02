@@ -6,10 +6,10 @@
       "scope": "shared",
       "pattern": "RFC-####",
       "main_fact_source": "rfcs/README.md §5 + rfcs/NNNN-*.md 文件名",
-      "on_tree_max": 17,
-      "next_free": 18,
+      "on_tree_max": 18,
+      "next_free": 19,
       "shadow_reserved": [],
-      "notes": "Full RFC。main 现存 RFC-0001~0014(RFC-0013=G3 工业渲染期伞形五章 Agent Approved;RFC-0014=EI1 export(c)+UC-05 RHI 双面 Agent Approved)。GRX 影子分支未消费 Full RFC(rfc_required:none)。下一个可用 RFC-0015。v1.13 校准:此前 next_free 标 13 为滞后(v1.7/v1.12 行『RFC 字段不随行』口径),G4.0 按 rfcs/README §5 实际校准(G4_CONTRACT §7 ②a)。v1.28 校准(G6.1):RFC-0015(G4 engine-rendering)/RFC-0016(G5 native-renderer)已 materialize 为 rfcs/ 文件(『字段不随行』口径滞后),on_tree_max 14→16、next_free 15→17,按 rfcs/ 文件名实际校准(v1.13 先例)。v1.29 校准(G6.1):RFC-0017(G6 engine-physics 伞形五章,Agent Approved 2026-07-31)已 materialize 为 rfcs/0017-engine-physics.md,on_tree_max 16→17、next_free 17→18(v1.13/v1.28 先例;reserved_in_flight[G6].RFC claim 兑现,G5 先例:claim 行不改写,materialize 经命名空间校准 + revision_log 记录)。下一个可用 RFC-0018。"
+      "notes": "Full RFC。main 现存 RFC-0001~0014(RFC-0013=G3 工业渲染期伞形五章 Agent Approved;RFC-0014=EI1 export(c)+UC-05 RHI 双面 Agent Approved)。GRX 影子分支未消费 Full RFC(rfc_required:none)。下一个可用 RFC-0015。v1.13 校准:此前 next_free 标 13 为滞后(v1.7/v1.12 行『RFC 字段不随行』口径),G4.0 按 rfcs/README §5 实际校准(G4_CONTRACT §7 ②a)。v1.28 校准(G6.1):RFC-0015(G4 engine-rendering)/RFC-0016(G5 native-renderer)已 materialize 为 rfcs/ 文件(『字段不随行』口径滞后),on_tree_max 14→16、next_free 15→17,按 rfcs/ 文件名实际校准(v1.13 先例)。v1.29 校准(G6.1):RFC-0017(G6 engine-physics 伞形五章,Agent Approved 2026-07-31)已 materialize 为 rfcs/0017-engine-physics.md,on_tree_max 16→17、next_free 17→18(v1.13/v1.28 先例;reserved_in_flight[G6].RFC claim 兑现,G5 先例:claim 行不改写,materialize 经命名空间校准 + revision_log 记录)。v1.38 校准(G7.2 前置):RFC-0018(G7 compute RayQuery/device frame 伞形,Agent Approved 2026-08-01)已 materialize 为 rfcs/0018-compute-rayquery-device-frame.md,on_tree_max 17→18、next_free 18→19;reserved_in_flight[G7].RFC claim 兑现,claim 行 0-byte。下一个可用 RFC-0019。"
     },
     "MR": {
       "scope": "shared",
@@ -520,6 +520,11 @@
       "version": "v1.37",
       "date": "2026-08-02",
       "change": "G7.2 W3a Task 4.4 诊断码注册:RX3018 materialize(agent 完全自主 D-406 v2.0,Assisted-by: trae-ide:kimi-k3;v1.36 留痕『RX3018/RX6034 实现期顺位, RFC-0018 §7.4』的首号兑现)。registry/error_codes.json 纯追加 **RX3018 = RayQuery 状态机/守卫违例**(S2 terminate 后使用/二次 terminate;S3 committed_* 未被 proceed/has_committed true 分支或 while proceed 循环体支配;MIR 数据流编译期结构约束,RFC-0018 §3.A5),status=active,introduced_in=G7.2,spec_clauses=[RXS-0299],message_key=`shader.ray_query_state_invalid`;src/rurixc/src/messages/en.messages 与 zh.messages 成对追加同 key(en: invalid RayQuery traversal state: {detail} / zh: 非法的 RayQuery 遍历状态:{detail}),插入同前缀 shader.* 区块末尾(shader.mesh_entry_invalid 之后),既有条目 0-byte。反映 reserved_in_flight[G7].RX_error「确需时按合入时事实源顺位,en/zh messages 成对,不预造错误码」claim 在实现期的顺位消费(claim 行 0-byte 不改写,materialize 经本 revision_log 记录,G5/v1.29~v1.36 先例)。**RX_error 命名空间 on_tree_max 7022 / next_free 7023 字段 0-byte**——RX3018 < on_tree_max(RX 全局整数序),小号不 bump(v1.5 RX3016 / v1.6 RX6029·6030 / v1.9 RX6031~6033 先例)。零新 RXS(RXS-0299 已由 G7.1 v1.36 materialize)/ RD / U / SG / MR / D / CI_step 命名空间字段 0-byte(诊断发射接线与 CI 步骤 93 归 G7.2 W3a 实现 PR 其余子任务)。经命令核实:py -3 ci/check_number_ledger.py PASS + py -3 ci/check_schemas.py error_codes 段 PASS(RX3018 编号格式/段位/唯一性/必填字段/message_key ↔ en.messages 交叉校验)+ py -3 ci/bilingual_coverage.py PASS(en/zh key 集合对齐)。"
+    },
+    {
+      "version": "v1.38",
+      "date": "2026-08-02",
+      "change": "G7 RFC-0018 materialize 漂移校准(agent 完全自主 D-406 v2.0,Assisted-by: Codex:gpt-5):rfcs/0018-compute-rayquery-device-frame.md 已于 G7.1 跟踪且 Agent Approved(2026-08-01,D-409 对抗性评审 10 findings 全 disposition),但 RFC namespace 与 rfcs/README §5 仍误报 RFC-0018 自由。按 rfcs 文件名事实源校准 RFC on_tree_max 17→18、next_free 18→19;reserved_in_flight[G7].RFC 单号 claim 兑现且 claim 行 0-byte。其余 RFC/RXS/RD/SG/CI/U/RX/MR/D 命名空间 0-byte;本校准独立于 G8 claim,确保后续立项从 RFC-0019 起且不与 G7 在途改动混提。"
     }
   ]
 }
