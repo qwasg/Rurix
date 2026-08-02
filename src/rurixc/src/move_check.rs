@@ -76,6 +76,16 @@ pub(crate) fn rvalue_operands(rv: &Rvalue) -> Vec<&Operand> {
             ops.extend(extra.iter());
             ops
         }
+        // RayQuery(G7.2 W3a,RXS-0298):origin/t_min/dir/t_max 为读 operand;
+        // tlas/rq 句柄非 operand(沿 ResourceSample 资源句柄先例)。
+        Rvalue::RayQueryInitialize {
+            origin,
+            t_min,
+            dir,
+            t_max,
+            ..
+        } => vec![origin, t_min, dir, t_max],
+        Rvalue::RayQueryMethod { .. } => Vec::new(),
     }
 }
 

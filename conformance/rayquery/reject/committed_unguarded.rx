@@ -1,16 +1,14 @@
 //@ spec: RXS-0299
-// G7.1 PR-1 RED 语料(RFC-0018 §3.A5-S3):committed 不存在时的 `committed_*` 查询——
-// `proceed()` 返回值经布尔变量中转、未以其 true 分支支配 `committed_t` 调用点;守卫形态
-// 枚举钉死(① if proceed / ② if has_committed / ③ while proceed),其余形态一律保守拒
-// (误判方向恒为拒、恒不为放,strict-only)。
-// 预期诊断:结构化诊断(RX3013 扩类别优先 / RX3018 顺位,RFC-0018 §7.4),支配域数据流
-// 检查前移到编译期,严禁 UB。
-// 当前状态 = RED:支配域检查未实现(归 G7.2 W3a),本文件 inert 未接 harness。
-// 转正步骤(G7.2 实现 PR):① 接入 reject harness(`//@ expect-error:` 头次行体例,码号
-//   随实现 PR 冻结后补登);② 断言未支配 committed_* 查询产生预期结构化诊断;③ 按需
-//   bless UI golden(bless_log.md 登记)。
+//@ expect-error: RX3018
+// G7.1 PR-1 语料(RFC-0018 §3.A5-S3),G7.2 W3a 转正:committed 不存在时的
+// `committed_*` 查询——`proceed()` 返回值经布尔变量中转、未以其 true 分支支配
+// `committed_t` 调用点;守卫形态枚举钉死(① if proceed / ② if has_committed /
+// ③ while proceed),其余形态一律保守拒(误判方向恒为拒、恒不为放,strict-only)
+// → RX3018(MIR S3 支配域检查,编译期拦截,严禁 UB)。
+// 已接入 reject harness(src/rurixc/tests/rayquery_corpus.rs):批跑断言产生结构化
+// 诊断且全为 RX3018,预期码本 PR 冻结。
 kernel fn committed_unguarded(tlas: AccelStruct, t: ThreadCtx<1>) {
-    let mut rq = ray_query_initialize(tlas, vec3(0.0, 0.0, 0.0), 0.0, vec3(0.0, 0.0, 1.0), 100.0);
+    let mut rq = ray_query_initialize(tlas, (0.0, 0.0, 0.0), 0.0, (0.0, 0.0, 1.0), 100.0);
     let advanced = rq.proceed();
     let t_hit = rq.committed_t();
 }

@@ -92,6 +92,11 @@ pub struct TypeckResults {
     /// G4.3 PR-E(RXS-0283):`rhi.graph::<CAP>()` 调用点 → 求值后的 i64 容量
     /// (turbofish const 实参字面量即时求值;tbir_build 消费追加为 SynthInt 实参)。
     pub gpu_graph_caps: HashMap<HirId, i64>,
+    /// RayQuery 调用点(G7.2 W3a,RXS-0298):Call 节点 → [`crate::hir::RayQueryOp`]
+    /// (`ray_query_initialize` → Initialize;MethodCall 节点 → 方法族,接收者为
+    /// `RayQuery` lang item 时识别,用户同名 impl 优先遮蔽)。tbir/MIR/
+    /// ray_query_check(RXS-0299)消费;本任务仅写入,消费者归 G7.2 后续任务。
+    pub ray_query_calls: HashMap<HirId, crate::hir::RayQueryOp>,
 }
 
 // ---------------------------------------------------------------------------
@@ -1205,6 +1210,15 @@ impl Tck<'_, '_> {
         matches!(self.ctx_color, FnColor::Device | FnColor::Kernel)
     }
 
+    /// RayQuery 上下文门禁(G7.2 W3a,RXS-0297):仅 compute 上下文可调
+    /// `ray_query_initialize` / 方法族——`kernel fn`(Kernel + 无 stage)、
+    /// `compute fn`(stage = Compute)与其可达 `device fn`(Device + 无 stage);
+    /// host 体与 RT 阶段 fn(`raygen` 等,Kernel + RT stage)一律拒。
+    fn is_ray_query_ctx(&self) -> bool {
+        (self.is_device_ctx() && self.ctx_stage.is_none())
+            || self.ctx_stage == Some(crate::ast::ShaderStage::Compute)
+    }
+
     /// 地址空间不一致检测(RXS-0067):两侧为同一 `View` 族容器(同可变性)
     /// 而首类型实参(地址空间标记)不同 → `RX3002` 特化诊断(优先于 RX2001)。
     fn try_addrspace_mismatch(&self, expected: &Ty, found: &Ty) -> Option<(String, String)> {
@@ -2102,6 +2116,49 @@ impl Tck<'_, '_> {
             ];
             return self.check_args(span, &expected, args, Ty::unit());
         }
+        // RayQuery 遍历器构造(G7.2 W3a,RXS-0298):`ray_query_initialize(tlas,
+        // origin, t_min, dir, t_max)` 编译器已知自由函数(沿 `write_ppm`/`trace_ray`
+        // 已知签名先例,拦截在通用 `DefKind::Fn` 解析臂之前)。tlas/origin/dir 为
+        // 容忍位(`Ty::Err`:AccelStruct 头名匹配已在 AST 层 [`crate::shader_stages`]
+        // 裁决、vec 结构性 Err,沿 `expect_vec_arg` 容忍口径);t_min/t_max 精确 f32。
+        if let hir::ExprKind::Res(Res::Def(d)) = &callee.kind
+            && self.res.lang_items.is_ray_query_initialize(*d)
+        {
+            // 上下文门禁(RXS-0297):仅 compute fn(device kernel/其可达 device fn)
+            // 体内可调;host 体 / RT 阶段 fn → RX3013 扩类别(资源/遍历器句柄位置
+            // 违例,沿 AccelStruct/RXS-0245 扩类别先例)。
+            if !self.is_ray_query_ctx() {
+                self.diag()
+                    .struct_error(
+                        crate::shader_stages::E_RESOURCE_HANDLE,
+                        "shader.resource_handle_invalid",
+                    )
+                    .arg(
+                        "detail",
+                        "`ray_query_initialize` may only be called inside compute fns \
+                         (device kernels / their reachable device fns, RXS-0297)"
+                            .to_owned(),
+                    )
+                    .span_label(span, "ray query constructor outside compute context")
+                    .emit();
+            }
+            self.results
+                .ray_query_calls
+                .insert(call_id, crate::hir::RayQueryOp::Initialize);
+            let ray_query = self
+                .res
+                .lang_items
+                .ray_query
+                .expect("RayQuery lang item 在 resolve 入口注入");
+            let expected = [
+                Ty::Err,
+                Ty::Err,
+                Ty::Prim(PrimTy::F32),
+                Ty::Err,
+                Ty::Prim(PrimTy::F32),
+            ];
+            return self.check_args(span, &expected, args, Ty::Adt(ray_query, Vec::new()));
+        }
         // fn item / 构造器直调(含泛型实例化,RXS-0042/0045)
         if let hir::ExprKind::Res(Res::Def(d)) = &callee.kind {
             let kind = self.res.defs[d.0 as usize].kind;
@@ -2281,6 +2338,68 @@ impl Tck<'_, '_> {
                     Ty::unit()
                 } else {
                     Ty::Prim(PrimTy::Usize)
+                }
+            }
+            // RayQuery 遍历器方法族(G7.2 W3a,RXS-0298;沿 `ThreadCtx` 先例,
+            // 用户同名 impl 优先遮蔽 = 先查 assoc_items)。方法族全部 0 实参;
+            // 接收者可变性不做特检(RXS-0297「借用纪律沿 device 既有借用面」,
+            // RayQuery 同面继承)。元数错配暂借 `err_device_constraint`(RX6005)
+            // 既有面发射——不新增错误码,归位裁决归 G7.2 后续任务。
+            Ty::Adt(d, _)
+                if self.res.lang_items.is_ray_query(*d)
+                    && self
+                        .res
+                        .assoc_items
+                        .get(d)
+                        .is_none_or(|items| !items.iter().any(|(n, _)| n == method))
+                    && crate::hir::RayQueryOp::from_method(method).is_some() =>
+            {
+                for a in args {
+                    let _ = self.check_expr(a);
+                }
+                let op = crate::hir::RayQueryOp::from_method(method)
+                    .expect("guard 已确保 RayQuery 方法存在");
+                // 上下文门禁(RXS-0297):同 `ray_query_initialize`——仅 compute fn
+                // (device kernel/其可达 device fn)体内;host 体 / RT 阶段 fn →
+                // RX3013 扩类别。
+                if !self.is_ray_query_ctx() {
+                    self.diag()
+                        .struct_error(
+                            crate::shader_stages::E_RESOURCE_HANDLE,
+                            "shader.resource_handle_invalid",
+                        )
+                        .arg(
+                            "detail",
+                            format!(
+                                "`{}` may only be called inside compute fns \
+                                 (device kernels / their reachable device fns, RXS-0297)",
+                                op.name()
+                            ),
+                        )
+                        .span_label(span, "ray query method outside compute context")
+                        .emit();
+                }
+                if !args.is_empty() {
+                    self.err_device_constraint(
+                        span,
+                        &format!("`{method}` takes no arguments (RXS-0298)"),
+                    );
+                }
+                self.results.ray_query_calls.insert(call_id, op);
+                match op {
+                    crate::hir::RayQueryOp::Proceed | crate::hir::RayQueryOp::HasCommitted => {
+                        Ty::Prim(PrimTy::Bool)
+                    }
+                    crate::hir::RayQueryOp::Terminate => Ty::unit(),
+                    crate::hir::RayQueryOp::CommittedT => Ty::Prim(PrimTy::F32),
+                    // vec2<f32> 非真实 typeck 类型(结构性 Err);返回容忍区(沿
+                    // sample 返回 vec4 先例,RXS-0223)。
+                    crate::hir::RayQueryOp::CommittedBarycentric => Ty::Err,
+                    crate::hir::RayQueryOp::CommittedInstanceIndex
+                    | crate::hir::RayQueryOp::CommittedPrimitiveIndex
+                    | crate::hir::RayQueryOp::CommittedGeometryIndex => Ty::Prim(PrimTy::U32),
+                    // `from_method` 不产 Initialize(构造经自由函数)。
+                    crate::hir::RayQueryOp::Initialize => unreachable!(),
                 }
             }
             // 宿主 GPU 编排编译器已知签名(MS1.2,RXS-0189/0190):`Context` /

@@ -364,6 +364,14 @@
       "spec_clauses": ["RXS-0243"]
     },
     {
+      "id": "RX3018",
+      "title": "RayQuery 状态机/守卫违例(S2 terminate 后使用/二次 terminate;S3 committed_* 未被 proceed/has_committed true 分支或 while proceed 循环体支配;MIR 数据流编译期结构约束,RFC-0018 §3.A5)",
+      "message_key": "shader.ray_query_state_invalid",
+      "status": "active",
+      "introduced_in": "G7.2",
+      "spec_clauses": ["RXS-0299"]
+    },
+    {
       "id": "RX4001",
       "title": "使用已移出的值(use after move,含 maybe-moved 保守判定)",
       "message_key": "borrowck.use_after_move",

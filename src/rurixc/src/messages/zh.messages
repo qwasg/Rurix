@@ -100,6 +100,7 @@ shader.resource_handle_invalid = 非法的着色资源句柄:{detail}
 shader.sample_expr_invalid = 非法的纹理采样表达式:{detail}
 shader.nonuniform_annotation_missing = bindless 无界表动态索引须以 nonuniform(...) 标注:{detail}
 shader.mesh_entry_invalid = 非法的 mesh/task 入口标注:{detail}
+shader.ray_query_state_invalid = 非法的 RayQuery 遍历状态:{detail}
 #
 # libdevice 链接 / device 数学 intrinsic 诊断(RX6006 / RX7002,spec/device.md RXS-0081~0082;M5.3 分配)
 codegen.device_math_unsupported = {detail} 不是受支持的 device 数学 intrinsic(超出 libdevice 覆盖范围或元素类型不受支持)

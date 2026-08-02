@@ -41,6 +41,7 @@ pub mod parser;
 pub mod profile;
 pub mod ptxas;
 pub mod query;
+pub mod ray_query_check;
 pub mod render;
 pub mod resolve;
 #[cfg(feature = "shader-stages")]

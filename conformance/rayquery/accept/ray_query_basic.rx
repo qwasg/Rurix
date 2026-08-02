@@ -1,17 +1,21 @@
 //@ spec: RXS-0297, RXS-0298, RXS-0300
-// G7.1 PR-1 RED 语料(spec-first,硬规则 7;RFC-0018 章 A/B):compute RayQuery 合法骨架——
-// `AccelStruct` 作 compute 签名形参(RXS-0297 对 RXS-0245 的加性修订行)+
-// initialize → while proceed → if has_committed → committed 五查询 → terminate 全流程
-// (RXS-0298 三态状态机与方法族;S3 守卫形态 ② if has_committed + ③ while proceed 双支配);
-// 编码面锚定 RXS-0300(本 entry 应升 SPIR-V 1.4 + RayQueryKHR/SPV_KHR_ray_query 按需声明)。
-// 当前状态 = RED:RayQuery 类型面/builtins/vulkan_codegen 均未实现(归 G7.2 W3a),
-// 本文件为 inert 语料,未接入任何 harness,现阶段编译必失败。
-// 转正步骤(G7.2 实现 PR):① 类型面与 builtins 落地后,本文件接入 conformance accept
-//   harness 批跑断言 0 诊断;② vulkan_codegen 落地后锚定反汇编 golden(OpTypeRayQueryKHR/
-//   OpRayQueryInitializeKHR/OpRayQueryProceedKHR/committed 查询族 + 1.4 header);
-//   ③ spirv-val --target-env vulkan1.2 与 spv1.4 双口径 accept;④ 移除本注释块 RED 标注。
+// G7.1 PR-1 语料(spec-first,硬规则 7;RFC-0018 章 A/B),G7.2 W3a 转正:compute
+// RayQuery 合法骨架——`AccelStruct` 作 compute 签名形参(RXS-0297 对 RXS-0245 的加性
+// 修订行)+ initialize → while proceed → if has_committed → committed 五查询 →
+// terminate 全流程(RXS-0298 三态状态机与方法族;S3 守卫形态 ② if has_committed +
+// ③ while proceed 双支配);编码面锚定 RXS-0300(本 entry 应升 SPIR-V 1.4 +
+// RayQueryKHR/SPV_KHR_ray_query 按需声明)。
+// ① 类型面/builtins/harness 已落:本文件接入 conformance accept harness
+//   (src/rurixc/tests/rayquery_corpus.rs)批跑断言 0 诊断,已转正。initialize 的
+//   origin/dir 实参取实现已接的结构性元组形态(RXS-0223 容忍口径;`vec3(...)`
+//   构造调用在 resolve 值位置无兜底 RX1001,其兜底裁决归 vec 构造差距项,
+//   不属本任务)。
+// 仍归 G7.2 W3a 后端任务:② vulkan_codegen 落地后锚定反汇编 golden
+//   (OpTypeRayQueryKHR/OpRayQueryInitializeKHR/OpRayQueryProceedKHR/committed
+//   查询族 + 1.4 header);③ spirv-val --target-env vulkan1.2 与 spv1.4 双口径
+//   accept。
 kernel fn ray_query_basic(tlas: AccelStruct, t: ThreadCtx<1>) {
-    let mut rq = ray_query_initialize(tlas, vec3(0.0, 0.0, 0.0), 0.0, vec3(0.0, 0.0, 1.0), 100.0);
+    let mut rq = ray_query_initialize(tlas, (0.0, 0.0, 0.0), 0.0, (0.0, 0.0, 1.0), 100.0);
     while rq.proceed() {
         if rq.has_committed() {
             let t_hit = rq.committed_t();

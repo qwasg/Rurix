@@ -352,6 +352,13 @@ impl<'a, 'q> Evaluator<'a, 'q> {
                 span,
                 what: "atomic operation".to_owned(),
             }),
+            // RayQuery(G7.2 W3a,RXS-0298):device 遍历器构造/查询非常量可求值。
+            Rvalue::RayQueryInitialize { .. } | Rvalue::RayQueryMethod { .. } => {
+                Err(ConstError::NonConst {
+                    span,
+                    what: "ray query operation".to_owned(),
+                })
+            }
         }
     }
 }

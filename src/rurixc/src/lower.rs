@@ -196,6 +196,9 @@ impl Lowerer<'_> {
             .chain(li.view_mut)
             .chain(li.buffer)
             .chain(li.addr_spaces.into_iter().flatten())
+            // RayQuery device 不透明遍历器(G7.2 W3a,RXS-0297):同空字段 struct
+            // 形态(无用户可及构造路径,仅 `ray_query_initialize` 产出,RXS-0298)。
+            .chain(li.ray_query)
         {
             self.set_item(d, hir::ItemKind::Struct { fields: Vec::new() });
         }

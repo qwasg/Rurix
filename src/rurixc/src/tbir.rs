@@ -123,6 +123,13 @@ pub enum ExprKind {
         receiver: Box<Expr>,
         args: Vec<Expr>,
     },
+    /// RayQuery 遍历器调用(G7.2 W3a,RXS-0298):`ray_query_initialize` 自由函数
+    /// (receiver=None,args=5 实参)与 `RayQuery` 方法族(receiver=Some,args 空)。
+    RayQueryCall {
+        op: crate::hir::RayQueryOp,
+        receiver: Option<Box<Expr>>,
+        args: Vec<Expr>,
+    },
     /// 纹理采样(G2.4,RXS-0174/0175;RFC-0007;`tex.sample(samp, coord)` →
     /// 采样表达式,产 `vec4<F>`)。`texture`/`sampler` 为资源句柄形参引用
     /// (MIR lowering 取其 local 下标);`coord` 为 `vec2<f32>` 值。

@@ -216,6 +216,11 @@ pub fn compile(opts: &CompileOptions) -> u8 {
                         if !diag.has_errors() {
                             cx.check_shared_barrier();
                         }
+                        // RayQuery 状态机诊断(G7.2 W3a,RXS-0299):shared+barrier 之后、device codegen
+                        // 之前(仅 device MIR body)
+                        if !diag.has_errors() {
+                            cx.check_ray_query();
+                        }
                         // device emit 通道(`--emit=nvptx-ir|ptx|pyd`)以 `kernel fn` 为根,
                         // 不要求 host `main`(RXS-0070 / 互操作 PYD RXS-0122);其余缺 main → RX6002。
                         let device_emit =

@@ -229,7 +229,22 @@ pub fn iterate_to_fixpoint<A: Analysis>(body: &Body, analysis: &A) -> Results {
         Direction::Forward => {
             if n > 0 {
                 analysis.boundary(body, &mut entry[0]);
-                worklist.push(0);
+                // 压入自 bb0 可达的全部块:空边界 may 分析下,若 bb0 转移后出态
+                // 仍为 bottom,后继不会因 join 变化再入栈,仅靠"变化压栈"不完备;
+                // 单调框架最小不动点与调度顺序无关,此处只保证处理完整性。
+                // 不可达块不入栈,避免死代码区 entry 偏离 bottom。
+                let mut seen = vec![false; n];
+                seen[0] = true;
+                let mut stack = vec![0usize];
+                while let Some(b) = stack.pop() {
+                    worklist.push(b);
+                    for t in successors(&body.blocks[b].terminator.kind) {
+                        if !seen[t] {
+                            seen[t] = true;
+                            stack.push(t);
+                        }
+                    }
+                }
             }
         }
         Direction::Backward => {

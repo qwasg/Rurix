@@ -54,6 +54,8 @@ pub struct QueryCtx<'a> {
     checked_views: Cell<bool>,
     /// shared+barrier 一致性检查已跑标记(RXS-0079;memo 防重复诊断)。
     checked_shared_barrier: Cell<bool>,
+    /// RayQuery 状态机诊断已跑标记(RXS-0299;memo 防重复诊断)。
+    checked_ray_query: Cell<bool>,
     /// move/init 检查已跑标记(RXS-0054;memo 防重复诊断)。
     checked_moves: Cell<bool>,
     /// 借用检查已跑标记(RXS-0057~0061;memo 防重复诊断)。
@@ -100,6 +102,7 @@ impl<'a> QueryCtx<'a> {
             checked_launch: Cell::new(false),
             checked_views: Cell::new(false),
             checked_shared_barrier: Cell::new(false),
+            checked_ray_query: Cell::new(false),
             checked_moves: Cell::new(false),
             checked_borrows: Cell::new(false),
             const_vals: RefCell::new(HashMap::new()),
@@ -327,6 +330,19 @@ impl<'a> QueryCtx<'a> {
         }
         self.miss();
         crate::shared_check::check_crate(self);
+    }
+
+    /// RayQuery 状态机诊断(G7.2 W3a,RXS-0299,RFC-0018 §3.A5):S2 前向
+    /// may-terminated 数据流 + S3 committed_* 守卫支配检查,MIR 层,仅 device
+    /// MIR body;shared+barrier 之后、device codegen 之前(provider:
+    /// [`crate::ray_query_check::check_crate`])。memo 防重复诊断。
+    pub fn check_ray_query(&self) {
+        if self.checked_ray_query.replace(true) {
+            self.hit();
+            return;
+        }
+        self.miss();
+        crate::ray_query_check::check_crate(self);
     }
 
     /// 模式穷尽性检查(RXS-0051;TBIR 窄门时点 = typeck 后、MIR 前)。

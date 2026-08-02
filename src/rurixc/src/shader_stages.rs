@@ -25,8 +25,8 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::ast::{
-    Attr, FieldDef, FnItem, Item, ItemKind, LitKind, MetaInner, MetaKind, ShaderStage, SourceFile,
-    Ty, TyKind, VariantBody,
+    Attr, FieldDef, FnColor, FnItem, Item, ItemKind, LitKind, MetaInner, MetaKind, ShaderStage,
+    SourceFile, Ty, TyKind, VariantBody,
 };
 use crate::diag::{DiagCtxt, ErrorCode};
 use crate::span::Span;
@@ -299,6 +299,8 @@ fn check_items(
                         check_handle_in_field(&fld.ty, diag);
                         // RXS-0245:AccelStruct 亦仅签名形参(结构体字段 → RX3013)。
                         check_accel_in_field(&fld.ty, diag);
+                        // RXS-0297:RayQuery 不得作结构体字段(含引用形态 → RX3013)。
+                        check_ray_query_in_field(&fld.ty, diag);
                     }
                 }
             }
@@ -326,6 +328,83 @@ fn is_accel_struct(ty: &Ty) -> bool {
     ty_head_name(ty) == Some("AccelStruct")
 }
 
+/// `RayQuery` device 不透明遍历器(RXS-0297):头名匹配沿 `is_accel_struct` 先例,
+/// 首期无泛型参数化。注意 `ty_head_name` 剥 `&T`/`*T`/`(T)`——值/引用形态判别
+/// 需在调用点直接看 `ty.kind`(借用形参豁免面,见 [`check_ray_query_param`])。
+fn is_ray_query(ty: &Ty) -> bool {
+    ty_head_name(ty) == Some("RayQuery")
+}
+
+/// 剥类型括号(`(T)` → `T`;RayQuery 值/引用形态判别用,RXS-0297)。
+fn strip_paren(ty: &Ty) -> &Ty {
+    match &ty.kind {
+        TyKind::Paren(inner) => strip_paren(inner),
+        _ => ty,
+    }
+}
+
+/// RXS-0297:`RayQuery` 不得出现于返回位置(值/引用形态均拒——遍历器对象仅以
+/// compute fn 体内 function-local 变量存活,逃逸即位置违例)。
+fn check_ray_query_return(ty: &Ty, diag: &DiagCtxt) {
+    if is_ray_query(ty) {
+        emit_handle(
+            ty.span,
+            "`RayQuery` cannot appear in return position (traversal objects live only as \
+             function-local variables inside compute fns, RXS-0297)"
+                .to_owned(),
+            diag,
+        );
+    }
+}
+
+/// RXS-0297:`RayQuery` 不得作结构体字段(含引用形态;跨 launch 持久化等价物,
+/// 与禁止逃逸同源)。
+fn check_ray_query_in_field(ty: &Ty, diag: &DiagCtxt) {
+    if is_ray_query(ty) {
+        emit_handle(
+            ty.span,
+            "`RayQuery` cannot appear as a struct field (traversal objects live only as \
+             function-local variables inside compute fns, RXS-0297)"
+                .to_owned(),
+            diag,
+        );
+    }
+}
+
+/// RXS-0297:`RayQuery` **值形态**签名形参一律拒;`&RayQuery`/`&mut RayQuery`
+/// 借用形参为唯一豁免,且仅 compute 上下文(kernel/compute fn 及其可达 device
+/// fn)合法——host fn / RT 阶段 fn 的借用形态亦拒。
+fn check_ray_query_param(ty: &Ty, color: FnColor, stage: Option<ShaderStage>, diag: &DiagCtxt) {
+    let peeled = strip_paren(ty);
+    match &peeled.kind {
+        TyKind::Ref { inner, .. } if is_ray_query(inner) => {
+            let compute_ctx = (matches!(color, FnColor::Device | FnColor::Kernel)
+                && stage.is_none())
+                || stage == Some(ShaderStage::Compute);
+            if !compute_ctx {
+                emit_handle(
+                    ty.span,
+                    "`RayQuery` reference parameters are only allowed in compute fns \
+                     (device kernels / their reachable device fns, RXS-0297)"
+                        .to_owned(),
+                    diag,
+                );
+            }
+        }
+        _ if is_ray_query(peeled) => {
+            emit_handle(
+                ty.span,
+                "`RayQuery` cannot appear as a value signature parameter (traversal objects \
+                 live only as function-local variables inside compute fns; `&mut RayQuery` \
+                 borrows are the only exemption, RXS-0297)"
+                    .to_owned(),
+                diag,
+            );
+        }
+        _ => {}
+    }
+}
+
 fn check_accel_return(ty: &Ty, diag: &DiagCtxt) {
     if is_accel_struct(ty) {
         emit_handle(
@@ -350,13 +429,22 @@ fn check_accel_in_field(ty: &Ty, diag: &DiagCtxt) {
     }
 }
 
-/// RXS-0245:`AccelStruct` 仅可作 RT 阶段签名形参(非 RT 阶段 / 非着色阶段签名 → RX3013)。
-fn check_accel_param(ty: &Ty, stage: Option<ShaderStage>, diag: &DiagCtxt) {
-    if is_accel_struct(ty) && !stage.is_some_and(is_rt_stage) {
+/// RXS-0245 + RXS-0297 修订行:`AccelStruct` 可作 RT 阶段签名形参,亦可作
+/// compute 签名形参(`kernel fn` / `compute fn`,RXS-0297 对 RXS-0245 的加性
+/// 修订);host fn / device fn 值形态维持拒(修订行仅加 compute 签名面,其余
+/// 0-byte)。引用形态 `&AccelStruct` 按同一规则裁决(`ty_head_name` 剥引用,
+/// 维持现状行为)。
+fn check_accel_param(ty: &Ty, color: FnColor, stage: Option<ShaderStage>, diag: &DiagCtxt) {
+    let legal = match stage {
+        Some(s) => is_rt_stage(s) || s == ShaderStage::Compute,
+        None => color == FnColor::Kernel,
+    };
+    if is_accel_struct(ty) && !legal {
         emit_handle(
             ty.span,
-            "`AccelStruct` may only appear as a ray-tracing stage signature parameter \
-             (raygen / closesthit / anyhit / miss / intersection / callable, RXS-0245)"
+            "`AccelStruct` may only appear as a ray-tracing stage or compute signature parameter \
+             (raygen / closesthit / anyhit / miss / intersection / callable / kernel / compute, \
+             RXS-0245/RXS-0297)"
                 .to_owned(),
             diag,
         );
@@ -374,14 +462,43 @@ fn check_fn(
         check_handle_return(ret, diag);
         // RXS-0245:AccelStruct 返回位置违例 → RX3013。
         check_accel_return(ret, diag);
+        // RXS-0297:RayQuery 返回位置违例(值/引用形态均拒)→ RX3013 扩类别。
+        check_ray_query_return(ret, diag);
     }
     // 形参:着色阶段允许 `Texture2D<F>`/`Sampler` 作签名形参;未支持纹理维度 → RX3013。
     // 非着色阶段函数不得携带资源句柄形参(首批仅着色阶段签名,RFC-0002 §4.4)。
     for p in &f.params {
         if let crate::ast::ParamKind::Typed { ty, .. } = &p.kind {
             check_handle_param(ty, f.stage.is_some(), diag);
-            // RXS-0245:AccelStruct 仅 RT 阶段签名形参。
-            check_accel_param(ty, f.stage, diag);
+            // RXS-0245 + RXS-0297 修订行:AccelStruct RT 阶段 / compute 签名形参。
+            check_accel_param(ty, f.color, f.stage, diag);
+            // RXS-0297:RayQuery 值形态形参一律拒;借用形态仅 compute 上下文豁免。
+            check_ray_query_param(ty, f.color, f.stage, diag);
+        }
+    }
+    // RXS-0297 单 TLAS 纪律:compute 签名(kernel fn / compute fn)中值形态
+    // `AccelStruct` 形参至多一个;第 2 个起逐个 RX3013(span 指向该形参类型)。
+    let compute_ctx =
+        (f.color == FnColor::Kernel && f.stage.is_none()) || f.stage == Some(ShaderStage::Compute);
+    if compute_ctx {
+        let mut seen = false;
+        for p in &f.params {
+            if let crate::ast::ParamKind::Typed { ty, .. } = &p.kind {
+                let peeled = strip_paren(ty);
+                if matches!(peeled.kind, TyKind::Path(_)) && is_accel_struct(peeled) {
+                    if seen {
+                        emit_handle(
+                            ty.span,
+                            "at most one `AccelStruct` parameter is allowed in a compute \
+                             signature (single-TLAS discipline for the initial milestone, \
+                             RXS-0297)"
+                                .to_owned(),
+                            diag,
+                        );
+                    }
+                    seen = true;
+                }
+            }
         }
     }
     // RXS-0155:fragment 输入 varying 须与上游 vertex 输出兼容。
@@ -1226,6 +1343,129 @@ mod tests {
     fn accelstruct_in_struct_field_is_rx3013() {
         let codes = check_codes(
             "struct Bag { tlas: AccelStruct }\n\
+             fn main() {}",
+        );
+        assert_eq!(codes, vec![3013]);
+    }
+
+    // ── RXS-0297:AccelStruct compute 签名修订行 + 单 TLAS 纪律 → RX3013 ──
+
+    //@ spec: RXS-0297
+    #[test]
+    fn accelstruct_in_kernel_param_is_clean() {
+        // 修订行:AccelStruct 可作 kernel fn(compute 签名)形参。
+        let codes = check_codes(
+            "kernel fn k(tlas: AccelStruct) {}\n\
+             fn main() {}",
+        );
+        assert!(codes.is_empty(), "{codes:?}");
+    }
+
+    //@ spec: RXS-0297
+    #[test]
+    fn accelstruct_in_compute_param_is_clean() {
+        // 修订行:AccelStruct 可作 compute fn 签名形参。
+        let codes = check_codes(
+            "compute fn c(tlas: AccelStruct) {}\n\
+             fn main() {}",
+        );
+        assert!(codes.is_empty(), "{codes:?}");
+    }
+
+    //@ spec: RXS-0297
+    #[test]
+    fn accelstruct_two_in_compute_signature_is_rx3013() {
+        // 单 TLAS 纪律:compute 签名中值形态 AccelStruct 至多一个(第 2 个起拒)。
+        let codes = check_codes(
+            "kernel fn k(a: AccelStruct, b: AccelStruct) {}\n\
+             fn main() {}",
+        );
+        assert_eq!(codes, vec![3013]);
+    }
+
+    //@ spec: RXS-0297
+    #[test]
+    fn accelstruct_in_device_param_is_rx3013() {
+        // 修订行仅加 compute 签名面:device fn 值形态维持拒。
+        let codes = check_codes(
+            "device fn d(tlas: AccelStruct) {}\n\
+             fn main() {}",
+        );
+        assert_eq!(codes, vec![3013]);
+    }
+
+    //@ spec: RXS-0297
+    #[test]
+    fn accelstruct_in_host_param_is_rx3013() {
+        // host fn 值形态维持拒(0-byte 既有面)。
+        let codes = check_codes(
+            "fn h(tlas: AccelStruct) {}\n\
+             fn main() {}",
+        );
+        assert_eq!(codes, vec![3013]);
+    }
+
+    // ── RXS-0297:RayQuery 位置纪律 → RX3013 扩类别 ──
+
+    //@ spec: RXS-0297
+    #[test]
+    fn rayquery_return_is_rx3013() {
+        let codes = check_codes(
+            "fn h() -> RayQuery { }\n\
+             fn main() {}",
+        );
+        assert_eq!(codes, vec![3013]);
+    }
+
+    //@ spec: RXS-0297
+    #[test]
+    fn rayquery_in_struct_field_is_rx3013() {
+        let codes = check_codes(
+            "struct Bag { rq: RayQuery }\n\
+             fn main() {}",
+        );
+        assert_eq!(codes, vec![3013]);
+    }
+
+    //@ spec: RXS-0297
+    #[test]
+    fn rayquery_value_param_is_rx3013() {
+        // 值形态签名形参一律拒(compute 上下文亦不豁免)。
+        let codes = check_codes(
+            "kernel fn k(rq: RayQuery) {}\n\
+             fn main() {}",
+        );
+        assert_eq!(codes, vec![3013]);
+    }
+
+    //@ spec: RXS-0297
+    #[test]
+    fn rayquery_mut_borrow_param_in_device_fn_is_clean() {
+        // device fn 间 `&mut RayQuery` 借用形参 = 唯一豁免。
+        let codes = check_codes(
+            "device fn d(rq: &mut RayQuery) {}\n\
+             fn main() {}",
+        );
+        assert!(codes.is_empty(), "{codes:?}");
+    }
+
+    //@ spec: RXS-0297
+    #[test]
+    fn rayquery_borrow_param_in_host_fn_is_rx3013() {
+        // host fn 借用形态亦拒(豁免仅 compute 上下文)。
+        let codes = check_codes(
+            "fn h(rq: &RayQuery) {}\n\
+             fn main() {}",
+        );
+        assert_eq!(codes, vec![3013]);
+    }
+
+    //@ spec: RXS-0297
+    #[test]
+    fn rayquery_borrow_param_in_rt_stage_is_rx3013() {
+        // RT 阶段 fn 借用形态亦拒(RayQuery 仅 compute 上下文)。
+        let codes = check_codes(
+            "raygen fn rg(rq: &RayQuery) {}\n\
              fn main() {}",
         );
         assert_eq!(codes, vec![3013]);

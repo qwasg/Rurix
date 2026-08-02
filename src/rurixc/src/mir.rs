@@ -397,6 +397,22 @@ pub enum Rvalue {
         /// `Gather`=[component:u32 常量 0..=3]、`Store`=[value:vec4<F>]。
         extra: Vec<Operand>,
     },
+    /// RayQuery 遍历初始化(G7.2 W3a,RXS-0298):`tlas_local` 为 `AccelStruct`
+    /// 句柄形参的 local 下标(句柄非值,沿 `ResourceSample` 资源句柄先例);
+    /// origin/t_min/dir/t_max 为值操作数。结果为 RayQuery 不透明遍历器。
+    RayQueryInitialize {
+        tlas_local: LocalIdx,
+        origin: Operand,
+        t_min: Operand,
+        dir: Operand,
+        t_max: Operand,
+    },
+    /// RayQuery 方法族(G7.2 W3a,RXS-0298/0299):对 `rq_local` 指向的 RayQuery
+    /// 遍历器局部执行 `op`(proceed/terminate/has_committed/committed_* 五查询)。
+    RayQueryMethod {
+        op: crate::hir::RayQueryOp,
+        rq_local: LocalIdx,
+    },
 }
 
 /// 采样方法族判别(G3.3,RXS-0223/0226;RFC-0013 §4.B1/B6)。降级 opcode 见
@@ -745,6 +761,24 @@ fn print_rvalue(rv: &Rvalue, res: &Resolutions) -> String {
                     format!(", {}", extra_s.join(", "))
                 }
             )
+        }
+        // RayQuery(G7.2 W3a,RXS-0298):句柄 local 下标直印(沿 ResourceSample 先例)。
+        Rvalue::RayQueryInitialize {
+            tlas_local,
+            origin,
+            t_min,
+            dir,
+            t_max,
+        } => format!(
+            "ray_query_initialize(_{}, {}, {}, {}, {})",
+            tlas_local.0,
+            print_operand(origin),
+            print_operand(t_min),
+            print_operand(dir),
+            print_operand(t_max)
+        ),
+        Rvalue::RayQueryMethod { op, rq_local } => {
+            format!("{}(_{})", op.name(), rq_local.0)
         }
     }
 }

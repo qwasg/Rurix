@@ -164,6 +164,16 @@ pub struct LangItems {
     pub scope_gpu: Option<DefId>,
     pub scope_system: Option<DefId>,
     pub ordering: Option<DefId>,
+    /// `RayQuery` device 不透明遍历器类型(G7.2 W3a,RXS-0297;类型位置兜底,
+    /// 可被用户遮蔽)。一次 ray 遍历的遍历器对象(SPIR-V `OpTypeRayQueryKHR`
+    /// Function-storage);仅 compute fn 体内 function-local 变量(位置纪律
+    /// 由 [`crate::shader_stages`] 裁决),非 Copy by-construction(合成 lang
+    /// item 无 copy derive)。方法族 → [`crate::hir::RayQueryOp`](typeck 层)。
+    pub ray_query: Option<DefId>,
+    /// `ray_query_initialize` 编译器已知自由函数(G7.2 W3a,RXS-0298;值位置
+    /// 兜底,可被用户遮蔽;签名为 typeck 编译器已知,沿 `write_ppm`/`trace_ray`
+    /// 先例)。
+    pub ray_query_initialize: Option<DefId>,
 }
 
 /// 地址空间标记名(RXS-0067;序对应 [`LangItems::addr_spaces`])。
@@ -226,6 +236,9 @@ impl LangItems {
             "Queue" => self.rhi_queue,
             // G4.2 RHI 图形 pass 句柄(RXS-0270):类型位置兜底(可被用户遮蔽)。
             "GfxPass" => self.rhi_gfx_pass,
+            // RayQuery device 不透明遍历器类型(G7.2 W3a,RXS-0297):类型位置
+            // 兜底(可被用户遮蔽)。
+            "RayQuery" => self.ray_query,
             _ => ADDR_SPACES
                 .iter()
                 .position(|n| *n == name)
@@ -246,6 +259,9 @@ impl LangItems {
             "write_ppm" => self.write_ppm,
             // bindless 动态非均匀索引标注(RXS-0232);值位置兜底,用户同名定义遮蔽。
             "nonuniform" => self.nonuniform,
+            // RayQuery 构造自由函数(G7.2 W3a,RXS-0298):值位置兜底(模块值 ns
+            // 优先 = 用户同名定义遮蔽);签名为 typeck 编译器已知。
+            "ray_query_initialize" => self.ray_query_initialize,
             _ => None,
         }
     }
@@ -379,6 +395,17 @@ impl LangItems {
     /// 结果,affine 布局消费)。
     pub fn is_rhi_queue(&self, d: DefId) -> bool {
         Some(d) == self.rhi_queue
+    }
+
+    /// `RayQuery` device 不透明遍历器判定(G7.2 W3a,RXS-0297;方法族接收者识别)。
+    pub fn is_ray_query(&self, d: DefId) -> bool {
+        Some(d) == self.ray_query
+    }
+
+    /// `ray_query_initialize` 构造自由函数判定(G7.2 W3a,RXS-0298;typeck 已知签名
+    /// 分支识别)。
+    pub fn is_ray_query_initialize(&self, d: DefId) -> bool {
+        Some(d) == self.ray_query_initialize
     }
 
     /// `PinnedBuffer` 锁页缓冲判定(MS1.2,RXS-0189)。
@@ -578,6 +605,8 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
             scope_gpu: None,
             scope_system: None,
             ordering: None,
+            ray_query: None,
+            ray_query_initialize: None,
         };
     }
     r.collect_items(&file.items, 0);
@@ -718,6 +747,14 @@ pub fn resolve(file: &ast::SourceFile, diag: &DiagCtxt) -> Resolutions {
         // 不动摇既有 DefId 编号(MIR/PTX golden 符号名稳定性);同 Rhi 族兜底纪律。
         r.out.lang_items.rhi_gfx_pass =
             Some(r.new_def(DefKind::Struct, "GfxPass", Vis::Pub, span, 0));
+        // RayQuery device 不透明遍历器类型 + `ray_query_initialize` 构造自由函数
+        // (G7.2 W3a,RXS-0297/0298,RFC-0018 §3.A1~A4)。**追加于全部既有 lang items
+        // 之后**,不动摇既有 DefId 编号(MIR/PTX golden 符号名稳定性);同 View 族
+        // 兜底纪律(用户同名定义优先遮蔽,不入模块命名空间)。
+        r.out.lang_items.ray_query =
+            Some(r.new_def(DefKind::Struct, "RayQuery", Vis::Pub, span, 0));
+        r.out.lang_items.ray_query_initialize =
+            Some(r.new_def(DefKind::Fn, "ray_query_initialize", Vis::Pub, span, 0));
     }
     r.resolve_uses();
     r.resolve_impl_targets();

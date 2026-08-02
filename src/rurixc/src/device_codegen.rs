@@ -748,6 +748,13 @@ impl Cg<'_> {
                 b.span,
                 "scoped atomics remain deferred in the device (PTX) codegen subset",
             )),
+            // RayQuery(G7.2 W3a,RXS-0298):本里程碑零指令发射,走既有 deferred 拒绝路径。
+            Rvalue::RayQueryInitialize { .. } | Rvalue::RayQueryMethod { .. } => {
+                Err(DeviceCodegenError::constraint(
+                    b.span,
+                    "ray query operations remain deferred in the device (PTX) codegen subset",
+                ))
+            }
         }
     }
 

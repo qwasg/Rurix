@@ -395,6 +395,23 @@ fn rvalue_read_locals(rv: &Rvalue) -> Vec<LocalIdx> {
                 v.push(*s);
             }
         }
+        // RayQuery(G7.2 W3a,RXS-0298):origin/t_min/dir/t_max 读 + tlas 句柄 local
+        // 计为活跃读(沿 ResourceSample 的 texture_local 先例)。
+        Rvalue::RayQueryInitialize {
+            tlas_local,
+            origin,
+            t_min,
+            dir,
+            t_max,
+        } => {
+            push(origin);
+            push(t_min);
+            push(dir);
+            push(t_max);
+            v.push(*tlas_local);
+        }
+        // 方法族:rq 遍历器 local 计为活跃读。
+        Rvalue::RayQueryMethod { rq_local, .. } => v.push(*rq_local),
     }
     v
 }
@@ -485,6 +502,13 @@ impl Reporter<'_> {
                     .any(|h| live_out.contains(h.0 as usize))
             {
                 for other in self.overlapping(borrowed.local, active) {
+                    // 同一借用点经循环回边流回自身创建点的旧实例不算冲突:本语言无
+                    // 生命周期参数、引用不能聚合成字段逃逸,创建点对 holder 的重定义
+                    // 使旧实例区域必已结束(per-local liveness 门控无法区分新旧实例,
+                    // 故在查询处排除)。
+                    if other == nid {
+                        continue;
+                    }
                     if conflicts(self.loans[other].kind, *kind) {
                         let label = match (self.loans[other].kind, kind) {
                             (BorrowKind::Mut, BorrowKind::Mut) => "two `&mut` borrows overlap",
@@ -607,6 +631,16 @@ fn operands_of_rvalue(rv: &Rvalue) -> Vec<&Operand> {
             ops.extend(extra.iter());
             ops
         }
+        // RayQuery(G7.2 W3a,RXS-0298):origin/t_min/dir/t_max 为读 operand;
+        // tlas/rq 句柄非 operand(沿 ResourceSample 资源句柄先例)。
+        Rvalue::RayQueryInitialize {
+            origin,
+            t_min,
+            dir,
+            t_max,
+            ..
+        } => vec![origin, t_min, dir, t_max],
+        Rvalue::RayQueryMethod { .. } => Vec::new(),
     }
 }
 

@@ -1,14 +1,13 @@
 //@ spec: RXS-0297
-// G7.1 PR-1 RED 语料(RFC-0018 §3.A1/A5-S5):RayQuery 值形态逃逸——device fn 返回位置
-// 出现 `RayQuery`,违反位置纪律(仅 compute fn 体内 function-local 变量;形参/返回/字段/
-// host 体/非 compute 阶段一律编译期拒)。
-// 预期诊断:RX3013 扩类别方向(沿 AccelStruct/RXS-0245 先例;确需新类别自 RX3018 顺位,
-// RFC-0018 §7.4,只追加不预造),span 指向返回类型。
-// 当前状态 = RED:类型面未实现(归 G7.2 W3a),本文件 inert 未接 harness。
-// 转正步骤(G7.2 实现 PR):① 接入 reject harness(体例沿 coloring/export_c:文件头次行
-//   `//@ expect-error: RX####`,码号随实现 PR 冻结后补登);② 断言产生结构化诊断且全为
-//   预期码;③ 按需 bless UI golden(tests/ui/,bless_log.md 登记)。
+//@ expect-error: RX3013
+// G7.1 PR-1 语料(RFC-0018 §3.A1/A5-S5),G7.2 W3a 转正:RayQuery 值形态逃逸——
+// device fn 返回位置出现 `RayQuery`,违反位置纪律(仅 compute fn 体内 function-local
+// 变量;形参/返回/字段/host 体/非 compute 阶段一律编译期拒)→ RX3013(沿
+// AccelStruct/RXS-0245 扩类别先例),span 指向返回类型;shader-stages AST 层拦截
+// (resolve 前,管线首段即停)。
+// 已接入 reject harness(src/rurixc/tests/rayquery_corpus.rs,体例沿 coloring/
+// export_c):批跑断言产生结构化诊断且全为 RX3013,预期码本 PR 冻结。
 device fn escape_rq(tlas: AccelStruct) -> RayQuery {
-    let rq = ray_query_initialize(tlas, vec3(0.0, 0.0, 0.0), 0.0, vec3(0.0, 0.0, 1.0), 100.0);
+    let rq = ray_query_initialize(tlas, (0.0, 0.0, 0.0), 0.0, (0.0, 0.0, 1.0), 100.0);
     rq
 }

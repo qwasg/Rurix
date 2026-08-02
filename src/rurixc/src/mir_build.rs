@@ -1340,6 +1340,11 @@ impl Builder<'_, '_> {
                     e.span,
                 )
             }
+            // RayQuery 遍历器(G7.2 W3a,RXS-0298):构造(自由函数 5 实参)与方法族
+            // (接收者直引 RayQuery 局部)→ RayQueryInitialize/RayQueryMethod rvalue。
+            tbir::ExprKind::RayQueryCall { op, receiver, args } => {
+                self.lower_ray_query_call(e, *op, receiver.as_deref(), args)
+            }
             // 宿主 GPU 编排(MS1.2,RXS-0191~0193):rxrt_* 字面符号直降 + 失败
             // 终止检查;launch 走 🔒 slot+kinds marshalling。
             tbir::ExprKind::GpuCall { op, args } => self.lower_gpu_call(e, *op, args),
@@ -1712,6 +1717,76 @@ impl Builder<'_, '_> {
         );
         self.switch_to(next);
         self.consume(Place::local(dest), &ret_ty)
+    }
+
+    /// RayQuery 遍历器调用 lowering(G7.2 W3a,RXS-0298)。Initialize(自由函数,
+    /// receiver=None):args 恰 5,`args[0]` tlas 须为 `AccelStruct` 句柄形参的
+    /// 裸 local 引用(句柄非值,无投影,沿 atomic receiver / `ResourceSample`
+    /// 资源句柄先例),origin/t_min/dir/t_max 为值操作数 →
+    /// `Rvalue::RayQueryInitialize`。方法族(receiver=Some):接收者须为直引
+    /// RayQuery 局部(无投影)→ `Rvalue::RayQueryMethod`。本里程碑零指令发射
+    /// (codegen 走既有 deferred/unsupported 拒绝路径);遍历状态/支配域检查归
+    /// 后续 ray_query_check(RXS-0299)。
+    fn lower_ray_query_call(
+        &mut self,
+        e: &tbir::Expr,
+        op: crate::hir::RayQueryOp,
+        receiver: Option<&tbir::Expr>,
+        args: &[tbir::Expr],
+    ) -> Operand {
+        match receiver {
+            None => {
+                if args.len() != 5 {
+                    return self
+                        .unsupported(e.span, "ray_query_initialize argument shape is unsupported");
+                }
+                let Some(tlas) = self.place_of(&args[0]) else {
+                    return self.unsupported(args[0].span, "ray query tlas must be a handle");
+                };
+                if !tlas.proj.is_empty() {
+                    return self.unsupported(
+                        args[0].span,
+                        "ray query tlas must be a direct handle parameter reference",
+                    );
+                }
+                let origin = self.op_of(&args[1]);
+                let t_min = self.op_of(&args[2]);
+                let dir = self.op_of(&args[3]);
+                let t_max = self.op_of(&args[4]);
+                let ty = self.ty_of(e);
+                self.rvalue_to_op(
+                    Rvalue::RayQueryInitialize {
+                        tlas_local: tlas.local,
+                        origin,
+                        t_min,
+                        dir,
+                        t_max,
+                    },
+                    ty,
+                    e.span,
+                )
+            }
+            Some(recv) => {
+                let Some(rq) = self.place_of(recv) else {
+                    return self.unsupported(recv.span, "ray query receiver must be a handle");
+                };
+                if !rq.proj.is_empty() {
+                    return self.unsupported(
+                        recv.span,
+                        "ray query receiver must be a direct RayQuery local reference",
+                    );
+                }
+                let ty = self.ty_of(e);
+                self.rvalue_to_op(
+                    Rvalue::RayQueryMethod {
+                        op,
+                        rq_local: rq.local,
+                    },
+                    ty,
+                    e.span,
+                )
+            }
+        }
     }
 
     // -- 宿主 GPU 编排 lowering(MS1.2,RXS-0191/0192/0193)------------------------

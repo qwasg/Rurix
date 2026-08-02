@@ -183,6 +183,77 @@ impl DeviceIntrinsic {
     }
 }
 
+/// RayQuery 遍历器方法族 + 构造算子(G7.2 W3a,RXS-0298;方法族沿 `ThreadCtx`
+/// DeviceIntrinsic 先例,构造经已知自由函数 `ray_query_initialize`)。
+/// typeck 记录调用点 → tbir/MIR/codegen 消费;committed 查询族支配域约束见
+/// RXS-0299 S3。
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum RayQueryOp {
+    /// `ray_query_initialize(tlas, origin, t_min, dir, t_max)` → `RayQuery`
+    /// (Call 节点;产 `Initialized`)。
+    Initialize,
+    /// `proceed()` → `bool`(遍历推进,自环 `Initialized`)。
+    Proceed,
+    /// `terminate()` → unit(可选早退,`Initialized` → `Terminated`)。
+    Terminate,
+    /// `has_committed()` → `bool`(committed 存在查询;遍历结束后亦合法)。
+    HasCommitted,
+    /// `committed_t()` → `f32`(committed 交点 t)。
+    CommittedT,
+    /// `committed_barycentric()` → `vec2<f32>`(非真实 typeck 类型,容忍区)。
+    CommittedBarycentric,
+    /// `committed_instance_index()` → `u32`。
+    CommittedInstanceIndex,
+    /// `committed_primitive_index()` → `u32`。
+    CommittedPrimitiveIndex,
+    /// `committed_geometry_index()` → `u32`。
+    CommittedGeometryIndex,
+}
+
+impl RayQueryOp {
+    /// 方法名 → 遍历器方法(RXS-0298 首期开放面;`Initialize` 不由方法名产生,
+    /// 构造经自由函数 `ray_query_initialize`)。
+    pub fn from_method(name: &str) -> Option<Self> {
+        Some(match name {
+            "proceed" => RayQueryOp::Proceed,
+            "terminate" => RayQueryOp::Terminate,
+            "has_committed" => RayQueryOp::HasCommitted,
+            "committed_t" => RayQueryOp::CommittedT,
+            "committed_barycentric" => RayQueryOp::CommittedBarycentric,
+            "committed_instance_index" => RayQueryOp::CommittedInstanceIndex,
+            "committed_primitive_index" => RayQueryOp::CommittedPrimitiveIndex,
+            "committed_geometry_index" => RayQueryOp::CommittedGeometryIndex,
+            _ => return None,
+        })
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            RayQueryOp::Initialize => "ray_query_initialize",
+            RayQueryOp::Proceed => "proceed",
+            RayQueryOp::Terminate => "terminate",
+            RayQueryOp::HasCommitted => "has_committed",
+            RayQueryOp::CommittedT => "committed_t",
+            RayQueryOp::CommittedBarycentric => "committed_barycentric",
+            RayQueryOp::CommittedInstanceIndex => "committed_instance_index",
+            RayQueryOp::CommittedPrimitiveIndex => "committed_primitive_index",
+            RayQueryOp::CommittedGeometryIndex => "committed_geometry_index",
+        }
+    }
+
+    /// committed 查询族判定(RXS-0298;支配域约束 RXS-0299 S3 的消费面)。
+    pub fn is_committed_query(self) -> bool {
+        matches!(
+            self,
+            RayQueryOp::CommittedT
+                | RayQueryOp::CommittedBarycentric
+                | RayQueryOp::CommittedInstanceIndex
+                | RayQueryOp::CommittedPrimitiveIndex
+                | RayQueryOp::CommittedGeometryIndex
+        )
+    }
+}
+
 /// mesh 阶段内建 intrinsic(G4.2,RXS-0275;`mesh_set_outputs` 已知函数 →
 /// `OpSetMeshOutputsEXT`)。typeck 在 mesh body 内识别;vulkan codegen 落
 /// `OpSetMeshOutputsEXT`。mesh body 已知内建输出面 `mesh_vertex`/`mesh_triangle`

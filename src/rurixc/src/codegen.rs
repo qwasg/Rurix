@@ -702,7 +702,11 @@ impl Cg<'_> {
             }
             // 纹理采样为图形=B(dxil-backend)着色 body 专属(RXS-0175);host MIR
             // codegen 作用面外(RX6001 已拦截),防御性跳过不产 host LLVM。
-            Rvalue::ResourceSample { .. } | Rvalue::Atomic { .. } => {}
+            // RayQuery(G7.2 W3a,RXS-0298)同例:device 专属,host 防御性跳过。
+            Rvalue::ResourceSample { .. }
+            | Rvalue::Atomic { .. }
+            | Rvalue::RayQueryInitialize { .. }
+            | Rvalue::RayQueryMethod { .. } => {}
         }
     }
 

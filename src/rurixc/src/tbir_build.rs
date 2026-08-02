@@ -378,6 +378,20 @@ impl Builder<'_> {
                         kind: tbir::ExprKind::GpuCall { op, args: lowered },
                     };
                 }
+                // RayQuery 构造(G7.2 W3a,RXS-0298):`ray_query_initialize` 自由函数
+                // → RayQueryCall(receiver=None,args 保序);与 call_targets 互斥但
+                // 须优先消费(typeck 已核对 5 实参签名)。
+                if let Some(op) = self.tcr.ray_query_calls.get(&e.hir_id) {
+                    return tbir::Expr {
+                        ty,
+                        span,
+                        kind: tbir::ExprKind::RayQueryCall {
+                            op: *op,
+                            receiver: None,
+                            args: args.iter().map(|a| self.expr(a)).collect(),
+                        },
+                    };
+                }
                 if let Some((def, gargs)) = self.tcr.call_targets.get(&e.hir_id) {
                     tbir::ExprKind::Call {
                         def: *def,
@@ -403,6 +417,20 @@ impl Builder<'_> {
                 }
             }
             hir::ExprKind::MethodCall { receiver, args, .. } => {
+                // RayQuery 方法族(G7.2 W3a,RXS-0298):`RayQuery` 接收者 0 实参
+                // 方法 → RayQueryCall(receiver=Some,args 空);与 device_calls
+                // 互斥但须优先消费(typeck 已核对方法族签名)。
+                if let Some(op) = self.tcr.ray_query_calls.get(&e.hir_id) {
+                    return tbir::Expr {
+                        ty,
+                        span,
+                        kind: tbir::ExprKind::RayQueryCall {
+                            op: *op,
+                            receiver: Some(Box::new(self.expr(receiver))),
+                            args: Vec::new(),
+                        },
+                    };
+                }
                 // device intrinsic(M4.2,RXS-0072):`ThreadCtx` 方法 → 无副作用
                 // 的 sreg/barrier 取值,接收者(零尺寸句柄)不下放。
                 if let Some(intr) = self.tcr.device_calls.get(&e.hir_id) {
@@ -1001,6 +1029,15 @@ impl ExhaustCx<'_> {
             }
             tbir::ExprKind::AtomicCall { receiver, args, .. } => {
                 self.walk_expr(receiver);
+                for a in args {
+                    self.walk_expr(a);
+                }
+            }
+            // RayQuery 调用(G7.2 W3a,RXS-0298):receiver(方法族)/args(构造实参)子树走查。
+            tbir::ExprKind::RayQueryCall { receiver, args, .. } => {
+                if let Some(r) = receiver {
+                    self.walk_expr(r);
+                }
                 for a in args {
                     self.walk_expr(a);
                 }
