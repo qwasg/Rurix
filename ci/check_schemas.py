@@ -298,6 +298,9 @@ def check_evidence_files() -> None:
     ray_query_codegen_schema = load(
         ROOT / "milestones/g7/ray_query_codegen_evidence_schema.json"
     )
+    renderer_raster_diff_schema = load(
+        ROOT / "milestones/g7/renderer_raster_diff_evidence_schema.json"
+    )
     renderer_w3_schema = load(
         ROOT / "milestones/g7/renderer_w3_evidence_schema.json"
     )
@@ -523,6 +526,11 @@ def check_evidence_files() -> None:
     g7_perf_baseline_validator = (
         jsonschema.Draft7Validator(g7_perf_baseline_schema)
         if g7_perf_baseline_schema is not None
+        else None
+    )
+    renderer_raster_diff_validator = (
+        jsonschema.Draft7Validator(renderer_raster_diff_schema)
+        if renderer_raster_diff_schema is not None
         else None
     )
     renderer_w3_validator = (
@@ -1031,6 +1039,25 @@ def check_evidence_files() -> None:
             # RED 三轴〔篡改几何数据流反证 / 过期 TLAS / 错误 barrier〕)。
             # 前缀与 renderer_{graph,draw,visbuffer,lighting,temporal}_ 互不包含。
             validator = renderer_w3_validator
+        elif (
+            f.name.startswith("renderer_raster_diff_smoke")
+            and renderer_raster_diff_validator is not None
+        ):
+            # G7.5 光栅 diff 与 RD-038 余项冒烟(步骤 95;G-G7-7)→
+            # milestones/g7/renderer_raster_diff_evidence_schema.json(host 段七项:
+            # RD-038 八行字面矩阵 + 场景/相机冻结锚、host oracle 单测〔shadow:: +
+            # temporal:: + geometry::visbuffer,数值语义 0-byte 回归网〕、VisBuffer
+            # 位格式冻结面〔depth30|cluster27|tri7 与 SW kernel 位移同源〕、余项三核
+            # 真实 .rx→.spv〔SPIR-V 1.0 不误升 + spirv-val + 同源 ×2 确定性 + 零 ray
+            # query 声明〕、**HW 光栅 blocked-honest 机验**〔目标形态语料 RX6026 必红
+            # + 逐轴隔离探针产 missing_toolchain_caps〕、W1/W2 五 kernel 零漂移、篡改
+            # .spv 的 RED 反证;device 段 gate real:VSM 深度/采样 + TSR 的 measured/tol
+            # 成对机验〔0/1 二值量零容差〕+ SW 基准侧逐位 + RED 两轴)。schema 对
+            # hw_raster_diff 施 if/then:verified-diff-zero 须 diff_pixels==0 且 hw_side
+            # 在位;blocked-* 须 missing_toolchain_caps 非空 + 逐轴探针 + spec 锚 + 升级路径。
+            # 前缀与 renderer_w3_smoke / renderer_{graph,draw,visbuffer,lighting,temporal}_
+            # 互不包含。
+            validator = renderer_raster_diff_validator
         elif (
             f.name.startswith("g8_perf_baseline_")
             and g8_perf_baseline_validator is not None

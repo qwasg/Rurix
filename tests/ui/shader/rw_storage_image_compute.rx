@@ -1,0 +1,9 @@
+//@ spec: RXS-0223
+// RXS-0223 §4.0-2 逐字:`TextureRw2D<F>` 阶段面 = **fragment + raygen**;
+// compute(`kernel fn`,stage = None)不在其中 → 资源句柄位置违例 RX3013。
+kernel fn storage_image_compute(t: ThreadCtx<1>, image: TextureRw2D<u32>) { //~ ERROR RX3013
+    let i = t.global_id();
+    image.store((i as u32, 0u32), (1u32, 2u32, 3u32, 4u32));
+}
+
+fn main() {}

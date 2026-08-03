@@ -174,7 +174,7 @@
 | RXS-0168 | spec/d3d12_runtime.md | 3 | `conformance/dxil/graphics/accept/uc04_gbuffer_fs.rx`, `src/rurixc/tests/dxil_golden.rs`, `src/uc04-demo/src/deferred.rs` |
 | RXS-0169 | spec/d3d12_runtime.md | 1 | `src/uc04-demo/src/barrier.rs` |
 | RXS-0170 | spec/d3d12_runtime.md | 2 | `src/uc04-demo/src/device.rs`, `src/uc04-demo/src/readback.rs` |
-| RXS-0171 | spec/dxil_backend.md | 8 | `conformance/dxil/graphics/accept/fs_body_arith.rx`, `conformance/dxil/graphics/accept/uc04_gbuffer_fs.rx`, `conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx` …(+5) |
+| RXS-0171 | spec/dxil_backend.md | 9 | `conformance/dxil/graphics/accept/fs_body_arith.rx`, `conformance/dxil/graphics/accept/uc04_gbuffer_fs.rx`, `conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx` …(+6) |
 | RXS-0172 | spec/dxil_backend.md | 3 | `conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx`, `conformance/dxil/graphics/accept/uc04_lighting_vs.rx`, `src/rurixc/src/dxil_codegen.rs` |
 | RXS-0173 | spec/dxil_backend.md | 3 | `conformance/dxil/graphics/accept/uc04_gbuffer_fs.rx`, `conformance/dxil/graphics/accept/uc04_lighting_fs.rx`, `src/rurixc/src/dxil_sig_gate.rs` |
 | RXS-0174 | spec/shader_stages.md | 1 | `conformance/dxil/graphics/accept/uc04_lighting_fs.rx` |
@@ -222,7 +222,7 @@
 | RXS-0220 | spec/d3d12_runtime.md | 1 | `src/uc04-demo/src/present.rs` |
 | RXS-0221 | spec/d3d12_runtime.md | 2 | `src/rurix-rt/src/vk.rs`, `src/uc04-demo/src/present.rs` |
 | RXS-0222 | spec/d3d12_runtime.md | 2 | `src/uc04-demo/src/device.rs`, `src/uc04-demo/src/present.rs` |
-| RXS-0223 | spec/shader_stages.md | 27 | `conformance/dxil/graphics/accept/sample_superset_fs.rx`, `conformance/dxil/graphics/accept/sample_superset_rw_fs.rx`, `conformance/dxil/graphics/accept/sampling_cmp_fs.rx` …(+24) |
+| RXS-0223 | spec/shader_stages.md | 29 | `conformance/dxil/graphics/accept/sample_superset_fs.rx`, `conformance/dxil/graphics/accept/sample_superset_rw_fs.rx`, `conformance/dxil/graphics/accept/sampling_cmp_fs.rx` …(+26) |
 | RXS-0224 | spec/shader_stages.md | 2 | `conformance/dxil/graphics/accept/sampling_sample_lod_fs.rx`, `src/rurixc/src/binding_layout.rs` |
 | RXS-0225 | spec/host_orchestration.md | 2 | `conformance/dxil/graphics/accept/sampling_sample_lod_fs.rx`, `src/rurix-rt/src/sampler.rs` |
 | RXS-0226 | spec/dxil_backend.md | 10 | `conformance/dxil/graphics/accept/sample_superset_fs.rx`, `conformance/dxil/graphics/accept/sample_superset_rw_fs.rx`, `conformance/dxil/graphics/accept/sampling_cmp_fs.rx` …(+7) |

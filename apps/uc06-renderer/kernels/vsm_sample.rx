@@ -1,0 +1,142 @@
+// G7.5 VSM 阴影采样 device 内核(RD-038 字面分项「VSM 深度」的**采样/可见性**腿;
+// 门 G-G7-7)。与 `vsm_depth_raster.rx` 合起来把 VSM 的 depth atlas → sample 两段
+// 真实搬上 device(此前仅 page-mark 位图在 device)。
+//
+// host oracle(逐字蓝本)= `rurix_render::shadow::vsm::Vsm::sample_shadow`
+// (vsm.rs L537-567)+ 其内联的 `page_at`(L249-267)与
+// `ClipmapConfig::select_level`(clipmap.rs L74-80)、`slot_of`(L136-138):
+//   1. `dc = ((w−cam) 三分量平方和).sqrt()`;
+//   2. `lp = basis.to_light(w)`(右/上/前基三个点积);
+//   3. 自 `select_level(dc)` 起逐级向**粗级回退**:
+//      `select_level(d) = 0 (d <= R0) | clamp(ceil(log2(d / R0)), 0, levels−1)`;
+//   4. `page_at`:`wp = floor(lp.xy / page_world)`,出窗(`wp ∉ [wmin, wmin+128)`)
+//      → 本级跳过继续回退;槽位 `slot = wp.rem_euclid(128)`;
+//   5. 页表项解包:`phys = v & 0xFFFF` / `resident = bit16` / `dirty = bit17`;
+//      **未驻留或脏 → 保守 lit = 1.0**(宁可漏影不可误黑,host L535 约定);
+//   6. 最近邻纹素 `floor((lp − wp·pw) / pw · 128)` clamp 到 [0,127];
+//   7. `dp = (lp.z − zmin) / (zmax − zmin)`;`dp <= stored + depth_bias` → 1.0 否则 0.0;
+//   8. 全部级出窗 → 1.0。
+//
+// 常量口径:灯基 `right/up/fwd`、相机、`base_radius`、`depth_bias` 与逐级
+// `page_world / window_min / z_range` 均由 harness 以 host 侧**同一 f32 值**下发
+// (场景/配置装配面,非效果计算面 —— 与 gi_probe 的 `sun_dir` 同纪律);device 真做
+// 距离/选级/回退环/页表寻址/纹素定位/深度比较。
+//
+// **形态纪律(实测所得的现编码器边界,非风格偏好)**:`while` 体内某个 `if` 的**体**中
+// 若出现「intrinsic 调用(MIR 层 `Call` 是终结子,会切基本块)之后再跟 `if`」或
+// 「两个并列 `if`」,现 `vulkan_codegen` 产出的 SPIR-V 会跨 selection construct 分支,
+// `spirv-val` 直接拒(`block %N branches to the selection construct, but not to the
+// selection header %M`;最小复现见本波报告)。规避 = 把**全部 intrinsic 调用与无分支
+// 计算上提到循环体顶层**,`if` 体内只留单链嵌套。这纯属编码器实现面缺陷的规避,
+// **不改 host oracle 语义**:上提后 `stored` 在「出窗/未驻留」级也会被求值,故
+// `phys` 以 `% pool_pages` 收进池内(该值仅在 resident 且非脏时被消费,与 host 同)。
+//
+// 输入 buffer:`samples` = 3 f32/采样点(世界坐标);
+//   `lparams` = 5 f32/级(page_world, window_min.x, window_min.y, z_range.0, z_range.1);
+//   `entries` = levels × 16384 u32(逐级页表,行主序 `y*128+x`,`PageTableEntry::pack` 位布局);
+//   `pool`    = pool_pages × 16384 f32(`PhysicalPagePool` 逐页 128×128 行主序)。
+kernel fn vsm_sample(
+    t: ThreadCtx<1>,
+    samples: View<global, f32>,
+    lparams: View<global, f32>,
+    entries: View<global, u32>,
+    pool: View<global, f32>,
+    out: ViewMut<global, f32>,
+    sample_count: usize,
+    levels: usize,
+    pool_pages: usize,
+    cam_x: f32,
+    cam_y: f32,
+    cam_z: f32,
+    right_x: f32,
+    right_y: f32,
+    right_z: f32,
+    up_x: f32,
+    up_y: f32,
+    up_z: f32,
+    fwd_x: f32,
+    fwd_y: f32,
+    fwd_z: f32,
+    base_radius: f32,
+    depth_bias: f32,
+) {
+    let i = t.global_id();
+    if i < sample_count {
+        let sb = i * 3;
+        let wx = samples[sb];
+        let wy = samples[sb + 1];
+        let wz = samples[sb + 2];
+        let dx = wx - cam_x;
+        let dy = wy - cam_y;
+        let dz = wz - cam_z;
+        let dc = (dx * dx + dy * dy + dz * dz).sqrt();
+        let lx = right_x * wx + right_y * wy + right_z * wz;
+        let ly = up_x * wx + up_y * wy + up_z * wz;
+        let lz = fwd_x * wx + fwd_y * wy + fwd_z * wz;
+        let last = levels as i32 - 1i32;
+        let pages = pool_pages as u32;
+        let mut sel = 0i32;
+        if dc > base_radius {
+            sel = (dc / base_radius).log2().ceil() as i32;
+            if sel < 0i32 {
+                sel = 0i32;
+            }
+            if sel > last {
+                sel = last;
+            }
+        }
+        // 全部级出窗的兜底 = 保守 lit(host 末行 `1.0`);`done` 表达 host 的 `return`。
+        let mut result = 1.0;
+        let mut done = 0u32;
+        let mut l = sel;
+        while l <= last {
+            let lb = (l as usize) * 5;
+            let pw = lparams[lb];
+            let wmin_x = lparams[lb + 1] as i32;
+            let wmin_y = lparams[lb + 2] as i32;
+            let zmin = lparams[lb + 3];
+            let zmax = lparams[lb + 4];
+            let wp_x = (lx / pw).floor() as i32;
+            let wp_y = (ly / pw).floor() as i32;
+            let sx = ((wp_x % 128i32) + 128i32) % 128i32;
+            let sy = ((wp_y % 128i32) + 128i32) % 128i32;
+            let ent = entries[(l as usize) * 16384 + (sy as usize) * 128 + sx as usize];
+            let phys = (ent & 65535u32) % pages;
+            let tx = ((lx - wp_x as f32 * pw) / pw * 128.0)
+                .floor()
+                .max(0.0)
+                .min(127.0) as i32;
+            let ty = ((ly - wp_y as f32 * pw) / pw * 128.0)
+                .floor()
+                .max(0.0)
+                .min(127.0) as i32;
+            let stored = pool[(phys as usize) * 16384 + (ty as usize) * 128 + tx as usize];
+            let dp = (lz - zmin) / (zmax - zmin);
+            let mut lit = 1.0;
+            if ent & 65536u32 != 0u32 {
+                if ent & 131072u32 == 0u32 {
+                    lit = 0.0;
+                    if dp <= stored + depth_bias {
+                        lit = 1.0;
+                    }
+                }
+            }
+            if done == 0u32 {
+                if wp_x >= wmin_x {
+                    if wp_x < wmin_x + 128i32 {
+                        if wp_y >= wmin_y {
+                            if wp_y < wmin_y + 128i32 {
+                                result = lit;
+                                done = 1u32;
+                            }
+                        }
+                    }
+                }
+            }
+            l = l + 1i32;
+        }
+        out[i] = result;
+    }
+}
+
+fn main() {}

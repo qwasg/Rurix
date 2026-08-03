@@ -14,6 +14,10 @@ const KERNELS: &[&str] = &[
     "gi_probe",
     "rtao",
     "hard_shadow",
+    // G7.5 RD-038 余项(「VSM 深度」页内光栅 + 采样;「TAA-TSR」的 TSR 腿)。
+    "vsm_depth_raster",
+    "vsm_sample",
+    "tsr_resample",
 ];
 
 fn main() {

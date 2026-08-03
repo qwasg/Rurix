@@ -1,0 +1,24 @@
+//@ spec: RXS-0223
+//@ expect-error: RX3013
+// 阶段面违例(RXS-0223 §4.0-2 逐字):`TextureRw2D<F>` 的阶段列被**一次性钉死**为
+// **fragment + raygen**;compute(`kernel fn`,stage = None)不在其中,故 storage image
+// 句柄不得作 compute 签名形参 → `RX3013`(资源句柄位置违例,承 RXS-0156)。
+//
+// 归位记录(G7.5.0):本语料 2026-07-30(2fa12759)被误置于
+// `conformance/vulkan/accept/`,与冻结阶段面直接冲突,使恒跑步
+// `ci/vulkan_codegen_smoke.py` 自该日起持续红(accept 段要求退出 0,实际 RX3013)。
+// 处置 = **回归 spec 一致**:spec 说非法,conformance 就断言它非法。核实结论 ——
+// 在树 W1/W2 五 kernel(cull / visbuffer_sw_u64 / classify_resolve / vsm_page_mark /
+// taa)与 W3c 三核全部走 SSBO(`View`/`ViewMut`/`AtomicView`)路,**零 storage image
+// 依赖**;`render_exec.rs` 的 `Rg32Uint storage image / u64 SSBO` 注释所指
+// storage image 分级为**未采纳的替代路**(`Bindings::storage_images` 在 `apps/` 下
+// 零引用)。故不需要 compute storage image 阶段面,不走 spec 修订。
+kernel fn storage_image_w1(t: ThreadCtx<1>, image: TextureRw2D<u32>) {
+    let i = t.global_id();
+    image.store(
+        (i as u32, 0u32),
+        (1u32, 2u32, 3u32, 4u32),
+    );
+}
+
+fn main() {}

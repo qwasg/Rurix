@@ -1,0 +1,72 @@
+//@ spec: RXS-0171
+//@ expect-error: RX6026
+// G7.5(门 G-G7-7)HW 光栅 VisBuffer 的**目标形态**语料 —— 当前**必红**,作为
+// 「真实 graphics raster 写 VisBuffer」被冻结图形 body 面阻断的机器见证。
+//
+// 目标语义(与在树 W2 `apps/uc06-renderer/kernels/visbuffer_sw_u64.rx` 同 ABI):
+// HW 光栅器派发 fragment,fragment 侧**逐字复刻** software raster 的 top-left 覆盖
+// 规则与 reverse-Z 30 位深度量化,按冻结位格式 `depth30<<34 | cluster<<7 | tri`
+// 经 u64 `atomicMax` 写 VisBuffer SSBO —— 唯有如此 SW/HW 才可能落到整数域
+// **逐像素 diff = 0**(G-G7-7 字面判据,零容差)。
+//
+// 阻断依据(逐字):`spec/dxil_backend.md` **RXS-0171 L4**「最小 rvalue 白名单」——
+// 图形=B 路 body lowering **仅**支持 `Use`、f32/i32/u32 `Const`、标量/向量
+// f32/i32/u32 **加减乘除** `BinaryOp`,与「声明的输出 I/O 聚合返回值」的机械分解;
+// **控制流分支/循环、调用、cast、资源/纹理/采样访问、非输出 I/O 聚合**一律
+// strict-only 拒。Vulkan 原生图形路复用同一编码器(`dxil_spirv::emit_spirv_body_vulkan`),
+// 故同一白名单在 `--target vulkan` 下以 **RX6026** 呈现。
+//
+// 本语料同时命中白名单外的**六条**构造(隔离探针与逐条诊断见 CI 步骤 95
+// `ci/renderer_raster_diff_smoke.py` 的 `hw_raster_blocked_probes`):
+//   ① 向量分量投影 `inp.frag.0`(多层 Field)  ② 比较运算 `<` / `>`
+//   ③ 控制流分支 `if`                          ④ intrinsic 调用 `.round()`
+//   ⑤ cast `as u32` / usize 常量与缓冲索引     ⑥ 由标量装配输出聚合
+//
+// 处置纪律:**不自行扩语言面、不放宽整数域容差**;扩展须先经 RFC-0018 修订行
+// 裁定(草案见本波报告),故本语料留在 reject 面,由恒跑步机器锁死当前边界。
+struct VbFsIn {
+    #[builtin(frag_coord)] frag: vec4<f32>,
+    #[interpolate(flat)] va: vec4<f32>,
+    #[interpolate(flat)] vb: vec4<f32>,
+    #[interpolate(flat)] vc: vec4<f32>,
+    #[interpolate(flat)] ids: vec4<f32>,
+}
+
+struct VbFsOut {
+    #[interpolate(perspective)] color: vec4<f32>,
+}
+
+fragment fn visbuffer_hw_fs(
+    inp: VbFsIn,
+    vis: AtomicView<global, u64, (9216,)>,
+    width: usize,
+) -> VbFsOut {
+    let px = inp.frag.0;
+    let py = inp.frag.1;
+    let ax = inp.va.0;
+    let ay = inp.va.1;
+    let az = inp.va.2;
+    let bx = inp.vb.0;
+    let by = inp.vb.1;
+    let bz = inp.vb.2;
+    let cx = inp.vc.0;
+    let cy = inp.vc.1;
+    let cz = inp.vc.2;
+    let area = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+    let e_bc = (cx - bx) * (py - by) - (cy - by) * (px - bx);
+    let e_ca = (ax - cx) * (py - cy) - (ay - cy) * (px - cx);
+    let e_ab = (bx - ax) * (py - ay) - (by - ay) * (px - ax);
+    let mut z = (e_bc * az + e_ca * bz + e_ab * cz) / (0.0 - area);
+    if z < 0.0 { z = 0.0; }
+    if z > 1.0 { z = 1.0; }
+    let mut depth = ((1.0 - z) * (1073741823u32 as f32)).round() as u32;
+    if depth < 1u32 { depth = 1u32; }
+    let cluster = inp.ids.0 as u32;
+    let tri = inp.ids.1 as u32;
+    let packed = ((depth as u64) << 34u64) | ((cluster as u64) << 7u64) | (tri as u64);
+    let pixel = (py as usize) * width + (px as usize);
+    let _old = vis.fetch_max(pixel, packed, Scope::Gpu);
+    VbFsOut { color: (0.0, 0.0, 0.0, 1.0) }
+}
+
+fn main() {}

@@ -996,6 +996,37 @@ jobs:
           RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/renderer_w3_smoke.py
 
+      # 步骤 95（G-G7-7;G7 CI_GATES §2）:renderer 光栅 diff 与 RD-038 余项冒烟。
+      # host 段**恒跑**(需 Vulkan SDK 的 spirv-val/spirv-dis;缺工具 SKIP=dev-env degrade
+      # 退 0 不充绿):① RD-038 字面矩阵**八行**分项 + G7_SCENE_FREEZE 场景/相机冻结锚在位
+      # (防矩阵/场景漂移后判据自动放水);② host oracle 单测 shadow:: + temporal:: +
+      # geometry::visbuffer 全量恒绿(VSM/TAA-TSR/VisBuffer **数值语义 0-byte** 回归网);
+      # ③ VisBuffer 位格式冻结面:depth30 | cluster27 | tri7 与 clear 值在 host 冻结契约与
+      # W2 SW kernel 源内**同一套常量**(SW/HW 同 ABI 的前提;G5 冻结面不得为迁就 HW 漂移);
+      # ④ 余项三核(vsm_depth_raster/vsm_sample/tsr_resample)真实 .rx → .spv:spirv-val
+      # `--target-env vulkan1.0` accept + SPIR-V 维持 **1.0**(不误升 1.4)+ 同源 ×2 字节全等
+      # + 零 ray query 能力误声明;⑤ **HW 光栅 blocked-honest 机验**:目标形态语料
+      # conformance/vulkan/reject/vk_hw_raster_visbuffer_fs.rx 必红 RX6026 且零 .spv,并以
+      # **逐轴隔离探针**取真实诊断机器产出 missing_toolchain_caps(阻断依据 =
+      # spec/dxil_backend.md **RXS-0171 L4** 冻结的最小 rvalue 白名单;Vulkan 原生图形路
+      # 复用 dxil_spirv::emit_spirv_body_vulkan 同一编码器);⑥ W1/W2 五 kernel 零漂移
+      # (sha256/版本/capability,**不重 bless**);⑦ RED 反证:篡改 .spv → spirv-val 必拒。
+      # device 段 gate real(门 G-G7-7 轴二):uc06-renderer --g75-residuals(feature vulkan,
+      # RURIX_VK_VALIDATION=1 由脚本置)——VSM 页内深度光栅(gather 形态,单一写者)+ VSM
+      # 阴影采样(0/1 二值,**零容差**)+ TSR 空间超分核(16 tap Catmull-Rom + 抗振铃钳制),
+      # measured 与**冻结**容差成对机验并带非退化统计;同段复跑 **SW/HW diff 的 SW 基准侧**
+      # (device_w2_visbuffer_u64_bitexact_host,9216 词 u64 逐位相等);RED 两轴 =
+      # --g75-red-vsm(篡改 device 侧灯空间三角形 → 深度对拍必红的**数据流反证**)+
+      # --g75-red-tsr(篡改 device jitter → 重采样相位错位必红)。
+      # **零容差纪律**:G-G7-7 轴一(SW/HW 整数域 diff=0)不以任何容差型替代物冒充;HW 侧
+      # 未在树时 evidence 记 blocked-*,schema 强制附机器可核缺失能力清单 → RD-038 维持 open。
+      # **RURIX_REQUIRE_REAL=1**,缺设备 SKIP 翻硬红。失败即红。
+      - name: renderer raster diff & RD-038 residuals smoke (G7 CI_GATES §2.95, G-G7-7)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/renderer_raster_diff_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

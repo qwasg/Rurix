@@ -1,9 +1,0 @@
-kernel fn storage_image_w1(t: ThreadCtx<1>, image: TextureRw2D<u32>) {
-    let i = t.global_id();
-    image.store(
-        (i as u32, 0u32),
-        (1u32, 2u32, 3u32, 4u32),
-    );
-}
-
-fn main() {}

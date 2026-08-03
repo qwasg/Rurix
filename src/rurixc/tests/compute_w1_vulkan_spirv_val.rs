@@ -8,10 +8,17 @@ use rurixc::query::QueryCtx;
 use rurixc::span::{Edition, SourceId};
 
 const ATOMICS: &str = "vk_atomics_w1";
+/// G7.5.0:compute storage image 语料自 `accept/` 归位 `reject/` —— RXS-0223 §4.0-2
+/// 把 `TextureRw2D<F>` 阶段面逐字冻结为 **fragment + raygen**,compute 不在其中,
+/// 故 `RX3013` 是**符合冻结 spec 的正确拒绝**(见下 `storage_image_in_compute_is_rejected`)。
 const STORAGE_IMAGE: &str = "vk_storage_image_w1";
 
 fn accept_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../conformance/vulkan/accept")
+}
+
+fn reject_dir() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../conformance/vulkan/reject")
 }
 
 fn emit(stem: &str) -> Vec<u32> {
@@ -74,28 +81,40 @@ fn atomics_w1_emit_expected_opcodes() {
     }
 }
 
+/// G7.5.0(冻结 spec 面的**正确拒绝**机器断言):`TextureRw2D<F>` 在 compute
+/// (`kernel fn`)签名中 → `RX3013`,且**不产** SPIR-V(strict-only,不静默降级)。
+///
+/// 依据 = spec/shader_stages.md RXS-0223 §4.0-2「`TextureRw2D<F>` 阶段面 …… 首期
+/// 阶段列 = **fragment + raygen**」。本测试取代原
+/// `storage_image_w1_is_format_qualified_image_write`(该测试绕过 driver 的
+/// `shader_stages` 关卡直取 codegen,把一条 **spec 面非法** 的形态断言成 accept,
+/// 与恒跑步 `ci/vulkan_codegen_smoke.py` 的 accept 段互相矛盾)。
 #[test]
-fn storage_image_w1_is_format_qualified_image_write() {
-    let words = emit(STORAGE_IMAGE);
-    let ops = opcodes(&words);
-    assert!(ops.contains(&25), "产物缺 OpTypeImage");
-    assert!(ops.contains(&99), "产物缺 OpImageWrite");
-    assert_eq!(words[1], 0x0001_0000, "compute 须保持 SPIR-V 1.0");
-
-    let mut capabilities = Vec::new();
-    let mut at = 5usize;
-    while at < words.len() {
-        let first = words[at];
-        let len = (first >> 16) as usize;
-        if (first & 0xffff) as u16 == 17 {
-            capabilities.push(words[at + 1]);
-        }
-        at += len;
-    }
-    assert_eq!(
-        capabilities,
-        vec![1],
-        "compute W1 应仅声明 Capability Shader"
+fn storage_image_in_compute_is_rejected() {
+    let path = reject_dir().join(format!("{STORAGE_IMAGE}.rx"));
+    let src = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("读取 {} 失败:{e}", path.display()))
+        .replace("\r\n", "\n");
+    let diag = DiagCtxt::new();
+    let cx = QueryCtx::new(&src, SourceId(0), Edition::Rx0, &diag);
+    // 阶段面关卡在 AST 层(RXS-0153~0156,cargo feature `shader-stages`),与
+    // driver 同序:`check_shader_stages` 先于 codegen(driver.rs 阶段化中止口径)。
+    cx.check_shader_stages();
+    cx.check_crate();
+    assert!(
+        diag.has_errors(),
+        "compute 签名 TextureRw2D 应被 RXS-0223 阶段面拒(RX3013),实测 0 诊断"
+    );
+    assert!(
+        diag.emitted()
+            .iter()
+            .any(|d| d.code == Some(rurixc::diag::ErrorCode(3013))),
+        "应发 RX3013(资源句柄位置违例),实测:{:?}",
+        diag.emitted()
+    );
+    assert!(
+        rurixc::vulkan_codegen::build_and_emit_vulkan(&cx, STORAGE_IMAGE).is_none(),
+        "前端已拒的语料不得产出 SPIR-V(strict-only)"
     );
 }
 
@@ -105,7 +124,7 @@ fn compute_w1_passes_spirv_val() {
         eprintln!("[SKIP] spirv-val 定位失败(dev-env degrade,非 fake pass)");
         return;
     };
-    for stem in [ATOMICS, STORAGE_IMAGE] {
+    for stem in [ATOMICS] {
         let words = emit(stem);
         let bytes = rurixc::vulkan_codegen::words_to_bytes(&words);
         let path = std::env::temp_dir().join(format!(

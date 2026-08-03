@@ -1,0 +1,301 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://rurix.dev/schemas/g7/renderer_raster_diff_evidence.json",
+  "title": "G7.5 renderer 光栅 diff 与 RD-038 余项 evidence(CI 步骤 95;门 G-G7-7)",
+  "description": "G-G7-7 两轴证据。轴一 = 「同场景同投影同 VisBuffer ABI,真实 graphics raster 对真实 W2 software raster 逐像素整数域 diff=0」——**零容差字面判据**,由 hw_raster_diff 承载:status=verified-diff-zero 时 diff_pixels 必须存在且恒 0 且 hw_side 在位;HW 侧未在树时只允许 blocked-* 形态,并**强制**附机器可核的 missing_toolchain_caps(非空)与逐轴 blocking_probes,封死「以容差型替代物冒充 diff=0」「blocked 只写一句话」两条空转窗口。轴二 = RD-038 字面余项(VSM 深度页内光栅 + 阴影采样、TAA-TSR 的 TSR 腿)的 device 真跑对拍:0/1 二值量零容差,浮点量 measured 与冻结 tol **成对**落盘并机验 measured <= tol(阈值只来自真实 GPU 输出,禁止为过门修改 host oracle 数值语义)。host oracle 仅作对拍参照,不参与成功路径;mock / host substitution / isolated nonzero 不充绿。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject",
+    "milestone",
+    "step",
+    "spec_clauses",
+    "host_section_pass",
+    "device_section_rc",
+    "checks",
+    "hw_raster_diff",
+    "require_real",
+    "run_url",
+    "timestamp"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "renderer_raster_diff_smoke" },
+    "milestone": { "type": "string" },
+    "step": { "type": "integer", "const": 95 },
+    "spec_clauses": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^RXS-\\d{4}$" },
+      "minItems": 1
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_rc": { "type": "integer" },
+    "checks": {
+      "type": "object",
+      "description": "host 段逐项判据(恒跑)。",
+      "additionalProperties": false,
+      "properties": {
+        "literal_matrix_pass": {
+          "type": "boolean",
+          "description": "RD-038 字面矩阵八行分项与 G7_SCENE_FREEZE 场景/相机冻结锚在位(防矩阵/场景漂移后判据自动放水)。"
+        },
+        "oracle_tests_pass": {
+          "type": "boolean",
+          "description": "host oracle 单测 shadow:: + temporal:: + geometry::visbuffer 全量恒绿(数值语义 0-byte 回归网)。"
+        },
+        "visbuffer_abi_freeze_pass": {
+          "type": "boolean",
+          "description": "VisBuffer 位格式冻结面一致:depth30 | cluster27 | tri7 与 clear 值在 host 冻结契约与 W2 SW kernel 源内同一套常量(SW/HW 同 ABI 的前提;G5 冻结面不得为迁就 HW 路径漂移)。"
+        },
+        "kernel_emit_pass": {
+          "type": "boolean",
+          "description": "余项三核真实 .rx -> .spv:spirv-val --target-env vulkan1.0 accept + SPIR-V 维持 1.0(不误升 1.4)+ 同源 x2 字节全等 + 零 ray query 能力声明。"
+        },
+        "hw_raster_blocked_honest_pass": {
+          "type": "boolean",
+          "description": "HW 光栅目标形态语料必红 RX6026 且零 .spv,且逐轴隔离探针落到各自真实诊断(missing_toolchain_caps 由此机器产出,非人工声明)。"
+        },
+        "w1w2_zero_drift_pass": {
+          "type": "boolean",
+          "description": "W1/W2 五 kernel 对 tests/vulkan/w1w2_spv_manifest.json 的 sha256/版本/capability 零漂移(不重 bless)。"
+        },
+        "red_tamper_spv_pass": {
+          "type": "boolean",
+          "description": "篡改 .spv 单字节 -> spirv-val 必拒(编译校验轴生效反证)。"
+        }
+      }
+    },
+    "literal_rows": {
+      "type": "array",
+      "description": "RD-038 title 拆出的八行字面分项(§0 口径)。",
+      "items": { "type": "string" }
+    },
+    "visbuffer_abi": {
+      "type": ["object", "null"],
+      "description": "G5 冻结 VisBuffer 位格式的机器读数(SW/HW 同 ABI 前提)。",
+      "additionalProperties": false,
+      "properties": {
+        "depth_bits": { "type": "integer" },
+        "cluster_bits": { "type": ["integer", "null"] },
+        "tri_bits": { "type": ["integer", "null"] },
+        "depth_shift": { "type": ["integer", "null"] },
+        "clear_value": { "type": ["integer", "null"] },
+        "sw_kernel": { "type": "string" }
+      }
+    },
+    "kernels": {
+      "type": "object",
+      "description": "逐余项 kernel 编译面观测(键 = kernel 名)。",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "spirv_version": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "spirv_val": { "type": "object", "additionalProperties": { "type": "string" } },
+          "deterministic": { "type": "boolean" },
+          "capabilities": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "hw_raster_diff": {
+      "type": "object",
+      "description": "G-G7-7 轴一:SW/HW VisBuffer 整数域逐像素 diff。零容差字面判据,不接受近似或容差型替代。",
+      "required": ["status"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["verified-diff-zero", "blocked-frozen-graphics-body-slice"],
+          "description": "verified-diff-zero = HW 侧在树且逐像素整数域 diff 恒 0;blocked-frozen-graphics-body-slice = HW 侧被冻结图形 body 最小切片(RXS-0171 L4)阻断,如实登记不充绿。"
+        },
+        "hw_side": {
+          "type": ["object", "null"],
+          "description": "HW 侧真跑观测(status=verified-diff-zero 时必须在位)。",
+          "additionalProperties": false,
+          "properties": {
+            "pipeline": { "type": "string" },
+            "pixels": { "type": "integer" },
+            "covered_pixels": { "type": "integer" },
+            "coverage_rule": { "type": "string" }
+          }
+        },
+        "diff_pixels": {
+          "type": ["integer", "null"],
+          "description": "SW/HW 逐像素整数域不等像素数。status=verified-diff-zero 时必须存在且恒 0。"
+        },
+        "missing_toolchain_caps": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "机器产出的缺失能力清单(blocked-* 时非空)。"
+        },
+        "blocking_probes": {
+          "type": "object",
+          "description": "逐轴隔离探针:每条只含一个白名单外构造,故诊断可逐轴归因。",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "missing_capability": { "type": "string" },
+              "rc": { "type": ["integer", "null"] },
+              "expected_diagnostic": { "type": "string" },
+              "matched": { "type": "boolean" }
+            }
+          }
+        },
+        "target_corpus": { "type": "string" },
+        "spec_anchor": { "type": "string" },
+        "escalation": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "description": "diff=0 只在 HW 侧真跑在位且不等像素数恒 0 时可声明。",
+          "if": {
+            "properties": { "status": { "const": "verified-diff-zero" } },
+            "required": ["status"]
+          },
+          "then": {
+            "required": ["hw_side", "diff_pixels"],
+            "properties": { "diff_pixels": { "const": 0 } }
+          }
+        },
+        {
+          "description": "blocked 形态必须附机器可核的缺失能力清单与逐轴探针 + spec 锚 + 升级路径;禁止只写一句话。",
+          "if": {
+            "properties": { "status": { "const": "blocked-frozen-graphics-body-slice" } },
+            "required": ["status"]
+          },
+          "then": {
+            "required": [
+              "missing_toolchain_caps",
+              "blocking_probes",
+              "target_corpus",
+              "spec_anchor",
+              "escalation"
+            ],
+            "properties": {
+              "missing_toolchain_caps": { "minItems": 1 },
+              "diff_pixels": { "type": "null" },
+              "hw_side": { "type": "null" }
+            }
+          }
+        }
+      ]
+    },
+    "sw_baseline": {
+      "type": ["object", "null"],
+      "description": "SW/HW diff 的 SW 基准侧真跑(W2 visbuffer_sw_u64 对 host 逐位相等,容差恒 0)——证明 diff 的一侧已在位。",
+      "additionalProperties": false,
+      "properties": {
+        "kernel": { "type": "string" },
+        "pixels": { "type": "integer" },
+        "covered_pixels": { "type": "integer" },
+        "triangles": { "type": "integer" },
+        "bitexact_vs_host": { "type": "boolean" },
+        "tolerance": { "type": "integer", "const": 0 },
+        "note": { "type": "string" }
+      }
+    },
+    "device_pass": { "type": ["boolean", "null"] },
+    "device_skip_reason": { "type": ["string", "null"] },
+    "device_capability_snapshot": { "type": ["string", "null"] },
+    "device_name": { "type": ["string", "null"] },
+    "validation_enabled": {
+      "type": "boolean",
+      "description": "RURIX_VK_VALIDATION=1 是否置(device 段 validation 零错误的取证前提)。"
+    },
+    "residual_parity": {
+      "type": ["object", "null"],
+      "description": "G-G7-7 轴二:RD-038 字面余项对拍。0/1 二值量(VSM 采样)零容差 -> mismatch 计数恒须为 0;浮点量 measured 与冻结 tol 成对。",
+      "additionalProperties": false,
+      "properties": {
+        "measured_vsm_depth_max_abs": { "type": "number" },
+        "tol_vsm_depth": { "type": "number" },
+        "measured_vsm_sample_max_abs": { "type": "number" },
+        "tol_vsm_sample": { "type": "number" },
+        "vsm_sample_mismatches": { "type": "integer" },
+        "measured_tsr_max_abs": { "type": "number" },
+        "tol_tsr": { "type": "number" },
+        "vsm_depth_pass": { "type": "boolean" },
+        "vsm_sample_pass": { "type": "boolean" },
+        "tsr_pass": { "type": "boolean" }
+      }
+    },
+    "residual_stats": {
+      "type": ["object", "null"],
+      "description": "对拍量与非退化留痕(非判据阈值):覆盖纹素数 / 遮蔽比 / 抗振铃钳制通道数 —— 证明判据不在常量上空转。bitexact 计数为留痕,不入判定(残差源见 input_provenance.residual_note)。",
+      "additionalProperties": false,
+      "properties": {
+        "vsm_pages": { "type": "integer" },
+        "vsm_depth_texels": { "type": "integer" },
+        "vsm_triangles": { "type": "integer" },
+        "vsm_depth_bitexact_texels": { "type": "integer" },
+        "vsm_depth_covered_texels": { "type": "integer" },
+        "vsm_samples": { "type": "integer" },
+        "vsm_shadowed_ratio_device": { "type": "number" },
+        "tsr_in_w": { "type": "integer" },
+        "tsr_in_h": { "type": "integer" },
+        "tsr_out_w": { "type": "integer" },
+        "tsr_out_h": { "type": "integer" },
+        "tsr_channels": { "type": "integer" },
+        "tsr_bitexact_channels": { "type": "integer" },
+        "tsr_clamped_channels": { "type": "integer" }
+      }
+    },
+    "input_provenance": {
+      "type": ["object", "null"],
+      "description": "device kernel 输入来源纪律(与 W1/W2/W3c 同构:输入不是 host 回填结果)+ 残差归因 + 诚实边界。",
+      "additionalProperties": false,
+      "properties": {
+        "summary": { "type": "string" },
+        "vsm_light_space": { "type": "string" },
+        "vsm_device_work": { "type": "string" },
+        "tsr_color_source": { "type": "string" },
+        "tsr_jitter": { "type": "string" },
+        "residual_note": {
+          "type": "string",
+          "description": "浮点残差归因:device/host 表达式与求值序逐字一致,残差唯一来源为驱动侧 FMA 收缩(SPIR-V 未加 NoContraction),量级为 f32 ULP 数倍;据此 measured -> 冻结,不改 host oracle。"
+        },
+        "temporal_arm_boundary": {
+          "type": "string",
+          "description": "诚实边界:TSR 时域臂(history 双缓冲 / 闪烁 EMA / reproject+validity)为跨帧状态机,归 G7.6 步骤 96;本波只兑现空间超分核。"
+        }
+      }
+    },
+    "device_red": {
+      "type": "object",
+      "description": "RED 轴。tamper_vsm_depth = 篡改 device 侧灯空间三角形(host oracle 不动)-> 深度对拍必红的数据流反证;tamper_tsr_jitter = 篡改 device jitter -> 重采样相位错位必红。",
+      "additionalProperties": false,
+      "properties": {
+        "tamper_vsm_depth": { "type": ["boolean", "null"] },
+        "tamper_tsr_jitter": { "type": ["boolean", "null"] }
+      }
+    },
+    "toolchain_skip": { "type": ["string", "null"] },
+    "dev_env_degrade": { "type": "boolean" },
+    "require_real": { "type": "boolean" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "description": "device 段真跑(非 SKIP)时:余项对拍数字、非退化统计、输入 provenance、RED 轴、SW 基准侧与 validation 开启标记全部必须在位 —— 封死「device 段绿但无对拍数字」的空转窗口。",
+      "if": {
+        "properties": { "device_pass": { "const": true } },
+        "required": ["device_pass"]
+      },
+      "then": {
+        "required": [
+          "residual_parity",
+          "residual_stats",
+          "input_provenance",
+          "sw_baseline",
+          "device_red",
+          "validation_enabled",
+          "device_capability_snapshot"
+        ]
+      }
+    }
+  ]
+}

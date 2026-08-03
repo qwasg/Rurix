@@ -15,6 +15,7 @@
 """
 
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -22,6 +23,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ACCEPT_DIR = ROOT / "conformance" / "vulkan" / "accept"
+# G7.5.0:reject 段(冻结 spec 面的**正确拒绝**须被机器断言,不能只靠 accept 段
+# 的「不出现」)。语料头 `//@ expect-error: RX####` 为期望码,退出码判定 + 码字面判定。
+REJECT_DIR = ROOT / "conformance" / "vulkan" / "reject"
+EXPECT_ERROR_RE = re.compile(r"//@\s*expect-error:\s*(RX\d{4})")
 
 FAILURES: list[str] = []
 NOTES: list[str] = []
@@ -129,6 +134,41 @@ def red_self_test(exe, spirv_val):
                 )
 
 
+def reject_section(exe):
+    """G7.5.0:conformance/vulkan/reject/*.rx 逐件**必红**且落头部声明的错误码。
+
+    退出码判定(非 grep stdout 决定成败;码字面只作**附加**断言,防「红得不对」)。
+    空目录 → 不判定(reject 面尚未建立时不制造假绿也不制造假红)。
+    """
+    if not REJECT_DIR.is_dir():
+        return 0
+    cases = sorted(REJECT_DIR.glob("*.rx"))
+    if not cases:
+        return 0
+    for rx in cases:
+        m = EXPECT_ERROR_RE.search(rx.read_text(encoding="utf-8"))
+        if m is None:
+            FAILURES.append(f"{rx.name}: reject 语料缺 `//@ expect-error: RX####` 头声明")
+            continue
+        want = m.group(1)
+        with tempfile.TemporaryDirectory() as d:
+            spv = Path(d) / (rx.stem + ".spv")
+            code, stderr = compile_vulkan(exe, rx, spv)
+            check(
+                code != 0,
+                f"{rx.name}: reject 语料应红({want})却退出 0(冻结 spec 面被绕过)",
+            )
+            check(
+                want in stderr,
+                f"{rx.name}: reject 语料应发 {want},stderr 未见:\n{stderr}",
+            )
+            check(
+                not spv.is_file(),
+                f"{rx.name}: reject 语料不得产 .spv(strict-only,不静默降级)",
+            )
+    return len(cases)
+
+
 def main():
     require_real = os.environ.get("RURIX_REQUIRE_REAL") == "1"
     exe = build_rurixc()
@@ -171,10 +211,11 @@ def main():
                 )
                 validated += 1
 
-    return _report(len(cases), validated, spirv_val is not None)
+    n_reject = reject_section(exe)
+    return _report(len(cases), validated, spirv_val is not None, n_reject)
 
 
-def _report(n_cases, validated, had_val):
+def _report(n_cases, validated, had_val, n_reject=0):
     for m in NOTES:
         print(f"[vulkan_codegen] NOTE {m}")
     if FAILURES:
@@ -183,7 +224,10 @@ def _report(n_cases, validated, had_val):
             print(f"  - {m}", file=sys.stderr)
         return 1
     seg = f"{validated}/{n_cases} spirv-val vulkan1.0" if had_val else "spirv-val SKIP"
-    print(f"[vulkan_codegen] PASS ({n_cases} 语料 --target vulkan 产 SPIR-V,{seg})")
+    print(
+        f"[vulkan_codegen] PASS ({n_cases} accept 语料 --target vulkan 产 SPIR-V,{seg};"
+        f"{n_reject} reject 语料确定性拒 + 零 .spv)"
+    )
     return 0
 
 

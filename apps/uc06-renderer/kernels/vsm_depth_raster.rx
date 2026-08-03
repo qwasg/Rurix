@@ -1,0 +1,85 @@
+// G7.5 VSM 深度图集 device 光栅内核(RD-038 字面分项「VSM 深度」的**页内深度渲染**腿;
+// 门 G-G7-7)。此前 VSM 只有 `vsm_page_mark.rx`(页位图标记),页内深度光栅纯 host。
+//
+// host oracle(逐字蓝本)= `rurix_render::shadow::vsm::Vsm::shadow_depth_raster`
+// 内层私有光栅器 `raster_tri_into_page`(vsm.rs L572-619):
+//   1. 物理页先 `fill(1.0)`(远平面);
+//   2. 逐三角形把灯空间顶点投到页纹素空间
+//      `t = (v - page_origin) / page_world * 128`,深度归一 `dep = (v.z - zmin)/(zmax - zmin)`;
+//   3. `area = edge(t0, t1, t2)`,`|area| < 1e-12` → 退化整弃;
+//   4. 逐纹素中心 `(i+0.5, j+0.5)` 算三条归一化边函数 `w0/w1/w2 = edge(..)/area`,
+//      `w0 >= 0 && w1 >= 0 && w2 >= 0` 为覆盖(**边界纹素含边**,与 VisBuffer 的
+//      top-left 规则不同——VSM 侧跨页三角形两侧写同值,取 min 无差,host 文档 L571);
+//   5. `d = w0·dep0 + w1·dep1 + w2·dep2`,`d < cell` 则写(**取最小**)。
+//
+// device 形态 = **gather**:1 线程 / (页, 纹素),线程内按**与 host 相同的三角形序**
+// 累积 min。min 无舍入,序内逐比较与 host 的 `if d < *cell` 同序同值 ⇒ 目标零容差
+// (对拍口径同 W2 `visbuffer_sw_u64` 的逐位相等)。不用原子:gather 形态下每个输出
+// 纹素**单一写者**,由构造消除竞争(与 host 单线程序等价)。
+//
+// host bbox 剪枝(x0..x1 / y0..y1)与本内核的全纹素扫描**判定等价**:纹素中心落在
+// 三角形内 ⇒ 必落在 [floor(min), ceil(max)) 包围盒内,故 bbox 只影响遍历量不影响结果。
+//
+// 输入 buffer(host 预备,与 W1/W2 kernel 同纪律 —— 灯空间变换 `basis.to_light` 属
+// **场景装配面**,非效果计算面,与 gi_probe 的 `sun_dir` 同口径):
+//   `tris`  = 9 f32/三角形(灯空间 a.xyz b.xyz c.xyz);
+//   `pages` = 5 f32/页(page_origin.x, page_origin.y, page_world, z_range.0, z_range.1),
+//             页序 = host `shadow_depth_raster` 的「逐级 × 逐槽位」脏且驻留枚举序;
+//   `out`   = page_count × 16384 f32(逐页 128×128 行主序,与 `PhysicalPagePool` 页内布局同)。
+kernel fn vsm_depth_raster(
+    t: ThreadCtx<1>,
+    tris: View<global, f32>,
+    pages: View<global, f32>,
+    out: ViewMut<global, f32>,
+    tri_count: usize,
+    page_count: usize,
+) {
+    let gid = t.global_id();
+    if gid < page_count * 16384 {
+        let p = gid / 16384;
+        let texel = gid % 16384;
+        let px = (texel % 128) as f32 + 0.5;
+        let py = (texel / 128) as f32 + 0.5;
+        let pb = p * 5;
+        let ox = pages[pb];
+        let oy = pages[pb + 1];
+        let pw = pages[pb + 2];
+        let zmin = pages[pb + 3];
+        let zmax = pages[pb + 4];
+        // 物理页 fill(1.0) 的 gather 等价初值。
+        let mut best = 1.0;
+        let mut k = 0usize;
+        while k < tri_count {
+            let b = k * 9;
+            let tx0 = (tris[b] - ox) / pw * 128.0;
+            let ty0 = (tris[b + 1] - oy) / pw * 128.0;
+            let dep0 = (tris[b + 2] - zmin) / (zmax - zmin);
+            let tx1 = (tris[b + 3] - ox) / pw * 128.0;
+            let ty1 = (tris[b + 4] - oy) / pw * 128.0;
+            let dep1 = (tris[b + 5] - zmin) / (zmax - zmin);
+            let tx2 = (tris[b + 6] - ox) / pw * 128.0;
+            let ty2 = (tris[b + 7] - oy) / pw * 128.0;
+            let dep2 = (tris[b + 8] - zmin) / (zmax - zmin);
+            let area = (tx1 - tx0) * (ty2 - ty0) - (ty1 - ty0) * (tx2 - tx0);
+            if area.abs() >= 1e-12 {
+                let w0 = ((tx2 - tx1) * (py - ty1) - (ty2 - ty1) * (px - tx1)) / area;
+                let w1 = ((tx0 - tx2) * (py - ty2) - (ty0 - ty2) * (px - tx2)) / area;
+                let w2 = ((tx1 - tx0) * (py - ty0) - (ty1 - ty0) * (px - tx0)) / area;
+                if w0 >= 0.0 {
+                    if w1 >= 0.0 {
+                        if w2 >= 0.0 {
+                            let d = w0 * dep0 + w1 * dep1 + w2 * dep2;
+                            if d < best {
+                                best = d;
+                            }
+                        }
+                    }
+                }
+            }
+            k = k + 1;
+        }
+        out[gid] = best;
+    }
+}
+
+fn main() {}

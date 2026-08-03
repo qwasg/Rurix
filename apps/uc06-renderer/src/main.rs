@@ -16,6 +16,8 @@
 //! `--json` 输出单行 JSON(smoke 脚本消费,字段集冻结);exit 0 仅当全部断言过。
 
 #[cfg(feature = "vulkan")]
+mod device_g75;
+#[cfg(feature = "vulkan")]
 mod device_kernels;
 #[cfg(feature = "vulkan")]
 mod device_w3;
@@ -129,6 +131,83 @@ fn run_w3_effects_mode(cli: &Cli) -> i32 {
     0
 }
 
+/// G7.5 `--g75-residuals` 模式(CI 步骤 95 device 段驱动;三态口径镜像
+/// `--w3-effects`:`G75: PASS` / `G75: SKIP`(dev-env degrade,退 0)/
+/// `G75: FAIL`(退 1))。
+///
+/// 覆盖 RD-038 余项两轴:VSM 页内深度光栅 + 阴影采样、TSR 空间超分核。
+/// HW 光栅轴**不在此模式**——其阻断为编译面(图形 body 最小切片),由步骤 95
+/// host 段以 rurixc 真实诊断机验(blocked-honest),不在 device 段伪造条目。
+#[cfg(feature = "vulkan")]
+fn run_g75_residuals_mode(cli: &Cli) -> i32 {
+    let require_real = std::env::var("RURIX_REQUIRE_REAL").ok().as_deref() == Some("1");
+    let scene = scene::build_scene();
+
+    if cli.g75_red_vsm {
+        return match device_g75::red_tamper_vsm_depth(&scene) {
+            None => {
+                println!("G75: SKIP RED-vsm 轴无 device(dev-env degrade)");
+                i32::from(require_real)
+            }
+            Some(true) => {
+                println!("G75: RED-OK tamper-vsm-depth(篡改 device 灯空间三角形 → 深度对拍红)");
+                0
+            }
+            Some(false) => {
+                eprintln!("G75: FAIL RED-vsm 失效(篡改后深度对拍仍通过 = 数据流未真实生效)");
+                1
+            }
+        };
+    }
+    if cli.g75_red_tsr {
+        return match device_g75::red_tamper_tsr_jitter(&scene) {
+            None => {
+                println!("G75: SKIP RED-tsr 轴无 device(dev-env degrade)");
+                i32::from(require_real)
+            }
+            Some(true) => {
+                println!("G75: RED-OK tamper-tsr-jitter(篡改 device jitter → 重采样对拍红)");
+                0
+            }
+            Some(false) => {
+                eprintln!("G75: FAIL RED-tsr 失效(相位错位后对拍仍通过)");
+                1
+            }
+        };
+    }
+
+    let Some(res) = device_g75::run_g75_residuals(&scene) else {
+        println!("G75: SKIP 无 Vulkan device / W1 能力链缺失(dev-env degrade)");
+        return i32::from(require_real);
+    };
+    let r = match res {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("G75: FAIL 余项 device 执行: {e}");
+            return 1;
+        }
+    };
+    println!("{}", r.json());
+    if !r.all_pass() {
+        eprintln!("G75: FAIL 余项对拍未全过(见 JSON measured_*/tol_*)");
+        return 1;
+    }
+    println!(
+        "G75: PASS vsm_depth={:.3e}/{} texels(covered={}) vsm_sample={:.3e}/{} samples \
+         (shadowed={:.3}) tsr={:.3e}/{} channels(clamped={})",
+        r.measured_vsm_depth_max_abs,
+        r.vsm_depth_texels,
+        r.vsm_depth_covered_texels,
+        r.measured_vsm_sample_max_abs,
+        r.vsm_samples,
+        r.vsm_shadowed_ratio_device,
+        r.measured_tsr_max_abs,
+        r.tsr_channels,
+        r.tsr_clamped_channels,
+    );
+    0
+}
+
 /// CLI 参数(解析确定性;未知参数 = Err)。
 #[derive(Debug, Clone)]
 struct Cli {
@@ -143,6 +222,12 @@ struct Cli {
     w3_effects: bool,
     /// `--w3-effects` 的 RED 轴(篡改 device 顶点 → 对拍必红)。
     w3_red_tamper: bool,
+    /// G7.5:RD-038 余项(VSM 深度/采样 + TSR)device 对拍模式;CI 步骤 95 消费。
+    g75_residuals: bool,
+    /// `--g75-residuals` 的 RED 轴:篡改 device 灯空间三角形 → 深度对拍必红。
+    g75_red_vsm: bool,
+    /// `--g75-residuals` 的 RED 轴:篡改 device jitter → TSR 对拍必红。
+    g75_red_tsr: bool,
 }
 
 impl Default for Cli {
@@ -156,6 +241,9 @@ impl Default for Cli {
             json: false,
             w3_effects: false,
             w3_red_tamper: false,
+            g75_residuals: false,
+            g75_red_vsm: false,
+            g75_red_tsr: false,
         }
     }
 }
@@ -189,6 +277,15 @@ fn parse_cli(args: &[String]) -> Result<Cli, String> {
             "--w3-red-tamper" => {
                 c.w3_effects = true;
                 c.w3_red_tamper = true;
+            }
+            "--g75-residuals" => c.g75_residuals = true,
+            "--g75-red-vsm" => {
+                c.g75_residuals = true;
+                c.g75_red_vsm = true;
+            }
+            "--g75-red-tsr" => {
+                c.g75_residuals = true;
+                c.g75_red_tsr = true;
             }
             "--dump-graph" => {
                 i += 1;
@@ -245,9 +342,9 @@ fn main() {
     };
 
     #[cfg(not(feature = "vulkan"))]
-    if cli.device || cli.w3_effects {
+    if cli.device || cli.w3_effects || cli.g75_residuals {
         eprintln!(
-            "uc06-renderer: --device/--w3-effects 需要 feature vulkan(cargo run -p uc06-renderer --features vulkan)"
+            "uc06-renderer: --device/--w3-effects/--g75-residuals 需要 feature vulkan(cargo run -p uc06-renderer --features vulkan)"
         );
         std::process::exit(2);
     }
@@ -257,6 +354,12 @@ fn main() {
     #[cfg(feature = "vulkan")]
     if cli.w3_effects {
         std::process::exit(run_w3_effects_mode(&cli));
+    }
+
+    // G7.5 余项模式:同为独立通道,`--device` 既有 JSON 字段集 0-byte。
+    #[cfg(feature = "vulkan")]
+    if cli.g75_residuals {
+        std::process::exit(run_g75_residuals_mode(&cli));
     }
 
     match run(&cli) {

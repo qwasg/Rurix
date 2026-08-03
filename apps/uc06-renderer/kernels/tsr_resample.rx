@@ -1,0 +1,161 @@
+// G7.5 TSR device 内核(RD-038 字面分项「TAA-TSR」的 **TSR 腿**;门 G-G7-7)。
+// 此前 TAA 已由 `taa.rx` device 化(max_err 1.2e-7),TSR **纯 host**。
+//
+// host oracle(逐字蓝本)= `rurix_render::temporal::tsr::TsrUpscaler::resample_current_frame`
+// (tsr.rs L177-234)—— TSR 的**空间超分核**:jitter 对齐的 4×4 Catmull-Rom(Keys a=−0.5)
+// 重采样 + 邻域抗振铃钳制 + 曝光。逐字复刻:
+//   1. `sx = iw/ow`、`sy = ih/oh`;`kernel_scale(r) = if r > 1 { r·0.75 } else { 1 }`,
+//      `rx = kernel_scale(ow/iw)`、`ry = kernel_scale(oh/ih)`(超分时核加宽 = 抗混叠);
+//   2. 输出像素中心映回输入域 `p = (o+0.5)·s − 0.5`,再减 jitter → `g`;`b = floor(g)`;
+//   3. **dy 外 dx 内**(−1..=2 × −1..=2)16 tap,`tap = clamp(b+d, 0, n−1)`(边界钳制),
+//      `w = catmull_rom((g − (b+d))·r)` 两轴乘积;逐通道累加 `acc += w·p`,
+//      同时记邻域 `mn/mx`(初值 ±INFINITY);`wsum += w`;
+//   4. `v = clamp(acc/wsum, mn, mx)`(**抗振铃**:Catmull-Rom 负瓣越界回夹到邻域包络),
+//      `out = (v·exposure).max(0)`。
+//   `catmull_rom(t)`(tsr.rs L89-98)先取 `|t|`,再 `t<=1` / `t<2` / else 三段。
+//
+// device 形态 = 1 线程 / 输出像素;16 tap 以 `while` 双层循环**保持 host 的 dy/dx 遍历序**
+// (浮点加法非结合,序即语义);无原子、无跨线程依赖(每输出像素单一写者)。
+//
+// 常量口径:`jitter`/`exposure` 是 host 输入(`UpscaleInputs` 字段),经 push constant
+// 以**同一 f32 值**下发;`±INFINITY` 同样由 host 侧 `f32::INFINITY` 下发,避免在 kernel
+// 内造非有限常量。分辨率 `iw/ih/ow/oh` 下发后 `sx/sy/rx/ry` 由 device 自算(含
+// `kernel_scale` 分支),不预算好塞进来。
+//
+// 诚实边界:本内核覆盖 TSR 的**空间超分核**;`TsrUpscaler::upscale` 的时域臂
+// (history 双缓冲 / 闪烁 EMA 符号状态 / reproject + validity / 3×3 YCoCg AABB 混合)
+// 与 `taa.rx` 已 device 化的时域重投影-钳制-混合同构,但其**跨帧状态机**属连续帧面,
+// 归 G7.6 步骤 96,不在本波充绿。
+kernel fn tsr_resample(
+    t: ThreadCtx<1>,
+    color: View<global, f32>,
+    out: ViewMut<global, f32>,
+    iw: usize,
+    ih: usize,
+    ow: usize,
+    oh: usize,
+    jx: f32,
+    jy: f32,
+    exposure: f32,
+    pos_inf: f32,
+    neg_inf: f32,
+) {
+    let i = t.global_id();
+    if i < ow * oh {
+        let ox = i % ow;
+        let oy = i / ow;
+        let sx = iw as f32 / ow as f32;
+        let sy = ih as f32 / oh as f32;
+        let rx_raw = ow as f32 / iw as f32;
+        let mut rx = 1.0;
+        if rx_raw > 1.0 {
+            rx = rx_raw * 0.75;
+        }
+        let ry_raw = oh as f32 / ih as f32;
+        let mut ry = 1.0;
+        if ry_raw > 1.0 {
+            ry = ry_raw * 0.75;
+        }
+        let gx = (ox as f32 + 0.5) * sx - 0.5 - jx;
+        let gy = (oy as f32 + 0.5) * sy - 0.5 - jy;
+        let bx = gx.floor() as i32;
+        let by = gy.floor() as i32;
+        let last_x = iw as i32 - 1i32;
+        let last_y = ih as i32 - 1i32;
+        let mut acc0 = 0.0;
+        let mut acc1 = 0.0;
+        let mut acc2 = 0.0;
+        let mut wsum = 0.0;
+        let mut mn0 = pos_inf;
+        let mut mn1 = pos_inf;
+        let mut mn2 = pos_inf;
+        let mut mx0 = neg_inf;
+        let mut mx1 = neg_inf;
+        let mut mx2 = neg_inf;
+        let mut dy = 0i32 - 1i32;
+        while dy <= 2i32 {
+            let mut dx = 0i32 - 1i32;
+            while dx <= 2i32 {
+                let mut tx = bx + dx;
+                if tx < 0i32 {
+                    tx = 0i32;
+                }
+                if tx > last_x {
+                    tx = last_x;
+                }
+                let mut ty = by + dy;
+                if ty < 0i32 {
+                    ty = 0i32;
+                }
+                if ty > last_y {
+                    ty = last_y;
+                }
+                // catmull_rom((gx − (bx+dx))·rx)
+                let ax = ((gx - (bx + dx) as f32) * rx).abs();
+                let mut cx = 0.0;
+                if ax <= 1.0 {
+                    cx = 1.5 * ax * ax * ax - 2.5 * ax * ax + 1.0;
+                } else {
+                    if ax < 2.0 {
+                        cx = (0.0 - 0.5) * ax * ax * ax + 2.5 * ax * ax - 4.0 * ax + 2.0;
+                    }
+                }
+                // catmull_rom((gy − (by+dy))·ry)
+                let ay = ((gy - (by + dy) as f32) * ry).abs();
+                let mut cy = 0.0;
+                if ay <= 1.0 {
+                    cy = 1.5 * ay * ay * ay - 2.5 * ay * ay + 1.0;
+                } else {
+                    if ay < 2.0 {
+                        cy = (0.0 - 0.5) * ay * ay * ay + 2.5 * ay * ay - 4.0 * ay + 2.0;
+                    }
+                }
+                let w = cx * cy;
+                let base = ((ty as usize) * iw + tx as usize) * 3;
+                let p0 = color[base];
+                let p1 = color[base + 1];
+                let p2 = color[base + 2];
+                acc0 = acc0 + w * p0;
+                mn0 = mn0.min(p0);
+                mx0 = mx0.max(p0);
+                acc1 = acc1 + w * p1;
+                mn1 = mn1.min(p1);
+                mx1 = mx1.max(p1);
+                acc2 = acc2 + w * p2;
+                mn2 = mn2.min(p2);
+                mx2 = mx2.max(p2);
+                wsum = wsum + w;
+                dx = dx + 1i32;
+            }
+            dy = dy + 1i32;
+        }
+        let ob = i * 3;
+        // `f32::clamp` = 先 `< min` 再 `> max` 两次顺序判定(非 else-if),逐字复刻。
+        let mut v0 = acc0 / wsum;
+        if v0 < mn0 {
+            v0 = mn0;
+        }
+        if v0 > mx0 {
+            v0 = mx0;
+        }
+        out[ob] = (v0 * exposure).max(0.0);
+        let mut v1 = acc1 / wsum;
+        if v1 < mn1 {
+            v1 = mn1;
+        }
+        if v1 > mx1 {
+            v1 = mx1;
+        }
+        out[ob + 1] = (v1 * exposure).max(0.0);
+        let mut v2 = acc2 / wsum;
+        if v2 < mn2 {
+            v2 = mn2;
+        }
+        if v2 > mx2 {
+            v2 = mx2;
+        }
+        out[ob + 2] = (v2 * exposure).max(0.0);
+    }
+}
+
+fn main() {}

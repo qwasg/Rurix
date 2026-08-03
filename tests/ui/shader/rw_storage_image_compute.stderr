@@ -1,0 +1,5 @@
+error[RX3013]: invalid shader resource handle: resource handle `TextureRw2D` may only appear as a shader stage signature parameter
+ --> $DIR/shader/rw_storage_image_compute.rx:4:57
+  |
+4 | kernel fn storage_image_compute(t: ThreadCtx<1>, image: TextureRw2D<u32>) { //~ ERROR RX3013
+  |                                                         ^^^^^^^^^^^^^^^^ invalid resource handle position

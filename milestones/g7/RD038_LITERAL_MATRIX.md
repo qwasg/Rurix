@@ -119,3 +119,103 @@
 **RD-038 status 结论**:**维持 open**。§1 八行中 HW 光栅(行 3)、VSM 深度(行 5)、
 TSR(行 8 的 TSR 腿)仍无 device 证据,按 G-G7-7/G-G7-9「未覆盖任一项则 RD-038 保持 open,
 禁止局部完成冒充全关」不得翻 closed;本波只把行 6/7 推入 **closed 候选**。
+
+### 6.2 G7.5(2026-08-03;门 G-G7-7;CI 步骤 95)
+
+**分项状态迁移**:§1 行 5「VSM 深度」自 **部分**(仅 page-mark)→ **已兑现**;
+§1 行 8「TAA-TSR」的 **TSR 腿**自 **无** → **已兑现(空间超分核)**。
+§1 行 3「HW 光栅」**维持无**,如实记 blocked-honest(见下「阻断点」)。
+
+#### 已兑现:VSM 深度(行 5)
+
+- **kernel 本体**:`apps/uc06-renderer/kernels/vsm_depth_raster.rx`(页内深度光栅)
+  + `vsm_sample.rx`(阴影可见性采样);装配层 `apps/uc06-renderer/src/device_g75.rs`,
+  CLI `--g75-residuals`。§1 行 5 缺口「页内深度的 device 渲染与采样对拍全缺」关闭。
+- **device 真做的事**:深度腿 = 逐纹素 × 逐三角形边函数覆盖(`w0/w1/w2 >= 0`,边界含边)
+  + 重心深度插值 + **min 归约**;采样腿 = 距离 → `select_level`(`ceil(log2(d/R0))` 钳制)
+  → **逐级回退环** → `page_at` 窗口判定 → 槽位 `rem_euclid` → 页表项位解包
+  (`phys`/`resident`/`dirty`)→ 最近邻纹素定位 → `dp <= stored + bias` 比较。
+- **形态裁决**:深度腿取 **gather**(1 线程/(页, 纹素),线程内按 **host 同序**遍历三角形
+  做 min)—— 每个输出纹素**单一写者**,由构造消除竞争,且与 host 单线程序**逐比较等价**;
+  不引入原子,不建第二套光栅器。
+- **对拍量**(RTX 4070 Ti / driver 620.02 实测):深度 **1 048 576** 纹素(64 页 × 128×128)
+  × 764 三角形,measured max_abs = **3.576278687e-7** → 冻结 **1e-6**;覆盖纹素
+  1 048 192(非退化)。采样 **764** 点(冻结场景逐三角形重心),measured = **0.0**、
+  mismatch = **0**、遮蔽比 3.93% → **零容差**(0/1 二值,任何不一致都是级/页/纹素定位分歧)。
+
+#### 已兑现:TAA-TSR 的 TSR 腿(行 8)
+
+- **kernel 本体**:`apps/uc06-renderer/kernels/tsr_resample.rx` —— 逐字复刻
+  `temporal::tsr::TsrUpscaler::resample_current_frame`:jitter 对齐的 **4×4
+  Catmull-Rom**(Keys a=−0.5,超分时 `kernel_scale` 加宽)+ 邻域包络**抗振铃钳制** + 曝光;
+  16 tap 以双层 `while` 保持 host 的 dy/dx 遍历序(浮点加法非结合,序即语义)。
+- **对拍量**:内部 64×36 → 输出 128×72(冻结 `internal = out/2` 的 TSR 2× 契约),
+  **27 648** 通道,measured max_abs = **1.490116119e-8** → 冻结 **1e-7**;
+  抗振铃钳制真实生效 **1 921** 通道(证明覆盖了 Catmull-Rom 负瓣分支,判据不空转)。
+
+#### 浮点残差归因(如实登记,非容差放宽借口)
+
+device 与 host 的**表达式与求值序逐字一致**,残差唯一来源 = **浮点收缩**:SPIR-V 侧未加
+`NoContraction` 装饰时驱动可把 `a*b − c*d`(边函数)与 `acc + w*p`(tap 累加)融合为 FMA,
+而 Rust host 不自动收缩;实测量级正是 f32 单位舍入(ULP(1.0) = 1.19e-7)的数倍。
+W2 VisBuffer 之所以能逐位相等,是因为其判据落在**量化后的 30 位整数域**,收缩差被量化吸收。
+故按本波纪律 measured → 冻结,**未改 host oracle 数值语义**(`shadow::vsm` / `temporal::tsr`
+本波 0-byte)。
+
+#### 阻断点:HW 光栅(行 3)维持无 —— blocked-honest
+
+- **判据未达成**:G-G7-7 字面「真实 graphics raster 输出对真实 W2 software raster 输出
+  逐像素整数域 diff=0」的 **HW 侧不存在**,故 diff 无从谈起。**未放宽整数域容差,
+  未以任何容差型替代物冒充**。
+- **阻断依据(逐字)**:`spec/dxil_backend.md` **RXS-0171 L4**「最小 rvalue 白名单」——
+  图形=B 路 body lowering **仅**支持 `Use`、f32/i32/u32 `Const`、标量/向量 f32/i32/u32
+  **加减乘除** `BinaryOp`,与「声明的输出 I/O 聚合返回值」的机械分解;**控制流分支/循环、
+  调用、借用/引用、cast、unary、资源/纹理/采样访问、非输出 I/O 聚合**一律 strict-only 拒。
+  Vulkan 原生图形路**复用同一编码器**(`dxil_spirv::emit_spirv_body_vulkan`),故同一白名单
+  在 `--target vulkan` 下以 **RX6026** 呈现。
+- **实测证据(步骤 95 host 段第 5 项,机器可核)**:目标形态语料
+  `conformance/vulkan/reject/vk_hw_raster_visbuffer_fs.rx` 必红 `RX6026` 且零 `.spv`;
+  **五条逐轴隔离探针 + 一条绿对照臂**逐条落真实诊断,机器产出 `missing_toolchain_caps` 六项:
+
+  | 缺失能力 | 隔离探针构造 | 实测诊断 |
+  |---|---|---|
+  | `graphics_vector_component_projection` | `inp.frag.0`(两层 Field) | 「最小切片仅支持单层 Field 投影」 |
+  | `graphics_comparison_ops` | `v < 0.0` | 「最小切片仅支持 f32/i32/u32 加减乘除」 |
+  | `graphics_control_flow_and_calls` | `.round()` | 「最小切片仅支持 straight-line Goto/Return」 |
+  | `graphics_buffer_indexing` | `data[0]`(usize 常量) | 「最小切片仅支持 f32/i32/u32 常量」 |
+  | `graphics_output_assembly` | 由标量装配 `vec4` 输出 | 「仅允许声明的输出 I/O 聚合返回值机械分解」 |
+  | `graphics_ssbo_atomic_u64` | 编码器资源最小子集静态锚 | 「CBV/structured buffer SPIR-V 降级为后续扩展」 |
+
+  绿对照臂(同形态单层直通)编译**绿**,证明红可归因于白名单而非探针写法。
+- **覆盖规则分歧仍未裁定**:本波阻断发生在**语言面**,尚未触及 G7_PLAN §G7.5 风险表所列的
+  「Vulkan top-left / edge coverage 与 software raster 覆盖规则规范差异」。该分歧**独立存在**
+  且必须同期裁定 —— Vulkan 规范只保证 `subPixelPrecisionBits ≥ 4`(顶点先吸附到定点栅格),
+  且共享边界像素归属为实现定义;software raster 侧是**精确 f32** 边函数 + top-left。二者
+  在边界像素上不可能由规范推出逐位一致。故 RFC-0018 修订行须**同时**裁定「语言面加性扩展」
+  与「覆盖规则的唯一权威定义(HW 侧是否须以 fragment 内复刻 SW 规则 + 保守光栅保证覆盖超集)」。
+- **升级路径**:RFC-0018 修订行草案随本波报告提交;**在裁定前不自行扩语言面、不放宽容差**。
+
+#### W1/W2 与既有波次零回归
+
+五 kernel 对 `tests/vulkan/w1w2_spv_manifest.json` 的 sha256 + SPIR-V 版本 + capability
+逐件零漂移(**不重 bless**),经步骤 93 / 94 / 95 三处独立复跑;步骤 66/67 恒绿。
+`shadow::` / `temporal::` / `geometry::visbuffer` host oracle 全量恒绿。
+
+- **evidence**:`evidence/renderer_raster_diff_smoke_*.json`(schema
+  `milestones/g7/renderer_raster_diff_evidence_schema.json`);采集机 = NVIDIA GeForce
+  RTX 4070 Ti / driver 620.02(`G7_SCENE_FREEZE.md` §4.3 绑定口径:换机/换驱动须重采)。
+
+**诚实边界(不充绿)**:
+1. VSM 灯空间三角形与逐页 `(origin, page_world, z_range)` 为 host 预备输入
+   (**场景/配置装配面**,与 W1/W2 kernel 及 W3c 的 `sun_dir` 同纪律);device 真做光栅与
+   采样判定。`page_mark` / `page_alloc`(屏幕反馈与池分配策略)本波仍在 host。
+2. TSR 只兑现**空间超分核**;时域臂(history 双缓冲 / 闪烁 EMA 符号状态 / reproject +
+   validity / 3×3 YCoCg AABB 混合)是**跨帧状态机**,与 `taa.rx` 已 device 化的时域面同构,
+   并入连续真实帧归 G7.6 步骤 96。
+3. 本波兑现的仍是**孤立对拍**;§1 行 1/2/4 的「帧链并入」余项不动。
+
+**RD-038 status 结论**:**维持 open**。§1 八行中 **行 3「HW 光栅」仍无 device 证据**,
+按 G-G7-7/G-G7-9「未覆盖任一项则 RD-038 保持 open,禁止局部完成冒充全关」不得翻 closed。
+本波把行 5「VSM 深度」与行 8 的 TSR 腿推入 **closed 候选**(连同 G7.4 的行 6/7,
+现 closed 候选 = 行 5/6/7/8;行 1/2/4 的帧链余项归 G7.6)。**本波不动
+`registry/deferred.json`**;status 由 G7.7 逐字审计裁决。
