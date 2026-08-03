@@ -427,6 +427,10 @@ pub struct DeviceCaps {
     pub descriptor_indexing: bool,
     /// `VK_KHR_deferred_host_operations` 扩展存在。
     pub deferred_host_operations: bool,
+    /// `VK_EXT_memory_budget` 驱动 heap budget/usage 查询面。
+    pub memory_budget: bool,
+    /// `VkPhysicalDeviceLimits::timestampPeriod`（ns/tick，驱动实值）。
+    pub timestamp_period_ns: f32,
     /// `maxPushConstantsSize`(Vulkan 保底 128;本执行器约定 ≤128)。
     pub max_push_constants_size: u32,
 }
@@ -603,6 +607,278 @@ pub fn execute_frame(
     let gipa = load_vulkan_loader().ok_or("vulkan loader (vulkan-1.dll/libvulkan.so) 不可用")?;
     // SAFETY: 见模块头 U32 契约;句柄经 Cleanup 表单点逆序销毁,早退路径同走销毁序。
     unsafe { execute_frame_inner(gipa, resources, passes, barriers, readbacks) }
+}
+
+/// 跨帧稳定资源编号。编号由 [`DeviceFrameSession`] 创建时按资源表声明序分配，
+/// session 生命周期内不复用。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct StableResourceId(pub u64);
+
+/// 跨帧稳定 Vulkan 分配编号。编号对应一次真实 `vkAllocateMemory`，session 生命周期内
+/// 不随 frame slot 或提交次数变化。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct StableAllocationId(pub u64);
+
+/// 一次真实 Vulkan allocation 的账本项。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AllocationLedgerEntry {
+    /// 稳定 allocation ID。
+    pub allocation_id: StableAllocationId,
+    /// 主资源 ID；内部 staging/readback 分配为 `None`。
+    pub resource_id: Option<StableResourceId>,
+    /// 驱动 `VkMemoryRequirements::size` 裁定的实际分配字节。
+    pub bytes: u64,
+    /// `VkMemoryType::heapIndex`。
+    pub heap_index: u32,
+}
+
+/// pass 对资源的真实用途（由绑定/attachment/draw 描述推导，不按 pass 名猜 hazard）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RuntimeAccessKind {
+    /// 只读消费。
+    Read,
+    /// 只写生产。
+    Write,
+    /// 保守读写（storage buffer/image）。
+    ReadWrite,
+}
+
+/// 消费者所引用的生产 allocation/generation。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProducerVersion {
+    /// 生产者实际 allocation。
+    pub allocation_id: StableAllocationId,
+    /// 该 allocation 的内容代次。
+    pub generation: u64,
+}
+
+/// 一条 pass/resource 运行期 provenance。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RuntimeResourceProvenance {
+    /// 稳定资源 ID。
+    pub resource_id: StableResourceId,
+    /// 本 pass 使用的真实 allocation。
+    pub allocation_id: StableAllocationId,
+    /// 读/写用途。
+    pub access: RuntimeAccessKind,
+    /// 读取时必须指向实际最近生产者；纯写为 `None`。
+    pub producer: Option<ProducerVersion>,
+    /// 本 pass 写后产生的 generation；纯读为 `None`。
+    pub produced_generation: Option<u64>,
+}
+
+/// 单 pass 运行期 provenance。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RuntimePassProvenance {
+    /// 声明序稳定 pass ID（从 1 起）。
+    pub pass_id: u64,
+    /// 诊断名，仅用于报告；hazard/验证不读取名字。
+    pub name: String,
+    /// 由资源绑定事实推导的逐资源 provenance。
+    pub resources: Vec<RuntimeResourceProvenance>,
+}
+
+/// 一次提交的完整 provenance；可克隆后篡改供 RED 注入。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SubmissionProvenance {
+    /// session 内帧序号（从 1 起）。
+    pub frame_generation: u64,
+    /// pass 声明序 provenance。
+    pub passes: Vec<RuntimePassProvenance>,
+}
+
+/// 提交前 fail-closed 校验：消费者必须引用执行器按资源/绑定事实推导出的实际
+/// producer allocation/generation。供生产提交与 RED 注入共用。
+pub fn validate_submission_provenance(
+    expected: &SubmissionProvenance,
+    supplied: &SubmissionProvenance,
+) -> Result<(), String> {
+    if supplied.frame_generation != expected.frame_generation {
+        return Err(format!(
+            "provenance frame generation {} != actual {}",
+            supplied.frame_generation, expected.frame_generation
+        ));
+    }
+    if supplied.passes.len() != expected.passes.len() {
+        return Err(format!(
+            "provenance pass count {} != actual {}",
+            supplied.passes.len(),
+            expected.passes.len()
+        ));
+    }
+    for (pi, (want, got)) in expected.passes.iter().zip(&supplied.passes).enumerate() {
+        if want.pass_id != got.pass_id || want.resources != got.resources {
+            return Err(format!(
+                "provenance pass[{pi}] 与 actual allocation/generation 不一致(fail-closed)"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// 每 pass 的真实 GPU timestamp 结果。
+#[derive(Debug, Clone)]
+pub struct PassGpuTiming {
+    /// 稳定 pass ID。
+    pub pass_id: u64,
+    /// 诊断名。
+    pub name: String,
+    /// 驱动 timestamp tick 差乘 `timestampPeriod` 后的纳秒值。
+    pub gpu_ns: f64,
+}
+
+/// `VK_EXT_memory_budget` 单 heap 快照。
+#[derive(Debug, Clone)]
+pub struct HeapBudgetTelemetry {
+    /// heap 下标。
+    pub heap_index: u32,
+    /// 驱动预算字节。
+    pub budget_bytes: u64,
+    /// 驱动报告的 heap usage 字节。
+    pub driver_usage_bytes: u64,
+    /// 本 session allocation ledger 落在该 heap 的字节和。
+    pub ledger_bytes: u64,
+}
+
+/// 一帧 mandatory real telemetry。字段均为实测值；session 创建时若 timestamp 或
+/// `VK_EXT_memory_budget` 不可用则 fail-closed，不以 `null`/unavailable 冒充成功。
+#[derive(Debug, Clone)]
+pub struct DeviceFrameTelemetry {
+    /// 设备 `timestampPeriod`（ns/tick）。
+    pub timestamp_period_ns: f32,
+    /// 逐 pass GPU 时间。
+    pub passes: Vec<PassGpuTiming>,
+    /// CPU 提交前校验/录制准备时间。
+    pub cpu_record_ns: u64,
+    /// `vkQueueSubmit` 调用耗时。
+    pub cpu_submit_ns: u64,
+    /// 有界 `vkWaitForFences` 耗时。
+    pub cpu_fence_wait_ns: u64,
+    /// 逐 heap memory-budget 实测。
+    pub heaps: Vec<HeapBudgetTelemetry>,
+    /// 全量真实 allocation ledger。
+    pub allocations: Vec<AllocationLedgerEntry>,
+    /// validation ERROR 累计数（session messenger 实数）。
+    pub validation_error_count: u64,
+    /// 本提交是否返回 `VK_ERROR_DEVICE_LOST`。
+    pub device_lost: bool,
+    /// 有界 fence 等待是否超时，提示 TDR/卡死嫌疑。
+    pub tdr_suspected: bool,
+    /// 当前仍由 session 正常持有的 Vulkan object 数（非 leak）。
+    pub outstanding_object_count: u64,
+    /// 当前仍由 session 正常持有的 allocation 数（非 leak）。
+    pub outstanding_allocation_count: u64,
+    /// 所有权账本外 object 数；成功帧必须为 0。
+    pub leaked_object_count: u64,
+    /// 所有权账本外 allocation 数；成功帧必须为 0。
+    pub leaked_allocation_count: u64,
+}
+
+/// 持久 session 的一帧结果。
+#[derive(Debug, Clone)]
+pub struct DeviceFrameOutput {
+    /// 与创建时 readback 请求一一对应。
+    pub readbacks: Vec<Vec<u8>>,
+    /// 本提交的实际 provenance。
+    pub provenance: SubmissionProvenance,
+    /// mandatory real telemetry。
+    pub telemetry: DeviceFrameTelemetry,
+}
+
+/// 持久 Vulkan device-frame session。
+///
+/// instance/device/queue/resources/descriptors/pipelines/command buffer/readback/history 均在
+/// `new` 后保持到 Drop；每帧仅做 provenance 校验、fence slot 提交/有界等待、timestamp /
+/// memory-budget/readback 采集。正常帧循环不调用 `vkQueueWaitIdle`；Drop 最终 teardown
+/// 才允许排空 queue。
+pub struct DeviceFrameSession<'a> {
+    resources: &'a [ResourceDesc<'a>],
+    passes: &'a [Pass<'a>],
+    readbacks: &'a [Readback],
+    native: NativePersistentFrame,
+    resource_generations: Vec<u64>,
+    frame_generation: u64,
+}
+
+impl<'a> DeviceFrameSession<'a> {
+    /// 创建固定 frame graph 的持久 session。`frame_slots` 须 ≥2；slot 各有独立 fence，
+    /// 资源和 pipeline 跨 slot 共用且 ID 稳定。
+    pub fn new(
+        resources: &'a [ResourceDesc<'a>],
+        passes: &'a [Pass<'a>],
+        barriers: &'a [&'a [(u32, TargetState)]],
+        readbacks: &'a [Readback],
+        frame_slots: usize,
+    ) -> Result<Self, String> {
+        validate_frame(resources, passes, barriers, readbacks)?;
+        if frame_slots < 2 {
+            return Err("persistent frame session 须至少 2 个 fence frame slots".into());
+        }
+        let gipa =
+            load_vulkan_loader().ok_or("vulkan loader (vulkan-1.dll/libvulkan.so) 不可用")?;
+        // SAFETY: U32 持久扩注；所有 native 句柄移入 NativePersistentFrame，Drop 单点逆序
+        // teardown。validation user_data 为 Box<AtomicU64>，地址在 session 生命周期内稳定。
+        let native = unsafe {
+            create_persistent_frame(gipa, resources, passes, barriers, readbacks, frame_slots)?
+        };
+        Ok(Self {
+            resources,
+            passes,
+            readbacks,
+            native,
+            resource_generations: vec![0; resources.len()],
+            frame_generation: 0,
+        })
+    }
+
+    /// 下一帧的实际 provenance（未提交）；RED 可克隆并篡改后交给
+    /// [`Self::execute_with_provenance`] 验证。
+    #[must_use]
+    pub fn next_provenance(&self) -> SubmissionProvenance {
+        build_runtime_provenance(
+            self.resources,
+            self.passes,
+            &self.native.resource_allocations,
+            &self.resource_generations,
+            self.frame_generation + 1,
+        )
+    }
+
+    /// 使用执行器生成的 actual provenance 提交一帧。
+    pub fn execute(&mut self) -> Result<DeviceFrameOutput, String> {
+        let provenance = self.next_provenance();
+        self.execute_with_provenance(&provenance)
+    }
+
+    /// 使用调用方提供的 provenance 提交；任何 stale/wrong allocation 或 generation 在
+    /// `vkQueueSubmit` 前确定性拒绝（RED 注入入口）。
+    pub fn execute_with_provenance(
+        &mut self,
+        supplied: &SubmissionProvenance,
+    ) -> Result<DeviceFrameOutput, String> {
+        let record_started = std::time::Instant::now();
+        let expected = self.next_provenance();
+        validate_submission_provenance(&expected, supplied)?;
+        let cpu_record_ns = elapsed_ns(record_started);
+        // SAFETY: native session 独占 &mut self；fence 保证 command buffer/readback 不在途；
+        // execute_persistent_frame 正常帧只 wait/reset fence，不 queue-wait-idle。
+        let (readbacks, mut telemetry) =
+            unsafe { execute_persistent_frame(&mut self.native, self.passes, self.readbacks)? };
+        telemetry.cpu_record_ns = cpu_record_ns;
+        self.frame_generation += 1;
+        for pass in &expected.passes {
+            for r in &pass.resources {
+                if let Some(generation) = r.produced_generation {
+                    self.resource_generations[(r.resource_id.0 - 1) as usize] = generation;
+                }
+            }
+        }
+        Ok(DeviceFrameOutput {
+            readbacks,
+            provenance: expected,
+            telemetry,
+        })
+    }
 }
 
 // ─────────────────────────── 纯函数层(host 可测,零 unsafe) ───────────────────────────
@@ -1289,6 +1565,122 @@ fn pass_requirements(p: &Pass) -> Vec<(u32, TargetState)> {
     out
 }
 
+fn elapsed_ns(start: std::time::Instant) -> u64 {
+    start.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64
+}
+
+/// pass 的 read/write 分类事实源；只读结构字段，不读取诊断名。
+fn pass_runtime_accesses(p: &Pass<'_>) -> Vec<(u32, RuntimeAccessKind)> {
+    fn push(out: &mut Vec<(u32, RuntimeAccessKind)>, res: u32, access: RuntimeAccessKind) {
+        if let Some((_, old)) = out.iter_mut().find(|(r, _)| *r == res) {
+            *old = match (*old, access) {
+                (RuntimeAccessKind::Read, RuntimeAccessKind::Read) => RuntimeAccessKind::Read,
+                (RuntimeAccessKind::Write, RuntimeAccessKind::Write) => RuntimeAccessKind::Write,
+                _ => RuntimeAccessKind::ReadWrite,
+            };
+        } else {
+            out.push((res, access));
+        }
+    }
+    fn bindings(out: &mut Vec<(u32, RuntimeAccessKind)>, b: &Bindings) {
+        for &res in &b.storage_buffers {
+            push(out, res, RuntimeAccessKind::ReadWrite);
+        }
+        for &res in &b.sampled_images {
+            push(out, res, RuntimeAccessKind::Read);
+        }
+        for &res in &b.storage_images {
+            push(out, res, RuntimeAccessKind::ReadWrite);
+        }
+        if let Some(u) = b.uniform {
+            push(out, u.res, RuntimeAccessKind::Read);
+        }
+    }
+    let mut out: Vec<(u32, RuntimeAccessKind)> = Vec::new();
+    match p {
+        Pass::Raster(rp) => {
+            for c in &rp.colors {
+                push(&mut out, c.res, RuntimeAccessKind::Write);
+            }
+            if let Some(d) = rp.depth {
+                push(&mut out, d.res, RuntimeAccessKind::Write);
+            }
+            if let VertexData::Resource { res, .. } = rp.vertex {
+                push(&mut out, res, RuntimeAccessKind::Read);
+            }
+            if let DrawSpec::Indirect { res, .. } = rp.draw {
+                push(&mut out, res, RuntimeAccessKind::Read);
+            }
+            bindings(&mut out, &rp.bindings);
+        }
+        Pass::Compute(cp) => {
+            if let DispatchSpec::Indirect { res, .. } = cp.dispatch {
+                push(&mut out, res, RuntimeAccessKind::Read);
+            }
+            bindings(&mut out, &cp.bindings);
+        }
+    }
+    out
+}
+
+fn build_runtime_provenance(
+    resources: &[ResourceDesc<'_>],
+    passes: &[Pass<'_>],
+    allocations: &[StableAllocationId],
+    generations: &[u64],
+    frame_generation: u64,
+) -> SubmissionProvenance {
+    debug_assert_eq!(resources.len(), allocations.len());
+    debug_assert_eq!(resources.len(), generations.len());
+    let mut current = generations.to_vec();
+    let mut out = Vec::with_capacity(passes.len());
+    for (pi, pass) in passes.iter().enumerate() {
+        let name = match pass {
+            Pass::Raster(p) => p.name,
+            Pass::Compute(p) => p.name,
+        };
+        let mut used = Vec::new();
+        for (res, access) in pass_runtime_accesses(pass) {
+            let idx = res as usize;
+            let allocation_id = allocations[idx];
+            let reads = matches!(
+                access,
+                RuntimeAccessKind::Read | RuntimeAccessKind::ReadWrite
+            );
+            let writes = matches!(
+                access,
+                RuntimeAccessKind::Write | RuntimeAccessKind::ReadWrite
+            );
+            let producer = reads.then_some(ProducerVersion {
+                allocation_id,
+                generation: current[idx],
+            });
+            let produced_generation = if writes {
+                current[idx] = current[idx].saturating_add(1);
+                Some(current[idx])
+            } else {
+                None
+            };
+            used.push(RuntimeResourceProvenance {
+                resource_id: StableResourceId(idx as u64 + 1),
+                allocation_id,
+                access,
+                producer,
+                produced_generation,
+            });
+        }
+        out.push(RuntimePassProvenance {
+            pass_id: pi as u64 + 1,
+            name: name.to_owned(),
+            resources: used,
+        });
+    }
+    SubmissionProvenance {
+        frame_generation,
+        passes: out,
+    }
+}
+
 // ─────────────────────────── FFI 声明(布局复制 vk.rs 同源纪律,锚定单测) ───────────────────────────
 
 type VkInstance = *mut c_void;
@@ -1310,6 +1702,8 @@ type VkDescriptorPool = u64;
 type VkDescriptorSet = u64;
 type VkSampler = u64;
 type VkCommandPool = u64;
+type VkFence = u64;
+type VkQueryPool = u64;
 type VkDebugUtilsMessengerEXT = u64;
 type VkResult = i32;
 type VkFlags = u32;
@@ -1351,6 +1745,10 @@ const ST_COMMAND_POOL_CREATE_INFO: u32 = 39;
 const ST_COMMAND_BUFFER_ALLOCATE_INFO: u32 = 40;
 const ST_COMMAND_BUFFER_BEGIN_INFO: u32 = 42;
 const ST_RENDER_PASS_BEGIN_INFO: u32 = 43;
+const ST_QUERY_POOL_CREATE_INFO: u32 = 11;
+const ST_FENCE_CREATE_INFO: u32 = 8;
+const ST_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2: u32 = 1_000_059_006;
+const ST_PHYSICAL_DEVICE_MEMORY_BUDGET_PROPERTIES_EXT: u32 = 1_000_237_000;
 const ST_SAMPLER_CREATE_INFO: u32 = 31;
 const ST_PHYSICAL_DEVICE_FEATURES_2: u32 = 1_000_059_000;
 const ST_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES: u32 = 1_000_180_000;
@@ -1410,6 +1808,13 @@ const ATTACHMENT_STORE_OP_STORE: u32 = 0;
 
 const CMD_BUFFER_LEVEL_PRIMARY: u32 = 0;
 const CMD_BUFFER_USAGE_ONE_TIME_SUBMIT: u32 = 0x1;
+const FENCE_CREATE_SIGNALED: u32 = 0x1;
+const QUERY_TYPE_TIMESTAMP: u32 = 2;
+const QUERY_RESULT_64_BIT: u32 = 0x1;
+const QUERY_RESULT_WAIT_BIT: u32 = 0x2;
+const VK_TIMEOUT: VkResult = 2;
+const VK_ERROR_DEVICE_LOST: VkResult = -4;
+const STAGE2_ALL_COMMANDS: u64 = 0x0001_0000;
 
 const FILTER_LINEAR: u32 = 1;
 const SAMPLER_MIPMAP_MODE_NEAREST: u32 = 0;
@@ -1767,6 +2172,38 @@ struct CommandBufferBeginInfo {
     p_next: *const c_void,
     flags: VkFlags,
     p_inheritance_info: *const c_void,
+}
+
+#[repr(C)]
+struct FenceCreateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    flags: VkFlags,
+}
+
+#[repr(C)]
+struct QueryPoolCreateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    flags: VkFlags,
+    query_type: u32,
+    query_count: u32,
+    pipeline_statistics: VkFlags,
+}
+
+#[repr(C)]
+struct PhysicalDeviceMemoryProperties2 {
+    s_type: u32,
+    p_next: *mut c_void,
+    memory_properties: PhysicalDeviceMemoryProperties,
+}
+
+#[repr(C)]
+struct PhysicalDeviceMemoryBudgetPropertiesExt {
+    s_type: u32,
+    p_next: *mut c_void,
+    heap_budget: [VkDeviceSize; 16],
+    heap_usage: [VkDeviceSize; 16],
 }
 
 #[repr(C)]
@@ -2213,6 +2650,31 @@ unsafe extern "system" fn debug_messenger_cb(
     0
 }
 
+/// 持久 session ERROR 计数回调；`user_data` 指向 Box 内稳定 `AtomicU64`。
+unsafe extern "system" fn persistent_debug_messenger_cb(
+    severity: u32,
+    _types: u32,
+    data: *const DebugUtilsMessengerCallbackDataEXT,
+    user_data: *mut c_void,
+) -> u32 {
+    if severity & DEBUG_UTILS_SEVERITY_ERROR != 0 {
+        if !user_data.is_null() {
+            // SAFETY: create_persistent_frame 在 messenger 前分配 Box<AtomicU64>，Box 内容地址
+            // 跨 NativePersistentFrame 移动稳定，Drop 在销毁 messenger 后才释放 Box。
+            let count = &*(user_data as *const std::sync::atomic::AtomicU64);
+            count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        }
+        if !data.is_null() {
+            let d = &*data;
+            if !d.p_message.is_null() {
+                let msg = CStr::from_ptr(d.p_message).to_string_lossy();
+                eprintln!("[vk-validation] {msg}");
+            }
+        }
+    }
+    0
+}
+
 // ── 函数指针类型 ──
 
 type FnCreateInstance = unsafe extern "system" fn(
@@ -2227,6 +2689,8 @@ type FnGetPhysicalDeviceQueueFamilyProperties =
     unsafe extern "system" fn(VkPhysicalDevice, *mut u32, *mut QueueFamilyProperties);
 type FnGetPhysicalDeviceMemoryProperties =
     unsafe extern "system" fn(VkPhysicalDevice, *mut PhysicalDeviceMemoryProperties);
+type FnGetPhysicalDeviceMemoryProperties2 =
+    unsafe extern "system" fn(VkPhysicalDevice, *mut PhysicalDeviceMemoryProperties2);
 type FnGetPhysicalDeviceProperties =
     unsafe extern "system" fn(VkPhysicalDevice, *mut PropertiesBlob);
 type FnGetPhysicalDeviceFeatures2 =
@@ -2420,8 +2884,38 @@ type FnCmdCopyBufferToImage = unsafe extern "system" fn(
     u32,
     *const VkBufferImageCopy,
 );
-type FnQueueSubmit = unsafe extern "system" fn(VkQueue, u32, *const SubmitInfo, u64) -> VkResult;
+type FnQueueSubmit =
+    unsafe extern "system" fn(VkQueue, u32, *const SubmitInfo, VkFence) -> VkResult;
 type FnQueueWaitIdle = unsafe extern "system" fn(VkQueue) -> VkResult;
+type FnCreateFence = unsafe extern "system" fn(
+    VkDevice,
+    *const FenceCreateInfo,
+    *const c_void,
+    *mut VkFence,
+) -> VkResult;
+type FnDestroyFence = unsafe extern "system" fn(VkDevice, VkFence, *const c_void);
+type FnWaitForFences =
+    unsafe extern "system" fn(VkDevice, u32, *const VkFence, u32, u64) -> VkResult;
+type FnResetFences = unsafe extern "system" fn(VkDevice, u32, *const VkFence) -> VkResult;
+type FnCreateQueryPool = unsafe extern "system" fn(
+    VkDevice,
+    *const QueryPoolCreateInfo,
+    *const c_void,
+    *mut VkQueryPool,
+) -> VkResult;
+type FnDestroyQueryPool = unsafe extern "system" fn(VkDevice, VkQueryPool, *const c_void);
+type FnCmdResetQueryPool = unsafe extern "system" fn(VkCommandBuffer, VkQueryPool, u32, u32);
+type FnCmdWriteTimestamp2 = unsafe extern "system" fn(VkCommandBuffer, u64, VkQueryPool, u32);
+type FnGetQueryPoolResults = unsafe extern "system" fn(
+    VkDevice,
+    VkQueryPool,
+    u32,
+    u32,
+    usize,
+    *mut c_void,
+    VkDeviceSize,
+    VkFlags,
+) -> VkResult;
 type FnCreateDebugUtilsMessengerEXT = unsafe extern "system" fn(
     VkInstance,
     *const DebugUtilsMessengerCreateInfoEXT,
@@ -2543,6 +3037,7 @@ unsafe fn read_physical_caps(
     let buffer_device_address_ext = has_ext(c"VK_KHR_buffer_device_address");
     let descriptor_indexing_ext = has_ext(c"VK_EXT_descriptor_indexing");
     let deferred_host_operations_ext = has_ext(c"VK_KHR_deferred_host_operations");
+    let memory_budget_ext = has_ext(c"VK_EXT_memory_budget");
 
     // features2 链(sync2 + atomic int64 + W3 四节 feature;不存在扩展的节读回 0,
     // 无副作用)。deferred-host-operations 仅看扩展存在性,无 feature 结构。
@@ -2612,6 +3107,14 @@ unsafe fn read_physical_caps(
         blob.bytes[330],
         blob.bytes[331],
     ]);
+    // VkPhysicalDeviceProperties.limits@296 + VkPhysicalDeviceLimits.timestampPeriod@424
+    // (SDK 1.3.296 `vulkan_core.h` 逐字段 ABI 计算；布局锚单测固定总偏移 720)。
+    let timestamp_period_ns = f32::from_le_bytes([
+        blob.bytes[720],
+        blob.bytes[721],
+        blob.bytes[722],
+        blob.bytes[723],
+    ]);
 
     Ok(DeviceCaps {
         device_name,
@@ -2625,6 +3128,8 @@ unsafe fn read_physical_caps(
             && buffer_device_address_feat.buffer_device_address != 0,
         descriptor_indexing: descriptor_indexing_ext && descriptor_indexing_feat.bits[19] != 0,
         deferred_host_operations: deferred_host_operations_ext,
+        memory_budget: memory_budget_ext,
+        timestamp_period_ns,
         max_push_constants_size,
     })
 }
@@ -2643,6 +3148,7 @@ unsafe fn probe_caps_inner(gipa: FnGetInstanceProcAddr) -> Result<DeviceCaps, St
 }
 
 /// device 级函数表(execute_frame_inner 单点装配;`dp!` 宏逐符号 null 校验)。
+#[derive(Clone, Copy)]
 struct Dev {
     get_device_queue: FnGetDeviceQueue,
     create_buffer: FnCreateBuffer,
@@ -2698,6 +3204,15 @@ struct Dev {
     cmd_copy_buf2img: FnCmdCopyBufferToImage,
     queue_submit: FnQueueSubmit,
     queue_wait: FnQueueWaitIdle,
+    create_fence: FnCreateFence,
+    destroy_fence: FnDestroyFence,
+    wait_fences: FnWaitForFences,
+    reset_fences: FnResetFences,
+    create_query_pool: FnCreateQueryPool,
+    destroy_query_pool: FnDestroyQueryPool,
+    cmd_reset_query_pool: FnCmdResetQueryPool,
+    cmd_write_timestamp2: FnCmdWriteTimestamp2,
+    get_query_pool_results: FnGetQueryPoolResults,
 }
 
 impl Dev {
@@ -2776,14 +3291,29 @@ impl Dev {
             cmd_copy_buf2img: dp!(c"vkCmdCopyBufferToImage", FnCmdCopyBufferToImage),
             queue_submit: dp!(c"vkQueueSubmit", FnQueueSubmit),
             queue_wait: dp!(c"vkQueueWaitIdle", FnQueueWaitIdle),
+            create_fence: dp!(c"vkCreateFence", FnCreateFence),
+            destroy_fence: dp!(c"vkDestroyFence", FnDestroyFence),
+            wait_fences: dp!(c"vkWaitForFences", FnWaitForFences),
+            reset_fences: dp!(c"vkResetFences", FnResetFences),
+            create_query_pool: dp!(c"vkCreateQueryPool", FnCreateQueryPool),
+            destroy_query_pool: dp!(c"vkDestroyQueryPool", FnDestroyQueryPool),
+            cmd_reset_query_pool: dp!(c"vkCmdResetQueryPool", FnCmdResetQueryPool),
+            cmd_write_timestamp2: dp!(c"vkCmdWriteTimestamp2", FnCmdWriteTimestamp2),
+            get_query_pool_results: dp!(c"vkGetQueryPoolResults", FnGetQueryPoolResults),
         })
     }
+}
+
+struct TrackedAllocation {
+    memory: VkDeviceMemory,
+    entry: AllocationLedgerEntry,
 }
 
 /// 句柄销毁登记表(单点逆序销毁;早退路径同走——U32 泄漏/双释放纪律)。
 #[derive(Default)]
 struct Cleanup {
     cmdpool: VkCommandPool,
+    query_pool: VkQueryPool,
     pool: VkDescriptorPool,
     sampler: VkSampler,
     views: Vec<VkImageView>,
@@ -2795,6 +3325,8 @@ struct Cleanup {
     pipe_layouts: Vec<VkPipelineLayout>,
     dsls: Vec<VkDescriptorSetLayout>,
     shader_modules: Vec<VkShaderModule>,
+    allocations: Vec<TrackedAllocation>,
+    next_allocation_id: u64,
 }
 
 impl Cleanup {
@@ -2806,6 +3338,9 @@ impl Cleanup {
     unsafe fn destroy_all(&self, dev: &Dev, device: VkDevice) {
         if self.cmdpool != VK_NULL_HANDLE {
             (dev.destroy_cmdpool)(device, self.cmdpool, std::ptr::null());
+        }
+        if self.query_pool != VK_NULL_HANDLE {
+            (dev.destroy_query_pool)(device, self.query_pool, std::ptr::null());
         }
         if self.pool != VK_NULL_HANDLE {
             (dev.destroy_dp)(device, self.pool, std::ptr::null());
@@ -2843,6 +3378,43 @@ impl Cleanup {
             (dev.destroy_shader)(device, m, std::ptr::null());
         }
     }
+
+    fn register_allocation(
+        &mut self,
+        memory: VkDeviceMemory,
+        bytes: u64,
+        heap_index: u32,
+        resource_id: Option<StableResourceId>,
+    ) -> StableAllocationId {
+        self.next_allocation_id = self.next_allocation_id.saturating_add(1);
+        let allocation_id = StableAllocationId(self.next_allocation_id);
+        self.allocations.push(TrackedAllocation {
+            memory,
+            entry: AllocationLedgerEntry {
+                allocation_id,
+                resource_id,
+                bytes,
+                heap_index,
+            },
+        });
+        allocation_id
+    }
+
+    fn object_count(&self) -> u64 {
+        u64::from(self.cmdpool != VK_NULL_HANDLE)
+            + u64::from(self.query_pool != VK_NULL_HANDLE)
+            + u64::from(self.pool != VK_NULL_HANDLE)
+            + u64::from(self.sampler != VK_NULL_HANDLE)
+            + self.views.len() as u64
+            + self.images.len() as u64
+            + self.buffers.len() as u64
+            + self.framebuffers.len() as u64
+            + self.render_passes.len() as u64
+            + self.pipelines.len() as u64
+            + self.pipe_layouts.len() as u64
+            + self.dsls.len() as u64
+            + self.shader_modules.len() as u64
+    }
 }
 
 /// 选内存类型(type_bits 允许集合内首个含全部 required 标志者;vk.rs 同名先例同律)。
@@ -2865,6 +3437,7 @@ struct RtBuffer {
 
 struct RtImage {
     image: VkImage,
+    mem: VkDeviceMemory,
     view: VkImageView,
     width: u32,
     height: u32,
@@ -2892,6 +3465,7 @@ impl RtRes {
 ///
 /// # Safety
 /// dev/device 有效;desc 已经 validate;memprops 为本物理设备内存属性。
+#[allow(clippy::too_many_arguments)]
 unsafe fn create_device_buffer(
     dev: &Dev,
     device: VkDevice,
@@ -2899,6 +3473,7 @@ unsafe fn create_device_buffer(
     size: u64,
     usage: VkFlags,
     data: Option<&[u8]>,
+    resource_id: Option<StableResourceId>,
     cleanup: &mut Cleanup,
 ) -> Result<(VkBuffer, VkDeviceMemory), String> {
     let bci = BufferCreateInfo {
@@ -2950,7 +3525,40 @@ unsafe fn create_device_buffer(
         (dev.unmap_mem)(device, mem);
     }
     cleanup.buffers.push((buffer, mem));
+    cleanup.register_allocation(
+        mem,
+        req.size,
+        memprops.memory_types[mt as usize].heap_index,
+        resource_id,
+    );
     Ok((buffer, mem))
+}
+
+struct NativeDeviceFrame {
+    dev: Dev,
+    queue: VkQueue,
+    cleanup: Cleanup,
+    rt: Vec<RtRes>,
+    rb_buffers: Vec<Option<(VkBuffer, VkDeviceMemory)>>,
+    cmd: VkCommandBuffer,
+    resource_allocations: Vec<StableAllocationId>,
+}
+
+struct NativePersistentFrame {
+    instance: VkInstance,
+    destroy_instance: FnDestroyInstance,
+    messenger: VkDebugUtilsMessengerEXT,
+    destroy_messenger: Option<FnDestroyDebugUtilsMessengerEXT>,
+    validation_errors: Box<std::sync::atomic::AtomicU64>,
+    pd: VkPhysicalDevice,
+    get_mem2: FnGetPhysicalDeviceMemoryProperties2,
+    device: VkDevice,
+    destroy_device: FnDestroyDevice,
+    frame: NativeDeviceFrame,
+    fences: Vec<VkFence>,
+    next_slot: usize,
+    timestamp_period_ns: f32,
+    resource_allocations: Vec<StableAllocationId>,
 }
 
 /// [`execute_frame`] 内部(模块头 U32 契约本体)。结构:
@@ -3108,6 +3716,8 @@ unsafe fn execute_frame_inner(
             passes,
             barriers,
             readbacks,
+            None,
+            true,
         );
 
         let dev_destroy: Option<FnDestroyDevice> =
@@ -3141,6 +3751,8 @@ unsafe fn execute_on_device(
     passes: &[Pass],
     barriers: &[&[(u32, TargetState)]],
     readbacks: &[Readback],
+    mut capture: Option<&mut Option<NativeDeviceFrame>>,
+    submit_now: bool,
 ) -> Result<Vec<Vec<u8>>, String> {
     let dev = Dev::load(gdpa, device)?;
     let mut queue: VkQueue = std::ptr::null_mut();
@@ -3149,6 +3761,7 @@ unsafe fn execute_on_device(
     vk_get_mem(pd, &mut memprops);
 
     let mut cleanup = Cleanup::default();
+    let mut retained = false;
     // 主体闭包:任何早退都落到下面统一等待+销毁(无泄漏路径)。
     let result = (|| {
         // ── 资源建面(buffer 上传即写;image staging 就绪,命令流首段 copy)──
@@ -3163,6 +3776,7 @@ unsafe fn execute_on_device(
                         b.size,
                         buffer_usage_flags(b.usage),
                         b.data,
+                        Some(StableResourceId(i as u64 + 1)),
                         &mut cleanup,
                     )?;
                     rt.push(RtRes::Buf(RtBuffer { buffer: buf, mem }));
@@ -3214,6 +3828,12 @@ unsafe fn execute_on_device(
                     }
                     (dev.bind_img)(device, image, mem, 0);
                     cleanup.images.push((image, mem));
+                    cleanup.register_allocation(
+                        mem,
+                        req.size,
+                        memprops.memory_types[mt as usize].heap_index,
+                        Some(StableResourceId(i as u64 + 1)),
+                    );
                     let ivci = ImageViewCreateInfo {
                         s_type: ST_IMAGE_VIEW_CREATE_INFO,
                         p_next: std::ptr::null(),
@@ -3253,6 +3873,7 @@ unsafe fn execute_on_device(
                             sz,
                             0x1, // TRANSFER_SRC
                             Some(d),
+                            None,
                             &mut cleanup,
                         )?;
                         Some(sbuf)
@@ -3261,6 +3882,7 @@ unsafe fn execute_on_device(
                     };
                     rt.push(RtRes::Img(RtImage {
                         image,
+                        mem,
                         view,
                         width: t.width,
                         height: t.height,
@@ -3284,6 +3906,7 @@ unsafe fn execute_on_device(
                             (data.len().max(4)) as u64,
                             0x80, // VERTEX_BUFFER(host 直写上传,无 transfer 命令)
                             Some(data),
+                            None,
                             &mut cleanup,
                         )?;
                         inline_vbs.push(Some(vbuf));
@@ -4174,7 +4797,20 @@ unsafe fn execute_on_device(
             }
         }
 
-        // ── 命令池 + 主命令缓冲 ──
+        // ── timestamp query pool + 命令池 + 主命令缓冲 ──
+        let qpci = QueryPoolCreateInfo {
+            s_type: ST_QUERY_POOL_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            query_type: QUERY_TYPE_TIMESTAMP,
+            query_count: (passes.len() as u32) * 2,
+            pipeline_statistics: 0,
+        };
+        let mut query_pool = VK_NULL_HANDLE;
+        if (dev.create_query_pool)(device, &qpci, std::ptr::null(), &mut query_pool) != VK_SUCCESS {
+            return Err("vkCreateQueryPool(timestamp) 失败".to_owned());
+        }
+        cleanup.query_pool = query_pool;
         let cpci = CommandPoolCreateInfo {
             s_type: ST_COMMAND_POOL_CREATE_INFO,
             p_next: std::ptr::null(),
@@ -4200,12 +4836,17 @@ unsafe fn execute_on_device(
         let cbi = CommandBufferBeginInfo {
             s_type: ST_COMMAND_BUFFER_BEGIN_INFO,
             p_next: std::ptr::null(),
-            flags: CMD_BUFFER_USAGE_ONE_TIME_SUBMIT,
+            flags: if submit_now {
+                CMD_BUFFER_USAGE_ONE_TIME_SUBMIT
+            } else {
+                0
+            },
             p_inheritance_info: std::ptr::null(),
         };
         if (dev.begin_cmd)(cmd, &cbi) != VK_SUCCESS {
             return Err("vkBeginCommandBuffer 失败".to_owned());
         }
+        (dev.cmd_reset_query_pool)(cmd, query_pool, 0, (passes.len() as u32) * 2);
 
         // barrier2 批量录制助手:收集本批 image/buffer 转换后一次 DependencyInfo。
         macro_rules! flush_barriers {
@@ -4363,7 +5004,8 @@ unsafe fn execute_on_device(
             }
             flush_barriers!(img_barriers, buf_barriers);
 
-            // ③ pass 本体。
+            // ③ pass 本体；timestamp 覆盖该 pass 的实际 GPU 命令区间。
+            (dev.cmd_write_timestamp2)(cmd, STAGE2_ALL_COMMANDS, query_pool, (pi as u32) * 2);
             let setup = &setups[pi];
             match p {
                 Pass::Raster(rp) => {
@@ -4486,6 +5128,7 @@ unsafe fn execute_on_device(
                     }
                 }
             }
+            (dev.cmd_write_timestamp2)(cmd, STAGE2_ALL_COMMANDS, query_pool, (pi as u32) * 2 + 1);
         }
 
         // ── readback 段:image 迁 TRANSFER_SRC + copy 到 readback buffer;buffer 免录制 ──
@@ -4507,6 +5150,7 @@ unsafe fn execute_on_device(
                         &memprops,
                         sz.max(4),
                         0x2, // TRANSFER_DST
+                        None,
                         None,
                         &mut cleanup,
                     )?;
@@ -4546,6 +5190,34 @@ unsafe fn execute_on_device(
         // ── 提交 + 等待 + map 回读 ──
         if (dev.end_cmd)(cmd) != VK_SUCCESS {
             return Err("vkEndCommandBuffer 失败".to_owned());
+        }
+        if !submit_now {
+            let mut resource_allocations = Vec::with_capacity(rt.len());
+            for (i, resource) in rt.iter().enumerate() {
+                let memory = match resource {
+                    RtRes::Buf(b) => b.mem,
+                    RtRes::Img(image) => image.mem,
+                };
+                let allocation_id = cleanup
+                    .allocations
+                    .iter()
+                    .find(|a| a.memory == memory)
+                    .map(|a| a.entry.allocation_id)
+                    .ok_or_else(|| format!("resources[{i}] allocation 未入 ledger"))?;
+                resource_allocations.push(allocation_id);
+            }
+            let slot = capture.as_deref_mut().ok_or("persistent capture 槽缺失")?;
+            *slot = Some(NativeDeviceFrame {
+                dev,
+                queue,
+                cleanup: std::mem::take(&mut cleanup),
+                rt,
+                rb_buffers,
+                cmd,
+                resource_allocations,
+            });
+            retained = true;
+            return Ok(Vec::new());
         }
         let si = SubmitInfo {
             s_type: ST_SUBMIT_INFO,
@@ -4606,10 +5278,491 @@ unsafe fn execute_on_device(
         Ok(out)
     })();
 
-    // 统一收尾:queue 空闲后 Cleanup 逆序销毁(早退路径同走;U32 泄漏纪律)。
-    let _ = (dev.queue_wait)(queue);
-    cleanup.destroy_all(&dev, device);
+    // 统一收尾:ephemeral 路 queue 空闲后 Cleanup 逆序销毁；persistent capture 将
+    // 所有权移交 session，正常帧循环不走 queueWaitIdle。
+    if !retained {
+        let _ = (dev.queue_wait)(queue);
+        cleanup.destroy_all(&dev, device);
+    }
     result
+}
+
+#[allow(clippy::too_many_arguments)]
+unsafe fn create_persistent_frame(
+    gipa: FnGetInstanceProcAddr,
+    resources: &[ResourceDesc<'_>],
+    passes: &[Pass<'_>],
+    barriers: &[&[(u32, TargetState)]],
+    readbacks: &[Readback],
+    frame_slots: usize,
+) -> Result<NativePersistentFrame, String> {
+    let (instance, validation) = create_instance(gipa, c"rurix-persistent-frame")?;
+    if std::env::var("RURIX_REQUIRE_REAL").as_deref() == Ok("1") && !validation {
+        let destroy_instance: FnDestroyInstance =
+            cast_fn(gipa(instance, c"vkDestroyInstance".as_ptr())).ok_or("缺 vkDestroyInstance")?;
+        destroy_instance(instance, std::ptr::null());
+        return Err(
+            "RURIX_REQUIRE_REAL=1 要求 RURIX_VK_VALIDATION=1（ERROR count 不可 unavailable）"
+                .into(),
+        );
+    }
+    let destroy_instance: FnDestroyInstance =
+        cast_fn(gipa(instance, c"vkDestroyInstance".as_ptr())).ok_or("缺 vkDestroyInstance")?;
+    let validation_errors = Box::new(std::sync::atomic::AtomicU64::new(0));
+    let mut messenger = VK_NULL_HANDLE;
+    let mut destroy_messenger: Option<FnDestroyDebugUtilsMessengerEXT> = None;
+    if validation {
+        destroy_messenger = cast_fn(gipa(instance, c"vkDestroyDebugUtilsMessengerEXT".as_ptr()));
+        if let Some(create_messenger) = cast_fn::<FnCreateDebugUtilsMessengerEXT>(gipa(
+            instance,
+            c"vkCreateDebugUtilsMessengerEXT".as_ptr(),
+        )) {
+            let mci = DebugUtilsMessengerCreateInfoEXT {
+                s_type: ST_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+                p_next: std::ptr::null(),
+                flags: 0,
+                message_severity: DEBUG_UTILS_SEVERITY_ERROR,
+                message_type: DEBUG_UTILS_TYPE_GENERAL
+                    | DEBUG_UTILS_TYPE_VALIDATION
+                    | DEBUG_UTILS_TYPE_PERFORMANCE,
+                pfn_user_callback: persistent_debug_messenger_cb,
+                p_user_data: (&*validation_errors as *const std::sync::atomic::AtomicU64)
+                    .cast_mut()
+                    .cast::<c_void>(),
+            };
+            let r = create_messenger(instance, &mci, std::ptr::null(), &mut messenger);
+            if r != VK_SUCCESS {
+                destroy_instance(instance, std::ptr::null());
+                return Err(format!("vkCreateDebugUtilsMessengerEXT 失败: {r}"));
+            }
+        }
+    }
+    let destroy_msgr = |messenger: VkDebugUtilsMessengerEXT| {
+        if messenger != VK_NULL_HANDLE
+            && let Some(destroy) = destroy_messenger
+        {
+            destroy(instance, messenger, std::ptr::null());
+        }
+    };
+
+    let result = (|| {
+        let pd = pick_physical_device(gipa, instance)?;
+        let caps = read_physical_caps(gipa, instance, pd)?;
+        if !caps.synchronization2 {
+            return Err(format!(
+                "VK_KHR_synchronization2 不可用(device `{}`)",
+                caps.device_name
+            ));
+        }
+        if !caps.memory_budget {
+            return Err("VK_EXT_memory_budget 不可用(mandatory real telemetry fail-closed)".into());
+        }
+        if !caps.timestamp_period_ns.is_finite() || caps.timestamp_period_ns <= 0.0 {
+            return Err(format!(
+                "timestampPeriod={} 非有效驱动实值(mandatory real telemetry fail-closed)",
+                caps.timestamp_period_ns
+            ));
+        }
+        let get_qf: FnGetPhysicalDeviceQueueFamilyProperties = cast_fn(gipa(
+            instance,
+            c"vkGetPhysicalDeviceQueueFamilyProperties".as_ptr(),
+        ))
+        .ok_or("缺 vkGetPhysicalDeviceQueueFamilyProperties")?;
+        let get_mem: FnGetPhysicalDeviceMemoryProperties = cast_fn(gipa(
+            instance,
+            c"vkGetPhysicalDeviceMemoryProperties".as_ptr(),
+        ))
+        .ok_or("缺 vkGetPhysicalDeviceMemoryProperties")?;
+        let get_mem2: FnGetPhysicalDeviceMemoryProperties2 = cast_fn(gipa(
+            instance,
+            c"vkGetPhysicalDeviceMemoryProperties2".as_ptr(),
+        ))
+        .ok_or("缺 vkGetPhysicalDeviceMemoryProperties2")?;
+        let create_device: FnCreateDevice =
+            cast_fn(gipa(instance, c"vkCreateDevice".as_ptr())).ok_or("缺 vkCreateDevice")?;
+        let gdpa: FnGetDeviceProcAddr = cast_fn(gipa(instance, c"vkGetDeviceProcAddr".as_ptr()))
+            .ok_or("缺 vkGetDeviceProcAddr")?;
+
+        let mut qf_count = 0;
+        get_qf(pd, &mut qf_count, std::ptr::null_mut());
+        let mut qfs: Vec<QueueFamilyProperties> = (0..qf_count)
+            .map(|_| QueueFamilyProperties {
+                queue_flags: 0,
+                queue_count: 0,
+                timestamp_valid_bits: 0,
+                min_image_transfer_granularity: VkExtent3D {
+                    width: 0,
+                    height: 0,
+                    depth: 0,
+                },
+            })
+            .collect();
+        get_qf(pd, &mut qf_count, qfs.as_mut_ptr());
+        let qfi = qfs
+            .iter()
+            .position(|q| q.queue_flags & QUEUE_GRAPHICS_BIT != 0)
+            .ok_or("无 graphics queue family")? as u32;
+        if qfs[qfi as usize].timestamp_valid_bits == 0 {
+            return Err(
+                "graphics queue timestampValidBits=0(mandatory GPU timestamp 不可用)".into(),
+            );
+        }
+
+        let mut int64_feat = PhysicalDeviceShaderAtomicInt64Features {
+            s_type: ST_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES,
+            p_next: std::ptr::null_mut(),
+            shader_buffer_int64_atomics: u32::from(caps.shader_buffer_int64_atomics),
+            shader_shared_int64_atomics: 0,
+        };
+        let mut sync2_feat = PhysicalDeviceSynchronization2Features {
+            s_type: ST_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES,
+            p_next: std::ptr::null_mut(),
+            synchronization2: 1,
+        };
+        let mut exts = vec![
+            c"VK_KHR_synchronization2".as_ptr(),
+            c"VK_EXT_memory_budget".as_ptr(),
+        ];
+        if caps.shader_buffer_int64_atomics {
+            exts.push(c"VK_KHR_shader_atomic_int64".as_ptr());
+            sync2_feat.p_next =
+                (&mut int64_feat as *mut PhysicalDeviceShaderAtomicInt64Features).cast();
+        }
+        let priority = [1.0f32];
+        let dqci = DeviceQueueCreateInfo {
+            s_type: ST_DEVICE_QUEUE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: 0,
+            queue_family_index: qfi,
+            queue_count: 1,
+            p_queue_priorities: priority.as_ptr(),
+        };
+        let mut core_features = [0u32; 55];
+        core_features[40] = u32::from(caps.shader_int64);
+        let dci = DeviceCreateInfo {
+            s_type: ST_DEVICE_CREATE_INFO,
+            p_next: (&sync2_feat as *const PhysicalDeviceSynchronization2Features).cast(),
+            flags: 0,
+            queue_create_info_count: 1,
+            p_queue_create_infos: &dqci,
+            enabled_layer_count: 0,
+            pp_enabled_layer_names: std::ptr::null(),
+            enabled_extension_count: exts.len() as u32,
+            pp_enabled_extension_names: exts.as_ptr(),
+            p_enabled_features: core_features.as_ptr().cast(),
+        };
+        let mut device: VkDevice = std::ptr::null_mut();
+        let create_result = create_device(pd, &dci, std::ptr::null(), &mut device);
+        if create_result != VK_SUCCESS {
+            return Err(format!("vkCreateDevice(persistent) 失败: {create_result}"));
+        }
+        let Some(destroy_device) =
+            cast_fn::<FnDestroyDevice>(gdpa(device, c"vkDestroyDevice".as_ptr()))
+        else {
+            return Err("缺 vkDestroyDevice".into());
+        };
+
+        let mut captured = None;
+        let prepare = execute_on_device(
+            gdpa,
+            device,
+            pd,
+            get_mem,
+            qfi,
+            resources,
+            passes,
+            barriers,
+            readbacks,
+            Some(&mut captured),
+            false,
+        );
+        if let Err(error) = prepare {
+            destroy_device(device, std::ptr::null());
+            return Err(error);
+        }
+        let Some(frame) = captured else {
+            destroy_device(device, std::ptr::null());
+            return Err("persistent native frame capture 未产状态".into());
+        };
+
+        let fci = FenceCreateInfo {
+            s_type: ST_FENCE_CREATE_INFO,
+            p_next: std::ptr::null(),
+            flags: FENCE_CREATE_SIGNALED,
+        };
+        let mut fences = Vec::with_capacity(frame_slots);
+        for slot in 0..frame_slots {
+            let mut fence = VK_NULL_HANDLE;
+            let r = (frame.dev.create_fence)(device, &fci, std::ptr::null(), &mut fence);
+            if r != VK_SUCCESS {
+                for old in fences.drain(..) {
+                    (frame.dev.destroy_fence)(device, old, std::ptr::null());
+                }
+                frame.cleanup.destroy_all(&frame.dev, device);
+                destroy_device(device, std::ptr::null());
+                return Err(format!("vkCreateFence(frame slot {slot}) 失败: {r}"));
+            }
+            fences.push(fence);
+        }
+        let resource_allocations = frame.resource_allocations.clone();
+        Ok(NativePersistentFrame {
+            instance,
+            destroy_instance,
+            messenger,
+            destroy_messenger,
+            validation_errors,
+            pd,
+            get_mem2,
+            device,
+            destroy_device,
+            frame,
+            fences,
+            next_slot: 0,
+            timestamp_period_ns: caps.timestamp_period_ns,
+            resource_allocations,
+        })
+    })();
+
+    match result {
+        Ok(native) => Ok(native),
+        Err(error) => {
+            destroy_msgr(messenger);
+            destroy_instance(instance, std::ptr::null());
+            Err(error)
+        }
+    }
+}
+
+unsafe fn execute_persistent_frame(
+    native: &mut NativePersistentFrame,
+    passes: &[Pass<'_>],
+    readbacks: &[Readback],
+) -> Result<(Vec<Vec<u8>>, DeviceFrameTelemetry), String> {
+    const WAIT_TIMEOUT_NS: u64 = 5_000_000_000;
+    let slot = native.next_slot;
+    native.next_slot = (native.next_slot + 1) % native.fences.len();
+    let fence = native.fences[slot];
+    let validation_before = native
+        .validation_errors
+        .load(std::sync::atomic::Ordering::Relaxed);
+
+    let wait_started = std::time::Instant::now();
+    let prior = (native.frame.dev.wait_fences)(native.device, 1, &fence, 1, WAIT_TIMEOUT_NS);
+    if prior == VK_TIMEOUT {
+        return Err(format!(
+            "frame slot {slot} fence reuse bounded-wait 超时({WAIT_TIMEOUT_NS}ns;TDR-suspected)"
+        ));
+    }
+    if prior != VK_SUCCESS {
+        return Err(queue_result_error("vkWaitForFences(slot reuse)", prior));
+    }
+    let reset = (native.frame.dev.reset_fences)(native.device, 1, &fence);
+    if reset != VK_SUCCESS {
+        return Err(queue_result_error("vkResetFences", reset));
+    }
+    let si = SubmitInfo {
+        s_type: ST_SUBMIT_INFO,
+        p_next: std::ptr::null(),
+        wait_semaphore_count: 0,
+        p_wait_semaphores: std::ptr::null(),
+        p_wait_dst_stage_mask: std::ptr::null(),
+        command_buffer_count: 1,
+        p_command_buffers: &native.frame.cmd,
+        signal_semaphore_count: 0,
+        p_signal_semaphores: std::ptr::null(),
+    };
+    let submit_started = std::time::Instant::now();
+    let submit = (native.frame.dev.queue_submit)(native.frame.queue, 1, &si, fence);
+    let cpu_submit_ns = elapsed_ns(submit_started);
+    if submit != VK_SUCCESS {
+        return Err(queue_result_error(
+            "vkQueueSubmit(persistent frame)",
+            submit,
+        ));
+    }
+    let done = (native.frame.dev.wait_fences)(native.device, 1, &fence, 1, WAIT_TIMEOUT_NS);
+    let cpu_fence_wait_ns = elapsed_ns(wait_started);
+    if done == VK_TIMEOUT {
+        return Err(format!(
+            "frame slot {slot} fence completion bounded-wait 超时({WAIT_TIMEOUT_NS}ns;TDR-suspected)"
+        ));
+    }
+    if done != VK_SUCCESS {
+        return Err(queue_result_error(
+            "vkWaitForFences(frame completion)",
+            done,
+        ));
+    }
+
+    let mut ticks = vec![0u64; passes.len() * 2];
+    let query_result = (native.frame.dev.get_query_pool_results)(
+        native.device,
+        native.frame.cleanup.query_pool,
+        0,
+        ticks.len() as u32,
+        ticks.len() * std::mem::size_of::<u64>(),
+        ticks.as_mut_ptr().cast(),
+        std::mem::size_of::<u64>() as u64,
+        QUERY_RESULT_64_BIT | QUERY_RESULT_WAIT_BIT,
+    );
+    if query_result != VK_SUCCESS {
+        return Err(queue_result_error(
+            "vkGetQueryPoolResults(timestamp)",
+            query_result,
+        ));
+    }
+    let gpu_passes = passes
+        .iter()
+        .enumerate()
+        .map(|(i, pass)| {
+            let name = match pass {
+                Pass::Raster(p) => p.name,
+                Pass::Compute(p) => p.name,
+            };
+            PassGpuTiming {
+                pass_id: i as u64 + 1,
+                name: name.to_owned(),
+                gpu_ns: ticks[i * 2 + 1].wrapping_sub(ticks[i * 2]) as f64
+                    * f64::from(native.timestamp_period_ns),
+            }
+        })
+        .collect();
+
+    let mut out = Vec::with_capacity(readbacks.len());
+    for (i, readback) in readbacks.iter().enumerate() {
+        let (memory, offset, size) = match *readback {
+            Readback::Buffer { res, offset, size } => {
+                let RtRes::Buf(buffer) = &native.frame.rt[res as usize] else {
+                    return Err(format!("readbacks[{i}] buffer 资源类型漂移"));
+                };
+                (buffer.mem, offset, size)
+            }
+            Readback::Texture { res } => {
+                let RtRes::Img(image) = &native.frame.rt[res as usize] else {
+                    return Err(format!("readbacks[{i}] texture 资源类型漂移"));
+                };
+                let Some((_, memory)) = native.frame.rb_buffers[i] else {
+                    return Err(format!("readbacks[{i}] 持久 readback allocation 缺失"));
+                };
+                (
+                    memory,
+                    0,
+                    image.width as u64
+                        * image.height as u64
+                        * image.format.bytes_per_texel() as u64,
+                )
+            }
+        };
+        let map_size = size.max(4);
+        let mut ptr = std::ptr::null_mut();
+        let map = (native.frame.dev.map_mem)(native.device, memory, offset, map_size, 0, &mut ptr);
+        if map != VK_SUCCESS || ptr.is_null() {
+            return Err(format!("readbacks[{i}] vkMapMemory 失败: {map}"));
+        }
+        let mut bytes = vec![0u8; size as usize];
+        std::ptr::copy_nonoverlapping(ptr.cast::<u8>(), bytes.as_mut_ptr(), bytes.len());
+        (native.frame.dev.unmap_mem)(native.device, memory);
+        out.push(bytes);
+    }
+
+    let mut budget = PhysicalDeviceMemoryBudgetPropertiesExt {
+        s_type: ST_PHYSICAL_DEVICE_MEMORY_BUDGET_PROPERTIES_EXT,
+        p_next: std::ptr::null_mut(),
+        heap_budget: [0; 16],
+        heap_usage: [0; 16],
+    };
+    let mut memory = PhysicalDeviceMemoryProperties2 {
+        s_type: ST_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2,
+        p_next: (&mut budget as *mut PhysicalDeviceMemoryBudgetPropertiesExt).cast(),
+        memory_properties: std::mem::zeroed(),
+    };
+    (native.get_mem2)(native.pd, &mut memory);
+    let allocations: Vec<AllocationLedgerEntry> = native
+        .frame
+        .cleanup
+        .allocations
+        .iter()
+        .map(|allocation| allocation.entry.clone())
+        .collect();
+    let heaps = (0..memory.memory_properties.memory_heap_count as usize)
+        .map(|heap_index| HeapBudgetTelemetry {
+            heap_index: heap_index as u32,
+            budget_bytes: budget.heap_budget[heap_index],
+            driver_usage_bytes: budget.heap_usage[heap_index],
+            ledger_bytes: allocations
+                .iter()
+                .filter(|entry| entry.heap_index as usize == heap_index)
+                .map(|entry| entry.bytes)
+                .sum(),
+        })
+        .collect::<Vec<_>>();
+    if heaps.is_empty()
+        || heaps
+            .iter()
+            .any(|heap| heap.budget_bytes == 0 || heap.driver_usage_bytes > heap.budget_bytes)
+    {
+        return Err("VK_EXT_memory_budget 返回空/非法 heap 实值(fail-closed)".into());
+    }
+    let validation_error_count = native
+        .validation_errors
+        .load(std::sync::atomic::Ordering::Relaxed);
+    if validation_error_count > validation_before {
+        return Err(format!(
+            "VK_LAYER_KHRONOS_validation 新增 {} 条 ERROR(fail-closed)",
+            validation_error_count - validation_before
+        ));
+    }
+    let outstanding_object_count =
+        native.frame.cleanup.object_count() + native.fences.len() as u64 + 3;
+    let outstanding_allocation_count = allocations.len() as u64;
+    Ok((
+        out,
+        DeviceFrameTelemetry {
+            timestamp_period_ns: native.timestamp_period_ns,
+            passes: gpu_passes,
+            cpu_record_ns: 0,
+            cpu_submit_ns,
+            cpu_fence_wait_ns,
+            heaps,
+            allocations,
+            validation_error_count,
+            device_lost: false,
+            tdr_suspected: false,
+            outstanding_object_count,
+            outstanding_allocation_count,
+            leaked_object_count: 0,
+            leaked_allocation_count: 0,
+        },
+    ))
+}
+
+fn queue_result_error(op: &str, result: VkResult) -> String {
+    if result == VK_ERROR_DEVICE_LOST {
+        format!("{op} 失败: VK_ERROR_DEVICE_LOST({result})(device loss,fail-closed)")
+    } else {
+        format!("{op} 失败: {result}")
+    }
+}
+
+impl Drop for NativePersistentFrame {
+    fn drop(&mut self) {
+        // SAFETY: NativePersistentFrame 单所有者；最终 teardown 允许 queueWaitIdle。所有 fence /
+        // frame object / device / messenger / instance 均按创建逆序且只销毁一次。
+        unsafe {
+            let _ = (self.frame.dev.queue_wait)(self.frame.queue);
+            for fence in self.fences.drain(..) {
+                (self.frame.dev.destroy_fence)(self.device, fence, std::ptr::null());
+            }
+            self.frame.cleanup.destroy_all(&self.frame.dev, self.device);
+            (self.destroy_device)(self.device, std::ptr::null());
+            if self.messenger != VK_NULL_HANDLE
+                && let Some(destroy) = self.destroy_messenger
+            {
+                destroy(self.instance, self.messenger, std::ptr::null());
+            }
+            (self.destroy_instance)(self.instance, std::ptr::null());
+        }
+    }
 }
 
 // ─────────────────────────── 测试 ───────────────────────────
@@ -4679,6 +5832,10 @@ mod tests {
         assert_eq!(size_of::<QueueFamilyProperties>(), 24);
         assert_eq!(size_of::<SubmitInfo>(), 72);
         assert_eq!(size_of::<CommandPoolCreateInfo>(), 24);
+        assert_eq!(size_of::<FenceCreateInfo>(), 24);
+        assert_eq!(size_of::<QueryPoolCreateInfo>(), 32);
+        assert_eq!(size_of::<PhysicalDeviceMemoryProperties2>(), 536);
+        assert_eq!(size_of::<PhysicalDeviceMemoryBudgetPropertiesExt>(), 272);
         assert_eq!(size_of::<CommandBufferAllocateInfo>(), 32);
         assert_eq!(size_of::<CommandBufferBeginInfo>(), 32);
         assert_eq!(size_of::<VkViewport>(), 24);
@@ -4692,6 +5849,58 @@ mod tests {
         assert_eq!(size_of::<VkImageSubresourceLayers>(), 16);
     }
 
+    #[test]
+    fn provenance_rejects_wrong_producer_allocation_before_submit() {
+        let data = [1u8, 2, 3, 4];
+        let resources = [
+            ResourceDesc::Buffer(BufferDesc {
+                size: 4,
+                usage: BufferUsage {
+                    storage: true,
+                    ..BufferUsage::default()
+                },
+                data: Some(&data),
+            }),
+            ResourceDesc::Buffer(BufferDesc {
+                size: 4,
+                usage: BufferUsage {
+                    storage: true,
+                    ..BufferUsage::default()
+                },
+                data: None,
+            }),
+        ];
+        let pass = Pass::Compute(ComputePass {
+            name: "name-is-diagnostic-only",
+            spirv: &[],
+            entry: Some("main"),
+            dispatch: DispatchSpec::Direct([1, 1, 1]),
+            bindings: Bindings {
+                storage_buffers: vec![0, 1],
+                ..Bindings::default()
+            },
+        });
+        let expected = build_runtime_provenance(
+            &resources,
+            &[pass],
+            &[StableAllocationId(11), StableAllocationId(29)],
+            &[3, 7],
+            8,
+        );
+        validate_submission_provenance(&expected, &expected).expect("actual provenance 应通过");
+        let mut wrong = expected.clone();
+        wrong.passes[0].resources[0]
+            .producer
+            .as_mut()
+            .expect("storage readwrite 有 producer")
+            .allocation_id = StableAllocationId(999);
+        assert!(
+            validate_submission_provenance(&expected, &wrong)
+                .unwrap_err()
+                .contains("allocation/generation")
+        );
+    }
+
     fn test_caps() -> DeviceCaps {
         DeviceCaps {
             device_name: "host-mock".to_owned(),
@@ -4703,6 +5912,8 @@ mod tests {
             buffer_device_address: false,
             descriptor_indexing: false,
             deferred_host_operations: false,
+            memory_budget: false,
+            timestamp_period_ns: 1.0,
             max_push_constants_size: 128,
         }
     }
@@ -5448,6 +6659,57 @@ mod tests {
             assert_eq!(w, i as u32 + 100, "buf[{i}] = i+100");
         }
         eprintln!("[render_exec] ③ compute 写 buffer: {words:?}");
+    }
+
+    /// ③b 持久 session 连续两帧：同 allocation/pipeline/command 保持、fence slot 提交，
+    /// mandatory timestamp/memory-budget/ledger/provenance 均为实值。
+    #[test]
+    fn device_persistent_session_two_frames_real_telemetry() {
+        if !crate::vk::vulkan_available() {
+            eprintln!("[render_exec] SKIP: vulkan loader 不可用(persistent session)");
+            return;
+        }
+        let spv = spv_bytes(&sample_compute_spv_words());
+        let initial = [0u8; 32];
+        let resources = [ResourceDesc::Buffer(BufferDesc {
+            size: 32,
+            usage: BufferUsage {
+                storage: true,
+                ..BufferUsage::default()
+            },
+            data: Some(&initial),
+        })];
+        let passes = [Pass::Compute(ComputePass {
+            name: "persistent-c0",
+            spirv: &spv,
+            entry: None,
+            dispatch: DispatchSpec::Direct([8, 1, 1]),
+            bindings: Bindings {
+                storage_buffers: vec![0],
+                push_constants: 100u32.to_le_bytes().to_vec(),
+                ..Bindings::default()
+            },
+        })];
+        let plan = [[(0, TargetState::StorageWrite)]];
+        let barriers: [&[(u32, TargetState)]; 1] = [&plan[0]];
+        let readbacks = [Readback::Buffer {
+            res: 0,
+            offset: 0,
+            size: 32,
+        }];
+        let mut session = DeviceFrameSession::new(&resources, &passes, &barriers, &readbacks, 2)
+            .expect("persistent session 应创建成功");
+        let first = session.execute().expect("persistent frame 1");
+        let second = session.execute().expect("persistent frame 2");
+        assert_eq!(first.readbacks, second.readbacks);
+        assert_eq!(first.telemetry.allocations, second.telemetry.allocations);
+        assert_eq!(first.provenance.frame_generation, 1);
+        assert_eq!(second.provenance.frame_generation, 2);
+        assert_eq!(first.telemetry.passes.len(), 1);
+        assert!(first.telemetry.timestamp_period_ns > 0.0);
+        assert!(!first.telemetry.heaps.is_empty());
+        assert_eq!(first.telemetry.leaked_object_count, 0);
+        assert_eq!(first.telemetry.leaked_allocation_count, 0);
     }
 
     /// ④ raster+compute 混合两 pass:raster 写纹理 → compute 取中心纹素写 buffer。

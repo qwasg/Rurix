@@ -10529,7 +10529,9 @@ const ACCEL_STRUCTURE_TYPE_BOTTOM_LEVEL: u32 = 1;
 const GEOMETRY_TYPE_TRIANGLES: u32 = 0;
 const GEOMETRY_TYPE_INSTANCES: u32 = 2;
 const GEOMETRY_OPAQUE_BIT: u32 = 0x1;
+const BUILD_ACCEL_STRUCTURE_ALLOW_UPDATE_BIT: u32 = 0x1;
 const BUILD_ACCEL_STRUCTURE_MODE_BUILD: u32 = 0;
+const BUILD_ACCEL_STRUCTURE_MODE_UPDATE: u32 = 1;
 const ACCEL_STRUCTURE_BUILD_TYPE_DEVICE: u32 = 1;
 const RT_SHADER_GROUP_TYPE_GENERAL: u32 = 0;
 const RT_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP: u32 = 1;
@@ -12316,6 +12318,53 @@ pub struct RayQueryInstanceDesc {
     pub mask: u8,
 }
 
+/// 冻结调用方使用的显式 identity 行主 3×4 transform。
+pub const RAY_QUERY_IDENTITY_TRANSFORM: [f32; 12] = [
+    1.0, 0.0, 0.0, 0.0, //
+    0.0, 1.0, 0.0, 0.0, //
+    0.0, 0.0, 1.0, 0.0,
+];
+
+/// 带显式行主 3×4 transform 的 TLAS 实例描述。既有 [`RayQueryInstanceDesc`] API
+/// 经 identity 适配保持兼容；新持久场景用本类型更新实例矩阵。
+#[derive(Debug, Clone, Copy)]
+pub struct RayQueryTransformedInstanceDesc {
+    /// 引用 BLAS 下标。
+    pub blas: u32,
+    /// `instanceCustomIndex`（低 24 位有效）。
+    pub custom_index: u32,
+    /// 实例 mask。
+    pub mask: u8,
+    /// Vulkan `VkTransformMatrixKHR` 行主 3×4 矩阵。
+    pub transform: [f32; 12],
+}
+
+/// 显式 transform 场景描述。
+pub struct RayQueryTransformedSceneDesc<'a> {
+    /// 逐 BLAS 三角形，与 [`RayQuerySceneDesc`] 同口径。
+    pub blas_triangles: &'a [&'a [f32]],
+    /// 带显式矩阵的实例。
+    pub instances: &'a [RayQueryTransformedInstanceDesc],
+}
+
+/// TLAS 本代实际录制动作。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TlasBuildAction {
+    /// 全量 BUILD。
+    Rebuild,
+    /// `ALLOW_UPDATE` TLAS 的 UPDATE/refit。
+    Refit,
+}
+
+/// TLAS generation/action 运行期报告。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TlasGenerationReport {
+    /// 完成录制后的 TLAS generation。
+    pub generation: u64,
+    /// 本代实际动作。
+    pub action: TlasBuildAction,
+}
+
 /// 一份真实 TLAS 的场景描述(多三角形 BLAS × 多实例;G7.4 W3c 三核共用面)。
 ///
 /// `blas_triangles[i]` = 第 i 个 BLAS 的世界空间三角形,**9 f32/三角形**(a.xyz,
@@ -12336,6 +12385,7 @@ struct VkBlasEntry {
     buf: VkBuffer,
     mem: VkDeviceMemory,
     handle: VkAccelerationStructureKHR,
+    device_address: u64,
     scratch: VkBuffer,
     scratch_mem: VkDeviceMemory,
     /// BLAS geometry(Box 固定堆地址;`bgi.p_geometries` 指向其内容,
@@ -12377,6 +12427,9 @@ struct VkAsManager {
     _tlas_geom: Box<AccelGeometry>,
     tlas_bgi: AccelBuildGeometryInfo,
     tlas_range: AccelBuildRangeInfo,
+    instance_count: usize,
+    generation: u64,
+    last_action: TlasBuildAction,
 }
 
 impl VkAsManager {
@@ -12476,6 +12529,7 @@ impl VkAsManager {
                 blas_triangles: &tris,
                 instances: &instances,
             },
+            None,
         )
     }
 
@@ -12490,12 +12544,25 @@ impl VkAsManager {
         device: VkDevice,
         memprops: &PhysicalDeviceMemoryProperties,
         scene: &RayQuerySceneDesc<'_>,
+        transforms: Option<&[[f32; 12]]>,
     ) -> Result<Self, String> {
         if scene.blas_triangles.is_empty() {
             return Err("RayQuery 场景 BLAS 集为空(fail-closed,不建空 AS)".into());
         }
         if scene.instances.is_empty() {
             return Err("RayQuery 场景实例集为空(fail-closed,不建空 TLAS)".into());
+        }
+        if let Some(matrices) = transforms {
+            if matrices.len() != scene.instances.len() {
+                return Err(format!(
+                    "TLAS transform 数 {} != instance 数 {}",
+                    matrices.len(),
+                    scene.instances.len()
+                ));
+            }
+            if matrices.iter().flatten().any(|value| !value.is_finite()) {
+                return Err("TLAS row-major 3x4 transform 含 NaN/inf(fail-closed)".into());
+            }
         }
         for (i, tris) in scene.blas_triangles.iter().enumerate() {
             if tris.is_empty() || !tris.len().is_multiple_of(9) {
@@ -12539,8 +12606,11 @@ impl VkAsManager {
                 first_vertex: 0,
                 transform_offset: 0,
             },
+            instance_count: scene.instances.len(),
+            generation: 0,
+            last_action: TlasBuildAction::Rebuild,
         };
-        match Self::build_scene(&mut m, fns, device, memprops, scene) {
+        match Self::build_scene(&mut m, fns, device, memprops, scene, transforms) {
             Ok(()) => Ok(m),
             Err(e) => {
                 m.destroy(fns, device);
@@ -12556,6 +12626,7 @@ impl VkAsManager {
         device: VkDevice,
         memprops: &PhysicalDeviceMemoryProperties,
         scene: &RayQuerySceneDesc<'_>,
+        transforms: Option<&[[f32; 12]]>,
     ) -> Result<(), String> {
         let buf_addr = |buffer: VkBuffer| -> u64 {
             let info = BufferDeviceAddressInfo {
@@ -12581,6 +12652,7 @@ impl VkAsManager {
                 buf: VK_NULL_HANDLE,
                 mem: VK_NULL_HANDLE,
                 handle: VK_NULL_HANDLE,
+                device_address: 0,
                 scratch: VK_NULL_HANDLE,
                 scratch_mem: VK_NULL_HANDLE,
                 _geom: Box::new(AccelGeometry {
@@ -12723,14 +12795,15 @@ impl VkAsManager {
             entry.bgi.scratch_data = buf_addr(entry.scratch);
             // AS device address 在 create 后即合法（不依赖 build 完成,spec:handle
             // 有效即可查址）。
-            blas_addrs.push({
+            entry.device_address = {
                 let info = AccelDeviceAddressInfo {
                     s_type: ST_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR,
                     p_next: std::ptr::null(),
                     acceleration_structure: entry.handle,
                 };
                 (fns.get_as_addr)(device, &info)
-            });
+            };
+            blas_addrs.push(entry.device_address);
             m.blases.push(entry);
         }
 
@@ -12739,13 +12812,12 @@ impl VkAsManager {
         let ibytes = {
             let mut bytes =
                 Vec::with_capacity(scene.instances.len() * std::mem::size_of::<AccelInstance>());
-            for inst in scene.instances {
+            for (instance_index, inst) in scene.instances.iter().enumerate() {
+                let transform = transforms
+                    .map(|matrices| matrices[instance_index])
+                    .unwrap_or(RAY_QUERY_IDENTITY_TRANSFORM);
                 let instance = AccelInstance {
-                    transform: [
-                        1.0, 0.0, 0.0, 0.0, //
-                        0.0, 1.0, 0.0, 0.0, //
-                        0.0, 0.0, 1.0, 0.0, //
-                    ],
+                    transform,
                     // customIndex(低 24)| mask(高 8)。单三角形路 = 0 / 0xFF →
                     // 0xFF00_0000（与 G7.3 形态逐位一致）。
                     instance_custom_index_and_mask: (inst.custom_index & 0x00FF_FFFF)
@@ -12799,7 +12871,7 @@ impl VkAsManager {
             s_type: ST_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR,
             p_next: std::ptr::null(),
             ty: ACCEL_STRUCTURE_TYPE_TOP_LEVEL,
-            flags: 0,
+            flags: BUILD_ACCEL_STRUCTURE_ALLOW_UPDATE_BIT,
             mode: BUILD_ACCEL_STRUCTURE_MODE_BUILD,
             src_acceleration_structure: VK_NULL_HANDLE,
             dst_acceleration_structure: VK_NULL_HANDLE,
@@ -12857,7 +12929,9 @@ impl VkAsManager {
             fns,
             device,
             memprops,
-            tlas_sizes.build_scratch_size,
+            tlas_sizes
+                .build_scratch_size
+                .max(tlas_sizes.update_scratch_size),
             scratch_usage,
             false,
             true,
@@ -12882,7 +12956,7 @@ impl VkAsManager {
 
     /// 录制 逐 BLAS build → 全序内存屏障（ACCEL_WRITE→ACCEL_READ|WRITE）→ TLAS build
     /// (等序提取自 `rt_body` 录制段;N=1 即原序)。
-    unsafe fn record_build(&self, fns: &VkAsFns, cmd: VkCommandBuffer) {
+    unsafe fn record_build(&mut self, fns: &VkAsFns, cmd: VkCommandBuffer) {
         for entry in &self.blases {
             let blas_range_ptr: *const AccelBuildRangeInfo = &entry.range;
             (fns.cmd_build_as)(cmd, 1, &entry.bgi, &blas_range_ptr);
@@ -12907,6 +12981,89 @@ impl VkAsManager {
         );
         let tlas_range_ptr: *const AccelBuildRangeInfo = &self.tlas_range;
         (fns.cmd_build_as)(cmd, 1, &self.tlas_bgi, &tlas_range_ptr);
+        self.generation = self.generation.saturating_add(1);
+        self.last_action = TlasBuildAction::Rebuild;
+    }
+
+    /// 更新 host-visible instance buffer 的显式行主 3×4 transforms。实例拓扑/BLAS 引用
+    /// 保持不变，因此下一次可真实录制 UPDATE/refit；数量变化须走 rebuild/new manager。
+    unsafe fn write_transforms(
+        &mut self,
+        fns: &VkAsFns,
+        device: VkDevice,
+        instances: &[RayQueryTransformedInstanceDesc],
+    ) -> Result<(), String> {
+        if instances.len() != self.instance_count {
+            return Err(format!(
+                "TLAS transform update instance 数 {} != persistent {}(须 rebuild)",
+                instances.len(),
+                self.instance_count
+            ));
+        }
+        if instances
+            .iter()
+            .flat_map(|instance| instance.transform)
+            .any(|value| !value.is_finite())
+        {
+            return Err("TLAS transform update 含 NaN/inf(fail-closed)".into());
+        }
+        let mut bytes = Vec::with_capacity(instances.len() * std::mem::size_of::<AccelInstance>());
+        for instance in instances {
+            let raw = AccelInstance {
+                transform: instance.transform,
+                instance_custom_index_and_mask: (instance.custom_index & 0x00FF_FFFF)
+                    | ((instance.mask as u32) << 24),
+                instance_sbt_offset_and_flags: GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE << 24,
+                // BLAS address/reference is immutable for transform-only refit；从现有 instance
+                // buffer 重建该字段需要 manager 保留地址表，首波禁止变更 BLAS 引用。
+                acceleration_structure_reference: self.instance_blas_address(instance.blas)?,
+            };
+            let ptr = (&raw as *const AccelInstance).cast::<u8>();
+            bytes.extend_from_slice(std::slice::from_raw_parts(
+                ptr,
+                std::mem::size_of::<AccelInstance>(),
+            ));
+        }
+        Self::upload(fns, device, self.imem, &bytes);
+        Ok(())
+    }
+
+    fn instance_blas_address(&self, blas: u32) -> Result<u64, String> {
+        self.blases
+            .get(blas as usize)
+            .map(|entry| entry.device_address)
+            .filter(|address| *address != 0)
+            .ok_or_else(|| format!("transform update 引用越界/过期 BLAS {blas}"))
+    }
+
+    /// 录制实际 TLAS refit/update 或 rebuild，并报告 generation/action。调用方随后仍须
+    /// [`Self::record_consume_barrier`] 建立 AS_WRITE→AS_READ。
+    unsafe fn record_tlas_update(
+        &mut self,
+        fns: &VkAsFns,
+        cmd: VkCommandBuffer,
+        action: TlasBuildAction,
+    ) -> TlasGenerationReport {
+        self.tlas_bgi.mode = match action {
+            TlasBuildAction::Rebuild => BUILD_ACCEL_STRUCTURE_MODE_BUILD,
+            TlasBuildAction::Refit => BUILD_ACCEL_STRUCTURE_MODE_UPDATE,
+        };
+        self.tlas_bgi.src_acceleration_structure = match action {
+            TlasBuildAction::Rebuild => VK_NULL_HANDLE,
+            TlasBuildAction::Refit => self.tlas,
+        };
+        let range: *const AccelBuildRangeInfo = &self.tlas_range;
+        (fns.cmd_build_as)(cmd, 1, &self.tlas_bgi, &range);
+        self.generation = self.generation.saturating_add(1);
+        self.last_action = action;
+        self.generation_report()
+    }
+
+    fn generation_report(&self) -> TlasGenerationReport {
+        TlasGenerationReport {
+            generation: self.generation,
+            action: self.last_action,
+        }
     }
 
     /// 录制 TLAS build → 消费 stage 读屏障(`dst_stage` = RT pipeline 路
@@ -12970,6 +13127,7 @@ impl VkAsManager {
             if entry.handle != VK_NULL_HANDLE {
                 (fns.destroy_as)(device, entry.handle, std::ptr::null());
                 entry.handle = VK_NULL_HANDLE;
+                entry.device_address = 0;
             }
             if entry.scratch != VK_NULL_HANDLE {
                 (fns.destroy_buffer)(device, entry.scratch, std::ptr::null());
@@ -13620,7 +13778,7 @@ unsafe fn rt_body(
         begin_cmd(cmd, &cbbi);
 
         // BLAS build → 全序内存屏障 → TLAS build → RT shader 读屏障（单所有者录制,等序）。
-        if let Some(m) = as_mgr.as_ref() {
+        if let Some(m) = as_mgr.as_mut() {
             m.record_build(&as_fns, cmd);
             m.record_consume_barrier(&as_fns, cmd, PIPELINE_STAGE_RAY_TRACING_SHADER_KHR);
         }
@@ -13932,6 +14090,8 @@ pub struct RayQueryEffectsOutput {
     pub dispatch_tlas: Vec<u64>,
     /// 逐 dispatch 的逐 `Output` buffer 回读字节(序 = `buffers` 中 `Output` 出现序)。
     pub readbacks: Vec<Vec<Vec<u8>>>,
+    /// 本次真实 TLAS generation/action（identity 兼容路为 generation 1 + Rebuild）。
+    pub tlas_generation: TlasGenerationReport,
 }
 
 /// **三核共用同一真实 TLAS** 的 compute RayQuery 执行(G7.4 W3c;RFC-0018 §D1;
@@ -13969,7 +14129,54 @@ pub fn run_ray_query_effects_probed(
     let gipa = load_vulkan_loader().ok_or("vulkan loader (vulkan-1.dll/libvulkan.so) 不可用")?;
     // SAFETY: U30 扩注(compute AS descriptor 消费臂);句柄生命周期由内部函数线性管理,
     // 末尾逆序销毁;AS 句柄全归 VkAsManager 单所有者。
-    unsafe { run_rq_inner(gipa, scene, dispatches, probe) }
+    unsafe { run_rq_inner(gipa, scene, dispatches, probe, None, None) }
+}
+
+/// 显式 row-major 3×4 transform 的 RayQuery 效果执行。`update` 在同一
+/// [`VkAsManager`] 上实际录制 TLAS `UPDATE`/`BUILD`，报告 generation/action；既有
+/// [`run_ray_query_effects`] 仍经 identity transform 单提交路径，步骤 93–95 兼容。
+pub fn run_ray_query_effects_transformed(
+    scene: &RayQueryTransformedSceneDesc<'_>,
+    dispatches: &[RayQueryDispatchDesc<'_>],
+    update: Option<(&[RayQueryTransformedInstanceDesc], TlasBuildAction)>,
+) -> Result<RayQueryEffectsOutput, String> {
+    if scene.instances.is_empty() {
+        return Err("transformed RayQuery 场景实例集为空".into());
+    }
+    let base_instances = scene
+        .instances
+        .iter()
+        .map(|instance| RayQueryInstanceDesc {
+            blas: instance.blas,
+            custom_index: instance.custom_index,
+            mask: instance.mask,
+        })
+        .collect::<Vec<_>>();
+    let transforms = scene
+        .instances
+        .iter()
+        .map(|instance| instance.transform)
+        .collect::<Vec<_>>();
+    let base_scene = RayQuerySceneDesc {
+        blas_triangles: scene.blas_triangles,
+        instances: &base_instances,
+    };
+    if dispatches.is_empty() {
+        return Err("RayQuery 执行请求为空(fail-closed)".into());
+    }
+    let gipa = load_vulkan_loader().ok_or("vulkan loader (vulkan-1.dll/libvulkan.so) 不可用")?;
+    // SAFETY: U30 持久 transform 扩注；VkAsManager 仍为唯一 AS owner，update 录制在
+    // 同一 command buffer 的初始 build 之后，消费 barrier 之前。
+    unsafe {
+        run_rq_inner(
+            gipa,
+            &base_scene,
+            dispatches,
+            RayQueryRedProbe::None,
+            Some(&transforms),
+            update,
+        )
+    }
 }
 
 /// compute RayQuery kernel device 真跑:rurixc 产 SPIR-V 1.4 模块(签名
@@ -14053,6 +14260,8 @@ unsafe fn run_rq_inner(
     scene: &RayQuerySceneDesc<'_>,
     dispatches: &[RayQueryDispatchDesc<'_>],
     probe: RayQueryRedProbe,
+    transforms: Option<&[[f32; 12]]>,
+    transform_update: Option<(&[RayQueryTransformedInstanceDesc], TlasBuildAction)>,
 ) -> Result<RayQueryEffectsOutput, String> {
     let vk_create_instance: FnCreateInstance =
         cast_fn(gipa(std::ptr::null_mut(), c"vkCreateInstance".as_ptr()))
@@ -14313,6 +14522,8 @@ unsafe fn run_rq_inner(
         scene,
         dispatches,
         probe,
+        transforms,
+        transform_update,
     );
     if validation && validation_error.load(std::sync::atomic::Ordering::Relaxed) {
         out = Err("VK_LAYER_KHRONOS_validation 报 ERROR 级校验错误（fail-closed,L3）".into());
@@ -14352,6 +14563,8 @@ unsafe fn rq_body(
     scene: &RayQuerySceneDesc<'_>,
     dispatches: &[RayQueryDispatchDesc<'_>],
     probe: RayQueryRedProbe,
+    transforms: Option<&[[f32; 12]]>,
+    transform_update: Option<(&[RayQueryTransformedInstanceDesc], TlasBuildAction)>,
 ) -> Result<RayQueryEffectsOutput, String> {
     macro_rules! dp {
         ($name:literal, $ty:ty) => {
@@ -14412,7 +14625,8 @@ unsafe fn rq_body(
     let mut cmdpool: VkCommandPool = VK_NULL_HANDLE;
     let result: Result<RayQueryEffectsOutput, String> = 'body: {
         // ── BLAS/TLAS 全量建面(复用 RT pipeline 路径同一单所有者,禁止第二套 BVH)──
-        let mut mgr = match VkAsManager::create_scene(&as_fns, device, &memprops, scene) {
+        let mut mgr = match VkAsManager::create_scene(&as_fns, device, &memprops, scene, transforms)
+        {
             Ok(m) => m,
             Err(e) => {
                 break 'body Err(e);
@@ -14421,6 +14635,11 @@ unsafe fn rq_body(
         if probe == RayQueryRedProbe::StaleTlas {
             // 「过期 TLAS」注入:销毁后句柄置 null,消费前检查必须拒绝。
             mgr.destroy(&as_fns, device);
+        } else if let Some((instances, _)) = transform_update
+            && let Err(error) = mgr.write_transforms(&as_fns, device, instances)
+        {
+            mgr.destroy(&as_fns, device);
+            break 'body Err(error);
         }
         let tlas = mgr.tlas();
         as_mgr = Some(mgr);
@@ -14712,8 +14931,29 @@ unsafe fn rq_body(
             p_inheritance_info: std::ptr::null(),
         };
         begin_cmd(cmd, &cbbi);
-        let mgr_ref = as_mgr.as_ref().expect("as_mgr 已在上方置 Some");
+        let mgr_ref = as_mgr.as_mut().expect("as_mgr 已在上方置 Some");
         mgr_ref.record_build(&as_fns, cmd);
+        if let Some((_, action)) = transform_update {
+            let between = MemoryBarrier {
+                s_type: ST_MEMORY_BARRIER,
+                p_next: std::ptr::null(),
+                src_access_mask: ACCESS_ACCEL_STRUCTURE_WRITE_KHR,
+                dst_access_mask: ACCESS_ACCEL_STRUCTURE_READ_KHR | ACCESS_ACCEL_STRUCTURE_WRITE_KHR,
+            };
+            (as_fns.cmd_barrier)(
+                cmd,
+                PIPELINE_STAGE_ACCEL_STRUCTURE_BUILD_KHR,
+                PIPELINE_STAGE_ACCEL_STRUCTURE_BUILD_KHR,
+                0,
+                1,
+                (&between as *const MemoryBarrier).cast(),
+                0,
+                std::ptr::null(),
+                0,
+                std::ptr::null(),
+            );
+            let _ = mgr_ref.record_tlas_update(&as_fns, cmd, action);
+        }
         if probe == RayQueryRedProbe::WrongBarrier {
             // 「错误 barrier」注入:src stage 用 TOP_OF_PIPE 却携 ACCEL_STRUCTURE_WRITE
             // access——违反 stage/access 兼容性 VUID,validation ERROR → fail-closed Err。
@@ -14833,6 +15073,10 @@ unsafe fn rq_body(
             tlas_identity: tlas,
             dispatch_tlas: res.iter().map(|r| r.tlas).collect(),
             readbacks,
+            tlas_generation: as_mgr
+                .as_ref()
+                .expect("AS manager 仍存活")
+                .generation_report(),
         });
     };
 
