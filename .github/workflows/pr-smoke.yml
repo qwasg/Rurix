@@ -965,6 +965,37 @@ jobs:
           RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/ray_query_codegen_smoke.py
 
+      # 步骤 94（G-G7-6,RFC-0018 章 A/C/D;G7 CI_GATES §2）:renderer W3 三效果核冒烟。
+      # host 段**恒跑**(需 Vulkan SDK 的 spirv-val/spirv-dis;缺工具 SKIP=dev-env degrade
+      # 退 0 不充绿):① host BVH/reference 三效果 oracle 单测(rurix-render 的 rt:: 与 gi::
+      # 全量)——host oracle **数值语义 0-byte** 的回归网;② AS/lifetime 审计(RFC-0018
+      # §C1/C4:rt::as_manager 策略单源单测 + rurix-render `#![forbid(unsafe_code)]` 在位 +
+      # unsafe-audit U30〔AS/SBT/device-address〕边界登记在位,新 unsafe 复用不另开边界);
+      # ③ 三 kernel(gi_probe/rtao/hard_shadow)真实 .rx → .spv 须 SPIR-V 1.4 且 spirv-val
+      # `--target-env vulkan1.2` **与** `spv1.4` 双口径皆 accept(退出码判定);④ 反汇编
+      # golden:per-file 必含 AccelStruct/RayQuery 类型 + initialize/proceed/intersection-type,
+      # 三核**并集**覆盖 committed 五查询族(含 G7.4 路 A 实现兑现的
+      # OpRayQueryGetIntersectionBarycentricsKHR **分量真实消费**);⑤ 单 TLAS 纪律静态审计
+      # (RXS-0297:每 kernel 签名 AccelStruct 形参恰好一个);⑥ W1/W2 五 kernel 对
+      # tests/vulkan/w1w2_spv_manifest.json 的 sha256/版本/capability 零漂移;⑦ RED 反证:
+      # 篡改 .spv → spirv-val 必拒。
+      # device 段 gate real(门 G-G7-6):uc06-renderer --w3-effects(feature vulkan,
+      # RURIX_VK_VALIDATION=1 由脚本置)——三 kernel 在**一次** VkAsManager 建面(3 BLAS ×
+      # 3 实例 = 冻结场景 764 三角形)+ 一条 command buffer + 单次提交中依次 dispatch,
+      # **同一个 TLAS 句柄**写入三个 descriptor set(identity 机验 = 「三核共用真实 TLAS」);
+      # 逐量对拍 host oracle:hit/miss 与 instance/primitive/geometryIndex **零容差**,
+      # committed_t / barycentric 分量 / GI 辐射度 / RTAO AO / 硬阴影可见性按**measured 后
+      # 冻结**容差成对机验(measured ≤ tol,阈值只来自真实 GPU 输出);RED 三轴 =
+      # --w3-red-tamper(篡改 device 侧场景顶点 → 对拍必红的**数据流反证**)+ 注入式
+      # stale-tlas + wrong-barrier(validation VUID 拦截 → fail-closed)。
+      # **RURIX_REQUIRE_REAL=1**,缺设备 SKIP 翻硬红;host oracle 仅作对拍参照不参与成功
+      # 路径,mock / host substitution / isolated nonzero 不充绿。失败即红。
+      - name: renderer W3 effects smoke (G7 CI_GATES §2.94, G-G7-6, RFC-0018 章 A/C/D)
+        shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
+        run: py -3 ci/renderer_w3_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

@@ -1,0 +1,215 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://rurix.dev/schemas/g7/renderer_w3_evidence.json",
+  "title": "G7.4 W3c renderer W3 三效果核 evidence(CI 步骤 94;门 G-G7-6)",
+  "description": "gi_probe/rtao/hard_shadow 三 .rx 效果核**共用同一真实 TLAS** 的 device 真跑 + host oracle 对拍证据。host 段(恒跑)= host BVH/reference 三效果 oracle 单测 + AS/lifetime 审计 + 三 kernel 编译面(SPIR-V 1.4 / spirv-val 双口径 / 反汇编 golden / 单 TLAS 纪律静态审计)+ W1/W2 零漂移;device 段(gate real,RURIX_REQUIRE_REAL=1)= 同一 TLAS identity 驱动三 dispatch 的逐量对拍 + validation 零错误 + RED 轴。容差纪律(RFC-0018 §D3):索引与 hit/miss 零容差;浮点类先 measured 后冻结,阈值只来自真实 GPU 输出 —— 故 measured_* 与 tol_* **成对**落盘,机验 measured <= tol。host oracle 仅作对拍参照,不参与成功路径(G-G7-6);mock / host substitution / isolated nonzero 不充绿。",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "subject",
+    "milestone",
+    "step",
+    "spec_clauses",
+    "host_section_pass",
+    "device_section_rc",
+    "checks",
+    "require_real",
+    "run_url",
+    "timestamp"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "subject": { "type": "string", "const": "renderer_w3_smoke" },
+    "milestone": { "type": "string" },
+    "step": { "type": "integer", "const": 94 },
+    "spec_clauses": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^RXS-\\d{4}$" },
+      "minItems": 1
+    },
+    "host_section_pass": { "type": "boolean" },
+    "device_section_rc": { "type": "integer" },
+    "checks": {
+      "type": "object",
+      "description": "host 段逐项判据(恒跑)。",
+      "additionalProperties": false,
+      "properties": {
+        "oracle_tests_pass": {
+          "type": "boolean",
+          "description": "host 三效果 oracle 单测(rt:: 与 gi:: 全量)恒绿。"
+        },
+        "as_lifetime_audit_pass": {
+          "type": "boolean",
+          "description": "AS 生命周期/所有权审计:rt::as_manager 单测 + rurix-render forbid(unsafe_code) 在位 + unsafe-audit U30 边界登记(RFC-0018 §C1/C4)。"
+        },
+        "kernel_emit_pass": {
+          "type": "boolean",
+          "description": "三 kernel 真实 .rx -> .spv:SPIR-V 1.4 + spirv-val --target-env vulkan1.2 与 spv1.4 双口径 accept + 反汇编 golden 关键指令锚定。"
+        },
+        "single_tlas_discipline_pass": {
+          "type": "boolean",
+          "description": "单 TLAS 纪律静态审计:每个 kernel 签名 AccelStruct 形参恰好一个(RXS-0297)。"
+        },
+        "w1w2_zero_drift_pass": {
+          "type": "boolean",
+          "description": "W1/W2 五 kernel 对 tests/vulkan/w1w2_spv_manifest.json 的 sha256/版本/capability 零漂移(只增不改)。"
+        },
+        "red_tamper_spv_pass": {
+          "type": "boolean",
+          "description": "篡改 .spv 单字节 -> spirv-val 必拒(编译校验轴生效反证)。"
+        }
+      }
+    },
+    "kernels": {
+      "type": "object",
+      "description": "逐 kernel 编译面观测(键 = kernel 名)。",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "spirv_version": { "type": "string" },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "spirv_val": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          },
+          "accel_struct_params": { "type": "integer" },
+          "golden_mnemonics": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "device_pass": { "type": ["boolean", "null"] },
+    "device_skip_reason": { "type": ["string", "null"] },
+    "device_capability_snapshot": { "type": ["string", "null"] },
+    "device_name": { "type": ["string", "null"] },
+    "validation_enabled": {
+      "type": "boolean",
+      "description": "RURIX_VK_VALIDATION=1 是否置(device 段 validation 零错误的取证前提;fail-closed 由 messenger 翻 Err 承载)。"
+    },
+    "shared_tlas": {
+      "type": ["object", "null"],
+      "description": "「三核共用同一真实 TLAS」的机验证据:TLAS 句柄 identity 与逐 dispatch 实际绑定句柄全等(G-G7-6 / RFC-0018 §D1)。",
+      "required": ["tlas_identity", "dispatch_tlas", "identical"],
+      "additionalProperties": false,
+      "properties": {
+        "tlas_identity": { "type": "string" },
+        "dispatch_tlas": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "identical": { "type": "boolean" }
+      }
+    },
+    "scene": {
+      "type": ["object", "null"],
+      "description": "冻结场景规模与探针集(milestones/g7/G7_SCENE_FREEZE.md)。",
+      "additionalProperties": false,
+      "properties": {
+        "blas_count": { "type": "integer" },
+        "instance_count": { "type": "integer" },
+        "triangle_count": { "type": "integer" },
+        "probe_rays": { "type": "integer" },
+        "gbuffer_pixels": { "type": "integer" }
+      }
+    },
+    "geometry_parity": {
+      "type": ["object", "null"],
+      "description": "几何语义对拍(gi_probe 的 committed 五查询 vs host rt::bvh::Hit)。索引与 hit/miss 类零容差 -> 计数字段恒须为 0。",
+      "additionalProperties": false,
+      "properties": {
+        "hit_mismatches": { "type": "integer" },
+        "instance_mismatches": { "type": "integer" },
+        "primitive_mismatches": { "type": "integer" },
+        "geometry_index_nonzero": { "type": "integer" },
+        "measured_t_max_abs": { "type": "number" },
+        "tol_t": { "type": "number" },
+        "measured_bary_max_abs": { "type": "number" },
+        "tol_bary": { "type": "number" }
+      }
+    },
+    "effect_parity": {
+      "type": ["object", "null"],
+      "description": "效果输出对拍(measured 与冻结容差成对;measured 值只来自真实 GPU 输出,禁止为过门修改 host oracle 数值语义)。",
+      "additionalProperties": false,
+      "properties": {
+        "measured_radiance_max_abs": { "type": "number" },
+        "tol_radiance": { "type": "number" },
+        "measured_ao_max_abs": { "type": "number" },
+        "tol_ao": { "type": "number" },
+        "measured_visibility_max_abs": { "type": "number" },
+        "tol_visibility": { "type": "number" },
+        "gi_probe_pass": { "type": "boolean" },
+        "rtao_pass": { "type": "boolean" },
+        "hard_shadow_pass": { "type": "boolean" }
+      }
+    },
+    "effect_stats": {
+      "type": ["object", "null"],
+      "description": "输出非退化留痕(非判据):AO 均值/被遮蔽像素数、阴影覆盖率、GI 非零比 —— 证明判据不在常量上空转。",
+      "additionalProperties": false,
+      "properties": {
+        "ao_mean_device": { "type": "number" },
+        "ao_occluded_pixels": { "type": "integer" },
+        "shadowed_ratio_device": { "type": "number" },
+        "radiance_nonzero_ratio_device": { "type": "number" }
+      }
+    },
+    "input_provenance": {
+      "type": ["object", "null"],
+      "description": "device kernel 输入的来源纪律(与 W1/W2 kernel 消费 host 预备输入同构;输入不是 host 回填结果)。RTAO 采样方向为 host 同源输入 —— oracle 的 Pcg32 需 u64 wrapping_mul + rotate_right,冻结语义子集(RXS-0298)无此供给面,device 侧实现 RNG 须扩语言面,按纪律不自行扩张;device 真做遍历与遮蔽判定。",
+      "additionalProperties": false,
+      "properties": {
+        "rtao_dirs": { "type": "string" },
+        "rtao_seed": { "type": "string" },
+        "rtao_samples_per_pixel": { "type": "integer" },
+        "rtao_radius": { "type": "number" },
+        "gbuffer_source": { "type": "string" },
+        "invalid_pixel_arm": {
+          "type": "string",
+          "description": "诚实边界:oracle 的无效像素臂(NaN/inf 位置、零长法线/光方向)不在 device kernel 表达,由 host 单测覆盖;miss 轴照常 device 覆盖。"
+        }
+      }
+    },
+    "device_red": {
+      "type": "object",
+      "description": "RED 轴。tamper_geometry = 篡改 device 侧场景顶点(host oracle 不动)-> 对拍必红的数据流反证;stale_tlas / wrong_barrier = 注入式 fail-closed。",
+      "additionalProperties": false,
+      "properties": {
+        "tamper_geometry": { "type": ["boolean", "null"] },
+        "stale_tlas": { "type": ["boolean", "null"] },
+        "wrong_barrier": { "type": ["boolean", "null"] },
+        "missing_capability": { "type": ["boolean", "null"] }
+      }
+    },
+    "toolchain_skip": { "type": ["string", "null"] },
+    "dev_env_degrade": { "type": "boolean" },
+    "require_real": { "type": "boolean" },
+    "run_url": { "type": "string" },
+    "timestamp": { "type": "string" }
+  },
+  "allOf": [
+    {
+      "description": "device 段真跑(非 SKIP)时:共用 TLAS 证据、场景规模、几何与效果对拍、RED 轴、validation 开启标记全部必须在位 —— 封死「device 段绿但无对拍数字」的空转窗口。",
+      "if": {
+        "properties": { "device_pass": { "const": true } },
+        "required": ["device_pass"]
+      },
+      "then": {
+        "required": [
+          "shared_tlas",
+          "scene",
+          "geometry_parity",
+          "effect_parity",
+          "effect_stats",
+          "input_provenance",
+          "device_red",
+          "validation_enabled",
+          "device_capability_snapshot"
+        ]
+      }
+    }
+  ]
+}

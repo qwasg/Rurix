@@ -298,6 +298,9 @@ def check_evidence_files() -> None:
     ray_query_codegen_schema = load(
         ROOT / "milestones/g7/ray_query_codegen_evidence_schema.json"
     )
+    renderer_w3_schema = load(
+        ROOT / "milestones/g7/renderer_w3_evidence_schema.json"
+    )
     g8_perf_baseline_schema = load(
         ROOT / "milestones/g8/g8_perf_baseline_evidence_schema.json"
     )
@@ -520,6 +523,11 @@ def check_evidence_files() -> None:
     g7_perf_baseline_validator = (
         jsonschema.Draft7Validator(g7_perf_baseline_schema)
         if g7_perf_baseline_schema is not None
+        else None
+    )
+    renderer_w3_validator = (
+        jsonschema.Draft7Validator(renderer_w3_schema)
+        if renderer_w3_schema is not None
         else None
     )
     ray_query_codegen_validator = (
@@ -1007,6 +1015,22 @@ def check_evidence_files() -> None:
             # capability 零漂移、篡改 .spv 的 RED 反证;device 段最小 hit/miss kernel
             # 真跑 gate real,硬前置 G7.3 W3b 未在树时 device_blocked 记 blocked-honest)。
             validator = ray_query_codegen_validator
+        elif (
+            f.name.startswith("renderer_w3_smoke")
+            and renderer_w3_validator is not None
+        ):
+            # G7.4 W3c renderer W3 三效果核冒烟(步骤 94;G-G7-6)→
+            # milestones/g7/renderer_w3_evidence_schema.json(host 段七项:host 三效果
+            # oracle 单测〔rt:: + gi::,数值语义 0-byte 回归网〕、AS/lifetime 审计
+            # 〔as_manager 单源 + forbid(unsafe) + U30 登记〕、三 kernel 真实 .rx→.spv 且
+            # SPIR-V 1.4 + spirv-val 双口径、反汇编 golden 并集〔含 barycentrics 分量真实
+            # 消费〕、单 TLAS 纪律静态审计〔AccelStruct 形参恰好一个,RXS-0297〕、W1/W2 五
+            # kernel 零漂移、篡改 .spv 的 RED 反证;device 段 gate real:同一 TLAS identity
+            # 驱动三 dispatch,零容差量〔hit/miss + instance/primitive/geometry index〕与
+            # measured/tol 成对量〔t / barycentric / 辐射度 / AO / 可见性〕逐项机验,
+            # RED 三轴〔篡改几何数据流反证 / 过期 TLAS / 错误 barrier〕)。
+            # 前缀与 renderer_{graph,draw,visbuffer,lighting,temporal}_ 互不包含。
+            validator = renderer_w3_validator
         elif (
             f.name.startswith("g8_perf_baseline_")
             and g8_perf_baseline_validator is not None

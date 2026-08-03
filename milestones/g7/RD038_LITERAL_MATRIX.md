@@ -66,3 +66,56 @@
 1. 字面分项兑现统计(8 行):**已兑现 3**(两级剔除、VisBuffer SW(u64 atomicMax)、classify-resolve);**部分 2**(VSM 深度——仅 page-mark;TAA-TSR——仅 TAA);**无 3**(HW 光栅、屏幕探针 GI、RTAO 硬阴影)。
 2. 按 G7 契约 §6(RD-038「按 title、backfill_condition、history 逐字验收;全部兑现才 closed」)与 G-G7-7/G-G7-9(未覆盖任一字面分项则 RD-038 保持 open,禁止局部完成冒充全关):**当前 RD-038 必须保持 open**;本矩阵为 G-G7-3 基线审计件,各 close 判据以步骤 93~96 脚本 materialize 后产出的真实 device evidence 为最终裁判。
 3. 未证实项汇总:① history 条目二「validation 零报错」缺乏 evidence 锚(现有 `validation_clean` 仅为开关记录);② backfill_condition「条款按需自 RXS-0297 顺位」的 spec 条款兑现情况未逐条核;此两项不构成分项兑现,仅作留痕,待 G7.2/G7.5 波次补锚。
+
+---
+
+## 6. 波次兑现追加(只增不改;§1~§5 基线审计口径 0-byte)
+
+> 纪律:本节**只追加**各波次的真实 device 证据与分项状态迁移,不改写 §1 矩阵的 close 判据
+> 与 §5 审计声明。RD-038 的 `status` 仍以 G-G7-9 的**逐字审计**为唯一裁判。
+
+### 6.1 G7.4 W3c(2026-08-03;门 G-G7-6;CI 步骤 94)
+
+**分项状态迁移**:§1 行 6「屏幕探针 GI」与行 7「RTAO 硬阴影」自 **无** → **已兑现**
+(device kernel 本体在树 + 共用同一真实 TLAS 真跑 + host oracle 对拍全过)。
+
+- **kernel 本体**:`apps/uc06-renderer/kernels/{gi_probe,rtao,hard_shadow}.rx`
+  (§1 行 6/7「无 .rx kernel 本体」缺口关闭;`KERNEL_WAVE_ROUTES` 的 W3 路由 0-byte 不扩)。
+- **共用同一真实 TLAS**(§1 行 7 close 判据「与 GI 共用同一真实 TLAS device 真跑」):
+  一次 `VkAsManager::create_scene`(3 BLAS × 3 实例 = 冻结场景 764 三角形)+ 一条 command
+  buffer + **单次提交**,三个 descriptor set 的 set 0 / binding 0 写入**同一** TLAS 句柄;
+  evidence `shared_tlas.dispatch_tlas` 三项逐项等于 `shared_tlas.tlas_identity`。
+- **几何语义对拍**(G-G7-6 逐字):hit/miss、`committed_instance_index`、
+  `committed_primitive_index`、`committed_geometry_index` 四项 **零容差**(2304 探针光线 /
+  1706 命中,mismatch 计数全 0);`committed_t` measured 1.43e-6(冻结 1e-5)、
+  barycentric 两分量 measured 1.26e-5(冻结 1e-4)。
+- **效果输出对拍**:GI 命中点辐射度(§1 行 6「GI 方向一致性对拍」)measured 1.19e-7
+  (冻结 1e-5,对 `gi::tracer::RayTracedRadiance::trace` 逐光线);RTAO AO(§1 行 7
+  「RTAO 同 TLAS 对拍」)measured **0.0 逐位一致**(冻结 1e-6,对 `rt::ref_tracer::
+  rtao_reference`);硬阴影可见性 measured **0.0 零容差**(对
+  `rt::ref_tracer::hard_shadow_reference`)。host oracle 数值语义 **0-byte**
+  (未为过门改动;`cosine_sample_hemisphere` 仅**可见性**加性升 `pub`)。
+- **validation 零错误**(§4.2-③ 未证实项的**部分补锚**):步骤 94 device 段以
+  `RURIX_VK_VALIDATION=1` 真跑,`VK_EXT_debug_utils` messenger ERROR 级消息 fail-closed
+  翻 `Err`;GREEN 路径零报错,RED 轴 `wrong-barrier` 经 VUID-02815 被拦截证 layer 生效。
+  **限定**:本条只覆盖 W3c 三核执行路径;§4.2-③ 所指 W1/W2 五 kernel 的 `validation_clean`
+  仍为环境开关记录,其补锚归后续波次。
+- **RED 轴**:篡改 device 侧场景顶点 → 对拍必红(**数据流反证**)+ 注入式过期 TLAS
+  fail-closed + 错误 barrier validation 拦截 + 编译面篡改 `.spv` → `spirv-val` 必拒。
+- **evidence**:`evidence/renderer_w3_smoke_*.json`(schema
+  `milestones/g7/renderer_w3_evidence_schema.json`);采集机 = NVIDIA GeForce RTX 4070 Ti
+  (`G7_SCENE_FREEZE.md` §4.3 绑定口径:换机/换驱动须重采,不外推)。
+
+**诚实边界(不充绿)**:
+1. RTAO 采样方向为 **host 同源输入** buffer(与 oracle 取自同一次 `Pcg32` 生成),
+   非 device 侧 RNG —— 冻结语义子集(RXS-0298)无 u64 `wrapping_mul`/`rotate_right` 供给面,
+   device 实现 RNG 须扩语言面,按纪律不自行扩张;device 真做**遍历与遮蔽判定**。
+   该输入纪律与 W1/W2 kernel 消费 host 预备输入同构,evidence `input_provenance` 字段化。
+2. oracle 的**无效像素臂**(NaN/±inf 位置、零长法线/光方向)不在 device kernel 表达,
+   由 host 单测覆盖;**miss 轴**(探针光线打空 / 阴影光线打空)照常 device 真实覆盖。
+3. 本波兑现的是**孤立三核对拍**;并入连续真实设备帧(cull → VisBuffer → … → readback,
+   provenance 逐 pass 资源 identity)归 G7.6 步骤 96,§1 行 1/2/4/8 的「帧链并入」余项不动。
+
+**RD-038 status 结论**:**维持 open**。§1 八行中 HW 光栅(行 3)、VSM 深度(行 5)、
+TSR(行 8 的 TSR 腿)仍无 device 证据,按 G-G7-7/G-G7-9「未覆盖任一项则 RD-038 保持 open,
+禁止局部完成冒充全关」不得翻 closed;本波只把行 6/7 推入 **closed 候选**。
