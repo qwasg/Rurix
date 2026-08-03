@@ -17,6 +17,8 @@
 
 #[cfg(feature = "vulkan")]
 mod device_kernels;
+#[cfg(feature = "vulkan")]
+mod device_w3;
 mod graph_setup;
 mod pipeline;
 mod scene;
@@ -51,6 +53,82 @@ pub fn shading_gbuffer(
 
 use pipeline::{FrameCtx, PipelineState, RenderConfig, run_frame};
 
+/// G7.4 W3c `--w3-effects` 模式(CI 步骤 94 device 段驱动;三态口径镜像
+/// `bin/vk_ray_query`:`W3: PASS` / `W3: SKIP`(dev-env degrade,退 0)/
+/// `W3: FAIL`(退 1))。
+///
+/// `--w3-red-tamper` 走 RED 轴:篡改 device 侧顶点后**必须**对拍失败,失败即 RED-OK。
+#[cfg(feature = "vulkan")]
+fn run_w3_effects_mode(cli: &Cli) -> i32 {
+    let require_real = std::env::var("RURIX_REQUIRE_REAL").ok().as_deref() == Some("1");
+    let scene = scene::build_scene();
+
+    if cli.w3_red_tamper {
+        return match device_w3::red_tamper_geometry(&scene) {
+            None => {
+                println!("W3: SKIP RED-tamper 轴无 device(dev-env degrade)");
+                i32::from(require_real)
+            }
+            Some(true) => {
+                println!("W3: RED-OK tamper-geometry(篡改 device 顶点 → 对拍红)");
+                0
+            }
+            Some(false) => {
+                eprintln!("W3: FAIL RED-tamper 失效(篡改后对拍仍通过 = 数据流未真实生效)");
+                1
+            }
+        };
+    }
+
+    let Some(res) = device_w3::run_w3_effects(&scene) else {
+        println!("W3: SKIP 无 Vulkan device / W3 能力链缺失(dev-env degrade)");
+        return i32::from(require_real);
+    };
+    let r = match res {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("W3: FAIL 三核 device 执行: {e}");
+            return 1;
+        }
+    };
+    println!("{}", r.json());
+    // 注入式 RED 轴(过期 TLAS 恒跑;错误 barrier 需 RURIX_VK_VALIDATION=1)。
+    let stale = device_w3::red_stale_tlas(&scene);
+    match stale {
+        Some(true) => println!("W3: RED-OK stale-tlas(过期 TLAS fail-closed)"),
+        Some(false) => {
+            eprintln!("W3: FAIL RED-stale-tlas 失效(悬垂 TLAS 仍被消费)");
+            return 1;
+        }
+        None => println!("W3: RED-stale-tlas 轴未跑(无 device)"),
+    }
+    match device_w3::red_wrong_barrier(&scene) {
+        Some(true) => println!("W3: RED-OK wrong-barrier(validation 拦截 fail-closed)"),
+        Some(false) => {
+            eprintln!("W3: FAIL RED-wrong-barrier 失效(非法 barrier 未被 validation 拦截)");
+            return 1;
+        }
+        None => println!("W3: RED-wrong-barrier 轴未跑(RURIX_VK_VALIDATION≠1)"),
+    }
+    if !r.all_pass() {
+        eprintln!("W3: FAIL 三核对拍未全过(见 JSON measured_*/tol_*)");
+        return 1;
+    }
+    println!(
+        "W3: PASS shared_tlas={} rays={} pixels={} t={:.3e} bary={:.3e} radiance={:.3e} \
+         ao={:.3e} visibility={:.3e}(三核共用同一真实 TLAS + host oracle 对拍全过)",
+        r.shared_tlas,
+        r.probe_rays,
+        r.gbuffer_pixels,
+        r.measured_t_max_abs,
+        r.measured_bary_max_abs,
+        r.measured_radiance_max_abs,
+        r.measured_ao_max_abs,
+        r.measured_visibility_max_abs,
+    );
+    0
+}
+
 /// CLI 参数(解析确定性;未知参数 = Err)。
 #[derive(Debug, Clone)]
 struct Cli {
@@ -60,6 +138,11 @@ struct Cli {
     device: bool,
     dump_graph: Option<String>,
     json: bool,
+    /// G7.4 W3c:三效果核共用同一真实 TLAS 的 device 对拍模式(独立于 `--device`,
+    /// 不改 `--device` 既有 JSON 字段集;CI 步骤 94 消费)。
+    w3_effects: bool,
+    /// `--w3-effects` 的 RED 轴(篡改 device 顶点 → 对拍必红)。
+    w3_red_tamper: bool,
 }
 
 impl Default for Cli {
@@ -71,6 +154,8 @@ impl Default for Cli {
             device: false,
             dump_graph: None,
             json: false,
+            w3_effects: false,
+            w3_red_tamper: false,
         }
     }
 }
@@ -100,6 +185,11 @@ fn parse_cli(args: &[String]) -> Result<Cli, String> {
             }
             "--device" => c.device = true,
             "--json" => c.json = true,
+            "--w3-effects" => c.w3_effects = true,
+            "--w3-red-tamper" => {
+                c.w3_effects = true;
+                c.w3_red_tamper = true;
+            }
             "--dump-graph" => {
                 i += 1;
                 c.dump_graph = Some(args.get(i).ok_or("--dump-graph 需要路径")?.clone());
@@ -155,11 +245,18 @@ fn main() {
     };
 
     #[cfg(not(feature = "vulkan"))]
-    if cli.device {
+    if cli.device || cli.w3_effects {
         eprintln!(
-            "uc06-renderer: --device 需要 feature vulkan(cargo run -p uc06-renderer --features vulkan)"
+            "uc06-renderer: --device/--w3-effects 需要 feature vulkan(cargo run -p uc06-renderer --features vulkan)"
         );
         std::process::exit(2);
+    }
+
+    // G7.4 W3c 模式:三效果核共用同一真实 TLAS device 对拍(独立通道;不跑 host 全管线,
+    // 不产 `--device` JSON,故 `--device` 既有字段集 0-byte)。
+    #[cfg(feature = "vulkan")]
+    if cli.w3_effects {
+        std::process::exit(run_w3_effects_mode(&cli));
     }
 
     match run(&cli) {

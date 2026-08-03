@@ -1,0 +1,173 @@
+// G7.4 W3c 屏幕探针 GI device 效果内核(RD-038 字面分项「屏幕探针 GI」;
+// RFC-0018 章 A/D;验收门 G-G7-6)。
+//
+// host oracle(逐字蓝本)= `rurix_render::gi::tracer::RayTracedRadiance::trace`
+// (追踪层统一契约 `RadianceTracer`「输入光线 → 输出命中点辐射度」):
+//   1. 最近命中查询(同一真实 TLAS);未命中 → 天空常量色 `sky_color`;
+//   2. 命中 → 几何法线 = normalize(transpose_apply(normalize(cross(b−a, c−a))))
+//      (实例变换恒 identity,故 transpose_apply 为恒等;**两次 normalize** 逐字复刻);
+//   3. 双面着色:`n·dir > 0` 则翻转 n(薄几何/室内面片稳健);
+//   4. `ndotl = max(n·sun_dir, 0)`;`ndotl <= 0` → 全 0(无直射贡献);
+//   5. 太阳可见性:p = origin + dir·t,自 p + n·RAY_EPS 沿 sun_dir 一根阴影光线,
+//      any_hit 命中 → 全 0;
+//   6. 否则 radiance[ch] = sun_color[ch] × ndotl × albedo[ch] × (1/π)。
+//
+// 同 kernel 内**两个** `RayQuery` 对象(primary + shadow):RXS-0297 单 TLAS 纪律
+// 限的是 `AccelStruct` **形参数**(至多一个),不限 RayQuery local 数;两对象各自
+// `initialize → while proceed → if has_committed`(S3 守卫形态 ②)。
+//
+// 几何语义输出(G-G7-6 逐字对拍量,全部来自 committed 查询族):
+//   `geom[4i..]` = hit 标志 / committed_t / barycentric.0 / barycentric.1
+//   `idx[3i..]`  = committed_instance_index / committed_primitive_index /
+//                  committed_geometry_index
+// barycentric 两分量经**向量分量单层投影**落 SSBO(G7.4 路 A 实现兑现:此前
+// `committed_barycentric()` 的 vec2 在语言面不可消费,RXS-0298 该条款为死条款)。
+//
+// 常量口径:`inv_pi` 与 `ray_eps` 由 harness 以 host 侧同一 f32 值经 push constant
+// 下发(不在 kernel 内造常量 → 与 oracle 逐位同源);`sun_*` 传入**已归一化**分量
+// (= host `GiScene::sun_dir`,场景装配面,非效果计算面);`t_max` 为 host `+∞` 的
+// 有限替身(冻结场景直径 ≪ 替身值,几何等价)。
+//
+// 输入 buffer(host 预备,与 W1/W2 kernel 同纪律):`rays` 6 f32/光线(origin.xyz +
+// dir.xyz,dir 单位长);`tris` 全局世界空间三角形 9 f32/三角形(按 TLAS 实例序拼接,
+// 序即 `primitiveIndex` 序);`tri_base` 逐实例三角形基址;`albedo` 3 f32/实例。
+kernel fn gi_probe(
+    tlas: AccelStruct,
+    t: ThreadCtx<1>,
+    rays: View<global, f32>,
+    tris: View<global, f32>,
+    tri_base: View<global, u32>,
+    albedo: View<global, f32>,
+    radiance: ViewMut<global, f32>,
+    geom: ViewMut<global, f32>,
+    idx: ViewMut<global, u32>,
+    ray_count: usize,
+    sun_x: f32,
+    sun_y: f32,
+    sun_z: f32,
+    sun_r: f32,
+    sun_g: f32,
+    sun_b: f32,
+    sky_r: f32,
+    sky_g: f32,
+    sky_b: f32,
+    inv_pi: f32,
+    ray_eps: f32,
+    t_max: f32,
+) {
+    let i = t.global_id();
+    if i < ray_count {
+        let rb = i * 6;
+        let ox = rays[rb];
+        let oy = rays[rb + 1];
+        let oz = rays[rb + 2];
+        let dx = rays[rb + 3];
+        let dy = rays[rb + 4];
+        let dz = rays[rb + 5];
+        let cb = i * 3;
+        let gb = i * 4;
+        let ib = i * 3;
+        let mut rq = ray_query_initialize(tlas, (ox, oy, oz), 0.0, (dx, dy, dz), t_max);
+        while rq.proceed() {
+        }
+        if rq.has_committed() {
+            let hit_t = rq.committed_t();
+            let bary = rq.committed_barycentric();
+            let inst = rq.committed_instance_index();
+            let prim = rq.committed_primitive_index();
+            let geo = rq.committed_geometry_index();
+            geom[gb] = 1.0;
+            geom[gb + 1] = hit_t;
+            geom[gb + 2] = bary.0;
+            geom[gb + 3] = bary.1;
+            idx[ib] = inst;
+            idx[ib + 1] = prim;
+            idx[ib + 2] = geo;
+            // 命中三角形世界空间顶点(全局三角形表 = 逐实例拼接,序即 primitiveIndex)。
+            let tb = ((tri_base[inst as usize] + prim) as usize) * 9;
+            let ax = tris[tb];
+            let ay = tris[tb + 1];
+            let az = tris[tb + 2];
+            let e1x = tris[tb + 3] - ax;
+            let e1y = tris[tb + 4] - ay;
+            let e1z = tris[tb + 5] - az;
+            let e2x = tris[tb + 6] - ax;
+            let e2y = tris[tb + 7] - ay;
+            let e2z = tris[tb + 8] - az;
+            // face_normal = (b−a).cross(c−a).normalize();cross 分量序与 host 逐字一致。
+            let cx = e1y * e2z - e1z * e2y;
+            let cy = e1z * e2x - e1x * e2z;
+            let cz = e1x * e2y - e1y * e2x;
+            let c2 = cx * cx + cy * cy + cz * cz;
+            let clen = c2.sqrt();
+            let cinv = 1.0 / clen;
+            let fx = cx * cinv;
+            let fy = cy * cinv;
+            let fz = cz * cinv;
+            // Tlas::intersect_node 的世界化步:transpose_apply(identity) 为恒等,
+            // 随后**再一次** normalize —— 逐字复刻(不省)。
+            let w2 = fx * fx + fy * fy + fz * fz;
+            let wlen = w2.sqrt();
+            let winv = 1.0 / wlen;
+            let wx = fx * winv;
+            let wy = fy * winv;
+            let wz = fz * winv;
+            // 双面着色:法线背向入射光线来向时翻转。
+            let facing = wx * dx + wy * dy + wz * dz;
+            let mut nx = wx;
+            let mut ny = wy;
+            let mut nz = wz;
+            if facing > 0.0 {
+                nx = 0.0 - wx;
+                ny = 0.0 - wy;
+                nz = 0.0 - wz;
+            }
+            let ndotl_raw = nx * sun_x + ny * sun_y + nz * sun_z;
+            if ndotl_raw <= 0.0 {
+                // host: ndotl = dot.max(0.0);ndotl <= 0 → 无直射贡献。
+                radiance[cb] = 0.0;
+                radiance[cb + 1] = 0.0;
+                radiance[cb + 2] = 0.0;
+            } else {
+                let px = ox + dx * hit_t;
+                let py = oy + dy * hit_t;
+                let pz = oz + dz * hit_t;
+                let sx = px + nx * ray_eps;
+                let sy = py + ny * ray_eps;
+                let sz = pz + nz * ray_eps;
+                let mut sq = ray_query_initialize(
+                    tlas,
+                    (sx, sy, sz),
+                    0.0,
+                    (sun_x, sun_y, sun_z),
+                    t_max,
+                );
+                while sq.proceed() {
+                }
+                if sq.has_committed() {
+                    radiance[cb] = 0.0;
+                    radiance[cb + 1] = 0.0;
+                    radiance[cb + 2] = 0.0;
+                } else {
+                    let alb = (inst as usize) * 3;
+                    radiance[cb] = sun_r * ndotl_raw * albedo[alb] * inv_pi;
+                    radiance[cb + 1] = sun_g * ndotl_raw * albedo[alb + 1] * inv_pi;
+                    radiance[cb + 2] = sun_b * ndotl_raw * albedo[alb + 2] * inv_pi;
+                }
+            }
+        } else {
+            geom[gb] = 0.0;
+            geom[gb + 1] = 0.0 - 1.0;
+            geom[gb + 2] = 0.0;
+            geom[gb + 3] = 0.0;
+            idx[ib] = 4294967295u32;
+            idx[ib + 1] = 4294967295u32;
+            idx[ib + 2] = 4294967295u32;
+            radiance[cb] = sky_r;
+            radiance[cb + 1] = sky_g;
+            radiance[cb + 2] = sky_b;
+        }
+    }
+}
+
+fn main() {}

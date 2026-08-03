@@ -66,7 +66,13 @@ impl Pcg32 {
 
 /// 法线半球余弦加权采样方向(单位长)。`r1, r2 ∈ [0,1)` 均匀输入。
 /// 余弦加权:pdf ∝ cos θ,方向 = t·x + b·y + n·z(z = √(1−r2))。
-fn cosine_sample_hemisphere(n: Vec3, r1: f32, r2: f32) -> Vec3 {
+///
+/// **可见性(G7.4 W3c 加性,数值语义 0-byte)**:自私有升 `pub`,使 device 对拍
+/// harness 能与 [`rtao_reference`] 消费**同一函数实例**生成采样方向(RTAO device
+/// kernel 的方向 buffer 为 host 同源输入,见 `apps/uc06-renderer/kernels/rtao.rx`
+/// 头注 provenance 段)——避免在 harness 侧产生第四份采样公式。函数体、运算序与
+/// 返回值**逐字不变**;仅 `pub` 修饰符与本段文档为增量。
+pub fn cosine_sample_hemisphere(n: Vec3, r1: f32, r2: f32) -> Vec3 {
     let (t, b) = orthonormal_basis(n);
     let phi = 2.0 * core::f32::consts::PI * r1;
     let r = r2.sqrt();

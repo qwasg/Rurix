@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "subject": "ray_query_codegen_smoke",
+  "milestone": "G7.2 W3a + G7.3 W3b / G-G7-4+G-G7-5 (RFC-0018 章 A/B/C)",
+  "step": 93,
+  "spec_clauses": [
+    "RXS-0297",
+    "RXS-0298",
+    "RXS-0299",
+    "RXS-0300"
+  ],
+  "host_section_pass": true,
+  "device_section_rc": 0,
+  "device_blocked": null,
+  "device_probe_note": "G7.3 W3b compute AS descriptor 通道已在树(vk::run_ray_query_compute,单所有者 VkAsManager);device 段为真跑,不再 blocked。",
+  "device_pass": true,
+  "device_hit_t": 1.0,
+  "device_miss_sentinel": -1.0,
+  "device_capability_snapshot": "synchronization2=true shader_buffer_int64_atomics=true ray_query=true acceleration_structure=true buffer_device_address=true descriptor_indexing=true deferred_host_operations=true",
+  "device_red": {
+    "missing_capability": true,
+    "stale_tlas": true,
+    "wrong_barrier": true,
+    "device_lost_unit": true
+  },
+  "device_skip_reason": null,
+  "checks": {
+    "corpus_pass": true,
+    "codegen_unit_pass": true,
+    "emit_pass": true,
+    "w1w2_zero_drift_pass": true,
+    "red_tamper_pass": true
+  },
+  "modules": {
+    "ray_query_basic.rx": {
+      "spirv_version": "1.4",
+      "spirv_val": {
+        "vulkan1.2": "accepted",
+        "spv1.4": "accepted"
+      },
+      "sha256": "a9408ed7f0286542801e0596abb9d13b5c40db8821e30905ee6f50e6f605bd60",
+      "committed_queries": [
+        "OpRayQueryGetIntersectionBarycentricsKHR",
+        "OpRayQueryGetIntersectionGeometryIndexKHR",
+        "OpRayQueryGetIntersectionInstanceIdKHR",
+        "OpRayQueryGetIntersectionPrimitiveIndexKHR",
+        "OpRayQueryGetIntersectionTKHR"
+      ],
+      "golden_mnemonics": [
+        "OpRayQueryGetIntersectionBarycentricsKHR",
+        "OpRayQueryGetIntersectionGeometryIndexKHR",
+        "OpRayQueryGetIntersectionInstanceIdKHR",
+        "OpRayQueryGetIntersectionPrimitiveIndexKHR",
+        "OpRayQueryGetIntersectionTKHR",
+        "OpRayQueryGetIntersectionTypeKHR",
+        "OpRayQueryInitializeKHR",
+        "OpRayQueryProceedKHR",
+        "OpRayQueryTerminateKHR",
+        "OpTypeAccelerationStructureKHR",
+        "OpTypeRayQueryKHR"
+      ]
+    },
+    "ray_query_hit_miss.rx": {
+      "spirv_version": "1.4",
+      "spirv_val": {
+        "vulkan1.2": "accepted",
+        "spv1.4": "accepted"
+      },
+      "sha256": "52e21d4bbc5339262ba24469a0fdec7d3e5771a2b8281c02f20add4901d8db09",
+      "committed_queries": [
+        "OpRayQueryGetIntersectionTKHR"
+      ],
+      "golden_mnemonics": [
+        "OpRayQueryGetIntersectionTKHR",
+        "OpRayQueryGetIntersectionTypeKHR",
+        "OpRayQueryInitializeKHR",
+        "OpRayQueryProceedKHR",
+        "OpTypeAccelerationStructureKHR",
+        "OpTypeRayQueryKHR"
+      ]
+    }
+  },
+  "golden_union": [
+    "OpRayQueryGetIntersectionBarycentricsKHR",
+    "OpRayQueryGetIntersectionGeometryIndexKHR",
+    "OpRayQueryGetIntersectionInstanceIdKHR",
+    "OpRayQueryGetIntersectionPrimitiveIndexKHR",
+    "OpRayQueryGetIntersectionTKHR",
+    "OpRayQueryGetIntersectionTypeKHR",
+    "OpRayQueryInitializeKHR",
+    "OpRayQueryProceedKHR",
+    "OpRayQueryTerminateKHR",
+    "OpTypeAccelerationStructureKHR",
+    "OpTypeRayQueryKHR"
+  ],
+  "w1w2_observed": {
+    "classify_resolve": {
+      "spirv_version": "1.0",
+      "sha256": "ff29609a303417b168e7be58d5ab08b50481605c15ce6ada54b8fc406298781c",
+      "capabilities": [
+        "Int64",
+        "Shader"
+      ]
+    },
+    "cull": {
+      "spirv_version": "1.0",
+      "sha256": "a78996262f5bbd3f59ba9bb52500da6737d8a1addc4c7935bc25f3ba6ab291a6",
+      "capabilities": [
+        "Shader"
+      ]
+    },
+    "taa": {
+      "spirv_version": "1.0",
+      "sha256": "46f18f063d99a78a10c473f2bb0845467824d5cbfefde2a2b31098165ea861dd",
+      "capabilities": [
+        "Shader"
+      ]
+    },
+    "visbuffer_sw_u64": {
+      "spirv_version": "1.0",
+      "sha256": "80cf4343aff13d6947cb73b1afe86dd05ffc998e88a4b24d393fc282650e4fc6",
+      "capabilities": [
+        "Int64",
+        "Int64Atomics",
+        "Shader"
+      ]
+    },
+    "vsm_page_mark": {
+      "spirv_version": "1.0",
+      "sha256": "1c509339a452edcc37910937a7925c64a0bc6da0c5a452f2ff6ca67dff1e2df9",
+      "capabilities": [
+        "Shader"
+      ]
+    }
+  },
+  "toolchain_skip": null,
+  "dev_env_degrade": false,
+  "require_real": true,
+  "run_url": "local",
+  "timestamp": "2026-08-03T12:16:20+08:00"
+}

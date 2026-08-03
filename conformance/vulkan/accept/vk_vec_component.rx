@@ -1,0 +1,32 @@
+//@ spec: RXS-0300
+// G7.4 W3c(路 A **实现兑现**;W3a 章 B 实现面回填,spec 面 0-byte):Vulkan compute
+// place 子集的**向量分量单层投影**对照语料 —— 与 ray query 无关的纯元组分量读写,
+// 证明 `place_ptr` 的 `[Field(k)]` 支是通用向量分量面,而非 RayQuery 专用特例。
+//
+// 定性先例:spec/softraster.md §4 与 spec/stdlib.md §5 明文「聚合值类型 device
+// codegen(后续扩展,**非禁区**)……其接通**不改本文件既有条款语义**(纯实现侧
+// 回填)」;RX6026 原拒绝消息「数组/字段/deref 投影属后续**分片**」= 登记为后续
+// 分片而非禁止。零新 RXS。
+//
+// RED 基线(本支落地前实测):分量写与分量读**均**落
+// `RX6026 … place 首期仅支持标量 local 与 buffer[index](数组/字段/deref 投影属
+// 后续分片)`;GREEN = 本语料零诊断 + `spirv-val` 接受。
+// 分量下标越界(`vec2` 取 `.2`)由 typeck 层 `RX2002`(unknown field `2` on type
+// `(f32, f32)`)先行拦截,不入本 codegen 支 —— 故 reject 语料归 typeck 面既有覆盖,
+// codegen 侧越界拒为防御性复核(误判方向恒为拒)。
+//
+// 作用面钉死(超出维持既有拒绝):仅单层 `[Field(k)]` + 向量 Function local。
+// 数组投影 / `Deref` / 嵌套投影(`.0.1`)/ buffer 元素字段投影 / destructuring
+// `let`(RX6001)全部**不在**本支内。
+kernel fn vec_component(t: ThreadCtx<1>, x: View<global, f32>, out: ViewMut<global, f32>) {
+    let i = t.global_id();
+    // 分量写(OpAccessChain 标量分量指针 + OpStore);元素类型自 buffer 取,恒 f32。
+    let mut p = (x[i], x[i] * 2.0);
+    p.0 = p.0 + 1.0;
+    p.1 = p.1 - 0.5;
+    // 分量读(同一 OpAccessChain 形态 + OpLoad)。
+    out[i * 2] = p.0;
+    out[i * 2 + 1] = p.1;
+}
+
+fn main() {}

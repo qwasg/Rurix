@@ -1,0 +1,81 @@
+// G7.4 W3c RTAO device 效果内核(RD-038 字面分项「RTAO 硬阴影」的 RTAO 腿;
+// RFC-0018 章 A/D;验收门 G-G7-6)。
+//
+// host oracle(逐字蓝本)= `rurix_render::rt::ref_tracer::rtao_reference`:
+//   n = normalize(法线);origin = p + n·RAY_EPS;逐采样方向 = 法线半球**余弦加权**
+//   采样(`cosine_sample_hemisphere(n, r1, r2)`,Pcg32 单流顺序消费);
+//   任一采样在区间 (0, radius) 内命中即记遮蔽;AO = 1 − 遮蔽率;
+//   `samples_per_pixel == 0` 退化为 1.0。
+//
+// 采样方向 provenance(**诚实边界,evidence 显式字段化**):`dirs` 为 host **同源**
+// 生成的输入 buffer —— 与 oracle 取自**同一次**生成(同一 `Pcg32` 实例、同 seed
+// 同消费序、同 `cosine_sample_hemisphere` 函数实例),逐像素 spp 条、按图序 × 采样序
+// 排布。理由:oracle 的 Pcg32 需 u64 `wrapping_mul` + `rotate_right`,冻结子集
+// (RXS-0298)无此供给面,device 侧实现 RNG 必须扩语言面 —— 那才是真正的语义面缺口,
+// 按纪律不自行扩张。方向是**输入**不是结果(与 W1/W2 kernel 消费 host 预备输入
+// 〔triangles/ids/AABB/motion 等〕同构);device 真做的是**遍历与遮蔽判定**。
+//
+// 冻结子集(RXS-0297~0300):单 `AccelStruct` 形参 + 逐采样 `initialize`(flags 恒
+// Opaque / mask 恒 0xFF)+ `while proceed` + `if has_committed`(S3 守卫形态 ②);
+// 外层采样循环与内层遍历循环为**嵌套结构化 while**(codegen 结构化循环分析支持,
+// 已实测 spirv-val accept)。
+//
+// **输入契约**:`positions`/`normals` 全为有限值且法线非零长(harness 保证)。
+// oracle 的无效像素臂归 host 单测覆盖,本 kernel 不表达(诚实边界)。
+kernel fn rtao(
+    tlas: AccelStruct,
+    t: ThreadCtx<1>,
+    positions: View<global, f32>,
+    normals: View<global, f32>,
+    dirs: View<global, f32>,
+    ao: ViewMut<global, f32>,
+    pixel_count: usize,
+    samples_per_pixel: usize,
+    radius: f32,
+    ray_eps: f32,
+) {
+    let i = t.global_id();
+    if i < pixel_count {
+        if samples_per_pixel == 0usize {
+            // 零采样退化:无采样即无遮蔽(host 契约)。
+            ao[i] = 1.0;
+        } else {
+            let pb = i * 3;
+            // Vec3::normalize():len = sqrt(dot),分量 × (1.0/len);与 host 逐字一致。
+            let nx0 = normals[pb];
+            let ny0 = normals[pb + 1];
+            let nz0 = normals[pb + 2];
+            let n2 = nx0 * nx0 + ny0 * ny0 + nz0 * nz0;
+            let nlen = n2.sqrt();
+            let ninv = 1.0 / nlen;
+            let nx = nx0 * ninv;
+            let ny = ny0 * ninv;
+            let nz = nz0 * ninv;
+            let ox = positions[pb] + nx * ray_eps;
+            let oy = positions[pb + 1] + ny * ray_eps;
+            let oz = positions[pb + 2] + nz * ray_eps;
+            let mut occluded = 0u32;
+            let mut s = 0usize;
+            while s < samples_per_pixel {
+                let db = (i * samples_per_pixel + s) * 3;
+                let mut rq = ray_query_initialize(
+                    tlas,
+                    (ox, oy, oz),
+                    0.0,
+                    (dirs[db], dirs[db + 1], dirs[db + 2]),
+                    radius,
+                );
+                while rq.proceed() {
+                }
+                if rq.has_committed() {
+                    occluded = occluded + 1u32;
+                }
+                s = s + 1usize;
+            }
+            // host: 1.0 - occluded as f32 / samples_per_pixel as f32。
+            ao[i] = 1.0 - (occluded as f32) / (samples_per_pixel as f32);
+        }
+    }
+}
+
+fn main() {}

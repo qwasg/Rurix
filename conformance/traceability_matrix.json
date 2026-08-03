@@ -1540,6 +1540,7 @@
       "src/rurixc/src/vulkan_codegen.rs"
     ],
     "RXS-0299": [
+      "conformance/rayquery/accept/ray_query_basic.rx",
       "conformance/rayquery/accept/ray_query_hit_miss.rx",
       "conformance/rayquery/reject/committed_unguarded.rx",
       "conformance/rayquery/reject/ray_query_after_terminate.rx",
@@ -1548,6 +1549,7 @@
     "RXS-0300": [
       "conformance/rayquery/accept/ray_query_basic.rx",
       "conformance/rayquery/accept/ray_query_hit_miss.rx",
+      "conformance/vulkan/accept/vk_vec_component.rx",
       "src/rurix-rt/src/vk.rs",
       "src/rurixc/src/vulkan_codegen.rs"
     ]

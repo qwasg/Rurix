@@ -1326,7 +1326,28 @@ fn value_type(b: &mut Builder, kind: ValueKind, span: Span) -> Result<u32, Vulka
 /// place 解析 → (指针 id,SPIR-V 类型 id,值种类)。
 /// - buffer 形参 + `[Index(idx)]` → `OpAccessChain(var, uint_0, idx)`(StorageBuffer 元素);
 /// - Function local(无投影)→ 其 OpVariable id;
+/// - **向量 Function local + `[Field(k)]`** → `OpAccessChain(var, const k)` 标量分量指针
+///   (G7.4 W3c 路 A 实现兑现,见下);
 /// - 其余 → RX6026。
+///
+/// # 向量分量投影(G7.4 W3c;W3a 章 B 实现面回填,spec 面 0-byte)
+///
+/// RXS-0298 已冻结 `committed_barycentric(&RayQuery) -> vec2<f32>`、RXS-0300 已发射
+/// `OpRayQueryGetIntersectionBarycentricsKHR`,但先前 place 子集无字段投影 →
+/// 该 vec2 的分量在语言面**不可消费**(值只能绑定不能读),已冻结条款成死条款。
+/// 本支为其**实现兑现**:`v.k` → 对 Function 存储类向量变量的 `OpAccessChain`
+/// 标量指针,读(`OpLoad`)与写(`OpStore`)经同一指针自然覆盖。
+///
+/// 定性 = **纯实现侧回填,不改既有条款语义**——先例口径见 spec/softraster.md §4
+/// 「聚合值类型 device codegen(后续扩展,**非禁区**)……其接通**不改本文件既有
+/// 条款语义**(纯实现侧回填)」与 spec/stdlib.md §5 同句,及 RX6026 原拒绝消息
+/// 「属后续**分片**」字面(登记为后续分片,非禁止)。零新 RXS。
+///
+/// **作用面钉死**(超出即维持既有拒绝,不扩张):仅**单层** `[Field(k)]` 且 base 为
+/// `ValueKind::Vector` 的 Function local。不做数组投影、`Deref`、嵌套投影
+/// (`.0.1`)、buffer 元素字段投影;destructuring `let` 维持 RX6001 现状。
+/// 分量下标越界(如 `vec2` 取 `.2`)在此确定性拒(typeck 层通常先拦,本处为
+/// codegen 侧防御性复核,误判方向恒为拒)。
 fn place_ptr(
     b: &mut Builder,
     body: &Body,
@@ -1362,9 +1383,37 @@ fn place_ptr(
         );
         return Ok((acc, elem_ty, ValueKind::Scalar(elem)));
     }
+    // 向量分量投影(单层 Field;见函数文档「向量分量投影」节)。
+    if let [ProjElem::Field(k)] = p.proj.as_slice()
+        && let Some(ValueKind::Vector(prim, len)) = value_kind(&body.locals[p.local.0 as usize].ty)
+    {
+        if *k >= len {
+            return Err(VulkanCodegenError::unsupported(
+                span,
+                "向量分量下标越界(分量数外的字段投影)",
+            ));
+        }
+        let var = *b.local_var.get(&p.local.0).ok_or_else(|| {
+            VulkanCodegenError::unsupported(
+                span,
+                "对未建 Function 变量的向量 local 分量访问(子集外)",
+            )
+        })?;
+        let comp_ty = b.prim_type(prim, span)?;
+        let ptr_comp = b.ptr_type(STORAGE_FUNCTION, comp_ty);
+        // 向量内下标须为常量(SPIR-V 逻辑寻址;本支恒常量,by-construction 满足)。
+        let kidx = b.const_uint(*k);
+        let acc = b.fresh();
+        emit(
+            &mut b.func_body,
+            OP_ACCESS_CHAIN,
+            &[ptr_comp, acc, var, kidx],
+        );
+        return Ok((acc, comp_ty, ValueKind::Scalar(prim)));
+    }
     Err(VulkanCodegenError::unsupported(
         span,
-        "Vulkan compute place 首期仅支持标量 local 与 buffer[index](数组/字段/deref 投影属后续分片)",
+        "Vulkan compute place 首期仅支持标量 local、向量 local 单层分量投影与 buffer[index](数组/deref/嵌套投影/buffer 元素字段投影属后续分片)",
     ))
 }
 
@@ -3788,6 +3837,108 @@ mod tests {
         assert!(
             interface.contains(&accel_var),
             "1.4 interface 须全量枚举 AS descriptor: interface={interface:?} var={accel_var}"
+        );
+    }
+
+    /// 向量 Function local 的**单层分量投影** → `OpAccessChain` 标量指针
+    /// (G7.4 W3c 路 A 实现兑现;W3a 章 B 实现面回填,spec 面 0-byte,零新 RXS)。
+    ///
+    /// 判据:`committed_barycentric()` 的 vec2 结果经 `bary.0`/`bary.1` 真实写出 →
+    /// 模块须含 `OpRayQueryGetIntersectionBarycentricsKHR` **且** ≥2 条以
+    /// `Function` 存储类 `float` 指针为结果类型、**单索引**的 `OpAccessChain`
+    /// (索引 = 常量 0 / 1)。此前该 vec2 分量不可读,RXS-0298 条款为死条款。
+    //@ spec: RXS-0300
+    #[test]
+    fn ray_query_barycentric_components_lower_to_function_access_chain() {
+        let src = "kernel fn rqb(tlas: AccelStruct, t: ThreadCtx<1>, out: ViewMut<global, f32>) {\n\
+             \x20   let i = t.global_id();\n\
+             \x20   let mut rq = ray_query_initialize(tlas, (0.0, 0.0, 0.0), 0.0, (0.0, 0.0, 1.0), 100.0);\n\
+             \x20   while rq.proceed() {\n\
+             \x20   }\n\
+             \x20   if rq.has_committed() {\n\
+             \x20       let bary = rq.committed_barycentric();\n\
+             \x20       out[i * 2] = bary.0;\n\
+             \x20       out[i * 2 + 1] = bary.1;\n\
+             \x20   }\n\
+             }\n";
+        let words = compile_compute(src);
+        assert!(
+            opcodes(&words).contains(&OP_RAY_QUERY_GET_INTERSECTION_BARYCENTRICS_KHR),
+            "须发射 OpRayQueryGetIntersectionBarycentricsKHR"
+        );
+        // f32 类型 id + Function 存储类 float 指针类型 id 集合。
+        let mut f32_ty: Option<u32> = None;
+        let mut fn_float_ptrs: Vec<u32> = Vec::new();
+        let mut i = 5;
+        while i < words.len() {
+            let wc = (words[i] >> 16) as usize;
+            if wc == 0 {
+                break;
+            }
+            let op = (words[i] & 0xffff) as u16;
+            if op == OP_TYPE_FLOAT && words[i + 2] == 32 {
+                f32_ty = Some(words[i + 1]);
+            }
+            if op == OP_TYPE_POINTER
+                && words[i + 2] == STORAGE_FUNCTION
+                && Some(words[i + 3]) == f32_ty
+            {
+                fn_float_ptrs.push(words[i + 1]);
+            }
+            i += wc;
+        }
+        assert!(
+            f32_ty.is_some() && !fn_float_ptrs.is_empty(),
+            "须有 Function 存储类 f32 指针类型(向量分量指针)"
+        );
+        // 单索引 OpAccessChain(wc = 5:result-ty, result, base, index)且结果类型为
+        // Function float 指针 —— 即向量分量指针。
+        let mut comp_chains = 0usize;
+        let mut i = 5;
+        while i < words.len() {
+            let wc = (words[i] >> 16) as usize;
+            if wc == 0 {
+                break;
+            }
+            if (words[i] & 0xffff) as u16 == OP_ACCESS_CHAIN
+                && wc == 5
+                && fn_float_ptrs.contains(&words[i + 1])
+            {
+                comp_chains += 1;
+            }
+            i += wc;
+        }
+        assert!(
+            comp_chains >= 2,
+            "两个分量各须一条向量分量 OpAccessChain,实得 {comp_chains}"
+        );
+    }
+
+    /// 向量分量投影是**通用面**而非 RayQuery 特例:纯元组分量读写的 compute entry
+    /// 维持 SPIR-V 1.0 + 零 ray query capability(与
+    /// `conformance/vulkan/accept/vk_vec_component.rx` 同形;零漂移方向锚点)。
+    //@ spec: RXS-0300
+    #[test]
+    fn vector_component_projection_without_ray_query_stays_1_0() {
+        let src = "kernel fn vc(t: ThreadCtx<1>, x: View<global, f32>, out: ViewMut<global, f32>) {\n\
+             \x20   let i = t.global_id();\n\
+             \x20   let mut p = (x[i], x[i] * 2.0);\n\
+             \x20   p.0 = p.0 + 1.0;\n\
+             \x20   out[i * 2] = p.0;\n\
+             \x20   out[i * 2 + 1] = p.1;\n\
+             }\n";
+        let words = compile_compute(src);
+        assert_eq!(
+            words[1], SPIRV_VERSION_1_0,
+            "无 ray query 面的向量分量投影须维持 1.0"
+        );
+        assert!(
+            extensions(&words).is_empty(),
+            "向量分量投影不得引入 OpExtension"
+        );
+        assert!(
+            opcodes(&words).contains(&OP_ACCESS_CHAIN),
+            "分量投影须经 OpAccessChain"
         );
     }
 

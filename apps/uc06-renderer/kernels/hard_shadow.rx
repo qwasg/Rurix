@@ -1,0 +1,63 @@
+// G7.4 W3c 硬阴影 device 效果内核(RD-038 字面分项「RTAO 硬阴影」的硬阴影腿;
+// RFC-0018 章 A/D;验收门 G-G7-6)。
+//
+// host oracle(逐字蓝本)= `rurix_render::rt::ref_tracer::hard_shadow_reference`:
+//   dir = normalize(light_dir)(指向光源);逐像素 origin = p + dir·RAY_EPS;
+//   区间 (0, +∞) 任一命中 → 0.0(影),否则 1.0(亮);双面命中,无 front-face 剔除
+//   (device 侧由 TLAS 实例 flags = TRIANGLE_FACING_CULL_DISABLE 承载)。
+//
+// 冻结子集(RXS-0297~0300):单 `AccelStruct` 形参 + `initialize`(flags 恒 Opaque /
+// mask 恒 0xFF)+ `while proceed`(遍历穷尽;首期 opaque 三角形 proceed 首调即
+// false,committed 已记)+ `if has_committed` 守卫(S3 形态 ②)。
+//
+// 与 oracle 的口径对齐:
+// - `normalize` 逐字复刻 `rt::bvh::Vec3::{length,normalize}`:len = sqrt(x²+y²+z²),
+//   分量 × (1.0/len);零长方向 → 退化,产全 1(「无方向即无遮蔽」契约)。
+// - `t_max` 取有限替身(host 为 +∞;冻结场景直径 ≪ 替身值,几何等价),由 harness
+//   经 push constant 下发,不在 kernel 内造常量。
+// - **输入契约**:`positions` 全为有限值(harness 以冻结相机对冻结 TLAS 求交后
+//   取命中点保证)。oracle 的无效像素臂(NaN/±inf 位置)归 host 单测覆盖,本 kernel
+//   不表达 —— 诚实边界,evidence 明记;miss 轴(阴影光线打空)照常 device 覆盖。
+kernel fn hard_shadow(
+    tlas: AccelStruct,
+    t: ThreadCtx<1>,
+    positions: View<global, f32>,
+    visibility: ViewMut<global, f32>,
+    pixel_count: usize,
+    light_x: f32,
+    light_y: f32,
+    light_z: f32,
+    ray_eps: f32,
+    t_max: f32,
+) {
+    let i = t.global_id();
+    if i < pixel_count {
+        // Vec3::length() = dot(self,self).sqrt();分量序与 host 逐字一致。
+        let l2 = light_x * light_x + light_y * light_y + light_z * light_z;
+        let len = l2.sqrt();
+        if len == 0.0 {
+            // 零长光方向 = 退化:无方向即无遮蔽(host 契约)。
+            visibility[i] = 1.0;
+        } else {
+            // Vec3::normalize() = self * (1.0 / l)。
+            let inv = 1.0 / len;
+            let dx = light_x * inv;
+            let dy = light_y * inv;
+            let dz = light_z * inv;
+            let b = i * 3;
+            let ox = positions[b] + dx * ray_eps;
+            let oy = positions[b + 1] + dy * ray_eps;
+            let oz = positions[b + 2] + dz * ray_eps;
+            let mut rq = ray_query_initialize(tlas, (ox, oy, oz), 0.0, (dx, dy, dz), t_max);
+            while rq.proceed() {
+            }
+            if rq.has_committed() {
+                visibility[i] = 0.0;
+            } else {
+                visibility[i] = 1.0;
+            }
+        }
+    }
+}
+
+fn main() {}

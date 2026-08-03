@@ -10,6 +10,10 @@ const KERNELS: &[&str] = &[
     "classify_resolve",
     "vsm_page_mark",
     "taa",
+    // G7.4 W3c 三效果核(RD-038「屏幕探针 GI」/「RTAO 硬阴影」;共用同一真实 TLAS)。
+    "gi_probe",
+    "rtao",
+    "hard_shadow",
 ];
 
 fn main() {

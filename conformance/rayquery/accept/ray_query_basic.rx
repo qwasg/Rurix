@@ -1,28 +1,49 @@
-//@ spec: RXS-0297, RXS-0298, RXS-0300
+//@ spec: RXS-0297, RXS-0298, RXS-0299, RXS-0300
 // G7.1 PR-1 语料(spec-first,硬规则 7;RFC-0018 章 A/B),G7.2 W3a 转正:compute
 // RayQuery 合法骨架——`AccelStruct` 作 compute 签名形参(RXS-0297 对 RXS-0245 的加性
 // 修订行)+ initialize → while proceed → if has_committed → committed 五查询 →
 // terminate 全流程(RXS-0298 三态状态机与方法族;S3 守卫形态 ② if has_committed +
 // ③ while proceed 双支配);编码面锚定 RXS-0300(本 entry 应升 SPIR-V 1.4 +
 // RayQueryKHR/SPV_KHR_ray_query 按需声明)。
+//
+// G7.4 W3c 升级(路 A 实现兑现):committed 五查询结果自「仅绑定不消费」升为
+// **真实写出**——含 `committed_barycentric()` 的**两个分量**经向量分量单层投影
+// (`bary.0` / `bary.1`)落 SSBO。此前 place 子集无字段投影,该 vec2 分量在语言面
+// 不可读,RXS-0298 已冻结的 `committed_barycentric` 条款为**死条款**(指令发射但
+// 结果为死值);本升级即其实现兑现(W3a 章 B 实现面回填,spec 面 0-byte,零新 RXS;
+// 先例口径见 spec/softraster.md §4 / spec/stdlib.md §5「纯实现侧回填」与 RX6026
+// 「属后续分片」字面)。RED 基线:升级前本形态落
+// `RX6026 … place 首期仅支持标量 local 与 buffer[index]`。
+// 通用向量分量对照语料(与 ray query 无关)见
+// `conformance/vulkan/accept/vk_vec_component.rx`。
+//
 // ① 类型面/builtins/harness 已落:本文件接入 conformance accept harness
 //   (src/rurixc/tests/rayquery_corpus.rs)批跑断言 0 诊断,已转正。initialize 的
 //   origin/dir 实参取实现已接的结构性元组形态(RXS-0223 容忍口径;`vec3(...)`
 //   构造调用在 resolve 值位置无兜底 RX1001,其兜底裁决归 vec 构造差距项,
 //   不属本任务)。
-// 仍归 G7.2 W3a 后端任务:② vulkan_codegen 落地后锚定反汇编 golden
-//   (OpTypeRayQueryKHR/OpRayQueryInitializeKHR/OpRayQueryProceedKHR/committed
-//   查询族 + 1.4 header);③ spirv-val --target-env vulkan1.2 与 spv1.4 双口径
-//   accept。
-kernel fn ray_query_basic(tlas: AccelStruct, t: ThreadCtx<1>) {
+// ② vulkan_codegen 反汇编 golden 锚定(OpTypeRayQueryKHR/OpRayQueryInitializeKHR/
+//   OpRayQueryProceedKHR/OpRayQueryTerminateKHR/committed 查询族 + 1.4 header)与
+//   ③ spirv-val --target-env vulkan1.2 / spv1.4 双口径 accept:均由 CI 步骤 93
+//   (ci/ray_query_codegen_smoke.py)机验。
+kernel fn ray_query_basic(
+    tlas: AccelStruct,
+    t: ThreadCtx<1>,
+    geom: ViewMut<global, f32>,
+    idx: ViewMut<global, u32>,
+) {
+    let i = t.global_id();
     let mut rq = ray_query_initialize(tlas, (0.0, 0.0, 0.0), 0.0, (0.0, 0.0, 1.0), 100.0);
     while rq.proceed() {
         if rq.has_committed() {
-            let t_hit = rq.committed_t();
             let bary = rq.committed_barycentric();
-            let inst = rq.committed_instance_index();
-            let prim = rq.committed_primitive_index();
-            let geom = rq.committed_geometry_index();
+            geom[i * 4] = 1.0;
+            geom[i * 4 + 1] = rq.committed_t();
+            geom[i * 4 + 2] = bary.0;
+            geom[i * 4 + 3] = bary.1;
+            idx[i * 3] = rq.committed_instance_index();
+            idx[i * 3 + 1] = rq.committed_primitive_index();
+            idx[i * 3 + 2] = rq.committed_geometry_index();
         }
     }
     rq.terminate();
