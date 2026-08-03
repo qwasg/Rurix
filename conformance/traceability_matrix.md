@@ -285,4 +285,4 @@
 | RXS-0297 | spec/shader_stages.md | 4 | `conformance/rayquery/accept/ray_query_basic.rx`, `conformance/rayquery/accept/ray_query_hit_miss.rx`, `conformance/rayquery/reject/ray_query_escape.rx` …(+1) |
 | RXS-0298 | spec/shader_stages.md | 3 | `conformance/rayquery/accept/ray_query_basic.rx`, `conformance/rayquery/accept/ray_query_hit_miss.rx`, `src/rurixc/src/vulkan_codegen.rs` |
 | RXS-0299 | spec/shader_stages.md | 4 | `conformance/rayquery/accept/ray_query_hit_miss.rx`, `conformance/rayquery/reject/committed_unguarded.rx`, `conformance/rayquery/reject/ray_query_after_terminate.rx` …(+1) |
-| RXS-0300 | spec/vulkan_backend.md | 3 | `conformance/rayquery/accept/ray_query_basic.rx`, `conformance/rayquery/accept/ray_query_hit_miss.rx`, `src/rurixc/src/vulkan_codegen.rs` |
+| RXS-0300 | spec/vulkan_backend.md | 4 | `conformance/rayquery/accept/ray_query_basic.rx`, `conformance/rayquery/accept/ray_query_hit_miss.rx`, `src/rurix-rt/src/vk.rs` …(+1) |

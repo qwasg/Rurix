@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "compute RayQuery codegen 冒烟证据 schema(G7.2 W3a,步骤 93;G-G7-4;RFC-0018 章 A/B)",
-  "description": "ci/ray_query_codegen_smoke.py 写 evidence/ray_query_codegen_smoke_<ts>.json。host/compile 段恒跑六项:① rayquery 语料 accept 零诊断 + reject 全拦截(RXS-0297~0299);② vulkan_codegen 锚定单测(1.4 分叉 / capability+extension 按需 / 反汇编 golden / initialize 操作数序与冻结 flags / interface 全量 / 1.0 零漂移锚点 / spirv-val 双口径);③ 真实 .rx → .spv 且 spirv-val --target-env vulkan1.2 与 spv1.4 双口径皆 accept(退出码判定,不 grep stdout);④ 反汇编 golden 最小集(per-file 必含项 + 语料并集覆盖 terminate / intersection-type / committed 五查询族,因 RXS-0298 明定 terminate 可选、committed 族按真实使用);⑤ W1/W2 五 kernel 对 tests/vulkan/w1w2_spv_manifest.json 的 sha256 + SPIR-V 版本 + capability 集合逐项零漂移且不得误声明 ray query 面;⑥ 篡改 .spv → spirv-val 必拒的 RED 反证。device 段(最小 hit/miss/属性查询 kernel 真跑)gate real:硬前置 = G7.3 W3b compute AS descriptor,未在树时 device_blocked 记 blocked-honest 并 SKIP,RURIX_REQUIRE_REAL=1 翻硬红——host 段绿不冒充 device 绿(RFC-0016 §4.E3 条件臂 / §9.1 R-3)。",
+  "title": "compute RayQuery codegen+device 冒烟证据 schema(G7.2 W3a + G7.3 W3b,步骤 93;G-G7-4/G-G7-5;RFC-0018 章 A/B/C)",
+  "description": "ci/ray_query_codegen_smoke.py 写 evidence/ray_query_codegen_smoke_<ts>.json。host/compile 段恒跑六项:① rayquery 语料 accept 零诊断 + reject 全拦截(RXS-0297~0299);② vulkan_codegen 锚定单测(1.4 分叉 / capability+extension 按需 / 反汇编 golden / initialize 操作数序与冻结 flags / interface 全量 / 1.0 零漂移锚点 / spirv-val 双口径);③ 真实 .rx → .spv 且 spirv-val --target-env vulkan1.2 与 spv1.4 双口径皆 accept(退出码判定,不 grep stdout);④ 反汇编 golden 最小集(per-file 必含项 + 语料并集覆盖 terminate / intersection-type / committed 五查询族,因 RXS-0298 明定 terminate 可选、committed 族按真实使用);⑤ W1/W2 五 kernel 对 tests/vulkan/w1w2_spv_manifest.json 的 sha256 + SPIR-V 版本 + capability 集合逐项零漂移且不得误声明 ray query 面;⑥ 篡改 .spv → spirv-val 必拒的 RED 反证。device 段(G7.3 W3b 落地后为**真跑**,gate real):bin/vk_ray_query 消费 rurixc 产 .spv 经单所有者 VkAsManager 真实单三角形 TLAS 在 compute queue 执行——W3 七能力链 fail-closed 门禁 + hit(committed_t=1.0)/miss(-1.0 哨兵)数据流红绿 + 三 RED 注入轴(missing-capability/stale-tlas/wrong-barrier)+ device-lost fail-closed 传播 host 单测;无设备/能力链缺失 → SKIP=dev-env degrade,RURIX_REQUIRE_REAL=1 翻硬红——host 段绿不冒充 device 绿(RFC-0016 §4.E3 条件臂 / §9.1 R-3)。device_blocked 字段保留为历史兼容(W3b 前置期 blocked-honest 留痕),真跑后恒 null。",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -57,6 +57,60 @@
         "string",
         "null"
       ]
+    },
+    "device_pass": {
+      "type": [
+        "boolean",
+        "null"
+      ],
+      "description": "device 段真跑判定(G-G7-5):hit/miss 数据流红绿 + 三 RED 轴全过 = true;SKIP 时 null。"
+    },
+    "device_hit_t": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "description": "hit 场景 committed_t 实测值(期望 1.0±1e-6;真实 TLAS 遍历交点距离)。"
+    },
+    "device_miss_sentinel": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "description": "miss 场景哨兵实测值(期望 -1.0;has_committed=false 分支)。"
+    },
+    "device_capability_snapshot": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "W3 七能力链 device 实测快照(name=bool 空格分隔;fail-closed 门禁输入)。"
+    },
+    "device_red": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "G-G7-5 RED 自检四轴:缺能力注入拒绝 / 过期 TLAS fail-closed / 错误 barrier validation 拦截 / device-lost 传播单测。",
+      "properties": {
+        "missing_capability": {
+          "type": "boolean"
+        },
+        "stale_tlas": {
+          "type": "boolean"
+        },
+        "wrong_barrier": {
+          "type": "boolean"
+        },
+        "device_lost_unit": {
+          "type": "boolean"
+        }
+      }
+    },
+    "device_skip_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "device 段 SKIP 原因(无设备/能力链缺失;dev-env degrade 非 fake pass)。"
     },
     "checks": {
       "type": "object",

@@ -101,6 +101,12 @@ required-features = ["vulkan"]
 name = "vk_rt"
 required-features = ["vulkan"]
 
+# G7.3 W3b compute RayQuery device 判据 harness(步骤 93 device 段,RFC-0018 章 C,G-G7-5;
+# rurixc .spv + 单所有者 VkAsManager 真实 TLAS + hit/miss 数据流红绿 + 三 RED 注入轴)。
+[[bin]]
+name = "vk_ray_query"
+required-features = ["vulkan"]
+
 # unsafe 纪律(AGENTS 硬规则 9 / 10 §7.6):rurix-rt 是首个 unsafe 边界(Driver API
 # FFI)。块级豁免 `unsafe_code`(注册见 unsafe-audit/rurix-rt.md),仍强制每个
 # unsafe 块携 `// SAFETY:` 注释(clippy undocumented_unsafe_blocks = deny)。

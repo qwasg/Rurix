@@ -70,3 +70,4 @@ schema 与 `ci/check_schemas.py` 路由必须和对应 smoke 同 PR 落，避免
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v1.0 | 2026-08-01 | G7.0 初版；拟分配步骤 93~96，不 materialize workflow/script/schema。 |
+| v1.1 | 2026-08-03 | 步骤 93 全段 materialize：G7.2 W3a 落 host/compile 段六项（ledger v1.41 消费步骤 93）；G7.3 W3b 落 device 段真跑——`bin/vk_ray_query` 消费 rurixc 产 `.spv` 经**单所有者 `VkAsManager`**（自 `rt_body`/U30 等序提取，步骤 66/67 恒绿证零漂移）真实单三角形 TLAS 在 compute queue 执行：W3 七能力链 fail-closed 门禁 + hit(committed_t=1.0±1e-6)/miss(-1.0 哨兵)数据流红绿 + RED 四轴（missing-capability 注入拒绝 / stale-tlas fail-closed / wrong-barrier validation VUID-02815 拦截 / device-lost `VK_ERROR_DEVICE_LOST` 传播单测）；workflow 步骤 93 置 `RURIX_REQUIRE_REAL=1`（拟分配注「待 G7.3 落地后置 1」兑现）。device 段同时构成 **G-G7-5 执行门**的机器见证（AS descriptor/import 通道 + KernelWave::W3 缺一确定性拒绝 + validation 零错误）；步骤 94~96 维持拟分配。 |

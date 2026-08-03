@@ -21,10 +21,16 @@ host / compile 段(**恒跑**,需 Vulkan SDK 的 `spirv-val`/`spirv-dis`;缺工�
      `RayQueryKHR`/`SPV_KHR_ray_query`(能力声明零回归)。
   6. RED 反证:篡改 `.spv` 单字节 → `spirv-val` 必拒(退出码非 0),证校验轴真在生效。
 
-device 段(**gate real**):最小 hit/miss/属性查询 kernel 真跑。
-  当前 **blocked-honest**:compute AS descriptor / TLAS 导入通道属 G7.3(W3b)交付面,
-  尚未在树 → 记 `device_blocked="G7.2-W3b-pending"` 并 SKIP;`RURIX_REQUIRE_REAL=1`
-  翻硬红(不以 host 段绿冒充 device 绿,RFC-0016 §4.E3 / §9.1 R-3 纪律)。
+device 段(**gate real**;G7.3 W3b 落地,门 G-G7-5):最小 hit/miss kernel 真跑。
+  7. `bin/vk_ray_query` 消费步骤 3 产的 `ray_query_hit_miss.spv`,经**单所有者**
+     `VkAsManager` 真实单三角形 TLAS 在 compute queue 执行:W3 七能力链 fail-closed
+     门禁(capability snapshot 入 evidence)+ hit(committed_t=1.0±1e-6)/miss(-1.0
+     哨兵)数据流红绿 + 三 RED 注入轴(missing-capability / stale-tlas /
+     wrong-barrier〔validation VUID 拦截〕);
+  8. device-lost fail-closed 传播 host 单测(`vk::tests::queue_submit_err_maps_device_lost`,
+     `VK_ERROR_DEVICE_LOST` 稳定消息锚)——G-G7-5「设备丢失 RED 自检」轴。
+  无 Vulkan 设备/能力链缺失 → SKIP=dev-env degrade;`RURIX_REQUIRE_REAL=1` 翻硬红
+  (不以 host 段绿冒充 device 绿,RFC-0016 §4.E3 / §9.1 R-3 纪律)。
 """
 from __future__ import annotations
 
@@ -32,6 +38,7 @@ import datetime as _dt
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -362,22 +369,91 @@ def red_tamper_section(results: dict, work: Path) -> bool:
 # ───────────────────────── device 段(gate real) ─────────────────────────
 
 
-def device_section(results: dict) -> int:
-    """最小 hit/miss/属性查询 kernel device 真跑。
+def device_section(results: dict, work: Path) -> int:
+    """最小 hit/miss kernel device 真跑(G7.3 W3b,门 G-G7-5)。
 
-    **blocked-honest**:compute AS descriptor / 真实 TLAS 导入通道是 G7.3(W3b)的
-    交付面(G-G7-5),尚未在树 —— 没有它,ray query kernel 无法在设备上取得可遍历的
-    加速结构。此处如实记 blocked 并 SKIP,**不**以 host/compile 段绿冒充 device 绿
-    (RFC-0016 §4.E3 条件臂 / §9.1 R-3;G7 契约 guardrail「mock/host substitution/
-    isolated nonzero 不得满足 device 门」)。
+    步骤 7:`bin/vk_ray_query` 真跑(单所有者 VkAsManager 真实 TLAS + compute AS
+    descriptor + hit/miss 数据流红绿 + 三 RED 注入轴);
+    步骤 8:device-lost fail-closed 传播 host 单测。
+    无设备/能力链缺失 → SKIP=dev-env degrade(`RURIX_REQUIRE_REAL=1` 翻硬红);
+    build 失败 / 判据不符 / RED 轴失效 → FAIL(非 SKIP 事项)。
     """
-    results["device_blocked"] = "G7.2-W3b-pending"
+    results["device_blocked"] = None
     results["device_probe_note"] = (
-        "compute AS descriptor / TLAS 导入通道属 G7.3(W3b,门 G-G7-5)交付面,尚未在树;"
-        "ray query kernel 的 device 真跑以其为硬前置。host/compile 段(1~6)恒跑且全绿,"
-        "但不构成 device 见证。"
+        "G7.3 W3b compute AS descriptor 通道已在树(vk::run_ray_query_compute,"
+        "单所有者 VkAsManager);device 段为真跑,不再 blocked。"
     )
-    return skip("[device] 最小 hit/miss kernel 真跑硬前置 G7.3 W3b(compute AS descriptor)未在树")
+    spv = work / "ray_query_hit_miss.spv"
+    if not spv.is_file():
+        results["device_pass"] = False
+        return fail("[device] 缺步骤 3 产物 ray_query_hit_miss.spv(host 段应先行)")
+
+    # ── 步骤 7a:build harness(失败 = host 编译红,非 SKIP)──
+    code, o, e = run(
+        ["cargo", "build", "-p", "rurix-rt", "--features", "vulkan",
+         "--bin", "vk_ray_query", "--quiet"]
+    )
+    if code != 0:
+        print((o + e)[-2400:], file=sys.stderr)
+        results["device_pass"] = False
+        return fail("[device] cargo build vk_ray_query 失败(host 编译红,非 SKIP 事项)")
+    exe = ROOT / "target" / "debug" / ("vk_ray_query.exe" if os.name == "nt" else "vk_ray_query")
+
+    # ── 步骤 7b:真跑(RURIX_VK_VALIDATION=1;G-G7-5 validation 零错误纪律)──
+    env = dict(os.environ, RURIX_VK_VALIDATION="1")
+    p = subprocess.run(
+        [str(exe), "--spv", str(spv)], cwd=str(ROOT), capture_output=True, text=True, env=env
+    )
+    out = p.stdout + p.stderr
+    for line in out.splitlines():
+        if line.startswith("[vk_ray_query] W3 capability snapshot:"):
+            results["device_capability_snapshot"] = line.split(":", 1)[1].strip()
+    red = {
+        "missing_capability": "RED-OK missing-capability" in out,
+        "stale_tlas": "RED-OK stale-tlas" in out,
+        "wrong_barrier": "RED-OK wrong-barrier" in out,
+        "device_lost_unit": False,
+    }
+    results["device_red"] = red
+    if "RQ: SKIP" in out:
+        reason = next(
+            (ln.split("RQ: SKIP", 1)[1].strip() for ln in out.splitlines() if "RQ: SKIP" in ln),
+            "unknown",
+        )
+        results["device_pass"] = None
+        results["device_skip_reason"] = reason
+        return skip(f"[device] vk_ray_query SKIP({reason})")
+    if p.returncode != 0 or "RQ: PASS" not in out:
+        print(out[-2400:], file=sys.stderr)
+        results["device_pass"] = False
+        return fail(f"[device] vk_ray_query 未 PASS(rc={p.returncode})")
+    m = re.search(r"RQ: PASS hit_t=([-\d.eE]+) miss=([-\d.eE]+)", out)
+    if not m:
+        results["device_pass"] = False
+        return fail("[device] RQ: PASS 行缺 hit_t/miss 数值")
+    results["device_hit_t"] = float(m.group(1))
+    results["device_miss_sentinel"] = float(m.group(2))
+    if not (red["missing_capability"] and red["stale_tlas"] and red["wrong_barrier"]):
+        results["device_pass"] = False
+        return fail(f"[device] RED 注入轴不全: {red}")
+
+    # ── 步骤 8:device-lost fail-closed 传播单测(host 恒跑)──
+    code, o, e = run(
+        ["cargo", "test", "-q", "-p", "rurix-rt", "--features", "vulkan", "--lib", "--",
+         "vk::tests::queue_submit_err_maps_device_lost"]
+    )
+    if code != 0:
+        print((o + e)[-2000:], file=sys.stderr)
+        results["device_pass"] = False
+        return fail("[device] device-lost 传播单测失败(G-G7-5 设备丢失 RED 轴)")
+    red["device_lost_unit"] = True
+    results["device_pass"] = True
+    print(
+        f"[{TAG}] 步骤 7+8 PASS: device 真跑 hit_t={results['device_hit_t']} "
+        f"miss={results['device_miss_sentinel']} + RED 四轴(缺能力/过期 TLAS/错误 barrier/"
+        f"device-lost 传播)全过"
+    )
+    return 0
 
 
 def write_evidence(results: dict, host_ok: bool, device_rc: int) -> None:
@@ -386,13 +462,19 @@ def write_evidence(results: dict, host_ok: bool, device_rc: int) -> None:
     doc = {
         "schema_version": 1,
         "subject": "ray_query_codegen_smoke",
-        "milestone": "G7.2 W3a / G-G7-4 (RFC-0018 章 A/B)",
+        "milestone": "G7.2 W3a + G7.3 W3b / G-G7-4+G-G7-5 (RFC-0018 章 A/B/C)",
         "step": 93,
         "spec_clauses": ["RXS-0297", "RXS-0298", "RXS-0299", "RXS-0300"],
         "host_section_pass": host_ok,
         "device_section_rc": device_rc,
         "device_blocked": results.get("device_blocked"),
         "device_probe_note": results.get("device_probe_note"),
+        "device_pass": results.get("device_pass"),
+        "device_hit_t": results.get("device_hit_t"),
+        "device_miss_sentinel": results.get("device_miss_sentinel"),
+        "device_capability_snapshot": results.get("device_capability_snapshot"),
+        "device_red": results.get("device_red", {}),
+        "device_skip_reason": results.get("device_skip_reason"),
         "checks": {
             k: results.get(k)
             for k in (
@@ -441,13 +523,13 @@ def main() -> int:
         write_evidence(results, host_ok, device_rc)
         return skip(f"[host] {results['toolchain_skip']}(spirv-val/spirv-dis 缺;编译段判据未取证)")
 
-    device_rc = device_section(results) if host_ok else 1
+    device_rc = device_section(results, work) if host_ok else 1
     write_evidence(results, host_ok, device_rc)
     if not host_ok:
         return fail("host/compile 段未过(G-G7-4 编译门)")
     if device_rc != 0:
         return device_rc
-    print(f"[{TAG}] PASS(host/compile 恒跑全绿;device 段 blocked-honest = G7.3 W3b 前置)")
+    print(f"[{TAG}] PASS(host/compile 恒跑全绿;device 段真跑全绿 = G7.3 W3b 兑现,门 G-G7-5)")
     return 0
 
 

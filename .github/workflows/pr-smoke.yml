@@ -952,13 +952,17 @@ jobs:
       # vsm_page_mark/taa)逐件对 tests/vulkan/w1w2_spv_manifest.json 的 sha256 + SPIR-V
       # 版本(恒 1.0)+ capability 集合逐项比对,且不得误声明 ray query 面(既有 golden
       # 不重 bless,任何 diff 即红);⑥ RED 反证:篡改 .spv → spirv-val 必拒。
-      # device 段 gate real(最小 hit/miss/属性查询 kernel 真跑):硬前置 = G7.3 W3b
-      # compute AS descriptor / TLAS 导入通道,尚未在树 → device_blocked 记
-      # blocked-honest 并 SKIP;**RURIX_REQUIRE_REAL=1 翻硬红**,host 段绿不冒充 device 绿
-      # (RFC-0016 §4.E3 条件臂 / §9.1 R-3)。故本步骤暂不设 RURIX_REQUIRE_REAL,
-      # 待 G7.3 落地后由该波 PR 置 "1"。失败即红。
-      - name: compute ray query codegen smoke (G7 CI_GATES §2.93, G-G7-4, RFC-0018 章 A/B)
+      # device 段 gate real(G7.3 W3b 已落地,门 G-G7-5):bin/vk_ray_query 消费步骤 3 产
+      # ray_query_hit_miss.spv,经**单所有者 VkAsManager** 真实单三角形 TLAS 在 compute
+      # queue 真跑——W3 七能力链 fail-closed 门禁(capability snapshot 入 evidence)+
+      # hit(committed_t=1.0±1e-6)/miss(-1.0 哨兵)数据流红绿 + RED 四轴(missing-capability
+      # 注入拒绝 / stale-tlas fail-closed / wrong-barrier validation VUID 拦截 /
+      # device-lost 传播单测)。**RURIX_REQUIRE_REAL=1**(GPU runner 有 NVIDIA Vulkan),
+      # 缺设备 SKIP 翻硬红,host 段绿不冒充 device 绿(RFC-0016 §4.E3 / §9.1 R-3)。失败即红。
+      - name: compute ray query codegen+device smoke (G7 CI_GATES §2.93, G-G7-4/G-G7-5, RFC-0018 章 A/B/C)
         shell: powershell
+        env:
+          RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/ray_query_codegen_smoke.py
 
       - name: budget evaluator load (CI_GATES §3.6)
