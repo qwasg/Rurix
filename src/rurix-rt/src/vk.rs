@@ -210,24 +210,24 @@ struct DeviceCreateInfo {
 
 #[repr(C)]
 #[derive(Clone, Copy)]
-struct MemoryType {
-    property_flags: VkFlags,
-    heap_index: u32,
+pub(crate) struct MemoryType {
+    pub(crate) property_flags: VkFlags,
+    pub(crate) heap_index: u32,
 }
 
 #[repr(C)]
 #[derive(Clone, Copy)]
-struct MemoryHeap {
-    size: VkDeviceSize,
-    flags: VkFlags,
+pub(crate) struct MemoryHeap {
+    pub(crate) size: VkDeviceSize,
+    pub(crate) flags: VkFlags,
 }
 
 #[repr(C)]
-struct PhysicalDeviceMemoryProperties {
-    memory_type_count: u32,
-    memory_types: [MemoryType; 32],
-    memory_heap_count: u32,
-    memory_heaps: [MemoryHeap; 16],
+pub(crate) struct PhysicalDeviceMemoryProperties {
+    pub(crate) memory_type_count: u32,
+    pub(crate) memory_types: [MemoryType; 32],
+    pub(crate) memory_heap_count: u32,
+    pub(crate) memory_heaps: [MemoryHeap; 16],
 }
 
 #[repr(C)]
@@ -10736,12 +10736,14 @@ struct BufferDeviceAddressInfo {
     buffer: VkBuffer,
 }
 
+/// `VkWriteDescriptorSetAccelerationStructureKHR`(render_exec G7.6 W-B 经 pub(crate)
+/// 复用,**禁第二份定义**;字段序/sType 值与 spec 逐字节对齐)。
 #[repr(C)]
-struct WriteDescriptorSetAccelStructure {
-    s_type: u32,
-    p_next: *const c_void,
-    acceleration_structure_count: u32,
-    p_acceleration_structures: *const VkAccelerationStructureKHR,
+pub(crate) struct WriteDescriptorSetAccelStructure {
+    pub(crate) s_type: u32,
+    pub(crate) p_next: *const c_void,
+    pub(crate) acceleration_structure_count: u32,
+    pub(crate) p_acceleration_structures: *const VkAccelerationStructureKHR,
 }
 
 #[repr(C)]
@@ -12243,7 +12245,7 @@ struct MemoryBarrier {
 ///
 /// 与 `rt_body` 的 `dp!` 加载并存(同名符号重复解析零行为差);RT pipeline 路径与
 /// compute RayQuery 路径(G7.3 W3b)共用本集,不各持第二份 AS 构建逻辑。
-struct VkAsFns {
+pub(crate) struct VkAsFns {
     create_buffer: FnCreateBuffer,
     destroy_buffer: FnDestroyBuffer,
     buf_mem_req: FnGetBufferMemoryRequirements,
@@ -12263,7 +12265,7 @@ struct VkAsFns {
 
 impl VkAsFns {
     /// device 级符号加载(任一缺失 → 确定性 `Err`,同 `rt_body` `dp!` 纪律)。
-    unsafe fn load(gdpa: FnGetDeviceProcAddr, device: VkDevice) -> Result<Self, String> {
+    pub(crate) unsafe fn load(gdpa: FnGetDeviceProcAddr, device: VkDevice) -> Result<Self, String> {
         macro_rules! dp {
             ($name:literal, $ty:ty) => {
                 cast_fn::<$ty>(gdpa(device, $name.as_ptr())).ok_or("缺 device 符号")?
@@ -12413,7 +12415,13 @@ struct VkBlasEntry {
 /// [`Self::destroy`] 按原 `rt_body` 统一销毁段的相对顺序逆序销毁。destroy 后
 /// 句柄置 null,[`Self::tlas`] 返回 `VK_NULL_HANDLE` → 消费端 fail-closed
 /// (「过期 TLAS」RED 轴的机器承载)。
-struct VkAsManager {
+///
+/// **G7.6 Wave B 扩面**:struct 与 build/update/consume/destroy 方法放宽为
+/// `pub(crate)`,供 `render_exec` 持久 session **复用同一所有者**建/更新 AS
+/// (禁第二套 BVH);`allocations` 逐件登记真实 `vkAllocateMemory`
+/// (memory, 驱动裁定字节, heap 下标),经 [`Self::allocation_handles`] 暴露给
+/// session allocation ledger(只读句柄表,所有权仍在本所有者)。
+pub(crate) struct VkAsManager {
     /// 逐 BLAS 句柄组(下标 = `RayQueryInstanceDesc::blas` 值域)。
     blases: Vec<VkBlasEntry>,
     ibuf: VkBuffer,
@@ -12430,10 +12438,17 @@ struct VkAsManager {
     instance_count: usize,
     generation: u64,
     last_action: TlasBuildAction,
+    /// 全量真实分配((memory, 驱动 `VkMemoryRequirements::size`, heap 下标);
+    /// 建面序 = 逐 BLAS(vbuf→storage→scratch)→ instance → TLAS storage → TLAS scratch)。
+    allocations: Vec<(VkDeviceMemory, u64, u32)>,
+    /// TLAS storage 分配在 `allocations` 中的下标。
+    tlas_storage_index: usize,
 }
 
 impl VkAsManager {
     /// host-visible?/device-address? 通用 buffer 建面(自 `rt_body` `mk_buffer` 闭包等价提取)。
+    /// 返回 (buffer, memory, 驱动裁定分配字节, heap 下标)——后两项供
+    /// [`Self::allocations`] 登记(G7.6 W-B session ledger 暴露面)。
     unsafe fn mk_buffer(
         fns: &VkAsFns,
         device: VkDevice,
@@ -12442,7 +12457,7 @@ impl VkAsManager {
         usage: u32,
         host_visible: bool,
         device_address: bool,
-    ) -> Result<(VkBuffer, VkDeviceMemory), String> {
+    ) -> Result<(VkBuffer, VkDeviceMemory, u64, u32), String> {
         let bci = BufferCreateInfo {
             s_type: ST_BUFFER_CREATE_INFO,
             p_next: std::ptr::null(),
@@ -12490,7 +12505,12 @@ impl VkAsManager {
             return Err("vkAllocateMemory 失败".into());
         }
         (fns.bind_buf)(device, buffer, mem, 0);
-        Ok((buffer, mem))
+        Ok((
+            buffer,
+            mem,
+            req.size,
+            memprops.memory_types[mt as usize].heap_index,
+        ))
     }
 
     /// host-visible+coherent 内存整段写入(自 `rt_body` `upload` 闭包等价提取)。
@@ -12539,7 +12559,7 @@ impl VkAsManager {
     ///
     /// 空 BLAS 集 / 空实例集 / 三角形字节数非 9 的整数倍 / 实例引用越界 BLAS →
     /// 确定性 `Err`(fail-closed,不建半成品 AS)。
-    unsafe fn create_scene(
+    pub(crate) unsafe fn create_scene(
         fns: &VkAsFns,
         device: VkDevice,
         memprops: &PhysicalDeviceMemoryProperties,
@@ -12609,6 +12629,8 @@ impl VkAsManager {
             instance_count: scene.instances.len(),
             generation: 0,
             last_action: TlasBuildAction::Rebuild,
+            allocations: Vec::new(),
+            tlas_storage_index: 0,
         };
         match Self::build_scene(&mut m, fns, device, memprops, scene, transforms) {
             Ok(()) => Ok(m),
@@ -12686,9 +12708,10 @@ impl VkAsManager {
                 true,
                 true,
             ) {
-                Ok((b, mem)) => {
+                Ok((b, mem, bytes, heap)) => {
                     entry.vbuf = b;
                     entry.vmem = mem;
+                    m.allocations.push((mem, bytes, heap));
                 }
                 Err(e) => {
                     m.blases.push(entry);
@@ -12749,9 +12772,10 @@ impl VkAsManager {
                 false,
                 true,
             ) {
-                Ok((b, mem)) => {
+                Ok((b, mem, bytes, heap)) => {
                     entry.buf = b;
                     entry.mem = mem;
+                    m.allocations.push((mem, bytes, heap));
                 }
                 Err(e) => {
                     m.blases.push(entry);
@@ -12782,9 +12806,10 @@ impl VkAsManager {
                 false,
                 true,
             ) {
-                Ok((b, mem)) => {
+                Ok((b, mem, bytes, heap)) => {
                     entry.scratch = b;
                     entry.scratch_mem = mem;
+                    m.allocations.push((mem, bytes, heap));
                 }
                 Err(e) => {
                     m.blases.push(entry);
@@ -12849,9 +12874,10 @@ impl VkAsManager {
             true,
             true,
         ) {
-            Ok((b, mem)) => {
+            Ok((b, mem, bytes, heap)) => {
                 m.ibuf = b;
                 m.imem = mem;
+                m.allocations.push((mem, bytes, heap));
             }
             Err(e) => {
                 return Err(format!("instance buffer: {e}"));
@@ -12904,9 +12930,11 @@ impl VkAsManager {
             false,
             true,
         ) {
-            Ok((b, mem)) => {
+            Ok((b, mem, bytes, heap)) => {
                 m.tlas_buf = b;
                 m.tlas_mem = mem;
+                m.tlas_storage_index = m.allocations.len();
+                m.allocations.push((mem, bytes, heap));
             }
             Err(e) => {
                 return Err(format!("TLAS storage: {e}"));
@@ -12936,9 +12964,10 @@ impl VkAsManager {
             false,
             true,
         ) {
-            Ok((b, mem)) => {
+            Ok((b, mem, bytes, heap)) => {
                 m.tlas_scratch = b;
                 m.tlas_scratch_mem = mem;
+                m.allocations.push((mem, bytes, heap));
             }
             Err(e) => {
                 return Err(format!("TLAS scratch: {e}"));
@@ -12950,13 +12979,46 @@ impl VkAsManager {
     }
 
     /// TLAS 句柄(destroy 后为 `VK_NULL_HANDLE`;消费端必须 fail-closed 检查)。
-    fn tlas(&self) -> VkAccelerationStructureKHR {
+    pub(crate) fn tlas(&self) -> VkAccelerationStructureKHR {
         self.tlas
+    }
+
+    /// 全量真实分配句柄表((memory, 驱动裁定字节, heap 下标),建面序;G7.6 W-B
+    /// render_exec session allocation ledger 登记用。**只读暴露**——所有权与销毁
+    /// 仍归本所有者,caller 不得 free/destroy。
+    pub(crate) fn allocation_handles(&self) -> &[(VkDeviceMemory, u64, u32)] {
+        &self.allocations
+    }
+
+    /// TLAS storage 分配在 [`Self::allocation_handles`] 中的下标(session provenance
+    /// 代表 allocation 选择)。
+    pub(crate) fn tlas_storage_allocation_index(&self) -> usize {
+        self.tlas_storage_index
+    }
+
+    /// 当前存活对象计数(AS handle + buffer;destroy 后归 0;session telemetry
+    /// outstanding_object_count 用)。
+    pub(crate) fn object_count(&self) -> u64 {
+        let blas_objects: u64 = self
+            .blases
+            .iter()
+            .map(|entry| {
+                [entry.handle, entry.scratch, entry.buf, entry.vbuf]
+                    .iter()
+                    .filter(|&&h| h != VK_NULL_HANDLE)
+                    .count() as u64
+            })
+            .sum();
+        let shared_objects = [self.tlas, self.tlas_scratch, self.tlas_buf, self.ibuf]
+            .iter()
+            .filter(|&&h| h != VK_NULL_HANDLE)
+            .count() as u64;
+        blas_objects + shared_objects
     }
 
     /// 录制 逐 BLAS build → 全序内存屏障（ACCEL_WRITE→ACCEL_READ|WRITE）→ TLAS build
     /// (等序提取自 `rt_body` 录制段;N=1 即原序)。
-    unsafe fn record_build(&mut self, fns: &VkAsFns, cmd: VkCommandBuffer) {
+    pub(crate) unsafe fn record_build(&mut self, fns: &VkAsFns, cmd: VkCommandBuffer) {
         for entry in &self.blases {
             let blas_range_ptr: *const AccelBuildRangeInfo = &entry.range;
             (fns.cmd_build_as)(cmd, 1, &entry.bgi, &blas_range_ptr);
@@ -12987,7 +13049,7 @@ impl VkAsManager {
 
     /// 更新 host-visible instance buffer 的显式行主 3×4 transforms。实例拓扑/BLAS 引用
     /// 保持不变，因此下一次可真实录制 UPDATE/refit；数量变化须走 rebuild/new manager。
-    unsafe fn write_transforms(
+    pub(crate) unsafe fn write_transforms(
         &mut self,
         fns: &VkAsFns,
         device: VkDevice,
@@ -13038,7 +13100,7 @@ impl VkAsManager {
 
     /// 录制实际 TLAS refit/update 或 rebuild，并报告 generation/action。调用方随后仍须
     /// [`Self::record_consume_barrier`] 建立 AS_WRITE→AS_READ。
-    unsafe fn record_tlas_update(
+    pub(crate) unsafe fn record_tlas_update(
         &mut self,
         fns: &VkAsFns,
         cmd: VkCommandBuffer,
@@ -13069,7 +13131,12 @@ impl VkAsManager {
     /// 录制 TLAS build → 消费 stage 读屏障(`dst_stage` = RT pipeline 路
     /// `PIPELINE_STAGE_RAY_TRACING_SHADER_KHR` / compute RayQuery 路
     /// `PIPELINE_STAGE_COMPUTE_SHADER`;src 侧恒 ACCEL build,等序提取)。
-    unsafe fn record_consume_barrier(&self, fns: &VkAsFns, cmd: VkCommandBuffer, dst_stage: u32) {
+    pub(crate) unsafe fn record_consume_barrier(
+        &self,
+        fns: &VkAsFns,
+        cmd: VkCommandBuffer,
+        dst_stage: u32,
+    ) {
         let trace_barrier = MemoryBarrier {
             s_type: ST_MEMORY_BARRIER,
             p_next: std::ptr::null(),
@@ -13094,7 +13161,9 @@ impl VkAsManager {
     /// → tlas_buf(+mem) → ibuf(+mem) → 逐 BLAS 逆序〔blas → blas_scratch(+mem) →
     /// blas_buf(+mem) → vbuf(+mem)〕;非 null 才销毁;销毁后句柄置 null,幂等。
     /// AS handle 先于其 storage buffer 销毁的 RXS-0248 IR2 纪律在每个 BLAS 内维持)。
-    unsafe fn destroy(&mut self, fns: &VkAsFns, device: VkDevice) {
+    pub(crate) unsafe fn destroy(&mut self, fns: &VkAsFns, device: VkDevice) {
+        self.allocations.clear();
+        self.tlas_storage_index = 0;
         if self.tlas != VK_NULL_HANDLE {
             (fns.destroy_as)(device, self.tlas, std::ptr::null());
             self.tlas = VK_NULL_HANDLE;
@@ -14701,7 +14770,7 @@ unsafe fn rq_body(
                     true,
                     false,
                 ) {
-                    Ok((buf, mem)) => {
+                    Ok((buf, mem, _bytes, _heap)) => {
                         match desc {
                             RayQueryBufferDesc::Input(bytes) => {
                                 VkAsManager::upload(&as_fns, device, mem, bytes);

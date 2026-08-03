@@ -14,16 +14,39 @@
 //! 每 pass 至多一个 descriptor set(**set 0**),binding 号按固定区间分配(与
 //! rurixc `infer_spirv_bindings_vk_native` 的「类内声明序」同律,shader 侧按此约定取号):
 //!
-//! - binding `[0..N)`:N 个 **storage buffer**(`Bindings::storage_buffers` 声明序);
-//! - binding `[N..N+M)`:M 个 **sampled image**(`Bindings::sampled_images` 声明序;
+//! - binding `[0..A)`:A 个 **acceleration structure**(`Bindings::accel_structs` 声明序;
+//!   值 = session AS 表下标;G7.6 Wave B,仅 [`DeviceFrameSession`] 携带 AS 表时可用)。
+//!   AS 在前的理由:rurixc 按形参声明序分配 SPIR-V binding,W3 ray query 三核
+//!   (gi_probe/rtao/hard_shadow)的 `tlas: AccelStruct` 均为**首形参**(binding 0),
+//!   其后才是 SSBO/image 形参——故 AS 段占据 binding 最前区间与其声明序一致;
+//! - binding `[A..A+N)`:N 个 **storage buffer**(`Bindings::storage_buffers` 声明序);
+//! - binding `[A+N..A+N+M)`:M 个 **sampled image**(`Bindings::sampled_images` 声明序;
 //!   `COMBINED_IMAGE_SAMPLER`,sampler 为执行器内建唯一**线性 sampler**:min/mag LINEAR、
 //!   mipmap NEAREST、address CLAMP_TO_EDGE(阴影/GI 采样需要)、lod [0,1]、无各项异性);
-//! - binding `[N+M..N+M+K)`:K 个 **storage image**(`Bindings::storage_images` 声明序,
+//! - binding `[A+N+M..A+N+M+K)`:K 个 **storage image**(`Bindings::storage_images` 声明序,
 //!   layout `GENERAL`);
-//! - binding `[N+M+K]`:可选 1 个 **uniform buffer**(`Bindings::uniform`,offset+size)。
+//! - binding `[A+N+M+K]`:可选 1 个 **uniform buffer**(`Bindings::uniform`,offset+size)。
+//!
+//! **A=0 时(无 AS 绑定的既有 pass)binding 编号与 G5 起五段布局逐位不变**(0-byte 兼容)。
 //!
 //! push constants:单块、offset 0、≤128B,stage flags 恒 `VERTEX|FRAGMENT|COMPUTE`。
 //! stage flags(descriptor 与 push range)恒 `VERTEX|FRAGMENT|COMPUTE`(保守超集,单约定)。
+//!
+//! ## G7.6 Wave B:AS 绑定面与 FrameUpdate 每帧重录
+//!
+//! - [`DeviceFrameSession::new_with_accel_structs`] 携带 AS 表([`AccelStructDesc`];
+//!   复用 vk.rs **同一单所有者** `VkAsManager` 建 BLAS/TLAS,禁第二套 BVH),设备创建
+//!   追加 `VK_KHR_ray_query`/`VK_KHR_acceleration_structure`/`VK_KHR_buffer_device_address`/
+//!   `VK_KHR_deferred_host_operations` 四扩展 + feature 链(缺一 → 确定性 `Err`,不降级);
+//!   初始 build 录进创建期专用一次性 cmd(单 fence 有界等待,非 `vkQueueWaitIdle`);
+//!   AS 全量分配登记 session allocation ledger,AS 表项得 `StableResourceId`
+//!   (= `resource_count + as_index + 1`),ray query pass 经 `accel_structs` 绑定声明
+//!   对 TLAS 的 Read provenance。
+//! - [`DeviceFrameSession::execute_with_frame_update`] 消费数据驱动 [`FrameUpdate`]:
+//!   TLAS refit/rebuild(记 Write 并 bump generation)、buffer 上传(host-visible+coherent
+//!   故 submit 前 memcpy;本执行器 buffer 恒 host-visible,staging 路不可达)、binding 覆盖
+//!   (history ping-pong;布局键须与声明逐位一致)、push constant 覆盖(长度须等)、
+//!   readback 子集;provenance 覆核仍在 `vkQueueSubmit` 前 fail-closed。
 //!
 //! ## 屏障计划语义
 //!
@@ -68,7 +91,15 @@
 use core::ffi::{CStr, c_char, c_void};
 use std::collections::HashMap;
 
-use crate::vk::{FnGetInstanceProcAddr, PfnVoid, cast_fn, load_vulkan_loader};
+use crate::vk::{
+    FnGetInstanceProcAddr, PfnVoid, VkAsFns, VkAsManager, WriteDescriptorSetAccelStructure,
+    cast_fn, load_vulkan_loader,
+};
+
+// G7.6 Wave B:AS 绑定面/每帧重录公共类型复用 vk.rs 单一事实源(禁第二份定义)。
+pub use crate::vk::{
+    RayQueryInstanceDesc, RayQuerySceneDesc, RayQueryTransformedInstanceDesc, TlasBuildAction,
+};
 
 // ─────────────────────────── 公共 API:格式与资源 ───────────────────────────
 
@@ -322,17 +353,68 @@ pub struct UniformRef {
 /// pass 绑定集(set0 固定约定各区段来源;全空 = 无 descriptor 绑定)。
 #[derive(Debug, Clone, Default)]
 pub struct Bindings {
-    /// storage buffer 资源下标列(声明序 → binding `[0..N)`;compute/raster 均可读写,
+    /// acceleration structure 绑定列(**session AS 表下标** → binding `[0..A)`;ray query
+    /// compute pass 的 TLAS 只读绑定;仅 [`DeviceFrameSession::new_with_accel_structs`]
+    /// 携带 AS 表的 session 合法,`execute_frame`/空 AS 表 session 须为空——校验期
+    /// 确定性拒)。A=0 时其余四段 binding 编号与 G5 布局逐位不变。
+    pub accel_structs: Vec<u32>,
+    /// storage buffer 资源下标列(声明序 → binding `[A..A+N)`;compute/raster 均可读写,
     /// 屏障按保守读写超集计)。
     pub storage_buffers: Vec<u32>,
-    /// sampled image 资源下标列(声明序 → binding `[N..N+M)`;内建线性 sampler)。
+    /// sampled image 资源下标列(声明序 → binding `[A+N..A+N+M)`;内建线性 sampler)。
     pub sampled_images: Vec<u32>,
-    /// storage image 资源下标列(声明序 → binding `[N+M..N+M+K)`;`GENERAL`)。
+    /// storage image 资源下标列(声明序 → binding `[A+N+M..A+N+M+K)`;`GENERAL`)。
     pub storage_images: Vec<u32>,
-    /// 可选 uniform 绑定(→ binding `[N+M+K]`)。
+    /// 可选 uniform 绑定(→ binding `[A+N+M+K]`)。
     pub uniform: Option<UniformRef>,
     /// push constants 字节(≤128;offset 0 单块;空 = 不推)。
     pub push_constants: Vec<u8>,
+}
+
+/// 持久 session 加速结构表项(G7.6 Wave B;BLAS 三角形组 + TLAS 实例描述,
+/// 复用 vk.rs [`RayQuerySceneDesc`] 既有类型——经同一单所有者 `VkAsManager` 建面,
+/// 禁第二套 BVH/AS 所有者)。
+pub struct AccelStructDesc<'a> {
+    /// 场景描述(逐 BLAS 世界空间三角形 + TLAS 实例;口径同 vk.rs RayQuery 面)。
+    pub scene: RayQuerySceneDesc<'a>,
+    /// 可选逐实例显式行主 3×4 transform(`None` = 全 identity;`Some` 时长度须
+    /// = `scene.instances.len()`)。
+    pub transforms: Option<&'a [[f32; 12]]>,
+}
+
+/// 每帧重录更新描述(G7.6 Wave B;**数据驱动、不用闭包**,provenance 可机验;
+/// [`DeviceFrameSession::execute_with_frame_update`] 消费)。
+///
+/// 字段语义:
+/// - `tlas_update`:`Some((as 表下标, 实例 transforms, 动作))` → 本帧先 host 写
+///   instance buffer,再在重录 cmd 首段录 `BUILD`(Rebuild)/`UPDATE`(Refit)+
+///   consume barrier;AS provenance 记 Write 并 bump generation(本帧 ray query pass
+///   的 Read producer 指向新 generation)。
+/// - `buffer_uploads`:`(StableResourceId, offset, bytes)` 逐段 submit 前 host memcpy
+///   (本执行器 buffer 恒 host-visible+coherent,`create_device_buffer` 单内存路径,
+///   故无 staging 分支);上传记 Write 并 bump 该资源 generation。仅 buffer 资源合法。
+/// - `binding_overrides`:`(pass 下标, Bindings)` 本帧该 pass 的绑定覆盖(history
+///   ping-pong);**set0 布局键(AS/storage/sampled/storage-image 计数 + uniform 有无)
+///   与 push constants 长度须与声明逐位一致**(pipeline layout 创建期固化),不一致 →
+///   确定性 `Err`;覆盖 pass 的 descriptor set 在 submit 前重写(前帧 fence 已等待,
+///   set 不在途)。
+/// - `push_constant_overrides`:`(pass 下标, bytes)` 在(可能覆盖后的)绑定之上再覆盖
+///   push constants;长度须等于声明长度。
+/// - `readback_subset`:`Some(下标列)` = 本帧仅执行/readback 这些 session readback
+///   请求(`DeviceFrameOutput::readbacks[k]` 对应 `readbacks[subset[k]]`);
+///   `None` = 本帧不 readback(输出 readbacks 为空)。
+#[derive(Debug, Clone, Default)]
+pub struct FrameUpdate {
+    /// 见上;`as 表下标` 越界 / 实例数不符 → 确定性 `Err`。
+    pub tlas_update: Option<(u32, Vec<RayQueryTransformedInstanceDesc>, TlasBuildAction)>,
+    /// 见上;非 buffer 资源 / 越界区段 / 空段 → 确定性 `Err`。
+    pub buffer_uploads: Vec<(StableResourceId, u64, Vec<u8>)>,
+    /// 见上;布局键或 push 长度漂移 / pass 下标越界 / 重复下标 → 确定性 `Err`。
+    pub binding_overrides: Vec<(u32, Bindings)>,
+    /// 见上;长度不等 / pass 下标越界 / 重复下标 → 确定性 `Err`。
+    pub push_constant_overrides: Vec<(u32, Vec<u8>)>,
+    /// 见上;下标越界 / 重复 → 确定性 `Err`。
+    pub readback_subset: Option<Vec<u32>>,
 }
 
 /// raster pass(vertex+fragment 着色对;`OpEntryPoint` 名恒 `"main"`,沿 vk.rs 先例)。
@@ -791,11 +873,18 @@ pub struct DeviceFrameOutput {
 /// `new` 后保持到 Drop；每帧仅做 provenance 校验、fence slot 提交/有界等待、timestamp /
 /// memory-budget/readback 采集。正常帧循环不调用 `vkQueueWaitIdle`；Drop 最终 teardown
 /// 才允许排空 queue。
+///
+/// G7.6 Wave B:[`Self::new_with_accel_structs`] 追加 session AS 表(ray query compute
+/// pass 经 `Bindings::accel_structs` 绑定);[`Self::execute_with_frame_update`] 支持
+/// 数据驱动每帧重录(TLAS update / buffer 上传 / binding 覆盖 / push 覆盖 / readback
+/// 子集);`execute`/`execute_with_provenance` 重放路径行为 0-byte。
 pub struct DeviceFrameSession<'a> {
     resources: &'a [ResourceDesc<'a>],
     passes: &'a [Pass<'a>],
+    barriers: &'a [&'a [(u32, TargetState)]],
     readbacks: &'a [Readback],
     native: NativePersistentFrame,
+    /// 逐资源 generation(扩展表:`resources` 后接 AS 表槽位,初值全 0 = 初始内容代)。
     resource_generations: Vec<u64>,
     frame_generation: u64,
 }
@@ -810,7 +899,31 @@ impl<'a> DeviceFrameSession<'a> {
         readbacks: &'a [Readback],
         frame_slots: usize,
     ) -> Result<Self, String> {
-        validate_frame(resources, passes, barriers, readbacks)?;
+        Self::new_with_accel_structs(resources, passes, barriers, readbacks, frame_slots, &[])
+    }
+
+    /// [`Self::new`] + session AS 表(G7.6 Wave B)。`accel_structs` 逐表项经 vk.rs
+    /// **同一单所有者** `VkAsManager` 在同一 device 建 BLAS/TLAS(初始 build 创建期
+    /// 一次性提交,单 fence 有界等待);AS 全量分配入 allocation ledger,AS 表项
+    /// `StableResourceId` = `resources.len() + as_index + 1`。设备 ray query 四扩展 +
+    /// feature 链缺一 → 确定性 `Err`(fail-closed,不隐式降级)。`accel_structs` 为空
+    /// 时与 [`Self::new`] 逐字节同行为。
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_with_accel_structs(
+        resources: &'a [ResourceDesc<'a>],
+        passes: &'a [Pass<'a>],
+        barriers: &'a [&'a [(u32, TargetState)]],
+        readbacks: &'a [Readback],
+        frame_slots: usize,
+        accel_structs: &[AccelStructDesc<'a>],
+    ) -> Result<Self, String> {
+        validate_frame_with_as(
+            resources,
+            passes,
+            barriers,
+            readbacks,
+            accel_structs.len() as u32,
+        )?;
         if frame_slots < 2 {
             return Err("persistent frame session 须至少 2 个 fence frame slots".into());
         }
@@ -819,28 +932,53 @@ impl<'a> DeviceFrameSession<'a> {
         // SAFETY: U32 持久扩注；所有 native 句柄移入 NativePersistentFrame，Drop 单点逆序
         // teardown。validation user_data 为 Box<AtomicU64>，地址在 session 生命周期内稳定。
         let native = unsafe {
-            create_persistent_frame(gipa, resources, passes, barriers, readbacks, frame_slots)?
+            create_persistent_frame(
+                gipa,
+                resources,
+                passes,
+                barriers,
+                readbacks,
+                frame_slots,
+                accel_structs,
+            )?
         };
+        let as_count = native.as_count();
         Ok(Self {
             resources,
             passes,
+            barriers,
             readbacks,
             native,
-            resource_generations: vec![0; resources.len()],
+            resource_generations: vec![0; resources.len() + as_count],
             frame_generation: 0,
         })
+    }
+
+    /// session AS 表项数(0 = 无 AS 面)。
+    fn as_count(&self) -> usize {
+        self.native.as_count()
+    }
+
+    /// 各 pass 声明绑定集克隆(重放路径 provenance 的 effective bindings;
+    /// `Bindings` 全 Vec 小表,每帧一次浅克隆)。
+    fn declared_bindings(&self) -> Vec<Bindings> {
+        self.passes
+            .iter()
+            .map(|p| pass_bindings(p).clone())
+            .collect()
     }
 
     /// 下一帧的实际 provenance（未提交）；RED 可克隆并篡改后交给
     /// [`Self::execute_with_provenance`] 验证。
     #[must_use]
     pub fn next_provenance(&self) -> SubmissionProvenance {
-        build_runtime_provenance(
-            self.resources,
+        build_runtime_provenance_ext(
             self.passes,
+            &self.declared_bindings(),
             &self.native.resource_allocations,
             &self.resource_generations,
             self.frame_generation + 1,
+            self.resources.len() as u32,
         )
     }
 
@@ -859,12 +997,173 @@ impl<'a> DeviceFrameSession<'a> {
         let record_started = std::time::Instant::now();
         let expected = self.next_provenance();
         validate_submission_provenance(&expected, supplied)?;
-        let cpu_record_ns = elapsed_ns(record_started);
+        let validate_ns = elapsed_ns(record_started);
         // SAFETY: native session 独占 &mut self；fence 保证 command buffer/readback 不在途；
         // execute_persistent_frame 正常帧只 wait/reset fence，不 queue-wait-idle。
-        let (readbacks, mut telemetry) =
-            unsafe { execute_persistent_frame(&mut self.native, self.passes, self.readbacks)? };
-        telemetry.cpu_record_ns = cpu_record_ns;
+        let (readbacks, mut telemetry) = unsafe {
+            execute_persistent_frame(
+                &mut self.native,
+                self.resources,
+                self.passes,
+                self.barriers,
+                self.readbacks,
+                None,
+            )?
+        };
+        telemetry.cpu_record_ns += validate_ns;
+        self.commit_provenance(&expected);
+        Ok(DeviceFrameOutput {
+            readbacks,
+            provenance: expected,
+            telemetry,
+        })
+    }
+
+    /// FrameUpdate 派生态(effective bindings + pre-bump generations;两 provenance
+    /// 入口共用同一事实源)。
+    fn frame_update_state(
+        &self,
+        update: &FrameUpdate,
+    ) -> Result<(Vec<Bindings>, Vec<u64>), String> {
+        let as_count = self.as_count() as u32;
+        validate_frame_update(
+            self.resources,
+            self.passes,
+            self.readbacks,
+            as_count,
+            update,
+        )?;
+        // effective bindings:声明 → binding_overrides → push_constant_overrides。
+        let mut effective = self.declared_bindings();
+        for &(pi, ref bindings) in &update.binding_overrides {
+            effective[pi as usize] = bindings.clone();
+        }
+        for &(pi, ref bytes) in &update.push_constant_overrides {
+            effective[pi as usize].push_constants.clone_from(bytes);
+        }
+        // 内容写(TLAS update / buffer 上传)先 bump generation,provenance 消费侧
+        // producer 指向新代。
+        let mut generations = self.resource_generations.clone();
+        if let Some((as_index, _, _)) = &update.tlas_update {
+            let slot = self.resources.len() + *as_index as usize;
+            generations[slot] = generations[slot].saturating_add(1);
+        }
+        for (resource_id, _, _) in &update.buffer_uploads {
+            let slot = (resource_id.0 - 1) as usize;
+            generations[slot] = generations[slot].saturating_add(1);
+        }
+        Ok((effective, generations))
+    }
+
+    /// 下一帧在 [`FrameUpdate`] 作用下的实际 provenance(未提交;含 TLAS/上传
+    /// generation pre-bump 与 override 后 effective bindings)。RED 可克隆并篡改后
+    /// 交给 [`Self::execute_with_frame_update`] 验证。update 非法(同
+    /// `validate_frame_update` 判据)→ 确定性 `Err`。
+    pub fn next_provenance_with_update(
+        &self,
+        update: &FrameUpdate,
+    ) -> Result<SubmissionProvenance, String> {
+        let (effective, generations) = self.frame_update_state(update)?;
+        Ok(build_runtime_provenance_ext(
+            self.passes,
+            &effective,
+            &self.native.resource_allocations,
+            &generations,
+            self.frame_generation + 1,
+            self.resources.len() as u32,
+        ))
+    }
+
+    /// 使用调用方提供的 provenance + 数据驱动 [`FrameUpdate`] 提交一帧(G7.6 Wave B
+    /// 每帧重录面)。校验序(全部在 `vkQueueSubmit` 前 fail-closed):
+    /// ① `validate_frame_update`(下标/区段/布局键/push 长度/readback 子集合法性);
+    /// ② override 后 effective bindings 重推 expected provenance(TLAS update 与
+    /// buffer 上传先 bump 各自 generation);③ `validate_submission_provenance`
+    /// (override 引用的 resource/generation 一并覆核)。
+    /// 有重录内容时 `vkResetCommandBuffer` + 重录(上传段 → TLAS update+consume
+    /// barrier → 固定 pass 链应用 overrides → timestamp 标记 → readback 子集);
+    /// `cpu_record_ns` 如实计量校验 + host 写 + 重录耗时。
+    pub fn execute_with_frame_update(
+        &mut self,
+        supplied: &SubmissionProvenance,
+        update: &FrameUpdate,
+    ) -> Result<DeviceFrameOutput, String> {
+        let record_started = std::time::Instant::now();
+        let (effective, generations) = self.frame_update_state(update)?;
+        let expected = build_runtime_provenance_ext(
+            self.passes,
+            &effective,
+            &self.native.resource_allocations,
+            &generations,
+            self.frame_generation + 1,
+            self.resources.len() as u32,
+        );
+        validate_submission_provenance(&expected, supplied)?;
+        let validate_ns = elapsed_ns(record_started);
+
+        let mut descriptor_overrides: Vec<u32> = Vec::new();
+        for &(pi, _) in &update.binding_overrides {
+            descriptor_overrides.push(pi);
+        }
+        let uploads: Vec<(u32, u64, &[u8])> = update
+            .buffer_uploads
+            .iter()
+            .map(|(resource_id, offset, bytes)| {
+                ((resource_id.0 - 1) as u32, *offset, bytes.as_slice())
+            })
+            .collect();
+        let tlas = update
+            .tlas_update
+            .as_ref()
+            .map(|(as_index, instances, action)| (*as_index, instances.as_slice(), *action));
+        let (effective_readbacks, effective_rb_sources) = match &update.readback_subset {
+            Some(indices) => (
+                indices
+                    .iter()
+                    .map(|&i| self.readbacks[i as usize])
+                    .collect::<Vec<Readback>>(),
+                indices.iter().map(|&i| i as usize).collect::<Vec<usize>>(),
+            ),
+            None => (Vec::new(), Vec::new()),
+        };
+        let needs_rerecord = tlas.is_some()
+            || !descriptor_overrides.is_empty()
+            || !update.push_constant_overrides.is_empty()
+            || update.readback_subset.is_some();
+        let prepared = PreparedFrameUpdate {
+            uploads: &uploads,
+            tlas,
+            descriptor_overrides: &descriptor_overrides,
+            effective_bindings: &effective,
+            effective_readbacks: &effective_readbacks,
+            effective_rb_sources: &effective_rb_sources,
+            needs_rerecord,
+        };
+        // SAFETY: native session 独占 &mut self;prepared 全部引用本帧栈上数据,随调用
+        // 结束失效;fence 纪律同 execute_with_provenance(正常帧不 queue-wait-idle)。
+        let (readbacks, mut telemetry) = unsafe {
+            execute_persistent_frame(
+                &mut self.native,
+                self.resources,
+                self.passes,
+                self.barriers,
+                self.readbacks,
+                Some(&prepared),
+            )?
+        };
+        telemetry.cpu_record_ns += validate_ns;
+        // 提交成功才落账:先写回 pre-bump 后 generations,再按 pass 产出覆盖。
+        self.resource_generations = generations;
+        self.commit_provenance(&expected);
+        Ok(DeviceFrameOutput {
+            readbacks,
+            provenance: expected,
+            telemetry,
+        })
+    }
+
+    /// 提交成功后的 generation/frame 计数落账(两入口共用)。
+    fn commit_provenance(&mut self, expected: &SubmissionProvenance) {
         self.frame_generation += 1;
         for pass in &expected.passes {
             for r in &pass.resources {
@@ -873,11 +1172,6 @@ impl<'a> DeviceFrameSession<'a> {
                 }
             }
         }
-        Ok(DeviceFrameOutput {
-            readbacks,
-            provenance: expected,
-            telemetry,
-        })
     }
 }
 
@@ -914,8 +1208,9 @@ pub(crate) struct ComputePipelineKey {
     entry: Vec<u8>,
 }
 
-/// set0 descriptor 布局键:(storage N, sampled M, storage image K, uniform U)。
-type SetLayoutKey = (u32, u32, u32, bool);
+/// set0 descriptor 布局键:(accel struct A, storage N, sampled M, storage image K, uniform U)。
+/// A=0 时与 G5 起四元组同值域(0-byte 兼容)。
+type SetLayoutKey = (u32, u32, u32, u32, bool);
 
 /// pipeline layout 键(set0 布局 + push constant 块尺寸)。
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -1076,25 +1371,46 @@ fn is_buffer_state(s: TargetState) -> bool {
 
 /// set0 descriptor 布局规划(host 可测纯函数;模块头「descriptor 固定约定」的
 /// 可执行形态):返回 (binding, descriptor_type) 列,binding 号按区间分配。
+/// A=0 委托等价形(既有四段布局逐位不变,`set0_layout_convention` 锚定)。
+#[allow(dead_code)] // lib 侧消费已迁 plan_set0_layout_with_as;本形为测试锚 + 文档契约面。
 pub(crate) fn plan_set0_layout(
     n_storage: u32,
     n_sampled: u32,
     n_storage_img: u32,
     has_uniform: bool,
 ) -> Vec<(u32, u32)> {
+    plan_set0_layout_with_as(0, n_storage, n_sampled, n_storage_img, has_uniform)
+}
+
+/// [`plan_set0_layout`] 的 AS 扩面形(G7.6 Wave B):binding `[0..A)` =
+/// accel struct(`DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR`),其后四段顺延
+/// (AS 在前 = rurixc 形参声明序,`AccelStruct` 首形参拿 binding 0)。
+pub(crate) fn plan_set0_layout_with_as(
+    n_as: u32,
+    n_storage: u32,
+    n_sampled: u32,
+    n_storage_img: u32,
+    has_uniform: bool,
+) -> Vec<(u32, u32)> {
     let mut out = Vec::new();
+    for a in 0..n_as {
+        out.push((a, DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR));
+    }
     for i in 0..n_storage {
-        out.push((i, DESCRIPTOR_TYPE_STORAGE_BUFFER));
+        out.push((n_as + i, DESCRIPTOR_TYPE_STORAGE_BUFFER));
     }
     for j in 0..n_sampled {
-        out.push((n_storage + j, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
+        out.push((n_as + n_storage + j, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER));
     }
     for k in 0..n_storage_img {
-        out.push((n_storage + n_sampled + k, DESCRIPTOR_TYPE_STORAGE_IMAGE));
+        out.push((
+            n_as + n_storage + n_sampled + k,
+            DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        ));
     }
     if has_uniform {
         out.push((
-            n_storage + n_sampled + n_storage_img,
+            n_as + n_storage + n_sampled + n_storage_img,
             DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         ));
     }
@@ -1123,11 +1439,24 @@ fn spirv_to_words(spv: &[u8], what: &str) -> Result<Vec<u32>, String> {
 const MAX_PUSH_CONSTANTS: usize = 128;
 
 /// 帧级 host 预校验(P-01 fail-closed,在任何句柄创建前;host 可测纯函数)。
+/// `execute_frame` 入口形:无 AS 表(as_count=0,`accel_structs` 非空即拒)。
 fn validate_frame(
     resources: &[ResourceDesc],
     passes: &[Pass],
     barriers: &[&[(u32, TargetState)]],
     readbacks: &[Readback],
+) -> Result<(), String> {
+    validate_frame_with_as(resources, passes, barriers, readbacks, 0)
+}
+
+/// [`validate_frame`] 的 AS 表扩面形(G7.6 Wave B):`as_count` = session AS 表项数,
+/// `Bindings::accel_structs` 各下标须 `< as_count`(空表 → 非空绑定确定性拒)。
+fn validate_frame_with_as(
+    resources: &[ResourceDesc],
+    passes: &[Pass],
+    barriers: &[&[(u32, TargetState)]],
+    readbacks: &[Readback],
+    as_count: u32,
 ) -> Result<(), String> {
     if passes.is_empty() {
         return Err("passes 为空(≥1 pass)".to_owned());
@@ -1219,77 +1548,7 @@ fn validate_frame(
     }
     // 绑定集逐项合法性(公共子例程)。
     let validate_bindings = |name: &str, b: &Bindings| -> Result<(), String> {
-        for &res in &b.storage_buffers {
-            match resources.get(res as usize) {
-                Some(ResourceDesc::Buffer(d)) if d.usage.storage => {}
-                Some(ResourceDesc::Buffer(_)) => {
-                    return Err(format!(
-                        "pass `{name}`: storage buffer {res} 未声明 storage 用途"
-                    ));
-                }
-                _ => {
-                    return Err(format!(
-                        "pass `{name}`: storage buffer 资源号 {res} 非 buffer"
-                    ));
-                }
-            }
-        }
-        for &res in &b.sampled_images {
-            match resources.get(res as usize) {
-                Some(ResourceDesc::Texture(d)) if d.usage.sampled => {}
-                Some(ResourceDesc::Texture(_)) => {
-                    return Err(format!(
-                        "pass `{name}`: sampled image {res} 未声明 sampled 用途"
-                    ));
-                }
-                _ => {
-                    return Err(format!(
-                        "pass `{name}`: sampled image 资源号 {res} 非 texture"
-                    ));
-                }
-            }
-        }
-        for &res in &b.storage_images {
-            match resources.get(res as usize) {
-                Some(ResourceDesc::Texture(d)) if d.usage.storage => {}
-                Some(ResourceDesc::Texture(_)) => {
-                    return Err(format!(
-                        "pass `{name}`: storage image {res} 未声明 storage 用途"
-                    ));
-                }
-                _ => {
-                    return Err(format!(
-                        "pass `{name}`: storage image 资源号 {res} 非 texture"
-                    ));
-                }
-            }
-        }
-        if let Some(u) = b.uniform {
-            match resources.get(u.res as usize) {
-                Some(ResourceDesc::Buffer(d)) if d.usage.uniform => {
-                    if u.size == 0 || u.offset + u.size > d.size {
-                        return Err(format!(
-                            "pass `{name}`: uniform 区段 [{}, {}+{}) 越出 buffer size {}",
-                            u.offset, u.offset, u.size, d.size
-                        ));
-                    }
-                }
-                Some(ResourceDesc::Buffer(_)) => {
-                    return Err(format!(
-                        "pass `{name}`: uniform {} 未声明 uniform 用途",
-                        u.res
-                    ));
-                }
-                _ => return Err(format!("pass `{name}`: uniform 资源号 {} 非 buffer", u.res)),
-            }
-        }
-        if b.push_constants.len() > MAX_PUSH_CONSTANTS {
-            return Err(format!(
-                "pass `{name}`: push constants {}B > {MAX_PUSH_CONSTANTS}B",
-                b.push_constants.len()
-            ));
-        }
-        Ok(())
+        validate_bindings_with_as(name, b, resources, as_count)
     };
     // pass 个体合法性。
     for p in passes {
@@ -1479,6 +1738,229 @@ fn validate_frame(
     Ok(())
 }
 
+/// 绑定集逐项合法性(`validate_frame_with_as` 提取的公共子例程;`accel_structs`
+/// 各下标须 `< as_count`,`execute_frame`/空 AS 表 session 经 as_count=0 拒非空)。
+fn validate_bindings_with_as(
+    name: &str,
+    b: &Bindings,
+    resources: &[ResourceDesc],
+    as_count: u32,
+) -> Result<(), String> {
+    for &as_index in &b.accel_structs {
+        if as_index >= as_count {
+            return Err(format!(
+                "pass `{name}`: accel struct 下标 {as_index} 越界(session AS 表 {as_count} 项)"
+            ));
+        }
+    }
+    for &res in &b.storage_buffers {
+        match resources.get(res as usize) {
+            Some(ResourceDesc::Buffer(d)) if d.usage.storage => {}
+            Some(ResourceDesc::Buffer(_)) => {
+                return Err(format!(
+                    "pass `{name}`: storage buffer {res} 未声明 storage 用途"
+                ));
+            }
+            _ => {
+                return Err(format!(
+                    "pass `{name}`: storage buffer 资源号 {res} 非 buffer"
+                ));
+            }
+        }
+    }
+    for &res in &b.sampled_images {
+        match resources.get(res as usize) {
+            Some(ResourceDesc::Texture(d)) if d.usage.sampled => {}
+            Some(ResourceDesc::Texture(_)) => {
+                return Err(format!(
+                    "pass `{name}`: sampled image {res} 未声明 sampled 用途"
+                ));
+            }
+            _ => {
+                return Err(format!(
+                    "pass `{name}`: sampled image 资源号 {res} 非 texture"
+                ));
+            }
+        }
+    }
+    for &res in &b.storage_images {
+        match resources.get(res as usize) {
+            Some(ResourceDesc::Texture(d)) if d.usage.storage => {}
+            Some(ResourceDesc::Texture(_)) => {
+                return Err(format!(
+                    "pass `{name}`: storage image {res} 未声明 storage 用途"
+                ));
+            }
+            _ => {
+                return Err(format!(
+                    "pass `{name}`: storage image 资源号 {res} 非 texture"
+                ));
+            }
+        }
+    }
+    if let Some(u) = b.uniform {
+        match resources.get(u.res as usize) {
+            Some(ResourceDesc::Buffer(d)) if d.usage.uniform => {
+                if u.size == 0 || u.offset + u.size > d.size {
+                    return Err(format!(
+                        "pass `{name}`: uniform 区段 [{}, {}+{}) 越出 buffer size {}",
+                        u.offset, u.offset, u.size, d.size
+                    ));
+                }
+            }
+            Some(ResourceDesc::Buffer(_)) => {
+                return Err(format!(
+                    "pass `{name}`: uniform {} 未声明 uniform 用途",
+                    u.res
+                ));
+            }
+            _ => return Err(format!("pass `{name}`: uniform 资源号 {} 非 buffer", u.res)),
+        }
+    }
+    if b.push_constants.len() > MAX_PUSH_CONSTANTS {
+        return Err(format!(
+            "pass `{name}`: push constants {}B > {MAX_PUSH_CONSTANTS}B",
+            b.push_constants.len()
+        ));
+    }
+    Ok(())
+}
+
+/// pass 声明绑定集(单事实源;provenance/需求态/录制/override 基准共用)。
+fn pass_bindings<'a>(p: &'a Pass<'a>) -> &'a Bindings {
+    match p {
+        Pass::Raster(rp) => &rp.bindings,
+        Pass::Compute(cp) => &cp.bindings,
+    }
+}
+
+/// pass 诊断名(provenance/校验报告用;hazard 推导不读名)。
+fn pass_name<'a>(p: &'a Pass<'a>) -> &'a str {
+    match p {
+        Pass::Raster(rp) => rp.name,
+        Pass::Compute(cp) => cp.name,
+    }
+}
+
+/// [`FrameUpdate`] host 预校验(G7.6 Wave B;`execute_with_frame_update` 在任何
+/// GPU 调用前 fail-closed;host 可测纯函数)。
+fn validate_frame_update(
+    resources: &[ResourceDesc],
+    passes: &[Pass],
+    readbacks: &[Readback],
+    as_count: u32,
+    update: &FrameUpdate,
+) -> Result<(), String> {
+    if let Some((as_index, _, _)) = &update.tlas_update
+        && *as_index >= as_count
+    {
+        return Err(format!(
+            "FrameUpdate.tlas_update: AS 下标 {as_index} 越界(session AS 表 {as_count} 项)"
+        ));
+    }
+    for (resource_id, offset, bytes) in &update.buffer_uploads {
+        let index = resource_id.0;
+        if index == 0 || index > resources.len() as u64 {
+            return Err(format!(
+                "FrameUpdate.buffer_uploads: StableResourceId({index}) 非资源表项(1..={})",
+                resources.len()
+            ));
+        }
+        let Some(ResourceDesc::Buffer(desc)) = resources.get((index - 1) as usize) else {
+            return Err(format!(
+                "FrameUpdate.buffer_uploads: StableResourceId({index}) 非 buffer"
+            ));
+        };
+        if bytes.is_empty() {
+            return Err("FrameUpdate.buffer_uploads: 空上传段(无意义,fail-closed)".into());
+        }
+        if offset + bytes.len() as u64 > desc.size {
+            return Err(format!(
+                "FrameUpdate.buffer_uploads: 区段 [{offset}, {offset}+{}) 越出 buffer size {}",
+                bytes.len(),
+                desc.size
+            ));
+        }
+    }
+    let mut overridden_passes: Vec<u32> = Vec::new();
+    for (pass_index, bindings) in &update.binding_overrides {
+        let Some(pass) = passes.get(*pass_index as usize) else {
+            return Err(format!(
+                "FrameUpdate.binding_overrides: pass 下标 {pass_index} 越界({} pass)",
+                passes.len()
+            ));
+        };
+        if overridden_passes.contains(pass_index) {
+            return Err(format!(
+                "FrameUpdate.binding_overrides: pass {pass_index} 重复覆盖(歧义,fail-closed)"
+            ));
+        }
+        overridden_passes.push(*pass_index);
+        validate_bindings_with_as(pass_name(pass), bindings, resources, as_count)?;
+        let declared = pass_bindings(pass);
+        let layout_key = |b: &Bindings| {
+            (
+                b.accel_structs.len(),
+                b.storage_buffers.len(),
+                b.sampled_images.len(),
+                b.storage_images.len(),
+                b.uniform.is_some(),
+            )
+        };
+        if layout_key(bindings) != layout_key(declared) {
+            return Err(format!(
+                "FrameUpdate.binding_overrides: pass {pass_index} set0 布局键漂移(pipeline \
+                 layout 创建期固化,禁异构覆盖)"
+            ));
+        }
+        if bindings.push_constants.len() != declared.push_constants.len() {
+            return Err(format!(
+                "FrameUpdate.binding_overrides: pass {pass_index} push constants 长度 {} != 声明 {}",
+                bindings.push_constants.len(),
+                declared.push_constants.len()
+            ));
+        }
+    }
+    let mut pc_overridden: Vec<u32> = Vec::new();
+    for (pass_index, bytes) in &update.push_constant_overrides {
+        let Some(pass) = passes.get(*pass_index as usize) else {
+            return Err(format!(
+                "FrameUpdate.push_constant_overrides: pass 下标 {pass_index} 越界({} pass)",
+                passes.len()
+            ));
+        };
+        if pc_overridden.contains(pass_index) {
+            return Err(format!(
+                "FrameUpdate.push_constant_overrides: pass {pass_index} 重复覆盖(歧义,fail-closed)"
+            ));
+        }
+        pc_overridden.push(*pass_index);
+        let declared_len = pass_bindings(pass).push_constants.len();
+        if bytes.len() != declared_len {
+            return Err(format!(
+                "FrameUpdate.push_constant_overrides: pass {pass_index} 长度 {} != 声明 {declared_len}",
+                bytes.len()
+            ));
+        }
+    }
+    if let Some(subset) = &update.readback_subset {
+        for (k, &index) in subset.iter().enumerate() {
+            if index as usize >= readbacks.len() {
+                return Err(format!(
+                    "FrameUpdate.readback_subset[{k}]: 下标 {index} 越界({} readback)",
+                    readbacks.len()
+                ));
+            }
+            if subset[..k].contains(&index) {
+                return Err(format!(
+                    "FrameUpdate.readback_subset: 下标 {index} 重复(输出对齐歧义,fail-closed)"
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 /// buffer 用途位 → `VkBufferUsageFlags`(建面;传输位恒附加——初始上传/readback 需要)。
 fn buffer_usage_flags(u: BufferUsage) -> u32 {
     let mut f = 0x1 | 0x2; // TRANSFER_SRC | TRANSFER_DST
@@ -1517,7 +1999,9 @@ fn texture_usage_flags(u: TextureUsage) -> u32 {
 
 /// pass 资源需求态(隐式补全事实源;plan 回放后按本表补齐未到态的转换)。
 /// 返回 (资源下标, 目标态) 列;同一资源重复需求去重(首见为准)。
-fn pass_requirements(p: &Pass) -> Vec<(u32, TargetState)> {
+/// effective bindings 形(创建录制 = 声明绑定;G7.6 Wave B 重录路 = override 后;
+/// accel structs 为 AS 句柄非资源表项,不产资源转换)。
+fn pass_requirements_with(p: &Pass, b: &Bindings) -> Vec<(u32, TargetState)> {
     let mut out: Vec<(u32, TargetState)> = Vec::new();
     let mut push = |res: u32, s: TargetState| {
         if !out.iter().any(|&(r, _)| r == res) {
@@ -1553,13 +2037,13 @@ fn pass_requirements(p: &Pass) -> Vec<(u32, TargetState)> {
             if let DrawSpec::Indirect { res, .. } = rp.draw {
                 push(res, TargetState::IndirectRead);
             }
-            bindings_requirements(&rp.bindings, &mut push);
+            bindings_requirements(b, &mut push);
         }
         Pass::Compute(cp) => {
             if let DispatchSpec::Indirect { res, .. } = cp.dispatch {
                 push(res, TargetState::IndirectRead);
             }
-            bindings_requirements(&cp.bindings, &mut push);
+            bindings_requirements(b, &mut push);
         }
     }
     out
@@ -1570,7 +2054,15 @@ fn elapsed_ns(start: std::time::Instant) -> u64 {
 }
 
 /// pass 的 read/write 分类事实源；只读结构字段，不读取诊断名。
-fn pass_runtime_accesses(p: &Pass<'_>) -> Vec<(u32, RuntimeAccessKind)> {
+/// effective bindings + AS 偏移植形(创建/provenance = 声明绑定;G7.6 Wave B 重录
+/// = override 后):`accel_structs` 各表项产 (`as_offset + as_index`, Read)——ray
+/// query pass 对 TLAS 的只读消费 provenance(AS 表项 StableResourceId =
+/// resource_count + as_index + 1)。
+fn pass_runtime_accesses_with(
+    p: &Pass<'_>,
+    bindings: &Bindings,
+    as_offset: u32,
+) -> Vec<(u32, RuntimeAccessKind)> {
     fn push(out: &mut Vec<(u32, RuntimeAccessKind)>, res: u32, access: RuntimeAccessKind) {
         if let Some((_, old)) = out.iter_mut().find(|(r, _)| *r == res) {
             *old = match (*old, access) {
@@ -1582,7 +2074,10 @@ fn pass_runtime_accesses(p: &Pass<'_>) -> Vec<(u32, RuntimeAccessKind)> {
             out.push((res, access));
         }
     }
-    fn bindings(out: &mut Vec<(u32, RuntimeAccessKind)>, b: &Bindings) {
+    fn bindings_accesses(out: &mut Vec<(u32, RuntimeAccessKind)>, b: &Bindings, as_offset: u32) {
+        for &as_index in &b.accel_structs {
+            push(out, as_offset + as_index, RuntimeAccessKind::Read);
+        }
         for &res in &b.storage_buffers {
             push(out, res, RuntimeAccessKind::ReadWrite);
         }
@@ -1611,18 +2106,20 @@ fn pass_runtime_accesses(p: &Pass<'_>) -> Vec<(u32, RuntimeAccessKind)> {
             if let DrawSpec::Indirect { res, .. } = rp.draw {
                 push(&mut out, res, RuntimeAccessKind::Read);
             }
-            bindings(&mut out, &rp.bindings);
+            bindings_accesses(&mut out, bindings, as_offset);
         }
         Pass::Compute(cp) => {
             if let DispatchSpec::Indirect { res, .. } = cp.dispatch {
                 push(&mut out, res, RuntimeAccessKind::Read);
             }
-            bindings(&mut out, &cp.bindings);
+            bindings_accesses(&mut out, bindings, as_offset);
         }
     }
     out
 }
 
+/// 声明绑定 + 无 AS 表形(既有测试锚;委托 [`build_runtime_provenance_ext`])。
+#[allow(dead_code)] // lib 侧消费已迁 ext;本形保留为 host 测试锚。
 fn build_runtime_provenance(
     resources: &[ResourceDesc<'_>],
     passes: &[Pass<'_>],
@@ -1630,17 +2127,37 @@ fn build_runtime_provenance(
     generations: &[u64],
     frame_generation: u64,
 ) -> SubmissionProvenance {
-    debug_assert_eq!(resources.len(), allocations.len());
-    debug_assert_eq!(resources.len(), generations.len());
+    let declared: Vec<Bindings> = passes.iter().map(|p| pass_bindings(p).clone()).collect();
+    build_runtime_provenance_ext(
+        passes,
+        &declared,
+        allocations,
+        generations,
+        frame_generation,
+        resources.len() as u32,
+    )
+}
+
+/// G7.6 Wave B 扩面形:`effective_bindings` = 各 pass 本帧实际绑定(声明或 override);
+/// `allocations`/`generations` 为**扩展表**(resources 后接 AS 表槽位,长度 =
+/// resource_count + as_count);`as_offset` = resources 数(AS 表项 provenance
+/// resource 下标 = as_offset + as_index)。
+fn build_runtime_provenance_ext(
+    passes: &[Pass<'_>],
+    effective_bindings: &[Bindings],
+    allocations: &[StableAllocationId],
+    generations: &[u64],
+    frame_generation: u64,
+    as_offset: u32,
+) -> SubmissionProvenance {
+    debug_assert_eq!(passes.len(), effective_bindings.len());
+    debug_assert_eq!(allocations.len(), generations.len());
     let mut current = generations.to_vec();
     let mut out = Vec::with_capacity(passes.len());
     for (pi, pass) in passes.iter().enumerate() {
-        let name = match pass {
-            Pass::Raster(p) => p.name,
-            Pass::Compute(p) => p.name,
-        };
+        let name = pass_name(pass);
         let mut used = Vec::new();
-        for (res, access) in pass_runtime_accesses(pass) {
+        for (res, access) in pass_runtime_accesses_with(pass, &effective_bindings[pi], as_offset) {
             let idx = res as usize;
             let allocation_id = allocations[idx];
             let reads = matches!(
@@ -1783,6 +2300,15 @@ const DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER: u32 = 1;
 const DESCRIPTOR_TYPE_STORAGE_IMAGE: u32 = 3;
 const DESCRIPTOR_TYPE_UNIFORM_BUFFER: u32 = 6;
 const DESCRIPTOR_TYPE_STORAGE_BUFFER: u32 = 7;
+/// `VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR`(SDK 1.3.296 `vulkan_core.h`;
+/// 与 vk.rs 同源同值,禁第二套逻辑定义——结构体经 `WriteDescriptorSetAccelStructure`
+/// pub(crate) 复用)。
+const DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR: u32 = 1_000_150_000;
+/// `VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR`(同vk.rs 源)。
+const ST_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR: u32 = 1_000_150_007;
+/// `VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT`(经典 32 位 stage 掩码;AS consume
+/// barrier 的 dst stage,与 vk.rs `PIPELINE_STAGE_COMPUTE_SHADER` 同源同值)。
+const PIPELINE_STAGE_COMPUTE_SHADER: u32 = 0x800;
 
 const SHADER_STAGE_VERTEX: u32 = 0x1;
 const SHADER_STAGE_FRAGMENT: u32 = 0x10;
@@ -1808,6 +2334,9 @@ const ATTACHMENT_STORE_OP_STORE: u32 = 0;
 
 const CMD_BUFFER_LEVEL_PRIMARY: u32 = 0;
 const CMD_BUFFER_USAGE_ONE_TIME_SUBMIT: u32 = 0x1;
+/// `VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT`(持久 session 每帧重录的
+/// `vkResetCommandBuffer` VUID-00046 要求;ephemeral 路恒 flags=0 不变)。
+const CMD_POOL_CREATE_RESET_COMMAND_BUFFER_BIT: u32 = 0x2;
 const FENCE_CREATE_SIGNALED: u32 = 0x1;
 const QUERY_TYPE_TIMESTAMP: u32 = 2;
 const QUERY_RESULT_64_BIT: u32 = 0x1;
@@ -2844,6 +3373,9 @@ type FnAllocateCommandBuffers = unsafe extern "system" fn(
 type FnBeginCommandBuffer =
     unsafe extern "system" fn(VkCommandBuffer, *const CommandBufferBeginInfo) -> VkResult;
 type FnEndCommandBuffer = unsafe extern "system" fn(VkCommandBuffer) -> VkResult;
+type FnResetCommandBuffer = unsafe extern "system" fn(VkCommandBuffer, VkFlags) -> VkResult;
+type FnFreeCommandBuffers =
+    unsafe extern "system" fn(VkDevice, VkCommandPool, u32, *const VkCommandBuffer);
 type FnCmdBindPipeline = unsafe extern "system" fn(VkCommandBuffer, u32, VkPipeline);
 type FnCmdBindDescriptorSets = unsafe extern "system" fn(
     VkCommandBuffer,
@@ -3189,6 +3721,8 @@ struct Dev {
     alloc_cmd: FnAllocateCommandBuffers,
     begin_cmd: FnBeginCommandBuffer,
     end_cmd: FnEndCommandBuffer,
+    reset_cmd: FnResetCommandBuffer,
+    free_cmd: FnFreeCommandBuffers,
     cmd_bind_pipe: FnCmdBindPipeline,
     cmd_bind_ds: FnCmdBindDescriptorSets,
     cmd_push: FnCmdPushConstants,
@@ -3276,6 +3810,8 @@ impl Dev {
             alloc_cmd: dp!(c"vkAllocateCommandBuffers", FnAllocateCommandBuffers),
             begin_cmd: dp!(c"vkBeginCommandBuffer", FnBeginCommandBuffer),
             end_cmd: dp!(c"vkEndCommandBuffer", FnEndCommandBuffer),
+            reset_cmd: dp!(c"vkResetCommandBuffer", FnResetCommandBuffer),
+            free_cmd: dp!(c"vkFreeCommandBuffers", FnFreeCommandBuffers),
             cmd_bind_pipe: dp!(c"vkCmdBindPipeline", FnCmdBindPipeline),
             cmd_bind_ds: dp!(c"vkCmdBindDescriptorSets", FnCmdBindDescriptorSets),
             cmd_push: dp!(c"vkCmdPushConstants", FnCmdPushConstants),
@@ -3429,6 +3965,26 @@ fn pick_mem_type(
     })
 }
 
+/// 本模块 `PhysicalDeviceMemoryProperties` → vk.rs 同名类型(两侧均 `#[repr(C)]`
+/// 且字段逐一对应,布局各经本侧 `ffi_layout_anchors` 520 字节锚定;**逐字段显式
+/// 拷贝**——不 transmute,供 vk.rs `VkAsManager` 建面消费其本侧类型)。
+fn memprops_to_vk(
+    src: &PhysicalDeviceMemoryProperties,
+) -> crate::vk::PhysicalDeviceMemoryProperties {
+    crate::vk::PhysicalDeviceMemoryProperties {
+        memory_type_count: src.memory_type_count,
+        memory_types: src.memory_types.map(|mt| crate::vk::MemoryType {
+            property_flags: mt.property_flags,
+            heap_index: mt.heap_index,
+        }),
+        memory_heap_count: src.memory_heap_count,
+        memory_heaps: src.memory_heaps.map(|mh| crate::vk::MemoryHeap {
+            size: mh.size,
+            flags: mh.flags,
+        }),
+    }
+}
+
 /// 运行期资源(buffer/image 句柄对;image 挂 view 与可选 staging)。
 struct RtBuffer {
     buffer: VkBuffer,
@@ -3534,6 +4090,650 @@ unsafe fn create_device_buffer(
     Ok((buffer, mem))
 }
 
+/// per-pass 装配结果(创建期一次性;persistent session 持有供每帧重录复用,
+/// pipeline/descriptor set/render pass/framebuffer 跨帧不变)。
+struct PassSetup {
+    set: Option<VkDescriptorSet>,
+    pl: VkPipelineLayout,
+    pc_size: u32,
+    pipe: VkPipeline,
+    // raster 专属。
+    rp: VkRenderPass,
+    fb: VkFramebuffer,
+    extent: (u32, u32),
+    clears: Vec<ClearValue>,
+}
+
+/// pass descriptor set 写入(创建装配与 FrameUpdate binding override 重写共用**同一
+/// 事实源**,禁第二份写路径)。binding 序 = accel struct `[0..A)` → storage buffer
+/// `[A..A+N)` → sampled image → storage image → uniform(模块头固定约定);AS 写经
+/// pNext `WriteDescriptorSetAccelStructure`(vk.rs pub(crate) 复用,禁第二份定义)。
+/// 指针回填模式:info/pNext 向量先收集、定长后统一取址(地址稳定)。
+///
+/// # Safety
+/// dev/device 有效;set 已由调用方分配且不在途(创建期新分配 / 重写前帧 fence 已等待);
+/// `b` 已经 validate(下标/用途合法),`as_handles` 与 session AS 表一一对应。
+#[allow(clippy::too_many_arguments)]
+unsafe fn write_pass_descriptor_set(
+    dev: &Dev,
+    device: VkDevice,
+    set: VkDescriptorSet,
+    b: &Bindings,
+    rt: &[RtRes],
+    sampler: VkSampler,
+    as_handles: &[u64],
+    pass_diag: usize,
+) -> Result<(), String> {
+    let n_as = b.accel_structs.len() as u32;
+    let n_sb = b.storage_buffers.len() as u32;
+    let n_si = b.sampled_images.len() as u32;
+    let n_simg = b.storage_images.len() as u32;
+    let mut writes: Vec<WriteDescriptorSet> = Vec::new();
+    let mut buf_infos: Vec<DescriptorBufferInfo> = Vec::new();
+    let mut img_infos: Vec<DescriptorImageInfo> = Vec::new();
+    let mut as_writes: Vec<WriteDescriptorSetAccelStructure> = Vec::new();
+    for (i, &as_index) in b.accel_structs.iter().enumerate() {
+        let Some(&tlas) = as_handles.get(as_index as usize) else {
+            return Err(format!(
+                "pass {pass_diag}: accel struct 下标 {as_index} 越界(session AS 表 {} 项)",
+                as_handles.len()
+            ));
+        };
+        if tlas == VK_NULL_HANDLE {
+            return Err(format!(
+                "pass {pass_diag}: accel struct {as_index} TLAS 句柄已销毁/过期\
+                 (fail-closed,禁消费悬垂加速结构)"
+            ));
+        }
+        as_writes.push(WriteDescriptorSetAccelStructure {
+            s_type: ST_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+            p_next: std::ptr::null(),
+            acceleration_structure_count: 1,
+            p_acceleration_structures: &as_handles[as_index as usize],
+        });
+        writes.push(WriteDescriptorSet {
+            s_type: ST_WRITE_DESCRIPTOR_SET,
+            p_next: std::ptr::null(), // 下文回填(as_writes 定长后取址)
+            dst_set: set,
+            dst_binding: i as u32,
+            dst_array_element: 0,
+            descriptor_count: 1,
+            descriptor_type: DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+            p_image_info: std::ptr::null(),
+            p_buffer_info: std::ptr::null(),
+            p_texel_buffer_view: std::ptr::null(),
+        });
+    }
+    for (i, &res) in b.storage_buffers.iter().enumerate() {
+        let RtRes::Buf(rb) = &rt[res as usize] else {
+            return Err(format!("pass {pass_diag}: storage buffer {res} 非 buffer"));
+        };
+        buf_infos.push(DescriptorBufferInfo {
+            buffer: rb.buffer,
+            offset: 0,
+            range: WHOLE_SIZE,
+        });
+        writes.push(WriteDescriptorSet {
+            s_type: ST_WRITE_DESCRIPTOR_SET,
+            p_next: std::ptr::null(),
+            dst_set: set,
+            dst_binding: n_as + i as u32,
+            dst_array_element: 0,
+            descriptor_count: 1,
+            descriptor_type: DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            p_image_info: std::ptr::null(),
+            p_buffer_info: std::ptr::null(), // 下文回填(buf_infos 定长后取址)
+            p_texel_buffer_view: std::ptr::null(),
+        });
+    }
+    for (j, &res) in b.sampled_images.iter().enumerate() {
+        let Some(ri) = rt[res as usize].image() else {
+            return Err(format!("pass {pass_diag}: sampled image {res} 非 texture"));
+        };
+        img_infos.push(DescriptorImageInfo {
+            sampler,
+            image_view: ri.view,
+            image_layout: LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        });
+        writes.push(WriteDescriptorSet {
+            s_type: ST_WRITE_DESCRIPTOR_SET,
+            p_next: std::ptr::null(),
+            dst_set: set,
+            dst_binding: n_as + n_sb + j as u32,
+            dst_array_element: 0,
+            descriptor_count: 1,
+            descriptor_type: DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            p_image_info: std::ptr::null(), // 下文回填
+            p_buffer_info: std::ptr::null(),
+            p_texel_buffer_view: std::ptr::null(),
+        });
+    }
+    for (k, &res) in b.storage_images.iter().enumerate() {
+        let Some(ri) = rt[res as usize].image() else {
+            return Err(format!("pass {pass_diag}: storage image {res} 非 texture"));
+        };
+        img_infos.push(DescriptorImageInfo {
+            sampler: VK_NULL_HANDLE,
+            image_view: ri.view,
+            image_layout: LAYOUT_GENERAL,
+        });
+        writes.push(WriteDescriptorSet {
+            s_type: ST_WRITE_DESCRIPTOR_SET,
+            p_next: std::ptr::null(),
+            dst_set: set,
+            dst_binding: n_as + n_sb + n_si + k as u32,
+            dst_array_element: 0,
+            descriptor_count: 1,
+            descriptor_type: DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            p_image_info: std::ptr::null(), // 下文回填
+            p_buffer_info: std::ptr::null(),
+            p_texel_buffer_view: std::ptr::null(),
+        });
+    }
+    if let Some(u) = b.uniform {
+        let RtRes::Buf(rb) = &rt[u.res as usize] else {
+            return Err(format!("pass {pass_diag}: uniform {} 非 buffer", u.res));
+        };
+        buf_infos.push(DescriptorBufferInfo {
+            buffer: rb.buffer,
+            offset: u.offset,
+            range: u.size,
+        });
+        writes.push(WriteDescriptorSet {
+            s_type: ST_WRITE_DESCRIPTOR_SET,
+            p_next: std::ptr::null(),
+            dst_set: set,
+            dst_binding: n_as + n_sb + n_si + n_simg,
+            dst_array_element: 0,
+            descriptor_count: 1,
+            descriptor_type: DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            p_image_info: std::ptr::null(),
+            p_buffer_info: std::ptr::null(), // 下文回填
+            p_texel_buffer_view: std::ptr::null(),
+        });
+    }
+    // 回填指针(info/pNext 向量定长,地址稳定;写入序 = AS 列 → storage 列 → uniform)。
+    let mut ai = 0usize;
+    let mut bi = 0usize;
+    let mut ii = 0usize;
+    for w in &mut writes {
+        match w.descriptor_type {
+            DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR => {
+                w.p_next =
+                    (&as_writes[ai] as *const WriteDescriptorSetAccelStructure).cast::<c_void>();
+                ai += 1;
+            }
+            DESCRIPTOR_TYPE_STORAGE_BUFFER | DESCRIPTOR_TYPE_UNIFORM_BUFFER => {
+                w.p_buffer_info = &buf_infos[bi];
+                bi += 1;
+            }
+            _ => {
+                w.p_image_info = &img_infos[ii];
+                ii += 1;
+            }
+        }
+    }
+    (dev.update_ds)(
+        device,
+        writes.len() as u32,
+        writes.as_ptr(),
+        0,
+        std::ptr::null(),
+    );
+    Ok(())
+}
+
+/// 帧命令体录制入参(创建录制与 FrameUpdate 重录共用同一录制事实源;禁第二套
+/// 屏障/录制逻辑)。`effective_bindings` = 各 pass 本帧实际绑定(创建期 = 声明;
+/// 重录期 = override 后);`record_upload_segment` 恒 true 于创建期(初始数据上传),
+/// 重录期恒 false(初始数据已在 image/buffer 内,不重复回灌)。
+struct FrameBodyParams<'a> {
+    dev: &'a Dev,
+    device: VkDevice,
+    memprops: &'a PhysicalDeviceMemoryProperties,
+    cmd: VkCommandBuffer,
+    resources: &'a [ResourceDesc<'a>],
+    rt: &'a [RtRes],
+    passes: &'a [Pass<'a>],
+    barriers: &'a [&'a [(u32, TargetState)]],
+    effective_bindings: &'a [Bindings],
+    setups: &'a [PassSetup],
+    query_pool: VkQueryPool,
+    inline_vbs: &'a [Option<VkBuffer>],
+    readbacks: &'a [Readback],
+    record_upload_segment: bool,
+}
+
+/// 帧命令体录制:[可选上传段] → [可选 TLAS update + consume barrier] → 逐 pass
+/// (plan 逐字回放 → 隐式补全 → pass 本体,timestamp 包裹) → readback 段。
+///
+/// `cleanup` = `Some` 时为创建录制(按需建持久 readback buffer 并登记 ledger);
+/// `None` 时 `rb_buffers` 须已与 `readbacks` 逐位对齐(重录不新建分配)。
+/// `as_update` = `Some((manager, fns, action))` 时于 pass 链前录
+/// `record_tlas_update` + `record_consume_barrier(COMPUTE_SHADER)`。
+///
+/// # Safety
+/// `p.cmd` 处于录制态(begin 后);`p.rt`/`p.setups`/`p.inline_vbs` 与资源/pass 表
+/// 一一对应且存活;`as_update` 的 manager 与 cmd 同属一个 device,TLAS 已建且
+/// descriptor 在 submit 前不重写;状态跟踪按创建期同一初值规则确定性重建。
+unsafe fn record_frame_body(
+    p: &FrameBodyParams<'_>,
+    rb_buffers: &mut Vec<Option<(VkBuffer, VkDeviceMemory)>>,
+    mut cleanup: Option<&mut Cleanup>,
+    as_update: Option<(&mut VkAsManager, &VkAsFns, TlasBuildAction)>,
+) -> Result<(), String> {
+    let dev = p.dev;
+    let cmd = p.cmd;
+    let rt = p.rt;
+    let query_pool = p.query_pool;
+    // 状态跟踪初值(buffer 数据→HOST_WRITE;image→UNDEFINED;带 staging 的 image
+    // 在命令流首段迁 TRANSFER_DST 后 = TRANSFER_DST 态)。创建录制与重录同一
+    // 确定性初值规则。
+    let mut tracked: Vec<TrackedState> = p
+        .resources
+        .iter()
+        .map(|r| match r {
+            ResourceDesc::Buffer(b) => {
+                if b.data.is_some() {
+                    (0, STAGE2_HOST, ACCESS2_HOST_WRITE)
+                } else {
+                    (0, STAGE2_NONE, 0)
+                }
+            }
+            ResourceDesc::Texture(_) => (LAYOUT_UNDEFINED, STAGE2_NONE, 0),
+        })
+        .collect();
+    // inline VB 跟踪(独立于 resources;上传后 = HOST_WRITE)。
+    let mut inline_vb_tracked: Vec<TrackedState> = p
+        .inline_vbs
+        .iter()
+        .map(|b| {
+            if b.is_some() {
+                (0, STAGE2_HOST, ACCESS2_HOST_WRITE)
+            } else {
+                (0, STAGE2_NONE, 0)
+            }
+        })
+        .collect();
+
+    // barrier2 批量录制助手:收集本批 image/buffer 转换后一次 DependencyInfo。
+    macro_rules! flush_barriers {
+        ($img_barriers:expr, $buf_barriers:expr) => {
+            if !$img_barriers.is_empty() || !$buf_barriers.is_empty() {
+                let di = DependencyInfo {
+                    s_type: ST_DEPENDENCY_INFO,
+                    p_next: std::ptr::null(),
+                    dependency_flags: 0,
+                    memory_barrier_count: 0,
+                    p_memory_barriers: std::ptr::null(),
+                    buffer_memory_barrier_count: $buf_barriers.len() as u32,
+                    p_buffer_memory_barriers: if $buf_barriers.is_empty() {
+                        std::ptr::null()
+                    } else {
+                        $buf_barriers.as_ptr()
+                    },
+                    image_memory_barrier_count: $img_barriers.len() as u32,
+                    p_image_memory_barriers: if $img_barriers.is_empty() {
+                        std::ptr::null()
+                    } else {
+                        $img_barriers.as_ptr()
+                    },
+                };
+                (dev.cmd_barrier2)(cmd, &di);
+            }
+            $img_barriers.clear();
+            $buf_barriers.clear();
+        };
+    }
+    let mut img_barriers: Vec<ImageMemoryBarrier2> = Vec::new();
+    let mut buf_barriers: Vec<BufferMemoryBarrier2> = Vec::new();
+    // 资源转换收集(plan 回放与隐式补全共用;buffer/image 按类分流)。
+    macro_rules! transit {
+        ($res:expr, $to:expr) => {
+            if let Some((old_layout, new_layout, src_stage, src_access, dst_stage, dst_access)) =
+                barrier_fields(tracked[$res as usize], $to)
+            {
+                match &rt[$res as usize] {
+                    RtRes::Img(ri) => img_barriers.push(ImageMemoryBarrier2 {
+                        s_type: ST_IMAGE_MEMORY_BARRIER_2,
+                        p_next: std::ptr::null(),
+                        src_stage_mask: src_stage,
+                        src_access_mask: src_access,
+                        dst_stage_mask: dst_stage,
+                        dst_access_mask: dst_access,
+                        old_layout,
+                        new_layout,
+                        src_queue_family_index: QUEUE_FAMILY_IGNORED,
+                        dst_queue_family_index: QUEUE_FAMILY_IGNORED,
+                        image: ri.image,
+                        subresource_range: VkImageSubresourceRange {
+                            aspect_mask: ri.format.aspect_mask(),
+                            base_mip_level: 0,
+                            level_count: 1,
+                            base_array_layer: 0,
+                            layer_count: 1,
+                        },
+                    }),
+                    RtRes::Buf(rb) => buf_barriers.push(BufferMemoryBarrier2 {
+                        s_type: ST_BUFFER_MEMORY_BARRIER_2,
+                        p_next: std::ptr::null(),
+                        src_stage_mask: src_stage,
+                        src_access_mask: src_access,
+                        dst_stage_mask: dst_stage,
+                        dst_access_mask: dst_access,
+                        src_queue_family_index: QUEUE_FAMILY_IGNORED,
+                        dst_queue_family_index: QUEUE_FAMILY_IGNORED,
+                        buffer: rb.buffer,
+                        offset: 0,
+                        size: WHOLE_SIZE,
+                    }),
+                }
+                tracked[$res as usize] = state_fields($to);
+            }
+        };
+    }
+
+    // ── 上传段(仅创建录制):image 初始数据 UNDEFINED→TRANSFER_DST + copy ──
+    if p.record_upload_segment {
+        for (i, r) in rt.iter().enumerate() {
+            if let RtRes::Img(ri) = r
+                && let Some(staging) = ri.staging
+            {
+                transit!(i as u32, TargetState::TransferDst);
+                flush_barriers!(img_barriers, buf_barriers);
+                let region = VkBufferImageCopy {
+                    buffer_offset: 0,
+                    buffer_row_length: 0,
+                    buffer_image_height: 0,
+                    image_subresource: VkImageSubresourceLayers {
+                        aspect_mask: ri.format.aspect_mask(),
+                        mip_level: 0,
+                        base_array_layer: 0,
+                        layer_count: 1,
+                    },
+                    image_offset: VkOffset3D { x: 0, y: 0, z: 0 },
+                    image_extent: VkExtent3D {
+                        width: ri.width,
+                        height: ri.height,
+                        depth: 1,
+                    },
+                };
+                (dev.cmd_copy_buf2img)(
+                    cmd,
+                    staging,
+                    ri.image,
+                    LAYOUT_TRANSFER_DST_OPTIMAL,
+                    1,
+                    &region,
+                );
+            }
+        }
+        // inline VB 上传(host 直写已于建面完成;首用前 HOST_WRITE→VERTEX_ATTRIBUTE_READ
+        // 由下方逐 pass 隐式补全落到跟踪表 inline_vb_tracked)。
+    }
+
+    // ── TLAS update + consume barrier(仅重录带 update;创建期初始 build 走一次性
+    // 创建 cmd,持久 cmd 不重复 build)──
+    if let Some((mgr, fns, action)) = as_update {
+        mgr.record_tlas_update(fns, cmd, action);
+        mgr.record_consume_barrier(fns, cmd, PIPELINE_STAGE_COMPUTE_SHADER);
+    }
+
+    // ── 逐 pass 录制:plan 逐字回放 → 隐式补全 → pass 本体 ──
+    for (pi, pass) in p.passes.iter().enumerate() {
+        // ① plan 逐字回放(不重排;调用方图编译器产物)。
+        for &(res, state) in p.barriers[pi] {
+            transit!(res, state);
+        }
+        // ② 隐式补全(pass 需求态与跟踪态不一致者补一条;确定性固定规则,模块头契约;
+        // effective bindings 决定本帧实际资源需求)。
+        for (res, state) in pass_requirements_with(pass, &p.effective_bindings[pi]) {
+            transit!(res, state);
+        }
+        // inline VB 首用转换(独立跟踪表;HOST_WRITE→VERTEX_ATTRIBUTE_READ)。
+        if let Pass::Raster(rp) = pass
+            && matches!(rp.vertex, VertexData::Inline { .. })
+            && p.inline_vbs[pi].is_some()
+        {
+            let from = inline_vb_tracked[pi];
+            let to = state_fields(TargetState::VertexInput);
+            if from != to {
+                buf_barriers.push(BufferMemoryBarrier2 {
+                    s_type: ST_BUFFER_MEMORY_BARRIER_2,
+                    p_next: std::ptr::null(),
+                    src_stage_mask: from.1,
+                    src_access_mask: from.2,
+                    dst_stage_mask: to.1,
+                    dst_access_mask: to.2,
+                    src_queue_family_index: QUEUE_FAMILY_IGNORED,
+                    dst_queue_family_index: QUEUE_FAMILY_IGNORED,
+                    buffer: p.inline_vbs[pi].expect("inline vb 存在(上判)"),
+                    offset: 0,
+                    size: WHOLE_SIZE,
+                });
+                inline_vb_tracked[pi] = to;
+            }
+        }
+        flush_barriers!(img_barriers, buf_barriers);
+
+        // ③ pass 本体;timestamp 覆盖该 pass 的实际 GPU 命令区间。
+        (dev.cmd_write_timestamp2)(cmd, STAGE2_ALL_COMMANDS, query_pool, (pi as u32) * 2);
+        let setup = &p.setups[pi];
+        let push_constants = &p.effective_bindings[pi].push_constants;
+        match pass {
+            Pass::Raster(rp) => {
+                let rpbi = RenderPassBeginInfo {
+                    s_type: ST_RENDER_PASS_BEGIN_INFO,
+                    p_next: std::ptr::null(),
+                    render_pass: setup.rp,
+                    framebuffer: setup.fb,
+                    render_area: VkRect2D {
+                        offset: VkOffset2D { x: 0, y: 0 },
+                        extent: VkExtent2D {
+                            width: setup.extent.0,
+                            height: setup.extent.1,
+                        },
+                    },
+                    clear_value_count: setup.clears.len() as u32,
+                    p_clear_values: if setup.clears.is_empty() {
+                        std::ptr::null()
+                    } else {
+                        setup.clears.as_ptr()
+                    },
+                };
+                (dev.cmd_begin_rp)(cmd, &rpbi, SUBPASS_CONTENTS_INLINE);
+                (dev.cmd_bind_pipe)(cmd, PIPELINE_BIND_POINT_GRAPHICS, setup.pipe);
+                if let Some(set) = setup.set {
+                    (dev.cmd_bind_ds)(
+                        cmd,
+                        PIPELINE_BIND_POINT_GRAPHICS,
+                        setup.pl,
+                        0,
+                        1,
+                        &set,
+                        0,
+                        std::ptr::null(),
+                    );
+                }
+                if !push_constants.is_empty() {
+                    (dev.cmd_push)(
+                        cmd,
+                        setup.pl,
+                        SHADER_STAGE_RFX,
+                        0,
+                        setup.pc_size,
+                        push_constants.as_ptr().cast::<c_void>(),
+                    );
+                }
+                match &rp.vertex {
+                    VertexData::Inline { .. } => {
+                        let vb = p.inline_vbs[pi].expect("inline vb 已建");
+                        let offsets: VkDeviceSize = 0;
+                        (dev.cmd_bind_vb)(cmd, 0, 1, &vb, &offsets);
+                    }
+                    VertexData::Resource { res, offset, .. } => {
+                        let RtRes::Buf(rb) = &rt[*res as usize] else {
+                            return Err(format!("pass {pi}: vertex buffer {res} 非 buffer"));
+                        };
+                        let off: VkDeviceSize = *offset;
+                        (dev.cmd_bind_vb)(cmd, 0, 1, &rb.buffer, &off);
+                    }
+                    VertexData::Pull => {}
+                }
+                match rp.draw {
+                    DrawSpec::Direct {
+                        vertex_count,
+                        instance_count,
+                        first_vertex,
+                        first_instance,
+                    } => {
+                        (dev.cmd_draw)(
+                            cmd,
+                            vertex_count,
+                            instance_count,
+                            first_vertex,
+                            first_instance,
+                        );
+                    }
+                    DrawSpec::Indirect { res, offset } => {
+                        let RtRes::Buf(rb) = &rt[res as usize] else {
+                            return Err(format!("pass {pi}: indirect {res} 非 buffer"));
+                        };
+                        (dev.cmd_draw_indirect)(cmd, rb.buffer, offset, 1, 16);
+                    }
+                }
+                (dev.cmd_end_rp)(cmd);
+            }
+            Pass::Compute(cp) => {
+                (dev.cmd_bind_pipe)(cmd, PIPELINE_BIND_POINT_COMPUTE, setup.pipe);
+                if let Some(set) = setup.set {
+                    (dev.cmd_bind_ds)(
+                        cmd,
+                        PIPELINE_BIND_POINT_COMPUTE,
+                        setup.pl,
+                        0,
+                        1,
+                        &set,
+                        0,
+                        std::ptr::null(),
+                    );
+                }
+                if !push_constants.is_empty() {
+                    (dev.cmd_push)(
+                        cmd,
+                        setup.pl,
+                        SHADER_STAGE_RFX,
+                        0,
+                        setup.pc_size,
+                        push_constants.as_ptr().cast::<c_void>(),
+                    );
+                }
+                match cp.dispatch {
+                    DispatchSpec::Direct(g) => {
+                        (dev.cmd_dispatch)(cmd, g[0], g[1], g[2]);
+                    }
+                    DispatchSpec::Indirect { res, offset } => {
+                        let RtRes::Buf(rb) = &rt[res as usize] else {
+                            return Err(format!("pass {pi}: indirect {res} 非 buffer"));
+                        };
+                        (dev.cmd_dispatch_indirect)(cmd, rb.buffer, offset);
+                    }
+                }
+            }
+        }
+        (dev.cmd_write_timestamp2)(cmd, STAGE2_ALL_COMMANDS, query_pool, (pi as u32) * 2 + 1);
+    }
+
+    // ── readback 段:image 迁 TRANSFER_SRC + copy 到 readback buffer;buffer 免录制 ──
+    // 创建录制(cleanup=Some)顺带建持久 readback buffer(host-visible TRANSFER_DST,
+    // image copy 目的)并登记 ledger;重录路 rb_buffers 已逐位对齐,不新建分配。
+    for rb in p.readbacks.iter() {
+        match *rb {
+            Readback::Texture { res } => {
+                let Some(ri) = rt[res as usize].image() else {
+                    return Err("readback: texture 资源非 image".to_owned());
+                };
+                if let Some(c) = cleanup.as_deref_mut() {
+                    let sz = (ri.width as u64)
+                        * (ri.height as u64)
+                        * (ri.format.bytes_per_texel() as u64);
+                    let (rbuf, rmem) = create_device_buffer(
+                        dev,
+                        p.device,
+                        p.memprops,
+                        sz.max(4),
+                        0x2, // TRANSFER_DST
+                        None,
+                        None,
+                        c,
+                    )?;
+                    rb_buffers.push(Some((rbuf, rmem)));
+                }
+                transit!(res, TargetState::TransferSrc);
+            }
+            Readback::Buffer { .. } => {
+                if cleanup.is_some() {
+                    rb_buffers.push(None);
+                }
+            }
+        }
+    }
+    flush_barriers!(img_barriers, buf_barriers);
+    for (i, rb) in p.readbacks.iter().enumerate() {
+        if let (Readback::Texture { res }, Some((buf, _))) = (rb, rb_buffers[i]) {
+            let Some(ri) = rt[*res as usize].image() else {
+                return Err(format!("readbacks[{i}]: 资源号 {res} 非 texture"));
+            };
+            let region = VkBufferImageCopy {
+                buffer_offset: 0,
+                buffer_row_length: 0,
+                buffer_image_height: 0,
+                image_subresource: VkImageSubresourceLayers {
+                    aspect_mask: ri.format.aspect_mask(),
+                    mip_level: 0,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                },
+                image_offset: VkOffset3D { x: 0, y: 0, z: 0 },
+                image_extent: VkExtent3D {
+                    width: ri.width,
+                    height: ri.height,
+                    depth: 1,
+                },
+            };
+            (dev.cmd_copy_img2buf)(cmd, ri.image, LAYOUT_TRANSFER_SRC_OPTIMAL, buf, 1, &region);
+        }
+    }
+    Ok(())
+}
+
+/// [`DeviceFrameSession::execute_with_frame_update`] 的 native 侧已校验更新包
+/// (全部引用调用方栈上数据,生命周期限于单次提交;`effective_readbacks[k]` 对应
+/// session readbacks 下标 `effective_rb_sources[k]`)。
+struct PreparedFrameUpdate<'a> {
+    /// buffer 上传段((资源下标, offset, 字节);submit 前 host memcpy)。
+    uploads: &'a [(u32, u64, &'a [u8])],
+    /// TLAS update((AS 表下标, 实例 transforms, 动作))。
+    tlas: Option<(u32, &'a [RayQueryTransformedInstanceDesc], TlasBuildAction)>,
+    /// 需在 submit 前重写 descriptor set 的 pass 下标(binding_overrides 命中)。
+    descriptor_overrides: &'a [u32],
+    /// 各 pass 本帧 effective bindings(override 已应用)。
+    effective_bindings: &'a [Bindings],
+    /// 本帧实际 readback 请求(readback_subset 解析后;空 = 不 readback)。
+    effective_readbacks: &'a [Readback],
+    /// `effective_readbacks[k]` 对应 session readbacks 下标(rb_buffers 对齐用)。
+    effective_rb_sources: &'a [usize],
+    /// 本帧是否重录命令体(false = 原样重放,仅可能有 host 上传)。
+    needs_rerecord: bool,
+}
+
+/// 持久 session 的 AS 面(G7.6 Wave B;vk.rs **同一单所有者** `VkAsManager` 逐表项
+/// 持有,禁第二套 BVH;`VkAsFns` device 符号表一次加载)。
+struct PersistentAsState {
+    fns: VkAsFns,
+    managers: Vec<VkAsManager>,
+}
+
 struct NativeDeviceFrame {
     dev: Dev,
     queue: VkQueue,
@@ -3542,6 +4742,10 @@ struct NativeDeviceFrame {
     rb_buffers: Vec<Option<(VkBuffer, VkDeviceMemory)>>,
     cmd: VkCommandBuffer,
     resource_allocations: Vec<StableAllocationId>,
+    /// per-pass 装配(FrameUpdate 重录复用;pipeline/descriptor set 跨帧不变)。
+    setups: Vec<PassSetup>,
+    /// inline VB 句柄(重录路 vertex 绑定复用)。
+    inline_vbs: Vec<Option<VkBuffer>>,
 }
 
 struct NativePersistentFrame {
@@ -3558,7 +4762,20 @@ struct NativePersistentFrame {
     fences: Vec<VkFence>,
     next_slot: usize,
     timestamp_period_ns: f32,
+    /// 物理设备内存属性(创建期一次性查询;FrameUpdate 重录的 record_frame_body 入参,
+    /// 避免每帧重查)。
+    memprops: PhysicalDeviceMemoryProperties,
+    /// 扩展表:`resources` 各 allocation 后接 AS 表项代表 allocation(TLAS storage)。
     resource_allocations: Vec<StableAllocationId>,
+    /// session AS 面(G7.6 Wave B;`None` = 无 AS 表,全旧行为)。
+    as_state: Option<PersistentAsState>,
+}
+
+impl NativePersistentFrame {
+    /// session AS 表项数。
+    fn as_count(&self) -> usize {
+        self.as_state.as_ref().map_or(0, |s| s.managers.len())
+    }
 }
 
 /// [`execute_frame`] 内部(模块头 U32 契约本体)。结构:
@@ -3718,6 +4935,7 @@ unsafe fn execute_frame_inner(
             readbacks,
             None,
             true,
+            &[],
         );
 
         let dev_destroy: Option<FnDestroyDevice> =
@@ -3740,6 +4958,8 @@ unsafe fn execute_frame_inner(
 }
 
 /// device 存活期主体(资源建面 → 缓存 → 录制 → 提交 → 回读;Cleanup 兜底销毁)。
+/// `as_handles` = session AS 表各 TLAS 句柄(G7.6 Wave B;空 = 无 AS 绑定面,
+/// `Bindings::accel_structs` 非空在校验期已拒,运行期越界同样确定性 `Err`)。
 #[allow(clippy::too_many_arguments)]
 unsafe fn execute_on_device(
     gdpa: FnGetDeviceProcAddr,
@@ -3753,6 +4973,7 @@ unsafe fn execute_on_device(
     readbacks: &[Readback],
     mut capture: Option<&mut Option<NativeDeviceFrame>>,
     submit_now: bool,
+    as_handles: &[u64],
 ) -> Result<Vec<Vec<u8>>, String> {
     let dev = Dev::load(gdpa, device)?;
     let mut queue: VkQueue = std::ptr::null_mut();
@@ -3917,32 +5138,8 @@ unsafe fn execute_on_device(
             }
         }
 
-        // 状态跟踪初值(buffer 数据→HOST_WRITE;image→UNDEFINED;带 staging 的 image
-        // 在命令流首段迁 TRANSFER_DST 后 = TRANSFER_DST 态)。
-        let mut tracked: Vec<TrackedState> = resources
-            .iter()
-            .map(|r| match r {
-                ResourceDesc::Buffer(b) => {
-                    if b.data.is_some() {
-                        (0, STAGE2_HOST, ACCESS2_HOST_WRITE)
-                    } else {
-                        (0, STAGE2_NONE, 0)
-                    }
-                }
-                ResourceDesc::Texture(_) => (LAYOUT_UNDEFINED, STAGE2_NONE, 0),
-            })
-            .collect();
-        // inline VB 跟踪(独立于 resources;上传后 = HOST_WRITE)。
-        let mut inline_vb_tracked: Vec<TrackedState> = inline_vbs
-            .iter()
-            .map(|b| {
-                if b.is_some() {
-                    (0, STAGE2_HOST, ACCESS2_HOST_WRITE)
-                } else {
-                    (0, STAGE2_NONE, 0)
-                }
-            })
-            .collect();
+        // 状态跟踪初值由 record_frame_body 内部按同一规则重建(创建录制与
+        // FrameUpdate 重录共用同一事实源,禁第二份)。
 
         // ── 内建线性 sampler(任一 pass 有 sampled 绑定时建)──
         let need_sampler = passes.iter().any(|p| match p {
@@ -4023,7 +5220,7 @@ unsafe fn execute_on_device(
             if let Some(&d) = cache.get(&key) {
                 return Ok(d);
             }
-            let plan = plan_set0_layout(key.0, key.1, key.2, key.3);
+            let plan = plan_set0_layout_with_as(key.0, key.1, key.2, key.3, key.4);
             let bindings: Vec<DescriptorSetLayoutBinding> = plan
                 .iter()
                 .map(|&(binding, ty)| DescriptorSetLayoutBinding {
@@ -4188,6 +5385,7 @@ unsafe fn execute_on_device(
         };
 
         // ── descriptor pool(容量 = 全 pass 绑定合计)──
+        let mut total_as = 0u32;
         let mut total_sb = 0u32;
         let mut total_si = 0u32;
         let mut total_simg = 0u32;
@@ -4197,12 +5395,19 @@ unsafe fn execute_on_device(
                 Pass::Raster(rp) => &rp.bindings,
                 Pass::Compute(cp) => &cp.bindings,
             };
+            total_as += b.accel_structs.len() as u32;
             total_sb += b.storage_buffers.len() as u32;
             total_si += b.sampled_images.len() as u32;
             total_simg += b.storage_images.len() as u32;
             total_ub += u32::from(b.uniform.is_some());
         }
         let mut pool_sizes: Vec<DescriptorPoolSize> = Vec::new();
+        if total_as > 0 {
+            pool_sizes.push(DescriptorPoolSize {
+                descriptor_type: DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
+                descriptor_count: total_as,
+            });
+        }
         if total_sb > 0 {
             pool_sizes.push(DescriptorPoolSize {
                 descriptor_type: DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -4248,17 +5453,6 @@ unsafe fn execute_on_device(
         };
 
         // ── per-pass 装配(ds 分配/写入 + pipeline + framebuffer),录制前一次性完成 ──
-        struct PassSetup {
-            set: Option<VkDescriptorSet>,
-            pl: VkPipelineLayout,
-            pc_size: u32,
-            pipe: VkPipeline,
-            // raster 专属。
-            rp: VkRenderPass,
-            fb: VkFramebuffer,
-            extent: (u32, u32),
-            clears: Vec<ClearValue>,
-        }
         let mut setups: Vec<PassSetup> = Vec::with_capacity(passes.len());
         for (pi, p) in passes.iter().enumerate() {
             let b = match p {
@@ -4266,6 +5460,7 @@ unsafe fn execute_on_device(
                 Pass::Compute(cp) => &cp.bindings,
             };
             let set_key: SetLayoutKey = (
+                b.accel_structs.len() as u32,
                 b.storage_buffers.len() as u32,
                 b.sampled_images.len() as u32,
                 b.storage_images.len() as u32,
@@ -4282,7 +5477,8 @@ unsafe fn execute_on_device(
                 .ok_or_else(|| format!("pass {pi}: set0 layout 未入缓存"))?;
 
             // descriptor set 分配 + 写入(全空绑定跳过分配,录制时不绑)。
-            let has_any_binding = set_key.0 > 0 || set_key.1 > 0 || set_key.2 > 0 || set_key.3;
+            let has_any_binding =
+                set_key.0 > 0 || set_key.1 > 0 || set_key.2 > 0 || set_key.3 > 0 || set_key.4;
             let set = if has_any_binding {
                 let dsai = DescriptorSetAllocateInfo {
                     s_type: ST_DESCRIPTOR_SET_ALLOCATE_INFO,
@@ -4295,119 +5491,7 @@ unsafe fn execute_on_device(
                 if (dev.alloc_ds)(device, &dsai, &mut s) != VK_SUCCESS {
                     return Err(format!("pass {pi}: vkAllocateDescriptorSets 失败"));
                 }
-                let mut writes: Vec<WriteDescriptorSet> = Vec::new();
-                let mut buf_infos: Vec<DescriptorBufferInfo> = Vec::new();
-                let mut img_infos: Vec<DescriptorImageInfo> = Vec::new();
-                for (i, &res) in b.storage_buffers.iter().enumerate() {
-                    let RtRes::Buf(rb) = &rt[res as usize] else {
-                        return Err(format!("pass {pi}: storage buffer {res} 非 buffer"));
-                    };
-                    buf_infos.push(DescriptorBufferInfo {
-                        buffer: rb.buffer,
-                        offset: 0,
-                        range: WHOLE_SIZE,
-                    });
-                    writes.push(WriteDescriptorSet {
-                        s_type: ST_WRITE_DESCRIPTOR_SET,
-                        p_next: std::ptr::null(),
-                        dst_set: s,
-                        dst_binding: i as u32,
-                        dst_array_element: 0,
-                        descriptor_count: 1,
-                        descriptor_type: DESCRIPTOR_TYPE_STORAGE_BUFFER,
-                        p_image_info: std::ptr::null(),
-                        p_buffer_info: std::ptr::null(), // 下文回填(buf_infos 定长后取址)
-                        p_texel_buffer_view: std::ptr::null(),
-                    });
-                }
-                for (j, &res) in b.sampled_images.iter().enumerate() {
-                    let Some(ri) = rt[res as usize].image() else {
-                        return Err(format!("pass {pi}: sampled image {res} 非 texture"));
-                    };
-                    img_infos.push(DescriptorImageInfo {
-                        sampler,
-                        image_view: ri.view,
-                        image_layout: LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                    });
-                    writes.push(WriteDescriptorSet {
-                        s_type: ST_WRITE_DESCRIPTOR_SET,
-                        p_next: std::ptr::null(),
-                        dst_set: s,
-                        dst_binding: set_key.0 + j as u32,
-                        dst_array_element: 0,
-                        descriptor_count: 1,
-                        descriptor_type: DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                        p_image_info: std::ptr::null(), // 下文回填
-                        p_buffer_info: std::ptr::null(),
-                        p_texel_buffer_view: std::ptr::null(),
-                    });
-                }
-                for (k, &res) in b.storage_images.iter().enumerate() {
-                    let Some(ri) = rt[res as usize].image() else {
-                        return Err(format!("pass {pi}: storage image {res} 非 texture"));
-                    };
-                    img_infos.push(DescriptorImageInfo {
-                        sampler: VK_NULL_HANDLE,
-                        image_view: ri.view,
-                        image_layout: LAYOUT_GENERAL,
-                    });
-                    writes.push(WriteDescriptorSet {
-                        s_type: ST_WRITE_DESCRIPTOR_SET,
-                        p_next: std::ptr::null(),
-                        dst_set: s,
-                        dst_binding: set_key.0 + set_key.1 + k as u32,
-                        dst_array_element: 0,
-                        descriptor_count: 1,
-                        descriptor_type: DESCRIPTOR_TYPE_STORAGE_IMAGE,
-                        p_image_info: std::ptr::null(), // 下文回填
-                        p_buffer_info: std::ptr::null(),
-                        p_texel_buffer_view: std::ptr::null(),
-                    });
-                }
-                if let Some(u) = b.uniform {
-                    let RtRes::Buf(rb) = &rt[u.res as usize] else {
-                        return Err(format!("pass {pi}: uniform {} 非 buffer", u.res));
-                    };
-                    buf_infos.push(DescriptorBufferInfo {
-                        buffer: rb.buffer,
-                        offset: u.offset,
-                        range: u.size,
-                    });
-                    writes.push(WriteDescriptorSet {
-                        s_type: ST_WRITE_DESCRIPTOR_SET,
-                        p_next: std::ptr::null(),
-                        dst_set: s,
-                        dst_binding: set_key.0 + set_key.1 + set_key.2,
-                        dst_array_element: 0,
-                        descriptor_count: 1,
-                        descriptor_type: DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                        p_image_info: std::ptr::null(),
-                        p_buffer_info: std::ptr::null(), // 下文回填
-                        p_texel_buffer_view: std::ptr::null(),
-                    });
-                }
-                // 回填指针(info 向量定长,地址稳定;写入序 = storage 列 → uniform)。
-                let mut bi = 0usize;
-                let mut ii = 0usize;
-                for w in &mut writes {
-                    match w.descriptor_type {
-                        DESCRIPTOR_TYPE_STORAGE_BUFFER | DESCRIPTOR_TYPE_UNIFORM_BUFFER => {
-                            w.p_buffer_info = &buf_infos[bi];
-                            bi += 1;
-                        }
-                        _ => {
-                            w.p_image_info = &img_infos[ii];
-                            ii += 1;
-                        }
-                    }
-                }
-                (dev.update_ds)(
-                    device,
-                    writes.len() as u32,
-                    writes.as_ptr(),
-                    0,
-                    std::ptr::null(),
-                );
+                write_pass_descriptor_set(&dev, device, s, b, &rt, sampler, as_handles, pi)?;
                 Some(s)
             } else {
                 None
@@ -4814,7 +5898,13 @@ unsafe fn execute_on_device(
         let cpci = CommandPoolCreateInfo {
             s_type: ST_COMMAND_POOL_CREATE_INFO,
             p_next: std::ptr::null(),
-            flags: 0,
+            // persistent capture 路允许逐 cmd reset(FrameUpdate 每帧重录
+            // `vkResetCommandBuffer` VUID-00046);ephemeral 路恒 flags=0(0-byte)。
+            flags: if submit_now {
+                0
+            } else {
+                CMD_POOL_CREATE_RESET_COMMAND_BUFFER_BIT
+            },
             queue_family_index: qfi,
         };
         let mut cmdpool: VkCommandPool = VK_NULL_HANDLE;
@@ -4848,344 +5938,33 @@ unsafe fn execute_on_device(
         }
         (dev.cmd_reset_query_pool)(cmd, query_pool, 0, (passes.len() as u32) * 2);
 
-        // barrier2 批量录制助手:收集本批 image/buffer 转换后一次 DependencyInfo。
-        macro_rules! flush_barriers {
-            ($img_barriers:expr, $buf_barriers:expr) => {
-                if !$img_barriers.is_empty() || !$buf_barriers.is_empty() {
-                    let di = DependencyInfo {
-                        s_type: ST_DEPENDENCY_INFO,
-                        p_next: std::ptr::null(),
-                        dependency_flags: 0,
-                        memory_barrier_count: 0,
-                        p_memory_barriers: std::ptr::null(),
-                        buffer_memory_barrier_count: $buf_barriers.len() as u32,
-                        p_buffer_memory_barriers: if $buf_barriers.is_empty() {
-                            std::ptr::null()
-                        } else {
-                            $buf_barriers.as_ptr()
-                        },
-                        image_memory_barrier_count: $img_barriers.len() as u32,
-                        p_image_memory_barriers: if $img_barriers.is_empty() {
-                            std::ptr::null()
-                        } else {
-                            $img_barriers.as_ptr()
-                        },
-                    };
-                    (dev.cmd_barrier2)(cmd, &di);
-                }
-                $img_barriers.clear();
-                $buf_barriers.clear();
-            };
-        }
-        let mut img_barriers: Vec<ImageMemoryBarrier2> = Vec::new();
-        let mut buf_barriers: Vec<BufferMemoryBarrier2> = Vec::new();
-        // 资源转换收集(plan 回放与隐式补全共用;buffer/image 按类分流)。
-        macro_rules! transit {
-            ($res:expr, $to:expr) => {
-                if let Some((
-                    old_layout,
-                    new_layout,
-                    src_stage,
-                    src_access,
-                    dst_stage,
-                    dst_access,
-                )) = barrier_fields(tracked[$res as usize], $to)
-                {
-                    match &rt[$res as usize] {
-                        RtRes::Img(ri) => img_barriers.push(ImageMemoryBarrier2 {
-                            s_type: ST_IMAGE_MEMORY_BARRIER_2,
-                            p_next: std::ptr::null(),
-                            src_stage_mask: src_stage,
-                            src_access_mask: src_access,
-                            dst_stage_mask: dst_stage,
-                            dst_access_mask: dst_access,
-                            old_layout,
-                            new_layout,
-                            src_queue_family_index: QUEUE_FAMILY_IGNORED,
-                            dst_queue_family_index: QUEUE_FAMILY_IGNORED,
-                            image: ri.image,
-                            subresource_range: VkImageSubresourceRange {
-                                aspect_mask: ri.format.aspect_mask(),
-                                base_mip_level: 0,
-                                level_count: 1,
-                                base_array_layer: 0,
-                                layer_count: 1,
-                            },
-                        }),
-                        RtRes::Buf(rb) => buf_barriers.push(BufferMemoryBarrier2 {
-                            s_type: ST_BUFFER_MEMORY_BARRIER_2,
-                            p_next: std::ptr::null(),
-                            src_stage_mask: src_stage,
-                            src_access_mask: src_access,
-                            dst_stage_mask: dst_stage,
-                            dst_access_mask: dst_access,
-                            src_queue_family_index: QUEUE_FAMILY_IGNORED,
-                            dst_queue_family_index: QUEUE_FAMILY_IGNORED,
-                            buffer: rb.buffer,
-                            offset: 0,
-                            size: WHOLE_SIZE,
-                        }),
-                    }
-                    tracked[$res as usize] = state_fields($to);
-                }
-            };
-        }
-
-        // ── 上传段:image 初始数据 UNDEFINED→TRANSFER_DST + copy,跟踪态落 TRANSFER_DST ──
-        for (i, r) in rt.iter().enumerate() {
-            if let RtRes::Img(ri) = r
-                && let Some(staging) = ri.staging
-            {
-                transit!(i as u32, TargetState::TransferDst);
-                flush_barriers!(img_barriers, buf_barriers);
-                let region = VkBufferImageCopy {
-                    buffer_offset: 0,
-                    buffer_row_length: 0,
-                    buffer_image_height: 0,
-                    image_subresource: VkImageSubresourceLayers {
-                        aspect_mask: ri.format.aspect_mask(),
-                        mip_level: 0,
-                        base_array_layer: 0,
-                        layer_count: 1,
-                    },
-                    image_offset: VkOffset3D { x: 0, y: 0, z: 0 },
-                    image_extent: VkExtent3D {
-                        width: ri.width,
-                        height: ri.height,
-                        depth: 1,
-                    },
-                };
-                (dev.cmd_copy_buf2img)(
-                    cmd,
-                    staging,
-                    ri.image,
-                    LAYOUT_TRANSFER_DST_OPTIMAL,
-                    1,
-                    &region,
-                );
-            }
-        }
-        // inline VB 上传(host 直写已于建面完成;首用前 HOST_WRITE→VERTEX_ATTRIBUTE_READ
-        // 由下方逐 pass 隐式补全落到跟踪表 inline_vb_tracked)。
-
-        // ── 逐 pass 录制:plan 逐字回放 → 隐式补全 → pass 本体 ──
-        for (pi, p) in passes.iter().enumerate() {
-            // ① plan 逐字回放(不重排;调用方图编译器产物)。
-            for &(res, state) in barriers[pi] {
-                transit!(res, state);
-            }
-            // ② 隐式补全(pass 需求态与跟踪态不一致者补一条;确定性固定规则,模块头契约)。
-            for (res, state) in pass_requirements(p) {
-                transit!(res, state);
-            }
-            // inline VB 首用转换(独立跟踪表;HOST_WRITE→VERTEX_ATTRIBUTE_READ)。
-            if let Pass::Raster(rp) = p
-                && matches!(rp.vertex, VertexData::Inline { .. })
-                && inline_vbs[pi].is_some()
-            {
-                let from = inline_vb_tracked[pi];
-                let to = state_fields(TargetState::VertexInput);
-                if from != to {
-                    buf_barriers.push(BufferMemoryBarrier2 {
-                        s_type: ST_BUFFER_MEMORY_BARRIER_2,
-                        p_next: std::ptr::null(),
-                        src_stage_mask: from.1,
-                        src_access_mask: from.2,
-                        dst_stage_mask: to.1,
-                        dst_access_mask: to.2,
-                        src_queue_family_index: QUEUE_FAMILY_IGNORED,
-                        dst_queue_family_index: QUEUE_FAMILY_IGNORED,
-                        buffer: inline_vbs[pi].expect("inline vb 存在(上判)"),
-                        offset: 0,
-                        size: WHOLE_SIZE,
-                    });
-                    inline_vb_tracked[pi] = to;
-                }
-            }
-            flush_barriers!(img_barriers, buf_barriers);
-
-            // ③ pass 本体；timestamp 覆盖该 pass 的实际 GPU 命令区间。
-            (dev.cmd_write_timestamp2)(cmd, STAGE2_ALL_COMMANDS, query_pool, (pi as u32) * 2);
-            let setup = &setups[pi];
-            match p {
-                Pass::Raster(rp) => {
-                    let rpbi = RenderPassBeginInfo {
-                        s_type: ST_RENDER_PASS_BEGIN_INFO,
-                        p_next: std::ptr::null(),
-                        render_pass: setup.rp,
-                        framebuffer: setup.fb,
-                        render_area: VkRect2D {
-                            offset: VkOffset2D { x: 0, y: 0 },
-                            extent: VkExtent2D {
-                                width: setup.extent.0,
-                                height: setup.extent.1,
-                            },
-                        },
-                        clear_value_count: setup.clears.len() as u32,
-                        p_clear_values: if setup.clears.is_empty() {
-                            std::ptr::null()
-                        } else {
-                            setup.clears.as_ptr()
-                        },
-                    };
-                    (dev.cmd_begin_rp)(cmd, &rpbi, SUBPASS_CONTENTS_INLINE);
-                    (dev.cmd_bind_pipe)(cmd, PIPELINE_BIND_POINT_GRAPHICS, setup.pipe);
-                    if let Some(set) = setup.set {
-                        (dev.cmd_bind_ds)(
-                            cmd,
-                            PIPELINE_BIND_POINT_GRAPHICS,
-                            setup.pl,
-                            0,
-                            1,
-                            &set,
-                            0,
-                            std::ptr::null(),
-                        );
-                    }
-                    if !rp.bindings.push_constants.is_empty() {
-                        (dev.cmd_push)(
-                            cmd,
-                            setup.pl,
-                            SHADER_STAGE_RFX,
-                            0,
-                            setup.pc_size,
-                            rp.bindings.push_constants.as_ptr().cast::<c_void>(),
-                        );
-                    }
-                    match &rp.vertex {
-                        VertexData::Inline { .. } => {
-                            let vb = inline_vbs[pi].expect("inline vb 已建");
-                            let offsets: VkDeviceSize = 0;
-                            (dev.cmd_bind_vb)(cmd, 0, 1, &vb, &offsets);
-                        }
-                        VertexData::Resource { res, offset, .. } => {
-                            let RtRes::Buf(rb) = &rt[*res as usize] else {
-                                return Err(format!("pass {pi}: vertex buffer {res} 非 buffer"));
-                            };
-                            let off: VkDeviceSize = *offset;
-                            (dev.cmd_bind_vb)(cmd, 0, 1, &rb.buffer, &off);
-                        }
-                        VertexData::Pull => {}
-                    }
-                    match rp.draw {
-                        DrawSpec::Direct {
-                            vertex_count,
-                            instance_count,
-                            first_vertex,
-                            first_instance,
-                        } => {
-                            (dev.cmd_draw)(
-                                cmd,
-                                vertex_count,
-                                instance_count,
-                                first_vertex,
-                                first_instance,
-                            );
-                        }
-                        DrawSpec::Indirect { res, offset } => {
-                            let RtRes::Buf(rb) = &rt[res as usize] else {
-                                return Err(format!("pass {pi}: indirect {res} 非 buffer"));
-                            };
-                            (dev.cmd_draw_indirect)(cmd, rb.buffer, offset, 1, 16);
-                        }
-                    }
-                    (dev.cmd_end_rp)(cmd);
-                }
-                Pass::Compute(cp) => {
-                    (dev.cmd_bind_pipe)(cmd, PIPELINE_BIND_POINT_COMPUTE, setup.pipe);
-                    if let Some(set) = setup.set {
-                        (dev.cmd_bind_ds)(
-                            cmd,
-                            PIPELINE_BIND_POINT_COMPUTE,
-                            setup.pl,
-                            0,
-                            1,
-                            &set,
-                            0,
-                            std::ptr::null(),
-                        );
-                    }
-                    if !cp.bindings.push_constants.is_empty() {
-                        (dev.cmd_push)(
-                            cmd,
-                            setup.pl,
-                            SHADER_STAGE_RFX,
-                            0,
-                            setup.pc_size,
-                            cp.bindings.push_constants.as_ptr().cast::<c_void>(),
-                        );
-                    }
-                    match cp.dispatch {
-                        DispatchSpec::Direct(g) => {
-                            (dev.cmd_dispatch)(cmd, g[0], g[1], g[2]);
-                        }
-                        DispatchSpec::Indirect { res, offset } => {
-                            let RtRes::Buf(rb) = &rt[res as usize] else {
-                                return Err(format!("pass {pi}: indirect {res} 非 buffer"));
-                            };
-                            (dev.cmd_dispatch_indirect)(cmd, rb.buffer, offset);
-                        }
-                    }
-                }
-            }
-            (dev.cmd_write_timestamp2)(cmd, STAGE2_ALL_COMMANDS, query_pool, (pi as u32) * 2 + 1);
-        }
-
-        // ── readback 段:image 迁 TRANSFER_SRC + copy 到 readback buffer;buffer 免录制 ──
-        // readback buffer 预建(host-visible TRANSFER_DST;image copy 目的)。
+        // ── 录制帧命令体(上传段 → 逐 pass → readback 段;record_frame_body 单一
+        // 事实源,FrameUpdate 重录路共用;创建期 effective bindings = 声明绑定)──
+        let declared_bindings: Vec<Bindings> =
+            passes.iter().map(|p| pass_bindings(p).clone()).collect();
         let mut rb_buffers: Vec<Option<(VkBuffer, VkDeviceMemory)>> =
             Vec::with_capacity(readbacks.len());
-        for rb in readbacks {
-            match *rb {
-                Readback::Texture { res } => {
-                    let Some(ri) = rt[res as usize].image() else {
-                        return Err("readback: texture 资源非 image".to_owned());
-                    };
-                    let sz = (ri.width as u64)
-                        * (ri.height as u64)
-                        * (ri.format.bytes_per_texel() as u64);
-                    let (rbuf, rmem) = create_device_buffer(
-                        &dev,
-                        device,
-                        &memprops,
-                        sz.max(4),
-                        0x2, // TRANSFER_DST
-                        None,
-                        None,
-                        &mut cleanup,
-                    )?;
-                    rb_buffers.push(Some((rbuf, rmem)));
-                    transit!(res, TargetState::TransferSrc);
-                }
-                Readback::Buffer { .. } => rb_buffers.push(None),
-            }
-        }
-        flush_barriers!(img_barriers, buf_barriers);
-        for (i, rb) in readbacks.iter().enumerate() {
-            if let (Readback::Texture { res }, Some((buf, _))) = (rb, rb_buffers[i]) {
-                let Some(ri) = rt[*res as usize].image() else {
-                    return Err(format!("readbacks[{i}]: 资源号 {res} 非 texture"));
-                };
-                let region = VkBufferImageCopy {
-                    buffer_offset: 0,
-                    buffer_row_length: 0,
-                    buffer_image_height: 0,
-                    image_subresource: VkImageSubresourceLayers {
-                        aspect_mask: ri.format.aspect_mask(),
-                        mip_level: 0,
-                        base_array_layer: 0,
-                        layer_count: 1,
-                    },
-                    image_offset: VkOffset3D { x: 0, y: 0, z: 0 },
-                    image_extent: VkExtent3D {
-                        width: ri.width,
-                        height: ri.height,
-                        depth: 1,
-                    },
-                };
-                (dev.cmd_copy_img2buf)(cmd, ri.image, LAYOUT_TRANSFER_SRC_OPTIMAL, buf, 1, &region);
-            }
-        }
+        record_frame_body(
+            &FrameBodyParams {
+                dev: &dev,
+                device,
+                memprops: &memprops,
+                cmd,
+                resources,
+                rt: &rt,
+                passes,
+                barriers,
+                effective_bindings: &declared_bindings,
+                setups: &setups,
+                query_pool,
+                inline_vbs: &inline_vbs,
+                readbacks,
+                record_upload_segment: true,
+            },
+            &mut rb_buffers,
+            Some(&mut cleanup),
+            None,
+        )?;
 
         // ── 提交 + 等待 + map 回读 ──
         if (dev.end_cmd)(cmd) != VK_SUCCESS {
@@ -5215,6 +5994,8 @@ unsafe fn execute_on_device(
                 rb_buffers,
                 cmd,
                 resource_allocations,
+                setups,
+                inline_vbs,
             });
             retained = true;
             return Ok(Vec::new());
@@ -5295,6 +6076,7 @@ unsafe fn create_persistent_frame(
     barriers: &[&[(u32, TargetState)]],
     readbacks: &[Readback],
     frame_slots: usize,
+    accel_structs: &[AccelStructDesc<'_>],
 ) -> Result<NativePersistentFrame, String> {
     let (instance, validation) = create_instance(gipa, c"rurix-persistent-frame")?;
     if std::env::var("RURIX_REQUIRE_REAL").as_deref() == Ok("1") && !validation {
@@ -5408,6 +6190,32 @@ unsafe fn create_persistent_frame(
             );
         }
 
+        // ray query 能力链 fail-closed(G7.6 Wave B D1.3;session 声明 AS 时缺一
+        // 确定性 Err,不隐式降级)。
+        let as_count = accel_structs.len();
+        if as_count > 0 {
+            let mut missing: Vec<&str> = Vec::new();
+            if !caps.ray_query {
+                missing.push("ray_query");
+            }
+            if !caps.acceleration_structure {
+                missing.push("acceleration_structure");
+            }
+            if !caps.buffer_device_address {
+                missing.push("buffer_device_address");
+            }
+            if !caps.deferred_host_operations {
+                missing.push("deferred_host_operations");
+            }
+            if !missing.is_empty() {
+                return Err(format!(
+                    "session AS 表需要 ray query 能力链,device `{}` 缺: {}(fail-closed,不降级)",
+                    caps.device_name,
+                    missing.join(", ")
+                ));
+            }
+        }
+
         let mut int64_feat = PhysicalDeviceShaderAtomicInt64Features {
             s_type: ST_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES,
             p_next: std::ptr::null_mut(),
@@ -5419,6 +6227,27 @@ unsafe fn create_persistent_frame(
             p_next: std::ptr::null_mut(),
             synchronization2: 1,
         };
+        let mut as_feat = PhysicalDeviceAccelerationStructureFeatures {
+            s_type: ST_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,
+            p_next: std::ptr::null_mut(),
+            acceleration_structure: u32::from(as_count > 0),
+            acceleration_structure_capture_replay: 0,
+            acceleration_structure_indirect_build: 0,
+            acceleration_structure_host_commands: 0,
+            descriptor_binding_acceleration_structure_update_after_bind: 0,
+        };
+        let mut rq_feat = PhysicalDeviceRayQueryFeatures {
+            s_type: ST_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,
+            p_next: std::ptr::null_mut(),
+            ray_query: u32::from(as_count > 0),
+        };
+        let mut bda_feat = PhysicalDeviceBufferDeviceAddressFeatures {
+            s_type: ST_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
+            p_next: std::ptr::null_mut(),
+            buffer_device_address: u32::from(as_count > 0),
+            buffer_device_address_capture_replay: 0,
+            buffer_device_address_multi_device: 0,
+        };
         let mut exts = vec![
             c"VK_KHR_synchronization2".as_ptr(),
             c"VK_EXT_memory_budget".as_ptr(),
@@ -5427,6 +6256,19 @@ unsafe fn create_persistent_frame(
             exts.push(c"VK_KHR_shader_atomic_int64".as_ptr());
             sync2_feat.p_next =
                 (&mut int64_feat as *mut PhysicalDeviceShaderAtomicInt64Features).cast();
+        }
+        if as_count > 0 {
+            // ray query 四扩展 + feature 链(as → rq → bda → sync2 → int64;
+            // 写值先于取址,沿 vk.rs run_rq_inner「重挂 pNext 链」先例)。
+            exts.push(c"VK_KHR_ray_query".as_ptr());
+            exts.push(c"VK_KHR_acceleration_structure".as_ptr());
+            exts.push(c"VK_KHR_buffer_device_address".as_ptr());
+            exts.push(c"VK_KHR_deferred_host_operations".as_ptr());
+            bda_feat.p_next =
+                (&mut sync2_feat as *mut PhysicalDeviceSynchronization2Features).cast();
+            rq_feat.p_next =
+                (&mut bda_feat as *mut PhysicalDeviceBufferDeviceAddressFeatures).cast();
+            as_feat.p_next = (&mut rq_feat as *mut PhysicalDeviceRayQueryFeatures).cast();
         }
         let priority = [1.0f32];
         let dqci = DeviceQueueCreateInfo {
@@ -5437,11 +6279,18 @@ unsafe fn create_persistent_frame(
             queue_count: 1,
             p_queue_priorities: priority.as_ptr(),
         };
+        // session 内存属性快照(NativePersistentFrame.memprops;重录入参)。
+        let mut memprops = std::mem::zeroed::<PhysicalDeviceMemoryProperties>();
+        get_mem(pd, &mut memprops);
         let mut core_features = [0u32; 55];
         core_features[40] = u32::from(caps.shader_int64);
         let dci = DeviceCreateInfo {
             s_type: ST_DEVICE_CREATE_INFO,
-            p_next: (&sync2_feat as *const PhysicalDeviceSynchronization2Features).cast(),
+            p_next: if as_count > 0 {
+                (&as_feat as *const PhysicalDeviceAccelerationStructureFeatures).cast()
+            } else {
+                (&sync2_feat as *const PhysicalDeviceSynchronization2Features).cast()
+            },
             flags: 0,
             queue_create_info_count: 1,
             p_queue_create_infos: &dqci,
@@ -5462,6 +6311,54 @@ unsafe fn create_persistent_frame(
             return Err("缺 vkDestroyDevice".into());
         };
 
+        // ── session AS 表建面(G7.6 Wave B;vk.rs **同一单所有者** `VkAsManager`,
+        // 不建第二套 BVH;初始 build 在下文创建期一次性提交)──
+        let mut as_state: Option<PersistentAsState> = None;
+        let mut as_handles: Vec<u64> = Vec::with_capacity(as_count);
+        if as_count > 0 {
+            let fns = match VkAsFns::load(gdpa, device) {
+                Ok(f) => f,
+                Err(error) => {
+                    destroy_device(device, std::ptr::null());
+                    return Err(error);
+                }
+            };
+            let vk_memprops = memprops_to_vk(&memprops);
+            let mut managers: Vec<VkAsManager> = Vec::with_capacity(as_count);
+            for (ai, desc) in accel_structs.iter().enumerate() {
+                match VkAsManager::create_scene(
+                    &fns,
+                    device,
+                    &vk_memprops,
+                    &desc.scene,
+                    desc.transforms,
+                ) {
+                    Ok(mgr) => managers.push(mgr),
+                    Err(error) => {
+                        for mut mgr in managers.drain(..) {
+                            mgr.destroy(&fns, device);
+                        }
+                        destroy_device(device, std::ptr::null());
+                        return Err(format!("accel_structs[{ai}]: {error}"));
+                    }
+                }
+            }
+            as_handles = managers.iter().map(|mgr| mgr.tlas()).collect();
+            as_state = Some(PersistentAsState { fns, managers });
+        }
+        // AS 面错误收尾宏:managers 先毁(经 as fns),再毁 device。
+        macro_rules! bail_as {
+            ($error:expr) => {
+                if let Some(state) = as_state.as_mut() {
+                    for mgr in &mut state.managers {
+                        mgr.destroy(&state.fns, device);
+                    }
+                }
+                destroy_device(device, std::ptr::null());
+                return Err($error);
+            };
+        }
+
         let mut captured = None;
         let prepare = execute_on_device(
             gdpa,
@@ -5475,15 +6372,126 @@ unsafe fn create_persistent_frame(
             readbacks,
             Some(&mut captured),
             false,
+            &as_handles,
         );
         if let Err(error) = prepare {
-            destroy_device(device, std::ptr::null());
-            return Err(error);
+            bail_as!(error);
         }
-        let Some(frame) = captured else {
-            destroy_device(device, std::ptr::null());
-            return Err("persistent native frame capture 未产状态".into());
+        let Some(mut frame) = captured else {
+            bail_as!("persistent native frame capture 未产状态".into());
         };
+
+        // ── AS 初始 build:创建期专用一次性 cmd(同一 cmdpool;**非持久 cmd**——持久
+        // cmd 每帧重放/重录,不重复 build)+ consume barrier(COMPUTE_SHADER),单
+        // fence 有界等待(创建期纪律,正常帧循环仍禁 vkQueueWaitIdle)──
+        if let Some(state) = as_state.as_mut() {
+            const AS_BUILD_WAIT_NS: u64 = 5_000_000_000;
+            let build_result: Result<(), String> = (|| {
+                let cbai = CommandBufferAllocateInfo {
+                    s_type: ST_COMMAND_BUFFER_ALLOCATE_INFO,
+                    p_next: std::ptr::null(),
+                    command_pool: frame.cleanup.cmdpool,
+                    level: CMD_BUFFER_LEVEL_PRIMARY,
+                    command_buffer_count: 1,
+                };
+                let mut build_cmd: VkCommandBuffer = std::ptr::null_mut();
+                if (frame.dev.alloc_cmd)(device, &cbai, &mut build_cmd) != VK_SUCCESS {
+                    return Err("AS 初始 build: vkAllocateCommandBuffers 失败".into());
+                }
+                let fci = FenceCreateInfo {
+                    s_type: ST_FENCE_CREATE_INFO,
+                    p_next: std::ptr::null(),
+                    flags: 0,
+                };
+                let mut fence = VK_NULL_HANDLE;
+                if (frame.dev.create_fence)(device, &fci, std::ptr::null(), &mut fence)
+                    != VK_SUCCESS
+                {
+                    (frame.dev.free_cmd)(device, frame.cleanup.cmdpool, 1, &build_cmd);
+                    return Err("AS 初始 build: vkCreateFence 失败".into());
+                }
+                let cbi = CommandBufferBeginInfo {
+                    s_type: ST_COMMAND_BUFFER_BEGIN_INFO,
+                    p_next: std::ptr::null(),
+                    flags: CMD_BUFFER_USAGE_ONE_TIME_SUBMIT,
+                    p_inheritance_info: std::ptr::null(),
+                };
+                if (frame.dev.begin_cmd)(build_cmd, &cbi) != VK_SUCCESS {
+                    (frame.dev.destroy_fence)(device, fence, std::ptr::null());
+                    (frame.dev.free_cmd)(device, frame.cleanup.cmdpool, 1, &build_cmd);
+                    return Err("AS 初始 build: vkBeginCommandBuffer 失败".into());
+                }
+                for mgr in &mut state.managers {
+                    mgr.record_build(&state.fns, build_cmd);
+                    mgr.record_consume_barrier(
+                        &state.fns,
+                        build_cmd,
+                        PIPELINE_STAGE_COMPUTE_SHADER,
+                    );
+                }
+                if (frame.dev.end_cmd)(build_cmd) != VK_SUCCESS {
+                    (frame.dev.destroy_fence)(device, fence, std::ptr::null());
+                    (frame.dev.free_cmd)(device, frame.cleanup.cmdpool, 1, &build_cmd);
+                    return Err("AS 初始 build: vkEndCommandBuffer 失败".into());
+                }
+                let si = SubmitInfo {
+                    s_type: ST_SUBMIT_INFO,
+                    p_next: std::ptr::null(),
+                    wait_semaphore_count: 0,
+                    p_wait_semaphores: std::ptr::null(),
+                    p_wait_dst_stage_mask: std::ptr::null(),
+                    command_buffer_count: 1,
+                    p_command_buffers: &build_cmd,
+                    signal_semaphore_count: 0,
+                    p_signal_semaphores: std::ptr::null(),
+                };
+                if (frame.dev.queue_submit)(frame.queue, 1, &si, fence) != VK_SUCCESS {
+                    (frame.dev.destroy_fence)(device, fence, std::ptr::null());
+                    (frame.dev.free_cmd)(device, frame.cleanup.cmdpool, 1, &build_cmd);
+                    return Err("AS 初始 build: vkQueueSubmit 失败".into());
+                }
+                let done = (frame.dev.wait_fences)(device, 1, &fence, 1, AS_BUILD_WAIT_NS);
+                (frame.dev.destroy_fence)(device, fence, std::ptr::null());
+                (frame.dev.free_cmd)(device, frame.cleanup.cmdpool, 1, &build_cmd);
+                if done == VK_TIMEOUT {
+                    return Err(format!(
+                        "AS 初始 build fence 有界等待超时({AS_BUILD_WAIT_NS}ns;TDR-suspected)"
+                    ));
+                }
+                if done != VK_SUCCESS {
+                    return Err(queue_result_error("AS 初始 build vkWaitForFences", done));
+                }
+                Ok(())
+            })();
+            if let Err(error) = build_result {
+                bail_as!(error);
+            }
+        }
+
+        // ── AS 分配登记 session allocation ledger(resource_id = AS 表项
+        // StableResourceId = resources.len() + ai + 1;provenance 代表 allocation =
+        // TLAS storage,接扩展表尾)──
+        let mut resource_allocations = frame.resource_allocations.clone();
+        if let Some(state) = as_state.as_ref() {
+            for (ai, mgr) in state.managers.iter().enumerate() {
+                let as_resource = StableResourceId(resources.len() as u64 + ai as u64 + 1);
+                let tlas_index = mgr.tlas_storage_allocation_index();
+                let mut representative = None;
+                for (i, &(mem, bytes, heap)) in mgr.allocation_handles().iter().enumerate() {
+                    let allocation_id =
+                        frame
+                            .cleanup
+                            .register_allocation(mem, bytes, heap, Some(as_resource));
+                    if i == tlas_index {
+                        representative = Some(allocation_id);
+                    }
+                }
+                let Some(representative) = representative else {
+                    bail_as!("AS TLAS storage 分配未入 handles 表".into());
+                };
+                resource_allocations.push(representative);
+            }
+        }
 
         let fci = FenceCreateInfo {
             s_type: ST_FENCE_CREATE_INFO,
@@ -5499,12 +6507,10 @@ unsafe fn create_persistent_frame(
                     (frame.dev.destroy_fence)(device, old, std::ptr::null());
                 }
                 frame.cleanup.destroy_all(&frame.dev, device);
-                destroy_device(device, std::ptr::null());
-                return Err(format!("vkCreateFence(frame slot {slot}) 失败: {r}"));
+                bail_as!(format!("vkCreateFence(frame slot {slot}) 失败: {r}"));
             }
             fences.push(fence);
         }
-        let resource_allocations = frame.resource_allocations.clone();
         Ok(NativePersistentFrame {
             instance,
             destroy_instance,
@@ -5519,7 +6525,9 @@ unsafe fn create_persistent_frame(
             fences,
             next_slot: 0,
             timestamp_period_ns: caps.timestamp_period_ns,
+            memprops,
             resource_allocations,
+            as_state,
         })
     })();
 
@@ -5533,10 +6541,18 @@ unsafe fn create_persistent_frame(
     }
 }
 
+/// 持久帧提交:fence slot 轮转(有界等待 + reset)→ [可选 FrameUpdate 帧前段:
+/// host 上传 / TLAS transforms 写 / descriptor 重写 / cmd 重录] → submit → 完成
+/// 有界等待 → timestamp / readback / heap budget / ledger telemetry。
+/// `update = None` 为 Wave A 原样重放路径(行为 0-byte,不重录、不重写 descriptor)。
+#[allow(clippy::too_many_arguments)]
 unsafe fn execute_persistent_frame(
     native: &mut NativePersistentFrame,
+    resources: &[ResourceDesc<'_>],
     passes: &[Pass<'_>],
+    barriers: &[&[(u32, TargetState)]],
     readbacks: &[Readback],
+    update: Option<&PreparedFrameUpdate<'_>>,
 ) -> Result<(Vec<Vec<u8>>, DeviceFrameTelemetry), String> {
     const WAIT_TIMEOUT_NS: u64 = 5_000_000_000;
     let slot = native.next_slot;
@@ -5560,6 +6576,140 @@ unsafe fn execute_persistent_frame(
     if reset != VK_SUCCESS {
         return Err(queue_result_error("vkResetFences", reset));
     }
+
+    // ── FrameUpdate 帧前段(全在 submit 前;slot fence 已等待 + 上一帧完成等待已
+    // 于上次调用返回前发生 → 无在途 GPU 工作,host 写 / descriptor 重写 / cmd 重置
+    // 均无竞争;`cpu_record_ns` 如实计量本段)──
+    let mut record_ns = 0u64;
+    if let Some(up) = update {
+        let record_started = std::time::Instant::now();
+        // buffer 上传:目标 buffer host-visible+coherent(create_device_buffer 恒
+        // HOST_VISIBLE|HOST_COHERENT 单内存路径,故无 staging 分支——最简诚实路径),
+        // submit 前 memcpy;Vulkan 保证 submit 后提交的工作可见 host 写。
+        for &(res, offset, bytes) in up.uploads {
+            let RtRes::Buf(rb) = &native.frame.rt[res as usize] else {
+                return Err(format!("FrameUpdate: 上传目标资源 {res} 非 buffer"));
+            };
+            // SAFETY: rb.mem 为 host-visible+coherent 分配(建面纪律,免 flush);
+            // offset+bytes.len() ≤ buffer size 已经 validate_frame_update;前帧 GPU
+            // 工作已完成(上判 fence),无在途读。
+            let mut ptr: *mut c_void = std::ptr::null_mut();
+            let map = (native.frame.dev.map_mem)(
+                native.device,
+                rb.mem,
+                offset,
+                bytes.len() as u64,
+                0,
+                &mut ptr,
+            );
+            if map != VK_SUCCESS || ptr.is_null() {
+                return Err(format!(
+                    "FrameUpdate: buffer 上传 vkMapMemory 失败(res {res}): {map}"
+                ));
+            }
+            std::ptr::copy_nonoverlapping(bytes.as_ptr(), ptr.cast::<u8>(), bytes.len());
+            (native.frame.dev.unmap_mem)(native.device, rb.mem);
+        }
+        // TLAS 实例 transforms host 写(instance buffer 同 host-visible+coherent;
+        // write_transforms 内做实例数/NaN fail-closed)。
+        if let Some((as_index, instances, _)) = &up.tlas {
+            let Some(state) = native.as_state.as_mut() else {
+                return Err("FrameUpdate: tlas_update 指向无 AS 面的 session(校验漏网)".into());
+            };
+            let mgr = &mut state.managers[*as_index as usize];
+            mgr.write_transforms(&state.fns, native.device, instances)?;
+        }
+        // binding override pass descriptor set 重写(set 不在途;重写经创建期同一
+        // write_pass_descriptor_set 事实源,布局键已由 host 校验逐位一致)。
+        if !up.descriptor_overrides.is_empty() {
+            let as_handles: Vec<u64> = native
+                .as_state
+                .as_ref()
+                .map_or_else(Vec::new, |s| s.managers.iter().map(|m| m.tlas()).collect());
+            for &pi in up.descriptor_overrides {
+                let setup = &native.frame.setups[pi as usize];
+                let Some(set) = setup.set else {
+                    return Err(format!(
+                        "FrameUpdate: pass {pi} 无 descriptor set(校验漏网)"
+                    ));
+                };
+                write_pass_descriptor_set(
+                    &native.frame.dev,
+                    native.device,
+                    set,
+                    &up.effective_bindings[pi as usize],
+                    &native.frame.rt,
+                    native.frame.cleanup.sampler,
+                    &as_handles,
+                    pi as usize,
+                )?;
+            }
+        }
+        // 重录命令体(上传段不重录——初始数据已在资源内;TLAS update + consume
+        // barrier → 固定 pass 链应用 overrides → timestamp → readback 子集)。
+        if up.needs_rerecord {
+            let cmd = native.frame.cmd;
+            if (native.frame.dev.reset_cmd)(cmd, 0) != VK_SUCCESS {
+                return Err("FrameUpdate: vkResetCommandBuffer 失败".into());
+            }
+            let cbi = CommandBufferBeginInfo {
+                s_type: ST_COMMAND_BUFFER_BEGIN_INFO,
+                p_next: std::ptr::null(),
+                flags: 0,
+                p_inheritance_info: std::ptr::null(),
+            };
+            if (native.frame.dev.begin_cmd)(cmd, &cbi) != VK_SUCCESS {
+                return Err("FrameUpdate: vkBeginCommandBuffer 失败".into());
+            }
+            (native.frame.dev.cmd_reset_query_pool)(
+                cmd,
+                native.frame.cleanup.query_pool,
+                0,
+                (passes.len() as u32) * 2,
+            );
+            let as_update = match &up.tlas {
+                Some((as_index, _, action)) => {
+                    let state = native
+                        .as_state
+                        .as_mut()
+                        .ok_or("FrameUpdate: tlas_update 无 AS 面(校验漏网)")?;
+                    Some((&mut state.managers[*as_index as usize], &state.fns, *action))
+                }
+                None => None,
+            };
+            let mut effective_rb: Vec<Option<(VkBuffer, VkDeviceMemory)>> = up
+                .effective_rb_sources
+                .iter()
+                .map(|&source| native.frame.rb_buffers[source])
+                .collect();
+            record_frame_body(
+                &FrameBodyParams {
+                    dev: &native.frame.dev,
+                    device: native.device,
+                    memprops: &native.memprops,
+                    cmd,
+                    resources,
+                    rt: &native.frame.rt,
+                    passes,
+                    barriers,
+                    effective_bindings: up.effective_bindings,
+                    setups: &native.frame.setups,
+                    query_pool: native.frame.cleanup.query_pool,
+                    inline_vbs: &native.frame.inline_vbs,
+                    readbacks: up.effective_readbacks,
+                    record_upload_segment: false,
+                },
+                &mut effective_rb,
+                None,
+                as_update,
+            )?;
+            if (native.frame.dev.end_cmd)(cmd) != VK_SUCCESS {
+                return Err("FrameUpdate: vkEndCommandBuffer 失败".into());
+            }
+        }
+        record_ns = elapsed_ns(record_started);
+    }
+
     let si = SubmitInfo {
         s_type: ST_SUBMIT_INFO,
         p_next: std::ptr::null(),
@@ -5628,8 +6778,24 @@ unsafe fn execute_persistent_frame(
         })
         .collect();
 
-    let mut out = Vec::with_capacity(readbacks.len());
-    for (i, readback) in readbacks.iter().enumerate() {
+    // readback 计划:重放路径 = 全量 session readbacks(下标恒等);update 路径 =
+    // readback_subset 解析结果(源下标对齐持久 rb buffer)。
+    let rb_plan: Vec<(Readback, usize)> = match &update {
+        Some(up) => up
+            .effective_readbacks
+            .iter()
+            .copied()
+            .zip(up.effective_rb_sources.iter().copied())
+            .collect(),
+        None => readbacks
+            .iter()
+            .copied()
+            .enumerate()
+            .map(|(i, r)| (r, i))
+            .collect(),
+    };
+    let mut out = Vec::with_capacity(rb_plan.len());
+    for (i, (readback, source)) in rb_plan.iter().enumerate() {
         let (memory, offset, size) = match *readback {
             Readback::Buffer { res, offset, size } => {
                 let RtRes::Buf(buffer) = &native.frame.rt[res as usize] else {
@@ -5641,7 +6807,7 @@ unsafe fn execute_persistent_frame(
                 let RtRes::Img(image) = &native.frame.rt[res as usize] else {
                     return Err(format!("readbacks[{i}] texture 资源类型漂移"));
                 };
-                let Some((_, memory)) = native.frame.rb_buffers[i] else {
+                let Some((_, memory)) = native.frame.rb_buffers[*source] else {
                     return Err(format!("readbacks[{i}] 持久 readback allocation 缺失"));
                 };
                 (
@@ -5712,15 +6878,18 @@ unsafe fn execute_persistent_frame(
             validation_error_count - validation_before
         ));
     }
+    let as_objects: u64 = native.as_state.as_ref().map_or(0, |state| {
+        state.managers.iter().map(VkAsManager::object_count).sum()
+    });
     let outstanding_object_count =
-        native.frame.cleanup.object_count() + native.fences.len() as u64 + 3;
+        native.frame.cleanup.object_count() + as_objects + native.fences.len() as u64 + 3;
     let outstanding_allocation_count = allocations.len() as u64;
     Ok((
         out,
         DeviceFrameTelemetry {
             timestamp_period_ns: native.timestamp_period_ns,
             passes: gpu_passes,
-            cpu_record_ns: 0,
+            cpu_record_ns: record_ns,
             cpu_submit_ns,
             cpu_fence_wait_ns,
             heaps,
@@ -5747,13 +6916,19 @@ fn queue_result_error(op: &str, result: VkResult) -> String {
 impl Drop for NativePersistentFrame {
     fn drop(&mut self) {
         // SAFETY: NativePersistentFrame 单所有者；最终 teardown 允许 queueWaitIdle。所有 fence /
-        // frame object / device / messenger / instance 均按创建逆序且只销毁一次。
+        // frame object / AS manager(经 as fns,单所有者逆序)/ device / messenger / instance
+        // 均按创建逆序且只销毁一次;AS 分配在 ledger 仅记账,不由 Cleanup 释放(无双重释放)。
         unsafe {
             let _ = (self.frame.dev.queue_wait)(self.frame.queue);
             for fence in self.fences.drain(..) {
                 (self.frame.dev.destroy_fence)(self.device, fence, std::ptr::null());
             }
             self.frame.cleanup.destroy_all(&self.frame.dev, self.device);
+            if let Some(state) = self.as_state.as_mut() {
+                for mgr in &mut state.managers {
+                    mgr.destroy(&state.fns, self.device);
+                }
+            }
             (self.destroy_device)(self.device, std::ptr::null());
             if self.messenger != VK_NULL_HANDLE
                 && let Some(destroy) = self.destroy_messenger
@@ -5847,6 +7022,8 @@ mod tests {
         assert_eq!(size_of::<VkExtent3D>(), 12);
         assert_eq!(size_of::<VkImageSubresourceRange>(), 20);
         assert_eq!(size_of::<VkImageSubresourceLayers>(), 16);
+        // G7.6 Wave B:AS descriptor pNext 结构(vk.rs pub(crate) 复用,禁第二份定义)。
+        assert_eq!(size_of::<WriteDescriptorSetAccelStructure>(), 32);
     }
 
     #[test]
@@ -6045,6 +7222,334 @@ mod tests {
                 (1, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER),
             ]
         );
+    }
+
+    #[test]
+    fn set0_layout_with_as_convention() {
+        // G7.6 Wave B:AS 段占 binding [0..A)(rurixc `AccelStruct` 首形参 = binding 0),
+        // 其余四段顺延;A=0 与既有五段布局逐位一致(0-byte 兼容锚)。
+        let plan = plan_set0_layout_with_as(1, 2, 1, 1, true);
+        assert_eq!(
+            plan,
+            vec![
+                (0, DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR),
+                (1, DESCRIPTOR_TYPE_STORAGE_BUFFER),
+                (2, DESCRIPTOR_TYPE_STORAGE_BUFFER),
+                (3, DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER),
+                (4, DESCRIPTOR_TYPE_STORAGE_IMAGE),
+                (5, DESCRIPTOR_TYPE_UNIFORM_BUFFER),
+            ]
+        );
+        // 多 AS(同 TLAS 复绑之外的合法形态):两个 AS 表项占 [0..2)。
+        assert_eq!(
+            plan_set0_layout_with_as(2, 1, 0, 0, false),
+            vec![
+                (0, DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR),
+                (1, DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR),
+                (2, DESCRIPTOR_TYPE_STORAGE_BUFFER),
+            ]
+        );
+        // A=0 逐位等于旧布局(随机几组形状对拍)。
+        for (n, m, k, u) in [(0u32, 0u32, 0u32, false), (2, 1, 1, true), (3, 0, 2, false)] {
+            assert_eq!(
+                plan_set0_layout_with_as(0, n, m, k, u),
+                plan_set0_layout(n, m, k, u),
+                "A=0 须逐位等于旧布局({n},{m},{k},{u})"
+            );
+        }
+        // AS descriptor 类型枚举锚(SDK 1.3.296 vulkan_core.h;与 vk.rs 同源同值)。
+        assert_eq!(DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1_000_150_000);
+        assert_eq!(
+            ST_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,
+            1_000_150_007
+        );
+    }
+
+    #[test]
+    fn provenance_as_read_and_red_rejection() {
+        // AS 表项 provenance:StableResourceId = resource_count + as_index + 1;ray query
+        // pass 对 TLAS 为 Read,producer 指向 AS 代表 allocation(TLAS storage)。
+        let pass = Pass::Compute(ComputePass {
+            name: "rq",
+            spirv: &[],
+            entry: Some("main"),
+            dispatch: DispatchSpec::Direct([1, 1, 1]),
+            bindings: Bindings {
+                accel_structs: vec![0],
+                storage_buffers: vec![0],
+                ..Bindings::default()
+            },
+        });
+        let declared: Vec<Bindings> = std::iter::once(pass_bindings(&pass).clone()).collect();
+        // 扩展表:1 资源 + 1 AS 槽;AS 代表 allocation = StableAllocationId(77)。
+        let allocations = [StableAllocationId(11), StableAllocationId(77)];
+        let generations = [3u64, 5u64];
+        let expected = build_runtime_provenance_ext(
+            std::slice::from_ref(&pass),
+            &declared,
+            &allocations,
+            &generations,
+            8,
+            1,
+        );
+        let as_entry = expected.passes[0]
+            .resources
+            .iter()
+            .find(|r| r.resource_id == StableResourceId(2))
+            .expect("AS provenance 项(resource 1 + AS 槽 = id 2)");
+        assert_eq!(as_entry.access, RuntimeAccessKind::Read);
+        assert_eq!(as_entry.allocation_id, StableAllocationId(77));
+        assert_eq!(
+            as_entry.producer.expect("Read 有 producer"),
+            ProducerVersion {
+                allocation_id: StableAllocationId(77),
+                generation: 5,
+            }
+        );
+        assert_eq!(as_entry.produced_generation, None, "纯读不产 generation");
+        validate_submission_provenance(&expected, &expected).expect("actual provenance 应通过");
+        // RED:AS 资源 stale generation → submit 前确定性拒。
+        let mut stale = expected.clone();
+        stale.passes[0]
+            .resources
+            .iter_mut()
+            .find(|r| r.resource_id == StableResourceId(2))
+            .expect("AS 项")
+            .producer
+            .as_mut()
+            .expect("producer")
+            .generation = 4;
+        assert!(
+            validate_submission_provenance(&expected, &stale)
+                .unwrap_err()
+                .contains("fail-closed")
+        );
+        // RED:AS 资源错 allocation → submit 前确定性拒。
+        let mut wrong = expected.clone();
+        wrong.passes[0]
+            .resources
+            .iter_mut()
+            .find(|r| r.resource_id == StableResourceId(2))
+            .expect("AS 项")
+            .producer
+            .as_mut()
+            .expect("producer")
+            .allocation_id = StableAllocationId(999);
+        assert!(
+            validate_submission_provenance(&expected, &wrong)
+                .unwrap_err()
+                .contains("allocation/generation")
+        );
+    }
+
+    /// 供 FrameUpdate 校验测试的最小帧:2 storage buffer + 1 compute pass
+    /// (storage [0] + push 4B)+ 1 buffer readback。
+    fn frame_update_test_frame() -> TestFrame {
+        let spv = sample_compute_spv_words();
+        let spv_bytes: Vec<u8> = spv.iter().flat_map(|w| w.to_le_bytes()).collect();
+        let leaked: &'static [u8] = Box::leak(spv_bytes.into_boxed_slice());
+        let mkbuf = || {
+            ResourceDesc::Buffer(BufferDesc {
+                size: 32,
+                usage: BufferUsage {
+                    storage: true,
+                    ..BufferUsage::default()
+                },
+                data: None,
+            })
+        };
+        let resources = vec![mkbuf(), mkbuf()];
+        let passes = vec![Pass::Compute(ComputePass {
+            name: "c0",
+            spirv: leaked,
+            entry: Some("main"),
+            dispatch: DispatchSpec::Direct([8, 1, 1]),
+            bindings: Bindings {
+                storage_buffers: vec![0],
+                push_constants: 100u32.to_le_bytes().to_vec(),
+                ..Bindings::default()
+            },
+        })];
+        let barriers = vec![vec![(0u32, TargetState::StorageWrite)]];
+        let readbacks = vec![Readback::Buffer {
+            res: 0,
+            offset: 0,
+            size: 32,
+        }];
+        (resources, passes, barriers, readbacks)
+    }
+
+    #[test]
+    fn validate_frame_update_rules() {
+        let (r, p, _b, rb) = frame_update_test_frame();
+        // 空 update 合法;合法组合(tlas_update 下标 0 / 上传 / 同构 binding 覆盖 /
+        // push 覆盖 / readback 子集)合法。
+        validate_frame_update(&r, &p, &rb, 1, &FrameUpdate::default()).expect("空 update 合法");
+        let ok = FrameUpdate {
+            tlas_update: Some((0, Vec::new(), TlasBuildAction::Refit)),
+            buffer_uploads: vec![(StableResourceId(1), 4, vec![0xAB; 8])],
+            binding_overrides: vec![(
+                0,
+                Bindings {
+                    storage_buffers: vec![1],
+                    push_constants: 100u32.to_le_bytes().to_vec(),
+                    ..Bindings::default()
+                },
+            )],
+            push_constant_overrides: vec![(0, 200u32.to_le_bytes().to_vec())],
+            readback_subset: Some(vec![0]),
+        };
+        validate_frame_update(&r, &p, &rb, 1, &ok).expect("合法组合 update");
+        // tlas_update 下标越界 / 无 AS 表。
+        let bad = FrameUpdate {
+            tlas_update: Some((1, Vec::new(), TlasBuildAction::Refit)),
+            ..FrameUpdate::default()
+        };
+        assert!(
+            validate_frame_update(&r, &p, &rb, 1, &bad)
+                .unwrap_err()
+                .contains("越界")
+        );
+        assert!(validate_frame_update(&r, &p, &rb, 0, &bad).is_err());
+        // 上传:id 0 / 越界 id / 空段 / 越界区段。
+        for (id, off, bytes) in [
+            (0u64, 0u64, vec![1u8]),
+            (3, 0, vec![1u8]),
+            (1, 0, Vec::new()),
+            (1, 30, vec![1u8, 2, 3]),
+        ] {
+            let bad = FrameUpdate {
+                buffer_uploads: vec![(StableResourceId(id), off, bytes)],
+                ..FrameUpdate::default()
+            };
+            assert!(
+                validate_frame_update(&r, &p, &rb, 1, &bad).is_err(),
+                "上传非法须拒(id={id}, off={off})"
+            );
+        }
+        // binding 覆盖:布局键漂移(计数变)/ push 长度漂移 / pass 越界 / 重复覆盖。
+        let drift = FrameUpdate {
+            binding_overrides: vec![(0, Bindings::default())],
+            ..FrameUpdate::default()
+        };
+        assert!(
+            validate_frame_update(&r, &p, &rb, 1, &drift)
+                .unwrap_err()
+                .contains("布局键")
+        );
+        let pc_drift = FrameUpdate {
+            binding_overrides: vec![(
+                0,
+                Bindings {
+                    storage_buffers: vec![0],
+                    push_constants: vec![0; 8],
+                    ..Bindings::default()
+                },
+            )],
+            ..FrameUpdate::default()
+        };
+        assert!(
+            validate_frame_update(&r, &p, &rb, 1, &pc_drift)
+                .unwrap_err()
+                .contains("push constants")
+        );
+        let oob = FrameUpdate {
+            binding_overrides: vec![(1, Bindings::default())],
+            ..FrameUpdate::default()
+        };
+        assert!(validate_frame_update(&r, &p, &rb, 1, &oob).is_err());
+        let dup = FrameUpdate {
+            binding_overrides: vec![
+                (
+                    0,
+                    Bindings {
+                        storage_buffers: vec![1],
+                        push_constants: 100u32.to_le_bytes().to_vec(),
+                        ..Bindings::default()
+                    },
+                ),
+                (
+                    0,
+                    Bindings {
+                        storage_buffers: vec![1],
+                        push_constants: 100u32.to_le_bytes().to_vec(),
+                        ..Bindings::default()
+                    },
+                ),
+            ],
+            ..FrameUpdate::default()
+        };
+        assert!(
+            validate_frame_update(&r, &p, &rb, 1, &dup)
+                .unwrap_err()
+                .contains("重复")
+        );
+        // binding 覆盖带越界 AS 下标。
+        let as_oob = FrameUpdate {
+            binding_overrides: vec![(
+                0,
+                Bindings {
+                    accel_structs: vec![1],
+                    ..Bindings::default()
+                },
+            )],
+            ..FrameUpdate::default()
+        };
+        assert!(validate_frame_update(&r, &p, &rb, 1, &as_oob).is_err());
+        // push 覆盖:长度不等 / pass 越界。
+        let pc_bad = FrameUpdate {
+            push_constant_overrides: vec![(0, vec![0; 8])],
+            ..FrameUpdate::default()
+        };
+        assert!(
+            validate_frame_update(&r, &p, &rb, 1, &pc_bad)
+                .unwrap_err()
+                .contains("长度")
+        );
+        let pc_oob = FrameUpdate {
+            push_constant_overrides: vec![(9, vec![0; 4])],
+            ..FrameUpdate::default()
+        };
+        assert!(validate_frame_update(&r, &p, &rb, 1, &pc_oob).is_err());
+        // readback 子集:越界 / 重复。
+        let rb_oob = FrameUpdate {
+            readback_subset: Some(vec![1]),
+            ..FrameUpdate::default()
+        };
+        assert!(validate_frame_update(&r, &p, &rb, 1, &rb_oob).is_err());
+        let rb_dup = FrameUpdate {
+            readback_subset: Some(vec![0, 0]),
+            ..FrameUpdate::default()
+        };
+        assert!(
+            validate_frame_update(&r, &p, &rb, 1, &rb_dup)
+                .unwrap_err()
+                .contains("重复")
+        );
+    }
+
+    #[test]
+    fn validate_rejects_accel_structs_without_as_table() {
+        // `execute_frame` / 空 AS 表 session(as_count=0)带 accel_structs 绑定 →
+        // 确定性拒;as_count=1 时同形状合法。
+        let (r, p, b, rb) = frame_update_test_frame();
+        let brefs: Vec<&[(u32, TargetState)]> = b.iter().map(Vec::as_slice).collect();
+        let mut p2 = p.clone();
+        if let Pass::Compute(cp) = &mut p2[0] {
+            cp.bindings.accel_structs = vec![0];
+        }
+        assert!(
+            validate_frame(&r, &p2, &brefs, &rb)
+                .unwrap_err()
+                .contains("accel struct")
+        );
+        validate_frame_with_as(&r, &p2, &brefs, &rb, 1).expect("as_count=1 合法");
+        // 越界 AS 下标(as_count=1 引 1)亦拒。
+        let mut p3 = p.clone();
+        if let Pass::Compute(cp) = &mut p3[0] {
+            cp.bindings.accel_structs = vec![1];
+        }
+        assert!(validate_frame_with_as(&r, &p3, &brefs, &rb, 1).is_err());
     }
 
     #[test]
@@ -6430,6 +7935,75 @@ mod tests {
         v
     }
 
+    /// rurixc 编译的真实 ray query compute 内核(G7.2 W3a 语料
+    /// `conformance/rayquery/accept/ray_query_hit_miss.rx` 的 SPIR-V 1.4 产物,
+    /// RXS-0297~0300 布局:set 0 / binding 0 = `AccelStruct`、binding 1 = SSBO,
+    /// entry `rx_ray_query_hit_miss_8`;`vk_ray_query` harness 在本机 RTX 4070 Ti
+    /// 真跑 hit/miss 双绿的同一份字节,逐字嵌入使测试自包含、不依赖 target/ 工件)。
+    /// 语义:ray (0,0,0)+t·(0,0,1) 遍历 TLAS,has_committed → out[0] = t,否则 −1.0。
+    const RAY_QUERY_HIT_MISS_SPV_WORDS: &[u32] = &[
+        0x07230203, 0x00010400, 0x00000000, 0x0000004A, 0x00000000, 0x00020011, 0x00000001,
+        0x00020011, 0x00001178, 0x0006000A, 0x5F565053, 0x5F52484B, 0x5F796172, 0x72657571,
+        0x00000079, 0x0003000E, 0x00000000, 0x00000001, 0x000C000F, 0x00000005, 0x00000001,
+        0x725F7872, 0x715F7961, 0x79726575, 0x7469685F, 0x73696D5F, 0x00385F73, 0x00000022,
+        0x00000004, 0x00000009, 0x00060010, 0x00000001, 0x00000011, 0x00000001, 0x00000001,
+        0x00000001, 0x00040047, 0x00000004, 0x00000022, 0x00000000, 0x00040047, 0x00000004,
+        0x00000021, 0x00000000, 0x00040047, 0x00000006, 0x00000006, 0x00000004, 0x00050048,
+        0x00000007, 0x00000000, 0x00000023, 0x00000000, 0x00030047, 0x00000007, 0x00000002,
+        0x00040047, 0x00000009, 0x00000022, 0x00000000, 0x00040047, 0x00000009, 0x00000021,
+        0x00000001, 0x00040047, 0x00000022, 0x0000000B, 0x0000001C, 0x000214DD, 0x00000002,
+        0x00040020, 0x00000003, 0x00000000, 0x00000002, 0x0004003B, 0x00000003, 0x00000004,
+        0x00000000, 0x00030016, 0x00000005, 0x00000020, 0x0003001D, 0x00000006, 0x00000005,
+        0x0003001E, 0x00000007, 0x00000006, 0x00040020, 0x00000008, 0x0000000C, 0x00000007,
+        0x0004003B, 0x00000008, 0x00000009, 0x0000000C, 0x00040015, 0x00000013, 0x00000020,
+        0x00000000, 0x00040020, 0x00000014, 0x00000007, 0x00000013, 0x00040017, 0x00000017,
+        0x00000005, 0x00000003, 0x00040020, 0x00000018, 0x00000007, 0x00000017, 0x00040020,
+        0x0000001D, 0x00000007, 0x00000005, 0x00040017, 0x00000020, 0x00000013, 0x00000003,
+        0x00040020, 0x00000021, 0x00000001, 0x00000020, 0x0004003B, 0x00000021, 0x00000022,
+        0x00000001, 0x0004002B, 0x00000005, 0x00000027, 0x00000000, 0x0004002B, 0x00000005,
+        0x00000029, 0x3F800000, 0x00021178, 0x0000002A, 0x00040020, 0x0000002B, 0x00000007,
+        0x0000002A, 0x0004002B, 0x00000005, 0x00000030, 0x42C80000, 0x0004002B, 0x00000013,
+        0x00000031, 0x00000001, 0x0004002B, 0x00000013, 0x00000032, 0x000000FF, 0x00020014,
+        0x00000033, 0x0004002B, 0x00000013, 0x00000035, 0x00000000, 0x00040020, 0x00000040,
+        0x0000000C, 0x00000005, 0x00020013, 0x00000047, 0x00030021, 0x00000048, 0x00000047,
+        0x00050036, 0x00000047, 0x00000001, 0x00000000, 0x00000048, 0x000200F8, 0x00000049,
+        0x0004003B, 0x00000014, 0x00000015, 0x00000007, 0x0004003B, 0x00000014, 0x00000016,
+        0x00000007, 0x0004003B, 0x00000018, 0x00000019, 0x00000007, 0x0004003B, 0x00000018,
+        0x0000001A, 0x00000007, 0x0004003B, 0x00000014, 0x0000001B, 0x00000007, 0x0004003B,
+        0x00000014, 0x0000001C, 0x00000007, 0x0004003B, 0x0000001D, 0x0000001E, 0x00000007,
+        0x0004003B, 0x0000001D, 0x0000001F, 0x00000007, 0x0004003B, 0x0000002B, 0x0000002C,
+        0x00000007, 0x000200F9, 0x0000000A, 0x000200F8, 0x0000000A, 0x0004003D, 0x00000020,
+        0x00000023, 0x00000022, 0x00050051, 0x00000013, 0x00000024, 0x00000023, 0x00000000,
+        0x0003003E, 0x00000016, 0x00000024, 0x000200F9, 0x0000000B, 0x000200F8, 0x0000000B,
+        0x0004003D, 0x00000013, 0x00000025, 0x00000016, 0x0003003E, 0x00000015, 0x00000025,
+        0x00060050, 0x00000017, 0x00000026, 0x00000027, 0x00000027, 0x00000027, 0x0003003E,
+        0x00000019, 0x00000026, 0x00060050, 0x00000017, 0x00000028, 0x00000027, 0x00000027,
+        0x00000029, 0x0003003E, 0x0000001A, 0x00000028, 0x0004003D, 0x00000002, 0x0000002D,
+        0x00000004, 0x0004003D, 0x00000017, 0x0000002E, 0x00000019, 0x0004003D, 0x00000017,
+        0x0000002F, 0x0000001A, 0x00091179, 0x0000002C, 0x0000002D, 0x00000031, 0x00000032,
+        0x0000002E, 0x00000027, 0x0000002F, 0x00000030, 0x000200F9, 0x0000000C, 0x000200F8,
+        0x0000000C, 0x0004117D, 0x00000033, 0x00000034, 0x0000002C, 0x000600A9, 0x00000013,
+        0x00000036, 0x00000034, 0x00000031, 0x00000035, 0x0003003E, 0x0000001B, 0x00000036,
+        0x0004003D, 0x00000013, 0x00000037, 0x0000001B, 0x000500AB, 0x00000033, 0x00000038,
+        0x00000037, 0x00000035, 0x000400F6, 0x0000000E, 0x00000012, 0x00000000, 0x000400FA,
+        0x00000038, 0x0000000D, 0x0000000E, 0x000200F8, 0x0000000D, 0x000200F9, 0x00000012,
+        0x000200F8, 0x00000012, 0x000200F9, 0x0000000C, 0x000200F8, 0x0000000E, 0x0005117F,
+        0x00000013, 0x0000003A, 0x0000002C, 0x00000031, 0x000500AB, 0x00000033, 0x00000039,
+        0x0000003A, 0x00000035, 0x000600A9, 0x00000013, 0x0000003B, 0x00000039, 0x00000031,
+        0x00000035, 0x0003003E, 0x0000001C, 0x0000003B, 0x0004003D, 0x00000013, 0x0000003C,
+        0x0000001C, 0x000500AB, 0x00000033, 0x0000003D, 0x0000003C, 0x00000035, 0x000300F7,
+        0x00000011, 0x00000000, 0x000400FA, 0x0000003D, 0x0000000F, 0x00000010, 0x000200F8,
+        0x0000000F, 0x00051782, 0x00000005, 0x0000003E, 0x0000002C, 0x00000031, 0x0003003E,
+        0x0000001E, 0x0000003E, 0x0004003D, 0x00000005, 0x0000003F, 0x0000001E, 0x0004003D,
+        0x00000013, 0x00000041, 0x00000015, 0x00060041, 0x00000040, 0x00000042, 0x00000009,
+        0x00000035, 0x00000041, 0x0003003E, 0x00000042, 0x0000003F, 0x000200F9, 0x00000011,
+        0x000200F8, 0x00000010, 0x00050083, 0x00000005, 0x00000043, 0x00000027, 0x00000029,
+        0x0003003E, 0x0000001F, 0x00000043, 0x0004003D, 0x00000005, 0x00000044, 0x0000001F,
+        0x0004003D, 0x00000013, 0x00000045, 0x00000015, 0x00060041, 0x00000040, 0x00000046,
+        0x00000009, 0x00000035, 0x00000045, 0x0003003E, 0x00000046, 0x00000044, 0x000200F9,
+        0x00000011, 0x000200F8, 0x00000011, 0x000100FD, 0x00010038,
+    ];
+
     fn spv_bytes(words: &[u32]) -> Vec<u8> {
         words.iter().flat_map(|w| w.to_le_bytes()).collect()
     }
@@ -6710,6 +8284,268 @@ mod tests {
         assert!(!first.telemetry.heaps.is_empty());
         assert_eq!(first.telemetry.leaked_object_count, 0);
         assert_eq!(first.telemetry.leaked_allocation_count, 0);
+    }
+
+    /// ③c G7.6 Wave B:AS session 两帧——ray query compute pass(TLAS binding 0)+
+    /// buffer compute pass 串联;帧 1 重放(hit t=1.0),帧 2 FrameUpdate(TLAS refit
+    /// x+10 平移 → miss −1.0,数据流证 refit 真实生效;buffer 上传 + push 覆盖 +
+    /// readback 子集),再帧 3 RED(stale AS generation submit 前拒)+ 净帧复跑。
+    #[test]
+    fn device_ray_query_session_frame_update() {
+        if !crate::vk::vulkan_available() {
+            eprintln!("[render_exec] SKIP: vulkan loader 不可用(ray query session)");
+            return;
+        }
+        let caps = probe_device_caps().expect("caps 探测应成功(loader 在)");
+        let chain_ok = caps.ray_query
+            && caps.acceleration_structure
+            && caps.buffer_device_address
+            && caps.deferred_host_operations;
+        if !chain_ok {
+            eprintln!(
+                "[render_exec] SKIP: ray query 四件链不全(rq={} as={} bda={} dho={})",
+                caps.ray_query,
+                caps.acceleration_structure,
+                caps.buffer_device_address,
+                caps.deferred_host_operations
+            );
+            return;
+        }
+        let rq_spv = spv_bytes(RAY_QUERY_HIT_MISS_SPV_WORDS);
+        assert_eq!(
+            crate::vk::entry_point_name(RAY_QUERY_HIT_MISS_SPV_WORDS).as_deref(),
+            Some("rx_ray_query_hit_miss_8")
+        );
+        let c_spv = spv_bytes(&sample_compute_spv_words());
+        // hit 场景:三角形位于 z=1 平面,xy 投影覆盖原点(vk_ray_query harness TRI_HIT 同形)。
+        let tri: [f32; 9] = [0.0, 0.6, 1.0, -0.6, -0.6, 1.0, 0.6, -0.6, 1.0];
+        let tris: [&[f32]; 1] = [&tri[..]];
+        let instances = [RayQueryInstanceDesc {
+            blas: 0,
+            custom_index: 0,
+            mask: 0xFF,
+        }];
+        let zero4 = [0u8; 4];
+        let zero32 = [0u8; 32];
+        let resources = [
+            ResourceDesc::Buffer(BufferDesc {
+                size: 4,
+                usage: BufferUsage {
+                    storage: true,
+                    ..BufferUsage::default()
+                },
+                data: Some(&zero4),
+            }),
+            ResourceDesc::Buffer(BufferDesc {
+                size: 32,
+                usage: BufferUsage {
+                    storage: true,
+                    ..BufferUsage::default()
+                },
+                data: Some(&zero32),
+            }),
+        ];
+        let passes = [
+            Pass::Compute(ComputePass {
+                name: "rq",
+                spirv: &rq_spv,
+                entry: None,
+                dispatch: DispatchSpec::Direct([1, 1, 1]),
+                bindings: Bindings {
+                    accel_structs: vec![0],
+                    storage_buffers: vec![0],
+                    ..Bindings::default()
+                },
+            }),
+            Pass::Compute(ComputePass {
+                name: "c0",
+                spirv: &c_spv,
+                entry: None,
+                dispatch: DispatchSpec::Direct([8, 1, 1]),
+                bindings: Bindings {
+                    storage_buffers: vec![1],
+                    push_constants: 100u32.to_le_bytes().to_vec(),
+                    ..Bindings::default()
+                },
+            }),
+        ];
+        let plan = [
+            [(0u32, TargetState::StorageReadWrite)],
+            [(1u32, TargetState::StorageWrite)],
+        ];
+        let barriers: [&[(u32, TargetState)]; 2] = [&plan[0], &plan[1]];
+        let readbacks = [
+            Readback::Buffer {
+                res: 0,
+                offset: 0,
+                size: 4,
+            },
+            Readback::Buffer {
+                res: 1,
+                offset: 0,
+                size: 32,
+            },
+        ];
+        let accel_structs = [AccelStructDesc {
+            scene: RayQuerySceneDesc {
+                blas_triangles: &tris,
+                instances: &instances,
+            },
+            transforms: None,
+        }];
+        let mut session = DeviceFrameSession::new_with_accel_structs(
+            &resources,
+            &passes,
+            &barriers,
+            &readbacks,
+            2,
+            &accel_structs,
+        )
+        .expect("AS session 应创建成功(ray query 链在)");
+
+        // ── 帧 1:重放路(无 update;hit → out[0] = t = 1.0)──
+        let f1 = session.execute().expect("frame 1");
+        let out1 = f32::from_le_bytes(f1.readbacks[0][..4].try_into().expect("4B"));
+        assert_eq!(
+            out1, 1.0,
+            "帧 1 ray query hit: out[0] = t = 1.0,实得 {out1}"
+        );
+        let w1: Vec<u32> = f1.readbacks[1]
+            .chunks_exact(4)
+            .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+            .collect();
+        for (i, &w) in w1.iter().enumerate() {
+            assert_eq!(w, i as u32 + 100, "帧 1 buf[{i}] = i+100");
+        }
+        assert_eq!(f1.provenance.frame_generation, 1);
+        assert_eq!(f1.telemetry.passes.len(), 2);
+        assert!(
+            f1.telemetry.passes.iter().all(|p| p.gpu_ns > 0.0),
+            "帧 1 两 pass gpu_ns 均 > 0(非退化): {:?}",
+            f1.telemetry.passes
+        );
+        assert_eq!(f1.telemetry.validation_error_count, 0);
+        assert_eq!(f1.telemetry.leaked_object_count, 0);
+        assert_eq!(f1.telemetry.leaked_allocation_count, 0);
+        // AS provenance:rq pass 的 AS 项 = StableResourceId(3)(2 资源后接 AS 槽),
+        // Read / producer gen 0(初始 build 代);AS 分配入 ledger 且 bytes > 0。
+        let as1 = f1.provenance.passes[0]
+            .resources
+            .iter()
+            .find(|r| r.resource_id == StableResourceId(3))
+            .expect("帧 1 AS provenance 项");
+        assert_eq!(as1.access, RuntimeAccessKind::Read);
+        assert_eq!(
+            as1.producer.expect("Read 有 producer").generation,
+            0,
+            "帧 1 AS producer generation = 0(初始 build)"
+        );
+        assert!(
+            f1.telemetry
+                .allocations
+                .iter()
+                .any(|a| a.resource_id == Some(StableResourceId(3)) && a.bytes > 0),
+            "AS 分配须入 ledger(resource_id=AS 表项,bytes>0)"
+        );
+
+        // ── 帧 2:FrameUpdate(TLAS refit x+10 → miss;buffer 上传;push 覆盖;
+        // readback 子集)──
+        let moved = RayQueryTransformedInstanceDesc {
+            blas: 0,
+            custom_index: 0,
+            mask: 0xFF,
+            // 行主 3×4:平移 +10 x(同三角形移出射线 → 遍历穷尽 → 哨兵 −1.0)。
+            transform: [
+                1.0, 0.0, 0.0, 10.0, //
+                0.0, 1.0, 0.0, 0.0, //
+                0.0, 0.0, 1.0, 0.0,
+            ],
+        };
+        let update = FrameUpdate {
+            tlas_update: Some((0, vec![moved], TlasBuildAction::Refit)),
+            buffer_uploads: vec![(StableResourceId(1), 0, vec![0xAB; 4])],
+            binding_overrides: vec![],
+            push_constant_overrides: vec![(1, 200u32.to_le_bytes().to_vec())],
+            readback_subset: Some(vec![0, 1]),
+        };
+        let supplied2 = session
+            .next_provenance_with_update(&update)
+            .expect("帧 2 update expected provenance");
+        let f2 = session
+            .execute_with_frame_update(&supplied2, &update)
+            .expect("frame 2 with TLAS refit");
+        let out2 = f32::from_le_bytes(f2.readbacks[0][..4].try_into().expect("4B"));
+        assert_eq!(
+            out2, -1.0,
+            "帧 2 refit 后 ray query miss: out[0] = 哨兵 -1.0(refit 真实生效),实得 {out2}"
+        );
+        let w2: Vec<u32> = f2.readbacks[1]
+            .chunks_exact(4)
+            .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+            .collect();
+        for (i, &w) in w2.iter().enumerate() {
+            assert_eq!(w, i as u32 + 200, "帧 2 push override: buf[{i}] = i+200");
+        }
+        assert_eq!(f2.provenance.frame_generation, 2);
+        // AS generation 递增:refit 记 Write 并 bump(0 → 1),Read producer 指向新代。
+        let as2 = f2.provenance.passes[0]
+            .resources
+            .iter()
+            .find(|r| r.resource_id == StableResourceId(3))
+            .expect("帧 2 AS provenance 项");
+        assert_eq!(
+            as2.producer.expect("Read 有 producer").generation,
+            1,
+            "帧 2 AS producer generation = 1(refit bump 递增)"
+        );
+        // buffer 上传亦 bump:res0 上传后 gen 2(帧 1 产出 1,上传 bump 至 2)。
+        let res0 = f2.provenance.passes[0]
+            .resources
+            .iter()
+            .find(|r| r.resource_id == StableResourceId(1))
+            .expect("帧 2 res0 provenance 项");
+        assert_eq!(
+            res0.producer.expect("ReadWrite 有 producer").generation,
+            2,
+            "帧 2 res0 producer generation = 2(上传 bump)"
+        );
+        assert!(
+            f2.telemetry.passes.iter().all(|p| p.gpu_ns > 0.0),
+            "帧 2 两 pass gpu_ns 均 > 0(非退化): {:?}",
+            f2.telemetry.passes
+        );
+        assert!(f2.telemetry.cpu_record_ns > 0, "重录耗时应如实计量(>0)");
+        assert_eq!(f2.telemetry.validation_error_count, 0);
+        assert_eq!(f2.telemetry.leaked_object_count, 0);
+        assert_eq!(f2.telemetry.leaked_allocation_count, 0);
+
+        // ── 帧 3 RED:stale AS generation(篡改 producer 为 refit 前的 0)→
+        // submit 前确定性拒;拒后 session 未污染,净帧复跑成功 ──
+        let mut red = session.next_provenance();
+        let as_red = red.passes[0]
+            .resources
+            .iter_mut()
+            .find(|r| r.resource_id == StableResourceId(3))
+            .expect("帧 3 AS provenance 项");
+        as_red.producer.as_mut().expect("producer").generation = 0;
+        let err = session
+            .execute_with_provenance(&red)
+            .expect_err("stale AS generation 须在 submit 前拒");
+        assert!(err.contains("fail-closed"), "RED 消息含 fail-closed: {err}");
+        let f3 = session
+            .execute()
+            .expect("帧 3 净帧复跑(RED 未污染 session)");
+        assert_eq!(f3.provenance.frame_generation, 3);
+        assert_eq!(f3.telemetry.validation_error_count, 0);
+        eprintln!(
+            "[render_exec] ③c AS session: f1 out={out1} gen0, f2 refit out={out2} AS gen 0→1, \
+             f3 RED stale-gen 拒后净帧成功;passes gpu_ns f2={:?}",
+            f2.telemetry
+                .passes
+                .iter()
+                .map(|p| p.gpu_ns)
+                .collect::<Vec<_>>()
+        );
     }
 
     /// ④ raster+compute 混合两 pass:raster 写纹理 → compute 取中心纹素写 buffer。
