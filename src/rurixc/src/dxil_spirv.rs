@@ -2471,6 +2471,7 @@ mod tests {
             io_sig,
             resources: Vec::new(),
             mesh_meta: None,
+            accel_params: Vec::new(),
         }
     }
 
@@ -3254,6 +3255,7 @@ mod tests {
             io_sig,
             resources,
             mesh_meta: None,
+            accel_params: Vec::new(),
         };
         emit_spirv_body(ShaderStage::Fragment, &body)
     }

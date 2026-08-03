@@ -196,6 +196,10 @@ pub fn build_device_crate(cx: &QueryCtx<'_>) -> Vec<Body> {
         // 图形阶段根:携 stage 类别 + AST I/O 意图签名进 MIR(仅 `dxil-backend`;
         // 默认构建为 no-op,`stage`/`io_sig` 维持 build_body 的 None/空,零漂移)。
         attach_graphics_io_sig(cx, &krate, def, &mut body);
+        // compute 根:携 `AccelStruct` 形参表进 MIR(G7.2 W3a,RXS-0297/0300;
+        // 仅 `dxil-backend`/`vulkan-backend`,默认构建为 no-op,`accel_params`
+        // 维持 build_body 的空,零漂移)。
+        attach_accel_params(cx, &krate, def, &mut body);
         out.push(body);
         for (d, a) in callees.into_iter().chain(drop_callees) {
             let sym = mangle(&krate.item(d).name, d, &a);
@@ -276,6 +280,39 @@ fn attach_graphics_io_sig(cx: &QueryCtx<'_>, krate: &hir::Crate, def: DefId, bod
 /// build_body 的中立默认(`None`/空),保证 PTX 路径零漂移(R1.2/R6.7)。
 #[cfg(not(any(feature = "dxil-backend", feature = "vulkan-backend")))]
 fn attach_graphics_io_sig(_cx: &QueryCtx<'_>, _krate: &hir::Crate, _def: DefId, _body: &mut Body) {}
+
+/// 为 compute 根(`kernel fn` = Kernel + 无 stage / `compute fn` = stage Compute)
+/// 携 `AccelStruct` 形参的 local 下标表(G7.2 W3a,RXS-0297 修订行 + RXS-0300)。
+///
+/// 单一事实源 = AST 层 [`crate::shader_stages::is_accel_struct`](与 RXS-0245/0297
+/// 位置纪律判定同一函数),**不**以「形参 ty == `Ty::Err`」隐式反推——后者会把拼错
+/// 的未知类型名误绑成 AS descriptor(见 [`Body::accel_params`] 逐字留痕)。
+///
+/// local 下标 = 声明序 + 1(`locals[0]` = 返回槽;形参落 `locals[1..=arg_count]`,
+/// 与 [`build_body`] 的 `declare_local` 顺序同源)。图形/RT 阶段与 host 根为 no-op。
+#[cfg(any(feature = "dxil-backend", feature = "vulkan-backend"))]
+fn attach_accel_params(cx: &QueryCtx<'_>, krate: &hir::Crate, def: DefId, body: &mut Body) {
+    use crate::ast::ShaderStage;
+    let hir::ItemKind::Fn(decl) = &krate.item(def).kind else {
+        return;
+    };
+    // compute 上下文判定与 typeck `is_ray_query_ctx` 同口径(RXS-0297):
+    // `kernel fn`(Kernel + 无 stage)/ `compute fn`(stage = Compute)。
+    let is_compute = match decl.stage {
+        None => matches!(decl.color, crate::ast::FnColor::Kernel),
+        Some(ShaderStage::Compute) => true,
+        Some(_) => false,
+    };
+    if !is_compute {
+        return;
+    }
+    body.accel_params = dxil_io::accel_params_for(cx.ast(), &krate.item(def).name, decl.stage);
+}
+
+/// 默认 / 非图形后端:compute 根不携 `AccelStruct` 形参表,`accel_params` 维持
+/// build_body 的空,PTX 路径零漂移。
+#[cfg(not(any(feature = "dxil-backend", feature = "vulkan-backend")))]
+fn attach_accel_params(_cx: &QueryCtx<'_>, _krate: &hir::Crate, _def: DefId, _body: &mut Body) {}
 
 /// AST → MIR 图形阶段 I/O 意图签名提取(RXS-0161,仅 `dxil-backend`)。
 ///
@@ -361,6 +398,61 @@ mod dxil_io {
             }
         }
         out
+    }
+
+    /// compute 签名 `AccelStruct` 形参 → local 下标表(G7.2 W3a,RXS-0297/0300)。
+    ///
+    /// `stage` = `None`(`kernel fn`)时按 kernel 着色查找,`Some(Compute)` 时按
+    /// `compute fn` 查找。判定复用 [`crate::shader_stages::is_accel_struct`]
+    /// (AST 单一事实源,与位置纪律 RX3013 同函数)。返回值为 `locals` 域下标
+    /// (声明序 + 1;`locals[0]` = 返回槽)。
+    ///
+    /// 「至多一个」纪律已由 `shader_stages` 预校验(第 2 个起 RX3013);本函数
+    /// 只做无损提取,不重复裁决(保守携带全部命中项,codegen 侧另有防御性拒)。
+    pub(super) fn accel_params_for(
+        file: &ast::SourceFile,
+        fn_name: &str,
+        stage: Option<ShaderStage>,
+    ) -> Vec<u32> {
+        let mut out = Vec::new();
+        let Some(f) = find_compute_fn(&file.items, fn_name, stage) else {
+            return out;
+        };
+        for (i, p) in f.params.iter().enumerate() {
+            if let ast::ParamKind::Typed { ty, .. } = &p.kind
+                && crate::shader_stages::is_accel_struct(ty)
+            {
+                out.push(u32::try_from(i + 1).unwrap_or(u32::MAX));
+            }
+        }
+        out
+    }
+
+    /// compute 根查找:`stage == None` → `kernel fn`(Kernel 着色 + 无 stage);
+    /// `stage == Some(Compute)` → `compute fn`。嵌套 `mod` 递归(同
+    /// [`find_stage_fn`] 体例)。
+    fn find_compute_fn<'a>(
+        items: &'a [ast::Item],
+        name: &str,
+        stage: Option<ShaderStage>,
+    ) -> Option<&'a ast::FnItem> {
+        for it in items {
+            match &it.kind {
+                ast::ItemKind::Fn(f) if f.name.name == name && f.stage == stage => {
+                    // `stage == None` 时另核着色为 Kernel(排除同名 host fn)。
+                    if stage.is_some() || matches!(f.color, crate::ast::FnColor::Kernel) {
+                        return Some(f);
+                    }
+                }
+                ast::ItemKind::Mod(m) => {
+                    if let Some(found) = find_compute_fn(&m.items, name, stage) {
+                        return Some(found);
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
     }
 
     /// 简单绑定形参名(`name: Ty` → "name");非简单绑定模式 → None。
@@ -836,6 +928,10 @@ fn build_body(cx: &QueryCtx<'_>, def: DefId, generic_args: Vec<Ty>) -> BuildOutp
             // G4.2,RXS-0275:mesh 入口标注元数据由 `attach_graphics_io_sig`
             // 在 `vulkan-backend` 下携带;默认路径恒 `None`,零漂移。
             mesh_meta: None,
+            // G7.2 W3a,RXS-0297/0300:compute 签名 `AccelStruct` 形参表由
+            // `attach_accel_params` 在 `dxil-backend`/`vulkan-backend` 下携带;
+            // 默认路径恒空,零漂移。
+            accel_params: Vec::new(),
         },
         b.callees,
         b.const_err,

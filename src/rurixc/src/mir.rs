@@ -60,6 +60,23 @@ pub struct Body {
     /// execution modes)。仅 mesh 阶段根置 `Some`;其余阶段恒 `None`,零漂移。
     /// task 条件臂首期不开放(RXS-0270),task 阶段根不收集。
     pub mesh_meta: Option<MeshEntryMeta>,
+    /// `AccelStruct` 形参的 local 下标(G7.2 W3a,RXS-0297 修订行 + RXS-0300):
+    /// compute 签名里 `AccelStruct` 值形态形参按**声明序**的 local 下标
+    /// (`locals[1..=arg_count]` 域)。
+    ///
+    /// **为何需要显式表**:`AccelStruct` 无 lang-item / 无 typeck 类型,其形参
+    /// local 的 `Ty` 落**容忍位** `Ty::Err`(typeck.rs 逐字留痕;头名匹配已在 AST
+    /// 层 [`crate::shader_stages::is_accel_struct`] 裁决)。若 codegen 反过来以
+    /// 「形参 ty == Err」反推 AccelStruct,则任何**拼错的未知类型名**(同样落
+    /// `Res(Err)` 且不产诊断)都会被误绑成 AS descriptor——故检测点不取隐式
+    /// Err 反推,而由本表显式携带,单一事实源 = AST 层 `is_accel_struct`
+    /// (RXS-0300「具体检测点实现期核实并随实现 PR 冻结」之兑现)。
+    ///
+    /// 仅 compute 根(`kernel fn`/`compute fn`)在 `dxil-backend`/`vulkan-backend`
+    /// 下由 `attach_accel_params` 携带;其余(含默认 PTX 路径、图形/RT 阶段)恒空,
+    /// 行为零漂移。消费者 = [`crate::vulkan_codegen`](AS descriptor + SPIR-V 1.4
+    /// per-entry 升版并集判定)。
+    pub accel_params: Vec<u32>,
 }
 
 /// mesh 入口标注元数据(G4.2,RXS-0275;`#[numthreads]` + `#[outputs]` 参数)。
@@ -884,6 +901,7 @@ mod tests {
             io_sig,
             resources: Vec::new(),
             mesh_meta: None,
+            accel_params: Vec::new(),
         }
     }
 

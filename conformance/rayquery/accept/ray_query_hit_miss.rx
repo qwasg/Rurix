@@ -1,0 +1,24 @@
+//@ spec: RXS-0297, RXS-0298, RXS-0299, RXS-0300
+// G7.2 W3a 实现 PR 语料:**最小 hit/miss + 属性查询** compute RayQuery 内核
+// (CI 步骤 93 device 段真跑对象,RXS-0300 Implementation Requirements 逐字)。
+//
+// 形态:compute 签名 `AccelStruct`(RXS-0297 修订行,单 TLAS 纪律)+ `ViewMut`
+// 输出缓冲 + `ThreadCtx`;体内 `initialize` → `while proceed`(遍历穷尽,首期
+// flags 恒 Opaque 故候选不可达、proceed 内直接提交)→ `if has_committed` 守卫
+// (RXS-0299 S3 守卫形态 ②)分 hit / miss 两臂:
+//   - hit  → 写 committed 交点距离 `t`(几何属性查询,与 host oracle 对拍量);
+//   - miss → 写哨兵 `-1.0`(与任何合法 t >= 0 可区分,故 hit/miss 判据无歧义)。
+//
+// 该语料同时是 W3a 的 **hit/miss RED-GREEN** 正例侧:非法状态侧(terminate 后
+// 使用 / 未支配 committed 查询 / 值形态逃逸)见 `../reject/` 三件。
+kernel fn ray_query_hit_miss(tlas: AccelStruct, out: ViewMut<global, f32>, t: ThreadCtx<1>) {
+    let i = t.global_id();
+    let mut rq = ray_query_initialize(tlas, (0.0, 0.0, 0.0), 0.0, (0.0, 0.0, 1.0), 100.0);
+    while rq.proceed() {
+    }
+    if rq.has_committed() {
+        out[i] = rq.committed_t();
+    } else {
+        out[i] = 0.0 - 1.0;
+    }
+}

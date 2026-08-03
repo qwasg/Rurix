@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "subject": "w1w2_spv_golden",
+  "description": "G7.2 W3a 零漂移 golden(RXS-0300 Dynamic Semantics「W1/W2 零漂移门」逐字):W1/W2 五效果内核经 `rurixc --target vulkan` 的 SPIR-V 产物 sha256 + 版本 + capability 集合。判据 = 逐字节相等、版本恒 1.0、capability 集合恒定且不含 RayQueryKHR。compute RayQuery 走新增发射路径(assemble_ray_query,恒 1.4),既有 `assemble`(恒 1.0)0-byte 不动,故本 golden **不重 bless**;任何 diff 即 G-G7-4 红。生成命令见 ci/ray_query_codegen_smoke.py 步骤 5(同一编译入口)。",
+  "source_kernels": "apps/uc06-renderer/kernels/*.rx",
+  "compiler_entry": "rurixc --target vulkan (feature vulkan-backend)",
+  "kernels": {
+    "classify_resolve": {
+      "spirv_version": "1.0",
+      "sha256": "ff29609a303417b168e7be58d5ab08b50481605c15ce6ada54b8fc406298781c",
+      "capabilities": [
+        "Int64",
+        "Shader"
+      ],
+      "bytes": 2428
+    },
+    "cull": {
+      "spirv_version": "1.0",
+      "sha256": "a78996262f5bbd3f59ba9bb52500da6737d8a1addc4c7935bc25f3ba6ab291a6",
+      "capabilities": [
+        "Shader"
+      ],
+      "bytes": 7320
+    },
+    "taa": {
+      "spirv_version": "1.0",
+      "sha256": "46f18f063d99a78a10c473f2bb0845467824d5cbfefde2a2b31098165ea861dd",
+      "capabilities": [
+        "Shader"
+      ],
+      "bytes": 44068
+    },
+    "visbuffer_sw_u64": {
+      "spirv_version": "1.0",
+      "sha256": "80cf4343aff13d6947cb73b1afe86dd05ffc998e88a4b24d393fc282650e4fc6",
+      "capabilities": [
+        "Int64",
+        "Int64Atomics",
+        "Shader"
+      ],
+      "bytes": 14328
+    },
+    "vsm_page_mark": {
+      "spirv_version": "1.0",
+      "sha256": "1c509339a452edcc37910937a7925c64a0bc6da0c5a452f2ff6ca67dff1e2df9",
+      "capabilities": [
+        "Shader"
+      ],
+      "bytes": 1872
+    }
+  }
+}

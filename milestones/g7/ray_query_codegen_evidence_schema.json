@@ -1,0 +1,181 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "compute RayQuery codegen 冒烟证据 schema(G7.2 W3a,步骤 93;G-G7-4;RFC-0018 章 A/B)",
+  "description": "ci/ray_query_codegen_smoke.py 写 evidence/ray_query_codegen_smoke_<ts>.json。host/compile 段恒跑六项:① rayquery 语料 accept 零诊断 + reject 全拦截(RXS-0297~0299);② vulkan_codegen 锚定单测(1.4 分叉 / capability+extension 按需 / 反汇编 golden / initialize 操作数序与冻结 flags / interface 全量 / 1.0 零漂移锚点 / spirv-val 双口径);③ 真实 .rx → .spv 且 spirv-val --target-env vulkan1.2 与 spv1.4 双口径皆 accept(退出码判定,不 grep stdout);④ 反汇编 golden 最小集(per-file 必含项 + 语料并集覆盖 terminate / intersection-type / committed 五查询族,因 RXS-0298 明定 terminate 可选、committed 族按真实使用);⑤ W1/W2 五 kernel 对 tests/vulkan/w1w2_spv_manifest.json 的 sha256 + SPIR-V 版本 + capability 集合逐项零漂移且不得误声明 ray query 面;⑥ 篡改 .spv → spirv-val 必拒的 RED 反证。device 段(最小 hit/miss/属性查询 kernel 真跑)gate real:硬前置 = G7.3 W3b compute AS descriptor,未在树时 device_blocked 记 blocked-honest 并 SKIP,RURIX_REQUIRE_REAL=1 翻硬红——host 段绿不冒充 device 绿(RFC-0016 §4.E3 条件臂 / §9.1 R-3)。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "subject",
+    "milestone",
+    "step",
+    "spec_clauses",
+    "host_section_pass",
+    "device_section_rc",
+    "checks",
+    "run_url",
+    "timestamp"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "subject": {
+      "type": "string",
+      "const": "ray_query_codegen_smoke"
+    },
+    "milestone": {
+      "type": "string"
+    },
+    "step": {
+      "type": "integer",
+      "const": 93
+    },
+    "spec_clauses": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^RXS-[0-9]{4}$"
+      },
+      "minItems": 1
+    },
+    "host_section_pass": {
+      "type": "boolean"
+    },
+    "device_section_rc": {
+      "type": "integer"
+    },
+    "device_blocked": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "device_probe_note": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "corpus_pass": {
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "codegen_unit_pass": {
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "emit_pass": {
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "w1w2_zero_drift_pass": {
+          "type": [
+            "boolean",
+            "string"
+          ]
+        },
+        "red_tamper_pass": {
+          "type": [
+            "boolean",
+            "string"
+          ]
+        }
+      }
+    },
+    "modules": {
+      "type": "object",
+      "description": "逐 accept 语料的编码事实:SPIR-V 版本、spirv-val 双口径判定、产物 sha256、committed 查询族与 golden 助记符命中集。",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "spirv_version": {
+            "type": "string"
+          },
+          "spirv_val": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "committed_queries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "golden_mnemonics": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "golden_union": {
+      "type": "array",
+      "description": "语料集并集覆盖的 golden 助记符(最小集判据的机器事实)。",
+      "items": {
+        "type": "string"
+      }
+    },
+    "w1w2_observed": {
+      "type": "object",
+      "description": "W1/W2 五 kernel 的实测 SPIR-V 版本 / sha256 / capability 集合(与 golden manifest 逐项比对后的观测值留痕)。",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "spirv_version": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "toolchain_skip": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "dev_env_degrade": {
+      "type": "boolean"
+    },
+    "require_real": {
+      "type": "boolean"
+    },
+    "run_url": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    }
+  }
+}

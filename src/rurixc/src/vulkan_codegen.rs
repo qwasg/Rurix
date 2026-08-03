@@ -139,19 +139,57 @@ const OP_SELECTION_MERGE: u16 = 247;
 const OP_LABEL: u16 = 248;
 const OP_BRANCH: u16 = 249;
 const OP_BRANCH_CONDITIONAL: u16 = 250;
+const OP_LOOP_MERGE: u16 = 246;
 const OP_RETURN: u16 = 253;
 const OP_UNREACHABLE: u16 = 255;
+
+// ── SPV_KHR_ray_query 指令 / 类型(G7.2 W3a,RXS-0300)。
+// 取值逐一核自本机 SPIR-V 头 `spirv-headers/spirv.core.grammar.json`
+// (Vulkan SDK 1.3.296.0),非凭记忆;capability 承载均为 `RayQueryKHR`
+// (`OpTypeAccelerationStructureKHR` 另有 RayTracingNV/RayTracingKHR 承载路径,
+// compute 面唯一取 RayQueryKHR,RXS-0300 逐字)。
+const OP_TYPE_RAY_QUERY_KHR: u16 = 4472;
+const OP_RAY_QUERY_INITIALIZE_KHR: u16 = 4473;
+const OP_RAY_QUERY_TERMINATE_KHR: u16 = 4474;
+const OP_RAY_QUERY_PROCEED_KHR: u16 = 4477;
+const OP_RAY_QUERY_GET_INTERSECTION_TYPE_KHR: u16 = 4479;
+// `OP_TYPE_ACCELERATION_STRUCTURE_KHR`(=5341)已由 RT 腿(RXS-0247)在下方
+// 常量块定义,此处复用同一常量(单一事实源,不重复定义)。
+const OP_RAY_QUERY_GET_INTERSECTION_T_KHR: u16 = 6018;
+const OP_RAY_QUERY_GET_INTERSECTION_INSTANCE_ID_KHR: u16 = 6020;
+const OP_RAY_QUERY_GET_INTERSECTION_GEOMETRY_INDEX_KHR: u16 = 6022;
+const OP_RAY_QUERY_GET_INTERSECTION_PRIMITIVE_INDEX_KHR: u16 = 6023;
+const OP_RAY_QUERY_GET_INTERSECTION_BARYCENTRICS_KHR: u16 = 6024;
 
 // 枚举取值。
 const CAP_SHADER: u32 = 1;
 const CAP_INT64: u32 = 11;
 const CAP_INT64_ATOMICS: u32 = 12;
+/// `RayQueryKHR` capability(=4472;与 `OpTypeRayQueryKHR` opcode 同值但属不同
+/// 枚举空间)。compute inline ray query 与 compute 面 `OpTypeAccelerationStructureKHR`
+/// 的唯一承载(RXS-0300)。
+const CAP_RAY_QUERY_KHR: u32 = 4472;
+/// `SPV_KHR_ray_query` extension 名。声明条件 = 模块含 `OpTypeRayQueryKHR` 或
+/// `OpTypeAccelerationStructureKHR`(与升版并集判定同源,RXS-0300)。
+const EXT_SPV_KHR_RAY_QUERY: &str = "SPV_KHR_ray_query";
+// `OpRayQueryInitializeKHR` 的 RayFlags / CullMask 实参:首期恒 `OpaqueKHR`(=1)
+// 与 `0xFF`(RXS-0298 钉死,与 RXS-0245 `trace_ray` 同一纪律)→ 复用下方 RT 腿
+// 既有 `RAY_FLAG_OPAQUE` / `CULL_MASK_ALL` 常量(单一事实源)。二者为 `IdRef`,
+// 须经 `const_uint` 物化为 `OpConstant`。
+/// `RayQueryIntersection` 枚举:committed 侧(=1)。首期只读 committed
+/// (candidate 面 RXS-0298 首期不开放)。
+const RAY_QUERY_COMMITTED_INTERSECTION_KHR: u32 = 1;
+/// `RayQueryCommittedIntersectionType` 枚举:`None`(=0)。`has_committed` =
+/// `OpRayQueryGetIntersectionTypeKHR(committed) != None`(RXS-0300)。
+const RAY_QUERY_COMMITTED_INTERSECTION_NONE_KHR: u32 = 0;
 const ADDR_MODEL_LOGICAL: u32 = 0;
 const MEM_MODEL_GLSL450: u32 = 1;
 const EXEC_MODEL_GLCOMPUTE: u32 = 5;
 const EXEC_MODE_LOCAL_SIZE: u32 = 17;
 const FUNCTION_CONTROL_NONE: u32 = 0;
 const SELECTION_CONTROL_NONE: u32 = 0;
+/// `OpLoopMerge` 的 Loop Control 掩码:`None`(不请求 Unroll/DontUnroll 等)。
+const LOOP_CONTROL_NONE: u32 = 0;
 
 // 存储类。
 const STORAGE_INPUT: u32 = 1;
@@ -159,6 +197,9 @@ const STORAGE_UNIFORM_CONSTANT: u32 = 0;
 const STORAGE_UNIFORM: u32 = 2;
 const STORAGE_FUNCTION: u32 = 7;
 const STORAGE_PUSH_CONSTANT: u32 = 9;
+/// `StorageBuffer` 存储类(=12)。SPIR-V 1.3 起为核心;1.4 的 SSBO 唯一合法形态
+/// (`Block` + `StorageBuffer`),因 `BufferBlock` 装饰在 1.4 被移除(G7.2 W3a)。
+const STORAGE_STORAGE_BUFFER: u32 = 12;
 
 // decoration 取值。
 const DECORATION_BLOCK: u32 = 2;
@@ -260,6 +301,9 @@ enum ParamKind {
     Buffer { binding: u32, elem: PrimTy },
     /// `TextureRw2D<F>` → format-qualified storage image(set 0,binding = 序)。
     Image { binding: u32, elem: PrimTy },
+    /// `AccelStruct`(G7.2 W3a,RXS-0297 修订行)→ `OpTypeAccelerationStructureKHR`
+    /// descriptor(SRV 轴,UniformConstant;set 0,binding = 序)。
+    AccelStruct { binding: u32 },
     /// 标量形参 → push constant 块成员(member idx = 序)。
     Scalar { member: u32, prim: PrimTy },
     /// `ThreadCtx`(ZST)→ 不产物化。
@@ -272,6 +316,17 @@ struct Builder<'a> {
     allow_int64: bool,
     uses_int64: bool,
     uses_int64_atomics: bool,
+    /// 模块**实际发射**了 `OpTypeRayQueryKHR` / `OpTypeAccelerationStructureKHR`
+    /// (由两个懒发点置位)。仅作 [`emit_1_4`](Self::emit_1_4) 的**一致性自检**:
+    /// 发射了 ray query 类型却未升版 = codegen 内部不一致(assemble 处断言)。
+    uses_ray_query: bool,
+    /// 本入口是否 emit SPIR-V **1.4**(G7.2 W3a,RXS-0300 per-entry 升版判定)。
+    ///
+    /// **必须在发射任何指令之前定下**(而非懒发现):1.4 移除了 `BufferBlock`
+    /// 装饰,SSBO 形态在 1.0 与 1.4 下不同(`BufferBlock`+`Uniform` vs
+    /// `Block`+`StorageBuffer`),故描述符发射需要预先知道版本。判定只读 MIR
+    /// (见 [`needs_spirv_1_4`]),同 MIR 同版本轴 → 结果确定性(RXS-0300 逐字)。
+    emit_1_4: bool,
     next_id: u32,
     // 分节字流。
     decorations: Vec<u32>,
@@ -290,6 +345,10 @@ struct Builder<'a> {
     type_long: Option<u32>,
     type_float: Option<u32>,
     type_v3uint: Option<u32>,
+    /// `OpTypeAccelerationStructureKHR`(懒发,G7.2 W3a,RXS-0300)。
+    type_accel: Option<u32>,
+    /// `OpTypeRayQueryKHR`(懒发,G7.2 W3a,RXS-0300)。
+    type_ray_query: Option<u32>,
     vector_types: HashMap<(PrimTy, u32), u32>,
     ptr_cache: HashMap<(u32, u32), u32>, // (storage, pointee) → ptr type id
     const_u32: HashMap<u32, u32>,
@@ -302,6 +361,28 @@ struct Builder<'a> {
     buffer_var: HashMap<u32, (u32, PrimTy)>,
     // storage image 形参 local idx → (变量 id,OpTypeImage id,分量类型)。
     image_var: HashMap<u32, (u32, u32, PrimTy)>,
+    /// `AccelStruct` 形参 local idx → descriptor 变量 id(G7.2 W3a,RXS-0300)。
+    accel_var: HashMap<u32, u32>,
+    /// `RayQuery` local idx → Function-storage `OpVariable` id(G7.2 W3a;
+    /// RXS-0297 Function-only 收窄)。
+    ray_query_var: HashMap<u32, u32>,
+    /// 循环头块下标 → (merge 块下标, latch 块下标)(G7.2 W3a;结构化循环)。
+    loop_info: HashMap<usize, (usize, usize)>,
+    /// latch 块下标 → **合成 continue 块** label id(G7.2 W3a)。
+    ///
+    /// 为何需要合成:MIR 把 `while c { if d { .. } }` 的内层 `if` 的 merge 块与
+    /// 循环 latch **复用同一块**。SPIR-V 结构化规则下 continue 块属 *continue
+    /// construct*、不属 *loop construct*,内层 selection 的 merge 块必须落在
+    /// loop construct 内 → 复用即被 spirv-val 拒(`Header block ... is contained
+    /// in the loop construct ... but its merge block is not`)。故在 latch 与
+    /// 循环头之间**插入一个只含 `OpBranch <header>` 的合成块**作 continue target,
+    /// 原 latch 块回归纯 selection merge 角色。
+    loop_continue_label: HashMap<usize, u32>,
+    /// SPIR-V 1.4 `OpEntryPoint` interface **全量枚举**所需的全部全局变量 id
+    /// (RXS-0300;1.4 起 interface 须列全被引用全局变量,与 mesh/RT 同律
+    /// RXS-0247)。1.0 路径不消费本表(`entry_interface` 只含 Input/Output),
+    /// 既有 `assemble` 字节零漂移。
+    global_vars: Vec<u32>,
     // block idx → label id。
     block_label: HashMap<usize, u32>,
     main_id: u32,
@@ -314,6 +395,8 @@ impl<'a> Builder<'a> {
             allow_int64,
             uses_int64: false,
             uses_int64_atomics: false,
+            uses_ray_query: false,
+            emit_1_4: false,
             next_id: 1,
             decorations: Vec::new(),
             types_globals: Vec::new(),
@@ -330,6 +413,8 @@ impl<'a> Builder<'a> {
             type_long: None,
             type_float: None,
             type_v3uint: None,
+            type_accel: None,
+            type_ray_query: None,
             vector_types: HashMap::new(),
             ptr_cache: HashMap::new(),
             const_u32: HashMap::new(),
@@ -338,6 +423,11 @@ impl<'a> Builder<'a> {
             local_var: HashMap::new(),
             buffer_var: HashMap::new(),
             image_var: HashMap::new(),
+            accel_var: HashMap::new(),
+            ray_query_var: HashMap::new(),
+            loop_info: HashMap::new(),
+            loop_continue_label: HashMap::new(),
+            global_vars: Vec::new(),
             block_label: HashMap::new(),
             main_id: 0,
         }
@@ -447,6 +537,35 @@ impl<'a> Builder<'a> {
         id
     }
 
+    /// `OpTypeAccelerationStructureKHR`(懒发;G7.2 W3a,RXS-0300)。发射即置
+    /// `uses_ray_query` —— capability/extension/1.4 升版三者同源于此并集。
+    fn t_accel_struct(&mut self) -> u32 {
+        self.uses_ray_query = true;
+        if let Some(id) = self.type_accel {
+            return id;
+        }
+        let id = self.fresh();
+        emit(
+            &mut self.types_globals,
+            OP_TYPE_ACCELERATION_STRUCTURE_KHR,
+            &[id],
+        );
+        self.type_accel = Some(id);
+        id
+    }
+
+    /// `OpTypeRayQueryKHR`(懒发;G7.2 W3a,RXS-0300)。同上置 `uses_ray_query`。
+    fn t_ray_query(&mut self) -> u32 {
+        self.uses_ray_query = true;
+        if let Some(id) = self.type_ray_query {
+            return id;
+        }
+        let id = self.fresh();
+        emit(&mut self.types_globals, OP_TYPE_RAY_QUERY_KHR, &[id]);
+        self.type_ray_query = Some(id);
+        id
+    }
+
     /// 标量 PrimTy → SPIR-V 类型 id。compute 路径放行 i64/u64 并按需记录 Int64；
     /// mesh 路径仍拒绝 64 位整数，f64 在两条路径均为 RX6026。
     fn prim_type(&mut self, p: PrimTy, span: Span) -> Result<u32, VulkanCodegenError> {
@@ -482,6 +601,31 @@ impl<'a> Builder<'a> {
         emit(&mut self.types_globals, OP_TYPE_VECTOR, &[id, elem, len]);
         self.vector_types.insert((prim, len), id);
         Ok(id)
+    }
+
+    /// SSBO 存储类:1.0 路 = `Uniform`(配 `BufferBlock` 装饰,pre-1.3 SSBO 惯用形态,
+    /// 既有 W1/W2 golden 字节依赖);1.4 路 = `StorageBuffer`(G7.2 W3a)。
+    ///
+    /// **为何必须分叉**:`BufferBlock` 装饰在 SPIR-V **1.4 起被移除**
+    /// (spirv-val:`operand BufferBlock(3) requires SPIR-V version 1.3 or earlier`),
+    /// 1.4 的 SSBO 唯一合法形态是 `Block` 装饰 + `StorageBuffer` 存储类
+    /// (该存储类自 1.3 起为核心,无需 `SPV_KHR_storage_buffer_storage_class`)。
+    /// 分叉只作用于升 1.4 的入口;1.0 入口逐字节不变(零漂移门)。
+    fn ssbo_storage(&self) -> u32 {
+        if self.emit_1_4 {
+            STORAGE_STORAGE_BUFFER
+        } else {
+            STORAGE_UNIFORM
+        }
+    }
+
+    /// SSBO 块装饰:1.0 路 = `BufferBlock`;1.4 路 = `Block`(同上)。
+    fn ssbo_block_decoration(&self) -> u32 {
+        if self.emit_1_4 {
+            DECORATION_BLOCK
+        } else {
+            DECORATION_BUFFER_BLOCK
+        }
     }
 
     fn ptr_type(&mut self, storage: u32, pointee: u32) -> u32 {
@@ -620,17 +764,36 @@ pub fn build_and_emit_vulkan(cx: &QueryCtx<'_>, _module_name: &str) -> Option<Ve
 /// 单个 compute kernel body → SPIR-V 字流(RXS-0201~0203)。
 pub fn lower_compute(body: &Body, res: &Resolutions) -> Result<Vec<u32>, VulkanCodegenError> {
     let mut b = Builder::new(res, true);
+    // per-entry 版本轴判定**先于一切发射**(RXS-0300;见 `Builder::emit_1_4`)。
+    b.emit_1_4 = needs_spirv_1_4(body, res);
     b.main_id = b.fresh();
 
-    // 形参分类(locals 1..=arg_count):buffer / scalar / ThreadCtx。
+    // 形参分类(locals 1..=arg_count):AccelStruct / buffer / scalar / ThreadCtx。
     let mut params: Vec<(LocalIdx, ParamKind)> = Vec::new();
     let mut next_binding = 0u32;
     let mut next_member = 0u32;
+    // G7.2 W3a(RXS-0297「compute 签名 AccelStruct 至多一个」单 TLAS 纪律):
+    // shader_stages 已在 AST 层预校验(第 2 个起 RX3013);此处为 codegen 侧
+    // **防御性**复核 —— 前端若被绕过,不静默产多 AS 模块。
+    if body.accel_params.len() > 1 {
+        return Err(VulkanCodegenError::unsupported(
+            body.span,
+            "compute 签名中 `AccelStruct` 至多一个(单 TLAS 纪律,RXS-0297)",
+        ));
+    }
     for i in 1..=body.arg_count {
         let li = LocalIdx(i as u32);
         let ty = &body.locals[i].ty;
         let span = body.locals[i].span;
-        let kind = classify_param(&mut b, ty, span, &mut next_binding, &mut next_member)?;
+        let is_accel = body.accel_params.contains(&(i as u32));
+        let kind = classify_param(
+            &mut b,
+            ty,
+            span,
+            is_accel,
+            &mut next_binding,
+            &mut next_member,
+        )?;
         params.push((li, kind));
     }
 
@@ -643,6 +806,15 @@ pub fn lower_compute(body: &Body, res: &Resolutions) -> Result<Vec<u32>, VulkanC
         let id = b.fresh();
         b.block_label.insert(bi, id);
     }
+    // 结构化循环分析(G7.2 W3a):循环头 → (merge, latch),并为每个 latch 预分配
+    // 合成 continue 块 label(见 `Builder::loop_continue_label` 逐字留痕)。
+    for bi in 0..body.blocks.len() {
+        if let Some((merge_i, latch_i)) = loop_merge_targets(body, bi) {
+            b.loop_info.insert(bi, (merge_i, latch_i));
+            let lbl = b.fresh();
+            b.loop_continue_label.insert(latch_i, lbl);
+        }
+    }
 
     // Function-storage local 变量(非 ZST、非 buffer 形参、非 ret slot〔kernel void〕)。
     // scalar 形参也建 Function local(entry 处从 push-constant 拷入),body 统一按 local 处理。
@@ -650,10 +822,23 @@ pub fn lower_compute(body: &Body, res: &Resolutions) -> Result<Vec<u32>, VulkanC
         if i == 0 {
             continue; // ret slot(kernel = void)
         }
-        if b.buffer_var.contains_key(&(i as u32)) || b.image_var.contains_key(&(i as u32)) {
+        if b.buffer_var.contains_key(&(i as u32))
+            || b.image_var.contains_key(&(i as u32))
+            || b.accel_var.contains_key(&(i as u32))
+        {
             continue; // 资源形参 → 描述符,不建 Function local
         }
         if is_zst(res, &l.ty) {
+            continue;
+        }
+        // G7.2 W3a(RXS-0297 Function-only 收窄):`RayQuery` local 不在此建
+        // Function 变量,也**不**入 `local_var`(非值:`OpLoad`/`OpStore` 对
+        // RayQuery 类型指针在 SPV_KHR_ray_query 规范上禁用,非 Copy 纪律
+        // by-construction)。变量改由 `ray_query_var_for` 在 `initialize` 落点
+        // **按需建**;MIR 的 `let mut rq = ray_query_initialize(..)` 会产生
+        // 「temp → 用户 local」的 move,该 move 降级为**别名**(同一遍历器对象,
+        // 零指令),故按需建可避免产生死变量。
+        if matches!(&l.ty, Ty::Adt(d, _) if res.lang_items.is_ray_query(*d)) {
             continue;
         }
         let kind = value_kind(&l.ty).ok_or_else(|| {
@@ -699,7 +884,65 @@ pub fn lower_compute(body: &Body, res: &Resolutions) -> Result<Vec<u32>, VulkanC
         emit_terminator(&mut b, body, bi)?;
     }
 
-    Ok(assemble(&mut b, &body.symbol))
+    // per-entry 版本轴分叉(RXS-0300,升版判定**并集**钉死):使用 RayQuery
+    // (MIR 体存在 RayQuery local / ray query intrinsic)**或** compute 签名含
+    // `AccelStruct` 形参 → 升 SPIR-V 1.4 + interface 全量枚举。二者任一即触发:
+    // 仅看 RayQuery local 会把「AS 形参在、RayQuery 不在」的 kernel 留在 1.0 且
+    // 不声明 capability,致 `OpTypeAccelerationStructureKHR` 无 capability 承载、
+    // spirv-val 必拒。`uses_ray_query` 由 `t_accel_struct`/`t_ray_query` 两个
+    // 懒发点共同置位,已是该并集。
+    //
+    // W1/W2 零漂移:不含二者的 compute entry 走既有 `assemble`(1.0)**原路**,
+    // 既有五 kernel 与全部既有 vulkan golden 字节不变(分叉落发射函数级)。
+    // 一致性自检:实际发射了 ray query 类型 ⇒ 必已判定升 1.4。二者不一致即
+    // codegen 内部 bug(会产 capability 无承载 / BufferBlock@1.4 等必拒模块),
+    // 宁可确定性报错也不产可疑模块。
+    if b.uses_ray_query && !b.emit_1_4 {
+        return Err(VulkanCodegenError::unsupported(
+            body.span,
+            "内部不一致:发射了 ray query 类型但未判定升 SPIR-V 1.4(RXS-0300 并集判定)",
+        ));
+    }
+    if b.emit_1_4 {
+        Ok(assemble_ray_query(&mut b, &body.symbol))
+    } else {
+        Ok(assemble(&mut b, &body.symbol))
+    }
+}
+
+/// per-entry SPIR-V 1.4 升版判定(G7.2 W3a,RXS-0300 **并集**钉死)。
+///
+/// 触发条件(任一即升):
+/// 1. compute 签名含 `AccelStruct` 形参([`Body::accel_params`] 非空);
+/// 2. MIR 体存在 `RayQuery` 类型 local;
+/// 3. MIR 体存在 ray query intrinsic(`RayQueryInitialize` / `RayQueryMethod`)。
+///
+/// 二者任一即触发的理由(RXS-0300 逐字):仅看 RayQuery local 会把「AS 形参在、
+/// RayQuery 不在」的 kernel 留在 1.0 且不声明 capability,致
+/// `OpTypeAccelerationStructureKHR` 无 capability 承载、spirv-val 必拒。
+///
+/// 只读 MIR,无副作用 → 同 MIR 同版本轴结果确定性。W1/W2 五 kernel 无 AS 形参、
+/// 无 RayQuery 面 → 恒 `false`,零漂移。
+fn needs_spirv_1_4(body: &Body, res: &Resolutions) -> bool {
+    if !body.accel_params.is_empty() {
+        return true;
+    }
+    if body
+        .locals
+        .iter()
+        .any(|l| matches!(&l.ty, Ty::Adt(d, _) if res.lang_items.is_ray_query(*d)))
+    {
+        return true;
+    }
+    body.blocks.iter().any(|bb| {
+        bb.stmts.iter().any(|st| {
+            let StatementKind::Assign(_, rv) = &st.kind;
+            matches!(
+                rv,
+                Rvalue::RayQueryInitialize { .. } | Rvalue::RayQueryMethod { .. }
+            )
+        })
+    })
 }
 
 /// mesh 阶段 MIR → SPIR-V lowering(G4.2,RXS-0275)。
@@ -729,7 +972,9 @@ pub fn lower_mesh(body: &Body, res: &Resolutions) -> Result<Vec<u32>, VulkanCode
         let li = LocalIdx(i as u32);
         let ty = &body.locals[i].ty;
         let span = body.locals[i].span;
-        let kind = classify_param(&mut b, ty, span, &mut next_binding, &mut next_member)?;
+        // mesh 阶段无 compute 签名 AccelStruct 面(`accel_params` 恒空,
+        // `attach_accel_params` 只对 compute 根携带)→ `is_accel = false`。
+        let kind = classify_param(&mut b, ty, span, false, &mut next_binding, &mut next_member)?;
         params.push((li, kind));
     }
 
@@ -813,13 +1058,24 @@ pub fn lower_task(_body: &Body, _res: &Resolutions) -> Result<Vec<u32>, VulkanCo
 }
 
 /// 形参分类 + buffer binding / scalar member 计数递增。
+///
+/// `is_accel` = 本形参是否为 `AccelStruct`(G7.2 W3a,RXS-0297/0300)。判定**不**在
+/// 本函数内以 `ty` 反推——`AccelStruct` 形参 ty 落容忍位 `Ty::Err`,反推会把拼错的
+/// 未知类型名误绑成 AS descriptor;事实源 = [`crate::mir::Body::accel_params`]
+/// (单一事实源 = AST 层 `shader_stages::is_accel_struct`)。
 fn classify_param(
     b: &mut Builder,
     ty: &Ty,
     span: Span,
+    is_accel: bool,
     next_binding: &mut u32,
     next_member: &mut u32,
 ) -> Result<ParamKind, VulkanCodegenError> {
+    if is_accel {
+        let binding = *next_binding;
+        *next_binding += 1;
+        return Ok(ParamKind::AccelStruct { binding });
+    }
     if is_zst(b.res, ty) {
         return Ok(ParamKind::ThreadCtx);
     }
@@ -913,19 +1169,13 @@ fn emit_buffer_descriptors(
                 OP_MEMBER_DECORATE,
                 &[st, 0, DECORATION_OFFSET, 0],
             );
-            emit(
-                &mut b.decorations,
-                OP_DECORATE,
-                &[st, DECORATION_BUFFER_BLOCK],
-            );
-            // 变量(Uniform storage,set 0 / binding)。
-            let ptr = b.ptr_type(STORAGE_UNIFORM, st);
+            let block_deco = b.ssbo_block_decoration();
+            emit(&mut b.decorations, OP_DECORATE, &[st, block_deco]);
+            // 变量(1.0:Uniform+BufferBlock / 1.4:StorageBuffer+Block;set 0 / binding)。
+            let storage = b.ssbo_storage();
+            let ptr = b.ptr_type(storage, st);
             let var = b.fresh();
-            emit(
-                &mut b.types_globals,
-                OP_VARIABLE,
-                &[ptr, var, STORAGE_UNIFORM],
-            );
+            emit(&mut b.types_globals, OP_VARIABLE, &[ptr, var, storage]);
             emit(
                 &mut b.decorations,
                 OP_DECORATE,
@@ -937,6 +1187,7 @@ fn emit_buffer_descriptors(
                 &[var, DECORATION_BINDING, *binding],
             );
             b.buffer_var.insert(li.0, (var, *elem));
+            b.global_vars.push(var);
         } else if let ParamKind::Image { binding, elem } = kind {
             let sampled_ty = b.prim_type(*elem, body.locals[li.0 as usize].span)?;
             let format = match elem {
@@ -978,6 +1229,32 @@ fn emit_buffer_descriptors(
                 &[var, DECORATION_BINDING, *binding],
             );
             b.image_var.insert(li.0, (var, image_ty, *elem));
+            b.global_vars.push(var);
+        } else if let ParamKind::AccelStruct { binding } = kind {
+            // G7.2 W3a(RXS-0297 修订行 + RXS-0300):`AccelStruct` → SRV 轴
+            // `OpTypeAccelerationStructureKHR` descriptor,存储类 UniformConstant
+            // (与 `Texture2D`/storage image 同轴先例);set 0 / binding = 形参
+            // 出现序(与 RXS-0208 marshalling 单一事实源同源)。
+            let accel_ty = b.t_accel_struct();
+            let ptr = b.ptr_type(STORAGE_UNIFORM_CONSTANT, accel_ty);
+            let var = b.fresh();
+            emit(
+                &mut b.types_globals,
+                OP_VARIABLE,
+                &[ptr, var, STORAGE_UNIFORM_CONSTANT],
+            );
+            emit(
+                &mut b.decorations,
+                OP_DECORATE,
+                &[var, DECORATION_DESCRIPTOR_SET, 0],
+            );
+            emit(
+                &mut b.decorations,
+                OP_DECORATE,
+                &[var, DECORATION_BINDING, *binding],
+            );
+            b.accel_var.insert(li.0, var);
+            b.global_vars.push(var);
         }
     }
     Ok(())
@@ -1027,6 +1304,7 @@ fn emit_push_constants(
         OP_VARIABLE,
         &[ptr, var, STORAGE_PUSH_CONSTANT],
     );
+    b.global_vars.push(var);
     Ok(Some(var))
 }
 
@@ -1073,7 +1351,7 @@ fn place_ptr(
         && let Some((var, elem)) = b.buffer_var.get(&p.local.0).copied()
     {
         let elem_ty = b.prim_type(elem, span)?;
-        let ptr_elem = b.ptr_type(STORAGE_UNIFORM, elem_ty);
+        let ptr_elem = b.ptr_type(b.ssbo_storage(), elem_ty);
         let idx_val = load_local(b, body, *idx_local)?;
         let member0 = b.const_uint(0);
         let acc = b.fresh();
@@ -1175,6 +1453,19 @@ fn emit_assign(
 ) -> Result<(), VulkanCodegenError> {
     match rv {
         Rvalue::Use(o) => {
+            // G7.2 W3a:`RayQuery` local 间的 move(`let mut rq =
+            // ray_query_initialize(..)` 的 MIR temp → 用户 local)降级为**别名**
+            // —— 同一遍历器对象,零指令。RayQuery 非 Copy(RXS-0297)故 move 是
+            // 唯一形态,别名语义与之一致;规范禁用 `OpLoad`/`OpStore`/`OpCopyMemory`
+            // 于 RayQuery 类型指针,别名亦是唯一可编码形态。
+            if let Operand::Copy(src) | Operand::Move(src) = o
+                && src.proj.is_empty()
+                && place.proj.is_empty()
+                && let Some(&src_var) = b.ray_query_var.get(&src.local.0)
+            {
+                b.ray_query_var.insert(place.local.0, src_var);
+                return Ok(());
+            }
             let Some((val, _, _)) = operand(b, body, o)? else {
                 return Ok(()); // unit 赋值 no-op(空体语义)。
             };
@@ -1290,9 +1581,250 @@ fn emit_assign(
             extra,
             ..
         } => emit_storage_image_op(b, body, place, *texture_local, *method, coord, extra),
+        Rvalue::RayQueryInitialize {
+            tlas_local,
+            origin,
+            t_min,
+            dir,
+            t_max,
+        } => emit_ray_query_initialize(b, body, place, *tlas_local, origin, t_min, dir, t_max),
+        Rvalue::RayQueryMethod { op, rq_local } => {
+            emit_ray_query_method(b, body, place, *op, *rq_local)
+        }
         _ => Err(VulkanCodegenError::unsupported(
             body.span,
             "Vulkan compute rvalue 不在当前 W1 子集",
+        )),
+    }
+}
+
+/// `Rvalue::RayQueryInitialize` → `OpRayQueryInitializeKHR`(G7.2 W3a,RXS-0300)。
+///
+/// 操作数序**逐一对齐** SPIR-V 规范(`spirv.core.grammar.json` 核实):
+/// `RayQuery, Accel, RayFlags, CullMask, RayOrigin, RayTMin, RayDirection, RayTMax`
+/// —— 注意 `RayTMin` 在 `RayOrigin` **之后**、`RayDirection` 在 `RayTMin` **之后**
+/// (与语言面 `ray_query_initialize(tlas, origin, t_min, dir, t_max)` 的实参序同形,
+/// 非字母序)。flags 恒 `OpaqueKHR`、mask 恒 `0xFF`(RXS-0298 钉死),二者为
+/// `IdRef` 故须物化为 `OpConstant`。
+///
+/// `place` = 目标 RayQuery local。`OpRayQueryInitializeKHR` 无结果 id:遍历器
+/// 状态直接写入该 Function 变量所指对象(不经 `OpStore`,非 Copy 纪律
+/// by-construction)。
+#[allow(clippy::too_many_arguments)]
+fn emit_ray_query_initialize(
+    b: &mut Builder,
+    body: &Body,
+    place: &Place,
+    tlas_local: LocalIdx,
+    origin: &Operand,
+    t_min: &Operand,
+    dir: &Operand,
+    t_max: &Operand,
+) -> Result<(), VulkanCodegenError> {
+    let span = body.locals[tlas_local.0 as usize].span;
+    let accel_var = *b.accel_var.get(&tlas_local.0).ok_or_else(|| {
+        VulkanCodegenError::unsupported(
+            span,
+            "ray query tlas 未绑定 AccelStruct descriptor(须为 compute 签名 \
+             `AccelStruct` 形参,RXS-0297)",
+        )
+    })?;
+    let rq_var = ray_query_var_for(b, body, place)?;
+    let accel_ty = b.t_accel_struct();
+    let accel = b.fresh();
+    emit(&mut b.func_body, OP_LOAD, &[accel_ty, accel, accel_var]);
+
+    let origin_id = vec3_f32_operand(b, body, origin, span, "ray origin")?;
+    let dir_id = vec3_f32_operand(b, body, dir, span, "ray direction")?;
+    let t_min_id = f32_operand(b, body, t_min, span, "ray t_min")?;
+    let t_max_id = f32_operand(b, body, t_max, span, "ray t_max")?;
+    let flags = b.const_uint(RAY_FLAG_OPAQUE);
+    let mask = b.const_uint(CULL_MASK_ALL);
+    emit(
+        &mut b.func_body,
+        OP_RAY_QUERY_INITIALIZE_KHR,
+        &[
+            rq_var, accel, flags, mask, origin_id, t_min_id, dir_id, t_max_id,
+        ],
+    );
+    Ok(())
+}
+
+/// `Rvalue::RayQueryMethod` → proceed / terminate / has_committed / committed 五查询
+/// (G7.2 W3a,RXS-0300)。committed 查询族的 `Intersection` 实参恒
+/// `RayQueryCommittedIntersectionKHR`(candidate 面 RXS-0298 首期不开放)。
+fn emit_ray_query_method(
+    b: &mut Builder,
+    body: &Body,
+    place: &Place,
+    op: crate::hir::RayQueryOp,
+    rq_local: LocalIdx,
+) -> Result<(), VulkanCodegenError> {
+    use crate::hir::RayQueryOp as Rq;
+    let span = body.locals[rq_local.0 as usize].span;
+    let rq_var = *b.ray_query_var.get(&rq_local.0).ok_or_else(|| {
+        VulkanCodegenError::unsupported(span, "ray query 接收者未绑定 RayQuery Function 变量")
+    })?;
+    match op {
+        // 无结果值:遍历器早退。`place` 为 unit local(MIR 侧 `Ty::unit()`),
+        // 不建 Function 变量、不写回。
+        Rq::Terminate => {
+            emit(&mut b.func_body, OP_RAY_QUERY_TERMINATE_KHR, &[rq_var]);
+            Ok(())
+        }
+        // bool 结果:SPIR-V 侧为 `OpTypeBool`,内存式 local 以 u32(0/1)建模
+        // (镜像既有比较分支 `OpSelect` 口径)。
+        Rq::Proceed | Rq::HasCommitted => {
+            let bool_ty = b.t_bool();
+            let cond = b.fresh();
+            if matches!(op, Rq::Proceed) {
+                emit(
+                    &mut b.func_body,
+                    OP_RAY_QUERY_PROCEED_KHR,
+                    &[bool_ty, cond, rq_var],
+                );
+            } else {
+                // `has_committed` = committed intersection type ≠ None
+                // (RXS-0300:映射 `OpRayQueryGetIntersectionTypeKHR`)。
+                let uint_ty = b.t_uint();
+                let committed = b.const_uint(RAY_QUERY_COMMITTED_INTERSECTION_KHR);
+                let ity = b.fresh();
+                emit(
+                    &mut b.func_body,
+                    OP_RAY_QUERY_GET_INTERSECTION_TYPE_KHR,
+                    &[uint_ty, ity, rq_var, committed],
+                );
+                let none = b.const_uint(RAY_QUERY_COMMITTED_INTERSECTION_NONE_KHR);
+                emit(&mut b.func_body, OP_INOTEQUAL, &[bool_ty, cond, ity, none]);
+            }
+            let (ptr, dst_ty, _) = place_ptr(b, body, place)?;
+            let one = b.const_uint(1);
+            let zero = b.const_uint(0);
+            let sel = b.fresh();
+            emit(&mut b.func_body, OP_SELECT, &[dst_ty, sel, cond, one, zero]);
+            emit(&mut b.func_body, OP_STORE, &[ptr, sel]);
+            Ok(())
+        }
+        // committed 查询族:结果类型逐 op 固定(RXS-0298 签名),取 committed 交点。
+        Rq::CommittedT
+        | Rq::CommittedBarycentric
+        | Rq::CommittedInstanceIndex
+        | Rq::CommittedPrimitiveIndex
+        | Rq::CommittedGeometryIndex => {
+            let (opcode, result_ty) = match op {
+                Rq::CommittedT => (OP_RAY_QUERY_GET_INTERSECTION_T_KHR, b.t_float()),
+                Rq::CommittedBarycentric => (
+                    OP_RAY_QUERY_GET_INTERSECTION_BARYCENTRICS_KHR,
+                    b.vector_type(PrimTy::F32, 2, span)?,
+                ),
+                // 「instance index」= TLAS 内实例下标 → `InstanceId`
+                // (RXS-0300 逐字列 `InstanceIdKHR`;非 `InstanceCustomIndex`)。
+                Rq::CommittedInstanceIndex => {
+                    (OP_RAY_QUERY_GET_INTERSECTION_INSTANCE_ID_KHR, b.t_uint())
+                }
+                Rq::CommittedPrimitiveIndex => (
+                    OP_RAY_QUERY_GET_INTERSECTION_PRIMITIVE_INDEX_KHR,
+                    b.t_uint(),
+                ),
+                Rq::CommittedGeometryIndex => {
+                    (OP_RAY_QUERY_GET_INTERSECTION_GEOMETRY_INDEX_KHR, b.t_uint())
+                }
+                _ => unreachable!("外层 match 已收窄为 committed 查询族"),
+            };
+            let committed = b.const_uint(RAY_QUERY_COMMITTED_INTERSECTION_KHR);
+            let raw = b.fresh();
+            emit(
+                &mut b.func_body,
+                opcode,
+                &[result_ty, raw, rq_var, committed],
+            );
+            let (ptr, dst_ty, _) = place_ptr(b, body, place)?;
+            // index 三族的 SPIR-V 结果类型规范只要求「32 位整数标量」(未强制
+            // 符号性),此处取**无符号**与语言面 `u32` 签名(RXS-0298)同型,
+            // 常态零转换;若目标 local 位型同宽而符号性不同则 `OpBitcast`
+            // 零代价换类型(防御性,不改数值位)。
+            let value = if dst_ty == result_ty {
+                raw
+            } else {
+                let cast = b.fresh();
+                emit(&mut b.func_body, OP_BITCAST, &[dst_ty, cast, raw]);
+                cast
+            };
+            emit(&mut b.func_body, OP_STORE, &[ptr, value]);
+            Ok(())
+        }
+        Rq::Initialize => Err(VulkanCodegenError::unsupported(
+            span,
+            "`ray_query_initialize` 经 Rvalue::RayQueryInitialize 降级,不入方法族",
+        )),
+    }
+}
+
+/// `initialize` 目标 place → RayQuery Function 变量 id(按需建)。
+///
+/// 目标须为无投影的 `RayQuery` local(RXS-0297 位置纪律 + Function-only 收窄)。
+/// 变量落 `func_vars` 流(entry block 首,SPIR-V 要求 Function 变量前置)。
+fn ray_query_var_for(
+    b: &mut Builder,
+    body: &Body,
+    place: &Place,
+) -> Result<u32, VulkanCodegenError> {
+    let span = body.locals[place.local.0 as usize].span;
+    if !place.proj.is_empty() {
+        return Err(VulkanCodegenError::unsupported(
+            span,
+            "RayQuery 目标须为无投影 local(禁止逃逸/投影,RXS-0297)",
+        ));
+    }
+    if !matches!(&body.locals[place.local.0 as usize].ty,
+        Ty::Adt(d, _) if b.res.lang_items.is_ray_query(*d))
+    {
+        return Err(VulkanCodegenError::unsupported(
+            span,
+            "`ray_query_initialize` 目标 local 类型非 `RayQuery`",
+        ));
+    }
+    if let Some(&var) = b.ray_query_var.get(&place.local.0) {
+        return Ok(var);
+    }
+    let rq_ty = b.t_ray_query();
+    let ptr = b.ptr_type(STORAGE_FUNCTION, rq_ty);
+    let var = b.fresh();
+    emit(&mut b.func_vars, OP_VARIABLE, &[ptr, var, STORAGE_FUNCTION]);
+    b.ray_query_var.insert(place.local.0, var);
+    Ok(var)
+}
+
+/// 取 f32 标量操作数值 id(非 f32 → RX6026)。
+fn f32_operand(
+    b: &mut Builder,
+    body: &Body,
+    o: &Operand,
+    span: Span,
+    what: &str,
+) -> Result<u32, VulkanCodegenError> {
+    match operand(b, body, o)? {
+        Some((id, _, ValueKind::Scalar(PrimTy::F32))) => Ok(id),
+        _ => Err(VulkanCodegenError::unsupported(
+            span,
+            format!("{what} 必须是 f32 标量(RXS-0298 签名)"),
+        )),
+    }
+}
+
+/// 取 3 分量 f32 向量操作数值 id(非 vec3&lt;f32&gt; → RX6026)。
+fn vec3_f32_operand(
+    b: &mut Builder,
+    body: &Body,
+    o: &Operand,
+    span: Span,
+    what: &str,
+) -> Result<u32, VulkanCodegenError> {
+    match operand(b, body, o)? {
+        Some((id, _, ValueKind::Vector(PrimTy::F32, 3))) => Ok(id),
+        _ => Err(VulkanCodegenError::unsupported(
+            span,
+            format!("{what} 必须是 3 分量 f32 向量(RXS-0298 签名 `vec3<f32>`)"),
         )),
     }
 }
@@ -1324,7 +1856,7 @@ fn emit_atomic(
         b.uses_int64_atomics = true;
     }
     let elem_ty = b.prim_type(prim, span)?;
-    let ptr_elem = b.ptr_type(STORAGE_UNIFORM, elem_ty);
+    let ptr_elem = b.ptr_type(b.ssbo_storage(), elem_ty);
     let idx = if let Some(index) = index {
         let Some((id, _, ValueKind::Scalar(_))) = operand(b, body, index)? else {
             return Err(VulkanCodegenError::unsupported(
@@ -1647,6 +2179,17 @@ fn emit_terminator(b: &mut Builder, body: &Body, bi: usize) -> Result<(), Vulkan
     let bb = &body.blocks[bi];
     match &bb.terminator.kind {
         TerminatorKind::Goto(t) => {
+            // G7.2 W3a:本块若是循环 latch(回边源)→ 改跳**合成 continue 块**,
+            // 并就地发射该合成块(`OpLabel` + `OpBranch <header>`),把真实回边
+            // 移到合成块上;原块回归纯 selection merge 角色(见
+            // `Builder::loop_continue_label`)。
+            if let Some(&cont_lbl) = b.loop_continue_label.get(&bi) {
+                let header_lbl = b.block_label[&(t.0 as usize)];
+                emit(&mut b.func_body, OP_BRANCH, &[cont_lbl]);
+                emit(&mut b.func_body, OP_LABEL, &[cont_lbl]);
+                emit(&mut b.func_body, OP_BRANCH, &[header_lbl]);
+                return Ok(());
+            }
             let lbl = b.block_label[&(t.0 as usize)];
             emit(&mut b.func_body, OP_BRANCH, &[lbl]);
         }
@@ -1684,16 +2227,36 @@ fn emit_terminator(b: &mut Builder, body: &Body, bi: usize) -> Result<(), Vulkan
             emit(&mut b.func_body, OP_INOTEQUAL, &[bool_ty, cond, dv, zero]);
             let then_i = then.0 as usize;
             let else_i = else_.0 as usize;
+            let then_lbl = b.block_label[&then_i];
+            let else_lbl = b.block_label[&else_i];
+            // G7.2 W3a:本块若是**循环头**(存在回边指向它)→ 发 `OpLoopMerge`
+            // (而非 `OpSelectionMerge`)。SPIR-V 结构化控制流要求回边目标必须是
+            // 声明了 `OpLoopMerge` 的循环头;沿用 selection 会被 spirv-val 拒。
+            // 形态 = while 循环的规范降级:条件指令在头块内、`OpLoopMerge` 紧邻
+            // 终结子之前、`OpBranchConditional` 一臂为 body、另一臂为 merge。
+            if let Some(&(merge_i, latch_i)) = b.loop_info.get(&bi) {
+                let merge_lbl = b.block_label[&merge_i];
+                let continue_lbl = b.loop_continue_label[&latch_i];
+                emit(
+                    &mut b.func_body,
+                    OP_LOOP_MERGE,
+                    &[merge_lbl, continue_lbl, LOOP_CONTROL_NONE],
+                );
+                emit(
+                    &mut b.func_body,
+                    OP_BRANCH_CONDITIONAL,
+                    &[cond, then_lbl, else_lbl],
+                );
+                return Ok(());
+            }
             // 结构化 selection merge 块。
             let merge = structured_merge(body, then_i, else_i).ok_or_else(|| {
                 VulkanCodegenError::unsupported(
                     bb.terminator.span,
-                    "Vulkan compute 首期仅支持结构化 if(分支须收敛于唯一 merge 块;循环/提前 return 属后续分片)",
+                    "Vulkan compute 首期仅支持结构化 if 与 while(分支须收敛于唯一 merge 块;提前 return 属后续分片)",
                 )
             })?;
             let merge_lbl = b.block_label[&merge];
-            let then_lbl = b.block_label[&then_i];
-            let else_lbl = b.block_label[&else_i];
             emit(
                 &mut b.func_body,
                 OP_SELECTION_MERGE,
@@ -1707,6 +2270,58 @@ fn emit_terminator(b: &mut Builder, body: &Body, bi: usize) -> Result<(), Vulkan
         }
     }
     Ok(())
+}
+
+/// 循环头判定 + `OpLoopMerge` 的 (merge, continue) 目标(G7.2 W3a)。
+///
+/// `header` 为带 `SwitchBool` 终结子的块。返回 `Some((merge, continue))` 当且仅当
+/// 存在**回边**(某块的后继指向 `header` 且该块下标 ≥ `header`)——即 `header` 是
+/// 循环头。
+///
+/// - `continue` = 回边源块(latch)。多个回边源 → `None`(非单 latch 结构化循环,
+///   保守拒,不产可能非法的模块)。
+/// - `merge` = `SwitchBool` 两臂中**到不了 latch** 的那一臂(循环出口);另一臂为
+///   循环体。以「绕过 header 的可达性」判定,不假定 then/else 极性(误判方向恒为
+///   拒:两臂皆可达或皆不可达 latch → `None`)。
+fn loop_merge_targets(body: &Body, header: usize) -> Option<(usize, usize)> {
+    let TerminatorKind::SwitchBool { then, else_, .. } = &body.blocks[header].terminator.kind
+    else {
+        return None;
+    };
+    // 回边源:后继含 header 且自身下标 ≥ header(MIR 块按降级序编号,循环体块
+    // 下标大于循环头)。
+    let mut latches = (0..body.blocks.len())
+        .filter(|&i| i >= header && block_succs(&body.blocks[i]).contains(&header));
+    let latch = latches.next()?;
+    if latches.next().is_some() {
+        return None; // 多 latch:非单回边结构化循环,保守拒
+    }
+    // 绕过 header 的可达性(header 作屏障:循环体内到 latch 无须再经 header)。
+    let reaches_latch = |start: usize| -> bool {
+        let mut seen = vec![false; body.blocks.len()];
+        let mut work = vec![start];
+        seen[start] = true;
+        while let Some(cur) = work.pop() {
+            if cur == latch {
+                return true;
+            }
+            for s in block_succs(&body.blocks[cur]) {
+                if s != header && !seen[s] {
+                    seen[s] = true;
+                    work.push(s);
+                }
+            }
+        }
+        false
+    };
+    let then_i = then.0 as usize;
+    let else_i = else_.0 as usize;
+    match (reaches_latch(then_i), reaches_latch(else_i)) {
+        (true, false) => Some((else_i, latch)),
+        (false, true) => Some((then_i, latch)),
+        // 两臂皆达 / 皆不达 latch:出口不唯一或形态非预期 → 保守拒。
+        _ => None,
+    }
 }
 
 /// 结构化 if 的 merge 块 = 两臂最近共同可达块。不能按 MIR block 下标最小值取：
@@ -1975,6 +2590,78 @@ fn assemble(b: &mut Builder, entry_name: &str) -> Vec<u32> {
     m
 }
 
+/// compute RayQuery 模块组装(G7.2 W3a,RXS-0300):SPIR-V **1.4** header +
+/// `RayQueryKHR` capability + `OpExtension "SPV_KHR_ray_query"` + `OpEntryPoint`
+/// interface **全量枚举**。
+///
+/// 与既有 [`assemble`](恒 1.0)**并列**、不改其一字节 —— 分叉落发射函数级
+/// (承 RXS-0247 既有机制),故 W1/W2 五 kernel 与全部既有 vulkan golden 字节零漂移。
+/// 与 [`assemble_mesh`] 的差异仅在 capability/extension/执行模型三处;其余 logical
+/// layout 逐节同序。
+fn assemble_ray_query(b: &mut Builder, entry_name: &str) -> Vec<u32> {
+    let void_id = b.t_void();
+    let fn_ty = {
+        let id = b.fresh();
+        emit(&mut b.types_globals, OP_TYPE_FUNCTION, &[id, void_id]);
+        id
+    };
+    let entry_label = b.fresh();
+    let bound = b.next_id;
+
+    let mut m: Vec<u32> = vec![
+        SPIRV_MAGIC,
+        SPIRV_VERSION_1_4,
+        SPIRV_GENERATOR,
+        bound,
+        SPIRV_SCHEMA,
+    ];
+    emit(&mut m, OP_CAPABILITY, &[CAP_SHADER]);
+    if b.uses_int64 {
+        emit(&mut m, OP_CAPABILITY, &[CAP_INT64]);
+    }
+    if b.uses_int64_atomics {
+        emit(&mut m, OP_CAPABILITY, &[CAP_INT64_ATOMICS]);
+    }
+    // capability 只按真实使用声明(承 Int64/Int64Atomics 先例):本发射路径的
+    // 进入条件即 `uses_ray_query`,故此处恒声明 `RayQueryKHR`。
+    emit(&mut m, OP_CAPABILITY, &[CAP_RAY_QUERY_KHR]);
+    // OpExtension(layout:capability 之后、OpExtInstImport 之前)。
+    let mut ext_ops = Vec::new();
+    push_string(&mut ext_ops, EXT_SPV_KHR_RAY_QUERY);
+    emit(&mut m, OP_EXTENSION, &ext_ops);
+    m.extend_from_slice(&b.ext_imports);
+    emit(
+        &mut m,
+        OP_MEMORY_MODEL,
+        &[ADDR_MODEL_LOGICAL, MEM_MODEL_GLSL450],
+    );
+    // OpEntryPoint GLCompute %main "<entry>" <interface...>。
+    // SPIR-V 1.4 起 interface 须枚举**全部**被引用全局变量(不再限 Input/Output),
+    // 与 mesh/RT 同律(RXS-0247/0300)→ builtin(Input)+ 描述符/push-constant。
+    let mut ep = vec![EXEC_MODEL_GLCOMPUTE, b.main_id];
+    push_string(&mut ep, entry_name);
+    ep.extend_from_slice(&b.entry_interface);
+    ep.extend_from_slice(&b.global_vars);
+    emit(&mut m, OP_ENTRY_POINT, &ep);
+    emit(
+        &mut m,
+        OP_EXECUTION_MODE,
+        &[b.main_id, EXEC_MODE_LOCAL_SIZE, 1, 1, 1],
+    );
+    m.extend_from_slice(&b.decorations);
+    m.extend_from_slice(&b.types_globals);
+    emit(
+        &mut m,
+        OP_FUNCTION,
+        &[void_id, b.main_id, FUNCTION_CONTROL_NONE, fn_ty],
+    );
+    emit(&mut m, OP_LABEL, &[entry_label]);
+    m.extend_from_slice(&b.func_vars);
+    m.extend_from_slice(&b.func_body);
+    emit(&mut m, OP_FUNCTION_END, &[]);
+    m
+}
+
 /// mesh 模块组装(G4.2,RXS-0275):SPIR-V 1.4 + MeshEXT 执行模型 +
 /// SPV_EXT_mesh_shader 扩展 + mesh_meta 派生的 execution modes。
 /// 镜像 [`assemble`] 的 logical layout,但 header 版本 1.4(per-entry 分叉)、
@@ -2088,7 +2775,11 @@ fn value_kind(ty: &Ty) -> Option<ValueKind> {
         return None;
     };
     let len = u32::try_from(elems.len()).ok()?;
-    if !matches!(len, 2 | 4) {
+    // G7.2 W3a(RXS-0300):放行 3 分量(`vec3<f32>` ray origin/direction 的结构性
+    // 元组表示,`OpRayQueryInitializeKHR` 的 RayOrigin/RayDirection 操作数为
+    // 3 分量向量)。**纯加性**:既有 W1/W2 五 kernel 无 3 元组 local,先前落
+    // RX6026 的 3 元组自此可编码,方向为「原拒→现受」,零既有 golden 影响。
+    if !matches!(len, 2..=4) {
         return None;
     }
     let prim = elems.first().and_then(prim_of)?;
@@ -2804,5 +3495,362 @@ mod tests {
             i += wc;
         }
         assert_eq!(model, Some(EXEC_MODEL_RAY_GENERATION_KHR));
+    }
+
+    // ───────── G7.2 W3a:compute RayQuery 编码锚定(RXS-0297~0300) ─────────
+
+    /// `.rx` 源 → compute SPIR-V 字流(真实前端管线,非手编见证)。
+    fn compile_compute(src: &str) -> Vec<u32> {
+        let diag = crate::diag::DiagCtxt::new();
+        let cx = crate::query::QueryCtx::new(
+            src,
+            crate::span::SourceId(0),
+            crate::span::Edition::Rx0,
+            &diag,
+        );
+        cx.check_shader_stages();
+        cx.check_crate();
+        cx.check_coloring();
+        assert!(
+            !diag.has_errors(),
+            "语料应无前端诊断: {:?}",
+            diag.emitted().iter().map(|d| d.code).collect::<Vec<_>>()
+        );
+        let bodies = cx.device_mir_crate();
+        let res = cx.resolutions();
+        let entry = bodies
+            .iter()
+            .find(|b| b.color == FnColor::Kernel && b.stage.is_none())
+            .expect("须有 compute kernel 根");
+        lower_compute(entry, &res).expect("compute lowering 应成功")
+    }
+
+    /// 指令流扫描:收集全部 opcode(跳 5 字 header)。
+    fn opcodes(words: &[u32]) -> Vec<u16> {
+        let mut out = Vec::new();
+        let mut i = 5;
+        while i < words.len() {
+            let wc = (words[i] >> 16) as usize;
+            if wc == 0 {
+                break;
+            }
+            out.push((words[i] & 0xffff) as u16);
+            i += wc;
+        }
+        out
+    }
+
+    /// 取首条指定 opcode 的操作数切片。
+    fn first_inst(words: &[u32], opcode: u16) -> Option<&[u32]> {
+        let mut i = 5;
+        while i < words.len() {
+            let wc = (words[i] >> 16) as usize;
+            if wc == 0 {
+                break;
+            }
+            if (words[i] & 0xffff) as u16 == opcode {
+                return Some(&words[i + 1..i + wc]);
+            }
+            i += wc;
+        }
+        None
+    }
+
+    /// 模块内 `OpExtension` 名集合。
+    fn extensions(words: &[u32]) -> Vec<String> {
+        let mut out = Vec::new();
+        let mut i = 5;
+        while i < words.len() {
+            let wc = (words[i] >> 16) as usize;
+            if wc == 0 {
+                break;
+            }
+            if (words[i] & 0xffff) as u16 == OP_EXTENSION {
+                let mut bytes = Vec::new();
+                for w in &words[i + 1..i + wc] {
+                    bytes.extend_from_slice(&w.to_le_bytes());
+                }
+                while bytes.last() == Some(&0) {
+                    bytes.pop();
+                }
+                out.push(String::from_utf8_lossy(&bytes).into_owned());
+            }
+            i += wc;
+        }
+        out
+    }
+
+    /// RXS-0297~0300 全流程语料:compute 签名 `AccelStruct` + 体内 `RayQuery`
+    /// (initialize → while proceed → if has_committed → committed 五查询 → terminate)。
+    /// 与 `conformance/rayquery/accept/ray_query_basic.rx` 同形。
+    const RQ_FULL: &str = "kernel fn rq(tlas: AccelStruct, t: ThreadCtx<1>) {\n\
+         \x20   let mut rq = ray_query_initialize(tlas, (0.0, 0.0, 0.0), 0.0, (0.0, 0.0, 1.0), 100.0);\n\
+         \x20   while rq.proceed() {\n\
+         \x20       if rq.has_committed() {\n\
+         \x20           let a = rq.committed_t();\n\
+         \x20           let b = rq.committed_barycentric();\n\
+         \x20           let c = rq.committed_instance_index();\n\
+         \x20           let d = rq.committed_primitive_index();\n\
+         \x20           let e = rq.committed_geometry_index();\n\
+         \x20       }\n\
+         \x20   }\n\
+         \x20   rq.terminate();\n\
+         }\n";
+
+    /// per-entry 升版 + capability/extension 按需声明(RXS-0300 Legality 首两条)。
+    //@ spec: RXS-0300
+    #[test]
+    fn ray_query_compute_emits_1_4_with_capability_and_extension() {
+        let words = compile_compute(RQ_FULL);
+        assert_eq!(
+            words[1], SPIRV_VERSION_1_4,
+            "含 RayQuery/AccelStruct 的 compute entry 须升 SPIR-V 1.4"
+        );
+        let caps: Vec<u32> = {
+            let mut v = Vec::new();
+            let mut i = 5;
+            while i < words.len() {
+                let wc = (words[i] >> 16) as usize;
+                if wc == 0 {
+                    break;
+                }
+                if (words[i] & 0xffff) as u16 == OP_CAPABILITY {
+                    v.push(words[i + 1]);
+                }
+                i += wc;
+            }
+            v
+        };
+        assert!(
+            caps.contains(&CAP_RAY_QUERY_KHR),
+            "须声明 RayQueryKHR capability: {caps:?}"
+        );
+        assert!(
+            caps.contains(&CAP_SHADER),
+            "Shader capability 不得丢失: {caps:?}"
+        );
+        assert_eq!(
+            extensions(&words),
+            vec![EXT_SPV_KHR_RAY_QUERY.to_owned()],
+            "须且仅须声明 SPV_KHR_ray_query"
+        );
+    }
+
+    /// 反汇编 golden 最小集(G-G7-4 逐字):关键指令逐条锚定。
+    //@ spec: RXS-0300
+    #[test]
+    fn ray_query_golden_anchors_key_instructions() {
+        let words = compile_compute(RQ_FULL);
+        let ops = opcodes(&words);
+        for (opcode, name) in [
+            (
+                OP_TYPE_ACCELERATION_STRUCTURE_KHR,
+                "OpTypeAccelerationStructureKHR",
+            ),
+            (OP_TYPE_RAY_QUERY_KHR, "OpTypeRayQueryKHR"),
+            (OP_RAY_QUERY_INITIALIZE_KHR, "OpRayQueryInitializeKHR"),
+            (OP_RAY_QUERY_PROCEED_KHR, "OpRayQueryProceedKHR"),
+            (OP_RAY_QUERY_TERMINATE_KHR, "OpRayQueryTerminateKHR"),
+            (
+                OP_RAY_QUERY_GET_INTERSECTION_TYPE_KHR,
+                "OpRayQueryGetIntersectionTypeKHR",
+            ),
+            (
+                OP_RAY_QUERY_GET_INTERSECTION_T_KHR,
+                "OpRayQueryGetIntersectionTKHR",
+            ),
+            (
+                OP_RAY_QUERY_GET_INTERSECTION_BARYCENTRICS_KHR,
+                "OpRayQueryGetIntersectionBarycentricsKHR",
+            ),
+            (
+                OP_RAY_QUERY_GET_INTERSECTION_INSTANCE_ID_KHR,
+                "OpRayQueryGetIntersectionInstanceIdKHR",
+            ),
+            (
+                OP_RAY_QUERY_GET_INTERSECTION_PRIMITIVE_INDEX_KHR,
+                "OpRayQueryGetIntersectionPrimitiveIndexKHR",
+            ),
+            (
+                OP_RAY_QUERY_GET_INTERSECTION_GEOMETRY_INDEX_KHR,
+                "OpRayQueryGetIntersectionGeometryIndexKHR",
+            ),
+            // `while rq.proceed()` 的结构化循环(RXS-0299 守卫形态 ③)。
+            (OP_LOOP_MERGE, "OpLoopMerge"),
+        ] {
+            assert!(ops.contains(&opcode), "反汇编 golden 缺 {name}");
+        }
+    }
+
+    /// `OpRayQueryInitializeKHR` 操作数序 + 冻结的 flags/mask(RXS-0298/0300)。
+    /// 序 = RayQuery, Accel, RayFlags, CullMask, RayOrigin, RayTMin, RayDirection, RayTMax。
+    //@ spec: RXS-0298
+    #[test]
+    fn ray_query_initialize_operand_shape_and_frozen_flags() {
+        let words = compile_compute(RQ_FULL);
+        let ops = first_inst(&words, OP_RAY_QUERY_INITIALIZE_KHR).expect("须有 initialize");
+        assert_eq!(ops.len(), 8, "initialize 恰 8 个操作数: {ops:?}");
+        // flags(idx 2)/ mask(idx 3)为 IdRef → 物化常量;经 OpConstant 表反查其值。
+        let const_value = |id: u32| -> Option<u32> {
+            let mut i = 5;
+            while i < words.len() {
+                let wc = (words[i] >> 16) as usize;
+                if wc == 0 {
+                    break;
+                }
+                if (words[i] & 0xffff) as u16 == OP_CONSTANT && words[i + 2] == id {
+                    return Some(words[i + 3]);
+                }
+                i += wc;
+            }
+            None
+        };
+        assert_eq!(
+            const_value(ops[2]),
+            Some(RAY_FLAG_OPAQUE),
+            "ray flags 首期恒 Opaque(RXS-0298)"
+        );
+        assert_eq!(
+            const_value(ops[3]),
+            Some(CULL_MASK_ALL),
+            "cull mask 首期恒 0xFF(RXS-0298)"
+        );
+        // RayQuery 操作数(idx 0)= Function 存储类变量(RXS-0297 Function-only 收窄)。
+        let rq_var = ops[0];
+        let mut i = 5;
+        let mut storage = None;
+        while i < words.len() {
+            let wc = (words[i] >> 16) as usize;
+            if wc == 0 {
+                break;
+            }
+            if (words[i] & 0xffff) as u16 == OP_VARIABLE && words[i + 2] == rq_var {
+                storage = Some(words[i + 3]);
+            }
+            i += wc;
+        }
+        assert_eq!(
+            storage,
+            Some(STORAGE_FUNCTION),
+            "RayQuery 变量须 Function 存储类"
+        );
+    }
+
+    /// SPIR-V 1.4 `OpEntryPoint` interface **全量枚举**:AS descriptor(UniformConstant)
+    /// 须在 interface 中(1.4 起不再限 Input/Output;与 mesh/RT 同律)。
+    //@ spec: RXS-0300
+    #[test]
+    fn ray_query_entry_interface_enumerates_accel_descriptor() {
+        let words = compile_compute(RQ_FULL);
+        let ep = first_inst(&words, OP_ENTRY_POINT).expect("须有 OpEntryPoint");
+        // ops: [exec_model, main_id, name words.., interface..]。名串以 NUL 结尾字对齐,
+        // 逐字扫过名串后剩余即 interface。
+        assert_eq!(ep[0], EXEC_MODEL_GLCOMPUTE);
+        let mut k = 2;
+        while k < ep.len() {
+            let w = ep[k];
+            k += 1;
+            if w.to_le_bytes().contains(&0) {
+                break;
+            }
+        }
+        let interface = &ep[k..];
+        // 取 AS descriptor 变量 id = OpTypeAccelerationStructureKHR 指针类型的
+        // UniformConstant 变量。
+        let accel_ty =
+            first_inst(&words, OP_TYPE_ACCELERATION_STRUCTURE_KHR).expect("须有 AS 类型")[0];
+        let mut accel_ptr = None;
+        let mut i = 5;
+        while i < words.len() {
+            let wc = (words[i] >> 16) as usize;
+            if wc == 0 {
+                break;
+            }
+            if (words[i] & 0xffff) as u16 == OP_TYPE_POINTER && words[i + 3] == accel_ty {
+                accel_ptr = Some(words[i + 1]);
+            }
+            i += wc;
+        }
+        let accel_ptr = accel_ptr.expect("须有 AS 指针类型");
+        let mut accel_var = None;
+        let mut i = 5;
+        while i < words.len() {
+            let wc = (words[i] >> 16) as usize;
+            if wc == 0 {
+                break;
+            }
+            if (words[i] & 0xffff) as u16 == OP_VARIABLE && words[i + 1] == accel_ptr {
+                accel_var = Some(words[i + 2]);
+            }
+            i += wc;
+        }
+        let accel_var = accel_var.expect("须有 AS descriptor 变量");
+        assert!(
+            interface.contains(&accel_var),
+            "1.4 interface 须全量枚举 AS descriptor: interface={interface:?} var={accel_var}"
+        );
+    }
+
+    /// W1/W2 零漂移锚点(RXS-0300 Dynamic Semantics):**不含** RayQuery/AccelStruct 的
+    /// compute entry 维持 1.0 emit 且**零新 capability**(走既有 `assemble` 原路)。
+    //@ spec: RXS-0300
+    #[test]
+    fn compute_without_ray_query_stays_1_0_and_declares_no_ray_capability() {
+        let src = "kernel fn k(out: ViewMut<global, f32>, t: ThreadCtx<1>) {\n\
+                   \x20   let i = t.global_id();\n\
+                   \x20   out[i] = 1.0;\n\
+                   }\n";
+        let words = compile_compute(src);
+        assert_eq!(words[1], SPIRV_VERSION_1_0, "无 ray query 面须维持 1.0");
+        let mut i = 5;
+        while i < words.len() {
+            let wc = (words[i] >> 16) as usize;
+            if wc == 0 {
+                break;
+            }
+            if (words[i] & 0xffff) as u16 == OP_CAPABILITY {
+                assert_ne!(
+                    words[i + 1],
+                    CAP_RAY_QUERY_KHR,
+                    "无 ray query 面不得声明 RayQueryKHR"
+                );
+            }
+            i += wc;
+        }
+        assert!(
+            extensions(&words).is_empty(),
+            "无 ray query 面不得声明 OpExtension"
+        );
+    }
+
+    /// `spirv-val` **双口径**(`--target-env vulkan1.2` 与 `spv1.4`)皆 accept
+    /// (RXS-0300 校验轴;退出码判定,缺工具 → Skipped dev-env degrade 不充绿)。
+    //@ spec: RXS-0300
+    #[test]
+    fn ray_query_module_passes_spirv_val_dual_target_env() {
+        use crate::toolchain::{SpirvValGate, spirv_val_gate_env};
+        let words = compile_compute(RQ_FULL);
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let path = std::env::temp_dir().join(format!("rurix_rxs0300_{nanos}.spv"));
+        std::fs::write(&path, words_to_bytes(&words)).expect("写临时 .spv");
+        let mut skipped = false;
+        for env in ["vulkan1.2", "spv1.4"] {
+            match spirv_val_gate_env(&path, Some(env)) {
+                SpirvValGate::Accepted => {}
+                SpirvValGate::Rejected(why) => {
+                    let _ = std::fs::remove_file(&path);
+                    panic!("spirv-val --target-env {env} 拒绝 compute RayQuery 模块: {why}");
+                }
+                // 缺 Vulkan SDK:dev-env degrade(RXS-0212 三态),不 fake pass。
+                SpirvValGate::Skipped => skipped = true,
+            }
+        }
+        let _ = std::fs::remove_file(&path);
+        if skipped {
+            eprintln!("spirv-val 不可用 → SKIP(dev-env degrade,非通过性证据)");
+        }
     }
 }

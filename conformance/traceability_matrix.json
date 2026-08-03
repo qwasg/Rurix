@@ -1530,19 +1530,25 @@
     ],
     "RXS-0297": [
       "conformance/rayquery/accept/ray_query_basic.rx",
+      "conformance/rayquery/accept/ray_query_hit_miss.rx",
       "conformance/rayquery/reject/ray_query_escape.rx",
       "src/rurixc/src/shader_stages.rs"
     ],
     "RXS-0298": [
-      "conformance/rayquery/accept/ray_query_basic.rx"
+      "conformance/rayquery/accept/ray_query_basic.rx",
+      "conformance/rayquery/accept/ray_query_hit_miss.rx",
+      "src/rurixc/src/vulkan_codegen.rs"
     ],
     "RXS-0299": [
+      "conformance/rayquery/accept/ray_query_hit_miss.rx",
       "conformance/rayquery/reject/committed_unguarded.rx",
       "conformance/rayquery/reject/ray_query_after_terminate.rx",
       "src/rurixc/src/ray_query_check.rs"
     ],
     "RXS-0300": [
-      "conformance/rayquery/accept/ray_query_basic.rx"
+      "conformance/rayquery/accept/ray_query_basic.rx",
+      "conformance/rayquery/accept/ray_query_hit_miss.rx",
+      "src/rurixc/src/vulkan_codegen.rs"
     ]
   }
 }

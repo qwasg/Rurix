@@ -324,7 +324,7 @@ fn is_rt_stage(stage: ShaderStage) -> bool {
 }
 
 /// `AccelStruct` 不透明句柄(RXS-0245):头名匹配即是,首期无泛型参数化。
-fn is_accel_struct(ty: &Ty) -> bool {
+pub(crate) fn is_accel_struct(ty: &Ty) -> bool {
     ty_head_name(ty) == Some("AccelStruct")
 }
 

@@ -938,6 +938,29 @@ jobs:
           RURIX_REQUIRE_REAL: "1"
         run: py -3 ci/taichi_vulkan_spike_smoke.py
 
+      # 步骤 93（G-G7-4,RFC-0018 章 A/B;G7 CI_GATES §2）:compute RayQuery codegen 冒烟。
+      # host/compile 段**恒跑**(需 Vulkan SDK 的 spirv-val/spirv-dis;缺工具 SKIP=dev-env
+      # degrade 退 0 不充绿):① conformance/rayquery accept 零诊断 + reject 全拦截
+      # (RXS-0297~0299,RX3013/RX3018);② vulkan_codegen 锚定单测(SPIR-V 1.4 per-entry
+      # 分叉 + RayQueryKHR/SPV_KHR_ray_query 按需声明 + 反汇编 golden 最小集 +
+      # OpRayQueryInitializeKHR 操作数序与冻结 flags〔Opaque/0xFF〕+ OpEntryPoint interface
+      # 全量枚举 + 1.0 零漂移锚点);③ 真实 .rx → .spv 经 spirv-val `--target-env vulkan1.2`
+      # **与** `spv1.4` 双口径皆 accept(退出码判定,不 grep stdout,承 RXS-0212/0247);
+      # ④ 反汇编 golden 最小集(per-file 必含 + 语料并集覆盖 terminate/intersection-type/
+      # committed 五查询族——RXS-0298 明定 terminate 可选、committed 族按真实使用);
+      # ⑤ **W1/W2 零漂移门**:五 kernel(cull/visbuffer_sw_u64/classify_resolve/
+      # vsm_page_mark/taa)逐件对 tests/vulkan/w1w2_spv_manifest.json 的 sha256 + SPIR-V
+      # 版本(恒 1.0)+ capability 集合逐项比对,且不得误声明 ray query 面(既有 golden
+      # 不重 bless,任何 diff 即红);⑥ RED 反证:篡改 .spv → spirv-val 必拒。
+      # device 段 gate real(最小 hit/miss/属性查询 kernel 真跑):硬前置 = G7.3 W3b
+      # compute AS descriptor / TLAS 导入通道,尚未在树 → device_blocked 记
+      # blocked-honest 并 SKIP;**RURIX_REQUIRE_REAL=1 翻硬红**,host 段绿不冒充 device 绿
+      # (RFC-0016 §4.E3 条件臂 / §9.1 R-3)。故本步骤暂不设 RURIX_REQUIRE_REAL,
+      # 待 G7.3 落地后由该波 PR 置 "1"。失败即红。
+      - name: compute ray query codegen smoke (G7 CI_GATES §2.93, G-G7-4, RFC-0018 章 A/B)
+        shell: powershell
+        run: py -3 ci/ray_query_codegen_smoke.py
+
       - name: budget evaluator load (CI_GATES §3.6)
         shell: powershell
         run: py -3 ci/budget_eval.py

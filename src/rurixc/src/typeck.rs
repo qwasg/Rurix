@@ -2150,11 +2150,23 @@ impl Tck<'_, '_> {
                 .lang_items
                 .ray_query
                 .expect("RayQuery lang item 在 resolve 入口注入");
+            // G7.2 W3a codegen 接线(RXS-0298 签名 `origin/dir: vec3<f32>`):
+            // `vec3<f32>` 无 typeck 类型,其**结构性表示** = 3 元同型 f32 元组
+            // (与 `value_kind` 的 Tuple→Vector 映射同源,沿 vec2/vec4 先例)。
+            // 由 `Ty::Err` 容忍位收紧为精确元组:使 `(0.0, 0.0, 0.0)` 字面量经
+            // 期望类型统一为 **f32**(否则默认落 f64,SPIR-V 侧需 Float64
+            // capability 而必拒);tlas 维持容忍位(AccelStruct 头名匹配已在 AST
+            // 层裁决,RXS-0297)。误判方向:非 3 元 f32 向量实参 → 编译期拒。
+            let vec3f = Ty::Tuple(vec![
+                Ty::Prim(PrimTy::F32),
+                Ty::Prim(PrimTy::F32),
+                Ty::Prim(PrimTy::F32),
+            ]);
             let expected = [
                 Ty::Err,
-                Ty::Err,
+                vec3f.clone(),
                 Ty::Prim(PrimTy::F32),
-                Ty::Err,
+                vec3f,
                 Ty::Prim(PrimTy::F32),
             ];
             return self.check_args(span, &expected, args, Ty::Adt(ray_query, Vec::new()));
@@ -2392,9 +2404,13 @@ impl Tck<'_, '_> {
                     }
                     crate::hir::RayQueryOp::Terminate => Ty::unit(),
                     crate::hir::RayQueryOp::CommittedT => Ty::Prim(PrimTy::F32),
-                    // vec2<f32> 非真实 typeck 类型(结构性 Err);返回容忍区(沿
-                    // sample 返回 vec4 先例,RXS-0223)。
-                    crate::hir::RayQueryOp::CommittedBarycentric => Ty::Err,
+                    // RXS-0298 签名 `committed_barycentric -> vec2<f32>`:G7.2 W3a
+                    // codegen 接线时由容忍位 `Ty::Err` 收紧为**结构性表示** = 2 元
+                    // 同型 f32 元组(与 `value_kind` 的 Tuple→Vector 映射同源,
+                    // 沿 vec2/vec4 先例),使结果可作真实 SPIR-V vec2 值消费。
+                    crate::hir::RayQueryOp::CommittedBarycentric => {
+                        Ty::Tuple(vec![Ty::Prim(PrimTy::F32), Ty::Prim(PrimTy::F32)])
+                    }
                     crate::hir::RayQueryOp::CommittedInstanceIndex
                     | crate::hir::RayQueryOp::CommittedPrimitiveIndex
                     | crate::hir::RayQueryOp::CommittedGeometryIndex => Ty::Prim(PrimTy::U32),

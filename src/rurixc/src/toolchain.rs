@@ -866,11 +866,27 @@ pub enum SpirvValGate {
 /// (工具缺失,dev-env degrade)。**退出码判定,不 grep stdout**(反 Godot 崩溃判定教训)。
 #[cfg(feature = "vulkan-backend")]
 pub fn spirv_val_gate(spv: &Path) -> SpirvValGate {
+    spirv_val_gate_env(spv, None)
+}
+
+/// [`spirv_val_gate`] 的显式 `--target-env` 变体(G7.2 W3a,RXS-0300 校验轴)。
+///
+/// `target_env = None` → 不传 `--target-env`(spirv-val 自模块版本推导),行为与
+/// 既有 [`spirv_val_gate`] **逐字节等价**(后者即以 `None` 委托本函数,零漂移)。
+/// `Some("vulkan1.2")` / `Some("spv1.4")` → RXS-0300 要求的**双口径**校验:
+/// compute RayQuery 模块须在两个口径下皆 `Accepted`(承 RXS-0212 三态 gate 与
+/// RXS-0247 双口径先例)。判定恒以**退出码**为准,不 grep stdout。
+#[cfg(feature = "vulkan-backend")]
+pub fn spirv_val_gate_env(spv: &Path, target_env: Option<&str>) -> SpirvValGate {
     let tool: PathBuf = std::env::var_os("RURIX_SPIRV_VAL")
         .map(PathBuf::from)
         .filter(|p| p.is_file())
         .unwrap_or_else(|| PathBuf::from("spirv-val"));
-    match Command::new(&tool).arg(spv).output() {
+    let mut cmd = Command::new(&tool);
+    if let Some(env) = target_env {
+        cmd.arg("--target-env").arg(env);
+    }
+    match cmd.arg(spv).output() {
         Ok(o) if o.status.success() => SpirvValGate::Accepted,
         Ok(o) => {
             let stdout = String::from_utf8_lossy(&o.stdout);

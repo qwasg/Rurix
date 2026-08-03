@@ -295,6 +295,9 @@ def check_evidence_files() -> None:
     g7_perf_baseline_schema = load(
         ROOT / "milestones/g7/g7_perf_baseline_evidence_schema.json"
     )
+    ray_query_codegen_schema = load(
+        ROOT / "milestones/g7/ray_query_codegen_evidence_schema.json"
+    )
     g8_perf_baseline_schema = load(
         ROOT / "milestones/g8/g8_perf_baseline_evidence_schema.json"
     )
@@ -517,6 +520,11 @@ def check_evidence_files() -> None:
     g7_perf_baseline_validator = (
         jsonschema.Draft7Validator(g7_perf_baseline_schema)
         if g7_perf_baseline_schema is not None
+        else None
+    )
+    ray_query_codegen_validator = (
+        jsonschema.Draft7Validator(ray_query_codegen_schema)
+        if ray_query_codegen_schema is not None
         else None
     )
     g8_perf_baseline_validator = (
@@ -987,6 +995,18 @@ def check_evidence_files() -> None:
             # pixel_parity_pass + validation_clean 供 g7.counter.uc06_device_pixel_parity
             # 计数)。前缀置于 g7_baseline_ 分支之后(两前缀互不包含)。
             validator = g7_perf_baseline_validator
+        elif (
+            f.name.startswith("ray_query_codegen_smoke")
+            and ray_query_codegen_validator is not None
+        ):
+            # G7.2 W3a compute RayQuery codegen 冒烟(步骤 93;G-G7-4)→
+            # milestones/g7/ray_query_codegen_evidence_schema.json(host/compile 段六项:
+            # 语料 accept/reject、codegen 锚定单测、真实 .rx→.spv 且 spirv-val 双口径
+            # 〔vulkan1.2 + spv1.4〕、反汇编 golden 最小集〔per-file + 语料并集〕、
+            # W1/W2 五 kernel 对 tests/vulkan/w1w2_spv_manifest.json 的 sha256/版本/
+            # capability 零漂移、篡改 .spv 的 RED 反证;device 段最小 hit/miss kernel
+            # 真跑 gate real,硬前置 G7.3 W3b 未在树时 device_blocked 记 blocked-honest)。
+            validator = ray_query_codegen_validator
         elif (
             f.name.startswith("g8_perf_baseline_")
             and g8_perf_baseline_validator is not None

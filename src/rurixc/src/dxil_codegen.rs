@@ -1480,6 +1480,7 @@ mod tests {
             io_sig,
             resources: Vec::new(),
             mesh_meta: None,
+            accel_params: Vec::new(),
         }
     }
 
