@@ -1,0 +1,42 @@
+//@ spec: RXS-0301, RXS-0302, RXS-0303
+// G7.5b(门 G-G7-7)HW 光栅 VisBuffer vertex 语料 —— 纯 passthrough(设计钉死:
+// 每三角形展开 3 顶点、逐顶点携带**完全相同**的 va/vb/vc/ids 全三角形数据,flat
+// 插值与 provoking vertex / guard-band 裁剪新顶点一并免疫,RFC-0018 §E2 论证第 5 项)。
+//
+// 顶点布局(interleaved,stride=72B,与 uc06 PR-4 供给面对齐):`pos: vec4<f32>`
+// (offset 0,NDC 位置)/ `va|vb|vc: vec4<f32>`(offset 16/32/48,三顶点屏幕坐标
+// 原始 f32 位型)/ `ids: vec2<u32>`(offset 64,`FORMAT_R32G32_UINT`)。输入
+// Location 序 = 字段声明序(0..4)。
+//
+// 编码面:body 仅 Use + 单层 Field 投影 + 声明输出 I/O 聚合返回 —— **在现行
+// RXS-0171 L4 最小白名单内**,恒走两遍编译的**第一遍**(字节零漂移路径,
+// RXS-0301 Dynamic Semantics);`#[interpolate(flat)]` 输出 varying 的 `Flat`
+// 装饰由既有发射器对 (Vertex, Out) interstage 接口承载(u32 分量 fragment 侧
+// 强制 Flat,VUID-StandaloneSpirv-Flat-04744 两阶段一致)。caps 恒 == {Shader}。
+struct VbVsIn {
+    #[interpolate(perspective)] v_pos: vec4<f32>,
+    #[interpolate(perspective)] v_va: vec4<f32>,
+    #[interpolate(perspective)] v_vb: vec4<f32>,
+    #[interpolate(perspective)] v_vc: vec4<f32>,
+    #[interpolate(flat)] v_ids: vec2<u32>,
+}
+
+struct VbVsOut {
+    #[builtin(position)] pos: vec4<f32>,
+    #[interpolate(flat)] va: vec4<f32>,
+    #[interpolate(flat)] vb: vec4<f32>,
+    #[interpolate(flat)] vc: vec4<f32>,
+    #[interpolate(flat)] ids: vec2<u32>,
+}
+
+vertex fn visbuffer_hw_vs(inp: VbVsIn) -> VbVsOut {
+    VbVsOut {
+        pos: inp.v_pos,
+        va: inp.v_va,
+        vb: inp.v_vb,
+        vc: inp.v_vc,
+        ids: inp.v_ids,
+    }
+}
+
+fn main() {}

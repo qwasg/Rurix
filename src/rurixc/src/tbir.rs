@@ -116,10 +116,14 @@ pub enum ExprKind {
         is_f32: bool,
         args: Vec<Expr>,
     },
-    /// `Atomic`/`AtomicView` 原子读改写；scope 已由 typeck 静态裁决，不进入 MIR 值流。
+    /// `Atomic`/`AtomicView` 原子读改写;scope 实参不进入 MIR **值流**(typeck 已
+    /// 静态裁决 RX3010),但其静态包含序(0=Block/1=Gpu/2=System;None=不可静态判定)
+    /// 自 typeck `atomic_calls` 随节点携带至 MIR(G7.5b:Vulkan 图形扩展路消费
+    /// RXS-0302 L2「仅 `Scope::Gpu`」;compute 路忽略,恒 Device+Relaxed 映射不变)。
     AtomicCall {
         op: crate::hir::AtomicOp,
         is_view: bool,
+        scope: Option<u8>,
         receiver: Box<Expr>,
         args: Vec<Expr>,
     },

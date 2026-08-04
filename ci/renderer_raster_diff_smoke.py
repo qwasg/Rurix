@@ -15,11 +15,13 @@ host 段(**恒跑**,需 Vulkan SDK 的 `spirv-val`/`spirv-dis`;缺工具 → SKI
   4. 三余项 kernel 真实 `.rx` → `.spv`(`vsm_depth_raster` / `vsm_sample` /
      `tsr_resample`):`spirv-val --target-env vulkan1.0` accept、SPIR-V 维持 **1.0**
      (不误升 1.4)、同源 ×2 字节全等(确定性)、不得误声明 ray query 能力面。
-  5. **HW 光栅 blocked-honest 机验**(本波的诚实边界,不伪造 device 条目):
-     目标形态语料 `conformance/vulkan/reject/vk_hw_raster_visbuffer_fs.rx` 必红
-     `RX6026`,并以**逐轴隔离探针**取真实诊断,机器产出 `missing_toolchain_caps`。
-     阻断依据 = `spec/dxil_backend.md` **RXS-0171 L4** 冻结的「最小 rvalue 白名单」
-     (Vulkan 原生图形路复用同一编码器 `dxil_spirv::emit_spirv_body_vulkan`)。
+  5. **HW 光栅 capability 机验**(G7.5b 翻转,设计 §5.2;RXS-0301~0303):
+     六枚隔离探针由「必红 RX6026」翻转为「**必绿** + spirv-val」(探针文本不动,
+     断言方向翻转)= 六项 capability 的正向机器锁;目标形态 FS/VS 语料(已迁
+     `conformance/vulkan/accept/`)必绿 + 版本 1.0 + caps 集合断言;§2.4 四枚
+     reject 语料必红 `RX6026`(负面清单双锁);FS dxil-target 必拒(**RXS-0171
+     L4 冻结锁**,经 rurixc 单测子进程)。uc06 HW device 装配腿未在树 →
+     `hw_raster_diff.status` 维持 blocked,缺项机器产出(不伪造 device 条目)。
   6. W1/W2 零漂移门:五 kernel 逐件对 `tests/vulkan/w1w2_spv_manifest.json` 的
      sha256 + SPIR-V 版本 + capability 集合比对(**不重 bless**)。
   7. RED 反证:篡改 `.spv` 单字节 → `spirv-val` 必拒。
@@ -63,8 +65,16 @@ SCENE_FREEZE = ROOT / "milestones" / "g7" / "G7_SCENE_FREEZE.md"
 VISBUFFER_HOST = ROOT / "src" / "rurix-render" / "src" / "geometry" / "visbuffer.rs"
 GRAPH_TYPES = ROOT / "src" / "rurix-render" / "src" / "graph" / "types.rs"
 SW_KERNEL = KERNEL_DIR / "visbuffer_sw_u64.rx"
-HW_REJECT = ROOT / "conformance" / "vulkan" / "reject" / "vk_hw_raster_visbuffer_fs.rx"
-DXIL_SPIRV = ROOT / "src" / "rurixc" / "src" / "dxil_spirv.rs"
+HW_ACCEPT_FS = ROOT / "conformance" / "vulkan" / "accept" / "vk_hw_raster_visbuffer_fs.rx"
+HW_ACCEPT_VS = ROOT / "conformance" / "vulkan" / "accept" / "vk_hw_raster_visbuffer_vs.rx"
+# §2.4 四枚负面清单 reject 语料(RXS-0301 L3;与 vulkan_codegen_smoke reject 段双锁)。
+HW_REJECTS = tuple(
+    ROOT / "conformance" / "vulkan" / "reject" / f"vk_hw_raster_{n}_reject.rx"
+    for n in ("loop", "devfn_call", "cta_atomic", "f64")
+)
+UC06_SRC = ROOT / "apps" / "uc06-renderer" / "src"
+# PR-4 装配腿的机器探测字面(设计 §4:uc06 CLI `--g75-hw-raster`)。
+HW_DEVICE_FLAG = "--g75-hw-raster"
 
 TAG = "renderer_raster_diff_smoke"
 
@@ -86,8 +96,10 @@ LITERAL_ROWS = (
 # 冻结场景锚(G7_SCENE_FREEZE.md §1/§2;漂移即判据失据)。
 SCENE_ANCHORS = ("764", "实例数 = 3", "[0.0, 2.2, 3.4]", "[0.0, 0.35, 0.0]")
 
-# HW 光栅逐轴隔离探针:源码 → (缺失能力名, 期望诊断子串)。
-# 每条只含**一个**白名单外构造,故诊断可逐轴归因(RXS-0171 L4 排除项)。
+# HW 光栅逐轴隔离探针:源码 → (capability 名, 旧「必红」期望诊断子串〔仅存档〕)。
+# 每条只含**一个**RXS-0171 L4 白名单外构造。G7.5b 语义翻转(设计 §5.2):断言方向
+# 由「必红且落该诊断」改为「必绿 + spirv-val」——探针文本一字不动,成为
+# RXS-0301 六项 capability 的正向机器锁。
 HW_PROBES: dict[str, tuple[str, str, str]] = {
     "vector_component": (
         "graphics_vector_component_projection",
@@ -156,9 +168,8 @@ fragment fn probe(inp: P) -> O { O { v: inp.s } }
 fn main() {}
 """
 
-# 图形阶段 SSBO/原子资源面:无法用「未消费形参」探针隔离(未使用形参被消解),
-# 以编码器**资源最小子集**的 strict-only 拒绝分支字面做静态审计。
-SSBO_FACE_ANCHOR = "structured buffer SPIR-V 降级为后续扩展"
+# 图形阶段 SSBO/u64 原子资源面(graphics_ssbo_atomic_u64):翻转后不再静态审计
+# 拒绝分支字面 —— 由目标 FS 语料编译绿 + caps 含 Int64Atomics 正向机证(步骤 5 ①)。
 
 
 def fail(msg: str) -> int:
@@ -421,33 +432,77 @@ def kernel_emit_section(results: dict, work: Path) -> bool:
     return True
 
 
-def hw_raster_blocked_section(results: dict, work: Path) -> bool:
-    """步骤 5:HW 光栅 blocked-honest 机验(目标形态语料必红 + 逐轴隔离探针取真实诊断)。
+def hw_raster_capability_section(results: dict, work: Path) -> bool:
+    """步骤 5(G7.5b 翻转,设计 §5.2;RXS-0301~0303):HW 光栅 capability 机验。
 
-    产出 `missing_toolchain_caps` 机器清单 —— schema 强制其非空,封死「HW 侧
-    没做却把 diff 记成通过」与「blocked 只写一句话」两条空转窗口。
+    由 `hw_raster_blocked_section` 演进:① 目标形态 FS/VS 语料(accept/)必绿 +
+    版本 1.0 + caps 集合断言;② 六枚隔离探针「必红」→「必绿 + spirv-val」翻转
+    (文本不动)= 六项 capability 正向机器锁;③ §2.4 四枚 reject 语料必红 RX6026;
+    ④ FS dxil-target 必拒(RXS-0171 冻结锁)。uc06 device 装配腿未在树 → status
+    维持 blocked-frozen-graphics-body-slice,缺项机器产出(不伪造 device 条目)。
     """
-    if not HW_REJECT.is_file():
-        results["hw_raster_blocked_honest_pass"] = False
-        print(f"[{TAG}] 缺 HW 光栅目标形态语料 {HW_REJECT}", file=sys.stderr)
-        return False
-    # ① 目标形态语料必红 RX6026 且零 .spv(strict-only 不静默降级)。
-    corpus_spv = work / "hw_raster_target.spv"
-    code, blob = compile_rx(HW_REJECT, corpus_spv)
-    if code == 0 or "RX6026" not in blob or corpus_spv.is_file():
-        results["hw_raster_blocked_honest_pass"] = False
-        print(
-            f"[{TAG}] HW 光栅目标形态语料应红 RX6026 且零 .spv,实测 rc={code} "
-            f"spv={corpus_spv.is_file()}\n{blob[-1200:]}",
-            file=sys.stderr,
-        )
-        return False
-    # ② 逐轴隔离探针:每条只含一个白名单外构造,诊断可逐轴归因。
     probes: dict = {}
-    caps: list[str] = []
+    green_caps: list[str] = []
     ok = True
+
+    # ① 目标形态语料必绿:FS caps=={Shader,Int64,Int64Atomics} / VS caps=={Shader},
+    #    版本字均恒 1.0,spirv-val vulkan1.0 accept(RXS-0302 L3/L4)。
+    for src, want_caps in (
+        (HW_ACCEPT_FS, ["Int64", "Int64Atomics", "Shader"]),
+        (HW_ACCEPT_VS, ["Shader"]),
+    ):
+        if not src.is_file():
+            results["hw_raster_blocked_honest_pass"] = False
+            print(f"[{TAG}] 缺 HW 光栅目标形态语料 {src}", file=sys.stderr)
+            return False
+        spv = work / f"hw_{src.stem}.spv"
+        code, blob = compile_rx(src, spv)
+        if code != 0 or not spv.is_file():
+            results["hw_raster_blocked_honest_pass"] = False
+            print(
+                f"[{TAG}] HW 光栅目标形态语料 {src.stem} 应绿,实测 rc={code}\n{blob[-1200:]}",
+                file=sys.stderr,
+            )
+            return False
+        if spv_version(spv) != "1.0":
+            results["hw_raster_blocked_honest_pass"] = False
+            print(
+                f"[{TAG}] {src.stem} SPIR-V 版本 {spv_version(spv)} != 1.0(RXS-0302 L4)",
+                file=sys.stderr,
+            )
+            return False
+        vc, vblob = spirv_val(spv, "vulkan1.0")
+        if vc == -1:
+            results["toolchain_skip"] = "no-spirv-val"
+            return True
+        if vc != 0:
+            results["hw_raster_blocked_honest_pass"] = False
+            print(f"[{TAG}] {src.stem} spirv-val 拒: {vblob[-800:]}", file=sys.stderr)
+            return False
+        dc, dis = disasm(spv)
+        if dc == -1:
+            results["toolchain_skip"] = "no-spirv-dis"
+            return True
+        caps = sorted(
+            line.split("OpCapability", 1)[1].strip()
+            for line in dis.splitlines()
+            if "OpCapability" in line
+        )
+        if caps != want_caps:
+            results["hw_raster_blocked_honest_pass"] = False
+            print(
+                f"[{TAG}] {src.stem} capability 集合 {caps} != {want_caps}(按需声明,不用不发)",
+                file=sys.stderr,
+            )
+            return False
+        probes[f"target_{src.stem}"] = {
+            "missing_capability": "n/a(目标形态语料:必绿 + spirv-val + caps 集合)",
+            "rc": code,
+            "expected_diagnostic": "",
+            "matched": True,
+        }
     with tempfile.TemporaryDirectory() as d:
-        # 绿对照臂先行:同形态单层直通必须编译绿,证明探针写法本身可过。
+        # 绿对照臂(保留):同形态单层直通必绿 —— 探针方法自证基线不变。
         ctl = Path(d) / "control_green.rx"
         ctl.write_text(HW_PROBE_CONTROL, encoding="utf-8", newline="\n")
         ctl_rc, ctl_out = compile_rx(ctl, Path(d) / "control_green.spv")
@@ -460,67 +515,107 @@ def hw_raster_blocked_section(results: dict, work: Path) -> bool:
         if ctl_rc != 0:
             ok = False
             print(
-                f"[{TAG}] 绿对照臂未编译通过(rc={ctl_rc})——探针方法失据,"
-                f"红不可归因于白名单:\n{ctl_out[-900:]}",
+                f"[{TAG}] 绿对照臂未编译通过(rc={ctl_rc}):\n{ctl_out[-900:]}",
                 file=sys.stderr,
             )
-        for pname, (cap, want, src) in HW_PROBES.items():
+        # ② 六枚隔离探针必绿 + spirv-val(语义翻转;探针文本一字不动)。
+        for pname, (cap, _old_want, src_text) in HW_PROBES.items():
             rx = Path(d) / f"{pname}.rx"
-            rx.write_text(src, encoding="utf-8", newline="\n")
+            rx.write_text(src_text, encoding="utf-8", newline="\n")
             spv = Path(d) / f"{pname}.spv"
             rc, out = compile_rx(rx, spv)
-            hit = rc != 0 and want in out
+            green = rc == 0 and spv.is_file()
+            if green:
+                vc, vblob = spirv_val(spv, "vulkan1.0")
+                if vc == -1:
+                    results["toolchain_skip"] = "no-spirv-val"
+                    return True
+                green = vc == 0
+                if not green:
+                    out = vblob
             probes[pname] = {
                 "missing_capability": cap,
                 "rc": rc,
-                "expected_diagnostic": want,
-                "matched": hit,
+                "expected_diagnostic": "",
+                "matched": green,
             }
-            if hit:
-                caps.append(cap)
+            if green:
+                green_caps.append(cap)
             else:
                 ok = False
                 print(
-                    f"[{TAG}] 隔离探针 {pname} 未落期望诊断(rc={rc});期望子串 {want!r}\n"
+                    f"[{TAG}] capability 探针 {pname} 应绿 + spirv-val(rc={rc}):\n"
                     f"{out[-900:]}",
                     file=sys.stderr,
                 )
-    # ③ 图形阶段 SSBO/原子资源面:静态审计编码器资源最小子集的 strict-only 拒绝分支。
-    ssbo_anchor = DXIL_SPIRV.is_file() and SSBO_FACE_ANCHOR in DXIL_SPIRV.read_text(
-        encoding="utf-8"
+        # ③ §2.4 四枚 reject 语料必红 RX6026 且零 .spv(负面清单双锁,RXS-0301 L3)。
+        for rej in HW_REJECTS:
+            if not rej.is_file():
+                ok = False
+                print(f"[{TAG}] 缺负面清单 reject 语料 {rej}", file=sys.stderr)
+                continue
+            spv = Path(d) / f"{rej.stem}.spv"
+            rc, out = compile_rx(rej, spv)
+            red = rc != 0 and "RX6026" in out and not spv.is_file()
+            probes[rej.stem] = {
+                "missing_capability": "n/a(负面清单 RED:恒拒 RX6026)",
+                "rc": rc,
+                "expected_diagnostic": "RX6026",
+                "matched": red,
+            }
+            if not red:
+                ok = False
+                print(
+                    f"[{TAG}] 负面清单语料 {rej.stem} 应红 RX6026 且零 .spv,"
+                    f"实测 rc={rc} spv={spv.is_file()}\n{out[-900:]}",
+                    file=sys.stderr,
+                )
+    # ④ DXIL 冻结锁:FS 语料 dxil-target 必拒(RXS-0171 L4 一字不动;经 rurixc 单测)。
+    rc, o, e = run(
+        [
+            "cargo", "test", "-q", "-p", "rurixc", "--features", "vulkan-backend",
+            "--test", "hw_raster_vulkan_spirv_val", "hw_raster_fs_dxil_target_still_rejected",
+        ]
     )
-    probes["ssbo_atomic_resource_face"] = {
-        "missing_capability": "graphics_ssbo_atomic_u64",
-        "rc": None,
-        "expected_diagnostic": SSBO_FACE_ANCHOR,
-        "matched": ssbo_anchor,
+    probes["dxil_target_freeze_lock"] = {
+        "missing_capability": "n/a(RXS-0171 L4 冻结锁:FS dxil-target 必拒)",
+        "rc": rc,
+        "expected_diagnostic": "",
+        "matched": rc == 0,
     }
-    if ssbo_anchor:
-        caps.append("graphics_ssbo_atomic_u64")
-    else:
+    if rc != 0:
         ok = False
-        print(
-            f"[{TAG}] 未在 dxil_spirv.rs 锚定图形资源最小子集拒绝分支字面 "
-            f"{SSBO_FACE_ANCHOR!r}(阻断依据失据)",
-            file=sys.stderr,
-        )
+        print(f"[{TAG}] DXIL 冻结锁单测失败(rc={rc}):\n{(o + e)[-900:]}", file=sys.stderr)
+    # ⑤ blocked-honest 余项:uc06 device 装配腿(PR-4)在树与否的机器探测。
+    device_leg = any(
+        HW_DEVICE_FLAG in p.read_text(encoding="utf-8", errors="replace")
+        for p in sorted(UC06_SRC.rglob("*.rs"))
+    )
+    missing = [] if device_leg else [
+        f"uc06_g75_hw_raster_device_assembly({HW_DEVICE_FLAG} CLI 装配腿未在树,设计 §4/PR-4)"
+    ]
     results["hw_raster_blocked_honest_pass"] = ok
     results["hw_raster_diff"] = {
         "status": "blocked-frozen-graphics-body-slice",
         "hw_side": None,
         "diff_pixels": None,
-        "missing_toolchain_caps": sorted(set(caps)),
+        "missing_toolchain_caps": missing,
         "blocking_probes": probes,
-        "target_corpus": str(HW_REJECT.relative_to(ROOT)).replace("\\", "/"),
-        "spec_anchor": "spec/dxil_backend.md RXS-0171 L4(最小 rvalue 白名单;"
-                       "Vulkan 原生图形路复用 dxil_spirv::emit_spirv_body_vulkan 同一编码器)",
-        "escalation": "RFC-0018 修订行(图形阶段 body 面加性扩展 + Vulkan 覆盖规则裁定);"
-                      "在裁定前禁止放宽整数域容差,亦禁止以容差型替代物冒充 diff=0",
+        "target_corpus": str(HW_ACCEPT_FS.relative_to(ROOT)).replace("\\", "/"),
+        "spec_anchor": "spec/vulkan_backend.md RXS-0301/0302/0303(两遍编译扩展白名单 + "
+                       "资源绑定/原子语义 + 保守光栅执行语义);spec/dxil_backend.md "
+                       "RXS-0171 L4 冻结不动(DXIL 路必拒)",
+        "escalation": "capability 面已翻绿(RFC-0018 §E 裁定兑现);余项 = uc06 device "
+                      "装配腿真跑 diff=0(设计 §4/PR-4);仍禁止以容差型替代物冒充 diff=0",
     }
     if ok:
+        # 六项 capability = 五枚隔离探针 + graphics_ssbo_atomic_u64(由目标 FS 语料
+        # 编译绿 + caps 含 Int64Atomics 正向机证,见步骤 ①)。
+        green_caps.append("graphics_ssbo_atomic_u64(经目标 FS 语料)")
         print(
-            f"[{TAG}] 步骤 5 PASS(blocked-honest): HW 光栅目标形态语料 RX6026 必红;"
-            f"{len(set(caps))} 条缺失能力逐轴机验 = {sorted(set(caps))}"
+            f"[{TAG}] 步骤 5 PASS(capability 翻转): 目标 FS/VS 必绿 + 版本 1.0 + caps 集合;"
+            f"{len(green_caps)}/6 capability 翻绿 = {sorted(green_caps)};"
+            f"4 reject 恒红 RX6026;dxil 冻结锁绿;device 装配腿余项 = {missing or '在树'}"
         )
     return ok
 
@@ -848,7 +943,7 @@ def main() -> int:
     if host_ok:
         host_ok = kernel_emit_section(results, work)
     if host_ok and results.get("toolchain_skip") is None:
-        host_ok = hw_raster_blocked_section(results, work)
+        host_ok = hw_raster_capability_section(results, work)
     if host_ok and results.get("toolchain_skip") is None:
         host_ok = w1w2_zero_drift_section(results, work)
     if host_ok and results.get("toolchain_skip") is None:

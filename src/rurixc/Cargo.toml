@@ -86,5 +86,12 @@ required-features = ["vulkan-backend"]
 name = "compute_w2_vulkan_spirv_val"
 required-features = ["vulkan-backend"]
 
+# G7.5b PR-3 HW 光栅两遍编译机验(RXS-0301/0302/0303):dxil-target 必拒(RXS-0171
+# 冻结锁)+ caps 集合/版本 1.0/set-binding-push-constant 布局断言 + spirv-val 三态,
+# 须 vulkan-backend(第二遍 ext lowerer)+ shader-stages(vertex/fragment 阶段面)。
+[[test]]
+name = "hw_raster_vulkan_spirv_val"
+required-features = ["vulkan-backend", "shader-stages"]
+
 [lints]
 workspace = true

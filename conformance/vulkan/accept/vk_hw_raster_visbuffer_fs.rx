@@ -1,0 +1,99 @@
+//@ spec: RXS-0301, RXS-0302, RXS-0303
+// G7.5b(门 G-G7-7)HW 光栅 VisBuffer fragment 语料 —— 自 reject/ **原地迁移**入
+// accept/(路 A 语料归位先例:v1.43 `vk_storage_image_w1.rx`;RFC-0018 §E3 裁定 +
+// RXS-0301~0303 条款落地后,RXS-0301 扩展白名单 lowerer 使本形态可编译)。
+// 本语料即 uc06 HW 光栅腿实装内核的同源文本(PR-4 消费)。
+//
+// 语义(与在树 W2 `apps/uc06-renderer/kernels/visbuffer_sw_u64.rx` 同 ABI):
+// 保守光栅 OVERESTIMATE 派发 fragment(覆盖超集,RXS-0303 L2),fragment 侧
+// **逐字复刻** software raster 的判定 —— 绕向归一(`area < 0.0` 交换 b/c)、
+// 精确 f32 边函数(采样点 = 像素中心 `k+0.5` = `frag_coord.xy`)、top-left 补边、
+// reverse-Z 30 位深度量化,按冻结位格式 `depth30<<34 | cluster27<<7 | tri7` 经
+// u64 `atomicMax`(Device scope,Relaxed)写 VisBuffer SSBO;`inside` 不成立不写
+// (无 discard,helper invocation 无可见副作用)—— SW/HW 整数域逐像素 diff = 0
+// 的成立根基(RFC-0018 §E2 五项论证)。
+//
+// **逐字来源纪律(RXS-0303 L2,diff=0 论证第 3 项)**:自 `let area = ...` 起的
+// 判定/量化/pack 表达式序列与 `visbuffer_sw_u64.rx` 源文本**逐字同构**(拷贝而非
+// 重写;精确 f32 字面权威,禁升 f64 改写——f64 恒拒〔RXS-0301 L3〕即其编译期护栏)。
+// 仅输入取数不同(SW:pixel 分解 + triangles[]/ids[] 缓冲;HW:frag_coord +
+// flat varying),两侧经同一 rurixc 前端 lower 出同形 MIR,压制浮点收缩分歧面。
+// 输入取数行显式 `: f32`/`: u32` 标注:`vec4`/`vec2` 为 typeck 容忍位名约定
+// (RXS-0174),分量投影须显式钉型,使判定段未后缀浮点字面量与 SW 侧同样
+// 统一到 **f32**(禁 f64 默认;判定段自身零改写)。
+//
+// 编码面(RXS-0301/0302):多层 Field 投影(`inp.frag.0`)、f32/整数比较与逻辑
+// 短路(嵌套 SwitchBool)、结构化 if/可变局部/`round`→RoundEven、`as` cast 表/
+// usize 索引、标量→向量输出装配、`AtomicView<global,u64>` → set0/binding0 SSBO +
+// `OpAtomicUMax` + Int64/Int64Atomics 按需 capability、`width: usize` → push
+// constant 块 Offset 0;SPIR-V 版本恒 1.0。
+struct VbFsIn {
+    #[builtin(frag_coord)] frag: vec4<f32>,
+    #[interpolate(flat)] va: vec4<f32>,
+    #[interpolate(flat)] vb: vec4<f32>,
+    #[interpolate(flat)] vc: vec4<f32>,
+    #[interpolate(flat)] ids: vec2<u32>,
+}
+
+struct VbFsOut {
+    #[interpolate(perspective)] color: vec4<f32>,
+}
+
+fragment fn visbuffer_hw_fs(
+    inp: VbFsIn,
+    vis: AtomicView<global, u64, (9216,)>,
+    width: usize,
+) -> VbFsOut {
+    let px: f32 = inp.frag.0;
+    let py: f32 = inp.frag.1;
+    let ax: f32 = inp.va.0;
+    let ay: f32 = inp.va.1;
+    let az: f32 = inp.va.2;
+    let bx0: f32 = inp.vb.0;
+    let by0: f32 = inp.vb.1;
+    let bz0: f32 = inp.vb.2;
+    let cx0: f32 = inp.vc.0;
+    let cy0: f32 = inp.vc.1;
+    let cz0: f32 = inp.vc.2;
+    let area = (bx0 - ax) * (cy0 - ay) - (by0 - ay) * (cx0 - ax);
+    if area < 0.0 {
+        let bx = cx0;
+        let by = cy0;
+        let bz = cz0;
+        let cx = bx0;
+        let cy = by0;
+        let cz = bz0;
+        let e_bc = (cx - bx) * (py - by) - (cy - by) * (px - bx);
+        let e_ca = (ax - cx) * (py - cy) - (ay - cy) * (px - cx);
+        let e_ab = (bx - ax) * (py - ay) - (by - ay) * (px - ax);
+        let tl_bc = (cy - by) > 0.0 || ((cy - by) == 0.0 && (cx - bx) > 0.0);
+        let tl_ca = (ay - cy) > 0.0 || ((ay - cy) == 0.0 && (ax - cx) > 0.0);
+        let tl_ab = (by - ay) > 0.0 || ((by - ay) == 0.0 && (bx - ax) > 0.0);
+        let inside =
+            (e_bc > 0.0 || (e_bc == 0.0 && tl_bc)) &&
+            (e_ca > 0.0 || (e_ca == 0.0 && tl_ca)) &&
+            (e_ab > 0.0 || (e_ab == 0.0 && tl_ab));
+        if inside {
+            let mut z = (e_bc * az + e_ca * bz + e_ab * cz) / (0.0 - area);
+            if z < 0.0 { z = 0.0; }
+            if z > 1.0 { z = 1.0; }
+            let mut depth = ((1.0 - z) * (1073741823u32 as f32)).round() as u32;
+            if depth < 1u32 { depth = 1u32; }
+            if depth > 1073741823u32 { depth = 1073741823u32; }
+            let cluster: u32 = inp.ids.0;
+            let tri: u32 = inp.ids.1;
+            let packed =
+                ((depth as u64) << 34u64) |
+                ((cluster as u64) << 7u64) |
+                (tri as u64);
+            let pixel = (py as usize) * width + (px as usize);
+            let _old = vis.fetch_max(pixel, packed, Scope::Gpu);
+        }
+    }
+    // color 为丢弃占位(VisBuffer 走 SSBO;dummy attachment 形态,设计 §4.4)。
+    // 字面量显式 f32 后缀:vec4 容忍位下未后缀浮点默认 f64,触 RXS-0301 L3 恒拒
+    // ——本行不属 SW 判定段逐字面,后缀仅钉型不改值位型。
+    VbFsOut { color: (0.0f32, 0.0f32, 0.0f32, 1.0f32) }
+}
+
+fn main() {}

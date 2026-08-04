@@ -1142,7 +1142,7 @@ fn collect_spirv_entries(cx: &QueryCtx<'_>) -> Vec<codegen::SpirvModule> {
                 .map(|words| (codegen::stage_tag(ShaderStage::Compute), words))
                 .map_err(|e| e.detail),
             Some(stage @ (ShaderStage::Vertex | ShaderStage::Fragment)) => {
-                crate::dxil_spirv::emit_spirv_body_vulkan(stage, b)
+                crate::dxil_spirv::emit_spirv_body_vulkan(stage, b, &res)
                     .map(|words| (codegen::stage_tag(stage), words))
                     .map_err(|e| e.to_string())
             }

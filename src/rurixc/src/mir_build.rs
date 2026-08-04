@@ -1390,6 +1390,7 @@ impl Builder<'_, '_> {
             tbir::ExprKind::AtomicCall {
                 op,
                 is_view,
+                scope,
                 receiver,
                 args,
             } => {
@@ -1431,6 +1432,7 @@ impl Builder<'_, '_> {
                         index,
                         value,
                         compare,
+                        scope: *scope,
                     },
                     ty,
                     e.span,

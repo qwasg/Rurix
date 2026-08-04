@@ -2132,20 +2132,50 @@ pub fn emit_spirv_body(stage: ShaderStage, body: &Body) -> Result<Vec<u32>, Dxil
     )
 }
 
-/// Vulkan 原生消费入口(RXS-0210):与 [`emit_spirv_body`] 同降级,但 **不 emit**
-/// provenance 装饰(`UserSemantic` → `SPV_GOOGLE_hlsl_functionality1`)。保名仅 B 路
-/// SPIRV-Cross→HLSL→dxc 边界需要(Vulkan 原生按 `Location`/`BuiltIn` 消费,永不需要);
-/// 去装饰后 `.spv` 对所有 Vulkan ICD(NVIDIA/AMD/Android/lavapipe)零扩展依赖直喂
-/// `vkCreateShaderModule`(免 device 扩展 `VK_GOOGLE_hlsl_functionality1`,VUID-...-08742)。
-/// DXIL 路(`emit_spirv_body`,provenance=true)保名字节不变、零回归。
-pub fn emit_spirv_body_vulkan(stage: ShaderStage, body: &Body) -> Result<Vec<u32>, DxilError> {
-    emit_spirv_inner(
+/// Vulkan 原生消费入口(RXS-0210 + G7.5b RXS-0301 两遍编译):与 [`emit_spirv_body`]
+/// 同 io/资源面,但 **不 emit** provenance 装饰(`UserSemantic` →
+/// `SPV_GOOGLE_hlsl_functionality1`)。保名仅 B 路 SPIRV-Cross→HLSL→dxc 边界需要
+/// (Vulkan 原生按 `Location`/`BuiltIn` 消费,永不需要);去装饰后 `.spv` 对所有
+/// Vulkan ICD 零扩展依赖直喂 `vkCreateShaderModule`(免 `VK_GOOGLE_hlsl_functionality1`,
+/// VUID-...-08742)。DXIL 路(`emit_spirv_body`,provenance=true)保名字节不变、零回归。
+///
+/// **两遍编译(RXS-0301 Dynamic Semantics,RFC-0018 §E3 授权)**:
+/// - 第一遍 = 现行最小 [`BodyLowerer`](RXS-0171 L4 白名单):成功即**原样输出**——
+///   既有全部图形 accept 语料/RHI demo 不经任何新代码,输出字节零漂移 by construction;
+/// - 第一遍 [`DxilError::Unmappable`] 且 provenance=false → 第二遍
+///   [`ext::emit_spirv_ext`](RXS-0301 扩展白名单,全新 Builder 纯函数式重发射;
+///   仅 feature `vulkan-backend` 编入——DXIL-only 构建维持单遍,`--target vulkan`
+///   本就不可达);
+/// - 第二遍仍失败 → 错误上抛,driver/`build_and_emit_vulkan` 落 **RX6026**
+///   (诊断收窄为 RXS-0301 L3 负面清单命中项)。
+///
+/// `res`:名称解析产物(扩展遍的形参分类事实源——`View`/`ViewMut`/`AtomicView`
+/// lang item 判定,RXS-0302 L1;第一遍不消费)。
+pub fn emit_spirv_body_vulkan(
+    stage: ShaderStage,
+    body: &Body,
+    res: &crate::resolve::Resolutions,
+) -> Result<Vec<u32>, DxilError> {
+    let first = emit_spirv_inner(
         stage,
         &body.io_sig,
         &body.resources,
         Some(body),
         /*provenance=*/ false,
-    )
+    );
+    #[cfg(feature = "vulkan-backend")]
+    {
+        match first {
+            // 仅 Unmappable 触发第二遍(SampleUnsupported 维持第一遍采样子集语义原样上抛)。
+            Err(DxilError::Unmappable { .. }) => ext::emit_spirv_ext(stage, body, res),
+            other => other,
+        }
+    }
+    #[cfg(not(feature = "vulkan-backend"))]
+    {
+        let _ = res;
+        first
+    }
 }
 
 fn emit_spirv_inner(
@@ -2296,6 +2326,1912 @@ fn emit_spirv_inner(
     module[bound_index] = b.next_id;
 
     Ok(module)
+}
+
+// ───────────────── 第二遍:ExtendedBodyLowerer(G7.5b,RXS-0301~0303) ─────────────────
+
+/// Vulkan 原生图形 body 扩展 lowerer(**第二遍**;RXS-0301 白名单,RFC-0018 §E3 授权;
+/// 仅 feature `vulkan-backend` 编入——第一遍 [`BodyLowerer`] 与 DXIL 路 0-byte 不经此处)。
+///
+/// 结构镜像 [`crate::vulkan_codegen`] compute 路成熟做法(RXS-0301 IR 逐字):
+/// - **内存式 local**:MIR 预扫描判「多次赋值或跨分支活跃」→ Function 存储
+///   `OpVariable` + Load/Store;单赋值直线 local 维持 SSA 值;
+/// - **结构化 `if`**:`SwitchBool` → `OpSelectionMerge` + 条件分支,merge 复用
+///   [`crate::vulkan_codegen::structured_merge`] 前向可达交汇算法;**循环不实现**
+///   (回边预扫描恒拒,RXS-0301 L3 负面清单);
+/// - **表级复用**:[`crate::vulkan_codegen::binop_opcode`](含比较/位运算)/
+///   [`crate::vulkan_codegen::cast_opcode`] / [`crate::vulkan_codegen::glsl_ext_op`]
+///   (round→RoundEven)与原子发射段常量(`OP_ATOMIC_UMAX` + Device scope + Relaxed
+///   semantics + `CAP_INT64`/`CAP_INT64_ATOMICS`)与 compute 路**逐字同值**双路共享
+///   (仅可见性提升,compute 发射序 0-byte,W1/W2 manifest 零漂移门维持);
+/// - **资源分类**(RXS-0302 L1,与 compute 同一分配律):图形入口签名中
+///   `View`/`ViewMut`/`AtomicView<global,..>` buffer 形参按声明序 → `set=0, binding=n`
+///   (StorageBuffer,std430,SPIR-V 1.0 形态 = `BufferBlock`+`Uniform`);标量形参按
+///   声明序聚合单 push constant 块(Offset 4 字节对齐顺排;u64 标量 8 字节对齐同
+///   compute `prim_layout` 律);
+/// - **SPIR-V 版本恒 1.0**(RXS-0302 L4);capability 按需:u64 类型 → `Int64`,
+///   u64 原子 → 追加 `Int64Atomics`(不用不发)。
+#[cfg(feature = "vulkan-backend")]
+mod ext {
+    use super::*;
+    use crate::hir::AtomicOp;
+    use crate::mir::CallTarget;
+    use crate::resolve::Resolutions;
+    use crate::ty::Ty;
+    use crate::vulkan_codegen::{
+        CAP_INT64, CAP_INT64_ATOMICS, MEM_SEM_RELAXED, OP_ATOMIC_UMAX, SCOPE_DEVICE, binop_opcode,
+        block_succs, cast_opcode, glsl_ext_op, structured_merge,
+    };
+
+    // 本遍新增消费的 SPIR-V core 常量(第一遍未触及的枚举/opcode;取值同
+    // vulkan_codegen 同名常量,SPIR-V core 规范数值)。
+    const OP_TYPE_BOOL: u16 = 20;
+    const OP_COMPOSITE_CONSTRUCT: u16 = 80;
+    const OP_COMPOSITE_EXTRACT: u16 = 81;
+    const OP_SELECT: u16 = 169;
+    const OP_INOTEQUAL: u16 = 171;
+    const OP_SELECTION_MERGE: u16 = 247;
+    const OP_BRANCH: u16 = 249;
+    const OP_BRANCH_CONDITIONAL: u16 = 250;
+    const OP_UNREACHABLE: u16 = 255;
+    const STORAGE_FUNCTION: u32 = 7;
+    const STORAGE_UNIFORM: u32 = 2;
+    const DECORATION_ARRAY_STRIDE: u32 = 6;
+    const DECORATION_BUFFER_BLOCK: u32 = 3;
+    const SELECTION_CONTROL_NONE: u32 = 0;
+
+    /// 值形状(SPIR-V 已建模标量/向量;prim 恒为**归一化**后的建模集
+    /// {F32,I32,U32,I64,U64,} —— `Usize/U16/U8/Bool → U32`、`I16/I8 → I32`,
+    /// 与 compute 路 `prim_type` 的 32 位收编同律)。
+    #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+    enum EKind {
+        Scalar(PrimTy),
+        Vector(PrimTy, u8),
+    }
+
+    /// 已物化 SPIR-V 值。
+    #[derive(Clone, Copy, Debug)]
+    struct EVal {
+        id: u32,
+        kind: EKind,
+    }
+
+    /// 求值结果(unit / 标量·向量值 / 输出结构体聚合)。
+    #[derive(Clone, Debug)]
+    enum EOperand {
+        Unit,
+        Value(EVal),
+        Agg(Vec<EVal>),
+    }
+
+    /// 每个 MIR local 的降级槽位(预扫描 + 形参分类产物)。
+    #[derive(Clone, Debug)]
+    enum Slot {
+        /// 返回槽 `_0`(输出装配面)。
+        Ret,
+        /// 唯一 IO 结构体形参(Field 投影 → Input 变量)。
+        IoStruct,
+        /// buffer 形参(`View`/`ViewMut`/`AtomicView<global,..>` → SSBO 描述符)。
+        Buffer { var: u32, elem: PrimTy },
+        /// 纹理/采样器句柄形参(资源变量由第一遍同款 `emit_resource` 发射;
+        /// body 内非采样引用恒拒)。
+        Resource,
+        /// 内存式 local(Function 存储 `OpVariable`)。
+        Var { var: u32, kind: EKind },
+        /// 单赋值直线 local(SSA 值,赋值时物化进 `ssa` 表)。
+        Ssa,
+        /// 输出结构体聚合临时(字段值向量,赋值时物化进 `agg` 表)。
+        Agg,
+        /// 零尺寸(unit / ThreadCtx):不物化。
+        Zst,
+    }
+
+    /// 归一化到 SPIR-V 建模标量集(compute `prim_type` 32 位收编同律;bool 内存
+    /// 以 u32(0/1) 表示,镜像 compute `OpSelect` 口径)。f64 → `None`(负面清单)。
+    fn norm_prim(p: PrimTy) -> Option<PrimTy> {
+        Some(match p {
+            PrimTy::F32 => PrimTy::F32,
+            PrimTy::I32 | PrimTy::I16 | PrimTy::I8 => PrimTy::I32,
+            PrimTy::U32 | PrimTy::U16 | PrimTy::U8 | PrimTy::Usize | PrimTy::Bool => PrimTy::U32,
+            PrimTy::I64 => PrimTy::I64,
+            PrimTy::U64 => PrimTy::U64,
+            _ => return None,
+        })
+    }
+
+    fn is_signed(p: PrimTy) -> bool {
+        matches!(p, PrimTy::I8 | PrimTy::I16 | PrimTy::I32 | PrimTy::I64)
+    }
+
+    /// MIR 值类型 → 形状(标量 / 2..=4 同型元组向量;归一化;其余 `None`)。
+    fn ekind_of(ty: &Ty) -> Option<EKind> {
+        match ty {
+            Ty::Prim(p) => Some(EKind::Scalar(norm_prim(*p)?)),
+            Ty::Tuple(el) if (2..=4).contains(&el.len()) => {
+                let Some(Ty::Prim(first)) = el.first() else {
+                    return None;
+                };
+                if !el.iter().all(|t| matches!(t, Ty::Prim(p) if p == first)) {
+                    return None;
+                }
+                Some(EKind::Vector(norm_prim(*first)?, el.len() as u8))
+            }
+            _ => None,
+        }
+    }
+
+    /// I/O 元素类型 → 形状(io 面已建模 f32/i32/u32 标量与向量,恒可归一)。
+    fn ekind_of_io(ty: MirIoType) -> EKind {
+        match ty {
+            MirIoType::Scalar(p) => EKind::Scalar(norm_prim(p).unwrap_or(PrimTy::U32)),
+            MirIoType::Vector(p, n) => EKind::Vector(norm_prim(p).unwrap_or(PrimTy::U32), n),
+        }
+    }
+
+    fn unmappable(what: &str, detail: impl Into<String>) -> DxilError {
+        DxilError::unmappable(what, detail)
+    }
+
+    /// CFG 环检测(迭代 DFS 三色法:灰点边 = 回边 = 循环)。后继表复用
+    /// [`crate::vulkan_codegen::block_succs`](与 `structured_merge` 同源)。
+    /// 不可达死块(return 降级产物)一并扫描(保守方向恒为拒)。
+    fn has_cycle(body: &Body) -> bool {
+        let n = body.blocks.len();
+        let succs: Vec<Vec<usize>> = body.blocks.iter().map(block_succs).collect();
+        // 0 = 未访问 / 1 = 在栈(灰) / 2 = 完成(黑)。
+        let mut state = vec![0u8; n];
+        let mut stack: Vec<(usize, usize)> = Vec::new();
+        for start in 0..n {
+            if state[start] != 0 {
+                continue;
+            }
+            state[start] = 1;
+            stack.push((start, 0));
+            while let Some(top) = stack.last_mut() {
+                let (node, i) = (top.0, top.1);
+                if i < succs[node].len() {
+                    top.1 += 1;
+                    let s = succs[node][i];
+                    match state[s] {
+                        0 => {
+                            state[s] = 1;
+                            stack.push((s, 0));
+                        }
+                        1 => return true,
+                        _ => {}
+                    }
+                } else {
+                    state[node] = 2;
+                    stack.pop();
+                }
+            }
+        }
+        false
+    }
+
+    /// 扩展遍入口(纯函数式:全新 [`Builder`] 重发射;失败原因 = RXS-0301 L3
+    /// 负面清单命中或扩展白名单外构造,上层落 RX6026)。
+    pub(super) fn emit_spirv_ext(
+        stage: ShaderStage,
+        body: &Body,
+        res: &Resolutions,
+    ) -> Result<Vec<u32>, DxilError> {
+        let exec_model = match stage {
+            ShaderStage::Vertex => EXEC_MODEL_VERTEX,
+            ShaderStage::Fragment => EXEC_MODEL_FRAGMENT,
+            other => {
+                return Err(unmappable(
+                    "ext-stage",
+                    format!("着色阶段 {other:?} 不在图形扩展编码器(vertex/fragment)内"),
+                ));
+            }
+        };
+        // 负面清单预扫描(RXS-0301 L3):① CFG 环(DFS 灰点回边)= 循环,恒拒
+        // (`while`/`for`/`loop` 的 MIR 降级必产回边;结构化 if 无环——MIR 块编号
+        // 非拓扑序,不能按「目标下标 ≤ 源下标」误判,须按 DFS 祖先边判)。
+        if has_cycle(body) {
+            return Err(unmappable(
+                "ext-negative-loop",
+                "循环(while/for)在图形 body 恒拒(RXS-0301 L3 负面清单,\
+                 拒绝面 grow-only;回边不构成结构化 if)",
+            ));
+        }
+        // ② `shared` 存储(负面清单:共享内存——fragment/vertex 无 workgroup 语义)。
+        if body.locals.iter().any(|l| l.shared) {
+            return Err(unmappable(
+                "ext-negative-shared",
+                "共享内存(`shared`/Workgroup 存储)在图形 body 恒拒(RXS-0301 L3 负面清单)",
+            ));
+        }
+
+        let mut b = Builder::new();
+        b.emit_provenance = false;
+
+        // void 与 fn 类型(供 OpFunction 引用;同第一遍序)。
+        let void_id = b.alloc_id();
+        Builder::emit(&mut b.types, OP_TYPE_VOID, &[void_id]);
+        let fn_type_id = b.alloc_id();
+        Builder::emit(&mut b.types, OP_TYPE_FUNCTION, &[fn_type_id, void_id]);
+
+        // I/O 元素(与第一遍同一 `emit_io_elem`:builtin/Location/Flat 装饰同形)。
+        let mut io_vars = Vec::with_capacity(body.io_sig.len());
+        for elem in &body.io_sig {
+            io_vars.push(b.emit_io_elem(elem, stage)?);
+        }
+        // 纹理/采样器句柄资源(与第一遍同一 vk-native 分配律;本遍 body 不放行采样,
+        // 但资源面保持同形,签名合法性不因走第二遍而漂移)。
+        let spirv_bindings = binding_layout::infer_spirv_bindings_vk_native(&body.resources)
+            .map_err(map_binding_err)?;
+        for (r, intent) in body.resources.iter().zip(spirv_bindings.iter()) {
+            b.emit_resource(r, intent.set, intent.binding)?;
+        }
+
+        let main_id = b.alloc_id();
+        let entry_label = b.alloc_id();
+
+        let mut lo = ExtLowerer::new(body, res, &io_vars);
+        lo.classify_params(&mut b)?;
+        lo.prescan();
+        lo.infer_kinds();
+        lo.alloc_locals(&mut b)?;
+        lo.emit_preamble(&mut b)?;
+        lo.lower_blocks(&mut b)?;
+        if !lo.output_vars.is_empty() && !lo.output_written.iter().all(|w| *w) {
+            return Err(unmappable(
+                "ext-output-return",
+                "着色 body 未写出所有声明的 Output I/O 元素",
+            ));
+        }
+
+        // ── 组装(SPIR-V 逻辑分节序;版本恒 1.0,RXS-0302 L4) ──
+        let mut module: Vec<u32> = Vec::new();
+        module.push(SPIRV_MAGIC);
+        module.push(SPIRV_VERSION_1_0);
+        module.push(SPIRV_GENERATOR);
+        let bound_index = module.len();
+        module.push(0);
+        module.push(SPIRV_SCHEMA);
+
+        // capability:基线 Shader;u64 类型 → Int64;u64 原子 → Int64Atomics
+        // (按需声明,不用不发;常量与 compute 路逐字同值,RXS-0302 L3)。
+        Builder::emit(&mut module, OP_CAPABILITY, &[CAP_SHADER]);
+        if lo.uses_int64 {
+            Builder::emit(&mut module, OP_CAPABILITY, &[CAP_INT64]);
+        }
+        if lo.uses_int64_atomics {
+            Builder::emit(&mut module, OP_CAPABILITY, &[CAP_INT64_ATOMICS]);
+        }
+        for &cap in &b.extra_caps {
+            Builder::emit(&mut module, OP_CAPABILITY, &[cap]);
+        }
+        // extension:provenance=false → 无 UserSemantic/SPV_GOOGLE;descriptor
+        // indexing 面(无界表)与第一遍同形透传。
+        if b.used_descriptor_indexing {
+            let mut operands = Vec::new();
+            Builder::push_string(&mut operands, EXT_DESCRIPTOR_INDEXING);
+            Builder::emit(&mut module, OP_EXTENSION, &operands);
+        }
+        module.extend_from_slice(&b.ext_imports);
+        Builder::emit(
+            &mut module,
+            OP_MEMORY_MODEL,
+            &[ADDR_MODEL_LOGICAL, MEM_MODEL_GLSL450],
+        );
+        // entry point:interface 仅 Input/Output(SPIR-V 1.0;SSBO/push-constant
+        // 变量不入 interface)。入口名恒 "main"(与第一遍/运行时 pName 同约定)。
+        {
+            let mut operands = vec![exec_model, main_id];
+            Builder::push_string(&mut operands, "main");
+            operands.extend_from_slice(&b.interface);
+            Builder::emit(&mut module, OP_ENTRY_POINT, &operands);
+        }
+        if stage == ShaderStage::Fragment {
+            Builder::emit(
+                &mut module,
+                OP_EXECUTION_MODE,
+                &[main_id, EXEC_MODE_ORIGIN_UPPER_LEFT],
+            );
+        }
+        module.extend_from_slice(&b.decorations);
+        module.extend_from_slice(&b.types);
+        module.extend_from_slice(&b.variables);
+
+        // 函数体:entry block(Function 变量前置 + push-constant 拷入 + 跳 bb0)
+        // + 各 MIR block(结构化码,终结子自带;不追加尾 OpReturn)。
+        Builder::emit(
+            &mut module,
+            OP_FUNCTION,
+            &[void_id, main_id, FUNCTION_CONTROL_NONE, fn_type_id],
+        );
+        Builder::emit(&mut module, OP_LABEL, &[entry_label]);
+        module.extend_from_slice(&lo.func_vars);
+        module.extend_from_slice(&lo.preamble);
+        module.extend_from_slice(&lo.code);
+        Builder::emit(&mut module, OP_FUNCTION_END, &[]);
+
+        module[bound_index] = b.next_id;
+        Ok(module)
+    }
+
+    /// 扩展 body lowerer 状态机(见模块文档;全字段生命周期 = 单次 `emit_spirv_ext`)。
+    pub(super) struct ExtLowerer<'a> {
+        body: &'a Body,
+        res: &'a Resolutions,
+        input_vars: Vec<IoVar>,
+        output_vars: Vec<IoVar>,
+        output_written: Vec<bool>,
+        /// local 下标 → 槽位(下标 0 = 返回槽;1..=arg_count = 形参)。
+        slots: Vec<Slot>,
+        /// 单赋值直线 local 的 SSA 值(赋值时物化)。
+        ssa: HashMap<u32, EVal>,
+        /// 输出结构体聚合临时的字段值(赋值时物化)。
+        agg: HashMap<u32, Vec<EVal>>,
+        /// 标量形参 → push constant 成员序(声明序;RXS-0302 L1 分配律)。
+        scalar_members: Vec<(u32, PrimTy, u32)>,
+        pc_var: Option<u32>,
+        /// MIR block 下标 → label id(预分配,前向引用)。
+        block_label: HashMap<usize, u32>,
+        // 预扫描产物。
+        assign_count: Vec<u32>,
+        proj_write: Vec<bool>,
+        def_block: Vec<Option<usize>>,
+        use_block: Vec<Option<usize>>,
+        multi_block_use: Vec<bool>,
+        /// 数据流定型产物(`vec2`/`vec4` 为 typeck 容忍位〔非真实类型,承 RXS-0174
+        /// 名约定〕,自 io 字段派生的 MIR local 常为 `Ty::Err`——形状自赋值链定点
+        /// 迭代推导,与第一遍 BodyLowerer 的数据流定型同律)。
+        inferred: Vec<Option<EKind>>,
+        // u64/i64/bool 类型与常量缓存(第一遍 Builder 无 64 位/bool 面,本遍自持)。
+        type_u64: Option<u32>,
+        type_i64: Option<u32>,
+        type_bool: Option<u32>,
+        const_cache: HashMap<(u32, u64), u32>,
+        pub(super) uses_int64: bool,
+        pub(super) uses_int64_atomics: bool,
+        // 码流:Function 变量 / entry 前导 / 各 block 结构化码。
+        pub(super) func_vars: Vec<u32>,
+        pub(super) preamble: Vec<u32>,
+        pub(super) code: Vec<u32>,
+    }
+
+    impl<'a> ExtLowerer<'a> {
+        fn new(body: &'a Body, res: &'a Resolutions, io_vars: &[IoVar]) -> Self {
+            let input_vars: Vec<IoVar> = io_vars
+                .iter()
+                .copied()
+                .filter(|v| v.dir == IoDir::In)
+                .collect();
+            let output_vars: Vec<IoVar> = io_vars
+                .iter()
+                .copied()
+                .filter(|v| v.dir == IoDir::Out)
+                .collect();
+            let n = body.locals.len();
+            ExtLowerer {
+                body,
+                res,
+                output_written: vec![false; output_vars.len()],
+                input_vars,
+                output_vars,
+                slots: vec![Slot::Zst; n],
+                ssa: HashMap::new(),
+                agg: HashMap::new(),
+                scalar_members: Vec::new(),
+                pc_var: None,
+                block_label: HashMap::new(),
+                assign_count: vec![0; n],
+                proj_write: vec![false; n],
+                def_block: vec![None; n],
+                use_block: vec![None; n],
+                multi_block_use: vec![false; n],
+                inferred: vec![None; n],
+                type_u64: None,
+                type_i64: None,
+                type_bool: None,
+                const_cache: HashMap::new(),
+                uses_int64: false,
+                uses_int64_atomics: false,
+                func_vars: Vec::new(),
+                preamble: Vec::new(),
+                code: Vec::new(),
+            }
+        }
+
+        // ── 类型 / 常量 ──────────────────────────────────────────────
+
+        /// 归一化标量 → SPIR-V 类型 id(f32/i32/u32 复用第一遍 Builder 缓存;
+        /// u64/i64 本遍自持懒发并置 `Int64`;f64 恒拒 = RXS-0301 L3 负面清单轴)。
+        fn prim_type(&mut self, b: &mut Builder, p: PrimTy) -> Result<u32, DxilError> {
+            let Some(np) = norm_prim(p) else {
+                return Err(unmappable(
+                    "ext-negative-f64",
+                    format!(
+                        "类型 {p:?} 在图形 body 恒拒(RXS-0301 L3 负面清单:f64——\
+                         cast 表与 compute `cast_opcode` 同表,f64 目标恒拒承 RXS-0203 L1;\
+                         FS 复刻判定为精确 f32 字面权威,禁升 f64 改写,RXS-0303 L2)"
+                    ),
+                ));
+            };
+            match np {
+                PrimTy::F32 | PrimTy::I32 | PrimTy::U32 => b.scalar_type(np),
+                PrimTy::U64 => {
+                    self.uses_int64 = true;
+                    if let Some(id) = self.type_u64 {
+                        return Ok(id);
+                    }
+                    let id = b.alloc_id();
+                    Builder::emit(&mut b.types, OP_TYPE_INT, &[id, 64, 0]);
+                    self.type_u64 = Some(id);
+                    Ok(id)
+                }
+                PrimTy::I64 => {
+                    self.uses_int64 = true;
+                    if let Some(id) = self.type_i64 {
+                        return Ok(id);
+                    }
+                    let id = b.alloc_id();
+                    Builder::emit(&mut b.types, OP_TYPE_INT, &[id, 64, 1]);
+                    self.type_i64 = Some(id);
+                    Ok(id)
+                }
+                _ => unreachable!("norm_prim 已归一到建模集"),
+            }
+        }
+
+        fn kind_type(&mut self, b: &mut Builder, k: EKind) -> Result<u32, DxilError> {
+            match k {
+                EKind::Scalar(p) => self.prim_type(b, p),
+                EKind::Vector(p, n) => match p {
+                    PrimTy::F32 | PrimTy::I32 | PrimTy::U32 => b.vector_type(p, n),
+                    other => Err(unmappable(
+                        "ext-vector-elem",
+                        format!("向量分量类型 {other:?} 不在图形扩展白名单(f32/i32/u32)"),
+                    )),
+                },
+            }
+        }
+
+        fn t_bool(&mut self, b: &mut Builder) -> u32 {
+            if let Some(id) = self.type_bool {
+                return id;
+            }
+            let id = b.alloc_id();
+            Builder::emit(&mut b.types, OP_TYPE_BOOL, &[id]);
+            self.type_bool = Some(id);
+            id
+        }
+
+        /// 常量(按 SPIR-V 类型 id + 位型缓存去重;64 位双字小端)。
+        fn const_bits(&mut self, b: &mut Builder, ty_id: u32, bits: u64, wide: bool) -> u32 {
+            if let Some(&id) = self.const_cache.get(&(ty_id, bits)) {
+                return id;
+            }
+            let id = b.alloc_id();
+            if wide {
+                Builder::emit(
+                    &mut b.types,
+                    OP_CONSTANT,
+                    &[ty_id, id, bits as u32, (bits >> 32) as u32],
+                );
+            } else {
+                Builder::emit(&mut b.types, OP_CONSTANT, &[ty_id, id, bits as u32]);
+            }
+            self.const_cache.insert((ty_id, bits), id);
+            id
+        }
+
+        fn const_u32(&mut self, b: &mut Builder, v: u32) -> Result<u32, DxilError> {
+            let ty = b.scalar_type(PrimTy::U32)?;
+            Ok(self.const_bits(b, ty, u64::from(v), false))
+        }
+
+        // ── 形参分类(RXS-0302 L1:与 compute 同一分配律) ─────────────
+
+        fn classify_params(&mut self, b: &mut Builder) -> Result<(), DxilError> {
+            self.slots[0] = Slot::Ret;
+            let mut next_binding = 0u32;
+            let mut next_member = 0u32;
+            let mut io_param: Option<u32> = None;
+            for i in 1..=self.body.arg_count {
+                let ty = &self.body.locals[i].ty;
+                // ZST(unit/ThreadCtx)不物化。
+                let zst = match ty {
+                    Ty::Tuple(v) => v.is_empty(),
+                    Ty::Adt(d, _) => self.res.lang_items.is_thread_ctx(*d),
+                    _ => false,
+                };
+                if zst {
+                    self.slots[i] = Slot::Zst;
+                    continue;
+                }
+                if let Ty::Adt(d, args) = ty {
+                    // View/ViewMut → SSBO(元素 = args[1];RXS-0302 L1)。
+                    if self.res.lang_items.view_mutable(*d).is_some() {
+                        let elem = Self::buffer_elem(args.get(1))?;
+                        let var = self.emit_ssbo(b, elem, next_binding)?;
+                        next_binding += 1;
+                        self.slots[i] = Slot::Buffer { var, elem };
+                        continue;
+                    }
+                    // AtomicView → SSBO(元素 = args[1];`Atomic<T>` 标量原子形参
+                    // 不在 RXS-0302 首期面,fail-closed)。
+                    if let Some(is_view) = self.res.lang_items.atomic_kind(*d) {
+                        if !is_view {
+                            return Err(unmappable(
+                                "ext-param",
+                                "图形入口 `Atomic<T>` 标量原子形参不在 RXS-0302 首期资源面\
+                                 (仅 View/ViewMut/AtomicView 与标量,P-12 不预开面)",
+                            ));
+                        }
+                        let elem = Self::buffer_elem(args.get(1))?;
+                        let var = self.emit_ssbo(b, elem, next_binding)?;
+                        next_binding += 1;
+                        self.slots[i] = Slot::Buffer { var, elem };
+                        continue;
+                    }
+                    // 纹理/采样器句柄:资源变量已由 `emit_resource` 发射(签名面);
+                    // body 内引用仅采样方法可达,本遍恒拒(维持第一遍采样子集)。
+                    if self.res.lang_items.is_texture2d(*d)
+                        || self.res.lang_items.is_sampler(*d)
+                        || self.res.lang_items.is_sampler_cmp(*d)
+                        || self.res.lang_items.is_texture_rw2d(*d)
+                    {
+                        self.slots[i] = Slot::Resource;
+                        continue;
+                    }
+                    // 其余 Adt = 命名 I/O 结构体形参(io_sig 的字段事实源;至多一个,
+                    // 多 IO 结构体的字段-元素映射不可自 MIR 恢复 → fail-closed)。
+                    if io_param.is_some() {
+                        return Err(unmappable(
+                            "ext-param",
+                            "图形入口多于一个 I/O 结构体形参在扩展面外(字段→Location \
+                             映射不可自 MIR 恢复,fail-closed)",
+                        ));
+                    }
+                    io_param = Some(i as u32);
+                    self.slots[i] = Slot::IoStruct;
+                    continue;
+                }
+                if let Ty::Prim(p) = ty {
+                    // 标量形参 → push constant 成员(声明序;RXS-0302 L1)。恒建
+                    // Function 变量(entry 自 push constant 拷入,body 统一按内存式
+                    // local 处理,镜像 compute「scalar 形参也建 Function local」)。
+                    let np = norm_prim(*p).ok_or_else(|| {
+                        unmappable(
+                            "ext-negative-f64",
+                            "f64 标量形参在图形 body 恒拒(RXS-0301 L3 负面清单)",
+                        )
+                    })?;
+                    self.scalar_members.push((i as u32, np, next_member));
+                    next_member += 1;
+                    let ty_id = self.prim_type(b, np)?;
+                    let ptr = b.pointer_type(STORAGE_FUNCTION, ty_id);
+                    let var = b.alloc_id();
+                    Builder::emit(
+                        &mut self.func_vars,
+                        OP_VARIABLE,
+                        &[ptr, var, STORAGE_FUNCTION],
+                    );
+                    self.slots[i] = Slot::Var {
+                        var,
+                        kind: EKind::Scalar(np),
+                    };
+                    continue;
+                }
+                return Err(unmappable(
+                    "ext-param",
+                    format!(
+                        "图形入口形参类型 {ty:?} 不在 RXS-0302 资源面\
+                         (View/ViewMut/AtomicView/标量/I/O 结构体)"
+                    ),
+                ));
+            }
+            self.emit_push_constants(b)?;
+            Ok(())
+        }
+
+        fn buffer_elem(arg: Option<&Ty>) -> Result<PrimTy, DxilError> {
+            match arg {
+                Some(Ty::Prim(p)) => norm_prim(*p).ok_or_else(|| {
+                    unmappable(
+                        "ext-negative-f64",
+                        "f64 缓冲元素在图形 body 恒拒(RXS-0301 L3 负面清单)",
+                    )
+                }),
+                other => Err(unmappable(
+                    "ext-buffer-elem",
+                    format!("存储缓冲元素类型 {other:?} 不在标量白名单"),
+                )),
+            }
+        }
+
+        /// SSBO 描述符(SPIR-V 1.0 形态:`OpTypeRuntimeArray`+`ArrayStride` →
+        /// `OpTypeStruct`+`BufferBlock`+member Offset 0 → `Uniform` 存储类变量 +
+        /// `DescriptorSet 0`/`Binding n`;与 compute 路 `emit_buffer_descriptors`
+        /// 1.0 臂同形,RXS-0302 L1「set0-flat 与 render_exec Bindings 字面对齐」)。
+        fn emit_ssbo(
+            &mut self,
+            b: &mut Builder,
+            elem: PrimTy,
+            binding: u32,
+        ) -> Result<u32, DxilError> {
+            let elem_ty = self.prim_type(b, elem)?;
+            let stride: u32 = if matches!(elem, PrimTy::U64 | PrimTy::I64) {
+                8
+            } else {
+                4
+            };
+            let rarr = b.alloc_id();
+            Builder::emit(&mut b.types, OP_TYPE_RUNTIME_ARRAY, &[rarr, elem_ty]);
+            Builder::emit(
+                &mut b.decorations,
+                OP_DECORATE,
+                &[rarr, DECORATION_ARRAY_STRIDE, stride],
+            );
+            let st = b.alloc_id();
+            Builder::emit(&mut b.types, OP_TYPE_STRUCT, &[st, rarr]);
+            Builder::emit(
+                &mut b.decorations,
+                OP_MEMBER_DECORATE,
+                &[st, 0, DECORATION_OFFSET, 0],
+            );
+            Builder::emit(
+                &mut b.decorations,
+                OP_DECORATE,
+                &[st, DECORATION_BUFFER_BLOCK],
+            );
+            let ptr = b.pointer_type(STORAGE_UNIFORM, st);
+            let var = b.alloc_id();
+            Builder::emit(&mut b.variables, OP_VARIABLE, &[ptr, var, STORAGE_UNIFORM]);
+            Builder::emit(
+                &mut b.decorations,
+                OP_DECORATE,
+                &[var, DECORATION_DESCRIPTOR_SET, 0],
+            );
+            Builder::emit(
+                &mut b.decorations,
+                OP_DECORATE,
+                &[var, DECORATION_BINDING, binding],
+            );
+            Ok(var)
+        }
+
+        /// 标量形参 → 单 push constant 块(member Offset 4 字节对齐顺排;u64 8 字节
+        /// 对齐,与 compute `emit_push_constants`/`prim_layout` 同律,RXS-0302 L1)。
+        fn emit_push_constants(&mut self, b: &mut Builder) -> Result<(), DxilError> {
+            if self.scalar_members.is_empty() {
+                return Ok(());
+            }
+            let mut member_tys = Vec::new();
+            for (_, p, _) in self.scalar_members.clone() {
+                member_tys.push(self.prim_type(b, p)?);
+            }
+            let st = b.alloc_id();
+            let mut operands = vec![st];
+            operands.extend_from_slice(&member_tys);
+            Builder::emit(&mut b.types, OP_TYPE_STRUCT, &operands);
+            let mut offset = 0u32;
+            for (idx, (_, p, _)) in self.scalar_members.clone().into_iter().enumerate() {
+                let (align, size) = if matches!(p, PrimTy::U64 | PrimTy::I64) {
+                    (8u32, 8u32)
+                } else {
+                    (4u32, 4u32)
+                };
+                offset = offset.div_ceil(align) * align;
+                Builder::emit(
+                    &mut b.decorations,
+                    OP_MEMBER_DECORATE,
+                    &[st, idx as u32, DECORATION_OFFSET, offset],
+                );
+                offset += size;
+            }
+            Builder::emit(&mut b.decorations, OP_DECORATE, &[st, DECORATION_BLOCK]);
+            let ptr = b.pointer_type(STORAGE_PUSH_CONSTANT, st);
+            let var = b.alloc_id();
+            Builder::emit(
+                &mut b.variables,
+                OP_VARIABLE,
+                &[ptr, var, STORAGE_PUSH_CONSTANT],
+            );
+            self.pc_var = Some(var);
+            Ok(())
+        }
+
+        // ── 预扫描(内存式 local 判据:多次赋值或跨分支活跃,RXS-0301 IR) ──
+
+        fn note_use(&mut self, local: u32, bi: usize) {
+            let l = local as usize;
+            match self.use_block[l] {
+                None => self.use_block[l] = Some(bi),
+                Some(prev) if prev != bi => self.multi_block_use[l] = true,
+                _ => {}
+            }
+        }
+
+        fn note_operand(&mut self, o: &Operand, bi: usize) {
+            if let Operand::Copy(p) | Operand::Move(p) = o {
+                self.note_use(p.local.0, bi);
+                for pe in &p.proj {
+                    if let ProjElem::Index(l) = pe {
+                        self.note_use(l.0, bi);
+                    }
+                }
+            }
+        }
+
+        fn note_assign(&mut self, place: &Place, bi: usize) {
+            let l = place.local.0 as usize;
+            if place.proj.is_empty() {
+                self.assign_count[l] += 1;
+                self.def_block[l] = Some(bi);
+            } else {
+                self.proj_write[l] = true;
+                for pe in &place.proj {
+                    if let ProjElem::Index(idx) = pe {
+                        self.note_use(idx.0, bi);
+                    }
+                }
+            }
+        }
+
+        fn prescan(&mut self) {
+            for (bi, bb) in self.body.blocks.iter().enumerate() {
+                for stmt in &bb.stmts {
+                    let StatementKind::Assign(place, rv) = &stmt.kind;
+                    self.note_assign(place, bi);
+                    for o in crate::move_check::rvalue_operands(rv) {
+                        self.note_operand(o, bi);
+                    }
+                }
+                match &bb.terminator.kind {
+                    TerminatorKind::SwitchBool { discr, .. } => self.note_operand(discr, bi),
+                    TerminatorKind::Call { args, dest, .. } => {
+                        for a in args {
+                            self.note_operand(a, bi);
+                        }
+                        self.note_assign(dest, bi);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        // ── 数据流定型(定点迭代;`vec2/vec4` 容忍位派生的 Err 局部形状推导) ──
+
+        /// 操作数形状(仅静态可判者;不发射任何指令)。
+        fn try_kind_of_operand(&self, o: &Operand) -> Option<EKind> {
+            match o {
+                Operand::Const(Const::Int(_, p)) | Operand::Const(Const::Float(_, p)) => {
+                    Some(EKind::Scalar(norm_prim(*p)?))
+                }
+                Operand::Const(_) => None,
+                Operand::Copy(place) | Operand::Move(place) => {
+                    let l = place.local.0 as usize;
+                    let base = if l >= 1 && l <= self.body.arg_count {
+                        match &self.slots[l] {
+                            Slot::IoStruct => {
+                                let field = match place.proj.first() {
+                                    Some(ProjElem::Field(f)) => *f as usize,
+                                    _ => return None,
+                                };
+                                let kind = ekind_of_io(self.input_vars.get(field)?.ty);
+                                return match place.proj.get(1) {
+                                    None => Some(kind),
+                                    Some(ProjElem::Field(_)) => match kind {
+                                        EKind::Vector(p, _) => Some(EKind::Scalar(p)),
+                                        EKind::Scalar(_) => None,
+                                    },
+                                    Some(_) => None,
+                                };
+                            }
+                            Slot::Buffer { elem, .. } => {
+                                return matches!(place.proj.as_slice(), [ProjElem::Index(_)])
+                                    .then_some(EKind::Scalar(*elem));
+                            }
+                            Slot::Var { kind, .. } => Some(*kind),
+                            _ => None,
+                        }
+                    } else {
+                        self.inferred[l].or_else(|| ekind_of(&self.body.locals[l].ty))
+                    }?;
+                    match place.proj.as_slice() {
+                        [] => Some(base),
+                        [ProjElem::Field(_)] => match base {
+                            EKind::Vector(p, _) => Some(EKind::Scalar(p)),
+                            EKind::Scalar(_) => None,
+                        },
+                        _ => None,
+                    }
+                }
+            }
+        }
+
+        fn try_kind_of_rvalue(&self, rv: &Rvalue) -> Option<EKind> {
+            match rv {
+                Rvalue::Use(o) => self.try_kind_of_operand(o),
+                Rvalue::BinaryOp(op, a, b) => match op {
+                    BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Gt | BinOp::Le | BinOp::Ge => {
+                        // 比较 → bool(内存 u32 表示)。
+                        Some(EKind::Scalar(PrimTy::U32))
+                    }
+                    _ => self
+                        .try_kind_of_operand(a)
+                        .or_else(|| self.try_kind_of_operand(b)),
+                },
+                Rvalue::Cast(_, Ty::Prim(p)) => Some(EKind::Scalar(norm_prim(*p)?)),
+                Rvalue::Cast(_, _) => None,
+                Rvalue::Aggregate(ty, ops) => {
+                    if let Some(k) = ekind_of(ty) {
+                        return Some(k);
+                    }
+                    // vec2/vec4 容忍位元组:分量形状推导(须同型标量,lowering 复核)。
+                    if !(2..=4).contains(&ops.len()) {
+                        return None;
+                    }
+                    let first = ops.iter().find_map(|o| self.try_kind_of_operand(o))?;
+                    match first {
+                        EKind::Scalar(p) => Some(EKind::Vector(p, ops.len() as u8)),
+                        EKind::Vector(..) => None,
+                    }
+                }
+                Rvalue::Atomic { target_local, .. } => {
+                    match self.slots.get(target_local.0 as usize) {
+                        Some(Slot::Buffer { elem, .. }) => Some(EKind::Scalar(*elem)),
+                        _ => None,
+                    }
+                }
+                _ => None,
+            }
+        }
+
+        /// 定点迭代:自赋值链推导各 local 形状(有界:每轮至少定型一个,轮数 ≤
+        /// locals 数;推导不到的 local 在 `alloc_locals` fail-closed)。
+        fn infer_kinds(&mut self) {
+            loop {
+                let mut changed = false;
+                for bb in &self.body.blocks {
+                    for stmt in &bb.stmts {
+                        let StatementKind::Assign(place, rv) = &stmt.kind;
+                        let l = place.local.0 as usize;
+                        if place.proj.is_empty()
+                            && l > self.body.arg_count
+                            && self.inferred[l].is_none()
+                            && let Some(k) = self.try_kind_of_rvalue(rv)
+                        {
+                            self.inferred[l] = Some(k);
+                            changed = true;
+                        }
+                    }
+                    if let TerminatorKind::Call { target, dest, .. } = &bb.terminator.kind {
+                        let l = dest.local.0 as usize;
+                        if dest.proj.is_empty()
+                            && l > self.body.arg_count
+                            && self.inferred[l].is_none()
+                            && matches!(target, CallTarget::Libdevice { .. })
+                        {
+                            // GLSL.std.450 内建首批面恒 f32 结果。
+                            self.inferred[l] = Some(EKind::Scalar(PrimTy::F32));
+                            changed = true;
+                        }
+                    }
+                }
+                if !changed {
+                    break;
+                }
+            }
+        }
+
+        /// 槽位判定 + 内存式 local 的 Function `OpVariable` 发射 + block label 预分配。
+        fn alloc_locals(&mut self, b: &mut Builder) -> Result<(), DxilError> {
+            for bi in 0..self.body.blocks.len() {
+                let id = b.alloc_id();
+                self.block_label.insert(bi, id);
+            }
+            // 非形参 local(含 MIR 临时):按预扫描判据分派槽位。
+            for i in (self.body.arg_count + 1)..self.body.locals.len() {
+                let ty = &self.body.locals[i].ty;
+                if matches!(ty, Ty::Tuple(v) if v.is_empty()) {
+                    self.slots[i] = Slot::Zst;
+                    continue;
+                }
+                // 全程未被触及的死 local:不物化(保守中性)。
+                if self.assign_count[i] == 0 && self.use_block[i].is_none() && !self.proj_write[i] {
+                    self.slots[i] = Slot::Zst;
+                    continue;
+                }
+                // 形状 = 真实类型 或 数据流推导(vec2/vec4 容忍位派生局部)。
+                match ekind_of(ty).or(self.inferred[i]) {
+                    Some(kind) => {
+                        let single_assign = self.assign_count[i] <= 1 && !self.proj_write[i];
+                        let straight_line = !self.multi_block_use[i]
+                            && match (self.def_block[i], self.use_block[i]) {
+                                (_, None) => true,
+                                (Some(d), Some(u)) => d == u,
+                                (None, Some(_)) => false,
+                            };
+                        if single_assign && straight_line {
+                            self.slots[i] = Slot::Ssa;
+                        } else {
+                            let ty_id = self.kind_type(b, kind)?;
+                            let ptr = b.pointer_type(STORAGE_FUNCTION, ty_id);
+                            let var = b.alloc_id();
+                            Builder::emit(
+                                &mut self.func_vars,
+                                OP_VARIABLE,
+                                &[ptr, var, STORAGE_FUNCTION],
+                            );
+                            self.slots[i] = Slot::Var { var, kind };
+                        }
+                    }
+                    None => {
+                        // 非标量/向量 local:仅放行「输出结构体聚合临时」(单赋值
+                        // 直线;输出装配面,RXS-0301 graphics_output_assembly)。
+                        if ty == self.body.ret_ty()
+                            && self.assign_count[i] <= 1
+                            && !self.proj_write[i]
+                            && !self.multi_block_use[i]
+                        {
+                            self.slots[i] = Slot::Agg;
+                        } else {
+                            return Err(unmappable(
+                                "ext-local",
+                                format!(
+                                    "local _{i} 类型 {ty:?} 不在图形扩展白名单\
+                                     (标量/2..=4 同型元组向量/输出结构体聚合临时;\
+                                     形状不可自赋值链定型)"
+                                ),
+                            ));
+                        }
+                    }
+                }
+            }
+            Ok(())
+        }
+
+        /// entry 前导:标量形参自 push constant 块拷入 Function local,跳 bb0。
+        fn emit_preamble(&mut self, b: &mut Builder) -> Result<(), DxilError> {
+            for (local, p, member) in self.scalar_members.clone() {
+                let pc = self.pc_var.expect("有 scalar 形参则 push-constant 块已建");
+                let ty_id = self.prim_type(b, p)?;
+                let ptr_pc = b.pointer_type(STORAGE_PUSH_CONSTANT, ty_id);
+                let midx = self.const_u32(b, member)?;
+                let acc = b.alloc_id();
+                Builder::emit(
+                    &mut self.preamble,
+                    OP_ACCESS_CHAIN,
+                    &[ptr_pc, acc, pc, midx],
+                );
+                let val = b.alloc_id();
+                Builder::emit(&mut self.preamble, OP_LOAD, &[ty_id, val, acc]);
+                let Slot::Var { var, .. } = self.slots[local as usize] else {
+                    unreachable!("标量形参已建 Function 变量");
+                };
+                Builder::emit(&mut self.preamble, OP_STORE, &[var, val]);
+            }
+            let bb0 = self.block_label[&0];
+            Builder::emit(&mut self.preamble, OP_BRANCH, &[bb0]);
+            Ok(())
+        }
+
+        // ── 主循环:逐 block 结构化降级 ─────────────────────────────
+
+        fn lower_blocks(&mut self, b: &mut Builder) -> Result<(), DxilError> {
+            for bi in 0..self.body.blocks.len() {
+                let label = self.block_label[&bi];
+                Builder::emit(&mut self.code, OP_LABEL, &[label]);
+                let bb = &self.body.blocks[bi];
+                for stmt in &bb.stmts {
+                    let StatementKind::Assign(place, rv) = &stmt.kind;
+                    self.lower_assign(b, place, rv)?;
+                }
+                self.lower_terminator(b, bi)?;
+            }
+            Ok(())
+        }
+
+        fn lower_terminator(&mut self, b: &mut Builder, bi: usize) -> Result<(), DxilError> {
+            let bb = &self.body.blocks[bi];
+            match &bb.terminator.kind {
+                TerminatorKind::Goto(t) => {
+                    let lbl = self.block_label[&(t.0 as usize)];
+                    Builder::emit(&mut self.code, OP_BRANCH, &[lbl]);
+                }
+                TerminatorKind::Return => {
+                    Builder::emit(&mut self.code, OP_RETURN, &[]);
+                }
+                TerminatorKind::Unreachable => {
+                    Builder::emit(&mut self.code, OP_UNREACHABLE, &[]);
+                }
+                TerminatorKind::Drop { next, .. } => {
+                    let lbl = self.block_label[&(next.0 as usize)];
+                    Builder::emit(&mut self.code, OP_BRANCH, &[lbl]);
+                }
+                TerminatorKind::Call {
+                    target,
+                    args,
+                    dest,
+                    next,
+                } => {
+                    self.lower_call(b, target, args, dest)?;
+                    let lbl = self.block_label[&(next.0 as usize)];
+                    Builder::emit(&mut self.code, OP_BRANCH, &[lbl]);
+                }
+                TerminatorKind::SwitchBool { discr, then, else_ } => {
+                    // 结构化 if(RXS-0301 graphics_control_flow_and_calls):
+                    // discr(u32 0/1)→ INotEqual 0 → OpSelectionMerge + 条件分支;
+                    // merge = 前向可达交汇(与 compute 同一算法;回边已在预扫描恒拒)。
+                    let dv = self.operand_value(b, discr, None)?;
+                    let bool_ty = self.t_bool(b);
+                    let zero = self.const_u32(b, 0)?;
+                    let cond = b.alloc_id();
+                    Builder::emit(&mut self.code, OP_INOTEQUAL, &[bool_ty, cond, dv.id, zero]);
+                    let then_i = then.0 as usize;
+                    let else_i = else_.0 as usize;
+                    let merge = structured_merge(self.body, then_i, else_i).ok_or_else(|| {
+                        unmappable(
+                            "ext-control-flow",
+                            "图形扩展白名单仅支持结构化 if(分支须收敛于唯一 merge 块;\
+                             提前 return 不在面内)",
+                        )
+                    })?;
+                    let merge_lbl = self.block_label[&merge];
+                    let then_lbl = self.block_label[&then_i];
+                    let else_lbl = self.block_label[&else_i];
+                    Builder::emit(
+                        &mut self.code,
+                        OP_SELECTION_MERGE,
+                        &[merge_lbl, SELECTION_CONTROL_NONE],
+                    );
+                    Builder::emit(
+                        &mut self.code,
+                        OP_BRANCH_CONDITIONAL,
+                        &[cond, then_lbl, else_lbl],
+                    );
+                }
+            }
+            Ok(())
+        }
+
+        /// Call 终结子:GLSL.std.450 内建(首批 `round`→RoundEven,与 compute
+        /// `glsl_ext_op` 同表)放行;用户 device fn 调用 = RXS-0301 L3 负面清单恒拒。
+        fn lower_call(
+            &mut self,
+            b: &mut Builder,
+            target: &CallTarget,
+            args: &[Operand],
+            dest: &Place,
+        ) -> Result<(), DxilError> {
+            match target {
+                CallTarget::Libdevice { symbol } => {
+                    let Some((glsl_op, arity)) = glsl_ext_op(symbol) else {
+                        return Err(unmappable(
+                            "ext-call",
+                            format!("数学 intrinsic `{symbol}` 未在 GLSL.std.450 映射表内"),
+                        ));
+                    };
+                    if args.len() != arity {
+                        return Err(unmappable(
+                            "ext-call",
+                            format!(
+                                "数学 intrinsic `{symbol}` 期望 {arity} 实参,得 {}",
+                                args.len()
+                            ),
+                        ));
+                    }
+                    let set = b.glsl_ext_inst();
+                    let float_ty = b.scalar_type(PrimTy::F32)?;
+                    let result = b.alloc_id();
+                    let mut operands = vec![float_ty, result, set, glsl_op];
+                    for a in args {
+                        let v = self.operand_value(b, a, Some(EKind::Scalar(PrimTy::F32)))?;
+                        operands.push(v.id);
+                    }
+                    Builder::emit(&mut self.code, OP_EXT_INST, &operands);
+                    self.store_value(
+                        dest,
+                        EVal {
+                            id: result,
+                            kind: EKind::Scalar(PrimTy::F32),
+                        },
+                    )
+                }
+                CallTarget::Fn { .. } => Err(unmappable(
+                    "ext-negative-devfn-call",
+                    "用户自定义 device fn 调用在图形 body 恒拒(RXS-0301 L3 负面清单,\
+                     拒绝面 grow-only)",
+                )),
+                other => Err(unmappable(
+                    "ext-call",
+                    format!("调用目标 {other:?} 不在图形扩展白名单(GLSL.std.450 内建之外)"),
+                )),
+            }
+        }
+
+        // ── 赋值 / 输出装配 ─────────────────────────────────────────
+
+        fn lower_assign(
+            &mut self,
+            b: &mut Builder,
+            place: &Place,
+            rv: &Rvalue,
+        ) -> Result<(), DxilError> {
+            // 返回槽:输出装配(单字段写 / 聚合分解;RXS-0301 graphics_output_assembly)。
+            if place.local == LocalIdx(0) {
+                if let Some(index) = single_field_projection(place)? {
+                    let expected = self
+                        .output_vars
+                        .get(index)
+                        .map(|v| ekind_of_io(v.ty))
+                        .ok_or_else(|| {
+                            unmappable("ext-output", format!("输出 I/O 字段 {index} 越界"))
+                        })?;
+                    let v = self.rvalue_value(b, rv, Some(expected))?;
+                    return self.store_output(index, v);
+                }
+                return match self.rvalue_any(b, rv, None)? {
+                    EOperand::Agg(fields) => self.store_output_fields(&fields),
+                    EOperand::Value(v) if self.output_vars.len() == 1 => self.store_output(0, v),
+                    EOperand::Unit if self.output_vars.is_empty() => Ok(()),
+                    other => Err(unmappable(
+                        "ext-output",
+                        format!("返回值形态 {other:?} 与声明的 Output I/O 不匹配"),
+                    )),
+                };
+            }
+            let slot = self.slots[place.local.0 as usize].clone();
+            match slot {
+                Slot::Var { var, kind } => {
+                    if place.proj.is_empty() {
+                        let v = self.rvalue_value(b, rv, Some(kind))?;
+                        if v.kind != kind {
+                            return Err(unmappable(
+                                "ext-store-type",
+                                format!(
+                                    "local _{} 声明形状 {kind:?} 与赋值 {:?} 不符",
+                                    place.local.0, v.kind
+                                ),
+                            ));
+                        }
+                        Builder::emit(&mut self.code, OP_STORE, &[var, v.id]);
+                        return Ok(());
+                    }
+                    // 向量分量写(单层 Field;内存式 local 的 OpAccessChain 分量指针)。
+                    if let (Some(k), EKind::Vector(p, n)) = (single_field_projection(place)?, kind)
+                    {
+                        if (k as u8) >= n {
+                            return Err(unmappable(
+                                "ext-place",
+                                format!("向量分量下标 {k} 越界(分量数 {n})"),
+                            ));
+                        }
+                        let v = self.rvalue_value(b, rv, Some(EKind::Scalar(p)))?;
+                        let comp_ty = self.prim_type(b, p)?;
+                        let ptr_ty = b.pointer_type(STORAGE_FUNCTION, comp_ty);
+                        let kidx = self.const_u32(b, k as u32)?;
+                        let acc = b.alloc_id();
+                        Builder::emit(&mut self.code, OP_ACCESS_CHAIN, &[ptr_ty, acc, var, kidx]);
+                        Builder::emit(&mut self.code, OP_STORE, &[acc, v.id]);
+                        return Ok(());
+                    }
+                    Err(unmappable(
+                        "ext-place",
+                        format!("写入投影 place `{place:?}` 不在图形扩展白名单"),
+                    ))
+                }
+                Slot::Ssa => {
+                    if !place.proj.is_empty() {
+                        return Err(unmappable(
+                            "ext-place",
+                            "SSA local 不支持投影写(内部判据不一致)",
+                        ));
+                    }
+                    let v = self.rvalue_value(b, rv, None)?;
+                    self.ssa.insert(place.local.0, v);
+                    Ok(())
+                }
+                Slot::Agg => {
+                    if !place.proj.is_empty() {
+                        return Err(unmappable("ext-place", "聚合临时不支持投影写"));
+                    }
+                    match self.rvalue_any(b, rv, None)? {
+                        EOperand::Agg(fields) => {
+                            self.agg.insert(place.local.0, fields);
+                            Ok(())
+                        }
+                        other => Err(unmappable(
+                            "ext-aggregate",
+                            format!("聚合临时期望输出结构体字段序列,实得 {other:?}"),
+                        )),
+                    }
+                }
+                Slot::Buffer { .. } => Err(unmappable(
+                    "ext-ssbo-write",
+                    "SSBO 写不在 RXS-0301 放行面(graphics_buffer_indexing 仅放行动态索引**读**;\
+                     可变副作用面 = RXS-0302 L2 u64 原子)",
+                )),
+                Slot::Zst => {
+                    // unit 赋值:求值副作用后丢弃(常态为 `Use(Const(Unit))` no-op)。
+                    let _ = self.rvalue_any(b, rv, None)?;
+                    Ok(())
+                }
+                Slot::Ret | Slot::IoStruct | Slot::Resource => Err(unmappable(
+                    "ext-place",
+                    format!("写入 place `{place:?}`(输入/资源形参)不合法"),
+                )),
+            }
+        }
+
+        fn store_output(&mut self, index: usize, value: EVal) -> Result<(), DxilError> {
+            let out =
+                self.output_vars.get(index).copied().ok_or_else(|| {
+                    unmappable("ext-output", format!("输出 I/O 字段 {index} 越界"))
+                })?;
+            let expected = ekind_of_io(out.ty);
+            if expected != value.kind {
+                return Err(unmappable(
+                    "ext-output-type",
+                    format!(
+                        "输出字段 {index} 类型 {:?} 与值类型 {:?} 不符",
+                        expected, value.kind
+                    ),
+                ));
+            }
+            Builder::emit(&mut self.code, OP_STORE, &[out.var_id, value.id]);
+            if let Some(w) = self.output_written.get_mut(index) {
+                *w = true;
+            }
+            Ok(())
+        }
+
+        fn store_output_fields(&mut self, fields: &[EVal]) -> Result<(), DxilError> {
+            if fields.len() != self.output_vars.len() {
+                return Err(unmappable(
+                    "ext-output",
+                    format!(
+                        "输出聚合字段数 {} 与 Output I/O 元素数 {} 不一致",
+                        fields.len(),
+                        self.output_vars.len()
+                    ),
+                ));
+            }
+            for (idx, v) in fields.iter().copied().enumerate() {
+                self.store_output(idx, v)?;
+            }
+            Ok(())
+        }
+
+        /// 值写入任意目标 place(Call 终结子 dest 复用赋值面)。
+        fn store_value(&mut self, place: &Place, value: EVal) -> Result<(), DxilError> {
+            if place.local == LocalIdx(0) {
+                if let Some(index) = single_field_projection(place)? {
+                    return self.store_output(index, value);
+                }
+                if self.output_vars.len() == 1 {
+                    return self.store_output(0, value);
+                }
+                return Err(unmappable("ext-output", "多字段输出须聚合返回"));
+            }
+            match self.slots[place.local.0 as usize].clone() {
+                Slot::Var { var, .. } if place.proj.is_empty() => {
+                    Builder::emit(&mut self.code, OP_STORE, &[var, value.id]);
+                    Ok(())
+                }
+                Slot::Ssa if place.proj.is_empty() => {
+                    self.ssa.insert(place.local.0, value);
+                    Ok(())
+                }
+                _ => Err(unmappable(
+                    "ext-place",
+                    format!("调用结果写入 place `{place:?}` 不在扩展面"),
+                )),
+            }
+        }
+
+        // ── rvalue / operand 求值 ───────────────────────────────────
+
+        fn rvalue_value(
+            &mut self,
+            b: &mut Builder,
+            rv: &Rvalue,
+            expected: Option<EKind>,
+        ) -> Result<EVal, DxilError> {
+            match self.rvalue_any(b, rv, expected)? {
+                EOperand::Value(v) => Ok(v),
+                other => Err(unmappable(
+                    "ext-rvalue",
+                    format!("期望标量/向量值,实得 {other:?}"),
+                )),
+            }
+        }
+
+        fn rvalue_any(
+            &mut self,
+            b: &mut Builder,
+            rv: &Rvalue,
+            expected: Option<EKind>,
+        ) -> Result<EOperand, DxilError> {
+            match rv {
+                Rvalue::Use(o) => self.lower_operand(b, o, expected),
+                Rvalue::BinaryOp(op, lhs, rhs) => {
+                    Ok(EOperand::Value(self.lower_binop(b, *op, lhs, rhs)?))
+                }
+                Rvalue::Cast(o, target) => Ok(EOperand::Value(self.lower_cast(b, o, target)?)),
+                Rvalue::Aggregate(ty, ops) => self.lower_aggregate(b, ty, ops),
+                Rvalue::Atomic {
+                    op,
+                    target_local,
+                    index,
+                    value,
+                    compare,
+                    scope,
+                } => Ok(EOperand::Value(self.lower_atomic(
+                    b,
+                    *op,
+                    *target_local,
+                    index.as_ref(),
+                    value,
+                    compare.as_ref(),
+                    *scope,
+                )?)),
+                Rvalue::ResourceSample { .. } => Err(unmappable(
+                    "ext-sample",
+                    "纹理采样在图形扩展遍不放行(维持第一遍采样最小子集;RXS-0301 白名单外)",
+                )),
+                Rvalue::RayQueryInitialize { .. } | Rvalue::RayQueryMethod { .. } => {
+                    Err(unmappable(
+                        "ext-negative-rayquery",
+                        "RayQuery 在图形 body 恒拒(RXS-0301 L3 负面清单;RXS-0297~0300 \
+                         为 compute 面)",
+                    ))
+                }
+                other => Err(unmappable(
+                    "ext-rvalue",
+                    format!("rvalue `{other:?}` 不在 RXS-0301 图形扩展白名单"),
+                )),
+            }
+        }
+
+        fn lower_binop(
+            &mut self,
+            b: &mut Builder,
+            op: BinOp,
+            lhs: &Operand,
+            rhs: &Operand,
+        ) -> Result<EVal, DxilError> {
+            let va = self.operand_value(b, lhs, None)?;
+            let vc = self.operand_value(b, rhs, Some(va.kind))?;
+            if va.kind != vc.kind {
+                return Err(unmappable(
+                    "ext-binop-type",
+                    format!("二元操作左右类型不一致: {:?} vs {:?}", va.kind, vc.kind),
+                ));
+            }
+            let EKind::Scalar(prim) = va.kind else {
+                return Err(unmappable(
+                    "ext-binop",
+                    "向量算术不在图形扩展白名单(标量运算面)",
+                ));
+            };
+            let is_float = matches!(prim, PrimTy::F32);
+            let (opcode, is_bool) = binop_opcode(op, is_float, is_signed(prim), self.body.span)
+                .map_err(|e| unmappable("ext-binop", e.detail))?;
+            if is_bool {
+                // 比较 → OpTypeBool → OpSelect u32(0/1)(bool 内存以 u32 表示,
+                // 与 compute 路镜像;归一化后 kind = Scalar(U32))。
+                let bool_ty = self.t_bool(b);
+                let cmp = b.alloc_id();
+                Builder::emit(&mut self.code, opcode, &[bool_ty, cmp, va.id, vc.id]);
+                let u32_ty = b.scalar_type(PrimTy::U32)?;
+                let one = self.const_u32(b, 1)?;
+                let zero = self.const_u32(b, 0)?;
+                let sel = b.alloc_id();
+                Builder::emit(&mut self.code, OP_SELECT, &[u32_ty, sel, cmp, one, zero]);
+                Ok(EVal {
+                    id: sel,
+                    kind: EKind::Scalar(PrimTy::U32),
+                })
+            } else {
+                let ty_id = self.prim_type(b, prim)?;
+                let id = b.alloc_id();
+                Builder::emit(&mut self.code, opcode, &[ty_id, id, va.id, vc.id]);
+                Ok(EVal { id, kind: va.kind })
+            }
+        }
+
+        fn lower_cast(
+            &mut self,
+            b: &mut Builder,
+            o: &Operand,
+            target: &Ty,
+        ) -> Result<EVal, DxilError> {
+            let v = self.operand_value(b, o, None)?;
+            let EKind::Scalar(src) = v.kind else {
+                return Err(unmappable("ext-cast", "向量 Cast 不在图形扩展白名单"));
+            };
+            let Ty::Prim(dst_raw) = target else {
+                return Err(unmappable(
+                    "ext-cast",
+                    format!("Cast 目标 {target:?} 非标量(白名单外)"),
+                ));
+            };
+            // f64 目标在 prim_type 恒拒(RXS-0301 L3 负面清单轴)。
+            let dst_ty_id = self.prim_type(b, *dst_raw)?;
+            let dst = norm_prim(*dst_raw).expect("prim_type 已裁决 f64");
+            let src_ty_id = self.prim_type(b, src)?;
+            if src_ty_id == dst_ty_id {
+                // 同 SPIR-V 类型(如 usize→u32)→ identity,零转换指令。
+                return Ok(EVal {
+                    id: v.id,
+                    kind: EKind::Scalar(dst),
+                });
+            }
+            let opcode = cast_opcode(src, dst).map_err(|e| unmappable("ext-cast", e.detail))?;
+            let id = b.alloc_id();
+            Builder::emit(&mut self.code, opcode, &[dst_ty_id, id, v.id]);
+            Ok(EVal {
+                id,
+                kind: EKind::Scalar(dst),
+            })
+        }
+
+        fn lower_aggregate(
+            &mut self,
+            b: &mut Builder,
+            ty: &Ty,
+            ops: &[Operand],
+        ) -> Result<EOperand, DxilError> {
+            // 标量 → 向量聚合构造(RXS-0301 graphics_output_assembly)。元组元素在
+            // typeck 常为容忍位(vec2/vec4 名约定),分量类型自**求值后的分量 kind**
+            // 定型(同型标量强制,与第一遍数据流定型同律)。
+            if let Ty::Tuple(el) = ty
+                && (2..=4).contains(&el.len())
+            {
+                if ops.len() != el.len() {
+                    return Err(unmappable(
+                        "ext-aggregate",
+                        format!("向量构造分量数 {} 与元组宽度 {} 不符", ops.len(), el.len()),
+                    ));
+                }
+                let mut vals = Vec::with_capacity(ops.len());
+                let mut elem_prim: Option<PrimTy> = None;
+                for op in ops {
+                    let v = self.operand_value(b, op, elem_prim.map(EKind::Scalar))?;
+                    let EKind::Scalar(p) = v.kind else {
+                        return Err(unmappable("ext-aggregate", "向量构造分量必须是标量"));
+                    };
+                    match elem_prim {
+                        None => elem_prim = Some(p),
+                        Some(e) if e != p => {
+                            return Err(unmappable(
+                                "ext-aggregate",
+                                format!("向量构造分量类型不一致: {e:?} vs {p:?}"),
+                            ));
+                        }
+                        _ => {}
+                    }
+                    vals.push(v);
+                }
+                let p = elem_prim.expect("2..=4 分量非空");
+                let kind = EKind::Vector(p, ops.len() as u8);
+                let ty_id = self.kind_type(b, kind)?;
+                let result = b.alloc_id();
+                let mut operands = vec![ty_id, result];
+                operands.extend(vals.iter().map(|v| v.id));
+                Builder::emit(&mut self.code, OP_COMPOSITE_CONSTRUCT, &operands);
+                return Ok(EOperand::Value(EVal { id: result, kind }));
+            }
+            // 输出结构体聚合(字段序 = 声明序 = Output I/O 元素序)。
+            if ty == self.body.ret_ty() {
+                if ops.len() != self.output_vars.len() {
+                    return Err(unmappable(
+                        "ext-aggregate",
+                        format!(
+                            "输出聚合字段数 {} 与 Output I/O 元素数 {} 不一致",
+                            ops.len(),
+                            self.output_vars.len()
+                        ),
+                    ));
+                }
+                let mut fields = Vec::with_capacity(ops.len());
+                for (idx, op) in ops.iter().enumerate() {
+                    let expected = ekind_of_io(self.output_vars[idx].ty);
+                    fields.push(self.operand_value(b, op, Some(expected))?);
+                }
+                return Ok(EOperand::Agg(fields));
+            }
+            Err(unmappable(
+                "ext-aggregate",
+                format!("聚合类型 {ty:?} 不在图形扩展白名单(向量/输出结构体)"),
+            ))
+        }
+
+        /// u64 SSBO 原子(RXS-0302 L2):`AtomicView<_,u64,_>.fetch_max(idx, val,
+        /// Scope::Gpu)` → `OpAtomicUMax`(Device scope,Relaxed semantics——常量与
+        /// compute 路发射段**逐字同值**);scope 仅 `Scope::Gpu`,`Scope::Block`(CTA)
+        /// = RXS-0301 L3 负面清单恒拒,`Scope::System` 首期不放行(P-12)。
+        #[allow(clippy::too_many_arguments)]
+        fn lower_atomic(
+            &mut self,
+            b: &mut Builder,
+            op: AtomicOp,
+            target_local: LocalIdx,
+            index: Option<&Operand>,
+            value: &Operand,
+            compare: Option<&Operand>,
+            scope: Option<u8>,
+        ) -> Result<EVal, DxilError> {
+            match scope {
+                Some(1) => {}
+                Some(0) => {
+                    return Err(unmappable(
+                        "ext-negative-cta-atomic",
+                        "`Scope::Block`(CTA 级)原子在图形 body 恒拒(RXS-0301 L3 负面清单;\
+                         fragment 无 workgroup 语义,RXS-0302 L2 仅放行 `Scope::Gpu`)",
+                    ));
+                }
+                Some(_) => {
+                    return Err(unmappable(
+                        "ext-atomic-scope",
+                        "`Scope::System` 原子首期不放行(RXS-0302 L2,P-12 不为假想需求预开面)",
+                    ));
+                }
+                None => {
+                    return Err(unmappable(
+                        "ext-atomic-scope",
+                        "原子 scope 实参不可静态判定(fail-closed;RXS-0302 L2 要求 `Scope::Gpu`)",
+                    ));
+                }
+            }
+            if op != AtomicOp::FetchMax || compare.is_some() {
+                return Err(unmappable(
+                    "ext-atomic-op",
+                    format!("原子算子 {op:?} 不在 RXS-0302 首期放行面(仅 u64 `fetch_max`)"),
+                ));
+            }
+            let Slot::Buffer { var, elem } = self.slots[target_local.0 as usize].clone() else {
+                return Err(unmappable(
+                    "ext-atomic-target",
+                    "原子目标须为签名 `AtomicView<global,..>` SSBO 形参(RXS-0302 L1)",
+                ));
+            };
+            if elem != PrimTy::U64 {
+                return Err(unmappable(
+                    "ext-atomic-elem",
+                    format!("原子元素 {elem:?} 不在 RXS-0302 首期放行面(仅 u64)"),
+                ));
+            }
+            self.uses_int64_atomics = true;
+            let elem_ty = self.prim_type(b, elem)?;
+            let ptr_ty = b.pointer_type(STORAGE_UNIFORM, elem_ty);
+            let idx = match index {
+                Some(o) => self.operand_value(b, o, None)?.id,
+                None => self.const_u32(b, 0)?,
+            };
+            let member0 = self.const_u32(b, 0)?;
+            let ptr = b.alloc_id();
+            Builder::emit(
+                &mut self.code,
+                OP_ACCESS_CHAIN,
+                &[ptr_ty, ptr, var, member0, idx],
+            );
+            let v = self.operand_value(b, value, Some(EKind::Scalar(PrimTy::U64)))?;
+            // scope/semantics 常量与 compute 路发射段逐字同值(SCOPE_DEVICE=1,
+            // MEM_SEM_RELAXED=0;RXS-0302 L2)。
+            let scope_c = self.const_u32(b, SCOPE_DEVICE)?;
+            let sem_c = self.const_u32(b, MEM_SEM_RELAXED)?;
+            let result = b.alloc_id();
+            Builder::emit(
+                &mut self.code,
+                OP_ATOMIC_UMAX,
+                &[elem_ty, result, ptr, scope_c, sem_c, v.id],
+            );
+            Ok(EVal {
+                id: result,
+                kind: EKind::Scalar(PrimTy::U64),
+            })
+        }
+
+        fn operand_value(
+            &mut self,
+            b: &mut Builder,
+            o: &Operand,
+            expected: Option<EKind>,
+        ) -> Result<EVal, DxilError> {
+            match self.lower_operand(b, o, expected)? {
+                EOperand::Value(v) => Ok(v),
+                other => Err(unmappable(
+                    "ext-operand",
+                    format!("期望标量/向量值,实得 {other:?}"),
+                )),
+            }
+        }
+
+        fn lower_operand(
+            &mut self,
+            b: &mut Builder,
+            o: &Operand,
+            expected: Option<EKind>,
+        ) -> Result<EOperand, DxilError> {
+            match o {
+                Operand::Const(Const::Unit) => Ok(EOperand::Unit),
+                Operand::Const(c) => Ok(EOperand::Value(self.lower_const(b, c, expected)?)),
+                Operand::Copy(place) | Operand::Move(place) => self.lower_place_read(b, place),
+            }
+        }
+
+        fn lower_const(
+            &mut self,
+            b: &mut Builder,
+            c: &Const,
+            expected: Option<EKind>,
+        ) -> Result<EVal, DxilError> {
+            let (prim, bits) = match c {
+                Const::Int(v, p) => {
+                    let np = norm_prim(*p).ok_or_else(|| {
+                        unmappable("ext-negative-f64", "64 位外整型/f64 常量不在建模集")
+                    })?;
+                    let bits =
+                        match np {
+                            PrimTy::I32 => u64::from(i32::try_from(*v).map_err(|_| {
+                                unmappable("ext-constant", format!("i32 常量 {v} 越界"))
+                            })? as u32),
+                            PrimTy::U32 => u64::from(u32::try_from(*v).map_err(|_| {
+                                unmappable("ext-constant", format!("u32 常量 {v} 越界"))
+                            })?),
+                            // 64 位常量:i128 → 位型(负数二补码截断)。
+                            _ => *v as u64,
+                        };
+                    (np, bits)
+                }
+                Const::Float(v, PrimTy::F32) => (PrimTy::F32, u64::from((*v as f32).to_bits())),
+                // 无后缀浮点字面在前端 Ty::Err 容忍位下缺省定型 F64(非用户显式 f64
+                // 语义):期望侧为 f32 时按 f32 字面收编。RXS-0301 L3 f64 负面清单
+                // 针对 f64 **类型/运算**(`as f64` cast 目标、f64 局部/IO)恒拒不受
+                // 此影响(reject 语料 vk_hw_raster_f64_reject 的违规轴是 cast 表)。
+                Const::Float(v, PrimTy::F64) if expected == Some(EKind::Scalar(PrimTy::F32)) => {
+                    (PrimTy::F32, u64::from((*v as f32).to_bits()))
+                }
+                Const::Float(_, other) => {
+                    return Err(unmappable(
+                        "ext-negative-f64",
+                        format!("浮点常量类型 {other:?} 恒拒(RXS-0301 L3 负面清单:f64)"),
+                    ));
+                }
+                other => {
+                    return Err(unmappable(
+                        "ext-constant",
+                        format!("常量 {other:?} 不在图形扩展白名单(f32/整型标量)"),
+                    ));
+                }
+            };
+            // 常量类型以**期望侧**收编(整型字面量在 MIR 常已定型;期望缺省取字面型)。
+            let prim = match expected {
+                Some(EKind::Scalar(e)) if e != prim => {
+                    // 位宽同类间的字面收编(如 u32 字面喂 usize 槽);跨 32/64 位或
+                    // 跨符号性不静默转换,维持字面型交由类型检查拒。
+                    if self.prim_type(b, e)? == self.prim_type(b, prim)? {
+                        e
+                    } else {
+                        prim
+                    }
+                }
+                _ => prim,
+            };
+            let ty_id = self.prim_type(b, prim)?;
+            let wide = matches!(prim, PrimTy::U64 | PrimTy::I64);
+            let id = self.const_bits(b, ty_id, bits, wide);
+            Ok(EVal {
+                id,
+                kind: EKind::Scalar(prim),
+            })
+        }
+
+        fn lower_place_read(
+            &mut self,
+            b: &mut Builder,
+            place: &Place,
+        ) -> Result<EOperand, DxilError> {
+            let slot = self.slots[place.local.0 as usize].clone();
+            match slot {
+                Slot::IoStruct => self.read_io(b, place),
+                Slot::Buffer { var, elem } => {
+                    // SSBO 动态索引读(RXS-0301 graphics_buffer_indexing)。
+                    let [ProjElem::Index(idx_local)] = place.proj.as_slice() else {
+                        return Err(unmappable(
+                            "ext-place",
+                            format!("buffer place `{place:?}` 仅支持单层动态索引读 `buf[i]`"),
+                        ));
+                    };
+                    let idx = self.local_scalar(b, idx_local.0)?;
+                    let elem_ty = self.prim_type(b, elem)?;
+                    let ptr_ty = b.pointer_type(STORAGE_UNIFORM, elem_ty);
+                    let member0 = self.const_u32(b, 0)?;
+                    let acc = b.alloc_id();
+                    Builder::emit(
+                        &mut self.code,
+                        OP_ACCESS_CHAIN,
+                        &[ptr_ty, acc, var, member0, idx.id],
+                    );
+                    let id = b.alloc_id();
+                    Builder::emit(&mut self.code, OP_LOAD, &[elem_ty, id, acc]);
+                    Ok(EOperand::Value(EVal {
+                        id,
+                        kind: EKind::Scalar(elem),
+                    }))
+                }
+                Slot::Var { var, kind } => {
+                    if place.proj.is_empty() {
+                        let ty_id = self.kind_type(b, kind)?;
+                        let id = b.alloc_id();
+                        Builder::emit(&mut self.code, OP_LOAD, &[ty_id, id, var]);
+                        return Ok(EOperand::Value(EVal { id, kind }));
+                    }
+                    if let (Some(k), EKind::Vector(p, n)) = (single_field_projection(place)?, kind)
+                    {
+                        if (k as u8) >= n {
+                            return Err(unmappable(
+                                "ext-place",
+                                format!("向量分量下标 {k} 越界(分量数 {n})"),
+                            ));
+                        }
+                        let comp_ty = self.prim_type(b, p)?;
+                        let ptr_ty = b.pointer_type(STORAGE_FUNCTION, comp_ty);
+                        let kidx = self.const_u32(b, k as u32)?;
+                        let acc = b.alloc_id();
+                        Builder::emit(&mut self.code, OP_ACCESS_CHAIN, &[ptr_ty, acc, var, kidx]);
+                        let id = b.alloc_id();
+                        Builder::emit(&mut self.code, OP_LOAD, &[comp_ty, id, acc]);
+                        return Ok(EOperand::Value(EVal {
+                            id,
+                            kind: EKind::Scalar(p),
+                        }));
+                    }
+                    Err(unmappable(
+                        "ext-place",
+                        format!("place `{place:?}` 投影不在图形扩展白名单"),
+                    ))
+                }
+                Slot::Ssa => {
+                    let v = self.ssa.get(&place.local.0).copied().ok_or_else(|| {
+                        unmappable(
+                            "ext-place",
+                            format!("local _{} 尚未物化(SSA 定值先于使用)", place.local.0),
+                        )
+                    })?;
+                    if place.proj.is_empty() {
+                        return Ok(EOperand::Value(v));
+                    }
+                    if let (Some(k), EKind::Vector(p, n)) =
+                        (single_field_projection(place)?, v.kind)
+                    {
+                        if (k as u8) >= n {
+                            return Err(unmappable(
+                                "ext-place",
+                                format!("向量分量下标 {k} 越界(分量数 {n})"),
+                            ));
+                        }
+                        let comp_ty = self.prim_type(b, p)?;
+                        let id = b.alloc_id();
+                        Builder::emit(
+                            &mut self.code,
+                            OP_COMPOSITE_EXTRACT,
+                            &[comp_ty, id, v.id, k as u32],
+                        );
+                        return Ok(EOperand::Value(EVal {
+                            id,
+                            kind: EKind::Scalar(p),
+                        }));
+                    }
+                    Err(unmappable(
+                        "ext-place",
+                        format!("place `{place:?}` 投影不在图形扩展白名单"),
+                    ))
+                }
+                Slot::Agg => {
+                    let fields = self.agg.get(&place.local.0).cloned().ok_or_else(|| {
+                        unmappable("ext-place", format!("聚合临时 _{} 尚未物化", place.local.0))
+                    })?;
+                    if place.proj.is_empty() {
+                        return Ok(EOperand::Agg(fields));
+                    }
+                    if let Some(k) = single_field_projection(place)? {
+                        return fields
+                            .get(k)
+                            .copied()
+                            .map(EOperand::Value)
+                            .ok_or_else(|| unmappable("ext-place", format!("聚合字段 {k} 越界")));
+                    }
+                    Err(unmappable("ext-place", "聚合临时仅支持单层字段投影"))
+                }
+                Slot::Zst => Ok(EOperand::Unit),
+                Slot::Ret | Slot::Resource => Err(unmappable(
+                    "ext-place",
+                    format!("读取 place `{place:?}`(返回槽/资源句柄)不在扩展面"),
+                )),
+            }
+        }
+
+        /// IO 结构体形参投影读(RXS-0301 graphics_vector_component_projection):
+        /// `inp.f` = 单层 Field → 整元素 Load;`inp.f.k` = 两层 Field → Load +
+        /// `OpCompositeExtract k`。
+        fn read_io(&mut self, b: &mut Builder, place: &Place) -> Result<EOperand, DxilError> {
+            let (field, comp) = match place.proj.as_slice() {
+                [ProjElem::Field(f)] => (*f as usize, None),
+                [ProjElem::Field(f), ProjElem::Field(k)] => (*f as usize, Some(*k)),
+                [] => {
+                    return Err(unmappable(
+                        "ext-place",
+                        "I/O 结构体整体拷贝不在图形扩展白名单(按字段投影消费)",
+                    ));
+                }
+                _ => {
+                    return Err(unmappable(
+                        "ext-place",
+                        format!("I/O 投影 `{place:?}` 超出两层 Field 白名单"),
+                    ));
+                }
+            };
+            let var = self
+                .input_vars
+                .get(field)
+                .copied()
+                .ok_or_else(|| unmappable("ext-io", format!("输入 I/O 字段 {field} 越界")))?;
+            let kind = ekind_of_io(var.ty);
+            let ty_id = self.kind_type(b, kind)?;
+            let loaded = b.alloc_id();
+            Builder::emit(&mut self.code, OP_LOAD, &[ty_id, loaded, var.var_id]);
+            let Some(k) = comp else {
+                return Ok(EOperand::Value(EVal { id: loaded, kind }));
+            };
+            let EKind::Vector(p, n) = kind else {
+                return Err(unmappable(
+                    "ext-io",
+                    format!("输入字段 {field} 非向量,不可再投影分量 {k}"),
+                ));
+            };
+            if (k as u8) >= n {
+                return Err(unmappable(
+                    "ext-io",
+                    format!("向量分量下标 {k} 越界(分量数 {n})"),
+                ));
+            }
+            let comp_ty = self.prim_type(b, p)?;
+            let id = b.alloc_id();
+            Builder::emit(
+                &mut self.code,
+                OP_COMPOSITE_EXTRACT,
+                &[comp_ty, id, loaded, k],
+            );
+            Ok(EOperand::Value(EVal {
+                id,
+                kind: EKind::Scalar(p),
+            }))
+        }
+
+        /// 标量 local 取值(buffer 索引等场景;Var → Load,Ssa → 表值)。
+        fn local_scalar(&mut self, b: &mut Builder, local: u32) -> Result<EVal, DxilError> {
+            match self.slots[local as usize].clone() {
+                Slot::Var {
+                    var,
+                    kind: kind @ EKind::Scalar(_),
+                } => {
+                    let ty_id = self.kind_type(b, kind)?;
+                    let id = b.alloc_id();
+                    Builder::emit(&mut self.code, OP_LOAD, &[ty_id, id, var]);
+                    Ok(EVal { id, kind })
+                }
+                Slot::Ssa => self
+                    .ssa
+                    .get(&local)
+                    .copied()
+                    .ok_or_else(|| unmappable("ext-place", format!("local _{local} 尚未物化"))),
+                other => Err(unmappable(
+                    "ext-place",
+                    format!("索引 local _{local}(槽位 {other:?})须为标量值"),
+                )),
+            }
+        }
+    }
 }
 
 // ───────────────────────── 测试(gate `dxil-backend`) ─────────────────────────
@@ -3164,8 +5100,13 @@ mod tests {
     #[test]
     fn vulkan_variant_omits_user_semantic_and_extension() {
         let body = provenance_probe_body();
-        let m = emit_spirv_body_vulkan(ShaderStage::Fragment, &body)
-            .expect("Vulkan 变体 body lowering 应 Ok");
+        // 第一遍成功路(res 不消费,空 Resolutions 即可)。
+        let m = emit_spirv_body_vulkan(
+            ShaderStage::Fragment,
+            &body,
+            &crate::resolve::Resolutions::default(),
+        )
+        .expect("Vulkan 变体 body lowering 应 Ok");
         let instrs = instructions(&m);
         assert!(
             !instrs.iter().any(

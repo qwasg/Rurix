@@ -438,6 +438,21 @@ pub struct RasterPass<'a> {
     pub viewport: Option<(u32, u32)>,
     /// 绑定集(set0 固定约定)。
     pub bindings: Bindings,
+    /// 保守光栅化(G7.5b,RXS-0303 L2):`Some` = pipeline 光栅状态 `pNext` 链
+    /// `VkPipelineRasterizationConservativeStateCreateInfoEXT{ OVERESTIMATE }`;
+    /// `None` = 既有默认光栅行为(0-byte)。设备无 `VK_EXT_conservative_rasterization`
+    /// 而 pass 要求 `Some` → 确定性 `Err`(RXS-0303 L3 fail-closed,不静默降级)。
+    pub conservative: Option<ConservativeRasterDesc>,
+}
+
+/// 保守光栅 pass 描述(RXS-0303 L2;模式钉死 OVERESTIMATE,不暴露 UNDERESTIMATE/
+/// DISABLED——覆盖超集是本面的唯一语义)。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ConservativeRasterDesc {
+    /// `extraPrimitiveOverestimationSize`(附加过估尺寸,像素;常态 0.0,取值须在
+    /// [`ConservativeRasterProps::max_extra_primitive_overestimation_size`] 内且按
+    /// granularity 对齐——驱动侧钳制,本执行器原样透传)。
+    pub extra_overestimation: f32,
 }
 
 /// compute pass。
@@ -511,10 +526,32 @@ pub struct DeviceCaps {
     pub deferred_host_operations: bool,
     /// `VK_EXT_memory_budget` 驱动 heap budget/usage 查询面。
     pub memory_budget: bool,
+    /// `VK_EXT_conservative_rasterization` 在位时的属性快照(G7.5b,RXS-0303 IR1;
+    /// `vkGetPhysicalDeviceProperties2` 链 `VkPhysicalDeviceConservativeRasterizationPropertiesEXT`
+    /// 运行时实采,非公开数据库口径);`None` = 扩展不在位(HW 光栅腿 fail-closed 依据)。
+    pub conservative_raster: Option<ConservativeRasterProps>,
     /// `VkPhysicalDeviceLimits::timestampPeriod`（ns/tick，驱动实值）。
     pub timestamp_period_ns: f32,
     /// `maxPushConstantsSize`(Vulkan 保底 128;本执行器约定 ≤128)。
     pub max_push_constants_size: u32,
+}
+
+/// `VkPhysicalDeviceConservativeRasterizationPropertiesEXT` 快照四项(RXS-0303 IR1
+/// 逐字:`primitive_overestimation_size / max_extra / granularity /
+/// degenerate_triangles_rasterized`,全量进证据;RFC-0018 §E2 本机探测事实的运行时重采源)。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ConservativeRasterProps {
+    /// `primitiveOverestimationSize`(驱动固有过估尺寸,像素;本机 RTX 4070 Ti 实测
+    /// 0.00195312 = 1/512 px——过估仅使 HW fragment 集更大,超集论证不受影响)。
+    pub primitive_overestimation_size: f32,
+    /// `maxExtraPrimitiveOverestimationSize`([`ConservativeRasterDesc::extra_overestimation`]
+    /// 的合法上界)。
+    pub max_extra_primitive_overestimation_size: f32,
+    /// `extraPrimitiveOverestimationSizeGranularity`(附加过估的取值粒度)。
+    pub extra_primitive_overestimation_size_granularity: f32,
+    /// `degenerateTrianglesRasterized`(量化后零面积 sliver 三角形是否仍光栅化;
+    /// `true` 时细长三角形超集性质额外加固,RFC-0018 §8.1 风险 #3 不触发)。
+    pub degenerate_triangles_rasterized: bool,
 }
 
 /// 渲染效果内核设备化波次；高波次能力要求为累积集合。
@@ -1199,6 +1236,10 @@ pub(crate) struct RasterPipelineKey {
     vertex_stride: u32,
     attrs: Vec<(u32, u32, u32)>,
     has_vb: bool,
+    /// 保守光栅状态入键(G7.5b,RXS-0303 L2):`None` = 无 pNext 链(既有键值 0-byte);
+    /// `Some(bits)` = OVERESTIMATE + `extra_overestimation` 的 f32 位型(f32 无 Eq/Hash,
+    /// 以 `to_bits` 承载——同值同键、位型不同即不同 pipeline)。
+    conservative: Option<u32>,
 }
 
 /// compute pipeline cache 键。
@@ -1826,6 +1867,29 @@ fn validate_bindings_with_as(
     Ok(())
 }
 
+/// 保守光栅 fail-closed 门(G7.5b,RXS-0303 L3;P-01):任一 raster pass 要求
+/// `conservative=Some` 而设备无 `VK_EXT_conservative_rasterization`(caps 探测
+/// `conservative_raster=None`)→ 确定性 `Err`,**在任何 pipeline 创建之前**——
+/// 不静默降级、不静默跳过(降级臂须由编排层显式选择并写入 evidence,RFC-0016 §4.0-2)。
+/// 纯 host 函数(caps 为入参),host 可测。
+fn validate_conservative_raster(passes: &[Pass], caps: &DeviceCaps) -> Result<(), String> {
+    if caps.conservative_raster.is_some() {
+        return Ok(());
+    }
+    for (i, p) in passes.iter().enumerate() {
+        if let Pass::Raster(rp) = p
+            && rp.conservative.is_some()
+        {
+            return Err(format!(
+                "passes[{i}] `{}`: 要求保守光栅化(conservative=Some)但设备 `{}` 无 \
+                 VK_EXT_conservative_rasterization(RXS-0303 L3 fail-closed,不静默降级)",
+                rp.name, caps.device_name
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// pass 声明绑定集(单事实源;provenance/需求态/录制/override 基准共用)。
 fn pass_bindings<'a>(p: &'a Pass<'a>) -> &'a Bindings {
     match p {
@@ -2268,6 +2332,19 @@ const ST_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2: u32 = 1_000_059_006;
 const ST_PHYSICAL_DEVICE_MEMORY_BUDGET_PROPERTIES_EXT: u32 = 1_000_237_000;
 const ST_SAMPLER_CREATE_INFO: u32 = 31;
 const ST_PHYSICAL_DEVICE_FEATURES_2: u32 = 1_000_059_000;
+/// `VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2`(Vulkan 1.1 core;保守光栅属性
+/// 链查询的链头,G7.5b RXS-0303 IR1)。
+const ST_PHYSICAL_DEVICE_PROPERTIES_2: u32 = 1_000_059_001;
+/// `VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONSERVATIVE_RASTERIZATION_PROPERTIES_EXT`
+/// (`VK_EXT_conservative_rasterization` 扩展 #102 → 1000101000;本机 SDK 1.3.296
+/// `vulkan_core.h` 核对,非凭记忆)。
+const ST_PHYSICAL_DEVICE_CONSERVATIVE_RASTERIZATION_PROPERTIES_EXT: u32 = 1_000_101_000;
+/// `VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_CONSERVATIVE_STATE_CREATE_INFO_EXT`
+/// (同扩展 → 1000101001;pipeline 光栅状态 pNext 链节点,RXS-0303 L2)。
+const ST_PIPELINE_RASTERIZATION_CONSERVATIVE_STATE_CI_EXT: u32 = 1_000_101_001;
+/// `VK_CONSERVATIVE_RASTERIZATION_MODE_OVERESTIMATE_EXT`(=1;RXS-0303 L2 钉死
+/// OVERESTIMATE——覆盖超集方向是唯一需要硬件担保的性质,RFC-0018 §E2)。
+const CONSERVATIVE_RASTERIZATION_MODE_OVERESTIMATE: u32 = 1;
 const ST_PHYSICAL_DEVICE_SHADER_ATOMIC_INT64_FEATURES: u32 = 1_000_180_000;
 const ST_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES: u32 = 1_000_314_007;
 const ST_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES: u32 = 1_000_161_001;
@@ -3109,6 +3186,47 @@ struct PropertiesBlob {
     bytes: [u8; 2048],
 }
 
+/// `VkPhysicalDeviceProperties2`(sType@0 / pNext@8 / properties@16;properties 槽以
+/// [`PropertiesBlob`] 超集承载,仅作 pNext 链头,本体字段不在此读——与 vk.rs
+/// `PhysicalDeviceProperties2Rt` 同律)。G7.5b 保守光栅属性链查询(RXS-0303 IR1)。
+#[repr(C)]
+struct PhysicalDeviceProperties2Chain {
+    s_type: u32,
+    p_next: *mut c_void,
+    properties: PropertiesBlob,
+}
+
+/// `VkPhysicalDeviceConservativeRasterizationPropertiesEXT`(SDK 1.3.296 `vulkan_core.h`
+/// 字段序逐一对齐:sType@0 / pNext@8 / 3×f32@16..28 / 6×VkBool32@28..52,size 56 align 8;
+/// 布局锚定见 `ffi_layout_anchors`)。G7.5b RXS-0303 IR1 全字段读回,四项进 [`DeviceCaps`]。
+#[repr(C)]
+struct PhysicalDeviceConservativeRasterizationProperties {
+    s_type: u32,
+    p_next: *mut c_void,
+    primitive_overestimation_size: f32,
+    max_extra_primitive_overestimation_size: f32,
+    extra_primitive_overestimation_size_granularity: f32,
+    primitive_underestimation: u32,
+    conservative_point_and_line_rasterization: u32,
+    degenerate_triangles_rasterized: u32,
+    degenerate_lines_rasterized: u32,
+    fully_covered_fragment_shader_input_variable: u32,
+    conservative_rasterization_post_depth_coverage: u32,
+}
+
+/// `VkPipelineRasterizationConservativeStateCreateInfoEXT`(sType@0 / pNext@8 /
+/// flags@16 / mode@20 / extraPrimitiveOverestimationSize@24,size 32 align 8;
+/// 布局锚定见 `ffi_layout_anchors`)。RXS-0303 L2:raster pass `conservative=Some`
+/// 时挂入 [`PipelineRasterizationStateCreateInfo::p_next`],mode 恒 OVERESTIMATE。
+#[repr(C)]
+struct PipelineRasterizationConservativeStateCreateInfo {
+    s_type: u32,
+    p_next: *const c_void,
+    flags: VkFlags,
+    conservative_rasterization_mode: u32,
+    extra_primitive_overestimation_size: f32,
+}
+
 /// `VkExtensionProperties`(char[256] + u32)。
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -3222,6 +3340,8 @@ type FnGetPhysicalDeviceMemoryProperties2 =
     unsafe extern "system" fn(VkPhysicalDevice, *mut PhysicalDeviceMemoryProperties2);
 type FnGetPhysicalDeviceProperties =
     unsafe extern "system" fn(VkPhysicalDevice, *mut PropertiesBlob);
+type FnGetPhysicalDeviceProperties2 =
+    unsafe extern "system" fn(VkPhysicalDevice, *mut PhysicalDeviceProperties2Chain);
 type FnGetPhysicalDeviceFeatures2 =
     unsafe extern "system" fn(VkPhysicalDevice, *mut PhysicalDeviceFeatures2);
 type FnEnumerateDeviceExtensionProperties = unsafe extern "system" fn(
@@ -3570,6 +3690,7 @@ unsafe fn read_physical_caps(
     let descriptor_indexing_ext = has_ext(c"VK_EXT_descriptor_indexing");
     let deferred_host_operations_ext = has_ext(c"VK_KHR_deferred_host_operations");
     let memory_budget_ext = has_ext(c"VK_EXT_memory_budget");
+    let conservative_raster_ext = has_ext(c"VK_EXT_conservative_rasterization");
 
     // features2 链(sync2 + atomic int64 + W3 四节 feature;不存在扩展的节读回 0,
     // 无副作用)。deferred-host-operations 仅看扩展存在性,无 feature 结构。
@@ -3648,6 +3769,45 @@ unsafe fn read_physical_caps(
         blob.bytes[723],
     ]);
 
+    // 保守光栅属性链(G7.5b,RXS-0303 IR1):扩展在位时经 `vkGetPhysicalDeviceProperties2`
+    // (Vulkan 1.1 core,与 features2 同门槛)链式读回全字段;扩展不在位 → `None`
+    // (不发起链查询,零副作用)。
+    let conservative_raster = if conservative_raster_ext {
+        let vk_get_props2: FnGetPhysicalDeviceProperties2 =
+            cast_fn(gipa(instance, c"vkGetPhysicalDeviceProperties2".as_ptr()))
+                .ok_or("缺 vkGetPhysicalDeviceProperties2(须 Vulkan 1.1)")?;
+        let mut cons_props = PhysicalDeviceConservativeRasterizationProperties {
+            s_type: ST_PHYSICAL_DEVICE_CONSERVATIVE_RASTERIZATION_PROPERTIES_EXT,
+            p_next: std::ptr::null_mut(),
+            primitive_overestimation_size: 0.0,
+            max_extra_primitive_overestimation_size: 0.0,
+            extra_primitive_overestimation_size_granularity: 0.0,
+            primitive_underestimation: 0,
+            conservative_point_and_line_rasterization: 0,
+            degenerate_triangles_rasterized: 0,
+            degenerate_lines_rasterized: 0,
+            fully_covered_fragment_shader_input_variable: 0,
+            conservative_rasterization_post_depth_coverage: 0,
+        };
+        let mut props2 = PhysicalDeviceProperties2Chain {
+            s_type: ST_PHYSICAL_DEVICE_PROPERTIES_2,
+            p_next: (&mut cons_props as *mut PhysicalDeviceConservativeRasterizationProperties)
+                .cast::<c_void>(),
+            properties: PropertiesBlob { bytes: [0; 2048] },
+        };
+        vk_get_props2(pd, &mut props2);
+        Some(ConservativeRasterProps {
+            primitive_overestimation_size: cons_props.primitive_overestimation_size,
+            max_extra_primitive_overestimation_size: cons_props
+                .max_extra_primitive_overestimation_size,
+            extra_primitive_overestimation_size_granularity: cons_props
+                .extra_primitive_overestimation_size_granularity,
+            degenerate_triangles_rasterized: cons_props.degenerate_triangles_rasterized != 0,
+        })
+    } else {
+        None
+    };
+
     Ok(DeviceCaps {
         device_name,
         synchronization2: sync2_ext && sync2_feat.synchronization2 != 0,
@@ -3661,6 +3821,7 @@ unsafe fn read_physical_caps(
         descriptor_indexing: descriptor_indexing_ext && descriptor_indexing_feat.bits[19] != 0,
         deferred_host_operations: deferred_host_operations_ext,
         memory_budget: memory_budget_ext,
+        conservative_raster,
         timestamp_period_ns,
         max_push_constants_size,
     })
@@ -4840,6 +5001,8 @@ unsafe fn execute_frame_inner(
                 caps.device_name
             ));
         }
+        // RXS-0303 L3:conservative pass × 无扩展 → 确定性 Err(任何 pipeline 创建前)。
+        validate_conservative_raster(passes, &caps)?;
         let vk_get_qf: FnGetPhysicalDeviceQueueFamilyProperties = cast_fn(gipa(
             instance,
             c"vkGetPhysicalDeviceQueueFamilyProperties".as_ptr(),
@@ -4894,6 +5057,11 @@ unsafe fn execute_frame_inner(
             exts.push(c"VK_KHR_shader_atomic_int64".as_ptr());
             sync2_feat.p_next =
                 (&mut int64_feat as *mut PhysicalDeviceShaderAtomicInt64Features).cast::<c_void>();
+        }
+        // 保守光栅(G7.5b,RXS-0303 IR1):探测到即启用该设备扩展(无 feature 结构体,
+        // 仅扩展名;不在位时不 push——conservative pass 已在上方 fail-closed 拒)。
+        if caps.conservative_raster.is_some() {
+            exts.push(c"VK_EXT_conservative_rasterization".as_ptr());
         }
         let prio = [1.0f32];
         let dqci = DeviceQueueCreateInfo {
@@ -5610,6 +5778,7 @@ unsafe fn execute_on_device(
                         vertex_stride: vstride,
                         attrs: vattrs.clone(),
                         has_vb,
+                        conservative: rp.conservative.map(|c| c.extra_overestimation.to_bits()),
                     };
                     let pipe = if let Some(&cached) = gfx_pipe_cache.get(&pipe_key) {
                         cached
@@ -5700,9 +5869,25 @@ unsafe fn execute_on_device(
                             scissor_count: 1,
                             p_scissors: &scissor,
                         };
+                        // 保守光栅 pNext 链节点(G7.5b,RXS-0303 L2:mode 恒 OVERESTIMATE)。
+                        // `conservative=None` 时不建节点、p_next 维持 null(既有行为 0-byte)。
+                        // 节点为本作用域栈上值,存活跨越下方 vkCreateGraphicsPipelines 调用。
+                        let conservative_ci = rp.conservative.map(|c| {
+                            PipelineRasterizationConservativeStateCreateInfo {
+                                s_type: ST_PIPELINE_RASTERIZATION_CONSERVATIVE_STATE_CI_EXT,
+                                p_next: std::ptr::null(),
+                                flags: 0,
+                                conservative_rasterization_mode:
+                                    CONSERVATIVE_RASTERIZATION_MODE_OVERESTIMATE,
+                                extra_primitive_overestimation_size: c.extra_overestimation,
+                            }
+                        });
                         let raster = PipelineRasterizationStateCreateInfo {
                             s_type: ST_PIPELINE_RASTERIZATION_STATE_CI,
-                            p_next: std::ptr::null(),
+                            p_next: conservative_ci.as_ref().map_or(std::ptr::null(), |c| {
+                                (c as *const PipelineRasterizationConservativeStateCreateInfo)
+                                    .cast::<c_void>()
+                            }),
                             flags: 0,
                             depth_clamp_enable: 0,
                             rasterizer_discard_enable: 0,
@@ -6145,6 +6330,8 @@ unsafe fn create_persistent_frame(
                 caps.timestamp_period_ns
             ));
         }
+        // RXS-0303 L3:conservative pass × 无扩展 → 确定性 Err(任何 pipeline 创建前)。
+        validate_conservative_raster(passes, &caps)?;
         let get_qf: FnGetPhysicalDeviceQueueFamilyProperties = cast_fn(gipa(
             instance,
             c"vkGetPhysicalDeviceQueueFamilyProperties".as_ptr(),
@@ -6256,6 +6443,10 @@ unsafe fn create_persistent_frame(
             exts.push(c"VK_KHR_shader_atomic_int64".as_ptr());
             sync2_feat.p_next =
                 (&mut int64_feat as *mut PhysicalDeviceShaderAtomicInt64Features).cast();
+        }
+        // 保守光栅(G7.5b,RXS-0303 IR1):探测到即启用(无 feature 结构体,仅扩展名)。
+        if caps.conservative_raster.is_some() {
+            exts.push(c"VK_EXT_conservative_rasterization".as_ptr());
         }
         if as_count > 0 {
             // ray query 四扩展 + feature 链(as → rq → bda → sync2 → int64;
@@ -7024,6 +7215,18 @@ mod tests {
         assert_eq!(size_of::<VkImageSubresourceLayers>(), 16);
         // G7.6 Wave B:AS descriptor pNext 结构(vk.rs pub(crate) 复用,禁第二份定义)。
         assert_eq!(size_of::<WriteDescriptorSetAccelStructure>(), 32);
+        // G7.5b 保守光栅(RXS-0303):sType@0 / pNext@8 / 3×f32@16 / 6×VkBool32@28,
+        // 尾补齐 → 56;pipeline pNext 节点 sType@0 / pNext@8 / flags@16 / mode@20 /
+        // extra@24 → 32(SDK 1.3.296 `vulkan_core.h` 逐字段核对)。
+        assert_eq!(
+            size_of::<PhysicalDeviceConservativeRasterizationProperties>(),
+            56
+        );
+        assert_eq!(
+            size_of::<PipelineRasterizationConservativeStateCreateInfo>(),
+            32
+        );
+        assert_eq!(align_of::<PhysicalDeviceProperties2Chain>(), 8);
     }
 
     #[test]
@@ -7090,6 +7293,7 @@ mod tests {
             descriptor_indexing: false,
             deferred_host_operations: false,
             memory_budget: false,
+            conservative_raster: None,
             timestamp_period_ns: 1.0,
             max_push_constants_size: 128,
         }
@@ -7171,6 +7375,7 @@ mod tests {
             vertex_stride: 32,
             attrs: vec![(0, 109, 0), (1, 109, 16)],
             has_vb: true,
+            conservative: None,
         };
         let mut k2 = k1.clone();
         assert_eq!(k1, k2);
@@ -7188,6 +7393,13 @@ mod tests {
         k5.vertex_stride = 0;
         k5.attrs.clear();
         assert_ne!(k1, k5);
+        // 保守光栅状态入键(G7.5b,RXS-0303 L2):on/off 与 extra 位型均换键。
+        let mut k6 = k1.clone();
+        k6.conservative = Some(0.0f32.to_bits());
+        assert_ne!(k1, k6);
+        let mut k7 = k6.clone();
+        k7.conservative = Some(0.25f32.to_bits());
+        assert_ne!(k6, k7);
         let c1 = ComputePipelineKey {
             spv_hash: 7,
             entry: b"main".to_vec(),
@@ -7197,6 +7409,55 @@ mod tests {
             entry: b"main2".to_vec(),
         };
         assert_ne!(c1, c2);
+    }
+
+    /// G7.5b(RXS-0303 L3):conservative pass × 无扩展 caps → 确定性 Err;
+    /// caps 在位 / pass 不要求 → Ok(纯 host 红绿)。
+    #[test]
+    fn conservative_raster_gate_is_fail_closed() {
+        let raster = |conservative: Option<ConservativeRasterDesc>| {
+            Pass::Raster(RasterPass {
+                name: "hw",
+                vs_spirv: &[],
+                fs_spirv: &[],
+                vertex: VertexData::Pull,
+                draw: DrawSpec::Direct {
+                    vertex_count: 3,
+                    instance_count: 1,
+                    first_vertex: 0,
+                    first_instance: 0,
+                },
+                colors: vec![],
+                depth: None,
+                viewport: None,
+                bindings: Bindings::default(),
+                conservative,
+            })
+        };
+        let caps_none = test_caps();
+        let mut caps_some = test_caps();
+        caps_some.conservative_raster = Some(ConservativeRasterProps {
+            primitive_overestimation_size: 0.001_953_12,
+            max_extra_primitive_overestimation_size: 0.75,
+            extra_primitive_overestimation_size_granularity: 0.25,
+            degenerate_triangles_rasterized: true,
+        });
+        let want = raster(Some(ConservativeRasterDesc {
+            extra_overestimation: 0.0,
+        }));
+        let plain = raster(None);
+        // RED:要求 conservative 而 caps 无扩展 → 确定性 Err(消息含 fail-closed 归因)。
+        let err = validate_conservative_raster(std::slice::from_ref(&want), &caps_none)
+            .expect_err("caps 无保守光栅时 conservative pass 必须确定性拒");
+        assert!(
+            err.contains("VK_EXT_conservative_rasterization") && err.contains("fail-closed"),
+            "错误消息须携归因: {err}"
+        );
+        // GREEN:caps 在位 → 放行;pass 不要求 → 与 caps 无关恒放行(0-byte 行为)。
+        validate_conservative_raster(std::slice::from_ref(&want), &caps_some)
+            .expect("caps 在位应放行");
+        validate_conservative_raster(std::slice::from_ref(&plain), &caps_none)
+            .expect("conservative=None 不受 caps 影响");
     }
 
     #[test]
@@ -8156,6 +8417,7 @@ mod tests {
             depth: None,
             viewport: None,
             bindings: Bindings::default(),
+            conservative: None,
         })];
         let plan: Vec<Vec<(u32, TargetState)>> = vec![vec![(0, TargetState::ColorAttachmentWrite)]];
         let brefs: Vec<&[(u32, TargetState)]> = plan.iter().map(Vec::as_slice).collect();
@@ -8603,6 +8865,7 @@ mod tests {
                 depth: None,
                 viewport: None,
                 bindings: Bindings::default(),
+                conservative: None,
             }),
             Pass::Compute(ComputePass {
                 name: "fetch",

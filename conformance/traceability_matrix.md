@@ -174,7 +174,7 @@
 | RXS-0168 | spec/d3d12_runtime.md | 3 | `conformance/dxil/graphics/accept/uc04_gbuffer_fs.rx`, `src/rurixc/tests/dxil_golden.rs`, `src/uc04-demo/src/deferred.rs` |
 | RXS-0169 | spec/d3d12_runtime.md | 1 | `src/uc04-demo/src/barrier.rs` |
 | RXS-0170 | spec/d3d12_runtime.md | 2 | `src/uc04-demo/src/device.rs`, `src/uc04-demo/src/readback.rs` |
-| RXS-0171 | spec/dxil_backend.md | 9 | `conformance/dxil/graphics/accept/fs_body_arith.rx`, `conformance/dxil/graphics/accept/uc04_gbuffer_fs.rx`, `conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx` …(+6) |
+| RXS-0171 | spec/dxil_backend.md | 8 | `conformance/dxil/graphics/accept/fs_body_arith.rx`, `conformance/dxil/graphics/accept/uc04_gbuffer_fs.rx`, `conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx` …(+5) |
 | RXS-0172 | spec/dxil_backend.md | 3 | `conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx`, `conformance/dxil/graphics/accept/uc04_lighting_vs.rx`, `src/rurixc/src/dxil_codegen.rs` |
 | RXS-0173 | spec/dxil_backend.md | 3 | `conformance/dxil/graphics/accept/uc04_gbuffer_fs.rx`, `conformance/dxil/graphics/accept/uc04_lighting_fs.rx`, `src/rurixc/src/dxil_sig_gate.rs` |
 | RXS-0174 | spec/shader_stages.md | 1 | `conformance/dxil/graphics/accept/uc04_lighting_fs.rx` |
@@ -286,6 +286,6 @@
 | RXS-0298 | spec/shader_stages.md | 3 | `conformance/rayquery/accept/ray_query_basic.rx`, `conformance/rayquery/accept/ray_query_hit_miss.rx`, `src/rurixc/src/vulkan_codegen.rs` |
 | RXS-0299 | spec/shader_stages.md | 5 | `conformance/rayquery/accept/ray_query_basic.rx`, `conformance/rayquery/accept/ray_query_hit_miss.rx`, `conformance/rayquery/reject/committed_unguarded.rx` …(+2) |
 | RXS-0300 | spec/vulkan_backend.md | 5 | `conformance/rayquery/accept/ray_query_basic.rx`, `conformance/rayquery/accept/ray_query_hit_miss.rx`, `conformance/vulkan/accept/vk_vec_component.rx` …(+2) |
-| RXS-0301 | spec/vulkan_backend.md | 4 | `conformance/vulkan/reject/vk_hw_raster_cta_atomic_reject.rx`, `conformance/vulkan/reject/vk_hw_raster_devfn_call_reject.rx`, `conformance/vulkan/reject/vk_hw_raster_f64_reject.rx` …(+1) |
-| RXS-0302 | spec/vulkan_backend.md | 1 | `conformance/vulkan/reject/vk_hw_raster_cta_atomic_reject.rx` |
-| RXS-0303 | spec/vulkan_backend.md | 1 | `conformance/vulkan/reject/vk_hw_raster_f64_reject.rx` |
+| RXS-0301 | spec/vulkan_backend.md | 7 | `conformance/vulkan/accept/vk_hw_raster_visbuffer_fs.rx`, `conformance/vulkan/accept/vk_hw_raster_visbuffer_vs.rx`, `conformance/vulkan/reject/vk_hw_raster_cta_atomic_reject.rx` …(+4) |
+| RXS-0302 | spec/vulkan_backend.md | 4 | `conformance/vulkan/accept/vk_hw_raster_visbuffer_fs.rx`, `conformance/vulkan/accept/vk_hw_raster_visbuffer_vs.rx`, `conformance/vulkan/reject/vk_hw_raster_cta_atomic_reject.rx` …(+1) |
+| RXS-0303 | spec/vulkan_backend.md | 4 | `conformance/vulkan/accept/vk_hw_raster_visbuffer_fs.rx`, `conformance/vulkan/accept/vk_hw_raster_visbuffer_vs.rx`, `conformance/vulkan/reject/vk_hw_raster_f64_reject.rx` …(+1) |

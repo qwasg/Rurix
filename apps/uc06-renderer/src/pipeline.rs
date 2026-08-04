@@ -848,6 +848,7 @@ pub fn run_device_leg(_s: &Uc06Summary) -> Result<DeviceLeg, String> {
         depth: None,
         viewport: None,
         bindings: render_exec::Bindings::default(),
+        conservative: None,
     });
     let empty: [&[(u32, render_exec::TargetState)]; 1] = [&[]];
     let readbacks = [render_exec::Readback::Texture { res: 0 }];
@@ -947,6 +948,7 @@ pub fn run_device_leg(_s: &Uc06Summary) -> Result<DeviceLeg, String> {
         depth: None,
         viewport: None,
         bindings: render_exec::Bindings::default(),
+        conservative: None,
     });
     // raster→compute 混合判据 = raster 纹理经「sampled 绑定 + compute 读」的
     // 双 pass 链路真跑通(texelFetch 见证模块在 debug 构建下触发 FFI 层访问

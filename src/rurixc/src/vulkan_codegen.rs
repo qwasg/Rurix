@@ -131,7 +131,7 @@ const OP_ATOMIC_ISUB: u16 = 235;
 const OP_ATOMIC_SMIN: u16 = 236;
 const OP_ATOMIC_UMIN: u16 = 237;
 const OP_ATOMIC_SMAX: u16 = 238;
-const OP_ATOMIC_UMAX: u16 = 239;
+pub(crate) const OP_ATOMIC_UMAX: u16 = 239;
 const OP_ATOMIC_AND: u16 = 240;
 const OP_ATOMIC_OR: u16 = 241;
 const OP_ATOMIC_XOR: u16 = 242;
@@ -163,8 +163,12 @@ const OP_RAY_QUERY_GET_INTERSECTION_BARYCENTRICS_KHR: u16 = 6024;
 
 // 枚举取值。
 const CAP_SHADER: u32 = 1;
-const CAP_INT64: u32 = 11;
-const CAP_INT64_ATOMICS: u32 = 12;
+// CAP_INT64/CAP_INT64_ATOMICS/OP_ATOMIC_UMAX/SCOPE_DEVICE/MEM_SEM_RELAXED 自 G7.5b 起
+// `pub(crate)`:图形扩展路(dxil_spirv ExtendedBodyLowerer)的 u64 原子发射段与 compute
+// 路**逐字同值**(RXS-0302 L2「scope/semantics 常量与 compute 路发射段逐字同值」;
+// 仅改可见性不改 compute 发射序)。
+pub(crate) const CAP_INT64: u32 = 11;
+pub(crate) const CAP_INT64_ATOMICS: u32 = 12;
 /// `RayQueryKHR` capability(=4472;与 `OpTypeRayQueryKHR` opcode 同值但属不同
 /// 枚举空间)。compute inline ray query 与 compute 面 `OpTypeAccelerationStructureKHR`
 /// 的唯一承载(RXS-0300)。
@@ -224,8 +228,8 @@ const IMAGE_FORMAT_RGBA32UI: u32 = 30;
 
 // barrier scope / memory semantics(OpControlBarrier)。
 const SCOPE_WORKGROUP: u32 = 2;
-const SCOPE_DEVICE: u32 = 1;
-const MEM_SEM_RELAXED: u32 = 0;
+pub(crate) const SCOPE_DEVICE: u32 = 1;
+pub(crate) const MEM_SEM_RELAXED: u32 = 0;
 const MEM_SEM_ACQUIRE_RELEASE: u32 = 0x8;
 const MEM_SEM_WORKGROUP_MEMORY: u32 = 0x100;
 
@@ -704,7 +708,9 @@ fn intrinsic_builtin(intr: DeviceIntrinsic) -> Option<(u32, u32)> {
     }
 }
 
-fn block_succs(bb: &BasicBlock) -> Vec<usize> {
+/// (G7.5b 起 `pub(crate)`:图形扩展路的回边预扫描〔负面清单「循环」轴〕与
+/// `structured_merge` 复用同一后继表。)
+pub(crate) fn block_succs(bb: &BasicBlock) -> Vec<usize> {
     match &bb.terminator.kind {
         TerminatorKind::Goto(t) => vec![t.0 as usize],
         TerminatorKind::SwitchBool { then, else_, .. } => vec![then.0 as usize, else_.0 as usize],
@@ -733,10 +739,12 @@ pub fn build_and_emit_vulkan(cx: &QueryCtx<'_>, _module_name: &str) -> Option<Ve
     // (RXS-0204;RFC-0004 种子,Vulkan 原生消费,去 B 路 SPIRV-Cross→HLSL→dxc 转译链)。
     // compute(`stage=None`,color=Kernel)→ compute lowerer(RXS-0201~0203)。
     if let Some(stage) = entry.stage {
-        // Vulkan 原生消费入口(RXS-0210 方案 B):去 UserSemantic/SPV_GOOGLE provenance
-        // (保名仅 B 路 HLSL 转译需要)→ `.spv` 免 device 扩展依赖直喂 vkCreateShaderModule
-        // (修 VUID-VkShaderModuleCreateInfo-pCode-08742)。DXIL 路 emit_spirv_body 字节不变。
-        return match crate::dxil_spirv::emit_spirv_body_vulkan(stage, entry) {
+        // Vulkan 原生消费入口(RXS-0210 方案 B + G7.5b RXS-0301 两遍编译):去
+        // UserSemantic/SPV_GOOGLE provenance(保名仅 B 路 HLSL 转译需要)→ `.spv` 免
+        // device 扩展依赖直喂 vkCreateShaderModule(修 VUID-...-08742)。DXIL 路
+        // emit_spirv_body 字节不变。第一遍 Unmappable → ExtendedBodyLowerer(RXS-0301
+        // 白名单),仍失败 → RX6026(负面清单诊断)。
+        return match crate::dxil_spirv::emit_spirv_body_vulkan(stage, entry, &res) {
             Ok(words) => Some(words),
             Err(e) => {
                 cx.diag()
@@ -1613,6 +1621,9 @@ fn emit_assign(
             index,
             value,
             compare,
+            // compute 路忽略 scope(恒 Device scope + Relaxed 映射,W1 既有口径;
+            // 图形扩展路的 RXS-0302 L2 scope 判定见 dxil_spirv ExtendedBodyLowerer)。
+            scope: _,
         } => emit_atomic(
             b,
             body,
@@ -2077,7 +2088,11 @@ fn emit_storage_image_op(
 
 /// Cast → SPIR-V 转换 opcode(compute 标量子集含 i64/u64)。
 /// 调用方应先判 src_ty_id == dst_ty_id 走 identity;本函数仅处理不同 SPIR-V 类型的转换。
-fn cast_opcode(src: PrimTy, dst: PrimTy) -> Result<u16, VulkanCodegenError> {
+/// `as` 数值 cast 映射表(compute 路事实源;G7.5b 起 `pub(crate)` 与图形扩展路
+/// 双路共享——仅改可见性不改 compute 发射序,RXS-0301「表级复用语义中性」)。
+/// **f64 目标不在本表裁决**:调用方的标量类型映射先拒 F64(RXS-0203 L1 /
+/// RXS-0301 L3),本表仅接受已过类型面的 prim 对。
+pub(crate) fn cast_opcode(src: PrimTy, dst: PrimTy) -> Result<u16, VulkanCodegenError> {
     let is_src_int = !matches!(src, PrimTy::F32);
     let is_dst_int = !matches!(dst, PrimTy::F32);
     Ok(match (src, dst) {
@@ -2110,8 +2125,9 @@ fn cast_opcode(src: PrimTy, dst: PrimTy) -> Result<u16, VulkanCodegenError> {
     })
 }
 
-/// BinOp → (SPIR-V opcode, 结果是否 bool)。
-fn binop_opcode(
+/// BinOp → (SPIR-V opcode, 结果是否 bool)。compute 路事实源;G7.5b 起 `pub(crate)`
+/// 与图形扩展路双路共享(含比较/位运算;仅改可见性不改 compute 发射序,RXS-0301)。
+pub(crate) fn binop_opcode(
     op: BinOp,
     is_float: bool,
     is_signed: bool,
@@ -2376,7 +2392,8 @@ fn loop_merge_targets(body: &Body, header: usize) -> Option<(usize, usize)> {
 /// 结构化 if 的 merge 块 = 两臂最近共同可达块。不能按 MIR block 下标最小值取：
 /// 嵌套 if 的外层 merge 往往编号更小，会造成多个 header 复用同一 merge，触发
 /// `Block is already a merge block for another header`。
-fn structured_merge(body: &Body, then_i: usize, else_i: usize) -> Option<usize> {
+/// (G7.5b 起 `pub(crate)`:图形扩展路复用同一前向可达交汇算法,RXS-0301 IR 逐字。)
+pub(crate) fn structured_merge(body: &Body, then_i: usize, else_i: usize) -> Option<usize> {
     let distance = |start: usize| {
         let mut dist = vec![usize::MAX; body.blocks.len()];
         dist[start] = 0;
@@ -2409,7 +2426,9 @@ fn structured_merge(body: &Body, then_i: usize, else_i: usize) -> Option<usize> 
 /// 20 个 `DeviceMathFn` 中的 1:1 可映射项;`cbrt`/`log10`(需 Pow/Log 组合)→ None(后续
 /// 分片)。符号形态:`__nv_<base>` (f64) / `__nv_<base>f` (f32);base 无一以 'f' 结尾,
 /// 故 strip 尾 'f' 唯一恢复 base(ext-inst 按操作数类型分发,f32/f64 同一编号)。
-fn glsl_ext_op(nv_symbol: &str) -> Option<(u32, usize)> {
+/// (G7.5b 起 `pub(crate)` 与图形扩展路双路共享——`round`→`RoundEven` 同表,
+/// RXS-0301「首批仅 round,与 compute 路 `glsl_ext_op` 同表」;仅改可见性。)
+pub(crate) fn glsl_ext_op(nv_symbol: &str) -> Option<(u32, usize)> {
     let s = nv_symbol.strip_prefix("__nv_")?;
     let base = s.strip_suffix('f').unwrap_or(s);
     let m = match base {

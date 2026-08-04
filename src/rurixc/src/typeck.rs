@@ -65,9 +65,13 @@ pub struct TypeckResults {
     /// (数学函数, 元素类型 f32/f64);接收者为 `f32`/`f64` 时识别,tbir/MIR/
     /// codegen 消费(下译为 libdevice `__nv_*` 外部符号)。
     pub device_math_calls: HashMap<HirId, (crate::hir::DeviceMathFn, PrimTy)>,
-    /// scoped atomics 调用点:MethodCall → 原子算子 + 接收者是否 AtomicView。
-    /// tbir/MIR/Vulkan codegen 消费；NVPTX 后端仍维持既有 deferred 拒绝。
-    pub atomic_calls: HashMap<HirId, (crate::hir::AtomicOp, bool)>,
+    /// scoped atomics 调用点:MethodCall → 原子算子 + 接收者是否 AtomicView +
+    /// 静态可判定的 scope 实参包含序(`LangItems::scope_rank` 同源:0=Block/1=Gpu/
+    /// 2=System;`None` = scope 实参不可静态判定,保守容忍口径与 [`Self::check_atomic_op`]
+    /// 规则同源)。tbir/MIR/Vulkan codegen 消费——compute 路忽略 scope(恒映射
+    /// Device+Relaxed,W1 既有口径);Vulkan 图形扩展路消费(RXS-0302 L2 仅放行
+    /// `Scope::Gpu`,CTA/Block 级恒拒 RX6026)。NVPTX 后端仍维持既有 deferred 拒绝。
+    pub atomic_calls: HashMap<HirId, (crate::hir::AtomicOp, bool, Option<u8>)>,
     /// 纹理采样调用点(G2.4,RXS-0174;RFC-0007):MethodCall 节点 → 采样标记
     /// (接收者为 `Texture2D<F>` lang item + 方法 `sample` 时识别;tbir/MIR/codegen
     /// 消费,降为 `Rvalue::ResourceSample` → `OpImageSampleExplicitLod`)。
@@ -2496,8 +2500,10 @@ impl Tck<'_, '_> {
                     .atomic_kind(*d)
                     .expect("guard 已确保 atomic 容器");
                 let adt_args = adt_args.clone();
-                self.check_atomic_op(op, is_view, &adt_args, args);
-                self.results.atomic_calls.insert(call_id, (op, is_view));
+                let scope = self.check_atomic_op(op, is_view, &adt_args, args);
+                self.results
+                    .atomic_calls
+                    .insert(call_id, (op, is_view, scope));
                 // 元素类型:`AtomicView<space,T,..>` → args[1];`Atomic<T,..>` → args[0]。
                 let elem_idx = if is_view { 1 } else { 0 };
                 adt_args
@@ -2669,7 +2675,7 @@ impl Tck<'_, '_> {
         is_view: bool,
         adt_args: &[Ty],
         args: &[hir::Expr],
-    ) {
+    ) -> Option<u8> {
         // 实参定型(不级联:scope 实参为 `Scope` 封闭枚举值)。
         let arg_tys: Vec<Ty> = args.iter().map(|a| self.check_expr(a)).collect();
         let elem_idx = usize::from(is_view);
@@ -2683,7 +2689,9 @@ impl Tck<'_, '_> {
         for ty in arg_tys.iter().skip(value_start).take(value_count) {
             let _ = self.infcx.unify(&elem, ty);
         }
-        // scope 实参:首个解析为 `Scope::*` 变体的实参(scope 位通常居末)。
+        // scope 实参:首个解析为 `Scope::*` 变体的实参(scope 位通常居末)。返回值 =
+        // 静态判定的包含序(G7.5b 起随 `atomic_calls` 携至 MIR,供 Vulkan 图形扩展路
+        // 消费 RXS-0302 L2「仅 `Scope::Gpu`」判定;compute 路不消费,行为 0-byte)。
         let used = args.iter().find_map(|a| {
             if let hir::ExprKind::Res(Res::Def(d)) = &a.kind {
                 self.res.lang_items.scope_rank(*d).map(|r| (r, a.span))
@@ -2692,7 +2700,7 @@ impl Tck<'_, '_> {
             }
         });
         let Some((used_rank, scope_span)) = used else {
-            return; // scope 不可静态判定:保守容忍(不误报)。
+            return None; // scope 不可静态判定:保守容忍(不误报)。
         };
         // 规则 A(与地址空间不相容):`AtomicView<shared, ..>`(addrspace 3)为
         // block 本地存储,使用宽于 `Scope::Block` 的作用域 → 越权 / 不相容。
@@ -2713,7 +2721,7 @@ impl Tck<'_, '_> {
                 )
                 .span_label(scope_span, "scope incompatible with `shared` address space")
                 .emit();
-            return;
+            return Some(used_rank);
         }
         // 规则 B(越权作用域):`Atomic<T, Scope::G>` 的 scope brand 由第二类型实参
         // 携带;原子操作使用宽于 brand 的作用域 → 越权未授予的作用域。
@@ -2735,6 +2743,7 @@ impl Tck<'_, '_> {
                 .span_label(scope_span, "scope exceeds the granted atomic scope")
                 .emit();
         }
+        Some(used_rank)
     }
 
     /// 宿主 GPU 编排已知签名核对与定型(MS1.2,RXS-0190):接收者判定已由调用方

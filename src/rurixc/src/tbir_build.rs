@@ -440,9 +440,10 @@ impl Builder<'_> {
                         kind: tbir::ExprKind::DeviceCall(*intr),
                     };
                 }
-                // scoped atomics:scope 实参仅承载类型契约，Vulkan W1 固定映射
-                // Device + Relaxed；其余实参保序进入 MIR。
-                if let Some(&(op, is_view)) = self.tcr.atomic_calls.get(&e.hir_id) {
+                // scoped atomics:scope 实参仅承载类型契约(不进值流),Vulkan compute
+                // W1 固定映射 Device + Relaxed;其余实参保序进入 MIR。scope 的静态
+                // 包含序随节点携带(G7.5b,Vulkan 图形扩展路 RXS-0302 L2 消费)。
+                if let Some(&(op, is_view, scope)) = self.tcr.atomic_calls.get(&e.hir_id) {
                     let value_args = args
                         .get(..args.len().saturating_sub(1))
                         .unwrap_or_default()
@@ -455,6 +456,7 @@ impl Builder<'_> {
                         kind: tbir::ExprKind::AtomicCall {
                             op,
                             is_view,
+                            scope,
                             receiver: Box::new(self.expr(receiver)),
                             args: value_args,
                         },

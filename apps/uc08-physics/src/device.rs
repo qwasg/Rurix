@@ -195,6 +195,7 @@ fn draw_cube_at(
         depth: None,
         viewport: None,
         bindings: render_exec::Bindings::default(),
+        conservative: None,
     });
     let empty: [&[(u32, render_exec::TargetState)]; 1] = [&[]];
     let readbacks = [render_exec::Readback::Texture { res: 0 }];

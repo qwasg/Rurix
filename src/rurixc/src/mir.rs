@@ -369,6 +369,12 @@ pub enum Rvalue {
         index: Option<Operand>,
         value: Operand,
         compare: Option<Operand>,
+        /// scope 实参的静态包含序(`LangItems::scope_rank` 同源:0=Block/1=Gpu/
+        /// 2=System;`None` = 不可静态判定)。G7.5b 起随 typeck `atomic_calls` 穿透:
+        /// compute 路**忽略**(恒 Device scope + Relaxed 映射,W1/W2 发射序 0-byte);
+        /// Vulkan 图形扩展路消费(RXS-0302 L2 仅放行 `Scope::Gpu`,违例 RX6026)。
+        /// 不进 MIR 值流、不进 `pretty` 打印(`.mir` golden 0-byte)。
+        scope: Option<u8>,
     },
     /// struct / 元组构造(operand 按定义序/位置序)。
     Aggregate(Ty, Vec<Operand>),
@@ -728,6 +734,8 @@ fn print_rvalue(rv: &Rvalue, res: &Resolutions) -> String {
             index,
             value,
             compare,
+            // scope 不进打印(`.mir` golden 0-byte;语义面见 Rvalue::Atomic 字段文档)。
+            scope: _,
         } => {
             let mut args = Vec::new();
             if let Some(index) = index {

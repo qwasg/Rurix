@@ -58,11 +58,12 @@ fn emit_vulkan_spv(stem: &str) -> Vec<u8> {
             .collect::<Vec<_>>()
     );
     let bodies = cx.device_mir_crate();
+    let res = cx.resolutions();
     let body = bodies
         .iter()
         .find(|b| matches!(b.stage, Some(ShaderStage::Vertex | ShaderStage::Fragment)))
         .unwrap_or_else(|| panic!("{stem} 无 vertex/fragment 图形阶段根"));
-    let words = rurixc::dxil_spirv::emit_spirv_body_vulkan(body.stage.unwrap(), body)
+    let words = rurixc::dxil_spirv::emit_spirv_body_vulkan(body.stage.unwrap(), body, &res)
         .unwrap_or_else(|e| panic!("{stem} emit_spirv_body_vulkan 失败: {e:?}"));
     let mut bytes = Vec::with_capacity(words.len() * 4);
     for w in &words {

@@ -1022,7 +1022,6 @@
       "conformance/dxil/graphics/accept/uc04_gbuffer_vs.rx",
       "conformance/dxil/graphics/accept/uc04_lighting_vs.rx",
       "conformance/dxil/graphics/accept/vs_body_output.rx",
-      "conformance/vulkan/reject/vk_hw_raster_visbuffer_fs.rx",
       "src/rurixc/src/dxil_codegen.rs",
       "src/rurixc/src/dxil_spirv.rs",
       "src/rurixc/tests/dxil_golden.rs"
@@ -1557,16 +1556,25 @@
       "src/rurixc/src/vulkan_codegen.rs"
     ],
     "RXS-0301": [
+      "conformance/vulkan/accept/vk_hw_raster_visbuffer_fs.rx",
+      "conformance/vulkan/accept/vk_hw_raster_visbuffer_vs.rx",
       "conformance/vulkan/reject/vk_hw_raster_cta_atomic_reject.rx",
       "conformance/vulkan/reject/vk_hw_raster_devfn_call_reject.rx",
       "conformance/vulkan/reject/vk_hw_raster_f64_reject.rx",
-      "conformance/vulkan/reject/vk_hw_raster_loop_reject.rx"
+      "conformance/vulkan/reject/vk_hw_raster_loop_reject.rx",
+      "src/rurixc/tests/hw_raster_vulkan_spirv_val.rs"
     ],
     "RXS-0302": [
-      "conformance/vulkan/reject/vk_hw_raster_cta_atomic_reject.rx"
+      "conformance/vulkan/accept/vk_hw_raster_visbuffer_fs.rx",
+      "conformance/vulkan/accept/vk_hw_raster_visbuffer_vs.rx",
+      "conformance/vulkan/reject/vk_hw_raster_cta_atomic_reject.rx",
+      "src/rurixc/tests/hw_raster_vulkan_spirv_val.rs"
     ],
     "RXS-0303": [
-      "conformance/vulkan/reject/vk_hw_raster_f64_reject.rx"
+      "conformance/vulkan/accept/vk_hw_raster_visbuffer_fs.rx",
+      "conformance/vulkan/accept/vk_hw_raster_visbuffer_vs.rx",
+      "conformance/vulkan/reject/vk_hw_raster_f64_reject.rx",
+      "src/rurixc/tests/hw_raster_vulkan_spirv_val.rs"
     ]
   }
 }
